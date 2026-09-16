@@ -1,0 +1,9 @@
+{
+  "name": "feeless-terminal",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": { "dev": "vite", "build": "vite build", "test": "vitest run" },
+  "dependencies": { "vite": "^5.4.19", "react": "^18.3.1", "react-dom": "^18.3.1", "vitest": "^1.6.1" },
+  "devDependencies": {}
+}
