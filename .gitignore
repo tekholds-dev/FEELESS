@@ -1,3 +1,19 @@
 node_modules/
 dist/
 .env
+
+# Local caches / build artifacts
+.pnpm-store/
+.wrangler/
+test-results/
+tsconfig.tsbuildinfo
+
+# Local design/media source files
+*.mp4
+*.gif
+*.jpeg
+FEELESS.png
+FEELESS_under_500KB.jpg
+feeles bg.png
+feelessr oadm.png
+3nft?.png
