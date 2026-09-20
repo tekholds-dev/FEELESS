@@ -166,7 +166,7 @@ export const ECOSYSTEMS = [
     logo: '',
     explorer: 'https://solscan.io',
     dex: 'https://raydium.io',
-    website: '#',
+    website: '/terminal',
     isFeeless: true,
     platforms: [
       { name: 'FEELESS Terminal', url: '/terminal', type: 'terminal', logo: '' }

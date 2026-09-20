@@ -20,13 +20,13 @@ export default function EcosystemPlatforms({ ecosystem }) {
           <div className="text-[10px] uppercase tracking-[0.2em] text-white/40">Ecosystem Platforms</div>
           <div className="text-white font-bold">{ecosystem.name}</div>
         </div>
-        <a href={ecosystem.website} target="_blank" rel="noreferrer" className="text-[10px] text-[#14F195] hover:underline flex items-center gap-1">Official <ExternalLink size={10}/></a>
+        <a data-testid={`ecosystem-official-${ecosystem.id}`} href={ecosystem.website} target="_blank" rel="noreferrer" className="text-[10px] text-[#14F195] hover:underline flex items-center gap-1">Website <ExternalLink size={10}/></a>
       </div>
       <div className="grid grid-cols-2 gap-2 p-3">
         {ecosystem.platforms.map((p, i) => {
           const Icon = TYPE_ICON[p.type] || Globe;
           return (
-            <a key={i} href={p.url} target={p.url.startsWith('/') ? '_self' : '_blank'} rel="noreferrer"
+            <a data-testid={`ecosystem-platform-${ecosystem.id}-${i}`} key={i} href={p.url} target={p.url.startsWith('/') ? '_self' : '_blank'} rel="noreferrer"
               className="group relative bg-gradient-to-br from-[#0a1310] to-[#050908] border border-[#14F195]/15 hover:border-[#14F195]/50 rounded-lg p-2.5 transition-all">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-md bg-[#14F195]/10 border border-[#14F195]/25 flex items-center justify-center">

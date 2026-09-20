@@ -1,0 +1,32 @@
+{
+  "date": "2026-09-19",
+  "feature": "FEELESS Degen Command Terminal",
+  "backend": {"passed": 26, "failed": 0, "skipped": 0, "report": "/app/test_reports/pytest/final_results.xml"},
+  "frontend_reference": "/app/test_reports/iteration_2.json",
+  "resolved_findings": [
+    "Alert token and metric option elements now use native text labels without nested spans. Browser recheck confirmed valid DOM, selection, creation and deletion.",
+    "Whitepaper View PDF opens an in-app PDF.js reader instead of relying on popup handling or native PDF plugins.",
+    "PDF.js canvas verified visibly nonblank: 1013x1432, 1837 sampled nonwhite pixels. Next/previous pages, 110% zoom, actual file download and close all passed.",
+    "Installed pypdf; PDF text checks pass after normalizing typographic line wrapping. Actual PDF and web share the same 25-chapter source.",
+    "Earlier duplicate chart timestamps and invalid browser-locale issues remain addressed by deduplication, explicit locale and chart error boundary."
+  ],
+  "responsive_core_screen_widths_tested": [320, 768, 1024, 1440, 1920],
+  "live_checks": [
+    "Exact owner-supplied mint registry and provider-backed asset states",
+    "FEE RPC metadata: 6 decimals, 1 billion total mint supply, no mint/freeze authorities reported at observation",
+    "Real SOL-to-USDC Jupiter V2 quote; FEE unavailable route surfaced honestly",
+    "Persistent contextual chat, two-session polling and exact CA intelligence card chart selection",
+    "Globe-to-terminal context transfer, real Alpha Tape events, watchlist, alert controls and all navigation routes",
+    "Actual application/pdf bytes, attachment and inline delivery, native application canvas PDF reader"
+  ],
+  "not_verified_or_not_activated": [
+    "No real wallet signature/mainnet broadcast was performed. Funded user-wallet approval and execution remain user verification.",
+    "Execution only supports Solana/Jupiter. Other networks are intelligence-only.",
+    "Fee-Back eligibility, settlement and FEECAT distributions remain PLANNED. No fake payouts or fee records created.",
+    "Supplied FEE, RFEE, FEECAT contracts had no indexed DexScreener pair data at validation; no token prices/candles invented.",
+    "Unsupported holder concentration, whale transactions, ATH, migration and launchpad provenance remain unavailable."
+  ],
+  "mocked_application_integrations": [],
+  "test_community_cleanup": "Testing agent removed its 2 tagged chat messages and 1 derived chat event; unrelated real data preserved.",
+  "build": "Production build passes; existing third-party missing-source-map warnings are non-blocking. Landing and terminal are route-split."
+}

@@ -1,0 +1,10 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowUpRight, Globe2 } from 'lucide-react';
+import { LAUNCHPADS } from '../../lib/launchpads';
+import { useWorkspace } from '../../hooks/useWorkspace';
+import { useNavigate } from 'react-router-dom';
+export const LaunchpadDirectory = () => {
+  const { setEcosystem } = useWorkspace(); const nav = useNavigate();
+  return <div className="directory-page"><div className="page-heading"><span className="eyebrow">NETWORKS WITHIN THE NETWORK</span><h1>Choose your war room.</h1><p>Each context connects its available markets, signals, rooms and routing.</p></div><div className="launchpad-grid">{LAUNCHPADS.map(p => <article className="launchpad-card" key={p.id} style={{ '--pad-color': p.color }} data-testid={`launchpad-card-${p.id}`}><div className="launchpad-card-top"><span className="pad-symbol">{p.symbol}</span><span className="pad-tag">{p.tag}</span></div><h2>{p.name}</h2><p>{p.description}</p><div className="pad-chain"><i />{p.chainId === 'bsc' ? 'BNB Chain' : 'Solana'}</div><button className="btn-primary launchpad-warroom" data-testid={`launchpad-warroom-${p.id}`} onClick={() => { setEcosystem(p.id); nav('/terminal'); }}>Enter command<ArrowUpRight size={15} /></button><div className="pad-links"><a href={p.url} target="_blank" rel="noreferrer" data-testid={`launchpad-visit-${p.id}`}>Platform<ArrowUpRight size={16} /></a><Link to={`/?node=${p.id}`} data-testid={`launchpad-globe-${p.id}`} title="Locate on the globe"><Globe2 size={17} /></Link></div></article>)}</div><p className="provider-note">Venue coverage is provider-limited. LetsBONK provenance cannot be inferred from a generic LaunchLab pool. No bonding-curve or migration status is invented.</p></div>;
+};

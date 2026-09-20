@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="3" time="1.874" timestamp="2026-09-19T23:51:19.440211+00:00" hostname="agent-env-40219b44-a5f0-4ca8-83e3-e0fc9fc08b22"><testcase classname="tests.test_terminal_command_api" name="test_whitepaper_web_has_25_chapters_and_targets" time="0.264" /><testcase classname="tests.test_terminal_command_api" name="test_whitepaper_pdf_headers_inline_and_attachment" time="0.643" /><testcase classname="tests.test_terminal_command_api" name="test_whitepaper_pdf_text_matches_key_statements" time="0.444"><failure message="AssertionError: assert '10% Team &amp; Development' in 'FEELESS\nLESS NOISE. MORE ALPHA.\nFEELESS / v1.0 / 2026-09-19\n01\nFEELESS\nLess Noise. More Alpha.\nA FeeLess Future...ise. More alpha. A FeeLess\nFuture. Progress must be real, data must be sourced, and rewards must never be invented.\n'">api_client = &lt;requests.sessions.Session object at 0xf99c0caab690&gt;
+base_url = 'https://globe-terminal.preview.emergentagent.com'
+
+    def test_whitepaper_pdf_text_matches_key_statements(api_client, base_url):
+        try:
+            from pypdf import PdfReader
+        except Exception:
+            pytest.skip("pypdf unavailable in environment")
+    
+        res = api_client.get(f"{base_url}/api/docs/whitepaper.pdf", timeout=45)
+        assert res.status_code == 200
+        assert "application/pdf" in res.headers.get("content-type", "")
+    
+        import io
+    
+        reader = PdfReader(io.BytesIO(res.content))
+        text = "\n".join((page.extract_text() or "") for page in reader.pages)
+        assert "Q2 2027" in text
+        assert "70% Liquidity &amp; Ecosystem" in text
+        assert "15% Marketing &amp; Growth" in text
+&gt;       assert "10% Team &amp; Development" in text
+E       AssertionError: assert '10% Team &amp; Development' in 'FEELESS\nLESS NOISE. MORE ALPHA.\nFEELESS / v1.0 / 2026-09-19\n01\nFEELESS\nLess Noise. More Alpha.\nA FeeLess Future...ise. More alpha. A FeeLess\nFuture. Progress must be real, data must be sourced, and rewards must never be invented.\n'
+
+tests/test_terminal_command_api.py:211: AssertionError</failure></testcase></testsuite></testsuites>

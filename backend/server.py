@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Query
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -13,16 +13,31 @@ from datetime import datetime, timezone
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+load_dotenv(ROOT_DIR / 'market.env')
+from market import create_market_router
+from intelligence import Intelligence
+from trading import TradingService
+from whitepaper import router as docs_router
+import re
 
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 app = FastAPI()
+intelligence = Intelligence(db)
+market_router = create_market_router(db, intelligence)
+app.include_router(market_router)
+app.include_router(intelligence.router())
+app.include_router(TradingService(db).router())
+app.include_router(docs_router)
 api_router = APIRouter(prefix="/api")
 
 
 class TokenPreview(BaseModel):
+    pair: Optional[dict] = None
+    provider: Optional[str] = None
+    fetched_at: Optional[str] = None
     chainId: Optional[str] = None
     address: Optional[str] = None
     symbol: Optional[str] = None
@@ -57,30 +72,54 @@ async def root():
     return {"message": "FEELESS API"}
 
 
-@api_router.get("/chat/{room}")
-async def list_messages(room: str, limit: int = 100):
-    cursor = db.chat_messages.find({"room": room}).sort("ts", 1).limit(limit)
+class ChatHistory(BaseModel):
+    room: str
+    messages: List[ChatMessage]
+
+
+@api_router.get("/chat/{room}", response_model=ChatHistory)
+async def list_messages(room: str, limit: int = Query(100, ge=1, le=200)):
+    cursor = db.chat_messages.find({"room": room}, {"_id": 0}).sort("ts", -1).limit(limit)
     msgs = []
     async for m in cursor:
         m.pop("_id", None)
         msgs.append(m)
-    return {"room": room, "messages": msgs}
+    return {"room": room, "messages": list(reversed(msgs))}
 
 
-@api_router.post("/chat/{room}")
+@api_router.post("/chat/{room}", response_model=ChatMessage)
 async def post_message(room: str, msg: ChatMessageCreate):
     if not room or len(room) > 50:
         raise HTTPException(status_code=400, detail="invalid room")
+    if not msg.text.strip() or not msg.username.strip():
+        raise HTTPException(status_code=400, detail="Message and username cannot be blank")
+    token_previews = None
+    address = re.search(r'\b0x[a-fA-F0-9]{40}\b|\b[1-9A-HJ-NP-Za-km-z]{32,44}\b', msg.text)
+    if address:
+        try:
+            pairs, meta = await market_router.resolve_ca(address.group(0))
+            if pairs:
+                p = pairs[0]
+                token_previews = [{'pair': p, 'provider': meta['provider'], 'fetched_at': meta['fetched_at'],
+                                   'address': p['baseToken']['address'], 'chainId': p['chainId'],
+                                   'symbol': p['baseToken'].get('symbol'), 'name': p['baseToken'].get('name')}]
+        except HTTPException:
+            pass
     doc = {
         "id": str(uuid.uuid4()),
         "room": room,
         "username": msg.username[:40],
-        "text": msg.text[:1000],
-        "tokens": [t.dict() for t in msg.tokens] if msg.tokens else None,
+        "text": msg.text.strip()[:1000],
+        "tokens": token_previews,
         "ts": int(datetime.now(timezone.utc).timestamp() * 1000),
     }
     await db.chat_messages.insert_one(doc)
     doc.pop("_id", None)
+    if token_previews:
+        await intelligence.event('CHAT_CA_MENTION', f'{token_previews[0]["symbol"]} · mentioned in Trenches',
+            f'Exact contract resolved from a real message in {room}.', token_previews[0]['pair'],
+            'DexScreener + public chat', datetime.now(timezone.utc).isoformat(),
+            context=re.sub(r'-(general|alpha|launches|trading|whales|new-pools)$', '', room), unique=doc['id'])
     return doc
 
 

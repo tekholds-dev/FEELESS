@@ -1,0 +1,57 @@
+{
+  "summary": "Executed backend pytest suite for market/chat public APIs and ran targeted frontend Playwright integration checks for terminal/globe. Backend passed; frontend has a reproducible runtime crash blocking multi-route validation.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Terminal routes (discover/watchlist/chat and other views)",
+        "issue": "Runtime overlay crash: 'Invalid language tag: en-US@posix' causes app failure and blocks navigation/interaction.",
+        "selector": "N/A (global runtime exception)",
+        "priority": "CRITICAL"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Watchlist/alerts/chat/sidebar end-to-end",
+        "issue": "Could not complete full flow because app crashes during route transitions after initial interactions.",
+        "affected_selectors": [
+          "[data-testid='nav-watchlist']",
+          "[data-testid='nav-chat']",
+          "[data-testid='header-connect-wallet']"
+        ]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/conftest.py",
+    "/app/backend/tests/test_market_chat_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix locale formatting crash by guarding Intl date formatting (avoid invalid locale tag en-US@posix path).",
+    "After crash fix, retest blocked flows: watchlist persistence, alerts max-5 behavior, chat two-session persistence, wallet error/escape, and full sidebar route sweep.",
+    "Confirm stale/fallback UI banner behavior under upstream throttling once frontend is stable."
+  ],
+  "critical_code_review_comments": [
+    "Multiple components call toLocaleTimeString without locale fallback (e.g., MarketPrimitives DataStatus, EcosystemChat timestamps), which can throw on malformed environment locale and crash the app.",
+    "Global runtime failures are currently not isolated by an app-level error boundary, so one formatter exception breaks entire route workflows."
+  ],
+  "updated_files": [
+    "/app/backend/tests/conftest.py",
+    "/app/backend/tests/test_market_chat_api.py",
+    "/app/test_reports/iteration_1.json"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "45%"
+  },
+  "seed_data_creation": "Created ephemeral chat room messages via API in test_chat_post_and_history_order (room prefix general-<uuid>).",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend regression suite is ready and passing at /app/backend/tests/test_market_chat_api.py. Frontend scripts reproduced a global runtime crash ('Invalid language tag: en-US@posix') across multiple runs; this blocks deeper UI verification. Start next run by validating the locale crash fix, then resume full route/chat/watchlist/alerts checks.",
+  "rca of the issue": "Repro: open /terminal, interact with market/chat/sidebar routes; overlay appears with 'Invalid language tag: en-US@posix'. Console repeatedly logs PAGE ERROR with same message. Likely source is Date.toLocaleTimeString usage with environment-provided invalid locale. Mitigation: enforce safe locale fallback (e.g., undefined->'en-US' fallback via try/catch utility), and centralize formatter usage across UI components."
+}

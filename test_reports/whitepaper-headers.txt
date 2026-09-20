@@ -1,0 +1,17 @@
+HTTP/2 200 
+date: Sat, 19 Sep 2026 23:40:04 GMT
+content-type: application/pdf
+content-length: 732004
+cf-ray: a3dc6eee1f14e824-ORD
+cf-cache-status: DYNAMIC
+access-control-allow-origin: *
+cache-control: no-store, no-cache, must-revalidate
+content-disposition: attachment; filename="FEELESS-Whitepaper-v1.0.pdf"
+server: cloudflare
+via: 1.1 google
+access-control-allow-headers: *
+access-control-allow-methods: GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH
+access-control-max-age: 300
+set-cookie: __cf_bm=NE9Jk36pHV3HlmJw2qZaw0Er1dCrDJOS0NNAg0aiu60-1789861204.1754954-1.0.1.1-PootAz0rpjU04hmWjtj5WPBJtVdLdw1wjCFUWsohkl07CHmCo1DHeRRnD.wH5rvRkNZ8jrFNXCN2izHJ7nBZSasgzwbLjwUE3l4VAdoSzHD_yV.RwqUYwWYTmZd4rTie; HttpOnly; SameSite=None; Secure; Path=/; Domain=preview.emergentagent.com; Expires=Sun, 20 Sep 2026 00:10:04 GMT
+x-robots-tag: noindex, nofollow
+

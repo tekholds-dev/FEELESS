@@ -1,59 +1,18 @@
 import React, { useState } from 'react';
-import { X, Wallet } from 'lucide-react';
+import { Wallet, ArrowUpRight, ShieldCheck, LogOut } from 'lucide-react';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from './ui/dialog';
+import { useWallet } from '../hooks/useWallet';
 
-const WALLETS = [
-  { id: 'phantom', name: 'Phantom', chain: 'Solana', color: '#AB9FF2', icon: 'https://phantom.app/img/logo.png' },
-  { id: 'solflare', name: 'Solflare', chain: 'Solana', color: '#FE9D2A', icon: 'https://solflare.com/logo.svg' },
-  { id: 'metamask', name: 'MetaMask', chain: 'EVM', color: '#F6851B', icon: 'https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg' },
-  { id: 'walletconnect', name: 'WalletConnect', chain: 'Multi-chain', color: '#3B99FC', icon: '' },
-  { id: 'coinbase', name: 'Coinbase Wallet', chain: 'EVM', color: '#0052FF', icon: '' },
-  { id: 'backpack', name: 'Backpack', chain: 'Solana + EVM', color: '#E33E3F', icon: '' },
-];
-
-export default function WalletModal({ open, onClose, onConnect }) {
-  const [connecting, setConnecting] = useState(null);
-  if (!open) return null;
-
-  const handle = (w) => {
-    setConnecting(w.id);
-    setTimeout(() => {
-      onConnect && onConnect(w);
-      setConnecting(null);
-      onClose();
-    }, 900);
+export default function WalletModal({ open, onClose }) {
+  const { wallet, connect, disconnect } = useWallet();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const handle = async type => {
+    setBusy(true); setError('');
+    try { await connect(type); onClose(); } catch (e) { setError(e.code === 4001 ? 'Connection declined. Your wallet is unchanged.' : e.message || 'Connection failed.'); } finally { setBusy(false); }
   };
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-      <div onClick={e => e.stopPropagation()}
-        className="relative w-full max-w-md bg-[#050908] border border-[#14F195]/25 rounded-2xl shadow-[0_0_60px_-15px_rgba(20,241,149,0.35)] overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#14F195]/10">
-          <div className="flex items-center gap-2">
-            <Wallet size={18} className="text-[#14F195]"/>
-            <div className="text-white font-bold">Connect Wallet</div>
-          </div>
-          <button onClick={onClose} className="text-white/40 hover:text-white"><X size={18}/></button>
-        </div>
-        <div className="p-4 space-y-2">
-          {WALLETS.map(w => (
-            <button key={w.id} onClick={() => handle(w)} disabled={!!connecting}
-              className="w-full flex items-center gap-3 p-3 bg-gradient-to-r from-[#0a1310] to-[#050908] hover:from-[#0f2018] hover:to-[#08120f] border border-[#14F195]/10 hover:border-[#14F195]/40 rounded-xl transition-all disabled:opacity-40">
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${w.color}22`, border: `1px solid ${w.color}55` }}>
-                {w.icon ? <img src={w.icon} alt={w.name} className="w-6 h-6 object-contain" onError={e=>e.target.style.display='none'}/> : <span className="text-xs font-bold" style={{color:w.color}}>{w.name[0]}</span>}
-              </div>
-              <div className="flex-1 text-left">
-                <div className="text-white text-sm font-semibold">{w.name}</div>
-                <div className="text-[10px] text-white/40">{w.chain}</div>
-              </div>
-              <div className="text-[11px] text-[#14F195]">{connecting === w.id ? 'Connecting…' : 'Connect'}</div>
-            </button>
-          ))}
-        </div>
-        <div className="px-5 py-3 border-t border-[#14F195]/10 text-[10px] text-white/40">
-          Wallet-ready architecture. Signing not enabled in demo mode.
-        </div>
-      </div>
-    </div>
-  );
+  return <Dialog open={open} onOpenChange={value => { if (!value) { onClose(); setError(''); } }}><DialogContent className="feeless-dialog" data-testid="wallet-dialog"><span className="dialog-icon"><Wallet size={26} /></span><DialogTitle>{wallet ? 'Connected wallet' : 'Your wallet. Your keys.'}</DialogTitle><DialogDescription>Connecting exposes your public account. Swap signing is a separate action requiring your wallet approval.</DialogDescription>
+    {wallet ? <><code className="wallet-address" data-testid="connected-wallet-address">{wallet.address}</code><button className="btn-primary" data-testid="wallet-disconnect" onClick={async () => { await disconnect(); onClose(); }}><LogOut size={16} />Disconnect from FEELESS</button></> : <div className="wallet-options"><button data-testid="wallet-connect-phantom" disabled={busy} onClick={() => handle('solana')}><span className="wallet-letter">P</span><span>Phantom<small>Solana</small></span><ArrowUpRight size={18} /></button><button data-testid="wallet-connect-evm" disabled={busy} onClick={() => handle('evm')}><span className="wallet-letter evm">E</span><span>Browser wallet<small>Ethereum & EVM networks</small></span><ArrowUpRight size={18} /></button></div>}
+    {error && <div data-testid="wallet-error" role="alert" className="market-error">{error}</div>}{busy && <p data-testid="wallet-connecting" className="muted">Waiting for wallet approval…</p>}<div className="wallet-note"><ShieldCheck size={16} />Non-custodial. Always.</div>
+  </DialogContent></Dialog>;
 }
