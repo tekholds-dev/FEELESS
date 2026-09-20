@@ -1,135 +1,153 @@
 {
-  "project_name": "FEELESS Degen Terminal Upgrade",
-  "archetype": "ARCHETYPE 7: ELECTRIC & NEON (Tactical Degen Meta Command Center)",
-  "theme": "Dark Mode (Obsidian Black, Deep Charcoal, Tactical Slate with Electric Mint Neon Accents)",
-  "supplied_assets": {
-    "logo_url": "https://customer-assets-jt897jd0.emergentagent.net/job_24652869-54a6-42fd-b217-760374ca0c8b/artifacts/z95slnsw_fee%20no%20bg.png",
-    "reference_image": "https://customer-assets-jt897jd0.emergentagent.net/job_24652869-54a6-42fd-b217-760374ca0c8b/artifacts/qgyk6wzl_ChatGPT%20Image%20Sep%2016%2C%202026%2C%2005_59_49%20PM.png"
-  },
-  "colors": {
-    "background": {
-      "app_bg": "#0B0D10",
-      "surface_base": "#12161F",
-      "surface_elevated": "#181E29",
-      "surface_card": "#151B26",
-      "surface_hover": "#1E2638",
-      "glass_bg": "rgba(18, 22, 31, 0.85)"
-    },
-    "brand_mint": {
-      "primary": "#00FF9D",
-      "hover": "#00E58F",
-      "active": "#00C97B",
-      "glow": "rgba(0, 255, 157, 0.25)",
-      "muted": "#004D30",
-      "border_glow": "rgba(0, 255, 157, 0.35)"
-    },
-    "accents": {
-      "cyan_signal": "#00E5FF",
-      "purple_degen": "#8B5CF6",
-      "warning_amber": "#FFB800",
-      "danger_red": "#FF3366",
-      "success_green": "#00FF9D",
-      "solana_gradient": "linear-gradient(135deg, #9945FF 0%, #14F195 100%)",
-      "pump_fun_green": "#10B981"
-    },
-    "text": {
-      "primary": "#F1F5F9",
-      "secondary": "#94A3B8",
-      "muted": "#64748B",
-      "accent_mint": "#00FF9D",
-      "dimmed": "#475569"
-    },
-    "borders": {
-      "subtle": "#1E293B",
-      "grid": "rgba(255, 255, 255, 0.07)",
-      "active_mint": "#00FF9D",
-      "hover": "#334155"
-    }
+  "project_name": "FEELESS",
+  "archetype": "THE PERFORMANCE PRO / CYBERPUNK DEGEN META-TECH",
+  "theme": {
+    "mode": "dark-only",
+    "background_base": "#060709",
+    "background_elevated": "#0D0F14",
+    "background_card": "#12151E",
+    "background_overlay": "rgba(6, 7, 9, 0.75)",
+    "primary_mint": "#14F195",
+    "primary_mint_neon": "#00FFA3",
+    "primary_mint_glow": "rgba(20, 241, 149, 0.25)",
+    "accent_purple": "#9945FF",
+    "accent_purple_glow": "rgba(153, 69, 255, 0.25)",
+    "text_primary": "#F1F5F9",
+    "text_secondary": "#94A3B8",
+    "text_muted": "#64748B",
+    "border_subtle": "rgba(255, 255, 255, 0.08)",
+    "border_mint": "rgba(20, 241, 149, 0.3)",
+    "status_up": "#14F195",
+    "status_down": "#FF4560"
   },
   "typography": {
-    "headings": {
-      "font_family": "'Outfit', 'Plus Jakarta Sans', sans-serif",
-      "hero": "text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white",
-      "section": "text-2xl sm:text-3xl font-bold tracking-tight text-white",
-      "card": "text-lg sm:text-xl font-semibold text-slate-100"
-    },
-    "data_values": {
-      "font_family": "'JetBrains Mono', 'Space Mono', monospace",
-      "price_ticker": "font-mono font-bold tracking-wider text-emerald-400",
-      "contract_address": "font-mono text-xs text-slate-400 bg-slate-900/60 px-2 py-1 rounded border border-slate-800"
-    },
-    "body": {
-      "font_family": "'Inter', 'Plus Jakarta Sans', sans-serif",
-      "main": "text-sm sm:text-base text-slate-300 leading-relaxed",
-      "label": "text-xs font-semibold uppercase tracking-widest text-slate-400"
+    "heading_font": "'Outfit', 'Barlow Condensed', sans-serif",
+    "body_font": "'Inter', sans-serif",
+    "mono_font": "'JetBrains Mono', 'Fira Code', monospace",
+    "scale": {
+      "h1_hero": "text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight",
+      "h2_section": "text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight",
+      "h3_card": "text-lg sm:text-xl font-bold tracking-tight",
+      "label": "text-xs font-mono uppercase tracking-widest text-emerald-400/80",
+      "data_numeric": "font-mono font-medium tracking-tighter"
     }
   },
-  "layout_architecture": {
-    "grid_system": "MODE B: High Density Command Center Grid (Meta for Degens)",
-    "nav_header": {
-      "style": "Sticky Crystal Glass Navy Bar with Backdrop Blur",
-      "content": "Feeless Green Logo + Live Ticker Marquee + Chain Selector + Quick Search Contract + Wallet Modal Trigger + Whitepaper Modal Button",
-      "classes": "h-16 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl z-50 px-4 flex items-center justify-between"
+  "brand_identity": {
+    "logo_mark": "Glowing mint-green FeeCat profile mark + F-leaf neon badge",
+    "taglines": [
+      "Same transactions. Zero fees. More for you.",
+      "Built by the people."
+    ],
+    "feecat_lore": "FeeCat is the autonomous zero-fee router mascot inspecting contracts, routing liquidity, and burning fees.",
+    "feeback_vision": "Fee-Back Vision redirects network priority rebates directly back into trader wallets and $FEE token liquidity pools."
+  },
+  "surfaces_and_layouts": {
+    "globe_hero": {
+      "concept": "Full-Screen 3D Globe Hero for Ecosystem Social Discovery",
+      "interaction": "User clicks any ecosystem node (Solana, Ethereum, Base, Arbitrum, Sui, Monad, etc.). Screen blurs immediately via CSS backdrop-filter (backdrop-blur-xl bg-black/60 z-40) revealing a social-first immersive chain view.",
+      "overlay_structure": {
+        "left_rail": {
+          "width": "w-full lg:w-[380px] xl:w-[420px]",
+          "content": "Live Ecosystem Chat with auto contract-address recognition (CA badge -> Token Card modal trigger), degen emojis, user badges, live message stream, and send bar."
+        },
+        "background": "3D Globe running softly in the background with dynamic blur filter and reduced opacity.",
+        "right_content_area": {
+          "flex": "flex-1 p-6 flex flex-col gap-6 overflow-y-auto",
+          "sections": [
+            {
+              "name": "Live Activity Pulse & Who's Online",
+              "component": "High-density horizontal status ribbon showing online degens, active chatters, live tx/sec, and recent fee-back rebates."
+            },
+            {
+              "name": "New Stuff Feed (Fresh & Trending Launches)",
+              "component": "Real-time feed of newly created coins & trending launches on that ecosystem with token image, symbol, market cap, 5m/1h gain, creator badge, copy CA button, and quick buy trigger. NO liquidity tables or pools here."
+            },
+            {
+              "name": "Minimal Tucked Quick-Links",
+              "component": "Discreet floating dock at the bottom-right with icon-only or pill links to Ecosystem Launchpad, DEX, Explorer, and Bridge."
+            }
+          ]
+        }
+      }
     },
-    "sidebar": {
-      "style": "Collapsible Tactical Dock (Left Side)",
-      "routes": [
-        {"name": "Terminal Cockpit", "icon": "Terminal", "path": "/terminal"},
-        {"name": "3D Globe Nodes", "icon": "Globe", "path": "/globe"},
-        {"name": "Launchpads Hub", "icon": "Rocket", "path": "/launchpads"},
-        {"name": "New Pools / Radar", "icon": "Zap", "path": "/pools"},
-        {"name": "Degen Chat", "icon": "MessageSquare", "path": "/chat"},
-        {"name": "Whitepaper", "icon": "FileText", "path": "/whitepaper"}
-      ]
-    },
-    "main_content_zones": {
-      "zone_1_globe_header": "Interactive 3D Globe with Launchpad Node overlays (Pump.fun, Raydium, Moonshot, Uniswap, Four.meme) with live pulse animations.",
-      "zone_2_token_discovery": "Real public market token feed (DexScreener API integration) filtered by Launchpad (Pump.fun, Moonshot, Raydium, All), search input, sorting by volume/24h change/liquidity.",
-      "zone_3_dexscreener_chart": "Selected Token Chart View using official DexScreener embed iframe (`https://dexscreener.com/{pair_id}?embed=1&theme=dark`), token stats bar, fast liquidity/market cap metric cards, and watchlist toggle.",
-      "zone_4_degen_chat": "Persistent Polling Chat Widget with channels (`#general`, `#alpha`, `#pump-fun`, `#memes`), user handle system, emoji reaction bar, and mint green message indicators.",
-      "zone_5_launchpad_directory": "Directory of Launchpads (Pump.fun, Moonshot, Raydium, Apex, Four.meme) with direct links, status badges, volume stats, and node highlighting on 3D globe.",
-      "zone_6_whitepaper_modal": "Full-screen or reader dialog showcasing the Feeless Zero-Tax Zero-Fee Ecosystem Blueprint, Tokenomics, and Degen Meta Roadmap."
+    "degen_terminal": {
+      "concept": "Advanced DeGen Command Terminal - Live Operating System for On-Chain Markets",
+      "header_ticker": "Top high-density scrolling ticker bar (data-testid='terminal-ticker') featuring $FEE, $SOL, trending degen tokens, gas/priority fees, and FeeCat status.",
+      "sidebar_nav": {
+        "position": "Fixed left column (w-64)",
+        "tabs": [
+          "Home",
+          "Trade",
+          "Pump",
+          "DEX",
+          "Discover",
+          "Launch",
+          "Portfolio",
+          "Fee-Back",
+          "FEE Token",
+          "FeeCat",
+          "Chat",
+          "Leaderboard",
+          "Alerts",
+          "Learn",
+          "Roadmap",
+          "Whitepaper"
+        ]
+      },
+      "main_workspace": "Dynamic tab switching container with tab-specific high-density grid layouts, zero-latency inputs, live candlestick charts, and interactive tokenomics.",
+      "right_rail": "Alpha Tape live intelligence stream + Quick In-App Jupiter Swap Panel + FeeCat assistant status."
     }
+  },
+  "tab_design_blueprints": {
+    "Home": "Overview dashboard with $FEE default token spotlight, 3D mini globe toggle, live market movers, quick swap box, and Alpha Tape summary.",
+    "Trade": "Pro Trading Terminal layout: Candlestick price chart, orderbook/recent trades stream, Jupiter execution panel, and active positions table.",
+    "Pump": "Pump.fun & Moonshot launch monitor: Bonding curve progress bars, newly created tokens, instant buy buttons, and creator dev wallet risk ratings.",
+    "DEX": "Multi-DEX aggregator hub featuring Jupiter, Raydium, Meteora routing stats, slippage controls, and execution speed optimization.",
+    "Discover": "Ecosystem intelligence radar: Trending tokens, volume spikes, smart money wallets tracker, and sentiment indicators.",
+    "Launch": "FeeCat Zero-Fee Token Launchpad step-by-step wizard: Token metadata input, fair launch bonding curve settings, team allocation locks, and instant mint tool.",
+    "Portfolio": "Live wallet PnL command center: Token balances, unrealized gains, transaction history, fee-back earnings, and asset pie chart.",
+    "Fee-Back": "Fee-Back Vision educational & reward hub: Live breakdown of trading rebate payouts, claimable $FEE rewards, cashback calculator for high volume degens.",
+    "FEE_Token": "$FEE Ecosystem Token Center: Live price, circulating supply, buy/burn stats, interactive tokenomics pie/bar breakdown, and staking pool status.",
+    "FeeCat": "FeeCat AI Command Center & Lore Hub: Interactive FeeCat mascot status, automated arbitrage bot logs, fee burn stats, and community proposals.",
+    "Chat": "Global Degen Chatroom: Multi-channel chat, CA contract address auto-parser, tip jar, user rank badges, and token callouts.",
+    "Leaderboard": "Top Degens Hall of Fame: Daily/weekly PnL leaderboard, top fee-back earners, copy-trading wallet highlights.",
+    "Alerts": "Custom On-Chain Alerts: Whales transfer alerts, new liquidity additions, price target triggers, and telegram/browser notifications.",
+    "Learn": "Degen Onboarding & Newbie Hub: Clear visual explanation of Fee-Back, how zero-fee trading works, Solana wallet setup, and token safety guide.",
+    "Roadmap": "Interactive Ecosystem Roadmap: Timeline phases (Phase 1: Terminal, Phase 2: Fee-Back Engine, Phase 3: Multi-chain Globe, Phase 4: Autonomous FeeCat Agent) with completion badges.",
+    "Whitepaper": "Native PDF Whitepaper Reader & Markdown Document Viewer: In-app PDF renderer with page zoom, section table of contents, and raw download button."
   },
   "visual_enhancers": {
-    "glassmorphism": "backdrop-blur-xl bg-slate-900/80 border border-slate-800/90 shadow-2xl shadow-black/50",
-    "glow_effects": "shadow-[0_0_20px_rgba(0,255,157,0.15)] hover:shadow-[0_0_25px_rgba(0,255,157,0.3)] transition-all duration-300",
-    "tactile_borders": "border border-emerald-500/20 hover:border-emerald-500/50 transition-colors",
-    "ticker_marquee": "Fast moving or gentle stream live token updates bar using react-fast-marquee with mint green positive indicators."
+    "glassmorphism": "backdrop-blur-xl bg-[#090A0F]/80 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]",
+    "mint_glow_border": "border border-[#14F195]/40 shadow-[0_0_15px_rgba(20,241,149,0.15)]",
+    "purple_accent_glow": "border border-[#9945FF]/40 shadow-[0_0_15px_rgba(153,69,255,0.15)]",
+    "scanlines": "background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))",
+    "grid_borders": "border-r border-b border-white/[0.06]"
   },
-  "interactive_components": {
-    "token_card": "High density token row/card with launchpad badge (Pump.fun mint green, Moonshot purple, Raydium blue), token symbol, price in USD, 5m/1h/24h % change, market cap, liquidity, copy CA button, and click to view chart.",
-    "launchpad_pill": "Rounded-full tag with brand color, active glow state, and filtered feed trigger.",
-    "contract_search": "Input box with instant paste detection, validation for Solana/EVM addresses, and DexScreener lookup.",
-    "whitepaper_dialog": "Shadcn Dialog styled like an encrypted tactical dossier with table of contents, zero-fee tokenomics visualizer, and download PDF button.",
-    "chat_panel": "Tabbed chat window with auto-scroll down, instant mock message dispatch, polling updates, and online degen counter."
+  "image_urls": {
+    "feecat_avatar": "https://images.pexels.com/photos/8107821/pexels-photo-8107821.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "cyberpunk_bg": "https://images.unsplash.com/photo-1672872476232-da16b45c9001?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NjZ8MHwxfHNlYXJjaHwzfHxuZW9uJTIwY3liZXJwdW5rJTIwZGFyayUyMGZ1dHVyaXN0aWMlMjB0ZWNobm9sb2d5fGVufDB8fHx8MTc4OTg3MTgwN3ww&ixlib=rb-4.1.0&q=85",
+    "neon_street": "https://images.unsplash.com/photo-1563863251222-11d3e3bd3b62?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NjZ8MHwxfHNlYXJjaHwyfHxuZW9uJTIwY3liZXJwdW5rJTIwZGFyayUyMGZ1dHVyaXN0aWMlMjB0ZWNobm9sb2d5fGVufDB8fHx8MTc4OTg3MTgwN3ww&ixlib=rb-4.1.0&q=85"
   },
-  "testing_and_data_ids": {
-    "rule": "Every interactive and critical visual node MUST have a descriptive kebab-case data-testid attribute.",
+  "testing_and_accessibility": {
+    "rule": "All interactive buttons, tabs, inputs, chat components, cards, and modal triggers MUST include a data-testid attribute formatted in kebab-case.",
     "examples": [
-      "data-testid=\"app-logo\"",
-      "data-testid=\"nav-link-terminal\"",
-      "data-testid=\"nav-link-globe\"",
-      "data-testid=\"nav-link-launchpads\"",
-      "data-testid=\"nav-link-whitepaper\"",
-      "data-testid=\"token-search-input\"",
-      "data-testid=\"launchpad-filter-pumpfun\"",
-      "data-testid=\"launchpad-filter-moonshot\"",
-      "data-testid=\"token-card-item\"",
-      "data-testid=\"dexscreener-chart-iframe\"",
-      "data-testid=\"add-to-watchlist-btn\"",
-      "data-testid=\"chat-channel-tab-alpha\"",
-      "data-testid=\"chat-message-input\"",
-      "data-testid=\"chat-send-btn\"",
-      "data-testid=\"whitepaper-modal-trigger\""
+      "data-testid='globe-node-solana'",
+      "data-testid='ecosystem-chat-input'",
+      "data-testid='ecosystem-chat-send-btn'",
+      "data-testid='new-stuff-token-card-fee'",
+      "data-testid='terminal-sidebar-tab-trade'",
+      "data-testid='jupiter-swap-button'",
+      "data-testid='whitepaper-download-pdf'"
     ]
   },
   "instructions_to_main_agent": [
-    "Ensure the supplied logo URL (https://customer-assets-jt897jd0.emergentagent.net/job_24652869-54a6-42fd-b217-760374ca0c8b/artifacts/z95slnsw_fee%20no%20bg.png) is rendered prominently in the header and landing header.",
-    "Maintain the existing 3D Globe functionality while integrating interactive Launchpad node overlays for Pump.fun, Raydium, Uniswap, Moonshot, and Four.meme.",
-    "Ensure DexScreener API integration retrieves live public Solana / EVM token pools with real charts via iframe embeds.",
-    "Use JetBrains Mono / monospace formatting for numbers, contract addresses, and market caps.",
-    "Ensure all interactive elements have data-testid attributes for automated test validation.",
-    "Keep styling in standard React JSX with Tailwind CSS classes. Do NOT use TypeScript .tsx files."
+    "Strictly follow the dark mint-neon theme (#14F195 / #00FFA3) with dark charcoal background (#060709).",
+    "Ensure when an ecosystem node on the 3D globe is clicked, the whole page transitions into an immersive Ecosystem Overlay: LEFT side has the live community chat, BACKGROUND has the blurred globe, RIGHT side has the 'New Stuff' feed of trending/fresh tokens and live activity pulse, with minimal tucked-away quick links.",
+    "STRICTLY NO pools or liquidity tables on the Ecosystem social overlay page.",
+    "Ensure ALL 16 terminal sidebar tabs are fully styled, populated with realistic data/interactive components, and look extremely advanced.",
+    "Make sure new users can clearly understand the concept of $FEE, FeeCat, and Fee-Back Vision via visual onboarding cards and educational widgets."
   ]
+},
+  "overwrite": true,
+  "path": "/app/design_guidelines.json"
 }
