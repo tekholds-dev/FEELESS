@@ -5,6 +5,78 @@ import { ECOSYSTEMS } from '../lib/ecosystems';
 import { LAUNCHPADS } from '../lib/launchpads';
 const GLOBE_NODES = [...ECOSYSTEMS.filter(e => !e.isFeeless), ...LAUNCHPADS.map(p => ({ ...p, isLaunchpad: true }))];
 
+class GlobeErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
+
+function GlobeFallback({ onSelect, selectedId }) {
+  return (
+    <div
+      className="globe-webgl-fallback"
+      role="img"
+      aria-label="FEELESS ecosystem network"
+      style={{
+        width: '100%',
+        height: '100%',
+        minHeight: 320,
+        borderRadius: '50%',
+        display: 'grid',
+        placeItems: 'center',
+        position: 'relative',
+        overflow: 'hidden',
+        background: 'radial-gradient(circle at 42% 38%, rgba(31, 107, 73, .9), rgba(3, 24, 15, .96) 52%, #020604 74%)',
+        boxShadow: '0 0 80px rgba(20, 241, 149, .22), inset -36px -24px 70px rgba(0, 0, 0, .8)',
+      }}
+    >
+      <div style={{ position: 'absolute', inset: '12%', border: '1px solid rgba(20, 241, 149, .25)', borderRadius: '50%', transform: 'rotate(-18deg)' }} />
+      <div style={{ position: 'absolute', inset: '22%', border: '1px dashed rgba(216, 246, 229, .18)', borderRadius: '50%', transform: 'rotate(28deg)' }} />
+      <span style={{ color: '#14f195', fontFamily: 'monospace', fontSize: 11, letterSpacing: '.18em' }}>WEBGL UNAVAILABLE</span>
+      {GLOBE_NODES.map((node, index) => {
+        const angle = (index / GLOBE_NODES.length) * Math.PI * 2 - Math.PI / 2;
+        const radius = 39;
+        const left = 50 + Math.cos(angle) * radius;
+        const top = 50 + Math.sin(angle) * radius;
+        return (
+          <button
+            key={node.id}
+            type="button"
+            onClick={() => onSelect?.(node.id)}
+            aria-label={`Open ${node.name}`}
+            style={{
+              position: 'absolute',
+              left: `${left}%`,
+              top: `${top}%`,
+              transform: 'translate(-50%, -50%)',
+              border: `1px solid ${node.color}`,
+              borderRadius: 999,
+              padding: '6px 9px',
+              background: selectedId === node.id ? `${node.color}33` : 'rgba(2, 12, 8, .88)',
+              color: '#eafff3',
+              boxShadow: selectedId === node.id ? `0 0 18px ${node.color}88` : 'none',
+              cursor: 'pointer',
+              fontSize: 10,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {node.symbol || node.name?.slice(0, 1)} {node.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Globe3D({ onSelect, selectedId, size = 640 }) {
   const globeRef = useRef();
   const containerRef = useRef();
@@ -91,49 +163,51 @@ export default function Globe3D({ onSelect, selectedId, size = 640 }) {
       <div className="absolute inset-0 rounded-full pointer-events-none"
         style={{ background: 'radial-gradient(circle at 50% 50%, rgba(20,241,149,0.18) 0%, rgba(20,241,149,0.06) 30%, transparent 60%)', filter: 'blur(20px)' }}
       />
-      <Globe
-        ref={globeRef}
-        width={dims.w}
-        height={dims.h}
-        backgroundColor="rgba(0,0,0,0)"
-        showAtmosphere
-        atmosphereColor="#14F195"
-        atmosphereAltitude={0.22}
-        globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
-        bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
-        pointsData={points}
-        pointLat="lat"
-        pointLng="lng"
-        pointColor="color"
-        pointAltitude={0.02}
-        pointRadius="size"
-        pointResolution={24}
-        labelsData={GLOBE_NODES.filter(n => n.isLaunchpad || n.id === 'solana')}
-        labelLat="lat"
-        labelLng="lng"
-        labelText="name"
-        labelColor={() => '#d8f6e5'}
-        labelSize={1.15}
-        labelDotRadius={0}
-        labelAltitude={0.07}
-        labelResolution={2}
-        onLabelClick={p => onSelect?.(p.id)}
-        pointLabel={p => `<div style="padding:6px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;">${p.name} · ${p.symbol}</div>`}
-        onPointClick={p => onSelect && onSelect(p.id)}
-        onPointHover={p => document.body.style.cursor = p ? 'pointer' : 'default'}
-        arcsData={arcs}
-        arcColor="color"
-        arcStroke={0.35}
-        arcAltitude={0.22}
-        arcDashLength={0.4}
-        arcDashGap={2}
-        arcDashAnimateTime={4000}
-        ringsData={rings}
-        ringColor="color"
-        ringMaxRadius="maxR"
-        ringPropagationSpeed="propagationSpeed"
-        ringRepeatPeriod="repeatPeriod"
-      />
+      <GlobeErrorBoundary fallback={<GlobeFallback onSelect={onSelect} selectedId={selectedId} />}>
+        <Globe
+          ref={globeRef}
+          width={dims.w}
+          height={dims.h}
+          backgroundColor="rgba(0,0,0,0)"
+          showAtmosphere
+          atmosphereColor="#14F195"
+          atmosphereAltitude={0.22}
+          globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
+          bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
+          pointsData={points}
+          pointLat="lat"
+          pointLng="lng"
+          pointColor="color"
+          pointAltitude={0.02}
+          pointRadius="size"
+          pointResolution={24}
+          labelsData={GLOBE_NODES.filter(n => n.isLaunchpad || n.id === 'solana')}
+          labelLat="lat"
+          labelLng="lng"
+          labelText="name"
+          labelColor={() => '#d8f6e5'}
+          labelSize={1.15}
+          labelDotRadius={0}
+          labelAltitude={0.07}
+          labelResolution={2}
+          onLabelClick={p => onSelect?.(p.id)}
+          pointLabel={p => `<div style="padding:6px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;">${p.name} · ${p.symbol}</div>`}
+          onPointClick={p => onSelect && onSelect(p.id)}
+          onPointHover={p => document.body.style.cursor = p ? 'pointer' : 'default'}
+          arcsData={arcs}
+          arcColor="color"
+          arcStroke={0.35}
+          arcAltitude={0.22}
+          arcDashLength={0.4}
+          arcDashGap={2}
+          arcDashAnimateTime={4000}
+          ringsData={rings}
+          ringColor="color"
+          ringMaxRadius="maxR"
+          ringPropagationSpeed="propagationSpeed"
+          ringRepeatPeriod="repeatPeriod"
+        />
+      </GlobeErrorBoundary>
     </div>
   );
 }
