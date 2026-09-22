@@ -132,6 +132,20 @@ let webpackConfig = {
         webpackConfig.plugins.push(healthPluginInstance);
       }
 
+      // These published packages reference source files that are not included in
+      // their npm distributions. Excluding only those packages keeps build logs
+      // useful without disabling source maps for the application.
+      const sourceMapRule = webpackConfig.module.rules.find((rule) =>
+        String(rule.loader || '').includes('source-map-loader')
+      );
+      if (sourceMapRule) {
+        sourceMapRule.exclude = [
+          ...(Array.isArray(sourceMapRule.exclude) ? sourceMapRule.exclude : sourceMapRule.exclude ? [sourceMapRule.exclude] : []),
+          /node_modules[\\/]@solana[\\/]buffer-layout/,
+          /node_modules[\\/]superstruct/,
+        ];
+      }
+
       // Overlay's HTML injection + compile-error capture; self-gates on mode !== development.
       if (emergentOverlay) {
         webpackConfig.plugins.push(emergentOverlay.webpackPlugin);

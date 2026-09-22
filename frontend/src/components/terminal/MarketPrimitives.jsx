@@ -62,7 +62,7 @@ export const TokenContextMeta = ({ pair }) => <div className="token-context-meta
 export const Change = ({ value, id }) => <span data-testid={id} className={value == null ? 'muted' : Number(value) >= 0 ? 'positive mono' : 'negative mono'}>{formatPct(value)}</span>;
 
 export const DataStatus = ({ data, id = 'data-status' }) => <span data-testid={id} className={`data-status ${data?.stale ? 'stale' : ''}`}>
-  <i />{data ? `${data.stale ? 'STALE' : 'LIVE'} · ${formatTime(data.fetched_at)}` : 'CONNECTING'}
+  <i />{data ? `${data.error ? 'UNAVAILABLE' : data.stale ? 'STALE' : 'LIVE'} · ${formatTime(data.fetched_at)}` : 'CONNECTING'}
 </span>;
 
 export const MarketError = ({ error, reload, id = 'market-error', focusable = false, retryLabel = 'Retry', description }) => <div className="market-error" role="alert" tabIndex={focusable ? 0 : undefined} data-testid={id}>

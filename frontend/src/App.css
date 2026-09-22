@@ -3,6 +3,32 @@
   background: #03080a;
 }
 
+.app-fatal {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  gap: 14px;
+  padding: 32px;
+  background: #050b08;
+  color: #eafff3;
+  text-align: left;
+}
+
+.app-fatal h1,
+.app-fatal p {
+  max-width: 620px;
+  margin: 0;
+}
+
+.app-fatal h1 {
+  font-size: clamp(28px, 5vw, 54px);
+}
+
+.app-fatal p {
+  color: #91ad9b;
+  line-height: 1.7;
+}
+
 .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
 .custom-scroll::-webkit-scrollbar-track { background: transparent; }
 .custom-scroll::-webkit-scrollbar-thumb { background: rgba(20,241,149,0.2); border-radius: 3px; }

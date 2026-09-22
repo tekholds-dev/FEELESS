@@ -51,7 +51,7 @@ export function useMarket(path, refresh = 90000) {
   });
   return {
     data,
-    error: error?.message,
+    error: error?.message || data?.error || null,
     loading: isLoading && !data,
     refreshing: Boolean(isValidating && data),
     cached: Boolean(cached && data === cached.data),

@@ -124,7 +124,10 @@ async function getJson(url, ttl = 30000) {
   if (pendingRequests.has(url)) return pendingRequests.get(url);
   const request = (async () => {
     const response = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
-    if (!response.ok) throw new Error(`Provider returned HTTP ${response.status}.`);
+    if (!response.ok) throw Object.assign(new Error(`Provider returned HTTP ${response.status}.`), {
+      providerStatus: response.status,
+      statusCode: response.status >= 500 ? 503 : response.status,
+    });
     const value = await response.json();
     cache.set(url, { at: Date.now(), value });
     return value;
@@ -325,6 +328,21 @@ async function dexBoostFeed(kind, page = 1, chain = 'solana') {
     label: kind === 'new' ? 'New pools · deals ≥5% 24h drawdown' : 'Boosted discovery',
     pairs,
     page: 1,
+  };
+}
+
+function unavailableFeed(kind, chain, error) {
+  return {
+    provider: 'Public providers',
+    sourceUrl: 'https://www.geckoterminal.com',
+    sourceLabel: 'Provider status',
+    fetched_at: new Date().toISOString(),
+    stale: true,
+    error: `Public market providers are temporarily unavailable${error?.providerStatus ? ` (HTTP ${error.providerStatus})` : ''}. Retrying on the next refresh.`,
+    label: kind === 'new' ? 'New pools · provider unavailable' : 'Trending pools · provider unavailable',
+    pairs: [],
+    page: 1,
+    chain,
   };
 }
 
@@ -602,8 +620,15 @@ async function route(req, res, url) {
     const chain = url.searchParams.get('chain') || 'solana';
     if (chain !== 'all' && !GECKO_NETWORKS[chain]) return json(res, 400, { detail: 'Unsupported market chain.' });
     let result;
-    try { result = await dexBoostFeed(kind, url.searchParams.get('page') || 1, chain); }
-    catch { result = await geckoFeed(kind, url.searchParams.get('page') || 1, chain); }
+    try {
+      result = await dexBoostFeed(kind, url.searchParams.get('page') || 1, chain);
+    } catch (dexError) {
+      try {
+        result = await geckoFeed(kind, url.searchParams.get('page') || 1, chain);
+      } catch (geckoError) {
+        result = unavailableFeed(kind, chain, geckoError || dexError);
+      }
+    }
     return json(res, 200, result);
   }
   const candleMatch = url.pathname.match(/^\/api\/market\/candles\/([^/]+)\/([^/]+)$/);

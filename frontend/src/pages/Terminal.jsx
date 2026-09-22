@@ -16,7 +16,7 @@ import { LaunchpadDirectory } from '../components/terminal/LaunchpadDirectory';
 import MetaLaunchSetup from '../components/terminal/MetaLaunchSetup';
 import { LAUNCHPADS, matchesPad } from '../lib/launchpads';
 import { FeeHeartbeat, Tokenomics, FeeAssetPage } from '../components/command/FeeCommand';
-import { ContextBar, MouseGlow, AlphaTape, PulseGrid, ContractScanner, useClock } from '../components/command/WorkspaceChrome';
+import { ContextBar, MouseGlow, AlphaTape, PulseGrid, ContractScanner } from '../components/command/WorkspaceChrome';
 import { FeeBackCenter, FeeCatCenter } from '../components/command/FeeBack';
 import { SwapWorkspace } from '../components/command/SwapWorkspace';
 import { RadarView, PumpRadarView, SignalMovers, LivingWatchlist, ParticipationBoard } from '../components/command/DiscoveryViews';
@@ -75,7 +75,6 @@ export default function Terminal() {
     return list;
   }, [market.data, chain, minLiquidity, activePad, tab, kind, query, page]);
   const newPairs = (newFeed.data?.pairs || []).filter(p => matchesPad(p, activePad) && isNewPoolDeal(p));
-  useClock(15000);
   useEffect(() => { setPagination(1); setPad('all'); setMinLiquidity('0'); setMenuOpen(false); if (page === 'pump' && ecosystem.id !== 'pump') setEcosystem('pump'); }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPagination(1); }, [ecosystem.id, query, kind]);
   useEffect(() => { if (page === 'launch' && metaLaunchRequested && ecosystem.id !== 'feeless-launch') setEcosystem('feeless-launch'); }, [page, metaLaunchRequested, ecosystem.id]); // eslint-disable-line react-hooks/exhaustive-deps
