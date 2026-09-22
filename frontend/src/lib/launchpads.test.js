@@ -197,12 +197,12 @@ test('prepares an unsigned five-step plan without accepting private key material
   expect(JSON.stringify(body)).not.toMatch(/private|secret|key/i);
 });
 
-test('executes an approved provider five-step plan with explorer links and its returned mint', async () => {
+test('executes an approved provider seven-step plan with explorer links and its returned mint', async () => {
   process.env.REACT_APP_LAUNCH_API_URL = 'https://provider.example/launch';
   process.env.REACT_APP_SOLANA_RPC_URL = 'https://rpc.example';
   process.env.REACT_APP_LAUNCH_PROVIDER_APPROVED = 'true';
   process.env.REACT_APP_LAUNCH_NETWORK = 'Solana devnet';
-  const stepIds = ['token', 'liquidity', 'fee', 'holder', 'airdrop'];
+  const stepIds = ['token', 'curve', 'liquidity', 'fee', 'buyback', 'holder', 'airdrop'];
   const signatures = stepIds.map(id => `${id}-signature`);
   global.fetch = jest.fn().mockResolvedValue({
     ok: true,
@@ -218,7 +218,9 @@ test('executes an approved provider five-step plan with explorer links and its r
       .mockResolvedValueOnce(signatures[1])
       .mockResolvedValueOnce(signatures[2])
       .mockResolvedValueOnce(signatures[3])
-      .mockResolvedValueOnce(signatures[4]),
+      .mockResolvedValueOnce(signatures[4])
+      .mockResolvedValueOnce(signatures[5])
+      .mockResolvedValueOnce(signatures[6]),
     confirmTransaction: jest.fn().mockResolvedValue({ value: { err: null } }),
   };
   const provider = {
@@ -229,11 +231,19 @@ test('executes an approved provider five-step plan with explorer links and its r
     name: 'Meta Coin',
     symbol: 'META',
     supply: '1000',
-    decimals: '9',
+    openingMarketCap: '35',
+    curveType: 'linear',
+    graduationTarget: '85',
     liquidityPair: 'SOL',
-    liquidityAmount: '1',
-    buyTax: '0',
-    sellTax: '1',
+    swapFee: '1',
+    creatorFeeShare: '50',
+    holderRewardShare: '0',
+    buybackBurnShare: '50',
+    antiSniperTax: '50',
+    antiSniperWindow: '6',
+    devBuyAmount: '0',
+    migrationVenue: 'raydium-cpmm',
+    liquidityLock: 'permanent',
     holderAllocation: '10',
     airdropAmount: '5',
     airdropRecipients: 'wallet-one',
@@ -254,9 +264,9 @@ test('executes an approved provider five-step plan with explorer links and its r
     explorerUrl: `https://explorer.solana.com/tx/${signatures[index]}?cluster=devnet`,
   })));
   expect(global.fetch).toHaveBeenCalledWith('https://provider.example/launch/prepare', expect.anything());
-  expect(provider.signTransaction).toHaveBeenCalledTimes(5);
-  expect(connection.sendRawTransaction).toHaveBeenCalledTimes(5);
-  expect(connection.confirmTransaction).toHaveBeenCalledTimes(5);
+  expect(provider.signTransaction).toHaveBeenCalledTimes(7);
+  expect(connection.sendRawTransaction).toHaveBeenCalledTimes(7);
+  expect(connection.confirmTransaction).toHaveBeenCalledTimes(7);
 });
 
 test('keeps pending and failed execution results link-free', async () => {

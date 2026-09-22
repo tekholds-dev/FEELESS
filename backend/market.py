@@ -4,7 +4,7 @@ import hashlib
 import json
 import os
 from collections import defaultdict, deque
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from time import monotonic
 from typing import Any, Literal
 
@@ -15,6 +15,16 @@ from pydantic import BaseModel, Field
 NETWORKS = {'solana': 'solana', 'ethereum': 'eth', 'base': 'base', 'bsc': 'bsc',
             'arbitrum': 'arbitrum', 'avalanche': 'avax', 'polygon': 'polygon_pos', 'sui': 'sui'}
 REVERSE_NETWORKS = {v: k for k, v in NETWORKS.items()}
+MARKET_CACHE_RETENTION = timedelta(days=14)
+NEW_POOL_DEAL_PERCENT = 5
+
+
+def safe_float(value, default=0.0):
+    try:
+        result = float(value)
+        return result if result == result else default
+    except (TypeError, ValueError):
+        return default
 
 
 class MarketResult(BaseModel):
@@ -79,6 +89,11 @@ def create_market_router(db, intelligence=None):
         async with locks[key]:
             hit = await db.market_cache.find_one({'key': key}, {'_id': 0})
             now = datetime.now(timezone.utc)
+            if hit:
+                fetched_at = datetime.fromisoformat(hit['fetched_at'])
+                if now - fetched_at > MARKET_CACHE_RETENTION:
+                    await db.market_cache.delete_one({'key': key})
+                    hit = None
             if hit and (now - datetime.fromisoformat(hit['fetched_at'])).total_seconds() < ttl:
                 return hit['data'], {'provider': provider, 'fetched_at': hit['fetched_at'], 'stale': False}
             error = None
@@ -116,9 +131,20 @@ def create_market_router(db, intelligence=None):
         path = f'/networks{network}/{"new_pools" if kind == "new" else "trending_pools"}'
         data, meta = await cached('GeckoTerminal', path, {'include': 'base_token,quote_token,dex', 'page': page}, ttl=90)
         pairs = normalise_pools(data)
+        if kind == 'new':
+            cutoff = datetime.now(timezone.utc).timestamp() * 1000 - MARKET_CACHE_RETENTION.total_seconds() * 1000
+            pairs = [
+                pair for pair in pairs
+                if pair.get('pairCreatedAt') and pair['pairCreatedAt'] >= cutoff
+                and safe_float((pair.get('priceChange') or {}).get('h24')) <= -NEW_POOL_DEAL_PERCENT
+            ]
+            pairs.sort(key=lambda pair: (
+                safe_float((pair.get('priceChange') or {}).get('h24')),
+                -(pair.get('pairCreatedAt') or 0),
+            ))
         if intelligence:
             pairs = await intelligence.observe(pairs, meta, kind)
-        return MarketResult(**meta, label='New pools (provider feed)' if kind == 'new' else 'Trending pools', pairs=pairs, page=page)
+        return MarketResult(**meta, label='New pools · deals ≥5% 24h drawdown' if kind == 'new' else 'Trending pools', pairs=pairs, page=page)
 
     @router.get('/search', response_model=MarketResult)
     async def search(q: str = Query(min_length=1, max_length=120)):

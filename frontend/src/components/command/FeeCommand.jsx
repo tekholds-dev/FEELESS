@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, Check, Copy, Orbit, ShieldCheck, Radio, Activity } from 'lucide-react';
+import { ArrowUpRight, Check, Copy, Orbit, RotateCw, ShieldCheck, Radio, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import { FeelessMark } from '../FeelessLogo';
 import { useMarket } from '../../hooks/useMarket';
-import { formatUSD, shortAddress } from '../../lib/dexscreener';
+import { formatUSD, formatPct, shortAddress } from '../../lib/dexscreener';
 import { useWorkspace } from '../../hooks/useWorkspace';
 
 export const ALLOCATIONS = [
@@ -19,10 +19,23 @@ export const Tokenomics = ({ compact = false }) => {
   return <section className={`tokenomics ${compact ? 'compact-tokenomics' : ''}`}><div className="command-section-title"><span><Orbit size={16} />SUPPLY ARCHITECTURE</span><small>APPROVED ALLOCATION / 100%</small></div><div className="allocation-track">{ALLOCATIONS.map((a, i) => <button key={a.name} data-testid={`allocation-segment-${i}`} title={`${a.amount}% ${a.name}`} onClick={() => setActive(i)} className={i === active ? 'selected' : ''} style={{ flex: a.amount, '--allocation-color': a.color }}><span>{a.amount}%</span></button>)}</div><div className="allocation-detail" data-testid="allocation-detail"><strong style={{ color: item.color }}>{item.amount}<small>%</small></strong><div><h2>{item.name}</h2><p>{item.description}</p></div><div className="allocation-switch">{ALLOCATIONS.map((a, i) => <button key={a.name} onClick={() => setActive(i)} data-testid={`allocation-select-${i}`} title={a.name} style={{ background: a.color, opacity: active === i ? 1 : .25 }} />)}</div></div><div className="allocation-policy"><span><Check size={12} />NO PRIVATE SALE</span><span><Check size={12} />FAIR LAUNCH</span><small>Policy, not proof of on-chain allocation.</small></div></section>;
 };
 
-export const FeeHeartbeat = ({ asset, loading }) => {
-  const { data: metadata } = useMarket(asset?.mint ? `/api/trading/mint/${asset.mint}` : null, 300000);
-  const copy = async () => { try { await navigator.clipboard.writeText(asset.mint); toast.success('$FEE mint copied'); } catch { toast.error('Clipboard unavailable'); } };
-  return <section className="fee-heartbeat" data-testid="fee-market-initializing"><div className="heartbeat-top"><span className="fee-name"><FeelessMark size={39} /><span><b>$FEE</b><small>THE ECOSYSTEM HEARTBEAT</small></span></span><span className="state-tag amber" data-testid="fee-market-state">{loading ? 'VERIFYING MARKET' : asset?.status === 'provider_unavailable' ? 'PROVIDER UNAVAILABLE' : 'MARKET INITIALIZING'}</span></div><div className="heartbeat-visual"><div className="network-orbit orbit-one" /><div className="network-orbit orbit-two" /><div className="network-orbit orbit-three" /><div className="heartbeat-mark"><FeelessMark size={110} /></div><span className="orbit-label label-a"><i />DISCOVERY ONLINE</span><span className="orbit-label label-b"><i />FEE-BACK PLANNED</span><span className="orbit-label label-c"><i />COMMUNITY CONNECTED</span><div className="heartbeat-caption"><h1>The heart of<br /><span>a FeeLess future.</span></h1><p>No invented candles. Awaiting an indexed market<br />for the supplied $FEE contract.</p></div></div><div className="heartbeat-supply"><span>Mint supply / Solana RPC</span><b data-testid="heartbeat-verified-supply">{metadata?.supply ? `${(Number(metadata.supply) / 10 ** metadata.decimals).toLocaleString('en-US')} FEE` : 'Verification unavailable'}</b></div><div className="heartbeat-bottom"><button data-testid="fee-copy-mint" disabled={!asset?.mint} title="Copy FEE mint" onClick={copy}><Copy size={12} />{asset?.mint ? shortAddress(asset.mint) : 'Checking contract registry…'}</button><Link data-testid="fee-registry-link" to="/terminal/fee">Inspect $FEE<ArrowUpRight size={13} /></Link></div></section>;
+export const FeeHeartbeat = ({ asset, assets = [], loading }) => {
+  const trackedAssets = assets.length ? assets : asset ? [asset] : [];
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activeAsset = trackedAssets[activeIndex % Math.max(trackedAssets.length, 1)] || asset;
+  const { data: metadata } = useMarket(activeAsset?.mint ? `/api/trading/mint/${activeAsset.mint}` : null, 300000);
+  const symbol = activeAsset?.label || activeAsset?.id?.toUpperCase() || 'FEE';
+  const price = activeAsset?.pair?.priceUsd;
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(activeAsset.mint);
+      toast.success(`$${symbol} mint copied`);
+    } catch {
+      toast.error('Clipboard unavailable');
+    }
+  };
+  const flipAsset = () => setActiveIndex(index => (index + 1) % Math.max(trackedAssets.length, 1));
+  return <section className="fee-heartbeat" data-testid="fee-market-initializing"><div className="heartbeat-top"><span className="fee-name"><FeelessMark size={39} /><span><b>${symbol}</b><small>THE ECOSYSTEM HEARTBEAT</small></span></span><div className="heartbeat-controls"><span className="state-tag amber" data-testid="fee-market-state">{loading ? 'VERIFYING MARKET' : activeAsset?.status === 'provider_unavailable' ? 'PROVIDER UNAVAILABLE' : 'MARKET INITIALIZING'}</span>{trackedAssets.length > 1 && <button className="heartbeat-flip" data-testid="fee-heartbeat-flip" title="Flip through tracked fee assets" onClick={flipAsset}><RotateCw size={13} /><span>Flip price</span></button>}</div></div><div className="heartbeat-visual"><div className="network-orbit orbit-one" /><div className="network-orbit orbit-two" /><div className="network-orbit orbit-three" /><div className="heartbeat-mark"><FeelessMark size={110} /></div><span className="orbit-label label-a"><i />DISCOVERY ONLINE</span><span className="orbit-label label-b"><i />FEE-BACK PLANNED</span><span className="orbit-label label-c"><i />COMMUNITY CONNECTED</span><div className="heartbeat-caption"><h1>The heart of<br /><span>a FeeLess future.</span></h1><p>No invented candles. Awaiting an indexed market<br />for the supplied ${symbol} contract.</p></div></div><div className="heartbeat-supply"><span>Mint supply / Solana RPC</span><b data-testid="heartbeat-verified-supply">{metadata?.supply ? `${(Number(metadata.supply) / 10 ** metadata.decimals).toLocaleString('en-US')} ${symbol}` : 'Verification unavailable'}</b></div><div className="heartbeat-market-price" data-testid="heartbeat-market-price"><span>Market price · ${symbol}</span><b>{price ? formatUSD(price) : 'Awaiting provider market'}</b><small>{activeAsset?.pair?.priceChange?.h24 != null ? `${formatPct(activeAsset.pair.priceChange.h24)} · 24h` : 'Provider snapshot unavailable'}</small></div><div className="heartbeat-bottom"><button data-testid="fee-copy-mint" disabled={!activeAsset?.mint} title={`Copy ${symbol} mint`} onClick={copy}><Copy size={12} />{activeAsset?.mint ? shortAddress(activeAsset.mint) : 'Checking contract registry…'}</button><Link data-testid="fee-registry-link" to="/terminal/fee">Inspect ${symbol}<ArrowUpRight size={13} /></Link></div></section>;
 };
 
 export const FeeAssetPage = ({ asset, children }) => {

@@ -1,5 +1,7 @@
 const API = `${process.env.REACT_APP_BACKEND_URL}/api/market`;
 export const DEX_SITE = process.env.REACT_APP_DEX_SITE_URL;
+export const MARKET_RETENTION_DAYS = 14;
+export const NEW_POOL_DEAL_PERCENT = 5;
 
 export async function marketRequest(path, signal) {
   const res = await fetch(path.startsWith('/api/') ? `${process.env.REACT_APP_BACKEND_URL}${path}` : `${API}${path}`, { signal });
@@ -12,6 +14,16 @@ export const searchTokenByAddress = searchTokens;
 export const pairKey = p => `${p.chainId}-${p.pairAddress}`;
 export const tokenKey = p => `${p.chainId}-${p.baseToken?.address}`;
 export const dexUrl = p => `${DEX_SITE}/${encodeURIComponent(p.chainId)}/${encodeURIComponent(p.pairAddress)}`;
+export function isNewPoolDeal(pair, now = Date.now()) {
+  const created = Number(pair?.pairCreatedAt);
+  const change = Number(pair?.priceChange?.h24);
+  const age = now - created;
+  return Number.isFinite(created)
+    && age >= 0
+    && age <= MARKET_RETENTION_DAYS * 24 * 60 * 60 * 1000
+    && Number.isFinite(change)
+    && change <= -NEW_POOL_DEAL_PERCENT;
+}
 export const shortAddress = a => a ? `${a.slice(0, 5)}…${a.slice(-5)}` : '—';
 export function formatTime(value) {
   const date = new Date(value);
