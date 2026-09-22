@@ -1,16 +1,72 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowUpRight, Radar, Radio, Activity, Star, Bell, Users, ExternalLink } from 'lucide-react';
+import { ArrowUpRight, Radar, Radio, Activity, Star, Bell, Users, ExternalLink, RefreshCw, Zap, Layers3, TrendingUp, Droplets } from 'lucide-react';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { useMarket } from '../../hooks/useMarket';
 import { TokenAvatar, Change } from '../terminal/MarketPrimitives';
 import { useClock } from './WorkspaceChrome';
-import { formatUSD, formatAge, pairKey, dexUrl } from '../../lib/dexscreener';
+import { formatUSD, formatAge, formatTime, pairKey, dexUrl, isNewPoolDeal } from '../../lib/dexscreener';
 import { LAUNCHPADS, matchesPad } from '../../lib/launchpads';
 
 export const RadarView = ({ pairs, onSelect, kind = 'pump' }) => {
   useClock(10000); const { ecosystem } = useWorkspace();
   return <section className="launch-radar"><div className="radar-overview"><div className="radar-instrument"><div className="radar-sweep" /><span className="radar-center" /><div className="radar-ring ring-1" /><div className="radar-ring ring-2" /><div className="radar-ring ring-3" />{pairs.slice(0, 8).map((p, i) => <button key={pairKey(p)} className="radar-blip" data-testid={`radar-blip-${pairKey(p)}`} title={`${p.baseToken?.symbol} · ${formatUSD(p.liquidity?.usd)} liquidity`} onClick={() => onSelect(p)} style={{ left: `${28 + ((i * 23) % 50)}%`, top: `${25 + ((i * 31) % 53)}%` }} />)}<strong data-testid="radar-count">{pairs.length}<small>OBSERVED POOLS</small></strong></div><div><span className="eyebrow">{ecosystem.name.toUpperCase()} / LAUNCH VELOCITY</span><h2>Early is a signal.<br /><span>Not a promise.</span></h2><p>Pool age, recent price movement and observed liquidity. Bonding-curve progress and launchpad provenance stay unavailable unless the provider establishes them.</p><span className="state-tag">{pairs.length ? 'PROVIDER FEED CONNECTED' : 'AWAITING MATCHING POOLS'}</span></div></div><div className="radar-pool-grid">{pairs.map(p => <button key={pairKey(p)} data-testid={`radar-pool-${pairKey(p)}`} onClick={() => onSelect(p)} className="radar-pool"><div><TokenAvatar pair={p} /><span><b>{p.baseToken?.symbol}</b><small>{p.dexId}</small></span><span className="pool-age" data-testid={`pool-age-${pairKey(p)}`}>{formatAge(p.pairCreatedAt)}</span></div><dl><div><dt>5m momentum</dt><dd><Change value={p.priceChange?.m5} /></dd></div><div><dt>Liquidity</dt><dd>{formatUSD(p.liquidity?.usd)}</dd></div><div><dt>24h volume</dt><dd>{formatUSD(p.volume?.h24)}</dd></div></dl><small>Pool indexed by provider <ArrowUpRight size={13} /></small></button>)}</div>{!pairs.length && <div className="truth-empty" data-testid="launch-radar-empty">No verified matching pools in this feed. Parent-chain activity is not relabelled as a launchpad’s activity.</div>}</section>;
+};
+
+const PUMP_RADAR_STAGES = [
+  ['new', 'New pools', Zap],
+  ['graduated', 'Graduated', Layers3],
+  ['trending', 'Trending', TrendingUp],
+  ['gainers', 'Gainers', Activity],
+  ['watchlist', 'Watchlist', Star],
+];
+
+const graduatedPair = pair => pair?.graduated === true
+  || pair?.info?.graduated === true
+  || pair?.baseToken?.graduated === true;
+
+const PumpRadarCard = ({ pair, onSelect, rank }) => {
+  const change = Number(pair.priceChange?.h24);
+  const momentum = pair.priceChange?.m5 ?? pair.priceChange?.h1;
+  const signal = Number.isFinite(Number(pair.signals?.velocity_pct_min))
+    ? `${Number(pair.signals.velocity_pct_min).toFixed(2)}%/min`
+    : Number.isFinite(Number(momentum)) ? `${Number(momentum).toFixed(2)}% 5m` : 'Awaiting delta';
+  return <button className="pump-radar-card" data-testid={`pump-radar-card-${pairKey(pair)}`} onClick={() => onSelect(pair)}>
+    <div className="pump-radar-card-top"><span className="pump-radar-rank">{String(rank).padStart(2, '0')}</span><TokenAvatar pair={pair} size={38} /><span className="pump-radar-token"><b>{pair.baseToken?.symbol || 'Unknown'}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId || 'chain unavailable'} · {pair.dexId || 'venue unavailable'}</small></span><span className="pump-radar-age">{formatAge(pair.pairCreatedAt)}</span></div>
+    <div className="pump-radar-price-row"><strong>{formatUSD(pair.priceUsd)}</strong><Change value={pair.priceChange?.h24} id={`pump-radar-change-${pairKey(pair)}`} /><span className={change >= 0 ? 'positive' : 'negative'}><Activity size={11} />{signal}</span></div>
+    <div className="pump-radar-metrics"><span><small>LIQUIDITY</small><b>{formatUSD(pair.liquidity?.usd)}</b></span><span><small>24H VOL</small><b>{formatUSD(pair.volume?.h24)}</b></span><span><small>FDV</small><b>{formatUSD(pair.fdv || pair.marketCap)}</b></span></div>
+    <span className="pump-radar-card-foot"><span><Droplets size={11} />Provider snapshot</span><ArrowUpRight size={13} /></span>
+  </button>;
+};
+
+export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
+  const { ecosystem, watchlist } = useWorkspace();
+  const [stage, setStage] = useState('new');
+  const now = useClock(1000);
+  const matches = useMemo(() => pair => matchesPad(pair, ecosystem.id) && (ecosystem.chainId === 'all' || pair.chainId === ecosystem.chainId), [ecosystem.id, ecosystem.chainId]);
+  const newPairs = useMemo(() => (newFeed.data?.pairs || []).filter(pair => matches(pair) && isNewPoolDeal(pair)), [newFeed.data, matches]);
+  const trendingPairs = useMemo(() => (trendingFeed.data?.pairs || []).filter(matches), [trendingFeed.data, matches]);
+  const allObserved = useMemo(() => [...new Map([...newPairs, ...trendingPairs].map(pair => [pairKey(pair), pair])).values()], [newPairs, trendingPairs]);
+  const graduated = allObserved.filter(graduatedPair);
+  const gainers = [...trendingPairs].filter(pair => Number.isFinite(Number(pair.priceChange?.h24))).sort((a, b) => Number(b.priceChange.h24) - Number(a.priceChange.h24));
+  const stagePairs = { new: newPairs, graduated, trending: trendingPairs, gainers, watchlist: watchlist.filter(matches) }[stage] || [];
+  const activeFeed = stage === 'new' ? newFeed : trendingFeed;
+  const fetchedAt = activeFeed.data?.fetched_at ? Date.parse(activeFeed.data.fetched_at) : 0;
+  const ageSeconds = fetchedAt ? Math.max(0, Math.floor((now - fetchedAt) / 1000)) : null;
+  const nextRefresh = activeFeed.refreshing ? 'SYNCING' : ageSeconds == null ? 'CONNECTING' : `NEXT SYNC ~${Math.max(0, 15 - (ageSeconds % 15))}s`;
+  const totalLiquidity = stagePairs.reduce((sum, pair) => sum + Number(pair.liquidity?.usd || 0), 0);
+  const totalVolume = stagePairs.reduce((sum, pair) => sum + Number(pair.volume?.h24 || 0), 0);
+  const stageUnavailable = stage === 'graduated' && !graduated.length;
+  return <section className="pump-radar" data-testid="pump-radar">
+    <div className="pump-radar-hero"><div><span className="eyebrow"><span className="live-dot" /> PUMP RADAR / LIVE MARKET TAPE</span><h2>See the next rotation<br /><span>before the crowd catches up.</span></h2><p>Provider-backed pool stages refresh every 15 seconds. Prices and deltas are live snapshots, not a trade signal or a claim of launchpad activity.</p></div><div className="pump-radar-live-orbit" aria-hidden="true"><div /><div /><strong>{stagePairs.length}<small>VISIBLE</small></strong></div></div>
+    <div className="pump-radar-toolbar"><div className="pump-radar-stages">{PUMP_RADAR_STAGES.map(([id, label, Icon]) => <button key={id} className={stage === id ? 'active' : ''} data-testid={`pump-radar-stage-${id}`} onClick={() => setStage(id)}><Icon size={14} />{label}<small>{id === 'graduated' && stageUnavailable ? '—' : id === 'watchlist' ? stagePairs.length : { new: newPairs.length, trending: trendingPairs.length, gainers: gainers.length }[id] ?? stagePairs.length}</small></button>)}</div><div className="pump-radar-sync"><span><i className={activeFeed.refreshing ? 'is-refreshing' : ''} />{activeFeed.data?.provider || 'Provider'} · {nextRefresh}</span><button type="button" title="Refresh Pump radar" aria-label="Refresh Pump radar" data-testid="pump-radar-refresh" onClick={() => activeFeed.reload()}><RefreshCw size={14} /></button></div></div>
+    <div className="pump-radar-summary"><span><small>VISIBLE POOLS</small><b>{stagePairs.length}</b></span><span><small>LIQUIDITY</small><b>{formatUSD(totalLiquidity)}</b></span><span><small>24H FLOW</small><b>{formatUSD(totalVolume)}</b></span><span><small>LAST SNAPSHOT</small><b>{fetchedAt ? formatTime(activeFeed.data.fetched_at) : '—'}</b></span></div>
+    {activeFeed.error && <p className="pump-radar-error" role="alert" data-testid="pump-radar-error">{activeFeed.error} <button type="button" onClick={() => activeFeed.reload()}>Retry</button></p>}
+    {!activeFeed.error && activeFeed.loading && !stagePairs.length && <p className="truth-empty" role="status" data-testid="pump-radar-loading">Connecting to live provider snapshots…</p>}
+    {!activeFeed.loading && !stagePairs.length && <div className="truth-empty" data-testid={`pump-radar-${stage}-empty`}>{stageUnavailable ? 'Graduation status is not exposed by the current provider feed.' : stage === 'watchlist' ? 'Star provider-indexed pools to build a personal radar.' : `No ${stage} pools are currently visible in this provider snapshot.`}</div>}
+    <div className="pump-radar-grid">{stagePairs.slice(0, 18).map((pair, index) => <PumpRadarCard key={pairKey(pair)} pair={pair} rank={index + 1} onSelect={onSelect} />)}</div>
+    <div className="pump-radar-disclosure"><span><Zap size={13} />New pools are provider-indexed, not guaranteed launches.</span><span>{activeFeed.data?.label || 'Public market feed'} · {activeFeed.data?.sourceUrl || activeFeed.data?.source_url || 'source boundary unavailable'}</span></div>
+  </section>;
 };
 
 export const SignalMovers = ({ pairs, onSelect }) => {

@@ -19,7 +19,7 @@ import { FeeHeartbeat, Tokenomics, FeeAssetPage } from '../components/command/Fe
 import { ContextBar, MouseGlow, AlphaTape, PulseGrid, ContractScanner, useClock } from '../components/command/WorkspaceChrome';
 import { FeeBackCenter, FeeCatCenter } from '../components/command/FeeBack';
 import { SwapWorkspace } from '../components/command/SwapWorkspace';
-import { RadarView, SignalMovers, LivingWatchlist, ParticipationBoard } from '../components/command/DiscoveryViews';
+import { RadarView, PumpRadarView, SignalMovers, LivingWatchlist, ParticipationBoard } from '../components/command/DiscoveryViews';
 import { CommandWhitepaper, MissionRoadmap, UnderstandFeeless, TerminalConfiguration } from '../components/command/CommandDocuments';
 
 const CHAINS = [['solana', 'Solana'], ['all', 'All chains'], ['ethereum', 'Ethereum'], ['base', 'Base'], ['bsc', 'BNB Chain'], ['arbitrum', 'Arbitrum'], ['avalanche', 'Avalanche'], ['polygon', 'Polygon'], ['sui', 'Sui']];
@@ -44,9 +44,10 @@ export default function Terminal() {
   const chartInterval = normalizeChartInterval(settings.chartInterval);
   const tab = params.get('mode') || (['new', 'pump'].includes(page) ? 'new' : 'trending');
   const kind = ['new', 'pump'].includes(page) || tab === 'new' ? 'new' : 'trending';
-  const cadence = autoRefresh ? 90000 : 0;
+  const cadence = page === 'pump' ? 15000 : autoRefresh ? 90000 : 0;
   const market = useMarket(query ? `/search?q=${encodeURIComponent(query)}` : `/feed?kind=${kind}&chain=${chain}&page=${pagination}`, cadence);
   const newFeed = useMarket(`/feed?kind=new&chain=${ecosystem.chainId}&page=1`, cadence);
+  const pumpTrendingFeed = useMarket(page === 'pump' ? `/feed?kind=trending&chain=${ecosystem.chainId}&page=1` : null, page === 'pump' ? 15000 : 0);
   const pairLookup = useMarket(pairLookupPath, 60000);
   const assets = useMarket('/assets', 90000); const feeAssets = assets.data?.assets || []; const fee = feeAssets.find(a => a.id === 'fee'); const feeCat = feeAssets.find(a => a.id === 'feecat');
   const { data: community } = useMarket(`/api/intelligence/community?context=${ecosystem.id}`, 30000);
@@ -132,7 +133,7 @@ export default function Terminal() {
           {page === 'trade' && <><div className="command-page-title"><span className="eyebrow">INTELLIGENCE → ROUTE → SIMULATE → APPROVE</span><h1>Your execution workspace.</h1></div>{focus}<SwapWorkspace pair={selected} feeAsset={fee} feeAssets={feeAssets} feeCat={feeCat} fontScale={fontScale} onWallet={() => setWalletOpen(true)} /></>}
          {!['', 'trade'].includes(page) && <div className="command-page-title"><span className="eyebrow">{ecosystem.name.toUpperCase()} / ON-CHAIN INTELLIGENCE</span><h1>{query ? 'Follow the contract.' : page === 'new' ? 'New pools, better entry points.' : page === 'pump' ? 'Deep in the trenches.' : page === 'movers' ? 'Read the acceleration.' : 'Find the next rotation.'}</h1><p>{query ? `Provider results for “${query}”` : page === 'new' ? `Provider-indexed pools within ${MARKET_RETENTION_DAYS} days with a 24h drawdown of at least ${NEW_POOL_DEAL_PERCENT}%. Not a buy recommendation.` : 'Real signals, within provider coverage. No invented activity.'}</p></div>}
         <ContractScanner />
-        {page === 'pump' && <RadarView pairs={newPairs} onSelect={onSelect} />}
+         {page === 'pump' && <PumpRadarView newFeed={newFeed} trendingFeed={pumpTrendingFeed} onSelect={onSelect} />}
         {page === 'new' && <RadarView pairs={pairs} onSelect={onSelect} kind="new" />}
         {page === 'movers' && <SignalMovers pairs={pairs} onSelect={onSelect} />}
           <section className="market-section"><div className="section-title market-title"><h2><Flame size={18} />{query ? 'Search results' : page === 'new' ? 'New pool deals ≥5%' : kind === 'new' ? 'New pool deals' : 'Top coin discovery'}</h2><DataStatus data={market.data} id="market-feed-status" />{market.refreshing && <span className="live-feed-badge" data-testid="market-feed-refreshing">LIVE</span>}<button title="Refresh market feed" data-testid="market-refresh" className="icon-btn small-icon" onClick={() => market.reload()}><RefreshCw size={14} /></button>{isHome && <Link to="/terminal/discover" className="section-more" data-testid="markets-view-all">Expand<ArrowUpRight size={13} /></Link>}</div>
