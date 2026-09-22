@@ -1,1 +1,2 @@
 - [Meta Launch provider boundary](meta-launch-provider.md) — launch providers prepare unsigned Solana transactions; the browser wallet signs and the configured RPC confirms them.
+- [Post-merge setup hook](post-merge-hook.md) — the frontend has no lockfile; merge setup must use a registered non-interactive no-lockfile install.
