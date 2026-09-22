@@ -160,6 +160,30 @@ body.theme-day .globe-page .landing-copy h1,body.theme-day .globe-page .landing-
   .meta-launch-review-cards{grid-template-columns:1fr 1fr}
 }
 
+.live-pools-panel{display:flex;flex-direction:column;min-height:0;flex:1;background:#07110b}
+.live-pools-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:#1b3323;border-bottom:1px solid #1b3323}
+.live-pools-summary>div{display:flex;flex-direction:column;gap:5px;padding:10px 8px;background:#09160e;min-width:0}
+.live-pools-summary small{font:7px 'JetBrains Mono',monospace;color:#6e927a;white-space:nowrap}
+.live-pools-summary strong{font:11px 'JetBrains Mono',monospace;color:#d5efe0;overflow:hidden;text-overflow:ellipsis}
+.live-pools-status{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid #172b1d;color:#78a487;font:8px 'JetBrains Mono',monospace;text-transform:uppercase}
+.live-pools-status i{width:6px;height:6px;border-radius:50%;background:var(--mint);box-shadow:0 0 8px #00e9a0;flex-shrink:0}
+.live-pools-status i.is-refreshing{animation:pulse 1s infinite}
+.live-pools-list{flex:1;min-height:0;overflow-y:auto;padding:4px 8px 8px}
+.live-pool-row{display:grid;grid-template-columns:32px minmax(0,1fr) auto auto;align-items:center;gap:8px;width:100%;padding:9px 4px;border-bottom:1px solid #172b1d;text-align:left;color:#c6decf}
+.live-pool-row:hover{background:#00e9a008}
+.live-pool-name,.live-pool-price,.live-pool-numbers{display:flex;flex-direction:column;min-width:0}
+.live-pool-name b,.live-pool-price strong{font-size:10px;color:#dceee2}
+.live-pool-name small,.live-pool-numbers small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#759b80;font-size:8px;margin-top:3px}
+.live-pool-price{align-items:flex-end;gap:3px}
+.live-pool-price .positive,.live-pool-price .negative{font-size:8px}
+.live-pool-numbers{align-items:flex-end;gap:3px}
+.live-pool-numbers b{color:#abcbb6;font-weight:500}
+@media(max-width:600px){
+  .live-pools-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .live-pool-row{grid-template-columns:32px minmax(0,1fr) auto}
+  .live-pool-numbers{display:none}
+}
+
 /* Provider-aware launch selection, richer token identity, and the dedicated Trenches workspace. */
 .meta-launch-provider-section{grid-column:1/-1}
 .meta-launch-provider-picker{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:16px}
