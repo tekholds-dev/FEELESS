@@ -172,7 +172,7 @@ export default function Globe3D({ onSelect, selectedId, size = 640 }) {
           backgroundColor="rgba(0,0,0,0)"
           showAtmosphere
           atmosphereColor="#14F195"
-          atmosphereAltitude={0.22}
+          atmosphereAltitude={0.25}
           globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
           bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
           pointsData={points}
