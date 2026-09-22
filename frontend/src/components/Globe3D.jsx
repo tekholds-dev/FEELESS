@@ -39,9 +39,9 @@ function GlobeFallback({ onSelect, selectedId }) {
         boxShadow: '0 0 80px rgba(20, 241, 149, .22), inset -36px -24px 70px rgba(0, 0, 0, .8)',
       }}
     >
-      <div style={{ position: 'absolute', inset: '12%', border: '1px solid rgba(20, 241, 149, .25)', borderRadius: '50%', transform: 'rotate(-18deg)' }} />
-      <div style={{ position: 'absolute', inset: '22%', border: '1px dashed rgba(216, 246, 229, .18)', borderRadius: '50%', transform: 'rotate(28deg)' }} />
-      <span style={{ color: '#14f195', fontFamily: 'monospace', fontSize: 11, letterSpacing: '.18em' }}>WEBGL UNAVAILABLE</span>
+      <div className="globe-fallback-orbit globe-fallback-orbit-primary" style={{ position: 'absolute', inset: '12%', border: '1px solid rgba(20, 241, 149, .25)', borderRadius: '50%', transform: 'rotate(-18deg)' }} />
+      <div className="globe-fallback-orbit globe-fallback-orbit-secondary" style={{ position: 'absolute', inset: '22%', border: '1px dashed rgba(216, 246, 229, .18)', borderRadius: '50%', transform: 'rotate(28deg)' }} />
+      <span className="globe-fallback-status" style={{ color: '#14f195', fontFamily: 'monospace', fontSize: 11, letterSpacing: '.18em' }}>WEBGL UNAVAILABLE</span>
       {GLOBE_NODES.map((node, index) => {
         const angle = (index / GLOBE_NODES.length) * Math.PI * 2 - Math.PI / 2;
         const radius = 39;
@@ -53,6 +53,7 @@ function GlobeFallback({ onSelect, selectedId }) {
             type="button"
             onClick={() => onSelect?.(node.id)}
             aria-label={`Open ${node.name}`}
+            className="globe-fallback-node"
             style={{
               position: 'absolute',
               left: `${left}%`,
@@ -191,7 +192,7 @@ export default function Globe3D({ onSelect, selectedId, size = 640 }) {
           labelAltitude={0.07}
           labelResolution={2}
           onLabelClick={p => onSelect?.(p.id)}
-          pointLabel={p => `<div style="padding:6px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;">${p.name} · ${p.symbol}</div>`}
+           pointLabel={p => `<div class="globe-point-tooltip" style="padding:6px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;">${p.name} · ${p.symbol}</div>`}
           onPointClick={p => onSelect && onSelect(p.id)}
           onPointHover={p => document.body.style.cursor = p ? 'pointer' : 'default'}
           arcsData={arcs}

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, CandlestickSeries, HistogramSeries, ColorType } from 'lightweight-charts';
 import { useMarket } from '../../hooks/useMarket';
 import { dexUrl, formatUSD } from '../../lib/dexscreener';
@@ -7,6 +7,7 @@ import { DataStatus, MarketError } from './MarketPrimitives';
 export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => {
   const container = useRef(null);
   const priceMetric = metric === 'price';
+  const [dayMode, setDayMode] = useState(() => typeof document !== 'undefined' && document.body.classList.contains('theme-day'));
   const { data, loading, error, reload } = useMarket(priceMetric && pair ? `/candles/${pair.chainId}/${pair.pairAddress}?interval=${interval}` : null);
   const providerError = error || data?.error;
   const metricLabel = metric === 'marketCap' ? 'Market cap' : 'FDV';
@@ -18,24 +19,55 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => 
       .map(row => [row[0], row])).values()].sort((a, b) => a[0] - b[0])
     : [], [data?.candles]);
   useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const observer = new MutationObserver(() => setDayMode(document.body.classList.contains('theme-day')));
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
     if (!container.current || !candleRows.length) return;
+    container.current.replaceChildren();
     const chart = createChart(container.current, {
-      autoSize: true, layout: { background: { type: ColorType.Solid, color: '#080e0d' }, textColor: '#8c9b94', fontFamily: 'JetBrains Mono', fontSize: 10, attributionLogo: true },
-      grid: { vertLines: { color: '#ffffff04' }, horzLines: { color: '#ffffff06' } },
-      rightPriceScale: { borderColor: '#203129' }, timeScale: { borderColor: '#203129', timeVisible: true, secondsVisible: false },
+      autoSize: true,
+      layout: {
+        background: { type: ColorType.Solid, color: dayMode ? '#ffffff' : '#080e0d' },
+        textColor: dayMode ? '#315b43' : '#8c9b94',
+        fontFamily: 'JetBrains Mono',
+        fontSize: 10,
+        attributionLogo: true,
+      },
+      grid: {
+        vertLines: { color: dayMode ? '#d8e8dc' : '#ffffff04' },
+        horzLines: { color: dayMode ? '#d8e8dc' : '#ffffff06' },
+      },
+      rightPriceScale: { borderColor: dayMode ? '#aac7b3' : '#203129' },
+      timeScale: { borderColor: dayMode ? '#aac7b3' : '#203129', timeVisible: true, secondsVisible: false },
       localization: { locale: 'en-US', priceFormatter: n => formatUSD(n) }, crosshair: { mode: 0 },
     });
-    const series = chart.addSeries(CandlestickSeries, { upColor: '#00e7a0', downColor: '#f56880', wickUpColor: '#00e7a0', wickDownColor: '#f56880', borderVisible: false, priceFormat: { type: 'custom', formatter: n => formatUSD(n) } });
+    const series = chart.addSeries(CandlestickSeries, {
+      upColor: dayMode ? '#08764e' : '#00e7a0',
+      downColor: '#b42346',
+      wickUpColor: dayMode ? '#08764e' : '#00e7a0',
+      wickDownColor: '#b42346',
+      borderVisible: false,
+      priceFormat: { type: 'custom', formatter: n => formatUSD(n) },
+    });
     series.setData(candleRows.map(([time, open, high, low, close]) => ({ time, open, high, low, close })));
     series.priceScale().applyOptions({ scaleMargins: { top: .12, bottom: showVolume ? .24 : .12 } });
     if (showVolume) {
       const volume = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: '', lastValueVisible: false, priceLineVisible: false });
       volume.priceScale().applyOptions({ scaleMargins: { top: .84, bottom: 0 } });
-      volume.setData(candleRows.map(([time, open, , , close, value]) => ({ time, value, color: close >= open ? '#00e7a042' : '#f5688050' })));
+      volume.setData(candleRows.map(([time, open, , , close, value]) => ({
+        time,
+        value,
+        color: close >= open
+          ? (dayMode ? '#08764e55' : '#00e7a042')
+          : (dayMode ? '#b4234655' : '#f5688050'),
+      })));
     }
     chart.timeScale().fitContent();
     return () => chart.remove();
-  }, [candleRows, showVolume]);
+  }, [candleRows, dayMode, showVolume]);
   return <div className="chart-area" data-testid="price-chart">
     {priceMetric && loading && <div className="chart-message" data-testid="chart-loading"><span className="loader" />Loading on-chain candles…</div>}
     {priceMetric && providerError && <div className="chart-message" data-testid="chart-provider-failure">

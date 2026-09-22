@@ -245,6 +245,339 @@ body.theme-day .globe-page .landing-copy h1,body.theme-day .globe-page .landing-
   .focus-meta .creator-profile{margin-left:0}
 }
 
+/*
+ * Daylight contrast contract.
+ * Keep this block last so page-specific dark-mode artwork cannot override the
+ * readable daylight palette. All colors here are opaque or high-contrast
+ * enough for text, controls, focus rings, and provider states on light ground.
+ */
+body.theme-day{
+  --day-bg:#edf6f0;
+  --day-surface:#ffffff;
+  --day-surface-alt:#f5faf7;
+  --day-ink:#10251a;
+  --day-muted:#40654f;
+  --day-green:#08764e;
+  --day-green-dark:#07583c;
+  --day-border:#9abda8;
+  --day-focus:#006b45;
+  --day-warning:#805b00;
+  --day-danger:#a51d3b;
+  --ink:var(--day-bg);
+  --panel:var(--day-surface);
+  --line:#c6d8cc;
+  --muted:var(--day-muted);
+  --paper:var(--day-ink);
+  color:var(--day-ink)!important;
+  background:var(--day-bg)!important;
+}
+body.theme-day,
+body.theme-day input,
+body.theme-day select,
+body.theme-day button,
+body.theme-day textarea{color:var(--day-ink)}
+body.theme-day .terminal-app,
+body.theme-day .globe-page{background:var(--day-bg)!important;color:var(--day-ink)!important}
+body.theme-day .terminal-header,
+body.theme-day .market-ticker,
+body.theme-day .terminal-sidebar,
+body.theme-day .context-bar{background:var(--day-surface)!important;border-color:var(--line)!important}
+body.theme-day .terminal-search,
+body.theme-day .icon-btn,
+body.theme-day .chain-select,
+body.theme-day .advanced-filters select,
+body.theme-day .terminal-main input,
+body.theme-day .terminal-main select,
+body.theme-day .terminal-main textarea{
+  background:var(--day-surface)!important;
+  border-color:var(--day-border)!important;
+  color:var(--day-ink)!important;
+}
+body.theme-day .terminal-search input::placeholder,
+body.theme-day input::placeholder,
+body.theme-day textarea::placeholder{color:#527260!important}
+body.theme-day .terminal-main,
+body.theme-day .terminal-main h1,
+body.theme-day .terminal-main h2,
+body.theme-day .terminal-main h3,
+body.theme-day .terminal-main h4,
+body.theme-day .terminal-main p,
+body.theme-day .terminal-main span,
+body.theme-day .terminal-main strong,
+body.theme-day .terminal-main b,
+body.theme-day .terminal-main dd,
+body.theme-day .terminal-main dt,
+body.theme-day .globe-page h1,
+body.theme-day .globe-page h2,
+body.theme-day .globe-page h3,
+body.theme-day .globe-page p,
+body.theme-day .globe-page span,
+body.theme-day .globe-page strong,
+body.theme-day .globe-page b{
+  color:var(--day-ink);
+}
+body.theme-day .terminal-main small,
+body.theme-day .terminal-main .muted,
+body.theme-day .terminal-main .provider-note,
+body.theme-day .globe-page small,
+body.theme-day .globe-page .provider-note,
+body.theme-day .globe-page .muted{
+  color:var(--day-muted)!important;
+}
+body.theme-day .terminal-main a,
+body.theme-day .globe-page a,
+body.theme-day .terminal-main .eyebrow,
+body.theme-day .globe-page .eyebrow,
+body.theme-day .terminal-main .positive,
+body.theme-day .globe-page .positive,
+body.theme-day .section-more,
+body.theme-day .heartbeat-chart-timeframes button.active,
+body.theme-day .market-tabs button.active,
+body.theme-day .segmented button.active{
+  color:var(--day-green)!important;
+}
+body.theme-day .negative{color:var(--day-danger)!important}
+body.theme-day .data-status.stale,
+body.theme-day .market-error,
+body.theme-day .swap-message,
+body.theme-day .draft-label,
+body.theme-day .state-tag.amber,
+body.theme-day .provider-state{color:var(--day-warning)!important}
+body.theme-day button:focus-visible,
+body.theme-day a:focus-visible,
+body.theme-day input:focus-visible,
+body.theme-day select:focus-visible,
+body.theme-day textarea:focus-visible{
+  outline-color:var(--day-focus)!important;
+  box-shadow:0 0 0 3px #006b4530;
+}
+body.theme-day .btn-primary{
+  background:var(--day-green)!important;
+  border-color:var(--day-green)!important;
+  color:#fff!important;
+}
+body.theme-day .btn-primary *{color:#fff!important}
+body.theme-day .btn-outline{
+  background:transparent!important;
+  border-color:var(--day-green)!important;
+  color:var(--day-green-dark)!important;
+}
+body.theme-day .btn-outline *{color:var(--day-green-dark)!important}
+body.theme-day .terminal-main > *,
+body.theme-day .terminal-primary > *,
+body.theme-day .community-rail > *,
+body.theme-day .document-page > *,
+body.theme-day .directory-page > *,
+body.theme-day .watchlist-page > *,
+body.theme-day .chat-page > *,
+body.theme-day .asset-command-page > *,
+body.theme-day .fee-back-center > *,
+body.theme-day .feecat-command > *,
+body.theme-day .meta-launch-page > *{
+  border-color:var(--line);
+}
+body.theme-day .market-section,
+body.theme-day .token-focus,
+body.theme-day .community-chat,
+body.theme-day .activity-section,
+body.theme-day .quick-actions,
+body.theme-day .launchpad-card,
+body.theme-day .degen-panel,
+body.theme-day .fee-heartbeat,
+body.theme-day .alpha-tape,
+body.theme-day .intelligence-card,
+body.theme-day .fee-flow,
+body.theme-day .feeback-calculator,
+body.theme-day .swap-order,
+body.theme-day .route-intelligence,
+body.theme-day .meta-launch-section,
+body.theme-day .meta-launch-readiness,
+body.theme-day .meta-launch-review-page,
+body.theme-day .trenches-chart-panel,
+body.theme-day .trenches-stages,
+body.theme-day .degen-coins-popover{
+  background:var(--day-surface)!important;
+  border-color:var(--day-border)!important;
+  color:var(--day-ink)!important;
+}
+body.theme-day .pulse-cell,
+body.theme-day .tokenomics,
+body.theme-day .context-platforms,
+body.theme-day .feed-summary,
+body.theme-day .heartbeat-visual,
+body.theme-day .flow-explanation,
+body.theme-day .fee-preview,
+body.theme-day .fee-back-summary,
+body.theme-day .command-section-title,
+body.theme-day .swap-order .command-section-title,
+body.theme-day .route-intelligence .command-section-title{
+  background:var(--day-surface-alt)!important;
+  color:var(--day-ink)!important;
+  border-color:var(--line)!important;
+}
+body.theme-day .terminal-header *,
+body.theme-day .market-ticker *,
+body.theme-day .terminal-sidebar *,
+body.theme-day .context-bar *,
+body.theme-day .command-section-title *,
+body.theme-day .swap-order *,
+body.theme-day .route-intelligence *,
+body.theme-day .launchpad-card *,
+body.theme-day .degen-panel *,
+body.theme-day .community-chat *,
+body.theme-day .fee-heartbeat *,
+body.theme-day .meta-launch-page *{
+  border-color:inherit;
+}
+body.theme-day .sidebar-link,
+body.theme-day .market-tabs button,
+body.theme-day .segmented button,
+body.theme-day .chat-tabs button,
+body.theme-day .trenches-stage-tabs button,
+body.theme-day .heartbeat-chart-timeframes button,
+body.theme-day .slippage-controls button,
+body.theme-day .meta-launch-provider-option,
+body.theme-day .trenches-coin,
+body.theme-day .quick-grid a,
+body.theme-day .token-actions>a,
+body.theme-day .token-actions>button{
+  background:var(--day-surface)!important;
+  border-color:var(--day-border)!important;
+  color:var(--day-green-dark)!important;
+}
+body.theme-day .sidebar-link.active,
+body.theme-day .sidebar-link:hover,
+body.theme-day .market-tabs button.active,
+body.theme-day .segmented button.active,
+body.theme-day .chat-tabs button.active,
+body.theme-day .trenches-stage-tabs button.active,
+body.theme-day .heartbeat-chart-timeframes button.active{
+  background:#d8f4e3!important;
+  color:var(--day-green-dark)!important;
+  border-color:#68b88b!important;
+}
+body.theme-day .token-actions .primary-action,
+body.theme-day .token-actions .primary-action *,
+body.theme-day .flow-track .current>span{
+  background:var(--day-green)!important;
+  border-color:var(--day-green)!important;
+  color:#fff!important;
+}
+body.theme-day .chart-area,
+body.theme-day .heartbeat-chart-panel .chart-area{
+  background:var(--day-surface)!important;
+  border-color:var(--day-border)!important;
+}
+body.theme-day .chart-message,
+body.theme-day .heartbeat-chart-empty,
+body.theme-day .truth-empty,
+body.theme-day .empty-focus,
+body.theme-day .empty-table,
+body.theme-day .chat-empty,
+body.theme-day .alpha-waiting{
+  color:var(--day-muted)!important;
+}
+body.theme-day .chart-message strong,
+body.theme-day .chart-message span,
+body.theme-day .heartbeat-chart-empty *,
+body.theme-day .truth-empty *{color:var(--day-ink)!important}
+body.theme-day .market-error{
+  background:#fff8e1!important;
+  border-color:#c49a36!important;
+}
+body.theme-day .market-error *,
+body.theme-day .swap-message *{color:var(--day-warning)!important}
+body.theme-day .landing-menu{
+  background:var(--day-surface)!important;
+  border-color:var(--day-border)!important;
+  box-shadow:0 15px 40px #10251a24;
+}
+body.theme-day .globe-layout .node-chips>button,
+body.theme-day .globe-layout .degen-coins-tab{
+  background:var(--day-surface)!important;
+  color:var(--day-ink)!important;
+  border-color:var(--day-border)!important;
+  box-shadow:none;
+}
+body.theme-day .globe-layout .node-chips>button.active,
+body.theme-day .globe-layout .node-chips>button:hover,
+body.theme-day .globe-layout .degen-coins-tab:hover{
+  background:#d8f4e3!important;
+  color:var(--day-green-dark)!important;
+}
+body.theme-day .globe-layout .node-initial{color:var(--node-color)!important}
+body.theme-day .globe-layout .node-chips small,
+body.theme-day .globe-bottom-note,
+body.theme-day .globe-coordinate-label,
+body.theme-day .globe-legend,
+body.theme-day .node-directory-heading>a{
+  color:var(--day-muted)!important;
+}
+body.theme-day .globe-webgl-fallback{
+  background:radial-gradient(circle at 42% 38%, #b7e4c8, #e7f5eb 52%, #c7e5d1 74%)!important;
+  box-shadow:0 0 45px #08764e20, inset -20px -16px 35px #40654f35!important;
+}
+body.theme-day .globe-fallback-orbit-primary{border-color:#08764e70!important}
+body.theme-day .globe-fallback-orbit-secondary{border-color:#40654f70!important}
+body.theme-day .globe-fallback-status{color:var(--day-green-dark)!important}
+body.theme-day .globe-fallback-node{
+  background:#ffffffeb!important;
+  color:var(--day-ink)!important;
+  border-color:var(--node-color)!important;
+}
+body.theme-day .globe-point-tooltip{
+  background:#fff!important;
+  color:var(--day-ink)!important;
+  box-shadow:0 0 12px #08764e38!important;
+}
+body.theme-day .feeless-dialog,
+body.theme-day .pdf-preview-dialog{
+  background:var(--day-surface)!important;
+  color:var(--day-ink)!important;
+  border-color:var(--day-border)!important;
+  box-shadow:0 18px 60px #10251a30;
+}
+body.theme-day .feeless-dialog *,
+body.theme-day .pdf-preview-dialog *{color:var(--day-ink)}
+body.theme-day .feeless-dialog>p,
+body.theme-day .pdf-preview-dialog>p,
+body.theme-day .wallet-options small,
+body.theme-day .wallet-note,
+body.theme-day .pdf-reader-toolbar,
+body.theme-day .pdf-render-status{color:var(--day-muted)!important}
+body.theme-day .wallet-options>button,
+body.theme-day .wallet-address,
+body.theme-day .native-pdf-reader,
+body.theme-day .pdf-preview-frame{
+  background:var(--day-surface-alt)!important;
+  border-color:var(--day-border)!important;
+  color:var(--day-ink)!important;
+}
+body.theme-day .wallet-address{color:var(--day-green-dark)!important}
+body.theme-day .loader{border-color:#9abda866;border-top-color:var(--day-green)}
+body.theme-day .terminal-footer{color:var(--day-muted)!important;border-color:var(--line)!important}
+body.theme-day .terminal-footer *{color:var(--day-green-dark)!important}
+
+/* Globe terminal CTAs stay unmistakable when the page switches palettes. */
+.globe-terminal-cta{
+  min-height:44px;
+  padding:12px 18px;
+  font-weight:700;
+  letter-spacing:.1px;
+}
+.globe-terminal-cta:focus-visible{
+  outline-offset:4px;
+}
+body.theme-day .globe-terminal-cta,
+body.theme-day .globe-terminal-cta:hover{
+  background:var(--day-green-dark)!important;
+  border-color:var(--day-green-dark)!important;
+  color:#fff!important;
+  box-shadow:0 3px 0 #043d2a;
+}
+body.theme-day .globe-terminal-cta *,
+body.theme-day .globe-terminal-cta:hover *{color:#fff!important}
+
 /* Readability and ecosystem panel hierarchy overrides. */
 .terminal-app{font-size:14px}
 .terminal-app .eyebrow,.globe-page .eyebrow{font-size:11px}
