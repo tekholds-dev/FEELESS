@@ -29,8 +29,11 @@ html{scroll-behavior:smooth;background:var(--ink)}body{font-family:'Outfit',sans
 @media(max-width:400px){.landing-copy h1{font-size:39px}.landing-copy .eyebrow{font-size:6px}.landing-copy .btn-primary{font-size:11px;padding-inline:12px}.landing-copy .landing-whitepaper{font-size:9px;margin-left:12px}.node-chips{grid-template-columns:repeat(2,minmax(0,1fr))}.with-panel .node-chips{grid-template-columns:repeat(2,minmax(0,1fr))}.node-directory-heading{gap:9px}.node-group-switch button{font-size:10px}.node-group-switch{gap:10px}.node-directory-heading>a{font-size:8px}.node-group-switch svg{width:12px}.landing-copy .eyebrow .live-dot{width:4px;height:4px}}
 
 /* Header theme switch: keep the same terminal layout while changing contrast. */
-body.theme-day{--ink:#edf6f0;--panel:#ffffff;--line:#c6d8cc;--muted:#557365;--paper:#10251a;color:var(--paper)!important;background:var(--ink)!important}
+body.theme-day{--ink:#edf6f0;--panel:#ffffff;--line:#c6d8cc;--muted:#557365;--paper:#10251a;color:#10251a!important;background:var(--ink)!important}
 body.theme-day .terminal-app,body.theme-day .globe-page{background:#edf6f0!important;color:var(--paper)!important}
+body.theme-day .terminal-main,body.theme-day .terminal-main h1,body.theme-day .terminal-main h2,body.theme-day .terminal-main h3,body.theme-day .terminal-main p,body.theme-day .terminal-main span,body.theme-day .terminal-main strong,body.theme-day .terminal-main dd,body.theme-day .terminal-main dt{color:#10251a}
+body.theme-day .terminal-main .eyebrow,body.theme-day .terminal-main .live-dot,body.theme-day .terminal-main .positive,body.theme-day .terminal-main a,body.theme-day .terminal-main .section-more{color:#08764e}
+body.theme-day .terminal-main small,body.theme-day .terminal-main .muted,body.theme-day .terminal-main .provider-note{color:#496c58}
 body.theme-day .terminal-header{background:#f8fcf9;border-color:var(--line)}
 body.theme-day .terminal-search{background:#fff;border-color:#b7cfc0;color:#557365}
 body.theme-day .terminal-search input{color:#10251a}

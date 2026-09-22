@@ -4,6 +4,7 @@ import { Download, FileText, ArrowUpRight, Check, Activity, Wallet, ShieldCheck 
 import { useMarket } from '../../hooks/useMarket';
 import { useWorkspace, CONTEXTS } from '../../hooks/useWorkspace';
 import { useWallet } from '../../hooks/useWallet';
+import { apiUrl } from '../../lib/api';
 import { FeelessMark } from '../FeelessLogo';
 import { FeeBackFlow } from './FeeBack';
 import { Tokenomics } from './FeeCommand';
@@ -12,13 +13,13 @@ import { PdfReader } from './PdfReader';
 
 const WhitepaperContents = () => {
   const { data, error } = useMarket('/api/docs/whitepaper', 0);
-  const base = `${process.env.REACT_APP_BACKEND_URL}/api/docs/whitepaper.pdf`;
+  const base = apiUrl('/api/docs/whitepaper.pdf');
   return <article className="document-page command-whitepaper"><div className="document-header"><FeelessMark size={68} /><span className="draft-label" data-testid="whitepaper-version">WHITEPAPER / VERSION {data?.version || '1.0'}</span><h1>FEELESS<span>Less Noise. More Alpha.</span></h1><p>A FeeLess Future.</p><div className="whitepaper-actions"><a className="btn-primary" data-testid="whitepaper-download-pdf" href={`${base}?download=true`}><Download size={15} />Download PDF</a><a className="btn-outline" data-testid="whitepaper-view-pdf" href={base} target="_blank" rel="noreferrer"><FileText size={15} />View whitepaper PDF</a></div><small>Same source document as this web edition. Policy, implementation status and risks disclosed.</small></div>{error && <p className="market-error" data-testid="whitepaper-error">{error}</p>}{data && <><div className="contract-registry"><span className="eyebrow">OWNER-SUPPLIED / SOLANA CONTRACT REGISTRY</span>{data.contracts.map(c => <a key={c.name} data-testid={`whitepaper-contract-${c.name.toLowerCase()}`} href={`https://solscan.io/token/${c.mint}`} target="_blank" rel="noreferrer"><b>{c.name}</b><code>{c.mint}</code><ArrowUpRight size={13} /></a>)}</div><div className="document-body"><nav className="document-toc">{data.chapters.map(c => <a key={c.id} data-testid={`whitepaper-toc-${c.number}`} href={`#${c.id}`}><span>{String(c.number).padStart(2, '0')}</span>{c.title}</a>)}</nav><div>{data.chapters.map(c => <section id={c.id} key={c.id}><span className="eyebrow">{String(c.number).padStart(2, '0')} / FEELESS</span><h2>{c.title}</h2><p data-testid={`whitepaper-chapter-${c.number}`}>{c.text}</p></section>)}</div></div></>}</article>;
 };
 
 export const CommandWhitepaper = () => {
   const [preview, setPreview] = useState(false);
-  const pdf = `${process.env.REACT_APP_BACKEND_URL}/api/docs/whitepaper.pdf`;
+  const pdf = apiUrl('/api/docs/whitepaper.pdf');
   return <div data-testid="whitepaper-workspace" onClickCapture={event => {
     if (event.target.closest?.('[data-testid="whitepaper-view-pdf"]')) { event.preventDefault(); setPreview(true); }
   }}><WhitepaperContents /><Dialog open={preview} onOpenChange={setPreview}><DialogContent className="pdf-preview-dialog" data-testid="whitepaper-pdf-dialog"><DialogTitle>FEELESS / Whitepaper</DialogTitle><DialogDescription>Version 1.0 · The same source as the interactive web edition.</DialogDescription><PdfReader url={pdf} /><div className="pdf-preview-actions"><a className="btn-primary" data-testid="pdf-dialog-download" href={`${pdf}?download=true`}><Download size={14} />Download PDF</a><a className="btn-outline" data-testid="pdf-dialog-open-direct" href={pdf} target="_blank" rel="noreferrer">Open file directly<ArrowUpRight size={14} /></a></div></DialogContent></Dialog></div>;

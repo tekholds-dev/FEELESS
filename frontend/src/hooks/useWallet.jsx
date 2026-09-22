@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 const WalletContext = createContext(null);
+const solanaProvider = () => window.phantom?.solana || window.solana;
+const evmProvider = () => window.ethereum || window.phantom?.ethereum;
 export const WalletProvider = ({ children }) => {
   const [wallet, setWallet] = useState(null);
   const [provider, setProvider] = useState(null);
   const connect = async type => {
-    const p = type === 'solana' ? window.phantom?.solana : window.ethereum || window.phantom?.ethereum;
+    const p = type === 'solana' ? solanaProvider() : evmProvider();
     if (!p) throw new Error(type === 'solana' ? 'Phantom is not installed in this browser.' : 'No EVM wallet detected in this browser.');
     if (type === 'solana') {
       const result = await p.connect();

@@ -3,7 +3,8 @@ import { Send, MessageCircle } from 'lucide-react';
 import { searchTokenByAddress, formatTime } from '../lib/dexscreener';
 import TokenCard from './TokenCard';
 import { IntelligenceCard } from './command/IntelligenceCard';
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { apiUrl } from '../lib/api';
+const API = apiUrl('/api');
 const detectAddress = text => text.match(/\b0x[a-fA-F0-9]{40}\b/)?.[0] || text.match(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/)?.[0];
 
 export default function EcosystemChat({ ecosystem, compact = false }) {

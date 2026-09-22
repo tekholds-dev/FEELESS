@@ -1,10 +1,11 @@
-const API = `${process.env.REACT_APP_BACKEND_URL}/api/market`;
-export const DEX_SITE = process.env.REACT_APP_DEX_SITE_URL;
+import { apiUrl } from './api';
+
+export const DEX_SITE = process.env.REACT_APP_DEX_SITE_URL || 'https://dexscreener.com';
 export const MARKET_RETENTION_DAYS = 14;
 export const NEW_POOL_DEAL_PERCENT = 5;
 
 export async function marketRequest(path, signal) {
-  const res = await fetch(path.startsWith('/api/') ? `${process.env.REACT_APP_BACKEND_URL}${path}` : `${API}${path}`, { signal });
+  const res = await fetch(apiUrl(path.startsWith('/api/') ? path : `/api/market${path}`), { signal });
   const data = await res.json();
   if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Market data unavailable');
   return data;

@@ -15,6 +15,11 @@ from pydantic import BaseModel, Field
 NETWORKS = {'solana': 'solana', 'ethereum': 'eth', 'base': 'base', 'bsc': 'bsc',
             'arbitrum': 'arbitrum', 'avalanche': 'avax', 'polygon': 'polygon_pos', 'sui': 'sui'}
 REVERSE_NETWORKS = {v: k for k, v in NETWORKS.items()}
+DEFAULT_MINTS = {
+    'FEE': '49MmWE8sgNjuw342Eu7tB9thsVFtvTfKigUw9KSppump',
+    'FEECAT': 'AsX2abSJ2HqPqRxUbeYXE5R5ksrmUDz6BMGpg9mDpump',
+    'RFEE': '2vZjg2w58k4urtdNWPnNHizuSxesLCozQ5Pq9xxqNray',
+}
 MARKET_CACHE_RETENTION = timedelta(days=14)
 NEW_POOL_DEAL_PERCENT = 5
 
@@ -69,7 +74,7 @@ def normalise_pools(payload):
         pairs.append({
             'chainId': chain, 'network': network, 'pairAddress': a['address'],
             'dexId': rel.get('dex', {}).get('data', {}).get('id', 'unknown'),
-            'url': f"{os.environ['DEX_SITE_URL']}/{chain}/{a['address']}",
+            'url': f"{os.getenv('DEX_SITE_URL', 'https://dexscreener.com')}/{chain}/{a['address']}",
             'baseToken': {'address': base.get('address', base_id.split('_', 1)[-1]),
                           'name': base.get('name', a.get('name', 'Unknown')),
                           'symbol': base.get('symbol', a.get('name', '?').split(' / ')[0])},
@@ -90,7 +95,10 @@ def create_market_router(db, intelligence=None):
     locks = defaultdict(asyncio.Lock)
     requests = defaultdict(deque)
     cooldown = {}
-    bases = {'DexScreener': os.environ['DEX_API_URL'], 'GeckoTerminal': os.environ['GECKO_API_URL']}
+    bases = {
+        'DexScreener': os.getenv('DEX_API_URL', 'https://api.dexscreener.com'),
+        'GeckoTerminal': os.getenv('GECKO_API_URL', 'https://api.geckoterminal.com/api/v2'),
+    }
 
     async def cached(provider, path, params=None, ttl=60):
         params = params or {}
@@ -181,7 +189,7 @@ def create_market_router(db, intelligence=None):
     async def assets():
         items = []
         for name in ['FEE', 'RFEE', 'FEECAT']:
-            mint = os.environ[f'{name}_MINT']
+            mint = os.getenv(f'{name}_MINT', DEFAULT_MINTS[name])
             try:
                 data, meta = await cached('DexScreener', f'/token-pairs/v1/solana/{mint}', ttl=90)
                 pairs = [p for p in data if p.get('baseToken', {}).get('address') == mint]

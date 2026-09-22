@@ -6,8 +6,9 @@ import { useWallet } from '../../hooks/useWallet';
 import { useClock } from './WorkspaceChrome';
 import { FeeBackPreview } from './FeeBack';
 import { formatUSD, shortAddress } from '../../lib/dexscreener';
+import { apiUrl } from '../../lib/api';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api/trading`;
+const API = apiUrl('/api/trading');
 const SOL = 'So11111111111111111111111111111111111111112';
 const solAsset = { id: 'sol', mint: SOL, symbol: 'SOL', name: 'Solana', chain: 'solana', decimals: 9 };
 function assetFromPair(pair) {
@@ -48,7 +49,15 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
   const remaining = order ? Math.max(0, Math.ceil(order.expires_at - now / 1000)) : 0;
   const quote = order?.quote;
   useEffect(() => { setOrder(null); setResult(null); setMessage(''); setReview(false); }, [inputMint, outputMint, chain, amount, slippage, wallet?.address]);
-  useEffect(() => { if (selectedPairAsset?.mint) { setOutputMint(selectedPairAsset.mint); setInputMint(SOL); } }, [selectedPairAsset?.mint]);
+  useEffect(() => {
+    if (selectedPairAsset?.mint) {
+      setOutputMint(selectedPairAsset.mint);
+      setInputMint(SOL);
+    } else if (feeAsset?.mint && (outputMint === SOL || !options.some(asset => asset.mint === outputMint))) {
+      setOutputMint(feeAsset.mint);
+      setInputMint(SOL);
+    }
+  }, [selectedPairAsset?.mint, feeAsset?.mint, options, outputMint]);
   const reverse = () => { setInputMint(outputMint); setOutputMint(inputMint); };
   const loadQuote = async () => {
     if (lock.current) return; lock.current = true; setBusy(true); setMessage(''); setOrder(null); setResult(null);

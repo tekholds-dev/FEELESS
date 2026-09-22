@@ -4,6 +4,7 @@ import { Activity, ArrowUpRight, Globe2, ScanLine, Radio, X } from 'lucide-react
 import { useWorkspace, CONTEXTS } from '../../hooks/useWorkspace';
 import { useMarket } from '../../hooks/useMarket';
 import { formatTime, formatPct, formatUSD } from '../../lib/dexscreener';
+import { apiUrl } from '../../lib/api';
 import { TokenAvatar } from '../terminal/MarketPrimitives';
 
 export const useClock = (ms = 1000) => {
@@ -60,7 +61,7 @@ export const ContractScanner = ({ onResolved }) => {
   const scan = async e => {
     e.preventDefault(); setBusy(true); setError(''); setResult(null);
     try {
-      const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/market/scan?address=${encodeURIComponent(input.trim())}&context=${ecosystem.id}`);
+      const res = await fetch(apiUrl(`/api/market/scan?address=${encodeURIComponent(input.trim())}&context=${ecosystem.id}`));
       const data = await res.json();
       if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Enter a valid SPL or EVM contract address.');
       if (!data.pairs.length) throw new Error('No exact provider match for this contract.');
