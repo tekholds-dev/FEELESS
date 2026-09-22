@@ -2,10 +2,12 @@ import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import Landing from './Landing';
+import { ECOSYSTEMS } from '../lib/ecosystems';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const mockSetEcosystem = jest.fn();
+const selectableEcosystems = ECOSYSTEMS.filter(ecosystem => !ecosystem.isFeeless);
 
 jest.mock('react-router-dom', () => {
   const mockReact = require('react');
@@ -119,5 +121,24 @@ test('keeps the open coin radar attached when switching ecosystems', () => {
   act(() => container.querySelector('[data-testid="mock-new-coins"]').focus());
   expect(document.activeElement).toBe(container.querySelector('[data-testid="mock-new-coins"]'));
   expect(rail.classList.contains('is-open')).toBe(true);
+  act(() => root.unmount());
+});
+
+test('opens every ecosystem from the directory without breaking either coin feed', () => {
+  setViewport(false);
+  const { container, root } = mount();
+
+  act(() => container.querySelector('[data-testid="globe-filter-ecosystems"]').click());
+  selectableEcosystems.forEach(ecosystem => {
+    const node = container.querySelector(`[data-testid="globe-node-${ecosystem.id}"]`);
+    expect(node).toBeTruthy();
+
+    act(() => node.click());
+    expect(container.querySelector('[data-testid="degen-panel-name"]').textContent).toBe(ecosystem.name);
+    expect(container.querySelector('[data-testid="mock-radar-ecosystem"]').textContent).toBe(ecosystem.name);
+    expect(container.querySelector('[data-testid="mock-top-coins"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="mock-new-coins"]')).toBeTruthy();
+  });
+
   act(() => root.unmount());
 });

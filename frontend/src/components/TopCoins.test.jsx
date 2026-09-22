@@ -2,6 +2,7 @@ import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import TopCoins from './TopCoins';
+import { ECOSYSTEMS } from '../lib/ecosystems';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -24,25 +25,62 @@ jest.mock('./terminal/MarketPrimitives', () => ({
 jest.mock('./TokenCard', () => ({ pair }) => <div data-testid="token-card">{pair.baseToken.symbol}</div>);
 
 const ecosystem = { id: 'ethereum', name: 'Ethereum', chainId: 'ethereum' };
+const selectableEcosystems = ECOSYSTEMS.filter(item => !item.isFeeless);
 
-function renderFeeds(results) {
-  marketResults['/feed?kind=trending&chain=ethereum'] = results.top;
-  marketResults['/feed?kind=new&chain=ethereum'] = results.new;
+function renderFeeds(selectedEcosystem, results) {
+  marketResults[`/feed?kind=trending&chain=${selectedEcosystem.chainId}`] = results.top;
+  marketResults[`/feed?kind=new&chain=${selectedEcosystem.chainId}`] = results.new;
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
-  act(() => root.render(<TopCoins ecosystem={ecosystem} />));
+  act(() => root.render(<TopCoins ecosystem={selectedEcosystem} />));
   return { container, root };
 }
 
 afterEach(() => {
   document.body.innerHTML = '';
-  delete marketResults['/feed?kind=trending&chain=ethereum'];
-  delete marketResults['/feed?kind=new&chain=ethereum'];
+  Object.keys(marketResults).forEach(path => delete marketResults[path]);
+});
+
+selectableEcosystems.forEach(selectedEcosystem => {
+  test(`names ${selectedEcosystem.name} in loading states for both feeds`, () => {
+    const { container, root } = renderFeeds(selectedEcosystem, {
+      top: { data: undefined, loading: true },
+      new: { data: undefined, loading: true },
+    });
+
+    expect(container.querySelector('[data-testid="globe-coins-trending-loading"]').textContent)
+      .toBe(`Loading top coins for ${selectedEcosystem.name}…`);
+    expect(container.querySelector('[data-testid="globe-coins-new-loading"]').textContent)
+      .toBe(`Loading new coins for ${selectedEcosystem.name}…`);
+    act(() => root.unmount());
+  });
+
+  test(`names ${selectedEcosystem.name} in empty states and keeps them focusable`, () => {
+    const { container, root } = renderFeeds(selectedEcosystem, {
+      top: { data: { pairs: [] }, loading: false },
+      new: { data: { pairs: [] }, loading: false },
+    });
+
+    const topEmpty = container.querySelector('[data-testid="globe-coins-trending-empty"]');
+    const newEmpty = container.querySelector('[data-testid="globe-coins-new-empty"]');
+    expect(topEmpty.textContent).toBe(`No top coins available for ${selectedEcosystem.name} in this provider feed.`);
+    expect(newEmpty.textContent).toBe(`No new coins available for ${selectedEcosystem.name} in this provider feed.`);
+    expect(topEmpty.getAttribute('role')).toBe('status');
+    expect(newEmpty.getAttribute('role')).toBe('status');
+    expect(topEmpty.getAttribute('tabindex')).toBe('0');
+    expect(newEmpty.getAttribute('tabindex')).toBe('0');
+
+    act(() => topEmpty.focus());
+    expect(document.activeElement).toBe(topEmpty);
+    act(() => newEmpty.focus());
+    expect(document.activeElement).toBe(newEmpty);
+    act(() => root.unmount());
+  });
 });
 
 test('names the ecosystem in loading and empty states for both feeds', () => {
-  const { container, root } = renderFeeds({
+  const { container, root } = renderFeeds(ecosystem, {
     top: { data: undefined, loading: true },
     new: { data: { pairs: [] }, loading: false },
   });
@@ -57,7 +95,7 @@ test('names the ecosystem in loading and empty states for both feeds', () => {
 
 test('shows an ecosystem-specific, keyboard-reachable error without an empty state', () => {
   const reload = jest.fn();
-  const { container, root } = renderFeeds({
+  const { container, root } = renderFeeds(ecosystem, {
     top: { data: undefined, loading: false, error: 'Provider unavailable', reload },
     new: { data: undefined, loading: false, error: 'Timed out', reload },
   });
@@ -67,7 +105,39 @@ test('shows an ecosystem-specific, keyboard-reachable error without an empty sta
   expect(topError.getAttribute('role')).toBe('alert');
   expect(topError.getAttribute('tabindex')).toBe('0');
   expect(topError.querySelector('[data-testid="globe-coins-trending-error-retry"]').getAttribute('aria-label')).toBe('Retry top coins for Ethereum');
+  const newError = container.querySelector('[data-testid="globe-coins-new-error"]');
+  expect(newError.textContent).toContain('Unable to load new coins for Ethereum. Timed out');
+  expect(newError.getAttribute('role')).toBe('alert');
+  expect(newError.getAttribute('tabindex')).toBe('0');
+  act(() => newError.focus());
+  expect(document.activeElement).toBe(newError);
+  expect(newError.querySelector('[data-testid="globe-coins-new-error-retry"]').getAttribute('aria-label')).toBe('Retry new coins for Ethereum');
   expect(container.querySelector('[data-testid="globe-coins-trending-empty"]')).toBeNull();
   expect(container.querySelector('[data-testid="globe-coins-new-empty"]')).toBeNull();
   act(() => root.unmount());
+});
+
+selectableEcosystems.forEach(selectedEcosystem => {
+  test(`names ${selectedEcosystem.name} in error states and keeps them focusable`, () => {
+    const reload = jest.fn();
+    const { container, root } = renderFeeds(selectedEcosystem, {
+      top: { data: undefined, loading: false, error: 'Provider unavailable', reload },
+      new: { data: undefined, loading: false, error: 'Timed out', reload },
+    });
+
+    const topError = container.querySelector('[data-testid="globe-coins-trending-error"]');
+    const newError = container.querySelector('[data-testid="globe-coins-new-error"]');
+    expect(topError.textContent).toContain(`Unable to load top coins for ${selectedEcosystem.name}. Provider unavailable`);
+    expect(newError.textContent).toContain(`Unable to load new coins for ${selectedEcosystem.name}. Timed out`);
+    expect(topError.getAttribute('role')).toBe('alert');
+    expect(newError.getAttribute('role')).toBe('alert');
+    expect(topError.getAttribute('tabindex')).toBe('0');
+    expect(newError.getAttribute('tabindex')).toBe('0');
+
+    act(() => topError.focus());
+    expect(document.activeElement).toBe(topError);
+    act(() => newError.focus());
+    expect(document.activeElement).toBe(newError);
+    act(() => root.unmount());
+  });
 });
