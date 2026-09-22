@@ -47,3 +47,13 @@ test('preserves the existing night palette outside the daylight scope', () => {
   expect(css).toContain('.terminal-header{height:82px');
   expect(css).toContain('background:#070d0b');
 });
+
+test('keeps ambient backgrounds theme-aware and motion-safe', () => {
+  const appCss = fs.readFileSync(path.join(__dirname, '..', 'App.css'), 'utf8');
+  expect(appCss).toContain('.ambient-background');
+  expect(appCss).toContain('body.theme-day .ambient-background');
+  expect(appCss).toContain('body.reduced-motion-setting .ambient-background');
+  expect(appCss).toContain('@media (prefers-reduced-motion: reduce)');
+  expect(appCss).toContain('pointer-events: none');
+  expect(appCss).toContain('width: clamp(220px, 32vw, 560px)');
+});

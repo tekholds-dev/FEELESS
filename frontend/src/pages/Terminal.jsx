@@ -42,6 +42,10 @@ export default function Terminal() {
   const reducedMotion = normalizeReducedMotion(settings.reducedMotion);
   const fontScale = normalizeFontScale(settings.fontScale);
   const chartInterval = normalizeChartInterval(settings.chartInterval);
+  useEffect(() => {
+    document.body.classList.toggle('reduced-motion-setting', reducedMotion);
+    return () => document.body.classList.remove('reduced-motion-setting');
+  }, [reducedMotion]);
   const tab = params.get('mode') || (['new', 'pump'].includes(page) ? 'new' : 'trending');
   const kind = ['new', 'pump'].includes(page) || tab === 'new' ? 'new' : 'trending';
   const cadence = page === 'pump' ? 15000 : autoRefresh ? 90000 : 0;

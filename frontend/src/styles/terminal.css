@@ -830,3 +830,9 @@ body.theme-day .pump-radar-summary b,.theme-day .pump-radar-token b,.theme-day .
   .token-analytics-grid{grid-template-columns:1fr}
   .token-analytics-heading{align-items:flex-start;flex-direction:column;gap:4px}
 }
+
+/* Ambient background sits behind both shells; page roots must stay transparent. */
+.terminal-app,
+.globe-page,
+body.theme-day .terminal-app,
+body.theme-day .globe-page{background:transparent!important}

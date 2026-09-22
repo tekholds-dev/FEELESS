@@ -1,6 +1,153 @@
 .App {
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
   background: #03080a;
+}
+
+.app-content {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+}
+
+.ambient-background {
+  --ambient-start: #06130e;
+  --ambient-end: #020705;
+  --ambient-grid: rgba(54, 169, 111, .08);
+  --ambient-glow-one: rgba(0, 233, 160, .14);
+  --ambient-glow-two: rgba(76, 130, 255, .09);
+  --ambient-line: rgba(111, 228, 165, .14);
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 14% 18%, var(--ambient-glow-one), transparent 30%),
+    radial-gradient(circle at 82% 74%, var(--ambient-glow-two), transparent 34%),
+    linear-gradient(135deg, var(--ambient-start), var(--ambient-end));
+}
+
+.ambient-grid {
+  position: absolute;
+  inset: -20%;
+  opacity: .7;
+  background-image:
+    linear-gradient(var(--ambient-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ambient-grid) 1px, transparent 1px);
+  background-size: 72px 72px;
+  transform: perspective(700px) rotateX(58deg) translateY(16%);
+  transform-origin: center bottom;
+  mask-image: linear-gradient(to top, black, transparent 72%);
+}
+
+.ambient-orb {
+  position: absolute;
+  width: clamp(220px, 32vw, 560px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  filter: blur(2px);
+  mix-blend-mode: screen;
+  opacity: .75;
+}
+
+.ambient-orb-one {
+  top: -18%;
+  left: -8%;
+  background: radial-gradient(circle at 48% 52%, var(--ambient-glow-one), transparent 67%);
+  animation: ambient-drift-one 18s ease-in-out infinite alternate;
+}
+
+.ambient-orb-two {
+  right: -12%;
+  bottom: -24%;
+  background: radial-gradient(circle at 45% 45%, var(--ambient-glow-two), transparent 66%);
+  animation: ambient-drift-two 22s ease-in-out infinite alternate;
+}
+
+.ambient-orbit {
+  position: absolute;
+  width: min(60vw, 920px);
+  aspect-ratio: 2.5 / 1;
+  border: 1px solid var(--ambient-line);
+  border-radius: 50%;
+  opacity: .45;
+  transform: rotate(-18deg);
+}
+
+.ambient-orbit-one {
+  top: 7%;
+  right: -18%;
+  animation: ambient-orbit-one 26s linear infinite;
+}
+
+.ambient-orbit-two {
+  bottom: 3%;
+  left: -25%;
+  transform: rotate(24deg);
+  opacity: .3;
+  animation: ambient-orbit-two 32s linear infinite reverse;
+}
+
+.ambient-scanline {
+  position: absolute;
+  inset: 0;
+  opacity: .18;
+  background: repeating-linear-gradient(0deg, transparent 0 5px, var(--ambient-line) 6px, transparent 7px);
+  mask-image: linear-gradient(to bottom, transparent, black 25%, transparent 80%);
+  animation: ambient-scan 14s linear infinite;
+}
+
+@keyframes ambient-drift-one {
+  from { transform: translate3d(-2%, -1%, 0) scale(.94); }
+  to { transform: translate3d(12%, 9%, 0) scale(1.08); }
+}
+
+@keyframes ambient-drift-two {
+  from { transform: translate3d(4%, 2%, 0) scale(1.04); }
+  to { transform: translate3d(-12%, -8%, 0) scale(.92); }
+}
+
+@keyframes ambient-orbit-one {
+  from { transform: rotate(-18deg) translateX(-2%); }
+  to { transform: rotate(342deg) translateX(-2%); }
+}
+
+@keyframes ambient-orbit-two {
+  from { transform: rotate(24deg) translateX(-3%); }
+  to { transform: rotate(-336deg) translateX(-3%); }
+}
+
+@keyframes ambient-scan {
+  from { transform: translateY(-8%); }
+  to { transform: translateY(8%); }
+}
+
+body.theme-day {
+  --ambient-day-start: #f6fbf7;
+  --ambient-day-end: #dcefe3;
+}
+
+body.theme-day .ambient-background {
+  --ambient-start: var(--ambient-day-start);
+  --ambient-end: var(--ambient-day-end);
+  --ambient-grid: rgba(8, 118, 78, .1);
+  --ambient-glow-one: rgba(8, 118, 78, .16);
+  --ambient-glow-two: rgba(33, 130, 164, .1);
+  --ambient-line: rgba(8, 118, 78, .16);
+  mix-blend-mode: multiply;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-background *,
+  body.reduced-motion-setting .ambient-background * {
+    animation: none !important;
+  }
+}
+
+body.reduced-motion-setting .ambient-background * {
+  animation: none !important;
 }
 
 .app-fatal {
