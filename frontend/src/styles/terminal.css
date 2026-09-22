@@ -61,6 +61,25 @@ body.theme-day .globe-page .landing-copy h1,body.theme-day .globe-page .landing-
 .coin-feed-heading .data-status{font-size:8px}
 .coin-feed-list{padding:0 12px 4px;max-height:255px;overflow-y:auto}
 .coin-feed-list .mini-token-card{margin-top:7px}
+.coin-feed-source{display:block;color:#789985;font-size:9px;margin-top:4px}
+.coin-feed-source a,.top-coins>.provider-note a{color:var(--mint);text-decoration:underline;text-underline-offset:2px}
+.feeless-coin-cards{padding:14px 12px 16px;border-bottom:1px solid #2c4c35;background:#07130c}
+.feeless-coin-cards-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:11px}
+.feeless-coin-cards-heading .eyebrow{font-size:8px}
+.feeless-coin-cards-heading h3{font-size:15px;font-weight:600;margin-top:5px}
+.feeless-coin-cards-heading>small{max-width:150px;color:#789985;font-size:8px;line-height:1.45;text-align:right}
+.feeless-coin-cards-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.feeless-coin-card{min-width:0;padding:10px 9px;border:1px solid #28543a;border-radius:6px;background:#0b1d12}
+.feeless-coin-mark{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;overflow:hidden;border:1px solid #3b8e60;background:#112d1b;color:var(--mint);font:700 10px 'JetBrains Mono',monospace}
+.feeless-coin-mark img{width:100%;height:100%;object-fit:contain}
+.feeless-coin-mark.text-mark{background:#173021;border-color:#4f9c68}
+.feeless-coin-copy{min-width:0;margin-top:8px}
+.feeless-coin-copy strong{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feeless-coin-copy>span{display:block;color:#86ad94;font:8px 'JetBrains Mono',monospace;margin-top:3px}
+.feeless-coin-copy small{display:block;color:#789985;font-size:8px;line-height:1.35;margin-top:7px;min-height:31px}
+.feeless-coin-state{display:flex;align-items:center;gap:4px;color:#d9b967;font:7px 'JetBrains Mono',monospace;margin-top:9px}
+.feeless-coin-state i{width:5px;height:5px;border-radius:50%;background:#d9b967}
+.feeless-coin-card p{color:#789985;font-size:8px;line-height:1.45;margin-top:8px}
 .feeless-launch-hero{display:flex;align-items:center;justify-content:space-between;gap:30px;padding:27px 4px 30px;border-block:1px solid #2f6a48;background:linear-gradient(100deg,#0d2a1a,#07130c 68%,transparent);margin:0 0 25px}
 .feeless-launch-hero h2{font-size:32px;font-weight:650;margin:13px 0 8px}
 .feeless-launch-hero p{max-width:650px;color:#96bba4;font-size:13px;line-height:1.7}
@@ -672,6 +691,9 @@ body.theme-day .globe-terminal-cta:hover *{color:#fff!important}
 .globe-page .node-chips>button>span:nth-child(2){font-size:14px}
 .globe-page .node-chips small{font-size:10px}
 .globe-page .globe-bottom-note{font-size:10px}
+.globe-layout.is-focused .globe-main{filter:blur(7px) brightness(.52);opacity:.5;transform:scale(.995);transform-origin:top center;transition:filter .25s ease,opacity .25s ease,transform .25s ease}
+.globe-layout.is-focused .degen-panel{z-index:20;box-shadow:0 20px 60px #000b,0 0 0 1px #00e9a02b;transform:translateY(-8px);border-color:#4b9b68}
+.globe-layout.is-focused .degen-panel-title{background:linear-gradient(110deg,#102b1b,#09170f);border-bottom-color:#3b7650}
 .degen-panel{position:relative;overflow:visible}
 .degen-chat{height:430px}
 .degen-coins-rail{position:absolute;right:100%;top:164px;z-index:12;width:38px}
@@ -694,6 +716,13 @@ body.theme-day .globe-terminal-cta:hover *{color:#fff!important}
   .degen-coins-tab{min-height:0;flex-direction:row;justify-content:space-between;padding:11px 12px;border-right:1px solid #2f593e;border-radius:5px;cursor:pointer}
   .degen-coins-tab b,.degen-coins-tab small{writing-mode:initial;transform:none}
   .degen-coins-popover{position:static;width:auto;max-height:none;margin-top:8px;opacity:1;visibility:visible;pointer-events:auto;transform:none}
+  .globe-layout.is-focused .globe-main{filter:blur(4px) brightness(.58);opacity:.46}
+  .globe-layout.is-focused .degen-panel{transform:none}
+  .feeless-coin-cards-grid{grid-template-columns:1fr}
+  .feeless-coin-card{display:grid;grid-template-columns:38px minmax(0,1fr);column-gap:9px;align-items:start}
+  .feeless-coin-copy{margin-top:0}
+  .feeless-coin-state{grid-column:2;margin-top:6px}
+  .feeless-coin-card p{grid-column:1/-1}
 }
 .mini-token-card.is-selectable{cursor:pointer}
 .mini-token-card.is-selectable:hover,.mini-token-card.is-selectable:focus-visible{border-color:#4c9e6a;background:#102318;outline:2px solid var(--mint);outline-offset:3px}

@@ -53,6 +53,7 @@ class MarketResult(BaseModel):
     stale: bool = False
     error: str | None = None
     label: str = ''
+    source_url: str | None = None
     pairs: list[dict[str, Any]] = Field(default_factory=list)
     page: int = 1
 
@@ -189,14 +190,15 @@ def create_market_router(db, intelligence=None):
                 ))
         if intelligence:
             pairs = await intelligence.observe(pairs, meta, kind)
-        return MarketResult(**meta, label='New pools · deals ≥5% 24h drawdown' if kind == 'new' else 'Trending pools', pairs=pairs, page=page)
+        source_url = 'https://dexscreener.com' if meta.get('provider') == 'DexScreener' else 'https://www.geckoterminal.com'
+        return MarketResult(**meta, source_url=source_url, label='New pools · deals ≥5% 24h drawdown' if kind == 'new' else 'Trending pools', pairs=pairs, page=page)
 
     @router.get('/search', response_model=MarketResult)
     async def search(q: str = Query(min_length=1, max_length=120)):
         if not q.strip():
             raise HTTPException(400, 'Enter a token or contract address')
         data, meta = await cached('DexScreener', '/latest/dex/search', {'q': q.strip()}, ttl=30)
-        return MarketResult(**meta, label='Search results', pairs=data.get('pairs') or [])
+        return MarketResult(**meta, source_url='https://dexscreener.com', label='Search results', pairs=data.get('pairs') or [])
 
     async def resolve_ca(address):
         data, meta = await cached('DexScreener', '/latest/dex/search', {'q': address}, ttl=60)

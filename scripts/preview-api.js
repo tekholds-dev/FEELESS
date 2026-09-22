@@ -169,6 +169,8 @@ function geckoResult(data, kind) {
   const pairs = (data?.data || []).map(pairFromGecko).filter(pair => pair.pairAddress);
   return {
     provider: 'GeckoTerminal',
+    sourceUrl: 'https://www.geckoterminal.com',
+    sourceLabel: 'GeckoTerminal public pool index',
     fetched_at: new Date().toISOString(),
     stale: false,
     label: kind === 'new' ? 'New pools' : 'Trending pools',
@@ -240,6 +242,8 @@ async function geckoFeed(kind, page = 1, chain = 'solana') {
   const pairs = responses.flatMap(response => geckoResult(response, kind).pairs);
   return {
     provider: 'GeckoTerminal',
+    sourceUrl: 'https://www.geckoterminal.com',
+    sourceLabel: 'GeckoTerminal public pool index',
     fetched_at: new Date().toISOString(),
     stale: false,
     label: kind === 'new' ? 'New pools' : 'Trending pools',
@@ -314,6 +318,8 @@ async function dexBoostFeed(kind, page = 1, chain = 'solana') {
   if (!pairs.length) throw new Error('Fast discovery returned no qualifying pools.');
   return {
     provider: 'DexScreener',
+    sourceUrl: 'https://dexscreener.com',
+    sourceLabel: 'DexScreener boosted discovery',
     fetched_at: new Date().toISOString(),
     stale: false,
     label: kind === 'new' ? 'New pools · deals ≥5% 24h drawdown' : 'Boosted discovery',
@@ -326,6 +332,8 @@ async function dexSearch(query) {
   const data = await getJson(`${DEX_API}/latest/dex/search?q=${encodeURIComponent(query)}`, 15000);
   return {
     provider: 'DexScreener',
+    sourceUrl: 'https://dexscreener.com',
+    sourceLabel: 'DexScreener search index',
     fetched_at: new Date().toISOString(),
     stale: false,
     label: 'Search results',
