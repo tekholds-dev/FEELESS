@@ -1,11 +1,42 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { AlertTriangle, RefreshCw, UserRound } from 'lucide-react';
 import { formatPct, formatUSD, formatTime, shortAddress } from '../../lib/dexscreener';
 
-export const TokenAvatar = ({ pair, size = 34 }) => <span className="token-avatar" style={{ width: size, height: size }}>
-  <span>{pair?.baseToken?.symbol?.slice(0, 2) || '?'}</span>
-  {pair?.info?.imageUrl && <img src={pair.info.imageUrl} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} />}
-</span>;
+const isImageSource = value => typeof value === 'string' && (/^https?:\/\//i.test(value) || /^data:image\//i.test(value));
+
+export const tokenImageUrls = pair => {
+  const address = pair?.baseToken?.address;
+  const chainId = pair?.chainId;
+  const candidates = [
+    pair?.info?.imageUrl,
+    pair?.info?.image,
+    pair?.imageUrl,
+    pair?.image,
+    pair?.logoUrl,
+    pair?.logoURI,
+    pair?.baseToken?.imageUrl,
+    pair?.baseToken?.image,
+    pair?.baseToken?.logoURI,
+    pair?.baseToken?.logoUrl,
+    pair?.baseToken?.logo,
+  ].filter(isImageSource);
+  if (chainId && address) {
+    candidates.push(`https://dd.dexscreener.com/ds-data/tokens/${encodeURIComponent(chainId)}/${encodeURIComponent(address)}.png`);
+  }
+  return [...new Set(candidates)];
+};
+
+export const TokenAvatar = ({ pair, size = 34 }) => {
+  const sources = tokenImageUrls(pair);
+  const [imageIndex, setImageIndex] = useState(0);
+  const sourceKey = sources.join('|');
+  useEffect(() => { setImageIndex(0); }, [sourceKey]);
+  const imageUrl = sources[imageIndex];
+  return <span className="token-avatar" style={{ width: size, height: size }}>
+    <span>{pair?.baseToken?.symbol?.slice(0, 2) || '?'}</span>
+    {imageUrl && <img key={imageUrl} src={imageUrl} alt="" onError={() => setImageIndex(index => index + 1)} />}
+  </span>;
+};
 
 export function getCreatorProfile(pair) {
   const creator = pair?.info?.creator || pair?.creator || pair?.baseToken?.creator;

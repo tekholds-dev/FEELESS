@@ -3,7 +3,6 @@ export const LAUNCHPADS = [
   { id: 'pump', name: 'Pump.fun', symbol: 'P', chainId: 'solana', color: '#34efad', lat: 25, lng: -78, url: process.env.REACT_APP_PUMP_URL, description: 'The home of Solana memecoins.', tag: 'MEME CULTURE', dexIds: ['pump', 'pumpswap', 'pump-fun', 'pump_fun'], launchProviderKey: 'pump' },
   { id: 'bonk', name: 'LetsBONK', symbol: 'B', chainId: 'solana', color: '#f5b747', lat: -6, lng: -46, url: 'https://letsbonk.fun/', description: 'Community-first launches on Solana.', tag: 'COMMUNITY', dexIds: [] },
   { id: 'raydium', name: 'LaunchLab', symbol: 'R', chainId: 'solana', color: '#84a5ff', lat: 46, lng: 25, url: 'https://raydium.io/launchpad/', description: 'Token launches from the Raydium ecosystem.', tag: 'RAYDIUM', dexIds: ['raydium-launchlab'], launchProviderKey: 'raydium' },
-  { id: 'infinity', name: 'Infinity', symbol: '∞', chainId: 'solana', color: '#d58cff', lat: 34, lng: 146, url: process.env.REACT_APP_INFINITY_URL || '', description: 'Infinity launch routing, when an approved provider endpoint is connected.', tag: 'INFINITY', dexIds: ['infinity'], launchProviderKey: 'infinity' },
   { id: 'meteora', name: 'Meteora', symbol: 'M', chainId: 'solana', color: '#ed8a60', lat: -30, lng: 22, url: 'https://launch.meteora.ag/', description: 'Launch infrastructure and dynamic liquidity.', tag: 'LIQUIDITY', dexIds: ['meteora', 'meteora-dlmm', 'meteora-dbc', 'meteora-damm-v2'] },
   { id: 'moonit', name: 'Moonit', symbol: '☾', chainId: 'solana', color: '#e6ef9f', lat: 4, lng: 152, url: 'https://moon.it/', description: 'Community tokens, from idea to orbit.', tag: 'FAIR LAUNCH', dexIds: ['moonit'] },
   { id: 'four', name: 'Four.meme', symbol: '4', chainId: 'bsc', color: '#efce5c', lat: 48, lng: 93, url: 'https://four.meme/en', description: 'Memecoin discovery on BNB Chain.', tag: 'BNB CHAIN', dexIds: ['four-meme', 'four_meme'] },
@@ -23,7 +22,6 @@ export const META_LAUNCH_PROVIDERS = [
   { id: 'feeless', label: 'FEELESS native', launchpadId: 'feeless-launch', note: 'Native FEELESS fee routing and permanent liquidity.' },
   { id: 'pump', label: 'Pump.fun', launchpadId: 'pump', note: 'Pump.fun launch preparation; provider approval required.' },
   { id: 'raydium', label: 'Raydium LaunchLab', launchpadId: 'raydium', note: 'Raydium LaunchLab preparation; provider approval required.' },
-  { id: 'infinity', label: 'Infinity', launchpadId: 'infinity', note: 'Infinity launch preparation; provider approval required.' },
 ];
 
 export function getLaunchProviderConfig() {
