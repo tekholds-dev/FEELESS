@@ -3,3 +3,4 @@
 - [Post-merge setup hook](post-merge-hook.md) — the frontend has no lockfile; merge setup must use a registered non-interactive no-lockfile install.
 - [Landing page test harness](landing-test-harness.md) — focused Landing tests use a virtual router mock because Jest cannot resolve the installed ESM router package directly.
 - [Preview API boundary](preview-api-boundary.md) — same-origin preview discovery works without backend credentials; wallet signing/execution stays gated until Jupiter/RPC are configured.
+- [Preview host configuration](preview-host-configuration.md) — CRA/CRACO previews need 0.0.0.0 binding and allowedHosts=all for Replit's proxy.

@@ -9,4 +9,4 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 cd frontend
-PORT=5000 npm start
+HOST=0.0.0.0 PORT=5000 npm start

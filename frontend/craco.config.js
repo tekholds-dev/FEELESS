@@ -31,6 +31,10 @@ function makeDevServerV5Compatible(devServerConfig) {
     ...compatibleConfig.headers,
     "Cross-Origin-Resource-Policy": "same-origin",
   };
+  // Replit serves the app through a proxied preview hostname. CRA's default
+  // host allow-list rejects that hostname with "Invalid Host header".
+  compatibleConfig.host = "0.0.0.0";
+  compatibleConfig.allowedHosts = "all";
 
   if (onBeforeSetupMiddleware || setupMiddlewares) {
     compatibleConfig.setupMiddlewares = (middlewares, devServer) => {
