@@ -31,10 +31,11 @@ export default function TopCoins({ ecosystem }) {
   const chain = ecosystem?.chainId || 'solana';
   const top = useMarket(`/feed?kind=trending&chain=${chain}`);
   const fresh = useMarket(`/feed?kind=new&chain=${chain}`);
+  const providers = [...new Set([top.data?.provider, fresh.data?.provider].filter(Boolean))];
   return <div className="top-coins" data-testid="globe-coin-radar">
     <div className="section-title"><h2>Coin radar</h2><span className="provider-note">Live provider feed</span></div>
     <CoinFeed id="trending" title="Top coins" result={top} ecosystem={ecosystem} />
     <CoinFeed id="new" title="New coins" result={fresh} ecosystem={ecosystem} />
-    <small className="provider-note">GeckoTerminal · Live indexed coin markets, not every launch.</small>
+    <small className="provider-note">{providers.join(' + ') || 'Public provider'} · Live indexed coin markets, not every launch.</small>
   </div>;
 }

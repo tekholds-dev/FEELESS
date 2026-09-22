@@ -158,16 +158,22 @@ def create_market_router(db, intelligence=None):
                    chain: str = 'solana', page: int = Query(1, ge=1, le=10)):
         if chain != 'all' and chain not in NETWORKS:
             raise HTTPException(400, 'Unsupported chain')
-        network = f'/{NETWORKS[chain]}' if chain != 'all' else ''
-        path = f'/networks{network}/{"new_pools" if kind == "new" else "trending_pools"}'
-        data, meta = await cached('GeckoTerminal', path, {'include': 'base_token,quote_token,dex', 'page': page}, ttl=90)
-        pairs = normalise_pools(data)
-        if kind == 'new':
-            pairs = [pair for pair in pairs if is_new_pool_deal(pair)]
-            pairs.sort(key=lambda pair: (
-                safe_float((pair.get('priceChange') or {}).get('h24')),
-                -(pair.get('pairCreatedAt') or 0),
-            ))
+        try:
+            pairs, meta = await dex_boost_feed(kind, chain, page)
+        except HTTPException:
+            network = f'/{NETWORKS[chain]}' if chain != 'all' else ''
+            path = f'/networks{network}/{"new_pools" if kind == "new" else "trending_pools"}'
+            data, meta = await cached(
+                'GeckoTerminal', path,
+                {'include': 'base_token,quote_token,dex', 'page': page}, ttl=90,
+            )
+            pairs = normalise_pools(data)
+            if kind == 'new':
+                pairs = [pair for pair in pairs if is_new_pool_deal(pair)]
+                pairs.sort(key=lambda pair: (
+                    safe_float((pair.get('priceChange') or {}).get('h24')),
+                    -(pair.get('pairCreatedAt') or 0),
+                ))
         if intelligence:
             pairs = await intelligence.observe(pairs, meta, kind)
         return MarketResult(**meta, label='New pools · deals ≥5% 24h drawdown' if kind == 'new' else 'Trending pools', pairs=pairs, page=page)
@@ -186,6 +192,51 @@ def create_market_router(db, intelligence=None):
             else p.get('baseToken', {}).get('address') == address)]
         pairs.sort(key=lambda p: float(p.get('liquidity', {}).get('usd') or 0), reverse=True)
         return pairs, meta
+
+    async def dex_boost_feed(kind, chain='solana', page=1):
+        """Use DexScreener's fast boost index for the first radar page."""
+        if page != 1:
+            raise HTTPException(503, 'Fast discovery is available on the first page only.')
+        boost_path = f'/token-boosts/{"latest" if kind == "new" else "top"}/v1'
+        boosts, boost_meta = await cached('DexScreener', boost_path, ttl=20)
+        candidates = [
+            item for item in (boosts if isinstance(boosts, list) else [])
+            if item.get('tokenAddress') and (chain == 'all' or item.get('chainId') == chain)
+        ]
+        addresses = list(dict.fromkeys(item['tokenAddress'] for item in candidates))[:30]
+        if not addresses:
+            raise HTTPException(503, 'Fast discovery returned no indexed tokens.')
+        payload, pair_meta = await cached(
+            'DexScreener', f'/latest/dex/tokens/{",".join(addresses)}', ttl=20,
+        )
+        rank = {(item.get('chainId'), item.get('tokenAddress')): index
+                for index, item in enumerate(candidates)}
+        pairs = [
+            pair for pair in (payload.get('pairs') or [])
+            if chain == 'all' or pair.get('chainId') == chain
+        ]
+        best_by_token = {}
+        for pair in pairs:
+            key = (pair.get('chainId'), pair.get('baseToken', {}).get('address'))
+            liquidity = safe_float((pair.get('liquidity') or {}).get('usd'))
+            if key not in best_by_token or liquidity > safe_float(
+                    (best_by_token[key].get('liquidity') or {}).get('usd')):
+                best_by_token[key] = pair
+        pairs = list(best_by_token.values())
+        if kind == 'new':
+            pairs = [pair for pair in pairs if is_new_pool_deal(pair)]
+        pairs.sort(key=lambda pair: (
+            rank.get((pair.get('chainId'), pair.get('baseToken', {}).get('address')), len(rank)),
+            -safe_float((pair.get('liquidity') or {}).get('usd')),
+        ))
+        if not pairs:
+            raise HTTPException(503, 'Fast discovery returned no qualifying pools.')
+        return pairs, {
+            'provider': 'DexScreener',
+            'fetched_at': pair_meta.get('fetched_at') or boost_meta.get('fetched_at'),
+            'stale': boost_meta.get('stale', False) or pair_meta.get('stale', False),
+            'error': boost_meta.get('error') or pair_meta.get('error'),
+        }
 
     @router.get('/scan', response_model=MarketResult)
     async def scan(address: str = Query(min_length=32, max_length=64, pattern=r'^[a-zA-Z0-9]+$'), context: str = 'solana'):

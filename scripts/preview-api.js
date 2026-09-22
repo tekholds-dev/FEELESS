@@ -17,6 +17,7 @@ const MINTS = {
 };
 
 const cache = new Map();
+const pendingRequests = new Map();
 const rooms = new Map();
 const orders = new Map();
 
@@ -95,11 +96,17 @@ async function checkPreviewStatus(order, res) {
 async function getJson(url, ttl = 30000) {
   const hit = cache.get(url);
   if (hit && Date.now() - hit.at < ttl) return hit.value;
-  const response = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
-  if (!response.ok) throw new Error(`Provider returned HTTP ${response.status}.`);
-  const value = await response.json();
-  cache.set(url, { at: Date.now(), value });
-  return value;
+  if (pendingRequests.has(url)) return pendingRequests.get(url);
+  const request = (async () => {
+    const response = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error(`Provider returned HTTP ${response.status}.`);
+    const value = await response.json();
+    cache.set(url, { at: Date.now(), value });
+    return value;
+  })();
+  pendingRequests.set(url, request);
+  try { return await request; }
+  finally { pendingRequests.delete(url); }
 }
 
 function pairFromGecko(item) {
@@ -148,6 +155,41 @@ async function geckoFeed(kind, page = 1) {
   const endpoint = kind === 'new' ? 'new_pools' : 'trending_pools';
   const data = await getJson(`${GECKO_API}/networks/solana/${endpoint}?page=${page}`, 30000);
   return geckoResult(data, kind);
+}
+
+async function dexBoostFeed(kind, page = 1, chain = 'solana') {
+  if (String(page) !== '1') throw new Error('Fast discovery is available on the first page only.');
+  const index = await getJson(`${DEX_API}/token-boosts/${kind === 'new' ? 'latest' : 'top'}/v1`, 20000);
+  const candidates = (Array.isArray(index) ? index : [])
+    .filter(item => (chain === 'all' || item?.chainId === chain) && item?.tokenAddress);
+  const addresses = [...new Set(candidates.map(item => item.tokenAddress))].slice(0, 30);
+  if (!addresses.length) throw new Error('Fast discovery returned no indexed tokens.');
+  const payload = await getJson(`${DEX_API}/latest/dex/tokens/${addresses.join(',')}`, 20000);
+  const rank = new Map(candidates.map((item, index) => [`${item.chainId}:${item.tokenAddress}`, index]));
+  const bestByToken = new Map();
+  for (const pair of payload?.pairs || []) {
+    if (chain !== 'all' && pair?.chainId !== chain) continue;
+    const key = `${pair.chainId}:${pair.baseToken?.address}`;
+    const liquidity = Number(pair.liquidity?.usd || 0);
+    if (!bestByToken.has(key) || liquidity > Number(bestByToken.get(key).liquidity?.usd || 0)) bestByToken.set(key, pair);
+  }
+  let pairs = [...bestByToken.values()];
+  if (kind === 'new') pairs = pairs.filter(pair => {
+    const age = Date.now() - Number(pair.pairCreatedAt || 0);
+    return age >= 0 && age <= 14 * 24 * 60 * 60 * 1000 && Number(pair.priceChange?.h24 || 0) <= -5;
+  });
+  pairs.sort((a, b) => (rank.get(`${a.chainId}:${a.baseToken?.address}`) ?? candidates.length)
+    - (rank.get(`${b.chainId}:${b.baseToken?.address}`) ?? candidates.length)
+    || Number(b.liquidity?.usd || 0) - Number(a.liquidity?.usd || 0));
+  if (!pairs.length) throw new Error('Fast discovery returned no qualifying pools.');
+  return {
+    provider: 'DexScreener',
+    fetched_at: new Date().toISOString(),
+    stale: false,
+    label: kind === 'new' ? 'New pools · deals ≥5% 24h drawdown' : 'Boosted discovery',
+    pairs,
+    page: 1,
+  };
 }
 
 async function dexSearch(query) {
@@ -253,7 +295,11 @@ async function route(req, res, url) {
   if (req.method === 'GET' && url.pathname === '/api/') return json(res, 200, { message: 'FEELESS API', mode: 'preview', market: 'live public providers' });
   if (req.method === 'GET' && url.pathname === '/api/market/assets') return json(res, 200, await assets());
   if (req.method === 'GET' && url.pathname === '/api/market/feed') {
-    const result = await geckoFeed(url.searchParams.get('kind') === 'new' ? 'new' : 'trending', url.searchParams.get('page') || 1);
+    const kind = url.searchParams.get('kind') === 'new' ? 'new' : 'trending';
+    const chain = url.searchParams.get('chain') || 'solana';
+    let result;
+    try { result = await dexBoostFeed(kind, url.searchParams.get('page') || 1, chain); }
+    catch { result = await geckoFeed(kind, url.searchParams.get('page') || 1); }
     return json(res, 200, result);
   }
   if (req.method === 'GET' && url.pathname === '/api/market/search') return json(res, 200, await dexSearch(url.searchParams.get('q') || ''));
@@ -396,4 +442,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`[preview-api] listening on http://127.0.0.1:${PORT} with live public market providers`);
+  Promise.allSettled([dexBoostFeed('trending'), dexBoostFeed('new')])
+    .then(() => console.log('[preview-api] DexScreener radar cache warmed'))
+    .catch(() => {});
 });
