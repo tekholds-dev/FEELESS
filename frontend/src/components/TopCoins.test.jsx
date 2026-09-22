@@ -159,6 +159,59 @@ test('recovers one feed after retry without disrupting the other feed', () => {
   act(() => root.unmount());
 });
 
+test('keeps simultaneous top and new feed retries independent when responses return out of order', () => {
+  const topPath = '/feed?kind=trending&chain=ethereum';
+  const newPath = '/feed?kind=new&chain=ethereum';
+  const topPair = { pairAddress: 'top-recovered', baseToken: { symbol: 'TOP' } };
+  const newPair = { pairAddress: 'new-recovered', baseToken: { symbol: 'NEW' } };
+  const topReload = jest.fn(() => {
+    marketResults[topPath] = { data: undefined, loading: true, reload: topReload };
+  });
+  const newReload = jest.fn(() => {
+    marketResults[newPath] = { data: undefined, loading: true, reload: newReload };
+  });
+
+  const { container, root } = renderFeeds(ecosystem, {
+    top: { data: undefined, loading: false, error: 'Top provider unavailable', reload: topReload },
+    new: { data: undefined, loading: false, error: 'New provider unavailable', reload: newReload },
+  });
+
+  const topRetry = container.querySelector('[data-testid="globe-coins-trending-error-retry"]');
+  const newRetry = container.querySelector('[data-testid="globe-coins-new-error-retry"]');
+  expect(topRetry).not.toBeNull();
+  expect(newRetry).not.toBeNull();
+
+  act(() => topRetry.click());
+  act(() => root.render(<TopCoins ecosystem={ecosystem} />));
+  expect(container.querySelector('[data-testid="globe-coins-trending-loading"]')).not.toBeNull();
+  expect(container.querySelector('[data-testid="globe-coins-new-error"]')).not.toBeNull();
+
+  act(() => newRetry.click());
+  act(() => root.render(<TopCoins ecosystem={ecosystem} />));
+  expect(topReload).toHaveBeenCalledTimes(1);
+  expect(newReload).toHaveBeenCalledTimes(1);
+  expect(container.querySelector('[data-testid="globe-coins-trending-loading"]')).not.toBeNull();
+  expect(container.querySelector('[data-testid="globe-coins-new-loading"]')).not.toBeNull();
+  expect(container.querySelector('[data-testid="globe-coins-trending-error"]')).toBeNull();
+  expect(container.querySelector('[data-testid="globe-coins-new-error"]')).toBeNull();
+
+  marketResults[newPath] = { data: { pairs: [newPair] }, loading: false, reload: newReload };
+  act(() => root.render(<TopCoins ecosystem={ecosystem} />));
+  expect(container.querySelector('[data-testid="globe-coins-trending-loading"]')).not.toBeNull();
+  expect(container.querySelector('[data-testid="globe-coins-new-loading"]')).toBeNull();
+  expect(container.querySelector('[data-testid="globe-coins-new-error"]')).toBeNull();
+  expect([...container.querySelectorAll('[data-testid="token-card"]')].map(card => card.textContent)).toEqual(['NEW']);
+
+  marketResults[topPath] = { data: { pairs: [topPair] }, loading: false, reload: topReload };
+  act(() => root.render(<TopCoins ecosystem={ecosystem} />));
+  expect(container.querySelector('[data-testid="globe-coins-trending-loading"]')).toBeNull();
+  expect(container.querySelector('[data-testid="globe-coins-new-loading"]')).toBeNull();
+  expect(container.querySelector('[data-testid="globe-coins-trending-error"]')).toBeNull();
+  expect(container.querySelector('[data-testid="globe-coins-new-error"]')).toBeNull();
+  expect([...container.querySelectorAll('[data-testid="token-card"]')].map(card => card.textContent)).toEqual(['TOP', 'NEW']);
+  act(() => root.unmount());
+});
+
 selectableEcosystems.forEach(selectedEcosystem => {
   test(`names ${selectedEcosystem.name} in error states and keeps them focusable`, () => {
     const reload = jest.fn();
