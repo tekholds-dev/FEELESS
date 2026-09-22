@@ -17,6 +17,7 @@ import struct
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 import uuid
 
@@ -128,9 +129,32 @@ def wait_for(devtools, expression, timeout=15):
 
 
 def browser_target():
-    with urllib.request.urlopen(f"http://127.0.0.1:{CDP_PORT}/json/new?{PREVIEW_URL}/terminal/settings", timeout=10) as response:
-        target = json.load(response)
-    return target["webSocketDebuggerUrl"]
+    with urllib.request.urlopen(f"http://127.0.0.1:{CDP_PORT}/json/list", timeout=10) as response:
+        targets = json.load(response)
+    pages = [target for target in targets if target.get("type") == "page"]
+    if not pages:
+        raise RuntimeError("Chromium DevTools has no page target")
+    return pages[0]["webSocketDebuggerUrl"]
+
+
+def connect_target(timeout=10):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            target = DevTools(browser_target())
+            target.command("Page.enable")
+            target.command("Runtime.enable")
+            return target
+        except (OSError, urllib.error.URLError, RuntimeError):
+            time.sleep(0.2)
+    raise RuntimeError("Chromium page target did not become available")
+
+
+def reload_and_reconnect(devtools):
+    devtools.command("Page.reload", {"ignoreCache": True})
+    devtools.close()
+    time.sleep(0.5)
+    return connect_target()
 
 
 def main():
@@ -144,6 +168,7 @@ def main():
             f"--remote-debugging-port={CDP_PORT}",
             "--remote-debugging-address=127.0.0.1",
             f"--user-data-dir=/tmp/feeless-text-scale-{uuid.uuid4().hex}",
+            f"{PREVIEW_URL}/terminal/settings",
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -153,17 +178,15 @@ def main():
         deadline = time.time() + 10
         while time.time() < deadline:
             try:
-                devtools = DevTools(browser_target())
+                devtools = connect_target(timeout=1)
                 break
-            except (OSError, urllib.error.URLError):
+            except (OSError, urllib.error.URLError, RuntimeError):
                 time.sleep(0.2)
         if devtools is None:
             raise RuntimeError("Chromium DevTools endpoint did not start")
 
-        devtools.command("Page.enable")
-        devtools.command("Runtime.enable")
         wait_for(devtools, "location.pathname === '/terminal/settings'")
-        wait_for(devtools, "document.querySelector('[data-testid=\"config-text-size\"]')")
+        wait_for(devtools, "!!document.querySelector('[data-testid=\"config-text-size\"]')")
 
         malformed = json.dumps(
             {
@@ -177,8 +200,8 @@ def main():
             separators=(",", ":"),
         )
         devtools.evaluate(f"localStorage.setItem('feeless-settings', {json.dumps(malformed)})")
-        devtools.command("Page.reload", {"ignoreCache": True})
-        wait_for(devtools, "document.querySelector('[data-testid=\"config-text-size\"]')")
+        devtools = reload_and_reconnect(devtools)
+        wait_for(devtools, "!!document.querySelector('[data-testid=\"config-text-size\"]')")
 
         settings_state = devtools.evaluate(
             """(() => ({
@@ -201,13 +224,13 @@ def main():
         )
         assert clicked, "Trade navigation link was not rendered"
         wait_for(devtools, "location.pathname === '/terminal/trade'")
-        wait_for(devtools, "document.querySelector('[data-testid=\"swap-amount\"]')")
+        wait_for(devtools, "!!document.querySelector('[data-testid=\"swap-amount\"]')")
 
         trade_state = devtools.evaluate(
             """(() => {
                 const app = document.querySelector('.terminal-app');
                 const amount = document.querySelector('[data-testid="swap-amount"]');
-                const output = document.querySelector('[data-testid="swap-output"]');
+                const output = document.querySelector('[data-testid="swap-output-amount"]');
                 return {
                     path: location.pathname,
                     normalClass: app?.classList.contains('text-scale-normal'),
@@ -221,9 +244,9 @@ def main():
         assert trade_state["amountVisible"], trade_state
         assert trade_state["outputVisible"], trade_state
 
-        devtools.command("Page.reload", {"ignoreCache": True})
+        devtools = reload_and_reconnect(devtools)
         wait_for(devtools, "location.pathname === '/terminal/trade'")
-        wait_for(devtools, "document.querySelector('[data-testid=\"swap-amount\"]')")
+        wait_for(devtools, "!!document.querySelector('[data-testid=\"swap-amount\"]')")
         reloaded_state = devtools.evaluate(
             """(() => ({
                 path: location.pathname,
