@@ -9,13 +9,18 @@ export const WalletProvider = ({ children }) => {
     if (type === 'solana') {
       const result = await p.connect();
       if (!result.publicKey) throw new Error('No wallet account was returned.');
-      setWallet({ name: 'Phantom', chain: type, address: result.publicKey.toString() });
+      const nextWallet = { name: 'Phantom', chain: type, address: result.publicKey.toString() };
+      setWallet(nextWallet);
+      setProvider(p);
+      return { wallet: nextWallet, provider: p };
     } else {
       const accounts = await p.request({ method: 'eth_requestAccounts' });
       if (!accounts?.[0]) throw new Error('No wallet account was returned.');
-      setWallet({ name: 'EVM wallet', chain: type, address: accounts[0] });
+      const nextWallet = { name: 'EVM wallet', chain: type, address: accounts[0] };
+      setWallet(nextWallet);
+      setProvider(p);
+      return { wallet: nextWallet, provider: p };
     }
-    setProvider(p);
   };
   const disconnect = async () => {
     if (wallet?.chain === 'solana') await provider?.disconnect?.();

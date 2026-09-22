@@ -1,0 +1,1 @@
+- [Meta Launch provider boundary](meta-launch-provider.md) — launch providers prepare unsigned Solana transactions; the browser wallet signs and the configured RPC confirms them.
