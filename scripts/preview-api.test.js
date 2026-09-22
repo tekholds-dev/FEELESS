@@ -108,3 +108,76 @@ test('preview candle contract follows a discovered pool and rejects invalid inte
     await new Promise(resolve => server.close(resolve));
   }
 });
+
+test('fee assets fall back to exact GeckoTerminal CA matches with prices and logos', async () => {
+  const originalFetch = global.fetch;
+  const mints = {
+    fee: '49MmWE8sgNjuw342Eu7tB9thsVFtvTfKigUw9KSppump',
+    feecat: 'AsX2abSJ2HqPqRxUbeYXE5R5ksrmUDz6BMGpg9mDpump',
+    rfee: '2vZjg2w58k4urtdNWPnNHizuSxesLCoz5QqN9xxqNray',
+  };
+  const tokens = {
+    [mints.fee]: { name: 'Feeless', symbol: 'FEE', price: '0.0000031', image: 'https://logo.test/fee.png', pool: 'FeePool123' },
+    [mints.feecat]: { name: 'FEELESS CAT', symbol: 'FEECAT', price: '0.0000028', image: 'https://logo.test/feecat.png', pool: 'CatPool123' },
+    [mints.rfee]: { name: 'RFEE', symbol: 'RFEE', price: '0.0000012', image: 'https://logo.test/rfee.png', pool: null, topPool: 'RfeeTop123' },
+  };
+  global.fetch = async target => {
+    const url = String(target);
+    const dexMatch = url.match(/\/token-pairs\/v1\/solana\/([^?]+)/);
+    if (dexMatch) return providerResponse([]);
+    const tokenMatch = url.match(/\/networks\/solana\/tokens\/([^/]+)$/);
+    if (tokenMatch) {
+      const token = tokens[tokenMatch[1]];
+      return providerResponse({
+        data: {
+          attributes: { name: token.name, symbol: token.symbol, image_url: token.image, price_usd: token.price },
+          relationships: token.topPool ? { top_pools: { data: [{ id: `solana_${token.topPool}` }] } } : undefined,
+        },
+      });
+    }
+    const poolsMatch = url.match(/\/networks\/solana\/tokens\/([^/]+)\/pools\?page=1$/);
+    if (poolsMatch) {
+      const mint = poolsMatch[1];
+      const token = tokens[mint];
+      return providerResponse({
+        data: token.pool ? [{
+          id: `solana_${token.pool}`,
+          attributes: {
+            address: token.pool,
+            name: `${token.symbol} / SOL`,
+            base_token_price_usd: token.price,
+            reserve_in_usd: '1000',
+          },
+          relationships: {
+            base_token: { data: { id: `solana_${mint}` } },
+            quote_token: { data: { id: 'solana_So11111111111111111111111111111111111111112' } },
+          },
+        }] : [],
+      });
+    }
+    throw new Error(`Unexpected provider request: ${url}`);
+  };
+
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  try {
+    const response = await request(baseUrl, '/api/market/assets', originalFetch);
+    assert.equal(response.status, 200);
+    const assets = Object.fromEntries(response.body.assets.map(asset => [asset.id, asset]));
+    assert.equal(assets.fee.provider, 'GeckoTerminal');
+    assert.equal(assets.fee.status, 'market_observed');
+    assert.equal(assets.fee.pair.priceUsd, '0.0000031');
+    assert.equal(assets.fee.imageUrl, 'https://logo.test/fee.png');
+    assert.equal(assets.feecat.pair.baseToken.symbol, 'FEECAT');
+    assert.equal(assets.feecat.pair.info.imageUrl, 'https://logo.test/feecat.png');
+    assert.equal(assets.rfee.status, 'market_observed');
+    assert.equal(assets.rfee.pair.priceUsd, '0.0000012');
+    assert.equal(assets.rfee.pair.pairAddress, 'RfeeTop123');
+    assert.equal(assets.rfee.imageUrl, 'https://logo.test/rfee.png');
+  } finally {
+    global.fetch = originalFetch;
+    await new Promise(resolve => server.close(resolve));
+  }
+});

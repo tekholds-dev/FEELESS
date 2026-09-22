@@ -255,7 +255,64 @@ def create_market_router(db, intelligence=None):
                 pairs = [p for p in data if p.get('baseToken', {}).get('address') == mint]
                 pairs.sort(key=lambda p: float(p.get('liquidity', {}).get('usd') or 0), reverse=True)
                 pair = pairs[0] if pairs else None
+                image_url = (pair or {}).get('info', {}).get('imageUrl')
+                if not pair or not image_url:
+                    try:
+                        token_data, _ = await cached('GeckoTerminal', f'/networks/solana/tokens/{mint}', ttl=90)
+                        token = token_data.get('data') or {}
+                        token_attrs = token.get('attributes') or {}
+                        pools_data, _ = await cached('GeckoTerminal', f'/networks/solana/tokens/{mint}/pools',
+                                                     {'page': 1}, ttl=90)
+                        pools = pools_data.get('data') or []
+                        matching = [
+                            pool for pool in pools
+                            if pool.get('relationships', {}).get('base_token', {}).get('data', {}).get('id', '').split('_', 1)[-1] == mint
+                        ]
+                        matching.sort(key=lambda pool: float((pool.get('attributes') or {}).get('reserve_in_usd') or 0), reverse=True)
+                        if not pair and matching:
+                            pair = normalise_pools({'data': [matching[0]]})[0]
+                        image_url = image_url or token_attrs.get('image_url')
+                        if not pair and token_attrs.get('price_usd'):
+                            top_pool = ((token.get('relationships') or {}).get('top_pools') or {}).get('data') or []
+                            pool_id = top_pool[0].get('id', '') if top_pool else ''
+                            pool_address = pool_id.split('_', 1)[-1] if pool_id else ''
+                            if pool_address:
+                                pair = {
+                                    'chainId': 'solana',
+                                    'network': 'solana',
+                                    'pairAddress': pool_address,
+                                    'dexId': 'unknown',
+                                    'url': f'{os.getenv("DEX_SITE_URL", "https://dexscreener.com")}/solana/{pool_address}',
+                                    'baseToken': {'address': mint, 'name': token_attrs.get('name', 'Unknown'),
+                                                  'symbol': token_attrs.get('symbol', '?')},
+                                    'quoteToken': {'symbol': 'SOL'},
+                                    'priceUsd': token_attrs.get('price_usd'),
+                                    'priceChange': {},
+                                    'liquidity': {'usd': token_attrs.get('total_reserve_in_usd')},
+                                    'volume': token_attrs.get('volume_usd') or {},
+                                    'marketCap': token_attrs.get('market_cap_usd'),
+                                    'fdv': token_attrs.get('fdv_usd'),
+                                    'pairCreatedAt': None,
+                                    'info': {'imageUrl': image_url, 'websites': [], 'socials': []},
+                                }
+                        if pair:
+                            pair['info'] = {**(pair.get('info') or {}), 'imageUrl': image_url}
+                            pair['baseToken'] = {
+                                **(pair.get('baseToken') or {}),
+                                'address': mint,
+                                'name': token_attrs.get('name') or pair.get('baseToken', {}).get('name'),
+                                'symbol': token_attrs.get('symbol') or pair.get('baseToken', {}).get('symbol'),
+                            }
+                            meta = {
+                                **meta,
+                                'provider': 'GeckoTerminal',
+                                'fetched_at': meta.get('fetched_at'),
+                                'stale': meta.get('stale', False),
+                            }
+                    except HTTPException:
+                        pass
                 items.append({'id': name.lower(), 'label': name, 'mint': mint, 'chain': 'solana', 'pair': pair,
+                              'imageUrl': image_url,
                               'status': 'market_observed' if pair and pair.get('priceUsd') else 'awaiting_market', **meta,
                               'identity': 'Owner-supplied contract; exact provider match. Not a security endorsement.'})
             except HTTPException as exc:

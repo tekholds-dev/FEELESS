@@ -151,6 +151,60 @@ function geckoResult(data, kind) {
   };
 }
 
+async function geckoAsset(mint) {
+  const tokenUrl = `${GECKO_API}/networks/solana/tokens/${encodeURIComponent(mint)}`;
+  const poolsUrl = `${GECKO_API}/networks/solana/tokens/${encodeURIComponent(mint)}/pools?page=1`;
+  let token = null;
+  try { token = (await getJson(tokenUrl, 60000))?.data || null; } catch {}
+  const tokenAttrs = token?.attributes || {};
+  const tokenPoolId = token?.relationships?.top_pools?.data?.[0]?.id || '';
+  const tokenPoolAddress = tokenPoolId.split('_').slice(1).join('_');
+  if (tokenPoolAddress && tokenAttrs.price_usd) {
+    return {
+      pair: {
+        chainId: 'solana',
+        network: 'solana',
+        pairAddress: tokenPoolAddress,
+        dexId: 'unknown',
+        url: `${DEX_SITE}/solana/${tokenPoolAddress}`,
+        baseToken: { address: mint, name: tokenAttrs.name || 'Unknown', symbol: tokenAttrs.symbol || '?' },
+        quoteToken: { symbol: 'SOL' },
+        priceUsd: tokenAttrs.price_usd,
+        priceChange: {},
+        liquidity: { usd: tokenAttrs.total_reserve_in_usd },
+        volume: tokenAttrs.volume_usd || {},
+        marketCap: tokenAttrs.market_cap_usd,
+        fdv: tokenAttrs.fdv_usd,
+        pairCreatedAt: null,
+        info: { imageUrl: tokenAttrs.image_url || null, websites: [], socials: [] },
+      },
+      imageUrl: tokenAttrs.image_url || null,
+    };
+  }
+
+  let pools = null;
+  try { pools = (await getJson(poolsUrl, 60000))?.data || []; } catch {}
+  const pool = (Array.isArray(pools) ? pools : [])
+    .filter(item => {
+      const address = item?.relationships?.base_token?.data?.id?.split('_').slice(1).join('_');
+      return address === mint;
+    })
+    .sort((a, b) => Number(b?.attributes?.reserve_in_usd || 0) - Number(a?.attributes?.reserve_in_usd || 0))[0];
+  if (!pool) {
+    return { pair: null, imageUrl: tokenAttrs.image_url || null };
+  }
+
+  const pair = pairFromGecko(pool);
+  pair.baseToken = {
+    ...pair.baseToken,
+    address: mint,
+    name: tokenAttrs.name || pair.baseToken.name,
+    symbol: tokenAttrs.symbol || pair.baseToken.symbol,
+  };
+  pair.info = { ...pair.info, imageUrl: pair.info?.imageUrl || tokenAttrs.image_url || null };
+  return { pair, imageUrl: pair.info.imageUrl };
+}
+
 async function geckoFeed(kind, page = 1) {
   const endpoint = kind === 'new' ? 'new_pools' : 'trending_pools';
   const data = await getJson(`${GECKO_API}/networks/solana/${endpoint}?page=${page}`, 30000);
@@ -243,6 +297,24 @@ async function dexSearch(query) {
   };
 }
 
+async function geckoPair(chain, address) {
+  const networks = {
+    solana: 'solana',
+    ethereum: 'eth',
+    base: 'base',
+    bsc: 'bsc',
+    arbitrum: 'arbitrum',
+    avalanche: 'avax',
+    polygon: 'polygon_pos',
+    sui: 'sui',
+  };
+  const network = networks[chain];
+  if (!network) throw new Error('Unsupported market network.');
+  const data = await getJson(`${GECKO_API}/networks/${network}/pools/${encodeURIComponent(address)}?include=base_token,quote_token,dex`, 30000);
+  const pair = pairFromGecko(data?.data);
+  return pair?.pairAddress ? pair : null;
+}
+
 async function requestBody(req) {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
@@ -289,17 +361,27 @@ async function assets() {
   const result = await Promise.all(Object.entries(MINTS).map(async ([id, mint]) => {
     try {
       const rows = await getJson(`${DEX_API}/token-pairs/v1/solana/${mint}`, 60000);
-      const pair = (Array.isArray(rows) ? rows : [])
+      let pair = (Array.isArray(rows) ? rows : [])
         .filter(item => item?.baseToken?.address === mint)
         .sort((a, b) => Number(b?.liquidity?.usd || 0) - Number(a?.liquidity?.usd || 0))[0] || null;
+      let imageUrl = pair?.info?.imageUrl || null;
+      let provider = 'DexScreener';
+      if (!pair || !imageUrl) {
+        const fallback = await geckoAsset(mint);
+        pair = pair || fallback.pair;
+        imageUrl = imageUrl || fallback.imageUrl;
+        if (fallback.pair) provider = 'GeckoTerminal';
+        if (pair && imageUrl) pair.info = { ...(pair.info || {}), imageUrl };
+      }
       return {
         id,
         label: id.toUpperCase(),
         mint,
         chain: 'solana',
         pair,
+        imageUrl,
         status: pair?.priceUsd ? 'market_observed' : 'awaiting_market',
-        provider: 'DexScreener',
+        provider,
         fetched_at: new Date().toISOString(),
         identity: 'Owner-supplied contract; exact provider match. Not a security endorsement.',
       };
@@ -346,6 +428,17 @@ async function route(req, res, url) {
     return json(res, 200, await geckoCandles(candleMatch[1], candleMatch[2], url.searchParams.get('interval') || '1h'));
   }
   if (req.method === 'GET' && url.pathname === '/api/market/search') return json(res, 200, await dexSearch(url.searchParams.get('q') || ''));
+  const pairMatch = url.pathname.match(/^\/api\/market\/pair\/([^/]+)\/([^/]+)$/);
+  if (req.method === 'GET' && pairMatch) {
+    const [, chain, address] = pairMatch;
+    try {
+      const data = await getJson(`${DEX_API}/latest/dex/pairs/${encodeURIComponent(chain)}/${encodeURIComponent(address)}`, 30000);
+      const pairs = data?.pairs || [];
+      if (pairs.length) return json(res, 200, { provider: 'DexScreener', fetched_at: new Date().toISOString(), stale: false, pairs, label: 'Pair snapshot' });
+    } catch {}
+    const pair = await geckoPair(chain, address);
+    return json(res, 200, { provider: 'GeckoTerminal', fetched_at: new Date().toISOString(), stale: false, pairs: pair ? [pair] : [], label: 'Pair snapshot' });
+  }
   if (req.method === 'GET' && url.pathname === '/api/market/scan') {
     const query = url.searchParams.get('address') || '';
     const result = await dexSearch(query);

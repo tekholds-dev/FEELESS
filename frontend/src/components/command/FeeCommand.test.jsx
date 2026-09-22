@@ -41,9 +41,9 @@ afterEach(() => {
 
 test('flips through every returned fee asset and updates price and mint state', () => {
   const assets = [
-    { id: 'fee', label: 'FEE', mint: 'fee-mint', pair: { chainId: 'solana', pairAddress: 'fee-pair', baseToken: { symbol: 'FEE' }, priceUsd: '1.00' } },
-    { id: 'rfee', label: 'RFEE', mint: 'rfee-mint', pair: { chainId: 'solana', pairAddress: 'rfee-pair', baseToken: { symbol: 'RFEE' }, priceUsd: '2.00' } },
-    { id: 'feecat', label: 'FEECAT', mint: 'feecat-mint', pair: { chainId: 'solana', pairAddress: 'feecat-pair', baseToken: { symbol: 'FEECAT' }, priceUsd: '3.00' } },
+    { id: 'fee', label: 'FEE', mint: 'fee-mint', imageUrl: 'https://logo.test/fee.png', pair: { chainId: 'solana', pairAddress: 'fee-pair', baseToken: { symbol: 'FEE' }, priceUsd: '1.00' } },
+    { id: 'rfee', label: 'RFEE', mint: 'rfee-mint', imageUrl: 'https://logo.test/rfee.png', pair: { chainId: 'solana', pairAddress: 'rfee-pair', baseToken: { symbol: 'RFEE' }, priceUsd: '2.00' } },
+    { id: 'feecat', label: 'FEECAT', mint: 'feecat-mint', imageUrl: 'https://logo.test/feecat.png', pair: { chainId: 'solana', pairAddress: 'feecat-pair', baseToken: { symbol: 'FEECAT' }, priceUsd: '3.00' } },
   ];
   const { container, root } = mount(assets);
   const flip = () => act(() => container.querySelector('[data-testid="fee-heartbeat-flip"]').click());
@@ -54,6 +54,7 @@ test('flips through every returned fee asset and updates price and mint state', 
   });
 
   expect(readState()).toEqual({ heading: '$FEE', price: '$1.00', mintTitle: 'Copy FEE mint' });
+  expect(container.querySelector('.fee-asset-logo > img').src).toBe('https://logo.test/fee.png');
   expect(container.querySelector('[data-testid="mock-price-chart"]').textContent).toBe('FEE:1h');
   ['5m', '15m', '4h', '1d'].forEach(interval => {
     act(() => container.querySelector(`[data-testid="fee-chart-interval-${interval}"]`).click());
@@ -62,9 +63,11 @@ test('flips through every returned fee asset and updates price and mint state', 
   act(() => container.querySelector('[data-testid="fee-chart-interval-1h"]').click());
   flip();
   expect(readState()).toEqual({ heading: '$RFEE', price: '$2.00', mintTitle: 'Copy RFEE mint' });
+  expect(container.querySelector('.fee-asset-logo > img').src).toBe('https://logo.test/rfee.png');
   expect(container.querySelector('[data-testid="mock-price-chart"]').textContent).toBe('RFEE:1h');
   flip();
   expect(readState()).toEqual({ heading: '$FEECAT', price: '$3.00', mintTitle: 'Copy FEECAT mint' });
+  expect(container.querySelector('.fee-asset-logo > img').src).toBe('https://logo.test/feecat.png');
   expect(container.querySelector('[data-testid="mock-price-chart"]').textContent).toBe('FEECAT:1h');
   flip();
   expect(readState()).toEqual({ heading: '$FEE', price: '$1.00', mintTitle: 'Copy FEE mint' });

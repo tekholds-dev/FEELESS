@@ -7,3 +7,4 @@
 - [Browser readability test CSS](browser-readability-tests.md) — jsdom needs CSSOM assertions for custom-property font scaling because computed values may stay at the base size.
 - [Preview candle route parity](preview-candle-route.md) — preview and production must both expose the market candle contract used by the chart.
 - [Browser reload CDP behavior](browser-reload-cdp.md) — reconnect the Chromium page target after full reloads before evaluating the DOM.
+- [Fee asset provider fallback](fee-provider-fallback.md) — resolve exact CA metadata through GeckoTerminal when DexScreener lacks the fee pair.
