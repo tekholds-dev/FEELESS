@@ -204,6 +204,7 @@ export async function requestMetaLaunchPlan(form, wallet, providerId = form.prov
     launch: {
       name: form.name.trim(),
       symbol: form.symbol.trim().toUpperCase(),
+      ...(form.imageUrl?.trim() ? { imageUrl: form.imageUrl.trim() } : {}),
       supply: form.supply,
       openingMarketCap: Number(form.openingMarketCap),
       curveType: form.curveType,

@@ -147,6 +147,7 @@ test('prepares an unsigned five-step plan without accepting private key material
   const form = {
     name: 'Meta Coin',
     symbol: 'meta',
+    imageUrl: 'https://example.com/meta.png',
     supply: '1000',
     openingMarketCap: '35',
     curveType: 'linear',
@@ -175,6 +176,7 @@ test('prepares an unsigned five-step plan without accepting private key material
     launch: {
       name: 'Meta Coin',
       symbol: 'META',
+      imageUrl: 'https://example.com/meta.png',
       supply: '1000',
       openingMarketCap: 35,
       curveType: 'linear',

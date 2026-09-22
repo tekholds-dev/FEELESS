@@ -26,6 +26,7 @@ const validForm = {
   ...DEFAULT_META_LAUNCH_FORM,
   name: 'Meta Coin',
   symbol: 'META',
+  imageUrl: 'https://example.com/meta.png',
   graduationTarget: '1',
   holderAllocation: '10',
   airdropAmount: '5',
@@ -46,6 +47,23 @@ test('rejects invalid launch allocations and missing liquidity', () => {
   expect(errors.liquidityPair).toBeTruthy();
   expect(errors.feeShares).toBeTruthy();
   expect(errors.allocations).toBeTruthy();
+});
+
+test('requires a public token image for a FEELESS launch', () => {
+  const errors = validateMetaLaunch({ ...validForm, imageUrl: '' });
+  expect(errors.imageUrl).toBe('Add a public HTTP(S) token image URL.');
+});
+
+test('shows the token image in setup preview and launch review', () => {
+  const { container, root } = mount(<MetaLaunchSetup initialValues={validForm} />);
+
+  expect(container.querySelector('[data-testid="meta-launch-image-preview"] img').getAttribute('src'))
+    .toBe(validForm.imageUrl);
+  act(() => container.querySelector('[data-testid="meta-launch-review"]').click());
+
+  expect(container.querySelector('.meta-launch-review-identity img').getAttribute('src'))
+    .toBe(validForm.imageUrl);
+  act(() => root.unmount());
 });
 
 test('moves a valid setup to review and keeps deployment unavailable safely', () => {
