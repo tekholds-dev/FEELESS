@@ -5,7 +5,7 @@ import WalletModal from '../components/WalletModal';
 import { useMarket } from '../hooks/useMarket';
 import { isNewPoolDeal, MARKET_RETENTION_DAYS, NEW_POOL_DEAL_PERCENT } from '../lib/dexscreener';
 import { useWorkspace } from '../hooks/useWorkspace';
-import { useLocalSettings, usePriceAlerts, AlertsPage } from '../components/terminal/LocalTools';
+import { normalizeFontScale, useLocalSettings, usePriceAlerts, AlertsPage } from '../components/terminal/LocalTools';
 import { TerminalHeader, TerminalSidebar, MarketTicker, TerminalFooter } from '../components/terminal/TerminalShell';
 import { DataStatus, MarketError } from '../components/terminal/MarketPrimitives';
 import { ChatRoom, TrenchesView } from '../components/terminal/CommunityRail';
@@ -31,6 +31,7 @@ export default function Terminal() {
   const [walletOpen, setWalletOpen] = useState(false); const [menuOpen, setMenuOpen] = useState(false);
   const [pad, setPad] = useState('all'); const [minLiquidity, setMinLiquidity] = useState('0'); const [pagination, setPagination] = useState(1);
   const [settings, setSettings] = useLocalSettings(); const [alerts, setAlerts] = usePriceAlerts();
+  const fontScale = normalizeFontScale(settings.fontScale);
   const tab = params.get('mode') || (['new', 'pump'].includes(page) ? 'new' : 'trending');
   const kind = ['new', 'pump'].includes(page) || tab === 'new' ? 'new' : 'trending';
   const cadence = settings.autoRefresh ? 90000 : 0;
@@ -58,13 +59,13 @@ export default function Terminal() {
   const setChain = value => { const next = new URLSearchParams(params); if (value === 'all') next.set('chain', 'all'); else { next.delete('chain'); setEcosystem(value === 'bsc' ? 'bnb' : value); } setParams(next); };
   const isHome = page === ''; const isMarket = STANDARD.includes(page);
   const focus = selected ? <TokenFocus pair={selected} has={has} toggle={toggle} defaultInterval={settings.chartInterval || '1h'} /> : <FeeHeartbeat asset={fee} assets={feeAssets} loading={assets.loading} />;
-  return <div className={`terminal-app command-terminal ${settings.compact ? 'compact-rows' : ''} ${settings.reducedMotion ? 'reduced-motion' : ''} text-scale-${settings.fontScale || 'normal'}`} style={{ '--context-accent': ecosystem.color }}><MouseGlow /><TerminalHeader onWallet={() => setWalletOpen(true)} onMenu={() => setMenuOpen(v => !v)} query={query} /><MarketTicker /><ContextBar />
+  return <div className={`terminal-app command-terminal ${settings.compact ? 'compact-rows' : ''} ${settings.reducedMotion ? 'reduced-motion' : ''} text-scale-${fontScale}`} style={{ '--context-accent': ecosystem.color }}><MouseGlow /><TerminalHeader onWallet={() => setWalletOpen(true)} onMenu={() => setMenuOpen(v => !v)} query={query} /><MarketTicker /><ContextBar />
     <div className="terminal-body"><TerminalSidebar open={menuOpen} onClose={() => setMenuOpen(false)} savedCount={watchlist.length} /><main className="terminal-main" data-testid={`terminal-page-${page || 'home'}`}>
       <div className="workspace-topline"><span><i className="live-dot" /> FEELESS OS / <b data-testid="workspace-context-label">{ecosystem.name.toUpperCase()} {ecosystem.isLaunchpad ? 'WAR ROOM' : 'INTELLIGENCE'}</b><span className="workspace-mode">{page || '$FEE COMMAND'}</span></span><Link to={`/?node=${ecosystem.id}`} data-testid="workspace-globe-link">Globe view<ArrowUpRight size={12} /></Link></div>
       <div className="context-transition" key={ecosystem.id}>
       {isMarket && <div className={`terminal-content-grid ${!isHome && page !== 'trade' ? 'market-wide' : ''}`}><div className="terminal-primary">
         {isHome && <><div className="command-home-heading"><div><span className="eyebrow">THE FEELESS NETWORK COMMAND CENTER</span><h1>$FEE is the heartbeat.</h1></div><button className="btn-outline" data-testid="reset-to-fee" onClick={() => selectPair(null)}><Activity size={14} />$FEE focus</button></div>{focus}<PulseGrid pairs={pairs} community={community} fee={fee} feeCat={feeCat} loading={market.loading || !market.data} /><Tokenomics compact /></>}
-         {page === 'trade' && <><div className="command-page-title"><span className="eyebrow">INTELLIGENCE → ROUTE → SIMULATE → APPROVE</span><h1>Your execution workspace.</h1></div>{focus}<SwapWorkspace pair={selected} feeAsset={fee} feeAssets={feeAssets} feeCat={feeCat} fontScale={settings.fontScale} onWallet={() => setWalletOpen(true)} /></>}
+          {page === 'trade' && <><div className="command-page-title"><span className="eyebrow">INTELLIGENCE → ROUTE → SIMULATE → APPROVE</span><h1>Your execution workspace.</h1></div>{focus}<SwapWorkspace pair={selected} feeAsset={fee} feeAssets={feeAssets} feeCat={feeCat} fontScale={fontScale} onWallet={() => setWalletOpen(true)} /></>}
          {!['', 'trade'].includes(page) && <div className="command-page-title"><span className="eyebrow">{ecosystem.name.toUpperCase()} / ON-CHAIN INTELLIGENCE</span><h1>{query ? 'Follow the contract.' : page === 'new' ? 'New pools, better entry points.' : page === 'pump' ? 'Deep in the trenches.' : page === 'movers' ? 'Read the acceleration.' : 'Find the next rotation.'}</h1><p>{query ? `Provider results for “${query}”` : page === 'new' ? `Provider-indexed pools within ${MARKET_RETENTION_DAYS} days with a 24h drawdown of at least ${NEW_POOL_DEAL_PERCENT}%. Not a buy recommendation.` : 'Real signals, within provider coverage. No invented activity.'}</p></div>}
         <ContractScanner />
         {page === 'pump' && <RadarView pairs={newPairs} onSelect={onSelect} />}

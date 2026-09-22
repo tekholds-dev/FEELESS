@@ -242,6 +242,26 @@ test('updates the trade readout for every text size and restores the choice afte
   act(() => reloaded.root.unmount());
 });
 
+test.each([
+  ['unknown', 'normal'],
+  ['legacy-large', 'normal'],
+  [null, 'normal'],
+  [42, 'normal'],
+])('normalizes an invalid saved font scale (%p) before settings and trade render', (savedValue, expected) => {
+  installTradeStyles();
+  localStorage.setItem('feeless-settings', JSON.stringify({ compact: false, fontScale: savedValue }));
+  const { container, root } = mount();
+  expect(container.querySelector('[data-testid="config-text-size"]').value).toBe(expected);
+  expect(JSON.parse(localStorage.getItem('feeless-settings')).fontScale).toBe(expected);
+
+  mockPage = 'trade';
+  renderCurrentPage(root);
+  const app = container.querySelector('.terminal-app');
+  expect(app.classList.contains(`text-scale-${expected}`)).toBe(true);
+  expect(container.querySelector('[data-testid="swap-amount"]').closest(`.text-scale-${expected}`)).not.toBeNull();
+  act(() => root.unmount());
+});
+
 test('keeps trade readouts and controls bounded at a narrow preview width for every text size', () => {
   installTradeStyles();
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: 375 });

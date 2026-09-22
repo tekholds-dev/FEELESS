@@ -5,13 +5,37 @@ import { toast } from 'sonner';
 import { marketRequest, pairKey, formatUSD } from '../../lib/dexscreener';
 import { MarketTable } from './MarketTable';
 
+export const FONT_SCALE_VALUES = ['normal', 'large', 'xlarge'];
+
+export function normalizeFontScale(value) {
+  return FONT_SCALE_VALUES.includes(value) ? value : 'normal';
+}
+
 export function useLocalSettings() {
   const [settings, setSettings] = useState(() => {
-    try { return { compact: false, autoRefresh: true, reducedMotion: false, fontScale: 'normal', ...JSON.parse(localStorage.getItem('feeless-settings') || '{}') }; }
+    try {
+      const saved = JSON.parse(localStorage.getItem('feeless-settings') || '{}');
+      const parsed = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+      return {
+        compact: false,
+        autoRefresh: true,
+        reducedMotion: false,
+        fontScale: normalizeFontScale(parsed.fontScale),
+        ...parsed,
+        fontScale: normalizeFontScale(parsed.fontScale),
+      };
+    }
     catch { return { compact: false, autoRefresh: true, reducedMotion: false, fontScale: 'normal' }; }
   });
-  useEffect(() => { localStorage.setItem('feeless-settings', JSON.stringify(settings)); }, [settings]);
-  return [settings, setSettings];
+  useEffect(() => {
+    const normalized = { ...settings, fontScale: normalizeFontScale(settings.fontScale) };
+    localStorage.setItem('feeless-settings', JSON.stringify(normalized));
+  }, [settings]);
+  const updateSettings = next => setSettings(current => {
+    const resolved = typeof next === 'function' ? next(current) : next;
+    return { ...resolved, fontScale: normalizeFontScale(resolved?.fontScale) };
+  });
+  return [settings, updateSettings];
 }
 
 export function usePriceAlerts() {
