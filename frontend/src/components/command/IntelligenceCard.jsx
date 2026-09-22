@@ -11,7 +11,7 @@ import { useClock } from './WorkspaceChrome';
 
 export const IntelligenceCard = ({ pair, id, snapshotTime }) => {
   const { selectPair: setSelectedPair, toggle, has, setAlertPair } = useWorkspace(); const nav = useNavigate(); const location = useLocation(); useClock(30000);
-  const selectPair = pair => { setSelectedPair(pair); if (location.pathname === '/') nav('/terminal/chat'); };
+  const selectPair = pair => { setSelectedPair(pair); if (location.pathname !== '/terminal/chat') nav('/terminal/chat'); };
   const address = pair.baseToken?.address;
   const chain = getEcosystem(pair.chainId === 'bsc' ? 'bnb' : pair.chainId);
   const pad = LAUNCHPADS.find(p => matchesPad(pair, p.id));

@@ -22,7 +22,7 @@ jest.mock('../../hooks/useWorkspace', () => ({
   useWorkspace: () => ({ ecosystem: { id: 'solana', name: 'Solana' } }),
 }));
 
-jest.mock('../EcosystemChat', () => () => <div data-testid="ecosystem-chat" />);
+jest.mock('../EcosystemChat', () => ({ room }) => <div data-testid="ecosystem-chat" data-room={room} />);
 jest.mock('../command/WorkspaceChrome', () => ({ AlphaTape: () => null }));
 jest.mock('./TokenFocus', () => ({ TokenFocus: () => null }));
 jest.mock('./MarketPrimitives', () => ({
@@ -106,5 +106,24 @@ describe('The Trenches pools tab', () => {
 
     act(() => host.querySelector(`[data-testid="live-pool-solana-${pairAddress}"]`).click());
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ pairAddress }));
+  });
+
+  test('selected coins use isolated Bulls, Bears, and Trenches rooms', () => {
+    const selectedPair = {
+      chainId: 'ethereum',
+      pairAddress: 'pool-1',
+      baseToken: { symbol: 'ALPHA', name: 'Alpha Coin' },
+    };
+
+    act(() => root.render(<ChatRoom selectedPair={selectedPair} />));
+    expect(host.querySelector('[data-testid="chat-tab-bulls"]').getAttribute('aria-selected')).toBe('true');
+    expect(host.querySelector('[data-testid="ecosystem-chat"]').getAttribute('data-room')).toBe('coin-ethereum-pool-1-bulls');
+
+    act(() => host.querySelector('[data-testid="chat-tab-bears"]').click());
+    expect(host.querySelector('[data-testid="chat-tab-bears"]').getAttribute('aria-selected')).toBe('true');
+    expect(host.querySelector('[data-testid="ecosystem-chat"]').getAttribute('data-room')).toBe('coin-ethereum-pool-1-bears');
+
+    act(() => host.querySelector('[data-testid="chat-tab-trenches"]').click());
+    expect(host.querySelector('[data-testid="ecosystem-chat"]').getAttribute('data-room')).toBe('coin-ethereum-pool-1-trenches');
   });
 });

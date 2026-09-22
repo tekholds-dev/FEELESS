@@ -7,8 +7,8 @@ import { apiUrl } from '../lib/api';
 const API = apiUrl('/api');
 const detectAddress = text => text.match(/\b0x[a-fA-F0-9]{40}\b/)?.[0] || text.match(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/)?.[0];
 
-export default function EcosystemChat({ ecosystem, compact = false }) {
-  const room = ecosystem?.id || 'general';
+export default function EcosystemChat({ ecosystem, room: roomProp, compact = false }) {
+  const room = roomProp || ecosystem?.id || 'general';
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
@@ -28,11 +28,11 @@ export default function EcosystemChat({ ecosystem, compact = false }) {
     setMessages([]); setLoading(true); setInput(''); setError('');
     const load = async () => {
       try {
-        const res = await fetch(`${API}/chat/${room}`, { signal: controller.signal });
+        const res = await fetch(`${API}/chat/${encodeURIComponent(room)}`, { signal: controller.signal });
         if (!res.ok) throw new Error();
         const data = await res.json();
         if (!controller.signal.aborted) { setMessages(data.messages); setError(''); }
-      } catch (e) { if (e.name !== 'AbortError') setError('Chat connection interrupted. Retrying…'); }
+      } catch (e) { if (e.name !== 'AbortError') setError('Chat connection interrupted. Retry the room connection.'); }
       finally { if (!controller.signal.aborted) setLoading(false); }
     };
     refresh.current = load; load(); const timer = setInterval(load, 4000);
@@ -45,7 +45,7 @@ export default function EcosystemChat({ ecosystem, compact = false }) {
     setSending(true); setError(''); let tokens = null;
     try {
       // The server resolves contract cards; client-provided market claims are not trusted.
-      const res = await fetch(`${API}/chat/${room}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, text, tokens }) });
+      const res = await fetch(`${API}/chat/${encodeURIComponent(room)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, text, tokens }) });
       if (!res.ok) throw new Error();
       setInput(''); stick.current = true; await refresh.current?.();
     } catch { setError('Message not sent. Your draft is preserved; please retry.'); }
@@ -59,7 +59,7 @@ export default function EcosystemChat({ ecosystem, compact = false }) {
       {!loading && !messages.length && <div className="chat-empty" data-testid={`chat-empty-${room}`}><MessageCircle size={28} /><strong>The next alpha starts here.</strong><span>No messages in this channel yet.</span></div>}
       {messages.map(m => <div className="chat-message" key={m.id} data-testid={`chat-message-${m.id}`}><span className="chat-avatar">{m.username.slice(-2).toUpperCase()}</span><div><div className="message-meta"><b>{m.username}</b><time>{formatTime(m.ts)}</time></div><p>{m.text}</p>{m.tokens?.map((t, i) => t.pair ? <IntelligenceCard key={i} id={`chat-token-${m.id}-${i}`} pair={t.pair} snapshotTime={t.fetched_at} /> : <TokenCard key={i} testId={`chat-token-${m.id}-${i}`} compact pair={{ chainId: t.chainId, baseToken: { name: t.name, symbol: t.symbol, address: t.address }, priceUsd: t.priceUsd, priceChange: { h24: t.priceChange24h }, liquidity: { usd: t.liquidity }, volume: { h24: t.volume }, marketCap: t.mcap, url: t.url, pairCreatedAt: t.pairCreatedAt, info: { imageUrl: t.imageUrl } }} />)}</div></div>)}
     </div>
-    {error && <div className="chat-error" role="alert" data-testid={`chat-error-${room}`}>{error}</div>}
+    {error && <div className="chat-error" role="alert" data-testid={`chat-error-${room}`}><span>{error}</span><button type="button" data-testid={`chat-retry-${room}`} onClick={() => refresh.current?.()}>Retry connection</button></div>}
     <form onSubmit={send} className="chat-compose"><input aria-label="Chat message" data-testid={`chat-input-${room}`} value={input} onChange={e => setInput(e.target.value)} maxLength={1000} placeholder="Drop alpha or paste a CA…" /><button aria-label="Send message" data-testid={`chat-send-${room}`} disabled={sending || !input.trim()}>{sending ? <span className="loader" /> : <Send size={16} />}</button></form>
   </div>;
 }

@@ -33,7 +33,7 @@ export const ContextBar = () => {
 export const AlphaTape = ({ horizontal = false }) => {
   const { ecosystem, selectPair } = useWorkspace();
   const nav = useNavigate(); const location = useLocation();
-  const openPair = pair => { selectPair(pair); if (!['/terminal', '/terminal/trade', '/terminal/chat'].includes(location.pathname)) nav('/terminal/trade'); };
+  const openPair = pair => { selectPair(pair); if (location.pathname !== '/terminal/chat') nav('/terminal/chat'); };
   const [type, setType] = useState('all');
   const { data, error } = useMarket(`/api/intelligence/tape?chain=${ecosystem.chainId}&venue=${ecosystem.isLaunchpad ? ecosystem.id : 'all'}&context=${ecosystem.id}`, 15000);
   const events = (data?.events || []).filter(e => type === 'all' || e.kind === type);
@@ -66,7 +66,7 @@ export const ContractScanner = ({ onResolved }) => {
       if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Enter a valid SPL or EVM contract address.');
       if (!data.pairs.length) throw new Error('No exact provider match for this contract.');
       setResult(data.pairs[0]); selectPair(data.pairs[0]); onResolved?.(data.pairs[0]);
-      if (!['/terminal', '/terminal/trade', '/terminal/chat'].includes(location.pathname)) nav('/terminal/trade');
+      if (location.pathname !== '/terminal/chat') nav('/terminal/chat');
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
   return <form className="ca-scanner" onSubmit={scan}><ScanLine size={18} /><input data-testid="ca-scanner-input" aria-label="Contract address scanner" value={input} onChange={e => setInput(e.target.value)} placeholder={`${ecosystem.name} · paste a CA to inspect`} maxLength={64} /><button className="btn-outline" data-testid="ca-scanner-submit" disabled={busy || !input.trim()}>{busy ? 'Resolving…' : 'Scan CA'}</button>{error && <p data-testid="ca-scanner-error" role="alert">{error}</p>}{result && <p className="positive" data-testid="ca-scanner-result">Exact match: {result.baseToken.symbol} · {result.chainId}. Provider match is not a security audit.</p>}</form>;

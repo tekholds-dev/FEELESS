@@ -4,10 +4,14 @@ import { useMarket } from '../../hooks/useMarket';
 import { dexUrl, formatUSD } from '../../lib/dexscreener';
 import { DataStatus, MarketError } from './MarketPrimitives';
 
-export const PriceChart = ({ pair, interval, showVolume }) => {
+export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => {
   const container = useRef(null);
-  const { data, loading, error, reload } = useMarket(pair ? `/candles/${pair.chainId}/${pair.pairAddress}?interval=${interval}` : null);
+  const priceMetric = metric === 'price';
+  const { data, loading, error, reload } = useMarket(priceMetric && pair ? `/candles/${pair.chainId}/${pair.pairAddress}?interval=${interval}` : null);
   const providerError = error || data?.error;
+  const metricLabel = metric === 'marketCap' ? 'Market cap' : 'FDV';
+  const metricValue = metric === 'marketCap' ? pair?.marketCap : pair?.fdv;
+  const metricAvailable = metricValue !== null && metricValue !== undefined && metricValue !== '' && Number.isFinite(Number(metricValue));
   const candleRows = useMemo(() => Array.isArray(data?.candles)
     ? [...new Map(data.candles
       .filter(row => Array.isArray(row) && row.length >= 6 && row.every(Number.isFinite))
@@ -33,8 +37,8 @@ export const PriceChart = ({ pair, interval, showVolume }) => {
     return () => chart.remove();
   }, [candleRows, showVolume]);
   return <div className="chart-area" data-testid="price-chart">
-    {loading && <div className="chart-message" data-testid="chart-loading"><span className="loader" />Loading on-chain candles…</div>}
-    {providerError && <div className="chart-message" data-testid="chart-provider-failure">
+    {priceMetric && loading && <div className="chart-message" data-testid="chart-loading"><span className="loader" />Loading on-chain candles…</div>}
+    {priceMetric && providerError && <div className="chart-message" data-testid="chart-provider-failure">
       <MarketError
         error={`Unable to load candle history from GeckoTerminal. ${providerError}`}
         description="This is a provider failure, not confirmation that the pool has no history. Retry the candle request or use the external chart."
@@ -45,12 +49,14 @@ export const PriceChart = ({ pair, interval, showVolume }) => {
       />
       <a data-testid="chart-fallback-link" href={dexUrl(pair)} target="_blank" rel="noreferrer">Open chart on DexScreener ↗</a>
     </div>}
-    {!loading && !providerError && !candleRows.length && <div className="chart-message" role="status" aria-live="polite" tabIndex="0" data-testid="chart-empty">
+    {priceMetric && !loading && !providerError && !candleRows.length && <div className="chart-message" role="status" aria-live="polite" tabIndex="0" data-testid="chart-empty">
       <strong>No candle history for this pool yet.</strong>
       <span>GeckoTerminal returned an empty history for the selected {interval} interval. This is different from a provider outage; try another interval or check the external chart.</span>
       <a data-testid="chart-empty-dex-link" href={dexUrl(pair)} target="_blank" rel="noreferrer">View on DexScreener ↗</a>
     </div>}
-    <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />
-    <div className="chart-source"><span>GeckoTerminal · OHLCV</span><DataStatus data={data} id="chart-data-status" /></div>
+    {!priceMetric && metricAvailable && <div className="metric-snapshot" data-testid={`chart-${metric}-snapshot`}><span className="metric-snapshot-label">{metricLabel} snapshot</span><strong>{formatUSD(metricValue)}</strong><small>Provider supplied the current {metricLabel.toLowerCase()} only. Historical {metricLabel.toLowerCase()} candles are unavailable.</small></div>}
+    {!priceMetric && !metricAvailable && <div className="chart-message metric-unavailable" role="status" data-testid={`chart-${metric}-unavailable`}><strong>{metricLabel} unavailable</strong><span>The provider did not supply a {metricLabel.toLowerCase()} value for this pair. No value is estimated.</span></div>}
+    {priceMetric && <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />}
+    <div className="chart-source"><span>{priceMetric ? 'GeckoTerminal · OHLCV' : `Provider pair snapshot · ${metricLabel}`}</span>{priceMetric ? <DataStatus data={data} id="chart-data-status" /> : <span className="data-status"><i />{metricAvailable ? 'LIVE · snapshot' : 'UNAVAILABLE'}</span>}</div>
   </div>;
 };

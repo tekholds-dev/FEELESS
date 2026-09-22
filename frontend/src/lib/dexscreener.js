@@ -14,6 +14,18 @@ export const searchTokens = async q => (await marketRequest(`/search?q=${encodeU
 export const searchTokenByAddress = searchTokens;
 export const pairKey = p => `${p.chainId}-${p.pairAddress}`;
 export const tokenKey = p => `${p.chainId}-${p.baseToken?.address}`;
+const roomPart = value => encodeURIComponent(String(value)).replace(/%[0-9a-f]{2}/gi, '_');
+export function coinIdentity(pair) {
+  const chainId = String(pair?.chainId || '').trim();
+  const pairAddress = String(pair?.pairAddress || '').trim();
+  if (!chainId || !pairAddress) return null;
+  return { chainId, pairAddress, key: `${chainId}:${pairAddress}` };
+}
+export function coinRoom(pair, perspective = 'trenches') {
+  const identity = coinIdentity(pair);
+  if (!identity) return null;
+  return `coin-${roomPart(identity.chainId)}-${roomPart(identity.pairAddress)}-${roomPart(perspective)}`;
+}
 export const dexUrl = p => `${DEX_SITE}/${encodeURIComponent(p.chainId)}/${encodeURIComponent(p.pairAddress)}`;
 export function isNewPoolDeal(pair, now = Date.now()) {
   const created = Number(pair?.pairCreatedAt);
