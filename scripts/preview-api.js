@@ -8,6 +8,8 @@ const { keccak_256 } = require('@noble/hashes/sha3');
 const PORT = Number(process.env.API_PORT || 5001);
 const DEX_API = process.env.DEX_API_URL || 'https://api.dexscreener.com';
 const GECKO_API = process.env.GECKO_API_URL || 'https://api.geckoterminal.com/api/v2';
+
+const PUMP_API = process.env.PUMP_API_URL || 'https://frontend-api-v3.pump.fun';
 const DEX_SITE = process.env.DEX_SITE_URL || 'https://dexscreener.com';
 const JUPITER_API = process.env.JUPITER_API_URL || 'https://api.jup.ag';
 const JUPITER_PUBLIC_QUOTE_API = process.env.JUPITER_QUOTE_API_URL || 'https://lite-api.jup.ag/swap/v1';
@@ -255,6 +257,60 @@ async function geckoFeed(kind, page = 1, chain = 'solana') {
   };
 }
 
+async function pumpGraduations(mints = '') {
+  const uniqueMints = [...new Set(String(mints).split(',')
+    .map(value => value.trim())
+    .filter(value => /^[a-zA-Z0-9]{1,64}$/.test(value)))];
+  const fetchedAt = new Date().toISOString();
+  if (!uniqueMints.length) {
+    return {
+      provider: 'Pump.fun',
+      sourceUrl: 'https://pump.fun',
+      sourceLabel: 'Pump.fun public coin status · complete=true',
+      fetched_at: fetchedAt,
+      stale: false,
+      status: 'no_verified_events',
+      graduations: [],
+    };
+  }
+  const results = [];
+  let nextMint = 0;
+  const readMint = async () => {
+    while (nextMint < uniqueMints.length) {
+      const mint = uniqueMints[nextMint];
+      nextMint += 1;
+      try {
+        const data = await getJson(`${PUMP_API}/coins/${encodeURIComponent(mint)}`, 60000);
+        results.push({ mint, data });
+      } catch (error) {
+        results.push({ mint, error: publicError(error) });
+      }
+    }
+  };
+  await Promise.all([...Array(Math.min(2, uniqueMints.length))].map(() => readMint()));
+  const graduations = results
+    .filter(result => result.data?.complete === true)
+    .map(result => ({
+      mint: result.mint,
+      status: 'graduated',
+      pool_address: result.data.raydium_pool || result.data.pool_address || null,
+      graduated_at: result.data.graduation_timestamp || result.data.completion_timestamp || null,
+      observed_at: fetchedAt,
+      source: 'Pump.fun',
+      source_url: 'https://pump.fun',
+    }));
+  const errors = [...new Set(results.filter(result => result.error).map(result => result.error))];
+  return {
+    provider: 'Pump.fun',
+    sourceUrl: 'https://pump.fun',
+    sourceLabel: 'Pump.fun public coin status · complete=true',
+    fetched_at: fetchedAt,
+    stale: false,
+    error: errors.length ? errors.join('; ') : null,
+    status: graduations.length ? 'verified' : errors.length === results.length ? 'unavailable' : 'no_verified_events',
+    graduations,
+  };
+}
 async function geckoCandles(chain, address, interval = '1h') {
   const networks = {
     solana: 'solana',
@@ -630,6 +686,9 @@ async function route(req, res, url) {
       }
     }
     return json(res, 200, result);
+  }
+  if (req.method === 'GET' && url.pathname === '/api/market/graduations') {
+    return json(res, 200, await pumpGraduations(url.searchParams.get('mints') || ''));
   }
   const candleMatch = url.pathname.match(/^\/api\/market\/candles\/([^/]+)\/([^/]+)$/);
   if (req.method === 'GET' && candleMatch) {

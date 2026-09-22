@@ -6,10 +6,12 @@ const { Keypair } = require('@solana/web3.js');
 
 const DEX_API_URL = 'http://dex.test';
 const GECKO_API_URL = 'http://gecko.test/api/v2';
+const PUMP_API_URL = 'http://pump.test';
 const POOL_ADDRESS = 'PoolAddress123';
 
 process.env.DEX_API_URL = DEX_API_URL;
 process.env.GECKO_API_URL = GECKO_API_URL;
+process.env.PUMP_API_URL = PUMP_API_URL;
 
 const { server } = require('./preview-api');
 
@@ -129,6 +131,64 @@ test('preview candle contract follows a discovered pool and rejects invalid inte
     }
     assert.equal(invalidInterval.status, 400);
     assert.match(invalidInterval.body.detail, /Invalid chart interval or network/);
+  } finally {
+    global.fetch = originalFetch;
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('preview graduation status only accepts Pump.fun complete coins', async () => {
+  const originalFetch = global.fetch;
+  const graduatedMint = 'GraduatedMint123';
+  const pendingMint = 'PendingMint456';
+  global.fetch = async target => {
+    const url = String(target);
+    if (url === `${PUMP_API_URL}/coins/${graduatedMint}`) {
+      return providerResponse({ mint: graduatedMint, complete: true, raydium_pool: 'RaydiumPool789' });
+    }
+    if (url === `${PUMP_API_URL}/coins/${pendingMint}`) {
+      return providerResponse({ mint: pendingMint, complete: false, raydium_pool: null });
+    }
+    throw new Error(`Unexpected provider request: ${url}`);
+  };
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  try {
+    const response = await request(
+      baseUrl,
+      `/api/market/graduations?mints=${graduatedMint},${pendingMint},${graduatedMint}`,
+      originalFetch,
+    );
+    assert.equal(response.status, 200);
+    assert.equal(response.body.provider, 'Pump.fun');
+    assert.equal(response.body.status, 'verified');
+    assert.deepEqual(response.body.graduations.map(item => item.mint), [graduatedMint]);
+    assert.equal(response.body.graduations[0].pool_address, 'RaydiumPool789');
+    assert.match(response.body.graduations[0].observed_at, /^\d{4}-\d{2}-\d{2}T/);
+  } finally {
+    global.fetch = originalFetch;
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('preview graduation status reports provider outage without inventing events', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async target => {
+    if (String(target) === `${PUMP_API_URL}/coins/UnavailableMint999`) return providerResponse({ detail: 'down' }, 503);
+    throw new Error(`Unexpected provider request: ${target}`);
+  };
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  try {
+    const response = await request(baseUrl, '/api/market/graduations?mints=UnavailableMint999', originalFetch);
+    assert.equal(response.status, 200);
+    assert.equal(response.body.status, 'unavailable');
+    assert.equal(response.body.graduations.length, 0);
+    assert.match(response.body.error, /HTTP 503/);
   } finally {
     global.fetch = originalFetch;
     await new Promise(resolve => server.close(resolve));

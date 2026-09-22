@@ -8,3 +8,4 @@
 - [Preview candle route parity](preview-candle-route.md) — preview and production must both expose the market candle contract used by the chart.
 - [Browser reload CDP behavior](browser-reload-cdp.md) — reconnect the Chromium page target after full reloads before evaluating the DOM.
 - [Fee asset provider fallback](fee-provider-fallback.md) — resolve exact CA metadata through GeckoTerminal when DexScreener lacks the fee pair.
+- [Pump graduation source](pump-graduation-source.md) — only Pump.fun complete=true status can graduate an exact-mint pool; market indexes remain discovery-only.

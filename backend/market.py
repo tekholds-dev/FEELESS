@@ -58,6 +58,17 @@ class MarketResult(BaseModel):
     page: int = 1
 
 
+class GraduationResult(BaseModel):
+    provider: str
+    source_url: str
+    source_label: str
+    fetched_at: str
+    stale: bool = False
+    error: str | None = None
+    status: Literal['verified', 'no_verified_events', 'unavailable'] = 'no_verified_events'
+    graduations: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class CandleResult(BaseModel):
     provider: str
     fetched_at: str
@@ -114,6 +125,7 @@ def create_market_router(db, intelligence=None):
     bases = {
         'DexScreener': os.getenv('DEX_API_URL', 'https://api.dexscreener.com'),
         'GeckoTerminal': os.getenv('GECKO_API_URL', 'https://api.geckoterminal.com/api/v2'),
+        'Pump.fun': os.getenv('PUMP_API_URL', 'https://frontend-api-v3.pump.fun'),
     }
 
     async def cached(provider, path, params=None, ttl=60):
@@ -155,6 +167,67 @@ def create_market_router(db, intelligence=None):
                 return hit['data'], {'provider': provider, 'fetched_at': hit['fetched_at'], 'stale': True, 'error': error}
             raise HTTPException(503, detail=error)
 
+    async def graduation_status(mints):
+        """Use Pump.fun's completion flag; market indexes cannot prove graduation."""
+        unique_mints = list(dict.fromkeys(
+            mint for mint in mints
+            if isinstance(mint, str) and mint.isalnum() and len(mint) <= 64
+        ))
+        observed_at = datetime.now(timezone.utc).isoformat()
+        if not unique_mints:
+            return GraduationResult(
+                provider='Pump.fun',
+                source_url='https://pump.fun',
+                source_label='Pump.fun public coin status · complete=true',
+                fetched_at=observed_at,
+            )
+
+        async def read_mint(mint):
+            try:
+                data, meta = await cached('Pump.fun', f'/coins/{mint}', ttl=60)
+                return mint, data, meta, None
+            except HTTPException as exc:
+                return mint, None, {}, str(exc.detail)
+
+        limiter = asyncio.Semaphore(2)
+
+        async def limited_read(mint):
+            async with limiter:
+                return await read_mint(mint)
+
+        results = await asyncio.gather(*(limited_read(mint) for mint in unique_mints))
+        graduations = []
+        errors = []
+        fetched_values = []
+        stale = False
+        for mint, data, meta, error in results:
+            if error:
+                errors.append(error)
+                continue
+            fetched_values.append(meta.get('fetched_at'))
+            stale = stale or meta.get('stale', False)
+            if data.get('complete') is True:
+                graduations.append({
+                    'mint': mint,
+                    'status': 'graduated',
+                    'pool_address': data.get('raydium_pool') or data.get('pool_address'),
+                    'graduated_at': data.get('graduation_timestamp') or data.get('completion_timestamp'),
+                    'observed_at': meta.get('fetched_at') or observed_at,
+                    'source': 'Pump.fun',
+                    'source_url': 'https://pump.fun',
+                })
+
+        return GraduationResult(
+            provider='Pump.fun',
+            source_url='https://pump.fun',
+            source_label='Pump.fun public coin status · complete=true',
+            fetched_at=max(fetched_values or [observed_at]),
+            stale=stale,
+            error='; '.join(dict.fromkeys(errors)) if errors else None,
+            status='verified' if graduations else ('unavailable' if errors and not fetched_values else 'no_verified_events'),
+            graduations=graduations,
+        )
+
     @router.get('/feed', response_model=MarketResult)
     async def feed(kind: Literal['trending', 'new'] = 'trending',
                    chain: str = 'solana', page: int = Query(1, ge=1, le=10)):
@@ -192,6 +265,10 @@ def create_market_router(db, intelligence=None):
             pairs = await intelligence.observe(pairs, meta, kind)
         source_url = 'https://dexscreener.com' if meta.get('provider') == 'DexScreener' else 'https://www.geckoterminal.com'
         return MarketResult(**meta, source_url=source_url, label='New pools · deals ≥5% 24h drawdown' if kind == 'new' else 'Trending pools', pairs=pairs, page=page)
+
+    @router.get('/graduations', response_model=GraduationResult)
+    async def graduations(mints: str = Query('', max_length=4000)):
+        return await graduation_status(mints.split(','))
 
     @router.get('/search', response_model=MarketResult)
     async def search(q: str = Query(min_length=1, max_length=120)):
