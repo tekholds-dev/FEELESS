@@ -197,6 +197,45 @@ test('prepares an unsigned five-step plan without accepting private key material
   expect(JSON.stringify(body)).not.toMatch(/private|secret|key/i);
 });
 
+test.each([
+  ['pump', 'REACT_APP_PUMP_LAUNCH_API_URL', 'REACT_APP_PUMP_LAUNCH_APPROVED'],
+  ['raydium', 'REACT_APP_RAYDIUM_LAUNCH_API_URL', 'REACT_APP_RAYDIUM_LAUNCH_APPROVED'],
+  ['infinity', 'REACT_APP_INFINITY_LAUNCH_API_URL', 'REACT_APP_INFINITY_LAUNCH_APPROVED'],
+])('routes %s launch preparation explicitly without exposing credentials', async (providerId, apiEnv, approvalEnv) => {
+  process.env[apiEnv] = `https://${providerId}.example/launch`;
+  process.env[approvalEnv] = 'true';
+  process.env.REACT_APP_SOLANA_RPC_URL = 'https://rpc.example';
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ provider: { approved: true }, transactions: META_LAUNCH_STEPS.map(step => ({ id: step.id, transaction: 'unsigned-base64' })) }),
+  });
+  await requestMetaLaunchPlan({
+    providerId,
+    name: 'Provider Coin',
+    symbol: 'PROV',
+    supply: '1000',
+    openingMarketCap: '35',
+    curveType: 'linear',
+    graduationTarget: '85',
+    liquidityPair: 'SOL',
+    swapFee: '1',
+    creatorFeeShare: '50',
+    holderRewardShare: '0',
+    buybackBurnShare: '50',
+    antiSniperTax: '0',
+    antiSniperWindow: '0',
+    devBuyAmount: '0',
+    migrationVenue: 'raydium-cpmm',
+    liquidityLock: 'permanent',
+    holderAllocation: '0',
+    airdropAmount: '0',
+    airdropRecipients: '',
+  }, { chain: 'solana', address: 'wallet-address' }, providerId);
+  const body = JSON.parse(global.fetch.mock.calls[0][1].body);
+  expect(body.provider).toBe(providerId);
+  expect(JSON.stringify(body)).not.toMatch(/private|secret|key/i);
+});
+
 test('executes an approved provider seven-step plan with explorer links and its returned mint', async () => {
   process.env.REACT_APP_LAUNCH_API_URL = 'https://provider.example/launch';
   process.env.REACT_APP_SOLANA_RPC_URL = 'https://rpc.example';

@@ -8,7 +8,7 @@ import { useWorkspace } from '../hooks/useWorkspace';
 import { useLocalSettings, usePriceAlerts, AlertsPage } from '../components/terminal/LocalTools';
 import { TerminalHeader, TerminalSidebar, MarketTicker, TerminalFooter } from '../components/terminal/TerminalShell';
 import { DataStatus, MarketError } from '../components/terminal/MarketPrimitives';
-import { ChatRoom } from '../components/terminal/CommunityRail';
+import { ChatRoom, TrenchesView } from '../components/terminal/CommunityRail';
 import { TokenFocus } from '../components/terminal/TokenFocus';
 import { MarketTable } from '../components/terminal/MarketTable';
 import { LaunchpadDirectory } from '../components/terminal/LaunchpadDirectory';
@@ -64,7 +64,7 @@ export default function Terminal() {
       <div className="context-transition" key={ecosystem.id}>
       {isMarket && <div className={`terminal-content-grid ${!isHome && page !== 'trade' ? 'market-wide' : ''}`}><div className="terminal-primary">
         {isHome && <><div className="command-home-heading"><div><span className="eyebrow">THE FEELESS NETWORK COMMAND CENTER</span><h1>$FEE is the heartbeat.</h1></div><button className="btn-outline" data-testid="reset-to-fee" onClick={() => selectPair(null)}><Activity size={14} />$FEE focus</button></div>{focus}<PulseGrid pairs={pairs} community={community} fee={fee} feeCat={feeCat} loading={market.loading || !market.data} /><Tokenomics compact /></>}
-        {page === 'trade' && <><div className="command-page-title"><span className="eyebrow">INTELLIGENCE → ROUTE → SIMULATE → APPROVE</span><h1>Your execution workspace.</h1></div>{focus}<SwapWorkspace pair={selected} feeAsset={fee} feeCat={feeCat} onWallet={() => setWalletOpen(true)} /></>}
+         {page === 'trade' && <><div className="command-page-title"><span className="eyebrow">INTELLIGENCE → ROUTE → SIMULATE → APPROVE</span><h1>Your execution workspace.</h1></div>{focus}<SwapWorkspace pair={selected} feeAsset={fee} feeAssets={feeAssets} feeCat={feeCat} onWallet={() => setWalletOpen(true)} /></>}
          {!['', 'trade'].includes(page) && <div className="command-page-title"><span className="eyebrow">{ecosystem.name.toUpperCase()} / ON-CHAIN INTELLIGENCE</span><h1>{query ? 'Follow the contract.' : page === 'new' ? 'New pools, better entry points.' : page === 'pump' ? 'Deep in the trenches.' : page === 'movers' ? 'Read the acceleration.' : 'Find the next rotation.'}</h1><p>{query ? `Provider results for “${query}”` : page === 'new' ? `Provider-indexed pools within ${MARKET_RETENTION_DAYS} days with a 24h drawdown of at least ${NEW_POOL_DEAL_PERCENT}%. Not a buy recommendation.` : 'Real signals, within provider coverage. No invented activity.'}</p></div>}
         <ContractScanner />
         {page === 'pump' && <RadarView pairs={newPairs} onSelect={onSelect} />}
@@ -79,7 +79,7 @@ export default function Terminal() {
         </section><div className="context-platforms"><Link to="/terminal/launch" data-testid="context-launchpads-link">Ecosystem launchpads<ArrowUpRight size={13} /></Link>{ecosystem.explorer && <a data-testid="context-explorer" href={ecosystem.explorer} target="_blank" rel="noreferrer">{ecosystem.name} explorer<ArrowUpRight size={13} /></a>}{ecosystem.dex && <a data-testid="context-dex" href={ecosystem.dex} target="_blank" rel="noreferrer">Ecosystem DEX<ArrowUpRight size={13} /></a>}</div>
       </div><aside className="community-rail"><ChatRoom /><AlphaTape /><div className="command-quick-links"><Link to="/terminal/feeback" data-testid="quick-feeback">FEE-BACK<span>THE RETURN PATH ↗</span></Link><Link to="/terminal/feecat" data-testid="quick-feecat">FEECAT<span>CULTURE + UTILITY ↗</span></Link><Link to="/terminal/whitepaper" data-testid="quick-whitepaper">WHITEPAPER<span>WEB + ACTUAL PDF ↗</span></Link></div><div className="risk-note">Markets can be illiquid or malicious. Provider matches are not audits. New pools are not necessarily new tokens.</div></aside></div>}
        {page === 'launch' && (params.get('setup') === 'feeless' ? <MetaLaunchSetup onWallet={() => setWalletOpen(true)} /> : <LaunchpadDirectory />)}{page === 'watchlist' && <LivingWatchlist onSelect={onSelect} />}
-      {page === 'chat' && <><div className="command-page-title"><span className="eyebrow">{ecosystem.name.toUpperCase()} / TOKEN INTELLIGENCE ROOM</span><h1>The conversation is the signal.</h1></div><div className="chat-intelligence-layout"><ChatRoom large /><div>{focus}<ContractScanner /><AlphaTape /></div></div></>}
+       {page === 'chat' && <TrenchesView pairs={pairs} newPairs={newFeed.data?.pairs || newPairs} onSelect={onSelect} />}
       {page === 'alerts' && <AlertsPage alerts={alerts} setAlerts={setAlerts} selected={alertPair || selected} watchlist={watchlist} ecosystem={ecosystem} />}
       {page === 'fee' && <FeeAssetPage asset={fee}>{fee?.pair ? <TokenFocus pair={fee.pair} has={has} toggle={toggle} /> : <FeeHeartbeat asset={fee} loading={assets.loading} />}</FeeAssetPage>}
       {page === 'feeback' && <FeeBackCenter feeCat={feeCat} />}{page === 'feecat' && <FeeCatCenter asset={feeCat} community={community} onSelect={onSelect} />}

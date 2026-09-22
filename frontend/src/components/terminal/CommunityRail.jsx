@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle, Radio, Rocket, Compass, Star, BarChart3, ArrowUpRight } from 'lucide-react';
+import { MessageCircle, Radio, Rocket, Compass, Star, BarChart3, ArrowUpRight, CandlestickChart, Layers3 } from 'lucide-react';
 import EcosystemChat from '../EcosystemChat';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { AlphaTape } from '../command/WorkspaceChrome';
@@ -11,6 +11,27 @@ export const ChatRoom = ({ large = false }) => {
   const { ecosystem } = useWorkspace();
   const [channel, setChannel] = useState('general');
   return <section className={`community-chat ${large ? 'large-chat' : ''}`}><div className="section-title"><h2><MessageCircle size={18} />The Trenches</h2><span className="positive small" data-testid="chat-active-ecosystem">{ecosystem.name}</span></div><div className="chat-tabs">{['general', 'alpha', 'launches', 'trading', 'whales', 'new-pools'].map(t => <button key={t} data-testid={`chat-tab-${t}`} onClick={() => setChannel(t)} className={channel === t ? 'active' : ''}>{t.replace('-', ' ')}</button>)}</div><EcosystemChat key={`${ecosystem.id}-${channel}`} compact ecosystem={{ id: `${ecosystem.id}-${channel}`, name: `${ecosystem.name} / ${channel}` }} /></section>;
+};
+
+export const TrenchesView = ({ pairs = [], newPairs = [], onSelect }) => {
+  const { ecosystem, selectedPair, selectPair, watchlist, has, toggle } = useWorkspace();
+  const [stage, setStage] = useState('new');
+  const chartPair = selectedPair || pairs[0] || newPairs[0] || null;
+  const graduated = pairs.filter(pair => pair.graduated === true || pair.info?.graduated === true || pair.baseToken?.graduated === true);
+  const stagePairs = {
+    new: newPairs,
+    graduated,
+    trending: pairs,
+    watchlist: watchlist,
+  }[stage] || [];
+  return <div className="trenches-page" data-testid="trenches-page">
+    <div className="command-page-title"><span className="eyebrow">{ecosystem.name.toUpperCase()} / COMMUNITY TERMINAL</span><h1>Trade the conversation.</h1><p>One room for live chat, provider-indexed charts, and the coin stages the network can actually observe.</p></div>
+    <div className="trenches-layout">
+      <section className="trenches-chart-panel"><div className="section-title"><h2><CandlestickChart size={18} />DEX chart</h2><span className="provider-note">GeckoTerminal · OHLCV</span></div>{chartPair ? <TokenFocus pair={chartPair} has={has} toggle={toggle} defaultInterval="15m" /> : <div className="truth-empty" data-testid="trenches-chart-empty"><CandlestickChart size={28} /><span>Select a provider-indexed coin to open its chart.</span></div>}</section>
+      <ChatRoom large />
+    </div>
+    <section className="trenches-stages"><div className="section-title"><h2><Layers3 size={18} />Coin stages</h2><span className="provider-note">Provider-reported observations only</span></div><div className="trenches-stage-tabs">{[['new', 'New'], ['graduated', 'Graduated'], ['trending', 'Trending'], ['watchlist', 'Watchlist']].map(([id, label]) => <button key={id} className={stage === id ? 'active' : ''} data-testid={`trenches-stage-${id}`} onClick={() => setStage(id)}>{label}<small>{id === 'graduated' && !graduated.length ? 'unavailable' : stagePairs.length}</small></button>)}</div><div className="trenches-coin-grid">{stagePairs.slice(0, 12).map(pair => <button className="trenches-coin" key={pairKey(pair)} data-testid={`trenches-coin-${pairKey(pair)}`} onClick={() => { selectPair(pair); onSelect?.(pair); }}><TokenAvatar pair={pair} size={38} /><span><b>{pair.baseToken?.symbol || 'Unknown'}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId} · {pair.dexId}</small></span><Change value={pair.priceChange?.h24} /></button>)}</div>{!stagePairs.length && <div className="truth-empty" data-testid={`trenches-${stage}-empty`}>{stage === 'graduated' ? 'Graduation status is unavailable in the current provider feed.' : `No ${stage} coins are available in this ecosystem snapshot.`}</div>}</section>
+  </div>;
 };
 
 export const CommunityRail = ({ pairs, onSelect }) => {

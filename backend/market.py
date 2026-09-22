@@ -57,6 +57,15 @@ def normalise_pools(payload):
         quote_id = rel.get('quote_token', {}).get('data', {}).get('id', '')
         base, quote = included.get(base_id, {}), included.get(quote_id, {})
         created = a.get('pool_created_at')
+        image_url = base.get('image_url') or a.get('image_url')
+        creator = base.get('creator') or base.get('creator_profile') or a.get('creator') or a.get('creator_profile')
+        info = {
+            'imageUrl': image_url,
+            'websites': base.get('websites') or a.get('websites') or [],
+            'socials': base.get('socials') or a.get('socials') or [],
+        }
+        if creator:
+            info['creator'] = creator
         pairs.append({
             'chainId': chain, 'network': network, 'pairAddress': a['address'],
             'dexId': rel.get('dex', {}).get('data', {}).get('id', 'unknown'),
@@ -71,7 +80,7 @@ def normalise_pools(payload):
             'marketCap': a.get('market_cap_usd'), 'fdv': a.get('fdv_usd'),
             'txns': a.get('transactions', {}),
             'pairCreatedAt': int(datetime.fromisoformat(created.replace('Z', '+00:00')).timestamp() * 1000) if created else None,
-            'info': {'imageUrl': base.get('image_url')},
+            'info': info,
         })
     return pairs
 

@@ -1,8 +1,9 @@
 export const LAUNCHPADS = [
-  { id: 'feeless-launch', name: 'Launch on FEELESS', symbol: 'F', chainId: 'solana', color: '#14F195', lat: -18, lng: 132, url: '/terminal/launch', description: 'Bring a verified launch to the FEELESS network.', tag: 'FEELESS NATIVE', dexIds: [], isFeelessLaunch: true },
-  { id: 'pump', name: 'Pump.fun', symbol: 'P', chainId: 'solana', color: '#34efad', lat: 25, lng: -78, url: process.env.REACT_APP_PUMP_URL, description: 'The home of Solana memecoins.', tag: 'MEME CULTURE', dexIds: ['pump', 'pumpswap', 'pump-fun', 'pump_fun'] },
+  { id: 'feeless-launch', name: 'Launch on FEELESS', symbol: 'F', chainId: 'solana', color: '#14F195', lat: -18, lng: 132, url: '/terminal/launch', description: 'Bring a verified launch to the FEELESS network.', tag: 'FEELESS NATIVE', dexIds: [], isFeelessLaunch: true, launchProviderKey: 'feeless' },
+  { id: 'pump', name: 'Pump.fun', symbol: 'P', chainId: 'solana', color: '#34efad', lat: 25, lng: -78, url: process.env.REACT_APP_PUMP_URL, description: 'The home of Solana memecoins.', tag: 'MEME CULTURE', dexIds: ['pump', 'pumpswap', 'pump-fun', 'pump_fun'], launchProviderKey: 'pump' },
   { id: 'bonk', name: 'LetsBONK', symbol: 'B', chainId: 'solana', color: '#f5b747', lat: -6, lng: -46, url: 'https://letsbonk.fun/', description: 'Community-first launches on Solana.', tag: 'COMMUNITY', dexIds: [] },
-  { id: 'raydium', name: 'LaunchLab', symbol: 'R', chainId: 'solana', color: '#84a5ff', lat: 46, lng: 25, url: 'https://raydium.io/launchpad/', description: 'Token launches from the Raydium ecosystem.', tag: 'RAYDIUM', dexIds: ['raydium-launchlab'] },
+  { id: 'raydium', name: 'LaunchLab', symbol: 'R', chainId: 'solana', color: '#84a5ff', lat: 46, lng: 25, url: 'https://raydium.io/launchpad/', description: 'Token launches from the Raydium ecosystem.', tag: 'RAYDIUM', dexIds: ['raydium-launchlab'], launchProviderKey: 'raydium' },
+  { id: 'infinity', name: 'Infinity', symbol: '∞', chainId: 'solana', color: '#d58cff', lat: 34, lng: 146, url: process.env.REACT_APP_INFINITY_URL || '', description: 'Infinity launch routing, when an approved provider endpoint is connected.', tag: 'INFINITY', dexIds: ['infinity'], launchProviderKey: 'infinity' },
   { id: 'meteora', name: 'Meteora', symbol: 'M', chainId: 'solana', color: '#ed8a60', lat: -30, lng: 22, url: 'https://launch.meteora.ag/', description: 'Launch infrastructure and dynamic liquidity.', tag: 'LIQUIDITY', dexIds: ['meteora', 'meteora-dlmm', 'meteora-dbc', 'meteora-damm-v2'] },
   { id: 'moonit', name: 'Moonit', symbol: '☾', chainId: 'solana', color: '#e6ef9f', lat: 4, lng: 152, url: 'https://moon.it/', description: 'Community tokens, from idea to orbit.', tag: 'FAIR LAUNCH', dexIds: ['moonit'] },
   { id: 'four', name: 'Four.meme', symbol: '4', chainId: 'bsc', color: '#efce5c', lat: 48, lng: 93, url: 'https://four.meme/en', description: 'Memecoin discovery on BNB Chain.', tag: 'BNB CHAIN', dexIds: ['four-meme', 'four_meme'] },
@@ -18,6 +19,13 @@ export const META_LAUNCH_STEPS = [
   { id: 'airdrop', label: 'Airdrop distribution' },
 ];
 
+export const META_LAUNCH_PROVIDERS = [
+  { id: 'feeless', label: 'FEELESS native', launchpadId: 'feeless-launch', note: 'Native FEELESS fee routing and permanent liquidity.' },
+  { id: 'pump', label: 'Pump.fun', launchpadId: 'pump', note: 'Pump.fun launch preparation; provider approval required.' },
+  { id: 'raydium', label: 'Raydium LaunchLab', launchpadId: 'raydium', note: 'Raydium LaunchLab preparation; provider approval required.' },
+  { id: 'infinity', label: 'Infinity', launchpadId: 'infinity', note: 'Infinity launch preparation; provider approval required.' },
+];
+
 export function getLaunchProviderConfig() {
   const env = typeof process !== 'undefined' ? process.env : {};
   const apiUrl = (env.REACT_APP_LAUNCH_API_URL || '').trim().replace(/\/+$/, '');
@@ -26,15 +34,58 @@ export function getLaunchProviderConfig() {
     || env.REACT_APP_LAUNCH_PROVIDER_STATUS === 'approved';
   const providerName = (env.REACT_APP_LAUNCH_PROVIDER_NAME || 'Approved launch provider').trim();
   const network = (env.REACT_APP_LAUNCH_NETWORK || 'Solana mainnet-beta').trim();
-  return { apiUrl, rpcUrl, approved, providerName, network };
+  const providers = {
+    feeless: {
+      id: 'feeless',
+      name: 'FEELESS native',
+      apiUrl,
+      approved,
+      configured: Boolean(apiUrl && approved),
+      network,
+      description: 'Native FEELESS mechanics with visible fee routing.',
+    },
+    pump: {
+      id: 'pump',
+      name: 'Pump.fun',
+      apiUrl: (env.REACT_APP_PUMP_LAUNCH_API_URL || '').trim().replace(/\/+$/, ''),
+      approved: env.REACT_APP_PUMP_LAUNCH_APPROVED === 'true',
+      configured: Boolean((env.REACT_APP_PUMP_LAUNCH_API_URL || '').trim() && env.REACT_APP_PUMP_LAUNCH_APPROVED === 'true'),
+      network: 'Solana mainnet-beta',
+      description: 'Pump.fun launch preparation through an approved provider.',
+    },
+    raydium: {
+      id: 'raydium',
+      name: 'Raydium LaunchLab',
+      apiUrl: (env.REACT_APP_RAYDIUM_LAUNCH_API_URL || '').trim().replace(/\/+$/, ''),
+      approved: env.REACT_APP_RAYDIUM_LAUNCH_APPROVED === 'true',
+      configured: Boolean((env.REACT_APP_RAYDIUM_LAUNCH_API_URL || '').trim() && env.REACT_APP_RAYDIUM_LAUNCH_APPROVED === 'true'),
+      network: 'Solana mainnet-beta',
+      description: 'Raydium LaunchLab preparation through an approved provider.',
+    },
+    infinity: {
+      id: 'infinity',
+      name: 'Infinity',
+      apiUrl: (env.REACT_APP_INFINITY_LAUNCH_API_URL || '').trim().replace(/\/+$/, ''),
+      approved: env.REACT_APP_INFINITY_LAUNCH_APPROVED === 'true',
+      configured: Boolean((env.REACT_APP_INFINITY_LAUNCH_API_URL || '').trim() && env.REACT_APP_INFINITY_LAUNCH_APPROVED === 'true'),
+      network: 'Solana mainnet-beta',
+      description: 'Infinity launch preparation through an approved provider.',
+    },
+  };
+  return { apiUrl, rpcUrl, approved, providerName, network, providers };
 }
 
-export function getLaunchProviderReadiness() {
+export function getLaunchProviderReadiness(providerId = 'feeless') {
   const config = getLaunchProviderConfig();
+  const provider = config.providers[providerId] || config.providers.feeless;
   return {
     ...config,
-    ready: Boolean(config.apiUrl && config.rpcUrl && config.approved),
-    providerReady: Boolean(config.apiUrl && config.approved),
+    apiUrl: provider.apiUrl,
+    providerName: provider.name,
+    network: provider.network,
+    provider,
+    ready: Boolean(provider.configured && config.rpcUrl),
+    providerReady: Boolean(provider.configured),
     rpcReady: Boolean(config.rpcUrl),
     rpcHost: config.rpcUrl ? safeHost(config.rpcUrl) : '',
   };
@@ -142,38 +193,40 @@ export async function recheckMetaLaunchSignature(signature, { connection, label 
   return signatureStatusResult(signature, response?.value?.[0], label, network || config.network);
 }
 
-export async function requestMetaLaunchPlan(form, wallet) {
-  const readiness = getLaunchProviderReadiness();
+export async function requestMetaLaunchPlan(form, wallet, providerId = form.providerId || 'feeless') {
+  const readiness = getLaunchProviderReadiness(providerId);
   if (!readiness.ready) throw new Error('An approved launch provider and Solana RPC are required.');
   if (!wallet?.address || wallet.chain !== 'solana') throw new Error('A Solana wallet is required to prepare this deployment.');
+  const requestBody = {
+    wallet: wallet.address,
+    chain: wallet.chain,
+    ...(providerId !== 'feeless' ? { provider: providerId } : {}),
+    launch: {
+      name: form.name.trim(),
+      symbol: form.symbol.trim().toUpperCase(),
+      supply: form.supply,
+      openingMarketCap: Number(form.openingMarketCap),
+      curveType: form.curveType,
+      graduationTarget: Number(form.graduationTarget),
+      liquidityPair: form.liquidityPair,
+      swapFee: Number(form.swapFee),
+      creatorFeeShare: Number(form.creatorFeeShare),
+      holderRewardShare: Number(form.holderRewardShare),
+      buybackBurnShare: Number(form.buybackBurnShare),
+      antiSniperTax: Number(form.antiSniperTax),
+      antiSniperWindowSeconds: Number(form.antiSniperWindow),
+      devBuyAmount: Number(form.devBuyAmount),
+      migrationVenue: form.migrationVenue,
+      liquidityLock: form.liquidityLock,
+      holderAllocation: Number(form.holderAllocation),
+      airdropAmount: Number(form.airdropAmount),
+      airdropRecipients: form.airdropRecipients.split(/[\n,]+/).map(value => value.trim()).filter(Boolean),
+    },
+  };
   const response = await fetch(`${readiness.apiUrl}/prepare`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      wallet: wallet.address,
-      chain: wallet.chain,
-      launch: {
-        name: form.name.trim(),
-        symbol: form.symbol.trim().toUpperCase(),
-        supply: form.supply,
-        openingMarketCap: Number(form.openingMarketCap),
-        curveType: form.curveType,
-        graduationTarget: Number(form.graduationTarget),
-        liquidityPair: form.liquidityPair,
-        swapFee: Number(form.swapFee),
-        creatorFeeShare: Number(form.creatorFeeShare),
-        holderRewardShare: Number(form.holderRewardShare),
-        buybackBurnShare: Number(form.buybackBurnShare),
-        antiSniperTax: Number(form.antiSniperTax),
-        antiSniperWindowSeconds: Number(form.antiSniperWindow),
-        devBuyAmount: Number(form.devBuyAmount),
-        migrationVenue: form.migrationVenue,
-        liquidityLock: form.liquidityLock,
-        holderAllocation: Number(form.holderAllocation),
-        airdropAmount: Number(form.airdropAmount),
-        airdropRecipients: form.airdropRecipients.split(/[\n,]+/).map(value => value.trim()).filter(Boolean),
-      },
-    }),
+    body: JSON.stringify(requestBody),
   });
   let data;
   try { data = await response.json(); } catch { data = null; }
