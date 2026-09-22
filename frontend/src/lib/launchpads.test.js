@@ -1,4 +1,4 @@
-import { executeMetaLaunchPlan, getLaunchMint, getLaunchProviderReadiness, getSolanaExplorerUrl, META_LAUNCH_STEPS, recheckMetaLaunchSignature, requestMetaLaunchPlan } from './launchpads';
+import { executeMetaLaunchPlan, getLaunchMint, getLaunchProviderReadiness, getSolanaExplorerUrl, LAUNCHPADS, META_LAUNCH_PROVIDERS, META_LAUNCH_STEPS, recheckMetaLaunchSignature, requestMetaLaunchPlan } from './launchpads';
 
 let mockConnection;
 
@@ -30,6 +30,11 @@ test('does not report a launch provider as ready without explicit approval and R
     providerReady: false,
     rpcReady: false,
   });
+});
+
+test('keeps inactive launchpads out of the visible launchpad choices', () => {
+  expect(LAUNCHPADS.some(pad => pad.id === 'infinity')).toBe(false);
+  expect(META_LAUNCH_PROVIDERS.some(provider => provider.id === 'infinity')).toBe(false);
 });
 
 test('builds explorer links for confirmed transactions and created mints', () => {
