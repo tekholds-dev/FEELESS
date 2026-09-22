@@ -5,7 +5,11 @@ const PORT = Number(process.env.API_PORT || 5001);
 const DEX_API = process.env.DEX_API_URL || 'https://api.dexscreener.com';
 const GECKO_API = process.env.GECKO_API_URL || 'https://api.geckoterminal.com/api/v2';
 const DEX_SITE = process.env.DEX_SITE_URL || 'https://dexscreener.com';
-const JUPITER_API = process.env.JUPITER_API_URL || 'https://lite-api.jup.ag/swap/v1';
+const JUPITER_API = process.env.JUPITER_API_URL || 'https://api.jup.ag';
+const JUPITER_PUBLIC_QUOTE_API = process.env.JUPITER_QUOTE_API_URL || 'https://lite-api.jup.ag/swap/v1';
+const JUPITER_API_KEY = process.env.JUPITER_API_KEY || '';
+const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || '';
+const TRADING_CONFIGURED = Boolean(JUPITER_API_KEY && SOLANA_RPC_URL);
 const MINTS = {
   fee: process.env.FEE_MINT || '49MmWE8sgNjuw342Eu7tB9thsVFtvTfKigUw9KSppump',
   feecat: process.env.FEECAT_MINT || 'AsX2abSJ2HqPqRxUbeYXE5R5ksrmUDz6BMGpg9mDpump',
@@ -28,6 +32,64 @@ function json(res, status, body) {
 
 function publicError(error) {
   return error?.message || 'Public market provider unavailable.';
+}
+
+function tradingError() {
+  return 'Trading execution is not configured. Add backend Jupiter and Solana RPC settings.';
+}
+
+function requireTrading() {
+  if (!TRADING_CONFIGURED) throw Object.assign(new Error(tradingError()), { statusCode: 503 });
+}
+
+async function rpc(method, params) {
+  requireTrading();
+  const response = await fetch(SOLANA_RPC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) throw Object.assign(new Error('Solana RPC unavailable. No transaction was submitted.'), { statusCode: 503 });
+  const data = await response.json();
+  if (data.error) throw Object.assign(new Error('Solana RPC rejected the request.'), { statusCode: 503 });
+  return data.result;
+}
+
+async function jupiter(method, path, options = {}) {
+  requireTrading();
+  const response = await fetch(`${JUPITER_API}${path}`, {
+    method,
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'x-api-key': JUPITER_API_KEY },
+    ...options,
+    signal: AbortSignal.timeout(25000),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw Object.assign(new Error(data?.errorMessage || data?.error || 'Jupiter route unavailable.'), {
+      statusCode: response.status >= 500 ? 503 : 400,
+    });
+  }
+  return data;
+}
+
+async function checkPreviewStatus(order, res) {
+  if (order.signature && !['confirmed', 'failed'].includes(order.state)) {
+    try {
+      const result = await rpc('getSignatureStatuses', [[order.signature], { searchTransactionHistory: true }]);
+      const status = result?.value?.[0];
+      if (status?.err) order.state = 'failed';
+      else if (['confirmed', 'finalized'].includes(status?.confirmationStatus)) order.state = 'confirmed';
+    } catch (error) {
+      // A status lookup failure is not a failed transaction and must not trigger a resubmission.
+    }
+  }
+  return json(res, 200, {
+    state: order.state,
+    signature: order.signature || null,
+    order_id: order.order_id,
+    fee_back: 'Eligibility not activated; no distribution has been created.',
+  });
 }
 
 async function getJson(url, ttl = 30000) {
@@ -219,7 +281,7 @@ async function route(req, res, url) {
     }
   }
   if (req.method === 'GET' && url.pathname === '/api/trading/status') {
-    return json(res, 200, { provider: 'Jupiter', network: 'solana-mainnet', signing: 'Phantom', configured: false, fee_back_status: 'PLANNED', eligible_fee_rules: 'Not activated', supported_execution_chains: ['solana'], detail: 'Live market discovery is enabled. Trading execution needs backend Jupiter/RPC configuration.' });
+    return json(res, 200, { provider: 'Jupiter', network: 'solana-mainnet', signing: 'Phantom', configured: TRADING_CONFIGURED, execution_ready: TRADING_CONFIGURED, fee_back_status: 'PLANNED', eligible_fee_rules: 'Not activated', supported_execution_chains: ['solana'], detail: TRADING_CONFIGURED ? 'Backend execution is ready.' : tradingError() });
   }
   const mintMatch = url.pathname.match(/^\/api\/trading\/mint\/([^/]+)$/);
   if (req.method === 'GET' && mintMatch) {
@@ -228,32 +290,93 @@ async function route(req, res, url) {
     return json(res, 200, { mint, decimals: 9, symbol, supply: null, mint_authority: null, freeze_authority: null, source: 'Preview metadata boundary · supply verification unavailable' });
   }
   const historyMatch = url.pathname.match(/^\/api\/trading\/history\/([^/]+)$/);
-  if (req.method === 'GET' && historyMatch) return json(res, 200, { transactions: [], eligible_fees_usd: null, distributions: [], fee_back_status: 'PLANNED' });
+  if (req.method === 'GET' && historyMatch) {
+    const wallet = decodeURIComponent(historyMatch[1]);
+    const transactions = Array.from(orders.values())
+      .filter(order => order.wallet === wallet && order.signature)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, 30)
+      .map(order => ({ order_id: order.order_id, state: order.state, signature: order.signature, created_at: order.created_at, input_mint: order.input_mint, output_mint: order.output_mint }));
+    return json(res, 200, { transactions, eligible_fees_usd: null, distributions: [], fee_back_status: 'PLANNED' });
+  }
   const balanceMatch = url.pathname.match(/^\/api\/trading\/balance\/([^/]+)$/);
-  if (req.method === 'GET' && balanceMatch) return json(res, 200, { lamports: null, slot: null, source: 'Preview metadata boundary · balance unavailable' });
+  if (req.method === 'GET' && balanceMatch) {
+    const result = await rpc('getBalance', [decodeURIComponent(balanceMatch[1]), { commitment: 'confirmed' }]);
+    return json(res, 200, { lamports: result.value, slot: result.context.slot, source: 'Solana RPC' });
+  }
   if (req.method === 'POST' && url.pathname === '/api/trading/quote') {
     const body = await requestBody(req);
     const inputMint = String(body.input_mint || '');
     const outputMint = String(body.output_mint || '');
+    const wallet = body.wallet ? String(body.wallet) : null;
     const decimals = inputMint === 'So11111111111111111111111111111111111111112' ? 9 : 6;
     const amount = Number(body.amount);
     if (!inputMint || !outputMint || inputMint === outputMint || !Number.isFinite(amount) || amount <= 0) return json(res, 400, { detail: 'Choose two different assets and enter a valid amount.' });
-    const response = await fetch(`${JUPITER_API}/quote?inputMint=${encodeURIComponent(inputMint)}&outputMint=${encodeURIComponent(outputMint)}&amount=${Math.round(amount * (10 ** decimals))}&slippageBps=${Number(body.slippage_bps) || 50}`, { signal: AbortSignal.timeout(15000) });
-    const quote = await response.json();
-    if (!response.ok || quote.error) return json(res, 503, { detail: quote.error || 'Jupiter route unavailable for this pair.' });
+    const query = new URLSearchParams({ inputMint, outputMint, amount: String(Math.round(amount * (10 ** decimals))), slippageBps: String(Number(body.slippage_bps) || 50) });
+    if (wallet) query.set('taker', wallet);
+    let quote;
+    if (TRADING_CONFIGURED) {
+      quote = await jupiter('GET', `/swap/v2/order?${query.toString()}`);
+    } else {
+      const response = await fetch(`${JUPITER_PUBLIC_QUOTE_API}/quote?${query.toString()}`, { signal: AbortSignal.timeout(15000) });
+      quote = await response.json();
+      if (!response.ok) return json(res, 503, { detail: quote.error || 'Jupiter route unavailable for this pair.' });
+    }
+    if (quote.errorCode || quote.error || !quote.outAmount) return json(res, 400, { detail: quote.errorMessage || quote.error || 'No executable route available for this pair.' });
     const orderId = crypto.randomUUID();
-    orders.set(orderId, { wallet: body.wallet || null, quote, expires_at: Date.now() / 1000 + 45 });
+    const createdAt = new Date().toISOString();
+    const storedQuote = TRADING_CONFIGURED ? quote : { ...quote, transaction: null };
+    orders.set(orderId, { order_id: orderId, wallet, quote: storedQuote, state: 'quoted', simulated: false, created_at: createdAt, expires_at: Date.now() / 1000 + 45, input_mint: inputMint, output_mint: outputMint });
     return json(res, 200, {
       order_id: orderId,
-      created_at: new Date().toISOString(),
-      expires_at: Date.now() / 1000 + 45,
+      created_at: createdAt,
+      expires_at: orders.get(orderId).expires_at,
       input_metadata: { mint: inputMint, decimals, symbol: inputMint === 'So11111111111111111111111111111111111111112' ? 'SOL' : 'TOKEN' },
       output_metadata: { mint: outputMint, decimals: 6, symbol: 'TOKEN' },
-      quote: { ...quote, router: 'Jupiter', transaction: null },
+      quote: { ...storedQuote, router: 'Jupiter' },
       fee_back: { status: 'PLANNED', eligible_usd: null, distribution: null },
     });
   }
-  if (req.method === 'GET' && url.pathname.startsWith('/api/trading/')) return json(res, 503, { detail: 'Trading execution is not configured in this preview. Connect Phantom after a Jupiter/RPC backend is configured.' });
+  if (req.method === 'POST' && url.pathname === '/api/trading/simulate') {
+    requireTrading();
+    const body = await requestBody(req);
+    const order = orders.get(String(body.order_id));
+    if (!order || order.state !== 'quoted' || order.expires_at <= Date.now() / 1000) return json(res, 409, { detail: 'Order expired. Request a fresh quote.' });
+    if (!order.quote.transaction || !order.wallet) return json(res, 400, { detail: 'Connect a Solana wallet and request a new quote' });
+    const result = await rpc('simulateTransaction', [order.quote.transaction, { encoding: 'base64', sigVerify: false, replaceRecentBlockhash: false, commitment: 'confirmed' }]);
+    const value = result?.value || {};
+    if (value.err) return json(res, 400, { detail: `Simulation failed: ${JSON.stringify(value.err).slice(0, 150)}. No transaction submitted.` });
+    order.simulated = true;
+    return json(res, 200, { success: true, units_consumed: value.unitsConsumed, broadcast: false });
+  }
+  if (req.method === 'POST' && url.pathname === '/api/trading/execute') {
+    requireTrading();
+    const body = await requestBody(req);
+    const order = orders.get(String(body.order_id));
+    if (!order) return json(res, 404, { detail: 'Unknown order' });
+    if (order.state !== 'quoted') return json(res, 200, { state: order.state, signature: order.signature, detail: 'Already processed. Check status; do not resubmit.' });
+    if (order.expires_at <= Date.now() / 1000 || !order.simulated || !body.signed_transaction) return json(res, 409, { detail: 'Fresh quote and successful simulation required before signing' });
+    order.state = 'submitted';
+    order.signed_transaction = body.signed_transaction;
+    try {
+      const payload = { signedTransaction: body.signed_transaction, requestId: order.quote.requestId };
+      if (order.quote.lastValidBlockHeight != null) payload.lastValidBlockHeight = order.quote.lastValidBlockHeight;
+      const result = await jupiter('POST', '/swap/v2/execute', { body: JSON.stringify(payload) });
+      order.signature = result.signature;
+      if (result.status === 'Failed') order.state = 'failed';
+    } catch (error) {
+      return json(res, 200, { state: 'submitted', signature: order.signature || null, detail: 'Provider response uncertain. Check status before any new trade.' });
+    }
+    return checkPreviewStatus(order, res);
+  }
+  const orderMatch = url.pathname.match(/^\/api\/trading\/order\/([^/]+)$/);
+  if (req.method === 'GET' && orderMatch) {
+    requireTrading();
+    const order = orders.get(decodeURIComponent(orderMatch[1]));
+    if (!order) return json(res, 404, { detail: 'Order not found' });
+    return checkPreviewStatus(order, res);
+  }
+  if (req.method === 'GET' && url.pathname.startsWith('/api/trading/')) return json(res, 503, { detail: tradingError() });
   if (req.method === 'GET' && url.pathname === '/api/docs/whitepaper.pdf') {
     const pdf = minimalPdf();
     res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Length': pdf.length, 'Access-Control-Allow-Origin': '*' });
@@ -267,7 +390,7 @@ const server = http.createServer(async (req, res) => {
     await route(req, res, new URL(req.url, `http://${req.headers.host || 'localhost'}`));
   } catch (error) {
     console.error('[preview-api]', error);
-    json(res, 503, { detail: publicError(error) });
+    json(res, error.statusCode || 503, { detail: publicError(error) });
   }
 });
 

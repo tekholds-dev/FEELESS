@@ -33,3 +33,8 @@ externalPort = 80
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 180000
+
+[userenv]
+
+[userenv.production]
+JUPITER_API_URL = "https://api.jup.ag"

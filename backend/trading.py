@@ -17,6 +17,7 @@ from solders.message import to_bytes_versioned
 from pymongo import ReturnDocument
 
 SOL_MINT = 'So11111111111111111111111111111111111111112'
+JUPITER_API_URL = os.environ.get('JUPITER_API_URL', 'https://api.jup.ag').rstrip('/')
 
 def valid_key(value):
     try:
@@ -45,7 +46,15 @@ class TradingService:
         self.metadata_cache = {}
         self.rate = defaultdict(deque)
 
+    def configured(self):
+        return bool(os.environ.get('JUPITER_API_KEY') and os.environ.get('SOLANA_RPC_URL'))
+
+    def require_configured(self):
+        if not self.configured():
+            raise HTTPException(503, 'Trading execution is not configured. Add backend Jupiter and Solana RPC settings.')
+
     async def rpc(self, method, params):
+        self.require_configured()
         try:
             async with httpx.AsyncClient(timeout=15) as http:
                 res = await http.post(os.environ['SOLANA_RPC_URL'], json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
@@ -58,9 +67,10 @@ class TradingService:
             raise HTTPException(503, 'Solana RPC unavailable. No transaction was submitted.')
 
     async def jupiter(self, method, path, **kwargs):
+        self.require_configured()
         try:
             async with httpx.AsyncClient(timeout=25) as http:
-                res = await http.request(method, os.environ['JUPITER_API_URL'] + path,
+                res = await http.request(method, JUPITER_API_URL + path,
                                          headers={'x-api-key': os.environ['JUPITER_API_KEY']}, **kwargs)
                 data = res.json()
             if res.status_code >= 400:
@@ -96,9 +106,12 @@ class TradingService:
         @router.get('/status')
         async def status():
             return {'provider': 'Jupiter', 'network': 'solana-mainnet', 'signing': 'Phantom',
-                    'configured': bool(os.environ.get('JUPITER_API_KEY') and os.environ.get('SOLANA_RPC_URL')),
+                    'configured': self.configured(),
+                    'execution_ready': self.configured(),
                     'fee_back_status': 'PLANNED', 'eligible_fee_rules': 'Not activated',
-                    'supported_execution_chains': ['solana']}
+                    'supported_execution_chains': ['solana'],
+                    'detail': 'Backend execution is ready.' if self.configured()
+                    else 'Add backend Jupiter and Solana RPC settings before requesting a signed swap.'}
 
         @router.get('/mint/{mint}')
         async def mint_info(mint: str):
@@ -111,6 +124,7 @@ class TradingService:
 
         @router.post('/quote')
         async def quote(body: QuoteIn, request: Request):
+            self.require_configured()
             ip = request.client.host
             queue = self.rate[ip]
             while queue and time.monotonic() - queue[0] > 60:
@@ -152,6 +166,7 @@ class TradingService:
 
         @router.post('/simulate')
         async def simulate(body: OrderId):
+            self.require_configured()
             order = await self.db.swap_orders.find_one({'order_id': body.order_id}, {'_id': 0})
             if not order or order['state'] != 'quoted' or order['expires_at'] <= time.time():
                 raise HTTPException(409, 'Order expired. Request a fresh quote.')
@@ -168,6 +183,7 @@ class TradingService:
 
         @router.post('/execute')
         async def execute(body: ExecuteIn):
+            self.require_configured()
             order = await self.db.swap_orders.find_one({'order_id': body.order_id}, {'_id': 0})
             if not order:
                 raise HTTPException(404, 'Unknown order')
@@ -205,6 +221,7 @@ class TradingService:
 
         @router.get('/order/{order_id}')
         async def check_status(order_id: str):
+            self.require_configured()
             order = await self.db.swap_orders.find_one({'order_id': order_id}, {'_id': 0})
             if not order:
                 raise HTTPException(404, 'Order not found')
@@ -226,6 +243,7 @@ class TradingService:
 
         @router.get('/history/{wallet}')
         async def history(wallet: str):
+            self.require_configured()
             valid_key(wallet)
             orders = await self.db.swap_orders.find({'wallet': wallet, 'signature': {'$exists': True}},
                 {'_id': 0, 'order_id': 1, 'state': 1, 'signature': 1, 'created_at': 1, 'input_mint': 1, 'output_mint': 1}).sort('created_at', -1).limit(30).to_list(30)
