@@ -11,6 +11,7 @@ const GECKO_API = process.env.GECKO_API_URL || 'https://api.geckoterminal.com/ap
 
 const PUMP_API = process.env.PUMP_API_URL || 'https://frontend-api-v3.pump.fun';
 const DEX_SITE = process.env.DEX_SITE_URL || 'https://dexscreener.com';
+const MARKET_CACHE_RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
 const JUPITER_API = process.env.JUPITER_API_URL || 'https://api.jup.ag';
 const JUPITER_PUBLIC_QUOTE_API = process.env.JUPITER_QUOTE_API_URL || 'https://lite-api.jup.ag/swap/v1';
 const JUPITER_API_KEY = process.env.JUPITER_API_KEY || '';
@@ -121,22 +122,82 @@ async function checkPreviewStatus(order, res) {
 }
 
 async function getJson(url, ttl = 30000) {
+  return (await getJsonWithMeta(url, ttl)).value;
+}
+
+async function getJsonWithMeta(url, ttl = 30000) {
   const hit = cache.get(url);
-  if (hit && Date.now() - hit.at < ttl) return hit.value;
+  if (hit && Date.now() - hit.at < ttl) return { value: hit.value, fetchedAt: hit.fetchedAt, stale: false, error: null };
   if (pendingRequests.has(url)) return pendingRequests.get(url);
   const request = (async () => {
-    const response = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
-    if (!response.ok) throw Object.assign(new Error(`Provider returned HTTP ${response.status}.`), {
-      providerStatus: response.status,
-      statusCode: response.status >= 500 ? 503 : response.status,
-    });
-    const value = await response.json();
-    cache.set(url, { at: Date.now(), value });
-    return value;
+    try {
+      const response = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
+      if (!response.ok) throw Object.assign(new Error(`Provider returned HTTP ${response.status}.`), {
+        providerStatus: response.status,
+        statusCode: response.status >= 500 ? 503 : response.status,
+      });
+      const value = await response.json();
+      const fetchedAt = new Date().toISOString();
+      cache.set(url, { at: Date.now(), fetchedAt, value });
+      return { value, fetchedAt, stale: false, error: null };
+    } catch (error) {
+      if (hit && Date.now() - hit.at <= MARKET_CACHE_RETENTION_MS) {
+        return { value: hit.value, fetchedAt: hit.fetchedAt, stale: true, error: publicError(error) };
+      }
+      throw error;
+    }
   })();
   pendingRequests.set(url, request);
   try { return await request; }
   finally { pendingRequests.delete(url); }
+}
+
+const PROVIDER_COVERAGE = {
+  'Pump.fun': {
+    discovery: 'Pump.fun public coin index for Solana launchpad coverage',
+    snapshot: 'Pump.fun coin metadata snapshots',
+    candles: 'Not supplied; GeckoTerminal remains the candle provider',
+    liquidity: 'Only reported when Pump.fun supplies a direct liquidity field',
+    graduation: 'Pump.fun complete=true coin status',
+    stream: 'Polling snapshot; no websocket or trade stream',
+  },
+  DexScreener: {
+    discovery: 'Boosted token and pair discovery across supported chains',
+    snapshot: 'DexScreener pair snapshots',
+    candles: 'Not supplied by this adapter',
+    liquidity: 'Pair liquidity snapshot',
+    graduation: 'Not established by this provider',
+    stream: 'Polling snapshot; no websocket or trade stream',
+  },
+  GeckoTerminal: {
+    discovery: 'Public indexed pools across supported chains',
+    snapshot: 'Pool price, volume, and reserve snapshots',
+    candles: 'OHLCV pool candles',
+    liquidity: 'Pool reserve snapshot',
+    graduation: 'Not established by this provider',
+    stream: 'Polling snapshot; no websocket or trade stream',
+  },
+};
+
+const PROVIDER_LABELS = {
+  'Pump.fun': 'Pump.fun public coin index',
+  DexScreener: 'DexScreener boosted discovery',
+  GeckoTerminal: 'GeckoTerminal public pool index',
+};
+
+function providerMeta(provider, fetchedAt, { stale = false, error = null, primaryProvider = provider, ...extra } = {}) {
+  return {
+    provider,
+    primary_provider: primaryProvider,
+    sourceUrl: provider === 'Pump.fun' ? 'https://pump.fun' : provider === 'DexScreener' ? DEX_SITE : 'https://www.geckoterminal.com',
+    sourceLabel: PROVIDER_LABELS[provider] || `${provider} public market data`,
+    fetched_at: fetchedAt || new Date().toISOString(),
+    stale: Boolean(stale),
+    ...(error ? { error } : {}),
+    coverage: PROVIDER_COVERAGE[provider] || {},
+    stream: false,
+    ...extra,
+  };
 }
 
 function pairFromGecko(item) {
@@ -179,6 +240,88 @@ function geckoResult(data, kind) {
     fetched_at: new Date().toISOString(),
     stale: false,
     label: kind === 'new' ? 'New pools' : 'Trending pools',
+    pairs,
+    page: 1,
+  };
+}
+
+function pairFromPumpCoin(coin, kind) {
+  if (!coin || typeof coin !== 'object') return null;
+  const mint = coin.mint || coin.address;
+  if (typeof mint !== 'string' || !/^[a-zA-Z0-9]+$/.test(mint)) return null;
+  const createdValue = Number(coin.created_timestamp ?? coin.createdAt ?? coin.created_at);
+  const created = Number.isFinite(createdValue) ? (createdValue < 1e12 ? createdValue * 1000 : createdValue) : null;
+  const priceChange = { ...(coin.priceChange || coin.price_change || {}) };
+  if (!Object.keys(priceChange).length) {
+    [['price_change_5m', 'm5'], ['price_change_1h', 'h1'], ['price_change_24h', 'h24']].forEach(([source, target]) => {
+      if (coin[source] != null) priceChange[target] = coin[source];
+    });
+  }
+  const volume = { ...(coin.volume || coin.volume_usd || {}) };
+  if (!Object.keys(volume).length && coin.volume_24h != null) volume.h24 = coin.volume_24h;
+  const liquidity = { ...(coin.liquidity || {}) };
+  if (!Object.keys(liquidity).length && coin.liquidity_usd != null) liquidity.usd = coin.liquidity_usd;
+  const pair = {
+    chainId: 'solana',
+    network: 'solana',
+    pairAddress: coin.raydium_pool || coin.pool_address || mint,
+    dexId: 'pump.fun',
+    url: `https://pump.fun/coin/${encodeURIComponent(mint)}`,
+    baseToken: { address: mint, name: coin.name || 'Unknown', symbol: coin.symbol || '?' },
+    quoteToken: { symbol: 'SOL' },
+    priceUsd: coin.price_usd ?? coin.usd_price ?? null,
+    priceChange,
+    liquidity,
+    volume,
+    marketCap: coin.usd_market_cap ?? coin.market_cap_usd ?? null,
+    fdv: coin.fdv_usd ?? coin.fdv ?? null,
+    txns: coin.transactions && typeof coin.transactions === 'object' ? coin.transactions : {},
+    pairCreatedAt: created,
+    info: {
+      imageUrl: coin.image_uri || coin.image_url || null,
+      websites: coin.website ? [coin.website] : [],
+      socials: [
+        coin.twitter ? { type: 'twitter', url: coin.twitter } : null,
+        coin.telegram ? { type: 'telegram', url: coin.telegram } : null,
+      ].filter(Boolean),
+    },
+    marketKind: 'launchpad-token',
+    marketStage: kind,
+    launchpadId: 'pump',
+  };
+  if (coin.complete === true) {
+    pair.graduation = {
+      status: 'graduated',
+      pool_address: coin.raydium_pool || coin.pool_address || null,
+      source: 'Pump.fun',
+    };
+  }
+  return pair;
+}
+
+async function pumpFeed(kind, page = 1) {
+  if (String(page) !== '1') throw new Error('Pump.fun discovery is available on the first page only.');
+  const query = new URLSearchParams({
+    offset: '0',
+    limit: '50',
+    sort: kind === 'new' ? 'created_timestamp' : 'market_cap',
+    order: 'DESC',
+    includeNsfw: 'false',
+  });
+  const result = await getJsonWithMeta(`${PUMP_API}/coins?${query.toString()}`, 20000);
+  const coins = Array.isArray(result.value) ? result.value : result.value?.coins || result.value?.data || [];
+  const pairs = coins.map(coin => pairFromPumpCoin(coin, kind)).filter(Boolean);
+  if (!pairs.length) throw new Error('Pump.fun returned no indexed coins.');
+  pairs.sort((a, b) => kind === 'new'
+    ? Number(b.pairCreatedAt || 0) - Number(a.pairCreatedAt || 0)
+    : Number(b.marketCap || 0) - Number(a.marketCap || 0));
+  return {
+    ...providerMeta('Pump.fun', result.fetchedAt, {
+      stale: result.stale,
+      error: result.error,
+    }),
+    sourceLabel: 'Pump.fun public coin index · launchpad coverage',
+    label: kind === 'new' ? 'Recent Pump.fun coins' : 'Pump.fun market-cap snapshot',
     pairs,
     page: 1,
   };
@@ -240,17 +383,18 @@ async function geckoFeed(kind, page = 1, chain = 'solana') {
   const endpoint = kind === 'new' ? 'new_pools' : 'trending_pools';
   const chains = chain === 'all' ? SUPPORTED_MARKET_CHAINS : [chain];
   if (chains.some(value => !GECKO_NETWORKS[value])) throw Object.assign(new Error('Unsupported market chain.'), { statusCode: 400 });
-  const responses = await Promise.all(chains.map(value => getJson(
+  const responses = await Promise.all(chains.map(value => getJsonWithMeta(
     `${GECKO_API}/networks/${GECKO_NETWORKS[value]}/${endpoint}?page=${page}`,
     30000,
   )));
-  const pairs = responses.flatMap(response => geckoResult(response, kind).pairs);
+  const pairs = responses.flatMap(response => geckoResult(response.value, kind).pairs);
+  if (!pairs.length) throw new Error('GeckoTerminal returned no indexed pools.');
+  const fetchedAt = responses.map(response => response.fetchedAt).filter(Boolean).sort().at(-1);
   return {
-    provider: 'GeckoTerminal',
-    sourceUrl: 'https://www.geckoterminal.com',
-    sourceLabel: 'GeckoTerminal public pool index',
-    fetched_at: new Date().toISOString(),
-    stale: false,
+    ...providerMeta('GeckoTerminal', fetchedAt, {
+      stale: responses.some(response => response.stale),
+      error: responses.find(response => response.error)?.error || null,
+    }),
     label: kind === 'new' ? 'New pools' : 'Trending pools',
     pairs,
     page: Number(page),
@@ -264,11 +408,8 @@ async function pumpGraduations(mints = '') {
   const fetchedAt = new Date().toISOString();
   if (!uniqueMints.length) {
     return {
-      provider: 'Pump.fun',
-      sourceUrl: 'https://pump.fun',
+      ...providerMeta('Pump.fun', fetchedAt),
       sourceLabel: 'Pump.fun public coin status · complete=true',
-      fetched_at: fetchedAt,
-      stale: false,
       status: 'no_verified_events',
       graduations: [],
     };
@@ -280,8 +421,8 @@ async function pumpGraduations(mints = '') {
       const mint = uniqueMints[nextMint];
       nextMint += 1;
       try {
-        const data = await getJson(`${PUMP_API}/coins/${encodeURIComponent(mint)}`, 60000);
-        results.push({ mint, data });
+        const result = await getJsonWithMeta(`${PUMP_API}/coins/${encodeURIComponent(mint)}`, 60000);
+        results.push({ mint, data: result.value, meta: result });
       } catch (error) {
         results.push({ mint, error: publicError(error) });
       }
@@ -300,12 +441,10 @@ async function pumpGraduations(mints = '') {
       source_url: 'https://pump.fun',
     }));
   const errors = [...new Set(results.filter(result => result.error).map(result => result.error))];
+  const observedAt = results.map(result => result.meta?.fetchedAt).filter(Boolean).sort().at(-1) || fetchedAt;
   return {
-    provider: 'Pump.fun',
-    sourceUrl: 'https://pump.fun',
+    ...providerMeta('Pump.fun', observedAt, { stale: results.some(result => result.meta?.stale) }),
     sourceLabel: 'Pump.fun public coin status · complete=true',
-    fetched_at: fetchedAt,
-    stale: false,
     error: errors.length ? errors.join('; ') : null,
     status: graduations.length ? 'verified' : errors.length === results.length ? 'unavailable' : 'no_verified_events',
     graduations,
@@ -333,31 +472,31 @@ async function geckoCandles(chain, address, interval = '1h') {
     throw Object.assign(new Error('Invalid chart interval or network.'), { statusCode: 400 });
   }
   const [timeframe, aggregate] = intervals[interval];
-  const data = await getJson(
+  const result = await getJsonWithMeta(
     `${GECKO_API}/networks/${networks[chain]}/pools/${encodeURIComponent(address)}/ohlcv/${timeframe}?aggregate=${aggregate}&limit=100&currency=usd&token=base`,
     90000,
   );
-  const rows = data?.data?.attributes?.ohlcv_list || [];
+  const rows = result.value?.data?.attributes?.ohlcv_list || [];
   const candles = [...new Map(rows
     .filter(row => Array.isArray(row) && row.length >= 6 && Number.isFinite(row[0]))
     .map(row => [row[0], row])).values()]
     .sort((a, b) => a[0] - b[0]);
   return {
-    provider: 'GeckoTerminal',
-    fetched_at: new Date().toISOString(),
-    stale: false,
+    ...providerMeta('GeckoTerminal', result.fetchedAt, { stale: result.stale, error: result.error }),
     candles,
   };
 }
 
 async function dexBoostFeed(kind, page = 1, chain = 'solana') {
   if (String(page) !== '1') throw new Error('Fast discovery is available on the first page only.');
-  const index = await getJson(`${DEX_API}/token-boosts/${kind === 'new' ? 'latest' : 'top'}/v1`, 20000);
+  const indexResult = await getJsonWithMeta(`${DEX_API}/token-boosts/${kind === 'new' ? 'latest' : 'top'}/v1`, 20000);
+  const index = indexResult.value;
   const candidates = (Array.isArray(index) ? index : [])
     .filter(item => (chain === 'all' || item?.chainId === chain) && item?.tokenAddress);
   const addresses = [...new Set(candidates.map(item => item.tokenAddress))].slice(0, 30);
   if (!addresses.length) throw new Error('Fast discovery returned no indexed tokens.');
-  const payload = await getJson(`${DEX_API}/latest/dex/tokens/${addresses.join(',')}`, 20000);
+  const payloadResult = await getJsonWithMeta(`${DEX_API}/latest/dex/tokens/${addresses.join(',')}`, 20000);
+  const payload = payloadResult.value;
   const rank = new Map(candidates.map((item, index) => [`${item.chainId}:${item.tokenAddress}`, index]));
   const bestByToken = new Map();
   for (const pair of payload?.pairs || []) {
@@ -376,20 +515,20 @@ async function dexBoostFeed(kind, page = 1, chain = 'solana') {
     || Number(b.liquidity?.usd || 0) - Number(a.liquidity?.usd || 0));
   if (!pairs.length) throw new Error('Fast discovery returned no qualifying pools.');
   return {
-    provider: 'DexScreener',
-    sourceUrl: 'https://dexscreener.com',
-    sourceLabel: 'DexScreener boosted discovery',
-    fetched_at: new Date().toISOString(),
-    stale: false,
+    ...providerMeta('DexScreener', payloadResult.fetchedAt || indexResult.fetchedAt, {
+      stale: indexResult.stale || payloadResult.stale,
+      error: indexResult.error || payloadResult.error,
+    }),
     label: kind === 'new' ? 'New pools · deals ≥5% 24h drawdown' : 'Boosted discovery',
     pairs,
     page: 1,
   };
 }
 
-function unavailableFeed(kind, chain, error) {
+function unavailableFeed(kind, chain, error, primaryProvider = 'DexScreener') {
   return {
     provider: 'Public providers',
+    primary_provider: primaryProvider,
     sourceUrl: 'https://www.geckoterminal.com',
     sourceLabel: 'Provider status',
     fetched_at: new Date().toISOString(),
@@ -399,6 +538,15 @@ function unavailableFeed(kind, chain, error) {
     pairs: [],
     page: 1,
     chain,
+    coverage: {
+      discovery: 'No provider response available',
+      snapshot: 'Unavailable',
+      candles: 'Not evaluated',
+      liquidity: 'Unavailable',
+      graduation: 'Not established',
+      stream: 'No stream',
+    },
+    stream: false,
   };
 }
 
@@ -674,15 +822,31 @@ async function route(req, res, url) {
   if (req.method === 'GET' && url.pathname === '/api/market/feed') {
     const kind = url.searchParams.get('kind') === 'new' ? 'new' : 'trending';
     const chain = url.searchParams.get('chain') || 'solana';
+    const scope = url.searchParams.get('scope') || '';
     if (chain !== 'all' && !GECKO_NETWORKS[chain]) return json(res, 400, { detail: 'Unsupported market chain.' });
     let result;
+    const primaryProvider = scope === 'pump' ? 'Pump.fun' : 'DexScreener';
     try {
-      result = await dexBoostFeed(kind, url.searchParams.get('page') || 1, chain);
-    } catch (dexError) {
+      if (scope === 'pump' && chain === 'solana') {
+        result = await pumpFeed(kind, url.searchParams.get('page') || 1);
+      } else {
+        result = await dexBoostFeed(kind, url.searchParams.get('page') || 1, chain);
+        if (scope === 'pump') {
+          result.primary_provider = primaryProvider;
+          result.fallback_from = primaryProvider;
+          result.fallback_reason = 'Pump.fun coverage is limited to Solana; using public pool discovery fallback.';
+        }
+      }
+    } catch (primaryError) {
       try {
         result = await geckoFeed(kind, url.searchParams.get('page') || 1, chain);
+        if (scope === 'pump') {
+          result.primary_provider = primaryProvider;
+          result.fallback_from = primaryProvider;
+          result.fallback_reason = `Pump.fun unavailable; using GeckoTerminal fallback (${publicError(primaryError)}).`;
+        }
       } catch (geckoError) {
-        result = unavailableFeed(kind, chain, geckoError || dexError);
+        result = unavailableFeed(kind, chain, geckoError || primaryError, primaryProvider);
       }
     }
     return json(res, 200, result);
@@ -692,7 +856,8 @@ async function route(req, res, url) {
   }
   const candleMatch = url.pathname.match(/^\/api\/market\/candles\/([^/]+)\/([^/]+)$/);
   if (req.method === 'GET' && candleMatch) {
-    return json(res, 200, await geckoCandles(candleMatch[1], candleMatch[2], url.searchParams.get('interval') || '1h'));
+    const result = await geckoCandles(candleMatch[1], candleMatch[2], url.searchParams.get('interval') || '1h');
+    return json(res, 200, result);
   }
   if (req.method === 'GET' && url.pathname === '/api/market/search') return json(res, 200, await dexSearch(url.searchParams.get('q') || ''));
   const pairMatch = url.pathname.match(/^\/api\/market\/pair\/([^/]+)\/([^/]+)$/);
@@ -961,4 +1126,4 @@ function startServer() {
 
 if (require.main === module) startServer();
 
-module.exports = { geckoCandles, route, server, startServer };
+module.exports = { cache, geckoCandles, route, server, startServer };

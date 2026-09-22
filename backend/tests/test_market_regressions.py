@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from backend.market import MARKET_CACHE_RETENTION, is_new_pool_deal
+from backend.market import MARKET_CACHE_RETENTION, PROVIDER_COVERAGE, is_new_pool_deal, normalise_pump_coins
 
 
 def test_new_pool_deal_requires_recent_provider_pool_and_five_percent_drawdown():
@@ -38,3 +38,30 @@ def test_new_pool_deal_uses_a_fourteen_day_retention_window():
         {"pairCreatedAt": now - boundary - 1, "priceChange": {"h24": -5}},
         now,
     )
+
+
+def test_pump_coin_normalisation_preserves_direct_fields_and_graduation_boundary():
+    pairs = normalise_pump_coins([{
+        "mint": "PumpMint123",
+        "name": "Pump Coin",
+        "symbol": "PUMP",
+        "created_timestamp": 1_700_000_000,
+        "usd_market_cap": 1000,
+        "virtual_sol_reserves": 999999,
+        "complete": True,
+        "raydium_pool": "RaydiumPool123",
+    }], "new")
+
+    assert len(pairs) == 1
+    pair = pairs[0]
+    assert pair["launchpadId"] == "pump"
+    assert pair["marketKind"] == "launchpad-token"
+    assert pair["marketStage"] == "new"
+    assert pair["marketCap"] == 1000
+    assert pair["liquidity"] == {}
+    assert pair["graduation"] == {
+        "status": "graduated",
+        "pool_address": "RaydiumPool123",
+        "source": "Pump.fun",
+    }
+    assert PROVIDER_COVERAGE["Pump.fun"]["stream"].startswith("Polling")

@@ -49,9 +49,10 @@ export default function Terminal() {
   const tab = params.get('mode') || (['new', 'pump'].includes(page) ? 'new' : 'trending');
   const kind = ['new', 'pump'].includes(page) || tab === 'new' ? 'new' : 'trending';
   const cadence = page === 'pump' ? 15000 : autoRefresh ? 90000 : 0;
-  const market = useMarket(query ? `/search?q=${encodeURIComponent(query)}` : `/feed?kind=${kind}&chain=${chain}&page=${pagination}`, cadence);
-  const newFeed = useMarket(`/feed?kind=new&chain=${ecosystem.chainId}&page=1`, cadence);
-  const pumpTrendingFeed = useMarket(page === 'pump' ? `/feed?kind=trending&chain=${ecosystem.chainId}&page=1` : null, page === 'pump' ? 15000 : 0);
+  const pumpScope = ecosystem.id === 'pump' ? '&scope=pump' : '';
+  const market = useMarket(query ? `/search?q=${encodeURIComponent(query)}` : `/feed?kind=${kind}&chain=${chain}&page=${pagination}${page === 'pump' ? pumpScope : ''}`, cadence);
+  const newFeed = useMarket(`/feed?kind=new&chain=${ecosystem.chainId}&page=1${pumpScope}`, cadence);
+  const pumpTrendingFeed = useMarket(page === 'pump' ? `/feed?kind=trending&chain=${ecosystem.chainId}&page=1&scope=pump` : null, page === 'pump' ? 15000 : 0);
   const pairLookup = useMarket(pairLookupPath, 60000);
   const assets = useMarket('/assets', 90000); const feeAssets = assets.data?.assets || []; const fee = feeAssets.find(a => a.id === 'fee'); const feeCat = feeAssets.find(a => a.id === 'feecat');
   const { data: community } = useMarket(`/api/intelligence/community?context=${ecosystem.id}`, 30000);
@@ -78,7 +79,7 @@ export default function Terminal() {
     if (page === 'new' && !query) list = list.filter(isNewPoolDeal);
     return list;
   }, [market.data, chain, minLiquidity, activePad, tab, kind, query, page]);
-  const newPairs = (newFeed.data?.pairs || []).filter(p => matchesPad(p, activePad) && isNewPoolDeal(p));
+  const newPairs = (newFeed.data?.pairs || []).filter(p => matchesPad(p, activePad) && (p.marketStage === 'new' || isNewPoolDeal(p)));
   useEffect(() => { setPagination(1); setPad('all'); setMinLiquidity('0'); setMenuOpen(false); if (page === 'pump' && ecosystem.id !== 'pump') setEcosystem('pump'); }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPagination(1); }, [ecosystem.id, query, kind]);
   useEffect(() => { if (page === 'launch' && metaLaunchRequested && ecosystem.id !== 'feeless-launch') setEcosystem('feeless-launch'); }, [page, metaLaunchRequested, ecosystem.id]); // eslint-disable-line react-hooks/exhaustive-deps

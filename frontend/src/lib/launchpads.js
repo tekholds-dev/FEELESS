@@ -336,5 +336,6 @@ export const launchpadEcosystem = pad => ({ ...pad, isLaunchpad: true, website: 
 export function matchesPad(pair, id) {
   const pad = LAUNCHPADS.find(p => p.id === id);
   if (!pad) return true;
-  return pair.chainId === pad.chainId && pad.dexIds.includes(pair.dexId?.toLowerCase());
+  return pair.chainId === pad.chainId
+    && (pair.launchpadId === id || pad.dexIds.includes(pair.dexId?.toLowerCase()));
 }

@@ -23,6 +23,50 @@ DEFAULT_MINTS = {
 }
 MARKET_CACHE_RETENTION = timedelta(days=14)
 NEW_POOL_DEAL_PERCENT = 5
+PROVIDER_COVERAGE = {
+    'Pump.fun': {
+        'discovery': 'Pump.fun public coin index for Solana launchpad coverage',
+        'snapshot': 'Pump.fun coin metadata snapshots',
+        'candles': 'Not supplied; GeckoTerminal remains the candle provider',
+        'liquidity': 'Only reported when Pump.fun supplies a direct liquidity field',
+        'graduation': 'Pump.fun complete=true coin status',
+        'stream': 'Polling snapshot; no websocket or trade stream',
+    },
+    'DexScreener': {
+        'discovery': 'Boosted token and pair discovery across supported chains',
+        'snapshot': 'DexScreener pair snapshots',
+        'candles': 'Not supplied by this adapter',
+        'liquidity': 'Pair liquidity snapshot',
+        'graduation': 'Not established by this provider',
+        'stream': 'Polling snapshot; no websocket or trade stream',
+    },
+    'GeckoTerminal': {
+        'discovery': 'Public indexed pools across supported chains',
+        'snapshot': 'Pool price, volume, and reserve snapshots',
+        'candles': 'OHLCV pool candles',
+        'liquidity': 'Pool reserve snapshot',
+        'graduation': 'Not established by this provider',
+        'stream': 'Polling snapshot; no websocket or trade stream',
+    },
+    'Public providers': {
+        'discovery': 'No provider response available',
+        'snapshot': 'Unavailable',
+        'candles': 'Not evaluated',
+        'liquidity': 'Unavailable',
+        'graduation': 'Not established',
+        'stream': 'No stream',
+    },
+}
+PROVIDER_LABELS = {
+    'Pump.fun': 'Pump.fun public coin index',
+    'DexScreener': 'DexScreener boosted discovery',
+    'GeckoTerminal': 'GeckoTerminal public pool index',
+}
+PROVIDER_URLS = {
+    'Pump.fun': 'https://pump.fun',
+    'DexScreener': 'https://dexscreener.com',
+    'GeckoTerminal': 'https://www.geckoterminal.com',
+}
 
 
 def safe_float(value, default=0.0):
@@ -49,9 +93,15 @@ def is_new_pool_deal(pair, now_ms=None):
 
 class MarketResult(BaseModel):
     provider: str
+    primary_provider: str | None = None
     fetched_at: str
     stale: bool = False
     error: str | None = None
+    fallback_from: str | None = None
+    fallback_reason: str | None = None
+    source_label: str | None = None
+    coverage: dict[str, str] = Field(default_factory=dict)
+    stream: bool = False
     label: str = ''
     source_url: str | None = None
     pairs: list[dict[str, Any]] = Field(default_factory=list)
@@ -60,21 +110,42 @@ class MarketResult(BaseModel):
 
 class GraduationResult(BaseModel):
     provider: str
+    primary_provider: str | None = None
     source_url: str
     source_label: str
     fetched_at: str
     stale: bool = False
     error: str | None = None
+    coverage: dict[str, str] = Field(default_factory=dict)
+    stream: bool = False
     status: Literal['verified', 'no_verified_events', 'unavailable'] = 'no_verified_events'
     graduations: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class CandleResult(BaseModel):
     provider: str
+    primary_provider: str | None = None
     fetched_at: str
     stale: bool = False
     error: str | None = None
+    source_label: str | None = None
+    coverage: dict[str, str] = Field(default_factory=dict)
+    stream: bool = False
     candles: list[list[float]]
+
+
+def provider_meta(provider, fetched_at, stale=False, error=None, primary_provider=None, **extra):
+    return {
+        'provider': provider,
+        'primary_provider': primary_provider or provider,
+        'fetched_at': fetched_at,
+        'stale': stale,
+        'error': error,
+        'source_label': PROVIDER_LABELS.get(provider, f'{provider} public market data'),
+        'coverage': PROVIDER_COVERAGE.get(provider, {}),
+        'stream': False,
+        **extra,
+    }
 
 
 def normalise_pools(payload):
@@ -117,6 +188,86 @@ def normalise_pools(payload):
     return pairs
 
 
+def normalise_pump_coins(payload, kind='trending'):
+    """Map Pump.fun coin-index fields into the shared market contract.
+
+    Fields are copied only when Pump.fun reports them directly. In particular,
+    virtual reserves are not relabelled as USD liquidity and market cap is not
+    converted into a synthetic token price.
+    """
+    coins = payload if isinstance(payload, list) else (
+        payload.get('coins') or payload.get('data') or []
+        if isinstance(payload, dict) else []
+    )
+    pairs = []
+    for coin in coins:
+        if not isinstance(coin, dict):
+            continue
+        mint = coin.get('mint') or coin.get('address')
+        if not isinstance(mint, str) or not mint.isalnum():
+            continue
+        created = safe_float(coin.get('created_timestamp') or coin.get('createdAt') or coin.get('created_at'))
+        if created and created < 1_000_000_000_000:
+            created *= 1000
+        change = coin.get('priceChange') if isinstance(coin.get('priceChange'), dict) else (
+            coin.get('price_change') if isinstance(coin.get('price_change'), dict) else {}
+        )
+        if not change:
+            for source, key in [('price_change_5m', 'm5'), ('price_change_1h', 'h1'), ('price_change_24h', 'h24')]:
+                if coin.get(source) is not None:
+                    change[key] = coin[source]
+        volume = coin.get('volume') if isinstance(coin.get('volume'), dict) else (
+            coin.get('volume_usd') if isinstance(coin.get('volume_usd'), dict) else {}
+        )
+        if not volume and coin.get('volume_24h') is not None:
+            volume = {'h24': coin.get('volume_24h')}
+        liquidity = coin.get('liquidity') if isinstance(coin.get('liquidity'), dict) else {}
+        if not liquidity and coin.get('liquidity_usd') is not None:
+            liquidity = {'usd': coin.get('liquidity_usd')}
+        pool_address = coin.get('raydium_pool') or coin.get('pool_address') or mint
+        pair = {
+            'chainId': 'solana',
+            'network': 'solana',
+            'pairAddress': pool_address,
+            'dexId': 'pump.fun',
+            'url': f'https://pump.fun/coin/{mint}',
+            'baseToken': {
+                'address': mint,
+                'name': coin.get('name') or 'Unknown',
+                'symbol': coin.get('symbol') or '?',
+            },
+            'quoteToken': {'symbol': 'SOL'},
+            'priceUsd': coin.get('price_usd', coin.get('usd_price')),
+            'priceChange': change,
+            'liquidity': liquidity,
+            'volume': volume,
+            'marketCap': coin.get('usd_market_cap', coin.get('market_cap_usd')),
+            'fdv': coin.get('fdv_usd', coin.get('fdv')),
+            'txns': coin.get('transactions') if isinstance(coin.get('transactions'), dict) else {},
+            'pairCreatedAt': int(created) if created else None,
+            'info': {
+                'imageUrl': coin.get('image_uri') or coin.get('image_url'),
+                'websites': [coin['website']] if coin.get('website') else [],
+                'socials': [
+                    {'type': 'twitter', 'url': coin['twitter']} if coin.get('twitter') else None,
+                    {'type': 'telegram', 'url': coin['telegram']} if coin.get('telegram') else None,
+                ],
+            },
+            'marketKind': 'launchpad-token',
+            'marketStage': kind,
+            'launchpadId': 'pump',
+        }
+        pair['info']['socials'] = [social for social in pair['info']['socials'] if social]
+        if coin.get('complete') is True:
+            pair['graduation'] = {
+                'status': 'graduated',
+                'pool_address': coin.get('raydium_pool') or coin.get('pool_address'),
+                'source': 'Pump.fun',
+            }
+        pairs.append(pair)
+    return pairs
+
+
 def create_market_router(db, intelligence=None):
     router = APIRouter(prefix='/api/market')
     locks = defaultdict(asyncio.Lock)
@@ -140,7 +291,7 @@ def create_market_router(db, intelligence=None):
                     await db.market_cache.delete_one({'key': key})
                     hit = None
             if hit and (now - datetime.fromisoformat(hit['fetched_at'])).total_seconds() < ttl:
-                return hit['data'], {'provider': provider, 'fetched_at': hit['fetched_at'], 'stale': False}
+                return hit['data'], provider_meta(provider, hit['fetched_at'])
             error = None
             queue = requests[provider]
             while queue and monotonic() - queue[0] > 60:
@@ -159,13 +310,33 @@ def create_market_router(db, intelligence=None):
                     fetched = now.isoformat()
                     await db.market_cache.update_one({'key': key}, {'$set': {
                         'data': data, 'fetched_at': fetched, 'provider': provider}}, upsert=True)
-                    return data, {'provider': provider, 'fetched_at': fetched, 'stale': False}
+                    return data, provider_meta(provider, fetched)
                 except (httpx.HTTPError, ValueError):
                     cooldown[key] = monotonic() + 45
                     error = f'{provider} is temporarily unavailable.'
             if hit:
-                return hit['data'], {'provider': provider, 'fetched_at': hit['fetched_at'], 'stale': True, 'error': error}
+                return hit['data'], provider_meta(provider, hit['fetched_at'], stale=True, error=error)
             raise HTTPException(503, detail=error)
+
+    async def pump_feed(kind, page=1):
+        if page != 1:
+            raise HTTPException(503, 'Pump.fun discovery is available on the first page only.')
+        sort = 'created_timestamp' if kind == 'new' else 'market_cap'
+        data, meta = await cached(
+            'Pump.fun',
+            '/coins',
+            {'offset': 0, 'limit': 50, 'sort': sort, 'order': 'DESC', 'includeNsfw': 'false'},
+            ttl=20,
+        )
+        pairs = normalise_pump_coins(data, kind)
+        if not pairs:
+            raise HTTPException(503, 'Pump.fun returned no indexed coins.')
+        pairs.sort(key=lambda pair: pair.get('pairCreatedAt') or 0, reverse=kind == 'new')
+        return pairs, {
+            **meta,
+            'source_label': 'Pump.fun public coin index · launchpad coverage',
+            'coverage': PROVIDER_COVERAGE['Pump.fun'],
+        }
 
     async def graduation_status(mints):
         """Use Pump.fun's completion flag; market indexes cannot prove graduation."""
@@ -219,33 +390,71 @@ def create_market_router(db, intelligence=None):
 
         return GraduationResult(
             provider='Pump.fun',
+            primary_provider='Pump.fun',
             source_url='https://pump.fun',
             source_label='Pump.fun public coin status · complete=true',
             fetched_at=max(fetched_values or [observed_at]),
             stale=stale,
             error='; '.join(dict.fromkeys(errors)) if errors else None,
+            coverage=PROVIDER_COVERAGE['Pump.fun'],
             status='verified' if graduations else ('unavailable' if errors and not fetched_values else 'no_verified_events'),
             graduations=graduations,
         )
 
     @router.get('/feed', response_model=MarketResult)
     async def feed(kind: Literal['trending', 'new'] = 'trending',
-                   chain: str = 'solana', page: int = Query(1, ge=1, le=10)):
+                   chain: str = 'solana', page: int = Query(1, ge=1, le=10),
+                   scope: str | None = Query(None, pattern=r'^[a-z0-9-]{1,30}$')):
         if chain != 'all' and chain not in NETWORKS:
             raise HTTPException(400, 'Unsupported chain')
+        fallback_reason = None
+        primary_provider = 'Pump.fun' if scope == 'pump' else 'DexScreener'
         try:
-            pairs, meta = await dex_boost_feed(kind, chain, page)
-        except HTTPException:
+            if scope == 'pump' and chain == 'solana':
+                pairs, meta = await pump_feed(kind, page)
+            elif scope == 'pump':
+                fallback_reason = 'Pump.fun coverage is limited to Solana; using public pool discovery fallback.'
+                pairs, meta = await dex_boost_feed(kind, chain, page)
+            else:
+                pairs, meta = await dex_boost_feed(kind, chain, page)
+            if fallback_reason:
+                meta = {
+                    **meta,
+                    'primary_provider': primary_provider,
+                    'fallback_from': primary_provider,
+                    'fallback_reason': fallback_reason,
+                }
+        except HTTPException as primary_error:
+            if scope == 'pump':
+                fallback_reason = f'Pump.fun unavailable; using public pool discovery fallback ({primary_error.detail}).'
             chains = SUPPORTED_CHAINS if chain == 'all' else (chain,)
-            responses = await asyncio.gather(*[
-                cached(
-                    'GeckoTerminal',
-                    f'/networks/{NETWORKS[value]}/{"new_pools" if kind == "new" else "trending_pools"}',
-                    {'include': 'base_token,quote_token,dex', 'page': page},
-                    ttl=90,
+            try:
+                responses = await asyncio.gather(*[
+                    cached(
+                        'GeckoTerminal',
+                        f'/networks/{NETWORKS[value]}/{"new_pools" if kind == "new" else "trending_pools"}',
+                        {'include': 'base_token,quote_token,dex', 'page': page},
+                        ttl=90,
+                    )
+                    for value in chains
+                ])
+            except HTTPException as fallback_error:
+                unavailable = provider_meta(
+                    'Public providers',
+                    datetime.now(timezone.utc).isoformat(),
+                    stale=True,
+                    error=f'Public market providers are temporarily unavailable. {fallback_error.detail}',
+                    primary_provider=primary_provider,
+                    fallback_from=primary_provider,
+                    fallback_reason=fallback_reason,
                 )
-                for value in chains
-            ])
+                return MarketResult(
+                    **unavailable,
+                    source_url=PROVIDER_URLS['GeckoTerminal'],
+                    label='New pools · provider unavailable' if kind == 'new' else 'Trending pools · provider unavailable',
+                    pairs=[],
+                    page=page,
+                )
             pairs = [pair for data, _meta in responses for pair in normalise_pools(data)]
             meta = responses[0][1]
             if len(responses) > 1:
@@ -261,10 +470,17 @@ def create_market_router(db, intelligence=None):
                     safe_float((pair.get('priceChange') or {}).get('h24')),
                     -(pair.get('pairCreatedAt') or 0),
                 ))
+            meta = {
+                **meta,
+                'primary_provider': primary_provider,
+                'fallback_from': primary_provider if fallback_reason else None,
+                'fallback_reason': fallback_reason,
+            }
         if intelligence:
             pairs = await intelligence.observe(pairs, meta, kind)
-        source_url = 'https://dexscreener.com' if meta.get('provider') == 'DexScreener' else 'https://www.geckoterminal.com'
-        return MarketResult(**meta, source_url=source_url, label='New pools · deals ≥5% 24h drawdown' if kind == 'new' else 'Trending pools', pairs=pairs, page=page)
+        source_url = PROVIDER_URLS.get(meta.get('provider'), 'https://www.geckoterminal.com')
+        label = meta.get('source_label') or ('New pools · deals ≥5% 24h drawdown' if kind == 'new' else 'Trending pools')
+        return MarketResult(**meta, source_url=source_url, label=label, pairs=pairs, page=page)
 
     @router.get('/graduations', response_model=GraduationResult)
     async def graduations(mints: str = Query('', max_length=4000)):
@@ -275,7 +491,7 @@ def create_market_router(db, intelligence=None):
         if not q.strip():
             raise HTTPException(400, 'Enter a token or contract address')
         data, meta = await cached('DexScreener', '/latest/dex/search', {'q': q.strip()}, ttl=30)
-        return MarketResult(**meta, source_url='https://dexscreener.com', label='Search results', pairs=data.get('pairs') or [])
+        return MarketResult(**meta, source_url=PROVIDER_URLS['DexScreener'], label='Search results', pairs=data.get('pairs') or [])
 
     async def resolve_ca(address):
         data, meta = await cached('DexScreener', '/latest/dex/search', {'q': address}, ttl=60)
@@ -324,10 +540,12 @@ def create_market_router(db, intelligence=None):
         if not pairs:
             raise HTTPException(503, 'Fast discovery returned no qualifying pools.')
         return pairs, {
-            'provider': 'DexScreener',
-            'fetched_at': pair_meta.get('fetched_at') or boost_meta.get('fetched_at'),
-            'stale': boost_meta.get('stale', False) or pair_meta.get('stale', False),
-            'error': boost_meta.get('error') or pair_meta.get('error'),
+            **provider_meta(
+                'DexScreener',
+                pair_meta.get('fetched_at') or boost_meta.get('fetched_at'),
+                stale=boost_meta.get('stale', False) or pair_meta.get('stale', False),
+                error=boost_meta.get('error') or pair_meta.get('error'),
+            ),
         }
 
     @router.get('/scan', response_model=MarketResult)
@@ -335,7 +553,7 @@ def create_market_router(db, intelligence=None):
         pairs, meta = await resolve_ca(address)
         if pairs and intelligence and not meta.get('stale'):
             await intelligence.event('CONTRACT_SCANNED', f'{pairs[0]["baseToken"]["symbol"]} · contract resolved', 'Exact contract matched to a provider pool. Not a security audit.', pairs[0], meta['provider'], meta['fetched_at'], context=context)
-        return MarketResult(**meta, pairs=pairs, label='Exact contract matches')
+        return MarketResult(**meta, source_url=PROVIDER_URLS['DexScreener'], pairs=pairs, label='Exact contract matches')
 
     @router.get('/assets')
     async def assets():
@@ -350,11 +568,11 @@ def create_market_router(db, intelligence=None):
                 image_url = (pair or {}).get('info', {}).get('imageUrl')
                 if not pair or not image_url:
                     try:
-                        token_data, _ = await cached('GeckoTerminal', f'/networks/solana/tokens/{mint}', ttl=90)
+                        token_data, token_meta = await cached('GeckoTerminal', f'/networks/solana/tokens/{mint}', ttl=90)
                         token = token_data.get('data') or {}
                         token_attrs = token.get('attributes') or {}
-                        pools_data, _ = await cached('GeckoTerminal', f'/networks/solana/tokens/{mint}/pools',
-                                                     {'page': 1}, ttl=90)
+                        pools_data, pools_meta = await cached('GeckoTerminal', f'/networks/solana/tokens/{mint}/pools',
+                                                              {'page': 1}, ttl=90)
                         pools = pools_data.get('data') or []
                         matching = [
                             pool for pool in pools
@@ -396,10 +614,12 @@ def create_market_router(db, intelligence=None):
                                 'symbol': token_attrs.get('symbol') or pair.get('baseToken', {}).get('symbol'),
                             }
                             meta = {
-                                **meta,
-                                'provider': 'GeckoTerminal',
-                                'fetched_at': meta.get('fetched_at'),
-                                'stale': meta.get('stale', False),
+                                **provider_meta(
+                                    'GeckoTerminal',
+                                    max(token_meta.get('fetched_at', ''), pools_meta.get('fetched_at', '')),
+                                    stale=token_meta.get('stale', False) or pools_meta.get('stale', False),
+                                    error=token_meta.get('error') or pools_meta.get('error'),
+                                ),
                             }
                     except HTTPException:
                         pass
@@ -420,7 +640,7 @@ def create_market_router(db, intelligence=None):
         pairs = data.get('pairs') or []
         if intelligence:
             pairs = await intelligence.observe(pairs, meta)
-        return MarketResult(**meta, pairs=pairs, label='Pair snapshot')
+        return MarketResult(**meta, source_url=PROVIDER_URLS['DexScreener'], pairs=pairs, label='Pair snapshot')
 
     @router.get('/candles/{chain}/{address}', response_model=CandleResult)
     async def candles(chain: str, address: str, interval: Literal['5m', '15m', '1h', '4h', '1d'] = '1h'):
@@ -432,7 +652,9 @@ def create_market_router(db, intelligence=None):
                                   {'aggregate': aggregate, 'limit': 100, 'currency': 'usd', 'token': 'base'}, ttl=90)
         rows = data.get('data', {}).get('attributes', {}).get('ohlcv_list', [])
         unique = {row[0]: row for row in rows if len(row) >= 6}
-        return CandleResult(**meta, candles=sorted(unique.values(), key=lambda row: row[0]))
+        return CandleResult(**meta, source_label=PROVIDER_LABELS['GeckoTerminal'],
+                            coverage=PROVIDER_COVERAGE['GeckoTerminal'],
+                            candles=sorted(unique.values(), key=lambda row: row[0]))
 
     router.resolve_ca = resolve_ca
     return router

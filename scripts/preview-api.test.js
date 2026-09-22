@@ -13,7 +13,7 @@ process.env.DEX_API_URL = DEX_API_URL;
 process.env.GECKO_API_URL = GECKO_API_URL;
 process.env.PUMP_API_URL = PUMP_API_URL;
 
-const { server } = require('./preview-api');
+const { cache, server } = require('./preview-api');
 
 function providerResponse(body, status = 200) {
   return {
@@ -131,6 +131,147 @@ test('preview candle contract follows a discovered pool and rejects invalid inte
     }
     assert.equal(invalidInterval.status, 400);
     assert.match(invalidInterval.body.detail, /Invalid chart interval or network/);
+  } finally {
+    global.fetch = originalFetch;
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('preview Pump radar uses Pump.fun as the primary Solana launchpad source', async () => {
+  const originalFetch = global.fetch;
+  cache.clear();
+  global.fetch = async target => {
+    const url = String(target);
+    if (url.startsWith(`${PUMP_API_URL}/coins?offset=0&limit=50&sort=created_timestamp`)) {
+      return providerResponse([{
+        mint: 'PumpCoin123',
+        name: 'Pump Coin',
+        symbol: 'PUMP',
+        created_timestamp: Date.now() - 60000,
+        usd_market_cap: 125000,
+        image_uri: 'https://logo.test/pump.png',
+        complete: false,
+      }]);
+    }
+    throw new Error(`Unexpected provider request: ${url}`);
+  };
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  try {
+    const response = await request(baseUrl, '/api/market/feed?kind=new&chain=solana&scope=pump', originalFetch);
+    assert.equal(response.status, 200);
+    assert.equal(response.body.provider, 'Pump.fun');
+    assert.equal(response.body.primary_provider, 'Pump.fun');
+    assert.equal(response.body.stale, false);
+    assert.equal(response.body.stream, false);
+    assert.equal(response.body.sourceLabel, 'Pump.fun public coin index · launchpad coverage');
+    assert.match(response.body.coverage.discovery, /launchpad coverage/);
+    assert.equal(response.body.pairs[0].launchpadId, 'pump');
+    assert.equal(response.body.pairs[0].marketStage, 'new');
+    assert.equal(response.body.pairs[0].liquidity.usd, undefined);
+  } finally {
+    global.fetch = originalFetch;
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('preview Pump radar falls back to GeckoTerminal with visible source metadata', async () => {
+  const originalFetch = global.fetch;
+  cache.clear();
+  global.fetch = async target => {
+    const url = String(target);
+    if (url.startsWith(`${PUMP_API_URL}/coins?`)) return providerResponse({ detail: 'rate limited' }, 429);
+    if (url === `${GECKO_API_URL}/networks/solana/trending_pools?page=1`) {
+      return providerResponse({
+        data: [{
+          id: 'solana_FallbackPool123',
+          attributes: { address: 'FallbackPool123', name: 'FALLBACK / SOL', reserve_in_usd: '2500' },
+          relationships: {
+            base_token: { data: { id: 'solana_fallback-token' } },
+            quote_token: { data: { id: 'solana_So11111111111111111111111111111111111111112' } },
+          },
+        }],
+      });
+    }
+    throw new Error(`Unexpected provider request: ${url}`);
+  };
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  try {
+    const response = await request(baseUrl, '/api/market/feed?kind=trending&chain=solana&scope=pump', originalFetch);
+    assert.equal(response.status, 200);
+    assert.equal(response.body.provider, 'GeckoTerminal');
+    assert.equal(response.body.primary_provider, 'Pump.fun');
+    assert.equal(response.body.fallback_from, 'Pump.fun');
+    assert.match(response.body.fallback_reason, /Pump\.fun unavailable/);
+    assert.equal(response.body.stale, false);
+    assert.equal(response.body.pairs[0].pairAddress, 'FallbackPool123');
+  } finally {
+    global.fetch = originalFetch;
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('preview market cache serves a stale Pump.fun snapshot before reporting unavailable', async () => {
+  const originalFetch = global.fetch;
+  const originalNow = Date.now;
+  cache.clear();
+  let available = true;
+  global.fetch = async target => {
+    const url = String(target);
+    if (url.startsWith(`${PUMP_API_URL}/coins?`)) {
+      if (!available) return providerResponse({ detail: 'down' }, 503);
+      return providerResponse([{ mint: 'StalePump123', name: 'Stale Pump', symbol: 'STALE', created_timestamp: 1000 }]);
+    }
+    throw new Error(`Unexpected provider request: ${url}`);
+  };
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  try {
+    const first = await request(baseUrl, '/api/market/feed?kind=trending&chain=solana&scope=pump', originalFetch);
+    assert.equal(first.status, 200);
+    available = false;
+    Date.now = () => originalNow() + 30000;
+    const stale = await request(baseUrl, '/api/market/feed?kind=trending&chain=solana&scope=pump', originalFetch);
+    assert.equal(stale.status, 200);
+    assert.equal(stale.body.provider, 'Pump.fun');
+    assert.equal(stale.body.stale, true);
+    assert.match(stale.body.error, /HTTP 503/);
+    assert.equal(stale.body.pairs[0].baseToken.symbol, 'STALE');
+  } finally {
+    Date.now = originalNow;
+    global.fetch = originalFetch;
+    cache.clear();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('preview Pump radar returns an explicit unavailable state after primary and fallback failure', async () => {
+  const originalFetch = global.fetch;
+  cache.clear();
+  global.fetch = async target => {
+    const url = String(target);
+    if (url.startsWith(`${PUMP_API_URL}/coins?`)) return providerResponse({ detail: 'down' }, 503);
+    if (url === `${GECKO_API_URL}/networks/solana/trending_pools?page=1`) return providerResponse({ detail: 'down' }, 503);
+    throw new Error(`Unexpected provider request: ${url}`);
+  };
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  try {
+    const response = await request(baseUrl, '/api/market/feed?kind=trending&chain=solana&scope=pump', originalFetch);
+    assert.equal(response.status, 200);
+    assert.equal(response.body.primary_provider, 'Pump.fun');
+    assert.equal(response.body.stale, true);
+    assert.match(response.body.error, /temporarily unavailable/);
+    assert.deepEqual(response.body.pairs, []);
   } finally {
     global.fetch = originalFetch;
     await new Promise(resolve => server.close(resolve));
