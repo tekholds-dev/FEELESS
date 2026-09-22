@@ -33,10 +33,10 @@ export default function Globe3D({ onSelect, selectedId, size = 640 }) {
         g.pointOfView({ altitude: 2.2 }, 0);
         if (typeof g.globeMaterial === 'function') {
           const globeMat = g.globeMaterial();
-          globeMat.color = new THREE.Color('#02110A');
-          globeMat.emissive = new THREE.Color('#0A3D2A');
-          globeMat.emissiveIntensity = 0.15;
-          globeMat.shininess = 0.6;
+          globeMat.color = new THREE.Color('#000000');
+          globeMat.emissive = new THREE.Color('#052A1D');
+          globeMat.emissiveIntensity = 0.35;
+          globeMat.shininess = 3;
         }
       } catch (e) { /* noop */ }
     };
@@ -98,9 +98,7 @@ export default function Globe3D({ onSelect, selectedId, size = 640 }) {
         backgroundColor="rgba(0,0,0,0)"
         showAtmosphere
         atmosphereColor="#14F195"
-        atmosphereAltitude={0.22}
-        globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
-        bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
+        atmosphereAltitude={0.25}
         pointsData={points}
         pointLat="lat"
         pointLng="lng"
