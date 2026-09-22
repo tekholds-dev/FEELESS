@@ -262,6 +262,40 @@ test.each([
   act(() => root.unmount());
 });
 
+test('normalizes every malformed terminal preference and rewrites safe storage values', () => {
+  localStorage.setItem('feeless-settings', JSON.stringify({
+    compact: 'compact',
+    autoRefresh: 'yes',
+    reducedMotion: 1,
+    fontScale: 'huge',
+    chartInterval: '10m',
+    defaultEcosystem: 'not-a-context',
+  }));
+  localStorage.setItem('feeless-default-ecosystem', 'also-not-a-context');
+
+  const { container, root } = mount();
+
+  expect(container.querySelector('[data-testid="config-density"]').value).toBe('comfortable');
+  expect(container.querySelector('[data-testid="config-text-size"]').value).toBe('normal');
+  expect(container.querySelector('[data-testid="config-chart-interval"]').value).toBe('1h');
+  expect(container.querySelector('[data-testid="settings-reduced-motion"]').checked).toBe(false);
+  expect(container.querySelector('[data-testid="settings-autorefresh"]').checked).toBe(true);
+  expect(container.querySelector('[data-testid="config-default-ecosystem"]').value).toBe('solana');
+  expect(container.querySelector('.terminal-app').classList.contains('compact-rows')).toBe(false);
+  expect(container.querySelector('.terminal-app').classList.contains('reduced-motion')).toBe(false);
+
+  expect(JSON.parse(localStorage.getItem('feeless-settings'))).toEqual({
+    compact: false,
+    autoRefresh: true,
+    reducedMotion: false,
+    fontScale: 'normal',
+    chartInterval: '1h',
+    defaultEcosystem: 'solana',
+  });
+  expect(localStorage.getItem('feeless-default-ecosystem')).toBe('solana');
+  act(() => root.unmount());
+});
+
 test('keeps trade readouts and controls bounded at a narrow preview width for every text size', () => {
   installTradeStyles();
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: 375 });

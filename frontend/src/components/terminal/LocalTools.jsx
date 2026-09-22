@@ -4,37 +4,69 @@ import { Bell, Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { marketRequest, pairKey, formatUSD } from '../../lib/dexscreener';
 import { MarketTable } from './MarketTable';
+import { CONTEXTS } from '../../hooks/useWorkspace';
 
 export const FONT_SCALE_VALUES = ['normal', 'large', 'xlarge'];
+export const CHART_INTERVAL_VALUES = ['5m', '15m', '1h', '4h', '1d'];
+export const DEFAULT_SETTINGS = {
+  compact: false,
+  autoRefresh: true,
+  reducedMotion: false,
+  fontScale: 'normal',
+  chartInterval: '1h',
+  defaultEcosystem: 'solana',
+};
 
 export function normalizeFontScale(value) {
   return FONT_SCALE_VALUES.includes(value) ? value : 'normal';
+}
+
+export function normalizeCompact(value) {
+  return typeof value === 'boolean' ? value : DEFAULT_SETTINGS.compact;
+}
+
+export function normalizeAutoRefresh(value) {
+  return typeof value === 'boolean' ? value : DEFAULT_SETTINGS.autoRefresh;
+}
+
+export function normalizeReducedMotion(value) {
+  return typeof value === 'boolean' ? value : DEFAULT_SETTINGS.reducedMotion;
+}
+
+export function normalizeChartInterval(value) {
+  return CHART_INTERVAL_VALUES.includes(value) ? value : DEFAULT_SETTINGS.chartInterval;
+}
+
+export function normalizeDefaultEcosystem(value) {
+  return CONTEXTS.some(context => context.id === value) ? value : DEFAULT_SETTINGS.defaultEcosystem;
+}
+
+export function normalizeSettings(value, legacyDefaultEcosystem) {
+  const parsed = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return {
+    compact: normalizeCompact(parsed.compact),
+    autoRefresh: normalizeAutoRefresh(parsed.autoRefresh),
+    reducedMotion: normalizeReducedMotion(parsed.reducedMotion),
+    fontScale: normalizeFontScale(parsed.fontScale),
+    chartInterval: normalizeChartInterval(parsed.chartInterval),
+    defaultEcosystem: normalizeDefaultEcosystem(parsed.defaultEcosystem ?? legacyDefaultEcosystem),
+  };
 }
 
 export function useLocalSettings() {
   const [settings, setSettings] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('feeless-settings') || '{}');
-      const parsed = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
-      return {
-        compact: false,
-        autoRefresh: true,
-        reducedMotion: false,
-        fontScale: normalizeFontScale(parsed.fontScale),
-        ...parsed,
-        fontScale: normalizeFontScale(parsed.fontScale),
-      };
+      return normalizeSettings(saved, localStorage.getItem('feeless-default-ecosystem'));
     }
-    catch { return { compact: false, autoRefresh: true, reducedMotion: false, fontScale: 'normal' }; }
+    catch { return { ...DEFAULT_SETTINGS }; }
   });
   useEffect(() => {
-    const normalized = { ...settings, fontScale: normalizeFontScale(settings.fontScale) };
+    const normalized = normalizeSettings(settings);
     localStorage.setItem('feeless-settings', JSON.stringify(normalized));
+    localStorage.setItem('feeless-default-ecosystem', normalized.defaultEcosystem);
   }, [settings]);
-  const updateSettings = next => setSettings(current => {
-    const resolved = typeof next === 'function' ? next(current) : next;
-    return { ...resolved, fontScale: normalizeFontScale(resolved?.fontScale) };
-  });
+  const updateSettings = next => setSettings(current => normalizeSettings(typeof next === 'function' ? next(current) : next));
   return [settings, updateSettings];
 }
 
