@@ -7,8 +7,8 @@ import { MarketTable } from './MarketTable';
 
 export function useLocalSettings() {
   const [settings, setSettings] = useState(() => {
-    try { return { compact: false, autoRefresh: true, reducedMotion: false, ...JSON.parse(localStorage.getItem('feeless-settings') || '{}') }; }
-    catch { return { compact: false, autoRefresh: true, reducedMotion: false }; }
+    try { return { compact: false, autoRefresh: true, reducedMotion: false, fontScale: 'normal', ...JSON.parse(localStorage.getItem('feeless-settings') || '{}') }; }
+    catch { return { compact: false, autoRefresh: true, reducedMotion: false, fontScale: 'normal' }; }
   });
   useEffect(() => { localStorage.setItem('feeless-settings', JSON.stringify(settings)); }, [settings]);
   return [settings, setSettings];
