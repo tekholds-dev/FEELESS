@@ -1,4 +1,4 @@
-import { executeMetaLaunchPlan, getLaunchMint, getLaunchProviderReadiness, getSolanaExplorerUrl, recheckMetaLaunchSignature, requestMetaLaunchPlan } from './launchpads';
+import { executeMetaLaunchPlan, getLaunchMint, getLaunchProviderReadiness, getSolanaExplorerUrl, META_LAUNCH_STEPS, recheckMetaLaunchSignature, requestMetaLaunchPlan } from './launchpads';
 
 let mockConnection;
 
@@ -195,4 +195,98 @@ test('prepares an unsigned five-step plan without accepting private key material
     },
   });
   expect(JSON.stringify(body)).not.toMatch(/private|secret|key/i);
+});
+
+test('executes an approved provider five-step plan with explorer links and its returned mint', async () => {
+  process.env.REACT_APP_LAUNCH_API_URL = 'https://provider.example/launch';
+  process.env.REACT_APP_SOLANA_RPC_URL = 'https://rpc.example';
+  process.env.REACT_APP_LAUNCH_PROVIDER_APPROVED = 'true';
+  process.env.REACT_APP_LAUNCH_NETWORK = 'Solana devnet';
+  const stepIds = ['token', 'liquidity', 'fee', 'holder', 'airdrop'];
+  const signatures = stepIds.map(id => `${id}-signature`);
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      provider: { approved: true },
+      mint: 'provider-returned-mint',
+      transactions: stepIds.map(id => ({ id, transaction: 'AA==' })),
+    }),
+  });
+  const connection = {
+    sendRawTransaction: jest.fn()
+      .mockResolvedValueOnce(signatures[0])
+      .mockResolvedValueOnce(signatures[1])
+      .mockResolvedValueOnce(signatures[2])
+      .mockResolvedValueOnce(signatures[3])
+      .mockResolvedValueOnce(signatures[4]),
+    confirmTransaction: jest.fn().mockResolvedValue({ value: { err: null } }),
+  };
+  const provider = {
+    signTransaction: jest.fn().mockResolvedValue({ serialize: () => Uint8Array.from([1]) }),
+  };
+  const wallet = { chain: 'solana', address: 'wallet-address' };
+  const form = {
+    name: 'Meta Coin',
+    symbol: 'META',
+    supply: '1000',
+    decimals: '9',
+    liquidityPair: 'SOL',
+    liquidityAmount: '1',
+    buyTax: '0',
+    sellTax: '1',
+    holderAllocation: '10',
+    airdropAmount: '5',
+    airdropRecipients: 'wallet-one',
+  };
+
+  const plan = await requestMetaLaunchPlan(form, wallet);
+  const result = await executeMetaLaunchPlan(plan, { provider, wallet, connection });
+
+  expect(result).toMatchObject({
+    state: 'confirmed',
+    mint: 'provider-returned-mint',
+  });
+  expect(result.results).toEqual(stepIds.map((id, index) => ({
+    id,
+    label: META_LAUNCH_STEPS[index].label,
+    state: 'confirmed',
+    signature: signatures[index],
+    explorerUrl: `https://explorer.solana.com/tx/${signatures[index]}?cluster=devnet`,
+  })));
+  expect(global.fetch).toHaveBeenCalledWith('https://provider.example/launch/prepare', expect.anything());
+  expect(provider.signTransaction).toHaveBeenCalledTimes(5);
+  expect(connection.sendRawTransaction).toHaveBeenCalledTimes(5);
+  expect(connection.confirmTransaction).toHaveBeenCalledTimes(5);
+});
+
+test('keeps pending and failed execution results link-free', async () => {
+  const provider = {
+    signTransaction: jest.fn().mockResolvedValue({ serialize: () => Uint8Array.from([1]) }),
+  };
+  const wallet = { chain: 'solana', address: 'wallet-address' };
+  const plan = { transactions: [{ id: 'token', transaction: 'AA==' }] };
+
+  const pending = await executeMetaLaunchPlan(plan, {
+    provider,
+    wallet,
+    connection: {
+      sendRawTransaction: jest.fn().mockResolvedValue('pending-signature'),
+      confirmTransaction: jest.fn().mockResolvedValue({ value: null }),
+    },
+  });
+  const failed = await executeMetaLaunchPlan(plan, {
+    provider,
+    wallet,
+    connection: {
+      sendRawTransaction: jest.fn().mockResolvedValue('failed-signature'),
+      confirmTransaction: jest.fn().mockResolvedValue({
+        value: { err: { InstructionError: [0, 'Custom'] } },
+      }),
+    },
+  });
+
+  expect(pending.results[0]).toMatchObject({ state: 'pending', signature: 'pending-signature' });
+  expect(pending.results[0]).not.toHaveProperty('explorerUrl');
+  expect(failed.results[0]).toMatchObject({ state: 'failed', signature: 'failed-signature' });
+  expect(failed.results[0]).not.toHaveProperty('explorerUrl');
 });
