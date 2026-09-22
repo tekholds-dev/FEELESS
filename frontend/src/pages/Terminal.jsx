@@ -11,6 +11,7 @@ import { ChatRoom } from '../components/terminal/CommunityRail';
 import { TokenFocus } from '../components/terminal/TokenFocus';
 import { MarketTable } from '../components/terminal/MarketTable';
 import { LaunchpadDirectory } from '../components/terminal/LaunchpadDirectory';
+import MetaLaunchSetup from '../components/terminal/MetaLaunchSetup';
 import { LAUNCHPADS, matchesPad } from '../lib/launchpads';
 import { FeeHeartbeat, Tokenomics, FeeAssetPage } from '../components/command/FeeCommand';
 import { ContextBar, MouseGlow, AlphaTape, PulseGrid, ContractScanner, useClock } from '../components/command/WorkspaceChrome';
@@ -25,7 +26,7 @@ const STANDARD = ['', 'trade', 'pump', 'discover', 'new', 'movers'];
 export default function Terminal() {
   const page = useParams()['*'] || ''; const nav = useNavigate(); const [params, setParams] = useSearchParams();
   const { ecosystem, setEcosystem, selectedPair, selectPair, watchlist, toggle, has, alertPair } = useWorkspace();
-  const query = params.get('q') || ''; const chain = params.get('chain') === 'all' ? 'all' : ecosystem.chainId;
+  const query = params.get('q') || ''; const metaLaunchRequested = params.get('setup') === 'feeless'; const chain = params.get('chain') === 'all' ? 'all' : ecosystem.chainId;
   const [walletOpen, setWalletOpen] = useState(false); const [menuOpen, setMenuOpen] = useState(false);
   const [pad, setPad] = useState('all'); const [minLiquidity, setMinLiquidity] = useState('0'); const [pagination, setPagination] = useState(1);
   const [settings, setSettings] = useLocalSettings(); const [alerts, setAlerts] = usePriceAlerts();
@@ -49,6 +50,7 @@ export default function Terminal() {
   useClock(15000);
   useEffect(() => { setPagination(1); setPad('all'); setMinLiquidity('0'); setMenuOpen(false); if (page === 'pump' && ecosystem.id !== 'pump') setEcosystem('pump'); }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPagination(1); }, [ecosystem.id, query, kind]);
+  useEffect(() => { if (page === 'launch' && metaLaunchRequested && ecosystem.id !== 'feeless-launch') setEcosystem('feeless-launch'); }, [page, metaLaunchRequested, ecosystem.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const value = params.get('chain'); if (value && value !== 'all' && value !== ecosystem.chainId) setEcosystem(value === 'bsc' ? 'bnb' : value); }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
   const onSelect = p => { selectPair(p); if (!['', 'trade', 'chat'].includes(page)) nav('/terminal/trade'); };
   const setChain = value => { const next = new URLSearchParams(params); if (value === 'all') next.set('chain', 'all'); else { next.delete('chain'); setEcosystem(value === 'bsc' ? 'bnb' : value); } setParams(next); };
@@ -74,7 +76,7 @@ export default function Terminal() {
            <div className="market-bottom"><span data-testid="market-coverage">{market.data?.provider || 'GeckoTerminal'} · {pairs.length} live coin markets · {ecosystem.name} context · Provider-limited</span>{!isHome && !query && <div className="pagination"><button data-testid="market-previous-page" title="Previous page" disabled={pagination === 1} onClick={() => setPagination(p => p - 1)}><ArrowLeft size={14} /></button><span data-testid="market-page-number">{pagination} / 10</span><button data-testid="market-next-page" title="Next page" disabled={pagination >= 10 || (market.data?.pairs?.length || 0) < 20} onClick={() => setPagination(p => p + 1)}><ArrowRight size={14} /></button></div>}</div>
         </section><div className="context-platforms"><Link to="/terminal/launch" data-testid="context-launchpads-link">Ecosystem launchpads<ArrowUpRight size={13} /></Link>{ecosystem.explorer && <a data-testid="context-explorer" href={ecosystem.explorer} target="_blank" rel="noreferrer">{ecosystem.name} explorer<ArrowUpRight size={13} /></a>}{ecosystem.dex && <a data-testid="context-dex" href={ecosystem.dex} target="_blank" rel="noreferrer">Ecosystem DEX<ArrowUpRight size={13} /></a>}</div>
       </div><aside className="community-rail"><ChatRoom /><AlphaTape /><div className="command-quick-links"><Link to="/terminal/feeback" data-testid="quick-feeback">FEE-BACK<span>THE RETURN PATH ↗</span></Link><Link to="/terminal/feecat" data-testid="quick-feecat">FEECAT<span>CULTURE + UTILITY ↗</span></Link><Link to="/terminal/whitepaper" data-testid="quick-whitepaper">WHITEPAPER<span>WEB + ACTUAL PDF ↗</span></Link></div><div className="risk-note">Markets can be illiquid or malicious. Provider matches are not audits. New pools are not necessarily new tokens.</div></aside></div>}
-      {page === 'launch' && <LaunchpadDirectory />}{page === 'watchlist' && <LivingWatchlist onSelect={onSelect} />}
+       {page === 'launch' && (params.get('setup') === 'feeless' ? <MetaLaunchSetup onWallet={() => setWalletOpen(true)} /> : <LaunchpadDirectory />)}{page === 'watchlist' && <LivingWatchlist onSelect={onSelect} />}
       {page === 'chat' && <><div className="command-page-title"><span className="eyebrow">{ecosystem.name.toUpperCase()} / TOKEN INTELLIGENCE ROOM</span><h1>The conversation is the signal.</h1></div><div className="chat-intelligence-layout"><ChatRoom large /><div>{focus}<ContractScanner /><AlphaTape /></div></div></>}
       {page === 'alerts' && <AlertsPage alerts={alerts} setAlerts={setAlerts} selected={alertPair || selected} watchlist={watchlist} ecosystem={ecosystem} />}
       {page === 'fee' && <FeeAssetPage asset={fee}>{fee?.pair ? <TokenFocus pair={fee.pair} has={has} toggle={toggle} /> : <FeeHeartbeat asset={fee} loading={assets.loading} />}</FeeAssetPage>}
