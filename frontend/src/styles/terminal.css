@@ -48,3 +48,13 @@ body.theme-day .market-tabs button,body.theme-day .segmented button{color:#55736
 body.theme-day .market-tabs button.active,body.theme-day .segmented button.active{background:#d8f4e3;color:#08764e;border-color:#78c89d}
 body.theme-day .command-page-title p,body.theme-day .provider-note,body.theme-day .launchpad-card p{color:#557365}
 body.theme-day .globe-page .landing-copy h1,body.theme-day .globe-page .landing-copy p{color:var(--paper)}
+
+/* The selected globe panel contains two provider feeds below chat. */
+.degen-coins{height:auto!important;max-height:650px;overflow-y:auto}
+.coin-feed-section{padding-bottom:10px;border-bottom:1px solid #203c2b}
+.coin-feed-section:last-of-type{border-bottom:0}
+.coin-feed-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:13px 12px 8px}
+.coin-feed-heading h3{font-size:12px;font-weight:600;color:#b6d7c1}
+.coin-feed-heading .data-status{font-size:8px}
+.coin-feed-list{padding:0 12px 4px;max-height:255px;overflow-y:auto}
+.coin-feed-list .mini-token-card{margin-top:7px}
