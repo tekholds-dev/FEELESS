@@ -340,6 +340,36 @@
   font-size: calc(12px * var(--swap-readable-scale));
 }
 
+[data-testid="swap-review-dialog"] {
+  box-sizing: border-box;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+}
+
+[data-testid="swap-review-dialog"] > h2 {
+  font-size: calc(18px * var(--swap-review-readable-scale, 1));
+  line-height: 1.25;
+}
+
+[data-testid="swap-review-dialog"] > p {
+  font-size: calc(12px * var(--swap-review-readable-scale, 1));
+}
+
+[data-testid="swap-review-dialog"] .review-facts > div {
+  font-size: calc(11px * var(--swap-review-readable-scale, 1));
+}
+
+[data-testid="swap-review-dialog"] .review-facts dd {
+  font-size: calc(10px * var(--swap-review-readable-scale, 1));
+}
+
+[data-testid="swap-review-dialog"] > .btn-primary {
+  width: 100%;
+  min-height: calc(42px * var(--swap-review-readable-scale, 1));
+  padding: calc(12px * var(--swap-review-readable-scale, 1)) calc(19px * var(--swap-review-readable-scale, 1));
+  font-size: calc(13px * var(--swap-review-readable-scale, 1));
+}
+
 @media (max-width: 760px) {
   .swap-desk {
     grid-template-columns: 1fr;
@@ -407,5 +437,14 @@
 
   .quoted-fees > span b {
     text-align: right;
+  }
+
+  [data-testid="swap-review-dialog"] {
+    width: calc(100% - 20px) !important;
+    padding: 22px !important;
+  }
+
+  [data-testid="swap-review-dialog"] .review-facts > div {
+    align-items: flex-start;
   }
 }

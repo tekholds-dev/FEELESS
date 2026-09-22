@@ -22,12 +22,15 @@ jest.mock('./FeeBack', () => ({
   FeeBackPreview: () => null,
 }));
 
-jest.mock('../ui/dialog', () => ({
-  Dialog: ({ children }) => children,
-  DialogContent: ({ children }) => children,
-  DialogTitle: ({ children }) => children,
-  DialogDescription: ({ children }) => children,
-}));
+jest.mock('../ui/dialog', () => {
+  const mockReact = require('react');
+  return {
+    Dialog: ({ children }) => children,
+    DialogContent: ({ children, ...props }) => mockReact.createElement('div', props, children),
+    DialogTitle: ({ children }) => mockReact.createElement('h2', null, children),
+    DialogDescription: ({ children }) => mockReact.createElement('p', null, children),
+  };
+});
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -189,4 +192,45 @@ test('keeps an uncertain execution pending across reopen without resending the s
   expect(global.fetch.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
   expect(provider.signTransaction).toHaveBeenCalledTimes(1);
   act(() => reopened.root.unmount());
+});
+
+test('keeps the swap review facts and approval action readable at every text size', async () => {
+  const walletAddress = 'Wallet1111111111111111111111111111111111111';
+  const feeAsset = { id: 'token', label: 'TOKEN', mint: 'Token1111111111111111111111111111111111111', chain: 'solana' };
+  const quote = {
+    order_id: 'd'.repeat(36),
+    expires_at: 1_700_000_045,
+    output_metadata: { decimals: 6, symbol: 'TOKEN' },
+    quote: {
+      transaction: 'AQIDBA==',
+      outAmount: '1000000',
+      otherAmountThreshold: '990000',
+      routePlan: [],
+    },
+  };
+
+  mockWalletState.wallet = { chain: 'solana', address: walletAddress };
+  mockWalletState.provider = {};
+
+  for (const [fontScale, expectedScale] of [['normal', '1'], ['large', '1.12'], ['xlarge', '1.24']]) {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => quote })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) });
+
+    const { container, root } = mount({ feeAsset, fontScale });
+    await act(async () => container.querySelector('[data-testid="swap-get-quote"]').click());
+    await act(async () => container.querySelector('[data-testid="swap-review"]').click());
+
+    const dialog = container.querySelector('[data-testid="swap-review-dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(document.body.style.getPropertyValue('--swap-review-readable-scale')).toBe(expectedScale);
+    expect(dialog.querySelector('.review-facts').textContent).toEqual(expect.stringContaining('Pay'));
+    expect(dialog.querySelector('.review-facts').textContent).toEqual(expect.stringContaining('Expected output'));
+    expect(dialog.querySelector('.review-facts').textContent).toEqual(expect.stringContaining('Minimum output'));
+    expect(dialog.querySelector('.review-facts').textContent).toEqual(expect.stringContaining('Slippage'));
+    expect(dialog.querySelector('.review-facts').textContent).toEqual(expect.stringContaining('Expiry'));
+    expect(dialog.querySelector('[data-testid="swap-approve-wallet"]').textContent).toContain('Approve in Phantom');
+
+    act(() => root.unmount());
+  }
 });

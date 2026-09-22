@@ -268,6 +268,9 @@ test('keeps trade readouts and controls bounded at a narrow preview width for ev
     .toBe('calc(24px * var(--swap-readable-scale))');
   expect(narrowTradeRule('.swap-pair-heading').style.getPropertyValue('flex-direction')).toBe('column');
   expect(tradeRule('.swap-buttons button').style.getPropertyValue('width')).toBe('100%');
+  expect(tradeRule('[data-testid="swap-review-dialog"]').style.getPropertyValue('max-height')).toBe('calc(100vh - 24px)');
+  expect(tradeRule('[data-testid="swap-review-dialog"] > .btn-primary').style.getPropertyValue('width')).toBe('100%');
+  expect(narrowTradeRule('[data-testid="swap-review-dialog"]').style.getPropertyValue('width')).toBe('calc(100% - 20px)');
 
   act(() => root.unmount());
 });

@@ -58,8 +58,14 @@ export function units(value, decimals) {
   catch { return 'Unavailable'; }
 }
 
-export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet }) => {
+export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet, fontScale = 'normal' }) => {
   const { wallet, provider } = useWallet();
+  const reviewScale = ['large', 'xlarge'].includes(fontScale) ? fontScale : 'normal';
+  useEffect(() => {
+    const scale = reviewScale === 'large' ? '1.12' : reviewScale === 'xlarge' ? '1.24' : '1';
+    document.body.style.setProperty('--swap-review-readable-scale', scale);
+    return () => document.body.style.removeProperty('--swap-review-readable-scale');
+  }, [reviewScale]);
   const options = assetOptions(feeAssets, pair);
   const selectedPairAsset = assetFromPair(pair);
   const [inputMint, setInputMint] = useState(SOL);
