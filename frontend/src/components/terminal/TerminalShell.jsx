@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Home, CandlestickChart, Rocket, Compass, Star, MessageCircle, Trophy, Bell, BookOpen, Map, FileText, Settings, Search, Menu, Wallet, Globe2, ArrowUpRight, X, Coins, Cat, Activity, Sun, Moon } from 'lucide-react';
+import { Home, CandlestickChart, Rocket, Compass, Star, MessageCircle, Trophy, Bell, BookOpen, Map, FileText, Settings, Search, Menu, Wallet, Globe2, ArrowUpRight, X, Coins, Cat, Activity, Sun, Moon, UserRound } from 'lucide-react';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { FeelessMark, FeelessWordmark } from '../FeelessLogo';
 import { useMarket } from '../../hooks/useMarket';
@@ -16,7 +16,7 @@ const ITEMS = [
   ['whitepaper', 'Whitepaper', FileText], ['settings', 'Settings', Settings],
 ];
 
-export const TerminalHeader = ({ onWallet, onMenu, query = '' }) => {
+export const TerminalHeader = ({ onWallet, onProfile, onMenu, query = '' }) => {
   const { ecosystem } = useWorkspace();
   const { wallet } = useWallet();
   const [search, setSearch] = useState(query);
@@ -29,7 +29,7 @@ export const TerminalHeader = ({ onWallet, onMenu, query = '' }) => {
     try { localStorage.setItem('feeless-theme', dayMode ? 'day' : 'night'); } catch {}
     return () => document.body.classList.remove('theme-day');
   }, [dayMode]);
-  return <header className="terminal-header"><Link to="/" className="brand-link" data-testid="terminal-logo-link"><FeelessWordmark size={27} /></Link><form className="terminal-search" onSubmit={e => { e.preventDefault(); if (search.trim()) nav(`/terminal/discover?q=${encodeURIComponent(search.trim())}`); }}><Search size={17} /><input data-testid="terminal-search-input" aria-label="Search tokens or contract address" placeholder={`${ecosystem.name} · search tokens or paste a contract…`} maxLength={120} value={search} onChange={e => setSearch(e.target.value)} /><button data-testid="terminal-search-submit" title="Search markets" type="submit"><ArrowUpRight size={16} /></button></form><div className="header-actions"><button className="icon-btn theme-toggle" data-testid="theme-toggle" title={dayMode ? 'Switch to night mode' : 'Switch to day mode'} aria-label={dayMode ? 'Switch to night mode' : 'Switch to day mode'} onClick={() => setDayMode(value => !value)}>{dayMode ? <Moon size={18} /> : <Sun size={18} />}</button><Link className="icon-btn" data-testid="header-alerts-link" title="Price alerts" to="/terminal/alerts"><Bell size={19} /></Link><button onClick={onWallet} className="btn-primary wallet-trigger" data-testid="header-connect-wallet"><Wallet size={16} /><span>{wallet ? shortAddress(wallet.address) : 'Connect Wallet'}</span></button><button onClick={onMenu} data-testid="terminal-menu-toggle" title="Toggle navigation" className="icon-btn"><Menu size={21} /></button></div></header>;
+  return <header className="terminal-header"><Link to="/" className="brand-link" data-testid="terminal-logo-link"><FeelessWordmark size={27} /></Link><form className="terminal-search" onSubmit={e => { e.preventDefault(); if (search.trim()) nav(`/terminal/discover?q=${encodeURIComponent(search.trim())}`); }}><Search size={17} /><input data-testid="terminal-search-input" aria-label="Search tokens or contract address" placeholder={`${ecosystem.name} · search tokens or paste a contract…`} maxLength={120} value={search} onChange={e => setSearch(e.target.value)} /><button data-testid="terminal-search-submit" title="Search markets" type="submit"><ArrowUpRight size={16} /></button></form><div className="header-actions"><button className="icon-btn theme-toggle" data-testid="theme-toggle" title={dayMode ? 'Switch to night mode' : 'Switch to day mode'} aria-label={dayMode ? 'Switch to night mode' : 'Switch to day mode'} onClick={() => setDayMode(value => !value)}>{dayMode ? <Moon size={18} /> : <Sun size={18} />}</button><Link className="icon-btn" data-testid="header-alerts-link" title="Price alerts" to="/terminal/alerts"><Bell size={19} /></Link>{wallet && <button onClick={onProfile} className="icon-btn profile-trigger" data-testid="header-profile" title="Edit wallet profile" aria-label="Edit wallet profile"><UserRound size={18} /></button>}<button onClick={onWallet} className="btn-primary wallet-trigger" data-testid="header-connect-wallet"><Wallet size={16} /><span>{wallet ? shortAddress(wallet.address) : 'Connect Wallet'}</span></button><button onClick={onMenu} data-testid="terminal-menu-toggle" title="Toggle navigation" className="icon-btn"><Menu size={21} /></button></div></header>;
 };
 
 export const MarketTicker = () => {

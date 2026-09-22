@@ -60,7 +60,7 @@ jest.mock('../hooks/useMarket', () => ({
 
 jest.mock('../components/terminal/TerminalShell', () => {
   const mockReact = require('react');
-  const Placeholder = ({ children, onWallet, onMenu, onClose, savedCount, ...props }) => mockReact.createElement('div', props, children);
+  const Placeholder = ({ children, onWallet, onProfile, onMenu, onClose, savedCount, ...props }) => mockReact.createElement('div', props, children);
   return {
     TerminalHeader: Placeholder,
     TerminalSidebar: Placeholder,

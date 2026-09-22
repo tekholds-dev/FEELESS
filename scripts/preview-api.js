@@ -1,5 +1,9 @@
 const http = require('http');
 const { URL } = require('url');
+const nodeCrypto = require('crypto');
+const { PublicKey } = require('@solana/web3.js');
+const { secp256k1 } = require('@noble/curves/secp256k1');
+const { keccak_256 } = require('@noble/hashes/sha3');
 
 const PORT = Number(process.env.API_PORT || 5001);
 const DEX_API = process.env.DEX_API_URL || 'https://api.dexscreener.com';
@@ -20,6 +24,15 @@ const cache = new Map();
 const pendingRequests = new Map();
 const rooms = new Map();
 const orders = new Map();
+const profiles = new Map();
+const profileChallenges = new Map();
+const verifiedWallets = new Map();
+const messageLikes = new Map();
+const profileFlags = new Map();
+const chatLimits = new Map();
+const PROFILE_CATEGORIES = ['Trader', 'Builder', 'Artist', 'Collector', 'Researcher'];
+const PROFILE_COOLDOWN_MS = 120000;
+const PROFILE_CHALLENGE_MS = 10 * 60 * 1000;
 const GECKO_NETWORKS = {
   solana: 'solana',
   ethereum: 'eth',
@@ -432,6 +445,143 @@ function roomMessages(room) {
   return rooms.get(room);
 }
 
+function identityKey(chain, address) {
+  return `${chain}:${chain === 'evm' ? String(address).toLowerCase() : String(address)}`;
+}
+
+function normalizeChain(value) {
+  return value === 'solana' || value === 'evm' ? value : null;
+}
+
+function normalizeAddress(chain, value) {
+  const address = String(value || '').trim();
+  if (chain === 'solana') {
+    try { return new PublicKey(address).toString(); } catch { return null; }
+  }
+  return /^0x[a-fA-F0-9]{40}$/.test(address) ? address.toLowerCase() : null;
+}
+
+function base64Signature(value) {
+  if (Array.isArray(value)) return Buffer.from(value);
+  const text = String(value || '').trim();
+  if (!text) return null;
+  if (/^0x[0-9a-fA-F]+$/.test(text)) return Buffer.from(text.slice(2), 'hex');
+  try { return Buffer.from(text, 'base64'); } catch { return null; }
+}
+
+function verifySignature(chain, address, message, signature) {
+  const bytes = base64Signature(signature);
+  if (!bytes?.length) return false;
+  if (chain === 'solana') {
+    if (bytes.length !== 64) return false;
+    try {
+      const publicKey = new PublicKey(address);
+      const derPrefix = Buffer.from('302a300506032b6570032100', 'hex');
+      return nodeCrypto.verify(null, Buffer.from(message), { key: Buffer.concat([derPrefix, Buffer.from(publicKey.toBytes())]), format: 'der', type: 'spki' }, bytes);
+    } catch { return false; }
+  }
+  if (bytes.length !== 65) return false;
+  try {
+    let recovery = bytes[64];
+    if (recovery >= 27) recovery -= 27;
+    if (recovery > 1) return false;
+    const prefix = Buffer.from(`\x19Ethereum Signed Message:\n${Buffer.byteLength(message)}`);
+    const digest = Buffer.from(keccak_256(Buffer.concat([prefix, Buffer.from(message)])));
+    const publicKey = secp256k1.Signature.fromCompact(bytes.subarray(0, 64)).addRecoveryBit(recovery).recoverPublicKey(digest).toRawBytes(false);
+    const recovered = `0x${Buffer.from(keccak_256(publicKey.subarray(1))).subarray(-20).toString('hex')}`;
+    return recovered.toLowerCase() === address.toLowerCase();
+  } catch { return false; }
+}
+
+function profileRecord(chain, address) {
+  const key = identityKey(chain, address);
+  if (!profiles.has(key)) profiles.set(key, {
+    chain,
+    address,
+    displayName: '',
+    username: '',
+    bio: '',
+    category: 'Trader',
+    avatarUrl: '',
+    backgroundUrl: '',
+    xUrl: '',
+    websiteUrl: '',
+    isPrivate: false,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+  return profiles.get(key);
+}
+
+function flagCount(chain, address) {
+  return profileFlags.get(identityKey(chain, address))?.size || 0;
+}
+
+function profileView(profile, viewerKey = '') {
+  const own = viewerKey && identityKey(profile.chain, profile.address) === viewerKey;
+  if (profile.isPrivate && !own) return {
+    chain: profile.chain,
+    address: profile.address,
+    isPrivate: true,
+    flagCount: null,
+    hidden: true,
+  };
+  return {
+    ...profile,
+    flagCount: flagCount(profile.chain, profile.address),
+    hidden: false,
+  };
+}
+
+function profileFromBody(body) {
+  const chain = normalizeChain(body.chain);
+  const address = normalizeAddress(chain, body.address);
+  if (!chain || !address) return null;
+  return { chain, address, key: identityKey(chain, address) };
+}
+
+function proofFromBody(body) {
+  const identity = profileFromBody(body);
+  if (!identity || !body.message || !body.signature) return null;
+  const verified = verifiedWallets.get(identity.key);
+  if (verified && verified.message === body.message && verified.signature === body.signature && verified.expiresAt > Date.now()) return identity;
+  if (!verifySignature(identity.chain, identity.address, String(body.message), body.signature)) return null;
+  const challenge = profileChallenges.get(identity.key);
+  if (!challenge || challenge.message !== String(body.message) || challenge.expiresAt <= Date.now()) return null;
+  verifiedWallets.set(identity.key, { message: challenge.message, signature: body.signature, expiresAt: Date.now() + PROFILE_CHALLENGE_MS });
+  return identity;
+}
+
+function publicProfileForMessage(message, viewerKey = '') {
+  const profile = profileRecord(message.chain || 'solana', message.address || message.wallet || '11111111111111111111111111111111');
+  const view = profileView(profile, viewerKey);
+  return { ...message, profile: view, likeCount: messageLikes.get(message.id)?.size || 0, likedByMe: Boolean(viewerKey && messageLikes.get(message.id)?.has(viewerKey)) };
+}
+
+function chatLimitKey(room, identity) {
+  return `${room}:${identity.key}`;
+}
+
+function checkChatLimit(room, identity) {
+  const key = chatLimitKey(room, identity);
+  const state = chatLimits.get(key);
+  if (!state) return null;
+  if (state.cooldownUntil > Date.now()) return Math.ceil((state.cooldownUntil - Date.now()) / 1000);
+  if (state.cooldownUntil) chatLimits.delete(key);
+  return null;
+}
+
+function recordChatComment(room, identity) {
+  const key = chatLimitKey(room, identity);
+  const state = chatLimits.get(key) || { count: 0, cooldownUntil: 0 };
+  state.count += 1;
+  if (state.count >= 3) {
+    state.cooldownUntil = Date.now() + PROFILE_COOLDOWN_MS;
+    state.count = 0;
+  }
+  chatLimits.set(key, state);
+}
+
 async function route(req, res, url) {
   if (req.method === 'OPTIONS') {
     res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' });
@@ -474,18 +624,125 @@ async function route(req, res, url) {
   }
   if (req.method === 'GET' && url.pathname === '/api/intelligence/tape') return json(res, 200, { events: [], unsupported: ['individual whale trades', 'pool migration', 'all-time highs', 'holder concentration'] });
   if (req.method === 'GET' && url.pathname === '/api/docs/whitepaper') return json(res, 200, whitepaper());
+  if (req.method === 'POST' && url.pathname === '/api/profile/challenge') {
+    const identity = profileFromBody(await requestBody(req));
+    if (!identity) return json(res, 400, { detail: 'A supported wallet address and chain are required.' });
+    const nonce = nodeCrypto.randomBytes(18).toString('hex');
+    const message = `FEELESS profile verification\nWallet: ${identity.address}\nChain: ${identity.chain}\nNonce: ${nonce}\nExpires: ${new Date(Date.now() + PROFILE_CHALLENGE_MS).toISOString()}`;
+    profileChallenges.set(identity.key, { message, expiresAt: Date.now() + PROFILE_CHALLENGE_MS });
+    return json(res, 200, { message, expiresAt: Date.now() + PROFILE_CHALLENGE_MS });
+  }
+  const profileMatch = url.pathname.match(/^\/api\/profile\/([^/]+)$/);
+  if (req.method === 'GET' && profileMatch) {
+    const address = decodeURIComponent(profileMatch[1]);
+    const chain = normalizeChain(url.searchParams.get('chain'));
+    const normalized = normalizeAddress(chain, address);
+    if (!normalized) return json(res, 400, { detail: 'A supported wallet address and chain are required.' });
+    const profile = profileRecord(chain, normalized);
+    return json(res, 200, profileView(profile, ''));
+  }
+  if (req.method === 'POST' && url.pathname === '/api/profile/me') {
+    const body = await requestBody(req);
+    const identity = proofFromBody(body);
+    if (!identity) return json(res, 401, { detail: 'Connect your wallet and sign the profile verification message.' });
+    return json(res, 200, profileView(profileRecord(identity.chain, identity.address), identity.key));
+  }
+  if (req.method === 'POST' && url.pathname === '/api/profile/save') {
+    const body = await requestBody(req);
+    const identity = proofFromBody(body);
+    if (!identity) return json(res, 401, { detail: 'Connect your wallet and sign the profile verification message.' });
+    const profile = profileRecord(identity.chain, identity.address);
+    const clean = value => String(value || '').trim().slice(0, 280);
+    const cleanUrl = value => {
+      const candidate = clean(value);
+      try {
+        const parsed = new URL(candidate);
+        return ['http:', 'https:'].includes(parsed.protocol) ? candidate : '';
+      } catch { return ''; }
+    };
+    const category = PROFILE_CATEGORIES.includes(body.category) ? body.category : 'Trader';
+    profile.displayName = clean(body.displayName);
+    profile.username = clean(body.username).replace(/[^a-zA-Z0-9_ .-]/g, '').slice(0, 32);
+    profile.bio = clean(body.bio).slice(0, 160);
+    profile.category = category;
+    profile.avatarUrl = cleanUrl(body.avatarUrl);
+    profile.backgroundUrl = cleanUrl(body.backgroundUrl);
+    profile.xUrl = cleanUrl(body.xUrl);
+    profile.websiteUrl = cleanUrl(body.websiteUrl);
+    profile.isPrivate = Boolean(body.isPrivate);
+    profile.updatedAt = Date.now();
+    return json(res, 200, profileView(profile, identity.key));
+  }
+  const profileFlagMatch = url.pathname.match(/^\/api\/profile\/([^/]+)\/flag$/);
+  if (req.method === 'POST' && profileFlagMatch) {
+    const body = await requestBody(req);
+    const reporter = proofFromBody(body);
+    const chain = normalizeChain(body.targetChain);
+    const targetAddress = normalizeAddress(chain, decodeURIComponent(profileFlagMatch[1]));
+    if (!reporter || !targetAddress) return json(res, 401, { detail: 'Connect your wallet and sign before flagging a profile.' });
+    if (identityKey(reporter.chain, reporter.address) === identityKey(chain, targetAddress)) return json(res, 400, { detail: 'You cannot flag your own profile.' });
+    const targetKey = identityKey(chain, targetAddress);
+    if (!profileFlags.has(targetKey)) profileFlags.set(targetKey, new Set());
+    profileFlags.get(targetKey).add(reporter.key);
+    return json(res, 200, { flagged: true, flagCount: flagCount(chain, targetAddress) });
+  }
   const chatMatch = url.pathname.match(/^\/api\/chat\/([^/]+)(\/online)?$/);
   if (chatMatch) {
     const room = decodeURIComponent(chatMatch[1]);
-    if (chatMatch[2]) return json(res, 200, { room, online: new Set(roomMessages(room).map(message => message.username)).size });
-    if (req.method === 'GET') return json(res, 200, { room, messages: roomMessages(room) });
+    if (chatMatch[2]) return json(res, 200, { room, online: new Set(roomMessages(room).map(message => message.address || message.username)).size });
+    if (req.method === 'GET') return json(res, 200, { room, messages: roomMessages(room).map(message => publicProfileForMessage(message, '')) });
     if (req.method === 'POST') {
       const body = await requestBody(req);
-      const message = { id: crypto.randomUUID(), room, username: String(body.username || 'degen').slice(0, 40), text: String(body.text || '').trim().slice(0, 1000), tokens: null, ts: Date.now() };
-      if (!message.text) return json(res, 400, { detail: 'Message and username cannot be blank' });
+      const identity = proofFromBody(body);
+      if (!identity) return json(res, 401, { detail: 'Connect your wallet and sign before joining the chat.' });
+      const cooldown = checkChatLimit(room, identity);
+      if (cooldown) return json(res, 429, { detail: `Chat cooldown active. Try again in ${cooldown}s.`, retryAfter: cooldown });
+      const profile = profileRecord(identity.chain, identity.address);
+      const text = String(body.text || '').trim().slice(0, 1000);
+      if (!text) return json(res, 400, { detail: 'Message cannot be blank' });
+      const parentId = body.parentId ? String(body.parentId) : null;
+      if (parentId && !roomMessages(room).some(item => item.id === parentId)) return json(res, 400, { detail: 'Reply target is no longer in this room.' });
+      const message = {
+        id: crypto.randomUUID(),
+        room,
+        address: identity.address,
+        chain: identity.chain,
+        username: profile.username || profile.displayName || `${identity.address.slice(0, 6)}…${identity.address.slice(-4)}`,
+        text,
+        parentId,
+        tokens: null,
+        ts: Date.now(),
+      };
       roomMessages(room).push(message);
-      return json(res, 200, message);
+      recordChatComment(room, identity);
+      return json(res, 200, publicProfileForMessage(message, identity.key));
     }
+  }
+  const chatInteractionMatch = url.pathname.match(/^\/api\/chat\/([^/]+)\/([^/]+)\/(like|reply)$/);
+  if (chatInteractionMatch && req.method === 'POST') {
+    const room = decodeURIComponent(chatInteractionMatch[1]);
+    const messageId = decodeURIComponent(chatInteractionMatch[2]);
+    const action = chatInteractionMatch[3];
+    const body = await requestBody(req);
+    const identity = proofFromBody(body);
+    const message = roomMessages(room).find(item => item.id === messageId);
+    if (!identity) return json(res, 401, { detail: 'Connect your wallet and sign before interacting.' });
+    if (!message) return json(res, 404, { detail: 'Message not found in this room.' });
+    if (action === 'reply') {
+      const cooldown = checkChatLimit(room, identity);
+      if (cooldown) return json(res, 429, { detail: `Chat cooldown active. Try again in ${cooldown}s.`, retryAfter: cooldown });
+      const text = String(body.text || '').trim().slice(0, 1000);
+      if (!text) return json(res, 400, { detail: 'Reply cannot be blank' });
+      const profile = profileRecord(identity.chain, identity.address);
+      const reply = { id: crypto.randomUUID(), room, address: identity.address, chain: identity.chain, username: profile.username || profile.displayName || `${identity.address.slice(0, 6)}…${identity.address.slice(-4)}`, text, parentId: message.id, tokens: null, ts: Date.now() };
+      roomMessages(room).push(reply);
+      recordChatComment(room, identity);
+      return json(res, 200, publicProfileForMessage(reply, identity.key));
+    }
+    if (!messageLikes.has(message.id)) messageLikes.set(message.id, new Set());
+    const liked = messageLikes.get(message.id);
+    if (liked.has(identity.key)) liked.delete(identity.key); else liked.add(identity.key);
+    return json(res, 200, { liked: liked.has(identity.key), likeCount: liked.size });
   }
   if (req.method === 'GET' && url.pathname === '/api/trading/status') {
     return json(res, 200, { provider: 'Jupiter', network: 'solana-mainnet', signing: 'Phantom', configured: TRADING_CONFIGURED, execution_ready: TRADING_CONFIGURED, fee_back_status: 'PLANNED', eligible_fee_rules: 'Not activated', supported_execution_chains: ['solana'], detail: TRADING_CONFIGURED ? 'Backend execution is ready.' : tradingError() });

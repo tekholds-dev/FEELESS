@@ -1,6 +1,8 @@
 const assert = require('node:assert/strict');
+const nodeCrypto = require('node:crypto');
 const { once } = require('node:events');
 const test = require('node:test');
+const { Keypair } = require('@solana/web3.js');
 
 const DEX_API_URL = 'http://dex.test';
 const GECKO_API_URL = 'http://gecko.test/api/v2';
@@ -26,6 +28,30 @@ function request(baseUrl, path, fetchImpl) {
     status: response.status,
     body: await response.json(),
   }));
+}
+
+function post(baseUrl, path, body, fetchImpl) {
+  return fetchImpl(`${baseUrl}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(async response => ({
+    status: response.status,
+    body: await response.json(),
+  }));
+}
+
+function signSolana(keypair, message) {
+  const pkcs8Prefix = Buffer.from('302e020100300506032b657004220420', 'hex');
+  const key = { key: Buffer.concat([pkcs8Prefix, Buffer.from(keypair.secretKey.subarray(0, 32))]), format: 'der', type: 'pkcs8' };
+  return nodeCrypto.sign(null, Buffer.from(message), key).toString('base64');
+}
+
+async function proof(baseUrl, keypair, fetchImpl) {
+  const address = keypair.publicKey.toString();
+  const challenge = await post(baseUrl, '/api/profile/challenge', { address, chain: 'solana' }, fetchImpl);
+  assert.equal(challenge.status, 200);
+  return { address, chain: 'solana', message: challenge.body.message, signature: signSolana(keypair, challenge.body.message) };
 }
 
 test('preview candle contract follows a discovered pool and rejects invalid intervals', async () => {
@@ -176,6 +202,59 @@ test('fee assets fall back to exact GeckoTerminal CA matches with prices and log
     assert.equal(assets.rfee.pair.priceUsd, '0.0000012');
     assert.equal(assets.rfee.pair.pairAddress, 'RfeeTop123');
     assert.equal(assets.rfee.imageUrl, 'https://logo.test/rfee.png');
+  } finally {
+    global.fetch = originalFetch;
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('signed profiles enforce public privacy, social actions, flags, and chat cooldowns', async () => {
+  const originalFetch = global.fetch;
+  const first = Keypair.generate();
+  const second = Keypair.generate();
+  global.fetch = async () => providerResponse({});
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  try {
+    const firstProof = await proof(baseUrl, first, originalFetch);
+    const saved = await post(baseUrl, '/api/profile/save', { ...firstProof, username: 'first_alpha', category: 'Builder', bio: 'Watching the curve.', isPrivate: false }, originalFetch);
+    assert.equal(saved.status, 200);
+    const firstMessage = await post(baseUrl, '/api/chat/signed-room', { ...firstProof, text: 'first alpha' }, originalFetch);
+    assert.equal(firstMessage.status, 200);
+    assert.equal(firstMessage.body.profile.username, 'first_alpha');
+    const secondMessage = await post(baseUrl, '/api/chat/signed-room', { ...firstProof, text: 'second alpha' }, originalFetch);
+    const thirdMessage = await post(baseUrl, '/api/chat/signed-room', { ...firstProof, text: 'third alpha' }, originalFetch);
+    assert.equal(secondMessage.status, 200);
+    assert.equal(thirdMessage.status, 200);
+    const cooldown = await post(baseUrl, '/api/chat/signed-room', { ...firstProof, text: 'fourth alpha' }, originalFetch);
+    assert.equal(cooldown.status, 429);
+    assert.match(cooldown.body.detail, /cooldown/i);
+
+    const secondProof = await proof(baseUrl, second, originalFetch);
+    const liked = await post(baseUrl, `/api/chat/signed-room/${firstMessage.body.id}/like`, secondProof, originalFetch);
+    assert.equal(liked.status, 200);
+    assert.equal(liked.body.likeCount, 1);
+    const reply = await post(baseUrl, `/api/chat/signed-room/${firstMessage.body.id}/reply`, { ...secondProof, text: 'replying with a receipt' }, originalFetch);
+    assert.equal(reply.status, 200);
+    assert.equal(reply.body.parentId, firstMessage.body.id);
+
+    const flagged = await post(baseUrl, `/api/profile/${encodeURIComponent(first.publicKey.toString())}/flag`, { ...secondProof, targetChain: 'solana' }, originalFetch);
+    assert.equal(flagged.status, 200);
+    assert.equal(flagged.body.flagCount, 1);
+    const publicProfile = await request(baseUrl, `/api/profile/${encodeURIComponent(first.publicKey.toString())}?chain=solana`, originalFetch);
+    assert.equal(publicProfile.body.flagCount, 1);
+
+    const privateSave = await post(baseUrl, '/api/profile/save', { ...firstProof, username: 'first_alpha', isPrivate: true }, originalFetch);
+    assert.equal(privateSave.status, 200);
+    const hiddenProfile = await request(baseUrl, `/api/profile/${encodeURIComponent(first.publicKey.toString())}?chain=solana`, originalFetch);
+    assert.equal(hiddenProfile.body.hidden, true);
+    assert.equal(hiddenProfile.body.flagCount, null);
+    assert.equal(hiddenProfile.body.username, undefined);
+    const hiddenMessages = await request(baseUrl, '/api/chat/signed-room', originalFetch);
+    assert.equal(hiddenMessages.body.messages[0].profile.hidden, true);
+    assert.equal(hiddenMessages.body.messages[0].profile.flagCount, null);
   } finally {
     global.fetch = originalFetch;
     await new Promise(resolve => server.close(resolve));
