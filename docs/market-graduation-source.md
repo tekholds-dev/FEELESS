@@ -16,3 +16,9 @@ in the Graduated stage only when:
 The API returns the Pump.fun source URL, source label, fetch time, and an
 unavailable/error state. A provider-indexed pool, trending result, or new pool
 is never marked graduated based on age, venue, liquidity, or ranking.
+
+Graduated radar cards display `pool_address` only when Pump.fun reports a
+Raydium migration pool. The destination is labeled as provider-reported and
+links directly to the reported Solscan account. If Pump.fun omits the address,
+the card shows that the migration pool is unavailable; the UI never substitutes
+the discovered market pair address.
