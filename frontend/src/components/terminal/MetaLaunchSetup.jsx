@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Clock3,
   Coins,
+  Copy,
   Flame,
   Gauge,
   LoaderCircle,
@@ -119,6 +120,25 @@ function StatusRow({ icon: Icon, title, detail, ready = false }) {
   return <div className={`meta-launch-status ${ready ? 'ready' : ''}`}><Icon size={16} /><span><b>{title}</b><small>{detail}</small></span></div>;
 }
 
+export function ReceiptCopyButton({ value, label, testId }) {
+  const [copyState, setCopyState] = useState('idle');
+  const copy = async () => {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard access is unavailable.');
+      await navigator.clipboard.writeText(value);
+      setCopyState('copied');
+    } catch {
+      setCopyState('failed');
+    }
+  };
+
+  return <span className="meta-launch-copy-control">
+    <button className="meta-launch-copy-button" data-testid={testId} type="button" aria-label={`Copy full ${label.toLowerCase()}`} onClick={copy}><Copy size={12} />{copyState === 'copied' ? 'Copied' : label}</button>
+    {copyState === 'copied' && <small className="meta-launch-copy-feedback" role="status">Copied to clipboard.</small>}
+    {copyState === 'failed' && <small className="meta-launch-copy-feedback failed" role="alert">Copy failed. Clipboard access is unavailable.</small>}
+  </span>;
+}
+
 export function StepStatus({ step, status }) {
   const Icon = status?.state === 'confirmed' ? CheckCircle2
     : status?.state === 'failed' ? XCircle
@@ -129,7 +149,7 @@ export function StepStatus({ step, status }) {
     : null;
   return <div className={`meta-launch-step-status ${status?.state || 'queued'}`} data-testid={`meta-launch-step-${step.id}`}>
     <Icon size={15} className={status?.state === 'pending' ? 'meta-launch-spinner' : ''} />
-    <span><b>{step.label}</b><small>{status?.state === 'confirmed' ? <>Confirmed · {status.signature?.slice(0, 10)}… {explorerUrl && <a className="meta-launch-explorer-link" data-testid={`meta-launch-step-explorer-${step.id}`} href={explorerUrl} target="_blank" rel="noreferrer">View on Solana Explorer</a>}</> : status?.detail || (status?.state === 'pending' ? 'Awaiting network confirmation.' : 'Waiting to submit.')}</small></span>
+    <span><b>{step.label}</b><small>{status?.state === 'confirmed' ? <span className="meta-launch-receipt-line">Confirmed · {status.signature?.slice(0, 10)}… {status.signature && <ReceiptCopyButton value={status.signature} label="Copy signature" testId={`meta-launch-step-copy-${step.id}`} />} {explorerUrl && <a className="meta-launch-explorer-link" data-testid={`meta-launch-step-explorer-${step.id}`} href={explorerUrl} target="_blank" rel="noreferrer">View on Solana Explorer</a>}</span> : status?.detail || (status?.state === 'pending' ? 'Awaiting network confirmation.' : 'Waiting to submit.')}</small></span>
   </div>;
 }
 
@@ -253,7 +273,7 @@ export default function MetaLaunchSetup({ initialValues }) {
       <div className="meta-launch-review-cards"><div><span>Opening market cap</span><b>${form.openingMarketCap}k</b><small>{form.curveType} curve</small></div><div><span>Graduation target</span><b>{form.graduationTarget} {form.liquidityPair}</b><small>{form.migrationVenue === 'raydium-cpmm' ? 'Raydium CPMM' : 'Raydium CLMM'} · permanent lock</small></div><div><span>Fee routing</span><b>{form.swapFee}% swap fee</b><small>{form.creatorFeeShare}% creator · {form.holderRewardShare}% holders · {form.buybackBurnShare}% buyback & burn</small></div><div><span>Opening protection</span><b>{form.antiSniperTax}% → 0%</b><small>After {form.antiSniperWindow}s · optional dev buy {form.devBuyAmount} {form.liquidityPair}</small></div></div>
       <div className="meta-launch-summary"><dl><div><dt>Total supply</dt><dd>{form.supply}</dd></div><div><dt>Quote asset</dt><dd>{form.liquidityPair}</dd></div><div><dt>Holder allocation</dt><dd>{form.holderAllocation}%</dd></div><div><dt>Airdrop</dt><dd>{form.airdropAmount}% · {recipients.length} recipients</dd></div></dl></div>
       <div className={`meta-launch-review-actions ${deployment.state === 'failed' ? 'has-failure' : ''}`}><div className={`meta-launch-deployment-note ${deployment.state === 'failed' ? 'failed' : deployment.state === 'confirmed' ? 'confirmed' : ''}`} data-testid="meta-launch-provider-warning">{deployment.state === 'failed' ? <AlertTriangle size={17} /> : deployment.state === 'confirmed' ? <CheckCircle2 size={17} /> : <ShieldCheck size={17} />}<span><b>{deployment.state === 'confirmed' ? 'Launch confirmed.' : deployment.state === 'failed' ? 'Launch could not be completed.' : deployment.resumeReady ? 'Continue remaining launch phases.' : deployment.state === 'pending' ? 'Launch confirmation is pending.' : readiness.ready ? 'Ready for wallet approval.' : 'Deployment is not available yet.'}</b><small>{deployment.detail || (readiness.ready ? 'Your wallet will review each phase after you continue.' : unavailableReason)}</small></span></div>{pendingStep && <button className="btn-outline" data-testid="meta-launch-recheck" type="button" disabled={checkingSignature} onClick={recheckPendingSignature}>{checkingSignature ? <><LoaderCircle size={16} className="meta-launch-spinner" />Checking…</> : 'Check pending signature'}</button>}<button className="btn-primary" data-testid="meta-launch-deploy" type="button" disabled={!deploymentReady} title={deployment.resumeReady ? 'Continue the remaining launch phases' : readiness.ready ? 'Request wallet approval and deploy' : unavailableReason} onClick={deploy}>{deploying ? <><LoaderCircle size={16} className="meta-launch-spinner" />Deploying…</> : deployment.state === 'confirmed' ? 'Launch confirmed' : deployment.resumeReady ? 'Continue launch' : 'Approve & deploy'}</button></div>
-      {deployment.state === 'confirmed' && deployment.mint && <div className="meta-launch-mint-receipt" data-testid="meta-launch-mint-receipt"><span><b>Created mint</b><small>{deployment.mint}</small></span><a className="meta-launch-explorer-link" data-testid="meta-launch-mint-explorer" href={getSolanaExplorerUrl(deployment.mint, 'address')} target="_blank" rel="noreferrer">View mint on Solana Explorer <ArrowRight size={13} /></a></div>}
+       {deployment.state === 'confirmed' && deployment.mint && <div className="meta-launch-mint-receipt" data-testid="meta-launch-mint-receipt"><span><b>Created mint</b><small>{deployment.mint}</small></span><span className="meta-launch-mint-receipt-actions"><ReceiptCopyButton value={deployment.mint} label="Copy mint" testId="meta-launch-mint-copy" /><a className="meta-launch-explorer-link" data-testid="meta-launch-mint-explorer" href={getSolanaExplorerUrl(deployment.mint, 'address')} target="_blank" rel="noreferrer">View mint on Solana Explorer <ArrowRight size={13} /></a></span></div>}
       {(deployment.state !== 'idle' || deploying) && <div className="meta-launch-deployment-status" data-testid="meta-launch-deployment-status"><h3>Deployment phases</h3>{META_LAUNCH_STEPS.map(stepItem => <StepStatus key={stepItem.id} step={stepItem} status={deployment.statuses[stepItem.id]} />)}</div>}
     </section>}
   </div>;

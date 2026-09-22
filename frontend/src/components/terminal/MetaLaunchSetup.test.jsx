@@ -1,7 +1,7 @@
 import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import MetaLaunchSetup, { DEFAULT_META_LAUNCH_FORM, StepStatus, validateMetaLaunch } from './MetaLaunchSetup';
+import MetaLaunchSetup, { DEFAULT_META_LAUNCH_FORM, ReceiptCopyButton, StepStatus, validateMetaLaunch } from './MetaLaunchSetup';
 import { LAUNCHPADS, META_LAUNCH_STEPS } from '../../lib/launchpads';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -70,5 +70,34 @@ test('shows explorer links only for confirmed launch steps', () => {
   expect(container.querySelector('[data-testid="meta-launch-step-explorer-token"]')).toBeTruthy();
   expect(container.querySelector('[data-testid="meta-launch-step-explorer-liquidity"]')).toBeNull();
   expect(container.querySelector('[data-testid="meta-launch-step-explorer-fee"]')).toBeNull();
+  act(() => root.unmount());
+});
+
+test('copies the full confirmed signature and announces success', async () => {
+  const writeText = jest.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  const { container, root } = mount(
+    <StepStatus step={META_LAUNCH_STEPS[0]} status={{ state: 'confirmed', signature: 'full-confirmed-signature' }} />,
+  );
+
+  await act(async () => container.querySelector('[data-testid="meta-launch-step-copy-token"]').click());
+
+  expect(writeText).toHaveBeenCalledWith('full-confirmed-signature');
+  expect(container.querySelector('[role="status"]').textContent).toBe('Copied to clipboard.');
+  act(() => root.unmount());
+});
+
+test('shows an accessible clipboard failure for the mint receipt', async () => {
+  const writeText = jest.fn().mockRejectedValue(new Error('Permission denied'));
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  const { container, root } = mount(
+    <ReceiptCopyButton value="full-mint-address" label="Copy mint" testId="meta-launch-mint-copy" />,
+  );
+
+  await act(async () => container.querySelector('[data-testid="meta-launch-mint-copy"]').click());
+
+  expect(writeText).toHaveBeenCalledWith('full-mint-address');
+  expect(container.querySelector('[role="alert"]').textContent).toBe('Copy failed. Clipboard access is unavailable.');
+  expect(container.querySelector('[role="status"]')).toBeNull();
   act(() => root.unmount());
 });
