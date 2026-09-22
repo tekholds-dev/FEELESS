@@ -1,3 +1,4 @@
 - [Meta Launch provider boundary](meta-launch-provider.md) — launch providers prepare unsigned Solana transactions; the browser wallet signs and the configured RPC confirms them.
 - [Meta Launch mechanics](meta-launch-mechanics.md) — launch plans use whole-token supply, exact 100% fee routing, curve graduation, permanent liquidity, and explicit safety/community controls.
 - [Post-merge setup hook](post-merge-hook.md) — the frontend has no lockfile; merge setup must use a registered non-interactive no-lockfile install.
+- [Landing page test harness](landing-test-harness.md) — focused Landing tests use a virtual router mock because Jest cannot resolve the installed ESM router package directly.

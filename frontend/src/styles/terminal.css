@@ -233,11 +233,11 @@ body.theme-day .globe-page .landing-copy h1,body.theme-day .globe-page .landing-
 .degen-panel{position:relative;overflow:visible}
 .degen-chat{height:430px}
 .degen-coins-rail{position:absolute;right:100%;top:164px;z-index:12;width:38px}
-.degen-coins-tab{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:9px;min-height:142px;padding:12px 8px;border:1px solid #2f593e;border-right:0;border-radius:7px 0 0 7px;background:#0b1d12;color:var(--mint);cursor:default;box-shadow:-10px 13px 28px #0004}
+.degen-coins-tab{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:9px;min-height:142px;padding:12px 8px;border:1px solid #2f593e;border-right:0;border-radius:7px 0 0 7px;background:#0b1d12;color:var(--mint);cursor:pointer;box-shadow:-10px 13px 28px #0004}
 .degen-coins-tab b{font-size:8px;letter-spacing:1.1px;writing-mode:vertical-rl;transform:rotate(180deg)}
 .degen-coins-tab small{font-size:7px;writing-mode:vertical-rl;transform:rotate(180deg);color:#8db59b;white-space:nowrap}
 .degen-coins-popover{position:absolute;right:100%;top:-18px;width:min(342px,34vw);max-height:680px;border:1px solid #2f593e;border-radius:7px 0 7px 7px;background:#08160e;box-shadow:-18px 18px 42px #0008;opacity:0;visibility:hidden;pointer-events:none;transform:translateX(8px);transition:opacity .18s ease,transform .18s ease,visibility .18s ease}
-.degen-coins-rail:hover .degen-coins-popover,.degen-coins-rail:focus-within .degen-coins-popover{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(0)}
+.degen-coins-rail:hover .degen-coins-popover,.degen-coins-rail:focus-within .degen-coins-popover,.degen-coins-rail.is-open .degen-coins-popover{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(0)}
 .degen-coins{height:auto!important;max-height:680px;overflow-y:auto}
 .coin-feed-heading h3{font-size:14px}
 
