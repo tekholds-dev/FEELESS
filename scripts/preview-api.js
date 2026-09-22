@@ -185,7 +185,7 @@ async function geckoCandles(chain, address, interval = '1h') {
   );
   const rows = data?.data?.attributes?.ohlcv_list || [];
   const candles = [...new Map(rows
-    .filter(row => Array.isArray(row) && row.length >= 6)
+    .filter(row => Array.isArray(row) && row.length >= 6 && Number.isFinite(row[0]))
     .map(row => [row[0], row])).values()]
     .sort((a, b) => a[0] - b[0]);
   return {
@@ -483,9 +483,15 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`[preview-api] listening on http://127.0.0.1:${PORT} with live public market providers`);
-  Promise.allSettled([dexBoostFeed('trending'), dexBoostFeed('new')])
-    .then(() => console.log('[preview-api] DexScreener radar cache warmed'))
-    .catch(() => {});
-});
+function startServer() {
+  server.listen(PORT, '127.0.0.1', () => {
+    console.log(`[preview-api] listening on http://127.0.0.1:${PORT} with live public market providers`);
+    Promise.allSettled([dexBoostFeed('trending'), dexBoostFeed('new')])
+      .then(() => console.log('[preview-api] DexScreener radar cache warmed'))
+      .catch(() => {});
+  });
+}
+
+if (require.main === module) startServer();
+
+module.exports = { geckoCandles, route, server, startServer };

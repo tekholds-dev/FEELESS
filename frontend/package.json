@@ -70,7 +70,8 @@
   "scripts": {
     "start": "craco start",
     "build": "craco build",
-    "test": "craco test"
+    "test": "craco test",
+    "test:preview-api": "node ../scripts/preview-api.test.js"
   },
   "browserslist": {
     "production": [
