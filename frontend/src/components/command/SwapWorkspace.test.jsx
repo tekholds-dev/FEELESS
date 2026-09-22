@@ -1,14 +1,17 @@
 import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
+import { VersionedTransaction } from '@solana/web3.js';
 import { SwapWorkspace } from './SwapWorkspace';
 
 jest.mock('@solana/web3.js', () => ({
   VersionedTransaction: { deserialize: jest.fn() },
 }));
 
+const mockWalletState = { wallet: null, provider: null };
+
 jest.mock('../../hooks/useWallet', () => ({
-  useWallet: () => ({ wallet: null, provider: null }),
+  useWallet: () => mockWalletState,
 }));
 
 jest.mock('./WorkspaceChrome', () => ({
@@ -28,11 +31,11 @@ jest.mock('../ui/dialog', () => ({
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-function mount() {
+function mount(props = {}) {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
-  act(() => root.render(<SwapWorkspace feeAssets={[]} />));
+  act(() => root.render(<SwapWorkspace feeAssets={[]} {...props} />));
   return { container, root };
 }
 
@@ -40,6 +43,8 @@ afterEach(() => {
   localStorage.clear();
   document.body.innerHTML = '';
   jest.restoreAllMocks();
+  mockWalletState.wallet = null;
+  mockWalletState.provider = null;
 });
 
 test('restores a saved submitted order and checks its status without storing transaction data', async () => {
@@ -61,4 +66,81 @@ test('restores a saved submitted order and checks its status without storing tra
   expect(localStorage.getItem('feeless.pending-swap-order')).not.toContain('signed_transaction');
   expect(localStorage.getItem('feeless.pending-swap-order')).not.toContain('transaction');
   act(() => root.unmount());
+});
+
+test('keeps an uncertain execution pending across reopen without resending the signed transaction', async () => {
+  const orderId = 'b'.repeat(36);
+  const walletAddress = 'Wallet1111111111111111111111111111111111111';
+  const tokenMint = 'Token1111111111111111111111111111111111111';
+  const feeAsset = { id: 'token', label: 'TOKEN', mint: tokenMint, chain: 'solana' };
+  const quote = {
+    order_id: orderId,
+    expires_at: 1_700_000_045,
+    output_metadata: { decimals: 6, symbol: 'TOKEN' },
+    quote: {
+      transaction: 'AQIDBA==',
+      outAmount: '1000000',
+      otherAmountThreshold: '990000',
+      routePlan: [],
+    },
+  };
+  const signed = Uint8Array.from([1, 2, 3, 4]);
+  const provider = {
+    publicKey: { toString: () => walletAddress },
+    signTransaction: jest.fn().mockResolvedValue({ serialize: () => signed }),
+  };
+
+  mockWalletState.wallet = { chain: 'solana', address: walletAddress };
+  mockWalletState.provider = provider;
+  VersionedTransaction.deserialize.mockReturnValue({
+    message: { staticAccountKeys: [{ toBase58: () => walletAddress }] },
+  });
+  global.fetch = jest.fn()
+    .mockResolvedValueOnce({ ok: true, json: async () => quote })
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, broadcast: false }) })
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ order_id: orderId, state: 'submitted', signature: 'sig-uncertain' }),
+    });
+
+  const firstMount = mount({ feeAsset });
+  await act(async () => firstMount.container.querySelector('[data-testid="swap-get-quote"]').click());
+  await act(async () => firstMount.container.querySelector('[data-testid="swap-review"]').click());
+  await act(async () => firstMount.container.querySelector('[data-testid="swap-approve-wallet"]').click());
+
+  expect(provider.signTransaction).toHaveBeenCalledTimes(1);
+  expect(global.fetch).toHaveBeenNthCalledWith(
+    3,
+    '/api/trading/execute',
+    expect.objectContaining({ method: 'POST', body: expect.stringContaining(orderId) }),
+  );
+  expect(firstMount.container.querySelector('[data-testid="swap-result"] b').textContent).toBe('SUBMITTED');
+  expect(JSON.parse(localStorage.getItem('feeless.pending-swap-order'))).toEqual({ order_id: orderId });
+  expect(localStorage.getItem('feeless.pending-swap-order')).not.toContain('signed_transaction');
+  expect(localStorage.getItem('feeless.pending-swap-order')).not.toContain('AQIDBA==');
+  act(() => firstMount.root.unmount());
+
+  global.fetch = jest.fn()
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ order_id: orderId, state: 'submitted', signature: 'sig-uncertain' }),
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ order_id: orderId, state: 'submitted', signature: 'sig-uncertain' }),
+    });
+  const reopened = mount({ feeAsset });
+  await act(async () => {});
+
+  expect(global.fetch).toHaveBeenNthCalledWith(1, `/api/trading/order/${orderId}`, {});
+  expect(reopened.container.querySelector('[data-testid="swap-result"] b').textContent).toBe('SUBMITTED');
+  expect(reopened.container.querySelector('[data-testid="swap-check-status"]')).not.toBeNull();
+  expect(reopened.container.querySelector('[data-testid="swap-status-message"]').textContent).toContain('Nothing was resubmitted');
+
+  await act(async () => reopened.container.querySelector('[data-testid="swap-check-status"]').click());
+
+  expect(global.fetch).toHaveBeenNthCalledWith(2, `/api/trading/order/${orderId}`, {});
+  expect(global.fetch.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
+  expect(provider.signTransaction).toHaveBeenCalledTimes(1);
+  act(() => reopened.root.unmount());
 });
