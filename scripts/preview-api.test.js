@@ -50,7 +50,7 @@ test('preview candle contract follows a discovered pool and rejects invalid inte
         }],
       });
     }
-    if (url.startsWith(`${GECKO_API_URL}/networks/solana/pools/${POOL_ADDRESS}/ohlcv/hour`)) {
+    if (url.startsWith(`${GECKO_API_URL}/networks/solana/pools/${POOL_ADDRESS}/ohlcv/`)) {
       return providerResponse({
         data: {
           attributes: {
@@ -79,15 +79,17 @@ test('preview candle contract follows a discovered pool and rejects invalid inte
     const discoveredPool = feed.body.pairs[0];
     assert.equal(discoveredPool.pairAddress, POOL_ADDRESS);
 
-    const candles = await request(
-      baseUrl,
-      `/api/market/candles/${discoveredPool.chainId}/${discoveredPool.pairAddress}?interval=1h`,
-      originalFetch,
-    );
-    assert.equal(candles.status, 200);
-    assert.equal(candles.body.provider, 'GeckoTerminal');
-    assert.deepEqual(candles.body.candles.map(row => row[0]), [100, 200, 300]);
-    assert.equal(candles.body.candles[1][5], 999);
+    for (const interval of ['5m', '15m', '1h', '4h', '1d']) {
+      const candles = await request(
+        baseUrl,
+        `/api/market/candles/${discoveredPool.chainId}/${discoveredPool.pairAddress}?interval=${interval}`,
+        originalFetch,
+      );
+      assert.equal(candles.status, 200, `${interval} candle request should succeed`);
+      assert.equal(candles.body.provider, 'GeckoTerminal', `${interval} candle provider should be preserved`);
+      assert.deepEqual(candles.body.candles.map(row => row[0]), [100, 200, 300], `${interval} candles should be ordered`);
+      assert.equal(candles.body.candles[1][5], 999, `${interval} duplicate timestamps should keep the last row`);
+    }
 
     const originalConsoleError = console.error;
     console.error = () => {};
