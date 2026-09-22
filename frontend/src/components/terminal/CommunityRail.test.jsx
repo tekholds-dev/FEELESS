@@ -78,32 +78,33 @@ describe('The Trenches pools tab', () => {
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ pairAddress: 'pool-1' }));
   });
 
-  test('keeps the current snapshot visible when the all-chain feed has no rows', () => {
-    const fallbackPair = {
-      chainId: 'solana',
-      pairAddress: 'fallback-pool',
-      baseToken: { symbol: 'FALLBACK', name: 'Fallback Coin' },
-      priceUsd: '0.42',
-      priceChange: { h24: -2.1 },
-      liquidity: { usd: 84000 },
-      volume: { h24: 12000 },
-    };
+  test.each([
+    ['provider failure', { data: undefined, loading: false, refreshing: false, error: 'Provider unavailable' }, 'fallback-pool', 'FALLBACK', 'Fallback Coin', '0.42', -2.1, 84000, '$84.00K', 12000, '$12.00K'],
+    ['empty provider response', { data: { provider: 'GeckoTerminal', pairs: [] }, loading: false, refreshing: false, error: undefined }, 'snapshot-pool', 'SNAP', 'Snapshot Coin', '2.50', -1.25, 250000, '$250.00K', 88000, '$88.00K'],
+  ])('uses the page snapshot when the all-chain feed has a %s', (_failure, marketState, pairAddress, symbol, name, priceUsd, h24, liquidityUsd, liquidityLabel, volumeH24, volumeLabel) => {
     const onSelect = jest.fn();
-    mockUseMarket.mockReturnValue({
-      data: { provider: 'GeckoTerminal', pairs: [] },
-      loading: false,
-      refreshing: false,
-      error: 'Provider refresh limit reached',
-    });
+    const snapshotPair = {
+      chainId: 'solana',
+      pairAddress,
+      baseToken: { symbol, name },
+      priceUsd,
+      priceChange: { h24 },
+      liquidity: { usd: liquidityUsd },
+      volume: { h24: volumeH24 },
+    };
+    mockUseMarket.mockReturnValue(marketState);
 
-    act(() => root.render(<ChatRoom pairs={[fallbackPair]} onSelect={onSelect} />));
+    act(() => root.render(<ChatRoom pairs={[snapshotPair]} onSelect={onSelect} />));
     act(() => host.querySelector('[data-testid="chat-tab-pools"]').click());
 
     expect(host.querySelector('[data-testid="live-pools-count"]').textContent).toBe('1');
-    expect(host.querySelector('[data-testid="live-pools-liquidity"]').textContent).toBe('$84.00K');
-    expect(host.querySelector('[data-testid="live-pools-status"]').textContent).toContain('Provider snapshot unavailable');
-    expect(host.querySelector('[data-testid="live-pool-solana-fallback-pool"]')).not.toBeNull();
-    act(() => host.querySelector('[data-testid="live-pool-solana-fallback-pool"]').click());
-    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ pairAddress: 'fallback-pool' }));
+    expect(host.querySelector('[data-testid="live-pools-liquidity"]').textContent).toBe(liquidityLabel);
+    expect(host.querySelector('[data-testid="live-pools-volume"]').textContent).toBe(volumeLabel);
+    expect(host.querySelector(`[data-testid="live-pool-solana-${pairAddress}"]`)).not.toBeNull();
+    expect(host.querySelector('[data-testid="live-pools-empty"]')).toBeNull();
+    expect(host.querySelector('[data-testid="live-pools-status"]').textContent).toContain('Page snapshot fallback');
+
+    act(() => host.querySelector(`[data-testid="live-pool-solana-${pairAddress}"]`).click());
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ pairAddress }));
   });
 });

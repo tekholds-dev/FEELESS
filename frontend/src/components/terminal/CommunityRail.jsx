@@ -11,7 +11,10 @@ import { formatUSD, pairKey } from '../../lib/dexscreener';
 
 export const LivePoolsPanel = ({ pairs = [], newPairs = [], onSelect }) => {
   const { data, loading, refreshing, error } = useMarket('/feed?kind=trending&chain=all&page=1', 15000);
-  const livePairs = data?.pairs?.length ? data.pairs : pairs.length ? pairs : newPairs;
+  const providerPairs = Array.isArray(data?.pairs) ? data.pairs : [];
+  const snapshotPairs = Array.isArray(pairs) && pairs.length ? pairs : Array.isArray(newPairs) ? newPairs : [];
+  const livePairs = providerPairs.length ? providerPairs : snapshotPairs;
+  const usingSnapshot = !providerPairs.length && snapshotPairs.length > 0;
   const liquidity = livePairs.reduce((sum, pair) => sum + Number(pair.liquidity?.usd || 0), 0);
   const volume = livePairs.reduce((sum, pair) => sum + Number(pair.volume?.h24 || 0), 0);
   const chains = new Set(livePairs.map(pair => pair.chainId).filter(Boolean)).size;
@@ -22,7 +25,7 @@ export const LivePoolsPanel = ({ pairs = [], newPairs = [], onSelect }) => {
       <div><small>24H VOLUME</small><strong data-testid="live-pools-volume">{formatUSD(volume)}</strong></div>
       <div><small>CHAINS</small><strong data-testid="live-pools-chains">{chains || '—'}</strong></div>
     </div>
-    <div className="live-pools-status" data-testid="live-pools-status"><i className={refreshing ? 'is-refreshing' : ''} />{error ? 'Provider snapshot unavailable' : data?.provider ? `${data.provider} · ${refreshing ? 'updating' : 'live'}` : 'Connecting to live providers'}</div>
+    <div className="live-pools-status" data-testid="live-pools-status"><i className={refreshing ? 'is-refreshing' : ''} />{usingSnapshot ? 'Page snapshot fallback' : error ? 'Provider snapshot unavailable' : data?.provider ? `${data.provider} · ${refreshing ? 'updating' : 'live'}` : 'Connecting to live providers'}</div>
     <div className="live-pools-list">
       {livePairs.slice(0, 12).map(pair => <button className="live-pool-row" key={pairKey(pair)} data-testid={`live-pool-${pairKey(pair)}`} onClick={() => onSelect?.(pair)}>
         <TokenAvatar pair={pair} size={32} />
