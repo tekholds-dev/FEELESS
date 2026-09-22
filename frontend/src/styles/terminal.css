@@ -117,6 +117,39 @@ body.theme-day .globe-page .landing-copy h1,body.theme-day .globe-page .landing-
 .meta-launch-explorer-link{display:inline-flex;align-items:center;gap:4px;color:var(--mint);font-size:8px;white-space:nowrap;margin-left:5px}.meta-launch-explorer-link:hover{text-decoration:underline;color:var(--mint-bright)}.meta-launch-mint-receipt{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-top:15px;padding:13px;border:1px solid #2b6544;border-radius:5px;background:#00e9a009}.meta-launch-mint-receipt>span{display:flex;flex-direction:column;gap:5px;min-width:0}.meta-launch-mint-receipt b{font-size:10px;color:var(--mint)}.meta-launch-mint-receipt small{font:9px 'JetBrains Mono',monospace;color:#b4d0bc;overflow-wrap:anywhere}.meta-launch-mint-receipt .meta-launch-explorer-link{margin-left:auto}
 @media(max-width:760px){.feeless-launch-hero{align-items:flex-start;flex-direction:column;gap:18px}.feeless-launch-hero h2{font-size:27px}.feeless-launch-hero .btn-primary{width:100%}.meta-launch-page{padding-inline:8px}.meta-launch-header{align-items:flex-start;flex-direction:column}.meta-launch-header h1{font-size:32px}.meta-launch-step{width:100%}.meta-launch-step span{flex:1;text-align:center}.meta-launch-grid{display:flex;flex-direction:column}.meta-launch-sidebar{position:static;width:100%;order:5}.meta-launch-fields.two,.meta-launch-summary dl{grid-template-columns:1fr}.meta-launch-review-heading,.meta-launch-review-actions,.meta-launch-mint-receipt{align-items:stretch;flex-direction:column}.meta-launch-review-actions .btn-primary{width:100%}.meta-launch-mint-receipt .meta-launch-explorer-link{margin-left:0}}
 
+/* Meta Launch mechanics: curve first, explicit fee routing, no dead fields. */
+.meta-launch-mechanics-banner{display:flex;align-items:center;justify-content:space-between;gap:25px;padding:20px 22px;margin-bottom:16px;border:1px solid #2d6b46;border-radius:7px;background:linear-gradient(110deg,#0b2517,#07140d 66%,#0b2114);box-shadow:inset 0 0 40px #00e9a006}
+.meta-launch-mechanics-banner>div:first-child{min-width:0}
+.meta-launch-mechanics-banner h2{font-size:21px;margin:9px 0 6px}
+.meta-launch-mechanics-banner p{max-width:720px;color:#9bc3a6;font-size:12px;line-height:1.65}
+.meta-launch-mechanics-flow{display:flex;align-items:center;gap:9px;flex-shrink:0;font:10px 'JetBrains Mono',monospace;color:var(--mint)}
+.meta-launch-mechanics-flow i{font-style:normal;color:#6b9b78}
+.meta-launch-field>span{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.meta-launch-field>span small{color:#5e8a6c;font-size:8px;font-weight:400}
+.meta-launch-fee-meter{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:16px;padding:10px;border:1px solid #2b4b36;border-radius:5px;background:#07130c}
+.meta-launch-fee-meter>div{display:flex;flex-direction:column;gap:5px;padding-right:8px;border-right:1px solid #24422f}
+.meta-launch-fee-meter>div:nth-child(3){border:0}
+.meta-launch-fee-meter span{font-size:9px;color:#7da88b}
+.meta-launch-fee-meter b{font:13px 'JetBrains Mono',monospace;color:#cde6d4}
+.meta-launch-fee-meter>strong{grid-column:1/-1;padding-top:7px;border-top:1px solid #24422f;font:9px 'JetBrains Mono',monospace;color:var(--gold)}
+.meta-launch-fee-meter.complete>strong{color:var(--mint)}
+.meta-launch-sidebar-note{display:flex;align-items:flex-start;gap:8px;margin-top:12px;padding:12px;border:1px solid #2c593b;border-radius:5px;background:#091a10;color:var(--mint)}
+.meta-launch-sidebar-note>span{display:flex;flex-direction:column;gap:4px}
+.meta-launch-sidebar-note b{font-size:10px}
+.meta-launch-sidebar-note small{font-size:9px;line-height:1.5;color:#82a78d}
+.meta-launch-review-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;padding:20px 0;border-bottom:1px solid #203a2a}
+.meta-launch-review-cards>div{min-width:0;padding:13px;border:1px solid #294a35;border-radius:5px;background:#08150d}
+.meta-launch-review-cards span,.meta-launch-review-cards small{display:block;color:#769480;font-size:9px;line-height:1.5}
+.meta-launch-review-cards b{display:block;margin:8px 0 5px;color:#d7e9dd;font:14px 'JetBrains Mono',monospace;overflow-wrap:anywhere}
+.meta-launch-review-cards small{color:#8eae99}
+
+@media(max-width:760px){
+  .meta-launch-mechanics-banner{align-items:flex-start;flex-direction:column;padding:17px}
+  .meta-launch-mechanics-banner h2{font-size:19px}
+  .meta-launch-mechanics-flow{width:100%;justify-content:space-between}
+  .meta-launch-review-cards{grid-template-columns:1fr 1fr}
+}
+
 /* Readability and ecosystem panel hierarchy overrides. */
 .terminal-app{font-size:14px}
 .terminal-app .eyebrow,.globe-page .eyebrow{font-size:11px}

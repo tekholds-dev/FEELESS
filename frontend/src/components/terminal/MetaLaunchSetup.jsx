@@ -1,44 +1,118 @@
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Clock3, LoaderCircle, LockKeyhole, Rocket, ShieldCheck, WalletCards, XCircle } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  Clock3,
+  Coins,
+  Flame,
+  Gauge,
+  LoaderCircle,
+  LockKeyhole,
+  Rocket,
+  ShieldCheck,
+  Timer,
+  Users,
+  WalletCards,
+  Waves,
+  XCircle,
+} from 'lucide-react';
 import { useWallet } from '../../hooks/useWallet';
-import { executeMetaLaunchPlan, getLaunchMint, getLaunchProviderReadiness, getSolanaExplorerUrl, META_LAUNCH_STEPS, recheckMetaLaunchSignature, requestMetaLaunchPlan } from '../../lib/launchpads';
+import {
+  executeMetaLaunchPlan,
+  getLaunchMint,
+  getLaunchProviderReadiness,
+  getSolanaExplorerUrl,
+  META_LAUNCH_STEPS,
+  recheckMetaLaunchSignature,
+  requestMetaLaunchPlan,
+} from '../../lib/launchpads';
 
 export const DEFAULT_META_LAUNCH_FORM = {
   name: '',
   symbol: '',
   supply: '1000000000',
-  decimals: '9',
+  openingMarketCap: '35',
+  curveType: 'linear',
+  graduationTarget: '85',
   liquidityPair: 'SOL',
-  liquidityAmount: '',
-  buyTax: '0',
-  sellTax: '0',
+  swapFee: '1',
+  creatorFeeShare: '50',
+  holderRewardShare: '0',
+  buybackBurnShare: '50',
+  antiSniperTax: '50',
+  antiSniperWindow: '6',
+  devBuyAmount: '0',
+  migrationVenue: 'raydium-cpmm',
+  liquidityLock: 'permanent',
   holderAllocation: '0',
   airdropRecipients: '',
   airdropAmount: '0',
 };
 
+const OPENING_MARKET_CAPS = [
+  ['10', '$10k · Spark', 'Fast, accessible opening curve'],
+  ['35', '$35k · Orbit', 'Balanced default for community launches'],
+  ['100', '$100k · Nova', 'More room before graduation'],
+  ['500', '$500k · Supernova', 'High-cap launch for established communities'],
+];
+
 const numeric = value => Number(value);
+const rounded = value => Math.round(value * 10) / 10;
 
 export function validateMetaLaunch(form) {
   const errors = {};
+  const feeShares = [
+    numeric(form.creatorFeeShare),
+    numeric(form.holderRewardShare),
+    numeric(form.buybackBurnShare),
+  ];
+  const feeShareTotal = feeShares.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
+  const recipients = (form.airdropRecipients || '').split(/[\n,]+/).map(value => value.trim()).filter(Boolean);
+
   if (!form.name.trim()) errors.name = 'Enter a coin name.';
   if (!/^[A-Za-z0-9]{2,12}$/.test(form.symbol.trim())) errors.symbol = 'Use 2–12 letters or numbers.';
-  if (!Number.isFinite(numeric(form.supply)) || numeric(form.supply) <= 0) errors.supply = 'Supply must be greater than zero.';
-  if (!Number.isInteger(numeric(form.decimals)) || numeric(form.decimals) < 0 || numeric(form.decimals) > 18) errors.decimals = 'Decimals must be between 0 and 18.';
-  if (!form.liquidityPair) errors.liquidityPair = 'Choose a liquidity pair.';
-  if (!Number.isFinite(numeric(form.liquidityAmount)) || numeric(form.liquidityAmount) <= 0) errors.liquidityAmount = 'Add an initial liquidity amount.';
-  if (!Number.isFinite(numeric(form.buyTax)) || numeric(form.buyTax) < 0 || numeric(form.buyTax) > 10) errors.buyTax = 'Buy tax must be between 0% and 10%.';
-  if (!Number.isFinite(numeric(form.sellTax)) || numeric(form.sellTax) < 0 || numeric(form.sellTax) > 10) errors.sellTax = 'Sell tax must be between 0% and 10%.';
+  if (!Number.isInteger(numeric(form.supply)) || numeric(form.supply) <= 0) errors.supply = 'Supply must be a whole number greater than zero.';
+  if (!OPENING_MARKET_CAPS.some(([value]) => value === String(form.openingMarketCap))) errors.openingMarketCap = 'Choose an opening market-cap preset.';
+  if (!['linear', 'exponential'].includes(form.curveType)) errors.curveType = 'Choose a supported curve.';
+  if (!Number.isFinite(numeric(form.graduationTarget)) || numeric(form.graduationTarget) <= 0) errors.graduationTarget = 'Set a graduation target greater than zero.';
+  if (!form.liquidityPair) errors.liquidityPair = 'Choose a quote asset.';
+  if (!Number.isFinite(numeric(form.swapFee)) || numeric(form.swapFee) < 0 || numeric(form.swapFee) > 10) errors.swapFee = 'Swap fee must be between 0% and 10%.';
+  feeShares.forEach((value, index) => {
+    const key = ['creatorFeeShare', 'holderRewardShare', 'buybackBurnShare'][index];
+    if (!Number.isFinite(value) || value < 0 || value > 100) errors[key] = 'Share must be between 0% and 100%.';
+  });
+  if (!errors.creatorFeeShare && !errors.holderRewardShare && !errors.buybackBurnShare && rounded(feeShareTotal) !== 100) {
+    errors.feeShares = `Fee routing must total 100%. Current total: ${rounded(feeShareTotal)}%.`;
+  }
+  if (!Number.isFinite(numeric(form.antiSniperTax)) || numeric(form.antiSniperTax) < 0 || numeric(form.antiSniperTax) > 100) errors.antiSniperTax = 'Protection tax must be between 0% and 100%.';
+  if (!Number.isFinite(numeric(form.antiSniperWindow)) || numeric(form.antiSniperWindow) < 0 || numeric(form.antiSniperWindow) > 60) errors.antiSniperWindow = 'Protection window must be between 0 and 60 seconds.';
+  if (numeric(form.antiSniperTax) > 0 && numeric(form.antiSniperWindow) <= 0) errors.antiSniperWindow = 'Add a protection window when anti-sniper tax is enabled.';
+  if (!Number.isFinite(numeric(form.devBuyAmount)) || numeric(form.devBuyAmount) < 0) errors.devBuyAmount = 'Dev buy cannot be negative.';
+  if (!['raydium-cpmm', 'raydium-clmm'].includes(form.migrationVenue)) errors.migrationVenue = 'Choose a supported graduation venue.';
+  if (form.liquidityLock !== 'permanent') errors.liquidityLock = 'FEELESS launches use permanent liquidity locks.';
   if (!Number.isFinite(numeric(form.holderAllocation)) || numeric(form.holderAllocation) < 0 || numeric(form.holderAllocation) > 100) errors.holderAllocation = 'Holder allocation must be between 0% and 100%.';
   if (!Number.isFinite(numeric(form.airdropAmount)) || numeric(form.airdropAmount) < 0 || numeric(form.airdropAmount) > 100) errors.airdropAmount = 'Airdrop allocation must be between 0% and 100%.';
-  const recipients = form.airdropRecipients.split(/[\n,]+/).map(value => value.trim()).filter(Boolean);
   if (numeric(form.airdropAmount) > 0 && !recipients.length) errors.airdropRecipients = 'Add at least one recipient for the airdrop.';
   if (numeric(form.holderAllocation) + numeric(form.airdropAmount) > 100) errors.allocations = 'Holder and airdrop allocations cannot exceed 100%.';
   return errors;
 }
 
-function Field({ label, name, value, onChange, error, ...props }) {
-  return <label className="meta-launch-field"><span>{label}</span><input name={name} value={value} onChange={event => onChange(name, event.target.value)} {...props} />{error && <small className="meta-launch-error">{error}</small>}</label>;
+function Field({ label, name, value, onChange, error, hint, ...props }) {
+  return <label className="meta-launch-field">
+    <span>{label}{hint && <small>{hint}</small>}</span>
+    <input name={name} value={value} onChange={event => onChange(name, event.target.value)} {...props} />
+    {error && <small className="meta-launch-error">{error}</small>}
+  </label>;
+}
+
+function SelectField({ label, name, value, onChange, error, children, hint, ...props }) {
+  return <label className="meta-launch-field">
+    <span>{label}{hint && <small>{hint}</small>}</span>
+    <select name={name} value={value} onChange={event => onChange(name, event.target.value)} {...props}>{children}</select>
+    {error && <small className="meta-launch-error">{error}</small>}
+  </label>;
 }
 
 function StatusRow({ icon: Icon, title, detail, ready = false }) {
@@ -56,6 +130,16 @@ export function StepStatus({ step, status }) {
   return <div className={`meta-launch-step-status ${status?.state || 'queued'}`} data-testid={`meta-launch-step-${step.id}`}>
     <Icon size={15} className={status?.state === 'pending' ? 'meta-launch-spinner' : ''} />
     <span><b>{step.label}</b><small>{status?.state === 'confirmed' ? <>Confirmed · {status.signature?.slice(0, 10)}… {explorerUrl && <a className="meta-launch-explorer-link" data-testid={`meta-launch-step-explorer-${step.id}`} href={explorerUrl} target="_blank" rel="noreferrer">View on Solana Explorer</a>}</> : status?.detail || (status?.state === 'pending' ? 'Awaiting network confirmation.' : 'Waiting to submit.')}</small></span>
+  </div>;
+}
+
+function FeeSplitSummary({ form }) {
+  const total = rounded(numeric(form.creatorFeeShare) + numeric(form.holderRewardShare) + numeric(form.buybackBurnShare));
+  return <div className={`meta-launch-fee-meter ${total === 100 ? 'complete' : ''}`} data-testid="meta-launch-fee-meter">
+    <div><span>Creator</span><b>{form.creatorFeeShare}%</b></div>
+    <div><span>Holders</span><b>{form.holderRewardShare}%</b></div>
+    <div><span>Buyback & burn</span><b>{form.buybackBurnShare}%</b></div>
+    <strong>{total}% routed</strong>
   </div>;
 }
 
@@ -131,9 +215,7 @@ export default function MetaLaunchSetup({ initialValues }) {
       const result = await recheckMetaLaunchSignature(pendingStep.status.signature, { label: pendingStep.step.label });
       setDeployment(current => {
         const statuses = { ...current.statuses, [pendingStep.step.id]: { ...result, label: pendingStep.step.label } };
-        const results = (current.results || []).map(item => item.id === pendingStep.step.id
-          ? { ...item, ...result, label: pendingStep.step.label }
-          : item);
+        const results = (current.results || []).map(item => item.id === pendingStep.step.id ? { ...item, ...result, label: pendingStep.step.label } : item);
         const allConfirmed = META_LAUNCH_STEPS.every(stepItem => statuses[stepItem.id]?.state === 'confirmed');
         return {
           ...current,
@@ -141,9 +223,7 @@ export default function MetaLaunchSetup({ initialValues }) {
           results,
           state: result.state === 'failed' ? 'failed' : allConfirmed ? 'confirmed' : 'pending',
           detail: result.state === 'confirmed'
-            ? allConfirmed
-              ? 'All launch phases are confirmed.'
-              : `${pendingStep.step.label} is confirmed. Continue with the remaining launch phases.`
+            ? allConfirmed ? 'All launch phases are confirmed.' : `${pendingStep.step.label} is confirmed. Continue with the remaining launch phases.`
             : result.detail,
           mint: allConfirmed ? current.mint || getLaunchMint(current.plan) : current.mint,
           resumeReady: result.state === 'confirmed' && !allConfirmed,
@@ -158,19 +238,23 @@ export default function MetaLaunchSetup({ initialValues }) {
 
   return <div className="meta-launch-page" data-testid="meta-launch-page">
     <div className="meta-launch-topline"><a href="/terminal/launch" className="meta-launch-back"><ArrowLeft size={14} />Launchpads</a><span className="eyebrow"><span className="live-dot" /> FEELESS META LAUNCH</span></div>
-    <header className="meta-launch-header"><div><span className="eyebrow">BUILD WITH CONTROL</span><h1>Meta Launch setup.</h1><p>Configure the coin, liquidity policy, allocations, and launch safeguards before any wallet approval is requested.</p></div><div className="meta-launch-step"><span className={step === 'setup' ? 'active' : ''}>01 Setup</span><span className={step === 'review' ? 'active' : ''}>02 Review</span></div></header>
+    <header className="meta-launch-header"><div><span className="eyebrow">CURVE → GRADUATION → COMMUNITY</span><h1>Launch with a living economy.</h1><p>Build the curve, define where every swap fee goes, protect the opening seconds, then graduate into permanent liquidity. This is a launch plan until an approved provider is connected.</p></div><div className="meta-launch-step"><span className={step === 'setup' ? 'active' : ''}>01 Mechanics</span><span className={step === 'review' ? 'active' : ''}>02 Review</span></div></header>
+    <div className="meta-launch-mechanics-banner" data-testid="meta-launch-mechanics-banner"><div><span className="eyebrow"><Waves size={13} /> RAYDIUM-STYLE CURVE / INFINITY-STYLE ROUTING</span><h2>Every phase has a job.</h2><p>Buyers start on a deterministic bonding curve. When the target is reached, liquidity graduates to a Raydium pool. Fees can reward the creator, holders, or an automatic buyback-and-burn route.</p></div><div className="meta-launch-mechanics-flow"><span>CURVE</span><i>→</i><span>GRADUATE</span><i>→</i><span>POOL</span></div></div>
     {step === 'setup' ? <form className="meta-launch-grid" onSubmit={review} noValidate>
-      <section className="meta-launch-section"><div className="meta-launch-section-heading"><Rocket size={17} /><div><h2>Coin identity</h2><p>Set the public details for the new coin.</p></div></div><div className="meta-launch-fields two"><Field label="Coin name" name="name" placeholder="Meta Coin" value={form.name} onChange={update} error={errors.name} /><Field label="Symbol" name="symbol" placeholder="META" value={form.symbol} onChange={update} error={errors.symbol} autoCapitalize="characters" /><Field label="Total supply" name="supply" type="number" min="1" value={form.supply} onChange={update} error={errors.supply} /><Field label="Decimals" name="decimals" type="number" min="0" max="18" value={form.decimals} onChange={update} error={errors.decimals} /></div></section>
-      <section className="meta-launch-section"><div className="meta-launch-section-heading"><ArrowRight size={17} /><div><h2>Liquidity</h2><p>Choose the pair and initial liquidity amount.</p></div></div><div className="meta-launch-fields two"><label className="meta-launch-field"><span>Liquidity pair</span><select name="liquidityPair" value={form.liquidityPair} onChange={event => update('liquidityPair', event.target.value)}><option value="SOL">SOL</option><option value="USDC">USDC</option></select>{errors.liquidityPair && <small className="meta-launch-error">{errors.liquidityPair}</small>}</label><Field label="Initial liquidity" name="liquidityAmount" type="number" min="0" step="any" placeholder="1.0" value={form.liquidityAmount} onChange={update} error={errors.liquidityAmount} /></div></section>
-      <section className="meta-launch-section"><div className="meta-launch-section-heading"><ShieldCheck size={17} /><div><h2>Fee and tax policy</h2><p>Keep buy and sell fees bounded and visible.</p></div></div><div className="meta-launch-fields two"><Field label="Buy tax (%)" name="buyTax" type="number" min="0" max="10" step="0.1" value={form.buyTax} onChange={update} error={errors.buyTax} /><Field label="Sell tax (%)" name="sellTax" type="number" min="0" max="10" step="0.1" value={form.sellTax} onChange={update} error={errors.sellTax} /></div></section>
-      <section className="meta-launch-section"><div className="meta-launch-section-heading"><WalletCards size={17} /><div><h2>Holders and airdrops</h2><p>Reserve supply deliberately; never hide allocations.</p></div></div><div className="meta-launch-fields two"><Field label="Holder allocation (%)" name="holderAllocation" type="number" min="0" max="100" step="0.1" value={form.holderAllocation} onChange={update} error={errors.holderAllocation} /><Field label="Airdrop allocation (%)" name="airdropAmount" type="number" min="0" max="100" step="0.1" value={form.airdropAmount} onChange={update} error={errors.airdropAmount} /></div><label className="meta-launch-field"><span>Airdrop recipients</span><textarea name="airdropRecipients" rows="4" placeholder="One wallet address per line" value={form.airdropRecipients} onChange={event => update('airdropRecipients', event.target.value)} />{errors.airdropRecipients && <small className="meta-launch-error">{errors.airdropRecipients}</small>}</label>{errors.allocations && <p className="meta-launch-error" role="alert">{errors.allocations}</p>}</section>
-       <aside className="meta-launch-sidebar"><div className="meta-launch-readiness"><span className="eyebrow">LAUNCH READINESS</span><StatusRow icon={wallet ? CheckCircle2 : Clock3} title={wallet ? 'Wallet connected' : 'Wallet approval after review'} detail={wallet ? `${wallet.name} · ${wallet.address.slice(0, 6)}…` : 'No wallet request is made while editing setup.'} ready={Boolean(wallet)} /><StatusRow icon={readiness.providerReady ? CheckCircle2 : LockKeyhole} title={readiness.providerReady ? readiness.providerName : 'Provider unavailable'} detail={readiness.providerReady ? `${readiness.network} · approved provider` : 'Approved provider URL and approval status are required.'} ready={readiness.providerReady} /><StatusRow icon={readiness.rpcReady ? CheckCircle2 : LockKeyhole} title={readiness.rpcReady ? 'Solana RPC configured' : 'Solana RPC unavailable'} detail={readiness.rpcReady ? `${readiness.network} · ${readiness.rpcHost}` : 'No on-chain confirmation or submission will be attempted.'} ready={readiness.rpcReady} /><p className="meta-launch-safety">FEELESS never stores private keys. The provider prepares unsigned transactions; your wallet signs them only after review.</p></div><button className="btn-primary meta-launch-review" data-testid="meta-launch-review" type="submit">Review launch setup<ArrowRight size={16} /></button></aside>
+      <section className="meta-launch-section"><div className="meta-launch-section-heading"><Rocket size={17} /><div><h2>Token identity</h2><p>Name, ticker, and whole-token supply. The launch provider applies its standard token precision.</p></div></div><div className="meta-launch-fields two"><Field label="Coin name" name="name" placeholder="Meta Coin" value={form.name} onChange={update} error={errors.name} /><Field label="Symbol" name="symbol" placeholder="META" value={form.symbol} onChange={update} error={errors.symbol} autoCapitalize="characters" /><Field label="Total supply" name="supply" type="number" min="1" step="1" value={form.supply} onChange={update} error={errors.supply} hint="Whole tokens" /></div></section>
+      <section className="meta-launch-section"><div className="meta-launch-section-heading"><Gauge size={17} /><div><h2>Bonding curve</h2><p>Choose the opening market cap and the point where the curve graduates to a pool.</p></div></div><div className="meta-launch-fields two"><SelectField label="Opening market cap" name="openingMarketCap" value={form.openingMarketCap} onChange={update} error={errors.openingMarketCap}>{OPENING_MARKET_CAPS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</SelectField><SelectField label="Curve shape" name="curveType" value={form.curveType} onChange={update} error={errors.curveType}><option value="linear">Linear · predictable steps</option><option value="exponential">Exponential · faster price discovery</option></SelectField><Field label="Graduation target" name="graduationTarget" type="number" min="1" step="any" value={form.graduationTarget} onChange={update} error={errors.graduationTarget} hint="SOL / quote asset" /></div></section>
+      <section className="meta-launch-section"><div className="meta-launch-section-heading"><Coins size={17} /><div><h2>Liquidity graduation</h2><p>Set the quote asset, destination pool, and a permanent lock for graduated liquidity.</p></div></div><div className="meta-launch-fields two"><SelectField label="Quote asset" name="liquidityPair" value={form.liquidityPair} onChange={update} error={errors.liquidityPair}><option value="SOL">SOL</option><option value="USDC">USDC</option></SelectField><SelectField label="Graduation venue" name="migrationVenue" value={form.migrationVenue} onChange={update} error={errors.migrationVenue}><option value="raydium-cpmm">Raydium CPMM</option><option value="raydium-clmm">Raydium CLMM</option></SelectField><SelectField label="Liquidity lock" name="liquidityLock" value={form.liquidityLock} onChange={update} error={errors.liquidityLock}><option value="permanent">Permanent · unruggable</option></SelectField></div></section>
+      <section className="meta-launch-section"><div className="meta-launch-section-heading"><Flame size={17} /><div><h2>Fee routing</h2><p>One swap fee. Three visible destinations. The split must always equal 100%.</p></div></div><div className="meta-launch-fields two"><Field label="Swap fee (%)" name="swapFee" type="number" min="0" max="10" step="0.1" value={form.swapFee} onChange={update} error={errors.swapFee} hint="Applied on buys and sells" /><Field label="Creator share (%)" name="creatorFeeShare" type="number" min="0" max="100" step="0.1" value={form.creatorFeeShare} onChange={update} error={errors.creatorFeeShare} /><Field label="Holder rewards share (%)" name="holderRewardShare" type="number" min="0" max="100" step="0.1" value={form.holderRewardShare} onChange={update} error={errors.holderRewardShare} /><Field label="Buyback & burn share (%)" name="buybackBurnShare" type="number" min="0" max="100" step="0.1" value={form.buybackBurnShare} onChange={update} error={errors.buybackBurnShare} /></div><FeeSplitSummary form={form} />{errors.feeShares && <p className="meta-launch-error" role="alert">{errors.feeShares}</p>}</section>
+      <section className="meta-launch-section"><div className="meta-launch-section-heading"><Timer size={17} /><div><h2>Opening protection</h2><p>Give the first seconds a transparent anti-sniper rule. It routes to holders, not a hidden wallet.</p></div></div><div className="meta-launch-fields two"><Field label="Opening buy tax (%)" name="antiSniperTax" type="number" min="0" max="100" step="1" value={form.antiSniperTax} onChange={update} error={errors.antiSniperTax} hint="Falls away after the window" /><Field label="Protection window (seconds)" name="antiSniperWindow" type="number" min="0" max="60" step="1" value={form.antiSniperWindow} onChange={update} error={errors.antiSniperWindow} /><Field label="Optional dev buy" name="devBuyAmount" type="number" min="0" step="any" value={form.devBuyAmount} onChange={update} error={errors.devBuyAmount} hint="SOL / quote asset" /></div></section>
+      <section className="meta-launch-section"><div className="meta-launch-section-heading"><Users size={17} /><div><h2>Community distribution</h2><p>Reserve supply for holders and list airdrop recipients before review.</p></div></div><div className="meta-launch-fields two"><Field label="Holder allocation (%)" name="holderAllocation" type="number" min="0" max="100" step="0.1" value={form.holderAllocation} onChange={update} error={errors.holderAllocation} /><Field label="Airdrop allocation (%)" name="airdropAmount" type="number" min="0" max="100" step="0.1" value={form.airdropAmount} onChange={update} error={errors.airdropAmount} /></div><label className="meta-launch-field"><span>Airdrop recipients<small>One wallet address per line</small></span><textarea name="airdropRecipients" rows="4" placeholder="Wallet address 1&#10;Wallet address 2" value={form.airdropRecipients} onChange={event => update('airdropRecipients', event.target.value)} />{errors.airdropRecipients && <small className="meta-launch-error">{errors.airdropRecipients}</small>}</label>{errors.allocations && <p className="meta-launch-error" role="alert">{errors.allocations}</p>}</section>
+      <aside className="meta-launch-sidebar"><div className="meta-launch-readiness"><span className="eyebrow">LAUNCH READINESS</span><StatusRow icon={wallet ? CheckCircle2 : Clock3} title={wallet ? 'Wallet connected' : 'Wallet approval after review'} detail={wallet ? `${wallet.name} · ${wallet.address.slice(0, 6)}…` : 'No wallet request is made while editing mechanics.'} ready={Boolean(wallet)} /><StatusRow icon={readiness.providerReady ? CheckCircle2 : LockKeyhole} title={readiness.providerReady ? readiness.providerName : 'Provider unavailable'} detail={readiness.providerReady ? `${readiness.network} · approved provider` : 'Approved provider URL and approval status are required.'} ready={readiness.providerReady} /><StatusRow icon={readiness.rpcReady ? CheckCircle2 : LockKeyhole} title={readiness.rpcReady ? 'Solana RPC configured' : 'Solana RPC unavailable'} detail={readiness.rpcReady ? `${readiness.network} · ${readiness.rpcHost}` : 'No on-chain confirmation or submission will be attempted.'} ready={readiness.rpcReady} /><p className="meta-launch-safety">FEELESS never stores private keys. The provider prepares unsigned phases; your wallet signs them only after review.</p></div><div className="meta-launch-sidebar-note"><ShieldCheck size={15} /><span><b>Permanent liquidity. Visible routing.</b><small>Creator rewards, holder rewards, and buyback-and-burn shares are declared before launch.</small></span></div><button className="btn-primary meta-launch-review" data-testid="meta-launch-review" type="submit">Review launch mechanics<ArrowRight size={16} /></button></aside>
     </form> : <section className="meta-launch-review-page" data-testid="meta-launch-review-page">
-      <div className="meta-launch-review-heading"><div><span className="eyebrow">CHECK BEFORE SIGNING</span><h2>{form.name} <span>${form.symbol}</span></h2><p>Your configuration is valid and ready for a final provider check.</p></div><button className="btn-outline" data-testid="meta-launch-edit" onClick={() => setStep('setup')}><ArrowLeft size={15} />Edit setup</button></div>
-      <div className="meta-launch-summary"><dl><div><dt>Total supply</dt><dd>{form.supply}</dd></div><div><dt>Decimals</dt><dd>{form.decimals}</dd></div><div><dt>Liquidity</dt><dd>{form.liquidityAmount} {form.liquidityPair}</dd></div><div><dt>Buy / sell tax</dt><dd>{form.buyTax}% / {form.sellTax}%</dd></div><div><dt>Holder allocation</dt><dd>{form.holderAllocation}%</dd></div><div><dt>Airdrop</dt><dd>{form.airdropAmount}% · {recipients.length} recipients</dd></div></dl></div>
-       <div className="meta-launch-review-actions"><div className={`meta-launch-deployment-note ${deployment.state === 'failed' ? 'failed' : deployment.state === 'confirmed' ? 'confirmed' : ''}`} data-testid="meta-launch-provider-warning">{deployment.state === 'failed' ? <AlertTriangle size={17} /> : deployment.state === 'confirmed' ? <CheckCircle2 size={17} /> : <ShieldCheck size={17} />}<span><b>{deployment.state === 'confirmed' ? 'Launch confirmed.' : deployment.state === 'failed' ? 'Launch could not be completed.' : deployment.resumeReady ? 'Continue remaining launch phases.' : deployment.state === 'pending' ? 'Launch confirmation is pending.' : readiness.ready ? 'Ready for wallet approval.' : 'Deployment is not available yet.'}</b><small>{deployment.detail || (readiness.ready ? 'Your wallet will review each transaction after you continue.' : unavailableReason)}</small></span></div>{pendingStep && <button className="btn-outline" data-testid="meta-launch-recheck" type="button" disabled={checkingSignature} onClick={recheckPendingSignature}>{checkingSignature ? <><LoaderCircle size={16} className="meta-launch-spinner" />Checking…</> : 'Check pending signature'}</button>}<button className="btn-primary" data-testid="meta-launch-deploy" type="button" disabled={!deploymentReady} title={deployment.resumeReady ? 'Continue the remaining launch phases' : readiness.ready ? 'Request wallet approval and deploy' : unavailableReason} onClick={deploy}>{deploying ? <><LoaderCircle size={16} className="meta-launch-spinner" />Deploying…</> : deployment.state === 'confirmed' ? 'Launch confirmed' : deployment.resumeReady ? 'Continue launch' : 'Approve & deploy'}</button></div>
-       {deployment.state === 'confirmed' && deployment.mint && <div className="meta-launch-mint-receipt" data-testid="meta-launch-mint-receipt"><span><b>Created mint</b><small>{deployment.mint}</small></span><a className="meta-launch-explorer-link" data-testid="meta-launch-mint-explorer" href={getSolanaExplorerUrl(deployment.mint, 'address')} target="_blank" rel="noreferrer">View mint on Solana Explorer <ArrowRight size={13} /></a></div>}
-       {(deployment.state !== 'idle' || deploying) && <div className="meta-launch-deployment-status" data-testid="meta-launch-deployment-status"><h3>Deployment status</h3>{META_LAUNCH_STEPS.map(stepItem => <StepStatus key={stepItem.id} step={stepItem} status={deployment.statuses[stepItem.id]} />)}</div>}
+      <div className="meta-launch-review-heading"><div><span className="eyebrow">CHECK BEFORE SIGNING</span><h2>{form.name} <span>${form.symbol}</span></h2><p>Your launch mechanics are valid. Review the curve, routing, protection, and community allocations before any provider request.</p></div><button className="btn-outline" data-testid="meta-launch-edit" onClick={() => setStep('setup')}><ArrowLeft size={15} />Edit mechanics</button></div>
+      <div className="meta-launch-review-cards"><div><span>Opening market cap</span><b>${form.openingMarketCap}k</b><small>{form.curveType} curve</small></div><div><span>Graduation target</span><b>{form.graduationTarget} {form.liquidityPair}</b><small>{form.migrationVenue === 'raydium-cpmm' ? 'Raydium CPMM' : 'Raydium CLMM'} · permanent lock</small></div><div><span>Fee routing</span><b>{form.swapFee}% swap fee</b><small>{form.creatorFeeShare}% creator · {form.holderRewardShare}% holders · {form.buybackBurnShare}% buyback & burn</small></div><div><span>Opening protection</span><b>{form.antiSniperTax}% → 0%</b><small>After {form.antiSniperWindow}s · optional dev buy {form.devBuyAmount} {form.liquidityPair}</small></div></div>
+      <div className="meta-launch-summary"><dl><div><dt>Total supply</dt><dd>{form.supply}</dd></div><div><dt>Quote asset</dt><dd>{form.liquidityPair}</dd></div><div><dt>Holder allocation</dt><dd>{form.holderAllocation}%</dd></div><div><dt>Airdrop</dt><dd>{form.airdropAmount}% · {recipients.length} recipients</dd></div></dl></div>
+      <div className={`meta-launch-review-actions ${deployment.state === 'failed' ? 'has-failure' : ''}`}><div className={`meta-launch-deployment-note ${deployment.state === 'failed' ? 'failed' : deployment.state === 'confirmed' ? 'confirmed' : ''}`} data-testid="meta-launch-provider-warning">{deployment.state === 'failed' ? <AlertTriangle size={17} /> : deployment.state === 'confirmed' ? <CheckCircle2 size={17} /> : <ShieldCheck size={17} />}<span><b>{deployment.state === 'confirmed' ? 'Launch confirmed.' : deployment.state === 'failed' ? 'Launch could not be completed.' : deployment.resumeReady ? 'Continue remaining launch phases.' : deployment.state === 'pending' ? 'Launch confirmation is pending.' : readiness.ready ? 'Ready for wallet approval.' : 'Deployment is not available yet.'}</b><small>{deployment.detail || (readiness.ready ? 'Your wallet will review each phase after you continue.' : unavailableReason)}</small></span></div>{pendingStep && <button className="btn-outline" data-testid="meta-launch-recheck" type="button" disabled={checkingSignature} onClick={recheckPendingSignature}>{checkingSignature ? <><LoaderCircle size={16} className="meta-launch-spinner" />Checking…</> : 'Check pending signature'}</button>}<button className="btn-primary" data-testid="meta-launch-deploy" type="button" disabled={!deploymentReady} title={deployment.resumeReady ? 'Continue the remaining launch phases' : readiness.ready ? 'Request wallet approval and deploy' : unavailableReason} onClick={deploy}>{deploying ? <><LoaderCircle size={16} className="meta-launch-spinner" />Deploying…</> : deployment.state === 'confirmed' ? 'Launch confirmed' : deployment.resumeReady ? 'Continue launch' : 'Approve & deploy'}</button></div>
+      {deployment.state === 'confirmed' && deployment.mint && <div className="meta-launch-mint-receipt" data-testid="meta-launch-mint-receipt"><span><b>Created mint</b><small>{deployment.mint}</small></span><a className="meta-launch-explorer-link" data-testid="meta-launch-mint-explorer" href={getSolanaExplorerUrl(deployment.mint, 'address')} target="_blank" rel="noreferrer">View mint on Solana Explorer <ArrowRight size={13} /></a></div>}
+      {(deployment.state !== 'idle' || deploying) && <div className="meta-launch-deployment-status" data-testid="meta-launch-deployment-status"><h3>Deployment phases</h3>{META_LAUNCH_STEPS.map(stepItem => <StepStatus key={stepItem.id} step={stepItem} status={deployment.statuses[stepItem.id]} />)}</div>}
     </section>}
   </div>;
 }

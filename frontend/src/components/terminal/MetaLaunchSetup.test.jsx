@@ -26,7 +26,7 @@ const validForm = {
   ...DEFAULT_META_LAUNCH_FORM,
   name: 'Meta Coin',
   symbol: 'META',
-  liquidityAmount: '1',
+  graduationTarget: '1',
   holderAllocation: '10',
   airdropAmount: '5',
   airdropRecipients: 'wallet-one',
@@ -40,10 +40,11 @@ test('keeps FEELESS as a distinct native launchpad entry', () => {
 });
 
 test('rejects invalid launch allocations and missing liquidity', () => {
-  const errors = validateMetaLaunch({ ...DEFAULT_META_LAUNCH_FORM, symbol: 'M', holderAllocation: '70', airdropAmount: '40' });
+  const errors = validateMetaLaunch({ ...DEFAULT_META_LAUNCH_FORM, symbol: 'M', liquidityPair: '', holderAllocation: '70', airdropAmount: '40', creatorFeeShare: '20', holderRewardShare: '20', buybackBurnShare: '20' });
   expect(errors.name).toBeTruthy();
   expect(errors.symbol).toBeTruthy();
-  expect(errors.liquidityAmount).toBeTruthy();
+  expect(errors.liquidityPair).toBeTruthy();
+  expect(errors.feeShares).toBeTruthy();
   expect(errors.allocations).toBeTruthy();
 });
 
