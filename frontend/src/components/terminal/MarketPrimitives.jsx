@@ -33,8 +33,8 @@ export const DataStatus = ({ data, id = 'data-status' }) => <span data-testid={i
   <i />{data ? `${data.stale ? 'STALE' : 'LIVE'} · ${formatTime(data.fetched_at)}` : 'CONNECTING'}
 </span>;
 
-export const MarketError = ({ error, reload, id = 'market-error', focusable = false, retryLabel = 'Retry' }) => <div className="market-error" role="alert" tabIndex={focusable ? 0 : undefined} data-testid={id}>
-  <AlertTriangle size={17} /><span>{error}</span>{reload && <button data-testid={`${id}-retry`} onClick={() => reload()} aria-label={retryLabel} title={retryLabel}><RefreshCw size={15} /></button>}
+export const MarketError = ({ error, reload, id = 'market-error', focusable = false, retryLabel = 'Retry', description }) => <div className="market-error" role="alert" tabIndex={focusable ? 0 : undefined} data-testid={id}>
+  <AlertTriangle size={17} /><span className="market-error-copy"><span>{error}</span>{description && <small data-testid={`${id}-description`}>{description}</small>}</span>{reload && <button type="button" data-testid={`${id}-retry`} onClick={() => reload()} aria-label={retryLabel} title={retryLabel}><RefreshCw size={15} /></button>}
 </div>;
 
 export const Metric = ({ label, value, id }) => <div className="metric"><small>{label}</small><strong data-testid={id} className="mono">{formatUSD(value)}</strong></div>;

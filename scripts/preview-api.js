@@ -155,18 +155,28 @@ async function geckoAsset(mint) {
   const tokenUrl = `${GECKO_API}/networks/solana/tokens/${encodeURIComponent(mint)}`;
   const poolsUrl = `${GECKO_API}/networks/solana/tokens/${encodeURIComponent(mint)}/pools?page=1`;
   let token = null;
+  let pools = null;
   try { token = (await getJson(tokenUrl, 60000))?.data || null; } catch {}
+  try { pools = (await getJson(poolsUrl, 60000))?.data || []; } catch {}
+
   const tokenAttrs = token?.attributes || {};
-  const tokenPoolId = token?.relationships?.top_pools?.data?.[0]?.id || '';
-  const tokenPoolAddress = tokenPoolId.split('_').slice(1).join('_');
-  if (tokenPoolAddress && tokenAttrs.price_usd) {
+  const pool = (Array.isArray(pools) ? pools : [])
+    .filter(item => {
+      const address = item?.relationships?.base_token?.data?.id?.split('_').slice(1).join('_');
+      return address === mint;
+    })
+    .sort((a, b) => Number(b?.attributes?.reserve_in_usd || 0) - Number(a?.attributes?.reserve_in_usd || 0))[0];
+  if (!pool) {
+    const poolId = token?.relationships?.top_pools?.data?.[0]?.id || '';
+    const poolAddress = poolId.split('_').slice(1).join('_');
+    if (!poolAddress || !tokenAttrs.price_usd) return { pair: null, imageUrl: tokenAttrs.image_url || null };
     return {
       pair: {
         chainId: 'solana',
         network: 'solana',
-        pairAddress: tokenPoolAddress,
+        pairAddress: poolAddress,
         dexId: 'unknown',
-        url: `${DEX_SITE}/solana/${tokenPoolAddress}`,
+        url: `${DEX_SITE}/solana/${poolAddress}`,
         baseToken: { address: mint, name: tokenAttrs.name || 'Unknown', symbol: tokenAttrs.symbol || '?' },
         quoteToken: { symbol: 'SOL' },
         priceUsd: tokenAttrs.price_usd,
@@ -180,18 +190,6 @@ async function geckoAsset(mint) {
       },
       imageUrl: tokenAttrs.image_url || null,
     };
-  }
-
-  let pools = null;
-  try { pools = (await getJson(poolsUrl, 60000))?.data || []; } catch {}
-  const pool = (Array.isArray(pools) ? pools : [])
-    .filter(item => {
-      const address = item?.relationships?.base_token?.data?.id?.split('_').slice(1).join('_');
-      return address === mint;
-    })
-    .sort((a, b) => Number(b?.attributes?.reserve_in_usd || 0) - Number(a?.attributes?.reserve_in_usd || 0))[0];
-  if (!pool) {
-    return { pair: null, imageUrl: tokenAttrs.image_url || null };
   }
 
   const pair = pairFromGecko(pool);
