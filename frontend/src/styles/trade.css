@@ -3,10 +3,12 @@
 .swap-desk {
   gap: 18px;
   margin: 22px 0 30px;
+  --swap-readable-scale: 1;
 }
 
 .swap-order,
 .route-intelligence {
+  min-width: 0;
   border: 1px solid #2f6948;
   background:
     linear-gradient(145deg, #0d2416 0%, #09170f 52%, #0b1d12 100%);
@@ -105,10 +107,14 @@
 }
 
 .swap-pair-heading {
+  min-width: 0;
   padding: 22px 20px 14px;
 }
 
 .swap-pair-heading > b {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   color: #ebfff0;
   font-size: 22px;
   letter-spacing: -.2px;
@@ -119,6 +125,9 @@
 }
 
 .swap-pair-heading > small {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   color: #82ad90;
   font-size: 11px;
 }
@@ -133,6 +142,8 @@
 }
 
 .swap-amount-label input {
+  box-sizing: border-box;
+  min-width: 0;
   margin: 14px 0 7px;
   color: #f0fff3;
   font-size: 30px;
@@ -171,8 +182,11 @@
 }
 
 .swap-output > strong {
+  min-width: 0;
   color: #d7f6df;
   font-size: 24px;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
 }
 
 .swap-output > span {
@@ -185,9 +199,13 @@
 }
 
 .swap-buttons button {
+  width: 100%;
+  min-width: 0;
   min-height: 44px;
   border-radius: 5px;
   font-size: 12px;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .swap-safety {
@@ -219,14 +237,23 @@
   gap: 22px 16px;
 }
 
+.route-metrics > div,
+.route-steps > div,
+.quoted-fees > span {
+  min-width: 0;
+}
+
 .route-metrics small {
   color: #82ad90;
   font-size: 8px;
 }
 
 .route-metrics b {
+  display: block;
+  max-width: 100%;
   color: #d2f1da;
   font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .route-steps {
@@ -238,6 +265,8 @@
 }
 
 .route-steps b {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: #c4e7cd;
   font-size: 12px;
 }
@@ -251,11 +280,14 @@
 }
 
 .quoted-fees > span {
+  min-width: 0;
   color: #8db89a;
   font-size: 10px;
+  overflow-wrap: anywhere;
 }
 
 .quoted-fees > span b {
+  overflow-wrap: anywhere;
   color: #d1eed9;
 }
 
@@ -315,14 +347,65 @@
 }
 
 @media (max-width: 500px) {
+  .swap-order .command-section-title,
+  .route-intelligence .command-section-title {
+    align-items: flex-start;
+  }
+
+  .swap-order .command-section-title > small,
+  .route-intelligence .command-section-title > small {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    text-align: right;
+  }
+
   .swap-asset-grid {
     grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr);
     gap: 6px;
     padding: 15px;
   }
 
+  .swap-asset-grid select {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .swap-reverse-button {
     width: 32px;
     height: 32px;
+  }
+
+  .swap-pair-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .swap-amount-label input {
+    font-size: calc(30px * var(--swap-readable-scale));
+  }
+
+  .swap-output > strong {
+    font-size: calc(24px * var(--swap-readable-scale));
+  }
+
+  .route-metrics {
+    gap: 18px 12px;
+    padding-inline: 15px;
+  }
+
+  .route-steps b {
+    flex: 1 1 auto;
+  }
+
+  .quoted-fees > span {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+
+  .quoted-fees > span b {
+    text-align: right;
   }
 }

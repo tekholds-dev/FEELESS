@@ -155,6 +155,18 @@ function tradeRule(selector) {
   return null;
 }
 
+function narrowTradeRule(selector) {
+  for (const sheet of document.styleSheets) {
+    for (const rule of sheet.cssRules || []) {
+      if (!rule.cssText?.startsWith('@media (max-width: 500px)')) continue;
+      for (const nestedRule of rule.cssRules || []) {
+        if (nestedRule.selectorText?.split(',').some(candidate => candidate.trim() === selector)) return nestedRule;
+      }
+    }
+  }
+  return null;
+}
+
 function mount() {
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -228,4 +240,34 @@ test('updates the trade readout for every text size and restores the choice afte
   expect(reloaded.container.querySelector('.terminal-app').classList.contains('text-scale-xlarge')).toBe(true);
   expect(reloaded.container.querySelector('[data-testid="swap-amount"]').closest('.text-scale-xlarge')).not.toBeNull();
   act(() => reloaded.root.unmount());
+});
+
+test('keeps trade readouts and controls bounded at a narrow preview width for every text size', () => {
+  installTradeStyles();
+  Object.defineProperty(window, 'innerWidth', { configurable: true, value: 375 });
+  const { container, root } = mount();
+
+  ['normal', 'large', 'xlarge'].forEach(value => {
+    selectTextSize(container, value);
+    mockPage = 'trade';
+    renderCurrentPage(root);
+
+    const app = container.querySelector('.terminal-app');
+    expect(app.classList.contains(`text-scale-${value}`)).toBe(true);
+    expect(container.querySelector('[data-testid="swap-workspace"]')).not.toBeNull();
+    expect(container.querySelector('.swap-order').classList.contains('swap-order')).toBe(true);
+    expect(container.querySelector('.route-intelligence').classList.contains('route-intelligence')).toBe(true);
+
+    mockPage = 'settings';
+    renderCurrentPage(root);
+  });
+
+  expect(narrowTradeRule('.swap-amount-label input').style.getPropertyValue('font-size'))
+    .toBe('calc(30px * var(--swap-readable-scale))');
+  expect(narrowTradeRule('.swap-output > strong').style.getPropertyValue('font-size'))
+    .toBe('calc(24px * var(--swap-readable-scale))');
+  expect(narrowTradeRule('.swap-pair-heading').style.getPropertyValue('flex-direction')).toBe('column');
+  expect(tradeRule('.swap-buttons button').style.getPropertyValue('width')).toBe('100%');
+
+  act(() => root.unmount());
 });
