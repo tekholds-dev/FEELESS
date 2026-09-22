@@ -5,6 +5,7 @@ import EcosystemChat from '../EcosystemChat';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { AlphaTape } from '../command/WorkspaceChrome';
 import { TokenAvatar, Change } from './MarketPrimitives';
+import { TokenFocus } from './TokenFocus';
 import { formatUSD, pairKey } from '../../lib/dexscreener';
 
 export const ChatRoom = ({ large = false }) => {

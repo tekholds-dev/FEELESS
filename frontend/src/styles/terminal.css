@@ -84,6 +84,11 @@ body.theme-day .globe-page .landing-copy h1,body.theme-day .globe-page .landing-
 .meta-launch-section-heading p{color:#769480;font-size:10px;line-height:1.5}
 .meta-launch-fields{display:grid;gap:13px}
 .meta-launch-fields.two{grid-template-columns:1fr 1fr}
+.meta-launch-image-row{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:13px;align-items:end;margin-top:13px}
+.meta-launch-image-preview{width:110px;height:110px;border:1px dashed #31543d;border-radius:6px;background:#07130c;color:#6f927c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;overflow:hidden;font-size:9px;text-align:center}
+.meta-launch-image-preview img{width:100%;height:100%;object-fit:cover}
+.meta-launch-review-identity{display:flex;align-items:center;gap:13px}
+.meta-launch-review-identity>img{width:58px;height:58px;object-fit:cover;border-radius:8px;border:1px solid #376246;background:#07130c}
 .meta-launch-field{display:flex;flex-direction:column;gap:7px;color:#91b09c;font-size:10px}
 .meta-launch-field input,.meta-launch-field select,.meta-launch-field textarea{width:100%;border:1px solid #2a4a36;border-radius:4px;background:#07130c;color:#e0efe5;padding:10px;font-size:12px;outline:none}
 .meta-launch-field textarea{resize:vertical;line-height:1.5}
