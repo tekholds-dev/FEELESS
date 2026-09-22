@@ -117,6 +117,48 @@ test('shows an ecosystem-specific, keyboard-reachable error without an empty sta
   act(() => root.unmount());
 });
 
+test('recovers one feed after retry without disrupting the other feed', () => {
+  const topPath = '/feed?kind=trending&chain=ethereum';
+  const newPath = '/feed?kind=new&chain=ethereum';
+  const recoveredTopPair = { pairAddress: 'recovered-top', baseToken: { symbol: 'TOP' } };
+  const newPair = { pairAddress: 'available-new', baseToken: { symbol: 'NEW' } };
+  const topReload = jest.fn(() => {
+    marketResults[topPath] = { data: undefined, loading: true, reload: topReload };
+  });
+
+  const { container, root } = renderFeeds(ecosystem, {
+    top: { data: undefined, loading: false, error: 'Provider unavailable', reload: topReload },
+    new: { data: { pairs: [newPair] }, loading: false },
+  });
+
+  const retry = container.querySelector('[data-testid="globe-coins-trending-error-retry"]');
+  expect(retry.tagName).toBe('BUTTON');
+  expect(retry.getAttribute('aria-label')).toBe('Retry top coins for Ethereum');
+  act(() => retry.focus());
+  expect(document.activeElement).toBe(retry);
+  expect(container.querySelector('[data-testid="token-card"]').textContent).toBe('NEW');
+
+  act(() => retry.click());
+  act(() => root.render(<TopCoins ecosystem={ecosystem} />));
+
+  expect(topReload).toHaveBeenCalledTimes(1);
+  expect(container.querySelector('[data-testid="globe-coins-trending-error"]')).toBeNull();
+  expect(container.querySelector('[data-testid="globe-coins-trending-loading"]').textContent)
+    .toBe('Loading top coins for Ethereum…');
+  expect(container.querySelector('[data-testid="globe-coins-new-error"]')).toBeNull();
+  expect(container.querySelector('[data-testid="token-card"]').textContent).toBe('NEW');
+
+  marketResults[topPath] = { data: { pairs: [recoveredTopPair] }, loading: false, reload: topReload };
+  act(() => root.render(<TopCoins ecosystem={ecosystem} />));
+
+  expect(container.querySelector('[data-testid="globe-coins-trending-error"]')).toBeNull();
+  expect(container.querySelector('[data-testid="globe-coins-trending-loading"]')).toBeNull();
+  expect([...container.querySelectorAll('[data-testid="token-card"]')].map(card => card.textContent))
+    .toEqual(['TOP', 'NEW']);
+  expect(container.querySelector('[data-testid="globe-coins-new-error"]')).toBeNull();
+  act(() => root.unmount());
+});
+
 selectableEcosystems.forEach(selectedEcosystem => {
   test(`names ${selectedEcosystem.name} in error states and keeps them focusable`, () => {
     const reload = jest.fn();
