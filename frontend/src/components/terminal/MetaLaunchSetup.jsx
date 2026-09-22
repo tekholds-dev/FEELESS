@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Clock3, LoaderCircle, LockKeyhole, Rocket, ShieldCheck, WalletCards, XCircle } from 'lucide-react';
 import { useWallet } from '../../hooks/useWallet';
-import { executeMetaLaunchPlan, getLaunchProviderReadiness, META_LAUNCH_STEPS, requestMetaLaunchPlan } from '../../lib/launchpads';
+import { executeMetaLaunchPlan, getLaunchMint, getLaunchProviderReadiness, getSolanaExplorerUrl, META_LAUNCH_STEPS, requestMetaLaunchPlan } from '../../lib/launchpads';
 
 export const DEFAULT_META_LAUNCH_FORM = {
   name: '',
@@ -45,14 +45,17 @@ function StatusRow({ icon: Icon, title, detail, ready = false }) {
   return <div className={`meta-launch-status ${ready ? 'ready' : ''}`}><Icon size={16} /><span><b>{title}</b><small>{detail}</small></span></div>;
 }
 
-function StepStatus({ step, status }) {
+export function StepStatus({ step, status }) {
   const Icon = status?.state === 'confirmed' ? CheckCircle2
     : status?.state === 'failed' ? XCircle
       : status?.state === 'pending' ? LoaderCircle
         : Clock3;
+  const explorerUrl = status?.state === 'confirmed' && status.signature
+    ? status.explorerUrl || getSolanaExplorerUrl(status.signature)
+    : null;
   return <div className={`meta-launch-step-status ${status?.state || 'queued'}`} data-testid={`meta-launch-step-${step.id}`}>
     <Icon size={15} className={status?.state === 'pending' ? 'meta-launch-spinner' : ''} />
-    <span><b>{step.label}</b><small>{status?.state === 'confirmed' ? `Confirmed · ${status.signature?.slice(0, 10)}…` : status?.detail || (status?.state === 'pending' ? 'Awaiting network confirmation.' : 'Waiting to submit.')}</small></span>
+    <span><b>{step.label}</b><small>{status?.state === 'confirmed' ? <>Confirmed · {status.signature?.slice(0, 10)}… {explorerUrl && <a className="meta-launch-explorer-link" data-testid={`meta-launch-step-explorer-${step.id}`} href={explorerUrl} target="_blank" rel="noreferrer">View on Solana Explorer</a>}</> : status?.detail || (status?.state === 'pending' ? 'Awaiting network confirmation.' : 'Waiting to submit.')}</small></span>
   </div>;
 }
 
@@ -99,7 +102,7 @@ export default function MetaLaunchSetup({ initialValues }) {
         wallet: activeWallet,
         onStep: (id, status) => setDeployment(current => ({ ...current, statuses: { ...current.statuses, [id]: status } })),
       });
-      setDeployment(current => ({ ...current, state: result.state, detail: result.detail }));
+      setDeployment(current => ({ ...current, state: result.state, detail: result.detail, mint: result.mint || getLaunchMint(plan) }));
     } catch (error) {
       setDeployment({ state: 'failed', statuses: {}, detail: error?.code === 4001 ? 'Wallet approval declined.' : error?.message || 'Deployment failed.' });
     } finally {
@@ -120,6 +123,7 @@ export default function MetaLaunchSetup({ initialValues }) {
       <div className="meta-launch-review-heading"><div><span className="eyebrow">CHECK BEFORE SIGNING</span><h2>{form.name} <span>${form.symbol}</span></h2><p>Your configuration is valid and ready for a final provider check.</p></div><button className="btn-outline" data-testid="meta-launch-edit" onClick={() => setStep('setup')}><ArrowLeft size={15} />Edit setup</button></div>
       <div className="meta-launch-summary"><dl><div><dt>Total supply</dt><dd>{form.supply}</dd></div><div><dt>Decimals</dt><dd>{form.decimals}</dd></div><div><dt>Liquidity</dt><dd>{form.liquidityAmount} {form.liquidityPair}</dd></div><div><dt>Buy / sell tax</dt><dd>{form.buyTax}% / {form.sellTax}%</dd></div><div><dt>Holder allocation</dt><dd>{form.holderAllocation}%</dd></div><div><dt>Airdrop</dt><dd>{form.airdropAmount}% · {recipients.length} recipients</dd></div></dl></div>
        <div className="meta-launch-review-actions"><div className={`meta-launch-deployment-note ${deployment.state === 'failed' ? 'failed' : deployment.state === 'confirmed' ? 'confirmed' : ''}`} data-testid="meta-launch-provider-warning">{deployment.state === 'failed' ? <AlertTriangle size={17} /> : deployment.state === 'confirmed' ? <CheckCircle2 size={17} /> : <ShieldCheck size={17} />}<span><b>{deployment.state === 'confirmed' ? 'Launch confirmed.' : deployment.state === 'failed' ? 'Launch could not be completed.' : readiness.ready ? 'Ready for wallet approval.' : 'Deployment is not available yet.'}</b><small>{deployment.detail || (readiness.ready ? 'Your wallet will review each transaction after you continue.' : unavailableReason)}</small></span></div><button className="btn-primary" data-testid="meta-launch-deploy" type="button" disabled={!deploymentReady} title={readiness.ready ? 'Request wallet approval and deploy' : unavailableReason} onClick={deploy}>{deploying ? <><LoaderCircle size={16} className="meta-launch-spinner" />Deploying…</> : deployment.state === 'confirmed' ? 'Launch confirmed' : 'Approve & deploy'}</button></div>
+       {deployment.state === 'confirmed' && deployment.mint && <div className="meta-launch-mint-receipt" data-testid="meta-launch-mint-receipt"><span><b>Created mint</b><small>{deployment.mint}</small></span><a className="meta-launch-explorer-link" data-testid="meta-launch-mint-explorer" href={getSolanaExplorerUrl(deployment.mint, 'address')} target="_blank" rel="noreferrer">View mint on Solana Explorer <ArrowRight size={13} /></a></div>}
        {(deployment.state !== 'idle' || deploying) && <div className="meta-launch-deployment-status" data-testid="meta-launch-deployment-status"><h3>Deployment status</h3>{META_LAUNCH_STEPS.map(stepItem => <StepStatus key={stepItem.id} step={stepItem} status={deployment.statuses[stepItem.id]} />)}</div>}
     </section>}
   </div>;

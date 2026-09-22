@@ -1,4 +1,4 @@
-import { getLaunchProviderReadiness, requestMetaLaunchPlan } from './launchpads';
+import { getLaunchMint, getLaunchProviderReadiness, getSolanaExplorerUrl, requestMetaLaunchPlan } from './launchpads';
 
 const originalEnv = { ...process.env };
 
@@ -16,6 +16,14 @@ test('does not report a launch provider as ready without explicit approval and R
     providerReady: false,
     rpcReady: false,
   });
+});
+
+test('builds explorer links for confirmed transactions and created mints', () => {
+  expect(getSolanaExplorerUrl('signature-value', 'tx', 'Solana devnet')).toBe('https://explorer.solana.com/tx/signature-value?cluster=devnet');
+  expect(getSolanaExplorerUrl('mint-value', 'address', 'Solana mainnet-beta')).toBe('https://explorer.solana.com/address/mint-value?cluster=mainnet-beta');
+  expect(getSolanaExplorerUrl('', 'tx')).toBeNull();
+  expect(getLaunchMint({ createdMint: 'mint-value' })).toBe('mint-value');
+  expect(getLaunchMint({ launch: { mint: 'nested-mint' } })).toBe('nested-mint');
 });
 
 test('prepares an unsigned five-step plan without accepting private key material', async () => {

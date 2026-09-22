@@ -59,6 +59,29 @@ function normalizeStepId(value) {
   return STEP_ALIASES[value] || value;
 }
 
+function explorerCluster(network) {
+  const normalized = String(network || '').toLowerCase();
+  if (normalized.includes('devnet')) return 'devnet';
+  if (normalized.includes('testnet')) return 'testnet';
+  if (normalized.includes('localnet')) return 'custom';
+  return 'mainnet-beta';
+}
+
+export function getSolanaExplorerUrl(value, type = 'tx', network = getLaunchProviderConfig().network) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  return `https://explorer.solana.com/${type}/${encodeURIComponent(value.trim())}?cluster=${explorerCluster(network)}`;
+}
+
+export function getLaunchMint(plan) {
+  return plan?.mint
+    || plan?.createdMint
+    || plan?.tokenMint
+    || plan?.launch?.mint
+    || plan?.token?.mint
+    || plan?.result?.mint
+    || null;
+}
+
 function decodeTransaction(value) {
   if (typeof value !== 'string' || !value) throw new Error('Provider returned an empty transaction.');
   const bytes = Uint8Array.from(atob(value), character => character.charCodeAt(0));
@@ -114,7 +137,8 @@ export async function executeMetaLaunchPlan(plan, { provider, wallet, onStep }) 
   }
 
   const { Connection, VersionedTransaction, Transaction } = await import('@solana/web3.js');
-  const connection = new Connection(getLaunchProviderConfig().rpcUrl, 'confirmed');
+  const config = getLaunchProviderConfig();
+  const connection = new Connection(config.rpcUrl, 'confirmed');
   const transactions = plan.transactions.map((item, index) => ({
     ...item,
     id: normalizeStepId(item.id || item.type || META_LAUNCH_STEPS[index]?.id || `transaction-${index + 1}`),
@@ -150,7 +174,13 @@ export async function executeMetaLaunchPlan(plan, { provider, wallet, onStep }) 
         onStep?.(item.id, result);
         return { state: 'pending', results, detail: result.detail };
       }
-      const result = { id: item.id, label: item.label, state: 'confirmed', signature };
+      const result = {
+        id: item.id,
+        label: item.label,
+        state: 'confirmed',
+        signature,
+        explorerUrl: getSolanaExplorerUrl(signature, 'tx', config.network),
+      };
       results.push(result);
       onStep?.(item.id, result);
     } catch (error) {
@@ -161,7 +191,7 @@ export async function executeMetaLaunchPlan(plan, { provider, wallet, onStep }) 
       return { state: result.state, results, detail: message };
     }
   }
-  return { state: 'confirmed', results };
+  return { state: 'confirmed', results, mint: getLaunchMint(plan) };
 }
 
 export const launchpadEcosystem = pad => ({ ...pad, isLaunchpad: true, website: pad.url,

@@ -1,8 +1,8 @@
 import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import MetaLaunchSetup, { DEFAULT_META_LAUNCH_FORM, validateMetaLaunch } from './MetaLaunchSetup';
-import { LAUNCHPADS } from '../../lib/launchpads';
+import MetaLaunchSetup, { DEFAULT_META_LAUNCH_FORM, StepStatus, validateMetaLaunch } from './MetaLaunchSetup';
+import { LAUNCHPADS, META_LAUNCH_STEPS } from '../../lib/launchpads';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -55,4 +55,19 @@ test('moves a valid setup to review and keeps deployment unavailable safely', ()
   expect(container.querySelector('[data-testid="meta-launch-review-page"]')).toBeTruthy();
   expect(container.querySelector('[data-testid="meta-launch-provider-warning"]')).toBeTruthy();
   expect(container.querySelector('[data-testid="meta-launch-deploy"]').disabled).toBe(true);
+});
+
+test('shows explorer links only for confirmed launch steps', () => {
+  const { container, root } = mount(
+    <div>
+      <StepStatus step={META_LAUNCH_STEPS[0]} status={{ state: 'confirmed', signature: 'confirmed-signature' }} />
+      <StepStatus step={META_LAUNCH_STEPS[1]} status={{ state: 'pending', signature: 'pending-signature' }} />
+      <StepStatus step={META_LAUNCH_STEPS[2]} status={{ state: 'failed', signature: 'failed-signature', detail: 'Fee policy failed.' }} />
+    </div>,
+  );
+
+  expect(container.querySelector('[data-testid="meta-launch-step-explorer-token"]')).toBeTruthy();
+  expect(container.querySelector('[data-testid="meta-launch-step-explorer-liquidity"]')).toBeNull();
+  expect(container.querySelector('[data-testid="meta-launch-step-explorer-fee"]')).toBeNull();
+  act(() => root.unmount());
 });
