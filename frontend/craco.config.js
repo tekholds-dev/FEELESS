@@ -166,7 +166,11 @@ webpackConfig.devServer = (devServerConfig) => {
 if (isDevServer) {
   try {
     const { withVisualEdits } = require("@emergentbase/visual-edits/craco");
-    webpackConfig = withVisualEdits(webpackConfig);
+    webpackConfig = withVisualEdits(webpackConfig, {
+      // The app already compiles Tailwind through PostCSS; avoid loading the
+      // development CDN in the proxied preview iframe.
+      tailwindCdn: false,
+    });
   } catch (err) {
     if (err.code === 'MODULE_NOT_FOUND' && err.message.includes('@emergentbase/visual-edits/craco')) {
       console.warn(
