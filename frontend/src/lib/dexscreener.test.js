@@ -1,4 +1,4 @@
-import { coinIdentity, coinRoom, isNewPoolDeal, MARKET_RETENTION_DAYS, NEW_POOL_DEAL_PERCENT } from './dexscreener';
+import { coinIdentity, coinRoom, isExactPair, isNewPoolDeal, isSupportedPairChain, MARKET_RETENTION_DAYS, NEW_POOL_DEAL_PERCENT, normalizeRoomPerspective } from './dexscreener';
 
 const NOW = 1_700_000_000_000;
 const DAY = 24 * 60 * 60 * 1000;
@@ -30,4 +30,15 @@ test('builds isolated rooms from the exact chain and pair identity', () => {
   expect(coinRoom(solana, 'bulls')).toBe('coin-solana-shared-name-bulls');
   expect(coinRoom(ethereum, 'bulls')).not.toBe(coinRoom(solana, 'bulls'));
   expect(coinRoom({ chainId: 'solana' }, 'bulls')).toBeNull();
+});
+
+test('accepts only supported exact pair links and known room perspectives', () => {
+  const pair = { chainId: 'ethereum', pairAddress: 'pool1' };
+
+  expect(isSupportedPairChain('ethereum')).toBe(true);
+  expect(isSupportedPairChain('unknown')).toBe(false);
+  expect(isExactPair(pair, 'ethereum', 'pool1')).toBe(true);
+  expect(isExactPair(pair, 'solana', 'pool1')).toBe(false);
+  expect(normalizeRoomPerspective('bears')).toBe('bears');
+  expect(normalizeRoomPerspective('general')).toBeNull();
 });

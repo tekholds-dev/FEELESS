@@ -6,6 +6,8 @@ import path from 'path';
 import Terminal from './Terminal';
 
 let mockPage = 'settings';
+let mockSearch = new URLSearchParams();
+let mockPairResult = { data: { pairs: [] }, loading: false, refreshing: false, error: undefined, reload: jest.fn() };
 
 jest.mock('@solana/web3.js', () => ({
   VersionedTransaction: { deserialize: jest.fn() },
@@ -17,7 +19,7 @@ jest.mock('react-router-dom', () => {
     Link: ({ children, ...props }) => mockReact.createElement('a', props, children),
     useNavigate: () => jest.fn(),
     useParams: () => ({ '*': mockPage }),
-    useSearchParams: () => [new URLSearchParams(), jest.fn()],
+    useSearchParams: () => [mockSearch, jest.fn()],
   };
 }, { virtual: true });
 
@@ -50,6 +52,7 @@ jest.mock('../hooks/useMarket', () => ({
     if (path === '/api/trading/status') {
       return { data: { configured: false }, loading: false };
     }
+    if (path === '/pair/ethereum/pool1') return mockPairResult;
     return { data: { pairs: [] }, loading: false, refreshing: false, error: undefined, reload: jest.fn() };
   },
   useWatchlist: () => ({ watchlist: [], toggle: jest.fn(), has: jest.fn(() => false) }),
@@ -68,12 +71,16 @@ jest.mock('../components/terminal/TerminalShell', () => {
 
 jest.mock('../components/terminal/MarketPrimitives', () => ({
   DataStatus: () => <span />,
-  MarketError: () => null,
+  MarketError: ({ id, error }) => <div data-testid={id}>{error}</div>,
 }));
 
 jest.mock('../components/terminal/CommunityRail', () => ({
-  ChatRoom: () => null,
-  TrenchesView: () => null,
+  ChatRoom: ({ selectedPair, selectedPerspective }) => selectedPair
+    ? <div data-testid="restored-chat-room">{selectedPair.chainId}:{selectedPair.pairAddress}:{selectedPerspective}</div>
+    : null,
+  TrenchesView: ({ selectedPair, selectedPerspective }) => selectedPair
+    ? <div data-testid="restored-chat-room">{selectedPair.chainId}:{selectedPair.pairAddress}:{selectedPerspective}</div>
+    : null,
 }));
 
 jest.mock('../components/terminal/TokenFocus', () => ({
@@ -190,10 +197,41 @@ function renderCurrentPage(root) {
 
 afterEach(() => {
   mockPage = 'settings';
+  mockSearch = new URLSearchParams();
+  mockPairResult = { data: { pairs: [] }, loading: false, refreshing: false, error: undefined, reload: jest.fn() };
   localStorage.clear();
   document.body.innerHTML = '';
   document.head.querySelector('[data-testid="trade-styles"]')?.remove();
   jest.restoreAllMocks();
+});
+
+test('restores an exact pair and discussion perspective after a direct-link remount', () => {
+  mockPage = 'chat';
+  mockSearch = new URLSearchParams('chain=ethereum&pair=pool1&room=bears');
+  const pair = {
+    chainId: 'ethereum',
+    pairAddress: 'pool1',
+    baseToken: { symbol: 'ALPHA', name: 'Alpha Coin' },
+  };
+  mockPairResult = { data: { provider: 'DexScreener', pairs: [pair] }, loading: false, refreshing: false, error: undefined, reload: jest.fn() };
+
+  const first = mount();
+  expect(first.container.querySelector('[data-testid="restored-chat-room"]').textContent).toBe('ethereum:pool1:bears');
+  act(() => first.root.unmount());
+
+  const reloaded = mount();
+  expect(reloaded.container.querySelector('[data-testid="restored-chat-room"]').textContent).toBe('ethereum:pool1:bears');
+  act(() => reloaded.root.unmount());
+});
+
+test('shows a visible error and does not substitute a coin for an unavailable pair link', () => {
+  mockPage = 'chat';
+  mockSearch = new URLSearchParams('chain=ethereum&pair=missingpool&room=trenches');
+  const { container, root } = mount();
+
+  expect(container.querySelector('[data-testid="selected-pair-route-error"]').textContent).toContain('was not returned by the market provider');
+  expect(container.querySelector('[data-testid="restored-chat-room"]')).toBeNull();
+  act(() => root.unmount());
 });
 
 test('updates the trade readout for every text size and restores the choice after reload', () => {

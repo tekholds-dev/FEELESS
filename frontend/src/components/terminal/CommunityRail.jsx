@@ -7,7 +7,7 @@ import { AlphaTape } from '../command/WorkspaceChrome';
 import { TokenAvatar, Change } from './MarketPrimitives';
 import { TokenFocus } from './TokenFocus';
 import { useMarket } from '../../hooks/useMarket';
-import { formatUSD, pairKey, coinIdentity, coinRoom, shortAddress } from '../../lib/dexscreener';
+import { formatUSD, pairKey, coinIdentity, coinRoom, normalizeRoomPerspective, shortAddress } from '../../lib/dexscreener';
 
 export const LivePoolsPanel = ({ pairs = [], newPairs = [], onSelect }) => {
   const { data, loading, refreshing, error } = useMarket('/feed?kind=trending&chain=all&page=1', 15000);
@@ -38,24 +38,30 @@ export const LivePoolsPanel = ({ pairs = [], newPairs = [], onSelect }) => {
   </div>;
 };
 
-export const ChatRoom = ({ large = false, pairs = [], newPairs = [], onSelect, selectedPair = null }) => {
+export const ChatRoom = ({ large = false, pairs = [], newPairs = [], onSelect, selectedPair = null, selectedPerspective = null, onPerspectiveChange }) => {
   const { ecosystem } = useWorkspace();
-  const [channel, setChannel] = useState(selectedPair ? 'bulls' : 'general');
+  const [channel, setChannel] = useState(selectedPair ? (normalizeRoomPerspective(selectedPerspective) || 'bulls') : 'general');
   const identity = coinIdentity(selectedPair);
   const hasSelectedPair = Boolean(identity);
   const coinChannels = [['bulls', 'Bulls'], ['bears', 'Bears'], ['trenches', 'Trenches']];
   const channels = [['general', 'General'], ['alpha', 'Alpha'], ['launches', 'Launches'], ['trading', 'Trading'], ['whales', 'Whales'], ['pools', 'Pools']];
-  React.useEffect(() => { setChannel(hasSelectedPair ? 'bulls' : 'general'); }, [identity?.key, hasSelectedPair]);
+  React.useEffect(() => {
+    setChannel(hasSelectedPair ? (normalizeRoomPerspective(selectedPerspective) || 'bulls') : 'general');
+  }, [identity?.key, hasSelectedPair, selectedPerspective]);
   const tabs = selectedPair ? coinChannels : channels;
   const room = selectedPair ? coinRoom(selectedPair, channel) : `${ecosystem.id}-${channel}`;
   const roomName = selectedPair ? `${selectedPair.baseToken?.symbol || 'Coin'} / ${channel}` : `${ecosystem.name} / ${channel}`;
-  return <section className={`community-chat ${large ? 'large-chat' : ''}`}><div className="section-title"><h2><MessageCircle size={18} />{selectedPair ? `${selectedPair.baseToken?.symbol || 'Coin'} discussion` : 'The Trenches'}</h2><span className="positive small" data-testid="chat-active-ecosystem">{selectedPair ? `${selectedPair.chainId} · ${shortAddress(selectedPair.pairAddress)}` : ecosystem.name}</span></div><div className="chat-tabs">{tabs.map(([id, label]) => <button key={id} data-testid={`chat-tab-${id}`} aria-selected={channel === id} title={`${label} discussion`} onClick={() => setChannel(id)} className={channel === id ? 'active' : ''}>{label}</button>)}</div>{selectedPair ? <EcosystemChat key={room} room={room} compact ecosystem={{ id: room, name: roomName }} /> : channel === 'pools' ? <LivePoolsPanel pairs={pairs} newPairs={newPairs} onSelect={onSelect} /> : <EcosystemChat key={`${ecosystem.id}-${channel}`} compact ecosystem={{ id: `${ecosystem.id}-${channel}`, name: roomName }} />}</section>;
+  const changeChannel = next => {
+    setChannel(next);
+    if (selectedPair && normalizeRoomPerspective(next)) onPerspectiveChange?.(next);
+  };
+  return <section className={`community-chat ${large ? 'large-chat' : ''}`}><div className="section-title"><h2><MessageCircle size={18} />{selectedPair ? `${selectedPair.baseToken?.symbol || 'Coin'} discussion` : 'The Trenches'}</h2><span className="positive small" data-testid="chat-active-ecosystem">{selectedPair ? `${selectedPair.chainId} · ${shortAddress(selectedPair.pairAddress)}` : ecosystem.name}</span></div><div className="chat-tabs">{tabs.map(([id, label]) => <button key={id} data-testid={`chat-tab-${id}`} aria-selected={channel === id} title={`${label} discussion`} onClick={() => changeChannel(id)} className={channel === id ? 'active' : ''}>{label}</button>)}</div>{selectedPair ? <EcosystemChat key={room} room={room} compact ecosystem={{ id: room, name: roomName }} /> : channel === 'pools' ? <LivePoolsPanel pairs={pairs} newPairs={newPairs} onSelect={onSelect} /> : <EcosystemChat key={`${ecosystem.id}-${channel}`} compact ecosystem={{ id: `${ecosystem.id}-${channel}`, name: roomName }} />}</section>;
 };
 
-export const TrenchesView = ({ pairs = [], newPairs = [], onSelect }) => {
+export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair: routeSelectedPair = null, selectedPerspective = null, onPerspectiveChange }) => {
   const { ecosystem, selectedPair, selectPair, watchlist, has, toggle } = useWorkspace();
   const [stage, setStage] = useState('new');
-  const chartPair = selectedPair || pairs[0] || newPairs[0] || null;
+  const chartPair = routeSelectedPair || selectedPair || pairs[0] || newPairs[0] || null;
   const graduated = pairs.filter(pair => pair.graduated === true || pair.info?.graduated === true || pair.baseToken?.graduated === true);
   const stagePairs = {
     new: newPairs,
@@ -66,8 +72,8 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect }) => {
   return <div className="trenches-page" data-testid="trenches-page">
     <div className="command-page-title"><span className="eyebrow">{ecosystem.name.toUpperCase()} / COMMUNITY TERMINAL</span><h1>Trade the conversation.</h1><p>One room for live chat, provider-indexed charts, and the coin stages the network can actually observe.</p></div>
     <div className="trenches-layout">
-      <section className="trenches-chart-panel"><div className="section-title"><h2><CandlestickChart size={18} />DEX chart</h2><span className="provider-note">GeckoTerminal · OHLCV</span></div>{chartPair ? <TokenFocus pair={chartPair} has={has} toggle={toggle} defaultInterval="15m" /> : <div className="truth-empty" data-testid="trenches-chart-empty"><CandlestickChart size={28} /><span>Select a provider-indexed coin to open its chart.</span></div>}</section>
-       <ChatRoom large pairs={pairs} newPairs={newPairs} onSelect={onSelect} selectedPair={chartPair} />
+       <section className="trenches-chart-panel"><div className="section-title"><h2><CandlestickChart size={18} />DEX chart</h2><span className="provider-note">GeckoTerminal · OHLCV</span></div>{chartPair ? <TokenFocus pair={chartPair} has={has} toggle={toggle} defaultInterval="15m" /> : <div className="truth-empty" data-testid="trenches-chart-empty"><CandlestickChart size={28} /><span>Select a provider-indexed coin to open its chart.</span></div>}</section>
+       <ChatRoom large pairs={pairs} newPairs={newPairs} onSelect={onSelect} selectedPair={chartPair} selectedPerspective={selectedPerspective} onPerspectiveChange={onPerspectiveChange} />
     </div>
      <section className="trenches-stages"><div className="section-title"><h2><Layers3 size={18} />Coin stages</h2><span className="provider-note">Provider-reported observations only</span></div><div className="trenches-stage-tabs">{[['new', 'New pools'], ['graduated', 'Graduated'], ['trending', 'Trending coins'], ['watchlist', 'Watchlist']].map(([id, label]) => <button key={id} className={stage === id ? 'active' : ''} data-testid={`trenches-stage-${id}`} onClick={() => setStage(id)}>{label}<small>{id === 'graduated' && !graduated.length ? 'unavailable' : stagePairs.length}</small></button>)}</div><div className="trenches-coin-grid">{stagePairs.slice(0, 12).map(pair => <button className="trenches-coin" key={pairKey(pair)} data-testid={`trenches-coin-${pairKey(pair)}`} onClick={() => { selectPair(pair); onSelect?.(pair); }}><TokenAvatar pair={pair} size={38} /><span><b>{pair.baseToken?.symbol || 'Unknown'}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId} · {pair.dexId}</small></span><Change value={pair.priceChange?.h24} /></button>)}</div>{!stagePairs.length && <div className="truth-empty" data-testid={`trenches-${stage}-empty`}>{stage === 'graduated' ? 'Graduation status is unavailable in the current provider feed.' : `No ${stage} coins are available in this ecosystem snapshot.`}</div>}</section>
   </div>;

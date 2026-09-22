@@ -126,4 +126,20 @@ describe('The Trenches pools tab', () => {
     act(() => host.querySelector('[data-testid="chat-tab-trenches"]').click());
     expect(host.querySelector('[data-testid="ecosystem-chat"]').getAttribute('data-room')).toBe('coin-ethereum-pool-1-trenches');
   });
+
+  test('starts from and reports the shareable discussion perspective', () => {
+    const selectedPair = {
+      chainId: 'ethereum',
+      pairAddress: 'pool-1',
+      baseToken: { symbol: 'ALPHA', name: 'Alpha Coin' },
+    };
+    const onPerspectiveChange = jest.fn();
+
+    act(() => root.render(<ChatRoom selectedPair={selectedPair} selectedPerspective="bears" onPerspectiveChange={onPerspectiveChange} />));
+    expect(host.querySelector('[data-testid="chat-tab-bears"]').getAttribute('aria-selected')).toBe('true');
+    expect(host.querySelector('[data-testid="ecosystem-chat"]').getAttribute('data-room')).toBe('coin-ethereum-pool-1-bears');
+
+    act(() => host.querySelector('[data-testid="chat-tab-trenches"]').click());
+    expect(onPerspectiveChange).toHaveBeenCalledWith('trenches');
+  });
 });

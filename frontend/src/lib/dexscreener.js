@@ -3,6 +3,8 @@ import { apiUrl } from './api';
 export const DEX_SITE = process.env.REACT_APP_DEX_SITE_URL || 'https://dexscreener.com';
 export const MARKET_RETENTION_DAYS = 14;
 export const NEW_POOL_DEAL_PERCENT = 5;
+export const PAIR_CHAINS = ['solana', 'ethereum', 'base', 'bsc', 'arbitrum', 'avalanche', 'polygon', 'sui'];
+export const ROOM_PERSPECTIVES = ['bulls', 'bears', 'trenches'];
 
 export async function marketRequest(path, signal) {
   const res = await fetch(apiUrl(path.startsWith('/api/') ? path : `/api/market${path}`), { signal });
@@ -20,6 +22,17 @@ export function coinIdentity(pair) {
   const pairAddress = String(pair?.pairAddress || '').trim();
   if (!chainId || !pairAddress) return null;
   return { chainId, pairAddress, key: `${chainId}:${pairAddress}` };
+}
+export function normalizeRoomPerspective(value) {
+  return ROOM_PERSPECTIVES.includes(value) ? value : null;
+}
+export function isSupportedPairChain(chainId) {
+  return PAIR_CHAINS.includes(String(chainId || '').trim());
+}
+export function isExactPair(pair, chainId, pairAddress) {
+  return Boolean(pair
+    && String(pair.chainId || '').trim() === String(chainId || '').trim()
+    && String(pair.pairAddress || '').trim() === String(pairAddress || '').trim());
 }
 export function coinRoom(pair, perspective = 'trenches') {
   const identity = coinIdentity(pair);
