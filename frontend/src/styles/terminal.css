@@ -116,3 +116,44 @@ body.theme-day .globe-page .landing-copy h1,body.theme-day .globe-page .landing-
 .meta-launch-deployment-note{display:flex;align-items:flex-start;gap:9px;flex:1;color:var(--gold)}.meta-launch-deployment-note.confirmed{color:var(--mint)}.meta-launch-deployment-note.failed{color:var(--rose)}.meta-launch-deployment-note>span{display:flex;flex-direction:column;gap:4px}.meta-launch-deployment-note b{font-size:11px;font-weight:550}.meta-launch-deployment-note small{font-size:9px;line-height:1.5;color:#8d9d86}.meta-launch-deployment-status{margin-top:20px;padding-top:20px;border-top:1px solid #203a2a}.meta-launch-deployment-status h3{font-size:11px;margin-bottom:10px}.meta-launch-step-status{display:flex;align-items:flex-start;gap:9px;padding:10px 0;border-bottom:1px solid #203a2a;color:#91b09c}.meta-launch-step-status.confirmed{color:var(--mint)}.meta-launch-step-status.failed{color:var(--rose)}.meta-launch-step-status.pending{color:var(--gold)}.meta-launch-step-status>span{display:flex;flex-direction:column;gap:3px}.meta-launch-step-status b{font-size:10px;font-weight:550}.meta-launch-step-status small{font-size:9px;color:#8d9d86;line-height:1.4}.meta-launch-spinner{animation:spin .8s linear infinite}
 .meta-launch-explorer-link{display:inline-flex;align-items:center;gap:4px;color:var(--mint);font-size:8px;white-space:nowrap;margin-left:5px}.meta-launch-explorer-link:hover{text-decoration:underline;color:var(--mint-bright)}.meta-launch-mint-receipt{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-top:15px;padding:13px;border:1px solid #2b6544;border-radius:5px;background:#00e9a009}.meta-launch-mint-receipt>span{display:flex;flex-direction:column;gap:5px;min-width:0}.meta-launch-mint-receipt b{font-size:10px;color:var(--mint)}.meta-launch-mint-receipt small{font:9px 'JetBrains Mono',monospace;color:#b4d0bc;overflow-wrap:anywhere}.meta-launch-mint-receipt .meta-launch-explorer-link{margin-left:auto}
 @media(max-width:760px){.feeless-launch-hero{align-items:flex-start;flex-direction:column;gap:18px}.feeless-launch-hero h2{font-size:27px}.feeless-launch-hero .btn-primary{width:100%}.meta-launch-page{padding-inline:8px}.meta-launch-header{align-items:flex-start;flex-direction:column}.meta-launch-header h1{font-size:32px}.meta-launch-step{width:100%}.meta-launch-step span{flex:1;text-align:center}.meta-launch-grid{display:flex;flex-direction:column}.meta-launch-sidebar{position:static;width:100%;order:5}.meta-launch-fields.two,.meta-launch-summary dl{grid-template-columns:1fr}.meta-launch-review-heading,.meta-launch-review-actions,.meta-launch-mint-receipt{align-items:stretch;flex-direction:column}.meta-launch-review-actions .btn-primary{width:100%}.meta-launch-mint-receipt .meta-launch-explorer-link{margin-left:0}}
+
+/* Readability and ecosystem panel hierarchy overrides. */
+.terminal-app{font-size:14px}
+.terminal-app .eyebrow,.globe-page .eyebrow{font-size:11px}
+.terminal-app .section-title h2{font-size:17px}
+.terminal-app .community-chat h2{font-size:16px}
+.terminal-app .chat-message p{font-size:12px}
+.terminal-app .market-tabs button,.terminal-app .chain-select select,.terminal-app .advanced-filters{font-size:11px}
+.terminal-app .market-table{font-size:11px}
+.terminal-app .market-table th{font-size:9px}
+.terminal-app .market-table td{font-size:11px}
+.terminal-app .market-bottom,.terminal-app .provider-note{font-size:10px}
+.globe-page .landing-copy p{font-size:17px}
+.globe-page .node-group-switch button{font-size:14px}
+.globe-page .node-directory-heading>a{font-size:12px}
+.globe-page .node-chips>button>span:nth-child(2){font-size:14px}
+.globe-page .node-chips small{font-size:10px}
+.globe-page .globe-bottom-note{font-size:10px}
+.degen-panel{position:relative;overflow:visible}
+.degen-chat{height:430px}
+.degen-coins-rail{position:absolute;right:100%;top:164px;z-index:12;width:38px}
+.degen-coins-tab{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:9px;min-height:142px;padding:12px 8px;border:1px solid #2f593e;border-right:0;border-radius:7px 0 0 7px;background:#0b1d12;color:var(--mint);cursor:default;box-shadow:-10px 13px 28px #0004}
+.degen-coins-tab b{font-size:8px;letter-spacing:1.1px;writing-mode:vertical-rl;transform:rotate(180deg)}
+.degen-coins-tab small{font-size:7px;writing-mode:vertical-rl;transform:rotate(180deg);color:#8db59b;white-space:nowrap}
+.degen-coins-popover{position:absolute;right:100%;top:-18px;width:min(342px,34vw);max-height:680px;border:1px solid #2f593e;border-radius:7px 0 7px 7px;background:#08160e;box-shadow:-18px 18px 42px #0008;opacity:0;visibility:hidden;pointer-events:none;transform:translateX(8px);transition:opacity .18s ease,transform .18s ease,visibility .18s ease}
+.degen-coins-rail:hover .degen-coins-popover,.degen-coins-rail:focus-within .degen-coins-popover{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(0)}
+.degen-coins{height:auto!important;max-height:680px;overflow-y:auto}
+.coin-feed-heading h3{font-size:14px}
+
+@media(max-width:760px){
+  .terminal-app .section-title h2{font-size:15px}
+  .terminal-app .market-table,.terminal-app .market-table td{font-size:10px}
+  .globe-page .landing-copy p{font-size:14px}
+  .globe-page .node-chips>button>span:nth-child(2){font-size:11px}
+  .degen-panel{overflow:hidden}
+  .degen-chat{height:390px}
+  .degen-coins-rail{position:static;width:auto;padding:0 10px 10px}
+  .degen-coins-tab{min-height:0;flex-direction:row;justify-content:space-between;padding:11px 12px;border-right:1px solid #2f593e;border-radius:5px;cursor:pointer}
+  .degen-coins-tab b,.degen-coins-tab small{writing-mode:initial;transform:none}
+  .degen-coins-popover{position:static;width:auto;max-height:none;margin-top:8px;opacity:1;visibility:visible;pointer-events:auto;transform:none}
+}
