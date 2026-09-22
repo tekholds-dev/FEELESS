@@ -1,4 +1,18 @@
-import { getLaunchMint, getLaunchProviderReadiness, getSolanaExplorerUrl, requestMetaLaunchPlan } from './launchpads';
+import { executeMetaLaunchPlan, getLaunchMint, getLaunchProviderReadiness, getSolanaExplorerUrl, recheckMetaLaunchSignature, requestMetaLaunchPlan } from './launchpads';
+
+let mockConnection;
+
+jest.mock('@solana/web3.js', () => ({
+  Connection: jest.fn(() => mockConnection),
+  VersionedTransaction: {
+    deserialize: () => {
+      throw new Error('Use legacy transaction parser in this test.');
+    },
+  },
+  Transaction: {
+    from: () => ({ feePayer: { toBase58: () => 'wallet-address' } }),
+  },
+}));
 
 const originalEnv = { ...process.env };
 
@@ -24,6 +38,100 @@ test('builds explorer links for confirmed transactions and created mints', () =>
   expect(getSolanaExplorerUrl('', 'tx')).toBeNull();
   expect(getLaunchMint({ createdMint: 'mint-value' })).toBe('mint-value');
   expect(getLaunchMint({ launch: { mint: 'nested-mint' } })).toBe('nested-mint');
+});
+
+test('keeps a timed-out signature pending and never resubmits it during recovery', async () => {
+  const connection = {
+    getSignatureStatuses: jest.fn().mockResolvedValue({ value: [null] }),
+    sendRawTransaction: jest.fn(),
+  };
+
+  const result = await recheckMetaLaunchSignature('timed-out-signature', {
+    connection,
+    label: 'Token creation',
+  });
+
+  expect(result).toEqual({
+    state: 'pending',
+    signature: 'timed-out-signature',
+    detail: 'Token creation was submitted; confirmation is still pending. Check again before retrying.',
+  });
+  expect(connection.getSignatureStatuses).toHaveBeenCalledWith(
+    ['timed-out-signature'],
+    { searchTransactionHistory: true },
+  );
+  expect(connection.sendRawTransaction).not.toHaveBeenCalled();
+});
+
+test('reports a recovered signature as confirmed', async () => {
+  const result = await recheckMetaLaunchSignature('confirmed-signature', {
+    connection: {
+      getSignatureStatuses: jest.fn().mockResolvedValue({
+        value: [{ confirmationStatus: 'confirmed', err: null }],
+      }),
+    },
+    label: 'Initial liquidity',
+    network: 'Solana devnet',
+  });
+
+  expect(result).toMatchObject({
+    state: 'confirmed',
+    signature: 'confirmed-signature',
+    explorerUrl: 'https://explorer.solana.com/tx/confirmed-signature?cluster=devnet',
+  });
+});
+
+test('reports a recovered signature as failed when RPC returns an on-chain error', async () => {
+  const result = await recheckMetaLaunchSignature('failed-signature', {
+    connection: {
+      getSignatureStatuses: jest.fn().mockResolvedValue({
+        value: [{ confirmationStatus: 'confirmed', err: { InstructionError: [0, 'Custom'] } }],
+      }),
+    },
+    label: 'Fee policy',
+  });
+
+  expect(result).toEqual({
+    state: 'failed',
+    signature: 'failed-signature',
+    detail: 'Fee policy failed on-chain.',
+  });
+});
+
+test('preserves a submitted signature when confirmation times out', async () => {
+  mockConnection = {
+    sendRawTransaction: jest.fn().mockResolvedValue('timeout-signature'),
+    confirmTransaction: jest.fn().mockRejectedValue(Object.assign(
+      new Error('Transaction confirmation timed out'),
+      { name: 'TransactionExpiredTimeoutError' },
+    )),
+  };
+  const onStep = jest.fn();
+
+  const result = await executeMetaLaunchPlan({
+    transactions: [{ id: 'token', transaction: 'AA==' }],
+  }, {
+    provider: {
+      signTransaction: jest.fn().mockResolvedValue({ serialize: () => Uint8Array.from([1]) }),
+    },
+    wallet: { chain: 'solana', address: 'wallet-address' },
+    onStep,
+  });
+
+  expect(result).toMatchObject({
+    state: 'pending',
+    detail: 'Token creation was submitted, but confirmation timed out. Check its signature before retrying.',
+    results: [{
+      id: 'token',
+      state: 'pending',
+      signature: 'timeout-signature',
+    }],
+  });
+  expect(mockConnection.sendRawTransaction).toHaveBeenCalledTimes(1);
+  expect(onStep).toHaveBeenLastCalledWith('token', expect.objectContaining({
+    state: 'pending',
+    signature: 'timeout-signature',
+  }));
 });
 
 test('prepares an unsigned five-step plan without accepting private key material', async () => {

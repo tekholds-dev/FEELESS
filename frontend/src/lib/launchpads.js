@@ -88,6 +88,52 @@ function decodeTransaction(value) {
   return bytes;
 }
 
+function isConfirmationTimeout(error) {
+  return error?.name === 'TransactionExpiredTimeoutError'
+    || /timed?\s*out|timeout|confirmation.*expired/i.test(error?.message || '');
+}
+
+function signatureStatusResult(signature, status, label, network) {
+  if (!status) {
+    return {
+      state: 'pending',
+      signature,
+      detail: `${label} was submitted; confirmation is still pending. Check again before retrying.`,
+    };
+  }
+  if (status.err) {
+    return {
+      state: 'failed',
+      signature,
+      detail: `${label} failed on-chain.`,
+    };
+  }
+  if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
+    return {
+      state: 'confirmed',
+      signature,
+      explorerUrl: getSolanaExplorerUrl(signature, 'tx', network),
+    };
+  }
+  return {
+    state: 'pending',
+    signature,
+    detail: `${label} is still being processed. Check again before retrying.`,
+  };
+}
+
+export async function recheckMetaLaunchSignature(signature, { connection, label = 'Transaction', network } = {}) {
+  if (typeof signature !== 'string' || !signature.trim()) throw new Error('A transaction signature is required to check confirmation.');
+  const config = getLaunchProviderConfig();
+  let activeConnection = connection;
+  if (!activeConnection) {
+    const { Connection } = await import('@solana/web3.js');
+    activeConnection = new Connection(config.rpcUrl, 'confirmed');
+  }
+  const response = await activeConnection.getSignatureStatuses([signature], { searchTransactionHistory: true });
+  return signatureStatusResult(signature, response?.value?.[0], label, network || config.network);
+}
+
 export async function requestMetaLaunchPlan(form, wallet) {
   const readiness = getLaunchProviderReadiness();
   if (!readiness.ready) throw new Error('An approved launch provider and Solana RPC are required.');
@@ -129,7 +175,7 @@ function transactionPayer(transaction) {
   return transaction?.feePayer?.toBase58?.() || null;
 }
 
-export async function executeMetaLaunchPlan(plan, { provider, wallet, onStep }) {
+export async function executeMetaLaunchPlan(plan, { provider, wallet, onStep, connection: rpcConnection, previousResults = [] }) {
   if (!provider?.signTransaction) throw new Error('A wallet signer is required to deploy.');
   if (wallet?.chain !== 'solana') throw new Error('Connect a Solana wallet to deploy on FEELESS.');
   if (provider.publicKey?.toString() && provider.publicKey.toString() !== wallet.address) {
@@ -138,15 +184,32 @@ export async function executeMetaLaunchPlan(plan, { provider, wallet, onStep }) 
 
   const { Connection, VersionedTransaction, Transaction } = await import('@solana/web3.js');
   const config = getLaunchProviderConfig();
-  const connection = new Connection(config.rpcUrl, 'confirmed');
+  const connection = rpcConnection || new Connection(config.rpcUrl, 'confirmed');
   const transactions = plan.transactions.map((item, index) => ({
     ...item,
     id: normalizeStepId(item.id || item.type || META_LAUNCH_STEPS[index]?.id || `transaction-${index + 1}`),
     label: item.label || META_LAUNCH_STEPS.find(step => step.id === normalizeStepId(item.id || item.type))?.label || `Transaction ${index + 1}`,
   }));
   const results = [];
+  const previousById = new Map(previousResults.map(result => [result.id, result]));
 
   for (const item of transactions) {
+    const previous = previousById.get(item.id);
+    if (previous?.state === 'confirmed') {
+      results.push(previous);
+      onStep?.(item.id, previous);
+      continue;
+    }
+    if (previous?.state === 'pending') {
+      results.push(previous);
+      onStep?.(item.id, previous);
+      return { state: 'pending', results, detail: previous.detail };
+    }
+    if (previous?.state === 'failed') {
+      results.push(previous);
+      onStep?.(item.id, previous);
+      return { state: 'failed', results, detail: previous.detail };
+    }
     onStep?.(item.id, { state: 'pending', label: item.label });
     let signature;
     try {
@@ -184,7 +247,11 @@ export async function executeMetaLaunchPlan(plan, { provider, wallet, onStep }) 
       results.push(result);
       onStep?.(item.id, result);
     } catch (error) {
-      const message = error?.code === 4001 ? 'Wallet approval declined.' : error?.message || `${item.label} failed.`;
+      const message = error?.code === 4001
+        ? 'Wallet approval declined.'
+        : signature && isConfirmationTimeout(error)
+          ? `${item.label} was submitted, but confirmation timed out. Check its signature before retrying.`
+          : error?.message || `${item.label} failed.`;
       const result = { id: item.id, label: item.label, state: signature ? 'pending' : 'failed', signature, detail: message };
       results.push(result);
       onStep?.(item.id, result);
