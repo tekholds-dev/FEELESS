@@ -68,6 +68,52 @@ test('restores a saved submitted order and checks its status without storing tra
   act(() => root.unmount());
 });
 
+test('offers a safe status retry when saved-order recovery is temporarily unavailable', async () => {
+  const orderId = 'c'.repeat(36);
+  localStorage.setItem('feeless.pending-swap-order', JSON.stringify({ order_id: orderId }));
+  global.fetch = jest.fn()
+    .mockRejectedValueOnce(new Error('Temporary provider timeout'))
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ order_id: orderId, state: 'confirmed', signature: 'sig-recovered' }),
+    });
+
+  const { container, root } = mount();
+  await act(async () => {});
+
+  expect(container.querySelector('[data-testid="swap-status-message"]').textContent)
+    .toContain('status could not be restored');
+  expect(container.querySelector('[data-testid="swap-retry-recovery"]')).not.toBeNull();
+  expect(container.querySelector('[data-testid="swap-fresh-order"]')).not.toBeNull();
+  expect(JSON.parse(localStorage.getItem('feeless.pending-swap-order'))).toEqual({ order_id: orderId });
+  expect(global.fetch).toHaveBeenNthCalledWith(1, `/api/trading/order/${orderId}`, {});
+
+  await act(async () => container.querySelector('[data-testid="swap-retry-recovery"]').click());
+
+  expect(global.fetch).toHaveBeenNthCalledWith(2, `/api/trading/order/${orderId}`, {});
+  expect(global.fetch.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
+  expect(container.querySelector('[data-testid="swap-result"] b').textContent).toBe('CONFIRMED');
+  expect(localStorage.getItem('feeless.pending-swap-order')).toBeNull();
+  act(() => root.unmount());
+});
+
+test('clears a temporarily unavailable saved order only after an explicit fresh-order choice', async () => {
+  const orderId = 'd'.repeat(36);
+  localStorage.setItem('feeless.pending-swap-order', JSON.stringify({ order_id: orderId }));
+  global.fetch = jest.fn().mockRejectedValue(new Error('Temporary provider timeout'));
+
+  const { container, root } = mount();
+  await act(async () => {});
+
+  expect(localStorage.getItem('feeless.pending-swap-order')).not.toBeNull();
+  act(() => container.querySelector('[data-testid="swap-fresh-order"]').click());
+
+  expect(localStorage.getItem('feeless.pending-swap-order')).toBeNull();
+  expect(container.querySelector('[data-testid="swap-recovery-actions"]')).toBeNull();
+  expect(container.querySelector('[data-testid="swap-status-message"]')).toBeNull();
+  act(() => root.unmount());
+});
+
 test('keeps an uncertain execution pending across reopen without resending the signed transaction', async () => {
   const orderId = 'b'.repeat(36);
   const walletAddress = 'Wallet1111111111111111111111111111111111111';
