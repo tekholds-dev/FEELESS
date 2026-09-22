@@ -30,6 +30,7 @@ export function readFeedCache(path, now = Date.now()) {
 
 export function writeFeedCache(path, data, now = Date.now()) {
   if (!isFeedPath(path) || typeof window === 'undefined') return;
+  if (!Array.isArray(data?.pairs) || !data.pairs.length) return;
   try {
     localStorage.setItem(`${FEED_CACHE_PREFIX}${path}`, JSON.stringify({ savedAt: now, data }));
   } catch {

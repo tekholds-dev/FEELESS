@@ -79,3 +79,26 @@ test('keeps visible rows during a live feed refresh and writes the refreshed res
   });
   expect(JSON.parse(localStorage.getItem(`${FEED_CACHE_PREFIX}${path}`)).data).toEqual(refreshedRows);
 });
+
+test('keeps the last usable feed snapshot when a later provider response is empty', async () => {
+  const path = '/feed?kind=trending&chain=solana&page=1';
+  const usableRows = { provider: 'DexScreener', pairs: [{ pairAddress: 'last-usable-pool' }] };
+  const emptyRows = { provider: 'GeckoTerminal', pairs: [] };
+  writeFeedCache(path, usableRows);
+  let fetcher;
+  swrMock.mockImplementation((key, request, options) => {
+    fetcher = request;
+    expect(key).toBe(path);
+    expect(options.fallbackData).toEqual(usableRows);
+    return { data: options.fallbackData, error: null, isLoading: false, isValidating: false, mutate: jest.fn() };
+  });
+  marketRequest.mockResolvedValue(emptyRows);
+
+  const mounted = mountHook(path);
+  await act(async () => {
+    expect(await fetcher(path)).toEqual(emptyRows);
+  });
+
+  expect(mounted.value().data).toEqual(usableRows);
+  expect(JSON.parse(localStorage.getItem(`${FEED_CACHE_PREFIX}${path}`)).data).toEqual(usableRows);
+});
