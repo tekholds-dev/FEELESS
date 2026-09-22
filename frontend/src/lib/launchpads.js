@@ -1,4 +1,5 @@
 export const LAUNCHPADS = [
+  { id: 'feeless-launch', name: 'Launch on FEELESS', symbol: 'F', chainId: 'solana', color: '#14F195', lat: -18, lng: 132, url: '/terminal/launch', description: 'Bring a verified launch to the FEELESS network.', tag: 'FEELESS NATIVE', dexIds: [], isFeelessLaunch: true },
   { id: 'pump', name: 'Pump.fun', symbol: 'P', chainId: 'solana', color: '#34efad', lat: 25, lng: -78, url: process.env.REACT_APP_PUMP_URL, description: 'The home of Solana memecoins.', tag: 'MEME CULTURE', dexIds: ['pump', 'pumpswap', 'pump-fun', 'pump_fun'] },
   { id: 'bonk', name: 'LetsBONK', symbol: 'B', chainId: 'solana', color: '#f5b747', lat: -6, lng: -46, url: 'https://letsbonk.fun/', description: 'Community-first launches on Solana.', tag: 'COMMUNITY', dexIds: [] },
   { id: 'raydium', name: 'LaunchLab', symbol: 'R', chainId: 'solana', color: '#84a5ff', lat: 46, lng: 25, url: 'https://raydium.io/launchpad/', description: 'Token launches from the Raydium ecosystem.', tag: 'RAYDIUM', dexIds: ['raydium-launchlab'] },
