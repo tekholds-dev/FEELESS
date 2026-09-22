@@ -5,3 +5,4 @@
 - [Preview API boundary](preview-api-boundary.md) — same-origin preview discovery works without backend credentials; wallet signing/execution stays gated until Jupiter/RPC are configured.
 - [Preview host configuration](preview-host-configuration.md) — CRA/CRACO previews need 0.0.0.0 binding and allowedHosts=all for Replit's proxy.
 - [Browser readability test CSS](browser-readability-tests.md) — jsdom needs CSSOM assertions for custom-property font scaling because computed values may stay at the base size.
+- [Preview candle route parity](preview-candle-route.md) — preview and production must both expose the market candle contract used by the chart.

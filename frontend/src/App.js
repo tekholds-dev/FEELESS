@@ -7,6 +7,7 @@ import { Toaster } from './components/ui/sonner';
 import './styles/terminal.css';
 import './styles/command.css';
 import './styles/trade.css';
+import './styles/heartbeat.css';
 const Landing = lazy(() => import('./pages/Landing'));
 const Terminal = lazy(() => import('./pages/Terminal'));
 

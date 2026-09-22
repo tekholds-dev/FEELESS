@@ -157,6 +157,45 @@ async function geckoFeed(kind, page = 1) {
   return geckoResult(data, kind);
 }
 
+async function geckoCandles(chain, address, interval = '1h') {
+  const networks = {
+    solana: 'solana',
+    ethereum: 'eth',
+    base: 'base',
+    bsc: 'bsc',
+    arbitrum: 'arbitrum',
+    avalanche: 'avax',
+    polygon: 'polygon_pos',
+    sui: 'sui',
+  };
+  const intervals = {
+    '5m': ['minute', 5],
+    '15m': ['minute', 15],
+    '1h': ['hour', 1],
+    '4h': ['hour', 4],
+    '1d': ['day', 1],
+  };
+  if (!networks[chain] || !intervals[interval]) {
+    throw Object.assign(new Error('Invalid chart interval or network.'), { statusCode: 400 });
+  }
+  const [timeframe, aggregate] = intervals[interval];
+  const data = await getJson(
+    `${GECKO_API}/networks/${networks[chain]}/pools/${encodeURIComponent(address)}/ohlcv/${timeframe}?aggregate=${aggregate}&limit=100&currency=usd&token=base`,
+    90000,
+  );
+  const rows = data?.data?.attributes?.ohlcv_list || [];
+  const candles = [...new Map(rows
+    .filter(row => Array.isArray(row) && row.length >= 6)
+    .map(row => [row[0], row])).values()]
+    .sort((a, b) => a[0] - b[0]);
+  return {
+    provider: 'GeckoTerminal',
+    fetched_at: new Date().toISOString(),
+    stale: false,
+    candles,
+  };
+}
+
 async function dexBoostFeed(kind, page = 1, chain = 'solana') {
   if (String(page) !== '1') throw new Error('Fast discovery is available on the first page only.');
   const index = await getJson(`${DEX_API}/token-boosts/${kind === 'new' ? 'latest' : 'top'}/v1`, 20000);
@@ -301,6 +340,10 @@ async function route(req, res, url) {
     try { result = await dexBoostFeed(kind, url.searchParams.get('page') || 1, chain); }
     catch { result = await geckoFeed(kind, url.searchParams.get('page') || 1); }
     return json(res, 200, result);
+  }
+  const candleMatch = url.pathname.match(/^\/api\/market\/candles\/([^/]+)\/([^/]+)$/);
+  if (req.method === 'GET' && candleMatch) {
+    return json(res, 200, await geckoCandles(candleMatch[1], candleMatch[2], url.searchParams.get('interval') || '1h'));
   }
   if (req.method === 'GET' && url.pathname === '/api/market/search') return json(res, 200, await dexSearch(url.searchParams.get('q') || ''));
   if (req.method === 'GET' && url.pathname === '/api/market/scan') {

@@ -1,0 +1,14 @@
+.heartbeat-chart-panel{border-top:1px solid #23402b;background:#07130c;padding:0 17px 16px;position:relative}
+.heartbeat-chart-panel:before{content:'';display:block;height:1px;width:35%;background:linear-gradient(90deg,var(--mint),transparent);opacity:.65}
+.heartbeat-chart-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0 10px;color:#83ad91}
+.heartbeat-chart-heading>span{display:flex;align-items:center;gap:7px;font:8px 'JetBrains Mono',monospace;letter-spacing:.6px}
+.heartbeat-chart-heading svg{color:var(--mint)}
+.heartbeat-chart-timeframes{display:flex;gap:4px;flex-wrap:wrap}
+.heartbeat-chart-timeframes button{border:1px solid #254d32;border-radius:3px;padding:4px 6px;color:#6e9a7b;background:#00e9a006;font:7px 'JetBrains Mono',monospace}
+.heartbeat-chart-timeframes button:hover,.heartbeat-chart-timeframes button.active{border-color:var(--mint);color:var(--mint);background:#00e9a012}
+.heartbeat-chart-panel .chart-area{min-height:245px;border:1px solid #1d3a28;border-radius:4px;background:#060e09;overflow:hidden}
+.heartbeat-chart-panel .candle-canvas{height:220px}
+.heartbeat-chart-panel .chart-source{padding:7px 9px}
+.heartbeat-chart-empty{min-height:245px;display:flex;align-items:center;justify-content:center;gap:9px;text-align:center;color:#62876e;font-size:10px;line-height:1.6}
+.heartbeat-chart-empty svg{color:#3f8b59;flex-shrink:0}
+@media(max-width:560px){.heartbeat-chart-panel{padding-inline:11px}.heartbeat-chart-heading{align-items:flex-start;flex-direction:column}.heartbeat-chart-timeframes{width:100%}.heartbeat-chart-timeframes button{flex:1}.heartbeat-chart-panel .candle-canvas{height:190px}.heartbeat-chart-empty{min-height:190px;padding:20px}}
