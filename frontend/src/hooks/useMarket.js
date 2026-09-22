@@ -2,33 +2,36 @@ import { useCallback, useEffect, useState } from 'react';
 import useSWR from 'swr';
 import { marketRequest, tokenKey } from '../lib/dexscreener';
 
-const FEED_CACHE_PREFIX = 'feeless-market-feed:';
-const FEED_CACHE_TTL = 14 * 24 * 60 * 60 * 1000;
+export const FEED_CACHE_PREFIX = 'feeless-market-feed:';
+export const FEED_CACHE_TTL = 14 * 24 * 60 * 60 * 1000;
 
 function isFeedPath(path) {
-  return typeof path === 'string' && path.startsWith('/feed?');
+  return typeof path === 'string' && (path === '/feed' || path.startsWith('/feed?'));
 }
 
-function readFeedCache(path) {
+export function readFeedCache(path, now = Date.now()) {
   if (!isFeedPath(path) || typeof window === 'undefined') return null;
   try {
-    const now = Date.now();
     const entries = Object.keys(localStorage).filter(key => key.startsWith(FEED_CACHE_PREFIX));
     entries.forEach(key => {
-      const entry = JSON.parse(localStorage.getItem(key) || 'null');
-      if (!entry?.savedAt || now - entry.savedAt > FEED_CACHE_TTL) localStorage.removeItem(key);
+      try {
+        const entry = JSON.parse(localStorage.getItem(key) || 'null');
+        if (!entry?.savedAt || now - Number(entry.savedAt) > FEED_CACHE_TTL) localStorage.removeItem(key);
+      } catch {
+        localStorage.removeItem(key);
+      }
     });
     const entry = JSON.parse(localStorage.getItem(`${FEED_CACHE_PREFIX}${path}`) || 'null');
-    return entry?.savedAt && now - entry.savedAt <= FEED_CACHE_TTL ? entry : null;
+    return entry?.savedAt && now - Number(entry.savedAt) <= FEED_CACHE_TTL ? entry : null;
   } catch {
     return null;
   }
 }
 
-function writeFeedCache(path, data) {
+export function writeFeedCache(path, data, now = Date.now()) {
   if (!isFeedPath(path) || typeof window === 'undefined') return;
   try {
-    localStorage.setItem(`${FEED_CACHE_PREFIX}${path}`, JSON.stringify({ savedAt: Date.now(), data }));
+    localStorage.setItem(`${FEED_CACHE_PREFIX}${path}`, JSON.stringify({ savedAt: now, data }));
   } catch {
     // A full or unavailable browser cache must never block the live provider request.
   }

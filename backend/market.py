@@ -32,6 +32,20 @@ def safe_float(value, default=0.0):
         return default
 
 
+def is_new_pool_deal(pair, now_ms=None):
+    """Return whether a provider-indexed pool is recent and down at least 5%."""
+    created = safe_float(pair.get('pairCreatedAt')) if pair else 0
+    change = safe_float((pair.get('priceChange') or {}).get('h24')) if pair else 0
+    now_ms = now_ms if now_ms is not None else datetime.now(timezone.utc).timestamp() * 1000
+    age_ms = now_ms - created
+    return (
+        created > 0
+        and age_ms >= 0
+        and age_ms <= MARKET_CACHE_RETENTION.total_seconds() * 1000
+        and change <= -NEW_POOL_DEAL_PERCENT
+    )
+
+
 class MarketResult(BaseModel):
     provider: str
     fetched_at: str
@@ -149,12 +163,7 @@ def create_market_router(db, intelligence=None):
         data, meta = await cached('GeckoTerminal', path, {'include': 'base_token,quote_token,dex', 'page': page}, ttl=90)
         pairs = normalise_pools(data)
         if kind == 'new':
-            cutoff = datetime.now(timezone.utc).timestamp() * 1000 - MARKET_CACHE_RETENTION.total_seconds() * 1000
-            pairs = [
-                pair for pair in pairs
-                if pair.get('pairCreatedAt') and pair['pairCreatedAt'] >= cutoff
-                and safe_float((pair.get('priceChange') or {}).get('h24')) <= -NEW_POOL_DEAL_PERCENT
-            ]
+            pairs = [pair for pair in pairs if is_new_pool_deal(pair)]
             pairs.sort(key=lambda pair: (
                 safe_float((pair.get('priceChange') or {}).get('h24')),
                 -(pair.get('pairCreatedAt') or 0),
