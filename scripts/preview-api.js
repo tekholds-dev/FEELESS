@@ -20,6 +20,18 @@ const cache = new Map();
 const pendingRequests = new Map();
 const rooms = new Map();
 const orders = new Map();
+const GECKO_NETWORKS = {
+  solana: 'solana',
+  ethereum: 'eth',
+  base: 'base',
+  bsc: 'bsc',
+  arbitrum: 'arbitrum',
+  avalanche: 'avax',
+  polygon: 'polygon_pos',
+  sui: 'sui',
+};
+const REVERSE_GECKO_NETWORKS = Object.fromEntries(Object.entries(GECKO_NETWORKS).map(([chain, network]) => [network, chain]));
+const SUPPORTED_MARKET_CHAINS = Object.keys(GECKO_NETWORKS);
 
 function json(res, status, body) {
   const payload = JSON.stringify(body);
@@ -119,12 +131,13 @@ function pairFromGecko(item) {
   const name = attrs.name || 'Unknown / SOL';
   const [fallbackSymbol] = name.split(' / ');
   const network = item?.id?.split('_', 1)[0] || 'solana';
+  const chainId = REVERSE_GECKO_NETWORKS[network] || network;
   return {
-    chainId: network === 'solana' ? 'solana' : network,
+    chainId,
     network,
     pairAddress: attrs.address || item?.id?.split('_').slice(1).join('_'),
     dexId: relationships.dex?.data?.id || 'unknown',
-    url: `${DEX_SITE}/${network === 'solana' ? 'solana' : network}/${attrs.address || ''}`,
+    url: `${DEX_SITE}/${chainId}/${attrs.address || ''}`,
     baseToken: { address: baseAddress, name: fallbackSymbol || 'Unknown', symbol: fallbackSymbol || '?' },
     quoteToken: { address: quoteAddress, symbol: quoteId.includes('So111') ? 'SOL' : undefined },
     priceUsd: attrs.base_token_price_usd,
@@ -203,10 +216,23 @@ async function geckoAsset(mint) {
   return { pair, imageUrl: pair.info.imageUrl };
 }
 
-async function geckoFeed(kind, page = 1) {
+async function geckoFeed(kind, page = 1, chain = 'solana') {
   const endpoint = kind === 'new' ? 'new_pools' : 'trending_pools';
-  const data = await getJson(`${GECKO_API}/networks/solana/${endpoint}?page=${page}`, 30000);
-  return geckoResult(data, kind);
+  const chains = chain === 'all' ? SUPPORTED_MARKET_CHAINS : [chain];
+  if (chains.some(value => !GECKO_NETWORKS[value])) throw Object.assign(new Error('Unsupported market chain.'), { statusCode: 400 });
+  const responses = await Promise.all(chains.map(value => getJson(
+    `${GECKO_API}/networks/${GECKO_NETWORKS[value]}/${endpoint}?page=${page}`,
+    30000,
+  )));
+  const pairs = responses.flatMap(response => geckoResult(response, kind).pairs);
+  return {
+    provider: 'GeckoTerminal',
+    fetched_at: new Date().toISOString(),
+    stale: false,
+    label: kind === 'new' ? 'New pools' : 'Trending pools',
+    pairs,
+    page: Number(page),
+  };
 }
 
 async function geckoCandles(chain, address, interval = '1h') {
@@ -416,9 +442,10 @@ async function route(req, res, url) {
   if (req.method === 'GET' && url.pathname === '/api/market/feed') {
     const kind = url.searchParams.get('kind') === 'new' ? 'new' : 'trending';
     const chain = url.searchParams.get('chain') || 'solana';
+    if (chain !== 'all' && !GECKO_NETWORKS[chain]) return json(res, 400, { detail: 'Unsupported market chain.' });
     let result;
     try { result = await dexBoostFeed(kind, url.searchParams.get('page') || 1, chain); }
-    catch { result = await geckoFeed(kind, url.searchParams.get('page') || 1); }
+    catch { result = await geckoFeed(kind, url.searchParams.get('page') || 1, chain); }
     return json(res, 200, result);
   }
   const candleMatch = url.pathname.match(/^\/api\/market\/candles\/([^/]+)\/([^/]+)$/);

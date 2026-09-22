@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 NETWORKS = {'solana': 'solana', 'ethereum': 'eth', 'base': 'base', 'bsc': 'bsc',
             'arbitrum': 'arbitrum', 'avalanche': 'avax', 'polygon': 'polygon_pos', 'sui': 'sui'}
 REVERSE_NETWORKS = {v: k for k, v in NETWORKS.items()}
+SUPPORTED_CHAINS = tuple(NETWORKS)
 DEFAULT_MINTS = {
     'FEE': '49MmWE8sgNjuw342Eu7tB9thsVFtvTfKigUw9KSppump',
     'FEECAT': 'AsX2abSJ2HqPqRxUbeYXE5R5ksrmUDz6BMGpg9mDpump',
@@ -161,13 +162,25 @@ def create_market_router(db, intelligence=None):
         try:
             pairs, meta = await dex_boost_feed(kind, chain, page)
         except HTTPException:
-            network = f'/{NETWORKS[chain]}' if chain != 'all' else ''
-            path = f'/networks{network}/{"new_pools" if kind == "new" else "trending_pools"}'
-            data, meta = await cached(
-                'GeckoTerminal', path,
-                {'include': 'base_token,quote_token,dex', 'page': page}, ttl=90,
-            )
-            pairs = normalise_pools(data)
+            chains = SUPPORTED_CHAINS if chain == 'all' else (chain,)
+            responses = await asyncio.gather(*[
+                cached(
+                    'GeckoTerminal',
+                    f'/networks/{NETWORKS[value]}/{"new_pools" if kind == "new" else "trending_pools"}',
+                    {'include': 'base_token,quote_token,dex', 'page': page},
+                    ttl=90,
+                )
+                for value in chains
+            ])
+            pairs = [pair for data, _meta in responses for pair in normalise_pools(data)]
+            meta = responses[0][1]
+            if len(responses) > 1:
+                meta = {
+                    **meta,
+                    'fetched_at': max(item[1].get('fetched_at', '') for item in responses),
+                    'stale': any(item[1].get('stale', False) for item in responses),
+                    'error': next((item[1].get('error') for item in responses if item[1].get('error')), None),
+                }
             if kind == 'new':
                 pairs = [pair for pair in pairs if is_new_pool_deal(pair)]
                 pairs.sort(key=lambda pair: (
