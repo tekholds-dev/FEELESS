@@ -77,4 +77,33 @@ describe('The Trenches pools tab', () => {
     act(() => host.querySelector('[data-testid="live-pool-solana-pool-1"]').click());
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ pairAddress: 'pool-1' }));
   });
+
+  test('keeps the current snapshot visible when the all-chain feed has no rows', () => {
+    const fallbackPair = {
+      chainId: 'solana',
+      pairAddress: 'fallback-pool',
+      baseToken: { symbol: 'FALLBACK', name: 'Fallback Coin' },
+      priceUsd: '0.42',
+      priceChange: { h24: -2.1 },
+      liquidity: { usd: 84000 },
+      volume: { h24: 12000 },
+    };
+    const onSelect = jest.fn();
+    mockUseMarket.mockReturnValue({
+      data: { provider: 'GeckoTerminal', pairs: [] },
+      loading: false,
+      refreshing: false,
+      error: 'Provider refresh limit reached',
+    });
+
+    act(() => root.render(<ChatRoom pairs={[fallbackPair]} onSelect={onSelect} />));
+    act(() => host.querySelector('[data-testid="chat-tab-pools"]').click());
+
+    expect(host.querySelector('[data-testid="live-pools-count"]').textContent).toBe('1');
+    expect(host.querySelector('[data-testid="live-pools-liquidity"]').textContent).toBe('$84.00K');
+    expect(host.querySelector('[data-testid="live-pools-status"]').textContent).toContain('Provider snapshot unavailable');
+    expect(host.querySelector('[data-testid="live-pool-solana-fallback-pool"]')).not.toBeNull();
+    act(() => host.querySelector('[data-testid="live-pool-solana-fallback-pool"]').click());
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ pairAddress: 'fallback-pool' }));
+  });
 });
