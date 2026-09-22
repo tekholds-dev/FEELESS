@@ -127,6 +127,53 @@ body.theme-day .globe-page .landing-copy h1,body.theme-day .globe-page .landing-
 
 .market-table-live-status{display:flex;align-items:center;gap:8px;padding:8px 15px;border-bottom:1px solid #1c3b29;background:#00e9a007;color:var(--mint);font:8px 'JetBrains Mono',monospace;letter-spacing:.4px}.market-coin-loading{min-height:150px}.market-bottom>small{color:#a5bdad;font-size:8px}.live-feed-badge{margin-left:8px;color:var(--mint);font:7px 'JetBrains Mono',monospace;border:1px solid #00e9a04d;border-radius:3px;padding:4px 6px}.coin-feed-status{display:flex;align-items:center;gap:7px}.coin-feed-status>i{font:7px 'JetBrains Mono',monospace;color:var(--mint);font-style:normal}
 
+/* Launchpad radar: platform identity, live filters, and an explanation-first launch path. */
+.launchpad-page-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:25px}
+.launchpad-page-heading>div:first-child{min-width:0}
+.launchpad-directory-signal{display:flex;gap:7px;flex-shrink:0}
+.launchpad-directory-signal span{display:flex;flex-direction:column;gap:6px;min-width:80px;padding:11px;border:1px solid #2c5538;border-radius:5px;background:#091a10}
+.launchpad-directory-signal b{font:16px 'JetBrains Mono',monospace;color:var(--mint)}
+.launchpad-directory-signal small{font-size:7px;color:#7ca48a;text-transform:uppercase;letter-spacing:.4px}
+.launchpad-hero-copy{min-width:0}
+.launchpad-hero-title{display:flex;align-items:center;gap:14px}
+.launchpad-hero-title h2{margin-top:8px}
+.launchpad-hero-copy>p{max-width:760px}
+.launchpad-logo{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;border:1px solid var(--logo-accent);border-radius:14px;background:linear-gradient(145deg,#112b1b,#06100b);overflow:hidden;color:var(--logo-accent);box-shadow:0 0 22px color-mix(in srgb,var(--logo-accent) 16%,transparent)}
+.launchpad-logo img{width:100%;height:100%;object-fit:cover}
+.launchpad-logo .feeless-mark{display:inline-flex}
+.launchpad-logo .feeless-mark img{object-fit:contain}
+.launchpad-hero-meta{display:flex;flex-wrap:wrap;gap:13px;margin-top:18px;color:#80a58d;font:8px 'JetBrains Mono',monospace}
+.launchpad-hero-meta span{display:inline-flex;align-items:center;gap:6px}
+.launchpad-hero-meta i,.pad-feature-list i{width:5px;height:5px;border-radius:50%;background:var(--mint);display:inline-block}
+.launchpad-hero-cta{flex-shrink:0;white-space:nowrap}
+.launchpad-guide{border:1px solid #294d36;border-radius:7px;background:#08150d;margin:0 0 25px;overflow:hidden}
+.launchpad-guide-heading,.launchpad-venue-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:18px}
+.launchpad-guide-heading{padding:18px 20px;border-bottom:1px solid #24442f}
+.launchpad-guide-heading h2,.launchpad-venue-heading h2{font-size:18px;margin-top:8px}
+.launchpad-guide-heading>span{font-size:9px;color:#739b80}
+.launchpad-guide-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:#23412d}
+.launchpad-guide-card{position:relative;min-height:145px;padding:19px;background:#091a10}
+.launchpad-guide-card>svg{color:var(--mint);margin:22px 0 12px}
+.launchpad-guide-number{position:absolute;top:15px;right:17px;color:#5a8368;font:9px 'JetBrains Mono',monospace}
+.launchpad-guide-card h3{font-size:12px;margin-bottom:7px}
+.launchpad-guide-card p{color:#789e85;font-size:10px;line-height:1.65}
+.launchpad-venue-toolbar{align-items:center;flex-wrap:wrap;margin:0 0 14px;padding:4px 0 13px;border-bottom:1px solid #294a35}
+.launchpad-venue-heading{margin-right:auto}
+.launchpad-search{display:flex;align-items:center;gap:7px;border:1px solid #2d5239;border-radius:4px;padding:8px 10px;color:#789d85}
+.launchpad-search input{width:145px;background:transparent;outline:none;color:#d6e9dc;font-size:10px}
+.launchpad-search input::placeholder{color:#62826e}
+.launchpad-filters{display:flex;align-items:center;gap:4px;color:#759d82}
+.launchpad-filters button{padding:7px 9px;border:1px solid transparent;border-radius:3px;color:#789b85;font-size:9px}
+.launchpad-filters button.active,.launchpad-filters button:hover{border-color:#2e8b57;background:#00e9a00d;color:var(--mint)}
+.launchpad-card{min-height:310px}
+.launchpad-card-top{margin-bottom:18px}
+.pad-feature-list{display:flex;flex-wrap:wrap;gap:6px 12px;margin:17px 0 2px}
+.pad-feature-list span{display:inline-flex;align-items:center;gap:6px;color:#85a990;font-size:8px}
+.pad-chain{margin:15px 0}
+.pad-chain span{margin-left:auto;color:#5b8167;font-size:8px}
+.launchpad-disclosure{display:flex;align-items:center;gap:7px;margin-top:16px}
+.launchpad-disclosure svg{color:var(--mint)}
+
 /* Meta Launch mechanics: curve first, explicit fee routing, no dead fields. */
 .meta-launch-mechanics-banner{display:flex;align-items:center;justify-content:space-between;gap:25px;padding:20px 22px;margin-bottom:16px;border:1px solid #2d6b46;border-radius:7px;background:linear-gradient(110deg,#0b2517,#07140d 66%,#0b2114);box-shadow:inset 0 0 40px #00e9a006}
 .meta-launch-mechanics-banner>div:first-child{min-width:0}
@@ -147,6 +194,17 @@ body.theme-day .globe-page .landing-copy h1,body.theme-day .globe-page .landing-
 .meta-launch-sidebar-note>span{display:flex;flex-direction:column;gap:4px}
 .meta-launch-sidebar-note b{font-size:10px}
 .meta-launch-sidebar-note small{font-size:9px;line-height:1.5;color:#82a78d}
+.meta-launch-box-guide{margin:0 0 16px;border:1px solid #294d36;border-radius:7px;background:#08150d;overflow:hidden}
+.meta-launch-box-guide-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:15px;padding:17px 19px;border-bottom:1px solid #23432e}
+.meta-launch-box-guide-heading h2{font-size:17px;margin-top:7px}
+.meta-launch-box-guide-heading small{font-size:9px;color:#789f84}
+.meta-launch-box-guide-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:#23412d}
+.meta-launch-box-guide-grid article{display:flex;gap:10px;min-height:95px;padding:14px;background:#091a10}
+.meta-launch-box-guide-grid article>span{font:9px 'JetBrains Mono',monospace;color:var(--mint)}
+.meta-launch-box-guide-grid article div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.meta-launch-box-guide-grid b{font-size:11px;color:#d2e6d8}
+.meta-launch-box-guide-grid strong{font-size:9px;font-weight:500;color:#8aac95}
+.meta-launch-box-guide-grid p{font-size:8px;line-height:1.55;color:#648a70}
 .meta-launch-review-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;padding:20px 0;border-bottom:1px solid #203a2a}
 .meta-launch-review-cards>div{min-width:0;padding:13px;border:1px solid #294a35;border-radius:5px;background:#08150d}
 .meta-launch-review-cards span,.meta-launch-review-cards small{display:block;color:#769480;font-size:9px;line-height:1.5}
@@ -154,10 +212,29 @@ body.theme-day .globe-page .landing-copy h1,body.theme-day .globe-page .landing-
 .meta-launch-review-cards small{color:#8eae99}
 
 @media(max-width:760px){
+  .launchpad-page-heading{align-items:flex-start;flex-direction:column}
+  .launchpad-directory-signal{width:100%}
+  .launchpad-directory-signal span{flex:1;min-width:0}
+  .launchpad-guide-heading,.launchpad-venue-toolbar{align-items:flex-start;flex-direction:column}
+  .launchpad-guide-grid,.meta-launch-box-guide-grid{grid-template-columns:1fr 1fr}
+  .launchpad-hero-title{align-items:flex-start}
+  .launchpad-hero-title h2{font-size:23px}
+  .launchpad-hero-cta{width:100%}
+  .launchpad-search{width:100%}
+  .launchpad-search input{width:100%}
+  .launchpad-filters{width:100%}
+  .launchpad-filters button{flex:1}
+  .meta-launch-box-guide-heading{align-items:flex-start;flex-direction:column}
   .meta-launch-mechanics-banner{align-items:flex-start;flex-direction:column;padding:17px}
   .meta-launch-mechanics-banner h2{font-size:19px}
   .meta-launch-mechanics-flow{width:100%;justify-content:space-between}
   .meta-launch-review-cards{grid-template-columns:1fr 1fr}
+}
+
+@media(max-width:460px){
+  .launchpad-guide-grid,.meta-launch-box-guide-grid{grid-template-columns:1fr}
+  .launchpad-directory-signal b{font-size:13px}
+  .launchpad-directory-signal small{font-size:6px}
 }
 
 .live-pools-panel{display:flex;flex-direction:column;min-height:0;flex:1;background:#07110b}

@@ -33,7 +33,7 @@ test('uses provider image fields before the indexed token-image fallback', () =>
   act(() => root.unmount());
 });
 
-test('tries the indexed fallback before leaving a token as a letter after image failure', () => {
+test('tries the indexed fallback before showing a neutral logo icon after image failure', () => {
   const { host, root } = mount({
     chainId: 'ethereum',
     baseToken: { address: '0xabc', symbol: 'BETA', logoURI: 'https://provider.test/beta.png' },
@@ -44,6 +44,7 @@ test('tries the indexed fallback before leaving a token as a letter after image 
   expect(host.querySelector('img').getAttribute('src')).toBe('https://dd.dexscreener.com/ds-data/tokens/ethereum/0xabc.png');
   act(() => host.querySelector('img').dispatchEvent(new Event('error')));
   expect(host.querySelector('img')).toBeNull();
-  expect(host.textContent).toContain('BE');
+  expect(host.querySelector('.token-avatar-fallback svg')).toBeTruthy();
+  expect(host.textContent).not.toContain('BE');
   act(() => root.unmount());
 });

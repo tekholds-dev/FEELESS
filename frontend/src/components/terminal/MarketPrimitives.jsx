@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, RefreshCw, UserRound } from 'lucide-react';
+import { AlertTriangle, Coins, RefreshCw, UserRound } from 'lucide-react';
 import { formatPct, formatUSD, formatTime, shortAddress } from '../../lib/dexscreener';
 
 const isImageSource = value => typeof value === 'string' && (/^https?:\/\//i.test(value) || /^data:image\//i.test(value));
@@ -32,8 +32,9 @@ export const TokenAvatar = ({ pair, size = 34 }) => {
   const sourceKey = sources.join('|');
   useEffect(() => { setImageIndex(0); }, [sourceKey]);
   const imageUrl = sources[imageIndex];
-  return <span className="token-avatar" style={{ width: size, height: size }}>
-    <span>{pair?.baseToken?.symbol?.slice(0, 2) || '?'}</span>
+  const symbol = pair?.baseToken?.symbol || 'token';
+  return <span className="token-avatar" style={{ width: size, height: size }} aria-label={`${symbol} token logo`}>
+    {!imageUrl && <span className="token-avatar-fallback" aria-hidden="true"><Coins size={Math.round(size * 0.42)} /></span>}
     {imageUrl && <img key={imageUrl} src={imageUrl} alt="" onError={() => setImageIndex(index => index + 1)} />}
   </span>;
 };
