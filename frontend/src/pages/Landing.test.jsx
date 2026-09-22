@@ -171,6 +171,10 @@ test('keeps the open coin radar attached when switching ecosystems', () => {
   expect(nextToggle.getAttribute('aria-controls')).toBe('degen-coins-popover-ethereum');
   expect(rail.classList.contains('is-open')).toBe(true);
   expect(container.querySelector('[data-testid="mock-radar-ecosystem"]').textContent).toBe('Ethereum');
+  const announcement = container.querySelector('[data-testid="globe-ecosystem-announcement"]');
+  expect(announcement.getAttribute('role')).toBe('status');
+  expect(announcement.getAttribute('aria-live')).toBe('polite');
+  expect(announcement.textContent).toBe('Ethereum selected. Top coins and New coins feeds are active.');
    expect(container.querySelector('[data-testid="mock-top-loading"]')).toBeTruthy();
    expect(container.querySelector('[data-testid="mock-new-loading"]')).toBeTruthy();
 
