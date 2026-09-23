@@ -278,6 +278,7 @@ def create_market_router(db, intelligence=None):
         'GeckoTerminal': os.getenv('GECKO_API_URL', 'https://api.geckoterminal.com/api/v2'),
         'Pump.fun': os.getenv('PUMP_API_URL', 'https://frontend-api-v3.pump.fun'),
     }
+    gecko_api_key = os.getenv('GECKO_API_KEY') or os.getenv('COINGECKO_API_KEY')
 
     async def cached(provider, path, params=None, ttl=60):
         params = params or {}
@@ -303,8 +304,10 @@ def create_market_router(db, intelligence=None):
                 queue.append(monotonic())
                 try:
                     async with httpx.AsyncClient(timeout=12) as http:
-                        res = await http.get(bases[provider] + path, params=params,
-                                             headers={'Accept': 'application/json;version=20230203'})
+                        headers = {'Accept': 'application/json;version=20230203'}
+                        if provider == 'GeckoTerminal' and gecko_api_key:
+                            headers['x-cg-pro-api-key'] = gecko_api_key
+                        res = await http.get(bases[provider] + path, params=params, headers=headers)
                         res.raise_for_status()
                         data = res.json()
                     fetched = now.isoformat()

@@ -52,10 +52,10 @@ export default function Terminal() {
   const tab = params.get('mode') || (['new', 'pump'].includes(page) ? 'new' : 'trending');
   const kind = ['new', 'pump'].includes(page) || tab === 'new' ? 'new' : 'trending';
   const cadence = page === 'pump' ? 15000 : autoRefresh ? 90000 : 0;
-  const pumpScope = ecosystem.id === 'pump' ? '&scope=pump' : '';
+  const pumpScope = ecosystem.isLaunchpad ? `&scope=${encodeURIComponent(ecosystem.id)}` : '';
   const market = useMarket(query ? `/search?q=${encodeURIComponent(query)}` : `/feed?kind=${kind}&chain=${chain}&page=${pagination}${screenParam}${page === 'pump' ? pumpScope : ''}`, cadence);
   const newFeed = useMarket(`/feed?kind=new&chain=${ecosystem.chainId}&page=1${screenParam}${pumpScope}`, cadence);
-  const pumpTrendingFeed = useMarket(page === 'pump' ? `/feed?kind=trending&chain=${ecosystem.chainId}&page=1${screenParam}&scope=pump` : null, page === 'pump' ? 15000 : 0);
+  const pumpTrendingFeed = useMarket(page === 'pump' ? `/feed?kind=trending&chain=${ecosystem.chainId}&page=1${screenParam}${pumpScope}` : null, page === 'pump' ? 15000 : 0);
   const pairLookup = useMarket(pairLookupPath, 60000);
   const assets = useMarket('/assets', 90000); const feeAssets = assets.data?.assets || []; const fee = feeAssets.find(a => a.id === 'fee'); const feeCat = feeAssets.find(a => a.id === 'feecat');
   const { data: community } = useMarket(`/api/intelligence/community?context=${ecosystem.id}`, 30000);
@@ -86,7 +86,7 @@ export default function Terminal() {
   const marketModeMatches = requestedScreener == null || !market.data?.screener || market.data.screener === requestedScreener;
   const newPairs = (newFeed.data?.pairs || []).filter(p => matchesPad(p, activePad) && (p.marketStage === 'new' || isNewPoolDeal(p)));
   useEffect(() => { setPagination(1); setPad('all'); setMinLiquidity('0'); setMenuOpen(false); if (page === 'pump' && ecosystem.id !== 'pump') setEcosystem('pump'); }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { setPagination(1); }, [ecosystem.id, query, kind]);
+  useEffect(() => { setPagination(1); setPad('all'); setMinLiquidity('0'); }, [ecosystem.id, query, kind]);
   useEffect(() => { if (page === 'launch' && metaLaunchRequested && ecosystem.id !== 'feeless-launch') setEcosystem('feeless-launch'); }, [page, metaLaunchRequested, ecosystem.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const value = params.get('chain'); if (value && value !== 'all' && value !== ecosystem.chainId) setEcosystem(value === 'bsc' ? 'bnb' : value); }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {

@@ -23,7 +23,7 @@ const PUMP_RADAR_STAGES = [
 
 const formatPoolAddress = address => address.length > 12 ? `${address.slice(0, 6)}…${address.slice(-4)}` : address;
 
-export const PumpRadarCard = ({ pair, onSelect, rank }) => {
+export const PumpRadarCard = ({ pair, onSelect, rank, onLogoExhausted }) => {
   const change = Number(pair.priceChange?.h24);
   const momentum = pair.priceChange?.m5 ?? pair.priceChange?.h1;
   const signal = Number.isFinite(Number(pair.signals?.velocity_pct_min))
@@ -40,7 +40,7 @@ export const PumpRadarCard = ({ pair, onSelect, rank }) => {
     onSelect(pair);
   };
   return <article className="pump-radar-card" data-testid={`pump-radar-card-${pairKey(pair)}`} onClick={activate} onKeyDown={handleKeyDown} role="button" tabIndex="0" aria-label={`Open ${pair.baseToken?.symbol || 'token'} market`}>
-    <div className="pump-radar-card-top"><span className="pump-radar-rank">{String(rank).padStart(2, '0')}</span><TokenAvatar pair={pair} size={38} /><span className="pump-radar-token"><b>{pair.baseToken?.symbol || 'Unknown'}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId || 'chain unavailable'} · {pair.dexId || 'venue unavailable'}</small></span><span className="pump-radar-age">{formatAge(pair.pairCreatedAt)}</span></div>
+     <div className="pump-radar-card-top"><span className="pump-radar-rank">{String(rank).padStart(2, '0')}</span><TokenAvatar pair={pair} size={38} maxAttempts={onLogoExhausted ? 3 : undefined} onExhausted={onLogoExhausted} /><span className="pump-radar-token"><b>{pair.baseToken?.symbol || 'Unknown'}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId || 'chain unavailable'} · {pair.dexId || 'venue unavailable'}</small></span><span className="pump-radar-alive" title="Recent provider snapshot"><i />ALIVE</span><span className="pump-radar-age">{formatAge(pair.pairCreatedAt)}</span></div>
     <div className="pump-radar-price-row"><span className="pump-radar-value-block"><small>PRICE</small><strong>{formatUSD(pair.priceUsd)}</strong></span><Change value={pair.priceChange?.h24} id={`pump-radar-change-${pairKey(pair)}`} /><span className={change >= 0 ? 'positive' : 'negative'}><Activity size={11} />{signal}</span></div>
     <div className="pump-radar-metrics"><span><small>LIQUIDITY</small><b>{formatUSD(pair.liquidity?.usd)}</b></span><span><small>MARKET CAP</small><b>{formatUSD(pair.marketCap)}</b></span><span><small>24H VOL</small><b>{formatUSD(pair.volume?.h24)}</b></span></div>
     {pair.graduation && <div className="pump-radar-migration" data-testid={`pump-radar-migration-${pairKey(pair)}`}><small>MIGRATION POOL</small>{migrationPool ? <a href={`https://solscan.io/account/${encodeURIComponent(migrationPool)}`} target="_blank" rel="noreferrer" aria-label={`Open provider-reported migration pool ${migrationPool}`} onClick={event => event.stopPropagation()}><span>Provider-reported destination</span><code>{formatPoolAddress(migrationPool)}</code><ExternalLink size={11} /></a> : <span className="pump-radar-migration-unavailable" data-testid={`pump-radar-migration-unavailable-${pairKey(pair)}`}>Unavailable from Pump.fun</span>}</div>}
@@ -51,12 +51,13 @@ export const PumpRadarCard = ({ pair, onSelect, rank }) => {
 export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
   const { ecosystem, watchlist } = useWorkspace();
   const [stage, setStage] = useState('new');
+  const [failedNewLogos, setFailedNewLogos] = useState(() => new Set());
   const now = useClock(1000);
   const matches = useMemo(() => pair => matchesPad(pair, ecosystem.id) && (ecosystem.chainId === 'all' || pair.chainId === ecosystem.chainId), [ecosystem.id, ecosystem.chainId]);
   const newPairs = useMemo(() => (newFeed.data?.pairs || []).filter(pair => {
     const fresh = Number.isFinite(Number(pair.pairCreatedAt)) && Date.now() - Number(pair.pairCreatedAt) <= 14 * 24 * 60 * 60 * 1000;
-    return matches(pair) && (pair.marketStage === 'new' || fresh);
-  }), [newFeed.data, matches]);
+    return matches(pair) && (pair.marketStage === 'new' || fresh) && !failedNewLogos.has(pairKey(pair));
+  }), [newFeed.data, matches, failedNewLogos]);
   const trendingPairs = useMemo(() => (trendingFeed.data?.pairs || []).filter(matches), [trendingFeed.data, matches]);
   const allObserved = useMemo(() => [...new Map([...newPairs, ...trendingPairs].map(pair => [pairKey(pair), pair])).values()], [newPairs, trendingPairs]);
   const graduationMints = useMemo(() => [...new Set(allObserved.map(pair => pair.baseToken?.address).filter(Boolean))].join(','), [allObserved]);
@@ -94,7 +95,17 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
     {providerError && <p className="pump-radar-error" role="alert" data-testid="pump-radar-error">{providerError} <button type="button" onClick={() => feed.reload()}>Retry</button></p>}
     {!providerError && feed.loading && !stagePairs.length && <p className="truth-empty" role="status" data-testid="pump-radar-loading">Connecting to live provider snapshots…</p>}
     {!providerError && !feed.loading && !stagePairs.length && <div className="truth-empty" data-testid={`pump-radar-${stage}-empty`}>{stageUnavailable ? (feed.data?.status === 'unavailable' ? 'Graduation status is unavailable from Pump.fun right now.' : 'No Pump.fun completion event matches an observed coin.') : stage === 'watchlist' ? 'Star provider-indexed coins to build a personal radar.' : `No ${stage} coins are currently visible in this provider snapshot.`}</div>}
-    <div className="pump-radar-grid">{stagePairs.slice(0, 8).map((pair, index) => <PumpRadarCard key={pairKey(pair)} pair={pair} rank={index + 1} onSelect={onSelect} />)}</div>
+     <div className="pump-radar-grid">{stagePairs.slice(0, 8).map((pair, index) => <PumpRadarCard
+       key={pairKey(pair)}
+       pair={pair}
+       rank={index + 1}
+       onSelect={onSelect}
+       onLogoExhausted={stage === 'new' ? () => setFailedNewLogos(previous => {
+         const next = new Set(previous);
+         next.add(pairKey(pair));
+         return next;
+       }) : undefined}
+     />)}</div>
     <div className="pump-radar-disclosure"><span><Zap size={13} />{pumpLaunchpadFeed ? 'Pump.fun coins are provider-indexed, not guaranteed launches.' : 'Provider-indexed coins are not guaranteed launches.'}</span><span>{sourceLabel} · {feed.data?.sourceUrl || feed.data?.source_url || 'source boundary unavailable'}</span>{fallbackReason && <span data-testid="pump-radar-fallback">Fallback: {fallbackReason}</span>}{coverage.discovery && <span data-testid="pump-radar-coverage">Coverage: {coverage.discovery}</span>}</div>
   </section>;
 };

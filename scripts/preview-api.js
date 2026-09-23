@@ -8,6 +8,7 @@ const { keccak_256 } = require('@noble/hashes/sha3');
 const PORT = Number(process.env.API_PORT || 5001);
 const DEX_API = process.env.DEX_API_URL || 'https://api.dexscreener.com';
 const GECKO_API = process.env.GECKO_API_URL || 'https://api.geckoterminal.com/api/v2';
+const GECKO_API_KEY = process.env.GECKO_API_KEY || process.env.COINGECKO_API_KEY || '';
 
 const PUMP_API = process.env.PUMP_API_URL || 'https://frontend-api-v3.pump.fun';
 const DEX_SITE = process.env.DEX_SITE_URL || 'https://dexscreener.com';
@@ -158,7 +159,9 @@ async function getJsonWithMeta(url, ttl = 30000) {
   if (pendingRequests.has(url)) return pendingRequests.get(url);
   const request = (async () => {
     try {
-      const response = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
+      const headers = { Accept: 'application/json' };
+      if (String(url).startsWith(GECKO_API) && GECKO_API_KEY) headers['x-cg-pro-api-key'] = GECKO_API_KEY;
+      const response = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
       if (!response.ok) throw Object.assign(new Error(`Provider returned HTTP ${response.status}.`), {
         providerStatus: response.status,
         provider: providerNameForUrl(url),

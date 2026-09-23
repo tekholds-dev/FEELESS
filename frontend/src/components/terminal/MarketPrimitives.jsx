@@ -66,16 +66,42 @@ export const withRankingContext = (pair, fallback = {}) => {
   return { ...pair, rankingContext: { ...(pair.rankingContext || {}), ...getRankingContext(pair, fallback) } };
 };
 
-export const TokenAvatar = ({ pair, size = 34 }) => {
+export const TokenAvatar = ({ pair, size = 34, onExhausted, maxAttempts }) => {
   const sources = tokenImageUrls(pair);
   const [imageIndex, setImageIndex] = useState(0);
+  const [attempts, setAttempts] = useState(0);
+  const [exhausted, setExhausted] = useState(false);
   const sourceKey = sources.join('|');
-  useEffect(() => { setImageIndex(0); }, [sourceKey]);
+  useEffect(() => {
+    setImageIndex(0);
+    setAttempts(0);
+    setExhausted(false);
+  }, [sourceKey]);
+  useEffect(() => {
+    if (onExhausted && maxAttempts && !sources.length && !exhausted) {
+      setExhausted(true);
+      onExhausted(pair);
+    }
+  }, [exhausted, maxAttempts, onExhausted, pair, sources.length]);
   const imageUrl = sources[imageIndex];
   const symbol = pair?.baseToken?.symbol || 'token';
   return <span className="token-avatar" style={{ width: size, height: size }} aria-label={`${symbol} token logo`}>
-    {!imageUrl && <span className="token-avatar-fallback" aria-hidden="true"><Coins size={Math.round(size * 0.42)} /></span>}
-    {imageUrl && <img key={imageUrl} src={imageUrl} alt="" onError={() => setImageIndex(index => index + 1)} />}
+    {(!imageUrl || exhausted) && <span className="token-avatar-fallback" aria-hidden="true"><Coins size={Math.round(size * 0.42)} /></span>}
+    {imageUrl && !exhausted && <img
+      key={`${imageUrl}-${attempts}`}
+      src={imageUrl}
+      alt=""
+      onError={() => {
+        const nextAttempts = attempts + 1;
+        setAttempts(nextAttempts);
+        if (onExhausted && maxAttempts && nextAttempts >= maxAttempts) {
+          setExhausted(true);
+          onExhausted(pair);
+          return;
+        }
+        setImageIndex(index => sources.length ? (index + 1) % sources.length : 0);
+      }}
+    />}
   </span>;
 };
 
