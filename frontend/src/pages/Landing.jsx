@@ -6,6 +6,7 @@ import EcosystemChat from '../components/EcosystemChat';
 import TopCoins from '../components/TopCoins';
 import { FeelessCoinCards } from '../components/TopCoins';
 import EcosystemPlatforms from '../components/EcosystemPlatforms';
+import EcosystemWorld from '../components/EcosystemWorld';
 import WalletModal from '../components/WalletModal';
 import { TerminalHeader, MarketTicker } from '../components/terminal/TerminalShell';
 import { ECOSYSTEMS, getEcosystem } from '../lib/ecosystems';
@@ -38,6 +39,7 @@ export default function Landing() {
   const [menu, setMenu] = useState(false);
   const [mobileRadar, setMobileRadar] = useState(() => typeof window !== 'undefined' && window.matchMedia?.('(max-width: 760px)').matches);
   const [radarOpen, setRadarOpen] = useState(false);
+  const [worldOpen, setWorldOpen] = useState(false);
   const pad = LAUNCHPADS.find(p => p.id === selected);
   const ecosystem = pad ? launchpadEcosystem(pad) : getEcosystem(selected);
   useEffect(() => {
@@ -49,6 +51,10 @@ export default function Landing() {
   }, []);
   const radarIsOpen = mobileRadar || radarOpen;
   const toggleRadar = () => setRadarOpen(open => mobileRadar || !open);
+  const openWorld = id => {
+    setSelected(id);
+    setWorldOpen(true);
+  };
   return <div className="globe-page"><p className="sr-only" role="status" aria-live="polite" data-testid="globe-ecosystem-announcement">{ecosystemAnnouncement}</p><MouseGlow /><TerminalHeader onWallet={() => setWalletOpen(true)} onMenu={() => setMenu(v => !v)} /><MarketTicker /><ContextBar />
     {menu && <nav className="landing-menu" data-testid="landing-menu">{[['/terminal', 'The terminal'], ['/terminal/launch', 'Launchpads'], ['/terminal/whitepaper', 'Whitepaper']].map(([path, title]) => <Link data-testid={`landing-menu-${title.replace(/\s/g, '-').toLowerCase()}`} to={path} key={path}>{title}<ArrowUpRight size={15} /></Link>)}</nav>}
      <main className={`globe-layout ${ecosystem ? 'with-panel is-focused' : ''}`}><div className="globe-main"><div className="globe-stage"><div className="landing-copy"><span className="eyebrow"><span className="live-dot" /> ONE WORLD. ALL THE OPPORTUNITY.</span><h1>Find the meta.<br />Follow the flow.<br /><span>Stay early.</span></h1><p>Every ecosystem. Your favourite launchpads.<br />One connected degen universe.</p><Link className="btn-primary globe-terminal-cta" to="/terminal" data-testid="enter-terminal">Enter the terminal<ArrowUpRight size={17} /></Link><Link className="landing-whitepaper" to="/terminal/whitepaper" data-testid="landing-whitepaper">Read the whitepaper<ArrowRight size={13} /></Link><div className="globe-legend"><span><i className="legend-chain" />ECOSYSTEM</span><span><i className="legend-launch" />LAUNCHPAD</span></div></div><div className="landing-globe"><Globe3D onSelect={setSelected} selectedId={selected} size={680} /><div className="globe-coordinate-label">GLOBAL ON-CHAIN NETWORK<span>14 CONNECTED NODES</span></div></div></div>
