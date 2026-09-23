@@ -13,7 +13,7 @@ process.env.DEX_API_URL = DEX_API_URL;
 process.env.GECKO_API_URL = GECKO_API_URL;
 process.env.PUMP_API_URL = PUMP_API_URL;
 
-const { cache, server } = require('./preview-api');
+const { applyScreener, cache, normalizeScreener, scorePair, server } = require('./preview-api');
 
 function providerResponse(body, status = 200) {
   return {
@@ -48,6 +48,42 @@ function signSolana(keypair, message) {
   const key = { key: Buffer.concat([pkcs8Prefix, Buffer.from(keypair.secretKey.subarray(0, 32))]), format: 'der', type: 'pkcs8' };
   return nodeCrypto.sign(null, Buffer.from(message), key).toString('base64');
 }
+
+test('market screeners rank observed provider signals without calling them safety signals', () => {
+  const now = Date.now();
+  const deepLiquidity = {
+    chainId: 'solana',
+    pairAddress: 'deep-liquidity',
+    liquidity: { usd: 900000 },
+    volume: { h24: 200000 },
+    txns: { h24: { buys: 500, sells: 480 } },
+    priceChange: { h1: 1, h6: 2, h24: 4 },
+    pairCreatedAt: now - 5 * 86400000,
+  };
+  const activeVolume = {
+    chainId: 'solana',
+    pairAddress: 'active-volume',
+    liquidity: { usd: 18000 },
+    volume: { h24: 950000 },
+    txns: { h24: { buys: 900, sells: 650 } },
+    priceChange: { h1: 5, h6: 12, h24: 28 },
+    pairCreatedAt: now - 2 * 86400000,
+  };
+
+  assert.equal(normalizeScreener('unknown', 'trending'), 'quality');
+  assert.equal(normalizeScreener('', 'new'), 'new');
+  assert.ok(scorePair(deepLiquidity, 'quality', now).score > 0);
+
+  const quality = applyScreener({ label: 'Boosted discovery', pairs: [activeVolume, deepLiquidity] }, 'trending', 'quality');
+  const volume = applyScreener({ label: 'Boosted discovery', pairs: [deepLiquidity, activeVolume] }, 'trending', 'volume');
+  assert.equal(quality.screener, 'quality');
+  assert.equal(quality.screener_label, 'Best observed setups');
+  assert.equal(quality.pairs[0].pairAddress, 'deep-liquidity');
+  assert.equal(volume.pairs[0].pairAddress, 'active-volume');
+  assert.match(quality.screener_disclosure, /Not a security audit or trade signal/);
+  assert.equal(quality.pairs[0].signals.screener, 'quality');
+  assert.ok(quality.pairs[0].signals.score_reasons.length > 0);
+});
 
 async function proof(baseUrl, keypair, fetchImpl) {
   const address = keypair.publicKey.toString();

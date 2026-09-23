@@ -704,6 +704,8 @@ body.theme-day .globe-terminal-cta:hover *{color:#fff!important}
 .degen-coins-rail:hover .degen-coins-popover,.degen-coins-rail:focus-within .degen-coins-popover,.degen-coins-rail.is-open .degen-coins-popover{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(0)}
 .degen-coins{height:auto!important;max-height:680px;overflow-y:auto}
 .coin-feed-heading h3{font-size:14px}
+.coin-screener{display:flex;align-items:center;gap:7px;color:#789985;font:9px 'JetBrains Mono',monospace;letter-spacing:.5px}
+.coin-screener select{min-width:112px}
 
 @media(max-width:760px){
   .terminal-app .section-title h2{font-size:15px}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useMarket } from '../hooks/useMarket';
 import { useWorkspace } from '../hooks/useWorkspace';
 import { DataStatus, MarketError } from './terminal/MarketPrimitives';
@@ -52,8 +52,11 @@ export default function TopCoins({ ecosystem }) {
   const workspace = useWorkspace() || {};
   const selectPair = workspace.selectPair || (() => {});
   const chain = ecosystem?.chainId || 'solana';
-  const top = useMarket(`/feed?kind=trending&chain=${chain}`);
-  const fresh = useMarket(`/feed?kind=new&chain=${chain}`);
+  const [screen, setScreen] = useState('quality');
+  const topScreenParam = screen === 'quality' ? '' : `&screen=${screen}`;
+  const freshScreenParam = screen === 'new' || screen === 'quality' ? '' : `&screen=${screen}`;
+  const top = useMarket(`/feed?kind=trending&chain=${chain}${topScreenParam}`);
+  const fresh = useMarket(`/feed?kind=new&chain=${chain}${freshScreenParam}`);
   const providers = [...new Set([top.data?.provider, fresh.data?.provider].filter(Boolean))];
   const onSelect = pair => {
     selectPair(pair);
@@ -61,9 +64,9 @@ export default function TopCoins({ ecosystem }) {
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
   return <div className="top-coins" data-testid="globe-coin-radar">
-     <div className="section-title"><h2>Coin radar</h2><span className="provider-note">Public indexed markets</span></div>
+     <div className="section-title"><h2>Coin radar</h2><label className="coin-screener"><span>SCREEN</span><select aria-label="Coin screener" data-testid="coin-screener" value={screen} onChange={event => setScreen(event.target.value)}><option value="quality">Best observed</option><option value="momentum">Momentum</option><option value="volume">Volume leaders</option><option value="new">Fresh</option></select></label></div>
      <CoinFeed id="trending" title="Top coins" result={top} ecosystem={ecosystem} onSelect={onSelect} />
      <CoinFeed id="new" title="New coins" result={fresh} ecosystem={ecosystem} onSelect={onSelect} />
-     <small className="provider-note">{providers.length ? providers.join(' + ') : 'Public provider'} · Live indexed coin markets, not every launch. <a href={top.data?.sourceUrl || top.data?.source_url || fresh.data?.sourceUrl || fresh.data?.source_url || 'https://dexscreener.com'} target="_blank" rel="noreferrer">Open source boundary ↗</a></small>
+     <small className="provider-note">{providers.length ? providers.join(' + ') : 'Public provider'} · {top.data?.screener_disclosure || 'Provider-ranked indexed coin markets, not every launch.'} <a href={top.data?.sourceUrl || top.data?.source_url || fresh.data?.sourceUrl || fresh.data?.source_url || 'https://dexscreener.com'} target="_blank" rel="noreferrer">Open source boundary ↗</a></small>
   </div>;
 }

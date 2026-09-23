@@ -179,6 +179,139 @@ const PROVIDER_COVERAGE = {
   },
 };
 
+const SCREENER_CONFIG = {
+  quality: {
+    label: 'Best observed setups',
+    disclosure: 'Provider score from observed liquidity, volume, transaction activity, and price movement. Not a security audit or trade signal.',
+  },
+  momentum: {
+    label: 'Momentum',
+    disclosure: 'Provider score emphasizing reported price movement and activity. It does not predict future performance.',
+  },
+  volume: {
+    label: 'Volume leaders',
+    disclosure: 'Ranked by reported 24h volume, transaction activity, and liquidity. Rolling volume can change between snapshots.',
+  },
+  new: {
+    label: 'Fresh with activity',
+    disclosure: 'Recent provider-indexed pools with observed liquidity or activity. This does not establish launchpad provenance.',
+  },
+};
+
+function normalizeScreener(value, kind = 'trending') {
+  const requested = String(value || '').trim().toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(SCREENER_CONFIG, requested)) return requested;
+  return kind === 'new' ? 'new' : 'quality';
+}
+
+function finiteNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function clamp(value, min = 0, max = 100) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function logarithmicScore(value, floor, ceiling) {
+  if (!Number.isFinite(Number(value)) || Number(value) <= 0) return 0;
+  const floorLog = Math.log10(Math.max(1, floor));
+  const ceilingLog = Math.log10(Math.max(floor + 1, ceiling));
+  return clamp(((Math.log10(Number(value)) - floorLog) / (ceilingLog - floorLog)) * 100);
+}
+
+function transactionStats(pair) {
+  const txns = pair?.txns?.h24 || pair?.txns?.h6 || pair?.txns?.h1 || {};
+  return {
+    buys: finiteNumber(txns.buys),
+    sells: finiteNumber(txns.sells),
+  };
+}
+
+function scorePair(pair, screen, now = Date.now()) {
+  const liquidity = finiteNumber(pair?.liquidity?.usd);
+  const volume24 = finiteNumber(pair?.volume?.h24);
+  const transactions = transactionStats(pair);
+  const transactionCount = transactions.buys + transactions.sells;
+  const h1 = finiteNumber(pair?.priceChange?.h1);
+  const h6 = finiteNumber(pair?.priceChange?.h6);
+  const h24 = finiteNumber(pair?.priceChange?.h24);
+  const created = finiteNumber(pair?.pairCreatedAt, NaN);
+  const ageHours = Number.isFinite(created) ? (now - created) / 3600000 : null;
+  const liquidityScore = logarithmicScore(liquidity, 1000, 1000000);
+  const volumeScore = logarithmicScore(volume24, 500, 1000000);
+  const marketCapScore = logarithmicScore(finiteNumber(pair?.marketCap), 10000, 100000000);
+  const activityScore = logarithmicScore(transactionCount, 4, 1200);
+  const balanceScore = transactionCount > 0
+    ? (Math.min(transactions.buys, transactions.sells) / Math.max(transactions.buys, transactions.sells)) * 100
+    : 0;
+  const movementScore = clamp(50 + (h1 * 2) + (h6 * 0.5) + (h24 * 0.15));
+  const recencyScore = ageHours == null ? 35 : clamp(100 - ((Math.max(0, ageHours) / (14 * 24)) * 100));
+  const scores = {
+    quality: (liquidityScore * 0.38) + (volumeScore * 0.25) + (activityScore * 0.14) + (balanceScore * 0.08) + (movementScore * 0.05) + (marketCapScore * 0.1),
+    momentum: (movementScore * 0.52) + (activityScore * 0.2) + (volumeScore * 0.16) + (liquidityScore * 0.12),
+    volume: (volumeScore * 0.56) + (activityScore * 0.24) + (liquidityScore * 0.2),
+    new: (recencyScore * 0.42) + (liquidityScore * 0.22) + (volumeScore * 0.18) + (activityScore * 0.13) + (movementScore * 0.05),
+  };
+  const score = Math.round(clamp(scores[screen] ?? scores.quality) * 10) / 10;
+  const reasons = [];
+  if (liquidity > 0) reasons.push(`${Math.round(liquidityScore)} liquidity`);
+  if (volume24 > 0) reasons.push(`${Math.round(volumeScore)} volume`);
+  if (transactionCount > 0) reasons.push(`${transactionCount} reported txns`);
+  if (ageHours != null && ageHours >= 0 && ageHours <= 14 * 24) reasons.push(`${Math.max(0, Math.round(ageHours))}h old`);
+  return {
+    score,
+    score_label: SCREENER_CONFIG[screen].label,
+    score_reasons: reasons.slice(0, 3),
+    liquidity_usd: liquidity || null,
+    volume_24h_usd: volume24 || null,
+    market_cap_usd: finiteNumber(pair?.marketCap) || null,
+    transactions_24h: transactionCount || null,
+    age_hours: ageHours != null && ageHours >= 0 ? Math.round(ageHours * 10) / 10 : null,
+  };
+}
+
+function applyScreener(feed, kind, requestedScreen) {
+  const screen = normalizeScreener(requestedScreen, kind);
+  const scored = (feed.pairs || []).map(pair => {
+    const score = scorePair(pair, screen);
+    return {
+      ...pair,
+      signals: { ...(pair.signals || {}), screener: screen, screener_score: score.score, ...score },
+    };
+  });
+  const recent = screen === 'new'
+    ? scored.filter(pair => pair.signals.age_hours == null || pair.signals.age_hours <= 14 * 24)
+    : scored;
+  const preferred = screen === 'quality'
+    ? recent.filter(pair => {
+      const liquidity = finiteNumber(pair?.liquidity?.usd);
+      const volume = finiteNumber(pair?.volume?.h24);
+      const activity = finiteNumber(pair?.signals?.transactions_24h);
+      return (!liquidity || liquidity >= 5000) && (!volume || volume >= 500 || activity >= 10);
+    })
+    : recent;
+  const visible = preferred.length >= Math.min(5, scored.length) ? preferred : recent.length ? recent : scored;
+  visible.sort((a, b) => b.signals.screener_score - a.signals.screener_score
+    || finiteNumber(b.liquidity?.usd) - finiteNumber(a.liquidity?.usd)
+    || finiteNumber(b.volume?.h24) - finiteNumber(a.volume?.h24)
+    || finiteNumber(b.marketCap) - finiteNumber(a.marketCap));
+  return {
+    ...feed,
+    label: `${feed.label.split(' · ')[0]} · ${SCREENER_CONFIG[screen].label}`,
+    screener: screen,
+    screener_label: SCREENER_CONFIG[screen].label,
+    screener_disclosure: SCREENER_CONFIG[screen].disclosure,
+    screening: {
+      candidate_count: scored.length,
+      visible_count: visible.length,
+      ranking: 'Provider snapshot score only',
+      filters: screen === 'new' ? 'Pool age ≤14 days when provider supplies creation time' : 'No security or profitability filter',
+    },
+    pairs: visible,
+  };
+}
+
 const PROVIDER_LABELS = {
   'Pump.fun': 'Pump.fun public coin index',
   DexScreener: 'DexScreener boosted discovery',
@@ -505,21 +638,17 @@ async function dexBoostFeed(kind, page = 1, chain = 'solana') {
     const liquidity = Number(pair.liquidity?.usd || 0);
     if (!bestByToken.has(key) || liquidity > Number(bestByToken.get(key).liquidity?.usd || 0)) bestByToken.set(key, pair);
   }
-  let pairs = [...bestByToken.values()];
-  if (kind === 'new') pairs = pairs.filter(pair => {
-    const age = Date.now() - Number(pair.pairCreatedAt || 0);
-    return age >= 0 && age <= 14 * 24 * 60 * 60 * 1000 && Number(pair.priceChange?.h24 || 0) <= -5;
-  });
+  const pairs = [...bestByToken.values()];
   pairs.sort((a, b) => (rank.get(`${a.chainId}:${a.baseToken?.address}`) ?? candidates.length)
     - (rank.get(`${b.chainId}:${b.baseToken?.address}`) ?? candidates.length)
     || Number(b.liquidity?.usd || 0) - Number(a.liquidity?.usd || 0));
-  if (!pairs.length) throw new Error('Fast discovery returned no qualifying pools.');
+  if (!pairs.length) throw new Error('Fast discovery returned no indexed pools.');
   return {
     ...providerMeta('DexScreener', payloadResult.fetchedAt || indexResult.fetchedAt, {
       stale: indexResult.stale || payloadResult.stale,
       error: indexResult.error || payloadResult.error,
     }),
-    label: kind === 'new' ? 'New pools · deals ≥5% 24h drawdown' : 'Boosted discovery',
+    label: kind === 'new' ? 'Recent indexed pools' : 'Boosted discovery',
     pairs,
     page: 1,
   };
@@ -823,6 +952,7 @@ async function route(req, res, url) {
     const kind = url.searchParams.get('kind') === 'new' ? 'new' : 'trending';
     const chain = url.searchParams.get('chain') || 'solana';
     const scope = url.searchParams.get('scope') || '';
+    const screen = normalizeScreener(url.searchParams.get('screen'), kind);
     if (chain !== 'all' && !GECKO_NETWORKS[chain]) return json(res, 400, { detail: 'Unsupported market chain.' });
     let result;
     const primaryProvider = scope === 'pump' ? 'Pump.fun' : 'DexScreener';
@@ -849,7 +979,7 @@ async function route(req, res, url) {
         result = unavailableFeed(kind, chain, geckoError || primaryError, primaryProvider);
       }
     }
-    return json(res, 200, result);
+    return json(res, 200, applyScreener(result, kind, screen));
   }
   if (req.method === 'GET' && url.pathname === '/api/market/graduations') {
     return json(res, 200, await pumpGraduations(url.searchParams.get('mints') || ''));
@@ -1126,4 +1256,13 @@ function startServer() {
 
 if (require.main === module) startServer();
 
-module.exports = { cache, geckoCandles, route, server, startServer };
+module.exports = {
+  applyScreener,
+  cache,
+  geckoCandles,
+  normalizeScreener,
+  route,
+  scorePair,
+  server,
+  startServer,
+};
