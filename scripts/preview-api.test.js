@@ -400,6 +400,106 @@ test('preview provider throttles use concise provider-aware warnings', async () 
   }
 });
 
+test('preview market routes preserve throttling fallbacks and response bodies', async () => {
+  const originalFetch = global.fetch;
+  const originalConsoleWarn = console.warn;
+  const originalConsoleError = console.error;
+  const warnings = [];
+  const errors = [];
+  cache.clear();
+  global.fetch = async target => {
+    const url = String(target);
+    if (url.startsWith(`${PUMP_API_URL}/coins?`)) return providerResponse({ detail: 'rate limited' }, 429);
+    if (url === `${GECKO_API_URL}/networks/solana/trending_pools?page=1`) {
+      return providerResponse({
+        data: [{
+          id: 'solana_ThrottledFallbackPool123',
+          attributes: { address: 'ThrottledFallbackPool123', name: 'FALLBACK / SOL', reserve_in_usd: '2500' },
+          relationships: {
+            base_token: { data: { id: 'solana_fallback-token' } },
+            quote_token: { data: { id: 'solana_So11111111111111111111111111111111111111112' } },
+          },
+        }],
+      });
+    }
+    if (url === `${GECKO_API_URL}/networks/solana/pools/ThrottledPair123?include=base_token,quote_token,dex`) {
+      return providerResponse({
+        data: {
+          id: 'solana_ThrottledPair123',
+          attributes: { address: 'ThrottledPair123', name: 'PAIR / SOL', reserve_in_usd: '1000' },
+          relationships: {
+            base_token: { data: { id: 'solana_pair-token' } },
+            quote_token: { data: { id: 'solana_So11111111111111111111111111111111111111112' } },
+          },
+        },
+      });
+    }
+    return providerResponse({ detail: 'rate limited' }, 429);
+  };
+  console.warn = (...args) => warnings.push(args);
+  console.error = (...args) => errors.push(args);
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const expectWarning = provider => {
+    assert.equal(errors.length, 0);
+    assert.deepEqual(warnings.map(args => args[0]), [`[preview-api] ${provider} rate limited (HTTP 429).`]);
+    warnings.length = 0;
+    errors.length = 0;
+  };
+
+  try {
+    const feed = await request(baseUrl, '/api/market/feed?kind=trending&chain=solana&scope=pump', originalFetch);
+    assert.equal(feed.status, 200);
+    assert.equal(feed.body.provider, 'GeckoTerminal');
+    assert.equal(feed.body.fallback_from, 'Pump.fun');
+    assert.equal(feed.body.pairs[0].pairAddress, 'ThrottledFallbackPool123');
+    expectWarning('Pump.fun');
+
+    const candles = await request(baseUrl, '/api/market/candles/solana/ThrottledPool456', originalFetch);
+    assert.equal(candles.status, 429);
+    assert.match(candles.body.detail, /HTTP 429/);
+    expectWarning('GeckoTerminal');
+
+    const search = await request(baseUrl, '/api/market/search?q=throttled', originalFetch);
+    assert.equal(search.status, 429);
+    assert.match(search.body.detail, /HTTP 429/);
+    expectWarning('DexScreener');
+
+    const pair = await request(baseUrl, '/api/market/pair/solana/ThrottledPair123', originalFetch);
+    assert.equal(pair.status, 200);
+    assert.equal(pair.body.provider, 'GeckoTerminal');
+    assert.equal(pair.body.pairs[0].pairAddress, 'ThrottledPair123');
+    expectWarning('DexScreener');
+
+    const assetsResponse = await request(baseUrl, '/api/market/assets', originalFetch);
+    assert.equal(assetsResponse.status, 200);
+    assert.equal(assetsResponse.body.assets.length, 3);
+    assert.ok(assetsResponse.body.assets.every(asset => asset.status === 'provider_unavailable'));
+    assert.equal(errors.length, 0);
+    assert.deepEqual(
+      warnings.map(args => args[0]),
+      Array.from({ length: 3 }, () => '[preview-api] DexScreener rate limited (HTTP 429).'),
+    );
+    warnings.length = 0;
+    errors.length = 0;
+
+    const graduations = await request(baseUrl, '/api/market/graduations?mints=ThrottledMint789', originalFetch);
+    assert.equal(graduations.status, 200);
+    assert.equal(graduations.body.status, 'unavailable');
+    assert.deepEqual(graduations.body.graduations, []);
+    assert.match(graduations.body.error, /HTTP 429/);
+    expectWarning('Pump.fun');
+  } finally {
+    console.warn = originalConsoleWarn;
+    console.error = originalConsoleError;
+    global.fetch = originalFetch;
+    cache.clear();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
 test('preview unexpected provider errors retain the actionable stack trace', async () => {
   const originalFetch = global.fetch;
   const originalConsoleWarn = console.warn;

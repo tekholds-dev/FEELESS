@@ -132,6 +132,14 @@ function providerNameForUrl(url) {
   return 'Public market provider';
 }
 
+function warnProviderThrottle(error) {
+  if (error?.providerStatus === 429 && error?.provider) {
+    console.warn(`[preview-api] ${error.provider} rate limited (HTTP 429).`);
+    return true;
+  }
+  return false;
+}
+
 async function getJsonWithMeta(url, ttl = 30000) {
   const hit = cache.get(url);
   if (hit && Date.now() - hit.at < ttl) return { value: hit.value, fetchedAt: hit.fetchedAt, stale: false, error: null };
@@ -473,8 +481,8 @@ async function geckoAsset(mint) {
   const poolsUrl = `${GECKO_API}/networks/solana/tokens/${encodeURIComponent(mint)}/pools?page=1`;
   let token = null;
   let pools = null;
-  try { token = (await getJson(tokenUrl, 60000))?.data || null; } catch {}
-  try { pools = (await getJson(poolsUrl, 60000))?.data || []; } catch {}
+  try { token = (await getJson(tokenUrl, 60000))?.data || null; } catch (error) { warnProviderThrottle(error); }
+  try { pools = (await getJson(poolsUrl, 60000))?.data || []; } catch (error) { warnProviderThrottle(error); }
 
   const tokenAttrs = token?.attributes || {};
   const pool = (Array.isArray(pools) ? pools : [])
@@ -565,6 +573,7 @@ async function pumpGraduations(mints = '') {
         const result = await getJsonWithMeta(`${PUMP_API}/coins/${encodeURIComponent(mint)}`, 60000);
         results.push({ mint, data: result.value, meta: result });
       } catch (error) {
+        warnProviderThrottle(error);
         results.push({ mint, error: publicError(error) });
       }
     }
@@ -790,6 +799,7 @@ async function assets() {
         identity: 'Owner-supplied contract; exact provider match. Not a security endorsement.',
       };
     } catch (error) {
+      warnProviderThrottle(error);
       return {
         id,
         label: id.toUpperCase(),
@@ -976,6 +986,7 @@ async function route(req, res, url) {
         }
       }
     } catch (primaryError) {
+      warnProviderThrottle(primaryError);
       try {
         result = await geckoFeed(kind, url.searchParams.get('page') || 1, chain);
         if (scope === 'pump') {
@@ -984,6 +995,7 @@ async function route(req, res, url) {
           result.fallback_reason = `Pump.fun unavailable; using GeckoTerminal fallback (${publicError(primaryError)}).`;
         }
       } catch (geckoError) {
+        warnProviderThrottle(geckoError);
         result = unavailableFeed(kind, chain, geckoError || primaryError, primaryProvider);
       }
     }
@@ -1005,7 +1017,9 @@ async function route(req, res, url) {
       const data = await getJson(`${DEX_API}/latest/dex/pairs/${encodeURIComponent(chain)}/${encodeURIComponent(address)}`, 30000);
       const pairs = data?.pairs || [];
       if (pairs.length) return json(res, 200, { provider: 'DexScreener', fetched_at: new Date().toISOString(), stale: false, pairs, label: 'Pair snapshot' });
-    } catch {}
+    } catch (error) {
+      warnProviderThrottle(error);
+    }
     const pair = await geckoPair(chain, address);
     return json(res, 200, { provider: 'GeckoTerminal', fetched_at: new Date().toISOString(), stale: false, pairs: pair ? [pair] : [], label: 'Pair snapshot' });
   }
@@ -1248,9 +1262,7 @@ const server = http.createServer(async (req, res) => {
   try {
     await route(req, res, new URL(req.url, `http://${req.headers.host || 'localhost'}`));
   } catch (error) {
-    if (error?.providerStatus === 429 && error?.provider) {
-      console.warn(`[preview-api] ${error.provider} rate limited (HTTP 429).`);
-    } else {
+    if (!warnProviderThrottle(error)) {
       console.error('[preview-api]', error);
     }
     json(res, error.statusCode || 503, { detail: publicError(error) });
