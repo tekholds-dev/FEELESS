@@ -372,6 +372,65 @@ test('preview graduation status reports provider outage without inventing events
   }
 });
 
+test('preview provider throttles use concise provider-aware warnings', async () => {
+  const originalFetch = global.fetch;
+  const originalConsoleWarn = console.warn;
+  const originalConsoleError = console.error;
+  const warnings = [];
+  const errors = [];
+  global.fetch = async () => providerResponse({ detail: 'rate limited' }, 429);
+  console.warn = (...args) => warnings.push(args);
+  console.error = (...args) => errors.push(args);
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  try {
+    const response = await request(baseUrl, '/api/market/candles/solana/ThrottledPool123', originalFetch);
+    assert.equal(response.status, 429);
+    assert.match(response.body.detail, /HTTP 429/);
+    assert.equal(errors.length, 0);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0][0], /^\[preview-api\] GeckoTerminal rate limited \(HTTP 429\)\.$/);
+  } finally {
+    console.warn = originalConsoleWarn;
+    console.error = originalConsoleError;
+    global.fetch = originalFetch;
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('preview unexpected provider errors retain the actionable stack trace', async () => {
+  const originalFetch = global.fetch;
+  const originalConsoleWarn = console.warn;
+  const originalConsoleError = console.error;
+  const warnings = [];
+  const errors = [];
+  const failure = new Error('Unexpected provider failure');
+  global.fetch = async () => { throw failure; };
+  console.warn = (...args) => warnings.push(args);
+  console.error = (...args) => errors.push(args);
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  try {
+    const response = await request(baseUrl, '/api/market/candles/solana/UnexpectedPool123', originalFetch);
+    assert.equal(response.status, 503);
+    assert.match(response.body.detail, /Unexpected provider failure/);
+    assert.equal(warnings.length, 0);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0][0], '[preview-api]');
+    assert.equal(errors[0][1], failure);
+    assert.match(errors[0][1].stack, /Unexpected provider failure/);
+  } finally {
+    console.warn = originalConsoleWarn;
+    console.error = originalConsoleError;
+    global.fetch = originalFetch;
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
 test('fee assets fall back to exact GeckoTerminal CA matches with prices and logos', async () => {
   const originalFetch = global.fetch;
   const mints = {

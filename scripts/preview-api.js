@@ -125,6 +125,13 @@ async function getJson(url, ttl = 30000) {
   return (await getJsonWithMeta(url, ttl)).value;
 }
 
+function providerNameForUrl(url) {
+  if (String(url).startsWith(DEX_API)) return 'DexScreener';
+  if (String(url).startsWith(GECKO_API)) return 'GeckoTerminal';
+  if (String(url).startsWith(PUMP_API)) return 'Pump.fun';
+  return 'Public market provider';
+}
+
 async function getJsonWithMeta(url, ttl = 30000) {
   const hit = cache.get(url);
   if (hit && Date.now() - hit.at < ttl) return { value: hit.value, fetchedAt: hit.fetchedAt, stale: false, error: null };
@@ -134,6 +141,7 @@ async function getJsonWithMeta(url, ttl = 30000) {
       const response = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
       if (!response.ok) throw Object.assign(new Error(`Provider returned HTTP ${response.status}.`), {
         providerStatus: response.status,
+        provider: providerNameForUrl(url),
         statusCode: response.status >= 500 ? 503 : response.status,
       });
       const value = await response.json();
@@ -1240,7 +1248,11 @@ const server = http.createServer(async (req, res) => {
   try {
     await route(req, res, new URL(req.url, `http://${req.headers.host || 'localhost'}`));
   } catch (error) {
-    console.error('[preview-api]', error);
+    if (error?.providerStatus === 429 && error?.provider) {
+      console.warn(`[preview-api] ${error.provider} rate limited (HTTP 429).`);
+    } else {
+      console.error('[preview-api]', error);
+    }
     json(res, error.statusCode || 503, { detail: publicError(error) });
   }
 });
