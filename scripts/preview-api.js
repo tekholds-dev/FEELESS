@@ -12,6 +12,7 @@ const GECKO_API = process.env.GECKO_API_URL || 'https://api.geckoterminal.com/ap
 const PUMP_API = process.env.PUMP_API_URL || 'https://frontend-api-v3.pump.fun';
 const DEX_SITE = process.env.DEX_SITE_URL || 'https://dexscreener.com';
 const MARKET_CACHE_RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
+const ASSET_THROTTLE_WARNING_COOLDOWN_MS = 60000;
 const JUPITER_API = process.env.JUPITER_API_URL || 'https://api.jup.ag';
 const JUPITER_PUBLIC_QUOTE_API = process.env.JUPITER_QUOTE_API_URL || 'https://lite-api.jup.ag/swap/v1';
 const JUPITER_API_KEY = process.env.JUPITER_API_KEY || '';
@@ -25,6 +26,7 @@ const MINTS = {
 
 const cache = new Map();
 const pendingRequests = new Map();
+const assetThrottleWarningCooldown = new Map();
 const rooms = new Map();
 const orders = new Map();
 const profiles = new Map();
@@ -132,12 +134,18 @@ function providerNameForUrl(url) {
   return 'Public market provider';
 }
 
-function warnProviderThrottle(error, warningState) {
+function warnProviderThrottle(error, warningState, cooldownState) {
   if (error?.providerStatus === 429 && error?.provider) {
     if (warningState === null) return true;
     const warningKey = `${error.provider}:${error.providerStatus}`;
     if (warningState?.has(warningKey)) return true;
     warningState?.add(warningKey);
+    if (cooldownState) {
+      const now = Date.now();
+      const cooldownUntil = cooldownState.get(warningKey) || 0;
+      if (cooldownUntil > now) return true;
+      cooldownState.set(warningKey, now + ASSET_THROTTLE_WARNING_COOLDOWN_MS);
+    }
     console.warn(`[preview-api] ${error.provider} rate limited (HTTP 429).`);
     return true;
   }
@@ -502,14 +510,14 @@ async function pumpFeed(kind, page = 1) {
   };
 }
 
-async function geckoAsset(mint, warningState) {
+async function geckoAsset(mint, warningState, cooldownState) {
   const tokenUrl = `${GECKO_API}/networks/solana/tokens/${encodeURIComponent(mint)}`;
   const poolsUrl = `${GECKO_API}/networks/solana/tokens/${encodeURIComponent(mint)}/pools?page=1`;
   let token = null;
   let pools = null;
   let error = null;
-  try { token = (await getJson(tokenUrl, 60000))?.data || null; } catch (failure) { error = error || failure; warnProviderThrottle(failure, warningState); }
-  try { pools = (await getJson(poolsUrl, 60000))?.data || []; } catch (failure) { error = error || failure; warnProviderThrottle(failure, warningState); }
+  try { token = (await getJson(tokenUrl, 60000))?.data || null; } catch (failure) { error = error || failure; warnProviderThrottle(failure, warningState, cooldownState); }
+  try { pools = (await getJson(poolsUrl, 60000))?.data || []; } catch (failure) { error = error || failure; warnProviderThrottle(failure, warningState, cooldownState); }
 
   const tokenAttrs = token?.attributes || {};
   const pool = (Array.isArray(pools) ? pools : [])
@@ -834,14 +842,14 @@ async function assets() {
       let imageUrl = pair?.info?.imageUrl || null;
       let provider = 'DexScreener';
       if (!pair || !imageUrl) {
-        const fallback = await geckoAsset(mint, primaryError ? null : warningState);
+        const fallback = await geckoAsset(mint, primaryError ? null : warningState, assetThrottleWarningCooldown);
         fallbackError = fallback.error;
         pair = pair || fallback.pair;
         imageUrl = imageUrl || fallback.imageUrl;
         if (fallback.pair) provider = 'GeckoTerminal';
         if (pair && imageUrl) pair.info = { ...(pair.info || {}), imageUrl };
       }
-      if (primaryError) warnProviderThrottle(primaryError, warningState);
+      if (primaryError) warnProviderThrottle(primaryError, warningState, assetThrottleWarningCooldown);
       return {
         id,
         label: id.toUpperCase(),
@@ -865,7 +873,7 @@ async function assets() {
       };
     } catch (error) {
       const reportedError = primaryError || error;
-      warnProviderThrottle(reportedError, warningState);
+      warnProviderThrottle(reportedError, warningState, assetThrottleWarningCooldown);
       return {
         id,
         label: id.toUpperCase(),
@@ -1362,7 +1370,9 @@ function startServer() {
 if (require.main === module) startServer();
 
 module.exports = {
+  ASSET_THROTTLE_WARNING_COOLDOWN_MS,
   applyScreener,
+  assetThrottleWarningCooldown,
   cache,
   geckoCandles,
   normalizeScreener,

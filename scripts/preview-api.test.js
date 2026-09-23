@@ -13,7 +13,15 @@ process.env.DEX_API_URL = DEX_API_URL;
 process.env.GECKO_API_URL = GECKO_API_URL;
 process.env.PUMP_API_URL = PUMP_API_URL;
 
-const { applyScreener, cache, normalizeScreener, scorePair, server } = require('./preview-api');
+const {
+  ASSET_THROTTLE_WARNING_COOLDOWN_MS,
+  applyScreener,
+  assetThrottleWarningCooldown,
+  cache,
+  normalizeScreener,
+  scorePair,
+  server,
+} = require('./preview-api');
 
 function providerResponse(body, status = 200) {
   return {
@@ -602,6 +610,71 @@ test('fee asset fallback throttles warn once per provider while keeping each ass
     );
     assert.equal(errors.length, 0);
   } finally {
+    console.warn = originalConsoleWarn;
+    console.error = originalConsoleError;
+    global.fetch = originalFetch;
+    cache.clear();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('fee asset throttle warnings cool down across refreshes and recover after expiry', async () => {
+  const originalFetch = global.fetch;
+  const originalConsoleWarn = console.warn;
+  const originalConsoleError = console.error;
+  const originalNow = Date.now;
+  const warnings = [];
+  const errors = [];
+  cache.clear();
+  assetThrottleWarningCooldown.clear();
+  global.fetch = async target => {
+    const url = String(target);
+    if (url.includes('/token-pairs/v1/solana/')) return providerResponse([]);
+    if (url.includes('/networks/solana/tokens/')) return providerResponse({ detail: 'rate limited' }, 429);
+    throw new Error(`Unexpected provider request: ${url}`);
+  };
+  console.warn = (...args) => warnings.push(args);
+  console.error = (...args) => errors.push(args);
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  try {
+    const first = await request(baseUrl, '/api/market/assets', originalFetch);
+    assert.equal(first.status, 200);
+    assert.equal(warnings.length, 1);
+    assert.equal(errors.length, 0);
+    const firstAssetStates = first.body.assets.map(asset => ({
+      id: asset.id,
+      status: asset.status,
+      provider: asset.provider,
+      provider_status: asset.provider_status,
+      provider_warning: asset.provider_warning,
+    }));
+
+    const second = await request(baseUrl, '/api/market/assets', originalFetch);
+    assert.equal(second.status, 200);
+    assert.equal(warnings.length, 1);
+    assert.deepEqual(
+      second.body.assets.map(asset => ({
+        id: asset.id,
+        status: asset.status,
+        provider: asset.provider,
+        provider_status: asset.provider_status,
+        provider_warning: asset.provider_warning,
+      })),
+      firstAssetStates,
+    );
+
+    Date.now = () => originalNow() + ASSET_THROTTLE_WARNING_COOLDOWN_MS + 1;
+    const recoveredWarning = await request(baseUrl, '/api/market/assets', originalFetch);
+    assert.equal(recoveredWarning.status, 200);
+    assert.equal(warnings.length, 2);
+    assert.equal(errors.length, 0);
+    assert.ok(recoveredWarning.body.assets.every(asset => asset.provider_status === 429));
+  } finally {
+    Date.now = originalNow;
+    assetThrottleWarningCooldown.clear();
     console.warn = originalConsoleWarn;
     console.error = originalConsoleError;
     global.fetch = originalFetch;
