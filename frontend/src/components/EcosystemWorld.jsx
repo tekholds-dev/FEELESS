@@ -35,16 +35,16 @@ export default function EcosystemWorld({ ecosystem, pad, onClose }) {
     ecosystem.explorer && ['Explorer', ecosystem.explorer, Radio],
   ].filter(Boolean);
 
-  return <div className="eco-world" data-testid="ecosystem-world" style={{ '--eco-accent': ecosystem.color }}>
+  return <div className="eco-world" role="dialog" aria-modal="true" aria-label={`${ecosystem.name} network room`} data-testid="ecosystem-world" style={{ '--eco-accent': ecosystem.color }}>
     <div className="eco-world-scrim" onClick={onClose} aria-hidden="true" />
     <div className="eco-world-inner">
       <header className="eco-world-head">
         <div className="eco-world-id">
           <span className="eco-dot" style={{ background: ecosystem.color }} />
-          <div><small>YOU'RE INSIDE</small><h2 data-testid="eco-world-name">{ecosystem.name} {ecosystem.isLaunchpad ? 'WAR ROOM' : 'WORLD'}</h2></div>
+          <span className="eco-network-mark" aria-hidden="true">{ecosystem.symbol?.slice(0, 1) || ecosystem.name.slice(0, 1)}</span><div><small>YOU'RE INSIDE</small><h2 data-testid="eco-world-name">{ecosystem.name} {ecosystem.isLaunchpad ? 'WAR ROOM' : 'NETWORK'}</h2></div>
         </div>
         <div className="eco-world-head-actions">
-          <Link className="eco-enter-terminal" to="/terminal" data-testid="eco-world-enter-terminal">Enter terminal<ArrowUpRight size={14} /></Link>
+          <Link className="eco-enter-terminal" to="/terminal" data-testid="eco-world-enter-terminal">Enter {ecosystem.name} terminal<ArrowUpRight size={14} /></Link>
           <button className="eco-world-close" title="Close" data-testid="eco-world-close" onClick={onClose}><X size={18} /></button>
         </div>
       </header>
