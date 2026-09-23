@@ -43,7 +43,7 @@ function CoinFeed({ id, title, result, ecosystem, onSelect }) {
     <div className="coin-feed-list custom-scroll">
       {!result.error && result.loading && <p role="status" aria-live="polite" data-testid={`globe-coins-${id}-loading`} className="empty-table market-coin-loading">Loading {title.toLowerCase()} for {ecosystemName}…</p>}
        {!result.loading && !result.error && !pairs.length && <p role="status" aria-live="polite" tabIndex="0" data-testid={`globe-coins-${id}-empty`} className="empty-table">No {title.toLowerCase()} available for {ecosystemName} in this provider feed.</p>}
-      {!result.loading && pairs.slice(0, 5).map(pair => <TokenCard key={pair.pairAddress} pair={pair} onSelect={onSelect} />)}
+       {!result.loading && pairs.slice(0, 5).map(pair => <TokenCard key={pair.pairAddress} pair={pair} screenerLabel={result.data?.screener_label} onSelect={onSelect} />)}
     </div>
   </section>;
 }

@@ -12,8 +12,8 @@ jest.mock('../hooks/useMarket', () => ({
   useMarket: path => mockMarketResponses[path],
 }));
 
-jest.mock('./TokenCard', () => function MockTokenCard({ pair }) {
-  return <div data-testid={`mock-token-${pair.baseToken?.symbol}`}>{pair.baseToken?.symbol}</div>;
+jest.mock('./TokenCard', () => function MockTokenCard({ pair, screenerLabel }) {
+  return <div data-testid={`mock-token-${pair.baseToken?.symbol}`}><span>{pair.baseToken?.symbol}</span><small>{screenerLabel || 'Unavailable'}</small></div>;
 });
 
 jest.mock('./terminal/MarketPrimitives', () => ({
@@ -56,6 +56,24 @@ test('renders top and new provider feeds under the ecosystem intelligence view',
   expect(container.querySelector('[data-testid="globe-coins-new"]')).toBeTruthy();
   expect(container.querySelector('[data-testid="mock-token-TOP"]')).toBeTruthy();
   expect(container.querySelector('[data-testid="mock-token-NEW"]')).toBeTruthy();
+});
+
+test('passes each feed screener label to its coin cards', () => {
+  mockMarketResponses['/feed?kind=trending&chain=solana'] = {
+    data: { pairs: [{ pairAddress: 'top-1', baseToken: { symbol: 'TOP' } }], screener_label: 'Momentum' },
+    loading: false,
+    error: '',
+  };
+  mockMarketResponses['/feed?kind=new&chain=solana'] = {
+    data: { pairs: [{ pairAddress: 'new-1', baseToken: { symbol: 'NEW' } }] },
+    loading: false,
+    error: '',
+  };
+
+  const { container } = mount(<TopCoins ecosystem={ecosystem} />);
+
+  expect(container.querySelector('[data-testid="mock-token-TOP"] small').textContent).toBe('Momentum');
+  expect(container.querySelector('[data-testid="mock-token-NEW"] small').textContent).toBe('Unavailable');
 });
 
 test('keeps provider loading, error, and empty states explicit', () => {
