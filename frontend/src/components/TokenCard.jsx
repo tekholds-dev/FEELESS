@@ -1,12 +1,12 @@
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
 import { formatUSD, formatPct, formatAge } from '../lib/dexscreener';
-import { TokenAvatar } from './terminal/MarketPrimitives';
+import { TokenAvatar, withRankingContext } from './terminal/MarketPrimitives';
 
 export default function TokenCard({ pair, compact = false, onSelect, screenerLabel, testId = `coin-${pair?.chainId}-${pair?.pairAddress || pair?.baseToken?.address}` }) {
   if (!pair) return null;
   const safe = pair.url?.startsWith('https://dexscreener.com/');
-  const activate = event => { if (event.target.closest('a')) return; onSelect?.(pair); };
+  const activate = event => { if (event.target.closest('a')) return; onSelect?.(withRankingContext(pair, { label: screenerLabel })); };
   const signals = pair.signals || {};
   const label = signals.score_label || screenerLabel || 'Unavailable';
   const reasons = Array.isArray(signals.score_reasons) ? signals.score_reasons.filter(Boolean).slice(0, 3) : [];

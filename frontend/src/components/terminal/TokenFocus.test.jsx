@@ -25,6 +25,18 @@ jest.mock('./MarketPrimitives', () => ({
   MarketError: () => null,
   TokenContextMeta: () => <span />,
   CreatorProfile: () => <span />,
+  getRankingContext: (pair, fallback = {}) => {
+    const signals = pair?.signals || {};
+    const context = pair?.rankingContext || {};
+    return {
+      label: signals.score_label || context.label || pair?.screener_label || fallback.label || null,
+      score: signals.screener_score ?? context.score ?? null,
+      reasons: (signals.score_reasons || context.reasons || []).slice(0, 3),
+      provider: context.provider || fallback.provider || null,
+      sourceLabel: context.sourceLabel || fallback.sourceLabel || null,
+      stale: context.stale ?? fallback.stale ?? null,
+    };
+  },
 }));
 
 function mount(pair) {
@@ -61,6 +73,42 @@ test('switches to provider-supplied market cap without changing candle data', ()
   act(() => mounted.root.unmount());
 });
 
+test('keeps ranking context when the live pair refresh replaces the selected feed row', () => {
+  mockUseMarket.mockReturnValue({
+    data: {
+      provider: 'DexScreener',
+      stale: true,
+      pairs: [{ chainId: 'solana', pairAddress: 'pool-3', priceUsd: '2.50' }],
+    },
+    error: undefined,
+    loading: false,
+    reload: jest.fn(),
+  });
+  const mounted = mount({
+    chainId: 'solana',
+    pairAddress: 'pool-3',
+    baseToken: { symbol: 'GAMMA', name: 'Gamma' },
+    screener_label: 'Momentum',
+    signals: {
+      screener_score: 81.4,
+      score_label: 'Momentum',
+      score_reasons: ['fast movement', 'deep liquidity', 'reported volume', 'extra reason'],
+    },
+  });
+
+  expect(mounted.host.querySelector('[data-testid="selected-token-screener-label"]').textContent).toBe('Momentum');
+  expect(mounted.host.querySelector('[data-testid="selected-token-screener-score"]').textContent).toBe('81.4');
+  expect(mounted.host.querySelector('[data-testid="selected-token-screener-reasons"]').textContent)
+    .toContain('fast movement');
+  expect(mounted.host.querySelector('[data-testid="selected-token-screener-reasons"]').textContent)
+    .not.toContain('extra reason');
+  expect(mounted.host.querySelector('[data-testid="selected-token-ranking-provider"]').textContent).toBe('DexScreener');
+  expect(mounted.host.querySelector('[data-testid="selected-token-ranking-status"]').textContent).toBe('STALE SNAPSHOT');
+  expect(mounted.host.querySelector('[data-testid="selected-token-ranking-disclosure"]').textContent)
+    .toContain('not a recommendation');
+  act(() => mounted.root.unmount());
+});
+
 test('disables unsupported chart metrics instead of estimating them', () => {
   const mounted = mount({
     chainId: 'solana',
@@ -70,6 +118,10 @@ test('disables unsupported chart metrics instead of estimating them', () => {
 
   expect(mounted.host.querySelector('[data-testid="chart-metric-marketCap"]').disabled).toBe(true);
   expect(mounted.host.querySelector('[data-testid="chart-metric-fdv"]').disabled).toBe(true);
+  expect(mounted.host.querySelector('[data-testid="selected-token-screener-label"]').textContent).toBe('Unavailable');
+  expect(mounted.host.querySelector('[data-testid="selected-token-screener-score"]').textContent).toBe('Unavailable');
+  expect(mounted.host.querySelector('[data-testid="selected-token-screener-reasons"]').textContent).toBe('Observed reasons unavailable');
+  expect(mounted.host.querySelector('[data-testid="selected-token-ranking-disclosure"]').textContent).toContain('not a recommendation');
   expect(mounted.host.querySelector('[data-testid="token-analytics-holderConcentration"]').textContent).toContain('Unavailable');
   act(() => mounted.root.unmount());
 });

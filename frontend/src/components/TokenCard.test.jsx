@@ -7,6 +7,10 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 jest.mock('./terminal/MarketPrimitives', () => ({
   TokenAvatar: () => <span data-testid="token-avatar" />,
+  withRankingContext: (pair, fallback = {}) => ({
+    ...pair,
+    rankingContext: { ...(pair.rankingContext || {}), label: pair.signals?.score_label || fallback.label || null },
+  }),
 }));
 
 function mount(pair, props = {}) {
@@ -44,4 +48,17 @@ test('marks screener evidence unavailable when provider signals are missing', ()
 
   expect(container.querySelector('[data-testid="coin-card-score-label"]').textContent).toBe('Volume leaders');
   expect(container.querySelector('[data-testid="coin-card-score-reasons"]').textContent).toBe('Observed reasons unavailable');
+});
+
+test('carries the feed label into the selected pair', () => {
+  const onSelect = jest.fn();
+  const { container } = mount(
+    { chainId: 'solana', pairAddress: 'pair-3', baseToken: { symbol: 'SELECTED' } },
+    { screenerLabel: 'Volume leaders', onSelect },
+  );
+
+  act(() => container.querySelector('[data-testid="coin-card"]').click());
+  expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({
+    rankingContext: expect.objectContaining({ label: 'Volume leaders' }),
+  }));
 });

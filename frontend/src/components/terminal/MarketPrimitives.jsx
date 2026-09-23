@@ -26,6 +26,46 @@ export const tokenImageUrls = pair => {
   return [...new Set(candidates)];
 };
 
+const firstDefined = values => values.find(value => value !== null && value !== undefined && value !== '');
+
+export const getRankingContext = (pair, fallback = {}) => {
+  const signals = pair?.signals || {};
+  const persisted = pair?.rankingContext || {};
+  const reasonSource = firstDefined([
+    signals.score_reasons,
+    persisted.reasons,
+    pair?.score_reasons,
+    fallback.reasons,
+  ]);
+  return {
+    label: firstDefined([
+      signals.score_label,
+      persisted.label,
+      pair?.screener_label,
+      pair?.screenerLabel,
+      fallback.label,
+    ]) || null,
+    score: firstDefined([
+      signals.screener_score,
+      persisted.score,
+      pair?.screener_score,
+      fallback.score,
+    ]) ?? null,
+    reasons: Array.isArray(reasonSource) ? reasonSource.filter(Boolean).slice(0, 3) : [],
+    screener: firstDefined([signals.screener, persisted.screener, pair?.screener, fallback.screener]) || null,
+    provider: firstDefined([persisted.provider, pair?.provider, fallback.provider]) || null,
+    sourceLabel: firstDefined([persisted.sourceLabel, pair?.source_label, fallback.sourceLabel]) || null,
+    sourceUrl: firstDefined([persisted.sourceUrl, pair?.source_url, fallback.sourceUrl]) || null,
+    stale: firstDefined([persisted.stale, pair?.stale, fallback.stale]) ?? null,
+    fetchedAt: firstDefined([persisted.fetchedAt, pair?.fetched_at, fallback.fetchedAt]) || null,
+  };
+};
+
+export const withRankingContext = (pair, fallback = {}) => {
+  if (!pair) return pair;
+  return { ...pair, rankingContext: { ...(pair.rankingContext || {}), ...getRankingContext(pair, fallback) } };
+};
+
 export const TokenAvatar = ({ pair, size = 34 }) => {
   const sources = tokenImageUrls(pair);
   const [imageIndex, setImageIndex] = useState(0);
