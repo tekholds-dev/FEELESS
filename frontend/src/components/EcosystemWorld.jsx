@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { X, ArrowUpRight, Rocket, Radio, Compass, Sparkles, Cat, Infinity as InfinityIcon } from 'lucide-react';
 import EcosystemChat from './EcosystemChat';
@@ -8,6 +8,8 @@ import { useMarket } from '../hooks/useMarket';
 // Blur-reveal immersive ecosystem "world": chat on the LEFT, blurred globe behind,
 // live activity pulse + new-stuff feed + onboarding + minimal quick links on the RIGHT.
 export default function EcosystemWorld({ ecosystem, pad, onClose }) {
+  const [layout, setLayout] = useState('balanced');
+  const [expanded, setExpanded] = useState(false);
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose?.(); };
     window.addEventListener('keydown', onKey);
@@ -37,7 +39,7 @@ export default function EcosystemWorld({ ecosystem, pad, onClose }) {
 
   return <div className="eco-world" role="dialog" aria-modal="true" aria-label={`${ecosystem.name} network room`} data-testid="ecosystem-world" style={{ '--eco-accent': ecosystem.color }}>
     <div className="eco-world-scrim" onClick={onClose} aria-hidden="true" />
-    <div className="eco-world-inner">
+    <div className={`eco-world-inner eco-layout-${layout} ${expanded ? 'is-expanded' : ''}`}>
       <header className="eco-world-head">
         <div className="eco-world-id">
           <span className="eco-dot" style={{ background: ecosystem.color }} />
@@ -45,6 +47,11 @@ export default function EcosystemWorld({ ecosystem, pad, onClose }) {
         </div>
         <div className="eco-world-head-actions">
           <Link className="eco-enter-terminal" to="/terminal" data-testid="eco-world-enter-terminal">Enter {ecosystem.name} terminal<ArrowUpRight size={14} /></Link>
+          <div className="eco-layout-controls" role="group" aria-label="Network room layout">
+            <span>LAYOUT</span>
+            {[['balanced', 'Balanced'], ['chat-first', 'Chat first'], ['feed-first', 'Feed first']].map(([id, label]) => <button type="button" key={id} className={layout === id ? 'active' : ''} aria-pressed={layout === id} data-testid={`eco-layout-${id}`} onClick={() => setLayout(id)}>{label}</button>)}
+            <button type="button" className="eco-expand-toggle" data-testid="eco-layout-expand" aria-pressed={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? 'Exit expanded' : 'Expand window'}</button>
+          </div>
           <button className="eco-world-close" title="Close" data-testid="eco-world-close" onClick={onClose}><X size={18} /></button>
         </div>
       </header>
