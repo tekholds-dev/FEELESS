@@ -18,6 +18,7 @@ jest.mock('./TokenCard', () => function MockTokenCard({ pair, screenerLabel }) {
 
 jest.mock('./terminal/MarketPrimitives', () => ({
   DataStatus: ({ id }) => <span data-testid={id}>status</span>,
+  MarketAvailabilityNotice: ({ id }) => <span data-testid={id} />,
   MarketError: ({ error, id }) => <div data-testid={id}>{error}</div>,
 }));
 

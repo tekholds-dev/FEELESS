@@ -22,6 +22,7 @@ jest.mock('./MarketPrimitives', () => ({
   Metric: ({ label, value, id }) => <span data-testid={id}>{label}:{value}</span>,
   TokenAvatar: () => <span />,
   DataStatus: () => <span />,
+  MarketAvailabilityNotice: () => null,
   MarketError: () => null,
   TokenContextMeta: () => <span />,
   CreatorProfile: () => <span />,

@@ -1,7 +1,7 @@
 import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { TokenAvatar, tokenImageUrls } from './MarketPrimitives';
+import { MarketAvailabilityNotice, TokenAvatar, tokenImageUrls } from './MarketPrimitives';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -46,5 +46,33 @@ test('tries the indexed fallback before showing a neutral logo icon after image 
   expect(host.querySelector('img')).toBeNull();
   expect(host.querySelector('.token-avatar-fallback svg')).toBeTruthy();
   expect(host.textContent).not.toContain('BE');
+  act(() => root.unmount());
+});
+
+test('explains provider rate limits without hiding the available market snapshot', () => {
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  act(() => root.render(<><MarketAvailabilityNotice
+    data={{ provider: 'DexScreener', pairs: [{ pairAddress: 'fallback-pair' }], provider_warning: { provider: 'DexScreener', status: 429, rate_limited: true } }}
+    id="market-rate-limit"
+  /><span data-testid="fallback-row">fallback-pair</span></>));
+  expect(host.querySelector('[data-testid="market-rate-limit"]').textContent).toMatch(/temporarily rate limited/i);
+  expect(host.querySelector('[data-testid="market-rate-limit"]').textContent).toMatch(/next refresh/i);
+  expect(host.querySelector('[data-testid="market-rate-limit"]').textContent).toMatch(/not a trading failure/i);
+  expect(host.querySelector('[data-testid="fallback-row"]').textContent).toBe('fallback-pair');
+  act(() => root.unmount());
+});
+
+test('explains provider-unavailable data when no fallback snapshot exists', () => {
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  act(() => root.render(<MarketAvailabilityNotice
+    data={{ provider: 'Public providers', status: 'provider_unavailable' }}
+    id="market-unavailable"
+  />));
+  expect(host.querySelector('[data-testid="market-unavailable"]').textContent).toMatch(/temporarily unavailable/i);
+  expect(host.querySelector('[data-testid="market-unavailable"]').textContent).toMatch(/next refresh/i);
   act(() => root.unmount());
 });

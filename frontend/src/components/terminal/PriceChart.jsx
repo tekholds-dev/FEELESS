@@ -2,13 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, CandlestickSeries, HistogramSeries, ColorType } from 'lightweight-charts';
 import { useMarket } from '../../hooks/useMarket';
 import { dexUrl, formatUSD } from '../../lib/dexscreener';
-import { DataStatus, MarketError } from './MarketPrimitives';
+import { DataStatus, MarketAvailabilityNotice, MarketError } from './MarketPrimitives';
 
 export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => {
   const container = useRef(null);
   const priceMetric = metric === 'price';
   const [dayMode, setDayMode] = useState(() => typeof document !== 'undefined' && document.body.classList.contains('theme-day'));
-  const { data, loading, error, reload } = useMarket(priceMetric && pair ? `/candles/${pair.chainId}/${pair.pairAddress}?interval=${interval}` : null);
+  const { data, loading, error, errorStatus, errorProvider, reload } = useMarket(priceMetric && pair ? `/candles/${pair.chainId}/${pair.pairAddress}?interval=${interval}` : null);
   const providerError = error || data?.error;
   const metricLabel = metric === 'marketCap' ? 'Market cap' : 'FDV';
   const metricValue = metric === 'marketCap' ? pair?.marketCap : pair?.fdv;
@@ -71,6 +71,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => 
   return <div className="chart-area" data-testid="price-chart">
     {priceMetric && loading && <div className="chart-message" data-testid="chart-loading"><span className="loader" />Loading on-chain candles…</div>}
     {priceMetric && providerError && <div className="chart-message" data-testid="chart-provider-failure">
+      <MarketAvailabilityNotice data={data} error={error} errorStatus={errorStatus} errorProvider={errorProvider} id="chart-market-availability" />
       <MarketError
         error={`Unable to load candle history from GeckoTerminal. ${providerError}`}
         description="This is a provider failure, not confirmation that the pool has no history. Retry the candle request or use the external chart."

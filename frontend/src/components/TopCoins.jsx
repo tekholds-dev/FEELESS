@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMarket } from '../hooks/useMarket';
 import { useWorkspace } from '../hooks/useWorkspace';
-import { DataStatus, MarketError } from './terminal/MarketPrimitives';
+import { DataStatus, MarketAvailabilityNotice, MarketError } from './terminal/MarketPrimitives';
 import { matchesPad } from '../lib/launchpads';
 import TokenCard from './TokenCard';
 
@@ -35,6 +35,13 @@ function CoinFeed({ id, title, result, ecosystem, onSelect, screener }) {
        <div><h3>{title}</h3><small className="coin-feed-source">{result.data?.label || 'Public indexed markets'}{(result.data?.sourceUrl || result.data?.source_url) && <> · <a href={result.data.sourceUrl || result.data.source_url} target="_blank" rel="noreferrer">Source ↗</a></>}</small></div>
        <span className="coin-feed-status"><DataStatus data={result.data} id={`globe-coins-${id}-status`} />{result.refreshing && <i data-testid={`globe-coins-${id}-refreshing`}>LIVE</i>}</span>
     </div>
+    <MarketAvailabilityNotice
+      data={result.data}
+      error={result.error}
+      errorStatus={result.errorStatus}
+      errorProvider={result.errorProvider}
+      id={`globe-coins-${id}-availability`}
+    />
     {result.error && <MarketError
       error={`Unable to load ${title.toLowerCase()} for ${ecosystemName}. ${result.error}`}
       reload={result.reload}

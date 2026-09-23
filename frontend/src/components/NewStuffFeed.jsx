@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { Sparkles, Flame, Copy, ExternalLink, RefreshCw } from 'lucide-react';
 import { useMarket } from '../hooks/useMarket';
 import { matchesPad } from '../lib/launchpads';
-import { TokenAvatar } from './terminal/MarketPrimitives';
+import { MarketAvailabilityNotice, TokenAvatar } from './terminal/MarketPrimitives';
 import { formatUSD, formatPct, formatAge } from '../lib/dexscreener';
 
 // Social "new stuff" stream — fresh + trending coins on the ecosystem. No pools / liquidity tables.
@@ -11,7 +11,7 @@ export default function NewStuffFeed({ ecosystem }) {
   const [tab, setTab] = useState('new');
   const chain = ecosystem?.chainId || 'solana';
   const screen = tab === 'new' ? 'new' : 'quality';
-  const { data, loading, refreshing, reload } = useMarket(`/feed?kind=${tab}&chain=${chain}&screen=${screen}`, 15000);
+  const { data, loading, refreshing, error, errorStatus, errorProvider, reload } = useMarket(`/feed?kind=${tab}&chain=${chain}&screen=${screen}`, 15000);
   const pairs = (data?.pairs || [])
     .filter(p => !ecosystem?.isLaunchpad || matchesPad(p, ecosystem.id))
     .slice(0, 6);
@@ -30,6 +30,7 @@ export default function NewStuffFeed({ ecosystem }) {
       </div>
       <button className={`new-stuff-refresh ${refreshing ? 'is-refreshing' : ''}`} data-testid="new-stuff-refresh" title="Refresh feed" onClick={() => reload()}><RefreshCw size={13} /></button>
     </div>
+    <MarketAvailabilityNotice data={data} error={error} errorStatus={errorStatus} errorProvider={errorProvider} id="new-stuff-market-availability" />
     <div className="new-stuff-list custom-scroll">
       {loading && !pairs.length && <div className="new-stuff-empty" data-testid="new-stuff-loading"><span className="loader" />Scanning the chain…</div>}
       {!loading && !pairs.length && <div className="new-stuff-empty" data-testid="new-stuff-empty">Nothing indexed here yet. Provider coverage is partial — check back soon.</div>}

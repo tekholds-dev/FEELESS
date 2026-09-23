@@ -9,7 +9,14 @@ export const ROOM_PERSPECTIVES = ['bulls', 'bears', 'trenches'];
 export async function marketRequest(path, signal) {
   const res = await fetch(apiUrl(path.startsWith('/api/') ? path : `/api/market${path}`), { signal });
   const data = await res.json();
-  if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Market data unavailable');
+  if (!res.ok) {
+    const error = new Error(typeof data.detail === 'string' ? data.detail : 'Market data unavailable');
+    error.status = res.status;
+    error.providerStatus = data.provider_status || data.providerStatus || res.status;
+    error.provider = data.provider || data.primary_provider;
+    error.marketData = data;
+    throw error;
+  }
   return data;
 }
 export const searchTokens = async q => (await marketRequest(`/search?q=${encodeURIComponent(q)}`)).pairs;

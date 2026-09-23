@@ -105,6 +105,47 @@ export const DataStatus = ({ data, id = 'data-status' }) => <span data-testid={i
   <i />{data ? `${data.error ? 'UNAVAILABLE' : data.stale ? 'STALE' : 'LIVE'} · ${formatTime(data.fetched_at)}` : 'CONNECTING'}
 </span>;
 
+export function getMarketAvailability({ data, error, errorStatus, errorProvider } = {}) {
+  const text = [
+    typeof error === 'string' ? error : '',
+    data?.error,
+    data?.fallback_reason,
+    data?.fallbackReason,
+    data?.provider_warning?.provider,
+  ].filter(Boolean).join(' ');
+  const status = Number(data?.provider_status || data?.providerStatus || errorStatus || data?.provider_warning?.status);
+  const rateLimited = data?.rate_limited === true
+    || data?.provider_warning?.rate_limited === true
+    || status === 429
+    || /HTTP\s*429|rate[\s-]?limit|throttl/i.test(text);
+  const unavailable = Boolean(error)
+    || data?.status === 'provider_unavailable'
+    || data?.status === 'unavailable'
+    || Boolean(data?.provider_warning)
+    || /provider.*unavailable|temporarily unavailable|unavailable from/i.test(text);
+  if (!rateLimited && !unavailable) return null;
+  return {
+    rateLimited,
+    provider: data?.provider_warning?.provider
+      || data?.primary_provider
+      || data?.provider
+      || errorProvider
+      || 'market provider',
+  };
+}
+
+export const MarketAvailabilityNotice = ({ data, error, errorStatus, errorProvider, id = 'market-availability' }) => {
+  const availability = getMarketAvailability({ data, error, errorStatus, errorProvider });
+  if (!availability) return null;
+  const provider = availability.provider === 'Public providers' ? 'public providers' : availability.provider;
+  const message = availability.rateLimited
+    ? `Market data is temporarily rate limited by ${provider}. Existing fallback data remains visible when available and may recover on the next refresh. This is not a trading failure.`
+    : `Market data is temporarily unavailable from ${provider}. Existing fallback data remains visible when available and may recover on the next refresh. This is not a trading failure.`;
+  return <div className="market-availability" role="status" aria-live="polite" data-testid={id}>
+    <AlertTriangle size={15} /><span>{message}</span>
+  </div>;
+};
+
 export const MarketError = ({ error, reload, id = 'market-error', focusable = false, retryLabel = 'Retry', description }) => <div className="market-error" role="alert" tabIndex={focusable ? 0 : undefined} data-testid={id}>
   <AlertTriangle size={17} /><span className="market-error-copy"><span>{error}</span>{description && <small data-testid={`${id}-description`}>{description}</small>}</span>{reload && <button type="button" data-testid={`${id}-retry`} onClick={() => reload()} aria-label={retryLabel} title={retryLabel}><RefreshCw size={15} /></button>}
 </div>;

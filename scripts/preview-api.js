@@ -134,6 +134,7 @@ function providerNameForUrl(url) {
 
 function warnProviderThrottle(error, warningState) {
   if (error?.providerStatus === 429 && error?.provider) {
+    if (warningState === null) return true;
     const warningKey = `${error.provider}:${error.providerStatus}`;
     if (warningState?.has(warningKey)) return true;
     warningState?.add(warningKey);
@@ -161,7 +162,14 @@ async function getJsonWithMeta(url, ttl = 30000) {
       return { value, fetchedAt, stale: false, error: null };
     } catch (error) {
       if (hit && Date.now() - hit.at <= MARKET_CACHE_RETENTION_MS) {
-        return { value: hit.value, fetchedAt: hit.fetchedAt, stale: true, error: publicError(error) };
+        return {
+          value: hit.value,
+          fetchedAt: hit.fetchedAt,
+          stale: true,
+          error: publicError(error),
+          providerStatus: error?.providerStatus || null,
+          provider: error?.provider || providerNameForUrl(url),
+        };
       }
       throw error;
     }
@@ -337,7 +345,20 @@ const PROVIDER_LABELS = {
   GeckoTerminal: 'GeckoTerminal public pool index',
 };
 
-function providerMeta(provider, fetchedAt, { stale = false, error = null, primaryProvider = provider, ...extra } = {}) {
+function providerWarningFields(error, provider = error?.provider) {
+  const status = Number(error?.providerStatus);
+  if (!Number.isFinite(status) && !error) return {};
+  return {
+    provider_warning: {
+      provider: provider || 'Public market provider',
+      status: Number.isFinite(status) ? status : null,
+      rate_limited: status === 429,
+    },
+    ...(Number.isFinite(status) ? { provider_status: status } : {}),
+    ...(status === 429 ? { rate_limited: true } : {}),
+  };
+}
+function providerMeta(provider, fetchedAt, { stale = false, error = null, primaryProvider = provider, providerStatus = null, ...extra } = {}) {
   return {
     provider,
     primary_provider: primaryProvider,
@@ -346,6 +367,7 @@ function providerMeta(provider, fetchedAt, { stale = false, error = null, primar
     fetched_at: fetchedAt || new Date().toISOString(),
     stale: Boolean(stale),
     ...(error ? { error } : {}),
+    ...providerWarningFields(providerStatus ? Object.assign(new Error(error || ''), { providerStatus, provider }) : null, provider),
     coverage: PROVIDER_COVERAGE[provider] || {},
     stream: false,
     ...extra,
@@ -471,6 +493,7 @@ async function pumpFeed(kind, page = 1) {
     ...providerMeta('Pump.fun', result.fetchedAt, {
       stale: result.stale,
       error: result.error,
+      providerStatus: result.providerStatus,
     }),
     sourceLabel: 'Pump.fun public coin index · launchpad coverage',
     label: kind === 'new' ? 'Recent Pump.fun coins' : 'Pump.fun market-cap snapshot',
@@ -484,8 +507,9 @@ async function geckoAsset(mint, warningState) {
   const poolsUrl = `${GECKO_API}/networks/solana/tokens/${encodeURIComponent(mint)}/pools?page=1`;
   let token = null;
   let pools = null;
-  try { token = (await getJson(tokenUrl, 60000))?.data || null; } catch (error) { warnProviderThrottle(error, warningState); }
-  try { pools = (await getJson(poolsUrl, 60000))?.data || []; } catch (error) { warnProviderThrottle(error, warningState); }
+  let error = null;
+  try { token = (await getJson(tokenUrl, 60000))?.data || null; } catch (failure) { error = error || failure; warnProviderThrottle(failure, warningState); }
+  try { pools = (await getJson(poolsUrl, 60000))?.data || []; } catch (failure) { error = error || failure; warnProviderThrottle(failure, warningState); }
 
   const tokenAttrs = token?.attributes || {};
   const pool = (Array.isArray(pools) ? pools : [])
@@ -497,7 +521,7 @@ async function geckoAsset(mint, warningState) {
   if (!pool) {
     const poolId = token?.relationships?.top_pools?.data?.[0]?.id || '';
     const poolAddress = poolId.split('_').slice(1).join('_');
-    if (!poolAddress || !tokenAttrs.price_usd) return { pair: null, imageUrl: tokenAttrs.image_url || null };
+    if (!poolAddress || !tokenAttrs.price_usd) return { pair: null, imageUrl: tokenAttrs.image_url || null, error };
     return {
       pair: {
         chainId: 'solana',
@@ -517,6 +541,7 @@ async function geckoAsset(mint, warningState) {
         info: { imageUrl: tokenAttrs.image_url || null, websites: [], socials: [] },
       },
       imageUrl: tokenAttrs.image_url || null,
+      error,
     };
   }
 
@@ -528,7 +553,7 @@ async function geckoAsset(mint, warningState) {
     symbol: tokenAttrs.symbol || pair.baseToken.symbol,
   };
   pair.info = { ...pair.info, imageUrl: pair.info?.imageUrl || tokenAttrs.image_url || null };
-  return { pair, imageUrl: pair.info.imageUrl };
+  return { pair, imageUrl: pair.info.imageUrl, error };
 }
 
 async function geckoFeed(kind, page = 1, chain = 'solana') {
@@ -546,6 +571,7 @@ async function geckoFeed(kind, page = 1, chain = 'solana') {
     ...providerMeta('GeckoTerminal', fetchedAt, {
       stale: responses.some(response => response.stale),
       error: responses.find(response => response.error)?.error || null,
+      providerStatus: responses.find(response => response.providerStatus)?.providerStatus,
     }),
     label: kind === 'new' ? 'New pools' : 'Trending pools',
     pairs,
@@ -577,7 +603,7 @@ async function pumpGraduations(mints = '') {
         results.push({ mint, data: result.value, meta: result });
       } catch (error) {
         warnProviderThrottle(error);
-        results.push({ mint, error: publicError(error) });
+        results.push({ mint, error: publicError(error), providerStatus: error?.providerStatus || null });
       }
     }
   };
@@ -596,7 +622,11 @@ async function pumpGraduations(mints = '') {
   const errors = [...new Set(results.filter(result => result.error).map(result => result.error))];
   const observedAt = results.map(result => result.meta?.fetchedAt).filter(Boolean).sort().at(-1) || fetchedAt;
   return {
-    ...providerMeta('Pump.fun', observedAt, { stale: results.some(result => result.meta?.stale) }),
+    ...providerMeta('Pump.fun', observedAt, {
+      stale: results.some(result => result.meta?.stale),
+      providerStatus: results.find(result => result.providerStatus || result.meta?.providerStatus)?.providerStatus
+        || results.find(result => result.meta?.providerStatus)?.meta?.providerStatus,
+    }),
     sourceLabel: 'Pump.fun public coin status · complete=true',
     error: errors.length ? errors.join('; ') : null,
     status: graduations.length ? 'verified' : errors.length === results.length ? 'unavailable' : 'no_verified_events',
@@ -635,7 +665,11 @@ async function geckoCandles(chain, address, interval = '1h') {
     .map(row => [row[0], row])).values()]
     .sort((a, b) => a[0] - b[0]);
   return {
-    ...providerMeta('GeckoTerminal', result.fetchedAt, { stale: result.stale, error: result.error }),
+    ...providerMeta('GeckoTerminal', result.fetchedAt, {
+      stale: result.stale,
+      error: result.error,
+      providerStatus: result.providerStatus,
+    }),
     candles,
   };
 }
@@ -667,6 +701,7 @@ async function dexBoostFeed(kind, page = 1, chain = 'solana') {
     ...providerMeta('DexScreener', payloadResult.fetchedAt || indexResult.fetchedAt, {
       stale: indexResult.stale || payloadResult.stale,
       error: indexResult.error || payloadResult.error,
+      providerStatus: indexResult.providerStatus || payloadResult.providerStatus,
     }),
     label: kind === 'new' ? 'Recent indexed pools' : 'Boosted discovery',
     pairs,
@@ -678,6 +713,7 @@ function unavailableFeed(kind, chain, error, primaryProvider = 'DexScreener') {
   return {
     provider: 'Public providers',
     primary_provider: primaryProvider,
+    ...providerWarningFields(error, error?.provider || primaryProvider),
     sourceUrl: 'https://www.geckoterminal.com',
     sourceLabel: 'Provider status',
     fetched_at: new Date().toISOString(),
@@ -776,20 +812,36 @@ function minimalPdf() {
 async function assets() {
   const warningState = new Set();
   const result = await Promise.all(Object.entries(MINTS).map(async ([id, mint]) => {
+    let primaryError = null;
+    let fallbackError = null;
     try {
-      const rows = await getJson(`${DEX_API}/token-pairs/v1/solana/${mint}`, 60000);
+      let rows = [];
+      try {
+        const response = await getJsonWithMeta(`${DEX_API}/token-pairs/v1/solana/${mint}`, 60000);
+        rows = response.value;
+        if (response.error) {
+          primaryError = Object.assign(new Error(response.error), {
+            providerStatus: response.providerStatus,
+            provider: response.provider || 'DexScreener',
+          });
+        }
+      } catch (error) {
+        primaryError = error;
+      }
       let pair = (Array.isArray(rows) ? rows : [])
         .filter(item => item?.baseToken?.address === mint)
         .sort((a, b) => Number(b?.liquidity?.usd || 0) - Number(a?.liquidity?.usd || 0))[0] || null;
       let imageUrl = pair?.info?.imageUrl || null;
       let provider = 'DexScreener';
       if (!pair || !imageUrl) {
-        const fallback = await geckoAsset(mint, warningState);
+        const fallback = await geckoAsset(mint, primaryError ? null : warningState);
+        fallbackError = fallback.error;
         pair = pair || fallback.pair;
         imageUrl = imageUrl || fallback.imageUrl;
         if (fallback.pair) provider = 'GeckoTerminal';
         if (pair && imageUrl) pair.info = { ...(pair.info || {}), imageUrl };
       }
+      if (primaryError) warnProviderThrottle(primaryError, warningState);
       return {
         id,
         label: id.toUpperCase(),
@@ -797,13 +849,23 @@ async function assets() {
         chain: 'solana',
         pair,
         imageUrl,
-        status: pair?.priceUsd ? 'market_observed' : 'awaiting_market',
+        status: pair?.priceUsd ? 'market_observed' : primaryError ? 'provider_unavailable' : 'awaiting_market',
         provider,
         fetched_at: new Date().toISOString(),
+        ...(primaryError ? {
+          fallback_from: 'DexScreener',
+          fallback_reason: pair
+            ? `DexScreener unavailable; using ${provider} fallback (${publicError(primaryError)}).`
+            : `DexScreener unavailable; no fallback market data is available (${publicError(primaryError)}).`,
+          ...(!pair ? { error: publicError(primaryError) } : {}),
+          ...providerWarningFields(primaryError, 'DexScreener'),
+        } : {}),
+        ...(!primaryError && fallbackError ? providerWarningFields(fallbackError, 'GeckoTerminal') : {}),
         identity: 'Owner-supplied contract; exact provider match. Not a security endorsement.',
       };
     } catch (error) {
-      warnProviderThrottle(error, warningState);
+      const reportedError = primaryError || error;
+      warnProviderThrottle(reportedError, warningState);
       return {
         id,
         label: id.toUpperCase(),
@@ -811,9 +873,10 @@ async function assets() {
         chain: 'solana',
         pair: null,
         status: 'provider_unavailable',
-        error: publicError(error),
+        error: publicError(reportedError),
         provider: 'DexScreener',
         fetched_at: new Date().toISOString(),
+        ...providerWarningFields(reportedError, reportedError?.provider || 'DexScreener'),
         identity: 'Owner-supplied contract; exact provider match. Not a security endorsement.',
       };
     }
@@ -998,6 +1061,7 @@ async function route(req, res, url) {
           result.fallback_from = primaryProvider;
           result.fallback_reason = `Pump.fun unavailable; using GeckoTerminal fallback (${publicError(primaryError)}).`;
         }
+        Object.assign(result, providerWarningFields(primaryError, primaryProvider));
       } catch (geckoError) {
         warnProviderThrottle(geckoError);
         result = unavailableFeed(kind, chain, geckoError || primaryError, primaryProvider);
@@ -1017,15 +1081,28 @@ async function route(req, res, url) {
   const pairMatch = url.pathname.match(/^\/api\/market\/pair\/([^/]+)\/([^/]+)$/);
   if (req.method === 'GET' && pairMatch) {
     const [, chain, address] = pairMatch;
+    let primaryError = null;
     try {
       const data = await getJson(`${DEX_API}/latest/dex/pairs/${encodeURIComponent(chain)}/${encodeURIComponent(address)}`, 30000);
       const pairs = data?.pairs || [];
       if (pairs.length) return json(res, 200, { provider: 'DexScreener', fetched_at: new Date().toISOString(), stale: false, pairs, label: 'Pair snapshot' });
     } catch (error) {
+      primaryError = error;
       warnProviderThrottle(error);
     }
     const pair = await geckoPair(chain, address);
-    return json(res, 200, { provider: 'GeckoTerminal', fetched_at: new Date().toISOString(), stale: false, pairs: pair ? [pair] : [], label: 'Pair snapshot' });
+    return json(res, 200, {
+      provider: 'GeckoTerminal',
+      fetched_at: new Date().toISOString(),
+      stale: false,
+      pairs: pair ? [pair] : [],
+      label: 'Pair snapshot',
+      ...(primaryError ? {
+        fallback_from: 'DexScreener',
+        fallback_reason: `DexScreener unavailable; using GeckoTerminal fallback (${publicError(primaryError)}).`,
+        ...providerWarningFields(primaryError, 'DexScreener'),
+      } : {}),
+    });
   }
   if (req.method === 'GET' && url.pathname === '/api/market/scan') {
     const query = url.searchParams.get('address') || '';

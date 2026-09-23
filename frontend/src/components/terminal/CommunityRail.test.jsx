@@ -28,6 +28,7 @@ jest.mock('./TokenFocus', () => ({ TokenFocus: () => null }));
 jest.mock('./MarketPrimitives', () => ({
   TokenAvatar: ({ pair }) => <span>{pair.baseToken?.symbol}</span>,
   Change: ({ value }) => <span>{value ?? '—'}</span>,
+  MarketAvailabilityNotice: () => null,
 }));
 
 describe('The Trenches pools tab', () => {

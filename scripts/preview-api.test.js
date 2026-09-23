@@ -518,6 +518,8 @@ test('preview market routes preserve throttling fallbacks and response bodies', 
     assert.equal(feed.status, 200);
     assert.equal(feed.body.provider, 'GeckoTerminal');
     assert.equal(feed.body.fallback_from, 'Pump.fun');
+    assert.equal(feed.body.provider_status, 429);
+    assert.equal(feed.body.provider_warning.rate_limited, true);
     assert.equal(feed.body.pairs[0].pairAddress, 'ThrottledFallbackPool123');
     expectWarning('Pump.fun');
 
@@ -534,6 +536,8 @@ test('preview market routes preserve throttling fallbacks and response bodies', 
     const pair = await request(baseUrl, '/api/market/pair/solana/ThrottledPair123', originalFetch);
     assert.equal(pair.status, 200);
     assert.equal(pair.body.provider, 'GeckoTerminal');
+    assert.equal(pair.body.provider_status, 429);
+    assert.equal(pair.body.provider_warning.rate_limited, true);
     assert.equal(pair.body.pairs[0].pairAddress, 'ThrottledPair123');
     expectWarning('DexScreener');
 
@@ -541,6 +545,7 @@ test('preview market routes preserve throttling fallbacks and response bodies', 
     assert.equal(assetsResponse.status, 200);
     assert.equal(assetsResponse.body.assets.length, 3);
     assert.ok(assetsResponse.body.assets.every(asset => asset.status === 'provider_unavailable'));
+    assert.ok(assetsResponse.body.assets.every(asset => asset.provider_status === 429 && asset.provider_warning.rate_limited));
     assert.equal(errors.length, 0);
     assert.deepEqual(
       warnings.map(args => args[0]),
@@ -554,6 +559,8 @@ test('preview market routes preserve throttling fallbacks and response bodies', 
     assert.equal(graduations.body.status, 'unavailable');
     assert.deepEqual(graduations.body.graduations, []);
     assert.match(graduations.body.error, /HTTP 429/);
+    assert.equal(graduations.body.provider_status, 429);
+    assert.equal(graduations.body.provider_warning.rate_limited, true);
     expectWarning('Pump.fun');
   } finally {
     console.warn = originalConsoleWarn;

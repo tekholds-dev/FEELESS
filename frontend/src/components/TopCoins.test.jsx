@@ -14,6 +14,7 @@ jest.mock('../hooks/useMarket', () => ({
 
 jest.mock('./terminal/MarketPrimitives', () => ({
   DataStatus: ({ data, id }) => <span data-testid={id}>{data ? 'LIVE' : 'CONNECTING'}</span>,
+  MarketAvailabilityNotice: ({ id }) => <span data-testid={id} />,
   MarketError: ({ error, reload, id, focusable, retryLabel }) => (
     <div data-testid={id} role="alert" tabIndex={focusable ? 0 : undefined}>
       <span>{error}</span>

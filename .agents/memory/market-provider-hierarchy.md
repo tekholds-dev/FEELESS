@@ -9,6 +9,12 @@ Pump.fun is the primary source only for the Pump-scoped Solana radar because it 
 
 **How to apply:** Keep the actual provider, primary provider, fetched timestamp, stale/error state, and per-stage coverage visible in every market response. Treat all sources as polling snapshots unless a real stream is connected. Never derive USD liquidity or token price from virtual reserves or market cap.
 
+When a fallback provider supplies usable rows, retain structured status from the failed primary provider instead of treating the successful HTTP response as fully healthy.
+
+**Why:** A 200 fallback response can otherwise hide the HTTP 429 or outage that explains missing or stale fields to users.
+
+**How to apply:** Preserve provider warning/status metadata through feed, pair, candle, asset, and graduation fallbacks so the UI can show a retry hint without hiding usable snapshots.
+
 Provider screeners are a ranking layer over reported snapshots, not a safety, profitability, or launchpad-verification layer. Keep the selected mode and its disclosure visible, and treat missing provider fields as unavailable rather than inferred.
 
 **Why:** A useful next-best-coin view needs deterministic ordering from available market observations, but RPC and public indexes cannot establish that a token is safe or will perform well.

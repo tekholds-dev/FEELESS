@@ -73,6 +73,7 @@ jest.mock('../components/terminal/TerminalShell', () => {
 
 jest.mock('../components/terminal/MarketPrimitives', () => ({
   DataStatus: () => <span />,
+  MarketAvailabilityNotice: ({ id }) => <span data-testid={id} />,
   MarketError: ({ id, error }) => <div data-testid={id}>{error}</div>,
 }));
 

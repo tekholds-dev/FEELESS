@@ -4,7 +4,7 @@ import { MessageCircle, Radio, Rocket, Compass, Star, BarChart3, ArrowUpRight, C
 import EcosystemChat from '../EcosystemChat';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { AlphaTape } from '../command/WorkspaceChrome';
-import { TokenAvatar, Change } from './MarketPrimitives';
+import { MarketAvailabilityNotice, TokenAvatar, Change } from './MarketPrimitives';
 import { TokenFocus } from './TokenFocus';
 import { useMarket } from '../../hooks/useMarket';
 import { formatUSD, pairKey, coinIdentity, coinRoom, normalizeRoomPerspective, shortAddress } from '../../lib/dexscreener';
@@ -29,6 +29,7 @@ export const LivePoolsPanel = ({ pairs = [], newPairs = [], onSelect }) => {
       <div><small>CHAINS</small><strong data-testid="live-pools-chains">{chains || '—'}</strong></div>
     </div>
     <div className="live-pools-status" data-testid="live-pools-status"><i className={refreshing ? 'is-refreshing' : ''} />{usingSnapshot ? 'Page snapshot fallback' : error ? 'Provider snapshot unavailable' : data?.provider ? `${data.provider} · ${refreshing ? 'updating' : 'live'}` : 'Connecting to live providers'}</div>
+    <MarketAvailabilityNotice data={data} error={error} id="live-pools-availability" />
     <div className="live-pools-list">
       {livePairs.slice(0, 12).map(pair => <button className="live-pool-row" key={pairKey(pair)} data-testid={`live-pool-${pairKey(pair)}`} onClick={() => onSelect?.(pair)}>
         <TokenAvatar pair={pair} size={32} />
