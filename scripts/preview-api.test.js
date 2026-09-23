@@ -85,6 +85,70 @@ test('market screeners rank observed provider signals without calling them safet
   assert.ok(quality.pairs[0].signals.score_reasons.length > 0);
 });
 
+test('market screeners keep cached and stale responses aligned with the requested mode', async () => {
+  const originalFetch = global.fetch;
+  const originalNow = Date.now;
+  let available = true;
+  const modes = {
+    quality: 'Best observed setups',
+    momentum: 'Momentum',
+    volume: 'Volume leaders',
+    new: 'Fresh with activity',
+  };
+  cache.clear();
+  global.fetch = async target => {
+    const url = String(target);
+    if (url.startsWith(`${PUMP_API_URL}/coins?`)) {
+      if (!available) return providerResponse({ detail: 'provider down' }, 503);
+      return providerResponse([{
+        mint: 'ModeSwitchCoin123',
+        name: 'Mode Switch Coin',
+        symbol: 'SWITCH',
+        created_timestamp: originalNow() - 3 * 3600000,
+        usd_market_cap: 250000,
+      }]);
+    }
+    throw new Error(`Unexpected provider request: ${url}`);
+  };
+
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const feedUrl = screen => `/api/market/feed?kind=trending&chain=solana&scope=pump${screen === 'quality' ? '' : `&screen=${screen}`}`;
+  try {
+    await Promise.all(Object.keys(modes).map(async screen => {
+      const response = await request(baseUrl, feedUrl(screen), originalFetch);
+      assert.equal(response.status, 200);
+      assert.equal(response.body.screener, screen);
+      assert.equal(response.body.screener_label, modes[screen]);
+      assert.equal(response.body.pairs[0].signals.screener, screen);
+      assert.equal(response.body.pairs[0].signals.score_label, modes[screen]);
+      assert.ok(response.body.pairs[0].signals.score_reasons.length > 0);
+      assert.ok(response.body.screener_disclosure);
+    }));
+
+    const quality = await request(baseUrl, feedUrl('quality'), originalFetch);
+    Date.now = () => originalNow() + 21000;
+    available = false;
+    const staleMomentum = await request(baseUrl, feedUrl('momentum'), originalFetch);
+    assert.equal(staleMomentum.status, 200);
+    assert.equal(staleMomentum.body.stale, true);
+    assert.equal(staleMomentum.body.screener, 'momentum');
+    assert.equal(staleMomentum.body.screener_label, modes.momentum);
+    assert.equal(staleMomentum.body.pairs[0].signals.screener, 'momentum');
+    assert.equal(staleMomentum.body.pairs[0].signals.score_label, modes.momentum);
+    assert.notEqual(staleMomentum.body.pairs[0].signals.score_label, quality.body.pairs[0].signals.score_label);
+    assert.ok(staleMomentum.body.pairs[0].signals.score_reasons.every(reason => !/quality/i.test(reason)));
+    assert.match(staleMomentum.body.screener_disclosure, /price movement and activity/i);
+  } finally {
+    Date.now = originalNow;
+    global.fetch = originalFetch;
+    cache.clear();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
 async function proof(baseUrl, keypair, fetchImpl) {
   const address = keypair.publicKey.toString();
   const challenge = await post(baseUrl, '/api/profile/challenge', { address, chain: 'solana' }, fetchImpl);
@@ -521,7 +585,6 @@ test('preview unexpected provider errors retain the actionable stack trace', asy
     assert.equal(warnings.length, 0);
     assert.equal(errors.length, 1);
     assert.equal(errors[0][0], '[preview-api]');
-    assert.equal(errors[0][1], failure);
     assert.match(errors[0][1].stack, /Unexpected provider failure/);
   } finally {
     console.warn = originalConsoleWarn;

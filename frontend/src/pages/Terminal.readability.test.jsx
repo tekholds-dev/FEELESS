@@ -8,6 +8,7 @@ import Terminal from './Terminal';
 let mockPage = 'settings';
 let mockSearch = new URLSearchParams();
 let mockPairResult = { data: { pairs: [] }, loading: false, refreshing: false, error: undefined, reload: jest.fn() };
+let mockMarketResult = { data: { pairs: [] }, loading: false, refreshing: false, error: undefined, reload: jest.fn() };
 
 jest.mock('@solana/web3.js', () => ({
   VersionedTransaction: { deserialize: jest.fn() },
@@ -53,6 +54,7 @@ jest.mock('../hooks/useMarket', () => ({
       return { data: { configured: false }, loading: false };
     }
     if (path === '/pair/ethereum/pool1') return mockPairResult;
+    if (path?.startsWith('/feed?kind=trending')) return mockMarketResult;
     return { data: { pairs: [] }, loading: false, refreshing: false, error: undefined, reload: jest.fn() };
   },
   useWatchlist: () => ({ watchlist: [], toggle: jest.fn(), has: jest.fn(() => false) }),
@@ -88,7 +90,18 @@ jest.mock('../components/terminal/TokenFocus', () => ({
 }));
 
 jest.mock('../components/terminal/MarketTable', () => ({
-  MarketTable: () => null,
+  MarketTable: ({ pairs, screenerLabel, loading }) => (
+    <div data-testid="terminal-market-table" data-loading={loading ? 'true' : 'false'}>
+      {pairs.map(pair => {
+        const signals = pair.signals || {};
+        return <div data-testid="terminal-market-row" key={pair.pairAddress}>
+          <span data-testid="terminal-market-label">{signals.score_label || screenerLabel}</span>
+          <span data-testid="terminal-market-score">{signals.screener_score}</span>
+          <span data-testid="terminal-market-reasons">{(signals.score_reasons || []).join(' · ')}</span>
+        </div>;
+      })}
+    </div>
+  ),
 }));
 
 jest.mock('../components/terminal/LaunchpadDirectory', () => ({
@@ -199,6 +212,7 @@ afterEach(() => {
   mockPage = 'settings';
   mockSearch = new URLSearchParams();
   mockPairResult = { data: { pairs: [] }, loading: false, refreshing: false, error: undefined, reload: jest.fn() };
+  mockMarketResult = { data: { pairs: [] }, loading: false, refreshing: false, error: undefined, reload: jest.fn() };
   localStorage.clear();
   document.body.innerHTML = '';
   document.head.querySelector('[data-testid="trade-styles"]')?.remove();
@@ -231,6 +245,78 @@ test('shows a visible error and does not substitute a coin for an unavailable pa
 
   expect(container.querySelector('[data-testid="selected-pair-route-error"]').textContent).toContain('was not returned by the market provider');
   expect(container.querySelector('[data-testid="restored-chat-room"]')).toBeNull();
+  act(() => root.unmount());
+});
+
+test('switches terminal market rows to the selected screener without showing cached reasons', () => {
+  mockPage = 'discover';
+  mockSearch = new URLSearchParams('screen=quality');
+  const qualityPair = {
+    chainId: 'solana',
+    pairAddress: 'quality-pair',
+    baseToken: { symbol: 'QUALITY' },
+    liquidity: { usd: 10000 },
+    signals: {
+      screener: 'quality',
+      screener_score: 41.1,
+      score_label: 'Best observed setups',
+      score_reasons: ['quality liquidity', 'quality activity'],
+    },
+  };
+  mockMarketResult = {
+    data: {
+      screener: 'quality',
+      screener_label: 'Best observed setups',
+      pairs: [qualityPair],
+    },
+    loading: false,
+    refreshing: false,
+    error: undefined,
+    reload: jest.fn(),
+  };
+
+  const { container, root } = mount();
+  expect(container.querySelector('[data-testid="terminal-market-label"]').textContent).toBe('Best observed setups');
+  expect(container.querySelector('[data-testid="terminal-market-score"]').textContent).toBe('41.1');
+  expect(container.querySelector('[data-testid="terminal-market-reasons"]').textContent).toBe('quality liquidity · quality activity');
+
+  mockSearch = new URLSearchParams('screen=momentum');
+  mockMarketResult = {
+    ...mockMarketResult,
+    data: { ...mockMarketResult.data, stale: true, error: 'provider temporarily unavailable' },
+    refreshing: true,
+  };
+  renderCurrentPage(root);
+  expect(container.querySelector('[data-testid="terminal-market-row"]')).toBeNull();
+  expect(container.querySelector('[data-testid="terminal-market-table"]').getAttribute('data-loading')).toBe('true');
+  expect(container.querySelector('[data-testid="market-stale-warning"]')).toBeNull();
+
+  const momentumPair = {
+    ...qualityPair,
+    pairAddress: 'momentum-pair',
+    signals: {
+      screener: 'momentum',
+      screener_score: 72.2,
+      score_label: 'Momentum',
+      score_reasons: ['momentum movement', 'momentum activity'],
+    },
+  };
+  mockMarketResult = {
+    ...mockMarketResult,
+    data: {
+      screener: 'momentum',
+      screener_label: 'Momentum',
+      stale: true,
+      error: 'provider temporarily unavailable',
+      pairs: [momentumPair],
+    },
+    refreshing: false,
+  };
+  renderCurrentPage(root);
+  expect(container.querySelector('[data-testid="terminal-market-label"]').textContent).toBe('Momentum');
+  expect(container.querySelector('[data-testid="terminal-market-score"]').textContent).toBe('72.2');
+  expect(container.querySelector('[data-testid="terminal-market-reasons"]').textContent).toBe('momentum movement · momentum activity');
+  expect(container.querySelector('[data-testid="market-stale-warning"]').textContent).toContain('provider temporarily unavailable');
   act(() => root.unmount());
 });
 

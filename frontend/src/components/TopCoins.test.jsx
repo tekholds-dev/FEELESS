@@ -22,7 +22,16 @@ jest.mock('./terminal/MarketPrimitives', () => ({
   ),
 }));
 
-jest.mock('./TokenCard', () => ({ pair }) => <div data-testid="token-card">{pair.baseToken.symbol}</div>);
+jest.mock('./TokenCard', () => ({ pair, screenerLabel }) => {
+  const signals = pair.signals || {};
+  if (!signals.score_label && !screenerLabel) return <div data-testid="token-card">{pair.baseToken.symbol}</div>;
+  return <div data-testid="token-card">
+    <span data-testid="token-card-symbol">{pair.baseToken.symbol}</span>
+    <span data-testid="token-card-label">{signals.score_label || screenerLabel || 'Unavailable'}</span>
+    <span data-testid="token-card-score">{signals.screener_score}</span>
+    <span data-testid="token-card-reasons">{(signals.score_reasons || []).join(' · ') || 'Observed reasons unavailable'}</span>
+  </div>;
+});
 
 const ecosystem = { id: 'ethereum', name: 'Ethereum', chainId: 'ethereum' };
 const selectableEcosystems = ECOSYSTEMS.filter(item => !item.isFeeless);
@@ -209,6 +218,122 @@ test('keeps simultaneous top and new feed retries independent when responses ret
   expect(container.querySelector('[data-testid="globe-coins-trending-error"]')).toBeNull();
   expect(container.querySelector('[data-testid="globe-coins-new-error"]')).toBeNull();
   expect([...container.querySelectorAll('[data-testid="token-card"]')].map(card => card.textContent)).toEqual(['TOP', 'NEW']);
+  act(() => root.unmount());
+});
+
+test('updates every radar coin label, score, and observed reasons for each screener mode', () => {
+  const modes = [
+    { value: 'quality', api: 'quality', label: 'Best observed setups', disclosure: 'quality disclosure' },
+    { value: 'momentum', api: 'momentum', label: 'Momentum', disclosure: 'momentum disclosure' },
+    { value: 'volume', api: 'volume', label: 'Volume leaders', disclosure: 'volume disclosure' },
+    { value: 'new', api: 'new', label: 'Fresh with activity', disclosure: 'fresh disclosure' },
+  ];
+  const paths = mode => ({
+    top: `/feed?kind=trending&chain=ethereum${mode.api === 'quality' ? '' : `&screen=${mode.api}`}`,
+    fresh: `/feed?kind=new&chain=ethereum${mode.api === 'new' || mode.api === 'quality' ? '' : `&screen=${mode.api}`}`,
+  });
+  const response = (mode, symbol) => ({
+    data: {
+      screener: mode.api,
+      screener_label: mode.label,
+      screener_disclosure: mode.disclosure,
+      pairs: [{
+        pairAddress: `${mode.api}-${symbol}`,
+        baseToken: { symbol },
+        signals: {
+          screener: mode.api,
+          screener_score: mode.api === 'quality' ? 41.1 : mode.api === 'momentum' ? 72.2 : mode.api === 'volume' ? 83.3 : 94.4,
+          score_label: mode.label,
+          score_reasons: [`${mode.api} liquidity`, `${mode.api} volume`, `${mode.api} activity`],
+        },
+      }],
+    },
+    loading: false,
+  });
+
+  modes.forEach(mode => {
+    const modePaths = paths(mode);
+    marketResults[modePaths.top] = response(mode, 'TOP');
+    const freshMode = mode.value === 'quality' ? modes[3] : mode;
+    marketResults[modePaths.fresh] = response(freshMode, 'NEW');
+  });
+
+  const initial = renderFeeds(ecosystem, {
+    top: marketResults[paths(modes[0]).top],
+    new: marketResults[paths(modes[0]).fresh],
+  });
+  const select = initial.container.querySelector('[data-testid="coin-screener"]');
+
+  modes.forEach(mode => {
+    act(() => {
+      select.value = mode.value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const cards = [...initial.container.querySelectorAll('[data-testid="token-card"]')];
+    expect(cards).toHaveLength(2);
+    const freshMode = mode.value === 'quality' ? modes[3] : mode;
+    expect(cards.map(card => card.querySelector('[data-testid="token-card-label"]').textContent)).toEqual([mode.label, freshMode.label]);
+    const score = value => value.api === 'quality' ? '41.1' : value.api === 'momentum' ? '72.2' : value.api === 'volume' ? '83.3' : '94.4';
+    expect(cards.map(card => card.querySelector('[data-testid="token-card-score"]').textContent)).toEqual(
+      [score(mode), score(freshMode)],
+    );
+    expect(cards.map(card => card.querySelector('[data-testid="token-card-reasons"]').textContent)).toEqual([
+      `${mode.api} liquidity · ${mode.api} volume · ${mode.api} activity`,
+      `${freshMode.api} liquidity · ${freshMode.api} volume · ${freshMode.api} activity`,
+    ]);
+    expect(initial.container.querySelector('.provider-note').textContent).toContain(mode.value === 'quality' ? mode.disclosure : mode.disclosure);
+  });
+  act(() => initial.root.unmount());
+});
+
+test('does not show the previous radar mode while the next mode is refreshing', () => {
+  const quality = {
+    data: {
+      screener: 'quality',
+      screener_label: 'Best observed setups',
+      pairs: [{ pairAddress: 'quality-pair', baseToken: { symbol: 'QUALITY' }, signals: { score_label: 'Best observed setups', screener_score: 40, score_reasons: ['quality reason'] } }],
+    },
+    loading: false,
+  };
+  const momentum = {
+    data: {
+      screener: 'quality',
+      screener_label: 'Best observed setups',
+      pairs: quality.data.pairs,
+    },
+    loading: false,
+    refreshing: true,
+  };
+  const momentumReady = {
+    data: {
+      screener: 'momentum',
+      screener_label: 'Momentum',
+      pairs: [{ pairAddress: 'momentum-pair', baseToken: { symbol: 'MOMENTUM' }, signals: { score_label: 'Momentum', screener_score: 80, score_reasons: ['momentum reason'] } }],
+    },
+    loading: false,
+  };
+  const momentumPaths = {
+    top: '/feed?kind=trending&chain=ethereum&screen=momentum',
+    fresh: '/feed?kind=new&chain=ethereum&screen=momentum',
+  };
+  marketResults[momentumPaths.top] = momentum;
+  marketResults[momentumPaths.fresh] = momentum;
+  const { container, root } = renderFeeds(ecosystem, { top: quality, new: quality });
+  const select = container.querySelector('[data-testid="coin-screener"]');
+
+  act(() => {
+    select.value = 'momentum';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  expect(container.querySelector('[data-testid="globe-coins-trending-loading"]')).not.toBeNull();
+  expect(container.querySelector('[data-testid="globe-coins-new-loading"]')).not.toBeNull();
+  expect(container.querySelector('[data-testid="token-card"]')).toBeNull();
+
+  marketResults[momentumPaths.top] = momentumReady;
+  marketResults[momentumPaths.fresh] = momentumReady;
+  act(() => root.render(<TopCoins ecosystem={ecosystem} />));
+  expect(container.querySelector('[data-testid="token-card-label"]').textContent).toBe('Momentum');
+  expect(container.querySelector('[data-testid="token-card-reasons"]').textContent).toBe('momentum reason');
   act(() => root.unmount());
 });
 

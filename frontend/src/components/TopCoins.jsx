@@ -25,9 +25,11 @@ export function FeelessCoinCards() {
   </section>;
 }
 
-function CoinFeed({ id, title, result, ecosystem, onSelect }) {
+function CoinFeed({ id, title, result, ecosystem, onSelect, screener }) {
   const pairs = (result.data?.pairs || []).filter(pair => !ecosystem?.isLaunchpad || matchesPad(pair, ecosystem.id));
   const ecosystemName = ecosystem?.name || 'selected ecosystem';
+  const modeMatches = !result.data?.screener || result.data.screener === screener;
+  const waitingForMode = !modeMatches && !result.error;
   return <section className="coin-feed-section" data-testid={`globe-coins-${id}`}>
      <div className="coin-feed-heading">
        <div><h3>{title}</h3><small className="coin-feed-source">{result.data?.label || 'Public indexed markets'}{(result.data?.sourceUrl || result.data?.source_url) && <> · <a href={result.data.sourceUrl || result.data.source_url} target="_blank" rel="noreferrer">Source ↗</a></>}</small></div>
@@ -41,9 +43,9 @@ function CoinFeed({ id, title, result, ecosystem, onSelect }) {
       id={`globe-coins-${id}-error`}
     />}
     <div className="coin-feed-list custom-scroll">
-      {!result.error && result.loading && <p role="status" aria-live="polite" data-testid={`globe-coins-${id}-loading`} className="empty-table market-coin-loading">Loading {title.toLowerCase()} for {ecosystemName}…</p>}
-       {!result.loading && !result.error && !pairs.length && <p role="status" aria-live="polite" tabIndex="0" data-testid={`globe-coins-${id}-empty`} className="empty-table">No {title.toLowerCase()} available for {ecosystemName} in this provider feed.</p>}
-       {!result.loading && pairs.slice(0, 5).map(pair => <TokenCard key={pair.pairAddress} pair={pair} screenerLabel={result.data?.screener_label} onSelect={onSelect} />)}
+       {!result.error && (result.loading || waitingForMode) && <p role="status" aria-live="polite" data-testid={`globe-coins-${id}-loading`} className="empty-table market-coin-loading">Loading {title.toLowerCase()} for {ecosystemName}…</p>}
+       {!result.loading && !waitingForMode && !result.error && !pairs.length && <p role="status" aria-live="polite" tabIndex="0" data-testid={`globe-coins-${id}-empty`} className="empty-table">No {title.toLowerCase()} available for {ecosystemName} in this provider feed.</p>}
+       {!result.loading && !waitingForMode && pairs.slice(0, 5).map(pair => <TokenCard key={pair.pairAddress} pair={pair} screenerLabel={result.data?.screener_label} onSelect={onSelect} />)}
     </div>
   </section>;
 }
@@ -55,6 +57,7 @@ export default function TopCoins({ ecosystem }) {
   const [screen, setScreen] = useState('quality');
   const topScreenParam = screen === 'quality' ? '' : `&screen=${screen}`;
   const freshScreenParam = screen === 'new' || screen === 'quality' ? '' : `&screen=${screen}`;
+  const freshScreener = screen === 'quality' ? 'new' : screen;
   const top = useMarket(`/feed?kind=trending&chain=${chain}${topScreenParam}`);
   const fresh = useMarket(`/feed?kind=new&chain=${chain}${freshScreenParam}`);
   const providers = [...new Set([top.data?.provider, fresh.data?.provider].filter(Boolean))];
@@ -65,8 +68,8 @@ export default function TopCoins({ ecosystem }) {
   };
   return <div className="top-coins" data-testid="globe-coin-radar">
      <div className="section-title"><h2>Coin radar</h2><label className="coin-screener"><span>SCREEN</span><select aria-label="Coin screener" data-testid="coin-screener" value={screen} onChange={event => setScreen(event.target.value)}><option value="quality">Best observed</option><option value="momentum">Momentum</option><option value="volume">Volume leaders</option><option value="new">Fresh</option></select></label></div>
-     <CoinFeed id="trending" title="Top coins" result={top} ecosystem={ecosystem} onSelect={onSelect} />
-     <CoinFeed id="new" title="New coins" result={fresh} ecosystem={ecosystem} onSelect={onSelect} />
+      <CoinFeed id="trending" title="Top coins" result={top} ecosystem={ecosystem} screener={screen} onSelect={onSelect} />
+      <CoinFeed id="new" title="New coins" result={fresh} ecosystem={ecosystem} screener={freshScreener} onSelect={onSelect} />
      <small className="provider-note">{providers.length ? providers.join(' + ') : 'Public provider'} · {top.data?.screener_disclosure || 'Provider-ranked indexed coin markets, not every launch.'} <a href={top.data?.sourceUrl || top.data?.source_url || fresh.data?.sourceUrl || fresh.data?.source_url || 'https://dexscreener.com'} target="_blank" rel="noreferrer">Open source boundary ↗</a></small>
   </div>;
 }
