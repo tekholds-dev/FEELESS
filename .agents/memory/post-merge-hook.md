@@ -14,3 +14,9 @@ The frontend pins `framer-motion` and its `motion-dom` resolution to the cached 
 **Why:** There is no committed lockfile, so a caret range can resolve to an unavailable transitive tarball and fail an otherwise healthy post-merge build.
 
 **How to apply:** When merge setup fails in dependency fetching, inspect the exact resolved package before changing the hook; prefer a known-good exact version and matching Yarn resolution.
+
+Workflow reconciliation can briefly race the main preview against the shutdown-check workflow, producing a false port-5001 `EADDRINUSE` and a missing CRA bundle.
+
+**Why:** The shutdown check starts its own preview launcher while the normal application workflow may still be starting or restarting.
+
+**How to apply:** If the app workflow fails with port 5001 ownership errors, wait for the shutdown check to finish, then restart the main application and verify `/static/js/bundle.js` returns 200.
