@@ -120,3 +120,6 @@
 @media(max-width:760px){.globe-cinema{padding:0 16px 22px;min-height:auto}.globe-cinema-stage{flex-direction:column;min-height:auto}.globe-cinema-copy{position:static;transform:none;max-width:none;text-align:center;margin-top:8px}.globe-cinema-cta{justify-content:center}.globe-cinema-hint{display:none}.node-dock .node-chips{grid-template-columns:repeat(2,minmax(0,1fr))}.activity-pulse{grid-template-columns:repeat(2,minmax(0,1fr))}.eco-idea-row{grid-template-columns:1fr}}
 
 @media(prefers-reduced-motion:reduce){.mouse-glow{display:none}.network-orbit,.radar-sweep,.heartbeat-mark .feeless-mark,.feecat-insignia,.pulse-baseline,.signal-lines i,.brand-link:hover .feeless-mark,.feeless-mark:hover{animation:none!important}}
+
+.new-stuff-stats>small{font-size:8px;color:#79a989}
+.new-stuff-refresh.is-refreshing svg{animation:spin .9s linear infinite}

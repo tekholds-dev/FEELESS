@@ -10,10 +10,11 @@ import { formatUSD, formatPct, formatAge } from '../lib/dexscreener';
 export default function NewStuffFeed({ ecosystem }) {
   const [tab, setTab] = useState('new');
   const chain = ecosystem?.chainId || 'solana';
-  const { data, loading, reload } = useMarket(`/feed?kind=${tab}&chain=${chain}`, 60000);
+  const screen = tab === 'new' ? 'new' : 'quality';
+  const { data, loading, refreshing, reload } = useMarket(`/feed?kind=${tab}&chain=${chain}&screen=${screen}`, 15000);
   const pairs = (data?.pairs || [])
     .filter(p => !ecosystem?.isLaunchpad || matchesPad(p, ecosystem.id))
-    .slice(0, 14);
+    .slice(0, 6);
 
   const copyCA = async (addr) => {
     if (!addr) return;
@@ -27,7 +28,7 @@ export default function NewStuffFeed({ ecosystem }) {
         <button data-testid="new-stuff-tab-new" className={tab === 'new' ? 'active' : ''} onClick={() => setTab('new')}><Sparkles size={13} />Fresh</button>
         <button data-testid="new-stuff-tab-trending" className={tab === 'trending' ? 'active' : ''} onClick={() => setTab('trending')}><Flame size={13} />Trending</button>
       </div>
-      <button className="new-stuff-refresh" data-testid="new-stuff-refresh" title="Refresh feed" onClick={() => reload()}><RefreshCw size={13} /></button>
+      <button className={`new-stuff-refresh ${refreshing ? 'is-refreshing' : ''}`} data-testid="new-stuff-refresh" title="Refresh feed" onClick={() => reload()}><RefreshCw size={13} /></button>
     </div>
     <div className="new-stuff-list custom-scroll">
       {loading && !pairs.length && <div className="new-stuff-empty" data-testid="new-stuff-loading"><span className="loader" />Scanning the chain…</div>}
@@ -42,7 +43,8 @@ export default function NewStuffFeed({ ecosystem }) {
             <small>{p.baseToken?.name || p.dexId}</small>
           </div>
           <div className="new-stuff-stats">
-            <span className="mono">{formatUSD(p.marketCap || p.fdv)}</span>
+            <span className="mono">{formatUSD(p.marketCap)}</span>
+            <small>mcap · {formatUSD(p.liquidity?.usd)} liq</small>
             <span className={Number(change) >= 0 ? 'positive mono' : 'negative mono'}>{formatPct(change)}</span>
             <em>{tab === 'new' ? `${formatAge(p.pairCreatedAt)} old` : `${formatUSD(p.volume?.h24)} vol`}</em>
           </div>
@@ -53,6 +55,6 @@ export default function NewStuffFeed({ ecosystem }) {
         </div>;
       })}
     </div>
-    <small className="new-stuff-note">GeckoTerminal · indexed markets, not every launch. Verify every contract yourself.</small>
+    <small className="new-stuff-note">{data?.provider || 'Public provider'} · {data?.screener_label || 'Provider snapshot'} · indexed markets, not every launch. Verify every contract yourself.</small>
   </section>;
 }

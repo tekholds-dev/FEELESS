@@ -16,13 +16,16 @@ export const LivePoolsPanel = ({ pairs = [], newPairs = [], onSelect }) => {
   const livePairs = providerPairs.length ? providerPairs : snapshotPairs;
   const usingSnapshot = !providerPairs.length && snapshotPairs.length > 0;
   const liquidity = livePairs.reduce((sum, pair) => sum + Number(pair.liquidity?.usd || 0), 0);
+  const marketCapValues = livePairs.filter(pair => pair.marketCap != null && Number.isFinite(Number(pair.marketCap)));
+  const marketCap = marketCapValues.length ? marketCapValues.reduce((sum, pair) => sum + Number(pair.marketCap), 0) : null;
   const volume = livePairs.reduce((sum, pair) => sum + Number(pair.volume?.h24 || 0), 0);
   const chains = new Set(livePairs.map(pair => pair.chainId).filter(Boolean)).size;
   return <div className="live-pools-panel" data-testid="live-pools-panel">
     <div className="live-pools-summary">
       <div><small>LIVE POOLS</small><strong data-testid="live-pools-count">{loading && !livePairs.length ? '—' : livePairs.length}</strong></div>
       <div><small>LIQUIDITY</small><strong data-testid="live-pools-liquidity">{formatUSD(liquidity)}</strong></div>
-      <div><small>24H VOLUME</small><strong data-testid="live-pools-volume">{formatUSD(volume)}</strong></div>
+      <div><small>MARKET CAP</small><strong data-testid="live-pools-market-cap">{formatUSD(marketCap)}</strong></div>
+      <div><small>24H FLOW</small><strong data-testid="live-pools-volume">{formatUSD(volume)}</strong></div>
       <div><small>CHAINS</small><strong data-testid="live-pools-chains">{chains || '—'}</strong></div>
     </div>
     <div className="live-pools-status" data-testid="live-pools-status"><i className={refreshing ? 'is-refreshing' : ''} />{usingSnapshot ? 'Page snapshot fallback' : error ? 'Provider snapshot unavailable' : data?.provider ? `${data.provider} · ${refreshing ? 'updating' : 'live'}` : 'Connecting to live providers'}</div>
@@ -31,7 +34,7 @@ export const LivePoolsPanel = ({ pairs = [], newPairs = [], onSelect }) => {
         <TokenAvatar pair={pair} size={32} />
         <span className="live-pool-name"><b>{pair.baseToken?.symbol || 'Unknown'}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId || 'chain unavailable'} · {pair.dexId || 'venue unavailable'}</small></span>
         <span className="live-pool-price"><strong>{formatUSD(pair.priceUsd)}</strong><Change value={pair.priceChange?.h24} /></span>
-        <span className="live-pool-numbers"><small>LIQ <b>{formatUSD(pair.liquidity?.usd)}</b></small><small>VOL <b>{formatUSD(pair.volume?.h24)}</b></small></span>
+        <span className="live-pool-numbers"><small>LIQ <b>{formatUSD(pair.liquidity?.usd)}</b></small><small>MC <b>{formatUSD(pair.marketCap)}</b></small></span>
       </button>)}
       {!livePairs.length && <div className="truth-empty" data-testid="live-pools-empty">{error ? 'Live pool data is unavailable right now.' : 'Waiting for provider-indexed pools…'}</div>}
     </div>
@@ -73,9 +76,9 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair
     <div className="command-page-title"><span className="eyebrow">{ecosystem.name.toUpperCase()} / COMMUNITY TERMINAL</span><h1>Trade the conversation.</h1><p>One room for live chat, provider-indexed charts, and the coin stages the network can actually observe.</p></div>
     <div className="trenches-layout">
        <section className="trenches-chart-panel"><div className="section-title"><h2><CandlestickChart size={18} />DEX chart</h2><span className="provider-note">GeckoTerminal · OHLCV</span></div>{chartPair ? <TokenFocus pair={chartPair} has={has} toggle={toggle} defaultInterval="15m" /> : <div className="truth-empty" data-testid="trenches-chart-empty"><CandlestickChart size={28} /><span>Select a provider-indexed coin to open its chart.</span></div>}</section>
-       <ChatRoom large pairs={pairs} newPairs={newPairs} onSelect={onSelect} selectedPair={chartPair} selectedPerspective={selectedPerspective} onPerspectiveChange={onPerspectiveChange} onConnect={onConnect} />
+       <section className="trenches-stages trenches-stage-panel" data-testid="trenches-stage-panel"><div className="section-title"><h2><Layers3 size={18} />Coin viewer</h2><span className="provider-note">Liquidity · market cap first</span></div><div className="trenches-stage-tabs">{[['new', 'New coins'], ['graduated', 'Graduated'], ['trending', 'Trending coins'], ['watchlist', 'Watchlist']].map(([id, label]) => <button key={id} className={stage === id ? 'active' : ''} data-testid={`trenches-stage-${id}`} onClick={() => setStage(id)}>{label}<small>{id === 'graduated' && !graduated.length ? 'unavailable' : stagePairs.length}</small></button>)}</div><div className="trenches-coin-grid">{stagePairs.slice(0, 6).map(pair => <button className="trenches-coin" key={pairKey(pair)} data-testid={`trenches-coin-${pairKey(pair)}`} onClick={() => { selectPair(pair); onSelect?.(pair); }}><TokenAvatar pair={pair} size={38} /><span><b>{pair.baseToken?.symbol || 'Unknown'}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId} · {pair.dexId}</small><small>LIQ {formatUSD(pair.liquidity?.usd)} · MC {formatUSD(pair.marketCap)}</small></span><Change value={pair.priceChange?.h24} /></button>)}</div>{!stagePairs.length && <div className="truth-empty" data-testid={`trenches-${stage}-empty`}>{stage === 'graduated' ? 'Graduation status is unavailable in the current provider feed.' : `No ${stage} coins are available in this ecosystem snapshot.`}</div>}</section>
     </div>
-     <section className="trenches-stages"><div className="section-title"><h2><Layers3 size={18} />Coin stages</h2><span className="provider-note">Provider-reported observations only</span></div><div className="trenches-stage-tabs">{[['new', 'New pools'], ['graduated', 'Graduated'], ['trending', 'Trending coins'], ['watchlist', 'Watchlist']].map(([id, label]) => <button key={id} className={stage === id ? 'active' : ''} data-testid={`trenches-stage-${id}`} onClick={() => setStage(id)}>{label}<small>{id === 'graduated' && !graduated.length ? 'unavailable' : stagePairs.length}</small></button>)}</div><div className="trenches-coin-grid">{stagePairs.slice(0, 12).map(pair => <button className="trenches-coin" key={pairKey(pair)} data-testid={`trenches-coin-${pairKey(pair)}`} onClick={() => { selectPair(pair); onSelect?.(pair); }}><TokenAvatar pair={pair} size={38} /><span><b>{pair.baseToken?.symbol || 'Unknown'}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId} · {pair.dexId}</small></span><Change value={pair.priceChange?.h24} /></button>)}</div>{!stagePairs.length && <div className="truth-empty" data-testid={`trenches-${stage}-empty`}>{stage === 'graduated' ? 'Graduation status is unavailable in the current provider feed.' : `No ${stage} coins are available in this ecosystem snapshot.`}</div>}</section>
+     <section className="trenches-chat-section" data-testid="trenches-chat-section"><ChatRoom large pairs={pairs} newPairs={newPairs} onSelect={onSelect} selectedPair={chartPair} selectedPerspective={selectedPerspective} onPerspectiveChange={onPerspectiveChange} onConnect={onConnect} /></section>
   </div>;
 };
 

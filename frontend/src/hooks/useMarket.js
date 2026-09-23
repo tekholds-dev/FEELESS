@@ -40,13 +40,14 @@ export function writeFeedCache(path, data, now = Date.now()) {
 
 export function useMarket(path, refresh = 90000) {
   const cached = readFeedCache(path);
+  const liveDedupe = refresh > 0 && refresh <= 15000 ? 1000 : 20000;
   const fetchMarket = async key => {
     const result = await marketRequest(key);
     writeFeedCache(key, result);
     return result;
   };
   const { data, error, isLoading, isValidating, mutate } = useSWR(path, fetchMarket, {
-    refreshInterval: refresh, dedupingInterval: 20000, revalidateOnFocus: false,
+    refreshInterval: refresh, dedupingInterval: liveDedupe, revalidateOnFocus: refresh > 0,
     shouldRetryOnError: false, keepPreviousData: true, fallbackData: cached?.data,
   });
   return {

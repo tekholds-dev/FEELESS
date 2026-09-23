@@ -847,3 +847,32 @@ body.theme-day .pump-radar-migration>small,body.theme-day .pump-radar-migration-
 .globe-page,
 body.theme-day .terminal-app,
 body.theme-day .globe-page{background:transparent!important}
+
+/* Keep the live coin viewer and Trenches sections visible without a tall intro. */
+.pump-radar-hero{gap:20px;padding:16px 18px}
+.pump-radar-hero h2{font-size:21px;margin:8px 0 5px}
+.pump-radar-hero p{font-size:10px;line-height:1.5}
+.pump-radar-live-orbit{width:78px;height:78px}
+.pump-radar-live-orbit strong{font-size:18px}
+.pump-radar-grid{gap:8px;padding:11px 12px}
+.pump-radar-value-block{display:flex;flex-direction:column;gap:4px;margin-right:auto}
+.pump-radar-value-block small{color:#6e927b;font:7px 'JetBrains Mono',monospace}
+.pump-radar-value-block strong{font:14px 'JetBrains Mono',monospace;color:#d5e9db}
+.trenches-layout{grid-template-columns:minmax(0,1.2fr) minmax(320px,.8fr)}
+.trenches-stage-panel{min-width:0;margin-top:0}
+.trenches-chat-section{margin-top:17px}
+.trenches-chat-section .community-chat{min-height:560px}
+.trenches-chat-section .community-chat .chat-messages{min-height:420px}
+.trenches-stage-panel .trenches-coin-grid{grid-template-columns:repeat(2,minmax(0,1fr));padding:10px}
+.trenches-stage-panel .trenches-coin{padding:9px}
+.live-pools-summary{grid-template-columns:repeat(5,minmax(0,1fr))}
+
+@media(max-width:980px){
+  .trenches-layout{grid-template-columns:1fr}
+  .trenches-chat-section .community-chat{min-height:0}
+}
+
+@media(max-width:600px){
+  .trenches-stage-panel .trenches-coin-grid{grid-template-columns:1fr}
+  .live-pools-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
