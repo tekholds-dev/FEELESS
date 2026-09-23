@@ -544,7 +544,7 @@ test('preview market routes preserve throttling fallbacks and response bodies', 
     assert.equal(errors.length, 0);
     assert.deepEqual(
       warnings.map(args => args[0]),
-      Array.from({ length: 3 }, () => '[preview-api] DexScreener rate limited (HTTP 429).'),
+      ['[preview-api] DexScreener rate limited (HTTP 429).'],
     );
     warnings.length = 0;
     errors.length = 0;
@@ -555,6 +555,45 @@ test('preview market routes preserve throttling fallbacks and response bodies', 
     assert.deepEqual(graduations.body.graduations, []);
     assert.match(graduations.body.error, /HTTP 429/);
     expectWarning('Pump.fun');
+  } finally {
+    console.warn = originalConsoleWarn;
+    console.error = originalConsoleError;
+    global.fetch = originalFetch;
+    cache.clear();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('fee asset fallback throttles warn once per provider while keeping each asset response', async () => {
+  const originalFetch = global.fetch;
+  const originalConsoleWarn = console.warn;
+  const originalConsoleError = console.error;
+  const warnings = [];
+  const errors = [];
+  cache.clear();
+  global.fetch = async target => {
+    const url = String(target);
+    if (url.includes('/token-pairs/v1/solana/')) return providerResponse([]);
+    if (url.includes('/networks/solana/tokens/')) return providerResponse({ detail: 'rate limited' }, 429);
+    throw new Error(`Unexpected provider request: ${url}`);
+  };
+  console.warn = (...args) => warnings.push(args);
+  console.error = (...args) => errors.push(args);
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  try {
+    const response = await request(baseUrl, '/api/market/assets', originalFetch);
+    assert.equal(response.status, 200);
+    assert.equal(response.body.assets.length, 3);
+    assert.ok(response.body.assets.every(asset => asset.status === 'awaiting_market'));
+    assert.deepEqual(
+      warnings.map(args => args[0]),
+      ['[preview-api] GeckoTerminal rate limited (HTTP 429).'],
+    );
+    assert.equal(errors.length, 0);
   } finally {
     console.warn = originalConsoleWarn;
     console.error = originalConsoleError;

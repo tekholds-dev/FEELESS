@@ -132,8 +132,11 @@ function providerNameForUrl(url) {
   return 'Public market provider';
 }
 
-function warnProviderThrottle(error) {
+function warnProviderThrottle(error, warningState) {
   if (error?.providerStatus === 429 && error?.provider) {
+    const warningKey = `${error.provider}:${error.providerStatus}`;
+    if (warningState?.has(warningKey)) return true;
+    warningState?.add(warningKey);
     console.warn(`[preview-api] ${error.provider} rate limited (HTTP 429).`);
     return true;
   }
@@ -476,13 +479,13 @@ async function pumpFeed(kind, page = 1) {
   };
 }
 
-async function geckoAsset(mint) {
+async function geckoAsset(mint, warningState) {
   const tokenUrl = `${GECKO_API}/networks/solana/tokens/${encodeURIComponent(mint)}`;
   const poolsUrl = `${GECKO_API}/networks/solana/tokens/${encodeURIComponent(mint)}/pools?page=1`;
   let token = null;
   let pools = null;
-  try { token = (await getJson(tokenUrl, 60000))?.data || null; } catch (error) { warnProviderThrottle(error); }
-  try { pools = (await getJson(poolsUrl, 60000))?.data || []; } catch (error) { warnProviderThrottle(error); }
+  try { token = (await getJson(tokenUrl, 60000))?.data || null; } catch (error) { warnProviderThrottle(error, warningState); }
+  try { pools = (await getJson(poolsUrl, 60000))?.data || []; } catch (error) { warnProviderThrottle(error, warningState); }
 
   const tokenAttrs = token?.attributes || {};
   const pool = (Array.isArray(pools) ? pools : [])
@@ -771,6 +774,7 @@ function minimalPdf() {
 }
 
 async function assets() {
+  const warningState = new Set();
   const result = await Promise.all(Object.entries(MINTS).map(async ([id, mint]) => {
     try {
       const rows = await getJson(`${DEX_API}/token-pairs/v1/solana/${mint}`, 60000);
@@ -780,7 +784,7 @@ async function assets() {
       let imageUrl = pair?.info?.imageUrl || null;
       let provider = 'DexScreener';
       if (!pair || !imageUrl) {
-        const fallback = await geckoAsset(mint);
+        const fallback = await geckoAsset(mint, warningState);
         pair = pair || fallback.pair;
         imageUrl = imageUrl || fallback.imageUrl;
         if (fallback.pair) provider = 'GeckoTerminal';
@@ -799,7 +803,7 @@ async function assets() {
         identity: 'Owner-supplied contract; exact provider match. Not a security endorsement.',
       };
     } catch (error) {
-      warnProviderThrottle(error);
+      warnProviderThrottle(error, warningState);
       return {
         id,
         label: id.toUpperCase(),
