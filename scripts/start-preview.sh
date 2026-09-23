@@ -4,9 +4,23 @@ set -euo pipefail
 api_port="${API_PORT:-5001}"
 node scripts/preview-api.js &
 api_pid=$!
+frontend_pid=""
+
+stop_process_tree() {
+  local root_pid="$1"
+  local child_pid
+  for child_pid in $(pgrep -P "$root_pid" 2>/dev/null || true); do
+    stop_process_tree "$child_pid"
+  done
+  kill "$root_pid" 2>/dev/null || true
+}
 
 cleanup() {
   local exit_code=$?
+  if [[ -n "$frontend_pid" ]] && kill -0 "$frontend_pid" 2>/dev/null; then
+    stop_process_tree "$frontend_pid"
+    wait "$frontend_pid" 2>/dev/null || true
+  fi
   if kill -0 "$api_pid" 2>/dev/null; then
     kill "$api_pid" 2>/dev/null || true
     wait "$api_pid" 2>/dev/null || true
@@ -35,4 +49,6 @@ if ! curl --silent --show-error --fail --max-time 1 "http://127.0.0.1:${api_port
 fi
 
 cd frontend
-HOST=0.0.0.0 PORT=5000 npm start
+HOST=0.0.0.0 PORT=5000 npm start &
+frontend_pid=$!
+wait "$frontend_pid"

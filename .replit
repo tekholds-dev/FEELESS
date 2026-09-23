@@ -11,6 +11,10 @@ author = "agent"
 task = "workflow.run"
 args = "Start application"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "preview-shutdown"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -22,6 +26,17 @@ outputType = "webview"
 task = "shell.exec"
 args = "bash scripts/start-preview.sh"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "preview-shutdown"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash scripts/check-preview-shutdown.sh"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [nix]
 channel = "stable-25_05"

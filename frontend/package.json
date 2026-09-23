@@ -71,7 +71,8 @@
     "start": "craco start",
     "build": "craco build",
     "test": "craco test",
-    "test:preview-api": "node ../scripts/preview-api.test.js"
+    "test:preview-api": "node ../scripts/preview-api.test.js",
+    "test:preview-shutdown": "bash ../scripts/check-preview-shutdown.sh"
   },
   "browserslist": {
     "production": [
