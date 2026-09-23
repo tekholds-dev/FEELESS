@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Activity, ArrowUpRight, Globe2, ScanLine, Radio, X } from 'lucide-react';
 import { useWorkspace, CONTEXTS } from '../../hooks/useWorkspace';
 import { useMarket } from '../../hooks/useMarket';
@@ -26,8 +26,19 @@ export const MouseGlow = () => {
 
 export const ContextBar = () => {
   const { ecosystem, setEcosystem } = useWorkspace();
+  const [params, setParams] = useSearchParams();
   const time = useClock();
-  return <div className="context-bar" style={{ '--context-accent': ecosystem.color }}><span className="context-indicator"><i />NETWORK LINK</span><Globe2 size={15} /><select data-testid="workspace-ecosystem" aria-label="Active ecosystem" value={ecosystem.id} onChange={e => setEcosystem(e.target.value)}>{CONTEXTS.map(e => <option key={e.id} value={e.id}>{e.name}{e.isLaunchpad ? ' / WAR ROOM' : ' / INTELLIGENCE'}</option>)}</select><span className="context-chain" data-testid="context-chain">{ecosystem.chainId.toUpperCase()}</span><span className="context-clock" data-testid="terminal-clock">{new Date(time).toISOString().slice(11, 19)} UTC</span></div>;
+  const changeNetwork = value => {
+    setEcosystem(value);
+    if (params.has('chain') || params.has('pair')) {
+      const next = new URLSearchParams(params);
+      next.delete('chain');
+      next.delete('pair');
+      next.delete('room');
+      setParams(next);
+    }
+  };
+  return <div className="context-bar" style={{ '--context-accent': ecosystem.color }}><span className="context-indicator"><i />NETWORK LINK</span><Globe2 size={15} /><select data-testid="workspace-ecosystem" aria-label="Active ecosystem" value={ecosystem.id} onChange={e => changeNetwork(e.target.value)}>{CONTEXTS.map(e => <option key={e.id} value={e.id}>{e.name}{e.isLaunchpad ? ' / WAR ROOM' : ' / INTELLIGENCE'}</option>)}</select><span className="context-chain" data-testid="context-chain">{ecosystem.chainId.toUpperCase()}</span><span className="context-clock" data-testid="terminal-clock">{new Date(time).toISOString().slice(11, 19)} UTC</span></div>;
 };
 
 export const AlphaTape = ({ horizontal = false }) => {

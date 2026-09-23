@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowUpRight, ArrowLeft, ArrowRight, Flame, RefreshCw, SlidersHorizontal, Activity, Radio } from 'lucide-react';
 import WalletModal from '../components/WalletModal';
@@ -35,6 +35,7 @@ export default function Terminal() {
   const hasPairRoute = params.has('pair');
   const routePairAddress = (params.get('pair') || '').trim();
   const routeChain = (params.get('chain') || '').trim();
+  const lastRouteNetwork = useRef(null);
   const routePairValid = hasPairRoute && Boolean(routePairAddress && isSupportedPairChain(routeChain) && /^[a-zA-Z0-9]+$/.test(routePairAddress));
   const pairLookupPath = routePairValid ? `/pair/${encodeURIComponent(routeChain)}/${encodeURIComponent(routePairAddress)}` : null;
   const [walletOpen, setWalletOpen] = useState(false); const [profileOpen, setProfileOpen] = useState(false); const [menuOpen, setMenuOpen] = useState(false);
@@ -88,7 +89,11 @@ export default function Terminal() {
   useEffect(() => { setPagination(1); setPad('all'); setMinLiquidity('0'); setMenuOpen(false); if (page === 'pump' && ecosystem.id !== 'pump') setEcosystem('pump'); }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPagination(1); setPad('all'); setMinLiquidity('0'); }, [ecosystem.id, query, kind]);
   useEffect(() => { if (page === 'launch' && metaLaunchRequested && ecosystem.id !== 'feeless-launch') setEcosystem('feeless-launch'); }, [page, metaLaunchRequested, ecosystem.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { const value = params.get('chain'); if (value && value !== 'all' && value !== ecosystem.chainId) setEcosystem(value === 'bsc' ? 'bnb' : value); }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!routePairValid || lastRouteNetwork.current === `${routeChain}:${routePairAddress}`) return;
+    lastRouteNetwork.current = `${routeChain}:${routePairAddress}`;
+    if (routeChain !== ecosystem.chainId) setEcosystem(routeChain === 'bsc' ? 'bnb' : routeChain);
+  }, [routePairValid, routeChain, routePairAddress]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!hasPairRoute) return;
     selectPair(restoredPair);
@@ -107,6 +112,7 @@ export default function Terminal() {
     const identity = coinIdentity(p);
     if (!identity) return;
     selectPair(p);
+    if (identity.chainId !== ecosystem.chainId) setEcosystem(identity.chainId === 'bsc' ? 'bnb' : identity.chainId);
     const next = new URLSearchParams(params);
     next.set('chain', identity.chainId);
     next.set('pair', identity.pairAddress);

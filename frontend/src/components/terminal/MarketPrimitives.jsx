@@ -99,7 +99,10 @@ export const TokenAvatar = ({ pair, size = 34, onExhausted, maxAttempts }) => {
           onExhausted(pair);
           return;
         }
-        setImageIndex(index => sources.length ? (index + 1) % sources.length : 0);
+        setImageIndex(index => {
+          if (index + 1 < sources.length) return index + 1;
+          return onExhausted && maxAttempts ? 0 : sources.length;
+        });
       }}
     />}
   </span>;

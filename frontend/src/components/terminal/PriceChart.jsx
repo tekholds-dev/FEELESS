@@ -15,7 +15,8 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => 
   const metricAvailable = metricValue !== null && metricValue !== undefined && metricValue !== '' && Number.isFinite(Number(metricValue));
   const candleRows = useMemo(() => Array.isArray(data?.candles)
     ? [...new Map(data.candles
-      .filter(row => Array.isArray(row) && row.length >= 6 && row.every(Number.isFinite))
+      .filter(row => Array.isArray(row) && row.length >= 6 && row.slice(0, 6).every(value => Number.isFinite(Number(value))))
+      .map(row => row.slice(0, 6).map(Number))
       .map(row => [row[0], row])).values()].sort((a, b) => a[0] - b[0])
     : [], [data?.candles]);
   useEffect(() => {
@@ -70,10 +71,10 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => 
   }, [candleRows, dayMode, showVolume]);
   return <div className="chart-area" data-testid="price-chart">
     {priceMetric && loading && <div className="chart-message" data-testid="chart-loading"><span className="loader" />Loading on-chain candles…</div>}
-    {priceMetric && providerError && <div className="chart-message" data-testid="chart-provider-failure">
+    {priceMetric && providerError && !candleRows.length && <div className="chart-message" data-testid="chart-provider-failure">
       <MarketAvailabilityNotice data={data} error={error} errorStatus={errorStatus} errorProvider={errorProvider} id="chart-market-availability" />
       <MarketError
-        error={`Unable to load candle history from GeckoTerminal. ${providerError}`}
+        error={`Unable to refresh candle history from ${data?.provider || errorProvider || 'GeckoTerminal'}. ${providerError}`}
         description="This is a provider failure, not confirmation that the pool has no history. Retry the candle request or use the external chart."
         reload={reload}
         focusable
@@ -82,6 +83,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => 
       />
       <a data-testid="chart-fallback-link" href={dexUrl(pair)} target="_blank" rel="noreferrer">Open chart on DexScreener ↗</a>
     </div>}
+    {priceMetric && providerError && candleRows.length > 0 && <div className="chart-stale-note" role="status">Showing cached {data?.provider || 'GeckoTerminal'} candles. Refresh unavailable: {providerError}</div>}
     {priceMetric && !loading && !providerError && !candleRows.length && <div className="chart-message" role="status" aria-live="polite" tabIndex="0" data-testid="chart-empty">
       <strong>No candle history for this pool yet.</strong>
       <span>GeckoTerminal returned an empty history for the selected {interval} interval. This is different from a provider outage; try another interval or check the external chart.</span>
@@ -90,6 +92,6 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => 
     {!priceMetric && metricAvailable && <div className="metric-snapshot" data-testid={`chart-${metric}-snapshot`}><span className="metric-snapshot-label">{metricLabel} snapshot</span><strong>{formatUSD(metricValue)}</strong><small>Provider supplied the current {metricLabel.toLowerCase()} only. Historical {metricLabel.toLowerCase()} candles are unavailable.</small></div>}
     {!priceMetric && !metricAvailable && <div className="chart-message metric-unavailable" role="status" data-testid={`chart-${metric}-unavailable`}><strong>{metricLabel} unavailable</strong><span>The provider did not supply a {metricLabel.toLowerCase()} value for this pair. No value is estimated.</span></div>}
     {priceMetric && <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />}
-    <div className="chart-source"><span>{priceMetric ? 'GeckoTerminal · OHLCV' : `Provider pair snapshot · ${metricLabel}`}</span>{priceMetric ? <DataStatus data={data} id="chart-data-status" /> : <span className="data-status"><i />{metricAvailable ? 'LIVE · snapshot' : 'UNAVAILABLE'}</span>}</div>
+    <div className="chart-source"><span>{priceMetric ? `${data?.provider || 'GeckoTerminal'} · OHLCV` : `Provider pair snapshot · ${metricLabel}`}</span>{priceMetric ? <DataStatus data={data} id="chart-data-status" /> : <span className="data-status"><i />{metricAvailable ? 'LIVE · snapshot' : 'UNAVAILABLE'}</span>}</div>
   </div>;
 };

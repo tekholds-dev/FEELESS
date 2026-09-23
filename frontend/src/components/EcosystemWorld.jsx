@@ -5,11 +5,26 @@ import EcosystemChat from './EcosystemChat';
 import NewStuffFeed from './NewStuffFeed';
 import { useMarket } from '../hooks/useMarket';
 
+const ROOM_LAYOUT_KEY = 'feeless-room-layout';
+const ROOM_EXPANDED_KEY = 'feeless-room-expanded';
+const readRoomLayout = () => {
+  try {
+    const saved = localStorage.getItem(ROOM_LAYOUT_KEY);
+    return ['balanced', 'chat-first', 'feed-first'].includes(saved) ? saved : 'balanced';
+  } catch { return 'balanced'; }
+};
+const readRoomExpanded = () => {
+  try { return localStorage.getItem(ROOM_EXPANDED_KEY) === 'true'; }
+  catch { return false; }
+};
+
 // Blur-reveal immersive ecosystem "world": chat on the LEFT, blurred globe behind,
 // live activity pulse + new-stuff feed + onboarding + minimal quick links on the RIGHT.
 export default function EcosystemWorld({ ecosystem, pad, onClose }) {
-  const [layout, setLayout] = useState('balanced');
-  const [expanded, setExpanded] = useState(false);
+  const [layout, setLayout] = useState(readRoomLayout);
+  const [expanded, setExpanded] = useState(readRoomExpanded);
+  useEffect(() => { try { localStorage.setItem(ROOM_LAYOUT_KEY, layout); } catch {} }, [layout]);
+  useEffect(() => { try { localStorage.setItem(ROOM_EXPANDED_KEY, String(expanded)); } catch {} }, [expanded]);
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose?.(); };
     window.addEventListener('keydown', onKey);

@@ -787,6 +787,7 @@ body.theme-day .globe-terminal-cta:hover *{color:#fff!important}
 .pump-radar-token small{color:#789a83;font-size:8px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pump-radar-alive{display:flex;align-items:center;gap:4px;color:#00e9a0;font:7px 'JetBrains Mono',monospace;letter-spacing:.5px;flex-shrink:0}
 .pump-radar-alive i{width:5px;height:5px;border-radius:50%;background:#00e9a0;box-shadow:0 0 8px #00e9a0;animation:breathe 1.8s infinite}
+.chart-stale-note{position:absolute;top:5px;left:8px;right:8px;z-index:2;background:#2a210ddd;border:1px solid #a08432;color:#fff2c0;padding:5px 8px;font-size:9px;border-radius:3px;pointer-events:none}
 .pump-radar-age{color:#9bd6aa;background:#6db7850b;border:1px solid #72a8812d;border-radius:3px;padding:4px 5px;font:8px 'JetBrains Mono',monospace;white-space:nowrap}
 .pump-radar-price-row{display:flex;align-items:center;gap:9px;margin:15px 0 12px;padding-bottom:11px;border-bottom:1px solid #23462f}
 .pump-radar-price-row>strong{font:14px 'JetBrains Mono',monospace;color:#d5e9db;margin-right:auto}
