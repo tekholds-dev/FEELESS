@@ -1,7 +1,7 @@
 const http = require('http');
 const { URL } = require('url');
 const nodeCrypto = require('crypto');
-const { PublicKey } = require('@solana/web3.js');
+const { PublicKey, Keypair } = require('@solana/web3.js');
 const { secp256k1 } = require('@noble/curves/secp256k1');
 const { keccak_256 } = require('@noble/hashes/sha3');
 
@@ -36,6 +36,15 @@ const verifiedWallets = new Map();
 const messageLikes = new Map();
 const profileFlags = new Map();
 const chatLimits = new Map();
+const paperCats = new Map();
+const paperActivity = [];
+let paperMarketCache = { pairs: [], fetchedAt: 0, provider: null, error: null };
+const PAPER_STARTING_SOL = 10;
+const PAPER_STRATEGIES = {
+  balanced: { label: 'Balanced scout', description: 'Looks for observed activity with balanced entry and exit rules.', targetGain: 4, stopLoss: 5 },
+  momentum: { label: 'Momentum hunter', description: 'Only enters provider-observed tokens with positive short-term movement.', targetGain: 6, stopLoss: 4 },
+  conservative: { label: 'Capital guard', description: 'Requires stronger liquidity and uses smaller, tighter positions.', targetGain: 3, stopLoss: 3 },
+};
 const PROFILE_CATEGORIES = ['Trader', 'Builder', 'Artist', 'Collector', 'Researcher'];
 const PROFILE_COOLDOWN_MS = 120000;
 const PROFILE_CHALLENGE_MS = 10 * 60 * 1000;
@@ -51,6 +60,197 @@ const GECKO_NETWORKS = {
 };
 const REVERSE_GECKO_NETWORKS = Object.fromEntries(Object.entries(GECKO_NETWORKS).map(([chain, network]) => [network, chain]));
 const SUPPORTED_MARKET_CHAINS = Object.keys(GECKO_NETWORKS);
+
+function paperSecretFor(keypair) {
+  const key = nodeCrypto.createHash('sha256')
+    .update(process.env.SESSION_SECRET || 'feeless-paper-agent-preview-secret')
+    .digest();
+  const iv = nodeCrypto.randomBytes(12);
+  const cipher = nodeCrypto.createCipheriv('aes-256-gcm', key, iv);
+  const encrypted = Buffer.concat([cipher.update(Buffer.from(keypair.secretKey)), cipher.final()]);
+  return `${iv.toString('base64')}.${cipher.getAuthTag().toString('base64')}.${encrypted.toString('base64')}`;
+}
+
+function cleanPaperList(value, max = 20) {
+  return [...new Set(String(value || '').split(/[,\s]+/).map(item => item.trim().toUpperCase()).filter(Boolean))].slice(0, max);
+}
+
+function paperStrategy(value) {
+  return Object.prototype.hasOwnProperty.call(PAPER_STRATEGIES, value) ? value : 'balanced';
+}
+
+function paperPublicCat(cat) {
+  const strategy = PAPER_STRATEGIES[cat.strategy] || PAPER_STRATEGIES.balanced;
+  const realized = Number(cat.realizedPnlSol || 0);
+  const positionValue = (cat.positions || []).reduce((sum, position) => sum + Number(position.notionalSol || 0), 0);
+  const wins = Number(cat.wins || 0);
+  const losses = Number(cat.losses || 0);
+  return {
+    id: cat.id,
+    ownerId: cat.ownerId,
+    name: cat.name,
+    avatar: cat.avatar,
+    mode: 'paper',
+    wallet: cat.wallet,
+    walletLabel: 'Paper Solana wallet',
+    status: cat.revoked ? 'revoked' : cat.status,
+    createdAt: cat.createdAt,
+    balanceSol: Number(cat.balanceSol.toFixed(6)),
+    startingBalanceSol: PAPER_STARTING_SOL,
+    withdrawnSol: Number((cat.withdrawnSol || 0).toFixed(6)),
+    realizedPnlSol: Number(realized.toFixed(6)),
+    unrealizedPnlSol: Number((cat.unrealizedPnlSol || 0).toFixed(6)),
+    totalPnlSol: Number((realized + Number(cat.unrealizedPnlSol || 0)).toFixed(6)),
+    volumeSol: Number((cat.volumeSol || 0).toFixed(6)),
+    feesSol: Number((cat.feesSol || 0).toFixed(6)),
+    positions: cat.positions || [],
+    tradeCount: Number(cat.tradeCount || 0),
+    wins,
+    losses,
+    winRate: wins + losses ? Number(((wins / (wins + losses)) * 100).toFixed(1)) : null,
+    xp: Number(cat.xp || 0),
+    level: Math.max(1, Math.floor(Number(cat.xp || 0) / 100) + 1),
+    pnlHistory: (cat.pnlHistory || []).slice(-60),
+    strategy: cat.strategy,
+    strategyLabel: strategy.label,
+    strategyDescription: strategy.description,
+    risk: cat.risk,
+    lastCycleAt: cat.lastCycleAt || null,
+    controls: {
+      emergencyStop: cat.status !== 'running',
+      revoked: Boolean(cat.revoked),
+      maxPositionSol: cat.risk.maxPositionSol,
+      maxDailyLossSol: cat.risk.maxDailyLossSol,
+      allowlist: cat.risk.allowlist,
+      blocklist: cat.risk.blocklist,
+    },
+  };
+}
+
+function paperEvent(cat, type, detail, extra = {}) {
+  cat.unrealizedPnlSol = (cat.positions || []).reduce((sum, position) => sum + position.notionalSol * ((position.currentChange - position.entryChange) / 100), 0);
+  const event = {
+    id: nodeCrypto.randomUUID(),
+    catId: cat.id,
+    catName: cat.name,
+    mode: 'paper',
+    type,
+    detail,
+    ts: new Date().toISOString(),
+    ...extra,
+  };
+  paperActivity.unshift(event);
+  if (paperActivity.length > 500) paperActivity.length = 500;
+  cat.pnlHistory = cat.pnlHistory || [];
+  cat.pnlHistory.push({ at: event.ts, value: Number((Number(cat.realizedPnlSol || 0) + Number(cat.unrealizedPnlSol || 0)).toFixed(6)) });
+  if (cat.pnlHistory.length > 60) cat.pnlHistory.shift();
+  return event;
+}
+
+function paperCandidates() {
+  return paperMarketCache.pairs || [];
+}
+
+async function refreshPaperMarket() {
+  if (Date.now() - paperMarketCache.fetchedAt < 20000 && paperMarketCache.pairs.length) return paperMarketCache;
+  try {
+    const result = await dexBoostFeed('trending', 1, 'solana');
+    paperMarketCache = { pairs: result.pairs || [], fetchedAt: Date.now(), provider: result.provider, error: result.error || null };
+  } catch (error) {
+    paperMarketCache = { ...paperMarketCache, fetchedAt: Date.now(), error: publicError(error), provider: error?.provider || 'public market provider' };
+  }
+  return paperMarketCache;
+}
+
+function paperTokenAllowed(cat, pair) {
+  const symbol = String(pair?.baseToken?.symbol || '').toUpperCase();
+  const mint = String(pair?.baseToken?.address || '').toUpperCase();
+  const { allowlist = [], blocklist = [] } = cat.risk;
+  if (blocklist.some(value => symbol === value || mint === value)) return false;
+  return !allowlist.length || allowlist.some(value => symbol === value || mint === value);
+}
+
+async function runPaperCycle(cat) {
+  if (!cat || cat.revoked || cat.status !== 'running') return null;
+  const market = await refreshPaperMarket();
+  cat.lastCycleAt = new Date().toISOString();
+  const today = cat.lastCycleAt.slice(0, 10);
+  if (cat.lossDay !== today) {
+    cat.lossDay = today;
+    cat.dailyLossSol = 0;
+  }
+  if (!market.pairs.length) {
+    return paperEvent(cat, 'WAITING', `No provider snapshot available. The paper engine did not trade.`, { provider: market.provider || 'public market provider', error: market.error || null });
+  }
+  const strategy = PAPER_STRATEGIES[cat.strategy] || PAPER_STRATEGIES.balanced;
+  const candidate = market.pairs
+    .filter(pair => paperTokenAllowed(cat, pair))
+    .filter(pair => Number(pair?.liquidity?.usd || 0) >= (cat.strategy === 'conservative' ? 100000 : 10000))
+    .sort((a, b) => Number(b?.priceChange?.h1 || b?.priceChange?.h24 || 0) - Number(a?.priceChange?.h1 || a?.priceChange?.h24 || 0))[0];
+  if (!candidate) return paperEvent(cat, 'SCAN', 'Scanned provider markets; risk rules blocked every candidate.', { provider: market.provider || 'public market provider' });
+  const symbol = candidate.baseToken?.symbol || 'TOKEN';
+  const change = Number(candidate.priceChange?.h1 ?? candidate.priceChange?.h24 ?? 0);
+  const position = cat.positions.find(item => item.mint === candidate.baseToken?.address);
+  const dailyLoss = Number(cat.dailyLossSol || 0);
+  if (dailyLoss >= cat.risk.maxDailyLossSol) {
+    cat.status = 'stopped';
+    return paperEvent(cat, 'STOPPED', `Daily loss limit reached at ${dailyLoss.toFixed(4)} SOL. Emergency stop engaged.`, { reason: 'max_daily_loss' });
+  }
+  if (!position && cat.balanceSol >= cat.risk.maxPositionSol && (cat.strategy !== 'momentum' || change > 0)) {
+    const notional = Math.min(cat.risk.maxPositionSol, cat.balanceSol);
+    const next = { mint: candidate.baseToken?.address || `${symbol}-provider-mint`, symbol, name: candidate.baseToken?.name || symbol, notionalSol: notional, entryChange: change, currentChange: change, provider: market.provider || 'public market provider', openedAt: new Date().toISOString() };
+    cat.balanceSol -= notional;
+    cat.volumeSol += notional;
+    cat.tradeCount += 1;
+    cat.xp += 25;
+    cat.positions.push(next);
+    return paperEvent(cat, 'BUY', `Paper entry opened within the ${cat.risk.maxPositionSol} SOL position limit.`, { symbol, mint: next.mint, notionalSol: notional, provider: next.provider, observedChange: change });
+  }
+  if (position) {
+    position.currentChange = change;
+    const exit = change >= strategy.targetGain || change <= -strategy.stopLoss;
+    if (exit) {
+      const pnl = position.notionalSol * (change - position.entryChange) / 100;
+      const fee = Math.abs(position.notionalSol) * 0.001;
+      cat.balanceSol += position.notionalSol + pnl - fee;
+      cat.realizedPnlSol += pnl - fee;
+      cat.feesSol += fee;
+      cat.volumeSol += position.notionalSol;
+      if (pnl > 0) cat.wins += 1; else cat.losses += 1;
+      cat.dailyLossSol += Math.min(0, pnl - fee) * -1;
+      cat.tradeCount += 1;
+      cat.xp += 50;
+      cat.positions = cat.positions.filter(item => item !== position);
+      return paperEvent(cat, 'SELL', `Paper exit closed ${symbol} at the strategy threshold.`, { symbol, mint: position.mint, pnlSol: pnl - fee, feeSol: fee, provider: position.provider, observedChange: change });
+    }
+  }
+  cat.unrealizedPnlSol = cat.positions.reduce((sum, item) => sum + item.notionalSol * ((item.currentChange - item.entryChange) / 100), 0);
+  return paperEvent(cat, 'SCAN', `Observed ${symbol}; no strategy threshold was met. No order placed.`, { symbol, provider: market.provider || 'public market provider', observedChange: change });
+}
+
+function createPaperCat(body) {
+  const name = String(body.name || '').trim().replace(/[^\w -]/g, '').slice(0, 24);
+  if (name.length < 2) throw Object.assign(new Error('Cat name must be at least 2 characters.'), { statusCode: 400 });
+  const ownerId = String(body.ownerId || '').trim().slice(0, 100);
+  if (!ownerId) throw Object.assign(new Error('A browser owner id is required.'), { statusCode: 400 });
+  const keypair = Keypair.generate();
+  const id = nodeCrypto.randomUUID();
+  const maxPosition = Math.min(2, Math.max(0.01, Number(body.maxPositionSol) || 0.25));
+  const maxDailyLoss = Math.min(5, Math.max(0.01, Number(body.maxDailyLossSol) || 0.5));
+  const cat = {
+    id, ownerId, name, avatar: String(body.avatar || 'mint').slice(0, 40),
+    wallet: keypair.publicKey.toString(), encryptedPaperSecret: paperSecretFor(keypair),
+    createdAt: new Date().toISOString(), status: 'stopped', revoked: false,
+    balanceSol: PAPER_STARTING_SOL, withdrawnSol: 0, realizedPnlSol: 0, unrealizedPnlSol: 0, volumeSol: 0, feesSol: 0,
+    positions: [], tradeCount: 0, wins: 0, losses: 0, xp: 0, dailyLossSol: 0, lossDay: new Date().toISOString().slice(0, 10), lastCycleAt: null,
+    strategy: paperStrategy(body.strategy),
+    pnlHistory: [],
+    risk: { maxPositionSol: maxPosition, maxDailyLossSol: maxDailyLoss, allowlist: cleanPaperList(body.allowlist), blocklist: cleanPaperList(body.blocklist) },
+  };
+  paperCats.set(id, cat);
+  paperEvent(cat, 'CREATED', 'Paper Cat created. No SOL was deposited and no on-chain transaction occurred.');
+  return cat;
+}
 
 function json(res, status, body) {
   const payload = JSON.stringify(body);
@@ -1245,6 +1445,70 @@ async function route(req, res, url) {
     if (liked.has(identity.key)) liked.delete(identity.key); else liked.add(identity.key);
     return json(res, 200, { liked: liked.has(identity.key), likeCount: liked.size });
   }
+  if (req.method === 'GET' && url.pathname === '/api/cats/strategies') {
+    return json(res, 200, { mode: 'paper', strategies: Object.entries(PAPER_STRATEGIES).map(([id, value]) => ({ id, ...value })) });
+  }
+  if (req.method === 'GET' && url.pathname === '/api/cats/leaderboard') {
+    const view = ['pnl', 'volume', 'win_rate'].includes(url.searchParams.get('view')) ? url.searchParams.get('view') : 'pnl';
+    const rows = Array.from(paperCats.values()).map(paperPublicCat);
+    rows.sort((a, b) => view === 'volume' ? b.volumeSol - a.volumeSol : view === 'win_rate' ? (b.winRate || 0) - (a.winRate || 0) : b.realizedPnlSol - a.realizedPnlSol);
+    return json(res, 200, { mode: 'paper', view, rows: rows.slice(0, 50), disclosure: 'Paper results from this browser session. No profit is presented as on-chain performance.' });
+  }
+  if (req.method === 'GET' && url.pathname === '/api/cats/activity') {
+    const catId = url.searchParams.get('catId');
+    return json(res, 200, { mode: 'paper', events: paperActivity.filter(event => !catId || event.catId === catId).slice(0, 80), disclosure: 'Paper activity only. Provider observations and paper orders are not blockchain transactions.' });
+  }
+  if (req.method === 'GET' && url.pathname === '/api/cats') {
+    const ownerId = String(url.searchParams.get('ownerId') || '');
+    return json(res, 200, { mode: 'paper', cats: Array.from(paperCats.values()).filter(cat => !ownerId || cat.ownerId === ownerId).map(paperPublicCat), strategies: Object.entries(PAPER_STRATEGIES).map(([id, value]) => ({ id, ...value })) });
+  }
+  if (req.method === 'POST' && url.pathname === '/api/cats') {
+    const cat = createPaperCat(await requestBody(req));
+    return json(res, 201, { cat: paperPublicCat(cat), disclosure: 'Paper wallet only. No SOL was deposited and no private key was sent to the client.' });
+  }
+  const catActionMatch = url.pathname.match(/^\/api\/cats\/([^/]+)\/action$/);
+  if (catActionMatch && req.method === 'POST') {
+    const cat = paperCats.get(decodeURIComponent(catActionMatch[1]));
+    if (!cat) return json(res, 404, { detail: 'Cat not found.' });
+    const body = await requestBody(req);
+    const action = String(body.action || '');
+    if (action === 'start') {
+      if (cat.revoked) return json(res, 409, { detail: 'This agent has been revoked.' });
+      cat.status = 'running';
+      paperEvent(cat, 'STARTED', 'Paper agent started. It can only use paper balance and provider snapshots.');
+      await runPaperCycle(cat);
+    } else if (action === 'stop') {
+      cat.status = 'stopped';
+      paperEvent(cat, 'STOPPED', 'Emergency stop engaged. Open paper positions remain visible and withdrawable.');
+    } else if (action === 'run') {
+      await runPaperCycle(cat);
+    } else if (action === 'withdraw') {
+      const amount = Math.min(cat.balanceSol, Math.max(0, Number(body.amount) || cat.balanceSol));
+      if (amount <= 0) return json(res, 400, { detail: 'No paper balance is available to withdraw.' });
+      cat.balanceSol -= amount;
+      cat.withdrawnSol += amount;
+      paperEvent(cat, 'WITHDRAW', `${amount.toFixed(4)} SOL marked withdrawable from the paper wallet. No blockchain transfer occurred.`, { amountSol: amount });
+    } else if (action === 'revoke') {
+      cat.revoked = true;
+      cat.status = 'stopped';
+      paperEvent(cat, 'REVOKED', 'Agent controls revoked. No new paper cycles can run.');
+    } else if (action === 'controls') {
+      cat.risk.maxPositionSol = Math.min(2, Math.max(0.01, Number(body.maxPositionSol) || cat.risk.maxPositionSol));
+      cat.risk.maxDailyLossSol = Math.min(5, Math.max(0.01, Number(body.maxDailyLossSol) || cat.risk.maxDailyLossSol));
+      cat.risk.allowlist = cleanPaperList(body.allowlist);
+      cat.risk.blocklist = cleanPaperList(body.blocklist);
+      paperEvent(cat, 'CONTROLS', 'Risk limits updated by the Cat owner.');
+    } else {
+      return json(res, 400, { detail: 'Unknown Cat action.' });
+    }
+    return json(res, 200, { cat: paperPublicCat(cat), events: paperActivity.filter(event => event.catId === cat.id).slice(0, 40) });
+  }
+  const catMatch = url.pathname.match(/^\/api\/cats\/([^/]+)$/);
+  if (catMatch && req.method === 'GET') {
+    const cat = paperCats.get(decodeURIComponent(catMatch[1]));
+    if (!cat) return json(res, 404, { detail: 'Cat not found.' });
+    return json(res, 200, { mode: 'paper', cat: paperPublicCat(cat), events: paperActivity.filter(event => event.catId === cat.id).slice(0, 80), disclosure: 'Paper activity only. No on-chain transactions are represented.' });
+  }
   if (req.method === 'GET' && url.pathname === '/api/trading/status') {
     return json(res, 200, { provider: 'Jupiter', network: 'solana-mainnet', signing: 'Phantom', configured: TRADING_CONFIGURED, execution_ready: TRADING_CONFIGURED, fee_back_status: 'PLANNED', eligible_fee_rules: 'Not activated', supported_execution_chains: ['solana'], detail: TRADING_CONFIGURED ? 'Backend execution is ready.' : tradingError() });
   }
@@ -1367,6 +1631,11 @@ function startServer() {
     Promise.allSettled([dexBoostFeed('trending'), dexBoostFeed('new')])
       .then(() => console.log('[preview-api] DexScreener radar cache warmed'))
       .catch(() => {});
+    const paperLoop = setInterval(() => {
+      Promise.all(Array.from(paperCats.values()).filter(cat => cat.status === 'running').map(cat => runPaperCycle(cat)))
+        .catch(error => console.warn('[preview-api] paper agent cycle failed:', publicError(error)));
+    }, 20000);
+    paperLoop.unref?.();
   });
 }
 

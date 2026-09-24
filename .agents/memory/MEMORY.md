@@ -10,3 +10,4 @@
 - [Fee asset provider fallback](fee-provider-fallback.md) — resolve exact CA metadata through GeckoTerminal when DexScreener lacks the fee pair.
 - [Pump graduation source](pump-graduation-source.md) — only Pump.fun complete=true status can graduate an exact-mint pool; market indexes remain discovery-only.
 - [Market provider hierarchy](market-provider-hierarchy.md) — Pump.fun is authoritative only for scoped Solana launchpad snapshots; pool/candle fallbacks must retain lineage and never claim a stream.
+- [Paper agent boundary](paper-agent-boundary.md) — autonomous Cat MVP results must stay visibly paper-only until real wallet signing, custody, and on-chain confirmation are separately enabled.
