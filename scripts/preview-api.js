@@ -691,6 +691,7 @@ async function getJsonWithMeta(url, ttl = 30000) {
           providerStatus: 429,
           provider: providerNameForUrl(url),
           rateLimitCooldown: true,
+          rateLimitCooldownUntil: cooldownUntil,
         });
       }
       const headers = { Accept: 'application/json' };
@@ -708,7 +709,9 @@ async function getJsonWithMeta(url, ttl = 30000) {
       return { value, fetchedAt, stale: false, error: null };
     } catch (error) {
       if (error?.providerStatus === 429 && !error.rateLimitCooldown) {
-        providerRateLimitCooldowns.set(url, Date.now() + PROVIDER_RATE_LIMIT_COOLDOWN_MS);
+        const cooldownUntil = Date.now() + PROVIDER_RATE_LIMIT_COOLDOWN_MS;
+        providerRateLimitCooldowns.set(url, cooldownUntil);
+        error.rateLimitCooldownUntil = cooldownUntil;
       }
       if (hit && Date.now() - hit.at <= MARKET_CACHE_RETENTION_MS) {
         return {
@@ -718,6 +721,7 @@ async function getJsonWithMeta(url, ttl = 30000) {
           error: publicError(error),
           providerStatus: error?.providerStatus || null,
           provider: error?.provider || providerNameForUrl(url),
+          rateLimitCooldownUntil: error?.rateLimitCooldownUntil || null,
         };
       }
       throw error;
@@ -897,17 +901,22 @@ const PROVIDER_LABELS = {
 function providerWarningFields(error, provider = error?.provider) {
   const status = Number(error?.providerStatus);
   if (!Number.isFinite(status) && !error) return {};
+  const cooldownUntil = error?.rateLimitCooldownUntil;
+  const retryAfterSeconds = status === 429 && cooldownUntil != null && Number.isFinite(Number(cooldownUntil))
+    ? Math.max(0, Math.ceil((Number(cooldownUntil) - Date.now()) / 1000))
+    : null;
   return {
     provider_warning: {
       provider: provider || 'Public market provider',
       status: Number.isFinite(status) ? status : null,
       rate_limited: status === 429,
+      ...(retryAfterSeconds == null ? {} : { retry_after_seconds: retryAfterSeconds }),
     },
     ...(Number.isFinite(status) ? { provider_status: status } : {}),
     ...(status === 429 ? { rate_limited: true } : {}),
   };
 }
-function providerMeta(provider, fetchedAt, { stale = false, error = null, primaryProvider = provider, providerStatus = null, ...extra } = {}) {
+function providerMeta(provider, fetchedAt, { stale = false, error = null, primaryProvider = provider, providerStatus = null, rateLimitCooldownUntil = null, ...extra } = {}) {
   return {
     provider,
     primary_provider: primaryProvider,
@@ -916,7 +925,11 @@ function providerMeta(provider, fetchedAt, { stale = false, error = null, primar
     fetched_at: fetchedAt || new Date().toISOString(),
     stale: Boolean(stale),
     ...(error ? { error } : {}),
-    ...providerWarningFields(providerStatus ? Object.assign(new Error(error || ''), { providerStatus, provider }) : null, provider),
+    ...providerWarningFields(providerStatus ? Object.assign(new Error(error || ''), {
+      providerStatus,
+      provider,
+      ...(rateLimitCooldownUntil == null ? {} : { rateLimitCooldownUntil }),
+    }) : null, provider),
     coverage: PROVIDER_COVERAGE[provider] || {},
     stream: false,
     ...extra,
@@ -1072,6 +1085,7 @@ async function pumpFeed(kind, page = 1) {
       stale: result.stale,
       error: result.error,
       providerStatus: result.providerStatus,
+      rateLimitCooldownUntil: result.rateLimitCooldownUntil,
     }),
     sourceLabel: 'Pump.fun public coin index · launchpad coverage',
     label: kind === 'new' ? 'Recent Pump.fun coins' : 'Pump.fun market-cap snapshot',
@@ -1168,20 +1182,33 @@ async function geckoFeed(kind, page = 1, chain = 'solana') {
       && settled.every(result => result.status === 'rejected');
     if (pageHadNoSuccessfulNetworks) break;
   }
-  if (!fulfilled.length) throw rejected[0]?.error || new Error('GeckoTerminal returned no indexed pools.');
+  if (!fulfilled.length) {
+    throw rejected.find(request => request.error?.providerStatus === 429)?.error
+      || rejected[0]?.error
+      || new Error('GeckoTerminal returned no indexed pools.');
+  }
   const pairs = fulfilled.flatMap(({ response }) => geckoResult(response.value, kind).pairs);
-  if (!pairs.length) throw new Error('GeckoTerminal returned no indexed pools.');
+  if (!pairs.length) {
+    throw rejected.find(request => request.error?.providerStatus === 429)?.error
+      || new Error('GeckoTerminal returned no indexed pools.');
+  }
   const responses = fulfilled.map(item => item.response);
   const fetchedAt = responses.map(response => response.fetchedAt).filter(Boolean).sort().at(-1);
   const pagesReceived = [...new Set(fulfilled.map(item => item.page))].sort((a, b) => a - b);
   const partial = rejected.length > 0 || requestedPages.length < pages.length;
+  const rateLimitedResponse = responses.find(response => response.providerStatus === 429);
+  const rateLimitedFailure = rejected.find(request => request.error?.providerStatus === 429)?.error;
+  const providerStatus = rateLimitedResponse || rateLimitedFailure
+    ? 429
+    : responses.find(response => response.providerStatus)?.providerStatus
+      || rejected.find(request => request.error?.providerStatus)?.error?.providerStatus;
   return {
     ...providerMeta('GeckoTerminal', fetchedAt, {
       stale: responses.some(response => response.stale),
       error: responses.find(response => response.error)?.error
         || (rejected.length ? `Partial provider response: ${publicError(rejected[0].error)}` : null),
-      providerStatus: responses.find(response => response.providerStatus)?.providerStatus
-        || rejected.find(request => request.error?.providerStatus)?.error?.providerStatus,
+      providerStatus,
+      rateLimitCooldownUntil: rateLimitedResponse?.rateLimitCooldownUntil || rateLimitedFailure?.rateLimitCooldownUntil,
     }),
     label: kind === 'new' ? 'New pools · image verified' : 'Trending pools',
     pairs,
@@ -1329,11 +1356,14 @@ async function dexBoostFeed(kind, page = 1, chain = 'solana') {
     - (rank.get(`${b.chainId}:${b.baseToken?.address}`) ?? candidates.length)
     || Number(b.liquidity?.usd || 0) - Number(a.liquidity?.usd || 0));
   if (!pairs.length) throw new Error('Fast discovery returned no indexed pools.');
+  const rateLimitedResult = [indexResult, payloadResult].find(result => result.providerStatus === 429);
+  const providerStatus = rateLimitedResult ? 429 : indexResult.providerStatus || payloadResult.providerStatus;
   return {
     ...providerMeta('DexScreener', payloadResult.fetchedAt || indexResult.fetchedAt, {
       stale: indexResult.stale || payloadResult.stale,
       error: indexResult.error || payloadResult.error,
-      providerStatus: indexResult.providerStatus || payloadResult.providerStatus,
+      providerStatus,
+      rateLimitCooldownUntil: rateLimitedResult?.rateLimitCooldownUntil,
     }),
     label: kind === 'new' ? 'Recent indexed pools · image verified' : 'Boosted discovery',
     pairs,
@@ -1716,7 +1746,9 @@ async function route(req, res, url) {
         Object.assign(result, providerWarningFields(primaryError, primaryProvider));
       } catch (geckoError) {
         warnProviderThrottle(geckoError);
-        result = unavailableFeed(kind, chain, geckoError || primaryError, primaryProvider);
+        const rateLimitedError = [primaryError, geckoError]
+          .find(error => error?.providerStatus === 429);
+        result = unavailableFeed(kind, chain, rateLimitedError || geckoError || primaryError, primaryProvider);
       }
     }
     return json(res, 200, applyScreener(requireImagesForNewFeed(result, kind), kind, screen));

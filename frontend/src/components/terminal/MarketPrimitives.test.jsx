@@ -57,11 +57,48 @@ test('explains provider rate limits without hiding the available market snapshot
     data={{ provider: 'DexScreener', pairs: [{ pairAddress: 'fallback-pair' }], provider_warning: { provider: 'DexScreener', status: 429, rate_limited: true } }}
     id="market-rate-limit"
   /><span data-testid="fallback-row">fallback-pair</span></>));
-  expect(host.querySelector('[data-testid="market-rate-limit"]').textContent).toMatch(/temporarily rate limited/i);
+  expect(host.querySelector('[data-testid="market-rate-limit"]').textContent).toMatch(/primary provider DexScreener is rate limited and cooling down/i);
   expect(host.querySelector('[data-testid="market-rate-limit"]').textContent).toMatch(/next refresh/i);
   expect(host.querySelector('[data-testid="market-rate-limit"]').textContent).toMatch(/not a trading failure/i);
   expect(host.querySelector('[data-testid="fallback-row"]').textContent).toBe('fallback-pair');
   act(() => root.unmount());
+});
+
+test('counts down to the primary-provider retry while keeping fallback data visible', () => {
+  jest.useFakeTimers();
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  act(() => root.render(<><MarketAvailabilityNotice
+    data={{
+      provider: 'DexScreener',
+      primary_provider: 'GeckoTerminal',
+      pairs: [{ pairAddress: 'fallback-pair' }],
+      provider_warning: {
+        provider: 'GeckoTerminal',
+        status: 429,
+        rate_limited: true,
+        retry_after_seconds: 12,
+      },
+    }}
+    id="market-retry-countdown"
+  /><span data-testid="fallback-row">fallback-pair</span></>));
+
+  const notice = host.querySelector('[data-testid="market-retry-countdown"]');
+  expect(notice.getAttribute('role')).toBe('status');
+  expect(notice.getAttribute('aria-live')).toBe('polite');
+  expect(notice.textContent).toMatch(/primary provider GeckoTerminal is cooling down/i);
+  expect(notice.textContent).toMatch(/available in about 12 seconds/i);
+  expect(host.querySelector('[data-testid="fallback-row"]').textContent).toBe('fallback-pair');
+
+  act(() => jest.advanceTimersByTime(3000));
+  expect(notice.textContent).toMatch(/available in about 9 seconds/i);
+  act(() => jest.advanceTimersByTime(9000));
+  expect(notice.textContent).toMatch(/cooldown has ended\. refresh to retry now/i);
+  expect(host.querySelector('[data-testid="fallback-row"]').textContent).toBe('fallback-pair');
+
+  act(() => root.unmount());
+  jest.useRealTimers();
 });
 
 test('explains provider-unavailable data when no fallback snapshot exists', () => {

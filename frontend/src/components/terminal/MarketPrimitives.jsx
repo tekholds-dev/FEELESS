@@ -153,22 +153,51 @@ export function getMarketAvailability({ data, error, errorStatus, errorProvider 
     || Boolean(data?.provider_warning)
     || /provider.*unavailable|temporarily unavailable|unavailable from/i.test(text);
   if (!rateLimited && !unavailable) return null;
+  const retryAfterValue = data?.provider_warning?.retry_after_seconds ?? data?.retry_after_seconds;
+  const retryAfterNumber = retryAfterValue == null ? null : Number(retryAfterValue);
   return {
     rateLimited,
-    provider: data?.provider_warning?.provider
-      || data?.primary_provider
+    provider: data?.primary_provider
+      || data?.provider_warning?.provider
       || data?.provider
       || errorProvider
       || 'market provider',
+    retryAfterSeconds: rateLimited && Number.isFinite(retryAfterNumber) && retryAfterNumber >= 0
+      ? Math.ceil(retryAfterNumber)
+      : null,
   };
 }
 
 export const MarketAvailabilityNotice = ({ data, error, errorStatus, errorProvider, id = 'market-availability' }) => {
   const availability = getMarketAvailability({ data, error, errorStatus, errorProvider });
+  const cooldownSeconds = availability?.rateLimited ? availability.retryAfterSeconds : null;
+  const [retrySecondsRemaining, setRetrySecondsRemaining] = useState(cooldownSeconds);
+  useEffect(() => {
+    if (cooldownSeconds == null) {
+      setRetrySecondsRemaining(null);
+      return undefined;
+    }
+
+    const retryAt = Date.now() + cooldownSeconds * 1000;
+    setRetrySecondsRemaining(cooldownSeconds);
+    if (cooldownSeconds === 0) return undefined;
+
+    const timer = window.setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((retryAt - Date.now()) / 1000));
+      setRetrySecondsRemaining(remaining);
+      if (remaining === 0) window.clearInterval(timer);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [cooldownSeconds]);
   if (!availability) return null;
   const provider = availability.provider === 'Public providers' ? 'public providers' : availability.provider;
+  const rateLimitMessage = retrySecondsRemaining == null
+    ? `Primary provider ${provider} is rate limited and cooling down. Retry on the next refresh.`
+    : retrySecondsRemaining > 0
+      ? `Primary provider ${provider} is cooling down. A new provider request is available in about ${retrySecondsRemaining} ${retrySecondsRemaining === 1 ? 'second' : 'seconds'}; refresh after the cooldown to retry.`
+      : `Primary provider ${provider}'s cooldown has ended. Refresh to retry now.`;
   const message = availability.rateLimited
-    ? `Market data is temporarily rate limited by ${provider}. Existing fallback data remains visible when available and may recover on the next refresh. This is not a trading failure.`
+    ? `${rateLimitMessage} Existing fallback data remains visible when available. This is not a trading failure.`
     : `Market data is temporarily unavailable from ${provider}. Existing fallback data remains visible when available and may recover on the next refresh. This is not a trading failure.`;
   return <div className="market-availability" role="status" aria-live="polite" data-testid={id}>
     <AlertTriangle size={15} /><span>{message}</span>

@@ -12,16 +12,19 @@ jest.mock('../hooks/useMarket', () => ({
   useMarket: path => marketResults[path],
 }));
 
-jest.mock('./terminal/MarketPrimitives', () => ({
-  DataStatus: ({ data, id }) => <span data-testid={id}>{data ? 'LIVE' : 'CONNECTING'}</span>,
-  MarketAvailabilityNotice: ({ id }) => <span data-testid={id} />,
-  MarketError: ({ error, reload, id, focusable, retryLabel }) => (
-    <div data-testid={id} role="alert" tabIndex={focusable ? 0 : undefined}>
-      <span>{error}</span>
-      {reload && <button data-testid={`${id}-retry`} aria-label={retryLabel} onClick={reload}>Retry</button>}
-    </div>
-  ),
-}));
+jest.mock('./terminal/MarketPrimitives', () => {
+  const actual = jest.requireActual('./terminal/MarketPrimitives');
+  return {
+    ...actual,
+    DataStatus: ({ data, id }) => <span data-testid={id}>{data ? 'LIVE' : 'CONNECTING'}</span>,
+    MarketError: ({ error, reload, id, focusable, retryLabel }) => (
+      <div data-testid={id} role="alert" tabIndex={focusable ? 0 : undefined}>
+        <span>{error}</span>
+        {reload && <button data-testid={`${id}-retry`} aria-label={retryLabel} onClick={reload}>Retry</button>}
+      </div>
+    ),
+  };
+});
 
 jest.mock('./TokenCard', () => ({ pair, screenerLabel }) => {
   const signals = pair.signals || {};
@@ -50,6 +53,37 @@ function renderFeeds(selectedEcosystem, results) {
 afterEach(() => {
   document.body.innerHTML = '';
   Object.keys(marketResults).forEach(path => delete marketResults[path]);
+});
+
+test('shows the primary-provider retry hint while keeping Coin Radar fallback rows visible', () => {
+  const pair = {
+    chainId: 'ethereum',
+    pairAddress: 'fallback-pair',
+    baseToken: { symbol: 'FALLBACK' },
+  };
+  const { container, root } = renderFeeds(ecosystem, {
+    top: {
+      data: {
+        provider: 'DexScreener',
+        primary_provider: 'GeckoTerminal',
+        pairs: [pair],
+        provider_warning: {
+          provider: 'GeckoTerminal',
+          status: 429,
+          rate_limited: true,
+          retry_after_seconds: 8,
+        },
+      },
+      loading: false,
+    },
+    new: { data: { pairs: [] }, loading: false },
+  });
+
+  const notice = container.querySelector('[data-testid="globe-coins-trending-availability"]');
+  expect(notice.textContent).toMatch(/GeckoTerminal is cooling down/i);
+  expect(notice.textContent).toMatch(/available in about 8 seconds/i);
+  expect(container.querySelector('[data-testid="token-card"]').textContent).toBe('FALLBACK');
+  act(() => root.unmount());
 });
 
 selectableEcosystems.forEach(selectedEcosystem => {

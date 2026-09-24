@@ -350,6 +350,7 @@ test('all-network new-coin fallback cools down rate-limited Gecko requests and r
   const originalFetch = global.fetch;
   const originalNow = Date.now;
   let geckoAvailable = false;
+  let dexAvailable = true;
   let geckoCalls = 0;
   let dexCalls = 0;
   cache.clear();
@@ -379,6 +380,7 @@ test('all-network new-coin fallback cools down rate-limited Gecko requests and r
     }
     if (url === `${DEX_API_URL}/token-boosts/latest/v1`) {
       dexCalls += 1;
+      if (!dexAvailable) return providerResponse({ detail: 'rate limited' }, 429);
       return providerResponse([
         { chainId: 'solana', tokenAddress: 'SupportedMint' },
         { chainId: 'robinhood', tokenAddress: 'UnsupportedMint' },
@@ -412,12 +414,15 @@ test('all-network new-coin fallback cools down rate-limited Gecko requests and r
   const { port } = server.address();
   const baseUrl = `http://127.0.0.1:${port}`;
   try {
+    const rateLimitedAt = originalNow();
+    Date.now = () => rateLimitedAt;
     const fallback = await request(baseUrl, '/api/market/feed?kind=new&chain=all', originalFetch);
     assert.equal(fallback.status, 200);
     assert.equal(fallback.body.provider, 'DexScreener');
     assert.equal(fallback.body.primary_provider, 'GeckoTerminal');
     assert.equal(fallback.body.provider_status, 429);
     assert.equal(fallback.body.provider_warning.rate_limited, true);
+    assert.equal(fallback.body.provider_warning.retry_after_seconds, PROVIDER_RATE_LIMIT_COOLDOWN_MS / 1000);
     assert.equal(fallback.body.fallback_from, 'GeckoTerminal');
     assert.ok(fallback.body.pairs.length > 0);
     assert.ok(fallback.body.pairs.every(pair => ['solana', 'ethereum', 'base', 'bsc', 'arbitrum', 'avalanche', 'polygon', 'sui'].includes(pair.chainId)));
@@ -425,13 +430,28 @@ test('all-network new-coin fallback cools down rate-limited Gecko requests and r
     assert.equal(geckoCalls, 8);
     assert.equal(dexCalls, 2);
 
+    Date.now = () => rateLimitedAt + 5000;
     const cooldownFallback = await request(baseUrl, '/api/market/feed?kind=new&chain=all', originalFetch);
     assert.equal(cooldownFallback.status, 200);
     assert.equal(cooldownFallback.body.provider, 'DexScreener');
+    assert.equal(cooldownFallback.body.provider_warning.retry_after_seconds, 10);
     assert.equal(geckoCalls, 8);
     assert.equal(dexCalls, 2);
 
-    Date.now = () => originalNow() + PROVIDER_RATE_LIMIT_COOLDOWN_MS + 1;
+    Date.now = () => rateLimitedAt + 6000;
+    dexAvailable = false;
+    cache.clear();
+    const unavailable = await request(baseUrl, '/api/market/feed?kind=new&chain=all', originalFetch);
+    assert.equal(unavailable.status, 200);
+    assert.equal(unavailable.body.provider, 'Public providers');
+    assert.equal(unavailable.body.primary_provider, 'GeckoTerminal');
+    assert.equal(unavailable.body.provider_warning.rate_limited, true);
+    assert.equal(unavailable.body.provider_warning.retry_after_seconds, 9);
+    assert.deepEqual(unavailable.body.pairs, []);
+    assert.equal(geckoCalls, 8);
+    assert.equal(dexCalls, 3);
+
+    Date.now = () => rateLimitedAt + PROVIDER_RATE_LIMIT_COOLDOWN_MS + 1;
     geckoAvailable = true;
     const recovered = await request(baseUrl, '/api/market/feed?kind=new&chain=all', originalFetch);
     assert.equal(recovered.status, 200);
@@ -442,7 +462,7 @@ test('all-network new-coin fallback cools down rate-limited Gecko requests and r
     assert.equal(recovered.body.image_filtered_count, 0);
     assert.equal(recovered.body.pairs.length, 24);
     assert.equal(geckoCalls, 32);
-    assert.equal(dexCalls, 2);
+    assert.equal(dexCalls, 3);
   } finally {
     Date.now = originalNow;
     global.fetch = originalFetch;
@@ -506,6 +526,8 @@ test('all-network fresh feed samples bounded Gecko pages and reports partial cov
     assert.equal(first.body.provider_pagination.can_request_next_page, false);
     assert.match(first.body.provider_pagination.completeness, /additional provider pages may exist/i);
     assert.equal(first.body.provider_status, 429);
+    assert.ok(first.body.provider_warning.retry_after_seconds > 0);
+    assert.ok(first.body.provider_warning.retry_after_seconds <= PROVIDER_RATE_LIMIT_COOLDOWN_MS / 1000);
     assert.equal(first.body.image_required, true);
     assert.equal(first.body.image_filtered_count, 0);
     assert.equal(first.body.pairs.length, 22);

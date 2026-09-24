@@ -73,11 +73,14 @@ jest.mock('../components/terminal/TerminalShell', () => {
   };
 });
 
-jest.mock('../components/terminal/MarketPrimitives', () => ({
-  DataStatus: () => <span />,
-  MarketAvailabilityNotice: ({ id }) => <span data-testid={id} />,
-  MarketError: ({ id, error }) => <div data-testid={id}>{error}</div>,
-}));
+jest.mock('../components/terminal/MarketPrimitives', () => {
+  const actual = jest.requireActual('../components/terminal/MarketPrimitives');
+  return {
+    ...actual,
+    DataStatus: () => <span />,
+    MarketError: ({ id, error }) => <div data-testid={id}>{error}</div>,
+  };
+});
 
 jest.mock('../components/terminal/CommunityRail', () => ({
   ChatRoom: ({ selectedPair, selectedPerspective }) => selectedPair
@@ -221,6 +224,39 @@ afterEach(() => {
   document.body.innerHTML = '';
   document.head.querySelector('[data-testid="trade-styles"]')?.remove();
   jest.restoreAllMocks();
+});
+
+test('shows provider retry timing in Terminal discovery without hiding the fallback snapshot', () => {
+  mockPage = 'discover';
+  mockMarketResult = {
+    data: {
+      provider: 'DexScreener',
+      primary_provider: 'GeckoTerminal',
+      pairs: [{
+        chainId: 'solana',
+        pairAddress: 'fallback-pair',
+        baseToken: { address: 'fallback-mint', symbol: 'FALLBACK' },
+        liquidity: { usd: 5000 },
+      }],
+      provider_warning: {
+        provider: 'GeckoTerminal',
+        status: 429,
+        rate_limited: true,
+        retry_after_seconds: 6,
+      },
+    },
+    loading: false,
+    refreshing: false,
+    error: undefined,
+    reload: jest.fn(),
+  };
+  const { container, root } = mount();
+
+  const notice = container.querySelector('[data-testid="market-feed-availability"]');
+  expect(notice.textContent).toMatch(/GeckoTerminal is cooling down/i);
+  expect(notice.textContent).toMatch(/available in about 6 seconds/i);
+  expect(container.querySelectorAll('[data-testid="terminal-market-row"]')).toHaveLength(1);
+  act(() => root.unmount());
 });
 
 test('restores an exact pair and discussion perspective after a direct-link remount', () => {
