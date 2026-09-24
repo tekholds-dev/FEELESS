@@ -4,7 +4,7 @@ import { Sparkles, Flame, Copy, ExternalLink, RefreshCw } from 'lucide-react';
 import { useMarket } from '../hooks/useMarket';
 import { matchesPad } from '../lib/launchpads';
 import { MarketAvailabilityNotice, TokenAvatar } from './terminal/MarketPrimitives';
-import { formatUSD, formatPct, formatAge } from '../lib/dexscreener';
+import { formatUSD, formatPct, formatAge, hasProviderImage } from '../lib/dexscreener';
 
 // Social "new stuff" stream — fresh + trending coins on the ecosystem. No pools / liquidity tables.
 export default function NewStuffFeed({ ecosystem }) {
@@ -14,6 +14,7 @@ export default function NewStuffFeed({ ecosystem }) {
   const { data, loading, refreshing, error, errorStatus, errorProvider, reload } = useMarket(`/feed?kind=${tab}&chain=${chain}&screen=${screen}`, 15000);
   const pairs = (data?.pairs || [])
     .filter(p => !ecosystem?.isLaunchpad || matchesPad(p, ecosystem.id))
+    .filter(p => tab !== 'new' || hasProviderImage(p))
     .slice(0, 6);
 
   const copyCA = async (addr) => {

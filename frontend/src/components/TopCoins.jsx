@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useMarket } from '../hooks/useMarket';
 import { useWorkspace } from '../hooks/useWorkspace';
 import { DataStatus, MarketAvailabilityNotice, MarketError } from './terminal/MarketPrimitives';
+import { hasProviderImage } from '../lib/dexscreener';
 import { matchesPad } from '../lib/launchpads';
 import TokenCard from './TokenCard';
 
@@ -26,7 +27,10 @@ export function FeelessCoinCards() {
 }
 
 function CoinFeed({ id, title, result, ecosystem, onSelect, screener }) {
-  const pairs = (result.data?.pairs || []).filter(pair => !ecosystem?.isLaunchpad || matchesPad(pair, ecosystem.id));
+  const pairs = (result.data?.pairs || []).filter(pair => (
+    (!ecosystem?.isLaunchpad || matchesPad(pair, ecosystem.id))
+    && (id !== 'new' || hasProviderImage(pair))
+  ));
   const ecosystemName = ecosystem?.name || 'selected ecosystem';
   const modeMatches = !result.data?.screener || result.data.screener === screener;
   const waitingForMode = !modeMatches && !result.error;

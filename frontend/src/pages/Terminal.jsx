@@ -4,7 +4,7 @@ import { ArrowUpRight, ArrowLeft, ArrowRight, Flame, RefreshCw, SlidersHorizonta
 import WalletModal from '../components/WalletModal';
 import WalletProfileModal from '../components/WalletProfileModal';
 import { useMarket } from '../hooks/useMarket';
-import { coinIdentity, isExactPair, isNewPoolDeal, isSupportedPairChain, MARKET_RETENTION_DAYS, NEW_POOL_DEAL_PERCENT, normalizeRoomPerspective } from '../lib/dexscreener';
+import { coinIdentity, hasProviderImage, isExactPair, isNewPoolDeal, isSupportedPairChain, MARKET_RETENTION_DAYS, NEW_POOL_DEAL_PERCENT, normalizeRoomPerspective } from '../lib/dexscreener';
 import { useWorkspace } from '../hooks/useWorkspace';
 import { normalizeAutoRefresh, normalizeChartInterval, normalizeCompact, normalizeFontScale, normalizeReducedMotion, useLocalSettings, usePriceAlerts, AlertsPage } from '../components/terminal/LocalTools';
 import { TerminalHeader, TerminalSidebar, MarketTicker, TerminalFooter } from '../components/terminal/TerminalShell';
@@ -86,7 +86,7 @@ export default function Terminal() {
     return list;
   }, [market.data, requestedScreener, chain, minLiquidity, activePad, tab, kind, query, page]);
   const marketModeMatches = requestedScreener == null || !market.data?.screener || market.data.screener === requestedScreener;
-  const newPairs = (newFeed.data?.pairs || []).filter(p => matchesPad(p, activePad) && (p.marketStage === 'new' || isNewPoolDeal(p)));
+  const newPairs = (newFeed.data?.pairs || []).filter(p => matchesPad(p, activePad) && hasProviderImage(p) && (p.marketStage === 'new' || isNewPoolDeal(p)));
   useEffect(() => { setPagination(1); setPad('all'); setMinLiquidity('0'); setMenuOpen(false); if (page === 'pump' && ecosystem.id !== 'pump') setEcosystem('pump'); }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPagination(1); setPad('all'); setMinLiquidity('0'); }, [ecosystem.id, query, kind]);
   useEffect(() => { if (page === 'launch' && metaLaunchRequested && ecosystem.id !== 'feeless-launch') setEcosystem('feeless-launch'); }, [page, metaLaunchRequested, ecosystem.id]); // eslint-disable-line react-hooks/exhaustive-deps

@@ -245,6 +245,55 @@ test('preview candle contract follows a discovered pool and rejects invalid inte
   }
 });
 
+test('broad new-coin discovery uses GeckoTerminal across a network and hides pools without images', async () => {
+  const originalFetch = global.fetch;
+  cache.clear();
+  global.fetch = async target => {
+    const url = String(target);
+    if (url === `${GECKO_API_URL}/networks/eth/new_pools?page=1`) {
+      return providerResponse({
+        data: [
+          {
+            id: 'eth_no-image',
+            attributes: { address: 'NoImagePool', name: 'NOIMAGE / WETH', base_token_price_usd: '1', image_url: null },
+            relationships: {
+              base_token: { data: { id: 'eth_no-image-token' } },
+              quote_token: { data: { id: 'eth_0xweth' } },
+            },
+          },
+          {
+            id: 'eth_with-image',
+            attributes: { address: 'ImagePool', name: 'IMAGE / WETH', base_token_price_usd: '2', image_url: 'https://logo.test/image.png' },
+            relationships: {
+              base_token: { data: { id: 'eth_image-token' } },
+              quote_token: { data: { id: 'eth_0xweth' } },
+            },
+          },
+        ],
+      });
+    }
+    throw new Error(`Unexpected provider request: ${url}`);
+  };
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  try {
+    const response = await request(baseUrl, '/api/market/feed?kind=new&chain=ethereum', originalFetch);
+    assert.equal(response.status, 200);
+    assert.equal(response.body.provider, 'GeckoTerminal');
+    assert.equal(response.body.primary_provider, 'GeckoTerminal');
+    assert.equal(response.body.image_required, true);
+    assert.equal(response.body.image_filtered_count, 1);
+    assert.deepEqual(response.body.pairs.map(pair => pair.pairAddress), ['ImagePool']);
+    assert.equal(response.body.pairs[0].info.imageUrl, 'https://logo.test/image.png');
+  } finally {
+    global.fetch = originalFetch;
+    cache.clear();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
 test('preview Pump radar uses Pump.fun as the primary Solana launchpad source', async () => {
   const originalFetch = global.fetch;
   cache.clear();

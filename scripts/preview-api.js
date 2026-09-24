@@ -684,6 +684,35 @@ function pairFromGecko(item) {
   };
 }
 
+function hasProviderImage(pair) {
+  const candidates = [
+    pair?.info?.imageUrl,
+    pair?.info?.image,
+    pair?.imageUrl,
+    pair?.image,
+    pair?.logoUrl,
+    pair?.logoURI,
+    pair?.baseToken?.imageUrl,
+    pair?.baseToken?.image,
+    pair?.baseToken?.logoURI,
+    pair?.baseToken?.logoUrl,
+    pair?.baseToken?.logo,
+  ];
+  return candidates.some(value => typeof value === 'string' && /^(https?:\/\/|data:image\/)/i.test(value));
+}
+
+function requireImagesForNewFeed(feed, kind) {
+  if (kind !== 'new') return feed;
+  const pairs = Array.isArray(feed.pairs) ? feed.pairs : [];
+  const imagePairs = pairs.filter(hasProviderImage);
+  return {
+    ...feed,
+    pairs: imagePairs,
+    image_required: true,
+    image_filtered_count: pairs.length - imagePairs.length,
+  };
+}
+
 function geckoResult(data, kind) {
   const pairs = (data?.data || []).map(pairFromGecko).filter(pair => pair.pairAddress);
   return {
@@ -852,7 +881,7 @@ async function geckoFeed(kind, page = 1, chain = 'solana') {
       error: responses.find(response => response.error)?.error || null,
       providerStatus: responses.find(response => response.providerStatus)?.providerStatus,
     }),
-    label: kind === 'new' ? 'New pools' : 'Trending pools',
+    label: kind === 'new' ? 'New pools · image verified' : 'Trending pools',
     pairs,
     page: Number(page),
   };
@@ -982,7 +1011,7 @@ async function dexBoostFeed(kind, page = 1, chain = 'solana') {
       error: indexResult.error || payloadResult.error,
       providerStatus: indexResult.providerStatus || payloadResult.providerStatus,
     }),
-    label: kind === 'new' ? 'Recent indexed pools' : 'Boosted discovery',
+    label: kind === 'new' ? 'Recent indexed pools · image verified' : 'Boosted discovery',
     pairs,
     page: 1,
   };
@@ -1319,10 +1348,13 @@ async function route(req, res, url) {
     const screen = normalizeScreener(url.searchParams.get('screen'), kind);
     if (chain !== 'all' && !GECKO_NETWORKS[chain]) return json(res, 400, { detail: 'Unsupported market chain.' });
     let result;
-    const primaryProvider = scope === 'pump' ? 'Pump.fun' : 'DexScreener';
+    const broadNewFeed = kind === 'new' && scope !== 'pump';
+    const primaryProvider = scope === 'pump' ? 'Pump.fun' : broadNewFeed ? 'GeckoTerminal' : 'DexScreener';
     try {
       if (scope === 'pump' && chain === 'solana') {
         result = await pumpFeed(kind, url.searchParams.get('page') || 1);
+      } else if (broadNewFeed) {
+        result = await geckoFeed(kind, url.searchParams.get('page') || 1, chain);
       } else {
         result = await dexBoostFeed(kind, url.searchParams.get('page') || 1, chain);
         if (scope === 'pump') {
@@ -1334,11 +1366,17 @@ async function route(req, res, url) {
     } catch (primaryError) {
       warnProviderThrottle(primaryError);
       try {
-        result = await geckoFeed(kind, url.searchParams.get('page') || 1, chain);
+        result = broadNewFeed
+          ? await dexBoostFeed(kind, url.searchParams.get('page') || 1, chain)
+          : await geckoFeed(kind, url.searchParams.get('page') || 1, chain);
         if (scope === 'pump') {
           result.primary_provider = primaryProvider;
           result.fallback_from = primaryProvider;
           result.fallback_reason = `Pump.fun unavailable; using GeckoTerminal fallback (${publicError(primaryError)}).`;
+        } else if (broadNewFeed) {
+          result.primary_provider = primaryProvider;
+          result.fallback_from = primaryProvider;
+          result.fallback_reason = `GeckoTerminal unavailable; using DexScreener fallback (${publicError(primaryError)}).`;
         }
         Object.assign(result, providerWarningFields(primaryError, primaryProvider));
       } catch (geckoError) {
@@ -1346,7 +1384,7 @@ async function route(req, res, url) {
         result = unavailableFeed(kind, chain, geckoError || primaryError, primaryProvider);
       }
     }
-    return json(res, 200, applyScreener(result, kind, screen));
+    return json(res, 200, applyScreener(requireImagesForNewFeed(result, kind), kind, screen));
   }
   if (req.method === 'GET' && url.pathname === '/api/market/graduations') {
     return json(res, 200, await pumpGraduations(url.searchParams.get('mints') || ''));

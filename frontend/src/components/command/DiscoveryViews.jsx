@@ -5,7 +5,7 @@ import { useWorkspace } from '../../hooks/useWorkspace';
 import { useMarket } from '../../hooks/useMarket';
 import { MarketAvailabilityNotice, TokenAvatar, Change } from '../terminal/MarketPrimitives';
 import { useClock } from './WorkspaceChrome';
-import { formatUSD, formatAge, formatTime, pairKey, dexUrl } from '../../lib/dexscreener';
+import { formatUSD, formatAge, formatTime, pairKey, dexUrl, hasProviderImage } from '../../lib/dexscreener';
 import { LAUNCHPADS, matchesPad } from '../../lib/launchpads';
 
 export const RadarView = ({ pairs, onSelect, kind = 'pump' }) => {
@@ -56,7 +56,7 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
   const matches = useMemo(() => pair => matchesPad(pair, ecosystem.id) && (ecosystem.chainId === 'all' || pair.chainId === ecosystem.chainId), [ecosystem.id, ecosystem.chainId]);
   const newPairs = useMemo(() => (newFeed.data?.pairs || []).filter(pair => {
     const fresh = Number.isFinite(Number(pair.pairCreatedAt)) && Date.now() - Number(pair.pairCreatedAt) <= 14 * 24 * 60 * 60 * 1000;
-    return matches(pair) && (pair.marketStage === 'new' || fresh) && !failedNewLogos.has(pairKey(pair));
+    return matches(pair) && (pair.marketStage === 'new' || fresh) && hasProviderImage(pair) && !failedNewLogos.has(pairKey(pair));
   }), [newFeed.data, matches, failedNewLogos]);
   const trendingPairs = useMemo(() => (trendingFeed.data?.pairs || []).filter(matches), [trendingFeed.data, matches]);
   const allObserved = useMemo(() => [...new Map([...newPairs, ...trendingPairs].map(pair => [pairKey(pair), pair])).values()], [newPairs, trendingPairs]);

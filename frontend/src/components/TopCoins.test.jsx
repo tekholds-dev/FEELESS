@@ -131,7 +131,7 @@ test('recovers one feed after retry without disrupting the other feed', () => {
   const topPath = '/feed?kind=trending&chain=ethereum';
   const newPath = '/feed?kind=new&chain=ethereum';
   const recoveredTopPair = { pairAddress: 'recovered-top', baseToken: { symbol: 'TOP' } };
-  const newPair = { pairAddress: 'available-new', baseToken: { symbol: 'NEW' } };
+  const newPair = { pairAddress: 'available-new', baseToken: { symbol: 'NEW' }, info: { imageUrl: 'https://logo.test/new.png' } };
   const topReload = jest.fn(() => {
     marketResults[topPath] = { data: undefined, loading: true, reload: topReload };
   });
@@ -173,7 +173,7 @@ test('keeps simultaneous top and new feed retries independent when responses ret
   const topPath = '/feed?kind=trending&chain=ethereum';
   const newPath = '/feed?kind=new&chain=ethereum';
   const topPair = { pairAddress: 'top-recovered', baseToken: { symbol: 'TOP' } };
-  const newPair = { pairAddress: 'new-recovered', baseToken: { symbol: 'NEW' } };
+  const newPair = { pairAddress: 'new-recovered', baseToken: { symbol: 'NEW' }, info: { imageUrl: 'https://logo.test/new.png' } };
   const topReload = jest.fn(() => {
     marketResults[topPath] = { data: undefined, loading: true, reload: topReload };
   });
@@ -240,7 +240,7 @@ test('updates every radar coin label, score, and observed reasons for each scree
       screener_disclosure: mode.disclosure,
       pairs: [{
         pairAddress: `${mode.api}-${symbol}`,
-        baseToken: { symbol },
+        baseToken: { symbol, imageUrl: 'https://logo.test/new.png' },
         signals: {
           screener: mode.api,
           screener_score: mode.api === 'quality' ? 41.1 : mode.api === 'momentum' ? 72.2 : mode.api === 'volume' ? 83.3 : 94.4,
@@ -292,7 +292,7 @@ test('does not show the previous radar mode while the next mode is refreshing', 
     data: {
       screener: 'quality',
       screener_label: 'Best observed setups',
-      pairs: [{ pairAddress: 'quality-pair', baseToken: { symbol: 'QUALITY' }, signals: { score_label: 'Best observed setups', screener_score: 40, score_reasons: ['quality reason'] } }],
+      pairs: [{ pairAddress: 'quality-pair', baseToken: { symbol: 'QUALITY', imageUrl: 'https://logo.test/quality.png' }, signals: { score_label: 'Best observed setups', screener_score: 40, score_reasons: ['quality reason'] } }],
     },
     loading: false,
   };
@@ -309,7 +309,7 @@ test('does not show the previous radar mode while the next mode is refreshing', 
     data: {
       screener: 'momentum',
       screener_label: 'Momentum',
-      pairs: [{ pairAddress: 'momentum-pair', baseToken: { symbol: 'MOMENTUM' }, signals: { score_label: 'Momentum', screener_score: 80, score_reasons: ['momentum reason'] } }],
+      pairs: [{ pairAddress: 'momentum-pair', baseToken: { symbol: 'MOMENTUM', imageUrl: 'https://logo.test/momentum.png' }, signals: { score_label: 'Momentum', screener_score: 80, score_reasons: ['momentum reason'] } }],
     },
     loading: false,
   };
@@ -335,6 +335,24 @@ test('does not show the previous radar mode while the next mode is refreshing', 
   act(() => root.render(<TopCoins ecosystem={ecosystem} />));
   expect(container.querySelector('[data-testid="token-card-label"]').textContent).toBe('Momentum');
   expect(container.querySelector('[data-testid="token-card-reasons"]').textContent).toBe('momentum reason');
+  act(() => root.unmount());
+});
+
+test('hides a new-coin card when its provider has no image metadata', () => {
+  const { container, root } = renderFeeds(ecosystem, {
+    top: { data: { pairs: [] }, loading: false },
+    new: {
+      data: {
+        image_required: true,
+        pairs: [
+          { pairAddress: 'missing-image', baseToken: { symbol: 'NOIMG' } },
+          { pairAddress: 'has-image', baseToken: { symbol: 'IMG' }, info: { imageUrl: 'https://logo.test/img.png' } },
+        ],
+      },
+      loading: false,
+    },
+  });
+  expect([...container.querySelectorAll('[data-testid="token-card"]')].map(card => card.textContent)).toEqual(['IMG']);
   act(() => root.unmount());
 });
 

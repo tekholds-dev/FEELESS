@@ -43,6 +43,7 @@ const basePair = {
   liquidity: { usd: 250000 },
   volume: { h24: 88000 },
   fdv: 1200000,
+  info: { imageUrl: 'https://logo.test/graduated.png' },
 };
 
 describe('PumpRadarCard graduation destination', () => {

@@ -47,6 +47,22 @@ export function coinRoom(pair, perspective = 'trenches') {
   return `coin-${roomPart(identity.chainId)}-${roomPart(identity.pairAddress)}-${roomPart(perspective)}`;
 }
 export const dexUrl = p => `${DEX_SITE}/${encodeURIComponent(p.chainId)}/${encodeURIComponent(p.pairAddress)}`;
+export function hasProviderImage(pair) {
+  const candidates = [
+    pair?.info?.imageUrl,
+    pair?.info?.image,
+    pair?.imageUrl,
+    pair?.image,
+    pair?.logoUrl,
+    pair?.logoURI,
+    pair?.baseToken?.imageUrl,
+    pair?.baseToken?.image,
+    pair?.baseToken?.logoURI,
+    pair?.baseToken?.logoUrl,
+    pair?.baseToken?.logo,
+  ];
+  return candidates.some(value => typeof value === 'string' && /^(https?:\/\/|data:image\/)/i.test(value));
+}
 export function isNewPoolDeal(pair, now = Date.now()) {
   const created = Number(pair?.pairCreatedAt);
   const change = Number(pair?.priceChange?.h24);
