@@ -75,11 +75,41 @@ function cleanPaperList(value, max = 20) {
   return [...new Set(String(value || '').split(/[,\s]+/).map(item => item.trim().toUpperCase()).filter(Boolean))].slice(0, max);
 }
 
+function recoveryKeyHash(value) {
+  return nodeCrypto.createHash('sha256')
+    .update(`${process.env.SESSION_SECRET || 'feeless-paper-agent-preview-secret'}:${value}`)
+    .digest('hex');
+}
+
+function newRecoveryKey() {
+  return `FEE-CAT-${nodeCrypto.randomBytes(18).toString('base64url').toUpperCase()}`;
+}
+
+function paperWalletMode(value) {
+  return value === 'assigned' ? 'assigned' : 'paper';
+}
+
+function coinPlan(value) {
+  return value === 'create' ? 'create' : 'later';
+}
+
+function expirePaperCat(cat) {
+  if (cat.expiredAt || cat.recoveryConfirmedAt || cat.fundedAt || !cat.recoveryExpiresAt) return;
+  if (Date.now() < Date.parse(cat.recoveryExpiresAt)) return;
+  cat.expiredAt = new Date().toISOString();
+  cat.status = 'expired';
+  if (!cat.expiryEventRecorded) {
+    cat.expiryEventRecorded = true;
+    paperEvent(cat, 'EXPIRED', 'Cat expired after 14 days without a saved recovery key or first funding deposit.');
+  }
+}
+
 function paperStrategy(value) {
   return Object.prototype.hasOwnProperty.call(PAPER_STRATEGIES, value) ? value : 'balanced';
 }
 
 function paperPublicCat(cat) {
+  expirePaperCat(cat);
   const strategy = PAPER_STRATEGIES[cat.strategy] || PAPER_STRATEGIES.balanced;
   const realized = Number(cat.realizedPnlSol || 0);
   const positionValue = (cat.positions || []).reduce((sum, position) => sum + Number(position.notionalSol || 0), 0);
@@ -92,7 +122,8 @@ function paperPublicCat(cat) {
     avatar: cat.avatar,
     mode: 'paper',
     wallet: cat.wallet,
-    walletLabel: 'Paper Solana wallet',
+    walletMode: cat.walletMode,
+    walletLabel: cat.walletMode === 'assigned' ? 'Clean assigned Solana wallet' : 'Paper Solana wallet',
     status: cat.revoked ? 'revoked' : cat.status,
     createdAt: cat.createdAt,
     balanceSol: Number(cat.balanceSol.toFixed(6)),
@@ -116,6 +147,15 @@ function paperPublicCat(cat) {
     strategyDescription: strategy.description,
     risk: cat.risk,
     lastCycleAt: cat.lastCycleAt || null,
+    brain: cat.brain,
+    coinPlan: cat.coinPlan,
+    coinStatus: cat.coinStatus,
+    recovery: {
+      saved: Boolean(cat.recoveryConfirmedAt),
+      expiresAt: cat.recoveryExpiresAt,
+      funded: Boolean(cat.fundedAt),
+      needsAction: !cat.recoveryConfirmedAt && !cat.fundedAt,
+    },
     controls: {
       emergencyStop: cat.status !== 'running',
       revoked: Boolean(cat.revoked),
@@ -171,6 +211,7 @@ function paperTokenAllowed(cat, pair) {
 }
 
 async function runPaperCycle(cat) {
+  expirePaperCat(cat);
   if (!cat || cat.revoked || cat.status !== 'running') return null;
   const market = await refreshPaperMarket();
   cat.lastCycleAt = new Date().toISOString();
@@ -235,11 +276,16 @@ function createPaperCat(body) {
   if (!ownerId) throw Object.assign(new Error('A browser owner id is required.'), { statusCode: 400 });
   const keypair = Keypair.generate();
   const id = nodeCrypto.randomUUID();
+  const recoveryKey = newRecoveryKey();
   const maxPosition = Math.min(2, Math.max(0.01, Number(body.maxPositionSol) || 0.25));
   const maxDailyLoss = Math.min(5, Math.max(0.01, Number(body.maxDailyLossSol) || 0.5));
   const cat = {
     id, ownerId, name, avatar: String(body.avatar || 'mint').slice(0, 40),
     wallet: keypair.publicKey.toString(), encryptedPaperSecret: paperSecretFor(keypair),
+    recoveryKeyHash: recoveryKeyHash(recoveryKey), recoveryExpiresAt: new Date(Date.now() + (14 * 24 * 60 * 60 * 1000)).toISOString(),
+    recoveryConfirmedAt: null, fundedAt: null, expiredAt: null, expiryEventRecorded: false,
+    walletMode: paperWalletMode(body.walletMode), brain: String(body.brain || 'rule-engine').slice(0, 40),
+    coinPlan: coinPlan(body.coinPlan), coinStatus: body.coinPlan === 'create' ? 'planned' : 'not_selected',
     createdAt: new Date().toISOString(), status: 'stopped', revoked: false,
     balanceSol: PAPER_STARTING_SOL, withdrawnSol: 0, realizedPnlSol: 0, unrealizedPnlSol: 0, volumeSol: 0, feesSol: 0,
     positions: [], tradeCount: 0, wins: 0, losses: 0, xp: 0, dailyLossSol: 0, lossDay: new Date().toISOString().slice(0, 10), lastCycleAt: null,
@@ -249,7 +295,7 @@ function createPaperCat(body) {
   };
   paperCats.set(id, cat);
   paperEvent(cat, 'CREATED', 'Paper Cat created. No SOL was deposited and no on-chain transaction occurred.');
-  return cat;
+  return { cat, recoveryKey };
 }
 
 function json(res, status, body) {
