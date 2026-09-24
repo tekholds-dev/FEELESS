@@ -32,7 +32,7 @@ test('keeps every fur filter reachable and updates the visible collection', () =
   Object.entries(expectedCounts).forEach(([filter, count]) => {
     act(() => container.querySelector(`[data-testid="feecats-filter-${filter}"]`).click());
     expect(container.querySelector(`[data-testid="feecats-filter-${filter}"]`).getAttribute('aria-pressed')).toBe('true');
-    expect(container.querySelectorAll('.cat-card')).toHaveLength(count);
+    expect(container.querySelectorAll('.cat-card-grid .cat-card')).toHaveLength(count);
   });
 
   act(() => root.unmount());
@@ -64,6 +64,12 @@ test('clearly keeps the current pick active when a filter excludes it', () => {
   act(() => container.querySelector('[data-testid="feecats-filter-spots"]').click());
 
   expect(container.querySelector('.cat-preview-panel h2').textContent).toBe('Midnight Patch');
+  expect(container.querySelector('[data-testid="feecats-pinned-pick"]')).not.toBeNull();
+  expect(container.querySelector('[data-testid="feecats-pinned-pick"]').textContent)
+    .toContain('CURRENT PICK');
+  expect(container.querySelector('[data-testid="feecats-pinned-pick"]').textContent)
+    .toContain('OUTSIDE SPOTTED FILTER');
+  expect(container.querySelectorAll('.cat-card-grid .cat-card')).toHaveLength(34);
   expect(container.querySelector('[data-testid="feecats-filter-selection-note"]').textContent)
     .toContain('Current pick: Midnight Patch');
   expect(container.querySelector('[data-testid="feecats-filter-selection-note"]').textContent)
@@ -73,8 +79,14 @@ test('clearly keeps the current pick active when a filter excludes it', () => {
   expect(container.querySelector('.cat-preview-panel > p').textContent)
     .toContain('not in Spotted');
 
+  act(() => container.querySelector('[data-testid="feecats-pinned-pick"] [data-testid="feecat-card-midnight-patch"]').click());
+  expect(container.querySelector('.cat-action-notice').textContent).toContain('Midnight Patch selected');
+  act(() => container.querySelector('[data-testid="feecats-select"]').click());
+  expect(container.querySelector('.cat-action-notice').textContent).toContain('Midnight Patch is your featured cat');
+
   act(() => container.querySelector('[data-testid="feecats-filter-patch"]').click());
   expect(container.querySelector('[data-testid="feecats-filter-selection-note"]')).toBeNull();
+  expect(container.querySelector('[data-testid="feecats-pinned-pick"]')).toBeNull();
   expect(container.querySelector('[data-testid="feecat-card-midnight-patch"]').className).toContain('selected');
 
   act(() => container.querySelector('[data-testid="feecats-filter-stripes"]').click());
