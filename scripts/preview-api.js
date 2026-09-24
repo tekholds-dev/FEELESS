@@ -16,6 +16,7 @@ const PUMP_API = process.env.PUMP_API_URL || 'https://frontend-api-v3.pump.fun';
 const DEX_SITE = process.env.DEX_SITE_URL || 'https://dexscreener.com';
 const MARKET_CACHE_RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
 const ASSET_THROTTLE_WARNING_COOLDOWN_MS = 60000;
+const PROVIDER_RATE_LIMIT_COOLDOWN_MS = 15000;
 const JUPITER_API = process.env.JUPITER_API_URL || 'https://api.jup.ag';
 const JUPITER_PUBLIC_QUOTE_API = process.env.JUPITER_QUOTE_API_URL || 'https://lite-api.jup.ag/swap/v1';
 const JUPITER_API_KEY = process.env.JUPITER_API_KEY || '';
@@ -29,6 +30,7 @@ const MINTS = {
 
 const cache = new Map();
 const pendingRequests = new Map();
+const providerRateLimitCooldowns = new Map();
 const assetThrottleWarningCooldown = new Map();
 const rooms = new Map();
 const orders = new Map();
@@ -440,6 +442,14 @@ async function getJsonWithMeta(url, ttl = 30000) {
   if (pendingRequests.has(url)) return pendingRequests.get(url);
   const request = (async () => {
     try {
+      const cooldownUntil = providerRateLimitCooldowns.get(url) || 0;
+      if (cooldownUntil > Date.now()) {
+        throw Object.assign(new Error(`${providerNameForUrl(url)} rate-limit cooldown is active.`), {
+          providerStatus: 429,
+          provider: providerNameForUrl(url),
+          rateLimitCooldown: true,
+        });
+      }
       const headers = { Accept: 'application/json' };
       if (String(url).startsWith(GECKO_API) && GECKO_API_KEY) headers['x-cg-pro-api-key'] = GECKO_API_KEY;
       const response = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
@@ -451,8 +461,12 @@ async function getJsonWithMeta(url, ttl = 30000) {
       const value = await response.json();
       const fetchedAt = new Date().toISOString();
       cache.set(url, { at: Date.now(), fetchedAt, value });
+      providerRateLimitCooldowns.delete(url);
       return { value, fetchedAt, stale: false, error: null };
     } catch (error) {
+      if (error?.providerStatus === 429 && !error.rateLimitCooldown) {
+        providerRateLimitCooldowns.set(url, Date.now() + PROVIDER_RATE_LIMIT_COOLDOWN_MS);
+      }
       if (hit && Date.now() - hit.at <= MARKET_CACHE_RETENTION_MS) {
         return {
           value: hit.value,
@@ -999,8 +1013,12 @@ async function dexBoostFeed(kind, page = 1, chain = 'solana') {
   if (String(page) !== '1') throw new Error('Fast discovery is available on the first page only.');
   const indexResult = await getJsonWithMeta(`${DEX_API}/token-boosts/${kind === 'new' ? 'latest' : 'top'}/v1`, 20000);
   const index = indexResult.value;
+  const supportedChains = new Set(SUPPORTED_MARKET_CHAINS);
   const candidates = (Array.isArray(index) ? index : [])
-    .filter(item => (chain === 'all' || item?.chainId === chain) && item?.tokenAddress);
+    .filter(item => (
+      (chain === 'all' ? supportedChains.has(item?.chainId) : item?.chainId === chain)
+      && item?.tokenAddress
+    ));
   const addresses = [...new Set(candidates.map(item => item.tokenAddress))].slice(0, 30);
   if (!addresses.length) throw new Error('Fast discovery returned no indexed tokens.');
   const payloadResult = await getJsonWithMeta(`${DEX_API}/latest/dex/tokens/${addresses.join(',')}`, 20000);
@@ -1008,7 +1026,7 @@ async function dexBoostFeed(kind, page = 1, chain = 'solana') {
   const rank = new Map(candidates.map((item, index) => [`${item.chainId}:${item.tokenAddress}`, index]));
   const bestByToken = new Map();
   for (const pair of payload?.pairs || []) {
-    if (chain !== 'all' && pair?.chainId !== chain) continue;
+    if (chain === 'all' ? !supportedChains.has(pair?.chainId) : pair?.chainId !== chain) continue;
     const key = `${pair.chainId}:${pair.baseToken?.address}`;
     const liquidity = Number(pair.liquidity?.usd || 0);
     if (!bestByToken.has(key) || liquidity > Number(bestByToken.get(key).liquidity?.usd || 0)) bestByToken.set(key, pair);
@@ -1760,6 +1778,7 @@ const server = http.createServer(async (req, res) => {
 
 function startServer() {
   server.listen(PORT, '127.0.0.1', () => {
+    loadPaperState();
     console.log(`[preview-api] listening on http://127.0.0.1:${PORT} with live public market providers`);
     Promise.allSettled([dexBoostFeed('trending'), dexBoostFeed('new')])
       .then(() => console.log('[preview-api] DexScreener radar cache warmed'))
@@ -1776,9 +1795,11 @@ if (require.main === module) startServer();
 
 module.exports = {
   ASSET_THROTTLE_WARNING_COOLDOWN_MS,
+  PROVIDER_RATE_LIMIT_COOLDOWN_MS,
   applyScreener,
   assetThrottleWarningCooldown,
   cache,
+  providerRateLimitCooldowns,
   geckoCandles,
   normalizeScreener,
   route,

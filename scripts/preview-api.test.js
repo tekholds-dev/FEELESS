@@ -20,13 +20,20 @@ process.env.PUMP_API_URL = PUMP_API_URL;
 
 const {
   ASSET_THROTTLE_WARNING_COOLDOWN_MS,
+  PROVIDER_RATE_LIMIT_COOLDOWN_MS,
   applyScreener,
   assetThrottleWarningCooldown,
   cache,
   normalizeScreener,
+  providerRateLimitCooldowns,
   scorePair,
   server,
 } = require('./preview-api');
+
+test.beforeEach(() => {
+  cache.clear();
+  providerRateLimitCooldowns.clear();
+});
 
 function providerResponse(body, status = 200) {
   return {
@@ -335,6 +342,111 @@ test('broad new-coin discovery uses GeckoTerminal across a network and hides poo
   } finally {
     global.fetch = originalFetch;
     cache.clear();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('all-network new-coin fallback cools down rate-limited Gecko requests and recovers on the next refresh', async () => {
+  const originalFetch = global.fetch;
+  const originalNow = Date.now;
+  let geckoAvailable = false;
+  let geckoCalls = 0;
+  let dexCalls = 0;
+  cache.clear();
+  providerRateLimitCooldowns.clear();
+  global.fetch = async target => {
+    const url = String(target);
+    if (url.startsWith(`${GECKO_API_URL}/networks/`) && url.includes('/new_pools?page=1')) {
+      geckoCalls += 1;
+      if (!geckoAvailable) return providerResponse({ detail: 'rate limited' }, 429);
+      const network = url.split('/networks/')[1].split('/')[0];
+      return providerResponse({
+        data: [{
+          id: `${network}_recovered-pool`,
+          attributes: {
+            address: `${network}-recovered-pool`,
+            name: 'RECOVERED / TOKEN',
+            base_token_price_usd: '1.25',
+            image_url: 'https://logo.test/recovered.png',
+          },
+          relationships: {
+            base_token: { data: { id: `${network}_recovered-token` } },
+            quote_token: { data: { id: `${network}_quote-token` } },
+          },
+        }],
+      });
+    }
+    if (url === `${DEX_API_URL}/token-boosts/latest/v1`) {
+      dexCalls += 1;
+      return providerResponse([
+        { chainId: 'solana', tokenAddress: 'SupportedMint' },
+        { chainId: 'robinhood', tokenAddress: 'UnsupportedMint' },
+      ]);
+    }
+    if (url.startsWith(`${DEX_API_URL}/latest/dex/tokens/`)) {
+      dexCalls += 1;
+      return providerResponse({
+        pairs: [
+          {
+            chainId: 'solana',
+            pairAddress: 'supported-pair',
+            baseToken: { address: 'SupportedMint', symbol: 'SUPPORTED', name: 'Supported Coin' },
+            info: { imageUrl: 'https://logo.test/supported.png' },
+            liquidity: { usd: 50000 },
+            pairCreatedAt: Date.now() - 3600000,
+          },
+          {
+            chainId: 'robinhood',
+            pairAddress: 'unsupported-pair',
+            baseToken: { address: 'UnsupportedMint', symbol: 'UNSUPPORTED', name: 'Unsupported Coin' },
+            info: { imageUrl: 'https://logo.test/unsupported.png' },
+          },
+        ],
+      });
+    }
+    throw new Error(`Unexpected provider request: ${url}`);
+  };
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  try {
+    const fallback = await request(baseUrl, '/api/market/feed?kind=new&chain=all', originalFetch);
+    assert.equal(fallback.status, 200);
+    assert.equal(fallback.body.provider, 'DexScreener');
+    assert.equal(fallback.body.primary_provider, 'GeckoTerminal');
+    assert.equal(fallback.body.provider_status, 429);
+    assert.equal(fallback.body.provider_warning.rate_limited, true);
+    assert.equal(fallback.body.fallback_from, 'GeckoTerminal');
+    assert.ok(fallback.body.pairs.length > 0);
+    assert.ok(fallback.body.pairs.every(pair => ['solana', 'ethereum', 'base', 'bsc', 'arbitrum', 'avalanche', 'polygon', 'sui'].includes(pair.chainId)));
+    assert.ok(fallback.body.pairs.every(pair => pair.info?.imageUrl));
+    assert.equal(geckoCalls, 8);
+    assert.equal(dexCalls, 2);
+
+    const cooldownFallback = await request(baseUrl, '/api/market/feed?kind=new&chain=all', originalFetch);
+    assert.equal(cooldownFallback.status, 200);
+    assert.equal(cooldownFallback.body.provider, 'DexScreener');
+    assert.equal(geckoCalls, 8);
+    assert.equal(dexCalls, 2);
+
+    Date.now = () => originalNow() + PROVIDER_RATE_LIMIT_COOLDOWN_MS + 1;
+    geckoAvailable = true;
+    const recovered = await request(baseUrl, '/api/market/feed?kind=new&chain=all', originalFetch);
+    assert.equal(recovered.status, 200);
+    assert.equal(recovered.body.provider, 'GeckoTerminal');
+    assert.equal(recovered.body.primary_provider, 'GeckoTerminal');
+    assert.equal(recovered.body.fallback_from, undefined);
+    assert.equal(recovered.body.image_required, true);
+    assert.equal(recovered.body.image_filtered_count, 0);
+    assert.equal(recovered.body.pairs.length, 8);
+    assert.equal(geckoCalls, 16);
+    assert.equal(dexCalls, 2);
+  } finally {
+    Date.now = originalNow;
+    global.fetch = originalFetch;
+    cache.clear();
+    providerRateLimitCooldowns.clear();
     await new Promise(resolve => server.close(resolve));
   }
 });
