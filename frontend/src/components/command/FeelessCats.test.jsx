@@ -55,3 +55,26 @@ test('updates the preview for a selected cat and for Surprise me', () => {
   randomSpy.mockRestore();
   act(() => root.unmount());
 });
+
+test('clearly keeps the current pick active when a filter excludes it', () => {
+  const { container, root } = mount();
+
+  act(() => container.querySelector('[data-testid="feecat-card-midnight-patch"]').click());
+  act(() => container.querySelector('[data-testid="feecats-filter-spots"]').click());
+
+  expect(container.querySelector('.cat-preview-panel h2').textContent).toBe('Midnight Patch');
+  expect(container.querySelector('[data-testid="feecats-filter-selection-note"]').textContent)
+    .toContain('Current pick: Midnight Patch');
+  expect(container.querySelector('[data-testid="feecats-filter-selection-note"]').textContent)
+    .toContain('outside the Spotted filter');
+  expect(container.querySelector('.cat-preview-top .state-tag').textContent)
+    .toBe('CURRENT PICK · OUTSIDE FILTER');
+  expect(container.querySelector('.cat-preview-panel > p').textContent)
+    .toContain('not in Spotted');
+
+  act(() => container.querySelector('[data-testid="feecats-filter-patch"]').click());
+  expect(container.querySelector('[data-testid="feecats-filter-selection-note"]')).toBeNull();
+  expect(container.querySelector('[data-testid="feecat-card-midnight-patch"]').className).toContain('selected');
+
+  act(() => root.unmount());
+});
