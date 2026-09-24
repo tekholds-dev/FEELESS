@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, AlertTriangle, ArrowLeft, ArrowUpRight, Cat, Check, ChevronRight, CircleStop, Copy, Gauge, LockKeyhole, Play, Plus, RefreshCw, ShieldAlert, SlidersHorizontal, Sparkles, Trophy, Wallet, X } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, ArrowUpRight, Cat, Check, ChevronRight, CircleStop, Copy, Gauge, KeyRound, LockKeyhole, Play, Plus, RefreshCw, ShieldAlert, SlidersHorizontal, Sparkles, Trophy, Wallet, X } from 'lucide-react';
 import { CAT_VARIATIONS, CatAvatar } from './FeeBack';
 
 const OWNER_KEY = 'feeless-paper-owner';
@@ -37,30 +37,55 @@ function AvatarPicker({ value, onChange }) {
   return <div className="paper-avatar-picker" role="group" aria-label="Choose a Cat avatar">{CAT_VARIATIONS.slice(0, 10).map((cat, index) => <button type="button" key={cat[0]} className={value === index ? 'selected' : ''} aria-label={`Choose ${cat[0]}`} onClick={() => onChange(index)}><CatAvatar cat={cat} /></button>)}</div>;
 }
 
+const BRAIN_OPTIONS = [
+  ['claude-opus', 'Anthropic', 'Claude Opus 5.5'],
+  ['claude-fable', 'Anthropic', 'Claude Fable 5.1'],
+  ['gpt-astra', 'OpenAI', 'GPT-6 Astra'],
+  ['gpt-sol', 'OpenAI', 'GPT-6 Sol'],
+  ['muse', 'Meta', 'Muse Spark 1.3'],
+  ['grok', 'xAI', 'Grok 4.7'],
+  ['gemini', 'Google', 'Gemini 3.8 Flash'],
+  ['qwen', 'Alibaba', 'Qwen 3.8 Max'],
+  ['kimi', 'Moonshot', 'Kimi K3'],
+  ['deepseek', 'DeepSeek', 'DeepSeek V4 Pro'],
+];
+
+const STRATEGIES = [['balanced', 'Momentum'], ['momentum', 'Breakouts'], ['conservative', 'Scalping'], ['signals', 'On-chain signals'], ['trend', 'Trend following'], ['conviction', 'Conviction']];
+
 function CreateCat({ onCreated, onCancel }) {
-  const [form, setForm] = useState({ name: '', avatar: 0, strategy: 'balanced', maxPositionSol: '0.25', maxDailyLossSol: '0.5', allowlist: '', blocklist: '' });
+  const [step, setStep] = useState(0);
+  const [form, setForm] = useState({ name: '', handle: '', avatar: 0, brain: 'gpt-astra', strategy: 'momentum', instructions: '', maxPositionSol: '0.25', maxDailyLossSol: '0.5', thinkEvery: '15 min', bio: '', xHandle: '', allowlist: '', blocklist: '', walletMode: 'paper', coinPlan: 'later' });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [created, setCreated] = useState(null);
+  const [recoverySaved, setRecoverySaved] = useState(false);
   const update = (key, value) => setForm(current => ({ ...current, [key]: value }));
+  const brain = BRAIN_OPTIONS.find(item => item[0] === form.brain) || BRAIN_OPTIONS[2];
+  const selectedAvatar = CAT_VARIATIONS[form.avatar] || CAT_VARIATIONS[0];
   const submit = async event => {
     event.preventDefault(); setError(''); setSaving(true);
     try {
-      const result = await api('/api/cats', { method: 'POST', body: JSON.stringify({ ...form, ownerId: ownerId(), avatar: CAT_VARIATIONS[form.avatar]?.[0] || 'Mint Mackerel' }) });
+      const result = await api('/api/cats', { method: 'POST', body: JSON.stringify({ ...form, ownerId: ownerId(), avatar: selectedAvatar[0] }) });
+      setCreated(result);
+    } catch (requestError) { setError(requestError.message); } finally { setSaving(false); }
+  };
+  const confirmRecovery = async () => {
+    if (!created?.recoveryKey || !recoverySaved) return;
+    setSaving(true); setError('');
+    try {
+      const result = await api(`/api/cats/${created.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'confirm_recovery', recoveryKey: created.recoveryKey }) });
       onCreated(result.cat);
     } catch (requestError) { setError(requestError.message); } finally { setSaving(false); }
   };
-  return <section className="paper-create-card">
-    <div className="paper-create-head"><div><span className="eyebrow"><Sparkles size={13} /> CREATE A FEE CAT</span><h2>Ready in under a minute.</h2><p>Start with a paper wallet and a strategy you can inspect before real Solana execution is ever enabled.</p></div><button className="icon-btn" type="button" onClick={onCancel} aria-label="Close Create Cat"><X size={18} /></button></div>
-    <form onSubmit={submit} className="paper-create-form">
-      <label>Cat name<input autoFocus required minLength="2" maxLength="24" value={form.name} onChange={event => update('name', event.target.value)} placeholder="e.g. Mint Scout" /></label>
-      <div><span className="paper-field-label">Choose a look</span><AvatarPicker value={form.avatar} onChange={value => update('avatar', value)} /></div>
-      <label>Strategy<select value={form.strategy} onChange={event => update('strategy', event.target.value)}><option value="balanced">Balanced scout</option><option value="momentum">Momentum hunter</option><option value="conservative">Capital guard</option></select><small>Strategy rules use provider-observed snapshots. They do not guarantee a result.</small></label>
-      <div className="paper-form-grid"><label>Max position · SOL<input type="number" min="0.01" max="2" step="0.01" value={form.maxPositionSol} onChange={event => update('maxPositionSol', event.target.value)} /></label><label>Max daily loss · SOL<input type="number" min="0.01" max="5" step="0.01" value={form.maxDailyLossSol} onChange={event => update('maxDailyLossSol', event.target.value)} /></label></div>
-      <div className="paper-form-grid"><label>Allow only symbols / mints<input value={form.allowlist} onChange={event => update('allowlist', event.target.value)} placeholder="Optional: SOL, BONK" /><small>Comma separated. Empty means any eligible provider result.</small></label><label>Block symbols / mints<input value={form.blocklist} onChange={event => update('blocklist', event.target.value)} placeholder="Optional: SCAM" /></label></div>
-      {error && <div className="paper-form-error" role="alert"><AlertTriangle size={15} />{error}</div>}
-      <div className="paper-create-actions"><button className="btn-outline" type="button" onClick={onCancel}>Cancel</button><button className="btn-primary" type="submit" disabled={saving}><Plus size={15} />{saving ? 'Creating paper Cat…' : 'Create paper Cat'}</button></div>
-    </form>
-  </section>;
+  const copyRecovery = async () => {
+    try { await navigator.clipboard.writeText(created.recoveryKey); setError('Recovery key copied. Check the saved box when it is stored safely.'); } catch { setError('Copy was blocked. Select and save the recovery key manually.'); }
+  };
+  const downloadRecovery = () => {
+    const blob = new Blob([`FEE CAT RECOVERY KEY\n\nCat: ${created.cat.name}\nKey: ${created.recoveryKey}\n\nKeep this offline. Anyone with this key may recover the Cat.`], { type: 'text/plain' });
+    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${created.cat.name.replace(/\s+/g, '-').toLowerCase()}-recovery.txt`; link.click(); URL.revokeObjectURL(link.href);
+  };
+  if (created) return <div className="paper-modal-backdrop"><section className="paper-create-card paper-recovery-card" role="dialog" aria-modal="true" aria-labelledby="recovery-title"><div className="paper-create-head"><div><span className="eyebrow"><LockKeyhole size={13} /> SAVE THIS ONCE</span><h2 id="recovery-title">Your Cat has a recovery key.</h2><p>Save it offline before continuing. If the key is not saved and the Cat is never funded, it expires after 14 days.</p></div><button className="icon-btn" type="button" onClick={onCancel} aria-label="Close recovery key"><X size={18} /></button></div><div className="paper-recovery-key"><code>{created.recoveryKey}</code><div><button type="button" className="btn-outline" onClick={copyRecovery}><Copy size={14} /> Copy key</button><button type="button" className="btn-outline" onClick={downloadRecovery}><ArrowUpRight size={14} /> Save file</button></div></div><label className="paper-recovery-check"><input type="checkbox" checked={recoverySaved} onChange={event => setRecoverySaved(event.target.checked)} /><span><b>I saved the recovery key somewhere safe.</b><small>This is a required owner confirmation. It is never shown again by the API.</small></span></label>{error && <div className="paper-form-error" role="alert"><AlertTriangle size={15} />{error}</div>}<div className="paper-create-actions"><button className="btn-outline" type="button" onClick={onCancel}>I’ll do this later</button><button className="btn-primary" type="button" disabled={!recoverySaved || saving} onClick={confirmRecovery}><Check size={15} />{saving ? 'Confirming…' : 'Save and open Cat'}</button></div></section></div>;
+  return <div className="paper-modal-backdrop"><section className="paper-create-card paper-wizard-card" role="dialog" aria-modal="true" aria-labelledby="create-cat-title"><div className="paper-wizard-visual"><div className="paper-wizard-cat-strip">{CAT_VARIATIONS.slice(1, 4).map(cat => <span key={cat[0]}><CatAvatar cat={cat} /></span>)}</div><button className="icon-btn" type="button" onClick={onCancel} aria-label="Close Create Cat"><X size={18} /></button></div><div className="paper-create-tabs"><button type="button" className="active" onClick={() => setStep(0)}><Sparkles size={14} /> Create one</button><button type="button" disabled title="Connect flow is available after the first paper MVP"><Wallet size={14} /> Connect yours</button></div>{step === 0 && <div className="paper-wizard-body"><span className="eyebrow">NO AGENT YET</span><h2 id="create-cat-title">Create an agent</h2><p>Pick a brain, give it a name and rules, then choose whether it starts as paper or gets a clean wallet assigned to it.</p><div className="paper-step-list">{[['01', 'Pick a brain', 'Choose the reasoning profile for this Cat.'], ['02', 'Name it and set the rules', 'Strategy, instructions, position and daily limits.'], ['03', 'Choose its wallet + coin plan', 'Paper mode is safe; a clean assigned wallet is ready for a later funding flow.'], ['04', 'Save the recovery key', 'Without a saved key or first deposit, an unfunded Cat expires after 14 days.']].map(([number, title, copy]) => <div key={number}><b>{number}</b><span><strong>{title}</strong><small>{copy}</small></span></div>)}</div><button className="btn-primary paper-wizard-next" type="button" onClick={() => setStep(1)}>Create agent <ChevronRight size={16} /></button><small className="paper-wizard-footnote">Anyone can create one. No connected wallet is required to start in paper mode.</small></div>}{step === 1 && <div className="paper-wizard-body"><button type="button" className="paper-wizard-back" onClick={() => setStep(0)}><ArrowLeft size={14} /> Back</button><span className="eyebrow">STEP 01 / BRAIN</span><h2>Pick a brain</h2><p>This selection is stored with the Cat. The paper MVP still executes the transparent rule engine; no AI provider call is implied.</p><div className="paper-brain-grid">{BRAIN_OPTIONS.map(option => <button type="button" className={form.brain === option[0] ? 'selected' : ''} key={option[0]} onClick={() => update('brain', option[0])}><small>{option[1]}</small><b>{option[2]}</b></button>)}</div><div className="paper-wizard-bottom"><small><KeyRound size={13} /> Have an existing Cat with its own wallet? Connect flow is planned.</small><button className="btn-primary" type="button" onClick={() => setStep(2)}>Continue <ChevronRight size={16} /></button></div></div>}{step === 2 && <div className="paper-wizard-body"><button type="button" className="paper-wizard-back" onClick={() => setStep(1)}><ArrowLeft size={14} /> Back</button><span className="eyebrow">STEP 02 / IDENTITY + RULES</span><h2>Name your agent</h2><div className="paper-selected-brain"><b>Brain: {brain[2]}</b><span>{brain[1]}</span><button type="button" onClick={() => setStep(1)}>Change</button></div><div className="paper-form-grid"><label>Name<input autoFocus required minLength="2" maxLength="24" value={form.name} onChange={event => update('name', event.target.value)} placeholder="e.g. Specter" /></label><label>Handle<input required pattern="[a-zA-Z0-9_-]{3,20}" value={form.handle} onChange={event => update('handle', event.target.value.toLowerCase())} placeholder="specter" /><small>3–20 characters: a–z, 0–9, _, -</small></label></div><div><span className="paper-field-label">Look</span><AvatarPicker value={form.avatar} onChange={value => update('avatar', value)} /><small className="paper-helper">Pick a Feeless Cat color. Every base color now has a Spots variant.</small></div><div><span className="paper-field-label">Strategy</span><div className="paper-choice-row">{STRATEGIES.map(([id, label]) => <button type="button" className={form.strategy === id ? 'selected' : ''} key={id} onClick={() => update('strategy', id)}>{label}</button>)}</div></div><label>Instructions <small>optional</small><textarea value={form.instructions} onChange={event => update('instructions', event.target.value)} placeholder="e.g. Only trade tokens with $1M+ market cap. Cut losers at −20%." /></label><div className="paper-form-grid"><label>Max position (SOL)<input type="number" min="0.01" max="2" step="0.01" value={form.maxPositionSol} onChange={event => update('maxPositionSol', event.target.value)} /></label><label>Daily loss limit (SOL)<input type="number" min="0.01" max="5" step="0.01" value={form.maxDailyLossSol} onChange={event => update('maxDailyLossSol', event.target.value)} /></label></div><div className="paper-wizard-bottom"><button className="btn-primary" type="button" onClick={() => setStep(3)}>Continue <ChevronRight size={16} /></button></div></div>}{step === 3 && <form onSubmit={submit} className="paper-wizard-body"><button type="button" className="paper-wizard-back" onClick={() => setStep(2)}><ArrowLeft size={14} /> Back</button><span className="eyebrow">STEP 03 / WALLET + COIN</span><h2>Choose how it starts</h2><div className="paper-option-grid"><button type="button" className={form.walletMode === 'paper' ? 'selected' : ''} onClick={() => update('walletMode', 'paper')}><Gauge size={18} /><b>Paper mode</b><small>Starts with a simulated balance and never broadcasts a transaction.</small></button><button type="button" className={form.walletMode === 'assigned' ? 'selected' : ''} onClick={() => update('walletMode', 'assigned')}><Wallet size={18} /><b>Clean assigned wallet</b><small>Creates a fresh Solana address for this Cat. Funding and signing remain disabled in this preview.</small></button></div><span className="paper-field-label">Coin plan</span><div className="paper-choice-row"><button type="button" className={form.coinPlan === 'later' ? 'selected' : ''} onClick={() => update('coinPlan', 'later')}>Choose later</button><button type="button" className={form.coinPlan === 'create' ? 'selected' : ''} onClick={() => update('coinPlan', 'create')}>Plan a coin on creation</button></div><p className="paper-wizard-disclosure"><AlertTriangle size={14} /> Planning a coin records your choice only. No token is created until a supported launch adapter is enabled.</p>{error && <div className="paper-form-error" role="alert"><AlertTriangle size={15} />{error}</div>}<div className="paper-create-actions"><button className="btn-outline" type="button" onClick={() => setStep(2)}>Back</button><button className="btn-primary" type="submit" disabled={saving}><Plus size={15} />{saving ? 'Creating…' : 'Create agent'}</button></div></form>}</section></div>;
 }
 
 function Leaderboard() {

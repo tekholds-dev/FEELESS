@@ -105,7 +105,9 @@ function expirePaperCat(cat) {
 }
 
 function paperStrategy(value) {
-  return Object.prototype.hasOwnProperty.call(PAPER_STRATEGIES, value) ? value : 'balanced';
+  const aliases = { breakouts: 'momentum', signals: 'momentum', trend: 'momentum', conviction: 'balanced', scalping: 'conservative' };
+  const normalized = aliases[value] || value;
+  return Object.prototype.hasOwnProperty.call(PAPER_STRATEGIES, normalized) ? normalized : 'balanced';
 }
 
 function paperPublicCat(cat) {
@@ -119,6 +121,7 @@ function paperPublicCat(cat) {
     id: cat.id,
     ownerId: cat.ownerId,
     name: cat.name,
+    handle: cat.handle,
     avatar: cat.avatar,
     mode: 'paper',
     wallet: cat.wallet,
@@ -211,6 +214,7 @@ function paperTokenAllowed(cat, pair) {
 }
 
 async function runPaperCycle(cat) {
+  if (!cat) return null;
   expirePaperCat(cat);
   if (!cat || cat.revoked || cat.status !== 'running') return null;
   const market = await refreshPaperMarket();
@@ -272,6 +276,8 @@ async function runPaperCycle(cat) {
 function createPaperCat(body) {
   const name = String(body.name || '').trim().replace(/[^\w -]/g, '').slice(0, 24);
   if (name.length < 2) throw Object.assign(new Error('Cat name must be at least 2 characters.'), { statusCode: 400 });
+  const handle = String(body.handle || name.toLowerCase().replace(/\s+/g, '-')).trim().toLowerCase();
+  if (!/^[a-z0-9_-]{3,20}$/.test(handle)) throw Object.assign(new Error('Handle must be 3–20 characters using letters, numbers, _ or -.'), { statusCode: 400 });
   const ownerId = String(body.ownerId || '').trim().slice(0, 100);
   if (!ownerId) throw Object.assign(new Error('A browser owner id is required.'), { statusCode: 400 });
   const keypair = Keypair.generate();
@@ -280,7 +286,7 @@ function createPaperCat(body) {
   const maxPosition = Math.min(2, Math.max(0.01, Number(body.maxPositionSol) || 0.25));
   const maxDailyLoss = Math.min(5, Math.max(0.01, Number(body.maxDailyLossSol) || 0.5));
   const cat = {
-    id, ownerId, name, avatar: String(body.avatar || 'mint').slice(0, 40),
+    id, ownerId, name, handle, avatar: String(body.avatar || 'mint').slice(0, 40),
     wallet: keypair.publicKey.toString(), encryptedPaperSecret: paperSecretFor(keypair),
     recoveryKeyHash: recoveryKeyHash(recoveryKey), recoveryExpiresAt: new Date(Date.now() + (14 * 24 * 60 * 60 * 1000)).toISOString(),
     recoveryConfirmedAt: null, fundedAt: null, expiredAt: null, expiryEventRecorded: false,
@@ -290,6 +296,10 @@ function createPaperCat(body) {
     balanceSol: PAPER_STARTING_SOL, withdrawnSol: 0, realizedPnlSol: 0, unrealizedPnlSol: 0, volumeSol: 0, feesSol: 0,
     positions: [], tradeCount: 0, wins: 0, losses: 0, xp: 0, dailyLossSol: 0, lossDay: new Date().toISOString().slice(0, 10), lastCycleAt: null,
     strategy: paperStrategy(body.strategy),
+    instructions: String(body.instructions || '').slice(0, 500),
+    thinkEvery: String(body.thinkEvery || '15 min').slice(0, 20),
+    bio: String(body.bio || '').slice(0, 160),
+    xHandle: String(body.xHandle || '').slice(0, 40),
     pnlHistory: [],
     risk: { maxPositionSol: maxPosition, maxDailyLossSol: maxDailyLoss, allowlist: cleanPaperList(body.allowlist), blocklist: cleanPaperList(body.blocklist) },
   };
@@ -1509,8 +1519,8 @@ async function route(req, res, url) {
     return json(res, 200, { mode: 'paper', cats: Array.from(paperCats.values()).filter(cat => !ownerId || cat.ownerId === ownerId).map(paperPublicCat), strategies: Object.entries(PAPER_STRATEGIES).map(([id, value]) => ({ id, ...value })) });
   }
   if (req.method === 'POST' && url.pathname === '/api/cats') {
-    const cat = createPaperCat(await requestBody(req));
-    return json(res, 201, { cat: paperPublicCat(cat), disclosure: 'Paper wallet only. No SOL was deposited and no private key was sent to the client.' });
+    const created = createPaperCat(await requestBody(req));
+    return json(res, 201, { cat: paperPublicCat(created.cat), recoveryKey: created.recoveryKey, disclosure: 'Paper wallet only. No SOL was deposited and no private key was sent to the client. Save the recovery key; it is shown once.' });
   }
   const catActionMatch = url.pathname.match(/^\/api\/cats\/([^/]+)\/action$/);
   if (catActionMatch && req.method === 'POST') {
@@ -1538,6 +1548,15 @@ async function route(req, res, url) {
       cat.revoked = true;
       cat.status = 'stopped';
       paperEvent(cat, 'REVOKED', 'Agent controls revoked. No new paper cycles can run.');
+    } else if (action === 'confirm_recovery') {
+      const supplied = String(body.recoveryKey || '').trim();
+      if (!supplied || recoveryKeyHash(supplied) !== cat.recoveryKeyHash) return json(res, 400, { detail: 'Recovery key does not match this Cat.' });
+      cat.recoveryConfirmedAt = new Date().toISOString();
+      paperEvent(cat, 'RECOVERY_SAVED', 'Recovery key marked as saved. The 14-day no-funding expiry no longer applies.');
+    } else if (action === 'coin_plan') {
+      cat.coinPlan = coinPlan(body.coinPlan);
+      cat.coinStatus = cat.coinPlan === 'create' ? 'planned' : 'not_selected';
+      paperEvent(cat, 'COIN_PLAN', cat.coinPlan === 'create' ? 'Coin creation was selected for a later supported launch flow. No coin was created in paper mode.' : 'Coin creation was deferred.');
     } else if (action === 'controls') {
       cat.risk.maxPositionSol = Math.min(2, Math.max(0.01, Number(body.maxPositionSol) || cat.risk.maxPositionSol));
       cat.risk.maxDailyLossSol = Math.min(5, Math.max(0.01, Number(body.maxDailyLossSol) || cat.risk.maxDailyLossSol));

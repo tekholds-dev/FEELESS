@@ -26,7 +26,7 @@ afterEach(() => {
 
 test('keeps every fur filter reachable and updates the visible collection', () => {
   const { container, root } = mount();
-  const expectedCounts = { all: 25, spots: 9, patch: 8, stripes: 8 };
+  const expectedCounts = { all: 50, spots: 34, patch: 8, stripes: 8 };
 
   Object.entries(expectedCounts).forEach(([filter, count]) => {
     act(() => container.querySelector(`[data-testid="feecats-filter-${filter}"]`).click());
