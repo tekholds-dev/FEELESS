@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Home, CandlestickChart, Rocket, Compass, Star, MessageCircle, Trophy, Bell, BookOpen, Map, FileText, Settings, Search, Menu, Wallet, Globe2, ArrowUpRight, X, Coins, Cat, Activity, Sun, Moon, UserRound } from 'lucide-react';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { FeelessMark, FeelessWordmark } from '../FeelessLogo';
@@ -40,6 +40,25 @@ export const MarketTicker = () => {
   return <div className="market-ticker"><div><span className="sol-icon">≋</span><b data-testid="ticker-native-symbol">{ticker}</b><strong className="mono" data-testid="ticker-native-price">{formatUSD(sol?.priceUsd)}</strong><Change value={sol?.priceChange?.h24} id="ticker-native-change" /></div><span className="ticker-divider" /><div><span>Coin 24h volume</span><b className="mono" data-testid="ticker-native-volume">{formatUSD(sol?.volume?.h24)}</b></div><span className="ticker-divider" /><div className="ticker-source"><span>DexScreener</span><DataStatus data={data} id="ticker-data-status" /></div><span className="ticker-motto">THE EDGE IS IN THE DETAILS.<span className="positive"> STAY EARLY.</span></span></div>;
 };
 
-export const TerminalSidebar = ({ open, onClose, savedCount }) => <><aside className={`terminal-sidebar ${open ? 'sidebar-open' : ''}`} data-testid="terminal-sidebar"><div className="sidebar-section-label">WORKSPACE<button title="Close navigation" className="mobile-close" onClick={onClose} data-testid="sidebar-close"><X size={17} /></button></div><nav>{ITEMS.map(([path, title, Icon], i) => <React.Fragment key={path}>{i === 10 && <div className="sidebar-section-label secondary-label">THE ECOSYSTEM</div>}<NavLink end to={`/terminal${path ? `/${path}` : ''}`} onClick={onClose} data-testid={`nav-${path || 'home'}`} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}><Icon size={18} /><span>{title}</span>{path === 'pump' && <span className="nav-hot">HOT</span>}{path === 'watchlist' && savedCount > 0 && <span className="nav-count" data-testid="watchlist-count">{savedCount}</span>}</NavLink></React.Fragment>)}</nav><div className="sidebar-bottom"><FeelessMark size={50} /><strong>A little less noise.<br /><span>A lot more signal.</span></strong><Link data-testid="sidebar-globe-link" to="/"><Globe2 size={14} />Explore the globe<ArrowUpRight size={13} /></Link><small>YOUR NEXT MOVE STARTS HERE.</small></div></aside>{open && <button className="sidebar-overlay" data-testid="sidebar-overlay" aria-label="Close navigation" onClick={onClose} />}</>;
+const FeeCatNav = ({ onClose }) => {
+  const location = useLocation();
+  const [expanded, setExpanded] = useState(() => location.pathname.startsWith('/terminal/feecat'));
+  const active = location.pathname.startsWith('/terminal/feecat');
+  useEffect(() => { if (active) setExpanded(true); }, [active]);
+  return <div className={`sidebar-feecat-group ${active ? 'active-group' : ''}`}>
+    <div className="sidebar-feecat-row">
+      <NavLink end to="/terminal/feecat" onClick={onClose} data-testid="nav-feecat" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}><Cat size={18} /><span>FeeCat</span></NavLink>
+      <button type="button" className="sidebar-feecat-toggle" aria-label={expanded ? 'Collapse FeeCat menu' : 'Expand FeeCat menu'} aria-expanded={expanded} data-testid="nav-feecat-toggle" onClick={() => setExpanded(value => !value)}>{expanded ? '−' : '+'}</button>
+    </div>
+    {expanded && <div className="sidebar-feecat-subnav" data-testid="feecat-subnav">
+      <NavLink end to="/terminal/feecat" onClick={onClose} data-testid="nav-feecat-home">Cat home</NavLink>
+      <NavLink to="/terminal/feecat/cats" onClick={onClose} data-testid="nav-feeless-cats">Feeless Cats <span>25</span></NavLink>
+    </div>}
+  </div>;
+};
+
+export const TerminalSidebar = ({ open, onClose, savedCount }) => {
+  return <><aside className={`terminal-sidebar ${open ? 'sidebar-open' : ''}`} data-testid="terminal-sidebar"><div className="sidebar-section-label">WORKSPACE<button title="Close navigation" className="mobile-close" onClick={onClose} data-testid="sidebar-close"><X size={17} /></button></div><nav>{ITEMS.map(([path, title, Icon], i) => <React.Fragment key={path}>{i === 10 && <div className="sidebar-section-label secondary-label">THE ECOSYSTEM</div>}{path === 'feecat' ? <FeeCatNav onClose={onClose} /> : <NavLink end to={`/terminal${path ? `/${path}` : ''}`} onClick={onClose} data-testid={`nav-${path || 'home'}`} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}><Icon size={18} /><span>{title}</span>{path === 'pump' && <span className="nav-hot">HOT</span>}{path === 'watchlist' && savedCount > 0 && <span className="nav-count" data-testid="watchlist-count">{savedCount}</span>}</NavLink>}</React.Fragment>)}</nav><div className="sidebar-bottom"><FeelessMark size={50} /><strong>A little less noise.<br /><span>A lot more signal.</span></strong><Link data-testid="sidebar-globe-link" to="/"><Globe2 size={14} />Explore the globe<ArrowUpRight size={13} /></Link><small>YOUR NEXT MOVE STARTS HERE.</small></div></aside>{open && <button className="sidebar-overlay" data-testid="sidebar-overlay" aria-label="Close navigation" onClick={onClose} />}</>;
+};
 
 export const TerminalFooter = () => <footer className="terminal-footer"><span>© {new Date().getFullYear()} FEELESS</span><span>Non-custodial · Solana routing via Jupiter · Fee-Back planned</span><Link to="/terminal/whitepaper" data-testid="footer-whitepaper">Whitepaper / PDF ↗</Link></footer>;

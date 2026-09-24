@@ -17,7 +17,7 @@ import MetaLaunchSetup from '../components/terminal/MetaLaunchSetup';
 import { LAUNCHPADS, matchesPad } from '../lib/launchpads';
 import { FeeHeartbeat, Tokenomics, FeeAssetPage } from '../components/command/FeeCommand';
 import { ContextBar, MouseGlow, AlphaTape, PulseGrid, ContractScanner } from '../components/command/WorkspaceChrome';
-import { FeeBackCenter, FeeCatCenter } from '../components/command/FeeBack';
+import { FeeBackCenter, FeeCatCenter, FeelessCats } from '../components/command/FeeBack';
 import { SwapWorkspace } from '../components/command/SwapWorkspace';
 import { RadarView, PumpRadarView, SignalMovers, LivingWatchlist, ParticipationBoard } from '../components/command/DiscoveryViews';
 import { CommandWhitepaper, MissionRoadmap, UnderstandFeeless, TerminalConfiguration } from '../components/command/CommandDocuments';
@@ -163,10 +163,10 @@ export default function Terminal() {
          {page === 'chat' && <TrenchesView pairs={pairs} newPairs={newFeed.data?.pairs || newPairs} onSelect={onSelect} selectedPair={selected} selectedPerspective={perspective} onPerspectiveChange={onPerspectiveChange} onConnect={() => setWalletOpen(true)} />}
       {page === 'alerts' && <AlertsPage alerts={alerts} setAlerts={setAlerts} selected={alertPair || selected} watchlist={watchlist} ecosystem={ecosystem} />}
       {page === 'fee' && <FeeAssetPage asset={fee}>{fee?.pair ? <TokenFocus pair={fee.pair} has={has} toggle={toggle} /> : <FeeHeartbeat asset={fee} loading={assets.loading} />}</FeeAssetPage>}
-      {page === 'feeback' && <FeeBackCenter feeCat={feeCat} />}{page === 'feecat' && <FeeCatCenter asset={feeCat} community={community} onSelect={onSelect} />}
+       {page === 'feeback' && <FeeBackCenter feeCat={feeCat} />}{page === 'feecat' && <FeeCatCenter asset={feeCat} community={community} onSelect={onSelect} />}{page === 'feecat/cats' && <FeelessCats />}
       {page === 'leaderboard' && <ParticipationBoard />}{page === 'whitepaper' && <CommandWhitepaper />}{page === 'roadmap' && <MissionRoadmap />}{page === 'learn' && <UnderstandFeeless />}
       {page === 'settings' && <TerminalConfiguration settings={settings} setSettings={setSettings} onWallet={() => setWalletOpen(true)} />}
-      {!isMarket && !['launch', 'watchlist', 'chat', 'alerts', 'fee', 'feeback', 'feecat', 'leaderboard', 'whitepaper', 'roadmap', 'learn', 'settings'].includes(page) && <div className="page-heading"><h1>Off the radar.</h1><Link to="/terminal" className="btn-primary" data-testid="unknown-page-home">Back to terminal</Link></div>}
+       {!isMarket && !['launch', 'watchlist', 'chat', 'alerts', 'fee', 'feeback', 'feecat', 'feecat/cats', 'leaderboard', 'whitepaper', 'roadmap', 'learn', 'settings'].includes(page) && <div className="page-heading"><h1>Off the radar.</h1><Link to="/terminal" className="btn-primary" data-testid="unknown-page-home">Back to terminal</Link></div>}
        </div><TerminalFooter />
      </main></div><WalletModal open={walletOpen} onClose={() => setWalletOpen(false)} /><WalletProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} /></div>;
 }
