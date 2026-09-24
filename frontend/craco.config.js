@@ -5,6 +5,7 @@ require("dotenv").config();
 // Check if we're in development/preview mode (not production build)
 // Craco sets NODE_ENV=development for start, NODE_ENV=production for build
 const isDevServer = process.env.NODE_ENV !== "production";
+const previewApiPort = process.env.PREVIEW_API_PORT;
 
 // Environment variable overrides
 const config = {
@@ -156,6 +157,16 @@ let webpackConfig = {
 };
 
 webpackConfig.devServer = (devServerConfig) => {
+  // Release browser checks can run beside the managed preview. CRA derives
+  // this proxy array from package.json, so retarget it only when an isolated
+  // preview API port was explicitly provided.
+  if (previewApiPort && Array.isArray(devServerConfig.proxy)) {
+    devServerConfig.proxy = devServerConfig.proxy.map((proxy) => ({
+      ...proxy,
+      target: `http://127.0.0.1:${previewApiPort}`,
+    }));
+  }
+
   // Add health check endpoints if enabled
   if (config.enableHealthCheck && setupHealthEndpoints && healthPluginInstance) {
     const originalSetupMiddlewares = devServerConfig.setupMiddlewares;

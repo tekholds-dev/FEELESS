@@ -71,6 +71,7 @@
     "start": "craco start",
     "build": "craco build",
     "test": "craco test",
+    "test:feeless-cats-mobile": "bash ../scripts/run-feeless-cats-mobile-check.sh",
     "test:preview-api": "node ../scripts/preview-api.test.js",
     "test:preview-shutdown": "bash ../scripts/check-preview-shutdown.sh"
   },
