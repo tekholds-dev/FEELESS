@@ -23,7 +23,12 @@ import uuid
 PREVIEW_URL = os.environ.get("PREVIEW_URL", "http://127.0.0.1:5000").rstrip("/")
 CDP_PORT = int(os.environ.get("CDP_PORT", "9223"))
 CHROMIUM = os.environ.get("CHROMIUM_BIN", "/repl/tools/bin/chromium")
-VIEWPORTS = (320, 390)
+VIEWPORTS = (
+    ("portrait-small", 320, 900),
+    ("portrait-standard", 390, 900),
+    ("landscape-small", 568, 320),
+    ("landscape-standard", 844, 390),
+)
 FILTER_COUNTS = {"all": 50, "spots": 34, "patch": 8, "stripes": 8}
 
 
@@ -255,12 +260,12 @@ def click(devtools, selector, description):
         raise AssertionError(f"{description}: selector not found: {selector}")
 
 
-def run_viewport(devtools, width):
+def run_viewport(devtools, name, width, height):
     devtools.command(
         "Emulation.setDeviceMetricsOverride",
         {
             "width": width,
-            "height": 900,
+            "height": height,
             "deviceScaleFactor": 1,
             "mobile": True,
         },
@@ -273,7 +278,7 @@ def run_viewport(devtools, width):
     assert_state(
         devtools.evaluate("!!document.querySelector('[data-testid=\"feecat-subnav\"]')"),
         False,
-        f"FeeCat submenu starts collapsed at {width}px",
+        f"FeeCat submenu starts collapsed at {name} ({width}x{height})",
     )
     click(devtools, '[data-testid="terminal-menu-toggle"]', "open mobile sidebar")
     wait_for(
@@ -289,7 +294,7 @@ def run_viewport(devtools, width):
         wait_for(devtools, "!!document.querySelector('[data-testid=\"feecats-filter-all\"]')", "Feeless Cats page")
     except AssertionError as error:
         current = devtools.evaluate("location.href")
-        failure = f"Feeless Cats link at {width}px: landed at {current!r} ({error})"
+        failure = f"Feeless Cats link at {name} ({width}x{height}): landed at {current!r} ({error})"
         devtools.navigation_failures.append(failure)
         raise AssertionError(failure) from error
 
@@ -307,7 +312,7 @@ def run_viewport(devtools, width):
     assert_state(
         overflow["horizontalOverflow"],
         False,
-        f"horizontal overflow at {width}px ({overflow})",
+        f"horizontal overflow at {name} ({width}x{height}) ({overflow})",
     )
 
     for filter_id, expected_count in FILTER_COUNTS.items():
@@ -370,7 +375,7 @@ def run_viewport(devtools, width):
             '.cat-preview-panel h2',
             '.cat-preview-panel > p',
         ],
-        f"Spotted excluded-pick details at {width}px",
+        f"Spotted excluded-pick details at {name} ({width}x{height})",
     )
 
     click(devtools, '[data-testid="feecats-filter-patch"]', "select Patchy fur filter")
@@ -391,7 +396,7 @@ def run_viewport(devtools, width):
             '.cat-preview-panel h2',
             '.cat-preview-panel > p',
         ],
-        f"Patchy matching-pick preview at {width}px",
+        f"Patchy matching-pick preview at {name} ({width}x{height})",
     )
 
     click(devtools, '[data-testid="feecats-filter-stripes"]', "select Tabby fur filter")
@@ -418,7 +423,7 @@ def run_viewport(devtools, width):
             '.cat-preview-panel h2',
             '.cat-preview-panel > p',
         ],
-        f"Tabby excluded-pick details at {width}px",
+        f"Tabby excluded-pick details at {name} ({width}x{height})",
     )
 
     click(devtools, '[data-testid="feecats-select"]', "set featured cat")
@@ -438,7 +443,7 @@ def run_viewport(devtools, width):
         "Surprise me to choose a different cat",
     )
 
-    return overflow
+    return {"name": name, **overflow}
 
 
 def main():
@@ -461,8 +466,8 @@ def main():
     results = []
     try:
         devtools = connect_target(timeout=15)
-        for width in VIEWPORTS:
-            results.append(run_viewport(devtools, width))
+        for name, width, height in VIEWPORTS:
+            results.append(run_viewport(devtools, name, width, height))
         if devtools.console_errors:
             details = "\n".join(f"  - {error}" for error in devtools.console_errors)
             raise AssertionError(f"browser console errors:\n{details}")
@@ -472,7 +477,7 @@ def main():
         print(
             "PASS Feeless Cats mobile browser check: "
             + ", ".join(
-                f"{result['viewport']}px (document {result['documentWidth']}px, body {result['bodyWidth']}px)"
+                f"{result['name']} {result['viewport']}px (document {result['documentWidth']}px, body {result['bodyWidth']}px)"
                 for result in results
             )
         )
