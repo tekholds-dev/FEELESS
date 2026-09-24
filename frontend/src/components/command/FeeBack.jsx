@@ -70,7 +70,11 @@ export const FeelessCats = () => {
   const visibleCats = useMemo(() => filter === 'all' ? CAT_VARIATIONS : CAT_VARIATIONS.filter(([, , , pattern]) => pattern === filter), [filter]);
   const activeCat = CAT_VARIATIONS[selected] || CAT_VARIATIONS[0];
   const pickCat = cat => { const index = CAT_VARIATIONS.indexOf(cat); setSelected(index); setNotice(`${cat[0]} selected`); };
-  const randomCat = () => pickCat(CAT_VARIATIONS[Math.floor(Math.random() * CAT_VARIATIONS.length)]);
+  const randomCat = () => {
+    if (CAT_VARIATIONS.length < 2) return;
+    const nextIndex = (selected + 1 + Math.floor(Math.random() * (CAT_VARIATIONS.length - 1))) % CAT_VARIATIONS.length;
+    pickCat(CAT_VARIATIONS[nextIndex]);
+  };
   const copyName = async () => { try { await navigator.clipboard.writeText(`FEECAT-${String(selected + 1).padStart(2, '0')}`); setNotice('Cat ID copied'); } catch { setNotice('Cat ID ready to copy'); } };
   return <div className="feeless-cats-page">
     <div className="cats-page-head"><div><span className="eyebrow"><Cat size={13} /> FEECAT COLLECTION / 25 VARIATIONS</span><h1>Find your <em>Feeless Cat.</em></h1><p>Pick a color, claim a mood, and make your corner of the FEELESS network recognizable.</p></div><Link to="/terminal/feecat" className="btn-outline" data-testid="feecats-back">FeeCat home <ArrowUpRight size={14} /></Link></div>
