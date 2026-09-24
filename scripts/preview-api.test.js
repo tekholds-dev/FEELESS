@@ -356,21 +356,22 @@ test('all-network new-coin fallback cools down rate-limited Gecko requests and r
   providerRateLimitCooldowns.clear();
   global.fetch = async target => {
     const url = String(target);
-    if (url.startsWith(`${GECKO_API_URL}/networks/`) && url.includes('/new_pools?page=1')) {
+    if (url.startsWith(`${GECKO_API_URL}/networks/`) && url.includes('/new_pools?page=')) {
       geckoCalls += 1;
       if (!geckoAvailable) return providerResponse({ detail: 'rate limited' }, 429);
       const network = url.split('/networks/')[1].split('/')[0];
+      const providerPage = Number(new URL(url).searchParams.get('page'));
       return providerResponse({
         data: [{
-          id: `${network}_recovered-pool`,
+          id: `${network}_recovered-pool-${providerPage}`,
           attributes: {
-            address: `${network}-recovered-pool`,
+            address: `${network}-recovered-pool-${providerPage}`,
             name: 'RECOVERED / TOKEN',
             base_token_price_usd: '1.25',
             image_url: 'https://logo.test/recovered.png',
           },
           relationships: {
-            base_token: { data: { id: `${network}_recovered-token` } },
+            base_token: { data: { id: `${network}_recovered-token-${providerPage}` } },
             quote_token: { data: { id: `${network}_quote-token` } },
           },
         }],
@@ -439,14 +440,94 @@ test('all-network new-coin fallback cools down rate-limited Gecko requests and r
     assert.equal(recovered.body.fallback_from, undefined);
     assert.equal(recovered.body.image_required, true);
     assert.equal(recovered.body.image_filtered_count, 0);
-    assert.equal(recovered.body.pairs.length, 8);
-    assert.equal(geckoCalls, 16);
+    assert.equal(recovered.body.pairs.length, 24);
+    assert.equal(geckoCalls, 32);
     assert.equal(dexCalls, 2);
   } finally {
     Date.now = originalNow;
     global.fetch = originalFetch;
     cache.clear();
     providerRateLimitCooldowns.clear();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('all-network fresh feed samples bounded Gecko pages and reports partial coverage without claiming completeness', async () => {
+  const originalFetch = global.fetch;
+  const calls = [];
+  cache.clear();
+  global.fetch = async target => {
+    const url = String(target);
+    if (!url.startsWith(`${GECKO_API_URL}/networks/`) || !url.includes('/new_pools?page=')) {
+      throw new Error(`Unexpected provider request: ${url}`);
+    }
+    const network = url.split('/networks/')[1].split('/')[0];
+    const page = Number(new URL(url).searchParams.get('page'));
+    calls.push({ network, page });
+    if (network === 'base' && page === 2) return providerResponse({ detail: 'rate limited' }, 429);
+    if (network === 'avax' && page === 2) return providerResponse({ detail: 'temporarily unavailable' }, 503);
+    return providerResponse({
+      data: [{
+        id: `${network}_pool-${page}`,
+        attributes: {
+          address: `${network}-pool-${page}`,
+          name: `COIN${page} / QUOTE`,
+          base_token_price_usd: '1.25',
+          image_url: `https://logo.test/${network}-${page}.png`,
+          pool_created_at: new Date(Date.now() - 3600000).toISOString(),
+          reserve_in_usd: '50000',
+          volume_usd: { h24: '10000' },
+        },
+        relationships: {
+          base_token: { data: { id: `${network}_token-${page}` } },
+          quote_token: { data: { id: `${network}_quote` } },
+        },
+      }],
+    });
+  };
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  try {
+    const first = await request(baseUrl, '/api/market/feed?kind=new&chain=all&page=1', originalFetch);
+    assert.equal(first.status, 200);
+    assert.equal(first.body.provider, 'GeckoTerminal');
+    assert.equal(first.body.primary_provider, 'GeckoTerminal');
+    assert.equal(first.body.provider_pagination.requested_page, 1);
+    assert.deepEqual(first.body.provider_pagination.pages_requested, [1, 2, 3]);
+    assert.deepEqual(first.body.provider_pagination.pages_received, [1, 2, 3]);
+    assert.equal(first.body.provider_pagination.page_budget, 3);
+    assert.equal(first.body.provider_pagination.partial, true);
+    assert.deepEqual(first.body.provider_pagination.failed_requests, [
+      { chain: 'base', page: 2, provider_status: 429 },
+      { chain: 'avalanche', page: 2, provider_status: 503 },
+    ]);
+    assert.equal(first.body.provider_pagination.can_request_next_page, false);
+    assert.match(first.body.provider_pagination.completeness, /additional provider pages may exist/i);
+    assert.equal(first.body.provider_status, 429);
+    assert.equal(first.body.image_required, true);
+    assert.equal(first.body.image_filtered_count, 0);
+    assert.equal(first.body.pairs.length, 22);
+    assert.ok(first.body.pairs.every(pair => ['solana', 'ethereum', 'base', 'bsc', 'arbitrum', 'avalanche', 'polygon', 'sui'].includes(pair.chainId)));
+    assert.ok(first.body.pairs.every(pair => pair.info?.imageUrl));
+    assert.equal(calls.length, 24);
+    assert.ok(calls.every(call => [1, 2, 3].includes(call.page)));
+
+    const second = await request(baseUrl, '/api/market/feed?kind=new&chain=all&page=2', originalFetch);
+    assert.equal(second.status, 200);
+    assert.equal(second.body.provider, 'GeckoTerminal');
+    assert.equal(second.body.provider_pagination.requested_page, 2);
+    assert.deepEqual(second.body.provider_pagination.pages_requested, [4, 5, 6]);
+    assert.deepEqual(second.body.provider_pagination.pages_received, [4, 5, 6]);
+    assert.equal(second.body.provider_pagination.partial, false);
+    assert.equal(second.body.pairs.length, 24);
+    assert.ok(second.body.pairs.every(pair => pair.info?.imageUrl));
+    assert.equal(calls.length, 48);
+    assert.ok(calls.slice(24).every(call => [4, 5, 6].includes(call.page)));
+  } finally {
+    global.fetch = originalFetch;
+    cache.clear();
     await new Promise(resolve => server.close(resolve));
   }
 });

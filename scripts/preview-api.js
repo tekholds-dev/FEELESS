@@ -17,6 +17,7 @@ const DEX_SITE = process.env.DEX_SITE_URL || 'https://dexscreener.com';
 const MARKET_CACHE_RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
 const ASSET_THROTTLE_WARNING_COOLDOWN_MS = 60000;
 const PROVIDER_RATE_LIMIT_COOLDOWN_MS = 15000;
+const GECKO_NEW_ALL_PAGE_BUDGET = 3;
 const JUPITER_API = process.env.JUPITER_API_URL || 'https://api.jup.ag';
 const JUPITER_PUBLIC_QUOTE_API = process.env.JUPITER_QUOTE_API_URL || 'https://lite-api.jup.ag/swap/v1';
 const JUPITER_API_KEY = process.env.JUPITER_API_KEY || '';
@@ -895,22 +896,72 @@ async function geckoFeed(kind, page = 1, chain = 'solana') {
   const endpoint = kind === 'new' ? 'new_pools' : 'trending_pools';
   const chains = chain === 'all' ? SUPPORTED_MARKET_CHAINS : [chain];
   if (chains.some(value => !GECKO_NETWORKS[value])) throw Object.assign(new Error('Unsupported market chain.'), { statusCode: 400 });
-  const responses = await Promise.all(chains.map(value => getJsonWithMeta(
-    `${GECKO_API}/networks/${GECKO_NETWORKS[value]}/${endpoint}?page=${page}`,
-    30000,
-  )));
-  const pairs = responses.flatMap(response => geckoResult(response.value, kind).pairs);
+  const requestedPage = Math.max(1, Math.floor(Number(page) || 1));
+  const pageBudget = kind === 'new' && chain === 'all' ? GECKO_NEW_ALL_PAGE_BUDGET : 1;
+  const firstProviderPage = ((requestedPage - 1) * pageBudget) + 1;
+  const pages = pageBudget > 1
+    ? Array.from({ length: pageBudget }, (_, index) => firstProviderPage + index)
+    : [requestedPage];
+  const fulfilled = [];
+  const rejected = [];
+  const requestedPages = [];
+  for (const providerPage of pages) {
+    const requests = chains.map(value => ({
+      chain: value,
+      page: providerPage,
+      promise: getJsonWithMeta(
+        `${GECKO_API}/networks/${GECKO_NETWORKS[value]}/${endpoint}?page=${providerPage}`,
+        30000,
+      ),
+    }));
+    requestedPages.push(providerPage);
+    const settled = await Promise.allSettled(requests.map(request => request.promise));
+    fulfilled.push(...settled.flatMap((result, index) => result.status === 'fulfilled'
+      ? [{ ...requests[index], response: result.value }]
+      : []));
+    rejected.push(...settled.flatMap((result, index) => result.status === 'rejected'
+      ? [{ ...requests[index], error: result.reason }]
+      : []));
+    const pageHadNoSuccessfulNetworks = settled.length > 0
+      && settled.every(result => result.status === 'rejected');
+    if (pageHadNoSuccessfulNetworks) break;
+  }
+  if (!fulfilled.length) throw rejected[0]?.error || new Error('GeckoTerminal returned no indexed pools.');
+  const pairs = fulfilled.flatMap(({ response }) => geckoResult(response.value, kind).pairs);
   if (!pairs.length) throw new Error('GeckoTerminal returned no indexed pools.');
+  const responses = fulfilled.map(item => item.response);
   const fetchedAt = responses.map(response => response.fetchedAt).filter(Boolean).sort().at(-1);
+  const pagesReceived = [...new Set(fulfilled.map(item => item.page))].sort((a, b) => a - b);
+  const partial = rejected.length > 0 || requestedPages.length < pages.length;
   return {
     ...providerMeta('GeckoTerminal', fetchedAt, {
       stale: responses.some(response => response.stale),
-      error: responses.find(response => response.error)?.error || null,
-      providerStatus: responses.find(response => response.providerStatus)?.providerStatus,
+      error: responses.find(response => response.error)?.error
+        || (rejected.length ? `Partial provider response: ${publicError(rejected[0].error)}` : null),
+      providerStatus: responses.find(response => response.providerStatus)?.providerStatus
+        || rejected.find(request => request.error?.providerStatus)?.error?.providerStatus,
     }),
     label: kind === 'new' ? 'New pools · image verified' : 'Trending pools',
     pairs,
-    page: Number(page),
+    page: requestedPage,
+    provider_pagination: {
+      provider: 'GeckoTerminal',
+      requested_page: requestedPage,
+      pages_requested: requestedPages,
+      pages_received: pagesReceived,
+      page_budget: pages.length,
+      partial,
+      can_request_next_page: kind === 'new'
+        && chain === 'all'
+        && pairs.length > 0
+        && !rejected.some(request => request.error?.providerStatus === 429),
+      failed_requests: rejected.map(request => ({
+        chain: request.chain,
+        page: request.page,
+        provider_status: request.error?.providerStatus || null,
+      })),
+      completeness: 'Bounded provider snapshot; additional provider pages may exist.',
+    },
   };
 }
 
@@ -1044,7 +1095,18 @@ async function dexBoostFeed(kind, page = 1, chain = 'solana') {
     }),
     label: kind === 'new' ? 'Recent indexed pools · image verified' : 'Boosted discovery',
     pairs,
-    page: 1,
+    page: Number(page),
+    provider_pagination: {
+      provider: 'DexScreener',
+      requested_page: Number(page),
+      pages_requested: [1],
+      pages_received: [1],
+      page_budget: 1,
+      partial: false,
+      can_request_next_page: false,
+      failed_requests: [],
+      completeness: 'Bounded provider snapshot; additional provider pages may exist.',
+    },
   };
 }
 
@@ -1795,6 +1857,7 @@ if (require.main === module) startServer();
 
 module.exports = {
   ASSET_THROTTLE_WARNING_COOLDOWN_MS,
+  GECKO_NEW_ALL_PAGE_BUDGET,
   PROVIDER_RATE_LIMIT_COOLDOWN_MS,
   applyScreener,
   assetThrottleWarningCooldown,

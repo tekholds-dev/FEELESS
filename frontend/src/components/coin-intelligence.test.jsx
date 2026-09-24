@@ -45,7 +45,7 @@ test('renders top and new provider feeds under the ecosystem intelligence view',
     reload: jest.fn(),
   };
   mockMarketResponses['/feed?kind=new&chain=solana'] = {
-    data: { pairs: [{ pairAddress: 'new-1', baseToken: { symbol: 'NEW' } }] },
+    data: { pairs: [{ pairAddress: 'new-1', baseToken: { symbol: 'NEW' }, info: { imageUrl: 'https://logo.test/new.png' } }] },
     loading: false,
     error: '',
     reload: jest.fn(),
@@ -66,7 +66,7 @@ test('passes each feed screener label to its coin cards', () => {
     error: '',
   };
   mockMarketResponses['/feed?kind=new&chain=solana'] = {
-    data: { pairs: [{ pairAddress: 'new-1', baseToken: { symbol: 'NEW' } }] },
+    data: { pairs: [{ pairAddress: 'new-1', baseToken: { symbol: 'NEW' }, info: { imageUrl: 'https://logo.test/new.png' } }] },
     loading: false,
     error: '',
   };

@@ -9,6 +9,7 @@ let mockPage = 'settings';
 let mockSearch = new URLSearchParams();
 let mockPairResult = { data: { pairs: [] }, loading: false, refreshing: false, error: undefined, reload: jest.fn() };
 let mockMarketResult = { data: { pairs: [] }, loading: false, refreshing: false, error: undefined, reload: jest.fn() };
+let mockMarketPaths = [];
 
 jest.mock('@solana/web3.js', () => ({
   VersionedTransaction: { deserialize: jest.fn() },
@@ -47,6 +48,7 @@ jest.mock('../hooks/useWallet', () => ({
 
 jest.mock('../hooks/useMarket', () => ({
   useMarket: path => {
+    if (path) mockMarketPaths.push(path);
     if (path === '/assets') {
       return { data: { assets: [{ id: 'fee', label: 'FEE', mint: 'fee-mint', chain: 'solana' }] }, loading: false };
     }
@@ -54,7 +56,7 @@ jest.mock('../hooks/useMarket', () => ({
       return { data: { configured: false }, loading: false };
     }
     if (path === '/pair/ethereum/pool1') return mockPairResult;
-    if (path?.startsWith('/feed?kind=trending')) return mockMarketResult;
+    if (path?.startsWith('/feed?kind=trending') || path?.startsWith('/feed?kind=new')) return mockMarketResult;
     return { data: { pairs: [] }, loading: false, refreshing: false, error: undefined, reload: jest.fn() };
   },
   useWatchlist: () => ({ watchlist: [], toggle: jest.fn(), has: jest.fn(() => false) }),
@@ -214,6 +216,7 @@ afterEach(() => {
   mockSearch = new URLSearchParams();
   mockPairResult = { data: { pairs: [] }, loading: false, refreshing: false, error: undefined, reload: jest.fn() };
   mockMarketResult = { data: { pairs: [] }, loading: false, refreshing: false, error: undefined, reload: jest.fn() };
+  mockMarketPaths = [];
   localStorage.clear();
   document.body.innerHTML = '';
   document.head.querySelector('[data-testid="trade-styles"]')?.remove();
@@ -451,5 +454,46 @@ test('keeps trade readouts and controls bounded at a narrow preview width for ev
   expect(tradeRule('[data-testid="swap-review-dialog"] > .btn-primary').style.getPropertyValue('width')).toBe('100%');
   expect(narrowTradeRule('[data-testid="swap-review-dialog"]').style.getPropertyValue('width')).toBe('calc(100% - 20px)');
 
+  act(() => root.unmount());
+});
+
+test('all-chain fresh discovery advances through the next bounded provider page window', () => {
+  mockPage = 'new';
+  mockSearch = new URLSearchParams('chain=all&screen=new');
+  mockMarketResult = {
+    data: {
+      provider: 'GeckoTerminal',
+      pairs: Array.from({ length: 21 }, (_, index) => ({
+        chainId: 'solana',
+        pairAddress: `pool-${index}`,
+        pairCreatedAt: Date.now() - 3600000,
+        priceChange: { h24: -6 },
+        baseToken: { address: `mint-${index}`, symbol: `TOKEN${index}` },
+      })),
+      provider_pagination: { can_request_next_page: true, pages_requested: [1, 2, 3] },
+    },
+    loading: false,
+    refreshing: false,
+    error: undefined,
+    reload: jest.fn(),
+  };
+  const { container, root } = mount();
+
+  expect(mockMarketPaths.filter(path => path === '/feed?kind=new&chain=all&page=1&screen=new')).toHaveLength(2);
+  expect(container.querySelector('[data-testid="market-coverage"]').textContent).toContain('Provider pages 1–3 sampled');
+  const nextPage = container.querySelector('[data-testid="market-next-page"]');
+  expect(nextPage.disabled).toBe(false);
+  act(() => nextPage.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+
+  expect(mockMarketPaths.filter(path => path === '/feed?kind=new&chain=all&page=2&screen=new').length).toBeGreaterThanOrEqual(2);
+  mockMarketResult = {
+    ...mockMarketResult,
+    data: {
+      ...mockMarketResult.data,
+      provider_pagination: { can_request_next_page: false, pages_requested: [4, 5] },
+    },
+  };
+  renderCurrentPage(root);
+  expect(container.querySelector('[data-testid="market-next-page"]').disabled).toBe(true);
   act(() => root.unmount());
 });
