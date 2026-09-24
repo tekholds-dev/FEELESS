@@ -13,3 +13,4 @@
 - [Paper agent boundary](paper-agent-boundary.md) — autonomous Cat MVP results must stay visibly paper-only until real wallet signing, custody, and on-chain confirmation are separately enabled.
 - [Mobile collection verification](mobile-collection-verification.md) — settle React updates between browser actions and reset filters before selecting a named gallery fixture.
 - [Collection count contract](collection-count-contract.md) — mobile checks must track the documented collection counts when Cat variants expand.
+- [Browser status selector scope](browser-status-selector.md) — scope live-region assertions when multiple status messages can coexist.

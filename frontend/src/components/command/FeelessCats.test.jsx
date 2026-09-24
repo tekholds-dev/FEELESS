@@ -24,6 +24,7 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
+
 test('keeps every fur filter reachable and updates the visible collection', () => {
   const { container, root } = mount();
   const expectedCounts = { all: 50, spots: 34, patch: 8, stripes: 8 };
@@ -75,6 +76,13 @@ test('clearly keeps the current pick active when a filter excludes it', () => {
   act(() => container.querySelector('[data-testid="feecats-filter-patch"]').click());
   expect(container.querySelector('[data-testid="feecats-filter-selection-note"]')).toBeNull();
   expect(container.querySelector('[data-testid="feecat-card-midnight-patch"]').className).toContain('selected');
+
+  act(() => container.querySelector('[data-testid="feecats-filter-stripes"]').click());
+  expect(container.querySelector('[data-testid="feecats-filter-selection-note"]').textContent)
+    .toContain('outside the Tabby filter');
+  expect(container.querySelector('.cat-preview-panel h2').textContent).toBe('Midnight Patch');
+  expect(container.querySelector('.cat-preview-panel > p').textContent)
+    .toContain('not in Tabby');
 
   act(() => root.unmount());
 });

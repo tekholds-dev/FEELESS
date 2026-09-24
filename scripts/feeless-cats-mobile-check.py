@@ -189,7 +189,38 @@ def assert_state(actual, expected, description):
     if actual != expected:
         raise AssertionError(f"{description}: expected {expected!r}, got {actual!r}")
 
-
+def assert_readable_within_phone(devtools, selectors, description):
+    result = devtools.evaluate(
+        f"""(() => {{
+            const viewportWidth = window.innerWidth;
+            const elements = {json.dumps(selectors)}.map(selector => {{
+                const element = document.querySelector(selector);
+                if (!element) return {{ selector, missing: true }};
+                const rect = element.getBoundingClientRect();
+                return {{
+                    selector,
+                    missing: false,
+                    left: rect.left,
+                    right: rect.right,
+                    width: rect.width,
+                    text: element.textContent,
+                }};
+            }});
+            return {{
+                viewportWidth,
+                elements,
+                readable: elements.every(element => !element.missing
+                    && element.width > 0
+                    && element.left >= 0
+                    && element.right <= viewportWidth),
+            }};
+        }})()"""
+    )
+    assert_state(
+        result["readable"],
+        True,
+        f"{description} ({result})",
+    )
 def navigate(devtools, path):
     destination = f"{PREVIEW_URL}{path}"
     result = devtools.command("Page.navigate", {"url": destination})
@@ -310,10 +341,90 @@ def run_viewport(devtools, width):
             && document.querySelector('[role="status"]')?.textContent.includes('Midnight Patch selected')""",
         "selected card preview",
     )
+
+    # Keep the selected cat in the preview while moving through every
+    # patterned filter. The notice and badge explain why its gallery card is
+    # temporarily absent, while the matching filter restores the card.
+    click(devtools, '[data-testid="feecats-filter-spots"]', "select Spotted fur filter")
+    wait_for(
+        devtools,
+        """(() => {
+            const note = document.querySelector('[data-testid="feecats-filter-selection-note"]');
+            const badge = document.querySelector('.cat-preview-top .state-tag');
+            const name = document.querySelector('.cat-preview-panel h2');
+            const details = document.querySelector('.cat-preview-panel > p');
+            return document.querySelector('[data-testid="feecats-filter-spots"]')?.getAttribute('aria-pressed') === 'true'
+                && note?.textContent.includes('Current pick: Midnight Patch')
+                && note?.textContent.includes('outside the Spotted filter')
+                && badge?.textContent === 'CURRENT PICK · OUTSIDE FILTER'
+                && name?.textContent === 'Midnight Patch'
+                && details?.textContent.includes('not in Spotted');
+        })()""",
+        "Spotted excluded-pick explanation",
+    )
+    assert_readable_within_phone(
+        devtools,
+        [
+            '[data-testid="feecats-filter-selection-note"]',
+            '.cat-preview-top .state-tag',
+            '.cat-preview-panel h2',
+            '.cat-preview-panel > p',
+        ],
+        f"Spotted excluded-pick details at {width}px",
+    )
+
+    click(devtools, '[data-testid="feecats-filter-patch"]', "select Patchy fur filter")
+    wait_for(
+        devtools,
+        """(() => {
+            const card = document.querySelector('[data-testid="feecat-card-midnight-patch"]');
+            return !document.querySelector('[data-testid="feecats-filter-selection-note"]')
+                && card?.classList.contains('selected')
+                && document.querySelector('.cat-preview-panel h2')?.textContent === 'Midnight Patch';
+        })()""",
+        "Patchy matching-pick restoration",
+    )
+    assert_readable_within_phone(
+        devtools,
+        [
+            '.cat-preview-top .state-tag',
+            '.cat-preview-panel h2',
+            '.cat-preview-panel > p',
+        ],
+        f"Patchy matching-pick preview at {width}px",
+    )
+
+    click(devtools, '[data-testid="feecats-filter-stripes"]', "select Tabby fur filter")
+    wait_for(
+        devtools,
+        """(() => {
+            const note = document.querySelector('[data-testid="feecats-filter-selection-note"]');
+            const badge = document.querySelector('.cat-preview-top .state-tag');
+            const name = document.querySelector('.cat-preview-panel h2');
+            const details = document.querySelector('.cat-preview-panel > p');
+            return note?.textContent.includes('Current pick: Midnight Patch')
+                && note?.textContent.includes('outside the Tabby filter')
+                && badge?.textContent === 'CURRENT PICK · OUTSIDE FILTER'
+                && name?.textContent === 'Midnight Patch'
+                && details?.textContent.includes('not in Tabby');
+        })()""",
+        "Tabby excluded-pick explanation",
+    )
+    assert_readable_within_phone(
+        devtools,
+        [
+            '[data-testid="feecats-filter-selection-note"]',
+            '.cat-preview-top .state-tag',
+            '.cat-preview-panel h2',
+            '.cat-preview-panel > p',
+        ],
+        f"Tabby excluded-pick details at {width}px",
+    )
+
     click(devtools, '[data-testid="feecats-select"]', "set featured cat")
     wait_for(
         devtools,
-        "document.querySelector('[role=\"status\"]')?.textContent.includes('Midnight Patch is your featured cat')",
+        "document.querySelector('.cat-action-notice')?.textContent.includes('Midnight Patch is your featured cat')",
         "featured cat confirmation",
     )
     click(devtools, '[data-testid="feecats-random"]', "use Surprise me")
@@ -321,7 +432,7 @@ def run_viewport(devtools, width):
         devtools,
         """(() => {
             const name = document.querySelector('.cat-preview-panel h2')?.textContent;
-            const status = document.querySelector('[role="status"]')?.textContent || '';
+            const status = document.querySelector('.cat-action-notice')?.textContent || '';
             return !!name && name !== 'Midnight Patch' && status.includes('selected');
         })()""",
         "Surprise me to choose a different cat",
