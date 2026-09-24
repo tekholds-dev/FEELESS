@@ -1,4 +1,6 @@
 const http = require('http');
+
+const fs = require('fs');
 const { URL } = require('url');
 const nodeCrypto = require('crypto');
 const { PublicKey, Keypair } = require('@solana/web3.js');
@@ -38,6 +40,8 @@ const profileFlags = new Map();
 const chatLimits = new Map();
 const paperCats = new Map();
 const paperActivity = [];
+
+const PAPER_STATE_VERSION = 1;
 let paperMarketCache = { pairs: [], fetchedAt: 0, provider: null, error: null };
 const PAPER_STARTING_SOL = 10;
 const PAPER_MAX_STARTING_SOL = 100;
@@ -158,6 +162,7 @@ function paperPublicCat(cat) {
     recovery: {
       saved: Boolean(cat.recoveryConfirmedAt),
       expiresAt: cat.recoveryExpiresAt,
+      expiredAt: cat.expiredAt || null,
       funded: Boolean(cat.fundedAt),
       needsAction: !cat.recoveryConfirmedAt && !cat.fundedAt,
     },
@@ -190,6 +195,7 @@ function paperEvent(cat, type, detail, extra = {}) {
   cat.pnlHistory = cat.pnlHistory || [];
   cat.pnlHistory.push({ at: event.ts, value: Number((Number(cat.realizedPnlSol || 0) + Number(cat.unrealizedPnlSol || 0)).toFixed(6)) });
   if (cat.pnlHistory.length > 60) cat.pnlHistory.shift();
+  persistPaperState();
   return event;
 }
 
@@ -219,7 +225,7 @@ function paperTokenAllowed(cat, pair) {
 async function runPaperCycle(cat) {
   if (!cat) return null;
   expirePaperCat(cat);
-  if (!cat || cat.revoked || cat.status !== 'running') return null;
+  if (!cat || cat.revoked || cat.expiredAt || cat.status !== 'running') return null;
   const market = await refreshPaperMarket();
   cat.lastCycleAt = new Date().toISOString();
   const today = cat.lastCycleAt.slice(0, 10);
@@ -302,7 +308,7 @@ function createPaperCat(body) {
     wallet: keypair.publicKey.toString(), encryptedPaperSecret: paperSecretFor(keypair),
     recoveryKeyHash: recoveryKeyHash(recoveryKey), recoveryExpiresAt: new Date(Date.now() + (14 * 24 * 60 * 60 * 1000)).toISOString(),
     recoveryConfirmedAt: null, fundedAt: null, expiredAt: null, expiryEventRecorded: false,
-    walletMode: paperWalletMode(body.walletMode), brain: String(body.brain || 'rule-engine').slice(0, 40),
+    mode: 'paper', walletMode: paperWalletMode(body.walletMode), brain: String(body.brain || 'rule-engine').slice(0, 40),
     coinPlan: coinPlan(body.coinPlan), coinStatus: body.coinPlan === 'create' ? 'planned' : 'not_selected',
     createdAt: new Date().toISOString(), status: 'stopped', revoked: false,
     startingBalanceSol: startingBalance, balanceSol: startingBalance, withdrawnSol: 0, realizedPnlSol: 0, unrealizedPnlSol: 0, volumeSol: 0, feesSol: 0,
@@ -320,6 +326,13 @@ function createPaperCat(body) {
   return { cat, recoveryKey };
 }
 
+function paperStateSnapshot() {
+  return {
+    version: PAPER_STATE_VERSION,
+    cats: Array.from(paperCats.values()),
+    activity: paperActivity.slice(0, 500),
+  };
+}
 function json(res, status, body) {
   const payload = JSON.stringify(body);
   res.writeHead(status, {
@@ -1576,6 +1589,10 @@ async function route(req, res, url) {
   if (catActionMatch && req.method === 'POST') {
     const cat = paperCats.get(decodeURIComponent(catActionMatch[1]));
     if (!cat) return json(res, 404, { detail: 'Cat not found.' });
+    expirePaperCat(cat);
+    if (cat.expiredAt || cat.status === 'expired') {
+      return json(res, 409, { detail: 'This Cat expired after 14 days without a saved recovery key or first funding deposit.' });
+    }
     const body = await requestBody(req);
     const action = String(body.action || '');
     if (action === 'start') {
@@ -1769,3 +1786,61 @@ module.exports = {
   server,
   startServer,
 };
+
+const path = require('path');
+
+function persistPaperState() {
+  const directory = path.dirname(PAPER_STATE_PATH);
+  fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+  const temporaryPath = `${PAPER_STATE_PATH}.${process.pid}.${nodeCrypto.randomUUID()}.tmp`;
+  try {
+    fs.writeFileSync(temporaryPath, JSON.stringify(paperStateSnapshot()), { encoding: 'utf8', mode: 0o600 });
+    fs.renameSync(temporaryPath, PAPER_STATE_PATH);
+    fs.chmodSync(PAPER_STATE_PATH, 0o600);
+  } catch (error) {
+    try { fs.rmSync(temporaryPath, { force: true }); } catch {}
+    throw new Error(`Paper Cat state could not be saved: ${error.message}`);
+  }
+}
+
+function loadPaperState() {
+  if (!fs.existsSync(PAPER_STATE_PATH)) return;
+  let state;
+  try {
+    state = JSON.parse(fs.readFileSync(PAPER_STATE_PATH, 'utf8'));
+  } catch (error) {
+    throw new Error(`Paper Cat state could not be loaded: ${error.message}`);
+  }
+  if (state?.version !== PAPER_STATE_VERSION || !Array.isArray(state.cats) || !Array.isArray(state.activity)) {
+    throw new Error(`Paper Cat state has unsupported format at ${PAPER_STATE_PATH}.`);
+  }
+  state.cats.map(hydratePaperCat).forEach(cat => paperCats.set(cat.id, cat));
+  paperActivity.push(...state.activity.slice(0, 500));
+  for (const cat of paperCats.values()) expirePaperCat(cat);
+}
+
+const PAPER_STATE_PATH = process.env.PREVIEW_STATE_PATH
+  || process.env.PAPER_CATS_STATE_PATH
+  || path.join(process.cwd(), '.preview-data', 'paper-state.json');
+
+function hydratePaperCat(record) {
+  if (!record || typeof record !== 'object' || !record.id || !record.ownerId || !record.recoveryKeyHash) {
+    throw new Error('Paper Cat state contains an invalid Cat record.');
+  }
+  return {
+    ...record,
+    mode: 'paper',
+    walletMode: paperWalletMode(record.walletMode),
+    coinPlan: coinPlan(record.coinPlan),
+    coinStatus: record.coinStatus || (record.coinPlan === 'create' ? 'planned' : 'not_selected'),
+    positions: Array.isArray(record.positions) ? record.positions : [],
+    pnlHistory: Array.isArray(record.pnlHistory) ? record.pnlHistory : [],
+    risk: {
+      maxPositionSol: Number(record.risk?.maxPositionSol) || 0.25,
+      maxDailyLossSol: Number(record.risk?.maxDailyLossSol) || 0.5,
+      dailyBuyLimitSol: Number(record.risk?.dailyBuyLimitSol) || 2,
+      allowlist: Array.isArray(record.risk?.allowlist) ? record.risk.allowlist : [],
+      blocklist: Array.isArray(record.risk?.blocklist) ? record.risk.blocklist : [],
+    },
+  };
+}

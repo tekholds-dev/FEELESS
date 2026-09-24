@@ -1,6 +1,11 @@
 const assert = require('node:assert/strict');
+const { spawn } = require('node:child_process');
 const nodeCrypto = require('node:crypto');
 const { once } = require('node:events');
+const fs = require('node:fs');
+const net = require('node:net');
+const os = require('node:os');
+const path = require('node:path');
 const test = require('node:test');
 const { Keypair } = require('@solana/web3.js');
 
@@ -162,6 +167,46 @@ async function proof(baseUrl, keypair, fetchImpl) {
   const challenge = await post(baseUrl, '/api/profile/challenge', { address, chain: 'solana' }, fetchImpl);
   assert.equal(challenge.status, 200);
   return { address, chain: 'solana', message: challenge.body.message, signature: signSolana(keypair, challenge.body.message) };
+}
+
+async function freePort() {
+  const probe = net.createServer();
+  await new Promise(resolve => probe.listen(0, '127.0.0.1', resolve));
+  const port = probe.address().port;
+  await new Promise(resolve => probe.close(resolve));
+  return port;
+}
+
+async function startPersistentPreview(statePath) {
+  const port = await freePort();
+  const child = spawn(process.execPath, ['scripts/preview-api.js'], {
+    cwd: process.cwd(),
+    env: { ...process.env, API_PORT: String(port), PREVIEW_STATE_PATH: statePath },
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
+  const waitForReady = async () => {
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      try {
+        const response = await fetch(`http://127.0.0.1:${port}/api/`);
+        if (response.ok) return;
+      } catch {}
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    throw new Error('Preview API did not become ready for persistence test.');
+  };
+  try {
+    await waitForReady();
+  } catch (error) {
+    child.kill('SIGKILL');
+    throw error;
+  }
+  return { child, baseUrl: `http://127.0.0.1:${port}` };
+}
+
+async function stopPersistentPreview(child) {
+  if (child.exitCode != null) return;
+  child.kill('SIGTERM');
+  await once(child, 'exit');
 }
 
 test('preview candle contract follows a discovered pool and rejects invalid intervals', async () => {
@@ -885,5 +930,85 @@ test('signed profiles enforce public privacy, social actions, flags, and chat co
   } finally {
     global.fetch = originalFetch;
     await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('paper Cat lifecycle survives a preview restart without persisting recovery keys', async () => {
+  const stateDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'feeless-paper-state-'));
+  const statePath = path.join(stateDirectory, 'paper-state.json');
+  let preview;
+  let restartedPreview;
+  try {
+    preview = await startPersistentPreview(statePath);
+    const createdResponse = await post(preview.baseUrl, '/api/cats', {
+      name: 'Durable Cat',
+      ownerId: 'restart-owner',
+      walletMode: 'assigned',
+      coinPlan: 'create',
+    }, global.fetch);
+    assert.equal(createdResponse.status, 201);
+    assert.equal(createdResponse.body.cat.mode, 'paper');
+    assert.equal(createdResponse.body.cat.walletMode, 'assigned');
+    assert.equal(createdResponse.body.cat.coinPlan, 'create');
+    assert.equal(createdResponse.body.cat.recoveryKeyHash, undefined);
+    assert.ok(createdResponse.body.recoveryKey);
+
+    const confirmedResponse = await post(
+      preview.baseUrl,
+      `/api/cats/${createdResponse.body.cat.id}/action`,
+      { action: 'confirm_recovery', recoveryKey: createdResponse.body.recoveryKey },
+      global.fetch,
+    );
+    assert.equal(confirmedResponse.status, 200);
+    assert.equal(confirmedResponse.body.cat.recovery.saved, true);
+
+    const expiringResponse = await post(preview.baseUrl, '/api/cats', {
+      name: 'Expiry Cat',
+      ownerId: 'restart-owner',
+    }, global.fetch);
+    assert.equal(expiringResponse.status, 201);
+    const stateBeforeRestart = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+    assert.equal(stateBeforeRestart.version, 1);
+    assert.equal(fs.statSync(statePath).mode & 0o777, 0o600);
+    assert.ok(stateBeforeRestart.cats[0].recoveryKeyHash);
+    assert.equal(JSON.stringify(stateBeforeRestart).includes(createdResponse.body.recoveryKey), false);
+    const expiringRecord = stateBeforeRestart.cats.find(cat => cat.id === expiringResponse.body.cat.id);
+    expiringRecord.recoveryExpiresAt = new Date(Date.now() - 1000).toISOString();
+    fs.writeFileSync(statePath, JSON.stringify(stateBeforeRestart));
+
+    await stopPersistentPreview(preview.child);
+    preview = null;
+    restartedPreview = await startPersistentPreview(statePath);
+
+    const restoredResponse = await request(restartedPreview.baseUrl, '/api/cats?ownerId=restart-owner', global.fetch);
+    assert.equal(restoredResponse.status, 200);
+    const restored = Object.fromEntries(restoredResponse.body.cats.map(cat => [cat.name, cat]));
+    assert.equal(restored['Durable Cat'].mode, 'paper');
+    assert.equal(restored['Durable Cat'].walletMode, 'assigned');
+    assert.equal(restored['Durable Cat'].coinPlan, 'create');
+    assert.equal(restored['Durable Cat'].recovery.saved, true);
+    assert.equal(restored['Durable Cat'].recovery.funded, false);
+    assert.equal(restored['Expiry Cat'].status, 'expired');
+    assert.ok(restored['Expiry Cat'].recovery.expiredAt);
+    assert.equal(restoredResponse.body.cats.some(cat => cat.recoveryKeyHash), false);
+
+    const blockedResponse = await post(
+      restartedPreview.baseUrl,
+      `/api/cats/${expiringResponse.body.cat.id}/action`,
+      { action: 'start' },
+      global.fetch,
+    );
+    assert.equal(blockedResponse.status, 409);
+    const activityResponse = await request(
+      restartedPreview.baseUrl,
+      `/api/cats/activity?catId=${encodeURIComponent(expiringResponse.body.cat.id)}`,
+      global.fetch,
+    );
+    assert.equal(activityResponse.status, 200);
+    assert.ok(activityResponse.body.events.some(event => event.type === 'EXPIRED'));
+  } finally {
+    if (preview) await stopPersistentPreview(preview.child);
+    if (restartedPreview) await stopPersistentPreview(restartedPreview.child);
+    fs.rmSync(stateDirectory, { recursive: true, force: true });
   }
 });

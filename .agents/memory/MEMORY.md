@@ -12,6 +12,7 @@
 - [Market provider hierarchy](market-provider-hierarchy.md) — Pump.fun is authoritative only for scoped Solana launchpad snapshots; pool/candle fallbacks must retain lineage and never claim a stream.
 - [New coin source policy](new-coin-source-policy.md) — broad new-coin feeds prefer multi-network pool discovery and hide entries without provider image metadata.
 - [Paper agent boundary](paper-agent-boundary.md) — autonomous Cat MVP results must stay visibly paper-only until real wallet signing, custody, and on-chain confirmation are separately enabled.
+- [Preview Cat persistence](paper-cat-persistence.md) — restart-safe Cat lifecycle storage keeps recovery confirmation and expiry durable without persisting raw recovery keys.
 - [Mobile collection verification](mobile-collection-verification.md) — settle React updates between browser actions and reset filters before selecting a named gallery fixture.
 - [Collection count contract](collection-count-contract.md) — mobile checks must track the documented collection counts when Cat variants expand.
 - [Browser status selector scope](browser-status-selector.md) — scope live-region assertions when multiple status messages can coexist.
