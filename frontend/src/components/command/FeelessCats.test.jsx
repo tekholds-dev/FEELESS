@@ -79,7 +79,20 @@ test('clearly keeps the current pick active when a filter excludes it', () => {
   expect(container.querySelector('.cat-preview-panel > p').textContent)
     .toContain('not in Spotted');
 
-  act(() => container.querySelector('[data-testid="feecats-pinned-pick"] [data-testid="feecat-card-midnight-patch"]').click());
+  const pinnedButton = container.querySelector('[data-testid="feecats-pinned-pick"] [data-testid="feecat-card-midnight-patch"]');
+  const firstFilteredCard = container.querySelector('.cat-card-grid .cat-card');
+  expect(pinnedButton.tagName).toBe('BUTTON');
+  expect(pinnedButton.getAttribute('aria-label'))
+    .toBe('Midnight Patch, current pick, outside the Spotted filter');
+  expect(pinnedButton.getAttribute('aria-describedby'))
+    .toBe('feecats-filter-selection-note');
+  expect(pinnedButton.getAttribute('aria-pressed')).toBe('true');
+  expect(pinnedButton.compareDocumentPosition(firstFilteredCard) & Node.DOCUMENT_POSITION_FOLLOWING)
+    .toBeTruthy();
+  act(() => pinnedButton.focus());
+  expect(document.activeElement).toBe(pinnedButton);
+
+  act(() => pinnedButton.click());
   expect(container.querySelector('.cat-action-notice').textContent).toContain('Midnight Patch selected');
   act(() => container.querySelector('[data-testid="feecats-select"]').click());
   expect(container.querySelector('.cat-action-notice').textContent).toContain('Midnight Patch is your featured cat');
@@ -88,6 +101,7 @@ test('clearly keeps the current pick active when a filter excludes it', () => {
   expect(container.querySelector('[data-testid="feecats-filter-selection-note"]')).toBeNull();
   expect(container.querySelector('[data-testid="feecats-pinned-pick"]')).toBeNull();
   expect(container.querySelector('[data-testid="feecat-card-midnight-patch"]').className).toContain('selected');
+  expect(container.querySelector('[data-testid="feecat-card-midnight-patch"]').getAttribute('aria-pressed')).toBe('true');
 
   act(() => container.querySelector('[data-testid="feecats-filter-stripes"]').click());
   expect(container.querySelector('[data-testid="feecats-filter-selection-note"]').textContent)
