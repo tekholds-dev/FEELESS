@@ -126,3 +126,31 @@ test('disables unsupported chart metrics instead of estimating them', () => {
   expect(mounted.host.querySelector('[data-testid="token-analytics-holderConcentration"]').textContent).toContain('Unavailable');
   act(() => mounted.root.unmount());
 });
+
+test('shows the external Pump action only for valid Solana token addresses', () => {
+  const mint = '49MmWE8sgNjuw342Eu7tB9thsVFtvTfKigUw9KSppump';
+  const solana = mount({
+    chainId: 'solana', pairAddress: 'pool-4',
+    baseToken: { address: mint, symbol: 'FEE', name: 'FEELESS' },
+  });
+  const pump = solana.host.querySelector('[data-testid="selected-token-pump-link"]');
+  expect(pump?.getAttribute('href')).toBe(`https://pump.fun/coin/${mint}`);
+  expect(pump?.getAttribute('rel')).toContain('noopener');
+  act(() => solana.root.unmount());
+  solana.host.remove();
+
+  const otherChain = mount({
+    chainId: 'ethereum', pairAddress: 'pool-5',
+    baseToken: { address: mint, symbol: 'FEE' },
+  });
+  expect(otherChain.host.querySelector('[data-testid="selected-token-pump-link"]')).toBeNull();
+  act(() => otherChain.root.unmount());
+  otherChain.host.remove();
+
+  const invalid = mount({
+    chainId: 'solana', pairAddress: 'pool-6',
+    baseToken: { address: 'not-a-token', symbol: 'BAD' },
+  });
+  expect(invalid.host.querySelector('[data-testid="selected-token-pump-link"]')).toBeNull();
+  act(() => invalid.root.unmount());
+});
