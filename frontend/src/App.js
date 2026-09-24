@@ -6,6 +6,7 @@ import { WorkspaceProvider } from './hooks/useWorkspace';
 import { Toaster } from './components/ui/sonner';
 import './styles/terminal.css';
 import './styles/command.css';
+import './styles/tab-variants.css';
 import './styles/trade.css';
 import './styles/heartbeat.css';
 import AmbientBackground from './components/AmbientBackground';

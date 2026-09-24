@@ -40,6 +40,8 @@ const paperCats = new Map();
 const paperActivity = [];
 let paperMarketCache = { pairs: [], fetchedAt: 0, provider: null, error: null };
 const PAPER_STARTING_SOL = 10;
+const PAPER_MAX_STARTING_SOL = 100;
+const PAPER_MAX_DAILY_BUY_SOL = 100;
 const PAPER_STRATEGIES = {
   balanced: { label: 'Balanced scout', description: 'Looks for observed activity with balanced entry and exit rules.', targetGain: 4, stopLoss: 5 },
   momentum: { label: 'Momentum hunter', description: 'Only enters provider-observed tokens with positive short-term movement.', targetGain: 6, stopLoss: 4 },
@@ -130,7 +132,7 @@ function paperPublicCat(cat) {
     status: cat.revoked ? 'revoked' : cat.status,
     createdAt: cat.createdAt,
     balanceSol: Number(cat.balanceSol.toFixed(6)),
-    startingBalanceSol: PAPER_STARTING_SOL,
+    startingBalanceSol: Number((cat.startingBalanceSol || PAPER_STARTING_SOL).toFixed(6)),
     withdrawnSol: Number((cat.withdrawnSol || 0).toFixed(6)),
     realizedPnlSol: Number(realized.toFixed(6)),
     unrealizedPnlSol: Number((cat.unrealizedPnlSol || 0).toFixed(6)),
@@ -164,6 +166,7 @@ function paperPublicCat(cat) {
       revoked: Boolean(cat.revoked),
       maxPositionSol: cat.risk.maxPositionSol,
       maxDailyLossSol: cat.risk.maxDailyLossSol,
+      dailyBuyLimitSol: cat.risk.dailyBuyLimitSol,
       allowlist: cat.risk.allowlist,
       blocklist: cat.risk.blocklist,
     },
@@ -223,6 +226,8 @@ async function runPaperCycle(cat) {
   if (cat.lossDay !== today) {
     cat.lossDay = today;
     cat.dailyLossSol = 0;
+    cat.dailyBuySol = 0;
+    cat.buyDay = today;
   }
   if (!market.pairs.length) {
     return paperEvent(cat, 'WAITING', `No provider snapshot available. The paper engine did not trade.`, { provider: market.provider || 'public market provider', error: market.error || null });
@@ -241,10 +246,15 @@ async function runPaperCycle(cat) {
     cat.status = 'stopped';
     return paperEvent(cat, 'STOPPED', `Daily loss limit reached at ${dailyLoss.toFixed(4)} SOL. Emergency stop engaged.`, { reason: 'max_daily_loss' });
   }
-  if (!position && cat.balanceSol >= cat.risk.maxPositionSol && (cat.strategy !== 'momentum' || change > 0)) {
-    const notional = Math.min(cat.risk.maxPositionSol, cat.balanceSol);
+  if (!position && cat.balanceSol > 0 && (cat.strategy !== 'momentum' || change > 0)) {
+    const remainingDailyBuy = Math.max(0, cat.risk.dailyBuyLimitSol - Number(cat.dailyBuySol || 0));
+    const notional = Math.min(cat.risk.maxPositionSol, cat.balanceSol, remainingDailyBuy);
+    if (notional <= 0) {
+      return paperEvent(cat, 'LIMIT', `Daily paper buy limit reached at ${cat.risk.dailyBuyLimitSol.toFixed(4)} SOL. No order placed.`, { reason: 'daily_buy_limit', provider: market.provider || 'public market provider' });
+    }
     const next = { mint: candidate.baseToken?.address || `${symbol}-provider-mint`, symbol, name: candidate.baseToken?.name || symbol, notionalSol: notional, entryChange: change, currentChange: change, provider: market.provider || 'public market provider', openedAt: new Date().toISOString() };
     cat.balanceSol -= notional;
+    cat.dailyBuySol = Number(cat.dailyBuySol || 0) + notional;
     cat.volumeSol += notional;
     cat.tradeCount += 1;
     cat.xp += 25;
@@ -283,8 +293,10 @@ function createPaperCat(body) {
   const keypair = Keypair.generate();
   const id = nodeCrypto.randomUUID();
   const recoveryKey = newRecoveryKey();
-  const maxPosition = Math.min(2, Math.max(0.01, Number(body.maxPositionSol) || 0.25));
+  const startingBalance = Math.min(PAPER_MAX_STARTING_SOL, Math.max(0.1, Number(body.startingBalanceSol) || PAPER_STARTING_SOL));
+  const maxPosition = Math.min(startingBalance, 2, Math.max(0.01, Number(body.maxPositionSol) || 0.25));
   const maxDailyLoss = Math.min(5, Math.max(0.01, Number(body.maxDailyLossSol) || 0.5));
+  const dailyBuyLimit = Math.min(PAPER_MAX_DAILY_BUY_SOL, Math.max(0.01, Number(body.dailyBuyLimitSol) || Math.min(startingBalance, 2)));
   const cat = {
     id, ownerId, name, handle, avatar: String(body.avatar || 'mint').slice(0, 40),
     wallet: keypair.publicKey.toString(), encryptedPaperSecret: paperSecretFor(keypair),
@@ -293,15 +305,15 @@ function createPaperCat(body) {
     walletMode: paperWalletMode(body.walletMode), brain: String(body.brain || 'rule-engine').slice(0, 40),
     coinPlan: coinPlan(body.coinPlan), coinStatus: body.coinPlan === 'create' ? 'planned' : 'not_selected',
     createdAt: new Date().toISOString(), status: 'stopped', revoked: false,
-    balanceSol: PAPER_STARTING_SOL, withdrawnSol: 0, realizedPnlSol: 0, unrealizedPnlSol: 0, volumeSol: 0, feesSol: 0,
-    positions: [], tradeCount: 0, wins: 0, losses: 0, xp: 0, dailyLossSol: 0, lossDay: new Date().toISOString().slice(0, 10), lastCycleAt: null,
+    startingBalanceSol: startingBalance, balanceSol: startingBalance, withdrawnSol: 0, realizedPnlSol: 0, unrealizedPnlSol: 0, volumeSol: 0, feesSol: 0,
+    positions: [], tradeCount: 0, wins: 0, losses: 0, xp: 0, dailyLossSol: 0, dailyBuySol: 0, lossDay: new Date().toISOString().slice(0, 10), buyDay: new Date().toISOString().slice(0, 10), lastCycleAt: null,
     strategy: paperStrategy(body.strategy),
     instructions: String(body.instructions || '').slice(0, 500),
     thinkEvery: String(body.thinkEvery || '15 min').slice(0, 20),
     bio: String(body.bio || '').slice(0, 160),
     xHandle: String(body.xHandle || '').slice(0, 40),
     pnlHistory: [],
-    risk: { maxPositionSol: maxPosition, maxDailyLossSol: maxDailyLoss, allowlist: cleanPaperList(body.allowlist), blocklist: cleanPaperList(body.blocklist) },
+    risk: { maxPositionSol: maxPosition, maxDailyLossSol: maxDailyLoss, dailyBuyLimitSol: dailyBuyLimit, allowlist: cleanPaperList(body.allowlist), blocklist: cleanPaperList(body.blocklist) },
   };
   paperCats.set(id, cat);
   paperEvent(cat, 'CREATED', 'Paper Cat created. No SOL was deposited and no on-chain transaction occurred.');
@@ -1560,6 +1572,7 @@ async function route(req, res, url) {
     } else if (action === 'controls') {
       cat.risk.maxPositionSol = Math.min(2, Math.max(0.01, Number(body.maxPositionSol) || cat.risk.maxPositionSol));
       cat.risk.maxDailyLossSol = Math.min(5, Math.max(0.01, Number(body.maxDailyLossSol) || cat.risk.maxDailyLossSol));
+      cat.risk.dailyBuyLimitSol = Math.min(PAPER_MAX_DAILY_BUY_SOL, Math.max(0.01, Number(body.dailyBuyLimitSol) || cat.risk.dailyBuyLimitSol));
       cat.risk.allowlist = cleanPaperList(body.allowlist);
       cat.risk.blocklist = cleanPaperList(body.blocklist);
       paperEvent(cat, 'CONTROLS', 'Risk limits updated by the Cat owner.');

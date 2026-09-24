@@ -349,9 +349,9 @@ body.theme-day .globe-page .landing-copy h1,body.theme-day .globe-page .landing-
  * enough for text, controls, focus rings, and provider states on light ground.
  */
 body.theme-day{
-  --day-bg:#edf6f0;
+   --day-bg:#ffffff;
   --day-surface:#ffffff;
-  --day-surface-alt:#f5faf7;
+   --day-surface-alt:#f7fbf8;
   --day-ink:#10251a;
   --day-muted:#40654f;
   --day-green:#08764e;
@@ -374,7 +374,7 @@ body.theme-day select,
 body.theme-day button,
 body.theme-day textarea{color:var(--day-ink)}
 body.theme-day .terminal-app,
-body.theme-day .globe-page{background:var(--day-bg)!important;color:var(--day-ink)!important}
+body.theme-day .globe-page{background:#ffffff!important;color:var(--day-ink)!important}
 body.theme-day .terminal-header,
 body.theme-day .market-ticker,
 body.theme-day .terminal-sidebar,
@@ -553,6 +553,18 @@ body.theme-day .heartbeat-chart-timeframes button.active{
   color:var(--day-green-dark)!important;
   border-color:#68b88b!important;
 }
+body.theme-day .market-tabs button.active:nth-child(1),
+body.theme-day .chat-tabs button.active:nth-child(1),
+body.theme-day .trenches-stage-tabs button.active:nth-child(1){background:#e8f0ff!important;color:#174b87!important;border-color:#79a7df!important}
+body.theme-day .market-tabs button.active:nth-child(2),
+body.theme-day .chat-tabs button.active:nth-child(2),
+body.theme-day .trenches-stage-tabs button.active:nth-child(2){background:#e8f7ed!important;color:#07583c!important;border-color:#71bd91!important}
+body.theme-day .market-tabs button.active:nth-child(3),
+body.theme-day .chat-tabs button.active:nth-child(3),
+body.theme-day .trenches-stage-tabs button.active:nth-child(3){background:#fff3df!important;color:#805b00!important;border-color:#d2a754!important}
+body.theme-day .market-tabs button.active:nth-child(4),
+body.theme-day .chat-tabs button.active:nth-child(4),
+body.theme-day .trenches-stage-tabs button.active:nth-child(4){background:#f5ebff!important;color:#643a8b!important;border-color:#b18bd4!important}
 body.theme-day .token-actions .primary-action,
 body.theme-day .token-actions .primary-action *,
 body.theme-day .flow-track .current>span{

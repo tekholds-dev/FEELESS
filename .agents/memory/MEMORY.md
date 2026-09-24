@@ -12,3 +12,4 @@
 - [Market provider hierarchy](market-provider-hierarchy.md) — Pump.fun is authoritative only for scoped Solana launchpad snapshots; pool/candle fallbacks must retain lineage and never claim a stream.
 - [Paper agent boundary](paper-agent-boundary.md) — autonomous Cat MVP results must stay visibly paper-only until real wallet signing, custody, and on-chain confirmation are separately enabled.
 - [Mobile collection verification](mobile-collection-verification.md) — settle React updates between browser actions and reset filters before selecting a named gallery fixture.
+- [Collection count contract](collection-count-contract.md) — mobile checks must track the documented collection counts when Cat variants expand.

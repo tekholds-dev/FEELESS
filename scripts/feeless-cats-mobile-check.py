@@ -24,7 +24,7 @@ PREVIEW_URL = os.environ.get("PREVIEW_URL", "http://127.0.0.1:5000").rstrip("/")
 CDP_PORT = int(os.environ.get("CDP_PORT", "9223"))
 CHROMIUM = os.environ.get("CHROMIUM_BIN", "/repl/tools/bin/chromium")
 VIEWPORTS = (320, 390)
-FILTER_COUNTS = {"all": 25, "spots": 9, "patch": 8, "stripes": 8}
+FILTER_COUNTS = {"all": 50, "spots": 34, "patch": 8, "stripes": 8}
 
 
 class DevTools:
@@ -300,7 +300,7 @@ def run_viewport(devtools, width):
     click(devtools, '[data-testid="feecats-filter-all"]', "reset to All fur filter")
     wait_for(
         devtools,
-        "document.querySelectorAll('.cat-card').length === 25",
+        "document.querySelectorAll('.cat-card').length === 50",
         "all cats after resetting filter",
     )
     click(devtools, '[data-testid="feecat-card-midnight-patch"]', "select Midnight Patch")

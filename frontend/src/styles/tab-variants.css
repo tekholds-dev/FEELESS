@@ -1,0 +1,18 @@
+/* Keep sibling tabs visually distinguishable instead of giving every active tab the same state color. */
+.paper-platform-tabs button:nth-child(1).active,
+.paper-leaderboard-tabs button:nth-child(1).active,
+.paper-create-tabs button:nth-child(1).active{color:#6fd7a0;border-color:#287c51;background:#123b28}
+.paper-platform-tabs button:nth-child(2).active,
+.paper-leaderboard-tabs button:nth-child(2).active,
+.paper-create-tabs button:nth-child(2).active{color:#8fb8ff;border-color:#426fab;background:#142d50}
+.paper-platform-tabs button:nth-child(3).active,
+.paper-leaderboard-tabs button:nth-child(3).active{color:#f0c878;border-color:#8c6c29;background:#3c2d11}
+
+body.theme-day .paper-platform-tabs button:nth-child(1).active,
+body.theme-day .paper-leaderboard-tabs button:nth-child(1).active,
+body.theme-day .paper-create-tabs button:nth-child(1).active{color:#07583c;border-color:#48a873;background:#e8f7ed}
+body.theme-day .paper-platform-tabs button:nth-child(2).active,
+body.theme-day .paper-leaderboard-tabs button:nth-child(2).active,
+body.theme-day .paper-create-tabs button:nth-child(2).active{color:#174b87;border-color:#79a7df;background:#e8f0ff}
+body.theme-day .paper-platform-tabs button:nth-child(3).active,
+body.theme-day .paper-leaderboard-tabs button:nth-child(3).active{color:#805b00;border-color:#d2a754;background:#fff3df}
