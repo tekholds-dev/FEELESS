@@ -3,9 +3,24 @@ set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/preview-shutdown.XXXXXX")"
+PREVIEW_PORT="${PREVIEW_PORT:-}"
+API_PORT="${API_PORT:-}"
 launcher_pid=""
 api_pid=""
 launcher_log=""
+
+free_port() {
+  node -e "const net = require('net'); const server = net.createServer(); server.listen(0, '127.0.0.1', () => { console.log(server.address().port); server.close(); });"
+}
+
+if [[ -z "$PREVIEW_PORT" ]]; then
+  PREVIEW_PORT="$(free_port)"
+fi
+if [[ -z "$API_PORT" ]]; then
+  API_PORT="$(free_port)"
+  while [[ "$API_PORT" == "$PREVIEW_PORT" ]]; do API_PORT="$(free_port)"; done
+fi
+export PREVIEW_PORT API_PORT
 
 cleanup() {
   local pid
@@ -20,7 +35,7 @@ cleanup() {
 
   # If a failed check left the frontend in the foreground, clean up only the
   # listeners this check started so the next preview can still run.
-  for pid in $(port_pids 5000) $(port_pids 5001); do
+  for pid in $(port_pids "$PREVIEW_PORT") $(port_pids "$API_PORT"); do
     [[ -n "$pid" ]] && kill -TERM "$pid" 2>/dev/null || true
   done
 
@@ -90,11 +105,11 @@ start_launcher() {
   ) >"$launcher_log" 2>&1 &
   launcher_pid=$!
 
-  wait_for_http "http://127.0.0.1:5001/api/" "preview API"
-  wait_for_http "http://127.0.0.1:5000/" "frontend preview"
+  wait_for_http "http://127.0.0.1:${API_PORT}/api/" "preview API"
+  wait_for_http "http://127.0.0.1:${PREVIEW_PORT}/" "frontend preview"
 
-  api_pid="$(port_pids 5001 | head -n 1)"
-  [[ -n "$api_pid" ]] || fail "preview API is responding but no process owns port 5001"
+  api_pid="$(port_pids "$API_PORT" | head -n 1)"
+  [[ -n "$api_pid" ]] || fail "preview API is responding but no process owns port ${API_PORT}"
 
   local api_parent
   api_parent="$(ps -o ppid= -p "$api_pid" | tr -d ' ')"
@@ -103,8 +118,8 @@ start_launcher() {
 }
 
 echo "Starting managed preview launcher..."
-assert_port_free 5000
-assert_port_free 5001
+assert_port_free "$PREVIEW_PORT"
+assert_port_free "$API_PORT"
 start_launcher first
 
 echo "Stopping managed preview launcher (PID ${launcher_pid}); checking API child cleanup (PID ${api_pid})..."
@@ -112,12 +127,12 @@ kill -TERM "$launcher_pid" 2>/dev/null || fail "could not signal launcher PID ${
 wait_for_exit "$api_pid" "preview API child"
 wait_for_exit "$launcher_pid" "preview launcher"
 
-assert_port_free 5000
-assert_port_free 5001
-echo "Managed stop released ports 5000 and 5001."
+assert_port_free "$PREVIEW_PORT"
+assert_port_free "$API_PORT"
+echo "Managed stop released ports ${PREVIEW_PORT} and ${API_PORT}."
 
 launcher_pid=""
 api_pid=""
 echo "Starting the preview again to confirm immediate port reuse..."
 start_launcher second
-echo "Preview restarted successfully on ports 5000 and 5001."
+echo "Preview restarted successfully on ports ${PREVIEW_PORT} and ${API_PORT}."

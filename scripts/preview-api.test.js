@@ -1126,6 +1126,37 @@ test('signed profiles enforce public privacy, social actions, flags, and chat co
   }
 });
 
+test('paper Cats expose explicit brain adapters, availability, and estimated provider cost', async () => {
+  const originalFetch = global.fetch;
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  try {
+    const brains = await request(baseUrl, '/api/cats/brains', originalFetch);
+    assert.equal(brains.status, 200);
+    assert.equal(brains.body.brains.length, 10);
+    assert.ok(brains.body.brains.every(brain => brain.adapter && brain.status && Number.isFinite(brain.estimatedTokenCostUsd)));
+    assert.ok(brains.body.brains.every(brain => brain.status === 'not_configured'));
+    assert.equal(brains.body.fallback.id, 'rule-engine');
+    assert.match(brains.body.disclosure, /cannot sign, custody, or broadcast/i);
+
+    const created = await post(baseUrl, '/api/cats', {
+      name: 'Brain Cat',
+      handle: 'brain-cat',
+      ownerId: 'brain-owner',
+      brain: 'deepseek',
+    }, originalFetch);
+    assert.equal(created.status, 201);
+    assert.equal(created.body.cat.brain, 'deepseek');
+    assert.equal(created.body.cat.brainProfile.status, 'not_configured');
+    assert.match(created.body.cat.brainProfile.reason, /DEEPSEEK_API_KEY/);
+  } finally {
+    global.fetch = originalFetch;
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
 test('paper Cat lifecycle survives a preview restart without persisting recovery keys', async () => {
   const stateDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'feeless-paper-state-'));
   const statePath = path.join(stateDirectory, 'paper-state.json');

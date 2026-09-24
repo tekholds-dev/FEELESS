@@ -16,3 +16,4 @@
 - [Mobile collection verification](mobile-collection-verification.md) — settle React updates between browser actions and reset filters before selecting a named gallery fixture.
 - [Collection count contract](collection-count-contract.md) — mobile checks must track the documented collection counts when Cat variants expand.
 - [Browser status selector scope](browser-status-selector.md) — scope live-region assertions when multiple status messages can coexist.
+- [Paper brain adapters](paper-brain-adapters.md) — configured provider brains may recommend paper actions, but failures fall back visibly to rules without transaction access.

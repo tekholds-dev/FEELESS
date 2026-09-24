@@ -54,6 +54,59 @@ const PAPER_STRATEGIES = {
   momentum: { label: 'Momentum hunter', description: 'Only enters provider-observed tokens with positive short-term movement.', targetGain: 6, stopLoss: 4 },
   conservative: { label: 'Capital guard', description: 'Requires stronger liquidity and uses smaller, tighter positions.', targetGain: 3, stopLoss: 3 },
 };
+
+const BRAIN_ADAPTERS = Object.freeze({
+  'claude-opus': {
+    label: 'Claude Opus 5.5', provider: 'Anthropic', protocol: 'anthropic', model: 'claude-sonnet-4-20250514',
+    envKeys: ['ANTHROPIC_API_KEY'], inputPriceUsdPerMillion: 3, outputPriceUsdPerMillion: 15,
+  },
+  'claude-fable': {
+    label: 'Claude Fable 5.1', provider: 'Anthropic', protocol: 'anthropic', model: 'claude-3-5-haiku-latest',
+    envKeys: ['ANTHROPIC_API_KEY'], inputPriceUsdPerMillion: 0.8, outputPriceUsdPerMillion: 4,
+  },
+  'gpt-astra': {
+    label: 'GPT-6 Astra', provider: 'OpenAI', protocol: 'openai', model: process.env.OPENAI_CAT_MODEL || 'gpt-4o',
+    envKeys: ['OPENAI_API_KEY'], inputPriceUsdPerMillion: 5, outputPriceUsdPerMillion: 15,
+  },
+  'gpt-sol': {
+    label: 'GPT-6 Sol', provider: 'OpenAI', protocol: 'openai', model: process.env.OPENAI_CAT_FAST_MODEL || 'gpt-4o-mini',
+    envKeys: ['OPENAI_API_KEY'], inputPriceUsdPerMillion: 0.15, outputPriceUsdPerMillion: 0.6,
+  },
+  muse: {
+    label: 'Muse Spark 1.3', provider: 'Meta', protocol: 'openai', model: process.env.META_CAT_MODEL || 'Llama-3.3-70B-Instruct',
+    envKeys: ['META_API_KEY', 'LLAMA_API_KEY'], inputPriceUsdPerMillion: 0.9, outputPriceUsdPerMillion: 0.9,
+    endpointEnv: 'META_CAT_API_URL', endpoint: 'https://api.llama.com/v1/chat/completions',
+  },
+  grok: {
+    label: 'Grok 4.7', provider: 'xAI', protocol: 'openai', model: process.env.XAI_CAT_MODEL || 'grok-4-1-fast-reasoning',
+    envKeys: ['XAI_API_KEY'], inputPriceUsdPerMillion: 0.2, outputPriceUsdPerMillion: 0.5,
+    endpointEnv: 'XAI_CAT_API_URL', endpoint: 'https://api.x.ai/v1/chat/completions',
+  },
+  gemini: {
+    label: 'Gemini 3.8 Flash', provider: 'Google', protocol: 'gemini', model: process.env.GEMINI_CAT_MODEL || 'gemini-2.5-flash',
+    envKeys: ['GEMINI_API_KEY', 'GOOGLE_API_KEY'], inputPriceUsdPerMillion: 0.3, outputPriceUsdPerMillion: 2.5,
+  },
+  qwen: {
+    label: 'Qwen 3.8 Max', provider: 'Alibaba', protocol: 'openai', model: process.env.QWEN_CAT_MODEL || 'qwen-max',
+    envKeys: ['QWEN_API_KEY', 'DASHSCOPE_API_KEY'], inputPriceUsdPerMillion: 0.5, outputPriceUsdPerMillion: 2,
+    endpointEnv: 'QWEN_CAT_API_URL', endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+  },
+  kimi: {
+    label: 'Kimi K3', provider: 'Moonshot', protocol: 'openai', model: process.env.KIMI_CAT_MODEL || 'moonshot-v1-8k',
+    envKeys: ['MOONSHOT_API_KEY', 'KIMI_API_KEY'], inputPriceUsdPerMillion: 0.6, outputPriceUsdPerMillion: 2.5,
+    endpointEnv: 'KIMI_CAT_API_URL', endpoint: 'https://api.moonshot.cn/v1/chat/completions',
+  },
+  deepseek: {
+    label: 'DeepSeek V4 Pro', provider: 'DeepSeek', protocol: 'openai', model: process.env.DEEPSEEK_CAT_MODEL || 'deepseek-chat',
+    envKeys: ['DEEPSEEK_API_KEY'], inputPriceUsdPerMillion: 0.28, outputPriceUsdPerMillion: 0.42,
+    endpointEnv: 'DEEPSEEK_CAT_API_URL', endpoint: 'https://api.deepseek.com/chat/completions',
+  },
+});
+const RULE_ENGINE_BRAIN = Object.freeze({
+  id: 'rule-engine', label: 'Transparent rule engine', provider: 'FEELESS', protocol: 'local',
+  status: 'available', reason: 'Always available as the paper-only fallback.', estimatedInputTokens: 0,
+  estimatedOutputTokens: 0, estimatedTokenCostUsd: 0,
+});
 const PROFILE_CATEGORIES = ['Trader', 'Builder', 'Artist', 'Collector', 'Researcher'];
 const PROFILE_COOLDOWN_MS = 120000;
 const PROFILE_CHALLENGE_MS = 10 * 60 * 1000;
@@ -119,9 +172,187 @@ function paperStrategy(value) {
   return Object.prototype.hasOwnProperty.call(PAPER_STRATEGIES, normalized) ? normalized : 'balanced';
 }
 
+function brainAdapterId(value) {
+  return Object.prototype.hasOwnProperty.call(BRAIN_ADAPTERS, value) ? value : 'rule-engine';
+}
+
+function brainAvailability(id) {
+  const adapter = BRAIN_ADAPTERS[id];
+  if (!adapter) return RULE_ENGINE_BRAIN;
+  const configuredKey = adapter.envKeys.find(key => process.env[key]);
+  const estimatedInputTokens = 1200;
+  const estimatedOutputTokens = 220;
+  const estimatedTokenCostUsd = Number((
+    (estimatedInputTokens / 1000000) * adapter.inputPriceUsdPerMillion
+    + (estimatedOutputTokens / 1000000) * adapter.outputPriceUsdPerMillion
+  ).toFixed(6));
+  return {
+    id,
+    label: adapter.label,
+    provider: adapter.provider,
+    adapter: `${adapter.provider} ${adapter.protocol} adapter`,
+    model: adapter.model,
+    status: configuredKey ? 'available' : 'not_configured',
+    available: Boolean(configuredKey),
+    reason: configuredKey
+      ? `${adapter.provider} credentials are configured server-side.`
+      : `Add ${adapter.envKeys.join(' or ')} on the server to enable this brain.`,
+    estimatedInputTokens,
+    estimatedOutputTokens,
+    estimatedTokenCostUsd,
+    costDisclosure: 'Estimate for one market snapshot. The provider bills actual usage.',
+  };
+}
+
+function publicBrainProfiles() {
+  return Object.keys(BRAIN_ADAPTERS).map(brainAvailability);
+}
+
+function brainProfile(id) {
+  const normalized = brainAdapterId(id);
+  return normalized === 'rule-engine' ? RULE_ENGINE_BRAIN : brainAvailability(normalized);
+}
+
+function paperDecisionMeta(cat, decision = {}) {
+  const profile = brainProfile(cat.brain);
+  return {
+    decisionSource: decision.source || 'rule_engine',
+    decisionAction: decision.action || 'hold',
+    brain: cat.brain,
+    brainLabel: profile.label,
+    brainProvider: profile.provider,
+    brainAdapter: profile.adapter || 'Local rule adapter',
+    brainAvailability: profile.status,
+    estimatedTokenCostUsd: profile.estimatedTokenCostUsd,
+    ...(decision.reason ? { decisionReason: decision.reason } : {}),
+    ...(decision.error ? { brainError: decision.error } : {}),
+  };
+}
+
+function safeJsonFromText(value) {
+  const text = String(value || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+  try { return JSON.parse(text); } catch {}
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try { return JSON.parse(match[0]); } catch { return null; }
+}
+
+function normaliseBrainDecision(value) {
+  const action = String(value?.action || value?.decision || '').toLowerCase();
+  if (!['buy', 'sell', 'hold'].includes(action)) throw new Error('Brain response did not contain a buy, sell, or hold decision.');
+  return {
+    action,
+    confidence: Number.isFinite(Number(value.confidence)) ? Math.max(0, Math.min(1, Number(value.confidence))) : null,
+    reason: String(value.reason || value.rationale || 'Provider returned a decision without a rationale.').slice(0, 280),
+  };
+}
+
+function brainPrompt(cat, market, candidate, position) {
+  return JSON.stringify({
+    task: 'Choose one paper-only action for the next Cat cycle.',
+    allowed_actions: ['buy', 'sell', 'hold'],
+    rules: 'Return JSON only: {"action":"buy|sell|hold","confidence":0..1,"reason":"short explanation"}. Never propose a wallet, signature, transaction, transfer, or broadcast.',
+    strategy: cat.strategy,
+    instructions: cat.instructions || '',
+    risk: {
+      maxPositionSol: cat.risk.maxPositionSol,
+      maxDailyLossSol: cat.risk.maxDailyLossSol,
+      dailyBuyLimitSol: cat.risk.dailyBuyLimitSol,
+      allowlist: cat.risk.allowlist,
+      blocklist: cat.risk.blocklist,
+    },
+    market: {
+      provider: market.provider,
+      fetchedAt: market.fetchedAt,
+      candidate: candidate ? {
+        symbol: candidate.baseToken?.symbol,
+        name: candidate.baseToken?.name,
+        mint: candidate.baseToken?.address,
+        priceChange: candidate.priceChange,
+        liquidity: candidate.liquidity,
+        volume: candidate.volume,
+      } : null,
+      openPosition: position ? {
+        symbol: position.symbol,
+        entryChange: position.entryChange,
+        currentChange: position.currentChange,
+        notionalSol: position.notionalSol,
+      } : null,
+    },
+  });
+}
+
+async function callBrainAdapter(cat, market, candidate, position) {
+  const id = brainAdapterId(cat.brain);
+  const adapter = BRAIN_ADAPTERS[id];
+  if (!adapter) throw new Error('The local rule engine does not call a provider.');
+  const availability = brainAvailability(id);
+  if (!availability.available) throw new Error(availability.reason);
+  const prompt = brainPrompt(cat, market, candidate, position);
+  let response;
+  const endpoint = process.env[adapter.endpointEnv] || adapter.endpoint
+    || (adapter.provider === 'OpenAI' ? 'https://api.openai.com/v1/chat/completions' : '');
+  if (adapter.protocol === 'anthropic') {
+    response = await fetch(process.env.ANTHROPIC_CAT_API_URL || 'https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: adapter.model, max_tokens: 256, system: 'You are a paper-trading decision adapter. Never sign or broadcast anything.', messages: [{ role: 'user', content: prompt }] }),
+      signal: AbortSignal.timeout(20000),
+    });
+  } else if (adapter.protocol === 'gemini') {
+    const key = adapter.envKeys.map(envKey => process.env[envKey]).find(Boolean);
+    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(adapter.model)}:generateContent?key=${encodeURIComponent(key)}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ systemInstruction: { parts: [{ text: 'You are a paper-trading decision adapter. Never sign or broadcast anything.' }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1, maxOutputTokens: 256, responseMimeType: 'application/json' } }),
+      signal: AbortSignal.timeout(20000),
+    });
+  } else {
+    const key = adapter.envKeys.map(envKey => process.env[envKey]).find(Boolean);
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+      body: JSON.stringify({ model: adapter.model, temperature: 0.1, max_tokens: 256, messages: [{ role: 'system', content: 'You are a paper-trading decision adapter. Never sign or broadcast anything.' }, { role: 'user', content: prompt }] }),
+      signal: AbortSignal.timeout(20000),
+    });
+  }
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(`${adapter.provider} returned HTTP ${response.status}: ${String(body.error?.message || body.error || body.message || 'provider request failed').slice(0, 180)}`);
+  const text = adapter.protocol === 'anthropic'
+    ? body.content?.map(item => item.text || '').join('')
+    : adapter.protocol === 'gemini'
+      ? body.candidates?.[0]?.content?.parts?.map(item => item.text || '').join('')
+      : body.choices?.[0]?.message?.content;
+  const decision = normaliseBrainDecision(safeJsonFromText(text));
+  return { ...decision, source: 'selected_brain', usage: body.usage || null };
+}
+
+function ruleDecision(cat, candidate, position, strategy) {
+  if (!candidate) return { action: 'hold', reason: 'No provider candidate was available.' };
+  const change = Number(candidate.priceChange?.h1 ?? candidate.priceChange?.h24 ?? 0);
+  if (position && (change >= strategy.targetGain || change <= -strategy.stopLoss)) {
+    return { action: 'sell', reason: `The ${strategy.label} threshold was met.` };
+  }
+  if (!position && cat.balanceSol > 0 && (cat.strategy !== 'momentum' || change > 0)) {
+    return { action: 'buy', reason: `The ${strategy.label} entry rule was met.` };
+  }
+  return { action: 'hold', reason: 'No transparent strategy threshold was met.' };
+}
+
+async function choosePaperDecision(cat, market, candidate, position, strategy) {
+  const fallback = ruleDecision(cat, candidate, position, strategy);
+  if (brainAdapterId(cat.brain) === 'rule-engine') return { ...fallback, source: 'rule_engine' };
+  try {
+    return await callBrainAdapter(cat, market, candidate, position);
+  } catch (error) {
+    return { ...fallback, source: 'rule_engine', error: publicError(error) };
+  }
+}
+
 function paperPublicCat(cat) {
   expirePaperCat(cat);
   const strategy = PAPER_STRATEGIES[cat.strategy] || PAPER_STRATEGIES.balanced;
+  const brain = brainProfile(cat.brain);
   const realized = Number(cat.realizedPnlSol || 0);
   const positionValue = (cat.positions || []).reduce((sum, position) => sum + Number(position.notionalSol || 0), 0);
   const wins = Number(cat.wins || 0);
@@ -160,6 +391,10 @@ function paperPublicCat(cat) {
     risk: cat.risk,
     lastCycleAt: cat.lastCycleAt || null,
     brain: cat.brain,
+    brainLabel: brain.label,
+    brainProfile: brain,
+    lastDecisionSource: cat.lastDecisionSource || 'rule_engine',
+    lastDecisionAt: cat.lastDecisionAt || null,
     coinPlan: cat.coinPlan,
     coinStatus: cat.coinStatus,
     recovery: {
@@ -250,16 +485,21 @@ async function runPaperCycle(cat) {
   const symbol = candidate.baseToken?.symbol || 'TOKEN';
   const change = Number(candidate.priceChange?.h1 ?? candidate.priceChange?.h24 ?? 0);
   const position = cat.positions.find(item => item.mint === candidate.baseToken?.address);
+  const decision = await choosePaperDecision(cat, market, candidate, position, strategy);
+  const decisionMeta = paperDecisionMeta(cat, decision);
+  const providerWarning = decision.error ? ` Provider unavailable: ${decision.error} Falling back to the rule engine.` : '';
+  cat.lastDecisionSource = decisionMeta.decisionSource;
+  cat.lastDecisionAt = new Date().toISOString();
   const dailyLoss = Number(cat.dailyLossSol || 0);
   if (dailyLoss >= cat.risk.maxDailyLossSol) {
     cat.status = 'stopped';
-    return paperEvent(cat, 'STOPPED', `Daily loss limit reached at ${dailyLoss.toFixed(4)} SOL. Emergency stop engaged.`, { reason: 'max_daily_loss' });
+    return paperEvent(cat, 'STOPPED', `Daily loss limit reached at ${dailyLoss.toFixed(4)} SOL. Emergency stop engaged.`, { reason: 'max_daily_loss', ...decisionMeta });
   }
-  if (!position && cat.balanceSol > 0 && (cat.strategy !== 'momentum' || change > 0)) {
+  if (!position && decision.action === 'buy' && cat.balanceSol > 0) {
     const remainingDailyBuy = Math.max(0, cat.risk.dailyBuyLimitSol - Number(cat.dailyBuySol || 0));
     const notional = Math.min(cat.risk.maxPositionSol, cat.balanceSol, remainingDailyBuy);
     if (notional <= 0) {
-      return paperEvent(cat, 'LIMIT', `Daily paper buy limit reached at ${cat.risk.dailyBuyLimitSol.toFixed(4)} SOL. No order placed.`, { reason: 'daily_buy_limit', provider: market.provider || 'public market provider' });
+      return paperEvent(cat, 'LIMIT', `Daily paper buy limit reached at ${cat.risk.dailyBuyLimitSol.toFixed(4)} SOL. No order placed.`, { reason: 'daily_buy_limit', provider: market.provider || 'public market provider', ...decisionMeta });
     }
     const next = { mint: candidate.baseToken?.address || `${symbol}-provider-mint`, symbol, name: candidate.baseToken?.name || symbol, notionalSol: notional, entryChange: change, currentChange: change, provider: market.provider || 'public market provider', openedAt: new Date().toISOString() };
     cat.balanceSol -= notional;
@@ -268,11 +508,11 @@ async function runPaperCycle(cat) {
     cat.tradeCount += 1;
     cat.xp += 25;
     cat.positions.push(next);
-    return paperEvent(cat, 'BUY', `Paper entry opened within the ${cat.risk.maxPositionSol} SOL position limit.`, { symbol, mint: next.mint, notionalSol: notional, provider: next.provider, observedChange: change });
+    return paperEvent(cat, 'BUY', `Paper entry opened within the ${cat.risk.maxPositionSol} SOL position limit. ${decision.reason}.${providerWarning}`, { symbol, mint: next.mint, notionalSol: notional, provider: next.provider, observedChange: change, ...decisionMeta });
   }
   if (position) {
     position.currentChange = change;
-    const exit = change >= strategy.targetGain || change <= -strategy.stopLoss;
+    const exit = decision.action === 'sell';
     if (exit) {
       const pnl = position.notionalSol * (change - position.entryChange) / 100;
       const fee = Math.abs(position.notionalSol) * 0.001;
@@ -285,11 +525,11 @@ async function runPaperCycle(cat) {
       cat.tradeCount += 1;
       cat.xp += 50;
       cat.positions = cat.positions.filter(item => item !== position);
-      return paperEvent(cat, 'SELL', `Paper exit closed ${symbol} at the strategy threshold.`, { symbol, mint: position.mint, pnlSol: pnl - fee, feeSol: fee, provider: position.provider, observedChange: change });
+      return paperEvent(cat, 'SELL', `Paper exit closed ${symbol}. ${decision.reason}.${providerWarning}`, { symbol, mint: position.mint, pnlSol: pnl - fee, feeSol: fee, provider: position.provider, observedChange: change, ...decisionMeta });
     }
   }
   cat.unrealizedPnlSol = cat.positions.reduce((sum, item) => sum + item.notionalSol * ((item.currentChange - item.entryChange) / 100), 0);
-  return paperEvent(cat, 'SCAN', `Observed ${symbol}; no strategy threshold was met. No order placed.`, { symbol, provider: market.provider || 'public market provider', observedChange: change });
+  return paperEvent(cat, 'SCAN', `Observed ${symbol}; ${decision.reason || 'no action was selected'}. No order placed.${providerWarning}`, { symbol, provider: market.provider || 'public market provider', observedChange: change, ...decisionMeta });
 }
 
 function createPaperCat(body) {
@@ -311,12 +551,14 @@ function createPaperCat(body) {
     wallet: keypair.publicKey.toString(), encryptedPaperSecret: paperSecretFor(keypair),
     recoveryKeyHash: recoveryKeyHash(recoveryKey), recoveryExpiresAt: new Date(Date.now() + (14 * 24 * 60 * 60 * 1000)).toISOString(),
     recoveryConfirmedAt: null, fundedAt: null, expiredAt: null, expiryEventRecorded: false,
-    mode: 'paper', walletMode: paperWalletMode(body.walletMode), brain: String(body.brain || 'rule-engine').slice(0, 40),
+    mode: 'paper', walletMode: paperWalletMode(body.walletMode), brain: brainAdapterId(String(body.brain || 'rule-engine').slice(0, 40)),
     coinPlan: coinPlan(body.coinPlan), coinStatus: body.coinPlan === 'create' ? 'planned' : 'not_selected',
     createdAt: new Date().toISOString(), status: 'stopped', revoked: false,
     startingBalanceSol: startingBalance, balanceSol: startingBalance, withdrawnSol: 0, realizedPnlSol: 0, unrealizedPnlSol: 0, volumeSol: 0, feesSol: 0,
     positions: [], tradeCount: 0, wins: 0, losses: 0, xp: 0, dailyLossSol: 0, dailyBuySol: 0, lossDay: new Date().toISOString().slice(0, 10), buyDay: new Date().toISOString().slice(0, 10), lastCycleAt: null,
     strategy: paperStrategy(body.strategy),
+    lastDecisionSource: 'rule_engine',
+    lastDecisionAt: null,
     instructions: String(body.instructions || '').slice(0, 500),
     thinkEvery: String(body.thinkEvery || '15 min').slice(0, 20),
     bio: String(body.bio || '').slice(0, 160),
@@ -1644,8 +1886,21 @@ async function route(req, res, url) {
     if (liked.has(identity.key)) liked.delete(identity.key); else liked.add(identity.key);
     return json(res, 200, { liked: liked.has(identity.key), likeCount: liked.size });
   }
+  if (req.method === 'GET' && url.pathname === '/api/cats/brains') {
+    return json(res, 200, {
+      mode: 'paper',
+      brains: publicBrainProfiles(),
+      fallback: RULE_ENGINE_BRAIN,
+      disclosure: 'Brain providers receive a market snapshot only. They cannot sign, custody, or broadcast transactions.',
+    });
+  }
   if (req.method === 'GET' && url.pathname === '/api/cats/strategies') {
-    return json(res, 200, { mode: 'paper', strategies: Object.entries(PAPER_STRATEGIES).map(([id, value]) => ({ id, ...value })) });
+    return json(res, 200, {
+      mode: 'paper',
+      strategies: Object.entries(PAPER_STRATEGIES).map(([id, value]) => ({ id, ...value })),
+      brains: publicBrainProfiles(),
+      fallback: RULE_ENGINE_BRAIN,
+    });
   }
   if (req.method === 'GET' && url.pathname === '/api/cats/leaderboard') {
     const view = ['pnl', 'volume', 'win_rate'].includes(url.searchParams.get('view')) ? url.searchParams.get('view') : 'pnl';
@@ -1839,8 +2094,8 @@ const server = http.createServer(async (req, res) => {
 });
 
 function startServer() {
+  loadPaperState();
   server.listen(PORT, '127.0.0.1', () => {
-    loadPaperState();
     console.log(`[preview-api] listening on http://127.0.0.1:${PORT} with live public market providers`);
     Promise.allSettled([dexBoostFeed('trending'), dexBoostFeed('new')])
       .then(() => console.log('[preview-api] DexScreener radar cache warmed'))
@@ -1853,12 +2108,13 @@ function startServer() {
   });
 }
 
-if (require.main === module) startServer();
-
 module.exports = {
   ASSET_THROTTLE_WARNING_COOLDOWN_MS,
   GECKO_NEW_ALL_PAGE_BUDGET,
   PROVIDER_RATE_LIMIT_COOLDOWN_MS,
+  BRAIN_ADAPTERS,
+  brainAvailability,
+  brainProfile,
   applyScreener,
   assetThrottleWarningCooldown,
   cache,
@@ -1914,6 +2170,7 @@ function hydratePaperCat(record) {
   return {
     ...record,
     mode: 'paper',
+    brain: brainAdapterId(record.brain),
     walletMode: paperWalletMode(record.walletMode),
     coinPlan: coinPlan(record.coinPlan),
     coinStatus: record.coinStatus || (record.coinPlan === 'create' ? 'planned' : 'not_selected'),
@@ -1926,5 +2183,9 @@ function hydratePaperCat(record) {
       allowlist: Array.isArray(record.risk?.allowlist) ? record.risk.allowlist : [],
       blocklist: Array.isArray(record.risk?.blocklist) ? record.risk.blocklist : [],
     },
+    lastDecisionSource: record.lastDecisionSource || 'rule_engine',
+    lastDecisionAt: record.lastDecisionAt || null,
   };
 }
+
+if (require.main === module) startServer();

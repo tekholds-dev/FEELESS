@@ -1,0 +1,44 @@
+.paper-brain-grid em {
+  font: 7px 'JetBrains Mono', monospace;
+  font-style: normal;
+  color: #d8b775;
+}
+
+.paper-brain-grid em.available {
+  color: var(--mint);
+}
+
+.paper-brain-cost {
+  color: #759982;
+  font: 7px 'JetBrains Mono', monospace;
+}
+
+.paper-selected-brain > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.paper-brain-summary {
+  display: grid;
+  gap: 5px;
+  margin: 15px 17px 0;
+  padding: 11px;
+  border: 1px solid #3c3568;
+  border-radius: 5px;
+  background: #8b6cff0d;
+}
+
+.paper-brain-summary b {
+  font-size: 11px;
+  color: #e5dcff;
+}
+
+.paper-brain-summary small {
+  color: #9b91c7;
+  font-size: 8px;
+}
+
+.paper-brain-summary .paper-brain-cost {
+  font-size: 7px;
+}

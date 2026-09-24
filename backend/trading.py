@@ -18,6 +18,13 @@ from pymongo import ReturnDocument
 
 SOL_MINT = 'So11111111111111111111111111111111111111112'
 JUPITER_API_URL = os.environ.get('JUPITER_API_URL', 'https://api.jup.ag').rstrip('/')
+PAPER_AGENT_EXECUTION_BOUNDARY = {
+    'mode': 'paper',
+    'signing': 'disabled',
+    'broadcast': 'disabled',
+    'wallet_custody': 'none',
+    'decision_adapters': 'market snapshots only',
+}
 
 def valid_key(value):
     try:
@@ -108,6 +115,7 @@ class TradingService:
             return {'provider': 'Jupiter', 'network': 'solana-mainnet', 'signing': 'Phantom',
                     'configured': self.configured(),
                     'execution_ready': self.configured(),
+                    'paper_agent_execution': PAPER_AGENT_EXECUTION_BOUNDARY,
                     'fee_back_status': 'PLANNED', 'eligible_fee_rules': 'Not activated',
                     'supported_execution_chains': ['solana'],
                     'detail': 'Backend execution is ready.' if self.configured()
