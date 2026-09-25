@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ShieldCheck, ShieldAlert, Shield, ShieldQuestion, Wallet, ExternalLink, Copy, ArrowLeft, Share2, Star, Rocket } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Shield, ShieldQuestion, Wallet, ExternalLink, Copy, ArrowLeft, Share2, Star, Rocket, Link2, ChevronDown, ChevronUp } from 'lucide-react';
 import { fetchCreator, watchCreator, unwatchCreator, fetchWatchlist, fetchWatchlistFeed, BADGE_LABEL } from '../../lib/reputation';
 import { shortAddress } from '../../lib/dexscreener';
 import { useWallet } from '../../hooks/useWallet';
@@ -74,6 +74,33 @@ export function FollowButton({ chain, address }) {
   </button>;
 }
 
+function WalletClusterPanel({ chain, address, result }) {
+  const [expanded, setExpanded] = useState(false);
+  const linked = result.linkedWallets || [];
+  if (!result.fundingSource) return null;
+  return <div className="rep-cluster-panel" data-testid="rep-cluster-panel">
+    <button type="button" className="rep-cluster-toggle" onClick={() => setExpanded(v => !v)}>
+      <Link2 size={13} />
+      <span>{linked.length > 0
+        ? `Wallet cluster detected — ${linked.length} other wallet${linked.length === 1 ? '' : 's'} share this funding source`
+        : 'Funding source resolved — no linked wallets tracked yet'}</span>
+      {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+    </button>
+    {expanded && <div className="rep-cluster-body">
+      <div className="rep-cluster-source"><small>FUNDED FROM</small><AddressPill address={result.fundingSource} /></div>
+      {linked.length > 0 ? <>
+        <p className="provider-note">These wallets were each first funded by the same upstream address — a real on-chain link, not a guess. Worth treating as one operator across multiple "clean" identities.</p>
+        <div className="rep-cluster-list">{linked.map(m => {
+          const Icon = ICON[m.badge] || Shield;
+          return <Link key={m.address} to={`/terminal/reputation/${m.chain}/${m.address}`} className={`rep-cluster-row badge-${m.badge}`}>
+            <Icon size={13} /><code>{shortAddress(m.address)}</code><span>{m.tokenCount} token{m.tokenCount === 1 ? '' : 's'}</span>{m.ruggedCount > 0 && <b className="negative">{m.ruggedCount} flagged</b>}<strong>{m.score}</strong>
+          </Link>;
+        })}</div>
+      </> : <p className="provider-note">No other tracked creator wallet shares this funding source yet — that can change as FEELESS observes more launches.</p>}
+    </div>}
+  </div>;
+}
+
 export function CreatorProfileCard({ chain, address, result, loading, error, variant = 'full', onClose }) {
   const profileUrl = typeof window !== 'undefined' ? `${window.location.origin}/terminal/reputation/${chain}/${address}` : '';
   return <section className={`rep-scan rep-scan-${variant}`} data-testid="rep-scan">
@@ -99,6 +126,7 @@ export function CreatorProfileCard({ chain, address, result, loading, error, var
         </div> : <p className="provider-note">No recent on-chain activity found for this wallet.</p>}
         <small className="reputation-wallet-caveat">On-chain signatures only — a full buy/sell ledger needs a dedicated transaction indexer, which isn't wired up yet.</small>
       </div>}
+      <WalletClusterPanel chain={chain} address={address} result={result} />
       <div className="rep-scan-tokens-head"><span className="eyebrow">WHAT THIS WALLET HAS LAUNCHED</span></div>
       <div className="reputation-token-list">{Object.values(result.tokens || {}).map(t => <div key={t.pairAddress} className={`reputation-token-row status-${t.status}`}>
         <b>{t.symbol || 'Unknown'}</b><span>{t.status}</span><small>{timeAgo(t.firstSeenAt)}</small>

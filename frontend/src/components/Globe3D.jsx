@@ -3,6 +3,17 @@ import Globe from 'react-globe.gl';
 import * as THREE from 'three';
 import { ECOSYSTEMS } from '../lib/ecosystems';
 import { LAUNCHPADS } from '../lib/launchpads';
+import { useGlobeBubbles } from '../lib/globeBubbles';
+
+const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function bubbleElement(b) {
+  const el = document.createElement('div');
+  el.className = `globe-bubble globe-bubble-${b.kind}`;
+  el.style.setProperty('--bubble-color', b.color);
+  const text = b.text.length > 64 ? `${b.text.slice(0, 61)}…` : b.text;
+  el.innerHTML = `<small>${escapeHtml(b.name)} · ${escapeHtml(b.who)}</small><span>${escapeHtml(text)}</span>`;
+  return el;
+}
 const GLOBE_NODES = [...ECOSYSTEMS.filter(e => !e.isFeeless), ...LAUNCHPADS.map(p => ({ ...p, isLaunchpad: true }))];
 
 class GlobeErrorBoundary extends React.Component {
@@ -82,6 +93,7 @@ export default function Globe3D({ onSelect, selectedId, size = 640 }) {
   const globeRef = useRef();
   const containerRef = useRef();
   const [dims, setDims] = useState({ w: size, h: size });
+  const bubbles = useGlobeBubbles(GLOBE_NODES);
 
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) => {
@@ -216,6 +228,11 @@ export default function Globe3D({ onSelect, selectedId, size = 640 }) {
           ringMaxRadius="maxR"
           ringPropagationSpeed="propagationSpeed"
           ringRepeatPeriod="repeatPeriod"
+          htmlElementsData={bubbles}
+          htmlLat="lat"
+          htmlLng="lng"
+          htmlAltitude={0.12}
+          htmlElement={bubbleElement}
         />
       </GlobeErrorBoundary>
     </div>

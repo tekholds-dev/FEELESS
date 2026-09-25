@@ -136,7 +136,14 @@ body.theme-day .ambient-background {
   --ambient-glow-one: rgba(8, 118, 78, .16);
   --ambient-glow-two: rgba(33, 130, 164, .1);
   --ambient-line: rgba(8, 118, 78, .16);
-  mix-blend-mode: multiply;
+}
+
+body.theme-day .App {
+  background: #f6fbf7;
+}
+
+body.theme-day .ambient-orb {
+  mix-blend-mode: normal;
 }
 
 @media (prefers-reduced-motion: reduce) {

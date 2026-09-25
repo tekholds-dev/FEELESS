@@ -132,6 +132,31 @@
   font-size: 11px;
 }
 
+.swap-pair-trust {
+  margin-top: 10px;
+}
+
+.route-metrics b.impact-low {
+  color: #00e9a0;
+}
+
+.route-metrics b.impact-medium {
+  color: #e3c463;
+}
+
+.route-metrics b.impact-high {
+  color: #f5688a;
+}
+
+.swap-amount-label input:focus {
+  outline: 0;
+}
+
+.swap-amount-label input:focus {
+  caret-color: #00e9a0;
+  text-shadow: 0 0 14px #00e9a040;
+}
+
 .swap-amount-label {
   margin: 0 20px;
   padding: 14px 16px;

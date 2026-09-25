@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowUpRight, Radar, Radio, Activity, Star, Bell, Users, ExternalLink, RefreshCw, Zap, Layers3, TrendingUp, Droplets } from 'lucide-react';
 import { useWorkspace } from '../../hooks/useWorkspace';
@@ -77,7 +77,15 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
   const trendingPairs = useMemo(() => (trendingFeed.data?.pairs || []).filter(matches), [trendingFeed.data, matches]);
   const allObserved = useMemo(() => [...new Map([...newPairs, ...trendingPairs].map(pair => [pairKey(pair), pair])).values()], [newPairs, trendingPairs]);
   const graduationMints = useMemo(() => [...new Set(allObserved.map(pair => pair.baseToken?.address).filter(Boolean))].join(','), [allObserved]);
-  const graduationFeed = useMarket(graduationMints ? `/graduations?mints=${encodeURIComponent(graduationMints)}` : null, 15000);
+  // Debounced: the observed-pairs set churns on nearly every feed tick, and each distinct
+  // mint list is a fresh SWR key. Without this, the provider (Pump.fun) sees a burst of
+  // requests every few seconds and starts returning "refresh limit reached" errors.
+  const [stableGraduationMints, setStableGraduationMints] = useState(graduationMints);
+  useEffect(() => {
+    const timer = setTimeout(() => setStableGraduationMints(graduationMints), 20000);
+    return () => clearTimeout(timer);
+  }, [graduationMints]);
+  const graduationFeed = useMarket(stableGraduationMints ? `/graduations?mints=${encodeURIComponent(stableGraduationMints)}` : null, 30000);
   const graduationByMint = useMemo(() => new Map((graduationFeed.data?.graduations || []).map(item => [item.mint, item])), [graduationFeed.data]);
   const graduated = useMemo(() => allObserved
     .map(pair => {
@@ -157,4 +165,58 @@ export const LivingWatchlist = ({ onSelect }) => {
 export const ParticipationBoard = () => {
   const { ecosystem } = useWorkspace(); const { data, error } = useMarket(`/api/intelligence/community?context=${ecosystem.id}`, 15000);
   return <div className="participation-board"><div className="command-page-title"><span className="eyebrow">MEASURABLE PARTICIPATION / {ecosystem.name.toUpperCase()}</span><h1>The community is the edge.</h1><p>Actual messages over the last seven days. Public handles are not verified identities.</p></div>{data?.rankings?.map((row, i) => <div className="participation-row" key={row.handle} data-testid={`participation-rank-${i}`}><span>{String(i + 1).padStart(2, '0')}</span><Users size={19} /><b>{row.handle}</b><strong>{row.messages}<small>MESSAGES</small></strong></div>)}{!data?.rankings?.length && <div className="truth-empty" data-testid="participation-empty">{error ? 'Community metrics unavailable.' : 'Awaiting real participation in this ecosystem. No fabricated rankings.'}</div>}</div>;
+};
+const META_STOPWORDS = new Set(['the', 'coin', 'token', 'inu', 'sol', 'eth', 'official', 'of', 'on', 'and', 'a', 'to', 'in', 'for', 'is', 'by', 'my', 'ai']);
+const metaWords = pair => {
+  const raw = `${pair.baseToken?.symbol || ''} ${pair.baseToken?.name || ''}`.toLowerCase();
+  const words = new Set(raw.split(/[^a-z0-9]+/).filter(w => w.length >= 3 && !META_STOPWORDS.has(w)));
+  const sym = (pair.baseToken?.symbol || '').toLowerCase().replace(/[^a-z]/g, '');
+  // Also catch fused tickers (JEANWORK, JEANCAT) via 4-letter prefixes/suffixes.
+  if (sym.length >= 6) { words.add(sym.slice(0, 4)); words.add(sym.slice(-4)); }
+  return words;
+};
+
+// Groups live tokens that share a theme word into "metas" — ranked by combined volume
+// and average 24h move. Every number comes from the provider pairs on screen.
+export function detectMetas(pairs, minMembers = 2) {
+  const groups = new Map();
+  const unique = [...new Map(pairs.filter(p => p?.baseToken).map(p => [p.baseToken.address || p.pairAddress, p])).values()];
+  for (const pair of unique) for (const word of metaWords(pair)) {
+    if (!groups.has(word)) groups.set(word, []);
+    groups.get(word).push(pair);
+  }
+  const symbolOf = p => (p.baseToken?.symbol || '').trim().toUpperCase();
+  const metas = [...groups.entries()].filter(([, members]) => new Set(members.map(symbolOf)).size >= minMembers).map(([word, members]) => {
+    const bySymbol = new Map();
+    members.forEach(p => bySymbol.set(symbolOf(p), [...(bySymbol.get(symbolOf(p)) || []), p]));
+    const copycats = [...bySymbol.entries()].filter(([, list]) => list.length > 1).map(([sym, list]) => ({ sym, count: list.length }));
+    const vol = members.reduce((s, p) => s + (Number(p.volume?.h24) || 0), 0);
+    const changes = members.map(p => Number(p.priceChange?.h24)).filter(Number.isFinite);
+    const avg = changes.length ? changes.reduce((a, b) => a + b, 0) / changes.length : null;
+    return { word, copycats, distinct: bySymbol.size, members: members.sort((a, b) => (Number(b.volume?.h24) || 0) - (Number(a.volume?.h24) || 0)), vol, avg };
+  }).sort((a, b) => b.members.length - a.members.length || b.vol - a.vol);
+  const seen = new Set();
+  return metas.filter(m => { const sig = m.members.map(p => p.pairAddress).sort().join(); if (seen.has(sig)) return false; seen.add(sig); return true; }).slice(0, 6);
+}
+
+export const MetaDetector = ({ pairs, onSelect }) => {
+  const metas = useMemo(() => detectMetas(pairs || []), [pairs]);
+  const [open, setOpen] = useState(null);
+  return <section className="meta-detector" data-testid="meta-detector">
+    <div className="section-title"><h2><Layers3 size={18} />Meta detector</h2><small>Themes forming across live markets right now</small></div>
+    {!metas.length && <div className="truth-empty">No shared theme across two or more live coins yet. Metas show up here the moment they form.</div>}
+    <div className="meta-grid">{metas.map(meta => <div key={meta.word} className={`meta-card ${open === meta.word ? 'is-open' : ''}`}>
+      <button type="button" className="meta-card-head" onClick={() => setOpen(open === meta.word ? null : meta.word)}>
+        <b>#{meta.word.toUpperCase()}</b>
+        <span className="meta-count">{meta.distinct} tickers · {meta.members.length} pools</span>
+        <span className={meta.avg == null ? '' : meta.avg >= 0 ? 'positive' : 'negative'}>{meta.avg == null ? '—' : `${meta.avg >= 0 ? '+' : ''}${meta.avg.toFixed(1)}% avg`}</span>
+        <small>{formatUSD(meta.vol)} vol 24h</small>
+      </button>
+      {meta.copycats.length > 0 && <div className="meta-copycats" title="Several different contracts are using the exact same ticker — a common clone/scam pattern. Verify the contract before buying.">⚠ Copycats: {meta.copycats.map(c => `${c.sym} ×${c.count}`).join(' · ')}</div>}
+      <div className="meta-avatars">{meta.members.slice(0, 6).map(p => <TokenAvatar key={p.pairAddress} pair={p} size={22} />)}</div>
+      {open === meta.word && <div className="meta-members">{meta.members.map(p => <button type="button" key={p.pairAddress} onClick={() => onSelect?.(p)}>
+        <TokenAvatar pair={p} size={20} /><b>{p.baseToken.symbol}</b><ReputationBadge pair={p} compact /><span className={Number(p.priceChange?.h24) >= 0 ? 'positive' : 'negative'}>{Number.isFinite(Number(p.priceChange?.h24)) ? `${Number(p.priceChange.h24).toFixed(1)}%` : '—'}</span><small>{formatUSD(p.volume?.h24)}</small>
+      </button>)}</div>}
+    </div>)}</div>
+  </section>;
 };

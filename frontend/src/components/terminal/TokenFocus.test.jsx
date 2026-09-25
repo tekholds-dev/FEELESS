@@ -66,10 +66,15 @@ test('switches to provider-supplied market cap without changing candle data', ()
     fdv: '1200000',
   });
 
-  expect(mounted.host.querySelector('[data-testid="chart-metric-marketCap"]').disabled).toBe(false);
+  const toggle = mounted.host.querySelector('[data-testid="chart-metric-switch"]');
+  expect(toggle.disabled).toBe(false);
   expect(mounted.host.querySelector('[data-testid="mock-price-chart"]').getAttribute('data-metric')).toBe('price');
-  act(() => mounted.host.querySelector('[data-testid="chart-metric-marketCap"]').click());
+  act(() => toggle.click());
   expect(mounted.host.querySelector('[data-testid="mock-price-chart"]').getAttribute('data-metric')).toBe('marketCap');
+  act(() => toggle.click());
+  expect(mounted.host.querySelector('[data-testid="mock-price-chart"]').getAttribute('data-metric')).toBe('fdv');
+  act(() => toggle.click());
+  expect(mounted.host.querySelector('[data-testid="mock-price-chart"]').getAttribute('data-metric')).toBe('price');
   expect(mounted.host.querySelector('[data-testid="token-analytics-snipers"]').textContent).toContain('Unavailable');
   act(() => mounted.root.unmount());
 });
@@ -117,8 +122,8 @@ test('disables unsupported chart metrics instead of estimating them', () => {
     baseToken: { symbol: 'BETA', name: 'Beta' },
   });
 
-  expect(mounted.host.querySelector('[data-testid="chart-metric-marketCap"]').disabled).toBe(true);
-  expect(mounted.host.querySelector('[data-testid="chart-metric-fdv"]').disabled).toBe(true);
+  expect(mounted.host.querySelector('[data-testid="chart-metric-switch"]').disabled).toBe(true);
+  expect(mounted.host.querySelector('[data-testid="chart-metric-active"]').textContent).toMatch(/price/i);
   expect(mounted.host.querySelector('[data-testid="selected-token-screener-label"]').textContent).toBe('Unavailable');
   expect(mounted.host.querySelector('[data-testid="selected-token-screener-score"]').textContent).toBe('Unavailable');
   expect(mounted.host.querySelector('[data-testid="selected-token-screener-reasons"]').textContent).toBe('Observed reasons unavailable');

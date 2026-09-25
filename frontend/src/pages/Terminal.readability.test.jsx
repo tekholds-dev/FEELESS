@@ -119,6 +119,7 @@ jest.mock('../components/terminal/MetaLaunchSetup', () => () => null);
 jest.mock('../components/command/WorkspaceChrome', () => ({
   ContextBar: () => null,
   MouseGlow: () => null,
+  AmbientFlakes: () => null,
   AlphaTape: () => null,
   PulseGrid: () => null,
   ContractScanner: () => null,
@@ -143,6 +144,16 @@ jest.mock('../components/command/DiscoveryViews', () => ({
   SignalMovers: () => null,
   LivingWatchlist: () => null,
   ParticipationBoard: () => null,
+  PumpRadarView: () => null,
+  MetaDetector: () => null,
+}));
+
+jest.mock('../components/command/LiveTrust', () => ({
+  TrustSignals: () => null,
+  CaseStudies: () => null,
+  LiveProof: () => null,
+  RoadmapVoting: () => null,
+  DataSovereignty: () => null,
 }));
 
 jest.mock('../components/WalletModal', () => () => null);

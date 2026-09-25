@@ -100,3 +100,27 @@ export async function fetchWatchlistFeed(ownerWallet) {
   if (!res.ok) throw new Error('Notification feed unavailable.');
   return res.json();
 }
+
+export async function fetchClusters(chain = 'solana') {
+  const res = await fetch(apiUrl(`/api/reputation/clusters?chain=${chain}`));
+  if (!res.ok) throw new Error('Cluster detection unavailable.');
+  return res.json();
+}
+
+const creatorCache = new Map();
+// Cached, failure-silent lookup: most chat posters have never launched a token (404).
+export function useCreatorTrust(chain, address) {
+  const key = chain && address ? `${chain}:${address}` : null;
+  const [value, setValue] = useState(null);
+  useEffect(() => {
+    if (!key) return undefined;
+    let alive = true;
+    if (!creatorCache.has(key)) {
+      creatorCache.set(key, fetch(apiUrl(`/api/reputation/creator/${chain}/${address}`))
+        .then(res => (res.ok ? res.json() : null)).then(d => d?.scoring || null).catch(() => null));
+    }
+    creatorCache.get(key).then(scoring => { if (alive) setValue(scoring); });
+    return () => { alive = false; };
+  }, [key, chain, address]);
+  return value;
+}

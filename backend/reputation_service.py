@@ -52,7 +52,7 @@ _mint_authority_cache: dict[str, Optional[str]] = {}
 
 
 def _empty_store():
-    return {'creators': {}, 'mints': {}, 'watchlists': {}, 'feed': []}
+    return {'creators': {}, 'mints': {}, 'watchlists': {}, 'feed': [], 'funding': {}}
 
 
 def _load() -> dict:
@@ -61,6 +61,7 @@ def _load() -> dict:
             store = json.loads(STORE_PATH.read_text())
             store.setdefault('watchlists', {})
             store.setdefault('feed', [])
+            store.setdefault('funding', {})
             return store
         except Exception:
             pass
@@ -151,6 +152,33 @@ def _creator_key(chain: str, address: str) -> str:
     return f'{chain}:{address}'
 
 
+async def resolve_funding_source(chain: str, wallet_address: str) -> Optional[str]:
+    """Resolves who funded a wallet's very first transaction — the standard on-chain
+    signal real analytics tools (Arkham, Nansen-style) use to cluster wallets that
+    look independent but are actually operated by the same person. If two "different"
+    creator wallets were both funded from the same upstream wallet, that's a real,
+    verifiable link — not a guess.
+    """
+    if chain != 'solana':
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            signatures = await _rpc(http, 'getSignaturesForAddress', [wallet_address, {'limit': 1000}])
+            if not signatures:
+                return None
+            oldest = signatures[-1].get('signature')
+            tx = await _rpc(http, 'getTransaction', [oldest, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}])
+            keys = (((tx or {}).get('transaction') or {}).get('message') or {}).get('accountKeys', [])
+            if not keys:
+                return None
+            fee_payer = keys[0].get('pubkey') if isinstance(keys[0], dict) else keys[0]
+            # The fee payer of this wallet's first-ever transaction is the funding source,
+            # unless this wallet WAS the fee payer (it funded itself / was the first mover).
+            return fee_payer if fee_payer != wallet_address else None
+    except Exception:
+        return None
+
+
 def _push_feed(store: dict, chain: str, address: str, kind: str, detail: str):
     store.setdefault('feed', []).insert(0, {
         'id': uuid.uuid4().hex, 'chain': chain, 'address': address,
@@ -165,11 +193,16 @@ def score_creator(entry: dict) -> dict:
     rugged = sum(1 for t in tokens.values() if t.get('status') == 'rugged')
     sustained = sum(1 for t in tokens.values() if t.get('status') == 'sustained')
     renounced = sum(1 for t in tokens.values() if t.get('authorityRenounced'))
+    symbols = [(t.get('symbol') or '').strip().upper() for t in tokens.values()]
+    distinct = len({s for s in symbols if s}) or (1 if total else 0)
+    # Re-launching the same ticker over and over is spam/clone behavior, not a track record.
+    clones = max(0, total - distinct)
 
     score = 50
-    score += min(total, 10) * 3
+    score += min(distinct, 10) * 3
     score += min(sustained, 6) * 8
-    score += min(renounced, 6) * 3
+    score += min(renounced, 6) * 2
+    score -= min(clones, 6) * 6
     score -= min(rugged, 6) * 40
     score = max(0, min(100, score))
 
@@ -177,13 +210,13 @@ def score_creator(entry: dict) -> dict:
         badge = 'flagged'
     elif total == 0:
         badge = 'unproven'
-    elif sustained > 0 or total >= 3:
+    elif sustained > 0 or (distinct >= 3 and clones == 0):
         badge = 'trusted'
     else:
         badge = 'building'
 
     return {
-        'score': score, 'badge': badge, 'tokenCount': total,
+        'score': score, 'badge': badge, 'tokenCount': total, 'distinctTickers': distinct, 'cloneCount': clones,
         'ruggedCount': rugged, 'sustainedCount': sustained, 'renouncedCount': renounced,
     }
 
@@ -301,7 +334,23 @@ async def creator_profile(chain: str, address: str):
         except Exception:
             pass
 
-    return {**entry, 'scoring': score_creator(entry), 'wallet': wallet}
+    fkey = _creator_key(chain, address)
+    async with _lock:
+        store2 = _load()
+        if fkey not in store2['funding']:
+            store2['funding'][fkey] = await resolve_funding_source(chain, address)
+            _save(store2)
+        funding_source = store2['funding'][fkey]
+    linked = []
+    if funding_source:
+        for other_ckey, other_entry in store2['creators'].items():
+            if other_ckey == ckey:
+                continue
+            other_fkey = _creator_key(other_entry['chain'], other_entry['address'])
+            if store2['funding'].get(other_fkey) == funding_source:
+                linked.append({'address': other_entry['address'], 'chain': other_entry['chain'], **score_creator(other_entry)})
+
+    return {**entry, 'scoring': score_creator(entry), 'wallet': wallet, 'fundingSource': funding_source, 'linkedWallets': linked}
 
 
 LEADERBOARD_VIEWS = ('trusted', 'flagged', 'serial', 'rising', 'active')
@@ -427,6 +476,113 @@ async def get_watchlist_feed(ownerWallet: str, limit: int = Query(50, le=200)):
         if len(events) >= limit:
             break
     return {'events': events}
+
+
+CLUSTER_RESOLVE_BATCH = 8   # cap RPC calls per request so this stays fast
+
+
+@app.get('/api/reputation/clusters')
+async def get_clusters(chain: Optional[str] = Query('solana')):
+    """Groups tracked creators by shared on-chain funding source. A cluster of 2+
+    creator wallets funded by the same upstream wallet is a real signal that they're
+    the same operator running multiple "clean" identities — this is the analysis no
+    other launchpad terminal surfaces."""
+    async with _lock:
+        store = _load()
+        creators = [e for e in store['creators'].values() if not chain or e['chain'] == chain]
+        resolved_this_call = 0
+        for entry in creators:
+            fkey = _creator_key(entry['chain'], entry['address'])
+            if fkey not in store['funding']:
+                if resolved_this_call >= CLUSTER_RESOLVE_BATCH:
+                    continue
+                store['funding'][fkey] = await resolve_funding_source(entry['chain'], entry['address'])
+                resolved_this_call += 1
+        if resolved_this_call:
+            _save(store)
+
+        groups: dict[str, list] = {}
+        for entry in creators:
+            fkey = _creator_key(entry['chain'], entry['address'])
+            source = store['funding'].get(fkey)
+            if not source:
+                continue
+            groups.setdefault(source, []).append(entry)
+
+        clusters = []
+        for source, members in groups.items():
+            if len(members) < 2:
+                continue
+            scored = [{'address': m['address'], 'chain': m['chain'], **score_creator(m)} for m in members]
+            clusters.append({
+                'fundingSource': source,
+                'members': sorted(scored, key=lambda r: -r['score']),
+                'totalTokens': sum(m['tokenCount'] for m in scored),
+                'totalFlags': sum(m['ruggedCount'] for m in scored),
+            })
+        clusters.sort(key=lambda c: (-c['totalFlags'], -len(c['members'])))
+
+    pending = sum(1 for e in creators if _creator_key(e['chain'], e['address']) not in store['funding'])
+    return {'clusters': clusters, 'creatorsScanned': len(creators), 'pendingResolution': pending}
+
+
+@app.get('/api/reputation/feed')
+async def global_feed(limit: int = Query(40, ge=1, le=200)):
+    """Site-wide trust signals: known creators launching again, and fresh rug flags."""
+    store = _load()
+    events = []
+    for ev in store.get('feed', [])[:limit]:
+        entry = store['creators'].get(_creator_key(ev['chain'], ev['address']))
+        events.append({**ev, **(score_creator(entry) if entry else {})})
+    return {'events': events}
+
+
+@app.get('/api/reputation/case-studies')
+async def case_studies(limit: int = Query(6, ge=1, le=20)):
+    """Real flagged creators with the tokens that collapsed — teaching material from live data."""
+    store = _load()
+    cases = []
+    for entry in store['creators'].values():
+        rugged = [t for t in entry['tokens'].values() if t.get('status') == 'rugged']
+        scoring = score_creator(entry)
+        if not rugged and scoring['cloneCount'] < 3:
+            continue
+        cases.append({
+            'chain': entry['chain'], 'address': entry['address'], **scoring,
+            'kind': 'rug' if rugged else 'clone-farm',
+            'tickers': sorted({(t.get('symbol') or '?') for t in entry['tokens'].values()}),
+            'rugged': [{'symbol': t.get('symbol'), 'pairAddress': t['pairAddress'], 'peakLiquidityUsd': t.get('peakLiquidityUsd'),
+                        'lastLiquidityUsd': t.get('lastLiquidityUsd'), 'firstSeenAt': t.get('firstSeenAt'), 'lastCheckedAt': t.get('lastCheckedAt')} for t in rugged],
+        })
+    cases.sort(key=lambda c: (-c['ruggedCount'], -c['cloneCount'], -c['tokenCount']))
+    return {'cases': cases[:limit], 'total': len(cases)}
+
+
+class VotePayload(BaseModel):
+    wallet: str
+    itemId: str
+
+
+@app.get('/api/reputation/roadmap/votes')
+async def roadmap_votes(wallet: Optional[str] = None):
+    store = _load()
+    votes = store.setdefault('votes', {})
+    return {'counts': {k: len(v) for k, v in votes.items()}, 'mine': [k for k, v in votes.items() if wallet and wallet in v]}
+
+
+@app.post('/api/reputation/roadmap/vote')
+async def roadmap_vote(payload: VotePayload):
+    if len(payload.wallet) < 20 or len(payload.itemId) > 64:
+        raise HTTPException(400, 'Invalid vote.')
+    async with _lock:
+        store = _load()
+        voters = store.setdefault('votes', {}).setdefault(payload.itemId, [])
+        if payload.wallet in voters:
+            voters.remove(payload.wallet)
+        else:
+            voters.append(payload.wallet)
+        _save(store)
+        return {'itemId': payload.itemId, 'count': len(voters), 'voted': payload.wallet in voters}
 
 
 @app.get('/api/reputation/health')
