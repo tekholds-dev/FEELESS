@@ -95,3 +95,6 @@ credentials.json
 .credentials
 frontend/node_modules/.cache/default-development/0.pack
 !.env.example
+
+# Backend runtime data stores (JSON-file-backed services) — regenerated at runtime, not source
+backend/data/

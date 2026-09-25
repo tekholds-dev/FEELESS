@@ -39,7 +39,7 @@ export default function NewStuffFeed({ ecosystem }) {
         const addr = p.baseToken?.address;
         const change = tab === 'new' ? p.priceChange?.h1 : p.priceChange?.h24;
         return <div className="new-stuff-item" key={`${p.chainId}-${p.pairAddress}`} data-testid={`new-stuff-item-${addr}`}>
-          <TokenAvatar pair={p} size={40} />
+          <TokenAvatar pair={p} size={48} />
           <div className="new-stuff-meta">
             <b>{p.baseToken?.symbol || '—'}</b>
             <small>{p.baseToken?.name || p.dexId}</small>

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Activity, ArrowUpRight, Globe2, ScanLine, Radio, X } from 'lucide-react';
 import { useWorkspace, CONTEXTS } from '../../hooks/useWorkspace';
@@ -24,6 +24,20 @@ export const MouseGlow = () => {
   return <div ref={ref} className="mouse-glow" aria-hidden="true" />;
 };
 
+const FLAKE_COUNT = 28;
+export const AmbientFlakes = () => {
+  const flakes = useMemo(() => Array.from({ length: FLAKE_COUNT }, (_, i) => ({
+    id: i,
+    left: `${(i * 41 + 7) % 100}%`,
+    delay: `${(i % 14) * 0.9}s`,
+    duration: `${16 + (i % 7) * 3}s`,
+    size: 1 + (i % 3),
+    drift: `${((i % 5) - 2) * 40}px`,
+  })), []);
+  if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return null;
+  return <div className="ambient-flakes" aria-hidden="true">{flakes.map(f => <span key={f.id} className="ambient-flake" style={{ left: f.left, animationDelay: f.delay, animationDuration: f.duration, width: f.size, height: f.size, '--drift': f.drift }} />)}</div>;
+};
+
 export const ContextBar = () => {
   const { ecosystem, setEcosystem } = useWorkspace();
   const [params, setParams] = useSearchParams();
@@ -47,7 +61,10 @@ export const AlphaTape = ({ horizontal = false }) => {
   const openPair = pair => { selectPair(pair); if (location.pathname !== '/terminal/chat') nav('/terminal/chat'); };
   const [type, setType] = useState('all');
   const { data, error } = useMarket(`/api/intelligence/tape?chain=${ecosystem.chainId}&venue=${ecosystem.isLaunchpad ? ecosystem.id : 'all'}&context=${ecosystem.id}`, 15000);
-  const events = (data?.events || []).filter(e => type === 'all' || e.kind === type);
+  const seenIds = new Set();
+  const events = (data?.events || [])
+    .filter(e => type === 'all' || e.kind === type)
+    .filter(e => (seenIds.has(e.id) ? false : (seenIds.add(e.id), true)));
   return <section className={`alpha-tape ${horizontal ? 'tape-horizontal' : ''}`} data-testid="alpha-tape"><div className="alpha-title"><span><Radio size={15} /><b>ALPHA TAPE</b><i /></span><select aria-label="Alpha Tape signal type" data-testid="alpha-tape-filter" value={type} onChange={e => setType(e.target.value)}><option value="all">All signals</option>{[['NEW_PAIR', 'New pair'], ['TRENDING', 'Trending'], ['PRICE_VELOCITY', 'Price velocity'], ['LIQUIDITY_CHANGE', 'Liquidity delta'], ['VOLUME_CHANGE', 'Volume delta'], ['CONTRACT_SCANNED', 'CA scanned'], ['CHAT_CA_MENTION', 'Chat CA']].map(([id, name]) => <option value={id} key={id}>{name}</option>)}</select></div><div className="alpha-events custom-scroll">{!events.length && <div className="alpha-waiting" data-testid="alpha-tape-empty"><span className="signal-lines"><i /><i /><i /><i /></span>{error ? 'Signal provider unavailable.' : 'Listening for verified signals…'}<small>No invented activity. Unsupported transaction events are not emitted.</small></div>}{events.map(e => <button data-testid={`alpha-event-${e.id}`} key={e.id} className="alpha-event" onClick={() => openPair(e.pair)} title={e.detail}><span className={`event-kind event-${e.kind.toLowerCase()}`}>{e.kind.replaceAll('_', ' ')}</span><TokenAvatar pair={e.pair} size={26} /><span><b>{e.title}</b><small>{e.provider} · {formatTime(e.observed_at)}</small></span><ArrowUpRight size={13} /></button>)}</div><small className="tape-source">Provider observations & same-source snapshot changes. Not a transaction scanner.</small></section>;
 };
 

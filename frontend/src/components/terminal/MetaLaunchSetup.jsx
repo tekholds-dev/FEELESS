@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -13,7 +13,9 @@ import {
   LoaderCircle,
   LockKeyhole,
   Rocket,
+  ShieldAlert,
   ShieldCheck,
+  ShieldQuestion,
   Timer,
   Users,
   WalletCards,
@@ -21,6 +23,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useWallet } from '../../hooks/useWallet';
+import { fetchCreator, BADGE_LABEL } from '../../lib/reputation';
 import {
   executeMetaLaunchPlan,
   getLaunchMint,
@@ -43,7 +46,8 @@ export const DEFAULT_META_LAUNCH_FORM = {
   graduationTarget: '85',
   liquidityPair: 'SOL',
   swapFee: '1',
-  creatorFeeShare: '50',
+  creatorFeeShare: '40',
+  referralShare: '10',
   holderRewardShare: '0',
   buybackBurnShare: '50',
   antiSniperTax: '50',
@@ -54,6 +58,8 @@ export const DEFAULT_META_LAUNCH_FORM = {
   holderAllocation: '0',
   airdropRecipients: '',
   airdropAmount: '0',
+  lockedLaunchEnabled: true,
+  lockDurationMinutes: '30',
 };
 
 const OPENING_MARKET_CAPS = [
@@ -79,6 +85,7 @@ export function validateMetaLaunch(form) {
   const errors = {};
   const feeShares = [
     numeric(form.creatorFeeShare),
+    numeric(form.referralShare),
     numeric(form.holderRewardShare),
     numeric(form.buybackBurnShare),
   ];
@@ -95,11 +102,14 @@ export function validateMetaLaunch(form) {
   if (!form.liquidityPair) errors.liquidityPair = 'Choose a quote asset.';
   if (!Number.isFinite(numeric(form.swapFee)) || numeric(form.swapFee) < 0 || numeric(form.swapFee) > 10) errors.swapFee = 'Swap fee must be between 0% and 10%.';
   feeShares.forEach((value, index) => {
-    const key = ['creatorFeeShare', 'holderRewardShare', 'buybackBurnShare'][index];
+    const key = ['creatorFeeShare', 'referralShare', 'holderRewardShare', 'buybackBurnShare'][index];
     if (!Number.isFinite(value) || value < 0 || value > 100) errors[key] = 'Share must be between 0% and 100%.';
   });
-  if (!errors.creatorFeeShare && !errors.holderRewardShare && !errors.buybackBurnShare && rounded(feeShareTotal) !== 100) {
+  if (!errors.creatorFeeShare && !errors.referralShare && !errors.holderRewardShare && !errors.buybackBurnShare && rounded(feeShareTotal) !== 100) {
     errors.feeShares = `Fee routing must total 100%. Current total: ${rounded(feeShareTotal)}%.`;
+  }
+  if (form.lockedLaunchEnabled) {
+    if (!Number.isFinite(numeric(form.lockDurationMinutes)) || numeric(form.lockDurationMinutes) < 1 || numeric(form.lockDurationMinutes) > 1440) errors.lockDurationMinutes = 'Lock duration must be between 1 and 1440 minutes.';
   }
   if (!Number.isFinite(numeric(form.antiSniperTax)) || numeric(form.antiSniperTax) < 0 || numeric(form.antiSniperTax) > 100) errors.antiSniperTax = 'Protection tax must be between 0% and 100%.';
   if (!Number.isFinite(numeric(form.antiSniperWindow)) || numeric(form.antiSniperWindow) < 0 || numeric(form.antiSniperWindow) > 60) errors.antiSniperWindow = 'Protection window must be between 0 and 60 seconds.';
@@ -168,13 +178,43 @@ export function StepStatus({ step, status }) {
 }
 
 function FeeSplitSummary({ form }) {
-  const total = rounded(numeric(form.creatorFeeShare) + numeric(form.holderRewardShare) + numeric(form.buybackBurnShare));
+  const total = rounded(numeric(form.creatorFeeShare) + numeric(form.referralShare) + numeric(form.holderRewardShare) + numeric(form.buybackBurnShare));
   return <div className={`meta-launch-fee-meter ${total === 100 ? 'complete' : ''}`} data-testid="meta-launch-fee-meter">
     <div><span>Creator</span><b>{form.creatorFeeShare}%</b></div>
+    <div><span>Referral</span><b>{form.referralShare}%</b></div>
     <div><span>Holders</span><b>{form.holderRewardShare}%</b></div>
     <div><span>Buyback & burn</span><b>{form.buybackBurnShare}%</b></div>
     <strong>{total}% routed</strong>
   </div>;
+}
+
+function LockedLaunchPreview({ enabled, minutes }) {
+  const buyers = useMemo(() => Array.from({ length: 10 }, (_, i) => ({ id: i, buyMinute: i === 0 ? 0 : rounded(i * (Number(minutes || 30) / 14)) })), [minutes]);
+  if (!enabled) return <p className="provider-note">Locked Launch is off — buys settle immediately, same as a standard bonding-curve launch. Turn it on to make early sniping structurally unprofitable.</p>;
+  const total = Number(minutes || 30);
+  return <div className="lock-launch-preview" data-testid="lock-launch-preview">
+    <div className="lock-launch-track">{buyers.map(b => <div key={b.id} className="lock-launch-buy" style={{ left: `${(b.buyMinute / total) * 88}%` }} title={`Buy at t+${b.buyMinute}m → unlocks at t+${total}m`}><span className="lock-launch-dot" /><small>t+{b.buyMinute}m</small></div>)}<div className="lock-launch-unlock-line" style={{ left: '92%' }}><span>ALL UNLOCK</span><small>t+{total}m</small></div></div>
+    <p className="provider-note">Every buy is escrowed for {total} minutes from the moment it lands, then released in the order it bought — <b>earliest buyers first, snipers who bought in the first seconds unlock last</b> if they bought after the launch already ran up. Nobody can sell before their own lock clears, so there's no window where an early sniper can dump into buyers who arrived seconds later.</p>
+  </div>;
+}
+
+function LaunchEligibilityPanel({ wallet, chain }) {
+  const [state, setState] = useState({ loading: false, result: null, error: '' });
+  useEffect(() => {
+    if (!wallet?.address || wallet.chain !== chain) { setState({ loading: false, result: null, error: '' }); return; }
+    let alive = true;
+    setState({ loading: true, result: null, error: '' });
+    fetchCreator(chain, wallet.address).then(result => { if (alive) setState({ loading: false, result, error: '' }); })
+      .catch(err => { if (alive) setState({ loading: false, result: null, error: err.message }); });
+    return () => { alive = false; };
+  }, [wallet?.address, wallet?.chain, chain]);
+
+  if (!wallet?.address) return <div className="launch-eligibility unknown"><ShieldQuestion size={16} /><span><b>Connect a wallet to check launch eligibility.</b><small>FEELESS checks your own reputation graph before letting a launch through.</small></span></div>;
+  if (state.loading) return <div className="launch-eligibility unknown"><LoaderCircle size={16} className="meta-launch-spinner" /><span><b>Checking your reputation graph…</b></span></div>;
+  if (state.error || !state.result) return <div className="launch-eligibility clear"><ShieldCheck size={16} /><span><b>No prior launches on record — clean slate.</b><small>First-time creators can launch freely. Your history starts compounding from this one.</small></span></div>;
+  const { scoring } = state.result;
+  if (scoring.ruggedCount > 0) return <div className="launch-eligibility blocked"><ShieldAlert size={16} /><span><b>Launch blocked — {scoring.ruggedCount} confirmed liquidity collapse{scoring.ruggedCount > 1 ? 's' : ''} on this wallet.</b><small>This is the reputation graph FEELESS itself keeps. Launch from a different, clean wallet, or wait — flags don't expire.</small></span></div>;
+  return <div className="launch-eligibility clear"><ShieldCheck size={16} /><span><b>Eligible — {BADGE_LABEL[scoring.badge]}, score {scoring.score}/100.</b><small>{scoring.tokenCount} prior token{scoring.tokenCount === 1 ? '' : 's'} tracked, 0 flagged.</small></span></div>;
 }
 
 export default function MetaLaunchSetup({ initialValues }) {
@@ -221,6 +261,15 @@ export default function MetaLaunchSetup({ initialValues }) {
         activeProvider = connected?.provider;
       }
       if (!activeWallet || !activeProvider) throw new Error('Connect Phantom to approve this launch.');
+      if (activeWallet.chain === 'solana') {
+        try {
+          const reputation = await fetchCreator('solana', activeWallet.address);
+          if (reputation?.scoring?.ruggedCount > 0) throw new Error(`Launch blocked: this wallet has ${reputation.scoring.ruggedCount} confirmed liquidity collapse${reputation.scoring.ruggedCount > 1 ? 's' : ''} on FEELESS's reputation graph. Use a different wallet.`);
+        } catch (reputationError) {
+          if (reputationError.message?.startsWith('Launch blocked')) throw reputationError;
+          // No prior record (404) or the reputation service is unreachable — never block a launch on infra flakiness, only on a confirmed flag.
+        }
+      }
        const plan = deployment.plan || await requestMetaLaunchPlan(form, activeWallet, form.providerId);
       const result = await executeMetaLaunchPlan(plan, {
         provider: activeProvider,
@@ -281,10 +330,11 @@ export default function MetaLaunchSetup({ initialValues }) {
         <section className="meta-launch-section"><div className="meta-launch-section-heading"><Rocket size={17} /><div><h2>Token identity</h2><p>Name, ticker, image, and whole-token supply. The public image is included in the launch metadata.</p></div></div><div className="meta-launch-fields two"><Field label="Coin name" name="name" placeholder="Meta Coin" value={form.name} onChange={update} error={errors.name} /><Field label="Symbol" name="symbol" placeholder="META" value={form.symbol} onChange={update} error={errors.symbol} autoCapitalize="characters" /><Field label="Total supply" name="supply" type="number" min="1" step="1" value={form.supply} onChange={update} error={errors.supply} hint="Whole tokens" /></div><div className="meta-launch-image-row"><Field label="Token image URL" name="imageUrl" type="url" placeholder="https://example.com/token.png" value={form.imageUrl} onChange={update} error={errors.imageUrl} hint="Public HTTPS image" /><div className="meta-launch-image-preview" data-testid="meta-launch-image-preview">{form.imageUrl ? <img src={form.imageUrl} alt={`${form.name || 'Token'} preview`} onError={event => { event.currentTarget.style.display = 'none'; }} /> : <><ImageIcon size={20} /><span>Image preview</span></>}</div></div></section>
       <section className="meta-launch-section"><div className="meta-launch-section-heading"><Gauge size={17} /><div><h2>Bonding curve</h2><p>Choose the opening market cap and the point where the curve graduates to a pool.</p></div></div><div className="meta-launch-fields two"><SelectField label="Opening market cap" name="openingMarketCap" value={form.openingMarketCap} onChange={update} error={errors.openingMarketCap}>{OPENING_MARKET_CAPS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</SelectField><SelectField label="Curve shape" name="curveType" value={form.curveType} onChange={update} error={errors.curveType}><option value="linear">Linear · predictable steps</option><option value="exponential">Exponential · faster price discovery</option></SelectField><Field label="Graduation target" name="graduationTarget" type="number" min="1" step="any" value={form.graduationTarget} onChange={update} error={errors.graduationTarget} hint="SOL / quote asset" /></div></section>
       <section className="meta-launch-section"><div className="meta-launch-section-heading"><Coins size={17} /><div><h2>Liquidity graduation</h2><p>Set the quote asset, destination pool, and a permanent lock for graduated liquidity.</p></div></div><div className="meta-launch-fields two"><SelectField label="Quote asset" name="liquidityPair" value={form.liquidityPair} onChange={update} error={errors.liquidityPair}><option value="SOL">SOL</option><option value="USDC">USDC</option></SelectField><SelectField label="Graduation venue" name="migrationVenue" value={form.migrationVenue} onChange={update} error={errors.migrationVenue}><option value="raydium-cpmm">Raydium CPMM</option><option value="raydium-clmm">Raydium CLMM</option></SelectField><SelectField label="Liquidity lock" name="liquidityLock" value={form.liquidityLock} onChange={update} error={errors.liquidityLock}><option value="permanent">Permanent · unruggable</option></SelectField></div></section>
-      <section className="meta-launch-section"><div className="meta-launch-section-heading"><Flame size={17} /><div><h2>Fee routing</h2><p>One swap fee. Three visible destinations. The split must always equal 100%.</p></div></div><div className="meta-launch-fields two"><Field label="Swap fee (%)" name="swapFee" type="number" min="0" max="10" step="0.1" value={form.swapFee} onChange={update} error={errors.swapFee} hint="Applied on buys and sells" /><Field label="Creator share (%)" name="creatorFeeShare" type="number" min="0" max="100" step="0.1" value={form.creatorFeeShare} onChange={update} error={errors.creatorFeeShare} /><Field label="Holder rewards share (%)" name="holderRewardShare" type="number" min="0" max="100" step="0.1" value={form.holderRewardShare} onChange={update} error={errors.holderRewardShare} /><Field label="Buyback & burn share (%)" name="buybackBurnShare" type="number" min="0" max="100" step="0.1" value={form.buybackBurnShare} onChange={update} error={errors.buybackBurnShare} /></div><FeeSplitSummary form={form} />{errors.feeShares && <p className="meta-launch-error" role="alert">{errors.feeShares}</p>}</section>
+      <section className="meta-launch-section"><div className="meta-launch-section-heading"><Flame size={17} /><div><h2>Fee routing</h2><p>One swap fee. Four visible destinations. The split must always equal 100%.</p></div></div><div className="meta-launch-fields two"><Field label="Swap fee (%)" name="swapFee" type="number" min="0" max="10" step="0.1" value={form.swapFee} onChange={update} error={errors.swapFee} hint="Applied on buys and sells" /><Field label="Creator share (%)" name="creatorFeeShare" type="number" min="0" max="100" step="0.1" value={form.creatorFeeShare} onChange={update} error={errors.creatorFeeShare} /><Field label="Referral share (%)" name="referralShare" type="number" min="0" max="100" step="0.1" value={form.referralShare} onChange={update} error={errors.referralShare} hint="Paid to whoever referred the buyer" /><Field label="Holder rewards share (%)" name="holderRewardShare" type="number" min="0" max="100" step="0.1" value={form.holderRewardShare} onChange={update} error={errors.holderRewardShare} /><Field label="Buyback & burn share (%)" name="buybackBurnShare" type="number" min="0" max="100" step="0.1" value={form.buybackBurnShare} onChange={update} error={errors.buybackBurnShare} /></div><FeeSplitSummary form={form} />{errors.feeShares && <p className="meta-launch-error" role="alert">{errors.feeShares}</p>}</section>
       <section className="meta-launch-section"><div className="meta-launch-section-heading"><Timer size={17} /><div><h2>Opening protection</h2><p>Give the first seconds a transparent anti-sniper rule. It routes to holders, not a hidden wallet.</p></div></div><div className="meta-launch-fields two"><Field label="Opening buy tax (%)" name="antiSniperTax" type="number" min="0" max="100" step="1" value={form.antiSniperTax} onChange={update} error={errors.antiSniperTax} hint="Falls away after the window" /><Field label="Protection window (seconds)" name="antiSniperWindow" type="number" min="0" max="60" step="1" value={form.antiSniperWindow} onChange={update} error={errors.antiSniperWindow} /><Field label="Optional dev buy" name="devBuyAmount" type="number" min="0" step="any" value={form.devBuyAmount} onChange={update} error={errors.devBuyAmount} hint="SOL / quote asset" /></div></section>
+      <section className="meta-launch-section"><div className="meta-launch-section-heading"><LockKeyhole size={17} /><div><h2>Locked Launch <span className="state-tag amber">ANTI-RUG</span></h2><p>Every buy sits in escrow before it can be resold — chronological unlock means snipers can't dump into buyers who arrived seconds after them.</p></div></div><label className="meta-launch-toggle"><input type="checkbox" checked={form.lockedLaunchEnabled} onChange={event => update('lockedLaunchEnabled', event.target.checked)} /><span>Enable Locked Launch for this token</span></label>{form.lockedLaunchEnabled && <div className="meta-launch-fields two"><Field label="Lock duration (minutes)" name="lockDurationMinutes" type="number" min="1" max="1440" step="1" value={form.lockDurationMinutes} onChange={update} error={errors.lockDurationMinutes} hint="Every buy unlocks this long after it lands" /></div>}<LockedLaunchPreview enabled={form.lockedLaunchEnabled} minutes={form.lockDurationMinutes} /></section>
       <section className="meta-launch-section"><div className="meta-launch-section-heading"><Users size={17} /><div><h2>Community distribution</h2><p>Reserve supply for holders and list airdrop recipients before review.</p></div></div><div className="meta-launch-fields two"><Field label="Holder allocation (%)" name="holderAllocation" type="number" min="0" max="100" step="0.1" value={form.holderAllocation} onChange={update} error={errors.holderAllocation} /><Field label="Airdrop allocation (%)" name="airdropAmount" type="number" min="0" max="100" step="0.1" value={form.airdropAmount} onChange={update} error={errors.airdropAmount} /></div><label className="meta-launch-field"><span>Airdrop recipients<small>One wallet address per line</small></span><textarea name="airdropRecipients" rows="4" placeholder="Wallet address 1&#10;Wallet address 2" value={form.airdropRecipients} onChange={event => update('airdropRecipients', event.target.value)} />{errors.airdropRecipients && <small className="meta-launch-error">{errors.airdropRecipients}</small>}</label>{errors.allocations && <p className="meta-launch-error" role="alert">{errors.allocations}</p>}</section>
-      <aside className="meta-launch-sidebar"><div className="meta-launch-readiness"><span className="eyebrow">LAUNCH READINESS</span><StatusRow icon={wallet ? CheckCircle2 : Clock3} title={wallet ? 'Wallet connected' : 'Wallet approval after review'} detail={wallet ? `${wallet.name} · ${wallet.address.slice(0, 6)}…` : 'No wallet request is made while editing mechanics.'} ready={Boolean(wallet)} /><StatusRow icon={readiness.providerReady ? CheckCircle2 : LockKeyhole} title={readiness.providerReady ? readiness.providerName : 'Provider unavailable'} detail={readiness.providerReady ? `${readiness.network} · approved provider` : 'Approved provider URL and approval status are required.'} ready={readiness.providerReady} /><StatusRow icon={readiness.rpcReady ? CheckCircle2 : LockKeyhole} title={readiness.rpcReady ? 'Solana RPC configured' : 'Solana RPC unavailable'} detail={readiness.rpcReady ? `${readiness.network} · ${readiness.rpcHost}` : 'No on-chain confirmation or submission will be attempted.'} ready={readiness.rpcReady} /><p className="meta-launch-safety">FEELESS never stores private keys. The provider prepares unsigned phases; your wallet signs them only after review.</p></div><div className="meta-launch-sidebar-note"><ShieldCheck size={15} /><span><b>Permanent liquidity. Visible routing.</b><small>Creator rewards, holder rewards, and buyback-and-burn shares are declared before launch.</small></span></div><button className="btn-primary meta-launch-review" data-testid="meta-launch-review" type="submit">Review launch mechanics<ArrowRight size={16} /></button></aside>
+      <aside className="meta-launch-sidebar"><div className="meta-launch-readiness"><span className="eyebrow">LAUNCH READINESS</span><LaunchEligibilityPanel wallet={wallet} chain="solana" /><StatusRow icon={wallet ? CheckCircle2 : Clock3} title={wallet ? 'Wallet connected' : 'Wallet approval after review'} detail={wallet ? `${wallet.name} · ${wallet.address.slice(0, 6)}…` : 'No wallet request is made while editing mechanics.'} ready={Boolean(wallet)} /><StatusRow icon={readiness.providerReady ? CheckCircle2 : LockKeyhole} title={readiness.providerReady ? readiness.providerName : 'Provider unavailable'} detail={readiness.providerReady ? `${readiness.network} · approved provider` : 'Approved provider URL and approval status are required.'} ready={readiness.providerReady} /><StatusRow icon={readiness.rpcReady ? CheckCircle2 : LockKeyhole} title={readiness.rpcReady ? 'Solana RPC configured' : 'Solana RPC unavailable'} detail={readiness.rpcReady ? `${readiness.network} · ${readiness.rpcHost}` : 'No on-chain confirmation or submission will be attempted.'} ready={readiness.rpcReady} /><p className="meta-launch-safety">FEELESS never stores private keys. The provider prepares unsigned phases; your wallet signs them only after review.</p></div><div className="meta-launch-sidebar-note"><ShieldCheck size={15} /><span><b>Permanent liquidity. Visible routing.</b><small>Creator rewards, holder rewards, and buyback-and-burn shares are declared before launch.</small></span></div><button className="btn-primary meta-launch-review" data-testid="meta-launch-review" type="submit">Review launch mechanics<ArrowRight size={16} /></button></aside>
     </form> : <section className="meta-launch-review-page" data-testid="meta-launch-review-page">
        <div className="meta-launch-review-heading"><div className="meta-launch-review-identity">{form.imageUrl && <img src={form.imageUrl} alt="" onError={event => { event.currentTarget.style.display = 'none'; }} />}<div><span className="eyebrow">CHECK BEFORE SIGNING</span><h2>{form.name} <span>${form.symbol}</span></h2><p>Your launch mechanics and token identity are valid. Review the curve, routing, protection, and community allocations before any provider request.</p></div></div><button className="btn-outline" data-testid="meta-launch-edit" onClick={() => setStep('setup')}><ArrowLeft size={15} />Edit mechanics</button></div>
        <div className="meta-launch-review-cards"><div><span>Launch provider</span><b>{selectedProvider.label}</b><small>{readiness.ready ? 'Approved preparation rail' : 'Not configured for execution'}</small></div><div><span>Opening market cap</span><b>${form.openingMarketCap}k</b><small>{form.curveType} curve</small></div><div><span>Graduation target</span><b>{form.graduationTarget} {form.liquidityPair}</b><small>{form.migrationVenue === 'raydium-cpmm' ? 'Raydium CPMM' : 'Raydium CLMM'} · permanent lock</small></div><div><span>Fee routing</span><b>{form.swapFee}% swap fee</b><small>{form.creatorFeeShare}% creator · {form.holderRewardShare}% holders · {form.buybackBurnShare}% buyback & burn</small></div><div><span>Opening protection</span><b>{form.antiSniperTax}% → 0%</b><small>After {form.antiSniperWindow}s · optional dev buy {form.devBuyAmount} {form.liquidityPair}</small></div></div>

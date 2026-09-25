@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { createChart, CandlestickSeries, HistogramSeries, ColorType } from 'lightweight-charts';
+import { createChart, CandlestickSeries, HistogramSeries, LineSeries, ColorType } from 'lightweight-charts';
 import { useMarket } from '../../hooks/useMarket';
 import { dexUrl, formatUSD } from '../../lib/dexscreener';
-import { DataStatus, MarketAvailabilityNotice, MarketError } from './MarketPrimitives';
+import { DataStatus } from './MarketPrimitives';
+import { recordPricePoint, getPriceTrail } from '../../lib/priceHistory';
+import { recordCandleTick, fetchFeelessCandles } from '../../lib/candles';
 
 export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => {
   const container = useRef(null);
   const priceMetric = metric === 'price';
   const [dayMode, setDayMode] = useState(() => typeof document !== 'undefined' && document.body.classList.contains('theme-day'));
-  const { data, loading, error, errorStatus, errorProvider, reload } = useMarket(priceMetric && pair ? `/candles/${pair.chainId}/${pair.pairAddress}?interval=${interval}` : null);
+  const { data, loading, error } = useMarket(priceMetric && pair ? `/candles/${pair.chainId}/${pair.pairAddress}?interval=${interval}` : null);
   const providerError = error || data?.error;
   const metricLabel = metric === 'marketCap' ? 'Market cap' : 'FDV';
   const metricValue = metric === 'marketCap' ? pair?.marketCap : pair?.fdv;
@@ -19,6 +21,38 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => 
       .map(row => row.slice(0, 6).map(Number))
       .map(row => [row[0], row])).values()].sort((a, b) => a[0] - b[0])
     : [], [data?.candles]);
+
+  // Record every live price we see for this pair, regardless of candle provider health —
+  // both locally (instant fallback for this browser) and server-side (so the FEELESS
+  // candle aggregator keeps building real, shared OHLCV history for everyone).
+  useEffect(() => {
+    if (pair?.pairAddress && pair?.priceUsd != null) {
+      recordPricePoint(pair.pairAddress, pair.priceUsd);
+      recordCandleTick(pair.chainId, pair.pairAddress, pair.priceUsd, pair.volume?.h24);
+    }
+  }, [pair?.chainId, pair?.pairAddress, pair?.priceUsd, pair?.volume?.h24]);
+
+  const needsFallback = priceMetric && !loading && !candleRows.length && Boolean(providerError);
+  const [feelessCandles, setFeelessCandles] = useState([]);
+  useEffect(() => {
+    if (!needsFallback || !pair?.pairAddress) { setFeelessCandles([]); return undefined; }
+    let alive = true;
+    fetchFeelessCandles(pair.chainId, pair.pairAddress, interval)
+      .then(res => { if (alive && Array.isArray(res?.candles)) setFeelessCandles(res.candles); })
+      .catch(() => { if (alive) setFeelessCandles([]); });
+    return () => { alive = false; };
+  }, [needsFallback, pair?.chainId, pair?.pairAddress, interval]);
+  const usingFeelessCandles = needsFallback && feelessCandles.length >= 2;
+
+  const usingFallbackTrail = needsFallback && !usingFeelessCandles;
+  const trail = useMemo(() => {
+    if (!usingFallbackTrail || !pair?.pairAddress) return [];
+    const points = getPriceTrail(pair.pairAddress);
+    return points.map(pt => ({ time: Math.floor(pt.t / 1000), value: pt.p }))
+      .filter((pt, i, arr) => i === 0 || pt.time !== arr[i - 1].time);
+  }, [usingFallbackTrail, pair?.pairAddress]);
+  const displayCandles = useMemo(() => candleRows.length ? candleRows : usingFeelessCandles ? feelessCandles : [], [candleRows, usingFeelessCandles, feelessCandles]);
+  const hasChart = displayCandles.length > 0 || trail.length >= 2;
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
     const observer = new MutationObserver(() => setDayMode(document.body.classList.contains('theme-day')));
@@ -26,7 +60,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => 
     return () => observer.disconnect();
   }, []);
   useEffect(() => {
-    if (!container.current || !candleRows.length) return;
+    if (!container.current || !hasChart) return;
     container.current.replaceChildren();
     const chart = createChart(container.current, {
       autoSize: true,
@@ -45,53 +79,58 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => 
       timeScale: { borderColor: dayMode ? '#aac7b3' : '#203129', timeVisible: true, secondsVisible: false },
       localization: { locale: 'en-US', priceFormatter: n => formatUSD(n) }, crosshair: { mode: 0 },
     });
-    const series = chart.addSeries(CandlestickSeries, {
-      upColor: dayMode ? '#08764e' : '#00e7a0',
-      downColor: '#b42346',
-      wickUpColor: dayMode ? '#08764e' : '#00e7a0',
-      wickDownColor: '#b42346',
-      borderVisible: false,
-      priceFormat: { type: 'custom', formatter: n => formatUSD(n) },
-    });
-    series.setData(candleRows.map(([time, open, high, low, close]) => ({ time, open, high, low, close })));
-    series.priceScale().applyOptions({ scaleMargins: { top: .12, bottom: showVolume ? .24 : .12 } });
-    if (showVolume) {
-      const volume = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: '', lastValueVisible: false, priceLineVisible: false });
-      volume.priceScale().applyOptions({ scaleMargins: { top: .84, bottom: 0 } });
-      volume.setData(candleRows.map(([time, open, , , close, value]) => ({
-        time,
-        value,
-        color: close >= open
-          ? (dayMode ? '#08764e55' : '#00e7a042')
-          : (dayMode ? '#b4234655' : '#f5688050'),
-      })));
+    if (displayCandles.length) {
+      const series = chart.addSeries(CandlestickSeries, {
+        upColor: dayMode ? '#08764e' : '#00e7a0',
+        downColor: '#b42346',
+        wickUpColor: dayMode ? '#08764e' : '#00e7a0',
+        wickDownColor: '#b42346',
+        borderVisible: false,
+        priceFormat: { type: 'custom', formatter: n => formatUSD(n) },
+      });
+      series.setData(displayCandles.map(([time, open, high, low, close]) => ({ time, open, high, low, close })));
+      series.priceScale().applyOptions({ scaleMargins: { top: .12, bottom: showVolume ? .24 : .12 } });
+      if (showVolume) {
+        const volume = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: '', lastValueVisible: false, priceLineVisible: false });
+        volume.priceScale().applyOptions({ scaleMargins: { top: .84, bottom: 0 } });
+        volume.setData(displayCandles.map(([time, open, , , close, value]) => ({
+          time,
+          value,
+          color: close >= open
+            ? (dayMode ? '#08764e55' : '#00e7a042')
+            : (dayMode ? '#b4234655' : '#f5688050'),
+        })));
+      }
+    } else {
+      const line = chart.addSeries(LineSeries, {
+        color: dayMode ? '#08764e' : '#00e7a0',
+        lineWidth: 2,
+        priceFormat: { type: 'custom', formatter: n => formatUSD(n) },
+      });
+      line.setData(trail);
+      line.priceScale().applyOptions({ scaleMargins: { top: .16, bottom: .16 } });
     }
     chart.timeScale().fitContent();
     return () => chart.remove();
-  }, [candleRows, dayMode, showVolume]);
+  }, [displayCandles, trail, hasChart, dayMode, showVolume]);
   return <div className="chart-area" data-testid="price-chart">
     {priceMetric && loading && <div className="chart-message" data-testid="chart-loading"><span className="loader" />Loading on-chain candles…</div>}
-    {priceMetric && providerError && !candleRows.length && <div className="chart-message" data-testid="chart-provider-failure">
-      <MarketAvailabilityNotice data={data} error={error} errorStatus={errorStatus} errorProvider={errorProvider} id="chart-market-availability" />
-      <MarketError
-        error={`Unable to refresh candle history from ${data?.provider || errorProvider || 'GeckoTerminal'}. ${providerError}`}
-        description="This is a provider failure, not confirmation that the pool has no history. Retry the candle request or use the external chart."
-        reload={reload}
-        focusable
-        retryLabel={`Retry ${interval} candle history`}
-        id="chart-error"
-      />
+    {priceMetric && !loading && usingFallbackTrail && trail.length < 2 && <div className="chart-message chart-building" role="status" data-testid="chart-building">
+      <span className="signal-lines"><i /><i /><i /><i /></span>
+      <strong>Building a live price trail for this pool.</strong>
+      <span>Full candle history is temporarily unavailable from the provider. FEELESS is recording every price it observes here — check back shortly, or view the external chart now.</span>
       <a data-testid="chart-fallback-link" href={dexUrl(pair)} target="_blank" rel="noreferrer">Open chart on DexScreener ↗</a>
     </div>}
-    {priceMetric && providerError && candleRows.length > 0 && <div className="chart-stale-note" role="status">Showing cached {data?.provider || 'GeckoTerminal'} candles. Refresh unavailable: {providerError}</div>}
-    {priceMetric && !loading && !providerError && !candleRows.length && <div className="chart-message" role="status" aria-live="polite" tabIndex="0" data-testid="chart-empty">
+    {priceMetric && !loading && !providerError && !hasChart && <div className="chart-message" role="status" data-testid="chart-empty">
       <strong>No candle history for this pool yet.</strong>
-      <span>GeckoTerminal returned an empty history for the selected {interval} interval. This is different from a provider outage; try another interval or check the external chart.</span>
+      <span>The provider returned an empty history for the selected {interval} interval. Try another interval or check the external chart.</span>
       <a data-testid="chart-empty-dex-link" href={dexUrl(pair)} target="_blank" rel="noreferrer">View on DexScreener ↗</a>
     </div>}
+    {priceMetric && usingFeelessCandles && <div className="chart-stale-note" role="status">Showing FEELESS-observed candles ({feelessCandles.length} bars from real recorded prices) — full {data?.provider || 'provider'} candle history is temporarily unavailable.</div>}
+    {priceMetric && usingFallbackTrail && trail.length >= 2 && <div className="chart-stale-note" role="status">Live price trail recorded by this browser — full {data?.provider || 'provider'} candle history is temporarily unavailable.</div>}
     {!priceMetric && metricAvailable && <div className="metric-snapshot" data-testid={`chart-${metric}-snapshot`}><span className="metric-snapshot-label">{metricLabel} snapshot</span><strong>{formatUSD(metricValue)}</strong><small>Provider supplied the current {metricLabel.toLowerCase()} only. Historical {metricLabel.toLowerCase()} candles are unavailable.</small></div>}
     {!priceMetric && !metricAvailable && <div className="chart-message metric-unavailable" role="status" data-testid={`chart-${metric}-unavailable`}><strong>{metricLabel} unavailable</strong><span>The provider did not supply a {metricLabel.toLowerCase()} value for this pair. No value is estimated.</span></div>}
-    {priceMetric && <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />}
-    <div className="chart-source"><span>{priceMetric ? `${data?.provider || 'GeckoTerminal'} · OHLCV` : `Provider pair snapshot · ${metricLabel}`}</span>{priceMetric ? <DataStatus data={data} id="chart-data-status" /> : <span className="data-status"><i />{metricAvailable ? 'LIVE · snapshot' : 'UNAVAILABLE'}</span>}</div>
+    {priceMetric && hasChart && <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />}
+    <div className="chart-source"><span>{priceMetric ? (candleRows.length ? `${data?.provider || 'GeckoTerminal'} · OHLCV` : usingFeelessCandles ? 'FEELESS candles · OHLCV' : 'FEELESS local trail · price only') : `Provider pair snapshot · ${metricLabel}`}</span>{priceMetric ? <DataStatus data={data} id="chart-data-status" /> : <span className="data-status"><i />{metricAvailable ? 'LIVE · snapshot' : 'UNAVAILABLE'}</span>}</div>
   </div>;
 };

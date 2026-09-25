@@ -101,15 +101,15 @@ export default function Globe3D({ onSelect, selectedId, size = 640 }) {
       if (!g || typeof g.controls !== 'function') { timer = setTimeout(setup, 80); return; }
       try {
         g.controls().autoRotate = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        g.controls().autoRotateSpeed = 0.6;
+        g.controls().autoRotateSpeed = 0.85;
         g.controls().enableZoom = false;
-        g.pointOfView({ altitude: 2.2 }, 0);
+        g.pointOfView({ altitude: 2.1 }, 0);
         if (typeof g.globeMaterial === 'function') {
           const globeMat = g.globeMaterial();
           globeMat.color = new THREE.Color('#02110A');
-          globeMat.emissive = new THREE.Color('#0A3D2A');
-          globeMat.emissiveIntensity = 0.15;
-          globeMat.shininess = 0.6;
+          globeMat.emissive = new THREE.Color('#0FDB8F');
+          globeMat.emissiveIntensity = 0.22;
+          globeMat.shininess = 4;
         }
       } catch (e) { /* noop */ }
     };
@@ -156,14 +156,23 @@ export default function Globe3D({ onSelect, selectedId, size = 640 }) {
   }, []);
 
   const rings = useMemo(() => GLOBE_NODES.map(e => ({
-    lat: e.lat, lng: e.lng, color: e.color, maxR: 6, propagationSpeed: 2, repeatPeriod: 1800
+    lat: e.lat, lng: e.lng, color: e.color, maxR: 8, propagationSpeed: 2.6, repeatPeriod: 1200
+  })), []);
+
+  const particles = useMemo(() => Array.from({ length: 36 }, (_, i) => ({
+    id: i,
+    left: `${(i * 37) % 100}%`,
+    top: `${(i * 53) % 100}%`,
+    delay: `${(i % 12) * 0.6}s`,
+    duration: `${6 + (i % 5) * 1.4}s`,
+    size: 1 + (i % 3),
   })), []);
 
   return (
-    <div ref={containerRef} className="globe-canvas-wrap" data-testid="ecosystem-globe" style={{ width: '100%', maxWidth: size, aspectRatio: '1' }}>
-      <div className="absolute inset-0 rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle at 50% 50%, rgba(20,241,149,0.18) 0%, rgba(20,241,149,0.06) 30%, transparent 60%)', filter: 'blur(20px)' }}
-      />
+    <div ref={containerRef} className="globe-canvas-wrap globe-alive" data-testid="ecosystem-globe" style={{ width: '100%', maxWidth: size, aspectRatio: '1' }}>
+      <div className="globe-bloom-layer globe-bloom-outer" aria-hidden="true" />
+      <div className="globe-bloom-layer globe-bloom-inner" aria-hidden="true" />
+      <div className="globe-particle-field" aria-hidden="true">{particles.map(p => <span key={p.id} className="globe-particle" style={{ left: p.left, top: p.top, animationDelay: p.delay, animationDuration: p.duration, width: p.size, height: p.size }} />)}</div>
       <GlobeErrorBoundary fallback={<GlobeFallback onSelect={onSelect} selectedId={selectedId} />}>
         <Globe
           ref={globeRef}
@@ -172,7 +181,7 @@ export default function Globe3D({ onSelect, selectedId, size = 640 }) {
           backgroundColor="rgba(0,0,0,0)"
           showAtmosphere
           atmosphereColor="#14F195"
-          atmosphereAltitude={0.25}
+          atmosphereAltitude={0.32}
           globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
           bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
           pointsData={points}

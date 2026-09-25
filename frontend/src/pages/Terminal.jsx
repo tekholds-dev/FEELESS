@@ -16,12 +16,14 @@ import { LaunchpadDirectory } from '../components/terminal/LaunchpadDirectory';
 import MetaLaunchSetup from '../components/terminal/MetaLaunchSetup';
 import { LAUNCHPADS, matchesPad } from '../lib/launchpads';
 import { FeeHeartbeat, Tokenomics, FeeAssetPage } from '../components/command/FeeCommand';
-import { ContextBar, MouseGlow, AlphaTape, PulseGrid, ContractScanner } from '../components/command/WorkspaceChrome';
+import { ContextBar, MouseGlow, AmbientFlakes, AlphaTape, PulseGrid, ContractScanner } from '../components/command/WorkspaceChrome';
 import { FeeBackCenter, FeeCatCenter, FeelessCats } from '../components/command/FeeBack';
 import FeeCatsPlatform from '../components/command/FeeCatsPlatform';
 import { SwapWorkspace } from '../components/command/SwapWorkspace';
 import { RadarView, PumpRadarView, SignalMovers, LivingWatchlist, ParticipationBoard } from '../components/command/DiscoveryViews';
 import { CommandWhitepaper, MissionRoadmap, UnderstandFeeless, TerminalConfiguration } from '../components/command/CommandDocuments';
+import { ReputationCenter } from '../components/command/ReputationCenter';
+import { CreatorProfilePage } from '../components/command/CreatorProfile';
 
 const CHAINS = [['solana', 'Solana'], ['all', 'All chains'], ['ethereum', 'Ethereum'], ['base', 'Base'], ['bsc', 'BNB Chain'], ['arbitrum', 'Arbitrum'], ['avalanche', 'Avalanche'], ['polygon', 'Polygon'], ['sui', 'Sui']];
 const STANDARD = ['', 'trade', 'pump', 'discover', 'new', 'movers'];
@@ -73,7 +75,7 @@ export default function Terminal() {
         : restoredPair
           ? null
           : 'unavailable';
-  const selected = hasPairRoute ? restoredPair : selectedPair || fee?.pair || null;
+  const selected = hasPairRoute ? restoredPair : selectedPair || null;
   const perspective = normalizeRoomPerspective(params.get('room')) || 'bulls';
   const activePad = ecosystem.isLaunchpad ? ecosystem.id : pad;
   const pairs = useMemo(() => {
@@ -81,6 +83,7 @@ export default function Terminal() {
     let list = (modeMatches ? market.data?.pairs || [] : []).filter(p => (chain === 'all' || p.chainId === chain) && Number(p.liquidity?.usd || 0) >= Number(minLiquidity) && matchesPad(p, activePad));
     if (tab === 'gainers') list.sort((a, b) => Number(b.priceChange?.h24 || 0) - Number(a.priceChange?.h24 || 0));
     if (tab === 'volume') list.sort((a, b) => Number(b.volume?.h24 || 0) - Number(a.volume?.h24 || 0));
+    if (tab === 'movers') list.sort((a, b) => Math.abs(Number(b.priceChange?.h1 ?? b.priceChange?.m5 ?? 0)) - Math.abs(Number(a.priceChange?.h1 ?? a.priceChange?.m5 ?? 0)));
     if (kind === 'new' && !query) list.sort((a, b) => (b.pairCreatedAt || 0) - (a.pairCreatedAt || 0));
     if (page === 'new' && !query) list = list.filter(isNewPoolDeal);
     return list;
@@ -137,8 +140,9 @@ export default function Terminal() {
   };
   const setChain = value => { const next = new URLSearchParams(params); if (value === 'all') next.set('chain', 'all'); else { next.delete('chain'); setEcosystem(value === 'bsc' ? 'bnb' : value); } setParams(next); };
   const isHome = page === ''; const isMarket = STANDARD.includes(page);
-  const focus = selected ? <TokenFocus pair={selected} has={has} toggle={toggle} defaultInterval={chartInterval} /> : <FeeHeartbeat asset={fee} assets={feeAssets} loading={assets.loading} />;
-  return <div className={`terminal-app command-terminal ${compact ? 'compact-rows' : ''} ${reducedMotion ? 'reduced-motion' : ''} text-scale-${fontScale}`} style={{ '--context-accent': ecosystem.color }}><MouseGlow /><TerminalHeader onWallet={() => setWalletOpen(true)} onProfile={() => setProfileOpen(true)} onMenu={() => setMenuOpen(v => !v)} query={query} /><MarketTicker /><ContextBar />
+  const focusKey = selected ? `token-${selected.chainId}-${selected.pairAddress}` : 'fee';
+  const focus = <div key={focusKey} className="focus-flip">{selected ? <TokenFocus pair={selected} has={has} toggle={toggle} defaultInterval={chartInterval} /> : <FeeHeartbeat asset={fee} assets={feeAssets} loading={assets.loading} />}</div>;
+  return <div className={`terminal-app command-terminal ${compact ? 'compact-rows' : ''} ${reducedMotion ? 'reduced-motion' : ''} text-scale-${fontScale}`} style={{ '--context-accent': ecosystem.color }}><MouseGlow /><AmbientFlakes /><div className="theme-flip-wipe" aria-hidden="true" /><TerminalHeader onWallet={() => setWalletOpen(true)} onProfile={() => setProfileOpen(true)} onMenu={() => setMenuOpen(v => !v)} query={query} /><MarketTicker /><ContextBar />
     <div className="terminal-body"><TerminalSidebar open={menuOpen} onClose={() => setMenuOpen(false)} savedCount={watchlist.length} /><main className="terminal-main" data-testid={`terminal-page-${page || 'home'}`}>
       <div className="workspace-topline"><span><i className="live-dot" /> FEELESS OS / <b data-testid="workspace-context-label">{ecosystem.name.toUpperCase()} {ecosystem.isLaunchpad ? 'WAR ROOM' : 'INTELLIGENCE'}</b><span className="workspace-mode">{page || '$FEE COMMAND'}</span></span><Link to={`/?node=${ecosystem.id}`} data-testid="workspace-globe-link">Globe view<ArrowUpRight size={12} /></Link></div>
        <div className="context-transition" key={ecosystem.id}>
@@ -154,7 +158,7 @@ export default function Terminal() {
         {page === 'new' && <RadarView pairs={pairs} onSelect={onSelect} kind="new" />}
         {page === 'movers' && <SignalMovers pairs={pairs} onSelect={onSelect} />}
           <section className="market-section"><div className="section-title market-title"><h2><Flame size={18} />{query ? 'Search results' : page === 'new' ? 'New pool deals ≥5%' : kind === 'new' ? 'New pool deals' : 'Top coin discovery'}</h2><DataStatus data={market.data} id="market-feed-status" />{market.refreshing && <span className="live-feed-badge" data-testid="market-feed-refreshing">LIVE</span>}<button title="Refresh market feed" data-testid="market-refresh" className="icon-btn small-icon" onClick={() => market.reload()}><RefreshCw size={14} /></button>{isHome && <Link to="/terminal/discover" className="section-more" data-testid="markets-view-all">Expand<ArrowUpRight size={13} /></Link>}</div>
-           <div className="market-controls"><div className="market-tabs">{[['trending', 'Top coins'], ['new', 'New coins'], ['gainers', 'Gainers'], ['volume', 'Volume']].map(([id, label]) => <button key={id} className={tab === id ? 'active' : ''} data-testid={`market-tab-${id}`} onClick={() => { const next = new URLSearchParams(params); next.set('mode', id); if (['new', 'pump', 'movers'].includes(page)) nav(`/terminal/discover?${next}`); else setParams(next); }}>{label}</button>)}</div><label className="chain-select"><span className="live-dot" /><select aria-label="Market chain" data-testid="market-chain-filter" value={chain} onChange={e => setChain(e.target.value)}>{CHAINS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label><label className="chain-select"><span>Screen</span><select aria-label="Market screener" data-testid="market-screener-filter" value={screen || 'quality'} onChange={e => { const next = new URLSearchParams(params); next.set('screen', e.target.value); setParams(next); }}>{[['quality', 'Best observed'], ['momentum', 'Momentum'], ['volume', 'Volume leaders'], ['new', 'Fresh']].map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label></div>
+           <div className="market-controls"><div className="market-tabs">{[['trending', 'Top coins'], ['new', 'New coins'], ['gainers', 'Gainers'], ['movers', 'Top movers'], ['volume', 'Volume']].map(([id, label]) => <button key={id} className={tab === id ? 'active' : ''} data-testid={`market-tab-${id}`} onClick={() => { const next = new URLSearchParams(params); next.set('mode', id); if (['new', 'pump', 'movers'].includes(page)) nav(`/terminal/discover?${next}`); else setParams(next); }}>{label}</button>)}</div><label className="chain-select"><span className="live-dot" /><select aria-label="Market chain" data-testid="market-chain-filter" value={chain} onChange={e => setChain(e.target.value)}>{CHAINS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label><label className="chain-select"><span>Screen</span><select aria-label="Market screener" data-testid="market-screener-filter" value={screen || 'quality'} onChange={e => { const next = new URLSearchParams(params); next.set('screen', e.target.value); setParams(next); }}>{[['quality', 'Best observed'], ['momentum', 'Momentum'], ['volume', 'Volume leaders'], ['new', 'Fresh']].map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label></div>
            {!isHome && <div className="advanced-filters"><SlidersHorizontal size={14} /><label>DEX venue<select data-testid="market-pad-filter" aria-label="DEX venue" value={activePad} disabled={ecosystem.isLaunchpad} onChange={e => setPad(e.target.value)}><option value="all">All venues</option>{LAUNCHPADS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>Min. liquidity<select data-testid="market-liquidity-filter" value={minLiquidity} onChange={e => setMinLiquidity(e.target.value)}><option value="0">Any</option><option value="10000">$10K</option><option value="100000">$100K</option><option value="1000000">$1M</option></select></label>{query && <button data-testid="market-clear-search" onClick={() => { const next = new URLSearchParams(params); next.delete('q'); setParams(next); }}>Clear search ×</button>}</div>}
            <MarketAvailabilityNotice data={market.data} error={market.error} errorStatus={market.errorStatus} errorProvider={market.errorProvider} id="market-feed-availability" />{market.error && <MarketError error={market.error} reload={market.reload} id="market-feed-error" />}{marketModeMatches && market.data?.stale && <p className="stale-banner" data-testid="market-stale-warning">Cached data · {market.data.error}</p>}
             <MarketTable pairs={isHome ? pairs.slice(0, 6) : pairs.slice(0, 10)} screenerLabel={marketModeMatches ? market.data?.screener_label : undefined} loading={market.loading || (!marketModeMatches && !market.error)} refreshing={market.refreshing} onSelect={onSelect} has={has} toggle={toggle} />
@@ -166,9 +170,11 @@ export default function Terminal() {
       {page === 'alerts' && <AlertsPage alerts={alerts} setAlerts={setAlerts} selected={alertPair || selected} watchlist={watchlist} ecosystem={ecosystem} />}
       {page === 'fee' && <FeeAssetPage asset={fee}>{fee?.pair ? <TokenFocus pair={fee.pair} has={has} toggle={toggle} /> : <FeeHeartbeat asset={fee} loading={assets.loading} />}</FeeAssetPage>}
         {page === 'feeback' && <FeeBackCenter feeCat={feeCat} />}{page === 'feecat' && <FeeCatCenter asset={feeCat} community={community} onSelect={onSelect} />}{page === 'feecat/cats' && <FeelessCats />}{page === 'feecat/agents' && <FeeCatsPlatform />}
+      {page === 'reputation' && <ReputationCenter />}
+      {page.startsWith('reputation/') && (() => { const [, repChain, repAddress] = page.split('/'); return repChain && repAddress ? <CreatorProfilePage chain={repChain} address={repAddress} /> : null; })()}
       {page === 'leaderboard' && <ParticipationBoard />}{page === 'whitepaper' && <CommandWhitepaper />}{page === 'roadmap' && <MissionRoadmap />}{page === 'learn' && <UnderstandFeeless />}
       {page === 'settings' && <TerminalConfiguration settings={settings} setSettings={setSettings} onWallet={() => setWalletOpen(true)} />}
-       {!isMarket && !['launch', 'watchlist', 'chat', 'alerts', 'fee', 'feeback', 'feecat', 'feecat/cats', 'feecat/agents', 'leaderboard', 'whitepaper', 'roadmap', 'learn', 'settings'].includes(page) && <div className="page-heading"><h1>Off the radar.</h1><Link to="/terminal" className="btn-primary" data-testid="unknown-page-home">Back to terminal</Link></div>}
+       {!isMarket && !page.startsWith('reputation') && !['launch', 'watchlist', 'chat', 'alerts', 'fee', 'feeback', 'feecat', 'feecat/cats', 'feecat/agents', 'leaderboard', 'whitepaper', 'roadmap', 'learn', 'settings'].includes(page) && <div className="page-heading"><h1>Off the radar.</h1><Link to="/terminal" className="btn-primary" data-testid="unknown-page-home">Back to terminal</Link></div>}
        </div><TerminalFooter />
      </main></div><WalletModal open={walletOpen} onClose={() => setWalletOpen(false)} /><WalletProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} /></div>;
 }
