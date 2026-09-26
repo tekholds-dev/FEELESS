@@ -3863,7 +3863,8 @@ async def admin_site(request: Request, payload: SiteIn):
         raise HTTPException(400, 'Use your public https:// domain (e.g. https://feeless.app).')
     async with _admin_lock:
         d = _admin_load(); d['site'] = {'publicUrl': url}; _audit(d, admin, 'site-url', url or '(cleared)'); _admin_save(d)
-    return {'ok': True, 'publicUrl': url}
+    hook = await sync_helius_webhook(url) if url else {'ok': False, 'reason': 'No domain'}
+    return {'ok': True, 'publicUrl': url, 'webhook': hook}
 
 
 # ---- Points shop: spend what you earn --------------------------------------------------------
@@ -4014,7 +4015,7 @@ async def snipe_risk(mints: str):
 # ---- Helius webhooks: instant whale / dev-sell events (needs HELIUS_WEBHOOK_SECRET) -----------
 @app.post('/api/reputation/webhooks/helius')
 async def helius_webhook(request: Request):
-    secret = os.environ.get('HELIUS_WEBHOOK_SECRET', '')
+    secret = os.environ.get('HELIUS_WEBHOOK_SECRET') or (_admin_load().get('helius') or {}).get('secret', '')
     if not secret or not hmac.compare_digest(request.headers.get('authorization', ''), secret):
         raise HTTPException(403, 'Bad webhook secret.')
     events = await request.json()
@@ -4031,3 +4032,40 @@ async def helius_webhook(request: Request):
             n += 1
         _radar['whales'] = _radar['whales'][:120]
     return {'ok': True, 'ingested': n}
+
+
+# ---- Auto-managed Helius webhook: follows the public domain set in the Command Center ---------
+def _helius_key():
+    m = _re.search(r'api-key=([0-9a-f-]{20,})', os.environ.get('SOLANA_RPC_URL', ''))
+    return m.group(1) if m else None
+
+
+def _webhook_secret():
+    sec = os.environ.get('HELIUS_WEBHOOK_SECRET') or (_admin_load().get('helius') or {}).get('secret')
+    if not sec:
+        import secrets as _s
+        sec = _s.token_urlsafe(32)
+        d = _admin_load(); d.setdefault('helius', {})['secret'] = sec; _admin_save(d)
+    return sec
+
+
+async def sync_helius_webhook(public_url: str):
+    """Create or update FEELESS's Helius webhook to point at the current public domain."""
+    key = _helius_key()
+    if not key or not public_url:
+        return {'ok': False, 'reason': 'Needs a public domain and a Helius key in SOLANA_RPC_URL.'}
+    mints = list((await _ecosystem_mints()).values())
+    body = {'webhookURL': f'{public_url.rstrip("/")}/api/reputation/webhooks/helius', 'transactionTypes': ['SWAP', 'TRANSFER'],
+            'accountAddresses': sorted(set(mints + _admin_wallets()))[:100], 'webhookType': 'enhanced', 'authHeader': _webhook_secret()}
+    d = _admin_load(); hid = (d.get('helius') or {}).get('webhookId')
+    async with httpx.AsyncClient(timeout=20) as http:
+        if hid:
+            r = await http.put(f'https://api.helius.xyz/v0/webhooks/{hid}?api-key={key}', json=body)
+            if r.status_code == 404:
+                hid = None
+        if not hid:
+            r = await http.post(f'https://api.helius.xyz/v0/webhooks?api-key={key}', json=body)
+    if r.status_code >= 300:
+        return {'ok': False, 'reason': f'Helius said {r.status_code}: {r.text[:120]}'}
+    d = _admin_load(); d.setdefault('helius', {}).update({'webhookId': r.json().get('webhookID') or hid, 'url': body['webhookURL'], 'at': time.time()}); _admin_save(d)
+    return {'ok': True, 'url': body['webhookURL'], 'watching': len(body['accountAddresses'])}

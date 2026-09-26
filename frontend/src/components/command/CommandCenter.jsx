@@ -257,7 +257,7 @@ function InvitesPanel({ call }) {
   const [d, setD] = useState(null);
   const [url, setUrl] = useState('');
   useEffect(() => { call('/admin/referrals').then(setD).catch(e => toast.error(e.message)); fetch('/api/reputation/site').then(r => r.json()).then(x => setUrl(x.publicUrl || '')).catch(() => {}); }, [call]);
-  const saveUrl = () => call('/admin/site', { method: 'POST', body: JSON.stringify({ publicUrl: url }) }).then(() => toast.success('Invite links now use ' + url)).catch(e => toast.error(e.message));
+  const saveUrl = () => call('/admin/site', { method: 'POST', body: JSON.stringify({ publicUrl: url }) }).then(r => toast.success(`Invite links use ${url}${r.webhook?.ok ? ' · Helius webhook connected' : r.webhook?.reason ? ` · webhook: ${r.webhook.reason}` : ''}`)).catch(e => toast.error(e.message));
   if (!d) return <p className="cc-empty">Loading invites…</p>;
   return <section className="cc-panel">
     <div className="cc-block"><h4>Public site domain (used in every invite link)</h4><div className="cc-toolbar"><input placeholder="https://your-domain.com" value={url} onChange={e => setUrl(e.target.value)} /><button type="button" className="btn-primary" onClick={saveUrl}>Save</button></div><small className="cc-empty">Links look like {url || 'https://your-domain.com'}/r/b26hhajg — one unique code per wallet.</small></div>
