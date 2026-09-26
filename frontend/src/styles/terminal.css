@@ -2522,3 +2522,13 @@ body.theme-day .wars-artifact .war-join:hover{background:currentColor!important;
 .pf-logo.sol{background:linear-gradient(135deg,#9945ff,#14f195);color:#fff;font-size:18px}
 .pf-coin b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pf-coin small{color:var(--muted);font:11px 'JetBrains Mono',monospace}.pf-coin em{font-style:normal;font:700 12.5px 'JetBrains Mono',monospace}.pf-coin em i{font-style:normal;font-size:10.5px}
 body.theme-day .pf-coin{background:var(--day-surface-2);border-color:var(--day-border)}
+/* Trust ring + follows */
+.social-strip{position:relative;display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:6px 0}
+.trust-ring{position:relative;width:54px;height:54px;border:0;background:none;padding:0;cursor:pointer;display:grid;place-items:center}
+.trust-ring svg{position:absolute;inset:0;transform:rotate(-90deg)}.trust-ring circle{fill:none;stroke:#ffffff14;stroke-width:4}.trust-ring .arc{stroke:var(--mint);stroke-linecap:round;transition:stroke-dasharray .8s}
+.trust-ring.lvl-high .arc{stroke:#00e9a0}.trust-ring.lvl-good .arc{stroke:#7df9d0}.trust-ring.lvl-caution .arc{stroke:#f5c542}.trust-ring.lvl-risky .arc{stroke:#fa708c}
+.trust-ring b{font:800 15px 'JetBrains Mono',monospace;line-height:1;margin-top:6px}.trust-ring small{font-size:8.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:-10px}
+.follow-counts{display:flex;gap:12px;font-size:12.5px;color:var(--muted)}.follow-counts b{color:inherit;color:var(--text,#eafff3);margin-right:3px}
+.trust-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:40;width:min(340px,90vw);padding:12px;border-radius:12px;border:1px solid rgba(0,233,160,.35);background:rgba(5,14,10,.97);box-shadow:0 16px 40px #000b;display:grid;gap:6px;font-size:12.5px}
+.trust-pop>div{display:flex;justify-content:space-between;gap:10px}.trust-pop em{font-style:normal;font-family:'JetBrains Mono',monospace}.trust-pop small,.trust-pop p{color:var(--muted);font-size:11px;margin:0}
+body.theme-day .trust-pop{background:#fff;border-color:#9fd3b6}body.theme-day .follow-counts b{color:#0b2a1d}body.theme-day .trust-ring circle{stroke:#0b2a1d18}

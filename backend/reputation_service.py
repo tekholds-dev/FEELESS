@@ -3629,7 +3629,7 @@ def notify(address: str, kind: str, text: str, url: str = '', actor: str = ''):
     try:
         for e in _push_load()['subs'].values():
             if primary_of((e.get('prefs') or {}).get('address') or '') == to:
-                asyncio.get_running_loop().run_in_executor(None, _send_push, e['subscription'], {'dm': '💬 New message', 'wall': '🧱 New wall post', 'mention': '📣 You were mentioned', 'reward': '🎁 Reward ready', 'invite': '🎉 Invite joined'}.get(kind, 'FEELESS'), text[:120], url or '/terminal', f'n-{kind}')
+                asyncio.get_running_loop().run_in_executor(None, _send_push, e['subscription'], {'dm': '💬 New message', 'follow': '➕ New follower', 'wall': '🧱 New wall post', 'mention': '📣 You were mentioned', 'reward': '🎁 Reward ready', 'invite': '🎉 Invite joined'}.get(kind, 'FEELESS'), text[:120], url or '/terminal', f'n-{kind}')
     except Exception:
         pass
 
@@ -4173,3 +4173,89 @@ async def img_proxy(u: str):
         _img_cache.clear()
     _img_cache[u] = (time.time(), r.content, ctype)
     return _Resp(content=r.content, media_type=ctype, headers={'Cache-Control': 'public, max-age=3600'})
+
+
+# ---- Social graph: follow / followers / following ----------------------------------------------
+FOLLOW_PATH = DATA_DIR / 'follows.json'
+
+
+def _fol():
+    return _json_load(FOLLOW_PATH, {'following': {}})
+
+
+@app.get('/api/reputation/follows/{address}')
+async def follows(address: str, viewer: str = ''):
+    a = primary_of(address)
+    d = _fol()['following']
+    following = d.get(a, [])
+    followers = [x for x, lst in d.items() if a in lst]
+    return {'address': a, 'followers': len(followers), 'following': len(following), 'followersList': followers[-30:][::-1], 'followingList': following[-30:][::-1],
+            'viewerFollows': bool(viewer) and a in d.get(primary_of(viewer), [])}
+
+
+class FollowIn(BaseModel):
+    address: str
+    session: str
+    target: str
+    follow: bool = True
+
+
+@app.post('/api/reputation/follow')
+async def follow(payload: FollowIn):
+    me = _session_or_401(payload.address, payload.session)
+    t = primary_of(payload.target)
+    if t == me or not _re.match(r'^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$', t):
+        raise HTTPException(400, "Can't follow that.")
+    async with _admin_lock:
+        d = _fol()
+        lst = d['following'].setdefault(me, [])
+        if payload.follow and t not in lst:
+            lst.append(t); d['following'][me] = lst[-2000:]
+            notify(t, 'follow', f'@{handle_of(me)} started following you', f'/terminal/profile/{me}', me)
+        elif not payload.follow and t in lst:
+            lst.remove(t)
+        _json_save(FOLLOW_PATH, d)
+    return {'ok': True, 'following': payload.follow}
+
+
+# ---- Trust score for ANY wallet (0–100, evidence-only, with the breakdown) ----------------------
+@app.get('/api/reputation/trust/{address}')
+async def trust_score(address: str):
+    a = primary_of(address)
+    parts, score, evidence = [], 50, 0
+    st = await wallet_stats(a) if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', a) else {}
+    age_d = (time.time() - st['firstSeen']) / 86400 if st.get('firstSeen') else (365 if st.get('txCountCapped') else None)
+    if age_d is not None:
+        evidence += 1
+        pts = 10 if age_d >= 180 else 6 if age_d >= 30 else 0 if age_d >= 7 else -8
+        score += pts; parts.append({'label': f'Wallet age {int(age_d)}d', 'points': pts})
+    bl = _block_load()['wallets'].get(a)
+    if bl and _is_blocked(bl):
+        score -= 45; evidence += 1; parts.append({'label': f"Blocklisted — caught on {len(bl.get('mints') or {})} launch(es)", 'points': -45})
+    elif bl:
+        score -= 15; evidence += 1; parts.append({'label': 'Seen sniping/bundling (not yet blocklisted)', 'points': -15})
+    creator = _load()['creators'].get(_creator_key('solana', a))
+    if creator:
+        sc = score_creator(creator); sc = {**sc, **_hygiene(a, sc)}
+        if sc.get('score') is not None:
+            evidence += 1
+            pts = round((sc['score'] - 50) * 0.6)
+            score += pts; parts.append({'label': f"Creator record: {sc['badge']} ({sc['score']})", 'points': pts})
+    board = await caller_board(days=90)
+    me = next((r for r in board['rows'] if r.get('callerAddress') == a), None)
+    if me and me['calls'] >= 3:
+        evidence += 1
+        pts = round((me['hitRate'] - 0.3) * 30)
+        score += pts; parts.append({'label': f"Calls: {me['calls']}, {round(me['hitRate'] * 100)}% hit 2×", 'points': pts})
+    fol = len([x for x, lst in _fol()['following'].items() if a in lst])
+    if fol:
+        pts = min(8, fol); score += pts; parts.append({'label': f'{fol} followers', 'points': pts})
+    if is_verified(a):
+        score += 10; evidence += 1; parts.append({'label': 'Verified by FEELESS', 'points': 10})
+    if is_muted(a):
+        score -= 10; parts.append({'label': 'Currently muted by moderators', 'points': -10})
+    score = max(0, min(100, score))
+    if evidence == 0:
+        return {'address': a, 'score': None, 'level': 'unknown', 'parts': parts, 'note': 'Not enough on-chain or FEELESS history to score this wallet yet.'}
+    level = 'high' if score >= 75 else 'good' if score >= 60 else 'caution' if score >= 40 else 'risky'
+    return {'address': a, 'score': score, 'level': level, 'parts': parts, 'evidence': evidence}

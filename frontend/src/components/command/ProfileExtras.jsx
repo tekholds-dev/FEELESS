@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Hint } from '../Hint';
 import { apiUrl } from '../../lib/api';
+import { toast } from 'sonner';
+import { useWallet } from '../../hooks/useWallet';
+import { getChatSession } from '../../lib/chatSession';
 
 export function usePerks(address) {
   const [d, setD] = useState(null);
@@ -79,4 +82,33 @@ export function PortfolioCard({ address }) {
     </div>
     {d.unpriced > 0 && <small className="cc-empty">{d.unpriced} token{d.unpriced === 1 ? '' : 's'} without a market price are listed without value.</small>}
   </section>;
+}
+
+// Trust ring + Follow button + follower/following counts (profile header).
+export function SocialStrip({ address, mine }) {
+  const { wallet, signMessage } = useWallet() || {};
+  const [trust, setTrust] = useState(null);
+  const [f, setF] = useState(null);
+  const [open, setOpen] = useState(false);
+  const load = () => fetch(apiUrl(`/api/reputation/follows/${address}${wallet?.address ? `?viewer=${wallet.address}` : ''}`)).then(r => r.json()).then(setF).catch(() => {});
+  useEffect(() => { fetch(apiUrl(`/api/reputation/trust/${address}`)).then(r => r.json()).then(setTrust).catch(() => {}); }, [address]);
+  useEffect(() => { load(); }, [address, wallet?.address]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggle = async () => {
+    if (!wallet) { toast('Connect a wallet to follow.'); return; }
+    try {
+      const session = await getChatSession(wallet.address, signMessage);
+      const r = await fetch(apiUrl('/api/reputation/follow'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: wallet.address, session, target: address, follow: !f?.viewerFollows }) });
+      if (!r.ok) throw new Error((await r.json()).detail); load();
+    } catch (e) { toast.error(e.message || 'Could not follow'); }
+  };
+  const s = trust?.score; const pct = s == null ? 0 : s;
+  return <div className="social-strip" data-testid="social-strip">
+    <button type="button" className={`trust-ring lvl-${trust?.level || 'unknown'}`} onClick={() => setOpen(o => !o)} title="Trust score — tap for the breakdown" data-testid="trust-ring">
+      <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="19" /><circle cx="22" cy="22" r="19" className="arc" style={{ strokeDasharray: `${(pct / 100) * 119.4} 119.4` }} /></svg>
+      <b>{s ?? '—'}</b><small>trust</small>
+    </button>
+    <div className="follow-counts"><span><b>{f?.followers ?? 0}</b> followers</span><span><b>{f?.following ?? 0}</b> following</span></div>
+    {!mine && <button type="button" className={f?.viewerFollows ? 'btn-outline' : 'btn-primary'} data-testid="follow-btn" onClick={toggle}>{f?.viewerFollows ? 'Following' : 'Follow'}</button>}
+    {open && trust && <div className="trust-pop" data-testid="trust-pop"><b>Trust {s ?? '—'}{trust.level ? ` · ${trust.level}` : ''}</b>{trust.note && <p>{trust.note}</p>}{trust.parts.map((p, i) => <div key={i}><span>{p.label}</span><em className={p.points >= 0 ? 'positive' : 'negative'}>{p.points >= 0 ? '+' : ''}{p.points}</em></div>)}<small>Evidence-only: wallet age, blocklist strikes, creator record, call results, followers, verification.</small></div>}
+  </div>;
 }

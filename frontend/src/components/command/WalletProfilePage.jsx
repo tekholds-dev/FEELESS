@@ -18,7 +18,7 @@ import { ProfileMusic } from './ProfileMusic';
 import { ProfileDM, RewardsCard } from '../Social';
 import { VerifiedMark } from '../terminal/VerifiedMark';
 import { PointsShop, PnlTracker } from '../MetaExtras';
-import { OnchainStrip, PerksCard, PortfolioCard, SetupCallout, usePerks } from './ProfileExtras';
+import { OnchainStrip, PerksCard, PortfolioCard, SetupCallout, SocialStrip, usePerks } from './ProfileExtras';
 
 const RINGS = [['none', 'Classic', 0], ['mint', 'Mint pulse', 0], ['sunset', 'Sunset', 0], ['ocean', 'Ocean', 0], ['candy', 'Candy', 0], ['neon', 'Neon', 0], ['ghost', 'Ghost', 0], ['emerald', 'Emerald', 1], ['plasma', 'Plasma', 1], ['diamond', 'Diamond', 2], ['aurora', 'Aurora', 2], ['gold', 'Molten Gold', 3], ['royal', 'Royal', 3]];
 const NAMEFX = [['none', 'Plain', 0], ['glow', 'Glow', 0], ['gradient', 'Gradient', 0], ['rainbow', 'Rainbow', 1], ['diamond', 'Diamond', 2], ['gold', 'Gold', 3]];
@@ -123,6 +123,7 @@ export function WalletProfilePage({ address }) {
         {edit ? <input className="wp-handle-input" maxLength={21} placeholder="@handle (3–20: a-z 0-9 _)" value={draft.handle ? `@${draft.handle}` : ''} onChange={e => set('handle', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))} /> : <span className="wp-handle">@{p.handle || address.slice(0, 6).toLowerCase()}</span>}
         <code>{shortAddress(address)}</code>
         <Badges address={address} featured={p.featuredBadges} />
+        <SocialStrip address={address} mine={mine} />
         <OnchainStrip address={address} />
         {edit ? <input className="wp-mood-input" maxLength={40} placeholder="Mood / status (e.g. 🔥 hunting 10×s)" value={draft.mood} onChange={e => set('mood', e.target.value)} /> : p.mood && <span className="wp-mood">{p.mood}</span>}
       </div>
