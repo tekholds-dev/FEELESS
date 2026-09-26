@@ -3555,3 +3555,24 @@ async def _start_radar():
 @app.get('/api/reputation/radar')
 async def radar():
     return {'watching': len(_radar['pairs']), 'events': _radar['events'][:40], 'whales': _radar['whales'][:40]}
+
+
+@app.get('/api/reputation/admin/feecat')
+async def admin_feecat_get(request: Request):
+    _require_admin(request)
+    async with httpx.AsyncClient(timeout=10) as http:
+        r = await http.get('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()})
+        prof = (await http.get('http://127.0.0.1:5088/api/cats/leader/profile')).json()
+    return {**r.json(), 'learning': prof.get('learning'), 'stats': prof.get('stats'), 'cat': {k: (prof.get('cat') or {}).get(k) for k in ('balanceSol', 'realizedPnlSol', 'winRate', 'status')}}
+
+
+@app.post('/api/reputation/admin/feecat')
+async def admin_feecat_set(request: Request):
+    admin = _require_admin(request)
+    body = await request.json()
+    async with httpx.AsyncClient(timeout=10) as http:
+        r = await http.post('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()}, json=body)
+    if r.status_code != 200:
+        raise HTTPException(r.status_code, 'Fee service rejected the change.')
+    ad = _admin_load(); _audit(ad, admin, 'feecat', json.dumps({k: v for k, v in body.items() if k != 'rules'} | {'rules': list((body.get('rules') or {}).keys())})[:160]); _admin_save(ad)
+    return r.json()

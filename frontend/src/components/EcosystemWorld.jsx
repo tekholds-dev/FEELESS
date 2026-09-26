@@ -60,7 +60,7 @@ export default function EcosystemWorld({ ecosystem, pad, onClose }) {
           <span className="eco-dot" style={{ background: ecosystem.color }} />
           <span className="eco-network-mark" aria-hidden="true">{ecosystem.symbol?.slice(0, 1) || ecosystem.name.slice(0, 1)}</span><div><small>YOU'RE INSIDE</small><h2 data-testid="eco-world-name">{ecosystem.name} {ecosystem.isLaunchpad ? 'WAR ROOM' : 'NETWORK'}</h2></div>
         </div>
-        <div className="eco-world-head-actions">
+        <div className="eco-world-head-actions">{(pad?.id === 'feeless-launch' || ecosystem.id === 'feeless-launch') && <a className="btn-primary eco-launch-btn" data-testid="eco-launch-btn" href="/terminal/launch?setup=feeless">🚀 Launch a coin</a>}
           <Link className="eco-enter-terminal" to="/terminal" data-testid="eco-world-enter-terminal">Enter {ecosystem.name} terminal<ArrowUpRight size={14} /></Link>
           <div className="eco-layout-controls" role="group" aria-label="Network room layout">
             <span>LAYOUT</span>

@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -434,6 +434,7 @@ async def _engine_loop():
         try:
             store = _load()
             _migrate(store)
+            _apply_overrides(store)
             running = [c for c in store['cats'].values() if c['status'] == 'running' and not c['revoked']]
             if running:
                 await run_engine(store, running)
@@ -582,6 +583,54 @@ async def activity(catId: Optional[str] = None):
 async def health():
     store = _load()
     return {'ok': True, 'cats': len(store['cats']), 'events': len(store['events'])}
+
+
+TUNABLE = {'minLiquidity': (10_000, 500_000), 'minVolume24h': (20_000, 5_000_000), 'minMarketCap': (20_000, 5_000_000), 'maxMarketCap': (500_000, 500_000_000),
+           'minAgeHours': (0.5, 72), 'stopLoss': (-25, -4), 'takeProfit': (10, 80), 'maxHoldHours': (1, 24), 'maxPositions': (1, 8),
+           'maxTop10Pct': (15, 50), 'maxSnipers': (0, 40), 'maxBundled': (0, 20), 'maxM5Chase': (3, 20), 'breakEvenArm': (4, 20)}
+
+
+def _apply_overrides(store):
+    for k, v in (store.get('rulesOverride') or {}).items():
+        if k in TUNABLE:
+            RULES[k] = v
+
+
+@app.get('/api/cats/internal/rules')
+async def internal_rules_get(request: Request):
+    _internal(request)
+    store = _load()
+    return {'rules': {k: RULES[k] for k in TUNABLE}, 'bounds': TUNABLE, 'overrides': store.get('rulesOverride') or {},
+            'leader': {k: store['cats'][LEADER_ID].get(k) for k in ('status', 'risk')}}
+
+
+@app.post('/api/cats/internal/rules')
+async def internal_rules_set(request: Request):
+    _internal(request)
+    body = await request.json()
+    store = _load()
+    ov = store.setdefault('rulesOverride', {})
+    for k, v in (body.get('rules') or {}).items():
+        if k in TUNABLE:
+            lo, hi = TUNABLE[k]
+            ov[k] = type(RULES[k])(max(lo, min(hi, float(v))))
+    leader = store['cats'][LEADER_ID]
+    if body.get('status') in ('running', 'paused'):
+        leader['status'] = body['status']
+    if body.get('maxPositionSol') is not None:
+        leader['risk']['maxPositionSol'] = max(0.1, min(10.0, float(body['maxPositionSol'])))
+    if body.get('resetLearning'):
+        leader.pop('learn', None)
+    _apply_overrides(store)
+    _save(store)
+    return {'ok': True, 'rules': {k: RULES[k] for k in TUNABLE}, 'status': leader['status']}
+
+
+def _internal(request):
+    import hmac
+    key = (DATA_DIR / 'internal.key').read_text().strip()
+    if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), key):
+        raise HTTPException(403, 'Internal only.')
 
 
 @app.get('/api/cats/{cat_id}/profile')

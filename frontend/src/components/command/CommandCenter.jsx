@@ -59,7 +59,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     <div className="cc-gate-actions"><button type="button" className="btn-primary" disabled={busy} onClick={signIn}><ShieldCheck size={15} />{busy ? 'Check your wallet…' : 'Sign in to Command Center'}</button><button type="button" className="btn-outline" onClick={onClose}>Back to profile</button></div>
   </div></div>;
 
-  const TABS = [['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fees', 'Fees & Pricing', ShieldCheck], ['ads', 'Ads', Gift], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['fees', 'Fees & Pricing', ShieldCheck], ['ads', 'Ads', Gift], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div>
       <nav className="cc-tabs">{TABS.map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</nav>
@@ -95,6 +95,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'snapshots' && <Snapshots call={call} asset={asset} />}
     {tab === 'airdrops' && <Airdrops drops={drops} call={call} reload={loadDrops} />}
     {tab === 'badges' && <AwardBadges call={call} initial={[...selected]} />}
+    {tab === 'feecat' && <FeeCatPanel call={call} />}
     {tab === 'fees' && <FeesPanel call={call} />}
     {tab === 'ads' && <AdsPanel call={call} />}
     {tab === 'invites' && <InvitesPanel call={call} />}
@@ -323,5 +324,26 @@ function TreasuryPanel({ call }) {
   return <section className="cc-panel">
     <div className="cc-kpis"><span><small>SOL</small><b>{d.sol != null ? d.sol.toFixed(3) : '—'}</b></span>{Object.entries(d.holdingsUsd).map(([k, v]) => <span key={k}><small>{k.toUpperCase()} value</small><b>{v != null ? formatUSD(v) : '—'}</b></span>)}</div>
     <div className="cc-block"><h4>Recent transactions</h4>{d.recent.map(t => <div key={t.sig} className="cc-sig"><a href={`https://solscan.io/tx/${t.sig}`} target="_blank" rel="noopener noreferrer">{t.sig.slice(0, 10)}…</a><span>{t.at ? new Date(t.at * 1000).toLocaleString() : ''}</span><b className={t.ok ? 'positive' : 'negative'}>{t.ok ? 'ok' : 'failed'}</b></div>)}</div>
+  </section>;
+}
+
+const FEE_LABELS = { minLiquidity: 'Min liquidity ($)', minVolume24h: 'Min 24h volume ($)', minMarketCap: 'Min market cap ($)', maxMarketCap: 'Max market cap ($)', minAgeHours: 'Min pool age (h)', stopLoss: 'Stop-loss (%)', takeProfit: 'Scale-out at (+%)', maxHoldHours: 'Max hold (h)', maxPositions: 'Max open positions', maxTop10Pct: 'Max top-10 holders (%)', maxSnipers: 'Max snipers', maxBundled: 'Max bundled wallets', maxM5Chase: 'No chase above 5m (%)', breakEvenArm: 'Break-even after (+%)' };
+function FeeCatPanel({ call }) {
+  const [d, setD] = useState(null);
+  const [draft, setDraft] = useState({});
+  const [size, setSize] = useState('');
+  const load = useCallback(() => call('/admin/feecat').then(x => { setD(x); setDraft(x.rules); setSize(x.leader?.risk?.maxPositionSol ?? ''); }).catch(e => toast.error(e.message)), [call]);
+  useEffect(() => { load(); }, [load]);
+  if (!d) return <p className="cc-empty">Waking Fee up…</p>;
+  const save = extra => call('/admin/feecat', { method: 'POST', body: JSON.stringify({ rules: draft, maxPositionSol: Number(size) || undefined, ...extra }) }).then(() => { toast.success('Fee updated — applies on the next tick.'); load(); }).catch(e => toast.error(e.message));
+  const running = d.leader?.status === 'running';
+  return <section className="cc-panel">
+    <div className="cc-kpis cc-kpis-5"><span><small>Status</small><b className={running ? 'positive' : 'negative'}>{running ? 'Trading' : 'Paused'}</b></span><span><small>Balance</small><b>{Number(d.cat.balanceSol || 0).toFixed(2)} SOL</b></span><span><small>Realized</small><b>{Number(d.cat.realizedPnlSol || 0).toFixed(3)}</b></span><span><small>Win rate</small><b>{d.cat.winRate ?? '—'}%</b></span><span><small>Lessons</small><b>{(d.learning?.missed || 0) + (d.learning?.good || 0)}</b></span></div>
+    <div className="cc-toolbar"><button type="button" className="btn-primary" onClick={() => save({ status: running ? 'paused' : 'running' })}>{running ? '⏸ Pause Fee' : '▶ Resume Fee'}</button><button type="button" onClick={() => window.confirm('Reset what Fee has learned? Exits go back to defaults.') && save({ resetLearning: true })}>Reset learning</button><a href="/terminal/feecat" target="_blank" rel="noopener noreferrer">Open Fee's profile ↗</a></div>
+    <p className="cc-note">Tune Fee's brain. Every value is clamped to a safe range on the server — Fee can get more aggressive, never reckless. Changes are logged in the audit trail.</p>
+    <div className="cc-block"><h4>Entry + safety rules</h4><div className="fee-rules">{Object.keys(d.bounds).map(k => { const [lo, hi] = d.bounds[k]; return <label key={k}><span>{FEE_LABELS[k] || k}<em>{lo}–{hi}</em></span><input type="number" step="any" min={lo} max={hi} value={draft[k] ?? ''} onChange={e => setDraft(x => ({ ...x, [k]: e.target.value }))} /></label>; })}
+      <label><span>Max SOL per trade<em>0.1–10</em></span><input type="number" step="0.1" value={size} onChange={e => setSize(e.target.value)} /></label></div>
+      <button type="button" className="btn-primary" onClick={() => save({})}>Save Fee's rules</button></div>
+    {d.learning && <div className="cc-block"><h4>What Fee has learned</h4>{Object.entries(d.learning.params || {}).map(([k, v]) => <div key={k} className="cc-sig"><span>{k}</span><b>{v} <small className="cc-empty">(default {d.learning.defaults?.[k]})</small></b></div>)}</div>}
   </section>;
 }

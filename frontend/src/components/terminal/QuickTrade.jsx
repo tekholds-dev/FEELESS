@@ -5,6 +5,7 @@ import { keepReceipt } from '../../lib/receipts';
 import { useWallet } from '../../hooks/useWallet';
 import { useMarket } from '../../hooks/useMarket';
 import { apiUrl } from '../../lib/api';
+import { EvmTrade } from './EvmTrade';
 import { formatUSD } from '../../lib/dexscreener';
 
 const SOL = 'So11111111111111111111111111111111111111112';
@@ -55,7 +56,7 @@ export function QuickTrade({ pair }) {
     fetch(apiUrl(`/api/reputation/balance/${wallet.address}/${mint}`)).then(r => r.json()).then(d => setBalance(Number(d.amount) || 0)).catch(() => setBalance(null));
   }, [side, wallet?.address, mint]);
   useEffect(() => { setOrder(null); }, [amount, sellPct, counter, prefs.slippage, prefs.unit]);
-  if (pair?.chainId !== 'solana') return <aside className="quick-trade qt-unsupported" data-testid="quick-trade"><Zap size={14} /> Quick trade supports Solana pairs. Use the DEX link for {pair?.chainId || 'this chain'}.</aside>;
+  if (pair?.chainId !== 'solana') return ['ethereum', 'base', 'bsc', 'arbitrum', 'avalanche', 'polygon'].includes(pair?.chainId) ? <EvmTrade pair={pair} /> : <aside className="quick-trade qt-unsupported" data-testid="quick-trade"><Zap size={14} /> In-app swaps cover Solana and EVM chains. Use the DEX link for {pair?.chainId || 'this chain'}.</aside>;
 
   const counterMint = counter === 'FEE' && feeMint ? feeMint : SOL;
   const payAmount = () => {

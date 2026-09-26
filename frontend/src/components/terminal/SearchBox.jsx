@@ -35,12 +35,12 @@ export function SearchBox({ ecosystem, nav }) {
     const t = setTimeout(async () => {
       const bare = term.replace(/^[@$]/, '');
       const [c, p, w] = await Promise.all([
-        term.startsWith('@') ? Promise.resolve([]) : fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(bare)}`).then(r => r.json()).then(d => {
+        term.startsWith('@') ? Promise.resolve([]) : fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(({ btc: 'WBTC', bitcoin: 'WBTC', eth: 'WETH', ethereum: 'WETH' })[bare.toLowerCase()] || bare)}`).then(r => r.json()).then(d => {
           const seen = new Set();
-          return (d.pairs || []).sort((a, b) => (b.volume?.h24 || 0) - (a.volume?.h24 || 0)).filter(x => { const k = x.baseToken?.address; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 6);
+          return (d.pairs || []).sort((a, b) => (b.volume?.h24 || 0) - (a.volume?.h24 || 0)).filter(x => { const k = x.baseToken?.address; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 8);
         }).catch(() => []),
         fetch(`/api/reputation/search?q=${encodeURIComponent(bare)}`).then(r => r.json()).then(d => d.profiles || []).catch(() => []),
-        ADDR.test(term) ? fetch(`/api/reputation/resolve/${encodeURIComponent(term)}`).then(r => (r.ok ? r.json() : null)).catch(() => null) : Promise.resolve(null),
+        ADDR.test(term) ? fetch(`/api/reputation/resolve/${encodeURIComponent(term)}`).then(r => (r.ok ? r.json() : { address: term, handle: term.slice(0, 6).toLowerCase(), maybeToken: true })).catch(() => ({ address: term, handle: term.slice(0, 6).toLowerCase(), maybeToken: true })) : Promise.resolve(null),
       ]);
       if (!alive) return;
       setCoins(c); setPeople(p); setWallet(w); setLoading(false);
@@ -49,9 +49,9 @@ export function SearchBox({ ecosystem, nav }) {
   }, [q]);
 
   const items = [
-    ...(wallet ? [{ kind: 'wallet', key: `w-${wallet.address}`, href: `/terminal/profile/${wallet.address}`, label: `Wallet profile @${wallet.handle}`, sub: `${wallet.address.slice(0, 6)}…${wallet.address.slice(-6)}` }] : []),
+    ...(wallet && !(wallet.maybeToken && coins.length) ? [{ kind: 'wallet', key: `w-${wallet.address}`, href: `/terminal/profile/${wallet.address}`, label: `Wallet profile @${wallet.handle}`, sub: `${wallet.address.slice(0, 6)}…${wallet.address.slice(-6)}` }] : []),
     ...people.map(p => ({ kind: 'profile', key: `p-${p.address}`, href: `/terminal/profile/${p.address}`, label: p.displayName || `@${p.handle}`, sub: `@${p.handle}`, img: p.avatarUrl })),
-    ...coins.map(c => ({ kind: 'coin', key: `c-${c.pairAddress}`, href: `/?coin=${c.chainId}:${c.pairAddress}`, label: `$${c.baseToken?.symbol}`, sub: `${c.baseToken?.name} · ${c.chainId}`, img: c.info?.imageUrl, price: c.priceUsd, change: c.priceChange?.h24, vol: c.volume?.h24 })),
+    ...coins.map(c => ({ kind: 'coin', key: `c-${c.pairAddress}`, href: `/?coin=${c.chainId}:${c.pairAddress}`, profile: `/terminal/coin/${c.chainId}/${c.pairAddress}`, label: `$${c.baseToken?.symbol}`, sub: `${c.baseToken?.name} · ${c.chainId}`, img: c.info?.imageUrl, price: c.priceUsd, change: c.priceChange?.h24, vol: c.volume?.h24 })),
   ];
   const recent = !q.trim() ? readRecent() : [];
   const list = q.trim() ? items : recent;
@@ -79,7 +79,7 @@ export function SearchBox({ ecosystem, nav }) {
       {list.map((it, i) => { const I = { coin: Coins, profile: User, wallet: Wallet }[it.kind] || Icon; return <button type="button" key={it.key || it.href} role="option" aria-selected={i === active} className={`sd-row k-${it.kind} ${i === active ? 'active' : ''}`} onMouseEnter={() => setActive(i)} onMouseDown={e => { e.preventDefault(); go(it); }}>
         {it.img ? <img src={it.img} alt="" /> : <span className="sd-ic"><I size={14} /></span>}
         <span className="sd-main"><b>{it.label}</b><small>{it.sub}</small></span>
-        {it.kind === 'coin' && <a className="sd-prof" href={it.href.replace(/^\/\?coin=([^:]+):/, '/terminal/coin/$1/')} onMouseDown={e => e.stopPropagation()} title="Coin profile">profile</a>}{it.kind === 'coin' && it.price && <span className="sd-num"><b>{formatUSD(it.price)}</b><small className={Number(it.change) >= 0 ? 'positive' : 'negative'}>{formatPct(it.change)} · vol {formatUSD(it.vol)}</small></span>}
+        {it.kind === 'coin' && <span className="sd-acts"><span className="sd-prof" role="button" tabIndex={-1} onMouseDown={e => { e.preventDefault(); e.stopPropagation(); go({ ...it, href: it.href }); }}>chart</span><span className="sd-prof" role="button" tabIndex={-1} onMouseDown={e => { e.preventDefault(); e.stopPropagation(); go({ ...it, href: it.profile }); }}>profile</span></span>}{it.kind === 'coin' && it.price && <span className="sd-num"><b>{formatUSD(it.price)}</b><small className={Number(it.change) >= 0 ? 'positive' : 'negative'}>{formatPct(it.change)} · vol {formatUSD(it.vol)}</small></span>}
         <em className="sd-kind">{it.kind}</em>
       </button>; })}
     </div>}

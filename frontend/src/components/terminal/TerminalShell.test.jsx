@@ -34,9 +34,11 @@ test('keeps the FeeCat dropdown reachable from the collapsed mobile sidebar', ()
 
   act(() => host.querySelector('[data-testid="nav-feecat-toggle"]').click());
   expect(host.querySelector('[data-testid="feecat-subnav"]')).not.toBeNull();
-  expect(host.querySelector('[data-testid="nav-feeless-cats"]').textContent).toContain('Feeless Cats');
+  expect(host.querySelector('[data-testid="nav-feecat-home"]').textContent).toContain('Cat home');
+  expect(host.querySelector('[data-testid="nav-feecat-agents"]').textContent).toContain('Launch a cat');
+  expect(host.querySelectorAll('[data-testid="feecat-subnav"] a')).toHaveLength(2);
 
-  act(() => host.querySelector('[data-testid="nav-feeless-cats"]').click());
+  act(() => host.querySelector('[data-testid="nav-feecat-agents"]').click());
   expect(onClose).toHaveBeenCalledTimes(1);
 
   act(() => root.unmount());
