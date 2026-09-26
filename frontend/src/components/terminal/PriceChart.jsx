@@ -193,8 +193,12 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     const list = (markers || []).filter(m => Number.isFinite(m.time))
       .map(m => ({ ...m, time: Math.floor(m.time / bucket) * bucket }))
       .sort((a, b) => a.time - b.time);
-    if (!markersRef.current) markersRef.current = createSeriesMarkers(ref.series, list);
-    else markersRef.current.setMarkers(list);
+    try {
+      if (!markersRef.current) markersRef.current = createSeriesMarkers(ref.series, list);
+      else markersRef.current.setMarkers(list);
+    } catch {
+      // Chart was torn down between render and effect (rapid prop changes); skip this pass.
+    }
   }, [markers, interval, displayCandles, trail, dayMode]);
 
   // Fee cat live mode: is the Leader in this coin right now?
@@ -213,7 +217,11 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     const clear = () => { priceLinesRef.current.forEach(l => { try { ref?.series.removePriceLine(l); } catch { /* chart gone */ } }); priceLinesRef.current = []; };
     clear();
     if (!ref || !feeRead) return clear;
-    const add = (price, color, title, style = 2) => { if (Number.isFinite(price) && price > 0) priceLinesRef.current.push(ref.series.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title })); };
+    const add = (price, color, title, style = 2) => {
+      if (!Number.isFinite(price) || price <= 0) return;
+      try { priceLinesRef.current.push(ref.series.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title })); }
+      catch { /* chart torn down between render and effect */ }
+    };
     add(feeRead.resistance, '#fa708c', '🐱 resistance');
     add(feeRead.support, '#00e9a0', '🐱 support');
     if (feeRead.vwap) add(feeRead.vwap, '#e9bd65', '🐱 fair value', 1);
