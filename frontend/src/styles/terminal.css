@@ -1551,3 +1551,4 @@ body.theme-day .network-row small,body.theme-day .net-tag{color:var(--day-muted)
 body.theme-day .network-row.is-ok i{background:var(--day-green)!important;box-shadow:none}
 .launch-forensics .token-analytics-heading{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.forensics-refresh{margin-left:auto}
 .legend-token{border:1px solid #5ee0ff;background:#5ee0ff30;box-shadow:0 0 0 3px #5ee0ff14;border-radius:50%}
+.data-status.live-tick{color:var(--mint)}.data-status.live-tick i{animation:breathe 1.2s ease-in-out infinite}body.theme-day .data-status.live-tick{color:var(--day-green)!important}

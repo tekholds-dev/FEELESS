@@ -7,6 +7,25 @@ import { useGlobeBubbles } from '../lib/globeBubbles';
 import { apiUrl } from '../lib/api';
 
 const hashNum = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967295; };
+let glowTex = null;
+const glowTexture = () => {
+  if (glowTex) return glowTex;
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'); const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(0.25, 'rgba(255,255,255,.85)'); grad.addColorStop(0.55, 'rgba(255,255,255,.22)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+  glowTex = new THREE.CanvasTexture(c);
+  return glowTex;
+};
+function tokenOrb(d) {
+  const group = new THREE.Group();
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: d.color, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
+  halo.scale.set(d.size * 4.2, d.size * 4.2, 1);
+  const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: '#ffffff', transparent: true, opacity: 0.95, depthWrite: false }));
+  core.scale.set(d.size * 1.3, d.size * 1.3, 1);
+  group.add(halo); group.add(core);
+  return group;
+}
 const fmtCap = v => (v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : `$${(v / 1e6).toFixed(1)}M`);
 
 // Every token with $10M+ market cap (true data from GeckoTerminal), placed around its network node.
@@ -121,7 +140,7 @@ export default function Globe3D({ onSelect, selectedId, size = 640 }) {
     const change = Number(t.change24h);
     return {
       isToken: true, token: t, lat: Math.max(-80, Math.min(80, home.lat + Math.sin(angle) * dist)), lng: home.lng + Math.cos(angle) * dist,
-      size: Math.min(1.1, 0.28 + Math.log10(t.marketCap / 1e7) * 0.28),
+      size: Math.min(2.6, 1.1 + Math.log10(t.marketCap / 1e7) * 0.55),
       color: Number.isFinite(change) ? (change >= 0 ? '#5ee0ff' : '#ff8fa3') : '#5ee0ff',
       name: t.symbol,
     };
@@ -170,10 +189,10 @@ export default function Globe3D({ onSelect, selectedId, size = 640 }) {
     }
   }, [selectedId]);
 
-  const points = useMemo(() => [...GLOBE_NODES.map(e => ({
+  const points = useMemo(() => GLOBE_NODES.map(e => ({
     ...e,
     size: e.id === selectedId ? 1.7 : e.isLaunchpad ? 1.25 : 0.85,
-  })), ...tokenPoints], [selectedId, tokenPoints]);
+  })), [selectedId]);
 
   const arcs = useMemo(() => {
     const arr = [];
@@ -199,9 +218,11 @@ export default function Globe3D({ onSelect, selectedId, size = 640 }) {
     return arr;
   }, []);
 
-  const rings = useMemo(() => GLOBE_NODES.map(e => ({
-    lat: e.lat, lng: e.lng, color: e.color, maxR: 8, propagationSpeed: 2.6, repeatPeriod: 1200
-  })), []);
+  const rings = useMemo(() => [
+    ...GLOBE_NODES.map(e => ({ lat: e.lat, lng: e.lng, color: e.color, maxR: 8, propagationSpeed: 2.6, repeatPeriod: 1200 })),
+    ...[...tokenPoints].sort((a, b) => b.token.marketCap - a.token.marketCap).slice(0, 10)
+      .map(t => ({ lat: t.lat, lng: t.lng, color: t.color, maxR: 2.6, propagationSpeed: 0.9, repeatPeriod: 2600 })),
+  ], [tokenPoints]);
 
   const particles = useMemo(() => Array.from({ length: 36 }, (_, i) => ({
     id: i,
@@ -262,6 +283,14 @@ export default function Globe3D({ onSelect, selectedId, size = 640 }) {
           ringMaxRadius="maxR"
           ringPropagationSpeed="propagationSpeed"
           ringRepeatPeriod="repeatPeriod"
+          objectsData={tokenPoints}
+          objectLat="lat"
+          objectLng="lng"
+          objectAltitude={0.012}
+          objectThreeObject={tokenOrb}
+          objectLabel={p => `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;"><b>${escapeHtml(p.token.symbol)}</b> · ${escapeHtml(p.token.chain)}<br/>${fmtCap(p.token.marketCap)} ${p.token.mcKind === 'FDV' ? 'FDV' : 'MC'}${Number.isFinite(Number(p.token.change24h)) ? ` · ${Number(p.token.change24h) >= 0 ? '+' : ''}${Number(p.token.change24h).toFixed(1)}% 24h` : ''}</div>`}
+          onObjectClick={p => { if (p.token.pairAddress) window.location.assign(`/terminal/trade?chain=${encodeURIComponent(p.token.chain)}&pair=${encodeURIComponent(p.token.pairAddress)}`); }}
+          onObjectHover={p => { document.body.style.cursor = p ? 'pointer' : 'default'; }}
           htmlElementsData={bubbles}
           htmlLat="lat"
           htmlLng="lng"

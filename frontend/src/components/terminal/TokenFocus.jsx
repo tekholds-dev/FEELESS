@@ -15,7 +15,7 @@ export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1h' }) => {
   const [metric, setMetric] = useState('price');
   const nav = useNavigate(); const { selectPair } = useWorkspace();
   const [volume, setVolume] = useState(true);
-  const live = useMarket(pair ? `/pair/${pair.chainId}/${pair.pairAddress}` : null, 10000);
+  const live = useMarket(pair ? `/pair/${pair.chainId}/${pair.pairAddress}` : null, 3000);
   const livePair = live.data?.pairs?.[0];
   const current = livePair ? {
     ...pair,
