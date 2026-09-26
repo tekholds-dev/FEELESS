@@ -11,6 +11,7 @@ which launchpad or chain happens to be the current meta.
 This intentionally has zero dependency on the rest of the monorepo backend (no Mongo,
 no provider API keys) so it can run standalone.
 """
+import env_loader  # noqa: F401  (must run before reading os.environ)
 import asyncio
 import json
 import os
@@ -121,7 +122,11 @@ async def resolve_creator(chain: str, mint_address: str) -> Optional[str]:
     standard on-chain proxy for "who deployed this" used by rug-detection tooling.
     """
     if chain != 'solana':
-        return None
+        key = f'{chain}:{mint_address}'
+        if key not in _mint_authority_cache:
+            creator = await resolve_evm_creator(chain, mint_address)
+            _mint_authority_cache[key] = {'identity': creator, 'renounced': False} if creator else None
+        return _mint_authority_cache[key]
     if mint_address in _mint_authority_cache:
         return _mint_authority_cache[mint_address]
     identity = None
@@ -908,6 +913,147 @@ async def token_intel(chain: str, mint: str):
     out['flags'] = flags
     _intel_cache[mint] = (time.time(), out)
     return out
+
+
+# ---- Multi-network RPC layer ------------------------------------------------
+# Public defaults work out of the box; set <CHAIN>_RPC_URL in backend/.env to use a
+# dedicated provider (Alchemy/QuickNode/Infura) for higher limits.
+CHAIN_RPC_DEFAULTS = {
+    'ethereum': 'https://ethereum-rpc.publicnode.com', 'base': 'https://base-rpc.publicnode.com',
+    'bsc': 'https://bsc-rpc.publicnode.com', 'arbitrum': 'https://arbitrum-one-rpc.publicnode.com',
+    'avalanche': 'https://avalanche-c-chain-rpc.publicnode.com', 'polygon': 'https://polygon-bor-rpc.publicnode.com',
+    'sui': 'https://sui-rpc.publicnode.com',
+}
+EVM_CHAIN_IDS = {'ethereum': 1, 'base': 8453, 'bsc': 56, 'arbitrum': 42161, 'avalanche': 43114, 'polygon': 137}
+
+
+def chain_rpc_url(chain: str) -> Optional[str]:
+    if chain == 'solana':
+        return RPC_POOL[0] if RPC_POOL else None
+    return os.environ.get(f'{chain.upper()}_RPC_URL') or CHAIN_RPC_DEFAULTS.get(chain)
+
+
+async def _ping_chain(http, chain):
+    url = chain_rpc_url(chain)
+    if not url:
+        return {'chain': chain, 'ok': False, 'error': 'no endpoint'}
+    method = 'getSlot' if chain == 'solana' else 'sui_getLatestCheckpointSequenceNumber' if chain == 'sui' else 'eth_blockNumber'
+    started = time.time()
+    try:
+        r = await http.post(url, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': []})
+        body = r.json()
+        result = body.get('result')
+        head = int(result, 16) if isinstance(result, str) and result.startswith('0x') else int(result) if result is not None else None
+        return {'chain': chain, 'ok': head is not None, 'head': head, 'latencyMs': round((time.time() - started) * 1000),
+                'dedicated': bool(os.environ.get('SOLANA_RPC_URL' if chain == 'solana' else f'{chain.upper()}_RPC_URL')),
+                'host': url.split('/')[2].split('?')[0]}
+    except Exception as exc:
+        return {'chain': chain, 'ok': False, 'error': type(exc).__name__, 'host': url.split('/')[2].split('?')[0]}
+
+
+@app.get('/api/reputation/rpc/health')
+async def rpc_health():
+    async with httpx.AsyncClient(timeout=6) as http:
+        rows = await asyncio.gather(*(_ping_chain(http, c) for c in ['solana', *CHAIN_RPC_DEFAULTS]))
+    return {'chains': rows, 'explorerKey': bool(os.environ.get('ETHERSCAN_API_KEY'))}
+
+
+async def resolve_evm_creator(chain: str, token: str) -> Optional[str]:
+    """Contract deployer via Etherscan API v2 (one key covers every EVM chain we support)."""
+    key = os.environ.get('ETHERSCAN_API_KEY')
+    cid = EVM_CHAIN_IDS.get(chain)
+    if not key or not cid:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            r = await http.get('https://api.etherscan.io/v2/api', params={'chainid': cid, 'module': 'contract', 'action': 'getcontractcreation', 'contractaddresses': token, 'apikey': key})
+            rows = (r.json() or {}).get('result') or []
+            return rows[0].get('contractCreator') if isinstance(rows, list) and rows else None
+    except Exception:
+        return None
+
+
+GLOBE_NETS = {'solana': 'solana', 'ethereum': 'eth', 'base': 'base', 'bsc': 'bsc', 'arbitrum': 'arbitrum', 'avalanche': 'avax', 'polygon': 'polygon_pos', 'sui': 'sui-network'}
+GLOBE_MIN_MC = 10_000_000
+_globe_cache = {'at': 0, 'data': None}
+
+
+GLOBE_SKIP = {'USDT', 'USDC', 'USDC.E', 'USDBC', 'DAI', 'USDE', 'USDS', 'FDUSD', 'PYUSD', 'USD1', 'TUSD', 'BUSD', 'USDD', 'FRAX', 'LUSD',
+              'WETH', 'WSOL', 'SOL', 'ETH', 'WBNB', 'BNB', 'WBTC', 'CBBTC', 'BTCB', 'WAVAX', 'AVAX', 'WMATIC', 'WPOL', 'POL', 'SUI', 'STETH', 'WSTETH', 'CBETH', 'RETH', 'WEETH'}
+
+
+def _globe_row(chain, pool, images):
+    a = pool.get('attributes') or {}
+    base_id = (((pool.get('relationships') or {}).get('base_token') or {}).get('data') or {}).get('id')
+    bt = images.get(base_id, {})
+    symbol = (bt.get('symbol') or (a.get('name') or '?').split(' / ')[0]).strip()
+    if symbol.upper() in GLOBE_SKIP or symbol.upper().startswith('USD') or symbol.upper().endswith('USD'):
+        return None
+    def f(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return 0.0
+    mc, fdv, liq = f(a.get('market_cap_usd')), f(a.get('fdv_usd')), f(a.get('reserve_in_usd'))
+    if GLOBE_MIN_MC <= mc <= 5e12:
+        value, kind = mc, 'market cap'
+    elif GLOBE_MIN_MC <= fdv <= 1e11 and liq >= 200_000 and fdv <= liq * 500:
+        value, kind = fdv, 'FDV'
+    else:
+        return None
+    return {
+        'chain': chain, 'address': bt.get('address') or (base_id or '').split('_', 1)[-1], 'symbol': symbol, 'name': bt.get('name'),
+        'imageUrl': bt.get('image_url') if (bt.get('image_url') or '').startswith('http') else None,
+        'marketCap': value, 'mcKind': kind, 'liquidityUsd': liq, 'priceUsd': a.get('base_token_price_usd'),
+        'change24h': (a.get('price_change_percentage') or {}).get('h24'), 'volume24h': f((a.get('volume_usd') or {}).get('h24')),
+        'pairAddress': a.get('address'),
+    }
+
+
+async def _refresh_globe():
+    while True:
+        tokens, ok_chains = {}, set()
+        async with httpx.AsyncClient(timeout=12, headers={'accept': 'application/json'}) as http:
+            for chain, net in GLOBE_NETS.items():
+                for path in (f'/networks/{net}/pools?sort=h24_volume_usd_desc&include=base_token', f'/networks/{net}/trending_pools?include=base_token'):
+                    r = None
+                    for _ in range(2):
+                        try:
+                            r = await http.get(f'https://api.geckoterminal.com/api/v2{path}')
+                        except Exception:
+                            r = None
+                        if r is not None and r.status_code == 200:
+                            break
+                        await asyncio.sleep(8)
+                    await asyncio.sleep(2.5)
+                    if r is None or r.status_code != 200:
+                        continue
+                    ok_chains.add(chain)
+                    body = r.json()
+                    images = {i['id']: (i.get('attributes') or {}) for i in body.get('included') or []}
+                    for pool in body.get('data') or []:
+                        row = _globe_row(chain, pool, images)
+                        if row:
+                            key = f"{chain}:{row['address']}"
+                            if key not in tokens or tokens[key]['volume24h'] < row['volume24h']:
+                                tokens[key] = row
+        if tokens:
+            prev = (_globe_cache['data'] or {}).get('tokens') or []
+            kept = [t for t in prev if t['chain'] not in ok_chains]
+            _globe_cache.update(at=time.time(), data={'tokens': sorted(list(tokens.values()) + kept, key=lambda t: -t['marketCap']),
+                                                      'minMarketCap': GLOBE_MIN_MC, 'source': 'GeckoTerminal top-volume + trending pools',
+                                                      'chains': sorted(ok_chains | {t['chain'] for t in kept}), 'at': time.time()})
+        await asyncio.sleep(300)
+
+
+@app.on_event('startup')
+async def _start_globe():
+    asyncio.create_task(_refresh_globe())
+
+
+@app.get('/api/reputation/globe-tokens')
+async def globe_tokens():
+    return _globe_cache['data'] or {'tokens': [], 'minMarketCap': GLOBE_MIN_MC, 'warming': True}
 
 
 @app.get('/api/reputation/health')

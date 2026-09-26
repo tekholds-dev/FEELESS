@@ -7,6 +7,7 @@ actual DexScreener SOL-native price of a real Solana pair at that moment, with a
 
 File-backed JSON store, zero external dependencies, standalone FastAPI app.
 """
+import env_loader  # noqa: F401  (must run before reading os.environ)
 import asyncio
 import json
 import math

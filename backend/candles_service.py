@@ -12,6 +12,7 @@ site is used, permanently, because every tick is kept.
 
 File-backed JSON, zero external dependencies, standalone FastAPI app.
 """
+import env_loader  # noqa: F401  (must run before reading os.environ)
 import asyncio
 import json
 import time

@@ -31,7 +31,7 @@ export function LaunchForensics({ pair }) {
     ['dev', UserRound, 'Dev holds', d ? pct(d.devHoldingPct) : state.loading ? '…' : 'Unavailable', d?.creator ? `Creator ${shortAddress(d.creator)}` : 'Creator wallet', null, d && d.devHoldingPct >= 5],
   ];
   return <section className="token-analytics launch-forensics" data-testid="token-analytics">
-    <div className="token-analytics-heading"><strong>Launch forensics</strong><span>Read from Solana on-chain · refreshed every 3 min{d && <button type="button" className="icon-btn small-icon" title="Refresh" onClick={() => { cache.delete(mint); load(); }}><RefreshCw size={12} /></button>}</span></div>
+    <div className="token-analytics-heading"><strong>Launch forensics</strong><span>Read from Solana on-chain · refreshed every 3 min</span>{d && <button type="button" className="icon-btn small-icon forensics-refresh" title="Refresh" onClick={() => { cache.delete(mint); load(); }}><RefreshCw size={12} /></button>}</div>
     <div className="token-analytics-grid forensics-grid">{cards.map(([id, Icon, label, value, sub, list, warn]) => <div key={id} className={`token-analytics-item ${warn ? 'is-warning' : ''} ${list?.length ? 'is-clickable' : ''}`} data-testid={`token-analytics-${id}`} role={list?.length ? 'button' : undefined} tabIndex={list?.length ? 0 : undefined} onClick={() => list?.length && setOpen(open === id ? '' : id)}>
       <span><Icon size={13} />{label}</span><b>{value}</b><small>{sub}</small>
     </div>)}</div>

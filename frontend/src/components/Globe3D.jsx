@@ -4,6 +4,23 @@ import * as THREE from 'three';
 import { ECOSYSTEMS } from '../lib/ecosystems';
 import { LAUNCHPADS } from '../lib/launchpads';
 import { useGlobeBubbles } from '../lib/globeBubbles';
+import { apiUrl } from '../lib/api';
+
+const hashNum = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967295; };
+const fmtCap = v => (v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : `$${(v / 1e6).toFixed(1)}M`);
+
+// Every token with $10M+ market cap (true data from GeckoTerminal), placed around its network node.
+function useBigTokens() {
+  const [tokens, setTokens] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch(apiUrl('/api/reputation/globe-tokens')).then(r => (r.ok ? r.json() : null)).then(d => { if (alive && d?.tokens) setTokens(d.tokens); }).catch(() => {});
+    load();
+    const t = setInterval(() => { if (!document.hidden) load(); }, 60000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+  return tokens;
+}
 
 const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function bubbleElement(b) {
@@ -94,6 +111,21 @@ export default function Globe3D({ onSelect, selectedId, size = 640 }) {
   const containerRef = useRef();
   const [dims, setDims] = useState({ w: size, h: size });
   const bubbles = useGlobeBubbles(GLOBE_NODES);
+  const bigTokens = useBigTokens();
+  const tokenPoints = useMemo(() => bigTokens.map(t => {
+    const home = GLOBE_NODES.find(n => !n.isLaunchpad && (n.chainId === t.chain || n.id === t.chain));
+    if (!home) return null;
+    const h = hashNum(`${t.chain}:${t.address}`);
+    const angle = h * Math.PI * 2;
+    const dist = 4 + hashNum(t.address || t.symbol) * 9;
+    const change = Number(t.change24h);
+    return {
+      isToken: true, token: t, lat: Math.max(-80, Math.min(80, home.lat + Math.sin(angle) * dist)), lng: home.lng + Math.cos(angle) * dist,
+      size: Math.min(1.1, 0.28 + Math.log10(t.marketCap / 1e7) * 0.28),
+      color: Number.isFinite(change) ? (change >= 0 ? '#5ee0ff' : '#ff8fa3') : '#5ee0ff',
+      name: t.symbol,
+    };
+  }).filter(Boolean), [bigTokens]);
 
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) => {
@@ -138,10 +170,10 @@ export default function Globe3D({ onSelect, selectedId, size = 640 }) {
     }
   }, [selectedId]);
 
-  const points = useMemo(() => GLOBE_NODES.map(e => ({
+  const points = useMemo(() => [...GLOBE_NODES.map(e => ({
     ...e,
     size: e.id === selectedId ? 1.7 : e.isLaunchpad ? 1.25 : 0.85,
-  })), [selectedId]);
+  })), ...tokenPoints], [selectedId, tokenPoints]);
 
   const arcs = useMemo(() => {
     const arr = [];
@@ -213,8 +245,10 @@ export default function Globe3D({ onSelect, selectedId, size = 640 }) {
           labelAltitude={0.07}
           labelResolution={2}
           onLabelClick={p => onSelect?.(p.id)}
-           pointLabel={p => `<div class="globe-point-tooltip" style="padding:6px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;">${p.name} · ${p.symbol}</div>`}
-          onPointClick={p => onSelect && onSelect(p.id)}
+           pointLabel={p => p.isToken
+            ? `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;"><b>${escapeHtml(p.token.symbol)}</b> · ${escapeHtml(p.token.chain)}<br/>${fmtCap(p.token.marketCap)} ${p.token.mcKind === 'FDV' ? 'FDV' : 'MC'}${Number.isFinite(Number(p.token.change24h)) ? ` · ${Number(p.token.change24h) >= 0 ? '+' : ''}${Number(p.token.change24h).toFixed(1)}% 24h` : ''}</div>`
+            : `<div class="globe-point-tooltip" style="padding:6px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;">${p.name} · ${p.symbol}</div>`}
+          onPointClick={p => { if (p.isToken) { if (p.token.pairAddress) window.location.assign(`/terminal/trade?chain=${encodeURIComponent(p.token.chain)}&pair=${encodeURIComponent(p.token.pairAddress)}`); return; } onSelect && onSelect(p.id); }}
           onPointHover={p => document.body.style.cursor = p ? 'pointer' : 'default'}
           arcsData={arcs}
           arcColor="color"

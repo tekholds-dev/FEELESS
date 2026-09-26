@@ -8,6 +8,7 @@ import { ReputationBadge } from '../terminal/ReputationBadge';
 import { useTilt } from '../../hooks/useTilt';
 import { FlashValue } from '../terminal/FlashValue';
 import { useClock } from './WorkspaceChrome';
+import { useLiveTokenMarkets, withLiveMarket } from '../../lib/liveTokens';
 import { formatUSD, formatAge, formatTime, pairKey, dexUrl, hasProviderImage } from '../../lib/dexscreener';
 import { LAUNCHPADS, matchesPad } from '../../lib/launchpads';
 
@@ -70,11 +71,13 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
   const [failedNewLogos, setFailedNewLogos] = useState(() => new Set());
   const now = useClock(1000);
   const matches = useMemo(() => pair => matchesPad(pair, ecosystem.id) && (ecosystem.chainId === 'all' || pair.chainId === ecosystem.chainId), [ecosystem.id, ecosystem.chainId]);
-  const newPairs = useMemo(() => (newFeed.data?.pairs || []).filter(pair => {
+  const rawMints = useMemo(() => [...(newFeed.data?.pairs || []), ...(trendingFeed.data?.pairs || [])].map(p => p.baseToken?.address), [newFeed.data, trendingFeed.data]);
+  const live = useLiveTokenMarkets(ecosystem.chainId === 'all' ? 'solana' : ecosystem.chainId, rawMints);
+  const newPairs = useMemo(() => (newFeed.data?.pairs || []).map(p => withLiveMarket(p, live)).filter(pair => {
     const fresh = Number.isFinite(Number(pair.pairCreatedAt)) && Date.now() - Number(pair.pairCreatedAt) <= 14 * 24 * 60 * 60 * 1000;
     return matches(pair) && (pair.marketStage === 'new' || fresh) && hasProviderImage(pair) && !failedNewLogos.has(pairKey(pair));
-  }), [newFeed.data, matches, failedNewLogos]);
-  const trendingPairs = useMemo(() => (trendingFeed.data?.pairs || []).filter(matches), [trendingFeed.data, matches]);
+  }), [newFeed.data, matches, failedNewLogos, live]);
+  const trendingPairs = useMemo(() => (trendingFeed.data?.pairs || []).map(p => withLiveMarket(p, live)).filter(matches), [trendingFeed.data, matches, live]);
   const allObserved = useMemo(() => [...new Map([...newPairs, ...trendingPairs].map(pair => [pairKey(pair), pair])).values()], [newPairs, trendingPairs]);
   const graduationMints = useMemo(() => [...new Set(allObserved.map(pair => pair.baseToken?.address).filter(Boolean))].join(','), [allObserved]);
   // Debounced: the observed-pairs set churns on nearly every feed tick, and each distinct
@@ -97,6 +100,7 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
   const stagePairs = { new: newPairs, graduated, trending: trendingPairs, gainers, watchlist: watchlist.filter(matches) }[stage] || [];
   const feed = stage === 'graduated' ? graduationFeed : stage === 'new' ? newFeed : trendingFeed;
   const providerError = feed.error || feed.data?.error;
+  const liveBacked = live.size > 0 && (feed.data?.pairs?.length || 0) > 0;
   const fallbackReason = feed.data?.fallback_reason || feed.data?.fallbackReason;
   const sourceLabel = feed.data?.sourceLabel || feed.data?.source_label || feed.data?.label || 'Public market feed';
   const coverage = feed.data?.coverage || {};
@@ -105,18 +109,18 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
   const pumpLaunchpadFeed = primaryProvider === 'Pump.fun' || actualProvider === 'Pump.fun';
   const fetchedAt = feed.data?.fetched_at ? Date.parse(feed.data.fetched_at) : 0;
   const ageSeconds = fetchedAt ? Math.max(0, Math.floor((now - fetchedAt) / 1000)) : null;
-  const nextRefresh = providerError ? 'RETRYING' : feed.refreshing ? 'SYNCING' : ageSeconds == null ? 'CONNECTING' : `NEXT SYNC ~${Math.max(0, 15 - (ageSeconds % 15))}s`;
+  const nextRefresh = providerError && !liveBacked ? 'RETRYING' : providerError ? 'PRICES LIVE · DEXSCREENER' : feed.refreshing ? 'SYNCING' : ageSeconds == null ? 'CONNECTING' : `NEXT SYNC ~${Math.max(0, 15 - (ageSeconds % 15))}s`;
   const totalLiquidity = stagePairs.reduce((sum, pair) => sum + Number(pair.liquidity?.usd || 0), 0);
   const marketCapValues = stagePairs.filter(pair => pair.marketCap != null && Number.isFinite(Number(pair.marketCap)));
   const totalMarketCap = marketCapValues.length ? marketCapValues.reduce((sum, pair) => sum + Number(pair.marketCap), 0) : null;
   const stageUnavailable = stage === 'graduated' && !graduated.length;
   return <section className="pump-radar" data-testid="pump-radar">
     <div className="pump-radar-hero"><div><span className="eyebrow"><span className="live-dot" /> PUMP RADAR / LIVE COIN VIEWER</span><h2>Track the next rotation.</h2><p>Provider-backed {pumpLaunchpadFeed ? 'coin' : 'market'} stages refresh every 15 seconds. Prices and deltas are live snapshots, not a trade signal or a claim of launchpad activity.</p></div><div className="pump-radar-live-orbit" aria-hidden="true"><div /><div /><strong>{stagePairs.length}<small>VISIBLE COINS</small></strong></div></div>
-    <div className="pump-radar-toolbar"><div className="pump-radar-stages">{PUMP_RADAR_STAGES.map(([id, label, Icon]) => <button key={id} className={stage === id ? 'active' : ''} data-testid={`pump-radar-stage-${id}`} onClick={() => setStage(id)}><Icon size={14} />{label}<small>{id === 'graduated' && stageUnavailable ? '—' : id === 'watchlist' ? stagePairs.length : { new: newPairs.length, trending: trendingPairs.length, gainers: gainers.length }[id] ?? stagePairs.length}</small></button>)}</div><div className="pump-radar-sync"><span><i className={feed.refreshing ? 'is-refreshing' : ''} />{providerError ? 'Provider unavailable' : actualProvider}{primaryProvider !== actualProvider ? ` · primary ${primaryProvider}` : ''} · {nextRefresh}</span><button type="button" title="Refresh Pump radar" aria-label="Refresh Pump radar" data-testid="pump-radar-refresh" onClick={() => feed.reload()}><RefreshCw size={14} /></button></div></div>
-    <div className="pump-radar-summary"><span><small>VISIBLE COINS</small><b>{stagePairs.length}</b></span><span><small>LIQUIDITY</small><b>{formatUSD(totalLiquidity)}</b></span><span><small>MARKET CAP</small><b>{formatUSD(totalMarketCap)}</b></span><span><small>{stage === 'graduated' ? 'STATUS OBSERVED' : 'LAST SNAPSHOT'}</small><b>{fetchedAt ? formatTime(feed.data.fetched_at) : '—'}</b></span></div>
-    <MarketAvailabilityNotice data={feed.data} error={feed.error} id={`pump-radar-${stage}-availability`} />
+    <div className="pump-radar-toolbar"><div className="pump-radar-stages">{PUMP_RADAR_STAGES.map(([id, label, Icon]) => <button key={id} className={stage === id ? 'active' : ''} data-testid={`pump-radar-stage-${id}`} onClick={() => setStage(id)}><Icon size={14} />{label}<small>{id === 'graduated' && stageUnavailable ? '—' : id === 'watchlist' ? stagePairs.length : { new: newPairs.length, trending: trendingPairs.length, gainers: gainers.length }[id] ?? stagePairs.length}</small></button>)}</div><div className="pump-radar-sync"><span><i className={feed.refreshing ? 'is-refreshing' : ''} />{providerError && !liveBacked ? 'Provider unavailable' : actualProvider}{primaryProvider !== actualProvider ? ` · primary ${primaryProvider}` : ''} · {nextRefresh}</span><button type="button" title="Refresh Pump radar" aria-label="Refresh Pump radar" data-testid="pump-radar-refresh" onClick={() => feed.reload()}><RefreshCw size={14} /></button></div></div>
+    <div className="pump-radar-summary"><span><small>VISIBLE COINS</small><b>{stagePairs.length}</b></span><span><small>LIQUIDITY</small><b>{totalLiquidity > 0 ? formatUSD(totalLiquidity) : '—'}</b></span><span><small>MARKET CAP</small><b>{formatUSD(totalMarketCap)}</b></span><span><small>{stage === 'graduated' ? 'STATUS OBSERVED' : 'LAST SNAPSHOT'}</small><b>{fetchedAt ? formatTime(feed.data.fetched_at) : '—'}</b></span></div>
+    {!liveBacked && <MarketAvailabilityNotice data={feed.data} error={feed.error} id={`pump-radar-${stage}-availability`} />}
     {stage === 'graduated' && <p className="provider-note" data-testid="pump-radar-graduation-source">{sourceLabel} · {feed.data?.status === 'unavailable' || feed.error ? `Unavailable${feed.data?.error ? `: ${feed.data.error}` : feed.error ? `: ${feed.error}` : ''}` : feed.data?.error ? `Error: ${feed.data.error}` : feed.data?.status === 'verified' ? 'Verified completion events only' : 'No verified completion events observed'}{feed.data?.fetched_at ? ` · Observed ${formatTime(feed.data.fetched_at)}` : ''}</p>}
-    {providerError && <p className="pump-radar-error" role="alert" data-testid="pump-radar-error">{providerError} <button type="button" onClick={() => feed.reload()}>Retry</button></p>}
+    {providerError && liveBacked && <p className="pump-radar-live-note" data-testid="pump-radar-live-note">pump.fun's coin index is throttled — coin list from the last snapshot, prices and deltas live from DexScreener.</p>}{providerError && !liveBacked && <p className="pump-radar-error" role="alert" data-testid="pump-radar-error">{providerError} <button type="button" onClick={() => feed.reload()}>Retry</button></p>}
     {!providerError && feed.loading && !stagePairs.length && <p className="truth-empty" role="status" data-testid="pump-radar-loading">Connecting to live provider snapshots…</p>}
     {!providerError && !feed.loading && !stagePairs.length && <div className="truth-empty" data-testid={`pump-radar-${stage}-empty`}>{stageUnavailable ? (feed.data?.status === 'unavailable' ? 'Graduation status is unavailable from Pump.fun right now.' : 'No Pump.fun completion event matches an observed coin.') : stage === 'watchlist' ? 'Star provider-indexed coins to build a personal radar.' : `No ${stage} coins are currently visible in this provider snapshot.`}</div>}
      <div className="pump-radar-grid">{stagePairs.slice(0, 8).map((pair, index) => <PumpRadarCard

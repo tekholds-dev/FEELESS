@@ -154,6 +154,7 @@ jest.mock('../components/command/LiveTrust', () => ({
   LiveProof: () => null,
   RoadmapVoting: () => null,
   DataSovereignty: () => null,
+  NetworkStatus: () => null,
 }));
 
 jest.mock('../components/WalletModal', () => () => null);

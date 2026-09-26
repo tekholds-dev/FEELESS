@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { ShieldAlert, Rocket, BookOpen, Radio, ThumbsUp, Database, Trash2, CheckCircle2 } from 'lucide-react';
+import { ShieldAlert, Rocket, BookOpen, Radio, ThumbsUp, CheckCircle2 } from 'lucide-react';
 import { apiUrl } from '../../lib/api';
 import { shortAddress } from '../../lib/dexscreener';
 import { useWallet } from '../../hooks/useWallet';
@@ -136,26 +136,15 @@ export function RoadmapVoting() {
   </section>;
 }
 
-export function DataSovereignty() {
-  const [keys, setKeys] = useState([]);
-  const scan = () => {
-    try {
-      const out = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (/feeless|price-trail|pending-swap/i.test(k)) out.push({ k, size: (localStorage.getItem(k) || '').length });
-      }
-      setKeys(out.sort((a, b) => b.size - a.size));
-    } catch { setKeys([]); }
-  };
-  useEffect(scan, []);
-  const clear = k => { try { localStorage.removeItem(k); } catch {} scan(); toast.success('Removed from this browser'); };
-  const total = keys.reduce((s, x) => s + x.size, 0);
-  return <section className="live-trust-panel" data-testid="data-sovereignty">
-    <div className="live-trust-head"><Database size={15} /><h2>Your data, on this device</h2><small>Everything FEELESS keeps in this browser — inspect it or delete it</small></div>
-    <p className="reputation-view-hint">{keys.length} item{keys.length === 1 ? '' : 's'} · {(total / 1024).toFixed(1)} KB. Nothing here leaves your browser. Server-side, FEELESS only stores public on-chain observations and anything you explicitly save with a connected wallet (watchlist, votes).</p>
-    <div className="sovereignty-list">{keys.map(({ k, size }) => <div key={k} className="sovereignty-row"><code>{k}</code><small>{(size / 1024).toFixed(1)} KB</small><button type="button" className="icon-btn small-icon" title="Delete from this browser" onClick={() => clear(k)}><Trash2 size={13} /></button></div>)}</div>
-    {keys.length > 1 && <button type="button" className="btn-outline" onClick={() => { keys.forEach(({ k }) => { try { localStorage.removeItem(k); } catch {} }); scan(); toast.success('All FEELESS browser data cleared'); }}><Trash2 size={13} />Clear all FEELESS data</button>}
+export function NetworkStatus() {
+  const { data, error } = usePolled('/api/reputation/rpc/health', 30000);
+  const chains = data?.chains || [];
+  return <section className="live-trust-panel" data-testid="network-status">
+    <div className="live-trust-head"><Radio size={15} /><h2>Network status</h2><small>Live RPC checks for every chain FEELESS reads · refreshed every 30s</small></div>
+    {error && !chains.length && <p className="reputation-lookup-error">{error}</p>}
+    <div className="network-grid">{chains.map(c => <div key={c.chain} className={`network-row ${c.ok ? 'is-ok' : 'is-down'}`}>
+      <i /><b>{c.chain}</b><small>{c.ok ? `${c.latencyMs} ms · block ${Number(c.head).toLocaleString()}` : c.error || 'unreachable'}</small><span className={c.dedicated ? 'net-tag dedicated' : 'net-tag'}>{c.dedicated ? 'dedicated' : 'public'}</span>
+    </div>)}</div>
+    {data && !data.explorerKey && <p className="reputation-view-hint">EVM creator reputation is waiting on an <b>ETHERSCAN_API_KEY</b> in backend/.env (one free key covers Ethereum, Base, BNB, Arbitrum, Avalanche and Polygon).</p>}
   </section>;
 }
-
