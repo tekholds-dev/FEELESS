@@ -3042,3 +3042,20 @@ async def activity(address: str, limit: int = 30):
                 rows.append({'room': room, 'id': m['id'], 'text': m['text'][:200], 'ts': m['ts'], 'tokens': [t.get('symbol') for t in m.get('tokens') or []]})
     rows.sort(key=lambda r: -r['ts'])
     return {'address': address, 'posts': rows[:max(1, min(limit, 100))], 'handle': handle_of(primary_of(address))}
+
+
+@app.get('/api/reputation/search')
+async def search_profiles(q: str, limit: int = 6):
+    """Profile search for the header search bar: @handle / display-name prefix matches."""
+    ql = q.strip().lstrip('@').lower()
+    if len(ql) < 2:
+        return {'profiles': []}
+    rows = []
+    for a, v in _profiles_load()['profiles'].items():
+        v = v or {}
+        h, n = (v.get('handle') or ''), str(v.get('displayName') or '').lower()
+        score = 3 if h == ql else 2 if h.startswith(ql) else 1 if n.startswith(ql) or ql in h else 0
+        if score:
+            rows.append((score, {'address': a, 'handle': h or a[:6].lower(), 'displayName': v.get('displayName'), 'avatarUrl': v.get('avatarUrl')}))
+    rows.sort(key=lambda r: -r[0])
+    return {'profiles': [r[1] for r in rows[:max(1, min(limit, 20))]]}

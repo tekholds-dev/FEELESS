@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "feeless-frontend",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--prefix", "frontend", "craco", "start"],
+      "cwd": "frontend",
+      "env": { "PORT": "51367", "BROWSER": "none" },
+      "port": 51367
+    }
+  ]
+}
