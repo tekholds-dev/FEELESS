@@ -71,6 +71,33 @@ function useBigTokens() {
 }
 
 const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// Live global HUD readout — the same on-chain evidence surfaced everywhere else, framed as
+// mission-control stats over the planet: this many coins scanned, this many snipers/funders caught.
+function useGlobeStats() {
+  const [stats, setStats] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch('/api/reputation/stats').then(r => (r.ok ? r.json() : null)).then(d => { if (alive && d) setStats(d); }).catch(() => {});
+    load();
+    const t = setInterval(() => { if (!document.hidden) load(); }, 25000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+  return stats;
+}
+
+// A field of distant stars behind the planet, each drifting at its own lazy pace — the globe
+// reads as floating in real space instead of sitting on a flat panel.
+function useStarfield(count = 90) {
+  return useMemo(() => Array.from({ length: count }, (_, i) => ({
+    id: i,
+    left: `${(hashNum(`sx${i}`) * 100).toFixed(2)}%`,
+    top: `${(hashNum(`sy${i}`) * 100).toFixed(2)}%`,
+    size: 0.6 + hashNum(`ss${i}`) * 1.8,
+    delay: `${(hashNum(`sd${i}`) * 6).toFixed(2)}s`,
+    duration: `${5 + hashNum(`sD${i}`) * 6}s`,
+  })), [count]);
+}
 function bubbleElement(b) {
   const el = document.createElement('div');
   el.className = `globe-bubble globe-bubble-${b.kind}`;
@@ -160,6 +187,9 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
   const [dims, setDims] = useState({ w: size, h: size });
   const bubbles = useGlobeBubbles(GLOBE_NODES);
   const bigTokens = useBigTokens();
+  const stats = useGlobeStats();
+  const stars = useStarfield();
+  const hottest = useMemo(() => [...bigTokens].filter(t => Number.isFinite(Number(t.change24h))).sort((a, b) => Number(b.change24h) - Number(a.change24h))[0], [bigTokens]);
   const tokenPoints = useMemo(() => bigTokens.map(t => {
     const home = GLOBE_NODES.find(n => !n.isLaunchpad && (n.chainId === t.chain || n.id === t.chain));
     if (!home) return null;
@@ -267,6 +297,17 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
       <div className="globe-bloom-layer globe-bloom-outer" aria-hidden="true" />
       <div className="globe-bloom-layer globe-bloom-inner" aria-hidden="true" />
       <div className="globe-particle-field" aria-hidden="true">{particles.map(p => <span key={p.id} className="globe-particle" style={{ left: p.left, top: p.top, animationDelay: p.delay, animationDuration: p.duration, width: p.size, height: p.size }} />)}</div>
+      <div className="globe-starfield" aria-hidden="true">{stars.map(s => <span key={s.id} className="globe-star" style={{ left: s.left, top: s.top, width: s.size, height: s.size, animationDelay: s.delay, animationDuration: s.duration }} />)}</div>
+      {stats && <div className="globe-hud" data-testid="globe-hud">
+        <div className="globe-hud-row"><i className="flr-dot" /><span>LIVE ON-CHAIN EVIDENCE</span></div>
+        <div className="globe-hud-stats">
+          <div><b>{stats.mintsScanned?.toLocaleString?.() ?? stats.mintsScanned}</b><small>coins scanned</small></div>
+          <div><b>{stats.snipers?.toLocaleString?.() ?? stats.snipers}</b><small>snipers caught</small></div>
+          <div><b>{stats.flaggedFunders ?? 0}</b><small>repeat funders</small></div>
+          <div><b>{stats.blocklisted?.toLocaleString?.() ?? stats.blocklisted}</b><small>blocklisted</small></div>
+        </div>
+        {hottest && <div className="globe-hud-hot"><i>🔥</i>${escapeHtml(hottest.symbol)} {Number(hottest.change24h) >= 0 ? '+' : ''}{Number(hottest.change24h).toFixed(1)}% on {hottest.chain}</div>}
+      </div>}
       <GlobeErrorBoundary fallback={<GlobeFallback onSelect={onSelect} selectedId={selectedId} />}>
         <Globe
           ref={globeRef}

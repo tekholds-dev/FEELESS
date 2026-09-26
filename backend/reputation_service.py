@@ -964,11 +964,19 @@ async def token_intel(chain: str, mint: str):
         flags.append(f"Top 10 wallets hold {out['top10Pct']}% of supply (excluding pools).")
     if (out.get('devHoldingPct') or 0) >= 5:
         flags.append(f"Creator still holds {out['devHoldingPct']}% of supply.")
+    all_offenders = out.get('bundledWallets', []) + out.get('sniperWallets', [])
+    flagged_funders = {w: funder_lookup(w) for w in all_offenders}
+    flagged_funders = {w: v for w, v in flagged_funders.items() if v}
+    if flagged_funders:
+        distinct_funders = {v['funder'] for v in flagged_funders.values()}
+        flags.append(f"{len(flagged_funders)} sniper/bundler wallet(s) here were funded by {len(distinct_funders)} wallet(s) already linked to prior rug/snipe launches.")
     out['flags'] = flags
+    out['flaggedFunders'] = flagged_funders
     await _record_offenders(mint, out.get('bundledWallets', []), out.get('sniperWallets', []))
     bl = _block_load()
-    out['walletRecords'] = {w: {'strikes': len(bl['wallets'].get(w, {}).get('mints', {})), 'blocked': _is_blocked(bl['wallets'].get(w))}
-                            for w in out.get('bundledWallets', []) + out.get('sniperWallets', [])}
+    out['walletRecords'] = {w: {'strikes': len(bl['wallets'].get(w, {}).get('mints', {})), 'blocked': _is_blocked(bl['wallets'].get(w)),
+                                 'flaggedFunder': flagged_funders.get(w)}
+                            for w in all_offenders}
     _intel_cache[mint] = (time.time(), out)
     try:
         _absorb_intel(mint, out)
@@ -1813,6 +1821,78 @@ async def _record_offenders(mint, bundled, snipers):
                 rec['mints'].setdefault(mint, role)
                 rec['lastSeen'] = time.time()
         BLOCK_PATH.write_text(json.dumps(d))
+    asyncio.create_task(_trace_funders(mint, list(bundled) + list(snipers)))
+
+
+# ---- Funder graph: who bankrolls sniper/bundler wallets, so a serial funder gets caught even
+# before their next puppet wallet snipes anything --------------------------------------------
+FUNDERS_PATH = DATA_DIR / 'funders.json'
+FUNDER_STRIKE_MINTS = 2   # a funder linked to offenders across 2+ different launches is a pattern
+FUNDER_STRIKE_WALLETS = 3  # or has bankrolled 3+ distinct sniper/bundler wallets total
+_funder_lock = asyncio.Lock()
+_funder_resolved = set()  # offender wallets we've already traced (in-memory, this process)
+
+
+def _funders_load():
+    return _json_load(FUNDERS_PATH, {'funders': {}, 'offenderFunder': {}})
+
+
+def _is_flagged_funder(rec):
+    if not rec:
+        return False
+    return len(rec.get('mints', {})) >= FUNDER_STRIKE_MINTS or len(rec.get('funded', [])) >= FUNDER_STRIKE_WALLETS
+
+
+async def _trace_funders(mint, offenders):
+    """Best-effort, capped, background: find who funded each new offender wallet's very first
+    transaction, and remember it. A funder seen behind offenders on 2+ launches (or 3+ puppet
+    wallets) gets flagged — and added to the blocklist itself — so their NEXT batch of fresh
+    wallets is already suspect before they've sniped a single thing."""
+    todo = [w for w in offenders if w not in _funder_resolved][:8]
+    if not todo:
+        return
+    for w in todo:
+        _funder_resolved.add(w)
+        try:
+            funder = await resolve_funding_source('solana', w)
+        except Exception:
+            funder = None
+        if not funder or funder == w:
+            continue
+        async with _funder_lock:
+            d = _funders_load()
+            rec = d['funders'].setdefault(funder, {'mints': {}, 'funded': [], 'firstSeen': time.time()})
+            rec['mints'].setdefault(mint, True)
+            if w not in rec['funded']:
+                rec['funded'].append(w)
+            rec['lastSeen'] = time.time()
+            d['offenderFunder'][w] = funder
+            newly_flagged = _is_flagged_funder(rec) and funder not in (d.get('flagged') or [])
+            if newly_flagged:
+                d.setdefault('flagged', []).append(funder)
+            _json_save(FUNDERS_PATH, d)
+        if newly_flagged:
+            # The funder becomes a blocklist entry in their own right — 'funder' strikes count
+            # exactly like sniping/bundling do, so they auto-block the same way.
+            async with _block_lock:
+                bl = _block_load()
+                brec = bl['wallets'].setdefault(funder, {'mints': {}, 'firstSeen': time.time()})
+                for m in d['funders'][funder]['mints']:
+                    brec['mints'].setdefault(m, 'funder')
+                brec['lastSeen'] = time.time()
+                BLOCK_PATH.write_text(json.dumps(bl))
+
+
+def funder_lookup(wallet: str):
+    """Is this wallet's funder already known to have bankrolled other snipe/bundle squads?"""
+    d = _funders_load()
+    funder = d['offenderFunder'].get(wallet)
+    if not funder:
+        return None
+    rec = d['funders'].get(funder) or {}
+    if not _is_flagged_funder(rec):
+        return None
+    return {'funder': funder, 'otherLaunches': len(rec.get('mints', {})), 'walletsFunded': len(rec.get('funded', []))}
 
 
 class BlockPayload(BaseModel):
@@ -3187,10 +3267,12 @@ async def live_stats():
             _marked['bundlers'].add(w)
     store = _load()
     scores = [score_creator(c) for c in store['creators'].values()]
+    fd = _funders_load()
     return {'snipers': len(_marked['snipers'] - {None}), 'bundlers': len(_marked['bundlers'] - {None}),
             'blocklisted': sum(1 for r in bl.values() if _is_blocked(r)), 'mintsScanned': len(_marked['mints'] | set(store['mints'])),
             'creators': len(store['creators']), 'trustedCreators': sum(1 for x in scores if x.get('badge') == 'trusted'),
-            'flaggedCreators': sum(1 for x in scores if x.get('badge') == 'flagged'), 'at': time.time()}
+            'flaggedCreators': sum(1 for x in scores if x.get('badge') == 'flagged'),
+            'flaggedFunders': len(fd.get('flagged') or []), 'walletsTraced': len(fd.get('offenderFunder') or {}), 'at': time.time()}
 
 
 # ---- Invite / promo links: every wallet gets one ---------------------------------------------
@@ -4028,8 +4110,9 @@ async def snipe_risk(mints: str):
             continue
         d = hit[1]
         snip, bund, top10 = len(d.get('sniperWallets') or []), len(d.get('bundledWallets') or []), d.get('top10Pct') or 0
-        risk = min(100, round(snip * 2 + bund * 5 + max(0, top10 - 20)))
-        out[m] = {'risk': risk, 'level': 'high' if risk >= 60 else 'medium' if risk >= 30 else 'low', 'snipers': snip, 'bundled': bund, 'top10': top10}
+        funded_by_repeat = len(d.get('flaggedFunders') or {})
+        risk = min(100, round(snip * 2 + bund * 5 + max(0, top10 - 20) + funded_by_repeat * 15))
+        out[m] = {'risk': risk, 'level': 'high' if risk >= 60 else 'medium' if risk >= 30 else 'low', 'snipers': snip, 'bundled': bund, 'top10': top10, 'repeatFunders': funded_by_repeat}
     return {'risk': out}
 
 

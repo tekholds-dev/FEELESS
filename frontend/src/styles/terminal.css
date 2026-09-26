@@ -2688,3 +2688,20 @@ body.theme-day .reputation-badge.badge-veteran{color:#8a6d00}
 .feecat-mark.is-alive:hover .fc-tail{animation-duration:1.1s}
 body.reduced-motion-setting .feecat-mark *{animation:none!important}
 .feecat-mark .fc-tail,.feecat-mark .fc-ear-l,.feecat-mark .fc-eye,.feecat-mark .fc-eye-spark{transform-box:fill-box}
+
+/* ===== Globe upgrade: starfield + live HUD ===== */
+.globe-canvas-wrap{position:relative}
+.globe-starfield{position:absolute;inset:-15%;pointer-events:none;z-index:0;overflow:hidden}
+.globe-star{position:absolute;border-radius:50%;background:#fff;opacity:.15;box-shadow:0 0 4px #fff;animation:globe-twinkle ease-in-out infinite}
+@keyframes globe-twinkle{0%,100%{opacity:.1;transform:scale(.8)}50%{opacity:.9;transform:scale(1.3)}}
+.globe-hud{position:absolute;left:14px;top:14px;z-index:5;padding:10px 14px;border-radius:14px;background:rgba(4,10,8,.72);border:1px solid rgba(0,233,160,.3);backdrop-filter:blur(6px);box-shadow:0 0 24px rgba(0,233,160,.12);font-family:'JetBrains Mono',monospace;pointer-events:none;max-width:min(260px,60vw)}
+.globe-hud-row{display:flex;align-items:center;gap:6px;font-size:9.5px;letter-spacing:.6px;color:var(--mint);text-transform:uppercase;margin-bottom:8px}
+.globe-hud-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px}
+.globe-hud-stats div{display:grid;min-width:0}
+.globe-hud-stats b{font-size:16px;color:#eafff3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.globe-hud-stats small{font-size:8.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.globe-hud-hot{margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:#ffb37a;display:flex;gap:5px;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.theme-day .globe-hud{background:rgba(255,255,255,.85);border-color:rgba(7,120,79,.3)}
+body.theme-day .globe-hud-stats b{color:#0a1f14}
+body.reduced-motion-setting .globe-star{animation:none}
+@media (max-width:560px){.globe-hud{left:8px;top:8px;padding:8px 10px}.globe-hud-stats b{font-size:13px}}
