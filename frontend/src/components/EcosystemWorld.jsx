@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { X, ArrowUpRight, Rocket, Radio, Compass, Sparkles, Cat, Infinity as InfinityIcon } from 'lucide-react';
 import EcosystemChat from './EcosystemChat';
 import NewStuffFeed from './NewStuffFeed';
+const PriceChart = React.lazy(() => import('./terminal/PriceChart').then(m => ({ default: m.PriceChart })));
+const QuickTrade = React.lazy(() => import('./terminal/QuickTrade').then(m => ({ default: m.QuickTrade })));
 import { useMarket } from '../hooks/useMarket';
 
 const ROOM_LAYOUT_KEY = 'feeless-room-layout';
@@ -10,7 +12,7 @@ const ROOM_EXPANDED_KEY = 'feeless-room-expanded';
 const readRoomLayout = () => {
   try {
     const saved = localStorage.getItem(ROOM_LAYOUT_KEY);
-    return ['balanced', 'chat-first', 'feed-first'].includes(saved) ? saved : 'balanced';
+    return ['balanced', 'chat-first', 'feed-first', 'chart'].includes(saved) ? saved : 'balanced';
   } catch { return 'balanced'; }
 };
 const readRoomExpanded = () => {
@@ -23,6 +25,8 @@ const readRoomExpanded = () => {
 export default function EcosystemWorld({ ecosystem, pad, onClose }) {
   const [layout, setLayout] = useState(readRoomLayout);
   const [expanded, setExpanded] = useState(readRoomExpanded);
+  const [chartPair, setChartPair] = useState(null);
+  const [chartIv, setChartIv] = useState('15m');
   useEffect(() => { try { localStorage.setItem(ROOM_LAYOUT_KEY, layout); } catch {} }, [layout]);
   useEffect(() => { try { localStorage.setItem(ROOM_EXPANDED_KEY, String(expanded)); } catch {} }, [expanded]);
   useEffect(() => {
@@ -64,7 +68,7 @@ export default function EcosystemWorld({ ecosystem, pad, onClose }) {
           <Link className="eco-enter-terminal" to="/terminal" data-testid="eco-world-enter-terminal">Enter {ecosystem.name} terminal<ArrowUpRight size={14} /></Link>
           <div className="eco-layout-controls" role="group" aria-label="Network room layout">
             <span>LAYOUT</span>
-            {[['balanced', 'Balanced'], ['chat-first', 'Chat first'], ['feed-first', 'Feed first']].map(([id, label]) => <button type="button" key={id} className={layout === id ? 'active' : ''} aria-pressed={layout === id} data-testid={`eco-layout-${id}`} onClick={() => setLayout(id)}>{label}</button>)}
+            {[['balanced', 'Balanced'], ['chart', 'Chart'], ['chat-first', 'Chat first'], ['feed-first', 'Feed first']].map(([id, label]) => <button type="button" key={id} className={layout === id ? 'active' : ''} aria-pressed={layout === id} data-testid={`eco-layout-${id}`} onClick={() => setLayout(id)}>{label}</button>)}
             <button type="button" className="eco-expand-toggle" data-testid="eco-layout-expand" aria-pressed={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? 'Exit expanded' : 'Expand window'}</button>
           </div>
           <button className="eco-world-close" title="Close" data-testid="eco-world-close" onClick={onClose}><X size={18} /></button>
@@ -95,8 +99,12 @@ export default function EcosystemWorld({ ecosystem, pad, onClose }) {
             </div>
           </div>
 
-          <div className="eco-section-label"><Sparkles size={13} /> WHAT'S NEW ON {ecosystem.name.toUpperCase()}</div>
-          <NewStuffFeed ecosystem={ecosystem} />
+          {chartPair && <div className="eco-chart" data-testid="eco-room-chart">
+            <div className="eco-chart-head"><b>${chartPair.baseToken?.symbol}</b><span>{chartPair.baseToken?.name}</span><div className="timeframes">{['1m', '5m', '15m', '1h', '4h', '1d'].map(t => <button key={t} type="button" className={chartIv === t ? 'active' : ''} onClick={() => setChartIv(t)}>{t.toUpperCase()}</button>)}</div><a href={`/terminal/coin/${chartPair.chainId}/${chartPair.pairAddress}`} target="_blank" rel="noreferrer">Profile ↗</a><button type="button" className="eco-chart-x" aria-label="Close chart" onClick={() => setChartPair(null)}><X size={14} /></button></div>
+            <React.Suspense fallback={<div className="chart-message"><span className="loader" />Loading chart…</div>}><div className="chart-with-trade"><div className="chart-fullscreen-wrap"><PriceChart key={`${chartPair.pairAddress}-${chartIv}`} pair={chartPair} interval={chartIv} showVolume /></div><QuickTrade pair={chartPair} /></div></React.Suspense>
+          </div>}
+          <div className="eco-section-label"><Sparkles size={13} /> WHAT'S NEW ON {ecosystem.name.toUpperCase()} <small className="eco-tip">tap a coin to chart it here</small></div>
+          <NewStuffFeed ecosystem={ecosystem} activePair={chartPair?.pairAddress} onPick={p => { setChartPair(p); if (layout === 'chat-first') setLayout('chart'); document.querySelector('.eco-right-col')?.scrollTo({ top: 0, behavior: 'smooth' }); }} />
         </div>
       </div>
 

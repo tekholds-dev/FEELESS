@@ -7,7 +7,7 @@ import { MarketAvailabilityNotice, TokenAvatar } from './terminal/MarketPrimitiv
 import { formatUSD, formatPct, formatAge, hasProviderImage } from '../lib/dexscreener';
 
 // Social "new stuff" stream — fresh + trending coins on the ecosystem. No pools / liquidity tables.
-export default function NewStuffFeed({ ecosystem }) {
+export default function NewStuffFeed({ ecosystem, onPick, activePair }) {
   const [tab, setTab] = useState('new');
   const chain = ecosystem?.chainId || 'solana';
   const screen = tab === 'new' ? 'new' : 'quality';
@@ -42,7 +42,7 @@ export default function NewStuffFeed({ ecosystem }) {
       {pairs.map(p => {
         const addr = p.baseToken?.address;
         const change = tab === 'new' ? p.priceChange?.h1 : p.priceChange?.h24;
-        return <div className="new-stuff-item" key={`${p.chainId}-${p.pairAddress}`} data-testid={`new-stuff-item-${addr}`}>
+        return <div className={`new-stuff-item ${onPick ? 'is-pickable' : ''} ${activePair === p.pairAddress ? 'is-active' : ''}`} key={`${p.chainId}-${p.pairAddress}`} data-testid={`new-stuff-item-${addr}`} role={onPick ? 'button' : undefined} tabIndex={onPick ? 0 : undefined} onClick={e => { if (onPick && !e.target.closest('button,a')) onPick(p); }} onKeyDown={e => { if (onPick && e.key === 'Enter') onPick(p); }}>
           <TokenAvatar pair={p} size={48} />
           <div className="new-stuff-meta">
             <b>{p.baseToken?.symbol || '—'}</b>
