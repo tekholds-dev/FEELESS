@@ -335,6 +335,23 @@ async def observe(payload: ObservePayload):
         return {'creator': creator_address, **scoring}
 
 
+def _hygiene(creator, scored):
+    """Launch hygiene from FEELESS intel: snipers + bundled wallets across this creator's launches."""
+    h = _json_load(DATA_DIR / 'hygiene.json', {}).get(creator) or {}
+    launches = h.get('launches') or {}
+    if not launches:
+        return {'hygiene': None}
+    snip = sum(v.get('snipers', 0) for v in launches.values()); bund = sum(v.get('bundled', 0) for v in launches.values())
+    n = len(launches)
+    penalty = min(40, round((snip / n) * 1.0 + (bund / n) * 3.0))
+    score = scored.get('score')
+    adj = max(0, score - penalty) if isinstance(score, (int, float)) else score
+    badge = scored.get('badge')
+    if n >= 2 and bund / n >= 5:
+        badge = 'flagged'
+    return {'score': adj, 'badge': badge, 'hygiene': {'launches': n, 'avgSnipers': round(snip / n, 1), 'avgBundled': round(bund / n, 1), 'penalty': penalty}}
+
+
 @app.get('/api/reputation/token/{chain}/{address}')
 async def token_reputation(chain: str, address: str):
     store = _load()
@@ -346,7 +363,8 @@ async def token_reputation(chain: str, address: str):
     entry = store['creators'].get(ckey)
     if not entry:
         return {'creator': mint_state['creator'], 'score': None, 'badge': 'unproven'}
-    return {'creator': entry['address'], **score_creator(entry)}
+    out = {'creator': entry['address'], **score_creator(entry)}
+    return {**out, **_hygiene(entry['address'], out)}
 
 
 
@@ -1315,6 +1333,10 @@ async def _evaluate_alerts():
                             fired.append(('down', f'{sym} is down {move:+.1f}% since you starred it'))
                         elif abs(move) < min(rules.get('up') or 999, rules.get('down') or 999) / 2:
                             state.pop('up', None); state.pop('down', None)
+                    if rules.get('above') and price >= float(rules['above']):
+                        fired.append(('above', f"{sym} hit your target {price:.8g} (≥ {float(rules['above']):.8g})"))
+                    if rules.get('below') and price and price <= float(rules['below']):
+                        fired.append(('below', f"{sym} fell to {price:.8g} (≤ {float(rules['below']):.8g})"))
                     h24 = float((p.get('priceChange') or {}).get('h24') or 0)
                     if rules.get('move24h') and abs(h24) >= rules['move24h']:
                         fired.append(('move24h', f'{sym} moved {h24:+.1f}% in 24h'))
@@ -1637,6 +1659,8 @@ def _clean_profile(p: dict) -> dict:
         'top8': top8,
         'theme': p.get('theme') if p.get('theme') in ('grid', 'glitter', 'matrix', 'sunset', 'vapor', 'goldrush', 'neoncat') else 'grid',
         'friends': [str(f)[:44] for f in (p.get('friends') or [])[:8] if _re.match(r'^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$', str(f))],
+        'songs': [{'url': str(x.get('url'))[:300], 'title': str(x.get('title') or '')[:60]} for x in (p.get('songs') or [])[:15]
+                  if isinstance(x, dict) and _re.match(r'^https://(www\.|m\.|music\.|open\.)?(youtube\.com|youtu\.be|spotify\.com|soundcloud\.com)/', str(x.get('url') or ''))],
         'handle': str(p.get('handle') or '').lower().lstrip('@')[:20] if _re.match(r'^@?[a-z0-9_]{3,20}$', str(p.get('handle') or '').lower()) else '',
         'ring': p.get('ring') if p.get('ring') in RING_TIERS else 'none',
         'nameFx': p.get('nameFx') if p.get('nameFx') in NAMEFX_TIERS else 'none',
@@ -1874,6 +1898,9 @@ async def _holding_usd(owner: str, mint: str):
 
 @app.get('/api/reputation/chat/gate')
 async def chat_gate(room: str, address: Optional[str] = None):
+    eg = await evm_gate(room, address or '')
+    if eg:
+        return eg
     coin = await _room_mint(room)
     if not coin:
         return {'gated': False, 'allowed': True}
@@ -1918,6 +1945,9 @@ async def chat_post(payload: ChatPost):
             raise HTTPException(401, 'Chat session expired — sign in to chat again.')
     elif not _verify_wallet(payload.address, _chat_message_to_sign(payload.room, payload.address, payload.ts, text), payload.signature):
         raise HTTPException(401, 'Signature does not match this wallet.')
+    eg = await evm_gate(payload.room, payload.address)
+    if eg and not eg['allowed']:
+        raise HTTPException(403, f"{eg['symbol']} is an EVM coin — link or switch to your 0x account." if eg.get('needsChain') else f"Hold at least ${MIN_HOLD_USD:.0f} of {eg['symbol']} to chat here (you hold ${eg['holdingUsd'] or 0:.2f}).")
     coin = await _room_mint(payload.room)
     if coin and payload.address.startswith('0x'):
         raise HTTPException(403, f'{coin[1]} lives on Solana — switch your wallet to its Solana account to chat here.')
@@ -2018,6 +2048,13 @@ async def fee_post(payload: FeeCallPayload, request: Request):
         raise HTTPException(403, 'Internal endpoint.')
     room = f'coin-{payload.chain}-{payload.pairAddress}-trenches'
     msg = chat_system_post(room, 'Fee 🐱', FEE_ADDRESS, payload.text[:2000])
+    try:
+        head = payload.text.split('\n', 1)[0][:120]
+        followers = [e for e in _push_load()['subs'].values() if (e.get('prefs') or {}).get('followFee')]
+        for e in followers[:500]:
+            asyncio.get_running_loop().run_in_executor(None, _send_push, e['subscription'], 'Fee 🐱 just traded', head, f"/terminal/coin/solana/{payload.pairAddress}", 'fee-copy')
+    except Exception:
+        pass
     call_id = None
     if payload.registerCall:
         res = await register_call(CallPayload(room=room, messageId=msg['id'], caller='Fee 🐱', callerAddress=FEE_ADDRESS,
@@ -3077,6 +3114,12 @@ _marked = {'snipers': set(), 'bundlers': set(), 'mints': set()}
 
 
 def _absorb_intel(mint, out):
+    creator = out.get('creator') if isinstance(out.get('creator'), str) else (out.get('creator') or {}).get('address')
+    if creator:
+        hp = DATA_DIR / 'hygiene.json'
+        d = _json_load(hp, {})
+        d.setdefault(creator, {'launches': {}})['launches'][mint] = {'snipers': len(out.get('sniperWallets') or []), 'bundled': len(out.get('bundledWallets') or [])}
+        _json_save(hp, d)
     for w in out.get('sniperWallets') or []:
         _marked['snipers'].add(w if isinstance(w, str) else (w or {}).get('wallet') or (w or {}).get('owner'))
     for w in out.get('bundledWallets') or []:
@@ -3356,3 +3399,159 @@ async def admin_treasury(request: Request):
     except Exception:
         pass
     return {'wallet': admin, 'sol': stats.get('sol'), 'holdingsUsd': held, 'recent': recent}
+
+
+# ---- Holder gate for EVM coin rooms ---------------------------------------------------------
+EVM_RPC = {'ethereum': 'https://eth.llamarpc.com', 'base': 'https://mainnet.base.org', 'bsc': 'https://bsc-dataseed.binance.org',
+           'arbitrum': 'https://arb1.arbitrum.io/rpc', 'avalanche': 'https://api.avax.network/ext/bc/C/rpc', 'polygon': 'https://polygon-rpc.com'}
+_evm_room_cache = {}
+
+
+async def _evm_room(room: str):
+    m = _re.match(r'^coin-(ethereum|base|bsc|arbitrum|avalanche|polygon)-(0x[0-9a-fA-F]{40})-(bulls|bears|trenches)$', room)
+    if not m:
+        return None
+    chain, pair = m.group(1), m.group(2)
+    hit = _evm_room_cache.get(pair)
+    if hit and time.time() - hit[0] < 300:
+        return hit[1]
+    info = None
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            p = ((await http.get(f'https://api.dexscreener.com/latest/dex/pairs/{chain}/{pair}')).json().get('pairs') or [None])[0]
+            if p:
+                info = (chain, p['baseToken']['address'], p['baseToken']['symbol'], float(p.get('priceUsd') or 0))
+    except Exception:
+        pass
+    _evm_room_cache[pair] = (time.time(), info)
+    return info
+
+
+async def _evm_holding_usd(owner: str, chain: str, token: str, price: float):
+    call = lambda data: {'jsonrpc': '2.0', 'id': 1, 'method': 'eth_call', 'params': [{'to': token, 'data': data}, 'latest']}
+    async with httpx.AsyncClient(timeout=10) as http:
+        bal = int((await http.post(EVM_RPC[chain], json=call('0x70a08231' + owner[2:].lower().rjust(64, '0')))).json().get('result') or '0x0', 16)
+        dec = int((await http.post(EVM_RPC[chain], json=call('0x313ce567'))).json().get('result') or '0x12', 16)
+    return bal / (10 ** dec) * price
+
+
+def _evm_account_for(address: str):
+    if address.startswith('0x'):
+        return address
+    return next((a for a in linked_of(address) if a.startswith('0x')), None)
+
+
+async def evm_gate(room: str, address: str):
+    info = await _evm_room(room)
+    if not info:
+        return None
+    chain, token, symbol, price = info
+    acct = _evm_account_for(address) if address else None
+    if not address:
+        return {'gated': True, 'allowed': False, 'symbol': symbol, 'minUsd': MIN_HOLD_USD, 'holdingUsd': None}
+    if not acct:
+        return {'gated': True, 'allowed': False, 'symbol': symbol, 'minUsd': MIN_HOLD_USD, 'holdingUsd': None, 'needsChain': 'evm'}
+    try:
+        usd = await _evm_holding_usd(acct, chain, token, price)
+    except Exception:
+        usd = 0.0
+    return {'gated': True, 'allowed': usd >= MIN_HOLD_USD, 'symbol': symbol, 'minUsd': MIN_HOLD_USD, 'holdingUsd': round(usd, 4), 'chain': chain}
+
+
+# ---- Weekly caller leagues --------------------------------------------------------------------
+def _week_start(ts=None):
+    t = time.gmtime(ts or time.time())
+    return time.mktime((t.tm_year, t.tm_mon, t.tm_mday, 0, 0, 0, 0, 0, 0)) - t.tm_wday * 86400 - time.timezone
+
+
+@app.get('/api/reputation/league')
+async def caller_league(week: int = 0):
+    start = _week_start() - week * 7 * 86400
+    end = start + 7 * 86400
+    board = await caller_board(days=min(90, max(7, int((time.time() - start) / 86400) + 1)))
+    rows = []
+    for r in board['rows']:
+        calls = [c for c in (r.get('callsList') or [])] if r.get('callsList') else None
+        rows.append({'caller': r.get('caller'), 'address': r.get('callerAddress'), 'calls': r.get('calls'), 'hitRate': r.get('hitRate'), 'avgPeakX': r.get('avgPeakX'),
+                     'points': round((r.get('calls') or 0) * 2 + (r.get('hitRate') or 0) * 50 + min(20, (r.get('avgPeakX') or 1) * 4), 1)})
+    rows = [r for r in rows if r['address'] and r['address'] != 'FEE-LEADER-CAT']
+    rows.sort(key=lambda r: -r['points'])
+    return {'weekStart': start, 'weekEnd': end, 'rows': rows[:50], 'prizes': ['🥇 League Champion badge + airdrop', '🥈 badge', '🥉 badge']}
+
+
+# ---- Rug radar + whale feed (background watcher) --------------------------------------------
+_radar = {'hist': {}, 'events': [], 'whales': [], 'pairs': {}}
+
+
+def _radar_pairs():
+    pairs = {}
+    try:
+        for c in sorted(_calls_load()['calls'].values(), key=lambda c: -c.get('at', 0))[:200]:
+            if time.time() - c.get('at', 0) < 86400 and c.get('chain') == 'solana':
+                pairs[c['pairAddress']] = c.get('symbol') or '?'
+    except Exception:
+        pass
+    for e in _push_load()['subs'].values():
+        for w in e.get('watch', [])[:30]:
+            if w.get('chainId') == 'solana':
+                pairs[w['pairAddress']] = w.get('symbol') or '?'
+    return dict(list(pairs.items())[:90])
+
+
+async def _radar_loop():
+    await asyncio.sleep(30)
+    rot = 0
+    while True:
+        try:
+            pairs = _radar_pairs()
+            _radar['pairs'] = pairs
+            now = time.time()
+            async with httpx.AsyncClient(timeout=12) as http:
+                keys = list(pairs)
+                for i in range(0, len(keys), 30):
+                    r = await http.get(f"https://api.dexscreener.com/latest/dex/pairs/solana/{','.join(keys[i:i + 30])}")
+                    for p in (r.json() or {}).get('pairs') or []:
+                        pa = p['pairAddress']; sym = p['baseToken']['symbol']
+                        liq = float((p.get('liquidity') or {}).get('usd') or 0); px = float(p.get('priceUsd') or 0)
+                        h = _radar['hist'].setdefault(pa, [])
+                        h.append((now, liq, px)); h[:] = [x for x in h if now - x[0] < 1800]
+                        old = next((x for x in h if now - x[0] <= 900), None)
+                        if old and old[1] > 5000 and liq < old[1] * 0.7:
+                            _radar_event('rug', pa, sym, f'${sym} liquidity pulled {(1 - liq / old[1]) * 100:.0f}% in {int((now - old[0]) / 60)}m (${old[1]/1e3:.1f}K → ${liq/1e3:.1f}K)')
+                        if old and old[2] > 0 and px < old[2] * 0.5:
+                            _radar_event('dump', pa, sym, f'${sym} dumped {(1 - px / old[2]) * 100:.0f}% in {int((now - old[0]) / 60)}m')
+                # whale trades: a few pairs per minute via the shared GeckoTerminal budget
+                for pa in keys[rot:rot + 2]:
+                    if not gecko_budget.take('trades'):
+                        break
+                    r = await http.get(f'https://api.geckoterminal.com/api/v2/networks/solana/pools/{pa}/trades', headers={'accept': 'application/json'})
+                    if r.status_code == 429:
+                        gecko_budget.throttled(); break
+                    for t in ((r.json() or {}).get('data') or [])[:50]:
+                        a = t.get('attributes') or {}
+                        usd = float(a.get('volume_in_usd') or 0)
+                        if usd >= 2500 and not any(w['tx'] == a.get('tx_hash') for w in _radar['whales']):
+                            _radar['whales'].insert(0, {'pair': pa, 'symbol': pairs.get(pa), 'kind': a.get('kind'), 'usd': round(usd), 'wallet': a.get('tx_from_address'), 'tx': a.get('tx_hash'), 'at': a.get('block_timestamp')})
+                    _radar['whales'] = _radar['whales'][:120]
+                rot = (rot + 2) % max(1, len(keys))
+        except Exception as exc:
+            print('radar error', exc)
+        await asyncio.sleep(60)
+
+
+def _radar_event(kind, pa, sym, text):
+    last = next((e for e in _radar['events'] if e['pair'] == pa and e['kind'] == kind), None)
+    if last and time.time() - last['at'] < 3600:
+        return
+    _radar['events'].insert(0, {'kind': kind, 'pair': pa, 'symbol': sym, 'text': text, 'at': time.time()})
+    _radar['events'] = _radar['events'][:100]
+
+
+@app.on_event('startup')
+async def _start_radar():
+    asyncio.create_task(_radar_loop())
+
+
+@app.get('/api/reputation/radar')
+async def radar():
+    return {'watching': len(_radar['pairs']), 'events': _radar['events'][:40], 'whales': _radar['whales'][:40]}
