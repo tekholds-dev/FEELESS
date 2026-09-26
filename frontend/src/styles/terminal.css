@@ -2215,3 +2215,20 @@ body.reduced-motion-setting :is(.wp-avatar,.ring-demo,[class*="namefx-"],.wp-ava
 body.theme-day .legal-consent{background:#fff;border-color:#9fd3b6}body.theme-day .legal-consent p,body.theme-day :is(.legal-page p,.legal-page li){color:#173b2b}body.theme-day .legal-page h2{color:#07784f}
 .qt-fee{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;font-size:11px}.qt-fee b{color:var(--mint)}.qt-fee em{font-style:normal;color:var(--muted);font-size:10px;width:100%}
 .cc-fees textarea{min-height:60px;border-radius:8px;border:1px solid var(--line);background:#ffffff08;color:inherit;padding:6px 8px;font:11px 'JetBrains Mono',monospace}
+/* X.com-sized header: 3:1 banner, 134px round avatar overlapping it */
+.wallet-profile-page{max-width:none!important;width:100%}
+.wp-banner{height:auto!important;aspect-ratio:3/1;max-height:420px;background-size:cover!important;background-position:center!important}
+.wp-avatar{width:134px!important;height:134px!important;border-radius:50%!important}.wp-avatar img{border-radius:50%}
+.wp-head{margin-top:-67px!important}.wp-id,.badge-artifacts{margin-top:74px!important}
+@media (max-width:700px){.wp-avatar{width:88px!important;height:88px!important}.wp-head{margin-top:-44px!important}.wp-id,.badge-artifacts{margin-top:8px!important}}
+/* MySpace feel: each theme paints the whole page with its own colour */
+.wallet-profile-page{padding:0 0 30px;border-radius:18px;min-height:100vh}
+.wallet-profile-page.theme-grid{background:linear-gradient(180deg,#07130d,#030806)}
+.wallet-profile-page.theme-glitter{background:linear-gradient(160deg,#2a0b3d,#12051f 60%,#3a0a2a)}
+.wallet-profile-page.theme-matrix{background:linear-gradient(180deg,#001a08,#000a03)}
+.wallet-profile-page.theme-sunset{background:linear-gradient(170deg,#3d1020,#2a0f05 55%,#140a1f)}
+.wallet-profile-page.theme-vapor{background:linear-gradient(160deg,#1b0f3d,#0a2a3d 55%,#3d0f35)}
+.wallet-profile-page.theme-goldrush{background:linear-gradient(170deg,#2a1d02,#120c01 60%,#2a1a05)}
+.wallet-profile-page.theme-neoncat{background:linear-gradient(160deg,#1a0430,#04141a 60%,#2a0425)}
+.wallet-profile-page .wp-card{background:rgba(0,0,0,.35)!important;backdrop-filter:blur(6px)}
+.wallet-profile-page>:not(.wp-banner){margin-inline:clamp(10px,2vw,28px)}
