@@ -620,7 +620,7 @@ async def leaderboard(chain: Optional[str] = Query(None), view: str = Query('tru
         for l in launches.values():
             by_creator.setdefault(_creator_key(l['chain'], l['wallet']), []).append(l)
         rows = [{**r, 'feelessLaunches': len(by_creator[_creator_key(r['chain'], r['address'])])} for r in rows if _creator_key(r['chain'], r['address']) in by_creator]
-        rows.sort(key=lambda r: (-r['bigWinners'], r['dumpedCount'], -r['score']))
+        rows.sort(key=lambda r: (-r['bigWinners'], r['dumpedCount'], -(r['score'] or 0)))
     elif view == 'flagged':
         rows = [r for r in rows if r['badge'] == 'flagged' or r['dumpedCount'] >= 2]
         rows.sort(key=lambda r: (-r['ruggedCount'], -r['dumpedCount'], -r['tokenCount']))
@@ -631,13 +631,13 @@ async def leaderboard(chain: Optional[str] = Query(None), view: str = Query('tru
     elif view == 'rising':
         # New creators (first seen recently) already showing a clean, decent score.
         rows = [r for r in rows if r['badge'] != 'flagged' and r['dumpedCount'] == 0 and (now - r['firstSeen']) <= RISING_WINDOW_SECONDS]
-        rows.sort(key=lambda r: (-r['score'], r['firstSeen']))
+        rows.sort(key=lambda r: (-(r['score'] or 0), r['firstSeen']))
     elif view == 'active':
         rows = [r for r in rows if r['badge'] != 'flagged']
-        rows.sort(key=lambda r: -r['lastSeen'])
+        rows.sort(key=lambda r: -(r['lastSeen'] or 0))
     else:
         rows = [r for r in rows if r['badge'] != 'flagged' and r['dumpedCount'] == 0]
-        rows.sort(key=lambda r: (r['badge'] != 'trusted', -r['score'], -r['tokenCount']))
+        rows.sort(key=lambda r: (r['badge'] != 'trusted', -(r['score'] or 0), -(r['tokenCount'] or 0)))
 
     return {
         'rows': rows[:50], 'view': view,
@@ -763,7 +763,7 @@ async def get_clusters(chain: Optional[str] = Query('solana')):
             scored = [{'address': m['address'], 'chain': m['chain'], **score_creator(m)} for m in members]
             clusters.append({
                 'fundingSource': source,
-                'members': sorted(scored, key=lambda r: -r['score']),
+                'members': sorted(scored, key=lambda r: -(r['score'] or 0)),
                 'totalTokens': sum(m['tokenCount'] for m in scored),
                 'totalFlags': sum(m['ruggedCount'] for m in scored),
             })
