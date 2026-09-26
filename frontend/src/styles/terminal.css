@@ -2514,3 +2514,11 @@ body.theme-day .wars-artifact .war-join:hover{background:currentColor!important;
 .war-emblem .glyph{filter:drop-shadow(0 0 16px currentColor)}
 .li-cell{position:relative}.li-cell .glyph{position:absolute;right:10px;top:10px;opacity:.9}
 .war-lead,.war-mine{display:inline-flex;gap:4px;align-items:center}
+/* Portfolio */
+.pf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.pf-coin{display:grid;grid-template-columns:40px 1fr;grid-template-rows:auto auto auto;column-gap:10px;padding:10px;border-radius:14px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:inherit;text-decoration:none;transition:transform .2s,border-color .2s}
+.pf-coin:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--wp-accent,#00e9a0) 60%,transparent)}
+.pf-logo{grid-row:1/4;width:40px;height:40px;border-radius:50%;object-fit:cover;display:grid;place-items:center;background:#0b1a12;font:700 13px 'JetBrains Mono',monospace;color:var(--mint);box-shadow:0 0 12px rgba(0,0,0,.4)}
+.pf-logo.sol{background:linear-gradient(135deg,#9945ff,#14f195);color:#fff;font-size:18px}
+.pf-coin b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pf-coin small{color:var(--muted);font:11px 'JetBrains Mono',monospace}.pf-coin em{font-style:normal;font:700 12.5px 'JetBrains Mono',monospace}.pf-coin em i{font-style:normal;font-size:10.5px}
+body.theme-day .pf-coin{background:var(--day-surface-2);border-color:var(--day-border)}

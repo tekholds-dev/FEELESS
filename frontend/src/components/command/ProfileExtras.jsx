@@ -51,3 +51,32 @@ export function SetupCallout({ profile, onEdit }) {
     <button type="button" className="btn-primary" onClick={onEdit}>Set up profile</button>
   </section>;
 }
+
+// Live portfolio: every coin held, with logos, values and links to each coin's profile.
+export function PortfolioCard({ address }) {
+  const [d, setD] = useState(null);
+  const [logos, setLogos] = useState({});
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch(apiUrl(`/api/reputation/portfolio/${address}`)).then(r => r.json()).then(x => alive && setD(x)).catch(() => {});
+    load(); const t = setInterval(load, 60000);
+    fetch(apiUrl('/api/market/assets')).then(r => r.json()).then(x => alive && setLogos(Object.fromEntries((x.assets || []).map(a => [a.mint, { logo: a.logo || a.pair?.info?.imageUrl, pair: a.pair?.pairAddress }])))).catch(() => {});
+    return () => { alive = false; clearInterval(t); };
+  }, [address]);
+  if (!d?.supported) return null;
+  const fmt = v => (v == null ? '—' : v >= 1000 ? `$${(v / 1000).toFixed(1)}K` : `$${v.toFixed(2)}`);
+  return <section className="wp-card portfolio-card" data-testid="portfolio">
+    <div className="wpj-head"><h3>Portfolio</h3><span className="wpj-count">net worth <b>{fmt(d.totalUsd)}</b></span></div>
+    <div className="pf-grid">
+      <a className="pf-coin pf-sol" href="https://solscan.io/account/" onClick={e => { e.preventDefault(); window.open(`https://solscan.io/account/${d.address}`, '_blank', 'noopener'); }}><span className="pf-logo sol">◎</span><b>SOL</b><small>{d.sol.toFixed(3)}</small><em>{fmt(d.solUsd)}</em></a>
+      {d.tokens.map(t => { const pair = t.pairAddress || logos[t.mint]?.pair; const logo = t.logo || logos[t.mint]?.logo; const href = pair ? `/terminal/coin/solana/${pair}` : `/terminal/trade?q=${t.mint}`; const up = Number(t.change24h) >= 0;
+        return <a key={t.mint} className="pf-coin" href={href} title={`${t.name || t.mint} · ${t.amount.toLocaleString()}`}>
+          {logo ? <img className="pf-logo" src={logo} alt="" /> : <span className="pf-logo">{(t.symbol || '?').slice(0, 2)}</span>}
+          <b>{t.symbol ? `$${t.symbol}` : `${t.mint.slice(0, 4)}…`}</b>
+          <small>{t.amount >= 1e6 ? `${(t.amount / 1e6).toFixed(2)}M` : t.amount >= 1e3 ? `${(t.amount / 1e3).toFixed(1)}K` : t.amount.toFixed(2)}</small>
+          <em>{fmt(t.usd)}{t.change24h != null && <i className={up ? 'positive' : 'negative'}> {up ? '+' : ''}{Number(t.change24h).toFixed(1)}%</i>}</em>
+        </a>; })}
+    </div>
+    {d.unpriced > 0 && <small className="cc-empty">{d.unpriced} token{d.unpriced === 1 ? '' : 's'} without a market price are listed without value.</small>}
+  </section>;
+}

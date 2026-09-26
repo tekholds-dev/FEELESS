@@ -4069,3 +4069,78 @@ async def sync_helius_webhook(public_url: str):
         return {'ok': False, 'reason': f'Helius said {r.status_code}: {r.text[:120]}'}
     d = _admin_load(); d.setdefault('helius', {}).update({'webhookId': r.json().get('webhookID') or hid, 'url': body['webhookURL'], 'at': time.time()}); _admin_save(d)
     return {'ok': True, 'url': body['webhookURL'], 'watching': len(body['accountAddresses'])}
+
+
+# ---- Portfolio: every coin a wallet holds, priced, with logos --------------------------------
+_pf_cache = {}
+
+
+@app.get('/api/reputation/portfolio/{address}')
+async def portfolio(address: str):
+    a = primary_of(address)
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', a):
+        return {'address': a, 'supported': False, 'tokens': [], 'totalUsd': None}
+    hit = _pf_cache.get(a)
+    if hit and time.time() - hit[0] < 90:
+        return hit[1]
+    held = {}
+    sol = 0.0
+    async with httpx.AsyncClient(timeout=25) as http:
+        try:
+            sol = ((await _rpc(http, 'getBalance', [a])) or {}).get('value', 0) / 1e9
+        except Exception:
+            pass
+        for prog in ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'):
+            try:
+                r = await _rpc(http, 'getTokenAccountsByOwner', [a, {'programId': prog}, {'encoding': 'jsonParsed'}])
+            except Exception:
+                r = None
+            for acc in (r or {}).get('value', []):
+                info = acc['account']['data']['parsed']['info']
+                amt = float((info.get('tokenAmount') or {}).get('uiAmount') or 0)
+                if amt > 0:
+                    held[info['mint']] = held.get(info['mint'], 0) + amt
+        mints = list(held)[:60]
+        market = {}
+        sem = asyncio.Semaphore(8)
+
+        async def one(m):
+            async with sem:
+                p = None
+                for url in (f'https://api.dexscreener.com/latest/dex/tokens/{m}', f'https://api.dexscreener.com/latest/dex/search?q={m}'):
+                    try:
+                        pairs = ((await http.get(url)).json() or {}).get('pairs') or []
+                    except Exception:
+                        pairs = []
+                    mine = [x for x in pairs if (x.get('baseToken') or {}).get('address') == m]
+                    if mine:
+                        p = max(mine, key=lambda x: float((x.get('liquidity') or {}).get('usd') or 0)); break
+                if not p:  # Jupiter covers pump.fun curve tokens DexScreener hasn't indexed
+                    try:
+                        j = ((await http.get(f'https://lite-api.jup.ag/tokens/v2/search?query={m}')).json() or [None])[0]
+                    except Exception:
+                        j = None
+                    if j and j.get('usdPrice'):
+                        p = {'baseToken': {'address': m, 'symbol': j.get('symbol'), 'name': j.get('name')}, 'priceUsd': j.get('usdPrice'),
+                             'info': {'imageUrl': j.get('icon')}, 'priceChange': {'h24': (j.get('stats24h') or {}).get('priceChange')}, 'chainId': 'solana'}
+                if p:
+                    market[m] = p
+        await asyncio.gather(*(one(m) for m in mints))
+        sol_px = 0.0
+        try:
+            sol_px = float(((await http.get('https://lite-api.jup.ag/price/v3?ids=So11111111111111111111111111111111111111112')).json().get('So11111111111111111111111111111111111111112') or {}).get('usdPrice') or 0)
+        except Exception:
+            pass
+    rows = []
+    for m, amt in held.items():
+        p = market.get(m)
+        px = float(p.get('priceUsd') or 0) if p else 0
+        rows.append({'mint': m, 'amount': amt, 'symbol': (p or {}).get('baseToken', {}).get('symbol'), 'name': (p or {}).get('baseToken', {}).get('name'),
+                     'logo': ((p or {}).get('info') or {}).get('imageUrl'), 'priceUsd': px or None, 'usd': round(amt * px, 2) if px else None,
+                     'change24h': ((p or {}).get('priceChange') or {}).get('h24'), 'chain': (p or {}).get('chainId'), 'pairAddress': (p or {}).get('pairAddress')})
+    rows.sort(key=lambda r: -(r['usd'] or 0))
+    priced = [r for r in rows if r['usd']]
+    out = {'address': a, 'supported': True, 'sol': round(sol, 6), 'solUsd': round(sol * sol_px, 2), 'tokens': rows[:60],
+           'unpriced': len(rows) - len(priced), 'totalUsd': round(sol * sol_px + sum(r['usd'] for r in priced), 2)}
+    _pf_cache[a] = (time.time(), out)
+    return out
