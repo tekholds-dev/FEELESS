@@ -1623,7 +1623,7 @@ def _clean_profile(p: dict) -> dict:
         'mood': str(p.get('mood') or '')[:40],
         'links': {k: _safe_url(links.get(k)) for k in ('x', 'website', 'telegram') if _safe_url(links.get(k))},
         'top8': top8,
-        'theme': p.get('theme') if p.get('theme') in ('grid', 'glitter', 'matrix', 'sunset', 'vapor') else 'grid',
+        'theme': p.get('theme') if p.get('theme') in ('grid', 'glitter', 'matrix', 'sunset', 'vapor', 'goldrush', 'neoncat') else 'grid',
         'friends': [str(f)[:44] for f in (p.get('friends') or [])[:8] if _re.match(r'^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$', str(f))],
     }
 
@@ -1673,12 +1673,16 @@ async def save_profile(payload: ProfileSave):
         raise HTTPException(401, 'Signature expired — sign again.')
     if not _verify_wallet(payload.address, payload.message, payload.signature):
         raise HTTPException(401, 'Signature does not match this wallet.')
+    tier = (await _perk_tier(payload.address))[0]
     async with _profile_lock:
         d = _profiles_load()
         prev = d['profiles'].get(payload.address, {})
         if prev.get('lastTs', 0) >= ts:
             raise HTTPException(409, 'Replay rejected — sign a fresh update.')
-        d['profiles'][payload.address] = {**_clean_profile(payload.profile), 'lastTs': ts, 'updatedAt': time.time()}
+        clean = _clean_profile(payload.profile)
+        if TIER_THEMES.get(clean['theme'], 0) > tier:
+            raise HTTPException(403, 'That theme is a Fee Friend perk — hold $10+ of $FEE.')
+        d['profiles'][payload.address] = {**clean, 'lastTs': ts, 'updatedAt': time.time()}
         PROFILE_PATH.write_text(json.dumps(d))
     return {'ok': True, 'profile': d['profiles'][payload.address]}
 
@@ -1866,6 +1870,10 @@ class ChatPost(BaseModel):
     ts: int
     signature: str
     parentId: Optional[str] = None
+    boost: bool = False
+
+
+_boost_last = {}
 
 
 def _chat_message_to_sign(room, address, ts, text):
@@ -1901,6 +1909,14 @@ async def chat_post(payload: ChatPost):
                                'symbol': (pairs[0].get('baseToken') or {}).get('symbol'), 'pair': pairs[0], 'fetched_at': time.time()})
         except Exception:
             pass
+    tier = (await _perk_tier(payload.address))[0]
+    boosted = False
+    if payload.boost:
+        if tier < 2:
+            raise HTTPException(403, 'Boosting is a Fee Insider perk — hold $100+ of $FEE.')
+        if time.time() - _boost_last.get(payload.address, 0) < 600:
+            raise HTTPException(429, 'One boost every 10 minutes.')
+        boosted = True
     async with _chat_lock:
         d = _chat_load()
         last = d['lastTs'].get(payload.address, 0)
@@ -1910,10 +1926,13 @@ async def chat_post(payload: ChatPost):
             raise HTTPException(429, 'Slow down — one message every 3 seconds.')
         d['lastTs'][payload.address] = payload.ts
         d.setdefault('lastAt', {})[payload.address] = time.time()
-        msg = {'id': uuid.uuid4().hex[:16], 'room': payload.room, 'address': payload.address, 'chain': 'solana',
+        if boosted:
+            _boost_last[payload.address] = time.time()
+        msg = {'id': uuid.uuid4().hex[:16], 'room': payload.room, 'address': payload.address, 'chain': 'evm' if payload.address.startswith('0x') else 'solana',
+               'tier': tier, 'boosted': boosted,
                'username': _display_name(payload.address), 'text': text, 'ts': int(time.time() * 1000),
                'parentId': payload.parentId, 'mentions': sorted(set(MENTION_RE.findall(text)))[:10], 'tokens': tokens,
-               'profile': {'address': payload.address, 'chain': 'solana'}}
+               'profile': {'address': payload.address, 'chain': 'evm' if payload.address.startswith('0x') else 'solana'}}
         room = d['rooms'].setdefault(payload.room, [])
         room.append(msg)
         d['rooms'][payload.room] = room[-300:]
@@ -2615,3 +2634,132 @@ async def admin_snapshot_diff(request: Request, snap_id: str):
     counts = {k: sum(1 for r in rows if r['kind'] == k) for k in ('new', 'exited', 'grew', 'shrank', 'held')}
     return {'snap': {k: v for k, v in snap.items() if k != 'rows'}, 'counts': counts, 'rows': rows[:500],
             'diamondHands': [r['owner'] for r in rows if r['kind'] in ('held', 'grew')]}
+
+
+# ---- Holder perks: hold $FEE, unlock more FEELESS (no subscriptions) ----------------------
+PERK_TIERS = [
+    {'tier': 0, 'name': 'Trencher', 'minUsd': 0, 'icon': '🪖', 'perks': ['Chat, profile, / commands', 'Call Ledger + badges', 'Fee live chart mode']},
+    {'tier': 1, 'name': 'Fee Friend', 'minUsd': 10, 'icon': '🌿', 'perks': ['/scan any CA (holders, snipers, risk)', 'Glowing name in chat', 'Gold Rush + Neon Cat profile themes']},
+    {'tier': 2, 'name': 'Fee Insider', 'minUsd': 100, 'icon': '💎', 'perks': ['/alpha — Fee\'s live read in chat', 'Boost a message (1 per 10 min)', 'Aurora animated profile frame']},
+    {'tier': 3, 'name': 'Fee Whale', 'minUsd': 1000, 'icon': '🐋', 'perks': ['/whales — who is accumulating', 'Gold animated profile frame + crown', 'Priority line to FEELESS HQ']},
+]
+TIER_THEMES = {'goldrush': 1, 'neoncat': 1}
+_perk_cache = {}
+
+
+async def _perk_tier(address: str):
+    hit = _perk_cache.get(address)
+    if hit and time.time() - hit[0] < 120:
+        return hit[1]
+    usd = 0.0
+    if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address or ''):
+        mint = (await _ecosystem_mints()).get('fee')
+        if mint:
+            try:
+                usd = await _holding_usd(address, mint)
+            except Exception:
+                usd = 0.0
+    tier = max(t['tier'] for t in PERK_TIERS if usd >= t['minUsd'])
+    if address in _admin_wallets():
+        tier = 3
+    _perk_cache[address] = (time.time(), (tier, usd))
+    return tier, usd
+
+
+@app.get('/api/reputation/perks/{address}')
+async def perks(address: str):
+    tier, usd = await _perk_tier(address)
+    nxt = next((t for t in PERK_TIERS if t['tier'] == tier + 1), None)
+    return {'address': address, 'tier': tier, 'feeUsd': round(usd, 2), 'tiers': PERK_TIERS,
+            'next': {'name': nxt['name'], 'needUsd': round(max(0, nxt['minUsd'] - usd), 2)} if nxt else None}
+
+
+# ---- Click tracking for $TICKERS, CAs and @mentions in chat -------------------------------
+CLICKS_PATH = DATA_DIR / 'clicks.json'
+_click_ip = {}
+
+
+class ClickIn(BaseModel):
+    kind: str
+    value: str = Field(min_length=1, max_length=64)
+    room: str = Field(default='', max_length=140)
+
+
+@app.post('/api/reputation/clicks')
+async def track_click(request: Request, payload: ClickIn):
+    if payload.kind not in ('ticker', 'ca', 'mention', 'command'):
+        raise HTTPException(400, 'Bad kind.')
+    ip = request.headers.get('x-forwarded-for', request.client.host if request.client else '?').split(',')[0]
+    hits = [t for t in _click_ip.get(ip, []) if time.time() - t < 60]
+    if len(hits) >= 60:
+        raise HTTPException(429, 'Too many clicks.')
+    _click_ip[ip] = hits + [time.time()]
+    value = payload.value.strip()
+    if payload.kind == 'ticker':
+        value = value.upper().lstrip('$')[:12]
+    async with _admin_lock:
+        d = _json_load(CLICKS_PATH, {})
+        key = f'{payload.kind}:{value}'
+        rec = d.get(key) or [0, 0, 0]  # [total, last-at, 24h-bucket-start]
+        rec[0] += 1
+        rec[1] = time.time()
+        d[key] = rec
+        _json_save(CLICKS_PATH, d)
+    return {'ok': True, 'count': rec[0]}
+
+
+@app.get('/api/reputation/clicks/top')
+async def top_clicks(kind: str = '', limit: int = 10):
+    d = _json_load(CLICKS_PATH, {})
+    rows = [{'kind': k.split(':', 1)[0], 'value': k.split(':', 1)[1], 'count': v[0], 'lastAt': v[1]} for k, v in d.items() if not kind or k.startswith(kind + ':')]
+    rows.sort(key=lambda r: -r['count'])
+    return {'rows': rows[:max(1, min(limit, 50))]}
+
+
+# ---- Auto profile: every wallet gets real on-chain stats before it ever sets up ------------
+_wstats_cache = {}
+
+
+@app.get('/api/reputation/wallet-stats/{address}')
+async def wallet_stats(address: str):
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address):
+        return {'address': address, 'chain': 'evm' if address.startswith('0x') else None, 'supported': False}
+    hit = _wstats_cache.get(address)
+    if hit and time.time() - hit[0] < 300:
+        return hit[1]
+    out = {'address': address, 'chain': 'solana', 'supported': True}
+    async with httpx.AsyncClient(timeout=25) as http:
+        try:
+            out['sol'] = ((await _rpc(http, 'getBalance', [address])) or {}).get('value', 0) / 1e9
+        except Exception:
+            out['sol'] = None
+        try:
+            toks = []
+            for prog in ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'):
+                r = await _rpc(http, 'getTokenAccountsByOwner', [address, {'programId': prog}, {'encoding': 'jsonParsed'}])
+                toks += (r or {}).get('value', [])
+            held = [t for t in toks if float(((t['account']['data']['parsed']['info'].get('tokenAmount') or {}).get('uiAmount')) or 0) > 0]
+            out['tokensHeld'] = len(held)
+        except Exception:
+            out['tokensHeld'] = None
+        before, oldest, count = None, None, 0
+        for _ in range(5):
+            opts = {'limit': 1000}
+            if before:
+                opts['before'] = before
+            try:
+                sigs = await _rpc(http, 'getSignaturesForAddress', [address, opts])
+            except Exception:
+                break
+            if not sigs:
+                break
+            count += len(sigs)
+            oldest = sigs[-1].get('blockTime') or oldest
+            before = sigs[-1]['signature']
+            if len(sigs) < 1000:
+                break
+        out['txCount'] = count
+        out['txCountCapped'] = count >= 5000
+        out['firstSeen'] = oldest if not out['txCountCapped'] else None
+    _wstats_cache[address] = (time.time(), out)
+    return out

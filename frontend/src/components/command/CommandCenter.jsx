@@ -98,6 +98,8 @@ export function CommandCenter({ address, signMessage, onClose }) {
 }
 
 function Overview({ sec, reload }) {
+  const [clicks, setClicks] = useState([]);
+  useEffect(() => { fetch(apiUrl('/api/reputation/clicks/top?limit=10')).then(r => r.json()).then(d => setClicks(d.rows || [])).catch(() => {}); }, [sec]);
   if (!sec) return <p className="cc-empty">Running security checks…</p>;
   const tone = sec.score >= 85 ? 'good' : sec.score >= 60 ? 'warn' : 'bad';
   return <section className="cc-panel cc-overview">
@@ -106,6 +108,7 @@ function Overview({ sec, reload }) {
     <div className="cc-block"><h4>Attack signals · last hour</h4>{[['forgedSignatures', 'Forged signatures'], ['replays', 'Replay attempts'], ['rateLimited', 'Rate-limited'], ['forbidden', 'Forbidden'], ['serverErrors', 'Server errors']].map(([k, l]) => <div key={k} className={`cc-sig ${sec.signals[k] ? 'hot' : ''}`}><span>{l}</span><b>{sec.signals[k]}</b></div>)}</div>
     <div className="cc-block"><h4>Platform</h4>{[['chat24h', 'Chat msgs (24h)'], ['chatRooms', 'Chat rooms'], ['blocklisted', 'Blocklisted wallets'], ['openBugs', 'Open bugs'], ['customBadges', 'Badges awarded']].map(([k, l]) => <div key={k} className="cc-sig"><span>{l}</span><b>{sec.stats[k]}</b></div>)}</div>
     <div className="cc-block cc-wide"><h4>Vulnerability checks</h4>{sec.checks.map(c => <div key={c.name} className={`cc-check-row sev-${c.severity}`}><span>{c.ok ? '✅' : c.severity === 'high' ? '🚨' : '⚠️'}</span><b>{c.name}</b><small>{c.detail}</small></div>)}</div>
+    <div className="cc-block"><h4>Most clicked in chat</h4>{!clicks.length ? <small className="cc-empty">No $TICKER / CA clicks yet.</small> : clicks.map(c => <div key={`${c.kind}:${c.value}`} className="cc-sig"><span>{c.kind === 'ticker' ? `$${c.value}` : c.kind === 'ca' ? `${c.value.slice(0, 4)}…${c.value.slice(-4)}` : c.kind === 'mention' ? `@${c.value}` : c.value}</span><b>{c.count}</b></div>)}</div>
     <div className="cc-block"><h4>Top errors</h4>{!sec.topErrors.length ? <small className="cc-empty">Clean — no errors this hour.</small> : sec.topErrors.map(e => <div key={e.key} className="cc-sig"><code>{e.key}</code><b>{e.count}</b></div>)}</div>
     <div className="cc-block"><h4>Audit log</h4>{!sec.audit.length ? <small className="cc-empty">No admin actions yet.</small> : sec.audit.map((a, i) => <div key={i} className="cc-audit"><small>{new Date(a.at * 1000).toLocaleString()}</small><b>{a.action}</b><span>{a.detail}</span></div>)}</div>
   </section>;

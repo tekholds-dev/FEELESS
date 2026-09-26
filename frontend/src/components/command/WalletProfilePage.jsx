@@ -12,8 +12,9 @@ import EcosystemChat from '../EcosystemChat';
 import { BadgeJourney } from './BadgeJourney';
 import { ReceiptsCard } from './ReceiptsCard';
 import { CommandCenter, ReportBug } from './CommandCenter';
+import { OnchainStrip, PerksCard, SetupCallout, usePerks } from './ProfileExtras';
 
-const THEMES = [['grid', 'Midnight grid'], ['glitter', 'Glitter'], ['matrix', 'Matrix rain'], ['sunset', 'Sunset'], ['vapor', 'Vaporwave']];
+const THEMES = [['grid', 'Midnight grid'], ['glitter', 'Glitter'], ['matrix', 'Matrix rain'], ['sunset', 'Sunset'], ['vapor', 'Vaporwave'], ['goldrush', 'Gold Rush', 1], ['neoncat', 'Neon Cat', 1]];
 
 function FriendCard({ address }) {
   const [p, setP] = useState(null);
@@ -59,6 +60,8 @@ export function WalletProfilePage({ address }) {
   const [ca, setCa] = useState('');
   const mine = wallet?.address === address;
   const [isAdmin, setIsAdmin] = useState(false);
+  const perks = usePerks(address);
+  const tier = perks?.tier || 0;
   const [ccOpen, setCcOpen] = useState(false);
   useEffect(() => { if (!mine) { setIsAdmin(false); return; } fetch(apiUrl(`/api/reputation/admin/whoami?address=${address}`)).then(r => r.json()).then(d => setIsAdmin(Boolean(d.isAdmin))).catch(() => {}); }, [mine, address]);
   const load = useCallback(() => fetch(apiUrl(`/api/reputation/profile/${address}`)).then(r => r.json()).then(setData).catch(() => setData({ profile: null })), [address]);
@@ -92,7 +95,7 @@ export function WalletProfilePage({ address }) {
   const caller = data?.caller;
   const [friend, setFriend] = useState('');
   if (ccOpen && isAdmin) return <CommandCenter address={address} signMessage={signMessage} onClose={() => setCcOpen(false)} />;
-  return <div className={`wallet-profile-page theme-${p.theme || 'grid'}`} style={{ '--wp-accent': accent }} data-testid="wallet-profile-page">
+  return <div className={`wallet-profile-page theme-${p.theme || 'grid'} ptier-${tier}`} style={{ '--wp-accent': accent }} data-testid="wallet-profile-page">
     <div className="wp-banner" style={p.bannerUrl ? { backgroundImage: `url(${p.bannerUrl})` } : undefined}>{edit && <UploadButton label="Banner" max={1600} onDone={url => set('bannerUrl', url)} />}</div>
     <div className="wp-head">
       <div className="wp-avatar">{p.avatarUrl ? <img src={p.avatarUrl} alt="" /> : <span>{(p.displayName || address).slice(0, 2).toUpperCase()}</span>}{edit && <UploadButton label="GIF / pic" max={512} onDone={url => set('avatarUrl', url)} />}</div>
@@ -100,17 +103,19 @@ export function WalletProfilePage({ address }) {
         {edit ? <input className="wp-name-input" maxLength={32} placeholder="Display name" value={draft.displayName} onChange={e => set('displayName', e.target.value)} /> : <h1>{p.displayName || shortAddress(address)}</h1>}
         <code>{shortAddress(address)}</code>
         <Badges address={address} />
+        <OnchainStrip address={address} />
         {edit ? <input className="wp-mood-input" maxLength={40} placeholder="Mood / status (e.g. 🔥 hunting 10×s)" value={draft.mood} onChange={e => set('mood', e.target.value)} /> : p.mood && <span className="wp-mood">{p.mood}</span>}
       </div>
       <div className="wp-actions">{isAdmin && <button type="button" className="cc-launch" data-testid="open-command-center" onClick={() => setCcOpen(true)}>👑 Command Center</button>}{mine ? (edit ? <><button type="button" className="btn-primary" disabled={saving} onClick={save}><Save size={14} />{saving ? 'Sign in wallet…' : 'Save (sign)'}</button><button type="button" className="btn-outline" onClick={() => setEdit(false)}><X size={14} />Cancel</button></> : <button type="button" className="btn-outline" onClick={startEdit}><Pencil size={14} />Edit profile</button>) : !wallet?.address && <button type="button" className="btn-outline" onClick={() => connect?.('solana')}>Connect to edit yours</button>}</div>
     </div>
+    {mine && !edit && data && <SetupCallout profile={data.profile} onEdit={startEdit} />}
     <div className="wp-grid">
       <section className="wp-card">
         <h3>About</h3>
         {edit ? <textarea maxLength={280} rows={4} value={draft.bio} placeholder="Say something. 280 chars." onChange={e => set('bio', e.target.value)} /> : <p className="wp-bio">{p.bio || (mine ? 'Tell the trenches who you are — hit Edit profile.' : 'No bio yet.')}</p>}
         {edit ? <div className="wp-links-edit">{[['x', 'https://x.com/you'], ['website', 'https://yoursite.xyz'], ['telegram', 'https://t.me/you']].map(([k, ph]) => <input key={k} placeholder={ph} value={draft.links?.[k] || ''} onChange={e => set('links', { ...draft.links, [k]: e.target.value })} />)}</div>
           : <div className="wp-links">{p.links?.x && <a href={p.links.x} target="_blank" rel="noopener noreferrer"><XIcon />X</a>}{p.links?.website && <a href={p.links.website} target="_blank" rel="noopener noreferrer"><Globe size={13} />Website</a>}{p.links?.telegram && <a href={p.links.telegram} target="_blank" rel="noopener noreferrer"><Send size={13} />Telegram</a>}</div>}
-        {edit && <div className="wp-themes"><small>Theme</small>{THEMES.map(([id, label]) => <button type="button" key={id} className={`wp-theme-swatch swatch-${id} ${draft.theme === id ? 'active' : ''}`} onClick={() => set('theme', id)}>{label}</button>)}</div>}
+        {edit && <div className="wp-themes"><small>Theme</small>{THEMES.map(([id, label, need = 0]) => <button type="button" key={id} disabled={need > tier} title={need > tier ? 'Fee Friend perk — hold $10+ of $FEE' : label} className={`wp-theme-swatch swatch-${id} ${draft.theme === id ? 'active' : ''}`} onClick={() => set('theme', id)}>{need > tier ? '🔒 ' : ''}{label}</button>)}</div>}
         {edit && <div className="wp-accents"><small>Accent</small>{ACCENTS.map(c => <button type="button" key={c} style={{ background: c }} className={draft.accent === c ? 'active' : ''} onClick={() => set('accent', c)} aria-label={`Accent ${c}`} />)}</div>}
       </section>
       <section className="wp-card">
@@ -138,6 +143,7 @@ export function WalletProfilePage({ address }) {
       <p className="wp-bio">Leave {p.displayName || 'them'} a message. Every comment is signed by the poster's wallet.</p>
       <EcosystemChat compact room={`wall-${address}`} ecosystem={{ id: `wall-${address}`, name: 'Wall' }} onConnect={() => connect?.('solana')} />
     </section>
+    <PerksCard perks={perks} mine={mine} />
     <BadgeJourney address={address} mine={mine} />
     <ReceiptsCard address={address} />
     <div className="wp-foot"><ReportBug address={wallet?.address} /></div>
