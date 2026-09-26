@@ -2508,3 +2508,9 @@ body.theme-day .wars-artifact .war-join:hover{background:currentColor!important;
 .wallet-profile-page>.wp-music{margin-top:4px;background:linear-gradient(120deg,color-mix(in srgb,var(--wp-accent,#00e9a0) 14%,transparent),transparent 60%),rgba(0,0,0,.3)!important}
 .wallet-profile-page>.wp-music .pm-player{grid-template-columns:minmax(220px,1fr) auto;align-items:center}.wallet-profile-page>.wp-music .pm-list,.wallet-profile-page>.wp-music .pm-frame{grid-column:1/-1}
 @media (max-width:700px){.wallet-profile-page>.wp-music .pm-player{grid-template-columns:1fr}}
+/* Glyphs */
+.glyph{display:inline-block;vertical-align:-3px;flex-shrink:0;filter:drop-shadow(0 0 6px rgba(0,0,0,.35))}
+.mp-head h2{display:flex;align-items:center;gap:8px}
+.war-emblem .glyph{filter:drop-shadow(0 0 16px currentColor)}
+.li-cell{position:relative}.li-cell .glyph{position:absolute;right:10px;top:10px;opacity:.9}
+.war-lead,.war-mine{display:inline-flex;gap:4px;align-items:center}
