@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ShieldCheck, ShieldAlert, Shield, ShieldQuestion, Search, Layers, Star, HelpCircle, Link2 } from 'lucide-react';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { fetchLeaderboard, fetchCreator, fetchClusters, BADGE_LABEL } from '../../lib/reputation';
@@ -53,6 +53,7 @@ function ClusterExplorer({ chain, onScan }) {
 
 export function ReputationCenter() {
   const { ecosystem } = useWorkspace();
+  const navigate = useNavigate();
   const [tab, setTab] = useState('leaderboard');
   const [view, setView] = useState('trusted');
   const [data, setData] = useState({ rows: [], totalCreators: 0, totalTokensTracked: 0 });
@@ -102,10 +103,10 @@ export function ReputationCenter() {
     </section>
     {tab === 'clusters' ? <ClusterExplorer chain={ecosystem.chainId} onScan={runScan} /> : <section className="reputation-leaderboard">
       <div className="reputation-leaderboard-tabs">{VIEWS.map(([id, label]) => <button type="button" key={id} className={view === id ? 'active' : ''} onClick={() => setView(id)}>{label}</button>)}</div>
-      <p className="reputation-view-hint">{VIEWS.find(([id]) => id === view)?.[2]} · click a wallet to open its scan report</p>
+      <p className="reputation-view-hint">{VIEWS.find(([id]) => id === view)?.[2]} · click a wallet to open its full profile</p>
       {error && <p className="reputation-lookup-error">{error}</p>}
       {!error && !data.rows.length && <div className="truth-empty" data-testid="reputation-leaderboard-empty">No {view === 'flagged' ? 'flagged' : 'scored'} creators recorded yet for {ecosystem.name}. Keep browsing — every token card you open feeds this graph.</div>}
-      <div className="reputation-rank-list">{data.rows.map((row, i) => { const Icon = ICON[row.badge] || Shield; return <div className="reputation-rank-row" role="button" tabIndex={0} key={row.address} data-testid={`reputation-rank-${row.address}`} onClick={() => runScan(row.address)} onKeyDown={e => e.key === 'Enter' && runScan(row.address)}>
+      <div className="reputation-rank-list">{data.rows.map((row, i) => { const Icon = ICON[row.badge] || Shield; return <div className="reputation-rank-row" role="button" tabIndex={0} key={row.address} data-testid={`reputation-rank-${row.address}`} onClick={() => navigate(`/terminal/reputation/${ecosystem.chainId}/${row.address}`)} onKeyDown={e => e.key === 'Enter' && navigate(`/terminal/reputation/${ecosystem.chainId}/${row.address}`)}>
         <span className="reputation-rank-number">{String(i + 1).padStart(2, '0')}</span>
         <span onClick={e => e.stopPropagation()}><AddressPill address={row.address} /></span>
         <span className={`reputation-badge badge-${row.badge}`}><Icon size={11} />{BADGE_LABEL[row.badge]}</span>

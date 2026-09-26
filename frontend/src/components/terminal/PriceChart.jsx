@@ -10,11 +10,15 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => 
   const container = useRef(null);
   const priceMetric = metric === 'price';
   const [dayMode, setDayMode] = useState(() => typeof document !== 'undefined' && document.body.classList.contains('theme-day'));
-  const { data, loading, error } = useMarket(priceMetric && pair ? `/candles/${pair.chainId}/${pair.pairAddress}?interval=${interval}` : null);
+  const { data, loading, error } = useMarket(pair ? `/candles/${pair.chainId}/${pair.pairAddress}?interval=${interval}` : null);
   const providerError = error || data?.error;
   const metricLabel = metric === 'marketCap' ? 'Market cap' : 'FDV';
   const metricValue = metric === 'marketCap' ? pair?.marketCap : pair?.fdv;
   const metricAvailable = metricValue !== null && metricValue !== undefined && metricValue !== '' && Number.isFinite(Number(metricValue));
+  const price = Number(pair?.priceUsd);
+  const ratio = !priceMetric && metricAvailable && price > 0 ? Number(metricValue) / price : 1;
+  const metricChart = !priceMetric && metricAvailable && price > 0;
+  const charting = priceMetric || metricChart;
   const candleRows = useMemo(() => Array.isArray(data?.candles)
     ? [...new Map(data.candles
       .filter(row => Array.isArray(row) && row.length >= 6 && row.slice(0, 6).every(value => Number.isFinite(Number(value))))
@@ -32,26 +36,30 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => 
     }
   }, [pair?.chainId, pair?.pairAddress, pair?.priceUsd, pair?.volume?.h24]);
 
-  const needsFallback = priceMetric && !loading && !candleRows.length && Boolean(providerError);
+  const needsFallback = (priceMetric || metricChart) && !candleRows.length && (Boolean(providerError) || (!loading && !candleRows.length));
   const [feelessCandles, setFeelessCandles] = useState([]);
   useEffect(() => {
-    if (!needsFallback || !pair?.pairAddress) { setFeelessCandles([]); return undefined; }
+    setFeelessCandles([]);
+    if (!pair?.pairAddress) return undefined;
     let alive = true;
-    fetchFeelessCandles(pair.chainId, pair.pairAddress, interval)
+    const load = () => fetchFeelessCandles(pair.chainId, pair.pairAddress, interval)
       .then(res => { if (alive && Array.isArray(res?.candles)) setFeelessCandles(res.candles); })
-      .catch(() => { if (alive) setFeelessCandles([]); });
-    return () => { alive = false; };
-  }, [needsFallback, pair?.chainId, pair?.pairAddress, interval]);
+      .catch(() => {});
+    load();
+    const timer = setInterval(load, 60000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [pair?.chainId, pair?.pairAddress, interval]);
   const usingFeelessCandles = needsFallback && feelessCandles.length >= 2;
 
   const usingFallbackTrail = needsFallback && !usingFeelessCandles;
   const trail = useMemo(() => {
     if (!usingFallbackTrail || !pair?.pairAddress) return [];
     const points = getPriceTrail(pair.pairAddress);
-    return points.map(pt => ({ time: Math.floor(pt.t / 1000), value: pt.p }))
+    return points.map(pt => ({ time: Math.floor(pt.t / 1000), value: pt.p * ratio }))
       .filter((pt, i, arr) => i === 0 || pt.time !== arr[i - 1].time);
-  }, [usingFallbackTrail, pair?.pairAddress]);
-  const displayCandles = useMemo(() => candleRows.length ? candleRows : usingFeelessCandles ? feelessCandles : [], [candleRows, usingFeelessCandles, feelessCandles]);
+  }, [usingFallbackTrail, pair?.pairAddress, ratio]);
+  const baseCandles = useMemo(() => candleRows.length ? candleRows : usingFeelessCandles ? feelessCandles : [], [candleRows, usingFeelessCandles, feelessCandles]);
+  const displayCandles = useMemo(() => ratio === 1 ? baseCandles : baseCandles.map(([t, o, h, l, c, v]) => [t, o * ratio, h * ratio, l * ratio, c * ratio, v]), [baseCandles, ratio]);
   const hasChart = displayCandles.length > 0 || trail.length >= 2;
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
@@ -114,23 +122,24 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => 
     return () => chart.remove();
   }, [displayCandles, trail, hasChart, dayMode, showVolume]);
   return <div className="chart-area" data-testid="price-chart">
-    {priceMetric && loading && <div className="chart-message" data-testid="chart-loading"><span className="loader" />Loading on-chain candles…</div>}
-    {priceMetric && !loading && usingFallbackTrail && trail.length < 2 && <div className="chart-message chart-building" role="status" data-testid="chart-building">
+    {charting && loading && <div className="chart-message" data-testid="chart-loading"><span className="loader" />Loading on-chain candles…</div>}
+    {charting && !loading && usingFallbackTrail && trail.length < 2 && <div className="chart-message chart-building" role="status" data-testid="chart-building">
       <span className="signal-lines"><i /><i /><i /><i /></span>
       <strong>Building a live price trail for this pool.</strong>
       <span>Full candle history is temporarily unavailable from the provider. FEELESS is recording every price it observes here — check back shortly, or view the external chart now.</span>
       <a data-testid="chart-fallback-link" href={dexUrl(pair)} target="_blank" rel="noreferrer">Open chart on DexScreener ↗</a>
     </div>}
-    {priceMetric && !loading && !providerError && !hasChart && <div className="chart-message" role="status" data-testid="chart-empty">
+    {charting && !loading && !providerError && !hasChart && <div className="chart-message" role="status" data-testid="chart-empty">
       <strong>No candle history for this pool yet.</strong>
       <span>The provider returned an empty history for the selected {interval} interval. Try another interval or check the external chart.</span>
       <a data-testid="chart-empty-dex-link" href={dexUrl(pair)} target="_blank" rel="noreferrer">View on DexScreener ↗</a>
     </div>}
-    {priceMetric && usingFeelessCandles && <div className="chart-stale-note" role="status">Showing FEELESS-observed candles ({feelessCandles.length} bars from real recorded prices) — full {data?.provider || 'provider'} candle history is temporarily unavailable.</div>}
-    {priceMetric && usingFallbackTrail && trail.length >= 2 && <div className="chart-stale-note" role="status">Live price trail recorded by this browser — full {data?.provider || 'provider'} candle history is temporarily unavailable.</div>}
-    {!priceMetric && metricAvailable && <div className="metric-snapshot" data-testid={`chart-${metric}-snapshot`}><span className="metric-snapshot-label">{metricLabel} snapshot</span><strong>{formatUSD(metricValue)}</strong><small>Provider supplied the current {metricLabel.toLowerCase()} only. Historical {metricLabel.toLowerCase()} candles are unavailable.</small></div>}
+    {charting && usingFeelessCandles && <div className="chart-stale-note" role="status">Showing FEELESS-observed candles ({feelessCandles.length} bars from real recorded prices) — full {data?.provider || 'provider'} candle history is temporarily unavailable.</div>}
+    {charting && usingFallbackTrail && trail.length >= 2 && <div className="chart-stale-note" role="status">Live price trail recorded by this browser — full {data?.provider || 'provider'} candle history is temporarily unavailable.</div>}
+    {metricChart && hasChart && <div className="chart-stale-note metric-derived-note" role="status" data-testid={`chart-${metric}-derived`}>{metricLabel} chart = real price candles × token supply (supply is fixed, so the shape is exact). Now {formatUSD(metricValue)}.</div>}
+    {!priceMetric && metricAvailable && !loading && !hasChart && !usingFallbackTrail && <div className="metric-snapshot" data-testid={`chart-${metric}-snapshot`}><span className="metric-snapshot-label">{metricLabel} snapshot</span><strong>{formatUSD(metricValue)}</strong><small>Provider supplied the current {metricLabel.toLowerCase()} only. Historical {metricLabel.toLowerCase()} candles are unavailable.</small></div>}
     {!priceMetric && !metricAvailable && <div className="chart-message metric-unavailable" role="status" data-testid={`chart-${metric}-unavailable`}><strong>{metricLabel} unavailable</strong><span>The provider did not supply a {metricLabel.toLowerCase()} value for this pair. No value is estimated.</span></div>}
-    {priceMetric && hasChart && <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />}
-    <div className="chart-source"><span>{priceMetric ? (candleRows.length ? `${data?.provider || 'GeckoTerminal'} · OHLCV` : usingFeelessCandles ? 'FEELESS candles · OHLCV' : 'FEELESS local trail · price only') : `Provider pair snapshot · ${metricLabel}`}</span>{priceMetric ? <DataStatus data={data} id="chart-data-status" /> : <span className="data-status"><i />{metricAvailable ? 'LIVE · snapshot' : 'UNAVAILABLE'}</span>}</div>
+    {charting && hasChart && <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />}
+    <div className="chart-source"><span>{priceMetric ? (candleRows.length ? `${data?.provider || 'GeckoTerminal'} · OHLCV` : usingFeelessCandles ? 'FEELESS candles · OHLCV' : 'FEELESS local trail · price only') : metricChart && hasChart ? `${metricLabel} · derived from ${candleRows.length ? (data?.provider || 'GeckoTerminal') : 'FEELESS'} price candles` : `Provider pair snapshot · ${metricLabel}`}</span>{charting ? <DataStatus data={data} id="chart-data-status" /> : <span className="data-status"><i />{metricAvailable ? 'LIVE · snapshot' : 'UNAVAILABLE'}</span>}</div>
   </div>;
 };

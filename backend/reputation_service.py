@@ -312,6 +312,99 @@ async def token_reputation(chain: str, address: str):
     return {'creator': entry['address'], **score_creator(entry)}
 
 
+
+_market_cache: dict = {}
+MARKET_TTL = 60
+
+
+async def fetch_token_markets(chain: str, mints: list) -> dict:
+    """Live market state per token mint from DexScreener's token endpoint (batched, 30 max).
+    A mint with no pairs isn't listed on any DEX yet — for pump.fun that usually means it
+    never left the bonding curve."""
+    now = time.time()
+    out, missing = {}, []
+    for m in mints:
+        hit = _market_cache.get(m)
+        if hit and now - hit[0] < MARKET_TTL:
+            out[m] = hit[1]
+        else:
+            missing.append(m)
+    async with httpx.AsyncClient(timeout=8) as http:
+        for i in range(0, len(missing), 30):
+            batch = missing[i:i + 30]
+            try:
+                res = await http.get(f'https://api.dexscreener.com/latest/dex/tokens/{",".join(batch)}')
+                pairs = (res.json() or {}).get('pairs') or [] if res.status_code == 200 else None
+            except Exception:
+                pairs = None
+            if pairs is None:
+                continue
+            best = {}
+            for p in pairs:
+                if p.get('chainId') != chain:
+                    continue
+                mint = (p.get('baseToken') or {}).get('address')
+                liq = ((p.get('liquidity') or {}).get('usd')) or 0
+                if mint in batch and (mint not in best or liq > (((best[mint].get('liquidity') or {}).get('usd')) or 0)):
+                    best[mint] = p
+            for mint in batch:
+                p = best.get(mint)
+                info = {'listed': False} if not p else {
+                    'listed': True, 'url': p.get('url'), 'pairAddress': p.get('pairAddress'), 'dexId': p.get('dexId'),
+                    'priceUsd': p.get('priceUsd'), 'marketCap': p.get('marketCap') or p.get('fdv'),
+                    'liquidityUsd': (p.get('liquidity') or {}).get('usd'), 'volume24h': (p.get('volume') or {}).get('h24'),
+                    'change24h': (p.get('priceChange') or {}).get('h24'), 'imageUrl': (p.get('info') or {}).get('imageUrl'),
+                }
+                _market_cache[mint] = (now, info)
+                out[mint] = info
+    return out
+
+
+def trust_verdict(scoring: dict, tokens: list, linked: list) -> dict:
+    """Plain-language verdict with every reason spelled out, so a user can see WHY."""
+    reasons = []
+    good = bad = 0
+    if scoring['ruggedCount']:
+        reasons.append(('bad', f"{scoring['ruggedCount']} token(s) lost 80%+ of peak liquidity after launch (confirmed rug pattern)."))
+        bad += 3
+    if scoring['cloneCount'] >= 2:
+        reasons.append(('bad', f"Relaunched the same ticker {scoring['cloneCount']} extra times — clone/spam behavior."))
+        bad += 2
+    listed = [t for t in tokens if (t.get('market') or {}).get('listed')]
+    known = [t for t in tokens if t.get('market') is not None]
+    if known:
+        dead = len(known) - len(listed)
+        if dead and dead / len(known) >= 0.7 and len(known) >= 3:
+            reasons.append(('bad', f"{dead} of {len(known)} launches never reached a DEX listing — most launches went nowhere."))
+            bad += 1
+        alive = [t for t in listed if ((t['market'].get('liquidityUsd') or 0) >= 10000)]
+        if alive:
+            reasons.append(('good', f"{len(alive)} launch(es) currently hold $10K+ liquidity on a DEX."))
+            good += 1
+    if scoring['sustainedCount']:
+        reasons.append(('good', f"{scoring['sustainedCount']} token(s) survived 3+ days with liquidity intact."))
+        good += 2
+    if scoring['renouncedCount'] == scoring['tokenCount'] and scoring['tokenCount']:
+        reasons.append(('neutral', 'Mint authority renounced on every launch (standard on pump.fun — not a trust signal on its own).'))
+    flagged_links = [l for l in linked if l.get('ruggedCount') or l.get('cloneCount', 0) >= 2]
+    if flagged_links:
+        reasons.append(('bad', f"Shares a funding wallet with {len(flagged_links)} flagged/clone-farming wallet(s)."))
+        bad += 2
+    elif linked:
+        reasons.append(('neutral', f"Shares a funding wallet with {len(linked)} other tracked creator(s) — likely one operator."))
+    if scoring['tokenCount'] < 3 and not scoring['sustainedCount']:
+        reasons.append(('neutral', 'Short history — not enough launches yet to judge reliably.'))
+    if bad >= 3 or scoring['ruggedCount']:
+        level, label = 'avoid', 'High risk — avoid'
+    elif bad:
+        level, label = 'caution', 'Caution'
+    elif good >= 2:
+        level, label = 'trusted', 'Looks trustworthy'
+    else:
+        level, label = 'unknown', 'Not enough evidence'
+    return {'level': level, 'label': label, 'reasons': [{'tone': t, 'text': x} for t, x in reasons]}
+
+
 @app.get('/api/reputation/creator/{chain}/{address}')
 async def creator_profile(chain: str, address: str):
     store = _load()
@@ -350,7 +443,14 @@ async def creator_profile(chain: str, address: str):
             if store2['funding'].get(other_fkey) == funding_source:
                 linked.append({'address': other_entry['address'], 'chain': other_entry['chain'], **score_creator(other_entry)})
 
-    return {**entry, 'scoring': score_creator(entry), 'wallet': wallet, 'fundingSource': funding_source, 'linkedWallets': linked}
+    tokens = sorted(entry['tokens'].values(), key=lambda t: -(t.get('firstSeenAt') or 0))
+    mints = [t['baseTokenAddress'] for t in tokens if t.get('baseTokenAddress')]
+    markets = await fetch_token_markets(chain, mints) if mints else {}
+    enriched = [{**t, 'market': markets.get(t.get('baseTokenAddress'))} for t in tokens]
+    scoring = score_creator(entry)
+    return {**entry, 'tokens': {t['pairAddress']: t for t in enriched}, 'tokenList': enriched, 'scoring': scoring,
+            'verdict': trust_verdict(scoring, enriched, linked),
+            'wallet': wallet, 'fundingSource': funding_source, 'linkedWallets': linked}
 
 
 LEADERBOARD_VIEWS = ('trusted', 'flagged', 'serial', 'rising', 'active')

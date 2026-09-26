@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ShieldCheck, ShieldAlert, Shield, ShieldQuestion, Wallet, ExternalLink, Copy, ArrowLeft, Share2, Star, Rocket, Link2, ChevronDown, ChevronUp } from 'lucide-react';
 import { fetchCreator, watchCreator, unwatchCreator, fetchWatchlist, fetchWatchlistFeed, BADGE_LABEL } from '../../lib/reputation';
@@ -101,6 +101,44 @@ function WalletClusterPanel({ chain, address, result }) {
   </div>;
 }
 
+const VERDICT_ICON = { trusted: ShieldCheck, caution: ShieldAlert, avoid: ShieldAlert, unknown: ShieldQuestion };
+function TrustVerdict({ verdict }) {
+  const Icon = VERDICT_ICON[verdict.level] || Shield;
+  return <div className={`trust-verdict verdict-${verdict.level}`} data-testid="trust-verdict">
+    <div className="trust-verdict-head"><Icon size={18} /><div><small>FEELESS VERDICT</small><strong>{verdict.label}</strong></div></div>
+    <ul>{verdict.reasons.map((r, i) => <li key={i} className={`reason-${r.tone}`}><i />{r.text}</li>)}</ul>
+  </div>;
+}
+
+const fmtUsd = v => (v == null || !Number.isFinite(Number(v)) ? '—' : Number(v) >= 1e6 ? `$${(Number(v) / 1e6).toFixed(2)}M` : Number(v) >= 1e3 ? `$${(Number(v) / 1e3).toFixed(1)}K` : `$${Number(v).toFixed(0)}`);
+
+function LaunchTable({ chain, tokens }) {
+  const navigate = useNavigate();
+  const listed = tokens.filter(t => t.market?.listed).length;
+  return <div className="launch-table" data-testid="launch-table">
+    <div className="rep-scan-tokens-head"><span className="eyebrow">EVERY LAUNCH FROM THIS WALLET</span><small>{tokens.length} launches · {listed} currently trading</small></div>
+    {!tokens.length && <p className="provider-note">No tokens recorded for this wallet yet.</p>}
+    <div className="launch-rows">{tokens.map(t => {
+      const m = t.market;
+      const change = Number(m?.change24h);
+      const mint = t.baseTokenAddress;
+      return <div key={t.pairAddress} className={`launch-row status-${t.status} ${m && !m.listed ? 'is-unlisted' : ''}`}>
+        <span className="launch-sym">{m?.imageUrl ? <img src={m.imageUrl} alt="" /> : <i>{(t.symbol || '?').slice(0, 2)}</i>}<span><b>{t.symbol || 'Unknown'}</b><small>{timeAgo(t.firstSeenAt)} · {t.status}</small></span></span>
+        <span><small>MARKET CAP</small><b>{m?.listed ? fmtUsd(m.marketCap) : m ? 'Not listed' : '…'}</b></span>
+        <span><small>24H</small><b className={Number.isFinite(change) ? (change >= 0 ? 'positive' : 'negative') : ''}>{Number.isFinite(change) ? `${change.toFixed(1)}%` : '—'}</b></span>
+        <span><small>VOL 24H</small><b>{fmtUsd(m?.volume24h)}</b></span>
+        <span className="launch-actions">
+          {m?.listed && m.pairAddress && <button type="button" className="btn-outline" onClick={() => navigate(`/terminal/trade?chain=${chain}&pair=${m.pairAddress}`)}>Open</button>}
+          {m?.url && <a href={m.url} target="_blank" rel="noreferrer" title="DexScreener"><ExternalLink size={12} />DEX</a>}
+          {mint && chain === 'solana' && <a href={`https://pump.fun/coin/${mint}`} target="_blank" rel="noreferrer" title="pump.fun"><Rocket size={12} />Pump</a>}
+          {mint && <button type="button" className="icon-btn small-icon" title="Copy token mint" onClick={() => copyText(mint, 'Token address copied')}><Copy size={12} /></button>}
+        </span>
+      </div>;
+    })}</div>
+    {tokens.some(t => t.market && !t.market.listed) && <small className="reputation-wallet-caveat">"Not listed" = no DEX market exists for this token right now. On pump.fun that usually means it never left the bonding curve or died.</small>}
+  </div>;
+}
+
 export function CreatorProfileCard({ chain, address, result, loading, error, variant = 'full', onClose }) {
   const profileUrl = typeof window !== 'undefined' ? `${window.location.origin}/terminal/reputation/${chain}/${address}` : '';
   return <section className={`rep-scan rep-scan-${variant}`} data-testid="rep-scan">
@@ -109,6 +147,7 @@ export function CreatorProfileCard({ chain, address, result, loading, error, var
     {loading && <p className="reputation-view-hint">Scanning on-chain history…</p>}
     {error && <p className="reputation-lookup-error" data-testid="reputation-lookup-error">{error}</p>}
     {result && <>
+      {result.verdict && <TrustVerdict verdict={result.verdict} />}
       <div className="rep-scan-hero">
         <ScoreGauge score={result.scoring.score} badge={result.scoring.badge} size={variant === 'full' ? 110 : 80} />
         <div className="rep-scan-identity">
@@ -127,12 +166,7 @@ export function CreatorProfileCard({ chain, address, result, loading, error, var
         <small className="reputation-wallet-caveat">On-chain signatures only — a full buy/sell ledger needs a dedicated transaction indexer, which isn't wired up yet.</small>
       </div>}
       <WalletClusterPanel chain={chain} address={address} result={result} />
-      <div className="rep-scan-tokens-head"><span className="eyebrow">WHAT THIS WALLET HAS LAUNCHED</span></div>
-      <div className="reputation-token-list">{Object.values(result.tokens || {}).map(t => <div key={t.pairAddress} className={`reputation-token-row status-${t.status}`}>
-        <b>{t.symbol || 'Unknown'}</b><span>{t.status}</span><small>{timeAgo(t.firstSeenAt)}</small>
-        <a href={`https://dexscreener.com/${chain}/${t.pairAddress}`} target="_blank" rel="noreferrer" title="Open pair" className="reputation-token-link"><ExternalLink size={12} /></a>
-      </div>)}
-      {!Object.keys(result.tokens || {}).length && <p className="provider-note">No tokens recorded for this wallet yet.</p>}</div>
+      <LaunchTable chain={chain} tokens={result.tokenList || Object.values(result.tokens || {})} />
     </>}
   </section>;
 }

@@ -4,6 +4,8 @@ import { createRoot } from 'react-dom/client';
 import { VersionedTransaction } from '@solana/web3.js';
 import { SwapWorkspace } from './SwapWorkspace';
 
+jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn(), Link: ({ children, ...props }) => <a {...props}>{children}</a> }), { virtual: true });
+
 jest.mock('@solana/web3.js', () => ({
   VersionedTransaction: { deserialize: jest.fn() },
 }));

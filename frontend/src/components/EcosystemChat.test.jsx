@@ -3,6 +3,8 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import EcosystemChat from './EcosystemChat';
 
+jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn(), Link: ({ children, ...props }) => <a {...props}>{children}</a> }), { virtual: true });
+
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 jest.mock('./TokenCard', () => () => null);
