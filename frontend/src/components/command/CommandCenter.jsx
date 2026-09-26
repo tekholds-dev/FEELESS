@@ -59,7 +59,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     <div className="cc-gate-actions"><button type="button" className="btn-primary" disabled={busy} onClick={signIn}><ShieldCheck size={15} />{busy ? 'Check your wallet…' : 'Sign in to Command Center'}</button><button type="button" className="btn-outline" onClick={onClose}>Back to profile</button></div>
   </div></div>;
 
-  const TABS = [['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['fees', 'Fees & Pricing', ShieldCheck], ['ads', 'Ads', Gift], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Fees & Pricing', ShieldCheck], ['ads', 'Ads', Gift], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div>
       <nav className="cc-tabs">{TABS.map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</nav>
@@ -96,6 +96,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'airdrops' && <Airdrops drops={drops} call={call} reload={loadDrops} />}
     {tab === 'badges' && <AwardBadges call={call} initial={[...selected]} />}
     {tab === 'feecat' && <FeeCatPanel call={call} />}
+    {tab === 'pools' && <PoolsPanel />}
     {tab === 'fees' && <FeesPanel call={call} />}
     {tab === 'ads' && <AdsPanel call={call} />}
     {tab === 'invites' && <InvitesPanel call={call} />}
@@ -345,5 +346,31 @@ function FeeCatPanel({ call }) {
       <label><span>Max SOL per trade<em>0.1–10</em></span><input type="number" step="0.1" value={size} onChange={e => setSize(e.target.value)} /></label></div>
       <button type="button" className="btn-primary" onClick={() => save({})}>Save Fee's rules</button></div>
     {d.learning && <div className="cc-block"><h4>What Fee has learned</h4>{Object.entries(d.learning.params || {}).map(([k, v]) => <div key={k} className="cc-sig"><span>{k}</span><b>{v} <small className="cc-empty">(default {d.learning.defaults?.[k]})</small></b></div>)}</div>}
+  </section>;
+}
+
+const DEXES = [
+  { id: 'raydium', name: 'Raydium CPMM', url: 'https://raydium.io/liquidity/create-pool/', note: 'Standard constant-product pool. Cheapest to create; works everywhere.' },
+  { id: 'meteora', name: 'Meteora DAMM v2', url: 'https://app.meteora.ag/', note: 'Dynamic fees — earns more in volatile markets; supports fee scheduling.' },
+  { id: 'orca', name: 'Orca Whirlpool', url: 'https://www.orca.so/pools', note: 'Concentrated liquidity — best depth per dollar if you manage ranges.' },
+];
+function PoolsPanel() {
+  const [mints, setMints] = useState({});
+  const [pools, setPools] = useState([]);
+  const [asset, setAsset] = useState('fee');
+  const [check, setCheck] = useState(''); const [found, setFound] = useState(null);
+  useEffect(() => { fetch('/api/market/assets').then(r => r.json()).then(d => setMints(Object.fromEntries((d.assets || []).filter(a => a.mint).map(a => [a.id, a.mint])))).catch(() => {}); }, []);
+  const mint = mints[asset];
+  useEffect(() => { if (!mint) return; fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`).then(r => r.json()).then(d => setPools((d.pairs || []).sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)))).catch(() => {}); }, [mint]);
+  const copy = v => navigator.clipboard?.writeText(v).then(() => toast.success('Copied'));
+  const verify = async () => { setFound(null); try { const d = await (await fetch(`https://api.dexscreener.com/latest/dex/pairs/solana/${check.trim()}`)).json(); setFound(d.pairs?.[0] || false); } catch { setFound(false); } };
+  return <section className="cc-panel">
+    <p className="cc-note">Create liquidity pools for your tokens on a real DEX. FEELESS never holds funds — the DEX's own page builds the transaction and your creator wallet signs it. Copy the mints below, create the pool, then verify it here.</p>
+    <div className="cc-toolbar"><select value={asset} onChange={e => setAsset(e.target.value)}>{Object.keys(mints).map(k => <option key={k} value={k}>{k.toUpperCase()}</option>)}</select>{mint && <><code className="pool-mint">{mint}</code><button type="button" onClick={() => copy(mint)}>Copy mint</button><button type="button" onClick={() => copy('So11111111111111111111111111111111111111112')}>Copy SOL mint</button></>}</div>
+    <div className="cc-studio-grid">{DEXES.map(x => <div key={x.id} className="cc-block"><h4>{x.name}</h4><small className="cc-empty">{x.note}</small><a className="btn-primary" href={x.url} target="_blank" rel="noopener noreferrer">Create on {x.name.split(' ')[0]} ↗</a></div>)}</div>
+    <div className="cc-block"><h4>Verify a new pool</h4><div className="cc-toolbar"><input placeholder="Paste the new pool / pair address" value={check} onChange={e => setCheck(e.target.value)} /><button type="button" className="btn-primary" onClick={verify}>Verify</button></div>
+      {found === false && <small className="cc-empty">Not indexed yet — DexScreener usually picks up new pools within a few minutes.</small>}
+      {found && <div className="cc-sig"><span>✅ {found.baseToken.symbol}/{found.quoteToken.symbol} on {found.dexId}</span><b>{formatUSD(found.liquidity?.usd)} liq</b></div>}</div>
+    <div className="cc-block"><h4>Live pools for {asset.toUpperCase()}</h4>{!pools.length ? <small className="cc-empty">No pools indexed.</small> : pools.map(p => <div key={p.pairAddress} className="cc-sig"><a href={`/terminal/coin/solana/${p.pairAddress}`} target="_blank" rel="noopener noreferrer">{p.baseToken.symbol}/{p.quoteToken.symbol} · {p.dexId}</a><span>vol {formatUSD(p.volume?.h24)}</span><b>{formatUSD(p.liquidity?.usd)}</b></div>)}</div>
   </section>;
 }
