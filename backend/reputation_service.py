@@ -35,7 +35,8 @@ STORE_PATH = DATA_DIR / 'reputation.json'
 # node never blocks resolution. Each endpoint gets its own failure budget — one bad node
 # gets skipped for a cooldown window instead of failing every request that hits it.
 _dedicated = os.environ.get('SOLANA_RPC_URL', '').strip()
-RPC_POOL = ([_dedicated] if _dedicated else []) + [
+_alchemy = os.environ.get('ALCHEMY_API_KEY', '').strip()
+RPC_POOL = ([_dedicated] if _dedicated else []) + ([f'https://solana-mainnet.g.alchemy.com/v2/{_alchemy}'] if _alchemy else []) + [
     'https://api.mainnet-beta.solana.com',
     'https://solana-rpc.publicnode.com',
     'https://rpc.ankr.com/solana',
@@ -3437,8 +3438,12 @@ async def admin_treasury(request: Request):
 
 
 # ---- Holder gate for EVM coin rooms ---------------------------------------------------------
+_ALCH_NET = {'ethereum': 'eth', 'base': 'base', 'bsc': 'bnb', 'arbitrum': 'arb', 'avalanche': 'avax', 'polygon': 'polygon'}
 EVM_RPC = {'ethereum': 'https://eth.llamarpc.com', 'base': 'https://mainnet.base.org', 'bsc': 'https://bsc-dataseed.binance.org',
            'arbitrum': 'https://arb1.arbitrum.io/rpc', 'avalanche': 'https://api.avax.network/ext/bc/C/rpc', 'polygon': 'https://polygon-rpc.com'}
+# Dedicated RPC per chain wins: <CHAIN>_RPC_URL, else Alchemy (one key covers every chain), else public.
+for _c, _n in _ALCH_NET.items():
+    EVM_RPC[_c] = os.environ.get(f'{_c.upper()}_RPC_URL', '').strip() or (f'https://{_n}-mainnet.g.alchemy.com/v2/{_alchemy}' if _alchemy else EVM_RPC[_c])
 _evm_room_cache = {}
 
 
