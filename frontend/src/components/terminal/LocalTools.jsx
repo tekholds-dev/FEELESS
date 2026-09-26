@@ -7,7 +7,7 @@ import { MarketTable } from './MarketTable';
 import { CONTEXTS } from '../../hooks/useWorkspace';
 
 export const FONT_SCALE_VALUES = ['normal', 'large', 'xlarge'];
-export const CHART_INTERVAL_VALUES = ['5m', '15m', '1h', '4h', '1d'];
+export const CHART_INTERVAL_VALUES = ['1m', '5m', '15m', '1h', '4h', '1d'];
 export const DEFAULT_SETTINGS = {
   compact: false,
   autoRefresh: true,

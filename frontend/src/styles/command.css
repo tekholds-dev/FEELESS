@@ -191,3 +191,43 @@ body.theme-day .coin-world-chart-head button{color:#43604f!important}body.theme-
 body.theme-day .coin-world-avatar{background:#e3f2e8!important;color:#07784f!important}
 body.theme-day .coin-world-rep{color:#43604f!important}
 .new-stuff-note{padding:10px 16px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--line)}body.theme-day .new-stuff-note{color:#43604f!important;border-color:#c3d6c9!important}
+.coin-world-chart-head{gap:12px;flex-wrap:wrap}
+.live-stamp{display:inline-flex;align-items:center;gap:5px;margin-left:10px;font-style:normal;font-size:9px;color:var(--muted);letter-spacing:.4px}
+.live-stamp i{width:6px;height:6px;border-radius:50%;background:var(--mint);box-shadow:0 0 8px var(--mint);animation:breathe 1.2s ease-in-out infinite}
+.coin-world-metric{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-left:auto}
+.coin-world-metric button{border-radius:0!important;padding:5px 12px!important;font-size:10px}
+.coin-world-metric button.active{background:var(--mint)!important;color:#04120b!important}
+.coin-chat-rooms{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.coin-chat-rooms button{padding:8px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer}
+.coin-chat-rooms .room-bulls.active{background:#00e9a01a;border-color:#00e9a066;color:var(--mint)}
+.coin-chat-rooms .room-trenches.active{background:#e9bd651a;border-color:#e9bd6566;color:var(--gold)}
+.coin-chat-rooms .room-bears.active{background:#fa708c1a;border-color:#fa708c66;color:var(--rose)}
+.order-flow{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:0 0 16px}
+.order-flow-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font:11px 'JetBrains Mono',monospace;letter-spacing:.8px}
+.order-flow-head span{display:flex;align-items:center;gap:6px}.order-flow-head small{color:var(--muted);font-size:9px}
+.order-flow-read{display:flex;align-items:center;gap:8px;margin:10px 0 14px;font-size:13px;font-weight:600}
+.order-flow-read svg{color:var(--gold)}
+.order-flow-windows{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.flow-window{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:6px}
+.flow-window-top{display:flex;justify-content:space-between;font:12px 'JetBrains Mono',monospace}
+.flow-bar{height:8px;border-radius:4px;background:#fa708c55;overflow:hidden}.flow-bar i{display:block;height:100%;background:linear-gradient(90deg,#00e9a0,#3cf3b8);transition:width .6s ease}
+.flow-window-foot{display:flex;justify-content:space-between;font:10px 'JetBrains Mono',monospace}
+.flow-window small{color:var(--muted);font-size:10px}
+.order-flow-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:12px}
+.order-flow-metrics>div{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:3px}
+.order-flow-metrics svg{color:var(--mint)}.order-flow-metrics small{font:9px 'JetBrains Mono',monospace;color:var(--muted);letter-spacing:.5px}
+.order-flow-metrics b{font:600 14px 'JetBrains Mono',monospace}.order-flow-metrics em{font-style:normal;font-size:10px;color:var(--muted)}
+.flash-value{transition:background .6s ease;border-radius:4px}.flash-value.flash-up{background:#00e9a02e}.flash-value.flash-down{background:#fa708c2e}
+@media(max-width:1100px){.order-flow-windows{grid-template-columns:repeat(2,1fr)}.order-flow-metrics{grid-template-columns:repeat(2,1fr)}}
+body.theme-day :is(.order-flow,.flow-window,.order-flow-metrics>div){background:var(--day-surface,#f7faf6)!important;border-color:#c3d6c9!important}
+body.theme-day :is(.order-flow-head small,.flow-window small,.order-flow-metrics small,.order-flow-metrics em,.live-stamp){color:#43604f!important}
+body.theme-day .order-flow-metrics svg,body.theme-day .live-stamp i{color:#07784f!important;background:#07784f}
+body.theme-day .order-flow-metrics svg{background:none}
+body.theme-day .order-flow-read svg{color:#a06a00!important}
+body.theme-day .flow-bar{background:#f0b4c1!important}body.theme-day .flow-bar i{background:linear-gradient(90deg,#07784f,#1a9a6a)!important}
+body.theme-day .coin-world-metric{border-color:#c3d6c9!important}body.theme-day .coin-world-metric button.active{background:#07784f!important;color:#fff!important}
+body.theme-day .coin-chat-rooms{border-color:#c3d6c9!important}body.theme-day .coin-chat-rooms button{border-color:#c3d6c9!important;color:#43604f!important;background:#f7faf6!important}
+body.theme-day .coin-chat-rooms .room-bulls.active{background:#e3f2e8!important;color:#07784f!important;border-color:#07784f!important}
+body.theme-day .coin-chat-rooms .room-trenches.active{background:#fff4dc!important;color:#8a5d00!important;border-color:#c49a36!important}
+body.theme-day .coin-chat-rooms .room-bears.active{background:#fdecef!important;color:#b0203f!important;border-color:#b0203f!important}
+.coin-world .eco-right-col>*{flex-shrink:0}.coin-world .eco-right-col{overflow-y:auto}
