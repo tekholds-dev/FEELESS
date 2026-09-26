@@ -17,6 +17,7 @@ import { AdBanner } from '../AdBanner';
 import { ProfileMusic } from './ProfileMusic';
 import { ProfileDM, RewardsCard } from '../Social';
 import { VerifiedMark } from '../terminal/VerifiedMark';
+import { PointsShop, PnlTracker } from '../MetaExtras';
 import { OnchainStrip, PerksCard, SetupCallout, usePerks } from './ProfileExtras';
 
 const RINGS = [['none', 'Classic', 0], ['mint', 'Mint pulse', 0], ['sunset', 'Sunset', 0], ['ocean', 'Ocean', 0], ['candy', 'Candy', 0], ['neon', 'Neon', 0], ['ghost', 'Ghost', 0], ['emerald', 'Emerald', 1], ['plasma', 'Plasma', 1], ['diamond', 'Diamond', 2], ['aurora', 'Aurora', 2], ['gold', 'Molten Gold', 3], ['royal', 'Royal', 3]];
@@ -129,6 +130,8 @@ export function WalletProfilePage({ address }) {
       <div className="wp-actions"><ProfileDM peer={address} mine={mine} initialOpen={new URLSearchParams(window.location.search).get('dm') === '1'} /><button type="button" className="btn-outline wp-flip-btn" data-testid="profile-flip" onClick={() => setFlipped(f => !f)}>{flipped ? '↺ Profile' : '↻ Activity'}</button>{isAdmin && <button type="button" className="cc-launch" data-testid="open-command-center" onClick={() => setCcOpen(true)}>👑 Command Center</button>}{mine ? (edit ? <><button type="button" className="btn-primary" disabled={saving} onClick={save}><Save size={14} />{saving ? 'Sign in wallet…' : 'Save (sign)'}</button><button type="button" className="btn-outline" onClick={() => setEdit(false)}><X size={14} />Cancel</button></> : <button type="button" className="btn-outline" onClick={startEdit}><Pencil size={14} />Edit profile</button>) : !wallet?.address && <button type="button" className="btn-outline" onClick={() => connect?.('solana')}>Connect to edit yours</button>}</div>
     </div>
     {flipped && <RewardsCard address={address} mine={mine} />}
+    {flipped && <PnlTracker address={address} />}
+    {flipped && mine && <PointsShop address={address} />}
     {flipped && <section className="wp-card wp-activity" data-testid="profile-activity"><h3>Activity</h3>{!acts ? <p className="wp-bio">Loading…</p> : !acts.posts.length ? <p className="wp-bio">No posts yet.</p> : <div className="wpa-list">{acts.posts.map(a => <a key={a.id} className="wpa-row" href={a.room.startsWith('coin-') ? `/terminal/chat` : a.room.startsWith('wall-') ? `/terminal/profile/${a.room.slice(5)}` : '/terminal/chat'} target="_blank" rel="noopener noreferrer"><span className="wpa-room">{a.room.startsWith('wall-') ? '🧱 wall' : a.room.startsWith('coin-') ? `🪙 ${a.room.split('-').pop()}` : `# ${a.room}`}</span><p>{a.text}</p><time>{new Date(a.ts).toLocaleString()}</time></a>)}</div>}</section>}
     <div className={`wp-flip-body ${flipped ? 'is-flipped' : ''}`}>
     {mine && !edit && data && <SetupCallout profile={data.profile} onEdit={startEdit} />}

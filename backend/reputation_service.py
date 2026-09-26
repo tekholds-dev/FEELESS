@@ -283,7 +283,7 @@ class ObservePayload(BaseModel):
 
 
 app = FastAPI(title='FEELESS Reputation Graph')
-app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*'])
+app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ.get('ALLOWED_ORIGINS') or '*').split(',') if o.strip()], allow_methods=['*'], allow_headers=['*'])
 
 
 @app.post('/api/reputation/observe')
@@ -1742,7 +1742,8 @@ async def save_profile(payload: ProfileSave):
         if clean['featuredBadges']:
             earned = {b['id'] for b in (await wallet_badges(owner))['badges']}
             clean['featuredBadges'] = [b for b in clean['featuredBadges'] if b in earned]
-        if RING_TIERS[clean['ring']] > tier or NAMEFX_TIERS[clean['nameFx']] > tier:
+        un, _r = _unlocks(owner)
+        if (RING_TIERS[clean['ring']] > tier and f"ring:{clean['ring']}" not in un) or (NAMEFX_TIERS[clean['nameFx']] > tier and f"nameFx:{clean['nameFx']}" not in un):
             raise HTTPException(403, 'That style is a $FEE holder perk — hold more $FEE to unlock it.')
         if TIER_THEMES.get(clean['theme'], 0) > tier:
             raise HTTPException(403, 'That theme is a Fee Friend perk — hold $10+ of $FEE.')
@@ -1988,8 +1989,11 @@ async def chat_post(payload: ChatPost):
     tier = (await _perk_tier(payload.address))[0]
     boosted = False
     if payload.boost:
+        credits = (_pts().get(primary_of(payload.address)) or {}).get('boostCredits', 0)
+        if tier < 2 and credits <= 0:
+            raise HTTPException(403, 'Boosting is a Fee Insider perk — hold $100+ of $FEE or buy boosts with points.')
         if tier < 2:
-            raise HTTPException(403, 'Boosting is a Fee Insider perk — hold $100+ of $FEE.')
+            d_ = _pts(); d_[primary_of(payload.address)]['boostCredits'] = credits - 1; _json_save(POINTS_PATH, d_)
         if time.time() - _boost_last.get(payload.address, 0) < 600:
             raise HTTPException(429, 'One boost every 10 minutes.')
         boosted = True
@@ -2163,6 +2167,8 @@ async def wallet_badges(address: str):
     invited = len(_json_load(REF_PATH, {'by': {}})['by'].get(address, []))
     if invited >= 3:
         badges.append({'id': 'recruiter', 'label': 'Recruiter' if invited < 10 else 'Legendary Recruiter', 'icon': '📣', 'tone': 'gold' if invited >= 10 else 'mint', 'why': f'Invited {invited} wallets to FEELESS'})
+    if 'badge:points-og' in _unlocks(address)[0]:
+        badges.append({'id': 'points-og', 'label': 'Points OG', 'icon': '💠', 'tone': 'gold', 'why': 'Spent 2,000 earned points on it'})
     badges.extend(_admin_load()['badges'].get(address, {}).values())
     if address in _admin_wallets():
         badges.insert(0, {'id': 'feeless-hq', 'label': 'FEELESS HQ', 'icon': '👑', 'tone': 'gold', 'why': 'Created $FEE — runs the FEELESS command center'})
@@ -2249,7 +2255,7 @@ def _require_admin(request: Request) -> str:
         ts_i = int(ts)
     except ValueError:
         raise HTTPException(401, 'Missing command center signature.')
-    if abs(time.time() - ts_i) > 3600:
+    if abs(time.time() - ts_i) > 86400:
         raise HTTPException(401, 'Command center session expired — sign in again.')
     if not _verify_wallet(addr, f'FEELESS command center\naddress:{addr}\nts:{ts_i}', sig):
         raise HTTPException(401, 'Command center signature does not match.')
@@ -3858,3 +3864,170 @@ async def admin_site(request: Request, payload: SiteIn):
     async with _admin_lock:
         d = _admin_load(); d['site'] = {'publicUrl': url}; _audit(d, admin, 'site-url', url or '(cleared)'); _admin_save(d)
     return {'ok': True, 'publicUrl': url}
+
+
+# ---- Points shop: spend what you earn --------------------------------------------------------
+SHOP = [
+    {'id': 'ring-diamond-7d', 'label': 'Diamond ring · 7 days', 'cost': 400, 'kind': 'style', 'grant': {'ring': 'diamond'}, 'days': 7},
+    {'id': 'ring-gold-3d', 'label': 'Molten Gold ring · 3 days', 'cost': 600, 'kind': 'style', 'grant': {'ring': 'gold'}, 'days': 3},
+    {'id': 'name-rainbow-7d', 'label': 'Rainbow name · 7 days', 'cost': 250, 'kind': 'style', 'grant': {'nameFx': 'rainbow'}, 'days': 7},
+    {'id': 'boost-3', 'label': '3 chat boosts (any tier)', 'cost': 150, 'kind': 'boost', 'grant': {'boosts': 3}},
+    {'id': 'raffle', 'label': 'Airdrop raffle ticket', 'cost': 100, 'kind': 'raffle', 'grant': {'tickets': 1}},
+    {'id': 'badge-og', 'label': '"Points OG" badge (permanent)', 'cost': 2000, 'kind': 'badge', 'grant': {'badge': 'points-og'}},
+]
+
+
+def _unlocks(address: str):
+    rec = _pts().get(primary_of(address)) or {}
+    now = time.time()
+    return {k: v for k, v in (rec.get('unlocks') or {}).items() if v == 'forever' or float(v) > now}, rec
+
+
+@app.get('/api/reputation/shop')
+async def shop(address: str = ''):
+    un, rec = _unlocks(address) if address else ({}, {})
+    return {'items': SHOP, 'points': rec.get('total', 0), 'spent': rec.get('spent', 0), 'unlocks': un, 'boosts': rec.get('boostCredits', 0), 'tickets': rec.get('tickets', 0)}
+
+
+class BuyIn(BaseModel):
+    address: str
+    session: str
+    item: str
+
+
+@app.post('/api/reputation/shop/buy')
+async def shop_buy(payload: BuyIn):
+    me = _session_or_401(payload.address, payload.session)
+    it = next((x for x in SHOP if x['id'] == payload.item), None)
+    if not it:
+        raise HTTPException(404, 'Unknown item.')
+    async with _admin_lock:
+        d = _pts(); rec = d.get(me) or {'total': 0, 'claims': {}, 'log': []}
+        balance = rec.get('total', 0) - rec.get('spent', 0)
+        if balance < it['cost']:
+            raise HTTPException(400, f"Need {it['cost'] - balance} more points.")
+        rec['spent'] = rec.get('spent', 0) + it['cost']
+        un = rec.setdefault('unlocks', {})
+        g = it['grant']
+        if it['kind'] == 'style':
+            for k, v in g.items():
+                un[f'{k}:{v}'] = time.time() + it['days'] * 86400
+        elif it['kind'] == 'boost':
+            rec['boostCredits'] = rec.get('boostCredits', 0) + g['boosts']
+        elif it['kind'] == 'raffle':
+            rec['tickets'] = rec.get('tickets', 0) + 1
+        else:
+            un[f"badge:{g['badge']}"] = 'forever'
+        rec.setdefault('log', []).insert(0, {'id': it['id'], 'label': f"Bought {it['label']}", 'points': -it['cost'], 'at': time.time()})
+        d[me] = rec; _json_save(POINTS_PATH, d)
+    _badge_cache.pop(me, None)
+    return {'ok': True, 'balance': rec['total'] - rec['spent']}
+
+
+# ---- Trench Wars: weekly faction battle --------------------------------------------------------
+FACTIONS = {'bulls': '🐂 Bulls', 'bears': '🐻 Bears', 'degens': '🎰 Degens'}
+WARS_PATH = DATA_DIR / 'wars.json'
+
+
+def _war_week():
+    return time.strftime('%G-W%V', time.gmtime())
+
+
+@app.get('/api/reputation/wars')
+async def wars(address: str = ''):
+    d = _json_load(WARS_PATH, {})
+    wk = d.get(_war_week()) or {'members': {}}
+    pts = _pts()
+    week_start = _week_start()
+    score = {f: 0 for f in FACTIONS}
+    count = {f: 0 for f in FACTIONS}
+    for a, f in wk['members'].items():
+        gained = sum(l['points'] for l in (pts.get(a) or {}).get('log', []) if l['points'] > 0 and l['at'] >= week_start)
+        score[f] += gained; count[f] += 1
+    mine = wk['members'].get(primary_of(address)) if address else None
+    last = d.get(time.strftime('%G-W%V', time.gmtime(time.time() - 7 * 86400))) or {}
+    return {'week': _war_week(), 'factions': [{'id': f, 'label': l, 'score': score[f], 'members': count[f]} for f, l in FACTIONS.items()],
+            'mine': mine, 'lastWinner': last.get('winner'), 'endsAt': _week_start() + 7 * 86400}
+
+
+class JoinIn(BaseModel):
+    address: str
+    session: str
+    faction: str
+
+
+@app.post('/api/reputation/wars/join')
+async def wars_join(payload: JoinIn):
+    me = _session_or_401(payload.address, payload.session)
+    if payload.faction not in FACTIONS:
+        raise HTTPException(400, 'Pick bulls, bears or degens.')
+    async with _admin_lock:
+        d = _json_load(WARS_PATH, {})
+        wk = d.setdefault(_war_week(), {'members': {}})
+        if me in wk['members']:
+            raise HTTPException(400, f"You're already fighting for {FACTIONS[wk['members'][me]]} this week.")
+        wk['members'][me] = payload.faction
+        _json_save(WARS_PATH, d)
+    return {'ok': True, 'faction': payload.faction}
+
+
+# ---- Wallet PnL from verified FEELESS receipts ------------------------------------------------
+@app.get('/api/reputation/pnl/{address}')
+async def wallet_pnl(address: str):
+    me = set(linked_of(address))
+    rows = [r for r in _receipt_rows() if r[2] in me]
+    by = {}
+    sol_flow = 0.0
+    for r in rows:
+        sol_flow += r[5] or 0
+        for mint, delta in r[4]:
+            if mint == WSOL:
+                continue
+            b = by.setdefault(mint, {'mint': mint, 'bought': 0.0, 'sold': 0.0, 'solIn': 0.0, 'solOut': 0.0, 'trades': 0})
+            b['trades'] += 1
+            if delta > 0:
+                b['bought'] += delta; b['solIn'] += -(r[5] or 0)
+            else:
+                b['sold'] += -delta; b['solOut'] += (r[5] or 0)
+    for b in by.values():
+        b['realizedSol'] = round(b['solOut'] - b['solIn'] * (b['sold'] / b['bought'] if b['bought'] else 1), 6)
+        b['holding'] = round(b['bought'] - b['sold'], 6)
+    return {'trades': len(rows), 'netSolFlow': round(sol_flow, 6), 'tokens': sorted(by.values(), key=lambda b: -abs(b['realizedSol']))[:50],
+            'note': 'From verified FEELESS trade receipts. Trades made outside FEELESS are not included.'}
+
+
+# ---- Snipe risk for coin cards (cached intel only — never blocks a list) ----------------------
+@app.get('/api/reputation/snipe-risk')
+async def snipe_risk(mints: str):
+    out = {}
+    for m in mints.split(',')[:60]:
+        hit = _intel_cache.get(m)
+        if not hit or not hit[1]:
+            continue
+        d = hit[1]
+        snip, bund, top10 = len(d.get('sniperWallets') or []), len(d.get('bundledWallets') or []), d.get('top10Pct') or 0
+        risk = min(100, round(snip * 2 + bund * 5 + max(0, top10 - 20)))
+        out[m] = {'risk': risk, 'level': 'high' if risk >= 60 else 'medium' if risk >= 30 else 'low', 'snipers': snip, 'bundled': bund, 'top10': top10}
+    return {'risk': out}
+
+
+# ---- Helius webhooks: instant whale / dev-sell events (needs HELIUS_WEBHOOK_SECRET) -----------
+@app.post('/api/reputation/webhooks/helius')
+async def helius_webhook(request: Request):
+    secret = os.environ.get('HELIUS_WEBHOOK_SECRET', '')
+    if not secret or not hmac.compare_digest(request.headers.get('authorization', ''), secret):
+        raise HTTPException(403, 'Bad webhook secret.')
+    events = await request.json()
+    n = 0
+    for ev in events if isinstance(events, list) else [events]:
+        for tt in (ev.get('tokenTransfers') or [])[:20]:
+            usd = None
+            amt = float(tt.get('tokenAmount') or 0)
+            mint = tt.get('mint')
+            if not mint or amt <= 0:
+                continue
+            _radar['whales'].insert(0, {'pair': None, 'mint': mint, 'symbol': None, 'kind': 'transfer', 'usd': usd, 'wallet': tt.get('fromUserAccount'),
+                                        'tx': ev.get('signature'), 'at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(ev.get('timestamp') or time.time()))})
+            n += 1
+        _radar['whales'] = _radar['whales'][:120]
+    return {'ok': True, 'ingested': n}

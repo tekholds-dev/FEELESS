@@ -10,6 +10,7 @@ File-backed JSON store, zero external dependencies, standalone FastAPI app.
 import env_loader  # noqa: F401  (must run before reading os.environ)
 import asyncio
 import json
+import os
 import math
 import time
 import uuid
@@ -463,7 +464,7 @@ def _score(cat):
 
 
 app = FastAPI(title='FEELESS Cats')
-app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*'])
+app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ.get('ALLOWED_ORIGINS') or '*').split(',') if o.strip()], allow_methods=['*'], allow_headers=['*'])
 
 
 @app.on_event('startup')

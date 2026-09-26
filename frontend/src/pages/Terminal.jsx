@@ -34,6 +34,7 @@ import { AdBanner } from '../components/AdBanner';
 import { MyInviteCard } from '../components/InviteCard';
 import { CoinProfile } from '../components/command/CoinProfile';
 import { CallerLeague, RadarPanel } from '../components/command/MetaPanels';
+import { TrenchWars, Shortcuts } from '../components/MetaExtras';
 import { CreatorProfilePage } from '../components/command/CreatorProfile';
 
 const CHAINS = [['solana', 'Solana'], ['all', 'All chains'], ['ethereum', 'Ethereum'], ['base', 'Base'], ['bsc', 'BNB Chain'], ['arbitrum', 'Arbitrum'], ['avalanche', 'Avalanche'], ['polygon', 'Polygon'], ['sui', 'Sui']];
@@ -188,11 +189,12 @@ export default function Terminal() {
         {page === 'feeback' && <FeeBackCenter feeCat={feeCat} />}{page === 'feecat' && <><FeeCatProfile /><FeeCatCenter asset={feeCat} community={community} onSelect={onSelect} /></>}{page === 'feecat/cats' && <FeelessCats />}{page === 'feecat/agents' && <FeeCatsPlatform />}
       {page === 'reputation' && <ReputationCenter />}
       {!page.startsWith('profile/') && page !== 'legal' && <AdBanner placement="banner" />}
+      <Shortcuts />
       {page === 'legal' && <LegalPage />}
       {page.startsWith('coin/') && <CoinProfile key={page} chain={page.split('/')[1]} pairAddress={page.split('/')[2]} />}
       {page.startsWith('profile/') && <WalletProfilePage key={page} address={page.split('/')[1]} />}
       {page.startsWith('reputation/') && (() => { const [, repChain, repAddress] = page.split('/'); return repChain && repAddress ? <CreatorProfilePage chain={repChain} address={repAddress} /> : null; })()}
-      {page === 'leaderboard' && <><CallerLeague /><ParticipationBoard /></>}{page === 'whitepaper' && <><LiveProof /><CommandWhitepaper /></>}{page === 'roadmap' && <><MissionRoadmap /><RoadmapVoting /></>}{page === 'learn' && <><LiveIntelStats /><RadarPanel /><UnderstandFeeless /><CaseStudies /></>}
+      {page === 'leaderboard' && <><TrenchWars /><CallerLeague /><ParticipationBoard /></>}{page === 'whitepaper' && <><LiveProof /><CommandWhitepaper /></>}{page === 'roadmap' && <><MissionRoadmap /><RoadmapVoting /></>}{page === 'learn' && <><LiveIntelStats /><RadarPanel /><UnderstandFeeless /><CaseStudies /></>}
       {page === 'settings' && <><TerminalConfiguration settings={settings} setSettings={setSettings} onWallet={() => setWalletOpen(true)} /><MyInviteCard /><NetworkStatus /></>}
        {!isMarket && !page.startsWith('reputation') && !page.startsWith('profile/') && !page.startsWith('coin/') && !['launch', 'watchlist', 'chat', 'alerts', 'fee', 'feeback', 'feecat', 'feecat/cats', 'feecat/agents', 'leaderboard', 'whitepaper', 'roadmap', 'learn', 'settings', 'legal'].includes(page) && <div className="page-heading"><h1>Off the radar.</h1><Link to="/terminal" className="btn-primary" data-testid="unknown-page-home">Back to terminal</Link></div>}
        </div><TerminalFooter />

@@ -6,7 +6,7 @@ import { shortAddress, formatUSD } from '../../lib/dexscreener';
 import { AirdropStudio, Snapshots } from './AirdropStudio';
 
 const SESSION_KEY = 'feeless:cc-session';
-const readSession = addr => { try { const s = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null'); return s && s.address === addr && Date.now() / 1000 - s.ts < 3500 ? s : null; } catch { return null; } };
+const readSession = addr => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.address === addr && Date.now() / 1000 - s.ts < 86000 ? s : null; } catch { return null; } };
 
 const csv = rows => rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
 const download = (name, text) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' })); a.download = name; a.click(); URL.revokeObjectURL(a.href); };
@@ -26,7 +26,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
   const call = useCallback(async (path, opts = {}) => {
     const res = await fetch(apiUrl(`/api/reputation${path}`), { ...opts, headers: { 'Content-Type': 'application/json', 'x-admin-address': address, 'x-admin-ts': String(session?.ts || ''), 'x-admin-sig': session?.sig || '', ...(opts.headers || {}) } });
     const body = await res.json().catch(() => ({}));
-    if (res.status === 401) { sessionStorage.removeItem(SESSION_KEY); setSession(null); }
+    if (res.status === 401) { localStorage.removeItem(SESSION_KEY); setSession(null); }
     if (!res.ok) throw new Error(body.detail || `Request failed (${res.status})`);
     return body;
   }, [address, session]);
@@ -37,7 +37,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
       const ts = Math.floor(Date.now() / 1000);
       const sig = await signMessage(`FEELESS command center\naddress:${address}\nts:${ts}`);
       const s = { address, ts, sig };
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); setSession(s);
+      localStorage.setItem(SESSION_KEY, JSON.stringify(s)); setSession(s);
     } catch (e) { toast.error(e.code === 4001 ? 'Signature declined.' : e.message); } finally { setBusy(false); }
   };
 
@@ -55,7 +55,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
 
   if (!session) return <div className="cc-shell" data-testid="command-center"><div className="cc-gate">
     <div className="cc-crown">👑</div><h2 className="trenches-font live-gradient-text">FEELESS Command Center</h2>
-    <p>This wallet created $FEE. Sign once (free, no transaction) to open holders, airdrops, badges and the security monitor for the next hour.</p>
+    <p>This wallet created $FEE. Sign once (free, no transaction) to open holders, airdrops, badges and the security monitor for the next 24 hours.</p>
     <div className="cc-gate-actions"><button type="button" className="btn-primary" disabled={busy} onClick={signIn}><ShieldCheck size={15} />{busy ? 'Check your wallet…' : 'Sign in to Command Center'}</button><button type="button" className="btn-outline" onClick={onClose}>Back to profile</button></div>
   </div></div>;
 

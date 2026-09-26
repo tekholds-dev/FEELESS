@@ -15,6 +15,7 @@ File-backed JSON, zero external dependencies, standalone FastAPI app.
 import env_loader  # noqa: F401  (must run before reading os.environ)
 import asyncio
 import json
+import os
 import time
 
 import httpx
@@ -219,7 +220,7 @@ app = FastAPI(title='FEELESS Candles')
 @app.on_event('startup')
 async def _start_poller():
     asyncio.create_task(_poll_hot_pairs())
-app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*'])
+app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ.get('ALLOWED_ORIGINS') or '*').split(',') if o.strip()], allow_methods=['*'], allow_headers=['*'])
 
 
 @app.post('/api/candles/observe')
