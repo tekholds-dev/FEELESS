@@ -32,6 +32,7 @@ import { FeeCatProfile } from '../components/command/FeeCatProfile';
 import { LiveIntelStats } from '../components/command/LiveIntelStats';
 import { AdBanner } from '../components/AdBanner';
 import { MyInviteCard } from '../components/InviteCard';
+import { CoinProfile } from '../components/command/CoinProfile';
 import { CreatorProfilePage } from '../components/command/CreatorProfile';
 
 const CHAINS = [['solana', 'Solana'], ['all', 'All chains'], ['ethereum', 'Ethereum'], ['base', 'Base'], ['bsc', 'BNB Chain'], ['arbitrum', 'Arbitrum'], ['avalanche', 'Avalanche'], ['polygon', 'Polygon'], ['sui', 'Sui']];
@@ -89,7 +90,10 @@ export default function Terminal() {
   const activePad = ecosystem.isLaunchpad ? ecosystem.id : pad;
   const pairs = useMemo(() => {
     const modeMatches = requestedScreener == null || !market.data?.screener || market.data.screener === requestedScreener;
-    let list = (modeMatches ? market.data?.pairs || [] : []).filter(p => (chain === 'all' || p.chainId === chain) && Number(p.liquidity?.usd || 0) >= Number(minLiquidity) && matchesPad(p, activePad));
+    const base = (modeMatches ? market.data?.pairs || [] : []).filter(p => (chain === 'all' || p.chainId === chain) && Number(p.liquidity?.usd || 0) >= Number(minLiquidity));
+    let list = base.filter(p => matchesPad(p, activePad));
+    // No coins launched through this venue yet → show the live market instead of an empty page.
+    if (!list.length && base.length && activePad !== 'all') { list = [...base]; list.padFallback = true; }
     if (tab === 'gainers') list.sort((a, b) => Number(b.priceChange?.h24 || 0) - Number(a.priceChange?.h24 || 0));
     if (tab === 'volume') list.sort((a, b) => Number(b.volume?.h24 || 0) - Number(a.volume?.h24 || 0));
     if (tab === 'movers') list.sort((a, b) => Math.abs(Number(b.priceChange?.h1 ?? b.priceChange?.m5 ?? 0)) - Math.abs(Number(a.priceChange?.h1 ?? a.priceChange?.m5 ?? 0)));
@@ -169,6 +173,7 @@ export default function Terminal() {
         {page === 'movers' && <SignalMovers pairs={pairs} onSelect={onSelect} />}
           <section className="market-section"><div className="section-title market-title"><h2><Flame size={18} />{query ? 'Search results' : page === 'new' ? 'New pool deals ≥5%' : kind === 'new' ? 'New pool deals' : 'Top coin discovery'}</h2><DataStatus data={market.data} id="market-feed-status" />{market.refreshing && <span className="live-feed-badge" data-testid="market-feed-refreshing">LIVE</span>}<button title="Refresh market feed" data-testid="market-refresh" className="icon-btn small-icon" onClick={() => market.reload()}><RefreshCw size={14} /></button>{isHome && <Link to="/terminal/discover" className="section-more" data-testid="markets-view-all">Expand<ArrowUpRight size={13} /></Link>}</div>
            <div className="market-controls"><div className="market-tabs">{[['trending', 'Top coins'], ['new', 'New coins'], ['gainers', 'Gainers'], ['movers', 'Top movers'], ['volume', 'Volume']].map(([id, label]) => <button key={id} className={tab === id ? 'active' : ''} data-testid={`market-tab-${id}`} onClick={() => { const next = new URLSearchParams(params); next.set('mode', id); if (['new', 'pump', 'movers'].includes(page)) nav(`/terminal/discover?${next}`); else setParams(next); }}>{label}</button>)}</div><label className="chain-select"><span className="live-dot" /><select aria-label="Market chain" data-testid="market-chain-filter" value={chain} onChange={e => setChain(e.target.value)}>{CHAINS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label><label className="chain-select"><span>Screen</span><select aria-label="Market screener" data-testid="market-screener-filter" value={screen || 'quality'} onChange={e => { const next = new URLSearchParams(params); next.set('screen', e.target.value); setParams(next); }}>{[['quality', 'Best observed'], ['momentum', 'Momentum'], ['volume', 'Volume leaders'], ['new', 'Fresh']].map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label></div>
+           {!isHome && pairs.padFallback && <div className="pad-fallback" data-testid="pad-fallback">🌱 Nothing has launched on <b>{ecosystem.isLaunchpad ? ecosystem.name : activePad}</b> yet — showing live {ecosystem.chainId || 'Solana'} markets instead. <a href="/terminal/launch">Be the first launch →</a></div>}
            {!isHome && <div className="advanced-filters"><SlidersHorizontal size={14} /><label>DEX venue<select data-testid="market-pad-filter" aria-label="DEX venue" value={activePad} disabled={ecosystem.isLaunchpad} onChange={e => setPad(e.target.value)}><option value="all">All venues</option>{LAUNCHPADS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>Min. liquidity<select data-testid="market-liquidity-filter" value={minLiquidity} onChange={e => setMinLiquidity(e.target.value)}><option value="0">Any</option><option value="10000">$10K</option><option value="100000">$100K</option><option value="1000000">$1M</option></select></label>{query && <button data-testid="market-clear-search" onClick={() => { const next = new URLSearchParams(params); next.delete('q'); setParams(next); }}>Clear search ×</button>}</div>}
            <MarketAvailabilityNotice data={market.data} error={market.error} errorStatus={market.errorStatus} errorProvider={market.errorProvider} id="market-feed-availability" />{market.error && <MarketError error={market.error} reload={market.reload} id="market-feed-error" />}{marketModeMatches && market.data?.stale && <p className="stale-banner" data-testid="market-stale-warning">Cached data · {market.data.error}</p>}
             <MarketTable pairs={isHome ? pairs.slice(0, 6) : pairs.slice(0, 10)} screenerLabel={marketModeMatches ? market.data?.screener_label : undefined} loading={market.loading || (!marketModeMatches && !market.error)} refreshing={market.refreshing} onSelect={onSelect} has={has} toggle={toggle} />
@@ -183,11 +188,12 @@ export default function Terminal() {
       {page === 'reputation' && <ReputationCenter />}
       {!page.startsWith('profile/') && page !== 'legal' && <AdBanner placement="banner" />}
       {page === 'legal' && <LegalPage />}
+      {page.startsWith('coin/') && <CoinProfile key={page} chain={page.split('/')[1]} pairAddress={page.split('/')[2]} />}
       {page.startsWith('profile/') && <WalletProfilePage key={page} address={page.split('/')[1]} />}
       {page.startsWith('reputation/') && (() => { const [, repChain, repAddress] = page.split('/'); return repChain && repAddress ? <CreatorProfilePage chain={repChain} address={repAddress} /> : null; })()}
       {page === 'leaderboard' && <ParticipationBoard />}{page === 'whitepaper' && <><LiveProof /><CommandWhitepaper /></>}{page === 'roadmap' && <><MissionRoadmap /><RoadmapVoting /></>}{page === 'learn' && <><LiveIntelStats /><UnderstandFeeless /><CaseStudies /></>}
       {page === 'settings' && <><TerminalConfiguration settings={settings} setSettings={setSettings} onWallet={() => setWalletOpen(true)} /><MyInviteCard /><NetworkStatus /></>}
-       {!isMarket && !page.startsWith('reputation') && !page.startsWith('profile/') && !['launch', 'watchlist', 'chat', 'alerts', 'fee', 'feeback', 'feecat', 'feecat/cats', 'feecat/agents', 'leaderboard', 'whitepaper', 'roadmap', 'learn', 'settings', 'legal'].includes(page) && <div className="page-heading"><h1>Off the radar.</h1><Link to="/terminal" className="btn-primary" data-testid="unknown-page-home">Back to terminal</Link></div>}
+       {!isMarket && !page.startsWith('reputation') && !page.startsWith('profile/') && !page.startsWith('coin/') && !['launch', 'watchlist', 'chat', 'alerts', 'fee', 'feeback', 'feecat', 'feecat/cats', 'feecat/agents', 'leaderboard', 'whitepaper', 'roadmap', 'learn', 'settings', 'legal'].includes(page) && <div className="page-heading"><h1>Off the radar.</h1><Link to="/terminal" className="btn-primary" data-testid="unknown-page-home">Back to terminal</Link></div>}
        </div><TerminalFooter />
      </main></div><WalletModal open={walletOpen} onClose={() => setWalletOpen(false)} /><WalletProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} /></div>;
 }

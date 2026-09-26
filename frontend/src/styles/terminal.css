@@ -2306,3 +2306,21 @@ body.theme-day .search-drop{background:#fff;border-color:#9fd3b6}body.theme-day 
 @keyframes logo-float{50%{transform:translateY(-8px) rotate(-3deg)}}
 @keyframes logo-ping{0%{transform:scale(.8);opacity:.9}100%{transform:scale(1.35);opacity:0}}
 body.reduced-motion-setting :is(.heartbeat-mark,.heartbeat-mark::before,.heartbeat-mark::after,.ad-banner::after){animation:none!important}
+.pad-fallback{margin:0 16px 10px;padding:9px 12px;border-radius:10px;border:1px dashed rgba(0,233,160,.45);background:#00e9a00a;font-size:12.5px;color:#c6dccf}.pad-fallback a{color:var(--mint);margin-left:6px}
+/* Coin profile */
+.coin-profile{display:grid;gap:14px;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:linear-gradient(180deg,#07130d,#030806);padding-bottom:18px}
+.cp-banner{aspect-ratio:3/1;max-height:220px;background:linear-gradient(120deg,rgba(0,233,160,.35),rgba(245,197,66,.15) 60%,#061009);background-size:cover;background-position:center}
+.cp-head{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;padding:0 22px;margin-top:-60px}
+.cp-logo{width:120px;height:120px;border-radius:50%;overflow:hidden;border:4px solid var(--mint);box-shadow:0 0 0 4px #050b08,0 0 30px rgba(0,233,160,.35);background:#0b1a12;display:grid;place-items:center;flex-shrink:0;animation:logo-float 6s ease-in-out infinite}.cp-logo img{width:100%;height:100%;object-fit:cover}.cp-logo span{font:700 34px 'JetBrains Mono',monospace;color:var(--mint)}
+.cp-id{display:grid;gap:4px;padding-top:66px;min-width:0}.cp-id h1{margin:0;font-size:28px}.cp-id h1 small{font-size:14px;color:var(--muted);font-weight:400}.cp-id>span{color:var(--muted);font-size:12px}
+.cp-links{display:flex;flex-wrap:wrap;gap:6px}.cp-links a{font-size:11.5px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--mint);text-transform:capitalize}
+.cp-head .wp-flip-btn{margin-left:auto}
+.cp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;padding:0 18px}.cp-activity{animation:flip-in .45s ease}
+.cp-card{display:grid;gap:6px;align-content:start;padding:14px;border-radius:14px;border:1px solid var(--line);background:rgba(0,0,0,.3);max-height:460px;overflow:auto}.cp-card h4{margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted)}.cp-card h4 small{text-transform:none;font-weight:400}
+.cp-kv{display:flex;justify-content:space-between;gap:10px;font-size:13px}.cp-kv span{color:var(--muted)}.cp-kv b{font-family:'JetBrains Mono',monospace;font-size:12.5px}
+.cp-flow{position:relative;height:18px;border-radius:999px;background:#fa708c44;overflow:hidden;margin-top:4px}.cp-flow i{position:absolute;inset:0 auto 0 0;background:#00e9a066}.cp-flow small{position:relative;font-size:10px;padding-left:8px;line-height:18px}
+.cp-flag{margin:0;font-size:12px;color:#ffb3c0}.cp-creator{color:var(--mint);font-family:'JetBrains Mono',monospace}
+.cp-trade,.cp-call{display:grid;grid-template-columns:50px 1fr auto;gap:8px;font-size:12px;align-items:center}.cp-trade.buy b{color:var(--mint)}.cp-trade.sell b{color:#ff8a9a}.cp-trade small,.cp-call small{color:var(--muted);font-size:10.5px}.cp-trade a{color:var(--mint)}
+.cp-msg{font-size:12.5px;border-bottom:1px solid #ffffff0a;padding-bottom:6px}.cp-msg p{margin:2px 0 0;color:#c6dccf}.cp-msg em{font-style:normal;font-size:10px;color:var(--muted)}
+.sd-prof{font-size:10px;color:#5ec8ff;border:1px solid #5ec8ff55;border-radius:999px;padding:1px 7px;margin-right:4px}
+@media (max-width:700px){.cp-head{margin-top:-40px}.cp-logo{width:84px;height:84px}.cp-id{padding-top:0}}

@@ -79,7 +79,7 @@ export function SearchBox({ ecosystem, nav }) {
       {list.map((it, i) => { const I = { coin: Coins, profile: User, wallet: Wallet }[it.kind] || Icon; return <button type="button" key={it.key || it.href} role="option" aria-selected={i === active} className={`sd-row k-${it.kind} ${i === active ? 'active' : ''}`} onMouseEnter={() => setActive(i)} onMouseDown={e => { e.preventDefault(); go(it); }}>
         {it.img ? <img src={it.img} alt="" /> : <span className="sd-ic"><I size={14} /></span>}
         <span className="sd-main"><b>{it.label}</b><small>{it.sub}</small></span>
-        {it.kind === 'coin' && it.price && <span className="sd-num"><b>{formatUSD(it.price)}</b><small className={Number(it.change) >= 0 ? 'positive' : 'negative'}>{formatPct(it.change)} · vol {formatUSD(it.vol)}</small></span>}
+        {it.kind === 'coin' && <a className="sd-prof" href={it.href.replace(/^\/\?coin=([^:]+):/, '/terminal/coin/$1/')} onMouseDown={e => e.stopPropagation()} title="Coin profile">profile</a>}{it.kind === 'coin' && it.price && <span className="sd-num"><b>{formatUSD(it.price)}</b><small className={Number(it.change) >= 0 ? 'positive' : 'negative'}>{formatPct(it.change)} · vol {formatUSD(it.vol)}</small></span>}
         <em className="sd-kind">{it.kind}</em>
       </button>; })}
     </div>}
