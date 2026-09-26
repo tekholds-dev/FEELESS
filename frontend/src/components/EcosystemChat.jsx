@@ -79,7 +79,9 @@ const detectAddress = text => text.match(/\b0x[a-fA-F0-9]{40}\b/)?.[0] || text.m
 
 export default function EcosystemChat({ ecosystem, room: roomProp, compact = false, onConnect }) {
   const room = roomProp || ecosystem?.id || 'general';
-  const { wallet, signMessage } = useWallet() || {};
+  const { wallet, signMessage, switchTo } = useWallet() || {};
+  const [switching, setSwitching] = useState(false);
+  const hopToSolana = async () => { setSwitching(true); try { await switchTo?.('solana'); } catch (err) { setError?.(err.message || 'Switch declined.'); } finally { setSwitching(false); } };
   const chatMeta = useChatMeta(room, wallet);
   const [gate, setGate] = useState(null);
   useEffect(() => {
@@ -127,7 +129,7 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
     setSending(true); setError(''); let tokens = null;
     try {
       if (!wallet) throw Object.assign(new Error('Connect your wallet to post in the trenches.'), { code: 'WALLET_REQUIRED' });
-      if (wallet.chain !== 'solana') throw new Error('Chat posting currently needs a Solana wallet.');
+      if (gate?.needsChain === 'solana' && wallet.chain !== 'solana') throw new Error(`${gate.symbol} lives on Solana — switch your wallet to Solana to chat here.`);
       if (gate?.gated && !gate.allowed) throw new Error(`Hold at least $${gate.minUsd} of ${gate.symbol} to chat here.`);
       const ts = Math.floor(Date.now() / 1000);
       const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
@@ -176,8 +178,8 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
     </div>
     {error && <div className="chat-error" role="alert" data-testid={`chat-error-${room}`}><span>{error}</span><button type="button" data-testid={`chat-retry-${room}`} onClick={() => refresh.current?.()}>Retry connection</button></div>}
     {replyTarget && <div className="chat-replying"><Reply size={13} />Replying to {replyTarget.username}<button type="button" aria-label="Cancel reply" onClick={() => setReplyTarget(null)}><X size={13} /></button></div>}
-    {gate?.gated && <div className={`chat-gate ${gate.allowed ? 'ok' : ''}`} data-testid="chat-gate">{gate.allowed ? `✓ Holder · ${gate.symbol} room (you hold $${Number(gate.holdingUsd).toFixed(2)})` : wallet ? `🔒 Hold ≥ $${gate.minUsd} of ${gate.symbol} to chat here — you hold $${Number(gate.holdingUsd || 0).toFixed(2)}` : `🔒 Holders only — connect a wallet holding ≥ $${gate.minUsd} of ${gate.symbol}`}</div>}
-    <form onSubmit={send} className="chat-compose"><input aria-label="Chat message" data-testid={`chat-input-${room}`} value={input} onChange={e => setInput(e.target.value)} maxLength={500} disabled={Boolean(gate?.gated && !gate.allowed && wallet)} placeholder={replyTarget ? 'Write a reply…' : 'Drop alpha or paste a CA…'} /><button aria-label="Send message" data-testid={`chat-send-${room}`} disabled={sending || !input.trim()}>{sending ? <span className="loader" /> : <Send size={16} />}</button></form>
+    {gate?.gated && <div className={`chat-gate ${gate.allowed ? 'ok' : ''}`} data-testid="chat-gate">{gate.needsChain === 'solana' && wallet?.chain !== 'solana' ? <>🔁 {gate.symbol} lives on Solana — your {wallet?.name || 'wallet'} is on EVM. <button type="button" className="chat-switch-eco" onClick={hopToSolana} disabled={switching}>{switching ? 'Switching…' : 'Switch to Solana'}</button></> : gate.allowed ? `✓ Holder · ${gate.symbol} room (you hold $${Number(gate.holdingUsd).toFixed(2)})` : wallet ? `🔒 Hold ≥ $${gate.minUsd} of ${gate.symbol} to chat here — you hold $${Number(gate.holdingUsd || 0).toFixed(2)}` : `🔒 Holders only — connect a wallet holding ≥ $${gate.minUsd} of ${gate.symbol}`}</div>}
+    <form onSubmit={send} className="chat-compose"><input aria-label="Chat message" data-testid={`chat-input-${room}`} value={input} onChange={e => setInput(e.target.value)} maxLength={500} disabled={Boolean(gate?.gated && !gate.allowed && wallet && !gate.needsChain)} placeholder={replyTarget ? 'Write a reply…' : 'Drop alpha or paste a CA…'} /><button aria-label="Send message" data-testid={`chat-send-${room}`} disabled={sending || !input.trim()}>{sending ? <span className="loader" /> : <Send size={16} />}</button></form>
     {inspected && <div className="chat-profile-popover" role="dialog" aria-label="Chat profile"><button type="button" className="chat-profile-close" aria-label="Close profile" onClick={() => setInspected(null)}><X size={14} /></button><div className="profile-cover small-cover" style={inspected.backgroundUrl ? { backgroundImage: `url(${inspected.backgroundUrl})` } : {}} /><div className="chat-profile-body"><div className="profile-picture small-picture">{inspected.avatarUrl ? <img src={inspected.avatarUrl} alt="" /> : <UserRound size={20} />}</div>{inspected.hidden ? <><strong>Private wallet</strong><p>This creator keeps profile details and flag count private.</p></> : <><strong>{profileLabel(inspected)}</strong><small>{displayAddress(inspected.address)} · {inspected.category || 'Trader'}</small>{inspected.bio && <p>{inspected.bio}</p>}<div className="chat-profile-links">{inspected.xUrl && <a href={inspected.xUrl} target="_blank" rel="noreferrer"><ExternalLink size={12} />X</a>}{inspected.websiteUrl && <a href={inspected.websiteUrl} target="_blank" rel="noreferrer"><Link2 size={12} />Website</a>}</div><div className="chat-profile-footer"><span><Flag size={12} />{inspected.flagCount || 0} flags</span><button type="button" onClick={() => flagProfile(inspected)}><Flag size={12} />Flag profile</button></div></>}</div></div>}
   </div>;
 }

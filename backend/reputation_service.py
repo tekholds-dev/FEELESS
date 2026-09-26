@@ -1624,7 +1624,7 @@ def _clean_profile(p: dict) -> dict:
         'links': {k: _safe_url(links.get(k)) for k in ('x', 'website', 'telegram') if _safe_url(links.get(k))},
         'top8': top8,
         'theme': p.get('theme') if p.get('theme') in ('grid', 'glitter', 'matrix', 'sunset', 'vapor') else 'grid',
-        'friends': [str(f)[:44] for f in (p.get('friends') or [])[:8] if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', str(f))],
+        'friends': [str(f)[:44] for f in (p.get('friends') or [])[:8] if _re.match(r'^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$', str(f))],
     }
 
 
@@ -1633,6 +1633,21 @@ class ProfileSave(BaseModel):
     message: str
     signature: str
     profile: dict
+
+
+def _verify_evm(address: str, message: str, signature_hex: str) -> bool:
+    try:
+        from eth_account import Account
+        from eth_account.messages import encode_defunct
+        return Account.recover_message(encode_defunct(text=message), signature=signature_hex).lower() == address.lower()
+    except Exception:
+        return False
+
+
+def _verify_wallet(address: str, message: str, signature: str) -> bool:
+    if _re.match(r'^0x[0-9a-fA-F]{40}$', address or ''):
+        return _verify_evm(address, message, signature)
+    return _verify_solana(address, message, signature)
 
 
 def _verify_solana(address: str, message: str, signature_b64: str) -> bool:
@@ -1656,7 +1671,7 @@ async def save_profile(payload: ProfileSave):
         raise HTTPException(400, 'Bad timestamp.')
     if abs(time.time() - ts) > 300:
         raise HTTPException(401, 'Signature expired — sign again.')
-    if not _verify_solana(payload.address, payload.message, payload.signature):
+    if not _verify_wallet(payload.address, payload.message, payload.signature):
         raise HTTPException(401, 'Signature does not match this wallet.')
     async with _profile_lock:
         d = _profiles_load()
@@ -1766,7 +1781,7 @@ CHAT_PATH = DATA_DIR / 'chat.json'
 _chat_lock = asyncio.Lock()
 _room_mint_cache: dict = {}
 _holder_cache: dict = {}
-CA_RE = _re.compile(r'\b[1-9A-HJ-NP-Za-km-z]{32,44}\b')
+CA_RE = _re.compile(r'\b(?:0x[0-9a-fA-F]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})\b')
 MENTION_RE = _re.compile(r'@([A-Za-z0-9_.-]{2,32})')
 MIN_HOLD_USD = 1.0
 
@@ -1838,6 +1853,8 @@ async def chat_gate(room: str, address: Optional[str] = None):
     mint, symbol = coin
     if not address:
         return {'gated': True, 'allowed': False, 'symbol': symbol, 'minUsd': MIN_HOLD_USD, 'holdingUsd': None}
+    if address.startswith('0x'):
+        return {'gated': True, 'allowed': False, 'symbol': symbol, 'minUsd': MIN_HOLD_USD, 'holdingUsd': None, 'needsChain': 'solana'}
     value = await _holding_usd(address, mint)
     return {'gated': True, 'allowed': value >= MIN_HOLD_USD, 'symbol': symbol, 'minUsd': MIN_HOLD_USD, 'holdingUsd': round(value, 4)}
 
@@ -1860,13 +1877,15 @@ async def chat_post(payload: ChatPost):
     text = payload.text.strip()
     if not text or len(text) > 500:
         raise HTTPException(400, 'Messages must be 1–500 characters.')
-    if not _re.match(r'^[a-z0-9-]{3,120}$', payload.room) and not payload.room.startswith('coin-') and not _re.match(r'^wall-[1-9A-HJ-NP-Za-km-z]{32,44}$', payload.room):
+    if not _re.match(r'^[a-z0-9-]{3,120}$', payload.room) and not payload.room.startswith('coin-') and not _re.match(r'^wall-([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$', payload.room):
         raise HTTPException(400, 'Unknown room.')
     if abs(time.time() - payload.ts) > 120:
         raise HTTPException(401, 'Signature expired — try again.')
-    if not _verify_solana(payload.address, _chat_message_to_sign(payload.room, payload.address, payload.ts, text), payload.signature):
+    if not _verify_wallet(payload.address, _chat_message_to_sign(payload.room, payload.address, payload.ts, text), payload.signature):
         raise HTTPException(401, 'Signature does not match this wallet.')
     coin = await _room_mint(payload.room)
+    if coin and payload.address.startswith('0x'):
+        raise HTTPException(403, f'{coin[1]} lives on Solana — switch your wallet to its Solana account to chat here.')
     if coin:
         value = await _holding_usd(payload.address, coin[0])
         if value < MIN_HOLD_USD:

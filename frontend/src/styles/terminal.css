@@ -1985,3 +1985,6 @@ body.theme-day .fee-system-chip{background:#e3f2e8;color:#07784f;border-color:#9
 .qt-presets{grid-template-columns:repeat(3,minmax(0,1fr))!important}.qt-presets input{grid-column:1/-1}
 body.theme-day :is(.qt-gear,.qt-settings,.qt-settings-row input,.qt-settings-row button){border-color:var(--day-border)!important}
 body.theme-day .qt-settings-done{background:#07784f!important;color:#fff!important}
+.chat-switch-eco{margin-left:8px;padding:3px 10px;border-radius:999px;border:1px solid var(--mint);background:rgba(0,233,160,.12);color:var(--mint);font-weight:700;cursor:pointer;font-size:11px}
+.chat-switch-eco:hover{background:var(--mint);color:#04120b}
+body.theme-day .chat-switch-eco{border-color:#07784f;color:#07784f}

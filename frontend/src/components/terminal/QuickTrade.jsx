@@ -26,7 +26,7 @@ const units = (raw, decimals) => (raw == null || decimals == null ? null : Numbe
 // Compact buy/sell box that lives next to every chart. Real Jupiter routes, simulated before
 // signing, your wallet signs — nothing custodial. Anything into $FEE carries no FEELESS fee.
 export function QuickTrade({ pair }) {
-  const { wallet, provider, connect } = useWallet() || {};
+  const { wallet, provider, connect, switchTo } = useWallet() || {};
   const assets = useMarket('/assets', 300000);
   const feeMint = (assets.data?.assets || []).find(a => a.id === 'fee')?.mint;
   const [side, setSide] = useState('buy');
@@ -66,6 +66,7 @@ export function QuickTrade({ pair }) {
   };
   const quote = async () => {
     if (!wallet?.address) { try { await connect?.('solana'); } catch { toast.error('Connect a Solana wallet to trade.'); } return; }
+    if (wallet.chain !== 'solana') { try { await (switchTo ? switchTo('solana') : connect?.('solana')); toast.success(`Switched ${wallet.name || 'wallet'} to Solana — tap again to quote.`); } catch { toast.error('Open your wallet and enable its Solana account to trade this pair.'); } return; }
     const amt = payAmount();
     if (!amt) { toast.error(side === 'sell' ? 'No balance to sell.' : 'Enter an amount.'); return; }
     setBusy(true); setResult(null);

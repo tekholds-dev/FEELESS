@@ -114,7 +114,7 @@ export function WalletProfilePage({ address }) {
     </div>
     <section className="wp-card wp-friends">
       <h3>{(p.displayName || 'Their')}'s Top 8</h3>
-      {edit && <div className="wp-top8-add"><input placeholder="Paste a friend's wallet address…" value={friend} onChange={e => setFriend(e.target.value)} /><button type="button" className="btn-outline" disabled={!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(friend.trim()) || (draft.friends || []).length >= 8} onClick={() => { set('friends', [...(draft.friends || []), friend.trim()]); setFriend(''); }}><Plus size={13} />Add friend</button></div>}
+      {edit && <div className="wp-top8-add"><input placeholder="Paste a friend's wallet address…" value={friend} onChange={e => setFriend(e.target.value)} /><button type="button" className="btn-outline" disabled={!/^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$/.test(friend.trim()) || (draft.friends || []).length >= 8} onClick={() => { set('friends', [...(draft.friends || []), friend.trim()]); setFriend(''); }}><Plus size={13} />Add friend</button></div>}
       {!(p.friends || []).length ? <p className="wp-bio">{edit ? 'Add up to 8 wallets — your trench crew.' : 'No Top 8 friends yet.'}</p> : <div className="wp-friends-grid">{p.friends.map((f, i) => <div key={f} className="wp-friend-wrap"><FriendCard address={f} />{edit && <button type="button" className="wp-coin-x" onClick={() => set('friends', draft.friends.filter((_, j) => j !== i))} aria-label="Remove">×</button>}</div>)}</div>}
     </section>
     <section className="wp-card wp-top8">

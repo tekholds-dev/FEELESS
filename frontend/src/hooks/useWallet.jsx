@@ -1,7 +1,19 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 const WalletContext = createContext(null);
-const solanaProvider = () => window.phantom?.solana || window.solana;
-const evmProvider = () => window.ethereum || window.phantom?.ethereum;
+const solanaProvider = () => window.phantom?.solana || window.trustwallet?.solana || window.solflare || window.backpack?.solana || window.solana;
+const evmProvider = () => window.trustwallet?.ethereum || window.ethereum || window.phantom?.ethereum;
+const walletName = (p, chain) => (p?.isTrust || p?.isTrustWallet || window.trustwallet ? 'Trust Wallet' : p?.isPhantom ? 'Phantom' : p?.isSolflare ? 'Solflare' : p?.isBackpack ? 'Backpack' : p?.isCoinbaseWallet ? 'Coinbase Wallet' : p?.isRabby ? 'Rabby' : p?.isMetaMask ? 'MetaMask' : chain === 'solana' ? 'Solana wallet' : 'EVM wallet');
+// EVM networks FEELESS trades on, keyed by DexScreener chain id.
+export const EVM_CHAINS = {
+  ethereum: { chainId: '0x1', chainName: 'Ethereum', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://eth.llamarpc.com'], blockExplorerUrls: ['https://etherscan.io'] },
+  base: { chainId: '0x2105', chainName: 'Base', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://mainnet.base.org'], blockExplorerUrls: ['https://basescan.org'] },
+  bsc: { chainId: '0x38', chainName: 'BNB Smart Chain', nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 }, rpcUrls: ['https://bsc-dataseed.binance.org'], blockExplorerUrls: ['https://bscscan.com'] },
+  arbitrum: { chainId: '0xa4b1', chainName: 'Arbitrum One', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://arb1.arbitrum.io/rpc'], blockExplorerUrls: ['https://arbiscan.io'] },
+  avalanche: { chainId: '0xa86a', chainName: 'Avalanche C-Chain', nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 }, rpcUrls: ['https://api.avax.network/ext/bc/C/rpc'], blockExplorerUrls: ['https://snowtrace.io'] },
+  polygon: { chainId: '0x89', chainName: 'Polygon', nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 }, rpcUrls: ['https://polygon-rpc.com'], blockExplorerUrls: ['https://polygonscan.com'] },
+};
+export const ecoOf = chain => (chain === 'solana' ? 'solana' : EVM_CHAINS[chain] ? 'evm' : null);
+export const networkLabel = hex => Object.entries(EVM_CHAINS).find(([, c]) => c.chainId === String(hex || '').toLowerCase())?.[1].chainName || (hex ? `Chain ${parseInt(hex, 16)}` : null);
 const bytesToBase64 = bytes => {
   const value = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
   let binary = '';
@@ -14,18 +26,19 @@ export const WalletProvider = ({ children }) => {
   const [provider, setProvider] = useState(null);
   const connect = async type => {
     const p = type === 'solana' ? solanaProvider() : evmProvider();
-    if (!p) throw new Error(type === 'solana' ? 'Phantom is not installed in this browser.' : 'No EVM wallet detected in this browser.');
+    if (!p) throw new Error(type === 'solana' ? 'No Solana wallet found. Phantom, Trust Wallet, Solflare and Backpack all work — enable Solana in your wallet.' : 'No EVM wallet detected in this browser.');
     if (type === 'solana') {
       const result = await p.connect();
       if (!result.publicKey) throw new Error('No wallet account was returned.');
-      const nextWallet = { name: 'Phantom', chain: type, address: result.publicKey.toString() };
+      const nextWallet = { name: walletName(p, 'solana'), chain: type, address: result.publicKey.toString() };
       setWallet(nextWallet);
       setProvider(p);
       return { wallet: nextWallet, provider: p };
     } else {
       const accounts = await p.request({ method: 'eth_requestAccounts' });
       if (!accounts?.[0]) throw new Error('No wallet account was returned.');
-      const nextWallet = { name: 'EVM wallet', chain: type, address: accounts[0] };
+      const evmChainId = await p.request({ method: 'eth_chainId' }).catch(() => null);
+      const nextWallet = { name: walletName(p, 'evm'), chain: type, address: accounts[0], evmChainId };
       setWallet(nextWallet);
       setProvider(p);
       return { wallet: nextWallet, provider: p };
@@ -34,6 +47,25 @@ export const WalletProvider = ({ children }) => {
   const disconnect = async () => {
     if (wallet?.chain === 'solana') await provider?.disconnect?.();
     setWallet(null); setProvider(null);
+  };
+  // Move the connected wallet onto the eco/network a coin lives on.
+  // Same extension, other side (e.g. Trust Wallet 0x → its Solana account), or an EVM network switch.
+  const switchTo = async chain => {
+    const eco = ecoOf(chain);
+    if (!eco) throw new Error(`FEELESS can't sign on ${chain} yet.`);
+    if (eco === 'solana') return wallet?.chain === 'solana' ? { wallet, provider } : connect('solana');
+    let current = wallet?.chain === 'evm' ? { wallet, provider } : await connect('evm');
+    const target = EVM_CHAINS[chain];
+    if (String(current.wallet.evmChainId || '').toLowerCase() === target.chainId) return current;
+    try {
+      await current.provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: target.chainId }] });
+    } catch (e) {
+      if (e?.code !== 4902) throw e;
+      await current.provider.request({ method: 'wallet_addEthereumChain', params: [target] });
+    }
+    const next = { ...current.wallet, evmChainId: target.chainId };
+    setWallet(next);
+    return { wallet: next, provider: current.provider };
   };
   const signMessage = async message => {
     if (!wallet || !provider) throw new Error('Connect a wallet before signing.');
@@ -52,10 +84,11 @@ export const WalletProvider = ({ children }) => {
       setWallet(current => address && current ? { ...current, address } : null);
     };
     const reset = () => setWallet(null);
+    const chainChanged = evmChainId => setWallet(current => (current ? { ...current, evmChainId } : current));
     const event = wallet.chain === 'solana' ? 'accountChanged' : 'accountsChanged';
-    provider.on?.(event, changed); provider.on?.('disconnect', reset); provider.on?.('chainChanged', reset);
-    return () => { provider.removeListener?.(event, changed); provider.removeListener?.('disconnect', reset); provider.removeListener?.('chainChanged', reset); };
+    provider.on?.(event, changed); provider.on?.('disconnect', reset); provider.on?.('chainChanged', chainChanged);
+    return () => { provider.removeListener?.(event, changed); provider.removeListener?.('disconnect', reset); provider.removeListener?.('chainChanged', chainChanged); };
   }, [provider, wallet?.chain]); // eslint-disable-line react-hooks/exhaustive-deps
-  return <WalletContext.Provider value={{ wallet, connect, disconnect, provider, signMessage }}>{children}</WalletContext.Provider>;
+  return <WalletContext.Provider value={{ wallet, connect, disconnect, provider, signMessage, switchTo }}>{children}</WalletContext.Provider>;
 };
 export const useWallet = () => useContext(WalletContext);
