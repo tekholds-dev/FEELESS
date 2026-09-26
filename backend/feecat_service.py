@@ -70,13 +70,47 @@ def _log_event(store, cat, kind, detail, pnl=None, pair=None, price=None):
 
 
 FEE_PER_SIDE = 0.01
-ENGINE_VERSION = 'live-v2'
+ENGINE_VERSION = 'live-v2'  # v3 logic below is additive; keeps the existing track record
 LEADER_ID = 'leader'
 MARKET_FEED = 'http://127.0.0.1:5001/api/market/feed?kind={kind}&chain=solana&page={page}'
 RULES = {'minLiquidity': 40_000, 'minVolume24h': 100_000, 'minMarketCap': 150_000, 'maxMarketCap': 50_000_000,
          'minAgeHours': 3, 'h1Min': 3, 'h1Max': 40, 'h6Max': 120, 'h24Max': 400, 'minBuySellRatio': 1.2,
          'stopLoss': -10, 'takeProfit': 22, 'trailArm': 12, 'trailGive': 8, 'maxHoldHours': 4, 'maxPositions': 4,
-         'cooldownHours': 2}
+         'cooldownHours': 2,
+         # v3 safety + exits
+         'maxM5Chase': 8, 'maxTop10Pct': 35, 'maxInsiderPct': 20, 'maxDevPct': 10, 'maxSnipers': 15, 'maxBundled': 10,
+         'breakEvenArm': 8, 'scaleOutFraction': 0.5, 'runnerTrailGive': 6, 'liqPullPct': 30, 'dumpSellRatio': 2.0}
+_intel_cache = {}
+
+
+async def _safety(http, p):
+    """Rug/insider gate from FEELESS on-chain intel. Returns (ok, why, conviction 0.5–1.5)."""
+    mint = (p.get('baseToken') or {}).get('address')
+    if not mint:
+        return False, 'no mint', 0
+    hit = _intel_cache.get(mint)
+    if hit and time.time() - hit[0] < 1800:
+        d = hit[1]
+    else:
+        try:
+            d = (await http.get(f'http://127.0.0.1:5077/api/reputation/intel/solana/{mint}', timeout=25)).json()
+        except Exception:
+            d = None
+        _intel_cache[mint] = (time.time(), d)
+    if not d or d.get('top10Pct') is None:
+        return False, 'no holder intel yet', 0
+    R = RULES
+    snip, bund = len(d.get('sniperWallets') or []), len(d.get('bundledWallets') or [])
+    checks = [(_num(d.get('top10Pct')) <= R['maxTop10Pct'], f"top 10 wallets hold {_num(d.get('top10Pct')):.0f}%"),
+              (_num(d.get('insidersHoldingPct')) <= R['maxInsiderPct'], f"insiders hold {_num(d.get('insidersHoldingPct')):.0f}%"),
+              (_num(d.get('devHoldingPct')) <= R['maxDevPct'], f"dev holds {_num(d.get('devHoldingPct')):.0f}%"),
+              (snip <= R['maxSnipers'], f'{snip} snipers'), (bund <= R['maxBundled'], f'{bund} bundled wallets')]
+    for ok, why in checks:
+        if not ok:
+            return False, why, 0
+    # Cleaner distribution → more conviction.
+    conviction = 1.5 - min(1.0, _num(d.get('top10Pct')) / R['maxTop10Pct']) * 0.6 - (0.2 if snip > 5 else 0) - (0.2 if bund else 0)
+    return True, f"top10 {_num(d.get('top10Pct')):.0f}%, insiders {_num(d.get('insidersHoldingPct')):.0f}%, {snip} snipers, {bund} bundled", max(0.5, round(conviction, 2))
 
 
 def _num(v, d=0.0):
@@ -125,7 +159,7 @@ def _qualifies(p, now):
     R = RULES
     checks = [(liq >= R['minLiquidity'], 'liquidity'), (vol >= R['minVolume24h'], 'volume'),
               (R['minMarketCap'] <= mc <= R['maxMarketCap'], 'market cap band'), (age_h >= R['minAgeHours'], 'too new'),
-              (m5 > 0, '5m momentum'), (R['h1Min'] <= h1 <= R['h1Max'], '1h move'), (0 < h6 <= R['h6Max'], '6h trend'),
+              (m5 > 0, '5m momentum'), (m5 <= R['maxM5Chase'], 'chasing a 5m spike'), (R['h1Min'] <= h1 <= R['h1Max'], '1h move'), (0 < h6 <= R['h6Max'], '6h trend'),
               (h24 <= R['h24Max'], 'overextended'), (sells == 0 or buys / max(sells, 1) >= R['minBuySellRatio'], 'buy pressure')]
     for ok, why in checks:
         if not ok:
@@ -140,7 +174,7 @@ def _fmt_usd(v):
     return f'${v/1e6:.2f}M' if v >= 1e6 else f'${v/1e3:.1f}K' if v >= 1e3 else f'${v:.2f}'
 
 
-def _buy_analysis(p, size, sym):
+def _buy_analysis(p, size, sym, safety='', conviction=1.0):
     ch = p.get('priceChange') or {}
     tx = (p.get('txns') or {}).get('h1') or {}
     b, s = _num(tx.get('buys')), _num(tx.get('sells'))
@@ -152,8 +186,11 @@ def _buy_analysis(p, size, sym):
             f"• Order flow: {b:.0f} buys vs {s:.0f} sells in the last hour ({(b / max(b + s, 1)) * 100:.0f}% buys) — buyers are in control.\n"
             f"• Momentum: 5m {_num(ch.get('m5')):+.1f}%, 1h {_num(ch.get('h1')):+.1f}%, 6h {_num(ch.get('h6')):+.1f}% — trending up without being vertical (my cap is +{R['h1Max']}% 1h / +{R['h6Max']}% 6h).\n"
             f"• Liquidity: {_fmt_usd(liq)} ({(liq / mc * 100) if mc else 0:.1f}% of {_fmt_usd(mc)} market cap) — deep enough to get out.\n"
-            f"• Activity: {_fmt_usd(vol)} traded in 24h; pool is {age_h:.1f}h old (I skip anything under {R['minAgeHours']}h).\n\n"
-            f"Risk plan: stop at {R['stopLoss']}%, take profit at +{R['takeProfit']}%, trailing stop once it's up +{R['trailArm']}% (gives back {R['trailGive']}%), and I'm out after {R['maxHoldHours']}h no matter what. "
+            f"• Activity: {_fmt_usd(vol)} traded in 24h; pool is {age_h:.1f}h old (I skip anything under {R['minAgeHours']}h).\n"
+            f"• Holders (FEELESS on-chain intel): {safety or 'checked'} — I skip anything with top-10 over {R['maxTop10Pct']}%, insiders over {R['maxInsiderPct']}%, dev over {R['maxDevPct']}% or heavy sniping/bundling.\n"
+            f"• Size: {conviction}× conviction — cleaner holder distribution earns a bigger position.\n\n"
+            f"Risk plan: stop at {R['stopLoss']}%, moved to break-even once it's up +{R['breakEvenArm']}%. At +{R['takeProfit']}% I sell half and let the rest run with a {R['runnerTrailGive']}% trailing stop. "
+            f"I also bail instantly if liquidity drops {R['liqPullPct']}% or sellers outnumber buyers {R['dumpSellRatio']:.0f}:1 while I'm red, and I'm out after {R['maxHoldHours']}h no matter what. "
             f"Every trade pays 1% each way so you see real costs.\n\nNot financial advice — this is how a disciplined bot thinks, out loud.")
 
 
@@ -166,10 +203,13 @@ def _post_as_fee(pair_address, text, register_call=False):
         print('fee post failed', exc)
 
 
-def _close(store, cat, pos, price_native, why):
-    gross = pos['notionalSol'] * (price_native / pos['entryPriceNative'])
+def _close(store, cat, pos, price_native, why, fraction=1.0):
+    gross = pos['notionalSol'] * fraction * (price_native / pos['entryPriceNative'])
     proceeds = gross * (1 - FEE_PER_SIDE)
-    pnl = round(proceeds - pos['costSol'], 6)
+    pnl = round(proceeds - pos['costSol'] * fraction, 6)
+    if fraction < 1:
+        pos['notionalSol'] = round(pos['notionalSol'] * (1 - fraction), 6)
+        pos['costSol'] = round(pos['costSol'] * (1 - fraction), 6)
     cat['balanceSol'] = round(cat['balanceSol'] + proceeds, 6)
     cat['realizedPnlSol'] = round(cat.get('realizedPnlSol', 0) + pnl, 6)
     cat['totalPnlSol'] = cat['realizedPnlSol']
@@ -187,10 +227,14 @@ def _close(store, cat, pos, price_native, why):
     closed = cat.get('wins', 0) + cat.get('losses', 0)
     cat['winRate'] = round(cat['wins'] / closed * 100) if closed else None
     change = (price_native / pos['entryPriceNative'] - 1) * 100
-    _log_event(store, cat, 'SELL', f"Sold {pos['symbol']} at {change:+.1f}% — {why}. Net {pnl:+.4f} SOL after fees (paper, live price).", pnl, pos.get('pairAddress'), price_native)
+    part = f'{int(fraction * 100)}% of ' if fraction < 1 else ''
+    _log_event(store, cat, 'SELL', f"Sold {part}{pos['symbol']} at {change:+.1f}% — {why}. Net {pnl:+.4f} SOL after fees (paper, live price).", pnl, pos.get('pairAddress'), price_native)
     if cat.get('isLeader') and pos.get('pairAddress'):
         held = (time.time() - pos.get('openedAt', time.time())) / 3600
         verdict = 'Took the win.' if pnl >= 0 else 'Cut it — protecting capital beats hoping.'
+        if fraction < 1:
+            _post_as_fee(pos['pairAddress'], f"🐱 Fee took {int(fraction * 100)}% off ${pos['symbol']} at {change:+.1f}% — {why}. Locked {pnl:+.4f} SOL.\nThe rest rides as a runner with a tighter trailing stop and a break-even floor. House money now.")
+            return
         _post_as_fee(pos['pairAddress'], f"🐱 Fee sold ${pos['symbol']} at {change:+.1f}% after {held:.1f}h — {why}.\nNet {pnl:+.4f} SOL after the 1% fee each way (peak was {pos.get('peakChange', 0):+.1f}%).\n{verdict} The rules decide the exit, not feelings.")
 
 
@@ -225,14 +269,25 @@ async def run_engine(store, cats):
             pos['lastPriceUsd'] = live.get('priceUsd')
             held_h = (now - pos['openedAt']) / 3600
             why = None
-            if change <= R['stopLoss']:
-                why = f'stop-loss {R["stopLoss"]}%'
-            elif change >= R['takeProfit']:
-                why = f'take-profit +{R["takeProfit"]}%'
-            elif pos['peakChange'] >= R['trailArm'] and change <= pos['peakChange'] - R['trailGive']:
+            liq_now = _num((live.get('liquidity') or {}).get('usd'))
+            t5 = (live.get('txns') or {}).get('m5') or {}
+            b5, s5 = _num(t5.get('buys')), _num(t5.get('sells'))
+            floor = -1 if pos['peakChange'] >= R['breakEvenArm'] else R['stopLoss']
+            give = R['runnerTrailGive'] if pos.get('scaled') else R['trailGive']
+            if pos.get('entryLiq') and liq_now and liq_now < pos['entryLiq'] * (1 - R['liqPullPct'] / 100):
+                why = f"liquidity pulled ({_fmt_usd(pos['entryLiq'])} → {_fmt_usd(liq_now)})"
+            elif change <= floor:
+                why = 'break-even stop' if floor > R['stopLoss'] else f'stop-loss {R["stopLoss"]}%'
+            elif change >= R['takeProfit'] and not pos.get('scaled'):
+                pos['scaled'] = True
+                _close(store, cat, pos, px, f'take-profit +{R["takeProfit"]}% (scaling out)', R['scaleOutFraction'])
+                continue
+            elif pos['peakChange'] >= R['trailArm'] and change <= pos['peakChange'] - give:
                 why = f'trailing stop (peak +{pos["peakChange"]:.1f}%)'
-            elif held_h >= R['maxHoldHours']:
-                why = f'time exit after {R["maxHoldHours"]}h'
+            elif change < 0 and s5 >= 10 and s5 >= b5 * R['dumpSellRatio']:
+                why = f'sell pressure ({s5:.0f} sells vs {b5:.0f} buys in 5m)'
+            elif held_h >= R['maxHoldHours'] * (1.5 if pos.get('scaled') else 1):
+                why = f'time exit after {held_h:.1f}h'
             if why:
                 cat['positions'].remove(pos)
                 _close(store, cat, pos, px, why)
@@ -241,6 +296,7 @@ async def run_engine(store, cats):
             continue
         block = {x.upper() for x in cat['risk'].get('blocklist') or []}
         allow = {x.upper() for x in cat['risk'].get('allowlist') or []}
+        safety_checks = 0
         for score, reason, p in ranked:
             if len(cat['positions']) >= R['maxPositions']:
                 break
@@ -252,8 +308,18 @@ async def run_engine(store, cats):
                 continue
             if now - cat.get('cooldowns', {}).get(pa, 0) < R['cooldownHours'] * 3600:
                 continue
+            if safety_checks >= 4:
+                break
+            safety_checks += 1
+            async with httpx.AsyncClient(timeout=30) as http2:
+                safe, safe_why, conviction = await _safety(http2, p)
+            if not safe:
+                store.setdefault('scan', {}).setdefault('safetyRejects', []).append({'symbol': sym, 'why': safe_why})
+                store['scan']['safetyRejects'] = store['scan']['safetyRejects'][-10:]
+                continue
+            reason = f'{reason}; holders: {safe_why}; conviction {conviction}×'
             px = _num(p.get('priceNative'))
-            size = round(min(float(cat['risk']['maxPositionSol']), cat['balanceSol'] * 0.1), 4)
+            size = round(min(float(cat['risk']['maxPositionSol']), cat['balanceSol'] * 0.1 * conviction), 4)
             if px <= 0 or size < 0.01 or cat['balanceSol'] < size:
                 continue
             cat['balanceSol'] = round(cat['balanceSol'] - size, 6)
@@ -263,10 +329,11 @@ async def run_engine(store, cats):
                 'url': p.get('url'), 'costSol': size, 'notionalSol': round(size * (1 - FEE_PER_SIDE), 6),
                 'entryPriceNative': px, 'entryPriceUsd': p.get('priceUsd'), 'entryChange': 0, 'currentChange': 0,
                 'peakChange': 0, 'openedAt': now, 'reason': reason,
+                'entryLiq': _num((p.get('liquidity') or {}).get('usd')), 'conviction': conviction,
             })
             _log_event(store, cat, 'BUY', f"Bought {size} SOL of {sym} at live price — {reason} (paper).", None, pa, px)
             if cat.get('isLeader'):
-                _post_as_fee(pa, _buy_analysis(p, size, sym), register_call=True)
+                _post_as_fee(pa, _buy_analysis(p, size, sym, safe_why, conviction), register_call=True)
         cat['lastTick'] = now
 
 
