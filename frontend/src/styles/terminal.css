@@ -2674,3 +2674,17 @@ body.theme-day .reputation-badge.badge-veteran{color:#8a6d00}
 /* Chart error state: clear icon + link, no misleading spinner */
 .chart-message-error{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:24px}
 .chart-message-error a{color:var(--mint);font-size:12.5px;text-decoration:underline}
+
+/* ===== FeeCat mascot — alive ===== */
+.feecat-mark .fc-body{animation:fc-bob 4.4s ease-in-out infinite}
+.feecat-mark .fc-tail{animation:fc-tail 3.2s ease-in-out infinite}
+.feecat-mark .fc-ear-l{animation:fc-ear 5s ease-in-out infinite}
+.feecat-mark .fc-eye{animation:fc-blink 4.6s ease-in-out infinite}
+.feecat-mark .fc-eye-spark{animation:fc-blink 4.6s ease-in-out infinite}
+@keyframes fc-bob{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-3px) rotate(-1.5deg)}}
+@keyframes fc-tail{0%,100%{transform:rotate(0deg)}30%{transform:rotate(6deg)}60%{transform:rotate(-4deg)}}
+@keyframes fc-ear{0%,89%,100%{transform:rotate(0deg)}91%{transform:rotate(-10deg)}93%{transform:rotate(4deg)}95%{transform:rotate(0deg)}}
+@keyframes fc-blink{0%,94%,100%{transform:scaleY(1)}96%,98%{transform:scaleY(.12)}}
+.feecat-mark.is-alive:hover .fc-tail{animation-duration:1.1s}
+body.reduced-motion-setting .feecat-mark *{animation:none!important}
+.feecat-mark .fc-tail,.feecat-mark .fc-ear-l,.feecat-mark .fc-eye,.feecat-mark .fc-eye-spark{transform-box:fill-box}

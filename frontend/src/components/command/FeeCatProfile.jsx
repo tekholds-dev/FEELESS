@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { FeeCatMark } from '../FeeCatMark';
 import { PnlCard } from './MetaPanels';
 import { currentSubscription, enablePush, readPushPrefs, savePushPrefs, syncPush } from '../../lib/push';
 
@@ -30,7 +31,7 @@ export function FeeCatProfile({ catId = 'leader' }) {
   const c = d.cat; const L = d.learning;
   return <section className="fcp" data-testid="feecat-profile">
     <header className="fcp-head">
-      <div className="fcp-avatar">🐱<i className="flr-dot" /></div>
+      <div className="fcp-avatar"><FeeCatMark size={54} variant={(c.realizedPnlSol || 0) >= 0 ? 'mint' : 'rose'} /><i className="flr-dot" /></div>
       <div className="fcp-id"><h2 className="live-gradient-text">{c.name} <small>{c.title || 'The Leader'}</small></h2><span>{c.strategyLabel} · level {c.level} · {c.status === 'running' ? 'trading live (paper)' : c.status}</span></div>
       <button type="button" className={`btn-${following ? 'outline' : 'primary'} fcp-follow`} data-testid="follow-fee" onClick={follow}>{following ? '✓ Following Fee' : '🔔 Follow Fee (copy alerts)'}</button>
       <div className="fcp-kpis">

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Music2, MessageCircle, X, Plus, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
+import { FeeCatMark } from './FeeCatMark';
 import EcosystemChat from './EcosystemChat';
 import { parse } from './command/ProfileMusic';
 
@@ -57,7 +58,7 @@ export function FeeCatWidget() {
       </div>}
     </div>}
     <button type="button" className={`feecat-fab ${open ? 'on' : ''}`} onClick={() => setOpen(o => !o)} data-testid="feecat-fab" aria-label="FeeCat">
-      <span className="feecat-face">🐱</span>{playing && <i className="feecat-note">♪</i>}
+      <FeeCatMark size={32} variant={playing ? 'gold' : 'mint'} /> {playing && <i className="feecat-note">♪</i>}
     </button>
   </div>;
 }
