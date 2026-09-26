@@ -2747,3 +2747,4 @@ body.theme-day .nm-tile,body.theme-day .nm-flow>div,body.theme-day .nm-trend{bac
 body.theme-day .tab-stage>:not(.coin-aura){background:rgba(255,255,255,.72)}
 body.theme-day .tab-stage h1,body.theme-day .tab-stage h2{background:linear-gradient(90deg,#0a1f14,#2d6fb0);-webkit-background-clip:text;background-clip:text}
 @media(prefers-reduced-motion:reduce){.tab-stage>*{animation:none}}
+.pf-more{margin-top:12px;width:100%;padding:10px;border-radius:12px;border:1px dashed rgba(0,233,160,.35);background:rgba(0,233,160,.05);color:var(--mint);font-weight:600;cursor:pointer}.pf-more:hover{background:rgba(0,233,160,.12)}
