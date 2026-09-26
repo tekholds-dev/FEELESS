@@ -2232,3 +2232,11 @@ body.theme-day .legal-consent{background:#fff;border-color:#9fd3b6}body.theme-da
 .wallet-profile-page.theme-neoncat{background:linear-gradient(160deg,#1a0430,#04141a 60%,#2a0425)}
 .wallet-profile-page .wp-card{background:rgba(0,0,0,.35)!important;backdrop-filter:blur(6px)}
 .wallet-profile-page>:not(.wp-banner){margin-inline:clamp(10px,2vw,28px)}
+/* Cleaner header: shorter banner, aligned edges */
+.wallet-profile-page{overflow:hidden}
+.wallet-profile-page>.wp-banner{margin:0!important;width:100%;max-height:260px;border-radius:18px 18px 0 0;border:0}
+.wp-head{gap:20px;padding:0 24px 18px!important;align-items:flex-end!important}
+.wp-id,.badge-artifacts{margin-top:0!important;padding-bottom:4px}
+.wp-id h1{font-size:26px;line-height:1.15}
+.wp-actions{margin-left:auto;align-self:flex-end}
+@media (max-width:700px){.wp-head{align-items:flex-start!important}.wp-id{margin-top:6px!important}}
