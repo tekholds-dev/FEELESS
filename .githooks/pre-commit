@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# FEELESS secret guard: blocks commits that contain API keys, private keys or env files.
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+if echo "$staged" | grep -Eq '(^|/)\.env($|\.)|\.pem$|\.key$|vapid.*\.json$'; then
+  echo "✋ Blocked: a secrets file is staged:"; echo "$staged" | grep -E '(^|/)\.env($|\.)|\.pem$|\.key$|vapid.*\.json$'; exit 1
+fi
+if git diff --cached -U0 -- . ':(exclude).githooks' | grep -E '^\+' | grep -Eq 'api-key=[0-9a-f]{8}-[0-9a-f]{4}|-----BEGIN [A-Z ]*PRIVATE KEY-----|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|"secretKey"|x-cg-pro-api-key: [A-Za-z0-9]{10,}'; then
+  echo "✋ Blocked: this commit looks like it contains a secret (API key / private key). Move it to backend/.env."; exit 1
+fi
+exit 0
