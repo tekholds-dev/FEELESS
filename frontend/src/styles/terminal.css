@@ -2363,3 +2363,12 @@ body.theme-day .wallet-profile-page .wp-card{background:#ffffffcc!important}
 body.theme-day .wp-id h1:not([class*="namefx-g"]):not(.namefx-rainbow):not(.namefx-diamond){color:#0b2a1d}
 body.theme-day .artifact-coin .face{color:inherit}
 body.theme-day .heartbeat-mark{filter:drop-shadow(0 0 16px rgba(8,118,78,.35))}
+/* Profile music */
+.pm-player{display:grid;gap:10px}.pm-now{display:flex;gap:12px;align-items:center}.pm-now small{display:block;color:var(--muted);font-size:11px;text-transform:capitalize}
+.pm-disc{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-size:20px;background:radial-gradient(circle,#111 0 18%,var(--wp-accent,#00e9a0) 19% 24%,#0b0f0d 25%);box-shadow:0 0 16px color-mix(in srgb,var(--wp-accent,#00e9a0) 45%,transparent)}.pm-disc.spin{animation:spin 3s linear infinite}
+.pm-controls{display:flex;gap:6px;align-items:center}.pm-controls button{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;border:1px solid var(--line);background:#ffffff08;color:inherit;cursor:pointer}.pm-controls .pm-play{width:42px;height:42px;background:var(--wp-accent,#00e9a0);color:#04120b;border:0}
+.pm-controls input[type=range]{flex:1;accent-color:var(--wp-accent,#00e9a0)}
+.pm-frame{width:100%;border:0;border-radius:12px}.pm-youtube{aspect-ratio:16/9;max-height:220px}.pm-spotify{height:152px}.pm-soundcloud{height:120px}
+.pm-list{margin:0;padding:0;list-style:none;display:grid;gap:2px}.pm-list li{display:flex;gap:6px;align-items:center}.pm-list li button:first-child{flex:1;text-align:left;border:0;background:none;color:inherit;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:12.5px}.pm-list li.on button:first-child{background:rgba(0,233,160,.1);color:var(--wp-accent,#00e9a0)}.pm-del{border:0;background:none;color:var(--muted);cursor:pointer}
+.pm-add{display:flex;flex-wrap:wrap;gap:6px}.pm-add input{flex:1;min-width:160px;min-height:32px;border-radius:8px;border:1px solid var(--line);background:#ffffff08;color:inherit;padding:0 10px}
+body.theme-day .pm-controls button{background:#fff;border-color:var(--day-border)}body.theme-day .pm-add input{background:#fff;border-color:var(--day-border)}

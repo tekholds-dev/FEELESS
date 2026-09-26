@@ -14,6 +14,7 @@ import { ReceiptsCard } from './ReceiptsCard';
 import { CommandCenter, ReportBug } from './CommandCenter';
 import { InviteCard } from '../InviteCard';
 import { AdBanner } from '../AdBanner';
+import { ProfileMusic } from './ProfileMusic';
 import { OnchainStrip, PerksCard, SetupCallout, usePerks } from './ProfileExtras';
 
 const RINGS = [['none', 'Classic', 0], ['mint', 'Mint pulse', 0], ['sunset', 'Sunset', 0], ['ocean', 'Ocean', 0], ['candy', 'Candy', 0], ['neon', 'Neon', 0], ['ghost', 'Ghost', 0], ['emerald', 'Emerald', 1], ['plasma', 'Plasma', 1], ['diamond', 'Diamond', 2], ['aurora', 'Aurora', 2], ['gold', 'Molten Gold', 3], ['royal', 'Royal', 3]];
@@ -84,7 +85,7 @@ export function WalletProfilePage({ address }) {
   const p = (edit ? draft : data?.profile) || {};
   const accent = p.accent || '#00e9a0';
   const set = (k, v) => setDraft(d => ({ ...d, [k]: v }));
-  const startEdit = () => { setDraft({ displayName: '', bio: '', mood: '', accent: '#00e9a0', links: {}, top8: [], theme: 'grid', friends: [], featuredBadges: [], ring: 'none', nameFx: 'none', handle: '', ...(data?.profile || {}) }); setEdit(true); };
+  const startEdit = () => { setDraft({ displayName: '', bio: '', mood: '', accent: '#00e9a0', links: {}, top8: [], theme: 'grid', friends: [], featuredBadges: [], ring: 'none', nameFx: 'none', handle: '', songs: [], ...(data?.profile || {}) }); setEdit(true); };
   const addCoin = coin => setDraft(d => (d.top8.some(t => t.pairAddress === coin.pairAddress) || d.top8.length >= 8 ? d : { ...d, top8: [...d.top8, coin] }));
   const addByCa = async () => {
     try {
@@ -169,6 +170,7 @@ export function WalletProfilePage({ address }) {
       <p className="wp-bio">Leave {p.displayName || 'them'} a message. Every comment is signed by the poster's wallet.</p>
       <EcosystemChat compact room={`wall-${address}`} ecosystem={{ id: `wall-${address}`, name: 'Wall' }} onConnect={() => connect?.('solana')} />
     </section>
+    <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />
     {mine && <InviteCard address={address} />}
     <AdBanner placement="profile" />
     <PerksCard perks={perks} mine={mine} />
