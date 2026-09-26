@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
+import gecko_budget
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -1023,6 +1024,7 @@ def _globe_row(chain, pool, images):
 
 
 async def _refresh_globe():
+    await asyncio.sleep(120)  # let charts claim GeckoTerminal first after a restart
     while True:
         tokens, ok_chains = {}, set()
         async with httpx.AsyncClient(timeout=12, headers={'accept': 'application/json'}) as http:
@@ -1030,8 +1032,13 @@ async def _refresh_globe():
                 for path in (f'/networks/{net}/pools?sort=h24_volume_usd_desc&include=base_token', f'/networks/{net}/trending_pools?include=base_token'):
                     r = None
                     for _ in range(2):
+                        if not gecko_budget.take('globe'):
+                            await asyncio.sleep(20)
+                            continue
                         try:
                             r = await http.get(f'https://api.geckoterminal.com/api/v2{path}')
+                            if r.status_code == 429:
+                                gecko_budget.throttled()
                         except Exception:
                             r = None
                         if r is not None and r.status_code == 200:
@@ -1055,7 +1062,7 @@ async def _refresh_globe():
             _globe_cache.update(at=time.time(), data={'tokens': sorted(list(tokens.values()) + kept, key=lambda t: -t['marketCap']),
                                                       'minMarketCap': GLOBE_MIN_MC, 'source': 'GeckoTerminal top-volume + trending pools',
                                                       'chains': sorted(ok_chains | {t['chain'] for t in kept}), 'at': time.time()})
-        await asyncio.sleep(300)
+        await asyncio.sleep(900)
 
 
 @app.on_event('startup')
@@ -1934,9 +1941,9 @@ async def chat_post(payload: ChatPost):
             _boost_last[payload.address] = time.time()
         msg = {'id': uuid.uuid4().hex[:16], 'room': payload.room, 'address': payload.address, 'chain': 'evm' if payload.address.startswith('0x') else 'solana',
                'tier': tier, 'boosted': boosted,
-               'username': _display_name(payload.address), 'text': text, 'ts': int(time.time() * 1000),
+               'username': _display_name(primary_of(payload.address)), 'identity': primary_of(payload.address), 'text': text, 'ts': int(time.time() * 1000),
                'parentId': payload.parentId, 'mentions': sorted(set(MENTION_RE.findall(text)))[:10], 'tokens': tokens,
-               'profile': {'address': payload.address, 'chain': 'evm' if payload.address.startswith('0x') else 'solana'}}
+               'profile': {'address': primary_of(payload.address), 'chain': 'solana' if not primary_of(payload.address).startswith('0x') else 'evm'}}
         room = d['rooms'].setdefault(payload.room, [])
         room.append(msg)
         d['rooms'][payload.room] = room[-300:]
@@ -2652,6 +2659,7 @@ _perk_cache = {}
 
 
 async def _perk_tier(address: str):
+    address = primary_of(address)
     hit = _perk_cache.get(address)
     if hit and time.time() - hit[0] < 120:
         return hit[1]
@@ -2767,3 +2775,84 @@ async def wallet_stats(address: str):
         out['firstSeen'] = oldest if not out['txCountCapped'] else None
     _wstats_cache[address] = (time.time(), out)
     return out
+
+
+# ---- Linked identities: one person, every network ------------------------------------------
+IDENTITY_PATH = DATA_DIR / 'identities.json'
+
+
+def _ids():
+    return _json_load(IDENTITY_PATH, {'links': {}})
+
+
+def primary_of(address: str) -> str:
+    """Solana account is the primary identity; a linked 0x account resolves to it."""
+    return _ids()['links'].get(address, {}).get('primary', address)
+
+
+def linked_of(address: str):
+    p = primary_of(address)
+    return sorted({p, *[a for a, v in _ids()['links'].items() if v.get('primary') == p]})
+
+
+class LinkIn(BaseModel):
+    solana: str
+    evm: str
+    ts: int
+    solanaSig: str
+    evmSig: str
+
+
+@app.post('/api/reputation/identity/link')
+async def identity_link(payload: LinkIn):
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', payload.solana) or not _re.match(r'^0x[0-9a-fA-F]{40}$', payload.evm):
+        raise HTTPException(400, 'Need one Solana and one 0x address.')
+    if abs(time.time() - payload.ts) > 300:
+        raise HTTPException(401, 'Link expired — try again.')
+    msg = f'FEELESS link wallets\nsolana:{payload.solana}\nevm:{payload.evm}\nts:{payload.ts}'
+    if not _verify_solana(payload.solana, msg, payload.solanaSig) or not _verify_evm(payload.evm, msg, payload.evmSig):
+        raise HTTPException(401, 'Both accounts must sign the link.')
+    async with _admin_lock:
+        d = _ids()
+        d['links'][payload.evm] = {'primary': payload.solana, 'at': time.time()}
+        d['links'][payload.solana] = {'primary': payload.solana, 'at': time.time()}
+        _json_save(IDENTITY_PATH, d)
+    _badge_cache.pop(payload.evm, None); _perk_cache.pop(payload.evm, None)
+    return {'ok': True, 'primary': payload.solana, 'linked': linked_of(payload.solana)}
+
+
+@app.get('/api/reputation/identity/{address}')
+async def identity(address: str):
+    return {'address': address, 'primary': primary_of(address), 'linked': linked_of(address)}
+
+
+class ChatDelete(BaseModel):
+    room: str
+    id: str
+    address: str
+    ts: int
+    signature: str
+
+
+@app.post('/api/reputation/chat/delete')
+async def chat_delete(payload: ChatDelete):
+    """Posts can only be deleted on profile walls: by the wall owner (any network they've linked) or by the poster."""
+    m = _re.match(r'^wall-(.+)$', payload.room)
+    if not m:
+        raise HTTPException(403, 'Posts can only be deleted on profile walls.')
+    if abs(time.time() - payload.ts) > 120:
+        raise HTTPException(401, 'Signature expired.')
+    if not _verify_wallet(payload.address, f'FEELESS delete\nroom:{payload.room}\nid:{payload.id}\nts:{payload.ts}', payload.signature):
+        raise HTTPException(401, 'Signature does not match this wallet.')
+    me = set(linked_of(payload.address))
+    async with _chat_lock:
+        d = _chat_load()
+        msgs = d['rooms'].get(payload.room, [])
+        msg = next((x for x in msgs if x['id'] == payload.id), None)
+        if not msg:
+            raise HTTPException(404, 'Post not found.')
+        if primary_of(m.group(1)) not in me and msg.get('address') not in me:
+            raise HTTPException(403, 'Only the wall owner or the poster can delete this.')
+        d['rooms'][payload.room] = [x for x in msgs if x['id'] != payload.id]
+        CHAT_PATH.write_text(json.dumps(d))
+    return {'ok': True}

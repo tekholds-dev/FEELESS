@@ -2163,3 +2163,8 @@ body.theme-day .artifact.tone-gold{color:#b8860b}body.theme-day .artifact.tone-m
 .wp-crown span{animation:crown-hover 3.4s ease-in-out infinite!important}
 @keyframes crown-hover{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-7px) rotate(4deg)}}
 .wp-crown{filter:drop-shadow(0 0 10px rgba(245,197,66,.85)) drop-shadow(0 0 22px rgba(245,197,66,.35)) drop-shadow(0 6px 6px #0009)}
+/* Candle fallback notice: small pill, never covers the candles */
+.chart-stale-pill{left:auto!important;right:78px!important;top:6px!important;padding:3px 9px!important;border-radius:999px!important;font-size:9.5px!important;background:rgba(42,33,13,.75)!important;pointer-events:auto!important;cursor:help;white-space:nowrap}
+.wallet-networks{display:grid;gap:6px;margin:10px 0}.wallet-networks small{color:var(--muted);font-size:11px}.wallet-networks>div{display:flex;flex-wrap:wrap;gap:5px}
+.wallet-networks button{padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:none;color:inherit;font-size:11.5px;cursor:pointer}.wallet-networks button.active{border-color:var(--mint);background:rgba(0,233,160,.14);color:var(--mint)}
+.wallet-link{display:grid;gap:8px;padding:10px;border-radius:10px;border:1px dashed rgba(245,197,66,.5);font-size:12px;margin-bottom:8px}.wallet-link.ok{border-style:solid;border-color:rgba(0,233,160,.5);color:var(--mint)}

@@ -9,6 +9,7 @@ from time import monotonic
 from typing import Any, Literal
 
 import httpx
+import gecko_budget
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
@@ -298,7 +299,7 @@ def create_market_router(db, intelligence=None):
             while queue and monotonic() - queue[0] > 60:
                 queue.popleft()
             limit = 9 if provider == 'GeckoTerminal' else 45
-            if monotonic() < cooldown.get(key, 0) or len(queue) >= limit:
+            if monotonic() < cooldown.get(key, 0) or len(queue) >= limit or (provider == 'GeckoTerminal' and not gecko_budget.take('market')):
                 error = 'Provider refresh limit reached. Try again in a minute.'
             else:
                 queue.append(monotonic())

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Globe, Send, Pencil, Save, X, Plus, Image as ImageIcon, Trophy, ShieldCheck } from 'lucide-react';
 import { apiUrl } from '../../lib/api';
@@ -52,13 +52,18 @@ function UploadButton({ label, max, onDone }) {
 
 export function WalletProfilePage({ address }) {
   const { wallet, signMessage, connect } = useWallet() || {};
+  const navigate = useNavigate();
+  // A linked 0x account shows its owner's main (Solana) profile — one identity on every network.
+  useEffect(() => { if (!/^0x/.test(address)) return; fetch(apiUrl(`/api/reputation/identity/${address}`)).then(r => r.json()).then(d => { if (d.primary && d.primary !== address) navigate(`/terminal/profile/${d.primary}`, { replace: true }); }).catch(() => {}); }, [address, navigate]);
   const { watchlist } = useWorkspace() || { watchlist: [] };
   const [data, setData] = useState(null);
   const [edit, setEdit] = useState(false);
   const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
   const [ca, setCa] = useState('');
-  const mine = wallet?.address === address;
+  const [myIds, setMyIds] = useState([]);
+  useEffect(() => { if (!wallet?.address) { setMyIds([]); return; } fetch(apiUrl(`/api/reputation/identity/${wallet.address}`)).then(r => r.json()).then(d => setMyIds(d.linked || [])).catch(() => setMyIds([])); }, [wallet?.address]);
+  const mine = wallet?.address === address || myIds.includes(address);
   const [isAdmin, setIsAdmin] = useState(false);
   const perks = usePerks(address);
   const earned = useBadges(address);

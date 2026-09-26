@@ -20,6 +20,9 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   const [feeOpen, setFeeOpen] = useState(true);
   const priceLinesRef = useRef([]);
   const [feelessCandles, setFeelessCandles] = useState([]);
+  const [olderCandles, setOlderCandles] = useState([]);
+  const olderState = useRef({ loading: false, exhausted: false });
+  const rangeRef = useRef(null);
   const [candleProvider, setCandleProvider] = useState('');
   const [candlesLoaded, setCandlesLoaded] = useState(false);
   const priceMetric = metric === 'price';
@@ -54,6 +57,9 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   const needsFallback = (priceMetric || metricChart) && candlesLoaded;
   useEffect(() => {
     setFeelessCandles([]);
+    setOlderCandles([]);
+    olderState.current = { loading: false, exhausted: false };
+    rangeRef.current = null;
     setCandlesLoaded(false);
     if (!pair?.pairAddress) return undefined;
     let alive = true;
@@ -65,7 +71,12 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     const timer = setInterval(load, 60000);
     return () => { alive = false; clearInterval(timer); };
   }, [pair?.chainId, pair?.pairAddress, interval]);
-  const usingFeelessCandles = needsFallback && feelessCandles.length >= 2;
+  const allFeeless = useMemo(() => {
+    if (!olderCandles.length) return feelessCandles;
+    const first = feelessCandles.length ? feelessCandles[0][0] : Infinity;
+    return [...olderCandles.filter(c => c[0] < first), ...feelessCandles];
+  }, [olderCandles, feelessCandles]);
+  const usingFeelessCandles = needsFallback && allFeeless.length >= 2;
 
   const usingFallbackTrail = needsFallback && !usingFeelessCandles;
   const trail = useMemo(() => {
@@ -74,7 +85,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     return points.map(pt => ({ time: Math.floor(pt.t / 1000), value: pt.p * ratio }))
       .filter((pt, i, arr) => i === 0 || pt.time !== arr[i - 1].time);
   }, [usingFallbackTrail, pair?.pairAddress, ratio]);
-  const baseCandles = useMemo(() => candleRows.length ? candleRows : usingFeelessCandles ? feelessCandles : [], [candleRows, usingFeelessCandles, feelessCandles]);
+  const baseCandles = useMemo(() => candleRows.length ? candleRows : usingFeelessCandles ? allFeeless : [], [candleRows, usingFeelessCandles, allFeeless]);
   const displayCandles = useMemo(() => ratio === 1 ? baseCandles : baseCandles.map(([t, o, h, l, c, v]) => [t, o * ratio, h * ratio, l * ratio, c * ratio, v]), [baseCandles, ratio]);
   const hasChart = displayCandles.length > 0 || trail.length >= 2;
   useEffect(() => {
@@ -147,8 +158,29 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       lastBarRef.current = trail.length ? { ...trail[trail.length - 1] } : null;
       line.priceScale().applyOptions({ scaleMargins: { top: .16, bottom: .16 } });
     }
-    chart.timeScale().fitContent();
-    return () => { seriesRef.current = null; markersRef.current = null; chart.remove(); };
+    const ts = chart.timeScale();
+    const n = displayCandles.length || trail.length;
+    if (rangeRef.current) ts.setVisibleLogicalRange(rangeRef.current);
+    else if (n > 160) ts.setVisibleLogicalRange({ from: n - 150, to: n + 4 });
+    else ts.fitContent();
+    // Zoom/scroll out past the first bar → page in older real history.
+    const onRange = range => {
+      if (!range) return;
+      rangeRef.current = range;
+      const st = olderState.current;
+      if (range.from > 8 || st.loading || st.exhausted || !displayCandles.length || !pair?.pairAddress) return;
+      st.loading = true;
+      const firstTime = displayCandles[0][0];
+      fetchFeelessCandles(pair.chainId, pair.pairAddress, interval, firstTime).then(res => {
+        const older = (res?.candles || []).filter(c => c[0] < firstTime);
+        if (!older.length) { st.exhausted = true; return; }
+        const r = rangeRef.current;
+        if (r) rangeRef.current = { from: r.from + older.length, to: r.to + older.length };
+        setOlderCandles(prev => { const seen = new Set(prev.map(c => c[0])); return [...older.filter(c => !seen.has(c[0])), ...prev].sort((a, b) => a[0] - b[0]); });
+      }).catch(() => { st.exhausted = true; }).finally(() => { st.loading = false; });
+    };
+    ts.subscribeVisibleLogicalRangeChange(onRange);
+    return () => { ts.unsubscribeVisibleLogicalRangeChange(onRange); seriesRef.current = null; markersRef.current = null; chart.remove(); };
   }, [displayCandles, trail, hasChart, dayMode, showVolume]);
 
   // Meta overlays (Trenches calls, Fee's trades) snapped to the candle they happened in.
@@ -231,7 +263,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       <span>Full candle history is temporarily unavailable from the provider. FEELESS is recording every price it observes here — check back shortly, or view the external chart now.</span>
       <a data-testid="chart-fallback-link" href={dexUrl(pair)} target="_blank" rel="noreferrer">Open chart on DexScreener ↗</a>
     </div>}
-    {charting && usingFeelessCandles && candleProvider !== 'GeckoTerminal' && <div className="chart-stale-note" role="status">Showing FEELESS-observed candles ({feelessCandles.length} bars from real recorded prices) — full {data?.provider || 'provider'} candle history is temporarily unavailable.</div>}
+    {charting && usingFeelessCandles && candleProvider !== 'GeckoTerminal' && <div className="chart-stale-note chart-stale-pill" role="status" title="Full provider candle history is rate-limited right now; FEELESS is showing real prices it recorded itself and will fill in history automatically.">● {allFeeless.length} FEELESS-recorded bars · full history loading</div>}
     {charting && usingFallbackTrail && trail.length >= 2 && <div className="chart-stale-note" role="status">Live price trail recorded by this browser — full {data?.provider || 'provider'} candle history is temporarily unavailable.</div>}
     {metricChart && hasChart && <div className="chart-stale-note metric-derived-note" role="status" data-testid={`chart-${metric}-derived`}>{metricLabel} chart = real price candles × token supply (supply is fixed, so the shape is exact). Now {formatUSD(metricValue)}.</div>}
     {!priceMetric && metricAvailable && !loading && !hasChart && !usingFallbackTrail && <div className="metric-snapshot" data-testid={`chart-${metric}-snapshot`}><span className="metric-snapshot-label">{metricLabel} snapshot</span><strong>{formatUSD(metricValue)}</strong><small>Provider supplied the current {metricLabel.toLowerCase()} only. Historical {metricLabel.toLowerCase()} candles are unavailable.</small></div>}

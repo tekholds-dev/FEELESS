@@ -18,6 +18,7 @@ import json
 import time
 
 import httpx
+import gecko_budget
 from pathlib import Path
 from typing import Optional
 
@@ -90,36 +91,76 @@ GECKO_TTL = 60
 GECKO_PER_MIN = 25
 
 
-async def gecko_candles(chain: str, pair: str, interval: str):
-    """Real OHLCV straight from GeckoTerminal, cached and rate-limited (their public cap is 30/min)."""
+GECKO_DISK = Path(__file__).parent / 'data' / 'gecko_candles'
+
+
+def _disk_get(key):
+    try:
+        return json.loads((GECKO_DISK / f"{key.replace(':', '_')}.json").read_text())
+    except Exception:
+        return None
+
+
+def _disk_put(key, candles):
+    GECKO_DISK.mkdir(parents=True, exist_ok=True)
+    (GECKO_DISK / f"{key.replace(':', '_')}.json").write_text(json.dumps(candles[-3000:]))
+
+
+def _merge(a, b):
+    by = {int(c[0]): c for c in (a or [])}
+    for c in b or []:
+        by[int(c[0])] = c
+    return [by[t] for t in sorted(by)]
+
+
+async def _gecko_fetch(net, pair, tf, before=None):
+    if not gecko_budget.take('chart'):
+        return None
+    params = {'aggregate': tf[1], 'limit': 1000, 'currency': 'usd'}
+    if before:
+        params['before_timestamp'] = int(before)
+    try:
+        async with httpx.AsyncClient(timeout=12) as http:
+            res = await http.get(f'https://api.geckoterminal.com/api/v2/networks/{net}/pools/{pair}/ohlcv/{tf[0]}', params=params, headers={'accept': 'application/json'})
+    except Exception:
+        return None
+    if res.status_code == 429:
+        gecko_budget.throttled()
+        return None
+    if res.status_code != 200:
+        return None
+    rows = (((res.json() or {}).get('data') or {}).get('attributes') or {}).get('ohlcv_list') or []
+    return sorted([[int(r[0]), float(r[1]), float(r[2]), float(r[3]), float(r[4]), float(r[5] or 0)] for r in rows if len(r) >= 6], key=lambda r: r[0])
+
+
+async def gecko_candles(chain: str, pair: str, interval: str, before=None):
+    """Real OHLCV from GeckoTerminal. Every bar ever fetched is kept on disk, so a rate limit
+    never wipes history; `before` pages further back for zoom-out."""
     net = GECKO_NET.get(chain)
     tf = GECKO_TF.get(interval)
     if not net or not tf:
         return None
     key = f'{net}:{pair}:{interval}'
     now = time.time()
+    stored = _disk_get(key) or []
+    if before:
+        older = [c for c in stored if c[0] < before]
+        if len(older) >= 200:
+            return older
+        fresh = await _gecko_fetch(net, pair, tf, before)
+        if fresh:
+            stored = _merge(stored, fresh)
+            _disk_put(key, stored)
+        return [c for c in stored if c[0] < before]
     hit = _gecko_cache.get(key)
     if hit and now - hit[0] < GECKO_TTL:
         return hit[1]
-    async with _gecko_lock:
-        _gecko_calls[:] = [t for t in _gecko_calls if now - t < 60]
-        if len(_gecko_calls) >= GECKO_PER_MIN:
-            return hit[1] if hit else None
-        _gecko_calls.append(now)
-    try:
-        async with httpx.AsyncClient(timeout=10) as http:
-            res = await http.get(f'https://api.geckoterminal.com/api/v2/networks/{net}/pools/{pair}/ohlcv/{tf[0]}',
-                                 params={'aggregate': tf[1], 'limit': 300, 'currency': 'usd'}, headers={'accept': 'application/json'})
-        if res.status_code != 200:
-            candles = None
-        else:
-            rows = (((res.json() or {}).get('data') or {}).get('attributes') or {}).get('ohlcv_list') or []
-            candles = sorted([[int(r[0]), float(r[1]), float(r[2]), float(r[3]), float(r[4]), float(r[5] or 0)] for r in rows if len(r) >= 6], key=lambda r: r[0])
-    except Exception:
-        candles = None
-    if candles is not None:
-        _gecko_cache[key] = (now, candles)
-    return candles if candles is not None else (hit[1] if hit else None)
+    fresh = await _gecko_fetch(net, pair, tf)
+    if fresh:
+        stored = _merge(stored, fresh)
+        _disk_put(key, stored)
+        _gecko_cache[key] = (now, stored)
+    return stored or None
 
 
 _hot_pairs: dict = {}
@@ -200,7 +241,10 @@ async def observe(payload: TickPayload):
 
 
 @app.get('/api/candles/{chain}/{pair_address}')
-async def get_candles(chain: str, pair_address: str, interval: str = Query('1h')):
+async def get_candles(chain: str, pair_address: str, interval: str = Query('1h'), before: Optional[int] = None):
+    if before:
+        older = await gecko_candles(chain, pair_address, interval, before) or []
+        return {'candles': older, 'provider': 'GeckoTerminal' if older else 'none', 'interval': interval, 'before': before}
     _hot_pairs[_pair_key(chain, pair_address)] = time.time()
     interval_seconds = INTERVAL_SECONDS.get(interval, 3600)
     store = _load()
@@ -229,13 +273,9 @@ async def pool_trades(chain: str, pool: str):
     key = f'{net}:{pool}'
     hit = _trade_cache.get(key)
     now = time.time()
-    if hit and now - hit[0] < 5:
+    if hit and now - hit[0] < 15:
         return hit[1]
-    async with _gecko_lock:
-        _gecko_calls[:] = [t for t in _gecko_calls if now - t < 60]
-        throttled = len(_gecko_calls) >= GECKO_PER_MIN
-        if not throttled:
-            _gecko_calls.append(now)
+    throttled = not gecko_budget.take('trades')
     if throttled:
         return hit[1] if hit else {'trades': [], 'throttled': True}
     try:
