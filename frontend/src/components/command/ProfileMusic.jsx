@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Music, Trash2, Plus } from 'lucide-react';
 
 // MySpace-style profile playlist: YouTube, Spotify and SoundCloud links.
-function parse(url) {
+export function parse(url) {
   const yt = /(?:youtu\.be\/|v=|shorts\/|embed\/)([\w-]{11})/.exec(url);
   if (yt) return { kind: 'youtube', src: `https://www.youtube.com/embed/${yt[1]}?enablejsapi=1&autoplay=1&playsinline=1` };
   const sp = /open\.spotify\.com\/(?:intl-\w+\/)?(track|album|playlist|episode)\/(\w+)/.exec(url);

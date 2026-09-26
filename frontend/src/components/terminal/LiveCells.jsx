@@ -11,7 +11,9 @@ export function LivePrice({ pair, precise = false, id }) {
 
 export function LiveChange24({ pair, id }) {
   const { change24h } = useLivePrice(pair);
-  return <span data-testid={id} className={change24h == null ? 'muted' : change24h >= 0 ? 'positive mono' : 'negative mono'}>{change24h == null ? '—' : <AnimatedNumber value={change24h} format={formatPct} />}</span>;
+  const hot = change24h != null && Math.abs(change24h) >= 20;
+  const cls = change24h == null ? 'muted' : `${change24h >= 0 ? 'positive' : 'negative'} mono${hot ? (change24h >= 0 ? ' hot-move' : ' cold-move') : ''}`;
+  return <span data-testid={id} className={cls}>{change24h == null ? '—' : <AnimatedNumber value={change24h} format={formatPct} />}</span>;
 }
 
 export function LiveMarketCap({ pair, id }) {

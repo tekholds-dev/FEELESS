@@ -17,6 +17,7 @@ import { installOverflowTitles, installImageFallback } from './components/Hint';
 installOverflowTitles();
 installImageFallback();
 import AmbientBackground from './components/AmbientBackground';
+import { FeeCatWidget } from './components/FeeCatWidget';
 const Landing = lazy(() => import('./pages/Landing'));
 const Terminal = lazy(() => import('./pages/Terminal'));
 
@@ -54,6 +55,7 @@ function AppShell() {
             <Route path="/whitepaper" element={<Navigate to="/terminal/whitepaper" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes></Suspense>
+          <FeeCatWidget />
         </BrowserRouter><Toaster theme="dark" position="bottom-right" /><LegalConsent /></WorkspaceProvider></WalletProvider>
       </div>
     </div>

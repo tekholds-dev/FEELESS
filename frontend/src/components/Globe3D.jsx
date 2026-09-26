@@ -17,13 +17,42 @@ const glowTexture = () => {
   glowTex = new THREE.CanvasTexture(c);
   return glowTex;
 };
+// Emoji-in-a-glow texture, cached per glyph so we don't re-rasterize every frame.
+const emojiTex = {};
+function glyphTexture(glyph) {
+  if (emojiTex[glyph]) return emojiTex[glyph];
+  const c = document.createElement('canvas'); c.width = c.height = 96;
+  const g = c.getContext('2d');
+  g.font = '64px "Apple Color Emoji","Segoe UI Emoji",sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(glyph, 48, 52);
+  const tex = new THREE.CanvasTexture(c);
+  emojiTex[glyph] = tex;
+  return tex;
+}
+// Activity glyph: how a coin is trading right now, not just its market color.
+function activityGlyph(change24h) {
+  const c = Number(change24h);
+  if (!Number.isFinite(c)) return '✨';
+  if (c >= 40) return '🚀';
+  if (c >= 15) return '🔥';
+  if (c <= -30) return '💀';
+  if (c <= -12) return '🧊';
+  return '✨';
+}
 function tokenOrb(d) {
   const group = new THREE.Group();
-  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: d.color, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
-  halo.scale.set(d.size * 4.2, d.size * 4.2, 1);
-  const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: '#ffffff', transparent: true, opacity: 0.95, depthWrite: false }));
-  core.scale.set(d.size * 1.3, d.size * 1.3, 1);
-  group.add(halo); group.add(core);
+  const hot = Number(d.token?.change24h) >= 15;
+  const cold = Number(d.token?.change24h) <= -12;
+  const haloColor = hot ? '#ff8a3d' : cold ? '#5ec8ff' : d.color;
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: haloColor, transparent: true, opacity: hot ? 0.75 : 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const haloScale = d.size * (hot ? 5.4 : 4.2);
+  halo.scale.set(haloScale, haloScale, 1);
+  halo.userData.pulse = hot;
+  const glyph = new THREE.Sprite(new THREE.SpriteMaterial({ map: glyphTexture(activityGlyph(d.token?.change24h)), transparent: true, depthWrite: false }));
+  glyph.scale.set(d.size * 2.6, d.size * 2.6, 1);
+  group.add(halo); group.add(glyph);
+  group.userData.pulseHalo = hot ? halo : null;
   return group;
 }
 const fmtCap = v => (v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : `$${(v / 1e6).toFixed(1)}M`);

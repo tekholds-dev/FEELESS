@@ -2523,12 +2523,12 @@ body.theme-day .wars-artifact .war-join:hover{background:currentColor!important;
 .pf-coin b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pf-coin small{color:var(--muted);font:11px 'JetBrains Mono',monospace}.pf-coin em{font-style:normal;font:700 12.5px 'JetBrains Mono',monospace}.pf-coin em i{font-style:normal;font-size:10.5px}
 body.theme-day .pf-coin{background:var(--day-surface-2);border-color:var(--day-border)}
 /* Trust ring + follows */
-.social-strip{position:relative;display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:6px 0}
-.trust-ring{position:relative;width:54px;height:54px;border:0;background:none;padding:0;cursor:pointer;display:grid;place-items:center}
+.social-strip{position:relative;display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin:6px 0;min-width:0;max-width:100%}
+.trust-ring{position:relative;width:54px;height:54px;flex-shrink:0;border:0;background:none;padding:0;cursor:pointer;display:grid;place-items:center}
 .trust-ring svg{position:absolute;inset:0;transform:rotate(-90deg)}.trust-ring circle{fill:none;stroke:#ffffff14;stroke-width:4}.trust-ring .arc{stroke:var(--mint);stroke-linecap:round;transition:stroke-dasharray .8s}
 .trust-ring.lvl-high .arc{stroke:#00e9a0}.trust-ring.lvl-good .arc{stroke:#7df9d0}.trust-ring.lvl-caution .arc{stroke:#f5c542}.trust-ring.lvl-risky .arc{stroke:#fa708c}
 .trust-ring b{font:800 15px 'JetBrains Mono',monospace;line-height:1;margin-top:6px}.trust-ring small{font-size:8.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:-10px}
-.follow-counts{display:flex;gap:12px;font-size:12.5px;color:var(--muted)}.follow-counts b{color:inherit;color:var(--text,#eafff3);margin-right:3px}
+.follow-counts{display:flex;gap:12px;font-size:12.5px;color:var(--muted);white-space:nowrap;flex-shrink:0}.follow-counts b{color:inherit;color:var(--text,#eafff3);margin-right:3px}
 .trust-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:40;width:min(340px,90vw);padding:12px;border-radius:12px;border:1px solid rgba(0,233,160,.35);background:rgba(5,14,10,.97);box-shadow:0 16px 40px #000b;display:grid;gap:6px;font-size:12.5px}
 .trust-pop>div{display:flex;justify-content:space-between;gap:10px}.trust-pop em{font-style:normal;font-family:'JetBrains Mono',monospace}.trust-pop small,.trust-pop p{color:var(--muted);font-size:11px;margin:0}
 body.theme-day .trust-pop{background:#fff;border-color:#9fd3b6}body.theme-day .follow-counts b{color:#0b2a1d}body.theme-day .trust-ring circle{stroke:#0b2a1d18}
@@ -2565,7 +2565,7 @@ body.theme-day .token-metrics .metric .negative,body.theme-day .token-metrics .m
 @media (max-width:560px){.token-metrics{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
 /* ===== Profile v3: clean, modern, unique per accent ===== */
 .wallet-profile-page{--pc-radius:20px}
-.wallet-profile-page .wp-card{border-radius:var(--pc-radius)!important;border:1px solid color-mix(in srgb,var(--wp-accent,#00e9a0) 22%,transparent)!important;border-top-width:1px!important;background:linear-gradient(180deg,color-mix(in srgb,var(--wp-accent,#00e9a0) 7%,rgba(8,14,11,.72)),rgba(6,10,8,.72))!important;box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 18px 40px rgba(0,0,0,.28);padding:18px 20px!important;position:relative;overflow:hidden}
+.wallet-profile-page .wp-card{border-radius:var(--pc-radius)!important;border:1px solid color-mix(in srgb,var(--wp-accent,#00e9a0) 22%,transparent)!important;border-top-width:1px!important;background:linear-gradient(180deg,color-mix(in srgb,var(--wp-accent,#00e9a0) 7%,rgba(8,14,11,.72)),rgba(6,10,8,.72))!important;box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 18px 40px rgba(0,0,0,.28);padding:18px 20px!important;position:relative;overflow:visible;min-width:0}
 .wallet-profile-page .wp-card::before{content:'';position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--wp-accent,#00e9a0),transparent);opacity:.7}
 .wallet-profile-page .wp-card h3{display:flex;align-items:center;gap:8px;margin:0 0 10px;font:700 12px/1 Outfit,sans-serif;letter-spacing:1.4px;text-transform:uppercase;color:color-mix(in srgb,var(--wp-accent,#00e9a0) 70%,#fff)}
 .wallet-profile-page .wp-card .wp-bio{font-size:14px;line-height:1.6}
@@ -2589,3 +2589,66 @@ body.theme-day .namefx-gradient{background-image:linear-gradient(90deg,#07784f,#
 body.theme-day .namefx-diamond{background-image:linear-gradient(90deg,#1b6fb3,#6b3fc7,#1b6fb3)!important;filter:none}
 body.theme-day .namefx-rainbow{background-image:linear-gradient(90deg,#c0254a,#b8600b,#8a6d00,#07784f,#1b6fb3,#6b3fc7,#c0254a)!important}
 .market-availability.quiet{display:flex;gap:8px;align-items:center;padding:6px 12px!important;font-size:11.5px!important;color:var(--muted)!important;background:none!important;border:0!important}
+
+/* ===== Sitewide number containment: numbers never overflow their box ===== */
+.metric strong,.metric>span,.mono,.cc-kpis b,.li-cell b,.fcp-kpis b,.cp-kv b,.pf-coin em,.wpj-count b,.trust-ring b,
+.market-table td.mono,.mini-token-prices span,.league-row,.war-f>span,.rw-item>span{
+  min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;word-break:normal;
+}
+.token-metrics .metric{min-width:0}
+.market-table td{min-width:0}
+
+/* Wallet connect icons */
+.wallet-icon{display:grid;place-items:center;border-radius:10px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.wallet-options button{display:flex;align-items:center;gap:12px}
+
+/* ===== Hot number: big moves get a fire pulse (site wide) ===== */
+.hot-move{position:relative;display:inline-flex;align-items:center;gap:3px;animation:hot-pulse 1.4s ease-in-out infinite}
+.hot-move::before{content:'🔥';font-size:.85em;filter:drop-shadow(0 0 6px rgba(255,120,20,.8))}
+.cold-move{position:relative;display:inline-flex;align-items:center;gap:3px}
+.cold-move::before{content:'🧊';font-size:.8em;opacity:.85}
+@keyframes hot-pulse{0%,100%{filter:none;transform:scale(1)}50%{filter:drop-shadow(0 0 10px rgba(255,120,20,.55));transform:scale(1.04)}}
+body.reduced-motion-setting .hot-move{animation:none}
+
+/* ===== FeeCat floating widget (bottom-right, sitewide) ===== */
+.feecat-widget{position:fixed;right:18px;bottom:18px;z-index:850;display:grid;justify-items:end;gap:10px}
+.feecat-fab{width:54px;height:54px;border-radius:50%;border:2px solid rgba(0,233,160,.5);background:radial-gradient(circle at 35% 30%,#123a2c,#04120b);display:grid;place-items:center;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.4),0 0 0 0 rgba(0,233,160,.4);position:relative;transition:transform .2s}
+.feecat-fab:hover{transform:scale(1.06)}.feecat-fab.on{border-color:var(--mint);box-shadow:0 8px 24px rgba(0,0,0,.4),0 0 20px rgba(0,233,160,.5)}
+.feecat-face{font-size:26px;animation:logo-float 4s ease-in-out infinite}
+.feecat-note{position:absolute;top:-4px;right:-4px;font-size:12px;color:var(--mint);animation:cc-pulse 1.2s ease-in-out infinite}
+.feecat-panel{width:min(340px,88vw);max-height:70vh;display:flex;flex-direction:column;border-radius:16px;border:1px solid rgba(0,233,160,.35);background:rgba(5,14,10,.97);box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden;animation:flr-in .25s ease}
+.feecat-panel-head{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.06)}
+.feecat-tabs{display:flex;gap:4px}.feecat-tabs button{display:flex;align-items:center;gap:5px;border:1px solid var(--line);background:none;color:var(--muted);padding:5px 10px;border-radius:999px;cursor:pointer;font-size:12px}
+.feecat-tabs button.active{color:#04120b;background:var(--mint);border-color:var(--mint)}
+.feecat-x{border:0;background:none;color:var(--muted);cursor:pointer}
+.feecat-chat{display:flex;flex-direction:column;min-height:0;flex:1}
+.feecat-rooms{display:flex;gap:6px;flex-wrap:wrap;padding:8px 10px}
+.feecat-rooms button{border:1px solid var(--line);background:none;color:var(--muted);padding:4px 9px;border-radius:999px;cursor:pointer;font-size:11px;white-space:nowrap}
+.feecat-rooms button.active{color:var(--mint);border-color:var(--mint)}
+.feecat-chat .community-chat,.feecat-chat .chat-body{max-height:320px}
+.feecat-music{display:grid;gap:10px;padding:12px}
+.feecat-now{display:flex;justify-content:space-between;align-items:baseline}.feecat-now small{color:var(--muted);font-size:11px}
+.feecat-controls{display:flex;gap:8px;justify-content:center}
+.feecat-controls button{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:none;color:inherit;display:grid;place-items:center;cursor:pointer}
+.feecat-controls .feecat-play{width:40px;height:40px;background:var(--mint);color:#04120b;border:0}
+.feecat-frame{width:100%;border:0;border-radius:10px;aspect-ratio:16/9;max-height:180px}
+.feecat-frame.pm-spotify{aspect-ratio:auto;height:100px}
+.feecat-empty{color:var(--muted);font-size:12.5px;text-align:center}
+.feecat-add{display:flex;gap:6px}.feecat-add input{flex:1;min-height:32px;border-radius:8px;border:1px solid var(--line);background:#ffffff08;color:inherit;padding:0 10px}
+.feecat-add button{width:32px;border-radius:8px;border:1px solid var(--line);background:none;color:var(--mint);cursor:pointer}
+body.theme-day .feecat-panel{background:#fff;border-color:#9fd3b6}
+body.theme-day .feecat-fab{background:radial-gradient(circle at 35% 30%,#e3f2e8,#fff)}
+@media (max-width:480px){.feecat-widget{right:10px;bottom:10px}}
+
+/* ===== Day mode: eye-resting contrast pass ===== */
+body.theme-day{--day-ink:#0a1f14;--day-muted:#3a5548;--day-surface:rgba(255,255,255,.92);--day-surface-2:rgba(255,255,255,.96)}
+body.theme-day,body.theme-day .terminal-main,body.theme-day p,body.theme-day span,body.theme-day li,body.theme-day td{color:var(--day-ink)}
+body.theme-day .wp-card,body.theme-day .meta-panel,body.theme-day .cc-block,body.theme-day .cp-card,body.theme-day .coin-profile,
+body.theme-day .fcp,body.theme-day .live-intel,body.theme-day .token-focus,body.theme-day .market-card,body.theme-day .community-chat,
+body.theme-day .shop-item,body.theme-day .war-f,body.theme-day .rw-item,body.theme-day .cc-shell,body.theme-day .terminal-hero,
+body.theme-day .market-table-wrap,body.theme-day .feecat-panel{
+  box-shadow:0 1px 3px rgba(15,36,25,.06),0 8px 24px rgba(15,36,25,.08)!important;
+  border-color:rgba(15,36,25,.14)!important;
+}
+body.theme-day small,body.theme-day .muted{color:var(--day-muted)!important}
+body.theme-day .terminal-header,body.theme-day .terminal-sidebar{border-color:rgba(15,36,25,.1)!important}
