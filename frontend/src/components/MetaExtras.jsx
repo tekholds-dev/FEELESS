@@ -37,7 +37,7 @@ export function TrenchWars() {
   const leader = [...d.factions].sort((a, b) => b.score - a.score)[0];
   const ICON = { bulls: ['bull', 'mint'], bears: ['bear', 'rose'], degens: ['degen', 'violet'] };
   return <section className="meta-panel wars wars-artifact" data-testid="trench-wars">
-    <div className="wars-sky" aria-hidden="true">{Array.from({ length: 28 }, (_, i) => <i key={i} style={{ left: `${(i * 37) % 100}%`, animationDelay: `${(i % 9) * -0.9}s`, animationDuration: `${6 + (i % 5)}s` }} />)}</div>
+    <div className="wars-sky" aria-hidden="true">{Array.from({ length: 12 }, (_, i) => <i key={i} style={{ left: `${(i * 37) % 100}%`, animationDelay: `${(i % 9) * -0.9}s`, animationDuration: `${6 + (i % 5)}s` }} />)}</div>
     <div className="mp-head"><h2><Glyph name="swords" tone="gold" size={24} /> <span className="live-gradient-text">Trench Wars</span> <small>{d.week}</small></h2><span className="wars-clock"><i className="flr-dot" /> ends in {Math.floor(left / 86400)}d {Math.floor((left % 86400) / 3600)}h{d.lastWinner ? ` · last winner ${d.lastWinner}` : ''}</span></div>
     <div className="wars-beam" aria-label="Faction share">{d.factions.map(f => <span key={f.id} className={`beam-${f.id}`} style={{ flexGrow: Math.max(0.08, f.score / total) }}><em>{Math.round((f.score / total) * 100)}%</em></span>)}<b className="beam-spark" /></div>
     <div className="wars-grid">{d.factions.map(f => <div key={f.id} className={`war-f f-${f.id} ${d.mine === f.id ? 'mine' : ''} ${leader.score > 0 && leader.id === f.id ? 'leading' : ''}`}>

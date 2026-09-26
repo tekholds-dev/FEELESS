@@ -248,3 +248,12 @@ body.reduced-motion-setting.theme-day .ambient-background::after { animation: no
 body.theme-day, html[data-theme="light"] { background: #f4fbf6 !important; }
 body.theme-day .terminal-app, body.theme-day .command-terminal, body.theme-day .terminal-body, body.theme-day .terminal-main { background: transparent !important; }
 body.theme-day .App { background: transparent !important; }
+
+/* ===== Ambient performance: GPU-only transforms, no full-screen repaints ===== */
+.ambient-orb{mix-blend-mode:normal!important;will-change:transform}
+.ambient-scanline{mask-image:none!important;-webkit-mask-image:none!important;opacity:.08!important;will-change:transform}
+body.theme-day .ambient-grid{animation:none!important}
+body.theme-day .ambient-background::before{will-change:transform;contain:strict}
+/* particles: a tall tiled layer that slides with transform (composited) instead of animating background-position */
+body.theme-day .ambient-background::after{inset:0 0 auto 0!important;height:200%!important;background-image:radial-gradient(2px 2px at 10% 20%,#07784f55 50%,transparent 51%),radial-gradient(2px 2px at 30% 70%,#1b6fb355 50%,transparent 51%),radial-gradient(1.5px 1.5px at 55% 35%,#b8860b55 50%,transparent 51%),radial-gradient(2px 2px at 75% 60%,#07784f44 50%,transparent 51%),radial-gradient(1.5px 1.5px at 90% 25%,#1b6fb344 50%,transparent 51%)!important;background-size:420px 420px!important;animation:day-particles-t 60s linear infinite!important;will-change:transform;contain:strict}
+@keyframes day-particles-t{from{transform:translate3d(0,0,0)}to{transform:translate3d(0,-50%,0)}}
