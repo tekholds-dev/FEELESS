@@ -1552,3 +1552,16 @@ body.theme-day .network-row.is-ok i{background:var(--day-green)!important;box-sh
 .launch-forensics .token-analytics-heading{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.forensics-refresh{margin-left:auto}
 .legend-token{border:1px solid #5ee0ff;background:#5ee0ff30;box-shadow:0 0 0 3px #5ee0ff14;border-radius:50%}
 .data-status.live-tick{color:var(--mint)}.data-status.live-tick i{animation:breathe 1.2s ease-in-out infinite}body.theme-day .data-status.live-tick{color:var(--day-green)!important}
+.feeless-launcher-chip{display:inline-flex;margin-top:6px;padding:3px 8px;border-radius:6px;font:10px "JetBrains Mono",monospace;background:#00e9a014;color:var(--mint);border:1px solid #00e9a044}body.theme-day .feeless-launcher-chip{background:#e3f2e8!important;color:#07784f!important;border-color:#07784f55!important}
+/* FeeCats: livelier gallery */
+.cat-card{transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.cat-card:hover{transform:translateY(-4px);box-shadow:0 12px 28px #00e9a022;border-color:#00e9a066}
+.cat-card:hover svg,.cat-card:hover img{animation:cat-wiggle .6s ease-in-out}
+.cat-preview-art>*:last-child{animation:cat-float 4s ease-in-out infinite}
+.cat-agent-button{display:flex;justify-content:center;align-items:center;gap:8px;width:100%;margin-top:8px;min-height:44px}
+@keyframes cat-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes cat-wiggle{0%,100%{transform:rotate(0)}30%{transform:rotate(-4deg)}60%{transform:rotate(4deg)}}
+body.reduced-motion-setting .cat-preview-art>*,body.reduced-motion-setting .cat-card *{animation:none!important}
+@media(prefers-reduced-motion:reduce){.cat-preview-art>*,.cat-card *{animation:none!important}}
+body.theme-day .cat-card:hover{box-shadow:0 12px 28px #07784f22!important;border-color:#07784f88!important}
+.chat-identity{min-width:0}.chat-identity>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%}

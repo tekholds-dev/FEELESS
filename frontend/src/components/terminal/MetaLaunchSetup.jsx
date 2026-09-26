@@ -408,6 +408,13 @@ export default function MetaLaunchSetup({ initialValues }) {
   const update = (name, value) => setForm(current => ({ ...current, [name]: value, ...(MECHANIC_KEYS.includes(name) && current.launchStyle !== 'feeless' ? { launchStyle: 'custom' } : {}) }));
   const pickStyle = style => { setForm(current => ({ ...current, ...style.values, launchStyle: style.id })); setErrors({}); };
   const [launchStep, setLaunchStep] = useState(1);
+  const registered = React.useRef(false);
+  useEffect(() => {
+    if (deployment.state !== 'confirmed' || !deployment.mint || !wallet?.address || registered.current) return;
+    registered.current = true;
+    fetch(apiUrl('/api/reputation/feeless-launch'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chain: 'solana', wallet: wallet.address, mint: deployment.mint, symbol: form.symbol }) }).catch(() => {});
+  }, [deployment.state, deployment.mint, wallet?.address, form.symbol]);
   const goStep = n => { setLaunchStep(n); if (typeof window !== 'undefined') window.scrollTo?.({ top: 0, behavior: 'smooth' }); };
   const stepOf = key => STEP_ONE_KEYS.includes(key) ? 1 : STEP_TWO_KEYS.includes(key) ? 2 : 3;
   const nextStep = () => {

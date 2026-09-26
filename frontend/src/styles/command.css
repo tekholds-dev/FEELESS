@@ -174,3 +174,20 @@ body.theme-day .eco-world-inner .new-stuff-item:hover,body.theme-day .eco-world-
 body.theme-day .eco-world-inner .negative{color:#c0284c!important}
 body.theme-day .eco-world-inner .positive{color:#07784f!important}
 body.theme-day .eco-world-head{border-color:#c6d8cc!important}
+.coin-world-avatar{width:44px;height:44px;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:#00e9a014;color:var(--mint);font:700 14px 'JetBrains Mono',monospace}
+.coin-world-avatar img{width:100%;height:100%;object-fit:cover}
+.coin-world-stats{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+.coin-world-chart{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:14px 0}
+.coin-world-chart-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);font:11px 'JetBrains Mono',monospace;letter-spacing:.8px}
+.coin-world-chart-head span{display:flex;align-items:center;gap:6px}
+.coin-world-chart-head button{padding:4px 9px;border-radius:6px;font-size:10px;color:var(--muted);background:none;border:0;cursor:pointer}
+.coin-world-chart-head button.active{background:#00e9a014;color:var(--mint)}
+.coin-world-chart .candle-canvas{height:360px!important}.coin-world-chart .chart-area{min-height:400px!important}
+.coin-world-rep{display:flex;align-items:center;gap:10px;margin:10px 0;font-size:12px;color:var(--muted)}
+@media(max-width:900px){.coin-world-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+body.theme-day .coin-world-chart{border-color:#c3d6c9!important;background:#f7faf6!important}
+body.theme-day .coin-world-chart-head{border-color:#c3d6c9!important;color:#0f2419!important}
+body.theme-day .coin-world-chart-head button{color:#43604f!important}body.theme-day .coin-world-chart-head button.active{background:#e3f2e8!important;color:#07784f!important}
+body.theme-day .coin-world-avatar{background:#e3f2e8!important;color:#07784f!important}
+body.theme-day .coin-world-rep{color:#43604f!important}
+.new-stuff-note{padding:10px 16px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--line)}body.theme-day .new-stuff-note{color:#43604f!important;border-color:#c3d6c9!important}

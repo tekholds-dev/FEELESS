@@ -18,6 +18,7 @@ function CreatorLookup({ chain, onScan }) {
 }
 
 const VIEWS = [
+  ['feeless', 'FEELESS launchers', 'Creators who launched on FEELESS — bangers vs dumps, verified on-chain'],
   ['trusted', 'Most trusted', 'Clean history, highest score'],
   ['serial', 'Serial launchers', 'Most tokens deployed by one wallet'],
   ['rising', 'Rising', 'New in the last 48h, clean so far'],
@@ -105,13 +106,13 @@ export function ReputationCenter() {
       <div className="reputation-leaderboard-tabs">{VIEWS.map(([id, label]) => <button type="button" key={id} className={view === id ? 'active' : ''} onClick={() => setView(id)}>{label}</button>)}</div>
       <p className="reputation-view-hint">{VIEWS.find(([id]) => id === view)?.[2]} · click a wallet to open its full profile</p>
       {error && <p className="reputation-lookup-error">{error}</p>}
-      {!error && !data.rows.length && <div className="truth-empty" data-testid="reputation-leaderboard-empty">No {view === 'flagged' ? 'flagged' : 'scored'} creators recorded yet for {ecosystem.name}. Keep browsing — every token card you open feeds this graph.</div>}
+      {!error && !data.rows.length && <div className="truth-empty" data-testid="reputation-leaderboard-empty">{view === 'feeless' ? 'No FEELESS launches yet. Every launch confirmed through the FEELESS launch studio is verified on-chain and scored here — bangers and rugs alike.' : `No ${view === 'flagged' ? 'flagged' : 'scored'} creators recorded yet for ${ecosystem.name}. Keep browsing — every token card you open feeds this graph.`}</div>}
       <div className="reputation-rank-list">{data.rows.map((row, i) => { const Icon = ICON[row.badge] || Shield; return <div className="reputation-rank-row" role="button" tabIndex={0} key={row.address} data-testid={`reputation-rank-${row.address}`} onClick={() => navigate(`/terminal/reputation/${ecosystem.chainId}/${row.address}`)} onKeyDown={e => e.key === 'Enter' && navigate(`/terminal/reputation/${ecosystem.chainId}/${row.address}`)}>
         <span className="reputation-rank-number">{String(i + 1).padStart(2, '0')}</span>
         <span onClick={e => e.stopPropagation()}><AddressPill address={row.address} /></span>
         <span className={`reputation-badge badge-${row.badge}`}><Icon size={11} />{BADGE_LABEL[row.badge]}</span>
         <span><small>TOKENS</small><b>{row.tokenCount}</b></span>
-        <span><small>FLAGGED</small><b className={row.ruggedCount ? 'negative' : ''}>{row.ruggedCount}</b></span>
+        {view === 'feeless' ? <span><small>BANGERS / DUMPS</small><b><span className="positive">{row.bigWinners}</span> / <span className={row.dumpedCount ? 'negative' : ''}>{row.dumpedCount}</span></b></span> : <span><small>DUMPED</small><b className={row.dumpedCount || row.ruggedCount ? 'negative' : ''}>{row.dumpedCount + row.ruggedCount}</b></span>}
         <strong className="reputation-score">{row.score}</strong>
       </div>; })}</div>
     </section>}

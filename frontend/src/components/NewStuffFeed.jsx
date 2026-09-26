@@ -11,11 +11,14 @@ export default function NewStuffFeed({ ecosystem }) {
   const [tab, setTab] = useState('new');
   const chain = ecosystem?.chainId || 'solana';
   const screen = tab === 'new' ? 'new' : 'quality';
-  const { data, loading, refreshing, error, errorStatus, errorProvider, reload } = useMarket(`/feed?kind=${tab}&chain=${chain}&screen=${screen}`, 15000);
-  const pairs = (data?.pairs || [])
+  const scope = ecosystem?.isLaunchpad ? `&scope=${encodeURIComponent(ecosystem.id)}` : '';
+  const { data, loading, refreshing, error, errorStatus, errorProvider, reload } = useMarket(`/feed?kind=${tab}&chain=${chain}&screen=${screen}${scope}`, 15000);
+  const chainTop = useMarket(`/feed?kind=trending&chain=${chain}&screen=quality`, 30000);
+  const scoped = (data?.pairs || [])
     .filter(p => !ecosystem?.isLaunchpad || matchesPad(p, ecosystem.id))
-    .filter(p => tab !== 'new' || hasProviderImage(p))
-    .slice(0, 6);
+    .filter(p => tab !== 'new' || hasProviderImage(p));
+  const fallback = !loading && !scoped.length ? (chainTop.data?.pairs || []) : [];
+  const pairs = (scoped.length ? scoped : fallback).slice(0, 6);
 
   const copyCA = async (addr) => {
     if (!addr) return;
@@ -34,6 +37,7 @@ export default function NewStuffFeed({ ecosystem }) {
     <MarketAvailabilityNotice data={data} error={error} errorStatus={errorStatus} errorProvider={errorProvider} id="new-stuff-market-availability" />
     <div className="new-stuff-list custom-scroll">
       {loading && !pairs.length && <div className="new-stuff-empty" data-testid="new-stuff-loading"><span className="loader" />Scanning the chain…</div>}
+      {!loading && !scoped.length && pairs.length > 0 && <div className="new-stuff-note" data-testid="new-stuff-fallback">No {tab === 'new' ? 'fresh' : 'trending'} {ecosystem?.name || ''} coins indexed right now — showing today's top {chain} coins.</div>}
       {!loading && !pairs.length && <div className="new-stuff-empty" data-testid="new-stuff-empty">Nothing indexed here yet. Provider coverage is partial — check back soon.</div>}
       {pairs.map(p => {
         const addr = p.baseToken?.address;

@@ -153,7 +153,7 @@ export function CreatorProfileCard({ chain, address, result, loading, error, var
         <div className="rep-scan-identity">
           <span className={`reputation-badge badge-${result.scoring.badge}`}>{React.createElement(ICON[result.scoring.badge] || Shield, { size: 12 })}{BADGE_LABEL[result.scoring.badge]}</span>
           <AddressPill address={result.address || address} />
-          <small>Tracking since {timeAgo(result.firstSeen)} · last active {timeAgo(result.lastSeen)}</small>
+          <small>Tracking since {timeAgo(result.firstSeen)} · last active {timeAgo(result.lastSeen)}</small>{result.feelessLaunches?.length > 0 && <span className="feeless-launcher-chip">FEELESS launcher · {result.feelessLaunches.length} verified launch{result.feelessLaunches.length === 1 ? '' : 'es'}</span>}
         </div>
         <div className="rep-scan-actions"><FollowButton chain={chain} address={result.address || address} />{variant === 'full' && <button type="button" className="btn-outline" onClick={() => copyText(profileUrl, 'Profile link copied')}><Share2 size={14} />Share profile</button>}</div>
       </div>

@@ -543,10 +543,11 @@ async def creator_profile(chain: str, address: str):
     scoring = score_creator(entry)
     return {**entry, 'tokens': {t['pairAddress']: t for t in enriched}, 'tokenList': enriched, 'scoring': scoring,
             'verdict': trust_verdict(scoring, enriched, linked),
+            'feelessLaunches': [l for l in (_load().get('feelessLaunches') or {}).values() if l['wallet'] == address],
             'wallet': wallet, 'fundingSource': funding_source, 'linkedWallets': linked}
 
 
-LEADERBOARD_VIEWS = ('trusted', 'flagged', 'serial', 'rising', 'active')
+LEADERBOARD_VIEWS = ('trusted', 'flagged', 'serial', 'rising', 'active', 'feeless')
 RISING_WINDOW_SECONDS = 60 * 60 * 24 * 2   # first observed within the last 2 days
 
 
@@ -567,7 +568,14 @@ async def leaderboard(chain: Optional[str] = Query(None), view: str = Query('tru
             **scoring,
         })
 
-    if view == 'flagged':
+    if view == 'feeless':
+        launches = store.get('feelessLaunches', {})
+        by_creator = {}
+        for l in launches.values():
+            by_creator.setdefault(_creator_key(l['chain'], l['wallet']), []).append(l)
+        rows = [{**r, 'feelessLaunches': len(by_creator[_creator_key(r['chain'], r['address'])])} for r in rows if _creator_key(r['chain'], r['address']) in by_creator]
+        rows.sort(key=lambda r: (-r['bigWinners'], r['dumpedCount'], -r['score']))
+    elif view == 'flagged':
         rows = [r for r in rows if r['badge'] == 'flagged' or r['dumpedCount'] >= 2]
         rows.sort(key=lambda r: (-r['ruggedCount'], -r['dumpedCount'], -r['tokenCount']))
     elif view == 'serial':
@@ -1054,6 +1062,40 @@ async def _start_globe():
 @app.get('/api/reputation/globe-tokens')
 async def globe_tokens():
     return _globe_cache['data'] or {'tokens': [], 'minMarketCap': GLOBE_MIN_MC, 'warming': True}
+
+
+class FeelessLaunchPayload(BaseModel):
+    chain: str = 'solana'
+    wallet: str
+    mint: str
+    symbol: Optional[str] = None
+    signature: Optional[str] = None
+
+
+@app.post('/api/reputation/feeless-launch')
+async def register_feeless_launch(payload: FeelessLaunchPayload):
+    """Tag a token as launched on FEELESS — only after the chain confirms this wallet created it."""
+    resolved = await resolve_creator(payload.chain, payload.mint)
+    creator = (resolved or {}).get('identity') if isinstance(resolved, dict) else None
+    if not creator:
+        raise HTTPException(409, 'Mint not yet visible on-chain — retry after confirmation.')
+    if creator != payload.wallet:
+        raise HTTPException(403, 'This wallet did not create that mint.')
+    async with _lock:
+        store = _load()
+        store.setdefault('feelessLaunches', {})[payload.mint] = {
+            'chain': payload.chain, 'wallet': payload.wallet, 'mint': payload.mint, 'symbol': payload.symbol,
+            'signature': payload.signature, 'at': time.time(),
+        }
+        ckey = _creator_key(payload.chain, payload.wallet)
+        entry = store['creators'].setdefault(ckey, {'chain': payload.chain, 'address': payload.wallet, 'firstSeen': time.time(), 'lastSeen': time.time(), 'tokens': {}})
+        entry['lastSeen'] = time.time()
+        entry['tokens'].setdefault(payload.mint, {'pairAddress': payload.mint, 'baseTokenAddress': payload.mint, 'symbol': payload.symbol,
+                                                  'dexId': 'feeless', 'firstSeenAt': time.time(), 'status': 'active', 'launchedOnFeeless': True})
+        entry['tokens'][payload.mint]['launchedOnFeeless'] = True
+        _push_feed(store, payload.chain, payload.wallet, 'new_token', f'Launched {payload.symbol or "a token"} on FEELESS.')
+        _save(store)
+    return {'ok': True, 'creator': creator}
 
 
 @app.get('/api/reputation/health')
