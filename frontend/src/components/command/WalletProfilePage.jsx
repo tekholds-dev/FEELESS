@@ -12,6 +12,8 @@ import EcosystemChat from '../EcosystemChat';
 import { BadgeJourney } from './BadgeJourney';
 import { ReceiptsCard } from './ReceiptsCard';
 import { CommandCenter, ReportBug } from './CommandCenter';
+import { InviteCard } from '../InviteCard';
+import { AdBanner } from '../AdBanner';
 import { OnchainStrip, PerksCard, SetupCallout, usePerks } from './ProfileExtras';
 
 const RINGS = [['none', 'Classic', 0], ['mint', 'Mint pulse', 0], ['sunset', 'Sunset', 0], ['ocean', 'Ocean', 0], ['candy', 'Candy', 0], ['neon', 'Neon', 0], ['ghost', 'Ghost', 0], ['emerald', 'Emerald', 1], ['plasma', 'Plasma', 1], ['diamond', 'Diamond', 2], ['aurora', 'Aurora', 2], ['gold', 'Molten Gold', 3], ['royal', 'Royal', 3]];
@@ -167,6 +169,8 @@ export function WalletProfilePage({ address }) {
       <p className="wp-bio">Leave {p.displayName || 'them'} a message. Every comment is signed by the poster's wallet.</p>
       <EcosystemChat compact room={`wall-${address}`} ecosystem={{ id: `wall-${address}`, name: 'Wall' }} onConnect={() => connect?.('solana')} />
     </section>
+    {mine && <InviteCard address={address} />}
+    <AdBanner placement="profile" />
     <PerksCard perks={perks} mine={mine} />
     <BadgeJourney address={address} mine={mine} />
     <ReceiptsCard address={address} />

@@ -10,6 +10,7 @@ import { MarketAvailabilityNotice, TokenAvatar, Change } from './MarketPrimitive
 import { ReputationBadge } from './ReputationBadge';
 import { TokenFocus } from './TokenFocus';
 import { useMarket } from '../../hooks/useMarket';
+import { AdBanner } from '../AdBanner';
 import { formatUSD, pairKey, coinIdentity, coinRoom, normalizeRoomPerspective, shortAddress } from '../../lib/dexscreener';
 
 export const LivePoolsPanel = ({ pairs = [], newPairs = [], onSelect }) => {
@@ -88,7 +89,7 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair
       if (p) { selectPair(p); window.scrollTo?.({ top: 0, behavior: 'smooth' }); }
     } catch { /* keep current chart */ }
   };
-  if (!onFloor) return <div className="trenches-page trenches-lit" data-testid="trenches-page"><TrenchLanding ecosystemName={ecosystem.name} onEnter={() => setFloor(true)} /><TrendingCards pairs={[...pairs, ...newPairs.filter(n => !pairs.some(p => p.pairAddress === n.pairAddress))]} onPick={p => { selectPair(p); setFloor(true); }} /></div>;
+  if (!onFloor) return <div className="trenches-page trenches-lit" data-testid="trenches-page"><TrenchLanding ecosystemName={ecosystem.name} onEnter={() => setFloor(true)} /><AdBanner placement="trenches" /><TrendingCards pairs={[...pairs, ...newPairs.filter(n => !pairs.some(p => p.pairAddress === n.pairAddress))]} onPick={p => { selectPair(p); setFloor(true); }} /></div>;
   return <div className="trenches-page trenches-lit trenches-floor" data-testid="trenches-page">
     <TrenchBar onAbout={() => setFloor(false)} />
     <div className={`trenches-grid ${wide ? 'is-wide' : ''}`}>

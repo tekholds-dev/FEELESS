@@ -15,5 +15,18 @@ export async function getChatSession(address, signMessage) {
   const body = await res.json().catch(() => ({}));
   if (!res.ok || !body.token) throw new Error(body.detail || 'Could not start a chat session.');
   try { localStorage.setItem(key(address), JSON.stringify({ token: body.token, expiresAt: body.expiresAt })); } catch { /* private mode: sign per session */ }
+  claimInvite(address, body.token);
   return body.token;
+}
+
+// Invite links: /?ref=<handle>. Remembered until the invitee's first signed session, then credited once.
+export function captureInvite() {
+  try { const ref = new URLSearchParams(window.location.search).get('ref'); if (ref && /^[a-z0-9_]{3,20}$|^[1-9A-HJ-NP-Za-km-z]{32,44}$/i.test(ref)) localStorage.setItem('feeless:ref', ref); } catch { /* ignore */ }
+}
+export function claimInvite(address, session) {
+  let ref = null;
+  try { ref = localStorage.getItem('feeless:ref'); } catch { return; }
+  if (!ref) return;
+  fetch(apiUrl('/api/reputation/referral'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address, ref, session }) })
+    .then(r => { if (r.ok || r.status === 400 || r.status === 404) { try { localStorage.removeItem('feeless:ref'); } catch { /* ignore */ } } }).catch(() => {});
 }

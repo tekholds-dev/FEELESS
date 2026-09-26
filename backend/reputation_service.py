@@ -2095,6 +2095,9 @@ async def wallet_badges(address: str):
     rec = _block_load()['wallets'].get(address)
     if _is_blocked(rec):
         badges.append({'id': 'blocklisted', 'label': 'Blocklisted', 'icon': '⛔', 'tone': 'bad', 'why': f"Caught bundling/sniping {len(rec['mints'])} launch(es)"})
+    invited = len(_json_load(REF_PATH, {'by': {}})['by'].get(address, []))
+    if invited >= 3:
+        badges.append({'id': 'recruiter', 'label': 'Recruiter' if invited < 10 else 'Legendary Recruiter', 'icon': '📣', 'tone': 'gold' if invited >= 10 else 'mint', 'why': f'Invited {invited} wallets to FEELESS'})
     badges.extend(_admin_load()['badges'].get(address, {}).values())
     if address in _admin_wallets():
         badges.insert(0, {'id': 'feeless-hq', 'label': 'FEELESS HQ', 'icon': '👑', 'tone': 'gold', 'why': 'Created $FEE — runs the FEELESS command center'})
@@ -2481,6 +2484,7 @@ BADGE_CATALOG = [
     {'id': 'feeless-launcher', 'label': 'FEELESS Launcher', 'icon': '🚀', 'tone': 'mint', 'tier': 3, 'how': 'Launch a token through FEELESS (verified on-chain).'},
     {'id': 'trusted-creator', 'label': 'Trusted Creator', 'icon': '🛡️', 'tone': 'mint', 'tier': 3, 'how': 'Have launches tracked by FEELESS with none dumped or rugged.'},
     {'id': 'airdrop-recipient', 'label': 'Airdropped', 'icon': '🪂', 'tone': 'gold', 'tier': 3, 'how': 'Receive a FEELESS airdrop — verified by its on-chain transaction.'},
+    {'id': 'recruiter', 'label': 'Recruiter', 'icon': '📣', 'tone': 'mint', 'tier': 2, 'how': 'Invite 3 wallets with your invite link (10 = Legendary Recruiter).'},
     {'id': 'fee-whale', 'label': '$FEE Whale', 'icon': '🐋', 'tone': 'gold', 'tier': 4, 'how': 'Hold $1,000 or more of $FEE.'},
     {'id': 'custom', 'label': 'FEELESS Special', 'icon': '⭐', 'tone': 'gold', 'tier': 4, 'how': 'Hand-awarded by the FEELESS team for building, finding bugs or legendary calls.'},
 ]
@@ -3096,3 +3100,127 @@ async def live_stats():
             'blocklisted': sum(1 for r in bl.values() if _is_blocked(r)), 'mintsScanned': len(_marked['mints'] | set(store['mints'])),
             'creators': len(store['creators']), 'trustedCreators': sum(1 for x in scores if x.get('badge') == 'trusted'),
             'flaggedCreators': sum(1 for x in scores if x.get('badge') == 'flagged'), 'at': time.time()}
+
+
+# ---- Invite / promo links: every wallet gets one ---------------------------------------------
+REF_PATH = DATA_DIR / 'referrals.json'
+
+
+class RefIn(BaseModel):
+    address: str
+    ref: str
+    session: str
+
+
+@app.post('/api/reputation/referral')
+async def claim_referral(payload: RefIn):
+    """Credit the inviter once. Proof of wallet ownership = the invitee's signed chat session."""
+    if session_address(payload.session) != payload.address:
+        raise HTTPException(401, 'Sign in to chat first.')
+    try:
+        inviter = (await resolve_profile(payload.ref))['address']
+    except HTTPException:
+        raise HTTPException(404, 'Unknown invite code.')
+    me = primary_of(payload.address)
+    if inviter == me:
+        raise HTTPException(400, "You can't invite yourself.")
+    async with _admin_lock:
+        d = _json_load(REF_PATH, {'by': {}, 'of': {}})
+        if me in d['of']:
+            return {'ok': True, 'already': True, 'inviter': d['of'][me]}
+        d['of'][me] = inviter
+        d['by'].setdefault(inviter, []).append({'address': me, 'at': time.time()})
+        _json_save(REF_PATH, d)
+    _badge_cache.pop(inviter, None)
+    return {'ok': True, 'inviter': inviter}
+
+
+@app.get('/api/reputation/referral/{address}')
+async def referral_info(address: str):
+    a = primary_of(address)
+    d = _json_load(REF_PATH, {'by': {}, 'of': {}})
+    invited = d['by'].get(a, [])
+    return {'address': a, 'code': handle_of(a), 'invited': len(invited), 'recent': invited[-10:][::-1], 'invitedBy': d['of'].get(a)}
+
+
+@app.get('/api/reputation/admin/referrals')
+async def admin_referrals(request: Request):
+    _require_admin(request)
+    d = _json_load(REF_PATH, {'by': {}, 'of': {}})
+    rows = sorted(({'address': a, 'handle': handle_of(a), 'invited': len(v)} for a, v in d['by'].items()), key=lambda r: -r['invited'])
+    return {'total': len(d['of']), 'top': rows[:50]}
+
+
+# ---- Ads & announcements (creator wallet only) ----------------------------------------------
+ADS_PATH = DATA_DIR / 'ads.json'
+AD_PLACEMENTS = ('banner', 'ticker', 'trenches', 'profile')
+
+
+class AdIn(BaseModel):
+    id: Optional[str] = None
+    title: str = Field(min_length=2, max_length=60)
+    text: str = Field(default='', max_length=200)
+    url: str = ''
+    imageUrl: str = ''
+    placement: str = 'banner'
+    startsAt: float = 0
+    endsAt: float = 0
+    active: bool = True
+    sponsor: str = Field(default='', max_length=40)
+
+
+@app.get('/api/reputation/ads')
+async def public_ads(placement: str = 'banner'):
+    now = time.time()
+    ads = [a for a in _json_load(ADS_PATH, {'ads': []})['ads'] if a['active'] and a['placement'] == placement and (not a['startsAt'] or a['startsAt'] <= now) and (not a['endsAt'] or now < a['endsAt'])]
+    return {'ads': [{k: a[k] for k in ('id', 'title', 'text', 'url', 'imageUrl', 'sponsor')} for a in ads]}
+
+
+@app.post('/api/reputation/ads/{ad_id}/event')
+async def ad_event(ad_id: str, kind: str = Query('view')):
+    if kind not in ('view', 'click'):
+        raise HTTPException(400, 'Bad event.')
+    async with _admin_lock:
+        d = _json_load(ADS_PATH, {'ads': []})
+        for a in d['ads']:
+            if a['id'] == ad_id:
+                a[kind + 's'] = a.get(kind + 's', 0) + 1
+        _json_save(ADS_PATH, d)
+    return {'ok': True}
+
+
+@app.get('/api/reputation/admin/ads')
+async def admin_ads(request: Request):
+    _require_admin(request)
+    return _json_load(ADS_PATH, {'ads': []})
+
+
+@app.post('/api/reputation/admin/ads')
+async def admin_ad_save(request: Request, payload: AdIn):
+    admin = _require_admin(request)
+    if payload.placement not in AD_PLACEMENTS:
+        raise HTTPException(400, 'Unknown placement.')
+    url = payload.url if payload.url.startswith('https://') or payload.url.startswith('/') else ''
+    ad = {'id': payload.id or uuid.uuid4().hex[:10], 'title': payload.title, 'text': payload.text, 'url': url, 'imageUrl': _safe_url(payload.imageUrl),
+          'placement': payload.placement, 'startsAt': payload.startsAt, 'endsAt': payload.endsAt, 'active': payload.active, 'sponsor': payload.sponsor}
+    async with _admin_lock:
+        d = _json_load(ADS_PATH, {'ads': []})
+        old = next((a for a in d['ads'] if a['id'] == ad['id']), None)
+        if old:
+            ad['views'], ad['clicks'] = old.get('views', 0), old.get('clicks', 0)
+            d['ads'] = [ad if a['id'] == ad['id'] else a for a in d['ads']]
+        else:
+            d['ads'].append(ad)
+        _json_save(ADS_PATH, d)
+        ad_log = _admin_load(); _audit(ad_log, admin, 'ad', f"{ad['title']} · {ad['placement']} · {'on' if ad['active'] else 'off'}"); _admin_save(ad_log)
+    return {'ok': True, 'ad': ad}
+
+
+@app.delete('/api/reputation/admin/ads/{ad_id}')
+async def admin_ad_delete(request: Request, ad_id: str):
+    _require_admin(request)
+    async with _admin_lock:
+        d = _json_load(ADS_PATH, {'ads': []})
+        d['ads'] = [a for a in d['ads'] if a['id'] != ad_id]
+        _json_save(ADS_PATH, d)
+    return {'ok': True}

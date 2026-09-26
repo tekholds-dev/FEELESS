@@ -11,6 +11,8 @@ import './styles/tab-variants.css';
 import './styles/trade.css';
 import './styles/heartbeat.css';
 import { LegalConsent } from './components/LegalConsent';
+import { captureInvite } from './lib/chatSession';
+captureInvite();
 import AmbientBackground from './components/AmbientBackground';
 const Landing = lazy(() => import('./pages/Landing'));
 const Terminal = lazy(() => import('./pages/Terminal'));

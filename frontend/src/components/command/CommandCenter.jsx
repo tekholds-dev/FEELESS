@@ -59,7 +59,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     <div className="cc-gate-actions"><button type="button" className="btn-primary" disabled={busy} onClick={signIn}><ShieldCheck size={15} />{busy ? 'Check your wallet…' : 'Sign in to Command Center'}</button><button type="button" className="btn-outline" onClick={onClose}>Back to profile</button></div>
   </div></div>;
 
-  const TABS = [['overview', 'Overview', Activity], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fees', 'Fees & Pricing', ShieldCheck], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['overview', 'Overview', Activity], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fees', 'Fees & Pricing', ShieldCheck], ['ads', 'Ads', Gift], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div>
       <nav className="cc-tabs">{TABS.map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</nav>
@@ -92,6 +92,8 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'airdrops' && <Airdrops drops={drops} call={call} reload={loadDrops} />}
     {tab === 'badges' && <AwardBadges call={call} initial={[...selected]} />}
     {tab === 'fees' && <FeesPanel call={call} />}
+    {tab === 'ads' && <AdsPanel call={call} />}
+    {tab === 'invites' && <InvitesPanel call={call} />}
     {tab === 'bugs' && <section className="cc-panel">{!bugs.length ? <p className="cc-empty">No reports yet. Anyone can file one from a profile's “Report a bug” button.</p>
       : <div className="cc-bugs">{bugs.map(b => <div key={b.id} className={`cc-bug k-${b.kind} s-${b.status}`}><div><em>{b.kind}</em><b>{b.text}</b><small>{b.page || '—'} · {new Date(b.at * 1000).toLocaleString()}{b.address ? ` · ${shortAddress(b.address)}` : ''}</small></div>
         <select value={b.status} onChange={e => call(`/admin/bugs/${b.id}?status=${e.target.value}`, { method: 'POST' }).then(loadBugs).catch(err => toast.error(err.message))}>{['open', 'fixing', 'fixed', 'wontfix'].map(s => <option key={s}>{s}</option>)}</select></div>)}</div>}</section>}
@@ -210,5 +212,47 @@ function FeesPanel({ call }) {
       </div>
     </div>
     <button type="button" className="btn-primary" onClick={save}>Save fee settings</button>
+  </section>;
+}
+
+function AdsPanel({ call }) {
+  const blank = { title: '', text: '', url: '', imageUrl: '', placement: 'banner', sponsor: '', active: true, days: 7 };
+  const [ads, setAds] = useState([]);
+  const [f, setF] = useState(blank);
+  const load = useCallback(() => call('/admin/ads').then(d => setAds(d.ads || [])).catch(e => toast.error(e.message)), [call]);
+  useEffect(() => { load(); }, [load]);
+  const save = async () => {
+    const now = Date.now() / 1000;
+    try { await call('/admin/ads', { method: 'POST', body: JSON.stringify({ ...f, startsAt: f.startsAt || now, endsAt: f.days ? now + f.days * 86400 : 0 }) }); toast.success(f.id ? 'Ad updated' : 'Ad live'); setF(blank); load(); } catch (e) { toast.error(e.message); }
+  };
+  const set = (k, v) => setF(x => ({ ...x, [k]: v }));
+  return <section className="cc-panel">
+    <p className="cc-note">Run announcements, $FEE promos or paid sponsor slots. Every ad is labelled (Sponsored when a sponsor is set), users can hide it for the session, and views/clicks are counted. Links must be https:// or an in-app path.</p>
+    <div className="cc-studio-grid">
+      <div className="cc-block"><h4>{f.id ? 'Edit ad' : 'New ad'}</h4>
+        <label>Title<input maxLength={60} value={f.title} onChange={e => set('title', e.target.value)} /></label>
+        <label>Text<input maxLength={200} value={f.text} onChange={e => set('text', e.target.value)} /></label>
+        <label>Link (https:// or /terminal/…)<input value={f.url} onChange={e => set('url', e.target.value)} /></label>
+        <label>Image URL (optional)<input value={f.imageUrl} onChange={e => set('imageUrl', e.target.value)} /></label>
+        <label>Sponsor (leave blank for FEELESS)<input maxLength={40} value={f.sponsor} onChange={e => set('sponsor', e.target.value)} /></label>
+        <label>Placement<select value={f.placement} onChange={e => set('placement', e.target.value)}>{['banner', 'trenches', 'profile', 'ticker'].map(p => <option key={p}>{p}</option>)}</select></label>
+        <label>Run for (days, 0 = until turned off)<input type="number" min="0" value={f.days} onChange={e => set('days', Number(e.target.value))} /></label>
+        <button type="button" className="btn-primary" disabled={f.title.length < 2} onClick={save}>{f.id ? 'Save' : 'Publish ad'}</button>
+      </div>
+      <div className="cc-block cc-wide"><h4>Ads</h4>{!ads.length ? <small className="cc-empty">No ads yet.</small> : ads.map(a => <div key={a.id} className={`cc-drop ${a.active ? 's-sent' : 's-cancelled'}`}>
+        <div className="cc-drop-top"><b>{a.title}</b><em>{a.placement}{a.active ? '' : ' · off'}</em><small>{a.views || 0} views · {a.clicks || 0} clicks · CTR {a.views ? ((100 * (a.clicks || 0)) / a.views).toFixed(1) : 0}%{a.endsAt ? ` · ends ${new Date(a.endsAt * 1000).toLocaleDateString()}` : ''}{a.sponsor ? ` · ${a.sponsor}` : ''}</small></div>
+        <div className="cc-drop-actions"><button type="button" onClick={() => setF({ ...a, days: 0 })}>Edit</button><button type="button" onClick={() => call('/admin/ads', { method: 'POST', body: JSON.stringify({ ...a, active: !a.active }) }).then(load)}>{a.active ? 'Pause' : 'Resume'}</button><button type="button" onClick={() => call(`/admin/ads/${a.id}`, { method: 'DELETE' }).then(load)}>Delete</button></div>
+      </div>)}</div>
+    </div>
+  </section>;
+}
+
+function InvitesPanel({ call }) {
+  const [d, setD] = useState(null);
+  useEffect(() => { call('/admin/referrals').then(setD).catch(e => toast.error(e.message)); }, [call]);
+  if (!d) return <p className="cc-empty">Loading invites…</p>;
+  return <section className="cc-panel">
+    <div className="cc-kpis"><span><small>Wallets invited</small><b>{d.total}</b></span><span><small>Active inviters</small><b>{d.top.length}</b></span></div>
+    <div className="cc-block"><h4>Top inviters</h4>{!d.top.length ? <small className="cc-empty">No invites yet — every wallet has a link in Settings and on its profile.</small> : d.top.map((r, i) => <div key={r.address} className="cc-sig"><span>{i + 1}. <a href={`/terminal/profile/${r.address}`} target="_blank" rel="noopener noreferrer">@{r.handle}</a></span><b>{r.invited}</b></div>)}</div>
   </section>;
 }

@@ -2289,3 +2289,20 @@ body.theme-day .search-drop{background:#fff;border-color:#9fd3b6}body.theme-day 
 .li-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
 .li-cell{display:grid;gap:2px;padding:12px;border-radius:12px;border:1px solid var(--line);background:#ffffff05}.li-cell b{font:700 26px 'JetBrains Mono',monospace}.li-cell small{color:var(--muted);font-size:11px}
 .li-cell.tone-bad b{color:#ff8a9a}.li-cell.tone-mint b{color:var(--mint)}.li-cell.tone-gold b{color:#f5c542}
+/* Invite card */
+.invite-link{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.invite-link code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:9px 12px;border-radius:10px;border:1px dashed rgba(0,233,160,.45);background:#00e9a00c;color:var(--mint);font-size:12px}
+.invite-recent{display:flex;flex-wrap:wrap;gap:6px}.invite-recent a{font:11px 'JetBrains Mono',monospace;color:var(--mint);padding:3px 8px;border-radius:999px;border:1px solid var(--line)}
+.invite-card h3{display:flex;gap:6px;align-items:center}
+/* Ads */
+.ad-banner{position:relative;display:flex;gap:12px;align-items:center;margin:0 0 14px;padding:10px 40px 10px 12px;border-radius:14px;border:1px solid rgba(245,197,66,.35);background:linear-gradient(100deg,rgba(245,197,66,.1),rgba(0,233,160,.06));overflow:hidden}
+.ad-banner::after{content:'';position:absolute;inset:0;background:linear-gradient(100deg,transparent 40%,rgba(255,255,255,.08) 50%,transparent 60%);transform:translateX(-100%);animation:badge-sheen 7s ease-in-out infinite;pointer-events:none}
+.ad-banner img{width:44px;height:44px;border-radius:10px;object-fit:cover}.ad-banner a{display:grid;color:inherit;text-decoration:none;min-width:0}.ad-banner a b{font-size:14px}.ad-banner a span{color:var(--muted);font-size:12px}
+.ad-tag{font-style:normal;font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:#f5c542;border:1px solid rgba(245,197,66,.45);padding:2px 7px;border-radius:999px;white-space:nowrap}
+.ad-banner>button{position:absolute;right:8px;top:8px;border:0;background:none;color:var(--muted);cursor:pointer}
+/* Heartbeat logo: glowing coin with a rotating light rim and pulse */
+.heartbeat-mark{position:relative;border-radius:50%;filter:drop-shadow(0 0 22px rgba(0,233,160,.55)) drop-shadow(0 0 60px rgba(0,233,160,.25));animation:logo-float 5s ease-in-out infinite}
+.heartbeat-mark::before{content:'';position:absolute;inset:-14px;border-radius:50%;background:conic-gradient(from var(--ang,0deg),transparent 0 70%,rgba(125,249,208,.9) 80%,transparent 90%);-webkit-mask:radial-gradient(circle,transparent 62%,#000 64%,#000 68%,transparent 70%);mask:radial-gradient(circle,transparent 62%,#000 64%,#000 68%,transparent 70%);animation:aurora-spin 4s linear infinite}
+.heartbeat-mark::after{content:'';position:absolute;inset:-30px;border-radius:50%;border:1px solid rgba(0,233,160,.35);animation:logo-ping 3s ease-out infinite}
+@keyframes logo-float{50%{transform:translateY(-8px) rotate(-3deg)}}
+@keyframes logo-ping{0%{transform:scale(.8);opacity:.9}100%{transform:scale(1.35);opacity:0}}
+body.reduced-motion-setting :is(.heartbeat-mark,.heartbeat-mark::before,.heartbeat-mark::after,.ad-banner::after){animation:none!important}
