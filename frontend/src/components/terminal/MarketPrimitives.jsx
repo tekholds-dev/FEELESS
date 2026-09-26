@@ -169,7 +169,7 @@ export function getMarketAvailability({ data, error, errorStatus, errorProvider 
   };
 }
 
-export const MarketAvailabilityNotice = ({ data, error, errorStatus, errorProvider, id = 'market-availability' }) => {
+export const MarketAvailabilityNotice = ({ data, error, errorStatus, errorProvider, id = 'market-availability', quietWhenCached = false }) => {
   const availability = getMarketAvailability({ data, error, errorStatus, errorProvider });
   const cooldownSeconds = availability?.rateLimited ? availability.retryAfterSeconds : null;
   const [retrySecondsRemaining, setRetrySecondsRemaining] = useState(cooldownSeconds);
@@ -200,6 +200,7 @@ export const MarketAvailabilityNotice = ({ data, error, errorStatus, errorProvid
   const message = availability.rateLimited
     ? `${rateLimitMessage} Existing fallback data remains visible when available. This is not a trading failure.`
     : `Market data is temporarily unavailable from ${provider}. Existing fallback data remains visible when available and may recover on the next refresh. This is not a trading failure.`;
+  if (quietWhenCached && (data?.pairs?.length || 0) > 0) return <div className="market-availability quiet" role="status" data-testid={id}><i className="flr-dot" /><span>Showing recent data · refreshing in the background</span></div>;
   return <div className="market-availability" role="status" aria-live="polite" data-testid={id}>
     <AlertTriangle size={15} /><span>{message}</span>
   </div>;

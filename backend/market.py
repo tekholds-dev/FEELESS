@@ -298,7 +298,7 @@ def create_market_router(db, intelligence=None):
             queue = requests[provider]
             while queue and monotonic() - queue[0] > 60:
                 queue.popleft()
-            limit = 9 if provider == 'GeckoTerminal' else 45
+            limit = 9 if provider == 'GeckoTerminal' else 240
             if monotonic() < cooldown.get(key, 0) or len(queue) >= limit or (provider == 'GeckoTerminal' and not gecko_budget.take('market')):
                 error = 'Provider refresh limit reached. Try again in a minute.'
             else:

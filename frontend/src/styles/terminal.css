@@ -2588,3 +2588,4 @@ body.theme-day .namefx-gold{background-image:linear-gradient(90deg,#7a5200,#c99a
 body.theme-day .namefx-gradient{background-image:linear-gradient(90deg,#07784f,#1b6fb3,#07784f)!important}
 body.theme-day .namefx-diamond{background-image:linear-gradient(90deg,#1b6fb3,#6b3fc7,#1b6fb3)!important;filter:none}
 body.theme-day .namefx-rainbow{background-image:linear-gradient(90deg,#c0254a,#b8600b,#8a6d00,#07784f,#1b6fb3,#6b3fc7,#c0254a)!important}
+.market-availability.quiet{display:flex;gap:8px;align-items:center;padding:6px 12px!important;font-size:11.5px!important;color:var(--muted)!important;background:none!important;border:0!important}

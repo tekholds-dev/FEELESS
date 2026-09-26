@@ -257,3 +257,11 @@ body.theme-day .tape-row.buy b{color:#07784f!important}body.theme-day .tape-row.
 body.theme-day .eco-chart{background:#fff;border-color:#9fd3b6}body.theme-day .eco-chart-head{border-color:var(--day-border)}
 .eco-chart.is-big{position:fixed;inset:12px;z-index:1200;margin:0;display:flex;flex-direction:column;box-shadow:0 30px 90px #000d}
 .eco-chart.is-big .chart-with-trade{flex:1;min-height:0}.eco-chart.is-big .candle-canvas{height:calc(100vh - 150px)!important}
+/* Room chart: floating, draggable, resizable window (not fullscreen) */
+.eco-chart.is-big{position:fixed!important;inset:auto!important;width:min(1100px,86vw);height:min(640px,72vh);min-width:420px;min-height:320px;max-width:96vw;max-height:92vh;resize:both;overflow:hidden;z-index:1200;display:flex;flex-direction:column;box-shadow:0 30px 90px #000d,0 0 0 1px rgba(0,233,160,.35)}
+.eco-chart.is-big .eco-chart-head{cursor:grab;user-select:none}.eco-chart.is-big .eco-chart-head:active{cursor:grabbing}
+.eco-chart.is-big .chart-with-trade{flex:1;min-height:0;height:100%}
+.eco-chart.is-big .chart-fullscreen-wrap,.eco-chart.is-big .chart-area{height:100%;display:flex;flex-direction:column}
+.eco-chart.is-big .candle-canvas{flex:1;height:auto!important;min-height:200px}
+.eco-chart .candle-canvas{height:clamp(360px,48vh,560px)!important}
+.eco-chart .chart-message{position:relative;inset:auto;min-height:280px}

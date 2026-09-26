@@ -7,6 +7,12 @@ import { MarketAvailabilityNotice, TokenAvatar } from './terminal/MarketPrimitiv
 import { formatUSD, formatPct, formatAge, hasProviderImage } from '../lib/dexscreener';
 
 // Social "new stuff" stream — fresh + trending coins on the ecosystem. No pools / liquidity tables.
+const warmed = new Set();
+// Pre-warm candles for the first coins so tapping one charts instantly.
+function warm(pairs) {
+  pairs.slice(0, 4).forEach(p => { const k = `${p.chainId}:${p.pairAddress}`; if (warmed.has(k) || !p.pairAddress) return; warmed.add(k); fetch(`/api/candles/${p.chainId}/${p.pairAddress}?interval=15m`).catch(() => {}); });
+}
+
 export default function NewStuffFeed({ ecosystem, onPick, activePair }) {
   const [tab, setTab] = useState('new');
   const chain = ecosystem?.chainId || 'solana';
@@ -34,12 +40,12 @@ export default function NewStuffFeed({ ecosystem, onPick, activePair }) {
       </div>
       <button className={`new-stuff-refresh ${refreshing ? 'is-refreshing' : ''}`} data-testid="new-stuff-refresh" title="Refresh feed" onClick={() => reload()}><RefreshCw size={13} /></button>
     </div>
-    <MarketAvailabilityNotice data={data} error={error} errorStatus={errorStatus} errorProvider={errorProvider} id="new-stuff-market-availability" />
+    <MarketAvailabilityNotice data={data} error={error} errorStatus={errorStatus} errorProvider={errorProvider} id="new-stuff-market-availability" quietWhenCached />
     <div className="new-stuff-list custom-scroll">
       {loading && !pairs.length && <div className="new-stuff-empty" data-testid="new-stuff-loading"><span className="loader" />Scanning the chain…</div>}
       {!loading && !scoped.length && pairs.length > 0 && <div className="new-stuff-note" data-testid="new-stuff-fallback">No {tab === 'new' ? 'fresh' : 'trending'} {ecosystem?.name || ''} coins indexed right now — showing today's top {chain} coins.</div>}
       {!loading && !pairs.length && <div className="new-stuff-empty" data-testid="new-stuff-empty">Nothing indexed here yet. Provider coverage is partial — check back soon.</div>}
-      {pairs.map(p => {
+      {onPick && warm(pairs)}{pairs.map(p => {
         const addr = p.baseToken?.address;
         const change = tab === 'new' ? p.priceChange?.h1 : p.priceChange?.h24;
         return <div className={`new-stuff-item ${onPick ? 'is-pickable' : ''} ${activePair === p.pairAddress ? 'is-active' : ''}`} key={`${p.chainId}-${p.pairAddress}`} data-testid={`new-stuff-item-${addr}`} role={onPick ? 'button' : undefined} tabIndex={onPick ? 0 : undefined} onClick={e => { if (onPick && !e.target.closest('button,a')) onPick(p); }} onKeyDown={e => { if (onPick && e.key === 'Enter') onPick(p); }}>
