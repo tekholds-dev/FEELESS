@@ -2122,3 +2122,40 @@ body.theme-day .slash-menu{background:#fff}body.theme-day .cmd-card p{color:#173
 .wallet-profile-page.theme-goldrush::before{background:radial-gradient(60% 40% at 20% 0,rgba(245,197,66,.35),transparent 60%),radial-gradient(50% 40% at 90% 30%,rgba(255,220,120,.2),transparent 60%),repeating-linear-gradient(115deg,transparent 0 22px,rgba(245,197,66,.05) 22px 23px)!important}
 .wallet-profile-page.theme-neoncat::before{background:radial-gradient(50% 40% at 80% 10%,rgba(255,64,200,.3),transparent 60%),radial-gradient(50% 40% at 10% 60%,rgba(0,233,160,.28),transparent 60%),linear-gradient(180deg,#0b0418,#040a10)!important}
 .swatch-goldrush{background:linear-gradient(135deg,#3a2a05,#f5c542)!important}.swatch-neoncat{background:linear-gradient(135deg,#ff40c8,#00e9a0)!important}.wp-theme-swatch:disabled{opacity:.5;cursor:not-allowed}
+/* ===== Profile header fix + live badge animations + artifacts ===== */
+.wp-head{position:relative;z-index:2;align-items:flex-start}
+.wp-id{margin-top:62px;padding:0}   /* text always starts below the banner */
+.wp-id h1{text-shadow:0 2px 12px #000a}
+.wp-avatar-wrap{position:relative;flex-shrink:0}
+.ptier-3 .wp-avatar::after{content:none!important}
+.wp-crown{position:absolute;left:50%;top:-40px;transform:translateX(-50%);z-index:3;perspective:300px;pointer-events:none;filter:drop-shadow(0 0 14px rgba(245,197,66,.8)) drop-shadow(0 4px 6px #0009)}
+.wp-crown span{display:block;font-size:38px;animation:crown-spin 7s linear infinite, crown-bob 3s ease-in-out infinite;transform-style:preserve-3d}
+@keyframes crown-spin{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}
+@keyframes crown-bob{50%{translate:0 -5px}}
+.wp-crown::after{content:'';position:absolute;left:50%;bottom:-6px;width:36px;height:6px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(rgba(245,197,66,.55),transparent 70%);animation:crown-shadow 3s ease-in-out infinite}
+@keyframes crown-shadow{50%{transform:translateX(-50%) scale(.8);opacity:.6}}
+/* every badge breathes: a light sweep + tiny float */
+.badge-pill{position:relative;overflow:hidden;animation:badge-float 4s ease-in-out infinite}
+.badge-pill::after{content:'';position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.28) 50%,transparent 70%);transform:translateX(-120%);animation:badge-sheen 5s ease-in-out infinite;animation-delay:inherit;pointer-events:none}
+.badge-pill i{display:inline-block;animation:badge-icon 3.2s ease-in-out infinite;animation-delay:inherit}
+.badge-pill.is-featured{box-shadow:0 0 0 1px currentColor,0 0 14px color-mix(in srgb,currentColor 40%,transparent)}
+@keyframes badge-float{50%{transform:translateY(-2px)}}
+@keyframes badge-sheen{0%,60%{transform:translateX(-120%)}85%,100%{transform:translateX(120%)}}
+@keyframes badge-icon{0%,100%{transform:rotate(0) scale(1)}25%{transform:rotate(-10deg) scale(1.12)}50%{transform:rotate(8deg)}}
+.badge-icons i{display:inline-block;animation:badge-icon 3.6s ease-in-out infinite}
+.badge-artifacts{display:flex;gap:14px;align-items:flex-end;margin-top:62px;perspective:600px}
+.artifact{display:grid;justify-items:center;gap:4px;animation:artifact-hover 4s ease-in-out infinite}
+.artifact small{font-size:9.5px;color:var(--muted);max-width:80px;text-align:center;line-height:1.2}
+.artifact-coin{position:relative;width:52px;height:52px;transform-style:preserve-3d;animation:artifact-spin 9s linear infinite}
+.artifact-coin .face{position:absolute;inset:0;display:grid;place-items:center;border-radius:50%;font-size:24px;backface-visibility:hidden;border:2px solid currentColor;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.28),transparent 45%),radial-gradient(circle,color-mix(in srgb,currentColor 30%,#07110c),#07110c 75%);box-shadow:inset 0 0 12px color-mix(in srgb,currentColor 50%,transparent),0 0 18px color-mix(in srgb,currentColor 35%,transparent)}
+.artifact-coin .back{transform:rotateY(180deg)}
+.artifact-coin .edge{position:absolute;inset:0;border-radius:50%;transform:translateZ(-2px);background:color-mix(in srgb,currentColor 55%,#000)}
+.artifact.tone-gold{color:#f5c542}.artifact.tone-mint{color:#00e9a0}.artifact.tone-bad{color:#fa708c}.artifact.tone-plain{color:#cfe8da}
+@keyframes artifact-spin{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}
+@keyframes artifact-hover{50%{transform:translateY(-5px)}}
+.wp-feature-pick{display:grid;gap:6px;margin:8px 0}.wp-feature-pick>small{color:var(--muted);font-size:11px}.wp-feature-pick>div{display:flex;flex-wrap:wrap;gap:6px}.wp-feature-pick button{cursor:pointer;background:none}.wp-feature-pick button:disabled{opacity:.4;cursor:not-allowed}
+body.reduced-motion-setting :is(.badge-pill,.badge-pill::after,.badge-pill i,.badge-icons i,.artifact,.artifact-coin,.wp-crown span){animation:none!important}
+@media (prefers-reduced-motion: reduce){:is(.badge-pill,.badge-pill::after,.badge-pill i,.badge-icons i,.artifact,.artifact-coin,.wp-crown span){animation:none!important}}
+@media (max-width:700px){.wp-id,.badge-artifacts{margin-top:8px}.wp-head{align-items:flex-start}}
+body.theme-day .artifact-coin .face{background:radial-gradient(circle at 35% 30%,#fff,transparent 45%),radial-gradient(circle,color-mix(in srgb,currentColor 25%,#fff),#f3faf6 75%)}
+body.theme-day .artifact.tone-gold{color:#b8860b}body.theme-day .artifact.tone-mint{color:#07784f}body.theme-day .wp-id h1{text-shadow:none}

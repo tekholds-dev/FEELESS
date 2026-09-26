@@ -1625,6 +1625,7 @@ def _clean_profile(p: dict) -> dict:
         'top8': top8,
         'theme': p.get('theme') if p.get('theme') in ('grid', 'glitter', 'matrix', 'sunset', 'vapor', 'goldrush', 'neoncat') else 'grid',
         'friends': [str(f)[:44] for f in (p.get('friends') or [])[:8] if _re.match(r'^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$', str(f))],
+        'featuredBadges': list(dict.fromkeys(str(b)[:40] for b in (p.get('featuredBadges') or []) if _re.match(r'^[a-z0-9-]{2,40}$', str(b))))[:3],
     }
 
 
@@ -1680,6 +1681,9 @@ async def save_profile(payload: ProfileSave):
         if prev.get('lastTs', 0) >= ts:
             raise HTTPException(409, 'Replay rejected — sign a fresh update.')
         clean = _clean_profile(payload.profile)
+        if clean['featuredBadges']:
+            earned = {b['id'] for b in (await wallet_badges(payload.address))['badges']}
+            clean['featuredBadges'] = [b for b in clean['featuredBadges'] if b in earned]
         if TIER_THEMES.get(clean['theme'], 0) > tier:
             raise HTTPException(403, 'That theme is a Fee Friend perk — hold $10+ of $FEE.')
         d['profiles'][payload.address] = {**clean, 'lastTs': ts, 'updatedAt': time.time()}
@@ -1698,7 +1702,7 @@ async def get_profile(address: str):
 @app.get('/api/reputation/profiles')
 async def get_profiles(addresses: str):
     d = _profiles_load()['profiles']
-    return {'profiles': {a: {k: d[a].get(k) for k in ('displayName', 'avatarUrl', 'accent', 'mood')} for a in addresses.split(',')[:100] if a in d}}
+    return {'profiles': {a: {k: d[a].get(k) for k in ('displayName', 'avatarUrl', 'accent', 'mood', 'featuredBadges')} for a in addresses.split(',')[:100] if a in d}}
 
 
 
