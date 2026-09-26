@@ -11,8 +11,12 @@ export function installOverflowTitles() {
   window.__feelessTitles = true;
   document.addEventListener('mouseover', e => {
     const el = e.target;
-    if (!(el instanceof HTMLElement) || el.title || el.dataset.hint || !el.textContent?.trim()) return;
-    if (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 2) el.title = el.textContent.trim().slice(0, 500);
+    if (!(el instanceof HTMLElement) || el.title || el.dataset.hint || el.children.length > 0 || /^(BODY|HTML|SCRIPT|STYLE|MAIN|SECTION)$/.test(el.tagName)) return;
+    const text = el.textContent?.trim();
+    if (!text || text.length > 400) return;
+    const cs = getComputedStyle(el);
+    const clipped = (cs.textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1) || (cs.webkitLineClamp && cs.webkitLineClamp !== 'none' && el.scrollHeight > el.clientHeight + 2);
+    if (clipped) el.title = text;
   }, { passive: true });
 }
 

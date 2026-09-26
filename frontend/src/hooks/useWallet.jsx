@@ -25,6 +25,19 @@ const pairedProvider = (brand, type) => {
   };
   return brand ? map[brand]?.[type] || null : null;
 };
+// Every wallet the browser exposes, with which networks it can connect.
+export function detectWallets() {
+  if (typeof window === 'undefined') return [];
+  const w = window; const out = [];
+  const add = (brand, label, types) => { const t = types.filter(x => pairedProvider(brand, x)); if (t.length) out.push({ brand, label, types: t }); };
+  add('phantom', 'Phantom', ['solana', 'evm']);
+  add('trust', 'Trust Wallet', ['solana', 'evm']);
+  add('solflare', 'Solflare', ['solana']);
+  add('backpack', 'Backpack', ['solana', 'evm']);
+  add('coinbase', 'Coinbase Wallet', ['solana', 'evm']);
+  if (w.ethereum && !out.some(x => x.types.includes('evm') && pairedProvider(x.brand, 'evm') === w.ethereum)) out.push({ brand: null, label: w.ethereum.isRabby ? 'Rabby' : w.ethereum.isMetaMask ? 'MetaMask' : 'Browser wallet', types: ['evm'] });
+  return out;
+}
 const walletName = (p, chain) => (brandOf(p) === 'trust' ? 'Trust Wallet' : p?.isPhantom ? 'Phantom' : p?.isSolflare ? 'Solflare' : p?.isBackpack ? 'Backpack' : p?.isCoinbaseWallet ? 'Coinbase Wallet' : p?.isRabby ? 'Rabby' : p?.isMetaMask ? 'MetaMask' : chain === 'solana' ? 'Solana wallet' : 'EVM wallet');
 // EVM networks FEELESS trades on, keyed by DexScreener chain id.
 export const EVM_CHAINS = {
@@ -55,12 +68,13 @@ export async function signWith(prov, chain, address, message) {
 export const WalletProvider = ({ children }) => {
   const [wallet, setWallet] = useState(null);
   const [provider, setProvider] = useState(null);
-  const connect = async (type, brand) => {
+  const connect = async (type, brand, opts = {}) => {
+    if (!brand && opts.silent) brand = brandOf(provider);
     const p = (brand && pairedProvider(brand, type)) || (type === 'solana' ? solanaProvider() : evmProvider());
     if (brand && !pairedProvider(brand, type)) throw new Error(`Your ${walletName(provider, wallet?.chain)} doesn't expose a ${type === 'solana' ? 'Solana' : 'EVM'} account in this browser — enable it in the wallet's settings.`);
     if (!p) throw new Error(type === 'solana' ? 'No Solana wallet found. Phantom, Trust Wallet, Solflare and Backpack all work — enable Solana in your wallet.' : 'No EVM wallet detected in this browser.');
     if (type === 'solana') {
-      const result = await p.connect();
+      const result = await p.connect(opts.silent ? { onlyIfTrusted: true } : undefined);
       if (!result.publicKey) throw new Error('No wallet account was returned.');
       const nextWallet = { name: walletName(p, 'solana'), chain: type, address: result.publicKey.toString() };
       try { localStorage.setItem('feeless:last-wallet', JSON.stringify({ type, brand: brandOf(p) })); } catch { /* ignore */ }

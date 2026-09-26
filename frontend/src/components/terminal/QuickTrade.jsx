@@ -35,6 +35,10 @@ export function QuickTrade({ pair }) {
   const [prefs, setPrefs] = useState(readPrefs);
   const [amount, setAmount] = useState(() => presetsFor(readPrefs(), readPrefs().unit)[0]);
   const [showSettings, setShowSettings] = useState(false);
+  // Auto-match the wallet to the coin's network: same wallet, Solana side, no popup if already trusted.
+  useEffect(() => {
+    if (pair?.chainId === 'solana' && wallet?.chain === 'evm' && connect) connect('solana', undefined, { silent: true }).catch(() => {});
+  }, [pair?.chainId, wallet?.chain]); // eslint-disable-line react-hooks/exhaustive-deps
   const [sellPct, setSellPct] = useState(50);
   const [counter, setCounter] = useState('SOL');
   const [solUsd, setSolUsd] = useState(null);

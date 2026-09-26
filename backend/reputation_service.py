@@ -1959,7 +1959,7 @@ async def chat_post(payload: ChatPost):
     if abs(time.time() - payload.ts) > 120:
         raise HTTPException(401, 'Signature expired — try again.')
     if payload.session:
-        if session_address(payload.session) != payload.address:
+        if primary_of(session_address(payload.session) or "") != primary_of(payload.address) or not session_address(payload.session):
             raise HTTPException(401, 'Chat session expired — sign in to chat again.')
     elif not _verify_wallet(payload.address, _chat_message_to_sign(payload.room, payload.address, payload.ts, text), payload.signature):
         raise HTTPException(401, 'Signature does not match this wallet.')
@@ -2939,7 +2939,7 @@ async def chat_delete(payload: ChatDelete):
     if abs(time.time() - payload.ts) > 120:
         raise HTTPException(401, 'Signature expired.')
     if payload.session:
-        if session_address(payload.session) != payload.address:
+        if primary_of(session_address(payload.session) or "") != primary_of(payload.address) or not session_address(payload.session):
             raise HTTPException(401, 'Chat session expired.')
     elif not _verify_wallet(payload.address, f'FEELESS delete\nroom:{payload.room}\nid:{payload.id}\nts:{payload.ts}', payload.signature):
         raise HTTPException(401, 'Signature does not match this wallet.')
@@ -3192,7 +3192,7 @@ class RefIn(BaseModel):
 @app.post('/api/reputation/referral')
 async def claim_referral(payload: RefIn):
     """Credit the inviter once. Proof of wallet ownership = the invitee's signed chat session."""
-    if session_address(payload.session) != payload.address:
+    if primary_of(session_address(payload.session) or "") != primary_of(payload.address) or not session_address(payload.session):
         raise HTTPException(401, 'Sign in to chat first.')
     inviter = _code_owner(payload.ref)
     if not inviter:
@@ -3635,7 +3635,8 @@ def notify(address: str, kind: str, text: str, url: str = '', actor: str = ''):
 
 
 def _session_or_401(address, session):
-    if session_address(session) != address:
+    owner = session_address(session)
+    if not owner or primary_of(owner) != primary_of(address):
         raise HTTPException(401, 'Sign in to chat first (one signature, 7 days).')
     return primary_of(address)
 
@@ -4259,3 +4260,10 @@ async def trust_score(address: str):
         return {'address': a, 'score': None, 'level': 'unknown', 'parts': parts, 'note': 'Not enough on-chain or FEELESS history to score this wallet yet.'}
     level = 'high' if score >= 75 else 'good' if score >= 60 else 'caution' if score >= 40 else 'risky'
     return {'address': a, 'score': score, 'level': level, 'parts': parts, 'evidence': evidence}
+
+
+
+@app.get('/api/reputation/chat/session/check')
+async def session_check(address: str, session: str):
+    owner = session_address(session)
+    return {'valid': bool(owner) and primary_of(owner) == primary_of(address)}
