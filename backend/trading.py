@@ -2,6 +2,7 @@
 import asyncio
 import base64
 import os
+from pathlib import Path
 import time
 import uuid
 from collections import defaultdict, deque
@@ -155,6 +156,20 @@ class TradingService:
                       'amount': str(int(atoms)), 'slippageBps': body.slippage_bps}
             if body.wallet:
                 params['taker'] = body.wallet
+            # Creator-controlled FEELESS fee (Jupiter integrator fee → creator's referral account).
+            fee = {'bps': 0, 'notes': [], 'referralAccount': None}
+            try:
+                key = (Path(__file__).parent / 'data' / 'internal.key').read_text().strip()
+                async with httpx.AsyncClient(timeout=6) as http:
+                    r = await http.get('http://127.0.0.1:5077/api/reputation/internal/fees', headers={'x-feeless-internal': key},
+                                       params={'wallet': body.wallet or '', 'inputMint': body.input_mint, 'outputMint': body.output_mint})
+                    if r.status_code == 200:
+                        fee = r.json()
+            except Exception:
+                pass  # fee service down → no fee is charged, never a surprise fee
+            if fee.get('bps') and fee.get('referralAccount'):
+                params['referralAccount'] = fee['referralAccount']
+                params['referralFee'] = int(fee['bps'])
             data = await self.jupiter('GET', '/swap/v2/order', params=params)
             if data.get('errorCode') or not data.get('outAmount'):
                 raise HTTPException(400, data.get('errorMessage') or 'No executable route available for this pair')
@@ -170,6 +185,7 @@ class TradingService:
             await self.db.swap_orders.insert_one(record)
             return {'order_id': order_id, 'created_at': created, 'expires_at': record['expires_at'],
                     'input_metadata': meta_in, 'output_metadata': meta_out, 'quote': data,
+                    'feeless_fee': {'bps': int(fee.get('bps') or 0), 'notes': fee.get('notes') or []},
                     'fee_back': {'status': 'PLANNED', 'eligible_usd': None, 'distribution': None}}
 
         @router.post('/simulate')

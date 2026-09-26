@@ -1112,6 +1112,7 @@ async def register_feeless_launch(payload: FeelessLaunchPayload):
 # ---- Web push alerts ---------------------------------------------------------
 import base64
 import hashlib
+import hmac
 
 PUSH_PATH = DATA_DIR / 'push.json'
 VAPID_PATH = DATA_DIR / 'vapid.json'
@@ -1883,7 +1884,8 @@ class ChatPost(BaseModel):
     address: str
     text: str
     ts: int
-    signature: str
+    signature: str = ''
+    session: str = ''
     parentId: Optional[str] = None
     boost: bool = False
 
@@ -1904,7 +1906,10 @@ async def chat_post(payload: ChatPost):
         raise HTTPException(400, 'Unknown room.')
     if abs(time.time() - payload.ts) > 120:
         raise HTTPException(401, 'Signature expired — try again.')
-    if not _verify_wallet(payload.address, _chat_message_to_sign(payload.room, payload.address, payload.ts, text), payload.signature):
+    if payload.session:
+        if session_address(payload.session) != payload.address:
+            raise HTTPException(401, 'Chat session expired — sign in to chat again.')
+    elif not _verify_wallet(payload.address, _chat_message_to_sign(payload.room, payload.address, payload.ts, text), payload.signature):
         raise HTTPException(401, 'Signature does not match this wallet.')
     coin = await _room_mint(payload.room)
     if coin and payload.address.startswith('0x'):
@@ -2839,7 +2844,8 @@ class ChatDelete(BaseModel):
     id: str
     address: str
     ts: int
-    signature: str
+    signature: str = ''
+    session: str = ''
 
 
 @app.post('/api/reputation/chat/delete')
@@ -2850,7 +2856,10 @@ async def chat_delete(payload: ChatDelete):
         raise HTTPException(403, 'Posts can only be deleted on profile walls.')
     if abs(time.time() - payload.ts) > 120:
         raise HTTPException(401, 'Signature expired.')
-    if not _verify_wallet(payload.address, f'FEELESS delete\nroom:{payload.room}\nid:{payload.id}\nts:{payload.ts}', payload.signature):
+    if payload.session:
+        if session_address(payload.session) != payload.address:
+            raise HTTPException(401, 'Chat session expired.')
+    elif not _verify_wallet(payload.address, f'FEELESS delete\nroom:{payload.room}\nid:{payload.id}\nts:{payload.ts}', payload.signature):
         raise HTTPException(401, 'Signature does not match this wallet.')
     me = set(linked_of(payload.address))
     async with _chat_lock:
@@ -2864,3 +2873,128 @@ async def chat_delete(payload: ChatDelete):
         d['rooms'][payload.room] = [x for x in msgs if x['id'] != payload.id]
         CHAT_PATH.write_text(json.dumps(d))
     return {'ok': True}
+
+
+# ---- Trading fees & discounts, controlled only by the creator wallet -----------------------
+# Jupiter's integrator fee: charged via a referral account the creator owns (50–255 bps allowed).
+FEE_DEFAULTS = {'platformFeeBps': 0, 'referralAccount': '', 'tierDiscountPct': {'0': 0, '1': 10, '2': 25, '3': 50},
+                'zeroFeeMints': [], 'promo': {'label': '', 'discountPct': 0, 'until': 0}}
+JUP_MIN_BPS, JUP_MAX_BPS = 50, 255
+
+
+def _fee_cfg():
+    d = _admin_load()
+    cfg = {**FEE_DEFAULTS, **(d.get('fees') or {})}
+    cfg['tierDiscountPct'] = {**FEE_DEFAULTS['tierDiscountPct'], **(cfg.get('tierDiscountPct') or {})}
+    return cfg
+
+
+async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''):
+    cfg = _fee_cfg()
+    base = int(cfg['platformFeeBps'] or 0)
+    notes = []
+    if not base or not cfg['referralAccount']:
+        return {'bps': 0, 'baseBps': base, 'notes': ['No FEELESS fee on this trade.'], 'referralAccount': None}
+    mints = await _ecosystem_mints()
+    if input_mint in cfg['zeroFeeMints'] or output_mint in cfg['zeroFeeMints'] or input_mint in mints.values() or output_mint in mints.values():
+        return {'bps': 0, 'baseBps': base, 'notes': ['$FEE ecosystem trades are fee-free.'], 'referralAccount': None}
+    tier = (await _perk_tier(wallet))[0] if wallet else 0
+    disc = float(cfg['tierDiscountPct'].get(str(tier), 0))
+    promo = cfg.get('promo') or {}
+    if promo.get('discountPct') and time.time() < float(promo.get('until') or 0):
+        disc = max(disc, float(promo['discountPct']))
+        notes.append(f"{promo.get('label') or 'Promo'}: {promo['discountPct']:.0f}% off")
+    bps = round(base * (1 - disc / 100))
+    if disc:
+        notes.append(f'{disc:.0f}% holder discount (tier {tier})')
+    if bps < JUP_MIN_BPS:
+        notes.append('Below Jupiter\'s 0.5% minimum — waived.')
+        bps = 0
+    return {'bps': min(bps, JUP_MAX_BPS), 'baseBps': base, 'notes': notes, 'referralAccount': cfg['referralAccount'] if bps else None}
+
+
+@app.get('/api/reputation/fees/quote')
+async def fee_quote(wallet: str = '', inputMint: str = '', outputMint: str = ''):
+    out = await effective_fee(wallet, inputMint, outputMint)
+    return {k: v for k, v in out.items() if k != 'referralAccount'} | {'active': bool(out['bps'])}
+
+
+@app.get('/api/reputation/internal/fees')
+async def internal_fees(request: Request, wallet: str = '', inputMint: str = '', outputMint: str = ''):
+    if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key()):
+        raise HTTPException(403, 'Internal only.')
+    return await effective_fee(wallet, inputMint, outputMint)
+
+
+class FeeCfg(BaseModel):
+    platformFeeBps: int = Field(ge=0, le=JUP_MAX_BPS)
+    referralAccount: str = ''
+    tierDiscountPct: dict = {}
+    zeroFeeMints: list = []
+    promo: dict = {}
+
+
+@app.get('/api/reputation/admin/fees')
+async def admin_fees_get(request: Request):
+    _require_admin(request)
+    return {'fees': _fee_cfg(), 'limits': {'minBps': JUP_MIN_BPS, 'maxBps': JUP_MAX_BPS}}
+
+
+@app.post('/api/reputation/admin/fees')
+async def admin_fees_set(request: Request, payload: FeeCfg):
+    admin = _require_admin(request)
+    if payload.referralAccount and not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', payload.referralAccount):
+        raise HTTPException(400, 'Referral account must be a Solana address.')
+    if payload.platformFeeBps and payload.platformFeeBps < JUP_MIN_BPS:
+        raise HTTPException(400, f'Jupiter needs at least {JUP_MIN_BPS} bps (0.5%) — or set 0 for no fee.')
+    tiers = {str(k): max(0.0, min(100.0, float(v))) for k, v in (payload.tierDiscountPct or {}).items() if str(k) in ('0', '1', '2', '3')}
+    zero = [m for m in payload.zeroFeeMints[:50] if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', str(m))]
+    promo = {'label': str((payload.promo or {}).get('label') or '')[:40], 'discountPct': max(0.0, min(100.0, float((payload.promo or {}).get('discountPct') or 0))),
+             'until': float((payload.promo or {}).get('until') or 0)}
+    async with _admin_lock:
+        d = _admin_load()
+        d['fees'] = {'platformFeeBps': payload.platformFeeBps, 'referralAccount': payload.referralAccount, 'tierDiscountPct': tiers, 'zeroFeeMints': zero, 'promo': promo}
+        _audit(d, admin, 'fees', f"{payload.platformFeeBps} bps · discounts {tiers} · promo {promo['discountPct']:.0f}%")
+        _admin_save(d)
+    return {'ok': True, 'fees': _fee_cfg()}
+
+
+# ---- Chat sessions: sign once, chat for 7 days --------------------------------------------
+import secrets as _secrets
+SESSIONS_PATH = DATA_DIR / 'chat_sessions.json'
+SESSION_TTL = 7 * 86400
+
+
+def _sess():
+    return _json_load(SESSIONS_PATH, {'s': {}})
+
+
+def session_address(token: str):
+    if not token:
+        return None
+    rec = _sess()['s'].get(hashlib.sha256(token.encode()).hexdigest())
+    if not rec or time.time() > rec['exp']:
+        return None
+    return rec['address']
+
+
+class SessionIn(BaseModel):
+    address: str
+    ts: int
+    signature: str
+
+
+@app.post('/api/reputation/chat/session')
+async def chat_session(payload: SessionIn):
+    if abs(time.time() - payload.ts) > 300:
+        raise HTTPException(401, 'Signature expired — try again.')
+    if not _verify_wallet(payload.address, f'FEELESS chat session\naddress:{payload.address}\nts:{payload.ts}', payload.signature):
+        raise HTTPException(401, 'Signature does not match this wallet.')
+    token = _secrets.token_urlsafe(32)
+    async with _admin_lock:
+        d = _sess()
+        now = time.time()
+        d['s'] = {k: v for k, v in d['s'].items() if v['exp'] > now}
+        d['s'][hashlib.sha256(token.encode()).hexdigest()] = {'address': payload.address, 'exp': now + SESSION_TTL}
+        _json_save(SESSIONS_PATH, d)
+    return {'token': token, 'expiresAt': time.time() + SESSION_TTL}

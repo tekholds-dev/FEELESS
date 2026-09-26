@@ -27,6 +27,7 @@ import { TrustSignals, CaseStudies, LiveProof, RoadmapVoting, NetworkStatus } fr
 import { RadarView, PumpRadarView, SignalMovers, ParticipationBoard, MetaDetector } from '../components/command/DiscoveryViews';
 import { CommandWhitepaper, MissionRoadmap, UnderstandFeeless, TerminalConfiguration } from '../components/command/CommandDocuments';
 import { ReputationCenter } from '../components/command/ReputationCenter';
+import { LegalPage } from '../components/LegalConsent';
 import { CreatorProfilePage } from '../components/command/CreatorProfile';
 
 const CHAINS = [['solana', 'Solana'], ['all', 'All chains'], ['ethereum', 'Ethereum'], ['base', 'Base'], ['bsc', 'BNB Chain'], ['arbitrum', 'Arbitrum'], ['avalanche', 'Avalanche'], ['polygon', 'Polygon'], ['sui', 'Sui']];
@@ -176,11 +177,12 @@ export default function Terminal() {
       {page === 'fee' && <FeeAssetPage asset={fee}>{fee?.pair ? <TokenFocus pair={fee.pair} has={has} toggle={toggle} /> : <FeeHeartbeat asset={fee} loading={assets.loading} />}</FeeAssetPage>}
         {page === 'feeback' && <FeeBackCenter feeCat={feeCat} />}{page === 'feecat' && <FeeCatCenter asset={feeCat} community={community} onSelect={onSelect} />}{page === 'feecat/cats' && <FeelessCats />}{page === 'feecat/agents' && <FeeCatsPlatform />}
       {page === 'reputation' && <ReputationCenter />}
+      {page === 'legal' && <LegalPage />}
       {page.startsWith('profile/') && <WalletProfilePage key={page} address={page.split('/')[1]} />}
       {page.startsWith('reputation/') && (() => { const [, repChain, repAddress] = page.split('/'); return repChain && repAddress ? <CreatorProfilePage chain={repChain} address={repAddress} /> : null; })()}
       {page === 'leaderboard' && <ParticipationBoard />}{page === 'whitepaper' && <><LiveProof /><CommandWhitepaper /></>}{page === 'roadmap' && <><MissionRoadmap /><RoadmapVoting /></>}{page === 'learn' && <><UnderstandFeeless /><CaseStudies /></>}
       {page === 'settings' && <><TerminalConfiguration settings={settings} setSettings={setSettings} onWallet={() => setWalletOpen(true)} /><NetworkStatus /></>}
-       {!isMarket && !page.startsWith('reputation') && !page.startsWith('profile/') && !['launch', 'watchlist', 'chat', 'alerts', 'fee', 'feeback', 'feecat', 'feecat/cats', 'feecat/agents', 'leaderboard', 'whitepaper', 'roadmap', 'learn', 'settings'].includes(page) && <div className="page-heading"><h1>Off the radar.</h1><Link to="/terminal" className="btn-primary" data-testid="unknown-page-home">Back to terminal</Link></div>}
+       {!isMarket && !page.startsWith('reputation') && !page.startsWith('profile/') && !['launch', 'watchlist', 'chat', 'alerts', 'fee', 'feeback', 'feecat', 'feecat/cats', 'feecat/agents', 'leaderboard', 'whitepaper', 'roadmap', 'learn', 'settings', 'legal'].includes(page) && <div className="page-heading"><h1>Off the radar.</h1><Link to="/terminal" className="btn-primary" data-testid="unknown-page-home">Back to terminal</Link></div>}
        </div><TerminalFooter />
      </main></div><WalletModal open={walletOpen} onClose={() => setWalletOpen(false)} /><WalletProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} /></div>;
 }

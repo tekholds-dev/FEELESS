@@ -10,3 +10,10 @@ for svc in "reputation_service:app 5077" "candles_service:app 5099" "feecat_serv
   nohup "$UV" "$1" --host 127.0.0.1 --port "$2" > "/tmp/feeless-${1%%:*}.log" 2>&1 &
   echo "started ${1%%:*} on :$2"
 done
+
+# Market + swap API (port 5001) — its own env (../.venv) built from requirements.txt; needs MongoDB running.
+pkill -f "uvicorn server:app" 2>/dev/null || true
+if [ -x ../.venv/bin/uvicorn ]; then
+  nohup ../.venv/bin/uvicorn server:app --host 127.0.0.1 --port 5001 > /tmp/feeless-server.log 2>&1 &
+  echo "started server on :5001"
+fi

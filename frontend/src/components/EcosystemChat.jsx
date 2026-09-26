@@ -10,6 +10,7 @@ import { useCreatorTrust, BADGE_LABEL } from '../lib/reputation';
 import { ReputationBadge } from './terminal/ReputationBadge';
 import { Badges } from './terminal/Badges';
 import { SlashMenu, CommandCard, runCommand } from './ChatCommands';
+import { getChatSession, clearChatSession } from '../lib/chatSession';
 
 function AuthorTrust({ chain, address }) {
   const trust = useCreatorTrust(chain, address);
@@ -108,9 +109,8 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
   const removePost = async m => {
     if (!window.confirm('Delete this post from the wall?')) return;
     try {
-      const ts = Math.floor(Date.now() / 1000);
-      const signature = await signMessage(`FEELESS delete\nroom:${room}\nid:${m.id}\nts:${ts}`);
-      const res = await fetch(apiUrl('/api/reputation/chat/delete'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room, id: m.id, address: wallet.address, ts, signature }) });
+      const session = await getChatSession(wallet.address, signMessage);
+      const res = await fetch(apiUrl('/api/reputation/chat/delete'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room, id: m.id, address: wallet.address, ts: Math.floor(Date.now() / 1000), session }) });
       const b = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(b.detail || 'Delete failed.');
       await refresh.current?.();
@@ -168,11 +168,13 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
       if (!wallet) throw Object.assign(new Error('Connect your wallet to post in the trenches.'), { code: 'WALLET_REQUIRED' });
       if (gate?.needsChain === 'solana' && wallet.chain !== 'solana') throw new Error(`${gate.symbol} lives on Solana — switch your wallet to Solana to chat here.`);
       if (gate?.gated && !gate.allowed) throw new Error(`Hold at least $${gate.minUsd} of ${gate.symbol} to chat here.`);
-      const ts = Math.floor(Date.now() / 1000);
-      const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
-      const signature = await signMessage(`FEELESS chat\nroom:${room}\naddress:${wallet.address}\nts:${ts}\nhash:${digest}`);
-      const res = await fetch(apiUrl('/api/reputation/chat'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room, address: wallet.address, text, ts, signature, parentId: replyTarget?.id || null, boost }) });
-      const data = await res.json().catch(() => ({}));
+      const post = async () => {
+        const session = await getChatSession(wallet.address, signMessage);
+        const r = await fetch(apiUrl('/api/reputation/chat'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room, address: wallet.address, text, ts: Math.floor(Date.now() / 1000), session, parentId: replyTarget?.id || null, boost }) });
+        return [r, await r.json().catch(() => ({}))];
+      };
+      let [res, data] = await post();
+      if (res.status === 401) { clearChatSession(wallet.address); [res, data] = await post(); }
       if (!res.ok) throw new Error(data.detail || 'Message not sent.');
       setInput(''); setBoostNext(false); stick.current = true; await refresh.current?.();
       setReplyTarget(null);

@@ -10,6 +10,7 @@ import './styles/command.css';
 import './styles/tab-variants.css';
 import './styles/trade.css';
 import './styles/heartbeat.css';
+import { LegalConsent } from './components/LegalConsent';
 import AmbientBackground from './components/AmbientBackground';
 const Landing = lazy(() => import('./pages/Landing'));
 const Terminal = lazy(() => import('./pages/Terminal'));
@@ -48,7 +49,7 @@ function AppShell() {
             <Route path="/whitepaper" element={<Navigate to="/terminal/whitepaper" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes></Suspense>
-        </BrowserRouter><Toaster theme="dark" position="bottom-right" /></WorkspaceProvider></WalletProvider>
+        </BrowserRouter><Toaster theme="dark" position="bottom-right" /><LegalConsent /></WorkspaceProvider></WalletProvider>
       </div>
     </div>
   );

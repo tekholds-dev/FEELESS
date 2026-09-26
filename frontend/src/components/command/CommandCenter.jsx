@@ -59,7 +59,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     <div className="cc-gate-actions"><button type="button" className="btn-primary" disabled={busy} onClick={signIn}><ShieldCheck size={15} />{busy ? 'Check your wallet…' : 'Sign in to Command Center'}</button><button type="button" className="btn-outline" onClick={onClose}>Back to profile</button></div>
   </div></div>;
 
-  const TABS = [['overview', 'Overview', Activity], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['overview', 'Overview', Activity], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fees', 'Fees & Pricing', ShieldCheck], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div>
       <nav className="cc-tabs">{TABS.map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</nav>
@@ -91,6 +91,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'snapshots' && <Snapshots call={call} asset={asset} />}
     {tab === 'airdrops' && <Airdrops drops={drops} call={call} reload={loadDrops} />}
     {tab === 'badges' && <AwardBadges call={call} initial={[...selected]} />}
+    {tab === 'fees' && <FeesPanel call={call} />}
     {tab === 'bugs' && <section className="cc-panel">{!bugs.length ? <p className="cc-empty">No reports yet. Anyone can file one from a profile's “Report a bug” button.</p>
       : <div className="cc-bugs">{bugs.map(b => <div key={b.id} className={`cc-bug k-${b.kind} s-${b.status}`}><div><em>{b.kind}</em><b>{b.text}</b><small>{b.page || '—'} · {new Date(b.at * 1000).toLocaleString()}{b.address ? ` · ${shortAddress(b.address)}` : ''}</small></div>
         <select value={b.status} onChange={e => call(`/admin/bugs/${b.id}?status=${e.target.value}`, { method: 'POST' }).then(loadBugs).catch(err => toast.error(err.message))}>{['open', 'fixing', 'fixed', 'wontfix'].map(s => <option key={s}>{s}</option>)}</select></div>)}</div>}</section>}
@@ -172,4 +173,42 @@ export function ReportBug({ address }) {
   return <div className="wp-report-box"><select value={kind} onChange={e => setKind(e.target.value)}><option value="bug">🐞 Bug</option><option value="security">🔐 Security issue</option><option value="idea">💡 Idea</option></select>
     <textarea rows={3} maxLength={2000} placeholder="What happened? What did you expect?" value={text} onChange={e => setText(e.target.value)} />
     <div><button type="button" className="btn-primary" disabled={text.trim().length < 5} onClick={send}>Send</button><button type="button" className="btn-outline" onClick={() => setOpen(false)}>Cancel</button></div></div>;
+}
+
+function FeesPanel({ call }) {
+  const [cfg, setCfg] = useState(null);
+  const [limits, setLimits] = useState({ minBps: 50, maxBps: 255 });
+  const [zero, setZero] = useState('');
+  const [promoDays, setPromoDays] = useState(0);
+  useEffect(() => { call('/admin/fees').then(d => { setCfg(d.fees); setLimits(d.limits); setZero((d.fees.zeroFeeMints || []).join('\n')); }).catch(e => toast.error(e.message)); }, [call]);
+  if (!cfg) return <p className="cc-empty">Loading fee settings…</p>;
+  const set = (k, v) => setCfg(c => ({ ...c, [k]: v }));
+  const save = async () => {
+    const body = { ...cfg, platformFeeBps: Number(cfg.platformFeeBps) || 0, zeroFeeMints: zero.split(/[\s,]+/).filter(Boolean),
+      promo: { ...(cfg.promo || {}), until: promoDays > 0 ? Date.now() / 1000 + promoDays * 86400 : cfg.promo?.until || 0 } };
+    try { const d = await call('/admin/fees', { method: 'POST', body: JSON.stringify(body) }); setCfg(d.fees); toast.success('Fee settings saved — applied to the next quote.'); } catch (e) { toast.error(e.message); }
+  };
+  const TIERS = ['Trencher', 'Fee Friend', 'Fee Insider', 'Fee Whale'];
+  return <section className="cc-panel cc-fees" data-testid="fees-panel">
+    <p className="cc-note">Fees are charged by Jupiter as an integrator fee straight into your referral account — FEELESS never touches user funds. Jupiter allows {limits.minBps / 100}%–{limits.maxBps / 100}% (set 0 for free trading). $FEE ecosystem trades are always free. Every trader sees the fee before signing.</p>
+    <div className="cc-studio-grid">
+      <div className="cc-block"><h4>Platform fee</h4>
+        <label>Fee (basis points · 100 = 1%)<input type="number" min="0" max={limits.maxBps} value={cfg.platformFeeBps} onChange={e => set('platformFeeBps', e.target.value)} /></label>
+        <small className="cc-empty">{Number(cfg.platformFeeBps) ? `${(cfg.platformFeeBps / 100).toFixed(2)}% per swap` : 'Free trading'}</small>
+        <label>Jupiter referral account (your fee wallet)<input placeholder="Create at referral.jup.ag, paste the account" value={cfg.referralAccount} onChange={e => set('referralAccount', e.target.value.trim())} /></label>
+      </div>
+      <div className="cc-block"><h4>$FEE holder discounts</h4>
+        {TIERS.map((t, i) => <label key={t}>{t}<input type="number" min="0" max="100" value={cfg.tierDiscountPct?.[String(i)] ?? 0} onChange={e => set('tierDiscountPct', { ...cfg.tierDiscountPct, [String(i)]: Number(e.target.value) })} /></label>)}
+        <small className="cc-empty">% off the platform fee for each tier.</small>
+      </div>
+      <div className="cc-block"><h4>Promo + fee-free tokens</h4>
+        <label>Promo label<input value={cfg.promo?.label || ''} onChange={e => set('promo', { ...cfg.promo, label: e.target.value })} placeholder="e.g. Launch week" /></label>
+        <label>Promo discount %<input type="number" min="0" max="100" value={cfg.promo?.discountPct || 0} onChange={e => set('promo', { ...cfg.promo, discountPct: Number(e.target.value) })} /></label>
+        <label>Run promo for (days from now)<input type="number" min="0" value={promoDays} onChange={e => setPromoDays(Number(e.target.value))} /></label>
+        {cfg.promo?.until > Date.now() / 1000 && <small className="cc-empty">Live until {new Date(cfg.promo.until * 1000).toLocaleString()}</small>}
+        <label>Fee-free token mints (one per line)<textarea rows={3} value={zero} onChange={e => setZero(e.target.value)} /></label>
+      </div>
+    </div>
+    <button type="button" className="btn-primary" onClick={save}>Save fee settings</button>
+  </section>;
 }
