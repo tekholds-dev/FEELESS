@@ -13,6 +13,8 @@ import './styles/heartbeat.css';
 import { LegalConsent } from './components/LegalConsent';
 import { captureInvite } from './lib/chatSession';
 captureInvite();
+import { installOverflowTitles } from './components/Hint';
+installOverflowTitles();
 import AmbientBackground from './components/AmbientBackground';
 const Landing = lazy(() => import('./pages/Landing'));
 const Terminal = lazy(() => import('./pages/Terminal'));

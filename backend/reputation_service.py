@@ -3188,10 +3188,12 @@ async def claim_referral(payload: RefIn):
     """Credit the inviter once. Proof of wallet ownership = the invitee's signed chat session."""
     if session_address(payload.session) != payload.address:
         raise HTTPException(401, 'Sign in to chat first.')
-    try:
-        inviter = (await resolve_profile(payload.ref))['address']
-    except HTTPException:
-        raise HTTPException(404, 'Unknown invite code.')
+    inviter = _code_owner(payload.ref)
+    if not inviter:
+        try:
+            inviter = (await resolve_profile(payload.ref))['address']
+        except HTTPException:
+            raise HTTPException(404, 'Unknown invite code.')
     me = primary_of(payload.address)
     if inviter == me:
         raise HTTPException(400, "You can't invite yourself.")
@@ -3212,7 +3214,7 @@ async def referral_info(address: str):
     a = primary_of(address)
     d = _json_load(REF_PATH, {'by': {}, 'of': {}})
     invited = d['by'].get(a, [])
-    return {'address': a, 'code': handle_of(a), 'invited': len(invited), 'recent': invited[-10:][::-1], 'invitedBy': d['of'].get(a)}
+    return {'address': a, 'code': invite_code(a), 'handle': handle_of(a), 'invited': len(invited), 'recent': invited[-10:][::-1], 'invitedBy': d['of'].get(a)}
 
 
 @app.get('/api/reputation/admin/referrals')
@@ -3821,3 +3823,38 @@ async def admin_verify(request: Request, payload: ModIn):
         _audit(d, admin, 'verify' if payload.hours >= 0 else 'unverify', f'@{handle_of(a)}')
         _admin_save(d)
     return {'ok': True, 'verified': is_verified(a)}
+
+
+# ---- Unique invite codes + public site URL ---------------------------------------------------
+def invite_code(address: str) -> str:
+    a = primary_of(address)
+    h = hashlib.sha256(f'feeless-invite:{a}'.encode()).digest()
+    alphabet = '23456789abcdefghjkmnpqrstuvwxyz'
+    n = int.from_bytes(h[:8], 'big')
+    return ''.join(alphabet[(n >> (5 * i)) % len(alphabet)] for i in range(8))
+
+
+def _code_owner(code: str):
+    code = (code or '').lower()
+    cands = set(_profiles_load()['profiles']) | set(_json_load(REF_PATH, {'by': {}})['by']) | set(_pts()) | set(_admin_wallets())
+    return next((a for a in cands if invite_code(a) == code), None)
+
+
+@app.get('/api/reputation/site')
+async def site_config():
+    return {'publicUrl': (_admin_load().get('site') or {}).get('publicUrl') or ''}
+
+
+class SiteIn(BaseModel):
+    publicUrl: str
+
+
+@app.post('/api/reputation/admin/site')
+async def admin_site(request: Request, payload: SiteIn):
+    admin = _require_admin(request)
+    url = payload.publicUrl.strip().rstrip('/')
+    if url and not _re.match(r'^https://[a-z0-9.-]+\.[a-z]{2,}(/[\w./-]*)?$', url, _re.I):
+        raise HTTPException(400, 'Use your public https:// domain (e.g. https://feeless.app).')
+    async with _admin_lock:
+        d = _admin_load(); d['site'] = {'publicUrl': url}; _audit(d, admin, 'site-url', url or '(cleared)'); _admin_save(d)
+    return {'ok': True, 'publicUrl': url}

@@ -2436,3 +2436,9 @@ body.theme-day .dm-card{box-shadow:0 24px 60px #0003}
 body.theme-day .wp-actions :is(.btn-outline,button:not(.btn-primary),a:not(.btn-primary)){background:#ffffffe6!important;color:#0b2a1d!important;border-color:#ffffff!important;box-shadow:0 4px 14px #0002}
 body.theme-day .wp-head{text-shadow:none}
 .verified-mark{display:inline-block;vertical-align:-2px;margin-left:6px;filter:drop-shadow(0 0 6px rgba(29,155,240,.5))}
+/* "?" hints */
+.hint{position:relative;display:inline-grid;place-items:center;width:16px;height:16px;margin-left:6px;border-radius:50%;border:1px solid var(--line);color:var(--muted);font:700 10px/1 sans-serif;cursor:help;vertical-align:middle;text-shadow:none;-webkit-text-fill-color:currentColor}
+.hint:hover,.hint:focus{color:var(--mint);border-color:var(--mint);outline:none}
+.hint::after{content:attr(data-hint);position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%) translateY(4px);width:max-content;max-width:280px;padding:8px 10px;border-radius:10px;background:rgba(5,14,10,.97);border:1px solid rgba(0,233,160,.35);color:#d6efe2;font:400 12px/1.45 Outfit,sans-serif;text-align:left;white-space:normal;opacity:0;pointer-events:none;transition:.15s;z-index:900;box-shadow:0 10px 30px #000a}
+.hint:hover::after,.hint:focus::after{opacity:1;transform:translateX(-50%)}
+body.theme-day .hint::after{background:#fff;color:#173b2b;border-color:#9fd3b6;box-shadow:0 10px 30px #0002}

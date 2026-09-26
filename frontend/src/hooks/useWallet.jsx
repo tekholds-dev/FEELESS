@@ -63,6 +63,7 @@ export const WalletProvider = ({ children }) => {
       const result = await p.connect();
       if (!result.publicKey) throw new Error('No wallet account was returned.');
       const nextWallet = { name: walletName(p, 'solana'), chain: type, address: result.publicKey.toString() };
+      try { localStorage.setItem('feeless:last-wallet', JSON.stringify({ type, brand: brandOf(p) })); } catch { /* ignore */ }
       setWallet(nextWallet);
       setProvider(p);
       return { wallet: nextWallet, provider: p };
@@ -71,12 +72,37 @@ export const WalletProvider = ({ children }) => {
       if (!accounts?.[0]) throw new Error('No wallet account was returned.');
       const evmChainId = await p.request({ method: 'eth_chainId' }).catch(() => null);
       const nextWallet = { name: walletName(p, 'evm'), chain: type, address: accounts[0], evmChainId };
+      try { localStorage.setItem('feeless:last-wallet', JSON.stringify({ type, brand: brandOf(p) })); } catch { /* ignore */ }
       setWallet(nextWallet);
       setProvider(p);
       return { wallet: nextWallet, provider: p };
     }
   };
+  // Silent reconnect after refresh: only works if the wallet already trusts this site (no popup).
+  useEffect(() => {
+    let last = null;
+    try { last = JSON.parse(localStorage.getItem('feeless:last-wallet') || 'null'); } catch { /* ignore */ }
+    if (!last || wallet) return;
+    let alive = true;
+    const tryIt = async () => {
+      const p = (last.brand && pairedProvider(last.brand, last.type)) || (last.type === 'solana' ? solanaProvider() : evmProvider());
+      if (!p) return;
+      try {
+        if (last.type === 'solana') {
+          const r = await p.connect({ onlyIfTrusted: true });
+          const address = (r?.publicKey || p.publicKey)?.toString();
+          if (alive && address) { setWallet({ name: walletName(p, 'solana'), chain: 'solana', address }); setProvider(p); }
+        } else {
+          const accounts = await p.request({ method: 'eth_accounts' });
+          if (alive && accounts?.[0]) { const evmChainId = await p.request({ method: 'eth_chainId' }).catch(() => null); setWallet({ name: walletName(p, 'evm'), chain: 'evm', address: accounts[0], evmChainId }); setProvider(p); }
+        }
+      } catch { /* not trusted yet → user connects manually */ }
+    };
+    const t = setTimeout(tryIt, 300); // wallets inject slightly after page load
+    return () => { alive = false; clearTimeout(t); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const disconnect = async () => {
+    try { localStorage.removeItem('feeless:last-wallet'); } catch { /* ignore */ }
     if (wallet?.chain === 'solana') await provider?.disconnect?.();
     setWallet(null); setProvider(null);
   };

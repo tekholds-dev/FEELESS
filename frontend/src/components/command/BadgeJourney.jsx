@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
+import { Hint } from '../Hint';
 import { BadgeIcon } from '../terminal/BadgeIcon';
 
 const TIERS = { 1: 'Rookie', 2: 'Trencher', 3: 'Veteran', 4: 'Legend' };
@@ -26,7 +27,7 @@ export function BadgeJourney({ address, mine }) {
   const got = catalog.filter(c => earned.has(c.id)).length;
   const tiers = [1, 2, 3, 4].map(t => ({ t, items: catalog.filter(c => c.tier === t) }));
   return <section className="wp-card wp-journey" data-testid="badge-journey">
-    <div className="wpj-head"><h3>Badge journey</h3><span className="wpj-count"><b>{got}</b>/{catalog.length} unlocked</span></div>
+    <div className="wpj-head"><h3>Badge journey <Hint text="Badges are earned automatically from on-chain and FEELESS activity. Pick up to 3 to feature on your profile." /></h3><span className="wpj-count"><b>{got}</b>/{catalog.length} unlocked</span></div>
     <div className="wpj-bar"><i style={{ width: `${(got / catalog.length) * 100}%` }} /></div>
     <p className="wp-bio">{mine ? 'Every badge is earned from real on-chain or FEELESS activity — here is how to unlock the rest.' : 'Badges are earned from real wallet activity. Here is how.'}</p>
     <div className="wpj-path">{tiers.map(({ t, items }) => <div key={t} className="wpj-tier"><small className="wpj-tier-name">Tier {t} · {TIERS[t]}</small>

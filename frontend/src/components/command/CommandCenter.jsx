@@ -255,9 +255,12 @@ function AdsPanel({ call }) {
 
 function InvitesPanel({ call }) {
   const [d, setD] = useState(null);
-  useEffect(() => { call('/admin/referrals').then(setD).catch(e => toast.error(e.message)); }, [call]);
+  const [url, setUrl] = useState('');
+  useEffect(() => { call('/admin/referrals').then(setD).catch(e => toast.error(e.message)); fetch('/api/reputation/site').then(r => r.json()).then(x => setUrl(x.publicUrl || '')).catch(() => {}); }, [call]);
+  const saveUrl = () => call('/admin/site', { method: 'POST', body: JSON.stringify({ publicUrl: url }) }).then(() => toast.success('Invite links now use ' + url)).catch(e => toast.error(e.message));
   if (!d) return <p className="cc-empty">Loading invites…</p>;
   return <section className="cc-panel">
+    <div className="cc-block"><h4>Public site domain (used in every invite link)</h4><div className="cc-toolbar"><input placeholder="https://your-domain.com" value={url} onChange={e => setUrl(e.target.value)} /><button type="button" className="btn-primary" onClick={saveUrl}>Save</button></div><small className="cc-empty">Links look like {url || 'https://your-domain.com'}/r/b26hhajg — one unique code per wallet.</small></div>
     <div className="cc-kpis"><span><small>Wallets invited</small><b>{d.total}</b></span><span><small>Active inviters</small><b>{d.top.length}</b></span></div>
     <div className="cc-block"><h4>Top inviters</h4>{!d.top.length ? <small className="cc-empty">No invites yet — every wallet has a link in Settings and on its profile.</small> : d.top.map((r, i) => <div key={r.address} className="cc-sig"><span>{i + 1}. <a href={`/terminal/profile/${r.address}`} target="_blank" rel="noopener noreferrer">@{r.handle}</a></span><b>{r.invited}</b></div>)}</div>
   </section>;

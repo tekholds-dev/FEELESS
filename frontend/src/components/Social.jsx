@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { Bell, MessageCircle, Send, Gift } from 'lucide-react';
 import { useWallet } from '../hooks/useWallet';
 import { getChatSession, readChatSession } from '../lib/chatSession';
+import { Hint } from './Hint';
 import { currentSubscription, enablePush, readPushPrefs, savePushPrefs, syncPush } from '../lib/push';
 
 const ago = ts => { const s = Math.max(0, Date.now() / 1000 - ts); return s < 60 ? 'now' : s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h` : `${Math.floor(s / 86400)}d`; };
@@ -92,7 +93,7 @@ export function RewardsCard({ address, mine }) {
   };
   if (!d) return null;
   return <section className="wp-card rewards-card" data-testid="rewards">
-    <div className="wpj-head"><h3><Gift size={15} /> Rewards</h3><span className="wpj-count"><b>{d.total.toLocaleString()}</b> pts · rank #{d.rank}{d.streak ? ` · 🔥 ${d.streak}d` : ''}</span></div>
+    <div className="wpj-head"><h3><Gift size={15} /> Rewards <Hint text="Points come from real activity: daily check-ins (streaks grow the bonus), posting, calls that hit 2×, invites, holding $FEE and linking accounts. Points feed FEELESS airdrops and the leaderboard." /></h3><span className="wpj-count"><b>{d.total.toLocaleString()}</b> pts · rank #{d.rank}{d.streak ? ` · 🔥 ${d.streak}d` : ''}</span></div>
     <p className="wp-bio">Points track real activity and feed FEELESS airdrops and the leaderboard. {mine ? 'Claim what you\'ve earned:' : ''}</p>
     <div className="rw-list">{d.items.map(it => <div key={it.id} className={`rw-item ${it.claimable ? 'ready' : ''}`}><div><b>{it.label}</b><small>{it.how}</small></div><span>+{it.amount}</span>{mine && <button type="button" className={it.claimable ? 'btn-primary' : 'btn-outline'} disabled={!it.claimable} onClick={() => claim(it.id)}>{it.claimable ? 'Claim' : it.claimed ? '✓' : '—'}</button>}</div>)}</div>
     {d.log.length > 0 && <div className="rw-log">{d.log.slice(0, 6).map((l, i) => <small key={i}>+{l.points} · {l.label} · {ago(l.at)} ago</small>)}</div>}

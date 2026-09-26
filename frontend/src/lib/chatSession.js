@@ -21,7 +21,7 @@ export async function getChatSession(address, signMessage) {
 
 // Invite links: /?ref=<handle>. Remembered until the invitee's first signed session, then credited once.
 export function captureInvite() {
-  try { const ref = new URLSearchParams(window.location.search).get('ref'); if (ref && /^[a-z0-9_]{3,20}$|^[1-9A-HJ-NP-Za-km-z]{32,44}$/i.test(ref)) localStorage.setItem('feeless:ref', ref); } catch { /* ignore */ }
+  try { const m = /^\/r\/([a-z0-9]{6,12})\/?$/i.exec(window.location.pathname); const ref = m ? m[1] : new URLSearchParams(window.location.search).get('ref'); if (m) window.history.replaceState(null, '', '/'); if (ref && /^[a-z0-9_]{3,20}$|^[1-9A-HJ-NP-Za-km-z]{32,44}$/i.test(ref)) localStorage.setItem('feeless:ref', ref); } catch { /* ignore */ }
 }
 export function claimInvite(address, session) {
   let ref = null;
