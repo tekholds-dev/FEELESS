@@ -108,9 +108,18 @@ async def _safety(http, p):
     for ok, why in checks:
         if not ok:
             return False, why, 0
+    # Creator record (brutal scoring): never buy from flagged/risky creators or launch farms.
+    try:
+        rep = (await http.get(f'http://127.0.0.1:5077/api/reputation/token/solana/{mint}', timeout=10)).json()
+    except Exception:
+        rep = {}
+    if rep.get('badge') in ('flagged', 'risky') or rep.get('serialLauncher'):
+        return False, f"creator is {rep.get('badge')}" + (' (launch farm)' if rep.get('serialLauncher') else ''), 0
     # Cleaner distribution → more conviction.
     conviction = 1.5 - min(1.0, _num(d.get('top10Pct')) / R['maxTop10Pct']) * 0.6 - (0.2 if snip > 5 else 0) - (0.2 if bund else 0)
-    return True, f"top10 {_num(d.get('top10Pct')):.0f}%, insiders {_num(d.get('insidersHoldingPct')):.0f}%, {snip} snipers, {bund} bundled", max(0.5, round(conviction, 2))
+    if rep.get('badge') == 'trusted':
+        conviction += 0.25
+    return True, f"top10 {_num(d.get('top10Pct')):.0f}%, insiders {_num(d.get('insidersHoldingPct')):.0f}%, {snip} snipers, {bund} bundled, creator {rep.get('badge') or 'unknown'}", max(0.5, min(1.75, round(conviction, 2)))
 
 
 def _num(v, d=0.0):

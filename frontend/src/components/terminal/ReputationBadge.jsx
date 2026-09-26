@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, ShieldQuestion, ShieldAlert, Shield } from 'lucide-react';
 import { useReputation, BADGE_LABEL } from '../../lib/reputation';
 
-const ICON = { trusted: ShieldCheck, building: Shield, unproven: ShieldQuestion, flagged: ShieldAlert };
+const ICON = { trusted: ShieldCheck, building: Shield, unproven: ShieldQuestion, flagged: ShieldAlert, risky: ShieldAlert };
 
 export const ReputationBadge = ({ pair, compact = false }) => {
   const rep = useReputation(pair);

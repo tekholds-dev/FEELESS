@@ -215,6 +215,7 @@ def token_outcome(t: dict, now: float = None) -> str:
 
 
 def score_creator(entry: dict) -> dict:
+    """Brutal, evidence-only scoring. No market evidence → no score. Launch volume alone never earns trust."""
     tokens = entry.get('tokens', {})
     total = len(tokens)
     rugged = sum(1 for t in tokens.values() if t.get('status') == 'rugged')
@@ -225,37 +226,49 @@ def score_creator(entry: dict) -> dict:
     clones = max(0, total - distinct)
     now = time.time()
     outcomes = [token_outcome(t, now) for t in tokens.values()]
-    dumped = outcomes.count('dumped')
-    dead = outcomes.count('dead')
+    dumped, dead = outcomes.count('dumped'), outcomes.count('dead')
     judged = sum(1 for o in outcomes if o != 'unknown')
-    alive_big = sum(1 for t in tokens.values() if token_outcome(t, now) == 'alive' and ((t.get('market') or {}).get('marketCap') or 0) >= 100_000)
-
-    score = 50
-    score += min(distinct, 10) * 3
-    score += min(sustained, 6) * 8
-    score += min(alive_big, 5) * 6
-    score += min(renounced, 6) * 1
-    score -= min(clones, 6) * 6
-    score -= min(dumped, 8) * 12
-    score -= min(dead, 6) * 4
-    score -= min(rugged, 6) * 40
+    alive = [t for t in tokens.values() if token_outcome(t, now) == 'alive']
+    alive_big = sum(1 for t in alive if ((t.get('market') or {}).get('marketCap') or 0) >= 100_000)
+    alive_traded = sum(1 for t in alive if ((t.get('market') or {}).get('volume24h') or 0) >= 10_000)
+    ghost = sum(1 for t in alive if not ((t.get('market') or {}).get('volume24h') or 0))
+    # Serial launching: more than 2 launches inside any 24h window is a farm pattern.
+    times = sorted(t.get('firstSeenAt') or 0 for t in tokens.values() if t.get('firstSeenAt'))
+    burst = max((sum(1 for u in times if 0 <= u - x <= 86400) for x in times), default=0)
+    serial_launcher = burst >= 3
+    base = {'tokenCount': total, 'distinctTickers': distinct, 'cloneCount': clones, 'ruggedCount': rugged, 'dumpedCount': dumped, 'deadCount': dead,
+            'judgedCount': judged, 'bigWinners': alive_big, 'sustainedCount': sustained, 'renouncedCount': renounced,
+            'serialLauncher': serial_launcher, 'launchBurst24h': burst, 'ghostCount': ghost}
+    if rugged:
+        return {**base, 'score': max(0, 10 - 5 * rugged), 'badge': 'flagged', 'serialDumper': True, 'confidence': 'high', 'reasons': [f'{rugged} rug(s) on record']}
+    if judged == 0:
+        return {**base, 'score': None, 'badge': 'unproven', 'serialDumper': False, 'confidence': 'none',
+                'reasons': ['No market evidence yet — FEELESS will not score a creator on launches alone.'] + (['Rapid-fire launching detected.'] if serial_launcher else [])}
+    score = 40
+    score += min(sustained, 5) * 10 + min(alive_big, 5) * 8 + min(alive_traded, 5) * 3
+    score -= min(dumped, 8) * 15 + min(dead, 8) * 8 + min(clones, 6) * 8 + min(ghost, 6) * 5
+    if serial_launcher:
+        score -= 10 * (burst - 2)
     score = max(0, min(100, score))
-
-    serial_dumper = dumped >= 3 and judged and dumped / judged >= 0.5
-    if rugged > 0 or serial_dumper:
+    dump_rate = dumped / judged if judged else 0
+    serial_dumper = dumped >= 2 and dump_rate >= 0.5
+    reasons = []
+    if dumped: reasons.append(f'{dumped}/{judged} judged launches dumped')
+    if dead: reasons.append(f'{dead} launches died')
+    if clones: reasons.append(f'{clones} cloned tickers')
+    if serial_launcher: reasons.append(f'{burst} launches inside 24h (farm pattern)')
+    if ghost: reasons.append(f'{ghost} listed with zero volume')
+    if sustained or alive_big: reasons.append(f'{sustained} sustained, {alive_big} over $100K')
+    if serial_dumper or dump_rate >= 0.34 and dumped >= 2:
         badge = 'flagged'
-    elif total == 0:
-        badge = 'unproven'
-    elif dumped == 0 and clones == 0 and (sustained > 0 or alive_big > 0 or (distinct >= 3 and judged >= 3 and dead == 0)):
+    elif judged >= 2 and not dumped and not clones and not serial_launcher and (sustained or alive_big) and score >= 65:
         badge = 'trusted'
+    elif serial_launcher or dumped or clones or ghost:
+        badge = 'risky'
     else:
         badge = 'building'
-
-    return {
-        'score': score, 'badge': badge, 'tokenCount': total, 'distinctTickers': distinct, 'cloneCount': clones,
-        'ruggedCount': rugged, 'dumpedCount': dumped, 'deadCount': dead, 'judgedCount': judged, 'bigWinners': alive_big,
-        'serialDumper': bool(serial_dumper), 'sustainedCount': sustained, 'renouncedCount': renounced,
-    }
+    return {**base, 'score': score, 'badge': badge, 'serialDumper': bool(serial_dumper),
+            'confidence': 'high' if judged >= 6 else 'medium' if judged >= 3 else 'low', 'reasons': reasons}
 
 
 class ObservePayload(BaseModel):
@@ -1994,6 +2007,15 @@ async def chat_post(payload: ChatPost):
                'profile': {'address': primary_of(payload.address), 'chain': 'solana' if not primary_of(payload.address).startswith('0x') else 'evm'}}
         room = d['rooms'].setdefault(payload.room, [])
         room.append(msg)
+        try:
+            if payload.room.startswith('wall-'):
+                notify(payload.room[5:], 'wall', f"@{handle_of(primary_of(payload.address))} wrote on your wall: {text[:80]}", f"/terminal/profile/{primary_of(payload.room[5:])}", payload.address)
+            for h in msg['mentions']:
+                who = next((a for a, v in _profiles_load()['profiles'].items() if (v or {}).get('handle') == h.lower()), None)
+                if who:
+                    notify(who, 'mention', f"@{handle_of(primary_of(payload.address))} mentioned you: {text[:80]}", '/terminal/chat', payload.address)
+        except Exception:
+            pass
         d['rooms'][payload.room] = room[-300:]
         CHAT_PATH.write_text(json.dumps(d))
     return {'ok': True, 'message': msg}
@@ -3177,6 +3199,7 @@ async def claim_referral(payload: RefIn):
         d['by'].setdefault(inviter, []).append({'address': me, 'at': time.time()})
         _json_save(REF_PATH, d)
     _badge_cache.pop(inviter, None)
+    notify(inviter, 'invite', f'@{handle_of(me)} joined with your invite link — claim +75 points.', f'/terminal/profile/{inviter}', me)
     return {'ok': True, 'inviter': inviter}
 
 
@@ -3576,3 +3599,197 @@ async def admin_feecat_set(request: Request):
         raise HTTPException(r.status_code, 'Fee service rejected the change.')
     ad = _admin_load(); _audit(ad, admin, 'feecat', json.dumps({k: v for k, v in body.items() if k != 'rules'} | {'rules': list((body.get('rules') or {}).keys())})[:160]); _admin_save(ad)
     return r.json()
+
+
+# ---- Notifications inbox (per identity) + push to the owner's devices ----------------------
+NOTIF_PATH = DATA_DIR / 'notifications.json'
+
+
+def notify(address: str, kind: str, text: str, url: str = '', actor: str = ''):
+    to = primary_of(address)
+    if not to or to in ('FEE-LEADER-CAT', 'FEELESS-HQ') or primary_of(actor or '') == to:
+        return
+    d = _json_load(NOTIF_PATH, {})
+    box = d.setdefault(to, [])
+    box.insert(0, {'id': uuid.uuid4().hex[:10], 'kind': kind, 'text': text[:200], 'url': url, 'actor': actor, 'at': time.time(), 'read': False})
+    d[to] = box[:200]
+    _json_save(NOTIF_PATH, d)
+    try:
+        for e in _push_load()['subs'].values():
+            if primary_of((e.get('prefs') or {}).get('address') or '') == to:
+                asyncio.get_running_loop().run_in_executor(None, _send_push, e['subscription'], {'dm': '💬 New message', 'wall': '🧱 New wall post', 'mention': '📣 You were mentioned', 'reward': '🎁 Reward ready', 'invite': '🎉 Invite joined'}.get(kind, 'FEELESS'), text[:120], url or '/terminal', f'n-{kind}')
+    except Exception:
+        pass
+
+
+def _session_or_401(address, session):
+    if session_address(session) != address:
+        raise HTTPException(401, 'Sign in to chat first (one signature, 7 days).')
+    return primary_of(address)
+
+
+@app.get('/api/reputation/notifications')
+async def notifications(address: str, session: str):
+    me = _session_or_401(address, session)
+    box = _json_load(NOTIF_PATH, {}).get(me, [])
+    return {'unread': sum(1 for n in box if not n['read']), 'items': box[:60]}
+
+
+@app.post('/api/reputation/notifications/read')
+async def notifications_read(payload: dict):
+    me = _session_or_401(payload.get('address', ''), payload.get('session', ''))
+    async with _admin_lock:
+        d = _json_load(NOTIF_PATH, {})
+        for n in d.get(me, []):
+            n['read'] = True
+        _json_save(NOTIF_PATH, d)
+    return {'ok': True}
+
+
+# ---- Direct messages (profile chat) -----------------------------------------------------------
+DM_PATH = DATA_DIR / 'dms.json'
+_dm_last = {}
+
+
+def _dm_key(a, b):
+    return '|'.join(sorted([primary_of(a), primary_of(b)]))
+
+
+class DmIn(BaseModel):
+    address: str
+    session: str
+    to: str
+    text: str = Field(min_length=1, max_length=500)
+
+
+@app.post('/api/reputation/dm')
+async def dm_send(payload: DmIn):
+    me = _session_or_401(payload.address, payload.session)
+    to = primary_of(payload.to)
+    if not _re.match(r'^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$', to) or to == me:
+        raise HTTPException(400, 'Pick another wallet to message.')
+    if is_muted(me):
+        raise HTTPException(403, 'You are muted for now.')
+    if time.time() - _dm_last.get(me, 0) < 2:
+        raise HTTPException(429, 'Slow down.')
+    _dm_last[me] = time.time()
+    msg = {'id': uuid.uuid4().hex[:12], 'from': me, 'to': to, 'text': payload.text.strip(), 'at': time.time()}
+    async with _admin_lock:
+        d = _json_load(DM_PATH, {})
+        d.setdefault(_dm_key(me, to), []).append(msg)
+        d[_dm_key(me, to)] = d[_dm_key(me, to)][-300:]
+        _json_save(DM_PATH, d)
+    notify(to, 'dm', f"@{handle_of(me)}: {payload.text.strip()}", f'/terminal/profile/{me}?dm=1', me)
+    return {'ok': True, 'message': msg}
+
+
+@app.get('/api/reputation/dm/{peer}')
+async def dm_thread(peer: str, address: str, session: str):
+    me = _session_or_401(address, session)
+    return {'me': me, 'peer': primary_of(peer), 'messages': _json_load(DM_PATH, {}).get(_dm_key(me, peer), [])[-150:]}
+
+
+@app.get('/api/reputation/dm-inbox')
+async def dm_inbox(address: str, session: str):
+    me = _session_or_401(address, session)
+    rows = []
+    for k, msgs in _json_load(DM_PATH, {}).items():
+        a, b = k.split('|')
+        if me in (a, b) and msgs:
+            peer = b if a == me else a
+            rows.append({'peer': peer, 'handle': handle_of(peer), 'last': msgs[-1], 'count': len(msgs)})
+    rows.sort(key=lambda r: -r['last']['at'])
+    return {'threads': rows[:50]}
+
+
+# ---- Rewards: points you earn and claim -------------------------------------------------------
+POINTS_PATH = DATA_DIR / 'points.json'
+REWARDS = [
+    {'id': 'daily', 'label': 'Daily check-in', 'points': 10, 'how': 'Come back every day — streaks add +5 per day (max +50).'},
+    {'id': 'profile', 'label': 'Complete your profile', 'points': 50, 'how': 'Name, @handle, pic and bio.', 'once': True},
+    {'id': 'post', 'label': 'Post in the Trenches', 'points': 5, 'how': 'Post at least once today in any chat.'},
+    {'id': 'call-hit', 'label': 'Call hits 2×', 'points': 100, 'how': 'Each of your Call Ledger calls that reached 2×.'},
+    {'id': 'invite', 'label': 'Invite a friend', 'points': 75, 'how': 'Each wallet credited to your invite link.'},
+    {'id': 'fee-holder', 'label': 'Hold $FEE', 'points': 20, 'how': 'Hold $1+ of $FEE — claim daily.'},
+    {'id': 'link', 'label': 'Link Solana + EVM', 'points': 40, 'how': 'Link both accounts of your wallet.', 'once': True},
+]
+
+
+def _pts():
+    return _json_load(POINTS_PATH, {})
+
+
+async def _reward_state(me: str):
+    rec = _pts().get(me) or {'total': 0, 'claims': {}, 'streak': 0, 'log': []}
+    day = time.strftime('%Y-%m-%d', time.gmtime())
+    claims = rec['claims']
+    prof = _profiles_load()['profiles'].get(me) or {}
+    msgs_today = any(m for ms in _chat_load()['rooms'].values() for m in ms if isinstance(m, dict) and (m.get('identity') or m.get('address')) == me and time.strftime('%Y-%m-%d', time.gmtime(m.get('ts', 0) / 1000)) == day)
+    board = await caller_board(days=90)
+    hits = next((r['hits'] for r in board['rows'] if r.get('callerAddress') == me), 0)
+    invited = len(_json_load(REF_PATH, {'by': {}})['by'].get(me, []))
+    fee_ok = (await _perk_tier(me))[1] >= 1
+    linked = len(linked_of(me)) > 1
+    out = []
+    for r in REWARDS:
+        c = claims.get(r['id'])
+        if r['id'] == 'daily':
+            ok, amount = c != day, 10 + min(50, 5 * rec.get('streak', 0))
+        elif r['id'] == 'profile':
+            ok, amount = not c and all(prof.get(k) for k in ('displayName', 'handle', 'avatarUrl', 'bio')), r['points']
+        elif r['id'] == 'post':
+            ok, amount = msgs_today and c != day, r['points']
+        elif r['id'] == 'call-hit':
+            n = hits - int(c or 0); ok, amount = n > 0, n * r['points']
+        elif r['id'] == 'invite':
+            n = invited - int(c or 0); ok, amount = n > 0, n * r['points']
+        elif r['id'] == 'fee-holder':
+            ok, amount = fee_ok and c != day, r['points']
+        else:
+            ok, amount = linked and not c, r['points']
+        out.append({**r, 'claimable': bool(ok), 'amount': amount, 'claimed': c})
+    return rec, out, {'hits': hits, 'invited': invited, 'day': day}
+
+
+@app.get('/api/reputation/rewards/{address}')
+async def rewards(address: str):
+    me = primary_of(address)
+    rec, items, _ = await _reward_state(me)
+    allp = _pts()
+    rank = 1 + sum(1 for v in allp.values() if v.get('total', 0) > rec.get('total', 0))
+    return {'address': me, 'total': rec.get('total', 0), 'streak': rec.get('streak', 0), 'rank': rank, 'items': items, 'log': rec.get('log', [])[:20]}
+
+
+class ClaimIn(BaseModel):
+    address: str
+    session: str
+    reward: str
+
+
+@app.post('/api/reputation/rewards/claim')
+async def rewards_claim(payload: ClaimIn):
+    me = _session_or_401(payload.address, payload.session)
+    async with _admin_lock:
+        rec, items, ctx = await _reward_state(me)
+        it = next((i for i in items if i['id'] == payload.reward), None)
+        if not it or not it['claimable']:
+            raise HTTPException(400, 'Nothing to claim for that yet.')
+        d = _pts()
+        rec = d.get(me) or rec
+        day = ctx['day']
+        if it['id'] == 'daily':
+            yesterday = time.strftime('%Y-%m-%d', time.gmtime(time.time() - 86400))
+            rec['streak'] = rec.get('streak', 0) + 1 if rec['claims'].get('daily') == yesterday else 1
+        rec['claims'][it['id']] = ctx['hits'] if it['id'] == 'call-hit' else ctx['invited'] if it['id'] == 'invite' else day if it['id'] in ('daily', 'post', 'fee-holder') else True
+        rec['total'] = rec.get('total', 0) + it['amount']
+        rec.setdefault('log', []).insert(0, {'id': it['id'], 'label': it['label'], 'points': it['amount'], 'at': time.time()})
+        rec['log'] = rec['log'][:100]
+        d[me] = rec
+        _json_save(POINTS_PATH, d)
+    return {'ok': True, 'gained': it['amount'], 'total': rec['total'], 'streak': rec.get('streak', 0)}
+
+
+@app.get('/api/reputation/rewards-board')
+async def rewards_board(limit: int = 50):
+    rows = sorted(({'address': a, 'handle': handle_of(a), 'points': v.get('total', 0), 'streak': v.get('streak', 0)} for a, v in _pts().items()), key=lambda r: -r['points'])
+    return {'rows': rows[:max(1, min(limit, 200))]}

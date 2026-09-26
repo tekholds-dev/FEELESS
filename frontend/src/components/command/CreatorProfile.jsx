@@ -7,7 +7,7 @@ import { shortAddress } from '../../lib/dexscreener';
 import { useWallet } from '../../hooks/useWallet';
 
 const ICON = { trusted: ShieldCheck, building: Shield, unproven: ShieldQuestion, flagged: ShieldAlert };
-const BADGE_COLOR = { trusted: '#00e9a0', building: '#9bd6aa', unproven: '#899b93', flagged: '#fa708c' };
+const BADGE_COLOR = { risky: '#ff9f45', trusted: '#00e9a0', building: '#9bd6aa', unproven: '#899b93', flagged: '#fa708c' };
 
 export const timeAgo = seconds => {
   if (!seconds) return 'just now';
@@ -26,14 +26,15 @@ function ScoreGauge({ score, badge, size = 92 }) {
   const color = BADGE_COLOR[badge] || '#899b93';
   const r = (size - 10) / 2;
   const circumference = 2 * Math.PI * r;
-  const offset = circumference * (1 - Math.min(100, Math.max(0, score)) / 100);
+  const has = score != null && Number.isFinite(Number(score));
+  const offset = circumference * (1 - (has ? Math.min(100, Math.max(0, score)) : 0) / 100);
   return <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="score-gauge">
     <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#ffffff10" strokeWidth="7" />
     <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="7" strokeLinecap="round"
       strokeDasharray={circumference} strokeDashoffset={offset}
       transform={`rotate(-90 ${size / 2} ${size / 2})`} style={{ filter: `drop-shadow(0 0 6px ${color}70)`, transition: 'stroke-dashoffset .6s ease' }} />
-    <text x="50%" y="46%" textAnchor="middle" dominantBaseline="middle" fill="#edf3ef" fontSize={size * 0.24} fontWeight="700" fontFamily="'JetBrains Mono',monospace">{score}</text>
-    <text x="50%" y="66%" textAnchor="middle" dominantBaseline="middle" fill="#8ca394" fontSize={size * 0.1}>/ 100</text>
+    <text x="50%" y="46%" textAnchor="middle" dominantBaseline="middle" fill="#edf3ef" fontSize={size * 0.24} fontWeight="700" fontFamily="'JetBrains Mono',monospace">{has ? score : '—'}</text>
+    <text x="50%" y="66%" textAnchor="middle" dominantBaseline="middle" fill="#8ca394" fontSize={size * 0.1}>{has ? '/ 100' : 'no score'}</text>
   </svg>;
 }
 
