@@ -1,6 +1,8 @@
 import { QuickTrade } from './QuickTrade';
 import { EdgeScore } from './EdgeScore';
 import { LivePrice, LiveChange24, LiveMarketCap } from './LiveCells';
+import { CoinAura } from '../CoinAura';
+import { useCoinColor } from '../../lib/coinColor';
 import React, { useEffect, useRef, useState } from 'react';
 import { ChartMetaButtons, useChartMarkers } from './ChartMeta';
 import { LaunchForensics } from './LaunchForensics';
@@ -45,7 +47,8 @@ export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1h', onExpand
     setMetric(availableMetrics[(idx + 1) % availableMetrics.length]);
   };
   const copy = async () => { try { await navigator.clipboard.writeText(address); toast.success('Contract address copied'); } catch { toast.error('Clipboard unavailable'); } };
-  return <section className="token-focus" data-testid="token-focus">
+  return <section className="token-focus has-aura" data-testid="token-focus">
+    <FocusAura pair={current} />
      <div className="focus-header"><TokenAvatar pair={current} size={46} /><div className="token-heading"><h2 data-testid="selected-token-symbol">{current.baseToken?.symbol}<span>/ {current.quoteToken?.symbol || 'USD'}</span></h2><div className="token-sub"><span data-testid="selected-token-chain">{current.chainId}</span><span>·</span><span data-testid="selected-token-dex">{current.dexId}</span><button onClick={copy} title="Copy contract address" data-testid="copy-selected-contract">{shortAddress(address)}<Copy size={11} /></button></div><TokenContextMeta pair={current} /></div><button title={has(current) ? 'Remove from watchlist' : 'Add to watchlist'} onClick={() => toggle(current)} className={`icon-btn ${has(current) ? 'is-saved' : ''}`} data-testid="selected-token-watchlist"><Star size={17} fill={has(current) ? 'currentColor' : 'none'} /></button></div>
     <MarketAvailabilityNotice data={live.data} error={live.error} errorStatus={live.errorStatus} errorProvider={live.errorProvider} id="token-market-availability" />
     {live.error && <MarketError error={`${live.error} Showing the discovery snapshot.`} reload={live.reload} id="token-refresh-error" />}
@@ -58,3 +61,7 @@ export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1h', onExpand
     <div className="token-actions"><button className="primary-action" data-testid="selected-token-trade-inapp" onClick={() => { selectPair(current); nav('/terminal/trade'); }}><ArrowUpRight size={19} /><span>Trade in FEELESS<small>{current.chainId === 'solana' ? 'Jupiter execution' : 'Network status'}</small></span><ArrowUpRight size={14} /></button>{current.chainId === 'solana' && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address || '') && <a href={`https://pump.fun/coin/${address}`} target="_blank" rel="noopener noreferrer" data-testid="selected-token-pump-link"><Rocket size={19} /><span>View on Pump<small>External token page</small></span><ArrowUpRight size={14} /></a>}<a href={dexUrl(current)} target="_blank" rel="noreferrer" data-testid="selected-token-dex-link"><BarChart3 size={19} /><span>View on DEX<small>Chart & transactions</small></span><ArrowUpRight size={14} /></a></div>
   </section>;
 };
+function FocusAura({ pair }) {
+  const color = useCoinColor(pair?.info?.imageUrl || pair?.baseToken?.imageUrl || pair?.imageUrl, pair?.baseToken?.address);
+  return <CoinAura color={color} change24h={pair?.priceChange?.h24} />;
+}
