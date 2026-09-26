@@ -26,6 +26,24 @@ const VIEWS = [
   ['flagged', 'Flagged / rugged', 'At least one confirmed liquidity collapse'],
 ];
 
+function BlocklistView() {
+  const [data, setData] = useState(null);
+  useEffect(() => { fetch('/api/reputation/blocklist?limit=300').then(r => r.json()).then(setData).catch(() => setData({ wallets: [] })); }, []);
+  const rows = data?.wallets || [];
+  return <section className="reputation-blocklist" data-testid="reputation-blocklist">
+    <p className="reputation-view-hint">Wallets proven by on-chain forensics to have bundled or sniped launches. Reported by the community with evidence, or caught automatically on {data?.autoThreshold || 3}+ launches. FEELESS launches can refuse them at open.</p>
+    {!rows.length && <div className="truth-empty">No blocklisted wallets yet. Open any coin's Launch forensics to flag proven bundlers and snipers.</div>}
+    <div className="reputation-rank-list">{rows.map((r, i) => <div key={r.wallet} className="reputation-rank-row blocklist-row">
+      <span className="reputation-rank-number">{String(i + 1).padStart(2, '0')}</span>
+      <span onClick={e => e.stopPropagation()}><AddressPill address={r.wallet} /></span>
+      <span className="reputation-badge badge-flagged">⛔ {r.auto ? 'Serial offender' : 'Reported'}</span>
+      <span><small>BUNDLES</small><b className={r.bundles ? 'negative' : ''}>{r.bundles}</b></span>
+      <span><small>SNIPES</small><b>{r.snipes}</b></span>
+      <strong className="reputation-score negative">{r.strikes}×</strong>
+    </div>)}</div>
+  </section>;
+}
+
 function ClusterExplorer({ chain, onScan }) {
   const [state, setState] = useState({ loading: true, error: '', data: null });
   useEffect(() => {
@@ -93,8 +111,8 @@ export function ReputationCenter() {
         <article><span className="eyebrow">WHY IT COMPOUNDS</span><p>Every observation is permanent and file-backed — nothing decays, nothing resets when a meta rotates. A wallet that rugs today stays flagged next month, next chain cycle, next meta. That's the moat: the dataset gets harder to fake the longer FEELESS runs, not easier.</p></article>
       </div>
     </section>
-    <div className="reputation-top-tabs"><button type="button" className={tab === 'leaderboard' ? 'active' : ''} onClick={() => setTab('leaderboard')}><Layers size={14} />Leaderboard</button><button type="button" className={tab === 'clusters' ? 'active' : ''} onClick={() => setTab('clusters')}><Link2 size={14} />Wallet Clusters</button><button type="button" className={tab === 'watchlist' ? 'active' : ''} onClick={() => setTab('watchlist')}><Star size={14} />My Watchlist</button></div>
-    {tab === 'watchlist' ? <WatchlistDashboard /> : <>
+    <div className="reputation-top-tabs"><button type="button" className={tab === 'leaderboard' ? 'active' : ''} onClick={() => setTab('leaderboard')}><Layers size={14} />Leaderboard</button><button type="button" className={tab === 'clusters' ? 'active' : ''} onClick={() => setTab('clusters')}><Link2 size={14} />Wallet Clusters</button><button type="button" className={tab === 'blocklist' ? 'active' : ''} onClick={() => setTab('blocklist')}>⛔ Blocklist</button><button type="button" className={tab === 'watchlist' ? 'active' : ''} onClick={() => setTab('watchlist')}><Star size={14} />My Watchlist</button></div>
+    {tab === 'watchlist' ? <WatchlistDashboard /> : tab === 'blocklist' ? <BlocklistView /> : <>
     <section className="reputation-lookup">
       <CreatorLookup chain={ecosystem.chainId} onScan={runScan} />
       {scan && <div ref={reportRef}>

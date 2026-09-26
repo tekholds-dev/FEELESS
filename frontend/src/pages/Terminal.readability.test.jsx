@@ -148,6 +148,8 @@ jest.mock('../components/command/DiscoveryViews', () => ({
   MetaDetector: () => null,
 }));
 
+jest.mock('../components/command/WalletProfilePage', () => ({ WalletProfilePage: () => null }));
+
 jest.mock('../components/command/AdvancedWatchlist', () => ({
   AdvancedWatchlist: () => null,
   WatchlistAlerts: () => null,

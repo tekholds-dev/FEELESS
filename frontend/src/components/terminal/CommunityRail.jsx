@@ -1,4 +1,4 @@
-import { TrenchHero, HotCalls, LiveCalls, CallerBoard } from './TrenchesTools';
+import { TrenchLanding, TrenchBar, HotCalls, LiveCalls, CallerBoard } from './TrenchesTools';
 import { LivePrice } from './LiveCells';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -76,6 +76,8 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair
     trending: pairs,
     watchlist: watchlist,
   }[stage] || [];
+  const [onFloor, setOnFloor] = useState(() => { try { return Boolean(routeSelectedPair) || localStorage.getItem('feeless-trench-floor') === '1'; } catch { return false; } });
+  const setFloor = v => { setOnFloor(v); try { localStorage.setItem('feeless-trench-floor', v ? '1' : '0'); } catch {} window.scrollTo?.({ top: 0 }); };
   const pickCall = async c => {
     try {
       const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/${c.chain}/${c.pairAddress}`);
@@ -84,8 +86,9 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair
       if (p) { selectPair(p); window.scrollTo?.({ top: 0, behavior: 'smooth' }); }
     } catch { /* keep current chart */ }
   };
-  return <div className="trenches-page trenches-lit" data-testid="trenches-page">
-    <TrenchHero ecosystemName={ecosystem.name} />
+  if (!onFloor) return <div className="trenches-page trenches-lit" data-testid="trenches-page"><TrenchLanding ecosystemName={ecosystem.name} onEnter={() => setFloor(true)} /></div>;
+  return <div className="trenches-page trenches-lit trenches-floor" data-testid="trenches-page">
+    <TrenchBar onAbout={() => setFloor(false)} />
     <div className="trenches-grid">
       <section className="trenches-chat-section" data-testid="trenches-chat-section"><ChatRoom large pairs={pairs} newPairs={newPairs} onSelect={onSelect} selectedPair={chartPair} selectedPerspective={selectedPerspective} onPerspectiveChange={onPerspectiveChange} onConnect={onConnect} /></section>
       <section className="trenches-chart-panel"><div className="section-title"><h2><CandlestickChart size={18} />DEX chart</h2><span className="provider-note">GeckoTerminal · OHLCV</span></div>{chartPair ? <TokenFocus pair={chartPair} has={has} toggle={toggle} defaultInterval="15m" /> : <div className="truth-empty" data-testid="trenches-chart-empty"><CandlestickChart size={28} /><span>Select a provider-indexed coin to open its chart.</span></div>}</section>

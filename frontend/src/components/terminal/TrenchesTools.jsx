@@ -83,3 +83,53 @@ export function CallerBoard() {
     <p className="trench-foot"><Zap size={11} /> Hit = a call that reached 2× from the server-recorded price. Permanent and unfakeable — nobody can edit a call after it lands.</p>
   </section>;
 }
+
+const FEATURES = [
+  ['📣', 'Every call is on the record', 'Paste a CA in chat and it becomes a call — priced by the server the second it lands. No edits, no deletes, no fake entries.'],
+  ['🎯', 'Callers earn a track record', 'Hit rate, average peak ×, duds. The Caller Board shows who actually finds winners — and who just talks.'],
+  ['🧪', 'Every coin gets an Edge Score', 'Order flow, liquidity depth, creator reputation, snipers and bundles — one grade, every reason shown.'],
+  ['⚡', 'Trade without leaving', 'Quick-buy in SOL or USD right next to the chart. Anything into $FEE is always fee-free.'],
+  ['🐂', 'Bulls · Trenches · Bears', 'Every coin has three rooms. Pick your side, react, and watch your calls play out live.'],
+  ['🐱', 'Fee is watching too', 'Toggle Fee\'s trades onto any chart and see exactly where the Leader cat bought and sold.'],
+];
+
+// Front page for the Trenches: what it is, live proof it's alive, and one button onto the floor.
+export function TrenchLanding({ ecosystemName, onEnter }) {
+  const recent = usePoll('/api/reputation/calls/recent?limit=100', 15000);
+  const board = usePoll('/api/reputation/calls/leaderboard?days=7', 30000);
+  const hot = usePoll('/api/reputation/calls/hot?minutes=1440', 30000);
+  const calls = recent?.calls || [];
+  const lastHour = calls.filter(c => Date.now() / 1000 - c.at < 3600).length;
+  const callers = new Set(calls.filter(c => Date.now() / 1000 - c.at < 86400).map(c => c.caller)).size;
+  const top = board?.rows?.[0];
+  const hottest = hot?.rows?.[0];
+  return <section className="trench-landing" data-testid="trench-landing">
+    <div className="trench-landing-hero">
+      <span className="eyebrow">{ecosystemName.toUpperCase()} · COMMUNITY FLOOR</span>
+      <h1 className="trenches-font trench-landing-title">The Trenches</h1>
+      <p>Where calls get made and receipts get kept. Chat, chart, trade and track who's actually right — all on one floor.</p>
+      <div className="trench-landing-live">
+        <div><small>CALLS LAST HOUR</small><b><AnimatedNumber value={lastHour} format={v => String(Math.round(v))} /></b></div>
+        <div><small>CALLERS TODAY</small><b><AnimatedNumber value={callers} format={v => String(Math.round(v))} /></b></div>
+        <div><small>TOP CALLER · 7D</small><b>{top ? `${top.caller} · ${Math.round(top.hitRate * 100)}%` : '—'}</b></div>
+        <div><small>HOTTEST CA · 24H</small><b>{hottest ? `${hottest.symbol} ${fmtX(hottest.x)}` : '—'}</b></div>
+      </div>
+      <button type="button" className="lets-trench trenches-font" onClick={onEnter} data-testid="lets-trench">Let's Trench →</button>
+    </div>
+    <div className="trench-features">{FEATURES.map(([icon, title, text]) => <article key={title}><span>{icon}</span><h3>{title}</h3><p>{text}</p></article>)}</div>
+  </section>;
+}
+
+export function TrenchBar({ onAbout }) {
+  const recent = usePoll('/api/reputation/calls/recent?limit=100', 15000);
+  const calls = recent?.calls || [];
+  const lastHour = calls.filter(c => Date.now() / 1000 - c.at < 3600);
+  const best = calls.filter(c => Date.now() / 1000 - c.at < 86400).reduce((b, c) => (!b || (c.peakX || 0) > (b.peakX || 0) ? c : b), null);
+  return <div className="trench-bar" data-testid="trench-bar">
+    <button type="button" onClick={onAbout} className="trench-bar-about">← About</button>
+    <b className="trenches-font">The Trenches</b>
+    <span><small>CALLS/HR</small><AnimatedNumber value={lastHour.length} format={v => String(Math.round(v))} /></span>
+    <span><small>CALLERS</small><AnimatedNumber value={new Set(lastHour.map(c => c.caller)).size} format={v => String(Math.round(v))} /></span>
+    <span><small>BEST 24H</small>{best ? `${best.symbol} ${fmtX(best.peakX)}` : '—'}</span>
+  </div>;
+}

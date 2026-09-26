@@ -8,6 +8,7 @@ import { LaunchForensics } from './terminal/LaunchForensics';
 import { ReputationBadge } from './terminal/ReputationBadge';
 import { formatUSD, formatPct } from '../lib/dexscreener';
 import { OrderFlow } from './terminal/OrderFlow';
+import { QuickTrade } from './terminal/QuickTrade';
 import { AnimatedNumber } from './terminal/AnimatedNumber';
 import { ChartMetaButtons, useChartMarkers } from './terminal/ChartMeta';
 import { fetchLivePrice, formatLivePrice } from '../lib/livePrice';
@@ -101,6 +102,7 @@ export default function CoinWorld({ token, onClose }) {
             <div className="coin-world-chart-head"><span><BarChart3 size={14} /> LIVE CHART<em className="live-stamp"><i />{updatedAt ? `${live?.source || 'live'} · ${Math.max(0, Math.round((Date.now() - updatedAt) / 1000))}s ago` : 'connecting'}</em></span><ChartMetaButtons pair={pair} calls={showCalls} setCalls={setShowCalls} fee={showFee} setFee={setShowFee} fullscreenRef={chartWrap} count={{ calls: markers.filter(m => m.color === '#e9bd65').length, fee: markers.filter(m => m.text?.startsWith('Fee')).length }} /><div className="coin-world-metric" role="group" aria-label="Chart metric">{[['price', 'Price'], ['marketCap', 'MC']].map(([id, label]) => <button type="button" key={id} className={metric === id ? 'active' : ''} onClick={() => setMetric(id)}>{label}</button>)}</div><div>{INTERVALS.map(i => <button type="button" key={i} className={interval === i ? 'active' : ''} onClick={() => setIntervalValue(i)}>{i.toUpperCase()}</button>)}</div></div>
             {pair ? <PriceChart key={`${pair.pairAddress}-${interval}-${metric}`} pair={pair} interval={interval} metric={metric} showVolume markers={markers} /> : <div className="chart-message"><span className="loader" />{error || 'Loading live market…'}</div>}
           </section>
+          {pair && <QuickTrade pair={pair} />}
           <OrderFlow pair={pair} />
           <div className="eco-section-label"><ShieldCheck size={13} /> THE EDGE · CREATOR & LAUNCH FORENSICS</div>
           {pair && <div className="coin-world-rep"><span>Creator trust</span><ReputationBadge pair={pair} /></div>}

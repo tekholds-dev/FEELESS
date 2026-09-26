@@ -919,6 +919,10 @@ async def token_intel(chain: str, mint: str):
     if (out.get('devHoldingPct') or 0) >= 5:
         flags.append(f"Creator still holds {out['devHoldingPct']}% of supply.")
     out['flags'] = flags
+    await _record_offenders(mint, out.get('bundledWallets', []), out.get('sniperWallets', []))
+    bl = _block_load()
+    out['walletRecords'] = {w: {'strikes': len(bl['wallets'].get(w, {}).get('mints', {})), 'blocked': _is_blocked(bl['wallets'].get(w))}
+                            for w in out.get('bundledWallets', []) + out.get('sniperWallets', [])}
     _intel_cache[mint] = (time.time(), out)
     return out
 
@@ -1562,6 +1566,195 @@ async def calls_by_room(room: str):
             v = _call_view(c)
             out.setdefault(c['messageId'], []).append({'symbol': v['symbol'], 'x': v['x'], 'peakX': v['peakX'], 'mcAtCall': v['mcAtCall'], 'pairAddress': v['pairAddress']})
     return {'calls': out}
+
+
+@app.get('/api/reputation/balance/{owner}/{mint}')
+async def token_balance(owner: str, mint: str):
+    """UI-unit balance of a token for a wallet (Solana), used for quick sells."""
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            if mint == 'So11111111111111111111111111111111111111112':
+                r = await _rpc(http, 'getBalance', [owner])
+                return {'amount': ((r or {}).get('value') or 0) / 1e9, 'decimals': 9}
+            r = await _rpc(http, 'getTokenAccountsByOwner', [owner, {'mint': mint}, {'encoding': 'jsonParsed'}])
+    except Exception:
+        raise HTTPException(502, 'Balance unavailable right now.')
+    total, decimals = 0.0, None
+    for acc in (r or {}).get('value') or []:
+        info = (((acc.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
+        amt = (info.get('tokenAmount') or {})
+        total += float(amt.get('uiAmount') or 0)
+        decimals = amt.get('decimals', decimals)
+    return {'amount': total, 'decimals': decimals}
+
+
+# ---- Wallet profiles (customizable, wallet-signed) ------------------------------
+PROFILE_PATH = DATA_DIR / 'profiles.json'
+_profile_lock = asyncio.Lock()
+HEX = set('0123456789abcdefABCDEF')
+
+
+def _profiles_load():
+    if PROFILE_PATH.exists():
+        try:
+            return json.loads(PROFILE_PATH.read_text())
+        except Exception:
+            pass
+    return {'profiles': {}}
+
+
+def _safe_url(v, max_len=400):
+    v = (v or '').strip()
+    return v if v.startswith('https://') or v.startswith('/api/reputation/uploads/') and len(v) <= max_len else ''
+
+
+def _clean_profile(p: dict) -> dict:
+    accent = str(p.get('accent') or '#00e9a0')
+    accent = accent if accent.startswith('#') and len(accent) in (4, 7) and set(accent[1:]) <= HEX else '#00e9a0'
+    links = p.get('links') or {}
+    top8 = []
+    for t in (p.get('top8') or [])[:8]:
+        if isinstance(t, dict) and t.get('pairAddress') and t.get('chain'):
+            top8.append({'chain': str(t['chain'])[:20], 'pairAddress': str(t['pairAddress'])[:64], 'mint': str(t.get('mint') or '')[:64],
+                         'symbol': str(t.get('symbol') or '')[:16], 'imageUrl': _safe_url(t.get('imageUrl'))})
+    return {
+        'displayName': str(p.get('displayName') or '')[:32], 'bio': str(p.get('bio') or '')[:280],
+        'avatarUrl': _safe_url(p.get('avatarUrl')), 'bannerUrl': _safe_url(p.get('bannerUrl')), 'accent': accent,
+        'mood': str(p.get('mood') or '')[:40],
+        'links': {k: _safe_url(links.get(k)) for k in ('x', 'website', 'telegram') if _safe_url(links.get(k))},
+        'top8': top8,
+    }
+
+
+class ProfileSave(BaseModel):
+    address: str
+    message: str
+    signature: str
+    profile: dict
+
+
+def _verify_solana(address: str, message: str, signature_b64: str) -> bool:
+    try:
+        import base58
+        from nacl.signing import VerifyKey
+        VerifyKey(base58.b58decode(address)).verify(message.encode(), base64.b64decode(signature_b64))
+        return True
+    except Exception:
+        return False
+
+
+@app.post('/api/reputation/profile')
+async def save_profile(payload: ProfileSave):
+    expected_prefix = f'FEELESS profile update\naddress:{payload.address}\nts:'
+    if not payload.message.startswith(expected_prefix):
+        raise HTTPException(400, 'Unexpected message.')
+    try:
+        ts = int(payload.message[len(expected_prefix):])
+    except ValueError:
+        raise HTTPException(400, 'Bad timestamp.')
+    if abs(time.time() - ts) > 300:
+        raise HTTPException(401, 'Signature expired — sign again.')
+    if not _verify_solana(payload.address, payload.message, payload.signature):
+        raise HTTPException(401, 'Signature does not match this wallet.')
+    async with _profile_lock:
+        d = _profiles_load()
+        prev = d['profiles'].get(payload.address, {})
+        if prev.get('lastTs', 0) >= ts:
+            raise HTTPException(409, 'Replay rejected — sign a fresh update.')
+        d['profiles'][payload.address] = {**_clean_profile(payload.profile), 'lastTs': ts, 'updatedAt': time.time()}
+        PROFILE_PATH.write_text(json.dumps(d))
+    return {'ok': True, 'profile': d['profiles'][payload.address]}
+
+
+@app.get('/api/reputation/profile/{address}')
+async def get_profile(address: str):
+    p = _profiles_load()['profiles'].get(address)
+    board = await caller_board(days=30)
+    caller = next((r for r in board['rows'] if r.get('callerAddress') == address), None)
+    return {'address': address, 'profile': p, 'caller': caller}
+
+
+@app.get('/api/reputation/profiles')
+async def get_profiles(addresses: str):
+    d = _profiles_load()['profiles']
+    return {'profiles': {a: {k: d[a].get(k) for k in ('displayName', 'avatarUrl', 'accent', 'mood')} for a in addresses.split(',')[:100] if a in d}}
+
+
+# ---- Evidence-based blocklist of snipers and bundlers ----------------------------
+BLOCK_PATH = DATA_DIR / 'blocklist.json'
+_block_lock = asyncio.Lock()
+AUTO_BLOCK_STRIKES = 3
+
+
+def _block_load():
+    if BLOCK_PATH.exists():
+        try:
+            return json.loads(BLOCK_PATH.read_text())
+        except Exception:
+            pass
+    return {'wallets': {}}
+
+
+def _is_blocked(rec):
+    if not rec:
+        return False
+    return bool(rec.get('reported')) or len(rec.get('mints', {})) >= AUTO_BLOCK_STRIKES
+
+
+async def _record_offenders(mint, bundled, snipers):
+    if not bundled and not snipers:
+        return
+    async with _block_lock:
+        d = _block_load()
+        for role, wallets in (('bundler', bundled), ('sniper', snipers)):
+            for w in wallets:
+                rec = d['wallets'].setdefault(w, {'mints': {}, 'firstSeen': time.time()})
+                rec['mints'].setdefault(mint, role)
+                rec['lastSeen'] = time.time()
+        BLOCK_PATH.write_text(json.dumps(d))
+
+
+class BlockPayload(BaseModel):
+    mint: str
+    wallets: list
+    reporter: Optional[str] = None
+
+
+@app.post('/api/reputation/blocklist')
+async def add_to_blocklist(payload: BlockPayload):
+    """Only wallets proven by FEELESS's own forensics to have bundled/sniped that mint are accepted."""
+    intel = await token_intel('solana', payload.mint)
+    evidence = {w: 'bundler' for w in intel.get('bundledWallets', [])}
+    evidence.update({w: 'sniper' for w in intel.get('sniperWallets', []) if w not in evidence})
+    accepted, rejected = [], []
+    async with _block_lock:
+        d = _block_load()
+        for w in [str(x) for x in payload.wallets[:200]]:
+            if w not in evidence:
+                rejected.append(w)
+                continue
+            rec = d['wallets'].setdefault(w, {'mints': {}, 'firstSeen': time.time()})
+            rec['mints'].setdefault(payload.mint, evidence[w])
+            rec['reported'] = True
+            rec.setdefault('reports', []).append({'mint': payload.mint, 'role': evidence[w], 'by': (payload.reporter or 'anon')[:64], 'at': time.time()})
+            rec['reports'] = rec['reports'][-20:]
+            accepted.append(w)
+        BLOCK_PATH.write_text(json.dumps(d))
+    _intel_cache.pop(payload.mint, None)
+    return {'accepted': accepted, 'rejected': rejected}
+
+
+@app.get('/api/reputation/blocklist')
+async def get_blocklist(limit: int = Query(200, ge=1, le=5000)):
+    rows = []
+    for w, rec in _block_load()['wallets'].items():
+        if not _is_blocked(rec):
+            continue
+        roles = list(rec['mints'].values())
+        rows.append({'wallet': w, 'strikes': len(rec['mints']), 'bundles': roles.count('bundler'), 'snipes': roles.count('sniper'),
+                     'reported': bool(rec.get('reported')), 'auto': len(rec['mints']) >= AUTO_BLOCK_STRIKES, 'lastSeen': rec.get('lastSeen')})
+    rows.sort(key=lambda r: (-r['strikes'], -(r['lastSeen'] or 0)))
+    return {'wallets': rows[:limit], 'total': len(rows), 'autoThreshold': AUTO_BLOCK_STRIKES}
 
 
 @app.get('/api/reputation/health')
