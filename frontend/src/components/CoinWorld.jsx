@@ -5,9 +5,10 @@ import EcosystemChat from './EcosystemChat';
 import { PriceChart } from './terminal/PriceChart';
 import { LaunchForensics } from './terminal/LaunchForensics';
 import { ReputationBadge } from './terminal/ReputationBadge';
-import { formatUSD } from '../lib/dexscreener';
+import { formatUSD, formatPct } from '../lib/dexscreener';
 import { OrderFlow } from './terminal/OrderFlow';
-import { FlashValue } from './terminal/FlashValue';
+import { AnimatedNumber } from './terminal/AnimatedNumber';
+import { fetchLivePrice, formatLivePrice } from '../lib/livePrice';
 
 const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'];
 const CHAT_ROOMS = [['bulls', 'Bulls'], ['trenches', 'Trenches'], ['bears', 'Bears']];
@@ -20,6 +21,7 @@ export default function CoinWorld({ token, onClose }) {
   const [metric, setMetric] = useState('price');
   const [chatRoom, setChatRoom] = useState('bulls');
   const [updatedAt, setUpdatedAt] = useState(null);
+  const [live, setLive] = useState(null);
   const [, forceTick] = useState(0);
   useEffect(() => { const t = setInterval(() => forceTick(x => x + 1), 1000); return () => clearInterval(t); }, []);
   useEffect(() => {
@@ -44,14 +46,29 @@ export default function CoinWorld({ token, onClose }) {
   }, [token.chain, token.pairAddress]);
 
   const symbol = token.symbol || pair?.baseToken?.symbol || '…';
+  useEffect(() => {
+    if (!pair) return undefined;
+    let alive = true;
+    const tick = async () => { if (document.hidden) return; const r = await fetchLivePrice(pair); if (alive && r) { setLive(r); setUpdatedAt(Date.now()); } };
+    tick();
+    const t = setInterval(tick, 2000);
+    return () => { alive = false; clearInterval(t); };
+  }, [pair?.chainId, pair?.baseToken?.address, pair?.pairAddress]); // eslint-disable-line react-hooks/exhaustive-deps
+  const livePrice = live?.usd ?? Number(pair?.priceUsd);
+  const supplyRatio = pair?.priceUsd && (pair?.marketCap || pair?.fdv) ? (pair.marketCap || pair.fdv) / Number(pair.priceUsd) : null;
+  const liveMc = supplyRatio && livePrice ? livePrice * supplyRatio : (pair?.marketCap || pair?.fdv || token.marketCap);
   const room = `coin-${token.chain}-${(pair?.baseToken?.address || token.address || token.pairAddress).slice(0, 44)}`;
-  const change = Number(pair?.priceChange?.h24 ?? token.change24h);
+  // 24h % = live price against DexScreener's own 24h-ago baseline, so it moves live but stays
+  // consistent with every other number on the site.
+  const dexCh = Number(pair?.priceChange?.h24 ?? token.change24h);
+  const base24 = Number(pair?.priceUsd) > 0 && Number.isFinite(dexCh) ? Number(pair.priceUsd) / (1 + dexCh / 100) : null;
+  const change = base24 && live?.usd ? (live.usd / base24 - 1) * 100 : dexCh;
   const stats = [
-    ['PRICE', pair ? formatUSD(pair.priceUsd) : '…', '', pair?.priceUsd],
-    ['24H', Number.isFinite(change) ? `${change >= 0 ? '+' : ''}${change.toFixed(2)}%` : '—', Number.isFinite(change) ? (change >= 0 ? 'positive' : 'negative') : '', change],
-    [token.mcKind === 'FDV' && !pair?.marketCap ? 'FDV' : 'MARKET CAP', formatUSD(pair?.marketCap || pair?.fdv || token.marketCap), '', pair?.marketCap || pair?.fdv],
-    ['LIQUIDITY', formatUSD(pair?.liquidity?.usd ?? token.liquidityUsd), '', pair?.liquidity?.usd],
-    ['VOL 24H', formatUSD(pair?.volume?.h24 ?? token.volume24h), '', pair?.volume?.h24],
+    ['PRICE', livePrice, '', formatLivePrice],
+    ['24H', change, Number.isFinite(change) ? (change >= 0 ? 'positive' : 'negative') : '', formatPct],
+    [token.mcKind === 'FDV' && !pair?.marketCap ? 'FDV' : 'MARKET CAP', liveMc, '', formatUSD],
+    ['LIQUIDITY', pair?.liquidity?.usd ?? token.liquidityUsd, '', formatUSD],
+    ['VOL 24H', pair?.volume?.h24 ?? token.volume24h, '', formatUSD],
   ];
   return <div className="eco-world coin-world" role="dialog" aria-modal="true" aria-label={`${symbol} war room`} data-testid="coin-world">
     <div className="eco-world-scrim" onClick={onClose} aria-hidden="true" />
@@ -71,9 +88,9 @@ export default function CoinWorld({ token, onClose }) {
           <div className="coin-chat-rooms" role="tablist" aria-label="Chat rooms">{CHAT_ROOMS.map(([id, label]) => <button type="button" role="tab" aria-selected={chatRoom === id} key={id} className={`room-${id} ${chatRoom === id ? 'active' : ''}`} onClick={() => setChatRoom(id)}>{label}</button>)}</div>
           <EcosystemChat key={`${room}-${chatRoom}`} ecosystem={{ id: `${room}-${chatRoom}`, name: `${symbol} · ${CHAT_ROOMS.find(r => r[0] === chatRoom)[1]}` }} /></div>
         <div className="eco-right-col custom-scroll">
-          <div className="activity-pulse coin-world-stats">{stats.map(([label, value, cls, raw]) => <div className="pulse-pill" key={label}><small><i />{label}</small><FlashValue raw={raw}><strong className={cls || ''}>{value}</strong></FlashValue></div>)}</div>
+          <div className="activity-pulse coin-world-stats">{stats.map(([label, value, cls, fmt]) => <div className="pulse-pill" key={label}><small><i />{label}</small><strong className={cls || ''}><AnimatedNumber value={value} format={fmt} /></strong></div>)}</div>
           <section className="coin-world-chart">
-            <div className="coin-world-chart-head"><span><BarChart3 size={14} /> LIVE CHART<em className="live-stamp"><i />{updatedAt ? `updated ${Math.max(0, Math.round((Date.now() - updatedAt) / 1000))}s ago` : 'connecting'}</em></span><div className="coin-world-metric" role="group" aria-label="Chart metric">{[['price', 'Price'], ['marketCap', 'MC']].map(([id, label]) => <button type="button" key={id} className={metric === id ? 'active' : ''} onClick={() => setMetric(id)}>{label}</button>)}</div><div>{INTERVALS.map(i => <button type="button" key={i} className={interval === i ? 'active' : ''} onClick={() => setIntervalValue(i)}>{i.toUpperCase()}</button>)}</div></div>
+            <div className="coin-world-chart-head"><span><BarChart3 size={14} /> LIVE CHART<em className="live-stamp"><i />{updatedAt ? `${live?.source || 'live'} · ${Math.max(0, Math.round((Date.now() - updatedAt) / 1000))}s ago` : 'connecting'}</em></span><div className="coin-world-metric" role="group" aria-label="Chart metric">{[['price', 'Price'], ['marketCap', 'MC']].map(([id, label]) => <button type="button" key={id} className={metric === id ? 'active' : ''} onClick={() => setMetric(id)}>{label}</button>)}</div><div>{INTERVALS.map(i => <button type="button" key={i} className={interval === i ? 'active' : ''} onClick={() => setIntervalValue(i)}>{i.toUpperCase()}</button>)}</div></div>
             {pair ? <PriceChart key={`${pair.pairAddress}-${interval}-${metric}`} pair={pair} interval={interval} metric={metric} showVolume /> : <div className="chart-message"><span className="loader" />{error || 'Loading live market…'}</div>}
           </section>
           <OrderFlow pair={pair} />

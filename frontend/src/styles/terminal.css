@@ -1565,3 +1565,10 @@ body.reduced-motion-setting .cat-preview-art>*,body.reduced-motion-setting .cat-
 @media(prefers-reduced-motion:reduce){.cat-preview-art>*,.cat-card *{animation:none!important}}
 body.theme-day .cat-card:hover{box-shadow:0 12px 28px #07784f22!important;border-color:#07784f88!important}
 .chat-identity{min-width:0}.chat-identity>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%}
+.anim-num{display:inline-flex;font-variant-numeric:tabular-nums;white-space:nowrap}
+.anim-num .digit{display:inline-block}
+.anim-num .digit.roll-up{animation:digit-roll-up .35s ease-out;color:#00e9a0}
+.anim-num .digit.roll-down{animation:digit-roll-down .35s ease-out;color:#fa708c}
+@keyframes digit-roll-up{from{transform:translateY(55%);opacity:.2}to{transform:translateY(0);opacity:1}}
+@keyframes digit-roll-down{from{transform:translateY(-55%);opacity:.2}to{transform:translateY(0);opacity:1}}
+body.theme-day .anim-num .digit.roll-up{color:#07784f}body.theme-day .anim-num .digit.roll-down{color:#c0284c}

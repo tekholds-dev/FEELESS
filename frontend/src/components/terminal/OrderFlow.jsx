@@ -1,11 +1,11 @@
 import React from 'react';
 import { Activity, Droplets, Gauge, Layers, Scale, Timer, Zap } from 'lucide-react';
-import { formatUSD } from '../../lib/dexscreener';
-import { FlashValue } from './FlashValue';
+import { formatUSD, formatPct, formatCompact } from '../../lib/dexscreener';
+import { AnimatedNumber } from './AnimatedNumber';
 
 const WINDOWS = [['m5', '5M'], ['h1', '1H'], ['h6', '6H'], ['h24', '24H']];
 const n = v => (Number.isFinite(Number(v)) ? Number(v) : null);
-const pct = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`);
+const pct = v => (v == null ? '—' : formatPct(v));
 
 function ageLabel(ms) {
   if (!ms) return '—';
@@ -46,15 +46,15 @@ export function OrderFlow({ pair }) {
     <div className="order-flow-head"><span><Activity size={14} /> LIVE ORDER FLOW & MARKET STRUCTURE</span><small>DexScreener · updates every 3s</small></div>
     <p className="order-flow-read"><Zap size={13} />{read}</p>
     <div className="order-flow-windows">{rows.map(r => <div key={r.k} className="flow-window">
-      <div className="flow-window-top"><b>{r.label}</b><FlashValue raw={r.change}><span className={r.change == null ? '' : r.change >= 0 ? 'positive' : 'negative'}>{pct(r.change)}</span></FlashValue></div>
+      <div className="flow-window-top"><b>{r.label}</b><span className={r.change == null ? '' : r.change >= 0 ? 'positive' : 'negative'}><AnimatedNumber value={r.change} format={v => pct(v)} /></span></div>
       <div className="flow-bar" title={`${r.buys} buys / ${r.sells} sells`}><i style={{ width: `${(r.buyShare ?? 0.5) * 100}%` }} /></div>
-      <div className="flow-window-foot"><span className="positive"><FlashValue raw={r.buys}>{r.buys}</FlashValue> buys</span><span className="negative"><FlashValue raw={r.sells}>{r.sells}</FlashValue> sells</span></div>
-      <small>{r.vol != null ? `${formatUSD(r.vol)} vol` : '—'}</small>
+      <div className="flow-window-foot"><span className="positive"><AnimatedNumber value={r.buys} format={v => formatCompact(Math.round(v))} /> buys</span><span className="negative"><AnimatedNumber value={r.sells} format={v => formatCompact(Math.round(v))} /> sells</span></div>
+      <small>{r.vol != null ? <><AnimatedNumber value={r.vol} format={formatUSD} /> vol</> : '—'}</small>
     </div>)}</div>
     <div className="order-flow-metrics">
       <div><Droplets size={13} /><small>LIQUIDITY DEPTH</small><b>{depth == null ? '—' : `${depth.toFixed(1)}% of MC`}</b><em>{depthLabel}</em></div>
       <div><Gauge size={13} /><small>24H TURNOVER</small><b>{turnover == null ? '—' : `${turnover.toFixed(2)}×`}</b><em>volume ÷ liquidity</em></div>
-      <div><Scale size={13} /><small>AVG TRADE</small><b>{avgTrade == null ? '—' : formatUSD(avgTrade)}</b><em>{h24.total ? `${h24.total.toLocaleString()} trades 24h` : '—'}</em></div>
+      <div><Scale size={13} /><small>AVG TRADE</small><b>{avgTrade == null ? '—' : formatUSD(avgTrade)}</b><em>{h24.total ? `${formatCompact(h24.total)} trades 24h` : '—'}</em></div>
       <div><Layers size={13} /><small>DILUTION GAP</small><b>{fdv && mc ? `${dilution.toFixed(1)}%` : '—'}</b><em>{dilution > 1 ? 'supply not yet circulating' : 'fully circulating'}</em></div>
       <div><Timer size={13} /><small>POOL AGE</small><b>{ageLabel(pair.pairCreatedAt)}</b><em>{pair.dexId || '—'}</em></div>
     </div>

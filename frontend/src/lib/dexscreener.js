@@ -90,9 +90,22 @@ export function formatUSD(n) {
   if (Math.abs(num) < 0.000001) return `$${num.toExponential(3)}`;
   return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: num < 1 ? 8 : 2 })}`;
 }
+// Shortens big plain numbers: 32230 → 32.23K, 1330000 → 1.33M, 2.1e9 → 2.10B.
+export function formatCompact(n, digits = 2) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return '—';
+  const a = Math.abs(v);
+  if (a >= 1e12) return `${(v / 1e12).toFixed(digits)}T`;
+  if (a >= 1e9) return `${(v / 1e9).toFixed(digits)}B`;
+  if (a >= 1e6) return `${(v / 1e6).toFixed(digits)}M`;
+  if (a >= 1e4) return `${(v / 1e3).toFixed(digits)}K`;
+  return Number.isInteger(v) ? v.toLocaleString() : v.toFixed(digits);
+}
+
 export function formatPct(n) {
   if (n == null || n === '' || !Number.isFinite(Number(n))) return '—';
-  return `${Number(n) >= 0 ? '+' : ''}${Number(n).toFixed(2)}%`;
+  const v = Number(n);
+  return `${v >= 0 ? '+' : ''}${Math.abs(v) >= 10000 ? formatCompact(v) : v.toFixed(2)}%`;
 }
 export function formatAge(ts) {
   if (!ts) return '—';

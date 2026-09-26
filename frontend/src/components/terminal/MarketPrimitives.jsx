@@ -1,3 +1,4 @@
+import { AnimatedNumber } from './AnimatedNumber';
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, Coins, RefreshCw, UserRound } from 'lucide-react';
 import { formatPct, formatUSD, formatTime, shortAddress } from '../../lib/dexscreener';
@@ -128,7 +129,7 @@ export const CreatorProfile = ({ pair, compact = false }) => {
 
 export const TokenContextMeta = ({ pair }) => <div className="token-context-meta" data-testid="token-context-meta"><span>{pair?.chainId || 'network unavailable'}</span><span>·</span><span>{pair?.baseToken?.name || 'Coin name unavailable'}</span><span>·</span><span>{pair?.info?.imageUrl ? 'image loaded' : 'image unavailable'}</span><CreatorProfile pair={pair} compact /></div>;
 
-export const Change = ({ value, id }) => <span data-testid={id} className={value == null ? 'muted' : Number(value) >= 0 ? 'positive mono' : 'negative mono'}>{formatPct(value)}</span>;
+export const Change = ({ value, id }) => <span data-testid={id} className={value == null ? 'muted' : Number(value) >= 0 ? 'positive mono' : 'negative mono'}>{value == null || !Number.isFinite(Number(value)) ? formatPct(value) : <AnimatedNumber value={Number(value)} format={formatPct} />}</span>;
 
 export const DataStatus = ({ data, id = 'data-status' }) => <span data-testid={id} className={`data-status ${data?.stale ? 'stale' : ''}`}>
   <i />{data ? `${data.error ? 'UNAVAILABLE' : data.stale ? 'STALE' : 'LIVE'} · ${formatTime(data.fetched_at)}` : 'CONNECTING'}
@@ -208,4 +209,4 @@ export const MarketError = ({ error, reload, id = 'market-error', focusable = fa
   <AlertTriangle size={17} /><span className="market-error-copy"><span>{error}</span>{description && <small data-testid={`${id}-description`}>{description}</small>}</span>{reload && <button type="button" data-testid={`${id}-retry`} onClick={() => reload()} aria-label={retryLabel} title={retryLabel}><RefreshCw size={15} /></button>}
 </div>;
 
-export const Metric = ({ label, value, id }) => <div className="metric"><small>{label}</small><strong data-testid={id} className="mono">{formatUSD(value)}</strong></div>;
+export const Metric = ({ label, value, id }) => <div className="metric"><small>{label}</small><strong data-testid={id} className="mono">{value == null || !Number.isFinite(Number(value)) ? formatUSD(value) : <AnimatedNumber value={Number(value)} format={formatUSD} />}</strong></div>;
