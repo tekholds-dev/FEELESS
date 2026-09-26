@@ -1098,6 +1098,269 @@ async def register_feeless_launch(payload: FeelessLaunchPayload):
     return {'ok': True, 'creator': creator}
 
 
+# ---- Web push alerts ---------------------------------------------------------
+import base64
+import hashlib
+
+PUSH_PATH = DATA_DIR / 'push.json'
+VAPID_PATH = DATA_DIR / 'vapid.json'
+_push_lock = asyncio.Lock()
+DEFAULT_RULES = {'up': 20, 'down': 15, 'move24h': 0, 'liqDrain': 30, 'volSpike': 4, 'feeRead': True, 'creatorFlag': True}
+DEFAULT_PREFS = {'cooldownMin': 30, 'minLiquidity': 0, 'quietStart': None, 'quietEnd': None}
+
+
+def _vapid():
+    if VAPID_PATH.exists():
+        return json.loads(VAPID_PATH.read_text())
+    from py_vapid import Vapid01
+    from cryptography.hazmat.primitives import serialization
+    v = Vapid01()
+    v.generate_keys()
+    priv = v.private_key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode()
+    pub_raw = v.public_key.public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+    data = {'private': priv, 'public': base64.urlsafe_b64encode(pub_raw).decode().rstrip('=')}
+    VAPID_PATH.write_text(json.dumps(data))
+    try:
+        os.chmod(VAPID_PATH, 0o600)
+    except OSError:
+        pass
+    return data
+
+
+def _push_load():
+    if PUSH_PATH.exists():
+        try:
+            return json.loads(PUSH_PATH.read_text())
+        except Exception:
+            pass
+    return {'subs': {}}
+
+
+def _push_save(d):
+    PUSH_PATH.write_text(json.dumps(d))
+
+
+def _sub_id(sub):
+    return hashlib.sha256((sub.get('endpoint') or '').encode()).hexdigest()[:24]
+
+
+class PushSubscribe(BaseModel):
+    subscription: dict
+    watch: list = []
+    prefs: dict = {}
+
+
+@app.get('/api/reputation/push/vapid')
+async def push_vapid():
+    return {'publicKey': _vapid()['public']}
+
+
+@app.post('/api/reputation/push/subscribe')
+async def push_subscribe(payload: PushSubscribe):
+    sub = payload.subscription
+    if not str(sub.get('endpoint', '')).startswith('https://') or not (sub.get('keys') or {}).get('p256dh'):
+        raise HTTPException(400, 'Invalid push subscription.')
+    sid = _sub_id(sub)
+    async with _push_lock:
+        d = _push_load()
+        prev = d['subs'].get(sid, {})
+        watch = []
+        for w in payload.watch[:100]:
+            if not isinstance(w, dict) or not w.get('pairAddress') or not w.get('chainId'):
+                continue
+            key = f"{w['chainId']}:{w['pairAddress']}"
+            old = next((x for x in prev.get('watch', []) if f"{x['chainId']}:{x['pairAddress']}" == key), {})
+            watch.append({'chainId': w['chainId'], 'pairAddress': w['pairAddress'], 'mint': w.get('mint'), 'symbol': w.get('symbol'),
+                          'watchedPrice': w.get('watchedPrice'), 'watchedLiq': w.get('watchedLiq') or old.get('watchedLiq'),
+                          'rules': {**DEFAULT_RULES, **(w.get('rules') or {})}, 'state': old.get('state', {})})
+        d['subs'][sid] = {'subscription': sub, 'watch': watch, 'prefs': {**DEFAULT_PREFS, **(payload.prefs or {})},
+                          'createdAt': prev.get('createdAt', time.time()), 'updatedAt': time.time(), 'sent': prev.get('sent', [])[-50:]}
+        _push_save(d)
+    return {'ok': True, 'id': sid, 'watching': len(watch)}
+
+
+class PushUnsubscribe(BaseModel):
+    endpoint: str
+
+
+@app.post('/api/reputation/push/unsubscribe')
+async def push_unsubscribe(payload: PushUnsubscribe):
+    async with _push_lock:
+        d = _push_load()
+        d['subs'].pop(_sub_id({'endpoint': payload.endpoint}), None)
+        _push_save(d)
+    return {'ok': True}
+
+
+def _send_push(sub, title, body, url='/terminal/watchlist', tag=None):
+    from pywebpush import webpush, WebPushException
+    from py_vapid import Vapid01
+    v = _vapid()
+    try:
+        webpush(subscription_info=sub, data=json.dumps({'title': title, 'body': body, 'url': url, 'tag': tag}),
+                vapid_private_key=Vapid01.from_pem(v['private'].encode()), vapid_claims={'sub': 'mailto:alerts@feeless.app'}, ttl=600)
+        return 'ok'
+    except WebPushException as exc:
+        code = getattr(getattr(exc, 'response', None), 'status_code', None)
+        return 'gone' if code in (404, 410) else f'error {code}'
+    except Exception as exc:
+        return f'error {type(exc).__name__}'
+
+
+class PushTest(BaseModel):
+    endpoint: str
+
+
+@app.post('/api/reputation/push/test')
+async def push_test(payload: PushTest):
+    d = _push_load()
+    entry = d['subs'].get(_sub_id({'endpoint': payload.endpoint}))
+    if not entry:
+        raise HTTPException(404, 'Subscription not found — enable push first.')
+    result = await asyncio.to_thread(_send_push, entry['subscription'], 'FEELESS alerts are on', f"Watching {len(entry['watch'])} coin(s). You'll hear from us even with the site closed.", '/terminal/watchlist', 'feeless-test')
+    return {'result': result}
+
+
+def _in_quiet(prefs):
+    qs, qe = prefs.get('quietStart'), prefs.get('quietEnd')
+    if qs is None or qe is None:
+        return False
+    h = time.localtime().tm_hour
+    return (qs <= h < qe) if qs < qe else (h >= qs or h < qe)
+
+
+async def _evaluate_alerts():
+    """Server-side watcher: every 30s, evaluate every subscriber's rules against live data."""
+    while True:
+        try:
+            d = _push_load()
+            watched = {}
+            for entry in d['subs'].values():
+                for w in entry['watch']:
+                    watched.setdefault(w['chainId'], set()).add(w['pairAddress'])
+            live = {}
+            async with httpx.AsyncClient(timeout=10) as http:
+                for chain, pairs in watched.items():
+                    pairs = sorted(pairs)
+                    for i in range(0, len(pairs), 30):
+                        try:
+                            r = await http.get(f'https://api.dexscreener.com/latest/dex/pairs/{chain}/{",".join(pairs[i:i + 30])}')
+                            for p in (r.json() or {}).get('pairs') or []:
+                                live[f"{chain}:{p.get('pairAddress')}"] = p
+                        except Exception:
+                            pass
+                sol_mints = sorted({w['mint'] for e in d['subs'].values() for w in e['watch'] if w['chainId'] == 'solana' and w.get('mint')})
+                jup = {}
+                for i in range(0, len(sol_mints), 50):
+                    try:
+                        r = await http.get(f'https://lite-api.jup.ag/price/v3?ids={",".join(sol_mints[i:i + 50])}')
+                        jup.update({k: float(v.get('usdPrice') or 0) for k, v in (r.json() or {}).items()})
+                    except Exception:
+                        pass
+                fee_reads = {}
+                sol_pairs = [{'chainId': 'solana', 'pairAddress': a} for a in sorted(watched.get('solana', set()))]
+                if sol_pairs:
+                    try:
+                        r = await http.post('http://127.0.0.1:5088/api/cats/evaluate', json={'pairs': sol_pairs})
+                        fee_reads = (r.json() or {}).get('reads') or {}
+                    except Exception:
+                        pass
+            rep = _load()
+            creator_of = {}
+            for c in rep['creators'].values():
+                for t in c['tokens'].values():
+                    if t.get('baseTokenAddress'):
+                        creator_of[t['baseTokenAddress']] = c
+            now = time.time()
+            dead = []
+            for sid, entry in d['subs'].items():
+                prefs = entry['prefs']
+                cooldown = max(5, int(prefs.get('cooldownMin') or 30)) * 60
+                quiet = _in_quiet(prefs)
+                for w in entry['watch']:
+                    p = live.get(f"{w['chainId']}:{w['pairAddress']}")
+                    if not p:
+                        continue
+                    rules, state = w['rules'], w.setdefault('state', {})
+                    sym = w.get('symbol') or (p.get('baseToken') or {}).get('symbol') or 'coin'
+                    price = jup.get(w.get('mint')) or float(p.get('priceUsd') or 0)
+                    liq = float((p.get('liquidity') or {}).get('usd') or 0)
+                    if not w.get('watchedLiq') and liq:
+                        w['watchedLiq'] = liq
+                    if prefs.get('minLiquidity') and liq < float(prefs['minLiquidity']):
+                        continue
+                    fired = []
+                    base = float(w.get('watchedPrice') or 0)
+                    if base and price:
+                        move = (price / base - 1) * 100
+                        if rules.get('up') and move >= rules['up']:
+                            fired.append(('up', f'{sym} is up {move:+.1f}% since you starred it'))
+                        elif rules.get('down') and move <= -rules['down']:
+                            fired.append(('down', f'{sym} is down {move:+.1f}% since you starred it'))
+                        elif abs(move) < min(rules.get('up') or 999, rules.get('down') or 999) / 2:
+                            state.pop('up', None); state.pop('down', None)
+                    h24 = float((p.get('priceChange') or {}).get('h24') or 0)
+                    if rules.get('move24h') and abs(h24) >= rules['move24h']:
+                        fired.append(('move24h', f'{sym} moved {h24:+.1f}% in 24h'))
+                    if rules.get('liqDrain') and w.get('watchedLiq') and liq and liq <= w['watchedLiq'] * (1 - rules['liqDrain'] / 100):
+                        fired.append(('liqDrain', f'{sym} liquidity drained {(1 - liq / w["watchedLiq"]) * 100:.0f}% — possible exit'))
+                    vol = p.get('volume') or {}
+                    m5, h24v = float(vol.get('m5') or 0), float(vol.get('h24') or 0)
+                    if rules.get('volSpike') and h24v > 0 and m5 * 288 >= rules['volSpike'] * h24v and m5 > 500:
+                        fired.append(('volSpike', f'{sym} volume spike: last 5m running {m5 * 288 / h24v:.1f}× its daily pace'))
+                    read = fee_reads.get(w['pairAddress'])
+                    if rules.get('feeRead') and read and read.get('passes') and not state.get('feeWasPass'):
+                        fired.append(('feeRead', f"Fee would buy {sym} now — it just passed every entry rule"))
+                    if read:
+                        state['feeWasPass'] = bool(read.get('passes'))
+                    creator = creator_of.get(w.get('mint'))
+                    if rules.get('creatorFlag') and creator and score_creator(creator)['badge'] == 'flagged' and not state.get('flagSent'):
+                        fired.append(('creatorFlag', f'{sym} creator is now flagged on FEELESS reputation'))
+                        state['flagSent'] = True
+                    for kind, text in fired:
+                        last = state.get(kind)
+                        if last and now - last < cooldown and kind not in ('up', 'down'):
+                            continue
+                        if kind in ('up', 'down') and last:
+                            continue
+                        state[kind] = now
+                        if quiet:
+                            continue
+                        res = await asyncio.to_thread(_send_push, entry['subscription'], f'FEELESS · {sym}', text,
+                                                      f"/?coin={w['chainId']}:{w['pairAddress']}", f"{w['pairAddress']}-{kind}")
+                        entry.setdefault('sent', []).append({'at': now, 'kind': kind, 'text': text, 'result': res})
+                        entry['sent'] = entry['sent'][-50:]
+                        if res == 'gone':
+                            dead.append(sid)
+                            break
+            async with _push_lock:
+                fresh = _push_load()
+                for sid, entry in d['subs'].items():
+                    if sid in fresh['subs'] and sid not in dead:
+                        fresh['subs'][sid]['watch'] = entry['watch']
+                        fresh['subs'][sid]['sent'] = entry.get('sent', [])
+                for sid in dead:
+                    fresh['subs'].pop(sid, None)
+                _push_save(fresh)
+        except Exception as exc:
+            print('push watcher error', exc)
+        await asyncio.sleep(30)
+
+
+@app.on_event('startup')
+async def _start_push_watcher():
+    _vapid()
+    asyncio.create_task(_evaluate_alerts())
+
+
+@app.get('/api/reputation/push/status')
+async def push_status(endpoint: str):
+    entry = _push_load()['subs'].get(_sub_id({'endpoint': endpoint}))
+    if not entry:
+        return {'subscribed': False}
+    return {'subscribed': True, 'watching': len(entry['watch']), 'prefs': entry['prefs'], 'recent': entry.get('sent', [])[-10:][::-1]}
+
+
 @app.get('/api/reputation/health')
 async def health():
     store = _load()

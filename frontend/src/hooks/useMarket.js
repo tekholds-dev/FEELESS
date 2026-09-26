@@ -104,7 +104,7 @@ export function useWatchlist() {
   useEffect(() => { localStorage.setItem('feeless-watchlist', JSON.stringify(watchlist)); }, [watchlist]);
   const toggle = useCallback(pair => setWatchlist(list => list.some(p => tokenKey(p) === tokenKey(pair))
     ? list.filter(p => tokenKey(p) !== tokenKey(pair))
-    : [...list, { ...pair, watchedAt: Date.now(), watchedPrice: Number(pair.priceUsd) || null, alerts: { up: 20, down: 15, notify: false } }]), []);
+    : [...list, { ...pair, watchedAt: Date.now(), watchedPrice: Number(pair.priceUsd) || null, watchedLiq: Number(pair.liquidity?.usd) || null, alerts: { up: 20, down: 15, move24h: 0, liqDrain: 30, volSpike: 4, feeRead: true, creatorFlag: true, notify: false } }]), []);
   const updateWatch = useCallback((pair, patch) => setWatchlist(list => list.map(p => (tokenKey(p) === tokenKey(pair) ? { ...p, ...patch, alerts: { ...(p.alerts || {}), ...(patch.alerts || {}) } } : p))), []);
   return { watchlist, toggle, updateWatch, has: p => watchlist.some(w => tokenKey(w) === tokenKey(p)) };
 }
