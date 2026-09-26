@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { ShieldCheck, Users, Gift, Award, Bug, RefreshCw, Download, X, Activity } from 'lucide-react';
 import { apiUrl } from '../../lib/api';
 import { shortAddress, formatUSD } from '../../lib/dexscreener';
+import { AirdropStudio, Snapshots } from './AirdropStudio';
 
 const SESSION_KEY = 'feeless:cc-session';
 const readSession = addr => { try { const s = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null'); return s && s.address === addr && Date.now() / 1000 - s.ts < 3500 ? s : null; } catch { return null; } };
@@ -46,7 +47,8 @@ export function CommandCenter({ address, signMessage, onClose }) {
   const loadBugs = useCallback(() => call('/admin/bugs').then(d => setBugs((d.bugs || []).slice().reverse())).catch(() => {}), [call]);
 
   useEffect(() => { if (!session) return; loadSec(); loadDrops(); loadBugs(); const t = setInterval(loadSec, 30000); return () => clearInterval(t); }, [session, loadSec, loadDrops, loadBugs]);
-  useEffect(() => { if (session && tab === 'holders') loadHolders(); }, [session, tab, loadHolders]);
+  useEffect(() => { if (session && (tab === 'holders' || tab === 'studio') && !holders) loadHolders(); }, [session, tab, loadHolders]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (session) loadHolders(); }, [asset]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const visible = useMemo(() => (holders?.rows || []).filter(r => !(hidePools && r.likelyPool)), [holders, hidePools]);
   const toggle = a => setSelected(s => { const n = new Set(s); n.has(a) ? n.delete(a) : n.add(a); return n; });
@@ -57,7 +59,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     <div className="cc-gate-actions"><button type="button" className="btn-primary" disabled={busy} onClick={signIn}><ShieldCheck size={15} />{busy ? 'Check your wallet…' : 'Sign in to Command Center'}</button><button type="button" className="btn-outline" onClick={onClose}>Back to profile</button></div>
   </div></div>;
 
-  const TABS = [['overview', 'Overview', Activity], ['holders', 'Holders', Users], ['airdrops', 'Airdrops', Gift], ['badges', 'Badges', Award], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['overview', 'Overview', Activity], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div>
       <nav className="cc-tabs">{TABS.map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</nav>
@@ -75,7 +77,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
         <button type="button" onClick={() => download(`${asset}-holders.csv`, csv([['owner', 'amount', 'pct', 'usd', 'blocked'], ...visible.map(r => [r.owner, r.amount, r.pct.toFixed(4), r.usd ?? '', r.blocked])]))}><Download size={13} />CSV</button>
       </div>
       {holders && <div className="cc-kpis"><span><small>Holders</small><b>{holders.holders?.toLocaleString() ?? '—'}</b></span><span><small>Price</small><b>{holders.price ? `$${holders.price.toPrecision(4)}` : '—'}</b></span><span><small>Selected</small><b>{selected.size}</b></span><span><small>Blocklisted</small><b>{(holders.rows || []).filter(r => r.blocked).length}</b></span></div>}
-      {selected.size > 0 && <SelectionActions addresses={[...selected]} call={call} asset={asset} holders={visible} onDone={() => { loadDrops(); loadHolders(); }} />}
+      {selected.size > 0 && <div className="cc-selbar"><b>{selected.size} selected</b><button type="button" className="btn-primary" onClick={() => setTab('studio')}><Gift size={13} />Airdrop them</button><button type="button" onClick={() => setTab('badges')}>Award a badge</button></div>}
       {!holders ? <p className="cc-empty">Reading every {asset.toUpperCase()} token account from the chain…</p> : holders.error ? <p className="cc-empty">{holders.error}</p>
         : <div className="cc-table"><div className="cc-tr cc-th"><span /><span>#</span><span>Wallet</span><span>Amount</span><span>Share</span><span>Value</span><span>Tags</span></div>
           {visible.slice(0, 400).map((r, i) => <label key={r.owner} className={`cc-tr ${selected.has(r.owner) ? 'sel' : ''} ${r.blocked ? 'bad' : ''}`}>
@@ -85,6 +87,8 @@ export function CommandCenter({ address, signMessage, onClose }) {
             <span className="cc-tags">{r.isAdmin && <em className="t-gold">HQ</em>}{r.likelyPool && <em>pool</em>}{r.blocked && <em className="t-bad">blocked</em>}{r.customBadges.map(b => <em key={b.id} title={b.why}>{b.icon}</em>)}</span>
           </label>)}</div>}
     </section>}
+    {tab === 'studio' && (holders?.rows ? <AirdropStudio call={call} asset={asset} holders={holders.rows} selected={[...selected]} onScheduled={() => { loadDrops(); setTab('airdrops'); }} /> : <p className="cc-empty">Loading holders…</p>)}
+    {tab === 'snapshots' && <Snapshots call={call} asset={asset} />}
     {tab === 'airdrops' && <Airdrops drops={drops} call={call} reload={loadDrops} />}
     {tab === 'badges' && <AwardBadges call={call} initial={[...selected]} />}
     {tab === 'bugs' && <section className="cc-panel">{!bugs.length ? <p className="cc-empty">No reports yet. Anyone can file one from a profile's “Report a bug” button.</p>
@@ -105,29 +109,6 @@ function Overview({ sec, reload }) {
     <div className="cc-block"><h4>Top errors</h4>{!sec.topErrors.length ? <small className="cc-empty">Clean — no errors this hour.</small> : sec.topErrors.map(e => <div key={e.key} className="cc-sig"><code>{e.key}</code><b>{e.count}</b></div>)}</div>
     <div className="cc-block"><h4>Audit log</h4>{!sec.audit.length ? <small className="cc-empty">No admin actions yet.</small> : sec.audit.map((a, i) => <div key={i} className="cc-audit"><small>{new Date(a.at * 1000).toLocaleString()}</small><b>{a.action}</b><span>{a.detail}</span></div>)}</div>
   </section>;
-}
-
-function SelectionActions({ addresses, call, asset, holders, onDone }) {
-  const [mode, setMode] = useState('equal');
-  const [amount, setAmount] = useState('');
-  const [name, setName] = useState('');
-  const [when, setWhen] = useState(() => new Date(Date.now() + 86400000).toISOString().slice(0, 16));
-  const schedule = async () => {
-    const total = Number(amount);
-    if (!(total > 0) || !name.trim()) { toast.error('Name the drop and set an amount.'); return; }
-    const picked = holders.filter(h => addresses.includes(h.owner));
-    const sum = picked.reduce((s, h) => s + h.amount, 0) || 1;
-    const recipients = picked.map(h => ({ address: h.owner, amount: mode === 'equal' ? total : total * (h.amount / sum) }));
-    try { await call('/admin/airdrops', { method: 'POST', body: JSON.stringify({ name, asset, recipients, scheduledAt: new Date(when).getTime() / 1000 }) }); toast.success(`Scheduled ${name} for ${recipients.length} wallets.`); setName(''); setAmount(''); onDone(); }
-    catch (e) { toast.error(e.message); }
-  };
-  return <div className="cc-selbar"><b>{addresses.length} selected</b>
-    <input placeholder="Airdrop name" value={name} onChange={e => setName(e.target.value)} />
-    <select value={mode} onChange={e => setMode(e.target.value)}><option value="equal">Same amount each</option><option value="pro">Split pro-rata</option></select>
-    <input type="number" min="0" step="any" placeholder={mode === 'equal' ? 'Amount each' : 'Total to split'} value={amount} onChange={e => setAmount(e.target.value)} />
-    <input type="datetime-local" value={when} onChange={e => setWhen(e.target.value)} />
-    <button type="button" className="btn-primary" onClick={schedule}><Gift size={13} />Schedule airdrop</button>
-  </div>;
 }
 
 function Airdrops({ drops, call, reload }) {

@@ -6,15 +6,19 @@ import { DataStatus } from './MarketPrimitives';
 import { recordPricePoint, getPriceTrail } from '../../lib/priceHistory';
 import { recordCandleTick, fetchFeelessCandles } from '../../lib/candles';
 import { fetchLivePrice } from '../../lib/livePrice';
+import { computeFeeRead } from './FeeLiveRead';
 
 const LIVE_INTERVAL_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 };
 
-export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [] }) => {
+export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive = false }) => {
   const container = useRef(null);
   const seriesRef = useRef(null);
   const lastBarRef = useRef(null);
   const markersRef = useRef(null);
   const [livePrice, setLivePrice] = useState(null);
+  const [feePos, setFeePos] = useState(null);
+  const [feeOpen, setFeeOpen] = useState(true);
+  const priceLinesRef = useRef([]);
   const [feelessCandles, setFeelessCandles] = useState([]);
   const [candleProvider, setCandleProvider] = useState('');
   const [candlesLoaded, setCandlesLoaded] = useState(false);
@@ -159,6 +163,30 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     else markersRef.current.setMarkers(list);
   }, [markers, interval, displayCandles, trail, dayMode]);
 
+  // Fee cat live mode: is the Leader in this coin right now?
+  useEffect(() => {
+    if (!feeLive || !pair?.pairAddress) { setFeePos(null); return undefined; }
+    let alive = true;
+    const load = () => fetch('/api/cats/leader').then(r => r.json()).then(d => { if (alive) setFeePos((d.cat?.positions || []).find(p => p.pairAddress === pair.pairAddress) || null); }).catch(() => {});
+    load(); const t = setInterval(load, 20000);
+    return () => { alive = false; clearInterval(t); };
+  }, [feeLive, pair?.pairAddress]);
+  const feeRead = useMemo(() => (feeLive && priceMetric ? computeFeeRead(displayCandles, pair, feePos) : null), [feeLive, priceMetric, displayCandles, pair, feePos]);
+
+  // Draw Fee's levels as price lines; turning Fee off removes every one of them.
+  useEffect(() => {
+    const ref = seriesRef.current;
+    const clear = () => { priceLinesRef.current.forEach(l => { try { ref?.series.removePriceLine(l); } catch { /* chart gone */ } }); priceLinesRef.current = []; };
+    clear();
+    if (!ref || !feeRead) return clear;
+    const add = (price, color, title, style = 2) => { if (Number.isFinite(price) && price > 0) priceLinesRef.current.push(ref.series.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title })); };
+    add(feeRead.resistance, '#fa708c', '🐱 resistance');
+    add(feeRead.support, '#00e9a0', '🐱 support');
+    if (feeRead.vwap) add(feeRead.vwap, '#e9bd65', '🐱 fair value', 1);
+    if (feeRead.entry) { add(feeRead.entry, '#5ec8ff', '🐱 Fee entry', 0); add(feeRead.entry * 0.9, '#ff5d73', '🐱 stop −10%', 3); add(feeRead.entry * 1.22, '#7df9d0', '🐱 target +22%', 3); }
+    return clear;
+  }, [feeRead, displayCandles, trail, dayMode, showVolume]);
+
   // Live ticks: every 3s pull the pair's current price straight from DexScreener and
   // update the forming candle in place (no redraw, zoom preserved).
   useEffect(() => {
@@ -209,6 +237,12 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     {!priceMetric && metricAvailable && !loading && !hasChart && !usingFallbackTrail && <div className="metric-snapshot" data-testid={`chart-${metric}-snapshot`}><span className="metric-snapshot-label">{metricLabel} snapshot</span><strong>{formatUSD(metricValue)}</strong><small>Provider supplied the current {metricLabel.toLowerCase()} only. Historical {metricLabel.toLowerCase()} candles are unavailable.</small></div>}
     {!priceMetric && !metricAvailable && <div className="chart-message metric-unavailable" role="status" data-testid={`chart-${metric}-unavailable`}><strong>{metricLabel} unavailable</strong><span>The provider did not supply a {metricLabel.toLowerCase()} value for this pair. No value is estimated.</span></div>}
     {charting && hasChart && <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />}
+    {feeRead && hasChart && <div className={`fee-live-read stance-${feeRead.stance.replace(/\s/g, '-')} ${feeOpen ? '' : 'min'}`} data-testid="fee-live-read">
+      <button type="button" className="flr-head" onClick={() => setFeeOpen(o => !o)}><span className="flr-cat">🐱</span><b>Fee · live read</b><em>{feeRead.stance}</em><i className="flr-dot" /></button>
+      {feeOpen && <><ul>{feeRead.lines.map((l, i) => <li key={i}>{l}</li>)}</ul>
+        <div className="flr-liq"><span>💧 {formatUSD(feeRead.liq)}</span>{feeRead.liqRatio != null && <span className={feeRead.liqRatio < 0.05 ? 'thin' : ''}>{(feeRead.liqRatio * 100).toFixed(1)}% of MC</span>}{feeRead.flow1 != null && <span className="flr-flow"><i style={{ width: `${feeRead.flow1 * 100}%` }} /></span>}</div>
+        <small>Rules-based read from the candles on screen · not financial advice</small></>}
+    </div>}
     <div className="chart-source"><span>{priceMetric ? (candleRows.length ? `${data?.provider || 'GeckoTerminal'} · OHLCV` : usingFeelessCandles ? `${candleProvider || 'FEELESS'} · OHLCV` : 'FEELESS local trail · price only') : metricChart && hasChart ? `${metricLabel} · derived from ${candleProvider || 'FEELESS'} price candles` : `Provider pair snapshot · ${metricLabel}`}</span>{charting ? (livePrice && Date.now() - livePrice.at < 10000 ? <span className="data-status live-tick"><i />LIVE · {livePrice.source || 'DEX'}</span> : <DataStatus data={data} id="chart-data-status" />) : <span className="data-status"><i />{metricAvailable ? 'LIVE · snapshot' : 'UNAVAILABLE'}</span>}</div>
   </div>;
 };

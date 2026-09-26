@@ -2062,3 +2062,25 @@ body.theme-day .trend-refresh{border-color:#07784f;color:#07784f}
 body.theme-day .cc-shell{background:radial-gradient(80% 60% at 0 0,rgba(245,197,66,.14),transparent 60%),rgba(255,255,255,.85);border-color:#e3c76a}
 body.theme-day :is(.cc-block,.cc-kpis span,.cc-drop,.cc-bug,.wpj-badge,.wpr-row,.cc-table,.cc-tabs){border-color:var(--day-border)}
 body.theme-day .cc-th{background:#f1f8f4}body.theme-day .cc-tabs button.active{color:#073d2a}body.theme-day .cc-launch{color:#7a5a00}
+/* Fee live read on chart */
+.chart-area{position:relative}
+.fee-live-read{position:absolute;top:10px;left:10px;z-index:5;width:min(330px,calc(100% - 90px));border-radius:12px;border:1px solid rgba(233,189,101,.45);background:rgba(5,14,10,.86);backdrop-filter:blur(10px);box-shadow:0 8px 30px #0007;font-size:11.5px;animation:flr-in .35s ease}
+@keyframes flr-in{from{opacity:0;transform:translateY(-6px)}}
+.flr-head{display:flex;gap:7px;align-items:center;width:100%;padding:8px 10px;border:0;background:none;color:inherit;cursor:pointer}.flr-head b{font-size:12px}.flr-cat{font-size:16px;animation:flr-bob 2.4s ease-in-out infinite}@keyframes flr-bob{50%{transform:translateY(-2px) rotate(-6deg)}}
+.flr-head em{font-style:normal;margin-left:auto;font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.stance-leaning-long .flr-head em{color:#00e9a0;border-color:#00e9a0}.stance-staying-out .flr-head em{color:#fa708c;border-color:#fa708c}.stance-in-position .flr-head em{color:#5ec8ff;border-color:#5ec8ff}
+.flr-dot{width:7px;height:7px;border-radius:50%;background:#00e9a0;box-shadow:0 0 8px #00e9a0;animation:pulse-dot 1.4s infinite}@keyframes pulse-dot{50%{opacity:.3}}
+.fee-live-read ul{margin:0;padding:0 12px 6px 26px;display:grid;gap:4px;line-height:1.4;color:#d6efe2}
+.flr-liq{display:flex;gap:8px;align-items:center;padding:6px 12px;border-top:1px solid #ffffff10;font-family:'JetBrains Mono',monospace;font-size:10.5px}.flr-liq .thin{color:#ff9f45}
+.flr-flow{flex:1;height:5px;border-radius:999px;background:#fa708c55;overflow:hidden}.flr-flow i{display:block;height:100%;background:#00e9a0}
+.fee-live-read small{display:block;padding:0 12px 8px;color:var(--muted);font-size:9.5px}
+.fee-live-read.min{width:auto}
+body.theme-day .fee-live-read{background:rgba(255,255,255,.92);border-color:#d7b25a}body.theme-day .fee-live-read ul{color:#173b2b}
+@media (max-width:600px){.fee-live-read{width:calc(100% - 20px)}.fee-live-read ul{display:none}}
+.cc-presets{display:flex;flex-wrap:wrap;gap:6px}.cc-presets button{padding:8px 12px;border-radius:999px;border:1px solid rgba(245,197,66,.4);background:linear-gradient(135deg,rgba(245,197,66,.1),rgba(0,233,160,.06));color:inherit;cursor:pointer;font-size:12.5px}.cc-presets button:hover{border-color:#f5c542;transform:translateY(-1px)}
+.cc-studio-grid{display:grid;grid-template-columns:minmax(220px,1fr) minmax(240px,1fr) minmax(280px,1.3fr);gap:12px}@media (max-width:980px){.cc-studio-grid{grid-template-columns:1fr}}
+.cc-studio .cc-block label{display:grid;gap:4px;font-size:11.5px;color:var(--muted)}.cc-studio .cc-block label.cc-check{display:flex}
+.cc-studio .cc-block :is(input:not([type=checkbox]),select){min-height:32px;border-radius:8px;border:1px solid var(--line);background:#ffffff08;color:var(--text,#eafff3);padding:0 10px}
+.cc-modes{display:grid;gap:5px}.cc-modes button{text-align:left;padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:none;color:inherit;cursor:pointer;display:grid}.cc-modes button small{color:var(--muted);font-size:10.5px}.cc-modes button.active{border-color:var(--mint);background:rgba(0,233,160,.08)}
+.cc-prev-list{display:grid;gap:2px;max-height:300px;overflow:auto}.cc-prev-list>div{display:grid;grid-template-columns:52px 1fr auto auto;gap:8px;font-size:12px;padding:4px 6px;border-radius:6px}.cc-prev-list>div:nth-child(odd){background:#ffffff05}.cc-prev-list small{color:var(--muted)}
+.cc-kpis-5{grid-template-columns:repeat(5,minmax(0,1fr))}.d-new b,.d-grew b{color:var(--mint)}.d-exited b,.d-shrank b{color:#ff8a9a}

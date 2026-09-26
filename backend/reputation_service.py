@@ -2158,6 +2158,7 @@ async def _token_holders(mint: str):
     if hit and time.time() - hit[0] < 120:
         return hit[1]
     owners = {}
+    accounts = {}
     async with httpx.AsyncClient(timeout=40) as http:
         for program in ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'):
             filters = [{'memcmp': {'offset': 0, 'bytes': mint}}]
@@ -2172,6 +2173,8 @@ async def _token_holders(mint: str):
                 amt = float(((info.get('tokenAmount') or {}).get('uiAmount')) or 0)
                 if amt > 0 and info.get('owner'):
                     owners[info['owner']] = owners.get(info['owner'], 0) + amt
+                    if amt > accounts.get(info['owner'], ('', 0))[1]:
+                        accounts[info['owner']] = (a.get('pubkey'), amt)
             if owners:
                 break
     price = None
@@ -2181,7 +2184,7 @@ async def _token_holders(mint: str):
     except Exception:
         pass
     total = sum(owners.values()) or 1
-    rows = sorted(({'owner': o, 'amount': v, 'pct': v / total * 100, 'usd': v * price if price else None} for o, v in owners.items()), key=lambda r: -r['amount'])
+    rows = sorted(({'owner': o, 'amount': v, 'pct': v / total * 100, 'usd': v * price if price else None, 'tokenAccount': accounts.get(o, (None,))[0]} for o, v in owners.items()), key=lambda r: -r['amount'])
     out = {'mint': mint, 'price': price, 'holders': len(rows), 'rows': rows, 'at': time.time()}
     _holder_cache[mint] = (time.time(), out)
     return out
@@ -2517,3 +2520,98 @@ async def list_receipts(wallet: str, limit: int = 200):
     rows.sort(key=lambda r: -(r[0] or 0))
     keys = ['t', 'sig', 'wallet', 'kind', 'tokens', 'sol', 'slot']
     return {'wallet': wallet, 'count': len(rows), 'receipts': [dict(zip(keys, r)) for r in rows[:max(1, min(limit, 1000))]]}
+
+
+# ---- Airdrop engine: hold duration + holder snapshots ------------------------------------
+_age_cache = {}
+SNAP_PATH = DATA_DIR / 'snapshots.json'
+
+
+async def _first_active(http, account: str):
+    """Oldest on-chain activity of a token account = when this wallet started holding."""
+    hit = _age_cache.get(account)
+    if hit and time.time() - hit[0] < 6 * 3600:
+        return hit[1]
+    before, oldest = None, None
+    for _ in range(8):
+        opts = {'limit': 1000}
+        if before:
+            opts['before'] = before
+        try:
+            sigs = await _rpc(http, 'getSignaturesForAddress', [account, opts])
+        except Exception:
+            break
+        if not sigs:
+            break
+        oldest = sigs[-1].get('blockTime') or oldest
+        before = sigs[-1]['signature']
+        if len(sigs) < 1000:
+            break
+    _age_cache[account] = (time.time(), oldest)
+    return oldest
+
+
+@app.get('/api/reputation/admin/holders/ages')
+async def admin_holder_ages(request: Request, asset: str = 'fee', limit: int = 150):
+    _require_admin(request)
+    mints = await _ecosystem_mints()
+    mint = mints.get(asset)
+    if not mint:
+        raise HTTPException(404, 'Unknown asset.')
+    data = await _token_holders(mint)
+    rows = [r for r in data['rows'] if r.get('tokenAccount')][:max(1, min(limit, 300))]
+    sem = asyncio.Semaphore(6)
+    out = {}
+    async with httpx.AsyncClient(timeout=30) as http:
+        async def one(r):
+            async with sem:
+                out[r['owner']] = await _first_active(http, r['tokenAccount'])
+        await asyncio.gather(*(one(r) for r in rows))
+    return {'asset': asset, 'since': out, 'note': 'Earliest on-chain activity of each holder\'s token account.'}
+
+
+def _snaps():
+    return _json_load(SNAP_PATH, {'snaps': []})
+
+
+@app.post('/api/reputation/admin/snapshots')
+async def admin_snapshot(request: Request, asset: str = 'fee', label: str = ''):
+    admin = _require_admin(request)
+    mints = await _ecosystem_mints()
+    mint = mints.get(asset)
+    if not mint:
+        raise HTTPException(404, 'Unknown asset.')
+    _holder_cache.pop(mint, None)
+    data = await _token_holders(mint)
+    snap = {'id': uuid.uuid4().hex[:10], 'asset': asset, 'label': label[:60], 'at': time.time(), 'price': data['price'],
+            'rows': [[r['owner'], float(f"{r['amount']:.9g}")] for r in data['rows']]}
+    async with _admin_lock:
+        d = _snaps(); d['snaps'].append(snap); d['snaps'] = d['snaps'][-60:]; _json_save(SNAP_PATH, d)
+        ad = _admin_load(); _audit(ad, admin, 'snapshot', f"{asset.upper()} · {len(snap['rows'])} holders"); _admin_save(ad)
+    return {'ok': True, 'id': snap['id'], 'holders': len(snap['rows'])}
+
+
+@app.get('/api/reputation/admin/snapshots')
+async def admin_snapshots(request: Request):
+    _require_admin(request)
+    return {'snaps': [{k: v for k, v in s.items() if k != 'rows'} | {'holders': len(s['rows'])} for s in _snaps()['snaps']][::-1]}
+
+
+@app.get('/api/reputation/admin/snapshots/{snap_id}/diff')
+async def admin_snapshot_diff(request: Request, snap_id: str):
+    _require_admin(request)
+    snap = next((s for s in _snaps()['snaps'] if s['id'] == snap_id), None)
+    if not snap:
+        raise HTTPException(404, 'Snapshot not found.')
+    mints = await _ecosystem_mints()
+    now = {r['owner']: r['amount'] for r in (await _token_holders(mints[snap['asset']]))['rows']}
+    then = dict((o, a) for o, a in snap['rows'])
+    rows = []
+    for o in set(now) | set(then):
+        a, b = then.get(o, 0), now.get(o, 0)
+        kind = 'new' if not a else 'exited' if not b else 'grew' if b > a * 1.01 else 'shrank' if b < a * 0.99 else 'held'
+        rows.append({'owner': o, 'then': a, 'now': b, 'delta': b - a, 'kind': kind})
+    rows.sort(key=lambda r: -abs(r['delta']))
+    counts = {k: sum(1 for r in rows if r['kind'] == k) for k in ('new', 'exited', 'grew', 'shrank', 'held')}
+    return {'snap': {k: v for k, v in snap.items() if k != 'rows'}, 'counts': counts, 'rows': rows[:500],
+            'diamondHands': [r['owner'] for r in rows if r['kind'] in ('held', 'grew')]}

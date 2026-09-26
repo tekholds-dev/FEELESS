@@ -54,7 +54,7 @@ export function ChartMetaButtons({ pair, calls, setCalls, fee, setFee, fullscree
     // Tell the user when an overlay is on but there is genuinely nothing to plot yet.
     const t = setTimeout(() => {
       if (calls && count?.calls === 0 && !prevCounts.current.callsWarned) { toast('No Trenches calls on this coin yet — post its CA to start the ledger.'); prevCounts.current.callsWarned = true; }
-      if (fee && count?.fee === 0 && !prevCounts.current.feeWarned) { toast("Fee hasn't traded this coin yet."); prevCounts.current.feeWarned = true; }
+      if (fee && count?.fee === 0 && !prevCounts.current.feeWarned) { toast('🐱 Fee is reading this chart live — no trades on this coin yet.'); prevCounts.current.feeWarned = true; }
     }, 2500);
     if (!calls) prevCounts.current.callsWarned = false;
     if (!fee) prevCounts.current.feeWarned = false;
@@ -63,7 +63,7 @@ export function ChartMetaButtons({ pair, calls, setCalls, fee, setFee, fullscree
   const copy = async () => { try { await navigator.clipboard.writeText(mint); toast.success('Contract address copied'); } catch { toast.error('Clipboard unavailable'); } };
   return <div className="chart-meta-buttons" role="group" aria-label="Chart overlays">
     <button type="button" className={calls ? 'active calls' : ''} onClick={() => setCalls(v => !v)} title="Show every Trenches call on this coin" data-testid="chart-meta-calls"><Megaphone size={12} />Calls{calls && count?.calls ? ` ${count.calls}` : ''}</button>
-    {pair?.chainId === 'solana' && <button type="button" className={fee ? 'active fee' : ''} onClick={() => setFee(v => !v)} title="Show Fee's paper buys and sells on this coin" data-testid="chart-meta-fee"><Cat size={12} />Fee{fee && count?.fee ? ` ${count.fee}` : ''}</button>}
+    {pair?.chainId === 'solana' && <button type="button" className={fee ? 'active fee' : ''} onClick={() => setFee(v => !v)} title="Fee live mode: levels, liquidity, live read and Fee's trades" data-testid="chart-meta-fee"><Cat size={12} />Fee{fee && count?.fee ? ` ${count.fee}` : ''}</button>}
     <button type="button" className={expanded ? 'active expand' : ''} onClick={full} title={onExpand ? (expanded ? 'Back to chart + chat side by side' : 'Wide chart — chat moves below') : 'Fullscreen chart'} data-testid="chart-meta-fullscreen"><Maximize2 size={12} />{onExpand ? (expanded ? 'Wide on' : 'Wide') : ''}</button>
     {mint && <button type="button" onClick={copy} title="Copy contract address" data-testid="chart-meta-copy"><Copy size={12} /></button>}
   </div>;
