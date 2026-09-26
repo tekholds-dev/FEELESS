@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
+import { BadgeIcon } from '../terminal/BadgeIcon';
 
 const TIERS = { 1: 'Rookie', 2: 'Trencher', 3: 'Veteran', 4: 'Legend' };
 
@@ -31,7 +32,7 @@ export function BadgeJourney({ address, mine }) {
     <div className="wpj-path">{tiers.map(({ t, items }) => <div key={t} className="wpj-tier"><small className="wpj-tier-name">Tier {t} · {TIERS[t]}</small>
       {items.map(c => { const on = earned.has(c.id); const pg = !on && progressFor(c.id, mineBadges?.progress); const pct = pg ? Math.max(0, Math.min(100, (pg.now / pg.goal) * 100)) : 0;
         return <div key={c.id} className={`wpj-badge ${on ? 'on' : 'off'} tone-${c.tone}`}>
-          <span className="wpj-icon">{c.icon}</span>
+          <span className="wpj-icon"><BadgeIcon id={c.id} tone={c.tone} size={24} /></span>
           <div><b>{c.label}{on && <em>✓ earned</em>}</b><small>{c.how}</small>
             {pg && <div className="wpj-prog"><i style={{ width: `${pct}%` }} /><span>{pg.fmt(pg.now)}</span></div>}</div>
         </div>; })}

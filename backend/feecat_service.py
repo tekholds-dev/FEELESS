@@ -194,6 +194,43 @@ def _buy_analysis(p, size, sym, safety='', conviction=1.0):
             f"Every trade pays 1% each way so you see real costs.\n\nNot financial advice — this is how a disciplined bot thinks, out loud.")
 
 
+LEARN_BOUNDS = {'trailGive': (8, 16), 'runnerTrailGive': (6, 14), 'takeProfit': (22, 45), 'scaleOutFraction': (0.33, 0.5)}
+
+
+def _params(cat):
+    return {**RULES, **((cat.get('learn') or {}).get('params') or {})}
+
+
+def _learn(store, cat):
+    """Adapt exits from what happened AFTER Fee sold. Runners it cut early → loosen; good exits → tighten back."""
+    done = [e for e in cat.get('exits', []) if time.time() - e['exitAt'] >= 6 * 3600 and not e.get('scored')]
+    if not done:
+        return
+    L = cat.setdefault('learn', {'params': {}, 'log': [], 'missed': 0, 'good': 0})
+    P = _params(cat)
+    for e in done:
+        e['scored'] = True
+        # Only a price-based exit (not a stop-loss) can be "too early".
+        early = e['peakAfter'] >= 40 and ('trailing' in e['why'] or 'take-profit' in e['why'] or 'sell pressure' in e['why'] or 'time exit' in e['why'])
+        if early:
+            L['missed'] += 1
+            P['trailGive'] = min(LEARN_BOUNDS['trailGive'][1], P['trailGive'] + 2)
+            P['runnerTrailGive'] = min(LEARN_BOUNDS['runnerTrailGive'][1], P['runnerTrailGive'] + 2)
+            P['takeProfit'] = min(LEARN_BOUNDS['takeProfit'][1], P['takeProfit'] + 5)
+            P['scaleOutFraction'] = max(LEARN_BOUNDS['scaleOutFraction'][0], round(P['scaleOutFraction'] - 0.05, 2))
+            note = f"Sold {e['symbol']} at {e['changeAtExit']:+.1f}%, it ran another +{e['peakAfter']:.0f}%. Loosening: trail {P['trailGive']}%, runner {P['runnerTrailGive']}%, TP +{P['takeProfit']}%, scale-out {int(P['scaleOutFraction']*100)}%."
+        else:
+            L['good'] += 1
+            for k, (lo, hi) in LEARN_BOUNDS.items():
+                base = RULES[k]
+                P[k] = round(P[k] + (base - P[k]) * 0.25, 2)  # drift back toward the disciplined defaults
+            note = f"Exit on {e['symbol']} held up (best after sell +{e['peakAfter']:.0f}%, low {e['lowAfter']:.0f}%). Keeping discipline."
+        L['params'] = {k: P[k] for k in LEARN_BOUNDS}
+        L['log'].insert(0, {'at': time.time(), 'note': note, 'symbol': e['symbol'], 'missed': early})
+        L['log'] = L['log'][:40]
+        _log_event(store, cat, 'LEARN', note)
+
+
 def _post_as_fee(pair_address, text, register_call=False):
     try:
         key = (DATA_DIR / 'internal.key').read_text().strip()
@@ -222,6 +259,10 @@ def _close(store, cat, pos, price_native, why, fraction=1.0):
     if pnl < 0:
         cat['dailyLoss'][day] = round(cat['dailyLoss'].get(day, 0) - pnl, 6)
     cat.setdefault('cooldowns', {})[pos['pairAddress']] = time.time()
+    if fraction >= 1:
+        cat.setdefault('exits', []).append({'pairAddress': pos['pairAddress'], 'symbol': pos['symbol'], 'exitPx': price_native, 'exitAt': time.time(),
+                                            'why': why, 'pnlSol': pnl, 'changeAtExit': round((price_native / pos['entryPriceNative'] - 1) * 100, 2), 'peakAfter': 0.0, 'lowAfter': 0.0})
+        cat['exits'] = cat['exits'][-60:]
     cat.setdefault('pnlHistory', []).append({'value': cat['realizedPnlSol'], 't': time.time()})
     cat['pnlHistory'] = cat['pnlHistory'][-60:]
     closed = cat.get('wins', 0) + cat.get('losses', 0)
@@ -241,7 +282,8 @@ def _close(store, cat, pos, price_native, why, fraction=1.0):
 async def run_engine(store, cats):
     now = time.time()
     async with httpx.AsyncClient(timeout=10) as http:
-        held = sorted({p['pairAddress'] for c in cats for p in c['positions'] if p.get('pairAddress')})
+        held = sorted({p['pairAddress'] for c in cats for p in c['positions'] if p.get('pairAddress')}
+                      | {e['pairAddress'] for c in cats for e in c.get('exits', []) if now - e['exitAt'] < 24 * 3600})
         prices = await _pair_prices(http, held) if held else {}
         candidates = await _market_candidates(http)
     ranked, rejections = [], {}
@@ -255,7 +297,14 @@ async def run_engine(store, cats):
                      'top': [{'symbol': (p.get('baseToken') or {}).get('symbol'), 'reason': r, 'url': p.get('url')} for _, r, p in ranked[:5]]}
     ranked.sort(key=lambda x: -x[0])
     for cat in cats:
-        R = RULES
+        for e in cat.get('exits', []):
+            live = prices.get(e['pairAddress'])
+            if live and now - e['exitAt'] < 24 * 3600 and e.get('exitPx'):
+                ch = (_num(live.get('priceNative')) / e['exitPx'] - 1) * 100
+                e['peakAfter'] = round(max(e.get('peakAfter', 0), ch), 2)
+                e['lowAfter'] = round(min(e.get('lowAfter', 0), ch), 2)
+        _learn(store, cat)
+        R = _params(cat)
         for pos in list(cat['positions']):
             live = prices.get(pos.get('pairAddress'))
             if not live:
@@ -307,7 +356,12 @@ async def run_engine(store, cats):
             if any(x['pairAddress'] == pa for x in cat['positions']):
                 continue
             if now - cat.get('cooldowns', {}).get(pa, 0) < R['cooldownHours'] * 3600:
-                continue
+                last = next((e for e in reversed(cat.get('exits', [])) if e['pairAddress'] == pa), None)
+                tx1 = (p.get('txns') or {}).get('h1') or {}
+                strong = _num(tx1.get('buys')) >= 1.5 * max(_num(tx1.get('sells')), 1)
+                if not (last and last.get('exitPx') and _num(p.get('priceNative')) >= last['exitPx'] * 1.10 and strong):
+                    continue
+                reason = f"re-entry on strength (+{(_num(p.get('priceNative')) / last['exitPx'] - 1) * 100:.0f}% above my exit, buyers 1.5×+); " + reason
             if safety_checks >= 4:
                 break
             safety_checks += 1
@@ -356,6 +410,20 @@ def _migrate(store):
             'risk': {'maxPositionSol': 2, 'maxDailyLossSol': 3, 'allowlist': [], 'blocklist': []},
             'revoked': False, 'createdAt': now, 'lastTick': now, 'engine': ENGINE_VERSION,
         }
+    for cat in store['cats'].values():
+        if 'exits' not in cat:
+            cat['exits'] = []
+            for ev in reversed(store.get('events', [])):
+                if ev.get('catId') == cat['id'] and ev.get('type') == 'SELL' and ev.get('pairAddress') and ev.get('priceNative') and 'Sold ' in ev.get('detail', '') and '% of' not in ev.get('detail', ''):
+                    d = ev['detail']
+                    try:
+                        sym = d.split('Sold ', 1)[1].split(' at ', 1)[0]
+                        ch = float(d.split(' at ', 1)[1].split('%', 1)[0])
+                        why = d.split(' — ', 1)[1].split('. Net', 1)[0]
+                    except (IndexError, ValueError):
+                        continue
+                    cat['exits'].append({'pairAddress': ev['pairAddress'], 'symbol': sym, 'exitPx': ev['priceNative'], 'exitAt': ev['ts'] / 1000,
+                                         'why': why, 'pnlSol': ev.get('pnlSol'), 'changeAtExit': ch, 'peakAfter': 0.0, 'lowAfter': 0.0})
     leader = store['cats'][LEADER_ID]
     leader['name'], leader['handle'] = 'Fee', 'fee'
     leader['title'] = 'The Leader of the FEELESS Cats'
@@ -514,6 +582,30 @@ async def activity(catId: Optional[str] = None):
 async def health():
     store = _load()
     return {'ok': True, 'cats': len(store['cats']), 'events': len(store['events'])}
+
+
+@app.get('/api/cats/{cat_id}/profile')
+async def cat_profile(cat_id: str):
+    store = _load()
+    _migrate(store)
+    cat = store['cats'].get(cat_id)
+    if not cat:
+        raise HTTPException(404, 'Cat not found')
+    trades = [e for e in store.get('events', []) if e.get('catId') == cat_id and e.get('type') in ('BUY', 'SELL')]
+    learn = cat.get('learn') or {}
+    closed = cat.get('wins', 0) + cat.get('losses', 0)
+    pnls = [e.get('pnlSol') for e in trades if e.get('pnlSol') is not None]
+    return {
+        'cat': {k: cat.get(k) for k in ('id', 'name', 'title', 'avatar', 'strategyLabel', 'level', 'xp', 'balanceSol', 'startingBalanceSol', 'realizedPnlSol',
+                                        'volumeSol', 'wins', 'losses', 'winRate', 'positions', 'pnlHistory', 'status')},
+        'stats': {'trades': closed, 'best': max(pnls) if pnls else None, 'worst': min(pnls) if pnls else None,
+                  'roiPct': round((cat.get('balanceSol', 0) + sum(p.get('costSol', 0) for p in cat.get('positions', [])) - cat.get('startingBalanceSol', 0)) / max(cat.get('startingBalanceSol', 1), 1e-9) * 100, 2)},
+        'trades': trades[:80],
+        'exits': list(reversed(cat.get('exits', [])))[:30],
+        'learning': {'params': {**{k: RULES[k] for k in LEARN_BOUNDS}, **(learn.get('params') or {})}, 'defaults': {k: RULES[k] for k in LEARN_BOUNDS},
+                     'missed': learn.get('missed', 0), 'good': learn.get('good', 0), 'log': learn.get('log', [])},
+        'rules': {k: RULES[k] for k in ('stopLoss', 'breakEvenArm', 'maxHoldHours', 'maxTop10Pct', 'maxInsiderPct', 'maxSnipers', 'maxBundled', 'maxM5Chase')},
+    }
 
 
 @app.get('/api/cats/{cat_id}')

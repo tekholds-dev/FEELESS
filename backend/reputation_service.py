@@ -925,6 +925,10 @@ async def token_intel(chain: str, mint: str):
     out['walletRecords'] = {w: {'strikes': len(bl['wallets'].get(w, {}).get('mints', {})), 'blocked': _is_blocked(bl['wallets'].get(w))}
                             for w in out.get('bundledWallets', []) + out.get('sniperWallets', [])}
     _intel_cache[mint] = (time.time(), out)
+    try:
+        _absorb_intel(mint, out)
+    except Exception:
+        pass
     return out
 
 
@@ -2105,7 +2109,7 @@ async def health():
     store = _load()
     now = time.time()
     rpc_status = [{
-        'endpoint': endpoint, 'dedicated': endpoint == _dedicated,
+        'endpoint': _re.sub(r'(api[-_]?key=)[^&]+', r'\1•••', endpoint), 'dedicated': endpoint == _dedicated,
         'cooling_down': _rpc_cooldown_until.get(endpoint, 0) > now,
     } for endpoint in RPC_POOL]
     return {
@@ -3059,3 +3063,36 @@ async def search_profiles(q: str, limit: int = 6):
             rows.append((score, {'address': a, 'handle': h or a[:6].lower(), 'displayName': v.get('displayName'), 'avatarUrl': v.get('avatarUrl')}))
     rows.sort(key=lambda r: -r[0])
     return {'profiles': [r[1] for r in rows[:max(1, min(limit, 20))]]}
+
+
+
+# ---- Live FEELESS intelligence counts (Learn tab) ------------------------------------------
+_marked = {'snipers': set(), 'bundlers': set(), 'mints': set()}
+
+
+def _absorb_intel(mint, out):
+    for w in out.get('sniperWallets') or []:
+        _marked['snipers'].add(w if isinstance(w, str) else (w or {}).get('wallet') or (w or {}).get('owner'))
+    for w in out.get('bundledWallets') or []:
+        _marked['bundlers'].add(w if isinstance(w, str) else (w or {}).get('wallet') or (w or {}).get('owner'))
+    _marked['mints'].add(mint)
+
+
+@app.get('/api/reputation/stats')
+async def live_stats():
+    for mint, (_, out) in list(_intel_cache.items()):
+        if out:
+            _absorb_intel(mint, out)
+    bl = _block_load()['wallets']
+    for w, r in bl.items():
+        kinds = set(((r or {}).get('mints') or {}).values())
+        if kinds & {'sniper', 'snipe'}:
+            _marked['snipers'].add(w)
+        if kinds & {'bundler', 'bundle'}:
+            _marked['bundlers'].add(w)
+    store = _load()
+    scores = [score_creator(c) for c in store['creators'].values()]
+    return {'snipers': len(_marked['snipers'] - {None}), 'bundlers': len(_marked['bundlers'] - {None}),
+            'blocklisted': sum(1 for r in bl.values() if _is_blocked(r)), 'mintsScanned': len(_marked['mints'] | set(store['mints'])),
+            'creators': len(store['creators']), 'trustedCreators': sum(1 for x in scores if x.get('badge') == 'trusted'),
+            'flaggedCreators': sum(1 for x in scores if x.get('badge') == 'flagged'), 'at': time.time()}

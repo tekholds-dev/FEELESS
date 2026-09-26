@@ -28,6 +28,8 @@ import { RadarView, PumpRadarView, SignalMovers, ParticipationBoard, MetaDetecto
 import { CommandWhitepaper, MissionRoadmap, UnderstandFeeless, TerminalConfiguration } from '../components/command/CommandDocuments';
 import { ReputationCenter } from '../components/command/ReputationCenter';
 import { LegalPage } from '../components/LegalConsent';
+import { FeeCatProfile } from '../components/command/FeeCatProfile';
+import { LiveIntelStats } from '../components/command/LiveIntelStats';
 import { CreatorProfilePage } from '../components/command/CreatorProfile';
 
 const CHAINS = [['solana', 'Solana'], ['all', 'All chains'], ['ethereum', 'Ethereum'], ['base', 'Base'], ['bsc', 'BNB Chain'], ['arbitrum', 'Arbitrum'], ['avalanche', 'Avalanche'], ['polygon', 'Polygon'], ['sui', 'Sui']];
@@ -175,12 +177,12 @@ export default function Terminal() {
          {page === 'chat' && <TrenchesView pairs={pairs} newPairs={newFeed.data?.pairs || newPairs} onSelect={onSelect} selectedPair={selected} selectedPerspective={perspective} onPerspectiveChange={onPerspectiveChange} onConnect={() => setWalletOpen(true)} />}
       {page === 'alerts' && <><TrustSignals /><AlertsPage alerts={alerts} setAlerts={setAlerts} selected={alertPair || selected} watchlist={watchlist} ecosystem={ecosystem} /></>}
       {page === 'fee' && <FeeAssetPage asset={fee}>{fee?.pair ? <TokenFocus pair={fee.pair} has={has} toggle={toggle} /> : <FeeHeartbeat asset={fee} loading={assets.loading} />}</FeeAssetPage>}
-        {page === 'feeback' && <FeeBackCenter feeCat={feeCat} />}{page === 'feecat' && <FeeCatCenter asset={feeCat} community={community} onSelect={onSelect} />}{page === 'feecat/cats' && <FeelessCats />}{page === 'feecat/agents' && <FeeCatsPlatform />}
+        {page === 'feeback' && <FeeBackCenter feeCat={feeCat} />}{page === 'feecat' && <><FeeCatProfile /><FeeCatCenter asset={feeCat} community={community} onSelect={onSelect} /></>}{page === 'feecat/cats' && <FeelessCats />}{page === 'feecat/agents' && <FeeCatsPlatform />}
       {page === 'reputation' && <ReputationCenter />}
       {page === 'legal' && <LegalPage />}
       {page.startsWith('profile/') && <WalletProfilePage key={page} address={page.split('/')[1]} />}
       {page.startsWith('reputation/') && (() => { const [, repChain, repAddress] = page.split('/'); return repChain && repAddress ? <CreatorProfilePage chain={repChain} address={repAddress} /> : null; })()}
-      {page === 'leaderboard' && <ParticipationBoard />}{page === 'whitepaper' && <><LiveProof /><CommandWhitepaper /></>}{page === 'roadmap' && <><MissionRoadmap /><RoadmapVoting /></>}{page === 'learn' && <><UnderstandFeeless /><CaseStudies /></>}
+      {page === 'leaderboard' && <ParticipationBoard />}{page === 'whitepaper' && <><LiveProof /><CommandWhitepaper /></>}{page === 'roadmap' && <><MissionRoadmap /><RoadmapVoting /></>}{page === 'learn' && <><LiveIntelStats /><UnderstandFeeless /><CaseStudies /></>}
       {page === 'settings' && <><TerminalConfiguration settings={settings} setSettings={setSettings} onWallet={() => setWalletOpen(true)} /><NetworkStatus /></>}
        {!isMarket && !page.startsWith('reputation') && !page.startsWith('profile/') && !['launch', 'watchlist', 'chat', 'alerts', 'fee', 'feeback', 'feecat', 'feecat/cats', 'feecat/agents', 'leaderboard', 'whitepaper', 'roadmap', 'learn', 'settings', 'legal'].includes(page) && <div className="page-heading"><h1>Off the radar.</h1><Link to="/terminal" className="btn-primary" data-testid="unknown-page-home">Back to terminal</Link></div>}
        </div><TerminalFooter />

@@ -2258,3 +2258,34 @@ body.theme-day .legal-consent{background:#fff;border-color:#9fd3b6}body.theme-da
 .k-profile .sd-kind,.k-wallet .sd-kind{color:#5ec8ff;border-color:#5ec8ff66}.k-coin .sd-kind{color:#f5c542;border-color:#f5c54266}
 @media (max-width:600px){.sd-num{display:none}.sd-row{grid-template-columns:30px 1fr auto}}
 body.theme-day .search-drop{background:#fff;border-color:#9fd3b6}body.theme-day .sd-row.active{background:#e3f2e8}
+/* Fee cat profile */
+.fcp{display:grid;gap:12px;padding:18px;margin-bottom:18px;border-radius:18px;border:1px solid rgba(245,197,66,.35);background:radial-gradient(70% 60% at 0 0,rgba(0,233,160,.1),transparent 60%),radial-gradient(60% 60% at 100% 0,rgba(245,197,66,.1),transparent 60%),rgba(4,12,9,.85)}
+.fcp-head{display:flex;flex-wrap:wrap;gap:16px;align-items:center}.fcp-avatar{position:relative;width:74px;height:74px;border-radius:50%;display:grid;place-items:center;font-size:40px;border:3px solid transparent;background:linear-gradient(#07110c,#07110c) padding-box,conic-gradient(from var(--ang,0deg),#00e9a0,#f5c542,#00e9a0) border-box;animation:aurora-spin 5s linear infinite}.fcp-avatar .flr-dot{position:absolute;right:4px;bottom:6px}
+.fcp-id h2{margin:0;font-size:26px}.fcp-id h2 small{font-size:12px}.fcp-id span{color:var(--muted);font-size:12px}
+.fcp-kpis{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}.fcp-kpis span{display:grid;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:#ffffff06}.fcp-kpis small{font-size:10px;color:var(--muted)}.fcp-kpis b{font:13px 'JetBrains Mono',monospace}
+.fcp-open{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.fcp-open h4{margin:0;font-size:11px;color:var(--muted);text-transform:uppercase}.fcp-pos{display:grid;grid-template-columns:auto auto;gap:2px 10px;padding:8px 12px;border-radius:12px;border:1px solid rgba(94,200,255,.4);color:inherit;text-decoration:none}.fcp-pos small{grid-column:1/-1;color:var(--muted);font-size:10.5px}
+.fcp-tabs{display:flex;gap:4px}.fcp-tabs button{border:1px solid var(--line);background:none;color:var(--muted);padding:6px 12px;border-radius:999px;cursor:pointer;font-size:12px}.fcp-tabs button.active{color:#fff;border-color:var(--mint);background:rgba(0,233,160,.12)}
+.fcp-list{display:grid;gap:6px;max-height:420px;overflow:auto}
+.fcp-trade{display:grid;grid-template-columns:58px 1fr auto;gap:10px;align-items:start;padding:8px 10px;border-radius:10px;border:1px solid #ffffff0d;font-size:12.5px}.fcp-trade p{margin:0;line-height:1.45}.fcp-trade em{font-style:normal;font-size:10px;text-align:center;padding:2px 6px;border-radius:6px;border:1px solid var(--line)}.fcp-trade small{color:var(--muted);font-size:10.5px;white-space:nowrap}
+.t-buy em{color:var(--mint);border-color:var(--mint)}.t-sell em{color:#ff8a9a;border-color:#ff8a9a}
+.fcp-exit{display:grid;grid-template-columns:90px 1fr 1fr auto;gap:10px;align-items:center;padding:9px 12px;border-radius:10px;border:1px solid #ffffff0d;color:inherit;text-decoration:none;font-size:12.5px}.fcp-exit.missed{border-color:rgba(245,197,66,.5);background:rgba(245,197,66,.06)}.fcp-exit small{color:var(--muted);font-size:10.5px}
+.fcp-params{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}.fcp-params span{display:grid;padding:10px;border-radius:12px;border:1px solid var(--line)}.fcp-params small{font-size:10.5px;color:var(--muted)}.fcp-params b{font-size:18px}.fcp-params em{font-style:normal;font-size:10px;color:var(--muted)}
+.fcp-score{display:flex;gap:16px;font-size:13px}
+@media (max-width:700px){.fcp-exit,.fcp-trade{grid-template-columns:1fr}.fcp-kpis{margin-left:0}}
+/* Profile layout: name block starts under the banner; artifacts hover (no thin-edge spin) */
+.wp-head{align-items:flex-start!important}
+.wp-id{padding-top:78px!important}
+.badge-artifacts{padding-top:84px!important;margin-top:0!important}
+.wp-actions{padding-top:84px}
+.artifact-coin{animation:artifact-hover 3.6s ease-in-out infinite!important;transform:none!important}
+.artifact-coin .face{backface-visibility:visible}
+.artifact-coin .face .badge-svg{filter:drop-shadow(0 0 6px currentColor)}
+.badge-svg{display:block;filter:drop-shadow(0 0 3px rgba(0,0,0,.4))}
+.badge-pill i{display:inline-grid;place-items:center}
+.wpj-badge.off .badge-svg{filter:grayscale(1)}
+@media (max-width:700px){.wp-id,.badge-artifacts,.wp-actions{padding-top:8px!important}}
+.live-intel{display:grid;gap:12px;padding:18px;margin:14px 0 18px;border-radius:18px;border:1px solid rgba(250,112,140,.35);background:radial-gradient(60% 60% at 0 0,rgba(250,112,140,.1),transparent 60%),rgba(5,12,9,.85)}
+.li-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}.li-head h2{margin:0;font-size:22px}.li-head span{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:11px}
+.li-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.li-cell{display:grid;gap:2px;padding:12px;border-radius:12px;border:1px solid var(--line);background:#ffffff05}.li-cell b{font:700 26px 'JetBrains Mono',monospace}.li-cell small{color:var(--muted);font-size:11px}
+.li-cell.tone-bad b{color:#ff8a9a}.li-cell.tone-mint b{color:var(--mint)}.li-cell.tone-gold b{color:#f5c542}
