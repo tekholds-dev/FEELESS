@@ -2324,3 +2324,4 @@ body.reduced-motion-setting :is(.heartbeat-mark,.heartbeat-mark::before,.heartbe
 .cp-msg{font-size:12.5px;border-bottom:1px solid #ffffff0a;padding-bottom:6px}.cp-msg p{margin:2px 0 0;color:#c6dccf}.cp-msg em{font-style:normal;font-size:10px;color:var(--muted)}
 .sd-prof{font-size:10px;color:#5ec8ff;border:1px solid #5ec8ff55;border-radius:999px;padding:1px 7px;margin-right:4px}
 @media (max-width:700px){.cp-head{margin-top:-40px}.cp-logo{width:84px;height:84px}.cp-id{padding-top:0}}
+.cc-spark{display:flex;align-items:flex-end;gap:3px;height:90px}.cc-spark i{flex:1;min-height:2px;border-radius:3px 3px 0 0;background:linear-gradient(180deg,#00e9a0,#00e9a033)}

@@ -1936,6 +1936,8 @@ async def chat_post(payload: ChatPost):
                                'symbol': (pairs[0].get('baseToken') or {}).get('symbol'), 'pair': pairs[0], 'fetched_at': time.time()})
         except Exception:
             pass
+    if is_muted(payload.address):
+        raise HTTPException(403, 'You are muted by FEELESS moderators for now.')
     tier = (await _perk_tier(payload.address))[0]
     boosted = False
     if payload.boost:
@@ -3224,3 +3226,133 @@ async def admin_ad_delete(request: Request, ad_id: str):
         d['ads'] = [a for a in d['ads'] if a['id'] != ad_id]
         _json_save(ADS_PATH, d)
     return {'ok': True}
+
+
+# ---- Command Center: pulse, moderation, broadcast, treasury ---------------------------------
+MUTES_PATH = DATA_DIR / 'mutes.json'
+
+
+def is_muted(address: str) -> float:
+    until = _json_load(MUTES_PATH, {}).get(primary_of(address), 0)
+    return until if until > time.time() else 0
+
+
+@app.get('/api/reputation/admin/pulse')
+async def admin_pulse(request: Request):
+    _require_admin(request)
+    now = time.time() * 1000
+    rooms = _chat_load()['rooms']
+    msgs = [m for ms in rooms.values() for m in ms if isinstance(m, dict)]
+    last24 = [m for m in msgs if now - m.get('ts', 0) < 86400e3]
+    hourly = [0] * 24
+    for m in last24:
+        hourly[23 - min(23, int((now - m['ts']) // 3600e3))] += 1
+    busiest = sorted(((r, sum(1 for m in ms if now - m.get('ts', 0) < 86400e3)) for r, ms in rooms.items()), key=lambda x: -x[1])[:8]
+    posters = {}
+    for m in last24:
+        if not m.get('system'):
+            posters[m.get('identity') or m.get('address')] = posters.get(m.get('identity') or m.get('address'), 0) + 1
+    profiles = _profiles_load()['profiles']
+    fee = {}
+    try:
+        async with httpx.AsyncClient(timeout=6) as http:
+            fee = (await http.get('http://127.0.0.1:5088/api/cats/leader')).json().get('cat') or {}
+    except Exception:
+        pass
+    clicks = sorted(_json_load(CLICKS_PATH, {}).items(), key=lambda kv: -kv[1][0])[:6]
+    return {'messages24h': len(last24), 'hourly': hourly, 'activeWallets24h': len(posters), 'profiles': len(profiles),
+            'newProfiles24h': sum(1 for v in profiles.values() if time.time() - (v or {}).get('updatedAt', 0) < 86400),
+            'busiestRooms': [{'room': r, 'messages': n} for r, n in busiest if n],
+            'topPosters': [{'address': a, 'handle': handle_of(a), 'messages': n} for a, n in sorted(posters.items(), key=lambda x: -x[1])[:8]],
+            'fee': {k: fee.get(k) for k in ('balanceSol', 'realizedPnlSol', 'winRate', 'wins', 'losses')} | {'open': len(fee.get('positions') or [])},
+            'topClicks': [{'key': k, 'count': v[0]} for k, v in clicks],
+            'pushSubscribers': len(_push_load()['subs']), 'muted': sum(1 for v in _json_load(MUTES_PATH, {}).values() if v > time.time())}
+
+
+@app.get('/api/reputation/admin/chat-feed')
+async def admin_chat_feed(request: Request, limit: int = 80):
+    _require_admin(request)
+    msgs = [m for r, ms in _chat_load()['rooms'].items() for m in ms if isinstance(m, dict) and not m.get('system')]
+    msgs.sort(key=lambda m: -m.get('ts', 0))
+    mutes = _json_load(MUTES_PATH, {})
+    return {'messages': [{**{k: m.get(k) for k in ('id', 'room', 'address', 'username', 'handle', 'text', 'ts')}, 'muted': mutes.get(primary_of(m.get('address', '')), 0) > time.time()} for m in msgs[:max(1, min(limit, 300))]]}
+
+
+class ModIn(BaseModel):
+    room: str = ''
+    id: str = ''
+    address: str = ''
+    hours: float = 24
+
+
+@app.post('/api/reputation/admin/moderate/delete')
+async def admin_delete_msg(request: Request, payload: ModIn):
+    admin = _require_admin(request)
+    async with _chat_lock:
+        d = _chat_load()
+        before = len(d['rooms'].get(payload.room, []))
+        d['rooms'][payload.room] = [m for m in d['rooms'].get(payload.room, []) if m['id'] != payload.id]
+        CHAT_PATH.write_text(json.dumps(d))
+    ad = _admin_load(); _audit(ad, admin, 'mod-delete', f'{payload.room} #{payload.id}'); _admin_save(ad)
+    return {'ok': before != len(d['rooms'].get(payload.room, []))}
+
+
+@app.post('/api/reputation/admin/moderate/mute')
+async def admin_mute(request: Request, payload: ModIn):
+    admin = _require_admin(request)
+    target = primary_of(payload.address)
+    if target in _admin_wallets():
+        raise HTTPException(400, "Can't mute the HQ wallet.")
+    async with _admin_lock:
+        d = _json_load(MUTES_PATH, {})
+        d[target] = time.time() + max(0, min(payload.hours, 24 * 30)) * 3600 if payload.hours > 0 else 0
+        _json_save(MUTES_PATH, d)
+    ad = _admin_load(); _audit(ad, admin, 'mute' if payload.hours > 0 else 'unmute', f'@{handle_of(target)} {payload.hours:g}h'); _admin_save(ad)
+    return {'ok': True, 'until': d[target]}
+
+
+class BroadcastIn(BaseModel):
+    title: str = Field(min_length=2, max_length=60)
+    body: str = Field(min_length=2, max_length=240)
+    url: str = '/terminal'
+    push: bool = False
+    rooms: list = []
+
+
+@app.post('/api/reputation/admin/broadcast')
+async def admin_broadcast(request: Request, payload: BroadcastIn):
+    admin = _require_admin(request)
+    url = payload.url if payload.url.startswith('/') or payload.url.startswith('https://') else '/terminal'
+    posted = 0
+    for room in [r for r in payload.rooms[:20] if _re.match(r'^[A-Za-z0-9_-]{3,160}$', str(r))]:
+        chat_system_post(room, 'FEELESS HQ 👑', 'FEELESS-HQ', f'📢 {payload.title}\n{payload.body}')
+        posted += 1
+    sent = gone = 0
+    if payload.push:
+        subs = _push_load()['subs']
+        for sid, entry in list(subs.items()):
+            res = await asyncio.to_thread(_send_push, entry['subscription'], payload.title, payload.body, url, 'feeless-broadcast')
+            sent += res == 'ok'
+            gone += res == 'gone'
+    ad = _admin_load(); _audit(ad, admin, 'broadcast', f"{payload.title} · {posted} rooms · push {sent}"); _admin_save(ad)
+    return {'ok': True, 'rooms': posted, 'pushed': sent, 'stale': gone}
+
+
+@app.get('/api/reputation/admin/treasury')
+async def admin_treasury(request: Request):
+    admin = _require_admin(request)
+    stats = await wallet_stats(admin) if not admin.startswith('0x') else {}
+    mints = await _ecosystem_mints()
+    held = {}
+    for aid, mint in mints.items():
+        try:
+            held[aid] = round(await _holding_usd(admin, mint), 2)
+        except Exception:
+            held[aid] = None
+    recent = []
+    try:
+        async with httpx.AsyncClient(timeout=15) as http:
+            recent = [{'sig': s['signature'], 'at': s.get('blockTime'), 'ok': not s.get('err')} for s in (await _rpc(http, 'getSignaturesForAddress', [admin, {'limit': 12}])) or []]
+    except Exception:
+        pass
+    return {'wallet': admin, 'sol': stats.get('sol'), 'holdingsUsd': held, 'recent': recent}

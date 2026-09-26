@@ -13,7 +13,7 @@ const download = (name, text) => { const a = document.createElement('a'); a.href
 
 export function CommandCenter({ address, signMessage, onClose }) {
   const [session, setSession] = useState(() => readSession(address));
-  const [tab, setTab] = useState('overview');
+  const [tab, setTab] = useState('pulse');
   const [sec, setSec] = useState(null);
   const [holders, setHolders] = useState(null);
   const [asset, setAsset] = useState('fee');
@@ -59,12 +59,16 @@ export function CommandCenter({ address, signMessage, onClose }) {
     <div className="cc-gate-actions"><button type="button" className="btn-primary" disabled={busy} onClick={signIn}><ShieldCheck size={15} />{busy ? 'Check your wallet…' : 'Sign in to Command Center'}</button><button type="button" className="btn-outline" onClick={onClose}>Back to profile</button></div>
   </div></div>;
 
-  const TABS = [['overview', 'Overview', Activity], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fees', 'Fees & Pricing', ShieldCheck], ['ads', 'Ads', Gift], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fees', 'Fees & Pricing', ShieldCheck], ['ads', 'Ads', Gift], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div>
       <nav className="cc-tabs">{TABS.map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</nav>
       <button type="button" className="cc-close" onClick={onClose} aria-label="Close command center"><X size={16} /></button></header>
 
+    {tab === 'pulse' && <PulsePanel call={call} />}
+    {tab === 'mod' && <ModPanel call={call} />}
+    {tab === 'broadcast' && <BroadcastPanel call={call} />}
+    {tab === 'treasury' && <TreasuryPanel call={call} />}
     {tab === 'overview' && <Overview sec={sec} reload={loadSec} />}
     {tab === 'holders' && <section className="cc-panel">
       <div className="cc-toolbar">
@@ -254,5 +258,70 @@ function InvitesPanel({ call }) {
   return <section className="cc-panel">
     <div className="cc-kpis"><span><small>Wallets invited</small><b>{d.total}</b></span><span><small>Active inviters</small><b>{d.top.length}</b></span></div>
     <div className="cc-block"><h4>Top inviters</h4>{!d.top.length ? <small className="cc-empty">No invites yet — every wallet has a link in Settings and on its profile.</small> : d.top.map((r, i) => <div key={r.address} className="cc-sig"><span>{i + 1}. <a href={`/terminal/profile/${r.address}`} target="_blank" rel="noopener noreferrer">@{r.handle}</a></span><b>{r.invited}</b></div>)}</div>
+  </section>;
+}
+
+function PulsePanel({ call }) {
+  const [d, setD] = useState(null);
+  useEffect(() => { const load = () => call('/admin/pulse').then(setD).catch(() => {}); load(); const t = setInterval(load, 20000); return () => clearInterval(t); }, [call]);
+  if (!d) return <p className="cc-empty">Taking the pulse…</p>;
+  const max = Math.max(1, ...d.hourly);
+  return <section className="cc-panel">
+    <div className="cc-kpis cc-kpis-5"><span><small>Messages 24h</small><b>{d.messages24h}</b></span><span><small>Active wallets 24h</small><b>{d.activeWallets24h}</b></span><span><small>Profiles</small><b>{d.profiles}</b></span><span><small>Push subscribers</small><b>{d.pushSubscribers}</b></span><span><small>Muted</small><b>{d.muted}</b></span></div>
+    <div className="cc-block"><h4>Chat activity · last 24h</h4><div className="cc-spark">{d.hourly.map((v, i) => <i key={i} style={{ height: `${(v / max) * 100}%` }} title={`${v} msgs, ${23 - i}h ago`} />)}</div></div>
+    <div className="cc-studio-grid">
+      <div className="cc-block"><h4>Busiest rooms</h4>{!d.busiestRooms.length ? <small className="cc-empty">Quiet.</small> : d.busiestRooms.map(r => <div key={r.room} className="cc-sig"><span>{r.room.replace(/^coin-solana-/, '🪙 ').slice(0, 34)}</span><b>{r.messages}</b></div>)}</div>
+      <div className="cc-block"><h4>Top voices</h4>{!d.topPosters.length ? <small className="cc-empty">No posters yet.</small> : d.topPosters.map(p => <div key={p.address} className="cc-sig"><a href={`/terminal/profile/${p.address}`} target="_blank" rel="noopener noreferrer">@{p.handle}</a><b>{p.messages}</b></div>)}</div>
+      <div className="cc-block"><h4>🐱 Fee right now</h4><div className="cc-sig"><span>Balance</span><b>{Number(d.fee.balanceSol || 0).toFixed(2)} SOL</b></div><div className="cc-sig"><span>Realized</span><b>{Number(d.fee.realizedPnlSol || 0).toFixed(3)} SOL</b></div><div className="cc-sig"><span>W / L</span><b>{d.fee.wins || 0} / {d.fee.losses || 0}</b></div><div className="cc-sig"><span>Open</span><b>{d.fee.open}</b></div></div>
+      <div className="cc-block"><h4>Most clicked</h4>{!d.topClicks.length ? <small className="cc-empty">No clicks yet.</small> : d.topClicks.map(c => <div key={c.key} className="cc-sig"><span>{c.key.replace('ticker:', '$').replace('ca:', '').replace('mention:', '@').slice(0, 26)}</span><b>{c.count}</b></div>)}</div>
+    </div>
+  </section>;
+}
+
+function ModPanel({ call }) {
+  const [msgs, setMsgs] = useState([]);
+  const [q, setQ] = useState('');
+  const load = useCallback(() => call('/admin/chat-feed').then(d => setMsgs(d.messages || [])).catch(e => toast.error(e.message)), [call]);
+  useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, [load]);
+  const del = m => call('/admin/moderate/delete', { method: 'POST', body: JSON.stringify({ room: m.room, id: m.id }) }).then(() => { toast.success('Removed'); load(); }).catch(e => toast.error(e.message));
+  const mute = (m, hours) => call('/admin/moderate/mute', { method: 'POST', body: JSON.stringify({ address: m.address, hours }) }).then(() => { toast.success(hours ? `Muted ${hours}h` : 'Unmuted'); load(); }).catch(e => toast.error(e.message));
+  const shown = msgs.filter(m => !q || `${m.text} ${m.handle} ${m.username} ${m.room}`.toLowerCase().includes(q.toLowerCase()));
+  return <section className="cc-panel">
+    <div className="cc-toolbar"><input placeholder="Filter messages, @handles, rooms…" value={q} onChange={e => setQ(e.target.value)} /><button type="button" onClick={load}>Refresh</button></div>
+    <div className="cc-bugs">{!shown.length ? <p className="cc-empty">No messages.</p> : shown.map(m => <div key={m.id} className={`cc-bug ${m.muted ? 'k-security' : ''}`}><div><em>{m.room.slice(0, 40)}</em><b>{m.text}</b><small>@{m.handle || m.username} · {new Date(m.ts).toLocaleString()}{m.muted ? ' · MUTED' : ''}</small></div>
+      <div className="cc-drop-actions"><button type="button" onClick={() => del(m)}>Delete</button>{m.muted ? <button type="button" onClick={() => mute(m, 0)}>Unmute</button> : <><button type="button" onClick={() => mute(m, 1)}>Mute 1h</button><button type="button" onClick={() => mute(m, 24)}>24h</button></>}</div></div>)}</div>
+  </section>;
+}
+
+function BroadcastPanel({ call }) {
+  const [f, setF] = useState({ title: '', body: '', url: '/terminal', push: false, rooms: 'feeless-general' });
+  const [busy, setBusy] = useState(false);
+  const set = (k, v) => setF(x => ({ ...x, [k]: v }));
+  const send = async () => {
+    if (!window.confirm(`Send "${f.title}"${f.push ? ' as a push notification to every subscriber' : ''}?`)) return;
+    setBusy(true);
+    try { const r = await call('/admin/broadcast', { method: 'POST', body: JSON.stringify({ ...f, rooms: f.rooms.split(/[\s,]+/).filter(Boolean) }) }); toast.success(`Posted in ${r.rooms} room(s) · pushed to ${r.pushed}`); }
+    catch (e) { toast.error(e.message); } finally { setBusy(false); }
+  };
+  return <section className="cc-panel">
+    <p className="cc-note">Announce drops, listings or airdrops. Posts land in chat as 👑 FEELESS HQ; push goes to everyone who enabled alerts. Use sparingly — every push is a real notification on someone's phone.</p>
+    <div className="cc-block cc-award-form">
+      <input placeholder="Title (e.g. $FEE airdrop is live)" maxLength={60} value={f.title} onChange={e => set('title', e.target.value)} />
+      <textarea rows={3} maxLength={240} placeholder="Message" value={f.body} onChange={e => set('body', e.target.value)} />
+      <input placeholder="Link (/terminal/… or https://)" value={f.url} onChange={e => set('url', e.target.value)} />
+      <input placeholder="Chat rooms (comma separated)" value={f.rooms} onChange={e => set('rooms', e.target.value)} />
+      <label className="cc-check"><input type="checkbox" checked={f.push} onChange={e => set('push', e.target.checked)} />Also send as a push notification</label>
+      <button type="button" className="btn-primary" disabled={busy || f.title.length < 2 || f.body.length < 2} onClick={send}>📢 Broadcast</button>
+    </div>
+  </section>;
+}
+
+function TreasuryPanel({ call }) {
+  const [d, setD] = useState(null);
+  useEffect(() => { call('/admin/treasury').then(setD).catch(e => toast.error(e.message)); }, [call]);
+  if (!d) return <p className="cc-empty">Reading the creator wallet…</p>;
+  return <section className="cc-panel">
+    <div className="cc-kpis"><span><small>SOL</small><b>{d.sol != null ? d.sol.toFixed(3) : '—'}</b></span>{Object.entries(d.holdingsUsd).map(([k, v]) => <span key={k}><small>{k.toUpperCase()} value</small><b>{v != null ? formatUSD(v) : '—'}</b></span>)}</div>
+    <div className="cc-block"><h4>Recent transactions</h4>{d.recent.map(t => <div key={t.sig} className="cc-sig"><a href={`https://solscan.io/tx/${t.sig}`} target="_blank" rel="noopener noreferrer">{t.sig.slice(0, 10)}…</a><span>{t.at ? new Date(t.at * 1000).toLocaleString() : ''}</span><b className={t.ok ? 'positive' : 'negative'}>{t.ok ? 'ok' : 'failed'}</b></div>)}</div>
   </section>;
 }
