@@ -291,7 +291,7 @@ function ModPanel({ call }) {
   return <section className="cc-panel">
     <div className="cc-toolbar"><input placeholder="Filter messages, @handles, rooms…" value={q} onChange={e => setQ(e.target.value)} /><button type="button" onClick={load}>Refresh</button></div>
     <div className="cc-bugs">{!shown.length ? <p className="cc-empty">No messages.</p> : shown.map(m => <div key={m.id} className={`cc-bug ${m.muted ? 'k-security' : ''}`}><div><em>{m.room.slice(0, 40)}</em><b>{m.text}</b><small>@{m.handle || m.username} · {new Date(m.ts).toLocaleString()}{m.muted ? ' · MUTED' : ''}</small></div>
-      <div className="cc-drop-actions"><button type="button" onClick={() => del(m)}>Delete</button>{m.muted ? <button type="button" onClick={() => mute(m, 0)}>Unmute</button> : <><button type="button" onClick={() => mute(m, 1)}>Mute 1h</button><button type="button" onClick={() => mute(m, 24)}>24h</button></>}</div></div>)}</div>
+      <div className="cc-drop-actions"><button type="button" onClick={() => del(m)}>Delete</button><button type="button" onClick={() => call('/admin/verify', { method: 'POST', body: JSON.stringify({ address: m.address, hours: 0 }) }).then(() => toast.success('✔ Verified')).catch(e => toast.error(e.message))}>✔ Verify</button>{m.muted ? <button type="button" onClick={() => mute(m, 0)}>Unmute</button> : <><button type="button" onClick={() => mute(m, 1)}>Mute 1h</button><button type="button" onClick={() => mute(m, 24)}>24h</button></>}</div></div>)}</div>
   </section>;
 }
 

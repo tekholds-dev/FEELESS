@@ -16,6 +16,7 @@ import { InviteCard } from '../InviteCard';
 import { AdBanner } from '../AdBanner';
 import { ProfileMusic } from './ProfileMusic';
 import { ProfileDM, RewardsCard } from '../Social';
+import { VerifiedMark } from '../terminal/VerifiedMark';
 import { OnchainStrip, PerksCard, SetupCallout, usePerks } from './ProfileExtras';
 
 const RINGS = [['none', 'Classic', 0], ['mint', 'Mint pulse', 0], ['sunset', 'Sunset', 0], ['ocean', 'Ocean', 0], ['candy', 'Candy', 0], ['neon', 'Neon', 0], ['ghost', 'Ghost', 0], ['emerald', 'Emerald', 1], ['plasma', 'Plasma', 1], ['diamond', 'Diamond', 2], ['aurora', 'Aurora', 2], ['gold', 'Molten Gold', 3], ['royal', 'Royal', 3]];
@@ -98,12 +99,12 @@ export function WalletProfilePage({ address }) {
     } catch (e) { toast.error(e.message); }
   };
   const save = async () => {
-    if (!wallet?.address || wallet.chain !== 'solana') { toast.error('Connect the Solana wallet that owns this profile.'); return; }
+    if (!wallet?.address || !mine) { toast.error('Connect a wallet linked to this profile.'); return; }
     setSaving(true);
     try {
       const message = `FEELESS profile update\naddress:${wallet.address}\nts:${Math.floor(Date.now() / 1000)}`;
       const signature = await signMessage(message);
-      const res = await fetch(apiUrl('/api/reputation/profile'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: wallet.address, message, signature, profile: draft }) });
+      const res = await fetch(apiUrl('/api/reputation/profile'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: wallet.address, message, signature, profile: draft, target: address }) });
       const body = await res.json();
       if (!res.ok) throw new Error(body.detail || 'Save failed');
       toast.success('Profile saved'); setEdit(false); load();
@@ -117,7 +118,7 @@ export function WalletProfilePage({ address }) {
     <div className="wp-head">
       <div className="wp-avatar-wrap">{tier >= 3 && <div className="wp-crown" aria-hidden="true"><span>👑</span></div>}<div className={`wp-avatar ring-${p.ring || 'none'}`}>{p.avatarUrl ? <img src={p.avatarUrl} alt="" /> : <span>{(p.displayName || address).slice(0, 2).toUpperCase()}</span>}{edit && <UploadButton label="GIF / pic" max={512} onDone={url => set('avatarUrl', url)} />}</div></div>
       <div className="wp-id">
-        {edit ? <input className="wp-name-input" maxLength={32} placeholder="Display name" value={draft.displayName} onChange={e => set('displayName', e.target.value)} /> : <h1 className={`namefx-${p.nameFx || 'none'}`}>{p.displayName || shortAddress(address)}</h1>}
+        {edit ? <input className="wp-name-input" maxLength={32} placeholder="Display name" value={draft.displayName} onChange={e => set('displayName', e.target.value)} /> : <h1 className={`namefx-${p.nameFx || 'none'}`}>{p.displayName || shortAddress(address)}{data?.verified && <VerifiedMark />}</h1>}
         {edit ? <input className="wp-handle-input" maxLength={21} placeholder="@handle (3–20: a-z 0-9 _)" value={draft.handle ? `@${draft.handle}` : ''} onChange={e => set('handle', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))} /> : <span className="wp-handle">@{p.handle || address.slice(0, 6).toLowerCase()}</span>}
         <code>{shortAddress(address)}</code>
         <Badges address={address} featured={p.featuredBadges} />

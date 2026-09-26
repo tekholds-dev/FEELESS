@@ -2435,3 +2435,4 @@ body.theme-day .notif-pop{background:#fff;border-color:#9fd3b6}body.theme-day :i
 body.theme-day .dm-card{box-shadow:0 24px 60px #0003}
 body.theme-day .wp-actions :is(.btn-outline,button:not(.btn-primary),a:not(.btn-primary)){background:#ffffffe6!important;color:#0b2a1d!important;border-color:#ffffff!important;box-shadow:0 4px 14px #0002}
 body.theme-day .wp-head{text-shadow:none}
+.verified-mark{display:inline-block;vertical-align:-2px;margin-left:6px;filter:drop-shadow(0 0 6px rgba(29,155,240,.5))}

@@ -1686,6 +1686,7 @@ class ProfileSave(BaseModel):
     message: str
     signature: str
     profile: dict
+    target: Optional[str] = None
 
 
 def _verify_evm(address: str, message: str, signature_hex: str) -> bool:
@@ -1727,24 +1728,27 @@ async def save_profile(payload: ProfileSave):
     if not _verify_wallet(payload.address, payload.message, payload.signature):
         raise HTTPException(401, 'Signature does not match this wallet.')
     tier = (await _perk_tier(payload.address))[0]
+    owner = primary_of(payload.address)
+    if payload.target and primary_of(payload.target) != owner:
+        raise HTTPException(403, 'This wallet is not linked to that profile.')
     async with _profile_lock:
         d = _profiles_load()
-        prev = d['profiles'].get(payload.address, {})
+        prev = d['profiles'].get(owner, {})
         if prev.get('lastTs', 0) >= ts:
             raise HTTPException(409, 'Replay rejected — sign a fresh update.')
         clean = _clean_profile(payload.profile)
-        if clean['handle'] and any(a != payload.address and (v or {}).get('handle') == clean['handle'] for a, v in d['profiles'].items()):
+        if clean['handle'] and any(a != owner and (v or {}).get('handle') == clean['handle'] for a, v in d['profiles'].items()):
             raise HTTPException(409, f"@{clean['handle']} is taken.")
         if clean['featuredBadges']:
-            earned = {b['id'] for b in (await wallet_badges(payload.address))['badges']}
+            earned = {b['id'] for b in (await wallet_badges(owner))['badges']}
             clean['featuredBadges'] = [b for b in clean['featuredBadges'] if b in earned]
         if RING_TIERS[clean['ring']] > tier or NAMEFX_TIERS[clean['nameFx']] > tier:
             raise HTTPException(403, 'That style is a $FEE holder perk — hold more $FEE to unlock it.')
         if TIER_THEMES.get(clean['theme'], 0) > tier:
             raise HTTPException(403, 'That theme is a Fee Friend perk — hold $10+ of $FEE.')
-        d['profiles'][payload.address] = {**clean, 'lastTs': ts, 'updatedAt': time.time()}
+        d['profiles'][owner] = {**clean, 'lastTs': ts, 'updatedAt': time.time()}
         PROFILE_PATH.write_text(json.dumps(d))
-    return {'ok': True, 'profile': d['profiles'][payload.address]}
+    return {'ok': True, 'profile': d['profiles'][owner]}
 
 
 @app.get('/api/reputation/profile/{address}')
@@ -1752,13 +1756,13 @@ async def get_profile(address: str):
     p = _profiles_load()['profiles'].get(address)
     board = await caller_board(days=30)
     caller = next((r for r in board['rows'] if r.get('callerAddress') == address), None)
-    return {'address': address, 'profile': p, 'caller': caller}
+    return {'address': address, 'profile': p, 'caller': caller, 'verified': is_verified(address)}
 
 
 @app.get('/api/reputation/profiles')
 async def get_profiles(addresses: str):
     d = _profiles_load()['profiles']
-    return {'profiles': {a: {k: d[a].get(k) for k in ('displayName', 'avatarUrl', 'accent', 'mood', 'featuredBadges', 'ring', 'nameFx', 'handle')} for a in addresses.split(',')[:100] if a in d}}
+    return {'profiles': {a: {**{k: d[a].get(k) for k in ('displayName', 'avatarUrl', 'accent', 'mood', 'featuredBadges', 'ring', 'nameFx', 'handle')}, 'verified': is_verified(a)} for a in addresses.split(',')[:100] if a in d}}
 
 
 
@@ -3793,3 +3797,27 @@ async def rewards_claim(payload: ClaimIn):
 async def rewards_board(limit: int = 50):
     rows = sorted(({'address': a, 'handle': handle_of(a), 'points': v.get('total', 0), 'streak': v.get('streak', 0)} for a, v in _pts().items()), key=lambda r: -r['points'])
     return {'rows': rows[:max(1, min(limit, 200))]}
+
+
+
+# ---- Verified identities ---------------------------------------------------------------------
+FEE_RESERVE_WALLET = 'Btiq3W3yhqSRbF1FEf2TQMNrwsknMpQmeb5K9TeD83qU'
+
+
+def is_verified(address: str) -> bool:
+    a = primary_of(address or '')
+    return a in _admin_wallets() or a == FEE_RESERVE_WALLET or a in (_admin_load().get('verified') or [])
+
+
+@app.post('/api/reputation/admin/verify')
+async def admin_verify(request: Request, payload: ModIn):
+    admin = _require_admin(request)
+    a = primary_of(payload.address)
+    async with _admin_lock:
+        d = _admin_load()
+        v = set(d.get('verified') or [])
+        v.add(a) if payload.hours >= 0 else v.discard(a)
+        d['verified'] = sorted(v)
+        _audit(d, admin, 'verify' if payload.hours >= 0 else 'unverify', f'@{handle_of(a)}')
+        _admin_save(d)
+    return {'ok': True, 'verified': is_verified(a)}

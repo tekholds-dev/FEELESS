@@ -240,10 +240,34 @@ async def observe(payload: TickPayload):
     return {'ok': True, 'ticksStored': len(store[key])}
 
 
+def _fill_gaps(candles, step, own=None, limit=5000):
+    """No skipped candles: quiet intervals become flat bars at the last close (zero volume);
+    if FEELESS recorded its own tick in that gap, the real observed price is used instead."""
+    if not candles:
+        return candles
+    by_own = {int(c[0]): c for c in (own or [])}
+    out = [candles[0]]
+    for c in candles[1:]:
+        t = out[-1][0] + step
+        while t < c[0] and len(out) < limit:
+            o = by_own.get(int(t))
+            prev = out[-1][4]
+            out.append(o if o else [t, prev, prev, prev, prev, 0.0])
+            t += step
+        out.append(c)
+    now_bucket = int(time.time() // step * step)
+    while out[-1][0] + step <= now_bucket and len(out) < limit:
+        t = out[-1][0] + step
+        o = by_own.get(int(t)); prev = out[-1][4]
+        out.append(o if o else [t, prev, prev, prev, prev, 0.0])
+    return out[-limit:]
+
+
 @app.get('/api/candles/{chain}/{pair_address}')
 async def get_candles(chain: str, pair_address: str, interval: str = Query('1h'), before: Optional[int] = None):
     if before:
         older = await gecko_candles(chain, pair_address, interval, before) or []
+        older = _fill_gaps(older, INTERVAL_SECONDS.get(interval, 3600))
         return {'candles': older, 'provider': 'GeckoTerminal' if older else 'none', 'interval': interval, 'before': before}
     _hot_pairs[_pair_key(chain, pair_address)] = time.time()
     interval_seconds = INTERVAL_SECONDS.get(interval, 3600)
@@ -254,10 +278,10 @@ async def get_candles(chain: str, pair_address: str, interval: str = Query('1h')
     if gecko and len(gecko) >= 2:
         # Extend provider history with any newer self-recorded bars so the latest candle is live.
         last = gecko[-1][0]
-        merged = gecko + [c for c in own if c[0] > last]
+        merged = _fill_gaps(gecko + [c for c in own if c[0] > last], interval_seconds, own)
         return {'candles': merged, 'provider': 'GeckoTerminal', 'interval': interval, 'tickCount': len(ticks),
                 'source': 'GeckoTerminal OHLCV, extended with FEELESS-recorded ticks.'}
-    return {'candles': own, 'provider': 'FEELESS', 'interval': interval, 'tickCount': len(ticks),
+    return {'candles': _fill_gaps(own, interval_seconds), 'provider': 'FEELESS', 'interval': interval, 'tickCount': len(ticks),
             'source': 'Real prices observed across FEELESS sessions — provider has no history for this pool yet.'}
 
 
