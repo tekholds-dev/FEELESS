@@ -509,18 +509,32 @@ def create_market_router(db, intelligence=None):
         """Use DexScreener's fast boost index for the first radar page."""
         if page != 1:
             raise HTTPException(503, 'Fast discovery is available on the first page only.')
-        boost_path = f'/token-boosts/{"latest" if kind == "new" else "top"}/v1'
-        boosts, boost_meta = await cached('DexScreener', boost_path, ttl=20)
-        candidates = [
-            item for item in (boosts if isinstance(boosts, list) else [])
-            if item.get('tokenAddress') and (chain == 'all' or item.get('chainId') == chain)
-        ]
-        addresses = list(dict.fromkeys(item['tokenAddress'] for item in candidates))[:30]
+        # Several DexScreener discovery lists merged, so the radar isn't the same dozen boosted coins.
+        primary = f'/token-boosts/{"latest" if kind == "new" else "top"}/v1'
+        sources = [primary, '/token-boosts/latest/v1' if kind != 'new' else '/token-boosts/top/v1',
+                   '/token-profiles/latest/v1', '/community-takeovers/latest/v1']
+        candidates, boost_meta = [], None
+        for path in sources:
+            try:
+                items, meta = await cached('DexScreener', path, ttl=30)
+            except Exception:
+                continue
+            boost_meta = boost_meta or meta
+            candidates += [item for item in (items if isinstance(items, list) else [])
+                           if item.get('tokenAddress') and (chain == 'all' or item.get('chainId') == chain)]
+        addresses = list(dict.fromkeys(item['tokenAddress'] for item in candidates))[:90]
         if not addresses:
             raise HTTPException(503, 'Fast discovery returned no indexed tokens.')
-        payload, pair_meta = await cached(
-            'DexScreener', f'/latest/dex/tokens/{",".join(addresses)}', ttl=20,
-        )
+        payload, pair_meta = {'pairs': []}, None
+        for i in range(0, len(addresses), 30):
+            try:
+                chunk, meta = await cached('DexScreener', f'/latest/dex/tokens/{",".join(addresses[i:i + 30])}', ttl=20)
+            except Exception:
+                continue
+            pair_meta = pair_meta or meta
+            payload['pairs'] += chunk.get('pairs') or []
+        if pair_meta is None:
+            raise HTTPException(503, 'Fast discovery returned no indexed tokens.')
         rank = {(item.get('chainId'), item.get('tokenAddress')): index
                 for index, item in enumerate(candidates)}
         pairs = [
