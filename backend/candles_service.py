@@ -284,24 +284,87 @@ def _fill_gaps(candles, step, own=None, limit=5000):
     return out[-limit:]
 
 
+# ---- Alchemy Prices: the primary history source (one key, Solana + every EVM chain we run) ----
+ALCHEMY_NET = {'solana': 'solana-mainnet', 'ethereum': 'eth-mainnet', 'base': 'base-mainnet', 'bsc': 'bnb-mainnet', 'arbitrum': 'arb-mainnet',
+               'avalanche': 'avax-mainnet', 'polygon': 'polygon-mainnet', 'optimism': 'opt-mainnet', 'zksync': 'zksync-mainnet',
+               'zora': 'zora-mainnet', 'unichain': 'unichain-mainnet', 'worldchain': 'worldchain-mainnet', 'cronos': 'cronos-mainnet'}
+# interval -> (Alchemy point spacing, lookback seconds)
+ALCHEMY_PLAN = {'1m': ('5m', 86400), '5m': ('5m', 2 * 86400), '15m': ('5m', 5 * 86400), '1h': ('1h', 21 * 86400),
+                '4h': ('1h', 60 * 86400), '1d': ('1d', 365 * 86400)}
+_base_token: dict = {}
+_alchemy_cache: dict = {}
+
+
+async def _pair_base_token(chain, pair):
+    key = f'{chain}:{pair}'
+    if key in _base_token:
+        return _base_token[key]
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            p = ((await http.get(f'https://api.dexscreener.com/latest/dex/pairs/{chain}/{pair}')).json().get('pairs') or [None])[0]
+        addr = (p or {}).get('baseToken', {}).get('address')
+    except Exception:
+        addr = None
+    if addr:
+        _base_token[key] = addr
+    return addr
+
+
+async def alchemy_candles(chain, pair, interval):
+    """Real historical prices from Alchemy, bucketed into candles. Each bucket opens at the previous
+    close so bars connect; high/low come from every price point inside the bucket."""
+    net = ALCHEMY_NET.get(chain); key_ = os.environ.get('ALCHEMY_API_KEY')
+    if not net or not key_:
+        return []
+    ck = f'{chain}:{pair}:{interval}'
+    hit = _alchemy_cache.get(ck)
+    if hit and time.time() - hit[0] < 60:
+        return hit[1]
+    token = await _pair_base_token(chain, pair)
+    if not token:
+        return []
+    spacing, lookback = ALCHEMY_PLAN.get(interval, ('1h', 21 * 86400))
+    end = time.time(); fmt = lambda t: time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(t))
+    try:
+        async with httpx.AsyncClient(timeout=12) as http:
+            r = await http.post(f'https://api.g.alchemy.com/prices/v1/{key_}/tokens/historical',
+                                json={'network': net, 'address': token, 'startTime': fmt(end - lookback), 'endTime': fmt(end), 'interval': spacing})
+        pts = [(time.mktime(time.strptime(x['timestamp'], '%Y-%m-%dT%H:%M:%SZ')) - time.timezone, float(x['value'])) for x in (r.json().get('data') or []) if x.get('value')]
+    except Exception:
+        pts = []
+    step = INTERVAL_SECONDS.get(interval, 3600)
+    buckets = {}
+    for t, v in sorted(pts):
+        b = int(t // step * step)
+        c = buckets.get(b)
+        if c:
+            c[2] = max(c[2], v); c[3] = min(c[3], v); c[4] = v
+        else:
+            buckets[b] = [b, v, v, v, v, 0.0]
+    out = [buckets[k] for k in sorted(buckets)]
+    for i in range(1, len(out)):  # connect bars: open = previous close
+        out[i][1] = out[i - 1][4]; out[i][2] = max(out[i][2], out[i][1]); out[i][3] = min(out[i][3], out[i][1])
+    _alchemy_cache[ck] = (time.time(), out)
+    return out
+
+
 @app.get('/api/candles/{chain}/{pair_address}')
 async def get_candles(chain: str, pair_address: str, interval: str = Query('1h'), before: Optional[int] = None):
     if before:
-        older = await gecko_candles(chain, pair_address, interval, before) or []
-        older = _fill_gaps(older, INTERVAL_SECONDS.get(interval, 3600))
-        return {'candles': older, 'provider': 'GeckoTerminal' if older else 'none', 'interval': interval, 'before': before}
+        older = [c for c in await alchemy_candles(chain, pair_address, interval) if c[0] < before]
+        return {'candles': _fill_gaps(older, INTERVAL_SECONDS.get(interval, 3600)), 'provider': 'Alchemy' if older else 'none', 'interval': interval, 'before': before}
     _hot_pairs[_pair_key(chain, pair_address)] = time.time()
     interval_seconds = INTERVAL_SECONDS.get(interval, 3600)
     store = _load()
     ticks = store.get(_pair_key(chain, pair_address), [])
     own = _bucket_candles(ticks, interval_seconds)
-    gecko = await gecko_candles(chain, pair_address, interval)
-    if gecko and len(gecko) >= 2:
-        # Extend provider history with any newer self-recorded bars so the latest candle is live.
-        last = gecko[-1][0]
-        merged = _fill_gaps(gecko + [c for c in own if c[0] > last], interval_seconds, own)
-        return {'candles': merged, 'provider': 'GeckoTerminal', 'interval': interval, 'tickCount': len(ticks),
-                'source': 'GeckoTerminal OHLCV, extended with FEELESS-recorded ticks.'}
+    hist = await alchemy_candles(chain, pair_address, interval)
+    if hist and len(hist) >= 2:
+        # FEELESS's own 15s ticks override/extend the provider bars, so the newest candle is live.
+        own_by_t = {c[0]: c for c in own}
+        merged = [own_by_t.pop(c[0], c) for c in hist] + [c for c in own if c[0] > hist[-1][0]]
+        return {'candles': _fill_gaps(merged, interval_seconds, own), 'provider': 'Alchemy', 'interval': interval, 'tickCount': len(ticks),
+                'source': 'Alchemy price history, sharpened with FEELESS-recorded live ticks.'}
     return {'candles': _fill_gaps(own, interval_seconds), 'provider': 'FEELESS', 'interval': interval, 'tickCount': len(ticks),
             'source': 'Real prices observed across FEELESS sessions — provider has no history for this pool yet.'}
 

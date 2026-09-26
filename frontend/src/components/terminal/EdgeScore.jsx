@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Gauge } from 'lucide-react';
 import { apiUrl } from '../../lib/api';
 import { useReputation } from '../../lib/reputation';
@@ -29,6 +29,40 @@ function useFeeRead(pair) {
     return () => { alive = false; };
   }, [pair?.chainId, pair?.pairAddress]);
   return read;
+}
+
+// What this network has taught FEELESS: how coins it graded A–F on this chain did 24h later.
+function useNetworkMemory(chain) {
+  const [mem, setMem] = useState(null);
+  useEffect(() => {
+    if (!chain || typeof fetch !== 'function') return undefined;
+    let alive = true;
+    fetch(apiUrl(`/api/reputation/edge/memory?chain=${encodeURIComponent(chain)}`)).then(r => (r.ok ? r.json() : null)).then(d => alive && setMem(d)).catch(() => {});
+    return () => { alive = false; };
+  }, [chain]);
+  return mem;
+}
+
+const gradeOf = v => (v >= 80 ? 'A' : v >= 65 ? 'B' : v >= 50 ? 'C' : v >= 35 ? 'D' : 'F');
+const MEMORY_MIN = 5;
+
+// Blend the network's own track record for this grade into the score. Needs MEMORY_MIN resolved
+// outcomes for the grade on this chain; below that it's shown as "learning", never guessed.
+export function withNetworkMemory(edge, mem, chain) {
+  if (edge.total == null) return edge;
+  const g = gradeOf(edge.total);
+  const b = mem?.grades?.[g];
+  const factors = [...edge.factors];
+  if (b && b.n >= MEMORY_MIN) {
+    const v = clamp(50 + b.medianRet * 1.2 + b.hitRate * 0.4 - b.rugRate * 0.9);
+    factors.push(['Network memory', 10, v, `${chain}: grade ${g} coins went ${b.medianRet >= 0 ? '+' : ''}${b.medianRet}% median in 24h · ${b.hitRate}% hit +50% · ${b.rugRate}% rugged (n=${b.n})`]);
+    const total = (edge.total * 100 + v * 10) / 110;
+    const all = factors.reduce((a, x) => a + x[1], 0); const got = factors.filter(x => x[2] != null).reduce((a, x) => a + x[1], 0);
+    return { factors, total, coverage: got / all, learned: true };
+  }
+  factors.push(['Network memory', 10, null, mem ? `learning ${chain} — ${b?.n || 0}/${MEMORY_MIN} grade-${g} outcomes resolved, ${mem.pending} predictions pending` : 'loading network memory…']);
+  const all = factors.reduce((a, x) => a + x[1], 0); const got = factors.filter(x => x[2] != null).reduce((a, x) => a + x[1], 0);
+  return { factors, total: edge.total, coverage: got / all, learned: false };
 }
 
 // FEELESS Edge Score: one 0–100 read from real, sourced signals. Missing signals are n/a and
@@ -80,12 +114,24 @@ export function EdgeScore({ pair }) {
   const rep = useReputation(pair);
   const intel = useIntel(pair);
   const feeRead = useFeeRead(pair);
-  const { factors, total, coverage } = useMemo(() => computeEdge(pair, rep, intel, feeRead), [pair, rep, intel, feeRead]);
+  const mem = useNetworkMemory(pair?.chainId);
+  const { factors, total, coverage, learned } = useMemo(() => withNetworkMemory(computeEdge(pair, rep, intel, feeRead), mem, pair?.chainId), [pair, rep, intel, feeRead, mem]);
+  // Every settled read becomes a prediction the network grades 24h later (deduped server-side).
+  const sent = useRef(null);
+  useEffect(() => {
+    const px = Number(pair?.priceUsd); const key = `${pair?.chainId}:${pair?.pairAddress}`;
+    if (total == null || !px || !pair?.pairAddress || coverage < 0.5 || sent.current === key || typeof fetch !== 'function') return undefined;
+    const t = setTimeout(() => {
+      sent.current = key;
+      fetch(apiUrl('/api/reputation/edge/observe'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chain: pair.chainId, pairAddress: pair.pairAddress, score: total, priceUsd: px }) }).catch(() => {});
+    }, 4000);
+    return () => clearTimeout(t);
+  }, [total, coverage, pair?.chainId, pair?.pairAddress, pair?.priceUsd]);
   const g = grade(total);
   return <section className="edge-score" data-testid="edge-score">
     <div className="edge-head">
       <div className={`edge-dial grade-${g}`} style={{ '--edge': `${total ?? 0}%` }}><i /><span><AnimatedNumber value={total == null ? 0 : Math.round(total)} format={v => String(Math.round(v))} /><small>EDGE</small></span></div>
-      <div className="edge-title"><span className="eyebrow"><Gauge size={12} /> FEELESS EDGE SCORE</span><h3>Grade {g}</h3><p>One read from seven real signals. {Math.round(coverage * 100)}% of signals available — missing ones are excluded, never guessed. Not financial advice.</p></div>
+      <div className="edge-title"><span className="eyebrow"><Gauge size={12} /> FEELESS EDGE SCORE</span><h3>Grade {g}</h3><p>{learned ? `Calibrated by ${pair?.chainId}'s own track record. ` : ''}One read from eight real signals. {Math.round(coverage * 100)}% of signals available — missing ones are excluded, never guessed. Not financial advice.</p></div>
     </div>
     <div className="edge-factors">{factors.map(([label, w, v, why]) => <div key={label} className={`edge-factor ${v == null ? 'is-na' : ''}`}>
       <div className="edge-factor-top"><b>{label}</b><small>{w}%</small><strong>{v == null ? 'n/a' : Math.round(v)}</strong></div>

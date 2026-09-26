@@ -4370,3 +4370,165 @@ async def trust_score(address: str):
 async def session_check(address: str, session: str):
     owner = session_address(session)
     return {'valid': bool(owner) and primary_of(owner) == primary_of(address)}
+
+
+# ---- Edge network memory: every Edge read is a prediction; 24h later we grade it ------------
+# Per chain, per grade (A–F): how did coins FEELESS graded that way actually do? The Edge score
+# reads this back as its "Network memory" factor, so each network's scoring learns from its own
+# outcomes — Base memes and Solana memes don't behave alike, and the score stops pretending they do.
+EDGE_MEM_PATH = DATA_DIR / 'edge_memory.json'
+EDGE_HORIZON = 24 * 3600
+_edge_lock = asyncio.Lock()
+
+
+def _edge_grade(score):
+    return 'A' if score >= 80 else 'B' if score >= 65 else 'C' if score >= 50 else 'D' if score >= 35 else 'F'
+
+
+class EdgeObservation(BaseModel):
+    chain: str
+    pairAddress: str
+    score: float
+    priceUsd: float
+
+
+@app.post('/api/reputation/edge/observe')
+async def edge_observe(o: EdgeObservation):
+    if not (0 <= o.score <= 100) or o.priceUsd <= 0 or len(o.pairAddress) > 80 or len(o.chain) > 24:
+        raise HTTPException(400, 'bad observation')
+    async with _edge_lock:
+        d = _json_load(EDGE_MEM_PATH, {'open': {}, 'done': []})
+        key = f'{o.chain}:{o.pairAddress}'
+        prev = d['open'].get(key)
+        if prev and time.time() - prev['at'] < 6 * 3600:  # one open prediction per coin per 6h
+            return {'ok': True, 'dedup': True}
+        d['open'][key] = {'chain': o.chain, 'pair': o.pairAddress, 'grade': _edge_grade(o.score), 'score': round(o.score, 1),
+                          'price': o.priceUsd, 'peak': o.priceUsd, 'low': o.priceUsd, 'at': time.time()}
+        if len(d['open']) > 5000:  # hard cap: drop the oldest
+            for k in sorted(d['open'], key=lambda k: d['open'][k]['at'])[:len(d['open']) - 5000]:
+                d['open'].pop(k)
+        _json_save(EDGE_MEM_PATH, d)
+    return {'ok': True}
+
+
+async def _refresh_edge_memory():
+    while True:
+        try:
+            d = _json_load(EDGE_MEM_PATH, {'open': {}, 'done': []})
+            by_chain = {}
+            for o in d['open'].values():
+                by_chain.setdefault(o['chain'], []).append(o['pair'])
+            live = {}
+            async with httpx.AsyncClient(timeout=10) as http:
+                for chain, pairs in by_chain.items():
+                    for i in range(0, len(pairs), 30):
+                        try:
+                            r = await http.get(f'https://api.dexscreener.com/latest/dex/pairs/{chain}/{",".join(pairs[i:i + 30])}')
+                            for p in (r.json() or {}).get('pairs') or []:
+                                live[f"{chain}:{p.get('pairAddress')}"] = float(p.get('priceUsd') or 0)
+                        except Exception:
+                            pass
+                        await asyncio.sleep(0.3)
+            async with _edge_lock:
+                d = _json_load(EDGE_MEM_PATH, {'open': {}, 'done': []})
+                now = time.time()
+                for key, o in list(d['open'].items()):
+                    px = live.get(key)
+                    if px:
+                        o['last'] = px; o['peak'] = max(o['peak'], px); o['low'] = min(o['low'], px); o['seen'] = now
+                    if now - o['at'] >= EDGE_HORIZON:
+                        # Pool gone from DexScreener for the whole window's end = liquidity pulled.
+                        vanished = not px and now - o.get('seen', o['at']) > 6 * 3600
+                        end = px or o.get('last') or o['price']
+                        d['done'].append({'chain': o['chain'], 'grade': o['grade'], 'ret': -100.0 if vanished else round((end / o['price'] - 1) * 100, 2),
+                                          'peak': round((o['peak'] / o['price'] - 1) * 100, 2), 'rug': vanished or end / o['price'] <= 0.3, 'at': now})
+                        d['open'].pop(key)
+                d['done'] = d['done'][-20000:]
+                _json_save(EDGE_MEM_PATH, d)
+        except Exception as exc:
+            print('edge memory refresh error', exc)
+        await asyncio.sleep(1200)
+
+
+@app.on_event('startup')
+async def _start_edge_memory():
+    asyncio.create_task(_refresh_edge_memory())
+
+
+@app.get('/api/reputation/edge/memory')
+async def edge_memory(chain: str):
+    d = _json_load(EDGE_MEM_PATH, {'open': {}, 'done': []})
+    rows = [x for x in d['done'] if x['chain'] == chain]
+    grades = {}
+    for g in 'ABCDF':
+        rs = sorted(x['ret'] for x in rows if x['grade'] == g)
+        if not rs:
+            continue
+        grp = [x for x in rows if x['grade'] == g]
+        grades[g] = {'n': len(rs), 'medianRet': rs[len(rs) // 2], 'rugRate': round(sum(1 for x in grp if x['rug']) / len(grp) * 100, 1),
+                     'hitRate': round(sum(1 for x in grp if x['peak'] >= 50) / len(grp) * 100, 1)}
+    return {'chain': chain, 'resolved': len(rows), 'pending': sum(1 for o in d['open'].values() if o['chain'] == chain), 'grades': grades}
+
+
+# ---- Command center: the numbers side --------------------------------------------------------
+# One call for everything an owner watches: $FEE market, holder base, treasury, swap flow through
+# FEELESS (from stored on-chain receipts), and the scanner's output. A snapshot is kept per day,
+# so growth lines build themselves from the first time the owner opens this.
+NUMBERS_PATH = DATA_DIR / 'numbers_history.json'
+
+
+@app.get('/api/reputation/admin/numbers')
+async def admin_numbers(request: Request):
+    admin = _require_admin(request)
+    mints = await _ecosystem_mints()
+    fee_mint = mints.get('fee')
+    market = None
+    if fee_mint:
+        try:
+            async with httpx.AsyncClient(timeout=10) as http:
+                pairs = (await http.get(f'https://api.dexscreener.com/latest/dex/tokens/{fee_mint}')).json().get('pairs') or []
+            if pairs:
+                p = max(pairs, key=lambda x: (x.get('liquidity') or {}).get('usd') or 0)
+                tx = p.get('txns') or {}
+                market = {'price': float(p.get('priceUsd') or 0), 'marketCap': p.get('marketCap'), 'fdv': p.get('fdv'),
+                          'liquidity': (p.get('liquidity') or {}).get('usd'), 'volume': p.get('volume') or {}, 'change': p.get('priceChange') or {},
+                          'buys24': (tx.get('h24') or {}).get('buys'), 'sells24': (tx.get('h24') or {}).get('sells'),
+                          'pools': len(pairs), 'pair': p.get('pairAddress'), 'dex': p.get('dexId')}
+        except Exception:
+            pass
+    holders = None
+    if fee_mint:
+        try:
+            data = await _token_holders(fee_mint)
+            rows = data['rows']
+            lp = {r['owner'] for r in rows[:3] if (r['pct'] or 0) > 20}
+            real = [r for r in rows if r['owner'] not in lp]
+            holders = {'count': data.get('holderCount') or len(rows), 'top1': round(real[0]['pct'], 2) if real else None,
+                       'top10': round(sum(r['pct'] or 0 for r in real[:10]), 2), 'whales': sum(1 for r in real if (r['pct'] or 0) >= 1),
+                       'lpExcluded': len(lp)}
+        except Exception:
+            pass
+    tre = {}
+    try:
+        tre = await admin_treasury(request)
+    except Exception:
+        pass
+    now = time.time()
+    rc = _receipt_rows()
+    def flow(since):
+        rs = [r for r in rc if (r[0] or 0) >= since]
+        return {'swaps': len(rs), 'solVolume': round(sum(abs(r[5] or 0) for r in rs), 3), 'traders': len({r[2] for r in rs})}
+    stats = await live_stats()
+    snap = {'price': (market or {}).get('price'), 'marketCap': (market or {}).get('marketCap'), 'liquidity': (market or {}).get('liquidity'),
+            'holders': (holders or {}).get('count'), 'sol': tre.get('sol'), 'swaps': len(rc)}
+    hist = _json_load(NUMBERS_PATH, {'days': {}})
+    day = time.strftime('%Y-%m-%d', time.gmtime(now))
+    if any(v is not None for v in snap.values()):
+        hist['days'][day] = snap
+        hist['days'] = dict(sorted(hist['days'].items())[-400:])
+        _json_save(NUMBERS_PATH, hist)
+    return {'wallet': admin, 'feeMint': fee_mint, 'market': market, 'holders': holders,
+            'treasury': {'sol': tre.get('sol'), 'holdingsUsd': tre.get('holdingsUsd')},
+            'flow': {'h24': flow(now - 86400), 'd7': flow(now - 7 * 86400), 'all': flow(0)},
+            'scanner': {k: stats.get(k) for k in ('mintsScanned', 'snipers', 'bundlers', 'flaggedFunders', 'blocklisted', 'creators')},
+            'history': [{'day': k, **v} for k, v in hist['days'].items()], 'at': now}

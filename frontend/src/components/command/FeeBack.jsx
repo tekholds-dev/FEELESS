@@ -1,3 +1,4 @@
+import { FeeCatMark } from '../FeeCatMark';
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Coins, Cat, Wallet, Activity, Shuffle, Sparkles, Copy, CheckCircle2 } from 'lucide-react';
@@ -54,20 +55,10 @@ export const CAT_VARIATIONS = [
 
 const FUR_FILTER_LABELS = { all: 'All', spots: 'Spotted', patch: 'Patchy', stripes: 'Tabby' };
 
+// Every FeeCat is Fee's animated rig in its own coat: same silhouette, blink and tail, different fur.
 export const CatAvatar = ({ cat, large = false }) => {
   const [name, fur, accent, pattern] = cat;
-  const spots = pattern === 'spots' ? <><circle cx="38" cy="74" r="7" fill={accent} /><circle cx="76" cy="54" r="5" fill={accent} /><circle cx="81" cy="87" r="8" fill={accent} /><circle cx="49" cy="102" r="4" fill={accent} /></> : null;
-  const stripes = pattern === 'stripes' ? <><path d="M38 52l10 18M52 47l10 19M68 47l9 17M82 52l7 13" stroke={accent} strokeWidth="5" strokeLinecap="round" /><path d="M42 106l-4 13M59 109v14M77 107l4 13" stroke={accent} strokeWidth="5" strokeLinecap="round" /></> : null;
-  const patch = pattern === 'patch' ? <path d="M25 53c11-16 29-15 39-5 4 4 3 17-5 25-8 8-24 5-34-2z" fill={accent} opacity=".9" /> : null;
-  return <svg className={`feeless-cat-art ${large ? 'large' : ''}`} viewBox="0 0 120 140" role="img" aria-label={`${name} Feeless Cat`}>
-    <defs><linearGradient id={`fur-${name.replace(/\W/g, '')}`} x1="0" y1="0" x2="1" y2="1"><stop stopColor={fur} /><stop offset="1" stopColor={accent} stopOpacity=".7" /></linearGradient></defs>
-    <path d="M24 58 22 23l24 19c8-3 19-3 28 0l24-19-2 36c6 8 7 20 2 31-8 17-25 28-49 28S30 106 22 89c-5-11-4-23 2-31Z" fill={`url(#fur-${name.replace(/\W/g, '')})`} stroke="#15211d" strokeWidth="4" strokeLinejoin="round" />
-    {spots}{stripes}{patch}
-    <path d="M40 77c4-5 10-5 14 0M66 77c4-5 10-5 14 0" fill="none" stroke="#15211d" strokeWidth="4" strokeLinecap="round" />
-    <circle cx="49" cy="77" r="3" fill="#15211d" /><circle cx="73" cy="77" r="3" fill="#15211d" />
-    <path d="M55 90q5 5 10 0M60 92v7M45 91 22 87M45 97 20 99M75 91l23-4M75 97l25 2" fill="none" stroke="#15211d" strokeWidth="2.5" strokeLinecap="round" />
-    <path d="M32 126q28 9 56 0" fill="none" stroke="#00e9a0" strokeWidth="3" strokeLinecap="round" opacity=".9" />
-  </svg>;
+  return <span className={`feeless-cat-art ${large ? 'large' : ''}`}><FeeCatMark size={large ? 120 : 56} colors={[fur, accent]} pattern={pattern} label={`${name} Feeless Cat`} /></span>;
 };
 
 export const FeelessCats = () => {

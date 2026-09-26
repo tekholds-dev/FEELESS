@@ -5,6 +5,7 @@ import { ECOSYSTEMS } from '../lib/ecosystems';
 import { LAUNCHPADS } from '../lib/launchpads';
 import { useGlobeBubbles } from '../lib/globeBubbles';
 import { apiUrl } from '../lib/api';
+import { burstObject, tickBurst, disposeBurst, coinHeat, kindFor, BURST_COLORS } from '../lib/globeBursts';
 
 const hashNum = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967295; };
 let glowTex = null;
@@ -189,6 +190,14 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
   const bigTokens = useBigTokens();
   const stats = useGlobeStats();
   const stars = useStarfield();
+  const [bursts, setBursts] = useState([]);
+  const [feed, setFeed] = useState([]);
+  const burstObjs = useRef(new Map());
+  const fire = (lat, lng, kind, power, label, color) => {
+    const b = { id: `${Date.now()}-${Math.random()}`, lat, lng, kind, power, born: performance.now(), color: color || BURST_COLORS[kind] || '#14F195' };
+    setBursts(list => [...list.slice(-40), b]);
+    if (label) setFeed(f => [{ id: b.id, kind, label, color: b.color }, ...f].slice(0, 4));
+  };
   const hottest = useMemo(() => [...bigTokens].filter(t => Number.isFinite(Number(t.change24h))).sort((a, b) => Number(b.change24h) - Number(a.change24h))[0], [bigTokens]);
   const tokenPoints = useMemo(() => bigTokens.map(t => {
     const home = GLOBE_NODES.find(n => !n.isLaunchpad && (n.chainId === t.chain || n.id === t.chain));
@@ -204,6 +213,75 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
       name: t.symbol,
     };
   }).filter(Boolean), [bigTokens]);
+
+  // Real activity -> bursts. Chat/signal bubbles as they land:
+  useEffect(() => {
+    bubbles.forEach((b, i) => setTimeout(() => fire(b.lat, b.lng, b.kind === 'chat' ? 'chat' : 'signal', b.kind === 'chat' ? 0.45 : 0.6,
+      `${b.kind === 'chat' ? '💬' : '📡'} ${b.name}: ${b.text.slice(0, 38)}`, b.kind === 'chat' ? b.color : undefined), i * 450));
+  }, [bubbles]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Price ticks between refreshes, sized by how far it moved.
+  const lastPrices = useRef(new Map());
+  useEffect(() => {
+    const prev = lastPrices.current;
+    let delay = 0;
+    tokenPoints.forEach(p => {
+      const px = Number(p.token.priceUsd); const key = `${p.token.chain}:${p.token.address}`;
+      const was = prev.get(key); prev.set(key, px);
+      if (!was || !px || was === px) return;
+      const move = (px - was) / was * 100;
+      const power = Math.min(1, 0.35 + Math.abs(move) * 0.25);
+      setTimeout(() => fire(p.lat, p.lng, move >= 0 ? 'pump' : 'dump', power, Math.abs(move) >= 0.5 ? `${move >= 0 ? '▲' : '▼'} $${String(p.token.symbol).replace(/^\$/, '')} ${move >= 0 ? '+' : ''}${move.toFixed(2)}% on ${p.token.chain}` : null), delay);
+      delay += 180;
+    });
+  }, [tokenPoints]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Heartbeat: coins erupt in proportion to their real 24h heat, so hot coins visibly boil.
+  useEffect(() => {
+    if (!tokenPoints.length || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const weights = tokenPoints.map(p => 0.05 + coinHeat(p.token) ** 2);
+    const total = weights.reduce((a, b) => a + b, 0);
+    let n = 0;
+    const t = setInterval(() => {
+      if (document.hidden) return;
+      let r = Math.random() * total; let i = 0;
+      while (r > weights[i] && i < weights.length - 1) { r -= weights[i]; i++; }
+      const p = tokenPoints[i]; const heat = coinHeat(p.token); const kind = kindFor(p.token);
+      const ch = Number(p.token.change24h) || 0;
+      fire(p.lat, p.lng, kind, 0.2 + heat * 0.8, (n++ % 4 === 0 && Math.abs(ch) >= 5) ? `${ch >= 25 ? '🚀' : ch >= 5 ? '🔥' : '🧊'} $${String(p.token.symbol).replace(/^\$/, '')} ${ch >= 0 ? '+' : ''}${ch.toFixed(1)}% 24h` : null);
+    }, 650);
+    return () => clearInterval(t);
+  }, [tokenPoints]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // New snipers / repeat funders caught since the last poll -> red catch burst on Solana.
+  const lastStats = useRef(null);
+  useEffect(() => {
+    if (!stats) return;
+    const was = lastStats.current; lastStats.current = stats;
+    if (!was) return;
+    const sol = GLOBE_NODES.find(n => n.id === 'solana');
+    const caught = (stats.snipers - was.snipers) + (stats.bundlers - was.bundlers);
+    const funders = (stats.flaggedFunders || 0) - (was.flaggedFunders || 0);
+    if (sol && funders > 0) fire(sol.lat, sol.lng, 'catch', 1, `🚨 ${funders} repeat funder${funders > 1 ? 's' : ''} flagged`);
+    else if (sol && caught > 0) fire(sol.lat, sol.lng, 'catch', 0.8, `🎯 ${caught} sniper/bundler wallet${caught > 1 ? 's' : ''} caught`);
+  }, [stats]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // One animation loop drives every live burst; finished ones are dropped + disposed.
+  useEffect(() => {
+    let raf;
+    const loop = () => {
+      const now = performance.now();
+      const dead = [];
+      burstObjs.current.forEach((obj, id) => { if (!tickBurst(obj, now)) dead.push(id); });
+      if (dead.length) {
+        dead.forEach(id => { disposeBurst(burstObjs.current.get(id)); burstObjs.current.delete(id); });
+        setBursts(list => list.filter(b => !dead.includes(b.id)));
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) => {
@@ -228,9 +306,9 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
         g.pointOfView({ altitude: 2.1 }, 0);
         if (typeof g.globeMaterial === 'function') {
           const globeMat = g.globeMaterial();
-          globeMat.color = new THREE.Color('#02110A');
-          globeMat.emissive = new THREE.Color('#0FDB8F');
-          globeMat.emissiveIntensity = 0.22;
+          globeMat.color = new THREE.Color('#9fb8d6');
+          globeMat.emissive = new THREE.Color('#0b2a3f');
+          globeMat.emissiveIntensity = 0.5;
           globeMat.shininess = 4;
         }
       } catch (e) { /* noop */ }
@@ -281,7 +359,8 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
     ...GLOBE_NODES.map(e => ({ lat: e.lat, lng: e.lng, color: e.color, maxR: 8, propagationSpeed: 2.6, repeatPeriod: 1200 })),
     ...[...tokenPoints].sort((a, b) => b.token.marketCap - a.token.marketCap).slice(0, 10)
       .map(t => ({ lat: t.lat, lng: t.lng, color: t.color, maxR: 2.6, propagationSpeed: 0.9, repeatPeriod: 2600 })),
-  ], [tokenPoints]);
+    ...bursts.filter(b => b.power >= 0.5).map(b => ({ lat: b.lat, lng: b.lng, color: b.color, maxR: 4 + b.power * 9, propagationSpeed: 6 + b.power * 6, repeatPeriod: 700 })),
+  ], [tokenPoints, bursts]);
 
   const particles = useMemo(() => Array.from({ length: 36 }, (_, i) => ({
     id: i,
@@ -306,7 +385,8 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
           <div><b>{stats.flaggedFunders ?? 0}</b><small>repeat funders</small></div>
           <div><b>{stats.blocklisted?.toLocaleString?.() ?? stats.blocklisted}</b><small>blocklisted</small></div>
         </div>
-        {hottest && <div className="globe-hud-hot"><i>🔥</i>${escapeHtml(hottest.symbol)} {Number(hottest.change24h) >= 0 ? '+' : ''}{Number(hottest.change24h).toFixed(1)}% on {hottest.chain}</div>}
+        {hottest && <div className="globe-hud-hot"><i>🔥</i>${String(hottest.symbol).replace(/^\$/, '')} {Number(hottest.change24h) >= 0 ? '+' : ''}{Number(hottest.change24h).toFixed(1)}% on {hottest.chain}</div>}
+        {feed.length > 0 && <ul className="globe-feed" data-testid="globe-feed">{feed.map(f => <li key={f.id} style={{ '--c': f.color }}>{f.label}</li>)}</ul>}
       </div>}
       <GlobeErrorBoundary fallback={<GlobeFallback onSelect={onSelect} selectedId={selectedId} />}>
         <Globe
@@ -315,15 +395,15 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
           height={dims.h}
           backgroundColor="rgba(0,0,0,0)"
           showAtmosphere
-          atmosphereColor="#14F195"
-          atmosphereAltitude={0.32}
-          globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
+          atmosphereColor="#7cc8ff"
+          atmosphereAltitude={0.38}
+          globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
           bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
           pointsData={points}
           pointLat="lat"
           pointLng="lng"
           pointColor="color"
-          pointAltitude={0.02}
+          pointAltitude={0.008}
           pointRadius="size"
           pointResolution={24}
           labelsData={GLOBE_NODES.filter(n => n.isLaunchpad || n.id === 'solana')}
@@ -343,11 +423,11 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
           onPointHover={p => document.body.style.cursor = p ? 'pointer' : 'default'}
           arcsData={arcs}
           arcColor="color"
-          arcStroke={0.35}
+          arcStroke={0.5}
           arcAltitude={0.22}
           arcDashLength={0.4}
           arcDashGap={2}
-          arcDashAnimateTime={4000}
+          arcDashAnimateTime={2600}
           ringsData={rings}
           ringColor="color"
           ringMaxRadius="maxR"
@@ -361,6 +441,14 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
           objectLabel={p => `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;"><b>${escapeHtml(p.token.symbol)}</b> · ${escapeHtml(p.token.chain)}<br/>${fmtCap(p.token.marketCap)} ${p.token.mcKind === 'FDV' ? 'FDV' : 'MC'}${Number.isFinite(Number(p.token.change24h)) ? ` · ${Number(p.token.change24h) >= 0 ? '+' : ''}${Number(p.token.change24h).toFixed(1)}% 24h` : ''}</div>`}
           onObjectClick={p => { if (onToken) { onToken(p.token); return; } if (p.token.pairAddress) window.open(`/terminal/trade?chain=${encodeURIComponent(p.token.chain)}&pair=${encodeURIComponent(p.token.pairAddress)}`, '_blank', 'noopener'); }}
           onObjectHover={p => { document.body.style.cursor = p ? 'pointer' : 'default'; }}
+          customLayerData={bursts}
+          customThreeObject={b => { const o = burstObject(b); burstObjs.current.set(b.id, o); return o; }}
+          customThreeObjectUpdate={(obj, b) => {
+            const g = globeRef.current; if (!g?.getCoords) return;
+            const c = g.getCoords(b.lat, b.lng, 0.01);
+            obj.position.set(c.x, c.y, c.z);
+            obj.lookAt(c.x * 2, c.y * 2, c.z * 2);
+          }}
           htmlElementsData={bubbles}
           htmlLat="lat"
           htmlLng="lng"
