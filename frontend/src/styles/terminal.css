@@ -2159,3 +2159,7 @@ body.reduced-motion-setting :is(.badge-pill,.badge-pill::after,.badge-pill i,.ba
 @media (max-width:700px){.wp-id,.badge-artifacts{margin-top:8px}.wp-head{align-items:flex-start}}
 body.theme-day .artifact-coin .face{background:radial-gradient(circle at 35% 30%,#fff,transparent 45%),radial-gradient(circle,color-mix(in srgb,currentColor 25%,#fff),#f3faf6 75%)}
 body.theme-day .artifact.tone-gold{color:#b8860b}body.theme-day .artifact.tone-mint{color:#07784f}body.theme-day .wp-id h1{text-shadow:none}
+/* Crown: hover, don't spin (an emoji flattens when rotated in 3D) */
+.wp-crown span{animation:crown-hover 3.4s ease-in-out infinite!important}
+@keyframes crown-hover{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-7px) rotate(4deg)}}
+.wp-crown{filter:drop-shadow(0 0 10px rgba(245,197,66,.85)) drop-shadow(0 0 22px rgba(245,197,66,.35)) drop-shadow(0 6px 6px #0009)}
