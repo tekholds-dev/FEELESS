@@ -1899,3 +1899,36 @@ body.theme-day .offender-submit{background:#c0284c!important;border-color:#c0284
 body.theme-day .blocklist-toggle{background:#fdecef!important;border-color:#e8a0ae!important}body.theme-day .launch-preview-chips .chip-block{color:#b0203f!important}
 .qt-presets button{white-space:nowrap;font-size:10px!important;padding:0 4px!important}
 body.theme-day .wp-avatar{background:#dcebe1!important}body.theme-day .wp-avatar>span{color:#07784f!important}
+.chart-pseudo-full{position:fixed!important;inset:0!important;z-index:400!important;background:#050b08!important;padding:12px!important;display:flex!important;flex-direction:column}
+.chart-pseudo-full .candle-canvas{height:calc(100vh - 80px)!important}
+.chart-pseudo-full .chart-area{min-height:calc(100vh - 40px)!important}
+body.has-pseudo-full{overflow:hidden}
+body.theme-day .chart-pseudo-full{background:#e6f0ea!important}
+.chart-meta-buttons button.active.expand{color:var(--mint);border-color:#00e9a088;background:#00e9a014}
+body.theme-day .chart-meta-buttons button.active.expand{color:#07784f!important;border-color:#07784f!important;background:#e3f2e8!important}
+.trenches-grid.is-wide{grid-template-columns:minmax(0,1fr)!important;grid-template-areas:"chart" "chat" "tools"!important}
+.trenches-grid.is-wide>.trenches-chat-section{position:static!important;height:60vh!important}
+.trenches-grid.is-wide>.trenches-tools{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+/* Trending coin cards on the Trenches front page */
+.trend-cards{margin-top:20px}
+.trend-cards-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:12px}.trend-cards-head h2{margin:0;font-size:20px}.trend-cards-head small{color:var(--muted);font-size:12px}
+.trend-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.trend-card{position:relative;overflow:hidden;display:grid;gap:10px;padding:14px;border-radius:14px;border:1px solid #ffffff14;background:#07110c;cursor:pointer;animation:trend-in .45s ease-out both;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.trend-card::before{content:'';position:absolute;inset:0;background:linear-gradient(115deg,transparent 40%,#ffffff0d 50%,transparent 60%);background-size:250% 100%;animation:trend-shine 5s linear infinite;pointer-events:none}
+.trend-card.is-up{border-color:#00e9a033;background:linear-gradient(160deg,#00e9a00e,#07110c 55%)}.trend-card.is-down{border-color:#fa708c2a;background:linear-gradient(160deg,#fa708c0c,#07110c 55%)}
+.trend-card:hover{transform:translateY(-4px);box-shadow:0 14px 30px #00000055}.trend-card.is-up:hover{border-color:#00e9a088}.trend-card.is-down:hover{border-color:#fa708c88}
+@keyframes trend-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes trend-shine{from{background-position:150% 0}to{background-position:-100% 0}}
+.trend-top{display:flex;align-items:center;gap:10px;min-width:0}.trend-top img,.trend-top>i{width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0;display:grid;place-items:center;background:#ffffff10;font:700 12px 'JetBrains Mono',monospace;font-style:normal}
+.trend-top div{min-width:0}.trend-top b{display:block;font-size:15px}.trend-top small{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trend-rank{margin-left:auto;font:10px 'JetBrains Mono',monospace;color:var(--muted)}
+.trend-price{display:flex;justify-content:space-between;align-items:baseline;font:600 15px 'JetBrains Mono',monospace}
+.trend-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font:11px 'JetBrains Mono',monospace}.trend-stats small{display:block;font-size:8px;color:var(--muted);letter-spacing:.5px}.trend-stats em{font-style:normal}
+.trend-pressure{position:relative;height:16px;border-radius:5px;background:#fa708c33;overflow:hidden}.trend-pressure i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#00e9a0aa,#00e9a055)}
+.trend-pressure small{position:relative;display:block;text-align:center;font:9px/16px 'JetBrains Mono',monospace;color:#fff}
+.trend-go{justify-self:start;font-size:11px;color:var(--mint);opacity:.75;transition:opacity .15s,transform .15s}.trend-card:hover .trend-go{opacity:1;transform:translateX(3px)}
+body.theme-day .trend-card{background:rgba(238,246,240,.6)!important;border-color:#b9cfc0!important}
+body.theme-day .trend-card.is-up{background:linear-gradient(160deg,rgba(7,120,79,.1),rgba(238,246,240,.6) 55%)!important}body.theme-day .trend-card.is-down{background:linear-gradient(160deg,rgba(192,40,76,.08),rgba(238,246,240,.6) 55%)!important}
+body.theme-day :is(.trend-top small,.trend-rank,.trend-stats small,.trend-cards-head small){color:var(--day-muted)!important}
+body.theme-day .trend-go{color:#07784f}body.theme-day .trend-pressure{background:#f0b4c1}body.theme-day .trend-pressure i{background:linear-gradient(90deg,#07784f,#1a9a6a)}
+@media(prefers-reduced-motion:reduce){.trend-card,.trend-card::before{animation:none}}

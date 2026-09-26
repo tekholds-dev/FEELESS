@@ -1,6 +1,6 @@
-import { TrenchLanding, TrenchBar, HotCalls, LiveCalls, CallerBoard } from './TrenchesTools';
+import { TrendingCards, TrenchLanding, TrenchBar, HotCalls, LiveCalls, CallerBoard } from './TrenchesTools';
 import { LivePrice } from './LiveCells';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, Radio, Rocket, Compass, Star, BarChart3, ArrowUpRight, CandlestickChart, Layers3 } from 'lucide-react';
 import EcosystemChat from '../EcosystemChat';
@@ -76,6 +76,8 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair
     trending: pairs,
     watchlist: watchlist,
   }[stage] || [];
+  const [wide, setWide] = useState(() => { try { return localStorage.getItem('feeless-trench-wide') === '1'; } catch { return false; } });
+  useEffect(() => { try { localStorage.setItem('feeless-trench-wide', wide ? '1' : '0'); } catch {} window.dispatchEvent(new Event('resize')); }, [wide]);
   const [onFloor, setOnFloor] = useState(() => { try { return Boolean(routeSelectedPair) || localStorage.getItem('feeless-trench-floor') === '1'; } catch { return false; } });
   const setFloor = v => { setOnFloor(v); try { localStorage.setItem('feeless-trench-floor', v ? '1' : '0'); } catch {} window.scrollTo?.({ top: 0 }); };
   const pickCall = async c => {
@@ -86,12 +88,12 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair
       if (p) { selectPair(p); window.scrollTo?.({ top: 0, behavior: 'smooth' }); }
     } catch { /* keep current chart */ }
   };
-  if (!onFloor) return <div className="trenches-page trenches-lit" data-testid="trenches-page"><TrenchLanding ecosystemName={ecosystem.name} onEnter={() => setFloor(true)} /></div>;
+  if (!onFloor) return <div className="trenches-page trenches-lit" data-testid="trenches-page"><TrenchLanding ecosystemName={ecosystem.name} onEnter={() => setFloor(true)} /><TrendingCards pairs={[...pairs, ...newPairs.filter(n => !pairs.some(p => p.pairAddress === n.pairAddress))]} onPick={p => { selectPair(p); setFloor(true); }} /></div>;
   return <div className="trenches-page trenches-lit trenches-floor" data-testid="trenches-page">
     <TrenchBar onAbout={() => setFloor(false)} />
-    <div className="trenches-grid">
+    <div className={`trenches-grid ${wide ? 'is-wide' : ''}`}>
       <section className="trenches-chat-section" data-testid="trenches-chat-section"><ChatRoom large pairs={pairs} newPairs={newPairs} onSelect={onSelect} selectedPair={chartPair} selectedPerspective={selectedPerspective} onPerspectiveChange={onPerspectiveChange} onConnect={onConnect} /></section>
-      <section className="trenches-chart-panel"><div className="section-title"><h2><CandlestickChart size={18} />DEX chart</h2><span className="provider-note">GeckoTerminal · OHLCV</span></div>{chartPair ? <TokenFocus pair={chartPair} has={has} toggle={toggle} defaultInterval="15m" /> : <div className="truth-empty" data-testid="trenches-chart-empty"><CandlestickChart size={28} /><span>Select a provider-indexed coin to open its chart.</span></div>}</section>
+      <section className="trenches-chart-panel"><div className="section-title"><h2><CandlestickChart size={18} />DEX chart</h2><span className="provider-note">GeckoTerminal · OHLCV</span></div>{chartPair ? <TokenFocus pair={chartPair} has={has} toggle={toggle} defaultInterval="15m" onExpand={() => setWide(w => !w)} expanded={wide} /> : <div className="truth-empty" data-testid="trenches-chart-empty"><CandlestickChart size={28} /><span>Select a provider-indexed coin to open its chart.</span></div>}</section>
       <aside className="trenches-tools"><HotCalls onPick={pickCall} /><LiveCalls onPick={pickCall} /><CallerBoard /></aside>
     </div>
     <section className="trenches-stages trenches-stage-panel" data-testid="trenches-stage-panel"><div className="section-title"><h2><Layers3 size={18} />Coin viewer</h2><span className="provider-note">Liquidity · market cap first</span></div><div className="trenches-stage-tabs">{[['new', 'New coins'], ['graduated', 'Graduated'], ['trending', 'Trending coins'], ['watchlist', 'Watchlist']].map(([id, label]) => <button key={id} className={stage === id ? 'active' : ''} data-testid={`trenches-stage-${id}`} onClick={() => setStage(id)}>{label}<small>{id === 'graduated' && !graduated.length ? 'unavailable' : stagePairs.length}</small></button>)}</div><div className="trenches-coin-grid">{stagePairs.slice(0, 6).map(pair => <button className="trenches-coin" key={pairKey(pair)} data-testid={`trenches-coin-${pairKey(pair)}`} onClick={() => { selectPair(pair); onSelect?.(pair); }}><TokenAvatar pair={pair} size={38} /><span><b>{pair.baseToken?.symbol || 'Unknown'}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId} · {pair.dexId}</small><small>LIQ {formatUSD(pair.liquidity?.usd)} · MC {formatUSD(pair.marketCap)}</small><ReputationBadge pair={pair} compact /></span><Change value={pair.priceChange?.h24} /></button>)}</div>{!stagePairs.length && <div className="truth-empty" data-testid={`trenches-${stage}-empty`}>{stage === 'graduated' ? 'Graduation status is unavailable in the current provider feed.' : `No ${stage} coins are available in this ecosystem snapshot.`}</div>}</section>

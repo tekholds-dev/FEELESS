@@ -3,6 +3,7 @@ import { Flame, Crown, Megaphone, Zap } from 'lucide-react';
 import { apiUrl } from '../../lib/api';
 import { AnimatedNumber } from './AnimatedNumber';
 import { formatUSD } from '../../lib/dexscreener';
+import { LivePrice, LiveChange24 } from './LiveCells';
 
 const fmtX = v => (v == null ? '—' : `${v >= 100 ? v.toFixed(0) : v.toFixed(2)}×`);
 const ago = s => { const d = Date.now() / 1000 - s; return d < 60 ? `${Math.round(d)}s` : d < 3600 ? `${Math.round(d / 60)}m` : d < 86400 ? `${Math.round(d / 3600)}h` : `${Math.round(d / 86400)}d`; };
@@ -132,4 +133,25 @@ export function TrenchBar({ onAbout }) {
     <span><small>CALLERS</small><AnimatedNumber value={new Set(lastHour.map(c => c.caller)).size} format={v => String(Math.round(v))} /></span>
     <span><small>BEST 24H</small>{best ? `${best.symbol} ${fmtX(best.peakX)}` : '—'}</span>
   </div>;
+}
+
+export function TrendingCards({ pairs = [], onPick }) {
+  const list = [...pairs].filter(p => p?.baseToken?.symbol).sort((a, b) => (Number(b.volume?.h24) || 0) - (Number(a.volume?.h24) || 0)).slice(0, 12);
+  if (!list.length) return null;
+  return <section className="trend-cards" data-testid="trend-cards">
+    <div className="trend-cards-head"><h2 className="trenches-font">Trending right now</h2><small>Pick a coin and trench it — chart, chat and quick trade open together.</small></div>
+    <div className="trend-grid">{list.map((p, i) => {
+      const tx = p.txns?.h1 || {}; const b = Number(tx.buys) || 0; const s = Number(tx.sells) || 0;
+      const share = b + s ? b / (b + s) : null;
+      const up = Number(p.priceChange?.h24) >= 0;
+      const m5 = Number(p.priceChange?.m5);
+      return <article key={p.pairAddress} className={`trend-card ${up ? 'is-up' : 'is-down'}`} style={{ animationDelay: `${i * 40}ms` }} onClick={() => onPick?.(p)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && onPick?.(p)}>
+        <div className="trend-top">{p.info?.imageUrl ? <img src={p.info.imageUrl} alt="" /> : <i>{p.baseToken.symbol.slice(0, 2)}</i>}<div><b>{p.baseToken.symbol}</b><small>{p.baseToken.name}</small></div><span className="trend-rank">#{i + 1}</span></div>
+        <div className="trend-price"><LivePrice pair={p} precise /><LiveChange24 pair={p} /></div>
+        <div className="trend-stats"><span><small>MC</small>{formatUSD(p.marketCap || p.fdv)}</span><span><small>VOL 24H</small>{formatUSD(p.volume?.h24)}</span><span><small>5M</small><em className={Number.isFinite(m5) ? (m5 >= 0 ? 'positive' : 'negative') : ''}>{Number.isFinite(m5) ? `${m5 >= 0 ? '+' : ''}${m5.toFixed(1)}%` : '—'}</em></span></div>
+        {share != null && <div className="trend-pressure" title={`${b} buys / ${s} sells in the last hour`}><i style={{ width: `${share * 100}%` }} /><small>{Math.round(share * 100)}% buys · 1h</small></div>}
+        <span className="trend-go trenches-font">Trench it →</span>
+      </article>;
+    })}</div>
+  </section>;
 }
