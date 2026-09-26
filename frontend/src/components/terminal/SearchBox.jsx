@@ -5,6 +5,22 @@ import { formatUSD, formatPct } from '../../lib/dexscreener';
 const RECENT_KEY = 'feeless:recent-searches';
 const readRecent = () => { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]').slice(0, 6); } catch { return []; } };
 const pushRecent = item => { try { const next = [item, ...readRecent().filter(r => r.href !== item.href)].slice(0, 6); localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch { /* ignore */ } };
+// Coin search ranked for relevance: FEELESS assets first, exact $SYMBOL matches, then real volume.
+const ALIASES = { btc: ['WBTC', 'cbBTC', 'BTC'], bitcoin: ['WBTC', 'cbBTC'], eth: ['WETH', 'ETH'], ethereum: ['WETH'], sol: ['SOL'], solana: ['SOL'], usdc: ['USDC'], usdt: ['USDT'] };
+let feeAssets = null;
+async function searchCoins(q) {
+  const ql = q.toLowerCase();
+  if (!feeAssets) feeAssets = fetch('/api/market/assets').then(r => r.json()).then(d => d.assets || []).catch(() => []);
+  const assets = await feeAssets;
+  const own = assets.filter(a => a.pair && (a.id.includes(ql) || String(a.label || '').toLowerCase().includes(ql) || String(a.pair.baseToken?.symbol || '').toLowerCase().startsWith(ql))).map(a => ({ ...a.pair, info: a.pair.info || { imageUrl: a.logo }, _own: true }));
+  const terms = [q, ...(ALIASES[ql] || [])].slice(0, 3);
+  const lists = await Promise.all(terms.map(t => fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(t)}`).then(r => r.json()).then(d => d.pairs || []).catch(() => [])));
+  const wanted = new Set([ql, ...(ALIASES[ql] || []).map(x => x.toLowerCase())]);
+  const score = p => { const sym = String(p.baseToken?.symbol || '').toLowerCase(); const name = String(p.baseToken?.name || '').toLowerCase(); return (p._own ? 1e15 : 0) + (wanted.has(sym) ? 1e12 : sym.startsWith(ql) ? 1e10 : name.includes(ql) ? 1e8 : 0) + (Number(p.liquidity?.usd) > 5000 ? Number(p.volume?.h24) || 0 : 0); };
+  const seen = new Set();
+  return [...own, ...lists.flat()].filter(p => { const k = `${p.chainId}:${p.baseToken?.address}`; if (!p.baseToken?.address || seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => score(b) - score(a)).slice(0, 8);
+}
+
 const ADDR = /^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$/;
 
 // Header search: live coins + profiles + wallets as you type, keyboard-driven, "/" to focus.
@@ -35,10 +51,7 @@ export function SearchBox({ ecosystem, nav }) {
     const t = setTimeout(async () => {
       const bare = term.replace(/^[@$]/, '');
       const [c, p, w] = await Promise.all([
-        term.startsWith('@') ? Promise.resolve([]) : fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(({ btc: 'WBTC', bitcoin: 'WBTC', eth: 'WETH', ethereum: 'WETH' })[bare.toLowerCase()] || bare)}`).then(r => r.json()).then(d => {
-          const seen = new Set();
-          return (d.pairs || []).sort((a, b) => (b.volume?.h24 || 0) - (a.volume?.h24 || 0)).filter(x => { const k = x.baseToken?.address; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 8);
-        }).catch(() => []),
+        term.startsWith('@') ? Promise.resolve([]) : searchCoins(bare),
         fetch(`/api/reputation/search?q=${encodeURIComponent(bare)}`).then(r => r.json()).then(d => d.profiles || []).catch(() => []),
         ADDR.test(term) ? fetch(`/api/reputation/resolve/${encodeURIComponent(term)}`).then(r => (r.ok ? r.json() : { address: term, handle: term.slice(0, 6).toLowerCase(), maybeToken: true })).catch(() => ({ address: term, handle: term.slice(0, 6).toLowerCase(), maybeToken: true })) : Promise.resolve(null),
       ]);
@@ -51,7 +64,7 @@ export function SearchBox({ ecosystem, nav }) {
   const items = [
     ...(wallet && !(wallet.maybeToken && coins.length) ? [{ kind: 'wallet', key: `w-${wallet.address}`, href: `/terminal/profile/${wallet.address}`, label: `Wallet profile @${wallet.handle}`, sub: `${wallet.address.slice(0, 6)}…${wallet.address.slice(-6)}` }] : []),
     ...people.map(p => ({ kind: 'profile', key: `p-${p.address}`, href: `/terminal/profile/${p.address}`, label: p.displayName || `@${p.handle}`, sub: `@${p.handle}`, img: p.avatarUrl })),
-    ...coins.map(c => ({ kind: 'coin', key: `c-${c.pairAddress}`, href: `/?coin=${c.chainId}:${c.pairAddress}`, profile: `/terminal/coin/${c.chainId}/${c.pairAddress}`, label: `$${c.baseToken?.symbol}`, sub: `${c.baseToken?.name} · ${c.chainId}`, img: c.info?.imageUrl, price: c.priceUsd, change: c.priceChange?.h24, vol: c.volume?.h24 })),
+    ...coins.map(c => ({ kind: 'coin', key: `c-${c.pairAddress}`, href: `/?coin=${c.chainId}:${c.pairAddress}`, profile: `/terminal/coin/${c.chainId}/${c.pairAddress}`, label: `$${c.baseToken?.symbol}`, sub: `${c._own ? '★ FEELESS · ' : ''}${c.baseToken?.name} · ${c.chainId}`, img: c.info?.imageUrl, price: c.priceUsd, change: c.priceChange?.h24, vol: c.volume?.h24 })),
   ];
   const recent = !q.trim() ? readRecent() : [];
   const list = q.trim() ? items : recent;
