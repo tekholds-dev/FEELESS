@@ -129,6 +129,7 @@ export function WalletProfilePage({ address }) {
       <BadgeArtifacts address={address} featured={p.featuredBadges} />
       <div className="wp-actions"><ProfileDM peer={address} mine={mine} initialOpen={new URLSearchParams(window.location.search).get('dm') === '1'} /><button type="button" className="btn-outline wp-flip-btn" data-testid="profile-flip" onClick={() => setFlipped(f => !f)}>{flipped ? '↺ Profile' : '↻ Activity'}</button>{isAdmin && <button type="button" className="cc-launch" data-testid="open-command-center" onClick={() => setCcOpen(true)}>👑 Command Center</button>}{mine ? (edit ? <><button type="button" className="btn-primary" disabled={saving} onClick={save}><Save size={14} />{saving ? 'Sign in wallet…' : 'Save (sign)'}</button><button type="button" className="btn-outline" onClick={() => setEdit(false)}><X size={14} />Cancel</button></> : <button type="button" className="btn-outline" onClick={startEdit}><Pencil size={14} />Edit profile</button>) : !wallet?.address && <button type="button" className="btn-outline" onClick={() => connect?.('solana')}>Connect to edit yours</button>}</div>
     </div>
+    <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />
     {flipped && <RewardsCard address={address} mine={mine} />}
     {flipped && <PnlTracker address={address} />}
     {flipped && mine && <PointsShop address={address} />}
@@ -176,7 +177,6 @@ export function WalletProfilePage({ address }) {
       <p className="wp-bio">Leave {p.displayName || 'them'} a message. Every comment is signed by the poster's wallet.</p>
       <EcosystemChat compact room={`wall-${address}`} ecosystem={{ id: `wall-${address}`, name: 'Wall' }} onConnect={() => connect?.('solana')} />
     </section>
-    <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />
     {mine && <InviteCard address={address} />}
     <AdBanner placement="profile" />
     <PerksCard perks={perks} mine={mine} />

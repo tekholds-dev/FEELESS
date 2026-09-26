@@ -2505,3 +2505,6 @@ body.theme-day .chart-area,body.theme-day .candle-canvas{background:#eaf3ee}
 body.theme-day .f-bulls{color:#07784f}body.theme-day .f-bears{color:#b42346}body.theme-day .f-degens{color:#6b3fc7}
 body.theme-day .wars-artifact .war-join{background:color-mix(in srgb,currentColor 12%,#fff)!important;color:inherit!important;border-color:currentColor!important}
 body.theme-day .wars-artifact .war-join:hover{background:currentColor!important;color:#fff!important}
+.wallet-profile-page>.wp-music{margin-top:4px;background:linear-gradient(120deg,color-mix(in srgb,var(--wp-accent,#00e9a0) 14%,transparent),transparent 60%),rgba(0,0,0,.3)!important}
+.wallet-profile-page>.wp-music .pm-player{grid-template-columns:minmax(220px,1fr) auto;align-items:center}.wallet-profile-page>.wp-music .pm-list,.wallet-profile-page>.wp-music .pm-frame{grid-column:1/-1}
+@media (max-width:700px){.wallet-profile-page>.wp-music .pm-player{grid-template-columns:1fr}}
