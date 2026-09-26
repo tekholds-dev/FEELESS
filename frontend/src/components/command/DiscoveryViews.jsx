@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowUpRight, Radar, Radio, Activity, Star, Bell, Users, ExternalLink, RefreshCw, Zap, Layers3, TrendingUp, Droplets } from 'lucide-react';
+import { ArrowUpRight, Activity, Star, Bell, Users, ExternalLink, RefreshCw, Zap, Layers3, TrendingUp, Droplets } from 'lucide-react';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { useMarket } from '../../hooks/useMarket';
 import { MarketAvailabilityNotice, TokenAvatar, Change } from '../terminal/MarketPrimitives';
@@ -10,8 +10,8 @@ import { FlashValue } from '../terminal/FlashValue';
 import { useClock } from './WorkspaceChrome';
 import { useLiveTokenMarkets, withLiveMarket } from '../../lib/liveTokens';
 import { LivePrice, LiveChange24 } from '../terminal/LiveCells';
-import { formatUSD, formatAge, formatTime, pairKey, dexUrl, hasProviderImage } from '../../lib/dexscreener';
-import { LAUNCHPADS, matchesPad } from '../../lib/launchpads';
+import { formatUSD, formatAge, formatTime, pairKey, hasProviderImage } from '../../lib/dexscreener';
+import { matchesPad } from '../../lib/launchpads';
 
 export const RadarView = ({ pairs, onSelect, kind = 'pump' }) => {
   useClock(10000); const { ecosystem } = useWorkspace();

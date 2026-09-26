@@ -32,10 +32,22 @@ export function TrenchWars() {
   const max = Math.max(1, ...d.factions.map(f => f.score));
   const left = Math.max(0, d.endsAt - Date.now() / 1000);
   const join = async f => { if (!wallet) { toast('Connect a wallet to pick a side.'); return; } try { const session = await getChatSession(wallet.address, signMessage); await post('/api/reputation/wars/join', { address: wallet.address, session, faction: f }); toast.success('You\'re in. Every point you earn this week counts for your side.'); load(); } catch (e) { toast.error(e.message); } };
-  return <section className="meta-panel wars" data-testid="trench-wars">
-    <div className="mp-head"><h2 className="live-gradient-text">⚔️ Trench Wars · {d.week}</h2><span>ends in {Math.floor(left / 86400)}d {Math.floor((left % 86400) / 3600)}h{d.lastWinner ? ` · last winner ${d.lastWinner}` : ''}</span></div>
-    <p className="wp-bio">Pick a side once a week. Every reward point members earn counts for their faction. The winning side gets a badge and a boosted airdrop share.</p>
-    <div className="wars-grid">{d.factions.map(f => <div key={f.id} className={`war-f f-${f.id} ${d.mine === f.id ? 'mine' : ''}`}><b>{f.label}</b><div className="war-bar"><i style={{ width: `${(f.score / max) * 100}%` }} /></div><span>{f.score.toLocaleString()} pts · {f.members} fighters</span>{!d.mine && <button type="button" className="btn-outline" onClick={() => join(f.id)}>Join</button>}{d.mine === f.id && <em>your side</em>}</div>)}</div>
+  const total = d.factions.reduce((x, f) => x + f.score, 0) || 1;
+  const leader = [...d.factions].sort((a, b) => b.score - a.score)[0];
+  const ICON = { bulls: '🐂', bears: '🐻', degens: '🎰' };
+  return <section className="meta-panel wars wars-artifact" data-testid="trench-wars">
+    <div className="wars-sky" aria-hidden="true">{Array.from({ length: 28 }, (_, i) => <i key={i} style={{ left: `${(i * 37) % 100}%`, animationDelay: `${(i % 9) * -0.9}s`, animationDuration: `${6 + (i % 5)}s` }} />)}</div>
+    <div className="mp-head"><h2 className="live-gradient-text">⚔️ Trench Wars <small>{d.week}</small></h2><span className="wars-clock"><i className="flr-dot" /> ends in {Math.floor(left / 86400)}d {Math.floor((left % 86400) / 3600)}h{d.lastWinner ? ` · last winner ${d.lastWinner}` : ''}</span></div>
+    <div className="wars-beam" aria-label="Faction share">{d.factions.map(f => <span key={f.id} className={`beam-${f.id}`} style={{ flexGrow: Math.max(0.08, f.score / total) }}><em>{Math.round((f.score / total) * 100)}%</em></span>)}<b className="beam-spark" /></div>
+    <div className="wars-grid">{d.factions.map(f => <div key={f.id} className={`war-f f-${f.id} ${d.mine === f.id ? 'mine' : ''} ${leader.score > 0 && leader.id === f.id ? 'leading' : ''}`}>
+      <div className="war-core"><span className="war-ring" /><span className="war-ring r2" /><span className="war-emblem">{ICON[f.id]}</span></div>
+      <b>{f.label.replace(/^\S+\s/, '')}</b>
+      <div className="war-bar"><i style={{ width: `${(f.score / max) * 100}%` }} /></div>
+      <span>{f.score.toLocaleString()} pts · {f.members} {f.members === 1 ? 'fighter' : 'fighters'}</span>
+      {leader.score > 0 && leader.id === f.id && <em className="war-lead">👑 leading</em>}
+      {!d.mine ? <button type="button" className="war-join" onClick={() => join(f.id)}>Join {f.label.replace(/^\S+\s/, '')}</button> : d.mine === f.id ? <em className="war-mine">⚔️ your side</em> : null}
+    </div>)}</div>
+    <p className="wars-rules">Pick a side once a week — every reward point members earn powers their faction. Winners get a badge and a boosted airdrop share.</p>
   </section>;
 }
 

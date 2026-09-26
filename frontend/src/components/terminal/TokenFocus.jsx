@@ -10,7 +10,7 @@ import { PriceChart } from './PriceChart';
 import { ChartBoundary } from './ChartBoundary';
 import { useNavigate } from 'react-router-dom';
 import { useWorkspace } from '../../hooks/useWorkspace';
-import { Change, Metric, TokenAvatar, DataStatus, MarketAvailabilityNotice, MarketError, TokenContextMeta, CreatorProfile } from './MarketPrimitives';
+import { Metric, TokenAvatar, DataStatus, MarketAvailabilityNotice, MarketError, TokenContextMeta, CreatorProfile } from './MarketPrimitives';
 import { dexUrl, shortAddress, formatAge } from '../../lib/dexscreener';
 import { PriceAlertButton } from './PriceAlertButton';
 import { useMarket } from '../../hooks/useMarket';

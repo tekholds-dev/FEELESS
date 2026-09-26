@@ -1,33 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  AlertTriangle,
-  ArrowLeft,
-  ArrowRight,
-  CheckCircle2,
-  Clock3,
-  Coins,
-  Copy,
-  Flame,
-  Gauge,
-  Image as ImageIcon,
-  LoaderCircle,
-  LockKeyhole,
-  Rocket,
-  ShieldAlert,
-  ShieldCheck,
-  ShieldQuestion,
-  Timer,
-  Users,
-  WalletCards,
-  Waves,
-  XCircle,
-  Globe,
-  Send,
-  MessageCircle,
-  Sparkles,
-  Link2,
-  Flame as EmberIcon,
-} from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Clock3, Coins, Copy, Flame, Gauge, Image as ImageIcon, LoaderCircle, LockKeyhole, Rocket, ShieldAlert, ShieldCheck, ShieldQuestion, Timer, Users, Waves, XCircle, Globe, Send, MessageCircle, Sparkles, Link2, Flame as EmberIcon } from 'lucide-react';
 import { useWallet } from '../../hooks/useWallet';
 import { apiUrl } from '../../lib/api';
 import { fetchCreator, BADGE_LABEL } from '../../lib/reputation';
@@ -101,7 +73,6 @@ const OPENING_MARKET_CAPS = [
   ['100', '$100k · Nova', 'More room before graduation'],
   ['500', '$500k · Supernova', 'High-cap launch for established communities'],
 ];
-
 
 const LAUNCH_STEPS = [[1, 'Identity', 'Name, image, socials'], [2, 'Economics', 'Supply, curve, pairing, fees'], [3, 'Protection', 'Anti-snipe, locks, launch rail']];
 const STEP_ONE_KEYS = ['name', 'symbol', 'imageUrl', 'description', 'website', 'twitter', 'telegram', 'discord'];
@@ -310,7 +281,6 @@ function LaunchEligibilityPanel({ wallet, chain }) {
   if (scoring.ruggedCount > 0) return <div className="launch-eligibility blocked"><ShieldAlert size={16} /><span><b>Launch blocked — {scoring.ruggedCount} confirmed liquidity collapse{scoring.ruggedCount > 1 ? 's' : ''} on this wallet.</b><small>This is the reputation graph FEELESS itself keeps. Launch from a different, clean wallet, or wait — flags don't expire.</small></span></div>;
   return <div className="launch-eligibility clear"><ShieldCheck size={16} /><span><b>Eligible — {BADGE_LABEL[scoring.badge]}, score {scoring.score}/100.</b><small>{scoring.tokenCount} prior token{scoring.tokenCount === 1 ? '' : 's'} tracked, 0 flagged.</small></span></div>;
 }
-
 
 const XIcon = ({ size = 14 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.9 2H22l-7.6 8.7L23 22h-6.8l-5.3-6.9L4.8 22H1.7l8.1-9.3L1 2h7l4.8 6.3L18.9 2Zm-1.2 18h1.9L7.4 3.9H5.4L17.7 20Z" /></svg>;
 

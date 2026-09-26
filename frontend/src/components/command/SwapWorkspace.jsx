@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { VersionedTransaction } from '@solana/web3.js';
-import { ArrowDownUp, ArrowUpRight, ShieldCheck, Wallet, RefreshCw, AlertTriangle } from 'lucide-react';
+import { ArrowDownUp, ArrowUpRight, ShieldCheck, Wallet, RefreshCw } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../ui/dialog';
 import { keepReceipt } from '../../lib/receipts';
 import { useWallet } from '../../hooks/useWallet';
 import { useClock } from './WorkspaceChrome';
 import { FeeBackPreview } from './FeeBack';
-import { formatUSD, shortAddress } from '../../lib/dexscreener';
+import { shortAddress } from '../../lib/dexscreener';
 import { apiUrl } from '../../lib/api';
 import { ReputationBadge } from '../terminal/ReputationBadge';
 

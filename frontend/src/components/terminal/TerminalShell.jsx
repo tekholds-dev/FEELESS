@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Home, CandlestickChart, Rocket, Compass, Star, MessageCircle, Trophy, Bell, BookOpen, Map, FileText, Settings, Search, Menu, Wallet, Globe2, ArrowUpRight, X, Coins, Cat, Activity, Sun, Moon, UserRound, ShieldCheck } from 'lucide-react';
+import { Home, CandlestickChart, Rocket, Compass, Star, MessageCircle, Trophy, Bell, BookOpen, Map, FileText, Settings, Menu, Wallet, Globe2, ArrowUpRight, X, Coins, Cat, Activity, Sun, Moon, UserRound, ShieldCheck } from 'lucide-react';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { FeelessMark, FeelessWordmark } from '../FeelessLogo';
 import { useMarket } from '../../hooks/useMarket';
@@ -22,7 +22,6 @@ const ITEMS = [
 export const TerminalHeader = ({ onWallet, onProfile, onMenu, query = '' }) => {
   const { ecosystem } = useWorkspace();
   const { wallet } = useWallet();
-  const [search, setSearch] = useState(query);
   const [dayMode, setDayMode] = useState(() => {
     try { return localStorage.getItem('feeless-theme') === 'day'; } catch { return false; }
   });

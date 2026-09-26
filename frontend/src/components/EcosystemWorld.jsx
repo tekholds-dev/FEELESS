@@ -27,6 +27,8 @@ export default function EcosystemWorld({ ecosystem, pad, onClose }) {
   const [expanded, setExpanded] = useState(readRoomExpanded);
   const [chartPair, setChartPair] = useState(null);
   const [chartIv, setChartIv] = useState('15m');
+  const [chartBig, setChartBig] = useState(false);
+  useEffect(() => { const k = e => { if (e.key === 'Escape') setChartBig(false); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, []);
   useEffect(() => { try { localStorage.setItem(ROOM_LAYOUT_KEY, layout); } catch {} }, [layout]);
   useEffect(() => { try { localStorage.setItem(ROOM_EXPANDED_KEY, String(expanded)); } catch {} }, [expanded]);
   useEffect(() => {
@@ -99,9 +101,9 @@ export default function EcosystemWorld({ ecosystem, pad, onClose }) {
             </div>
           </div>
 
-          {chartPair && <div className="eco-chart" data-testid="eco-room-chart">
-            <div className="eco-chart-head"><b>${chartPair.baseToken?.symbol}</b><span>{chartPair.baseToken?.name}</span><div className="timeframes">{['1m', '5m', '15m', '1h', '4h', '1d'].map(t => <button key={t} type="button" className={chartIv === t ? 'active' : ''} onClick={() => setChartIv(t)}>{t.toUpperCase()}</button>)}</div><a href={`/terminal/coin/${chartPair.chainId}/${chartPair.pairAddress}`} target="_blank" rel="noreferrer">Profile ↗</a><button type="button" className="eco-chart-x" aria-label="Close chart" onClick={() => setChartPair(null)}><X size={14} /></button></div>
-            <React.Suspense fallback={<div className="chart-message"><span className="loader" />Loading chart…</div>}><div className="chart-with-trade"><div className="chart-fullscreen-wrap"><PriceChart key={`${chartPair.pairAddress}-${chartIv}`} pair={chartPair} interval={chartIv} showVolume /></div><QuickTrade pair={chartPair} /></div></React.Suspense>
+          {chartPair && <div className={`eco-chart ${chartBig ? 'is-big' : ''}`} data-testid="eco-room-chart">
+            <div className="eco-chart-head"><b>${chartPair.baseToken?.symbol}</b><span>{chartPair.baseToken?.name}</span><div className="timeframes">{['1m', '5m', '15m', '1h', '4h', '1d'].map(t => <button key={t} type="button" className={chartIv === t ? 'active' : ''} onClick={() => setChartIv(t)}>{t.toUpperCase()}</button>)}</div><a href={`/terminal/coin/${chartPair.chainId}/${chartPair.pairAddress}`} target="_blank" rel="noreferrer">Profile ↗</a><button type="button" className="eco-chart-x" aria-label={chartBig ? 'Shrink chart' : 'Expand chart'} title={chartBig ? 'Shrink (Esc)' : 'Expand'} onClick={() => { setChartBig(b => !b); setTimeout(() => window.dispatchEvent(new Event('resize')), 60); }}>{chartBig ? '⤡' : '⤢'}</button><button type="button" className="eco-chart-x" aria-label="Close chart" onClick={() => { setChartPair(null); setChartBig(false); }}><X size={14} /></button></div>
+            <React.Suspense fallback={<div className="chart-message"><span className="loader" />Loading chart…</div>}><div className="chart-with-trade"><div className="chart-fullscreen-wrap"><PriceChart key={`${chartPair.pairAddress}-${chartIv}-${chartBig}`} pair={chartPair} interval={chartIv} showVolume /></div><QuickTrade pair={chartPair} /></div></React.Suspense>
           </div>}
           <div className="eco-section-label"><Sparkles size={13} /> WHAT'S NEW ON {ecosystem.name.toUpperCase()} <small className="eco-tip">tap a coin to chart it here</small></div>
           <NewStuffFeed ecosystem={ecosystem} activePair={chartPair?.pairAddress} onPick={p => { setChartPair(p); if (layout === 'chat-first') setLayout('chart'); document.querySelector('.eco-right-col')?.scrollTo({ top: 0, behavior: 'smooth' }); }} />

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ExternalLink, Flag, Heart, Link2, Lock, MessageCircle, Reply, Send, Trash2, UserRound, X } from 'lucide-react';
-import { searchTokenByAddress, formatTime } from '../lib/dexscreener';
+import { ExternalLink, Flag, Heart, Link2, MessageCircle, Reply, Send, Trash2, UserRound, X } from 'lucide-react';
+import { formatTime } from '../lib/dexscreener';
 import TokenCard from './TokenCard';
 import { IntelligenceCard } from './command/IntelligenceCard';
 import { apiUrl } from '../lib/api';

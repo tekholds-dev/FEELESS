@@ -255,3 +255,5 @@ body.theme-day .tape-row.buy b{color:#07784f!important}body.theme-day .tape-row.
 .new-stuff-item.is-pickable{cursor:pointer}.new-stuff-item.is-pickable:hover{border-color:rgba(0,233,160,.45)}.new-stuff-item.is-active{border-color:var(--mint);box-shadow:0 0 0 1px var(--mint) inset}
 .eco-tip{margin-left:8px;font-size:10px;color:var(--muted);letter-spacing:0;text-transform:none}
 body.theme-day .eco-chart{background:#fff;border-color:#9fd3b6}body.theme-day .eco-chart-head{border-color:var(--day-border)}
+.eco-chart.is-big{position:fixed;inset:12px;z-index:1200;margin:0;display:flex;flex-direction:column;box-shadow:0 30px 90px #000d}
+.eco-chart.is-big .chart-with-trade{flex:1;min-height:0}.eco-chart.is-big .candle-canvas{height:calc(100vh - 150px)!important}

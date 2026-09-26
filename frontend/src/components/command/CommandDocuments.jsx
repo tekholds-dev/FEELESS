@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Download, FileText, ArrowUpRight, Check, Activity, Wallet, ShieldCheck } from 'lucide-react';
+import { Download, FileText, ArrowUpRight, Activity, Wallet, ShieldCheck } from 'lucide-react';
 import { useMarket } from '../../hooks/useMarket';
 import { useWorkspace, CONTEXTS } from '../../hooks/useWorkspace';
 import { useWallet } from '../../hooks/useWallet';

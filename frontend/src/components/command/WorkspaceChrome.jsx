@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Activity, ArrowUpRight, Globe2, ScanLine, Radio, X } from 'lucide-react';
+import { ArrowUpRight, Globe2, ScanLine, Radio } from 'lucide-react';
 import { useWorkspace, CONTEXTS } from '../../hooks/useWorkspace';
 import { useMarket } from '../../hooks/useMarket';
-import { formatTime, formatPct, formatUSD } from '../../lib/dexscreener';
+import { formatTime, formatUSD } from '../../lib/dexscreener';
 import { apiUrl } from '../../lib/api';
 import { TokenAvatar } from '../terminal/MarketPrimitives';
 

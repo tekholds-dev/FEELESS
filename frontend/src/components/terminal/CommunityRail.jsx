@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { MessageCircle, Radio, Rocket, Compass, Star, BarChart3, ArrowUpRight, CandlestickChart, Layers3 } from 'lucide-react';
 import EcosystemChat from '../EcosystemChat';
 import { useWorkspace } from '../../hooks/useWorkspace';
-import { AlphaTape } from '../command/WorkspaceChrome';
+
 import { MarketAvailabilityNotice, TokenAvatar, Change } from './MarketPrimitives';
 import { ReputationBadge } from './ReputationBadge';
 import { TokenFocus } from './TokenFocus';

@@ -2452,3 +2452,56 @@ body.theme-day .hint::after{background:#fff;color:#173b2b;border-color:#9fd3b6;b
 .kb-overlay{position:fixed;inset:0;z-index:950;background:#0008;display:grid;place-items:center}.kb-card{min-width:300px;padding:18px;border-radius:16px;background:#07110c;border:1px solid rgba(0,233,160,.4);box-shadow:0 20px 60px #000c}.kb-card h3{margin:0 0 10px}
 .kb-row{display:flex;justify-content:space-between;gap:20px;padding:5px 0;font-size:13px}.kb-row em{font-style:normal;color:var(--muted)}kbd{display:inline-block;min-width:22px;padding:2px 6px;margin-right:3px;border-radius:6px;border:1px solid var(--line);background:#ffffff0a;font:12px 'JetBrains Mono',monospace;text-align:center}
 body.theme-day :is(.shop-item,.war-f,.pnl-rows>div){background:#fff;border-color:var(--day-border)}body.theme-day .kb-card{background:#fff;border-color:#9fd3b6}
+/* ===== Trench Wars artifact ===== */
+.wars-artifact{position:relative;overflow:hidden;isolation:isolate;border:1px solid transparent!important;background:linear-gradient(#050d0a,#050d0a) padding-box,conic-gradient(from var(--ang,0deg),#00e9a0,#fa708c,#b388ff,#00e9a0) border-box!important;animation:aurora-spin 12s linear infinite}
+.wars-artifact::before{content:'';position:absolute;inset:0;z-index:-1;background:radial-gradient(40% 70% at 12% 100%,rgba(0,233,160,.18),transparent 70%),radial-gradient(40% 70% at 50% 100%,rgba(250,112,140,.16),transparent 70%),radial-gradient(40% 70% at 88% 100%,rgba(179,136,255,.18),transparent 70%)}
+.wars-sky{position:absolute;inset:0;z-index:-1;pointer-events:none}.wars-sky i{position:absolute;bottom:-10px;width:3px;height:3px;border-radius:50%;background:#fff;opacity:.0;box-shadow:0 0 6px #fff;animation:ember 7s linear infinite}
+.wars-sky i:nth-child(3n){background:#00e9a0;box-shadow:0 0 8px #00e9a0}.wars-sky i:nth-child(3n+1){background:#fa708c;box-shadow:0 0 8px #fa708c}.wars-sky i:nth-child(3n+2){background:#b388ff;box-shadow:0 0 8px #b388ff}
+@keyframes ember{0%{transform:translateY(0) scale(.6);opacity:0}15%{opacity:.9}100%{transform:translateY(-320px) translateX(20px) scale(1.1);opacity:0}}
+.wars-artifact .mp-head h2{font-size:24px}.wars-artifact .mp-head h2 small{font-size:12px;margin-left:6px;-webkit-text-fill-color:var(--muted)}
+.wars-clock{display:flex;gap:6px;align-items:center;font-size:12px!important}
+.wars-beam{position:relative;display:flex;height:22px;border-radius:999px;overflow:hidden;background:#ffffff0c;box-shadow:inset 0 0 12px #0008}
+.wars-beam span{display:grid;place-items:center;transition:flex-grow 1.2s cubic-bezier(.2,.8,.2,1);background-size:200% 100%;animation:beam-flow 3s linear infinite}.wars-beam em{font-style:normal;font:700 10.5px 'JetBrains Mono',monospace;color:#04120b}
+.beam-bulls{background-image:linear-gradient(90deg,#00b37a,#7df9d0,#00b37a)}.beam-bears{background-image:linear-gradient(90deg,#c9405e,#ffb3c0,#c9405e)}.beam-degens{background-image:linear-gradient(90deg,#7b4fd6,#d9c2ff,#7b4fd6)}
+@keyframes beam-flow{to{background-position:200% 0}}
+.beam-spark{position:absolute;top:0;bottom:0;width:60px;background:linear-gradient(90deg,transparent,#ffffffaa,transparent);animation:spark-run 2.8s ease-in-out infinite;mix-blend-mode:overlay}
+@keyframes spark-run{from{left:-60px}to{left:100%}}
+.wars-artifact .war-f{position:relative;justify-items:center;text-align:center;gap:8px;padding:18px 14px;background:rgba(255,255,255,.03);backdrop-filter:blur(4px);transition:transform .3s,box-shadow .3s}
+.wars-artifact .war-f:hover{transform:translateY(-4px)}
+.war-core{position:relative;width:86px;height:86px;display:grid;place-items:center}
+.war-ring{position:absolute;inset:0;border-radius:50%;border:2px solid currentColor;opacity:.5;animation:war-pulse 2.6s ease-out infinite}.war-ring.r2{animation-delay:1.3s}
+@keyframes war-pulse{from{transform:scale(.7);opacity:.8}to{transform:scale(1.35);opacity:0}}
+.war-emblem{font-size:40px;filter:drop-shadow(0 0 14px currentColor);animation:logo-float 4s ease-in-out infinite}
+.f-bulls{color:#00e9a0}.f-bears{color:#fa708c}.f-degens{color:#b388ff}
+.wars-artifact .war-f b{font-size:20px;color:#fff}.wars-artifact .war-f>span{font-size:12.5px;color:var(--muted)}
+.wars-artifact .war-bar{width:100%;height:8px}.wars-artifact .war-bar i{background:currentColor!important;box-shadow:0 0 12px currentColor}
+.war-f.leading{box-shadow:0 0 0 1px currentColor inset,0 0 30px color-mix(in srgb,currentColor 35%,transparent)}.war-lead{font-style:normal;font-size:11px;color:#f5c542}
+.war-join{width:100%;min-height:40px;border-radius:12px;border:1px solid currentColor;background:color-mix(in srgb,currentColor 12%,transparent);color:inherit;font-weight:800;cursor:pointer;transition:.2s}.war-join:hover{background:currentColor;color:#04120b}
+.war-mine{font-style:normal;font-size:12px}.wars-rules{margin:0;font-size:12.5px;color:var(--muted);text-align:center}
+body.reduced-motion-setting :is(.wars-artifact,.wars-sky i,.wars-beam span,.beam-spark,.war-ring,.war-emblem){animation:none!important}
+body.theme-day .wars-artifact{background:linear-gradient(#f4fbf7,#f4fbf7) padding-box,conic-gradient(from var(--ang,0deg),#07784f,#c9405e,#7b4fd6,#07784f) border-box!important}body.theme-day .wars-artifact .war-f b{color:#0b2a1d}body.theme-day .wars-artifact .war-f{background:#ffffffb3}
+/* ===== The Trenches: live atmosphere ===== */
+.page-chat{overflow:hidden}
+.page-chat::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;background-image:radial-gradient(2px 2px at 12% 90%,#39ff14aa 50%,transparent 51%),radial-gradient(2px 2px at 38% 95%,#f5c542aa 50%,transparent 51%),radial-gradient(1.5px 1.5px at 64% 92%,#00e9a0aa 50%,transparent 51%),radial-gradient(2px 2px at 86% 97%,#39ff14aa 50%,transparent 51%);background-size:100% 100%;animation:trench-embers 9s linear infinite;opacity:.7}
+@keyframes trench-embers{from{transform:translateY(0)}to{transform:translateY(-85%)}}
+.page-chat .trenches-page>*{animation:flr-in .5s ease both}.page-chat .trenches-page>*:nth-child(2){animation-delay:.08s}.page-chat .trenches-page>*:nth-child(3){animation-delay:.16s}
+.page-chat .trend-card{transition:transform .25s,box-shadow .25s}.page-chat .trend-card:hover{transform:translateY(-4px) scale(1.01);box-shadow:0 14px 34px rgba(57,255,20,.12)}
+.page-chat .trenches-font{text-shadow:0 0 18px rgba(57,255,20,.35);animation:trench-flicker 5s ease-in-out infinite}
+@keyframes trench-flicker{0%,92%,100%{opacity:1}94%{opacity:.65}96%{opacity:1}97%{opacity:.8}}
+.page-chat .chat-message{animation:msg-in .35s ease both}@keyframes msg-in{from{opacity:0;transform:translateY(6px)}}
+body.reduced-motion-setting .page-chat::after,body.reduced-motion-setting .page-chat .trenches-font{animation:none}
+/* ===== Daylight v2: colored, soft, alive — no glaring white ===== */
+body.theme-day{--day-surface:rgba(244,250,246,.86);--day-surface-2:rgba(236,246,240,.9);background:linear-gradient(160deg,#d6ecdf 0%,#d4e6f1 45%,#efe6d6 100%) fixed!important}
+body.theme-day .ambient-background{background:radial-gradient(55% 45% at 10% 10%,rgba(0,170,110,.28),transparent 70%),radial-gradient(50% 45% at 90% 15%,rgba(60,140,220,.24),transparent 70%),radial-gradient(55% 50% at 70% 95%,rgba(230,170,80,.24),transparent 70%),linear-gradient(160deg,#d6ecdf,#d4e6f1 50%,#efe6d6)!important}
+body.theme-day .ambient-background .ambient-grid{opacity:.35}
+body.theme-day .ambient-background::after{background-image:radial-gradient(2px 2px at 10% 20%,#07784f55 50%,transparent 51%),radial-gradient(2px 2px at 30% 70%,#1b6fb355 50%,transparent 51%),radial-gradient(1.5px 1.5px at 55% 35%,#b8860b55 50%,transparent 51%),radial-gradient(2px 2px at 75% 60%,#07784f44 50%,transparent 51%),radial-gradient(1.5px 1.5px at 90% 25%,#1b6fb344 50%,transparent 51%),radial-gradient(28% 24% at 60% 25%,rgba(255,190,110,.18),transparent 70%)!important;background-size:420px 420px,380px 380px,300px 300px,460px 460px,340px 340px,100% 100%!important;animation:day-particles 40s linear infinite!important;opacity:.9!important}
+@keyframes day-particles{from{background-position:0 0,0 0,0 0,0 0,0 0,0 0}to{background-position:0 -420px,0 -380px,0 -300px,0 -460px,0 -340px,0 0}}
+body.theme-day :is(.wp-card,.meta-panel,.cc-block,.cp-card,.coin-profile,.fcp,.live-intel,.token-focus,.market-card,.community-chat,.eco-chart,.shop-item,.war-f,.rw-item,.dm-card,.notif-pop,.search-drop,.pa-pop,.slash-menu,.legal-consent,.cc-shell,.terminal-hero,.market-table-wrap){background:var(--day-surface)!important;backdrop-filter:blur(6px)}
+body.theme-day :is(.terminal-header,.terminal-sidebar,.market-ticker){background:rgba(232,243,237,.9)!important;backdrop-filter:blur(8px)}
+body.theme-day :is(input,select,textarea):not([type=range]):not([type=checkbox]){background:var(--day-surface-2)!important}
+body.theme-day .chart-area,body.theme-day .candle-canvas{background:#eaf3ee}
+.wars-artifact .war-core .war-emblem{font-size:46px!important;line-height:1;color:inherit}
+.wars-artifact .war-core{margin-bottom:4px}
+body.theme-day .f-bulls{color:#07784f}body.theme-day .f-bears{color:#b42346}body.theme-day .f-degens{color:#6b3fc7}
+body.theme-day .wars-artifact .war-join{background:color-mix(in srgb,currentColor 12%,#fff)!important;color:inherit!important;border-color:currentColor!important}
+body.theme-day .wars-artifact .war-join:hover{background:currentColor!important;color:#fff!important}

@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDown, ArrowUpRight, Coins, Cat, Check, Play, Wallet, ShieldCheck, Activity, Shuffle, Sparkles, Copy, CheckCircle2 } from 'lucide-react';
+import { ArrowUpRight, Coins, Cat, Wallet, Activity, Shuffle, Sparkles, Copy, CheckCircle2 } from 'lucide-react';
 import { useWallet } from '../../hooks/useWallet';
 import { useMarket } from '../../hooks/useMarket';
 import { formatUSD } from '../../lib/dexscreener';
-import { FeelessMark } from '../FeelessLogo';
+
 const STEPS = [
   ['TRADE', 'A user approves a transaction. Normal network, DEX and provider fees may apply.'],
   ['FEE DETECTED', 'Actual settled fee data is sourced from the transaction or eligible provider record. A quote is not a settled fee.'],

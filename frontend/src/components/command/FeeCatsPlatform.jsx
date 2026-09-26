@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Activity, AlertTriangle, ArrowLeft, ArrowUpRight, Cat, Check, ChevronRight, CircleStop, Copy, Gauge, KeyRound, LockKeyhole, Play, Plus, RefreshCw, ShieldAlert, SlidersHorizontal, Sparkles, Trophy, Wallet, X } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, Cat, ChevronRight, CircleStop, Copy, Gauge, LockKeyhole, Play, Plus, RefreshCw, ShieldAlert, SlidersHorizontal, Trophy, Wallet, X } from 'lucide-react';
 import { CAT_VARIATIONS, CatAvatar } from './FeeBack';
 import '../../styles/brain-adapters.css';
 

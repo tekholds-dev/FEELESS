@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowUpRight, ArrowLeft, ArrowRight, Flame, RefreshCw, SlidersHorizontal, Activity, Radio } from 'lucide-react';
+import { ArrowUpRight, ArrowLeft, ArrowRight, Flame, RefreshCw, SlidersHorizontal, Activity } from 'lucide-react';
 import WalletModal from '../components/WalletModal';
 import WalletProfileModal from '../components/WalletProfileModal';
 import { useMarket } from '../hooks/useMarket';

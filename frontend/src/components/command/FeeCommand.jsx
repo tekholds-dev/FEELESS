@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, Check, Copy, Orbit, RotateCw, ShieldCheck, Radio, Activity, BarChart3 } from 'lucide-react';
+import { ArrowUpRight, Check, Copy, Orbit, RotateCw, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { FeelessMark } from '../FeelessLogo';
 import { useMarket } from '../../hooks/useMarket';
 import { formatUSD, formatPct, shortAddress } from '../../lib/dexscreener';
-import { useWorkspace } from '../../hooks/useWorkspace';
+
 import { PriceChart } from '../terminal/PriceChart';
 import { ChartBoundary } from '../terminal/ChartBoundary';
 import { MarketAvailabilityNotice } from '../terminal/MarketPrimitives';
