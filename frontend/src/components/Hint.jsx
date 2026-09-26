@@ -13,7 +13,13 @@ export function Hint({ text }) {
 export function installChartDisposalGuard() {
   if (typeof window === 'undefined' || window.__feelessChartGuard) return;
   window.__feelessChartGuard = true;
-  const isBenign = (msg, stack) => /Object is disposed/i.test(msg || '') && /_internal_paint|CanvasRenderingTarget2D|TimeAxisWidget|PriceAxisWidget|ChartWidget|PaneWidget/i.test(stack || '');
+  const isBenign = (msg, stack) => /Object is disposed/i.test(msg || '') && /_internal_paint|CanvasRenderingTarget2D|TimeAxisWidget|PriceAxisWidget|ChartWidget|PaneWidget|DevicePixelContentBox/i.test(stack || '');
+  // Catch it at the source: the chart repaints inside requestAnimationFrame, so a repaint that
+  // fires one frame after disposal throws there — swallow only that exact error, rethrow the rest.
+  const raf = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = cb => raf(t => {
+    try { cb(t); } catch (e) { if (!isBenign(e?.message, e?.stack)) throw e; }
+  });
   window.addEventListener('error', e => {
     if (isBenign(e.message, e.error?.stack)) e.preventDefault();
   });
