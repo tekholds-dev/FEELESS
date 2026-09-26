@@ -107,7 +107,7 @@ export function SocialStrip({ address, mine }) {
       <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="19" /><circle cx="22" cy="22" r="19" className="arc" style={{ strokeDasharray: `${(pct / 100) * 119.4} 119.4` }} /></svg>
       <b>{s ?? '—'}</b><small>trust</small>
     </button>
-    <div className="follow-counts"><span><b>{f?.followers ?? 0}</b> followers</span><span><b>{f?.following ?? 0}</b> following</span></div>
+    <div className="follow-counts"><span><b>{f?.followers ?? 0}</b> {f?.followers === 1 ? "follower" : "followers"}</span><span><b>{f?.following ?? 0}</b> following</span></div>
     {!mine && <button type="button" className={f?.viewerFollows ? 'btn-outline' : 'btn-primary'} data-testid="follow-btn" onClick={toggle}>{f?.viewerFollows ? 'Following' : 'Follow'}</button>}
     {open && trust && <div className="trust-pop" data-testid="trust-pop"><b>Trust {s ?? '—'}{trust.level ? ` · ${trust.level}` : ''}</b>{trust.note && <p>{trust.note}</p>}{trust.parts.map((p, i) => <div key={i}><span>{p.label}</span><em className={p.points >= 0 ? 'positive' : 'negative'}>{p.points >= 0 ? '+' : ''}{p.points}</em></div>)}<small>Evidence-only: wallet age, blocklist strikes, creator record, call results, followers, verification.</small></div>}
   </div>;
