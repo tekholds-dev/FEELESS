@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Zap, Wallet, ArrowUpRight } from 'lucide-react';
+import { Zap, Wallet, ArrowUpRight, Settings2 } from 'lucide-react';
 import { useWallet } from '../../hooks/useWallet';
 import { useMarket } from '../../hooks/useMarket';
 import { apiUrl } from '../../lib/api';
@@ -10,7 +10,9 @@ const SOL = 'So11111111111111111111111111111111111111112';
 const PRESETS = { SOL: ['0.1', '0.5', '1'], USD: ['10', '50', '100'] };
 const SLIPPAGE = [['50', '0.5%'], ['100', '1%'], ['300', '3%']];
 const PREFS_KEY = 'feeless-quicktrade';
-const readPrefs = () => { try { return { unit: 'SOL', slippage: '100', ...JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') }; } catch { return { unit: 'SOL', slippage: '100' }; } };
+const DEFAULT_PREFS = { unit: 'SOL', slippage: '100', presetsSOL: PRESETS.SOL, presetsUSD: PRESETS.USD };
+const readPrefs = () => { try { return { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') }; } catch { return { ...DEFAULT_PREFS }; } };
+const presetsFor = (prefs, unit) => (unit === 'USD' ? prefs.presetsUSD : prefs.presetsSOL) || PRESETS[unit];
 
 async function tradeApi(path, body) {
   const res = await fetch(apiUrl(`/api/trading${path}`), body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
@@ -29,7 +31,8 @@ export function QuickTrade({ pair }) {
   const feeMint = (assets.data?.assets || []).find(a => a.id === 'fee')?.mint;
   const [side, setSide] = useState('buy');
   const [prefs, setPrefs] = useState(readPrefs);
-  const [amount, setAmount] = useState(PRESETS[readPrefs().unit][0]);
+  const [amount, setAmount] = useState(() => presetsFor(readPrefs(), readPrefs().unit)[0]);
+  const [showSettings, setShowSettings] = useState(false);
   const [sellPct, setSellPct] = useState(50);
   const [counter, setCounter] = useState('SOL');
   const [solUsd, setSolUsd] = useState(null);
@@ -91,10 +94,15 @@ export function QuickTrade({ pair }) {
   const impact = order ? Number(order.quote?.priceImpactPct ?? order.quote?.priceImpact) : null;
   const toFee = counter === 'FEE';
   return <aside className="quick-trade" data-testid="quick-trade">
-    <div className="qt-head"><Zap size={13} /><b>Quick trade</b><div className="qt-side">{['buy', 'sell'].map(s => <button type="button" key={s} className={`${s} ${side === s ? 'active' : ''}`} onClick={() => setSide(s)}>{s === 'buy' ? 'Buy' : 'Sell'}</button>)}</div></div>
+    <div className="qt-head"><Zap size={13} /><b>Quick trade</b><button type="button" className={`qt-gear ${showSettings ? 'active' : ''}`} onClick={() => setShowSettings(v => !v)} title="Quick trade settings" aria-label="Quick trade settings"><Settings2 size={13} /></button><div className="qt-side">{['buy', 'sell'].map(s => <button type="button" key={s} className={`${s} ${side === s ? 'active' : ''}`} onClick={() => setSide(s)}>{s === 'buy' ? 'Buy' : 'Sell'}</button>)}</div></div>
+    {showSettings && <div className="qt-settings" data-testid="quick-trade-settings">
+      <small>Your buy presets</small>
+      {['SOL', 'USD'].map(u => <div key={u} className="qt-settings-row"><span>{u}</span>{presetsFor(prefs, u).map((v, i) => <input key={i} type="number" min="0" step="any" value={v} onChange={e => { const next = [...presetsFor(prefs, u)]; next[i] = e.target.value; setPrefs(p => ({ ...p, [u === 'USD' ? 'presetsUSD' : 'presetsSOL']: next })); }} aria-label={`${u} preset ${i + 1}`} />)}</div>)}
+      <div className="qt-settings-row"><button type="button" onClick={() => { setPrefs({ ...DEFAULT_PREFS }); setAmount(PRESETS.SOL[0]); }}>Reset</button><button type="button" className="qt-settings-done" onClick={() => setShowSettings(false)}>Done</button></div>
+    </div>}
     {side === 'buy' ? <>
-      <div className="qt-row"><span>Amount in</span><div className="qt-seg">{['SOL', 'USD'].map(u => <button type="button" key={u} className={prefs.unit === u ? 'active' : ''} onClick={() => { setPrefs(p => ({ ...p, unit: u })); setAmount(PRESETS[u][0]); }}>{u}</button>)}</div></div>
-      <div className="qt-presets">{PRESETS[prefs.unit].map(v => <button type="button" key={v} className={amount === v ? 'active' : ''} onClick={() => setAmount(v)}>{prefs.unit === 'USD' ? `$${v}` : `${v} SOL`}</button>)}<input type="number" min="0" step="any" value={amount} onChange={e => setAmount(e.target.value)} aria-label="Custom amount" /></div>
+      <div className="qt-row"><span>Amount in</span><div className="qt-seg">{['SOL', 'USD'].map(u => <button type="button" key={u} className={prefs.unit === u ? 'active' : ''} onClick={() => { setPrefs(p => ({ ...p, unit: u })); setAmount(presetsFor(prefs, u)[0]); }}>{u}</button>)}</div></div>
+      <div className="qt-presets">{presetsFor(prefs, prefs.unit).map(v => <button type="button" key={v} className={amount === v ? 'active' : ''} onClick={() => setAmount(v)}>{prefs.unit === 'USD' ? `$${v}` : `${v} SOL`}</button>)}<input type="number" min="0" step="any" value={amount} onChange={e => setAmount(e.target.value)} aria-label="Custom amount" /></div>
       {prefs.unit === 'USD' && <small className="qt-note">≈ {solUsd && Number(amount) > 0 ? `${(Number(amount) / solUsd).toFixed(4)} SOL` : '…'} at ${solUsd ? solUsd.toFixed(2) : '…'}/SOL</small>}
     </> : <>
       <div className="qt-presets">{[25, 50, 100].map(p => <button type="button" key={p} className={sellPct === p ? 'active' : ''} onClick={() => setSellPct(p)}>{p}%</button>)}</div>

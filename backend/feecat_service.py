@@ -135,6 +135,37 @@ def _qualifies(p, now):
     return score, reason
 
 
+def _fmt_usd(v):
+    v = _num(v)
+    return f'${v/1e6:.2f}M' if v >= 1e6 else f'${v/1e3:.1f}K' if v >= 1e3 else f'${v:.2f}'
+
+
+def _buy_analysis(p, size, sym):
+    ch = p.get('priceChange') or {}
+    tx = (p.get('txns') or {}).get('h1') or {}
+    b, s = _num(tx.get('buys')), _num(tx.get('sells'))
+    liq, mc, vol = _num((p.get('liquidity') or {}).get('usd')), _num(p.get('marketCap') or p.get('fdv')), _num((p.get('volume') or {}).get('h24'))
+    age_h = (time.time() * 1000 - _num(p.get('pairCreatedAt'), time.time() * 1000)) / 3_600_000
+    R = RULES
+    return (f"🐱 Fee is buying ${sym} — {size} SOL (paper trade, live price).\n\n"
+            f"Why this one passed every rule:\n"
+            f"• Order flow: {b:.0f} buys vs {s:.0f} sells in the last hour ({(b / max(b + s, 1)) * 100:.0f}% buys) — buyers are in control.\n"
+            f"• Momentum: 5m {_num(ch.get('m5')):+.1f}%, 1h {_num(ch.get('h1')):+.1f}%, 6h {_num(ch.get('h6')):+.1f}% — trending up without being vertical (my cap is +{R['h1Max']}% 1h / +{R['h6Max']}% 6h).\n"
+            f"• Liquidity: {_fmt_usd(liq)} ({(liq / mc * 100) if mc else 0:.1f}% of {_fmt_usd(mc)} market cap) — deep enough to get out.\n"
+            f"• Activity: {_fmt_usd(vol)} traded in 24h; pool is {age_h:.1f}h old (I skip anything under {R['minAgeHours']}h).\n\n"
+            f"Risk plan: stop at {R['stopLoss']}%, take profit at +{R['takeProfit']}%, trailing stop once it's up +{R['trailArm']}% (gives back {R['trailGive']}%), and I'm out after {R['maxHoldHours']}h no matter what. "
+            f"Every trade pays 1% each way so you see real costs.\n\nNot financial advice — this is how a disciplined bot thinks, out loud.")
+
+
+def _post_as_fee(pair_address, text, register_call=False):
+    try:
+        key = (DATA_DIR / 'internal.key').read_text().strip()
+        httpx.post('http://127.0.0.1:5077/api/reputation/internal/fee-post', json={'pairAddress': pair_address, 'text': text, 'registerCall': register_call},
+                   headers={'x-feeless-internal': key}, timeout=15)
+    except Exception as exc:
+        print('fee post failed', exc)
+
+
 def _close(store, cat, pos, price_native, why):
     gross = pos['notionalSol'] * (price_native / pos['entryPriceNative'])
     proceeds = gross * (1 - FEE_PER_SIDE)
@@ -157,6 +188,10 @@ def _close(store, cat, pos, price_native, why):
     cat['winRate'] = round(cat['wins'] / closed * 100) if closed else None
     change = (price_native / pos['entryPriceNative'] - 1) * 100
     _log_event(store, cat, 'SELL', f"Sold {pos['symbol']} at {change:+.1f}% — {why}. Net {pnl:+.4f} SOL after fees (paper, live price).", pnl, pos.get('pairAddress'), price_native)
+    if cat.get('isLeader') and pos.get('pairAddress'):
+        held = (time.time() - pos.get('openedAt', time.time())) / 3600
+        verdict = 'Took the win.' if pnl >= 0 else 'Cut it — protecting capital beats hoping.'
+        _post_as_fee(pos['pairAddress'], f"🐱 Fee sold ${pos['symbol']} at {change:+.1f}% after {held:.1f}h — {why}.\nNet {pnl:+.4f} SOL after the 1% fee each way (peak was {pos.get('peakChange', 0):+.1f}%).\n{verdict} The rules decide the exit, not feelings.")
 
 
 async def run_engine(store, cats):
@@ -230,6 +265,8 @@ async def run_engine(store, cats):
                 'peakChange': 0, 'openedAt': now, 'reason': reason,
             })
             _log_event(store, cat, 'BUY', f"Bought {size} SOL of {sym} at live price — {reason} (paper).", None, pa, px)
+            if cat.get('isLeader'):
+                _post_as_fee(pa, _buy_analysis(p, size, sym), register_call=True)
         cat['lastTick'] = now
 
 

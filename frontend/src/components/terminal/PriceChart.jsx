@@ -101,6 +101,12 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       timeScale: { borderColor: dayMode ? '#aac7b3' : '#203129', timeVisible: true, secondsVisible: false, maxBarSpacing: 14, rightOffset: 4 },
       localization: { locale: 'en-US', priceFormatter: n => formatUSD(n) }, crosshair: { mode: 0 },
     });
+    // Price precision sized to the coin: sub-cent memecoins need 6–10 decimals or every axis tick reads $0.00.
+    const refPrice = Math.abs(Number(displayCandles.length ? displayCandles[displayCandles.length - 1][4] : trail[trail.length - 1]?.value) || 1);
+    const decimals = Math.min(12, Math.max(2, -Math.floor(Math.log10(refPrice)) + 3));
+    const minMove = Number((10 ** -decimals).toFixed(decimals));
+    const axisFormat = n => (Math.abs(n) >= 1000 ? formatUSD(n) : `$${Number(n).toFixed(decimals)}`);
+    chart.applyOptions({ localization: { locale: 'en-US', priceFormatter: axisFormat } });
     if (displayCandles.length) {
       const series = chart.addSeries(CandlestickSeries, {
         upColor: dayMode ? '#08764e' : '#00e7a0',
@@ -108,7 +114,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
         wickUpColor: dayMode ? '#08764e' : '#00e7a0',
         wickDownColor: '#b42346',
         borderVisible: false,
-        priceFormat: { type: 'custom', formatter: n => formatUSD(n) },
+        priceFormat: { type: 'custom', formatter: axisFormat, minMove },
       });
       const bars = displayCandles.map(([time, open, high, low, close]) => ({ time, open, high, low, close }));
       series.setData(bars);
@@ -130,7 +136,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       const line = chart.addSeries(LineSeries, {
         color: dayMode ? '#08764e' : '#00e7a0',
         lineWidth: 2,
-        priceFormat: { type: 'custom', formatter: n => formatUSD(n) },
+        priceFormat: { type: 'custom', formatter: axisFormat, minMove },
       });
       line.setData(trail);
       seriesRef.current = { kind: 'line', series: line };

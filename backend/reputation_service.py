@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -1623,6 +1623,8 @@ def _clean_profile(p: dict) -> dict:
         'mood': str(p.get('mood') or '')[:40],
         'links': {k: _safe_url(links.get(k)) for k in ('x', 'website', 'telegram') if _safe_url(links.get(k))},
         'top8': top8,
+        'theme': p.get('theme') if p.get('theme') in ('grid', 'glitter', 'matrix', 'sunset', 'vapor') else 'grid',
+        'friends': [str(f)[:44] for f in (p.get('friends') or [])[:8] if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', str(f))],
     }
 
 
@@ -1678,6 +1680,7 @@ async def get_profile(address: str):
 async def get_profiles(addresses: str):
     d = _profiles_load()['profiles']
     return {'profiles': {a: {k: d[a].get(k) for k in ('displayName', 'avatarUrl', 'accent', 'mood')} for a in addresses.split(',')[:100] if a in d}}
+
 
 
 # ---- Evidence-based blocklist of snipers and bundlers ----------------------------
@@ -1755,6 +1758,273 @@ async def get_blocklist(limit: int = Query(200, ge=1, le=5000)):
                      'reported': bool(rec.get('reported')), 'auto': len(rec['mints']) >= AUTO_BLOCK_STRIKES, 'lastSeen': rec.get('lastSeen')})
     rows.sort(key=lambda r: (-r['strikes'], -(r['lastSeen'] or 0)))
     return {'wallets': rows[:limit], 'total': len(rows), 'autoThreshold': AUTO_BLOCK_STRIKES}
+
+
+# ---- FEELESS chat: wallet-signed, holder-gated coin rooms ---------------------------
+import re as _re
+CHAT_PATH = DATA_DIR / 'chat.json'
+_chat_lock = asyncio.Lock()
+_room_mint_cache: dict = {}
+_holder_cache: dict = {}
+CA_RE = _re.compile(r'\b[1-9A-HJ-NP-Za-km-z]{32,44}\b')
+MENTION_RE = _re.compile(r'@([A-Za-z0-9_.-]{2,32})')
+MIN_HOLD_USD = 1.0
+
+
+def _chat_load():
+    if CHAT_PATH.exists():
+        try:
+            return json.loads(CHAT_PATH.read_text())
+        except Exception:
+            pass
+    return {'rooms': {}, 'lastTs': {}}
+
+
+def _display_name(address):
+    p = _profiles_load()['profiles'].get(address) or {}
+    return p.get('displayName') or f'{address[:4]}…{address[-4:]}'
+
+
+async def _room_mint(room: str):
+    """coin-solana-<pairOrMint>-<side> → (mint, symbol); None for non-coin rooms."""
+    m = _re.match(r'^coin-solana-([1-9A-HJ-NP-Za-km-z]{32,44})-(bulls|bears|trenches)$', room)
+    if not m:
+        return None
+    key = m.group(1)
+    if key in _room_mint_cache:
+        return _room_mint_cache[key]
+    info = None
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            r = await http.get(f'https://api.dexscreener.com/latest/dex/pairs/solana/{key}')
+            p = ((r.json() or {}).get('pairs') or [None])[0]
+            if not p:
+                r = await http.get(f'https://api.dexscreener.com/tokens/v1/solana/{key}')
+                arr = r.json() if r.status_code == 200 else []
+                p = arr[0] if isinstance(arr, list) and arr else None
+            if p:
+                info = ((p.get('baseToken') or {}).get('address'), (p.get('baseToken') or {}).get('symbol'))
+    except Exception:
+        info = None
+    if info:
+        _room_mint_cache[key] = info
+    return info
+
+
+async def _holding_usd(owner: str, mint: str):
+    key = f'{owner}:{mint}'
+    hit = _holder_cache.get(key)
+    if hit and time.time() - hit[0] < 60:
+        return hit[1]
+    bal = await token_balance(owner, mint)
+    amount = float(bal.get('amount') or 0)
+    price = 0.0
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            r = await http.get(f'https://lite-api.jup.ag/price/v3?ids={mint}')
+            price = float(((r.json() or {}).get(mint) or {}).get('usdPrice') or 0)
+    except Exception:
+        pass
+    value = amount * price
+    _holder_cache[key] = (time.time(), value)
+    return value
+
+
+@app.get('/api/reputation/chat/gate')
+async def chat_gate(room: str, address: Optional[str] = None):
+    coin = await _room_mint(room)
+    if not coin:
+        return {'gated': False, 'allowed': True}
+    mint, symbol = coin
+    if not address:
+        return {'gated': True, 'allowed': False, 'symbol': symbol, 'minUsd': MIN_HOLD_USD, 'holdingUsd': None}
+    value = await _holding_usd(address, mint)
+    return {'gated': True, 'allowed': value >= MIN_HOLD_USD, 'symbol': symbol, 'minUsd': MIN_HOLD_USD, 'holdingUsd': round(value, 4)}
+
+
+class ChatPost(BaseModel):
+    room: str
+    address: str
+    text: str
+    ts: int
+    signature: str
+    parentId: Optional[str] = None
+
+
+def _chat_message_to_sign(room, address, ts, text):
+    return f'FEELESS chat\nroom:{room}\naddress:{address}\nts:{ts}\nhash:{hashlib.sha256(text.encode()).hexdigest()[:16]}'
+
+
+@app.post('/api/reputation/chat')
+async def chat_post(payload: ChatPost):
+    text = payload.text.strip()
+    if not text or len(text) > 500:
+        raise HTTPException(400, 'Messages must be 1–500 characters.')
+    if not _re.match(r'^[a-z0-9-]{3,120}$', payload.room) and not payload.room.startswith('coin-') and not _re.match(r'^wall-[1-9A-HJ-NP-Za-km-z]{32,44}$', payload.room):
+        raise HTTPException(400, 'Unknown room.')
+    if abs(time.time() - payload.ts) > 120:
+        raise HTTPException(401, 'Signature expired — try again.')
+    if not _verify_solana(payload.address, _chat_message_to_sign(payload.room, payload.address, payload.ts, text), payload.signature):
+        raise HTTPException(401, 'Signature does not match this wallet.')
+    coin = await _room_mint(payload.room)
+    if coin:
+        value = await _holding_usd(payload.address, coin[0])
+        if value < MIN_HOLD_USD:
+            raise HTTPException(403, f'Hold at least ${MIN_HOLD_USD:.0f} of {coin[1]} to chat here (you hold ${value:.2f}).')
+    tokens = []
+    for ca in CA_RE.findall(text)[:2]:
+        try:
+            async with httpx.AsyncClient(timeout=8) as http:
+                r = await http.get(f'https://api.dexscreener.com/latest/dex/search?q={ca}')
+                pairs = sorted((r.json() or {}).get('pairs') or [], key=lambda p: -(((p.get('liquidity') or {}).get('usd')) or 0))
+            if pairs:
+                tokens.append({'address': ca, 'chainId': pairs[0].get('chainId'), 'pairAddress': pairs[0].get('pairAddress'),
+                               'symbol': (pairs[0].get('baseToken') or {}).get('symbol'), 'pair': pairs[0], 'fetched_at': time.time()})
+        except Exception:
+            pass
+    async with _chat_lock:
+        d = _chat_load()
+        last = d['lastTs'].get(payload.address, 0)
+        if payload.ts <= last:
+            raise HTTPException(409, 'Replay rejected — sign a fresh message.')
+        if time.time() - d.get('lastAt', {}).get(payload.address, 0) < 3:
+            raise HTTPException(429, 'Slow down — one message every 3 seconds.')
+        d['lastTs'][payload.address] = payload.ts
+        d.setdefault('lastAt', {})[payload.address] = time.time()
+        msg = {'id': uuid.uuid4().hex[:16], 'room': payload.room, 'address': payload.address, 'chain': 'solana',
+               'username': _display_name(payload.address), 'text': text, 'ts': int(time.time() * 1000),
+               'parentId': payload.parentId, 'mentions': sorted(set(MENTION_RE.findall(text)))[:10], 'tokens': tokens,
+               'profile': {'address': payload.address, 'chain': 'solana'}}
+        room = d['rooms'].setdefault(payload.room, [])
+        room.append(msg)
+        d['rooms'][payload.room] = room[-300:]
+        CHAT_PATH.write_text(json.dumps(d))
+    return {'ok': True, 'message': msg}
+
+
+def chat_system_post(room: str, username: str, address: str, text: str, tokens=None):
+    """Server-authored message (e.g. Fee's calls). Not user-signed; flagged as system."""
+    d = _chat_load()
+    msg = {'id': uuid.uuid4().hex[:16], 'room': room, 'address': address, 'chain': 'solana', 'username': username, 'text': text,
+           'ts': int(time.time() * 1000), 'parentId': None, 'mentions': [], 'tokens': tokens or [], 'system': True,
+           'profile': {'address': address, 'chain': 'solana'}}
+    d['rooms'].setdefault(room, []).append(msg)
+    d['rooms'][room] = d['rooms'][room][-300:]
+    CHAT_PATH.write_text(json.dumps(d))
+    return msg
+
+
+@app.get('/api/reputation/chat/{room}')
+async def chat_room(room: str):
+    msgs = _chat_load()['rooms'].get(room, [])[-120:]
+    return {'room': room, 'messages': msgs}
+
+
+FEE_ADDRESS = 'FEE-LEADER-CAT'
+
+
+class FeeCallPayload(BaseModel):
+    chain: str = 'solana'
+    pairAddress: str
+    text: str
+    registerCall: bool = False
+
+
+INTERNAL_KEY_PATH = DATA_DIR / 'internal.key'
+
+
+def _internal_key():
+    if not INTERNAL_KEY_PATH.exists():
+        INTERNAL_KEY_PATH.write_text(uuid.uuid4().hex + uuid.uuid4().hex)
+        try:
+            os.chmod(INTERNAL_KEY_PATH, 0o600)
+        except OSError:
+            pass
+    return INTERNAL_KEY_PATH.read_text().strip()
+
+
+@app.post('/api/reputation/internal/fee-post')
+async def fee_post(payload: FeeCallPayload, request: Request):
+    """Only the local Fee engine (holder of the on-disk shared secret) may post as Fee."""
+    import hmac
+    if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key()):
+        raise HTTPException(403, 'Internal endpoint.')
+    room = f'coin-{payload.chain}-{payload.pairAddress}-trenches'
+    msg = chat_system_post(room, 'Fee 🐱', FEE_ADDRESS, payload.text[:2000])
+    call_id = None
+    if payload.registerCall:
+        res = await register_call(CallPayload(room=room, messageId=msg['id'], caller='Fee 🐱', callerAddress=FEE_ADDRESS,
+                                               chain=payload.chain, pairAddress=payload.pairAddress, ts=time.time()))
+        call_id = res.get('id')
+    return {'ok': True, 'messageId': msg['id'], 'callId': call_id}
+
+
+_badge_cache: dict = {}
+_fee_assets = {'at': 0, 'mints': {}}
+
+
+async def _ecosystem_mints():
+    if time.time() - _fee_assets['at'] < 600 and _fee_assets['mints']:
+        return _fee_assets['mints']
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            r = await http.get('http://127.0.0.1:5001/api/market/assets')
+            _fee_assets['mints'] = {a['id']: a['mint'] for a in (r.json() or {}).get('assets') or [] if a.get('mint')}
+            _fee_assets['at'] = time.time()
+    except Exception:
+        pass
+    return _fee_assets['mints']
+
+
+@app.get('/api/reputation/badges/{address}')
+async def wallet_badges(address: str):
+    """Automatic, data-backed badges. Every badge states the evidence behind it."""
+    hit = _badge_cache.get(address)
+    if hit and time.time() - hit[0] < 300:
+        return hit[1]
+    badges = []
+    mints = await _ecosystem_mints()
+    labels = {'fee': '$FEE', 'feecat': 'FEECAT', 'rfee': 'rFEE'}
+    for aid, mint in mints.items():
+        try:
+            value = await _holding_usd(address, mint)
+        except Exception:
+            continue
+        if value >= 1:
+            label = labels.get(aid, aid.upper())
+            if aid == 'fee' and value >= 1000:
+                badges.append({'id': 'fee-whale', 'label': '$FEE Whale', 'icon': '🐋', 'tone': 'gold', 'why': f'Holds ${value:,.0f} of $FEE'})
+            badges.append({'id': f'{aid}-holder', 'label': f'{label} Holder', 'icon': '🌿' if aid == 'fee' else '🐱' if aid == 'feecat' else '💠', 'tone': 'mint', 'why': f'Holds ${value:,.2f} of {label}'})
+    try:
+        async with httpx.AsyncClient(timeout=6) as http:
+            leader = (await http.get('http://127.0.0.1:5088/api/cats/leader')).json().get('cat') or {}
+        for pos in leader.get('positions', []):
+            if pos.get('mint') and await _holding_usd(address, pos['mint']) >= 1:
+                badges.append({'id': 'rides-with-fee', 'label': 'Rides with Fee', 'icon': '🐾', 'tone': 'mint', 'why': f"Holds {pos['symbol']}, which Fee is in right now"})
+                break
+    except Exception:
+        pass
+    board = await caller_board(days=30)
+    me = next((r for r in board['rows'] if r.get('callerAddress') == address), None)
+    if me:
+        sharp = me['calls'] >= 5 and me['hitRate'] >= 0.5
+        badges.append({'id': 'caller', 'label': 'Sharp Caller' if sharp else 'Caller', 'icon': '🎯', 'tone': 'gold' if sharp else 'plain',
+                       'why': f"{me['calls']} calls, {round(me['hitRate'] * 100)}% hit 2× (30d)"})
+    creator = _load()['creators'].get(_creator_key('solana', address))
+    if creator:
+        sc = score_creator(creator)
+        if sc['badge'] == 'trusted':
+            badges.append({'id': 'trusted-creator', 'label': 'Trusted Creator', 'icon': '🛡️', 'tone': 'mint', 'why': f"{sc['tokenCount']} launches, none dumped"})
+        elif sc['badge'] == 'flagged':
+            badges.append({'id': 'flagged-creator', 'label': 'Flagged Creator', 'icon': '⚠️', 'tone': 'bad', 'why': f"{sc['dumpedCount'] + sc['ruggedCount']} launches dumped or rugged"})
+    if any(l['wallet'] == address for l in (_load().get('feelessLaunches') or {}).values()):
+        badges.append({'id': 'feeless-launcher', 'label': 'FEELESS Launcher', 'icon': '🚀', 'tone': 'mint', 'why': 'Launched a token on FEELESS (verified on-chain)'})
+    rec = _block_load()['wallets'].get(address)
+    if _is_blocked(rec):
+        badges.append({'id': 'blocklisted', 'label': 'Blocklisted', 'icon': '⛔', 'tone': 'bad', 'why': f"Caught bundling/sniping {len(rec['mints'])} launch(es)"})
+    out = {'address': address, 'badges': badges, 'at': time.time()}
+    _badge_cache[address] = (time.time(), out)
+    return out
 
 
 @app.get('/api/reputation/health')

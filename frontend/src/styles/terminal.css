@@ -1932,3 +1932,56 @@ body.theme-day .trend-card.is-up{background:linear-gradient(160deg,rgba(7,120,79
 body.theme-day :is(.trend-top small,.trend-rank,.trend-stats small,.trend-cards-head small){color:var(--day-muted)!important}
 body.theme-day .trend-go{color:#07784f}body.theme-day .trend-pressure{background:#f0b4c1}body.theme-day .trend-pressure i{background:linear-gradient(90deg,#07784f,#1a9a6a)}
 @media(prefers-reduced-motion:reduce){.trend-card,.trend-card::before{animation:none}}
+.chat-gate{margin:6px 10px 0;padding:6px 10px;border-radius:8px;font-size:11px;background:#e9bd6514;color:var(--gold);border:1px solid #e9bd6540}
+.chat-gate.ok{background:#00e9a010;color:var(--mint);border-color:#00e9a040}
+.chat-mention{color:#5ec8ff;font-weight:600}.chat-mention.is-me{background:#5ec8ff22;border-radius:4px;padding:0 3px}
+.chat-ca{color:var(--mint);font-family:'JetBrains Mono',monospace;font-size:.92em;text-decoration:none;border-bottom:1px dashed #00e9a066}
+body.theme-day .chat-gate{background:#fff4dc;color:#8a5d00;border-color:#e2c27a}body.theme-day .chat-gate.ok{background:#e3f2e8;color:#07784f;border-color:#9fd3b6}
+body.theme-day .chat-mention{color:#1b6fa8}body.theme-day .chat-ca{color:#07784f}
+/* MySpace-for-crypto profile themes */
+.wallet-profile-page{position:relative;padding:14px;border-radius:20px;isolation:isolate}
+.wallet-profile-page::before{content:'';position:absolute;inset:0;border-radius:20px;z-index:-1;opacity:.9}
+.theme-grid::before{background:linear-gradient(#00e9a00d 1px,transparent 1px) 0 0/28px 28px,linear-gradient(90deg,#00e9a00d 1px,transparent 1px) 0 0/28px 28px,radial-gradient(ellipse at top,color-mix(in srgb,var(--wp-accent) 22%,transparent),transparent 60%)}
+.theme-glitter::before{background:radial-gradient(circle,#ffffff55 1px,transparent 1.5px) 0 0/22px 22px,radial-gradient(circle,color-mix(in srgb,var(--wp-accent) 70%,#fff) 1px,transparent 1.6px) 11px 11px/22px 22px,linear-gradient(135deg,#1a0b24,#0b1320);animation:glitter 3s linear infinite}
+@keyframes glitter{50%{filter:brightness(1.6)}}
+.theme-matrix::before{background:repeating-linear-gradient(90deg,transparent 0 18px,#00e9a012 18px 20px),linear-gradient(180deg,#00e9a022,transparent 30%,#00e9a011 60%,transparent);background-size:auto,100% 300%;animation:matrix-rain 6s linear infinite}
+@keyframes matrix-rain{to{background-position:0 0,0 300%}}
+.theme-sunset::before{background:linear-gradient(180deg,#2a0d33 0%,#6b1d3a 40%,#e0673e 75%,#f7b267 100%)}
+.theme-vapor::before{background:linear-gradient(180deg,#120b2e 0%,#3a1a6b 45%,#ff5fb8 100%),linear-gradient(#ff5fb822 1px,transparent 1px) 0 0/40px 40px;background-blend-mode:screen}
+.badge-shelf{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.badge-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:14px;font-size:11px;font-weight:600;border:1px solid}
+.badge-pill i{font-style:normal}
+.tone-mint.badge-pill{color:var(--mint);border-color:#00e9a055;background:#00e9a012}.tone-gold.badge-pill{color:var(--gold);border-color:#e9bd6566;background:#e9bd6514}
+.tone-bad.badge-pill{color:var(--rose);border-color:#fa708c66;background:#fa708c14}.tone-plain.badge-pill{color:var(--paper);border-color:var(--line)}
+.badge-icons{display:inline-flex;gap:2px;margin-left:5px}.badge-icons i{font-style:normal;font-size:12px;cursor:help}
+.fee-system-chip{margin-left:6px;padding:1px 6px;border-radius:5px;font:9px 'JetBrains Mono',monospace;background:#00e9a01a;color:var(--mint);border:1px solid #00e9a055}
+.wp-themes{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:12px}.wp-themes small{color:var(--muted);font-size:11px;margin-right:4px}
+.wp-theme-swatch{padding:5px 10px;border-radius:8px;border:1px solid var(--line);color:#fff;font-size:11px;cursor:pointer}
+.swatch-grid{background:#07130c}.swatch-glitter{background:linear-gradient(135deg,#1a0b24,#0b1320)}.swatch-matrix{background:#021a0e}.swatch-sunset{background:linear-gradient(90deg,#6b1d3a,#e0673e)}.swatch-vapor{background:linear-gradient(90deg,#3a1a6b,#ff5fb8)}
+.wp-theme-swatch.active{box-shadow:0 0 0 2px var(--wp-accent)}
+.wp-friends-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}@media(max-width:700px){.wp-friends-grid{grid-template-columns:repeat(2,1fr)}}
+.wp-friend-wrap{position:relative}
+.wp-friend{display:grid;justify-items:center;gap:5px;padding:10px;border-radius:12px;border:1px solid var(--line);text-decoration:none;color:inherit;transition:transform .15s,border-color .15s}
+.wp-friend:hover{transform:translateY(-3px);border-color:var(--wp-accent)}
+.wp-friend img,.wp-friend i{width:56px;height:56px;border-radius:14px;object-fit:cover;display:grid;place-items:center;background:#ffffff0d;font:700 16px 'JetBrains Mono',monospace;font-style:normal}
+.wp-friend b{font-size:11px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wp-wall .ecosystem-chat{max-height:420px}
+body.theme-day .wallet-profile-page.theme-grid::before{background:linear-gradient(#07784f14 1px,transparent 1px) 0 0/28px 28px,linear-gradient(90deg,#07784f14 1px,transparent 1px) 0 0/28px 28px}
+body.theme-day .tone-mint.badge-pill{color:#07784f;background:#e3f2e8;border-color:#9fd3b6}body.theme-day .tone-gold.badge-pill{color:#8a5d00;background:#fff4dc;border-color:#e2c27a}body.theme-day .tone-bad.badge-pill{color:#b0203f;background:#fdecef;border-color:#e8a0ae}
+body.theme-day .fee-system-chip{background:#e3f2e8;color:#07784f;border-color:#9fd3b6}
+@media(prefers-reduced-motion:reduce){.wallet-profile-page::before{animation:none!important}}
+.qt-gear{margin-left:auto;display:grid;place-items:center;width:28px;height:28px;border-radius:7px;border:1px solid var(--line);background:none;color:var(--muted);cursor:pointer}
+.qt-gear.active,.qt-gear:hover{color:var(--mint);border-color:var(--mint)}
+.qt-head .qt-side{margin-left:6px}
+.qt-settings{display:grid;gap:6px;padding:10px;border-radius:9px;border:1px dashed var(--line);background:#ffffff05}
+.qt-settings>small{font:9px 'JetBrains Mono',monospace;color:var(--muted);letter-spacing:.6px}
+.qt-settings-row{display:grid;grid-template-columns:34px repeat(3,minmax(0,1fr));gap:5px;align-items:center}
+.qt-settings-row span{font:10px 'JetBrains Mono',monospace;color:var(--muted)}
+.qt-settings-row input{min-width:0;min-height:28px;border-radius:6px;border:1px solid var(--line);background:transparent;color:inherit;padding:0 6px;font:11px 'JetBrains Mono',monospace}
+.qt-settings-row:last-child{grid-template-columns:1fr 1fr}.qt-settings-row button{min-height:28px;border-radius:6px;border:1px solid var(--line);background:none;color:var(--muted);cursor:pointer;font-size:11px}
+.qt-settings-done{background:var(--mint)!important;color:#04120b!important;border-color:var(--mint)!important;font-weight:700}
+/* Cleaner quick trade column in the chart card */
+.chart-with-trade .quick-trade{gap:10px;padding:14px}
+.qt-presets{grid-template-columns:repeat(3,minmax(0,1fr))!important}.qt-presets input{grid-column:1/-1}
+body.theme-day :is(.qt-gear,.qt-settings,.qt-settings-row input,.qt-settings-row button){border-color:var(--day-border)!important}
+body.theme-day .qt-settings-done{background:#07784f!important;color:#fff!important}

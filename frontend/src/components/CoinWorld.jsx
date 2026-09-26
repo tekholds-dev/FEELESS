@@ -65,7 +65,7 @@ export default function CoinWorld({ token, onClose }) {
   const livePrice = live?.usd ?? Number(pair?.priceUsd);
   const supplyRatio = pair?.priceUsd && (pair?.marketCap || pair?.fdv) ? (pair.marketCap || pair.fdv) / Number(pair.priceUsd) : null;
   const liveMc = supplyRatio && livePrice ? livePrice * supplyRatio : (pair?.marketCap || pair?.fdv || token.marketCap);
-  const room = `coin-${token.chain}-${(pair?.baseToken?.address || token.address || token.pairAddress).slice(0, 44)}`;
+  const room = `coin-${token.chain}-${pair?.pairAddress || token.pairAddress}`;
   // 24h % = live price against DexScreener's own 24h-ago baseline, so it moves live but stays
   // consistent with every other number on the site.
   const dexCh = Number(pair?.priceChange?.h24 ?? token.change24h);

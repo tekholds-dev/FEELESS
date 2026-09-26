@@ -29,7 +29,7 @@ test('loads an empty coin room and keeps the exact room in the request', async (
 
   await act(async () => {});
 
-  expect(global.fetch).toHaveBeenCalledWith('/api/chat/coin-ethereum-pool-1-bulls', expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  expect(global.fetch).toHaveBeenCalledWith('/api/reputation/chat/coin-ethereum-pool-1-bulls', expect.objectContaining({ signal: expect.any(AbortSignal) }));
   expect(mounted.host.querySelector('[data-testid="chat-empty-coin-ethereum-pool-1-bulls"]')).not.toBeNull();
   act(() => mounted.root.unmount());
 });
@@ -43,6 +43,6 @@ test('shows a retry action when the room provider fails', async () => {
   expect(mounted.host.querySelector('[data-testid="chat-error-coin-solana-pool-2-bears"]')).not.toBeNull();
   expect(mounted.host.querySelector('[data-testid="chat-retry-coin-solana-pool-2-bears"]')).not.toBeNull();
   act(() => mounted.host.querySelector('[data-testid="chat-retry-coin-solana-pool-2-bears"]').click());
-  expect(global.fetch.mock.calls.filter(c => String(c[0]).includes('/api/chat/')).length).toBe(2);
+  expect(global.fetch.mock.calls.filter(c => String(c[0]).startsWith('/api/reputation/chat/coin-')).length).toBe(2);
   act(() => mounted.root.unmount());
 });
