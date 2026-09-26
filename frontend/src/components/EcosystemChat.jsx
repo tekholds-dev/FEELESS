@@ -42,7 +42,7 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
       } catch (e) { if (e.name !== 'AbortError') setError('Chat connection interrupted. Retry the room connection.'); }
       finally { if (!controller.signal.aborted) setLoading(false); }
     };
-    refresh.current = load; load(); const timer = setInterval(load, 4000);
+    refresh.current = load; load(); const timer = setInterval(() => { if (!document.hidden) load(); }, 6000);
     return () => { controller.abort(); clearInterval(timer); };
   }, [room, wallet?.address, wallet?.chain]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (stick.current && scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight; }, [messages]);

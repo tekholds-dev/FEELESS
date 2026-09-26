@@ -3,8 +3,8 @@
 // this is real — not invented — data to fall back to instead of an error banner: every
 // point here was an actual price this app saw, just lower-resolution than real OHLCV.
 const KEY_PREFIX = 'feeless-price-trail:';
-const MAX_POINTS = 400;
-const MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+const MAX_POINTS = 240;
+const MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
 
 function storageKey(pairAddress) {
   return `${KEY_PREFIX}${pairAddress}`;

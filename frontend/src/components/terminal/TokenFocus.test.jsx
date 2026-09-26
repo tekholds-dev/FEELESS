@@ -128,7 +128,7 @@ test('disables unsupported chart metrics instead of estimating them', () => {
   expect(mounted.host.querySelector('[data-testid="selected-token-screener-score"]').textContent).toBe('Unavailable');
   expect(mounted.host.querySelector('[data-testid="selected-token-screener-reasons"]').textContent).toBe('Observed reasons unavailable');
   expect(mounted.host.querySelector('[data-testid="selected-token-ranking-disclosure"]').textContent).toContain('not a recommendation');
-  expect(mounted.host.querySelector('[data-testid="token-analytics-holderConcentration"]').textContent).toContain('Unavailable');
+  expect(mounted.host.querySelector('[data-testid="token-analytics-holders"]').textContent).toContain('Unavailable');
   act(() => mounted.root.unmount());
 });
 

@@ -3,7 +3,8 @@ import useSWR from 'swr';
 import { marketRequest, tokenKey } from '../lib/dexscreener';
 
 export const FEED_CACHE_PREFIX = 'feeless-market-feed:';
-export const FEED_CACHE_TTL = 14 * 24 * 60 * 60 * 1000;
+export const FEED_CACHE_TTL = 24 * 60 * 60 * 1000;
+const FEED_CACHE_MAX_ENTRIES = 20;
 
 function isFeedPath(path) {
   return typeof path === 'string' && (path === '/feed' || path.startsWith('/feed?'));
@@ -33,8 +34,30 @@ export function writeFeedCache(path, data, now = Date.now()) {
   if (!Array.isArray(data?.pairs) || !data.pairs.length) return;
   try {
     localStorage.setItem(`${FEED_CACHE_PREFIX}${path}`, JSON.stringify({ savedAt: now, data }));
+    const entries = Object.keys(localStorage).filter(key => key.startsWith(FEED_CACHE_PREFIX))
+      .map(key => { try { return [key, JSON.parse(localStorage.getItem(key))?.savedAt || 0]; } catch { return [key, 0]; } })
+      .sort((a, b) => b[1] - a[1]);
+    entries.slice(FEED_CACHE_MAX_ENTRIES).forEach(([key]) => localStorage.removeItem(key));
   } catch {
     // A full or unavailable browser cache must never block the live provider request.
+  }
+}
+
+const DEX_CHAIN = { solana: 'solana', ethereum: 'ethereum', base: 'base', bsc: 'bsc', arbitrum: 'arbitrum', avalanche: 'avalanche', polygon: 'polygon', sui: 'sui' };
+
+// Source-of-truth fallback: a coin page must never show "not found" just because the
+// aggregation backend hiccuped — ask DexScreener directly for that exact pair.
+async function directPairLookup(key) {
+  const match = typeof key === 'string' && key.match(/^\/pair\/([^/]+)\/([^/?]+)/);
+  if (!match || !DEX_CHAIN[decodeURIComponent(match[1])] || typeof fetch !== 'function') return null;
+  try {
+    const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/${DEX_CHAIN[decodeURIComponent(match[1])]}/${match[2]}`);
+    if (!res.ok) return null;
+    const body = await res.json();
+    const pairs = body?.pairs || (body?.pair ? [body.pair] : []);
+    return pairs.length ? { pairs, provider: 'DexScreener', primary_provider: 'DexScreener', fetched_at: new Date().toISOString(), stale: false } : null;
+  } catch {
+    return null;
   }
 }
 
@@ -42,7 +65,18 @@ export function useMarket(path, refresh = 90000) {
   const cached = readFeedCache(path);
   const liveDedupe = refresh > 0 && refresh <= 15000 ? 1000 : 20000;
   const fetchMarket = async key => {
-    const result = await marketRequest(key);
+    let result;
+    try {
+      result = await marketRequest(key);
+    } catch (err) {
+      const direct = await directPairLookup(key);
+      if (direct) return direct;
+      throw err;
+    }
+    if (!result?.pairs?.length) {
+      const direct = await directPairLookup(key);
+      if (direct) return direct;
+    }
     writeFeedCache(key, result);
     return result;
   };

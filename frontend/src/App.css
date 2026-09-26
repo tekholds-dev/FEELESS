@@ -47,8 +47,8 @@
   width: clamp(220px, 32vw, 560px);
   aspect-ratio: 1;
   border-radius: 50%;
-  filter: blur(2px);
   mix-blend-mode: screen;
+  will-change: transform;
   opacity: .75;
 }
 
@@ -194,3 +194,57 @@ body.reduced-motion-setting .ambient-background * {
 }
 
 button, a { transition: background-color .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease, transform .2s ease; }
+
+/* Day ambient — a living, light backdrop */
+body.theme-day .ambient-background {
+  background:
+    radial-gradient(60% 50% at 12% 10%, rgba(120, 220, 170, .38), transparent 70%),
+    radial-gradient(50% 45% at 90% 20%, rgba(120, 190, 255, .28), transparent 70%),
+    radial-gradient(55% 50% at 70% 95%, rgba(255, 214, 140, .26), transparent 70%),
+    linear-gradient(160deg, #f4fbf6 0%, #e8f5ee 55%, #eef6fb 100%);
+}
+body.theme-day .ambient-background::before,
+body.theme-day .ambient-background::after {
+  content: '';
+  position: absolute;
+  inset: -30%;
+  pointer-events: none;
+  opacity: .75;
+  will-change: transform;
+  contain: strict;
+}
+body.theme-day .ambient-background::before {
+  background:
+    radial-gradient(30% 25% at 30% 40%, rgba(20, 200, 140, .30), transparent 70%),
+    radial-gradient(25% 22% at 70% 60%, rgba(70, 150, 255, .22), transparent 70%);
+  animation: day-aurora-a 26s ease-in-out infinite alternate;
+}
+body.theme-day .ambient-background::after {
+  background:
+    radial-gradient(28% 24% at 60% 25%, rgba(255, 190, 110, .22), transparent 70%),
+    radial-gradient(26% 22% at 25% 75%, rgba(120, 230, 200, .26), transparent 70%);
+  animation: day-aurora-b 34s ease-in-out infinite alternate;
+}
+body.theme-day .ambient-orb { opacity: .9; filter: none; will-change: transform; }
+body.theme-day .ambient-orb-one { background: radial-gradient(circle, rgba(0, 190, 120, .35), transparent 65%); }
+body.theme-day .ambient-orb-two { background: radial-gradient(circle, rgba(60, 140, 255, .28), transparent 65%); }
+body.theme-day .ambient-grid { opacity: .55; animation: day-grid-drift 40s linear infinite; }
+body.theme-day .ambient-scanline {
+  opacity: .5;
+  background: linear-gradient(100deg, transparent 40%, rgba(255, 255, 255, .55) 50%, transparent 60%);
+  mask-image: none;
+  animation: day-sheen 14s ease-in-out infinite;
+}
+@keyframes day-aurora-a { from { transform: translate3d(-6%, -4%, 0) rotate(0deg); } to { transform: translate3d(8%, 6%, 0) rotate(8deg); } }
+@keyframes day-aurora-b { from { transform: translate3d(6%, 4%, 0) rotate(0deg); } to { transform: translate3d(-8%, -5%, 0) rotate(-10deg); } }
+@keyframes day-grid-drift { from { background-position: 0 0, 0 0; } to { background-position: 0 72px, 72px 0; } }
+@keyframes day-sheen { 0%, 100% { transform: translateX(-60%); } 50% { transform: translateX(60%); } }
+body.reduced-motion-setting.theme-day .ambient-background::before,
+body.reduced-motion-setting.theme-day .ambient-background::after { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  body.theme-day .ambient-background::before, body.theme-day .ambient-background::after { animation: none; }
+}
+/* Let the ambient show through the app chrome in day */
+body.theme-day, html[data-theme="light"] { background: #f4fbf6 !important; }
+body.theme-day .terminal-app, body.theme-day .command-terminal, body.theme-day .terminal-body, body.theme-day .terminal-main { background: transparent !important; }
+body.theme-day .App { background: transparent !important; }

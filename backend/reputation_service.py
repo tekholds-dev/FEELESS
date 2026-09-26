@@ -187,6 +187,27 @@ def _push_feed(store: dict, chain: str, address: str, kind: str, detail: str):
     store['feed'] = store['feed'][:500]
 
 
+DUMP_MIN_AGE = 2 * 3600
+
+
+def token_outcome(t: dict, now: float = None) -> str:
+    """Outcome from live market snapshots: 'dumped', 'dead', or 'alive'. Pump.fun curve coins
+    have no liquidity figure, so market-cap collapse is the reliable signal there."""
+    now = now or time.time()
+    if t.get('status') == 'rugged':
+        return 'dumped'
+    m = t.get('market') or {}
+    age = now - (t.get('firstSeenAt') or now)
+    if not m.get('checkedAt'):
+        return 'unknown'
+    if not m.get('listed'):
+        return 'dead' if age > 24 * 3600 else 'unknown'
+    mc, peak, ch = m.get('marketCap') or 0, m.get('peakMarketCap') or 0, m.get('change24h')
+    if age >= DUMP_MIN_AGE and ((peak > 0 and mc <= peak * 0.3) or (ch is not None and ch <= -70) or (mc and mc < 2000 and age > 6 * 3600)):
+        return 'dumped'
+    return 'alive'
+
+
 def score_creator(entry: dict) -> dict:
     tokens = entry.get('tokens', {})
     total = len(tokens)
@@ -195,29 +216,39 @@ def score_creator(entry: dict) -> dict:
     renounced = sum(1 for t in tokens.values() if t.get('authorityRenounced'))
     symbols = [(t.get('symbol') or '').strip().upper() for t in tokens.values()]
     distinct = len({s for s in symbols if s}) or (1 if total else 0)
-    # Re-launching the same ticker over and over is spam/clone behavior, not a track record.
     clones = max(0, total - distinct)
+    now = time.time()
+    outcomes = [token_outcome(t, now) for t in tokens.values()]
+    dumped = outcomes.count('dumped')
+    dead = outcomes.count('dead')
+    judged = sum(1 for o in outcomes if o != 'unknown')
+    alive_big = sum(1 for t in tokens.values() if token_outcome(t, now) == 'alive' and ((t.get('market') or {}).get('marketCap') or 0) >= 100_000)
 
     score = 50
     score += min(distinct, 10) * 3
     score += min(sustained, 6) * 8
-    score += min(renounced, 6) * 2
+    score += min(alive_big, 5) * 6
+    score += min(renounced, 6) * 1
     score -= min(clones, 6) * 6
+    score -= min(dumped, 8) * 12
+    score -= min(dead, 6) * 4
     score -= min(rugged, 6) * 40
     score = max(0, min(100, score))
 
-    if rugged > 0:
+    serial_dumper = dumped >= 3 and judged and dumped / judged >= 0.5
+    if rugged > 0 or serial_dumper:
         badge = 'flagged'
     elif total == 0:
         badge = 'unproven'
-    elif sustained > 0 or (distinct >= 3 and clones == 0):
+    elif dumped == 0 and clones == 0 and (sustained > 0 or alive_big > 0 or (distinct >= 3 and judged >= 3 and dead == 0)):
         badge = 'trusted'
     else:
         badge = 'building'
 
     return {
         'score': score, 'badge': badge, 'tokenCount': total, 'distinctTickers': distinct, 'cloneCount': clones,
-        'ruggedCount': rugged, 'sustainedCount': sustained, 'renouncedCount': renounced,
+        'ruggedCount': rugged, 'dumpedCount': dumped, 'deadCount': dead, 'judgedCount': judged, 'bigWinners': alive_big,
+        'serialDumper': bool(serial_dumper), 'sustainedCount': sustained, 'renouncedCount': renounced,
     }
 
 
@@ -367,6 +398,15 @@ def trust_verdict(scoring: dict, tokens: list, linked: list) -> dict:
     if scoring['ruggedCount']:
         reasons.append(('bad', f"{scoring['ruggedCount']} token(s) lost 80%+ of peak liquidity after launch (confirmed rug pattern)."))
         bad += 3
+    if scoring.get('serialDumper'):
+        reasons.append(('bad', f"Serial dumper: {scoring['dumpedCount']} of {scoring['judgedCount']} launches collapsed 70%+ from their peak or died under $2K market cap."))
+        bad += 4
+    elif scoring.get('dumpedCount'):
+        reasons.append(('bad', f"{scoring['dumpedCount']} launch(es) collapsed 70%+ after launch."))
+        bad += 1 + scoring['dumpedCount']
+    if scoring.get('bigWinners'):
+        reasons.append(('good', f"{scoring['bigWinners']} launch(es) are alive above $100K market cap right now."))
+        good += 2
     if scoring['cloneCount'] >= 2:
         reasons.append(('bad', f"Relaunched the same ticker {scoring['cloneCount']} extra times — clone/spam behavior."))
         bad += 2
@@ -394,7 +434,7 @@ def trust_verdict(scoring: dict, tokens: list, linked: list) -> dict:
         reasons.append(('neutral', f"Shares a funding wallet with {len(linked)} other tracked creator(s) — likely one operator."))
     if scoring['tokenCount'] < 3 and not scoring['sustainedCount']:
         reasons.append(('neutral', 'Short history — not enough launches yet to judge reliably.'))
-    if bad >= 3 or scoring['ruggedCount']:
+    if bad >= 3 or scoring['ruggedCount'] or scoring.get('serialDumper'):
         level, label = 'avoid', 'High risk — avoid'
     elif bad:
         level, label = 'caution', 'Caution'
@@ -403,6 +443,47 @@ def trust_verdict(scoring: dict, tokens: list, linked: list) -> dict:
     else:
         level, label = 'unknown', 'Not enough evidence'
     return {'level': level, 'label': label, 'reasons': [{'tone': t, 'text': x} for t, x in reasons]}
+
+
+def _apply_markets(entry: dict, markets: dict):
+    now = time.time()
+    for t in entry.get('tokens', {}).values():
+        info = markets.get(t.get('baseTokenAddress'))
+        if info is None:
+            continue
+        prev = t.get('market') or {}
+        mc = info.get('marketCap') or 0
+        t['market'] = {**info, 'checkedAt': now, 'peakMarketCap': max(prev.get('peakMarketCap') or 0, mc)}
+
+
+async def _refresh_all_markets():
+    """Background: keep every tracked launch's market outcome fresh so scores reflect reality."""
+    while True:
+        try:
+            store = _load()
+            by_chain = {}
+            for entry in store['creators'].values():
+                for t in entry['tokens'].values():
+                    if t.get('baseTokenAddress'):
+                        by_chain.setdefault(entry['chain'], []).append(t['baseTokenAddress'])
+            for chain, mints in by_chain.items():
+                for i in range(0, len(mints), 300):
+                    markets = await fetch_token_markets(chain, mints[i:i + 300])
+                    async with _lock:
+                        st = _load()
+                        for entry in st['creators'].values():
+                            if entry['chain'] == chain:
+                                _apply_markets(entry, markets)
+                        _save(st)
+                    await asyncio.sleep(2)
+        except Exception:
+            pass
+        await asyncio.sleep(300)
+
+
+@app.on_event('startup')
+async def _start_background():
+    asyncio.create_task(_refresh_all_markets())
 
 
 @app.get('/api/reputation/creator/{chain}/{address}')
@@ -446,7 +527,14 @@ async def creator_profile(chain: str, address: str):
     tokens = sorted(entry['tokens'].values(), key=lambda t: -(t.get('firstSeenAt') or 0))
     mints = [t['baseTokenAddress'] for t in tokens if t.get('baseTokenAddress')]
     markets = await fetch_token_markets(chain, mints) if mints else {}
-    enriched = [{**t, 'market': markets.get(t.get('baseTokenAddress'))} for t in tokens]
+    async with _lock:
+        store3 = _load()
+        live = store3['creators'].get(ckey) or entry
+        _apply_markets(live, markets)
+        _save(store3)
+        entry = live
+    tokens = sorted(entry['tokens'].values(), key=lambda t: -(t.get('firstSeenAt') or 0))
+    enriched = [{**t, 'outcome': token_outcome(t)} for t in tokens]
     scoring = score_creator(entry)
     return {**entry, 'tokens': {t['pairAddress']: t for t in enriched}, 'tokenList': enriched, 'scoring': scoring,
             'verdict': trust_verdict(scoring, enriched, linked),
@@ -475,22 +563,22 @@ async def leaderboard(chain: Optional[str] = Query(None), view: str = Query('tru
         })
 
     if view == 'flagged':
-        rows = [r for r in rows if r['ruggedCount'] > 0]
-        rows.sort(key=lambda r: (-r['ruggedCount'], -r['tokenCount']))
+        rows = [r for r in rows if r['badge'] == 'flagged' or r['dumpedCount'] >= 2]
+        rows.sort(key=lambda r: (-r['ruggedCount'], -r['dumpedCount'], -r['tokenCount']))
     elif view == 'serial':
         # Highest launch volume, regardless of outcome — the wallets flooding the market.
         rows = [r for r in rows if r['tokenCount'] >= 2]
         rows.sort(key=lambda r: (-r['tokenCount'], -r['ruggedCount']))
     elif view == 'rising':
         # New creators (first seen recently) already showing a clean, decent score.
-        rows = [r for r in rows if r['ruggedCount'] == 0 and (now - r['firstSeen']) <= RISING_WINDOW_SECONDS]
+        rows = [r for r in rows if r['badge'] != 'flagged' and r['dumpedCount'] == 0 and (now - r['firstSeen']) <= RISING_WINDOW_SECONDS]
         rows.sort(key=lambda r: (-r['score'], r['firstSeen']))
     elif view == 'active':
-        rows = [r for r in rows if r['ruggedCount'] == 0]
+        rows = [r for r in rows if r['badge'] != 'flagged']
         rows.sort(key=lambda r: -r['lastSeen'])
     else:
-        rows = [r for r in rows if r['ruggedCount'] == 0]
-        rows.sort(key=lambda r: (-r['score'], -r['tokenCount']))
+        rows = [r for r in rows if r['badge'] != 'flagged' and r['dumpedCount'] == 0]
+        rows.sort(key=lambda r: (r['badge'] != 'trusted', -r['score'], -r['tokenCount']))
 
     return {
         'rows': rows[:50], 'view': view,
@@ -645,11 +733,11 @@ async def case_studies(limit: int = Query(6, ge=1, le=20)):
     for entry in store['creators'].values():
         rugged = [t for t in entry['tokens'].values() if t.get('status') == 'rugged']
         scoring = score_creator(entry)
-        if not rugged and scoring['cloneCount'] < 3:
+        if not rugged and scoring['cloneCount'] < 3 and not scoring.get('serialDumper'):
             continue
         cases.append({
             'chain': entry['chain'], 'address': entry['address'], **scoring,
-            'kind': 'rug' if rugged else 'clone-farm',
+            'kind': 'rug' if rugged else 'dumper' if scoring.get('serialDumper') else 'clone-farm',
             'tickers': sorted({(t.get('symbol') or '?') for t in entry['tokens'].values()}),
             'rugged': [{'symbol': t.get('symbol'), 'pairAddress': t['pairAddress'], 'peakLiquidityUsd': t.get('peakLiquidityUsd'),
                         'lastLiquidityUsd': t.get('lastLiquidityUsd'), 'firstSeenAt': t.get('firstSeenAt'), 'lastCheckedAt': t.get('lastCheckedAt')} for t in rugged],
@@ -683,6 +771,143 @@ async def roadmap_vote(payload: VotePayload):
             voters.append(payload.wallet)
         _save(store)
         return {'itemId': payload.itemId, 'count': len(voters), 'voted': payload.wallet in voters}
+
+
+UPLOAD_DIR = DATA_DIR / 'uploads'
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_TYPES = {'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif'}
+
+
+class UploadPayload(BaseModel):
+    dataUrl: str
+
+
+@app.post('/api/reputation/uploads')
+async def upload_image(payload: UploadPayload):
+    """Token images for launches. Browser resizes first; we only accept small real images."""
+    import base64
+    import re
+    m = re.match(r'^data:(image/(?:png|jpeg|webp|gif));base64,([A-Za-z0-9+/=]+)$', payload.dataUrl or '')
+    if not m:
+        raise HTTPException(400, 'Only PNG, JPG, WEBP or GIF images are supported.')
+    raw = base64.b64decode(m.group(2))
+    if len(raw) > 2_000_000:
+        raise HTTPException(413, 'Image must be under 2 MB.')
+    sig = raw[:12]
+    if not (sig.startswith(b'\x89PNG') or sig.startswith(b'\xff\xd8') or sig[:4] == b'RIFF' or sig[:3] == b'GIF'):
+        raise HTTPException(400, 'File is not a valid image.')
+    name = f"{uuid.uuid4().hex}.{UPLOAD_TYPES[m.group(1)]}"
+    (UPLOAD_DIR / name).write_bytes(raw)
+    return {'url': f'/api/reputation/uploads/{name}'}
+
+
+@app.get('/api/reputation/uploads/{name}')
+async def get_upload(name: str):
+    from fastapi.responses import FileResponse
+    import re
+    if not re.match(r'^[a-f0-9]{32}\.(png|jpg|webp|gif)$', name):
+        raise HTTPException(404, 'Not found')
+    path = UPLOAD_DIR / name
+    if not path.exists():
+        raise HTTPException(404, 'Not found')
+    return FileResponse(path, headers={'Cache-Control': 'public, max-age=31536000, immutable'})
+
+
+_intel_cache: dict = {}
+INTEL_TTL = 180
+SYSTEM_PROGRAM = '11111111111111111111111111111111'
+
+
+@app.get('/api/reputation/intel/{chain}/{mint}')
+async def token_intel(chain: str, mint: str):
+    """On-chain launch forensics for a token: bundles, snipers, holder concentration, dev bag.
+    Bundled = distinct wallets (not the creator) buying in the mint's creation slot.
+    Snipers  = distinct wallets buying within the next 3 slots (~1.2s)."""
+    if chain != 'solana':
+        raise HTTPException(400, 'On-chain forensics currently cover Solana.')
+    hit = _intel_cache.get(mint)
+    if hit and time.time() - hit[0] < INTEL_TTL:
+        return hit[1]
+    out = {'mint': mint, 'checkedAt': time.time()}
+    async with httpx.AsyncClient(timeout=12) as http:
+        supply_res, largest = await asyncio.gather(
+            _rpc(http, 'getTokenSupply', [mint]), _rpc(http, 'getTokenLargestAccounts', [mint]), return_exceptions=True)
+        supply = float(((supply_res or {}).get('value') or {}).get('uiAmount') or 0) if isinstance(supply_res, dict) else 0
+        holders = ((largest or {}).get('value') or []) if isinstance(largest, dict) else []
+        owners = {}
+        if holders:
+            accs = await _rpc(http, 'getMultipleAccounts', [[h['address'] for h in holders], {'encoding': 'jsonParsed'}])
+            for h, a in zip(holders, (accs or {}).get('value') or []):
+                info = (((a or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
+                owners[h['address']] = info.get('owner')
+            owner_list = [o for o in owners.values() if o]
+            kinds = {}
+            if owner_list:
+                oaccs = await _rpc(http, 'getMultipleAccounts', [owner_list, {'encoding': 'base64'}])
+                for o, a in zip(owner_list, (oaccs or {}).get('value') or []):
+                    # Wallets are system-owned (or don't exist yet); pools/curves are program-owned PDAs.
+                    kinds[o] = 'wallet' if (a is None or a.get('owner') == SYSTEM_PROGRAM) else 'program'
+        rows = []
+        for h in holders:
+            owner = owners.get(h['address'])
+            amt = float(h.get('uiAmount') or 0)
+            rows.append({'owner': owner, 'amount': amt, 'pct': (amt / supply * 100) if supply else None,
+                         'kind': kinds.get(owner, 'wallet') if owner else 'unknown'})
+        wallets = [r for r in rows if r['kind'] == 'wallet']
+        out['supply'] = supply
+        out['topHolders'] = rows[:12]
+        out['top10Pct'] = round(sum(r['pct'] or 0 for r in wallets[:10]), 2) if supply else None
+        out['poolPct'] = round(sum(r['pct'] or 0 for r in rows if r['kind'] == 'program'), 2) if supply else None
+
+        sigs = await _rpc(http, 'getSignaturesForAddress', [mint, {'limit': 1000}]) or []
+        creator, bundled, snipers = None, set(), set()
+        if sigs:
+            oldest = sorted(sigs, key=lambda x: (x.get('slot') or 0))[:40]
+            create_slot = oldest[0].get('slot')
+            early = [x for x in oldest if (x.get('slot') or 0) <= create_slot + 3 and not x.get('err')][:25]
+            sem = asyncio.Semaphore(6)
+
+            async def fetch(sig):
+                async with sem:
+                    try:
+                        return await _rpc(http, 'getTransaction', [sig['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}])
+                    except Exception:
+                        return None
+            txs = await asyncio.gather(*(fetch(x) for x in early))
+            for tx in sorted([t for t in txs if t], key=lambda t: t.get('slot') or 0):
+                keys = ((tx.get('transaction') or {}).get('message') or {}).get('accountKeys') or []
+                payer = keys[0].get('pubkey') if keys and isinstance(keys[0], dict) else (keys[0] if keys else None)
+                if not payer:
+                    continue
+                if creator is None:
+                    creator = payer
+                    continue
+                if payer == creator:
+                    continue
+                (bundled if tx.get('slot') == create_slot else snipers).add(payer)
+            snipers -= bundled
+            out['createSlot'] = create_slot
+            out['historyComplete'] = len(sigs) < 1000
+        out['creator'] = creator
+        out['bundledWallets'] = sorted(bundled)
+        out['sniperWallets'] = sorted(snipers)
+        insiders = bundled | snipers
+        out['insidersHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] in insiders), 2) if supply else None
+        out['devHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] == creator), 2) if supply and creator else None
+    flags = []
+    if len(out['bundledWallets']) >= 3:
+        flags.append(f"{len(out['bundledWallets'])} wallets bought in the same block as the mint — a bundled launch.")
+    if len(out['sniperWallets']) >= 5:
+        flags.append(f"{len(out['sniperWallets'])} wallets sniped within ~1 second of launch.")
+    if (out.get('insidersHoldingPct') or 0) >= 10:
+        flags.append(f"Bundlers/snipers still hold {out['insidersHoldingPct']}% of supply among the top holders.")
+    if (out.get('top10Pct') or 0) >= 35:
+        flags.append(f"Top 10 wallets hold {out['top10Pct']}% of supply (excluding pools).")
+    if (out.get('devHoldingPct') or 0) >= 5:
+        flags.append(f"Creator still holds {out['devHoldingPct']}% of supply.")
+    out['flags'] = flags
+    _intel_cache[mint] = (time.time(), out)
+    return out
 
 
 @app.get('/api/reputation/health')
