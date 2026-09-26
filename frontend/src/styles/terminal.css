@@ -2325,3 +2325,41 @@ body.reduced-motion-setting :is(.heartbeat-mark,.heartbeat-mark::before,.heartbe
 .sd-prof{font-size:10px;color:#5ec8ff;border:1px solid #5ec8ff55;border-radius:999px;padding:1px 7px;margin-right:4px}
 @media (max-width:700px){.cp-head{margin-top:-40px}.cp-logo{width:84px;height:84px}.cp-id{padding-top:0}}
 .cc-spark{display:flex;align-items:flex-end;gap:3px;height:90px}.cc-spark i{flex:1;min-height:2px;border-radius:3px 3px 0 0;background:linear-gradient(180deg,#00e9a0,#00e9a033)}
+/* Coin profile polish */
+.coin-profile{max-width:100%;overflow:hidden}
+.cp-banner{width:100%;background-size:cover!important;background-position:center!important;background-repeat:no-repeat}
+.cp-head{padding-right:22px}.cp-head .wp-flip-btn{margin-left:auto;flex-shrink:0}
+.cp-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
+.cp-trade{grid-template-columns:70px 90px 1fr;padding:6px 8px;border-radius:8px;text-decoration:none;color:inherit}.cp-trade:hover{background:#ffffff08}.cp-trade small{text-align:right}
+.cp-trade.whale{background:rgba(245,197,66,.08);box-shadow:inset 3px 0 0 #f5c542}.cp-wallet{color:var(--mint);cursor:pointer}.cp-wallet:hover{text-decoration:underline}
+.cp-trade.buy{animation:flr-in .4s ease}
+/* ===== Day mode for every new surface ===== */
+body.theme-day :is(.coin-profile,.fcp,.live-intel){background:linear-gradient(180deg,#ffffffee,#f1f8f4ee)!important;border-color:var(--day-border)!important;color:#173b2b}
+body.theme-day :is(.cp-card,.fcp-kpis span,.fcp-params span,.fcp-trade,.fcp-exit,.fcp-pos,.li-cell,.cc-block,.cc-kpis span,.cc-drop,.cc-bug,.wpj-badge,.wpp-tier,.wp-onchain span,.wpa-row,.cp-links a,.invite-recent a,.wallet-networks button,.wp-ring-opt,.fcp-tabs button,.cc-tabs button){border-color:var(--day-border)!important;background:#ffffffcc!important;color:#173b2b}
+body.theme-day :is(.cp-kv span,.cp-card h4,.fcp-id span,.li-cell small,.cc-block h4,.fcp-trade small,.cp-trade small,.wpa-room,.wpa-row time,.cc-sig span,.wp-onchain small){color:var(--day-muted)!important}
+body.theme-day :is(.cp-msg p,.fcp-trade p,.cc-note){color:#173b2b!important}
+body.theme-day .cp-logo{box-shadow:0 0 0 4px #e8f0ea,0 0 24px rgba(8,118,78,.25)}
+body.theme-day .cp-banner{background-color:#dcebe1}
+body.theme-day .cp-trade.whale{background:#fff4dc!important}
+body.theme-day .li-cell.tone-bad b{color:#b0203f}body.theme-day .li-cell.tone-mint b{color:#07784f}body.theme-day .li-cell.tone-gold b{color:#9a6b00}
+body.theme-day .cc-shell{color:#173b2b}body.theme-day .cc-tabs button.active,body.theme-day .fcp-tabs button.active{background:#e3f2e8!important;color:#073d2a!important;border-color:#07784f!important}
+body.theme-day .cc-th{color:var(--day-muted)}body.theme-day .cc-tr{border-color:var(--day-border)}body.theme-day .cc-tr a{color:#07784f}
+body.theme-day :is(.cc-toolbar,.cc-selbar,.cc-drop-actions,.cc-award-form,.cc-bug,.cc-studio .cc-block) :is(button:not(.btn-primary),select,input,textarea){background:#fff!important;color:#173b2b!important;border-color:var(--day-border)!important}
+body.theme-day .ad-banner{background:linear-gradient(100deg,#fff4dc,#e3f2e8);border-color:#e2c27a}body.theme-day .ad-banner a span{color:var(--day-muted)}body.theme-day .ad-tag{color:#8a5d00;border-color:#e2c27a}
+body.theme-day .invite-link code{background:#e3f2e8;color:#07784f;border-color:#9fd3b6}
+body.theme-day .pad-fallback{background:#e3f2e8;color:#173b2b;border-color:#9fd3b6}
+body.theme-day .wallet-link{color:#173b2b}body.theme-day .wallet-networks button.active{background:#e3f2e8!important;color:#07784f!important;border-color:#07784f!important}
+body.theme-day .wp-handle{color:#1667a8}body.theme-day .chat-handle{color:var(--day-muted)}
+body.theme-day .fcp-id h2,body.theme-day .cp-id h1{color:#0b2a1d}
+/* profile themes in day: light tints instead of dark fills */
+body.theme-day .wallet-profile-page.theme-grid{background:linear-gradient(180deg,#eef8f2,#dff0e6)}
+body.theme-day .wallet-profile-page.theme-glitter{background:linear-gradient(160deg,#f6e8ff,#ffe6f3)}
+body.theme-day .wallet-profile-page.theme-matrix{background:linear-gradient(180deg,#e2f7e7,#cfeed8)}
+body.theme-day .wallet-profile-page.theme-sunset{background:linear-gradient(170deg,#ffe3e6,#fff0dc 55%,#f1e6ff)}
+body.theme-day .wallet-profile-page.theme-vapor{background:linear-gradient(160deg,#ece6ff,#dff6ff 55%,#ffe6fb)}
+body.theme-day .wallet-profile-page.theme-goldrush{background:linear-gradient(170deg,#fff5d6,#fdecc0)}
+body.theme-day .wallet-profile-page.theme-neoncat{background:linear-gradient(160deg,#f3e6ff,#e0fbff 60%,#ffe6f7)}
+body.theme-day .wallet-profile-page .wp-card{background:#ffffffcc!important}
+body.theme-day .wp-id h1:not([class*="namefx-g"]):not(.namefx-rainbow):not(.namefx-diamond){color:#0b2a1d}
+body.theme-day .artifact-coin .face{color:inherit}
+body.theme-day .heartbeat-mark{filter:drop-shadow(0 0 16px rgba(8,118,78,.35))}
