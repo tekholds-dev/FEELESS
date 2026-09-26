@@ -14,6 +14,9 @@ import { ReceiptsCard } from './ReceiptsCard';
 import { CommandCenter, ReportBug } from './CommandCenter';
 import { OnchainStrip, PerksCard, SetupCallout, usePerks } from './ProfileExtras';
 
+const RINGS = [['none', 'Classic', 0], ['mint', 'Mint pulse', 0], ['sunset', 'Sunset', 0], ['ocean', 'Ocean', 0], ['candy', 'Candy', 0], ['neon', 'Neon', 0], ['ghost', 'Ghost', 0], ['emerald', 'Emerald', 1], ['plasma', 'Plasma', 1], ['diamond', 'Diamond', 2], ['aurora', 'Aurora', 2], ['gold', 'Molten Gold', 3], ['royal', 'Royal', 3]];
+const NAMEFX = [['none', 'Plain', 0], ['glow', 'Glow', 0], ['gradient', 'Gradient', 0], ['rainbow', 'Rainbow', 1], ['diamond', 'Diamond', 2], ['gold', 'Gold', 3]];
+const TIER_NAMES = ['', 'Fee Friend ($10+)', 'Fee Insider ($100+)', 'Fee Whale ($1k+)'];
 const THEMES = [['grid', 'Midnight grid'], ['glitter', 'Glitter'], ['matrix', 'Matrix rain'], ['sunset', 'Sunset'], ['vapor', 'Vaporwave'], ['goldrush', 'Gold Rush', 1], ['neoncat', 'Neon Cat', 1]];
 
 function FriendCard({ address }) {
@@ -75,7 +78,7 @@ export function WalletProfilePage({ address }) {
   const p = (edit ? draft : data?.profile) || {};
   const accent = p.accent || '#00e9a0';
   const set = (k, v) => setDraft(d => ({ ...d, [k]: v }));
-  const startEdit = () => { setDraft({ displayName: '', bio: '', mood: '', accent: '#00e9a0', links: {}, top8: [], theme: 'grid', friends: [], featuredBadges: [], ...(data?.profile || {}) }); setEdit(true); };
+  const startEdit = () => { setDraft({ displayName: '', bio: '', mood: '', accent: '#00e9a0', links: {}, top8: [], theme: 'grid', friends: [], featuredBadges: [], ring: 'none', nameFx: 'none', ...(data?.profile || {}) }); setEdit(true); };
   const addCoin = coin => setDraft(d => (d.top8.some(t => t.pairAddress === coin.pairAddress) || d.top8.length >= 8 ? d : { ...d, top8: [...d.top8, coin] }));
   const addByCa = async () => {
     try {
@@ -104,9 +107,9 @@ export function WalletProfilePage({ address }) {
   return <div className={`wallet-profile-page theme-${p.theme || 'grid'} ptier-${tier}`} style={{ '--wp-accent': accent }} data-testid="wallet-profile-page">
     <div className="wp-banner" style={p.bannerUrl ? { backgroundImage: `url(${p.bannerUrl})` } : undefined}>{edit && <UploadButton label="Banner" max={1600} onDone={url => set('bannerUrl', url)} />}</div>
     <div className="wp-head">
-      <div className="wp-avatar-wrap">{tier >= 3 && <div className="wp-crown" aria-hidden="true"><span>👑</span></div>}<div className="wp-avatar">{p.avatarUrl ? <img src={p.avatarUrl} alt="" /> : <span>{(p.displayName || address).slice(0, 2).toUpperCase()}</span>}{edit && <UploadButton label="GIF / pic" max={512} onDone={url => set('avatarUrl', url)} />}</div></div>
+      <div className="wp-avatar-wrap">{tier >= 3 && <div className="wp-crown" aria-hidden="true"><span>👑</span></div>}<div className={`wp-avatar ring-${p.ring || 'none'}`}>{p.avatarUrl ? <img src={p.avatarUrl} alt="" /> : <span>{(p.displayName || address).slice(0, 2).toUpperCase()}</span>}{edit && <UploadButton label="GIF / pic" max={512} onDone={url => set('avatarUrl', url)} />}</div></div>
       <div className="wp-id">
-        {edit ? <input className="wp-name-input" maxLength={32} placeholder="Display name" value={draft.displayName} onChange={e => set('displayName', e.target.value)} /> : <h1>{p.displayName || shortAddress(address)}</h1>}
+        {edit ? <input className="wp-name-input" maxLength={32} placeholder="Display name" value={draft.displayName} onChange={e => set('displayName', e.target.value)} /> : <h1 className={`namefx-${p.nameFx || 'none'}`}>{p.displayName || shortAddress(address)}</h1>}
         <code>{shortAddress(address)}</code>
         <Badges address={address} featured={p.featuredBadges} />
         <OnchainStrip address={address} />
@@ -123,6 +126,12 @@ export function WalletProfilePage({ address }) {
         {edit ? <div className="wp-links-edit">{[['x', 'https://x.com/you'], ['website', 'https://yoursite.xyz'], ['telegram', 'https://t.me/you']].map(([k, ph]) => <input key={k} placeholder={ph} value={draft.links?.[k] || ''} onChange={e => set('links', { ...draft.links, [k]: e.target.value })} />)}</div>
           : <div className="wp-links">{p.links?.x && <a href={p.links.x} target="_blank" rel="noopener noreferrer"><XIcon />X</a>}{p.links?.website && <a href={p.links.website} target="_blank" rel="noopener noreferrer"><Globe size={13} />Website</a>}{p.links?.telegram && <a href={p.links.telegram} target="_blank" rel="noopener noreferrer"><Send size={13} />Telegram</a>}</div>}
         {edit && earned.length > 0 && <div className="wp-feature-pick" data-testid="feature-pick"><small>Featured badges — pick up to 3 (they spin on your profile and lead in chat)</small><div>{earned.map(b => { const on = (draft.featuredBadges || []).includes(b.id); return <button type="button" key={b.id} className={`badge-pill tone-${b.tone} ${on ? 'is-featured' : ''}`} disabled={!on && (draft.featuredBadges || []).length >= 3} onClick={() => set('featuredBadges', on ? draft.featuredBadges.filter(x => x !== b.id) : [...(draft.featuredBadges || []), b.id])}><i>{b.icon}</i>{b.label}{on && ` · ${(draft.featuredBadges || []).indexOf(b.id) + 1}`}</button>; })}</div></div>}
+        {edit && <div className="wp-style-shop" data-testid="style-shop">
+          <small>Avatar ring — free styles for everyone, animated premium styles for $FEE holders</small>
+          <div className="wp-rings">{RINGS.map(([id, label, need]) => <button type="button" key={id} disabled={need > tier} title={need > tier ? `${TIER_NAMES[need]} style` : label} className={`wp-ring-opt ${draft.ring === id ? 'active' : ''} ${need ? 'premium' : ''}`} onClick={() => set('ring', id)}><span className={`ring-demo ring-${id}`}><i /></span><b>{need > tier ? '🔒 ' : need ? '✦ ' : ''}{label}</b></button>)}</div>
+          <small>Name effect</small>
+          <div className="wp-rings">{NAMEFX.map(([id, label, need]) => <button type="button" key={id} disabled={need > tier} className={`wp-ring-opt ${draft.nameFx === id ? 'active' : ''} ${need ? 'premium' : ''}`} onClick={() => set('nameFx', id)}><b className={`namefx-${id}`}>{need > tier ? '🔒 ' : ''}{label}</b></button>)}</div>
+        </div>}
         {edit && <div className="wp-themes"><small>Theme</small>{THEMES.map(([id, label, need = 0]) => <button type="button" key={id} disabled={need > tier} title={need > tier ? 'Fee Friend perk — hold $10+ of $FEE' : label} className={`wp-theme-swatch swatch-${id} ${draft.theme === id ? 'active' : ''}`} onClick={() => set('theme', id)}>{need > tier ? '🔒 ' : ''}{label}</button>)}</div>}
         {edit && <div className="wp-accents"><small>Accent</small>{ACCENTS.map(c => <button type="button" key={c} style={{ background: c }} className={draft.accent === c ? 'active' : ''} onClick={() => set('accent', c)} aria-label={`Accent ${c}`} />)}</div>}
       </section>

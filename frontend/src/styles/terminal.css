@@ -2168,3 +2168,43 @@ body.theme-day .artifact.tone-gold{color:#b8860b}body.theme-day .artifact.tone-m
 .wallet-networks{display:grid;gap:6px;margin:10px 0}.wallet-networks small{color:var(--muted);font-size:11px}.wallet-networks>div{display:flex;flex-wrap:wrap;gap:5px}
 .wallet-networks button{padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:none;color:inherit;font-size:11.5px;cursor:pointer}.wallet-networks button.active{border-color:var(--mint);background:rgba(0,233,160,.14);color:var(--mint)}
 .wallet-link{display:grid;gap:8px;padding:10px;border-radius:10px;border:1px dashed rgba(245,197,66,.5);font-size:12px;margin-bottom:8px}.wallet-link.ok{border-style:solid;border-color:rgba(0,233,160,.5);color:var(--mint)}
+/* ===== Profile style shop: avatar rings + name effects ===== */
+.wp-avatar[class*="ring-"]:not(.ring-none),.ring-demo{border:4px solid transparent!important;background:linear-gradient(#07110c,#07110c) padding-box,var(--ring) border-box!important;animation:aurora-spin var(--ring-speed,6s) linear infinite}
+.ring-mint{--ring:conic-gradient(from var(--ang,0deg),#00e9a0,#7df9d0,#00b37a,#00e9a0);--ring-speed:5s}
+.wp-avatar.ring-mint{box-shadow:0 0 22px rgba(0,233,160,.45)!important;animation:aurora-spin 5s linear infinite,ring-pulse 2.4s ease-in-out infinite}
+.ring-sunset{--ring:conic-gradient(from var(--ang,0deg),#ff6b8b,#ff9f45,#ffd166,#ff6b8b)}
+.ring-ocean{--ring:conic-gradient(from var(--ang,0deg),#1fb6ff,#00e9a0,#3a7bff,#1fb6ff);--ring-speed:8s}
+.ring-candy{--ring:conic-gradient(from var(--ang,0deg),#ff7ad9,#9b8cff,#6ee7ff,#ff7ad9);--ring-speed:5s}
+.ring-neon{--ring:conic-gradient(from var(--ang,0deg),#39ff14,#00f0ff,#ff00e6,#39ff14);--ring-speed:3s}
+.wp-avatar.ring-neon{box-shadow:0 0 18px #39ff1466,0 0 36px #ff00e633!important}
+.ring-ghost{--ring:conic-gradient(from var(--ang,0deg),#ffffff11,#ffffffcc,#ffffff11 40%,#ffffff11);--ring-speed:4s}
+/* premium ($FEE holders) */
+.ring-emerald{--ring:conic-gradient(from var(--ang,0deg),#004d33,#00e9a0,#b6ffe3,#00e9a0,#004d33);--ring-speed:4s}
+.wp-avatar.ring-emerald{box-shadow:0 0 26px rgba(0,233,160,.5),inset 0 0 18px rgba(0,233,160,.25)!important}
+.ring-plasma{--ring:conic-gradient(from var(--ang,0deg),#7a00ff,#ff2bd6,#ff8a00,#7a00ff);--ring-speed:2.5s}
+.wp-avatar.ring-plasma{box-shadow:0 0 30px rgba(255,43,214,.45)!important;animation:aurora-spin 2.5s linear infinite,ring-pulse 1.6s ease-in-out infinite}
+.ring-diamond{--ring:conic-gradient(from var(--ang,0deg),#e6fbff,#8fe9ff,#ffffff,#b9c7ff,#ffd6fb,#e6fbff);--ring-speed:3.5s}
+.wp-avatar.ring-diamond{box-shadow:0 0 24px rgba(180,240,255,.6),0 0 60px rgba(180,200,255,.25)!important;position:relative}
+.wp-avatar.ring-diamond::before{content:'';position:absolute;inset:-8px;border-radius:inherit;pointer-events:none;background:radial-gradient(circle at 20% 10%,#fff 0 2px,transparent 3px),radial-gradient(circle at 85% 30%,#fff 0 1.5px,transparent 2.5px),radial-gradient(circle at 60% 95%,#fff 0 2px,transparent 3px),radial-gradient(circle at 5% 70%,#fff 0 1.5px,transparent 2.5px);animation:sparkle 2.2s ease-in-out infinite}
+.ring-aurora{--ring:conic-gradient(from var(--ang,0deg),#00e9a0,#5ec8ff,#b388ff,#ff7ad9,#00e9a0);--ring-speed:5s}
+.wp-avatar.ring-aurora{box-shadow:0 0 30px rgba(94,200,255,.45),0 0 60px rgba(179,136,255,.25)!important}
+.ring-gold{--ring:conic-gradient(from var(--ang,0deg),#7a5200,#f5c542,#fff3c4,#f5c542,#b8860b,#7a5200);--ring-speed:3s}
+.wp-avatar.ring-gold{box-shadow:0 0 30px rgba(245,197,66,.6),0 0 70px rgba(245,197,66,.25)!important;animation:aurora-spin 3s linear infinite,ring-pulse 2s ease-in-out infinite}
+.ring-royal{--ring:conic-gradient(from var(--ang,0deg),#3b0a75,#f5c542,#7b2ff7,#f5c542,#3b0a75);--ring-speed:4s}
+.wp-avatar.ring-royal{box-shadow:0 0 30px rgba(123,47,247,.5),0 0 50px rgba(245,197,66,.3)!important}
+@keyframes ring-pulse{50%{filter:brightness(1.25)}}
+@keyframes sparkle{0%,100%{opacity:.2;transform:scale(.9)}50%{opacity:1;transform:scale(1.05)}}
+/* name effects */
+.namefx-glow{text-shadow:0 0 12px color-mix(in srgb,var(--wp-accent,#00e9a0) 70%,transparent),0 0 30px color-mix(in srgb,var(--wp-accent,#00e9a0) 35%,transparent)!important}
+:is(.namefx-gradient,.namefx-rainbow,.namefx-diamond,.namefx-gold){background-size:300% 100%!important;-webkit-background-clip:text!important;background-clip:text!important;color:transparent!important;-webkit-text-fill-color:transparent;animation:live-grad 5s linear infinite;text-shadow:none!important}
+.namefx-gradient{background-image:linear-gradient(90deg,var(--wp-accent,#00e9a0),#5ec8ff,var(--wp-accent,#00e9a0))}
+.namefx-rainbow{background-image:linear-gradient(90deg,#ff6b8b,#ff9f45,#ffd166,#00e9a0,#5ec8ff,#b388ff,#ff6b8b);animation-duration:3s!important}
+.namefx-diamond{background-image:linear-gradient(90deg,#cdf6ff,#ffffff,#8fe9ff,#ffd6fb,#cdf6ff);filter:drop-shadow(0 0 8px rgba(180,240,255,.5))}
+.namefx-gold{background-image:linear-gradient(90deg,#b8860b,#fff3c4,#f5c542,#fff3c4,#b8860b);filter:drop-shadow(0 0 8px rgba(245,197,66,.5))}
+/* shop grid */
+.wp-style-shop{display:grid;gap:8px;margin:10px 0}.wp-style-shop>small{color:var(--muted);font-size:11px}
+.wp-rings{display:flex;flex-wrap:wrap;gap:6px}
+.wp-ring-opt{display:inline-flex;gap:8px;align-items:center;padding:6px 10px 6px 6px;border-radius:12px;border:1px solid var(--line);background:#ffffff05;color:inherit;cursor:pointer;font-size:11.5px}
+.wp-ring-opt.active{border-color:var(--mint);background:rgba(0,233,160,.1)}.wp-ring-opt.premium{border-color:rgba(245,197,66,.35)}.wp-ring-opt:disabled{opacity:.5;cursor:not-allowed}
+.ring-demo{width:26px;height:26px;border-radius:9px;display:inline-block;border-width:3px!important}.ring-demo.ring-none{border:3px solid var(--line)!important;background:none!important;animation:none}
+body.reduced-motion-setting :is(.wp-avatar,.ring-demo,[class*="namefx-"],.wp-avatar::before){animation:none!important}

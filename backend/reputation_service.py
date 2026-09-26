@@ -1632,6 +1632,8 @@ def _clean_profile(p: dict) -> dict:
         'top8': top8,
         'theme': p.get('theme') if p.get('theme') in ('grid', 'glitter', 'matrix', 'sunset', 'vapor', 'goldrush', 'neoncat') else 'grid',
         'friends': [str(f)[:44] for f in (p.get('friends') or [])[:8] if _re.match(r'^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$', str(f))],
+        'ring': p.get('ring') if p.get('ring') in RING_TIERS else 'none',
+        'nameFx': p.get('nameFx') if p.get('nameFx') in NAMEFX_TIERS else 'none',
         'featuredBadges': list(dict.fromkeys(str(b)[:40] for b in (p.get('featuredBadges') or []) if _re.match(r'^[a-z0-9-]{2,40}$', str(b))))[:3],
     }
 
@@ -1691,6 +1693,8 @@ async def save_profile(payload: ProfileSave):
         if clean['featuredBadges']:
             earned = {b['id'] for b in (await wallet_badges(payload.address))['badges']}
             clean['featuredBadges'] = [b for b in clean['featuredBadges'] if b in earned]
+        if RING_TIERS[clean['ring']] > tier or NAMEFX_TIERS[clean['nameFx']] > tier:
+            raise HTTPException(403, 'That style is a $FEE holder perk — hold more $FEE to unlock it.')
         if TIER_THEMES.get(clean['theme'], 0) > tier:
             raise HTTPException(403, 'That theme is a Fee Friend perk — hold $10+ of $FEE.')
         d['profiles'][payload.address] = {**clean, 'lastTs': ts, 'updatedAt': time.time()}
@@ -1709,7 +1713,7 @@ async def get_profile(address: str):
 @app.get('/api/reputation/profiles')
 async def get_profiles(addresses: str):
     d = _profiles_load()['profiles']
-    return {'profiles': {a: {k: d[a].get(k) for k in ('displayName', 'avatarUrl', 'accent', 'mood', 'featuredBadges')} for a in addresses.split(',')[:100] if a in d}}
+    return {'profiles': {a: {k: d[a].get(k) for k in ('displayName', 'avatarUrl', 'accent', 'mood', 'featuredBadges', 'ring', 'nameFx')} for a in addresses.split(',')[:100] if a in d}}
 
 
 
@@ -2655,6 +2659,10 @@ PERK_TIERS = [
     {'tier': 3, 'name': 'Fee Whale', 'minUsd': 1000, 'icon': '🐋', 'perks': ['/whales — who is accumulating', 'Gold animated profile frame + crown', 'Priority line to FEELESS HQ']},
 ]
 TIER_THEMES = {'goldrush': 1, 'neoncat': 1}
+# Avatar rings + name effects. 0 = free for everyone; higher = $FEE holder tier required.
+RING_TIERS = {'none': 0, 'mint': 0, 'sunset': 0, 'ocean': 0, 'candy': 0, 'neon': 0, 'ghost': 0,
+              'emerald': 1, 'plasma': 1, 'diamond': 2, 'aurora': 2, 'gold': 3, 'royal': 3}
+NAMEFX_TIERS = {'none': 0, 'glow': 0, 'gradient': 0, 'rainbow': 1, 'diamond': 2, 'gold': 3}
 _perk_cache = {}
 
 
