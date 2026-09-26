@@ -161,7 +161,25 @@ async def gecko_candles(chain: str, pair: str, interval: str, before=None):
         stored = _merge(stored, fresh)
         _disk_put(key, stored)
         _gecko_cache[key] = (now, stored)
+    elif not stored and key not in _retry:
+        _retry.add(key)
+        asyncio.create_task(_retry_later(chain, pair, interval, key))
     return stored or None
+
+
+_retry = set()
+
+
+async def _retry_later(chain, pair, interval, key):
+    """A chart that missed its first fetch (rate-limit pause) is fetched the moment the pause ends."""
+    try:
+        for _ in range(6):
+            await asyncio.sleep(max(3.0, gecko_budget.blocked_for() + 1))
+            _gecko_cache.pop(key, None)
+            if await gecko_candles(chain, pair, interval):
+                return
+    finally:
+        _retry.discard(key)
 
 
 _hot_pairs: dict = {}

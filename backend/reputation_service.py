@@ -4144,3 +4144,32 @@ async def portfolio(address: str):
            'unpriced': len(rows) - len(priced), 'totalUsd': round(sol * sol_px + sum(r['usd'] for r in priced), 2)}
     _pf_cache[a] = (time.time(), out)
     return out
+
+
+# ---- Image proxy for coin logos whose hosts forbid cross-site embedding ------------------------
+from fastapi.responses import Response as _Resp
+_img_cache = {}
+
+
+@app.get('/api/reputation/img')
+async def img_proxy(u: str):
+    if not _re.match(r'^https://[\w.-]+/', u) or len(u) > 600:
+        raise HTTPException(400, 'Bad image URL.')
+    hit = _img_cache.get(u)
+    if hit and time.time() - hit[0] < 3600:
+        return _Resp(content=hit[1], media_type=hit[2], headers={'Cache-Control': 'public, max-age=3600'})
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as http:
+            r = await http.get(u, headers={'accept': 'image/*'})
+    except Exception:
+        raise HTTPException(502, 'Image host unreachable.')
+    ctype = r.headers.get('content-type', '').split(';')[0]
+    b = r.content[:12]
+    sniff = 'image/png' if b.startswith(b'\x89PNG') else 'image/jpeg' if b.startswith(b'\xff\xd8') else 'image/gif' if b[:4] == b'GIF8' else 'image/webp' if b[:4] == b'RIFF' and b[8:12] == b'WEBP' else None
+    ctype = sniff or ctype
+    if r.status_code != 200 or not sniff or len(r.content) > 2_500_000:
+        raise HTTPException(415, 'Not a usable image.')
+    if len(_img_cache) > 800:
+        _img_cache.clear()
+    _img_cache[u] = (time.time(), r.content, ctype)
+    return _Resp(content=r.content, media_type=ctype, headers={'Cache-Control': 'public, max-age=3600'})

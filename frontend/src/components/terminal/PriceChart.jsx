@@ -68,8 +68,10 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       .catch(() => {})
       .finally(() => { if (alive) setCandlesLoaded(true); });
     load();
-    const timer = setInterval(load, 60000);
-    return () => { alive = false; clearInterval(timer); };
+    // Poll fast until real provider candles arrive, then settle to once a minute.
+    let timer = setInterval(() => { load(); }, 15000);
+    const settle = setTimeout(() => { clearInterval(timer); timer = setInterval(load, 60000); }, 120000);
+    return () => { alive = false; clearInterval(timer); clearTimeout(settle); };
   }, [pair?.chainId, pair?.pairAddress, interval]);
   const allFeeless = useMemo(() => {
     if (!olderCandles.length) return feelessCandles;

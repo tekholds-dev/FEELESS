@@ -7,8 +7,8 @@ from pathlib import Path
 
 PATH = Path(__file__).parent / 'data' / 'gecko_budget.json'
 CAP = 27                 # stay under GeckoTerminal's 30/min
-BACKGROUND_CAP = 12      # globe/feeds may not use more than this in any minute
-BACKOFF_SECONDS = 65
+BACKGROUND_CAP = 8      # globe/feeds may not use more than this in any minute
+BACKOFF_SECONDS = 40
 
 
 def take(kind: str = 'chart') -> bool:
@@ -44,3 +44,11 @@ def throttled():
         d['blockedUntil'] = time.time() + BACKOFF_SECONDS
         f.seek(0); f.truncate(); f.write(json.dumps(d))
         fcntl.flock(f, fcntl.LOCK_UN)
+
+
+def blocked_for() -> float:
+    try:
+        d = json.loads(PATH.read_text())
+    except Exception:
+        return 0.0
+    return max(0.0, d.get('blockedUntil', 0) - time.time())
