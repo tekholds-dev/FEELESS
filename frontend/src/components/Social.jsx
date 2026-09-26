@@ -46,6 +46,7 @@ export function ProfileDM({ peer, mine, initialOpen }) {
   const [text, setText] = useState('');
   const end = useRef(null);
   useEffect(() => { if (wallet?.address) setSession(readChatSession(wallet.address)); }, [wallet?.address, open]);
+  useEffect(() => { setWith(mine ? null : peer); }, [mine, peer]);
   useEffect(() => {
     if (!open || !session || !wallet?.address) return undefined;
     let alive = true;

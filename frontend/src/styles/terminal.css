@@ -2428,3 +2428,10 @@ body.theme-day .terminal-main::before{background:radial-gradient(60% 100% at 50%
 .rw-list{display:grid;gap:6px}.rw-item{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:9px 12px;border-radius:12px;border:1px solid var(--line)}.rw-item small{display:block;color:var(--muted);font-size:11px}.rw-item>span{font:700 13px 'JetBrains Mono',monospace;color:#f5c542}
 .rw-item.ready{border-color:rgba(245,197,66,.55);background:rgba(245,197,66,.07);animation:cc-pulse 2.6s ease-in-out infinite}.rw-log{display:grid;gap:2px;margin-top:6px}.rw-log small{color:var(--muted);font-size:11px}
 body.theme-day .notif-pop{background:#fff;border-color:#9fd3b6}body.theme-day :is(.dm-threads button,.rw-item,.dm-compose input){background:#fff;border-color:var(--day-border)}body.theme-day .dm-msg{background:#eef5f0}
+/* Profile action row + floating chat window */
+.wp-actions{display:flex!important;flex-wrap:wrap;gap:8px;align-items:center!important;align-self:flex-end}
+.wp-actions>button,.wp-actions>a{height:auto!important;min-height:38px;padding:8px 14px!important;align-self:center}
+.dm-card{position:fixed!important;right:18px;bottom:18px;z-index:800;width:min(620px,calc(100vw - 36px));max-height:min(620px,80vh);overflow:auto;margin:0!important;box-shadow:0 24px 70px #000c;border-color:rgba(0,233,160,.4)!important;animation:flr-in .25s ease}
+body.theme-day .dm-card{box-shadow:0 24px 60px #0003}
+body.theme-day .wp-actions :is(.btn-outline,button:not(.btn-primary),a:not(.btn-primary)){background:#ffffffe6!important;color:#0b2a1d!important;border-color:#ffffff!important;box-shadow:0 4px 14px #0002}
+body.theme-day .wp-head{text-shadow:none}
