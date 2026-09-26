@@ -2652,3 +2652,25 @@ body.theme-day .market-table-wrap,body.theme-day .feecat-panel{
 }
 body.theme-day small,body.theme-day .muted{color:var(--day-muted)!important}
 body.theme-day .terminal-header,body.theme-day .terminal-sidebar{border-color:rgba(15,36,25,.1)!important}
+
+/* ===== Dip/Rip meta trade tool ===== */
+.chart-side-stack,.eco-chart-side{display:grid;gap:10px;align-content:start}
+.dip-rip{display:grid;gap:8px;padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.2)}
+.dr-head{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.dr-row{display:flex;gap:6px}
+.dr-row button{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;padding:7px 4px;border-radius:9px;border:1px solid var(--line);background:none;color:inherit;cursor:pointer;font-size:12px;font-weight:600}
+.dr-row:first-of-type button:hover,.dr-row:first-of-type button.active{border-color:#5ec8ff;color:#5ec8ff;background:rgba(94,200,255,.1)}
+.dr-row:last-of-type button:hover,.dr-row:last-of-type button.active{border-color:var(--mint);color:var(--mint);background:rgba(0,233,160,.1)}
+.dr-note{color:var(--muted);font-size:10.5px;line-height:1.4}
+body.theme-day .dip-rip{background:#fff}
+.reputation-badge.badge-veteran{color:#f5c542;background:#f5c54214;border-color:#f5c54255;box-shadow:0 0 10px rgba(245,197,66,.2)}
+body.theme-day .reputation-badge.badge-veteran{color:#8a6d00}
+
+/* ===== Fix: pulse-pill stat boxes (war rooms) never overflow ===== */
+.pulse-pill{min-width:0;overflow:hidden}
+.pulse-pill strong{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:clamp(13px,1.3vw,18px)}
+.pulse-pill small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+
+/* Chart error state: clear icon + link, no misleading spinner */
+.chart-message-error{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:24px}
+.chart-message-error a{color:var(--mint);font-size:12.5px;text-decoration:underline}

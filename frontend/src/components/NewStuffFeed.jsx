@@ -8,9 +8,17 @@ import { formatUSD, formatPct, formatAge, hasProviderImage } from '../lib/dexscr
 
 // Social "new stuff" stream — fresh + trending coins on the ecosystem. No pools / liquidity tables.
 const warmed = new Set();
-// Pre-warm candles for the first coins so tapping one charts instantly.
+const scanned = new Set();
+// Pre-warm candles for the first coins so tapping one charts instantly, and quietly kick off
+// FEELESS's own reputation scan (snipers/bundlers/holder concentration) in the background so
+// evidence exists by the time anyone asks — not just when a user happens to open that coin.
 function warm(pairs) {
   pairs.slice(0, 4).forEach(p => { const k = `${p.chainId}:${p.pairAddress}`; if (warmed.has(k) || !p.pairAddress) return; warmed.add(k); fetch(`/api/candles/${p.chainId}/${p.pairAddress}?interval=15m`).catch(() => {}); });
+  pairs.slice(0, 6).forEach(p => {
+    const mint = p.baseToken?.address; if (!mint || p.chainId !== 'solana' || scanned.has(mint)) return;
+    scanned.add(mint);
+    fetch(`/api/reputation/intel/solana/${mint}`).catch(() => {});
+  });
 }
 
 export default function NewStuffFeed({ ecosystem, onPick, activePair }) {

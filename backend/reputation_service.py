@@ -250,6 +250,17 @@ def score_creator(entry: dict) -> dict:
     score -= min(dumped, 8) * 15 + min(dead, 8) * 8 + min(clones, 6) * 8 + min(ghost, 6) * 5
     if serial_launcher:
         score -= 10 * (burst - 2)
+    # Reputation is a long-lasting asset, not just a risk flag: a clean track record earns a
+    # growing tenure bonus the longer it holds up — this is the only way to reach the top tier.
+    tenure_days = (now - (entry.get('firstSeen') or now)) / 86400
+    clean = not dumped and not rugged and not clones
+    tenure_bonus = 0
+    if clean:
+        if tenure_days >= 365: tenure_bonus = 20
+        elif tenure_days >= 180: tenure_bonus = 12
+        elif tenure_days >= 90: tenure_bonus = 6
+        elif tenure_days >= 30: tenure_bonus = 2
+    score += tenure_bonus
     score = max(0, min(100, score))
     dump_rate = dumped / judged if judged else 0
     serial_dumper = dumped >= 2 and dump_rate >= 0.5
@@ -260,15 +271,17 @@ def score_creator(entry: dict) -> dict:
     if serial_launcher: reasons.append(f'{burst} launches inside 24h (farm pattern)')
     if ghost: reasons.append(f'{ghost} listed with zero volume')
     if sustained or alive_big: reasons.append(f'{sustained} sustained, {alive_big} over $100K')
+    veteran = clean and tenure_days >= 180
+    if tenure_bonus: reasons.append(f'{int(tenure_days)}d clean track record (+{tenure_bonus})')
     if serial_dumper or dump_rate >= 0.34 and dumped >= 2:
         badge = 'flagged'
     elif judged >= 2 and not dumped and not clones and not serial_launcher and (sustained or alive_big) and score >= 65:
-        badge = 'trusted'
+        badge = 'veteran' if veteran and score >= 80 else 'trusted'
     elif serial_launcher or dumped or clones or ghost:
         badge = 'risky'
     else:
         badge = 'building'
-    return {**base, 'score': score, 'badge': badge, 'serialDumper': bool(serial_dumper),
+    return {**base, 'score': score, 'badge': badge, 'serialDumper': bool(serial_dumper), 'tenureDays': int(tenure_days), 'veteran': veteran,
             'confidence': 'high' if judged >= 6 else 'medium' if judged >= 3 else 'low', 'reasons': reasons}
 
 

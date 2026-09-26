@@ -11,6 +11,8 @@ import { OrderFlow } from './terminal/OrderFlow';
 import { QuickTrade } from './terminal/QuickTrade';
 import { AnimatedNumber } from './terminal/AnimatedNumber';
 import { ChartMetaButtons, useChartMarkers } from './terminal/ChartMeta';
+import { PriceAlertButton } from './terminal/PriceAlertButton';
+import { DipRipTool } from './terminal/DipRipTool';
 import { fetchLivePrice, formatLivePrice } from '../lib/livePrice';
 
 const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'];
@@ -99,10 +101,12 @@ export default function CoinWorld({ token, onClose }) {
         <div className="eco-right-col custom-scroll">
           <div className="activity-pulse coin-world-stats">{stats.map(([label, value, cls, fmt]) => <div className="pulse-pill" key={label}><small><i />{label}</small><strong className={cls || ''}><AnimatedNumber value={value} format={fmt} /></strong></div>)}</div>
           <section className="coin-world-chart" ref={chartWrap}>
-            <div className="coin-world-chart-head"><span><BarChart3 size={14} /> LIVE CHART<em className="live-stamp"><i />{updatedAt ? `${live?.source || 'live'} · ${Math.max(0, Math.round((Date.now() - updatedAt) / 1000))}s ago` : 'connecting'}</em></span><ChartMetaButtons pair={pair} calls={showCalls} setCalls={setShowCalls} fee={showFee} setFee={setShowFee} fullscreenRef={chartWrap} count={{ calls: markers.filter(m => m.color === '#e9bd65').length, fee: markers.filter(m => m.text?.startsWith('Fee')).length }} /><div className="coin-world-metric" role="group" aria-label="Chart metric">{[['price', 'Price'], ['marketCap', 'MC']].map(([id, label]) => <button type="button" key={id} className={metric === id ? 'active' : ''} onClick={() => setMetric(id)}>{label}</button>)}</div><div>{INTERVALS.map(i => <button type="button" key={i} className={interval === i ? 'active' : ''} onClick={() => setIntervalValue(i)}>{i.toUpperCase()}</button>)}</div></div>
-            {pair ? <PriceChart key={`${pair.pairAddress}-${interval}-${metric}`} pair={pair} interval={interval} metric={metric} showVolume markers={markers} feeLive={showFee} /> : <div className="chart-message"><span className="loader" />{error || 'Loading live market…'}</div>}
+            <div className="coin-world-chart-head"><span><BarChart3 size={14} /> LIVE CHART<em className="live-stamp"><i />{updatedAt ? `${live?.source || 'live'} · ${Math.max(0, Math.round((Date.now() - updatedAt) / 1000))}s ago` : 'connecting'}</em></span><ChartMetaButtons pair={pair} calls={showCalls} setCalls={setShowCalls} fee={showFee} setFee={setShowFee} fullscreenRef={chartWrap} count={{ calls: markers.filter(m => m.color === '#e9bd65').length, fee: markers.filter(m => m.text?.startsWith('Fee')).length }} />{pair && <PriceAlertButton pair={pair} />}<div className="coin-world-metric" role="group" aria-label="Chart metric">{[['price', 'Price'], ['marketCap', 'MC']].map(([id, label]) => <button type="button" key={id} className={metric === id ? 'active' : ''} onClick={() => setMetric(id)}>{label}</button>)}</div><div>{INTERVALS.map(i => <button type="button" key={i} className={interval === i ? 'active' : ''} onClick={() => setIntervalValue(i)}>{i.toUpperCase()}</button>)}</div></div>
+            {pair ? <PriceChart key={`${pair.pairAddress}-${interval}-${metric}`} pair={pair} interval={interval} metric={metric} showVolume markers={markers} feeLive={showFee} />
+              : error ? <div className="chart-message chart-message-error"><ShieldCheck size={18} style={{ opacity: .5 }} />{error}<a href={`https://dexscreener.com/${token.chain}/${token.pairAddress}`} target="_blank" rel="noreferrer">Open on DexScreener ↗</a></div>
+                : <div className="chart-message"><span className="loader" />Loading live market…</div>}
           </section>
-          {pair && <QuickTrade pair={pair} />}
+          {pair && <div className="chart-side-stack"><QuickTrade pair={pair} /><DipRipTool pair={pair} /></div>}
           <OrderFlow pair={pair} />
           <div className="eco-section-label"><ShieldCheck size={13} /> THE EDGE · CREATOR & LAUNCH FORENSICS</div>
           {pair && <div className="coin-world-rep"><span>Creator trust</span><ReputationBadge pair={pair} /></div>}

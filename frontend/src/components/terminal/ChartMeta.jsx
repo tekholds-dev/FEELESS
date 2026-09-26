@@ -63,7 +63,7 @@ export function ChartMetaButtons({ pair, calls, setCalls, fee, setFee, fullscree
   const copy = async () => { try { await navigator.clipboard.writeText(mint); toast.success('Contract address copied'); } catch { toast.error('Clipboard unavailable'); } };
   return <div className="chart-meta-buttons" role="group" aria-label="Chart overlays">
     <button type="button" className={calls ? 'active calls' : ''} onClick={() => setCalls(v => !v)} title="Show every Trenches call on this coin" data-testid="chart-meta-calls"><Megaphone size={12} />Calls{calls && count?.calls ? ` ${count.calls}` : ''}</button>
-    {pair?.chainId === 'solana' && <button type="button" className={fee ? 'active fee' : ''} onClick={() => setFee(v => !v)} title="Fee live mode: levels, liquidity, live read and Fee's trades" data-testid="chart-meta-fee"><Cat size={12} />Fee{fee && count?.fee ? ` ${count.fee}` : ''}</button>}
+    <button type="button" className={fee ? 'active fee' : ''} onClick={() => setFee(v => !v)} title="Fee live mode: levels, liquidity, live read across every chain (Fee's own trades are Solana-only)" data-testid="chart-meta-fee"><Cat size={12} />Fee{fee && count?.fee ? ` ${count.fee}` : ''}</button>
     <button type="button" className={expanded ? 'active expand' : ''} onClick={full} title={onExpand ? (expanded ? 'Back to chart + chat side by side' : 'Wide chart — chat moves below') : 'Fullscreen chart'} data-testid="chart-meta-fullscreen"><Maximize2 size={12} />{onExpand ? (expanded ? 'Wide on' : 'Wide') : ''}</button>
     {mint && <button type="button" onClick={copy} title="Copy contract address" data-testid="chart-meta-copy"><Copy size={12} /></button>}
   </div>;

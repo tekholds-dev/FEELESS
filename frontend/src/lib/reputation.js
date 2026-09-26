@@ -10,6 +10,7 @@ export const BADGE_LABEL = {
   unproven: 'Unproven creator',
   flagged: 'Flagged creator',
   risky: 'Risky creator',
+  veteran: 'Veteran creator',
 };
 
 async function observe(pair) {
