@@ -3,7 +3,7 @@ import { apiUrl } from './api';
 export const DEX_SITE = process.env.REACT_APP_DEX_SITE_URL || 'https://dexscreener.com';
 export const MARKET_RETENTION_DAYS = 14;
 export const NEW_POOL_DEAL_PERCENT = 5;
-export const PAIR_CHAINS = ['solana', 'ethereum', 'base', 'bsc', 'arbitrum', 'avalanche', 'polygon', 'sui'];
+export const PAIR_CHAINS = ['solana', 'ethereum', 'base', 'bsc', 'arbitrum', 'avalanche', 'polygon', 'sui', 'optimism', 'zksync', 'zora', 'cronos', 'unichain', 'worldchain', 'tron'];
 export const ROOM_PERSPECTIVES = ['bulls', 'bears', 'trenches'];
 
 export async function marketRequest(path, signal) {

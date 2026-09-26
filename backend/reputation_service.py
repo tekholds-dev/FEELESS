@@ -3438,9 +3438,11 @@ async def admin_treasury(request: Request):
 
 
 # ---- Holder gate for EVM coin rooms ---------------------------------------------------------
-_ALCH_NET = {'ethereum': 'eth', 'base': 'base', 'bsc': 'bnb', 'arbitrum': 'arb', 'avalanche': 'avax', 'polygon': 'polygon'}
+_ALCH_NET = {'ethereum': 'eth', 'base': 'base', 'bsc': 'bnb', 'arbitrum': 'arb', 'avalanche': 'avax', 'polygon': 'polygon', 'optimism': 'opt', 'zksync': 'zksync', 'zora': 'zora', 'cronos': 'cronos', 'unichain': 'unichain', 'worldchain': 'worldchain'}
 EVM_RPC = {'ethereum': 'https://eth.llamarpc.com', 'base': 'https://mainnet.base.org', 'bsc': 'https://bsc-dataseed.binance.org',
-           'arbitrum': 'https://arb1.arbitrum.io/rpc', 'avalanche': 'https://api.avax.network/ext/bc/C/rpc', 'polygon': 'https://polygon-rpc.com'}
+           'arbitrum': 'https://arb1.arbitrum.io/rpc', 'avalanche': 'https://api.avax.network/ext/bc/C/rpc', 'polygon': 'https://polygon-rpc.com',
+           'optimism': 'https://mainnet.optimism.io', 'zksync': 'https://mainnet.era.zksync.io', 'zora': 'https://rpc.zora.energy', 'cronos': 'https://evm.cronos.org',
+           'unichain': 'https://mainnet.unichain.org', 'worldchain': 'https://worldchain-mainnet.g.alchemy.com/public'}
 # Dedicated RPC per chain wins: <CHAIN>_RPC_URL, else Alchemy (one key covers every chain), else public.
 for _c, _n in _ALCH_NET.items():
     EVM_RPC[_c] = os.environ.get(f'{_c.upper()}_RPC_URL', '').strip() or (f'https://{_n}-mainnet.g.alchemy.com/v2/{_alchemy}' if _alchemy else EVM_RPC[_c])
@@ -3448,7 +3450,7 @@ _evm_room_cache = {}
 
 
 async def _evm_room(room: str):
-    m = _re.match(r'^coin-(ethereum|base|bsc|arbitrum|avalanche|polygon)-(0x[0-9a-fA-F]{40})-(bulls|bears|trenches)$', room)
+    m = _re.match(r'^coin-(ethereum|base|bsc|arbitrum|avalanche|polygon|optimism|zksync|zora|cronos|unichain|worldchain)-(0x[0-9a-fA-F]{40})-(bulls|bears|trenches)$', room)
     if not m:
         return None
     chain, pair = m.group(1), m.group(2)

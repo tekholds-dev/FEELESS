@@ -84,7 +84,8 @@ class TickPayload(BaseModel):
 
 
 GECKO_TF = {'1m': ('minute', 1), '5m': ('minute', 5), '15m': ('minute', 15), '1h': ('hour', 1), '4h': ('hour', 4), '1d': ('day', 1)}
-GECKO_NET = {'solana': 'solana', 'ethereum': 'eth', 'base': 'base', 'bsc': 'bsc', 'arbitrum': 'arbitrum', 'avalanche': 'avax', 'polygon': 'polygon_pos', 'sui': 'sui-network'}
+GECKO_NET = {'solana': 'solana', 'ethereum': 'eth', 'base': 'base', 'bsc': 'bsc', 'arbitrum': 'arbitrum', 'avalanche': 'avax', 'polygon': 'polygon_pos', 'sui': 'sui-network',
+             'optimism': 'optimism', 'zksync': 'zksync', 'zora': 'zora-network', 'cronos': 'cro', 'unichain': 'unichain', 'worldchain': 'world-chain', 'tron': 'tron'}
 _gecko_cache: dict = {}
 _gecko_lock = asyncio.Lock()
 _gecko_calls: list = []
@@ -184,7 +185,8 @@ async def _retry_later(chain, pair, interval, key):
 
 _hot_pairs: dict = {}
 HOT_TTL = 30 * 60
-DEX_CHAIN = {'solana': 'solana', 'ethereum': 'ethereum', 'base': 'base', 'bsc': 'bsc', 'arbitrum': 'arbitrum', 'avalanche': 'avalanche', 'polygon': 'polygon', 'sui': 'sui'}
+DEX_CHAIN = {'solana': 'solana', 'ethereum': 'ethereum', 'base': 'base', 'bsc': 'bsc', 'arbitrum': 'arbitrum', 'avalanche': 'avalanche', 'polygon': 'polygon', 'sui': 'sui',
+             'optimism': 'optimism', 'zksync': 'zksync', 'zora': 'zora', 'cronos': 'cronos', 'unichain': 'unichain', 'worldchain': 'worldchain', 'tron': 'tron'}
 
 
 def _record_tick(store: dict, chain: str, pair: str, price: float, volume):

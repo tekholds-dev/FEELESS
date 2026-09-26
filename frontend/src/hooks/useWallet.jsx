@@ -47,6 +47,12 @@ export const EVM_CHAINS = {
   arbitrum: { chainId: '0xa4b1', chainName: 'Arbitrum One', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://arb1.arbitrum.io/rpc'], blockExplorerUrls: ['https://arbiscan.io'] },
   avalanche: { chainId: '0xa86a', chainName: 'Avalanche C-Chain', nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 }, rpcUrls: ['https://api.avax.network/ext/bc/C/rpc'], blockExplorerUrls: ['https://snowtrace.io'] },
   polygon: { chainId: '0x89', chainName: 'Polygon', nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 }, rpcUrls: ['https://polygon-rpc.com'], blockExplorerUrls: ['https://polygonscan.com'] },
+  optimism: { chainId: '0xa', chainName: 'Optimism', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://mainnet.optimism.io'], blockExplorerUrls: ['https://optimistic.etherscan.io'] },
+  zksync: { chainId: '0x144', chainName: 'zkSync Era', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://mainnet.era.zksync.io'], blockExplorerUrls: ['https://explorer.zksync.io'] },
+  zora: { chainId: '0x76adf1', chainName: 'Zora', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://rpc.zora.energy'], blockExplorerUrls: ['https://explorer.zora.energy'] },
+  cronos: { chainId: '0x19', chainName: 'Cronos', nativeCurrency: { name: 'Cronos', symbol: 'CRO', decimals: 18 }, rpcUrls: ['https://evm.cronos.org'], blockExplorerUrls: ['https://cronoscan.com'] },
+  unichain: { chainId: '0x82', chainName: 'Unichain', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://mainnet.unichain.org'], blockExplorerUrls: ['https://uniscan.xyz'] },
+  worldchain: { chainId: '0x1e0', chainName: 'World Chain', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://worldchain-mainnet.g.alchemy.com/public'], blockExplorerUrls: ['https://worldscan.org'] },
 };
 export const ecoOf = chain => (chain === 'solana' ? 'solana' : EVM_CHAINS[chain] ? 'evm' : null);
 export const networkLabel = hex => Object.entries(EVM_CHAINS).find(([, c]) => c.chainId === String(hex || '').toLowerCase())?.[1].chainName || (hex ? `Chain ${parseInt(hex, 16)}` : null);

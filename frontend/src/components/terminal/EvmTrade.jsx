@@ -4,7 +4,8 @@ import { Zap, ArrowLeftRight } from 'lucide-react';
 import { useWallet, EVM_CHAINS } from '../../hooks/useWallet';
 
 // EVM swaps + bridging via LI.FI (the router behind Jumper). Non-custodial: the wallet signs every tx.
-const CHAIN_ID = { ethereum: 1, base: 8453, bsc: 56, arbitrum: 42161, avalanche: 43114, polygon: 137 };
+const CHAIN_ID = { ethereum: 1, base: 8453, bsc: 56, arbitrum: 42161, avalanche: 43114, polygon: 137, optimism: 10, zksync: 324, zora: 7777777, cronos: 25, unichain: 130, worldchain: 480 };
+export const EVM_TRADE_CHAINS = Object.keys(CHAIN_ID);
 const NATIVE = '0x0000000000000000000000000000000000000000';
 const toUnits = (amt, dec) => { const [w, f = ''] = String(amt).split('.'); return BigInt(w || 0) * 10n ** BigInt(dec) + BigInt((f + '0'.repeat(dec)).slice(0, dec) || 0); };
 const fromUnits = (v, dec) => Number(BigInt(v)) / 10 ** dec;
