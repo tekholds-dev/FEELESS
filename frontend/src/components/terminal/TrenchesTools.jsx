@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Flame, Crown, Megaphone, Zap } from 'lucide-react';
+import { Flame, Crown, Megaphone, Zap, RefreshCw } from 'lucide-react';
 import { apiUrl } from '../../lib/api';
 import { AnimatedNumber } from './AnimatedNumber';
 import { formatUSD } from '../../lib/dexscreener';
@@ -135,20 +135,60 @@ export function TrenchBar({ onAbout }) {
   </div>;
 }
 
+const TREND_SORTS = [
+  { id: 'hot', label: '🔥 Hot', score: p => Number(p.volume?.h24) || 0 },
+  { id: 'gainers', label: '🚀 Gainers', score: (p, tf) => Number(p.priceChange?.[tf]) || -1e9 },
+  { id: 'losers', label: '🩸 Dips', score: (p, tf) => -(Number(p.priceChange?.[tf]) || 1e9) },
+  { id: 'pressure', label: '🟢 Buy pressure', score: p => { const t = p.txns?.h1 || {}; const b = Number(t.buys) || 0; const s = Number(t.sells) || 0; return b + s >= 20 ? b / (b + s) : -1; } },
+  { id: 'new', label: '✨ Newest', score: p => Number(p.pairCreatedAt) || 0 },
+  { id: 'liq', label: '💧 Liquidity', score: p => Number(p.liquidity?.usd) || 0 },
+];
+const TFS = [['m5', '5m'], ['h1', '1h'], ['h6', '6h'], ['h24', '24h']];
+
 export function TrendingCards({ pairs = [], onPick }) {
-  const list = [...pairs].filter(p => p?.baseToken?.symbol).sort((a, b) => (Number(b.volume?.h24) || 0) - (Number(a.volume?.h24) || 0)).slice(0, 12);
+  const [sort, setSort] = useState('hot');
+  const [tf, setTf] = useState('h24');
+  const [fresh, setFresh] = useState({});
+  const [refreshing, setRefreshing] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState(null);
+  const merged = pairs.filter(p => p?.baseToken?.symbol).map(p => fresh[p.pairAddress] || p);
+  const scorer = TREND_SORTS.find(x => x.id === sort) || TREND_SORTS[0];
+  const list = [...merged].sort((a, b) => scorer.score(b, tf) - scorer.score(a, tf)).slice(0, 12);
+  const listKey = merged.map(p => `${p.chainId}:${p.pairAddress}`).join(',');
+  // Pull fresh numbers straight from DexScreener for every coin in the grid.
+  const refresh = useCallback(async () => {
+    const byChain = {};
+    listKey.split(',').filter(Boolean).forEach(k => { const [c, a] = k.split(':'); (byChain[c] = byChain[c] || []).push(a); });
+    setRefreshing(true);
+    try {
+      const next = {};
+      await Promise.all(Object.entries(byChain).flatMap(([chain, addrs]) => {
+        const chunks = []; for (let i = 0; i < addrs.length; i += 30) chunks.push(addrs.slice(i, i + 30));
+        return chunks.map(c => fetch(`https://api.dexscreener.com/latest/dex/pairs/${chain}/${c.join(',')}`).then(r => (r.ok ? r.json() : null)).then(d => (d?.pairs || []).forEach(p => { next[p.pairAddress] = p; })).catch(() => {}));
+      }));
+      setFresh(f => ({ ...f, ...next })); setUpdatedAt(Date.now());
+    } finally { setRefreshing(false); }
+  }, [listKey]);
+  useEffect(() => { const t = setInterval(() => { if (!document.hidden) refresh(); }, 30000); return () => clearInterval(t); }, [refresh]);
   if (!list.length) return null;
+  const tfLabel = TFS.find(x => x[0] === tf)?.[1];
   return <section className="trend-cards" data-testid="trend-cards">
-    <div className="trend-cards-head"><h2 className="trenches-font">Trending right now</h2><small>Pick a coin and trench it — chart, chat and quick trade open together.</small></div>
+    <div className="trend-cards-head"><h2 className="trenches-font live-gradient-text">Trending right now</h2><small>Pick a coin and trench it — chart, chat and quick trade open together.</small>
+      <div className="trend-controls">
+        <div className="trend-sorts" role="tablist">{TREND_SORTS.map(x => <button key={x.id} type="button" role="tab" aria-selected={sort === x.id} className={sort === x.id ? 'active' : ''} onClick={() => setSort(x.id)}>{x.label}</button>)}</div>
+        <div className="trend-tfs">{TFS.map(([k, l]) => <button key={k} type="button" className={tf === k ? 'active' : ''} onClick={() => setTf(k)}>{l}</button>)}</div>
+        <button type="button" className={`trend-refresh ${refreshing ? 'spinning' : ''}`} onClick={refresh} disabled={refreshing} title={updatedAt ? `Updated ${new Date(updatedAt).toLocaleTimeString()}` : 'Refresh from DexScreener'} aria-label="Refresh trending"><RefreshCw size={14} />{refreshing ? 'Refreshing' : 'Refresh'}</button>
+      </div>
+    </div>
     <div className="trend-grid">{list.map((p, i) => {
       const tx = p.txns?.h1 || {}; const b = Number(tx.buys) || 0; const s = Number(tx.sells) || 0;
       const share = b + s ? b / (b + s) : null;
       const up = Number(p.priceChange?.h24) >= 0;
-      const m5 = Number(p.priceChange?.m5);
+      const m5 = Number(p.priceChange?.[tf]);
       return <article key={p.pairAddress} className={`trend-card ${up ? 'is-up' : 'is-down'}`} style={{ animationDelay: `${i * 40}ms` }} onClick={() => onPick?.(p)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && onPick?.(p)}>
         <div className="trend-top">{p.info?.imageUrl ? <img src={p.info.imageUrl} alt="" /> : <i>{p.baseToken.symbol.slice(0, 2)}</i>}<div><b>{p.baseToken.symbol}</b><small>{p.baseToken.name}</small></div><span className="trend-rank">#{i + 1}</span></div>
         <div className="trend-price"><LivePrice pair={p} precise /><LiveChange24 pair={p} /></div>
-        <div className="trend-stats"><span><small>MC</small>{formatUSD(p.marketCap || p.fdv)}</span><span><small>VOL 24H</small>{formatUSD(p.volume?.h24)}</span><span><small>5M</small><em className={Number.isFinite(m5) ? (m5 >= 0 ? 'positive' : 'negative') : ''}>{Number.isFinite(m5) ? `${m5 >= 0 ? '+' : ''}${m5.toFixed(1)}%` : '—'}</em></span></div>
+        <div className="trend-stats"><span><small>MC</small>{formatUSD(p.marketCap || p.fdv)}</span><span><small>VOL 24H</small>{formatUSD(p.volume?.h24)}</span><span><small>{tfLabel.toUpperCase()}</small><em className={Number.isFinite(m5) ? (m5 >= 0 ? 'positive' : 'negative') : ''}>{Number.isFinite(m5) ? `${m5 >= 0 ? '+' : ''}${m5.toFixed(1)}%` : '—'}</em></span></div>
         {share != null && <div className="trend-pressure" title={`${b} buys / ${s} sells in the last hour`}><i style={{ width: `${share * 100}%` }} /><small>{Math.round(share * 100)}% buys · 1h</small></div>}
         <span className="trend-go trenches-font">Trench it →</span>
       </article>;

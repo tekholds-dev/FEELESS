@@ -1995,6 +1995,11 @@ async def _ecosystem_mints():
     return _fee_assets['mints']
 
 
+@app.get('/api/reputation/badges/catalog')
+async def badge_catalog():
+    return {'catalog': BADGE_CATALOG}
+
+
 @app.get('/api/reputation/badges/{address}')
 async def wallet_badges(address: str):
     """Automatic, data-backed badges. Every badge states the evidence behind it."""
@@ -2004,11 +2009,14 @@ async def wallet_badges(address: str):
     badges = []
     mints = await _ecosystem_mints()
     labels = {'fee': '$FEE', 'feecat': 'FEECAT', 'rfee': 'rFEE'}
+    fee_usd = 0.0
     for aid, mint in mints.items():
         try:
             value = await _holding_usd(address, mint)
         except Exception:
             continue
+        if aid == 'fee':
+            fee_usd = value
         if value >= 1:
             label = labels.get(aid, aid.upper())
             if aid == 'fee' and value >= 1000:
@@ -2027,7 +2035,7 @@ async def wallet_badges(address: str):
     me = next((r for r in board['rows'] if r.get('callerAddress') == address), None)
     if me:
         sharp = me['calls'] >= 5 and me['hitRate'] >= 0.5
-        badges.append({'id': 'caller', 'label': 'Sharp Caller' if sharp else 'Caller', 'icon': '🎯', 'tone': 'gold' if sharp else 'plain',
+        badges.append({'id': 'sharp-caller' if sharp else 'caller', 'label': 'Sharp Caller' if sharp else 'Caller', 'icon': '🎯', 'tone': 'gold' if sharp else 'plain',
                        'why': f"{me['calls']} calls, {round(me['hitRate'] * 100)}% hit 2× (30d)"})
     creator = _load()['creators'].get(_creator_key('solana', address))
     if creator:
@@ -2041,7 +2049,11 @@ async def wallet_badges(address: str):
     rec = _block_load()['wallets'].get(address)
     if _is_blocked(rec):
         badges.append({'id': 'blocklisted', 'label': 'Blocklisted', 'icon': '⛔', 'tone': 'bad', 'why': f"Caught bundling/sniping {len(rec['mints'])} launch(es)"})
-    out = {'address': address, 'badges': badges, 'at': time.time()}
+    badges.extend(_admin_load()['badges'].get(address, {}).values())
+    if address in _admin_wallets():
+        badges.insert(0, {'id': 'feeless-hq', 'label': 'FEELESS HQ', 'icon': '👑', 'tone': 'gold', 'why': 'Created $FEE — runs the FEELESS command center'})
+    progress = {'feeUsd': round(fee_usd, 2), 'calls': me['calls'] if me else 0, 'hitRate': me['hitRate'] if me else 0}
+    out = {'address': address, 'badges': badges, 'progress': progress, 'at': time.time()}
     _badge_cache[address] = (time.time(), out)
     return out
 
@@ -2058,3 +2070,450 @@ async def health():
         'ok': True, 'creators': len(store['creators']), 'mints': len(store['mints']),
         'rpcPool': rpc_status, 'usingDedicatedRpc': bool(_dedicated),
     }
+
+
+# ---- FEELESS Command Center: creator-wallet admin tools ------------------------------
+# $FEE's creator wallet (fee payer of the mint's first transaction on-chain) is the default
+# admin; FEELESS_ADMIN_WALLETS in backend/.env (comma separated) overrides it.
+FEE_CREATOR_WALLET = 'ANwSewb5AaKv4DarsDQ4NSEQ9APNtTGVxygPzn9u5K8P'
+ADMIN_PATH = DATA_DIR / 'admin.json'
+BUGS_PATH = ADMIN_PATH.parent / 'bugs.json'
+_admin_lock = asyncio.Lock()
+_status_log = []          # rolling (ts, method, path, status) for the security monitor
+_holder_cache = {}
+_bug_ip_hits = {}
+
+
+def _admin_wallets():
+    env = [a.strip() for a in os.environ.get('FEELESS_ADMIN_WALLETS', '').split(',') if a.strip()]
+    return env or [FEE_CREATOR_WALLET]
+
+
+def _admin_load():
+    try:
+        d = json.loads(ADMIN_PATH.read_text())
+    except Exception:
+        d = {}
+    d.setdefault('badges', {}); d.setdefault('airdrops', []); d.setdefault('audit', [])
+    return d
+
+
+def _admin_save(d):
+    ADMIN_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp = ADMIN_PATH.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(ADMIN_PATH)
+
+
+def _json_load(path, default):
+    try:
+        return json.loads(path.read_text())
+    except Exception:
+        return default
+
+
+def _json_save(path, d):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(path)
+
+
+@app.middleware('http')
+async def _record_status(request: Request, call_next):
+    resp = await call_next(request)
+    if resp.status_code >= 400:
+        _status_log.append((time.time(), request.method, request.url.path[:120], resp.status_code))
+        del _status_log[:-600]
+    return resp
+
+
+def _require_admin(request: Request) -> str:
+    """Session proof: the admin wallet signs `FEELESS command center\\naddress:{a}\\nts:{ts}` (valid 1h)."""
+    addr = request.headers.get('x-admin-address', '')
+    ts = request.headers.get('x-admin-ts', '')
+    sig = request.headers.get('x-admin-sig', '')
+    if addr not in _admin_wallets():
+        raise HTTPException(403, 'This wallet is not a FEELESS command center wallet.')
+    try:
+        ts_i = int(ts)
+    except ValueError:
+        raise HTTPException(401, 'Missing command center signature.')
+    if abs(time.time() - ts_i) > 3600:
+        raise HTTPException(401, 'Command center session expired — sign in again.')
+    if not _verify_wallet(addr, f'FEELESS command center\naddress:{addr}\nts:{ts_i}', sig):
+        raise HTTPException(401, 'Command center signature does not match.')
+    return addr
+
+
+def _audit(d, admin, action, detail):
+    d['audit'].append({'at': time.time(), 'admin': admin, 'action': action, 'detail': detail})
+    d['audit'] = d['audit'][-300:]
+
+
+@app.get('/api/reputation/admin/whoami')
+async def admin_whoami(address: str = ''):
+    return {'isAdmin': address in _admin_wallets(),
+            'source': 'env' if os.environ.get('FEELESS_ADMIN_WALLETS') else 'fee-creator-onchain'}
+
+
+async def _token_holders(mint: str):
+    hit = _holder_cache.get(mint)
+    if hit and time.time() - hit[0] < 120:
+        return hit[1]
+    owners = {}
+    async with httpx.AsyncClient(timeout=40) as http:
+        for program in ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'):
+            filters = [{'memcmp': {'offset': 0, 'bytes': mint}}]
+            if program.startswith('Tokenkeg'):
+                filters.insert(0, {'dataSize': 165})
+            try:
+                accts = await _rpc(http, 'getProgramAccounts', [program, {'encoding': 'jsonParsed', 'filters': filters}])
+            except Exception:
+                accts = None
+            for a in accts or []:
+                info = (((a.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
+                amt = float(((info.get('tokenAmount') or {}).get('uiAmount')) or 0)
+                if amt > 0 and info.get('owner'):
+                    owners[info['owner']] = owners.get(info['owner'], 0) + amt
+            if owners:
+                break
+    price = None
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            price = float(((await http.get(f'https://lite-api.jup.ag/price/v3?ids={mint}')).json().get(mint) or {}).get('usdPrice') or 0) or None
+    except Exception:
+        pass
+    total = sum(owners.values()) or 1
+    rows = sorted(({'owner': o, 'amount': v, 'pct': v / total * 100, 'usd': v * price if price else None} for o, v in owners.items()), key=lambda r: -r['amount'])
+    out = {'mint': mint, 'price': price, 'holders': len(rows), 'rows': rows, 'at': time.time()}
+    _holder_cache[mint] = (time.time(), out)
+    return out
+
+
+@app.get('/api/reputation/admin/holders')
+async def admin_holders(request: Request, asset: str = 'fee'):
+    _require_admin(request)
+    mints = await _ecosystem_mints()
+    mint = mints.get(asset) or (asset if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', asset) else None)
+    if not mint:
+        raise HTTPException(404, 'Unknown asset.')
+    data = await _token_holders(mint)
+    d = _admin_load(); bl = _block_load()['wallets']
+    lp_like = set()
+    for r in data['rows'][:3]:
+        if r['pct'] > 20:
+            lp_like.add(r['owner'])  # bonding curve / pool vaults usually dominate the top
+    rows = [{**r, 'customBadges': list(d['badges'].get(r['owner'], {}).values()), 'blocked': _is_blocked(bl.get(r['owner'])),
+             'likelyPool': r['owner'] in lp_like, 'isAdmin': r['owner'] in _admin_wallets()} for r in data['rows'][:2000]]
+    return {**data, 'rows': rows, 'assets': list(mints.keys())}
+
+
+class AdminBadge(BaseModel):
+    addresses: list
+    label: str = Field(min_length=2, max_length=32)
+    icon: str = Field(default='⭐', max_length=8)
+    tone: str = 'gold'
+    why: str = Field(default='', max_length=140)
+
+
+@app.post('/api/reputation/admin/badges')
+async def admin_award(request: Request, payload: AdminBadge):
+    admin = _require_admin(request)
+    addrs = [a for a in payload.addresses[:500] if _re.match(r'^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$', str(a))]
+    if not addrs:
+        raise HTTPException(400, 'No valid addresses.')
+    bid = 'custom-' + _re.sub(r'[^a-z0-9]+', '-', payload.label.lower()).strip('-')[:28]
+    tone = payload.tone if payload.tone in ('mint', 'gold', 'plain', 'bad') else 'gold'
+    async with _admin_lock:
+        d = _admin_load()
+        for a in addrs:
+            d['badges'].setdefault(a, {})[bid] = {'id': bid, 'label': payload.label, 'icon': payload.icon, 'tone': tone,
+                                                  'why': payload.why or 'Awarded by FEELESS', 'awardedBy': 'FEELESS', 'at': time.time()}
+            _badge_cache.pop(a, None)
+        _audit(d, admin, 'award-badge', f'{payload.label} → {len(addrs)} wallet(s)')
+        _admin_save(d)
+    return {'ok': True, 'awarded': len(addrs), 'id': bid}
+
+
+@app.delete('/api/reputation/admin/badges/{address}/{bid}')
+async def admin_revoke(request: Request, address: str, bid: str):
+    admin = _require_admin(request)
+    async with _admin_lock:
+        d = _admin_load()
+        removed = d['badges'].get(address, {}).pop(bid, None)
+        _badge_cache.pop(address, None)
+        _audit(d, admin, 'revoke-badge', f'{bid} ✕ {address[:6]}…')
+        _admin_save(d)
+    return {'ok': bool(removed)}
+
+
+class Airdrop(BaseModel):
+    name: str = Field(min_length=2, max_length=60)
+    asset: str = 'fee'
+    recipients: list
+    scheduledAt: float
+    note: str = Field(default='', max_length=280)
+
+
+@app.get('/api/reputation/admin/airdrops')
+async def admin_airdrops(request: Request):
+    _require_admin(request)
+    return {'airdrops': sorted(_admin_load()['airdrops'], key=lambda a: -a['scheduledAt'])}
+
+
+@app.post('/api/reputation/admin/airdrops')
+async def admin_schedule(request: Request, payload: Airdrop):
+    admin = _require_admin(request)
+    recips = []
+    for r in payload.recipients[:1000]:
+        a = str((r or {}).get('address', ''))
+        try:
+            amt = float((r or {}).get('amount'))
+        except (TypeError, ValueError):
+            continue
+        if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', a) and amt > 0:
+            recips.append({'address': a, 'amount': amt})
+    if not recips:
+        raise HTTPException(400, 'Add at least one valid Solana recipient with an amount.')
+    drop = {'id': uuid.uuid4().hex[:12], 'name': payload.name, 'asset': payload.asset, 'recipients': recips,
+            'total': sum(r['amount'] for r in recips), 'scheduledAt': payload.scheduledAt, 'note': payload.note,
+            'status': 'scheduled', 'createdAt': time.time(), 'createdBy': admin, 'txs': []}
+    async with _admin_lock:
+        d = _admin_load(); d['airdrops'].append(drop)
+        _audit(d, admin, 'schedule-airdrop', f"{payload.name}: {len(recips)} wallets, {drop['total']:,.2f} {payload.asset.upper()}")
+        _admin_save(d)
+    return {'ok': True, 'airdrop': drop}
+
+
+class AirdropStatus(BaseModel):
+    status: str
+    txSig: Optional[str] = None
+
+
+@app.post('/api/reputation/admin/airdrops/{drop_id}')
+async def admin_airdrop_status(request: Request, drop_id: str, payload: AirdropStatus):
+    admin = _require_admin(request)
+    if payload.status not in ('sent', 'cancelled', 'scheduled'):
+        raise HTTPException(400, 'Bad status.')
+    verified = None
+    if payload.status == 'sent':
+        if not payload.txSig or not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', payload.txSig):
+            raise HTTPException(400, 'Paste the on-chain transaction signature to mark an airdrop sent.')
+        async with httpx.AsyncClient(timeout=20) as http:
+            tx = await _rpc(http, 'getTransaction', [payload.txSig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}])
+        if not tx:
+            raise HTTPException(404, 'That transaction is not on-chain (yet).')
+        if (tx.get('meta') or {}).get('err'):
+            raise HTTPException(400, 'That transaction failed on-chain.')
+        signers = [k['pubkey'] for k in tx['transaction']['message']['accountKeys'] if k.get('signer')]
+        if admin not in signers:
+            raise HTTPException(400, 'That transaction was not signed by your command center wallet.')
+        verified = {'sig': payload.txSig, 'slot': tx.get('slot'), 'blockTime': tx.get('blockTime')}
+    async with _admin_lock:
+        d = _admin_load()
+        drop = next((x for x in d['airdrops'] if x['id'] == drop_id), None)
+        if not drop:
+            raise HTTPException(404, 'Airdrop not found.')
+        drop['status'] = payload.status
+        if verified:
+            drop['txs'].append(verified)
+            for r in drop['recipients']:
+                d['badges'].setdefault(r['address'], {})['airdrop-recipient'] = {
+                    'id': 'airdrop-recipient', 'label': 'Airdropped', 'icon': '🪂', 'tone': 'gold',
+                    'why': f"Received the {drop['name']} airdrop", 'awardedBy': 'FEELESS', 'at': time.time()}
+                _badge_cache.pop(r['address'], None)
+        _audit(d, admin, f'airdrop-{payload.status}', drop['name'])
+        _admin_save(d)
+    return {'ok': True, 'airdrop': drop}
+
+
+class BugReport(BaseModel):
+    text: str = Field(min_length=5, max_length=2000)
+    page: str = Field(default='', max_length=300)
+    kind: str = 'bug'
+    address: Optional[str] = None
+
+
+@app.post('/api/reputation/bugs')
+async def report_bug(request: Request, payload: BugReport):
+    ip = request.headers.get('x-forwarded-for', request.client.host if request.client else '?').split(',')[0]
+    hits = [t for t in _bug_ip_hits.get(ip, []) if time.time() - t < 60]
+    if len(hits) >= 3:
+        raise HTTPException(429, 'Slow down — 3 reports a minute.')
+    _bug_ip_hits[ip] = hits + [time.time()]
+    kind = payload.kind if payload.kind in ('bug', 'security', 'idea') else 'bug'
+    async with _admin_lock:
+        d = _json_load(BUGS_PATH, {'bugs': []})
+        d['bugs'].append({'id': uuid.uuid4().hex[:10], 'text': payload.text.strip(), 'page': payload.page, 'kind': kind,
+                          'address': (payload.address or '')[:44] or None, 'status': 'open', 'at': time.time()})
+        d['bugs'] = d['bugs'][-1000:]
+        _json_save(BUGS_PATH, d)
+    return {'ok': True}
+
+
+@app.get('/api/reputation/admin/bugs')
+async def admin_bugs(request: Request):
+    _require_admin(request)
+    return _json_load(BUGS_PATH, {'bugs': []})
+
+
+@app.post('/api/reputation/admin/bugs/{bug_id}')
+async def admin_bug_status(request: Request, bug_id: str, status: str = Query(...)):
+    admin = _require_admin(request)
+    if status not in ('open', 'fixing', 'fixed', 'wontfix'):
+        raise HTTPException(400, 'Bad status.')
+    async with _admin_lock:
+        d = _json_load(BUGS_PATH, {'bugs': []})
+        for b in d['bugs']:
+            if b['id'] == bug_id:
+                b['status'] = status; b['updatedAt'] = time.time()
+        _json_save(BUGS_PATH, d)
+        ad = _admin_load(); _audit(ad, admin, 'bug-status', f'{bug_id} → {status}'); _admin_save(ad)
+    return {'ok': True}
+
+
+@app.get('/api/reputation/admin/security')
+async def admin_security(request: Request):
+    _require_admin(request)
+    root = Path(__file__).parent
+    checks = []
+
+    def check(name, ok, detail, sev='high'):
+        checks.append({'name': name, 'ok': bool(ok), 'detail': detail, 'severity': 'ok' if ok else sev})
+
+    for f, label in ((root / 'data' / 'internal.key', 'Internal service key'), (root / '.env', 'Backend .env secrets')):
+        if f.exists():
+            mode = oct(f.stat().st_mode & 0o777)
+            check(f'{label} permissions', (f.stat().st_mode & 0o077) == 0, f'{f.name} is {mode} (should be 0o600)', 'high')
+    gi = (root.parent / '.gitignore')
+    gtxt = gi.read_text() if gi.exists() else ''
+    check('Secrets kept out of git', all(x in gtxt for x in ('.env', 'data/')), '.gitignore covers .env and backend/data/' if gtxt else 'No .gitignore found')
+    fe_env = root.parent / 'frontend' / '.env'
+    leak = fe_env.exists() and _re.search(r'REACT_APP_[A-Z_]*=.*(api-key|apikey|secret)', fe_env.read_text(), _re.I)
+    check('No API keys shipped to the browser', not leak, 'A REACT_APP_ variable contains a key — it is public in the bundle.' if leak else 'No REACT_APP_ secrets found')
+    check('RPC key stays server-side', bool(os.environ.get('SOLANA_RPC_URL')), 'Helius RPC is read from backend/.env only', 'medium')
+    check('CORS scope', False, "Services allow any origin ('*'). Lock to your domain before launch.", 'medium')
+    services = []
+    async with httpx.AsyncClient(timeout=4) as http:
+        for name, url in (('Market API', 'http://127.0.0.1:5001/api/market/assets'), ('Reputation', 'http://127.0.0.1:5077/api/reputation/health'),
+                          ('FeeCats', 'http://127.0.0.1:5088/api/cats/leader'), ('Candles', 'http://127.0.0.1:5099/api/candles/health')):
+            t0 = time.time()
+            try:
+                r = await http.get(url); up = r.status_code < 500
+            except Exception:
+                up = False
+            services.append({'name': name, 'up': up, 'ms': round((time.time() - t0) * 1000)})
+    now = time.time()
+    recent = [s for s in _status_log if now - s[0] < 3600]
+    by = {}
+    for _, m, p, st in recent:
+        k = f'{st} {m} {_re.sub(r"/[1-9A-HJ-NP-Za-km-z]{32,}|/0x[0-9a-fA-F]{40}", "/:addr", p)}'
+        by[k] = by.get(k, 0) + 1
+    signals = {'forgedSignatures': sum(1 for s in recent if s[3] == 401), 'replays': sum(1 for s in recent if s[3] == 409),
+               'rateLimited': sum(1 for s in recent if s[3] == 429), 'forbidden': sum(1 for s in recent if s[3] == 403),
+               'serverErrors': sum(1 for s in recent if s[3] >= 500)}
+    chat = _json_load(CHAT_PATH, {})
+    rooms = chat.get('rooms', chat) if isinstance(chat, dict) else {}
+    msgs24 = sum(1 for msgs in rooms.values() if isinstance(msgs, list) for m in msgs if isinstance(m, dict) and now - (m.get('ts', 0) / (1000 if m.get('ts', 0) > 1e12 else 1)) < 86400)
+    bl = _block_load()['wallets']
+    bugs = _json_load(BUGS_PATH, {'bugs': []})['bugs']
+    score = max(0, 100 - sum(25 if c['severity'] == 'high' else 8 for c in checks if not c['ok']) - (10 if signals['serverErrors'] else 0) - 10 * sum(1 for s in services if not s['up']))
+    return {'score': score, 'checks': checks, 'services': services, 'signals': signals,
+            'topErrors': sorted(({'key': k, 'count': v} for k, v in by.items()), key=lambda x: -x['count'])[:12],
+            'stats': {'chat24h': msgs24, 'chatRooms': len(rooms), 'blocklisted': sum(1 for r in bl.values() if _is_blocked(r)),
+                      'openBugs': sum(1 for b in bugs if b['status'] in ('open', 'fixing')), 'customBadges': sum(len(v) for v in _admin_load()['badges'].values())},
+            'audit': _admin_load()['audit'][-25:][::-1], 'at': now}
+
+
+BADGE_CATALOG = [
+    {'id': 'fee-holder', 'label': '$FEE Holder', 'icon': '🌿', 'tone': 'mint', 'tier': 1, 'how': 'Hold at least $1 of $FEE in your wallet.'},
+    {'id': 'feecat-holder', 'label': 'FEECAT Holder', 'icon': '🐱', 'tone': 'mint', 'tier': 1, 'how': 'Hold at least $1 of FEECAT.'},
+    {'id': 'rfee-holder', 'label': 'rFEE Holder', 'icon': '💠', 'tone': 'mint', 'tier': 1, 'how': 'Hold at least $1 of rFEE.'},
+    {'id': 'rides-with-fee', 'label': 'Rides with Fee', 'icon': '🐾', 'tone': 'mint', 'tier': 2, 'how': 'Hold a coin the Leader cat is currently in (see FeeCats).'},
+    {'id': 'caller', 'label': 'Caller', 'icon': '🎯', 'tone': 'plain', 'tier': 2, 'how': 'Drop a CA in chat — it lands on the Call Ledger and is tracked live.'},
+    {'id': 'sharp-caller', 'label': 'Sharp Caller', 'icon': '🎯', 'tone': 'gold', 'tier': 3, 'how': '5+ calls in 30 days with at least half reaching 2×.'},
+    {'id': 'feeless-launcher', 'label': 'FEELESS Launcher', 'icon': '🚀', 'tone': 'mint', 'tier': 3, 'how': 'Launch a token through FEELESS (verified on-chain).'},
+    {'id': 'trusted-creator', 'label': 'Trusted Creator', 'icon': '🛡️', 'tone': 'mint', 'tier': 3, 'how': 'Have launches tracked by FEELESS with none dumped or rugged.'},
+    {'id': 'airdrop-recipient', 'label': 'Airdropped', 'icon': '🪂', 'tone': 'gold', 'tier': 3, 'how': 'Receive a FEELESS airdrop — verified by its on-chain transaction.'},
+    {'id': 'fee-whale', 'label': '$FEE Whale', 'icon': '🐋', 'tone': 'gold', 'tier': 4, 'how': 'Hold $1,000 or more of $FEE.'},
+    {'id': 'custom', 'label': 'FEELESS Special', 'icon': '⭐', 'tone': 'gold', 'tier': 4, 'how': 'Hand-awarded by the FEELESS team for building, finding bugs or legendary calls.'},
+]
+
+
+# ---- Receipts: every trade/airdrop kept forever, in the smallest verifiable form -------
+# One JSON array per line in data/receipts.jsonl (append-only, never rewritten):
+#   [blockTime, signature, wallet, kind, [[mint, delta], ...], solDelta, slot]
+# The signature is the proof — anything else can be re-derived from the chain.
+RECEIPTS_PATH = DATA_DIR / 'receipts.jsonl'
+_receipt_lock = asyncio.Lock()
+_receipt_sigs = None
+WSOL = 'So11111111111111111111111111111111111111112'
+
+
+def _receipt_rows():
+    if not RECEIPTS_PATH.exists():
+        return []
+    rows = []
+    for line in RECEIPTS_PATH.read_text().splitlines():
+        try:
+            rows.append(json.loads(line))
+        except Exception:
+            continue
+    return rows
+
+
+class ReceiptIn(BaseModel):
+    sig: str
+    wallet: str
+    kind: str = 'swap'
+
+
+@app.post('/api/reputation/receipts')
+async def store_receipt(payload: ReceiptIn):
+    global _receipt_sigs
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', payload.sig) or not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', payload.wallet):
+        raise HTTPException(400, 'Bad signature or wallet.')
+    kind = payload.kind if payload.kind in ('swap', 'buy', 'sell', 'airdrop', 'launch', 'transfer') else 'swap'
+    if _receipt_sigs is None:
+        _receipt_sigs = {r[1]: r[2] for r in _receipt_rows()}
+    if payload.sig in _receipt_sigs:
+        if _receipt_sigs[payload.sig] != payload.wallet:
+            raise HTTPException(400, 'That wallet did not sign this transaction.')
+        return {'ok': True, 'duplicate': True}
+    tx = None
+    async with httpx.AsyncClient(timeout=20) as http:
+        for _ in range(6):  # freshly-sent txs can take a few seconds to be queryable
+            tx = await _rpc(http, 'getTransaction', [payload.sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+            if tx:
+                break
+            await asyncio.sleep(2)
+    if not tx:
+        raise HTTPException(404, 'Transaction not found on-chain yet — retry shortly.')
+    meta = tx.get('meta') or {}
+    if meta.get('err'):
+        raise HTTPException(400, 'Transaction failed on-chain; no receipt stored.')
+    keys = [k['pubkey'] for k in tx['transaction']['message']['accountKeys']]
+    signers = [k['pubkey'] for k in tx['transaction']['message']['accountKeys'] if k.get('signer')]
+    if payload.wallet not in signers:
+        raise HTTPException(400, 'That wallet did not sign this transaction.')
+    deltas = {}
+    for side, sign in (('preTokenBalances', -1), ('postTokenBalances', 1)):
+        for b in meta.get(side) or []:
+            if b.get('owner') == payload.wallet:
+                amt = float((b.get('uiTokenAmount') or {}).get('uiAmount') or 0)
+                deltas[b['mint']] = deltas.get(b['mint'], 0) + sign * amt
+    idx = keys.index(payload.wallet)
+    sol = ((meta.get('postBalances') or [0])[idx] - (meta.get('preBalances') or [0])[idx]) / 1e9
+    row = [tx.get('blockTime'), payload.sig, payload.wallet, kind,
+           [[m, float(f'{d:.9g}')] for m, d in deltas.items() if abs(d) > 0], float(f'{sol:.9g}'), tx.get('slot')]
+    async with _receipt_lock:
+        if payload.sig not in _receipt_sigs:
+            with RECEIPTS_PATH.open('a') as f:
+                f.write(json.dumps(row, separators=(',', ':')) + '\n')
+            _receipt_sigs[payload.sig] = payload.wallet
+    return {'ok': True, 'receipt': row}
+
+
+@app.get('/api/reputation/receipts/{wallet}')
+async def list_receipts(wallet: str, limit: int = 200):
+    rows = [r for r in _receipt_rows() if r[2] == wallet]
+    rows.sort(key=lambda r: -(r[0] or 0))
+    keys = ['t', 'sig', 'wallet', 'kind', 'tokens', 'sol', 'slot']
+    return {'wallet': wallet, 'count': len(rows), 'receipts': [dict(zip(keys, r)) for r in rows[:max(1, min(limit, 1000))]]}

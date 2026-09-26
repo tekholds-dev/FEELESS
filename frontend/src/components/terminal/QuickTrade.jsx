@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Zap, Wallet, ArrowUpRight, Settings2 } from 'lucide-react';
+import { keepReceipt } from '../../lib/receipts';
 import { useWallet } from '../../hooks/useWallet';
 import { useMarket } from '../../hooks/useMarket';
 import { apiUrl } from '../../lib/api';
@@ -86,6 +87,7 @@ export function QuickTrade({ pair }) {
       const signed = await provider.signTransaction(tx);
       const res = await tradeApi('/execute', { order_id: order.order_id, signed_transaction: btoa(String.fromCharCode(...signed.serialize())) });
       setResult(res); setOrder(null);
+      if (res.signature && res.state !== 'failed') keepReceipt(res.signature, wallet.address, side);
       toast[res.state === 'failed' ? 'error' : 'success'](res.state === 'confirmed' ? 'Swap confirmed on-chain.' : res.state === 'failed' ? 'Swap failed.' : 'Submitted — confirming.');
     } catch (e) { toast.error(e.code === 4001 ? 'Approval declined — nothing was sent.' : e.message); } finally { setBusy(false); }
   };

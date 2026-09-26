@@ -9,6 +9,9 @@ import { LivePrice } from '../terminal/LiveCells';
 import { shortAddress } from '../../lib/dexscreener';
 import { Badges } from '../terminal/Badges';
 import EcosystemChat from '../EcosystemChat';
+import { BadgeJourney } from './BadgeJourney';
+import { ReceiptsCard } from './ReceiptsCard';
+import { CommandCenter, ReportBug } from './CommandCenter';
 
 const THEMES = [['grid', 'Midnight grid'], ['glitter', 'Glitter'], ['matrix', 'Matrix rain'], ['sunset', 'Sunset'], ['vapor', 'Vaporwave']];
 
@@ -55,6 +58,9 @@ export function WalletProfilePage({ address }) {
   const [saving, setSaving] = useState(false);
   const [ca, setCa] = useState('');
   const mine = wallet?.address === address;
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [ccOpen, setCcOpen] = useState(false);
+  useEffect(() => { if (!mine) { setIsAdmin(false); return; } fetch(apiUrl(`/api/reputation/admin/whoami?address=${address}`)).then(r => r.json()).then(d => setIsAdmin(Boolean(d.isAdmin))).catch(() => {}); }, [mine, address]);
   const load = useCallback(() => fetch(apiUrl(`/api/reputation/profile/${address}`)).then(r => r.json()).then(setData).catch(() => setData({ profile: null })), [address]);
   useEffect(() => { load(); }, [load]);
   const p = (edit ? draft : data?.profile) || {};
@@ -85,6 +91,7 @@ export function WalletProfilePage({ address }) {
   };
   const caller = data?.caller;
   const [friend, setFriend] = useState('');
+  if (ccOpen && isAdmin) return <CommandCenter address={address} signMessage={signMessage} onClose={() => setCcOpen(false)} />;
   return <div className={`wallet-profile-page theme-${p.theme || 'grid'}`} style={{ '--wp-accent': accent }} data-testid="wallet-profile-page">
     <div className="wp-banner" style={p.bannerUrl ? { backgroundImage: `url(${p.bannerUrl})` } : undefined}>{edit && <UploadButton label="Banner" max={1600} onDone={url => set('bannerUrl', url)} />}</div>
     <div className="wp-head">
@@ -95,7 +102,7 @@ export function WalletProfilePage({ address }) {
         <Badges address={address} />
         {edit ? <input className="wp-mood-input" maxLength={40} placeholder="Mood / status (e.g. 🔥 hunting 10×s)" value={draft.mood} onChange={e => set('mood', e.target.value)} /> : p.mood && <span className="wp-mood">{p.mood}</span>}
       </div>
-      <div className="wp-actions">{mine ? (edit ? <><button type="button" className="btn-primary" disabled={saving} onClick={save}><Save size={14} />{saving ? 'Sign in wallet…' : 'Save (sign)'}</button><button type="button" className="btn-outline" onClick={() => setEdit(false)}><X size={14} />Cancel</button></> : <button type="button" className="btn-outline" onClick={startEdit}><Pencil size={14} />Edit profile</button>) : !wallet?.address && <button type="button" className="btn-outline" onClick={() => connect?.('solana')}>Connect to edit yours</button>}</div>
+      <div className="wp-actions">{isAdmin && <button type="button" className="cc-launch" data-testid="open-command-center" onClick={() => setCcOpen(true)}>👑 Command Center</button>}{mine ? (edit ? <><button type="button" className="btn-primary" disabled={saving} onClick={save}><Save size={14} />{saving ? 'Sign in wallet…' : 'Save (sign)'}</button><button type="button" className="btn-outline" onClick={() => setEdit(false)}><X size={14} />Cancel</button></> : <button type="button" className="btn-outline" onClick={startEdit}><Pencil size={14} />Edit profile</button>) : !wallet?.address && <button type="button" className="btn-outline" onClick={() => connect?.('solana')}>Connect to edit yours</button>}</div>
     </div>
     <div className="wp-grid">
       <section className="wp-card">
@@ -131,5 +138,8 @@ export function WalletProfilePage({ address }) {
       <p className="wp-bio">Leave {p.displayName || 'them'} a message. Every comment is signed by the poster's wallet.</p>
       <EcosystemChat compact room={`wall-${address}`} ecosystem={{ id: `wall-${address}`, name: 'Wall' }} onConnect={() => connect?.('solana')} />
     </section>
+    <BadgeJourney address={address} mine={mine} />
+    <ReceiptsCard address={address} />
+    <div className="wp-foot"><ReportBug address={wallet?.address} /></div>
   </div>;
 }

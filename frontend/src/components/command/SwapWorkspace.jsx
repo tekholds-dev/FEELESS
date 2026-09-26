@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { VersionedTransaction } from '@solana/web3.js';
 import { ArrowDownUp, ArrowUpRight, ShieldCheck, Wallet, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../ui/dialog';
+import { keepReceipt } from '../../lib/receipts';
 import { useWallet } from '../../hooks/useWallet';
 import { useClock } from './WorkspaceChrome';
 import { FeeBackPreview } from './FeeBack';
@@ -173,6 +174,7 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
       recoveredOrder.current = order.order_id;
       const response = await request('/execute', { order_id: order.order_id, signed_transaction: encoded });
       setResult(response);
+      if (response.signature && response.state !== 'failed') keepReceipt(response.signature, wallet.address, 'swap');
       if (['confirmed', 'failed'].includes(response.state)) forgetPendingOrder();
       setMessage(response.state === 'confirmed' ? 'Swap confirmed on-chain.' : response.state === 'failed' ? 'Swap failed. Inspect the transaction reference.' : 'Submitted / confirmation pending. Check status before another trade.');
     } catch (e) { setMessage(e.code === 4001 ? 'Wallet approval declined. No transaction submitted.' : e.message || 'Wallet rejected the request.'); }
