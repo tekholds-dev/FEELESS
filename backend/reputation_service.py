@@ -1633,6 +1633,7 @@ def _clean_profile(p: dict) -> dict:
         'top8': top8,
         'theme': p.get('theme') if p.get('theme') in ('grid', 'glitter', 'matrix', 'sunset', 'vapor', 'goldrush', 'neoncat') else 'grid',
         'friends': [str(f)[:44] for f in (p.get('friends') or [])[:8] if _re.match(r'^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$', str(f))],
+        'handle': str(p.get('handle') or '').lower().lstrip('@')[:20] if _re.match(r'^@?[a-z0-9_]{3,20}$', str(p.get('handle') or '').lower()) else '',
         'ring': p.get('ring') if p.get('ring') in RING_TIERS else 'none',
         'nameFx': p.get('nameFx') if p.get('nameFx') in NAMEFX_TIERS else 'none',
         'featuredBadges': list(dict.fromkeys(str(b)[:40] for b in (p.get('featuredBadges') or []) if _re.match(r'^[a-z0-9-]{2,40}$', str(b))))[:3],
@@ -1691,6 +1692,8 @@ async def save_profile(payload: ProfileSave):
         if prev.get('lastTs', 0) >= ts:
             raise HTTPException(409, 'Replay rejected — sign a fresh update.')
         clean = _clean_profile(payload.profile)
+        if clean['handle'] and any(a != payload.address and (v or {}).get('handle') == clean['handle'] for a, v in d['profiles'].items()):
+            raise HTTPException(409, f"@{clean['handle']} is taken.")
         if clean['featuredBadges']:
             earned = {b['id'] for b in (await wallet_badges(payload.address))['badges']}
             clean['featuredBadges'] = [b for b in clean['featuredBadges'] if b in earned]
@@ -1714,7 +1717,7 @@ async def get_profile(address: str):
 @app.get('/api/reputation/profiles')
 async def get_profiles(addresses: str):
     d = _profiles_load()['profiles']
-    return {'profiles': {a: {k: d[a].get(k) for k in ('displayName', 'avatarUrl', 'accent', 'mood', 'featuredBadges', 'ring', 'nameFx')} for a in addresses.split(',')[:100] if a in d}}
+    return {'profiles': {a: {k: d[a].get(k) for k in ('displayName', 'avatarUrl', 'accent', 'mood', 'featuredBadges', 'ring', 'nameFx', 'handle')} for a in addresses.split(',')[:100] if a in d}}
 
 
 
@@ -1948,7 +1951,7 @@ async def chat_post(payload: ChatPost):
         d.setdefault('lastAt', {})[payload.address] = time.time()
         if boosted:
             _boost_last[payload.address] = time.time()
-        msg = {'id': uuid.uuid4().hex[:16], 'room': payload.room, 'address': payload.address, 'chain': 'evm' if payload.address.startswith('0x') else 'solana',
+        msg = {'id': uuid.uuid4().hex[:16], 'handle': handle_of(primary_of(payload.address)), 'room': payload.room, 'address': payload.address, 'chain': 'evm' if payload.address.startswith('0x') else 'solana',
                'tier': tier, 'boosted': boosted,
                'username': _display_name(primary_of(payload.address)), 'identity': primary_of(payload.address), 'text': text, 'ts': int(time.time() * 1000),
                'parentId': payload.parentId, 'mentions': sorted(set(MENTION_RE.findall(text)))[:10], 'tokens': tokens,
@@ -2998,3 +3001,44 @@ async def chat_session(payload: SessionIn):
         d['s'][hashlib.sha256(token.encode()).hexdigest()] = {'address': payload.address, 'exp': now + SESSION_TTL}
         _json_save(SESSIONS_PATH, d)
     return {'token': token, 'expiresAt': time.time() + SESSION_TTL}
+
+
+def handle_of(address: str) -> str:
+    p = _profiles_load()['profiles'].get(address) or {}
+    return p.get('handle') or address[:6].lower()
+
+
+@app.get('/api/reputation/resolve/{query}')
+async def resolve_profile(query: str):
+    """@handle, display name or wallet address → profile address (for search + mentions)."""
+    q = query.strip().lstrip('@')
+    if _re.match(r'^0x[0-9a-fA-F]{40}$', q):
+        return {'address': primary_of(q), 'handle': handle_of(primary_of(q))}
+    if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', q):
+        # Only wallets become profiles; token mints / pools stay coin searches.
+        try:
+            async with httpx.AsyncClient(timeout=10) as http:
+                info = await _rpc(http, 'getAccountInfo', [q, {'encoding': 'base64'}])
+            owner = ((info or {}).get('value') or {}).get('owner')
+        except Exception:
+            owner = None
+        if owner in (None, '11111111111111111111111111111111'):
+            return {'address': primary_of(q), 'handle': handle_of(primary_of(q))}
+        raise HTTPException(404, 'That address is a token or program, not a wallet.')
+    ql = q.lower()
+    for a, v in _profiles_load()['profiles'].items():
+        if (v or {}).get('handle') == ql or str((v or {}).get('displayName') or '').lower() == ql:
+            return {'address': a, 'handle': handle_of(a)}
+    raise HTTPException(404, 'No profile with that name.')
+
+
+@app.get('/api/reputation/activity/{address}')
+async def activity(address: str, limit: int = 30):
+    me = set(linked_of(address))
+    rows = []
+    for room, msgs in _chat_load()['rooms'].items():
+        for m in msgs:
+            if m.get('address') in me or (m.get('profile') or {}).get('address') in me:
+                rows.append({'room': room, 'id': m['id'], 'text': m['text'][:200], 'ts': m['ts'], 'tokens': [t.get('symbol') for t in m.get('tokens') or []]})
+    rows.sort(key=lambda r: -r['ts'])
+    return {'address': address, 'posts': rows[:max(1, min(limit, 100))], 'handle': handle_of(primary_of(address))}

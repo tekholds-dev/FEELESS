@@ -56,6 +56,10 @@ function UploadButton({ label, max, onDone }) {
 export function WalletProfilePage({ address }) {
   const { wallet, signMessage, connect } = useWallet() || {};
   const navigate = useNavigate();
+  useEffect(() => { if (!address.startsWith('@')) return; fetch(apiUrl(`/api/reputation/resolve/${encodeURIComponent(address)}`)).then(r => (r.ok ? r.json() : null)).then(d => { if (d?.address) navigate(`/terminal/profile/${d.address}`, { replace: true }); }).catch(() => {}); }, [address, navigate]);
+  const [flipped, setFlipped] = useState(false);
+  const [acts, setActs] = useState(null);
+  useEffect(() => { if (!flipped || acts) return; fetch(apiUrl(`/api/reputation/activity/${address}`)).then(r => r.json()).then(setActs).catch(() => setActs({ posts: [] })); }, [flipped, acts, address]);
   // A linked 0x account shows its owner's main (Solana) profile — one identity on every network.
   useEffect(() => { if (!/^0x/.test(address)) return; fetch(apiUrl(`/api/reputation/identity/${address}`)).then(r => r.json()).then(d => { if (d.primary && d.primary !== address) navigate(`/terminal/profile/${d.primary}`, { replace: true }); }).catch(() => {}); }, [address, navigate]);
   const { watchlist } = useWorkspace() || { watchlist: [] };
@@ -78,7 +82,7 @@ export function WalletProfilePage({ address }) {
   const p = (edit ? draft : data?.profile) || {};
   const accent = p.accent || '#00e9a0';
   const set = (k, v) => setDraft(d => ({ ...d, [k]: v }));
-  const startEdit = () => { setDraft({ displayName: '', bio: '', mood: '', accent: '#00e9a0', links: {}, top8: [], theme: 'grid', friends: [], featuredBadges: [], ring: 'none', nameFx: 'none', ...(data?.profile || {}) }); setEdit(true); };
+  const startEdit = () => { setDraft({ displayName: '', bio: '', mood: '', accent: '#00e9a0', links: {}, top8: [], theme: 'grid', friends: [], featuredBadges: [], ring: 'none', nameFx: 'none', handle: '', ...(data?.profile || {}) }); setEdit(true); };
   const addCoin = coin => setDraft(d => (d.top8.some(t => t.pairAddress === coin.pairAddress) || d.top8.length >= 8 ? d : { ...d, top8: [...d.top8, coin] }));
   const addByCa = async () => {
     try {
@@ -110,14 +114,17 @@ export function WalletProfilePage({ address }) {
       <div className="wp-avatar-wrap">{tier >= 3 && <div className="wp-crown" aria-hidden="true"><span>👑</span></div>}<div className={`wp-avatar ring-${p.ring || 'none'}`}>{p.avatarUrl ? <img src={p.avatarUrl} alt="" /> : <span>{(p.displayName || address).slice(0, 2).toUpperCase()}</span>}{edit && <UploadButton label="GIF / pic" max={512} onDone={url => set('avatarUrl', url)} />}</div></div>
       <div className="wp-id">
         {edit ? <input className="wp-name-input" maxLength={32} placeholder="Display name" value={draft.displayName} onChange={e => set('displayName', e.target.value)} /> : <h1 className={`namefx-${p.nameFx || 'none'}`}>{p.displayName || shortAddress(address)}</h1>}
+        {edit ? <input className="wp-handle-input" maxLength={21} placeholder="@handle (3–20: a-z 0-9 _)" value={draft.handle ? `@${draft.handle}` : ''} onChange={e => set('handle', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))} /> : <span className="wp-handle">@{p.handle || address.slice(0, 6).toLowerCase()}</span>}
         <code>{shortAddress(address)}</code>
         <Badges address={address} featured={p.featuredBadges} />
         <OnchainStrip address={address} />
         {edit ? <input className="wp-mood-input" maxLength={40} placeholder="Mood / status (e.g. 🔥 hunting 10×s)" value={draft.mood} onChange={e => set('mood', e.target.value)} /> : p.mood && <span className="wp-mood">{p.mood}</span>}
       </div>
       <BadgeArtifacts address={address} featured={p.featuredBadges} />
-      <div className="wp-actions">{isAdmin && <button type="button" className="cc-launch" data-testid="open-command-center" onClick={() => setCcOpen(true)}>👑 Command Center</button>}{mine ? (edit ? <><button type="button" className="btn-primary" disabled={saving} onClick={save}><Save size={14} />{saving ? 'Sign in wallet…' : 'Save (sign)'}</button><button type="button" className="btn-outline" onClick={() => setEdit(false)}><X size={14} />Cancel</button></> : <button type="button" className="btn-outline" onClick={startEdit}><Pencil size={14} />Edit profile</button>) : !wallet?.address && <button type="button" className="btn-outline" onClick={() => connect?.('solana')}>Connect to edit yours</button>}</div>
+      <div className="wp-actions"><button type="button" className="btn-outline wp-flip-btn" data-testid="profile-flip" onClick={() => setFlipped(f => !f)}>{flipped ? '↺ Profile' : '↻ Activity'}</button>{isAdmin && <button type="button" className="cc-launch" data-testid="open-command-center" onClick={() => setCcOpen(true)}>👑 Command Center</button>}{mine ? (edit ? <><button type="button" className="btn-primary" disabled={saving} onClick={save}><Save size={14} />{saving ? 'Sign in wallet…' : 'Save (sign)'}</button><button type="button" className="btn-outline" onClick={() => setEdit(false)}><X size={14} />Cancel</button></> : <button type="button" className="btn-outline" onClick={startEdit}><Pencil size={14} />Edit profile</button>) : !wallet?.address && <button type="button" className="btn-outline" onClick={() => connect?.('solana')}>Connect to edit yours</button>}</div>
     </div>
+    {flipped && <section className="wp-card wp-activity" data-testid="profile-activity"><h3>Activity</h3>{!acts ? <p className="wp-bio">Loading…</p> : !acts.posts.length ? <p className="wp-bio">No posts yet.</p> : <div className="wpa-list">{acts.posts.map(a => <a key={a.id} className="wpa-row" href={a.room.startsWith('coin-') ? `/terminal/chat` : a.room.startsWith('wall-') ? `/terminal/profile/${a.room.slice(5)}` : '/terminal/chat'} target="_blank" rel="noopener noreferrer"><span className="wpa-room">{a.room.startsWith('wall-') ? '🧱 wall' : a.room.startsWith('coin-') ? `🪙 ${a.room.split('-').pop()}` : `# ${a.room}`}</span><p>{a.text}</p><time>{new Date(a.ts).toLocaleString()}</time></a>)}</div>}</section>}
+    <div className={`wp-flip-body ${flipped ? 'is-flipped' : ''}`}>
     {mine && !edit && data && <SetupCallout profile={data.profile} onEdit={startEdit} />}
     <div className="wp-grid">
       <section className="wp-card">
@@ -163,6 +170,7 @@ export function WalletProfilePage({ address }) {
     <PerksCard perks={perks} mine={mine} />
     <BadgeJourney address={address} mine={mine} />
     <ReceiptsCard address={address} />
+    </div>
     <div className="wp-foot"><ReportBug address={wallet?.address} /></div>
   </div>;
 }

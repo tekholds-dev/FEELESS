@@ -2240,3 +2240,9 @@ body.theme-day .legal-consent{background:#fff;border-color:#9fd3b6}body.theme-da
 .wp-id h1{font-size:26px;line-height:1.15}
 .wp-actions{margin-left:auto;align-self:flex-end}
 @media (max-width:700px){.wp-head{align-items:flex-start!important}.wp-id{margin-top:6px!important}}
+.chat-handle{margin-left:5px;color:var(--muted);font-size:10.5px;font-weight:400}
+.wp-handle{color:#5ec8ff;font-size:13px;font-weight:600}.wp-handle-input{min-height:30px;border-radius:8px;border:1px solid var(--line);background:#ffffff08;color:#5ec8ff;padding:0 10px;max-width:260px}
+.wp-flip-body{transition:transform .5s ease,opacity .3s}.wp-flip-body.is-flipped{display:none}
+.wp-activity{animation:flip-in .45s ease}@keyframes flip-in{from{transform:perspective(900px) rotateY(-80deg);opacity:0}}
+.wpa-list{display:grid;gap:6px}.wpa-row{display:grid;grid-template-columns:90px 1fr auto;gap:10px;align-items:center;padding:8px 10px;border-radius:10px;border:1px solid #ffffff0d;color:inherit;text-decoration:none;font-size:12.5px}.wpa-row:hover{border-color:var(--mint)}.wpa-row p{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wpa-room{font-size:10.5px;color:var(--muted)}.wpa-row time{font-size:10.5px;color:var(--muted)}
+@media (max-width:600px){.wpa-row{grid-template-columns:1fr}}
