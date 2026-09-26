@@ -79,40 +79,35 @@ test('switches to provider-supplied market cap without changing candle data', ()
   act(() => mounted.root.unmount());
 });
 
-test('keeps ranking context when the live pair refresh replaces the selected feed row', () => {
-  mockUseMarket.mockReturnValue({
-    data: {
-      provider: 'DexScreener',
-      stale: true,
-      pairs: [{ chainId: 'solana', pairAddress: 'pool-3', priceUsd: '2.50' }],
-    },
-    error: undefined,
-    loading: false,
-    reload: jest.fn(),
-  });
+test('shows the FEELESS Edge Score from real pair data', () => {
   const mounted = mount({
-    chainId: 'solana',
+    chainId: 'ethereum',
     pairAddress: 'pool-3',
     baseToken: { symbol: 'GAMMA', name: 'Gamma' },
-    screener_label: 'Momentum',
-    signals: {
-      screener_score: 81.4,
-      score_label: 'Momentum',
-      score_reasons: ['fast movement', 'deep liquidity', 'reported volume', 'extra reason'],
-    },
+    txns: { h1: { buys: 80, sells: 20 }, h24: { buys: 900, sells: 600 } },
+    priceChange: { h1: 5, h6: 12 },
+    liquidity: { usd: 500000 },
+    marketCap: 2000000,
   });
-
-  expect(mounted.host.querySelector('[data-testid="selected-token-screener-label"]').textContent).toBe('Momentum');
-  expect(mounted.host.querySelector('[data-testid="selected-token-screener-score"]').textContent).toBe('81.4');
-  expect(mounted.host.querySelector('[data-testid="selected-token-screener-reasons"]').textContent)
-    .toContain('fast movement');
-  expect(mounted.host.querySelector('[data-testid="selected-token-screener-reasons"]').textContent)
-    .not.toContain('extra reason');
-  expect(mounted.host.querySelector('[data-testid="selected-token-ranking-provider"]').textContent).toBe('DexScreener');
-  expect(mounted.host.querySelector('[data-testid="selected-token-ranking-status"]').textContent).toBe('STALE SNAPSHOT');
-  expect(mounted.host.querySelector('[data-testid="selected-token-ranking-disclosure"]').textContent)
-    .toContain('not a recommendation');
+  const edge = mounted.host.querySelector('[data-testid="edge-score"]');
+  expect(edge).not.toBeNull();
+  expect(edge.textContent).toContain('80% buys in the last hour');
+  expect(edge.textContent).toContain('25.0% of market cap');
+  expect(edge.textContent).toContain('Not financial advice');
   act(() => mounted.root.unmount());
+});
+
+test('computeEdge excludes missing signals instead of guessing and zeroes flagged creators', () => {
+  const { computeEdge } = require('./EdgeScore');
+  const empty = computeEdge({ chainId: 'base' }, null, null, null);
+  expect(empty.total).toBeNull();
+  expect(empty.factors.every(f => f[2] == null)).toBe(true);
+  const flagged = computeEdge({ chainId: 'base', txns: { h1: { buys: 90, sells: 10 } } }, { score: 70, badge: 'flagged', tokenCount: 5 }, null, null);
+  expect(flagged.factors.find(f => f[0] === 'Creator trust')[2]).toBe(0);
+  expect(flagged.factors.find(f => f[0] === 'Order flow')[2]).toBe(100);
+  const dead = computeEdge({ chainId: 'base', priceChange: { h1: 0, h6: 0, h24: -98 }, liquidity: { usd: 5000 }, marketCap: 4500, txns: { h24: { buys: 9000, sells: 9000 } } }, null, null, null);
+  expect(dead.total).toBeLessThanOrEqual(30);
+  expect(dead.factors.find(f => f[0] === 'Liquidity depth')[2]).toBe(15);
 });
 
 test('disables unsupported chart metrics instead of estimating them', () => {
@@ -124,10 +119,7 @@ test('disables unsupported chart metrics instead of estimating them', () => {
 
   expect(mounted.host.querySelector('[data-testid="chart-metric-switch"]').disabled).toBe(true);
   expect(mounted.host.querySelector('[data-testid="chart-metric-active"]').textContent).toMatch(/price/i);
-  expect(mounted.host.querySelector('[data-testid="selected-token-screener-label"]').textContent).toBe('Unavailable');
-  expect(mounted.host.querySelector('[data-testid="selected-token-screener-score"]').textContent).toBe('Unavailable');
-  expect(mounted.host.querySelector('[data-testid="selected-token-screener-reasons"]').textContent).toBe('Observed reasons unavailable');
-  expect(mounted.host.querySelector('[data-testid="selected-token-ranking-disclosure"]').textContent).toContain('not a recommendation');
+  expect(mounted.host.querySelector('[data-testid="edge-score"]').textContent).toContain('n/a');
   expect(mounted.host.querySelector('[data-testid="token-analytics-holders"]').textContent).toContain('Unavailable');
   act(() => mounted.root.unmount());
 });

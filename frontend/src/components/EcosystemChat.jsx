@@ -16,6 +16,37 @@ function AuthorTrust({ chain, address }) {
 }
 const API = apiUrl('/api');
 const registeredCalls = new Set();
+const EMOJIS = ['🔥', '🚀', '💎', '💀'];
+let callerBoard = { at: 0, map: new Map() };
+const voterId = wallet => {
+  if (wallet?.address) return wallet.address;
+  try { let v = localStorage.getItem('feeless-voter'); if (!v) { v = `browser-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`; localStorage.setItem('feeless-voter', v); } return v; } catch { return 'browser-anon'; }
+};
+// Reactions, per-message call performance and caller track records for one room.
+function useChatMeta(room, wallet) {
+  const [meta, setMeta] = useState({ reactions: {}, calls: {}, board: callerBoard.map });
+  const load = React.useCallback(async () => {
+    if (typeof fetch !== 'function') return;
+    try {
+      const [r, c] = await Promise.all([
+        fetch(apiUrl(`/api/reputation/reactions?room=${encodeURIComponent(room)}&voter=${encodeURIComponent(voterId(wallet))}`)).then(x => (x.ok ? x.json() : {})),
+        fetch(apiUrl(`/api/reputation/calls/by-room?room=${encodeURIComponent(room)}`)).then(x => (x.ok ? x.json() : {})),
+      ]);
+      if (Date.now() - callerBoard.at > 60000) {
+        const b = await fetch(apiUrl('/api/reputation/calls/leaderboard?days=30')).then(x => (x.ok ? x.json() : {})).catch(() => ({}));
+        callerBoard = { at: Date.now(), map: new Map((b.rows || []).map(row => [row.caller, row])) };
+      }
+      setMeta({ reactions: r.reactions || {}, calls: c.calls || {}, board: callerBoard.map });
+    } catch { /* keep last meta */ }
+  }, [room, wallet]);
+  useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 8000); return () => clearInterval(t); }, [load]);
+  const react = async (messageId, emoji) => {
+    await fetch(apiUrl('/api/reputation/reactions'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room, messageId: String(messageId), emoji, voter: voterId(wallet) }) }).catch(() => {});
+    load();
+  };
+  return { ...meta, react };
+}
+const fmtX = v => (v == null ? '—' : `${v >= 100 ? v.toFixed(0) : v.toFixed(2)}×`);
 // Call Ledger: any coin posted in chat becomes a tracked call. The server prices it itself.
 function registerCalls(room, messages) {
   (messages || []).forEach(m => (m.tokens || []).forEach(t => {
@@ -35,6 +66,7 @@ const detectAddress = text => text.match(/\b0x[a-fA-F0-9]{40}\b/)?.[0] || text.m
 export default function EcosystemChat({ ecosystem, room: roomProp, compact = false, onConnect }) {
   const room = roomProp || ecosystem?.id || 'general';
   const { wallet, signMessage } = useWallet() || {};
+  const chatMeta = useChatMeta(room, wallet);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
@@ -108,7 +140,7 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
     <div className="chat-messages custom-scroll" ref={scroller} onScroll={() => { const e = scroller.current; stick.current = e.scrollHeight - e.scrollTop - e.clientHeight < 65; }}>
       {loading && <div className="chat-empty" data-testid={`chat-loading-${room}`}><span className="loader" />Connecting to the room…</div>}
       {!loading && !messages.length && <div className="chat-empty" data-testid={`chat-empty-${room}`}><MessageCircle size={28} /><strong>The next alpha starts here.</strong><span>No messages in this channel yet.</span></div>}
-      {messages.map(m => <div className={`chat-message ${m.parentId ? 'chat-reply' : ''}`} key={m.id} data-testid={`chat-message-${m.id}`}><button type="button" className="chat-avatar" onClick={() => openProfile(m)} title={`Open ${m.username} profile`}>{m.profile?.avatarUrl ? <img src={m.profile.avatarUrl} alt="" /> : <span>{m.username.slice(-2).toUpperCase()}</span>}</button><div><div className="message-meta"><button type="button" onClick={() => openProfile(m)}><b>{m.profile?.hidden ? 'Private wallet' : m.username}</b></button><time>{formatTime(m.ts)}</time>{m.profile?.category && <span className="message-category">{m.profile.category}</span>}<AuthorTrust chain={m.profile?.chain || m.chain} address={m.profile?.address || m.address} /></div>{m.parentId && <small className="reply-context"><Reply size={11} />reply</small>}<p>{m.text}</p>{m.tokens?.map((t, i) => t.pair ? <div key={i} className="chat-token-wrap"><div className="chat-token-trust"><ReputationBadge pair={t.pair} /></div><IntelligenceCard id={`chat-token-${m.id}-${i}`} pair={t.pair} snapshotTime={t.fetched_at} /></div> : <TokenCard key={i} testId={`chat-token-${m.id}-${i}`} compact pair={{ chainId: t.chainId, baseToken: { name: t.name, symbol: t.symbol, address: t.address }, priceUsd: t.priceUsd, priceChange: { h24: t.priceChange24h }, liquidity: { usd: t.liquidity }, volume: { h24: t.volume }, marketCap: t.mcap, url: t.url, pairCreatedAt: t.pairCreatedAt, info: { imageUrl: t.imageUrl } }} />)}<div className="message-actions"><button type="button" className={m.likedByMe ? 'is-liked' : ''} onClick={() => interact(m, 'like')}><Heart size={13} />{m.likeCount || 0}</button><button type="button" onClick={() => { setReplyTarget(m); setInput(''); }}><Reply size={13} />Reply</button></div></div></div>)}
+      {messages.map(m => <div className={`chat-message ${m.parentId ? 'chat-reply' : ''}`} key={m.id} data-testid={`chat-message-${m.id}`}><button type="button" className="chat-avatar" onClick={() => openProfile(m)} title={`Open ${m.username} profile`}>{m.profile?.avatarUrl ? <img src={m.profile.avatarUrl} alt="" /> : <span>{m.username.slice(-2).toUpperCase()}</span>}</button><div><div className="message-meta"><button type="button" onClick={() => openProfile(m)}><b>{m.profile?.hidden ? 'Private wallet' : m.username}</b></button>{(() => { const rec = chatMeta.board.get(m.profile?.hidden ? 'anon' : m.username); return rec ? <span className="caller-chip" title={`Call Ledger (30d): ${rec.calls} calls, ${Math.round(rec.hitRate * 100)}% reached 2×, avg peak ${fmtX(rec.avgPeakX)}`}>🎯 {Math.round(rec.hitRate * 100)}% · {rec.calls}</span> : null; })()}<time>{formatTime(m.ts)}</time>{m.profile?.category && <span className="message-category">{m.profile.category}</span>}<AuthorTrust chain={m.profile?.chain || m.chain} address={m.profile?.address || m.address} /></div>{m.parentId && <small className="reply-context"><Reply size={11} />reply</small>}<p>{m.text}</p>{m.tokens?.map((t, i) => t.pair ? <div key={i} className="chat-token-wrap"><div className="chat-token-trust"><ReputationBadge pair={t.pair} /></div><IntelligenceCard id={`chat-token-${m.id}-${i}`} pair={t.pair} snapshotTime={t.fetched_at} /></div> : <TokenCard key={i} testId={`chat-token-${m.id}-${i}`} compact pair={{ chainId: t.chainId, baseToken: { name: t.name, symbol: t.symbol, address: t.address }, priceUsd: t.priceUsd, priceChange: { h24: t.priceChange24h }, liquidity: { usd: t.liquidity }, volume: { h24: t.volume }, marketCap: t.mcap, url: t.url, pairCreatedAt: t.pairCreatedAt, info: { imageUrl: t.imageUrl } }} />)}{(chatMeta.calls[String(m.id)] || []).map(c => <div key={c.pairAddress} className={`call-perf ${(c.x || 1) >= 1 ? 'up' : 'down'}`}><span>📣 {c.symbol} since posted</span><b>{fmtX(c.x)}</b><small>peak {fmtX(c.peakX)}</small></div>)}<div className="message-reactions">{EMOJIS.map(e => { const r = chatMeta.reactions[String(m.id)]?.[e]; return <button type="button" key={e} className={r?.mine ? 'mine' : ''} onClick={() => chatMeta.react(m.id, e)} aria-label={`React ${e}`}>{e}{r?.count ? <span>{r.count}</span> : null}</button>; })}</div><div className="message-actions"><button type="button" className={m.likedByMe ? 'is-liked' : ''} onClick={() => interact(m, 'like')}><Heart size={13} />{m.likeCount || 0}</button><button type="button" onClick={() => { setReplyTarget(m); setInput(''); }}><Reply size={13} />Reply</button></div></div></div>)}
     </div>
     {error && <div className="chat-error" role="alert" data-testid={`chat-error-${room}`}><span>{error}</span><button type="button" data-testid={`chat-retry-${room}`} onClick={() => refresh.current?.()}>Retry connection</button></div>}
     {replyTarget && <div className="chat-replying"><Reply size={13} />Replying to {replyTarget.username}<button type="button" aria-label="Cancel reply" onClick={() => setReplyTarget(null)}><X size={13} /></button></div>}

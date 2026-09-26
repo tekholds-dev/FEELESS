@@ -43,6 +43,6 @@ test('shows a retry action when the room provider fails', async () => {
   expect(mounted.host.querySelector('[data-testid="chat-error-coin-solana-pool-2-bears"]')).not.toBeNull();
   expect(mounted.host.querySelector('[data-testid="chat-retry-coin-solana-pool-2-bears"]')).not.toBeNull();
   act(() => mounted.host.querySelector('[data-testid="chat-retry-coin-solana-pool-2-bears"]').click());
-  expect(global.fetch).toHaveBeenCalledTimes(2);
+  expect(global.fetch.mock.calls.filter(c => String(c[0]).includes('/api/chat/')).length).toBe(2);
   act(() => mounted.root.unmount());
 });

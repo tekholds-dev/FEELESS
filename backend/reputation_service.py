@@ -1408,7 +1408,7 @@ async def register_call(payload: CallPayload):
     price = float((p or {}).get('priceUsd') or 0)
     if not p or price <= 0:
         raise HTTPException(404, 'No live market for that pair.')
-    call = {'id': cid, 'room': payload.room[:80], 'caller': payload.caller[:40], 'callerAddress': (payload.callerAddress or '')[:64],
+    call = {'id': cid, 'messageId': payload.messageId[:80], 'room': payload.room[:80], 'caller': payload.caller[:40], 'callerAddress': (payload.callerAddress or '')[:64],
             'chain': payload.chain, 'pairAddress': payload.pairAddress, 'mint': (p.get('baseToken') or {}).get('address'),
             'symbol': (p.get('baseToken') or {}).get('symbol'), 'imageUrl': (p.get('info') or {}).get('imageUrl'),
             'priceAtCall': price, 'mcAtCall': p.get('marketCap') or p.get('fdv'), 'at': time.time(),
@@ -1507,6 +1507,61 @@ async def hot_calls(minutes: int = Query(60, ge=5, le=1440)):
     rows = [{**{k: v for k, v in a.items() if k != 'callers'}, 'callers': len(a['callers'])} for a in agg.values()]
     rows.sort(key=lambda r: (-r['callers'], -r['calls']))
     return {'rows': rows[:12], 'minutes': minutes}
+
+
+# ---- Chat reactions ------------------------------------------------------------
+REACT_PATH = DATA_DIR / 'reactions.json'
+REACTIONS = ['🔥', '🚀', '💎', '💀']
+_react_lock = asyncio.Lock()
+
+
+def _react_load():
+    if REACT_PATH.exists():
+        try:
+            return json.loads(REACT_PATH.read_text())
+        except Exception:
+            pass
+    return {'rooms': {}}
+
+
+class ReactPayload(BaseModel):
+    room: str
+    messageId: str
+    emoji: str
+    voter: str
+
+
+@app.post('/api/reputation/reactions')
+async def react(payload: ReactPayload):
+    if payload.emoji not in REACTIONS or not (6 <= len(payload.voter) <= 80):
+        raise HTTPException(400, 'Invalid reaction.')
+    async with _react_lock:
+        d = _react_load()
+        msg = d['rooms'].setdefault(payload.room[:120], {}).setdefault(payload.messageId[:80], {})
+        voters = msg.setdefault(payload.emoji, [])
+        if payload.voter in voters:
+            voters.remove(payload.voter)
+        else:
+            voters.append(payload.voter)
+        REACT_PATH.write_text(json.dumps(d))
+    return {'ok': True}
+
+
+@app.get('/api/reputation/reactions')
+async def reactions(room: str, voter: Optional[str] = None):
+    msgs = _react_load()['rooms'].get(room[:120], {})
+    return {'reactions': {mid: {e: {'count': len(v), 'mine': bool(voter and voter in v)} for e, v in em.items() if v} for mid, em in msgs.items()},
+            'emojis': REACTIONS}
+
+
+@app.get('/api/reputation/calls/by-room')
+async def calls_by_room(room: str):
+    out = {}
+    for c in _calls_load()['calls'].values():
+        if c['room'] == room[:80] and c.get('messageId'):
+            v = _call_view(c)
+            out.setdefault(c['messageId'], []).append({'symbol': v['symbol'], 'x': v['x'], 'peakX': v['peakX'], 'mcAtCall': v['mcAtCall'], 'pairAddress': v['pairAddress']})
+    return {'calls': out}
 
 
 @app.get('/api/reputation/health')
