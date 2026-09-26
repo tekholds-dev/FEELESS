@@ -1,3 +1,4 @@
+import { CoinAura } from '../components/CoinAura';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowUpRight, ArrowLeft, ArrowRight, Flame, RefreshCw, SlidersHorizontal, Activity } from 'lucide-react';
@@ -194,8 +195,8 @@ export default function Terminal() {
       {page.startsWith('coin/') && <CoinProfile key={page} chain={page.split('/')[1]} pairAddress={page.split('/')[2]} />}
       {page.startsWith('profile/') && <WalletProfilePage key={page} address={page.split('/')[1]} />}
       {page.startsWith('reputation/') && (() => { const [, repChain, repAddress] = page.split('/'); return repChain && repAddress ? <CreatorProfilePage chain={repChain} address={repAddress} /> : null; })()}
-      {page === 'leaderboard' && <><TrenchWars /><CallerLeague /><ParticipationBoard /></>}{page === 'whitepaper' && <><LiveProof /><CommandWhitepaper /></>}{page === 'roadmap' && <><MissionRoadmap /><RoadmapVoting /></>}{page === 'learn' && <><LiveIntelStats /><RadarPanel /><UnderstandFeeless /><CaseStudies /></>}
-      {page === 'settings' && <><TerminalConfiguration settings={settings} setSettings={setSettings} onWallet={() => setWalletOpen(true)} /><MyInviteCard /><NetworkStatus /></>}
+      {page === 'leaderboard' && <><TrenchWars /><CallerLeague /><ParticipationBoard /></>}{page === 'whitepaper' && <div className="tab-stage has-aura" style={{ '--stage': '#7cc8ff' }}><CoinAura color="#7cc8ff" change24h={20} /><LiveProof /><CommandWhitepaper /></div>}{page === 'roadmap' && <div className="tab-stage has-aura" style={{ '--stage': '#b388ff' }}><CoinAura color="#b388ff" change24h={20} /><MissionRoadmap /><RoadmapVoting /></div>}{page === 'learn' && <><LiveIntelStats /><RadarPanel /><UnderstandFeeless /><CaseStudies /></>}
+      {page === 'settings' && <div className="tab-stage has-aura" style={{ '--stage': '#f5c542' }}><CoinAura color="#f5c542" change24h={14} /><TerminalConfiguration settings={settings} setSettings={setSettings} onWallet={() => setWalletOpen(true)} /><MyInviteCard /><NetworkStatus /></div>}
        {!isMarket && !page.startsWith('reputation') && !page.startsWith('profile/') && !page.startsWith('coin/') && !['launch', 'watchlist', 'chat', 'alerts', 'fee', 'feeback', 'feecat', 'feecat/cats', 'feecat/agents', 'leaderboard', 'whitepaper', 'roadmap', 'learn', 'settings', 'legal'].includes(page) && <div className="page-heading"><h1>Off the radar.</h1><Link to="/terminal" className="btn-primary" data-testid="unknown-page-home">Back to terminal</Link></div>}
        </div><TerminalFooter />
      </main></div><WalletModal open={walletOpen} onClose={() => setWalletOpen(false)} /><WalletProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} /></div>;

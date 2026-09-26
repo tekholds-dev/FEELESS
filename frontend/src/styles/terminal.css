@@ -2737,3 +2737,13 @@ body.theme-day .nm-tile,body.theme-day .nm-flow>div,body.theme-day .nm-trend{bac
 @keyframes coin-ember-rise{0%{transform:translate(0,0);opacity:0}15%{opacity:calc(var(--heat)*.9)}100%{transform:translate(var(--drift),-420px);opacity:0}}
 @keyframes coin-aura-breathe{0%,100%{opacity:.75;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
 @media(prefers-reduced-motion:reduce){.coin-ember,.coin-aura-glow{animation:none}}
+/* Roadmap / Whitepaper / Settings stage */
+.tab-stage{display:grid;gap:18px;padding:6px;border-radius:18px}
+.tab-stage>:not(.coin-aura){border-radius:16px;background:linear-gradient(160deg,rgba(255,255,255,.045),rgba(255,255,255,.012));border:1px solid color-mix(in srgb,var(--stage,#7cc8ff) 22%,transparent);backdrop-filter:blur(4px);animation:stage-in .6s cubic-bezier(.2,.8,.2,1) both}
+.tab-stage>:nth-child(3){animation-delay:.08s}.tab-stage>:nth-child(4){animation-delay:.16s}
+.tab-stage h1,.tab-stage h2{background:linear-gradient(90deg,#eafff3,var(--stage,#7cc8ff));-webkit-background-clip:text;background-clip:text;color:transparent}
+.tab-stage .coin-ember{--drift:10px}
+@keyframes stage-in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+body.theme-day .tab-stage>:not(.coin-aura){background:rgba(255,255,255,.72)}
+body.theme-day .tab-stage h1,body.theme-day .tab-stage h2{background:linear-gradient(90deg,#0a1f14,#2d6fb0);-webkit-background-clip:text;background-clip:text}
+@media(prefers-reduced-motion:reduce){.tab-stage>*{animation:none}}
