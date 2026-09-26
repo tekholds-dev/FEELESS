@@ -50,7 +50,7 @@ export const ChatRoom = ({ large = false, pairs = [], newPairs = [], onSelect, s
   const [channel, setChannel] = useState(selectedPair ? (normalizeRoomPerspective(selectedPerspective) || 'bulls') : 'general');
   const identity = coinIdentity(selectedPair);
   const hasSelectedPair = Boolean(identity);
-  const coinChannels = [['bulls', 'Bulls'], ['bears', 'Bears'], ['trenches', 'Trenches']];
+  const coinChannels = [['bulls', 'Bulls'], ['trenches', 'Trenches'], ['bears', 'Bears']];
   const channels = [['general', 'General'], ['alpha', 'Alpha'], ['launches', 'Launches'], ['trading', 'Trading'], ['whales', 'Whales'], ['pools', 'Pools']];
   React.useEffect(() => {
     setChannel(hasSelectedPair ? (normalizeRoomPerspective(selectedPerspective) || 'bulls') : 'general');
@@ -62,7 +62,7 @@ export const ChatRoom = ({ large = false, pairs = [], newPairs = [], onSelect, s
     setChannel(next);
     if (selectedPair && normalizeRoomPerspective(next)) onPerspectiveChange?.(next);
   };
-  return <section className={`community-chat ${large ? 'large-chat' : ''}`}><div className="section-title"><h2><MessageCircle size={18} />{selectedPair ? `${selectedPair.baseToken?.symbol || 'Coin'} discussion` : 'The Trenches'}</h2><span className="positive small" data-testid="chat-active-ecosystem">{selectedPair ? `${selectedPair.chainId} · ${shortAddress(selectedPair.pairAddress)}` : ecosystem.name}</span></div><div className="chat-tabs">{tabs.map(([id, label]) => <button key={id} data-testid={`chat-tab-${id}`} aria-selected={channel === id} title={`${label} discussion`} onClick={() => changeChannel(id)} className={channel === id ? 'active' : ''}>{label}</button>)}</div>{selectedPair ? <EcosystemChat key={room} room={room} compact ecosystem={{ id: room, name: roomName }} onConnect={onConnect} /> : channel === 'pools' ? <LivePoolsPanel pairs={pairs} newPairs={newPairs} onSelect={onSelect} /> : <EcosystemChat key={`${ecosystem.id}-${channel}`} compact ecosystem={{ id: `${ecosystem.id}-${channel}`, name: roomName }} onConnect={onConnect} />}</section>;
+  return <section className={`community-chat ${large ? 'large-chat' : ''}`}><div className="section-title"><h2><MessageCircle size={18} />{selectedPair ? `${selectedPair.baseToken?.symbol || 'Coin'} discussion` : 'The Trenches'}</h2><span className="positive small" data-testid="chat-active-ecosystem">{selectedPair ? `${selectedPair.chainId} · ${shortAddress(selectedPair.pairAddress)}` : ecosystem.name}</span></div><div className="chat-tabs">{tabs.map(([id, label]) => <button key={id} data-testid={`chat-tab-${id}`} aria-selected={channel === id} title={`${label} discussion`} onClick={() => changeChannel(id)} className={`${channel === id ? 'active' : ''} ${id === 'trenches' ? 'trenches-font' : ''}`}>{label}</button>)}</div>{selectedPair ? <EcosystemChat key={room} room={room} compact ecosystem={{ id: room, name: roomName }} onConnect={onConnect} /> : channel === 'pools' ? <LivePoolsPanel pairs={pairs} newPairs={newPairs} onSelect={onSelect} /> : <EcosystemChat key={`${ecosystem.id}-${channel}`} compact ecosystem={{ id: `${ecosystem.id}-${channel}`, name: roomName }} onConnect={onConnect} />}</section>;
 };
 
 export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair: routeSelectedPair = null, selectedPerspective = null, onPerspectiveChange, onConnect }) => {

@@ -34,10 +34,10 @@ export function AnimatedNumber({ value, format = v => String(v), duration = 2800
   }, [target, valid, duration]);
 
   if (shown == null) return <span className={className}>—</span>;
-  const text = format(shown);
+  const text = String(format(shown));
   const before = prevText.current;
   prevText.current = text;
-  return <span className={`anim-num ${dir ? `anim-${dir}` : ''} ${className}`} aria-label={format(target)}>
+  return <span className={`anim-num ${dir ? `anim-${dir}` : ''} ${className}`} aria-label={String(format(target))}>
     {text.split('').map((ch, i) => {
       const changed = before && before.length === text.length && before[i] !== ch && /\d/.test(ch);
       return <span key={`${i}-${changed ? ch : 'k'}`} className={changed ? `digit roll-${dir || 'up'}` : 'digit'} aria-hidden="true">{ch}</span>;

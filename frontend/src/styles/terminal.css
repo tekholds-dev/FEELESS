@@ -1664,7 +1664,7 @@ body.theme-day .sidebar-link .trenches-font{background:linear-gradient(90deg,#07
 .trench-heat{display:flex;gap:20px;align-items:center}
 .heat-gauge{position:relative;width:120px;height:120px;border-radius:50%;background:conic-gradient(from 220deg,var(--neon1),var(--neon2) calc(var(--heat) * .5),var(--neon3) var(--heat),#ffffff10 var(--heat));display:grid;place-items:center;box-shadow:0 0 30px #ff4d8d33;transition:background .8s}
 .heat-gauge i{position:absolute;inset:9px;border-radius:50%;background:#060d0a}
-.heat-gauge span{position:relative;display:grid;place-items:center;font:700 30px 'JetBrains Mono',monospace}.heat-gauge small{font-size:9px;letter-spacing:2px;color:var(--muted)}
+.heat-gauge>span{position:relative;display:grid;place-items:center;font:700 30px "JetBrains Mono",monospace}.heat-gauge>span>small{font-size:9px;letter-spacing:2px;color:var(--muted)}
 .trench-stats{display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:10px}
 .trench-stats div{padding:10px 12px;border-radius:10px;border:1px solid #ffffff14;background:#ffffff06}
 .trench-stats small{display:block;font:9px 'JetBrains Mono',monospace;letter-spacing:.8px;color:var(--muted)}.trench-stats b{font:600 15px 'JetBrains Mono',monospace}
@@ -1698,3 +1698,15 @@ body.theme-day :is(.trench-hero-copy p,.trench-stats small,.trench-tool-head sma
 body.theme-day .caller-row{border-color:#0000000f}body.theme-day .caller-days button{border-color:#b9cfc0}
 @media(prefers-reduced-motion:reduce){.trench-title,.trench-tool::after{animation:none}}
 body.reduced-motion-setting :is(.trench-title,.trench-tool::after){animation:none}
+.chart-meta-buttons{display:inline-flex;gap:4px;align-items:center}
+.chart-meta-buttons button{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--muted);font:10px 'JetBrains Mono',monospace;cursor:pointer;white-space:nowrap}
+.chart-meta-buttons button:hover{color:var(--paper);border-color:#00e9a055}
+.chart-meta-buttons button.active.calls{color:#e9bd65;border-color:#e9bd6588;background:#e9bd6514}
+.chart-meta-buttons button.active.fee{color:#00e9a0;border-color:#00e9a088;background:#00e9a014}
+.chart-fullscreen-wrap:fullscreen,.coin-world-chart:fullscreen{background:#050b08;padding:16px;display:flex;flex-direction:column}
+.chart-fullscreen-wrap:fullscreen .candle-canvas,.coin-world-chart:fullscreen .candle-canvas{height:calc(100vh - 90px)!important}
+body.theme-day .chart-meta-buttons button{border-color:var(--day-border)!important;color:var(--day-muted)!important}
+body.theme-day .chart-meta-buttons button.active.calls{color:#8a5d00!important;background:#fff4dc!important;border-color:#c49a36!important}
+body.theme-day .chart-meta-buttons button.active.fee{color:#07784f!important;background:#e3f2e8!important;border-color:#07784f!important}
+body.theme-day :is(.chart-fullscreen-wrap,.coin-world-chart):fullscreen{background:#e6f0ea}
+.chat-tabs .trenches-font{font-size:10px}

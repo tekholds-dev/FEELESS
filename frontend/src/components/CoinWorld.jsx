@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { X, ArrowUpRight, Radio, BarChart3, ShieldCheck, Star } from 'lucide-react';
 import { useWorkspace } from '../hooks/useWorkspace';
@@ -9,6 +9,7 @@ import { ReputationBadge } from './terminal/ReputationBadge';
 import { formatUSD, formatPct } from '../lib/dexscreener';
 import { OrderFlow } from './terminal/OrderFlow';
 import { AnimatedNumber } from './terminal/AnimatedNumber';
+import { ChartMetaButtons, useChartMarkers } from './terminal/ChartMeta';
 import { fetchLivePrice, formatLivePrice } from '../lib/livePrice';
 
 const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'];
@@ -22,6 +23,9 @@ export default function CoinWorld({ token, onClose }) {
   const [interval, setIntervalValue] = useState('1m');
   const [metric, setMetric] = useState('price');
   const [chatRoom, setChatRoom] = useState('bulls');
+  const [showCalls, setShowCalls] = useState(true);
+  const [showFee, setShowFee] = useState(true);
+  const chartWrap = useRef(null);
   const [updatedAt, setUpdatedAt] = useState(null);
   const [live, setLive] = useState(null);
   const [, forceTick] = useState(0);
@@ -47,6 +51,7 @@ export default function CoinWorld({ token, onClose }) {
     return () => { alive = false; clearInterval(t); };
   }, [token.chain, token.pairAddress]);
 
+  const markers = useChartMarkers(pair, { calls: showCalls, fee: showFee });
   const symbol = token.symbol || pair?.baseToken?.symbol || '…';
   useEffect(() => {
     if (!pair) return undefined;
@@ -92,9 +97,9 @@ export default function CoinWorld({ token, onClose }) {
           <EcosystemChat key={`${room}-${chatRoom}`} ecosystem={{ id: `${room}-${chatRoom}`, name: `${symbol} · ${CHAT_ROOMS.find(r => r[0] === chatRoom)[1]}` }} /></div>
         <div className="eco-right-col custom-scroll">
           <div className="activity-pulse coin-world-stats">{stats.map(([label, value, cls, fmt]) => <div className="pulse-pill" key={label}><small><i />{label}</small><strong className={cls || ''}><AnimatedNumber value={value} format={fmt} /></strong></div>)}</div>
-          <section className="coin-world-chart">
-            <div className="coin-world-chart-head"><span><BarChart3 size={14} /> LIVE CHART<em className="live-stamp"><i />{updatedAt ? `${live?.source || 'live'} · ${Math.max(0, Math.round((Date.now() - updatedAt) / 1000))}s ago` : 'connecting'}</em></span><div className="coin-world-metric" role="group" aria-label="Chart metric">{[['price', 'Price'], ['marketCap', 'MC']].map(([id, label]) => <button type="button" key={id} className={metric === id ? 'active' : ''} onClick={() => setMetric(id)}>{label}</button>)}</div><div>{INTERVALS.map(i => <button type="button" key={i} className={interval === i ? 'active' : ''} onClick={() => setIntervalValue(i)}>{i.toUpperCase()}</button>)}</div></div>
-            {pair ? <PriceChart key={`${pair.pairAddress}-${interval}-${metric}`} pair={pair} interval={interval} metric={metric} showVolume /> : <div className="chart-message"><span className="loader" />{error || 'Loading live market…'}</div>}
+          <section className="coin-world-chart" ref={chartWrap}>
+            <div className="coin-world-chart-head"><span><BarChart3 size={14} /> LIVE CHART<em className="live-stamp"><i />{updatedAt ? `${live?.source || 'live'} · ${Math.max(0, Math.round((Date.now() - updatedAt) / 1000))}s ago` : 'connecting'}</em></span><ChartMetaButtons pair={pair} calls={showCalls} setCalls={setShowCalls} fee={showFee} setFee={setShowFee} fullscreenRef={chartWrap} count={{ calls: markers.filter(m => m.color === '#e9bd65').length, fee: markers.filter(m => m.text?.startsWith('Fee')).length }} /><div className="coin-world-metric" role="group" aria-label="Chart metric">{[['price', 'Price'], ['marketCap', 'MC']].map(([id, label]) => <button type="button" key={id} className={metric === id ? 'active' : ''} onClick={() => setMetric(id)}>{label}</button>)}</div><div>{INTERVALS.map(i => <button type="button" key={i} className={interval === i ? 'active' : ''} onClick={() => setIntervalValue(i)}>{i.toUpperCase()}</button>)}</div></div>
+            {pair ? <PriceChart key={`${pair.pairAddress}-${interval}-${metric}`} pair={pair} interval={interval} metric={metric} showVolume markers={markers} /> : <div className="chart-message"><span className="loader" />{error || 'Loading live market…'}</div>}
           </section>
           <OrderFlow pair={pair} />
           <div className="eco-section-label"><ShieldCheck size={13} /> THE EDGE · CREATOR & LAUNCH FORENSICS</div>

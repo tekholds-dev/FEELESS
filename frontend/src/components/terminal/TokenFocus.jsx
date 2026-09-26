@@ -1,5 +1,6 @@
 import { LivePrice, LiveChange24, LiveMarketCap } from './LiveCells';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ChartMetaButtons, useChartMarkers } from './ChartMeta';
 import { LaunchForensics } from './LaunchForensics';
 import { Copy, ExternalLink, Rocket, Star, BarChart3, ArrowUpRight, ArrowLeftRight } from 'lucide-react';
 import { toast } from 'sonner';
@@ -16,6 +17,9 @@ export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1h' }) => {
   const [metric, setMetric] = useState('price');
   const nav = useNavigate(); const { selectPair } = useWorkspace();
   const [volume, setVolume] = useState(true);
+  const [showCalls, setShowCalls] = useState(false);
+  const [showFee, setShowFee] = useState(false);
+  const chartWrap = useRef(null);
   const live = useMarket(pair ? `/pair/${pair.chainId}/${pair.pairAddress}` : null, 3000);
   const livePair = live.data?.pairs?.[0];
   const current = livePair ? {
@@ -25,6 +29,7 @@ export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1h' }) => {
     rankingContext: { ...(pair?.rankingContext || {}), ...(livePair.rankingContext || {}) },
   } : pair;
   useEffect(() => { setMetric('price'); }, [current?.chainId, current?.pairAddress]);
+  const markers = useChartMarkers(current, { calls: showCalls, fee: showFee });
   if (!current) return <section className="empty-focus" data-testid="token-focus-empty"><BarChart3 size={32} /><p>Select a market to open its chart.</p></section>;
   const address = current.baseToken?.address;
   const metricValue = id => id === 'marketCap' ? current.marketCap : current.fdv;
@@ -49,8 +54,8 @@ export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1h' }) => {
     <MarketAvailabilityNotice data={live.data} error={live.error} errorStatus={live.errorStatus} errorProvider={live.errorProvider} id="token-market-availability" />
     {live.error && <MarketError error={`${live.error} Showing the discovery snapshot.`} reload={live.reload} id="token-refresh-error" />}
     <div className="token-metrics"><div className="metric"><small>Price USD</small><strong className="mono"><LivePrice pair={current} precise id="selected-token-price" /></strong></div><div className="metric"><small>24h change</small><LiveChange24 pair={current} id="selected-token-change" /></div><div className="metric"><small>{current.marketCap != null ? 'Market cap' : 'FDV'}</small><strong className="mono"><LiveMarketCap pair={current} id="selected-token-mcap" /></strong></div><Metric label="24h volume" value={current.volume?.h24} id="selected-token-volume" /><Metric label="Liquidity" value={current.liquidity?.usd} id="selected-token-liquidity" /></div>
-     <div className="chart-toolbar"><button type="button" className="chart-metric-switch" title={`Showing ${METRIC_LABEL[metric]} · click to switch (${availableMetrics.map(id => METRIC_LABEL[id]).join(' → ')})`} data-testid="chart-metric-switch" onClick={cycleMetric} disabled={availableMetrics.length < 2}><ArrowLeftRight size={13} /><span data-testid="chart-metric-active">{METRIC_LABEL[metric]}</span></button><div className="timeframes">{['1m', '5m', '15m', '1h', '4h', '1d'].map(t => <button className={t === interval ? 'active' : ''} data-testid={`chart-interval-${t}`} key={t} onClick={() => setInterval(t)}>{t.toUpperCase()}</button>)}</div><button className={`volume-control ${volume ? 'positive' : ''}`} title="Toggle volume bars" data-testid="chart-volume-toggle" onClick={() => setVolume(v => !v)}><BarChart3 size={13} /><span>Volume</span></button><a title="Open advanced chart" data-testid="chart-advanced-link" href={dexUrl(current)} target="_blank" rel="noreferrer"><ExternalLink size={13} /></a></div>
-     <ChartBoundary key={`${current.chainId}-${current.pairAddress}-${interval}-${metric}`} pair={current}><PriceChart pair={current} interval={interval} metric={metric} showVolume={volume} /></ChartBoundary>
+     <div className="chart-toolbar"><button type="button" className="chart-metric-switch" title={`Showing ${METRIC_LABEL[metric]} · click to switch (${availableMetrics.map(id => METRIC_LABEL[id]).join(' → ')})`} data-testid="chart-metric-switch" onClick={cycleMetric} disabled={availableMetrics.length < 2}><ArrowLeftRight size={13} /><span data-testid="chart-metric-active">{METRIC_LABEL[metric]}</span></button><div className="timeframes">{['1m', '5m', '15m', '1h', '4h', '1d'].map(t => <button className={t === interval ? 'active' : ''} data-testid={`chart-interval-${t}`} key={t} onClick={() => setInterval(t)}>{t.toUpperCase()}</button>)}</div><button className={`volume-control ${volume ? 'positive' : ''}`} title="Toggle volume bars" data-testid="chart-volume-toggle" onClick={() => setVolume(v => !v)}><BarChart3 size={13} /><span>Volume</span></button><ChartMetaButtons pair={current} calls={showCalls} setCalls={setShowCalls} fee={showFee} setFee={setShowFee} fullscreenRef={chartWrap} count={{ calls: markers.filter(m => m.color === '#e9bd65').length, fee: markers.filter(m => m.text?.startsWith('Fee')).length }} /><a title="Open advanced chart" data-testid="chart-advanced-link" href={dexUrl(current)} target="_blank" rel="noreferrer"><ExternalLink size={13} /></a></div>
+     <div className="chart-fullscreen-wrap" ref={chartWrap}><ChartBoundary key={`${current.chainId}-${current.pairAddress}-${interval}-${metric}`} pair={current}><PriceChart pair={current} interval={interval} metric={metric} showVolume={volume} markers={markers} /></ChartBoundary></div>
      <div className="focus-meta"><span data-testid="selected-token-age">Pool age {formatAge(current.pairCreatedAt)}</span><CreatorProfile pair={current} /><DataStatus data={live.data} id="token-data-status" /></div>
      <section className="token-ranking-context" data-testid="token-ranking-context"><div className="token-analytics-heading"><strong>Ranking context</strong><span>Provider-reported · not a recommendation</span></div><div className="token-ranking-summary"><div className={ranking.label ? 'is-available' : 'is-unavailable'}><small>SCREENER LABEL</small><strong data-testid="selected-token-screener-label">{ranking.label || 'Unavailable'}</strong></div><div className={ranking.score !== null ? 'is-available' : 'is-unavailable'}><small>OBSERVED SCORE</small><strong data-testid="selected-token-screener-score">{ranking.score !== null ? String(ranking.score) : 'Unavailable'}</strong></div></div><div className="token-ranking-reasons"><small>PROVIDER-REPORTED REASONS</small>{ranking.reasons.length ? <ol data-testid="selected-token-screener-reasons">{ranking.reasons.map((reason, index) => <li key={`${reason}-${index}`}>{reason}</li>)}</ol> : <span data-testid="selected-token-screener-reasons">Observed reasons unavailable</span>}</div><div className="token-ranking-disclosure"><span data-testid="selected-token-ranking-provider">{rankingProvider}</span><span data-testid="selected-token-ranking-status">{rankingStatus}</span><small data-testid="selected-token-ranking-disclosure">Provider coverage and freshness can change. This ranking context is not a recommendation.</small></div></section>
      <LaunchForensics pair={current} />
