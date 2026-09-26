@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { X, ArrowUpRight, Radio, BarChart3, ShieldCheck } from 'lucide-react';
+import { X, ArrowUpRight, Radio, BarChart3, ShieldCheck, Star } from 'lucide-react';
+import { useWorkspace } from '../hooks/useWorkspace';
 import EcosystemChat from './EcosystemChat';
 import { PriceChart } from './terminal/PriceChart';
 import { LaunchForensics } from './terminal/LaunchForensics';
@@ -16,6 +17,7 @@ const CHAT_ROOMS = [['bulls', 'Bulls'], ['trenches', 'Trenches'], ['bears', 'Bea
 // War room for a single $10M+ token opened from the globe: live chat, live chart, and edge data.
 export default function CoinWorld({ token, onClose }) {
   const [pair, setPair] = useState(null);
+  const { has, toggle } = useWorkspace() || {};
   const [error, setError] = useState('');
   const [interval, setIntervalValue] = useState('1m');
   const [metric, setMetric] = useState('price');
@@ -79,6 +81,7 @@ export default function CoinWorld({ token, onClose }) {
           <div><small>YOU'RE INSIDE · {token.chain.toUpperCase()}</small><h2>{symbol} WAR ROOM</h2></div>
         </div>
         <div className="eco-world-head-actions">
+          {pair && toggle && <button type="button" className={`coin-star ${has?.(pair) ? 'is-starred' : ''}`} onClick={() => toggle(pair)} title={has?.(pair) ? 'Remove from watchlist' : 'Star — keep tracking with live alerts'} data-testid="coin-world-star"><Star size={16} fill={has?.(pair) ? 'currentColor' : 'none'} />{has?.(pair) ? 'Starred' : 'Star'}</button>}
           <Link className="eco-enter-terminal" to={`/terminal/trade?chain=${token.chain}&pair=${token.pairAddress}`}>Trade {symbol} in terminal<ArrowUpRight size={14} /></Link>
           <button className="eco-world-close" title="Close" onClick={onClose}><X size={18} /></button>
         </div>

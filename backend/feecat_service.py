@@ -355,6 +355,28 @@ async def leader():
     return {'cat': store['cats'].get(LEADER_ID), 'rules': RULES, 'feePerSide': FEE_PER_SIDE, 'scan': store.get('scan')}
 
 
+class EvaluatePayload(BaseModel):
+    pairs: list
+
+
+@app.post('/api/cats/evaluate')
+async def evaluate(payload: EvaluatePayload):
+    """Fee's read: runs any Solana pairs through the Leader's live entry rules."""
+    addrs = [str(p.get('pairAddress')) for p in payload.pairs[:60] if isinstance(p, dict) and p.get('chainId') == 'solana' and p.get('pairAddress')]
+    async with httpx.AsyncClient(timeout=10) as http:
+        live = await _pair_prices(http, addrs) if addrs else {}
+    now = time.time()
+    out = {}
+    for a in addrs:
+        p = live.get(a)
+        if not p:
+            out[a] = {'passes': False, 'reason': 'no live market'}
+            continue
+        score, reason = _qualifies(p, now)
+        out[a] = {'passes': score is not None, 'reason': reason}
+    return {'reads': out, 'rules': RULES}
+
+
 @app.get('/api/cats/leaderboard')
 async def leaderboard(view: str = 'pnl'):
     store = _load()

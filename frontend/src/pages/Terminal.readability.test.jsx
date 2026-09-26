@@ -148,6 +148,11 @@ jest.mock('../components/command/DiscoveryViews', () => ({
   MetaDetector: () => null,
 }));
 
+jest.mock('../components/command/AdvancedWatchlist', () => ({
+  AdvancedWatchlist: () => null,
+  WatchlistAlerts: () => null,
+}));
+
 jest.mock('../components/command/LiveTrust', () => ({
   TrustSignals: () => null,
   CaseStudies: () => null,

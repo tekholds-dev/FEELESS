@@ -38,3 +38,29 @@ export function formatLivePrice(v) {
   const digits = Math.min(12, Math.max(6, -Math.floor(Math.log10(n)) + 5));
   return `$${n.toFixed(digits)}`;
 }
+
+// Batch live prices for many pairs: Jupiter for all Solana mints in one call, DexScreener per chain.
+export async function fetchLivePrices(pairs) {
+  const out = new Map();
+  const sol = pairs.filter(p => p.chainId === 'solana' && p.baseToken?.address);
+  for (let i = 0; i < sol.length; i += 50) {
+    try {
+      const ids = sol.slice(i, i + 50).map(p => p.baseToken.address).join(',');
+      const res = await fetch(`https://lite-api.jup.ag/price/v3?ids=${ids}`);
+      const body = res.ok ? await res.json() : {};
+      sol.slice(i, i + 50).forEach(p => { const u = Number(body?.[p.baseToken.address]?.usdPrice); if (u > 0) out.set(`${p.chainId}-${p.baseToken.address}`, { usd: u, source: 'Jupiter' }); });
+    } catch { /* keep going */ }
+  }
+  const rest = pairs.filter(p => !out.has(`${p.chainId}-${p.baseToken?.address}`) && p.pairAddress);
+  const byChain = rest.reduce((m, p) => ((m[p.chainId] ||= []).push(p), m), {});
+  for (const [chain, list] of Object.entries(byChain)) {
+    for (let i = 0; i < list.length; i += 30) {
+      try {
+        const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/${chain}/${list.slice(i, i + 30).map(p => p.pairAddress).join(',')}`);
+        const body = res.ok ? await res.json() : {};
+        (body?.pairs || []).forEach(p => { const u = Number(p.priceUsd); if (u > 0) out.set(`${p.chainId}-${p.baseToken?.address}`, { usd: u, source: 'DexScreener', pair: p }); });
+      } catch { /* keep going */ }
+    }
+  }
+  return out;
+}

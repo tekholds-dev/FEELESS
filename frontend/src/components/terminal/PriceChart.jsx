@@ -86,7 +86,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => 
     const chart = createChart(container.current, {
       autoSize: true,
       layout: {
-        background: { type: ColorType.Solid, color: dayMode ? '#ffffff' : '#080e0d' },
+        background: { type: ColorType.Solid, color: dayMode ? '#edf4ef' : '#080e0d' },
         textColor: dayMode ? '#315b43' : '#8c9b94',
         fontFamily: 'JetBrains Mono',
         fontSize: 10,

@@ -3,6 +3,7 @@ import './App.css';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { WalletProvider } from './hooks/useWallet';
 import { WorkspaceProvider } from './hooks/useWorkspace';
+import { WatchlistAlerts } from './components/command/AdvancedWatchlist';
 import { Toaster } from './components/ui/sonner';
 import './styles/terminal.css';
 import './styles/command.css';
@@ -40,7 +41,7 @@ function AppShell() {
     <div className="App">
       <AmbientBackground />
       <div className="app-content">
-        <WalletProvider><WorkspaceProvider><BrowserRouter>
+        <WalletProvider><WorkspaceProvider><BrowserRouter><WatchlistAlerts />
           <Suspense fallback={<div className="app-loading" data-testid="app-loading"><span className="loader" />Opening FEELESS…</div>}><Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/terminal/*" element={<Terminal />} />
