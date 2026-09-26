@@ -137,6 +137,115 @@ export const ECOSYSTEMS = [
     ]
   },
   {
+    id: 'optimism',
+    name: 'Optimism',
+    symbol: 'OP',
+    chainId: 'optimism',
+    lat: 35.6762,
+    lng: 139.6503,
+    color: '#FF0420',
+    accent: '#FF6B6C',
+    logo: '',
+    explorer: 'https://optimistic.etherscan.io',
+    dex: 'https://app.uniswap.org',
+    website: 'https://optimism.io',
+    platforms: [
+      { name: 'Velodrome', url: 'https://velodrome.finance', type: 'dex', logo: '' },
+      { name: 'Uniswap', url: 'https://app.uniswap.org', type: 'dex', logo: '' },
+      { name: 'Optimistic Etherscan', url: 'https://optimistic.etherscan.io', type: 'explorer', logo: '' }
+    ]
+  },
+  {
+    id: 'zksync',
+    name: 'zkSync Era',
+    symbol: 'ZK',
+    chainId: 'zksync',
+    lat: 48.8566,
+    lng: 2.3522,
+    color: '#8C8DFC',
+    accent: '#B4B5FE',
+    logo: '',
+    explorer: 'https://explorer.zksync.io',
+    dex: 'https://app.uniswap.org',
+    website: 'https://zksync.io',
+    platforms: [
+      { name: 'SyncSwap', url: 'https://syncswap.xyz', type: 'dex', logo: '' },
+      { name: 'zkSync Explorer', url: 'https://explorer.zksync.io', type: 'explorer', logo: '' }
+    ]
+  },
+  {
+    id: 'zora',
+    name: 'Zora',
+    symbol: 'ZORA',
+    chainId: 'zora',
+    lat: 34.0195,
+    lng: -118.4912,
+    color: '#000000',
+    accent: '#8ADFFF',
+    logo: '',
+    explorer: 'https://explorer.zora.energy',
+    dex: 'https://zora.co',
+    website: 'https://zora.co',
+    platforms: [
+      { name: 'Zora', url: 'https://zora.co', type: 'launch', logo: '' },
+      { name: 'Zora Explorer', url: 'https://explorer.zora.energy', type: 'explorer', logo: '' }
+    ]
+  },
+  {
+    id: 'cronos',
+    name: 'Cronos',
+    symbol: 'CRO',
+    chainId: 'cronos',
+    lat: 22.3964,
+    lng: 114.1095,
+    color: '#002D74',
+    accent: '#3B5FA0',
+    logo: '',
+    explorer: 'https://cronoscan.com',
+    dex: 'https://vvs.finance',
+    website: 'https://cronos.org',
+    platforms: [
+      { name: 'VVS Finance', url: 'https://vvs.finance', type: 'dex', logo: '' },
+      { name: 'CronoScan', url: 'https://cronoscan.com', type: 'explorer', logo: '' }
+    ]
+  },
+  {
+    id: 'unichain',
+    name: 'Unichain',
+    symbol: 'UNI',
+    chainId: 'unichain',
+    lat: 47.6062,
+    lng: -122.3321,
+    color: '#FF37C7',
+    accent: '#FF8AE0',
+    logo: '',
+    explorer: 'https://uniscan.xyz',
+    dex: 'https://app.uniswap.org',
+    website: 'https://unichain.org',
+    platforms: [
+      { name: 'Uniswap', url: 'https://app.uniswap.org', type: 'dex', logo: '' },
+      { name: 'Uniscan', url: 'https://uniscan.xyz', type: 'explorer', logo: '' }
+    ]
+  },
+  {
+    id: 'worldchain',
+    name: 'World Chain',
+    symbol: 'WLD',
+    chainId: 'worldchain',
+    lat: 25.2048,
+    lng: 55.2708,
+    color: '#000000',
+    accent: '#9BA1A6',
+    logo: '',
+    explorer: 'https://worldscan.org',
+    dex: 'https://app.uniswap.org',
+    website: 'https://world.org',
+    platforms: [
+      { name: 'Uniswap', url: 'https://app.uniswap.org', type: 'dex', logo: '' },
+      { name: 'Worldscan', url: 'https://worldscan.org', type: 'explorer', logo: '' }
+    ]
+  },
+  {
     id: 'sui',
     name: 'Sui',
     symbol: 'SUI',

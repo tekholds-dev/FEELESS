@@ -5,6 +5,23 @@ export function Hint({ text }) {
   return <span className="hint" tabIndex={0} role="note" aria-label={text} data-hint={text}>?</span>;
 }
 
+// Lightweight-charts (our chart library) has a known internal race: when a chart is torn
+// down (switching coins fast, unmounting a room) its own ResizeObserver/paint loop can fire
+// one more repaint against the just-disposed canvas, throwing "Object is disposed" from
+// code we don't own and can't try/catch. It's harmless — the chart is already gone — but left
+// unhandled it surfaces as an uncaught window error. Swallow only this exact signature.
+export function installChartDisposalGuard() {
+  if (typeof window === 'undefined' || window.__feelessChartGuard) return;
+  window.__feelessChartGuard = true;
+  const isBenign = (msg, stack) => /Object is disposed/i.test(msg || '') && /_internal_paint|CanvasRenderingTarget2D|TimeAxisWidget|PriceAxisWidget|ChartWidget|PaneWidget/i.test(stack || '');
+  window.addEventListener('error', e => {
+    if (isBenign(e.message, e.error?.stack)) e.preventDefault();
+  });
+  window.addEventListener('unhandledrejection', e => {
+    if (isBenign(e.reason?.message, e.reason?.stack)) e.preventDefault();
+  });
+}
+
 // Any truncated text (…) shows its full content on hover.
 export function installOverflowTitles() {
   if (typeof document === 'undefined' || window.__feelessTitles) return;
