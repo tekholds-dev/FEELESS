@@ -1361,6 +1361,154 @@ async def push_status(endpoint: str):
     return {'subscribed': True, 'watching': len(entry['watch']), 'prefs': entry['prefs'], 'recent': entry.get('sent', [])[-10:][::-1]}
 
 
+# ---- Call Ledger: every coin posted in the Trenches, priced at the moment and tracked forever
+CALLS_PATH = DATA_DIR / 'calls.json'
+_calls_lock = asyncio.Lock()
+
+
+def _calls_load():
+    if CALLS_PATH.exists():
+        try:
+            return json.loads(CALLS_PATH.read_text())
+        except Exception:
+            pass
+    return {'calls': {}}
+
+
+def _calls_save(d):
+    CALLS_PATH.write_text(json.dumps(d))
+
+
+class CallPayload(BaseModel):
+    room: str
+    messageId: str
+    caller: str
+    callerAddress: Optional[str] = None
+    chain: str
+    pairAddress: str
+    ts: Optional[float] = None
+
+
+@app.post('/api/reputation/calls')
+async def register_call(payload: CallPayload):
+    """Price is taken by the server at registration — never trusted from the client."""
+    cid = hashlib.sha256(f'{payload.messageId}:{payload.pairAddress}'.encode()).hexdigest()[:20]
+    d = _calls_load()
+    if cid in d['calls']:
+        return {'ok': True, 'id': cid, 'existing': True}
+    msg_ts = (payload.ts or time.time() * 1000) / 1000 if (payload.ts or 0) > 1e11 else (payload.ts or time.time())
+    if time.time() - msg_ts > 600:
+        raise HTTPException(409, 'Call is too old to price honestly.')
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            r = await http.get(f'https://api.dexscreener.com/latest/dex/pairs/{payload.chain}/{payload.pairAddress}')
+            p = ((r.json() or {}).get('pairs') or [None])[0]
+    except Exception:
+        p = None
+    price = float((p or {}).get('priceUsd') or 0)
+    if not p or price <= 0:
+        raise HTTPException(404, 'No live market for that pair.')
+    call = {'id': cid, 'room': payload.room[:80], 'caller': payload.caller[:40], 'callerAddress': (payload.callerAddress or '')[:64],
+            'chain': payload.chain, 'pairAddress': payload.pairAddress, 'mint': (p.get('baseToken') or {}).get('address'),
+            'symbol': (p.get('baseToken') or {}).get('symbol'), 'imageUrl': (p.get('info') or {}).get('imageUrl'),
+            'priceAtCall': price, 'mcAtCall': p.get('marketCap') or p.get('fdv'), 'at': time.time(),
+            'lastPrice': price, 'peakPrice': price, 'checkedAt': time.time()}
+    async with _calls_lock:
+        d = _calls_load()
+        d['calls'].setdefault(cid, call)
+        _calls_save(d)
+    return {'ok': True, 'id': cid}
+
+
+def _call_view(c):
+    return {**c, 'x': c['lastPrice'] / c['priceAtCall'] if c['priceAtCall'] else None,
+            'peakX': c['peakPrice'] / c['priceAtCall'] if c['priceAtCall'] else None}
+
+
+async def _refresh_calls():
+    while True:
+        try:
+            d = _calls_load()
+            by_chain = {}
+            for c in d['calls'].values():
+                if time.time() - c['at'] < 30 * 86400:
+                    by_chain.setdefault(c['chain'], set()).add(c['pairAddress'])
+            live = {}
+            async with httpx.AsyncClient(timeout=10) as http:
+                for chain, pairs in by_chain.items():
+                    pairs = sorted(pairs)
+                    for i in range(0, len(pairs), 30):
+                        try:
+                            r = await http.get(f'https://api.dexscreener.com/latest/dex/pairs/{chain}/{",".join(pairs[i:i + 30])}')
+                            for p in (r.json() or {}).get('pairs') or []:
+                                live[p.get('pairAddress')] = float(p.get('priceUsd') or 0)
+                        except Exception:
+                            pass
+            async with _calls_lock:
+                d = _calls_load()
+                for c in d['calls'].values():
+                    px = live.get(c['pairAddress'])
+                    if px:
+                        c['lastPrice'] = px
+                        c['peakPrice'] = max(c['peakPrice'], px)
+                        c['checkedAt'] = time.time()
+                _calls_save(d)
+        except Exception as exc:
+            print('calls refresh error', exc)
+        await asyncio.sleep(60)
+
+
+@app.on_event('startup')
+async def _start_calls():
+    asyncio.create_task(_refresh_calls())
+
+
+@app.get('/api/reputation/calls/recent')
+async def recent_calls(room: Optional[str] = None, pair: Optional[str] = None, limit: int = Query(30, ge=1, le=100)):
+    calls = [_call_view(c) for c in _calls_load()['calls'].values() if (not room or c['room'].startswith(room)) and (not pair or c['pairAddress'] == pair)]
+    calls.sort(key=lambda c: -c['at'])
+    return {'calls': calls[:limit]}
+
+
+@app.get('/api/reputation/calls/leaderboard')
+async def caller_board(days: int = Query(7, ge=1, le=90)):
+    since = time.time() - days * 86400
+    by = {}
+    for c in _calls_load()['calls'].values():
+        if c['at'] < since:
+            continue
+        v = _call_view(c)
+        b = by.setdefault(c['caller'], {'caller': c['caller'], 'callerAddress': c.get('callerAddress'), 'calls': 0, 'hits': 0, 'rugs': 0, 'sumPeak': 0.0, 'best': None})
+        b['calls'] += 1
+        b['sumPeak'] += v['peakX'] or 1
+        if (v['peakX'] or 0) >= 2:
+            b['hits'] += 1
+        if (v['x'] or 1) <= 0.3:
+            b['rugs'] += 1
+        if not b['best'] or (v['peakX'] or 0) > (b['best']['peakX'] or 0):
+            b['best'] = {'symbol': v['symbol'], 'peakX': v['peakX'], 'pairAddress': v['pairAddress'], 'chain': v['chain']}
+    rows = [{**b, 'hitRate': b['hits'] / b['calls'], 'avgPeakX': b['sumPeak'] / b['calls']} for b in by.values()]
+    rows.sort(key=lambda r: (-r['hitRate'], -r['avgPeakX'], -r['calls']))
+    return {'rows': rows[:50], 'days': days}
+
+
+@app.get('/api/reputation/calls/hot')
+async def hot_calls(minutes: int = Query(60, ge=5, le=1440)):
+    since = time.time() - minutes * 60
+    agg = {}
+    for c in _calls_load()['calls'].values():
+        if c['at'] < since:
+            continue
+        v = _call_view(c)
+        a = agg.setdefault(c['pairAddress'], {'symbol': c['symbol'], 'imageUrl': c.get('imageUrl'), 'chain': c['chain'], 'pairAddress': c['pairAddress'], 'callers': set(), 'calls': 0, 'firstX': v['x']})
+        a['calls'] += 1
+        a['callers'].add(c['caller'])
+        a['x'] = v['x']
+    rows = [{**{k: v for k, v in a.items() if k != 'callers'}, 'callers': len(a['callers'])} for a in agg.values()]
+    rows.sort(key=lambda r: (-r['callers'], -r['calls']))
+    return {'rows': rows[:12], 'minutes': minutes}
+
+
 @app.get('/api/reputation/health')
 async def health():
     store = _load()

@@ -82,13 +82,13 @@ export default function CoinWorld({ token, onClose }) {
         </div>
         <div className="eco-world-head-actions">
           {pair && toggle && <button type="button" className={`coin-star ${has?.(pair) ? 'is-starred' : ''}`} onClick={() => toggle(pair)} title={has?.(pair) ? 'Remove from watchlist' : 'Star — keep tracking with live alerts'} data-testid="coin-world-star"><Star size={16} fill={has?.(pair) ? 'currentColor' : 'none'} />{has?.(pair) ? 'Starred' : 'Star'}</button>}
-          <Link className="eco-enter-terminal" to={`/terminal/trade?chain=${token.chain}&pair=${token.pairAddress}`}>Trade {symbol} in terminal<ArrowUpRight size={14} /></Link>
+          <Link className="eco-enter-terminal" target="_blank" rel="noopener noreferrer" to={`/terminal/trade?chain=${token.chain}&pair=${token.pairAddress}`}>Trade {symbol} in terminal<ArrowUpRight size={14} /></Link>
           <button className="eco-world-close" title="Close" onClick={onClose}><X size={18} /></button>
         </div>
       </header>
       <div className="eco-world-grid">
         <div className="eco-chat-col"><div className="eco-chat-label"><Radio size={13} /> LIVE CHAT · ${symbol}</div>
-          <div className="coin-chat-rooms" role="tablist" aria-label="Chat rooms">{CHAT_ROOMS.map(([id, label]) => <button type="button" role="tab" aria-selected={chatRoom === id} key={id} className={`room-${id} ${chatRoom === id ? 'active' : ''}`} onClick={() => setChatRoom(id)}>{label}</button>)}</div>
+          <div className="coin-chat-rooms" role="tablist" aria-label="Chat rooms">{CHAT_ROOMS.map(([id, label]) => <button type="button" role="tab" aria-selected={chatRoom === id} key={id} className={`room-${id} ${id === 'trenches' ? 'trenches-font' : ''} ${chatRoom === id ? 'active' : ''}`} onClick={() => setChatRoom(id)}>{label}</button>)}</div>
           <EcosystemChat key={`${room}-${chatRoom}`} ecosystem={{ id: `${room}-${chatRoom}`, name: `${symbol} · ${CHAT_ROOMS.find(r => r[0] === chatRoom)[1]}` }} /></div>
         <div className="eco-right-col custom-scroll">
           <div className="activity-pulse coin-world-stats">{stats.map(([label, value, cls, fmt]) => <div className="pulse-pill" key={label}><small><i />{label}</small><strong className={cls || ''}><AnimatedNumber value={value} format={fmt} /></strong></div>)}</div>

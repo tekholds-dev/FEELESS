@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { createChart, CandlestickSeries, HistogramSeries, LineSeries, ColorType } from 'lightweight-charts';
+import { createChart, createSeriesMarkers, CandlestickSeries, HistogramSeries, LineSeries, ColorType } from 'lightweight-charts';
 import { useMarket } from '../../hooks/useMarket';
 import { dexUrl, formatUSD } from '../../lib/dexscreener';
 import { DataStatus } from './MarketPrimitives';
@@ -9,10 +9,11 @@ import { fetchLivePrice } from '../../lib/livePrice';
 
 const LIVE_INTERVAL_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 };
 
-export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => {
+export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [] }) => {
   const container = useRef(null);
   const seriesRef = useRef(null);
   const lastBarRef = useRef(null);
+  const markersRef = useRef(null);
   const [livePrice, setLivePrice] = useState(null);
   const [feelessCandles, setFeelessCandles] = useState([]);
   const [candleProvider, setCandleProvider] = useState('');
@@ -137,8 +138,20 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price' }) => 
       line.priceScale().applyOptions({ scaleMargins: { top: .16, bottom: .16 } });
     }
     chart.timeScale().fitContent();
-    return () => { seriesRef.current = null; chart.remove(); };
+    return () => { seriesRef.current = null; markersRef.current = null; chart.remove(); };
   }, [displayCandles, trail, hasChart, dayMode, showVolume]);
+
+  // Meta overlays (Trenches calls, Fee's trades) snapped to the candle they happened in.
+  useEffect(() => {
+    const ref = seriesRef.current;
+    if (!ref) return;
+    const bucket = LIVE_INTERVAL_SECONDS[interval] || 3600;
+    const list = (markers || []).filter(m => Number.isFinite(m.time))
+      .map(m => ({ ...m, time: Math.floor(m.time / bucket) * bucket }))
+      .sort((a, b) => a.time - b.time);
+    if (!markersRef.current) markersRef.current = createSeriesMarkers(ref.series, list);
+    else markersRef.current.setMarkers(list);
+  }, [markers, interval, displayCandles, trail, dayMode]);
 
   // Live ticks: every 3s pull the pair's current price straight from DexScreener and
   // update the forming candle in place (no redraw, zoom preserved).

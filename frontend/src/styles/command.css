@@ -231,3 +231,16 @@ body.theme-day .coin-chat-rooms .room-bulls.active{background:#e3f2e8!important;
 body.theme-day .coin-chat-rooms .room-trenches.active{background:#fff4dc!important;color:#8a5d00!important;border-color:#c49a36!important}
 body.theme-day .coin-chat-rooms .room-bears.active{background:#fdecef!important;color:#b0203f!important;border-color:#b0203f!important}
 .coin-world .eco-right-col>*{flex-shrink:0}.coin-world .eco-right-col{overflow-y:auto}
+.trade-tape{margin-top:12px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.trade-tape-head{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);font:10px 'JetBrains Mono',monospace;letter-spacing:.6px}
+.trade-tape-head span{display:flex;align-items:center;gap:6px}.trade-tape-head i{width:6px;height:6px;border-radius:50%;background:#ff4d6d;animation:breathe 1s infinite}
+.trade-tape-head small{color:var(--muted);font-size:9px}
+.trade-tape-list{max-height:260px;overflow:auto}
+.tape-row{display:grid;grid-template-columns:44px 1fr 1fr 90px 70px;gap:8px;align-items:center;padding:5px 12px;font:11px 'JetBrains Mono',monospace;color:inherit;text-decoration:none;border-bottom:1px solid #ffffff08;animation:tape-in .4s ease-out}
+.tape-row.buy b{color:var(--mint)}.tape-row.sell b{color:var(--rose)}
+.tape-row.buy{background:linear-gradient(90deg,#00e9a00d,transparent)}.tape-row.sell{background:linear-gradient(90deg,#fa708c0d,transparent)}
+.tape-row code,.tape-row time{color:var(--muted);font-size:10px}.tape-row:hover{background:#ffffff08}
+@keyframes tape-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+body.theme-day .trade-tape{border-color:#b9cfc0!important;background:rgba(244,250,246,.55)!important}
+body.theme-day .trade-tape-head{border-color:#b9cfc0!important}body.theme-day :is(.trade-tape-head small,.tape-row code,.tape-row time){color:#43604f!important}
+body.theme-day .tape-row.buy b{color:#07784f!important}body.theme-day .tape-row.sell b{color:#c0284c!important}body.theme-day .tape-row{border-color:#0000000d}

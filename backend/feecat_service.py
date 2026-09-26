@@ -59,12 +59,12 @@ def _save(store: dict):
     STORE_PATH.write_text(json.dumps(store, indent=2))
 
 
-def _log_event(store, cat, kind, detail, pnl=None):
+def _log_event(store, cat, kind, detail, pnl=None, pair=None, price=None):
     store['events'].insert(0, {
         'id': uuid.uuid4().hex, 'catId': cat['id'], 'catName': cat['name'],
         'type': kind, 'detail': detail, 'ts': time.time() * 1000,
         'pnlSol': pnl, 'decisionSource': 'selected_brain' if cat.get('brainProfile', {}).get('available') else 'rule_engine',
-        'brainLabel': cat.get('brainLabel'),
+        'brainLabel': cat.get('brainLabel'), 'pairAddress': pair, 'priceNative': price,
     })
     store['events'] = store['events'][:200]
 
@@ -156,7 +156,7 @@ def _close(store, cat, pos, price_native, why):
     closed = cat.get('wins', 0) + cat.get('losses', 0)
     cat['winRate'] = round(cat['wins'] / closed * 100) if closed else None
     change = (price_native / pos['entryPriceNative'] - 1) * 100
-    _log_event(store, cat, 'SELL', f"Sold {pos['symbol']} at {change:+.1f}% — {why}. Net {pnl:+.4f} SOL after fees (paper, live price).", pnl)
+    _log_event(store, cat, 'SELL', f"Sold {pos['symbol']} at {change:+.1f}% — {why}. Net {pnl:+.4f} SOL after fees (paper, live price).", pnl, pos.get('pairAddress'), price_native)
 
 
 async def run_engine(store, cats):
@@ -229,7 +229,7 @@ async def run_engine(store, cats):
                 'entryPriceNative': px, 'entryPriceUsd': p.get('priceUsd'), 'entryChange': 0, 'currentChange': 0,
                 'peakChange': 0, 'openedAt': now, 'reason': reason,
             })
-            _log_event(store, cat, 'BUY', f"Bought {size} SOL of {sym} at live price — {reason} (paper).")
+            _log_event(store, cat, 'BUY', f"Bought {size} SOL of {sym} at live price — {reason} (paper).", None, pa, px)
         cat['lastTick'] = now
 
 
@@ -375,6 +375,12 @@ async def evaluate(payload: EvaluatePayload):
         score, reason = _qualifies(p, now)
         out[a] = {'passes': score is not None, 'reason': reason}
     return {'reads': out, 'rules': RULES}
+
+
+@app.get('/api/cats/trades')
+async def cat_trades(pairAddress: str, catId: str = LEADER_ID):
+    store = _load()
+    return {'trades': [e for e in store['events'] if e.get('pairAddress') == pairAddress and e['catId'] == catId and e['type'] in ('BUY', 'SELL')]}
 
 
 @app.get('/api/cats/leaderboard')

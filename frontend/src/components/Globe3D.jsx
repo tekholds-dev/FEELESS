@@ -269,7 +269,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
            pointLabel={p => p.isToken
             ? `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;"><b>${escapeHtml(p.token.symbol)}</b> · ${escapeHtml(p.token.chain)}<br/>${fmtCap(p.token.marketCap)} ${p.token.mcKind === 'FDV' ? 'FDV' : 'MC'}${Number.isFinite(Number(p.token.change24h)) ? ` · ${Number(p.token.change24h) >= 0 ? '+' : ''}${Number(p.token.change24h).toFixed(1)}% 24h` : ''}</div>`
             : `<div class="globe-point-tooltip" style="padding:6px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;">${p.name} · ${p.symbol}</div>`}
-          onPointClick={p => { if (p.isToken) { if (p.token.pairAddress) window.location.assign(`/terminal/trade?chain=${encodeURIComponent(p.token.chain)}&pair=${encodeURIComponent(p.token.pairAddress)}`); return; } onSelect && onSelect(p.id); }}
+          onPointClick={p => { if (p.isToken) { if (p.token.pairAddress) window.open(`/terminal/trade?chain=${encodeURIComponent(p.token.chain)}&pair=${encodeURIComponent(p.token.pairAddress)}`, '_blank', 'noopener'); return; } onSelect && onSelect(p.id); }}
           onPointHover={p => document.body.style.cursor = p ? 'pointer' : 'default'}
           arcsData={arcs}
           arcColor="color"
@@ -289,7 +289,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
           objectAltitude={0.012}
           objectThreeObject={tokenOrb}
           objectLabel={p => `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;"><b>${escapeHtml(p.token.symbol)}</b> · ${escapeHtml(p.token.chain)}<br/>${fmtCap(p.token.marketCap)} ${p.token.mcKind === 'FDV' ? 'FDV' : 'MC'}${Number.isFinite(Number(p.token.change24h)) ? ` · ${Number(p.token.change24h) >= 0 ? '+' : ''}${Number(p.token.change24h).toFixed(1)}% 24h` : ''}</div>`}
-          onObjectClick={p => { if (onToken) { onToken(p.token); return; } if (p.token.pairAddress) window.location.assign(`/terminal/trade?chain=${encodeURIComponent(p.token.chain)}&pair=${encodeURIComponent(p.token.pairAddress)}`); }}
+          onObjectClick={p => { if (onToken) { onToken(p.token); return; } if (p.token.pairAddress) window.open(`/terminal/trade?chain=${encodeURIComponent(p.token.chain)}&pair=${encodeURIComponent(p.token.pairAddress)}`, '_blank', 'noopener'); }}
           onObjectHover={p => { document.body.style.cursor = p ? 'pointer' : 'default'; }}
           htmlElementsData={bubbles}
           htmlLat="lat"

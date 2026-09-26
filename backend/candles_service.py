@@ -217,6 +217,46 @@ async def get_candles(chain: str, pair_address: str, interval: str = Query('1h')
             'source': 'Real prices observed across FEELESS sessions — provider has no history for this pool yet.'}
 
 
+_trade_cache: dict = {}
+
+
+@app.get('/api/candles/trades/{chain}/{pool}')
+async def pool_trades(chain: str, pool: str):
+    """Latest real swaps for a pool (GeckoTerminal), shared 5s cache so many viewers cost one call."""
+    net = GECKO_NET.get(chain)
+    if not net:
+        return {'trades': [], 'error': 'unsupported chain'}
+    key = f'{net}:{pool}'
+    hit = _trade_cache.get(key)
+    now = time.time()
+    if hit and now - hit[0] < 5:
+        return hit[1]
+    async with _gecko_lock:
+        _gecko_calls[:] = [t for t in _gecko_calls if now - t < 60]
+        throttled = len(_gecko_calls) >= GECKO_PER_MIN
+        if not throttled:
+            _gecko_calls.append(now)
+    if throttled:
+        return hit[1] if hit else {'trades': [], 'throttled': True}
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            r = await http.get(f'https://api.geckoterminal.com/api/v2/networks/{net}/pools/{pool}/trades', headers={'accept': 'application/json'})
+        rows = (r.json() or {}).get('data') or [] if r.status_code == 200 else None
+    except Exception:
+        rows = None
+    if rows is None:
+        return hit[1] if hit else {'trades': [], 'error': 'provider unavailable'}
+    trades = []
+    for row in rows:
+        a = row.get('attributes') or {}
+        trades.append({'ts': a.get('block_timestamp'), 'kind': a.get('kind'), 'usd': float(a.get('volume_in_usd') or 0),
+                       'price': float(a.get('price_to_in_usd') if a.get('kind') == 'buy' else a.get('price_from_in_usd') or 0),
+                       'wallet': a.get('tx_from_address'), 'tx': a.get('tx_hash')})
+    data = {'trades': trades, 'at': now, 'source': 'GeckoTerminal'}
+    _trade_cache[key] = (now, data)
+    return data
+
+
 @app.get('/api/candles/health')
 async def health():
     store = _load()

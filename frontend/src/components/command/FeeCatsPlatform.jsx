@@ -78,7 +78,7 @@ const REJECT_LABEL = { liquidity: 'thin liquidity', volume: 'low volume', 'marke
 function PositionRow({ position }) {
   const change = Number(position.currentChange || 0);
   const held = position.openedAt ? Math.max(1, Math.round((Date.now() / 1000 - position.openedAt) / 60)) : null;
-  return <a className="paper-position" href={position.pairAddress ? `/terminal/trade?chain=solana&pair=${position.pairAddress}` : undefined} title={position.reason || ''}>
+  return <a className="paper-position" target="_blank" rel="noopener noreferrer" href={position.pairAddress ? `/terminal/trade?chain=solana&pair=${position.pairAddress}` : undefined} title={position.reason || ''}>
     <div><b>{position.symbol}</b><small>{held ? `${held}m held · ` : ''}{position.reason || position.provider}</small></div>
     <strong>{Number(position.costSol || position.notionalSol).toFixed(3)} SOL</strong>
     <span className={change >= 0 ? 'positive' : 'negative'}>{change >= 0 ? '+' : ''}{change.toFixed(2)}%</span>

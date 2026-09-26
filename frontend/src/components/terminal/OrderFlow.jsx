@@ -2,7 +2,10 @@ import React from 'react';
 import { Activity, Droplets, Gauge, Layers, Scale, Timer, Zap } from 'lucide-react';
 import { formatUSD, formatPct, formatCompact } from '../../lib/dexscreener';
 import { AnimatedNumber } from './AnimatedNumber';
+import { useTradeStream } from '../../lib/tradeStream';
+import { formatLivePrice } from '../../lib/livePrice';
 
+const TX_EXPLORER = { solana: 'https://solscan.io/tx/', ethereum: 'https://etherscan.io/tx/', base: 'https://basescan.org/tx/', bsc: 'https://bscscan.com/tx/', arbitrum: 'https://arbiscan.io/tx/', avalanche: 'https://snowtrace.io/tx/', polygon: 'https://polygonscan.com/tx/', sui: 'https://suiscan.xyz/mainnet/tx/' };
 const WINDOWS = [['m5', '5M'], ['h1', '1H'], ['h6', '6H'], ['h24', '24H']];
 const n = v => (Number.isFinite(Number(v)) ? Number(v) : null);
 const pct = v => (v == null ? '—' : formatPct(v));
@@ -15,6 +18,7 @@ function ageLabel(ms) {
 
 // Live order flow + market structure, derived only from the pair's real DexScreener snapshot.
 export function OrderFlow({ pair }) {
+  const { trades, fresh } = useTradeStream(pair);
   if (!pair) return null;
   const tx = pair.txns || {};
   const vol = pair.volume || {};
@@ -23,8 +27,9 @@ export function OrderFlow({ pair }) {
   const mc = n(pair.marketCap);
   const fdv = n(pair.fdv);
   const rows = WINDOWS.map(([k, label]) => {
-    const b = n(tx[k]?.buys) || 0; const s = n(tx[k]?.sells) || 0;
-    return { k, label, buys: b, sells: s, total: b + s, buyShare: b + s ? b / (b + s) : null, vol: n(vol[k]), change: n(ch[k]) };
+    const b = (n(tx[k]?.buys) || 0) + fresh.buys; const s = (n(tx[k]?.sells) || 0) + fresh.sells;
+    const v = n(vol[k]) != null ? n(vol[k]) + fresh.buyUsd + fresh.sellUsd : null;
+    return { k, label, buys: b, sells: s, total: b + s, buyShare: b + s ? b / (b + s) : null, vol: v, change: n(ch[k]) };
   });
   const h24 = rows[3];
   const turnover = liq && h24.vol != null ? h24.vol / liq : null;
@@ -57,6 +62,12 @@ export function OrderFlow({ pair }) {
       <div><Scale size={13} /><small>AVG TRADE</small><b>{avgTrade == null ? '—' : formatUSD(avgTrade)}</b><em>{h24.total ? `${formatCompact(h24.total)} trades 24h` : '—'}</em></div>
       <div><Layers size={13} /><small>DILUTION GAP</small><b>{fdv && mc ? `${dilution.toFixed(1)}%` : '—'}</b><em>{dilution > 1 ? 'supply not yet circulating' : 'fully circulating'}</em></div>
       <div><Timer size={13} /><small>POOL AGE</small><b>{ageLabel(pair.pairCreatedAt)}</b><em>{pair.dexId || '—'}</em></div>
+    </div>
+    <div className="trade-tape">
+      <div className="trade-tape-head"><span><i />LIVE TRADE TAPE</span><small>{trades.length ? `last trade ${Math.max(0, Math.round((Date.now() - Date.parse(trades[0].ts)) / 1000))}s ago · GeckoTerminal` : 'waiting for trades…'}</small></div>
+      <div className="trade-tape-list">{trades.slice(0, 14).map(t => <a key={t.tx} className={`tape-row ${t.kind}`} href={TX_EXPLORER[pair.chainId] ? `${TX_EXPLORER[pair.chainId]}${t.tx}` : undefined} target="_blank" rel="noopener noreferrer">
+        <b>{t.kind === 'buy' ? 'BUY' : 'SELL'}</b><span>{formatUSD(t.usd)}</span><span>{formatLivePrice(t.price)}</span><code>{(t.wallet || '').slice(0, 4)}…{(t.wallet || '').slice(-4)}</code><time>{new Date(t.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time>
+      </a>)}</div>
     </div>
   </section>;
 }

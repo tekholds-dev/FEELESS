@@ -15,6 +15,21 @@ function AuthorTrust({ chain, address }) {
   return <span className={`reputation-badge badge-${trust.badge} chat-author-trust`} title={`This poster has launched ${trust.tokenCount} tracked token${trust.tokenCount === 1 ? '' : 's'} · ${trust.ruggedCount} flagged · score ${trust.score}/100`}>{trust.badge === 'flagged' ? '⚠ ' : ''}{BADGE_LABEL[trust.badge]} · {trust.score}</span>;
 }
 const API = apiUrl('/api');
+const registeredCalls = new Set();
+// Call Ledger: any coin posted in chat becomes a tracked call. The server prices it itself.
+function registerCalls(room, messages) {
+  (messages || []).forEach(m => (m.tokens || []).forEach(t => {
+    const pair = t.pair || {};
+    const chain = pair.chainId || t.chainId;
+    const pairAddress = pair.pairAddress || t.pairAddress;
+    if (!chain || !pairAddress) return;
+    const key = `${m.id}:${pairAddress}`;
+    if (registeredCalls.has(key)) return;
+    registeredCalls.add(key);
+    fetch(apiUrl('/api/reputation/calls'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ room, messageId: String(m.id), caller: m.profile?.hidden ? 'anon' : (m.username || 'anon'), callerAddress: m.profile?.address || m.address || null, chain, pairAddress, ts: m.ts }) }).catch(() => {});
+  }));
+}
 const detectAddress = text => text.match(/\b0x[a-fA-F0-9]{40}\b/)?.[0] || text.match(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/)?.[0];
 
 export default function EcosystemChat({ ecosystem, room: roomProp, compact = false, onConnect }) {
@@ -38,7 +53,7 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
         const res = await fetch(`${API}/chat/${encodeURIComponent(room)}`, { signal: controller.signal });
         if (!res.ok) throw new Error();
         const data = await res.json();
-        if (!controller.signal.aborted) { setMessages(data.messages); setError(''); }
+        if (!controller.signal.aborted) { setMessages(data.messages); setError(''); registerCalls(room, data.messages); }
       } catch (e) { if (e.name !== 'AbortError') setError('Chat connection interrupted. Retry the room connection.'); }
       finally { if (!controller.signal.aborted) setLoading(false); }
     };
