@@ -1926,7 +1926,7 @@ async def add_to_blocklist(payload: BlockPayload):
     intel = await token_intel('solana', payload.mint)
     evidence = {w: 'bundler' for w in intel.get('bundledWallets', [])}
     evidence.update({w: 'sniper' for w in intel.get('sniperWallets', []) if w not in evidence})
-    accepted, rejected = [], []
+    accepted, rejected, fresh = [], [], []
     async with _block_lock:
         d = _block_load()
         for w in [str(x) for x in payload.wallets[:200]]:
@@ -1934,6 +1934,8 @@ async def add_to_blocklist(payload: BlockPayload):
                 rejected.append(w)
                 continue
             rec = d['wallets'].setdefault(w, {'mints': {}, 'firstSeen': time.time()})
+            if not rec.get('reported'):
+                fresh.append(w)
             rec['mints'].setdefault(payload.mint, evidence[w])
             rec['reported'] = True
             rec.setdefault('reports', []).append({'mint': payload.mint, 'role': evidence[w], 'by': (payload.reporter or 'anon')[:64], 'at': time.time()})
@@ -1941,7 +1943,10 @@ async def add_to_blocklist(payload: BlockPayload):
             accepted.append(w)
         BLOCK_PATH.write_text(json.dumps(d))
     _intel_cache.pop(payload.mint, None)
-    return {'accepted': accepted, 'rejected': rejected}
+    # Season points only for wallets nobody had reported yet: 25 each, capped at 100 per coin.
+    if fresh:
+        season_award(payload.reporter, min(100, 25 * len(fresh)), f'rug-report:{payload.mint[:8]}')
+    return {'accepted': accepted, 'rejected': rejected, 'newlyFlagged': len(fresh)}
 
 
 @app.get('/api/reputation/blocklist')
@@ -5838,13 +5843,15 @@ SETUP_KEYS = [
     ('ALLOWED_ORIGINS', 'Site domain', 'Lock APIs to your domain before launch', False),
     ('HELIUS_WEBHOOK_SECRET', 'Helius webhook secret', 'Instant whale / dev-sell events', False),
     ('BASE_RPC_URL', 'Base RPC', 'Dedicated Base endpoint for pool reads', False),
+    ('PUBLIC_SITE_URL', 'Public site URL', 'Hosts new coins\' metadata so wallets/explorers show name + image (required to launch)', True),
 ]
 
 
 @app.get('/api/reputation/admin/setup')
 async def admin_setup(request: Request):
     _require_admin(request)
-    return {'keys': [{'key': k, 'name': n, 'why': w, 'required': req, 'set': bool(os.environ.get(k, '').strip())} for k, n, w, req in SETUP_KEYS]}
+    return {'keys': [{'key': k, 'name': n, 'why': w, 'required': req, 'set': bool(os.environ.get(k, '').strip())} for k, n, w, req in SETUP_KEYS],
+            'launchRail': bool(_json_load(LAUNCH_RAIL_PATH, {}).get('config'))}
 
 
 
@@ -5911,3 +5918,113 @@ async def rug_report(days: int = Query(7, ge=1, le=30)):
             'totals': {'caught': len(caught), 'blocklisted': sum(1 for c in caught if c['blocked']), 'funders': len(funders), 'brokenShields': len(broken), 'rugs': len(rugs)},
             'caught': sorted(caught, key=lambda c: -c['launches'])[:10], 'funders': sorted(funders, key=lambda f: -f['walletsFunded'])[:5],
             'brokenShields': broken[:5], 'rugs': rugs[:8]}
+
+
+# ---- FEELESS launch rail (Meteora Dynamic Bonding Curve) -------------------------------------
+# The owner creates ONE on-chain DBC config (curve, fees, fee claimer, graduation) from their own
+# wallet in the command center. Every FEELESS launch then creates its pool on that config, signed by
+# the creator's wallet. The server stores only public addresses and never signs anything.
+LAUNCH_RAIL_PATH = DATA_DIR / 'launch_rail.json'
+TOKEN_META_DIR = DATA_DIR / 'token_meta'
+DBC_PROGRAM = 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'
+_B58 = r'^[1-9A-HJ-NP-Za-km-z]{32,44}$'
+
+
+class LaunchRailIn(BaseModel):
+    config: str
+    feeClaimer: str
+    params: dict = {}
+
+
+@app.get('/api/reputation/launch-rail')
+async def launch_rail():
+    r = _json_load(LAUNCH_RAIL_PATH, {})
+    return {'ready': bool(r.get('config')), **r, 'siteUrl': os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/')}
+
+
+@app.put('/api/reputation/admin/launch-rail')
+async def launch_rail_set(request: Request, p: LaunchRailIn):
+    me = _require_admin(request)
+    if me not in _owner_wallets():
+        raise HTTPException(403, 'Only the FEELESS owner wallet can set the launch rail.')
+    if not (_re.match(_B58, p.config) and _re.match(_B58, p.feeClaimer)):
+        raise HTTPException(400, 'Config and fee claimer must be Solana addresses.')
+    # Only accept a config that really exists on-chain and belongs to the DBC program.
+    async with httpx.AsyncClient(timeout=10) as http:
+        info = await _rpc(http, 'getAccountInfo', [p.config, {'encoding': 'base64'}])
+    owner = ((info or {}).get('value') or {}).get('owner')
+    if owner != DBC_PROGRAM:
+        raise HTTPException(409, 'That config is not on-chain yet (or is not a Meteora DBC config). Wait for confirmation and retry.')
+    keep = {k: p.params[k] for k in ('initialMarketCap', 'migrationMarketCap', 'startingFeeBps', 'endingFeeBps', 'feeDecayMin', 'creatorFeePct', 'lockedLpPct', 'supply') if k in p.params}
+    rec = {'config': p.config, 'feeClaimer': p.feeClaimer, 'params': keep, 'setBy': me, 'at': time.time()}
+    _json_save(LAUNCH_RAIL_PATH, rec)
+    return rec
+
+
+class TokenMetaIn(BaseModel):
+    address: str
+    session: str
+    name: str
+    symbol: str
+    description: str = ''
+    image: str = ''
+    website: str = ''
+    twitter: str = ''
+    telegram: str = ''
+
+
+@app.post('/api/reputation/token-meta')
+async def token_meta_create(p: TokenMetaIn):
+    """Hosts the Metaplex metadata JSON a new coin's `uri` points to (name, image, links)."""
+    _session_or_401(p.address, p.session)
+    name, symbol = p.name.strip()[:32], p.symbol.strip().upper()[:10]
+    if not name or not _re.match(r'^[A-Z0-9$]{1,10}$', symbol):
+        raise HTTPException(400, 'Name and a 1–10 character ticker are required.')
+    site = os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/')
+    if not site:
+        raise HTTPException(503, 'PUBLIC_SITE_URL is not set, so wallets and explorers could not load the coin metadata.')
+    img = p.image.strip()
+    if img.startswith('/api/reputation/uploads/'):
+        img = site + img
+    link = lambda v: v.strip()[:200] if v.strip().startswith('https://') else ''
+    meta = {'name': name, 'symbol': symbol, 'description': p.description.strip()[:600], 'image': img[:300],
+            'external_url': link(p.website), 'extensions': {'website': link(p.website), 'twitter': link(p.twitter), 'telegram': link(p.telegram)},
+            'properties': {'files': [{'uri': img[:300], 'type': 'image/webp'}] if img else [], 'category': 'image'}}
+    TOKEN_META_DIR.mkdir(parents=True, exist_ok=True)
+    mid = uuid.uuid4().hex
+    (TOKEN_META_DIR / f'{mid}.json').write_text(json.dumps(meta))
+    return {'uri': f'{site}/api/reputation/token-meta/{mid}.json'}
+
+
+@app.get('/api/reputation/token-meta/{name}')
+async def token_meta_get(name: str):
+    from fastapi.responses import FileResponse
+    if not _re.match(r'^[a-f0-9]{32}\.json$', name) or not (TOKEN_META_DIR / name).exists():
+        raise HTTPException(404, 'Not found')
+    return FileResponse(TOKEN_META_DIR / name, media_type='application/json')
+
+
+# Browser-side Solana RPC relay for wallet-signed launches: the Helius key stays on the server and
+# only read/send methods pass. Nothing here can sign — the user's wallet signs in the browser.
+RPC_ALLOW = {'getAccountInfo', 'getMultipleAccounts', 'getLatestBlockhash', 'getMinimumBalanceForRentExemption', 'sendTransaction',
+             'getSignatureStatuses', 'simulateTransaction', 'getBalance', 'getTokenAccountBalance', 'getFeeForMessage', 'getSlot',
+             'getBlockHeight', 'isBlockhashValid', 'getEpochInfo'}
+_rpc_hits: dict = {}
+
+
+@app.post('/api/reputation/rpc')
+async def rpc_relay(request: Request):
+    ip = request.client.host if request.client else '?'
+    now = time.time(); hits = [t for t in _rpc_hits.get(ip, []) if now - t < 10]
+    if len(hits) >= 60:
+        raise HTTPException(429, 'Too many RPC calls.')
+    _rpc_hits[ip] = hits + [now]
+    body = await request.json()
+    calls = body if isinstance(body, list) else [body]
+    if len(calls) > 10 or any(not isinstance(c, dict) or c.get('method') not in RPC_ALLOW for c in calls):
+        raise HTTPException(403, 'RPC method not allowed.')
+    endpoint = _dedicated or _next_rpc_endpoint()
+    async with httpx.AsyncClient(timeout=20) as http:
+        r = await http.post(endpoint, json=body)
+    from fastapi.responses import Response
+    return Response(r.content, status_code=r.status_code, media_type='application/json')

@@ -3257,3 +3257,20 @@ body.theme-day .crop-card{background:#fff;border-color:#cfe3d8}
 .rep-mark.compact{padding:0 5px 0 2px;font-size:9.5px}
 .rep-mark.lvl-high{--rc:#00e9a0}.rep-mark.lvl-good{--rc:#7df9d0}.rep-mark.lvl-caution{--rc:#f5c542}.rep-mark.lvl-risky{--rc:#fa708c}.rep-mark.lvl-blocked{--rc:#ff4d6a}
 .rep-mark{width:fit-content;flex:0 0 auto;align-self:center;justify-self:start}
+.season-rules{margin:14px 0}.season-rules ol{margin:8px 0 6px;padding:0;list-style:none;display:grid;gap:10px;counter-reset:r}
+.season-rules li{display:grid;grid-template-columns:26px 1fr;gap:2px 10px;counter-increment:r}
+.season-rules li::before{content:counter(r);grid-row:span 2;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:800 12px 'JetBrains Mono',monospace;background:color-mix(in srgb,var(--season) 22%,transparent);color:var(--season)}
+.season-rules li span{color:var(--muted);font-size:12.5px;line-height:1.45}.season-rules small{color:var(--muted);font-size:11px}
+.launch-rail-admin{display:grid;gap:14px}
+.setup-guide h4 em{font-style:normal;color:var(--mint);margin-left:6px}
+.setup-guide ol{list-style:none;margin:8px 0;padding:0;display:grid;gap:8px}
+.setup-guide li{display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:start}
+.setup-guide li i{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font:800 11px 'JetBrains Mono',monospace;font-style:normal;border:1px solid #ffffff26;color:var(--muted)}
+.setup-guide li.ok i{background:var(--mint);border-color:var(--mint);color:#04100b}
+.setup-guide li div{display:grid;gap:2px}.setup-guide li small{color:var(--muted);font-size:11.5px}
+.pill-ok{font-size:10px;padding:2px 8px;border-radius:999px;background:#00e9a022;color:var(--mint);margin-left:6px}
+.rail-form{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin:10px 0}
+.rail-form label{display:grid;gap:4px}.rail-form label.wide{grid-column:1/-1}.rail-form span{font-size:11.5px;font-weight:600}.rail-form small{font-size:10.5px;color:var(--muted)}
+.rail-form input{font-variant-numeric:tabular-nums}
+.rail-kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:8px 0}
+.rail-kv span{display:grid;gap:2px;padding:8px 10px;border-radius:10px;background:#ffffff08}.rail-kv small{font-size:10px;color:var(--muted)}.rail-kv b{font:700 14px 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}

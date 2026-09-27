@@ -5,6 +5,7 @@
   "proxy": "http://127.0.0.1:5001",
   "dependencies": {
     "@hookform/resolvers": "5.0.1",
+    "@meteora-ag/dynamic-bonding-curve-sdk": "1.5.13",
     "@radix-ui/react-accordion": "1.2.8",
     "@radix-ui/react-alert-dialog": "1.1.11",
     "@radix-ui/react-aspect-ratio": "1.1.4",

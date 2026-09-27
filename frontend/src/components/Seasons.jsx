@@ -8,7 +8,21 @@ import { SeasonEditor } from './SeasonEditor';
 import { useAdmin } from '../lib/adminCall';
 
 const TIER_COLOR = { Recruit: '#8fa89a', Bronze: '#d08a4e', Silver: '#cfd8dc', Gold: '#f5c542', Diamond: '#7cc8ff', Legend: '#ff5ad1' };
-const HOW = [['📣', 'Sharp calls', 'Calls that hit 2× on the Call Ledger'], ['🧹', 'Clean trading', 'Never sniping, bundling or funding snipers'], ['🚩', 'Rug reports', 'Flag bundlers & snipers from Launch forensics'], ['💎', 'Hold $FEE', 'Daily holder claims + perk tiers'], ['🔥', 'Show up', 'Daily streaks, posts, profile + invites']];
+const HOW = [['📣', 'Sharp calls', '+100 for each Call Ledger call that reaches 2×'], ['🚩', 'Rug reports', '+25 per sniper/bundler you flag first (proof required, max 100 per coin)'], ['💎', 'Hold $FEE', '+20 a day while you hold $1+ of $FEE'], ['🔥', 'Show up', 'Daily check-in +10 (+5 per streak day), post +5, invites +75, profile +50'], ['🧹', 'Stay clean', 'Blocklisted wallets score zero — sniping or bundling ends your season']];
+
+// How points turn into rewards. Mirrors the server rules exactly; keep in sync with _distribute_drops.
+function SeasonRules({ s }) {
+  return <section className="season-card season-rules" data-testid="season-rules">
+    <h3>How rewards reach you</h3>
+    <ol>
+      <li><b>Earn points.</b><span>Claim rewards on the Rewards tab; every point is multiplied by this season's {s.multiplier}× and counted toward both the week and the season.</span></li>
+      <li><b>Weekly drop, automatic.</b><span>When each 7-day week ends, that week's board is ranked and badges land in your profile Vault — no claim, no gas: Top 3 → Legendary · Top 10% → Epic · 300+ pts → Rare · 50+ pts → Common.</span></li>
+      <li><b>Season finale.</b><span>At season end everyone with points gets the season badge at their tier (Legend → Legendary, Diamond → Epic, Gold → Rare, others → Common). Prize: {s.prize}.</span></li>
+      <li><b>Token airdrops.</b><span>Any $FEE / token airdrop is picked by the team from the leaderboard or holder snapshots, sent straight to your wallet from the FEELESS wallet, and published here with its on-chain transaction. FEELESS never asks you to connect to a "claim" site or sign to receive.</span></li>
+    </ol>
+    <small>Badges are FEELESS collectibles in your profile, not on-chain NFTs. Only wallets that are not blocklisted can earn.</small>
+  </section>;
+}
 
 const FX_GLYPHS = { money: ['💸', '💵', '🤑', '💰'], fire: ['🔥', '✦', '🔥'], snow: ['❄️', '❅', '❆'], leaves: ['🍂', '🍁', '🍃'], stars: ['✨', '⭐', '✦'] };
 // Season weather: the admin-picked effect rains across the hero (decorative, reduced-motion aware).
@@ -74,6 +88,7 @@ export function SeasonsPage() {
       <div className="season-stats"><div><b>{left(d.endsIn)}</b><small>left</small></div><div><b>{d.players}</b><small>players</small></div><div><b>{s.multiplier}×</b><small>points</small></div></div>
       <p className="season-prize">🏆 {s.prize}</p>
     </section>}
+    <SeasonRules s={s} />
     <div className="season-grid">
       <section className="season-card">
         <h3>Your run</h3>
