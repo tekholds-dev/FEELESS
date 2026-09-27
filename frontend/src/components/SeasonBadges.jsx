@@ -18,8 +18,8 @@ export function BadgeArt({ item, size = 64 }) {
     <defs><linearGradient id={id} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={r.c1} /><stop offset=".55" stopColor={item.accent || r.c2} /><stop offset="1" stopColor={r.c2} /></linearGradient></defs>
     {(item.rarity === 'legendary' || item.rarity === 'epic') && <g className="badge-halo"><circle cx="50" cy="50" r="47" fill="none" stroke={r.c1} strokeWidth="1.5" strokeDasharray="4 7" /></g>}
     {shape}
-    <circle cx="50" cy="50" r="27" fill="#04110b" opacity=".55" />
-    <text x="50" y="59" textAnchor="middle" fontSize="28">{item.glyph}</text>
+    {item.imageUrl ? <><clipPath id={`${id}c`}><circle cx="50" cy="50" r="30" /></clipPath><image href={item.imageUrl} x="20" y="20" width="60" height="60" preserveAspectRatio="xMidYMid slice" clipPath={`url(#${id}c)`} /></>
+      : <><circle cx="50" cy="50" r="27" fill="#04110b" opacity=".55" /><text x="50" y="59" textAnchor="middle" fontSize="28">{item.glyph}</text></>}
   </svg>;
 }
 

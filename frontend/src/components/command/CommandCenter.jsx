@@ -422,6 +422,7 @@ function TrafficPanel({ call }) {
 // Monthly seasons: create the next one in two clicks (defaults to next calendar month).
 function SeasonsAdmin({ call }) {
   const [d, setD] = useState(null);
+  const [editing, setEditing] = useState(null);
   const next = () => { const n = new Date(); const s = new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth() + 1, 1)); const e = new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth() + 2, 1)); return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10) }; };
   const [f, setF] = useState({ name: '', theme: '', prize: '', multiplier: 1, accent: '#f5c542', ...next() });
   const load = () => call('/admin/seasons').then(setD).catch(e => toast.error(e.message));
@@ -429,7 +430,8 @@ function SeasonsAdmin({ call }) {
   const save = async e => { e.preventDefault(); try { await call('/admin/seasons', { method: 'POST', body: JSON.stringify({ ...f, multiplier: Number(f.multiplier), start: Date.parse(f.start) / 1000, end: Date.parse(f.end) / 1000 }) }); toast.success('Season scheduled.'); load(); } catch (err) { toast.error(err.message); } };
   const set = k => e => setF({ ...f, [k]: e.target.value });
   return <section className="cc-card"><h3>Monthly seasons</h3>
-    <div className="cc-kol-list">{(d?.seasons || []).map(s => <div key={s.id} style={{ borderLeft: `3px solid ${s.accent}` }}><b>{s.name}</b><small>{new Date(s.start * 1000).toLocaleDateString()} → {new Date(s.end * 1000).toLocaleDateString()} · {s.multiplier}×</small><span>{d.players[s.id] || 0} players</span><span>{s.prize}</span></div>)}</div>
+    <div className="cc-kol-list">{(d?.seasons || []).map(s => <div key={s.id} style={{ borderLeft: `3px solid ${s.accent}` }}><b>{s.name}</b><small>{new Date(s.start * 1000).toLocaleDateString()} → {new Date(s.end * 1000).toLocaleDateString()} · {s.multiplier}×</small><span>{d.players[s.id] || 0} players</span><button type="button" className="btn-outline" onClick={() => setEditing(s)}>Edit</button></div>)}</div>
+    {editing && <SeasonEditor season={editing} call={call} onDone={() => { setEditing(null); load(); }} />}
     <form className="cc-kol-form" onSubmit={save}><input required placeholder="Season name (e.g. Diamond Hands)" value={f.name} onChange={set('name')} /><input placeholder="Theme / story" value={f.theme} onChange={set('theme')} /><input placeholder="Prize" value={f.prize} onChange={set('prize')} />
       <input type="date" value={f.start} onChange={set('start')} /><input type="date" value={f.end} onChange={set('end')} /><input type="number" step="0.5" min="0.5" max="5" value={f.multiplier} onChange={set('multiplier')} title="Points multiplier" /><input type="color" value={f.accent} onChange={set('accent')} title="Season color" /><button className="btn-primary" type="submit">Schedule season</button></form>
   </section>;
@@ -458,4 +460,37 @@ function IdeasAdmin({ call }) {
     <form className="cc-kol-form" onSubmit={add}><input required placeholder="Idea" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /><input placeholder="Details" value={f.body} onChange={e => setF({ ...f, body: e.target.value })} /><button className="btn-primary" type="submit">Save idea</button></form>
     <div className="cc-ideas">{rows.map(i => <article key={i.id}><b>{i.title}</b><small>{i.status}</small><p>{i.body}</p></article>)}</div>
   </section>;
+}
+
+// Full season editor: dates (you decide when it starts/ends), story, prize, multiplier, colors,
+// banner + season badge image, and every week's badge (name, emoji, image/GIF link).
+function SeasonEditor({ season, call, onDone }) {
+  const day = t => new Date(t * 1000).toISOString().slice(0, 16);
+  const [f, setF] = useState({ ...season, start: day(season.start), end: day(season.end), bannerUrl: season.bannerUrl || '', badgeUrl: season.badgeUrl || '' });
+  const weeksCount = Math.ceil((season.end - season.start) / (7 * 86400));
+  const [weeks, setWeeks] = useState(() => Object.fromEntries(Array.from({ length: weeksCount }, (_, i) => [String(i + 1), { name: '', glyph: '', story: '', imageUrl: '', ...((season.weeks || {})[String(i + 1)] || {}) }])));
+  const set = k => e => setF({ ...f, [k]: e.target.value });
+  const setW = (w, k) => e => setWeeks({ ...weeks, [w]: { ...weeks[w], [k]: e.target.value } });
+  const save = async () => {
+    try {
+      const clean = Object.fromEntries(Object.entries(weeks).map(([k, v]) => [k, Object.fromEntries(Object.entries(v).filter(([, x]) => x))]).filter(([, v]) => Object.keys(v).length));
+      await call(`/admin/seasons/${season.id}`, { method: 'PUT', body: JSON.stringify({ name: f.name, theme: f.theme, prize: f.prize, multiplier: Number(f.multiplier), accent: f.accent, bannerUrl: f.bannerUrl, badgeUrl: f.badgeUrl, start: Date.parse(f.start) / 1000, end: Date.parse(f.end) / 1000, weeks: clean }) });
+      toast.success('Season updated.'); onDone();
+    } catch (err) { toast.error(err.message); }
+  };
+  const remove = async () => { if (!window.confirm(`Delete season "${season.name}"?`)) return; try { await call(`/admin/seasons/${season.id}`, { method: 'DELETE' }); toast.success('Season deleted.'); onDone(); } catch (err) { toast.error(err.message); } };
+  return <div className="season-editor">
+    <h4>Editing {season.name}</h4>
+    <div className="se-grid">
+      <label>Name<input value={f.name} onChange={set('name')} /></label><label>Prize<input value={f.prize} onChange={set('prize')} /></label>
+      <label className="se-wide">Story / theme<input value={f.theme} onChange={set('theme')} /></label>
+      <label>Starts<input type="datetime-local" value={f.start} onChange={set('start')} /></label><label>Ends<input type="datetime-local" value={f.end} onChange={set('end')} /></label>
+      <label>Multiplier<input type="number" step="0.5" min="0.5" max="5" value={f.multiplier} onChange={set('multiplier')} /></label><label>Color<input type="color" value={f.accent} onChange={set('accent')} /></label>
+      <label className="se-wide">Banner image / GIF (https)<input value={f.bannerUrl} onChange={set('bannerUrl')} placeholder="https://…/banner.gif" /></label>
+      <label className="se-wide">Season badge image / GIF (https)<input value={f.badgeUrl} onChange={set('badgeUrl')} placeholder="https://…/badge.gif" /></label>
+    </div>
+    <h4>Weekly drops</h4>
+    <div className="se-weeks">{Object.entries(weeks).map(([w, v]) => <div key={w} className="se-week"><b>Week {w}</b><input placeholder="Badge name" value={v.name} onChange={setW(w, 'name')} /><input placeholder="Emoji" value={v.glyph} onChange={setW(w, 'glyph')} maxLength={4} /><input placeholder="Image / GIF https link" value={v.imageUrl} onChange={setW(w, 'imageUrl')} /><input placeholder="Story" value={v.story} onChange={setW(w, 'story')} /></div>)}</div>
+    <div className="se-actions"><button type="button" className="btn-outline" onClick={remove}>Delete season</button><button type="button" className="btn-outline" onClick={onDone}>Cancel</button><button type="button" className="btn-primary" onClick={save}>Save changes</button></div>
+  </div>;
 }

@@ -2980,3 +2980,37 @@ body.theme-day .copy-trading form input{background:#fff}
 @media(min-width:1280px){.wallet-profile-page>.season-vault{grid-column:1}}
 body.theme-day .badge-card{background:#fff}
 @media(prefers-reduced-motion:reduce){.badge-art .badge-halo{animation:none}}
+/* ===== DEGEN MODE: Seasons + Trenches ===== */
+@keyframes degen-glitch{0%,92%,100%{text-shadow:0 0 0 transparent;transform:none}93%{text-shadow:-3px 0 #ff2bd6,3px 0 #00f0ff;transform:translateX(1px) skewX(-4deg)}95%{text-shadow:3px 0 #ff2bd6,-3px 0 #00f0ff;transform:translateX(-1px)}97%{text-shadow:-2px 0 #ff2bd6,2px 0 #00f0ff;transform:skewX(3deg)}}
+@keyframes degen-scan{to{background-position:0 6px}}
+@keyframes degen-pulse{50%{box-shadow:0 0 0 1px var(--dg,#00e9a0),0 0 28px color-mix(in srgb,var(--dg,#00e9a0) 55%,transparent)}}
+@keyframes degen-float{50%{transform:translateY(-6px) rotate(var(--rot,0deg))}}
+/* Seasons */
+.season-hero{background-image:var(--banner,none),radial-gradient(120% 90% at 50% 0%,color-mix(in srgb,var(--season) 22%,transparent),transparent 60%)!important;background-size:cover,auto;background-position:center}
+.season-hero::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px);animation:degen-scan .6s linear infinite;mix-blend-mode:overlay}
+.season-hero h1{animation:season-shine 5s linear infinite,degen-glitch 6s steps(1) infinite;text-transform:uppercase;font-style:italic;letter-spacing:-2px}
+.season-hero .eyebrow{display:inline-block;padding:3px 10px;border-radius:4px;background:var(--season);color:#050b08;font-weight:900;transform:rotate(-2deg);box-shadow:3px 3px 0 #ff2bd6}
+.season-card{position:relative;border-radius:16px!important;box-shadow:4px 4px 0 color-mix(in srgb,var(--season) 35%,transparent)}
+.season-row.rank-1{--dg:var(--season);animation:degen-pulse 2.4s ease-in-out infinite}
+.drop.live{--dg:var(--season);animation:degen-pulse 2s ease-in-out infinite}
+.drop:nth-child(odd){--rot:-1.5deg}.drop:nth-child(even){--rot:1.5deg}.drop:hover .badge-art{animation:degen-float 1.4s ease-in-out infinite}
+.season-banner{font-style:italic;text-shadow:0 0 8px var(--season)}
+/* Trenches */
+.trench-landing,.trench-landing-hero{position:relative}
+.trench-landing-hero::after{content:'';position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0 1px,transparent 1px 3px);animation:degen-scan .6s linear infinite;mix-blend-mode:overlay}
+.trench-landing-title,.trench-title{animation:degen-glitch 7s steps(1) infinite;text-transform:uppercase;font-style:italic;letter-spacing:-1px;background:linear-gradient(90deg,#fff 0%,#00ffa3 35%,#ff2bd6 70%,#fff 100%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;animation:season-shine 6s linear infinite,degen-glitch 7s steps(1) infinite}
+.lets-trench{--dg:#00ffa3;position:relative;transform:rotate(-1.5deg);box-shadow:5px 5px 0 #ff2bd6!important;animation:degen-pulse 2.2s ease-in-out infinite;text-transform:uppercase;font-style:italic;letter-spacing:.5px}
+.lets-trench:hover{transform:rotate(0) scale(1.04)}
+.trench-features>*,.trench-tool{border-radius:14px!important;box-shadow:4px 4px 0 rgba(255,43,214,.28);transition:transform .2s,box-shadow .2s}
+.trench-features>*:nth-child(odd){transform:rotate(-.6deg)}.trench-features>*:nth-child(even){transform:rotate(.6deg)}
+.trench-features>*:hover,.trench-tool:hover{transform:translateY(-3px) rotate(0);box-shadow:6px 6px 0 rgba(0,255,163,.4)}
+.trench-stats b,.trench-heat b{text-shadow:0 0 12px currentColor}
+.trench-bar{border-bottom:1px solid rgba(255,43,214,.3)!important;box-shadow:0 1px 0 rgba(0,255,163,.2)}
+/* Season editor */
+.season-editor{margin-top:12px;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.1);display:grid;gap:10px;background:rgba(0,0,0,.2)}.season-editor h4{margin:0}
+.se-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.se-grid label{display:grid;gap:3px;font-size:11px;color:var(--muted)}.se-wide{grid-column:1 / -1}
+.se-grid input,.se-week input{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:inherit;font:inherit}
+.se-weeks{display:grid;gap:6px}.se-week{display:grid;grid-template-columns:60px 1fr 60px 1.4fr 1.2fr;gap:6px;align-items:center}.se-week b{font-size:12px}
+.se-actions{display:flex;gap:8px;justify-content:flex-end}
+@media(max-width:760px){.se-grid{grid-template-columns:1fr}.se-week{grid-template-columns:1fr 1fr}}
+@media(prefers-reduced-motion:reduce){.season-hero h1,.season-hero::after,.trench-landing-title,.trench-title,.lets-trench,.drop.live,.season-row.rank-1,.trench-landing-hero::after{animation:none}}

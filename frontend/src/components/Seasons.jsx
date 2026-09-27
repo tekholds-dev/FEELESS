@@ -42,7 +42,7 @@ export function SeasonsPage() {
   const me = d.me;
   const tierPct = me ? (() => { const idx = d.tiers.findIndex(([n]) => n === me.tier); const cur = d.tiers[idx][1]; const nxt = d.tiers[idx + 1]?.[1]; return nxt ? ((me.score - cur) / (nxt - cur)) * 100 : 100; })() : 0;
   return <div className="seasons" style={{ '--season': s.accent }} data-testid="seasons-page">
-    <section className="season-hero">
+    <section className="season-hero" style={s.bannerUrl ? { '--banner': `url("${s.bannerUrl}")` } : undefined}>
       <div className="season-sigil"><Crown size={34} /><i /><i /><i /></div>
       <span className="eyebrow">SEASON {s.id.replace('s', '')}</span>
       <h1>{s.name}</h1>

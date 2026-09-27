@@ -5521,7 +5521,9 @@ def _season_weeks(s):
     weeks, t, i = [], s['start'], 0
     while t < s['end']:
         th = WEEK_THEMES[min(i, len(WEEK_THEMES) - 1)] if i < len(WEEK_THEMES) - 1 or t + 7 * 86400 >= s['end'] else WEEK_THEMES[i % (len(WEEK_THEMES) - 1)]
-        weeks.append({'week': i + 1, 'start': t, 'end': min(t + 7 * 86400, s['end']), 'theme': th[0], 'name': th[1], 'glyph': th[2], 'story': th[3]})
+        ov = (s.get('weeks') or {}).get(str(i + 1)) or {}
+        weeks.append({'week': i + 1, 'start': t, 'end': min(t + 7 * 86400, s['end']), 'theme': th[0], 'name': ov.get('name') or th[1], 'glyph': ov.get('glyph') or th[2],
+                      'story': ov.get('story') or th[3], 'imageUrl': ov.get('imageUrl') or None})
         t += 7 * 86400; i += 1
     return weeks
 
@@ -5564,13 +5566,13 @@ def _distribute_drops():
             for i, (a, r) in enumerate(board):
                 rarity = 'legendary' if i < 3 else 'epic' if i < max(1, round(n * 0.1)) else 'rare' if r['score'] >= 300 else 'common' if r['score'] >= 50 else None
                 if rarity:
-                    _grant(col, a, {'id': f"{key}:{w['theme']}", 'kind': 'weekly', 'season': s['id'], 'seasonName': s['name'], 'week': w['week'], 'name': w['name'], 'glyph': w['glyph'],
+                    _grant(col, a, {'id': f"{key}:{w['theme']}", 'kind': 'weekly', 'season': s['id'], 'seasonName': s['name'], 'week': w['week'], 'name': w['name'], 'glyph': w['glyph'], 'imageUrl': w.get('imageUrl'),
                                     'story': w['story'], 'rarity': rarity, 'how': dict(RARITIES)[rarity], 'rank': i + 1, 'score': r['score'], 'accent': s['accent'], 'at': now})
             done.add(key); changed = True
         if s['end'] <= now and s['id'] not in done:
             for a, r in (d['scores'].get(s['id']) or {}).items():
                 t = _tier(r['score'])['tier']
-                _grant(col, a, {'id': f"{s['id']}:season", 'kind': 'season', 'season': s['id'], 'seasonName': s['name'], 'name': f"Season {s['id'][1:]} · {s['name']}", 'glyph': '🏅',
+                _grant(col, a, {'id': f"{s['id']}:season", 'kind': 'season', 'season': s['id'], 'seasonName': s['name'], 'name': f"Season {s['id'][1:]} · {s['name']}", 'glyph': '🏅', 'imageUrl': s.get('badgeUrl'),
                                 'story': s.get('theme', ''), 'rarity': {'Legend': 'legendary', 'Diamond': 'epic', 'Gold': 'rare'}.get(t, 'common'), 'how': f'Finished the season at {t} tier',
                                 'tier': t, 'score': r['score'], 'accent': s['accent'], 'at': now})
             done.add(s['id']); changed = True
@@ -5611,3 +5613,62 @@ async def season_drops():
 async def collection(address: str):
     items = _json_load(COLLECTION_PATH, {}).get(primary_of(address), [])
     return {'address': primary_of(address), 'items': sorted(items, key=lambda x: -x['at'])}
+
+
+
+class SeasonEdit(BaseModel):
+    name: Optional[str] = None
+    theme: Optional[str] = None
+    prize: Optional[str] = None
+    start: Optional[float] = None
+    end: Optional[float] = None
+    multiplier: Optional[float] = None
+    accent: Optional[str] = None
+    bannerUrl: Optional[str] = None
+    badgeUrl: Optional[str] = None
+    weeks: Optional[dict] = None   # {"1": {"name","glyph","story","imageUrl"}, ...}
+
+
+def _safe_url(u):
+    return u in (None, '') or bool(_re.match(r'^https://[\w.-]+/[^\s"<>]{1,500}$', u))
+
+
+@app.put('/api/reputation/admin/seasons/{sid}')
+async def admin_season_edit(request: Request, sid: str, p: SeasonEdit):
+    admin = _require_admin(request)
+    d = _seasons(); s = next((x for x in d['seasons'] if x['id'] == sid), None)
+    if not s:
+        raise HTTPException(404, 'Season not found.')
+    new = {**s, **{k: v for k, v in p.dict().items() if v is not None and k != 'weeks'}}
+    if new['end'] <= new['start'] or new['end'] - new['start'] > 120 * 86400 or not _re.match(r'^#[0-9a-fA-F]{6}$', new['accent']) or not (0.5 <= float(new['multiplier']) <= 5):
+        raise HTTPException(400, 'Invalid season (end after start, ≤120 days, #hex accent, multiplier 0.5–5).')
+    if any(x['id'] != sid and not (new['end'] <= x['start'] or new['start'] >= x['end']) for x in d['seasons']):
+        raise HTTPException(409, 'Seasons cannot overlap.')
+    if not all(_safe_url(new.get(k)) for k in ('bannerUrl', 'badgeUrl')):
+        raise HTTPException(400, 'Images must be https:// links (gif/png/webp/jpg).')
+    if p.weeks is not None:
+        clean = {}
+        for wk, ov in list(p.weeks.items())[:20]:
+            if not str(wk).isdigit() or not isinstance(ov, dict) or not _safe_url(ov.get('imageUrl')):
+                raise HTTPException(400, f'Bad week {wk} override.')
+            clean[str(int(wk))] = {k: str(ov[k])[:200] for k in ('name', 'glyph', 'story', 'imageUrl') if ov.get(k)}
+        new['weeks'] = clean
+    new['name'] = new['name'][:40]; new['theme'] = new.get('theme', '')[:160]; new['prize'] = new.get('prize', '')[:160]
+    d['seasons'] = [new if x['id'] == sid else x for x in d['seasons']]
+    _json_save(SEASONS_PATH, d)
+    ad = _admin_load(); _audit(ad, admin, 'season-edit', sid); _admin_save(ad)
+    return {'ok': True, 'season': new}
+
+
+@app.delete('/api/reputation/admin/seasons/{sid}')
+async def admin_season_delete(request: Request, sid: str):
+    admin = _require_admin(request)
+    d = _seasons(); s = next((x for x in d['seasons'] if x['id'] == sid), None)
+    if not s:
+        raise HTTPException(404, 'Season not found.')
+    if s['start'] <= time.time() and d['scores'].get(sid):
+        raise HTTPException(409, 'This season already has players — end it early by editing its end date instead.')
+    d['seasons'] = [x for x in d['seasons'] if x['id'] != sid]
+    _json_save(SEASONS_PATH, d)
+    ad = _admin_load(); _audit(ad, admin, 'season-delete', sid); _admin_save(ad)
+    return {'ok': True}
