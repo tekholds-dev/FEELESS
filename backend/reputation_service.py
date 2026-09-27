@@ -4731,3 +4731,55 @@ async def fees_public():
     cfg = _fee_cfg()
     return {'platformFeeBps': cfg['platformFeeBps'], 'tierDiscountPct': cfg['tierDiscountPct'], 'promo': cfg.get('promo'),
             'feelessIntoFee': True, 'note': 'Trades into or out of $FEE-ecosystem coins never carry a FEELESS fee.'}
+
+
+# ---- Holder themes: $1k+ in the FEELESS ecosystem recolors the logo + the whole site ----------
+THEME_MIN_USD = 1000.0
+THEMES_PATH = DATA_DIR / 'themes.json'
+_HEX = _re.compile(r'^#[0-9a-fA-F]{6}$')
+
+
+async def _eco_holding_usd(address: str) -> float:
+    if address.startswith('0x'):
+        return 0.0
+    total = 0.0
+    for mint in (await _ecosystem_mints()).values():
+        try:
+            total += await _holding_usd(address, mint) or 0
+        except Exception:
+            pass
+    return round(total, 2)
+
+
+@app.get('/api/reputation/theme/{address}')
+async def theme_get(address: str):
+    a = primary_of(address)
+    held = await _eco_holding_usd(a)
+    saved = _json_load(THEMES_PATH, {}).get(a)
+    return {'address': a, 'holdingUsd': held, 'minUsd': THEME_MIN_USD, 'eligible': held >= THEME_MIN_USD,
+            'theme': saved if held >= THEME_MIN_USD else None}
+
+
+class ThemePayload(BaseModel):
+    address: str
+    session: str
+    accent: str
+    accent2: Optional[str] = None
+    logo: Optional[str] = None
+
+
+@app.post('/api/reputation/theme')
+async def theme_set(p: ThemePayload):
+    if primary_of(session_address(p.session) or '') != primary_of(p.address):
+        raise HTTPException(401, 'Sign in again to change your theme.')
+    for c in (p.accent, p.accent2, p.logo):
+        if c is not None and not _HEX.match(c):
+            raise HTTPException(400, 'Colors must be #RRGGBB.')
+    a = primary_of(p.address)
+    held = await _eco_holding_usd(a)
+    if held < THEME_MIN_USD:
+        raise HTTPException(403, f'Custom site colors unlock at ${THEME_MIN_USD:,.0f} held across $FEE coins (you hold ${held:,.2f}).')
+    d = _json_load(THEMES_PATH, {})
+    d[a] = {'accent': p.accent, 'accent2': p.accent2 or p.accent, 'logo': p.logo or p.accent, 'at': time.time()}
+    _json_save(THEMES_PATH, d)
+    return {'ok': True, 'theme': d[a]}

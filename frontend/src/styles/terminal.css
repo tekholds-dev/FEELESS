@@ -2844,3 +2844,10 @@ body.theme-day .chat-pinned p{color:#1a2e22}
 .td-gas b{font-size:12px}.td-gas small{font-size:10.5px;color:var(--muted)}.td-gas em{font-style:normal;font-size:10.5px}.td-gas.ok em{color:var(--mint)}.td-gas.low em{color:#f5c542}
 .td-gas.on{border-color:var(--mint);box-shadow:0 0 0 1px rgba(0,233,160,.3)}
 body.theme-day .td-fee b,body.theme-day .td-review b{color:#0a1f14}body.theme-day .td-field select,body.theme-day .td-field input{background:#fff}
+/* Holder theme */
+.holder-theme .feeless-mark img{filter:hue-rotate(var(--logo-hue,0deg)) saturate(1.1)}
+.holder-theme-card{display:grid;gap:8px;padding:14px;border-radius:16px;border:1px solid color-mix(in srgb,var(--mint) 35%,transparent);background:linear-gradient(160deg,color-mix(in srgb,var(--mint) 8%,transparent),transparent)}
+.holder-theme-card h3{margin:0;font-size:15px}.holder-theme-card h3 small{font-size:10px;color:#f5c542;margin-left:6px;text-transform:uppercase}.holder-theme-card p{margin:0;font-size:12.5px;color:var(--muted)}
+.ht-meter{height:6px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden}.ht-meter i{display:block;height:100%;background:linear-gradient(90deg,#f5c542,var(--mint))}
+.ht-swatches{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.ht-swatches button{width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,.15);cursor:pointer}.ht-swatches button.on{border-color:#fff;box-shadow:0 0 0 2px var(--mint)}
+.ht-swatches input{width:34px;height:30px;border:0;background:none;cursor:pointer}

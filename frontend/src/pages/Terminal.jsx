@@ -19,6 +19,7 @@ import { LAUNCHPADS, matchesPad } from '../lib/launchpads';
 import { FeeHeartbeat, Tokenomics, FeeAssetPage } from '../components/command/FeeCommand';
 import { ContextBar, MouseGlow, AmbientFlakes, AlphaTape, PulseGrid, ContractScanner } from '../components/command/WorkspaceChrome';
 import { FeeBackCenter, FeeCatCenter, FeelessCats } from '../components/command/FeeBack';
+import { HolderThemePicker } from '../components/HolderTheme';
 import { TradeDesk } from '../components/command/TradeDesk';
 import FeeCatsPlatform from '../components/command/FeeCatsPlatform';
 import { SwapWorkspace } from '../components/command/SwapWorkspace';
@@ -197,7 +198,7 @@ export default function Terminal() {
       {page.startsWith('profile/') && <WalletProfilePage key={page} address={page.split('/')[1]} />}
       {page.startsWith('reputation/') && (() => { const [, repChain, repAddress] = page.split('/'); return repChain && repAddress ? <CreatorProfilePage chain={repChain} address={repAddress} /> : null; })()}
       {page === 'leaderboard' && <><TrenchWars /><CallerLeague /><ParticipationBoard /></>}{page === 'whitepaper' && <div className="tab-stage has-aura" style={{ '--stage': '#7cc8ff' }}><CoinAura color="#7cc8ff" change24h={20} /><LiveProof /><CommandWhitepaper /></div>}{page === 'roadmap' && <div className="tab-stage has-aura" style={{ '--stage': '#b388ff' }}><CoinAura color="#b388ff" change24h={20} /><MissionRoadmap /><RoadmapVoting /></div>}{page === 'learn' && <><LiveIntelStats /><RadarPanel /><UnderstandFeeless /><CaseStudies /></>}
-      {page === 'settings' && <div className="tab-stage has-aura" style={{ '--stage': '#f5c542' }}><CoinAura color="#f5c542" change24h={14} /><TerminalConfiguration settings={settings} setSettings={setSettings} onWallet={() => setWalletOpen(true)} /><MyInviteCard /><NetworkStatus /></div>}
+      {page === 'settings' && <div className="tab-stage has-aura" style={{ '--stage': '#f5c542' }}><CoinAura color="#f5c542" change24h={14} /><TerminalConfiguration settings={settings} setSettings={setSettings} onWallet={() => setWalletOpen(true)} /><HolderThemePicker /><MyInviteCard /><NetworkStatus /></div>}
        {!isMarket && !page.startsWith('reputation') && !page.startsWith('profile/') && !page.startsWith('coin/') && !['launch', 'watchlist', 'chat', 'alerts', 'fee', 'feeback', 'feecat', 'feecat/cats', 'feecat/agents', 'leaderboard', 'whitepaper', 'roadmap', 'learn', 'settings', 'legal'].includes(page) && <div className="page-heading"><h1>Off the radar.</h1><Link to="/terminal" className="btn-primary" data-testid="unknown-page-home">Back to terminal</Link></div>}
        </div><TerminalFooter />
      </main></div><WalletModal open={walletOpen} onClose={() => setWalletOpen(false)} /><WalletProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} /></div>;

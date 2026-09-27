@@ -1,0 +1,58 @@
+import React, { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { useWallet } from '../hooks/useWallet';
+import { apiUrl } from '../lib/api';
+import { getChatSession } from '../lib/chatSession';
+
+// $1k+ FEELESS holders recolor the logo and the whole site (for themselves). The server re-checks
+// holdings and the wallet session on every save; the browser only ever applies what it returns.
+const MINT_HUE = 158;
+const hueOf = hex => { const r = parseInt(hex.slice(1, 3), 16) / 255, g = parseInt(hex.slice(3, 5), 16) / 255, b = parseInt(hex.slice(5, 7), 16) / 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b); if (mx === mn) return 0; const d = mx - mn; const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return h * 60; };
+const PRESETS = [['Mint (default)', '#00e9a0'], ['Gold', '#f5c542'], ['Diamond', '#7cc8ff'], ['Rose', '#fa708c'], ['Violet', '#b388ff'], ['Solar', '#ff8a3d'], ['Ice', '#e7f3ff']];
+
+export function applyTheme(t) {
+  const root = document.documentElement;
+  if (!t) { ['--mint', '--accent2', '--logo-hue'].forEach(k => root.style.removeProperty(k)); root.classList.remove('holder-theme'); return; }
+  root.style.setProperty('--mint', t.accent); root.style.setProperty('--accent2', t.accent2 || t.accent);
+  root.style.setProperty('--logo-hue', `${Math.round(hueOf(t.logo || t.accent) - MINT_HUE)}deg`);
+  root.classList.add('holder-theme');
+}
+
+// Mounted once at the app root: applies the connected wallet's saved theme (if still eligible).
+export function useHolderTheme() {
+  const { wallet } = useWallet() || {};
+  useEffect(() => {
+    if (!wallet?.address || wallet.chain === 'evm') { applyTheme(null); return undefined; }
+    let alive = true;
+    fetch(apiUrl(`/api/reputation/theme/${wallet.address}`)).then(r => r.json()).then(d => alive && applyTheme(d.theme)).catch(() => {});
+    return () => { alive = false; };
+  }, [wallet?.address, wallet?.chain]);
+}
+
+export function HolderThemePicker() {
+  const { wallet, signMessage } = useWallet() || {};
+  const [info, setInfo] = useState(null);
+  const [accent, setAccent] = useState('#00e9a0');
+  useEffect(() => {
+    if (!wallet?.address) { setInfo(null); return; }
+    fetch(apiUrl(`/api/reputation/theme/${wallet.address}`)).then(r => r.json()).then(d => { setInfo(d); if (d.theme?.accent) setAccent(d.theme.accent); }).catch(() => {});
+  }, [wallet?.address]);
+  const save = async () => {
+    try {
+      const session = await getChatSession(wallet.address, signMessage);
+      const r = await fetch(apiUrl('/api/reputation/theme'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: wallet.address, session, accent }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.detail);
+      applyTheme(d.theme); toast.success('Your FEELESS colors are live.');
+    } catch (e) { toast.error(e.message); }
+  };
+  return <section className="holder-theme-card" data-testid="holder-theme">
+    <h3>Your FEELESS colors <small>holder perk</small></h3>
+    <p>Hold ${(info?.minUsd || 1000).toLocaleString()}+ across $FEE, RFEE and FEECAT to recolor the logo and the whole site.</p>
+    {!wallet?.address ? <p className="wp-bio">Connect a wallet to check eligibility.</p> : !info ? <p className="wp-bio">Checking your holdings…</p> : <>
+      <div className="ht-meter"><i style={{ width: `${Math.min(100, (info.holdingUsd / info.minUsd) * 100)}%` }} /></div>
+      <small>You hold ${Number(info.holdingUsd).toLocaleString()} {info.eligible ? '— unlocked ✓' : `— $${(info.minUsd - info.holdingUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })} to go`}</small>
+      <div className="ht-swatches">{PRESETS.map(([n, c]) => <button key={c} type="button" title={n} className={accent === c ? 'on' : ''} style={{ background: c }} onClick={() => { setAccent(c); if (info.eligible) applyTheme({ accent: c }); }} />)}<input type="color" value={accent} onChange={e => { setAccent(e.target.value); if (info.eligible) applyTheme({ accent: e.target.value }); }} aria-label="Custom color" /></div>
+      <button type="button" className="btn-primary" disabled={!info.eligible} onClick={save}>{info.eligible ? 'Save my colors' : 'Locked — hold more $FEE'}</button>
+    </>}
+  </section>;
+}
