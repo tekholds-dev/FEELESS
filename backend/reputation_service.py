@@ -2388,7 +2388,12 @@ _bug_ip_hits = {}
 
 def _admin_wallets():
     env = [a.strip() for a in os.environ.get('FEELESS_ADMIN_WALLETS', '').split(',') if a.strip()]
-    return env or [FEE_CREATOR_WALLET]
+    owners = env or [FEE_CREATOR_WALLET]
+    try:
+        granted = [a for a, g in _json_load(DATA_DIR / 'roles.json', {'grants': {}})['grants'].items() if g.get('role') in ('admin', 'moderator', 'marketing')]
+    except Exception:
+        granted = []
+    return owners + granted
 
 
 def _admin_load():
@@ -4018,6 +4023,10 @@ async def rewards_claim(payload: ClaimIn):
         rec['claims'][it['id']] = ctx['hits'] if it['id'] == 'call-hit' else ctx['invited'] if it['id'] == 'invite' else day if it['id'] in ('daily', 'post', 'fee-holder') else True
         rec['total'] = rec.get('total', 0) + it['amount']
         rec.setdefault('log', []).insert(0, {'id': it['id'], 'label': it['label'], 'points': it['amount'], 'at': time.time()})
+        try:
+            season_award(me, it['amount'], it['id'])
+        except Exception:
+            pass
         rec['log'] = rec['log'][:100]
         d[me] = rec
         _json_save(POINTS_PATH, d)
@@ -4474,6 +4483,14 @@ async def trust_score(address: str):
     fol = len([x for x, lst in _fol()['following'].items() if a in lst])
     if fol:
         pts = min(8, fol); score += pts; parts.append({'label': f'{fol} followers', 'points': pts})
+    try:
+        sh = shield_record(a)
+        if sh['broken']:
+            score -= 35 * sh['broken']; evidence += 1; parts.append({'label': f"Broke {sh['broken']} FEELESS Shield promise(s)", 'points': -35 * sh['broken']})
+        if sh['kept']:
+            score += 8 * sh['kept']; evidence += 1; parts.append({'label': f"Kept {sh['kept']} FEELESS Shield(s) to the end", 'points': 8 * sh['kept']})
+    except Exception:
+        pass
     if is_verified(a):
         score += 10; evidence += 1; parts.append({'label': 'Verified by FEELESS', 'points': 10})
     if is_muted(a):
@@ -5137,3 +5154,283 @@ async def admin_traffic(request: Request):
             'topCoins': sorted(({'pair': k, 'views': v} for k, v in d['coins'].items()), key=lambda x: -x['views'])[:12],
             'referrers': sorted(({'host': k, 'visits': v} for k, v in d['refs'].items()), key=lambda x: -x['visits'])[:10],
             'hours': [d['hours'].get(str(h), 0) for h in range(24)], 'topClicks': (await top_clicks(limit=10))['rows']}
+
+
+# ================================================================================================
+# FEELESS SHIELD — launches that make rugging structurally costly.
+# A creator signs public promises (dev keeps X% for N days, no wallet above Y%, no known snipers).
+# FEELESS checks every shielded launch on-chain, continuously. Breaking a promise is a permanent,
+# public strike on the creator's reputation — it can't be deleted and it follows every future launch.
+# (Honest scope: this is verification + consequences, not an on-chain lock contract.)
+# ================================================================================================
+SHIELD_PATH = DATA_DIR / 'shields.json'
+
+
+class ShieldPayload(BaseModel):
+    address: str
+    session: str
+    mint: str
+    devKeepPct: float = 90       # dev must keep at least this % of its launch allocation
+    lockDays: int = 30
+    maxWalletPct: float = 5      # no non-pool wallet above this % of supply
+    noKnownSnipers: bool = True  # no blocklisted wallet among early buyers
+
+
+@app.post('/api/reputation/shield')
+async def shield_commit(p: ShieldPayload):
+    me = _session_or_401(p.address, p.session)
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.mint):
+        raise HTTPException(400, 'Solana mint address required.')
+    if not (50 <= p.devKeepPct <= 100 and 7 <= p.lockDays <= 365 and 0.5 <= p.maxWalletPct <= 20):
+        raise HTTPException(400, 'Shield terms out of range (keep 50–100%, lock 7–365 days, max wallet 0.5–20%).')
+    d = _json_load(SHIELD_PATH, {})
+    if p.mint in d:
+        raise HTTPException(409, 'This coin already has a Shield — promises can’t be rewritten.')
+    try:
+        data = await _token_holders(p.mint)
+        mine = sum((r['pct'] or 0) for r in data['rows'] if r['owner'] == me)
+    except Exception:
+        mine = None
+    d[p.mint] = {'creator': me, 'devKeepPct': p.devKeepPct, 'lockDays': p.lockDays, 'maxWalletPct': p.maxWalletPct,
+                 'noKnownSnipers': p.noKnownSnipers, 'devStartPct': mine, 'at': time.time(), 'breaches': []}
+    _json_save(SHIELD_PATH, d)
+    return {'ok': True, 'shield': d[p.mint]}
+
+
+async def _shield_check(mint, s):
+    """Live compliance for one shielded coin. Appends (never removes) breaches."""
+    now = time.time(); active = now - s['at'] < s['lockDays'] * 86400
+    checks = []
+    try:
+        data = await _token_holders(mint)
+        rows = data['rows']
+        dev = sum((r['pct'] or 0) for r in rows if r['owner'] == s['creator'])
+        lp = {r['owner'] for r in rows[:3] if (r['pct'] or 0) > 20}
+        biggest = max(((r['pct'] or 0, r['owner']) for r in rows if r['owner'] not in lp and r['owner'] != s['creator']), default=(0, None))
+        if s.get('devStartPct'):
+            kept = dev / s['devStartPct'] * 100
+            checks.append({'rule': f"Dev keeps ≥{s['devKeepPct']:.0f}% of its bag", 'ok': kept >= s['devKeepPct'] or not active, 'detail': f"dev holds {dev:.2f}% of supply ({kept:.0f}% of launch bag)"})
+        checks.append({'rule': f"No wallet above {s['maxWalletPct']:.1f}%", 'ok': biggest[0] <= s['maxWalletPct'], 'detail': f"largest non-pool wallet {biggest[0]:.2f}%"})
+    except Exception:
+        checks.append({'rule': 'Holder read', 'ok': True, 'detail': 'chain read unavailable — retrying'})
+    if s['noKnownSnipers']:
+        intel = (_intel_cache.get(mint) or (0, None))[1]
+        if intel:
+            bl = _block_load()['wallets']
+            known = [w for w in (intel.get('sniperWallets') or []) + (intel.get('bundledWallets') or []) if _is_blocked(bl.get(w))]
+            checks.append({'rule': 'No known snipers at launch', 'ok': not known, 'detail': f"{len(known)} blocklisted wallet(s) bought the launch" if known else 'no blocklisted buyers'})
+    broken = [c for c in checks if not c['ok']]
+    if broken:
+        d = _json_load(SHIELD_PATH, {})
+        rec = d.get(mint)
+        if rec:
+            for c in broken:
+                if not any(b['rule'] == c['rule'] for b in rec['breaches']):
+                    rec['breaches'].append({'rule': c['rule'], 'detail': c['detail'], 'at': now})
+            _json_save(SHIELD_PATH, d)
+            s = rec
+    status = 'broken' if s.get('breaches') else ('active' if active else 'completed')
+    return {'mint': mint, **{k: s[k] for k in ('creator', 'devKeepPct', 'lockDays', 'maxWalletPct', 'noKnownSnipers', 'at')},
+            'endsAt': s['at'] + s['lockDays'] * 86400, 'status': status, 'checks': checks, 'breaches': s.get('breaches', [])}
+
+
+@app.get('/api/reputation/shield/{mint}')
+async def shield_get(mint: str):
+    s = _json_load(SHIELD_PATH, {}).get(mint)
+    if not s:
+        return {'mint': mint, 'status': 'none'}
+    return await _shield_check(mint, s)
+
+
+@app.get('/api/reputation/shields')
+async def shields_list():
+    d = _json_load(SHIELD_PATH, {})
+    return {'shields': [{'mint': m, 'creator': s['creator'], 'status': 'broken' if s['breaches'] else ('active' if time.time() - s['at'] < s['lockDays'] * 86400 else 'completed'),
+                         'breaches': len(s['breaches']), 'at': s['at']} for m, s in sorted(d.items(), key=lambda x: -x[1]['at'])][:100]}
+
+
+def shield_record(creator: str):
+    """For trust/creator scoring: kept vs broken shields."""
+    d = _json_load(SHIELD_PATH, {})
+    mine = [s for s in d.values() if s['creator'] == creator]
+    return {'kept': sum(1 for s in mine if not s['breaches'] and time.time() - s['at'] >= s['lockDays'] * 86400), 'broken': sum(1 for s in mine if s['breaches']), 'active': sum(1 for s in mine if not s['breaches'] and time.time() - s['at'] < s['lockDays'] * 86400)}
+
+
+async def _shield_watch():
+    while True:
+        await asyncio.sleep(600)
+        for mint, s in list(_json_load(SHIELD_PATH, {}).items()):
+            if time.time() - s['at'] < s['lockDays'] * 86400 + 86400:
+                try:
+                    await _shield_check(mint, s)
+                except Exception:
+                    pass
+                await asyncio.sleep(2)
+
+
+@app.on_event('startup')
+async def _start_shield_watch():
+    asyncio.create_task(_shield_watch())
+
+
+# ================================================================================================
+# SEASONS — monthly competitions that reward trust, not volume.
+# ================================================================================================
+SEASONS_PATH = DATA_DIR / 'seasons.json'
+SEASON_TIERS = [('Recruit', 0), ('Bronze', 250), ('Silver', 750), ('Gold', 2000), ('Diamond', 5000), ('Legend', 12000)]
+
+
+def _seasons():
+    return _json_load(SEASONS_PATH, {'seasons': [], 'scores': {}})
+
+
+def _current_season(d=None):
+    d = d or _seasons(); now = time.time()
+    return next((s for s in d['seasons'] if s['start'] <= now < s['end']), None)
+
+
+def season_award(address: str, points: float, reason: str):
+    """Called wherever FEELESS awards points. Blocklisted wallets never score."""
+    d = _seasons(); s = _current_season(d)
+    if not s or points <= 0 or _is_blocked(_block_load()['wallets'].get(address)):
+        return
+    sc = d['scores'].setdefault(s['id'], {})
+    rec = sc.setdefault(address, {'score': 0, 'events': 0})
+    rec['score'] = round(rec['score'] + points * float(s.get('multiplier') or 1), 1); rec['events'] += 1; rec['last'] = reason
+    _json_save(SEASONS_PATH, d)
+
+
+def _tier(score):
+    name = SEASON_TIERS[0][0]
+    for n, need in SEASON_TIERS:
+        if score >= need:
+            name = n
+    nxt = next(((n, need) for n, need in SEASON_TIERS if need > score), None)
+    return {'tier': name, 'next': nxt[0] if nxt else None, 'toNext': round(nxt[1] - score) if nxt else 0}
+
+
+@app.get('/api/reputation/season')
+async def season_get(address: str = ''):
+    d = _seasons(); s = _current_season(d)
+    upcoming = sorted((x for x in d['seasons'] if x['start'] > time.time()), key=lambda x: x['start'])[:1]
+    if not s:
+        return {'season': None, 'upcoming': upcoming[0] if upcoming else None, 'tiers': SEASON_TIERS}
+    sc = d['scores'].get(s['id'], {})
+    board = sorted(sc.items(), key=lambda kv: -kv[1]['score'])
+    top = [{'rank': i + 1, 'address': a, 'handle': handle_of(a), 'name': _display_name(a), 'score': r['score'], **_tier(r['score'])} for i, (a, r) in enumerate(board[:25])]
+    me = None
+    if address:
+        a = primary_of(address); r = sc.get(a)
+        rank = next((i + 1 for i, (x, _) in enumerate(board) if x == a), None)
+        me = {'address': a, 'score': r['score'] if r else 0, 'rank': rank, 'players': len(board), **_tier(r['score'] if r else 0)}
+    return {'season': s, 'endsIn': round(s['end'] - time.time()), 'players': len(board), 'top': top, 'me': me, 'tiers': SEASON_TIERS,
+            'upcoming': upcoming[0] if upcoming else None}
+
+
+class SeasonPayload(BaseModel):
+    name: str
+    theme: str = ''
+    start: float
+    end: float
+    prize: str = ''
+    multiplier: float = 1.0
+    accent: str = '#f5c542'
+
+
+@app.post('/api/reputation/admin/seasons')
+async def admin_season_upsert(request: Request, p: SeasonPayload):
+    admin = _require_admin(request)
+    if p.end <= p.start or p.end - p.start > 120 * 86400 or not _re.match(r'^#[0-9a-fA-F]{6}$', p.accent) or not (0.5 <= p.multiplier <= 5):
+        raise HTTPException(400, 'Invalid season (end after start, ≤120 days, #hex accent, multiplier 0.5–5).')
+    d = _seasons()
+    if any(not (p.end <= s['start'] or p.start >= s['end']) for s in d['seasons']):
+        raise HTTPException(409, 'Seasons cannot overlap.')
+    sid = f"s{len(d['seasons']) + 1}"
+    d['seasons'].append({'id': sid, 'name': p.name[:40], 'theme': p.theme[:160], 'start': p.start, 'end': p.end, 'prize': p.prize[:160],
+                         'multiplier': p.multiplier, 'accent': p.accent, 'createdBy': admin})
+    _json_save(SEASONS_PATH, d)
+    return {'ok': True, 'id': sid}
+
+
+@app.get('/api/reputation/admin/seasons')
+async def admin_seasons(request: Request):
+    _require_admin(request)
+    d = _seasons()
+    return {'seasons': d['seasons'], 'players': {k: len(v) for k, v in d['scores'].items()}}
+
+
+# ================================================================================================
+# COMMAND CENTER ROLES + IDEAS
+# ================================================================================================
+ROLES_PATH = DATA_DIR / 'roles.json'
+ROLE_NAMES = ('admin', 'moderator', 'marketing')
+
+
+def _owner_wallets():
+    env = [a.strip() for a in os.environ.get('FEELESS_ADMIN_WALLETS', '').split(',') if a.strip()]
+    return env or [FEE_CREATOR_WALLET]
+
+
+def _granted():
+    return _json_load(ROLES_PATH, {'grants': {}})['grants']
+
+
+class RolePayload(BaseModel):
+    address: str
+    role: str
+
+
+@app.get('/api/reputation/admin/roles')
+async def admin_roles(request: Request):
+    me = _require_admin(request)
+    return {'owners': _owner_wallets(), 'grants': _granted(), 'youAreOwner': me in _owner_wallets(), 'roles': ROLE_NAMES}
+
+
+@app.post('/api/reputation/admin/roles')
+async def admin_role_grant(request: Request, p: RolePayload):
+    me = _require_admin(request)
+    if me not in _owner_wallets():
+        raise HTTPException(403, 'Only the FEELESS owner wallet can grant command center access.')
+    if p.role not in ROLE_NAMES or not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.address) or _re.match(r'^0x[0-9a-fA-F]{40}$', p.address)):
+        raise HTTPException(400, 'Valid wallet + role (admin, moderator, marketing) required.')
+    d = _json_load(ROLES_PATH, {'grants': {}})
+    d['grants'][p.address] = {'role': p.role, 'by': me, 'at': time.time()}
+    _json_save(ROLES_PATH, d)
+    ad = _admin_load(); _audit(ad, me, 'role-grant', f'{p.address[:6]}… → {p.role}'); _admin_save(ad)
+    return {'ok': True}
+
+
+@app.delete('/api/reputation/admin/roles/{address}')
+async def admin_role_revoke(request: Request, address: str):
+    me = _require_admin(request)
+    if me not in _owner_wallets():
+        raise HTTPException(403, 'Only the owner wallet can revoke access.')
+    d = _json_load(ROLES_PATH, {'grants': {}}); d['grants'].pop(address, None); _json_save(ROLES_PATH, d)
+    ad = _admin_load(); _audit(ad, me, 'role-revoke', address[:10]); _admin_save(ad)
+    return {'ok': True}
+
+
+IDEAS_PATH = DATA_DIR / 'ideas.json'
+_IDEA_SEED = [{'id': 'passkeys', 'title': 'Passkey wallets + sponsored gas', 'status': 'saved', 'at': 0,
+               'body': 'Onboard with Face ID / passkeys (no seed phrase) via smart accounts, and sponsor gas for first trades. Pairs with Get Gas: "trade anything from any chain, never think about gas." Needs a smart-wallet provider (e.g. Privy/Turnkey/Coinbase Smart Wallet) + a paymaster budget.'}]
+
+
+@app.get('/api/reputation/admin/ideas')
+async def admin_ideas(request: Request):
+    _require_admin(request)
+    return {'ideas': _json_load(IDEAS_PATH, {'ideas': _IDEA_SEED})['ideas']}
+
+
+class IdeaPayload(BaseModel):
+    title: str
+    body: str = ''
+    status: str = 'saved'
+
+
+@app.post('/api/reputation/admin/ideas')
+async def admin_idea_add(request: Request, p: IdeaPayload):
+    me = _require_admin(request)
+    d = _json_load(IDEAS_PATH, {'ideas': list(_IDEA_SEED)})
+    d['ideas'].insert(0, {'id': uuid.uuid4().hex[:8], 'title': p.title[:80], 'body': p.body[:1000], 'status': p.status[:20], 'by': me, 'at': time.time()})
+    _json_save(IDEAS_PATH, d)
+    return {'ok': True}

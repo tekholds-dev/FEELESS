@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Home, CandlestickChart, Rocket, Compass, Star, MessageCircle, Trophy, Bell, BookOpen, Map, FileText, Settings, Menu, Wallet, Globe2, ArrowUpRight, X, Coins, Cat, Activity, Sun, Moon, UserRound, ShieldCheck } from 'lucide-react';
+import { Crown, Home, CandlestickChart, Rocket, Compass, Star, MessageCircle, Trophy, Bell, BookOpen, Map, FileText, Settings, Menu, Wallet, Globe2, ArrowUpRight, X, Coins, Cat, Activity, Sun, Moon, UserRound, ShieldCheck } from 'lucide-react';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { FeelessMark, FeelessWordmark } from '../FeelessLogo';
 import { useMarket } from '../../hooks/useMarket';
@@ -15,7 +15,7 @@ const ITEMS = [
   ['', 'Home', Home], ['reputation', 'Reputation', ShieldCheck], ['trade', 'Trade', CandlestickChart], ['pump', 'Pump radar', Rocket],
   ['discover', 'Discover', Compass], ['launch', 'Launchpads', Rocket],
   ['watchlist', 'Watchlist', Star], ['chat', 'The Trenches', MessageCircle],
-  ['alerts', 'Signal alerts', Bell], ['feeback', 'Fee-Back', Coins], ['fee', '$FEE', Activity], ['feecat', 'FeeCat', Cat], ['leaderboard', 'Leaderboard', Trophy], ['learn', 'Learn', BookOpen], ['roadmap', 'Roadmap', Map],
+  ['alerts', 'Signal alerts', Bell], ['feeback', 'Fee-Back', Coins], ['fee', '$FEE', Activity], ['feecat', 'FeeCat', Cat], ['seasons', 'Seasons', Crown], ['leaderboard', 'Leaderboard', Trophy], ['learn', 'Learn', BookOpen], ['roadmap', 'Roadmap', Map],
   ['whitepaper', 'Whitepaper', FileText], ['settings', 'Settings', Settings],
 ];
 

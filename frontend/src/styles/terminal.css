@@ -2889,3 +2889,32 @@ body.theme-day .mobile-tabbar{background:rgba(255,255,255,.86);border-top-color:
   .reputation-rank-row>*:nth-child(n+5){display:none}
   .trade-chart .chart-side-stack,.trade-chart .edge-score,.trade-chart .token-analytics{display:none}
 }
+/* ===== Seasons ===== */
+.season-banner{display:block;overflow:hidden;white-space:nowrap;height:24px;line-height:24px;font:600 10.5px 'JetBrains Mono',monospace;letter-spacing:.6px;color:var(--season);text-decoration:none;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--season) 12%,transparent),transparent);border-bottom:1px solid color-mix(in srgb,var(--season) 25%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
+.season-banner-track{display:inline-flex;gap:38px;animation:season-scroll 40s linear infinite;padding-left:20px}.season-banner:hover .season-banner-track{animation-play-state:paused}
+@keyframes season-scroll{to{transform:translateX(-50%)}}
+.seasons{display:grid;gap:14px}
+.season-hero{position:relative;overflow:hidden;text-align:center;padding:34px 18px 26px;border-radius:22px;border:1px solid color-mix(in srgb,var(--season) 40%,transparent);
+  background:radial-gradient(120% 90% at 50% 0%,color-mix(in srgb,var(--season) 22%,transparent),transparent 60%),linear-gradient(180deg,rgba(255,255,255,.03),transparent)}
+.season-hero::before{content:'';position:absolute;inset:-40%;background:conic-gradient(from 0deg,transparent,color-mix(in srgb,var(--season) 18%,transparent),transparent 30%);animation:season-spin 14s linear infinite;pointer-events:none}
+@keyframes season-spin{to{transform:rotate(360deg)}}
+.season-hero>*{position:relative}.season-hero h1{margin:6px 0;font-size:clamp(34px,6vw,64px);letter-spacing:-1px;background:linear-gradient(90deg,#fff,var(--season),#fff);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:season-shine 5s linear infinite}
+@keyframes season-shine{to{background-position:-200% 0}}
+.season-hero p{max-width:620px;margin:0 auto;color:var(--muted);font-size:14px}.season-prize{margin-top:12px!important;color:var(--season)!important;font-weight:700}
+.season-sigil{position:relative;width:74px;height:74px;margin:0 auto 6px;display:grid;place-items:center;color:var(--season);filter:drop-shadow(0 0 16px var(--season))}
+.season-sigil i{position:absolute;inset:0;border-radius:50%;border:1px solid var(--season);animation:season-ring 3s ease-out infinite;opacity:0}.season-sigil i:nth-child(3){animation-delay:1s}.season-sigil i:nth-child(4){animation-delay:2s}
+@keyframes season-ring{0%{transform:scale(.6);opacity:.9}100%{transform:scale(1.8);opacity:0}}
+.season-stats{display:flex;justify-content:center;gap:28px;margin-top:16px}.season-stats b{display:block;font:700 22px 'JetBrains Mono',monospace}.season-stats small{color:var(--muted);font-size:11px;text-transform:uppercase}
+.season-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.season-card{padding:16px;border-radius:18px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.025);display:grid;gap:10px;align-content:start}.season-card h3{margin:0;font-size:15px}
+.season-me b{font-size:26px;margin-right:8px}.season-me span{color:var(--muted)}
+.season-bar{height:8px;border-radius:8px;background:rgba(255,255,255,.08);overflow:hidden}.season-bar i{display:block;height:100%;border-radius:8px;box-shadow:0 0 12px currentColor;transition:width 1s cubic-bezier(.2,.8,.2,1)}
+.season-tiers{display:flex;flex-wrap:wrap;gap:6px}.season-tiers span{display:flex;align-items:center;gap:5px;font-size:11px;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.04)}.season-tiers i{width:8px;height:8px;border-radius:50%;background:var(--t);box-shadow:0 0 8px var(--t)}.season-tiers small{color:var(--muted)}
+.season-how{display:grid;gap:8px}.season-how>div{display:grid;grid-template-columns:28px 1fr;column-gap:8px}.season-how em{grid-row:span 2;font-style:normal;font-size:20px}.season-how small{color:var(--muted);font-size:11.5px}
+.season-rule{color:var(--muted);font-size:11px}
+.season-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto auto auto;gap:10px;align-items:center;padding:9px 10px;border-radius:12px;color:inherit;text-decoration:none;background:rgba(255,255,255,.02)}
+.season-row:hover{background:color-mix(in srgb,var(--season) 10%,transparent)}.season-row small{color:var(--muted)}.season-row em{font-style:normal;font-size:11px;font-weight:700}.season-row strong{font-family:'JetBrains Mono',monospace}
+.season-row.rank-1{background:linear-gradient(90deg,color-mix(in srgb,var(--season) 18%,transparent),transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--season) 40%,transparent)}
+.season-rank{font-size:18px;text-align:center}
+@media(prefers-reduced-motion:reduce){.season-banner-track,.season-hero::before,.season-hero h1,.season-sigil i{animation:none}}
