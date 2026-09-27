@@ -57,7 +57,15 @@ export function SeasonsPage() {
   return <div className="seasons" style={{ '--season': s.accent, '--season2': s.accent2 || '#ff2bd6' }} data-testid="seasons-page">
     {isAdmin && !editing && <button type="button" className="btn-outline season-edit-btn" onClick={() => setEditing(true)} data-testid="season-edit">✎ Edit season</button>}
     {editing && <SeasonEditor season={s} call={call} onDone={changed => { setEditing(false); if (changed) reload(); }} />}
-    <section className="season-hero" style={s.bannerUrl ? { '--banner': `url("${s.bannerUrl}")` } : undefined}>
+    {s.bannerUrl ? <section className="season-hero has-banner">
+      {/* The art carries its own title, so nothing is drawn over it; the info sits in a panel below. */}
+      <div className="season-art"><img src={s.bannerUrl} alt={`${s.name} season art`} decoding="async" /><SeasonFx fx={s.bgFx} /></div>
+      <div className="season-info">
+        <div className="season-info-text"><span className="eyebrow">SEASON {s.id.replace('s', '')}</span><h1>{s.name}</h1><p>{s.theme}</p></div>
+        <div className="season-stats"><div><b>{left(d.endsIn)}</b><small>left</small></div><div><b>{d.players}</b><small>players</small></div><div><b>{s.multiplier}×</b><small>points</small></div></div>
+        <p className="season-prize">🏆 {s.prize}</p>
+      </div>
+    </section> : <section className="season-hero">
       <SeasonFx fx={s.bgFx} />
       <div className="season-sigil"><Crown size={34} /><i /><i /><i /></div>
       <span className="eyebrow">SEASON {s.id.replace('s', '')}</span>
@@ -65,7 +73,7 @@ export function SeasonsPage() {
       <p>{s.theme}</p>
       <div className="season-stats"><div><b>{left(d.endsIn)}</b><small>left</small></div><div><b>{d.players}</b><small>players</small></div><div><b>{s.multiplier}×</b><small>points</small></div></div>
       <p className="season-prize">🏆 {s.prize}</p>
-    </section>
+    </section>}
     <div className="season-grid">
       <section className="season-card">
         <h3>Your run</h3>

@@ -1,3 +1,4 @@
+import { getChatSession } from '../../lib/chatSession';
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ShieldAlert, Rocket, BookOpen, Radio, ThumbsUp, CheckCircle2 } from 'lucide-react';
@@ -108,7 +109,7 @@ const VOTE_ITEMS = [
 ];
 
 export function RoadmapVoting() {
-  const { wallet, connect } = useWallet();
+  const { wallet, connect, signMessage } = useWallet();
   const [state, setState] = useState({ counts: {}, mine: [] });
   const [busy, setBusy] = useState('');
   const load = useCallback(() => getJson(`/api/reputation/roadmap/votes${wallet?.address ? `?wallet=${encodeURIComponent(wallet.address)}` : ''}`).then(setState).catch(() => {}), [wallet?.address]);
@@ -117,7 +118,7 @@ export function RoadmapVoting() {
     if (!wallet?.address) { try { await connect?.('solana'); } catch { toast.error('Connect a wallet to vote.'); } return; }
     setBusy(id);
     try {
-      const res = await fetch(apiUrl('/api/reputation/roadmap/vote'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wallet: wallet.address, itemId: id }) });
+      const res = await fetch(apiUrl('/api/reputation/roadmap/vote'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wallet: wallet.address, itemId: id, session: await getChatSession(wallet.address, signMessage) }) });
       if (!res.ok) throw new Error('Vote failed.');
       await load();
     } catch (err) { toast.error(err.message); } finally { setBusy(''); }

@@ -648,6 +648,7 @@ async def leaderboard(chain: Optional[str] = Query(None), view: str = Query('tru
 
 class WatchPayload(BaseModel):
     ownerWallet: str
+    session: str = ''
     chain: str
     address: str
     notifyNewToken: bool = True
@@ -658,6 +659,7 @@ class WatchPayload(BaseModel):
 
 @app.post('/api/reputation/watch')
 async def watch_creator(payload: WatchPayload):
+    payload.ownerWallet = _session_or_401(payload.ownerWallet, payload.session)
     async with _lock:
         store = _load()
         bucket = store['watchlists'].setdefault(payload.ownerWallet, {})
@@ -675,12 +677,14 @@ async def watch_creator(payload: WatchPayload):
 
 class UnwatchPayload(BaseModel):
     ownerWallet: str
+    session: str = ''
     chain: str
     address: str
 
 
 @app.post('/api/reputation/unwatch')
 async def unwatch_creator(payload: UnwatchPayload):
+    payload.ownerWallet = _session_or_401(payload.ownerWallet, payload.session)
     async with _lock:
         store = _load()
         bucket = store['watchlists'].get(payload.ownerWallet, {})
@@ -808,6 +812,7 @@ async def case_studies(limit: int = Query(6, ge=1, le=20)):
 class VotePayload(BaseModel):
     wallet: str
     itemId: str
+    session: str = ''
 
 
 @app.get('/api/reputation/roadmap/votes')
@@ -821,6 +826,7 @@ async def roadmap_votes(wallet: Optional[str] = None):
 async def roadmap_vote(payload: VotePayload):
     if len(payload.wallet) < 20 or len(payload.itemId) > 64:
         raise HTTPException(400, 'Invalid vote.')
+    payload.wallet = _session_or_401(payload.wallet, payload.session)  # one signed wallet, one vote
     async with _lock:
         store = _load()
         voters = store.setdefault('votes', {}).setdefault(payload.itemId, [])
@@ -1470,6 +1476,14 @@ async def register_call(payload: CallPayload):
     d = _calls_load()
     if cid in d['calls']:
         return {'ok': True, 'id': cid, 'existing': True}
+    # Who called, when, and which coin all come from the signed chat message on the server —
+    # a client can't register a call in someone else's name or backdate one.
+    src = next((m for m in _chat_load()['rooms'].get(payload.room, []) if m.get('id') == payload.messageId), None)
+    if not src or not any(t.get('pairAddress') == payload.pairAddress for t in (src.get('tokens') or [])):
+        raise HTTPException(404, 'No matching chat call.')
+    payload.callerAddress = src.get('identity') or src.get('address')
+    payload.caller = payload.caller if payload.caller == 'anon' else (src.get('username') or 'anon')
+    payload.ts = src.get('ts')
     msg_ts = (payload.ts or time.time() * 1000) / 1000 if (payload.ts or 0) > 1e11 else (payload.ts or time.time())
     if time.time() - msg_ts > 600:
         raise HTTPException(409, 'Call is too old to price honestly.')
@@ -1899,12 +1913,16 @@ def funder_lookup(wallet: str):
 class BlockPayload(BaseModel):
     mint: str
     wallets: list
-    reporter: Optional[str] = None
+    reporter: str = ''
+    session: str = ''
 
 
 @app.post('/api/reputation/blocklist')
 async def add_to_blocklist(payload: BlockPayload):
-    """Only wallets proven by FEELESS's own forensics to have bundled/sniped that mint are accepted."""
+    """Only wallets proven by FEELESS's own forensics to have bundled/sniped that mint are accepted.
+    The reporter is the signed-in wallet, so every report is attributable. Blocklisting only adds a
+    flag and a penalty line; the wallet's full record stays public."""
+    payload.reporter = _session_or_401(payload.reporter, payload.session)
     intel = await token_intel('solana', payload.mint)
     evidence = {w: 'bundler' for w in intel.get('bundledWallets', [])}
     evidence.update({w: 'sniper' for w in intel.get('sniperWallets', []) if w not in evidence})
@@ -4491,6 +4509,34 @@ async def follow(payload: FollowIn):
 
 
 # ---- Trust score for ANY wallet (0–100, evidence-only, with the breakdown) ----------------------
+_trust_cache: dict = {}  # address -> (at, result)
+_trust_pending: set = set()
+
+
+async def _trust_fill(a):
+    try:
+        _trust_cache[a] = (time.time(), await trust_score(a))
+    except Exception:
+        pass
+    finally:
+        _trust_pending.discard(a)
+
+
+@app.get('/api/reputation/trust-batch')
+async def trust_batch(addresses: str = Query('', max_length=2400)):
+    """Rep marks for names on screen (chat, lists). Answers from cache instantly and scores missing
+    wallets in the background, a few at a time, so a busy chat never stalls on RPC calls."""
+    out = {}
+    for raw in [x for x in addresses.split(',') if x][:50]:
+        a = primary_of(raw.strip())
+        hit = _trust_cache.get(a)
+        if hit:
+            r = hit[1]; out[raw] = {'score': r.get('score'), 'level': r.get('level'), 'blocked': any('Blocklisted' in p['label'] for p in r.get('parts', []))}
+        if (not hit or time.time() - hit[0] > 600) and a not in _trust_pending and len(_trust_pending) < 8:
+            _trust_pending.add(a); asyncio.create_task(_trust_fill(a))
+    return {'trust': out}
+
+
 @app.get('/api/reputation/trust/{address}')
 async def trust_score(address: str):
     a = primary_of(address)

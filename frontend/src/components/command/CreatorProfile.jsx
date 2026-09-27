@@ -1,3 +1,4 @@
+import { getChatSession } from '../../lib/chatSession';
 import { CopyBtn } from '../CopyBtn';
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -44,7 +45,7 @@ export function AddressPill({ address }) {
 }
 
 export function FollowButton({ chain, address }) {
-  const { wallet, connect } = useWallet();
+  const { wallet, connect, signMessage } = useWallet();
   const [following, setFollowing] = useState(null); // null = unknown yet
   const [busy, setBusy] = useState(false);
 
@@ -65,8 +66,9 @@ export function FollowButton({ chain, address }) {
     }
     setBusy(true);
     try {
-      if (following) { await unwatchCreator(wallet.address, chain, address); setFollowing(false); toast.success('Unfollowed'); }
-      else { await watchCreator(wallet.address, chain, address); setFollowing(true); toast.success('Following — you\'ll see this wallet\'s new launches and flags in your watchlist'); }
+      const session = await getChatSession(wallet.address, signMessage);
+      if (following) { await unwatchCreator(wallet.address, chain, address, session); setFollowing(false); toast.success('Unfollowed'); }
+      else { await watchCreator(wallet.address, chain, address, {}, session); setFollowing(true); toast.success('Following — you\'ll see this wallet\'s new launches and flags in your watchlist'); }
     } catch (err) { toast.error(err.message); }
     finally { setBusy(false); }
   };

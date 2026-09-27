@@ -3234,3 +3234,26 @@ body.theme-day .tkp-pop{background:#fff;border-color:#cfe3d8}body.theme-day .tkp
 body.theme-day .crop-card{background:#fff;border-color:#cfe3d8}
 @media (prefers-reduced-motion:reduce){.crop-back,.crop-card{animation:none}}
 .crop-frame.tall{width:auto;height:min(52vh,440px)}
+/* Season hero with art: art untouched on top, aligned info panel below. */
+.season-hero.has-banner{padding:0;text-align:left;background:#060b09!important}
+.season-hero.has-banner::after{display:none}
+.season-art{position:relative;aspect-ratio:16/9;max-height:460px;width:100%;overflow:hidden}
+.season-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center}
+.season-art::after{content:'';position:absolute;inset:auto 0 0;height:38%;background:linear-gradient(transparent,#060b09);pointer-events:none}
+.season-info{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px 28px;padding:0 24px 20px;margin-top:-34px}
+.season-info-text{min-width:0}
+.season-hero.has-banner h1{margin:6px 0 4px;font-size:clamp(26px,3.6vw,42px);line-height:1.05}
+.season-hero.has-banner p{margin:0;max-width:560px;font-size:13.5px}
+.season-hero.has-banner .season-stats{display:grid;grid-template-columns:repeat(3,minmax(84px,auto));gap:0;margin:0;border:1px solid #ffffff1a;border-radius:14px;background:#ffffff08;overflow:hidden}
+.season-hero.has-banner .season-stats>div{display:grid;justify-items:center;gap:4px;padding:10px 16px;border-left:1px solid #ffffff14}
+.season-hero.has-banner .season-stats>div:first-child{border-left:0}
+.season-hero.has-banner .season-stats b{font:700 20px/1 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.season-hero.has-banner .season-stats small{font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.season-hero.has-banner .season-prize{grid-column:1/-1;margin:0!important;justify-self:start;padding:6px 12px;border-radius:999px;background:color-mix(in srgb,var(--season) 14%,transparent);font-size:12.5px}
+@media (max-width:760px){.season-info{grid-template-columns:1fr;padding:0 14px 16px;margin-top:-20px}.season-hero.has-banner .season-stats{grid-template-columns:repeat(3,1fr)}}
+/* Rep mark: shield-R + score, sits beside any wallet name */
+.rep-mark{--rc:#899b93;display:inline-flex;align-items:center;gap:3px;padding:1px 6px 1px 3px;border-radius:999px;border:1px solid color-mix(in srgb,var(--rc) 45%,transparent);background:color-mix(in srgb,var(--rc) 12%,transparent);color:var(--rc);font:700 10px/1.4 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;vertical-align:middle;white-space:nowrap}
+.rep-mark svg{width:12px;height:13px;flex-shrink:0}.rep-mark path{fill:var(--rc)}.rep-mark text{font:900 9px sans-serif;fill:#04100b}
+.rep-mark.compact{padding:0 5px 0 2px;font-size:9.5px}
+.rep-mark.lvl-high{--rc:#00e9a0}.rep-mark.lvl-good{--rc:#7df9d0}.rep-mark.lvl-caution{--rc:#f5c542}.rep-mark.lvl-risky{--rc:#fa708c}.rep-mark.lvl-blocked{--rc:#ff4d6a}
+.rep-mark{width:fit-content;flex:0 0 auto;align-self:center;justify-self:start}

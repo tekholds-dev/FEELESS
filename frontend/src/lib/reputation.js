@@ -1,3 +1,4 @@
+import { readChatSession } from './chatSession';
 import { useEffect, useRef, useState } from 'react';
 import { apiUrl } from './api';
 
@@ -71,21 +72,21 @@ export async function fetchCreator(chain, address) {
   return res.json();
 }
 
-export async function watchCreator(ownerWallet, chain, address, options = {}) {
+export async function watchCreator(ownerWallet, chain, address, options = {}, session = readChatSession(ownerWallet)) {
   const res = await fetch(apiUrl('/api/reputation/watch'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ownerWallet, chain, address, notifyNewToken: true, notifyFlag: true, botEnabled: false, ...options }),
+    body: JSON.stringify({ ownerWallet, session, chain, address, notifyNewToken: true, notifyFlag: true, botEnabled: false, ...options }),
   });
   if (!res.ok) throw new Error('Could not save this wallet to your watchlist.');
   return res.json();
 }
 
-export async function unwatchCreator(ownerWallet, chain, address) {
+export async function unwatchCreator(ownerWallet, chain, address, session = readChatSession(ownerWallet)) {
   const res = await fetch(apiUrl('/api/reputation/unwatch'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ownerWallet, chain, address }),
+    body: JSON.stringify({ ownerWallet, session, chain, address }),
   });
   if (!res.ok) throw new Error('Could not remove this wallet from your watchlist.');
   return res.json();

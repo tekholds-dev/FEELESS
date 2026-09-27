@@ -1,3 +1,5 @@
+import { useWallet } from '../../hooks/useWallet';
+import { getChatSession } from '../../lib/chatSession';
 import { CopyBtn } from '../CopyBtn';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -8,6 +10,7 @@ import { shortAddress } from '../../lib/dexscreener';
 const cache = new Map();
 
 function OffenderPanel({ mint, intel, onChanged }) {
+  const { wallet, connect, signMessage } = useWallet() || {};
   const [sel, setSel] = useState(new Set());
   const [busy, setBusy] = useState(false);
   const rec = intel.walletRecords || {};
@@ -15,9 +18,11 @@ function OffenderPanel({ mint, intel, onChanged }) {
   const toggle = w => setSel(s => { const n = new Set(s); n.has(w) ? n.delete(w) : n.add(w); return n; });
   const selectRole = role => setSel(new Set(rows.filter(([w, r]) => r === role && !rec[w]?.blocked).map(([w]) => w)));
   const submit = async () => {
+    if (!wallet?.address) { connect?.('solana'); return; }
     setBusy(true);
     try {
-      const res = await fetch(apiUrl('/api/reputation/blocklist'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mint, wallets: [...sel] }) });
+      const session = await getChatSession(wallet.address, signMessage);
+      const res = await fetch(apiUrl('/api/reputation/blocklist'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mint, wallets: [...sel], reporter: wallet.address, session }) });
       const body = await res.json();
       if (!res.ok) throw new Error(body.detail || 'Could not update the blocklist.');
       toast.success(`${body.accepted.length} wallet${body.accepted.length === 1 ? '' : 's'} added to the FEELESS blocklist${body.rejected.length ? ` · ${body.rejected.length} rejected (no on-chain evidence)` : ''}`);

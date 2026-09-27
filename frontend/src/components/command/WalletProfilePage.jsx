@@ -1,3 +1,4 @@
+import { RepMark } from '../RepMark';
 import { uploadImage } from '../../lib/adminCall';
 import { CROP } from '../../lib/cropImage';
 import { WalletSwaps } from '../WalletSwaps';
@@ -114,7 +115,7 @@ export function WalletProfilePage({ address }) {
     <div className="wp-head">
       <div className="wp-avatar-wrap">{tier >= 3 && <div className="wp-crown" aria-hidden="true"><span>👑</span></div>}<div className={`wp-avatar ring-${p.ring || 'none'}`}>{p.avatarUrl ? <img src={p.avatarUrl} alt="" /> : <span>{(p.displayName || address).slice(0, 2).toUpperCase()}</span>}{edit && <UploadButton label="GIF / pic" shape={CROP.avatar} onDone={url => set('avatarUrl', url)} />}</div></div>
       <div className="wp-id">
-        {edit ? <input className="wp-name-input" maxLength={32} placeholder="Display name" value={draft.displayName} onChange={e => set('displayName', e.target.value)} /> : <h1 className={`namefx-${p.nameFx || 'none'}`}>{p.displayName || shortAddress(address)}{data?.verified && <VerifiedMark />}</h1>}
+        {edit ? <input className="wp-name-input" maxLength={32} placeholder="Display name" value={draft.displayName} onChange={e => set('displayName', e.target.value)} /> : <><h1 className={`namefx-${p.nameFx || 'none'}`}>{p.displayName || shortAddress(address)}{data?.verified && <VerifiedMark />}</h1><RepMark address={address} /></>}
         {edit ? <input className="wp-handle-input" maxLength={21} placeholder="@handle (3–20: a-z 0-9 _)" value={draft.handle ? `@${draft.handle}` : ''} onChange={e => set('handle', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))} /> : <span className="wp-handle">@{p.handle || address.slice(0, 6).toLowerCase()}</span>}
         <code>{shortAddress(address)}</code><CopyBtn value={address} />
         <Badges address={address} featured={p.featuredBadges} />
