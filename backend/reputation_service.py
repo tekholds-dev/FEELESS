@@ -1043,7 +1043,7 @@ async def resolve_evm_creator(chain: str, token: str) -> Optional[str]:
         return None
 
 
-GLOBE_NETS = {'solana': 'solana', 'ethereum': 'eth', 'base': 'base', 'bsc': 'bsc', 'arbitrum': 'arbitrum', 'avalanche': 'avax', 'polygon': 'polygon_pos', 'sui': 'sui-network'}
+GLOBE_NETS = ['solana', 'ethereum', 'base', 'bsc', 'arbitrum', 'avalanche', 'polygon', 'sui', 'optimism', 'zksync', 'zora', 'cronos', 'unichain', 'worldchain']
 GLOBE_MIN_MC = 10_000_000
 _globe_cache = {'at': 0, 'data': None}
 
@@ -1081,45 +1081,44 @@ def _globe_row(chain, pool, images):
 
 
 async def _refresh_globe():
-    await asyncio.sleep(120)  # let charts claim GeckoTerminal first after a restart
+    """$10M+ coins per chain for the globe, from FEELESS's own DexScreener-backed market feed
+    (strictly per chain — a coin only ever orbits the network it actually trades on)."""
+    await asyncio.sleep(20)
     while True:
         tokens, ok_chains = {}, set()
-        async with httpx.AsyncClient(timeout=12, headers={'accept': 'application/json'}) as http:
-            for chain, net in GLOBE_NETS.items():
-                for path in (f'/networks/{net}/pools?sort=h24_volume_usd_desc&include=base_token', f'/networks/{net}/trending_pools?include=base_token'):
-                    r = None
-                    for _ in range(2):
-                        if not gecko_budget.take('globe'):
-                            await asyncio.sleep(20)
+        async with httpx.AsyncClient(timeout=20) as http:
+            for chain in GLOBE_NETS:
+                # page 1 = boosted/trending; page 2 = the chain's main-DEX pools (where the $10M+ coins live)
+                for params in ({'kind': 'trending'}, {'kind': 'trending', 'source': 'search'}, {'kind': 'new'}):
+                    try:
+                        r = await http.get('http://127.0.0.1:5001/api/market/feed', params={'chain': chain, **params})
+                        pairs = r.json().get('pairs') or [] if r.status_code == 200 else []
+                    except Exception:
+                        pairs = []
+                    for p in pairs:
+                        if p.get('chainId') != chain:
                             continue
-                        try:
-                            r = await http.get(f'https://api.geckoterminal.com/api/v2{path}')
-                            if r.status_code == 429:
-                                gecko_budget.throttled()
-                        except Exception:
-                            r = None
-                        if r is not None and r.status_code == 200:
-                            break
-                        await asyncio.sleep(8)
-                    await asyncio.sleep(2.5)
-                    if r is None or r.status_code != 200:
-                        continue
-                    ok_chains.add(chain)
-                    body = r.json()
-                    images = {i['id']: (i.get('attributes') or {}) for i in body.get('included') or []}
-                    for pool in body.get('data') or []:
-                        row = _globe_row(chain, pool, images)
-                        if row:
-                            key = f"{chain}:{row['address']}"
-                            if key not in tokens or tokens[key]['volume24h'] < row['volume24h']:
-                                tokens[key] = row
+                        mc = p.get('marketCap') or p.get('fdv') or 0
+                        if not mc or mc < GLOBE_MIN_MC:
+                            continue
+                        ok_chains.add(chain)
+                        bt = p.get('baseToken') or {}
+                        row = {'chain': chain, 'address': bt.get('address'), 'symbol': bt.get('symbol'), 'name': bt.get('name'),
+                               'imageUrl': (p.get('info') or {}).get('imageUrl'), 'marketCap': mc, 'mcKind': 'market cap' if p.get('marketCap') else 'FDV',
+                               'liquidityUsd': (p.get('liquidity') or {}).get('usd'), 'priceUsd': p.get('priceUsd'),
+                               'change24h': (p.get('priceChange') or {}).get('h24'), 'volume24h': (p.get('volume') or {}).get('h24') or 0,
+                               'pairAddress': p.get('pairAddress')}
+                        key = f"{chain}:{row['address']}"
+                        if key not in tokens or tokens[key]['volume24h'] < row['volume24h']:
+                            tokens[key] = row
+                    await asyncio.sleep(0.5)
         if tokens:
             prev = (_globe_cache['data'] or {}).get('tokens') or []
             kept = [t for t in prev if t['chain'] not in ok_chains]
             _globe_cache.update(at=time.time(), data={'tokens': sorted(list(tokens.values()) + kept, key=lambda t: -t['marketCap']),
-                                                      'minMarketCap': GLOBE_MIN_MC, 'source': 'GeckoTerminal top-volume + trending pools',
+                                                      'minMarketCap': GLOBE_MIN_MC, 'source': 'DexScreener via FEELESS market feed',
                                                       'chains': sorted(ok_chains | {t['chain'] for t in kept}), 'at': time.time()})
-        await asyncio.sleep(900)
+        await asyncio.sleep(300)
 
 
 @app.on_event('startup')
@@ -3657,20 +3656,19 @@ async def _radar_loop():
                             _radar_event('rug', pa, sym, f'${sym} liquidity pulled {(1 - liq / old[1]) * 100:.0f}% in {int((now - old[0]) / 60)}m (${old[1]/1e3:.1f}K → ${liq/1e3:.1f}K)')
                         if old and old[2] > 0 and px < old[2] * 0.5:
                             _radar_event('dump', pa, sym, f'${sym} dumped {(1 - px / old[2]) * 100:.0f}% in {int((now - old[0]) / 60)}m')
-                # whale trades: a few pairs per minute via the shared GeckoTerminal budget
-                for pa in keys[rot:rot + 2]:
-                    if not gecko_budget.take('trades'):
-                        break
-                    r = await http.get(f'https://api.geckoterminal.com/api/v2/networks/solana/pools/{pa}/trades', headers={'accept': 'application/json'})
-                    if r.status_code == 429:
-                        gecko_budget.throttled(); break
-                    for t in ((r.json() or {}).get('data') or [])[:50]:
-                        a = t.get('attributes') or {}
-                        usd = float(a.get('volume_in_usd') or 0)
-                        if usd >= 2500 and not any(w['tx'] == a.get('tx_hash') for w in _radar['whales']):
-                            _radar['whales'].insert(0, {'pair': pa, 'symbol': pairs.get(pa), 'kind': a.get('kind'), 'usd': round(usd), 'wallet': a.get('tx_from_address'), 'tx': a.get('tx_hash'), 'at': a.get('block_timestamp')})
+                # whale trades: a few pairs per minute from FEELESS's Helius-parsed swap feed
+                for pa in keys[rot:rot + 3]:
+                    try:
+                        r = await http.get(f'http://127.0.0.1:5099/api/candles/trades/solana/{pa}')
+                        rows = (r.json() or {}).get('trades') or []
+                    except Exception:
+                        rows = []
+                    for t in rows[:50]:
+                        usd = float(t.get('usd') or 0)
+                        if usd >= 2500 and not any(w['tx'] == t.get('tx') for w in _radar['whales']):
+                            _radar['whales'].insert(0, {'pair': pa, 'symbol': pairs.get(pa), 'kind': t.get('kind'), 'usd': round(usd), 'wallet': t.get('wallet'), 'tx': t.get('tx'), 'at': t.get('ts')})
                     _radar['whales'] = _radar['whales'][:120]
-                rot = (rot + 2) % max(1, len(keys))
+                rot = (rot + 3) % max(1, len(keys))
         except Exception as exc:
             print('radar error', exc)
         await asyncio.sleep(60)

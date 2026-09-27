@@ -20,6 +20,13 @@ export function FeeCatWidget() {
   const [playing, setPlaying] = useState(false);
   const [url, setUrl] = useState('');
   useEffect(() => { try { localStorage.setItem(PLAYLIST_KEY, JSON.stringify(songs)); } catch { /* ignore */ } }, [songs]);
+  // Any player on the site hands its playlist here; this is the one background player.
+  useEffect(() => {
+    const onMusic = e => { const d = e.detail || {}; if (!d.songs?.length) return; setSongs(d.songs.slice(0, 20)); setI(d.i || 0); setPlaying(true); };
+    window.addEventListener('feeless:music', onMusic);
+    return () => window.removeEventListener('feeless:music', onMusic);
+  }, []);
+  useEffect(() => { window.dispatchEvent(new CustomEvent('feeless:music-state', { detail: { playing } })); }, [playing]);
   const coinPair = useMemo(() => { const m = /coin=([^:&]+):([^&]+)/.exec(loc.search); return m ? { chain: m[1], pair: m[2] } : null; }, [loc.search]);
   const rooms = useMemo(() => {
     const list = [['feeless-general', 'FEELESS · General'], ['feeless-launch-general', 'Launch on FEELESS']];
@@ -52,11 +59,11 @@ export function FeeCatWidget() {
             <button type="button" className="feecat-play" onClick={() => setPlaying(p => !p)} aria-label={playing ? 'Pause' : 'Play'}>{playing ? <Pause size={16} /> : <Play size={16} />}</button>
             <button type="button" onClick={() => go(1)} aria-label="Next"><SkipForward size={14} /></button>
           </div>
-          {playing && src && <iframe key={i} className={`feecat-frame pm-${src.kind}`} src={src.src} title="now playing" allow="autoplay; encrypted-media" />}
         </> : <p className="feecat-empty">No songs yet — paste a YouTube, Spotify or SoundCloud link below.</p>}
         <div className="feecat-add"><input placeholder="Paste a song link…" value={url} onChange={e => setUrl(e.target.value)} /><button type="button" disabled={!parse(url)} onClick={add}><Plus size={13} /></button></div>
       </div>}
     </div>}
+    {playing && src && <iframe key={`${i}-${src.src}`} className={`feecat-frame pm-${src.kind} ${open && tab === 'music' ? '' : 'is-background'}`} src={src.src} title="now playing" allow="autoplay; encrypted-media" />}
     <button type="button" className={`feecat-fab ${open ? 'on' : ''}`} onClick={() => setOpen(o => !o)} data-testid="feecat-fab" aria-label="FeeCat">
       <FeeCatMark size={32} variant={playing ? 'gold' : 'mint'} /> {playing && <i className="feecat-note">♪</i>}
     </button>

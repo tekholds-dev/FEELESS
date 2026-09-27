@@ -14,7 +14,13 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 NETWORKS = {'solana': 'solana', 'ethereum': 'eth', 'base': 'base', 'bsc': 'bsc',
-            'arbitrum': 'arbitrum', 'avalanche': 'avax', 'polygon': 'polygon_pos', 'sui': 'sui'}
+            'arbitrum': 'arbitrum', 'avalanche': 'avax', 'polygon': 'polygon_pos', 'sui': 'sui',
+            'optimism': 'optimism', 'zksync': 'zksync', 'zora': 'zora', 'cronos': 'cronos', 'unichain': 'unichain', 'worldchain': 'worldchain'}
+# Each chain's main DEXes + its name: DexScreener search on these returns that chain's live pools (filtered by chainId after).
+CHAIN_QUOTES = {'solana': ['raydium', 'pumpswap', 'meteora', 'orca'], 'ethereum': ['uniswap', 'ethereum'], 'base': ['aerodrome', 'base', 'uniswap base'],
+                'bsc': ['pancakeswap', 'bsc'], 'arbitrum': ['camelot', 'arbitrum'], 'avalanche': ['traderjoe', 'avalanche', 'pharaoh'],
+                'polygon': ['quickswap', 'polygon'], 'sui': ['cetus', 'sui'], 'optimism': ['velodrome', 'optimism'], 'zksync': ['syncswap', 'zksync'],
+                'zora': ['zora'], 'cronos': ['vvs', 'cronos', 'mm finance'], 'unichain': ['unichain'], 'worldchain': ['worldchain', 'world chain']}
 REVERSE_NETWORKS = {v: k for k, v in NETWORKS.items()}
 SUPPORTED_CHAINS = tuple(NETWORKS)
 DEFAULT_MINTS = {
@@ -408,12 +414,15 @@ def create_market_router(db, intelligence=None):
     @router.get('/feed', response_model=MarketResult)
     async def feed(kind: Literal['trending', 'new'] = 'trending',
                    chain: str = 'solana', page: int = Query(1, ge=1, le=10),
-                   scope: str | None = Query(None, pattern=r'^[a-z0-9-]{1,30}$')):
+                   scope: str | None = Query(None, pattern=r'^[a-z0-9-]{1,30}$'),
+                   source: str | None = Query(None, pattern=r'^(search)$')):
         if chain != 'all' and chain not in NETWORKS:
             raise HTTPException(400, 'Unsupported chain')
         fallback_reason = None
         primary_provider = 'Pump.fun' if scope == 'pump' else 'DexScreener'
         try:
+            if source == 'search':
+                raise HTTPException(503, 'Main-DEX search requested.')
             if scope == 'pump' and chain == 'solana':
                 pairs, meta = await pump_feed(kind, page)
             elif scope == 'pump':
@@ -432,42 +441,27 @@ def create_market_router(db, intelligence=None):
             if scope == 'pump':
                 fallback_reason = f'Pump.fun unavailable; using public pool discovery fallback ({primary_error.detail}).'
             chains = SUPPORTED_CHAINS if chain == 'all' else (chain,)
-            try:
-                responses = await asyncio.gather(*[
-                    cached(
-                        'GeckoTerminal',
-                        f'/networks/{NETWORKS[value]}/{"new_pools" if kind == "new" else "trending_pools"}',
-                        {'include': 'base_token,quote_token,dex', 'page': page},
-                        ttl=90,
-                    )
-                    for value in chains
-                ])
-            except HTTPException as fallback_error:
-                unavailable = provider_meta(
-                    'Public providers',
-                    datetime.now(timezone.utc).isoformat(),
-                    stale=True,
-                    error=f'Public market providers are temporarily unavailable. {fallback_error.detail}',
-                    primary_provider=primary_provider,
-                    fallback_from=primary_provider,
-                    fallback_reason=fallback_reason,
-                )
-                return MarketResult(
-                    **unavailable,
-                    source_url=PROVIDER_URLS['GeckoTerminal'],
-                    label='New pools · provider unavailable' if kind == 'new' else 'Trending pools · provider unavailable',
-                    pairs=[],
-                    page=page,
-                )
-            pairs = [pair for data, _meta in responses for pair in normalise_pools(data)]
-            meta = responses[0][1]
-            if len(responses) > 1:
-                meta = {
-                    **meta,
-                    'fetched_at': max(item[1].get('fetched_at', '') for item in responses),
-                    'stale': any(item[1].get('stale', False) for item in responses),
-                    'error': next((item[1].get('error') for item in responses if item[1].get('error')), None),
-                }
+            queries = [(c, q) for c in chains for q in CHAIN_QUOTES.get(c, [])]
+            results = await asyncio.gather(*[cached('DexScreener', '/latest/dex/search', {'q': q}, ttl=60) for _c, q in queries], return_exceptions=True)
+            best, meta = {}, None
+            for (c, _q), res in zip(queries, results):
+                if isinstance(res, Exception):
+                    continue
+                data, m = res
+                meta = meta or m
+                for pair in data.get('pairs') or []:
+                    if pair.get('chainId') != c:  # never mix chains
+                        continue
+                    key = (c, (pair.get('baseToken') or {}).get('address'))
+                    if key not in best or safe_float((pair.get('volume') or {}).get('h24')) > safe_float((best[key].get('volume') or {}).get('h24')):
+                        best[key] = pair
+            if meta is None:
+                unavailable = provider_meta('DexScreener', datetime.now(timezone.utc).isoformat(), stale=True,
+                                            error='Market provider is temporarily unavailable.', primary_provider=primary_provider,
+                                            fallback_from=primary_provider, fallback_reason=fallback_reason)
+                return MarketResult(**unavailable, source_url=PROVIDER_URLS['DexScreener'], label='Provider unavailable', pairs=[], page=page)
+            pairs = sorted(best.values(), key=lambda p: -safe_float((p.get('volume') or {}).get('h24')))
+            pairs = pairs[(page - 1) * 40: page * 40]
             if kind == 'new':
                 pairs = [pair for pair in pairs if is_new_pool_deal(pair)]
                 pairs.sort(key=lambda pair: (
@@ -482,7 +476,7 @@ def create_market_router(db, intelligence=None):
             }
         if intelligence:
             pairs = await intelligence.observe(pairs, meta, kind)
-        source_url = PROVIDER_URLS.get(meta.get('provider'), 'https://www.geckoterminal.com')
+        source_url = PROVIDER_URLS.get(meta.get('provider'), 'https://dexscreener.com')
         label = meta.get('source_label') or ('New pools · deals ≥5% 24h drawdown' if kind == 'new' else 'Trending pools')
         return MarketResult(**meta, source_url=source_url, label=label, pairs=pairs, page=page)
 
@@ -585,60 +579,31 @@ def create_market_router(db, intelligence=None):
                 pair = pairs[0] if pairs else None
                 image_url = (pair or {}).get('info', {}).get('imageUrl')
                 if not pair or not image_url:
+                    # No DEX pool indexed yet (e.g. still on the pump.fun curve): Jupiter prices it directly.
                     try:
-                        token_data, token_meta = await cached('GeckoTerminal', f'/networks/solana/tokens/{mint}', ttl=90)
-                        token = token_data.get('data') or {}
-                        token_attrs = token.get('attributes') or {}
-                        pools_data, pools_meta = await cached('GeckoTerminal', f'/networks/solana/tokens/{mint}/pools',
-                                                              {'page': 1}, ttl=90)
-                        pools = pools_data.get('data') or []
-                        matching = [
-                            pool for pool in pools
-                            if pool.get('relationships', {}).get('base_token', {}).get('data', {}).get('id', '').split('_', 1)[-1] == mint
-                        ]
-                        matching.sort(key=lambda pool: float((pool.get('attributes') or {}).get('reserve_in_usd') or 0), reverse=True)
-                        if not pair and matching:
-                            pair = normalise_pools({'data': [matching[0]]})[0]
-                        image_url = image_url or token_attrs.get('image_url')
-                        if not pair and token_attrs.get('price_usd'):
-                            top_pool = ((token.get('relationships') or {}).get('top_pools') or {}).get('data') or []
-                            pool_id = top_pool[0].get('id', '') if top_pool else ''
-                            pool_address = pool_id.split('_', 1)[-1] if pool_id else ''
-                            if pool_address:
-                                pair = {
-                                    'chainId': 'solana',
-                                    'network': 'solana',
-                                    'pairAddress': pool_address,
-                                    'dexId': 'unknown',
-                                    'url': f'{os.getenv("DEX_SITE_URL", "https://dexscreener.com")}/solana/{pool_address}',
-                                    'baseToken': {'address': mint, 'name': token_attrs.get('name', 'Unknown'),
-                                                  'symbol': token_attrs.get('symbol', '?')},
-                                    'quoteToken': {'symbol': 'SOL'},
-                                    'priceUsd': token_attrs.get('price_usd'),
-                                    'priceChange': {},
-                                    'liquidity': {'usd': token_attrs.get('total_reserve_in_usd')},
-                                    'volume': token_attrs.get('volume_usd') or {},
-                                    'marketCap': token_attrs.get('market_cap_usd'),
-                                    'fdv': token_attrs.get('fdv_usd'),
-                                    'pairCreatedAt': None,
-                                    'info': {'imageUrl': image_url, 'websites': [], 'socials': []},
-                                }
-                        if pair:
-                            pair['info'] = {**(pair.get('info') or {}), 'imageUrl': image_url}
-                            pair['baseToken'] = {
-                                **(pair.get('baseToken') or {}),
-                                'address': mint,
-                                'name': token_attrs.get('name') or pair.get('baseToken', {}).get('name'),
-                                'symbol': token_attrs.get('symbol') or pair.get('baseToken', {}).get('symbol'),
-                            }
-                            meta = {
-                                **provider_meta(
-                                    'GeckoTerminal',
-                                    max(token_meta.get('fetched_at', ''), pools_meta.get('fetched_at', '')),
-                                    stale=token_meta.get('stale', False) or pools_meta.get('stale', False),
-                                    error=token_meta.get('error') or pools_meta.get('error'),
-                                ),
-                            }
+                        async with httpx.AsyncClient(timeout=8) as http:
+                            jr = await http.get('https://api.jup.ag/tokens/v2/search', params={'query': mint},
+                                                headers={'x-api-key': os.getenv('JUPITER_API_KEY', '')})
+                        jt = next((t for t in (jr.json() if jr.status_code == 200 else []) if t.get('id') == mint), None)
+                        if jt and jt.get('usdPrice'):
+                            image_url = image_url or jt.get('icon')
+                            if not pair:
+                                pool_address = ((jt.get('firstPool') or {}).get('id')) or mint
+                                st = jt.get('stats24h') or {}
+                                pair = {'chainId': 'solana', 'network': 'solana', 'pairAddress': pool_address, 'dexId': 'jupiter',
+                                        'url': f'https://jup.ag/tokens/{mint}',
+                                        'baseToken': {'address': mint, 'name': jt.get('name'), 'symbol': jt.get('symbol')},
+                                        'quoteToken': {'symbol': 'SOL'}, 'priceUsd': str(jt['usdPrice']),
+                                        'priceChange': {'h24': st.get('priceChange')} if st.get('priceChange') is not None else {},
+                                        'liquidity': {'usd': jt.get('liquidity')},
+                                        'volume': {'h24': (st.get('buyVolume') or 0) + (st.get('sellVolume') or 0)} if st else {},
+                                        'marketCap': jt.get('mcap'), 'fdv': jt.get('fdv'), 'pairCreatedAt': None,
+                                        'info': {'imageUrl': image_url, 'websites': [], 'socials': []}}
+                            meta = {**provider_meta('Jupiter', datetime.now(timezone.utc).isoformat())}
+                    except Exception:
+                        pass
+                    try:
+                        pass
                     except HTTPException:
                         pass
                 items.append({'id': name.lower(), 'label': name, 'mint': mint, 'chain': 'solana', 'pair': pair,

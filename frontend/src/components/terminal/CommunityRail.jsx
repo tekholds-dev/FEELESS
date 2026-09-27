@@ -1,6 +1,6 @@
 import { TrendingCards, TrenchLanding, TrenchBar, HotCalls, LiveCalls, CallerBoard } from './TrenchesTools';
 import { LivePrice } from './LiveCells';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, Radio, Rocket, Compass, Star, BarChart3, ArrowUpRight, CandlestickChart, Layers3 } from 'lucide-react';
 import EcosystemChat from '../EcosystemChat';
@@ -70,7 +70,10 @@ export const ChatRoom = ({ large = false, pairs = [], newPairs = [], onSelect, s
 export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair: routeSelectedPair = null, selectedPerspective = null, onPerspectiveChange, onConnect }) => {
   const { ecosystem, selectedPair, selectPair, watchlist, has, toggle } = useWorkspace();
   const [stage, setStage] = useState('new');
-  const chartPair = routeSelectedPair || selectedPair || pairs[0] || newPairs[0] || null;
+  // A coin you click beats the one in the URL — otherwise every click snaps back to the linked coin.
+  const firstSelection = useRef(selectedPair);
+  const clicked = selectedPair && selectedPair !== firstSelection.current ? selectedPair : null;
+  const chartPair = clicked || routeSelectedPair || selectedPair || pairs[0] || newPairs[0] || null;
   const graduated = pairs.filter(pair => pair.graduated === true || pair.info?.graduated === true || pair.baseToken?.graduated === true);
   const stagePairs = {
     new: newPairs,
@@ -80,8 +83,10 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair
   }[stage] || [];
   const [wide, setWide] = useState(() => { try { return localStorage.getItem('feeless-trench-wide') === '1'; } catch { return false; } });
   useEffect(() => { try { localStorage.setItem('feeless-trench-wide', wide ? '1' : '0'); } catch {} window.dispatchEvent(new Event('resize')); }, [wide]);
-  const [onFloor, setOnFloor] = useState(() => { try { return Boolean(routeSelectedPair) || localStorage.getItem('feeless-trench-floor') === '1'; } catch { return false; } });
-  const setFloor = v => { setOnFloor(v); try { localStorage.setItem('feeless-trench-floor', v ? '1' : '0'); } catch {} window.scrollTo?.({ top: 0 }); };
+  // The Trenches tab always opens on the about/discovery page; only a link that names a coin drops you on the floor.
+  const [onFloor, setOnFloor] = useState(() => Boolean(routeSelectedPair));
+  useEffect(() => { setOnFloor(Boolean(routeSelectedPair)); }, [routeSelectedPair]);
+  const setFloor = v => { setOnFloor(v); window.scrollTo?.({ top: 0 }); };
   const pickCall = async c => {
     try {
       const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/${c.chain}/${c.pairAddress}`);

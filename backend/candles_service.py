@@ -348,6 +348,83 @@ async def alchemy_candles(chain, pair, interval):
     return out
 
 
+_helius_hist: dict = {}
+
+
+async def helius_candles(chain, pair, interval):
+    """Solana coins no provider indexes yet (bonding-curve launches like $FEE): rebuild real candles
+    from the pool's own swap history via Helius. Price per swap = SOL paid / tokens moved, priced in
+    USD at the live SOL rate; outliers (multi-hop routes) are dropped against the rolling median."""
+    if chain != 'solana':
+        return []
+    k = _helius_key()
+    if not k:
+        return []
+    ck = f'{pair}:{interval}'
+    hit = _helius_hist.get(ck)
+    if hit and time.time() - hit[0] < 60:
+        return hit[1]
+    mint = await _pair_base_token(chain, pair) or (pair if pair.endswith('pump') else None)
+    if not mint:
+        return []
+    rows, before = [], None
+    try:
+        async with httpx.AsyncClient(timeout=12) as http:
+            for _ in range(5):
+                params = {'api-key': k, 'type': 'SWAP', 'limit': 100}
+                if before:
+                    params['before'] = before
+                r = await http.get(f'https://api.helius.xyz/v0/addresses/{pair}/transactions', params=params)
+                page = r.json() if r.status_code == 200 else []
+                if not isinstance(page, list) or not page:
+                    break
+                rows += page; before = page[-1].get('signature')
+                if len(page) < 100:
+                    break
+            jr = await http.get('https://api.jup.ag/price/v3', params={'ids': WSOL}, headers={'x-api-key': os.environ.get('JUPITER_API_KEY', '')})
+            sol_usd = float(((jr.json() or {}).get(WSOL) or {}).get('usdPrice') or 0)
+    except Exception:
+        return hit[1] if hit else []
+    if not sol_usd:
+        return []
+    pts = []
+    for tx in rows:
+        who = tx.get('feePayer'); amt = 0.0; sol = 0.0
+        for t in tx.get('tokenTransfers') or []:
+            if who in (t.get('toUserAccount'), t.get('fromUserAccount')):
+                if t.get('mint') == mint:
+                    amt += float(t.get('tokenAmount') or 0)
+                elif t.get('mint') == WSOL:
+                    sol += float(t.get('tokenAmount') or 0)
+        if not sol:
+            # The signer's net SOL change is the real amount paid/received (transfers alone can surface only the fee leg).
+            acct = next((a for a in tx.get('accountData') or [] if a.get('account') == who), None)
+            if acct:
+                sol = max(0.0, abs(acct.get('nativeBalanceChange') or 0) - (tx.get('fee') or 0)) / 1e9
+        if amt > 0 and sol > 0 and tx.get('timestamp'):
+            pts.append((tx['timestamp'], sol / amt * sol_usd, sol * sol_usd))
+    pts.sort()
+    clean = []
+    for i, (t, px, usd) in enumerate(pts):
+        window = sorted(p[1] for p in pts[max(0, i - 7): i + 8])
+        med = window[len(window) // 2]
+        if med and 0.4 < px / med < 2.5:
+            clean.append((t, px, usd))
+    step = INTERVAL_SECONDS.get(interval, 3600)
+    buckets = {}
+    for t, px, usd in clean:
+        b = int(t // step * step); c = buckets.get(b)
+        if c:
+            c[2] = max(c[2], px); c[3] = min(c[3], px); c[4] = px; c[5] += usd
+        else:
+            buckets[b] = [b, px, px, px, px, usd]
+    out = [buckets[x] for x in sorted(buckets)]
+    for i in range(1, len(out)):
+        out[i][1] = out[i - 1][4]; out[i][2] = max(out[i][2], out[i][1]); out[i][3] = min(out[i][3], out[i][1])
+    _helius_hist[ck] = (time.time(), out)
+    return out
+
+
 @app.get('/api/candles/{chain}/{pair_address}')
 async def get_candles(chain: str, pair_address: str, interval: str = Query('1h'), before: Optional[int] = None):
     if before:
@@ -359,12 +436,16 @@ async def get_candles(chain: str, pair_address: str, interval: str = Query('1h')
     ticks = store.get(_pair_key(chain, pair_address), [])
     own = _bucket_candles(ticks, interval_seconds)
     hist = await alchemy_candles(chain, pair_address, interval)
+    provider = 'Alchemy'
+    if not hist or len(hist) < 2:
+        hist = await helius_candles(chain, pair_address, interval)
+        provider = 'Helius swaps'
     if hist and len(hist) >= 2:
         # FEELESS's own 15s ticks override/extend the provider bars, so the newest candle is live.
         own_by_t = {c[0]: c for c in own}
         merged = [own_by_t.pop(c[0], c) for c in hist] + [c for c in own if c[0] > hist[-1][0]]
-        return {'candles': _fill_gaps(merged, interval_seconds, own), 'provider': 'Alchemy', 'interval': interval, 'tickCount': len(ticks),
-                'source': 'Alchemy price history, sharpened with FEELESS-recorded live ticks.'}
+        return {'candles': _fill_gaps(merged, interval_seconds, own), 'provider': provider, 'interval': interval, 'tickCount': len(ticks),
+                'source': f'{provider} price history, sharpened with FEELESS-recorded live ticks.'}
     return {'candles': _fill_gaps(own, interval_seconds), 'provider': 'FEELESS', 'interval': interval, 'tickCount': len(ticks),
             'source': 'Real prices observed across FEELESS sessions — provider has no history for this pool yet.'}
 
@@ -372,35 +453,80 @@ async def get_candles(chain: str, pair_address: str, interval: str = Query('1h')
 _trade_cache: dict = {}
 
 
+WSOL = 'So11111111111111111111111111111111111111112'
+USD_MINTS = {'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'}
+_pair_info: dict = {}
+
+
+def _helius_key():
+    import re as _re2
+    m = _re2.search(r'api-key=([A-Za-z0-9-]+)', os.environ.get('SOLANA_RPC_URL', ''))
+    return m.group(1) if m else None
+
+
+async def _pair_snapshot(chain, pool):
+    hit = _pair_info.get(pool)
+    if hit and time.time() - hit[0] < 30:
+        return hit[1]
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            p = ((await http.get(f'https://api.dexscreener.com/latest/dex/pairs/{chain}/{pool}')).json().get('pairs') or [None])[0]
+    except Exception:
+        p = None
+    if p:
+        _pair_info[pool] = (time.time(), p)
+    return p
+
+
 @app.get('/api/candles/trades/{chain}/{pool}')
 async def pool_trades(chain: str, pool: str):
-    """Latest real swaps for a pool (GeckoTerminal), shared 5s cache so many viewers cost one call."""
-    net = GECKO_NET.get(chain)
-    if not net:
-        return {'trades': [], 'error': 'unsupported chain'}
-    key = f'{net}:{pool}'
+    """Latest real swaps for a pool, parsed from the transactions themselves (Helius) — shared
+    15s cache so many viewers cost one call. No GeckoTerminal anywhere."""
+    key = f'{chain}:{pool}'
     hit = _trade_cache.get(key)
     now = time.time()
     if hit and now - hit[0] < 15:
         return hit[1]
-    throttled = not gecko_budget.take('trades')
-    if throttled:
-        return hit[1] if hit else {'trades': [], 'throttled': True}
+    if chain != 'solana':
+        return {'trades': [], 'source': 'none', 'note': 'Per-swap feed is Solana-only for now; EVM needs a keyed indexer.'}
+    k = _helius_key(); pair = await _pair_snapshot(chain, pool)
+    if not k or not pair:
+        return hit[1] if hit else {'trades': [], 'error': 'provider unavailable'}
+    base = (pair.get('baseToken') or {}).get('address')
+    price_usd = float(pair.get('priceUsd') or 0); price_native = float(pair.get('priceNative') or 0)
+    sol_usd = price_usd / price_native if price_native and (pair.get('quoteToken') or {}).get('address') == WSOL else None
     try:
-        async with httpx.AsyncClient(timeout=8) as http:
-            r = await http.get(f'https://api.geckoterminal.com/api/v2/networks/{net}/pools/{pool}/trades', headers={'accept': 'application/json'})
-        rows = (r.json() or {}).get('data') or [] if r.status_code == 200 else None
+        async with httpx.AsyncClient(timeout=10) as http:
+            r = await http.get(f'https://api.helius.xyz/v0/addresses/{pool}/transactions', params={'api-key': k, 'type': 'SWAP', 'limit': 40})
+        rows = r.json() if r.status_code == 200 else None
     except Exception:
         rows = None
-    if rows is None:
+    if not isinstance(rows, list):
         return hit[1] if hit else {'trades': [], 'error': 'provider unavailable'}
     trades = []
-    for row in rows:
-        a = row.get('attributes') or {}
-        trades.append({'ts': a.get('block_timestamp'), 'kind': a.get('kind'), 'usd': float(a.get('volume_in_usd') or 0),
-                       'price': float(a.get('price_to_in_usd') if a.get('kind') == 'buy' else a.get('price_from_in_usd') or 0),
-                       'wallet': a.get('tx_from_address'), 'tx': a.get('tx_hash')})
-    data = {'trades': trades, 'at': now, 'source': 'GeckoTerminal'}
+    for tx in rows:
+        who = tx.get('feePayer'); got = sent = 0.0; quote_usd = 0.0
+        for t in tx.get('tokenTransfers') or []:
+            amt = float(t.get('tokenAmount') or 0)
+            if t.get('mint') == base:
+                if t.get('toUserAccount') == who: got += amt
+                elif t.get('fromUserAccount') == who: sent += amt
+            elif t.get('mint') in USD_MINTS and who in (t.get('toUserAccount'), t.get('fromUserAccount')):
+                quote_usd += amt
+            elif t.get('mint') == WSOL and sol_usd and who in (t.get('toUserAccount'), t.get('fromUserAccount')):
+                quote_usd += amt * sol_usd
+        if not quote_usd and sol_usd:
+            lam = sum(abs(n.get('amount') or 0) for n in tx.get('nativeTransfers') or [] if who in (n.get('fromUserAccount'), n.get('toUserAccount')))
+            quote_usd = lam / 1e9 * sol_usd
+        amt = got or sent
+        if not amt:
+            continue
+        usd = quote_usd or amt * price_usd
+        if price_usd and not (0.5 < (usd / amt) / price_usd < 1.5):  # multi-hop route double-counted the quote leg
+            usd = amt * price_usd
+        trades.append({'ts': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(tx.get('timestamp') or now)), 'kind': 'buy' if got else 'sell',
+                       'usd': round(usd, 2), 'price': usd / amt if amt else price_usd, 'wallet': who, 'tx': tx.get('signature')})
+    data = {'trades': trades, 'at': now, 'source': 'Helius (parsed swaps)'}
     _trade_cache[key] = (now, data)
     return data
 
