@@ -460,7 +460,7 @@ test('normalizes every malformed terminal preference and rewrites safe storage v
 
   expect(container.querySelector('[data-testid="config-density"]').value).toBe('comfortable');
   expect(container.querySelector('[data-testid="config-text-size"]').value).toBe('normal');
-  expect(container.querySelector('[data-testid="config-chart-interval"]').value).toBe('1h');
+  expect(container.querySelector('[data-testid="config-chart-interval"]').value).toBe('1m');
   expect(container.querySelector('[data-testid="settings-reduced-motion"]').checked).toBe(false);
   expect(container.querySelector('[data-testid="settings-autorefresh"]').checked).toBe(true);
   expect(container.querySelector('[data-testid="config-default-ecosystem"]').value).toBe('solana');
@@ -472,7 +472,7 @@ test('normalizes every malformed terminal preference and rewrites safe storage v
     autoRefresh: true,
     reducedMotion: false,
     fontScale: 'normal',
-    chartInterval: '1h',
+    chartInterval: '1m',
     defaultEcosystem: 'solana',
   });
   expect(localStorage.getItem('feeless-default-ecosystem')).toBe('solana');

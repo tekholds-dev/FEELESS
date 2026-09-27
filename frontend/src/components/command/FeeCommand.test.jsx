@@ -55,7 +55,7 @@ test('flips through every returned fee asset and updates price and mint state', 
 
   expect(readState()).toEqual({ heading: '$FEE', price: '$1.00', mintTitle: 'Copy FEE mint' });
   expect(container.querySelector('.fee-asset-logo > img').src).toBe('https://logo.test/fee.png');
-  expect(container.querySelector('[data-testid="mock-price-chart"]').textContent).toBe('FEE:1h');
+  expect(container.querySelector('[data-testid="mock-price-chart"]').textContent).toBe('FEE:1m');
   ['5m', '15m', '4h', '1d'].forEach(interval => {
     act(() => container.querySelector(`[data-testid="fee-chart-interval-${interval}"]`).click());
     expect(container.querySelector('[data-testid="mock-price-chart"]').textContent).toBe(`FEE:${interval}`);

@@ -30,7 +30,7 @@ export const Tokenomics = ({ compact = false }) => {
 export const FeeHeartbeat = ({ asset, assets = [], loading }) => {
   const trackedAssets = assets.length ? assets : asset ? [asset] : [];
   const [activeIndex, setActiveIndex] = useState(0);
-  const [chartInterval, setChartInterval] = useState('1h');
+  const [chartInterval, setChartInterval] = useState('1m');
   const activeAsset = trackedAssets[activeIndex % Math.max(trackedAssets.length, 1)] || asset;
   const { data: metadata } = useMarket(activeAsset?.mint ? `/api/trading/mint/${activeAsset.mint}` : null, 300000);
   const symbol = activeAsset?.label || activeAsset?.id?.toUpperCase() || 'FEE';

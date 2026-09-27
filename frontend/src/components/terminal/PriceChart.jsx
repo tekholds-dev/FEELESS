@@ -148,7 +148,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     chart.applyOptions({ localization: { locale: 'en-US', priceFormatter: axisFormat } });
     // A few self-recorded bars (quiet coin, no provider history yet) read as noise as candles;
     // show them as a clean price line until real history arrives.
-    const autoSparse = usingFeelessCandles && displayCandles.length < 120;
+    const autoSparse = displayCandles.length < 3; // candles by default; line only when there's almost nothing to draw
     const sparse = displayCandles.length > 0 && (chartStyle === 'line' || (chartStyle === 'auto' && autoSparse));
     sparseRef.current = sparse;
     const lineData = sparse ? displayCandles.map(([time, , , , close]) => ({ time, value: close })) : trail;
@@ -349,14 +349,14 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       <span>Full candle history is temporarily unavailable from the provider. FEELESS is recording every price it observes here — check back shortly, or view the external chart now.</span>
       <a data-testid="chart-fallback-link" href={dexUrl(pair)} target="_blank" rel="noreferrer">Open chart on DexScreener ↗</a>
     </div>}
-    {charting && usingFeelessCandles && candleProvider !== 'GeckoTerminal' && <div className="chart-stale-note chart-stale-pill" role="status" title="Full provider candle history is rate-limited right now; FEELESS is showing real prices it recorded itself and will fill in history automatically.">● {allFeeless.length} FEELESS-recorded bars · full history loading</div>}
+    {charting && usingFeelessCandles && candleProvider === 'FEELESS' && <div className="chart-stale-note chart-stale-pill" role="status" title="Full provider candle history is rate-limited right now; FEELESS is showing real prices it recorded itself and will fill in history automatically.">● {allFeeless.length} FEELESS-recorded bars · full history loading</div>}
     {charting && usingFallbackTrail && trail.length >= 2 && <div className="chart-stale-note" role="status">Live price trail recorded by this browser — full {data?.provider || 'provider'} candle history is temporarily unavailable.</div>}
     {metricChart && hasChart && <div className="chart-stale-note metric-derived-note" role="status" data-testid={`chart-${metric}-derived`}>{metricLabel} chart = real price candles × token supply (supply is fixed, so the shape is exact). Now {formatUSD(metricValue)}.</div>}
     {!priceMetric && metricAvailable && !loading && !hasChart && !usingFallbackTrail && <div className="metric-snapshot" data-testid={`chart-${metric}-snapshot`}><span className="metric-snapshot-label">{metricLabel} snapshot</span><strong>{formatUSD(metricValue)}</strong><small>Provider supplied the current {metricLabel.toLowerCase()} only. Historical {metricLabel.toLowerCase()} candles are unavailable.</small></div>}
     {!priceMetric && !metricAvailable && <div className="chart-message metric-unavailable" role="status" data-testid={`chart-${metric}-unavailable`}><strong>{metricLabel} unavailable</strong><span>The provider did not supply a {metricLabel.toLowerCase()} value for this pair. No value is estimated.</span></div>}
     {charting && hasChart && <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />}
     {charting && hasChart && <div className="chart-foot-chips">{createdAt && <span className="chart-age" title={new Date(createdAt).toLocaleString()}>🕒 Created {ageLabel(createdAt)} ago</span>}{feeLiveProp === undefined && <button type="button" className={`chart-fee-toggle ${feeOwn ? 'on' : ''}`} onClick={() => setFeeOwn(v => !v)}>🐱 Fee {feeOwn ? 'on' : 'off'}</button>}</div>}
-    {charting && hasChart && displayCandles.length > 0 && <button type="button" className="chart-style-toggle" data-testid="chart-style-toggle" onClick={toggleStyle} title="Switch line / candles">{chartStyle === 'line' || (chartStyle === 'auto' && usingFeelessCandles && displayCandles.length < 120) ? '▮ Candles' : '〰 Line'}</button>}
+    {charting && hasChart && displayCandles.length > 0 && <button type="button" className="chart-style-toggle" data-testid="chart-style-toggle" onClick={toggleStyle} title="Switch line / candles">{chartStyle === 'line' || (chartStyle === 'auto' && displayCandles.length < 3) ? '▮ Candles' : '〰 Line'}</button>}
     {feeRead && hasChart && <div className={`fee-live-read stance-${feeRead.stance.replace(/\s/g, '-')} ${feeOpen ? '' : 'min'}`} data-testid="fee-live-read">
       <button type="button" className="flr-head" onClick={() => setFeeOpen(o => !o)}><span className="flr-cat">🐱</span><b>Fee · live read</b><em>{feeRead.stance}</em><i className="flr-dot" /></button>
       {feeOpen && <><ul>{feeRead.lines.map((l, i) => <li key={i}>{l}</li>)}</ul>

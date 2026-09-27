@@ -29,7 +29,7 @@ export default function EcosystemWorld({ ecosystem, pad, onClose }) {
   const [layout, setLayout] = useState(readRoomLayout);
   const [expanded, setExpanded] = useState(readRoomExpanded);
   const [chartPair, setChartPair] = useState(null);
-  const [chartIv, setChartIv] = useState('15m');
+  const [chartIv, setChartIv] = useState('1m');
   const [chartBig, setChartBig] = useState(false);
   const [showFee, setShowFee] = useState(false);
   const [showCalls, setShowCalls] = useState(false);

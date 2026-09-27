@@ -13,7 +13,7 @@ export const DEFAULT_SETTINGS = {
   autoRefresh: true,
   reducedMotion: false,
   fontScale: 'normal',
-  chartInterval: '1h',
+  chartInterval: '1m',
   defaultEcosystem: 'solana',
 };
 

@@ -378,6 +378,31 @@ _codex_cache: dict = {}
 
 
 _codex_block = {'until': 0}
+_jup_hist: dict = {}
+JUP_IV = {'1m': '1_MINUTE', '5m': '5_MINUTE', '15m': '15_MINUTE', '1h': '1_HOUR', '4h': '4_HOUR', '1d': '1_DAY'}
+
+
+async def jupiter_candles(chain, pair, interval):
+    """Token-level USD candles from Jupiter's chart data (the same price basis as the header and
+    swaps), from launch onward. Cached 30s per token+interval so viewer count never multiplies calls."""
+    if chain != 'solana' or interval not in JUP_IV:
+        return []
+    mint = await _pair_base_token(chain, pair)
+    if not mint:
+        return []
+    ck = f'{mint}:{interval}'
+    hit = _jup_hist.get(ck)
+    if hit and time.time() - hit[0] < 30:
+        return hit[1]
+    try:
+        async with httpx.AsyncClient(timeout=6) as http:
+            r = await http.get(f'https://datapi.jup.ag/v2/charts/{mint}', params={'interval': JUP_IV[interval], 'to': int(time.time() * 1000), 'candles': 300, 'type': 'price', 'quote': 'usd'})
+        rows = (r.json() or {}).get('candles') or [] if r.status_code == 200 else []
+    except Exception:
+        return hit[1] if hit else []
+    out = [[int(c['time']), float(c['open']), float(c['high']), float(c['low']), float(c['close']), float(c.get('volume') or 0)] for c in rows if c.get('close')]
+    _jup_hist[ck] = (time.time(), out)
+    return out
 
 
 async def codex_candles(chain, pair, interval):
@@ -466,7 +491,10 @@ async def helius_candles(chain, pair, interval):
     rows, before = [], None
     try:
         async with httpx.AsyncClient(timeout=12) as http:
-            for _ in range(5):
+            # Page back until the history spans ~150 bars (busy coins fill a page in seconds; Helius'
+            # SWAP filter returns short pages, so page length is not an end-of-history signal).
+            want_from = time.time() - 150 * INTERVAL_SECONDS.get(interval, 3600)
+            for _ in range(20):
                 params = {'api-key': k, 'type': 'SWAP', 'limit': 100}
                 if before:
                     params['before'] = before
@@ -475,10 +503,9 @@ async def helius_candles(chain, pair, interval):
                 if not isinstance(page, list) or not page:
                     break
                 rows += page; before = page[-1].get('signature')
-                if len(page) < 100:
+                if (page[-1].get('timestamp') or 0) < want_from:
                     break
-            jr = await http.get('https://api.jup.ag/price/v3', params={'ids': WSOL}, headers={'x-api-key': os.environ.get('JUPITER_API_KEY', '')})
-            sol_usd = float(((jr.json() or {}).get(WSOL) or {}).get('usdPrice') or 0)
+            sol_usd = await _jup_price(WSOL) or 0
     except Exception:
         return hit[1] if hit else []
     if not sol_usd:
@@ -565,7 +592,7 @@ async def _build_candles(chain, pair_address, interval):
         anchor = await _stream_price(mint) if mint else None
     agrees = lambda h: bool(h) and len(h) >= 2 and (not anchor or anchor / 3 <= h[-1][4] <= anchor * 3)
     hist, provider = [], None
-    for name, fn in (('Codex', codex_candles), ('Alchemy', alchemy_candles), ('Helius swaps', helius_candles)):
+    for name, fn in (('Jupiter', jupiter_candles), ('Codex', codex_candles), ('Alchemy', alchemy_candles), ('Helius swaps', helius_candles)):
         h = await fn(chain, pair_address, interval)
         if agrees(h):
             hist, provider = h, name
@@ -689,19 +716,54 @@ STREAM_MIN_GAP = 0.35
 _streams: dict = {}   # key -> {'clients': set(), 'task': Task, 'last': 0.0, 'price': None}
 
 
+_px_cache: dict = {}
+
+
+async def _jup_price(mint):
+    """USD price with fallbacks (keyed Jupiter → free Jupiter → DexScreener), cached 5s per mint so
+    thousands of viewers never multiply upstream calls. A 429 on one source never blanks a chart."""
+    hit = _px_cache.get(mint)
+    if hit and time.time() - hit[0] < 5:
+        return hit[1]
+    key_ = os.environ.get('JUPITER_API_KEY', '')
+    async with httpx.AsyncClient(timeout=5) as http:
+        for url, hdr in (('https://api.jup.ag/price/v3', {'x-api-key': key_}), ('https://lite-api.jup.ag/price/v3', {})):
+            try:
+                r = await http.get(url, params={'ids': mint}, headers=hdr)
+                if r.status_code == 200:
+                    px = float(((r.json() or {}).get(mint) or {}).get('usdPrice') or 0)
+                    if px:
+                        _px_cache[mint] = (time.time(), px)
+                        return px
+            except Exception:
+                pass
+        try:
+            r = await http.get(f'https://api.dexscreener.com/tokens/v1/solana/{mint}')
+            pairs = sorted(r.json() or [], key=lambda p: -float((p.get('liquidity') or {}).get('usd') or 0))
+            px = float((pairs[0] if pairs else {}).get('priceUsd') or 0)
+            if px:
+                _px_cache[mint] = (time.time(), px)
+                return px
+        except Exception:
+            pass
+    return hit[1] if hit else None
+
+
 async def _stream_price(mint):
     # Codex tracks every trade (~120ms); Jupiter as fallback (its price is cached a few seconds).
     key_ = os.environ.get('CODEX_API_KEY', '').strip()
     try:
         async with httpx.AsyncClient(timeout=4) as http:
-            if key_:
+            if key_ and time.time() >= _codex_block['until']:
                 r = await http.post('https://graph.codex.io/graphql', headers={'Authorization': key_},
                                     json={'query': 'query($a:String!,$n:Int!){getTokenPrices(inputs:[{address:$a,networkId:$n}]){priceUsd}}', 'variables': {'a': mint, 'n': CODEX_NET['solana']}})
-                px = float((((r.json() or {}).get('data') or {}).get('getTokenPrices') or [{}])[0].get('priceUsd') or 0)
+                body = r.json() or {}
+                if body.get('errors'):
+                    _codex_block['until'] = time.time() + 600
+                px = float(((body.get('data') or {}).get('getTokenPrices') or [{}])[0].get('priceUsd') or 0)
                 if px:
                     return px
-            r = await http.get('https://api.jup.ag/price/v3', params={'ids': mint}, headers={'x-api-key': os.environ.get('JUPITER_API_KEY', '')})
-            return float(((r.json() or {}).get(mint) or {}).get('usdPrice') or 0) or None
+        return await _jup_price(mint)
     except Exception:
         return None
 

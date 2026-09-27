@@ -22,7 +22,7 @@ import { PriceAlertButton } from './PriceAlertButton';
 import { DipRipTool } from './DipRipTool';
 import { useMarket } from '../../hooks/useMarket';
 
-export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1h', onExpand, expanded }) => {
+export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1m', onExpand, expanded }) => {
   const [interval, setInterval] = useState(defaultInterval);
   const [metric, setMetric] = useState('price');
   const nav = useNavigate(); const { selectPair } = useWorkspace();
