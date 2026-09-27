@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Zap, Wallet, ArrowUpRight, Settings2 } from 'lucide-react';
 import { keepReceipt } from '../../lib/receipts';
@@ -35,6 +35,9 @@ export function QuickTrade({ pair }) {
   const [prefs, setPrefs] = useState(readPrefs);
   const [amount, setAmount] = useState(() => presetsFor(readPrefs(), readPrefs().unit)[0]);
   const [showSettings, setShowSettings] = useState(false);
+  const box = useRef(null);
+  // Opened from a "snipers out" alert (?buy=1): bring the buy box into view, ready to quote.
+  useEffect(() => { if (new URLSearchParams(window.location.search).get('buy') === '1') box.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, []);
   // Auto-match the wallet to the coin's network: same wallet, Solana side, no popup if already trusted.
   useEffect(() => {
     if (pair?.chainId === 'solana' && wallet?.chain === 'evm' && connect) connect('solana', undefined, { silent: true }).catch(() => {});
@@ -108,7 +111,7 @@ export function QuickTrade({ pair }) {
   const minOut = order ? units(order.quote?.otherAmountThreshold, outDecimals) : null;
   const impact = order ? Number(order.quote?.priceImpactPct ?? order.quote?.priceImpact) : null;
   const toFee = counter === 'FEE';
-  return <aside className="quick-trade" data-testid="quick-trade">
+  return <aside ref={box} className="quick-trade" data-testid="quick-trade">
     <div className="qt-head"><Zap size={13} /><b>Quick trade</b><button type="button" className={`qt-gear ${showSettings ? 'active' : ''}`} onClick={() => setShowSettings(v => !v)} title="Quick trade settings" aria-label="Quick trade settings"><Settings2 size={13} /></button><div className="qt-side">{['buy', 'sell'].map(s => <button type="button" key={s} className={`${s} ${side === s ? 'active' : ''}`} onClick={() => setSide(s)}>{s === 'buy' ? 'Buy' : 'Sell'}</button>)}</div></div>
     {showSettings && <div className="qt-settings" data-testid="quick-trade-settings">
       <small>Your buy presets</small>

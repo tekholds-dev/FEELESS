@@ -990,7 +990,8 @@ async def token_intel(chain: str, mint: str):
             fh = out['flaggedHoldings']
             if len(fh) >= 3 and all(v == 0 for v in fh.values()):
                 # Every sniper/bundler has sold out: the supply overhang is gone — often the dip entry.
-                _radar_event('snipers-out', mint, mint[:4], f"All {len(fh)} flagged snipers/bundlers have sold out — no sniper supply left to dump.")
+                if _radar_event('snipers-out', mint, mint[:4], f"All {len(fh)} flagged snipers/bundlers have sold out — no sniper supply left to dump."):
+                    asyncio.create_task(_push_snipers_out(mint))
                 if creator:
                     notify(creator, 'reward', f"🎯 Every sniper on your coin {mint[:4]}… has sold out", f'/terminal/chat?chain=solana&pair={mint}&room=bulls')
     flags = []
@@ -1552,6 +1553,40 @@ async def register_call(payload: CallPayload):
     return {'ok': True, 'id': cid}
 
 
+FEED_CALL_POINTS = ((2, 50), (5, 150), (10, 400))
+
+
+def _award_feed_call(c):
+    # FEEd reputation: a post that turns into a real move pays its author once per milestone.
+    if not c['room'].startswith('feed-') or not c.get('callerAddress') or not c['priceAtCall']:
+        return
+    peak = c['peakPrice'] / c['priceAtCall']
+    done = c.setdefault('awarded', [])
+    for x, pts in FEED_CALL_POINTS:
+        if peak >= x and x not in done:
+            done.append(x)
+            season_award(primary_of(c['callerAddress']), pts, f"feed-call:{x}x:{c['symbol']}")
+            notify(c['callerAddress'], 'reward', f"📈 Your FEEd call on {c['symbol']} hit {x}× — +{pts} season points", f"/terminal/chat?chain={c['chain']}&pair={c['pairAddress']}")
+
+
+def _record_feed_calls(msg):
+    async def run():
+        async with _calls_lock:
+            d = _calls_load()
+            for t in msg['tokens']:
+                p = t.get('pair') or {}
+                price = float(p.get('priceUsd') or 0)
+                if price <= 0:
+                    continue
+                cid = f"{msg['id']}:{t['pairAddress']}"
+                d['calls'].setdefault(cid, {'id': cid, 'messageId': msg['id'], 'room': msg['room'], 'caller': msg['username'][:40], 'callerAddress': msg['address'],
+                    'chain': t['chainId'], 'pairAddress': t['pairAddress'], 'mint': t['address'], 'symbol': t.get('symbol'),
+                    'imageUrl': (p.get('info') or {}).get('imageUrl'), 'priceAtCall': price, 'mcAtCall': p.get('marketCap') or p.get('fdv'),
+                    'at': time.time(), 'lastPrice': price, 'peakPrice': price, 'checkedAt': time.time()})
+            _calls_save(d)
+    asyncio.create_task(run())
+
+
 def _call_view(c):
     return {**c, 'x': c['lastPrice'] / c['priceAtCall'] if c['priceAtCall'] else None,
             'peakX': c['peakPrice'] / c['priceAtCall'] if c['priceAtCall'] else None}
@@ -1584,6 +1619,7 @@ async def _refresh_calls():
                         c['lastPrice'] = px
                         c['peakPrice'] = max(c['peakPrice'], px)
                         c['checkedAt'] = time.time()
+                    _award_feed_call(c)
                 _calls_save(d)
         except Exception as exc:
             print('calls refresh error', exc)
@@ -2206,6 +2242,8 @@ async def chat_post(payload: ChatPost):
             pass
         d['rooms'][payload.room] = room[-300:]
         CHAT_PATH.write_text(json.dumps(d))
+    if payload.room.startswith('feed-') and tokens:
+        _record_feed_calls(msg)
     return {'ok': True, 'message': msg}
 
 
@@ -3934,9 +3972,19 @@ async def _radar_loop():
 def _radar_event(kind, pa, sym, text):
     last = next((e for e in _radar['events'] if e['pair'] == pa and e['kind'] == kind), None)
     if last and time.time() - last['at'] < 3600:
-        return
+        return False
     _radar['events'].insert(0, {'kind': kind, 'pair': pa, 'symbol': sym, 'text': text, 'at': time.time()})
     _radar['events'] = _radar['events'][:100]
+    return True
+
+
+async def _push_snipers_out(mint):
+    # Phones with push on and this coin on their watchlist hear it first; tapping opens the buy.
+    for entry in list(_push_load()['subs'].values()):
+        w = next((x for x in entry['watch'] if mint in (x.get('mint'), x.get('pairAddress'))), None)
+        if w:
+            await asyncio.to_thread(_send_push, entry['subscription'], f"🎯 {w.get('symbol') or mint[:4]}: snipers are out",
+                                    'Every flagged sniper/bundler has sold. Tap to buy.', f"/terminal/chat?chain=solana&pair={w['pairAddress']}&room=bulls&buy=1", f'snipers-{mint}')
 
 
 @app.on_event('startup')
@@ -6343,6 +6391,10 @@ LATENCY_PROBES = [
 @app.get('/api/reputation/admin/latency')
 async def admin_latency(request: Request):
     _require_admin(request)
+    return await _probe_latency()
+
+
+async def _probe_latency():
     out = []
     async with httpx.AsyncClient(timeout=8) as http:
         for name, role, env, url in LATENCY_PROBES:
@@ -6364,6 +6416,37 @@ async def admin_latency(request: Request):
             out.append({'name': name, 'role': role, 'env': env, 'ok': ok, 'ms': round((time.time() - t0) * 1000), 'note': note})
     return {'providers': out, 'chartOrder': ['Jupiter chart data', 'Codex', 'Alchemy', 'Helius swaps', 'FEELESS-recorded ticks'],
             'checkedAt': time.time()}
+
+
+_latency_bad = {}
+
+
+async def _latency_alarm():
+    # Any provider down or >1.5s for 5 straight minutes gets posted to the admin Updates room, once per outage.
+    while True:
+        await asyncio.sleep(60)
+        try:
+            rows = (await _probe_latency())['providers']
+            for r in rows:
+                bad = r['note'] != 'not configured' and (not r['ok'] or r['ms'] > 1500)
+                st = _latency_bad.get(r['name'])
+                if not bad:
+                    if st and st.get('posted'):
+                        chat_system_post('feeless-updates', 'FEELESS status', 'system', f"✅ {r['name']} recovered ({r['ms']} ms).")
+                    _latency_bad.pop(r['name'], None)
+                    continue
+                st = _latency_bad.setdefault(r['name'], {'since': time.time()})
+                if not st.get('posted') and time.time() - st['since'] >= 300:
+                    st['posted'] = True
+                    why = r['note'] or 'down' if not r['ok'] else f"{r['ms']} ms"
+                    chat_system_post('feeless-updates', 'FEELESS status', 'system', f"⚠️ {r['name']} ({r['role']}) degraded for 5+ min: {why}. Fallbacks are serving; we're on it.")
+        except Exception as exc:
+            print('latency alarm error', exc)
+
+
+@app.on_event('startup')
+async def _start_latency_alarm():
+    asyncio.create_task(_latency_alarm())
 
 
 # ---- Circle developer-controlled wallets (creator/owner only) -------------------------------------
