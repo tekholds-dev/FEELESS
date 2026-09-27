@@ -49,6 +49,18 @@ function UploadButton({ label, shape, onDone }) {
   return <label className="wp-upload"><input type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" onChange={async e => { const f = e.target.files?.[0]; if (!f) return; setBusy(true); e.target.value = ''; try { const url = await uploadImage(f, shape); if (url) onDone(url); } catch (err) { toast.error(err.message); } finally { setBusy(false); } }} /><ImageIcon size={12} />{busy ? 'Uploading…' : label}</label>;
 }
 
+// FEEd: the community's social feed, by category — post, reply and react like a timeline.
+const FEED_CATS = [['feed-general', '🌐 Everything'], ['feed-alpha', '📈 Alpha & calls'], ['feed-memes', '😂 Memes'], ['feed-launches', '🚀 Launches'], ['feed-help', '🛟 Help'], ['feeless-updates', '📣 FEELESS updates']];
+function FeedPanel({ onConnect }) {
+  const [cat, setCat] = useState(() => { try { return localStorage.getItem('feeless:feed-cat') || 'feed-general'; } catch { return 'feed-general'; } });
+  const pick = v => { setCat(v); try { localStorage.setItem('feeless:feed-cat', v); } catch { /* private */ } };
+  const label = FEED_CATS.find(c => c[0] === cat)?.[1] || 'FEEd';
+  return <section className="wp-card feed-panel" data-testid="profile-feed">
+    <header><h3>FEEd</h3><select value={cat} onChange={e => pick(e.target.value)} aria-label="FEEd category">{FEED_CATS.map(([id, l]) => <option key={id} value={id}>{l}</option>)}</select></header>
+    <EcosystemChat key={cat} compact room={cat} ecosystem={{ id: cat, name: label }} onConnect={onConnect} />
+  </section>;
+}
+
 export function WalletProfilePage({ address }) {
   const { wallet, signMessage, connect } = useWallet() || {};
   const navigate = useNavigate();
@@ -136,10 +148,11 @@ export function WalletProfilePage({ address }) {
     {mine && <AlphaRoomsCard />}
     <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />
     {!flipped && <PortfolioCard address={address} />}
-    {flipped && <nav className="wp-act-tabs" data-testid="activity-tabs">{[mine && ['swap', 'Swap'], mine && poolPerk && ['builder', '🏗 Pool builder'], ['holdings', 'Holdings'], ['history', 'Swap history'], ['posts', 'Posts'], ['rewards', 'Rewards'], ['vault', 'Vault']].filter(Boolean).map(([k, l]) => <button key={k} type="button" className={actTab === k ? 'active' : ''} onClick={() => setActTab(k)}>{l}</button>)}</nav>}
+    {flipped && <nav className="wp-act-tabs" data-testid="activity-tabs">{[mine && ['swap', 'Swap'], mine && poolPerk && ['builder', '🏗 Pool builder'], ['holdings', 'Holdings'], ['history', 'Swap history'], ['feed', 'FEEd'], ['posts', 'Posts'], ['rewards', 'Rewards'], ['vault', 'Vault']].filter(Boolean).map(([k, l]) => <button key={k} type="button" className={actTab === k ? 'active' : ''} onClick={() => setActTab(k)}>{l}</button>)}</nav>}
     {flipped && actTab === 'swap' && mine && <section className="wp-card profile-swap" data-testid="profile-swap"><ProfileSwapBox pair={swapPair} /><small className="wp-bio">Signed in your own wallet — FEELESS never holds funds. Trades into $FEE coins carry no FEELESS fee.</small></section>}
     {flipped && actTab === 'holdings' && <PortfolioCard address={address} onSwap={mine ? pr => { setSwapPair(pr); setActTab('swap'); } : undefined} />}
     {flipped && actTab === 'history' && <><WalletSwaps address={address} title="Swap history" /><PnlTracker address={address} /></>}
+    {flipped && actTab === 'feed' && <FeedPanel onConnect={() => connect?.('solana')} />}
     {flipped && actTab === 'posts' && <section className="wp-card wp-activity" data-testid="profile-activity"><h3>Activity</h3>{!acts ? <p className="wp-bio">Loading…</p> : !acts.posts.length ? <p className="wp-bio">No posts yet.</p> : <div className="wpa-list">{acts.posts.map(a => <a key={a.id} className="wpa-row" href={a.room.startsWith('coin-') ? `/terminal/chat` : a.room.startsWith('wall-') ? `/terminal/profile/${a.room.slice(5)}` : '/terminal/chat'} target="_blank" rel="noopener noreferrer"><span className="wpa-room">{a.room.startsWith('wall-') ? '🧱 wall' : a.room.startsWith('coin-') ? `🪙 ${a.room.split('-').pop()}` : `# ${a.room}`}</span><p>{a.text}</p><time>{new Date(a.ts).toLocaleString()}</time></a>)}</div>}</section>}
     {flipped && actTab === 'rewards' && <><RewardsCard address={address} mine={mine} />{mine && <PointsShop address={address} />}</>}
     {flipped && actTab === 'vault' && <SeasonVault address={address} />}

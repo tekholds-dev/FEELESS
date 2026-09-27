@@ -3429,3 +3429,6 @@ body.theme-day .swap-order{background:linear-gradient(160deg,#ffffff,#f3fbf7)!im
 .lat-row span,.lat-row small{color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lat-row em{font:700 12px 'JetBrains Mono',monospace;font-style:normal;text-align:right}
 @media (max-width:700px){.lat-row{grid-template-columns:10px 1fr auto}.lat-row span,.lat-row small{display:none}}
 .cc-bug .sev{font-style:normal;font-size:11px;font-weight:700}.cc-bug .sev-0{color:#ff5d73}.cc-bug .sev-1{color:#f5a742}.cc-bug .sev-2{color:#5ec8ff}
+.feed-panel header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.feed-panel h3{margin:0}
+.feed-panel select{max-width:220px}
+.feed-panel .chat-message{border-bottom:1px solid #ffffff0d;padding:10px 4px}
