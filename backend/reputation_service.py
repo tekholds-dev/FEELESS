@@ -1145,6 +1145,7 @@ class FeelessLaunchPayload(BaseModel):
     mint: str
     symbol: Optional[str] = None
     signature: Optional[str] = None
+    rail: Optional[str] = None  # 'feeless' (Meteora DBC config) or 'pump'
 
 
 @app.post('/api/reputation/feeless-launch')
@@ -1160,7 +1161,8 @@ async def register_feeless_launch(payload: FeelessLaunchPayload):
         store = _load()
         store.setdefault('feelessLaunches', {})[payload.mint] = {
             'chain': payload.chain, 'wallet': payload.wallet, 'mint': payload.mint, 'symbol': payload.symbol,
-            'signature': payload.signature, 'at': time.time(),
+            'signature': payload.signature, 'at': time.time(), 'rail': payload.rail if payload.rail in ('feeless', 'pump') else 'feeless',
+            'config': _json_load(LAUNCH_RAIL_PATH, {}).get('config') if payload.rail != 'pump' else None,
         }
         ckey = _creator_key(payload.chain, payload.wallet)
         entry = store['creators'].setdefault(ckey, {'chain': payload.chain, 'address': payload.wallet, 'firstSeen': time.time(), 'lastSeen': time.time(), 'tokens': {}})
@@ -4536,7 +4538,7 @@ async def trust_batch(addresses: str = Query('', max_length=2400)):
         a = primary_of(raw.strip())
         hit = _trust_cache.get(a)
         if hit:
-            r = hit[1]; out[raw] = {'score': r.get('score'), 'level': r.get('level'), 'blocked': any('Blocklisted' in p['label'] for p in r.get('parts', []))}
+            r = hit[1]; out[raw] = {'score': r.get('score'), 'level': r.get('level'), 'blocked': any('Blocklisted' in p['label'] for p in r.get('parts', [])), 'gold': _gold_creator(a)}
         if (not hit or time.time() - hit[0] > 600) and a not in _trust_pending and len(_trust_pending) < 8:
             _trust_pending.add(a); asyncio.create_task(_trust_fill(a))
     return {'trust': out}
@@ -5974,15 +5976,15 @@ class TokenMetaIn(BaseModel):
 
 
 @app.post('/api/reputation/token-meta')
-async def token_meta_create(p: TokenMetaIn):
+async def token_meta_create(p: TokenMetaIn, request: Request):
     """Hosts the Metaplex metadata JSON a new coin's `uri` points to (name, image, links)."""
     _session_or_401(p.address, p.session)
     name, symbol = p.name.strip()[:32], p.symbol.strip().upper()[:10]
     if not name or not _re.match(r'^[A-Z0-9$]{1,10}$', symbol):
         raise HTTPException(400, 'Name and a 1–10 character ticker are required.')
-    site = os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/')
-    if not site:
-        raise HTTPException(503, 'PUBLIC_SITE_URL is not set, so wallets and explorers could not load the coin metadata.')
+    site = os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/') or (request.headers.get('origin') or '').rstrip('/')
+    if not site.startswith('http'):
+        raise HTTPException(503, 'Set PUBLIC_SITE_URL so wallets can load the coin name and image.')
     img = p.image.strip()
     if img.startswith('/api/reputation/uploads/'):
         img = site + img
@@ -5993,7 +5995,9 @@ async def token_meta_create(p: TokenMetaIn):
     TOKEN_META_DIR.mkdir(parents=True, exist_ok=True)
     mid = uuid.uuid4().hex
     (TOKEN_META_DIR / f'{mid}.json').write_text(json.dumps(meta))
-    return {'uri': f'{site}/api/reputation/token-meta/{mid}.json'}
+    local = any(h in site for h in ('localhost', '127.0.0.1'))
+    return {'uri': f'{site}/api/reputation/token-meta/{mid}.json',
+            'warning': 'Local address: the coin works, but wallets and explorers cannot load its name/image until PUBLIC_SITE_URL is a public domain.' if local else None}
 
 
 @app.get('/api/reputation/token-meta/{name}')
@@ -6028,3 +6032,147 @@ async def rpc_relay(request: Request):
         r = await http.post(endpoint, json=body)
     from fastapi.responses import Response
     return Response(r.content, status_code=r.status_code, media_type='application/json')
+
+
+
+# ---- Pump.fun launches (via PumpPortal's local-transaction API) --------------------------------
+# PumpPortal only BUILDS the create transaction for the creator's public key; the browser adds the
+# new mint's signature and the creator's wallet signs. No PumpPortal key, no custody.
+class PumpCreateIn(BaseModel):
+    address: str
+    session: str
+    mint: str
+    name: str
+    symbol: str
+    description: str = ''
+    image: str
+    website: str = ''
+    twitter: str = ''
+    telegram: str = ''
+    devBuySol: float = 0
+
+
+@app.post('/api/reputation/pump/create-tx')
+async def pump_create_tx(p: PumpCreateIn):
+    me = _session_or_401(p.address, p.session)
+    if not (_re.match(_B58, p.mint) and _re.match(_B58, p.address)):
+        raise HTTPException(400, 'Bad address.')
+    if not (0 <= p.devBuySol <= 50):
+        raise HTTPException(400, 'Dev buy must be between 0 and 50 SOL.')
+    m = _re.match(r'^/api/reputation/uploads/([a-f0-9]{32}\.(png|jpg|webp|gif))$', p.image.strip())
+    if not m or not (UPLOAD_DIR / m.group(1)).exists():
+        raise HTTPException(400, 'Upload the coin image first.')
+    img = (UPLOAD_DIR / m.group(1)).read_bytes()
+    mime = {'png': 'image/png', 'jpg': 'image/jpeg', 'webp': 'image/webp', 'gif': 'image/gif'}[m.group(2)]
+    form = {'name': p.name.strip()[:32], 'symbol': p.symbol.strip().upper()[:10], 'description': p.description.strip()[:600], 'showName': 'true'}
+    for k in ('website', 'twitter', 'telegram'):
+        v = getattr(p, k).strip()
+        if v.startswith('https://'):
+            form[k] = v[:200]
+    async with httpx.AsyncClient(timeout=30, headers={'User-Agent': 'Mozilla/5.0'}) as http:
+        r = await http.post('https://pump.fun/api/ipfs', data=form, files={'file': (m.group(1), img, mime)})
+        if r.status_code != 200:
+            raise HTTPException(502, 'Pump.fun metadata upload failed — try again.')
+        uri = (r.json() or {}).get('metadataUri')
+        t = await http.post('https://pumpportal.fun/api/trade-local', json={'publicKey': me, 'action': 'create', 'tokenMetadata': {'name': form['name'], 'symbol': form['symbol'], 'uri': uri},
+                                                                           'mint': p.mint, 'denominatedInSol': 'true', 'amount': p.devBuySol, 'slippage': 10, 'priorityFee': 0.0005, 'pool': 'pump'})
+    if t.status_code != 200:
+        raise HTTPException(502, f'Pump.fun could not build the launch ({t.text[:120]}).')
+    import base64 as _b64
+    return {'tx': _b64.b64encode(t.content).decode(), 'uri': uri}
+
+
+
+def _gold_creator(a):
+    """Creator streak: 3+ launches, none dumped or rugged, scored Trusted. Earns the gold R."""
+    entry = _load()['creators'].get(_creator_key('solana', a))
+    if not entry:
+        return False
+    sc = score_creator(entry)
+    return sc.get('badge') == 'trusted' and sc.get('tokenCount', 0) >= 3 and not (sc.get('dumpedCount', 0) + sc.get('ruggedCount', 0))
+
+
+# ---- Launch radar: every coin launched through FEELESS, newest first, with its evidence ----------
+@app.get('/api/reputation/launch-radar')
+async def launch_radar(limit: int = Query(30, ge=1, le=100)):
+    launches = sorted((_load().get('feelessLaunches') or {}).values(), key=lambda l: -(l.get('at') or 0))[:limit]
+    shields = _json_load(SHIELD_PATH, {})
+    rows, queued = [], 0
+    for l in launches:
+        hit = _intel_cache.get(l['mint'])
+        intel = hit[1] if hit else None
+        if not hit and queued < 3:
+            queued += 1; asyncio.create_task(_quiet(token_intel('solana', l['mint'])))
+        w = primary_of(l['wallet'])
+        t = _trust_cache.get(w)
+        if not t and w not in _trust_pending and len(_trust_pending) < 8:
+            _trust_pending.add(w); asyncio.create_task(_trust_fill(w))
+        sh = shields.get(l['mint'])
+        rows.append({'mint': l['mint'], 'symbol': l.get('symbol'), 'creator': w, 'rail': l.get('rail') or 'feeless', 'config': l.get('config'), 'at': l.get('at'),
+                     'snipers': None if not intel else len(intel.get('sniperWallets') or []) + len(intel.get('bundledWallets') or []),
+                     'shield': None if not sh else ('broken' if sh.get('broken') else 'active'),
+                     'rep': None if not t else {'score': t[1].get('score'), 'level': t[1].get('level')}, 'gold': _gold_creator(w)})
+    return {'launches': rows}
+
+
+async def _quiet(coro):
+    try:
+        await coro
+    except Exception:
+        pass
+
+
+# ---- Rug-proof check: mint can't inflate, can't freeze, liquidity can't be pulled -------------------
+POOLS_REG_PATH = DATA_DIR / 'pools_registry.json'
+_rugproof_cache: dict = {}
+
+
+@app.get('/api/reputation/rugproof/{mint}')
+async def rugproof(mint: str):
+    if not _re.match(_B58, mint):
+        raise HTTPException(400, 'Solana mint required.')
+    hit = _rugproof_cache.get(mint)
+    if hit and time.time() - hit[0] < 600:
+        return hit[1]
+    async with httpx.AsyncClient(timeout=10) as http:
+        info = await _rpc(http, 'getAccountInfo', [mint, {'encoding': 'jsonParsed'}])
+    parsed = ((((info or {}).get('value') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
+    if not parsed:
+        raise HTTPException(404, 'Not a token mint.')
+    launch = (_load().get('feelessLaunches') or {}).get(mint) or {}
+    rail = _json_load(LAUNCH_RAIL_PATH, {})
+    reg = [p for p in _json_load(POOLS_REG_PATH, {'pools': []})['pools'] if p['mint'] == mint]
+    if any(p.get('locked') for p in reg):
+        lp = {'ok': True, 'how': 'FEELESS pool with liquidity permanently locked'}
+    elif launch.get('rail') == 'feeless' and launch.get('config') == rail.get('config') and float((rail.get('params') or {}).get('lockedLpPct', 100)) >= 100:
+        lp = {'ok': True, 'how': 'FEELESS rail locks 100% of graduated liquidity forever'}
+    else:
+        lp = {'ok': False, 'how': 'No verified permanent liquidity lock known to FEELESS'}
+    out = {'mint': mint, 'mintRevoked': not parsed.get('mintAuthority'), 'freezeRevoked': not parsed.get('freezeAuthority'), 'lpLocked': lp}
+    out['rugProof'] = out['mintRevoked'] and out['freezeRevoked'] and lp['ok']
+    _rugproof_cache[mint] = (time.time(), out)
+    return out
+
+
+class PoolRegIn(BaseModel):
+    pool: str
+    mint: str
+    signature: str
+    locked: bool = True
+
+
+@app.post('/api/reputation/admin/pools/register')
+async def pools_register(request: Request, p: PoolRegIn):
+    """Record a pool created from the command center. Verified on-chain: succeeded, signed by this admin."""
+    admin = _require_admin(request)
+    async with httpx.AsyncClient(timeout=20) as http:
+        tx = await _rpc(http, 'getTransaction', [p.signature, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}])
+    if not tx or (tx.get('meta') or {}).get('err'):
+        raise HTTPException(409, 'Transaction not confirmed yet.')
+    keys = tx['transaction']['message']['accountKeys']
+    if admin not in [k['pubkey'] for k in keys if k.get('signer')] or p.pool not in [k['pubkey'] for k in keys]:
+        raise HTTPException(400, 'That transaction did not create this pool from your wallet.')
+    d = _json_load(POOLS_REG_PATH, {'pools': []})
+    d['pools'] = [x for x in d['pools'] if x['pool'] != p.pool] + [{'pool': p.pool, 'mint': p.mint, 'locked': p.locked, 'signature': p.signature, 'by': admin, 'at': time.time()}]
+    _json_save(POOLS_REG_PATH, d); _rugproof_cache.pop(p.mint, None)
+    return {'ok': True}

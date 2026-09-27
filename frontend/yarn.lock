@@ -3091,7 +3091,7 @@
   dependencies:
     "@solana/codecs" "2.0.0-rc.1"
 
-"@solana/spl-token@^0.4.13", "@solana/spl-token@^0.4.8":
+"@solana/spl-token@0.4.15", "@solana/spl-token@^0.4.13", "@solana/spl-token@^0.4.8":
   version "0.4.15"
   resolved "https://registry.yarnpkg.com/@solana/spl-token/-/spl-token-0.4.15.tgz#d9e9ca30a15d4b73579f9423d4422e0baa77721f"
   integrity sha512-3Lof3mNov8NVQ3PalIWb1Jgr/TZ6lYM+/sexv2TLqdhNFVth2OfWmH3d7QucgMjSbokkjNiNlRr6I8Fd269uaw==

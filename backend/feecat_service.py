@@ -227,8 +227,19 @@ def _tune_entries(store):
         mode = 'warming'
     else:
         wins = [e for e in day if e['pnlSol'] > 0]; wr = len(wins) / len(day); net = sum(e['pnlSol'] for e in day)
-        if wr < 0.4:
-            mode = 'tightening'
+        # Last time she opened anything: open positions, or the most recent exit.
+        last_open = max([p.get('openedAt', 0) for p in cat.get('positions', [])] + [e['exitAt'] for e in cat.get('exits', [])] + [0])
+        if not cat.get('positions') and time.time() - last_open > 3 * 3600:
+            # Drought: rules tightened so far nothing qualifies. Ease halfway back to defaults —
+            # safety checks (liquidity pull, dev dump, blocklist) are untouched.
+            mode = 'drought-relax'
+            for k in ENTRY_BOUNDS:
+                E[k] = round(E[k] + (RULES[k] - E[k]) * 0.5)
+            note = f"No entries for {int((time.time() - last_open) / 3600)}h — easing entry rules halfway back to defaults."
+        elif wr < 0.4 and time.time() - (L.get('tightenedAt') or 0) < 6 * 3600:
+            mode = 'holding'  # tighten at most once per 6h; the same bad day must not compound every hour
+        elif wr < 0.4:
+            mode = 'tightening'; L['tightenedAt'] = time.time()
             E['minLiquidity'] = round(E['minLiquidity'] * 1.15)
             E['maxM5Chase'] -= 1; E['maxSnipers'] -= 2; E['maxTop10Pct'] -= 3
             note = f"24h win rate {wr:.0%} over {len(day)} trades — tightening entries."

@@ -1,3 +1,4 @@
+import { useWallet } from '../../hooks/useWallet';
 import { PoolCreator } from './PoolCreator';
 import { LaunchRailAdmin } from './LaunchRailAdmin';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -8,7 +9,7 @@ import { shortAddress, formatUSD } from '../../lib/dexscreener';
 import { AirdropStudio, Snapshots } from './AirdropStudio';
 import { NumbersPanel } from './NumbersPanel';
 import { SeasonEditor } from '../SeasonEditor';
-import { DEXES, COIN_MAKERS, LAUNCH_STEPS } from '../../lib/venues';
+import { DEXES } from '../../lib/venues';
 
 const SESSION_KEY = 'feeless:cc-session';
 const readSession = addr => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.address === addr && Date.now() / 1000 - s.ts < 86000 ? s : null; } catch { return null; } };
@@ -139,18 +140,45 @@ function Overview({ sec, reload }) {
 
 function Airdrops({ drops, call, reload }) {
   const [sigs, setSigs] = useState({});
+  const { wallet, provider, connect } = useWallet() || {};
+  const [sending, setSending] = useState({});
+  const [top3, setTop3] = useState({ amount: '', asset: 'fee' });
+  // Send the whole drop from the connected wallet, then record every signature (server re-verifies each).
+  const sendNow = async d => {
+    try {
+      if (!wallet?.address || wallet.chain !== 'solana' || !provider?.signTransaction) { await connect?.('solana'); return; }
+      const assets = (await (await fetch('/api/market/assets')).json()).assets || [];
+      const mint = d.asset === 'sol' ? null : assets.find(a => a.id === d.asset)?.mint;
+      if (d.asset !== 'sol' && !mint) throw new Error(`No mint known for ${d.asset.toUpperCase()}.`);
+      const { batchSend } = await import('../../lib/batchSend');
+      const txs = await batchSend({ provider, owner: wallet.address, mint, recipients: d.recipients, onStatus: m => setSending(x => ({ ...x, [d.id]: m })) });
+      for (const sig of txs) await call(`/admin/airdrops/${d.id}`, { method: 'POST', body: JSON.stringify({ status: 'sent', txSig: sig }) });
+      toast.success(`Sent in ${txs.length} transaction${txs.length > 1 ? 's' : ''} — receipts recorded.`); reload();
+    } catch (e) { toast.error(e.message || 'Send failed'); } finally { setSending(x => ({ ...x, [d.id]: '' })); }
+  };
+  // Season reward: draft a drop to the current top 3 (review, then send from your wallet).
+  const draftTop3 = async () => {
+    try {
+      const amt = Number(top3.amount); if (!(amt > 0)) throw new Error('Enter an amount per winner.');
+      const top = ((await (await fetch('/api/reputation/season')).json()).top || []).slice(0, 3).filter(r => !r.address.startsWith('0x'));
+      if (!top.length) throw new Error('No season players yet.');
+      await call('/admin/airdrops', { method: 'POST', body: JSON.stringify({ name: `Season top ${top.length} reward`, asset: top3.asset, recipients: top.map(r => ({ address: r.address, amount: amt })), scheduledAt: Date.now() / 1000, note: 'Season leaderboard reward' }) });
+      toast.success('Drafted — review below, then Send from wallet.'); reload();
+    } catch (e) { toast.error(e.message); }
+  };
   const mark = async (d, status) => {
     try { await call(`/admin/airdrops/${d.id}`, { method: 'POST', body: JSON.stringify({ status, txSig: sigs[d.id]?.trim() || null }) }); toast.success(status === 'sent' ? 'Verified on-chain — recipients got the 🪂 badge.' : `Marked ${status}.`); reload(); }
     catch (e) { toast.error(e.message); }
   };
   return <section className="cc-panel">
-    <p className="cc-note">FEELESS never holds your keys. Schedule here, send from your wallet (CSV works with any multisender), then paste the transaction signature — it's checked on-chain and the receipt is kept.</p>
+    <p className="cc-note">FEELESS never holds your keys. <b>Send from wallet</b> packs the transfers into a few transactions, dry-runs them, and your wallet approves them in one prompt; every signature is verified on-chain and kept as a receipt. You can still send elsewhere and paste the signature.</p>
+    <div className="cc-block cc-top3"><h4>Season top-3 reward / holder fee-share</h4><div className="cc-toolbar"><input inputMode="decimal" placeholder="Amount per winner" value={top3.amount} onChange={e => setTop3(t => ({ ...t, amount: e.target.value.replace(/[^0-9.]/g, '') }))} /><select value={top3.asset} onChange={e => setTop3(t => ({ ...t, asset: e.target.value }))}>{['fee', 'sol', 'feecat', 'rfee'].map(a => <option key={a} value={a}>{a.toUpperCase()}</option>)}</select><button type="button" className="btn-primary" onClick={draftTop3}>Draft top-3 drop</button></div><small className="cc-empty">For a holder fee-share, pick holders on the Holders tab and schedule with SOL — then Send from wallet here.</small></div>
     {!drops.length ? <p className="cc-empty">No airdrops yet. Select holders on the Holders tab to schedule one.</p> : drops.map(d => { const due = d.scheduledAt * 1000 <= Date.now() && d.status === 'scheduled';
       return <div key={d.id} className={`cc-drop s-${d.status} ${due ? 'due' : ''}`}>
         <div className="cc-drop-top"><b>🪂 {d.name}</b><em>{due ? 'DUE NOW' : d.status}</em><small>{new Date(d.scheduledAt * 1000).toLocaleString()} · {d.recipients.length} wallets · {d.total.toLocaleString(undefined, { maximumFractionDigits: 4 })} {d.asset.toUpperCase()}</small></div>
         <div className="cc-drop-actions">
           <button type="button" onClick={() => download(`${d.name}.csv`, csv([['address', 'amount'], ...d.recipients.map(r => [r.address, r.amount])]))}><Download size={13} />CSV</button>
-          {d.status === 'scheduled' && <><input placeholder="Paste tx signature after sending" value={sigs[d.id] || ''} onChange={e => setSigs(s => ({ ...s, [d.id]: e.target.value }))} /><button type="button" className="btn-primary" onClick={() => mark(d, 'sent')}>Verify & mark sent</button><button type="button" onClick={() => mark(d, 'cancelled')}>Cancel</button></>}
+          {d.status === 'scheduled' && <button type="button" className="btn-primary" disabled={!!sending[d.id]} onClick={() => sendNow(d)}>{sending[d.id] || 'Send from wallet'}</button>}{d.status === 'scheduled' && <><input placeholder="Paste tx signature after sending" value={sigs[d.id] || ''} onChange={e => setSigs(s => ({ ...s, [d.id]: e.target.value }))} /><button type="button" className="btn-primary" onClick={() => mark(d, 'sent')}>Verify & mark sent</button><button type="button" onClick={() => mark(d, 'cancelled')}>Cancel</button></>}
           {d.txs?.map(t => <a key={t.sig} href={`https://solscan.io/tx/${t.sig}`} target="_blank" rel="noopener noreferrer">receipt {t.sig.slice(0, 8)}…</a>)}
         </div>
       </div>; })}
@@ -377,12 +405,9 @@ function PoolsPanel({ call }) {
   const copy = v => navigator.clipboard?.writeText(v).then(() => toast.success('Copied'));
   const verify = async () => { setFound(null); try { const d = await (await fetch(`https://api.dexscreener.com/latest/dex/pairs/solana/${check.trim()}`)).json(); setFound(d.pairs?.[0] || false); } catch { setFound(false); } };
   return <section className="cc-panel">
-    <PoolCreator defaultMint={mint || ''} />
     <div className="cc-toolbar"><select value={asset} onChange={e => setAsset(e.target.value)}>{Object.keys(mints).map(k => <option key={k} value={k}>{k.toUpperCase()}</option>)}</select>{mint && <><code className="pool-mint">{mint}</code><button type="button" onClick={() => copy(mint)}>Copy mint</button><button type="button" onClick={() => copy('So11111111111111111111111111111111111111112')}>Copy SOL mint</button></>}</div>
-    <ol className="launch-steps">{LAUNCH_STEPS.map((t, i) => <li key={t}><b>{i + 1}</b><span>{t}</span></li>)}</ol>
-    <h4 className="cc-sub">Coin maker</h4>
-    <div className="cc-studio-grid">{COIN_MAKERS.map(m => <div key={m.name} className="cc-block"><h4>{m.name} <small className="chain-tag">{m.chain}</small></h4><small className="cc-empty">{m.note}</small><a className="btn-primary" href={m.url} target="_blank" rel="noopener noreferrer">Create coin ↗</a></div>)}</div>
-    <h4 className="cc-sub">Liquidity pool builder</h4>
+    <PoolCreator defaultMint={mint || ''} call={call} />
+    <h4 className="cc-sub">Other DEXes (external, their own pool pages)</h4>
     <div className="cc-studio-grid">{DEXES.map(x => <div key={x.id} className="cc-block"><h4>{x.name}</h4><small className="cc-empty">{x.note}</small><a className="btn-primary" href={x.url} target="_blank" rel="noopener noreferrer">Create on {x.name.split(' ')[0]} ↗</a></div>)}</div>
     <div className="cc-block"><h4>Verify a new pool</h4><div className="cc-toolbar"><input placeholder="Paste the new pool / pair address" value={check} onChange={e => setCheck(e.target.value)} /><button type="button" className="btn-primary" onClick={verify}>Verify</button></div>
       {found === false && <small className="cc-empty">Not indexed yet — DexScreener usually picks up new pools within a few minutes.</small>}

@@ -117,7 +117,7 @@ export function WalletProfilePage({ address }) {
       <div className="wp-id">
         {edit ? <input className="wp-name-input" maxLength={32} placeholder="Display name" value={draft.displayName} onChange={e => set('displayName', e.target.value)} /> : <><h1 className={`namefx-${p.nameFx || 'none'}`}>{p.displayName || shortAddress(address)}{data?.verified && <VerifiedMark />}</h1><RepMark address={address} /></>}
         {edit ? <input className="wp-handle-input" maxLength={21} placeholder="@handle (3–20: a-z 0-9 _)" value={draft.handle ? `@${draft.handle}` : ''} onChange={e => set('handle', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))} /> : <span className="wp-handle">@{p.handle || address.slice(0, 6).toLowerCase()}</span>}
-        <code>{shortAddress(address)}</code><CopyBtn value={address} />
+        <span className="wp-addr"><code>{shortAddress(address)}</code><CopyBtn value={address} /></span>
         <Badges address={address} featured={p.featuredBadges} />
         <SocialStrip address={address} mine={mine} />
         <OnchainStrip address={address} />

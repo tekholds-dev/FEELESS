@@ -18,7 +18,7 @@ export async function inspectPool(mint) {
   if (parsed?.type !== 'mint') throw new Error('That address is not a token mint.');
   const pool = amm.deriveCustomizablePoolAddress(a, new web3.PublicKey(SOL));
   const exists = Boolean((await connection.getAccountInfo(pool))?.data);
-  return { decimals: parsed.info.decimals, program: info.value.owner.toBase58(), freeze: Boolean(parsed.info.freezeAuthority), pool: pool.toBase58(), exists };
+  return { decimals: parsed.info.decimals, supply: Number(parsed.info.supply) / 10 ** parsed.info.decimals, program: info.value.owner.toBase58(), freeze: Boolean(parsed.info.freezeAuthority), pool: pool.toBase58(), exists };
 }
 
 export async function createSolPool({ provider, owner, mint, tokenAmount, solAmount, feeBps, launchFeeBps, launchMinutes, lock, onStatus }) {

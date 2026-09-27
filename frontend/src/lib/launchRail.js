@@ -36,11 +36,12 @@ export function curveFor(dbc, p = RAIL_DEFAULTS) {
 
 export async function signSend(web3, connection, provider, tx, payer, extraSigners, onStatus) {
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-  tx.feePayer = payer; tx.recentBlockhash = blockhash;
+  const versioned = tx instanceof web3.VersionedTransaction;
+  if (versioned) tx.message.recentBlockhash = blockhash; else { tx.feePayer = payer; tx.recentBlockhash = blockhash; }
   // Dry-run first: nothing is signed if the chain would reject it.
-  const sim = await connection.simulateTransaction(new web3.VersionedTransaction(tx.compileMessage()), { sigVerify: false });
+  const sim = await connection.simulateTransaction(versioned ? tx : new web3.VersionedTransaction(tx.compileMessage()), { sigVerify: false });
   if (sim.value.err) throw new Error(`Simulation failed: ${JSON.stringify(sim.value.err)} ${(sim.value.logs || []).slice(-2).join(' ')}`);
-  extraSigners.forEach(k => tx.partialSign(k));
+  if (versioned) tx.sign(extraSigners); else extraSigners.forEach(k => tx.partialSign(k));
   onStatus?.('Approve in your wallet…');
   const signed = await provider.signTransaction(tx);
   const sig = await connection.sendRawTransaction(signed.serialize(), { skipPreflight: true, maxRetries: 3 });
@@ -82,4 +83,19 @@ export async function launchCoin({ provider, creator, config, name, symbol, uri,
 export async function fetchLaunchRail() {
   const r = await fetch(apiUrl('/api/reputation/launch-rail'));
   return r.ok ? r.json() : { ready: false };
+}
+
+// Pump.fun launch: FEELESS's server asks PumpPortal to build the create tx for this wallet; the new
+// mint signs here and the creator's wallet signs last.
+export async function launchOnPump({ provider, creator, session, form, onStatus }) {
+  const { web3, connection } = await relayConnection();
+  const mint = web3.Keypair.generate();
+  onStatus?.('Uploading metadata to pump.fun…');
+  const r = await fetch(apiUrl('/api/reputation/pump/create-tx'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address: creator, session, mint: mint.publicKey.toBase58(), name: form.name, symbol: form.symbol, description: form.description, image: form.imageUrl, website: form.website, twitter: form.twitter, telegram: form.telegram, devBuySol: Number(form.devBuyAmount) || 0 }) });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.detail || 'Pump.fun launch could not be prepared.');
+  const tx = web3.VersionedTransaction.deserialize(Uint8Array.from(atob(body.tx), c => c.charCodeAt(0)));
+  const signature = await signSend(web3, connection, provider, tx, new web3.PublicKey(creator), [mint], onStatus);
+  return { mint: mint.publicKey.toBase58(), signature };
 }

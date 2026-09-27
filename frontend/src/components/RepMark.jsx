@@ -41,8 +41,8 @@ export function useRep(address) {
 export function RepMark({ address, compact }) {
   const rep = useRep(address);
   if (!rep || rep.score == null) return null;
-  const lvl = rep.blocked ? 'blocked' : rep.level;
-  return <span className={`rep-mark lvl-${lvl} ${compact ? 'compact' : ''}`} title={`Rep ${rep.score}/100 · ${rep.blocked ? 'blocklisted, full record kept' : rep.level}`}>
+  const lvl = rep.blocked ? 'blocked' : rep.gold ? 'gold' : rep.level;
+  return <span className={`rep-mark lvl-${lvl} ${compact ? 'compact' : ''}`} title={`Rep ${rep.score}/100 · ${rep.blocked ? 'blocklisted, full record kept' : rep.gold ? 'gold creator: 3+ launches, none dumped' : rep.level}`}>
     <svg viewBox="0 0 16 18" aria-hidden="true"><path d="M8 1 14.5 3.4v5.1c0 4-2.8 7-6.5 8.5C4.3 15.5 1.5 12.5 1.5 8.5V3.4Z" /><text x="8" y="12" textAnchor="middle">R</text></svg>
     <b>{rep.score}</b>
   </span>;

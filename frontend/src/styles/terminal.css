@@ -277,8 +277,8 @@ body.theme-day .globe-page .landing-copy h1,body.theme-day .globe-page .landing-
 .meta-launch-box-guide-grid p{font-size:8px;line-height:1.55;color:#648a70}
 .meta-launch-review-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;padding:20px 0;border-bottom:1px solid #203a2a}
 .meta-launch-review-cards>div{min-width:0;padding:13px;border:1px solid #294a35;border-radius:5px;background:#08150d}
-.meta-launch-review-cards span,.meta-launch-review-cards small{display:block;color:#769480;font-size:9px;line-height:1.5}
-.meta-launch-review-cards b{display:block;margin:8px 0 5px;color:#d7e9dd;font:14px 'JetBrains Mono',monospace;overflow-wrap:anywhere}
+.meta-launch-review-cards>div>span,.meta-launch-review-cards>div>small{display:block;color:#769480;font-size:10.5px;line-height:1.5}
+.meta-launch-review-cards b{display:block;margin:8px 0 5px;color:#d7e9dd;font:600 16px/1.2 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .meta-launch-review-cards small{color:#8eae99}
 
 @media(max-width:760px){
@@ -3276,3 +3276,72 @@ body.theme-day .crop-card{background:#fff;border-color:#cfe3d8}
 .rail-kv span{display:grid;gap:2px;padding:8px 10px;border-radius:10px;background:#ffffff08}.rail-kv small{font-size:10px;color:var(--muted)}.rail-kv b{font:700 14px 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
 .pool-creator .pool-lock{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr;gap:2px 8px;align-items:center}.pool-lock small{grid-column:2}
 .pool-creator .cc-sig{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px}
+
+/* Launch review: disabled deploy must look disabled; rail terms card */
+.meta-launch-review-actions .btn-primary:disabled{opacity:.45;filter:saturate(.4);cursor:not-allowed;box-shadow:none}
+.rail-terms{margin:14px 0 0;padding:14px;border:1px solid #2c5a3f;border-radius:10px;background:#0a1a11}
+.rail-terms h4{margin:0 0 8px;font-size:12px;letter-spacing:.6px;color:var(--mint)}
+.rail-terms ul{margin:0;padding-left:18px;display:grid;gap:4px;font-size:12.5px;color:#cfe3d6}
+.rail-terms p{margin:8px 0 0;font-size:11.5px;color:#8eae99}
+/* Command center forms: real fields, not flat grey bars */
+.rail-form input:not([type=checkbox]){width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--field-border,#ffffff1f);background:var(--field-bg,#0b1512);color:inherit;font:500 14px 'JetBrains Mono',monospace;outline:0;transition:border-color .15s,box-shadow .15s}
+.rail-form input:not([type=checkbox]):focus{border-color:var(--mint);box-shadow:0 0 0 3px #00e9a01f}
+.rail-form input::placeholder{color:#5f7a6a}
+.rail-form input[type=checkbox]{width:18px;height:18px;accent-color:var(--mint)}
+.pool-explain{margin:4px 0 12px;padding:10px 12px;border-radius:10px;background:#ffffff06;border:1px solid #ffffff12}
+.pool-explain summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--mint)}
+.pool-explain p,.pool-explain li{font-size:12.5px;line-height:1.5;color:#b9cfc2}.pool-explain ul{margin:6px 0 0;padding-left:18px;display:grid;gap:6px}
+.pool-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin:4px 0 12px}
+.pool-summary span{display:grid;gap:2px;padding:9px 11px;border-radius:10px;background:#00e9a00d;border:1px solid #00e9a02a}
+.pool-summary small{font-size:10px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase}.pool-summary b{font:700 14px 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
+body.theme-day .pool-explain p,body.theme-day .pool-explain li{color:#274a38}
+/* ---- Profile header, X/Facebook layout (keeps the MySpace themes, rings, crown, playlist) ----
+   Banner on top, avatar overlapping its bottom-left, actions top-right, identity stacked below. */
+.wallet-profile-page .wp-head{display:grid!important;grid-template-columns:auto 1fr auto;grid-template-areas:"av . act" "id id art";column-gap:18px;row-gap:10px;align-items:start;padding:0 clamp(14px,2.4vw,28px) 18px!important;margin-top:0!important;background:none!important;border:0!important}
+.wallet-profile-page .wp-avatar-wrap{grid-area:av!important;margin-top:calc(-1 * clamp(52px,6vw,74px));position:relative;z-index:2}
+.wallet-profile-page .wp-avatar{width:clamp(104px,12vw,148px)!important;height:clamp(104px,12vw,148px)!important;border:4px solid var(--ink,#050b08)!important;box-shadow:0 6px 24px #0008}
+.wallet-profile-page .wp-actions{grid-area:act!important;display:flex!important;flex-wrap:wrap;justify-content:flex-end;gap:8px;padding-top:12px;margin:0!important}
+.wallet-profile-page .wp-actions>*{margin:0!important}
+.wallet-profile-page .wp-id{grid-area:id!important;display:grid!important;grid-template-columns:auto auto 1fr;align-items:center;column-gap:10px;row-gap:6px;min-width:0}
+.wallet-profile-page .wp-id>h1{grid-column:1;margin:0!important;font-size:clamp(24px,3vw,32px)!important;line-height:1.1;display:flex;align-items:center;gap:6px}
+.wallet-profile-page .wp-id>.rep-mark{grid-column:2;justify-self:start}
+.wallet-profile-page .wp-id>.wp-handle{grid-column:1/-1;font-size:14px;color:var(--muted)!important;margin:-4px 0 0}
+.wallet-profile-page .wp-addr{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)}.wallet-profile-page .wp-addr code{background:none;padding:0;color:inherit}
+.wallet-profile-page .wp-id>.wp-mood{grid-column:1/-1;font-size:14.5px}
+.wallet-profile-page .wp-id>*:not(h1):not(.rep-mark){grid-column:1/-1}
+.wallet-profile-page .social-strip{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.wallet-profile-page .follow-counts{display:flex;gap:16px;font-size:14px}.wallet-profile-page .follow-counts b{font-weight:800;margin-right:3px}
+.wallet-profile-page .trust-ring{width:46px;height:46px}
+.wallet-profile-page .wp-art,.wallet-profile-page .badge-artifacts{grid-area:art!important;align-self:end;justify-self:end}
+/* On-chain stat chips: evenly aligned, tabular numbers */
+.wallet-profile-page .wp-onchain{display:flex;flex-wrap:wrap;gap:8px}
+.wallet-profile-page .wp-onchain>div,.wallet-profile-page .wp-onchain>span{min-width:92px;font-variant-numeric:tabular-nums}
+@media (max-width:720px){
+  .wallet-profile-page .wp-head{grid-template-columns:auto 1fr;grid-template-areas:"av act" "id id" "art art"}
+  .wallet-profile-page .wp-actions{justify-content:flex-end}
+  .wallet-profile-page .wp-actions .btn-outline,.wallet-profile-page .wp-actions .btn-primary{padding:8px 12px}
+}
+/* Rug radar on the Trenches landing: a slim strip, scrolls inside instead of growing the page */
+.radar.compact{padding:10px 14px;gap:6px;border-radius:14px}
+.radar.compact .mp-head h2{font-size:15px;margin:0}
+.radar.compact .radar-cols{gap:10px}
+.radar.compact .radar-cols>div{max-height:168px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.radar.compact .radar-ev{padding:4px 8px;font-size:11.5px;margin-bottom:3px}
+.radar.compact .wp-bio{margin:2px 0;font-size:11.5px}
+.rep-mark.lvl-gold{--rc:#f5c542;box-shadow:0 0 10px #f5c54255}
+/* Rug-proof badge */
+.rugproof{display:inline-flex;gap:4px;align-items:center;margin-left:10px;vertical-align:middle;font:700 10.5px/1 'JetBrains Mono',monospace}
+.rugproof.ok{padding:4px 9px;border-radius:999px;background:#00e9a01c;border:1px solid #00e9a066;color:var(--mint);box-shadow:0 0 12px #00e9a033}
+.rugproof i{font-style:normal;padding:3px 6px;border-radius:6px;background:#ffffff08}.rugproof i.y{color:var(--mint)}.rugproof i.n{color:#ff8a9a}
+/* Launch radar */
+.launch-radar{margin:14px 0;padding:12px 14px;border-radius:14px;border:1px solid #00e9a033;background:rgba(5,12,9,.85)}
+.launch-radar header{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.launch-radar h3{margin:0;font-size:15px}.launch-radar header small,.lr-empty{color:var(--muted);font-size:11.5px}
+.lr-list{display:grid;gap:4px;margin-top:8px;max-height:260px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.lr-row{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:9px;border:1px solid #ffffff0d;color:inherit;text-decoration:none;font-size:12px;flex-wrap:wrap}
+.lr-row:hover{background:#ffffff08}.lr-row>small{margin-left:auto;color:var(--muted)}
+.lr-rail{font-size:9.5px;padding:2px 6px;border-radius:999px;background:#00e9a01a;color:var(--mint)}.lr-rail.pump{background:#7df9d01a;color:#7df9d0}
+.lr-chip{font-size:10.5px;padding:2px 7px;border-radius:999px;background:#ffffff0a;color:var(--muted)}.lr-chip.good{color:var(--mint)}.lr-chip.warn{color:#f5c542}.lr-chip.bad{color:#ff8a9a}
+.lr-grad{position:relative;min-width:74px;height:16px;border-radius:999px;background:#ffffff0d;overflow:hidden;font:700 10px/16px 'JetBrains Mono',monospace;text-align:center}
+.lr-grad i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#00e9a055,#00e9a0aa)}.lr-grad.hot i{background:linear-gradient(90deg,#f5c54277,#ff6b3dcc)}
+.lr-grad{isolation:isolate}.lr-grad i{z-index:-1}
+body.theme-day .launch-radar{background:#fff;border-color:var(--day-border)}

@@ -20,7 +20,7 @@ export const META_LAUNCH_STEPS = [
 
 export const META_LAUNCH_PROVIDERS = [
   { id: 'feeless', label: 'FEELESS native', launchpadId: 'feeless-launch', note: 'Native FEELESS fee routing and permanent liquidity.' },
-  { id: 'pump', label: 'Pump.fun', launchpadId: 'pump', note: 'Pump.fun launch preparation; provider approval required.' },
+  { id: 'pump', label: 'Pump.fun', launchpadId: 'pump', note: 'Pump.fun curve, built by PumpPortal and signed in your wallet.' },
   { id: 'raydium', label: 'Raydium LaunchLab', launchpadId: 'raydium', note: 'Raydium LaunchLab preparation; provider approval required.' },
 ];
 
