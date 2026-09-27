@@ -4991,3 +4991,100 @@ async def kols():
     d = _json_load(KOLS_PATH, {})
     rows = await asyncio.gather(*(_kol_stats(a, v['chain']) for a, v in d.items()))
     return {'kols': [{'address': a, **v, 'stats': s} for (a, v), s in zip(d.items(), rows)], 'at': time.time()}
+
+
+# ---- Traffic analytics for marketing: what people actually view (privacy-light) -----------------
+# No raw IPs or wallets stored: visitors are a salted SHA-256 of IP+day (salt rotates daily), so
+# uniques can be counted per day but never linked across days. Writes are batched in memory and
+# flushed every 30s so page views cost no disk I/O at request time.
+import hashlib as _hashlib, secrets as _secrets
+TRAFFIC_PATH = DATA_DIR / 'traffic.json'
+_tr_buf = {'views': {}, 'uniq': {}, 'coins': {}, 'refs': {}, 'hours': {}}
+_tr_salt = {'day': '', 'salt': ''}
+_tr_ip = {}
+
+
+class PageView(BaseModel):
+    path: str
+    ref: Optional[str] = ''
+
+
+@app.post('/api/reputation/pv')
+async def page_view(request: Request, p: PageView):
+    ip = request.headers.get('x-forwarded-for', request.client.host if request.client else '?').split(',')[0].strip()
+    now = time.time()
+    hits = [t for t in _tr_ip.get(ip, []) if now - t < 60]
+    if len(hits) >= 120:
+        return {'ok': False}
+    _tr_ip[ip] = hits + [now]
+    day = time.strftime('%Y-%m-%d', time.gmtime(now))
+    if _tr_salt['day'] != day:
+        _tr_salt.update(day=day, salt=_secrets.token_hex(16))
+    who = _hashlib.sha256(f"{_tr_salt['salt']}{ip}".encode()).hexdigest()[:16]
+    path = _re.sub(r'[^a-zA-Z0-9/_-]', '', p.path.split('?')[0])[:80] or '/'
+    page = _re.sub(r'/(profile|coin)/[^/]+', r'/\1/:id', path)
+    b = _tr_buf
+    b['views'].setdefault(day, {}); b['views'][day][page] = b['views'][day].get(page, 0) + 1
+    b['uniq'].setdefault(day, set()).add(who)
+    m = _re.search(r'[?&]pair=([A-Za-z0-9]+)', p.path) or _re.search(r'coin=([a-z]+):([A-Za-z0-9]+)', p.path)
+    if m:
+        key = m.group(m.lastindex)
+        b['coins'][key] = b['coins'].get(key, 0) + 1
+    host = (_re.match(r'https?://([^/]+)', p.ref or '') or [None, None])[1]
+    if host and 'localhost' not in host:
+        b['refs'][host] = b['refs'].get(host, 0) + 1
+    h = time.gmtime(now).tm_hour
+    b['hours'][h] = b['hours'].get(h, 0) + 1
+    return {'ok': True}
+
+
+async def _flush_traffic():
+    while True:
+        await asyncio.sleep(30)
+        b = _tr_buf
+        if not any(b[k] for k in b):
+            continue
+        d = _json_load(TRAFFIC_PATH, {'views': {}, 'uniques': {}, 'coins': {}, 'refs': {}, 'hours': {}})
+        for day, pages in b['views'].items():
+            dd = d['views'].setdefault(day, {})
+            for pg, n in pages.items():
+                dd[pg] = dd.get(pg, 0) + n
+        for day, s in b['uniq'].items():
+            d.setdefault('uniqHashes', {}).setdefault(day, [])
+            merged = set(d['uniqHashes'][day]) | s
+            d['uniqHashes'][day] = list(merged)[:200000]
+            d['uniques'][day] = len(merged)
+        for k in ('coins', 'refs'):
+            for key, n in b[k].items():
+                d[k][key] = d[k].get(key, 0) + n
+        for hr, n in b['hours'].items():
+            d['hours'][str(hr)] = d['hours'].get(str(hr), 0) + n
+        keep = sorted(d['views'])[-60:]
+        d['views'] = {k: d['views'][k] for k in keep}; d['uniques'] = {k: v for k, v in d['uniques'].items() if k in keep}
+        d['uniqHashes'] = {k: v for k, v in d.get('uniqHashes', {}).items() if k == keep[-1]}  # only today's hashes are kept
+        _json_save(TRAFFIC_PATH, d)
+        for k in b:
+            b[k] = {}
+
+
+@app.on_event('startup')
+async def _start_traffic():
+    asyncio.create_task(_flush_traffic())
+
+
+@app.get('/api/reputation/admin/traffic')
+async def admin_traffic(request: Request):
+    _require_admin(request)
+    d = _json_load(TRAFFIC_PATH, {'views': {}, 'uniques': {}, 'coins': {}, 'refs': {}, 'hours': {}})
+    days = sorted(d['views'])[-14:]
+    def top(pages_by_day, n=12):
+        agg = {}
+        for day in pages_by_day:
+            for pg, c in d['views'].get(day, {}).items():
+                agg[pg] = agg.get(pg, 0) + c
+        return sorted(({'page': k, 'views': v} for k, v in agg.items()), key=lambda x: -x['views'])[:n]
+    return {'daily': [{'day': k, 'views': sum(d['views'][k].values()), 'uniques': d['uniques'].get(k, 0)} for k in days],
+            'topPages24h': top(days[-1:]), 'topPages7d': top(days[-7:]),
+            'topCoins': sorted(({'pair': k, 'views': v} for k, v in d['coins'].items()), key=lambda x: -x['views'])[:12],
+            'referrers': sorted(({'host': k, 'visits': v} for k, v in d['refs'].items()), key=lambda x: -x['visits'])[:10],
+            'hours': [d['hours'].get(str(h), 0) for h in range(24)], 'topClicks': (await top_clicks(limit=10))['rows']}

@@ -1,6 +1,7 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useEffect } from 'react';
 import './App.css';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useLocation as _useLoc } from 'react-router-dom';
 import { WalletProvider } from './hooks/useWallet';
 import { WorkspaceProvider } from './hooks/useWorkspace';
 import { WatchlistAlerts } from './components/command/AdvancedWatchlist';
@@ -57,7 +58,7 @@ function AppShell() {
             <Route path="/whitepaper" element={<Navigate to="/terminal/whitepaper" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes></Suspense>
-          <HolderThemeMount /><FeeCatWidget />
+          <HolderThemeMount /><PageViews /><FeeCatWidget />
         </BrowserRouter><Toaster theme="dark" position="bottom-right" /><LegalConsent /></WorkspaceProvider></WalletProvider>
       </div>
     </div>
@@ -71,3 +72,21 @@ function App() {
 export default App;
 
 function HolderThemeMount() { useHolderTheme(); return null; }
+
+// One fire-and-forget beacon per route change: powers the command center's Traffic tab.
+function PageViews() {
+  const loc = _useLoc();
+  // Pages rewrite their own query string while loading, so count one view per page (and per coin),
+  // settled for 1.5s — not one per URL tick.
+  const pair = new URLSearchParams(loc.search).get('pair') || (loc.search.match(/coin=([^&]+)/) || [])[1] || '';
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        const body = JSON.stringify({ path: loc.pathname + (pair ? `?pair=${pair}` : ''), ref: document.referrer || '' });
+        if (!(navigator.sendBeacon && navigator.sendBeacon('/api/reputation/pv', new Blob([body], { type: 'application/json' })))) fetch('/api/reputation/pv', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+      } catch { /* analytics never breaks the app */ }
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [loc.pathname, pair]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}

@@ -60,7 +60,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     <div className="cc-gate-actions"><button type="button" className="btn-primary" disabled={busy} onClick={signIn}><ShieldCheck size={15} />{busy ? 'Check your wallet…' : 'Sign in to Command Center'}</button><button type="button" className="btn-outline" onClick={onClose}>Back to profile</button></div>
   </div></div>;
 
-  const TABS = [['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Fees & Pricing', ShieldCheck], ['ads', 'Ads', Gift], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Fees & Pricing', ShieldCheck], ['ads', 'Ads', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div>
       <nav className="cc-tabs">{TABS.map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</nav>
@@ -68,6 +68,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
 
     {tab === 'numbers' && <NumbersPanel call={call} />}
     {tab === 'kols' && <KolAdmin call={call} />}
+    {tab === 'traffic' && <TrafficPanel call={call} />}
     {tab === 'pulse' && <PulsePanel call={call} />}
     {tab === 'mod' && <ModPanel call={call} />}
     {tab === 'broadcast' && <BroadcastPanel call={call} />}
@@ -391,5 +392,26 @@ function KolAdmin({ call }) {
   return <section className="cc-card"><h3>KOL tracker</h3><p className="wp-bio">Add wallets you know belong to KOLs. FEELESS reads their real trades (Codex) and shows users hold times, quick-flip rate and call-and-dump flags on the Rep page.</p>
     <form className="cc-kol-form" onSubmit={add}><input required placeholder="Wallet address" value={f.address} onChange={e => setF({ ...f, address: e.target.value.trim() })} /><input required placeholder="Name" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /><input placeholder="X handle" value={f.x} onChange={e => setF({ ...f, x: e.target.value })} /><select value={f.chain} onChange={e => setF({ ...f, chain: e.target.value })}>{['solana', 'ethereum', 'base', 'bsc', 'arbitrum', 'avalanche', 'polygon'].map(c => <option key={c}>{c}</option>)}</select><button className="btn-primary" type="submit">Track</button></form>
     <div className="cc-kol-list">{rows.map(k => <div key={k.address}><b>{k.name}</b><small>{k.x ? `@${k.x} · ` : ''}{k.chain} · {shortAddress(k.address)}</small><span>{k.stats ? `${k.stats.closed} closed · flips ${k.stats.quickFlipPct ?? '—'}% · ${k.stats.danger ? '⚠ call-and-dump' : 'no dump pattern'}` : '…'}</span><button type="button" className="btn-outline" onClick={() => remove(k.address)}>Remove</button></div>)}</div>
+  </section>;
+}
+
+// Marketing view: what people actually look at, from privacy-light page-view counts.
+function TrafficPanel({ call }) {
+  const [d, setD] = useState(null);
+  useEffect(() => { call('/admin/traffic').then(setD).catch(e => toast.error(e.message)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!d) return <p className="wp-bio">Loading traffic…</p>;
+  const maxDay = Math.max(1, ...d.daily.map(x => x.views)); const maxHr = Math.max(1, ...d.hours);
+  const list = (rows, k, v) => rows.length ? rows.map(r => <div key={r[k]} className="tr-row"><span>{r[k]}</span><b>{r[v].toLocaleString()}</b></div>) : <p className="wp-bio">No data yet.</p>;
+  return <section className="cc-card tr">
+    <h3>Traffic <small>no raw IPs stored · uniques are daily salted hashes</small></h3>
+    <div className="tr-days">{d.daily.map(x => <div key={x.day} title={`${x.day}: ${x.views} views, ${x.uniques} visitors`}><i style={{ height: `${(x.views / maxDay) * 100}%` }} /><small>{x.day.slice(5)}</small></div>)}</div>
+    <div className="tr-grid">
+      <div><h4>Top pages · 24h</h4>{list(d.topPages24h, 'page', 'views')}</div>
+      <div><h4>Top pages · 7d</h4>{list(d.topPages7d, 'page', 'views')}</div>
+      <div><h4>Most-viewed coins</h4>{list(d.topCoins.map(c => ({ ...c, pair: shortAddress(c.pair) })), 'pair', 'views')}</div>
+      <div><h4>Referrers</h4>{list(d.referrers, 'host', 'visits')}</div>
+      <div><h4>Most-clicked in chat</h4>{list(d.topClicks.map(c => ({ ...c, label: `${c.kind}: ${c.value}` })), 'label', 'count')}</div>
+      <div><h4>Busiest hours (UTC)</h4><div className="tr-hours">{d.hours.map((n, h) => <i key={h} title={`${h}:00 — ${n}`} style={{ opacity: 0.15 + (n / maxHr) * 0.85 }} />)}</div></div>
+    </div>
   </section>;
 }
