@@ -5672,3 +5672,31 @@ async def admin_season_delete(request: Request, sid: str):
     _json_save(SEASONS_PATH, d)
     ad = _admin_load(); _audit(ad, admin, 'season-delete', sid); _admin_save(ad)
     return {'ok': True}
+
+
+# ---- Token search for the swap box: every Solana token Jupiter knows ----------------------------
+_tok_search_cache = {}
+
+
+@app.get('/api/reputation/tokens/search')
+async def token_search(q: str = Query(..., min_length=1, max_length=64)):
+    q = q.strip()
+    hit = _tok_search_cache.get(q.lower())
+    if hit and time.time() - hit[0] < 30:
+        return hit[1]
+    rows = []
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            r = await http.get('https://api.jup.ag/tokens/v2/search', params={'query': q}, headers={'x-api-key': os.environ.get('JUPITER_API_KEY', '')})
+        for t in (r.json() if r.status_code == 200 else [])[:20]:
+            rows.append({'mint': t.get('id'), 'symbol': t.get('symbol'), 'name': t.get('name'), 'icon': t.get('icon'), 'decimals': t.get('decimals'),
+                         'price': t.get('usdPrice'), 'mcap': t.get('mcap'), 'liquidity': t.get('liquidity'), 'verified': bool(t.get('isVerified')),
+                         'blocked': _is_blocked(_block_load()['wallets'].get(t.get('dev') or ''))})
+    except Exception:
+        pass
+    rows.sort(key=lambda x: (not x['verified'], -(x['liquidity'] or 0)))
+    data = {'q': q, 'tokens': rows}
+    _tok_search_cache[q.lower()] = (time.time(), data)
+    if len(_tok_search_cache) > 2000:
+        _tok_search_cache.clear()
+    return data

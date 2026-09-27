@@ -70,6 +70,7 @@ export function WalletProfilePage({ address }) {
   const [flipped, setFlipped] = useState(false);
   const [swapPair, setSwapPair] = useState(null);
   const [actTab, setActTab] = useState(null);
+  const [autoEdit, setAutoEdit] = useState(() => new URLSearchParams(window.location.search).get('edit') === '1');
   const [acts, setActs] = useState(null);
   useEffect(() => { if (!flipped || acts) return; fetch(apiUrl(`/api/reputation/activity/${address}`)).then(r => r.json()).then(setActs).catch(() => setActs({ posts: [] })); }, [flipped, acts, address]);
   // A linked 0x account shows its owner's main (Solana) profile — one identity on every network.
@@ -83,6 +84,7 @@ export function WalletProfilePage({ address }) {
   const [myIds, setMyIds] = useState([]);
   useEffect(() => { if (!wallet?.address) { setMyIds([]); return; } fetch(apiUrl(`/api/reputation/identity/${wallet.address}`)).then(r => r.json()).then(d => setMyIds(d.linked || [])).catch(() => setMyIds([])); }, [wallet?.address]);
   const mine = wallet?.address === address || myIds.includes(address);
+  useEffect(() => { if (autoEdit && mine && data) { setAutoEdit(false); startEdit(); } }, [autoEdit, mine, data]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (flipped && !actTab) setActTab(mine ? 'swap' : 'holdings'); if (actTab === 'swap' && !mine) setActTab('holdings'); }, [flipped, mine, actTab]);
   const [isAdmin, setIsAdmin] = useState(false);
   const perks = usePerks(address);

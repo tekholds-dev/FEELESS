@@ -30,15 +30,6 @@ export async function fetchPublicProfile(address, chain) {
   return readResponse(response);
 }
 
-export async function fetchOwnProfile(wallet, signMessage) {
-  const proof = await walletProof(wallet, signMessage);
-  const response = await fetch(`${API}/profile/me`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(proof),
-  });
-  return { profile: await readResponse(response), proof };
-}
 
 export function displayAddress(address) {
   const value = String(address || '');
@@ -48,5 +39,3 @@ export function displayAddress(address) {
 export function profileLabel(profile) {
   return profile?.username || profile?.displayName || displayAddress(profile?.address);
 }
-
-export { API as PROFILE_API };
