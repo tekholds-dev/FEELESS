@@ -60,7 +60,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     <div className="cc-gate-actions"><button type="button" className="btn-primary" disabled={busy} onClick={signIn}><ShieldCheck size={15} />{busy ? 'Check your wallet…' : 'Sign in to Command Center'}</button><button type="button" className="btn-outline" onClick={onClose}>Back to profile</button></div>
   </div></div>;
 
-  const TABS = [['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Fees & Pricing', ShieldCheck], ['ads', 'Ads', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Fees & Pricing', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div>
       <nav className="cc-tabs">{TABS.map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</nav>
@@ -69,6 +69,9 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'numbers' && <NumbersPanel call={call} />}
     {tab === 'kols' && <KolAdmin call={call} />}
     {tab === 'traffic' && <TrafficPanel call={call} />}
+    {tab === 'seasons' && <SeasonsAdmin call={call} />}
+    {tab === 'access' && <AccessAdmin call={call} />}
+    {tab === 'ideas' && <IdeasAdmin call={call} />}
     {tab === 'pulse' && <PulsePanel call={call} />}
     {tab === 'mod' && <ModPanel call={call} />}
     {tab === 'broadcast' && <BroadcastPanel call={call} />}
@@ -413,5 +416,46 @@ function TrafficPanel({ call }) {
       <div><h4>Most-clicked in chat</h4>{list(d.topClicks.map(c => ({ ...c, label: `${c.kind}: ${c.value}` })), 'label', 'count')}</div>
       <div><h4>Busiest hours (UTC)</h4><div className="tr-hours">{d.hours.map((n, h) => <i key={h} title={`${h}:00 — ${n}`} style={{ opacity: 0.15 + (n / maxHr) * 0.85 }} />)}</div></div>
     </div>
+  </section>;
+}
+
+// Monthly seasons: create the next one in two clicks (defaults to next calendar month).
+function SeasonsAdmin({ call }) {
+  const [d, setD] = useState(null);
+  const next = () => { const n = new Date(); const s = new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth() + 1, 1)); const e = new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth() + 2, 1)); return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10) }; };
+  const [f, setF] = useState({ name: '', theme: '', prize: '', multiplier: 1, accent: '#f5c542', ...next() });
+  const load = () => call('/admin/seasons').then(setD).catch(e => toast.error(e.message));
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const save = async e => { e.preventDefault(); try { await call('/admin/seasons', { method: 'POST', body: JSON.stringify({ ...f, multiplier: Number(f.multiplier), start: Date.parse(f.start) / 1000, end: Date.parse(f.end) / 1000 }) }); toast.success('Season scheduled.'); load(); } catch (err) { toast.error(err.message); } };
+  const set = k => e => setF({ ...f, [k]: e.target.value });
+  return <section className="cc-card"><h3>Monthly seasons</h3>
+    <div className="cc-kol-list">{(d?.seasons || []).map(s => <div key={s.id} style={{ borderLeft: `3px solid ${s.accent}` }}><b>{s.name}</b><small>{new Date(s.start * 1000).toLocaleDateString()} → {new Date(s.end * 1000).toLocaleDateString()} · {s.multiplier}×</small><span>{d.players[s.id] || 0} players</span><span>{s.prize}</span></div>)}</div>
+    <form className="cc-kol-form" onSubmit={save}><input required placeholder="Season name (e.g. Diamond Hands)" value={f.name} onChange={set('name')} /><input placeholder="Theme / story" value={f.theme} onChange={set('theme')} /><input placeholder="Prize" value={f.prize} onChange={set('prize')} />
+      <input type="date" value={f.start} onChange={set('start')} /><input type="date" value={f.end} onChange={set('end')} /><input type="number" step="0.5" min="0.5" max="5" value={f.multiplier} onChange={set('multiplier')} title="Points multiplier" /><input type="color" value={f.accent} onChange={set('accent')} title="Season color" /><button className="btn-primary" type="submit">Schedule season</button></form>
+  </section>;
+}
+
+// Command center access: only the owner wallet can grant or revoke.
+function AccessAdmin({ call }) {
+  const [d, setD] = useState(null); const [f, setF] = useState({ address: '', role: 'moderator' });
+  const load = () => call('/admin/roles').then(setD).catch(e => toast.error(e.message));
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const grant = async e => { e.preventDefault(); try { await call('/admin/roles', { method: 'POST', body: JSON.stringify(f) }); toast.success('Access granted.'); setF({ address: '', role: 'moderator' }); load(); } catch (err) { toast.error(err.message); } };
+  const revoke = async a => { try { await call(`/admin/roles/${a}`, { method: 'DELETE' }); load(); } catch (err) { toast.error(err.message); } };
+  if (!d) return <p className="wp-bio">Loading access…</p>;
+  return <section className="cc-card"><h3>Command center access</h3><p className="wp-bio">Owner: {d.owners.map(shortAddress).join(', ')}. {d.youAreOwner ? 'You can grant and revoke.' : 'Only the owner can change access.'}</p>
+    {d.youAreOwner && <form className="cc-kol-form" onSubmit={grant}><input required placeholder="Wallet address" value={f.address} onChange={e => setF({ ...f, address: e.target.value.trim() })} /><select value={f.role} onChange={e => setF({ ...f, role: e.target.value })}>{d.roles.map(r => <option key={r}>{r}</option>)}</select><button className="btn-primary" type="submit">Grant</button></form>}
+    <div className="cc-kol-list">{Object.entries(d.grants).map(([a, g]) => <div key={a}><b>{shortAddress(a)}</b><small>{g.role}</small><span>since {new Date(g.at * 1000).toLocaleDateString()}</span>{d.youAreOwner && <button type="button" className="btn-outline" onClick={() => revoke(a)}>Revoke</button>}</div>)}{!Object.keys(d.grants).length && <p className="wp-bio">No one else has access yet.</p>}</div>
+  </section>;
+}
+
+function IdeasAdmin({ call }) {
+  const [rows, setRows] = useState([]); const [f, setF] = useState({ title: '', body: '' });
+  const load = () => call('/admin/ideas').then(d => setRows(d.ideas || [])).catch(e => toast.error(e.message));
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const add = async e => { e.preventDefault(); try { await call('/admin/ideas', { method: 'POST', body: JSON.stringify(f) }); setF({ title: '', body: '' }); load(); } catch (err) { toast.error(err.message); } };
+  return <section className="cc-card"><h3>Ideas board</h3>
+    <form className="cc-kol-form" onSubmit={add}><input required placeholder="Idea" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /><input placeholder="Details" value={f.body} onChange={e => setF({ ...f, body: e.target.value })} /><button className="btn-primary" type="submit">Save idea</button></form>
+    <div className="cc-ideas">{rows.map(i => <article key={i.id}><b>{i.title}</b><small>{i.status}</small><p>{i.body}</p></article>)}</div>
   </section>;
 }

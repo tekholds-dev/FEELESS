@@ -2918,3 +2918,17 @@ body.theme-day .mobile-tabbar{background:rgba(255,255,255,.86);border-top-color:
 .season-row.rank-1{background:linear-gradient(90deg,color-mix(in srgb,var(--season) 18%,transparent),transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--season) 40%,transparent)}
 .season-rank{font-size:18px;text-align:center}
 @media(prefers-reduced-motion:reduce){.season-banner-track,.season-hero::before,.season-hero h1,.season-sigil i{animation:none}}
+/* ===== FEELESS Shield ===== */
+.shield-badge,.shield-commit{border-radius:14px;padding:12px;display:grid;gap:8px;border:1px solid rgba(0,233,160,.35);background:linear-gradient(160deg,rgba(0,233,160,.08),transparent)}
+.shield-badge.broken{border-color:rgba(250,80,110,.6);background:linear-gradient(160deg,rgba(250,80,110,.14),transparent);animation:shield-alarm 2.4s ease-in-out infinite}
+@keyframes shield-alarm{50%{box-shadow:0 0 22px rgba(250,80,110,.35)}}
+.shield-badge header,.shield-commit header{display:flex;gap:10px;align-items:flex-start}.shield-badge header svg,.shield-commit header svg{color:var(--mint);flex:0 0 auto}.shield-badge.broken header svg{color:#ff5a7a}
+.shield-badge header div,.shield-commit header div{display:grid;gap:2px}.shield-badge small,.shield-commit small{color:var(--muted);font-size:11px}.shield-commit h3{margin:0;font-size:15px}
+.shield-badge ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}.shield-badge li{display:grid;grid-template-columns:18px 1fr;column-gap:6px;font-size:12px}.shield-badge li small{grid-column:2}
+.shield-badge li i{font-style:normal;font-weight:800}.shield-badge li.ok i{color:var(--mint)}.shield-badge li.bad i,.shield-breach{color:#ff8fa3}.shield-breach{margin:0;font-size:12px;font-weight:600}
+.shield-commit label{display:grid;gap:4px}.shield-commit input:not([type=checkbox]){padding:9px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:inherit;font:inherit;width:100%}
+.shield-terms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.shield-terms div{display:flex;align-items:center;gap:6px}.shield-terms em{font-style:normal;font-size:11px;color:var(--muted);white-space:nowrap}
+.shield-check{display:flex!important;grid-template-columns:none;align-items:center;gap:8px;font-size:12.5px}.shield-note{text-align:center}
+@media(max-width:560px){.shield-terms{grid-template-columns:1fr}}
+body.theme-day .shield-commit input:not([type=checkbox]){background:#fff}
+.cc-ideas{display:grid;gap:8px}.cc-ideas article{padding:10px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)}.cc-ideas small{margin-left:8px;color:#f5c542;font-size:10px;text-transform:uppercase}.cc-ideas p{margin:4px 0 0;font-size:12.5px;color:var(--muted)}
