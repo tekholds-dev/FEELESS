@@ -88,7 +88,7 @@ export const TokenAvatar = ({ pair, size = 34, onExhausted, maxAttempts }) => {
   const symbol = pair?.baseToken?.symbol || 'token';
   return <span className="token-avatar" style={{ width: size, height: size }} aria-label={`${symbol} token logo`}>
     {(!imageUrl || exhausted) && <span className="token-avatar-fallback" aria-hidden="true"><Coins size={Math.round(size * 0.42)} /></span>}
-    {imageUrl && !exhausted && <img
+    {imageUrl && !exhausted && <img data-fb-skip="1"
       key={`${imageUrl}-${attempts}`}
       src={imageUrl}
       alt=""

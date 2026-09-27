@@ -1,3 +1,4 @@
+import { AlphaRooms } from '../AlphaRooms';
 import { RepMark } from '../RepMark';
 import { uploadImage } from '../../lib/adminCall';
 import { CROP } from '../../lib/cropImage';
@@ -117,7 +118,7 @@ export function WalletProfilePage({ address }) {
         {edit && <UploadButton label="Cover" shape={CROP.banner} onDone={url => set('bannerUrl', url)} />}
       </div>
       <div className="xp-row">
-        <div className="xp-avatar">{tier >= 3 && <div className="wp-crown" aria-hidden="true"><span>👑</span></div>}<div className={`wp-avatar ring-${p.ring || 'none'}`}>{p.avatarUrl ? <img src={p.avatarUrl} alt="" /> : <span>{(p.displayName || address).slice(0, 2).toUpperCase()}</span>}{edit && <UploadButton label="Pic" shape={CROP.avatar} onDone={url => set('avatarUrl', url)} />}</div></div>
+        <div className="xp-avatar">{tier >= 3 && <div className="wp-crown" aria-hidden="true"><span>👑</span></div>}<div className={`wp-avatar ring-${p.ring || 'none'}`} data-img-hide><span className="xp-initials">{(p.displayName || address).slice(0, 2).toUpperCase()}</span>{p.avatarUrl && <img src={p.avatarUrl} alt="" />}{edit && <UploadButton label="Pic" shape={CROP.avatar} onDone={url => set('avatarUrl', url)} />}</div></div>
         <div className="xp-name">
           {edit ? <input className="wp-name-input" maxLength={32} placeholder="Display name" value={draft.displayName} onChange={e => set('displayName', e.target.value)} /> : <h1 className={`namefx-${p.nameFx || 'none'}`}>{p.displayName || shortAddress(address)}{data?.verified && <VerifiedMark />}<RepMark address={address} /></h1>}
           <div className="xp-sub">{edit ? <input className="wp-handle-input" maxLength={21} placeholder="@handle (3–20: a-z 0-9 _)" value={draft.handle ? `@${draft.handle}` : ''} onChange={e => set('handle', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))} /> : <span className="wp-handle">@{p.handle || address.slice(0, 6).toLowerCase()}</span>}<span className="xp-dot">·</span><code>{shortAddress(address)}</code><CopyBtn value={address} /></div>
@@ -131,6 +132,7 @@ export function WalletProfilePage({ address }) {
       </div>
       <div className="xp-badges"><BadgeArtifacts address={address} featured={p.featuredBadges} /></div>
     </header>
+    {mine && <AlphaRooms compact />}
     <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />
     {!flipped && <PortfolioCard address={address} />}
     {flipped && <nav className="wp-act-tabs" data-testid="activity-tabs">{[mine && ['swap', 'Swap'], mine && poolPerk && ['builder', '🏗 Pool builder'], ['holdings', 'Holdings'], ['history', 'Swap history'], ['posts', 'Posts'], ['rewards', 'Rewards'], ['vault', 'Vault']].filter(Boolean).map(([k, l]) => <button key={k} type="button" className={actTab === k ? 'active' : ''} onClick={() => setActTab(k)}>{l}</button>)}</nav>}

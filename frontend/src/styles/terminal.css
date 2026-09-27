@@ -3280,6 +3280,7 @@ body.theme-day .pool-explain p,body.theme-day .pool-explain li{color:#274a38}
 .lr-grad{isolation:isolate}.lr-grad i{z-index:-1}
 body.theme-day .launch-radar{background:#fff;border-color:var(--day-border)}
 /* ===== Profile header card (X / Facebook structure, MySpace themes stay) ===== */
+.wallet-profile-page>.xp-card{grid-column:1/-1}
 .xp-card{position:relative;margin:0 0 14px;border-radius:18px;overflow:hidden;border:1px solid color-mix(in srgb,var(--wp-accent,#00e9a0) 30%,#ffffff14);background:rgba(6,12,9,.72);backdrop-filter:blur(8px)}
 .xp-cover{position:relative;height:clamp(130px,17vw,210px);overflow:hidden;background:
   radial-gradient(120% 140% at 12% 0%,color-mix(in srgb,var(--wp-accent,#00e9a0) 55%,transparent),transparent 55%),
@@ -3289,16 +3290,17 @@ body.theme-day .launch-radar{background:#fff;border-color:var(--day-border)}
 .xp-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .xp-cover-mark{position:absolute;right:18px;bottom:-10px;font:900 clamp(42px,8vw,96px)/1 'Outfit',sans-serif;letter-spacing:-3px;color:#ffffff0f;white-space:nowrap;pointer-events:none}
 .xp-cover .wp-upload{position:absolute;right:12px;top:12px}
-.xp-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:16px;align-items:start;padding:0 clamp(14px,2.2vw,24px);margin-top:calc(-1 * clamp(40px,5vw,56px))}
+.xp-row{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-start;padding:0 clamp(14px,2.2vw,24px);margin-top:calc(-1 * clamp(40px,5vw,56px))}
 .xp-avatar{position:relative;z-index:2}
 .xp-avatar .wp-avatar{width:clamp(92px,10vw,124px)!important;height:clamp(92px,10vw,124px)!important;border:4px solid #060c09!important;box-shadow:0 8px 26px #000a}
 .xp-avatar .wp-crown{position:absolute;left:50%;top:-18px;transform:translateX(-50%);z-index:3}
-.xp-name{min-width:0;padding-top:calc(clamp(40px,5vw,56px) + 10px)}
+.xp-name{flex:1 1 260px;min-width:0;padding-top:calc(clamp(40px,5vw,56px) + 10px)}
+.xp-name input{width:min(100%,320px);box-sizing:border-box;margin:0 0 6px;display:block}
 .xp-name h1{margin:0!important;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:clamp(22px,2.6vw,30px)!important;line-height:1.15}
 .xp-sub{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px;font-size:13.5px;color:var(--muted)}
 .xp-sub .wp-handle{color:var(--muted)!important;font-weight:600}.xp-sub code{background:none;padding:0;color:inherit;font-size:12.5px}.xp-dot{opacity:.5}
 .xp-name .wp-mood{margin:6px 0 0;font-size:14px}
-.xp-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;padding-top:calc(clamp(40px,5vw,56px) + 10px)}
+.xp-actions{flex:0 1 auto;margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;padding-top:calc(clamp(40px,5vw,56px) + 10px)}
 .xp-actions>*{margin:0!important}
 .xp-actions .btn-outline,.xp-actions .btn-primary,.xp-actions .cc-launch{padding:8px 14px;font-size:13px;border-radius:999px}
 .xp-meta{display:flex;align-items:center;gap:14px 22px;flex-wrap:wrap;padding:14px clamp(14px,2.2vw,24px) 0}
@@ -3312,8 +3314,50 @@ body.theme-day .launch-radar{background:#fff;border-color:var(--day-border)}
 .xp-badges .badge-artifacts{margin:0!important;padding:0!important;display:flex;gap:10px}
 .xp-badges .artifact{transform:scale(.82);transform-origin:left center}
 @media (max-width:760px){
-  .xp-row{grid-template-columns:auto 1fr;align-items:end}
-  .xp-actions{grid-column:1/-1;justify-content:flex-start;padding-top:0}
+  .xp-actions{flex-basis:100%;margin-left:0;justify-content:flex-start;padding-top:0}
   .xp-meta{gap:10px 14px}
+  .xp-name{flex-basis:100%;padding-top:0}
+  .xp-cover-mark{font-size:44px;letter-spacing:-1px}
 }
 body.theme-day .xp-card{background:#ffffffee}body.theme-day .xp-avatar .wp-avatar{border-color:#fff!important}
+
+.xp-avatar .wp-avatar{position:relative;display:grid;place-items:center;overflow:hidden}
+.xp-initials{font:800 clamp(26px,3vw,36px)/1 'Outfit',sans-serif;color:color-mix(in srgb,var(--wp-accent,#00e9a0) 80%,#fff)}
+.xp-avatar .wp-avatar>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.xp-avatar .wp-upload{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);z-index:2}
+/* ===== Day mode, final layer: readable contrast + colour ===== */
+body.theme-day{--muted:#35574a;--mint:#00875c;--day-muted:#35574a;
+  background:
+    radial-gradient(60vw 50vh at 8% -5%,#b8f5dc 0,transparent 60%),
+    radial-gradient(50vw 45vh at 100% 0%,#c9e8ff 0,transparent 60%),
+    radial-gradient(55vw 50vh at 85% 105%,#ffd9e8 0,transparent 60%),
+    radial-gradient(45vw 40vh at 0% 100%,#fff1c2 0,transparent 60%),
+    #f4faf6!important;background-attachment:fixed!important}
+body.theme-day .xp-cover{background:
+  radial-gradient(120% 140% at 10% 0%,#3cf2b0 0,transparent 55%),
+  radial-gradient(90% 120% at 95% 100%,#7cc8ff 0,transparent 60%),
+  radial-gradient(70% 90% at 60% 40%,#ff9ac8 0,transparent 65%),
+  linear-gradient(120deg,#d9fff0,#e8f4ff 60%,#fff0f6)}
+body.theme-day .xp-cover-mark{color:#0a3d2c12!important;-webkit-text-fill-color:#0a3d2c12}
+body.theme-day .xp-card{background:#ffffffe8;border-color:#00a06d33;box-shadow:0 10px 30px #0b3d2a14}
+body.theme-day .xp-avatar .wp-avatar{border-color:#fff!important}
+body.theme-day .xp-sub,body.theme-day .xp-sub .wp-handle{color:#35574a!important}
+body.theme-day .btn-primary{background:linear-gradient(135deg,#00c98a,#00a3a8)!important;color:#fff!important;border-color:transparent!important}
+body.theme-day .btn-outline{border-color:#00875c66!important;color:#0b3d2a!important;background:#ffffffcc!important}
+body.theme-day h1,body.theme-day h2,body.theme-day h3{color:#0b2a1d}
+body.theme-day .eyebrow{color:#00875c!important}
+body.theme-day .launch-radar,body.theme-day .meta-panel{background:#ffffffe6!important;border-color:#00a06d33!important}
+body.theme-day .lr-chip.good,body.theme-day .rugproof.ok{color:#00754f}
+body.theme-day .lr-chip.warn{color:#8a5a00}body.theme-day .lr-chip.bad{color:#b0203f}
+body.theme-day .rep-mark.lvl-high,body.theme-day .rep-mark.lvl-good{--rc:#00875c}body.theme-day .rep-mark.lvl-caution,body.theme-day .rep-mark.lvl-gold{--rc:#a86b00}body.theme-day .rep-mark.lvl-risky,body.theme-day .rep-mark.lvl-blocked{--rc:#c0264a}
+body.theme-day .pf-logo{color:#0b3d2a!important;background:#d7f3e6!important}
+body.theme-day th,body.theme-day thead .hide-small{color:#2c4a3d!important}
+
+body.theme-day .xp-avatar .wp-avatar{background:linear-gradient(135deg,#d9fff0,#e3f1ff)!important}body.theme-day .xp-initials{color:#00875c}
+/* Holder-room strip (chat floor, own profile) */
+.alpha-strip{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
+.alpha-strip a{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px;font-size:11.5px;font-weight:600;text-decoration:none;color:var(--muted);border:1px solid #ffffff1a;background:#ffffff08;transition:border-color .15s,color .15s}
+.alpha-strip a.on{color:#f5c542;border-color:#f5c54266;background:#f5c5421a}
+.alpha-strip a:hover{border-color:var(--mint);color:var(--mint)}
+.wallet-profile-page>.alpha-strip{grid-column:1/-1}
+body.theme-day .alpha-strip a{background:#fff;border-color:#00875c33;color:#35574a}body.theme-day .alpha-strip a.on{color:#8a5a00;border-color:#d9a72766;background:#fff6dc}

@@ -5733,7 +5733,7 @@ class SeasonEdit(BaseModel):
     weeks: Optional[dict] = None   # {"1": {"name","glyph","story","imageUrl"}, ...}
 
 
-def _safe_url(u):
+def _is_upload_url(u):
     # Only FEELESS-hosted uploads (validated real images) — no arbitrary links.
     return u in (None, '') or bool(_re.match(r'^/api/reputation/uploads/[0-9a-f]{32}\.(png|jpg|webp|gif)$', u))
 
@@ -5749,7 +5749,7 @@ async def admin_season_edit(request: Request, sid: str, p: SeasonEdit):
         raise HTTPException(400, 'Invalid season (end after start, ≤120 days, #hex accent, multiplier 0.5–5).')
     if any(x['id'] != sid and not (new['end'] <= x['start'] or new['start'] >= x['end']) for x in d['seasons']):
         raise HTTPException(409, 'Seasons cannot overlap.')
-    if not all(_safe_url(new.get(k)) for k in ('bannerUrl', 'badgeUrl')):
+    if not all(_is_upload_url(new.get(k)) for k in ('bannerUrl', 'badgeUrl')):
         raise HTTPException(400, 'Upload images through FEELESS (png, jpg, webp or gif).')
     if new.get('bgFx') not in (None, 'money', 'snow', 'leaves', 'fire', 'stars', 'none'):
         raise HTTPException(400, 'Unknown background effect.')
@@ -5758,7 +5758,7 @@ async def admin_season_edit(request: Request, sid: str, p: SeasonEdit):
     if p.weeks is not None:
         clean = {}
         for wk, ov in list(p.weeks.items())[:20]:
-            if not str(wk).isdigit() or not isinstance(ov, dict) or not _safe_url(ov.get('imageUrl')):
+            if not str(wk).isdigit() or not isinstance(ov, dict) or not _is_upload_url(ov.get('imageUrl')):
                 raise HTTPException(400, f'Bad week {wk} override.')
             clean[str(int(wk))] = {k: str(ov[k])[:200] for k in ('name', 'glyph', 'story', 'imageUrl') if ov.get(k)}
         new['weeks'] = clean

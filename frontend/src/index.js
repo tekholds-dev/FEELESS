@@ -4,8 +4,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "@/index.css";
 import App from "@/App";
 import { cleanBrowserStorage } from "@/lib/storageHygiene";
+import { installImageFallback } from "@/lib/imageFallback";
 
 cleanBrowserStorage();
+installImageFallback();
 
 // Any link that leaves FEELESS opens in a new tab, even if a component forgot target=_blank.
 document.addEventListener('click', event => {
