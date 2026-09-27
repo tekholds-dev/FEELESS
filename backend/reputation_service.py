@@ -4874,6 +4874,10 @@ async def _start_metas():
 
 
 @app.get('/api/reputation/metas')
+async def metas_public():
+    return await metas(refresh=False)
+
+
 async def metas(refresh: bool = False):
     # Users always get the background-computed snapshot instantly; only the loop recomputes.
     if not refresh and _meta_cache['data']:

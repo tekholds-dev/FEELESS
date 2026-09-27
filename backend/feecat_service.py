@@ -789,16 +789,36 @@ async def _analysis_facts(chain: str, pair: str) -> dict:
     return facts
 
 
+_an_ip: dict = {}
+_an_day = {'day': '', 'n': 0}
+ANALYSES_PER_IP_HOUR = int(os.environ.get('FEE_ANALYSES_PER_IP_HOUR', '8'))
+ANALYSES_PER_DAY = int(os.environ.get('FEE_ANALYSES_PER_DAY', '500'))
+
+
 @app.post('/api/cats/analyze')
-async def analyze(req: AnalyzeRequest):
+async def analyze(req: AnalyzeRequest, request: Request):
     if not os.environ.get('ANTHROPIC_API_KEY', '').strip():
         raise HTTPException(503, "Fee's brain is offline — add ANTHROPIC_API_KEY to backend/.env.")
+    if len(req.chain) > 24 or len(req.pairAddress) > 80 or not req.pairAddress.replace('0x', '').isalnum():
+        raise HTTPException(400, 'Bad pool.')
     store = _load()
     cat = store['cats'].get(req.catId or LEADER_ID) or store['cats'].get(LEADER_ID) or {}
     key = f"{req.catId}:{req.chain}:{req.pairAddress}"
     hit = _analysis_cache.get(key)
     if hit and time.time() - hit[0] < ANALYSIS_TTL:
-        return {**hit[1], 'cached': True}
+        return {**hit[1], 'cached': True}   # cached reads are free and never count against limits
+    # Paid calls are rate-limited per visitor and capped per day, so nobody can run up the bill.
+    ip = request.headers.get('x-forwarded-for', request.client.host if request.client else '?').split(',')[0].strip()
+    now = time.time()
+    recent = [t for t in _an_ip.get(ip, []) if now - t < 3600]
+    if len(recent) >= ANALYSES_PER_IP_HOUR:
+        raise HTTPException(429, f'Fee reads {ANALYSES_PER_IP_HOUR} coins per hour per person — try again soon.')
+    day = time.strftime('%Y-%m-%d', time.gmtime(now))
+    if _an_day['day'] != day:
+        _an_day.update(day=day, n=0)
+    if _an_day['n'] >= ANALYSES_PER_DAY:
+        raise HTTPException(429, "Fee's daily reading budget is used up — back tomorrow.")
+    _an_ip[ip] = recent + [now]; _an_day['n'] += 1
     facts = await _analysis_facts(req.chain, req.pairAddress)
     if 'market' not in facts:
         raise HTTPException(404, 'No live market data for that pool.')
