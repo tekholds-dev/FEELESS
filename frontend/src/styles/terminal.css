@@ -2853,3 +2853,7 @@ body.theme-day .td-fee b,body.theme-day .td-review b{color:#0a1f14}body.theme-da
 .ht-swatches input{width:34px;height:30px;border:0;background:none;cursor:pointer}
 .meta-status{font-size:10.5px;padding:2px 7px;border-radius:999px}.meta-status.good{background:rgba(0,233,160,.14);color:var(--mint)}.meta-status.mid{background:rgba(255,255,255,.07);color:var(--muted)}.meta-status.bad{background:rgba(94,200,255,.12);color:#7cc8ff}
 .meta-thumb{width:22px;height:22px;border-radius:50%;object-fit:cover;display:inline-grid;place-items:center;font-size:9px;background:rgba(255,255,255,.08);margin-right:-6px;border:1px solid rgba(0,0,0,.4)}
+.rep-kol{display:grid;gap:3px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)}.rep-kol.danger .rep-dark-row{background:rgba(250,112,140,.07)}
+.rep-kol-flag{margin:0 9px;font-size:11px;color:#ffc2cc}
+.cc-kol-form{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.cc-kol-form input,.cc-kol-form select{padding:8px;border-radius:9px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:inherit;flex:1;min-width:120px}
+.cc-kol-list{display:grid;gap:6px}.cc-kol-list>div{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;padding:8px;border-radius:9px;background:rgba(255,255,255,.03);font-size:12px}.cc-kol-list small{color:var(--muted)}

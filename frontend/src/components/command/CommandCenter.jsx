@@ -60,13 +60,14 @@ export function CommandCenter({ address, signMessage, onClose }) {
     <div className="cc-gate-actions"><button type="button" className="btn-primary" disabled={busy} onClick={signIn}><ShieldCheck size={15} />{busy ? 'Check your wallet…' : 'Sign in to Command Center'}</button><button type="button" className="btn-outline" onClick={onClose}>Back to profile</button></div>
   </div></div>;
 
-  const TABS = [['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Fees & Pricing', ShieldCheck], ['ads', 'Ads', Gift], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Fees & Pricing', ShieldCheck], ['ads', 'Ads', Gift], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div>
       <nav className="cc-tabs">{TABS.map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</nav>
       <button type="button" className="cc-close" onClick={onClose} aria-label="Close command center"><X size={16} /></button></header>
 
     {tab === 'numbers' && <NumbersPanel call={call} />}
+    {tab === 'kols' && <KolAdmin call={call} />}
     {tab === 'pulse' && <PulsePanel call={call} />}
     {tab === 'mod' && <ModPanel call={call} />}
     {tab === 'broadcast' && <BroadcastPanel call={call} />}
@@ -377,5 +378,18 @@ function PoolsPanel() {
       {found === false && <small className="cc-empty">Not indexed yet — DexScreener usually picks up new pools within a few minutes.</small>}
       {found && <div className="cc-sig"><span>✅ {found.baseToken.symbol}/{found.quoteToken.symbol} on {found.dexId}</span><b>{formatUSD(found.liquidity?.usd)} liq</b></div>}</div>
     <div className="cc-block"><h4>Live pools for {asset.toUpperCase()}</h4>{!pools.length ? <small className="cc-empty">No pools indexed.</small> : pools.map(p => <div key={p.pairAddress} className="cc-sig"><a href={`/terminal/coin/solana/${p.pairAddress}`} target="_blank" rel="noopener noreferrer">{p.baseToken.symbol}/{p.quoteToken.symbol} · {p.dexId}</a><span>vol {formatUSD(p.volume?.h24)}</span><b>{formatUSD(p.liquidity?.usd)}</b></div>)}</div>
+  </section>;
+}
+
+// Admins mark real KOL wallets; FEELESS tracks their actual trades and flags call-and-dump patterns.
+function KolAdmin({ call }) {
+  const [rows, setRows] = useState([]); const [f, setF] = useState({ address: '', name: '', x: '', chain: 'solana' });
+  const load = () => fetch(apiUrl('/api/reputation/kols')).then(r => r.json()).then(d => setRows(d.kols || [])).catch(() => {});
+  useEffect(() => { load(); }, []);
+  const add = async e => { e.preventDefault(); try { await call('/admin/kols', { method: 'POST', body: JSON.stringify(f) }); toast.success('KOL added — trades load in a few seconds.'); setF({ address: '', name: '', x: '', chain: 'solana' }); load(); } catch (err) { toast.error(err.message); } };
+  const remove = async a => { try { await call(`/admin/kols/${a}`, { method: 'DELETE' }); load(); } catch (err) { toast.error(err.message); } };
+  return <section className="cc-card"><h3>KOL tracker</h3><p className="wp-bio">Add wallets you know belong to KOLs. FEELESS reads their real trades (Codex) and shows users hold times, quick-flip rate and call-and-dump flags on the Rep page.</p>
+    <form className="cc-kol-form" onSubmit={add}><input required placeholder="Wallet address" value={f.address} onChange={e => setF({ ...f, address: e.target.value.trim() })} /><input required placeholder="Name" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /><input placeholder="X handle" value={f.x} onChange={e => setF({ ...f, x: e.target.value })} /><select value={f.chain} onChange={e => setF({ ...f, chain: e.target.value })}>{['solana', 'ethereum', 'base', 'bsc', 'arbitrum', 'avalanche', 'polygon'].map(c => <option key={c}>{c}</option>)}</select><button className="btn-primary" type="submit">Track</button></form>
+    <div className="cc-kol-list">{rows.map(k => <div key={k.address}><b>{k.name}</b><small>{k.x ? `@${k.x} · ` : ''}{k.chain} · {shortAddress(k.address)}</small><span>{k.stats ? `${k.stats.closed} closed · flips ${k.stats.quickFlipPct ?? '—'}% · ${k.stats.danger ? '⚠ call-and-dump' : 'no dump pattern'}` : '…'}</span><button type="button" className="btn-outline" onClick={() => remove(k.address)}>Remove</button></div>)}</div>
   </section>;
 }

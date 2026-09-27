@@ -4900,3 +4900,94 @@ async def metas(refresh: bool = False):
     data = {'metas': out[:24], 'coinsScanned': len(pairs), 'chains': len(META_CHAINS), 'at': time.time()}
     _meta_cache.update(at=time.time(), data=data)
     return data
+
+
+# ---- KOL tracker: real trades of wallets FEELESS admins mark as KOLs, and why the pattern matters --
+KOLS_PATH = DATA_DIR / 'kols.json'
+CODEX_NETS = {'solana': 1399811149, 'ethereum': 1, 'base': 8453, 'bsc': 56, 'arbitrum': 42161, 'avalanche': 43114, 'polygon': 137}
+_kol_cache = {}
+
+
+class KolPayload(BaseModel):
+    address: str
+    name: str
+    x: Optional[str] = ''
+    chain: str = 'solana'
+
+
+@app.post('/api/reputation/admin/kols')
+async def admin_kol_add(request: Request, p: KolPayload):
+    admin = _require_admin(request)
+    if p.chain not in CODEX_NETS or not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.address) or _re.match(r'^0x[0-9a-fA-F]{40}$', p.address)):
+        raise HTTPException(400, 'Valid wallet address + supported chain required.')
+    d = _json_load(KOLS_PATH, {})
+    d[p.address] = {'name': p.name[:40], 'x': (p.x or '').lstrip('@')[:30], 'chain': p.chain, 'addedBy': admin, 'at': time.time()}
+    _json_save(KOLS_PATH, d)
+    return {'ok': True}
+
+
+@app.delete('/api/reputation/admin/kols/{address}')
+async def admin_kol_remove(request: Request, address: str):
+    _require_admin(request)
+    d = _json_load(KOLS_PATH, {}); d.pop(address, None); _json_save(KOLS_PATH, d)
+    return {'ok': True}
+
+
+async def _kol_stats(address, chain):
+    hit = _kol_cache.get(address)
+    if hit and time.time() - hit[0] < 300:
+        return hit[1]
+    key_ = os.environ.get('CODEX_API_KEY', '').strip()
+    if not key_:
+        return None
+    q = ('query($m:String!,$n:Int!){getTokenEventsForMaker(query:{maker:$m,networkId:$n},limit:100){items{timestamp token0Address '
+         'eventDisplayType transactionHash data{... on SwapEventData{priceUsdTotal}}}}}')
+    try:
+        async with httpx.AsyncClient(timeout=15) as http:
+            r = await http.post('https://graph.codex.io/graphql', headers={'Authorization': key_}, json={'query': q, 'variables': {'m': address, 'n': CODEX_NETS[chain]}})
+        items = ((((r.json() or {}).get('data') or {}).get('getTokenEventsForMaker') or {}).get('items')) or []
+    except Exception:
+        return None
+    by = {}
+    for e in items:
+        k = e.get('eventDisplayType'); usd = float(((e.get('data') or {}).get('priceUsdTotal')) or 0)
+        if k not in ('Buy', 'Sell') or not e.get('token0Address'):
+            continue
+        t = by.setdefault(e['token0Address'], {'buys': [], 'sells': []})
+        t['buys' if k == 'Buy' else 'sells'].append((e['timestamp'], usd))
+    tokens, holds, flips, dumps, wins, closed = [], [], 0, 0, 0, 0
+    for tok, t in by.items():
+        bought = sum(u for _, u in t['buys']); sold = sum(u for _, u in t['sells'])
+        if t['buys'] and t['sells']:
+            first_buy = min(ts for ts, _ in t['buys']); first_sell = min((ts for ts, _ in t['sells'] if ts >= first_buy), default=None)
+            if first_sell:
+                closed += 1
+                hold = (first_sell - first_buy) / 60; holds.append(hold)
+                flips += hold <= 60
+                dumps += (sold >= bought * 0.8 and hold <= 120)
+                wins += sold > bought
+        tokens.append({'token': tok, 'boughtUsd': round(bought), 'soldUsd': round(sold), 'pnlUsd': round(sold - bought) if t['sells'] else None, 'trades': len(t['buys']) + len(t['sells'])})
+    tokens.sort(key=lambda x: -(x['boughtUsd'] + x['soldUsd']))
+    avg_hold = sorted(holds)[len(holds) // 2] if holds else None
+    flags = []
+    if closed >= 3 and flips / closed >= 0.5:
+        flags.append(f"Flips {round(flips / closed * 100)}% of positions within an hour — anyone buying after their call is likely their exit liquidity.")
+    if closed >= 3 and dumps / closed >= 0.4:
+        flags.append(f"Dumped most of the bag within 2h on {round(dumps / closed * 100)}% of coins — the classic call-and-dump pattern.")
+    if closed >= 3 and wins / closed >= 0.7 and avg_hold is not None and avg_hold < 90:
+        flags.append("Wins mostly by selling fast into buying pressure — their profit is often their followers' loss.")
+    if not flags and closed >= 3:
+        flags.append('No call-and-dump pattern in their recent trades.')
+    stats = {'tradesSeen': len(items), 'tokens': len(by), 'closed': closed, 'medianHoldMin': round(avg_hold) if avg_hold is not None else None,
+             'quickFlipPct': round(flips / closed * 100) if closed else None, 'dumpPct': round(dumps / closed * 100) if closed else None,
+             'winPct': round(wins / closed * 100) if closed else None, 'netUsd': round(sum((x['pnlUsd'] or 0) for x in tokens)),
+             'flags': flags, 'topTokens': tokens[:8], 'danger': bool(closed >= 3 and (flips / closed >= 0.5 or dumps / closed >= 0.4))}
+    _kol_cache[address] = (time.time(), stats)
+    return stats
+
+
+@app.get('/api/reputation/kols')
+async def kols():
+    d = _json_load(KOLS_PATH, {})
+    rows = await asyncio.gather(*(_kol_stats(a, v['chain']) for a, v in d.items()))
+    return {'kols': [{'address': a, **v, 'stats': s} for (a, v), s in zip(d.items(), rows)], 'at': time.time()}
