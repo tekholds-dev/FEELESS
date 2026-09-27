@@ -3127,3 +3127,16 @@ body.theme-day .wp-card,body.theme-day .season-card,body.theme-day .cc-card,body
 .srh-clock{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#00ffa3 var(--p),rgba(255,255,255,.08) 0)}.srh-clock em{width:24px;height:24px;border-radius:50%;background:#050706;display:grid;place-items:center;font-style:normal;font-size:9.5px;color:#eafff3}
 body.theme-day .swap-review-hero,body.theme-day .srh-clock em{background:#fff}body.theme-day .srh-clock em{color:#0a1f14}
 @media(prefers-reduced-motion:reduce){.srh-flow i{animation:none}}
+/* ===== Profile header: compact 3-column layout (no wrapped action row, no duplicate badges) ===== */
+.wallet-profile-page .wp-banner{height:200px!important;min-height:0!important}
+@media(min-width:900px){
+  .wallet-profile-page .wp-head{display:grid!important;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"av id side" "av id actions";column-gap:22px;row-gap:12px;align-items:start}
+  .wallet-profile-page .wp-head>.wp-avatar-wrap{grid-area:av}
+  .wallet-profile-page .wp-head>.wp-id{grid-area:id;min-width:0}
+  .wallet-profile-page .wp-head>.badge-artifacts{grid-area:side;justify-self:end}
+  .wallet-profile-page .wp-head>.wp-actions{grid-area:actions;justify-self:end;align-self:end;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;max-width:340px;margin:0!important}
+}
+.wallet-profile-page .wp-head:has(.badge-artifacts) .badge-shelf{display:none}
+.wallet-profile-page .wp-actions>*{min-height:36px!important;padding:7px 12px!important;font-size:13px!important;justify-content:center}
+.wallet-profile-page .wp-id>*+*{margin-top:6px!important}
+.wallet-profile-page .wp-onchain{margin-top:8px!important}
