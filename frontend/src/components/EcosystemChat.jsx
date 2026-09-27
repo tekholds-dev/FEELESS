@@ -101,6 +101,7 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
     return () => { alive = false; };
   }, [room, wallet?.address]);
   const [messages, setMessages] = useState([]);
+  const [pinned, setPinned] = useState(null);
   const [fx, setFx] = useState({});
   const [cmdCard, setCmdCard] = useState(null);
   const [mine, setMine] = useState([]);
@@ -144,7 +145,7 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
         const res = await fetch(apiUrl(`/api/reputation/chat/${encodeURIComponent(room)}`), { signal: controller.signal });
         if (!res.ok) throw new Error();
         const data = await res.json();
-        if (!controller.signal.aborted) { setMessages(data.messages); setError(''); registerCalls(room, data.messages); }
+        if (!controller.signal.aborted) { setMessages(data.messages); setPinned(data.pinned || null); setError(''); registerCalls(room, data.messages); }
       } catch (e) { if (e.name !== 'AbortError') setError('Chat connection interrupted. Retry the room connection.'); }
       finally { if (!controller.signal.aborted) setLoading(false); }
     };
@@ -211,6 +212,7 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
   return <div className={`ecosystem-chat ${compact ? 'compact-chat' : ''}`} data-testid={`chat-${room}`}>
     {!compact && <div className="chat-room-heading"><MessageCircle size={17} /><strong>{ecosystem?.name || 'General'}</strong><span className="data-status"><i />POLLING</span></div>}
     <div className="chat-identity" data-testid={`chat-identity-${room}`}><span>#{room}</span>{wallet ? <span className="chat-wallet-state"><i />SIGNED · {displayAddress(wallet.address)}</span> : <button type="button" onClick={onConnect}>Connect wallet to post</button>}</div>
+    {pinned && <div className="chat-pinned" data-testid="chat-pinned" style={{ '--pin-s': `${pinned.pinnedFor}s` }}><span>📌 Hot take · {pinned.pinnedFor}s</span><b>{pinned.username}</b><p>{pinned.text}</p><i /></div>}
     <div className="chat-messages custom-scroll" ref={scroller} onScroll={() => { const e = scroller.current; stick.current = e.scrollHeight - e.scrollTop - e.clientHeight < 65; }}>
       {loading && <div className="chat-empty" data-testid={`chat-loading-${room}`}><span className="loader" />Connecting to the room…</div>}
       {!loading && !messages.length && <div className="chat-empty" data-testid={`chat-empty-${room}`}><MessageCircle size={28} /><strong>The next alpha starts here.</strong><span>No messages in this channel yet.</span></div>}

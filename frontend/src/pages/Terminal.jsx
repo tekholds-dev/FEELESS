@@ -19,6 +19,7 @@ import { LAUNCHPADS, matchesPad } from '../lib/launchpads';
 import { FeeHeartbeat, Tokenomics, FeeAssetPage } from '../components/command/FeeCommand';
 import { ContextBar, MouseGlow, AmbientFlakes, AlphaTape, PulseGrid, ContractScanner } from '../components/command/WorkspaceChrome';
 import { FeeBackCenter, FeeCatCenter, FeelessCats } from '../components/command/FeeBack';
+import { TradeDesk } from '../components/command/TradeDesk';
 import FeeCatsPlatform from '../components/command/FeeCatsPlatform';
 import { SwapWorkspace } from '../components/command/SwapWorkspace';
 import { WatchlistDashboard } from '../components/command/CreatorProfile';
@@ -167,7 +168,7 @@ export default function Terminal() {
        {pairRouteState === 'unavailable' && <MarketError id="selected-pair-route-error" error={pairLookup.error ? `Selected coin is unavailable: ${pairLookup.error}` : `Selected coin ${routeChain} / ${routePairAddress} was not returned by the market provider.`} description="No substitute coin was selected." reload={pairLookup.reload} retryLabel="Retry selected coin" />}
       {isMarket && <div className={`terminal-content-grid ${!isHome && page !== 'trade' ? 'market-wide' : ''}`}><div className="terminal-primary">
          {isHome && <><div className="command-home-heading"><div><span className="eyebrow">THE FEELESS NETWORK COMMAND CENTER</span><h1>$FEE is the heartbeat.</h1></div><button className="btn-outline" data-testid="reset-to-fee" onClick={resetSelectedPair}><Activity size={14} />$FEE focus</button></div>{focus}<PulseGrid pairs={pairs} community={community} fee={fee} feeCat={feeCat} loading={market.loading || !market.data} /><Tokenomics compact /></>}
-          {page === 'trade' && <><div className="command-page-title"><span className="eyebrow">INTELLIGENCE → ROUTE → SIMULATE → APPROVE</span><h1>Your execution workspace.</h1></div>{focus}<SwapWorkspace pair={selected} feeAsset={fee} feeAssets={feeAssets} feeCat={feeCat} fontScale={fontScale} onWallet={() => setWalletOpen(true)} /></>}
+          {page === 'trade' && <><div className="command-page-title"><span className="eyebrow">SWAP · BRIDGE · GAS — YOU SIGN EVERYTHING</span><h1>Trade anything. <span className="live-gradient-text">Into $FEE, it's free.</span></h1></div><div className="trade-layout"><div className="trade-chart">{focus}</div><TradeDesk swap={<SwapWorkspace pair={selected} feeAsset={fee} feeAssets={feeAssets} feeCat={feeCat} fontScale={fontScale} onWallet={() => setWalletOpen(true)} />} /></div></>}
        {!['', 'trade', 'pump'].includes(page) && <div className="command-page-title"><span className="eyebrow">{ecosystem.name.toUpperCase()} / ON-CHAIN INTELLIGENCE</span><h1>{query ? 'Follow the contract.' : page === 'new' ? 'New pools, better entry points.' : page === 'movers' ? 'Read the acceleration.' : 'Find the next rotation.'}</h1><p>{query ? `Provider results for “${query}”` : page === 'new' ? `Provider-indexed pools within ${MARKET_RETENTION_DAYS} days with a 24h drawdown of at least ${NEW_POOL_DEAL_PERCENT}%. Not a buy recommendation.` : 'Real signals, within provider coverage. No invented activity.'}</p></div>}
         {page !== 'pump' && <ContractScanner />}
         {(page === 'discover' || isHome) && <MetaDetector pairs={[...pairs, ...(newFeed.data?.pairs || [])]} onSelect={onSelect} />}

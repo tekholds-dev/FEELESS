@@ -4675,3 +4675,59 @@ async def darkside(limit: int = Query(12, ge=1, le=50)):
                      key=lambda x: (-x['walletsFunded'], -x['launches']))[:limit]
     return {'offenders': offenders, 'funders': funders, 'whales': _radar['whales'][:limit],
             'rugs': [e for e in _radar['events'] if e['kind'] in ('rug', 'dump')][:limit], 'at': time.time()}
+
+
+# ---- Gas check: native balance on every EVM chain, one call -----------------------------------
+GAS_MIN_USD = {'ethereum': 3.0}  # everywhere else ~$0.25 covers several swaps
+NATIVE_SYMBOL = {'ethereum': 'ETH', 'base': 'ETH', 'arbitrum': 'ETH', 'optimism': 'ETH', 'zksync': 'ETH', 'zora': 'ETH', 'unichain': 'ETH',
+                 'worldchain': 'ETH', 'bsc': 'BNB', 'avalanche': 'AVAX', 'polygon': 'POL', 'cronos': 'CRO'}
+_native_px = {'at': 0, 'px': {}}
+
+
+async def _native_prices(http):
+    if time.time() - _native_px['at'] < 300 and _native_px['px']:
+        return _native_px['px']
+    ids = {'ETH': 'ethereum', 'BNB': 'binancecoin', 'AVAX': 'avalanche-2', 'POL': 'polygon-ecosystem-token', 'CRO': 'crypto-com-chain'}
+    px = {}
+    for sym, q in (('ETH', 'WETH'), ('BNB', 'WBNB'), ('AVAX', 'WAVAX'), ('POL', 'WPOL'), ('CRO', 'WCRO')):
+        try:
+            pairs = (await http.get('https://api.dexscreener.com/latest/dex/search', params={'q': f'{q} USDC'})).json().get('pairs') or []
+            best = max((p for p in pairs if (p.get('baseToken') or {}).get('symbol') == q), key=lambda p: (p.get('liquidity') or {}).get('usd') or 0, default=None)
+            if best:
+                px[sym] = float(best.get('priceUsd') or 0)
+        except Exception:
+            pass
+    _native_px.update(at=time.time(), px=px)
+    return px
+
+
+@app.get('/api/reputation/gas/{address}')
+async def gas_check(address: str):
+    """Which chains this wallet can (and can't) pay gas on — so the trade desk can offer a one-click
+    route that converts something it already holds into gas where it's missing."""
+    if not _re.match(r'^0x[0-9a-fA-F]{40}$', address):
+        raise HTTPException(400, 'EVM address required (0x…).')
+    async with httpx.AsyncClient(timeout=8) as http:
+        px = await _native_prices(http)
+
+        async def bal(chain, url):
+            try:
+                r = await http.post(url, json={'jsonrpc': '2.0', 'id': 1, 'method': 'eth_getBalance', 'params': [address, 'latest']})
+                return chain, int(r.json()['result'], 16) / 1e18
+            except Exception:
+                return chain, None
+        res = await asyncio.gather(*(bal(c, u) for c, u in EVM_RPC.items()))
+    out = []
+    for chain, amt in res:
+        sym = NATIVE_SYMBOL.get(chain, 'ETH'); usd = amt * px.get(sym, 0) if amt is not None else None
+        need = GAS_MIN_USD.get(chain, 0.25)
+        out.append({'chain': chain, 'symbol': sym, 'balance': amt, 'usd': round(usd, 2) if usd is not None else None,
+                    'enough': usd is not None and usd >= need, 'minUsd': need})
+    return {'address': address, 'chains': sorted(out, key=lambda x: -(x['usd'] or 0)), 'at': time.time()}
+
+
+@app.get('/api/reputation/fees/public')
+async def fees_public():
+    cfg = _fee_cfg()
+    return {'platformFeeBps': cfg['platformFeeBps'], 'tierDiscountPct': cfg['tierDiscountPct'], 'promo': cfg.get('promo'),
+            'feelessIntoFee': True, 'note': 'Trades into or out of $FEE-ecosystem coins never carry a FEELESS fee.'}

@@ -41,8 +41,9 @@ export function EvmTrade({ pair }) {
       await switchTo?.(Object.keys(CHAIN_ID).find(k => CHAIN_ID[k] === Number(tx.chainId)) || fromChain);
       if (quote.action.fromToken.address !== NATIVE && quote.estimate.approvalAddress) {
         const data = `0x095ea7b3${quote.estimate.approvalAddress.slice(2).padStart(64, '0')}${BigInt(quote.action.fromAmount).toString(16).padStart(64, '0')}`;
-        await provider.request({ method: 'eth_sendTransaction', params: [{ from: wallet.address, to: quote.action.fromToken.address, data }] });
-        toast('Approval sent — confirm the swap next.');
+        const ah = await provider.request({ method: 'eth_sendTransaction', params: [{ from: wallet.address, to: quote.action.fromToken.address, data }] });
+        toast('Approval sent — waiting for it to confirm…');
+        for (let i = 0; i < 60; i++) { const rc = await provider.request({ method: 'eth_getTransactionReceipt', params: [ah] }).catch(() => null); if (rc) { if (rc.status === '0x0') throw new Error('Approval reverted.'); break; } await new Promise(r => setTimeout(r, 2000)); }
       }
       const hash = await provider.request({ method: 'eth_sendTransaction', params: [{ from: wallet.address, to: tx.to, data: tx.data, value: tx.value, gas: tx.gasLimit }] });
       toast.success(`Submitted: ${hash.slice(0, 10)}…`); setQuote(null);
