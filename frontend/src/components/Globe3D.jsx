@@ -56,6 +56,35 @@ function tokenOrb(d) {
   group.userData.pulseHalo = hot ? halo : null;
   return group;
 }
+// Ecosystem beacon: a pulsing ring on the surface in the chain's color, a soft light column, and a
+// crisp name label — all depth-tested, so they sit ON the planet and hide behind it properly.
+const labelTex = {};
+function nameTexture(name, color) {
+  const key = name + color; if (labelTex[key]) return labelTex[key];
+  const c = document.createElement('canvas'); c.width = 512; c.height = 128; const g = c.getContext('2d');
+  g.font = '700 54px Inter, system-ui, sans-serif'; const w = Math.min(500, g.measureText(name).width + 70);
+  g.fillStyle = 'rgba(4,10,8,.78)'; g.strokeStyle = color; g.lineWidth = 4;
+  const x = (512 - w) / 2; g.beginPath(); g.roundRect(x, 22, w, 84, 42); g.fill(); g.stroke();
+  g.fillStyle = color; g.beginPath(); g.arc(x + 38, 64, 12, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#ffffff'; g.textBaseline = 'middle'; g.fillText(name, x + 60, 66);
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 4; labelTex[key] = t; return t;
+}
+const BEACONS = new Set();
+function nodeBeacon(d) {
+  const group = new THREE.Group(); const col = new THREE.Color(d.color);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(2.2, 2.9, 48), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: col, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending }));
+  core.scale.set(7, 7, 1);
+  const beamGeo = new THREE.CylinderGeometry(0.18, 0.55, 9, 12, 1, true); beamGeo.rotateX(Math.PI / 2); beamGeo.translate(0, 0, 4.5);
+  const beam = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+  const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: nameTexture(d.name, d.color), transparent: true, depthWrite: false }));
+  label.scale.set(26, 6.5, 1); label.position.set(0, 0, 14);
+  group.add(ring, core, beam, label);
+  group.userData.beacon = { ring, beam, phase: Math.random() * Math.PI * 2 };
+  BEACONS.add(group);
+  return group;
+}
+function globeObject(d) { return d.isNode ? nodeBeacon(d) : tokenOrb(d); }
 const fmtCap = v => (v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : `$${(v / 1e6).toFixed(1)}M`);
 
 // Every token with $10M+ market cap (true data from GeckoTerminal), placed around its network node.
@@ -336,6 +365,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
       const now = performance.now();
       const dead = [];
       burstObjs.current.forEach((obj, id) => { if (!tickBurst(obj, now)) dead.push(id); });
+      BEACONS.forEach(b => { if (!b.parent) { BEACONS.delete(b); return; } const u = b.userData.beacon; const k = (Math.sin(now / 700 + u.phase) + 1) / 2; u.ring.scale.setScalar(1 + k * 0.6); u.ring.material.opacity = 0.9 - k * 0.6; u.beam.material.opacity = 0.2 + k * 0.25; });
       if (dead.length) {
         dead.forEach(id => { const o = burstObjs.current.get(id); o?.parent?.remove(o); disposeBurst(o); burstObjs.current.delete(id); });
       }
@@ -406,29 +436,8 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
     size: e.id === selectedId ? 1.7 : e.isLaunchpad ? 1.25 : 0.85,
   })), [selectedId]);
 
-  const arcs = useMemo(() => {
-    const arr = [];
-    const eco = GLOBE_NODES;
-    for (let i = 0; i < eco.length; i++) {
-      const a = eco[i];
-      const b = eco[(i + 1) % eco.length];
-      arr.push({
-        startLat: a.lat, startLng: a.lng,
-        endLat: b.lat, endLng: b.lng,
-        color: [a.color, b.color]
-      });
-    }
-    // hub arcs from Solana to each
-    const hub = eco[0];
-    for (const e of eco.slice(1)) {
-      arr.push({
-        startLat: hub.lat, startLng: hub.lng,
-        endLat: e.lat, endLng: e.lng,
-        color: ['#14F195', e.color]
-      });
-    }
-    return arr;
-  }, []);
+
+  const objects = useMemo(() => [...GLOBE_NODES.map(n => ({ ...n, isNode: true })), ...tokenPoints], [tokenPoints]);
 
   const rings = useMemo(() => [
     ...GLOBE_NODES.map(e => ({ lat: e.lat, lng: e.lng, color: e.color, maxR: 8, propagationSpeed: 2.6, repeatPeriod: 1200 })),
@@ -472,7 +481,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
           pointAltitude={0.008}
           pointRadius="size"
           pointResolution={24}
-          labelsData={GLOBE_NODES.filter(n => n.isLaunchpad || n.id === 'solana')}
+          labelsData={[]}
           labelLat="lat"
           labelLng="lng"
           labelText="name"
@@ -487,25 +496,19 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
             : `<div class="globe-point-tooltip" style="padding:6px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;">${p.name} · ${p.symbol}</div>`}
           onPointClick={p => { if (p.isToken) { if (p.token.pairAddress) window.open(`/terminal/trade?chain=${encodeURIComponent(p.token.chain)}&pair=${encodeURIComponent(p.token.pairAddress)}`, '_blank', 'noopener'); return; } onSelect && onSelect(p.id); }}
           onPointHover={p => document.body.style.cursor = p ? 'pointer' : 'default'}
-          arcsData={arcs}
-          arcColor="color"
-          arcStroke={0.5}
-          arcAltitude={0.22}
-          arcDashLength={0.4}
-          arcDashGap={2}
-          arcDashAnimateTime={2600}
           ringsData={rings}
           ringColor="color"
           ringMaxRadius="maxR"
           ringPropagationSpeed="propagationSpeed"
           ringRepeatPeriod="repeatPeriod"
-          objectsData={tokenPoints}
+          objectsData={objects}
           objectLat="lat"
           objectLng="lng"
           objectAltitude={0.012}
-          objectThreeObject={tokenOrb}
-          objectLabel={p => `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;"><b>${escapeHtml(p.token.symbol)}</b> · ${escapeHtml(p.token.chain)}<br/>${fmtCap(p.token.marketCap)} ${p.token.mcKind === 'FDV' ? 'FDV' : 'MC'}${Number.isFinite(Number(p.token.change24h)) ? ` · ${Number(p.token.change24h) >= 0 ? '+' : ''}${Number(p.token.change24h).toFixed(1)}% 24h` : ''}</div>`}
-          onObjectClick={p => { if (onToken) { onToken(p.token); return; } if (p.token.pairAddress) window.open(`/terminal/trade?chain=${encodeURIComponent(p.token.chain)}&pair=${encodeURIComponent(p.token.pairAddress)}`, '_blank', 'noopener'); }}
+          objectThreeObject={globeObject}
+          objectFacesSurface
+          objectLabel={p => p.isNode ? `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;"><b>${escapeHtml(p.name)}</b><br/>Click to open its war room</div>` : `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;"><b>${escapeHtml(p.token.symbol)}</b> · ${escapeHtml(p.token.chain)}<br/>${fmtCap(p.token.marketCap)} ${p.token.mcKind === 'FDV' ? 'FDV' : 'MC'}${Number.isFinite(Number(p.token.change24h)) ? ` · ${Number(p.token.change24h) >= 0 ? '+' : ''}${Number(p.token.change24h).toFixed(1)}% 24h` : ''}</div>`}
+          onObjectClick={p => { if (p.isNode) { onSelect?.(p.id); return; } if (onToken) { onToken(p.token); return; } if (p.token.pairAddress) window.open(`/terminal/trade?chain=${encodeURIComponent(p.token.chain)}&pair=${encodeURIComponent(p.token.pairAddress)}`, '_blank', 'noopener'); }}
           onObjectHover={p => { document.body.style.cursor = p ? 'pointer' : 'default'; }}
           htmlElementsData={bubbles}
           htmlLat="lat"
