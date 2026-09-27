@@ -4530,3 +4530,59 @@ async def admin_numbers(request: Request):
             'flow': {'h24': flow(now - 86400), 'd7': flow(now - 7 * 86400), 'all': flow(0)},
             'scanner': {k: stats.get(k) for k in ('mintsScanned', 'snipers', 'bundlers', 'flaggedFunders', 'blocklisted', 'creators')},
             'history': [{'day': k, **v} for k, v in hist['days'].items()], 'at': now}
+
+
+# ---- Rep: where a wallet stands, and the dark side of the market ------------------------------
+@app.get('/api/reputation/standing/{address}')
+async def wallet_standing(address: str):
+    """One wallet across every category FEELESS scores, each with the evidence behind it and a
+    percentile against every wallet FEELESS has scored in that category."""
+    a = primary_of(address)
+    trust = await trust_score(a)
+    cats = [{'id': 'trust', 'label': 'Overall trust', 'score': trust.get('score'), 'detail': f"{len(trust.get('parts') or [])} signals", 'good': (trust.get('score') or 0) >= 60}]
+    store = _load()
+    creator = store['creators'].get(_creator_key('solana', a))
+    all_creator_scores = [x.get('score') for x in (score_creator(c) for c in store['creators'].values()) if x.get('score') is not None]
+    if creator:
+        sc = score_creator(creator)
+        pct = round(sum(1 for v in all_creator_scores if v <= (sc.get('score') or 0)) / max(1, len(all_creator_scores)) * 100) if sc.get('score') is not None else None
+        cats.append({'id': 'creator', 'label': 'Creator record', 'score': sc.get('score'), 'percentile': pct,
+                     'detail': f"{sc.get('badge')} · {sc.get('tokenCount', 0)} launches · {sc.get('dumpedCount', 0)} dumped", 'good': sc.get('badge') in ('trusted', 'veteran')})
+    board = await caller_board(days=90)
+    me = next((r for r in board['rows'] if r.get('callerAddress') == a), None)
+    if me:
+        rates = sorted(r['hitRate'] for r in board['rows'] if r['calls'] >= 3)
+        pct = round(sum(1 for v in rates if v <= me['hitRate']) / max(1, len(rates)) * 100) if me['calls'] >= 3 else None
+        cats.append({'id': 'caller', 'label': 'Caller', 'score': round(me['hitRate'] * 100), 'percentile': pct,
+                     'detail': f"{me['calls']} calls · {me['hits']} hit 2× · {me.get('rugs', 0)} rugged", 'good': me['hitRate'] >= 0.3})
+    bl = _block_load()['wallets'].get(a)
+    strikes = len((bl or {}).get('mints') or {})
+    roles = sorted(set((bl or {}).get('mints', {}).values()))
+    cats.append({'id': 'clean', 'label': 'Sniper / bundler record', 'score': 100 if not strikes else max(0, 100 - strikes * 30),
+                 'detail': 'never caught sniping or bundling' if not strikes else f"caught on {strikes} launch(es) as {', '.join(roles)}{' · BLOCKLISTED' if _is_blocked(bl) else ''}",
+                 'good': not strikes})
+    fd = _funders_load()
+    frec = fd['funders'].get(a)
+    funded_by = fd['offenderFunder'].get(a)
+    if frec or funded_by:
+        cats.append({'id': 'funding', 'label': 'Funding trail', 'score': 0 if frec and _is_flagged_funder(frec) else 40,
+                     'detail': (f"bankrolled {len(frec['funded'])} sniper/bundler wallets across {len(frec['mints'])} launch(es)" if frec else '')
+                               + (f"{' · ' if frec else ''}funded by {funded_by[:4]}…{funded_by[-4:]}" if funded_by else ''), 'good': False})
+    fol = len([x for x, lst in _fol()['following'].items() if a in lst])
+    cats.append({'id': 'social', 'label': 'Community', 'score': min(100, fol * 10), 'detail': f"{fol} followers{' · verified' if is_verified(a) else ''}", 'good': fol >= 3 or is_verified(a)})
+    return {'address': a, 'trust': trust, 'categories': cats, 'at': time.time()}
+
+
+@app.get('/api/reputation/darkside')
+async def darkside(limit: int = Query(12, ge=1, le=50)):
+    """The other side of the ledger: the wallets and money behind snipes, bundles and rugs."""
+    bl = _block_load()['wallets']
+    offenders = sorted(({'wallet': w, 'strikes': len(r.get('mints') or {}), 'roles': sorted(set((r.get('mints') or {}).values())),
+                         'blocked': _is_blocked(r), 'lastSeen': r.get('lastSeen')} for w, r in bl.items() if r.get('mints')),
+                       key=lambda x: (-x['strikes'], -(x['lastSeen'] or 0)))[:limit]
+    fd = _funders_load()
+    funders = sorted(({'wallet': w, 'walletsFunded': len(r.get('funded') or []), 'launches': len(r.get('mints') or {}),
+                       'flagged': _is_flagged_funder(r), 'lastSeen': r.get('lastSeen')} for w, r in fd['funders'].items()),
+                     key=lambda x: (-x['walletsFunded'], -x['launches']))[:limit]
+    return {'offenders': offenders, 'funders': funders, 'whales': _radar['whales'][:limit],
+            'rugs': [e for e in _radar['events'] if e['kind'] in ('rug', 'dump')][:limit], 'at': time.time()}
