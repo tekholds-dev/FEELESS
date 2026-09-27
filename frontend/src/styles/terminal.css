@@ -2766,3 +2766,18 @@ body.theme-day .tab-stage h1,body.theme-day .tab-stage h2{background:linear-grad
 .pump-radar-grid.is-list>* :is(.pump-radar-spark,svg.spark,.radar-card-chart){display:none}
 .feecat-frame.is-background{position:fixed;width:1px;height:1px;left:-9999px;opacity:0;pointer-events:none}
 .pm-handoff{display:block;color:var(--mint);font-size:12px;margin-top:8px}
+/* Globe HUD v3: compact, bottom-left, every piece clickable */
+.globe-hud{left:10px!important;right:auto!important;top:auto!important;bottom:10px!important;transform:none!important;width:auto!important;max-width:230px!important;padding:8px 10px!important;border-radius:12px;font-size:10px}
+.globe-hud a,.globe-hud button{color:inherit;text-decoration:none;background:none;border:0;padding:0;font:inherit;cursor:pointer;text-align:left}
+.globe-hud-row{margin-bottom:6px!important;font-size:8.5px!important}
+.globe-hud-stats{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:4px 8px!important}
+.globe-hud-stats a{display:grid;border-radius:6px;padding:2px 3px;transition:background .2s}
+.globe-hud-stats a:hover{background:rgba(0,233,160,.1)}
+.globe-hud-stats b{font-size:12px!important}
+.globe-hud-stats small{font-size:7.5px!important}
+.globe-hud-hot{margin-top:6px!important;padding-top:6px!important;font-size:10px!important;width:100%}
+.globe-hud-hot:hover,.globe-feed button:hover{color:var(--mint)}
+.globe-feed{margin-top:6px!important;padding-top:6px!important;gap:3px!important}
+.globe-feed li{font-size:9.5px!important}
+.globe-feed button{width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:560px){.globe-hud{position:absolute!important;margin:0!important;max-width:200px!important}}

@@ -36,7 +36,10 @@ export function burstObject(b) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const color = new THREE.Color(b.color);
-  const mat = new THREE.PointsMaterial({ map: dotTexture(), color, size: 1.4 + b.power * 1.6, transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true });
+  // Per-spark color: starts white-hot, cools to the event color as it flies (see tickBurst).
+  const cols = new Float32Array(n * 3).fill(1);
+  geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+  const mat = new THREE.PointsMaterial({ map: dotTexture(), vertexColors: true, size: 1.6 + b.power * 1.8, transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true });
   const pts = new THREE.Points(geo, mat);
   group.add(pts);
 
@@ -52,7 +55,7 @@ export function burstObject(b) {
   const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: dotTexture(), color, transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending }));
   group.add(flash);
 
-  group.userData = { born: b.born, vel, pos, pts, pillar, flash, power: b.power, geo };
+  group.userData = { born: b.born, vel, pos, pts, pillar, flash, power: b.power, geo, cols, color, jitter: Array.from({ length: n }, () => Math.random()) };
   return group;
 }
 
@@ -69,7 +72,15 @@ export function tickBurst(obj, now) {
     u.pos[i + 2] = u.vel[i + 2] * reach * ease - 3 * t * t; // a touch of gravity back to the surface
   }
   u.geo.attributes.position.needsUpdate = true;
-  u.pts.material.opacity = 1 - t;
+  // White-hot -> event color, each spark cooling at its own pace, with a little twinkle.
+  const { r, g, b } = u.color;
+  for (let i = 0, k = 0; i < u.cols.length; i += 3, k++) {
+    const cool = Math.min(1, t * (1.6 + u.jitter[k] * 1.6));
+    const tw = 0.75 + 0.25 * Math.sin((now / 90) + k);
+    u.cols[i] = (1 - cool + r * cool) * tw; u.cols[i + 1] = (1 - cool + g * cool) * tw; u.cols[i + 2] = (1 - cool + b * cool) * tw;
+  }
+  u.geo.attributes.color.needsUpdate = true;
+  u.pts.material.opacity = (1 - t) ** 1.4;
   const f = Math.max(0, 1 - t * 3);
   u.flash.scale.setScalar(4 + u.power * 10 * (1 - f) + 2);
   u.flash.material.opacity = f;

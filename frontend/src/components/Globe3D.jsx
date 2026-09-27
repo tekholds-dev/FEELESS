@@ -193,13 +193,15 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
   const [bursts, setBursts] = useState([]);
   const [feed, setFeed] = useState([]);
   const burstObjs = useRef(new Map());
-  const fire = (lat, lng, kind, power, label, color) => {
+  const fire = (lat, lng, kind, power, label, color, token) => {
     const b = { id: `${Date.now()}-${Math.random()}`, lat, lng, kind, power, born: performance.now(), color: color || BURST_COLORS[kind] || '#14F195' };
     setBursts(list => [...list.slice(-40), b]);
-    if (label) setFeed(f => [{ id: b.id, kind, label, color: b.color }, ...f].slice(0, 4));
+    if (label) setFeed(f => [{ id: b.id, kind, label, color: b.color, token }, ...f].slice(0, 3));
   };
-  const hottest = useMemo(() => [...bigTokens].filter(t => Number.isFinite(Number(t.change24h))).sort((a, b) => Number(b.change24h) - Number(a.change24h))[0], [bigTokens]);
-  const tokenPoints = useMemo(() => bigTokens.map(t => {
+  const openToken = t => { if (!t) return; if (onToken) { onToken(t); return; } if (t.pairAddress) window.open(`/terminal/trade?chain=${encodeURIComponent(t.chain)}&pair=${encodeURIComponent(t.pairAddress)}`, '_blank', 'noopener'); };
+  const hottest = useMemo(() => [...bigTokens].filter(t => Number.isFinite(Number(t.change24h)) && Math.abs(Number(t.change24h)) < 2000).sort((a, b) => Number(b.change24h) - Number(a.change24h))[0], [bigTokens]);
+  // Brand-new pools can report absurd 24h moves (e.g. +8,725,052,277%); those aren't signal.
+  const tokenPoints = useMemo(() => bigTokens.filter(t => Math.abs(Number(t.change24h) || 0) < 2000).map(t => {
     const home = GLOBE_NODES.find(n => !n.isLaunchpad && (n.chainId === t.chain || n.id === t.chain));
     if (!home) return null;
     const h = hashNum(`${t.chain}:${t.address}`);
@@ -231,7 +233,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
       if (!was || !px || was === px) return;
       const move = (px - was) / was * 100;
       const power = Math.min(1, 0.35 + Math.abs(move) * 0.25);
-      setTimeout(() => fire(p.lat, p.lng, move >= 0 ? 'pump' : 'dump', power, Math.abs(move) >= 0.5 ? `${move >= 0 ? '▲' : '▼'} $${String(p.token.symbol).replace(/^\$/, '')} ${move >= 0 ? '+' : ''}${move.toFixed(2)}% on ${p.token.chain}` : null), delay);
+      setTimeout(() => fire(p.lat, p.lng, move >= 0 ? 'pump' : 'dump', power, Math.abs(move) >= 0.5 ? `${move >= 0 ? '▲' : '▼'} $${String(p.token.symbol).replace(/^\$/, '')} ${move >= 0 ? '+' : ''}${move.toFixed(2)}% on ${p.token.chain}` : null, undefined, p.token), delay);
       delay += 180;
     });
   }, [tokenPoints]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -248,7 +250,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
       while (r > weights[i] && i < weights.length - 1) { r -= weights[i]; i++; }
       const p = tokenPoints[i]; const heat = coinHeat(p.token); const kind = kindFor(p.token);
       const ch = Number(p.token.change24h) || 0;
-      fire(p.lat, p.lng, kind, 0.2 + heat * 0.8, (n++ % 4 === 0 && Math.abs(ch) >= 5) ? `${ch >= 25 ? '🚀' : ch >= 5 ? '🔥' : '🧊'} $${String(p.token.symbol).replace(/^\$/, '')} ${ch >= 0 ? '+' : ''}${ch.toFixed(1)}% 24h` : null);
+      fire(p.lat, p.lng, kind, 0.2 + heat * 0.8, (n++ % 4 === 0 && Math.abs(ch) >= 5) ? `${ch >= 25 ? '🚀' : ch >= 5 ? '🔥' : '🧊'} $${String(p.token.symbol).replace(/^\$/, '')} ${ch >= 0 ? '+' : ''}${ch.toFixed(1)}% 24h` : null, undefined, p.token);
     }, 650);
     return () => clearInterval(t);
   }, [tokenPoints]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -372,21 +374,23 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
   })), []);
 
   return (
-    <div ref={containerRef} className="globe-canvas-wrap globe-alive" data-testid="ecosystem-globe" style={{ width: '100%', maxWidth: size, aspectRatio: '1' }}>
+    <div ref={containerRef} className="globe-canvas-wrap globe-alive" data-testid="ecosystem-globe" style={{ width: '100%', maxWidth: size, aspectRatio: '1' }}
+      onMouseEnter={() => { const c = globeRef.current?.controls?.(); if (c) c.autoRotate = false; }}
+      onMouseLeave={() => { const c = globeRef.current?.controls?.(); if (c && !selectedId && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) c.autoRotate = true; }}>
       <div className="globe-bloom-layer globe-bloom-outer" aria-hidden="true" />
       <div className="globe-bloom-layer globe-bloom-inner" aria-hidden="true" />
       <div className="globe-particle-field" aria-hidden="true">{particles.map(p => <span key={p.id} className="globe-particle" style={{ left: p.left, top: p.top, animationDelay: p.delay, animationDuration: p.duration, width: p.size, height: p.size }} />)}</div>
       <div className="globe-starfield" aria-hidden="true">{stars.map(s => <span key={s.id} className="globe-star" style={{ left: s.left, top: s.top, width: s.size, height: s.size, animationDelay: s.delay, animationDuration: s.duration }} />)}</div>
       {stats && <div className="globe-hud" data-testid="globe-hud">
-        <div className="globe-hud-row"><i className="flr-dot" /><span>LIVE ON-CHAIN EVIDENCE</span></div>
+        <a className="globe-hud-row" href="/terminal/reputation"><i className="flr-dot" /><span>Live on-chain evidence</span></a>
         <div className="globe-hud-stats">
-          <div><b>{stats.mintsScanned?.toLocaleString?.() ?? stats.mintsScanned}</b><small>coins scanned</small></div>
-          <div><b>{stats.snipers?.toLocaleString?.() ?? stats.snipers}</b><small>snipers caught</small></div>
-          <div><b>{stats.flaggedFunders ?? 0}</b><small>repeat funders</small></div>
-          <div><b>{stats.blocklisted?.toLocaleString?.() ?? stats.blocklisted}</b><small>blocklisted</small></div>
+          <a href="/terminal/reputation"><b>{stats.mintsScanned?.toLocaleString?.()}</b><small>scanned</small></a>
+          <a href="/terminal/reputation"><b>{stats.snipers?.toLocaleString?.()}</b><small>snipers</small></a>
+          <a href="/terminal/reputation"><b>{stats.flaggedFunders ?? 0}</b><small>funders</small></a>
+          <a href="/terminal/reputation"><b>{stats.blocklisted?.toLocaleString?.()}</b><small>blocked</small></a>
         </div>
-        {hottest && <div className="globe-hud-hot"><i>🔥</i>${String(hottest.symbol).replace(/^\$/, '')} {Number(hottest.change24h) >= 0 ? '+' : ''}{Number(hottest.change24h).toFixed(1)}% on {hottest.chain}</div>}
-        {feed.length > 0 && <ul className="globe-feed" data-testid="globe-feed">{feed.map(f => <li key={f.id} style={{ '--c': f.color }}>{f.label}</li>)}</ul>}
+        {hottest && <button type="button" className="globe-hud-hot" onClick={() => openToken(hottest)}><i>🔥</i>${String(hottest.symbol).replace(/^\$/, '')} {Number(hottest.change24h) >= 0 ? '+' : ''}{Number(hottest.change24h).toFixed(1)}%</button>}
+        {feed.length > 0 && <ul className="globe-feed" data-testid="globe-feed">{feed.map(f => <li key={f.id} style={{ '--c': f.color }}>{f.token ? <button type="button" onClick={() => openToken(f.token)}>{f.label}</button> : f.label}</li>)}</ul>}
       </div>}
       <GlobeErrorBoundary fallback={<GlobeFallback onSelect={onSelect} selectedId={selectedId} />}>
         <Globe

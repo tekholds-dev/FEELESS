@@ -348,6 +348,42 @@ async def alchemy_candles(chain, pair, interval):
     return out
 
 
+# ---- Codex (codex.io): primary OHLCV for every chain when CODEX_API_KEY is set ----------------
+CODEX_NET = {'solana': 1399811149, 'ethereum': 1, 'base': 8453, 'bsc': 56, 'arbitrum': 42161, 'avalanche': 43114, 'polygon': 137,
+             'optimism': 10, 'zksync': 324, 'zora': 7777777, 'cronos': 25, 'unichain': 130, 'worldchain': 480}
+CODEX_RES = {'1m': ('1', 86400), '5m': ('5', 3 * 86400), '15m': ('15', 7 * 86400), '1h': ('60', 30 * 86400), '4h': ('240', 120 * 86400), '1d': ('1D', 730 * 86400)}
+_codex_cache: dict = {}
+
+
+async def codex_candles(chain, pair, interval):
+    key_ = os.environ.get('CODEX_API_KEY', '').strip(); net = CODEX_NET.get(chain)
+    if not key_ or not net:
+        return []
+    ck = f'{chain}:{pair}:{interval}'
+    hit = _codex_cache.get(ck)
+    if hit and time.time() - hit[0] < 10:
+        return hit[1]
+    res, back = CODEX_RES.get(interval, ('60', 30 * 86400))
+    now = int(time.time())
+    q = 'query($s:String!,$f:Int!,$t:Int!,$r:String!){getBars(symbol:$s,from:$f,to:$t,resolution:$r,removeLeadingNullValues:true){t o h l c volume}}'
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            r = await http.post('https://graph.codex.io/graphql', headers={'Authorization': key_, 'Content-Type': 'application/json'},
+                                json={'query': q, 'variables': {'s': f'{pair}:{net}', 'f': now - back, 't': now, 'r': res}})
+        b = ((r.json() or {}).get('data') or {}).get('getBars') or {}
+    except Exception:
+        return hit[1] if hit else []
+    out = []
+    for i, t in enumerate(b.get('t') or []):
+        o, h, l, c = b['o'][i], b['h'][i], b['l'][i], b['c'][i]
+        if c is None:
+            continue
+        v = (b.get('volume') or [0] * (i + 1))[i]
+        out.append([int(t), float(o if o is not None else c), float(h if h is not None else c), float(l if l is not None else c), float(c), float(v or 0)])
+    _codex_cache[ck] = (time.time(), out)
+    return out
+
+
 _helius_hist: dict = {}
 
 
@@ -435,8 +471,11 @@ async def get_candles(chain: str, pair_address: str, interval: str = Query('1h')
     store = _load()
     ticks = store.get(_pair_key(chain, pair_address), [])
     own = _bucket_candles(ticks, interval_seconds)
-    hist = await alchemy_candles(chain, pair_address, interval)
-    provider = 'Alchemy'
+    hist = await codex_candles(chain, pair_address, interval)
+    provider = 'Codex'
+    if not hist or len(hist) < 2:
+        hist = await alchemy_candles(chain, pair_address, interval)
+        provider = 'Alchemy'
     if not hist or len(hist) < 2:
         hist = await helius_candles(chain, pair_address, interval)
         provider = 'Helius swaps'
