@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useWallet } from '../../hooks/useWallet';
 import { apiUrl } from '../../lib/api';
+import { RugReport, ShieldLeaderboard } from './RugReport';
 
 const short = a => (a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '');
 const ago = t => { if (!t) return ''; const s = Date.now() / 1000 - (typeof t === 'string' ? Date.parse(t) / 1000 : t); return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : s < 86400 ? `${Math.round(s / 3600)}h` : `${Math.round(s / 86400)}d`; };
@@ -63,5 +64,5 @@ function DarkSide() {
 }
 
 export function RepStanding() {
-  return <div className="rep-top"><MyStanding /><DarkSide /></div>;
+  return <><div className="rep-top"><MyStanding /><DarkSide /></div><div className="rep-top"><RugReport /><ShieldLeaderboard /></div></>;
 }

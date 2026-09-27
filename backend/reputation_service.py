@@ -5832,3 +5832,36 @@ async def routes_set(request: Request, p: RoutesPayload):
     _json_save(ROUTES_PATH, {'routes': clean, 'updatedBy': me, 'at': time.time()})
     ad = _admin_load(); _audit(ad, me, 'treasury-routes', f"{len(clean)} routes"); _admin_save(ad)
     return {'ok': True, 'routes': clean}
+
+
+# ---- Shield leaderboard + weekly Rug Report ----------------------------------------------------
+@app.get('/api/reputation/shields/leaderboard')
+async def shield_leaderboard():
+    now = time.time(); by = {}
+    for mint, s in _json_load(SHIELD_PATH, {}).items():
+        r = by.setdefault(s['creator'], {'creator': s['creator'], 'kept': 0, 'broken': 0, 'active': 0, 'coins': []})
+        st = 'broken' if s['breaches'] else ('active' if now - s['at'] < s['lockDays'] * 86400 else 'kept')
+        r[st] += 1; r['coins'].append({'mint': mint, 'status': st})
+    rows = sorted(by.values(), key=lambda r: (-(r['kept'] * 3 + r['active'] - r['broken'] * 10), -r['kept']))
+    for r in rows:
+        r['handle'] = handle_of(r['creator']); r['score'] = r['kept'] * 3 + r['active'] - r['broken'] * 10
+    return {'rows': rows[:50]}
+
+
+@app.get('/api/reputation/rug-report')
+async def rug_report(days: int = Query(7, ge=1, le=30)):
+    """The week's receipts: who got caught, who funded them, which promises broke."""
+    since = time.time() - days * 86400
+    bl = _block_load()['wallets']
+    caught = [{'wallet': w, 'roles': sorted(set((r.get('mints') or {}).values())), 'launches': len(r.get('mints') or {}), 'blocked': _is_blocked(r)}
+              for w, r in bl.items() if (r.get('firstSeen') or 0) >= since]
+    fd = _funders_load()
+    funders = [{'wallet': w, 'walletsFunded': len(r.get('funded') or []), 'launches': len(r.get('mints') or {})}
+               for w, r in fd['funders'].items() if _is_flagged_funder(r) and (r.get('lastSeen') or 0) >= since]
+    broken = [{'mint': m, 'creator': s['creator'], 'rules': [b['rule'] for b in s['breaches']]}
+              for m, s in _json_load(SHIELD_PATH, {}).items() if any(b['at'] >= since for b in s['breaches'])]
+    rugs = [e for e in _radar['events'] if e['kind'] in ('rug', 'dump') and e['at'] >= since]
+    return {'days': days, 'from': since, 'to': time.time(),
+            'totals': {'caught': len(caught), 'blocklisted': sum(1 for c in caught if c['blocked']), 'funders': len(funders), 'brokenShields': len(broken), 'rugs': len(rugs)},
+            'caught': sorted(caught, key=lambda c: -c['launches'])[:10], 'funders': sorted(funders, key=lambda f: -f['walletsFunded'])[:5],
+            'brokenShields': broken[:5], 'rugs': rugs[:8]}
