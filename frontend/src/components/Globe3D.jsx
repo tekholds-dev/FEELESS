@@ -71,6 +71,38 @@ function useBigTokens() {
   return tokens;
 }
 
+// The FEELESS mark mown into the Pampas grasslands, like a crop circle: composited once into the
+// earth texture (multiply = darker cut grass, soft-light = sheen), so it rotates with the planet at
+// zero per-frame cost. Falls back to the plain texture if anything fails to load.
+const EARTH_URL = 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg';
+function useEngravedEarth() {
+  const [url, setUrl] = useState(EARTH_URL);
+  useEffect(() => {
+    let alive = true;
+    const load = src => new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = rej; i.src = src; });
+    Promise.all([load(EARTH_URL), load('/assets/feeless-logo.png')]).then(([earth, logo]) => {
+      const c = document.createElement('canvas'); c.width = earth.width; c.height = earth.height;
+      const g = c.getContext('2d'); g.drawImage(earth, 0, 0);
+      const lat = -35.5, lng = -62.5, deg = 10;        // the Argentine Pampas — open grassland, clear of network nodes
+      const px = w => (w / 360) * c.width;
+      const x = ((lng + 180) / 360) * c.width, y = ((90 - lat) / 180) * c.height, size = px(deg);
+      // grayscale mask of the logo -> tinted "mown grass" layers
+      const m = document.createElement('canvas'); m.width = m.height = Math.round(size);
+      const mg = m.getContext('2d'); mg.drawImage(logo, 0, 0, m.width, m.height);
+      mg.globalCompositeOperation = 'source-in';
+      g.save(); g.translate(x - size / 2, y - size / 2);
+      mg.fillStyle = '#1f3d12'; mg.fillRect(0, 0, m.width, m.height);
+      g.globalAlpha = 0.72; g.globalCompositeOperation = 'multiply'; g.drawImage(m, 0, 0);
+      mg.fillStyle = '#b9ffcf'; mg.fillRect(0, 0, m.width, m.height);
+      g.globalAlpha = 0.35; g.globalCompositeOperation = 'soft-light'; g.drawImage(m, -1, -1);
+      g.restore();
+      if (alive) setUrl(c.toDataURL('image/jpeg', 0.9));
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  return url;
+}
+
 const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // Live global HUD readout — the same on-chain evidence surfaced everywhere else, framed as
@@ -221,6 +253,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
   const [dims, setDims] = useState({ w: size, h: size });
   const bubbles = useGlobeBubbles(GLOBE_NODES);
   const bigTokens = useBigTokens();
+  const earthUrl = useEngravedEarth();
   const stars = useStarfield(40);
   const visible = useRef(true);
   const feedPush = useRef(null);
@@ -430,7 +463,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
           showAtmosphere
           atmosphereColor="#7cc8ff"
           atmosphereAltitude={0.38}
-          globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
+          globeImageUrl={earthUrl}
           bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
           pointsData={points}
           pointLat="lat"
