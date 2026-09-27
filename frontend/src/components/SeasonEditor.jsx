@@ -1,3 +1,4 @@
+import { CROP } from '../lib/cropImage';
 import React, { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ImagePlus, Sparkles } from 'lucide-react';
@@ -30,9 +31,9 @@ export async function generateBannerFile(name, c1, c2) {
   return new File([blob], 'banner.webp', { type: 'image/webp' });
 }
 
-function ImageDrop({ label, value, onChange, wide }) {
+function ImageDrop({ label, value, onChange, wide, shape }) {
   const input = useRef(null); const [busy, setBusy] = useState(false);
-  const choose = async e => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; setBusy(true); try { onChange(await uploadImage(f)); } catch (err) { toast.error(err.message); } finally { setBusy(false); } };
+  const choose = async e => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; setBusy(true); try { const url = await uploadImage(f, shape); if (url) onChange(url); } catch (err) { toast.error(err.message); } finally { setBusy(false); } };
   return <button type="button" className={`img-drop ${wide ? 'wide' : ''}`} onClick={() => input.current?.click()} style={value ? { backgroundImage: `url("${value}")` } : undefined} title={`Click to ${value ? 'replace' : 'add'} ${label}`}>
     <input ref={input} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={choose} />
     {!value && <span><ImagePlus size={18} />{busy ? 'Uploading…' : label}</span>}{value && <em>{busy ? 'Uploading…' : 'Replace'}</em>}
@@ -70,7 +71,7 @@ export function SeasonEditor({ season, call, onDone }) {
   const remove = async () => { if (!window.confirm(`Delete season "${season.name}"?`)) return; try { await call(`/admin/seasons/${season.id}`, { method: 'DELETE' }); toast.success('Season deleted.'); onDone(true); } catch (err) { toast.error(err.message); } };
   return <div className="season-editor" data-testid="season-editor">
     <header><h4>Edit season</h4><button type="button" className="btn-outline" disabled={busy} onClick={generate}><Sparkles size={14} />Generate lore + art</button></header>
-    <ImageDrop wide label="Add banner / GIF" value={f.bannerUrl} onChange={v => set('bannerUrl', v)} />
+    <ImageDrop wide shape={CROP.seasonBanner} label="Add banner / GIF" value={f.bannerUrl} onChange={v => set('bannerUrl', v)} />
     <div className="se-grid">
       <label>Name<input value={f.name} onChange={e => set('name', e.target.value)} /></label><label>Prize<input value={f.prize} onChange={e => set('prize', e.target.value)} /></label>
       <label className="se-wide">Story / lore<input value={f.theme} onChange={e => set('theme', e.target.value)} /></label>
@@ -78,10 +79,10 @@ export function SeasonEditor({ season, call, onDone }) {
       <label>Multiplier<input type="number" step="0.5" min="0.5" max="5" value={f.multiplier} onChange={e => set('multiplier', e.target.value)} /></label>
       <label>Background effect<select value={f.bgFx} onChange={e => set('bgFx', e.target.value)}>{BG_FX.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
       <label>Main color<input type="color" value={f.accent} onChange={e => set('accent', e.target.value)} /></label><label>Glow color<input type="color" value={f.accent2} onChange={e => set('accent2', e.target.value)} /></label>
-      <div className="se-wide se-badge"><span>Season badge</span><ImageDrop label="Add badge / GIF" value={f.badgeUrl} onChange={v => set('badgeUrl', v)} /></div>
+      <div className="se-wide se-badge"><span>Season badge</span><ImageDrop shape={CROP.badge} label="Add badge / GIF" value={f.badgeUrl} onChange={v => set('badgeUrl', v)} /></div>
     </div>
     <h4>Weekly drops</h4>
-    <div className="se-weeks">{Object.entries(weeks).map(([w, v]) => <div key={w} className="se-week"><ImageDrop label={`Week ${w}`} value={v.imageUrl} onChange={x => setW(w, 'imageUrl', x)} />
+    <div className="se-weeks">{Object.entries(weeks).map(([w, v]) => <div key={w} className="se-week"><ImageDrop shape={CROP.badge} label={`Week ${w}`} value={v.imageUrl} onChange={x => setW(w, 'imageUrl', x)} />
       <div><input placeholder={`Week ${w} badge name`} value={v.name} onChange={e => setW(w, 'name', e.target.value)} /><input placeholder="Emoji" maxLength={4} value={v.glyph} onChange={e => setW(w, 'glyph', e.target.value)} /><input placeholder="Story" value={v.story} onChange={e => setW(w, 'story', e.target.value)} /></div></div>)}</div>
     <div className="se-actions"><button type="button" className="btn-outline" onClick={remove}>Delete</button><button type="button" className="btn-outline" onClick={() => onDone(false)}>Cancel</button><button type="button" className="btn-primary" disabled={busy} onClick={save}>{busy ? 'Working…' : 'Save season'}</button></div>
   </div>;

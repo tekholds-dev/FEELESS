@@ -1,3 +1,5 @@
+import { uploadImage } from '../../lib/adminCall';
+import { CROP } from '../../lib/cropImage';
 import { WalletSwaps } from '../WalletSwaps';
 import { SwapWorkspace } from './SwapWorkspace';
 import { useMarket } from '../../hooks/useMarket';
@@ -40,29 +42,9 @@ function FriendCard({ address }) {
 const ACCENTS = ['#00e9a0', '#e9bd65', '#5ec8ff', '#b388ff', '#ff6b8b', '#ff9f45', '#ffffff'];
 const XIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.9 2H22l-7.6 8.7L23 22h-6.8l-5.3-6.9L4.8 22H1.7l8.1-9.3L1 2h7l4.8 6.3L18.9 2Zm-1.2 18h1.9L7.4 3.9H5.4L17.7 20Z" /></svg>;
 
-async function uploadImage(file, max) {
-  if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) throw new Error('PNG, JPG, WEBP or GIF');
-  let dataUrl;
-  if (file.type === 'image/gif') {
-    // Keep GIFs animated: upload as-is (server caps at 2 MB).
-    if (file.size > 2_000_000) throw new Error('GIFs must be under 2 MB');
-    dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
-  } else {
-    const bmp = await createImageBitmap(file);
-    const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
-    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
-    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-    dataUrl = c.toDataURL('image/webp', 0.9);
-  }
-  const res = await fetch(apiUrl('/api/reputation/uploads'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataUrl }) });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.detail || 'Upload failed');
-  return body.url;
-}
-
-function UploadButton({ label, max, onDone }) {
+function UploadButton({ label, shape, onDone }) {
   const [busy, setBusy] = useState(false);
-  return <label className="wp-upload"><input type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" onChange={async e => { const f = e.target.files?.[0]; if (!f) return; setBusy(true); try { onDone(await uploadImage(f, max)); } catch (err) { toast.error(err.message); } finally { setBusy(false); } }} /><ImageIcon size={12} />{busy ? 'Uploading…' : label}</label>;
+  return <label className="wp-upload"><input type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" onChange={async e => { const f = e.target.files?.[0]; if (!f) return; setBusy(true); e.target.value = ''; try { const url = await uploadImage(f, shape); if (url) onDone(url); } catch (err) { toast.error(err.message); } finally { setBusy(false); } }} /><ImageIcon size={12} />{busy ? 'Uploading…' : label}</label>;
 }
 
 export function WalletProfilePage({ address }) {
@@ -128,9 +110,9 @@ export function WalletProfilePage({ address }) {
   const [friend, setFriend] = useState('');
   if (ccOpen && isAdmin) return <CommandCenter address={address} signMessage={signMessage} onClose={() => setCcOpen(false)} />;
   return <div className={`wallet-profile-page theme-${p.theme || 'grid'} ptier-${tier}`} style={{ '--wp-accent': accent }} data-testid="wallet-profile-page">
-    <div className="wp-banner" style={p.bannerUrl ? { backgroundImage: `url(${p.bannerUrl})` } : undefined}>{edit && <UploadButton label="Banner" max={1600} onDone={url => set('bannerUrl', url)} />}</div>
+    <div className="wp-banner" style={p.bannerUrl ? { backgroundImage: `url(${p.bannerUrl})` } : undefined}>{edit && <UploadButton label="Banner" shape={CROP.banner} onDone={url => set('bannerUrl', url)} />}</div>
     <div className="wp-head">
-      <div className="wp-avatar-wrap">{tier >= 3 && <div className="wp-crown" aria-hidden="true"><span>👑</span></div>}<div className={`wp-avatar ring-${p.ring || 'none'}`}>{p.avatarUrl ? <img src={p.avatarUrl} alt="" /> : <span>{(p.displayName || address).slice(0, 2).toUpperCase()}</span>}{edit && <UploadButton label="GIF / pic" max={512} onDone={url => set('avatarUrl', url)} />}</div></div>
+      <div className="wp-avatar-wrap">{tier >= 3 && <div className="wp-crown" aria-hidden="true"><span>👑</span></div>}<div className={`wp-avatar ring-${p.ring || 'none'}`}>{p.avatarUrl ? <img src={p.avatarUrl} alt="" /> : <span>{(p.displayName || address).slice(0, 2).toUpperCase()}</span>}{edit && <UploadButton label="GIF / pic" shape={CROP.avatar} onDone={url => set('avatarUrl', url)} />}</div></div>
       <div className="wp-id">
         {edit ? <input className="wp-name-input" maxLength={32} placeholder="Display name" value={draft.displayName} onChange={e => set('displayName', e.target.value)} /> : <h1 className={`namefx-${p.nameFx || 'none'}`}>{p.displayName || shortAddress(address)}{data?.verified && <VerifiedMark />}</h1>}
         {edit ? <input className="wp-handle-input" maxLength={21} placeholder="@handle (3–20: a-z 0-9 _)" value={draft.handle ? `@${draft.handle}` : ''} onChange={e => set('handle', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))} /> : <span className="wp-handle">@{p.handle || address.slice(0, 6).toLowerCase()}</span>}

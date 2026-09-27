@@ -1,3 +1,4 @@
+import { cropImage, CROP } from '../../lib/cropImage';
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Clock3, Coins, Copy, Flame, Gauge, Image as ImageIcon, LoaderCircle, LockKeyhole, Rocket, ShieldAlert, ShieldCheck, ShieldQuestion, Timer, Users, Waves, XCircle, Globe, Send, MessageCircle, Sparkles, Link2, Flame as EmberIcon } from 'lucide-react';
 import { useWallet } from '../../hooks/useWallet';
@@ -313,9 +314,11 @@ function ImageDrop({ value, name, onUploaded }) {
     setErr('');
     if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) { setErr('PNG, JPG, WEBP or GIF'); return; }
     if (file.size > 10_000_000) { setErr('Max 10 MB'); return; }
+    const cropped = await cropImage(file, CROP.token);
+    if (!cropped) return;
     setBusy(true);
     try {
-      const dataUrl = await resizeToDataUrl(file);
+      const dataUrl = await resizeToDataUrl(cropped);
       const res = await fetch(apiUrl('/api/reputation/uploads'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataUrl }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Upload failed');

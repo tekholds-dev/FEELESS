@@ -1,3 +1,4 @@
+import { cropImage } from './cropImage';
 import { useCallback, useEffect, useState } from 'react';
 import { useWallet } from '../hooks/useWallet';
 import { apiUrl } from './api';
@@ -31,8 +32,10 @@ export function useAdmin() {
   return { isAdmin, call };
 }
 
-// Pick a file -> (resize stills to ≤1600px; keep GIFs animated) -> FEELESS upload -> hosted URL.
-export async function uploadImage(file) {
+// Pick a file -> optional crop (shape from CROP) -> resize stills to ≤1600px, GIFs kept animated
+// -> FEELESS upload -> hosted URL. Resolves null if the user cancels the crop.
+export async function uploadImage(file, shape) {
+  if (shape) { file = await cropImage(file, shape); if (!file) return null; }
   if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) throw new Error('PNG, JPG, WEBP or GIF only.');
   const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
   let body = dataUrl;
