@@ -2851,3 +2851,5 @@ body.theme-day .td-fee b,body.theme-day .td-review b{color:#0a1f14}body.theme-da
 .ht-meter{height:6px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden}.ht-meter i{display:block;height:100%;background:linear-gradient(90deg,#f5c542,var(--mint))}
 .ht-swatches{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.ht-swatches button{width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,.15);cursor:pointer}.ht-swatches button.on{border-color:#fff;box-shadow:0 0 0 2px var(--mint)}
 .ht-swatches input{width:34px;height:30px;border:0;background:none;cursor:pointer}
+.meta-status{font-size:10.5px;padding:2px 7px;border-radius:999px}.meta-status.good{background:rgba(0,233,160,.14);color:var(--mint)}.meta-status.mid{background:rgba(255,255,255,.07);color:var(--muted)}.meta-status.bad{background:rgba(94,200,255,.12);color:#7cc8ff}
+.meta-thumb{width:22px;height:22px;border-radius:50%;object-fit:cover;display:inline-grid;place-items:center;font-size:9px;background:rgba(255,255,255,.08);margin-right:-6px;border:1px solid rgba(0,0,0,.4)}

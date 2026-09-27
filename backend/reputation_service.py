@@ -4783,3 +4783,120 @@ async def theme_set(p: ThemePayload):
     d[a] = {'accent': p.accent, 'accent2': p.accent2 or p.accent, 'logo': p.logo or p.accent, 'at': time.time()}
     _json_save(THEMES_PATH, d)
     return {'ok': True, 'theme': d[a]}
+
+
+# ---- Meta engine: which narratives are forming, rising or dying, across every chain ------------
+META_FAMILIES = {
+    'ai': {'ai', 'agent', 'agents', 'gpt', 'bot', 'neural', 'agi', 'llm', 'deepseek', 'grok', 'claude', 'swarm'},
+    'dog': {'dog', 'doge', 'inu', 'shib', 'wif', 'pup', 'puppy', 'bonk', 'shiba', 'corgi', 'dogwifhat'},
+    'cat': {'cat', 'kitty', 'meow', 'mew', 'popcat', 'neko', 'kitten', 'mog'},
+    'frog': {'frog', 'pepe', 'kek', 'toad', 'ribbit'},
+    'politics': {'trump', 'maga', 'biden', 'melania', 'vance', 'usa', 'america', 'president', 'election', 'kamala'},
+    'elon': {'elon', 'musk', 'tesla', 'spacex', 'x', 'doge'},
+    'anime': {'anime', 'waifu', 'chan', 'kun', 'senpai', 'manga'},
+    'gaming': {'game', 'gaming', 'play', 'pixel', 'quest', 'arcade'},
+    'rwa': {'gold', 'rwa', 'treasury', 'bond', 'stock'},
+    'food': {'burger', 'pizza', 'taco', 'sushi', 'banana', 'cheese'},
+}
+_META_STOP = {'the', 'of', 'and', 'coin', 'token', 'sol', 'eth', 'on', 'a', 'to', 'in', 'is', 'usd', 'usdc', 'wrapped', 'finance', 'protocol', 'official', 'v2', 'inu',
+              'tether', 'usdt', 'btc', 'bitcoin', 'ethereum', 'ether', 'coinbase', 'staked', 'bridged', 'binance', 'bnb', 'arbitrum', 'avalanche', 'avax',
+              'polygon', 'pol', 'matic', 'cronos', 'cro', 'optimism', 'base', 'solana', 'wbtc', 'weth', 'dai', 'stable', 'dollar', 'pegged', 'liquid', 'lido', 'restaked', 'cake', 'pancakeswap', 'uniswap', 'world', 'chain', 'network', 'swap', 'dao'}
+_MAJOR_SYMBOLS = {'USDT', 'USDC', 'USDT0', 'DAI', 'WETH', 'WBTC', 'CBBTC', 'BTC.B', 'CBETH', 'WSTETH', 'STETH', 'WBNB', 'WAVAX', 'WPOL', 'WMATIC', 'WCRO', 'ARB', 'OP', 'ZK', 'SOL', 'WSOL', 'JITOSOL', 'MSOL', 'XAUT', 'PAXG', 'EURC', 'USDE', 'FDUSD', 'PYUSD', 'SUSDE'}
+_meta_cache = {'at': 0, 'data': None}
+_meta_hist = []   # (time, {meta: volShare})
+META_CHAINS = ['solana', 'base', 'bsc', 'ethereum', 'arbitrum', 'avalanche', 'polygon', 'sui', 'cronos', 'optimism', 'unichain', 'worldchain', 'zksync']
+
+
+def _meta_words(p):
+    bt = p.get('baseToken') or {}
+    raw = f"{bt.get('name') or ''} {bt.get('symbol') or ''}".lower()
+    words = set(_re.findall(r'[a-z]{2,}', raw)) - _META_STOP
+    fams = {f for f, vocab in META_FAMILIES.items() if words & vocab or any(v in raw.replace(' ', '') for v in vocab if len(v) >= 4)}
+    return words, fams
+
+
+@app.on_event('startup')
+async def _start_metas():
+    async def loop():
+        await asyncio.sleep(30)
+        while True:
+            try:
+                await metas(refresh=True)
+            except Exception as exc:
+                print('meta engine error', exc)
+            await asyncio.sleep(120)
+    asyncio.create_task(loop())
+
+
+@app.get('/api/reputation/metas')
+async def metas(refresh: bool = False):
+    # Users always get the background-computed snapshot instantly; only the loop recomputes.
+    if not refresh and _meta_cache['data']:
+        return _meta_cache['data']
+    if not refresh and not _meta_cache['data']:
+        return {'metas': [], 'coinsScanned': 0, 'chains': len(META_CHAINS), 'warming': True, 'at': time.time()}
+    pairs = []
+    async with httpx.AsyncClient(timeout=20) as http:
+        async def pull(chain, kind):
+            try:
+                r = await http.get('http://127.0.0.1:5001/api/market/feed', params={'chain': chain, 'kind': kind})
+                return r.json().get('pairs') or [] if r.status_code == 200 else []
+            except Exception:
+                return []
+        for batch in await asyncio.gather(*(pull(c, k) for c in META_CHAINS for k in ('trending', 'new'))):
+            pairs += batch
+    uniq = {}
+    for p in pairs:
+        k = (p.get('chainId'), (p.get('baseToken') or {}).get('address'))
+        if k[1] and k not in uniq:
+            uniq[k] = p
+    pairs = [p for p in uniq.values() if ((p.get('baseToken') or {}).get('symbol') or '').upper().strip() not in _MAJOR_SYMBOLS
+             and not _re.search(r'usd|tether|bitcoin|wrapped|staked|bridged', ((p.get('baseToken') or {}).get('name') or '').lower())]
+    groups, word_count = {}, {}
+    for p in pairs:
+        words, fams = _meta_words(p)
+        for f in fams:
+            groups.setdefault(f, []).append(p)
+        for w in words:
+            word_count.setdefault(w, []).append(p)
+    # Emergent metas: a fresh word 3+ unrelated coins share that isn't already a family.
+    for w, members in word_count.items():
+        if len(members) >= 3 and len(w) >= 3 and not any(w in v for v in META_FAMILIES.values()):
+            if len({(m.get('baseToken') or {}).get('symbol', '').upper() for m in members}) >= 3:
+                groups.setdefault(w, members)
+    total_vol = sum(float((p.get('volume') or {}).get('h24') or 0) for p in pairs) or 1
+    now_ms = time.time() * 1000
+    prev = next((h for t, h in reversed(_meta_hist) if time.time() - t >= 3000), None)
+    out = []
+    for name, members in groups.items():
+        vol = sum(float((m.get('volume') or {}).get('h24') or 0) for m in members)
+        ch = sorted(c for c in (float((m.get('priceChange') or {}).get('h24')) for m in members if (m.get('priceChange') or {}).get('h24') is not None) if abs(c) < 2000)
+        fresh = sum(1 for m in members if m.get('pairCreatedAt') and now_ms - m['pairCreatedAt'] < 86400000)
+        flagged = 0
+        for m in members:
+            hit = _intel_cache.get((m.get('baseToken') or {}).get('address'))
+            if hit and hit[1] and (len(hit[1].get('sniperWallets') or []) >= 5 or len(hit[1].get('bundledWallets') or []) >= 3 or hit[1].get('flaggedFunders')):
+                flagged += 1
+        share = vol / total_vol
+        trend = None if not prev or name not in prev else round((share - prev[name]) / max(prev[name], 1e-6) * 100, 1)
+        top = sorted(members, key=lambda m: -float((m.get('volume') or {}).get('h24') or 0))[:8]
+        out.append({'meta': name, 'family': name in META_FAMILIES, 'coins': len(members), 'volume24h': round(vol), 'volumeShare': round(share * 100, 2),
+                    'avgChange24h': round(ch[len(ch) // 2], 1) if ch else None, 'freshLaunches24h': fresh,
+                    'chains': sorted({m.get('chainId') for m in members}), 'riskShare': round(flagged / len(members) * 100) if members else 0,
+                    'trend1h': trend, 'status': 'forming' if fresh >= max(2, len(members) * 0.5) else ('rising' if (trend or 0) > 10 else 'fading' if (trend or 0) < -10 else 'steady'),
+                    'top': [{'symbol': (m.get('baseToken') or {}).get('symbol'), 'chain': m.get('chainId'), 'pairAddress': m.get('pairAddress'),
+                             'change24h': (m.get('priceChange') or {}).get('h24'), 'volume24h': (m.get('volume') or {}).get('h24'),
+                             'imageUrl': (m.get('info') or {}).get('imageUrl')} for m in top]})
+    out.sort(key=lambda x: (-x['volume24h']))
+    seen, deduped = set(), []
+    for m in out:  # the same coins under two words = one meta (keep the family / longer name)
+        sig = tuple(sorted(t['pairAddress'] or '' for t in m['top']))
+        if sig in seen:
+            continue
+        seen.add(sig); deduped.append(m)
+    out = deduped
+    _meta_hist.append((time.time(), {m['meta']: m['volumeShare'] / 100 for m in out}))
+    del _meta_hist[:-40]
+    data = {'metas': out[:24], 'coinsScanned': len(pairs), 'chains': len(META_CHAINS), 'at': time.time()}
+    _meta_cache.update(at=time.time(), data=data)
+    return data

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { apiUrl } from '../../lib/api';
 import { useNavigate } from 'react-router-dom';
 import { ArrowUpRight, Activity, Star, Bell, Users, ExternalLink, RefreshCw, Zap, Layers3, TrendingUp, Droplets } from 'lucide-react';
 import { useWorkspace } from '../../hooks/useWorkspace';
@@ -206,24 +207,37 @@ export function detectMetas(pairs, minMembers = 2) {
   return metas.filter(m => { const sig = m.members.map(p => p.pairAddress).sort().join(); if (seen.has(sig)) return false; seen.add(sig); return true; }).slice(0, 6);
 }
 
+const STATUS = { forming: ['🌱 forming', 'good'], rising: ['🚀 rising', 'good'], steady: ['〰 steady', 'mid'], fading: ['🧊 fading', 'bad'] };
+
+// Meta detector: the FEELESS meta engine scans every chain's trending + new coins (DexScreener + Codex)
+// every 2 minutes and groups them into narratives. Falls back to the coins on screen if it's warming up.
 export const MetaDetector = ({ pairs, onSelect }) => {
-  const metas = useMemo(() => detectMetas(pairs || []), [pairs]);
+  const [engine, setEngine] = useState(null);
   const [open, setOpen] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch(apiUrl('/api/reputation/metas')).then(r => r.json()).then(d => alive && setEngine(d)).catch(() => {});
+    load(); const t = setInterval(() => { if (!document.hidden) load(); }, 60000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+  const local = useMemo(() => detectMetas(pairs || []), [pairs]);
+  const metas = engine?.metas?.length ? engine.metas : null;
   return <section className="meta-detector" data-testid="meta-detector">
-    <div className="section-title"><h2><Layers3 size={18} />Meta detector</h2><small>Themes forming across live markets right now</small></div>
-    {!metas.length && <div className="truth-empty">No shared theme across two or more live coins yet. Metas show up here the moment they form.</div>}
-    <div className="meta-grid">{metas.map(meta => <div key={meta.word} className={`meta-card ${open === meta.word ? 'is-open' : ''}`}>
-      <button type="button" className="meta-card-head" onClick={() => setOpen(open === meta.word ? null : meta.word)}>
-        <b>#{meta.word.toUpperCase()}</b>
-        <span className="meta-count">{meta.distinct} tickers · {meta.members.length} pools</span>
-        <span className={meta.avg == null ? '' : meta.avg >= 0 ? 'positive' : 'negative'}>{meta.avg == null ? '—' : `${meta.avg >= 0 ? '+' : ''}${meta.avg.toFixed(1)}% avg`}</span>
-        <small>{formatUSD(meta.vol)} vol 24h</small>
+    <div className="section-title"><h2><Layers3 size={18} />Meta detector</h2><small>{metas ? `${engine.coinsScanned.toLocaleString()} coins across ${engine.chains} chains · refreshed every 2 min` : 'Themes forming across live markets right now'}</small></div>
+    {metas ? <div className="meta-grid">{metas.slice(0, 12).map(m => { const [label, tone] = STATUS[m.status] || STATUS.steady; return <div key={m.meta} className={`meta-card ${open === m.meta ? 'is-open' : ''}`}>
+      <button type="button" className="meta-card-head" onClick={() => setOpen(open === m.meta ? null : m.meta)}>
+        <b>#{m.meta.toUpperCase()}</b><span className={`meta-status ${tone}`}>{label}</span>
+        <span className="meta-count">{m.coins} coins · {m.chains.length} chain{m.chains.length === 1 ? '' : 's'}</span>
+        <span className={m.avgChange24h == null ? '' : m.avgChange24h >= 0 ? 'positive' : 'negative'}>{m.avgChange24h == null ? '—' : `${m.avgChange24h >= 0 ? '+' : ''}${m.avgChange24h}% median`}</span>
+        <small>{formatUSD(m.volume24h)} vol · {m.volumeShare}% of flow{m.freshLaunches24h ? ` · ${m.freshLaunches24h} launched today` : ''}{m.trend1h != null ? ` · ${m.trend1h >= 0 ? '+' : ''}${m.trend1h}% vs 1h` : ''}</small>
       </button>
-      {meta.copycats.length > 0 && <div className="meta-copycats" title="Several different contracts are using the exact same ticker — a common clone/scam pattern. Verify the contract before buying.">⚠ Copycats: {meta.copycats.map(c => `${c.sym} ×${c.count}`).join(' · ')}</div>}
-      <div className="meta-avatars">{meta.members.slice(0, 6).map(p => <TokenAvatar key={p.pairAddress} pair={p} size={22} />)}</div>
-      {open === meta.word && <div className="meta-members">{meta.members.map(p => <button type="button" key={p.pairAddress} onClick={() => onSelect?.(p)}>
-        <TokenAvatar pair={p} size={20} /><b>{p.baseToken.symbol}</b><ReputationBadge pair={p} compact /><span className={Number(p.priceChange?.h24) >= 0 ? 'positive' : 'negative'}>{Number.isFinite(Number(p.priceChange?.h24)) ? `${Number(p.priceChange.h24).toFixed(1)}%` : '—'}</span><small>{formatUSD(p.volume?.h24)}</small>
+      {m.riskShare > 0 && <div className="meta-copycats">⚠ {m.riskShare}% of this meta's scanned coins show sniper/bundle/funder red flags</div>}
+      <div className="meta-avatars">{m.top.slice(0, 6).map(t => t.imageUrl ? <img key={t.pairAddress} src={t.imageUrl} alt="" className="meta-thumb" /> : <span key={t.pairAddress} className="meta-thumb">{(t.symbol || '?').slice(0, 2)}</span>)}</div>
+      {open === m.meta && <div className="meta-members">{m.top.map(t => <button type="button" key={t.pairAddress} onClick={() => onSelect?.({ chainId: t.chain, pairAddress: t.pairAddress, baseToken: { symbol: t.symbol }, info: { imageUrl: t.imageUrl } })}>
+        <b>{t.symbol}</b><small>{t.chain}</small><span className={Number(t.change24h) >= 0 ? 'positive' : 'negative'}>{Number.isFinite(Number(t.change24h)) ? `${Number(t.change24h).toFixed(1)}%` : '—'}</span><small>{formatUSD(t.volume24h)}</small>
       </button>)}</div>}
-    </div>)}</div>
+    </div>; })}</div>
+      : !local.length ? <div className="truth-empty">{engine?.warming ? 'Meta engine warming up — first scan lands within a minute.' : 'No shared theme across two or more live coins yet.'}</div>
+      : <div className="meta-grid">{local.map(meta => <div key={meta.word} className="meta-card"><div className="meta-card-head"><b>#{meta.word.toUpperCase()}</b><span className="meta-count">{meta.distinct} tickers</span><small>{formatUSD(meta.vol)} vol 24h</small></div></div>)}</div>}
   </section>;
 };
