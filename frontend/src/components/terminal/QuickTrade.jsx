@@ -37,7 +37,13 @@ export function QuickTrade({ pair }) {
   const [showSettings, setShowSettings] = useState(false);
   const box = useRef(null);
   // Opened from a "snipers out" alert (?buy=1): bring the buy box into view, ready to quote.
-  useEffect(() => { if (new URLSearchParams(window.location.search).get('buy') === '1') box.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, []);
+  // With a Solana wallet already connected it also fetches the quote at your default amount — you still approve in your wallet.
+  const fromAlert = useRef(new URLSearchParams(window.location.search).get('buy') === '1');
+  useEffect(() => { if (fromAlert.current) box.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, []);
+  useEffect(() => {
+    if (!fromAlert.current || wallet?.chain !== 'solana' || !pair?.baseToken?.address) return;
+    fromAlert.current = false; quote();
+  }, [wallet?.chain, pair?.baseToken?.address]); // eslint-disable-line react-hooks/exhaustive-deps
   // Auto-match the wallet to the coin's network: same wallet, Solana side, no popup if already trusted.
   useEffect(() => {
     if (pair?.chainId === 'solana' && wallet?.chain === 'evm' && connect) connect('solana', undefined, { silent: true }).catch(() => {});

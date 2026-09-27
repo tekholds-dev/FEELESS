@@ -57,8 +57,20 @@ function FeedPanel({ onConnect }) {
   const label = FEED_CATS.find(c => c[0] === cat)?.[1] || 'FEEd';
   return <section className="wp-card feed-panel" data-testid="profile-feed">
     <header><h3>FEEd</h3><select value={cat} onChange={e => pick(e.target.value)} aria-label="FEEd category">{FEED_CATS.map(([id, l]) => <option key={id} value={id}>{l}</option>)}</select></header>
+    <FeedCallers />
     <EcosystemChat key={cat} compact room={cat} ecosystem={{ id: cat, name: label }} onConnect={onConnect} />
   </section>;
+}
+
+// Best FEEd callers this week: posts with a coin are tracked; 2×/5×/10× peaks earn season points.
+function FeedCallers() {
+  const [rows, setRows] = useState(null);
+  useEffect(() => { fetch(apiUrl('/api/reputation/calls/leaderboard?days=7&room=feed-')).then(r => (r.ok ? r.json() : {})).then(d => setRows(d.rows || [])).catch(() => setRows([])); }, []);
+  if (!rows?.length) return <p className="feed-callers-empty">Post a coin address in FEEd — if it runs 2×, 5× or 10× you earn season points.</p>;
+  return <ol className="feed-callers" aria-label="Top FEEd callers this week">{rows.slice(0, 5).map((r, i) => <li key={r.caller}>
+    <i>{i + 1}</i>{r.callerAddress ? <Link to={`/terminal/profile/${r.callerAddress}`}>{r.caller}</Link> : <b>{r.caller}</b>}
+    <span>{r.hits}/{r.calls} hits</span>{r.best && <em>best {r.best.symbol} {r.best.peakX.toFixed(1)}×</em>}
+  </li>)}</ol>;
 }
 
 export function WalletProfilePage({ address }) {

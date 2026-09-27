@@ -9,6 +9,7 @@ export function LatencyPanel({ call }) {
   const tone = p => (!p.ok ? 'bad' : p.ms > 1500 ? 'warn' : 'good');
   return <section className="cc-panel latency-panel">
     <div className="cc-block"><h4>Charts & latency <button type="button" className="btn-outline" disabled={busy} onClick={load}>{busy ? 'Checking…' : 'Re-check'}</button></h4>
+      {d?.alarms?.map(a => <p key={a.name} className={`lat-alarm ${a.posted ? 'bad' : 'warn'}`}>⚠️ <b>{a.name}</b> degraded for {Math.max(1, Math.round((Date.now() / 1000 - a.since) / 60))} min{a.posted ? ' · posted to Updates' : ' · posts to Updates at 5 min'}</p>)}
       <div className="lat-grid">{(d?.providers || []).map(p => <div key={p.name} className={`lat-row ${tone(p)}`}>
         <i /><b>{p.name}</b><span>{p.role}</span><em>{p.ok ? `${p.ms} ms` : 'down'}</em><small>{p.note || (p.env !== '—' ? `swap via ${p.env}` : 'built-in')}</small>
       </div>)}</div>

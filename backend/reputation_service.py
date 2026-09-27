@@ -1639,11 +1639,11 @@ async def recent_calls(room: Optional[str] = None, pair: Optional[str] = None, l
 
 
 @app.get('/api/reputation/calls/leaderboard')
-async def caller_board(days: int = Query(7, ge=1, le=90)):
+async def caller_board(days: int = Query(7, ge=1, le=90), room: Optional[str] = None):
     since = time.time() - days * 86400
     by = {}
     for c in _calls_load()['calls'].values():
-        if c['at'] < since:
+        if c['at'] < since or (room and not c['room'].startswith(room)):
             continue
         v = _call_view(c)
         b = by.setdefault(c['caller'], {'caller': c['caller'], 'callerAddress': c.get('callerAddress'), 'calls': 0, 'hits': 0, 'rugs': 0, 'sumPeak': 0.0, 'best': None})
@@ -6391,7 +6391,7 @@ LATENCY_PROBES = [
 @app.get('/api/reputation/admin/latency')
 async def admin_latency(request: Request):
     _require_admin(request)
-    return await _probe_latency()
+    return {**await _probe_latency(), 'alarms': [{'name': k, 'since': v['since'], 'posted': bool(v.get('posted'))} for k, v in _latency_bad.items()]}
 
 
 async def _probe_latency():
