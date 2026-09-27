@@ -5737,3 +5737,22 @@ async def position(address: str, token: str):
     avg = buy_usd / buy_tok; held = max(0.0, buy_tok - sell_tok)
     return {'address': address, 'token': token, 'position': {'avgEntry': avg, 'tokensHeld': held, 'costUsd': round(avg * held, 2), 'realizedUsd': round(sell_usd - sell_tok * avg, 2),
                                                              'buys': sum(1 for r in rows if r['side'] == 'buy'), 'sells': sum(1 for r in rows if r['side'] == 'sell'), 'lastTradeAt': max(r['ts'] for r in rows)}}
+
+
+# ---- Setup checklist for the command center: which keys/URLs are configured (never the values) ----
+SETUP_KEYS = [
+    ('SOLANA_RPC_URL', 'Solana RPC (Helius)', 'Chain reads, forensics, trades feed', True),
+    ('ALCHEMY_API_KEY', 'Alchemy', 'EVM + Solana RPC, price history, gas checks', True),
+    ('CODEX_API_KEY', 'Codex', 'Charts, trades, discovery on every chain', True),
+    ('JUPITER_API_KEY', 'Jupiter', 'Solana swaps, token search, $FEE pricing', True),
+    ('FEELESS_ADMIN_WALLETS', 'Owner wallets', 'Who can open the command center (defaults to creator wallet)', False),
+    ('ALLOWED_ORIGINS', 'Site domain', 'Lock APIs to your domain before launch', False),
+    ('HELIUS_WEBHOOK_SECRET', 'Helius webhook secret', 'Instant whale / dev-sell events', False),
+    ('BASE_RPC_URL', 'Base RPC', 'Dedicated Base endpoint for pool reads', False),
+]
+
+
+@app.get('/api/reputation/admin/setup')
+async def admin_setup(request: Request):
+    _require_admin(request)
+    return {'keys': [{'key': k, 'name': n, 'why': w, 'required': req, 'set': bool(os.environ.get(k, '').strip())} for k, n, w, req in SETUP_KEYS]}

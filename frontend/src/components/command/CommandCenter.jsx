@@ -104,7 +104,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'airdrops' && <Airdrops drops={drops} call={call} reload={loadDrops} />}
     {tab === 'badges' && <AwardBadges call={call} initial={[...selected]} />}
     {tab === 'feecat' && <FeeCatPanel call={call} />}
-    {tab === 'pools' && <PoolsPanel />}
+    {tab === 'pools' && <PoolsPanel call={call} />}
     {tab === 'fees' && <FeesPanel call={call} />}
     {tab === 'ads' && <AdsPanel call={call} />}
     {tab === 'invites' && <InvitesPanel call={call} />}
@@ -364,8 +364,25 @@ const DEXES = [
   { id: 'raydium', name: 'Raydium CPMM', url: 'https://raydium.io/liquidity/create-pool/', note: 'Standard constant-product pool. Cheapest to create; works everywhere.' },
   { id: 'meteora', name: 'Meteora DAMM v2', url: 'https://app.meteora.ag/', note: 'Dynamic fees — earns more in volatile markets; supports fee scheduling.' },
   { id: 'orca', name: 'Orca Whirlpool', url: 'https://www.orca.so/pools', note: 'Concentrated liquidity — best depth per dollar if you manage ranges.' },
+  { id: 'uniswap-base', name: 'Uniswap (Base)', url: 'https://app.uniswap.org/positions/create', note: 'Base: the deepest EVM venue. Pick Base network, pair with WETH or USDC.' },
+  { id: 'aerodrome', name: 'Aerodrome (Base)', url: 'https://aerodrome.finance/deposit', note: 'Base-native DEX with emissions — good for incentivised liquidity.' },
 ];
-function PoolsPanel() {
+// Vetted coin makers: each creates a real token (and its first pool/curve) signed by your wallet.
+const COIN_MAKERS = [
+  { chain: 'Solana', name: 'pump.fun', url: 'https://pump.fun/create', note: 'Bonding curve → auto-migrates to PumpSwap at completion. Fastest meme launch.' },
+  { chain: 'Solana', name: 'LetsBonk', url: 'https://letsbonk.fun', note: 'Bonk-ecosystem launchpad on Raydium LaunchLab rails.' },
+  { chain: 'Solana', name: 'Raydium LaunchLab', url: 'https://raydium.io/launchpad/create/', note: 'Custom curve + graduation straight into a Raydium pool.' },
+  { chain: 'Base', name: 'Clanker', url: 'https://www.clanker.world/deploy', note: 'One-step ERC-20 + Uniswap v4 pool with locked liquidity.' },
+  { chain: 'Base', name: 'Zora', url: 'https://zora.co/create', note: 'Creator coins on Base with built-in liquidity.' },
+];
+const LAUNCH_STEPS = ['Make the coin (coin maker below) — your wallet signs; FEELESS never touches funds.', 'Add liquidity on a DEX (or let the curve graduate) and copy the pool address.', 'Verify the pool here so FEELESS indexes it and charts go live.', 'Shield it on the launch page — public promises buyers can check on-chain.'];
+function SetupChecklist({ call }) {
+  const [keys, setKeys] = useState(null);
+  useEffect(() => { call('/admin/setup').then(d => setKeys(d.keys)).catch(() => setKeys([])); }, [call]);
+  return <div className="cc-block"><h4>Setup checklist</h4><small className="cc-empty">Keys live in backend/.env — only whether each is set is shown here, never the value.</small>
+    <div className="setup-keys">{(keys || []).map(k => <div key={k.key} className={k.set ? 'ok' : k.required ? 'bad' : 'opt'}><i>{k.set ? '✓' : k.required ? '✗' : '○'}</i><b>{k.name}</b><code>{k.key}</code><small>{k.why}</small></div>)}</div></div>;
+}
+function PoolsPanel({ call }) {
   const [mints, setMints] = useState({});
   const [pools, setPools] = useState([]);
   const [asset, setAsset] = useState('fee');
@@ -378,10 +395,15 @@ function PoolsPanel() {
   return <section className="cc-panel">
     <p className="cc-note">Create liquidity pools for your tokens on a real DEX. FEELESS never holds funds — the DEX's own page builds the transaction and your creator wallet signs it. Copy the mints below, create the pool, then verify it here.</p>
     <div className="cc-toolbar"><select value={asset} onChange={e => setAsset(e.target.value)}>{Object.keys(mints).map(k => <option key={k} value={k}>{k.toUpperCase()}</option>)}</select>{mint && <><code className="pool-mint">{mint}</code><button type="button" onClick={() => copy(mint)}>Copy mint</button><button type="button" onClick={() => copy('So11111111111111111111111111111111111111112')}>Copy SOL mint</button></>}</div>
+    <ol className="launch-steps">{LAUNCH_STEPS.map((t, i) => <li key={t}><b>{i + 1}</b><span>{t}</span></li>)}</ol>
+    <h4 className="cc-sub">Coin maker</h4>
+    <div className="cc-studio-grid">{COIN_MAKERS.map(m => <div key={m.name} className="cc-block"><h4>{m.name} <small className="chain-tag">{m.chain}</small></h4><small className="cc-empty">{m.note}</small><a className="btn-primary" href={m.url} target="_blank" rel="noopener noreferrer">Create coin ↗</a></div>)}</div>
+    <h4 className="cc-sub">Liquidity pool builder</h4>
     <div className="cc-studio-grid">{DEXES.map(x => <div key={x.id} className="cc-block"><h4>{x.name}</h4><small className="cc-empty">{x.note}</small><a className="btn-primary" href={x.url} target="_blank" rel="noopener noreferrer">Create on {x.name.split(' ')[0]} ↗</a></div>)}</div>
     <div className="cc-block"><h4>Verify a new pool</h4><div className="cc-toolbar"><input placeholder="Paste the new pool / pair address" value={check} onChange={e => setCheck(e.target.value)} /><button type="button" className="btn-primary" onClick={verify}>Verify</button></div>
       {found === false && <small className="cc-empty">Not indexed yet — DexScreener usually picks up new pools within a few minutes.</small>}
       {found && <div className="cc-sig"><span>✅ {found.baseToken.symbol}/{found.quoteToken.symbol} on {found.dexId}</span><b>{formatUSD(found.liquidity?.usd)} liq</b></div>}</div>
+    <SetupChecklist call={call} />
     <div className="cc-block"><h4>Live pools for {asset.toUpperCase()}</h4>{!pools.length ? <small className="cc-empty">No pools indexed.</small> : pools.map(p => <div key={p.pairAddress} className="cc-sig"><a href={`/terminal/coin/solana/${p.pairAddress}`} target="_blank" rel="noopener noreferrer">{p.baseToken.symbol}/{p.quoteToken.symbol} · {p.dexId}</a><span>vol {formatUSD(p.volume?.h24)}</span><b>{formatUSD(p.liquidity?.usd)}</b></div>)}</div>
   </section>;
 }

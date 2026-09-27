@@ -51,7 +51,8 @@ test('rejects invalid launch allocations and missing liquidity', () => {
 
 test('requires a public token image for a FEELESS launch', () => {
   const errors = validateMetaLaunch({ ...validForm, imageUrl: '' });
-  expect(errors.imageUrl).toBe('Add a public HTTP(S) token image URL.');
+  expect(errors.imageUrl).toBe('Add your token image — click the box to upload.');
+  expect(validateMetaLaunch({ ...validForm, imageUrl: `/api/reputation/uploads/${'a'.repeat(32)}.gif` }).imageUrl).toBeUndefined();
 });
 
 test('shows the token image in setup preview and launch review', () => {
