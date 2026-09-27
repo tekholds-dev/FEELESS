@@ -2281,7 +2281,7 @@ body.reduced-motion-setting :is(.heartbeat-mark,.heartbeat-mark::before,.heartbe
 .pad-fallback{margin:0 16px 10px;padding:9px 12px;border-radius:10px;border:1px dashed rgba(0,233,160,.45);background:#00e9a00a;font-size:12.5px;color:#c6dccf}.pad-fallback a{color:var(--mint);margin-left:6px}
 /* Coin profile */
 .coin-profile{display:grid;gap:14px;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:linear-gradient(180deg,#07130d,#030806);padding-bottom:18px}
-.cp-banner{aspect-ratio:3/1;max-height:220px;background:linear-gradient(120deg,rgba(0,233,160,.35),rgba(245,197,66,.15) 60%,#061009);background-size:cover;background-position:center}
+.cp-banner{aspect-ratio:5/1;max-height:140px;background:linear-gradient(120deg,rgba(0,233,160,.35),rgba(245,197,66,.15) 60%,#061009);background-size:cover;background-position:center}
 .cp-head{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;padding:0 22px;margin-top:-60px}
 .cp-logo{width:120px;height:120px;border-radius:50%;overflow:hidden;border:4px solid var(--mint);box-shadow:0 0 0 4px #050b08,0 0 30px rgba(0,233,160,.35);background:#0b1a12;display:grid;place-items:center;flex-shrink:0;animation:logo-float 6s ease-in-out infinite}.cp-logo img{width:100%;height:100%;object-fit:cover}.cp-logo span{font:700 34px 'JetBrains Mono',monospace;color:var(--mint)}
 .cp-id{display:grid;gap:4px;padding-top:66px;min-width:0}.cp-id h1{margin:0;font-size:28px}.cp-id h1 small{font-size:14px;color:var(--muted);font-weight:400}.cp-id>span{color:var(--muted);font-size:12px}
@@ -3403,3 +3403,8 @@ body.theme-day :is(.chart-age,.chart-fee-toggle){background:#fffffff0;color:#2f4
 .offender-held{font:700 10.5px 'JetBrains Mono',monospace;padding:1px 6px;border-radius:999px;background:#fa708c22;color:#ff8a9a;white-space:nowrap}
 .offender-held.sold{background:#ffffff0d;color:var(--muted)}
 .offender-chip.is-sold{opacity:.55}.offender-chip.is-sold code{text-decoration:line-through;text-decoration-thickness:2px}
+/* Globe glow never shows the canvas's square edge */
+.globe-canvas-wrap canvas{-webkit-mask-image:radial-gradient(circle at 50% 50%,#000 58%,transparent 71%);mask-image:radial-gradient(circle at 50% 50%,#000 58%,transparent 71%)}
+
+/* Coin profile header: compact, contained */
+.coin-profile .cp-banner{max-height:140px!important}.coin-profile .cp-head{margin-top:-44px}.coin-profile .cp-logo{width:92px;height:92px}

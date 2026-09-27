@@ -1,3 +1,4 @@
+import { LaunchRadar } from '../LaunchRadar';
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { useNavigate } from 'react-router-dom';
@@ -31,6 +32,7 @@ export const RadarView = ({ pairs, onSelect, kind = 'pump' }) => {
 };
 
 const PUMP_RADAR_STAGES = [
+  ['feeless', 'FEELESS launches', Zap],
   ['new', 'New coins', Zap],
   ['graduated', 'Graduated', Layers3],
   ['trending', 'Trending coins', TrendingUp],
@@ -125,9 +127,10 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
     {!liveBacked && <MarketAvailabilityNotice data={feed.data} error={feed.error} id={`pump-radar-${stage}-availability`} />}
     {stage === 'graduated' && <p className="provider-note" data-testid="pump-radar-graduation-source">{sourceLabel} · {feed.data?.status === 'unavailable' || feed.error ? `Unavailable${feed.data?.error ? `: ${feed.data.error}` : feed.error ? `: ${feed.error}` : ''}` : feed.data?.error ? `Error: ${feed.data.error}` : feed.data?.status === 'verified' ? 'Verified completion events only' : 'No verified completion events observed'}{feed.data?.fetched_at ? ` · Observed ${formatTime(feed.data.fetched_at)}` : ''}</p>}
     {providerError && liveBacked && <p className="pump-radar-live-note" data-testid="pump-radar-live-note">pump.fun's coin index is throttled — coin list from the last snapshot, prices and deltas live from DexScreener.</p>}{providerError && !liveBacked && <p className="pump-radar-error" role="alert" data-testid="pump-radar-error">{providerError} <button type="button" onClick={() => feed.reload()}>Retry</button></p>}
-    {!providerError && feed.loading && !stagePairs.length && <p className="truth-empty" role="status" data-testid="pump-radar-loading">Connecting to live provider snapshots…</p>}
-    {!providerError && !feed.loading && !stagePairs.length && <div className="truth-empty" data-testid={`pump-radar-${stage}-empty`}>{stageUnavailable ? (feed.data?.status === 'unavailable' ? 'Graduation status is unavailable from Pump.fun right now.' : 'No Pump.fun completion event matches an observed coin.') : stage === 'watchlist' ? 'Star provider-indexed coins to build a personal radar.' : `No ${stage} coins are currently visible in this provider snapshot.`}</div>}
-     <div className={`pump-radar-grid ${layout === 'list' ? 'is-list' : ''}`}>{stagePairs.slice(0, layout === 'list' ? 30 : 8).map((pair, index) => <PumpRadarCard
+    {stage !== 'feeless' && !providerError && feed.loading && !stagePairs.length && <p className="truth-empty" role="status" data-testid="pump-radar-loading">Connecting to live provider snapshots…</p>}
+    {stage !== 'feeless' && !providerError && !feed.loading && !stagePairs.length && <div className="truth-empty" data-testid={`pump-radar-${stage}-empty`}>{stageUnavailable ? (feed.data?.status === 'unavailable' ? 'Graduation status is unavailable from Pump.fun right now.' : 'No Pump.fun completion event matches an observed coin.') : stage === 'watchlist' ? 'Star provider-indexed coins to build a personal radar.' : `No ${stage} coins are currently visible in this provider snapshot.`}</div>}
+     {stage === 'feeless' && <LaunchRadar />}
+     <div hidden={stage === 'feeless'} className={`pump-radar-grid ${layout === 'list' ? 'is-list' : ''}`}>{stagePairs.slice(0, layout === 'list' ? 30 : 8).map((pair, index) => <PumpRadarCard
        key={pairKey(pair)}
        pair={pair}
        rank={index + 1}

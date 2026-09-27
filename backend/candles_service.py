@@ -587,7 +587,7 @@ async def _pair_snapshot(chain, pool):
 @app.get('/api/candles/trades/{chain}/{pool}')
 async def pool_trades(chain: str, pool: str):
     """Latest real swaps for a pool, parsed from the transactions themselves (Helius) — shared
-    15s cache so many viewers cost one call. No GeckoTerminal anywhere."""
+    15s cache so many viewers cost one call."""
     key = f'{chain}:{pool}'
     hit = _trade_cache.get(key)
     now = time.time()

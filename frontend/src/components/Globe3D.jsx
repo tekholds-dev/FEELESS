@@ -301,7 +301,13 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
   const openToken = t => { if (!t) return; if (onToken) { onToken(t); return; } if (t.pairAddress) window.open(`/terminal/trade?chain=${encodeURIComponent(t.chain)}&pair=${encodeURIComponent(t.pairAddress)}`, '_blank', 'noopener'); };
   const hottest = useMemo(() => [...bigTokens].filter(t => Number.isFinite(Number(t.change24h)) && Math.abs(Number(t.change24h)) < 2000).sort((a, b) => Number(b.change24h) - Number(a.change24h))[0], [bigTokens]);
   // Brand-new pools can report absurd 24h moves (e.g. +8,725,052,277%); those aren't signal.
-  const tokenPoints = useMemo(() => bigTokens.filter(t => Math.abs(Number(t.change24h) || 0) < 2000).map(t => {
+  // A clean globe: at most 15 coins per tier, the ones that most recently crossed it (closest above
+  // the line) — $10M+ and $1M+ — instead of every large cap.
+  const tiered = useMemo(() => {
+    const ok = bigTokens.filter(t => Math.abs(Number(t.change24h) || 0) < 2000 && Number(t.marketCap) > 0);
+    return [[1e7, Infinity], [1e6, 1e7]].flatMap(([lo, hi]) => ok.filter(t => t.marketCap >= lo && t.marketCap < hi).sort((a, b) => a.marketCap - b.marketCap).slice(0, 15));
+  }, [bigTokens]);
+  const tokenPoints = useMemo(() => tiered.map(t => {
     const home = GLOBE_NODES.find(n => !n.isLaunchpad && (n.chainId === t.chain || n.id === t.chain));
     if (!home) return null;
     const h = hashNum(`${t.chain}:${t.address}`);
@@ -310,11 +316,11 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
     const change = Number(t.change24h);
     return {
       isToken: true, token: t, lat: Math.max(-80, Math.min(80, home.lat + Math.sin(angle) * dist)), lng: home.lng + Math.cos(angle) * dist,
-      size: Math.min(2.6, 1.1 + Math.log10(t.marketCap / 1e7) * 0.55),
+      size: Math.max(0.8, Math.min(2.6, 1.1 + Math.log10(t.marketCap / 1e7) * 0.55)),
       color: Number.isFinite(change) ? (change >= 0 ? '#5ee0ff' : '#ff8fa3') : '#5ee0ff',
       name: t.symbol,
     };
-  }).filter(Boolean), [bigTokens]);
+  }).filter(Boolean), [tiered]);
 
   // Real activity -> bursts. Chat/signal bubbles as they land:
   useEffect(() => {
