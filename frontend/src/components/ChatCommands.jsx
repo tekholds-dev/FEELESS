@@ -4,6 +4,8 @@ import { formatUSD, formatPct, shortAddress } from '../lib/dexscreener';
 
 // Slash commands. Lookup commands show a private card (only you see it); text commands post.
 export const COMMANDS = [
+  { cmd: 'buy', args: '$TICKER | CA [amount]', desc: 'Open the trade desk to buy it — you review + sign', tier: 0 },
+  { cmd: 'sell', args: '$TICKER | CA [amount]', desc: 'Open the trade desk to sell it', tier: 0 },
   { cmd: 'price', args: '$TICKER | CA', desc: 'Live price, MC, liquidity, 24h', tier: 0 },
   { cmd: 'chart', args: '$TICKER | CA', desc: 'Open the coin in a new tab', tier: 0 },
   { cmd: 'fee', args: '', desc: "Fee the Leader cat's live positions + PnL", tier: 0 },

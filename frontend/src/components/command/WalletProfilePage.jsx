@@ -1,3 +1,4 @@
+import { WalletSwaps } from '../WalletSwaps';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -134,6 +135,7 @@ export function WalletProfilePage({ address }) {
     {!flipped && <PortfolioCard address={address} />}
     {flipped && <RewardsCard address={address} mine={mine} />}
     {flipped && <PnlTracker address={address} />}
+    {flipped && <WalletSwaps address={address} title="Swap history" />}
     {flipped && mine && <PointsShop address={address} />}
     {flipped && <section className="wp-card wp-activity" data-testid="profile-activity"><h3>Activity</h3>{!acts ? <p className="wp-bio">Loading…</p> : !acts.posts.length ? <p className="wp-bio">No posts yet.</p> : <div className="wpa-list">{acts.posts.map(a => <a key={a.id} className="wpa-row" href={a.room.startsWith('coin-') ? `/terminal/chat` : a.room.startsWith('wall-') ? `/terminal/profile/${a.room.slice(5)}` : '/terminal/chat'} target="_blank" rel="noopener noreferrer"><span className="wpa-room">{a.room.startsWith('wall-') ? '🧱 wall' : a.room.startsWith('coin-') ? `🪙 ${a.room.split('-').pop()}` : `# ${a.room}`}</span><p>{a.text}</p><time>{new Date(a.ts).toLocaleString()}</time></a>)}</div>}</section>}
     <div className={`wp-flip-body ${flipped ? 'is-flipped' : ''}`}>

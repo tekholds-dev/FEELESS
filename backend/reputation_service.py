@@ -5434,3 +5434,72 @@ async def admin_idea_add(request: Request, p: IdeaPayload):
     d['ideas'].insert(0, {'id': uuid.uuid4().hex[:8], 'title': p.title[:80], 'body': p.body[:1000], 'status': p.status[:20], 'by': me, 'at': time.time()})
     _json_save(IDEAS_PATH, d)
     return {'ok': True}
+
+
+# ---- Wallet swaps (profile activity + copy trading) ---------------------------------------------
+_wtrades_cache = {}
+
+
+async def wallet_trades(address: str, limit: int = 40):
+    hit = _wtrades_cache.get(address)
+    if hit and time.time() - hit[0] < 60:
+        return hit[1]
+    key_ = os.environ.get('CODEX_API_KEY', '').strip()
+    chains = ['solana'] if not address.startswith('0x') else ['base', 'ethereum', 'bsc', 'arbitrum']
+    q = ('query($m:String!,$n:Int!){getTokenEventsForMaker(query:{maker:$m,networkId:$n},limit:40){items{timestamp token0Address '
+         'eventDisplayType transactionHash data{... on SwapEventData{priceUsdTotal}}}}}')
+    rows = []
+    async with httpx.AsyncClient(timeout=12) as http:
+        if key_:
+            async def one(chain):
+                try:
+                    r = await http.post('https://graph.codex.io/graphql', headers={'Authorization': key_}, json={'query': q, 'variables': {'m': address, 'n': CODEX_NETS[chain]}})
+                    return chain, ((((r.json() or {}).get('data') or {}).get('getTokenEventsForMaker') or {}).get('items')) or []
+                except Exception:
+                    return chain, []
+            for chain, items in await asyncio.gather(*(one(c) for c in chains)):
+                for e in items:
+                    if e.get('eventDisplayType') in ('Buy', 'Sell') and e.get('token0Address'):
+                        rows.append({'ts': e['timestamp'], 'side': e['eventDisplayType'].lower(), 'usd': round(float(((e.get('data') or {}).get('priceUsdTotal')) or 0), 2),
+                                     'token': e['token0Address'], 'chain': chain, 'tx': e.get('transactionHash')})
+        rows.sort(key=lambda x: -x['ts']); rows = rows[:limit]
+        meta = {}
+        toks = list({r['token'] for r in rows})
+        for i in range(0, len(toks), 30):
+            try:
+                pairs = (await http.get(f"https://api.dexscreener.com/latest/dex/tokens/{','.join(toks[i:i + 30])}")).json().get('pairs') or []
+                for p in sorted(pairs, key=lambda p: -((p.get('liquidity') or {}).get('usd') or 0)):
+                    a = (p.get('baseToken') or {}).get('address')
+                    if a and a not in meta:
+                        meta[a] = {'symbol': p['baseToken'].get('symbol'), 'pair': p.get('pairAddress'), 'chain': p.get('chainId'), 'imageUrl': (p.get('info') or {}).get('imageUrl')}
+            except Exception:
+                pass
+    for r in rows:
+        r.update(meta.get(r['token'], {'symbol': r['token'][:4] + '…', 'pair': None}))
+    _wtrades_cache[address] = (time.time(), rows)
+    return rows
+
+
+@app.get('/api/reputation/wallet-trades/{address}')
+async def wallet_trades_ep(address: str):
+    if not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address) or _re.match(r'^0x[0-9a-fA-F]{40}$', address)):
+        raise HTTPException(400, 'Bad address.')
+    return {'address': address, 'trades': await wallet_trades(address), 'source': 'Codex'}
+
+
+@app.get('/api/reputation/copy/check/{address}')
+async def copy_check(address: str):
+    """Is this wallet safe to mirror? Trust, sniper record, funder links and KOL dump pattern — any
+    red flag pauses copying automatically."""
+    a = primary_of(address)
+    t = await trust_score(a)
+    bl = _block_load()['wallets'].get(a)
+    fd = _funders_load(); frec = fd['funders'].get(a)
+    kol = _kol_cache.get(a, (0, None))[1]
+    reasons = []
+    if bl and _is_blocked(bl): reasons.append('blocklisted for sniping/bundling')
+    elif bl: reasons.append('caught sniping/bundling')
+    if frec and _is_flagged_funder(frec): reasons.append('bankrolls sniper wallets')
+    if kol and kol.get('danger'): reasons.append('call-and-dump pattern')
+    if (t.get('score') or 0) < 45: reasons.append(f"low trust ({t.get('score')})")
+    return {'address': a, 'trust': t.get('score'), 'safe': not reasons, 'reasons': reasons}

@@ -156,6 +156,21 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
   const send = async e => {
     e.preventDefault(); let text = input.trim(); let boost = boostNext;
     if (!text || sending) return;
+    // Trade from chat: /buy $TICKER [amount] or /sell <CA> — resolves the coin and opens the trade
+    // desk on it. Nothing is signed here; the desk shows the full route first.
+    const tm = /^\/(buy|sell)\s+(\S+)(?:\s+([\d.]+))?/i.exec(text);
+    if (tm) {
+      const q = tm[2].replace(/^\$/, '');
+      try {
+        const r = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(q)}`);
+        const pairs = ((await r.json()).pairs || []).filter(p => /^(0x|[1-9A-HJ-NP-Za-km-z]{32})/.test(q) ? p.baseToken?.address?.toLowerCase() === q.toLowerCase() : p.baseToken?.symbol?.toLowerCase() === q.toLowerCase());
+        const best = pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0];
+        if (!best) throw new Error(`No live pool found for ${tm[2]}.`);
+        setInput('');
+        window.location.assign(`/terminal/trade?chain=${best.chainId}&pair=${best.pairAddress}&side=${tm[1].toLowerCase()}${tm[3] ? `&amount=${tm[3]}` : ''}`);
+      } catch (err) { setError(err.message); }
+      return;
+    }
     if (text.startsWith('/')) {
       setSending(true); setError('');
       try {
