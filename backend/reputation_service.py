@@ -6317,3 +6317,41 @@ async def token_logo(mint: str):
         ext = {'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/svg+xml': 'svg'}.get(ct, 'img')
         (LOGO_DIR / f'{mint}.{ext}').write_bytes(body)
         return Response(body, media_type=ct, headers=headers)
+
+
+# ---- Command center: chart & data-provider latency --------------------------------------------------
+LATENCY_PROBES = [
+    # (name, role in the chart pipeline, env var that controls/replaces it, url builder)
+    ('Jupiter chart data', 'Chart history #1 (Solana)', '—', lambda: f"https://datapi.jup.ag/v2/charts/So11111111111111111111111111111111111111112?interval=1_MINUTE&to={int(time.time()*1000)}&candles=2&type=price&quote=usd"),
+    ('Jupiter price', 'Live price + chart anchor', 'JUPITER_API_KEY', lambda: 'https://lite-api.jup.ag/price/v3?ids=So11111111111111111111111111111111111111112'),
+    ('DexScreener', 'Pair discovery, search, fallback price', '—', lambda: 'https://api.dexscreener.com/latest/dex/search?q=SOL'),
+    ('Helius RPC', 'On-chain reads, swap history, live stream trigger', 'SOLANA_RPC_URL', None),
+    ('Codex', 'Chart history #2 (all chains)', 'CODEX_API_KEY', None),
+    ('FEELESS candles', 'Serves every chart (cache + fallbacks)', '—', lambda: 'http://127.0.0.1:5099/api/candles/stream-stats'),
+]
+
+
+@app.get('/api/reputation/admin/latency')
+async def admin_latency(request: Request):
+    _require_admin(request)
+    out = []
+    async with httpx.AsyncClient(timeout=8) as http:
+        for name, role, env, url in LATENCY_PROBES:
+            t0 = time.time(); ok, note = False, ''
+            try:
+                if name == 'Helius RPC':
+                    rpc = os.environ.get('SOLANA_RPC_URL', '').strip()
+                    r = await http.post(rpc, json={'jsonrpc': '2.0', 'id': 1, 'method': 'getSlot'}) if rpc else None
+                    ok = bool(r and r.status_code == 200 and 'result' in r.json()); note = '' if rpc else 'not configured'
+                elif name == 'Codex':
+                    key_ = os.environ.get('CODEX_API_KEY', '').strip()
+                    r = await http.post('https://graph.codex.io/graphql', headers={'Authorization': key_}, json={'query': '{getNetworks{id}}'}) if key_ else None
+                    body = r.json() if r is not None else {}
+                    ok = bool(r is not None and r.status_code == 200 and not body.get('errors')); note = (body.get('errors') or [{}])[0].get('message', '')[:80] if body.get('errors') else ('' if key_ else 'not configured')
+                else:
+                    r = await http.get(url()); ok = r.status_code == 200; note = '' if ok else f'HTTP {r.status_code}'
+            except Exception as exc:
+                note = type(exc).__name__
+            out.append({'name': name, 'role': role, 'env': env, 'ok': ok, 'ms': round((time.time() - t0) * 1000), 'note': note})
+    return {'providers': out, 'chartOrder': ['Jupiter chart data', 'Codex', 'Alchemy', 'Helius swaps', 'FEELESS-recorded ticks'],
+            'checkedAt': time.time()}

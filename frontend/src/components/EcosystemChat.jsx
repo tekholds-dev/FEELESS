@@ -1,3 +1,4 @@
+import { useDraft } from '../lib/useDraft';
 import { RepMark } from './RepMark';
 import { readChatSession } from '../lib/chatSession';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -133,7 +134,7 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
     if (!list.length || typeof fetch !== 'function') return;
     fetch(apiUrl(`/api/reputation/profiles?addresses=${list.join(',')}`)).then(r => (r.ok ? r.json() : {})).then(d => setFx(d.profiles || {})).catch(() => {});
   }, [authorKey]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useDraft(`chat:${room}`);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
