@@ -7,7 +7,7 @@ Pump Radar card rendered, a Discover row visible), it fires a tiny tick here.
 This service buckets those real observed ticks into real OHLC candles on
 request. It's deliberately not trying to replace a real market data provider
 for pairs nobody's looked at yet — it's the fallback that makes sure a chart
-never just dies when GeckoTerminal 500s, and it gets *better* the more the
+never just dies when a provider fails, and it gets *better* the more the
 site is used, permanently, because every tick is kept.
 
 File-backed JSON, zero external dependencies, standalone FastAPI app.
@@ -19,7 +19,6 @@ import os
 import time
 
 import httpx
-import gecko_budget
 from pathlib import Path
 from typing import Optional
 
@@ -83,106 +82,6 @@ class TickPayload(BaseModel):
     volumeUsd: Optional[float] = None
 
 
-GECKO_TF = {'1m': ('minute', 1), '5m': ('minute', 5), '15m': ('minute', 15), '1h': ('hour', 1), '4h': ('hour', 4), '1d': ('day', 1)}
-GECKO_NET = {'solana': 'solana', 'ethereum': 'eth', 'base': 'base', 'bsc': 'bsc', 'arbitrum': 'arbitrum', 'avalanche': 'avax', 'polygon': 'polygon_pos', 'sui': 'sui-network',
-             'optimism': 'optimism', 'zksync': 'zksync', 'zora': 'zora-network', 'cronos': 'cro', 'unichain': 'unichain', 'worldchain': 'world-chain', 'tron': 'tron'}
-_gecko_cache: dict = {}
-_gecko_lock = asyncio.Lock()
-_gecko_calls: list = []
-GECKO_TTL = 60
-GECKO_PER_MIN = 25
-
-
-GECKO_DISK = Path(__file__).parent / 'data' / 'gecko_candles'
-
-
-def _disk_get(key):
-    try:
-        return json.loads((GECKO_DISK / f"{key.replace(':', '_')}.json").read_text())
-    except Exception:
-        return None
-
-
-def _disk_put(key, candles):
-    GECKO_DISK.mkdir(parents=True, exist_ok=True)
-    (GECKO_DISK / f"{key.replace(':', '_')}.json").write_text(json.dumps(candles[-3000:]))
-
-
-def _merge(a, b):
-    by = {int(c[0]): c for c in (a or [])}
-    for c in b or []:
-        by[int(c[0])] = c
-    return [by[t] for t in sorted(by)]
-
-
-async def _gecko_fetch(net, pair, tf, before=None):
-    if not gecko_budget.take('chart'):
-        return None
-    params = {'aggregate': tf[1], 'limit': 1000, 'currency': 'usd'}
-    if before:
-        params['before_timestamp'] = int(before)
-    try:
-        async with httpx.AsyncClient(timeout=12) as http:
-            res = await http.get(f'https://api.geckoterminal.com/api/v2/networks/{net}/pools/{pair}/ohlcv/{tf[0]}', params=params, headers={'accept': 'application/json'})
-    except Exception:
-        return None
-    if res.status_code == 429:
-        gecko_budget.throttled()
-        return None
-    if res.status_code != 200:
-        return None
-    rows = (((res.json() or {}).get('data') or {}).get('attributes') or {}).get('ohlcv_list') or []
-    return sorted([[int(r[0]), float(r[1]), float(r[2]), float(r[3]), float(r[4]), float(r[5] or 0)] for r in rows if len(r) >= 6], key=lambda r: r[0])
-
-
-async def gecko_candles(chain: str, pair: str, interval: str, before=None):
-    """Real OHLCV from GeckoTerminal. Every bar ever fetched is kept on disk, so a rate limit
-    never wipes history; `before` pages further back for zoom-out."""
-    net = GECKO_NET.get(chain)
-    tf = GECKO_TF.get(interval)
-    if not net or not tf:
-        return None
-    key = f'{net}:{pair}:{interval}'
-    now = time.time()
-    stored = _disk_get(key) or []
-    if before:
-        older = [c for c in stored if c[0] < before]
-        if len(older) >= 200:
-            return older
-        fresh = await _gecko_fetch(net, pair, tf, before)
-        if fresh:
-            stored = _merge(stored, fresh)
-            _disk_put(key, stored)
-        return [c for c in stored if c[0] < before]
-    hit = _gecko_cache.get(key)
-    if hit and now - hit[0] < GECKO_TTL:
-        return hit[1]
-    fresh = await _gecko_fetch(net, pair, tf)
-    if fresh:
-        stored = _merge(stored, fresh)
-        _disk_put(key, stored)
-        _gecko_cache[key] = (now, stored)
-    elif not stored and key not in _retry:
-        _retry.add(key)
-        asyncio.create_task(_retry_later(chain, pair, interval, key))
-    return stored or None
-
-
-_retry = set()
-
-
-async def _retry_later(chain, pair, interval, key):
-    """A chart that missed its first fetch (rate-limit pause) is fetched the moment the pause ends."""
-    try:
-        for _ in range(6):
-            await asyncio.sleep(max(3.0, gecko_budget.blocked_for() + 1))
-            _gecko_cache.pop(key, None)
-            if await gecko_candles(chain, pair, interval):
-                return
-    finally:
-        _retry.discard(key)
-
-
 _hot_pairs: dict = {}
 HOT_TTL = 30 * 60
 DEX_CHAIN = {'solana': 'solana', 'ethereum': 'ethereum', 'base': 'base', 'bsc': 'bsc', 'arbitrum': 'arbitrum', 'avalanche': 'avalanche', 'polygon': 'polygon', 'sui': 'sui',
@@ -218,7 +117,7 @@ def _record_tick(store: dict, chain: str, pair: str, price: float, volume):
 
 async def _poll_hot_pairs():
     """Server-side price recorder: every pair anyone opened in the last 30 min gets a
-    DexScreener price tick every 15s, so candles build even while GeckoTerminal throttles us."""
+    price tick every 15s, so candles build even while providers throttle us."""
     while True:
         try:
             now = time.time()
@@ -317,6 +216,50 @@ _base_token: dict = {}
 _alchemy_cache: dict = {}
 
 
+PUMP_PROGRAM = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P'
+_B58_ALPH = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+
+
+def _b58decode(v: str) -> bytes:
+    n = 0
+    for ch in v:
+        n = n * 58 + _B58_ALPH.index(ch)
+    raw = n.to_bytes((n.bit_length() + 7) // 8, 'big')
+    return b'\x00' * (len(v) - len(v.lstrip('1'))) + raw
+
+
+async def _accept_mint_hint(chain, pair, mint):
+    """A browser may tell us which coin a pool trades (DexScreener hasn't indexed brand-new pools).
+    Trusted only if the pool account's on-chain data actually contains that mint, so one client can't
+    point everyone's chart at a different coin."""
+    key = f'{chain}:{pair}'
+    if chain != 'solana' or key in _base_token or not mint or not (32 <= len(mint) <= 44) or not all(c in _B58_ALPH for c in mint + pair):
+        return
+    if mint == pair:
+        _base_token[key] = mint; return
+    rpc = os.environ.get('SOLANA_RPC_URL', '').strip()
+    if not rpc:
+        return
+    try:
+        from solders.pubkey import Pubkey
+        # pump.fun bonding curve: the pool address is derived from the mint.
+        if str(Pubkey.find_program_address([b'bonding-curve', bytes(Pubkey.from_string(mint))], Pubkey.from_string(PUMP_PROGRAM))[0]) == pair:
+            _base_token[key] = mint; return
+        async with httpx.AsyncClient(timeout=6) as http:
+            r = await http.post(rpc, json={'jsonrpc': '2.0', 'id': 1, 'method': 'getAccountInfo', 'params': [pair, {'encoding': 'jsonParsed'}]})
+        v = ((r.json() or {}).get('result') or {}).get('value') or {}
+        d = v.get('data')
+        if isinstance(d, dict):  # a token account (e.g. a curve vault) states its own mint
+            if ((d.get('parsed') or {}).get('info') or {}).get('mint') == mint:
+                _base_token[key] = mint
+        elif isinstance(d, list) and d:
+            import base64
+            if _b58decode(mint) in base64.b64decode(d[0]):  # AMM pool accounts embed their mints
+                _base_token[key] = mint
+    except Exception:
+        pass
+
+
 async def _pair_base_token(chain, pair):
     key = f'{chain}:{pair}'
     if key in _base_token:
@@ -387,9 +330,7 @@ async def jupiter_candles(chain, pair, interval):
     swaps), from launch onward. Cached 30s per token+interval so viewer count never multiplies calls."""
     if chain != 'solana' or interval not in JUP_IV:
         return []
-    mint = await _pair_base_token(chain, pair)
-    if not mint:
-        return []
+    mint = await _pair_base_token(chain, pair) or pair  # a bare mint (bonding-curve coin) charts directly
     ck = f'{mint}:{interval}'
     hit = _jup_hist.get(ck)
     if hit and time.time() - hit[0] < 30:
@@ -549,7 +490,8 @@ async def helius_candles(chain, pair, interval):
 
 
 @app.get('/api/candles/{chain}/{pair_address}')
-async def get_candles(chain: str, pair_address: str, interval: str = Query('1h'), before: Optional[int] = None):
+async def get_candles(chain: str, pair_address: str, interval: str = Query('1h'), before: Optional[int] = None, mint: Optional[str] = None):
+    await _accept_mint_hint(chain, pair_address, mint)
     if before:
         older = [c for c in await alchemy_candles(chain, pair_address, interval) if c[0] < before]
         return {'candles': _fill_gaps(older, INTERVAL_SECONDS.get(interval, 3600)), 'provider': 'Alchemy' if older else 'none', 'interval': interval, 'before': before}
@@ -588,9 +530,9 @@ async def _build_candles(chain, pair_address, interval):
     # ends far from it is priced off a different pool/quote and must not be drawn.
     anchor = None
     if chain == 'solana':
-        mint = await _pair_base_token(chain, pair_address)
-        anchor = await _stream_price(mint) if mint else None
-    agrees = lambda h: bool(h) and len(h) >= 2 and (not anchor or anchor / 3 <= h[-1][4] <= anchor * 3)
+        mint = await _pair_base_token(chain, pair_address) or pair_address
+        anchor = await _stream_price(mint)
+    agrees = lambda h: bool(h) and len(h) >= 1 and (not anchor or anchor / 3 <= h[-1][4] <= anchor * 3)
     hist, provider = [], None
     for name, fn in (('Jupiter', jupiter_candles), ('Codex', codex_candles), ('Alchemy', alchemy_candles), ('Helius swaps', helius_candles)):
         h = await fn(chain, pair_address, interval)
@@ -606,7 +548,8 @@ async def _build_candles(chain, pair_address, interval):
     else:
         out = {'candles': _fill_gaps(own, interval_seconds), 'provider': 'FEELESS', 'interval': interval, 'tickCount': len(ticks),
                'source': 'Real prices observed across FEELESS sessions — provider has no history for this pool yet.'}
-    _resp_cache[(chain, pair_address, interval)] = (time.time(), out)
+    if out['candles']:  # never cache an empty answer — a brand-new coin must fill in on the next poll
+        _resp_cache[(chain, pair_address, interval)] = (time.time(), out)
     if len(_resp_cache) > 2000:
         for k in sorted(_resp_cache, key=lambda k: _resp_cache[k][0])[:500]:
             _resp_cache.pop(k, None)
@@ -807,8 +750,8 @@ async def _push_price(key, chain, pair, mint):
 
 async def _upstream(key, chain, pair):
     import websockets
-    mint = await _pair_base_token(chain, pair)
-    if not mint or mint == 'So11111111111111111111111111111111111111112':
+    mint = await _pair_base_token(chain, pair) or pair  # bonding-curve coins are addressed by mint
+    if mint == 'So11111111111111111111111111111111111111112':
         return  # unknown base token: clients keep their polling path rather than risk a wrong price
     url = os.environ.get('PRICE_STREAM_WS_URL', '').strip()
     await _push_price(key, chain, pair, mint)
@@ -837,6 +780,7 @@ async def _upstream(key, chain, pair):
 async def price_stream(ws: WebSocket, chain: str, pair: str):
     if chain != 'solana' or not (32 <= len(pair) <= 44) or not pair.isalnum():
         await ws.close(code=1008); return
+    await _accept_mint_hint(chain, pair, ws.query_params.get('mint'))
     await ws.accept()
     key = f'{chain}:{pair}'
     st = _streams.get(key)

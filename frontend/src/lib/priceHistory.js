@@ -1,5 +1,5 @@
 // A small, permanent, per-pair price trail recorded locally whenever this browser
-// observes a live priceUsd for a pair. When the candle provider (GeckoTerminal) fails,
+// observes a live priceUsd for a pair. When the candle providers fail,
 // this is real — not invented — data to fall back to instead of an error banner: every
 // point here was an actual price this app saw, just lower-resolution than real OHLCV.
 const KEY_PREFIX = 'feeless-price-trail:';

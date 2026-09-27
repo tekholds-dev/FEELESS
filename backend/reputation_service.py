@@ -1,7 +1,7 @@
 """
 FEELESS Reputation Graph — a standalone, chain-agnostic creator/wallet trust engine.
 
-Every token observation the frontend already makes (from DexScreener/GeckoTerminal/
+Every token observation the frontend already makes (from DexScreener/
 Pump.fun market data it fetches anyway) gets recorded here against the token's
 on-chain creator identity. On Solana that identity is the mint authority, resolved
 once per mint via public RPC and cached. The ledger persists to disk, so the dataset
@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
-import gecko_budget
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field

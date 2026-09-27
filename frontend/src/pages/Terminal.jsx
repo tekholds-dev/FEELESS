@@ -82,8 +82,13 @@ export default function Terminal() {
   const pairLookup = useMarket(pairLookupPath, 60000);
   const assets = useMarket('/assets', 90000); const feeAssets = assets.data?.assets || []; const fee = feeAssets.find(a => a.id === 'fee'); const feeCat = feeAssets.find(a => a.id === 'feecat');
   const { data: community } = useMarket(`/api/intelligence/community?context=${ecosystem.id}`, 30000);
+  // Exact pool first; a mint in the URL (bonding-curve coins) resolves to its deepest pool; finally the
+  // coin the user just clicked (already in memory) so the chart never shows "not returned".
+  const lookupPairs = pairLookup.data?.pairs || [];
   const restoredPair = routePairValid
-    ? (pairLookup.data?.pairs || []).find(pair => isExactPair(pair, routeChain, routePairAddress)) || null
+    ? lookupPairs.find(pair => isExactPair(pair, routeChain, routePairAddress))
+      || lookupPairs.filter(pair => pair.chainId === routeChain && pair.baseToken?.address === routePairAddress).sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0]
+      || (selectedPair && coinIdentity(selectedPair)?.key === `${routeChain}:${routePairAddress}` ? selectedPair : null)
     : null;
   const pairRouteState = !hasPairRoute
     ? null
@@ -126,7 +131,9 @@ export default function Terminal() {
     selectPair(restoredPair);
   }, [hasPairRoute, restoredPair?.chainId, restoredPair?.pairAddress, routeChain, routePairAddress]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (hasPairRoute || !selectedPair) return;
+    // Only sync the URL on the trade chart page itself; elsewhere onSelect already navigated there,
+    // and replacing the *current* (old) path would bounce the user back where they clicked.
+    if (hasPairRoute || !selectedPair || page !== 'chat') return;
     const identity = coinIdentity(selectedPair);
     if (!identity) return;
     const next = new URLSearchParams(params);
@@ -134,7 +141,7 @@ export default function Terminal() {
     next.set('pair', identity.pairAddress);
     next.set('room', 'bulls');
     setParams(next, { replace: true });
-  }, [hasPairRoute, selectedPair?.chainId, selectedPair?.pairAddress]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hasPairRoute, selectedPair?.chainId, selectedPair?.pairAddress, page]); // eslint-disable-line react-hooks/exhaustive-deps
   const onSelect = p => {
     const identity = coinIdentity(p);
     if (!identity) return;
@@ -186,7 +193,7 @@ export default function Terminal() {
            {!isHome && <div className="advanced-filters"><SlidersHorizontal size={14} /><label>DEX venue<select data-testid="market-pad-filter" aria-label="DEX venue" value={activePad} disabled={ecosystem.isLaunchpad} onChange={e => setPad(e.target.value)}><option value="all">All venues</option>{LAUNCHPADS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>Min. liquidity<select data-testid="market-liquidity-filter" value={minLiquidity} onChange={e => setMinLiquidity(e.target.value)}><option value="0">Any</option><option value="10000">$10K</option><option value="100000">$100K</option><option value="1000000">$1M</option></select></label>{query && <button data-testid="market-clear-search" onClick={() => { const next = new URLSearchParams(params); next.delete('q'); setParams(next); }}>Clear search ×</button>}</div>}
            <MarketAvailabilityNotice data={market.data} error={market.error} errorStatus={market.errorStatus} errorProvider={market.errorProvider} id="market-feed-availability" />{market.error && <MarketError error={market.error} reload={market.reload} id="market-feed-error" />}{marketModeMatches && market.data?.stale && <p className="stale-banner" data-testid="market-stale-warning">Cached data · {market.data.error}</p>}
             <MarketTable pairs={isHome ? pairs.slice(0, 6) : pairs.slice(0, 10)} screenerLabel={marketModeMatches ? market.data?.screener_label : undefined} loading={market.loading || (!marketModeMatches && !market.error)} refreshing={market.refreshing} onSelect={onSelect} has={has} toggle={toggle} />
-            <div className="market-bottom"><span data-testid="market-coverage">{market.data?.provider || 'GeckoTerminal'} · {pairs.length} live coin markets · {ecosystem.name} context · Provider-limited{market.data?.provider_pagination?.pages_requested?.length > 1 ? ` · Provider pages ${market.data.provider_pagination.pages_requested[0]}–${market.data.provider_pagination.pages_requested.at(-1)} sampled` : ''}</span>{page === 'new' && <small data-testid="market-deal-window">14-day window · 24h drawdown ≥5%</small>}{!isHome && !query && <div className="pagination"><button data-testid="market-previous-page" title="Previous page" disabled={pagination === 1} onClick={() => setPagination(p => p - 1)}><ArrowLeft size={14} /></button><span data-testid="market-page-number">{pagination} / 10</span><button data-testid="market-next-page" title="Next page" disabled={pagination >= 10 || providerCanRequestNextPage === false || (providerCanRequestNextPage !== true && (market.data?.pairs?.length || 0) < 20)} onClick={() => setPagination(p => p + 1)}><ArrowRight size={14} /></button></div>}</div>
+            <div className="market-bottom"><span data-testid="market-coverage">{market.data?.provider || 'DexScreener'} · {pairs.length} live coin markets · {ecosystem.name} context · Provider-limited{market.data?.provider_pagination?.pages_requested?.length > 1 ? ` · Provider pages ${market.data.provider_pagination.pages_requested[0]}–${market.data.provider_pagination.pages_requested.at(-1)} sampled` : ''}</span>{page === 'new' && <small data-testid="market-deal-window">14-day window · 24h drawdown ≥5%</small>}{!isHome && !query && <div className="pagination"><button data-testid="market-previous-page" title="Previous page" disabled={pagination === 1} onClick={() => setPagination(p => p - 1)}><ArrowLeft size={14} /></button><span data-testid="market-page-number">{pagination} / 10</span><button data-testid="market-next-page" title="Next page" disabled={pagination >= 10 || providerCanRequestNextPage === false || (providerCanRequestNextPage !== true && (market.data?.pairs?.length || 0) < 20)} onClick={() => setPagination(p => p + 1)}><ArrowRight size={14} /></button></div>}</div>
         </section><div className="context-platforms"><Link to="/terminal/launch" data-testid="context-launchpads-link">Ecosystem launchpads<ArrowUpRight size={13} /></Link>{ecosystem.explorer && <a data-testid="context-explorer" href={ecosystem.explorer} target="_blank" rel="noreferrer">{ecosystem.name} explorer<ArrowUpRight size={13} /></a>}{ecosystem.dex && <a data-testid="context-dex" href={ecosystem.dex} target="_blank" rel="noreferrer">Ecosystem DEX<ArrowUpRight size={13} /></a>}</div>
         </div><aside className={`community-rail ${page === 'chat' ? 'is-primary' : ''} ${page === 'trade' ? 'is-hidden' : ''}`}><ChatRoom pairs={pairs} newPairs={newFeed.data?.pairs || newPairs} onSelect={onSelect} selectedPair={selected} selectedPerspective={perspective} onPerspectiveChange={onPerspectiveChange} /><AlphaTape /><div className="command-quick-links"><Link to="/terminal/feeback" data-testid="quick-feeback">FEE-BACK<span>THE RETURN PATH ↗</span></Link><Link to="/terminal/feecat" data-testid="quick-feecat">FEECAT<span>CULTURE + UTILITY ↗</span></Link><Link to="/terminal/whitepaper" data-testid="quick-whitepaper">WHITEPAPER<span>WEB + ACTUAL PDF ↗</span></Link></div><div className="risk-note">Markets can be illiquid or malicious. Provider matches are not audits. New pools are not necessarily new tokens.</div></aside></div>}
        {page === 'launch' && (params.get('setup') === 'feeless' ? <><MetaLaunchSetup onWallet={() => setWalletOpen(true)} /><details className="launch-shield-later"><summary>🛡 After launch — Shield your coin <small>public promises buyers can verify on-chain</small></summary><ShieldCommit /></details></> : <LaunchpadDirectory />)}{page === 'watchlist' && <><AdvancedWatchlist /><CopyTrading /><div className="command-section-title unified-watch-title"><span>CREATORS YOU FOLLOW</span><small>Launches and rug flags from wallets you've starred</small></div><WatchlistDashboard /></>}

@@ -17,8 +17,9 @@ export function recordCandleTick(chain, pairAddress, priceUsd, volumeUsd) {
   }
 }
 
-export async function fetchFeelessCandles(chain, pairAddress, interval, before) {
-  const res = await fetch(apiUrl(`/api/candles/${chain}/${pairAddress}?interval=${interval}${before ? `&before=${before}` : ''}`));
+export async function fetchFeelessCandles(chain, pairAddress, interval, before, mint) {
+  // `mint` lets the server chart pools it can't identify yet (it verifies the mint on-chain first).
+  const res = await fetch(apiUrl(`/api/candles/${chain}/${pairAddress}?interval=${interval}${before ? `&before=${before}` : ''}${mint ? `&mint=${mint}` : ''}`));
   if (!res.ok) throw new Error('FEELESS candle service unavailable.');
   return res.json();
 }

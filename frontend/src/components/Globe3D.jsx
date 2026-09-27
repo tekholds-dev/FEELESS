@@ -87,7 +87,7 @@ function nodeBeacon(d) {
 function globeObject(d) { return d.isNode ? nodeBeacon(d) : tokenOrb(d); }
 const fmtCap = v => (v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : `$${(v / 1e6).toFixed(1)}M`);
 
-// Every token with $10M+ market cap (true data from GeckoTerminal), placed around its network node.
+// Every token with $10M+ market cap (true market data), placed around its network node.
 function useBigTokens() {
   const [tokens, setTokens] = useState([]);
   useEffect(() => {

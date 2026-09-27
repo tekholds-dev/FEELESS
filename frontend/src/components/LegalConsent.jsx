@@ -42,7 +42,7 @@ export function LegalPage() {
       <li><b>Signatures:</b> message signatures prove wallet ownership. Signing a message never moves funds. A chat session token is stored in your browser for up to 7 days.</li>
       <li><b>Operational:</b> IP addresses are used transiently for rate-limiting and abuse prevention and are not stored with your profile. Aggregate click counts on tickers/contract addresses are stored without identifying you.</li>
       <li><b>Browser storage:</b> settings, watchlist, theme and this consent choice live in your browser's local storage. We use no advertising or cross-site tracking cookies.</li>
-      <li><b>Third parties:</b> market data and routing come from providers such as DexScreener, GeckoTerminal, Jupiter and Solana RPC providers; your requests to them are subject to their policies.</li>
+      <li><b>Third parties:</b> market data and routing come from providers such as DexScreener, Jupiter and Solana RPC providers; your requests to them are subject to their policies.</li>
     </ul>
     <h2>5. Your rights</h2>
     <p>Depending on where you live (e.g. GDPR in the EU/UK, CCPA/CPRA in California) you may request access to, correction of, or deletion of off-chain data tied to your wallet (profile, posts, badges). You can edit your profile and delete posts on your wall at any time. On-chain data cannot be altered or deleted by anyone. We do not sell personal information. To make a request, contact {LEGAL_CONTACT}.</p>

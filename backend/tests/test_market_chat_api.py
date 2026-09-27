@@ -7,7 +7,7 @@ def test_market_feed_trending_solana(api_client, base_url):
     response = api_client.get(f"{base_url}/api/market/feed", params={"kind": "trending", "chain": "solana", "page": 1}, timeout=20)
     assert response.status_code == 200
     data = response.json()
-    assert data["provider"] in ["GeckoTerminal", "DexScreener"]
+    assert data["provider"] == "DexScreener"
     assert isinstance(data["pairs"], list)
     assert data["page"] == 1
     if data["pairs"]:

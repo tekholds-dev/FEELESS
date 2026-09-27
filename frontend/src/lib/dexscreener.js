@@ -26,7 +26,8 @@ export const tokenKey = p => `${p.chainId}-${p.baseToken?.address}`;
 const roomPart = value => encodeURIComponent(String(value)).replace(/%[0-9a-f]{2}/gi, '_');
 export function coinIdentity(pair) {
   const chainId = String(pair?.chainId || '').trim();
-  const pairAddress = String(pair?.pairAddress || '').trim();
+  // Bonding-curve coins (pump.fun radar) have no pool yet: the mint itself identifies them.
+  const pairAddress = String(pair?.pairAddress || pair?.baseToken?.address || pair?.mint || '').trim();
   if (!chainId || !pairAddress) return null;
   return { chainId, pairAddress, key: `${chainId}:${pairAddress}` };
 }

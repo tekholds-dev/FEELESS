@@ -49,7 +49,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   const [candlesLoaded, setCandlesLoaded] = useState(false);
   const priceMetric = metric === 'price';
   const [dayMode, setDayMode] = useState(() => typeof document !== 'undefined' && document.body.classList.contains('theme-day'));
-  // Candles come only from the FEELESS candle service (GeckoTerminal behind a shared cache + our own ticks).
+  // Candles come only from the FEELESS candle service (Jupiter/Codex/Helius behind a shared cache + our own ticks).
   const { data, loading, error } = useMarket(null);
   const providerError = error || data?.error;
   const metricLabel = metric === 'marketCap' ? 'Market cap' : 'FDV';
@@ -85,7 +85,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     setCandlesLoaded(false);
     if (!pair?.pairAddress) return undefined;
     let alive = true;
-    const load = () => fetchFeelessCandles(pair.chainId, pair.pairAddress, interval)
+    const load = () => fetchFeelessCandles(pair.chainId, pair.pairAddress, interval, undefined, pair.baseToken?.address)
       .then(res => { if (alive && Array.isArray(res?.candles)) { setFeelessCandles(res.candles); setCandleProvider(res.provider || 'FEELESS'); if (res.partial) setTimeout(() => { if (alive) load(); }, 2500); } })
       .catch(() => {})
       .finally(() => { if (alive) setCandlesLoaded(true); });
@@ -205,7 +205,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       if (range.from > 8 || st.loading || st.exhausted || !displayCandles.length || !pair?.pairAddress) return;
       st.loading = true;
       const firstTime = displayCandles[0][0];
-      fetchFeelessCandles(pair.chainId, pair.pairAddress, interval, firstTime).then(res => {
+      fetchFeelessCandles(pair.chainId, pair.pairAddress, interval, firstTime, pair.baseToken?.address).then(res => {
         const older = (res?.candles || []).filter(c => c[0] < firstTime);
         if (!older.length) { st.exhausted = true; return; }
         // Older history must join the chart continuously; a jump means a different price source
@@ -326,7 +326,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     let ws = null; let streaming = false;
     if (pair?.chainId === 'solana' && pair?.pairAddress && typeof WebSocket !== 'undefined') {
       try {
-        ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/candles/stream/solana/${pair.pairAddress}`);
+        ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/candles/stream/solana/${pair.pairAddress}${pair.baseToken?.address ? `?mint=${pair.baseToken.address}` : ''}`);
         ws.onopen = () => { streaming = true; };
         ws.onmessage = e => { try { const m = JSON.parse(e.data); apply(Number(m.p), { source: 'live stream' }); } catch { /* ignore */ } };
         ws.onclose = () => { streaming = false; };
@@ -363,6 +363,6 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
         <div className="flr-liq"><span>💧 {formatUSD(feeRead.liq)}</span>{feeRead.liqRatio != null && <span className={feeRead.liqRatio < 0.05 ? 'thin' : ''}>{(feeRead.liqRatio * 100).toFixed(1)}% of MC</span>}{feeRead.flow1 != null && <span className="flr-flow"><i style={{ width: `${feeRead.flow1 * 100}%` }} /></span>}</div>
         <small>Rules-based read from the candles on screen · not financial advice</small></>}
     </div>}
-    <div className="chart-source"><span>{priceMetric ? (candleRows.length ? `${data?.provider || 'GeckoTerminal'} · OHLCV` : usingFeelessCandles ? `${candleProvider || 'FEELESS'} · OHLCV` : 'FEELESS local trail · price only') : metricChart && hasChart ? `${metricLabel} · derived from ${candleProvider || 'FEELESS'} price candles` : `Provider pair snapshot · ${metricLabel}`}</span>{charting ? (livePrice && Date.now() - livePrice.at < 10000 ? <span className="data-status live-tick"><i />LIVE · {livePrice.source || 'DEX'}</span> : <DataStatus data={data} id="chart-data-status" />) : <span className="data-status"><i />{metricAvailable ? 'LIVE · snapshot' : 'UNAVAILABLE'}</span>}</div>
+    <div className="chart-source"><span>{priceMetric ? (candleRows.length ? `${data?.provider || 'Jupiter'} · OHLCV` : usingFeelessCandles ? `${candleProvider || 'FEELESS'} · OHLCV` : 'FEELESS local trail · price only') : metricChart && hasChart ? `${metricLabel} · derived from ${candleProvider || 'FEELESS'} price candles` : `Provider pair snapshot · ${metricLabel}`}</span>{charting ? (livePrice && Date.now() - livePrice.at < 10000 ? <span className="data-status live-tick"><i />LIVE · {livePrice.source || 'DEX'}</span> : <DataStatus data={data} id="chart-data-status" />) : <span className="data-status"><i />{metricAvailable ? 'LIVE · snapshot' : 'UNAVAILABLE'}</span>}</div>
   </div>;
 };

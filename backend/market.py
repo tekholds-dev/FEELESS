@@ -9,7 +9,6 @@ from time import monotonic
 from typing import Any, Literal
 
 import httpx
-import gecko_budget
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
@@ -34,7 +33,7 @@ PROVIDER_COVERAGE = {
     'Pump.fun': {
         'discovery': 'Pump.fun public coin index for Solana launchpad coverage',
         'snapshot': 'Pump.fun coin metadata snapshots',
-        'candles': 'Not supplied; GeckoTerminal remains the candle provider',
+        'candles': 'Not supplied (FEELESS candle service)',
         'liquidity': 'Only reported when Pump.fun supplies a direct liquidity field',
         'graduation': 'Pump.fun complete=true coin status',
         'stream': 'Polling snapshot; no websocket or trade stream',
@@ -44,14 +43,6 @@ PROVIDER_COVERAGE = {
         'snapshot': 'DexScreener pair snapshots',
         'candles': 'Not supplied by this adapter',
         'liquidity': 'Pair liquidity snapshot',
-        'graduation': 'Not established by this provider',
-        'stream': 'Polling snapshot; no websocket or trade stream',
-    },
-    'GeckoTerminal': {
-        'discovery': 'Public indexed pools across supported chains',
-        'snapshot': 'Pool price, volume, and reserve snapshots',
-        'candles': 'OHLCV pool candles',
-        'liquidity': 'Pool reserve snapshot',
         'graduation': 'Not established by this provider',
         'stream': 'Polling snapshot; no websocket or trade stream',
     },
@@ -67,12 +58,10 @@ PROVIDER_COVERAGE = {
 PROVIDER_LABELS = {
     'Pump.fun': 'Pump.fun public coin index',
     'DexScreener': 'DexScreener boosted discovery',
-    'GeckoTerminal': 'GeckoTerminal public pool index',
 }
 PROVIDER_URLS = {
     'Pump.fun': 'https://pump.fun',
     'DexScreener': 'https://dexscreener.com',
-    'GeckoTerminal': 'https://www.geckoterminal.com',
 }
 
 
@@ -96,6 +85,28 @@ def is_new_pool_deal(pair, now_ms=None):
         and age_ms <= MARKET_CACHE_RETENTION.total_seconds() * 1000
         and change <= -NEW_POOL_DEAL_PERCENT
     )
+
+
+
+def _pump_curve(mint: str):
+    try:
+        from solders.pubkey import Pubkey
+        return str(Pubkey.find_program_address([b'bonding-curve', bytes(Pubkey.from_string(mint))], Pubkey.from_string('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P'))[0])
+    except Exception:
+        return None
+
+
+def _mongo_safe(v):
+    """MongoDB stores at most 8-byte ints; raw token supplies exceed that and crashed the feed cache."""
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, int) and not -2**63 <= v < 2**63:
+        return str(v)
+    if isinstance(v, dict):
+        return {k: _mongo_safe(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_mongo_safe(x) for x in v]
+    return v
 
 
 class MarketResult(BaseModel):
@@ -127,18 +138,6 @@ class GraduationResult(BaseModel):
     stream: bool = False
     status: Literal['verified', 'no_verified_events', 'unavailable'] = 'no_verified_events'
     graduations: list[dict[str, Any]] = Field(default_factory=list)
-
-
-class CandleResult(BaseModel):
-    provider: str
-    primary_provider: str | None = None
-    fetched_at: str
-    stale: bool = False
-    error: str | None = None
-    source_label: str | None = None
-    coverage: dict[str, str] = Field(default_factory=dict)
-    stream: bool = False
-    candles: list[list[float]]
 
 
 def provider_meta(provider, fetched_at, stale=False, error=None, primary_provider=None, **extra):
@@ -231,7 +230,9 @@ def normalise_pump_coins(payload, kind='trending'):
         liquidity = coin.get('liquidity') if isinstance(coin.get('liquidity'), dict) else {}
         if not liquidity and coin.get('liquidity_usd') is not None:
             liquidity = {'usd': coin.get('liquidity_usd')}
-        pool_address = coin.get('raydium_pool') or coin.get('pool_address') or mint
+        # Still on the curve → the real pool is pump.fun's bonding-curve PDA (pump.fun's own
+        # `pool_address` for these coins can point at an account that doesn't exist yet).
+        pool_address = (coin.get('raydium_pool') or coin.get('pool_address') or mint) if coin.get('complete') else (_pump_curve(mint) or mint)
         pair = {
             'chainId': 'solana',
             'network': 'solana',
@@ -282,10 +283,8 @@ def create_market_router(db, intelligence=None):
     cooldown = {}
     bases = {
         'DexScreener': os.getenv('DEX_API_URL', 'https://api.dexscreener.com'),
-        'GeckoTerminal': os.getenv('GECKO_API_URL', 'https://api.geckoterminal.com/api/v2'),
         'Pump.fun': os.getenv('PUMP_API_URL', 'https://frontend-api-v3.pump.fun'),
     }
-    gecko_api_key = os.getenv('GECKO_API_KEY') or os.getenv('COINGECKO_API_KEY')
 
     async def cached(provider, path, params=None, ttl=60):
         params = params or {}
@@ -304,22 +303,19 @@ def create_market_router(db, intelligence=None):
             queue = requests[provider]
             while queue and monotonic() - queue[0] > 60:
                 queue.popleft()
-            limit = 9 if provider == 'GeckoTerminal' else 240
-            if monotonic() < cooldown.get(key, 0) or len(queue) >= limit or (provider == 'GeckoTerminal' and not gecko_budget.take('market')):
+            if monotonic() < cooldown.get(key, 0) or len(queue) >= 240:
                 error = 'Provider refresh limit reached. Try again in a minute.'
             else:
                 queue.append(monotonic())
                 try:
                     async with httpx.AsyncClient(timeout=12) as http:
                         headers = {'Accept': 'application/json;version=20230203'}
-                        if provider == 'GeckoTerminal' and gecko_api_key:
-                            headers['x-cg-pro-api-key'] = gecko_api_key
                         res = await http.get(bases[provider] + path, params=params, headers=headers)
                         res.raise_for_status()
                         data = res.json()
                     fetched = now.isoformat()
                     await db.market_cache.update_one({'key': key}, {'$set': {
-                        'data': data, 'fetched_at': fetched, 'provider': provider}}, upsert=True)
+                        'data': _mongo_safe(data), 'fetched_at': fetched, 'provider': provider}}, upsert=True)
                     return data, provider_meta(provider, fetched)
                 except (httpx.HTTPError, ValueError):
                     cooldown[key] = monotonic() + 45
@@ -673,20 +669,6 @@ def create_market_router(db, intelligence=None):
         if intelligence:
             pairs = await intelligence.observe(pairs, meta)
         return MarketResult(**meta, source_url=PROVIDER_URLS['DexScreener'], pairs=pairs, label='Pair snapshot')
-
-    @router.get('/candles/{chain}/{address}', response_model=CandleResult)
-    async def candles(chain: str, address: str, interval: Literal['5m', '15m', '1h', '4h', '1d'] = '1h'):
-        if chain not in NETWORKS or not address.isalnum() or len(address) > 100:
-            raise HTTPException(400, 'Invalid chain or pool')
-        timeframe, aggregate = {'5m': ('minute', 5), '15m': ('minute', 15), '1h': ('hour', 1),
-                                '4h': ('hour', 4), '1d': ('day', 1)}[interval]
-        data, meta = await cached('GeckoTerminal', f'/networks/{NETWORKS[chain]}/pools/{address}/ohlcv/{timeframe}',
-                                  {'aggregate': aggregate, 'limit': 100, 'currency': 'usd', 'token': 'base'}, ttl=90)
-        rows = data.get('data', {}).get('attributes', {}).get('ohlcv_list', [])
-        unique = {row[0]: row for row in rows if len(row) >= 6}
-        return CandleResult(**meta, source_label=PROVIDER_LABELS['GeckoTerminal'],
-                            coverage=PROVIDER_COVERAGE['GeckoTerminal'],
-                            candles=sorted(unique.values(), key=lambda row: row[0]))
 
     router.resolve_ca = resolve_ca
     return router
