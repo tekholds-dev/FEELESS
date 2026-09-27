@@ -61,7 +61,7 @@ def _empty_store():
 def _load() -> dict:
     if STORE_PATH.exists():
         try:
-            store = json.loads(STORE_PATH.read_text())
+            store = _cached_json(STORE_PATH)
             store.setdefault('watchlists', {})
             store.setdefault('feed', [])
             store.setdefault('funding', {})
@@ -1797,7 +1797,7 @@ AUTO_BLOCK_STRIKES = 3
 def _block_load():
     if BLOCK_PATH.exists():
         try:
-            return json.loads(BLOCK_PATH.read_text())
+            return _cached_json(BLOCK_PATH)
         except Exception:
             pass
     return {'wallets': {}}
@@ -1951,7 +1951,7 @@ MIN_HOLD_USD = 1.0
 def _chat_load():
     if CHAT_PATH.exists():
         try:
-            return json.loads(CHAT_PATH.read_text())
+            return _cached_json(CHAT_PATH)
         except Exception:
             pass
     return {'rooms': {}, 'lastTs': {}}
@@ -2405,9 +2405,25 @@ def _admin_save(d):
     tmp = ADMIN_PATH.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(ADMIN_PATH)
 
 
+_parse_cache = {}
+
+
+def _cached_json(path):
+    """Parse a JSON store once per on-disk version (mtime+size). Hot endpoints read these on every
+    request; re-parsing multi-MB files each time is what would melt under thousands of users."""
+    st = path.stat()
+    key = (st.st_mtime_ns, st.st_size)
+    hit = _parse_cache.get(str(path))
+    if hit and hit[0] == key:
+        return hit[1]
+    obj = json.loads(path.read_text())
+    _parse_cache[str(path)] = (key, obj)
+    return obj
+
+
 def _json_load(path, default):
     try:
-        return json.loads(path.read_text())
+        return _cached_json(path)
     except Exception:
         return default
 
@@ -3341,8 +3357,25 @@ def _absorb_intel(mint, out):
     _marked['mints'].add(mint)
 
 
+_stats_cache = {'at': 0, 'data': None, 'lock': None}
+
+
 @app.get('/api/reputation/stats')
 async def live_stats():
+    # Many viewers, one computation: recompute at most every 15s (and never concurrently).
+    if _stats_cache['data'] and time.time() - _stats_cache['at'] < 15:
+        return _stats_cache['data']
+    if _stats_cache['lock'] is None:
+        _stats_cache['lock'] = asyncio.Lock()
+    async with _stats_cache['lock']:
+        if _stats_cache['data'] and time.time() - _stats_cache['at'] < 15:
+            return _stats_cache['data']
+        data = await _live_stats_compute()
+        _stats_cache.update(at=time.time(), data=data)
+        return data
+
+
+async def _live_stats_compute():
     for mint, (_, out) in list(_intel_cache.items()):
         if out:
             _absorb_intel(mint, out)
@@ -4662,9 +4695,21 @@ async def wallet_standing(address: str):
     return {'address': a, 'trust': trust, 'categories': cats, 'at': time.time()}
 
 
+_dark_cache = {}
+
+
 @app.get('/api/reputation/darkside')
 async def darkside(limit: int = Query(12, ge=1, le=50)):
     """The other side of the ledger: the wallets and money behind snipes, bundles and rugs."""
+    hit = _dark_cache.get(limit)
+    if hit and time.time() - hit[0] < 20:
+        return hit[1]
+    data = await _darkside_compute(limit)
+    _dark_cache[limit] = (time.time(), data)
+    return data
+
+
+async def _darkside_compute(limit):
     bl = _block_load()['wallets']
     offenders = sorted(({'wallet': w, 'strikes': len(r.get('mints') or {}), 'roles': sorted(set((r.get('mints') or {}).values())),
                          'blocked': _is_blocked(r), 'lastSeen': r.get('lastSeen')} for w, r in bl.items() if r.get('mints')),
