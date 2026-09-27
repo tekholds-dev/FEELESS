@@ -384,6 +384,33 @@ async def codex_candles(chain, pair, interval):
     return out
 
 
+async def codex_trades(chain, pool):
+    """Latest swaps for a pool on any Codex-indexed chain. None = Codex unavailable (caller falls back)."""
+    key_ = os.environ.get('CODEX_API_KEY', '').strip(); net = CODEX_NET.get(chain)
+    if not key_ or not net:
+        return None
+    q = ('query($a:String!,$n:Int!){getTokenEvents(query:{address:$a,networkId:$n},limit:50){items{timestamp transactionHash maker '
+         'eventDisplayType data{... on SwapEventData{priceUsd priceUsdTotal}}}}}')
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            r = await http.post('https://graph.codex.io/graphql', headers={'Authorization': key_},
+                                json={'query': q, 'variables': {'a': pool, 'n': net}})
+        items = ((((r.json() or {}).get('data') or {}).get('getTokenEvents') or {}).get('items'))
+    except Exception:
+        return None
+    if items is None:
+        return None
+    out = []
+    for e in items:
+        kind = (e.get('eventDisplayType') or '').lower()
+        d = e.get('data') or {}
+        if kind not in ('buy', 'sell') or not d.get('priceUsdTotal'):
+            continue
+        out.append({'ts': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(e.get('timestamp') or 0)), 'kind': kind,
+                    'usd': round(float(d['priceUsdTotal']), 2), 'price': float(d.get('priceUsd') or 0), 'wallet': e.get('maker'), 'tx': e.get('transactionHash')})
+    return out
+
+
 _helius_hist: dict = {}
 
 
@@ -526,8 +553,13 @@ async def pool_trades(chain: str, pool: str):
     now = time.time()
     if hit and now - hit[0] < 15:
         return hit[1]
+    codex = await codex_trades(chain, pool)
+    if codex is not None:
+        data = {'trades': codex, 'at': now, 'source': 'Codex'}
+        _trade_cache[key] = (now, data)
+        return data
     if chain != 'solana':
-        return {'trades': [], 'source': 'none', 'note': 'Per-swap feed is Solana-only for now; EVM needs a keyed indexer.'}
+        return hit[1] if hit else {'trades': [], 'error': 'provider unavailable'}
     k = _helius_key(); pair = await _pair_snapshot(chain, pool)
     if not k or not pair:
         return hit[1] if hit else {'trades': [], 'error': 'provider unavailable'}

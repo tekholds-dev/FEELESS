@@ -474,6 +474,9 @@ def create_market_router(db, intelligence=None):
                 'fallback_from': primary_provider if fallback_reason else None,
                 'fallback_reason': fallback_reason,
             }
+        if page == 1 and chain != 'all':
+            seen = {(p.get('chainId'), (p.get('baseToken') or {}).get('address')) for p in pairs}
+            pairs = pairs + [p for p in await codex_feed(kind, chain) if (p['chainId'], p['baseToken']['address']) not in seen]
         if intelligence:
             pairs = await intelligence.observe(pairs, meta, kind)
         source_url = PROVIDER_URLS.get(meta.get('provider'), 'https://dexscreener.com')
@@ -498,6 +501,48 @@ def create_market_router(db, intelligence=None):
             else p.get('baseToken', {}).get('address') == address)]
         pairs.sort(key=lambda p: float(p.get('liquidity', {}).get('usd') or 0), reverse=True)
         return pairs, meta
+
+    CODEX_NET = {'solana': 1399811149, 'ethereum': 1, 'base': 8453, 'bsc': 56, 'arbitrum': 42161, 'avalanche': 43114, 'polygon': 137,
+                 'optimism': 10, 'zksync': 324, 'zora': 7777777, 'cronos': 25, 'unichain': 130, 'worldchain': 480}
+    _codex_feed_cache = {}
+
+    async def codex_feed(kind, chain):
+        """Codex trending/new tokens for one chain, shaped like DexScreener pairs. [] when unavailable."""
+        key_ = os.getenv('CODEX_API_KEY', '').strip(); net = CODEX_NET.get(chain)
+        if not key_ or not net:
+            return []
+        ck = f'{kind}:{chain}'
+        hit = _codex_feed_cache.get(ck)
+        if hit and monotonic() - hit[0] < 45:
+            return hit[1]
+        rank = 'createdAt' if kind == 'new' else 'trendingScore24'
+        q = ('query($n:Int!,$l:Float!){filterTokens(filters:{network:[$n],liquidity:{gt:$l},volume24:{gt:100}},'
+             f'rankings:[{{attribute:{rank},direction:DESC}}],limit:50){{results{{token{{address name symbol info{{imageSmallUrl}}}} pair{{address}} '
+             'priceUSD marketCap liquidity volume24 change24 change1 change4 buyCount24 sellCount24 createdAt}}}')
+        rows = []
+        try:
+            async with httpx.AsyncClient(timeout=10) as http:
+                r = await http.post('https://graph.codex.io/graphql', headers={'Authorization': key_},
+                                    json={'query': q, 'variables': {'n': net, 'l': 500.0 if chain in ('zora', 'unichain', 'worldchain') else 3000.0}})
+            rows = ((((r.json() or {}).get('data') or {}).get('filterTokens') or {}).get('results')) or []
+        except Exception:
+            rows = []
+        stable = {'USDC', 'USDT', 'USDT0', 'DAI', 'EURC', 'oUSDT', 'USDC.e', 'WETH', 'WBTC', 'WCRO', 'WAVAX', 'WBNB', 'SOL', 'WSOL'}
+        pairs = []
+        for x in rows:
+            t = x.get('token') or {}; pa = (x.get('pair') or {}).get('address')
+            if not pa or not t.get('address') or t.get('symbol') in stable:
+                continue
+            ch = lambda v: None if v is None else round(float(v) * 100, 2)
+            pairs.append({'chainId': chain, 'dexId': 'codex', 'pairAddress': pa, 'url': f'https://dexscreener.com/{chain}/{pa}',
+                          'baseToken': {'address': t['address'], 'name': t.get('name'), 'symbol': t.get('symbol')}, 'quoteToken': {'symbol': ''},
+                          'priceUsd': x.get('priceUSD'), 'marketCap': safe_float(x.get('marketCap')) or None, 'fdv': safe_float(x.get('marketCap')) or None,
+                          'liquidity': {'usd': safe_float(x.get('liquidity'))}, 'volume': {'h24': safe_float(x.get('volume24'))},
+                          'priceChange': {'h1': ch(x.get('change1')), 'h6': ch(x.get('change4')), 'h24': ch(x.get('change24'))},
+                          'txns': {'h24': {'buys': x.get('buyCount24') or 0, 'sells': x.get('sellCount24') or 0}},
+                          'pairCreatedAt': (x.get('createdAt') or 0) * 1000, 'info': {'imageUrl': (t.get('info') or {}).get('imageSmallUrl')}})
+        _codex_feed_cache[ck] = (monotonic(), pairs)
+        return pairs
 
     async def dex_boost_feed(kind, chain='solana', page=1):
         """Use DexScreener's fast boost index for the first radar page."""
