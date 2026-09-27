@@ -20,6 +20,7 @@ installImageFallback();
 installChartDisposalGuard();
 import AmbientBackground from './components/AmbientBackground';
 import { useHolderTheme } from './components/HolderTheme';
+import { MobileTabBar } from './components/MobileTabBar';
 import { FeeCatWidget } from './components/FeeCatWidget';
 const Landing = lazy(() => import('./pages/Landing'));
 const Terminal = lazy(() => import('./pages/Terminal'));
@@ -58,7 +59,7 @@ function AppShell() {
             <Route path="/whitepaper" element={<Navigate to="/terminal/whitepaper" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes></Suspense>
-          <HolderThemeMount /><PageViews /><FeeCatWidget />
+          <HolderThemeMount /><PageViews /><MobileTabBar /><FeeCatWidget />
         </BrowserRouter><Toaster theme="dark" position="bottom-right" /><LegalConsent /></WorkspaceProvider></WalletProvider>
       </div>
     </div>

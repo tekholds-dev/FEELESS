@@ -76,6 +76,7 @@ export function ReputationCenter() {
   const navigate = useNavigate();
   const [tab, setTab] = useState('leaderboard');
   const [view, setView] = useState('trusted');
+  const [showAll, setShowAll] = useState(false);
   const [data, setData] = useState({ rows: [], totalCreators: 0, totalTokensTracked: 0 });
   const [error, setError] = useState('');
   const [scan, setScan] = useState(null); // { address, loading, error, result }
@@ -102,7 +103,7 @@ export function ReputationCenter() {
     <RepStanding />
     <div className="command-page-title"><span className="eyebrow"><Layers size={13} />THE TRUST LAYER · CHAIN-AGNOSTIC</span><h1>Creators earn trust.<br /><em>Every launch remembers.</em></h1><p>A wallet's launch history, not the current meta, is what should decide whether you buy. Every observation FEELESS makes across every chain and launchpad gets recorded here permanently — mint authority status, liquidity survival, and every past rug. This dataset only gets harder to fake the longer it runs.</p></div>
     <div className="reputation-summary"><div><small>CREATORS TRACKED</small><strong data-testid="reputation-total-creators">{data.totalCreators}</strong></div><div><small>TOKENS OBSERVED</small><strong data-testid="reputation-total-tokens">{data.totalTokensTracked}</strong></div><div><small>ACTIVE CHAIN</small><strong>{ecosystem.name}</strong></div></div>
-    <section className="reputation-mechanics" data-testid="reputation-mechanics">
+    <section className="reputation-mechanics" data-testid="reputation-mechanics" onClick={e => e.currentTarget.classList.toggle('is-open')}>
       <div className="reputation-mechanics-head"><HelpCircle size={15} /><h2>How a score actually gets built</h2></div>
       <div className="reputation-mechanics-grid">
         <article><span className="eyebrow">CREATOR IDENTITY</span><p>Every token's deployer wallet is resolved on-chain — the mint authority if one exists, or the fee-payer of the mint's earliest transaction when authority was renounced (the same heuristic real rug-detection tools use). This is how launches get tied to a wallet even on pump.fun, where authority is renounced instantly.</p></article>
@@ -127,14 +128,14 @@ export function ReputationCenter() {
       <p className="reputation-view-hint">{VIEWS.find(([id]) => id === view)?.[2]} · click a wallet to open its full profile</p>
       {error && <p className="reputation-lookup-error">{error}</p>}
       {!error && !data.rows.length && <div className="truth-empty" data-testid="reputation-leaderboard-empty">{view === 'feeless' ? 'No FEELESS launches yet. Every launch confirmed through the FEELESS launch studio is verified on-chain and scored here — bangers and rugs alike.' : `No ${view === 'flagged' ? 'flagged' : 'scored'} creators recorded yet for ${ecosystem.name}. Keep browsing — every token card you open feeds this graph.`}</div>}
-      <div className="reputation-rank-list">{data.rows.map((row, i) => { const Icon = ICON[row.badge] || Shield; return <div className="reputation-rank-row" role="button" tabIndex={0} key={row.address} data-testid={`reputation-rank-${row.address}`} onClick={() => navigate(`/terminal/reputation/${ecosystem.chainId}/${row.address}`)} onKeyDown={e => e.key === 'Enter' && navigate(`/terminal/reputation/${ecosystem.chainId}/${row.address}`)}>
+      <div className="reputation-rank-list">{data.rows.slice(0, showAll ? undefined : 12).map((row, i) => { const Icon = ICON[row.badge] || Shield; return <div className="reputation-rank-row" role="button" tabIndex={0} key={row.address} data-testid={`reputation-rank-${row.address}`} onClick={() => navigate(`/terminal/reputation/${ecosystem.chainId}/${row.address}`)} onKeyDown={e => e.key === 'Enter' && navigate(`/terminal/reputation/${ecosystem.chainId}/${row.address}`)}>
         <span className="reputation-rank-number">{String(i + 1).padStart(2, '0')}</span>
         <span onClick={e => e.stopPropagation()}><AddressPill address={row.address} /></span>
         <span className={`reputation-badge badge-${row.badge}`}><Icon size={11} />{BADGE_LABEL[row.badge]}</span>
         <span><small>TOKENS</small><b>{row.tokenCount}</b></span>
         {view === 'feeless' ? <span><small>BANGERS / DUMPS</small><b><span className="positive">{row.bigWinners}</span> / <span className={row.dumpedCount ? 'negative' : ''}>{row.dumpedCount}</span></b></span> : <span><small>DUMPED</small><b className={row.dumpedCount || row.ruggedCount ? 'negative' : ''}>{row.dumpedCount + row.ruggedCount}</b></span>}
         <strong className="reputation-score">{row.score}</strong>
-      </div>; })}</div>
+      </div>; })}</div>{data.rows.length > 12 && <button type="button" className="pf-more" onClick={() => setShowAll(v => !v)}>{showAll ? 'Show top 12' : `Show all ${data.rows.length}`}</button>}
     </section>}
     </>}
   </div>;
