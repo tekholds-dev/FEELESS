@@ -1832,16 +1832,11 @@ body.theme-day .qt-side .sell.active,body.theme-day .qt-go.sell{background:#c028
 body.theme-day .qt-fee-free{color:#8a5d00!important}
 /* Wallet profile page */
 .wallet-profile-page{max-width:1100px;margin:0 auto}
-.wp-banner{position:relative;height:190px;border-radius:16px 16px 0 0;background:linear-gradient(120deg,color-mix(in srgb,var(--wp-accent) 45%,#061009),#061009 70%);background-size:cover;background-position:center;border:1px solid var(--line);border-bottom:0}
-.wp-banner .wp-upload{position:absolute;right:12px;top:12px}
-.wp-head{display:flex;align-items:flex-end;gap:18px;padding:0 20px 16px;margin-top:-54px;flex-wrap:wrap}
 .wp-avatar{position:relative;width:118px;height:118px;border-radius:24px;overflow:hidden;border:4px solid var(--wp-accent);box-shadow:0 0 0 4px #050b08,0 10px 30px color-mix(in srgb,var(--wp-accent) 35%,transparent);background:#0b1a12;display:grid;place-items:center;flex-shrink:0}
 .wp-avatar img{width:100%;height:100%;object-fit:cover}.wp-avatar>span{font:700 34px 'JetBrains Mono',monospace;color:var(--wp-accent)}
 .wp-avatar .wp-upload{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);font-size:9px;padding:3px 6px}
-.wp-id{display:grid;gap:3px;min-width:0;padding-bottom:6px}.wp-id h1{margin:0;font-size:28px}.wp-id code{color:var(--muted);font-size:11px}
 .wp-mood{font-size:13px;color:var(--wp-accent)}
 .wp-name-input,.wp-mood-input{min-height:36px;border-radius:9px;border:1px solid var(--line);background:#ffffff08;color:inherit;padding:0 10px;font-size:15px}
-.wp-actions{margin-left:auto;display:flex;gap:8px;padding-bottom:8px}
 .wp-upload{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:8px;background:#000a;color:#fff;font-size:11px;cursor:pointer;border:1px solid #ffffff30}
 .wp-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;margin-bottom:14px}@media(max-width:860px){.wp-grid{grid-template-columns:1fr}}
 .wp-card{border:1px solid var(--line);border-radius:14px;padding:16px;background:#07110c;border-top:3px solid var(--wp-accent)}
@@ -1866,7 +1861,6 @@ body.theme-day .qt-fee-free{color:#8a5d00!important}
 .chat-profile-link{margin-left:4px;font-size:10px;color:var(--muted);text-decoration:none}.chat-profile-link:hover{color:var(--mint)}
 body.theme-day .wp-card{background:rgba(238,246,240,.6)!important;border-color:var(--day-border)!important;border-top-color:var(--wp-accent)!important}
 body.theme-day .wp-avatar{box-shadow:0 0 0 4px #e8f0ea,0 10px 30px color-mix(in srgb,var(--wp-accent) 30%,transparent)}
-body.theme-day :is(.wp-bio,.wp-id code,.wp-receipts small,.wp-accents small,.wp-coin-open,.wp-chip){color:var(--day-muted)!important}
 body.theme-day :is(.wp-receipts div,.wp-coin,.wp-links a,.wp-card textarea,.wp-links-edit input,.wp-top8-add input,.wp-name-input,.wp-mood-input){border-color:var(--day-border)!important}
 /* Offender (sniper / bundler) panel */
 .offender-panel{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
@@ -2118,11 +2112,7 @@ body.theme-day .slash-menu{background:#fff}body.theme-day .cmd-card p{color:#173
 .wallet-profile-page.theme-goldrush::before{background:radial-gradient(60% 40% at 20% 0,rgba(245,197,66,.35),transparent 60%),radial-gradient(50% 40% at 90% 30%,rgba(255,220,120,.2),transparent 60%),repeating-linear-gradient(115deg,transparent 0 22px,rgba(245,197,66,.05) 22px 23px)!important}
 .wallet-profile-page.theme-neoncat::before{background:radial-gradient(50% 40% at 80% 10%,rgba(255,64,200,.3),transparent 60%),radial-gradient(50% 40% at 10% 60%,rgba(0,233,160,.28),transparent 60%),linear-gradient(180deg,#0b0418,#040a10)!important}
 .swatch-goldrush{background:linear-gradient(135deg,#3a2a05,#f5c542)!important}.swatch-neoncat{background:linear-gradient(135deg,#ff40c8,#00e9a0)!important}.wp-theme-swatch:disabled{opacity:.5;cursor:not-allowed}
-/* ===== Profile header fix + live badge animations + artifacts ===== */
-.wp-head{position:relative;z-index:2;align-items:flex-start}
-.wp-id{margin-top:62px;padding:0}   /* text always starts below the banner */
-.wp-id h1{text-shadow:0 2px 12px #000a}
-.wp-avatar-wrap{position:relative;flex-shrink:0}
+/* ===== Profile header fix + live badge animations + artifacts ===== */   /* text always starts below the banner */
 .ptier-3 .wp-avatar::after{content:none!important}
 .wp-crown{position:absolute;left:50%;top:-40px;transform:translateX(-50%);z-index:3;perspective:300px;pointer-events:none;filter:drop-shadow(0 0 14px rgba(245,197,66,.8)) drop-shadow(0 4px 6px #0009)}
 .wp-crown span{display:block;font-size:38px;animation:crown-spin 7s linear infinite, crown-bob 3s ease-in-out infinite;transform-style:preserve-3d}
@@ -2152,9 +2142,9 @@ body.theme-day .slash-menu{background:#fff}body.theme-day .cmd-card p{color:#173
 .wp-feature-pick{display:grid;gap:6px;margin:8px 0}.wp-feature-pick>small{color:var(--muted);font-size:11px}.wp-feature-pick>div{display:flex;flex-wrap:wrap;gap:6px}.wp-feature-pick button{cursor:pointer;background:none}.wp-feature-pick button:disabled{opacity:.4;cursor:not-allowed}
 body.reduced-motion-setting :is(.badge-pill,.badge-pill::after,.badge-pill i,.badge-icons i,.artifact,.artifact-coin,.wp-crown span){animation:none!important}
 @media (prefers-reduced-motion: reduce){:is(.badge-pill,.badge-pill::after,.badge-pill i,.badge-icons i,.artifact,.artifact-coin,.wp-crown span){animation:none!important}}
-@media (max-width:700px){.wp-id,.badge-artifacts{margin-top:8px}.wp-head{align-items:flex-start}}
+@media (max-width:700px){.badge-artifacts{margin-top:8px}}
 body.theme-day .artifact-coin .face{background:radial-gradient(circle at 35% 30%,#fff,transparent 45%),radial-gradient(circle,color-mix(in srgb,currentColor 25%,#fff),#f3faf6 75%)}
-body.theme-day .artifact.tone-gold{color:#b8860b}body.theme-day .artifact.tone-mint{color:#07784f}body.theme-day .wp-id h1{text-shadow:none}
+body.theme-day .artifact.tone-gold{color:#b8860b}body.theme-day .artifact.tone-mint{color:#07784f}
 /* Crown: hover, don't spin (an emoji flattens when rotated in 3D) */
 .wp-crown span{animation:crown-hover 3.4s ease-in-out infinite!important}
 @keyframes crown-hover{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-7px) rotate(4deg)}}
@@ -2213,10 +2203,8 @@ body.theme-day .legal-consent{background:#fff;border-color:#9fd3b6}body.theme-da
 .cc-fees textarea{min-height:60px;border-radius:8px;border:1px solid var(--line);background:#ffffff08;color:inherit;padding:6px 8px;font:11px 'JetBrains Mono',monospace}
 /* X.com-sized header: 3:1 banner, 134px round avatar overlapping it */
 .wallet-profile-page{max-width:none!important;width:100%}
-.wp-banner{height:auto!important;aspect-ratio:3/1;max-height:420px;background-size:cover!important;background-position:center!important}
-.wp-avatar{width:134px!important;height:134px!important;border-radius:50%!important}.wp-avatar img{border-radius:50%}
-.wp-head{margin-top:-67px!important}.wp-id,.badge-artifacts{margin-top:74px!important}
-@media (max-width:700px){.wp-avatar{width:88px!important;height:88px!important}.wp-head{margin-top:-44px!important}.wp-id,.badge-artifacts{margin-top:8px!important}}
+.wp-avatar{width:134px!important;height:134px!important;border-radius:50%!important}.wp-avatar img{border-radius:50%}.badge-artifacts{margin-top:74px!important}
+@media (max-width:700px){.wp-avatar{width:88px!important;height:88px!important}.badge-artifacts{margin-top:8px!important}}
 /* MySpace feel: each theme paints the whole page with its own colour */
 .wallet-profile-page{padding:0 0 30px;border-radius:18px;min-height:100vh}
 .wallet-profile-page.theme-grid{background:linear-gradient(180deg,#07130d,#030806)}
@@ -2227,15 +2215,9 @@ body.theme-day .legal-consent{background:#fff;border-color:#9fd3b6}body.theme-da
 .wallet-profile-page.theme-goldrush{background:linear-gradient(170deg,#2a1d02,#120c01 60%,#2a1a05)}
 .wallet-profile-page.theme-neoncat{background:linear-gradient(160deg,#1a0430,#04141a 60%,#2a0425)}
 .wallet-profile-page .wp-card{background:rgba(0,0,0,.35)!important;backdrop-filter:blur(6px)}
-.wallet-profile-page>:not(.wp-banner){margin-inline:clamp(10px,2vw,28px)}
 /* Cleaner header: shorter banner, aligned edges */
 .wallet-profile-page{overflow:hidden}
-.wallet-profile-page>.wp-banner{margin:0!important;width:100%;max-height:260px;border-radius:18px 18px 0 0;border:0}
-.wp-head{gap:20px;padding:0 24px 18px!important;align-items:flex-end!important}
-.wp-id,.badge-artifacts{margin-top:0!important;padding-bottom:4px}
-.wp-id h1{font-size:26px;line-height:1.15}
-.wp-actions{margin-left:auto;align-self:flex-end}
-@media (max-width:700px){.wp-head{align-items:flex-start!important}.wp-id{margin-top:6px!important}}
+.badge-artifacts{margin-top:0!important;padding-bottom:4px}
 .chat-handle{margin-left:5px;color:var(--muted);font-size:10.5px;font-weight:400}
 .wp-handle{color:#5ec8ff;font-size:13px;font-weight:600}.wp-handle-input{min-height:30px;border-radius:8px;border:1px solid var(--line);background:#ffffff08;color:#5ec8ff;padding:0 10px;max-width:260px}
 .wp-flip-body{transition:transform .5s ease,opacity .3s}.wp-flip-body.is-flipped{display:none}
@@ -2269,17 +2251,14 @@ body.theme-day .search-drop{background:#fff;border-color:#9fd3b6}body.theme-day 
 .fcp-score{display:flex;gap:16px;font-size:13px}
 @media (max-width:700px){.fcp-exit,.fcp-trade{grid-template-columns:1fr}.fcp-kpis{margin-left:0}}
 /* Profile layout: name block starts under the banner; artifacts hover (no thin-edge spin) */
-.wp-head{align-items:flex-start!important}
-.wp-id{padding-top:78px!important}
 .badge-artifacts{padding-top:84px!important;margin-top:0!important}
-.wp-actions{padding-top:84px}
 .artifact-coin{animation:artifact-hover 3.6s ease-in-out infinite!important;transform:none!important}
 .artifact-coin .face{backface-visibility:visible}
 .artifact-coin .face .badge-svg{filter:drop-shadow(0 0 6px currentColor)}
 .badge-svg{display:block;filter:drop-shadow(0 0 3px rgba(0,0,0,.4))}
 .badge-pill i{display:inline-grid;place-items:center}
 .wpj-badge.off .badge-svg{filter:grayscale(1)}
-@media (max-width:700px){.wp-id,.badge-artifacts,.wp-actions{padding-top:8px!important}}
+@media (max-width:700px){.badge-artifacts{padding-top:8px!important}}
 .live-intel{display:grid;gap:12px;padding:18px;margin:14px 0 18px;border-radius:18px;border:1px solid rgba(250,112,140,.35);background:radial-gradient(60% 60% at 0 0,rgba(250,112,140,.1),transparent 60%),rgba(5,12,9,.85)}
 .li-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}.li-head h2{margin:0;font-size:22px}.li-head span{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:11px}
 .li-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
@@ -2356,7 +2335,6 @@ body.theme-day .wallet-profile-page.theme-vapor{background:linear-gradient(160de
 body.theme-day .wallet-profile-page.theme-goldrush{background:linear-gradient(170deg,#fff5d6,#fdecc0)}
 body.theme-day .wallet-profile-page.theme-neoncat{background:linear-gradient(160deg,#f3e6ff,#e0fbff 60%,#ffe6f7)}
 body.theme-day .wallet-profile-page .wp-card{background:#ffffffcc!important}
-body.theme-day .wp-id h1:not([class*="namefx-g"]):not(.namefx-rainbow):not(.namefx-diamond){color:#0b2a1d}
 body.theme-day .artifact-coin .face{color:inherit}
 body.theme-day .heartbeat-mark{filter:drop-shadow(0 0 16px rgba(8,118,78,.35))}
 /* Profile music */
@@ -2425,12 +2403,8 @@ body.theme-day .terminal-main::before{background:radial-gradient(60% 100% at 50%
 .rw-item.ready{border-color:rgba(245,197,66,.55);background:rgba(245,197,66,.07);animation:cc-pulse 2.6s ease-in-out infinite}.rw-log{display:grid;gap:2px;margin-top:6px}.rw-log small{color:var(--muted);font-size:11px}
 body.theme-day .notif-pop{background:#fff;border-color:#9fd3b6}body.theme-day :is(.dm-threads button,.rw-item,.dm-compose input){background:#fff;border-color:var(--day-border)}body.theme-day .dm-msg{background:#eef5f0}
 /* Profile action row + floating chat window */
-.wp-actions{display:flex!important;flex-wrap:wrap;gap:8px;align-items:center!important;align-self:flex-end}
-.wp-actions>button,.wp-actions>a{height:auto!important;min-height:38px;padding:8px 14px!important;align-self:center}
 .dm-card{position:fixed!important;right:18px;bottom:18px;z-index:800;width:min(620px,calc(100vw - 36px));max-height:min(620px,80vh);overflow:auto;margin:0!important;box-shadow:0 24px 70px #000c;border-color:rgba(0,233,160,.4)!important;animation:flr-in .25s ease}
 body.theme-day .dm-card{box-shadow:0 24px 60px #0003}
-body.theme-day .wp-actions :is(.btn-outline,button:not(.btn-primary),a:not(.btn-primary)){background:#ffffffe6!important;color:#0b2a1d!important;border-color:#ffffff!important;box-shadow:0 4px 14px #0002}
-body.theme-day .wp-head{text-shadow:none}
 .verified-mark{display:inline-block;vertical-align:-2px;margin-left:6px;filter:drop-shadow(0 0 6px rgba(29,155,240,.5))}
 /* "?" hints */
 .hint{position:relative;display:inline-grid;place-items:center;width:16px;height:16px;margin-left:6px;border-radius:50%;border:1px solid var(--line);color:var(--muted);font:700 10px/1 sans-serif;cursor:help;vertical-align:middle;text-shadow:none;-webkit-text-fill-color:currentColor}
@@ -2566,15 +2540,12 @@ body.theme-day .token-metrics .metric .negative,body.theme-day .token-metrics .m
 .wallet-profile-page .wp-card h3{display:flex;align-items:center;gap:8px;margin:0 0 10px;font:700 12px/1 Outfit,sans-serif;letter-spacing:1.4px;text-transform:uppercase;color:color-mix(in srgb,var(--wp-accent,#00e9a0) 70%,#fff)}
 .wallet-profile-page .wp-card .wp-bio{font-size:14px;line-height:1.6}
 .wallet-profile-page .wp-grid{gap:16px!important}
-.wallet-profile-page>*:not(.wp-banner):not(.wp-head){margin-bottom:16px}
 @media (min-width:1280px){
   .wallet-profile-page{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,1fr);column-gap:16px;align-items:start}
-  .wallet-profile-page>.wp-banner,.wallet-profile-page>.wp-head,.wallet-profile-page>.wp-music,.wallet-profile-page>.wp-grid,.wallet-profile-page>.wp-setup,.wallet-profile-page>.wp-activity,.wallet-profile-page>.wp-flip-body,.wallet-profile-page>.wp-foot{grid-column:1/-1}
+  .wallet-profile-page>.wp-music,.wallet-profile-page>.wp-grid,.wallet-profile-page>.wp-setup,.wallet-profile-page>.wp-activity,.wallet-profile-page>.wp-flip-body,.wallet-profile-page>.wp-foot{grid-column:1/-1}
   .wallet-profile-page>.portfolio-card,.wallet-profile-page>.wp-journey,.wallet-profile-page>.wp-receipts{grid-column:1}
   .wallet-profile-page>.wp-perks,.wallet-profile-page>.invite-card,.wallet-profile-page>.rewards-card,.wallet-profile-page>.shop-card,.wallet-profile-page>.pnl-tracker{grid-column:2}
 }
-.wallet-profile-page .wp-head{padding-bottom:22px!important;border-bottom:1px solid color-mix(in srgb,var(--wp-accent,#00e9a0) 15%,transparent)}
-.wallet-profile-page .wp-id h1{font:800 clamp(24px,2.4vw,34px)/1.1 'Space Grotesk',Outfit,sans-serif!important;letter-spacing:-.5px}
 .wallet-profile-page .badge-pill{border-radius:10px!important;padding:4px 10px!important}
 .wallet-profile-page .wp-onchain span{border-radius:12px!important;background:rgba(255,255,255,.04)!important}
 .wallet-profile-page .wp-onchain b{font-family:'Space Grotesk','JetBrains Mono',monospace!important;font-size:15px!important}
@@ -3124,17 +3095,6 @@ body.theme-day .wp-card,body.theme-day .season-card,body.theme-day .cc-card,body
 body.theme-day .swap-review-hero,body.theme-day .srh-clock em{background:#fff}body.theme-day .srh-clock em{color:#0a1f14}
 @media(prefers-reduced-motion:reduce){.srh-flow i{animation:none}}
 /* ===== Profile header: compact 3-column layout (no wrapped action row, no duplicate badges) ===== */
-.wallet-profile-page .wp-banner{height:200px!important;min-height:0!important}
-@media(min-width:900px){
-  .wallet-profile-page .wp-head{display:grid!important;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"av id side" "av id actions";column-gap:22px;row-gap:12px;align-items:start}
-  .wallet-profile-page .wp-head>.wp-avatar-wrap{grid-area:av}
-  .wallet-profile-page .wp-head>.wp-id{grid-area:id;min-width:0}
-  .wallet-profile-page .wp-head>.badge-artifacts{grid-area:side;justify-self:end}
-  .wallet-profile-page .wp-head>.wp-actions{grid-area:actions;justify-self:end;align-self:end;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;max-width:340px;margin:0!important}
-}
-.wallet-profile-page .wp-head:has(.badge-artifacts) .badge-shelf{display:none}
-.wallet-profile-page .wp-actions>*{min-height:36px!important;padding:7px 12px!important;font-size:13px!important;justify-content:center}
-.wallet-profile-page .wp-id>*+*{margin-top:6px!important}
 .wallet-profile-page .wp-onchain{margin-top:8px!important}
 /* Badge cards: small thumbs + flip focus view */
 .badge-thumb{display:block;aspect-ratio:280/384;border-radius:10px;overflow:hidden;box-shadow:0 6px 16px rgba(0,0,0,.5);transition:transform .25s}
@@ -3295,32 +3255,6 @@ body.theme-day .crop-card{background:#fff;border-color:#cfe3d8}
 .pool-summary span{display:grid;gap:2px;padding:9px 11px;border-radius:10px;background:#00e9a00d;border:1px solid #00e9a02a}
 .pool-summary small{font-size:10px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase}.pool-summary b{font:700 14px 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
 body.theme-day .pool-explain p,body.theme-day .pool-explain li{color:#274a38}
-/* ---- Profile header, X/Facebook layout (keeps the MySpace themes, rings, crown, playlist) ----
-   Banner on top, avatar overlapping its bottom-left, actions top-right, identity stacked below. */
-.wallet-profile-page .wp-head{display:grid!important;grid-template-columns:auto 1fr auto;grid-template-areas:"av . act" "id id art";column-gap:18px;row-gap:10px;align-items:start;padding:0 clamp(14px,2.4vw,28px) 18px!important;margin-top:0!important;background:none!important;border:0!important}
-.wallet-profile-page .wp-avatar-wrap{grid-area:av!important;margin-top:calc(-1 * clamp(52px,6vw,74px));position:relative;z-index:2}
-.wallet-profile-page .wp-avatar{width:clamp(104px,12vw,148px)!important;height:clamp(104px,12vw,148px)!important;border:4px solid var(--ink,#050b08)!important;box-shadow:0 6px 24px #0008}
-.wallet-profile-page .wp-actions{grid-area:act!important;display:flex!important;flex-wrap:wrap;justify-content:flex-end;gap:8px;padding-top:12px;margin:0!important}
-.wallet-profile-page .wp-actions>*{margin:0!important}
-.wallet-profile-page .wp-id{grid-area:id!important;display:grid!important;grid-template-columns:auto auto 1fr;align-items:center;column-gap:10px;row-gap:6px;min-width:0}
-.wallet-profile-page .wp-id>h1{grid-column:1;margin:0!important;font-size:clamp(24px,3vw,32px)!important;line-height:1.1;display:flex;align-items:center;gap:6px}
-.wallet-profile-page .wp-id>.rep-mark{grid-column:2;justify-self:start}
-.wallet-profile-page .wp-id>.wp-handle{grid-column:1/-1;font-size:14px;color:var(--muted)!important;margin:-4px 0 0}
-.wallet-profile-page .wp-addr{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)}.wallet-profile-page .wp-addr code{background:none;padding:0;color:inherit}
-.wallet-profile-page .wp-id>.wp-mood{grid-column:1/-1;font-size:14.5px}
-.wallet-profile-page .wp-id>*:not(h1):not(.rep-mark){grid-column:1/-1}
-.wallet-profile-page .social-strip{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-.wallet-profile-page .follow-counts{display:flex;gap:16px;font-size:14px}.wallet-profile-page .follow-counts b{font-weight:800;margin-right:3px}
-.wallet-profile-page .trust-ring{width:46px;height:46px}
-.wallet-profile-page .wp-art,.wallet-profile-page .badge-artifacts{grid-area:art!important;align-self:end;justify-self:end}
-/* On-chain stat chips: evenly aligned, tabular numbers */
-.wallet-profile-page .wp-onchain{display:flex;flex-wrap:wrap;gap:8px}
-.wallet-profile-page .wp-onchain>div,.wallet-profile-page .wp-onchain>span{min-width:92px;font-variant-numeric:tabular-nums}
-@media (max-width:720px){
-  .wallet-profile-page .wp-head{grid-template-columns:auto 1fr;grid-template-areas:"av act" "id id" "art art"}
-  .wallet-profile-page .wp-actions{justify-content:flex-end}
-  .wallet-profile-page .wp-actions .btn-outline,.wallet-profile-page .wp-actions .btn-primary{padding:8px 12px}
-}
 /* Rug radar on the Trenches landing: a slim strip, scrolls inside instead of growing the page */
 .radar.compact{padding:10px 14px;gap:6px;border-radius:14px}
 .radar.compact .mp-head h2{font-size:15px;margin:0}
@@ -3345,3 +3279,41 @@ body.theme-day .pool-explain p,body.theme-day .pool-explain li{color:#274a38}
 .lr-grad i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#00e9a055,#00e9a0aa)}.lr-grad.hot i{background:linear-gradient(90deg,#f5c54277,#ff6b3dcc)}
 .lr-grad{isolation:isolate}.lr-grad i{z-index:-1}
 body.theme-day .launch-radar{background:#fff;border-color:var(--day-border)}
+/* ===== Profile header card (X / Facebook structure, MySpace themes stay) ===== */
+.xp-card{position:relative;margin:0 0 14px;border-radius:18px;overflow:hidden;border:1px solid color-mix(in srgb,var(--wp-accent,#00e9a0) 30%,#ffffff14);background:rgba(6,12,9,.72);backdrop-filter:blur(8px)}
+.xp-cover{position:relative;height:clamp(130px,17vw,210px);overflow:hidden;background:
+  radial-gradient(120% 140% at 12% 0%,color-mix(in srgb,var(--wp-accent,#00e9a0) 55%,transparent),transparent 55%),
+  radial-gradient(90% 120% at 92% 100%,color-mix(in srgb,var(--wp-accent,#00e9a0) 30%,#ff2bd6 25%),transparent 60%),
+  linear-gradient(120deg,#07130d,#0b1a12 60%,#050b08)}
+.xp-cover:not(.has-img)::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(115deg,#ffffff07 0 2px,transparent 2px 14px);mask:linear-gradient(90deg,#000,transparent 85%)}
+.xp-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.xp-cover-mark{position:absolute;right:18px;bottom:-10px;font:900 clamp(42px,8vw,96px)/1 'Outfit',sans-serif;letter-spacing:-3px;color:#ffffff0f;white-space:nowrap;pointer-events:none}
+.xp-cover .wp-upload{position:absolute;right:12px;top:12px}
+.xp-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:16px;align-items:start;padding:0 clamp(14px,2.2vw,24px);margin-top:calc(-1 * clamp(40px,5vw,56px))}
+.xp-avatar{position:relative;z-index:2}
+.xp-avatar .wp-avatar{width:clamp(92px,10vw,124px)!important;height:clamp(92px,10vw,124px)!important;border:4px solid #060c09!important;box-shadow:0 8px 26px #000a}
+.xp-avatar .wp-crown{position:absolute;left:50%;top:-18px;transform:translateX(-50%);z-index:3}
+.xp-name{min-width:0;padding-top:calc(clamp(40px,5vw,56px) + 10px)}
+.xp-name h1{margin:0!important;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:clamp(22px,2.6vw,30px)!important;line-height:1.15}
+.xp-sub{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px;font-size:13.5px;color:var(--muted)}
+.xp-sub .wp-handle{color:var(--muted)!important;font-weight:600}.xp-sub code{background:none;padding:0;color:inherit;font-size:12.5px}.xp-dot{opacity:.5}
+.xp-name .wp-mood{margin:6px 0 0;font-size:14px}
+.xp-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;padding-top:calc(clamp(40px,5vw,56px) + 10px)}
+.xp-actions>*{margin:0!important}
+.xp-actions .btn-outline,.xp-actions .btn-primary,.xp-actions .cc-launch{padding:8px 14px;font-size:13px;border-radius:999px}
+.xp-meta{display:flex;align-items:center;gap:14px 22px;flex-wrap:wrap;padding:14px clamp(14px,2.2vw,24px) 0}
+.xp-meta .social-strip{display:flex;align-items:center;gap:14px;margin:0}
+.xp-meta .trust-ring{width:44px;height:44px}
+.xp-meta .follow-counts{display:flex;gap:14px;font-size:14px}.xp-meta .follow-counts b{font-weight:800;margin-right:3px}
+.xp-meta .social-strip .btn-primary,.xp-meta .social-strip .btn-outline{padding:7px 16px;border-radius:999px;font-size:13px}
+.xp-meta .wp-onchain{display:flex;gap:8px;flex-wrap:wrap;margin:0}
+.xp-meta .wp-onchain>*{padding:6px 10px!important;min-width:0!important}
+.xp-badges{display:flex;align-items:center;justify-content:flex-start;gap:12px;flex-wrap:wrap;padding:12px clamp(14px,2.2vw,24px) 16px}
+.xp-badges .badge-artifacts{margin:0!important;padding:0!important;display:flex;gap:10px}
+.xp-badges .artifact{transform:scale(.82);transform-origin:left center}
+@media (max-width:760px){
+  .xp-row{grid-template-columns:auto 1fr;align-items:end}
+  .xp-actions{grid-column:1/-1;justify-content:flex-start;padding-top:0}
+  .xp-meta{gap:10px 14px}
+}
+body.theme-day .xp-card{background:#ffffffee}body.theme-day .xp-avatar .wp-avatar{border-color:#fff!important}

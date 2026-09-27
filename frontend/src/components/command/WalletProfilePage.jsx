@@ -16,7 +16,7 @@ import { useWallet } from '../../hooks/useWallet';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { LivePrice } from '../terminal/LiveCells';
 import { shortAddress } from '../../lib/dexscreener';
-import { Badges, BadgeArtifacts, useBadges } from '../terminal/Badges';
+import { BadgeArtifacts, useBadges } from '../terminal/Badges';
 import EcosystemChat from '../EcosystemChat';
 import { BadgeJourney } from './BadgeJourney';
 import { ReceiptsCard } from './ReceiptsCard';
@@ -111,21 +111,26 @@ export function WalletProfilePage({ address }) {
   const [friend, setFriend] = useState('');
   if (ccOpen && isAdmin) return <CommandCenter address={address} signMessage={signMessage} onClose={() => setCcOpen(false)} />;
   return <div className={`wallet-profile-page theme-${p.theme || 'grid'} ptier-${tier}`} style={{ '--wp-accent': accent }} data-testid="wallet-profile-page">
-    <div className="wp-banner" style={p.bannerUrl ? { backgroundImage: `url(${p.bannerUrl})` } : undefined}>{edit && <UploadButton label="Banner" shape={CROP.banner} onDone={url => set('bannerUrl', url)} />}</div>
-    <div className="wp-head">
-      <div className="wp-avatar-wrap">{tier >= 3 && <div className="wp-crown" aria-hidden="true"><span>👑</span></div>}<div className={`wp-avatar ring-${p.ring || 'none'}`}>{p.avatarUrl ? <img src={p.avatarUrl} alt="" /> : <span>{(p.displayName || address).slice(0, 2).toUpperCase()}</span>}{edit && <UploadButton label="GIF / pic" shape={CROP.avatar} onDone={url => set('avatarUrl', url)} />}</div></div>
-      <div className="wp-id">
-        {edit ? <input className="wp-name-input" maxLength={32} placeholder="Display name" value={draft.displayName} onChange={e => set('displayName', e.target.value)} /> : <><h1 className={`namefx-${p.nameFx || 'none'}`}>{p.displayName || shortAddress(address)}{data?.verified && <VerifiedMark />}</h1><RepMark address={address} /></>}
-        {edit ? <input className="wp-handle-input" maxLength={21} placeholder="@handle (3–20: a-z 0-9 _)" value={draft.handle ? `@${draft.handle}` : ''} onChange={e => set('handle', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))} /> : <span className="wp-handle">@{p.handle || address.slice(0, 6).toLowerCase()}</span>}
-        <span className="wp-addr"><code>{shortAddress(address)}</code><CopyBtn value={address} /></span>
-        <Badges address={address} featured={p.featuredBadges} />
+    <header className="xp-card" data-testid="profile-header">
+      <div className={`xp-cover ${p.bannerUrl ? 'has-img' : ''}`}>
+        {p.bannerUrl ? <img src={p.bannerUrl} alt="" decoding="async" /> : <span className="xp-cover-mark" aria-hidden="true">{p.displayName || shortAddress(address)}</span>}
+        {edit && <UploadButton label="Cover" shape={CROP.banner} onDone={url => set('bannerUrl', url)} />}
+      </div>
+      <div className="xp-row">
+        <div className="xp-avatar">{tier >= 3 && <div className="wp-crown" aria-hidden="true"><span>👑</span></div>}<div className={`wp-avatar ring-${p.ring || 'none'}`}>{p.avatarUrl ? <img src={p.avatarUrl} alt="" /> : <span>{(p.displayName || address).slice(0, 2).toUpperCase()}</span>}{edit && <UploadButton label="Pic" shape={CROP.avatar} onDone={url => set('avatarUrl', url)} />}</div></div>
+        <div className="xp-name">
+          {edit ? <input className="wp-name-input" maxLength={32} placeholder="Display name" value={draft.displayName} onChange={e => set('displayName', e.target.value)} /> : <h1 className={`namefx-${p.nameFx || 'none'}`}>{p.displayName || shortAddress(address)}{data?.verified && <VerifiedMark />}<RepMark address={address} /></h1>}
+          <div className="xp-sub">{edit ? <input className="wp-handle-input" maxLength={21} placeholder="@handle (3–20: a-z 0-9 _)" value={draft.handle ? `@${draft.handle}` : ''} onChange={e => set('handle', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))} /> : <span className="wp-handle">@{p.handle || address.slice(0, 6).toLowerCase()}</span>}<span className="xp-dot">·</span><code>{shortAddress(address)}</code><CopyBtn value={address} /></div>
+          {edit ? <input className="wp-mood-input" maxLength={40} placeholder="Mood / status (e.g. 🔥 hunting 10×s)" value={draft.mood} onChange={e => set('mood', e.target.value)} /> : p.mood && <p className="wp-mood">{p.mood}</p>}
+        </div>
+        <div className="xp-actions"><ProfileDM peer={address} mine={mine} initialOpen={new URLSearchParams(window.location.search).get('dm') === '1'} /><button type="button" className="btn-outline wp-flip-btn" data-testid="profile-flip" onClick={() => setFlipped(f => !f)}>{flipped ? '↺ Profile' : '↻ Activity'}</button>{isAdmin && <button type="button" className="cc-launch" data-testid="open-command-center" onClick={() => setCcOpen(true)}>👑 Command Center</button>}{mine ? (edit ? <><button type="button" className="btn-primary" disabled={saving} onClick={save}><Save size={14} />{saving ? 'Sign in wallet…' : 'Save (sign)'}</button><button type="button" className="btn-outline" onClick={() => setEdit(false)}><X size={14} />Cancel</button></> : <button type="button" className="btn-outline" onClick={startEdit}><Pencil size={14} />Edit profile</button>) : !wallet?.address && <button type="button" className="btn-outline" onClick={() => connect?.('solana')}>Connect to edit yours</button>}</div>
+      </div>
+      <div className="xp-meta">
         <SocialStrip address={address} mine={mine} />
         <OnchainStrip address={address} />
-        {edit ? <input className="wp-mood-input" maxLength={40} placeholder="Mood / status (e.g. 🔥 hunting 10×s)" value={draft.mood} onChange={e => set('mood', e.target.value)} /> : p.mood && <span className="wp-mood">{p.mood}</span>}
       </div>
-      <BadgeArtifacts address={address} featured={p.featuredBadges} />
-      <div className="wp-actions"><ProfileDM peer={address} mine={mine} initialOpen={new URLSearchParams(window.location.search).get('dm') === '1'} /><button type="button" className="btn-outline wp-flip-btn" data-testid="profile-flip" onClick={() => setFlipped(f => !f)}>{flipped ? '↺ Profile' : '↻ Activity'}</button>{isAdmin && <button type="button" className="cc-launch" data-testid="open-command-center" onClick={() => setCcOpen(true)}>👑 Command Center</button>}{mine ? (edit ? <><button type="button" className="btn-primary" disabled={saving} onClick={save}><Save size={14} />{saving ? 'Sign in wallet…' : 'Save (sign)'}</button><button type="button" className="btn-outline" onClick={() => setEdit(false)}><X size={14} />Cancel</button></> : <button type="button" className="btn-outline" onClick={startEdit}><Pencil size={14} />Edit profile</button>) : !wallet?.address && <button type="button" className="btn-outline" onClick={() => connect?.('solana')}>Connect to edit yours</button>}</div>
-    </div>
+      <div className="xp-badges"><BadgeArtifacts address={address} featured={p.featuredBadges} /></div>
+    </header>
     <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />
     {!flipped && <PortfolioCard address={address} />}
     {flipped && <nav className="wp-act-tabs" data-testid="activity-tabs">{[mine && ['swap', 'Swap'], mine && poolPerk && ['builder', '🏗 Pool builder'], ['holdings', 'Holdings'], ['history', 'Swap history'], ['posts', 'Posts'], ['rewards', 'Rewards'], ['vault', 'Vault']].filter(Boolean).map(([k, l]) => <button key={k} type="button" className={actTab === k ? 'active' : ''} onClick={() => setActTab(k)}>{l}</button>)}</nav>}

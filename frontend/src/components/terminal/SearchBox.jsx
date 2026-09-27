@@ -8,7 +8,8 @@ const pushRecent = item => { try { const next = [item, ...readRecent().filter(r 
 // Coin search ranked for relevance: FEELESS assets first, exact $SYMBOL matches, then real volume.
 const ALIASES = { btc: ['WBTC', 'cbBTC', 'BTC'], bitcoin: ['WBTC', 'cbBTC'], eth: ['WETH', 'ETH'], ethereum: ['WETH'], sol: ['SOL'], solana: ['SOL'], usdc: ['USDC'], usdt: ['USDT'] };
 let feeAssets = null;
-async function searchCoins(q) {
+// Coins are scoped to the network you're on: a Solana search never returns Base pairs.
+async function searchCoins(q, chainId) {
   const ql = q.toLowerCase();
   if (!feeAssets) feeAssets = fetch('/api/market/assets').then(r => r.json()).then(d => d.assets || []).catch(() => []);
   const assets = await feeAssets;
@@ -18,7 +19,7 @@ async function searchCoins(q) {
   const wanted = new Set([ql, ...(ALIASES[ql] || []).map(x => x.toLowerCase())]);
   const score = p => { const sym = String(p.baseToken?.symbol || '').toLowerCase(); const name = String(p.baseToken?.name || '').toLowerCase(); return (p._own ? 1e15 : 0) + (wanted.has(sym) ? 1e12 : sym.startsWith(ql) ? 1e10 : name.includes(ql) ? 1e8 : 0) + (Number(p.liquidity?.usd) > 5000 ? Number(p.volume?.h24) || 0 : 0); };
   const seen = new Set();
-  return [...own, ...lists.flat()].filter(p => { const k = `${p.chainId}:${p.baseToken?.address}`; if (!p.baseToken?.address || seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => score(b) - score(a)).slice(0, 8);
+  return [...own, ...lists.flat()].filter(p => !chainId || p.chainId === chainId).filter(p => { const k = `${p.chainId}:${p.baseToken?.address}`; if (!p.baseToken?.address || seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => score(b) - score(a)).slice(0, 8);
 }
 
 const ADDR = /^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$/;
@@ -51,7 +52,7 @@ export function SearchBox({ ecosystem, nav }) {
     const t = setTimeout(async () => {
       const bare = term.replace(/^[@$]/, '');
       const [c, p, w] = await Promise.all([
-        term.startsWith('@') ? Promise.resolve([]) : searchCoins(bare),
+        term.startsWith('@') ? Promise.resolve([]) : searchCoins(bare, ecosystem?.chainId),
         fetch(`/api/reputation/search?q=${encodeURIComponent(bare)}`).then(r => r.json()).then(d => d.profiles || []).catch(() => []),
         ADDR.test(term) ? fetch(`/api/reputation/resolve/${encodeURIComponent(term)}`).then(r => (r.ok ? r.json() : { address: term, handle: term.slice(0, 6).toLowerCase(), maybeToken: true })).catch(() => ({ address: term, handle: term.slice(0, 6).toLowerCase(), maybeToken: true })) : Promise.resolve(null),
       ]);
@@ -59,7 +60,7 @@ export function SearchBox({ ecosystem, nav }) {
       setCoins(c); setPeople(p); setWallet(w); setLoading(false);
     }, 250);
     return () => { alive = false; clearTimeout(t); };
-  }, [q]);
+  }, [q, ecosystem?.chainId]);
 
   const items = [
     ...(wallet && !(wallet.maybeToken && coins.length) ? [{ kind: 'wallet', key: `w-${wallet.address}`, href: `/terminal/profile/${wallet.address}`, label: `Wallet profile @${wallet.handle}`, sub: `${wallet.address.slice(0, 6)}…${wallet.address.slice(-6)}` }] : []),
@@ -70,6 +71,7 @@ export function SearchBox({ ecosystem, nav }) {
   const list = q.trim() ? items : recent;
 
   const go = it => { pushRecent({ kind: it.kind, href: it.href, label: it.label, sub: it.sub, img: it.img }); setOpen(false); setQ(''); nav(it.href); };
+  const chainName = ({ bsc: 'BNB Chain' })[ecosystem?.chainId] || (ecosystem?.chainId ? ecosystem.chainId[0].toUpperCase() + ecosystem.chainId.slice(1) : 'this network');
   const submit = e => {
     e.preventDefault();
     if (list[active]) { go(list[active]); return; }
@@ -88,7 +90,8 @@ export function SearchBox({ ecosystem, nav }) {
     {open && (list.length > 0 || (q.trim().length >= 2 && !loading)) && <div className="search-drop" role="listbox" data-testid="search-results">
       {!q.trim() && <small className="sd-head"><Clock size={11} /> Recent</small>}
       {q.trim() && loading && !list.length && <small className="sd-head">Searching…</small>}
-      {q.trim() && !loading && !list.length && <small className="sd-head">Nothing found — Enter searches all markets.</small>}
+      {q.trim() && !loading && !list.length && <small className="sd-head">Nothing on {chainName} — switch network to search elsewhere.</small>}
+      {q.trim() && ecosystem?.chainId && list.length > 0 && <small className="sd-head">Coins on {chainName} only</small>}
       {list.map((it, i) => { const I = { coin: Coins, profile: User, wallet: Wallet }[it.kind] || Icon; return <button type="button" key={it.key || it.href} role="option" aria-selected={i === active} className={`sd-row k-${it.kind} ${i === active ? 'active' : ''}`} onMouseEnter={() => setActive(i)} onMouseDown={e => { e.preventDefault(); go(it); }}>
         {it.img ? <img src={it.img} alt="" /> : <span className="sd-ic"><I size={14} /></span>}
         <span className="sd-main"><b>{it.label}</b><small>{it.sub}</small></span>
