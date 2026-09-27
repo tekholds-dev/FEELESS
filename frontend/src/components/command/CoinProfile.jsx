@@ -70,7 +70,7 @@ export function CoinProfile({ chain, pairAddress }) {
       </div>
       <div className="cp-card"><h4>Meta trade tools</h4><DipRipTool pair={pair} /></div>
       <div className="cp-card"><h4>Creator</h4>
-        {!rep?.creator ? <p className="wp-bio">Creator not identified yet (mint authority renounced or history still loading).</p> : <>
+        {!rep?.creator ? <p className="wp-bio">Finding creator…</p> : <>
           <a className="cp-creator" href={`/terminal/profile/${rep.creator}`}>{shortAddress(rep.creator)} ↗</a>
           <div className="cp-kv"><span>Reputation</span><b className={rep.badge === 'flagged' ? 'negative' : rep.badge === 'trusted' ? 'positive' : ''}>{rep.badge}{rep.score != null ? ` · ${rep.score}` : ''}</b></div>
         </>}

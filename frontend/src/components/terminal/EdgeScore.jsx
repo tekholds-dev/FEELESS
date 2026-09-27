@@ -90,7 +90,7 @@ export function computeEdge(pair, rep, intel, feeRead) {
   const t24 = (n(pair?.txns?.h24?.buys) || 0) + (n(pair?.txns?.h24?.sells) || 0);
   f.push(['Activity', 10, t24 ? clamp(Math.log10(t24) * 25) : null, t24 ? `${t24.toLocaleString()} trades in 24h` : 'no trade count']);
   if (rep && rep.score != null) f.push(['Creator trust', 20, rep.badge === 'flagged' ? 0 : rep.score, `${rep.badge} creator · ${rep.tokenCount} launches${rep.dumpedCount ? ` · ${rep.dumpedCount} dumped` : ''}`]);
-  else f.push(['Creator trust', 20, null, 'creator not identified yet']);
+  else f.push(['Creator trust', 20, null, 'finding creator…']);
   if (intel) {
     let v = 100; const why = [];
     if (intel.bundledWallets?.length >= 3) { v -= 30; why.push(`${intel.bundledWallets.length} bundled`); }

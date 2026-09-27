@@ -128,7 +128,7 @@ export function getCreatorProfile(pair) {
 
 export const CreatorProfile = ({ pair, compact = false }) => {
   const creator = getCreatorProfile(pair);
-  if (!creator) return <span className={`creator-profile unavailable ${compact ? 'compact' : ''}`} data-testid="creator-profile-unavailable"><UserRound size={compact ? 12 : 15} /><span>Creator profile unavailable</span></span>;
+  if (!creator) return <span className={`creator-profile pending ${compact ? 'compact' : ''}`} data-testid="creator-profile-pending"><UserRound size={compact ? 12 : 15} /><span>Finding creator…</span></span>;
   return <span className={`creator-profile ${compact ? 'compact' : ''}`} data-testid="creator-profile"><span className="creator-avatar">{creator.imageUrl ? <img src={creator.imageUrl} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} /> : <UserRound size={compact ? 12 : 15} />}</span><span><b>{creator.name}</b>{creator.address && <small>{shortAddress(creator.address)}</small>}</span>{creator.url && <a href={creator.url} target="_blank" rel="noreferrer">↗</a>}</span>;
 };
 

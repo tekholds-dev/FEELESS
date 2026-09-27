@@ -109,3 +109,5 @@ backend/data/
 !**/*secret*.md
 backend/.env*
 frontend/.env*
+circle/node_modules/
+*-recovery-file.json

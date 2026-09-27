@@ -140,8 +140,17 @@ async def resolve_creator(chain: str, mint_address: str) -> Optional[str]:
             renounced = identity is None and info.get('isInitialized', True)
 
             if not identity:
+                # Jupiter's token index records the deployer ("dev") for Solana coins — exact and fast.
+                try:
+                    j = (await http.get('https://lite-api.jup.ag/tokens/v2/search', params={'query': mint_address})).json()
+                    identity = next((t.get('dev') for t in j if t.get('id') == mint_address and t.get('dev')), None)
+                except Exception:
+                    identity = None
+            if not identity:
                 signatures = await _rpc(http, 'getSignaturesForAddress', [mint_address, {'limit': 1000}])
-                if signatures:
+                # Only trust "oldest tx fee payer" when we can actually see the whole history; on a busy
+                # coin the 1,000th-newest tx is some random trader, not the creator.
+                if signatures and len(signatures) < 1000:
                     oldest = signatures[-1].get('signature')
                     tx = await _rpc(http, 'getTransaction', [oldest, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}])
                     keys = (((tx or {}).get('transaction') or {}).get('message') or {}).get('accountKeys', [])
@@ -6355,3 +6364,49 @@ async def admin_latency(request: Request):
             out.append({'name': name, 'role': role, 'env': env, 'ok': ok, 'ms': round((time.time() - t0) * 1000), 'note': note})
     return {'providers': out, 'chartOrder': ['Jupiter chart data', 'Codex', 'Alchemy', 'Helius swaps', 'FEELESS-recorded ticks'],
             'checkedAt': time.time()}
+
+
+# ---- Circle developer-controlled wallets (creator/owner only) -------------------------------------
+# Proxies to the localhost Circle sidecar. Only owner wallets may list or create; keys never leave .env.
+class CircleWalletIn(BaseModel):
+    blockchain: str
+    name: str = 'Creator wallet'
+
+
+async def _circle(method, path, body=None):
+    try:
+        async with httpx.AsyncClient(timeout=30) as http:
+            r = await http.request(method, f'http://127.0.0.1:5111{path}', json=body)
+    except httpx.HTTPError:
+        raise HTTPException(503, 'Circle wallet service is not running (node circle/server.mjs).')
+    data = r.json() if r.content else {}
+    if r.status_code >= 400:
+        raise HTTPException(r.status_code, data.get('detail') or 'Circle request failed.')
+    return data
+
+
+def _require_owner(request: Request):
+    me = _require_admin(request)
+    if me not in _owner_wallets():
+        raise HTTPException(403, 'Only the FEELESS creator wallet can manage Circle wallets.')
+    return me
+
+
+@app.get('/api/reputation/admin/circle/status')
+async def circle_status(request: Request):
+    _require_owner(request)
+    return await _circle('GET', '/status')
+
+
+@app.get('/api/reputation/admin/circle/wallets')
+async def circle_wallets(request: Request):
+    _require_owner(request)
+    return await _circle('GET', '/wallets')
+
+
+@app.post('/api/reputation/admin/circle/wallets')
+async def circle_create_wallet(request: Request, p: CircleWalletIn):
+    me = _require_owner(request)
+    out = await _circle('POST', '/wallets', {'blockchain': p.blockchain, 'name': p.name[:40]})
+    ad = _admin_load(); _audit(ad, me, 'circle-wallet', f"{p.blockchain} {(out.get('wallet') or {}).get('address', '')}"); _admin_save(ad)
+    return out

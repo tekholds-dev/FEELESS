@@ -1,0 +1,1 @@
+{"name":"feeless-circle","private":true,"type":"module","dependencies":{"@circle-fin/developer-controlled-wallets":"^10.8.1","dotenv":"^18.0.4"}}
