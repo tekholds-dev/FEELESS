@@ -3385,3 +3385,10 @@ body.theme-day small,body.theme-day .cc-empty,body.theme-day .wp-bio{color:#3a5a
 .usd-hint{font-style:normal;font-weight:500;color:var(--muted);margin-left:6px;font-size:11px}
 .rail-explain ul,.rail-explain ol{margin:6px 0 0;padding-left:20px;display:grid;gap:6px;font-size:13px;line-height:1.5}
 .treasury-send textarea{width:100%;box-sizing:border-box;margin:8px 0 4px;padding:10px 12px;border-radius:10px;border:1px solid var(--field-border,#ffffff1f);background:var(--field-bg,#0b1512);color:inherit;font:500 12.5px 'JetBrains Mono',monospace;resize:vertical}
+.chart-style-toggle{position:absolute;left:10px;bottom:34px;z-index:6;padding:4px 10px;border-radius:999px;border:1px solid #00e9a055;background:rgba(5,14,10,.85);color:var(--mint);font:600 11px 'JetBrains Mono',monospace;cursor:pointer}
+.chart-style-toggle:hover{background:#00e9a022}
+body.theme-day .chart-style-toggle{background:#fffffff0;color:#00754f;border-color:#00875c55}
+/* Numbers ($, %, amounts) never run on or stack: one line, shrink-to-fit, ellipsis as last resort */
+:is(.metric strong,.metric>span,.metric .anim-num,.sd-num b,.sd-num small,.pool-summary b,.rail-kv b,.cc-kpis b,.li-cell b,.fcp-kpis b,.cp-kv b,.pf-coin em,.pf-coin b,.season-stats b,.rep-cat b,.wp-onchain b,.token-metrics b,.mono,.positive,.negative,.anim-num,.meta-launch-review-cards b,.lr-chip,.rr-stat b){white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:100%;font-variant-numeric:tabular-nums}
+:is(.metric,.pool-summary span,.rail-kv span,.cc-kpis>*,.pf-coin,.wp-onchain>*,.token-metrics .metric,.meta-launch-review-cards>div){min-width:0}
+.token-metrics .metric strong{font-size:clamp(13px,1.35vw,18px)!important}

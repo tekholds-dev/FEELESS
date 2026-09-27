@@ -848,16 +848,21 @@ class UploadPayload(BaseModel):
 
 
 @app.post('/api/reputation/uploads')
-async def upload_image(payload: UploadPayload):
-    """Token images for launches. Browser resizes first; we only accept small real images."""
+async def upload_image(payload: UploadPayload, request: Request):
+    """Images for profiles, launches and seasons. Everyone: 2 MB. A signed-in creator/admin
+    (command center session) may upload big GIFs/art up to 25 MB."""
     import base64
     import re
     m = re.match(r'^data:(image/(?:png|jpeg|webp|gif));base64,([A-Za-z0-9+/=]+)$', payload.dataUrl or '')
     if not m:
         raise HTTPException(400, 'Only PNG, JPG, WEBP or GIF images are supported.')
     raw = base64.b64decode(m.group(2))
-    if len(raw) > 2_000_000:
-        raise HTTPException(413, 'Image must be under 2 MB.')
+    try:
+        _require_admin(request); cap = 25_000_000
+    except HTTPException:
+        cap = 2_000_000
+    if len(raw) > cap:
+        raise HTTPException(413, f'Image must be under {cap // 1_000_000} MB.')
     sig = raw[:12]
     if not (sig.startswith(b'\x89PNG') or sig.startswith(b'\xff\xd8') or sig[:4] == b'RIFF' or sig[:3] == b'GIF'):
         raise HTTPException(400, 'File is not a valid image.')
@@ -1786,8 +1791,17 @@ async def save_profile(payload: ProfileSave):
             raise HTTPException(403, 'That style is a $FEE holder perk — hold more $FEE to unlock it.')
         if TIER_THEMES.get(clean['theme'], 0) > tier:
             raise HTTPException(403, 'That theme is a Fee Friend perk — hold $10+ of $FEE.')
-        d['profiles'][owner] = {**clean, 'lastTs': ts, 'updatedAt': time.time()}
-        PROFILE_PATH.write_text(json.dumps(d))
+        # Pictures never disappear by accident: an empty avatar/cover keeps the previous one unless
+        # the owner explicitly removed it; every image ever set is kept in mediaHistory.
+        cleared = set((payload.profile or {}).get('cleared') or [])
+        hist = list(prev.get('mediaHistory') or [])
+        for k in ('avatarUrl', 'bannerUrl'):
+            if not clean.get(k) and prev.get(k) and k not in cleared:
+                clean[k] = prev[k]
+            if prev.get(k) and prev[k] != clean.get(k):
+                hist.append({'field': k, 'url': prev[k], 'at': time.time()})
+        d['profiles'][owner] = {**clean, 'mediaHistory': hist[-20:], 'lastTs': ts, 'updatedAt': time.time()}
+        tmp = PROFILE_PATH.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(PROFILE_PATH)  # atomic: no half-written file
     return {'ok': True, 'profile': d['profiles'][owner]}
 
 

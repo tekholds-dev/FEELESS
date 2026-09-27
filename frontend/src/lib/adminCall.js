@@ -37,15 +37,20 @@ export function useAdmin() {
 export async function uploadImage(file, shape) {
   if (shape) { file = await cropImage(file, shape); if (!file) return null; }
   if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) throw new Error('PNG, JPG, WEBP or GIF only.');
+  // A live command-center session (creator/admin) lifts the size cap to 25 MB and keeps art sharper.
+  let admin = null;
+  try { const x = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); if (x && Date.now() / 1000 - x.ts < 3500) admin = x; } catch { /* none */ }
+  const cap = admin ? 25_000_000 : 2_000_000;
   const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
   let body = dataUrl;
   if (file.type !== 'image/gif') {
     const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = dataUrl; });
-    const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+    const k = Math.min(1, (admin ? 3000 : 1600) / Math.max(img.width, img.height));
     const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); body = c.toDataURL('image/webp', 0.9);
-  } else if (file.size > 2_000_000) throw new Error('GIFs must be under 2 MB.');
-  const r = await fetch(apiUrl('/api/reputation/uploads'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataUrl: body }) });
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); body = c.toDataURL('image/webp', 0.92);
+  } else if (file.size > cap) throw new Error(`GIFs must be under ${cap / 1_000_000} MB.`);
+  const headers = { 'Content-Type': 'application/json', ...(admin ? { 'x-admin-address': admin.address, 'x-admin-ts': String(admin.ts), 'x-admin-sig': admin.sig } : {}) };
+  const r = await fetch(apiUrl('/api/reputation/uploads'), { method: 'POST', headers, body: JSON.stringify({ dataUrl: body }) });
   const d = await r.json(); if (!r.ok) throw new Error(d.detail || 'Upload failed.');
   return d.url;
 }

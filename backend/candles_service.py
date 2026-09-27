@@ -494,6 +494,32 @@ async def get_candles(chain: str, pair_address: str, interval: str = Query('1h')
         older = [c for c in await alchemy_candles(chain, pair_address, interval) if c[0] < before]
         return {'candles': _fill_gaps(older, INTERVAL_SECONDS.get(interval, 3600)), 'provider': 'Alchemy' if older else 'none', 'interval': interval, 'before': before}
     _hot_pairs[_pair_key(chain, pair_address)] = time.time()
+    key = (chain, pair_address, interval)
+    hit = _resp_cache.get(key)
+    if hit and time.time() - hit[0] < 20:
+        return hit[1]
+    task = _history_tasks.get(key)
+    if not task or task.done():
+        task = _history_tasks[key] = asyncio.create_task(_build_candles(chain, pair_address, interval))
+    # Speed budget: charts must paint in ~1s. If providers are slow, answer with FEELESS's own
+    # recorded bars now; the full history finishes in the background and is served on the next poll.
+    try:
+        return await asyncio.wait_for(asyncio.shield(task), timeout=1.2)
+    except asyncio.TimeoutError:
+        interval_seconds = INTERVAL_SECONDS.get(interval, 3600)
+        ticks = _load().get(_pair_key(chain, pair_address), [])
+        own = _bucket_candles(ticks, interval_seconds)
+        if len(own) >= 2:
+            return {'candles': _fill_gaps(own, interval_seconds), 'provider': 'FEELESS', 'interval': interval, 'tickCount': len(ticks), 'partial': True,
+                    'source': 'FEELESS-recorded prices; full provider history is loading.'}
+        return await task
+
+
+_resp_cache: dict = {}
+_history_tasks: dict = {}
+
+
+async def _build_candles(chain, pair_address, interval):
     interval_seconds = INTERVAL_SECONDS.get(interval, 3600)
     store = _load()
     ticks = store.get(_pair_key(chain, pair_address), [])
@@ -510,10 +536,16 @@ async def get_candles(chain: str, pair_address: str, interval: str = Query('1h')
         # FEELESS's own 15s ticks override/extend the provider bars, so the newest candle is live.
         own_by_t = {c[0]: c for c in own}
         merged = [own_by_t.pop(c[0], c) for c in hist] + [c for c in own if c[0] > hist[-1][0]]
-        return {'candles': _fill_gaps(merged, interval_seconds, own), 'provider': provider, 'interval': interval, 'tickCount': len(ticks),
-                'source': f'{provider} price history, sharpened with FEELESS-recorded live ticks.'}
-    return {'candles': _fill_gaps(own, interval_seconds), 'provider': 'FEELESS', 'interval': interval, 'tickCount': len(ticks),
-            'source': 'Real prices observed across FEELESS sessions — provider has no history for this pool yet.'}
+        out = {'candles': _fill_gaps(merged, interval_seconds, own), 'provider': provider, 'interval': interval, 'tickCount': len(ticks),
+               'source': f'{provider} price history, sharpened with FEELESS-recorded live ticks.'}
+    else:
+        out = {'candles': _fill_gaps(own, interval_seconds), 'provider': 'FEELESS', 'interval': interval, 'tickCount': len(ticks),
+               'source': 'Real prices observed across FEELESS sessions — provider has no history for this pool yet.'}
+    _resp_cache[(chain, pair_address, interval)] = (time.time(), out)
+    if len(_resp_cache) > 2000:
+        for k in sorted(_resp_cache, key=lambda k: _resp_cache[k][0])[:500]:
+            _resp_cache.pop(k, None)
+    return out
 
 
 _trade_cache: dict = {}

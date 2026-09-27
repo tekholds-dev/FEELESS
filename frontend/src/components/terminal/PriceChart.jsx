@@ -38,6 +38,10 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   const [feeOpen, setFeeOpen] = useState(true);
   const priceLinesRef = useRef([]);
   const [feelessCandles, setFeelessCandles] = useState([]);
+  // Chart style: 'auto' (line when data is sparse, candles otherwise), or forced 'line' / 'candle'.
+  const sparseRef = useRef(false);
+  const [chartStyle, setChartStyle] = useState(() => { try { return localStorage.getItem('feeless:chart-style') || 'auto'; } catch { return 'auto'; } });
+  const toggleStyle = () => setChartStyle(cur => { const next = sparseRef.current ? 'candle' : 'line'; try { localStorage.setItem('feeless:chart-style', next); } catch { /* private mode */ } return next; });
   const [olderCandles, setOlderCandles] = useState([]);
   const olderState = useRef({ loading: false, exhausted: false });
   const rangeRef = useRef(null);
@@ -82,7 +86,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     if (!pair?.pairAddress) return undefined;
     let alive = true;
     const load = () => fetchFeelessCandles(pair.chainId, pair.pairAddress, interval)
-      .then(res => { if (alive && Array.isArray(res?.candles)) { setFeelessCandles(res.candles); setCandleProvider(res.provider || 'FEELESS'); } })
+      .then(res => { if (alive && Array.isArray(res?.candles)) { setFeelessCandles(res.candles); setCandleProvider(res.provider || 'FEELESS'); if (res.partial) setTimeout(() => { if (alive) load(); }, 2500); } })
       .catch(() => {})
       .finally(() => { if (alive) setCandlesLoaded(true); });
     load();
@@ -144,7 +148,9 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     chart.applyOptions({ localization: { locale: 'en-US', priceFormatter: axisFormat } });
     // A few self-recorded bars (quiet coin, no provider history yet) read as noise as candles;
     // show them as a clean price line until real history arrives.
-    const sparse = usingFeelessCandles && displayCandles.length < 120;
+    const autoSparse = usingFeelessCandles && displayCandles.length < 120;
+    const sparse = displayCandles.length > 0 && (chartStyle === 'line' || (chartStyle === 'auto' && autoSparse));
+    sparseRef.current = sparse;
     const lineData = sparse ? displayCandles.map(([time, , , , close]) => ({ time, value: close })) : trail;
     if (displayCandles.length && !sparse) {
       const series = chart.addSeries(CandlestickSeries, {
@@ -204,7 +210,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     };
     ts.subscribeVisibleLogicalRangeChange(onRange);
     return () => { ts.unsubscribeVisibleLogicalRangeChange(onRange); seriesRef.current = null; markersRef.current = null; chart.remove(); };
-  }, [displayCandles, trail, hasChart, dayMode, showVolume]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [displayCandles, trail, hasChart, dayMode, showVolume, chartStyle]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Meta overlays (Trenches calls, Fee's trades) snapped to the candle they happened in.
   useEffect(() => {
@@ -340,6 +346,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     {!priceMetric && metricAvailable && !loading && !hasChart && !usingFallbackTrail && <div className="metric-snapshot" data-testid={`chart-${metric}-snapshot`}><span className="metric-snapshot-label">{metricLabel} snapshot</span><strong>{formatUSD(metricValue)}</strong><small>Provider supplied the current {metricLabel.toLowerCase()} only. Historical {metricLabel.toLowerCase()} candles are unavailable.</small></div>}
     {!priceMetric && !metricAvailable && <div className="chart-message metric-unavailable" role="status" data-testid={`chart-${metric}-unavailable`}><strong>{metricLabel} unavailable</strong><span>The provider did not supply a {metricLabel.toLowerCase()} value for this pair. No value is estimated.</span></div>}
     {charting && hasChart && <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />}
+    {charting && hasChart && displayCandles.length > 0 && <button type="button" className="chart-style-toggle" data-testid="chart-style-toggle" onClick={toggleStyle} title="Switch line / candles">{chartStyle === 'line' || (chartStyle === 'auto' && usingFeelessCandles && displayCandles.length < 120) ? '▮ Candles' : '〰 Line'}</button>}
     {feeRead && hasChart && <div className={`fee-live-read stance-${feeRead.stance.replace(/\s/g, '-')} ${feeOpen ? '' : 'min'}`} data-testid="fee-live-read">
       <button type="button" className="flr-head" onClick={() => setFeeOpen(o => !o)}><span className="flr-cat">🐱</span><b>Fee · live read</b><em>{feeRead.stance}</em><i className="flr-dot" /></button>
       {feeOpen && <><ul>{feeRead.lines.map((l, i) => <li key={i}>{l}</li>)}</ul>
