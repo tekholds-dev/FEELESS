@@ -1,3 +1,4 @@
+import { CopyBtn } from '../CopyBtn';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useWallet } from '../../hooks/useWallet';
@@ -49,9 +50,9 @@ function DarkSide() {
     <nav>{tabs.map(([k, l]) => <button key={k} type="button" className={tab === k ? 'active' : ''} onClick={() => setTab(k)}>{l}<em>{d?.[k]?.length ?? ''}</em></button>)}</nav>
     <div className="rep-dark-list">
       {!rows.length && <p className="wp-bio">{d ? (tab === 'kols' ? (kols ? 'No KOL wallets tracked yet — admins add them in the command center.' : 'Loading KOL trades…') : tab === 'whales' || tab === 'rugs' ? 'Nothing yet — the radar fills this as it watches live pools.' : 'None caught yet.') : 'Loading…'}</p>}
-      {tab === 'offenders' && rows.map(r => <Link key={r.wallet} to={`/terminal/profile/${r.wallet}`} className="rep-dark-row"><code>{short(r.wallet)}</code><span>{r.roles.join(' + ')} on <b>{r.strikes}</b> launch{r.strikes === 1 ? '' : 'es'}</span>{r.blocked && <em className="bad">⛔ blocklisted</em>}<small>{ago(r.lastSeen)}</small></Link>)}
-      {tab === 'funders' && rows.map(r => <Link key={r.wallet} to={`/terminal/profile/${r.wallet}`} className="rep-dark-row"><code>{short(r.wallet)}</code><span>bankrolled <b>{r.walletsFunded}</b> sniper/bundler wallets · {r.launches} launch{r.launches === 1 ? '' : 'es'}</span>{r.flagged && <em className="bad">🚩 repeat funder</em>}<small>{ago(r.lastSeen)}</small></Link>)}
-      {tab === 'whales' && rows.map(r => <Link key={r.tx} to={`/terminal/profile/${r.wallet}`} className="rep-dark-row"><code>{short(r.wallet)}</code><span className={r.kind === 'buy' ? 'positive' : 'negative'}>{r.kind} <b>${Number(r.usd).toLocaleString()}</b> of ${r.symbol}</span><small>{ago(r.at)}</small></Link>)}
+      {tab === 'offenders' && rows.map(r => <Link key={r.wallet} to={`/terminal/profile/${r.wallet}`} className="rep-dark-row"><code>{short(r.wallet)}</code><CopyBtn value={r.wallet} /><span>{r.roles.join(' + ')} on <b>{r.strikes}</b> launch{r.strikes === 1 ? '' : 'es'}</span>{r.blocked && <em className="bad">⛔ blocklisted</em>}<small>{ago(r.lastSeen)}</small></Link>)}
+      {tab === 'funders' && rows.map(r => <Link key={r.wallet} to={`/terminal/profile/${r.wallet}`} className="rep-dark-row"><code>{short(r.wallet)}</code><CopyBtn value={r.wallet} /><span>bankrolled <b>{r.walletsFunded}</b> sniper/bundler wallets · {r.launches} launch{r.launches === 1 ? '' : 'es'}</span>{r.flagged && <em className="bad">🚩 repeat funder</em>}<small>{ago(r.lastSeen)}</small></Link>)}
+      {tab === 'whales' && rows.map(r => <Link key={r.tx} to={`/terminal/profile/${r.wallet}`} className="rep-dark-row"><code>{short(r.wallet)}</code><CopyBtn value={r.wallet} /><span className={r.kind === 'buy' ? 'positive' : 'negative'}>{r.kind} <b>${Number(r.usd).toLocaleString()}</b> of ${r.symbol}</span><small>{ago(r.at)}</small></Link>)}
       {tab === 'kols' && rows.map(k => <div key={k.address} className={`rep-kol ${k.stats?.danger ? 'danger' : ''}`}>
         <Link to={`/terminal/profile/${k.address}`} className="rep-dark-row"><code>{k.name}</code><span>{k.x ? `@${k.x} · ` : ''}{k.chain}{k.stats ? ` · ${k.stats.closed} closed trades · median hold ${k.stats.medianHoldMin ?? '—'}m · flips ${k.stats.quickFlipPct ?? '—'}% in 1h · win ${k.stats.winPct ?? '—'}%` : ' · stats unavailable'}</span>{k.stats?.danger && <em className="bad">⚠ call-and-dump</em>}</Link>
         {k.stats?.flags?.map(f => <p key={f} className="rep-kol-flag">{f}</p>)}

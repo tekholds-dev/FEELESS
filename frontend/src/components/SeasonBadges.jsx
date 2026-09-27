@@ -23,23 +23,30 @@ export function BadgeArt({ item, size = 64 }) {
   </svg>;
 }
 
+// Card thumbnail for image badges (portrait art) — small, tilts on hover.
+export function BadgeThumb({ item, size = 64 }) {
+  if (!item.imageUrl) return <BadgeArt item={item} size={size} />;
+  return <span className={`badge-thumb rarity-${item.rarity}`} style={{ width: size * 1.1 }}><img src={item.imageUrl} alt={item.name} loading="lazy" /></span>;
+}
+
+// Focus view: the badge over a blurred page. Click the card to flip between art and lore; click
+// outside (or press Esc) to close.
 export function BadgeDetail({ item, onClose }) {
+  const [flipped, setFlipped] = useState(false);
+  useEffect(() => { setFlipped(false); if (!item) return undefined; const k = e => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [item, onClose]);
   if (!item) return null;
   const r = RARITY[item.rarity] || RARITY.common;
+  const facts = <dl>
+    <div><dt>Season</dt><dd>{item.seasonName || item.season}</dd></div>
+    {item.how && <div><dt>Earned by</dt><dd>{item.how}{item.rank ? ` (rank #${item.rank})` : ''}</dd></div>}
+    {item.score != null && <div><dt>Points</dt><dd>{Number(item.score).toLocaleString()}</dd></div>}
+    {item.at && <div><dt>Dropped</dt><dd>{new Date(item.at * 1000).toLocaleDateString()}</dd></div>}
+    {item.holders != null && <div><dt>Holders</dt><dd>{item.holders}</dd></div>}
+  </dl>;
   return <div className="badge-modal" role="dialog" aria-modal="true" onClick={onClose}>
-    <div className={`badge-card rarity-${item.rarity}`} onClick={e => e.stopPropagation()} style={{ '--r1': r.c1, '--r2': r.c2 }}>
-      <BadgeArt item={item} size={132} />
-      <span className="badge-rarity">{r.label}{item.week ? ` · Week ${item.week}` : ''}</span>
-      <h3>{item.name}</h3>
-      <p>{item.story}</p>
-      <dl>
-        <div><dt>Season</dt><dd>{item.seasonName || item.season}</dd></div>
-        {item.how && <div><dt>Earned by</dt><dd>{item.how}{item.rank ? ` (rank #${item.rank})` : ''}</dd></div>}
-        {item.score != null && <div><dt>Points</dt><dd>{Number(item.score).toLocaleString()}</dd></div>}
-        {item.at && <div><dt>Dropped</dt><dd>{new Date(item.at * 1000).toLocaleDateString()}</dd></div>}
-        {item.holders != null && <div><dt>Holders</dt><dd>{item.holders}</dd></div>}
-      </dl>
-      <button type="button" className="btn-outline" onClick={onClose}>Close</button>
+    <div className={`badge-flip ${flipped ? 'is-flipped' : ''} rarity-${item.rarity}`} style={{ '--r1': r.c1, '--r2': r.c2 }} onClick={e => { e.stopPropagation(); setFlipped(f => !f); }} title="Click to flip">
+      <div className="badge-face front">{item.imageUrl ? <img src={item.imageUrl} alt={item.name} /> : <div className="badge-face-art"><BadgeArt item={item} size={150} /><h3>{item.name}</h3></div>}<span className="badge-flip-hint">tap to read the lore ↻</span></div>
+      <div className="badge-face back"><span className="badge-rarity">{r.label}{item.week ? ` · Week ${item.week}` : ''}</span><h3>{item.name}</h3><p>{item.story}</p>{facts}<span className="badge-flip-hint">tap to flip back ↻</span></div>
     </div>
   </div>;
 }
@@ -52,7 +59,7 @@ export function WeeklyDrops() {
   return <section className="season-card weekly-drops" data-testid="weekly-drops">
     <h3>Weekly drops <small>a new badge every week · rarity by how you place</small></h3>
     <div className="drops-row">{d.weeks.map(w => { const item = { ...w, rarity: 'legendary', accent: d.accent, seasonName: `Season ${d.season.slice(1)}`, how: 'Top 3 → Legendary · top 10% → Epic · 300+ pts → Rare · 50+ pts → Common', holders: w.holders };
-      return <button key={w.week} type="button" className={`drop ${w.status}`} onClick={() => setOpen(item)}><BadgeArt item={item} size={58} /><b>{w.name}</b><small>Week {w.week} · {w.status === 'live' ? 'LIVE' : w.status === 'distributed' ? `${w.holders} holders` : new Date(w.start * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</small></button>; })}</div>
+      return <button key={w.week} type="button" className={`drop ${w.status}`} onClick={() => setOpen(item)}><BadgeThumb item={item} size={72} /><b>{w.name}</b><small>Week {w.week} · {w.status === 'live' ? 'LIVE' : w.status === 'distributed' ? `${w.holders} holders` : new Date(w.start * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</small></button>; })}</div>
     <div className="drops-rarities">{d.rarities.map(([k, how]) => <span key={k} className={`rarity-chip rarity-${k}`}>{RARITY[k].label}<small>{how}</small></span>)}</div>
     <BadgeDetail item={open} onClose={() => setOpen(null)} />
   </section>;
@@ -65,7 +72,7 @@ export function SeasonVault({ address }) {
   return <section className="wp-card season-vault" data-testid="season-vault">
     <h3>Vault <small>{items ? `${items.length} item${items.length === 1 ? '' : 's'}` : ''}</small></h3>
     {items == null ? <p className="wp-bio">Opening the vault…</p> : !items.length ? <p className="wp-bio">Empty for now — weekly drops land here every Monday of a season.</p>
-      : <div className="vault-grid">{items.map(it => <button key={it.id} type="button" onClick={() => setOpen(it)} title={it.name}><BadgeArt item={it} size={56} /><small>{it.name}</small></button>)}</div>}
+      : <div className="vault-grid">{items.map(it => <button key={it.id} type="button" onClick={() => setOpen(it)} title={it.name}><BadgeThumb item={it} size={56} /><small>{it.name}</small></button>)}</div>}
     <BadgeDetail item={open} onClose={() => setOpen(null)} />
   </section>;
 }

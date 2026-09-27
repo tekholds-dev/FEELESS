@@ -2958,13 +2958,9 @@ body.theme-day .copy-trading form input{background:#fff}
 .drops-rarities{display:flex;flex-wrap:wrap;gap:6px}.rarity-chip{display:flex;gap:6px;align-items:center;font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.04)}.rarity-chip small{font-weight:400;color:var(--muted)}
 .rarity-chip.rarity-legendary{color:#ff8fe0}.rarity-chip.rarity-epic{color:#c9a8ff}.rarity-chip.rarity-rare{color:#7cc8ff}.rarity-chip.rarity-common{color:#b8c7bf}
 .badge-modal{position:fixed;inset:0;z-index:2000;display:grid;place-items:center;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);animation:stage-in .25s both}
-.badge-card{width:min(360px,92vw);display:grid;justify-items:center;gap:8px;text-align:center;padding:24px 20px;border-radius:22px;border:1px solid color-mix(in srgb,var(--r1) 50%,transparent);
-  background:radial-gradient(120% 80% at 50% 0%,color-mix(in srgb,var(--r1) 22%,transparent),transparent 60%),#07110c;box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 40px color-mix(in srgb,var(--r1) 25%,transparent)}
-.badge-card h3{margin:0;font-size:20px}.badge-card p{margin:0;color:var(--muted);font-size:13px}.badge-rarity{font:700 11px 'JetBrains Mono',monospace;letter-spacing:1px;text-transform:uppercase;color:var(--r1)}
-.badge-card dl{width:100%;display:grid;gap:6px;margin:6px 0}.badge-card dl div{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}.badge-card dt{color:var(--muted)}.badge-card dd{margin:0;text-align:right}
+.badge-rarity{font:700 11px 'JetBrains Mono',monospace;letter-spacing:1px;text-transform:uppercase;color:var(--r1)}
 .season-vault h3 small{font-weight:400;color:var(--muted);font-size:11px;margin-left:6px}
 .vault-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}.vault-grid button{display:grid;justify-items:center;gap:4px;padding:8px;border-radius:12px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);color:inherit;cursor:pointer}.vault-grid small{font-size:10px;color:var(--muted);text-align:center}
-body.theme-day .badge-card{background:#fff}
 @media(prefers-reduced-motion:reduce){.badge-art .badge-halo{animation:none}}
 /* ===== DEGEN MODE: Seasons + Trenches ===== */
 @keyframes degen-glitch{0%,92%,100%{text-shadow:0 0 0 transparent;transform:none}93%{text-shadow:-3px 0 #ff2bd6,3px 0 #00f0ff;transform:translateX(1px) skewX(-4deg)}95%{text-shadow:3px 0 #ff2bd6,-3px 0 #00f0ff;transform:translateX(-1px)}97%{text-shadow:-2px 0 #ff2bd6,2px 0 #00f0ff;transform:skewX(3deg)}}
@@ -3140,3 +3136,20 @@ body.theme-day .swap-review-hero,body.theme-day .srh-clock em{background:#fff}bo
 .wallet-profile-page .wp-actions>*{min-height:36px!important;padding:7px 12px!important;font-size:13px!important;justify-content:center}
 .wallet-profile-page .wp-id>*+*{margin-top:6px!important}
 .wallet-profile-page .wp-onchain{margin-top:8px!important}
+/* Badge cards: small thumbs + flip focus view */
+.badge-thumb{display:block;aspect-ratio:280/384;border-radius:10px;overflow:hidden;box-shadow:0 6px 16px rgba(0,0,0,.5);transition:transform .25s}
+.badge-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.drop:hover .badge-thumb,.vault-grid button:hover .badge-thumb{transform:perspective(500px) rotateY(-10deg) rotateX(6deg) scale(1.05)}
+.badge-modal{backdrop-filter:blur(12px) saturate(1.2)!important;background:rgba(0,0,0,.55)!important}
+.badge-flip{position:relative;width:min(300px,82vw);aspect-ratio:280/384;cursor:pointer;transform-style:preserve-3d;transition:transform .7s cubic-bezier(.2,.8,.2,1);animation:badge-in .45s cubic-bezier(.2,1.2,.3,1)}
+.badge-flip.is-flipped{transform:rotateY(180deg)}
+@keyframes badge-in{from{transform:scale(.7) rotateY(-25deg);opacity:0}to{transform:none;opacity:1}}
+.badge-face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:18px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.7),0 0 40px color-mix(in srgb,var(--r1) 35%,transparent)}
+.badge-face.front img{width:100%;height:100%;object-fit:cover}
+.badge-face-art{height:100%;display:grid;place-items:center;align-content:center;gap:10px;background:radial-gradient(circle at 50% 30%,color-mix(in srgb,var(--r1) 25%,transparent),#07110c 70%)}.badge-face-art h3{margin:0}
+.badge-face.back{transform:rotateY(180deg);display:grid;align-content:center;gap:8px;padding:22px;text-align:center;background:radial-gradient(120% 80% at 50% 0%,color-mix(in srgb,var(--r1) 22%,transparent),transparent 60%),#07110c;border:1px solid color-mix(in srgb,var(--r1) 50%,transparent)}
+.badge-face.back h3{margin:0;font-size:22px}.badge-face.back p{margin:0;color:var(--muted);font-size:13px}
+.badge-face.back dl{display:grid;gap:5px;margin:6px 0 0}.badge-face.back dl div{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.07)}.badge-face.back dt{color:var(--muted)}.badge-face.back dd{margin:0;text-align:right}
+.badge-flip-hint{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:10.5px;color:rgba(255,255,255,.75);text-shadow:0 1px 4px #000}
+@media(prefers-reduced-motion:reduce){.badge-flip{transition:none;animation:none}}
+.copy-btn{display:inline-grid;place-items:center;width:22px;height:22px;margin-left:4px;border:0;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;vertical-align:middle;transition:color .2s,background .2s}.copy-btn:hover{color:var(--mint);background:rgba(0,233,160,.1)}.copy-btn.done{color:var(--mint)}

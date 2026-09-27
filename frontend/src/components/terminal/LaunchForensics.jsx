@@ -1,3 +1,4 @@
+import { CopyBtn } from '../CopyBtn';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Crosshair, Layers, Users, UserRound, AlertTriangle, RefreshCw, Ban } from 'lucide-react';
@@ -32,7 +33,7 @@ function OffenderPanel({ mint, intel, onChanged }) {
     </div>
     <div className="offender-chips">{rows.map(([w, role]) => { const r = rec[w] || {}; return <label key={w} className={`offender-chip role-${role} ${r.blocked ? 'is-blocked' : ''} ${sel.has(w) ? 'is-selected' : ''}`} title={`${role} · ${r.strikes || 1} launch${(r.strikes || 1) === 1 ? '' : 'es'} caught${r.blocked ? ' · on FEELESS blocklist' : ''}`}>
       <input type="checkbox" checked={sel.has(w)} disabled={r.blocked} onChange={() => toggle(w)} />
-      <i>{role === 'bundler' ? 'B' : 'S'}</i><a className="offender-profile" href={`/terminal/profile/${w}`} onClick={e => e.stopPropagation()} title="Open this wallet's FEELESS profile — its full reputation record"><code>{shortAddress(w)}</code></a>{(r.strikes || 1) > 1 && <em>×{r.strikes}</em>}{r.blocked && <span className="offender-blocked">⛔ blocklisted</span>}{r.flaggedFunder && <span className="offender-funder" title={`Funded by ${r.flaggedFunder.funder} — linked to ${r.flaggedFunder.walletsFunded} sniper/bundler wallets`}>💸 repeat funder</span>}
+      <i>{role === 'bundler' ? 'B' : 'S'}</i><a className="offender-profile" href={`/terminal/profile/${w}`} onClick={e => e.stopPropagation()} title="Open this wallet's FEELESS profile — its full reputation record"><code>{shortAddress(w)}</code><CopyBtn value={w} /></a>{(r.strikes || 1) > 1 && <em>×{r.strikes}</em>}{r.blocked && <span className="offender-blocked">⛔ blocklisted</span>}{r.flaggedFunder && <span className="offender-funder" title={`Funded by ${r.flaggedFunder.funder} — linked to ${r.flaggedFunder.walletsFunded} sniper/bundler wallets`}>💸 repeat funder</span>}
       <a href={`https://solscan.io/account/${w}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>↗</a>
     </label>; })}</div>
     <small className="offender-note">Only wallets FEELESS's own chain read proves bundled or sniped this launch can be added. Wallets caught on 3+ launches are blocklisted automatically.</small>
