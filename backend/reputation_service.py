@@ -5853,7 +5853,7 @@ SETUP_KEYS = [
 async def admin_setup(request: Request):
     _require_admin(request)
     return {'keys': [{'key': k, 'name': n, 'why': w, 'required': req, 'set': bool(os.environ.get(k, '').strip())} for k, n, w, req in SETUP_KEYS],
-            'launchRail': bool(_json_load(LAUNCH_RAIL_PATH, {}).get('config'))}
+            'launchRail': bool(_json_load(LAUNCH_RAIL_PATH, {}).get('config')), 'owners': _owner_wallets()}
 
 
 

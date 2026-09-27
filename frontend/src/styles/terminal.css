@@ -2405,7 +2405,7 @@ body.theme-day .notif-pop{background:#fff;border-color:#9fd3b6}body.theme-day :i
 /* Profile action row + floating chat window */
 .dm-card{position:fixed!important;right:18px;bottom:18px;z-index:800;width:min(620px,calc(100vw - 36px));max-height:min(620px,80vh);overflow:auto;margin:0!important;box-shadow:0 24px 70px #000c;border-color:rgba(0,233,160,.4)!important;animation:flr-in .25s ease}
 body.theme-day .dm-card{box-shadow:0 24px 60px #0003}
-.verified-mark{display:inline-block;vertical-align:-2px;margin-left:6px;filter:drop-shadow(0 0 6px rgba(29,155,240,.5))}
+.verified-mark{display:inline-block;vertical-align:-2px;margin-left:6px;filter:drop-shadow(0 0 6px rgba(0,201,138,.5))}
 /* "?" hints */
 .hint{position:relative;display:inline-grid;place-items:center;width:16px;height:16px;margin-left:6px;border-radius:50%;border:1px solid var(--line);color:var(--muted);font:700 10px/1 sans-serif;cursor:help;vertical-align:middle;text-shadow:none;-webkit-text-fill-color:currentColor}
 .hint:hover,.hint:focus{color:var(--mint);border-color:var(--mint);outline:none}
@@ -3382,3 +3382,6 @@ body.theme-day :is(.meta-panel,.launch-radar,.season-card,.wp-card,.xp-card,.cc-
 body.theme-day :is(.meta-panel,.launch-radar,.season-card,.wp-card,.cc-block,.alpha-card,.feeless-coin-card):hover{box-shadow:0 1px 0 #fff inset,0 16px 34px -14px #0b3d2a44!important}
 body.theme-day{--muted:#2f4f42}
 body.theme-day small,body.theme-day .cc-empty,body.theme-day .wp-bio{color:#3a5a4c}
+.usd-hint{font-style:normal;font-weight:500;color:var(--muted);margin-left:6px;font-size:11px}
+.rail-explain ul,.rail-explain ol{margin:6px 0 0;padding-left:20px;display:grid;gap:6px;font-size:13px;line-height:1.5}
+.treasury-send textarea{width:100%;box-sizing:border-box;margin:8px 0 4px;padding:10px 12px;border-radius:10px;border:1px solid var(--field-border,#ffffff1f);background:var(--field-bg,#0b1512);color:inherit;font:500 12.5px 'JetBrains Mono',monospace;resize:vertical}

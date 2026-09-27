@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
 import { RAIL_DEFAULTS, createLaunchRail, fetchLaunchRail } from '../../lib/launchRail';
 import { CopyBtn } from '../CopyBtn';
+import { useSolPrice, usd } from '../../lib/solPrice';
+import { TreasurySend } from './TreasurySend';
 
 const FIELDS = [
   ['initialMarketCap', 'Opening market cap (SOL)', 'Where the curve starts. 30 SOL ≈ pump.fun-style low open.'],
@@ -38,13 +40,15 @@ export function LaunchRailAdmin({ call, isOwner }) {
   const { wallet, provider, connect } = useWallet() || {};
   const [rail, setRail] = useState(null);
   const [keys, setKeys] = useState(null);
+  const [owners, setOwners] = useState([]);
+  const solPx = useSolPrice();
   const [routes, setRoutes] = useState(false);
   const [p, setP] = useState(RAIL_DEFAULTS);
   const [claimer, setClaimer] = useState('');
   const [status, setStatus] = useState('');
   const load = useCallback(() => {
     fetchLaunchRail().then(setRail);
-    call('/admin/setup').then(d => setKeys(d.keys)).catch(() => setKeys([]));
+    call('/admin/setup').then(d => { setKeys(d.keys); setOwners(d.owners || []); }).catch(() => setKeys([]));
     call('/admin/treasury/routes').then(d => { setRoutes(!!d.routes?.length); const sol = d.routes?.find(r => !r.address.startsWith('0x'))?.address; if (sol) setClaimer(c => c || sol); }).catch(() => {});
   }, [call]);
   useEffect(load, [load]);
@@ -62,6 +66,25 @@ export function LaunchRailAdmin({ call, isOwner }) {
   };
   return <section className="cc-panel launch-rail-admin">
     <SetupGuide keys={keys} rail={rail} routes={routes} />
+    <div className="cc-block rail-explain"><h4>What these numbers cost you</h4>
+      <ul>
+        <li><b>Opening / graduation market cap are valuations, not deposits.</b> Nobody pays {Number(p.initialMarketCap) || 0} SOL{solPx ? ` (${usd(p.initialMarketCap, solPx).slice(2)})` : ''} to launch. The curve simply starts pricing the coin there; buyers' SOL moves it up to graduation.</li>
+        <li><b>Creating this config:</b> ~0.01 SOL{solPx ? ` (${usd(0.01, solPx).slice(2)})` : ''} rent, once, from your wallet.</li>
+        <li><b>Each coin launch:</b> ~0.02 SOL rent + network fee paid by the creator, plus any optional first buy they choose.</li>
+        <li><b>Lower opening MC</b> = cheaper early tokens and more room to run; <b>higher</b> = fewer tokens per SOL at open.</li>
+      </ul>
+    </div>
+    <div className="cc-block rail-explain"><h4>Secure your FEE coins & airdrop on a small budget</h4>
+      <ol>
+        <li><b>Split roles:</b> keep the creator wallet cold (hardware wallet) and only connect it to sign; use a separate hot wallet for day-to-day.</li>
+        <li><b>Treasury in a multisig:</b> create a Squads vault (2-of-3), set it as the fee claimer and treasury route. Fees can then only move with 2 signatures.</li>
+        <li><b>Lock liquidity</b> when you create pools (Pools tab, "Lock forever") — it earns the rug-proof badge and costs nothing extra.</li>
+        <li><b>Airdrop cheaply:</b> SOL-only drops cost ~0.000005 SOL per transaction (18 wallets each). Token drops cost ~0.002 SOL per <i>new</i> holder (their token account rent) — so 100 new holders ≈ 0.2 SOL{solPx ? ` (${usd(0.2, solPx).slice(2)})` : ''}. Target existing holders first (Holders tab) — no account rent.</li>
+        <li><b>Batch, don't spray:</b> schedule in Airdrop Studio, then "Send from wallet" packs transfers and simulates before you sign.</li>
+        <li><b>Never</b> paste a seed phrase anywhere, including here. FEELESS never asks for one.</li>
+      </ol>
+    </div>
+    {isOwner && <TreasurySend ownerWallets={owners} />}
     <div className="cc-block"><h4>FEELESS launch config {rail?.ready && <span className="pill-ok">LIVE</span>}</h4>
       {rail?.ready ? <div className="rail-live">
         <p>Every FEELESS launch uses this on-chain config. Fees go to <code>{rail.feeClaimer.slice(0, 4)}…{rail.feeClaimer.slice(-4)}</code><CopyBtn value={rail.feeClaimer} profile />.</p>
@@ -69,7 +92,7 @@ export function LaunchRailAdmin({ call, isOwner }) {
         <p className="cc-empty">Config <code>{rail.config}</code><CopyBtn value={rail.config} /> · <a href={`https://solscan.io/account/${rail.config}`} target="_blank" rel="noreferrer">Solscan ↗</a>. On-chain configs can't be edited; to change terms, create a new one (old coins keep theirs).</p>
       </div> : <p className="cc-empty">Not created yet. Launches stay disabled until the owner signs this once.</p>}
       {isOwner ? <>
-        <div className="rail-form">{FIELDS.map(([k, l, why]) => <label key={k}><span>{l}</span><input inputMode="decimal" value={p[k]} onChange={e => setP(v => ({ ...v, [k]: e.target.value.replace(/[^0-9.]/g, '') }))} /><small>{why}</small></label>)}
+        <div className="rail-form">{FIELDS.map(([k, l, why]) => <label key={k}><span>{l}{/SOL/.test(l) && solPx ? <em className="usd-hint"> {usd(p[k], solPx)}</em> : null}</span><input inputMode="decimal" value={p[k]} onChange={e => setP(v => ({ ...v, [k]: e.target.value.replace(/[^0-9.]/g, '') }))} /><small>{why}</small></label>)}
           <label className="wide"><span>Fee claimer (receives FEELESS's share)</span><input placeholder={wallet?.address || 'Treasury / multisig address'} value={claimer} onChange={e => setClaimer(e.target.value.trim())} /><small>Defaults to your first Solana treasury route, else the signing wallet. Use a multisig.</small></label>
         </div>
         <button type="button" className="btn-primary" disabled={!!status} onClick={create}>{status || (wallet?.chain === 'solana' ? `${rail?.ready ? 'Create a new' : 'Create the'} launch config · sign with ${wallet.address.slice(0, 4)}…` : 'Connect Solana wallet')}</button>
