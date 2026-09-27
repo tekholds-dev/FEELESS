@@ -5626,11 +5626,14 @@ class SeasonEdit(BaseModel):
     accent: Optional[str] = None
     bannerUrl: Optional[str] = None
     badgeUrl: Optional[str] = None
+    bgFx: Optional[str] = None     # money | snow | leaves | fire | stars | none
+    accent2: Optional[str] = None
     weeks: Optional[dict] = None   # {"1": {"name","glyph","story","imageUrl"}, ...}
 
 
 def _safe_url(u):
-    return u in (None, '') or bool(_re.match(r'^https://[\w.-]+/[^\s"<>]{1,500}$', u))
+    # Only FEELESS-hosted uploads (validated real images) — no arbitrary links.
+    return u in (None, '') or bool(_re.match(r'^/api/reputation/uploads/[0-9a-f]{32}\.(png|jpg|webp|gif)$', u))
 
 
 @app.put('/api/reputation/admin/seasons/{sid}')
@@ -5645,7 +5648,11 @@ async def admin_season_edit(request: Request, sid: str, p: SeasonEdit):
     if any(x['id'] != sid and not (new['end'] <= x['start'] or new['start'] >= x['end']) for x in d['seasons']):
         raise HTTPException(409, 'Seasons cannot overlap.')
     if not all(_safe_url(new.get(k)) for k in ('bannerUrl', 'badgeUrl')):
-        raise HTTPException(400, 'Images must be https:// links (gif/png/webp/jpg).')
+        raise HTTPException(400, 'Upload images through FEELESS (png, jpg, webp or gif).')
+    if new.get('bgFx') not in (None, 'money', 'snow', 'leaves', 'fire', 'stars', 'none'):
+        raise HTTPException(400, 'Unknown background effect.')
+    if new.get('accent2') and not _re.match(r'^#[0-9a-fA-F]{6}$', new['accent2']):
+        raise HTTPException(400, 'Second color must be #hex.')
     if p.weeks is not None:
         clean = {}
         for wk, ov in list(p.weeks.items())[:20]:
@@ -5700,3 +5707,9 @@ async def token_search(q: str = Query(..., min_length=1, max_length=64)):
     if len(_tok_search_cache) > 2000:
         _tok_search_cache.clear()
     return data
+
+
+@app.get('/api/reputation/admin/is-admin/{address}')
+async def is_admin(address: str):
+    """Public yes/no so the UI can show admin controls. Every admin action still needs a signed session."""
+    return {'admin': address in _admin_wallets()}

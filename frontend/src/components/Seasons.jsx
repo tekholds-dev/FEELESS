@@ -4,26 +4,37 @@ import { Crown } from 'lucide-react';
 import { useWallet } from '../hooks/useWallet';
 import { apiUrl } from '../lib/api';
 import { WeeklyDrops } from './SeasonBadges';
+import { SeasonEditor } from './SeasonEditor';
+import { useAdmin } from '../lib/adminCall';
 
 const TIER_COLOR = { Recruit: '#8fa89a', Bronze: '#d08a4e', Silver: '#cfd8dc', Gold: '#f5c542', Diamond: '#7cc8ff', Legend: '#ff5ad1' };
 const HOW = [['📣', 'Sharp calls', 'Calls that hit 2× on the Call Ledger'], ['🧹', 'Clean trading', 'Never sniping, bundling or funding snipers'], ['🚩', 'Rug reports', 'Flag bundlers & snipers from Launch forensics'], ['💎', 'Hold $FEE', 'Daily holder claims + perk tiers'], ['🔥', 'Show up', 'Daily streaks, posts, profile + invites']];
 
+const FX_GLYPHS = { money: ['💸', '💵', '🤑', '💰'], fire: ['🔥', '✦', '🔥'], snow: ['❄️', '❅', '❆'], leaves: ['🍂', '🍁', '🍃'], stars: ['✨', '⭐', '✦'] };
+// Season weather: the admin-picked effect rains across the hero (decorative, reduced-motion aware).
+function SeasonFx({ fx }) {
+  const glyphs = FX_GLYPHS[fx];
+  if (!glyphs) return null;
+  return <div className={`season-fx fx-${fx}`} aria-hidden="true">{Array.from({ length: 22 }, (_, i) => <span key={i} style={{ left: `${(i * 47) % 100}%`, animationDelay: `${(i * 0.73) % 8}s`, animationDuration: `${6 + (i % 5) * 1.6}s`, fontSize: `${14 + (i % 4) * 6}px` }}>{glyphs[i % glyphs.length]}</span>)}</div>;
+}
+
 function useSeason() {
   const { wallet } = useWallet() || {};
   const [d, setD] = useState(null);
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     let alive = true;
     const load = () => fetch(apiUrl(`/api/reputation/season${wallet?.address ? `?address=${wallet.address}` : ''}`)).then(r => r.json()).then(x => alive && setD(x)).catch(() => {});
     load(); const t = setInterval(() => { if (!document.hidden) load(); }, 60000);
     return () => { alive = false; clearInterval(t); };
-  }, [wallet?.address]);
-  return d;
+  }, [wallet?.address, tick]);
+  return [d, () => setTick(t => t + 1)];
 }
 const left = s => { if (s == null) return ''; const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60); return d ? `${d}d ${h}h` : `${h}h ${m}m`; };
 
 // Thin ticker under the network bar: the live season, always in the corner of your eye.
 export function SeasonBanner() {
-  const d = useSeason();
+  const [d] = useSeason();
   const s = d?.season;
   if (!s) return null;
   const leader = d.top?.[0];
@@ -35,14 +46,19 @@ export function SeasonBanner() {
 }
 
 export function SeasonsPage() {
-  const d = useSeason();
+  const [d, reload] = useSeason();
+  const { isAdmin, call } = useAdmin();
+  const [editing, setEditing] = useState(false);
   if (!d) return <p className="wp-bio">Loading the season…</p>;
   const s = d.season;
   if (!s) return <section className="season-hero"><h1>Between seasons</h1><p>{d.upcoming ? `Season "${d.upcoming.name}" starts ${new Date(d.upcoming.start * 1000).toLocaleDateString()}.` : 'The next season is being forged.'}</p></section>;
   const me = d.me;
   const tierPct = me ? (() => { const idx = d.tiers.findIndex(([n]) => n === me.tier); const cur = d.tiers[idx][1]; const nxt = d.tiers[idx + 1]?.[1]; return nxt ? ((me.score - cur) / (nxt - cur)) * 100 : 100; })() : 0;
-  return <div className="seasons" style={{ '--season': s.accent }} data-testid="seasons-page">
+  return <div className="seasons" style={{ '--season': s.accent, '--season2': s.accent2 || '#ff2bd6' }} data-testid="seasons-page">
+    {isAdmin && !editing && <button type="button" className="btn-outline season-edit-btn" onClick={() => setEditing(true)} data-testid="season-edit">✎ Edit season</button>}
+    {editing && <SeasonEditor season={s} call={call} onDone={changed => { setEditing(false); if (changed) reload(); }} />}
     <section className="season-hero" style={s.bannerUrl ? { '--banner': `url("${s.bannerUrl}")` } : undefined}>
+      <SeasonFx fx={s.bgFx} />
       <div className="season-sigil"><Crown size={34} /><i /><i /><i /></div>
       <span className="eyebrow">SEASON {s.id.replace('s', '')}</span>
       <h1>{s.name}</h1>

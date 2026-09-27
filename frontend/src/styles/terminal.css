@@ -3005,9 +3005,9 @@ body.theme-day .badge-card{background:#fff}
 .season-editor{margin-top:12px;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.1);display:grid;gap:10px;background:rgba(0,0,0,.2)}.season-editor h4{margin:0}
 .se-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.se-grid label{display:grid;gap:3px;font-size:11px;color:var(--muted)}.se-wide{grid-column:1 / -1}
 .se-grid input,.se-week input{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:inherit;font:inherit}
-.se-weeks{display:grid;gap:6px}.se-week{display:grid;grid-template-columns:60px 1fr 60px 1.4fr 1.2fr;gap:6px;align-items:center}.se-week b{font-size:12px}
+.se-weeks{display:grid;gap:8px}.se-week{display:grid;gap:8px}
 .se-actions{display:flex;gap:8px;justify-content:flex-end}
-@media(max-width:760px){.se-grid{grid-template-columns:1fr}.se-week{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.se-grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.season-hero h1,.season-hero::after,.trench-landing-title,.trench-title,.lets-trench,.drop.live,.season-row.rank-1,.trench-landing-hero::after{animation:none}}
 /* Profile activity side: holdings + swap left, rewards + vault right */
 @media(min-width:1280px){.wallet-profile-page>.profile-swap{grid-column:1}.wallet-profile-page>.season-vault,.wallet-profile-page>.shop-card{grid-column:2}}
@@ -3052,3 +3052,22 @@ body.theme-day .badge-card{background:#fff}
 body.theme-day .swap-desk{background-image:linear-gradient(#fff,#fff),conic-gradient(from var(--swap-angle),#00c985,#2d8fd6,#d6249f,#c99a1d,#00c985)!important}body.theme-day .swap-desk select,body.theme-day .swap-desk input,body.theme-day .token-search-results,body.theme-day .profile-quick{background:#fff!important}
 @media(prefers-reduced-motion:reduce){.swap-desk{animation:none}}
 .chat-profile-go{display:flex;justify-content:center;margin-top:10px;text-decoration:none}
+/* Season weather + editor image drops */
+.season-fx{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.season-fx span{position:absolute;top:-40px;animation:season-fall linear infinite;filter:drop-shadow(0 0 6px var(--season2));opacity:.85}
+.fx-fire span{top:auto;bottom:-30px;animation-name:season-rise}.fx-stars span{animation-name:season-twinkle;top:auto}
+@keyframes season-fall{0%{transform:translateY(0) rotate(0)}100%{transform:translateY(560px) rotate(300deg)}}
+@keyframes season-rise{0%{transform:translateY(0) scale(1);opacity:0}15%{opacity:.9}100%{transform:translateY(-560px) scale(.4);opacity:0}}
+@keyframes season-twinkle{0%,100%{opacity:.1;transform:scale(.6)}50%{opacity:1;transform:scale(1.2)}}
+.fx-stars span:nth-child(3n){top:15%}.fx-stars span:nth-child(3n+1){top:45%}.fx-stars span:nth-child(3n+2){top:75%}
+.season-hero{box-shadow:0 0 60px color-mix(in srgb,var(--season2) 18%,transparent)}
+.season-edit-btn{justify-self:end}
+.season-editor header{display:flex;justify-content:space-between;align-items:center;gap:10px}.season-editor header button{display:flex;align-items:center;gap:6px}
+.img-drop{position:relative;display:grid;place-items:center;min-height:96px;border-radius:12px;border:1.5px dashed rgba(255,255,255,.2);background:rgba(255,255,255,.03) center/cover no-repeat;color:var(--muted);cursor:pointer;overflow:hidden;transition:border-color .2s}
+.img-drop:hover{border-color:var(--season,#00ffa3)}.img-drop.wide{min-height:150px}.img-drop span{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600}
+.img-drop em{position:absolute;left:8px;bottom:8px;font-style:normal;font-size:11px;padding:3px 8px;border-radius:999px;background:rgba(0,0,0,.6);color:#fff}
+.img-drop i{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:rgba(0,0,0,.65);color:#fff;font-style:normal;font-weight:700}
+.se-badge{display:grid;grid-template-columns:auto 120px;align-items:center;gap:10px;font-size:11px;color:var(--muted)}
+.se-grid select{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:inherit}
+.se-week{grid-template-columns:96px 1fr!important;align-items:stretch!important}.se-week .img-drop{min-height:72px}.se-week>div{display:grid;grid-template-columns:1fr 70px;gap:6px}.se-week>div input:last-child{grid-column:1 / -1}
+@media(prefers-reduced-motion:reduce){.season-fx{display:none}}

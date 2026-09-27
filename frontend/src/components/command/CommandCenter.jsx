@@ -5,6 +5,7 @@ import { apiUrl } from '../../lib/api';
 import { shortAddress, formatUSD } from '../../lib/dexscreener';
 import { AirdropStudio, Snapshots } from './AirdropStudio';
 import { NumbersPanel } from './NumbersPanel';
+import { SeasonEditor } from '../SeasonEditor';
 
 const SESSION_KEY = 'feeless:cc-session';
 const readSession = addr => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.address === addr && Date.now() / 1000 - s.ts < 86000 ? s : null; } catch { return null; } };
@@ -462,35 +463,3 @@ function IdeasAdmin({ call }) {
   </section>;
 }
 
-// Full season editor: dates (you decide when it starts/ends), story, prize, multiplier, colors,
-// banner + season badge image, and every week's badge (name, emoji, image/GIF link).
-function SeasonEditor({ season, call, onDone }) {
-  const day = t => new Date(t * 1000).toISOString().slice(0, 16);
-  const [f, setF] = useState({ ...season, start: day(season.start), end: day(season.end), bannerUrl: season.bannerUrl || '', badgeUrl: season.badgeUrl || '' });
-  const weeksCount = Math.ceil((season.end - season.start) / (7 * 86400));
-  const [weeks, setWeeks] = useState(() => Object.fromEntries(Array.from({ length: weeksCount }, (_, i) => [String(i + 1), { name: '', glyph: '', story: '', imageUrl: '', ...((season.weeks || {})[String(i + 1)] || {}) }])));
-  const set = k => e => setF({ ...f, [k]: e.target.value });
-  const setW = (w, k) => e => setWeeks({ ...weeks, [w]: { ...weeks[w], [k]: e.target.value } });
-  const save = async () => {
-    try {
-      const clean = Object.fromEntries(Object.entries(weeks).map(([k, v]) => [k, Object.fromEntries(Object.entries(v).filter(([, x]) => x))]).filter(([, v]) => Object.keys(v).length));
-      await call(`/admin/seasons/${season.id}`, { method: 'PUT', body: JSON.stringify({ name: f.name, theme: f.theme, prize: f.prize, multiplier: Number(f.multiplier), accent: f.accent, bannerUrl: f.bannerUrl, badgeUrl: f.badgeUrl, start: Date.parse(f.start) / 1000, end: Date.parse(f.end) / 1000, weeks: clean }) });
-      toast.success('Season updated.'); onDone();
-    } catch (err) { toast.error(err.message); }
-  };
-  const remove = async () => { if (!window.confirm(`Delete season "${season.name}"?`)) return; try { await call(`/admin/seasons/${season.id}`, { method: 'DELETE' }); toast.success('Season deleted.'); onDone(); } catch (err) { toast.error(err.message); } };
-  return <div className="season-editor">
-    <h4>Editing {season.name}</h4>
-    <div className="se-grid">
-      <label>Name<input value={f.name} onChange={set('name')} /></label><label>Prize<input value={f.prize} onChange={set('prize')} /></label>
-      <label className="se-wide">Story / theme<input value={f.theme} onChange={set('theme')} /></label>
-      <label>Starts<input type="datetime-local" value={f.start} onChange={set('start')} /></label><label>Ends<input type="datetime-local" value={f.end} onChange={set('end')} /></label>
-      <label>Multiplier<input type="number" step="0.5" min="0.5" max="5" value={f.multiplier} onChange={set('multiplier')} /></label><label>Color<input type="color" value={f.accent} onChange={set('accent')} /></label>
-      <label className="se-wide">Banner image / GIF (https)<input value={f.bannerUrl} onChange={set('bannerUrl')} placeholder="https://…/banner.gif" /></label>
-      <label className="se-wide">Season badge image / GIF (https)<input value={f.badgeUrl} onChange={set('badgeUrl')} placeholder="https://…/badge.gif" /></label>
-    </div>
-    <h4>Weekly drops</h4>
-    <div className="se-weeks">{Object.entries(weeks).map(([w, v]) => <div key={w} className="se-week"><b>Week {w}</b><input placeholder="Badge name" value={v.name} onChange={setW(w, 'name')} /><input placeholder="Emoji" value={v.glyph} onChange={setW(w, 'glyph')} maxLength={4} /><input placeholder="Image / GIF https link" value={v.imageUrl} onChange={setW(w, 'imageUrl')} /><input placeholder="Story" value={v.story} onChange={setW(w, 'story')} /></div>)}</div>
-    <div className="se-actions"><button type="button" className="btn-outline" onClick={remove}>Delete season</button><button type="button" className="btn-outline" onClick={onDone}>Cancel</button><button type="button" className="btn-primary" onClick={save}>Save changes</button></div>
-  </div>;
-}
