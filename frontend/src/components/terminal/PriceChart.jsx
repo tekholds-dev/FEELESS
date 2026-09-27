@@ -252,11 +252,8 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     if (!charting || !pair?.pairAddress || !pair?.chainId) return undefined;
     const bucket = LIVE_INTERVAL_SECONDS[interval] || 3600;
     let alive = true;
-    const tick = async () => {
-      if (document.hidden) return;
+    const apply = (usd, live) => {
       try {
-        const live = await fetchLivePrice(pair);
-        const usd = Number(live?.usd);
         if (!alive || !(usd > 0)) return;
         setLivePrice({ usd, change: live?.change24h, at: Date.now(), source: live?.source });
         const value = usd * ratio;
@@ -278,9 +275,25 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
         // Keep the last real candle; never invent a tick.
       }
     };
+    const tick = async () => {
+      if (document.hidden) return;
+      try { const live = await fetchLivePrice(pair); apply(Number(live?.usd), live); } catch { /* next tick */ }
+    };
+    // Solana: server pushes every new price over one shared websocket per pool (fan-out, scales with
+    // pools not users). Polling stays on as a slower safety net and takes over if the stream drops.
+    let ws = null; let streaming = false;
+    if (pair?.chainId === 'solana' && pair?.pairAddress && typeof WebSocket !== 'undefined') {
+      try {
+        ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/candles/stream/solana/${pair.pairAddress}`);
+        ws.onopen = () => { streaming = true; };
+        ws.onmessage = e => { try { const m = JSON.parse(e.data); apply(Number(m.p), { source: 'live stream' }); } catch { /* ignore */ } };
+        ws.onclose = () => { streaming = false; };
+      } catch { ws = null; }
+    }
     tick();
-    const timer = setInterval(tick, 1200);   // ≤1.5s price freshness target
-    return () => { alive = false; clearInterval(timer); };
+    let n = 0;
+    const timer = setInterval(() => { n += 1; if (!streaming || n % 4 === 0) tick(); }, 1200);   // ≤1.5s freshness; ~5s when streaming
+    return () => { alive = false; clearInterval(timer); try { ws?.close(); } catch { /* ignore */ } };
   }, [charting, pair?.baseToken?.address, pair?.chainId, pair?.pairAddress, interval, ratio]);
   const [livePx, setLivePx] = useState(null);
   useEffect(() => { if (!feePos) return undefined; const t = setInterval(() => { const b = lastBarRef.current; if (b) setLivePx(b.close ?? b.value); }, 1200); return () => clearInterval(t); }, [feePos]);

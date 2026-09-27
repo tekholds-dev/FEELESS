@@ -606,3 +606,119 @@ async def pool_trades(chain: str, pool: str):
 async def health():
     store = _load()
     return {'ok': True, 'pairsTracked': len(store), 'totalTicks': sum(len(v) for v in store.values())}
+
+
+# ---- Live price stream: one upstream per pool, fanned out to every viewer ----------------------
+# Helius logsSubscribe on the token mint fires the instant a swap lands (processed commitment); we then pull
+# one fresh price (Jupiter, ~100ms) at most every STREAM_MIN_GAP per pool and push it to all viewers.
+# Cost scales with pools being watched, not with users: 10 or 100,000 viewers on a coin = 1 upstream.
+import json as _json
+from fastapi import WebSocket, WebSocketDisconnect
+
+STREAM_MIN_GAP = 0.35
+_streams: dict = {}   # key -> {'clients': set(), 'task': Task, 'last': 0.0, 'price': None}
+
+
+async def _stream_price(mint):
+    # Codex tracks every trade (~120ms); Jupiter as fallback (its price is cached a few seconds).
+    key_ = os.environ.get('CODEX_API_KEY', '').strip()
+    try:
+        async with httpx.AsyncClient(timeout=4) as http:
+            if key_:
+                r = await http.post('https://graph.codex.io/graphql', headers={'Authorization': key_},
+                                    json={'query': 'query($a:String!,$n:Int!){getTokenPrices(inputs:[{address:$a,networkId:$n}]){priceUsd}}', 'variables': {'a': mint, 'n': CODEX_NET['solana']}})
+                px = float((((r.json() or {}).get('data') or {}).get('getTokenPrices') or [{}])[0].get('priceUsd') or 0)
+                if px:
+                    return px
+            r = await http.get('https://api.jup.ag/price/v3', params={'ids': mint}, headers={'x-api-key': os.environ.get('JUPITER_API_KEY', '')})
+            return float(((r.json() or {}).get(mint) or {}).get('usdPrice') or 0) or None
+    except Exception:
+        return None
+
+
+async def _broadcast(key, msg):
+    st = _streams.get(key)
+    if not st:
+        return
+    dead = []
+    for ws in list(st['clients']):
+        try:
+            await ws.send_text(msg)
+        except Exception:
+            dead.append(ws)
+    for ws in dead:
+        st['clients'].discard(ws)
+
+
+async def _push_price(key, chain, pair, mint):
+    st = _streams.get(key)
+    if not st or time.time() - st['last'] < STREAM_MIN_GAP:
+        return
+    st['last'] = time.time()
+    px = await _stream_price(mint)
+    if px and px != st['price']:
+        st['price'] = px
+        await _broadcast(key, _json.dumps({'p': px, 't': time.time()}))
+        # Persist ticks at most every 15s per pool — never block the live push on disk writes.
+        if time.time() - st.get('saved', 0) > 15:
+            st['saved'] = time.time()
+            try:
+                store = _load(); _record_tick(store, chain, pair, px, None); _save(store)
+            except Exception:
+                pass
+
+
+async def _upstream(key, chain, pair):
+    import websockets
+    mint = await _pair_base_token(chain, pair) or pair
+    url = os.environ.get('PRICE_STREAM_WS_URL', '').strip()
+    await _push_price(key, chain, pair, mint)
+    backoff = 1
+    while key in _streams:
+        try:
+            if not url:
+                raise RuntimeError('no stream url')
+            async with websockets.connect(url, ping_interval=20) as ws:
+                await ws.send(_json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': 'logsSubscribe', 'params': [{'mentions': [mint]}, {'commitment': 'processed'}]}))
+                backoff = 1
+                while key in _streams:
+                    try:
+                        await asyncio.wait_for(ws.recv(), timeout=1)
+                    except asyncio.TimeoutError:
+                        pass   # no swap event this second: refresh anyway (≤1s freshness guaranteed)
+                    await _push_price(key, chain, pair, mint)
+        except Exception:
+            # Stream down: keep viewers live by polling every second until it reconnects.
+            until = time.time() + min(30, backoff); backoff *= 2
+            while key in _streams and time.time() < until:
+                await _push_price(key, chain, pair, mint); await asyncio.sleep(1)
+
+
+@app.websocket('/api/candles/stream/{chain}/{pair}')
+async def price_stream(ws: WebSocket, chain: str, pair: str):
+    if chain != 'solana' or not (32 <= len(pair) <= 44) or not pair.isalnum():
+        await ws.close(code=1008); return
+    await ws.accept()
+    key = f'{chain}:{pair}'
+    st = _streams.get(key)
+    if not st:
+        st = _streams[key] = {'clients': set(), 'task': None, 'last': 0.0, 'price': None}
+        st['task'] = asyncio.create_task(_upstream(key, chain, pair))
+    st['clients'].add(ws)
+    if st['price']:
+        await ws.send_text(_json.dumps({'p': st['price'], 't': time.time()}))
+    try:
+        while True:
+            await ws.receive_text()   # clients only listen; this detects disconnects
+    except WebSocketDisconnect:
+        pass
+    finally:
+        st['clients'].discard(ws)
+        if not st['clients']:
+            _streams.pop(key, None)
+            st['task'].cancel()
+
+
+@app.get('/api/candles/stream-stats')
+async def stream_stats():
+    return {'pools': len(_streams), 'viewers': sum(len(s['clients']) for s in _streams.values())}
