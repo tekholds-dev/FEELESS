@@ -177,6 +177,7 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
       setResult(response);
       if (response.signature && response.state !== 'failed') keepReceipt(response.signature, wallet.address, 'swap');
       if (['confirmed', 'failed'].includes(response.state)) forgetPendingOrder();
+      if (response.state === 'confirmed') window.dispatchEvent(new CustomEvent('feeless:trade-confirmed', { detail: { mint: outputMint === SOL ? inputMint : outputMint } }));
       setMessage(response.state === 'confirmed' ? 'Swap confirmed on-chain.' : response.state === 'failed' ? 'Swap failed. Inspect the transaction reference.' : 'Submitted / confirmation pending. Check status before another trade.');
     } catch (e) { setMessage(e.code === 4001 ? 'Wallet approval declined. No transaction submitted.' : e.message || 'Wallet rejected the request.'); }
     finally { lock.current = false; setBusy(false); }

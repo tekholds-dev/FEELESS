@@ -89,7 +89,7 @@ export default function CoinWorld({ token, onClose }) {
           <div><small>YOU'RE INSIDE · {token.chain.toUpperCase()}</small><h2>{symbol} WAR ROOM</h2></div>
         </div>
         <div className="eco-world-head-actions">
-          {pair && toggle && <button type="button" className={`coin-star ${has?.(pair) ? 'is-starred' : ''}`} onClick={() => toggle(pair)} title={has?.(pair) ? 'Remove from watchlist' : 'Star — keep tracking with live alerts'} data-testid="coin-world-star"><Star size={16} fill={has?.(pair) ? 'currentColor' : 'none'} />{has?.(pair) ? 'Starred' : 'Star'}</button>}
+          {pair && toggle && <button type="button" className={`coin-star ${has?.(pair) ? 'is-starred' : ''}`} onClick={() => toggle(pair)} title={has?.(pair) ? 'Remove from watchlist' : 'Star — keep tracking with live alerts'} data-testid="coin-world-star"><Star size={16} fill={has?.(pair) ? 'currentColor' : 'none'} aria-label={has?.(pair) ? 'Starred' : 'Star'} /></button>}
           <Link className="eco-enter-terminal" target="_blank" rel="noopener noreferrer" to={`/terminal/trade?chain=${token.chain}&pair=${token.pairAddress}`}>Trade {symbol} in terminal<ArrowUpRight size={14} /></Link>
           <button className="eco-world-close" title="Close" onClick={onClose}><X size={18} /></button>
         </div>

@@ -952,6 +952,8 @@ async def token_intel(chain: str, mint: str):
         out['sniperWallets'] = sorted(snipers)
         insiders = bundled | snipers
         out['insidersHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] in insiders), 2) if supply else None
+        out['snipersHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] in snipers), 2) if supply else None
+        out['bundledHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] in bundled), 2) if supply else None
         out['devHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] == creator), 2) if supply and creator else None
     flags = []
     if len(out['bundledWallets']) >= 3:
@@ -5438,6 +5440,7 @@ async def admin_idea_add(request: Request, p: IdeaPayload):
 
 # ---- Wallet swaps (profile activity + copy trading) ---------------------------------------------
 _wtrades_cache = {}
+_wtrades_all = {}
 
 
 async def wallet_trades(address: str, limit: int = 40):
@@ -5446,8 +5449,8 @@ async def wallet_trades(address: str, limit: int = 40):
         return hit[1]
     key_ = os.environ.get('CODEX_API_KEY', '').strip()
     chains = ['solana'] if not address.startswith('0x') else ['base', 'ethereum', 'bsc', 'arbitrum']
-    q = ('query($m:String!,$n:Int!){getTokenEventsForMaker(query:{maker:$m,networkId:$n},limit:40){items{timestamp token0Address '
-         'eventDisplayType transactionHash data{... on SwapEventData{priceUsdTotal}}}}}')
+    q = ('query($m:String!,$n:Int!){getTokenEventsForMaker(query:{maker:$m,networkId:$n},limit:100){items{timestamp token0Address '
+         'eventDisplayType transactionHash data{... on SwapEventData{priceUsd priceUsdTotal}}}}}')
     rows = []
     async with httpx.AsyncClient(timeout=12) as http:
         if key_:
@@ -5460,9 +5463,12 @@ async def wallet_trades(address: str, limit: int = 40):
             for chain, items in await asyncio.gather(*(one(c) for c in chains)):
                 for e in items:
                     if e.get('eventDisplayType') in ('Buy', 'Sell') and e.get('token0Address'):
-                        rows.append({'ts': e['timestamp'], 'side': e['eventDisplayType'].lower(), 'usd': round(float(((e.get('data') or {}).get('priceUsdTotal')) or 0), 2),
-                                     'token': e['token0Address'], 'chain': chain, 'tx': e.get('transactionHash')})
-        rows.sort(key=lambda x: -x['ts']); rows = rows[:limit]
+                        dd = e.get('data') or {}
+                        rows.append({'ts': e['timestamp'], 'side': e['eventDisplayType'].lower(), 'usd': round(float(dd.get('priceUsdTotal') or 0), 2),
+                                     'price': float(dd.get('priceUsd') or 0), 'token': e['token0Address'], 'chain': chain, 'tx': e.get('transactionHash')})
+        rows.sort(key=lambda x: -x['ts'])
+        _wtrades_all[address] = (time.time(), list(rows))   # full window, used for positions
+        rows = rows[:limit]
         meta = {}
         toks = list({r['token'] for r in rows})
         for i in range(0, len(toks), 30):
@@ -5713,3 +5719,21 @@ async def token_search(q: str = Query(..., min_length=1, max_length=64)):
 async def is_admin(address: str):
     """Public yes/no so the UI can show admin controls. Every admin action still needs a signed session."""
     return {'admin': address in _admin_wallets()}
+
+
+
+@app.get('/api/reputation/position/{address}/{token}')
+async def position(address: str, token: str):
+    """A wallet's position in one coin from its real swaps: average entry, size, live-ready.
+    The chart turns this into the 'Your avg entry' line and a live P&L badge."""
+    if not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address) or _re.match(r'^0x[0-9a-fA-F]{40}$', address)) or len(token) > 64:
+        raise HTTPException(400, 'Bad address.')
+    await wallet_trades(address)
+    rows = [r for r in (_wtrades_all.get(address) or (0, []))[1] if r['token'].lower() == token.lower() and r['price'] > 0]
+    buy_usd = sum(r['usd'] for r in rows if r['side'] == 'buy'); buy_tok = sum(r['usd'] / r['price'] for r in rows if r['side'] == 'buy')
+    sell_usd = sum(r['usd'] for r in rows if r['side'] == 'sell'); sell_tok = sum(r['usd'] / r['price'] for r in rows if r['side'] == 'sell')
+    if not buy_tok:
+        return {'address': address, 'token': token, 'position': None}
+    avg = buy_usd / buy_tok; held = max(0.0, buy_tok - sell_tok)
+    return {'address': address, 'token': token, 'position': {'avgEntry': avg, 'tokensHeld': held, 'costUsd': round(avg * held, 2), 'realizedUsd': round(sell_usd - sell_tok * avg, 2),
+                                                             'buys': sum(1 for r in rows if r['side'] == 'buy'), 'sells': sum(1 for r in rows if r['side'] == 'sell'), 'lastTradeAt': max(r['ts'] for r in rows)}}

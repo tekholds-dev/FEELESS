@@ -10,7 +10,7 @@ import { computeFeeRead } from './FeeLiveRead';
 
 const LIVE_INTERVAL_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 };
 
-export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive = false }) => {
+export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive = false, userEntry = null }) => {
   const container = useRef(null);
   const seriesRef = useRef(null);
   const lastBarRef = useRef(null);
@@ -226,8 +226,25 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     add(feeRead.support, '#00e9a0', '🐱 support');
     if (feeRead.vwap) add(feeRead.vwap, '#e9bd65', '🐱 fair value', 1);
     if (feeRead.entry) { add(feeRead.entry, '#5ec8ff', '🐱 Fee entry', 0); add(feeRead.entry * 0.9, '#ff5d73', '🐱 stop −10%', 3); add(feeRead.entry * 1.22, '#7df9d0', '🐱 target +22%', 3); }
+    // Fibonacci retracements of the visible swing: where Fee expects bounces / rejections.
+    const recent = displayCandles.slice(-120);
+    if (recent.length > 10) {
+      const hi = Math.max(...recent.map(c => c.high)); const lo = Math.min(...recent.map(c => c.low));
+      if (hi > lo) [[0.382, '#b388ff'], [0.5, '#9e8cff'], [0.618, '#8a79ff']].forEach(([f, c]) => add(hi - (hi - lo) * f, c, `🐱 fib ${f}`, 3));
+    }
     return clear;
   }, [feeRead, displayCandles, trail, dayMode, showVolume]);
+
+  // The viewer's own average entry (from their real swaps) — always shown when they hold the coin.
+  const entryLineRef = useRef(null);
+  useEffect(() => {
+    const ref = seriesRef.current;
+    const drop = () => { if (entryLineRef.current) { try { ref?.series.removePriceLine(entryLineRef.current); } catch { /* chart gone */ } entryLineRef.current = null; } };
+    drop();
+    if (!ref || !(userEntry > 0) || !priceMetric) return drop;
+    try { entryLineRef.current = ref.series.createPriceLine({ price: userEntry, color: '#f5c542', lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: '◆ your avg entry' }); } catch { /* chart torn down */ }
+    return drop;
+  }, [userEntry, priceMetric, displayCandles]);
 
   // Live ticks: every 3s pull the pair's current price straight from DexScreener and
   // update the forming candle in place (no redraw, zoom preserved).

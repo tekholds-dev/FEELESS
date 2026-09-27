@@ -4,8 +4,9 @@ import { LivePrice, LiveChange24, LiveMarketCap } from './LiveCells';
 import { CoinAura } from '../CoinAura';
 import { useCoinColor } from '../../lib/coinColor';
 import { ShieldBadge } from '../Shield';
-import { FeeAnalysis } from './FeeAnalysis';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useWallet } from '../../hooks/useWallet';
+import { apiUrl } from '../../lib/api';
 import { ChartMetaButtons, useChartMarkers } from './ChartMeta';
 import { LaunchForensics } from './LaunchForensics';
 import { Copy, ExternalLink, Rocket, Star, BarChart3, ArrowUpRight, ArrowLeftRight } from 'lucide-react';
@@ -38,6 +39,7 @@ export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1h', onExpand
   } : pair;
   useEffect(() => { setMetric('price'); }, [current?.chainId, current?.pairAddress]);
   const markers = useChartMarkers(current, { calls: showCalls, fee: showFee });
+  const [myPos, tradeFlash] = useMyPosition(current);
   if (!current) return <section className="empty-focus" data-testid="token-focus-empty"><BarChart3 size={32} /><p>Select a market to open its chart.</p></section>;
   const address = current.baseToken?.address;
   const metricValue = id => id === 'marketCap' ? current.marketCap : current.fdv;
@@ -56,13 +58,40 @@ export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1h', onExpand
     {live.error && <MarketError error={`${live.error} Showing the discovery snapshot.`} reload={live.reload} id="token-refresh-error" />}
     <div className="token-metrics"><div className="metric"><small>Price USD</small><strong className="mono"><LivePrice pair={current} precise id="selected-token-price" /></strong></div><div className="metric"><small>24h change</small><LiveChange24 pair={current} id="selected-token-change" /></div><div className="metric"><small>{current.marketCap != null ? 'Market cap' : 'FDV'}</small><strong className="mono"><LiveMarketCap pair={current} id="selected-token-mcap" /></strong></div><Metric label="24h volume" value={current.volume?.h24} id="selected-token-volume" /><Metric label="Liquidity" value={current.liquidity?.usd} id="selected-token-liquidity" /></div>
      <div className="chart-toolbar"><button type="button" className="chart-metric-switch" title={`Showing ${METRIC_LABEL[metric]} · click to switch (${availableMetrics.map(id => METRIC_LABEL[id]).join(' → ')})`} data-testid="chart-metric-switch" onClick={cycleMetric} disabled={availableMetrics.length < 2}><ArrowLeftRight size={13} /><span data-testid="chart-metric-active">{METRIC_LABEL[metric]}</span></button><div className="timeframes">{['1m', '5m', '15m', '1h', '4h', '1d'].map(t => <button className={t === interval ? 'active' : ''} data-testid={`chart-interval-${t}`} key={t} onClick={() => setInterval(t)}>{t.toUpperCase()}</button>)}</div><button className={`volume-control ${volume ? 'positive' : ''}`} title="Toggle volume bars" data-testid="chart-volume-toggle" onClick={() => setVolume(v => !v)}><BarChart3 size={13} /><span>Volume</span></button><ChartMetaButtons pair={current} calls={showCalls} setCalls={setShowCalls} fee={showFee} setFee={setShowFee} fullscreenRef={chartWrap} onExpand={onExpand} expanded={expanded} count={{ calls: markers.filter(m => m.color === '#e9bd65').length, fee: markers.filter(m => m.text?.startsWith('Fee')).length }} /><PriceAlertButton pair={current} /><a title="Open advanced chart" data-testid="chart-advanced-link" href={dexUrl(current)} target="_blank" rel="noreferrer"><ExternalLink size={13} /></a></div>
-     <div className="chart-with-trade"><div className="chart-fullscreen-wrap" ref={chartWrap}><ChartBoundary key={`${current.chainId}-${current.pairAddress}-${interval}-${metric}`} pair={current}><PriceChart pair={current} interval={interval} metric={metric} showVolume={volume} markers={markers} feeLive={showFee} /></ChartBoundary></div><div className="chart-side-stack"><QuickTrade pair={current} /><DipRipTool pair={current} /><FeeAnalysis pair={current} />{current.chainId === 'solana' && <ShieldBadge mint={current.baseToken?.address} />}</div></div>
+     <div className="chart-with-trade"><div className="chart-fullscreen-wrap" ref={chartWrap}><PnlBadge pos={myPos} price={Number(current.priceUsd)} flash={tradeFlash} /><ChartBoundary key={`${current.chainId}-${current.pairAddress}-${interval}-${metric}`} pair={current}><PriceChart userEntry={myPos?.avgEntry} pair={current} interval={interval} metric={metric} showVolume={volume} markers={markers} feeLive={showFee} /></ChartBoundary></div><div className="chart-side-stack"><QuickTrade pair={current} /><DipRipTool pair={current} />{current.chainId === 'solana' && <ShieldBadge mint={current.baseToken?.address} />}</div></div>
      <div className="focus-meta"><span data-testid="selected-token-age">Pool age {formatAge(current.pairCreatedAt)}</span><CreatorProfile pair={current} /><DataStatus data={live.data} id="token-data-status" /></div>
      <EdgeScore pair={current} />
      <LaunchForensics pair={current} />
     <div className="token-actions"><button className="primary-action" data-testid="selected-token-trade-inapp" onClick={() => { selectPair(current); nav('/terminal/trade'); }}><ArrowUpRight size={19} /><span>Trade in FEELESS<small>{current.chainId === 'solana' ? 'Jupiter execution' : 'Network status'}</small></span><ArrowUpRight size={14} /></button>{current.chainId === 'solana' && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address || '') && <a href={`https://pump.fun/coin/${address}`} target="_blank" rel="noopener noreferrer" data-testid="selected-token-pump-link"><Rocket size={19} /><span>View on Pump<small>External token page</small></span><ArrowUpRight size={14} /></a>}<a href={dexUrl(current)} target="_blank" rel="noreferrer" data-testid="selected-token-dex-link"><BarChart3 size={19} /><span>View on DEX<small>Chart & transactions</small></span><ArrowUpRight size={14} /></a></div>
   </section>;
 };
+// The viewer's live position in this coin: average entry from their real swaps, P&L against the
+// live price (updates with every tick), and a flash the moment one of their trades confirms.
+function useMyPosition(pair) {
+  const { wallet } = useWallet() || {};
+  const [pos, setPos] = useState(null); const [flash, setFlash] = useState(0);
+  const token = pair?.baseToken?.address; const address = wallet?.address;
+  const load = useCallback(() => {
+    if (!address || !token || typeof fetch !== 'function') { setPos(null); return; }
+    fetch(apiUrl(`/api/reputation/position/${address}/${token}`)).then(r => r.json()).then(d => setPos(d.position)).catch(() => {});
+  }, [address, token]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const onTrade = e => { if (!e.detail?.mint || e.detail.mint === token) { setFlash(Date.now()); setTimeout(load, 2500); setTimeout(load, 8000); } };
+    window.addEventListener('feeless:trade-confirmed', onTrade);
+    return () => window.removeEventListener('feeless:trade-confirmed', onTrade);
+  }, [token, load]);
+  return [pos, flash];
+}
+
+function PnlBadge({ pos, price, flash }) {
+  if (!pos || !(pos.tokensHeld > 0) || !(price > 0)) return null;
+  const pct = (price / pos.avgEntry - 1) * 100; const usd = (price - pos.avgEntry) * pos.tokensHeld;
+  return <div key={flash} className={`my-pnl ${pct >= 0 ? 'up' : 'down'} ${flash ? 'just-traded' : ''}`} data-testid="my-pnl">
+    <small>Your position</small><b>{pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</b><span>{usd >= 0 ? '+' : '−'}${Math.abs(usd).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span><em>avg ${pos.avgEntry < 0.01 ? pos.avgEntry.toPrecision(4) : pos.avgEntry.toFixed(4)}</em>
+  </div>;
+}
+
 function FocusAura({ pair }) {
   const color = useCoinColor(pair?.info?.imageUrl || pair?.baseToken?.imageUrl || pair?.imageUrl, pair?.baseToken?.address);
   return <CoinAura color={color} change24h={pair?.priceChange?.h24} />;

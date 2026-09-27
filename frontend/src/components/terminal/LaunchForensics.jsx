@@ -58,8 +58,8 @@ export function LaunchForensics({ pair }) {
   const d = state.data;
   const pct = v => (v == null ? '—' : `${Number(v).toFixed(v >= 10 ? 1 : 2)}%`);
   const cards = [
-    ['snipers', Crosshair, 'Snipers', d ? String(d.sniperWallets.length) : state.loading ? '…' : 'Unavailable', 'Bought within ~1s of launch', d?.sniperWallets, d && d.sniperWallets.length >= 5],
-    ['bundlers', Layers, 'Bundled', d ? String(d.bundledWallets.length) : state.loading ? '…' : 'Unavailable', 'Same block as the mint', d?.bundledWallets, d && d.bundledWallets.length >= 3],
+    ['snipers', Crosshair, 'Snipers', d ? String(d.sniperWallets.length) : state.loading ? '…' : 'Unavailable', d?.snipersHoldingPct != null ? `Bought within ~1s · still hold ${d.snipersHoldingPct}% of supply` : 'Bought within ~1s of launch', d?.sniperWallets, d && d.sniperWallets.length >= 5],
+    ['bundlers', Layers, 'Bundled', d ? String(d.bundledWallets.length) : state.loading ? '…' : 'Unavailable', d?.bundledHoldingPct != null ? `Same block as the mint · still hold ${d.bundledHoldingPct}% of supply` : 'Same block as the mint', d?.bundledWallets, d && d.bundledWallets.length >= 3],
     ['insiders', AlertTriangle, 'Insiders hold', d ? pct(d.insidersHoldingPct) : state.loading ? '…' : 'Unavailable', 'Snipers + bundlers still in top holders', null, d && d.insidersHoldingPct >= 10],
     ['holders', Users, 'Top 10 hold', d ? pct(d.top10Pct) : state.loading ? '…' : 'Unavailable', `Excl. pools${d?.poolPct != null ? ` · pool/curve ${pct(d.poolPct)}` : ''}`, null, d && d.top10Pct >= 35],
     ['dev', UserRound, 'Dev holds', d ? pct(d.devHoldingPct) : state.loading ? '…' : 'Unavailable', d?.creator ? `Creator ${shortAddress(d.creator)}` : 'Creator wallet', null, d && d.devHoldingPct >= 5],
