@@ -15,7 +15,7 @@ export function WalletSwaps({ address, title = 'Swaps', limit = 12, onMirror }) 
     fetch(apiUrl(`/api/reputation/wallet-trades/${address}`)).then(r => r.json()).then(d => alive && setRows(d.trades || [])).catch(() => alive && setRows([]));
     return () => { alive = false; };
   }, [address]);
-  return <section className="wallet-swaps" data-testid="wallet-swaps">
+  return <section className="wp-card wallet-swaps" data-testid="wallet-swaps">
     <h4>{title}</h4>
     {rows == null ? <p className="wp-bio">Reading swaps…</p> : !rows.length ? <p className="wp-bio">No swaps found for this wallet yet.</p> :
       rows.slice(0, limit).map(t => <div key={t.tx + t.token} className={`ws-row ${t.side}`}>

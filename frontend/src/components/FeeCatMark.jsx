@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 
 // The FEELESS lead-cat mark, alive: blinking eye, twitching ears, swaying tail.
 // Variants recolor the same rig — 'mint' is the default leader, others mark different moods/tiers.
@@ -23,7 +23,9 @@ function Markings({ pattern, color }) {
 // `colors` ([fur, accent]) + `pattern` let any FeeCat wear Fee's animated rig in its own coat.
 export function FeeCatMark({ size = 40, variant = 'mint', animate = true, className = '', colors, pattern, label }) {
   const c = colors ? { a: colors[0], b: colors[1], glow: `${colors[1]}88` } : (VARIANTS[variant] || VARIANTS.mint);
-  const id = `feecat-${colors ? colors.join('').replace(/\W/g, '') : variant}${pattern || ''}`;
+  // Unique per instance: a shared id would point every cat at the first gradient in the DOM — and if
+  // that one sits in a hidden element (e.g. the desktop-hidden mobile tab bar), every cat renders blank.
+  const id = `feecat-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   return (
     <svg
       className={`feecat-mark ${animate ? 'is-alive' : ''} ${className}`}

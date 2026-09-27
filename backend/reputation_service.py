@@ -5503,3 +5503,111 @@ async def copy_check(address: str):
     if kol and kol.get('danger'): reasons.append('call-and-dump pattern')
     if (t.get('score') or 0) < 45: reasons.append(f"low trust ({t.get('score')})")
     return {'address': a, 'trust': t.get('score'), 'safe': not reasons, 'reasons': reasons}
+
+
+# ---- Season drops: weekly badges + a lifelong vault --------------------------------------------
+WEEK_THEMES = [
+    ('spark', 'Genesis Spark', '✦', 'Showed up in the first week of the season.'),
+    ('hunter', 'Rug Hunter', '🎯', 'Earned during the week FEELESS hunted snipers and bundlers.'),
+    ('diamond', 'Diamond Hands', '💎', 'Earned during the week of holding through the chop.'),
+    ('caller', 'Sharp Caller', '📣', 'Earned during the week of calls that actually hit.'),
+    ('legend', 'Legend Week', '👑', 'Earned in the final push of the season.'),
+]
+RARITIES = [('legendary', 'Top 3 of the week'), ('epic', 'Top 10% of the week'), ('rare', '300+ points that week'), ('common', '50+ points that week')]
+COLLECTION_PATH = DATA_DIR / 'collections.json'
+
+
+def _season_weeks(s):
+    weeks, t, i = [], s['start'], 0
+    while t < s['end']:
+        th = WEEK_THEMES[min(i, len(WEEK_THEMES) - 1)] if i < len(WEEK_THEMES) - 1 or t + 7 * 86400 >= s['end'] else WEEK_THEMES[i % (len(WEEK_THEMES) - 1)]
+        weeks.append({'week': i + 1, 'start': t, 'end': min(t + 7 * 86400, s['end']), 'theme': th[0], 'name': th[1], 'glyph': th[2], 'story': th[3]})
+        t += 7 * 86400; i += 1
+    return weeks
+
+
+def _week_of(s, ts):
+    return next((w for w in _season_weeks(s) if w['start'] <= ts < w['end']), None)
+
+
+_orig_season_award = season_award
+
+
+def season_award(address: str, points: float, reason: str):  # noqa: F811 — extends the base award with weekly scoring
+    _orig_season_award(address, points, reason)
+    d = _seasons(); s = _current_season(d)
+    if not s or points <= 0 or _is_blocked(_block_load()['wallets'].get(address)):
+        return
+    w = _week_of(s, time.time())
+    if w:
+        wk = d['scores'].setdefault(f"{s['id']}:w{w['week']}", {})
+        rec = wk.setdefault(address, {'score': 0}); rec['score'] = round(rec['score'] + points * float(s.get('multiplier') or 1), 1)
+        _json_save(SEASONS_PATH, d)
+
+
+def _grant(col, address, item):
+    items = col.setdefault(address, [])
+    if not any(x['id'] == item['id'] for x in items):
+        items.append(item)
+
+
+def _distribute_drops():
+    d = _seasons(); col = _json_load(COLLECTION_PATH, {}); done = set(d.setdefault('distributed', []))
+    now = time.time(); changed = False
+    for s in d['seasons']:
+        for w in _season_weeks(s):
+            key = f"{s['id']}:w{w['week']}"
+            if w['end'] > now or key in done:
+                continue
+            board = sorted((d['scores'].get(key) or {}).items(), key=lambda kv: -kv[1]['score'])
+            n = len(board)
+            for i, (a, r) in enumerate(board):
+                rarity = 'legendary' if i < 3 else 'epic' if i < max(1, round(n * 0.1)) else 'rare' if r['score'] >= 300 else 'common' if r['score'] >= 50 else None
+                if rarity:
+                    _grant(col, a, {'id': f"{key}:{w['theme']}", 'kind': 'weekly', 'season': s['id'], 'seasonName': s['name'], 'week': w['week'], 'name': w['name'], 'glyph': w['glyph'],
+                                    'story': w['story'], 'rarity': rarity, 'how': dict(RARITIES)[rarity], 'rank': i + 1, 'score': r['score'], 'accent': s['accent'], 'at': now})
+            done.add(key); changed = True
+        if s['end'] <= now and s['id'] not in done:
+            for a, r in (d['scores'].get(s['id']) or {}).items():
+                t = _tier(r['score'])['tier']
+                _grant(col, a, {'id': f"{s['id']}:season", 'kind': 'season', 'season': s['id'], 'seasonName': s['name'], 'name': f"Season {s['id'][1:]} · {s['name']}", 'glyph': '🏅',
+                                'story': s.get('theme', ''), 'rarity': {'Legend': 'legendary', 'Diamond': 'epic', 'Gold': 'rare'}.get(t, 'common'), 'how': f'Finished the season at {t} tier',
+                                'tier': t, 'score': r['score'], 'accent': s['accent'], 'at': now})
+            done.add(s['id']); changed = True
+    if changed:
+        d['distributed'] = sorted(done); _json_save(SEASONS_PATH, d); _json_save(COLLECTION_PATH, col)
+
+
+async def _drops_loop():
+    while True:
+        try:
+            _distribute_drops()
+        except Exception as exc:
+            print('drops error', exc)
+        await asyncio.sleep(1800)
+
+
+@app.on_event('startup')
+async def _start_drops():
+    asyncio.create_task(_drops_loop())
+
+
+@app.get('/api/reputation/season/drops')
+async def season_drops():
+    d = _seasons(); s = _current_season(d)
+    if not s:
+        return {'weeks': []}
+    now = time.time(); col = _json_load(COLLECTION_PATH, {})
+    holders = {}
+    for items in col.values():
+        for it in items:
+            holders[it['id'].rsplit(':', 1)[0]] = holders.get(it['id'].rsplit(':', 1)[0], 0) + 1
+    return {'season': s['id'], 'accent': s['accent'], 'rarities': RARITIES,
+            'weeks': [{**w, 'status': 'distributed' if w['end'] <= now else 'live' if w['start'] <= now else 'upcoming',
+                       'players': len(d['scores'].get(f"{s['id']}:w{w['week']}") or {}), 'holders': holders.get(f"{s['id']}:w{w['week']}", 0)} for w in _season_weeks(s)]}
+
+
+@app.get('/api/reputation/collection/{address}')
+async def collection(address: str):
+    items = _json_load(COLLECTION_PATH, {}).get(primary_of(address), [])
+    return {'address': primary_of(address), 'items': sorted(items, key=lambda x: -x['at'])}

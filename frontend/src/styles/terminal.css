@@ -2959,3 +2959,24 @@ body.theme-day .shield-commit input:not([type=checkbox]){background:#fff}
 .copy-wallet header{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.copy-wallet header .btn-outline{margin-left:auto;padding:4px 10px;font-size:11px}
 .copy-trust{font-size:11px;color:var(--muted)}.copy-wallet em{font-style:normal;font-size:11.5px}.copy-wallet em.ok{color:var(--mint)}.copy-wallet em.bad{color:#ff8fa3}
 body.theme-day .copy-trading form input{background:#fff}
+@media(min-width:1280px){.wallet-profile-page>.pnl-tracker,.wallet-profile-page>.wallet-swaps,.wallet-profile-page>.wp-activity{grid-column:1}}
+/* ===== Season badges, drops, vault ===== */
+.badge-art{overflow:visible;filter:drop-shadow(0 4px 10px rgba(0,0,0,.45))}.badge-art .badge-halo{transform-origin:50px 50px;animation:season-spin 12s linear infinite}
+.badge-art.rarity-legendary{filter:drop-shadow(0 0 12px rgba(255,90,209,.55))}.badge-art.rarity-epic{filter:drop-shadow(0 0 10px rgba(179,136,255,.5))}
+.weekly-drops h3 small{font-weight:400;color:var(--muted);font-size:11px;margin-left:6px}
+.drops-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.drop{display:grid;justify-items:center;gap:4px;padding:12px 8px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02);color:inherit;cursor:pointer;transition:transform .2s,border-color .2s}
+.drop:hover{transform:translateY(-3px);border-color:var(--season)}.drop b{font-size:12px}.drop small{font-size:10.5px;color:var(--muted)}
+.drop.live{border-color:var(--season);box-shadow:0 0 18px color-mix(in srgb,var(--season) 30%,transparent)}.drop.live small{color:var(--season);font-weight:700}.drop.upcoming .badge-art{filter:grayscale(.7) opacity(.6)}
+.drops-rarities{display:flex;flex-wrap:wrap;gap:6px}.rarity-chip{display:flex;gap:6px;align-items:center;font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.04)}.rarity-chip small{font-weight:400;color:var(--muted)}
+.rarity-chip.rarity-legendary{color:#ff8fe0}.rarity-chip.rarity-epic{color:#c9a8ff}.rarity-chip.rarity-rare{color:#7cc8ff}.rarity-chip.rarity-common{color:#b8c7bf}
+.badge-modal{position:fixed;inset:0;z-index:2000;display:grid;place-items:center;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);animation:stage-in .25s both}
+.badge-card{width:min(360px,92vw);display:grid;justify-items:center;gap:8px;text-align:center;padding:24px 20px;border-radius:22px;border:1px solid color-mix(in srgb,var(--r1) 50%,transparent);
+  background:radial-gradient(120% 80% at 50% 0%,color-mix(in srgb,var(--r1) 22%,transparent),transparent 60%),#07110c;box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 40px color-mix(in srgb,var(--r1) 25%,transparent)}
+.badge-card h3{margin:0;font-size:20px}.badge-card p{margin:0;color:var(--muted);font-size:13px}.badge-rarity{font:700 11px 'JetBrains Mono',monospace;letter-spacing:1px;text-transform:uppercase;color:var(--r1)}
+.badge-card dl{width:100%;display:grid;gap:6px;margin:6px 0}.badge-card dl div{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}.badge-card dt{color:var(--muted)}.badge-card dd{margin:0;text-align:right}
+.season-vault h3 small{font-weight:400;color:var(--muted);font-size:11px;margin-left:6px}
+.vault-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}.vault-grid button{display:grid;justify-items:center;gap:4px;padding:8px;border-radius:12px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);color:inherit;cursor:pointer}.vault-grid small{font-size:10px;color:var(--muted);text-align:center}
+@media(min-width:1280px){.wallet-profile-page>.season-vault{grid-column:1}}
+body.theme-day .badge-card{background:#fff}
+@media(prefers-reduced-motion:reduce){.badge-art .badge-halo{animation:none}}

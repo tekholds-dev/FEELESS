@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Crown } from 'lucide-react';
 import { useWallet } from '../hooks/useWallet';
 import { apiUrl } from '../lib/api';
+import { WeeklyDrops } from './SeasonBadges';
 
 const TIER_COLOR = { Recruit: '#8fa89a', Bronze: '#d08a4e', Silver: '#cfd8dc', Gold: '#f5c542', Diamond: '#7cc8ff', Legend: '#ff5ad1' };
 const HOW = [['📣', 'Sharp calls', 'Calls that hit 2× on the Call Ledger'], ['🧹', 'Clean trading', 'Never sniping, bundling or funding snipers'], ['🚩', 'Rug reports', 'Flag bundlers & snipers from Launch forensics'], ['💎', 'Hold $FEE', 'Daily holder claims + perk tiers'], ['🔥', 'Show up', 'Daily streaks, posts, profile + invites']];
@@ -64,6 +65,7 @@ export function SeasonsPage() {
         <small className="season-rule">Blocklisted wallets can't place. Points come from Rewards claims on your profile.</small>
       </section>
     </div>
+    <WeeklyDrops />
     <section className="season-card season-board">
       <h3>Leaderboard</h3>
       {!d.top.length ? <p className="wp-bio">No one on the board yet — claim a reward on your profile to take #1.</p>
