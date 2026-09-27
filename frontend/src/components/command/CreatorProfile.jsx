@@ -145,7 +145,11 @@ function LaunchTable({ chain, tokens }) {
 
 export function CreatorProfileCard({ chain, address, result, loading, error, variant = 'full', onClose }) {
   const profileUrl = typeof window !== 'undefined' ? `${window.location.origin}/terminal/reputation/${chain}/${address}` : '';
-  return <section className={`rep-scan rep-scan-${variant}`} data-testid="rep-scan">
+  // Collapsed = score + verdict only; the long breakdown folds away (remembered per browser).
+  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('feeless:rep-collapsed') === '1'; } catch { return false; } });
+  const flip = () => setCollapsed(c => { try { localStorage.setItem('feeless:rep-collapsed', c ? '0' : '1'); } catch { /* private */ } return !c; });
+  return <section className={`rep-scan rep-scan-${variant} ${collapsed ? 'collapsed' : ''}`} data-testid="rep-scan">
+    {result && <button type="button" className="rep-collapse" onClick={flip} aria-expanded={!collapsed}>{collapsed ? '▸ Show full record' : '▾ Collapse'}</button>}
     {variant === 'full' ? <Link to="/terminal/reputation" className="rep-scan-back"><ArrowLeft size={14} />All creators</Link>
       : <div className="reputation-report-head"><span className="eyebrow">QUICK SCAN REPORT</span>{onClose && <button type="button" className="icon-btn small-icon" onClick={onClose} aria-label="Close">×</button>}</div>}
     {loading && <p className="reputation-view-hint">Scanning on-chain history…</p>}

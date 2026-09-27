@@ -3392,3 +3392,13 @@ body.theme-day .chart-style-toggle{background:#fffffff0;color:#00754f;border-col
 :is(.metric strong,.metric>span,.metric .anim-num,.sd-num b,.sd-num small,.pool-summary b,.rail-kv b,.cc-kpis b,.li-cell b,.fcp-kpis b,.cp-kv b,.pf-coin em,.pf-coin b,.season-stats b,.rep-cat b,.wp-onchain b,.token-metrics b,.mono,.positive,.negative,.anim-num,.meta-launch-review-cards b,.lr-chip,.rr-stat b){white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:100%;font-variant-numeric:tabular-nums}
 :is(.metric,.pool-summary span,.rail-kv span,.cc-kpis>*,.pf-coin,.wp-onchain>*,.token-metrics .metric,.meta-launch-review-cards>div){min-width:0}
 .token-metrics .metric strong{font-size:clamp(13px,1.35vw,18px)!important}
+.wallet-trigger .wallet-total{font-style:normal;margin-left:8px;padding:2px 8px;border-radius:999px;background:#0000002e;font:700 12px "JetBrains Mono",monospace;white-space:nowrap}
+.rep-scan{position:relative}
+.rep-collapse{position:absolute;right:12px;top:10px;z-index:2;padding:4px 10px;border-radius:999px;border:1px solid #ffffff22;background:#ffffff0a;color:var(--muted);font-size:11.5px;cursor:pointer}
+.rep-collapse:hover{color:var(--mint);border-color:var(--mint)}
+.rep-scan.collapsed>:not(.reputation-report-head):not(.rep-scan-back):not(.rep-scan-hero):not(.trust-verdict):not(.rep-collapse){display:none!important}
+.chart-foot-chips{position:absolute;left:112px;bottom:34px;z-index:6;display:flex;gap:6px;align-items:center}
+.chart-age,.chart-fee-toggle{padding:4px 10px;border-radius:999px;border:1px solid #ffffff22;background:rgba(5,14,10,.85);color:var(--muted);font:600 11px 'JetBrains Mono',monospace;white-space:nowrap}
+.chart-fee-toggle{cursor:pointer}.chart-fee-toggle.on{color:#f5c542;border-color:#f5c54266}
+body.theme-day :is(.chart-age,.chart-fee-toggle){background:#fffffff0;color:#2f4f42;border-color:#00875c33}
+@media (max-width:600px){.chart-foot-chips{left:10px;bottom:62px}}

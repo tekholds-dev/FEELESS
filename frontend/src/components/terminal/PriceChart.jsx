@@ -5,37 +5,37 @@ import { dexUrl, formatUSD } from '../../lib/dexscreener';
 import { DataStatus } from './MarketPrimitives';
 import { recordPricePoint, getPriceTrail } from '../../lib/priceHistory';
 import { recordCandleTick, fetchFeelessCandles } from '../../lib/candles';
+import { scrubCandles } from '../../lib/chartMath';
 import { fetchLivePrice } from '../../lib/livePrice';
 import { computeFeeRead } from './FeeLiveRead';
 
 const LIVE_INTERVAL_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 };
 
-// Drop bars that can't be real (e.g. a quote-token price recorded as the coin's) and clamp
-// runaway wicks, so one bad print never flattens the whole chart.
-export function scrubCandles(rows) {
-  if (rows.length < 3) return rows;
-  const closes = rows.map(r => r[4]).filter(v => v > 0).sort((a, b) => a - b);
-  const med = closes[Math.floor(closes.length / 2)];
-  if (!(med > 0)) return rows;
-  const out = [];
-  for (const r of rows) {
-    const [t, o, h, l, c, v] = r;
-    const prev = out.length ? out[out.length - 1][4] : med;
-    if (!(c > 0) || c > prev * 25 || c < prev / 25) continue;
-    const top = Math.max(o, c); const bot = Math.min(o, c);
-    out.push([t, o > 0 && o < c * 25 && o > c / 25 ? o : c, Math.min(h, top * 4), Math.max(l, bot / 4) || bot, c, v]);
-  }
-  return out.length >= 2 ? out : rows;
-}
 
-export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive = false, userEntry = null }) => {
+const ageLabel = t => { const s = (Date.now() - t) / 1000; return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : s < 86400 ? `${Math.round(s / 3600)}h` : s < 86400 * 60 ? `${Math.round(s / 86400)}d` : `${Math.round(s / 86400 / 30)}mo`; };
+
+export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive: feeLiveProp, userEntry = null }) => {
+  // Every chart gets the same tools: pages that don't control Fee's overlay get a built-in toggle.
+  const [feeOwn, setFeeOwn] = useState(false);
+  const feeLive = feeLiveProp ?? feeOwn;
+  // Coin age always shows: pool creation time, or the coin's earliest pool when the pool lacks it.
+  const [createdAt, setCreatedAt] = useState(pair?.pairCreatedAt || null);
+  useEffect(() => {
+    setCreatedAt(pair?.pairCreatedAt || null);
+    const mint = pair?.baseToken?.address;
+    if (pair?.pairCreatedAt || !mint || !pair?.chainId) return undefined;
+    let alive = true;
+    fetch(`https://api.dexscreener.com/token-pairs/v1/${pair.chainId}/${mint}`).then(r => r.json())
+      .then(list => { const ts = (list || []).map(x => x.pairCreatedAt).filter(Boolean); if (alive && ts.length) setCreatedAt(Math.min(...ts)); }).catch(() => {});
+    return () => { alive = false; };
+  }, [pair?.chainId, pair?.baseToken?.address, pair?.pairCreatedAt]);
   const container = useRef(null);
   const seriesRef = useRef(null);
   const lastBarRef = useRef(null);
   const markersRef = useRef(null);
   const [livePrice, setLivePrice] = useState(null);
   const [feePos, setFeePos] = useState(null);
-  const [feeOpen, setFeeOpen] = useState(true);
+  const [feeOpen, setFeeOpen] = useState(false);
   const priceLinesRef = useRef([]);
   const [feelessCandles, setFeelessCandles] = useState([]);
   // Chart style: 'auto' (line when data is sparse, candles otherwise), or forced 'line' / 'candle'.
@@ -191,7 +191,12 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     const n = sparse ? lineData.length : displayCandles.length || trail.length;
     if (rangeRef.current) ts.setVisibleLogicalRange(rangeRef.current);
     else if (n > 160) ts.setVisibleLogicalRange({ from: n - 150, to: n + 4 });
-    else ts.fitContent();
+    else {
+      // Young coins: few bars should fill the chart, not huddle in a corner.
+      const w = container.current?.clientWidth || 600;
+      ts.applyOptions({ maxBarSpacing: 48, barSpacing: Math.max(6, Math.min(48, (w - 90) / Math.max(n + 4, 8))) });
+      ts.fitContent();
+    }
     // Zoom/scroll out past the first bar → page in older real history.
     const onRange = range => {
       if (!range) return;
@@ -203,6 +208,10 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       fetchFeelessCandles(pair.chainId, pair.pairAddress, interval, firstTime).then(res => {
         const older = (res?.candles || []).filter(c => c[0] < firstTime);
         if (!older.length) { st.exhausted = true; return; }
+        // Older history must join the chart continuously; a jump means a different price source
+        // (e.g. a stale pool) — never splice that in.
+        const join = older[older.length - 1][4], first = displayCandles[0][4];
+        if (!(join > 0 && first > 0 && join / first < 2.5 && first / join < 2.5)) { st.exhausted = true; return; }
         const r = rangeRef.current;
         if (r) rangeRef.current = { from: r.from + older.length, to: r.to + older.length };
         setOlderCandles(prev => { const seen = new Set(prev.map(c => c[0])); return [...older.filter(c => !seen.has(c[0])), ...prev].sort((a, b) => a[0] - b[0]); });
@@ -249,7 +258,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     const add = (price, color, title, style = 2) => {
       if (!Number.isFinite(price) || price <= 0) return;
       // A level 3x outside the visible range would squash every candle into a flat line.
-      if (band && (price < band.lo / 3 || price > band.hi * 3)) return;
+      if (band && (price < band.lo / 1.5 || price > band.hi * 1.5)) return; // never let an overlay squash the candles
       try { priceLinesRef.current.push(ref.series.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title })); }
       catch { /* chart torn down between render and effect */ }
     };
@@ -346,6 +355,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     {!priceMetric && metricAvailable && !loading && !hasChart && !usingFallbackTrail && <div className="metric-snapshot" data-testid={`chart-${metric}-snapshot`}><span className="metric-snapshot-label">{metricLabel} snapshot</span><strong>{formatUSD(metricValue)}</strong><small>Provider supplied the current {metricLabel.toLowerCase()} only. Historical {metricLabel.toLowerCase()} candles are unavailable.</small></div>}
     {!priceMetric && !metricAvailable && <div className="chart-message metric-unavailable" role="status" data-testid={`chart-${metric}-unavailable`}><strong>{metricLabel} unavailable</strong><span>The provider did not supply a {metricLabel.toLowerCase()} value for this pair. No value is estimated.</span></div>}
     {charting && hasChart && <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />}
+    {charting && hasChart && <div className="chart-foot-chips">{createdAt && <span className="chart-age" title={new Date(createdAt).toLocaleString()}>🕒 Created {ageLabel(createdAt)} ago</span>}{feeLiveProp === undefined && <button type="button" className={`chart-fee-toggle ${feeOwn ? 'on' : ''}`} onClick={() => setFeeOwn(v => !v)}>🐱 Fee {feeOwn ? 'on' : 'off'}</button>}</div>}
     {charting && hasChart && displayCandles.length > 0 && <button type="button" className="chart-style-toggle" data-testid="chart-style-toggle" onClick={toggleStyle} title="Switch line / candles">{chartStyle === 'line' || (chartStyle === 'auto' && usingFeelessCandles && displayCandles.length < 120) ? '▮ Candles' : '〰 Line'}</button>}
     {feeRead && hasChart && <div className={`fee-live-read stance-${feeRead.stance.replace(/\s/g, '-')} ${feeOpen ? '' : 'min'}`} data-testid="fee-live-read">
       <button type="button" className="flr-head" onClick={() => setFeeOpen(o => !o)}><span className="flr-cat">🐱</span><b>Fee · live read</b><em>{feeRead.stance}</em><i className="flr-dot" /></button>

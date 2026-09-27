@@ -189,12 +189,28 @@ DEX_CHAIN = {'solana': 'solana', 'ethereum': 'ethereum', 'base': 'base', 'bsc': 
              'optimism': 'optimism', 'zksync': 'zksync', 'zora': 'zora', 'cronos': 'cronos', 'unichain': 'unichain', 'worldchain': 'worldchain', 'tron': 'tron'}
 
 
+import re as _re_mod
+_re_pair = _re_mod.compile(r'^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$')
+_tick_pending: dict = {}
+
+
 def _record_tick(store: dict, chain: str, pair: str, price: float, volume):
     key = _pair_key(chain, pair)
     ticks = store.setdefault(key, [])
     now = time.time()
     if ticks and now - ticks[-1]['t'] < 14:
         return
+    # One bad read must never draw a spike for every viewer: a tick >4x away from the recent median
+    # is held until 3 consecutive reads agree on the new level (a real move), then accepted.
+    recent = sorted(t['p'] for t in ticks[-10:])
+    if recent:
+        med = recent[len(recent) // 2]
+        if not (med / 4 <= price <= med * 4):
+            pend = [x for x in _tick_pending.get(key, []) if abs(x / price - 1) < 0.2] + [price]
+            _tick_pending[key] = pend
+            if len(pend) < 3:
+                return
+        _tick_pending.pop(key, None)
     ticks.append({'t': now, 'p': price, 'v': volume})
     cutoff = now - MAX_AGE_SECONDS
     store[key] = [t for t in ticks if t['t'] >= cutoff][-MAX_TICKS_PER_PAIR:]
@@ -216,6 +232,20 @@ async def _poll_hot_pairs():
             if by_chain:
                 store = _load()
                 async with httpx.AsyncClient(timeout=8) as http:
+                    sol_pairs = by_chain.pop('solana', [])
+                    if sol_pairs:
+                        mints = {p: await _pair_base_token('solana', p) for p in sol_pairs}
+                        ids = sorted({m for m in mints.values() if m})
+                        prices = {}
+                        for i in range(0, len(ids), 50):
+                            try:
+                                r = await http.get(f'https://lite-api.jup.ag/price/v3?ids={",".join(ids[i:i + 50])}')
+                                prices.update({k: float(v.get('usdPrice') or 0) for k, v in (r.json() or {}).items()})
+                            except Exception:
+                                pass
+                        for p, m in mints.items():
+                            if prices.get(m, 0) > 0:
+                                _record_tick(store, 'solana', p, prices[m], None)
                     for chain, pairs in by_chain.items():
                         for i in range(0, len(pairs), 30):
                             res = await http.get(f'https://api.dexscreener.com/latest/dex/pairs/{DEX_CHAIN[chain]}/{",".join(pairs[i:i + 30])}')
@@ -245,20 +275,12 @@ app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ
 
 @app.post('/api/candles/observe')
 async def observe(payload: TickPayload):
-    if not payload.priceUsd or payload.priceUsd <= 0:
-        return {'ok': False, 'reason': 'invalid price'}
-    store = _load()
-    key = _pair_key(payload.chain, payload.pairAddress)
-    ticks = store.setdefault(key, [])
-    now = time.time()
-    last = ticks[-1] if ticks else None
-    if last and now - last['t'] < 15:
-        return {'ok': True, 'skipped': 'too soon'}
-    ticks.append({'t': now, 'p': payload.priceUsd, 'v': payload.volumeUsd})
-    cutoff = now - MAX_AGE_SECONDS
-    store[key] = [t for t in ticks if t['t'] >= cutoff][-MAX_TICKS_PER_PAIR:]
-    _save(store)
-    return {'ok': True, 'ticksStored': len(store[key])}
+    """Browsers only say "someone is watching this pair"; the price itself is always fetched by the
+    server. A client-supplied price is never stored — otherwise one user could draw on everyone's chart."""
+    if not _re_pair.match(payload.pairAddress or '') or payload.chain not in DEX_CHAIN:
+        return {'ok': False}
+    _hot_pairs[_pair_key(payload.chain, payload.pairAddress)] = time.time()
+    return {'ok': True}
 
 
 def _fill_gaps(candles, step, own=None, limit=5000):
@@ -355,14 +377,21 @@ CODEX_RES = {'1m': ('1', 86400), '5m': ('5', 3 * 86400), '15m': ('15', 7 * 86400
 _codex_cache: dict = {}
 
 
+_codex_block = {'until': 0}
+
+
 async def codex_candles(chain, pair, interval):
     key_ = os.environ.get('CODEX_API_KEY', '').strip(); net = CODEX_NET.get(chain)
     if not key_ or not net:
         return []
     ck = f'{chain}:{pair}:{interval}'
     hit = _codex_cache.get(ck)
-    if hit and time.time() - hit[0] < 10:
+    # 60s per pair/interval is plenty (live ticks sharpen the last bar); at 10-100k viewers this keeps
+    # Codex calls proportional to distinct charts, not to users.
+    if hit and time.time() - hit[0] < 60:
         return hit[1]
+    if time.time() < _codex_block['until']:
+        return hit[1] if hit else []
     res, back = CODEX_RES.get(interval, ('60', 30 * 86400))
     now = int(time.time())
     q = 'query($s:String!,$f:Int!,$t:Int!,$r:String!){getBars(symbol:$s,from:$f,to:$t,resolution:$r,removeLeadingNullValues:true){t o h l c volume}}'
@@ -370,7 +399,11 @@ async def codex_candles(chain, pair, interval):
         async with httpx.AsyncClient(timeout=8) as http:
             r = await http.post('https://graph.codex.io/graphql', headers={'Authorization': key_, 'Content-Type': 'application/json'},
                                 json={'query': q, 'variables': {'s': f'{pair}:{net}', 'f': now - back, 't': now, 'r': res}})
-        b = ((r.json() or {}).get('data') or {}).get('getBars') or {}
+        body = r.json() or {}
+        if any('usage limit' in (e.get('message') or '') or 'rate' in (e.get('message') or '').lower() for e in body.get('errors') or []):
+            _codex_block['until'] = time.time() + 600  # quota/rate hit: stop hammering for 10 min
+            return hit[1] if hit else []
+        b = (body.get('data') or {}).get('getBars') or {}
     except Exception:
         return hit[1] if hit else []
     out = []
@@ -524,14 +557,19 @@ async def _build_candles(chain, pair_address, interval):
     store = _load()
     ticks = store.get(_pair_key(chain, pair_address), [])
     own = _bucket_candles(ticks, interval_seconds)
-    hist = await codex_candles(chain, pair_address, interval)
-    provider = 'Codex'
-    if not hist or len(hist) < 2:
-        hist = await alchemy_candles(chain, pair_address, interval)
-        provider = 'Alchemy'
-    if not hist or len(hist) < 2:
-        hist = await helius_candles(chain, pair_address, interval)
-        provider = 'Helius swaps'
+    # Anchor: the live token price (same number the header and swaps use). Provider history that
+    # ends far from it is priced off a different pool/quote and must not be drawn.
+    anchor = None
+    if chain == 'solana':
+        mint = await _pair_base_token(chain, pair_address)
+        anchor = await _stream_price(mint) if mint else None
+    agrees = lambda h: bool(h) and len(h) >= 2 and (not anchor or anchor / 3 <= h[-1][4] <= anchor * 3)
+    hist, provider = [], None
+    for name, fn in (('Codex', codex_candles), ('Alchemy', alchemy_candles), ('Helius swaps', helius_candles)):
+        h = await fn(chain, pair_address, interval)
+        if agrees(h):
+            hist, provider = h, name
+            break
     if hist and len(hist) >= 2:
         # FEELESS's own 15s ticks override/extend the provider bars, so the newest candle is live.
         own_by_t = {c[0]: c for c in own}
