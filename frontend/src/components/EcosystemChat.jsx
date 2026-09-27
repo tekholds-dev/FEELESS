@@ -90,7 +90,10 @@ function registerCalls(room, messages) {
 const detectAddress = text => text.match(/\b0x[a-fA-F0-9]{40}\b/)?.[0] || text.match(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/)?.[0];
 
 export default function EcosystemChat({ ecosystem, room: roomProp, compact = false, onConnect }) {
-  const room = roomProp || ecosystem?.id || 'general';
+  // Launch on FEELESS gets meta rooms: general floor, admin-only updates, and launch talk.
+  const launchRooms = !roomProp && ecosystem?.id === 'feeless-launch' ? [['', 'General'], ['feeless-updates', '📣 Updates'], ['feeless-launches', '🚀 Launch talk']] : null;
+  const [subRoom, setSubRoom] = useState('');
+  const room = subRoom || roomProp || ecosystem?.id || 'general';
   const { wallet, signMessage, switchTo } = useWallet() || {};
   const [switching, setSwitching] = useState(false);
   const hopToSolana = async () => { setSwitching(true); try { await switchTo?.('solana'); } catch (err) { setError?.(err.message || 'Switch declined.'); } finally { setSwitching(false); } };
@@ -228,6 +231,7 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
   };
   const openProfile = message => { const a = message.profile?.address || message.address; if (a && !message.system) window.open(`/terminal/profile/${a}`, '_blank', 'noopener'); else setInspected(message.profile || { address: message.address, chain: message.chain, username: message.username }); };
   return <div className={`ecosystem-chat ${compact ? 'compact-chat' : ''}`} data-testid={`chat-${room}`}>
+    {launchRooms && <nav className="chat-subrooms">{launchRooms.map(([id, label]) => <button key={id || 'general'} type="button" className={subRoom === id ? 'active' : ''} onClick={() => setSubRoom(id)}>{label}</button>)}{subRoom === 'feeless-updates' && <small>Read-only · admins post</small>}</nav>}
     {!compact && <div className="chat-room-heading"><MessageCircle size={17} /><strong>{ecosystem?.name || 'General'}</strong><span className="data-status"><i />POLLING</span></div>}
     <div className="chat-identity" data-testid={`chat-identity-${room}`}><span>#{room}</span>{wallet ? <span className="chat-wallet-state"><i />SIGNED · {displayAddress(wallet.address)}</span> : <button type="button" onClick={onConnect}>Connect wallet to post</button>}</div>
     {pinned && <div className="chat-pinned" data-testid="chat-pinned" style={{ '--pin-s': `${pinned.pinnedFor}s` }}><span>📌 Hot take · {pinned.pinnedFor}s</span><b>{pinned.username}</b><p>{pinned.text}</p><i /></div>}

@@ -1,4 +1,4 @@
-import { AlphaRooms } from '../AlphaRooms';
+import { AlphaRoomsCard } from '../AlphaRooms';
 import { RepMark } from '../RepMark';
 import { uploadImage } from '../../lib/adminCall';
 import { CROP } from '../../lib/cropImage';
@@ -133,7 +133,7 @@ export function WalletProfilePage({ address }) {
       </div>
       <div className="xp-badges"><BadgeArtifacts address={address} featured={p.featuredBadges} /></div>
     </header>
-    {mine && <AlphaRooms compact />}
+    {mine && <AlphaRoomsCard />}
     <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />
     {!flipped && <PortfolioCard address={address} />}
     {flipped && <nav className="wp-act-tabs" data-testid="activity-tabs">{[mine && ['swap', 'Swap'], mine && poolPerk && ['builder', '🏗 Pool builder'], ['holdings', 'Holdings'], ['history', 'Swap history'], ['posts', 'Posts'], ['rewards', 'Rewards'], ['vault', 'Vault']].filter(Boolean).map(([k, l]) => <button key={k} type="button" className={actTab === k ? 'active' : ''} onClick={() => setActTab(k)}>{l}</button>)}</nav>}

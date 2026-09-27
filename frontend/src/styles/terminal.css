@@ -3352,12 +3352,6 @@ body.theme-day th,body.theme-day thead .hide-small{color:#2c4a3d!important}
 
 body.theme-day .xp-avatar .wp-avatar{background:linear-gradient(135deg,#d9fff0,#e3f1ff)!important}body.theme-day .xp-initials{color:#00875c}
 /* Holder-room strip (chat floor, own profile) */
-.alpha-strip{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
-.alpha-strip a{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px;font-size:11.5px;font-weight:600;text-decoration:none;color:var(--muted);border:1px solid #ffffff1a;background:#ffffff08;transition:border-color .15s,color .15s}
-.alpha-strip a.on{color:#f5c542;border-color:#f5c54266;background:#f5c5421a}
-.alpha-strip a:hover{border-color:var(--mint);color:var(--mint)}
-.wallet-profile-page>.alpha-strip{grid-column:1/-1}
-body.theme-day .alpha-strip a{background:#fff;border-color:#00875c33;color:#35574a}body.theme-day .alpha-strip a.on{color:#8a5a00;border-color:#d9a72766;background:#fff6dc}
 /* FEELESS coin logos are already coins: no extra ring, border or plate around them anywhere */
 :is(span,div,i,a,button):has(> img:is([src*="49MmWE8sgNjuw342"],[src*="2vZjg2w58k4urtdN"],[src*="AsX2abSJ2HqPqRx"],[src*="/assets/feeless-logo"],[src*="/assets/feecat-mark"])){border:0!important;background:none!important;box-shadow:none!important;outline:0!important}
 img:is([src*="49MmWE8sgNjuw342"],[src*="2vZjg2w58k4urtdN"],[src*="AsX2abSJ2HqPqRx"],[src*="/assets/feeless-logo"],[src*="/assets/feecat-mark"]){object-fit:contain!important;border:0!important;background:none!important;filter:drop-shadow(0 2px 6px #00e9a033)}
@@ -3408,3 +3402,18 @@ body.theme-day :is(.chart-age,.chart-fee-toggle){background:#fffffff0;color:#2f4
 
 /* Coin profile header: compact, contained */
 .coin-profile .cp-banner{max-height:140px!important}.coin-profile .cp-head{margin-top:-44px}.coin-profile .cp-logo{width:92px;height:92px}
+.radar-ev.k-snipers-out{border-color:#00e9a055;background:#00e9a00d}.radar-ev.k-snipers-out b{color:var(--mint)}
+.chat-subrooms{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 10px}
+.chat-subrooms button{padding:4px 11px;border-radius:999px;border:1px solid #ffffff1a;background:#ffffff08;color:var(--muted);font-size:11.5px;cursor:pointer}
+.chat-subrooms button.active{color:var(--mint);border-color:var(--mint);background:#00e9a014}.chat-subrooms small{color:var(--muted);font-size:10.5px}
+/* Alpha rooms: profile teaser card → blurred full-screen rooms */
+.alpha-card-mini{position:relative;overflow:hidden;display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;column-gap:10px;align-items:center;width:100%;max-width:520px;margin:0 0 12px;padding:14px 16px;border-radius:16px;border:1px solid #f5c54255;background:linear-gradient(135deg,#171204,#0a120e);color:inherit;text-align:left;cursor:pointer;transition:transform .2s,box-shadow .2s}
+.alpha-card-mini:hover{transform:translateY(-2px);box-shadow:0 12px 30px -10px #f5c54266}
+.alpha-card-mini svg{grid-row:span 2;color:#f5c542}.alpha-card-mini b{font-size:15px}.alpha-card-mini small{grid-column:2;color:var(--muted);font-size:11.5px}.alpha-card-mini em{grid-row:span 2;font-style:normal;color:#f5c542;font-weight:700;font-size:12.5px}
+.acm-glow{position:absolute;inset:-40%;background:conic-gradient(from 0deg,transparent,#f5c54233,transparent 30%,#00e9a022,transparent 60%);animation:acm-spin 8s linear infinite;pointer-events:none}
+@keyframes acm-spin{to{transform:rotate(360deg)}}
+.alpha-overlay{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:16px;background:#000a;backdrop-filter:blur(14px) saturate(1.2);animation:crop-fade .2s ease}
+.alpha-overlay-card{position:relative;width:min(1000px,100%);max-height:calc(100vh - 32px);overflow:auto;border-radius:22px;padding:18px;background:#070d0a;border:1px solid #f5c54244;box-shadow:0 30px 90px #000c,0 0 60px #f5c54222;animation:crop-pop .28s cubic-bezier(.2,.9,.3,1.2)}
+.alpha-overlay-x{position:absolute;right:12px;top:10px;width:32px;height:32px;border-radius:50%;border:1px solid #ffffff22;background:#ffffff0a;color:inherit;font-size:18px;cursor:pointer;z-index:2}
+@media (prefers-reduced-motion:reduce){.acm-glow,.alpha-overlay,.alpha-overlay-card{animation:none}}
+body.theme-day .alpha-card-mini{background:linear-gradient(135deg,#fff8e1,#ffffff);border-color:#d9a72766}body.theme-day .alpha-overlay-card{background:#fff}

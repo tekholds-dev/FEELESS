@@ -978,6 +978,12 @@ async def token_intel(chain: str, mint: str):
                     except Exception:
                         return w, None
             out['flaggedHoldings'] = dict(await asyncio.gather(*(bal(w) for w in flagged)))
+            fh = out['flaggedHoldings']
+            if len(fh) >= 3 and all(v == 0 for v in fh.values()):
+                # Every sniper/bundler has sold out: the supply overhang is gone — often the dip entry.
+                _radar_event('snipers-out', mint, mint[:4], f"All {len(fh)} flagged snipers/bundlers have sold out — no sniper supply left to dump.")
+                if creator:
+                    notify(creator, 'reward', f"🎯 Every sniper on your coin {mint[:4]}… has sold out", f'/terminal/chat?chain=solana&pair={mint}&room=bulls')
     flags = []
     if len(out['bundledWallets']) >= 3:
         flags.append(f"{len(out['bundledWallets'])} wallets bought in the same block as the mint — a bundled launch.")
@@ -2119,6 +2125,8 @@ async def chat_post(payload: ChatPost):
             raise HTTPException(401, 'Chat session expired — sign in to chat again.')
     elif not _verify_wallet(payload.address, _chat_message_to_sign(payload.room, payload.address, payload.ts, text), payload.signature):
         raise HTTPException(401, 'Signature does not match this wallet.')
+    if payload.room == 'feeless-updates' and primary_of(payload.address) not in {primary_of(w) for w in _admin_wallets()}:
+        raise HTTPException(403, 'Updates is read-only — only FEELESS admins post here.')
     if payload.room in _ALPHA and not await _alpha_allowed(payload.room, payload.address):
         raise HTTPException(403, f"{_ALPHA[payload.room]['name']} unlocks at ${_ALPHA[payload.room]['minUsd']:,} held in $FEE.")
     eg = await evm_gate(payload.room, payload.address)
