@@ -2,6 +2,7 @@ import { WalletSwaps } from '../WalletSwaps';
 import { SwapWorkspace } from './SwapWorkspace';
 import { useMarket } from '../../hooks/useMarket';
 import { SeasonVault } from '../SeasonBadges';
+import { COIN_MAKERS, DEXES } from '../../lib/venues';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -70,6 +71,7 @@ export function WalletProfilePage({ address }) {
   const [flipped, setFlipped] = useState(false);
   const [swapPair, setSwapPair] = useState(null);
   const [actTab, setActTab] = useState(null);
+  const [poolPerk, setPoolPerk] = useState(false);
   const [autoEdit, setAutoEdit] = useState(() => new URLSearchParams(window.location.search).get('edit') === '1');
   const [acts, setActs] = useState(null);
   useEffect(() => { if (!flipped || acts) return; fetch(apiUrl(`/api/reputation/activity/${address}`)).then(r => r.json()).then(setActs).catch(() => setActs({ posts: [] })); }, [flipped, acts, address]);
@@ -84,6 +86,7 @@ export function WalletProfilePage({ address }) {
   const [myIds, setMyIds] = useState([]);
   useEffect(() => { if (!wallet?.address) { setMyIds([]); return; } fetch(apiUrl(`/api/reputation/identity/${wallet.address}`)).then(r => r.json()).then(d => setMyIds(d.linked || [])).catch(() => setMyIds([])); }, [wallet?.address]);
   const mine = wallet?.address === address || myIds.includes(address);
+  useEffect(() => { if (!mine) { setPoolPerk(false); return; } fetch(apiUrl(`/api/reputation/theme/${address}`)).then(r => r.json()).then(d => setPoolPerk(!!d.poolBuilder)).catch(() => {}); }, [mine, address]);
   useEffect(() => { if (autoEdit && mine && data) { setAutoEdit(false); startEdit(); } }, [autoEdit, mine, data]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (flipped && !actTab) setActTab(mine ? 'swap' : 'holdings'); if (actTab === 'swap' && !mine) setActTab('holdings'); }, [flipped, mine, actTab]);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -141,13 +144,14 @@ export function WalletProfilePage({ address }) {
     </div>
     <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />
     {!flipped && <PortfolioCard address={address} />}
-    {flipped && <nav className="wp-act-tabs" data-testid="activity-tabs">{[mine && ['swap', 'Swap'], ['holdings', 'Holdings'], ['history', 'Swap history'], ['posts', 'Posts'], ['rewards', 'Rewards'], ['vault', 'Vault']].filter(Boolean).map(([k, l]) => <button key={k} type="button" className={actTab === k ? 'active' : ''} onClick={() => setActTab(k)}>{l}</button>)}</nav>}
+    {flipped && <nav className="wp-act-tabs" data-testid="activity-tabs">{[mine && ['swap', 'Swap'], mine && poolPerk && ['builder', '🏗 Pool builder'], ['holdings', 'Holdings'], ['history', 'Swap history'], ['posts', 'Posts'], ['rewards', 'Rewards'], ['vault', 'Vault']].filter(Boolean).map(([k, l]) => <button key={k} type="button" className={actTab === k ? 'active' : ''} onClick={() => setActTab(k)}>{l}</button>)}</nav>}
     {flipped && actTab === 'swap' && mine && <section className="wp-card profile-swap" data-testid="profile-swap"><ProfileSwapBox pair={swapPair} /><small className="wp-bio">Signed in your own wallet — FEELESS never holds funds. Trades into $FEE coins carry no FEELESS fee.</small></section>}
     {flipped && actTab === 'holdings' && <PortfolioCard address={address} onSwap={mine ? pr => { setSwapPair(pr); setActTab('swap'); } : undefined} />}
     {flipped && actTab === 'history' && <><WalletSwaps address={address} title="Swap history" /><PnlTracker address={address} /></>}
     {flipped && actTab === 'posts' && <section className="wp-card wp-activity" data-testid="profile-activity"><h3>Activity</h3>{!acts ? <p className="wp-bio">Loading…</p> : !acts.posts.length ? <p className="wp-bio">No posts yet.</p> : <div className="wpa-list">{acts.posts.map(a => <a key={a.id} className="wpa-row" href={a.room.startsWith('coin-') ? `/terminal/chat` : a.room.startsWith('wall-') ? `/terminal/profile/${a.room.slice(5)}` : '/terminal/chat'} target="_blank" rel="noopener noreferrer"><span className="wpa-room">{a.room.startsWith('wall-') ? '🧱 wall' : a.room.startsWith('coin-') ? `🪙 ${a.room.split('-').pop()}` : `# ${a.room}`}</span><p>{a.text}</p><time>{new Date(a.ts).toLocaleString()}</time></a>)}</div>}</section>}
     {flipped && actTab === 'rewards' && <><RewardsCard address={address} mine={mine} />{mine && <PointsShop address={address} />}</>}
     {flipped && actTab === 'vault' && <SeasonVault address={address} />}
+    {flipped && actTab === 'builder' && mine && <PoolBuilderCard />}
     <div className={`wp-flip-body ${flipped ? 'is-flipped' : ''}`}>
     {mine && !edit && data && <SetupCallout profile={data.profile} onEdit={startEdit} />}
     <div className="wp-grid">
@@ -207,4 +211,13 @@ function ProfileSwapBox({ pair }) {
   const assets = useMarket('/assets', 300000);
   const feeAssets = assets.data?.assets || [];
   return <SwapWorkspace pair={pair} feeAsset={feeAssets.find(a => a.id === 'fee')} feeAssets={feeAssets} onWallet={() => {}} />;
+}
+
+// $5k+ FEELESS holders: create coins and pools on vetted venues (signed by their own wallet).
+function PoolBuilderCard() {
+  return <section className="wp-card pool-builder-card" data-testid="pool-builder-card"><h3>Pool builder <small>unlocked · $5k+ holder</small></h3>
+    <h4>Make a coin</h4><div className="pb-grid">{COIN_MAKERS.map(m => <a key={m.name} href={m.url} target="_blank" rel="noopener noreferrer"><b>{m.name}</b><small>{m.chain} · {m.note}</small></a>)}</div>
+    <h4>Add liquidity</h4><div className="pb-grid">{DEXES.map(d => <a key={d.id} href={d.url} target="_blank" rel="noopener noreferrer"><b>{d.name}</b><small>{d.note}</small></a>)}</div>
+    <small className="wp-bio">Your wallet signs every step on the venue itself — FEELESS never holds funds. Shield your coin after launch.</small>
+  </section>;
 }

@@ -2883,7 +2883,8 @@ body.theme-day .mobile-tabbar{background:rgba(255,255,255,.86);border-top-color:
 .seasons{display:grid;gap:14px}
 .season-hero{position:relative;overflow:hidden;text-align:center;padding:34px 18px 26px;border-radius:22px;border:1px solid color-mix(in srgb,var(--season) 40%,transparent);
   background:radial-gradient(120% 90% at 50% 0%,color-mix(in srgb,var(--season) 22%,transparent),transparent 60%),linear-gradient(180deg,rgba(255,255,255,.03),transparent)}
-.season-hero::before{content:'';position:absolute;inset:-40%;background:conic-gradient(from 0deg,transparent,color-mix(in srgb,var(--season) 18%,transparent),transparent 30%);animation:season-spin 14s linear infinite;pointer-events:none}
+.season-hero::before{content:'';position:absolute;inset:-20%;pointer-events:none;filter:blur(50px);opacity:.75;background:radial-gradient(35% 45% at 30% 40%,color-mix(in srgb,var(--season) 30%,transparent),transparent 70%),radial-gradient(30% 40% at 72% 60%,color-mix(in srgb,var(--season2,#ff2bd6) 26%,transparent),transparent 70%);animation:season-drift 16s ease-in-out infinite alternate}
+@keyframes season-drift{0%{transform:translate(-4%,-2%) rotate(0deg)}100%{transform:translate(4%,3%) rotate(25deg)}}
 @keyframes season-spin{to{transform:rotate(360deg)}}
 .season-hero>*{position:relative}.season-hero h1{margin:6px 0;font-size:clamp(34px,6vw,64px);letter-spacing:-1px;background:linear-gradient(90deg,#fff,var(--season),#fff);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:season-shine 5s linear infinite}
 @keyframes season-shine{to{background-position:-200% 0}}
@@ -3079,3 +3080,31 @@ body.theme-day .swap-desk{background-image:linear-gradient(#fff,#fff),conic-grad
 .launch-shield-later summary{cursor:pointer;padding:12px 14px;font-weight:700;list-style:none}.launch-shield-later summary::before{content:'▸ ';color:var(--mint)}.launch-shield-later[open] summary::before{content:'▾ '}
 .launch-shield-later summary small{font-weight:400;color:var(--muted);margin-left:6px}.launch-shield-later .shield-commit{margin:0 12px 12px;border:0;background:transparent}
 .meta-launch-image-row{display:grid;gap:6px}
+/* Expanded war-room chart: the coin's own chat on the left */
+.eco-chart-body{display:block}
+.eco-chart.is-big .eco-chart-body{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:10px;min-height:0;height:calc(100% - 44px)}
+.eco-chart-chat{min-width:0;min-height:0;display:flex;flex-direction:column;border-right:1px solid rgba(255,255,255,.07);padding-right:8px;overflow:hidden}
+.eco-chart-chat>*{flex:1;min-height:0}
+@media(max-width:900px){.eco-chart.is-big .eco-chart-body{grid-template-columns:1fr}.eco-chart-chat{max-height:260px;border-right:0}}
+.my-pnl{pointer-events:auto!important}.my-pnl-exit{grid-column:1 / -1;margin-top:6px;border:1px solid rgba(255,90,122,.5);background:rgba(255,90,122,.12);color:#ff8fa3;border-radius:8px;padding:5px;font-weight:700;font-size:11.5px;cursor:pointer}.my-pnl-exit:hover{background:rgba(255,90,122,.22)}
+.fee-pnl{position:absolute;z-index:6;right:70px;top:12px;display:flex;gap:8px;align-items:baseline;padding:6px 10px;border-radius:10px;background:rgba(5,7,6,.86);border:1px solid rgba(94,200,255,.5);backdrop-filter:blur(6px);pointer-events:none}
+.fee-pnl span{font-size:11px;font-weight:700;color:#7cc8ff}.fee-pnl b{font:800 15px 'JetBrains Mono',monospace}.fee-pnl small{font-size:10.5px;color:var(--muted)}.fee-pnl.up b{color:#00ffa3}.fee-pnl.down b{color:#ff5a7a}
+.chart-area{position:relative}
+/* ===== Form controls: one on-brand style site-wide (edit the tokens to restyle everything) ===== */
+:root{--field-bg:#0a0f0d;--field-border:rgba(255,255,255,.12);--field-focus:var(--mint,#00e9a0);--field-text:#eafff3;--field-radius:10px}
+body.theme-day{--field-bg:#ffffff;--field-border:rgba(10,40,25,.18);--field-text:#0a1f14}
+select{appearance:none;-webkit-appearance:none;background-color:var(--field-bg);color:var(--field-text);border:1px solid var(--field-border);border-radius:var(--field-radius);padding:8px 34px 8px 11px;font:inherit;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2300e9a0' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;transition:border-color .2s,box-shadow .2s}
+select:hover{border-color:color-mix(in srgb,var(--field-focus) 50%,var(--field-border))}
+select:focus{outline:none;border-color:var(--field-focus);box-shadow:0 0 0 3px color-mix(in srgb,var(--field-focus) 18%,transparent)}
+select option{background:var(--field-bg);color:var(--field-text)}
+input[type=checkbox]{accent-color:var(--field-focus)}
+input[type=color]{border:1px solid var(--field-border);border-radius:8px;background:var(--field-bg);padding:2px;cursor:pointer;height:34px}
+.routes{display:grid;gap:6px;margin:8px 0}.route-row{display:grid;grid-template-columns:160px minmax(0,1fr) 80px auto auto;gap:6px;align-items:center}
+.route-row input{padding:8px;border-radius:var(--field-radius);border:1px solid var(--field-border);background:var(--field-bg);color:var(--field-text)}
+.routes-foot{display:flex;gap:8px;align-items:center;justify-content:flex-end}.routes-foot .ok{color:var(--mint);margin-right:auto}.routes-foot .bad{color:#ff8fa3;margin-right:auto}
+@media(max-width:760px){.route-row{grid-template-columns:1fr 70px auto}.route-row input:nth-child(2){grid-column:1 / -1;order:-1}}
+.pool-builder-card h3 small{font-size:11px;color:#f5c542;font-weight:600;margin-left:6px}.pool-builder-card h4{margin:10px 0 6px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.pb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}.pb-grid a{display:grid;gap:3px;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02);color:inherit;text-decoration:none;transition:border-color .2s,transform .2s}
+.pb-grid a:hover{border-color:var(--wp-accent,#00e9a0);transform:translateY(-2px)}.pb-grid small{color:var(--muted);font-size:11px}
+@media(min-width:1280px){.wallet-profile-page>.pool-builder-card{grid-column:1 / -1}}

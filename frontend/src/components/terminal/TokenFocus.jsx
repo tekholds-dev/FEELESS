@@ -89,6 +89,7 @@ function PnlBadge({ pos, price, flash }) {
   const pct = (price / pos.avgEntry - 1) * 100; const usd = (price - pos.avgEntry) * pos.tokensHeld;
   return <div key={flash} className={`my-pnl ${pct >= 0 ? 'up' : 'down'} ${flash ? 'just-traded' : ''}`} data-testid="my-pnl">
     <small>Your position</small><b>{pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</b><span>{usd >= 0 ? '+' : '−'}${Math.abs(usd).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span><em>avg ${pos.avgEntry < 0.01 ? pos.avgEntry.toPrecision(4) : pos.avgEntry.toFixed(4)}</em>
+    <button type="button" className="my-pnl-exit" onClick={() => window.dispatchEvent(new CustomEvent('feeless:quick-exit', { detail: { pct: 100 } }))}>Exit position</button>
   </div>;
 }
 

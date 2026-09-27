@@ -40,6 +40,12 @@ export function QuickTrade({ pair }) {
     if (pair?.chainId === 'solana' && wallet?.chain === 'evm' && connect) connect('solana', undefined, { silent: true }).catch(() => {});
   }, [pair?.chainId, wallet?.chain]); // eslint-disable-line react-hooks/exhaustive-deps
   const [sellPct, setSellPct] = useState(50);
+  // One-tap exit from the chart's P&L badge: switch to Sell at the requested % (you still review + sign).
+  useEffect(() => {
+    const onExit = e => { setSide('sell'); setSellPct(e.detail?.pct || 100); document.querySelector('.quick-trade')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+    window.addEventListener('feeless:quick-exit', onExit);
+    return () => window.removeEventListener('feeless:quick-exit', onExit);
+  }, []);
   const [counter, setCounter] = useState('SOL');
   const [solUsd, setSolUsd] = useState(null);
   const [balance, setBalance] = useState(null);

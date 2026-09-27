@@ -6,6 +6,7 @@ import { shortAddress, formatUSD } from '../../lib/dexscreener';
 import { AirdropStudio, Snapshots } from './AirdropStudio';
 import { NumbersPanel } from './NumbersPanel';
 import { SeasonEditor } from '../SeasonEditor';
+import { DEXES, COIN_MAKERS, LAUNCH_STEPS } from '../../lib/venues';
 
 const SESSION_KEY = 'feeless:cc-session';
 const readSession = addr => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.address === addr && Date.now() / 1000 - s.ts < 86000 ? s : null; } catch { return null; } };
@@ -24,6 +25,8 @@ export function CommandCenter({ address, signMessage, onClose }) {
   const [drops, setDrops] = useState([]);
   const [bugs, setBugs] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+  useEffect(() => { fetch(apiUrl(`/api/reputation/admin/is-admin/${address}`)).then(r => r.json()).then(d => setIsOwner(!!d.owner)).catch(() => {}); }, [address]);
 
   const call = useCallback(async (path, opts = {}) => {
     const res = await fetch(apiUrl(`/api/reputation${path}`), { ...opts, headers: { 'Content-Type': 'application/json', 'x-admin-address': address, 'x-admin-ts': String(session?.ts || ''), 'x-admin-sig': session?.sig || '', ...(opts.headers || {}) } });
@@ -64,7 +67,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
   const TABS = [['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Fees & Pricing', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div>
-      <nav className="cc-tabs">{TABS.map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</nav>
+      <nav className="cc-tabs">{TABS.filter(([id]) => id !== 'pools' || isOwner).map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</nav>
       <button type="button" className="cc-close" onClick={onClose} aria-label="Close command center"><X size={16} /></button></header>
 
     {tab === 'numbers' && <NumbersPanel call={call} />}
@@ -76,7 +79,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'pulse' && <PulsePanel call={call} />}
     {tab === 'mod' && <ModPanel call={call} />}
     {tab === 'broadcast' && <BroadcastPanel call={call} />}
-    {tab === 'treasury' && <TreasuryPanel call={call} />}
+    {tab === 'treasury' && <><TreasuryPanel call={call} /><TreasuryRoutes call={call} isOwner={isOwner} /></>}
     {tab === 'overview' && <Overview sec={sec} reload={loadSec} />}
     {tab === 'holders' && <section className="cc-panel">
       <div className="cc-toolbar">
@@ -360,22 +363,6 @@ function FeeCatPanel({ call }) {
   </section>;
 }
 
-const DEXES = [
-  { id: 'raydium', name: 'Raydium CPMM', url: 'https://raydium.io/liquidity/create-pool/', note: 'Standard constant-product pool. Cheapest to create; works everywhere.' },
-  { id: 'meteora', name: 'Meteora DAMM v2', url: 'https://app.meteora.ag/', note: 'Dynamic fees — earns more in volatile markets; supports fee scheduling.' },
-  { id: 'orca', name: 'Orca Whirlpool', url: 'https://www.orca.so/pools', note: 'Concentrated liquidity — best depth per dollar if you manage ranges.' },
-  { id: 'uniswap-base', name: 'Uniswap (Base)', url: 'https://app.uniswap.org/positions/create', note: 'Base: the deepest EVM venue. Pick Base network, pair with WETH or USDC.' },
-  { id: 'aerodrome', name: 'Aerodrome (Base)', url: 'https://aerodrome.finance/deposit', note: 'Base-native DEX with emissions — good for incentivised liquidity.' },
-];
-// Vetted coin makers: each creates a real token (and its first pool/curve) signed by your wallet.
-const COIN_MAKERS = [
-  { chain: 'Solana', name: 'pump.fun', url: 'https://pump.fun/create', note: 'Bonding curve → auto-migrates to PumpSwap at completion. Fastest meme launch.' },
-  { chain: 'Solana', name: 'LetsBonk', url: 'https://letsbonk.fun', note: 'Bonk-ecosystem launchpad on Raydium LaunchLab rails.' },
-  { chain: 'Solana', name: 'Raydium LaunchLab', url: 'https://raydium.io/launchpad/create/', note: 'Custom curve + graduation straight into a Raydium pool.' },
-  { chain: 'Base', name: 'Clanker', url: 'https://www.clanker.world/deploy', note: 'One-step ERC-20 + Uniswap v4 pool with locked liquidity.' },
-  { chain: 'Base', name: 'Zora', url: 'https://zora.co/create', note: 'Creator coins on Base with built-in liquidity.' },
-];
-const LAUNCH_STEPS = ['Make the coin (coin maker below) — your wallet signs; FEELESS never touches funds.', 'Add liquidity on a DEX (or let the curve graduate) and copy the pool address.', 'Verify the pool here so FEELESS indexes it and charts go live.', 'Shield it on the launch page — public promises buyers can check on-chain.'];
 function SetupChecklist({ call }) {
   const [keys, setKeys] = useState(null);
   useEffect(() => { call('/admin/setup').then(d => setKeys(d.keys)).catch(() => setKeys([])); }, [call]);
@@ -485,3 +472,18 @@ function IdeasAdmin({ call }) {
   </section>;
 }
 
+
+// Where fee earnings go. Addresses only — FEELESS never creates, stores or sees private keys.
+// Tip: point the main route at a multisig (Squads on Solana, Safe on Base) so no single key can drain it.
+function TreasuryRoutes({ call, isOwner }) {
+  const [rows, setRows] = useState([]);
+  useEffect(() => { call('/admin/treasury/routes').then(d => setRows(d.routes?.length ? d.routes : [{ label: 'Treasury (multisig)', address: '', pct: 100 }])).catch(() => {}); }, [call]);
+  const total = rows.reduce((a, r) => a + Number(r.pct || 0), 0);
+  const set = (i, k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
+  const save = async () => { try { await call('/admin/treasury/routes', { method: 'PUT', body: JSON.stringify({ routes: rows.map(r => ({ ...r, pct: Number(r.pct) })) }) }); toast.success('Treasury routing saved.'); } catch (e) { toast.error(e.message); } };
+  return <section className="cc-card"><h3>Fee routing</h3>
+    <p className="wp-bio">Split fee earnings across wallets you control — e.g. 60% treasury multisig, 25% buybacks, 15% team. FEELESS stores addresses only, never keys. Use a <a href="https://squads.so" target="_blank" rel="noopener noreferrer">Squads</a> (Solana) or <a href="https://app.safe.global" target="_blank" rel="noopener noreferrer">Safe</a> (Base) multisig for the main route.</p>
+    <div className="routes">{rows.map((r, i) => <div key={i} className="route-row"><input placeholder="Label" value={r.label} disabled={!isOwner} onChange={e => set(i, 'label', e.target.value)} /><input placeholder="Wallet address" value={r.address} disabled={!isOwner} onChange={e => set(i, 'address', e.target.value.trim())} /><input type="number" min="0" max="100" value={r.pct} disabled={!isOwner} onChange={e => set(i, 'pct', e.target.value)} /><span>%</span>{isOwner && <button type="button" className="btn-outline" onClick={() => setRows(rows.filter((_, j) => j !== i))}>×</button>}</div>)}</div>
+    <div className="routes-foot"><span className={Math.abs(total - 100) < 0.01 ? 'ok' : 'bad'}>Total {total}%</span>{isOwner ? <><button type="button" className="btn-outline" onClick={() => setRows([...rows, { label: '', address: '', pct: 0 }])}>+ Add route</button><button type="button" className="btn-primary" disabled={Math.abs(total - 100) > 0.01} onClick={save}>Save routing</button></> : <small>Only the owner wallet can change routing.</small>}</div>
+  </section>;
+}

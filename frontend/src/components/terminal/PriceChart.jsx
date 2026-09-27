@@ -279,10 +279,14 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       }
     };
     tick();
-    const timer = setInterval(tick, 2000);
+    const timer = setInterval(tick, 1200);   // ≤1.5s price freshness target
     return () => { alive = false; clearInterval(timer); };
   }, [charting, pair?.baseToken?.address, pair?.chainId, pair?.pairAddress, interval, ratio]);
+  const [livePx, setLivePx] = useState(null);
+  useEffect(() => { if (!feePos) return undefined; const t = setInterval(() => { const b = lastBarRef.current; if (b) setLivePx(b.close ?? b.value); }, 1200); return () => clearInterval(t); }, [feePos]);
+  const feePnl = feePos?.entryPriceUsd > 0 && (livePx || feePos.lastPriceUsd) ? ((livePx || feePos.lastPriceUsd) / feePos.entryPriceUsd - 1) * 100 : feePos?.currentChange;
   return <div className="chart-area" data-testid="price-chart">
+    {feeLive && feePos && feePnl != null && <div className={`fee-pnl ${feePnl >= 0 ? 'up' : 'down'}`} data-testid="fee-pnl"><span>🐱 Fee is in</span><b>{feePnl >= 0 ? '+' : ''}{feePnl.toFixed(2)}%</b><small>{Number(feePos.costSol).toFixed(2)} SOL{feePos.peakChange ? ` · peak +${Number(feePos.peakChange).toFixed(1)}%` : ''}</small></div>}
     {charting && !candlesLoaded && <div className="chart-message" data-testid="chart-loading"><span className="loader" />Loading on-chain candles…</div>}
     {charting && !loading && usingFallbackTrail && trail.length < 2 && <div className="chart-message chart-building" role="status" data-testid="chart-building">
       <span className="signal-lines"><i /><i /><i /><i /></span>

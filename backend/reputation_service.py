@@ -4799,6 +4799,7 @@ async def fees_public():
 
 # ---- Holder themes: $1k+ in the FEELESS ecosystem recolors the logo + the whole site ----------
 THEME_MIN_USD = 1000.0
+POOL_BUILDER_MIN_USD = 5000.0
 THEMES_PATH = DATA_DIR / 'themes.json'
 _HEX = _re.compile(r'^#[0-9a-fA-F]{6}$')
 
@@ -4820,7 +4821,12 @@ async def theme_get(address: str):
     a = primary_of(address)
     held = await _eco_holding_usd(a)
     saved = _json_load(THEMES_PATH, {}).get(a)
-    return {'address': a, 'holdingUsd': held, 'minUsd': THEME_MIN_USD, 'eligible': held >= THEME_MIN_USD,
+    if held >= POOL_BUILDER_MIN_USD:
+        seen = _json_load(DATA_DIR / 'perk_notices.json', {})
+        if not seen.get(a):
+            seen[a] = time.time(); _json_save(DATA_DIR / 'perk_notices.json', seen)
+            notify(a, 'perk', f'🏗 Pool builder unlocked — you hold ${held:,.0f} of $FEE coins. Open your profile to build pools.', f'/terminal/profile/{a}', a)
+    return {'address': a, 'holdingUsd': held, 'poolBuilder': held >= POOL_BUILDER_MIN_USD, 'minUsd': THEME_MIN_USD, 'eligible': held >= THEME_MIN_USD,
             'theme': saved if held >= THEME_MIN_USD else None}
 
 
@@ -5718,7 +5724,7 @@ async def token_search(q: str = Query(..., min_length=1, max_length=64)):
 @app.get('/api/reputation/admin/is-admin/{address}')
 async def is_admin(address: str):
     """Public yes/no so the UI can show admin controls. Every admin action still needs a signed session."""
-    return {'admin': address in _admin_wallets()}
+    return {'admin': address in _admin_wallets(), 'owner': address in _owner_wallets()}
 
 
 
@@ -5756,3 +5762,36 @@ SETUP_KEYS = [
 async def admin_setup(request: Request):
     _require_admin(request)
     return {'keys': [{'key': k, 'name': n, 'why': w, 'required': req, 'set': bool(os.environ.get(k, '').strip())} for k, n, w, req in SETUP_KEYS]}
+
+
+
+# ---- Treasury routing: where FEELESS fee earnings go (addresses you control — never keys) --------
+ROUTES_PATH = DATA_DIR / 'treasury_routes.json'
+
+
+class RoutesPayload(BaseModel):
+    routes: list
+
+
+@app.get('/api/reputation/admin/treasury/routes')
+async def routes_get(request: Request):
+    _require_admin(request)
+    return _json_load(ROUTES_PATH, {'routes': []})
+
+
+@app.put('/api/reputation/admin/treasury/routes')
+async def routes_set(request: Request, p: RoutesPayload):
+    me = _require_admin(request)
+    if me not in _owner_wallets():
+        raise HTTPException(403, 'Only the FEELESS owner wallet can change treasury routing.')
+    clean = []
+    for r in p.routes[:10]:
+        addr = str(r.get('address', '')).strip(); pct = float(r.get('pct') or 0)
+        if not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', addr) or _re.match(r'^0x[0-9a-fA-F]{40}$', addr)) or not (0 < pct <= 100):
+            raise HTTPException(400, 'Each route needs a valid wallet address and a % between 0 and 100.')
+        clean.append({'label': str(r.get('label', ''))[:40], 'address': addr, 'pct': round(pct, 2)})
+    if clean and abs(sum(r['pct'] for r in clean) - 100) > 0.01:
+        raise HTTPException(400, 'Route percentages must add up to 100%.')
+    _json_save(ROUTES_PATH, {'routes': clean, 'updatedBy': me, 'at': time.time()})
+    ad = _admin_load(); _audit(ad, me, 'treasury-routes', f"{len(clean)} routes"); _admin_save(ad)
+    return {'ok': True, 'routes': clean}

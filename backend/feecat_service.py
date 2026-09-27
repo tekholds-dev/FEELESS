@@ -100,7 +100,7 @@ async def _safety(http, p):
         _intel_cache[mint] = (time.time(), d)
     if not d or d.get('top10Pct') is None:
         return False, 'no holder intel yet', 0
-    R = RULES
+    R = {**RULES, **_ENTRY_TUNE}
     snip, bund = len(d.get('sniperWallets') or []), len(d.get('bundledWallets') or [])
     checks = [(_num(d.get('top10Pct')) <= R['maxTop10Pct'], f"top 10 wallets hold {_num(d.get('top10Pct')):.0f}%"),
               (_num(d.get('insidersHoldingPct')) <= R['maxInsiderPct'], f"insiders hold {_num(d.get('insidersHoldingPct')):.0f}%"),
@@ -169,7 +169,7 @@ def _qualifies(p, now):
     tx = (p.get('txns') or {}).get('h1') or {}
     buys, sells = _num(tx.get('buys')), _num(tx.get('sells'))
     age_h = (now * 1000 - _num(p.get('pairCreatedAt'), now * 1000)) / 3_600_000
-    R = RULES
+    R = {**RULES, **_ENTRY_TUNE}
     checks = [(liq >= R['minLiquidity'], 'liquidity'), (vol >= R['minVolume24h'], 'volume'),
               (R['minMarketCap'] <= mc <= R['maxMarketCap'], 'market cap band'), (age_h >= R['minAgeHours'], 'too new'),
               (m5 > 0, '5m momentum'), (m5 <= R['maxM5Chase'], 'chasing a 5m spike'), (R['h1Min'] <= h1 <= R['h1Max'], '1h move'), (0 < h6 <= R['h6Max'], '6h trend'),
@@ -193,7 +193,7 @@ def _buy_analysis(p, size, sym, safety='', conviction=1.0):
     b, s = _num(tx.get('buys')), _num(tx.get('sells'))
     liq, mc, vol = _num((p.get('liquidity') or {}).get('usd')), _num(p.get('marketCap') or p.get('fdv')), _num((p.get('volume') or {}).get('h24'))
     age_h = (time.time() * 1000 - _num(p.get('pairCreatedAt'), time.time() * 1000)) / 3_600_000
-    R = RULES
+    R = {**RULES, **_ENTRY_TUNE}
     return (f"🐱 Fee is buying ${sym} — {size} SOL (paper trade, live price).\n\n"
             f"Why this one passed every rule:\n"
             f"• Order flow: {b:.0f} buys vs {s:.0f} sells in the last hour ({(b / max(b + s, 1)) * 100:.0f}% buys) — buyers are in control.\n"
@@ -208,6 +208,55 @@ def _buy_analysis(p, size, sym, safety='', conviction=1.0):
 
 
 LEARN_BOUNDS = {'trailGive': (8, 16), 'runnerTrailGive': (6, 14), 'takeProfit': (22, 45), 'scaleOutFraction': (0.33, 0.5)}
+
+
+# ---- Hourly entry tuning (bounded): tighten after a bad day, freeze + study after a good one -----
+ENTRY_BOUNDS = {'minLiquidity': (40_000, 150_000), 'maxM5Chase': (3, 12), 'maxSnipers': (5, 20), 'maxTop10Pct': (20, 40)}
+_ENTRY_TUNE: dict = {}
+
+
+def _tune_entries(store):
+    cat = store['cats'].get(LEADER_ID)
+    if not cat:
+        return
+    L = cat.setdefault('learn', {'params': {}, 'log': [], 'missed': 0, 'good': 0})
+    E = {**{k: RULES[k] for k in ENTRY_BOUNDS}, **(L.get('entry') or {})}
+    day = [e for e in cat.get('exits', []) if time.time() - e['exitAt'] < 86400 and e.get('pnlSol') is not None]
+    note = None
+    if len(day) < 4:
+        mode = 'warming'
+    else:
+        wins = [e for e in day if e['pnlSol'] > 0]; wr = len(wins) / len(day); net = sum(e['pnlSol'] for e in day)
+        if wr < 0.4:
+            mode = 'tightening'
+            E['minLiquidity'] = round(E['minLiquidity'] * 1.15)
+            E['maxM5Chase'] -= 1; E['maxSnipers'] -= 2; E['maxTop10Pct'] -= 3
+            note = f"24h win rate {wr:.0%} over {len(day)} trades — tightening entries."
+        elif wr >= 0.6 and net > 0:
+            mode = 'studying'
+            L['study'] = {'at': time.time(), 'winRate': round(wr * 100), 'netSol': round(net, 4), 'winners': [{'symbol': e['symbol'], 'why': e.get('why'), 'change': e.get('changeAtExit')} for e in wins[:10]]}
+            note = f"24h win rate {wr:.0%} (+{net:.3f} SOL) — freezing settings and studying {len(wins)} winners."
+        else:
+            mode = 'steady'
+            for k in ENTRY_BOUNDS:
+                E[k] = round(E[k] + (RULES[k] - E[k]) * 0.25)
+    for k, (lo, hi) in ENTRY_BOUNDS.items():
+        E[k] = max(lo, min(hi, E[k]))
+    L['entry'] = E; L['mode'] = mode; L['tunedAt'] = time.time()
+    _ENTRY_TUNE.clear(); _ENTRY_TUNE.update(E)
+    if note:
+        L['log'].insert(0, {'at': time.time(), 'note': note, 'symbol': '', 'missed': mode == 'tightening'}); L['log'] = L['log'][:40]
+        _log_event(store, cat, 'LEARN', note)
+
+
+async def _tune_loop():
+    await asyncio.sleep(30)
+    while True:
+        try:
+            store = _load(); _tune_entries(store); _save(store)
+        except Exception as exc:
+            print('tune error', exc)
+        await asyncio.sleep(3600)
 
 
 def _params(cat):
@@ -473,6 +522,7 @@ app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ
 @app.on_event('startup')
 async def _start_engine():
     asyncio.create_task(_engine_loop())
+    asyncio.create_task(_tune_loop())
 
 
 @app.get('/api/cats/brains')
@@ -665,6 +715,7 @@ async def cat_profile(cat_id: str):
         'trades': trades[:80],
         'exits': list(reversed(cat.get('exits', [])))[:30],
         'learning': {'params': {**{k: RULES[k] for k in LEARN_BOUNDS}, **(learn.get('params') or {})}, 'defaults': {k: RULES[k] for k in LEARN_BOUNDS},
+                     'entry': {**{k: RULES[k] for k in ENTRY_BOUNDS}, **(learn.get('entry') or {})}, 'mode': learn.get('mode', 'warming'), 'tunedAt': learn.get('tunedAt'), 'study': learn.get('study'),
                      'missed': learn.get('missed', 0), 'good': learn.get('good', 0), 'log': learn.get('log', [])},
         'rules': {k: RULES[k] for k in ('stopLoss', 'breakEvenArm', 'maxHoldHours', 'maxTop10Pct', 'maxInsiderPct', 'maxSnipers', 'maxBundled', 'maxM5Chase')},
     }
