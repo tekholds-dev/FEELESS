@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { ArrowLeftRight, Fuel, Repeat, ShieldCheck } from 'lucide-react';
 import { useWallet } from '../../hooks/useWallet';
 import { apiUrl } from '../../lib/api';
+import { EdgeScore } from '../terminal/EdgeScore';
 
 // The trade desk: Swap (the existing Jupiter/LI.FI flows), Bridge (any EVM chain -> any EVM chain)
 // and Get Gas (turn what you hold on one chain into gas on another). Non-custodial throughout:
@@ -130,4 +131,32 @@ export function TradeDesk({ swap }) {
     {mode === 'bridge' && <Bridge />}
     {mode === 'gas' && <GetGas />}
   </section>;
+}
+
+// Live status of everything a trade touches — so users know it's healthy before they sign.
+function StatusStrip() {
+  const [st, setSt] = useState({});
+  useEffect(() => {
+    let alive = true;
+    const ping = async (k, url, ok) => { const t = performance.now(); try { const r = await fetch(url); const d = await r.json().catch(() => ({})); if (alive) setSt(x => ({ ...x, [k]: { up: r.ok && ok(d), ms: Math.round(performance.now() - t) } })); } catch { if (alive) setSt(x => ({ ...x, [k]: { up: false } })); } };
+    const run = () => { ping('swap', apiUrl('/api/trading/status'), d => d.execution_ready); ping('bridge', 'https://li.quest/v1/chains?chainTypes=EVM', d => Array.isArray(d.chains)); ping('data', apiUrl('/api/reputation/site'), () => true); };
+    run(); const t = setInterval(run, 30000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+  const chip = (k, label) => { const s = st[k]; return <span key={k} className={`td-status ${s ? (s.up ? 'up' : 'down') : ''}`}><i />{label}{s?.up && s.ms ? ` · ${s.ms}ms` : s && !s.up ? ' · down' : ''}</span>; };
+  return <div className="td-statuses" data-testid="td-status">{chip('swap', 'Solana swaps')}{chip('bridge', 'Bridge routes')}{chip('data', 'FEELESS data')}</div>;
+}
+
+// Simple trade page: one swap box, optional Edge score, a little context. Nothing else.
+export function SimpleTrade({ swap, pair }) {
+  return <div className="trade-simple" data-testid="trade-simple">
+    <StatusStrip />
+    <TradeDesk swap={swap} />
+    {pair && <details className="td-edge"><summary>FEELESS Edge score for ${pair.baseToken?.symbol || 'this coin'}</summary><EdgeScore pair={pair} /></details>}
+    <div className="td-info">
+      <div><b>Swap</b><span>Best route across Solana DEXs (Jupiter) or any EVM chain (LI.FI). You see the exact output, price impact and fees before signing.</span></div>
+      <div><b>Bridge</b><span>Move native coins or USDC between 12 EVM chains. Most routes land in 1–5 minutes.</span></div>
+      <div><b>Gas</b><span>Empty on a chain? FEELESS turns coin you already hold elsewhere into gas there — one route, one signature.</span></div>
+    </div>
+  </div>;
 }
