@@ -405,7 +405,7 @@ export default function MetaLaunchSetup({ initialValues }) {
     registered.current = true;
     fetch(apiUrl('/api/reputation/feeless-launch'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chain: 'solana', wallet: wallet.address, mint: deployment.mint, symbol: form.symbol, signature: deployment.signature }) }).catch(() => {});
-  }, [deployment.state, deployment.mint, wallet?.address, form.symbol]);
+  }, [deployment.state, deployment.mint, deployment.signature, wallet?.address, form.symbol]);
   const goStep = n => { setLaunchStep(n); if (typeof window !== 'undefined') window.scrollTo?.({ top: 0, behavior: 'smooth' }); };
   const stepOf = key => STEP_ONE_KEYS.includes(key) ? 1 : STEP_TWO_KEYS.includes(key) ? 2 : 3;
   const nextStep = () => {

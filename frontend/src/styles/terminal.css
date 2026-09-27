@@ -3274,3 +3274,5 @@ body.theme-day .crop-card{background:#fff;border-color:#cfe3d8}
 .rail-form input{font-variant-numeric:tabular-nums}
 .rail-kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:8px 0}
 .rail-kv span{display:grid;gap:2px;padding:8px 10px;border-radius:10px;background:#ffffff08}.rail-kv small{font-size:10px;color:var(--muted)}.rail-kv b{font:700 14px 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
+.pool-creator .pool-lock{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr;gap:2px 8px;align-items:center}.pool-lock small{grid-column:2}
+.pool-creator .cc-sig{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px}

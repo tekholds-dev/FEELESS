@@ -1,3 +1,4 @@
+import { PoolCreator } from './PoolCreator';
 import { LaunchRailAdmin } from './LaunchRailAdmin';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -365,12 +366,6 @@ function FeeCatPanel({ call }) {
   </section>;
 }
 
-function SetupChecklist({ call }) {
-  const [keys, setKeys] = useState(null);
-  useEffect(() => { call('/admin/setup').then(d => setKeys(d.keys)).catch(() => setKeys([])); }, [call]);
-  return <div className="cc-block"><h4>Setup checklist</h4><small className="cc-empty">Keys live in backend/.env — only whether each is set is shown here, never the value.</small>
-    <div className="setup-keys">{(keys || []).map(k => <div key={k.key} className={k.set ? 'ok' : k.required ? 'bad' : 'opt'}><i>{k.set ? '✓' : k.required ? '✗' : '○'}</i><b>{k.name}</b><code>{k.key}</code><small>{k.why}</small></div>)}</div></div>;
-}
 function PoolsPanel({ call }) {
   const [mints, setMints] = useState({});
   const [pools, setPools] = useState([]);
@@ -382,7 +377,7 @@ function PoolsPanel({ call }) {
   const copy = v => navigator.clipboard?.writeText(v).then(() => toast.success('Copied'));
   const verify = async () => { setFound(null); try { const d = await (await fetch(`https://api.dexscreener.com/latest/dex/pairs/solana/${check.trim()}`)).json(); setFound(d.pairs?.[0] || false); } catch { setFound(false); } };
   return <section className="cc-panel">
-    <p className="cc-note">Create liquidity pools for your tokens on a real DEX. FEELESS never holds funds — the DEX's own page builds the transaction and your creator wallet signs it. Copy the mints below, create the pool, then verify it here.</p>
+    <PoolCreator defaultMint={mint || ''} />
     <div className="cc-toolbar"><select value={asset} onChange={e => setAsset(e.target.value)}>{Object.keys(mints).map(k => <option key={k} value={k}>{k.toUpperCase()}</option>)}</select>{mint && <><code className="pool-mint">{mint}</code><button type="button" onClick={() => copy(mint)}>Copy mint</button><button type="button" onClick={() => copy('So11111111111111111111111111111111111111112')}>Copy SOL mint</button></>}</div>
     <ol className="launch-steps">{LAUNCH_STEPS.map((t, i) => <li key={t}><b>{i + 1}</b><span>{t}</span></li>)}</ol>
     <h4 className="cc-sub">Coin maker</h4>
@@ -392,7 +387,6 @@ function PoolsPanel({ call }) {
     <div className="cc-block"><h4>Verify a new pool</h4><div className="cc-toolbar"><input placeholder="Paste the new pool / pair address" value={check} onChange={e => setCheck(e.target.value)} /><button type="button" className="btn-primary" onClick={verify}>Verify</button></div>
       {found === false && <small className="cc-empty">Not indexed yet — DexScreener usually picks up new pools within a few minutes.</small>}
       {found && <div className="cc-sig"><span>✅ {found.baseToken.symbol}/{found.quoteToken.symbol} on {found.dexId}</span><b>{formatUSD(found.liquidity?.usd)} liq</b></div>}</div>
-    <SetupChecklist call={call} />
     <div className="cc-block"><h4>Live pools for {asset.toUpperCase()}</h4>{!pools.length ? <small className="cc-empty">No pools indexed.</small> : pools.map(p => <div key={p.pairAddress} className="cc-sig"><a href={`/terminal/coin/solana/${p.pairAddress}`} target="_blank" rel="noopener noreferrer">{p.baseToken.symbol}/{p.quoteToken.symbol} · {p.dexId}</a><span>vol {formatUSD(p.volume?.h24)}</span><b>{formatUSD(p.liquidity?.usd)}</b></div>)}</div>
   </section>;
 }

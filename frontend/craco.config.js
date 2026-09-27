@@ -128,6 +128,11 @@ let webpackConfig = {
         ],
       };
 
+      // Meteora's SDK ships .mjs files that import extensionless paths; allow that for .mjs only.
+      webpackConfig.module.rules.push({ test: /\.m?js$/, include: /node_modules[\\/]@meteora-ag/, resolve: { fullySpecified: false } });
+      // Anchor only requires Node's 'util' on its non-browser branch; browsers use TextEncoder/Decoder.
+      webpackConfig.resolve.fallback = { ...webpackConfig.resolve.fallback, util: false };
+
       // Add health check plugin to webpack if enabled
       if (config.enableHealthCheck && healthPluginInstance) {
         webpackConfig.plugins.push(healthPluginInstance);
@@ -143,6 +148,7 @@ let webpackConfig = {
         sourceMapRule.exclude = [
           ...(Array.isArray(sourceMapRule.exclude) ? sourceMapRule.exclude : sourceMapRule.exclude ? [sourceMapRule.exclude] : []),
           /node_modules[\\/]@solana[\\/]buffer-layout/,
+          /node_modules[\\/]@coral-xyz/,
           /node_modules[\\/]superstruct/,
         ];
       }

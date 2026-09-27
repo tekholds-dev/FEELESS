@@ -5,10 +5,15 @@ import { apiUrl } from './api';
 // mint addresses, which sign once to prove the address and are then discarded.
 export const RAIL_DEFAULTS = { initialMarketCap: 30, migrationMarketCap: 500, startingFeeBps: 5000, endingFeeBps: 100, feeDecayMin: 5, creatorFeePct: 50, lockedLpPct: 100, supply: 1_000_000_000 };
 
-async function sdk() {
-  const [web3, dbc, { Buffer }] = await Promise.all([import('@solana/web3.js'), import('@meteora-ag/dynamic-bonding-curve-sdk'), import('buffer')]);
+// Solana connection through the server's allowlisted relay, so the RPC key never reaches the browser.
+export async function relayConnection() {
+  const [web3, { Buffer }] = await Promise.all([import('@solana/web3.js'), import('buffer')]);
   if (typeof window !== 'undefined' && !window.Buffer) window.Buffer = Buffer;
-  const connection = new web3.Connection(`${window.location.origin}${apiUrl('/api/reputation/rpc')}`, { commitment: 'confirmed', disableRetryOnRateLimit: true });
+  return { web3, connection: new web3.Connection(`${window.location.origin}${apiUrl('/api/reputation/rpc')}`, { commitment: 'confirmed', disableRetryOnRateLimit: true }) };
+}
+
+async function sdk() {
+  const [{ web3, connection }, dbc] = await Promise.all([relayConnection(), import('@meteora-ag/dynamic-bonding-curve-sdk')]);
   return { web3, dbc, connection, client: new dbc.DynamicBondingCurveClient(connection, 'confirmed') };
 }
 
@@ -29,7 +34,7 @@ export function curveFor(dbc, p = RAIL_DEFAULTS) {
   });
 }
 
-async function signSend(web3, connection, provider, tx, payer, extraSigners, onStatus) {
+export async function signSend(web3, connection, provider, tx, payer, extraSigners, onStatus) {
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
   tx.feePayer = payer; tx.recentBlockhash = blockhash;
   // Dry-run first: nothing is signed if the chain would reject it.
