@@ -10,6 +10,24 @@ import { computeFeeRead } from './FeeLiveRead';
 
 const LIVE_INTERVAL_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 };
 
+// Drop bars that can't be real (e.g. a quote-token price recorded as the coin's) and clamp
+// runaway wicks, so one bad print never flattens the whole chart.
+export function scrubCandles(rows) {
+  if (rows.length < 3) return rows;
+  const closes = rows.map(r => r[4]).filter(v => v > 0).sort((a, b) => a - b);
+  const med = closes[Math.floor(closes.length / 2)];
+  if (!(med > 0)) return rows;
+  const out = [];
+  for (const r of rows) {
+    const [t, o, h, l, c, v] = r;
+    const prev = out.length ? out[out.length - 1][4] : med;
+    if (!(c > 0) || c > prev * 25 || c < prev / 25) continue;
+    const top = Math.max(o, c); const bot = Math.min(o, c);
+    out.push([t, o > 0 && o < c * 25 && o > c / 25 ? o : c, Math.min(h, top * 4), Math.max(l, bot / 4) || bot, c, v]);
+  }
+  return out.length >= 2 ? out : rows;
+}
+
 export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive = false, userEntry = null }) => {
   const container = useRef(null);
   const seriesRef = useRef(null);
@@ -87,7 +105,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     return points.map(pt => ({ time: Math.floor(pt.t / 1000), value: pt.p * ratio }))
       .filter((pt, i, arr) => i === 0 || pt.time !== arr[i - 1].time);
   }, [usingFallbackTrail, pair?.pairAddress, ratio]);
-  const baseCandles = useMemo(() => candleRows.length ? candleRows : usingFeelessCandles ? allFeeless : [], [candleRows, usingFeelessCandles, allFeeless]);
+  const baseCandles = useMemo(() => scrubCandles(candleRows.length ? candleRows : usingFeelessCandles ? allFeeless : []), [candleRows, usingFeelessCandles, allFeeless]);
   const displayCandles = useMemo(() => ratio === 1 ? baseCandles : baseCandles.map(([t, o, h, l, c, v]) => [t, o * ratio, h * ratio, l * ratio, c * ratio, v]), [baseCandles, ratio]);
   const hasChart = displayCandles.length > 0 || trail.length >= 2;
   useEffect(() => {
@@ -217,8 +235,12 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     const clear = () => { priceLinesRef.current.forEach(l => { try { ref?.series.removePriceLine(l); } catch { /* chart gone */ } }); priceLinesRef.current = []; };
     clear();
     if (!ref || !feeRead) return clear;
+    const seen = displayCandles.slice(-300);
+    const band = seen.length ? { lo: Math.min(...seen.map(c => c[3])), hi: Math.max(...seen.map(c => c[2])) } : null;
     const add = (price, color, title, style = 2) => {
       if (!Number.isFinite(price) || price <= 0) return;
+      // A level 3x outside the visible range would squash every candle into a flat line.
+      if (band && (price < band.lo / 3 || price > band.hi * 3)) return;
       try { priceLinesRef.current.push(ref.series.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title })); }
       catch { /* chart torn down between render and effect */ }
     };
@@ -260,6 +282,8 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
         const ref = seriesRef.current;
         const last = lastBarRef.current;
         if (!ref || !last) return;
+        const ref0 = last.close ?? last.value;
+        if (ref0 > 0 && !(value > ref0 / 20 && value < ref0 * 20)) return; // bad read, not a real 1s move
         const t = Math.floor(Date.now() / 1000 / bucket) * bucket;
         if (ref.kind === 'candle') {
           const bar = t > last.time ? { time: t, open: last.close, high: Math.max(last.close, value), low: Math.min(last.close, value), close: value }

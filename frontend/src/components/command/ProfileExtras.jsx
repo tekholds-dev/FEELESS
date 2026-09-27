@@ -106,9 +106,9 @@ export function SocialStrip({ address, mine }) {
   };
   const s = trust?.score; const pct = s == null ? 0 : s;
   return <div className="social-strip" data-testid="social-strip">
-    <button type="button" className={`trust-ring lvl-${trust?.level || 'unknown'}`} onClick={() => setOpen(o => !o)} title="Trust score — tap for the breakdown" data-testid="trust-ring">
-      <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="19" /><circle cx="22" cy="22" r="19" className="arc" style={{ strokeDasharray: `${(pct / 100) * 119.4} 119.4` }} /></svg>
-      <b>{s ?? '—'}</b><small>trust</small>
+    <button type="button" className={`trust-ring lvl-${trust?.level || 'unknown'}${trust ? '' : ' loading'}`} aria-busy={!trust} onClick={() => setOpen(o => !o)} title="Trust score — tap for the breakdown" data-testid="trust-ring">
+      <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="18" /><circle cx="22" cy="22" r="18" className="arc" style={{ strokeDasharray: trust ? `${(pct / 100) * 113.1} 113.1` : '28 113.1' }} /></svg>
+      <span className="tr-num"><b>{trust ? (s ?? '—') : ''}</b><small>trust</small></span>
     </button>
     <div className="follow-counts"><span><b>{f?.followers ?? 0}</b> {f?.followers === 1 ? "follower" : "followers"}</span><span><b>{f?.following ?? 0}</b> following</span></div>
     {!mine && <button type="button" className={f?.viewerFollows ? 'btn-outline' : 'btn-primary'} data-testid="follow-btn" onClick={toggle}>{f?.viewerFollows ? 'Following' : 'Follow'}</button>}

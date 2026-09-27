@@ -656,6 +656,11 @@ async def _push_price(key, chain, pair, mint):
         return
     st['last'] = time.time()
     px = await _stream_price(mint)
+    # Sanity gate: a tick 20x away from the last accepted price is a bad read (wrong token, quote-side
+    # price), never a real move inside one second. Dropping it keeps charts and stored bars clean.
+    prev = st['price']
+    if px and prev and not (prev / 20 < px < prev * 20):
+        return
     if px and px != st['price']:
         st['price'] = px
         await _broadcast(key, _json.dumps({'p': px, 't': time.time()}))
@@ -670,7 +675,9 @@ async def _push_price(key, chain, pair, mint):
 
 async def _upstream(key, chain, pair):
     import websockets
-    mint = await _pair_base_token(chain, pair) or pair
+    mint = await _pair_base_token(chain, pair)
+    if not mint or mint == 'So11111111111111111111111111111111111111112':
+        return  # unknown base token: clients keep their polling path rather than risk a wrong price
     url = os.environ.get('PRICE_STREAM_WS_URL', '').strip()
     await _push_price(key, chain, pair, mint)
     backoff = 1
