@@ -3153,3 +3153,19 @@ body.theme-day .swap-review-hero,body.theme-day .srh-clock em{background:#fff}bo
 .badge-flip-hint{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:10.5px;color:rgba(255,255,255,.75);text-shadow:0 1px 4px #000}
 @media(prefers-reduced-motion:reduce){.badge-flip{transition:none;animation:none}}
 .copy-btn{display:inline-grid;place-items:center;width:22px;height:22px;margin-left:4px;border:0;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;vertical-align:middle;transition:color .2s,background .2s}.copy-btn:hover{color:var(--mint);background:rgba(0,233,160,.1)}.copy-btn.done{color:var(--mint)}
+/* Alpha rooms */
+.alpha-rooms{display:grid;gap:10px;margin:12px 0}.alpha-rooms>header{display:flex;justify-content:space-between;align-items:baseline;gap:10px}.alpha-rooms h3{margin:0}.alpha-rooms header small{color:var(--muted)}
+.alpha-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.alpha-card{--c:#cd7f32;position:relative;overflow:hidden;display:grid;gap:5px;text-align:left;padding:14px;border-radius:16px;border:1px solid color-mix(in srgb,var(--c) 45%,transparent);background:radial-gradient(120% 90% at 0% 0%,color-mix(in srgb,var(--c) 16%,transparent),transparent 60%),#070a09;color:inherit;cursor:pointer;transition:transform .2s,box-shadow .2s}
+.alpha-card.tier-1{--c:#cfd8dc}.alpha-card.tier-2{--c:#f5c542}.alpha-card.tier-3{--c:#ff5ad1}
+.alpha-card b{font-size:15px}.alpha-card small{color:var(--muted);font-size:11.5px;line-height:1.4}.alpha-card em{font-style:normal;font-size:11px;color:var(--c)}
+.alpha-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--c)}
+.alpha-card.unlocked:hover{transform:translateY(-3px);box-shadow:0 10px 30px color-mix(in srgb,var(--c) 30%,transparent)}
+.alpha-card.unlocked::after{content:'';position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,color-mix(in srgb,var(--c) 22%,transparent) 50%,transparent 70%);background-size:250% 100%;animation:alpha-shine 3.2s linear infinite;pointer-events:none}
+@keyframes alpha-shine{from{background-position:150% 0}to{background-position:-100% 0}}
+.alpha-card.locked{cursor:default;filter:saturate(.6)}.alpha-card.locked .alpha-icon{animation:alpha-lock 3s ease-in-out infinite}
+@keyframes alpha-lock{0%,90%,100%{transform:none}93%{transform:rotate(-12deg)}96%{transform:rotate(10deg)}}
+.alpha-card.active{box-shadow:0 0 0 2px var(--c)}
+.alpha-bar{display:block;height:5px;border-radius:5px;background:rgba(255,255,255,.08);overflow:hidden}.alpha-bar>i{display:block;height:100%;background:var(--c)}
+.alpha-room-chat{border-radius:16px;border:1px solid rgba(255,255,255,.1);padding:10px;display:grid;gap:8px;max-height:520px;min-height:320px}.alpha-room-chat header{display:flex;justify-content:space-between;align-items:center}
+@media(prefers-reduced-motion:reduce){.alpha-card::after,.alpha-card .alpha-icon{animation:none}}

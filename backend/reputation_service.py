@@ -2058,6 +2058,8 @@ async def chat_post(payload: ChatPost):
             raise HTTPException(401, 'Chat session expired — sign in to chat again.')
     elif not _verify_wallet(payload.address, _chat_message_to_sign(payload.room, payload.address, payload.ts, text), payload.signature):
         raise HTTPException(401, 'Signature does not match this wallet.')
+    if payload.room in _ALPHA and not await _alpha_allowed(payload.room, payload.address):
+        raise HTTPException(403, f"{_ALPHA[payload.room]['name']} unlocks at ${_ALPHA[payload.room]['minUsd']:,} held in $FEE.")
     eg = await evm_gate(payload.room, payload.address)
     if eg and not eg['allowed']:
         raise HTTPException(403, f"{eg['symbol']} is an EVM coin — link or switch to your 0x account." if eg.get('needsChain') else f"Hold at least ${MIN_HOLD_USD:.0f} of {eg['symbol']} to chat here (you hold ${eg['holdingUsd'] or 0:.2f}).")
@@ -2141,8 +2143,43 @@ def chat_system_post(room: str, username: str, address: str, text: str, tokens=N
     return msg
 
 
+ALPHA_ROOMS = [{'id': 'alpha-100', 'name': '$100 Club', 'minUsd': 100, 'icon': '🥉', 'vibe': 'First look at FeeCat calls + early meta chatter'},
+               {'id': 'alpha-1k', 'name': '$1K Vault', 'minUsd': 1_000, 'icon': '🥈', 'vibe': 'Deeper calls, Shield intel, launch previews'},
+               {'id': 'alpha-10k', 'name': '$10K Council', 'minUsd': 10_000, 'icon': '🥇', 'vibe': 'Council votes, pool-builder strategy, direct line to the team'},
+               {'id': 'alpha-1m', 'name': '$1M Throne', 'minUsd': 1_000_000, 'icon': '👑', 'vibe': 'The throne room. Legends only.'}]
+_ALPHA = {r['id']: r for r in ALPHA_ROOMS}
+
+
+async def _fee_usd(address: str) -> float:
+    mint = (await _ecosystem_mints()).get('fee')
+    if not mint or not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address or ''):
+        return 0.0
+    try:
+        return round(await _holding_usd(address, mint) or 0, 2)
+    except Exception:
+        return 0.0
+
+
+async def _alpha_allowed(room: str, address: str) -> bool:
+    r = _ALPHA.get(room)
+    if not r:
+        return True
+    a = primary_of(address or '')
+    return bool(a) and (a in _admin_wallets() or await _fee_usd(a) >= r['minUsd'])
+
+
+@app.get('/api/reputation/alpha-rooms')
+async def alpha_rooms(address: str = ''):
+    held = await _fee_usd(primary_of(address)) if address else 0.0
+    admin = primary_of(address) in _admin_wallets() if address else False
+    d = _chat_load()
+    return {'holdingUsd': held, 'rooms': [{**r, 'unlocked': admin or held >= r['minUsd'], 'messages': len(d['rooms'].get(r['id'], []))} for r in ALPHA_ROOMS]}
+
+
 @app.get('/api/reputation/chat/{room}')
-async def chat_room(room: str):
+async def chat_room(room: str, session: str = ''):
+    if room in _ALPHA and not await _alpha_allowed(room, session_address(session) or ''):
+        raise HTTPException(403, f"{_ALPHA[room]['name']} unlocks at ${_ALPHA[room]['minUsd']:,} held in $FEE.")
     d = _chat_load()
     msgs = d['rooms'].get(room, [])[-120:]
     pin = (d.get('pins') or {}).get(room)

@@ -1,5 +1,6 @@
 import { TrendingCards, TrenchLanding, TrenchBar, HotCalls, LiveCalls, CallerBoard } from './TrenchesTools';
 import { LivePrice } from './LiveCells';
+import { AlphaRooms } from '../AlphaRooms';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, Radio, Rocket, Compass, Star, BarChart3, ArrowUpRight, CandlestickChart, Layers3 } from 'lucide-react';
@@ -95,7 +96,7 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair
       if (p) { selectPair(p); window.scrollTo?.({ top: 0, behavior: 'smooth' }); }
     } catch { /* keep current chart */ }
   };
-  if (!onFloor) return <div className="trenches-page trenches-lit" data-testid="trenches-page"><TrenchLanding ecosystemName={ecosystem.name} onEnter={() => setFloor(true)} /><AdBanner placement="trenches" /><RadarPanel compact /><TrendingCards pairs={[...pairs, ...newPairs.filter(n => !pairs.some(p => p.pairAddress === n.pairAddress))]} onPick={p => { selectPair(p); setFloor(true); }} /></div>;
+  if (!onFloor) return <div className="trenches-page trenches-lit" data-testid="trenches-page"><TrenchLanding ecosystemName={ecosystem.name} onEnter={() => setFloor(true)} /><AlphaRooms /><AdBanner placement="trenches" /><RadarPanel compact /><TrendingCards pairs={[...pairs, ...newPairs.filter(n => !pairs.some(p => p.pairAddress === n.pairAddress))]} onPick={p => { selectPair(p); setFloor(true); }} /></div>;
   return <div className="trenches-page trenches-lit trenches-floor" data-testid="trenches-page">
     <TrenchBar onAbout={() => setFloor(false)} />
     <div className={`trenches-grid ${wide ? 'is-wide' : ''}`}>

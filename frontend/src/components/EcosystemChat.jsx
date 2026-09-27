@@ -1,3 +1,4 @@
+import { readChatSession } from '../lib/chatSession';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, Flag, Heart, Link2, MessageCircle, Reply, Send, Trash2, UserRound, X } from 'lucide-react';
 import { formatTime } from '../lib/dexscreener';
@@ -142,7 +143,8 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
     setMessages([]); setLoading(true); setInput(''); setError('');
     const load = async () => {
       try {
-        const res = await fetch(apiUrl(`/api/reputation/chat/${encodeURIComponent(room)}`), { signal: controller.signal });
+        const alphaSession = room.startsWith('alpha-') && wallet?.address ? readChatSession(wallet.address) : null;
+        const res = await fetch(apiUrl(`/api/reputation/chat/${encodeURIComponent(room)}${alphaSession ? `?session=${encodeURIComponent(alphaSession)}` : ''}`), { signal: controller.signal });
         if (!res.ok) throw new Error();
         const data = await res.json();
         if (!controller.signal.aborted) { setMessages(data.messages); setPinned(data.pinned || null); setError(''); registerCalls(room, data.messages); }
