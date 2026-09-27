@@ -1,4 +1,5 @@
 import { WalletSwaps } from '../WalletSwaps';
+import { QuickTrade } from '../terminal/QuickTrade';
 import { SeasonVault } from '../SeasonBadges';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -66,6 +67,7 @@ export function WalletProfilePage({ address }) {
   const navigate = useNavigate();
   useEffect(() => { if (!address.startsWith('@')) return; fetch(apiUrl(`/api/reputation/resolve/${encodeURIComponent(address)}`)).then(r => (r.ok ? r.json() : null)).then(d => { if (d?.address) navigate(`/terminal/profile/${d.address}`, { replace: true }); }).catch(() => {}); }, [address, navigate]);
   const [flipped, setFlipped] = useState(false);
+  const [swapPair, setSwapPair] = useState(null);
   const [acts, setActs] = useState(null);
   useEffect(() => { if (!flipped || acts) return; fetch(apiUrl(`/api/reputation/activity/${address}`)).then(r => r.json()).then(setActs).catch(() => setActs({ posts: [] })); }, [flipped, acts, address]);
   // A linked 0x account shows its owner's main (Solana) profile — one identity on every network.
@@ -134,10 +136,11 @@ export function WalletProfilePage({ address }) {
     </div>
     <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />
     {!flipped && <PortfolioCard address={address} />}
+    {flipped && <PortfolioCard address={address} onSwap={mine ? setSwapPair : undefined} />}
+    {flipped && mine && swapPair && <section className="wp-card profile-swap" data-testid="profile-swap"><header><h3>Swap ${swapPair.baseToken.symbol}</h3><button type="button" className="btn-outline" onClick={() => setSwapPair(null)}>Close</button></header><QuickTrade pair={swapPair} /><small className="wp-bio">Signed in your wallet — FEELESS never holds funds. Trades into $FEE coins carry no FEELESS fee.</small></section>}
     {flipped && <RewardsCard address={address} mine={mine} />}
     {flipped && <PnlTracker address={address} />}
     {flipped && <WalletSwaps address={address} title="Swap history" />}
-    {flipped && <PortfolioCard address={address} />}
     {flipped && <SeasonVault address={address} />}
     {flipped && mine && <PointsShop address={address} />}
     {flipped && <section className="wp-card wp-activity" data-testid="profile-activity"><h3>Activity</h3>{!acts ? <p className="wp-bio">Loading…</p> : !acts.posts.length ? <p className="wp-bio">No posts yet.</p> : <div className="wpa-list">{acts.posts.map(a => <a key={a.id} className="wpa-row" href={a.room.startsWith('coin-') ? `/terminal/chat` : a.room.startsWith('wall-') ? `/terminal/profile/${a.room.slice(5)}` : '/terminal/chat'} target="_blank" rel="noopener noreferrer"><span className="wpa-room">{a.room.startsWith('wall-') ? '🧱 wall' : a.room.startsWith('coin-') ? `🪙 ${a.room.split('-').pop()}` : `# ${a.room}`}</span><p>{a.text}</p><time>{new Date(a.ts).toLocaleString()}</time></a>)}</div>}</section>}

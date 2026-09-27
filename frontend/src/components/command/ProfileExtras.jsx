@@ -56,7 +56,7 @@ export function SetupCallout({ profile, onEdit }) {
 }
 
 // Live portfolio: every coin held, with logos, values and links to each coin's profile.
-export function PortfolioCard({ address }) {
+export function PortfolioCard({ address, onSwap }) {
   const [d, setD] = useState(null);
   const [logos, setLogos] = useState({});
   const [showAll, setShowAll] = useState(false);
@@ -79,6 +79,7 @@ export function PortfolioCard({ address }) {
           <b>{t.symbol ? `$${t.symbol}` : `${t.mint.slice(0, 4)}…`}</b>
           <small>{t.amount >= 1e6 ? `${(t.amount / 1e6).toFixed(2)}M` : t.amount >= 1e3 ? `${(t.amount / 1e3).toFixed(1)}K` : t.amount.toFixed(2)}</small>
           <em>{fmt(t.usd)}{t.change24h != null && <i className={up ? 'positive' : 'negative'}> {up ? '+' : ''}{Number(t.change24h).toFixed(1)}%</i>}</em>
+          {onSwap && <button type="button" className="pf-swap" onClick={e => { e.preventDefault(); e.stopPropagation(); onSwap({ chainId: 'solana', pairAddress: pair || t.mint, priceUsd: t.amount ? String(t.usd / t.amount) : undefined, baseToken: { address: t.mint, symbol: t.symbol || t.mint.slice(0, 4) }, info: { imageUrl: logo } }); }}>Swap</button>}
         </a>; })}
     </div>
     {d.tokens.length > 11 && <button type="button" className="pf-more" onClick={() => setShowAll(v => !v)}>{showAll ? 'Show top holdings' : `Show all ${d.tokens.length + 1} holdings`}</button>}

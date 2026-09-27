@@ -2977,7 +2977,6 @@ body.theme-day .copy-trading form input{background:#fff}
 .badge-card dl{width:100%;display:grid;gap:6px;margin:6px 0}.badge-card dl div{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}.badge-card dt{color:var(--muted)}.badge-card dd{margin:0;text-align:right}
 .season-vault h3 small{font-weight:400;color:var(--muted);font-size:11px;margin-left:6px}
 .vault-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}.vault-grid button{display:grid;justify-items:center;gap:4px;padding:8px;border-radius:12px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);color:inherit;cursor:pointer}.vault-grid small{font-size:10px;color:var(--muted);text-align:center}
-@media(min-width:1280px){.wallet-profile-page>.season-vault{grid-column:1}}
 body.theme-day .badge-card{background:#fff}
 @media(prefers-reduced-motion:reduce){.badge-art .badge-halo{animation:none}}
 /* ===== DEGEN MODE: Seasons + Trenches ===== */
@@ -3014,3 +3013,8 @@ body.theme-day .badge-card{background:#fff}
 .se-actions{display:flex;gap:8px;justify-content:flex-end}
 @media(max-width:760px){.se-grid{grid-template-columns:1fr}.se-week{grid-template-columns:1fr 1fr}}
 @media(prefers-reduced-motion:reduce){.season-hero h1,.season-hero::after,.trench-landing-title,.trench-title,.lets-trench,.drop.live,.season-row.rank-1,.trench-landing-hero::after{animation:none}}
+/* Profile activity side: holdings + swap left, rewards + vault right */
+@media(min-width:1280px){.wallet-profile-page>.profile-swap{grid-column:1}.wallet-profile-page>.season-vault,.wallet-profile-page>.shop-card{grid-column:2}}
+.pf-swap{margin-top:6px;justify-self:start;padding:3px 10px;border-radius:999px;border:1px solid color-mix(in srgb,var(--wp-accent,#00e9a0) 45%,transparent);background:color-mix(in srgb,var(--wp-accent,#00e9a0) 12%,transparent);color:var(--wp-accent,#00e9a0);font-size:11px;font-weight:700;cursor:pointer}
+.pf-swap:hover{background:color-mix(in srgb,var(--wp-accent,#00e9a0) 22%,transparent)}
+.profile-swap header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.profile-swap h3{margin:0}.profile-swap small{display:block;margin-top:8px}
