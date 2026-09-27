@@ -1,5 +1,6 @@
 import { WalletSwaps } from '../WalletSwaps';
-import { QuickTrade } from '../terminal/QuickTrade';
+import { SwapWorkspace } from './SwapWorkspace';
+import { useMarket } from '../../hooks/useMarket';
 import { SeasonVault } from '../SeasonBadges';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -68,6 +69,7 @@ export function WalletProfilePage({ address }) {
   useEffect(() => { if (!address.startsWith('@')) return; fetch(apiUrl(`/api/reputation/resolve/${encodeURIComponent(address)}`)).then(r => (r.ok ? r.json() : null)).then(d => { if (d?.address) navigate(`/terminal/profile/${d.address}`, { replace: true }); }).catch(() => {}); }, [address, navigate]);
   const [flipped, setFlipped] = useState(false);
   const [swapPair, setSwapPair] = useState(null);
+  const [actTab, setActTab] = useState(null);
   const [acts, setActs] = useState(null);
   useEffect(() => { if (!flipped || acts) return; fetch(apiUrl(`/api/reputation/activity/${address}`)).then(r => r.json()).then(setActs).catch(() => setActs({ posts: [] })); }, [flipped, acts, address]);
   // A linked 0x account shows its owner's main (Solana) profile — one identity on every network.
@@ -81,6 +83,7 @@ export function WalletProfilePage({ address }) {
   const [myIds, setMyIds] = useState([]);
   useEffect(() => { if (!wallet?.address) { setMyIds([]); return; } fetch(apiUrl(`/api/reputation/identity/${wallet.address}`)).then(r => r.json()).then(d => setMyIds(d.linked || [])).catch(() => setMyIds([])); }, [wallet?.address]);
   const mine = wallet?.address === address || myIds.includes(address);
+  useEffect(() => { if (flipped && !actTab) setActTab(mine ? 'swap' : 'holdings'); if (actTab === 'swap' && !mine) setActTab('holdings'); }, [flipped, mine, actTab]);
   const [isAdmin, setIsAdmin] = useState(false);
   const perks = usePerks(address);
   const earned = useBadges(address);
@@ -136,14 +139,13 @@ export function WalletProfilePage({ address }) {
     </div>
     <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />
     {!flipped && <PortfolioCard address={address} />}
-    {flipped && <PortfolioCard address={address} onSwap={mine ? setSwapPair : undefined} />}
-    {flipped && mine && swapPair && <section className="wp-card profile-swap" data-testid="profile-swap"><header><h3>Swap ${swapPair.baseToken.symbol}</h3><button type="button" className="btn-outline" onClick={() => setSwapPair(null)}>Close</button></header><QuickTrade pair={swapPair} /><small className="wp-bio">Signed in your wallet — FEELESS never holds funds. Trades into $FEE coins carry no FEELESS fee.</small></section>}
-    {flipped && <RewardsCard address={address} mine={mine} />}
-    {flipped && <PnlTracker address={address} />}
-    {flipped && <WalletSwaps address={address} title="Swap history" />}
-    {flipped && <SeasonVault address={address} />}
-    {flipped && mine && <PointsShop address={address} />}
-    {flipped && <section className="wp-card wp-activity" data-testid="profile-activity"><h3>Activity</h3>{!acts ? <p className="wp-bio">Loading…</p> : !acts.posts.length ? <p className="wp-bio">No posts yet.</p> : <div className="wpa-list">{acts.posts.map(a => <a key={a.id} className="wpa-row" href={a.room.startsWith('coin-') ? `/terminal/chat` : a.room.startsWith('wall-') ? `/terminal/profile/${a.room.slice(5)}` : '/terminal/chat'} target="_blank" rel="noopener noreferrer"><span className="wpa-room">{a.room.startsWith('wall-') ? '🧱 wall' : a.room.startsWith('coin-') ? `🪙 ${a.room.split('-').pop()}` : `# ${a.room}`}</span><p>{a.text}</p><time>{new Date(a.ts).toLocaleString()}</time></a>)}</div>}</section>}
+    {flipped && <nav className="wp-act-tabs" data-testid="activity-tabs">{[mine && ['swap', 'Swap'], ['holdings', 'Holdings'], ['history', 'Swap history'], ['posts', 'Posts'], ['rewards', 'Rewards'], ['vault', 'Vault']].filter(Boolean).map(([k, l]) => <button key={k} type="button" className={actTab === k ? 'active' : ''} onClick={() => setActTab(k)}>{l}</button>)}</nav>}
+    {flipped && actTab === 'swap' && mine && <section className="wp-card profile-swap" data-testid="profile-swap"><ProfileSwapBox pair={swapPair} /><small className="wp-bio">Signed in your own wallet — FEELESS never holds funds. Trades into $FEE coins carry no FEELESS fee.</small></section>}
+    {flipped && actTab === 'holdings' && <PortfolioCard address={address} onSwap={mine ? pr => { setSwapPair(pr); setActTab('swap'); } : undefined} />}
+    {flipped && actTab === 'history' && <><WalletSwaps address={address} title="Swap history" /><PnlTracker address={address} /></>}
+    {flipped && actTab === 'posts' && <section className="wp-card wp-activity" data-testid="profile-activity"><h3>Activity</h3>{!acts ? <p className="wp-bio">Loading…</p> : !acts.posts.length ? <p className="wp-bio">No posts yet.</p> : <div className="wpa-list">{acts.posts.map(a => <a key={a.id} className="wpa-row" href={a.room.startsWith('coin-') ? `/terminal/chat` : a.room.startsWith('wall-') ? `/terminal/profile/${a.room.slice(5)}` : '/terminal/chat'} target="_blank" rel="noopener noreferrer"><span className="wpa-room">{a.room.startsWith('wall-') ? '🧱 wall' : a.room.startsWith('coin-') ? `🪙 ${a.room.split('-').pop()}` : `# ${a.room}`}</span><p>{a.text}</p><time>{new Date(a.ts).toLocaleString()}</time></a>)}</div>}</section>}
+    {flipped && actTab === 'rewards' && <><RewardsCard address={address} mine={mine} />{mine && <PointsShop address={address} />}</>}
+    {flipped && actTab === 'vault' && <SeasonVault address={address} />}
     <div className={`wp-flip-body ${flipped ? 'is-flipped' : ''}`}>
     {mine && !edit && data && <SetupCallout profile={data.profile} onEdit={startEdit} />}
     <div className="wp-grid">
@@ -195,4 +197,12 @@ export function WalletProfilePage({ address }) {
     </div>
     <div className="wp-foot"><ReportBug address={wallet?.address} /></div>
   </div>;
+}
+
+// Your own swap desk inside your profile: any Solana coin to any coin, prefilled when you tap Swap
+// on a holding. Same non-custodial Jupiter flow as the Trade tab — your wallet signs every trade.
+function ProfileSwapBox({ pair }) {
+  const assets = useMarket('/assets', 300000);
+  const feeAssets = assets.data?.assets || [];
+  return <SwapWorkspace pair={pair} feeAsset={feeAssets.find(a => a.id === 'fee')} feeAssets={feeAssets} onWallet={() => {}} />;
 }

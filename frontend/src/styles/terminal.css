@@ -3018,3 +3018,9 @@ body.theme-day .badge-card{background:#fff}
 .pf-swap{margin-top:6px;justify-self:start;padding:3px 10px;border-radius:999px;border:1px solid color-mix(in srgb,var(--wp-accent,#00e9a0) 45%,transparent);background:color-mix(in srgb,var(--wp-accent,#00e9a0) 12%,transparent);color:var(--wp-accent,#00e9a0);font-size:11px;font-weight:700;cursor:pointer}
 .pf-swap:hover{background:color-mix(in srgb,var(--wp-accent,#00e9a0) 22%,transparent)}
 .profile-swap header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.profile-swap h3{margin:0}.profile-swap small{display:block;margin-top:8px}
+/* Profile activity: one panel at a time (no scroll-heavy stack) */
+.wp-act-tabs{grid-column:1 / -1;display:flex;gap:4px;padding:4px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);overflow-x:auto;scrollbar-width:none}
+.wp-act-tabs button{flex:0 0 auto;border:0;background:transparent;color:var(--muted);font-weight:600;font-size:13px;padding:8px 14px;border-radius:10px;cursor:pointer;transition:background .2s,color .2s}
+.wp-act-tabs button.active{background:color-mix(in srgb,var(--wp-accent,#00e9a0) 16%,transparent);color:var(--wp-accent,#00e9a0)}
+@media(min-width:1280px){.wallet-profile-page>.profile-swap,.wallet-profile-page>.portfolio-card,.wallet-profile-page>.wallet-swaps,.wallet-profile-page>.pnl-tracker,.wallet-profile-page>.wp-activity,.wallet-profile-page>.rewards-card,.wallet-profile-page>.shop-card,.wallet-profile-page>.season-vault{grid-column:1 / -1}}
+.profile-swap .swap-desk{display:block}.profile-swap .route-intelligence{display:none}
