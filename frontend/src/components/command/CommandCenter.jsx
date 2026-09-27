@@ -412,7 +412,7 @@ function PoolsPanel({ call }) {
     <div className="cc-block"><h4>Verify a new pool</h4><div className="cc-toolbar"><input placeholder="Paste the new pool / pair address" value={check} onChange={e => setCheck(e.target.value)} /><button type="button" className="btn-primary" onClick={verify}>Verify</button></div>
       {found === false && <small className="cc-empty">Not indexed yet — DexScreener usually picks up new pools within a few minutes.</small>}
       {found && <div className="cc-sig"><span>✅ {found.baseToken.symbol}/{found.quoteToken.symbol} on {found.dexId}</span><b>{formatUSD(found.liquidity?.usd)} liq</b></div>}</div>
-    <div className="cc-block"><h4>Live pools for {asset.toUpperCase()}</h4>{!pools.length ? <small className="cc-empty">No pools indexed.</small> : pools.map(p => <div key={p.pairAddress} className="cc-sig"><a href={`/terminal/coin/solana/${p.pairAddress}`} target="_blank" rel="noopener noreferrer">{p.baseToken.symbol}/{p.quoteToken.symbol} · {p.dexId}</a><span>vol {formatUSD(p.volume?.h24)}</span><b>{formatUSD(p.liquidity?.usd)}</b></div>)}</div>
+    <div className="cc-block"><h4>Live pools for {asset.toUpperCase()}</h4>{!pools.length ? <small className="cc-empty">No pools indexed.</small> : pools.map(p => <div key={p.pairAddress} className="cc-sig"><a href={`/terminal/chat?chain=solana&pair=${p.pairAddress}&room=bulls`} target="_blank" rel="noopener noreferrer">{p.baseToken.symbol}/{p.quoteToken.symbol} · {p.dexId}</a><span>vol {formatUSD(p.volume?.h24)}</span><b>{formatUSD(p.liquidity?.usd)}</b></div>)}</div>
   </section>;
 }
 

@@ -179,7 +179,7 @@ export function WalletProfilePage({ address }) {
       {!(p.top8 || []).length ? <p className="wp-bio">{edit ? 'Add up to 8 coins you ride with.' : 'No Top 8 yet.'}</p> : <div className="wp-top8-grid">{p.top8.map((t, i) => <div key={t.pairAddress} className="wp-coin">
         {t.imageUrl ? <img src={t.imageUrl} alt="" /> : <i>{(t.symbol || '?').slice(0, 2)}</i>}<b>{t.symbol}</b>
         <LivePrice pair={{ chainId: t.chain, baseToken: { address: t.mint }, pairAddress: t.pairAddress }} precise />
-        {edit ? <button type="button" className="wp-coin-x" onClick={() => setDraft(d => ({ ...d, top8: d.top8.filter((_, j) => j !== i) }))} aria-label="Remove">×</button> : <a href={`/?coin=${t.chain}:${t.pairAddress}`} target="_blank" rel="noopener noreferrer" className="wp-coin-open">war room ↗</a>}
+        {edit ? <button type="button" className="wp-coin-x" onClick={() => setDraft(d => ({ ...d, top8: d.top8.filter((_, j) => j !== i) }))} aria-label="Remove">×</button> : <a href={`/terminal/chat?chain=${t.chain}&pair=${t.pairAddress}&room=bulls`} target="_blank" rel="noopener noreferrer" className="wp-coin-open">war room ↗</a>}
       </div>)}</div>}
     </section>
     <section className="wp-card wp-wall">

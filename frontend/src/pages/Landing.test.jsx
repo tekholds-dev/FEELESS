@@ -14,6 +14,7 @@ jest.mock('react-router-dom', () => {
   return {
     Link: ({ children, ...props }) => mockReact.createElement('a', props, children),
     useSearchParams: () => [new URLSearchParams('node=solana')],
+    useNavigate: () => () => {},
   };
 }, { virtual: true });
 
@@ -22,7 +23,6 @@ jest.mock('../hooks/useWorkspace', () => ({
 }));
 
 jest.mock('../components/Globe3D', () => () => <div data-testid="mock-globe" />);
-jest.mock('../components/CoinWorld', () => () => <div data-testid="mock-coin-world" />);
 jest.mock('../components/EcosystemWorld', () => ({ ecosystem }) => <div data-testid="mock-ecosystem-world">{ecosystem.name}</div>);
 jest.mock('../components/WalletModal', () => () => null);
 jest.mock('../components/terminal/TerminalShell', () => ({

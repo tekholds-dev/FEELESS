@@ -47,7 +47,7 @@ export function CoinProfile({ chain, pairAddress }) {
     <div className="cp-head">
       <div className="cp-logo">{pair.info?.imageUrl ? <img src={pair.info.imageUrl} alt="" /> : <span>{pair.baseToken.symbol.slice(0, 2)}</span>}</div>
       <div className="cp-id"><h1>${pair.baseToken.symbol} <small>{pair.baseToken.name}</small></h1><span>{chain} · {pair.dexId} · pool {formatAge(pair.pairCreatedAt)} old · <code>{shortAddress(mint)}</code><CopyBtn value={mint} /></span>
-        <div className="cp-links">{(pair.info?.socials || []).map(x => <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer">{x.type}</a>)}{(pair.info?.websites || []).slice(0, 1).map(x => <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer">website</a>)}<a href={`/?coin=${chain}:${pairAddress}`}>Chart + trade →</a></div></div>
+        <div className="cp-links">{(pair.info?.socials || []).map(x => <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer">{x.type}</a>)}{(pair.info?.websites || []).slice(0, 1).map(x => <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer">website</a>)}<a href={`/terminal/chat?chain=${chain}&pair=${pairAddress}&room=bulls`}>Chart + trade →</a></div></div>
       <button type="button" className="btn-outline wp-flip-btn" data-testid="coin-flip" onClick={() => setFlipped(f => !f)}>{flipped ? '↺ Profile' : '↻ Activity'}</button>
     </div>
     {!flipped ? <div className="cp-grid">

@@ -65,7 +65,7 @@ export function SearchBox({ ecosystem, nav }) {
   const items = [
     ...(wallet && !(wallet.maybeToken && coins.length) ? [{ kind: 'wallet', key: `w-${wallet.address}`, href: `/terminal/profile/${wallet.address}`, label: `Wallet profile @${wallet.handle}`, sub: `${wallet.address.slice(0, 6)}…${wallet.address.slice(-6)}` }] : []),
     ...people.map(p => ({ kind: 'profile', key: `p-${p.address}`, href: `/terminal/profile/${p.address}`, label: p.displayName || `@${p.handle}`, sub: `@${p.handle}`, img: p.avatarUrl })),
-    ...coins.map(c => ({ kind: 'coin', key: `c-${c.pairAddress}`, href: `/?coin=${c.chainId}:${c.pairAddress}`, profile: `/terminal/coin/${c.chainId}/${c.pairAddress}`, label: `$${c.baseToken?.symbol}`, sub: `${c._own ? '★ FEELESS · ' : ''}${c.baseToken?.name} · ${c.chainId}`, img: c.info?.imageUrl, price: c.priceUsd, change: c.priceChange?.h24, vol: c.volume?.h24 })),
+    ...coins.map(c => ({ kind: 'coin', key: `c-${c.pairAddress}`, href: `/terminal/chat?chain=${c.chainId}&pair=${c.pairAddress}&room=bulls`, profile: `/terminal/coin/${c.chainId}/${c.pairAddress}`, label: `$${c.baseToken?.symbol}`, sub: `${c._own ? '★ FEELESS · ' : ''}${c.baseToken?.name} · ${c.chainId}`, img: c.info?.imageUrl, price: c.priceUsd, change: c.priceChange?.h24, vol: c.volume?.h24 })),
   ];
   const recent = !q.trim() ? readRecent() : [];
   const list = q.trim() ? items : recent;

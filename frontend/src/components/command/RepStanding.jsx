@@ -59,7 +59,7 @@ function DarkSide() {
         <Link to={`/terminal/profile/${k.address}`} className="rep-dark-row"><code>{k.name}</code><span>{k.x ? `@${k.x} · ` : ''}{k.chain}{k.stats ? ` · ${k.stats.closed} closed trades · median hold ${k.stats.medianHoldMin ?? '—'}m · flips ${k.stats.quickFlipPct ?? '—'}% in 1h · win ${k.stats.winPct ?? '—'}%` : ' · stats unavailable'}</span>{k.stats?.danger && <em className="bad">⚠ call-and-dump</em>}</Link>
         {k.stats?.flags?.map(f => <p key={f} className="rep-kol-flag">{f}</p>)}
       </div>)}
-      {tab === 'rugs' && rows.map(r => <a key={`${r.pair}-${r.at}`} href={`/?coin=solana:${r.pair}`} className="rep-dark-row"><code>${r.symbol}</code><span>{r.text}</span><small>{ago(r.at)}</small></a>)}
+      {tab === 'rugs' && rows.map(r => <a key={`${r.pair}-${r.at}`} href={`/terminal/chat?chain=solana&pair=${r.pair}&room=bulls`} className="rep-dark-row"><code>${r.symbol}</code><span>{r.text}</span><small>{ago(r.at)}</small></a>)}
     </div>
   </section>;
 }

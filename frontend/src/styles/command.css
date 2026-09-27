@@ -174,29 +174,9 @@ body.theme-day .eco-world-inner .new-stuff-item:hover,body.theme-day .eco-world-
 body.theme-day .eco-world-inner .negative{color:#c0284c!important}
 body.theme-day .eco-world-inner .positive{color:#07784f!important}
 body.theme-day .eco-world-head{border-color:#c6d8cc!important}
-.coin-world-avatar{width:44px;height:44px;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:#00e9a014;color:var(--mint);font:700 14px 'JetBrains Mono',monospace}
-.coin-world-avatar img{width:100%;height:100%;object-fit:cover}
-.coin-world-stats{grid-template-columns:repeat(5,minmax(0,1fr))!important}
-.coin-world-chart{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:14px 0}
-.coin-world-chart-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);font:11px 'JetBrains Mono',monospace;letter-spacing:.8px}
-.coin-world-chart-head span{display:flex;align-items:center;gap:6px}
-.coin-world-chart-head button{padding:4px 9px;border-radius:6px;font-size:10px;color:var(--muted);background:none;border:0;cursor:pointer}
-.coin-world-chart-head button.active{background:#00e9a014;color:var(--mint)}
-.coin-world-chart .candle-canvas{height:360px!important}.coin-world-chart .chart-area{min-height:400px!important}
-.coin-world-rep{display:flex;align-items:center;gap:10px;margin:10px 0;font-size:12px;color:var(--muted)}
-@media(max-width:900px){.coin-world-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
-body.theme-day .coin-world-chart{border-color:#c3d6c9!important;background:#f7faf6!important}
-body.theme-day .coin-world-chart-head{border-color:#c3d6c9!important;color:#0f2419!important}
-body.theme-day .coin-world-chart-head button{color:#43604f!important}body.theme-day .coin-world-chart-head button.active{background:#e3f2e8!important;color:#07784f!important}
-body.theme-day .coin-world-avatar{background:#e3f2e8!important;color:#07784f!important}
-body.theme-day .coin-world-rep{color:#43604f!important}
 .new-stuff-note{padding:10px 16px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--line)}body.theme-day .new-stuff-note{color:#43604f!important;border-color:#c3d6c9!important}
-.coin-world-chart-head{gap:12px;flex-wrap:wrap}
 .live-stamp{display:inline-flex;align-items:center;gap:5px;margin-left:10px;font-style:normal;font-size:9px;color:var(--muted);letter-spacing:.4px}
 .live-stamp i{width:6px;height:6px;border-radius:50%;background:var(--mint);box-shadow:0 0 8px var(--mint);animation:breathe 1.2s ease-in-out infinite}
-.coin-world-metric{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-left:auto}
-.coin-world-metric button{border-radius:0!important;padding:5px 12px!important;font-size:10px}
-.coin-world-metric button.active{background:var(--mint)!important;color:#04120b!important}
 .coin-chat-rooms{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px 10px;border-bottom:1px solid var(--line)}
 .coin-chat-rooms button{padding:8px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer}
 .coin-chat-rooms .room-bulls.active{background:#00e9a01a;border-color:#00e9a066;color:var(--mint)}
@@ -225,12 +205,10 @@ body.theme-day .order-flow-metrics svg,body.theme-day .live-stamp i{color:#07784
 body.theme-day .order-flow-metrics svg{background:none}
 body.theme-day .order-flow-read svg{color:#a06a00!important}
 body.theme-day .flow-bar{background:#f0b4c1!important}body.theme-day .flow-bar i{background:linear-gradient(90deg,#07784f,#1a9a6a)!important}
-body.theme-day .coin-world-metric{border-color:#c3d6c9!important}body.theme-day .coin-world-metric button.active{background:#07784f!important;color:#fff!important}
 body.theme-day .coin-chat-rooms{border-color:#c3d6c9!important}body.theme-day .coin-chat-rooms button{border-color:#c3d6c9!important;color:#43604f!important;background:#f7faf6!important}
 body.theme-day .coin-chat-rooms .room-bulls.active{background:#e3f2e8!important;color:#07784f!important;border-color:#07784f!important}
 body.theme-day .coin-chat-rooms .room-trenches.active{background:#fff4dc!important;color:#8a5d00!important;border-color:#c49a36!important}
 body.theme-day .coin-chat-rooms .room-bears.active{background:#fdecef!important;color:#b0203f!important;border-color:#b0203f!important}
-.coin-world .eco-right-col>*{flex-shrink:0}.coin-world .eco-right-col{overflow-y:auto}
 .trade-tape{margin-top:12px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .trade-tape-head{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);font:10px 'JetBrains Mono',monospace;letter-spacing:.6px}
 .trade-tape-head span{display:flex;align-items:center;gap:6px}.trade-tape-head i{width:6px;height:6px;border-radius:50%;background:#ff4d6d;animation:breathe 1s infinite}

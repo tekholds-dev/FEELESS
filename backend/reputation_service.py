@@ -965,6 +965,19 @@ async def token_intel(chain: str, mint: str):
         out['snipersHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] in snipers), 2) if supply else None
         out['bundledHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] in bundled), 2) if supply else None
         out['devHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] == creator), 2) if supply and creator else None
+        # Live holding of every flagged wallet (not just top holders): 0 = sold out, shown struck through.
+        if supply:
+            flagged = (sorted(bundled) + [w for w in sorted(snipers) if w not in bundled])[:30]
+            sem = asyncio.Semaphore(8)
+            async def bal(w):
+                async with sem:
+                    try:
+                        r = await _rpc(http, 'getTokenAccountsByOwner', [w, {'mint': mint}, {'encoding': 'jsonParsed'}])
+                        amt = sum(float(((a['account']['data']['parsed']['info'].get('tokenAmount') or {}).get('uiAmount')) or 0) for a in (r or {}).get('value') or [])
+                        return w, round(amt / supply * 100, 3)
+                    except Exception:
+                        return w, None
+            out['flaggedHoldings'] = dict(await asyncio.gather(*(bal(w) for w in flagged)))
     flags = []
     if len(out['bundledWallets']) >= 3:
         flags.append(f"{len(out['bundledWallets'])} wallets bought in the same block as the mint — a bundled launch.")

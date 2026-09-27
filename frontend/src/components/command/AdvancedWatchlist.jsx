@@ -115,7 +115,7 @@ export function AdvancedWatchlist() {
         const read = reads[pair.pairAddress];
         const a = pair.alerts || { up: 20, down: 15, notify: false };
         return <div className="adv-watch-row" role="row" key={key}>
-          <button type="button" className="adv-watch-coin" onClick={() => navigate(`/?coin=${pair.chainId}:${pair.pairAddress}`)} title="Open war room"><TokenAvatar pair={pair} size={30} /><span><b>{pair.baseToken?.symbol}</b><small>{pair.chainId} · {formatUSD(pair.marketCap || pair.fdv)} MC at star</small></span></button>
+          <button type="button" className="adv-watch-coin" onClick={() => navigate(`/terminal/chat?chain=${pair.chainId}&pair=${pair.pairAddress}&room=bulls`)} title="Open war room"><TokenAvatar pair={pair} size={30} /><span><b>{pair.baseToken?.symbol}</b><small>{pair.chainId} · {formatUSD(pair.marketCap || pair.fdv)} MC at star</small></span></button>
           <span className="mono"><AnimatedNumber value={usd} format={formatLivePrice} /><small>{live?.source || 'snapshot'}</small></span>
           <span className={since == null ? 'muted' : since >= 0 ? 'positive mono' : 'negative mono'}>{since == null ? '—' : <AnimatedNumber value={since} format={formatPct} />}<small>{pair.watchedAt ? new Date(pair.watchedAt).toLocaleDateString() : ''}</small></span>
           <span className={`fee-read ${read ? (read.passes ? 'pass' : 'fail') : ''}`}><Radar size={12} />{pair.chainId !== 'solana' ? 'Solana only' : !read ? '…' : read.passes ? 'Passes — Fee would buy' : `Skip: ${REASON[read.reason] || read.reason}`}</span>

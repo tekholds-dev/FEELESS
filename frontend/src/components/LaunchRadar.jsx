@@ -39,7 +39,7 @@ export function LaunchRadar() {
     {!rows ? <p className="lr-empty">Loading launches…</p> : !rows.length ? <p className="lr-empty">No FEELESS launches yet — the first one lands here live.</p>
       : <div className="lr-list">{rows.map(r => {
         const p = prog[r.mint];
-        return <Link key={r.mint} to={`/terminal/coin/solana/${r.mint}`} className="lr-row">
+        return <Link key={r.mint} to={`/terminal/chat?chain=solana&pair=${r.mint}&room=bulls`} className="lr-row">
           <b>${r.symbol || r.mint.slice(0, 4)}</b>
           <span className={`lr-rail ${r.rail}`}>{r.rail === 'pump' ? 'pump.fun' : 'FEELESS'}</span>
           <RepMark compact address={r.creator} />

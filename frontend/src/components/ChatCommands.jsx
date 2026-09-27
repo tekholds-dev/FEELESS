@@ -40,7 +40,7 @@ async function pairFromRoom(room) {
   const d = await (await fetch(`https://api.dexscreener.com/latest/dex/pairs/${r.chainId}/${r.pairAddress}`)).json();
   if (!d.pairs?.[0]) throw new Error('Coin data unavailable.'); return d.pairs[0];
 }
-const coinHref = p => `/?coin=${p.chainId}:${p.pairAddress}`;
+const coinHref = p => `/terminal/chat?chain=${p.chainId}&pair=${p.pairAddress}&room=bulls`;
 
 export async function runCommand(line, { room, wallet, tier }) {
   const [, name, rest = ''] = /^\/(\w+)\s*(.*)$/.exec(line.trim()) || [];

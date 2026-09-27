@@ -73,7 +73,7 @@ export function PortfolioCard({ address, onSwap }) {
     <div className="wpj-head"><h3>Portfolio</h3><span className="wpj-count">net worth <b>{fmt(d.totalUsd)}</b></span></div>
     <div className="pf-grid">
       <a className="pf-coin pf-sol" href="https://solscan.io/account/" onClick={e => { e.preventDefault(); window.open(`https://solscan.io/account/${d.address}`, '_blank', 'noopener'); }}><span className="pf-logo sol">◎</span><b>SOL</b><small>{d.sol.toFixed(3)}</small><em>{fmt(d.solUsd)}</em></a>
-      {(showAll ? d.tokens : d.tokens.slice(0, 11)).map(t => { const pair = t.pairAddress || logos[t.mint]?.pair; const logo = t.logo || logos[t.mint]?.logo; const href = pair ? `/terminal/coin/solana/${pair}` : `/terminal/trade?q=${t.mint}`; const up = Number(t.change24h) >= 0;
+      {(showAll ? d.tokens : d.tokens.slice(0, 11)).map(t => { const pair = t.pairAddress || logos[t.mint]?.pair; const logo = t.logo || logos[t.mint]?.logo; const href = pair ? `/terminal/chat?chain=solana&pair=${pair}&room=bulls` : `/terminal/trade?q=${t.mint}`; const up = Number(t.change24h) >= 0;
         return <a key={t.mint} className="pf-coin" href={href} title={`${t.name || t.mint} · ${t.amount.toLocaleString()}`}>
           {logo ? <img className="pf-logo" src={logo} alt="" /> : <span className="pf-logo">{(t.symbol || '?').slice(0, 2)}</span>}
           <b>{t.symbol ? `$${t.symbol}` : `${t.mint.slice(0, 4)}…`}</b>

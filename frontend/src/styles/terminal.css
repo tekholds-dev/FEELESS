@@ -1644,7 +1644,6 @@ body.theme-day :is(.terminal-header,.terminal-sidebar,.market-ticker,.context-ba
 body.theme-day .terminal-main :is(section,article,aside,.metric,.pulse-pill,.token-analytics-item,.flow-window,.order-flow-metrics>div,.launch-row,.adv-watch-row:not(.adv-watch-labels),.pump-radar-card,.case-card,.proof-row,.vote-row,.network-row,.trust-signal,.reputation-rank-row,.watch-row,.meta-card,.launch-style-card,.supply-options button,.launchpad-card){background-color:rgba(238,246,240,.55)!important;background-image:none!important}
 body.theme-day .terminal-main :is(section,article,aside):hover{background-color:rgba(240,248,242,.68)!important}
 body.theme-day .eco-world-inner{background:rgba(232,242,236,.82)!important;backdrop-filter:blur(18px) saturate(1.2);-webkit-backdrop-filter:blur(18px) saturate(1.2)}
-body.theme-day .eco-world-inner :is(.eco-chat-col,.pulse-pill,.eco-idea-card,.new-stuff,.new-stuff-item,.coin-world-chart,.order-flow,.flow-window,.order-flow-metrics>div,.token-analytics-item){background:rgba(244,250,246,.6)!important}
 body.theme-day .community-rail>*{background:rgba(236,245,239,.6)!important}
 .trenches-font{font-family:'Bungee','Inter',sans-serif!important;letter-spacing:.6px;font-weight:400!important;text-transform:uppercase}
 .sidebar-link .trenches-font{font-size:12px;background:linear-gradient(90deg,#00e9a0,#ffd166,#ff6b8b);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -1699,12 +1698,11 @@ body.reduced-motion-setting :is(.trench-title,.trench-tool::after){animation:non
 .chart-meta-buttons button:hover{color:var(--paper);border-color:#00e9a055}
 .chart-meta-buttons button.active.calls{color:#e9bd65;border-color:#e9bd6588;background:#e9bd6514}
 .chart-meta-buttons button.active.fee{color:#00e9a0;border-color:#00e9a088;background:#00e9a014}
-.chart-fullscreen-wrap:fullscreen,.coin-world-chart:fullscreen{background:#050b08;padding:16px;display:flex;flex-direction:column}
-.chart-fullscreen-wrap:fullscreen .candle-canvas,.coin-world-chart:fullscreen .candle-canvas{height:calc(100vh - 90px)!important}
+.chart-fullscreen-wrap:fullscreen{background:#050b08;padding:16px;display:flex;flex-direction:column}
+.chart-fullscreen-wrap:fullscreen .candle-canvas{height:calc(100vh - 90px)!important}
 body.theme-day .chart-meta-buttons button{border-color:var(--day-border)!important;color:var(--day-muted)!important}
 body.theme-day .chart-meta-buttons button.active.calls{color:#8a5d00!important;background:#fff4dc!important;border-color:#c49a36!important}
 body.theme-day .chart-meta-buttons button.active.fee{color:#07784f!important;background:#e3f2e8!important;border-color:#07784f!important}
-body.theme-day :is(.chart-fullscreen-wrap,.coin-world-chart):fullscreen{background:#e6f0ea}
 .chat-tabs .trenches-font{font-size:10px}
 /* Collapsible, sticky navigation */
 @media(min-width:861px){
@@ -1803,7 +1801,6 @@ body.theme-day .lets-trench{background:linear-gradient(90deg,#07784f,#0a9463);co
 .chart-with-trade>.chart-fullscreen-wrap{min-width:0}
 @media(max-width:1100px){.chart-with-trade{grid-template-columns:1fr}}
 .quick-trade{display:flex;flex-direction:column;gap:9px;padding:12px;border-left:1px solid var(--line);background:#07110c;font-size:12px}
-.coin-world .quick-trade{border:1px solid var(--line);border-radius:12px;margin-bottom:14px}
 .qt-head{display:flex;align-items:center;gap:6px}.qt-head svg{color:var(--gold)}.qt-head b{font-size:13px}
 .qt-side{margin-left:auto;display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .qt-side button{padding:5px 12px;background:none;border:0;color:var(--muted);font-weight:600;cursor:pointer}
@@ -3402,3 +3399,7 @@ body.theme-day .chart-style-toggle{background:#fffffff0;color:#00754f;border-col
 .chart-fee-toggle{cursor:pointer}.chart-fee-toggle.on{color:#f5c542;border-color:#f5c54266}
 body.theme-day :is(.chart-age,.chart-fee-toggle){background:#fffffff0;color:#2f4f42;border-color:#00875c33}
 @media (max-width:600px){.chart-foot-chips{left:10px;bottom:62px}}
+/* Flagged wallets: live holding %; struck through once they've sold out */
+.offender-held{font:700 10.5px 'JetBrains Mono',monospace;padding:1px 6px;border-radius:999px;background:#fa708c22;color:#ff8a9a;white-space:nowrap}
+.offender-held.sold{background:#ffffff0d;color:var(--muted)}
+.offender-chip.is-sold{opacity:.55}.offender-chip.is-sold code{text-decoration:line-through;text-decoration-thickness:2px}

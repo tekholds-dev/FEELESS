@@ -61,12 +61,12 @@ function RichText({ text, tokens, me, room, people }) {
     if (part === 'CA:') return <span key={i} className="chat-ca-label">CA:</span>;
     if (part.startsWith('$')) {
       const t = (tokens || []).find(x => String(x.symbol || '').toLowerCase() === part.slice(1).toLowerCase());
-      const href = t?.pairAddress ? `/?coin=${t.chainId}:${t.pairAddress}` : `/terminal/trade?q=${encodeURIComponent(part.slice(1))}`;
+      const href = t?.pairAddress ? `/terminal/chat?chain=${t.chainId}&pair=${t.pairAddress}&room=bulls` : `/terminal/trade?q=${encodeURIComponent(part.slice(1))}`;
       return <a key={i} className="chat-ticker" href={href} target="_blank" rel="noopener noreferrer" title={`Open ${part} in FEELESS`} onClick={() => trackClick('ticker', part, room)}>{part}</a>;
     }
     if (/^(0x[0-9a-fA-F]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$/.test(part)) {
       const t = (tokens || []).find(x => x.address === part);
-      const href = t?.pairAddress ? `/?coin=${t.chainId}:${t.pairAddress}` : `/terminal/trade?q=${part}`;
+      const href = t?.pairAddress ? `/terminal/chat?chain=${t.chainId}&pair=${t.pairAddress}&room=bulls` : `/terminal/trade?q=${part}`;
       return <a key={i} className="chat-ca" href={href} target="_blank" rel="noopener noreferrer" title={`${part} — open in FEELESS`} onClick={() => trackClick('ca', part, room)}>{t?.symbol ? `$${t.symbol}` : `${part.slice(0, 4)}…${part.slice(-4)}`} ↗</a>;
     }
     return <React.Fragment key={i}>{part}</React.Fragment>;
