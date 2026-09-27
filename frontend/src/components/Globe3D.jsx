@@ -109,6 +109,39 @@ function bubbleElement(b) {
 }
 const GLOBE_NODES = [...ECOSYSTEMS.filter(e => !e.isFeeless), ...LAUNCHPADS.map(p => ({ ...p, isLaunchpad: true }))];
 
+// The HUD owns its own state (stats poll + live feed), so feed updates re-render only this box —
+// never the WebGL globe, whose layers would otherwise be re-digested on every burst.
+const GlobeHud = React.memo(function GlobeHud({ hottest, openToken, feedPush, fireRef }) {
+  const stats = useGlobeStats();
+  const [feed, setFeed] = useState([]);
+  useEffect(() => { feedPush.current = item => setFeed(f => [item, ...f].slice(0, 3)); return () => { feedPush.current = null; }; }, [feedPush]);
+  // New snipers / repeat funders caught since the last poll -> red catch burst on Solana.
+  const lastStats = useRef(null);
+  useEffect(() => {
+    if (!stats) return;
+    const was = lastStats.current; lastStats.current = stats;
+    if (!was) return;
+    const sol = GLOBE_NODES.find(n => n.id === 'solana');
+    const caught = (stats.snipers - was.snipers) + (stats.bundlers - was.bundlers);
+    const funders = (stats.flaggedFunders || 0) - (was.flaggedFunders || 0);
+    if (sol && funders > 0) fireRef.current?.(sol.lat, sol.lng, 'catch', 1, `🚨 ${funders} repeat funder${funders > 1 ? 's' : ''} flagged`);
+    else if (sol && caught > 0) fireRef.current?.(sol.lat, sol.lng, 'catch', 0.8, `🎯 ${caught} sniper/bundler wallet${caught > 1 ? 's' : ''} caught`);
+  }, [stats, fireRef]);
+  return <>
+      {stats && <div className="globe-hud" data-testid="globe-hud">
+        <a className="globe-hud-row" href="/terminal/reputation"><i className="flr-dot" /><span>Live on-chain evidence</span></a>
+        <div className="globe-hud-stats">
+          <a href="/terminal/reputation"><b>{stats.mintsScanned?.toLocaleString?.()}</b><small>scanned</small></a>
+          <a href="/terminal/reputation"><b>{stats.snipers?.toLocaleString?.()}</b><small>snipers</small></a>
+          <a href="/terminal/reputation"><b>{stats.flaggedFunders ?? 0}</b><small>funders</small></a>
+          <a href="/terminal/reputation"><b>{stats.blocklisted?.toLocaleString?.()}</b><small>blocked</small></a>
+        </div>
+        {hottest && <button type="button" className="globe-hud-hot" onClick={() => openToken(hottest)}><i>🔥</i>${String(hottest.symbol).replace(/^\$/, '')} {Number(hottest.change24h) >= 0 ? '+' : ''}{Number(hottest.change24h).toFixed(1)}%</button>}
+        {feed.length > 0 && <ul className="globe-feed" data-testid="globe-feed">{feed.map(f => <li key={f.id} style={{ '--c': f.color }}>{f.token ? <button type="button" onClick={() => openToken(f.token)}>{f.label}</button> : f.label}</li>)}</ul>}
+      </div>}
+  </>;
+});
+
 class GlobeErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -188,15 +221,20 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
   const [dims, setDims] = useState({ w: size, h: size });
   const bubbles = useGlobeBubbles(GLOBE_NODES);
   const bigTokens = useBigTokens();
-  const stats = useGlobeStats();
-  const stars = useStarfield();
-  const [bursts, setBursts] = useState([]);
-  const [feed, setFeed] = useState([]);
+  const stars = useStarfield(40);
+  const visible = useRef(true);
+  const feedPush = useRef(null);
+  const fireRef = useRef(null);
   const burstObjs = useRef(new Map());
   const fire = (lat, lng, kind, power, label, color, token) => {
     const b = { id: `${Date.now()}-${Math.random()}`, lat, lng, kind, power, born: performance.now(), color: color || BURST_COLORS[kind] || '#14F195' };
-    setBursts(list => [...list.slice(-40), b]);
-    if (label) setFeed(f => [{ id: b.id, kind, label, color: b.color, token }, ...f].slice(0, 3));
+    const g = globeRef.current;
+    if (visible.current && !document.hidden && g?.scene && g?.getCoords && burstObjs.current.size < 18) {
+      const o = burstObject(b); const c = g.getCoords(lat, lng, 0.01);
+      o.position.set(c.x, c.y, c.z); o.lookAt(c.x * 2, c.y * 2, c.z * 2);
+      g.scene().add(o); burstObjs.current.set(b.id, o);
+    }
+    if (label) feedPush.current?.({ id: b.id, kind, label, color: b.color, token });
   };
   const openToken = t => { if (!t) return; if (onToken) { onToken(t); return; } if (t.pairAddress) window.open(`/terminal/trade?chain=${encodeURIComponent(t.chain)}&pair=${encodeURIComponent(t.pairAddress)}`, '_blank', 'noopener'); };
   const hottest = useMemo(() => [...bigTokens].filter(t => Number.isFinite(Number(t.change24h)) && Math.abs(Number(t.change24h)) < 2000).sort((a, b) => Number(b.change24h) - Number(a.change24h))[0], [bigTokens]);
@@ -245,44 +283,45 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
     const total = weights.reduce((a, b) => a + b, 0);
     let n = 0;
     const t = setInterval(() => {
-      if (document.hidden) return;
+      if (document.hidden || !visible.current) return;
       let r = Math.random() * total; let i = 0;
       while (r > weights[i] && i < weights.length - 1) { r -= weights[i]; i++; }
       const p = tokenPoints[i]; const heat = coinHeat(p.token); const kind = kindFor(p.token);
       const ch = Number(p.token.change24h) || 0;
       fire(p.lat, p.lng, kind, 0.2 + heat * 0.8, (n++ % 4 === 0 && Math.abs(ch) >= 5) ? `${ch >= 25 ? '🚀' : ch >= 5 ? '🔥' : '🧊'} $${String(p.token.symbol).replace(/^\$/, '')} ${ch >= 0 ? '+' : ''}${ch.toFixed(1)}% 24h` : null, undefined, p.token);
-    }, 650);
+    }, 950);
     return () => clearInterval(t);
   }, [tokenPoints]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // New snipers / repeat funders caught since the last poll -> red catch burst on Solana.
-  const lastStats = useRef(null);
-  useEffect(() => {
-    if (!stats) return;
-    const was = lastStats.current; lastStats.current = stats;
-    if (!was) return;
-    const sol = GLOBE_NODES.find(n => n.id === 'solana');
-    const caught = (stats.snipers - was.snipers) + (stats.bundlers - was.bundlers);
-    const funders = (stats.flaggedFunders || 0) - (was.flaggedFunders || 0);
-    if (sol && funders > 0) fire(sol.lat, sol.lng, 'catch', 1, `🚨 ${funders} repeat funder${funders > 1 ? 's' : ''} flagged`);
-    else if (sol && caught > 0) fire(sol.lat, sol.lng, 'catch', 0.8, `🎯 ${caught} sniper/bundler wallet${caught > 1 ? 's' : ''} caught`);
-  }, [stats]); // eslint-disable-line react-hooks/exhaustive-deps
+  fireRef.current = fire;
 
   // One animation loop drives every live burst; finished ones are dropped + disposed.
   useEffect(() => {
     let raf;
     const loop = () => {
+      if (!visible.current) { raf = requestAnimationFrame(loop); return; }
       const now = performance.now();
       const dead = [];
       burstObjs.current.forEach((obj, id) => { if (!tickBurst(obj, now)) dead.push(id); });
       if (dead.length) {
-        dead.forEach(id => { disposeBurst(burstObjs.current.get(id)); burstObjs.current.delete(id); });
-        setBursts(list => list.filter(b => !dead.includes(b.id)));
+        dead.forEach(id => { const o = burstObjs.current.get(id); o?.parent?.remove(o); disposeBurst(o); burstObjs.current.delete(id); });
       }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // Off-screen = paused: no bursts, no auto-rotate, no WebGL frames burned while you scroll the page.
+  useEffect(() => {
+    const el = containerRef.current; if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver(([e]) => {
+      visible.current = e.isIntersecting;
+      const g = globeRef.current;
+      try { if (e.isIntersecting) g?.resumeAnimation?.(); else g?.pauseAnimation?.(); } catch { /* noop */ }
+    }, { threshold: 0.05 });
+    io.observe(el);
+    return () => io.disconnect();
   }, []);
 
   useEffect(() => {
@@ -305,6 +344,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
         g.controls().autoRotate = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         g.controls().autoRotateSpeed = 0.85;
         g.controls().enableZoom = false;
+        try { g.renderer().setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5)); } catch { /* noop */ }
         g.pointOfView({ altitude: 2.1 }, 0);
         if (typeof g.globeMaterial === 'function') {
           const globeMat = g.globeMaterial();
@@ -361,10 +401,9 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
     ...GLOBE_NODES.map(e => ({ lat: e.lat, lng: e.lng, color: e.color, maxR: 8, propagationSpeed: 2.6, repeatPeriod: 1200 })),
     ...[...tokenPoints].sort((a, b) => b.token.marketCap - a.token.marketCap).slice(0, 10)
       .map(t => ({ lat: t.lat, lng: t.lng, color: t.color, maxR: 2.6, propagationSpeed: 0.9, repeatPeriod: 2600 })),
-    ...bursts.filter(b => b.power >= 0.5).map(b => ({ lat: b.lat, lng: b.lng, color: b.color, maxR: 4 + b.power * 9, propagationSpeed: 6 + b.power * 6, repeatPeriod: 700 })),
-  ], [tokenPoints, bursts]);
+  ], [tokenPoints]);
 
-  const particles = useMemo(() => Array.from({ length: 36 }, (_, i) => ({
+  const particles = useMemo(() => Array.from({ length: 16 }, (_, i) => ({
     id: i,
     left: `${(i * 37) % 100}%`,
     top: `${(i * 53) % 100}%`,
@@ -381,17 +420,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
       <div className="globe-bloom-layer globe-bloom-inner" aria-hidden="true" />
       <div className="globe-particle-field" aria-hidden="true">{particles.map(p => <span key={p.id} className="globe-particle" style={{ left: p.left, top: p.top, animationDelay: p.delay, animationDuration: p.duration, width: p.size, height: p.size }} />)}</div>
       <div className="globe-starfield" aria-hidden="true">{stars.map(s => <span key={s.id} className="globe-star" style={{ left: s.left, top: s.top, width: s.size, height: s.size, animationDelay: s.delay, animationDuration: s.duration }} />)}</div>
-      {stats && <div className="globe-hud" data-testid="globe-hud">
-        <a className="globe-hud-row" href="/terminal/reputation"><i className="flr-dot" /><span>Live on-chain evidence</span></a>
-        <div className="globe-hud-stats">
-          <a href="/terminal/reputation"><b>{stats.mintsScanned?.toLocaleString?.()}</b><small>scanned</small></a>
-          <a href="/terminal/reputation"><b>{stats.snipers?.toLocaleString?.()}</b><small>snipers</small></a>
-          <a href="/terminal/reputation"><b>{stats.flaggedFunders ?? 0}</b><small>funders</small></a>
-          <a href="/terminal/reputation"><b>{stats.blocklisted?.toLocaleString?.()}</b><small>blocked</small></a>
-        </div>
-        {hottest && <button type="button" className="globe-hud-hot" onClick={() => openToken(hottest)}><i>🔥</i>${String(hottest.symbol).replace(/^\$/, '')} {Number(hottest.change24h) >= 0 ? '+' : ''}{Number(hottest.change24h).toFixed(1)}%</button>}
-        {feed.length > 0 && <ul className="globe-feed" data-testid="globe-feed">{feed.map(f => <li key={f.id} style={{ '--c': f.color }}>{f.token ? <button type="button" onClick={() => openToken(f.token)}>{f.label}</button> : f.label}</li>)}</ul>}
-      </div>}
+      <GlobeHud hottest={hottest} openToken={openToken} feedPush={feedPush} fireRef={fireRef} />
       <GlobeErrorBoundary fallback={<GlobeFallback onSelect={onSelect} selectedId={selectedId} />}>
         <Globe
           ref={globeRef}
@@ -445,14 +474,6 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
           objectLabel={p => `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;"><b>${escapeHtml(p.token.symbol)}</b> · ${escapeHtml(p.token.chain)}<br/>${fmtCap(p.token.marketCap)} ${p.token.mcKind === 'FDV' ? 'FDV' : 'MC'}${Number.isFinite(Number(p.token.change24h)) ? ` · ${Number(p.token.change24h) >= 0 ? '+' : ''}${Number(p.token.change24h).toFixed(1)}% 24h` : ''}</div>`}
           onObjectClick={p => { if (onToken) { onToken(p.token); return; } if (p.token.pairAddress) window.open(`/terminal/trade?chain=${encodeURIComponent(p.token.chain)}&pair=${encodeURIComponent(p.token.pairAddress)}`, '_blank', 'noopener'); }}
           onObjectHover={p => { document.body.style.cursor = p ? 'pointer' : 'default'; }}
-          customLayerData={bursts}
-          customThreeObject={b => { const o = burstObject(b); burstObjs.current.set(b.id, o); return o; }}
-          customThreeObjectUpdate={(obj, b) => {
-            const g = globeRef.current; if (!g?.getCoords) return;
-            const c = g.getCoords(b.lat, b.lng, 0.01);
-            obj.position.set(c.x, c.y, c.z);
-            obj.lookAt(c.x * 2, c.y * 2, c.z * 2);
-          }}
           htmlElementsData={bubbles}
           htmlLat="lat"
           htmlLng="lng"

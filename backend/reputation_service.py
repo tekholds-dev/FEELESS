@@ -2097,6 +2097,10 @@ async def chat_post(payload: ChatPost):
             raise HTTPException(409, 'Replay rejected — sign a fresh message.')
         if time.time() - d.get('lastAt', {}).get(payload.address, 0) < 3:
             raise HTTPException(429, 'Slow down — one message every 3 seconds.')
+        verdict = _spam_check(d, payload.room, payload.address, text, tier)
+        if verdict:
+            CHAT_PATH.write_text(json.dumps(d))
+            raise HTTPException(429 if verdict.startswith('Slow') else 403, verdict)
         d['lastTs'][payload.address] = payload.ts
         d.setdefault('lastAt', {})[payload.address] = time.time()
         if boosted:
@@ -2108,6 +2112,7 @@ async def chat_post(payload: ChatPost):
                'profile': {'address': primary_of(payload.address), 'chain': 'solana' if not primary_of(payload.address).startswith('0x') else 'evm'}}
         room = d['rooms'].setdefault(payload.room, [])
         room.append(msg)
+        _track_pin(d, payload.room, room, payload.parentId)
         try:
             if payload.room.startswith('wall-'):
                 notify(payload.room[5:], 'wall', f"@{handle_of(primary_of(payload.address))} wrote on your wall: {text[:80]}", f"/terminal/profile/{primary_of(payload.room[5:])}", payload.address)
@@ -2136,8 +2141,92 @@ def chat_system_post(room: str, username: str, address: str, text: str, tokens=N
 
 @app.get('/api/reputation/chat/{room}')
 async def chat_room(room: str):
-    msgs = _chat_load()['rooms'].get(room, [])[-120:]
-    return {'room': room, 'messages': msgs}
+    d = _chat_load()
+    msgs = d['rooms'].get(room, [])[-120:]
+    pin = (d.get('pins') or {}).get(room)
+    pinned = None
+    if pin and time.time() - pin['at'] < PIN_SECONDS:
+        pinned = next((m for m in d['rooms'].get(room, []) if m['id'] == pin['id']), None)
+        if pinned:
+            pinned = {**pinned, 'pinnedFor': round(PIN_SECONDS - (time.time() - pin['at']))}
+    return {'room': room, 'messages': msgs, 'pinned': pinned}
+
+
+# ---- Chat security: bots, raids, floods, link spam -------------------------------------------
+PIN_SECONDS = 30
+PIN_REPLIES = 3
+_URL_RE = _re.compile(r'https?://([^/\s]+)', _re.I)
+SAFE_HOSTS = ('dexscreener.com', 'solscan.io', 'etherscan.io', 'basescan.org', 'x.com', 'twitter.com', 'pump.fun', 'jup.ag', 'birdeye.so', 'youtube.com', 'youtu.be', 'spotify.com')
+
+
+def _norm(text):
+    return _re.sub(r'[^a-z0-9$]+', ' ', text.lower()).strip()[:200]
+
+
+def _spam_check(d, room, address, text, tier):
+    """Returns a user-facing reason to reject, or None. Stateful in the chat store (d['guard']).
+    Repeat offenders are auto-muted so bots burn their wallets, not the room."""
+    now = time.time(); g = d.setdefault('guard', {}); a = primary_of(address)
+    until = (g.get('cool') or {}).get(a, 0)
+    if now < until:
+        return f'Slow down — cooling off for {int(until - now)}s.'
+    hist = [x for x in (g.setdefault('recent', {}).get(a) or []) if now - x[0] < 600]
+    n = _norm(text)
+    # 1) the same wallet repeating itself
+    if n and any(x[1] == n for x in hist):
+        g['recent'][a] = hist
+        return 'You already posted that — no repeats.'
+    # 2) flooding
+    if sum(1 for x in hist if now - x[0] < 60) >= 8:
+        g.setdefault('cool', {})[a] = now + 600
+        _guard_log(g, 'flood', a, room, text)
+        return 'Slow down — too many messages; 10 minute cooldown.'
+    # 3) link spam from unproven accounts
+    hosts = [h.lower().lstrip('www.') for h in _URL_RE.findall(text)]
+    if tier < 1 and any(not any(h == s_ or h.endswith('.' + s_) for s_ in SAFE_HOSTS) for h in hosts):
+        _guard_log(g, 'link', a, room, text)
+        return 'Outside links unlock at Fee Friend tier — only trusted sites (DexScreener, Solscan, X, …) for now.'
+    # 4) coordinated raids: the same text from 3+ wallets inside 2 minutes
+    raid = g.setdefault('texts', {}).setdefault(room, {})
+    wallets = {w: t for w, t in (raid.get(n) or {}).items() if now - t < 120} if n and len(n) > 6 else {}
+    wallets[a] = now
+    if n and len(n) > 6:
+        raid[n] = wallets
+        if len(raid) > 500:
+            for k in list(raid)[:250]:
+                raid.pop(k, None)
+    if len(wallets) >= 3:
+        for w in wallets:
+            g.setdefault('cool', {})[w] = now + 1800
+        _guard_log(g, 'raid', a, room, text, wallets=list(wallets))
+        return 'Coordinated copy-paste detected — these wallets are muted for 30 minutes.'
+    hist.append((now, n)); g['recent'][a] = hist[-20:]
+    return None
+
+
+def _guard_log(g, kind, address, room, text, wallets=None):
+    log = g.setdefault('log', [])
+    log.insert(0, {'kind': kind, 'address': address, 'room': room, 'text': text[:120], 'wallets': wallets, 'at': time.time()})
+    g['log'] = log[:300]
+
+
+def _track_pin(d, room, msgs, parent_id):
+    """The first message in a room to draw PIN_REPLIES replies gets pinned for PIN_SECONDS."""
+    if not parent_id:
+        return
+    replies = sum(1 for m in msgs if m.get('parentId') == parent_id)
+    pins = d.setdefault('pins', {})
+    cur = pins.get(room)
+    if replies >= PIN_REPLIES and (not cur or time.time() - cur['at'] >= PIN_SECONDS) and (not cur or cur['id'] != parent_id):
+        pins[room] = {'id': parent_id, 'at': time.time(), 'replies': replies}
+
+
+@app.get('/api/reputation/admin/chat-guard')
+async def admin_chat_guard(request: Request):
+    _require_admin(request)
+    g = _chat_load().get('guard') or {}
+    now = time.time()
+    return {'log': g.get('log', [])[:100], 'cooling': sorted(({'address': a, 'secondsLeft': int(t - now)} for a, t in (g.get('cool') or {}).items() if t > now), key=lambda x: -x['secondsLeft'])}
 
 
 FEE_ADDRESS = 'FEE-LEADER-CAT'
