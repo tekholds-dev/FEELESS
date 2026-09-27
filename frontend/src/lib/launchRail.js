@@ -1,3 +1,4 @@
+import { keepReceipt } from './receipts';
 import { apiUrl } from './api';
 
 // FEELESS launch rail on Meteora's Dynamic Bonding Curve. Everything here builds transactions in
@@ -63,6 +64,7 @@ export async function createLaunchRail({ provider, owner, feeClaimer, params, on
   const config = web3.Keypair.generate();
   const tx = await client.partner.createConfig({ ...curveFor(dbc, params), config: config.publicKey, feeClaimer: new web3.PublicKey(feeClaimer), leftoverReceiver: new web3.PublicKey(feeClaimer), quoteMint: web3.NATIVE_MINT || new web3.PublicKey('So11111111111111111111111111111111111111112'), payer });
   const signature = await signSend(web3, connection, provider, tx, payer, [config], onStatus);
+  keepReceipt(signature, owner, 'launch');
   return { config: config.publicKey.toBase58(), signature };
 }
 
@@ -77,6 +79,7 @@ export async function launchCoin({ provider, creator, config, name, symbol, uri,
     ? await client.creator.createPoolWithFirstBuy({ createPoolParam, firstBuyParam: { buyer: payer, buyAmount: new BN(Math.round(firstBuySol * 1e9)), minimumAmountOut: new BN(1), referralTokenAccount: null } })
     : await client.creator.createPool(createPoolParam);
   const signature = await signSend(web3, connection, provider, tx, payer, [mint], onStatus);
+  keepReceipt(signature, creator, 'launch');
   return { mint: mint.publicKey.toBase58(), signature };
 }
 
@@ -97,5 +100,6 @@ export async function launchOnPump({ provider, creator, session, form, onStatus 
   if (!r.ok) throw new Error(body.detail || 'Pump.fun launch could not be prepared.');
   const tx = web3.VersionedTransaction.deserialize(Uint8Array.from(atob(body.tx), c => c.charCodeAt(0)));
   const signature = await signSend(web3, connection, provider, tx, new web3.PublicKey(creator), [mint], onStatus);
+  keepReceipt(signature, creator, 'launch');
   return { mint: mint.publicKey.toBase58(), signature };
 }

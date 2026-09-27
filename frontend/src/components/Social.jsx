@@ -25,8 +25,16 @@ export function NotificationBell() {
   const signIn = async () => { try { await getChatSession(wallet.address, signMessage); setD({ unread: 0, items: [] }); } catch (e) { toast.error(e.message); } };
   const markRead = () => { if (d?.unread) fetch('/api/reputation/notifications/read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: wallet.address, session }) }).then(() => setD(x => ({ ...x, unread: 0, items: x.items.map(n => ({ ...n, read: true })) }))); };
   const phone = async () => { try { const prefs = { ...readPushPrefs(), address: wallet.address }; let wl = []; try { wl = JSON.parse(localStorage.getItem('feeless-watchlist') || '[]'); } catch { /* ignore */ } if (await currentSubscription()) await syncPush(wl, prefs); else await enablePush(wl, prefs); savePushPrefs(prefs); toast.success('📱 Phone alerts on for messages, wall posts and mentions.'); } catch (e) { toast.error(e.message); } };
+  const wrap = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const out = e => { if (wrap.current && !wrap.current.contains(e.target)) setOpen(false); };
+    const esc = e => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('pointerdown', out); document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('pointerdown', out); document.removeEventListener('keydown', esc); };
+  }, [open]);
   if (!wallet?.address) return null;
-  return <span className="notif-wrap"><button type="button" className="icon-btn notif-btn" data-testid="notif-bell" aria-label="Notifications" onClick={() => { setOpen(o => !o); if (!open) setTimeout(markRead, 1500); }}><MessageCircle size={17} />{d?.unread ? <i className="notif-dot">{d.unread > 9 ? '9+' : d.unread}</i> : null}</button>
+  return <span className="notif-wrap" ref={wrap}><button type="button" className="icon-btn notif-btn" data-testid="notif-bell" aria-label="Notifications" onClick={() => { setOpen(o => !o); if (!open) setTimeout(markRead, 1500); }}><MessageCircle size={17} />{d?.unread ? <i className="notif-dot">{d.unread > 9 ? '9+' : d.unread}</i> : null}</button>
     {open && <div className="notif-pop" data-testid="notif-pop">
       <div className="np-head"><b>Notifications</b><button type="button" onClick={phone}>📱 Phone alerts</button></div>
       {!session ? <div className="np-empty"><p>Sign once to get messages, wall posts and mentions.</p><button type="button" className="btn-primary" onClick={signIn}>Sign in (free)</button></div>

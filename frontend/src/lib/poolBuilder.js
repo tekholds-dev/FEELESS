@@ -1,3 +1,4 @@
+import { keepReceipt } from './receipts';
 import { relayConnection, signSend } from './launchRail';
 
 // Meteora DAMM v2 pool for an existing token, paired with SOL. Built in the browser, simulated,
@@ -40,5 +41,6 @@ export async function createSolPool({ provider, owner, mint, tokenAmount, solAmo
     activationType: amm.ActivationType.Timestamp, collectFeeMode: amm.CollectFeeMode.OnlyB, activationPoint: null,
     tokenAProgram: new web3.PublicKey(meta.program), tokenBProgram: new web3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'), isLockLiquidity: Boolean(lock) });
   const signature = await signSend(web3, connection, provider, tx, payer, [nft], onStatus);
+  keepReceipt(signature, owner, 'pool');
   return { pool: pool.toBase58(), signature };
 }

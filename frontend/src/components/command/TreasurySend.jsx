@@ -25,7 +25,7 @@ export function TreasurySend({ ownerWallets = [] }) {
       const assets = (await (await fetch('/api/market/assets')).json()).assets || [];
       const mint = asset === 'sol' ? null : assets.find(a => a.id === asset)?.mint;
       const { batchSend } = await import('../../lib/batchSend');
-      const sigs = await batchSend({ provider, owner: wallet.address, mint, recipients: rows, onStatus: setStatus });
+      const sigs = await batchSend({ provider, owner: wallet.address, mint, recipients: rows, onStatus: setStatus, kind: 'transfer' });
       toast.success(`Sent in ${sigs.length} transaction${sigs.length > 1 ? 's' : ''}.`); setLines(''); setStatus('');
     } catch (e) { setStatus(''); toast.error(e.message || 'Send failed'); }
   };

@@ -1,3 +1,4 @@
+import { keepReceipt } from './receipts';
 import { relayConnection } from './launchRail';
 
 // Airdrops / holder fee-shares sent straight from the owner's wallet: transfers are packed into
@@ -14,7 +15,7 @@ async function confirm(connection, sig, lastValidBlockHeight) {
   }
 }
 
-export async function batchSend({ provider, owner, mint, recipients, onStatus }) {
+export async function batchSend({ provider, owner, mint, recipients, onStatus, kind = 'airdrop' }) {
   const { web3, connection } = await relayConnection();
   const spl = await import('@solana/spl-token');
   const payer = new web3.PublicKey(owner);
@@ -56,6 +57,7 @@ export async function batchSend({ provider, owner, mint, recipients, onStatus })
     onStatus?.(`Sending ${i + 1}/${signed.length}…`);
     const sig = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: true, maxRetries: 3 });
     await confirm(connection, sig, lastValidBlockHeight);
+    keepReceipt(sig, owner, kind);
     sigs.push(sig);
   }
   return sigs;

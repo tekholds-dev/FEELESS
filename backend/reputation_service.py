@@ -2870,12 +2870,20 @@ class ReceiptIn(BaseModel):
     kind: str = 'swap'
 
 
+_receipt_hits: dict = {}
+
+
 @app.post('/api/reputation/receipts')
-async def store_receipt(payload: ReceiptIn):
+async def store_receipt(payload: ReceiptIn, request: Request):
     global _receipt_sigs
+    ip = request.client.host if request.client else '?'
+    now = time.time(); hits = [t for t in _receipt_hits.get(ip, []) if now - t < 60]
+    if len(hits) >= 20:  # each receipt costs RPC lookups; cap per IP
+        raise HTTPException(429, 'Too many receipts — slow down.')
+    _receipt_hits[ip] = hits + [now]
     if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', payload.sig) or not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', payload.wallet):
         raise HTTPException(400, 'Bad signature or wallet.')
-    kind = payload.kind if payload.kind in ('swap', 'buy', 'sell', 'airdrop', 'launch', 'transfer') else 'swap'
+    kind = payload.kind if payload.kind in ('swap', 'buy', 'sell', 'airdrop', 'launch', 'transfer', 'pool') else 'swap'
     if _receipt_sigs is None:
         _receipt_sigs = {r[1]: r[2] for r in _receipt_rows()}
     if payload.sig in _receipt_sigs:
@@ -2913,6 +2921,11 @@ async def store_receipt(payload: ReceiptIn):
             with RECEIPTS_PATH.open('a') as f:
                 f.write(json.dumps(row, separators=(',', ':')) + '\n')
             _receipt_sigs[payload.sig] = payload.wallet
+            try:  # confirmed on-chain → a receipt notification (the bell), linking the tx
+                label = {'swap': 'Swap', 'buy': 'Buy', 'sell': 'Sell', 'launch': 'Launch', 'pool': 'Pool creation', 'airdrop': 'Airdrop', 'transfer': 'Transfer'}[kind]
+                notify(payload.wallet, 'reward', f"✅ {label} confirmed on-chain · {sol:+.4f} SOL", f'https://solscan.io/tx/{payload.sig}')
+            except Exception:
+                pass
     return {'ok': True, 'receipt': row}
 
 
