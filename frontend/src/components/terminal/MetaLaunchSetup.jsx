@@ -406,8 +406,18 @@ export default function MetaLaunchSetup({ initialValues }) {
   useEffect(() => {
     if (deployment.state !== 'confirmed' || !deployment.mint || !wallet?.address || registered.current) return;
     registered.current = true;
-    fetch(apiUrl('/api/reputation/feeless-launch'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chain: 'solana', wallet: wallet.address, mint: deployment.mint, symbol: form.symbol, signature: deployment.signature, rail: form.providerId === 'pump' ? 'pump' : 'feeless' }) }).catch(() => {});
+    // Tag the coin as a FEELESS launch (radar, rug-proof, launcher badge). The chain can lag a few
+    // seconds behind confirmation, so retry instead of silently dropping the registration.
+    const body = JSON.stringify({ chain: 'solana', wallet: wallet.address, mint: deployment.mint, symbol: form.symbol, signature: deployment.signature, rail: form.providerId === 'pump' ? 'pump' : 'feeless' });
+    (async () => {
+      for (let i = 0; i < 8; i++) {
+        try {
+          const r = await fetch(apiUrl('/api/reputation/feeless-launch'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+          if (r.ok || (r.status !== 409 && r.status < 500)) return;
+        } catch { /* network blip: retry */ }
+        await new Promise(res => setTimeout(res, 4000));
+      }
+    })();
   }, [deployment.state, deployment.mint, deployment.signature, wallet?.address, form.symbol, form.providerId]);
   const goStep = n => { setLaunchStep(n); if (typeof window !== 'undefined') window.scrollTo?.({ top: 0, behavior: 'smooth' }); };
   const stepOf = key => STEP_ONE_KEYS.includes(key) ? 1 : STEP_TWO_KEYS.includes(key) ? 2 : 3;

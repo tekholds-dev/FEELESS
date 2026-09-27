@@ -1156,8 +1156,18 @@ class FeelessLaunchPayload(BaseModel):
 @app.post('/api/reputation/feeless-launch')
 async def register_feeless_launch(payload: FeelessLaunchPayload):
     """Tag a token as launched on FEELESS — only after the chain confirms this wallet created it."""
-    resolved = await resolve_creator(payload.chain, payload.mint)
-    creator = (resolved or {}).get('identity') if isinstance(resolved, dict) else None
+    creator = None
+    if payload.signature and _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', payload.signature):
+        # Proof from the launch transaction: it succeeded, this wallet signed it, and the new mint signed it.
+        async with httpx.AsyncClient(timeout=15) as http:
+            tx = await _rpc(http, 'getTransaction', [payload.signature, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+        if tx and not (tx.get('meta') or {}).get('err'):
+            signers = [k['pubkey'] for k in tx['transaction']['message']['accountKeys'] if k.get('signer')]
+            if payload.wallet in signers and payload.mint in signers:
+                creator = payload.wallet
+    if not creator:
+        resolved = await resolve_creator(payload.chain, payload.mint)
+        creator = (resolved or {}).get('identity') if isinstance(resolved, dict) else None
     if not creator:
         raise HTTPException(409, 'Mint not yet visible on-chain — retry after confirmation.')
     if creator != payload.wallet:
@@ -6010,8 +6020,11 @@ async def token_meta_create(p: TokenMetaIn, request: Request):
     if not name or not _re.match(r'^[A-Z0-9$]{1,10}$', symbol):
         raise HTTPException(400, 'Name and a 1–10 character ticker are required.')
     site = os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/') or (request.headers.get('origin') or '').rstrip('/')
-    if not site.startswith('http'):
-        raise HTTPException(503, 'Set PUBLIC_SITE_URL so wallets can load the coin name and image.')
+    # FEELESS-rail coins are minted with IMMUTABLE metadata: a localhost/LAN uri would leave the coin
+    # nameless and imageless forever, so refuse anything that isn't a public https address.
+    host = _re.sub(r'^https?://', '', site).split('/')[0].split(':')[0]
+    if not site.startswith('https://') or host in ('localhost', '127.0.0.1', '0.0.0.0') or host.endswith('.local') or _re.match(r'^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\.', host):
+        raise HTTPException(503, 'FEELESS launches need a public https domain (set PUBLIC_SITE_URL). Coin metadata is permanent, so a local address would break the coin forever. Pump.fun launches work now.')
     img = p.image.strip()
     if img.startswith('/api/reputation/uploads/'):
         img = site + img
@@ -6022,9 +6035,7 @@ async def token_meta_create(p: TokenMetaIn, request: Request):
     TOKEN_META_DIR.mkdir(parents=True, exist_ok=True)
     mid = uuid.uuid4().hex
     (TOKEN_META_DIR / f'{mid}.json').write_text(json.dumps(meta))
-    local = any(h in site for h in ('localhost', '127.0.0.1'))
-    return {'uri': f'{site}/api/reputation/token-meta/{mid}.json',
-            'warning': 'Local address: the coin works, but wallets and explorers cannot load its name/image until PUBLIC_SITE_URL is a public domain.' if local else None}
+    return {'uri': f'{site}/api/reputation/token-meta/{mid}.json'}
 
 
 @app.get('/api/reputation/token-meta/{name}')
@@ -6101,7 +6112,7 @@ async def pump_create_tx(p: PumpCreateIn):
         if r.status_code != 200:
             raise HTTPException(502, 'Pump.fun metadata upload failed — try again.')
         uri = (r.json() or {}).get('metadataUri')
-        t = await http.post('https://pumpportal.fun/api/trade-local', json={'publicKey': me, 'action': 'create', 'tokenMetadata': {'name': form['name'], 'symbol': form['symbol'], 'uri': uri},
+        t = await http.post('https://pumpportal.fun/api/trade-local', json={'publicKey': p.address, 'action': 'create', 'tokenMetadata': {'name': form['name'], 'symbol': form['symbol'], 'uri': uri},
                                                                            'mint': p.mint, 'denominatedInSol': 'true', 'amount': p.devBuySol, 'slippage': 10, 'priorityFee': 0.0005, 'pool': 'pump'})
     if t.status_code != 200:
         raise HTTPException(502, f'Pump.fun could not build the launch ({t.text[:120]}).')
