@@ -105,7 +105,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     return points.map(pt => ({ time: Math.floor(pt.t / 1000), value: pt.p * ratio }))
       .filter((pt, i, arr) => i === 0 || pt.time !== arr[i - 1].time);
   }, [usingFallbackTrail, pair?.pairAddress, ratio]);
-  const baseCandles = useMemo(() => scrubCandles(candleRows.length ? candleRows : usingFeelessCandles ? allFeeless : []), [candleRows, usingFeelessCandles, allFeeless]);
+  const baseCandles = useMemo(() => candleRows.length ? scrubCandles(candleRows) : usingFeelessCandles ? scrubCandles(allFeeless) : [], [candleRows, usingFeelessCandles, allFeeless, interval]);
   const displayCandles = useMemo(() => ratio === 1 ? baseCandles : baseCandles.map(([t, o, h, l, c, v]) => [t, o * ratio, h * ratio, l * ratio, c * ratio, v]), [baseCandles, ratio]);
   const hasChart = displayCandles.length > 0 || trail.length >= 2;
   useEffect(() => {
@@ -142,7 +142,11 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     const minMove = Number((10 ** -decimals).toFixed(decimals));
     const axisFormat = n => (Math.abs(n) >= 1000 ? formatUSD(n) : `$${Number(n).toFixed(decimals)}`);
     chart.applyOptions({ localization: { locale: 'en-US', priceFormatter: axisFormat } });
-    if (displayCandles.length) {
+    // A few self-recorded bars (quiet coin, no provider history yet) read as noise as candles;
+    // show them as a clean price line until real history arrives.
+    const sparse = usingFeelessCandles && displayCandles.length < 120;
+    const lineData = sparse ? displayCandles.map(([time, , , , close]) => ({ time, value: close })) : trail;
+    if (displayCandles.length && !sparse) {
       const series = chart.addSeries(CandlestickSeries, {
         upColor: dayMode ? '#08764e' : '#00e7a0',
         downColor: '#b42346',
@@ -169,17 +173,16 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       }
     } else {
       const line = chart.addSeries(LineSeries, {
-        color: dayMode ? '#08764e' : '#00e7a0',
-        lineWidth: 2,
+        color: dayMode ? '#08764e' : '#00e7a0', lineWidth: 2,
         priceFormat: { type: 'custom', formatter: axisFormat, minMove },
       });
-      line.setData(trail);
+      line.setData(lineData);
       seriesRef.current = { kind: 'line', series: line };
-      lastBarRef.current = trail.length ? { ...trail[trail.length - 1] } : null;
+      lastBarRef.current = lineData.length ? { ...lineData[lineData.length - 1] } : null;
       line.priceScale().applyOptions({ scaleMargins: { top: .16, bottom: .16 } });
     }
     const ts = chart.timeScale();
-    const n = displayCandles.length || trail.length;
+    const n = sparse ? lineData.length : displayCandles.length || trail.length;
     if (rangeRef.current) ts.setVisibleLogicalRange(rangeRef.current);
     else if (n > 160) ts.setVisibleLogicalRange({ from: n - 150, to: n + 4 });
     else ts.fitContent();
@@ -201,7 +204,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     };
     ts.subscribeVisibleLogicalRangeChange(onRange);
     return () => { ts.unsubscribeVisibleLogicalRangeChange(onRange); seriesRef.current = null; markersRef.current = null; chart.remove(); };
-  }, [displayCandles, trail, hasChart, dayMode, showVolume]);
+  }, [displayCandles, trail, hasChart, dayMode, showVolume]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Meta overlays (Trenches calls, Fee's trades) snapped to the candle they happened in.
   useEffect(() => {

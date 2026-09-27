@@ -3361,3 +3361,24 @@ body.theme-day .xp-avatar .wp-avatar{background:linear-gradient(135deg,#d9fff0,#
 .alpha-strip a:hover{border-color:var(--mint);color:var(--mint)}
 .wallet-profile-page>.alpha-strip{grid-column:1/-1}
 body.theme-day .alpha-strip a{background:#fff;border-color:#00875c33;color:#35574a}body.theme-day .alpha-strip a.on{color:#8a5a00;border-color:#d9a72766;background:#fff6dc}
+/* FEELESS coin logos are already coins: no extra ring, border or plate around them anywhere */
+:is(span,div,i,a,button):has(> img:is([src*="49MmWE8sgNjuw342"],[src*="2vZjg2w58k4urtdN"],[src*="AsX2abSJ2HqPqRx"],[src*="/assets/feeless-logo"],[src*="/assets/feecat-mark"])){border:0!important;background:none!important;box-shadow:none!important;outline:0!important}
+img:is([src*="49MmWE8sgNjuw342"],[src*="2vZjg2w58k4urtdN"],[src*="AsX2abSJ2HqPqRx"],[src*="/assets/feeless-logo"],[src*="/assets/feecat-mark"]){object-fit:contain!important;border:0!important;background:none!important;filter:drop-shadow(0 2px 6px #00e9a033)}
+/* ===== Day mode v2: dimmer base, slow drifting colour, card polish ===== */
+html:has(body.theme-day){background:#dfe9e3!important}body.theme-day{background:transparent!important}
+body.theme-day::before{content:'';position:fixed;inset:0;z-index:-1;background-size:160% 160%!important;pointer-events:none;
+  background:
+    radial-gradient(38vmax 30vmax at 20% 20%,#6ee7b766 0,transparent 70%),
+    radial-gradient(34vmax 28vmax at 80% 15%,#7cc4ff55 0,transparent 70%),
+    radial-gradient(36vmax 30vmax at 75% 85%,#f9a8d455 0,transparent 70%),
+    radial-gradient(30vmax 26vmax at 15% 85%,#fcd34d44 0,transparent 70%);
+  filter:saturate(1.05);animation:day-drift 38s ease-in-out infinite alternate}
+@keyframes day-drift{0%{background-position:0% 0%}50%{background-position:60% 40%}100%{background-position:100% 100%}}
+@media (prefers-reduced-motion:reduce){body.theme-day::before{animation:none}}
+/* Cards: white face, gradient hairline, soft depth */
+body.theme-day :is(.meta-panel,.launch-radar,.season-card,.wp-card,.xp-card,.cc-block,.cc-panel,.rep-standing,.rep-dark,.alpha-card,.feeless-coin-card,.paper-panel,.token-metrics .metric,.focus-card){
+  background:linear-gradient(#fffffff2,#fffffff2) padding-box,linear-gradient(135deg,#34d39966,#60a5fa44 45%,#f472b644) border-box!important;
+  border:1px solid transparent!important;box-shadow:0 1px 0 #ffffff inset,0 10px 28px -12px #0b3d2a33!important;color:#10251a}
+body.theme-day :is(.meta-panel,.launch-radar,.season-card,.wp-card,.cc-block,.alpha-card,.feeless-coin-card):hover{box-shadow:0 1px 0 #fff inset,0 16px 34px -14px #0b3d2a44!important}
+body.theme-day{--muted:#2f4f42}
+body.theme-day small,body.theme-day .cc-empty,body.theme-day .wp-bio{color:#3a5a4c}

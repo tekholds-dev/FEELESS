@@ -21,10 +21,15 @@ export const tokenImageUrls = pair => {
     pair?.baseToken?.logoUrl,
     pair?.baseToken?.logo,
   ].filter(isImageSource);
+  // Solana: IPFS links go through FEELESS's cached logo endpoint (public gateways rate-limit), and
+  // the same endpoint is the last resort after DexScreener's CDN.
+  const logo = chainId === 'solana' && address ? `/api/reputation/token-logo/${encodeURIComponent(address)}` : null;
+  const direct = logo ? candidates.map(u => (/\/ipfs\/|^ipfs:\/\//.test(u) ? logo : u)) : candidates;
   if (chainId && address) {
-    candidates.push(`https://dd.dexscreener.com/ds-data/tokens/${encodeURIComponent(chainId)}/${encodeURIComponent(address)}.png`);
+    direct.push(`https://dd.dexscreener.com/ds-data/tokens/${encodeURIComponent(chainId)}/${encodeURIComponent(address)}.png`);
   }
-  return [...new Set(candidates)];
+  if (logo) direct.push(logo);
+  return [...new Set(direct)];
 };
 
 const firstDefined = values => values.find(value => value !== null && value !== undefined && value !== '');

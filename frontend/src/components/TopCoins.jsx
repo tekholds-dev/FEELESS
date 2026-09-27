@@ -7,9 +7,9 @@ import { matchesPad } from '../lib/launchpads';
 import TokenCard from './TokenCard';
 
 const FEeless_COIN_IDENTITIES = [
-  { id: 'fee', name: 'FEE', symbol: 'FEE', description: 'Core FEELESS identity asset', imageUrl: '/assets/feeless-logo.png' },
-  { id: 'feecat', name: 'FeeCat', symbol: 'FEECAT', description: 'Community and Fee-Back culture asset', imageUrl: '/assets/feecat-mark.png' },
-  { id: 'rfee', name: 'RFEE', symbol: 'RFEE', description: 'Fee-Back return-path asset', imageUrl: null },
+  { id: 'fee', name: 'FEE', symbol: 'FEE', description: 'Core FEELESS identity asset', imageUrl: '/api/reputation/token-logo/49MmWE8sgNjuw342Eu7tB9thsVFtvTfKigUw9KSppump' },
+  { id: 'feecat', name: 'FeeCat', symbol: 'FEECAT', description: 'Community and Fee-Back culture asset', imageUrl: '/api/reputation/token-logo/AsX2abSJ2HqPqRxUbeYXE5R5ksrmUDz6BMGpg9mDpump' },
+  { id: 'rfee', name: 'RFEE', symbol: 'RFEE', description: 'Fee-Back return-path asset', imageUrl: '/api/reputation/token-logo/2vZjg2w58k4urtdNWPnNHizuSxesLCozQ5Pq9xxqNray' },
 ];
 
 export function FeelessCoinCards() {
@@ -17,7 +17,7 @@ export function FeelessCoinCards() {
     <div className="feeless-coin-cards-heading"><div><span className="eyebrow">FEELESS ECOSYSTEM</span><h3>Identity assets</h3></div><small>Market data follows provider indexing</small></div>
     <div className="feeless-coin-cards-grid">
       {FEeless_COIN_IDENTITIES.map(coin => <article className="feeless-coin-card" data-testid={`feeless-coin-${coin.id}`} key={coin.id}>
-        <span className={`feeless-coin-mark ${coin.id === 'rfee' ? 'text-mark' : ''}`}>{coin.imageUrl ? <img src={coin.imageUrl} alt="" /> : <span>RF</span>}</span>
+        <span className={`feeless-coin-mark ${''}`}>{coin.imageUrl ? <img src={coin.imageUrl} alt="" /> : <span>RF</span>}</span>
         <div className="feeless-coin-copy"><strong>{coin.name}</strong><span>{coin.symbol}</span><small>{coin.description}</small></div>
         <div className="feeless-coin-state"><i />NOT INDEXED</div>
         <p>No approved public market pair is attached yet. Price, liquidity, and volume are intentionally unavailable.</p>

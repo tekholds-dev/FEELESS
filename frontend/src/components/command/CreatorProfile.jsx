@@ -97,7 +97,7 @@ function WalletClusterPanel({ chain, address, result }) {
         <div className="rep-cluster-list">{linked.map(m => {
           const Icon = ICON[m.badge] || Shield;
           return <Link key={m.address} to={`/terminal/reputation/${m.chain}/${m.address}`} className={`rep-cluster-row badge-${m.badge}`}>
-            <Icon size={13} /><code>{shortAddress(m.address)}</code><CopyBtn value={m.address} /><span>{m.tokenCount} token{m.tokenCount === 1 ? '' : 's'}</span>{m.ruggedCount > 0 && <b className="negative">{m.ruggedCount} flagged</b>}<strong>{m.score}</strong>
+            <Icon size={13} /><code>{shortAddress(m.address)}</code><CopyBtn value={m.address} profile /><span>{m.tokenCount} token{m.tokenCount === 1 ? '' : 's'}</span>{m.ruggedCount > 0 && <b className="negative">{m.ruggedCount} flagged</b>}<strong>{m.score}</strong>
           </Link>;
         })}</div>
       </> : <p className="provider-note">No other tracked creator wallet shares this funding source yet — that can change as FEELESS observes more launches.</p>}
@@ -196,7 +196,7 @@ function WatchedCreatorRow({ watch, ownerWallet, onChanged }) {
   };
   return <div className="watch-row" data-testid={`watch-row-${watch.address}`}>
     <div className="watch-row-head">
-      <Link to={`/terminal/reputation/${watch.chain}/${watch.address}`} className="address-pill"><code>{shortAddress(watch.address)}</code><CopyBtn value={watch.address} /></Link>
+      <Link to={`/terminal/reputation/${watch.chain}/${watch.address}`} className="address-pill"><code>{shortAddress(watch.address)}</code><CopyBtn value={watch.address} profile /></Link>
       <span className={`reputation-badge badge-${watch.badge}`}><Icon size={11} />{BADGE_LABEL[watch.badge]}</span>
       {watch.score != null && <strong className="reputation-score">{watch.score}</strong>}
       <button type="button" className="icon-btn small-icon watch-remove" onClick={remove} disabled={busy} title="Unfollow"><Star size={14} fill="currentColor" /></button>

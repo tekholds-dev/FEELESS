@@ -64,7 +64,7 @@ export function LaunchRailAdmin({ call, isOwner }) {
     <SetupGuide keys={keys} rail={rail} routes={routes} />
     <div className="cc-block"><h4>FEELESS launch config {rail?.ready && <span className="pill-ok">LIVE</span>}</h4>
       {rail?.ready ? <div className="rail-live">
-        <p>Every FEELESS launch uses this on-chain config. Fees go to <code>{rail.feeClaimer.slice(0, 4)}…{rail.feeClaimer.slice(-4)}</code><CopyBtn value={rail.feeClaimer} />.</p>
+        <p>Every FEELESS launch uses this on-chain config. Fees go to <code>{rail.feeClaimer.slice(0, 4)}…{rail.feeClaimer.slice(-4)}</code><CopyBtn value={rail.feeClaimer} profile />.</p>
         <div className="rail-kv">{FIELDS.map(([k, l]) => <span key={k}><small>{l}</small><b>{Number(rail.params?.[k] ?? RAIL_DEFAULTS[k]).toLocaleString()}</b></span>)}</div>
         <p className="cc-empty">Config <code>{rail.config}</code><CopyBtn value={rail.config} /> · <a href={`https://solscan.io/account/${rail.config}`} target="_blank" rel="noreferrer">Solscan ↗</a>. On-chain configs can't be edited; to change terms, create a new one (old coins keep theirs).</p>
       </div> : <p className="cc-empty">Not created yet. Launches stay disabled until the owner signs this once.</p>}

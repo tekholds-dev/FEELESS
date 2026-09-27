@@ -27,6 +27,7 @@ test('uses provider image fields before the indexed token-image fallback', () =>
     'https://provider.test/alpha-info.png',
     'https://provider.test/alpha.png',
     'https://dd.dexscreener.com/ds-data/tokens/solana/mint-1.png',
+    '/api/reputation/token-logo/mint-1',
   ]);
   const { host, root } = mount(pair);
   expect(host.querySelector('img').getAttribute('src')).toBe('https://provider.test/alpha-info.png');
@@ -112,4 +113,8 @@ test('explains provider-unavailable data when no fallback snapshot exists', () =
   expect(host.querySelector('[data-testid="market-unavailable"]').textContent).toMatch(/temporarily unavailable/i);
   expect(host.querySelector('[data-testid="market-unavailable"]').textContent).toMatch(/next refresh/i);
   act(() => root.unmount());
+});
+test('routes IPFS logos through the cached FEELESS logo endpoint', () => {
+  const pair = { chainId: 'solana', baseToken: { address: 'mint-2' }, info: { imageUrl: 'https://ipfs.io/ipfs/bafyabc' } };
+  expect(tokenImageUrls(pair)[0]).toBe('/api/reputation/token-logo/mint-2');
 });

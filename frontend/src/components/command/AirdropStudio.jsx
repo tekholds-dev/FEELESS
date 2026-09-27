@@ -94,7 +94,7 @@ export function AirdropStudio({ call, asset, holders, selected, onScheduled }) {
       </div>
       <div className="cc-block cc-preview"><h4>Preview</h4>
         <div className="cc-kpis"><span><small>Wallets</small><b>{recipients.length}</b></span><span><small>Biggest</small><b>{gives.length ? Math.max(...gives).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}</b></span><span><small>Smallest</small><b>{gives.length ? Math.min(...gives).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}</b></span><span><small>Value @ now</small><b>{recipients[0]?.usd != null && recipients[0]?.amount ? formatUSD((Number(total) || 0) * (recipients[0].usd / recipients[0].amount)) : '—'}</b></span></div>
-        <div className="cc-prev-list">{recipients.slice(0, 60).map((r, i) => <div key={r.owner}><span>{i + 1}</span><code>{shortAddress(r.owner)}</code><CopyBtn value={r.owner} /><small>{r.months ? `${r.months.toFixed(1)} mo` : ''}</small><b>{r.give.toLocaleString(undefined, { maximumFractionDigits: 2 })}</b></div>)}{recipients.length > 60 && <small className="cc-empty">+{recipients.length - 60} more</small>}</div>
+        <div className="cc-prev-list">{recipients.slice(0, 60).map((r, i) => <div key={r.owner}><span>{i + 1}</span><code>{shortAddress(r.owner)}</code><CopyBtn value={r.owner} profile /><small>{r.months ? `${r.months.toFixed(1)} mo` : ''}</small><b>{r.give.toLocaleString(undefined, { maximumFractionDigits: 2 })}</b></div>)}{recipients.length > 60 && <small className="cc-empty">+{recipients.length - 60} more</small>}</div>
         <button type="button" className="btn-primary" disabled={!recipients.length} onClick={schedule}>🪂 Schedule for {recipients.length} wallets</button>
       </div>
     </div>
@@ -115,6 +115,6 @@ export function Snapshots({ call, asset }) {
       <div className="cc-drop-actions"><button type="button" onClick={() => call(`/admin/snapshots/${s.id}/diff`).then(setDiff).catch(e => toast.error(e.message))}>Compare with now</button></div></div>)}
     {diff && <div className="cc-block"><h4>Since {diff.snap.label || 'snapshot'}</h4>
       <div className="cc-kpis cc-kpis-5">{Object.entries(diff.counts).map(([k, v]) => <span key={k} className={`d-${k}`}><small>{k}</small><b>{v}</b></span>)}</div>
-      <div className="cc-prev-list">{diff.rows.slice(0, 80).map(r => <div key={r.owner} className={`d-${r.kind}`}><span>{r.kind}</span><code>{shortAddress(r.owner)}</code><CopyBtn value={r.owner} /><small>{r.then.toLocaleString(undefined, { maximumFractionDigits: 0 })} → {r.now.toLocaleString(undefined, { maximumFractionDigits: 0 })}</small><b>{r.delta >= 0 ? '+' : ''}{r.delta.toLocaleString(undefined, { maximumFractionDigits: 0 })}</b></div>)}</div></div>}
+      <div className="cc-prev-list">{diff.rows.slice(0, 80).map(r => <div key={r.owner} className={`d-${r.kind}`}><span>{r.kind}</span><code>{shortAddress(r.owner)}</code><CopyBtn value={r.owner} profile /><small>{r.then.toLocaleString(undefined, { maximumFractionDigits: 0 })} → {r.now.toLocaleString(undefined, { maximumFractionDigits: 0 })}</small><b>{r.delta >= 0 ? '+' : ''}{r.delta.toLocaleString(undefined, { maximumFractionDigits: 0 })}</b></div>)}</div></div>}
   </section>;
 }

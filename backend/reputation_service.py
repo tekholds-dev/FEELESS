@@ -6176,3 +6176,86 @@ async def pools_register(request: Request, p: PoolRegIn):
     d['pools'] = [x for x in d['pools'] if x['pool'] != p.pool] + [{'pool': p.pool, 'mint': p.mint, 'locked': p.locked, 'signature': p.signature, 'by': admin, 'at': time.time()}]
     _json_save(POOLS_REG_PATH, d); _rugproof_cache.pop(p.mint, None)
     return {'ok': True}
+
+
+# ---- Coin logos: find once, cache on disk, serve fast -----------------------------------------------
+# Public IPFS gateways rate-limit (ipfs.io returns 429), and some coins only carry their image inside
+# on-chain metadata. This resolves a mint's logo from DexScreener / Jupiter / on-chain metadata, tries
+# several IPFS gateways, stores the bytes, and serves them with a long cache.
+LOGO_DIR = DATA_DIR / 'logos'
+IPFS_GATEWAYS = ['https://cloudflare-ipfs.com/ipfs/', 'https://gateway.pinata.cloud/ipfs/', 'https://nftstorage.link/ipfs/', 'https://dweb.link/ipfs/', 'https://ipfs.io/ipfs/']
+_logo_miss: dict = {}
+_logo_locks: dict = {}
+
+
+def _ipfs_variants(u):
+    m = _re.search(r'/ipfs/([^?#]+)', u or '') or _re.match(r'^ipfs://(.+)$', u or '')
+    return [g + m.group(1) for g in IPFS_GATEWAYS] if m else [u]
+
+
+async def _fetch_first(http, urls, want_json=False):
+    for u in urls:
+        try:
+            r = await http.get(u, timeout=8, follow_redirects=True)
+            if r.status_code != 200:
+                continue
+            if want_json:
+                return r.json()
+            ct = r.headers.get('content-type', '').split(';')[0]
+            if ct.startswith('image/') and 0 < len(r.content) <= 2_500_000:
+                return ct, r.content
+        except Exception:
+            continue
+    return None
+
+
+@app.get('/api/reputation/token-logo/{mint}')
+async def token_logo(mint: str):
+    from fastapi.responses import FileResponse, Response
+    if not _re.match(_B58, mint):
+        raise HTTPException(400, 'Solana mint required.')
+    LOGO_DIR.mkdir(parents=True, exist_ok=True)
+    hit = next(LOGO_DIR.glob(f'{mint}.*'), None)
+    headers = {'Cache-Control': 'public, max-age=604800, immutable'}
+    if hit:
+        return FileResponse(hit, headers=headers)
+    if time.time() - _logo_miss.get(mint, 0) < 3600:
+        raise HTTPException(404, 'No logo found.')
+    lock = _logo_locks.setdefault(mint, asyncio.Lock())
+    async with lock:
+        hit = next(LOGO_DIR.glob(f'{mint}.*'), None)
+        if hit:
+            return FileResponse(hit, headers=headers)
+        cands = []
+        async with httpx.AsyncClient(headers={'User-Agent': 'Mozilla/5.0'}) as http:
+            try:
+                d = (await http.get(f'https://api.dexscreener.com/tokens/v1/solana/{mint}', timeout=8)).json()
+                cands += [(p.get('info') or {}).get('imageUrl') for p in (d or [])[:3]]
+            except Exception:
+                pass
+            try:
+                d = (await http.get(f'https://lite-api.jup.ag/tokens/v2/search?query={mint}', timeout=8)).json()
+                cands += [x.get('icon') for x in d if x.get('id') == mint]
+            except Exception:
+                pass
+            try:
+                a = await _rpc(http, 'getAsset', {'id': mint})
+                c = (a or {}).get('content') or {}
+                cands += [f.get('cdn_uri') for f in c.get('files') or []] + [(c.get('links') or {}).get('image')]
+                if c.get('json_uri'):
+                    meta = await _fetch_first(http, _ipfs_variants(c['json_uri']), want_json=True)
+                    cands.append((meta or {}).get('image'))
+            except Exception:
+                pass
+            got = None
+            for u in [x for x in cands if x]:
+                got = await _fetch_first(http, _ipfs_variants(u))
+                if got:
+                    break
+        if not got:
+            _logo_miss[mint] = time.time()
+            raise HTTPException(404, 'No logo found.')
+        ct, body = got
+        ext = {'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/svg+xml': 'svg'}.get(ct, 'img')
+        (LOGO_DIR / f'{mint}.{ext}').write_bytes(body)
+        return Response(body, media_type=ct, headers=headers)

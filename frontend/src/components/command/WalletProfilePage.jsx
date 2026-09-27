@@ -53,9 +53,10 @@ export function WalletProfilePage({ address }) {
   const { wallet, signMessage, connect } = useWallet() || {};
   const navigate = useNavigate();
   useEffect(() => { if (!address.startsWith('@')) return; fetch(apiUrl(`/api/reputation/resolve/${encodeURIComponent(address)}`)).then(r => (r.ok ? r.json() : null)).then(d => { if (d?.address) navigate(`/terminal/profile/${d.address}`, { replace: true }); }).catch(() => {}); }, [address, navigate]);
-  const [flipped, setFlipped] = useState(false);
+  // ?view=history deep-links straight to this wallet's swap history + P&L chart (used by search).
+  const [flipped, setFlipped] = useState(() => new URLSearchParams(window.location.search).get('view') === 'history');
   const [swapPair, setSwapPair] = useState(null);
-  const [actTab, setActTab] = useState(null);
+  const [actTab, setActTab] = useState(() => (new URLSearchParams(window.location.search).get('view') === 'history' ? 'history' : null));
   const [poolPerk, setPoolPerk] = useState(false);
   const [autoEdit, setAutoEdit] = useState(() => new URLSearchParams(window.location.search).get('edit') === '1');
   const [acts, setActs] = useState(null);

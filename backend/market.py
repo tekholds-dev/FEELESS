@@ -651,6 +651,10 @@ def create_market_router(db, intelligence=None):
                         pass
                     except HTTPException:
                         pass
+                # FEELESS serves a cached copy of every ecosystem logo (IPFS gateways rate-limit).
+                image_url = f'/api/reputation/token-logo/{mint}'
+                if pair:
+                    pair.setdefault('info', {})['imageUrl'] = image_url
                 items.append({'id': name.lower(), 'label': name, 'mint': mint, 'chain': 'solana', 'pair': pair,
                               'imageUrl': image_url,
                               'status': 'market_observed' if pair and pair.get('priceUsd') else 'awaiting_market', **meta,

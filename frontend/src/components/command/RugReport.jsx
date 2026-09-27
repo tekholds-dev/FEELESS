@@ -28,7 +28,7 @@ export function RugReport() {
   return <section className="rug-report" data-testid="rug-report">
     <header><div><h3>Rug Report</h3><small>Last 7 days · every entry is on-chain evidence</small></div><button type="button" className="btn-outline" onClick={() => downloadCard(r)}>⬇ Download card</button></header>
     <div className="rr-totals">{[['Caught', t.caught], ['Blocklisted', t.blocklisted], ['Repeat funders', t.funders], ['Broken Shields', t.brokenShields], ['Rugs/dumps', t.rugs]].map(([l, v]) => <div key={l}><b>{v.toLocaleString()}</b><small>{l}</small></div>)}</div>
-    <div className="rr-list">{r.caught.slice(0, 5).map(c => <Link key={c.wallet} to={`/terminal/profile/${c.wallet}`}><code>{short(c.wallet)}</code><CopyBtn value={c.wallet} /><span>{c.roles.join(' + ')} on {c.launches} launch{c.launches === 1 ? '' : 'es'}</span>{c.blocked && <em>⛔</em>}</Link>)}</div>
+    <div className="rr-list">{r.caught.slice(0, 5).map(c => <Link key={c.wallet} to={`/terminal/profile/${c.wallet}`}><code>{short(c.wallet)}</code><CopyBtn value={c.wallet} profile /><span>{c.roles.join(' + ')} on {c.launches} launch{c.launches === 1 ? '' : 'es'}</span>{c.blocked && <em>⛔</em>}</Link>)}</div>
   </section>;
 }
 
