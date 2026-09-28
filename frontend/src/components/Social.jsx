@@ -53,7 +53,11 @@ export function ProfileDM({ peer, mine, initialOpen }) {
   const [with_, setWith] = useState(mine ? null : peer);
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState('');
+  const [policy, setPolicy] = useState(null);
   const end = useRef(null);
+  const prefs = body => fetch('/api/reputation/dm-settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: wallet.address, session, ...body }) }).then(r => r.json()).then(p => setPolicy(p.policy));
+  useEffect(() => { if (mine && open && session && wallet?.address) fetch(`/api/reputation/dm-settings?${q({ address: wallet.address, session })}`).then(r => r.json()).then(p => setPolicy(p.policy)).catch(() => {}); }, [mine, open, session, wallet?.address]);
+  const pending = mine && threads.find(t => t.peer === with_)?.request;
   useEffect(() => { if (wallet?.address) setSession(readChatSession(wallet.address)); }, [wallet?.address, open]);
   useEffect(() => { setWith(mine ? null : peer); }, [mine, peer]);
   useEffect(() => {
@@ -78,9 +82,9 @@ export function ProfileDM({ peer, mine, initialOpen }) {
   return <section className="wp-card dm-card" data-testid="profile-dm">
     <div className="wpj-head"><h3><MessageCircle size={15} /> {mine ? 'Inbox' : 'Private chat'}</h3><button type="button" className="dm-x" onClick={() => setOpen(false)}>×</button></div>
     {!wallet || !session ? <div className="np-empty"><p>{wallet ? 'Sign once to chat privately (free, 7 days).' : 'Connect a wallet to chat.'}</p><button type="button" className="btn-primary" onClick={start}>{wallet ? 'Sign in' : 'Connect'}</button></div> : <div className={`dm-body ${mine ? 'with-list' : ''}`}>
-      {mine && <div className="dm-threads">{!threads.length ? <p className="np-empty">No conversations yet.</p> : threads.map(t => <button key={t.peer} type="button" className={with_ === t.peer ? 'on' : ''} onClick={() => setWith(t.peer)}><b>@{t.handle}</b><small>{t.last.text.slice(0, 40)}</small></button>)}</div>}
+      {mine && <div className="dm-threads">{policy && <label className="dm-policy"><span>Who can message me</span><select value={policy} onChange={e => prefs({ policy: e.target.value })}><option value="everyone">Everyone</option><option value="requests">Requests — I accept first</option><option value="nobody">Nobody</option></select></label>}{!threads.length ? <p className="np-empty">No conversations yet.</p> : threads.map(t => <button key={t.peer} type="button" className={with_ === t.peer ? 'on' : ''} onClick={() => setWith(t.peer)}><b>@{t.handle}{t.request && <em className="dm-req">request</em>}</b><small>{t.last.text.slice(0, 40)}</small></button>)}</div>}
       {with_ ? <div className="dm-thread"><div className="dm-msgs">{msgs.map(m => <div key={m.id} className={`dm-msg ${m.from === (msgs.find(x => x.from !== with_)?.from || '') || m.from !== with_ ? 'me' : ''}`}><p>{m.text}</p><small>{ago(m.at)}</small></div>)}<i ref={end} /></div>
-        <form onSubmit={send} className="dm-compose"><input maxLength={500} value={text} onChange={e => setText(e.target.value)} placeholder="Write a private message…" /><button className="btn-primary" aria-label="Send"><Send size={14} /></button></form></div> : mine && <p className="np-empty">Pick a conversation.</p>}
+        {pending && <div className="dm-request-bar"><span>@{threads.find(t => t.peer === with_)?.handle} wants to message you.</span><button type="button" className="btn-primary" onClick={() => prefs({ accept: with_ }).then(() => setThreads(ts => ts.map(t => (t.peer === with_ ? { ...t, request: false } : t))))}>Accept</button></div>}<form onSubmit={send} className="dm-compose"><input maxLength={500} value={text} onChange={e => setText(e.target.value)} placeholder="Write a private message…" /><button className="btn-primary" aria-label="Send"><Send size={14} /></button></form></div> : mine && <p className="np-empty">Pick a conversation.</p>}
     </div>}
   </section>;
 }

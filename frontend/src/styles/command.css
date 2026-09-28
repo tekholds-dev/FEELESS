@@ -250,3 +250,8 @@ body.theme-day .eco-chart{background:#fff;border-color:#9fd3b6}body.theme-day .e
 .wpr-totals table{grid-column:1/-1;width:100%;border-collapse:collapse;font-size:12px}.wpr-totals th,.wpr-totals td{text-align:right;padding:4px 6px;border-bottom:1px solid #ffffff0d}.wpr-totals th:first-child,.wpr-totals td:first-child{text-align:left}
 .wpr-totals button,.wpr-totals>small{grid-column:1/-1;justify-self:start}.wpr-totals>small{color:var(--muted);font-size:11px}
 @media (max-width:600px){.wpr-totals{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.receipt-preview{border:1px dashed #00e9a055;border-radius:14px;padding:12px 14px;background:linear-gradient(180deg,#00e9a00d,transparent);font-size:12px;margin-top:12px}
+.receipt-preview header{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px}.receipt-preview header b{letter-spacing:.08em;text-transform:uppercase;font-size:11px;color:var(--mint)}.receipt-preview header small{color:var(--muted);font-size:10.5px}
+.receipt-preview dl{display:grid;gap:5px;margin:0}.receipt-preview dl>div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dotted #ffffff14;padding-bottom:4px}.receipt-preview dt{color:var(--muted)}.receipt-preview dd{margin:0;font-family:'JetBrains Mono',monospace;text-align:right}
+.receipt-preview p{margin:8px 0 0;color:var(--muted);font-size:11px}
+@media(min-width:1280px){.trade-simple .receipt-preview{position:absolute;left:calc(100% + 16px);top:0;width:290px;margin-top:0}}

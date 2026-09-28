@@ -152,6 +152,17 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
+@app.on_event("startup")
+async def ensure_indexes():
+    # Unindexed lookups on these growing collections stalled every market request once they reached ~100k docs.
+    await db.alpha_events.create_index("id")
+    await db.alpha_events.create_index([("chain", 1), ("observed_at", -1)])
+    await db.alpha_events.create_index([("observed_at", -1)])
+    await db.market_observations.create_index("key")
+    await db.market_cache.create_index("key")
+    await db.chat_messages.create_index([("room", 1), ("ts", -1)])
+
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()

@@ -1092,7 +1092,7 @@ async def resolve_evm_creator(chain: str, token: str) -> Optional[str]:
 
 
 GLOBE_NETS = ['solana', 'ethereum', 'base', 'bsc', 'arbitrum', 'avalanche', 'polygon', 'sui', 'optimism', 'zksync', 'zora', 'cronos', 'unichain', 'worldchain']
-GLOBE_MIN_MC = 10_000_000
+GLOBE_MIN_MC = 1_000_000  # the globe shows a $1M+ tier and a $10M+ tier
 _globe_cache = {'at': 0, 'data': None}
 
 
@@ -1129,7 +1129,7 @@ def _globe_row(chain, pool, images):
 
 
 async def _refresh_globe():
-    """$10M+ coins per chain for the globe, from FEELESS's own DexScreener-backed market feed
+    """$1M+ coins per chain for the globe, from FEELESS's own DexScreener-backed market feed
     (strictly per chain — a coin only ever orbits the network it actually trades on)."""
     await asyncio.sleep(20)
     while True:
@@ -4087,6 +4087,43 @@ class DmIn(BaseModel):
     text: str = Field(min_length=1, max_length=500)
 
 
+# Who may message a wallet: everyone, requests (first message waits until accepted) or nobody.
+DM_PREFS_PATH = DATA_DIR / 'dm_prefs.json'
+DM_POLICIES = ('everyone', 'requests', 'nobody')
+
+
+def _dm_pref(addr):
+    p = _json_load(DM_PREFS_PATH, {}).get(addr) or {}
+    return {'policy': p.get('policy', 'everyone'), 'accepted': p.get('accepted', [])}
+
+
+class DmPrefsIn(BaseModel):
+    address: str
+    session: str
+    policy: Optional[str] = None
+    accept: Optional[str] = None
+
+
+@app.get('/api/reputation/dm-settings')
+async def dm_settings(address: str, session: str):
+    return _dm_pref(_session_or_401(address, session))
+
+
+@app.post('/api/reputation/dm-settings')
+async def dm_settings_set(payload: DmPrefsIn):
+    me = _session_or_401(payload.address, payload.session)
+    if payload.policy and payload.policy not in DM_POLICIES:
+        raise HTTPException(400, 'Unknown message setting.')
+    async with _admin_lock:
+        d = _json_load(DM_PREFS_PATH, {}); cur = {**_dm_pref(me), **(d.get(me) or {})}
+        if payload.policy:
+            cur['policy'] = payload.policy
+        if payload.accept:
+            cur['accepted'] = sorted(set(cur.get('accepted', [])) | {primary_of(payload.accept)})[-500:]
+        d[me] = cur; _json_save(DM_PREFS_PATH, d)
+    return _dm_pref(me)
+
+
 @app.post('/api/reputation/dm')
 async def dm_send(payload: DmIn):
     me = _session_or_401(payload.address, payload.session)
@@ -4097,14 +4134,26 @@ async def dm_send(payload: DmIn):
         raise HTTPException(403, 'You are muted for now.')
     if time.time() - _dm_last.get(me, 0) < 2:
         raise HTTPException(429, 'Slow down.')
+    pref = _dm_pref(to)
+    thread = _json_load(DM_PATH, {}).get(_dm_key(me, to), [])
+    replied = any(m['from'] == to for m in thread)  # they've written to me: the thread is open both ways
+    is_admin = primary_of(me) in {primary_of(w) for w in _admin_wallets()}
+    request = False
+    if not is_admin and not replied and me not in pref['accepted']:
+        if pref['policy'] == 'nobody':
+            raise HTTPException(403, "This wallet isn't accepting messages.")
+        if pref['policy'] == 'requests':
+            if thread:
+                raise HTTPException(403, 'Your message request is waiting — you can write again once they accept.')
+            request = True
     _dm_last[me] = time.time()
-    msg = {'id': uuid.uuid4().hex[:12], 'from': me, 'to': to, 'text': payload.text.strip(), 'at': time.time()}
+    msg = {'id': uuid.uuid4().hex[:12], 'from': me, 'to': to, 'text': payload.text.strip(), 'at': time.time(), **({'request': True} if request else {})}
     async with _admin_lock:
         d = _json_load(DM_PATH, {})
         d.setdefault(_dm_key(me, to), []).append(msg)
         d[_dm_key(me, to)] = d[_dm_key(me, to)][-300:]
         _json_save(DM_PATH, d)
-    notify(to, 'dm', f"@{handle_of(me)}: {payload.text.strip()}", f'/terminal/profile/{me}?dm=1', me)
+    notify(to, 'dm', f"{'📨 Message request from ' if request else ''}@{handle_of(me)}: {payload.text.strip()}", f'/terminal/profile/{to}?dm=1', me)
     return {'ok': True, 'message': msg}
 
 
@@ -4122,7 +4171,8 @@ async def dm_inbox(address: str, session: str):
         a, b = k.split('|')
         if me in (a, b) and msgs:
             peer = b if a == me else a
-            rows.append({'peer': peer, 'handle': handle_of(peer), 'last': msgs[-1], 'count': len(msgs)})
+            pending = _dm_pref(me)['policy'] == 'requests' and peer not in _dm_pref(me)['accepted'] and not any(m['from'] == me for m in msgs)
+            rows.append({'peer': peer, 'handle': handle_of(peer), 'last': msgs[-1], 'count': len(msgs), 'request': pending})
     rows.sort(key=lambda r: -r['last']['at'])
     return {'threads': rows[:50]}
 
