@@ -212,7 +212,7 @@ export function detectMetas(pairs, minMembers = 2) {
 
 const STATUS = { forming: ['🌱 forming', 'good'], rising: ['🚀 rising', 'good'], steady: ['〰 steady', 'mid'], fading: ['🧊 fading', 'bad'] };
 
-// Meta detector: the FEELESS meta engine scans every chain's trending + new coins (DexScreener + Codex)
+// Meta detector: the FEELESS meta engine scans every chain's trending + new coins (DexScreener)
 // every 2 minutes and groups them into narratives. Falls back to the coins on screen if it's warming up.
 export const MetaDetector = ({ pairs, onSelect }) => {
   const [engine, setEngine] = useState(null);

@@ -5180,9 +5180,50 @@ async def metas(refresh: bool = False):
     return data
 
 
+# ---- A Solana wallet's own swaps, parsed from its transactions (Helius) --------------------------
+_STABLES = {'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'}
+
+
+async def _maker_swaps(http, address):
+    """[{ts, side, usd, price, token, tx}] for the wallet's recent swaps. SOL legs are priced at the
+    live SOL rate; stablecoin legs count 1:1. [] when Helius is not configured."""
+    key_ = _helius_key()
+    if not key_:
+        return []
+    try:
+        txs = (await http.get(f'https://api.helius.xyz/v0/addresses/{address}/transactions', params={'api-key': key_, 'type': 'SWAP', 'limit': 100})).json()
+        sol_usd = float(((await http.get(f'https://lite-api.jup.ag/price/v3?ids={WSOL}')).json().get(WSOL) or {}).get('usdPrice') or 0)
+    except Exception:
+        return []
+    out = []
+    for tx in txs if isinstance(txs, list) else []:
+        delta, quote_usd = {}, 0.0
+        for t in tx.get('tokenTransfers') or []:
+            amt = float(t.get('tokenAmount') or 0) * (1 if t.get('toUserAccount') == address else -1 if t.get('fromUserAccount') == address else 0)
+            if not amt:
+                continue
+            if t.get('mint') == WSOL:
+                quote_usd += amt * sol_usd
+            elif t.get('mint') in _STABLES:
+                quote_usd += amt
+            else:
+                delta[t['mint']] = delta.get(t['mint'], 0) + amt
+        if not quote_usd:  # native SOL leg only when there was no wrapped-SOL/stable leg (else it's the same SOL twice)
+            for n in tx.get('nativeTransfers') or []:
+                lam = float(n.get('amount') or 0) / 1e9
+                quote_usd += lam * sol_usd * (1 if n.get('toUserAccount') == address else -1 if n.get('fromUserAccount') == address else 0)
+        moved = [(m, a) for m, a in delta.items() if a]
+        if len(moved) != 1 or not quote_usd:
+            continue  # token-for-token routes or transfers without a priced leg
+        mint, amt = moved[0]
+        usd = abs(quote_usd)
+        out.append({'ts': tx.get('timestamp') or 0, 'side': 'buy' if amt > 0 else 'sell', 'usd': round(usd, 2),
+                    'price': usd / abs(amt), 'token': mint, 'tx': tx.get('signature')})
+    return out
+
+
 # ---- KOL tracker: real trades of wallets FEELESS admins mark as KOLs, and why the pattern matters --
 KOLS_PATH = DATA_DIR / 'kols.json'
-CODEX_NETS = {'solana': 1399811149, 'ethereum': 1, 'base': 8453, 'bsc': 56, 'arbitrum': 42161, 'avalanche': 43114, 'polygon': 137}
 _kol_cache = {}
 
 
@@ -5196,8 +5237,8 @@ class KolPayload(BaseModel):
 @app.post('/api/reputation/admin/kols')
 async def admin_kol_add(request: Request, p: KolPayload):
     admin = _require_admin(request)
-    if p.chain not in CODEX_NETS or not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.address) or _re.match(r'^0x[0-9a-fA-F]{40}$', p.address)):
-        raise HTTPException(400, 'Valid wallet address + supported chain required.')
+    if p.chain != 'solana' or not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.address):
+        raise HTTPException(400, 'KOL tracking reads Solana wallets — enter a valid Solana address.')
     d = _json_load(KOLS_PATH, {})
     d[p.address] = {'name': p.name[:40], 'x': (p.x or '').lstrip('@')[:30], 'chain': p.chain, 'addedBy': admin, 'at': time.time()}
     _json_save(KOLS_PATH, d)
@@ -5215,24 +5256,14 @@ async def _kol_stats(address, chain):
     hit = _kol_cache.get(address)
     if hit and time.time() - hit[0] < 300:
         return hit[1]
-    key_ = os.environ.get('CODEX_API_KEY', '').strip()
-    if not key_:
+    if chain != 'solana' or not _helius_key():
         return None
-    q = ('query($m:String!,$n:Int!){getTokenEventsForMaker(query:{maker:$m,networkId:$n},limit:100){items{timestamp token0Address '
-         'eventDisplayType transactionHash data{... on SwapEventData{priceUsdTotal}}}}}')
-    try:
-        async with httpx.AsyncClient(timeout=15) as http:
-            r = await http.post('https://graph.codex.io/graphql', headers={'Authorization': key_}, json={'query': q, 'variables': {'m': address, 'n': CODEX_NETS[chain]}})
-        items = ((((r.json() or {}).get('data') or {}).get('getTokenEventsForMaker') or {}).get('items')) or []
-    except Exception:
-        return None
+    async with httpx.AsyncClient(timeout=15) as http:
+        items = await _maker_swaps(http, address)
     by = {}
     for e in items:
-        k = e.get('eventDisplayType'); usd = float(((e.get('data') or {}).get('priceUsdTotal')) or 0)
-        if k not in ('Buy', 'Sell') or not e.get('token0Address'):
-            continue
-        t = by.setdefault(e['token0Address'], {'buys': [], 'sells': []})
-        t['buys' if k == 'Buy' else 'sells'].append((e['timestamp'], usd))
+        t = by.setdefault(e['token'], {'buys': [], 'sells': []})
+        t['buys' if e['side'] == 'buy' else 'sells'].append((e['ts'], e['usd']))
     tokens, holds, flips, dumps, wins, closed = [], [], 0, 0, 0, 0
     for tok, t in by.items():
         bought = sum(u for _, u in t['buys']); sold = sum(u for _, u in t['sells'])
@@ -5657,25 +5688,8 @@ async def wallet_trades(address: str, limit: int = 40):
     hit = _wtrades_cache.get(address)
     if hit and time.time() - hit[0] < 60:
         return hit[1]
-    key_ = os.environ.get('CODEX_API_KEY', '').strip()
-    chains = ['solana'] if not address.startswith('0x') else ['base', 'ethereum', 'bsc', 'arbitrum']
-    q = ('query($m:String!,$n:Int!){getTokenEventsForMaker(query:{maker:$m,networkId:$n},limit:100){items{timestamp token0Address '
-         'eventDisplayType transactionHash data{... on SwapEventData{priceUsd priceUsdTotal}}}}}')
-    rows = []
     async with httpx.AsyncClient(timeout=12) as http:
-        if key_:
-            async def one(chain):
-                try:
-                    r = await http.post('https://graph.codex.io/graphql', headers={'Authorization': key_}, json={'query': q, 'variables': {'m': address, 'n': CODEX_NETS[chain]}})
-                    return chain, ((((r.json() or {}).get('data') or {}).get('getTokenEventsForMaker') or {}).get('items')) or []
-                except Exception:
-                    return chain, []
-            for chain, items in await asyncio.gather(*(one(c) for c in chains)):
-                for e in items:
-                    if e.get('eventDisplayType') in ('Buy', 'Sell') and e.get('token0Address'):
-                        dd = e.get('data') or {}
-                        rows.append({'ts': e['timestamp'], 'side': e['eventDisplayType'].lower(), 'usd': round(float(dd.get('priceUsdTotal') or 0), 2),
-                                     'price': float(dd.get('priceUsd') or 0), 'token': e['token0Address'], 'chain': chain, 'tx': e.get('transactionHash')})
+        rows = [] if address.startswith('0x') else [{**r, 'chain': 'solana'} for r in await _maker_swaps(http, address)]
         rows.sort(key=lambda x: -x['ts'])
         _wtrades_all[address] = (time.time(), list(rows))   # full window, used for positions
         rows = rows[:limit]
@@ -5700,7 +5714,7 @@ async def wallet_trades(address: str, limit: int = 40):
 async def wallet_trades_ep(address: str):
     if not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address) or _re.match(r'^0x[0-9a-fA-F]{40}$', address)):
         raise HTTPException(400, 'Bad address.')
-    return {'address': address, 'trades': await wallet_trades(address), 'source': 'Codex'}
+    return {'address': address, 'trades': await wallet_trades(address), 'source': 'Helius'}
 
 
 @app.get('/api/reputation/copy/check/{address}')
@@ -5953,7 +5967,6 @@ async def position(address: str, token: str):
 SETUP_KEYS = [
     ('SOLANA_RPC_URL', 'Solana RPC (Helius)', 'Chain reads, forensics, trades feed', True),
     ('ALCHEMY_API_KEY', 'Alchemy', 'EVM + Solana RPC, price history, gas checks', True),
-    ('CODEX_API_KEY', 'Codex', 'Charts, trades, discovery on every chain', True),
     ('JUPITER_API_KEY', 'Jupiter', 'Solana swaps, token search, $FEE pricing', True),
     ('FEELESS_ADMIN_WALLETS', 'Owner wallets', 'Who can open the command center (defaults to creator wallet)', False),
     ('ALLOWED_ORIGINS', 'Site domain', 'Lock APIs to your domain before launch', False),
@@ -6383,7 +6396,6 @@ LATENCY_PROBES = [
     ('Jupiter price', 'Live price + chart anchor', 'JUPITER_API_KEY', lambda: 'https://lite-api.jup.ag/price/v3?ids=So11111111111111111111111111111111111111112'),
     ('DexScreener', 'Pair discovery, search, fallback price', '—', lambda: 'https://api.dexscreener.com/latest/dex/search?q=SOL'),
     ('Helius RPC', 'On-chain reads, swap history, live stream trigger', 'SOLANA_RPC_URL', None),
-    ('Codex', 'Chart history #2 (all chains)', 'CODEX_API_KEY', None),
     ('FEELESS candles', 'Serves every chart (cache + fallbacks)', '—', lambda: 'http://127.0.0.1:5099/api/candles/stream-stats'),
 ]
 
@@ -6404,17 +6416,12 @@ async def _probe_latency():
                     rpc = os.environ.get('SOLANA_RPC_URL', '').strip()
                     r = await http.post(rpc, json={'jsonrpc': '2.0', 'id': 1, 'method': 'getSlot'}) if rpc else None
                     ok = bool(r and r.status_code == 200 and 'result' in r.json()); note = '' if rpc else 'not configured'
-                elif name == 'Codex':
-                    key_ = os.environ.get('CODEX_API_KEY', '').strip()
-                    r = await http.post('https://graph.codex.io/graphql', headers={'Authorization': key_}, json={'query': '{getNetworks{id}}'}) if key_ else None
-                    body = r.json() if r is not None else {}
-                    ok = bool(r is not None and r.status_code == 200 and not body.get('errors')); note = (body.get('errors') or [{}])[0].get('message', '')[:80] if body.get('errors') else ('' if key_ else 'not configured')
                 else:
                     r = await http.get(url()); ok = r.status_code == 200; note = '' if ok else f'HTTP {r.status_code}'
             except Exception as exc:
                 note = type(exc).__name__
             out.append({'name': name, 'role': role, 'env': env, 'ok': ok, 'ms': round((time.time() - t0) * 1000), 'note': note})
-    return {'providers': out, 'chartOrder': ['Jupiter chart data', 'Codex', 'Alchemy', 'Helius swaps', 'FEELESS-recorded ticks'],
+    return {'providers': out, 'chartOrder': ['Jupiter chart data', 'Alchemy', 'Helius swaps', 'FEELESS-recorded ticks'],
             'checkedAt': time.time()}
 
 

@@ -22,7 +22,7 @@ function SetupGuide({ keys, rail, routes }) {
   const has = k => keys?.find(x => x.key === k)?.set;
   const steps = [
     ['Solana RPC', has('SOLANA_RPC_URL'), 'Helius key in backend/.env as SOLANA_RPC_URL. Powers reads, forensics and the wallet relay.'],
-    ['Price + chart data', has('CODEX_API_KEY') && has('JUPITER_API_KEY'), 'CODEX_API_KEY and JUPITER_API_KEY in backend/.env.'],
+    ['Price + chart data', has('JUPITER_API_KEY'), 'JUPITER_API_KEY in backend/.env.'],
     ['Public site URL', has('PUBLIC_SITE_URL'), 'PUBLIC_SITE_URL=https://your-domain in backend/.env. New coins\' name + image are served from here.'],
     ['Owner wallets', has('FEELESS_ADMIN_WALLETS'), 'FEELESS_ADMIN_WALLETS=addr1,addr2 — who can open this center. Use a hardware or multisig wallet.'],
     ['Fee claimer / treasury', routes, 'Treasury tab → set where earnings go. A Squads multisig vault is safest.'],

@@ -313,14 +313,6 @@ async def alchemy_candles(chain, pair, interval):
     return out
 
 
-# ---- Codex (codex.io): primary OHLCV for every chain when CODEX_API_KEY is set ----------------
-CODEX_NET = {'solana': 1399811149, 'ethereum': 1, 'base': 8453, 'bsc': 56, 'arbitrum': 42161, 'avalanche': 43114, 'polygon': 137,
-             'optimism': 10, 'zksync': 324, 'zora': 7777777, 'cronos': 25, 'unichain': 130, 'worldchain': 480}
-CODEX_RES = {'1m': ('1', 86400), '5m': ('5', 3 * 86400), '15m': ('15', 7 * 86400), '1h': ('60', 30 * 86400), '4h': ('240', 120 * 86400), '1d': ('1D', 730 * 86400)}
-_codex_cache: dict = {}
-
-
-_codex_block = {'until': 0}
 _jup_hist: dict = {}
 JUP_IV = {'1m': '1_MINUTE', '5m': '5_MINUTE', '15m': '15_MINUTE', '1h': '1_HOUR', '4h': '4_HOUR', '1d': '1_DAY'}
 
@@ -343,70 +335,6 @@ async def jupiter_candles(chain, pair, interval):
         return hit[1] if hit else []
     out = [[int(c['time']), float(c['open']), float(c['high']), float(c['low']), float(c['close']), float(c.get('volume') or 0)] for c in rows if c.get('close')]
     _jup_hist[ck] = (time.time(), out)
-    return out
-
-
-async def codex_candles(chain, pair, interval):
-    key_ = os.environ.get('CODEX_API_KEY', '').strip(); net = CODEX_NET.get(chain)
-    if not key_ or not net:
-        return []
-    ck = f'{chain}:{pair}:{interval}'
-    hit = _codex_cache.get(ck)
-    # 60s per pair/interval is plenty (live ticks sharpen the last bar); at 10-100k viewers this keeps
-    # Codex calls proportional to distinct charts, not to users.
-    if hit and time.time() - hit[0] < 60:
-        return hit[1]
-    if time.time() < _codex_block['until']:
-        return hit[1] if hit else []
-    res, back = CODEX_RES.get(interval, ('60', 30 * 86400))
-    now = int(time.time())
-    q = 'query($s:String!,$f:Int!,$t:Int!,$r:String!){getBars(symbol:$s,from:$f,to:$t,resolution:$r,removeLeadingNullValues:true){t o h l c volume}}'
-    try:
-        async with httpx.AsyncClient(timeout=8) as http:
-            r = await http.post('https://graph.codex.io/graphql', headers={'Authorization': key_, 'Content-Type': 'application/json'},
-                                json={'query': q, 'variables': {'s': f'{pair}:{net}', 'f': now - back, 't': now, 'r': res}})
-        body = r.json() or {}
-        if any('usage limit' in (e.get('message') or '') or 'rate' in (e.get('message') or '').lower() for e in body.get('errors') or []):
-            _codex_block['until'] = time.time() + 600  # quota/rate hit: stop hammering for 10 min
-            return hit[1] if hit else []
-        b = (body.get('data') or {}).get('getBars') or {}
-    except Exception:
-        return hit[1] if hit else []
-    out = []
-    for i, t in enumerate(b.get('t') or []):
-        o, h, l, c = b['o'][i], b['h'][i], b['l'][i], b['c'][i]
-        if c is None:
-            continue
-        v = (b.get('volume') or [0] * (i + 1))[i]
-        out.append([int(t), float(o if o is not None else c), float(h if h is not None else c), float(l if l is not None else c), float(c), float(v or 0)])
-    _codex_cache[ck] = (time.time(), out)
-    return out
-
-
-async def codex_trades(chain, pool):
-    """Latest swaps for a pool on any Codex-indexed chain. None = Codex unavailable (caller falls back)."""
-    key_ = os.environ.get('CODEX_API_KEY', '').strip(); net = CODEX_NET.get(chain)
-    if not key_ or not net:
-        return None
-    q = ('query($a:String!,$n:Int!){getTokenEvents(query:{address:$a,networkId:$n},limit:50){items{timestamp transactionHash maker '
-         'eventDisplayType data{... on SwapEventData{priceUsd priceUsdTotal}}}}}')
-    try:
-        async with httpx.AsyncClient(timeout=8) as http:
-            r = await http.post('https://graph.codex.io/graphql', headers={'Authorization': key_},
-                                json={'query': q, 'variables': {'a': pool, 'n': net}})
-        items = ((((r.json() or {}).get('data') or {}).get('getTokenEvents') or {}).get('items'))
-    except Exception:
-        return None
-    if items is None:
-        return None
-    out = []
-    for e in items:
-        kind = (e.get('eventDisplayType') or '').lower()
-        d = e.get('data') or {}
-        if kind not in ('buy', 'sell') or not d.get('priceUsdTotal'):
-            continue
-        out.append({'ts': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(e.get('timestamp') or 0)), 'kind': kind,
-                    'usd': round(float(d['priceUsdTotal']), 2), 'price': float(d.get('priceUsd') or 0), 'wallet': e.get('maker'), 'tx': e.get('transactionHash')})
     return out
 
 
@@ -534,7 +462,7 @@ async def _build_candles(chain, pair_address, interval):
         anchor = await _stream_price(mint)
     agrees = lambda h: bool(h) and len(h) >= 1 and (not anchor or anchor / 3 <= h[-1][4] <= anchor * 3)
     hist, provider = [], None
-    for name, fn in (('Jupiter', jupiter_candles), ('Codex', codex_candles), ('Alchemy', alchemy_candles), ('Helius swaps', helius_candles)):
+    for name, fn in (('Jupiter', jupiter_candles), ('Alchemy', alchemy_candles), ('Helius swaps', helius_candles)):
         h = await fn(chain, pair_address, interval)
         if agrees(h):
             hist, provider = h, name
@@ -593,11 +521,6 @@ async def pool_trades(chain: str, pool: str):
     now = time.time()
     if hit and now - hit[0] < 15:
         return hit[1]
-    codex = await codex_trades(chain, pool)
-    if codex is not None:
-        data = {'trades': codex, 'at': now, 'source': 'Codex'}
-        _trade_cache[key] = (now, data)
-        return data
     if chain != 'solana':
         return hit[1] if hit else {'trades': [], 'error': 'provider unavailable'}
     k = _helius_key(); pair = await _pair_snapshot(chain, pool)
@@ -693,19 +616,7 @@ async def _jup_price(mint):
 
 
 async def _stream_price(mint):
-    # Codex tracks every trade (~120ms); Jupiter as fallback (its price is cached a few seconds).
-    key_ = os.environ.get('CODEX_API_KEY', '').strip()
     try:
-        async with httpx.AsyncClient(timeout=4) as http:
-            if key_ and time.time() >= _codex_block['until']:
-                r = await http.post('https://graph.codex.io/graphql', headers={'Authorization': key_},
-                                    json={'query': 'query($a:String!,$n:Int!){getTokenPrices(inputs:[{address:$a,networkId:$n}]){priceUsd}}', 'variables': {'a': mint, 'n': CODEX_NET['solana']}})
-                body = r.json() or {}
-                if body.get('errors'):
-                    _codex_block['until'] = time.time() + 600
-                px = float(((body.get('data') or {}).get('getTokenPrices') or [{}])[0].get('priceUsd') or 0)
-                if px:
-                    return px
         return await _jup_price(mint)
     except Exception:
         return None

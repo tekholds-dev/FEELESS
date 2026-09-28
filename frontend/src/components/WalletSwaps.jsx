@@ -5,7 +5,7 @@ import { apiUrl } from '../lib/api';
 const ago = ts => { const s = Date.now() / 1000 - ts; return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : s < 86400 ? `${Math.round(s / 3600)}h` : `${Math.round(s / 86400)}d`; };
 export const tradeHref = t => `/terminal/trade?chain=${encodeURIComponent(t.chain)}&pair=${encodeURIComponent(t.pair || t.token)}`;
 
-// A wallet's real recent swaps (Codex, every chain it trades on), each one click from the trade desk.
+// A wallet's real recent swaps (parsed from its Solana transactions), each one click from the trade desk.
 export function WalletSwaps({ address, title = 'Swaps', limit = 12, onMirror }) {
   const [rows, setRows] = useState(null);
   const navigate = useNavigate();
