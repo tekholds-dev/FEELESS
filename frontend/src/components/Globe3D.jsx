@@ -298,7 +298,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
     }
     if (label) feedPush.current?.({ id: b.id, kind, label, color: b.color, token });
   };
-  const openToken = t => { if (!t) return; if (onToken) { onToken(t); return; } if (t.pairAddress) window.open(`/terminal/trade?chain=${encodeURIComponent(t.chain)}&pair=${encodeURIComponent(t.pairAddress)}`, '_blank', 'noopener'); };
+  const openToken = t => { if (t) onToken?.(t); };
   const hottest = useMemo(() => [...bigTokens].filter(t => Number.isFinite(Number(t.change24h)) && Math.abs(Number(t.change24h)) < 2000).sort((a, b) => Number(b.change24h) - Number(a.change24h))[0], [bigTokens]);
   // Brand-new pools can report absurd 24h moves (e.g. +8,725,052,277%); those aren't signal.
   // A clean globe: at most 15 coins per tier, the ones that most recently crossed it (closest above
@@ -500,7 +500,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
            pointLabel={p => p.isToken
             ? `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;"><b>${escapeHtml(p.token.symbol)}</b> · ${escapeHtml(p.token.chain)}<br/>${fmtCap(p.token.marketCap)} ${p.token.mcKind === 'FDV' ? 'FDV' : 'MC'}${Number.isFinite(Number(p.token.change24h)) ? ` · ${Number(p.token.change24h) >= 0 ? '+' : ''}${Number(p.token.change24h).toFixed(1)}% 24h` : ''}</div>`
             : `<div class="globe-point-tooltip" style="padding:6px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;">${p.name} · ${p.symbol}</div>`}
-          onPointClick={p => { if (p.isToken) { if (p.token.pairAddress) window.open(`/terminal/trade?chain=${encodeURIComponent(p.token.chain)}&pair=${encodeURIComponent(p.token.pairAddress)}`, '_blank', 'noopener'); return; } onSelect && onSelect(p.id); }}
+          onPointClick={p => { if (p.isToken) openToken(p.token); else onSelect?.(p.id); }}
           onPointHover={p => document.body.style.cursor = p ? 'pointer' : 'default'}
           ringsData={rings}
           ringColor="color"
@@ -514,7 +514,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
           objectThreeObject={globeObject}
           objectFacesSurface
           objectLabel={p => p.isNode ? `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;"><b>${escapeHtml(p.name)}</b><br/>Click to open its war room</div>` : `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;"><b>${escapeHtml(p.token.symbol)}</b> · ${escapeHtml(p.token.chain)}<br/>${fmtCap(p.token.marketCap)} ${p.token.mcKind === 'FDV' ? 'FDV' : 'MC'}${Number.isFinite(Number(p.token.change24h)) ? ` · ${Number(p.token.change24h) >= 0 ? '+' : ''}${Number(p.token.change24h).toFixed(1)}% 24h` : ''}</div>`}
-          onObjectClick={p => { if (p.isNode) { onSelect?.(p.id); return; } if (onToken) { onToken(p.token); return; } if (p.token.pairAddress) window.open(`/terminal/trade?chain=${encodeURIComponent(p.token.chain)}&pair=${encodeURIComponent(p.token.pairAddress)}`, '_blank', 'noopener'); }}
+          onObjectClick={p => { if (p.isNode) onSelect?.(p.id); else openToken(p.token); }}
           onObjectHover={p => { document.body.style.cursor = p ? 'pointer' : 'default'; }}
           htmlElementsData={bubbles}
           htmlLat="lat"

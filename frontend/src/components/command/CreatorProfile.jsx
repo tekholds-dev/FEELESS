@@ -132,7 +132,7 @@ function LaunchTable({ chain, tokens }) {
         <span><small>24H</small><b className={Number.isFinite(change) ? (change >= 0 ? 'positive' : 'negative') : ''}>{Number.isFinite(change) ? `${change.toFixed(1)}%` : '—'}</b></span>
         <span><small>VOL 24H</small><b>{fmtUsd(m?.volume24h)}</b></span>
         <span className="launch-actions">
-          {m?.listed && m.pairAddress && <button type="button" className="btn-outline" onClick={() => navigate(`/terminal/trade?chain=${chain}&pair=${m.pairAddress}`)}>Open</button>}
+          {m?.listed && m.pairAddress && <button type="button" className="btn-outline" onClick={() => navigate(`/terminal/chat?chain=${chain}&pair=${m.pairAddress}&room=bulls`)}>Open</button>}
           {m?.url && <a href={m.url} target="_blank" rel="noreferrer" title="DexScreener"><ExternalLink size={12} />DEX</a>}
           {mint && chain === 'solana' && <a href={`https://pump.fun/coin/${mint}`} target="_blank" rel="noreferrer" title="pump.fun"><Rocket size={12} />Pump</a>}
           {mint && <button type="button" className="icon-btn small-icon" title="Copy token mint" onClick={() => copyText(mint, 'Token address copied')}><Copy size={12} /></button>}

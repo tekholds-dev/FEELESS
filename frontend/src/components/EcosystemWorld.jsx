@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { X, ArrowUpRight, Rocket, Radio, Compass, Sparkles, Cat, Infinity as InfinityIcon } from 'lucide-react';
+import { searchTokens } from '../lib/dexscreener';
 import EcosystemChat from './EcosystemChat';
 import NewStuffFeed from './NewStuffFeed';
 const PriceChart = React.lazy(() => import('./terminal/PriceChart').then(m => ({ default: m.PriceChart })));
@@ -25,10 +26,17 @@ const readRoomExpanded = () => {
 
 // Blur-reveal immersive ecosystem "world": chat on the LEFT, blurred globe behind,
 // live activity pulse + new-stuff feed + onboarding + minimal quick links on the RIGHT.
-export default function EcosystemWorld({ ecosystem, pad, onClose }) {
+export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose }) {
   const [layout, setLayout] = useState(readRoomLayout);
   const [expanded, setExpanded] = useState(readRoomExpanded);
   const [chartPair, setChartPair] = useState(null);
+  // Opened from a globe coin: chart that exact pool in the war-room card.
+  useEffect(() => {
+    if (!initialPair) return;
+    let alive = true;
+    searchTokens(initialPair.pairAddress).then(ps => { const p = (ps || []).find(x => x.pairAddress === initialPair.pairAddress && x.chainId === initialPair.chainId); if (alive && p) { setChartPair(p); setLayout('chart'); } }).catch(() => {});
+    return () => { alive = false; };
+  }, [initialPair?.chainId, initialPair?.pairAddress]); // eslint-disable-line react-hooks/exhaustive-deps
   const [chartIv, setChartIv] = useState('1m');
   const [chartBig, setChartBig] = useState(false);
   const [showFee, setShowFee] = useState(false);
