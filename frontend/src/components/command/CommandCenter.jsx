@@ -2,9 +2,10 @@ import { LatencyPanel } from './LatencyPanel';
 import { useWallet } from '../../hooks/useWallet';
 import { PoolCreator } from './PoolCreator';
 import { LaunchRailAdmin } from './LaunchRailAdmin';
+import { CircleWallets } from './CircleWallets';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { ShieldCheck, Users, Gift, Award, Bug, RefreshCw, Download, X, Activity, BarChart3 } from 'lucide-react';
+import { ShieldCheck, Users, Gift, Award, Bug, RefreshCw, Download, X, Activity, BarChart3, Wallet } from 'lucide-react';
 import { apiUrl } from '../../lib/api';
 import { shortAddress, formatUSD } from '../../lib/dexscreener';
 import { AirdropStudio, Snapshots } from './AirdropStudio';
@@ -73,7 +74,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     <div className="cc-gate-actions"><button type="button" className="btn-primary" disabled={busy} onClick={signIn}><ShieldCheck size={15} />{busy ? 'Check your wallet…' : 'Sign in to Command Center'}</button><button type="button" className="btn-outline" onClick={onClose}>Back to profile</button></div>
   </div></div>;
 
-  const TABS = [['launch', 'Launch & setup', ShieldCheck], ['latency', 'Charts & latency', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Fees & Pricing', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['launch', 'Launch & setup', ShieldCheck], ['latency', 'Charts & latency', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['circle', 'Circle wallets', Wallet], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Fees & Pricing', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div>
       <nav className="cc-tabs">{TABS.map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</nav>
@@ -90,6 +91,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'pulse' && <PulsePanel call={call} />}
     {tab === 'mod' && <ModPanel call={call} />}
     {tab === 'broadcast' && <BroadcastPanel call={call} />}
+    {tab === 'circle' && (isOwner ? <CircleWallets call={call} /> : <p className="cc-empty">Only owner wallets can manage Circle wallets.</p>)}
     {tab === 'treasury' && <><TreasuryPanel call={call} /><TreasuryRoutes call={call} isOwner={isOwner} /></>}
     {tab === 'overview' && <Overview sec={sec} reload={loadSec} />}
     {tab === 'holders' && <section className="cc-panel">

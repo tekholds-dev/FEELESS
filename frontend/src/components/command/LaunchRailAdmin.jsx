@@ -5,7 +5,6 @@ import { RAIL_DEFAULTS, createLaunchRail, fetchLaunchRail } from '../../lib/laun
 import { CopyBtn } from '../CopyBtn';
 import { useSolPrice, usd } from '../../lib/solPrice';
 import { TreasurySend } from './TreasurySend';
-import { CircleWallets } from './CircleWallets';
 
 const FIELDS = [
   ['initialMarketCap', 'Opening market cap (SOL)', 'Where the curve starts. 30 SOL ≈ pump.fun-style low open.'],
@@ -86,7 +85,6 @@ export function LaunchRailAdmin({ call, isOwner }) {
       </ol>
     </div>
     {isOwner && <TreasurySend ownerWallets={owners} />}
-    {isOwner && <CircleWallets call={call} />}
     <div className="cc-block"><h4>FEELESS launch config {rail?.ready && <span className="pill-ok">LIVE</span>}</h4>
       {rail?.ready ? <div className="rail-live">
         <p>Every FEELESS launch uses this on-chain config. Fees go to <code>{rail.feeClaimer.slice(0, 4)}…{rail.feeClaimer.slice(-4)}</code><CopyBtn value={rail.feeClaimer} profile />.</p>
