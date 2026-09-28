@@ -2177,14 +2177,15 @@ async def chat_post(payload: ChatPost):
             raise HTTPException(401, 'Chat session expired — sign in to chat again.')
     elif not _verify_wallet(payload.address, _chat_message_to_sign(payload.room, payload.address, payload.ts, text), payload.signature):
         raise HTTPException(401, 'Signature does not match this wallet.')
-    if payload.room == 'feeless-updates' and primary_of(payload.address) not in {primary_of(w) for w in _admin_wallets()}:
+    is_admin = primary_of(payload.address) in {primary_of(w) for w in _admin_wallets()}  # admins post anywhere, unthrottled
+    if payload.room == 'feeless-updates' and not is_admin:
         raise HTTPException(403, 'Updates is read-only — only FEELESS admins post here.')
-    if payload.room in _ALPHA and not await _alpha_allowed(payload.room, payload.address):
+    if not is_admin and payload.room in _ALPHA and not await _alpha_allowed(payload.room, payload.address):
         raise HTTPException(403, f"{_ALPHA[payload.room]['name']} unlocks at ${_ALPHA[payload.room]['minUsd']:,} held in $FEE.")
-    eg = await evm_gate(payload.room, payload.address)
+    eg = None if is_admin else await evm_gate(payload.room, payload.address)
     if eg and not eg['allowed']:
         raise HTTPException(403, f"{eg['symbol']} is an EVM coin — link or switch to your 0x account." if eg.get('needsChain') else f"Hold at least ${MIN_HOLD_USD:.0f} of {eg['symbol']} to chat here (you hold ${eg['holdingUsd'] or 0:.2f}).")
-    coin = await _room_mint(payload.room)
+    coin = None if is_admin else await _room_mint(payload.room)
     if coin and payload.address.startswith('0x'):
         raise HTTPException(403, f'{coin[1]} lives on Solana — switch your wallet to its Solana account to chat here.')
     if coin:
@@ -2220,9 +2221,9 @@ async def chat_post(payload: ChatPost):
         last = d['lastTs'].get(payload.address, 0)
         if payload.ts <= last:
             raise HTTPException(409, 'Replay rejected — sign a fresh message.')
-        if time.time() - d.get('lastAt', {}).get(payload.address, 0) < 3:
+        if not is_admin and time.time() - d.get('lastAt', {}).get(payload.address, 0) < 3:
             raise HTTPException(429, 'Slow down — one message every 3 seconds.')
-        verdict = _spam_check(d, payload.room, payload.address, text, tier)
+        verdict = None if is_admin else _spam_check(d, payload.room, payload.address, text, tier)
         if verdict:
             CHAT_PATH.write_text(json.dumps(d))
             raise HTTPException(429 if verdict.startswith('Slow') else 403, verdict)

@@ -3435,8 +3435,7 @@ body.theme-day .swap-order{background:linear-gradient(160deg,#ffffff,#f3fbf7)!im
 .lat-row span,.lat-row small{color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lat-row em{font:700 12px 'JetBrains Mono',monospace;font-style:normal;text-align:right}
 @media (max-width:700px){.lat-row{grid-template-columns:10px 1fr auto}.lat-row span,.lat-row small{display:none}}
 .cc-bug .sev{font-style:normal;font-size:11px;font-weight:700}.cc-bug .sev-0{color:#ff5d73}.cc-bug .sev-1{color:#f5a742}.cc-bug .sev-2{color:#5ec8ff}
-.feed-panel header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.feed-panel h3{margin:0}
-.feed-panel select{max-width:220px}
+.feed-panel header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}.feed-panel header small{color:var(--muted);font-size:12px}
 .feed-panel .chat-message{border-bottom:1px solid #ffffff0d;padding:10px 4px}
 .circle-wallets ol{margin:6px 0 10px;padding-left:18px;display:grid;gap:4px;font-size:12.5px}
 .cw-list{display:grid;gap:6px;margin:8px 0}
@@ -3469,3 +3468,25 @@ body.theme-day .swap-order{background:linear-gradient(160deg,#ffffff,#f3fbf7)!im
 @media (prefers-reduced-motion:reduce){.feed-wordmark,.feed-bar-flare,.feed-bar-live i,.wp-quickrow .alpha-card-mini{animation:none}}
 body.theme-day .feed-bar{background:#f3fbf7;border-color:#07784f44}body.theme-day .feed-bar-live{color:#173b2b}body.theme-day .feed-bar-list{background:#fffffff5}
 .wp-quickrow>:only-child{grid-column:1/-1}
+/* ---- FEEd stage: swap | live FEEd | top coins ---- */
+.feed-stage{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr) minmax(0,220px);gap:14px;align-items:start}
+.feed-stage:not(:has(.feed-swap)){grid-template-columns:minmax(0,1fr) minmax(0,220px)}
+.feed-side{border-radius:16px;border:1px solid #ffffff14;background:#07100ccc;padding:12px;position:sticky;top:12px}
+.feed-side h4{margin:0 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.feed-swap .swap-desk{display:block;margin:0}.feed-swap .route-intelligence{display:none}
+.feed-top button{width:100%;display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:6px 6px;border:0;border-radius:9px;background:none;color:inherit;cursor:pointer;font-size:12.5px;text-align:left}
+.feed-top button:hover{background:#00e9a012}.feed-top img,.feed-top .ft-dot{width:22px;height:22px;border-radius:50%;object-fit:cover;background:#123}.feed-top em{font-style:normal;font-family:'JetBrains Mono',monospace;font-size:11.5px}
+.feed-panel{position:relative;isolation:isolate;border-radius:18px;padding:16px;background:linear-gradient(#07100c,#07100c) padding-box,conic-gradient(from var(--feed-angle,0deg),#00e9a0,#0b7a52,#9dffd9,#0b7a52,#00e9a0) border-box;border:1.5px solid transparent;box-shadow:0 0 38px -12px #00e9a088;animation:feed-spin 8s linear infinite}
+@property --feed-angle{syntax:'<angle>';inherits:false;initial-value:0deg}
+@keyframes feed-spin{to{--feed-angle:360deg}}
+.feed-flares{position:absolute;inset:0;overflow:hidden;border-radius:inherit;pointer-events:none;z-index:-1}
+.feed-flares i{position:absolute;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,#00e9a055,transparent 70%);filter:blur(6px);animation:feed-drift 9s ease-in-out infinite}
+.feed-flares i:nth-child(1){top:-40px;left:-30px}.feed-flares i:nth-child(2){top:30%;right:-50px;animation-delay:-3s;background:radial-gradient(circle,#9dffd944,transparent 70%)}.feed-flares i:nth-child(3){bottom:-50px;left:40%;animation-delay:-6s}
+@keyframes feed-drift{50%{transform:translate(30px,20px) scale(1.25);opacity:.6}}
+.feed-cats{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.feed-cats button{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid #ffffff1c;background:#ffffff06;color:#cfe9dc;font-size:12.5px;cursor:pointer;transition:transform .15s,background .15s,border-color .15s}
+.feed-cats button:hover{transform:translateY(-1px);border-color:#00e9a066}
+.feed-cats button.on{background:linear-gradient(135deg,#00e9a0,#0b7a52);border-color:transparent;color:#03140c;font-weight:700;box-shadow:0 0 18px -4px #00e9a0aa}
+@media (max-width:1100px){.feed-stage,.feed-stage:not(:has(.feed-swap)){grid-template-columns:1fr}.feed-side{position:static}}
+@media (prefers-reduced-motion:reduce){.feed-panel,.feed-flares i{animation:none}}
+body.theme-day .feed-panel{background:linear-gradient(#fff,#fff) padding-box,conic-gradient(from var(--feed-angle,0deg),#07784f,#9dffd9,#07784f) border-box}body.theme-day .feed-side{background:#fff;border-color:var(--day-border)}body.theme-day .feed-cats button{color:#173b2b}

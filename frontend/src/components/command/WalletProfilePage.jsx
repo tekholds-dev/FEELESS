@@ -51,15 +51,33 @@ function UploadButton({ label, shape, onDone }) {
 }
 
 // FEEd: the community's social feed, by category — post, reply and react like a timeline.
-const FEED_CATS = [['feed-general', '🌐 Everything'], ['feed-alpha', '📈 Alpha & calls'], ['feed-memes', '😂 Memes'], ['feed-launches', '🚀 Launches'], ['feed-help', '🛟 Help'], ['feeless-updates', '📣 FEELESS updates']];
-function FeedPanel({ onConnect }) {
+const FEED_CATS = [['feed-general', '🌐', 'Everything', 'All the talk'], ['feed-alpha', '📈', 'Alpha & calls', 'Post a CA — 2×/5×/10× earns points'], ['feed-memes', '😂', 'Memes', 'Culture & coins'], ['feed-launches', '🚀', 'Launches', 'New coins, first looks'], ['feed-help', '🛟', 'Help', 'Ask anything'], ['feeless-updates', '📣', 'FEELESS', 'Official updates']];
+
+// Hot coins beside the FEEd: one click opens the Trenches chart.
+function FeedTopCoins() {
+  const navigate = useNavigate();
+  const { data } = useMarket('/feed?kind=trending&chain=solana', 60000);
+  const pairs = (data?.pairs || []).filter(p => p.baseToken?.symbol).slice(0, 8);
+  return <aside className="feed-side feed-top" data-testid="feed-top-coins"><h4>🔥 Top coins</h4>
+    {!pairs.length ? <p className="wp-bio">Loading…</p> : pairs.map(p => { const ch = Number(p.priceChange?.h24); return <button type="button" key={p.pairAddress} onClick={() => navigate(`/terminal/chat?chain=${p.chainId}&pair=${p.pairAddress}&room=bulls`)}>
+      {p.info?.imageUrl ? <img src={p.info.imageUrl} alt="" /> : <span className="ft-dot" />}<b>${p.baseToken.symbol}</b><em className={ch >= 0 ? 'positive' : 'negative'}>{Number.isFinite(ch) ? `${ch >= 0 ? '+' : ''}${ch.toFixed(1)}%` : '—'}</em></button>; })}
+  </aside>;
+}
+
+function FeedPanel({ onConnect, mine }) {
   const [cat, setCat] = useState(() => { try { return localStorage.getItem('feeless:feed-cat') || 'feed-general'; } catch { return 'feed-general'; } });
   const pick = v => { setCat(v); try { localStorage.setItem('feeless:feed-cat', v); } catch { /* private */ } };
-  const label = FEED_CATS.find(c => c[0] === cat)?.[1] || 'FEEd';
-  return <section className="wp-card feed-panel" data-testid="profile-feed">
-    <header><h3>FEEd</h3><select value={cat} onChange={e => pick(e.target.value)} aria-label="FEEd category">{FEED_CATS.map(([id, l]) => <option key={id} value={id}>{l}</option>)}</select></header>
-    <FeedCallers />
-    <EcosystemChat key={cat} compact room={cat} ecosystem={{ id: cat, name: label }} onConnect={onConnect} />
+  const current = FEED_CATS.find(c => c[0] === cat) || FEED_CATS[0];
+  return <section className="feed-stage" data-testid="profile-feed">
+    {mine && <aside className="feed-side feed-swap"><h4>⚡ Swap</h4><ProfileSwapBox /></aside>}
+    <div className="feed-panel">
+      <span className="feed-flares" aria-hidden="true"><i /><i /><i /></span>
+      <header><b className="feed-wordmark">FEEd</b><small>{current[3]}</small></header>
+      <FeedCallers />
+      <nav className="feed-cats" aria-label="FEEd categories">{FEED_CATS.map(([id, icon, label]) => <button type="button" key={id} className={cat === id ? 'on' : ''} aria-pressed={cat === id} onClick={() => pick(id)}><span>{icon}</span>{label}</button>)}</nav>
+      <EcosystemChat key={cat} compact room={cat} ecosystem={{ id: cat, name: current[2] }} onConnect={onConnect} />
+    </div>
+    <FeedTopCoins />
   </section>;
 }
 
@@ -165,7 +183,7 @@ export function WalletProfilePage({ address }) {
     {flipped && actTab === 'swap' && mine && <section className="wp-card profile-swap" data-testid="profile-swap"><ProfileSwapBox pair={swapPair} /><small className="wp-bio">Signed in your own wallet — FEELESS never holds funds. Trades into $FEE coins carry no FEELESS fee.</small></section>}
     {flipped && actTab === 'holdings' && <PortfolioCard address={address} onSwap={mine ? pr => { setSwapPair(pr); setActTab('swap'); } : undefined} />}
     {flipped && actTab === 'history' && <><WalletSwaps address={address} title="Swap history" /><PnlTracker address={address} /></>}
-    {flipped && actTab === 'feed' && <FeedPanel onConnect={() => connect?.('solana')} />}
+    {flipped && actTab === 'feed' && <FeedPanel mine={mine} onConnect={() => connect?.('solana')} />}
     {flipped && actTab === 'posts' && <ReceiptsCard address={address} />}
     {flipped && actTab === 'posts' && <section className="wp-card wp-activity" data-testid="profile-activity"><h3>Activity</h3>{!acts ? <p className="wp-bio">Loading…</p> : !acts.posts.length ? <p className="wp-bio">No posts yet.</p> : <div className="wpa-list">{acts.posts.map(a => <a key={a.id} className="wpa-row" href={a.room.startsWith('coin-') ? `/terminal/chat` : a.room.startsWith('wall-') ? `/terminal/profile/${a.room.slice(5)}` : '/terminal/chat'} target="_blank" rel="noopener noreferrer"><span className="wpa-room">{a.room.startsWith('wall-') ? '🧱 wall' : a.room.startsWith('coin-') ? `🪙 ${a.room.split('-').pop()}` : `# ${a.room}`}</span><p>{a.text}</p><time>{new Date(a.ts).toLocaleString()}</time></a>)}</div>}</section>}
     {flipped && actTab === 'rewards' && <><RewardsCard address={address} mine={mine} />{mine && <PointsShop address={address} />}</>}
