@@ -3286,7 +3286,11 @@ body.theme-day .launch-radar{background:#fff;border-color:var(--day-border)}
   radial-gradient(90% 120% at 92% 100%,color-mix(in srgb,var(--wp-accent,#00e9a0) 30%,#ff2bd6 25%),transparent 60%),
   linear-gradient(120deg,#07130d,#0b1a12 60%,#050b08)}
 .xp-cover:not(.has-img)::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(115deg,#ffffff07 0 2px,transparent 2px 14px);mask:linear-gradient(90deg,#000,transparent 85%)}
-.xp-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.xp-cover.has-img{height:auto;aspect-ratio:3/1;max-height:340px}
+.xp-cover img{position:absolute;inset:0;width:100%;height:100%}
+/* The whole banner always shows (contain); a blurred copy fills any leftover space, whatever the image's size. */
+.xp-cover-fill{object-fit:cover;filter:blur(28px) saturate(1.2) brightness(.55);transform:scale(1.15)}
+.xp-cover-img{object-fit:contain}
 .xp-cover-mark{position:absolute;right:18px;bottom:-10px;font:900 clamp(42px,8vw,96px)/1 'Outfit',sans-serif;letter-spacing:-3px;color:#ffffff0f;white-space:nowrap;pointer-events:none}
 .xp-cover .wp-upload{position:absolute;right:12px;top:12px}
 .xp-row{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-start;padding:0 clamp(14px,2.2vw,24px);margin-top:calc(-1 * clamp(40px,5vw,56px))}
@@ -3443,3 +3447,25 @@ body.theme-day .swap-order{background:linear-gradient(160deg,#ffffff,#f3fbf7)!im
 .dm-policy{display:grid;gap:4px;padding:8px;margin-bottom:6px;border-bottom:1px solid #ffffff12;font-size:11px;color:var(--muted)}.dm-policy select{background:#0b120e;color:inherit;border:1px solid #ffffff1f;border-radius:8px;padding:5px 6px}
 .dm-req{margin-left:6px;font-style:normal;font-size:9.5px;padding:1px 6px;border-radius:999px;background:#ffbe5a22;color:#ffc36b;text-transform:uppercase;letter-spacing:.05em}
 .dm-request-bar{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;margin:6px 0;border-radius:10px;background:#ffbe5a14;font-size:12px}
+/* ---- Profile quick row: Alpha rooms + live FEEd bar ---- */
+.wp-quickrow{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:12px;align-items:start;margin:0 0 12px}
+.wp-quickrow .alpha-card-mini{max-width:none;margin:0;height:100%;background:linear-gradient(120deg,#1a1405,#0a120e 55%,#1a1405);background-size:220% 100%;animation:acm-sweep 7s ease-in-out infinite}
+@keyframes acm-sweep{0%,100%{background-position:0 0}50%{background-position:100% 0}}
+.feed-bar{position:relative;display:grid;grid-template-columns:1fr auto;border-radius:16px;border:1px solid #00e9a044;background:radial-gradient(120% 140% at 0 0,#00e9a01f,transparent 55%),#07100c;overflow:visible;box-shadow:0 0 0 1px #00e9a010,0 10px 34px -14px #00e9a066}
+.feed-bar-main{position:relative;overflow:hidden;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;padding:12px 16px;border:0;background:none;color:inherit;text-align:left;cursor:pointer;border-radius:16px 0 0 16px}
+.feed-wordmark{font:400 26px/1 'Bungee',sans-serif;letter-spacing:1px;background:linear-gradient(100deg,#0b7a52,#00e9a0 30%,#eafff6 45%,#00e9a0 60%,#0b7a52);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 10px #00e9a066);animation:feed-shine 3.2s linear infinite}
+@keyframes feed-shine{to{background-position:-250% 0}}
+.feed-bar-flare{position:absolute;inset:-40% auto -40% -30%;width:30%;background:linear-gradient(100deg,transparent,#b8ffe455,transparent);transform:skewX(-18deg);animation:feed-flare 4.5s ease-in-out infinite;pointer-events:none}
+@keyframes feed-flare{0%,55%{left:-30%}100%{left:130%}}
+.feed-bar-live{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;color:#cfe9dc}.feed-bar-live em{font-style:normal;color:var(--mint);font-weight:700}
+.feed-bar-live i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 10px var(--mint);margin-right:8px;vertical-align:middle;animation:feed-pulse 1.6s ease-in-out infinite}
+@keyframes feed-pulse{50%{opacity:.35;transform:scale(.7)}}
+.feed-bar-go{font-style:normal;font-weight:700;font-size:12.5px;color:var(--mint)}
+.feed-bar-peek{border:0;border-left:1px solid #00e9a022;background:none;color:var(--mint);padding:0 14px;cursor:pointer;font-size:14px}
+.feed-bar-list{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 6px);list-style:none;margin:0;padding:6px;border-radius:14px;border:1px solid #00e9a044;background:#07100cf5;backdrop-filter:blur(10px);box-shadow:0 18px 40px -12px #000c,0 0 24px -8px #00e9a055;display:grid;gap:4px}
+.feed-bar-list button{width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:baseline;padding:7px 9px;border:0;border-radius:9px;background:none;color:inherit;text-align:left;cursor:pointer;font-size:12px}
+.feed-bar-list button:hover{background:#00e9a012}.feed-bar-list b{color:var(--mint)}.feed-bar-list span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.feed-bar-list small{color:var(--muted);font-size:10.5px}
+@media (max-width:760px){.wp-quickrow{grid-template-columns:1fr}.feed-wordmark{font-size:21px}}
+@media (prefers-reduced-motion:reduce){.feed-wordmark,.feed-bar-flare,.feed-bar-live i,.wp-quickrow .alpha-card-mini{animation:none}}
+body.theme-day .feed-bar{background:#f3fbf7;border-color:#07784f44}body.theme-day .feed-bar-live{color:#173b2b}body.theme-day .feed-bar-list{background:#fffffff5}
+.wp-quickrow>:only-child{grid-column:1/-1}
