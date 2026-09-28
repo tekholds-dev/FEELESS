@@ -4,6 +4,7 @@ import { formatUSD, formatPct, shortAddress, formatAge } from '../../lib/dexscre
 import { LivePrice } from '../terminal/LiveCells';
 import { DipRipTool } from '../terminal/DipRipTool';
 import { CreatorFeesCard } from './CreatorFeesCard';
+import { CoinProfileClaim } from './CoinProfileClaim';
 
 const ago = ts => { const s = Math.max(0, Date.now() / 1000 - ts); return s < 60 ? `${Math.floor(s)}s` : s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h` : `${Math.floor(s / 86400)}d`; };
 
@@ -74,6 +75,7 @@ export function CoinProfile({ chain, pairAddress }) {
         {!rep?.creator ? <p className="wp-bio">Finding creator…</p> : <>
           <a className="cp-creator" href={`/terminal/profile/${rep.creator}`}>{shortAddress(rep.creator)} ↗</a>
           {chain === 'solana' && mint && <CreatorFeesCard mint={mint} creator={rep.creator} />}
+          {chain === 'solana' && mint && <CoinProfileClaim mint={mint} creator={rep.creator} />}
           <div className="cp-kv"><span>Reputation</span><b className={rep.badge === 'flagged' ? 'negative' : rep.badge === 'trusted' ? 'positive' : ''}>{rep.badge}{rep.score != null ? ` · ${rep.score}` : ''}</b></div>
         </>}
       </div>

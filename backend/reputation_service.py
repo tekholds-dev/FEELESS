@@ -2256,6 +2256,15 @@ async def chat_post(payload: ChatPost):
     return {'ok': True, 'message': msg}
 
 
+def feeless_post(room: str, text: str):
+    """Posts from FEELESS itself go out as the one real FEELESS profile — the owner wallet's — never a stand-in account."""
+    owner = primary_of(((_owner_wallets() or _admin_wallets()) or ['FEELESS'])[0])
+    msg = chat_system_post(room, _display_name(owner), owner, text)
+    msg.update(system=False, identity=owner, handle=handle_of(owner), official=True)
+    d = _chat_load(); d['rooms'][room][-1] = msg; CHAT_PATH.write_text(json.dumps(d))
+    return msg
+
+
 def chat_system_post(room: str, username: str, address: str, text: str, tokens=None):
     """Server-authored message (e.g. Fee's calls). Not user-signed; flagged as system."""
     d = _chat_load()
@@ -3817,7 +3826,7 @@ async def admin_broadcast(request: Request, payload: BroadcastIn):
     url = payload.url if payload.url.startswith('/') or payload.url.startswith('https://') else '/terminal'
     posted = 0
     for room in [r for r in payload.rooms[:20] if _re.match(r'^[A-Za-z0-9_-]{3,160}$', str(r))]:
-        chat_system_post(room, 'FEELESS HQ 👑', 'FEELESS-HQ', f'📢 {payload.title}\n{payload.body}')
+        feeless_post(room, f'📢 {payload.title}\n{payload.body}')
         posted += 1
     sent = gone = 0
     if payload.push:
@@ -6202,6 +6211,44 @@ async def token_meta_create(p: TokenMetaIn, request: Request):
     return {'uri': f'{site}/api/reputation/token-meta/{mid}.json'}
 
 
+# ---- Coin profiles: claimed by the coin's creator wallet (or an admin) — never auto-created -------
+COIN_PROFILES_PATH = DATA_DIR / 'coin_profiles.json'
+
+
+class CoinProfileIn(BaseModel):
+    address: str
+    session: str
+    mint: str
+    description: str = ''
+    bannerUrl: str = ''
+    website: str = ''
+    twitter: str = ''
+    telegram: str = ''
+
+
+@app.get('/api/reputation/coin-profile/{mint}')
+async def coin_profile_get(mint: str):
+    return _json_load(COIN_PROFILES_PATH, {}).get(mint) or {}
+
+
+@app.post('/api/reputation/coin-profile')
+async def coin_profile_set(p: CoinProfileIn):
+    me = primary_of(_session_or_401(p.address, p.session))
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.mint):
+        raise HTTPException(400, 'Bad coin address.')
+    creator = await resolve_creator('solana', p.mint)
+    is_admin = me in {primary_of(w) for w in _admin_wallets()}
+    if not is_admin and (not creator or primary_of(creator) != me):
+        raise HTTPException(403, "Only this coin's creator wallet can claim and edit its profile.")
+    link = lambda v: v.strip()[:200] if v.strip().startswith('https://') else ''
+    banner = p.bannerUrl.strip()[:300]
+    rec = {'description': p.description.strip()[:600], 'bannerUrl': banner if banner.startswith(('https://', '/api/reputation/uploads/')) else '',
+           'website': link(p.website), 'twitter': link(p.twitter), 'telegram': link(p.telegram), 'claimedBy': me, 'updatedAt': time.time()}
+    async with _admin_lock:
+        d = _json_load(COIN_PROFILES_PATH, {}); d[p.mint] = rec; _json_save(COIN_PROFILES_PATH, d)
+    return rec
+
+
 @app.get('/api/reputation/token-meta/{name}')
 async def token_meta_get(name: str):
     from fastapi.responses import FileResponse
@@ -6513,14 +6560,14 @@ async def _latency_alarm():
                 st = _latency_bad.get(r['name'])
                 if not bad:
                     if st and st.get('posted'):
-                        chat_system_post('feeless-updates', 'FEELESS status', 'system', f"✅ {r['name']} recovered ({r['ms']} ms).")
+                        feeless_post('feeless-updates', f"✅ {r['name']} recovered ({r['ms']} ms).")
                     _latency_bad.pop(r['name'], None)
                     continue
                 st = _latency_bad.setdefault(r['name'], {'since': time.time()})
                 if not st.get('posted') and time.time() - st['since'] >= 300:
                     st['posted'] = True
                     why = r['note'] or 'down' if not r['ok'] else f"{r['ms']} ms"
-                    chat_system_post('feeless-updates', 'FEELESS status', 'system', f"⚠️ {r['name']} ({r['role']}) degraded for 5+ min: {why}. Fallbacks are serving; we're on it.")
+                    feeless_post('feeless-updates', f"⚠️ {r['name']} ({r['role']}) degraded for 5+ min: {why}. Fallbacks are serving; we're on it.")
         except Exception as exc:
             print('latency alarm error', exc)
 

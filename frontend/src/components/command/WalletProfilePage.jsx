@@ -46,7 +46,7 @@ function FriendCard({ address }) {
 const ACCENTS = ['#00e9a0', '#e9bd65', '#5ec8ff', '#b388ff', '#ff6b8b', '#ff9f45', '#ffffff'];
 const XIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.9 2H22l-7.6 8.7L23 22h-6.8l-5.3-6.9L4.8 22H1.7l8.1-9.3L1 2h7l4.8 6.3L18.9 2Zm-1.2 18h1.9L7.4 3.9H5.4L17.7 20Z" /></svg>;
 
-function UploadButton({ label, shape, onDone }) {
+export function UploadButton({ label, shape, onDone }) {
   const [busy, setBusy] = useState(false);
   return <label className="wp-upload"><input type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" onChange={async e => { const f = e.target.files?.[0]; if (!f) return; setBusy(true); e.target.value = ''; try { const url = await uploadImage(f, shape); if (url) onDone(url); } catch (err) { toast.error(err.message); } finally { setBusy(false); } }} /><ImageIcon size={12} />{busy ? 'Uploading…' : label}</label>;
 }
