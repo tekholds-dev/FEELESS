@@ -3511,3 +3511,4 @@ body.theme-day .explain-tip{background:#fff;color:#173b2b;border-color:#07784f44
 .gif-card footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px}.gif-card footer small{margin-right:auto;color:var(--muted)}
 .wpr-item{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center}.wpr-gif{border:1px solid #00e9a044;background:#00e9a00d;border-radius:9px;padding:6px 9px;cursor:pointer;font-size:14px}.wpr-gif:hover{background:#00e9a022}
 .my-pnl-share{border:1px solid #00e9a066;background:#00e9a014;color:var(--mint);border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer}
+.rr-share{display:flex;gap:8px;flex-wrap:wrap}
