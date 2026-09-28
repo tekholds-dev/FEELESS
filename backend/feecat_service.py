@@ -135,7 +135,7 @@ def _num(v, d=0.0):
 
 async def _market_candidates(http):
     pairs = {}
-    for kind in ('trending', 'volume', 'gainers'):
+    for kind in ('trending', 'new'):
         for page in (1, 2):
             try:
                 r = await http.get(MARKET_FEED.format(kind=kind, page=page))
