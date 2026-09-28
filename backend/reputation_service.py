@@ -6530,6 +6530,58 @@ async def _start_latency_alarm():
     asyncio.create_task(_latency_alarm())
 
 
+# ---- Command center: marketing — 3-day top movers + top/bottom reputations, ready to post -------------
+MARKETING_PATH = DATA_DIR / 'marketing.json'
+_movers_cache = {'at': 0, 'rows': []}
+
+
+async def _three_day_movers():
+    """% move over the last 72h for the globe's most-traded coins, from FEELESS's own hourly candles."""
+    if time.time() - _movers_cache['at'] < 1800:
+        return _movers_cache['rows']
+    toks = sorted(((_globe_cache['data'] or {}).get('tokens') or []), key=lambda t: -(t.get('volume24h') or 0))[:40]
+    sem = asyncio.Semaphore(6)
+    async with httpx.AsyncClient(timeout=15) as http:
+        async def one(t):
+            async with sem:
+                try:
+                    c = (await http.get(f"http://127.0.0.1:5099/api/candles/{t['chain']}/{t['pairAddress']}", params={'interval': '1h'})).json().get('candles') or []
+                except Exception:
+                    return None
+            cutoff = time.time() - 72 * 3600
+            past = next((x for x in c if x[0] >= cutoff), None)
+            if not past or not c or past[4] <= 0:
+                return None
+            return {**{k: t.get(k) for k in ('chain', 'symbol', 'name', 'imageUrl', 'pairAddress', 'marketCap')}, 'move3d': round((c[-1][4] / past[4] - 1) * 100, 1)}
+        rows = [r for r in await asyncio.gather(*(one(t) for t in toks)) if r]
+    rows.sort(key=lambda r: -r['move3d'])
+    _movers_cache.update(at=time.time(), rows=rows)
+    return rows
+
+
+def _post_text(r):
+    up = r['move3d'] >= 0
+    return (f"${r['symbol']} {'+' if up else ''}{r['move3d']}% in 3 days on {r['chain'].title()} {'🚀' if up else '🩸'}\n"
+            f"Chart it, chat it and trade it fee-free on FEELESS — every call on the record.\n#{r['chain']} #memecoins #FEELESS")
+
+
+@app.get('/api/reputation/admin/marketing')
+async def admin_marketing(request: Request):
+    _require_admin(request)
+    rows = await _three_day_movers()
+    d = _json_load(MARKETING_PATH, {'snapshots': []})
+    # A dated snapshot every 3 days, kept, so past windows stay reviewable.
+    if rows and (not d['snapshots'] or time.time() - d['snapshots'][-1]['at'] >= 3 * 86400):
+        d['snapshots'] = (d['snapshots'] + [{'at': time.time(), 'up': rows[:10], 'down': rows[::-1][:10]}])[-60:]
+        _json_save(MARKETING_PATH, d)
+    keys = ('chain', 'address', 'score', 'badge', 'tokenCount', 'bigWinners', 'dumpedCount', 'ruggedCount')
+    good, bad = [[{k: r.get(k) for k in keys} for r in (await leaderboard(chain=None, view=v))['rows'][:10]] for v in ('trusted', 'flagged')]
+    return {'movers': {'up': [{**r, 'post': _post_text(r)} for r in rows[:10]], 'down': [{**r, 'post': _post_text(r)} for r in rows[::-1][:10] if r['move3d'] < 0]},
+            'reps': {'good': [{**r, 'post': f"🟢 Trusted creator {r['address'][:4]}…{r['address'][-4:]} — {r['bigWinners']} big winner(s), {r['dumpedCount']} dumps. Receipts on FEELESS."} for r in good],
+                     'bad': [{**r, 'post': f"🚩 Flagged creator {r['address'][:4]}…{r['address'][-4:]} — {r['ruggedCount']} rug(s), {r['dumpedCount']} dumps. Check any wallet before you ape: FEELESS."} for r in bad]},
+            'snapshots': [{'at': x['at'], 'top': (x['up'][:1] or [{}])[0].get('symbol')} for x in d['snapshots'][-20:]]}
+
+
 # ---- Circle developer-controlled wallets (creator/owner only) -------------------------------------
 # Proxies to the localhost Circle sidecar. Only owner wallets may list or create; keys never leave .env.
 class CircleWalletIn(BaseModel):
