@@ -2992,7 +2992,7 @@ async def store_receipt(payload: ReceiptIn, request: Request):
     idx = keys.index(payload.wallet)
     sol = ((meta.get('postBalances') or [0])[idx] - (meta.get('preBalances') or [0])[idx]) / 1e9
     row = [tx.get('blockTime'), payload.sig, payload.wallet, kind,
-           [[m, float(f'{d:.9g}')] for m, d in deltas.items() if abs(d) > 0], float(f'{sol:.9g}'), tx.get('slot')]
+           [[m, float(f'{d:.9g}')] for m, d in deltas.items() if abs(d) > 0], float(f'{sol:.9g}'), tx.get('slot'), (meta.get('fee') or 0) / 1e9]
     async with _receipt_lock:
         if payload.sig not in _receipt_sigs:
             with RECEIPTS_PATH.open('a') as f:
@@ -3010,7 +3010,7 @@ async def store_receipt(payload: ReceiptIn, request: Request):
 async def list_receipts(wallet: str, limit: int = 200):
     rows = [r for r in _receipt_rows() if r[2] == wallet]
     rows.sort(key=lambda r: -(r[0] or 0))
-    keys = ['t', 'sig', 'wallet', 'kind', 'tokens', 'sol', 'slot']
+    keys = ['t', 'sig', 'wallet', 'kind', 'tokens', 'sol', 'slot', 'fee']
     return {'wallet': wallet, 'count': len(rows), 'receipts': [dict(zip(keys, r)) for r in rows[:max(1, min(limit, 1000))]]}
 
 
