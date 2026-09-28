@@ -83,6 +83,29 @@ export async function launchCoin({ provider, creator, config, name, symbol, uri,
   return { mint: mint.publicKey.toBase58(), signature };
 }
 
+// Creator fees on a FEELESS (Meteora DBC) coin: what the creator can claim right now, in SOL.
+// null when the coin isn't on a bonding-curve pool.
+export async function creatorFees(mint) {
+  const { client } = await sdk();
+  const pool = await client.state.getPoolByBaseMint(mint);
+  if (!pool) return null;
+  const m = await client.state.getPoolFeeMetrics(pool.publicKey);
+  return { pool: pool.publicKey.toBase58(), creator: (pool.account.poolState || pool.account).creator.toBase58(), sol: Number(m.current.creatorQuoteFee.toString()) / 1e9 };
+}
+
+// The creator's wallet signs; fees go straight to it.
+export async function claimCreatorFees({ provider, creator, mint, onStatus }) {
+  const { web3, connection, client } = await sdk();
+  const pool = await client.state.getPoolByBaseMint(mint);
+  if (!pool) throw new Error('This coin has no FEELESS bonding-curve pool.');
+  const m = await client.state.getPoolFeeMetrics(pool.publicKey);
+  const payer = new web3.PublicKey(creator);
+  const tx = await client.creator.claimCreatorTradingFee({ creator: payer, payer, pool: pool.publicKey, maxBaseAmount: m.current.creatorBaseFee, maxQuoteAmount: m.current.creatorQuoteFee });
+  const signature = await signSend(web3, connection, provider, tx, payer, [], onStatus);
+  keepReceipt(signature, creator, 'claim');
+  return signature;
+}
+
 export async function fetchLaunchRail() {
   const r = await fetch(apiUrl('/api/reputation/launch-rail'));
   return r.ok ? r.json() : { ready: false };
