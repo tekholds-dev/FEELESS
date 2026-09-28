@@ -1,3 +1,4 @@
+import { Explain } from '../Explain';
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { shortAddress } from '../../lib/dexscreener';
@@ -43,7 +44,7 @@ export function ReceiptsCard({ address }) {
     <p className="wp-bio">Every FEELESS trade is verified against the chain and kept forever. Tap one to see the transaction.</p>
     {rows?.length > 0 && (() => { const t = totalsOf(rows); const coins = Object.entries(t.coins).filter(([m]) => m !== 'So11111111111111111111111111111111111111112').sort((a, b) => (b[1].spent + b[1].received) - (a[1].spent + a[1].received)); return <div className="wpr-totals" data-testid="receipt-totals">
       <div><small>SOL spent</small><b>{t.spent.toFixed(4)}</b></div><div><small>SOL received</small><b>{t.received.toFixed(4)}</b></div>
-      <div><small>Net</small><b className={t.received - t.spent >= 0 ? 'positive' : 'negative'}>{(t.received - t.spent >= 0 ? '+' : '') + (t.received - t.spent).toFixed(4)}</b></div><div><small>Network fees</small><b>{t.fees.toFixed(5)}</b></div>
+      <div><small>Net <Explain>SOL received minus SOL spent across your FEELESS trades. A coin you still hold shows as spent until you sell it, so net only becomes real profit or loss once you exit.</Explain></small><b className={t.received - t.spent >= 0 ? 'positive' : 'negative'}>{(t.received - t.spent >= 0 ? '+' : '') + (t.received - t.spent).toFixed(4)}</b></div><div><small>Network fees</small><b>{t.fees.toFixed(5)}</b></div>
       {coins.length > 0 && <table><thead><tr><th>Coin</th><th>SOL in</th><th>SOL out</th><th>Net</th></tr></thead><tbody>{coins.slice(0, 12).map(([m, c]) => <tr key={m}><td>{names[m] || shortAddress(m)}</td><td>{c.spent.toFixed(4)}</td><td>{c.received.toFixed(4)}</td><td className={c.received - c.spent >= 0 ? 'positive' : 'negative'}>{(c.received - c.spent).toFixed(4)}</td></tr>)}</tbody></table>}
       <button type="button" className="btn-outline" onClick={() => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csvOf(rows, names)], { type: 'text/csv' })); a.download = `feeless-receipts-${address.slice(0, 6)}.csv`; a.click(); URL.revokeObjectURL(a.href); }}>Download CSV for taxes</button>
       <small>Totals come from verified on-chain receipts of trades made through FEELESS, in SOL. A coin's net only counts as realized once you've sold it. Not tax advice; give the CSV to your accountant or tax software.</small>

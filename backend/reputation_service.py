@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
+from urllib.parse import quote
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -2298,6 +2299,21 @@ async def alpha_rooms(address: str = ''):
     admin = primary_of(address) in _admin_wallets() if address else False
     d = _chat_load()
     return {'holdingUsd': held, 'rooms': [{**r, 'unlocked': admin or held >= r['minUsd'], 'messages': len(d['rooms'].get(r['id'], []))} for r in ALPHA_ROOMS]}
+
+
+@app.get('/api/reputation/room-sentiment/{chain}/{pair}')
+async def room_sentiment(chain: str, pair: str):
+    """Community mood for a coin: last-24h posts and posters in its Bulls vs Bears rooms."""
+    part = lambda v: _re.sub(r'%[0-9a-fA-F]{2}', '_', quote(str(v), safe=''))
+    rooms = _chat_load()['rooms']; since = (time.time() - 86400) * 1000
+    out = {}
+    for side in ('bulls', 'bears', 'trenches'):
+        msgs = [m for m in rooms.get(f'coin-{part(chain)}-{part(pair)}-{side}', []) if m.get('ts', 0) >= since and not m.get('system')]
+        out[side] = {'posts': len(msgs), 'posters': len({m.get('identity') or m.get('address') for m in msgs})}
+    # Posters weigh double: one loud wallet can't swing the mood alone.
+    bull = out['bulls']['posts'] + 2 * out['bulls']['posters']; bear = out['bears']['posts'] + 2 * out['bears']['posters']
+    out['bullPct'] = round(bull / (bull + bear) * 100) if bull + bear else None
+    return out
 
 
 @app.get('/api/reputation/chat/{room}')

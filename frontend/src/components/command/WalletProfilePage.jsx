@@ -1,3 +1,4 @@
+import { Explain } from '../Explain';
 import { FeedBar } from '../FeedBar';
 import { AlphaRoomsCard } from '../AlphaRooms';
 import { RepMark } from '../RepMark';
@@ -86,7 +87,7 @@ function FeedCallers() {
   const [rows, setRows] = useState(null);
   useEffect(() => { fetch(apiUrl('/api/reputation/calls/leaderboard?days=7&room=feed-')).then(r => (r.ok ? r.json() : {})).then(d => setRows(d.rows || [])).catch(() => setRows([])); }, []);
   if (!rows?.length) return <p className="feed-callers-empty">Post a coin address in FEEd — if it runs 2×, 5× or 10× you earn season points.</p>;
-  return <ol className="feed-callers" aria-label="Top FEEd callers this week">{rows.slice(0, 5).map((r, i) => <li key={r.caller}>
+  return <ol className="feed-callers" aria-label="Top FEEd callers this week"><li className="fc-head">Top callers this week <Explain>Post a coin address in any FEEd room and it becomes a tracked call. If it later peaks at 2×, 5× or 10× from your post, you earn 50, 150 or 400 season points automatically.</Explain></li>{rows.slice(0, 5).map((r, i) => <li key={r.caller}>
     <i>{i + 1}</i>{r.callerAddress ? <Link to={`/terminal/profile/${r.callerAddress}`}>{r.caller}</Link> : <b>{r.caller}</b>}
     <span>{r.hits}/{r.calls} hits</span>{r.best && <em>best {r.best.symbol} {r.best.peakX.toFixed(1)}×</em>}
   </li>)}</ol>;

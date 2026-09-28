@@ -3498,3 +3498,13 @@ body.theme-day .feed-panel{background:linear-gradient(#fff,#fff) padding-box,con
 .chat-prefs select{background:#0b120e;color:inherit;border:1px solid #ffffff1f;border-radius:6px;padding:2px 6px}
 .chat-size-small .chat-bubble,.chat-size-small p{font-size:12px}.chat-size-large .chat-bubble,.chat-size-large p{font-size:15.5px}
 body.theme-day :is(.chat-filter,.chat-gear,.chat-prefs,.chat-prefs select){background:#fff;border-color:var(--day-border);color:#173b2b}
+/* ---- Explain tooltips + Bulls/Bears mood meter ---- */
+.explain{position:relative;display:inline-flex;vertical-align:middle}
+.explain>button{width:16px;height:16px;border-radius:50%;border:1px solid #ffffff33;background:none;color:var(--muted);font-size:10px;line-height:1;cursor:help;padding:0}
+.explain>button:hover,.explain>button[aria-expanded=true]{color:var(--mint);border-color:var(--mint)}
+.explain-tip{position:absolute;z-index:60;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:max-content;max-width:260px;padding:9px 11px;border-radius:10px;background:#07100cf7;border:1px solid #00e9a044;color:#d9efe4;font-size:12px;line-height:1.45;box-shadow:0 12px 30px -10px #000c;white-space:normal}
+.sentiment-meter{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px}
+.sm-bar{position:relative;width:120px;height:7px;border-radius:999px;background:#ff5a7a55;overflow:hidden}.sm-bar i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#00b37a,#00e9a0);border-radius:inherit;transition:width .6s}.sm-bar i.empty{background:#ffffff22}
+.sm-label{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px}
+body.theme-day .explain-tip{background:#fff;color:#173b2b;border-color:#07784f44}
+.feed-callers li.fc-head{background:none;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
