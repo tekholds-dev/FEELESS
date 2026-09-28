@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from xml.sax.saxutils import escape
 from fastapi import APIRouter, Response
+from market import DEFAULT_MINTS
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
@@ -42,7 +43,7 @@ def document():
     return {'title': 'FEELESS', 'subtitle': 'Less Noise. More Alpha.', 'tagline': 'A FeeLess Future.',
             'version': '1.0', 'date': '2026-09-19', 'status': 'Product whitepaper · implementation and policy disclosures',
             'launch_target': 'Q2 2027 · target, not a guarantee',
-            'contracts': [{'name': name, 'mint': os.environ[f'{name}_MINT'], 'chain': 'Solana'} for name in ['FEE', 'RFEE', 'FEECAT']],
+            'contracts': [{'name': name, 'mint': os.getenv(f'{name}_MINT', DEFAULT_MINTS[name]), 'chain': 'Solana'} for name in ['FEE', 'RFEE', 'FEECAT']],
             'chapters': [{'id': f'chapter-{i + 1}', 'number': i + 1, 'title': title, 'text': text} for i, (title, text) in enumerate(CHAPTERS)]}
 
 def render_pdf():

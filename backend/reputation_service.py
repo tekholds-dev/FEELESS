@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
+from fastapi.responses import JSONResponse
 from urllib.parse import quote
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -882,7 +883,7 @@ async def upload_image(payload: UploadPayload, request: Request):
 
 @app.get('/api/reputation/uploads/{name}')
 async def get_upload(name: str):
-    from fastapi.responses import FileResponse
+    from fastapi.responses import JSONResponse, FileResponse
     import re
     if not re.match(r'^[a-f0-9]{32}\.(png|jpg|webp|gif)$', name):
         raise HTTPException(404, 'Not found')
@@ -2308,6 +2309,14 @@ async def alpha_rooms(address: str = ''):
     admin = primary_of(address) in _admin_wallets() if address else False
     d = _chat_load()
     return {'holdingUsd': held, 'rooms': [{**r, 'unlocked': admin or held >= r['minUsd'], 'messages': len(d['rooms'].get(r['id'], []))} for r in ALPHA_ROOMS]}
+
+
+@app.exception_handler(RuntimeError)
+async def _rpc_busy(request: Request, exc: RuntimeError):
+    # The shared Solana RPC pool is rate-limited: a clear, retryable 503 instead of a crash.
+    if 'RPC pool exhausted' in str(exc):
+        return JSONResponse({'detail': 'Solana data is busy — try again in a few seconds.'}, status_code=503, headers={'Retry-After': '5'})
+    raise exc
 
 
 @app.get('/api/reputation/room-sentiment/{chain}/{pair}')
