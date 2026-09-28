@@ -80,7 +80,9 @@ RULES = {'minLiquidity': 40_000, 'minVolume24h': 100_000, 'minMarketCap': 150_00
          'cooldownHours': 2,
          # v3 safety + exits
          'maxM5Chase': 8, 'maxTop10Pct': 35, 'maxInsiderPct': 20, 'maxDevPct': 10, 'maxSnipers': 15, 'maxBundled': 10,
-         'breakEvenArm': 8, 'scaleOutFraction': 0.5, 'runnerTrailGive': 6, 'liqPullPct': 30, 'dumpSellRatio': 2.0}
+         'breakEvenArm': 8, 'scaleOutFraction': 0.5, 'runnerTrailGive': 6, 'liqPullPct': 30, 'dumpSellRatio': 2.0,
+         # trench strats: add once on a healthy dip; fresh-launch lane at half size
+         'dipAddFrom': -4, 'dipAddTo': -8, 'dipAddFraction': 0.5, 'freshMinMinutes': 10, 'freshMinLiquidity': 15_000, 'freshSize': 0.5}
 _intel_cache = {}
 
 
@@ -352,6 +354,44 @@ def _close(store, cat, pos, price_native, why, fraction=1.0):
         _post_as_fee(pos['pairAddress'], f"🐱 Fee sold ${pos['symbol']} at {change:+.1f}% after {held:.1f}h — {why}.\nNet {pnl:+.4f} SOL after the 1% fee each way (peak was {pos.get('peakChange', 0):+.1f}%).\n{verdict} The rules decide the exit, not feelings.")
 
 
+def _fresh_qualifies(p, now):
+    """Fresh-launch lane (the 'could be a moon' read): brand-new coin with a real narrative footprint
+    (X account + website), buyers in control and volume moving fast relative to its liquidity."""
+    if ((p.get('quoteToken') or {}).get('symbol') or '').upper() not in ('SOL', 'WSOL'):
+        return None, 'not SOL-quoted'
+    age_min = (now * 1000 - _num(p.get('pairCreatedAt'), now * 1000)) / 60_000
+    info = p.get('info') or {}
+    socials = {(x.get('type') or '').lower() for x in info.get('socials') or []}
+    liq = _num((p.get('liquidity') or {}).get('usd')); vh1 = _num((p.get('volume') or {}).get('h1'))
+    t1 = (p.get('txns') or {}).get('h1') or {}; buys, sells = _num(t1.get('buys')), _num(t1.get('sells'))
+    m5 = _num((p.get('priceChange') or {}).get('m5'))
+    checks = [(RULES['freshMinMinutes'] <= age_min < RULES['minAgeHours'] * 60, 'not in fresh window'), (liq >= RULES['freshMinLiquidity'], 'thin liquidity'),
+              ('twitter' in socials, 'no X account'), (bool(info.get('websites')), 'no website'), (buys >= 1.5 * max(sells, 1), 'buyers not in control'),
+              (vh1 >= 0.5 * liq, 'volume not moving'), (0 < m5 <= RULES['maxM5Chase'], '5m momentum')]
+    for ok, why in checks:
+        if not ok:
+            return None, why
+    return vh1 / max(liq, 1) * min(buys / max(sells, 1), 3), f"fresh launch {age_min:.0f}m old: X + site, {buys:.0f}/{sells:.0f} buys/sells, 1h vol {vh1 / max(liq, 1):.1f}× liquidity"
+
+
+async def _fvg(http, pair_address, price_usd):
+    """Bullish fair value gap on 5m candles: a bar whose low sits above the high two bars earlier leaves
+    an unfilled gap. Price trading back inside the most recent such gap is a retest entry."""
+    try:
+        c = (await http.get(f'http://127.0.0.1:5099/api/candles/solana/{pair_address}', params={'interval': '5m'})).json().get('candles') or []
+    except Exception:
+        return None
+    c = c[-40:]
+    for i in range(len(c) - 1, 1, -1):
+        lo, hi = c[i - 2][2], c[i][3]  # gap between bar i-2's high and bar i's low
+        if hi > lo:
+            filled = any(x[3] <= lo for x in c[i + 1:])
+            if not filled and lo <= price_usd <= hi:
+                return lo, hi
+            return None
+    return None
+
+
 async def run_engine(store, cats):
     now = time.time()
     async with httpx.AsyncClient(timeout=10) as http:
@@ -362,6 +402,11 @@ async def run_engine(store, cats):
     ranked, rejections = [], {}
     for p in candidates:
         score, reason = _qualifies(p, now)
+        if score is None:
+            fscore, freason = _fresh_qualifies(p, now)
+            if fscore is not None:
+                p['_fresh'] = True
+                score, reason = fscore, freason
         if score is not None:
             ranked.append((score, reason, p))
         else:
@@ -410,6 +455,16 @@ async def run_engine(store, cats):
                 why = f'sell pressure ({s5:.0f} sells vs {b5:.0f} buys in 5m)'
             elif held_h >= R['maxHoldHours'] * (1.5 if pos.get('scaled') else 1):
                 why = f'time exit after {held_h:.1f}h'
+            elif not pos.get('dipAdded') and R['dipAddTo'] <= change <= R['dipAddFrom'] and change > floor and b5 >= s5:
+                # Buy the dip once: price is lower than planned but buyers still hold the 5m tape — a better seat.
+                add = round(min(pos['costSol'] * R['dipAddFraction'], cat['balanceSol']), 4)
+                if add >= 0.01:
+                    tokens_old = pos['notionalSol'] / pos['entryPriceNative']; tokens_new = add * (1 - FEE_PER_SIDE) / px
+                    pos['entryPriceNative'] = (pos['notionalSol'] + add * (1 - FEE_PER_SIDE)) / (tokens_old + tokens_new)
+                    pos['costSol'] = round(pos['costSol'] + add, 6); pos['notionalSol'] = round(pos['notionalSol'] + add * (1 - FEE_PER_SIDE), 6)
+                    pos['dipAdded'] = True; pos['peakChange'] = 0
+                    cat['balanceSol'] = round(cat['balanceSol'] - add, 6); cat['volumeSol'] = round(cat.get('volumeSol', 0) + add, 6)
+                    _log_event(store, cat, 'BUY', f"Added {add} SOL to {pos['symbol']} on a {change:.1f}% dip with buyers still in control — better average entry (paper).", None, pos['pairAddress'], px)
             if why:
                 cat['positions'].remove(pos)
                 _close(store, cat, pos, px, why)
@@ -444,9 +499,14 @@ async def run_engine(store, cats):
                 store.setdefault('scan', {}).setdefault('safetyRejects', []).append({'symbol': sym, 'why': safe_why})
                 store['scan']['safetyRejects'] = store['scan']['safetyRejects'][-10:]
                 continue
+            async with httpx.AsyncClient(timeout=10) as http3:
+                gap = await _fvg(http3, pa, _num(p.get('priceUsd')))
+            if gap:
+                conviction = round(conviction * 1.2, 2)
+                reason = f'{reason}; retesting a 5m fair value gap (${gap[0]:.6g}–${gap[1]:.6g})'
             reason = f'{reason}; holders: {safe_why}; conviction {conviction}×'
             px = _num(p.get('priceNative'))
-            size = round(min(float(cat['risk']['maxPositionSol']), cat['balanceSol'] * 0.1 * conviction), 4)
+            size = round(min(float(cat['risk']['maxPositionSol']), cat['balanceSol'] * 0.1 * conviction) * (R['freshSize'] if p.get('_fresh') else 1), 4)
             if px <= 0 or size < 0.01 or cat['balanceSol'] < size:
                 continue
             cat['balanceSol'] = round(cat['balanceSol'] - size, 6)
