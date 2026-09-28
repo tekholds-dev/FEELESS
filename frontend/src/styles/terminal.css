@@ -1764,6 +1764,7 @@ body.theme-day .edge-dial.grade-A,body.theme-day .edge-dial.grade-B{--edge-color
 .message-reactions button{display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:12px;border:1px solid var(--line);background:transparent;font-size:12px;cursor:pointer;opacity:.7;transition:transform .12s,opacity .12s}
 .message-reactions button:hover{opacity:1;transform:scale(1.08)}.message-reactions button.mine{opacity:1;border-color:#00e9a066;background:#00e9a014}
 .message-reactions span{font:10px 'JetBrains Mono',monospace;color:var(--muted)}
+.message-actions{display:flex;gap:12px;margin-top:4px}.message-actions button{display:inline-flex;align-items:center;gap:4px;padding:0;border:0;background:none;color:var(--muted);font-size:12px;font-family:inherit;cursor:pointer}.message-actions button:hover{color:var(--text,#e8f5ee)}.message-actions button.is-liked{color:#ff6b8b}.message-actions .chat-delete:hover{color:#ff8a9a}
 body.theme-day .caller-chip{background:#fff4dc;color:#8a5d00;border-color:#c49a36}
 body.theme-day .call-perf.up b{color:#07784f}body.theme-day .call-perf.down b{color:#c0284c}body.theme-day :is(.call-perf small,.message-reactions span){color:var(--day-muted)}
 body.theme-day .message-reactions button{border-color:var(--day-border)}body.theme-day .message-reactions button.mine{border-color:#07784f;background:#e3f2e8}
