@@ -3286,11 +3286,9 @@ body.theme-day .launch-radar{background:#fff;border-color:var(--day-border)}
   radial-gradient(90% 120% at 92% 100%,color-mix(in srgb,var(--wp-accent,#00e9a0) 30%,#ff2bd6 25%),transparent 60%),
   linear-gradient(120deg,#07130d,#0b1a12 60%,#050b08)}
 .xp-cover:not(.has-img)::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(115deg,#ffffff07 0 2px,transparent 2px 14px);mask:linear-gradient(90deg,#000,transparent 85%)}
-.xp-cover.has-img{height:auto;aspect-ratio:3/1;max-height:340px}
-.xp-cover img{position:absolute;inset:0;width:100%;height:100%}
-/* The whole banner always shows (contain); a blurred copy fills any leftover space, whatever the image's size. */
-.xp-cover-fill{object-fit:cover;filter:blur(28px) saturate(1.2) brightness(.55);transform:scale(1.15)}
-.xp-cover-img{object-fit:contain}
+.xp-cover.has-img{height:auto;aspect-ratio:3/1;max-height:440px}
+/* Banners are cropped to 3:1 on upload, so the cover matches that shape and always fills edge to edge. */
+.xp-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center}
 .xp-cover-mark{position:absolute;right:18px;bottom:-10px;font:900 clamp(42px,8vw,96px)/1 'Outfit',sans-serif;letter-spacing:-3px;color:#ffffff0f;white-space:nowrap;pointer-events:none}
 .xp-cover .wp-upload{position:absolute;right:12px;top:12px}
 .xp-row{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-start;padding:0 clamp(14px,2.2vw,24px);margin-top:calc(-1 * clamp(40px,5vw,56px))}
@@ -3508,3 +3506,8 @@ body.theme-day :is(.chat-filter,.chat-gear,.chat-prefs,.chat-prefs select){backg
 .sm-label{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px}
 body.theme-day .explain-tip{background:#fff;color:#173b2b;border-color:#07784f44}
 .feed-callers li.fc-head{background:none;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.gif-overlay{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:16px;background:#000b;backdrop-filter:blur(6px)}
+.gif-card{max-width:min(760px,100%);border-radius:18px;overflow:hidden;border:1px solid #00e9a055;background:#07100c;box-shadow:0 0 60px -10px #00e9a066}.gif-card img{display:block;width:100%;height:auto}
+.gif-card footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px}.gif-card footer small{margin-right:auto;color:var(--muted)}
+.wpr-item{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center}.wpr-gif{border:1px solid #00e9a044;background:#00e9a00d;border-radius:9px;padding:6px 9px;cursor:pointer;font-size:14px}.wpr-gif:hover{background:#00e9a022}
+.my-pnl-share{border:1px solid #00e9a066;background:#00e9a014;color:var(--mint);border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer}

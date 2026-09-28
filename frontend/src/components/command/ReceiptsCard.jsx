@@ -1,6 +1,7 @@
 import { Explain } from '../Explain';
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
+import { ShareGifButton } from '../ShareGif';
 import { shortAddress } from '../../lib/dexscreener';
 
 const sym = {};
@@ -30,6 +31,14 @@ function csvOf(rows, names) {
   return lines.join('\n');
 }
 
+// The animated share card for one verified receipt.
+function receiptCard(r, names) {
+  const legs = r.tokens.map(([m, d]) => `${d >= 0 ? '+' : ''}${Math.abs(d) >= 1000 ? Math.round(d).toLocaleString() : Number(d.toPrecision(4))} ${names[m] || shortAddress(m)}`);
+  return { kicker: `VERIFIED ${r.kind.toUpperCase()} · ON-CHAIN`, title: legs.find(l => !l.endsWith(' SOL')) || legs[0] || r.kind, tone: r.sol >= 0 ? 'up' : 'down',
+    bigValue: Math.abs(r.sol), bigPrefix: r.sol >= 0 ? '+' : '−', bigSuffix: ' SOL', bigDigits: 3,
+    lines: [legs.join('  ·  '), r.t ? new Date(r.t * 1000).toUTCString().slice(5, 22) + ' UTC' : '', `tx ${r.sig.slice(0, 10)}…`] };
+}
+
 export function ReceiptsCard({ address }) {
   const [rows, setRows] = useState(null);
   const [names, setNames] = useState({});
@@ -50,11 +59,11 @@ export function ReceiptsCard({ address }) {
       <small>Totals come from verified on-chain receipts of trades made through FEELESS, in SOL. A coin's net only counts as realized once you've sold it. Not tax advice; give the CSV to your accountant or tax software.</small>
     </div>; })()}
     {!rows ? <p className="wp-bio">Loading…</p> : !rows.length ? <p className="wp-bio">No receipts yet — trades made through FEELESS land here automatically.</p>
-      : <div className="wpr-list">{rows.slice(0, 50).map(r => <a key={r.sig} className="wpr-row" href={`https://solscan.io/tx/${r.sig}`} target="_blank" rel="noopener noreferrer">
+      : <div className="wpr-list">{rows.slice(0, 50).map(r => <div key={r.sig} className="wpr-item"><a className="wpr-row" href={`https://solscan.io/tx/${r.sig}`} target="_blank" rel="noopener noreferrer">
         <span className={`wpr-kind k-${r.kind}`}>{r.kind}</span>
         <span className="wpr-legs">{r.tokens.map(([m, d]) => <em key={m} className={d >= 0 ? 'positive' : 'negative'}>{d >= 0 ? '+' : ''}{Math.abs(d) >= 1000 ? d.toLocaleString(undefined, { maximumFractionDigits: 0 }) : Number(d.toPrecision(4))} {names[m] || '…'}</em>)}{!r.tokens.length && <em>{r.sol >= 0 ? '+' : ''}{r.sol.toFixed(4)} SOL</em>}</span>
         <time>{r.t ? new Date(r.t * 1000).toLocaleString() : '—'}</time>
         <code>{r.sig.slice(0, 6)}…</code>
-      </a>)}</div>}
+      </a><ShareGifButton className="wpr-gif" label="🎞" card={receiptCard(r, names)} /></div>)}</div>}
   </section>;
 }
