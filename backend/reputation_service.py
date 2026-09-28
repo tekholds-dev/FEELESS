@@ -990,10 +990,17 @@ async def token_intel(chain: str, mint: str):
             fh = out['flaggedHoldings']
             if len(fh) >= 3 and all(v == 0 for v in fh.values()):
                 # Every sniper/bundler has sold out: the supply overhang is gone — often the dip entry.
-                if _radar_event('snipers-out', mint, mint[:4], f"All {len(fh)} flagged snipers/bundlers have sold out — no sniper supply left to dump."):
+                # Alerts link to the coin's deepest pool so the Trenches chart opens on it.
+                try:
+                    pools = sorted((await http.get(f'https://api.dexscreener.com/latest/dex/tokens/{mint}')).json().get('pairs') or [], key=lambda p: -((p.get('liquidity') or {}).get('usd') or 0))
+                except Exception:
+                    pools = []
+                pa = pools[0]['pairAddress'] if pools else mint
+                sym = ((pools[0].get('baseToken') or {}).get('symbol') if pools else None) or mint[:4]
+                if _radar_event('snipers-out', pa, sym, f"All {len(fh)} flagged snipers/bundlers have sold out — no sniper supply left to dump."):
                     asyncio.create_task(_push_snipers_out(mint))
                 if creator:
-                    notify(creator, 'reward', f"🎯 Every sniper on your coin {mint[:4]}… has sold out", f'/terminal/chat?chain=solana&pair={mint}&room=bulls')
+                    notify(creator, 'reward', f"🎯 Every sniper on your coin {sym} has sold out", f'/terminal/chat?chain=solana&pair={pa}&room=bulls')
     flags = []
     if len(out['bundledWallets']) >= 3:
         flags.append(f"{len(out['bundledWallets'])} wallets bought in the same block as the mint — a bundled launch.")
