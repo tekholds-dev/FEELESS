@@ -639,10 +639,10 @@ def _migrate(store):
 WALL_EVERY = 30 * 60
 
 
-def _wall_post(text):
+def _wall_post(text, tokens=None):
     try:
         key = (DATA_DIR / 'internal.key').read_text().strip()
-        r = httpx.post('http://127.0.0.1:5077/api/reputation/internal/fee-post', json={'room': 'wall', 'text': text},
+        r = httpx.post('http://127.0.0.1:5077/api/reputation/internal/fee-post', json={'room': 'wall', 'text': text, 'tokens': tokens or []},
                        headers={'x-feeless-internal': key}, timeout=15)
         if r.status_code != 200:
             print('fee wall post rejected', r.status_code, r.text[:200])
@@ -695,7 +695,10 @@ async def _meta_post(store):
     else:
         lines.append("\nMy book is flat — waiting for a setup that passes every rule. Cash is a position too.")
     lines.append('Meta, not advice. Paper trades on live prices.')
-    _wall_post('\n'.join(lines))
+    # Coin cards (with each coin's Pump cover image) for the three picks.
+    cards = [{'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'pair': p, 'fetched_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
+             for p in board[:3] if p.get('pairAddress')]
+    _wall_post('\n'.join(lines), cards)
     store['lastWallPost'] = time.time()
 
 

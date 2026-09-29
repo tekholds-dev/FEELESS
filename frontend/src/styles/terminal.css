@@ -3688,3 +3688,4 @@ body.theme-day .top-pump{background:#fff}
 @media (max-width:640px){.fee-checks li{grid-template-columns:22px 1fr}.fee-checks small{grid-column:2}}
 .evm-safety{display:flex;align-items:center;gap:6px;margin:8px 4px 0;font-size:11px;color:var(--royal-hi,#3ee39c)}
 .jup-card .tkp-pop nav{display:flex;flex-wrap:wrap;gap:4px}
+.fee-wall-pin{margin:0 0 12px;padding:14px 16px;border-radius:14px;border:1px solid rgba(233,189,101,.35);background:linear-gradient(160deg,rgba(233,189,101,.08),transparent 70%)}.fee-wall-pin>b{font-size:13px;color:var(--gold,#e9bd65)}.fee-wall-pin ul{margin:8px 0;padding-left:18px;display:grid;gap:6px;font-size:12.5px;line-height:1.5}.fee-wall-pin small{display:block;color:var(--muted);font-size:11px;line-height:1.5}

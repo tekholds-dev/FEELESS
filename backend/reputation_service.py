@@ -2450,6 +2450,7 @@ class FeeCallPayload(BaseModel):
     text: str
     registerCall: bool = False
     room: str = ''   # 'wall' → Fee's own profile wall (meta talk); default is the coin's trenches room
+    tokens: list = []   # coin cards to attach (wall reports)
 
 
 INTERNAL_KEY_PATH = DATA_DIR / 'internal.key'
@@ -2472,7 +2473,8 @@ async def fee_post(payload: FeeCallPayload, request: Request):
     if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key()):
         raise HTTPException(403, 'Internal endpoint.')
     if payload.room == 'wall':
-        msg = chat_system_post(f'wall-{FEE_ADDRESS}', 'Fee 🐱', FEE_ADDRESS, payload.text[:2000])
+        cards = [t for t in payload.tokens[:3] if isinstance(t, dict) and isinstance(t.get('pair'), dict)]
+        msg = chat_system_post(f'wall-{FEE_ADDRESS}', 'Fee 🐱', FEE_ADDRESS, payload.text[:2000], tokens=cards)
         return {'ok': True, 'messageId': msg['id'], 'callId': None}
     room = f'coin-{payload.chain}-{payload.pairAddress}-trenches'
     # Attach the coin card: the call ledger only accepts calls whose message carries the coin,
