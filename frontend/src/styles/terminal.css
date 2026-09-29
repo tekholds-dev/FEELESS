@@ -3634,3 +3634,9 @@ body.theme-day .jup-card{background:#fff!important}body.theme-day .jup-panel{bac
 body.theme-day .degen-weather{background:#f2fbf6}body.theme-day .dw-says{color:#23473a}
 @media (prefers-reduced-motion: reduce){.dw-icon{animation:none}}
 .fee-health{display:grid;gap:4px;padding:12px 14px;border-radius:12px;margin-bottom:10px;border:1px solid}.fee-health.ok{border-color:rgba(18,192,122,.45);background:rgba(18,192,122,.08)}.fee-health.bad{border-color:rgba(250,112,140,.55);background:rgba(250,112,140,.08)}.fee-health b{font-size:13px}.fee-health span,.fee-health small{font-size:12px;line-height:1.5;color:var(--muted)}.fee-health small b{font-size:12px;color:inherit}
+
+/* Profile cover containment: the banner stays fully visible; only the avatar overlaps it (X-style). */
+.xp-row{margin-top:0!important;padding-top:10px;align-items:flex-end!important}
+.xp-row>.xp-avatar{margin-top:calc(-1 * clamp(46px,5.5vw,66px));position:relative;z-index:2;align-self:flex-start}
+.xp-cover{border-radius:inherit;isolation:isolate}
+@media (max-width:640px){.xp-row>.xp-avatar{margin-top:-40px}}

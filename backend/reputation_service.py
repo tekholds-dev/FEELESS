@@ -3552,10 +3552,14 @@ async def admin_fee_health(request: Request):
         raw = base64.b64decode(value['data'][0])
         project = str(Pubkey.from_bytes(raw[40:72]))
         partner = str(Pubkey.from_bytes(raw[8:40]))
-        vaults = {}
-        for sym, mint in (('SOL', 'So11111111111111111111111111111111111111112'), ('USDC', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')):
-            ta, _ = Pubkey.find_program_address([b'referral_ata', bytes(Pubkey.from_string(referral)), bytes(Pubkey.from_string(mint))], Pubkey.from_string(JUP_REFERRAL_PROGRAM))
-            vaults[sym] = ((await _rpc(http, 'getAccountInfo', [str(ta), {'encoding': 'base64'}])) or {}).get('value') is not None
+        # Fee vaults = token accounts owned by the referral account (Jupiter Ultra creates regular token
+        # accounts for it; the legacy referral_ata PDA layout is not guaranteed), so look them up by owner.
+        held = set()
+        for program in ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'):
+            res = await _rpc(http, 'getTokenAccountsByOwner', [referral, {'programId': program}, {'encoding': 'jsonParsed'}])
+            for row in (res or {}).get('value', []):
+                held.add((((row.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info', {}).get('mint'))
+        vaults = {'SOL': 'So11111111111111111111111111111111111111112' in held, 'USDC': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' in held}
     if project != JUP_ULTRA_REFERRAL_PROJECT:
         return {'ok': False, 'project': project, 'partner': partner, 'vaults': vaults,
                 'problem': 'Referral account was created under an older Jupiter referral project, so Jupiter rejects the fee and every swap runs fee-free.',
