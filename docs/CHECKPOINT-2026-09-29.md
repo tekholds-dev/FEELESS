@@ -14,3 +14,10 @@ External blocker (unchanged):
 - Pump's `GET /coin-activity/{mint}?includeCallouts=true` needs authorization. Set `PUMP_CALLOUT_TOKEN` server-side with legitimately issued access. Until then, coin chats show "Pump callouts are offline for this coin right now." Never present FEELESS calls as Pump users' calls.
 
 Local dev note: the backend runs as four processes — `server` (5001), `reputation_service` (5077), `feecat_service` (5088), `candles_service` (5099). Restart all of them after pulling backend changes, or the preview runs stale code.
+
+## FEELESS Pump network (PumpPortal)
+- `backend/pump_network.py`: one shared PumpPortal websocket for the whole app, started with the main server (5001). Free stream: every pump.fun launch + migration. Paid stream (`PUMPPORTAL_API_KEY`): live trades only for coins someone is viewing (max 12, dropped 90s after the last viewer), capped per day by `PUMPPORTAL_DAILY_MESSAGE_CAP` (default 20,000 ≈ 0.02 SOL). The key never reaches the browser.
+- API: `GET /api/pump/pulse` (launches, migrations, launches/min, SOL price) and `GET /api/pump/coin/{mint}/flow` (trade tape, 5m pressure, traders, whales, curve progress).
+- Fresh launches open even before DexScreener indexes them: `/api/market/pair/solana/{curve}` falls back to the streamed launch (price = MC / fixed 1B supply).
+- UI: Pump Pulse on Pump Radar (live launches with "Serious only" filter for dust/copycat launches, migrations, launches-per-minute sparkline); Pump Flow at the top of the trench tools column (buy pressure, net SOL, traders, whales, bonding curve, live tape).
+- Status 2026-09-29: key accepted, but the PumpPortal wallet needs ≥ 0.02 SOL before trade data flows. The server re-checks every 2 minutes, so no restart is needed after funding.

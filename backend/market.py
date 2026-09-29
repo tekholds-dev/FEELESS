@@ -647,6 +647,12 @@ def create_market_router(db, intelligence=None):
             raise HTTPException(400, 'Invalid chain or pair')
         data, meta = await cached('DexScreener', f'/latest/dex/pairs/{chain}/{address}', ttl=30)
         pairs = data.get('pairs') or []
+        if not pairs and chain == 'solana':
+            # Fresh pump.fun curves can take minutes to reach DexScreener; the Pump network saw the launch live.
+            from pump_network import network as pump_network
+            streamed = pump_network.pair_for(address, await pump_network.sol_price())
+            if streamed:
+                return MarketResult(**{**meta, 'provider': 'PumpPortal'}, source_url='https://pumpportal.fun', pairs=[streamed], label='Pump network launch snapshot')
         if intelligence:
             pairs = await intelligence.observe(pairs, meta)
         return MarketResult(**meta, source_url=PROVIDER_URLS['DexScreener'], pairs=pairs, label='Pair snapshot')

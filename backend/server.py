@@ -18,6 +18,7 @@ from market import create_market_router
 from intelligence import Intelligence
 from trading import TradingService
 from whitepaper import router as docs_router
+from pump_network import network as pump_network, create_pump_router
 import re
 
 mongo_url = os.environ['MONGO_URL']
@@ -31,6 +32,7 @@ app.include_router(market_router)
 app.include_router(intelligence.router())
 app.include_router(TradingService(db).router())
 app.include_router(docs_router)
+app.include_router(create_pump_router())
 api_router = APIRouter(prefix="/api")
 
 
@@ -150,6 +152,11 @@ app.add_middleware(
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+
+@app.on_event("startup")
+async def start_pump_network():
+    pump_network.start()
 
 
 @app.on_event("startup")

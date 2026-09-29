@@ -16,6 +16,7 @@ import { RadarPanel } from '../command/MetaPanels';
 import { formatUSD, pairKey, coinIdentity, coinRoom, normalizeRoomPerspective, shortAddress, formatTime } from '../../lib/dexscreener';
 import { apiUrl } from '../../lib/api';
 import { BoltLegend, BoltSignal } from './BoltSignal';
+import { PumpFlow } from './PumpNetwork';
 import { mergePumpCallouts, visiblePumpCallouts, isPumpCoin } from '../../lib/pumpCallouts';
 
 export const LivePoolsPanel = ({ pairs = [], newPairs = [], onSelect }) => {
@@ -153,7 +154,7 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair
     <div className={`trenches-grid ${wide ? 'is-wide' : ''}`}>
       <section className="trenches-chat-section" data-testid="trenches-chat-section"><ChatRoom large pairs={pairs} newPairs={newPairs} onSelect={onSelect} selectedPair={chartPair} selectedPerspective={selectedPerspective} onPerspectiveChange={onPerspectiveChange} onConnect={onConnect} /></section>
       <section className="trenches-chart-panel"><div className="section-title"><h2><CandlestickChart size={18} />DEX chart</h2><span className="provider-note">Jupiter · OHLCV</span></div>{chartPair ? <TokenFocus pair={chartPair} has={has} toggle={toggle} defaultInterval="1m" onExpand={() => setWide(w => !w)} expanded={wide} /> : <div className="truth-empty" data-testid="trenches-chart-empty"><CandlestickChart size={28} /><span>Select a provider-indexed coin to open its chart.</span></div>}</section>
-      <aside className="trenches-tools"><HotCalls onPick={pickCall} /><LiveCalls onPick={pickCall} /><CallerBoard /></aside>
+      <aside className="trenches-tools">{chartPair && <PumpFlow pair={chartPair} />}<HotCalls onPick={pickCall} /><LiveCalls onPick={pickCall} /><CallerBoard /></aside>
     </div>
     <section className="trenches-stages trenches-stage-panel" data-testid="trenches-stage-panel"><div className="section-title"><h2><Layers3 size={18} />Coin viewer</h2><span className="provider-note">Liquidity · market cap first</span><BoltLegend /></div><div className="trenches-stage-tabs">{[['new', 'New coins'], ['graduated', 'Graduated'], ['trending', 'Trending coins'], ['watchlist', 'Watchlist']].map(([id, label]) => <button key={id} className={stage === id ? 'active' : ''} data-testid={`trenches-stage-${id}`} onClick={() => setStage(id)}>{label}<small>{id === 'graduated' && !graduated.length ? 'unavailable' : stagePairs.length}</small></button>)}</div><div className="trenches-coin-grid">{stagePairs.slice(0, 6).map((pair, index) => <TrenchCoinCard key={pairKey(pair)} pair={pair} rank={index + 1} callCount={callCounts[pair.pairAddress] || callCounts[pair.baseToken?.address] || 0} onPick={() => { setActivePair(pair); selectPair(pair); onSelect?.(pair); }} />)}</div>{!stagePairs.length && <div className="truth-empty" data-testid={`trenches-${stage}-empty`}>{stage === 'graduated' ? 'Graduation status is unavailable in the current provider feed.' : `No ${stage} coins are available in this ecosystem snapshot.`}</div>}</section>
   </div>;
