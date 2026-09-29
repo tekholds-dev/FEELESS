@@ -1,6 +1,7 @@
-"""Builds the Swap API transaction ourselves when the FEELESS fee is paid from the coin the trader PAYS with
-(SOL or USDC on a buy). Jupiter's platform fee can't be taken from the input side on these routes, so the fee
-goes in as its own transfer, right before the swap, in the same transaction the wallet signs."""
+"""Builds the Swap API transaction ourselves so the FEELESS fee is its own transfer inside the trade.
+Jupiter's built-in platform fee is stored on-chain as one byte (max 255 bps = 2.55%; higher values fail with
+'out of range integral type conversion'), so FEELESS collects its fee directly: from the SOL/USDC paid (before
+the swap) or from the SOL/USDC received (after the swap, on the guaranteed minimum output)."""
 import base64
 import struct
 
@@ -56,12 +57,14 @@ def lookup_tables(keys, rpc_values):
     return tables
 
 
-def build_transaction(payer: str, parts: dict, fee_ixs, tables, blockhash: str) -> str:
-    """Unsigned v0 transaction: compute budget → FEELESS fee → setup → swap → cleanup → other. Base64."""
-    ixs = [jup_instruction(i) for i in parts.get('computeBudgetInstructions') or []] + list(fee_ixs)
+def build_transaction(payer: str, parts: dict, fee_ixs, tables, blockhash: str, after: bool = False) -> str:
+    """Unsigned v0 transaction. Fee paid from the input: compute budget → FEELESS fee → setup → swap → cleanup.
+    Fee paid from the output (after=True): … swap → cleanup (SOL unwrapped back to the wallet) → FEELESS fee. Base64."""
+    ixs = [jup_instruction(i) for i in parts.get('computeBudgetInstructions') or []] + ([] if after else list(fee_ixs))
     ixs += [jup_instruction(i) for i in parts.get('setupInstructions') or []] + [jup_instruction(parts['swapInstruction'])]
     if parts.get('cleanupInstruction'):
         ixs.append(jup_instruction(parts['cleanupInstruction']))
+    ixs += list(fee_ixs) if after else []
     ixs += [jup_instruction(i) for i in parts.get('otherInstructions') or []]
     msg = MessageV0.try_compile(Pubkey.from_string(payer), ixs, tables, Hash.from_string(blockhash))
     return base64.b64encode(bytes(VersionedTransaction.populate(msg, [Signature.default()]))).decode()

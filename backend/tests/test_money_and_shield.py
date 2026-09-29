@@ -36,3 +36,12 @@ def test_shield_danger_on_blocklisted_creator_or_heavy_dev_bag():
     assert rs.shield_verdict({'flags': [], 'devHoldingPct': 25}, {})['level'] == 'danger'
     bad = rs.shield_verdict({'flags': [], 'creator': 'Dev1'}, {'Dev1': {'reported': True}})
     assert bad['level'] == 'danger' and 'blocklist' in bad['reasons'][0]
+
+
+def test_feeless_wallets_can_never_be_blocklisted(monkeypatch, tmp_path):
+    path = tmp_path / 'blocklist.json'
+    path.write_text('{"wallets": {"%s": {"reported": true}, "Bad1": {"reported": true}}}' % rs.FEE_CREATOR_WALLET)
+    monkeypatch.setattr(rs, 'BLOCK_PATH', path)
+    wallets = rs._block_load()['wallets']
+    assert rs.FEE_CREATOR_WALLET not in wallets and 'Bad1' in wallets
+    assert rs.shield_verdict({'flags': [], 'creator': rs.FEE_CREATOR_WALLET}, wallets)['level'] == 'ok'

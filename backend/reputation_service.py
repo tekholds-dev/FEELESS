@@ -1958,13 +1958,21 @@ _block_lock = asyncio.Lock()
 AUTO_BLOCK_STRIKES = 3
 
 
+def _protected_wallets():
+    """FEELESS's own wallets can never be blocklisted (its launches buy in the mint slot by design)."""
+    extra = [a.strip() for a in os.environ.get('FEELESS_PROTECTED_WALLETS', '').split(',') if a.strip()]
+    return set(_owner_wallets()) | set(_admin_wallets()) | {FEE_CREATOR_WALLET} | set(extra)
+
+
 def _block_load():
+    d = {'wallets': {}}
     if BLOCK_PATH.exists():
         try:
-            return _cached_json(BLOCK_PATH)
+            d = _cached_json(BLOCK_PATH)
         except Exception:
             pass
-    return {'wallets': {}}
+    safe = _protected_wallets()
+    return {**d, 'wallets': {w: r for w, r in (d.get('wallets') or {}).items() if w not in safe}}
 
 
 def _is_blocked(rec):
@@ -1974,6 +1982,8 @@ def _is_blocked(rec):
 
 
 async def _record_offenders(mint, bundled, snipers):
+    safe = _protected_wallets()
+    bundled, snipers = [w for w in bundled if w not in safe], [w for w in snipers if w not in safe]
     if not bundled and not snipers:
         return
     async with _block_lock:
@@ -3840,7 +3850,8 @@ async def admin_fee_selftest(request: Request):
             if not a or not b:
                 checks.append({'label': label, 'ok': False, 'detail': 'No live Pump coin found to test with.'})
                 continue
-            expected = int((await effective_fee('', a, b))['bps'])
+            # Same wallet as the quote below, so holder-tier discounts match.
+            expected = int((await effective_fee(test_wallet or '', a, b))['bps'])
             try:
                 r = await http.post('http://127.0.0.1:5001/api/trading/quote', json={'input_mint': a, 'output_mint': b, 'amount': amount, 'slippage_bps': 50, 'wallet': test_wallet})
                 d = r.json()

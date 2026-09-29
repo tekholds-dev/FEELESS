@@ -111,13 +111,20 @@ def test_buy_pays_the_fee_by_its_own_transfer_into_the_sol_fee_account(engine):
     assert not any(p == '/swap/v2/order' for p, _, _ in state['calls'])
 
 
-def test_sell_uses_jupiters_fee_on_the_sol_received(engine):
+def test_sell_pays_the_fee_from_the_sol_received_after_the_swap_any_size(engine):
     client, state, _ = engine
     res = client.post('/api/trading/quote', json={'input_mint': MEME, 'output_mint': SOL, 'amount': '1000', 'slippage_bps': 100, 'wallet': WALLET}).json()
-    built = next(j for p, _, j in state['calls'] if p == '/swap/v1/swap')
-    assert next(q for p, q, _ in state['calls'] if p == '/swap/v1/quote')['platformFeeBps'] == 1500
-    assert built['feeAccount'] == FEE_SOL and res['quote']['feelessFeeMode'] == 'output'
+    q = next(q for p, q, _ in state['calls'] if p == '/swap/v1/quote')
+    assert 'platformFeeBps' not in q  # Jupiter's built-in fee caps at 2.55%: never used
+    built = next(j for p, _, j in state['calls'] if p == '/swap/v1/swap-instructions')
     assert built['prioritizationFeeLamports'] == {'priorityLevelWithMaxLamports': {'maxLamports': 150000, 'priorityLevel': 'high'}}
+    fee = 990 * 1500 // 10000  # 15% of the guaranteed minimum output
+    assert res['quote']['feelessFeeMode'] == 'output' and res['quote']['feelessFeeAtoms'] == str(fee)
+    assert (res['quote']['outAmount'], res['quote']['otherAmountThreshold']) == (str(1000 - fee), str(990 - fee))  # what the trader keeps
+    tx = VersionedTransaction.from_bytes(base64.b64decode(res['quote']['transaction']))
+    ixs = tx.message.instructions
+    assert int.from_bytes(bytes(ixs[-2].data)[4:12], 'little') == fee  # transfer comes after the swap, then SyncNative
+    assert FEE_SOL in [str(k) for k in tx.message.account_keys]
 
 
 def test_trading_pauses_when_swap_api_fails_and_fallback_is_off(engine):
@@ -152,23 +159,3 @@ def test_swap_engine_broadcasts_itself_and_refuses_replays(engine):
     assert not any(p == '/swap/v2/execute' for p, _, _ in state['calls'])
     again = client.post('/api/trading/execute', json={'order_id': order_id, 'signed_transaction': signed}).json()
     assert again['detail'].startswith('Already processed')
-
-
-def sell(client):
-    return client.post('/api/trading/quote', json={'input_mint': MEME, 'output_mint': SOL, 'amount': '1000', 'slippage_bps': 100, 'wallet': WALLET})
-
-
-def test_fee_is_locked_a_rejected_fee_account_never_lets_the_trade_through_free(engine):
-    client, state, _ = engine
-    state['rejected'] = {FEE_SOL}
-    res = sell(client)
-    assert res.status_code == 503 and 'fee account rejected' in res.json()['detail']
-    assert not any(p == '/swap/v1/swap' and 'feeAccount' not in (j or {}) for p, _, j in state['calls'])
-
-
-def test_rejected_fee_goes_to_ultra_only_when_the_fallback_is_on(engine):
-    client, state, _ = engine
-    state['rejected'] = {FEE_SOL}
-    state['fee']['ultraFallback'] = True
-    body = sell(client).json()
-    assert body['engine'] == 'ultra' and body['feeless_fee']['bps'] == 255
