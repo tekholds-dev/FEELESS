@@ -44,7 +44,7 @@ function ImageDrop({ label, value, onChange, wide, shape }) {
 // One editor for the Seasons tab and the command center. Saves through the signed admin session.
 export function SeasonEditor({ season, call, onDone }) {
   const day = t => new Date(t * 1000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  const [f, setF] = useState({ ...season, start: day(season.start), end: day(season.end), bannerUrl: season.bannerUrl || '', badgeUrl: season.badgeUrl || '', bgFx: season.bgFx || 'none', accent2: season.accent2 || '#ff2bd6' });
+  const [f, setF] = useState({ ...season, start: day(season.start), end: day(season.end), bannerUrl: season.bannerUrl || '', badgeUrl: season.badgeUrl || '', bgFx: season.bgFx || 'none', accent2: season.accent2 || '#ff2bd6', reserveWallet: season.reserveWallet || '', badgeRewardPct: season.badgeRewardPct || 0 });
   const weeksCount = Math.max(1, Math.ceil((season.end - season.start) / (7 * 86400)));
   const [weeks, setWeeks] = useState(() => Object.fromEntries(Array.from({ length: weeksCount }, (_, i) => [String(i + 1), { name: '', glyph: '', story: '', imageUrl: '', ...((season.weeks || {})[String(i + 1)] || {}) }])));
   const [busy, setBusy] = useState(false);
@@ -64,7 +64,7 @@ export function SeasonEditor({ season, call, onDone }) {
     setBusy(true);
     try {
       const clean = Object.fromEntries(Object.entries(weeks).map(([k, v]) => [k, Object.fromEntries(Object.entries(v).filter(([, x]) => x))]).filter(([, v]) => Object.keys(v).length));
-      await call(`/admin/seasons/${season.id}`, { method: 'PUT', body: JSON.stringify({ name: f.name, theme: f.theme, prize: f.prize, multiplier: Number(f.multiplier), accent: f.accent, accent2: f.accent2, bgFx: f.bgFx, bannerUrl: f.bannerUrl, badgeUrl: f.badgeUrl, start: Date.parse(f.start) / 1000, end: Date.parse(f.end) / 1000, weeks: clean }) });
+      await call(`/admin/seasons/${season.id}`, { method: 'PUT', body: JSON.stringify({ name: f.name, theme: f.theme, prize: f.prize, multiplier: Number(f.multiplier), accent: f.accent, accent2: f.accent2, bgFx: f.bgFx, bannerUrl: f.bannerUrl, badgeUrl: f.badgeUrl, reserveWallet: f.reserveWallet.trim(), badgeRewardPct: Number(f.badgeRewardPct) || 0, start: Date.parse(f.start) / 1000, end: Date.parse(f.end) / 1000, weeks: clean }) });
       toast.success('Season updated.'); onDone(true);
     } catch (err) { toast.error(err.message); } finally { setBusy(false); }
   };
@@ -79,6 +79,9 @@ export function SeasonEditor({ season, call, onDone }) {
       <label>Multiplier<input type="number" step="0.5" min="0.5" max="5" value={f.multiplier} onChange={e => set('multiplier', e.target.value)} /></label>
       <label>Background effect<select value={f.bgFx} onChange={e => set('bgFx', e.target.value)}>{BG_FX.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
       <label>Main color<input type="color" value={f.accent} onChange={e => set('accent', e.target.value)} /></label><label>Glow color<input type="color" value={f.accent2} onChange={e => set('accent2', e.target.value)} /></label>
+      <label className="se-wide">Fee Reserve wallet<input placeholder="Solana wallet holding the reserve" value={f.reserveWallet} onChange={e => set('reserveWallet', e.target.value)} /></label>
+      <label>Season badge reward %<input type="number" min="0" max="100" step="0.01" value={f.badgeRewardPct} onChange={e => set('badgeRewardPct', e.target.value)} /></label>
+      <small className="se-wide">This records the percentage of the named Fee Reserve pool associated with the season badge. It does not transfer funds or grant LP ownership automatically; pay it through a signed distribution or a deployed contract.</small>
       <div className="se-wide se-badge"><span>Season badge</span><ImageDrop shape={CROP.badge} label="Add badge / GIF" value={f.badgeUrl} onChange={v => set('badgeUrl', v)} /></div>
     </div>
     <h4>Weekly drops</h4>

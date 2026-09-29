@@ -40,6 +40,7 @@ export function BadgeDetail({ item, onClose }) {
     <div><dt>Season</dt><dd>{item.seasonName || item.season}</dd></div>
     {item.how && <div><dt>Earned by</dt><dd>{item.how}{item.rank ? ` (rank #${item.rank})` : ''}</dd></div>}
     {item.score != null && <div><dt>Points</dt><dd>{Number(item.score).toLocaleString()}</dd></div>}
+    {item.badgeRewardPct > 0 && <div><dt>Reserve reward plan</dt><dd>{Number(item.badgeRewardPct).toLocaleString()}% of the season Fee Reserve pool shared by eligible badge holders · planned, not yet paid</dd></div>}
     {item.at && <div><dt>Dropped</dt><dd>{new Date(item.at * 1000).toLocaleDateString()}</dd></div>}
     {item.holders != null && <div><dt>Holders</dt><dd>{item.holders}</dd></div>}
   </dl>;

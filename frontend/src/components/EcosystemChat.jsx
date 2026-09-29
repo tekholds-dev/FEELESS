@@ -110,7 +110,11 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
   const [messages, setMessages] = useState([]);
   const [pinned, setPinned] = useState(null);
   const [fx, setFx] = useState({});
-  const [prefs, setPrefs] = useChatPrefs();
+  const [storedPrefs, setPrefs] = useChatPrefs();
+  const [badgeCap, setBadgeCap] = useState(3);
+  useEffect(() => { fetch(apiUrl('/api/reputation/badges/limits')).then(r => r.ok ? r.json() : null).then(d => d && setBadgeCap(d.chat)).catch(() => {}); }, []);
+  const shownBadges = Math.min(Number(storedPrefs.maxBadges) || 0, badgeCap);
+  const prefs = { ...storedPrefs, maxBadges: shownBadges };
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [cmdCard, setCmdCard] = useState(null);
   const [mine, setMine] = useState([]);
@@ -243,7 +247,7 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
       {loading && <div className="chat-empty" data-testid={`chat-loading-${room}`}><span className="loader" />Connecting to the room…</div>}
       {!loading && !messages.length && <div className="chat-empty" data-testid={`chat-empty-${room}`}><MessageCircle size={28} /><strong>The next alpha starts here.</strong><span>No messages in this channel yet.</span></div>}
       {prefsOpen && <div className="chat-prefs" data-testid="chat-prefs">
-        <label><span>Badges per name <b>{prefs.maxBadges}</b></span><input type="range" min="0" max="6" value={prefs.maxBadges} onChange={e => setPrefs({ maxBadges: Number(e.target.value) })} /></label>
+        <label><span>Badges per name <b>{shownBadges}</b> <small>(Command Center max {badgeCap})</small></span><input type="range" min="0" max={badgeCap} value={shownBadges} onChange={e => setPrefs({ maxBadges: Number(e.target.value) })} /></label>
         <label className="chk"><input type="checkbox" checked={prefs.showRep} onChange={e => setPrefs({ showRep: e.target.checked })} />Show rep marks</label>
         <label className="chk"><input type="checkbox" checked={prefs.showFee} onChange={e => setPrefs({ showFee: e.target.checked })} />Show Fee 🐱 posts</label>
         <label><span>Text size</span><select value={prefs.size} onChange={e => setPrefs({ size: e.target.value })}><option value="small">Small</option><option value="normal">Normal</option><option value="large">Large</option></select></label>

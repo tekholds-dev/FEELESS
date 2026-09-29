@@ -1803,7 +1803,7 @@ def _clean_profile(p: dict) -> dict:
         'handle': str(p.get('handle') or '').lower().lstrip('@')[:20] if _re.match(r'^@?[a-z0-9_]{3,20}$', str(p.get('handle') or '').lower()) else '',
         'ring': p.get('ring') if p.get('ring') in RING_TIERS else 'none',
         'nameFx': p.get('nameFx') if p.get('nameFx') in NAMEFX_TIERS else 'none',
-        'featuredBadges': list(dict.fromkeys(str(b)[:40] for b in (p.get('featuredBadges') or []) if _re.match(r'^[a-z0-9-]{2,40}$', str(b))))[:3],
+        'featuredBadges': list(dict.fromkeys(str(b)[:40] for b in (p.get('featuredBadges') or []) if _re.match(r'^[a-z0-9-]{2,40}$', str(b))))[:_badge_limits()['profile']],
     }
 
 
@@ -2602,6 +2602,12 @@ def _admin_load():
     return d
 
 
+def _badge_limits():
+    raw = _admin_load().get('badgeLimits') or {}
+    return {'profile': max(0, min(12, int(raw.get('profile', 3)))),
+            'chat': max(0, min(12, int(raw.get('chat', 3))))}
+
+
 def _admin_save(d):
     ADMIN_PATH.parent.mkdir(parents=True, exist_ok=True)
     tmp = ADMIN_PATH.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(ADMIN_PATH)
@@ -2734,6 +2740,33 @@ class AdminBadge(BaseModel):
     icon: str = Field(default='⭐', max_length=8)
     tone: str = 'gold'
     why: str = Field(default='', max_length=140)
+
+
+class BadgeLimits(BaseModel):
+    profile: int = Field(ge=0, le=12)
+    chat: int = Field(ge=0, le=12)
+
+
+@app.get('/api/reputation/badges/limits')
+async def badge_limits_public():
+    return _badge_limits()
+
+
+@app.get('/api/reputation/admin/badges/limits')
+async def badge_limits_admin_get(request: Request):
+    _require_admin(request)
+    return _badge_limits()
+
+
+@app.put('/api/reputation/admin/badges/limits')
+async def badge_limits_admin_put(request: Request, payload: BadgeLimits):
+    admin = _require_admin(request)
+    async with _admin_lock:
+        d = _admin_load()
+        d['badgeLimits'] = payload.dict()
+        _audit(d, admin, 'badge-limits', f'profile {payload.profile} · chat {payload.chat}')
+        _admin_save(d)
+    return _badge_limits()
 
 
 @app.post('/api/reputation/admin/badges')
@@ -3375,6 +3408,7 @@ async def chat_delete(payload: ChatDelete):
 FEE_DEFAULTS = {'platformFeeBps': 0, 'referralAccount': '', 'tierDiscountPct': {'0': 0, '1': 10, '2': 25, '3': 50},
                 'zeroFeeMints': [], 'promo': {'label': '', 'discountPct': 0, 'until': 0}}
 JUP_MIN_BPS, JUP_MAX_BPS = 50, 255
+FEE_SETTLEMENT_MINTS = {WSOL, 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'}
 
 
 def _fee_cfg():
@@ -3391,8 +3425,13 @@ async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''
     if not base or not cfg['referralAccount']:
         return {'bps': 0, 'baseBps': base, 'notes': ['No FEELESS fee on this trade.'], 'referralAccount': None}
     mints = await _ecosystem_mints()
-    if input_mint in cfg['zeroFeeMints'] or output_mint in cfg['zeroFeeMints'] or input_mint in mints.values() or output_mint in mints.values():
-        return {'bps': 0, 'baseBps': base, 'notes': ['$FEE ecosystem trades are fee-free.'], 'referralAccount': None}
+    if input_mint in cfg['zeroFeeMints'] or output_mint in cfg['zeroFeeMints']:
+        return {'bps': 0, 'baseBps': base, 'notes': ['This token is on the Command Center fee-free list.'], 'referralAccount': None}
+    fee_mint = mints.get('fee')
+    if fee_mint and output_mint == fee_mint:
+        return {'bps': 0, 'baseBps': base, 'notes': ['Buying $FEE is fee-free.'], 'referralAccount': None}
+    if fee_mint and input_mint == fee_mint and output_mint in FEE_SETTLEMENT_MINTS:
+        return {'bps': 0, 'baseBps': base, 'notes': ['Selling $FEE into SOL, USDC or USDT is fee-free.'], 'referralAccount': None}
     tier = (await _perk_tier(wallet))[0] if wallet else 0
     disc = float(cfg['tierDiscountPct'].get(str(tier), 0))
     promo = cfg.get('promo') or {}
@@ -3435,9 +3474,31 @@ async def admin_fees_get(request: Request):
     return {'fees': _fee_cfg(), 'limits': {'minBps': JUP_MIN_BPS, 'maxBps': JUP_MAX_BPS}}
 
 
+@app.get('/api/reputation/admin/fees/balances')
+async def admin_fee_balances(request: Request):
+    _require_admin(request)
+    referral = str(_fee_cfg().get('referralAccount') or '').strip()
+    if not referral:
+        return {'referralAccount': '', 'accounts': [], 'totalAccounts': 0}
+    accounts = []
+    async with httpx.AsyncClient(timeout=20) as http:
+        for program in ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'):
+            result = await _rpc(http, 'getTokenAccountsByOwner', [referral, {'programId': program}, {'encoding': 'jsonParsed'}])
+            for row in (result or {}).get('value', []):
+                info = (((row.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
+                amount = info.get('tokenAmount') or {}
+                if int(amount.get('amount') or 0) <= 0:
+                    continue
+                accounts.append({'tokenAccount': row.get('pubkey'), 'mint': info.get('mint'), 'amount': amount.get('uiAmountString') or '0', 'decimals': amount.get('decimals', 0), 'program': 'Token-2022' if program.startswith('Tokenz') else 'SPL Token'})
+    return {'referralAccount': referral, 'accounts': accounts, 'totalAccounts': len(accounts),
+            'note': 'Unclaimed on-chain referral-token balances. Claiming requires the referral authority wallet signature.'}
+
+
 @app.post('/api/reputation/admin/fees')
 async def admin_fees_set(request: Request, payload: FeeCfg):
     admin = _require_admin(request)
+    if payload.platformFeeBps and not payload.referralAccount:
+        raise HTTPException(400, 'A Jupiter referral account is required before enabling a platform fee.')
     if payload.referralAccount and not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', payload.referralAccount):
         raise HTTPException(400, 'Referral account must be a Solana address.')
     if payload.platformFeeBps and payload.platformFeeBps < JUP_MIN_BPS:
@@ -5090,7 +5151,7 @@ async def gas_check(address: str):
 async def fees_public():
     cfg = _fee_cfg()
     return {'platformFeeBps': cfg['platformFeeBps'], 'tierDiscountPct': cfg['tierDiscountPct'], 'promo': cfg.get('promo'),
-            'feelessIntoFee': True, 'note': 'Trades into or out of $FEE-ecosystem coins never carry a FEELESS fee.'}
+            'feelessIntoFee': True, 'note': 'Buying $FEE is fee-free. Selling $FEE to SOL, USDC or USDT is fee-free; other output tokens use the configured platform fee.'}
 
 
 # ---- Holder themes: $1k+ in the FEELESS ecosystem recolors the logo + the whole site ----------
@@ -5670,6 +5731,8 @@ class SeasonPayload(BaseModel):
     prize: str = ''
     multiplier: float = 1.0
     accent: str = '#f5c542'
+    reserveWallet: str = ''
+    badgeRewardPct: float = Field(default=0, ge=0, le=100)
 
 
 @app.post('/api/reputation/admin/seasons')
@@ -5681,8 +5744,11 @@ async def admin_season_upsert(request: Request, p: SeasonPayload):
     if any(not (p.end <= s['start'] or p.start >= s['end']) for s in d['seasons']):
         raise HTTPException(409, 'Seasons cannot overlap.')
     sid = f"s{len(d['seasons']) + 1}"
+    if p.reserveWallet and not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.reserveWallet):
+        raise HTTPException(400, 'Fee Reserve wallet must be a valid Solana address.')
     d['seasons'].append({'id': sid, 'name': p.name[:40], 'theme': p.theme[:160], 'start': p.start, 'end': p.end, 'prize': p.prize[:160],
-                         'multiplier': p.multiplier, 'accent': p.accent, 'createdBy': admin})
+                         'multiplier': p.multiplier, 'accent': p.accent, 'reserveWallet': p.reserveWallet,
+                         'badgeRewardPct': p.badgeRewardPct, 'createdBy': admin})
     _json_save(SEASONS_PATH, d)
     return {'ok': True, 'id': sid}
 
@@ -5896,7 +5962,8 @@ def _distribute_drops():
                 t = _tier(r['score'])['tier']
                 _grant(col, a, {'id': f"{s['id']}:season", 'kind': 'season', 'season': s['id'], 'seasonName': s['name'], 'name': f"Season {s['id'][1:]} · {s['name']}", 'glyph': '🏅', 'imageUrl': s.get('badgeUrl'),
                                 'story': s.get('theme', ''), 'rarity': {'Legend': 'legendary', 'Diamond': 'epic', 'Gold': 'rare'}.get(t, 'common'), 'how': f'Finished the season at {t} tier',
-                                'tier': t, 'score': r['score'], 'accent': s['accent'], 'at': now})
+                                'tier': t, 'score': r['score'], 'accent': s['accent'], 'reserveWallet': s.get('reserveWallet', ''),
+                                'badgeRewardPct': float(s.get('badgeRewardPct') or 0), 'rewardStatus': 'planned', 'at': now})
             done.add(s['id']); changed = True
     if changed:
         d['distributed'] = sorted(done); _json_save(SEASONS_PATH, d); _json_save(COLLECTION_PATH, col)
@@ -5951,6 +6018,8 @@ class SeasonEdit(BaseModel):
     bgFx: Optional[str] = None     # money | snow | leaves | fire | stars | none
     accent2: Optional[str] = None
     weeks: Optional[dict] = None   # {"1": {"name","glyph","story","imageUrl"}, ...}
+    reserveWallet: Optional[str] = None
+    badgeRewardPct: Optional[float] = Field(default=None, ge=0, le=100)
 
 
 def _is_upload_url(u):
@@ -5975,6 +6044,8 @@ async def admin_season_edit(request: Request, sid: str, p: SeasonEdit):
         raise HTTPException(400, 'Unknown background effect.')
     if new.get('accent2') and not _re.match(r'^#[0-9a-fA-F]{6}$', new['accent2']):
         raise HTTPException(400, 'Second color must be #hex.')
+    if new.get('reserveWallet') and not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', new['reserveWallet']):
+        raise HTTPException(400, 'Fee Reserve wallet must be a valid Solana address.')
     if p.weeks is not None:
         clean = {}
         for wk, ov in list(p.weeks.items())[:20]:

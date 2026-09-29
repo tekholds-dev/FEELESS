@@ -63,7 +63,7 @@ function RouteReview({ quote, busy, onExecute, onClear }) {
   const feeUsd = (quote.estimate.feeCosts || []).reduce((a, g) => a + Number(g.amountUSD || 0), 0);
   return <div className="td-review" data-testid="td-review">
     <div><small>You receive ≈</small><b>{out.toLocaleString(undefined, { maximumFractionDigits: 6 })} {quote.action.toToken.symbol}</b></div>
-    <div className="td-review-meta"><span>via {quote.toolDetails?.name || quote.tool}</span><span>network gas ≈ ${gasUsd.toFixed(2)}</span><span>route fees ≈ ${feeUsd.toFixed(2)}</span><span>~{Math.max(1, Math.round((quote.estimate.executionDuration || 30) / 60))} min</span></div>
+    <div className="td-review-meta"><span>via {quote.toolDetails?.name || quote.tool}</span><span>network gas ≈ ${gasUsd.toFixed(2)}</span><span>provider / route fees ≈ ${feeUsd.toFixed(2)}</span><span>FEELESS platform fee: 0%</span><span>~{Math.max(1, Math.round((quote.estimate.executionDuration || 30) / 60))} min</span></div>
     <div className="td-review-actions"><button type="button" className="btn-outline" onClick={onClear}>Cancel</button><button type="button" className="btn-primary" disabled={busy} onClick={onExecute}>{busy ? 'Confirm in wallet…' : 'Confirm & sign'}</button></div>
   </div>;
 }
@@ -116,8 +116,8 @@ function FeeExplainer() {
   const pct = f ? (f.platformFeeBps / 100).toFixed(2) : null;
   return <div className="td-fees" data-testid="td-fees">
     <div className="td-fee good"><b>0%</b><span>Trade anything into $FEE (or its coins) — always FEELESS.</span></div>
-    <div className="td-fee"><b>{pct == null ? '…' : `${pct}%`}</b><span>Everything else{f && Number(pct) > 0 ? ` — cut up to ${Math.max(...Object.values(f.tierDiscountPct || { 0: 0 }))}% by holding $FEE` : ' — no FEELESS fee right now'}.</span></div>
-    <div className="td-fee"><ShieldCheck size={18} /><span>Non-custodial. Every route is shown before you sign; FEELESS never holds your funds.</span></div>
+    <div className="td-fee"><b>{pct == null ? '…' : `${pct}%`}</b><span>Base FEELESS fee on eligible Solana swaps{f && Number(pct) > 0 ? ` — reduced up to ${Math.max(...Object.values(f.tierDiscountPct || { 0: 0 }))}% by holder tier` : ' — currently disabled'}.</span></div>
+    <div className="td-fee"><ShieldCheck size={18} /><span>Bridge and gas routes have 0% FEELESS platform fee; provider and network fees are itemized before signing.</span></div>
   </div>;
 }
 

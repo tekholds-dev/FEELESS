@@ -7,16 +7,22 @@ const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
-const { Keypair } = require('@solana/web3.js');
+const { createRequire } = require('node:module');
+const frontendRequire = createRequire(require.resolve('../frontend/package.json'));
+const { Keypair } = frontendRequire('@solana/web3.js');
 
 const DEX_API_URL = 'http://dex.test';
 const GECKO_API_URL = 'http://gecko.test/api/v2';
 const PUMP_API_URL = 'http://pump.test';
+const SOLANA_RPC_URL = 'http://solana.test';
+const JUPITER_QUOTE_API_URL = 'http://jupiter.test';
 const POOL_ADDRESS = 'PoolAddress123';
 
 process.env.DEX_API_URL = DEX_API_URL;
 process.env.GECKO_API_URL = GECKO_API_URL;
 process.env.PUMP_API_URL = PUMP_API_URL;
+process.env.SOLANA_READ_RPC_URL = SOLANA_RPC_URL;
+process.env.JUPITER_QUOTE_API_URL = JUPITER_QUOTE_API_URL;
 
 const {
   ASSET_THROTTLE_WARNING_COOLDOWN_MS,
@@ -105,6 +111,45 @@ test('market screeners rank observed provider signals without calling them safet
   assert.ok(quality.pairs[0].signals.score_reasons.length > 0);
 });
 
+test('trade quotes use verified mint decimals for raw input and displayed output', async () => {
+  const originalFetch = global.fetch;
+  const inputMint = Keypair.generate().publicKey.toString();
+  const outputMint = Keypair.generate().publicKey.toString();
+  const quoteRequests = [];
+  global.fetch = async (target, options = {}) => {
+    const url = String(target);
+    if (url === SOLANA_RPC_URL) {
+      const { params } = JSON.parse(options.body);
+      const decimals = params[0] === inputMint ? 8 : 5;
+      return providerResponse({ jsonrpc: '2.0', id: 1, result: { context: { slot: 1 }, value: { amount: '1', decimals, uiAmount: null, uiAmountString: '0' } } });
+    }
+    if (url.startsWith(`${JUPITER_QUOTE_API_URL}/quote?`)) {
+      quoteRequests.push(new URL(url));
+      return providerResponse({ outAmount: '12345', otherAmountThreshold: '12000', routePlan: [] });
+    }
+    throw new Error(`Unexpected provider request: ${url}`);
+  };
+
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const response = await post(baseUrl, '/api/trading/quote', {
+      input_mint: inputMint,
+      output_mint: outputMint,
+      amount: '1.25',
+      slippage_bps: 50,
+    }, originalFetch);
+    assert.equal(response.status, 200);
+    assert.equal(quoteRequests[0].searchParams.get('amount'), '125000000');
+    assert.equal(response.body.input_metadata.decimals, 8);
+    assert.equal(response.body.output_metadata.decimals, 5);
+  } finally {
+    global.fetch = originalFetch;
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
 test('market screeners keep cached and stale responses aligned with the requested mode', async () => {
   const originalFetch = global.fetch;
   const originalNow = Date.now;
@@ -186,8 +231,8 @@ async function freePort() {
 
 async function startPersistentPreview(statePath) {
   const port = await freePort();
-  const child = spawn(process.execPath, ['scripts/preview-api.js'], {
-    cwd: process.cwd(),
+  const child = spawn(process.execPath, [path.join(__dirname, 'preview-api.js')], {
+    cwd: path.join(__dirname, '..'),
     env: { ...process.env, API_PORT: String(port), PREVIEW_STATE_PATH: statePath },
     stdio: ['ignore', 'ignore', 'pipe'],
   });

@@ -3,9 +3,11 @@ const http = require('http');
 const fs = require('fs');
 const { URL } = require('url');
 const nodeCrypto = require('crypto');
-const { PublicKey, Keypair } = require('@solana/web3.js');
-const { secp256k1 } = require('@noble/curves/secp256k1');
-const { keccak_256 } = require('@noble/hashes/sha3');
+const { createRequire } = require('module');
+const frontendRequire = createRequire(require.resolve('../frontend/package.json'));
+const { PublicKey, Keypair } = frontendRequire('@solana/web3.js');
+const { secp256k1 } = frontendRequire('@noble/curves/secp256k1');
+const { keccak_256 } = frontendRequire('@noble/hashes/sha3');
 
 const PORT = Number(process.env.API_PORT || 5001);
 const DEX_API = process.env.DEX_API_URL || 'https://api.dexscreener.com';
@@ -21,6 +23,7 @@ const JUPITER_API = process.env.JUPITER_API_URL || 'https://api.jup.ag';
 const JUPITER_PUBLIC_QUOTE_API = process.env.JUPITER_QUOTE_API_URL || 'https://lite-api.jup.ag/swap/v1';
 const JUPITER_API_KEY = process.env.JUPITER_API_KEY || '';
 const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || '';
+const SOLANA_READ_RPC_URL = process.env.SOLANA_READ_RPC_URL || SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 const TRADING_CONFIGURED = Boolean(JUPITER_API_KEY && SOLANA_RPC_URL);
 const MINTS = {
   fee: process.env.FEE_MINT || '49MmWE8sgNjuw342Eu7tB9thsVFtvTfKigUw9KSppump',
@@ -34,6 +37,7 @@ const providerRateLimitCooldowns = new Map();
 const assetThrottleWarningCooldown = new Map();
 const rooms = new Map();
 const orders = new Map();
+const mintMetadata = new Map();
 const profiles = new Map();
 const profileChallenges = new Map();
 const verifiedWallets = new Map();
@@ -611,6 +615,43 @@ async function rpc(method, params) {
   const data = await response.json();
   if (data.error) throw Object.assign(new Error('Solana RPC rejected the request.'), { statusCode: 503 });
   return data.result;
+}
+
+async function readRpc(method, params) {
+  const response = await fetch(SOLANA_READ_RPC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) throw Object.assign(new Error('Solana token metadata is temporarily unavailable.'), { statusCode: 503 });
+  const data = await response.json();
+  if (data.error || data.result?.value == null) throw Object.assign(new Error('Solana token metadata could not be verified.'), { statusCode: 400 });
+  return data.result;
+}
+
+async function tokenMetadata(mint) {
+  if (mint === 'So11111111111111111111111111111111111111112') return { mint, decimals: 9, symbol: 'SOL' };
+  if (mintMetadata.has(mint)) return mintMetadata.get(mint);
+  try { new PublicKey(mint); } catch { throw Object.assign(new Error('Invalid Solana token mint.'), { statusCode: 400 }); }
+  const result = await readRpc('getTokenSupply', [mint, { commitment: 'confirmed' }]);
+  const decimals = Number(result.value?.decimals);
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 18) {
+    throw Object.assign(new Error('Solana token decimals could not be verified.'), { statusCode: 503 });
+  }
+  const metadata = { mint, decimals, symbol: Object.entries(MINTS).find(([, value]) => value === mint)?.[0]?.toUpperCase() || 'TOKEN' };
+  mintMetadata.set(mint, metadata);
+  return metadata;
+}
+
+function amountToRawUnits(value, decimals) {
+  const text = String(value ?? '').trim();
+  if (!/^\d+(\.\d+)?$/.test(text)) throw Object.assign(new Error('Enter a valid token amount.'), { statusCode: 400 });
+  const [whole, fraction = ''] = text.split('.');
+  if (fraction.length > decimals) throw Object.assign(new Error(`This token supports at most ${decimals} decimal places.`), { statusCode: 400 });
+  const raw = (BigInt(whole) * (10n ** BigInt(decimals))) + BigInt((fraction.padEnd(decimals, '0') || '0'));
+  if (raw <= 0n) throw Object.assign(new Error('Enter an amount greater than zero.'), { statusCode: 400 });
+  return raw;
 }
 
 async function jupiter(method, path, options = {}) {
@@ -1877,7 +1918,7 @@ async function route(req, res, url) {
       const parentId = body.parentId ? String(body.parentId) : null;
       if (parentId && !roomMessages(room).some(item => item.id === parentId)) return json(res, 400, { detail: 'Reply target is no longer in this room.' });
       const message = {
-        id: crypto.randomUUID(),
+        id: nodeCrypto.randomUUID(),
         room,
         address: identity.address,
         chain: identity.chain,
@@ -1908,7 +1949,7 @@ async function route(req, res, url) {
       const text = String(body.text || '').trim().slice(0, 1000);
       if (!text) return json(res, 400, { detail: 'Reply cannot be blank' });
       const profile = profileRecord(identity.chain, identity.address);
-      const reply = { id: crypto.randomUUID(), room, address: identity.address, chain: identity.chain, username: profile.username || profile.displayName || `${identity.address.slice(0, 6)}…${identity.address.slice(-4)}`, text, parentId: message.id, tokens: null, ts: Date.now() };
+      const reply = { id: nodeCrypto.randomUUID(), room, address: identity.address, chain: identity.chain, username: profile.username || profile.displayName || `${identity.address.slice(0, 6)}…${identity.address.slice(-4)}`, text, parentId: message.id, tokens: null, ts: Date.now() };
       roomMessages(room).push(reply);
       recordChatComment(room, identity);
       return json(res, 200, publicProfileForMessage(reply, identity.key));
@@ -2015,8 +2056,8 @@ async function route(req, res, url) {
   const mintMatch = url.pathname.match(/^\/api\/trading\/mint\/([^/]+)$/);
   if (req.method === 'GET' && mintMatch) {
     const mint = decodeURIComponent(mintMatch[1]);
-    const symbol = Object.entries(MINTS).find(([, value]) => value === mint)?.[0] || 'TOKEN';
-    return json(res, 200, { mint, decimals: 9, symbol, supply: null, mint_authority: null, freeze_authority: null, source: 'Preview metadata boundary · supply verification unavailable' });
+    const metadata = await tokenMetadata(mint);
+    return json(res, 200, { ...metadata, supply: null, mint_authority: null, freeze_authority: null, source: 'Solana RPC · verified mint decimals' });
   }
   const historyMatch = url.pathname.match(/^\/api\/trading\/history\/([^/]+)$/);
   if (req.method === 'GET' && historyMatch) {
@@ -2038,10 +2079,10 @@ async function route(req, res, url) {
     const inputMint = String(body.input_mint || '');
     const outputMint = String(body.output_mint || '');
     const wallet = body.wallet ? String(body.wallet) : null;
-    const decimals = inputMint === 'So11111111111111111111111111111111111111112' ? 9 : 6;
-    const amount = Number(body.amount);
-    if (!inputMint || !outputMint || inputMint === outputMint || !Number.isFinite(amount) || amount <= 0) return json(res, 400, { detail: 'Choose two different assets and enter a valid amount.' });
-    const query = new URLSearchParams({ inputMint, outputMint, amount: String(Math.round(amount * (10 ** decimals))), slippageBps: String(Number(body.slippage_bps) || 50) });
+    if (!inputMint || !outputMint || inputMint === outputMint) return json(res, 400, { detail: 'Choose two different assets and enter a valid amount.' });
+    const [inputMetadata, outputMetadata] = await Promise.all([tokenMetadata(inputMint), tokenMetadata(outputMint)]);
+    const rawAmount = amountToRawUnits(body.amount, inputMetadata.decimals);
+    const query = new URLSearchParams({ inputMint, outputMint, amount: rawAmount.toString(), slippageBps: String(Number(body.slippage_bps) || 50) });
     if (wallet) query.set('taker', wallet);
     let quote;
     if (TRADING_CONFIGURED) {
@@ -2052,7 +2093,7 @@ async function route(req, res, url) {
       if (!response.ok) return json(res, 503, { detail: quote.error || 'Jupiter route unavailable for this pair.' });
     }
     if (quote.errorCode || quote.error || !quote.outAmount) return json(res, 400, { detail: quote.errorMessage || quote.error || 'No executable route available for this pair.' });
-    const orderId = crypto.randomUUID();
+    const orderId = nodeCrypto.randomUUID();
     const createdAt = new Date().toISOString();
     const storedQuote = TRADING_CONFIGURED ? quote : { ...quote, transaction: null };
     orders.set(orderId, { order_id: orderId, wallet, quote: storedQuote, state: 'quoted', simulated: false, created_at: createdAt, expires_at: Date.now() / 1000 + 45, input_mint: inputMint, output_mint: outputMint });
@@ -2060,8 +2101,8 @@ async function route(req, res, url) {
       order_id: orderId,
       created_at: createdAt,
       expires_at: orders.get(orderId).expires_at,
-      input_metadata: { mint: inputMint, decimals, symbol: inputMint === 'So11111111111111111111111111111111111111112' ? 'SOL' : 'TOKEN' },
-      output_metadata: { mint: outputMint, decimals: 6, symbol: 'TOKEN' },
+      input_metadata: inputMetadata,
+      output_metadata: outputMetadata,
       quote: { ...storedQuote, router: 'Jupiter' },
       fee_back: { status: 'PLANNED', eligible_usd: null, distribution: null },
     });

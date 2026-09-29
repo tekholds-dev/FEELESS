@@ -26,12 +26,13 @@ export function CircleWallets({ call }) {
     catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
   return <div className="cc-block circle-wallets"><h4>Creator wallets <small className="chain-tag">Circle · {status?.testnet ? 'TESTNET' : 'LIVE'}</small></h4>
+    <p className="cc-note"><b>Gas funding:</b> Circle holds the keys, but these are normal on-chain wallets. Before an outbound transfer or contract call, fund each wallet with that network's native gas token (SOL on Solana, ETH on Base/Ethereum/Arbitrum, POL on Polygon). Receiving assets does not require the wallet to hold gas. Gas is separate from FEELESS/Jupiter platform fees.</p>
     {!status?.configured ? <div className="cc-empty"><p><b>Not active yet:</b> {status?.reason || 'checking…'}</p>
       <ol><li>In a terminal on this computer run <code>node circle/register-entity-secret.mjs</code> (once).</li><li>Back up <code>~/.circle/recovery-file.json</code> somewhere safe (password manager).</li><li>Paste the printed <code>ENTITY_SECRET=…</code> line into <code>backend/.env</code>.</li><li>Start the wallet service: <code>node circle/server.mjs</code>, then Re-check.</li></ol>
       <button type="button" className="btn-outline" onClick={load}>Re-check</button></div> : <>
       <div className="cc-toolbar"><select value={blockchain} onChange={e => setF(x => ({ ...x, blockchain: e.target.value }))}>{chains.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select><input placeholder="Wallet name (e.g. Treasury ops)" value={f.name} maxLength={40} onChange={e => setF(x => ({ ...x, name: e.target.value }))} /><button type="button" className="btn-primary" disabled={busy} onClick={create}>{busy ? 'Creating…' : 'Create wallet'}</button></div>
       <div className="cw-list">{!wallets.length ? <small className="cc-empty">No wallets yet.</small> : wallets.map(w => <div key={w.id} className="cw-row"><b>{w.name || 'Wallet'}</b><span className="chain-tag">{w.blockchain}</span><code>{w.address?.slice(0, 6)}…{w.address?.slice(-4)}</code><CopyBtn value={w.address} /><em>{(w.balances || []).map(b => `${Number(b.amount).toLocaleString()} ${b.symbol}`).join(' · ') || 'empty'}</em></div>)}</div>
-      <small className="cc-empty">Keys are held by Circle and never touch FEELESS. Recovery lives in your ~/.circle recovery file. Fund EOA wallets with the chain's gas token before sending.</small>
+      <small className="cc-empty">Keys are held by Circle and never touch FEELESS. Recovery lives in your ~/.circle recovery file. Check the estimated network fee and native-token balance before every outbound transaction.</small>
     </>}
   </div>;
 }

@@ -18,7 +18,7 @@ import { apiUrl } from '../../lib/api';
 import { useWallet } from '../../hooks/useWallet';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { LivePrice } from '../terminal/LiveCells';
-import { shortAddress } from '../../lib/dexscreener';
+import { shortAddress, formatUSD } from '../../lib/dexscreener';
 import { BadgeArtifacts, useBadges } from '../terminal/Badges';
 import EcosystemChat from '../EcosystemChat';
 import { BadgeJourney } from './BadgeJourney';
@@ -62,6 +62,17 @@ function FeedTopCoins() {
   return <aside className="feed-side feed-top" data-testid="feed-top-coins"><h4>🔥 Top coins</h4>
     {!pairs.length ? <p className="wp-bio">Loading…</p> : pairs.map(p => { const ch = Number(p.priceChange?.h24); return <button type="button" key={p.pairAddress} onClick={() => navigate(`/terminal/chat?chain=${p.chainId}&pair=${p.pairAddress}&room=bulls`)}>
       {p.info?.imageUrl ? <img src={p.info.imageUrl} alt="" /> : <span className="ft-dot" />}<b>${p.baseToken.symbol}</b><em className={ch >= 0 ? 'positive' : 'negative'}>{Number.isFinite(ch) ? `${ch >= 0 ? '+' : ''}${ch.toFixed(1)}%` : '—'}</em></button>; })}
+  </aside>;
+}
+
+function SwapTopCoins({ onSelect }) {
+  const { data } = useMarket('/feed?kind=trending&chain=solana', 30000);
+  const pairs = (data?.pairs || []).filter(p => p.baseToken?.symbol).slice(0, 10);
+  return <aside className="swap-market-rail" data-testid="swap-top-coins"><header><span><i />LIVE</span><b>Top 10 coins</b><small>30s</small></header>
+    <div className="swap-market-list">{!pairs.length ? <p className="wp-bio">Loading live markets…</p> : pairs.map((p, index) => { const change = Number(p.priceChange?.h24); const txns = Number(p.txns?.h24?.buys || 0) + Number(p.txns?.h24?.sells || 0); const heat = Math.min(1, Math.log10(Math.max(10, Number(p.volume?.h24 || 0))) / 7); return <button type="button" key={p.pairAddress} onClick={() => onSelect(p)} style={{ '--heat': heat, '--pulse-speed': `${Math.max(1.4, 5 - Math.min(3.6, txns / 500))}s` }}>
+      <span className="sm-rank">{index + 1}</span>{p.info?.imageUrl ? <img src={p.info.imageUrl} alt="" /> : <span className="sm-coin">{p.baseToken.symbol.slice(0, 1)}</span>}<span className="sm-name"><b>${p.baseToken.symbol}</b><small>{p.baseToken.name || 'Solana market'}</small></span><em className={change >= 0 ? 'positive' : 'negative'}>{Number.isFinite(change) ? `${change >= 0 ? '+' : ''}${change.toFixed(1)}%` : '—'}</em>
+      <span className="sm-metrics"><small>MC <b>{formatUSD(p.marketCap || p.fdv)}</b></small><small>VOL <b>{formatUSD(p.volume?.h24)}</b></small><small>LIQ <b>{formatUSD(p.liquidity?.usd)}</b></small><small>TX <b>{txns || '—'}</b></small></span><i className="sm-activity" aria-hidden="true" /></button>; })}</div>
+    <small className="swap-market-source">Provider-ranked activity · tap a coin to load it in the swap</small>
   </aside>;
 }
 
@@ -120,6 +131,8 @@ export function WalletProfilePage({ address }) {
   useEffect(() => { if (autoEdit && mine && data) { setAutoEdit(false); startEdit(); } }, [autoEdit, mine, data]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (flipped && !actTab) setActTab(mine ? 'swap' : 'holdings'); if (actTab === 'swap' && !mine) setActTab('holdings'); }, [flipped, mine, actTab]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [badgeLimit, setBadgeLimit] = useState(3);
+  useEffect(() => { fetch(apiUrl('/api/reputation/badges/limits')).then(r => r.ok ? r.json() : null).then(d => d && setBadgeLimit(d.profile)).catch(() => {}); }, []);
   const perks = usePerks(address);
   const earned = useBadges(address);
   const tier = perks?.tier || 0;
@@ -181,7 +194,7 @@ export function WalletProfilePage({ address }) {
     <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />
     {!flipped && <PortfolioCard address={address} />}
     {flipped && <nav className="wp-act-tabs" data-testid="activity-tabs">{[mine && ['swap', 'Swap'], mine && poolPerk && ['builder', '🏗 Pool builder'], ['holdings', 'Holdings'], ['history', 'Swap history'], ['feed', 'FEEd'], ['posts', 'Posts'], ['rewards', 'Rewards'], ['vault', 'Vault']].filter(Boolean).map(([k, l]) => <button key={k} type="button" className={actTab === k ? 'active' : ''} onClick={() => setActTab(k)}>{l}</button>)}</nav>}
-    {flipped && actTab === 'swap' && mine && <section className="wp-card profile-swap" data-testid="profile-swap"><ProfileSwapBox pair={swapPair} /><small className="wp-bio">Signed in your own wallet — FEELESS never holds funds. Trades into $FEE coins carry no FEELESS fee.</small></section>}
+    {flipped && actTab === 'swap' && mine && <section className="profile-swap-layout" data-testid="profile-swap"><SwapTopCoins onSelect={setSwapPair} /><div className="wp-card profile-swap"><ProfileSwapBox pair={swapPair} /><small className="wp-bio">Signed in your own wallet — FEELESS never holds funds. Buying $FEE is fee-free; selling it to SOL, USDC or USDT is also free. Other routes show the platform fee before signing.</small></div><div className="profile-swap-receipts"><ReceiptsCard address={address} /></div></section>}
     {flipped && actTab === 'holdings' && <PortfolioCard address={address} onSwap={mine ? pr => { setSwapPair(pr); setActTab('swap'); } : undefined} />}
     {flipped && actTab === 'history' && <><WalletSwaps address={address} title="Swap history" /><PnlTracker address={address} /></>}
     {flipped && actTab === 'feed' && <FeedPanel mine={mine} onConnect={() => connect?.('solana')} />}
@@ -198,7 +211,7 @@ export function WalletProfilePage({ address }) {
         {edit ? <textarea maxLength={280} rows={4} value={draft.bio} placeholder="Say something. 280 chars." onChange={e => set('bio', e.target.value)} /> : <p className="wp-bio">{p.bio || (mine ? 'Tell the trenches who you are — hit Edit profile.' : 'No bio yet.')}</p>}
         {edit ? <div className="wp-links-edit">{[['x', 'https://x.com/you'], ['website', 'https://yoursite.xyz'], ['telegram', 'https://t.me/you']].map(([k, ph]) => <input key={k} placeholder={ph} value={draft.links?.[k] || ''} onChange={e => set('links', { ...draft.links, [k]: e.target.value })} />)}</div>
           : <div className="wp-links">{p.links?.x && <a href={p.links.x} target="_blank" rel="noopener noreferrer"><XIcon />X</a>}{p.links?.website && <a href={p.links.website} target="_blank" rel="noopener noreferrer"><Globe size={13} />Website</a>}{p.links?.telegram && <a href={p.links.telegram} target="_blank" rel="noopener noreferrer"><Send size={13} />Telegram</a>}</div>}
-        {edit && earned.length > 0 && <div className="wp-feature-pick" data-testid="feature-pick"><small>Featured badges — pick up to 3 (they spin on your profile and lead in chat)</small><div>{earned.map(b => { const on = (draft.featuredBadges || []).includes(b.id); return <button type="button" key={b.id} className={`badge-pill tone-${b.tone} ${on ? 'is-featured' : ''}`} disabled={!on && (draft.featuredBadges || []).length >= 3} onClick={() => set('featuredBadges', on ? draft.featuredBadges.filter(x => x !== b.id) : [...(draft.featuredBadges || []), b.id])}><i>{b.icon}</i>{b.label}{on && ` · ${(draft.featuredBadges || []).indexOf(b.id) + 1}`}</button>; })}</div></div>}
+        {edit && earned.length > 0 && <div className="wp-feature-pick" data-testid="feature-pick"><small>Featured badges — pick up to {badgeLimit} (Command Center limit; they spin on your profile and lead in chat)</small><div>{earned.map(b => { const on = (draft.featuredBadges || []).includes(b.id); return <button type="button" key={b.id} className={`badge-pill tone-${b.tone} ${on ? 'is-featured' : ''}`} disabled={!on && (draft.featuredBadges || []).length >= badgeLimit} onClick={() => set('featuredBadges', on ? draft.featuredBadges.filter(x => x !== b.id) : [...(draft.featuredBadges || []), b.id])}><i>{b.icon}</i>{b.label}{on && ` · ${(draft.featuredBadges || []).indexOf(b.id) + 1}`}</button>; })}</div></div>}
         {edit && <div className="wp-style-shop" data-testid="style-shop">
           <small>Avatar ring — free styles for everyone, animated premium styles for $FEE holders</small>
           <div className="wp-rings">{RINGS.map(([id, label, need]) => <button type="button" key={id} disabled={need > tier} title={need > tier ? `${TIER_NAMES[need]} style` : label} className={`wp-ring-opt ${draft.ring === id ? 'active' : ''} ${need ? 'premium' : ''}`} onClick={() => set('ring', id)}><span className={`ring-demo ring-${id}`}><i /></span><b>{need > tier ? '🔒 ' : need ? '✦ ' : ''}{label}</b></button>)}</div>

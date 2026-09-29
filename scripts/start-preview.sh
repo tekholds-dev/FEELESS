@@ -3,6 +3,11 @@ set -euo pipefail
 
 api_port="${API_PORT:-5001}"
 frontend_port="${PREVIEW_PORT:-5000}"
+node_options="${NODE_OPTIONS:-}"
+node_major="$(node -p "process.versions.node.split('.')[0]")"
+if (( node_major < 20 )) && [[ "$node_options" != *--experimental-global-webcrypto* ]]; then
+  node_options="${node_options:+${node_options} }--experimental-global-webcrypto"
+fi
 node scripts/preview-api.js &
 api_pid=$!
 frontend_pid=""
@@ -50,6 +55,6 @@ if ! curl --silent --show-error --fail --max-time 1 "http://127.0.0.1:${api_port
 fi
 
 cd frontend
-HOST=0.0.0.0 PORT="$frontend_port" PREVIEW_API_PORT="$api_port" npm start &
+HOST=0.0.0.0 PORT="$frontend_port" PREVIEW_API_PORT="$api_port" NODE_OPTIONS="$node_options" npm start &
 frontend_pid=$!
 wait "$frontend_pid"

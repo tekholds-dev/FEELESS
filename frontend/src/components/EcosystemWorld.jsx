@@ -116,7 +116,7 @@ export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose })
 
           <div className="eco-idea-card" data-testid="eco-idea-card">
             <span className="eco-idea-eyebrow"><Sparkles size={12} /> NEW HERE? THE IDEA</span>
-            <p><b>FEELESS</b> is where every chain becomes one social floor. Same transactions, zero platform fees — <span>more for you.</span></p>
+            <p><b>FEELESS</b> is where every chain becomes one social floor. Fee-free $FEE ecosystem swaps, with any platform, provider and network costs shown before you sign — <span>no hidden fee claims.</span></p>
             <div className="eco-idea-row">
               <div><Cat size={15} /><b>FeeCat</b><small>The zero-fee router mascot — routes liquidity & burns fees.</small></div>
               <div><InfinityIcon size={15} /><b>Fee-Back</b><small>Trading rebates flow back to your wallet & $FEE liquidity.</small></div>

@@ -56,6 +56,6 @@ export function EvmTrade({ pair }) {
     <label className="evm-row"><small>Amount ({side === 'buy' ? native : `$${pair.baseToken.symbol}`})</small><input inputMode="decimal" value={amount} onChange={e => { setAmount(e.target.value.replace(/[^\d.]/g, '')); setQuote(null); }} /></label>
     {quote && <div className="qt-quote"><div><small>You get ≈</small><b>{fromUnits(quote.estimate.toAmount, quote.outDec).toLocaleString(undefined, { maximumFractionDigits: 6 })} {side === 'buy' ? pair.baseToken.symbol : EVM_CHAINS[fromChain]?.nativeCurrency?.symbol}</b></div><div><small>Route</small><b>{quote.toolDetails?.name || quote.tool}{bridging ? ' · bridge' : ''}</b></div><div><small>Est. time</small><b>{Math.ceil((quote.estimate.executionDuration || 30) / 60)} min</b></div></div>}
     <button type="button" className="btn-primary qt-go" disabled={busy || !(Number(amount) > 0)} onClick={quote ? execute : getQuote}>{busy ? 'Working…' : quote ? `Confirm ${side} in wallet` : bridging ? <><ArrowLeftRight size={14} /> Get bridge quote</> : `Get ${side} quote`}</button>
-    <small className="qt-note">Routed by LI.FI (Jumper) · bridges between chains · you sign every step · non-custodial</small>
+    <small className="qt-note">FEELESS platform fee: 0% · LI.FI provider and network fees appear in the quote · you sign every step · non-custodial</small>
   </aside>;
 }

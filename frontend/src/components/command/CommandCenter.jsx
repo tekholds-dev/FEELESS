@@ -202,12 +202,19 @@ function AwardBadges({ call, initial }) {
   const [icon, setIcon] = useState('⭐');
   const [tone, setTone] = useState('gold');
   const [why, setWhy] = useState('');
+  const [limits, setLimits] = useState({ profile: 3, chat: 3 });
+  useEffect(() => { call('/admin/badges/limits').then(setLimits).catch(e => toast.error(e.message)); }, [call]);
   const addrs = text.split(/[\s,]+/).filter(a => /^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$/.test(a));
   const award = async () => {
     try { const r = await call('/admin/badges', { method: 'POST', body: JSON.stringify({ addresses: addrs, label, icon, tone, why }) }); toast.success(`Awarded ${label} to ${r.awarded} wallet(s).`); }
     catch (e) { toast.error(e.message); }
   };
+  const saveLimits = async () => {
+    try { setLimits(await call('/admin/badges/limits', { method: 'PUT', body: JSON.stringify({ profile: Number(limits.profile), chat: Number(limits.chat) }) })); toast.success('Badge limits saved and enforced site-wide.'); }
+    catch (e) { toast.error(e.message); }
+  };
   return <section className="cc-panel cc-award">
+    <div className="cc-block"><h4>Applied badge limits</h4><p className="cc-note">Only Command Center can set these caps. Users may choose fewer badges, but cannot apply more than the profile or chat limit.</p><div className="cc-studio-grid"><label>Profile badges<input type="number" min="0" max="12" value={limits.profile} onChange={e => setLimits(x => ({ ...x, profile: e.target.value }))} /></label><label>Chat badges per name<input type="number" min="0" max="12" value={limits.chat} onChange={e => setLimits(x => ({ ...x, chat: e.target.value }))} /></label></div><button type="button" className="btn-primary" onClick={saveLimits}>Save badge limits</button></div>
     <div className="cc-award-preview"><span className={`badge-pill tone-${tone}`}>{icon} {label || 'Badge name'}</span><small>{why || 'Why they earned it'}</small></div>
     <div className="cc-award-form">
       <div className="cc-icons">{['⭐', '💎', '🔥', '🏆', '🧠', '🐞', '🛠️', '🎖️', '🦾', '🌙'].map(i => <button key={i} type="button" className={icon === i ? 'active' : ''} onClick={() => setIcon(i)}>{i}</button>)}</div>
@@ -238,25 +245,36 @@ export function ReportBug({ address }) {
 
 function FeesPanel({ call }) {
   const [cfg, setCfg] = useState(null);
+  const [routes, setRoutes] = useState([]);
+  const [earnings, setEarnings] = useState(null);
+  const [earningsBusy, setEarningsBusy] = useState(false);
   const [limits, setLimits] = useState({ minBps: 50, maxBps: 255 });
   const [zero, setZero] = useState('');
   const [promoDays, setPromoDays] = useState(0);
-  useEffect(() => { call('/admin/fees').then(d => { setCfg(d.fees); setLimits(d.limits); setZero((d.fees.zeroFeeMints || []).join('\n')); }).catch(e => toast.error(e.message)); }, [call]);
+  useEffect(() => {
+    call('/admin/fees').then(d => { setCfg(d.fees); setLimits(d.limits); setZero((d.fees.zeroFeeMints || []).join('\n')); }).catch(e => toast.error(e.message));
+    call('/admin/treasury/routes').then(d => setRoutes(d.routes || [])).catch(() => {});
+  }, [call]);
   if (!cfg) return <p className="cc-empty">Loading fee settings…</p>;
   const set = (k, v) => setCfg(c => ({ ...c, [k]: v }));
+  const loadEarnings = async () => { setEarningsBusy(true); try { setEarnings(await call('/admin/fees/balances')); } catch (e) { toast.error(e.message); } finally { setEarningsBusy(false); } };
   const save = async () => {
     const body = { ...cfg, platformFeeBps: Number(cfg.platformFeeBps) || 0, zeroFeeMints: zero.split(/[\s,]+/).filter(Boolean),
       promo: { ...(cfg.promo || {}), until: promoDays > 0 ? Date.now() / 1000 + promoDays * 86400 : cfg.promo?.until || 0 } };
     try { const d = await call('/admin/fees', { method: 'POST', body: JSON.stringify(body) }); setCfg(d.fees); toast.success('Fee settings saved — applied to the next quote.'); } catch (e) { toast.error(e.message); }
   };
   const TIERS = ['Trencher', 'Fee Friend', 'Fee Insider', 'Fee Whale'];
+  const enabled = Number(cfg.platformFeeBps) > 0;
   return <section className="cc-panel cc-fees" data-testid="fees-panel">
-    <p className="cc-note">Fees are charged by Jupiter as an integrator fee straight into your referral account — FEELESS never touches user funds. Jupiter allows {limits.minBps / 100}%–{limits.maxBps / 100}% (set 0 for free trading). $FEE ecosystem trades are always free. Every trader sees the fee before signing.</p>
+    <p className="cc-note"><b>What gets charged:</b> only eligible in-app Solana trades/swaps. Buying $FEE with any token is fee-free. Selling $FEE into SOL, USDC or USDT is also fee-free; selling $FEE into another token uses the platform fee. FEECAT and rFEE follow the normal platform fee unless their mint is added to the fee-free list. LI.FI bridge and gas routes have no FEELESS platform fee. Holder and promo discounts can reduce charged swaps, and the exact rate appears before signing.</p>
+    <p className="cc-note"><b>Why Jupiter needs a referral account:</b> it is the on-chain fee vault and authority record used by Jupiter. It is not a referral code and does not charge anything by itself. When a fee is enabled, Jupiter collects it into mint-specific token accounts under this referral account; the authority wallet later signs a claim into your treasury wallet. A normal treasury address cannot be passed directly in its place.</p>
+    <div className={`fee-routing-status ${enabled && cfg.referralAccount ? 'ok' : enabled ? 'bad' : 'off'}`}><b>{enabled ? (cfg.referralAccount ? 'Fee destination configured' : 'Fee collection blocked') : 'Platform fee disabled'}</b><span>{enabled && cfg.referralAccount ? `Jupiter referral account ${cfg.referralAccount.slice(0, 6)}…${cfg.referralAccount.slice(-4)} receives the fee. Treasury routes below are records only; they do not automatically split or transfer these funds.` : enabled ? 'Add a valid Jupiter referral account before a non-zero fee can be saved.' : 'Users pay no FEELESS platform fee. Network and provider fees may still apply.'}</span></div>
     <div className="cc-studio-grid">
       <div className="cc-block"><h4>Platform fee</h4>
         <label>Fee (basis points · 100 = 1%)<input type="number" min="0" max={limits.maxBps} value={cfg.platformFeeBps} onChange={e => set('platformFeeBps', e.target.value)} /></label>
         <small className="cc-empty">{Number(cfg.platformFeeBps) ? `${(cfg.platformFeeBps / 100).toFixed(2)}% per swap` : 'Free trading'}</small>
-        <label>Jupiter referral account (your fee wallet)<input placeholder="Create at referral.jup.ag, paste the account" value={cfg.referralAccount} onChange={e => set('referralAccount', e.target.value.trim())} /></label>
+        <label>Jupiter referral account (actual fee destination)<input placeholder="Create at referral.jup.ag, paste the account" value={cfg.referralAccount} onChange={e => set('referralAccount', e.target.value.trim())} /></label>
+        <small className="cc-empty">Confirm this account's authority can be claimed into your treasury. Saved treasury destinations: {routes.length || 0}.</small>
       </div>
       <div className="cc-block"><h4>$FEE holder discounts</h4>
         {TIERS.map((t, i) => <label key={t}>{t}<input type="number" min="0" max="100" value={cfg.tierDiscountPct?.[String(i)] ?? 0} onChange={e => set('tierDiscountPct', { ...cfg.tierDiscountPct, [String(i)]: Number(e.target.value) })} /></label>)}
@@ -269,6 +287,11 @@ function FeesPanel({ call }) {
         {cfg.promo?.until > Date.now() / 1000 && <small className="cc-empty">Live until {new Date(cfg.promo.until * 1000).toLocaleString()}</small>}
         <label>Fee-free token mints (one per line)<textarea rows={3} value={zero} onChange={e => setZero(e.target.value)} /></label>
       </div>
+    </div>
+    <div className="cc-block cc-fee-tools"><h4>Fee earnings &amp; withdrawal</h4>
+      <div className="cc-toolbar"><button type="button" className="btn-outline" onClick={loadEarnings} disabled={earningsBusy || !cfg.referralAccount}><RefreshCw size={13} />{earningsBusy ? 'Reading chain…' : 'Refresh received fees'}</button><a className="btn-primary" href="https://referral.jup.ag/" target="_blank" rel="noopener noreferrer">Claim / withdraw with authority wallet ↗</a></div>
+      {!cfg.referralAccount ? <p className="cc-empty">Add your Jupiter referral account to read fee balances.</p> : !earnings ? <p className="cc-empty">Balances are read directly from the referral account's Solana token accounts.</p> : !earnings.accounts?.length ? <p className="cc-empty">No unclaimed token balances found. Also confirm referral token accounts exist for the fee mints you accept.</p> : <div className="fee-balance-list">{earnings.accounts.map(a => <div key={a.tokenAccount}><span><b>{a.amount}</b><small>{a.program}</small></span><code title={a.mint}>{a.mint?.slice(0, 6)}…{a.mint?.slice(-4)}</code></div>)}</div>}
+      <small className="cc-empty">Jupiter chooses the collected fee mint from the route; this setting does not force every fee into SOL or USD. Withdrawals require the referral authority wallet signature. FEELESS does not hold that key. After claiming, send the assets to the treasury destination you choose.</small>
     </div>
     <button type="button" className="btn-primary" onClick={save}>Save fee settings</button>
   </section>;
@@ -513,9 +536,10 @@ function TreasuryRoutes({ call, isOwner }) {
   const total = rows.reduce((a, r) => a + Number(r.pct || 0), 0);
   const set = (i, k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
   const save = async () => { try { await call('/admin/treasury/routes', { method: 'PUT', body: JSON.stringify({ routes: rows.map(r => ({ ...r, pct: Number(r.pct) })) }) }); toast.success('Treasury routing saved.'); } catch (e) { toast.error(e.message); } };
-  return <section className="cc-card"><h3>Fee routing</h3>
-    <p className="wp-bio">Split fee earnings across wallets you control — e.g. 60% treasury multisig, 25% buybacks, 15% team. FEELESS stores addresses only, never keys. Use a <a href="https://squads.so" target="_blank" rel="noopener noreferrer">Squads</a> (Solana) or <a href="https://app.safe.global" target="_blank" rel="noopener noreferrer">Safe</a> (Base) multisig for the main route.</p>
+  return <section className="cc-card"><h3>Treasury allocation plan</h3>
+    <p className="market-error"><b>Record only — no automatic transfers.</b> Jupiter swap fees first accrue to the referral account configured under Fees &amp; Pricing. These percentages document the intended allocation after fees are claimed; the app does not currently execute that split.</p>
+    <p className="wp-bio">Record wallets you control — e.g. 60% treasury multisig, 25% buybacks, 15% team. FEELESS stores addresses only, never keys. Use a <a href="https://squads.so" target="_blank" rel="noopener noreferrer">Squads</a> (Solana) or <a href="https://app.safe.global" target="_blank" rel="noopener noreferrer">Safe</a> (Base) multisig for the main destination.</p>
     <div className="routes">{rows.map((r, i) => <div key={i} className="route-row"><input placeholder="Label" value={r.label} disabled={!isOwner} onChange={e => set(i, 'label', e.target.value)} /><input placeholder="Wallet address" value={r.address} disabled={!isOwner} onChange={e => set(i, 'address', e.target.value.trim())} /><input type="number" min="0" max="100" value={r.pct} disabled={!isOwner} onChange={e => set(i, 'pct', e.target.value)} /><span>%</span>{isOwner && <button type="button" className="btn-outline" onClick={() => setRows(rows.filter((_, j) => j !== i))}>×</button>}</div>)}</div>
-    <div className="routes-foot"><span className={Math.abs(total - 100) < 0.01 ? 'ok' : 'bad'}>Total {total}%</span>{isOwner ? <><button type="button" className="btn-outline" onClick={() => setRows([...rows, { label: '', address: '', pct: 0 }])}>+ Add route</button><button type="button" className="btn-primary" disabled={Math.abs(total - 100) > 0.01} onClick={save}>Save routing</button></> : <small>Only the owner wallet can change routing.</small>}</div>
+    <div className="routes-foot"><span className={Math.abs(total - 100) < 0.01 ? 'ok' : 'bad'}>Total {total}%</span>{isOwner ? <><button type="button" className="btn-outline" onClick={() => setRows([...rows, { label: '', address: '', pct: 0 }])}>+ Add destination</button><button type="button" className="btn-primary" disabled={Math.abs(total - 100) > 0.01} onClick={save}>Save allocation plan</button></> : <small>Only the owner wallet can change this plan.</small>}</div>
   </section>;
 }
