@@ -8,6 +8,8 @@ import { apiUrl } from '../../lib/api';
 import { EvmTrade, EVM_TRADE_CHAINS } from './EvmTrade';
 import { formatUSD } from '../../lib/dexscreener';
 import { SlippagePicker } from '../command/SlippagePicker';
+import { ShieldNote } from '../command/ShieldNote';
+import { useShield, usePoints } from '../../lib/tradeIntel';
 
 const SOL = 'So11111111111111111111111111111111111111112';
 const PRESETS = { SOL: ['0.1', '0.5', '1'], USD: ['10', '50', '100'] };
@@ -77,6 +79,12 @@ export function QuickTrade({ pair }) {
     fetch(apiUrl(`/api/reputation/balance/${wallet.address}/${mint}`)).then(r => r.json()).then(d => setBal({ amount: Number(d.amount) || 0, decimals: d.decimals, raw: d.raw })).catch(() => setBal(null));
   }, [side, wallet?.address, mint]);
   const counterMint = counter === 'FEE' && feeMint ? feeMint : SOL;
+  // Rug shield on buys: a 'danger' coin needs an explicit tick before the one-tap buy signs.
+  const shield = useShield(side === 'buy' ? mint : null);
+  const [shieldAck, setShieldAck] = useState(false);
+  useEffect(() => { setShieldAck(false); }, [mint, side]);
+  const shieldBlocks = side === 'buy' && shield?.level === 'danger' && !shieldAck;
+  const points = usePoints(wallet?.chain === 'solana' ? wallet.address : null, result?.signature);
   const payAmount = () => {
     if (side === 'sell') {
       if (!balance) return null;
@@ -123,7 +131,7 @@ export function QuickTrade({ pair }) {
     fetchOrder();
   };
   const approve = async () => {
-    if (!order || order.key !== requestKey) return;
+    if (!order || order.key !== requestKey || shieldBlocks) return;
     quoteSeq.current++; setBusy(true);
     try {
       if (!provider?.signTransaction || provider.publicKey?.toString() !== wallet.address) throw new Error('Reconnect Phantom and get a fresh quote.');
@@ -165,11 +173,12 @@ export function QuickTrade({ pair }) {
       {toFee && <small className="qt-fee-free">Buying $FEE · 0% FEELESS fee</small>}
     </>}
     {order && <div className="qt-quote"><div className="qt-fee" data-testid="qt-fee"><small>FEELESS fee</small><b>{order.feeless_fee?.bps ? `${(order.feeless_fee.bps / 100).toFixed(2)}%` : 'Free'}</b>{order.feeless_fee?.notes?.length ? <em>{order.feeless_fee.notes.join(' · ')}</em> : null}</div><div><small>You get ≈</small><b>{out != null ? `${out.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${side === 'buy' ? symbol : toFee ? '$FEE' : 'SOL'}` : '—'}</b></div><div><small>Min received</small><b>{minOut != null ? minOut.toLocaleString(undefined, { maximumFractionDigits: 6 }) : '—'}</b></div><div><small>Price impact</small><b className={Math.abs(impact) > 5 ? 'negative' : ''}>{Number.isFinite(impact) ? `${Math.abs(impact).toFixed(2)}%` : '—'}</b></div></div>}
+    {side === 'buy' && shield && shield.level !== 'ok' && <ShieldNote shield={shield} ack={shieldAck} onAck={setShieldAck} />}
     {quoteError && !order && <small className="qt-note qt-error" role="status">{quoteError}</small>}
     {order && order.key === requestKey
-      ? <button type="button" className={`qt-go ${side}`} disabled={busy} onClick={approve} data-testid="quick-trade-approve">{busy ? 'Waiting for wallet…' : `${side === 'buy' ? 'Buy' : 'Sell'} ${symbol} in ${wallet?.name || 'Phantom'}`}</button>
+      ? <button type="button" className={`qt-go ${side}`} disabled={busy || shieldBlocks} onClick={approve} data-testid="quick-trade-approve">{busy ? 'Waiting for wallet…' : `${side === 'buy' ? 'Buy' : 'Sell'} ${symbol} in ${wallet?.name || 'Phantom'}`}</button>
       : <button type="button" className={`qt-go ${side}`} disabled={busy || routing} onClick={quote} data-testid="quick-trade-quote">{!wallet?.address ? <><Wallet size={14} />Connect wallet</> : wallet.chain !== 'solana' ? 'Switch wallet to Solana' : routing ? 'Routing…' : quoteError ? 'Retry quote' : `Get ${side === 'buy' ? 'buy' : 'sell'} quote`}</button>}
     {result?.signature && <a className="qt-result" href={`https://solscan.io/tx/${result.signature}`} target="_blank" rel="noopener noreferrer">{result.state.toUpperCase()} · view transaction <ArrowUpRight size={11} /></a>}
-    <small className="qt-foot">Jupiter route · simulated before you sign · non-custodial{side === 'buy' && prefs.unit === 'USD' ? ` · ${formatUSD(Number(amount))}` : ''}</small>
+    <small className="qt-foot">{side === 'buy' && shield?.level === 'ok' ? '🛡 Rug shield clear · ' : ''}{points?.points > 0 ? `⚡ ${points.points.toLocaleString('en-US')} FEE pts · ` : ''}Jupiter route · simulated before you sign · non-custodial{side === 'buy' && prefs.unit === 'USD' ? ` · ${formatUSD(Number(amount))}` : ''}</small>
   </aside>;
 }

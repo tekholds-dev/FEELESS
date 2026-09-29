@@ -7,6 +7,7 @@ import { EdgeScore } from '../terminal/EdgeScore';
 import { useMarket } from '../../hooks/useMarket';
 import { lifiFeelessFee } from '../../lib/lifiFee';
 import { CHAIN_ID, NATIVE, toUnits, fromUnits, lifiServerQuote, executeLifi } from '../../lib/lifiExec';
+import { FollowingCalls } from './FollowingCalls';
 import { TopPumpCoins } from './TopPumpCoins';
 
 // The trade desk: Swap (the existing Jupiter/LI.FI flows), Bridge (any EVM chain -> any EVM chain)
@@ -144,7 +145,7 @@ export function SimpleTrade({ swap, pair }) {
   const found = needLookup ? (data?.pairs || []).filter(p => p.baseToken?.address === target).sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0] : null;
   const edgePair = needLookup ? found : pair;
   return <div className="trade-simple" data-testid="trade-simple">
-    <div className="trade-main"><TopPumpCoins /><div className="trade-center"><TradeDesk swap={swap} /></div></div>
+    <div className="trade-main"><div className="trade-left"><TopPumpCoins /><FollowingCalls /></div><div className="trade-center"><TradeDesk swap={swap} /></div></div>
     <StatusStrip />
     {edgePair && <section className="td-edge" data-testid="trade-edge"><h3>FEELESS Edge score · ${edgePair.baseToken?.symbol || 'this coin'}</h3><EdgeScore pair={edgePair} /></section>}
     <div className="td-info">

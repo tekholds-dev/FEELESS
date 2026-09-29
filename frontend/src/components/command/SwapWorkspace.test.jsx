@@ -59,9 +59,13 @@ const scripted = (...responses) => {
   return jest.fn(url => (String(url).includes('/holdings/')
     // Real holdings, so the pay panel's Balance/Max path renders (regression: it once read inputMint too early).
     ? Promise.resolve({ ok: true, json: async () => ({ tokens: [{ mint: 'So11111111111111111111111111111111111111112', symbol: 'SOL', amount: 1.5, usd: 180 }] }) })
-    : Promise.resolve(queue.shift())));
+    // Rug shield + FEE points run alongside the trade calls.
+    : String(url).includes('/shield/') ? Promise.resolve({ ok: true, json: async () => ({ level: 'ok', reasons: [] }) })
+      : String(url).includes('/points/') ? Promise.resolve({ ok: true, json: async () => ({ points: 0 }) })
+        : Promise.resolve(queue.shift())));
 };
-const tradeCalls = () => global.fetch.mock.calls.filter(([url]) => !String(url).includes('/holdings/'));
+const SIDE = ['/holdings/', '/shield/', '/points/'];
+const tradeCalls = () => global.fetch.mock.calls.filter(([url]) => !SIDE.some(k => String(url).includes(k)));
 
 test('restores a saved submitted order and checks its status without storing transaction data', async () => {
   const orderId = 'a'.repeat(36);
@@ -219,7 +223,7 @@ test('keeps the swap review facts and approval action readable at every text siz
 
   for (const [fontScale, expectedScale] of [['normal', '1'], ['large', '1.12'], ['xlarge', '1.24']]) {
     // Answer by endpoint, not call order: the wallet-holdings lookup runs alongside the quote.
-    global.fetch = jest.fn(async url => ({ ok: true, json: async () => (String(url).includes('/quote') ? quote : String(url).includes('/holdings') ? { tokens: [] } : { success: true }) }));
+    global.fetch = jest.fn(async url => ({ ok: true, json: async () => (String(url).includes('/quote') ? quote : String(url).includes('/holdings') ? { tokens: [] } : String(url).includes('/shield/') ? { level: 'ok', reasons: [] } : { success: true }) }));
 
     const { container, root } = mount({ feeAsset, fontScale });
     await act(async () => container.querySelector('[data-testid="swap-get-quote"]').click());
@@ -238,4 +242,22 @@ test('keeps the swap review facts and approval action readable at every text siz
 
     act(() => root.unmount());
   }
+});
+test('rug shield: a high-risk coin keeps Approve locked until the trader ticks "I understand"', async () => {
+  const walletAddress = 'Wallet1111111111111111111111111111111111111';
+  const feeAsset = { id: 'token', label: 'TOKEN', mint: 'Risky11111111111111111111111111111111111111', chain: 'solana' };
+  const quote = { order_id: 'f'.repeat(36), expires_at: 1_700_000_045, output_metadata: { decimals: 6 }, quote: { transaction: 'AQIDBA==', outAmount: '1000000', otherAmountThreshold: '990000', routePlan: [] } };
+  mockWalletState.wallet = { chain: 'solana', address: walletAddress };
+  mockWalletState.provider = {};
+  global.fetch = jest.fn(async url => ({ ok: true, json: async () => (String(url).includes('/quote') ? quote : String(url).includes('/holdings') ? { tokens: [] }
+    : String(url).includes('/shield/') ? { level: 'danger', reasons: ['Creator still holds 30% of supply.'] } : { success: true }) }));
+  const { container, root } = mount({ feeAsset });
+  await act(async () => container.querySelector('[data-testid="swap-get-quote"]').click());
+  await act(async () => container.querySelector('[data-testid="swap-review"]').click());
+  const dialog = container.querySelector('[data-testid="swap-review-dialog"]');
+  expect(dialog.querySelector('[data-testid="rug-shield"]').textContent).toContain('Creator still holds 30%');
+  expect(dialog.querySelector('[data-testid="swap-approve-wallet"]').disabled).toBe(true);
+  await act(async () => dialog.querySelector('[data-testid="rug-shield-ack"]').click());
+  expect(dialog.querySelector('[data-testid="swap-approve-wallet"]').disabled).toBe(false);
+  act(() => root.unmount());
 });

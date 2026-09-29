@@ -3,7 +3,7 @@ import { useWallet } from '../../hooks/useWallet';
 import { PoolCreator } from './PoolCreator';
 import { LaunchRailAdmin } from './LaunchRailAdmin';
 import { CircleWallets } from './CircleWallets';
-import { UnitInput, TradePreview, useSolUsd, money } from './FeeInputs';
+import { UnitInput, TradePreview, useSolUsd, money, LiveMoney } from './FeeInputs';
 import { MarketingPanel } from './MarketingPanel';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -153,7 +153,7 @@ function Overview({ sec, reload }) {
     <div className="cc-block cc-wide"><h4>Vulnerability checks</h4>{sec.checks.map(c => <div key={c.name} className={`cc-check-row sev-${c.severity}`}><span>{c.ok ? '✅' : c.severity === 'high' ? '🚨' : '⚠️'}</span><b>{c.name}</b><small>{c.detail}</small></div>)}</div>
     <div className="cc-block"><h4>Most clicked in chat</h4>{!clicks.length ? <small className="cc-empty">No $TICKER / CA clicks yet.</small> : clicks.map(c => <div key={`${c.kind}:${c.value}`} className="cc-sig"><span>{c.kind === 'ticker' ? `$${c.value}` : c.kind === 'ca' ? `${c.value.slice(0, 4)}…${c.value.slice(-4)}` : c.kind === 'mention' ? `@${c.value}` : c.value}</span><b>{c.count}</b></div>)}</div>
     <div className="cc-block"><h4>Top errors</h4>{!sec.topErrors.length ? <small className="cc-empty">Clean — no errors this hour.</small> : sec.topErrors.map(e => <div key={e.key} className="cc-sig"><code>{e.key}</code><b>{e.count}</b></div>)}</div>
-    <div className="cc-block"><h4>Audit log</h4>{!sec.audit.length ? <small className="cc-empty">No admin actions yet.</small> : sec.audit.map((a, i) => <div key={i} className="cc-audit"><small>{new Date(a.at * 1000).toLocaleString()}</small><b>{a.action}</b><span>{a.detail}</span></div>)}</div>
+    <div className="cc-block cc-wide cc-audit-log"><h4>Audit log</h4>{!sec.audit.length ? <small className="cc-empty">No admin actions yet.</small> : sec.audit.map((a, i) => <div key={i} className="cc-audit"><small>{new Date(a.at * 1000).toLocaleString()}</small><b>{a.action}</b><span>{a.detail}</span></div>)}</div>
   </section>;
 }
 
@@ -292,6 +292,7 @@ function FeesPanel({ call }) {
     ['Fee', enabled ? pct(cfg.platformFeeBps) : 'Off', enabled], ['Fee account', engine === 'swap' ? (feeAcct ? 'Set' : 'Missing') : (cfg.referralAccount ? 'Referral set' : 'Missing'), engine === 'swap' ? feeAcct : Boolean(cfg.referralAccount)],
     ['Health', health ? (health.ok ? 'Collecting' : 'Not collecting') : 'Checking…', Boolean(health?.ok)]];
   return <section className="cc-panel cc-fees" data-testid="fees-panel">
+    <LiveMoney call={call} solUsd={solUsd} />
     <div className="cc-status-strip" data-testid="fee-status">{status.map(([k, v, ok]) => <span key={k} className={ok ? 'ok' : 'bad'}><small>{k}</small><b>{v}</b></span>)}</div>
     {health && !health.ok && <div className="fee-health bad" data-testid="fee-health"><b>⚠ Fees are NOT being collected</b><span>{health.problem}</span>{health.fix && <small><b>Fix:</b> {health.fix}</small>}</div>}
 

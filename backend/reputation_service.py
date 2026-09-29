@@ -3709,6 +3709,86 @@ async def _swap_fee_health():
     return {'ok': True, 'note': f"Swap engine ready: fees land in your {' + '.join(l for l, _, _ in wanted)} fee account(s). Ultra fallback {fallback}."}
 
 
+@app.get('/api/reputation/admin/fees/earnings')
+async def admin_fee_earnings(request: Request):
+    """Live money: what sits in the fee accounts on-chain right now, plus fees from confirmed trades
+    (last hour / 24h / 7d, top coins)."""
+    _require_admin(request)
+    cfg = _fee_cfg()
+    accounts = [(label, acct) for label, acct in (('SOL', cfg.get('feeAccountSol')), ('USDC', cfg.get('feeAccountUsdc'))) if acct]
+    async with httpx.AsyncClient(timeout=15) as http:
+        async def balances():
+            if not accounts:
+                return []
+            info = await _rpc(http, 'getMultipleAccounts', [[a for _, a in accounts], {'encoding': 'jsonParsed'}])
+            rows = []
+            for (label, acct), value in zip(accounts, (info or {}).get('value') or []):
+                amt = ((((value or {}).get('data') or {}).get('parsed') or {}).get('info') or {}).get('tokenAmount') or {} if isinstance((value or {}).get('data'), dict) else {}
+                rows.append({'label': label, 'account': acct, 'amount': float(amt.get('uiAmountString') or 0)})
+            return rows
+
+        async def trades():
+            try:
+                r = await http.get('http://127.0.0.1:5001/api/trading/internal/earnings', headers={'x-feeless-internal': _internal_key()})
+                return r.json() if r.status_code == 200 else None
+            except Exception:
+                return None
+        bal, stats = await asyncio.gather(balances(), trades())
+    for c in (stats or {}).get('coins', []):
+        card = _fee_coin_names.get(c['mint'])
+        if card is None:
+            async with httpx.AsyncClient(timeout=6) as http:
+                card = _fee_coin_names[c['mint']] = (await _coin_card(http, c['mint']))['symbol']
+        c['symbol'] = card
+    return {'balances': bal, 'trades': stats, 'at': time.time()}
+
+
+_fee_coin_names: dict = {}
+
+
+# ---- Rug shield: one verdict for the swap review / quick trade, from on-chain forensics --------------
+@app.get('/api/reputation/shield/{mint}')
+async def rug_shield(mint: str):
+    """ok / caution / danger with the reasons. danger = the trader must tick 'I understand' before signing."""
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', mint):
+        raise HTTPException(400, 'Bad mint.')
+    if mint in FEE_SETTLEMENT_MINTS:
+        return {'mint': mint, 'level': 'ok', 'reasons': []}
+    try:
+        intel = await token_intel('solana', mint)
+    except HTTPException:
+        return {'mint': mint, 'level': 'unknown', 'reasons': ['On-chain check unavailable right now.']}
+    return {'mint': mint, **shield_verdict(intel, _block_load()['wallets'])}
+
+
+def shield_verdict(intel, blocklist):
+    reasons, danger = list(intel.get('flags') or []), False
+    creator = intel.get('creator')
+    if creator and _is_blocked(blocklist.get(creator)):
+        reasons.insert(0, 'Creator wallet is on the FEELESS blocklist (repeat sniper/bundler or reported rug).'); danger = True
+    if (intel.get('devHoldingPct') or 0) >= 20 or (intel.get('insidersHoldingPct') or 0) >= 25 or intel.get('flaggedFunders'):
+        danger = True
+    return {'level': 'danger' if danger else 'caution' if reasons else 'ok', 'reasons': reasons[:5],
+            'devPct': intel.get('devHoldingPct'), 'insidersPct': intel.get('insidersHoldingPct'), 'top10Pct': intel.get('top10Pct')}
+
+
+# ---- Copy callers: calls from wallets you follow, newest first, with each caller's record ---------------
+@app.get('/api/reputation/calls/following/{address}')
+async def following_calls(address: str, hours: int = Query(24, ge=1, le=168)):
+    me = primary_of(address)
+    following = set(_fol()['following'].get(me, []))
+    if not following:
+        return {'calls': [], 'following': 0}
+    since = time.time() - hours * 3600
+    board = {r.get('callerAddress'): r for r in (await caller_board(days=30))['rows']}
+    calls = [_call_view(c) for c in _calls_load()['calls'].values() if c['at'] >= since and primary_of(c.get('callerAddress') or '') in following]
+    calls.sort(key=lambda c: -c['at'])
+    for c in calls:
+        b = board.get(c.get('callerAddress')) or {}
+        c['callerHitRate'] = b.get('hitRate'); c['callerCalls'] = b.get('calls')
+    return {'calls': calls[:30], 'following': len(following)}
+
+
 def _quote_fee_bps(q):
     """The fee Jupiter says it will take on this quote: Swap API reports platformFee.feeBps, Ultra reports feeBps."""
     return int((q.get('platformFee') or {}).get('feeBps') or q.get('feeBps') or 0)

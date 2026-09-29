@@ -45,3 +45,30 @@ export function TradePreview({ feeBps, tipLamports, solUsd }) {
   </div>;
 }
 
+
+// Live money: fee-account balances read on-chain + fees from confirmed trades. Refreshes every 30s.
+export function LiveMoney({ call, solUsd }) {
+  const [d, setD] = useState(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    let alive = true;
+    const load = () => call('/admin/fees/earnings').then(x => { if (alive) { setD(x); setErr(''); } }).catch(e => alive && setErr(e.message));
+    load(); const t = setInterval(load, 30000);
+    return () => { alive = false; clearInterval(t); };
+  }, [call]);
+  const usd = v => (v == null ? '—' : v >= 1 ? `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `${(v * 100).toFixed(1)}¢`);
+  const bal = label => (d?.balances || []).find(b => b.label === label);
+  const sol = bal('SOL'); const usdc = bal('USDC');
+  const t = d?.trades;
+  return <div className="cc-block live-money" data-testid="live-money"><h4><i className="flr-dot" /> Live money</h4>
+    {err && !d ? <small className="cc-empty">{err}</small> : !d ? <small className="cc-empty">Reading the chain…</small> : <>
+      <div className="lm-grid">
+        <span className="lm-hero"><small>In your fee accounts now</small><b>{usd((sol?.amount || 0) * (solUsd || 0) + (usdc?.amount || 0))}</b><em>{sol ? `${sol.amount.toFixed(4)} SOL` : '— SOL'} · {usdc ? `${usdc.amount.toFixed(2)} USDC` : '— USDC'}</em></span>
+        <span><small>Last hour</small><b>{usd(t?.hour)}</b></span>
+        <span><small>Last 24h</small><b>{usd(t?.day)}</b></span>
+        <span><small>7 days</small><b>{usd(t?.week)}</b><em>{t ? `${t.trades} trades · ${usd(t.volumeUsd)} volume` : 'trade stats offline'}</em></span>
+      </div>
+      {t?.coins?.length > 0 && <div className="lm-coins"><small>Top coins by fees (7d)</small>{t.coins.slice(0, 6).map(c => <div key={c.mint}><b>${c.symbol || c.mint.slice(0, 4)}</b><span>{c.trades} trades</span><em>{usd(c.feesUsd)}</em></div>)}</div>}
+      <small className="cc-empty">Balances are read on-chain. Per-window fees are from confirmed trades (trade value × fee).</small></>}
+  </div>;
+}

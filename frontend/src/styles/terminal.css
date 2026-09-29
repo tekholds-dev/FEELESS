@@ -3800,3 +3800,33 @@ body.theme-day .unit-input em{color:#fff;background:#0a8a5a}
 .tp-rows small{font:10px 'JetBrains Mono',monospace;color:#6f8f7c;text-transform:uppercase}.tp-rows b{font:700 15px 'JetBrains Mono',monospace;color:#eafff3}.tp-rows em{font-style:normal;font-size:10.5px;color:#8fb09c}
 .tp-rows .you{border-color:rgba(0,255,163,.45)}.tp-rows .you b{color:#00ffa3}.tp-rows .total{border-color:rgba(245,197,66,.35)}.tp-rows .total b{color:var(--gold)}
 body.theme-day .tp-rows span{background:#fff}body.theme-day .tp-rows b{color:#0a1f14}
+/* Security cards: nothing runs off a card; the audit log is full width and scrolls inside itself */
+.cc-block{min-width:0;overflow:hidden}
+.cc-audit span,.cc-sig span,.cc-sig code{overflow-wrap:anywhere}
+.cc-audit-log{max-height:340px;overflow-y:auto;align-self:start}
+.cc-audit{grid-template-columns:170px 90px 1fr;align-items:baseline;gap:10px}
+@media(max-width:700px){.cc-audit{grid-template-columns:1fr}}
+/* Trade page left column: Top 10 + calls you follow */
+.trade-left{display:grid;gap:12px;align-content:start;min-width:0;position:sticky;top:12px}.trade-left .top-pump{position:static}
+.fc-row{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:8px 6px;border-radius:10px;transition:background .15s}.fc-row:hover{background:rgba(0,255,163,.06)}
+.fc-coin{display:grid;min-width:0;color:inherit;text-decoration:none}.fc-coin b{color:#00ffa3;font-size:13px}.fc-coin small{font-size:10.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fc-x{font:700 11px 'JetBrains Mono',monospace}.fc-x.up{color:#00ffa3}.fc-x.down{color:#ff8fa3}
+.fc-buy{font:700 11px 'JetBrains Mono',monospace;color:#02140c;background:#00ffa3;border-radius:7px;padding:4px 9px;text-decoration:none}.fc-buy:hover{filter:brightness(1.1)}
+/* Rug shield + FEE points */
+.shield-note{margin:8px 0;padding:9px 11px;border-radius:10px;border:1px solid rgba(0,255,163,.3);background:rgba(0,255,163,.05);font-size:12px}
+.shield-note b{font:700 11px 'JetBrains Mono',monospace;letter-spacing:.04em}.shield-note ul{margin:6px 0 0;padding-left:16px;color:#b9d6c4}.shield-note li{margin:2px 0}
+.shield-note.lvl-caution{border-color:rgba(245,197,66,.45);background:rgba(245,197,66,.06)}.shield-note.lvl-caution b{color:var(--gold)}
+.shield-note.lvl-danger{border-color:rgba(255,90,122,.55);background:rgba(255,90,122,.08)}.shield-note.lvl-danger b{color:#ff8fa3}
+.shield-ack{display:flex;gap:8px;align-items:center;margin-top:8px;font-size:12px;color:#ffd0d8}
+.fee-points{color:#00ffa3;margin-left:6px}
+body.theme-day .shield-note{background:#fff}
+.live-money h4{display:flex;align-items:center;gap:8px}
+.lm-grid{display:grid;grid-template-columns:1.6fr repeat(3,1fr);gap:8px}@media(max-width:800px){.lm-grid{grid-template-columns:1fr 1fr}}
+.lm-grid span{display:grid;gap:3px;padding:12px;border-radius:12px;background:#030605;border:1px solid rgba(0,255,163,.15)}
+.lm-grid small,.lm-coins>small{font:10px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.08em;color:#6f8f7c}
+.lm-grid b{font:800 18px 'JetBrains Mono',monospace;color:#eafff3}.lm-grid em{font-style:normal;font-size:11px;color:#8fb09c}
+.lm-grid .lm-hero{border-color:rgba(0,255,163,.5);box-shadow:0 0 24px rgba(0,255,163,.12)}.lm-grid .lm-hero b{font-size:26px;color:#00ffa3}
+.lm-coins{display:grid;gap:4px;margin:10px 0}.lm-coins>div{display:grid;grid-template-columns:1fr auto auto;gap:10px;font-size:12px;padding:5px 8px;border-radius:8px;background:rgba(255,255,255,.02)}
+.lm-coins b{color:#00ffa3}.lm-coins span{color:var(--muted)}.lm-coins em{font:700 12px 'JetBrains Mono',monospace;font-style:normal}
+body.theme-day .lm-grid span{background:#fff}body.theme-day .lm-grid b{color:#0a1f14}
+.shield-note{text-align:left}

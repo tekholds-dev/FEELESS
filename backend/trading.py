@@ -48,6 +48,48 @@ class ExecuteIn(BaseModel):
 class OrderId(BaseModel):
     order_id: str = Field(min_length=32, max_length=40)
 
+def _usd_value(quote):
+    for k in ('inUsdValue', 'swapUsdValue'):
+        try:
+            v = float(quote.get(k) or 0)
+            if v > 0:
+                return round(v, 4)
+        except (TypeError, ValueError):
+            pass
+    return None
+
+
+# Stable coins / SOL are the settlement side; the other mint is "the coin" a trade was about.
+SETTLEMENT = {SOL_MINT, 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'}
+POINTS_PER_USD_FEE = 100  # 1 FEE point per $0.01 of platform fee paid
+
+
+def summarize_orders(orders, now=None):
+    """Confirmed trades → earnings windows and per-coin totals (fee = trade value × fee bps)."""
+    now = now or time.time()
+    out = {'hour': 0.0, 'day': 0.0, 'week': 0.0, 'trades': 0, 'volumeUsd': 0.0, 'coins': {}}
+    for o in orders:
+        usd, bps = o.get('in_usd') or 0, o.get('fee_bps') or 0
+        fee = usd * bps / 10000
+        try:
+            at = datetime.fromisoformat(o['created_at']).timestamp()
+        except (KeyError, ValueError):
+            continue
+        age = now - at
+        if age > 7 * 86400:
+            continue
+        out['week'] += fee; out['trades'] += 1; out['volumeUsd'] += usd
+        if age <= 86400:
+            out['day'] += fee
+        if age <= 3600:
+            out['hour'] += fee
+        coin = o['output_mint'] if o.get('input_mint') in SETTLEMENT else o.get('input_mint')
+        c = out['coins'].setdefault(coin, {'mint': coin, 'feesUsd': 0.0, 'trades': 0})
+        c['feesUsd'] += fee; c['trades'] += 1
+    coins = sorted(out['coins'].values(), key=lambda c: -c['feesUsd'])[:10]
+    return {**{k: round(v, 4) if isinstance(v, float) else v for k, v in out.items() if k != 'coins'}, 'coins': [{**c, 'feesUsd': round(c['feesUsd'], 4)} for c in coins]}
+
+
 class TradingService:
     def __init__(self, db):
         self.db = db
@@ -324,7 +366,8 @@ class TradingService:
             created = datetime.now(timezone.utc).isoformat()
             record = {'order_id': order_id, 'wallet': body.wallet, 'state': 'quoted', 'created_at': created,
                       'expires_at': time.time() + 45, 'input_mint': body.input_mint, 'output_mint': body.output_mint,
-                      'quote': data, 'simulated': False, 'engine': engine}
+                      'quote': data, 'simulated': False, 'engine': engine,
+                      'fee_bps': int(fee.get('bps') or 0), 'in_usd': _usd_value(data)}
             await self.db.swap_orders.insert_one(record)
             return {'order_id': order_id, 'created_at': created, 'expires_at': record['expires_at'],
                     # Echoed so the UI can refuse to show or sign an order that no longer matches the picked coins.
@@ -418,6 +461,28 @@ class TradingService:
                     pass
             return {'state': state, 'signature': signature, 'order_id': order_id,
                     'fee_back': 'Eligibility not activated; no distribution has been created.'}
+
+        @router.get('/internal/earnings')
+        async def earnings(request: Request):
+            # Internal only: the Command Center reads this through the reputation service (admin-signed).
+            key = (Path(__file__).parent / 'data' / 'internal.key').read_text().strip()
+            if request.headers.get('x-feeless-internal') != key:
+                raise HTTPException(403, 'Internal only.')
+            since = datetime.fromtimestamp(time.time() - 7 * 86400, timezone.utc).isoformat()
+            orders = await self.db.swap_orders.find({'state': 'confirmed', 'created_at': {'$gte': since}},
+                {'_id': 0, 'created_at': 1, 'in_usd': 1, 'fee_bps': 1, 'input_mint': 1, 'output_mint': 1}).to_list(50000)
+            return summarize_orders(orders)
+
+        @router.get('/points/{wallet}')
+        async def points(wallet: str):
+            """FEE points: earned from platform fees actually paid on confirmed trades. Redemption rules are
+            published before any payout; points are a record, not a promise of value."""
+            valid_key(wallet)
+            orders = await self.db.swap_orders.find({'wallet': wallet, 'state': 'confirmed'},
+                {'_id': 0, 'in_usd': 1, 'fee_bps': 1}).to_list(20000)
+            fees = sum((o.get('in_usd') or 0) * (o.get('fee_bps') or 0) / 10000 for o in orders)
+            return {'wallet': wallet, 'trades': len(orders), 'volumeUsd': round(sum(o.get('in_usd') or 0 for o in orders), 2),
+                    'feesUsd': round(fees, 4), 'points': int(fees * POINTS_PER_USD_FEE), 'status': 'Points only · redemption rules TBA'}
 
         @router.get('/history/{wallet}')
         async def history(wallet: str):
