@@ -401,9 +401,9 @@ test('updates the trade readout for every text size and restores the choice afte
     expect(amount().closest(`.${terminalClass}`)).not.toBeNull();
     if (expectedScale) {
       expect(tradeRule(`.${terminalClass} .swap-desk`).style.getPropertyValue('--swap-readable-scale')).toBe(expectedScale);
-      expect(tradeRule(`.${terminalClass} .swap-desk .swap-amount-label input`).style.getPropertyValue('font-size'))
+      expect(tradeRule(`.${terminalClass} .swap-desk .jup-amount`).style.getPropertyValue('font-size'))
         .toBe('calc(30px * var(--swap-readable-scale))');
-      expect(tradeRule(`.${terminalClass} .swap-desk .swap-output > strong`).style.getPropertyValue('font-size'))
+      expect(tradeRule(`.${terminalClass} .swap-desk .jup-out`).style.getPropertyValue('font-size'))
         .toBe('calc(24px * var(--swap-readable-scale))');
     } else {
       expect(window.getComputedStyle(amount()).fontSize).toBe('30px');

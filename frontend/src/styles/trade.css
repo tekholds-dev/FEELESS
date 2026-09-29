@@ -473,3 +473,21 @@
     align-items: flex-start;
   }
 }
+/* Compact swap card: amount + estimate follow the text-size setting. */
+.swap-desk .jup-amount {
+  font-size: 30px;
+}
+
+.swap-desk .jup-out {
+  font-size: 24px;
+}
+
+.text-scale-large .swap-desk .jup-amount,
+.text-scale-xlarge .swap-desk .jup-amount {
+  font-size: calc(30px * var(--swap-readable-scale));
+}
+
+.text-scale-large .swap-desk .jup-out,
+.text-scale-xlarge .swap-desk .jup-out {
+  font-size: calc(24px * var(--swap-readable-scale));
+}
