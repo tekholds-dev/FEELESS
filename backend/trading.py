@@ -17,6 +17,8 @@ from solders.transaction import VersionedTransaction
 from solders.message import to_bytes_versioned
 from pymongo import ReturnDocument
 
+from fee_tx import DECIMALS, build_transaction, fee_instructions, lookup_tables, split_fee
+
 SOL_MINT = 'So11111111111111111111111111111111111111112'
 JUPITER_API_URL = os.environ.get('JUPITER_API_URL', 'https://api.jup.ag').rstrip('/')
 PAPER_AGENT_EXECUTION_BOUNDARY = {
@@ -166,46 +168,62 @@ class TradingService:
         return metadata
 
     async def swap_order(self, params, fee, wallet):
-        """Jupiter Swap API: quote with the FEELESS platform fee, then build the wallet's transaction.
-        The fee is LOCKED: it goes into a FEELESS fee account (SOL or USDC side of the trade). If Jupiter rejects
-        every fee account for this route, the trade is refused (or handed to the Ultra fallback when that is on);
-        it never silently goes through without the fee."""
-        accounts = fee.get('feeAccounts') or ([fee['feeAccount']] if fee.get('feeAccount') else [])
-        bps = int(fee.get('bps') or 0) if accounts else 0
+        """Jupiter Swap API with the FEELESS fee LOCKED in (never silently dropped):
+        - receive side is SOL/USDC (a sell): Jupiter's platform fee, paid into that FEELESS fee account;
+        - pay side is SOL/USDC (a buy): the fee is split off the amount and sent to the FEELESS fee account by
+          its own transfer inside the same transaction (Jupiter can't take its fee from the input on these routes).
+        If neither works the trade is refused (the quote endpoint may hand it to the Ultra fallback)."""
+        by_mint = fee.get('feeAccountsByMint') or {}
+        bps = int(fee.get('bps') or 0)
+        in_mint, out_mint = params['inputMint'], params['outputMint']
+        mode = 'none' if not bps else 'output' if by_mint.get(out_mint) else 'input' if by_mint.get(in_mint) and in_mint in DECIMALS else None
+        if mode is None:
+            raise HTTPException(400, 'Every FEELESS trade pays the platform fee in SOL or USDC. Put SOL or USDC on one side.')
         query = {k: v for k, v in params.items() if k != 'taker'}
-        if bps:
+        fee_atoms = 0
+        if mode == 'output':
             query['platformFeeBps'] = bps
+        elif mode == 'input':
+            fee_atoms, swap_atoms = split_fee(int(params['amount']), bps)
+            query['amount'] = str(swap_atoms)
         quote = await self.jupiter('GET', '/swap/v1/quote', params=query)
         if not quote.get('outAmount'):
             raise HTTPException(400, quote.get('error') or 'No executable route available for this pair')
-        built = {}
-        if wallet:
-            req = {'quoteResponse': quote, 'userPublicKey': wallet, 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True}
-            cap = int(fee.get('priorityMaxLamports') or 0)
-            if cap:
-                req['prioritizationFeeLamports'] = {'priorityLevelWithMaxLamports': {'maxLamports': cap, 'priorityLevel': 'high'}}
-            if not bps:
+        req = {'quoteResponse': quote, 'userPublicKey': wallet, 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True}
+        cap = int(fee.get('priorityMaxLamports') or 0)
+        if cap:
+            req['prioritizationFeeLamports'] = {'priorityLevelWithMaxLamports': {'maxLamports': cap, 'priorityLevel': 'high'}}
+        tx, last_valid, priority = None, None, None
+        if wallet and mode == 'input':
+            parts, latest = await asyncio.gather(self.jupiter('POST', '/swap/v1/swap-instructions', json=req),
+                                                 self.rpc('getLatestBlockhash', [{'commitment': 'confirmed'}]))
+            keys = parts.get('addressLookupTableAddresses') or []
+            alts = (await self.rpc('getMultipleAccounts', [keys, {'encoding': 'base64'}]) or {}).get('value') or [] if keys else []
+            tx = build_transaction(wallet, parts, fee_instructions(wallet, in_mint, by_mint[in_mint], fee_atoms),
+                                   lookup_tables(keys, alts), latest['value']['blockhash'])
+            last_valid, priority = latest['value']['lastValidBlockHeight'], parts.get('prioritizationFeeLamports')
+            fee = {**fee, 'feeAccount': by_mint[in_mint]}
+        elif wallet:
+            if mode == 'output':
+                req['feeAccount'] = by_mint[out_mint]
+                fee = {**fee, 'feeAccount': by_mint[out_mint]}
+            try:
                 built = await self.jupiter('POST', '/swap/v1/swap', json=req)
-            else:
-                errors = []
-                for acct in accounts:
-                    try:
-                        built = await self.jupiter('POST', '/swap/v1/swap', json={**req, 'feeAccount': acct})
-                        fee = {**fee, 'feeAccount': acct}
-                        break
-                    except HTTPException as exc:
-                        errors.append(f'{acct[:4]}…: {exc.detail}')
-                else:
-                    raise HTTPException(503, 'FEELESS fee account rejected by Jupiter, so the trade was not sent '
-                                             f'({"; ".join(errors)[:220]}). Run the fee self-test in Command Center.')
-            if not built.get('swapTransaction'):
+            except HTTPException as exc:
+                if mode != 'output':
+                    raise
+                raise HTTPException(503, f'FEELESS fee account rejected by Jupiter, so the trade was not sent ({exc.detail}). Run the fee self-test in Command Center.')
+            tx, last_valid, priority = built.get('swapTransaction'), built.get('lastValidBlockHeight'), built.get('prioritizationFeeLamports')
+            if not tx:
                 raise HTTPException(503, 'Jupiter did not return a transaction.')
-        usd = quote.get('swapUsdValue')
-        data = {**quote, 'transaction': built.get('swapTransaction'), 'router': 'Jupiter Swap API',
-                'lastValidBlockHeight': built.get('lastValidBlockHeight'), 'signatureFeeLamports': 5000,
-                'prioritizationFeeLamports': built.get('prioritizationFeeLamports'), 'rentFeeLamports': None,
-                'inUsdValue': float(usd) if usd else None}
-        return data, {**fee, 'bps': bps}
+        usd = float(quote.get('swapUsdValue') or 0) or None
+        if usd and mode == 'input' and int(query['amount']):
+            usd = usd * int(params['amount']) / int(query['amount'])  # value of everything the trader pays, fee included
+        data = {**quote, 'transaction': tx, 'router': 'Jupiter Swap API', 'lastValidBlockHeight': last_valid,
+                'signatureFeeLamports': 5000, 'prioritizationFeeLamports': priority, 'rentFeeLamports': None,
+                'inUsdValue': usd, 'feelessFeeMode': mode, 'feelessFeeAtoms': str(fee_atoms) if fee_atoms else None,
+                'platformFee': quote.get('platformFee') or ({'feeBps': bps, 'amount': str(fee_atoms)} if mode == 'input' else None)}
+        return data, {**fee, 'bps': bps if mode != 'none' else 0}
 
     async def ultra_order(self, params, fee):
         """Jupiter Ultra: Jupiter builds and lands the transaction; fee via the referral account (0.5–2.55%)."""

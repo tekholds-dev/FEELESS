@@ -3547,7 +3547,9 @@ async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''
     ultra = max(JUP_MIN_BPS, min(bps, JUP_MAX_BPS)) if cfg['referralAccount'] and bps else 0
     out = {'bps': bps, 'ultraBps': ultra, 'baseBps': base, 'notes': notes,
            'referralAccount': cfg['referralAccount'] if ultra else None, 'feeAccount': fee_account if bps else None,
-           'feeAccounts': _swap_fee_accounts(cfg, input_mint, output_mint) if bps else [], **eng}
+           'feeAccounts': _swap_fee_accounts(cfg, input_mint, output_mint) if bps else [],
+           'feeAccountsByMint': {m: a for m, a in ((WSOL_MINT, cfg.get('feeAccountSol')), (USDC_MINT, cfg.get('feeAccountUsdc'))) if a and m in (input_mint, output_mint)} if bps else {},
+           **eng}
     if bps and not fee_account and eng['engine'] == 'swap':
         # The fee is collected in SOL or USDC. A coin-to-coin trade has neither side, so it can't pay: refuse it
         # rather than let it through free.
