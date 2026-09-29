@@ -303,6 +303,7 @@ function FeesPanel({ call }) {
       <div className="cc-block cc-engine" data-testid="trading-engine"><h4>1 · Trading engine</h4>
         <div className="cc-seg">{[['swap', 'Swap API · your fee'], ['ultra', 'Ultra only · 0.5–2.55%']].map(([id, label]) => <button key={id} type="button" className={engine === id ? 'active' : ''} onClick={() => set('engine', id)}>{label}</button>)}</div>
         <label className="cc-check"><input type="checkbox" checked={Boolean(cfg.ultraFallback)} disabled={engine === 'ultra'} onChange={e => set('ultraFallback', e.target.checked)} />Ultra fallback when the Swap API fails (fee capped at 2.55% on those trades). Off = trading pauses.</label>
+        <FeeAccountMaker onDone={a => setCfg(c => ({ ...c, feeAccountSol: a.sol, feeAccountUsdc: a.usdc }))} />
         <label>SOL fee account (wSOL token account)<input placeholder="Token account for So111…112 owned by your treasury" value={cfg.feeAccountSol || ''} onChange={e => set('feeAccountSol', e.target.value.trim())} /></label>
         <label>USDC fee account (optional)<input placeholder="Token account for USDC owned by your treasury" value={cfg.feeAccountUsdc || ''} onChange={e => set('feeAccountUsdc', e.target.value.trim())} /></label>
         <label>Max priority fee (lamports)<input type="number" min="0" max={limits.priorityMaxLamports} value={cfg.priorityMaxLamports ?? 200000} onChange={e => set('priorityMaxLamports', e.target.value)} /></label>
@@ -341,6 +342,28 @@ function FeesPanel({ call }) {
     </div>
     <div className="cc-savebar"><span>{routes.length || 0} treasury route{routes.length === 1 ? '' : 's'} saved</span><button type="button" className="btn-primary" onClick={save} data-testid="fees-save">Save trading &amp; fees</button></div>
   </section>;
+}
+
+// One-click fee accounts: the connected wallet pays ~0.004 SOL rent and signs once; the accounts belong to the fee wallet.
+function FeeAccountMaker({ onDone }) {
+  const { wallet, provider } = useWallet() || {};
+  const [owner, setOwner] = useState('');
+  const [status, setStatus] = useState('');
+  const feeWallet = owner.trim() || wallet?.address || '';
+  const run = async () => {
+    if (wallet?.chain !== 'solana' || !provider?.signTransaction) { toast.error('Connect your Solana wallet (Phantom) first.'); return; }
+    try {
+      const { createFeeAccounts } = await import('../../lib/feeAccounts');
+      const out = await createFeeAccounts({ provider, payer: wallet.address, owner: feeWallet, onStatus: setStatus });
+      onDone(out); setStatus('');
+      toast.success('Fee accounts ready and filled in. Press Save.');
+    } catch (e) { setStatus(''); toast.error(e.code === 4001 ? 'Declined in wallet. Nothing was created.' : e.message); }
+  };
+  return <div className="fee-maker" data-testid="fee-account-maker">
+    <label>Fee wallet (receives the fees)<input placeholder={wallet?.address ? `${wallet.address.slice(0, 6)}… (connected wallet)` : 'Your fee wallet address'} value={owner} onChange={e => setOwner(e.target.value.trim())} /></label>
+    <button type="button" className="btn-primary" onClick={run} disabled={Boolean(status) || !feeWallet}>{status || 'Create fee accounts in Phantom'}</button>
+    <small className="cc-empty">Creates the wSOL + USDC fee accounts for that wallet in one approval (~0.004 SOL rent, paid by the connected wallet). Safe to repeat.</small>
+  </div>;
 }
 
 function AdsPanel({ call }) {

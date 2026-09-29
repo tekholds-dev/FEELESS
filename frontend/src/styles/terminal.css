@@ -3781,3 +3781,4 @@ body.theme-day [data-testid="swap-review-dialog"]{background:#fff!important}
 .cc-savebar span{font:11px 'JetBrains Mono',monospace;color:#8fb09c}
 .cc-shell ::-webkit-scrollbar{width:6px;height:6px}.cc-shell ::-webkit-scrollbar-thumb{background:rgba(0,255,163,.3);border-radius:6px}.cc-shell *{scrollbar-width:thin;scrollbar-color:rgba(0,255,163,.3) transparent}
 body.theme-day .cc-block,body.theme-day .cc-tabs,body.theme-day .cc-status-strip span{background:#fff}body.theme-day .cc-block h4,body.theme-day .cc-rules b{color:#0a1f14}
+.fee-maker{display:grid;gap:8px;padding:12px;margin-bottom:12px;border:1px dashed rgba(0,255,163,.35);border-radius:12px;background:rgba(0,255,163,.04)}
