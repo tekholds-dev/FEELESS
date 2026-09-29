@@ -19,6 +19,7 @@ from intelligence import Intelligence
 from trading import TradingService
 from whitepaper import router as docs_router
 from pump_network import network as pump_network, create_pump_router
+from lifi import create_lifi_router
 import re
 
 mongo_url = os.environ['MONGO_URL']
@@ -33,6 +34,7 @@ app.include_router(intelligence.router())
 app.include_router(TradingService(db).router())
 app.include_router(docs_router)
 app.include_router(create_pump_router())
+app.include_router(create_lifi_router())
 api_router = APIRouter(prefix="/api")
 
 

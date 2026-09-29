@@ -3630,13 +3630,14 @@ async def admin_fee_selftest(request: Request):
             checks.append({'label': label, 'ok': ok, 'rule': expected, 'charged': charged, 'detail': detail,
                            'notes': rule.get('notes') or []})
         lifi = None
-        if cfg.get('lifiIntegrator') and cfg.get('lifiFeeBps'):
+        if (cfg.get('lifiIntegrator') or os.environ.get('LIFI_INTEGRATOR')) and cfg.get('lifiFeeBps'):
             try:
                 q = (await http.get('https://li.quest/v1/quote', params={'fromChain': 8453, 'toChain': 8453, 'fromToken': '0x0000000000000000000000000000000000000000',
                      'toToken': '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', 'fromAmount': '10000000000000000', 'fromAddress': '0x552008c0f6870c2f77e5cC1d2eb9bdff03e30Ea0',
-                     'integrator': cfg['lifiIntegrator'], 'fee': cfg['lifiFeeBps'] / 10000})).json()
+                     'integrator': cfg.get('lifiIntegrator') or os.environ.get('LIFI_INTEGRATOR'), 'fee': cfg['lifiFeeBps'] / 10000},
+                     headers={'x-lifi-api-key': os.environ.get('LIFI_API_KEY', '')})).json()
                 fees = [f for f in (q.get('estimate') or {}).get('feeCosts') or [] if 'integrator' in f"{f.get('name')} {f.get('description')}".lower()]
-                lifi = {'ok': bool(fees), 'detail': (f"LI.FI charges {float(fees[0].get('percentage') or 0) * 100:.2f}% to integrator {cfg['lifiIntegrator']}" if fees
+                lifi = {'ok': bool(fees), 'detail': (f"LI.FI charges {float(fees[0].get('percentage') or 0) * 100:.2f}% to integrator {cfg.get('lifiIntegrator') or os.environ.get('LIFI_INTEGRATOR')}" if fees
                                                      else str(q.get('message') or 'LI.FI returned no integrator fee')[:160])}
             except Exception as exc:
                 lifi = {'ok': False, 'detail': f'LI.FI unreachable: {exc}'}
@@ -3657,7 +3658,7 @@ async def admin_fees_set(request: Request, payload: FeeCfg):
     zero = [m for m in payload.zeroFeeMints[:50] if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', str(m))]
     promo = {'label': str((payload.promo or {}).get('label') or '')[:40], 'discountPct': max(0.0, min(100.0, float((payload.promo or {}).get('discountPct') or 0))),
              'until': float((payload.promo or {}).get('until') or 0)}
-    integrator = (payload.lifiIntegrator or '').strip()
+    integrator = (payload.lifiIntegrator or '').strip() or os.environ.get('LIFI_INTEGRATOR', '').strip()
     if integrator and not _re.match(r'^[A-Za-z0-9_.-]{2,40}$', integrator):
         raise HTTPException(400, 'LI.FI integrator name: 2–40 letters, numbers, dot, dash or underscore (as registered at portal.li.fi).')
     if payload.lifiFeeBps and not integrator:
@@ -5312,7 +5313,8 @@ async def gas_check(address: str):
 @app.get('/api/reputation/fees/public')
 async def fees_public():
     cfg = _fee_cfg()
-    lifi = {'integrator': cfg['lifiIntegrator'], 'fee': round(cfg['lifiFeeBps'] / 10000, 4)} if cfg.get('lifiIntegrator') and cfg.get('lifiFeeBps') else None
+    integ = cfg.get('lifiIntegrator') or os.environ.get('LIFI_INTEGRATOR', '').strip()
+    lifi = {'integrator': integ, 'fee': round(cfg['lifiFeeBps'] / 10000, 4)} if integ and cfg.get('lifiFeeBps') else None
     return {'platformFeeBps': cfg['platformFeeBps'], 'tierDiscountPct': cfg['tierDiscountPct'], 'promo': cfg.get('promo'), 'lifi': lifi,
             'feelessIntoFee': True, 'note': 'Buying $FEE is fee-free. Selling $FEE to SOL, USDC or USDT is fee-free; other output tokens use the configured platform fee.'}
 

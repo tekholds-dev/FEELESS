@@ -4,9 +4,9 @@ import { ChevronDown, Lock, Search } from 'lucide-react';
 
 // Swap desk executes on Solana only; other networks are shown but locked so nobody picks a
 // token the router can't actually fill. EVM trades live in the Trade Desk (LI.FI).
-const NETWORKS = [['solana', 'Solana', true], ['ethereum', 'Ethereum'], ['base', 'Base'], ['bsc', 'BNB'], ['arbitrum', 'Arbitrum']];
+const NETWORKS = [['solana', 'Solana', true], ['base', 'Base'], ['ethereum', 'Ethereum'], ['bsc', 'BNB'], ['arbitrum', 'Arbitrum'], ['polygon', 'Polygon'], ['optimism', 'Optimism'], ['avalanche', 'Avalanche']];
 
-export function TokenPicker({ label, value, options, onChange, onPickRemote, holdings = [], disabled, testId }) {
+export function TokenPicker({ label, value, options, onChange, onPickRemote, onNetwork, holdings = [], disabled, testId }) {
   const [open, setOpen] = useState(false);
   const [net, setNet] = useState('solana');
   const [q, setQ] = useState('');
@@ -41,7 +41,7 @@ export function TokenPicker({ label, value, options, onChange, onPickRemote, hol
       {avatar(cur)}<b>{cur?.symbol}</b><em>{cur?.name}</em><i className="tkp-chain">SOL</i><ChevronDown size={14} />
     </button>
     {open && <div className="tkp-pop" role="listbox">
-      <nav>{NETWORKS.map(([id, name, ok]) => <button key={id} type="button" className={`${net === id ? 'on' : ''} ${ok ? '' : 'locked'}`} onClick={() => setNet(id)} title={ok ? name : `${name}: swap on the Trade Desk`}>{!ok && <Lock size={10} />}{name}</button>)}</nav>
+      <nav>{NETWORKS.map(([id, name, ok]) => <button key={id} type="button" className={`${net === id ? 'on' : ''} ${ok ? '' : 'locked'}`} onClick={() => { if (!ok && onNetwork) { onNetwork(id); setOpen(false); } else setNet(id); }} title={ok || onNetwork ? name : `${name}: swap on the Trade Desk`}>{!ok && !onNetwork && <Lock size={10} />}{name}</button>)}</nav>
       {live ? <>
         <div className="tkp-search"><Search size={13} /><input autoFocus aria-label="Filter tokens" placeholder="Search name, $ticker or contract" value={q} onChange={e => setQ(e.target.value)} /></div>
         <div className="tkp-list">{mine.length > 0 && <><div className="tkp-group">In your wallet</div>{mine.map(h => <button key={`w-${h.mint}`} type="button" role="option" aria-selected={h.mint === value} className={`tkp-mine ${h.mint === value ? 'sel' : ''}`} onClick={() => pickMine(h)}>

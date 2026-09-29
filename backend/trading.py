@@ -78,8 +78,15 @@ class TradingService:
         self.require_configured()
         try:
             async with httpx.AsyncClient(timeout=25) as http:
-                res = await http.request(method, JUPITER_API_URL + path,
-                                         headers={'x-api-key': os.environ['JUPITER_API_KEY']}, **kwargs)
+                # Jupiter rate-limits per key: back off and retry briefly instead of failing the trade.
+                for attempt in range(3):
+                    res = await http.request(method, JUPITER_API_URL + path,
+                                             headers={'x-api-key': os.environ['JUPITER_API_KEY']}, **kwargs)
+                    if res.status_code != 429:
+                        break
+                    await asyncio.sleep(1.2 * (attempt + 1))
+                if res.status_code == 429:
+                    raise HTTPException(503, 'Jupiter is busy right now — try again in a few seconds. Nothing was sent.')
                 data = res.json()
             if res.status_code >= 400:
                 detail = str(data.get('errorMessage') or data.get('error') or data.get('message') or 'Jupiter route unavailable')

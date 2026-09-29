@@ -1,15 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { lifiQuote, lifiFeeConfig } from '../../lib/lifiFee';
+import { lifiFeeConfig } from '../../lib/lifiFee';
+import { CHAIN_ID, NATIVE, toUnits, fromUnits, lifiServerQuote, executeLifi } from '../../lib/lifiExec';
+import { apiUrl } from '../../lib/api';
 import { toast } from 'sonner';
 import { Zap, ArrowLeftRight } from 'lucide-react';
 import { useWallet, EVM_CHAINS } from '../../hooks/useWallet';
 
 // EVM swaps + bridging via LI.FI (the router behind Jumper). Non-custodial: the wallet signs every tx.
-const CHAIN_ID = { ethereum: 1, base: 8453, bsc: 56, arbitrum: 42161, avalanche: 43114, polygon: 137, optimism: 10, zksync: 324, zora: 7777777, cronos: 25, unichain: 130, worldchain: 480 };
 export const EVM_TRADE_CHAINS = Object.keys(CHAIN_ID);
-const NATIVE = '0x0000000000000000000000000000000000000000';
-const toUnits = (amt, dec) => { const [w, f = ''] = String(amt).split('.'); return BigInt(w || 0) * 10n ** BigInt(dec) + BigInt((f + '0'.repeat(dec)).slice(0, dec) || 0); };
-const fromUnits = (v, dec) => Number(BigInt(v)) / 10 ** dec;
 
 export function EvmTrade({ pair }) {
   const { wallet, provider, switchTo, connect } = useWallet() || {};
@@ -28,29 +26,22 @@ export function EvmTrade({ pair }) {
     try {
       let w = wallet;
       if (!w || w.chain !== 'evm') w = (await (switchTo ? switchTo(fromChain) : connect('evm'))).wallet;
-      const tokenInfo = await (await fetch(`https://li.quest/v1/token?chain=${CHAIN_ID[chain]}&token=${token}`)).json();
+      const tokenInfo = await (await fetch(apiUrl(`/api/lifi/token?chain=${CHAIN_ID[chain]}&token=${token}`))).json();
       const fromToken = side === 'buy' ? NATIVE : token;
       const toToken = side === 'buy' ? token : NATIVE;
       const fromDec = side === 'buy' ? 18 : tokenInfo.decimals;
-      const q = await lifiQuote(`https://li.quest/v1/quote?fromChain=${CHAIN_ID[side === 'buy' ? fromChain : chain]}&toChain=${CHAIN_ID[side === 'buy' ? chain : fromChain]}&fromToken=${fromToken}&toToken=${toToken}&fromAmount=${toUnits(amount, fromDec)}&fromAddress=${w.address}&slippage=0.01`);
+      const q = await lifiServerQuote({ fromChain: CHAIN_ID[side === 'buy' ? fromChain : chain], toChain: CHAIN_ID[side === 'buy' ? chain : fromChain], fromToken, toToken, fromAmount: toUnits(amount, fromDec), fromAddress: w.address, slippage: 0.01 });
       if (!q.transactionRequest) throw new Error(q.message || 'No route for this trade.');
       setQuote({ ...q, tokenInfo, outDec: side === 'buy' ? tokenInfo.decimals : 18 });
     } catch (e) { toast.error(e.code === 4001 ? 'Declined in wallet.' : e.message); } finally { setBusy(false); }
   };
+  const [step, setStep] = useState('');
   const execute = async () => {
     setBusy(true);
     try {
-      const tx = quote.transactionRequest;
-      await switchTo?.(Object.keys(CHAIN_ID).find(k => CHAIN_ID[k] === Number(tx.chainId)) || fromChain);
-      if (quote.action.fromToken.address !== NATIVE && quote.estimate.approvalAddress) {
-        const data = `0x095ea7b3${quote.estimate.approvalAddress.slice(2).padStart(64, '0')}${BigInt(quote.action.fromAmount).toString(16).padStart(64, '0')}`;
-        const ah = await provider.request({ method: 'eth_sendTransaction', params: [{ from: wallet.address, to: quote.action.fromToken.address, data }] });
-        toast('Approval sent — waiting for it to confirm…');
-        for (let i = 0; i < 60; i++) { const rc = await provider.request({ method: 'eth_getTransactionReceipt', params: [ah] }).catch(() => null); if (rc) { if (rc.status === '0x0') throw new Error('Approval reverted.'); break; } await new Promise(r => setTimeout(r, 2000)); }
-      }
-      const hash = await provider.request({ method: 'eth_sendTransaction', params: [{ from: wallet.address, to: tx.to, data: tx.data, value: tx.value, gas: tx.gasLimit }] });
-      toast.success(`Submitted: ${hash.slice(0, 10)}…`); setQuote(null);
-    } catch (e) { toast.error(e.code === 4001 ? 'Declined in wallet — nothing sent.' : e.message); } finally { setBusy(false); }
+      const out = await executeLifi({ quote, wallet, provider, switchTo, onStep: setStep });
+      toast.success(out.status === 'DONE' ? `Done: ${out.hash.slice(0, 10)}…` : `Submitted: ${out.hash.slice(0, 10)}… (bridging)`); setQuote(null);
+    } catch (e) { toast.error(e.code === 4001 ? 'Declined in wallet — nothing sent.' : e.message); } finally { setBusy(false); setStep(''); }
   };
   const bridging = fromChain !== chain;
   return <aside className="quick-trade evm-trade" data-testid="evm-trade">
@@ -58,7 +49,7 @@ export function EvmTrade({ pair }) {
     <label className="evm-row"><small>{side === 'buy' ? 'Pay with' : 'Receive on'}</small><select value={fromChain} onChange={e => { setFromChain(e.target.value); setQuote(null); }}>{Object.keys(CHAIN_ID).map(k => <option key={k} value={k}>{EVM_CHAINS[k].chainName}{k !== chain ? ' (bridge)' : ''}</option>)}</select></label>
     <label className="evm-row"><small>Amount ({side === 'buy' ? native : `$${pair.baseToken.symbol}`})</small><input inputMode="decimal" value={amount} onChange={e => { setAmount(e.target.value.replace(/[^\d.]/g, '')); setQuote(null); }} /></label>
     {quote && <div className="qt-quote"><div><small>You get ≈</small><b>{fromUnits(quote.estimate.toAmount, quote.outDec).toLocaleString(undefined, { maximumFractionDigits: 6 })} {side === 'buy' ? pair.baseToken.symbol : EVM_CHAINS[fromChain]?.nativeCurrency?.symbol}</b></div><div><small>Route</small><b>{quote.toolDetails?.name || quote.tool}{bridging ? ' · bridge' : ''}</b></div><div><small>Est. time</small><b>{Math.ceil((quote.estimate.executionDuration || 30) / 60)} min</b></div></div>}
-    <button type="button" className="btn-primary qt-go" disabled={busy || !(Number(amount) > 0)} onClick={quote ? execute : getQuote}>{busy ? 'Working…' : quote ? `Confirm ${side} in wallet` : bridging ? <><ArrowLeftRight size={14} /> Get bridge quote</> : `Get ${side} quote`}</button>
+    <button type="button" className="btn-primary qt-go" disabled={busy || !(Number(amount) > 0)} onClick={quote ? execute : getQuote}>{busy ? (step || 'Working…') : quote ? `Confirm ${side} in wallet` : bridging ? <><ArrowLeftRight size={14} /> Get bridge quote</> : `Get ${side} quote`}</button>
     <small className="qt-note">{lifiPct ? `FEELESS fee ${lifiPct}% (via LI.FI)` : 'FEELESS platform fee: 0%'} · LI.FI provider and network fees appear in the quote · you sign every step · non-custodial</small>
   </aside>;
 }

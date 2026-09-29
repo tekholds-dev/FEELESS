@@ -5,63 +5,40 @@ import { useWallet } from '../../hooks/useWallet';
 import { apiUrl } from '../../lib/api';
 import { EdgeScore } from '../terminal/EdgeScore';
 import { useMarket } from '../../hooks/useMarket';
-import { lifiQuote, lifiFeelessFee } from '../../lib/lifiFee';
+import { lifiFeelessFee } from '../../lib/lifiFee';
+import { CHAIN_ID, NATIVE, toUnits, fromUnits, lifiServerQuote, executeLifi } from '../../lib/lifiExec';
 import { TopPumpCoins } from './TopPumpCoins';
 
 // The trade desk: Swap (the existing Jupiter/LI.FI flows), Bridge (any EVM chain -> any EVM chain)
 // and Get Gas (turn what you hold on one chain into gas on another). Non-custodial throughout:
 // every route is a quote the user reviews, and every transaction is signed in their own wallet.
-const CHAIN_ID = { ethereum: 1, base: 8453, bsc: 56, arbitrum: 42161, avalanche: 43114, polygon: 137, optimism: 10, zksync: 324, zora: 7777777, cronos: 25, unichain: 130, worldchain: 480 };
 const NAMES = { ethereum: 'Ethereum', base: 'Base', bsc: 'BNB Chain', arbitrum: 'Arbitrum', avalanche: 'Avalanche', polygon: 'Polygon', optimism: 'Optimism', zksync: 'zkSync', zora: 'Zora', cronos: 'Cronos', unichain: 'Unichain', worldchain: 'World Chain' };
-const NATIVE = '0x0000000000000000000000000000000000000000';
 const USDC_DECIMALS = { bsc: 18 }; // Binance-Peg USDC has 18 decimals; everywhere else it is 6
 const cleanAmount = v => { const [w, ...f] = v.replace(/[^0-9.]/g, '').split('.'); return f.length ? `${w}.${f.join('')}` : w; };
-const toUnits = (amt, dec) => { const [w, f = ''] = String(amt).split('.'); return BigInt(w || 0) * 10n ** BigInt(dec) + BigInt((f + '0'.repeat(dec)).slice(0, dec) || 0); };
-const fromUnits = (v, dec) => Number(BigInt(v || 0)) / 10 ** dec;
 
-async function waitReceipt(provider, hash, tries = 60) {
-  for (let i = 0; i < tries; i++) {
-    const r = await provider.request({ method: 'eth_getTransactionReceipt', params: [hash] }).catch(() => null);
-    if (r) { if (r.status === '0x0') throw new Error('Transaction reverted on-chain.'); return r; }
-    await new Promise(res => setTimeout(res, 2000));
-  }
-  throw new Error('Still pending — check your wallet before retrying.');
-}
-
-// One LI.FI route: quote -> review -> (approve, wait) -> send. Shared by Bridge and Get Gas.
+// One LI.FI route: quote (FEELESS server, verified) -> review -> secure execute. Shared by Bridge and Get Gas.
 function useRoute() {
   const { wallet, provider, switchTo, connect } = useWallet() || {};
-  const [quote, setQuote] = useState(null); const [busy, setBusy] = useState(false);
+  const [quote, setQuote] = useState(null); const [busy, setBusy] = useState(false); const [step, setStep] = useState('');
   const ensureEvm = async chain => { let w = wallet; if (!w || w.chain !== 'evm') w = (await (switchTo ? switchTo(chain) : connect('evm'))).wallet; return w; };
   const getQuote = async ({ fromChain, toChain, fromToken, toToken, amount, decimals = 18 }) => {
     setBusy(true); setQuote(null);
     try {
       const w = await ensureEvm(fromChain);
-      const url = `https://li.quest/v1/quote?fromChain=${CHAIN_ID[fromChain]}&toChain=${CHAIN_ID[toChain]}&fromToken=${fromToken}&toToken=${toToken}&fromAmount=${toUnits(amount, decimals)}&fromAddress=${w.address}&slippage=0.01`;
-      const q = await lifiQuote(url);
-      if (!q.transactionRequest) throw new Error(q.message || 'No route found for this amount — try a bit more.');
-      setQuote(q);
+      setQuote(await lifiServerQuote({ fromChain: CHAIN_ID[fromChain], toChain: CHAIN_ID[toChain], fromToken, toToken, fromAmount: toUnits(amount, decimals), fromAddress: w.address, slippage: 0.01 }));
     } catch (e) { toast.error(e.code === 4001 ? 'Declined in wallet.' : e.message); } finally { setBusy(false); }
   };
   const execute = async () => {
     setBusy(true);
     try {
-      const tx = quote.transactionRequest;
-      await switchTo?.(Object.keys(CHAIN_ID).find(k => CHAIN_ID[k] === Number(tx.chainId)));
-      if (quote.action.fromToken.address !== NATIVE && quote.estimate.approvalAddress) {
-        const data = `0x095ea7b3${quote.estimate.approvalAddress.slice(2).padStart(64, '0')}${BigInt(quote.action.fromAmount).toString(16).padStart(64, '0')}`;
-        const ah = await provider.request({ method: 'eth_sendTransaction', params: [{ from: wallet.address, to: quote.action.fromToken.address, data }] });
-        toast('Approval sent — waiting for it to confirm…');
-        await waitReceipt(provider, ah);
-      }
-      const hash = await provider.request({ method: 'eth_sendTransaction', params: [{ from: wallet.address, to: tx.to, data: tx.data, value: tx.value, gas: tx.gasLimit }] });
-      toast.success(`Sent ${hash.slice(0, 10)}… — cross-chain routes land in 1–5 min.`); setQuote(null);
-    } catch (e) { toast.error(e.code === 4001 ? 'Declined in wallet — nothing sent.' : e.message); } finally { setBusy(false); }
+      const out = await executeLifi({ quote, wallet, provider, switchTo, onStep: setStep });
+      toast.success(out.status === 'DONE' ? 'Done — funds delivered.' : `Sent ${out.hash.slice(0, 10)}… — cross-chain routes land in 1–5 min.`); setQuote(null);
+    } catch (e) { toast.error(e.code === 4001 ? 'Declined in wallet — nothing sent.' : e.message); } finally { setBusy(false); setStep(''); }
   };
-  return { wallet, quote, busy, getQuote, execute, clear: () => setQuote(null) };
+  return { wallet, quote, busy, step, getQuote, execute, clear: () => setQuote(null) };
 }
 
-function RouteReview({ quote, busy, onExecute, onClear }) {
+function RouteReview({ quote, busy, step, onExecute, onClear }) {
   if (!quote) return null;
   const out = fromUnits(quote.estimate.toAmount, quote.action.toToken.decimals);
   const gasUsd = (quote.estimate.gasCosts || []).reduce((a, g) => a + Number(g.amountUSD || 0), 0);
@@ -69,7 +46,7 @@ function RouteReview({ quote, busy, onExecute, onClear }) {
   return <div className="td-review" data-testid="td-review">
     <div><small>You receive ≈</small><b>{out.toLocaleString(undefined, { maximumFractionDigits: 6 })} {quote.action.toToken.symbol}</b></div>
     <div className="td-review-meta"><span>via {quote.toolDetails?.name || quote.tool}</span><span>network gas ≈ ${gasUsd.toFixed(2)}</span><span>provider / route fees ≈ ${feeUsd.toFixed(2)}</span><span>{lifiFeelessFee(quote) ? `FEELESS fee ${(Number(lifiFeelessFee(quote).percentage || 0) * 100).toFixed(2)}% ≈ $${Number(lifiFeelessFee(quote).amountUSD || 0).toFixed(2)} (included above)` : 'FEELESS platform fee: 0%'}</span><span>~{Math.max(1, Math.round((quote.estimate.executionDuration || 30) / 60))} min</span></div>
-    <div className="td-review-actions"><button type="button" className="btn-outline" onClick={onClear}>Cancel</button><button type="button" className="btn-primary" disabled={busy} onClick={onExecute}>{busy ? 'Confirm in wallet…' : 'Confirm & sign'}</button></div>
+    <div className="td-review-actions"><button type="button" className="btn-outline" onClick={onClear}>Cancel</button><button type="button" className="btn-primary" disabled={busy} onClick={onExecute}>{busy ? (step || 'Confirm in wallet…') : 'Confirm & sign'}</button></div>
   </div>;
 }
 
@@ -86,7 +63,7 @@ function Bridge() {
     <div className="td-row"><ChainSelect label="From" value={from} onChange={v => { setFrom(v); r.clear(); }} /><button type="button" className="td-swapbtn" aria-label="Flip chains" onClick={() => { setFrom(to); setTo(from); r.clear(); }}><ArrowLeftRight size={15} /></button><ChainSelect label="To" value={to} onChange={v => { setTo(v); r.clear(); }} /></div>
     <div className="td-row"><label className="td-field"><small>Asset</small><select value={asset} onChange={e => { setAsset(e.target.value); r.clear(); }}><option value="native">Native gas coin</option><option value="usdc">USDC</option></select></label><label className="td-field"><small>Amount</small><input inputMode="decimal" value={amount} onChange={e => { setAmount(cleanAmount(e.target.value)); r.clear(); }} /></label></div>
     {!r.quote && <button type="button" className="btn-primary td-go" disabled={r.busy || from === to || !Number(amount)} onClick={() => r.getQuote({ fromChain: from, toChain: to, fromToken: tok(from), toToken: tok(to), amount, decimals: asset === 'usdc' ? (USDC_DECIMALS[from] ?? 6) : 18 })}>{r.busy ? 'Finding the best route…' : from === to ? 'Pick two different chains' : 'Get bridge quote'}</button>}
-    <RouteReview quote={r.quote} busy={r.busy} onExecute={r.execute} onClear={r.clear} />
+    <RouteReview quote={r.quote} busy={r.busy} step={r.step} onExecute={r.execute} onClear={r.clear} />
   </div>;
 }
 
@@ -111,7 +88,7 @@ function GetGas() {
       {source ? <button type="button" className="btn-primary td-go" disabled={r.busy || source.chain === target} onClick={() => r.getQuote({ fromChain: source.chain, toChain: target, fromToken: NATIVE, toToken: NATIVE, amount: (Number(usd) / (source.usd / source.balance)).toFixed(8) })}>{r.busy ? 'Routing…' : `Use ${source.symbol} on ${NAMES[source.chain]} → gas on ${NAMES[target]}`}</button>
         : <p className="wp-bio">No chain with enough spare balance to route from — add funds on any chain first.</p>}
     </div>}
-    <RouteReview quote={r.quote} busy={r.busy} onExecute={r.execute} onClear={r.clear} />
+    <RouteReview quote={r.quote} busy={r.busy} step={r.step} onExecute={r.execute} onClear={r.clear} />
   </div>;
 }
 
