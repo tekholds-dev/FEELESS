@@ -3,7 +3,7 @@ import { useWallet } from '../../hooks/useWallet';
 import { PoolCreator } from './PoolCreator';
 import { LaunchRailAdmin } from './LaunchRailAdmin';
 import { CircleWallets } from './CircleWallets';
-import { UnitInput, TradePreview, useSolUsd, money, LiveMoney } from './FeeInputs';
+import { UnitInput, TradePreview, useSolUsd, money, LiveMoney, FeeTable } from './FeeInputs';
 import { MarketingPanel } from './MarketingPanel';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -320,6 +320,7 @@ function FeesPanel({ call }) {
         {Number(cfg.platformFeeBps) > limits.maxBps
           ? <small className="cc-empty fee-over-cap">Max is {pct(limits.maxBps)}. Saving will use {pct(limits.maxBps)}.</small>
           : <small className="cc-empty">{enabled ? `${pct(cfg.platformFeeBps)} per trade${engine === 'ultra' || cfg.ultraFallback ? ` · Ultra trades: ${pct(Math.min(Math.max(Number(cfg.platformFeeBps), limits.ultraMinBps || 50), limits.ultraMaxBps || 255))}` : ''}` : 'Fee off: every trade is free until you set one.'}</small>}
+        <FeeTable feeBps={cfg.platformFeeBps} discounts={cfg.tierDiscountPct} />
         <TradePreview feeBps={cfg.platformFeeBps} tipLamports={cfg.priorityMaxLamports ?? 200000} solUsd={solUsd} />
         <h5>$FEE holder discounts (% off)</h5>
         <div className="cc-mini-grid">{TIERS.map((t, i) => <label key={t}>{t}<UnitInput min="0" max="90" value={cfg.tierDiscountPct?.[String(i)] ?? 0} onChange={e => set('tierDiscountPct', { ...cfg.tierDiscountPct, [String(i)]: Number(e.target.value) })} suffix="% off" /></label>)}</div>

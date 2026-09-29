@@ -3830,3 +3830,51 @@ body.theme-day .shield-note{background:#fff}
 .lm-coins b{color:#00ffa3}.lm-coins span{color:var(--muted)}.lm-coins em{font:700 12px 'JetBrains Mono',monospace;font-style:normal}
 body.theme-day .lm-grid span{background:#fff}body.theme-day .lm-grid b{color:#0a1f14}
 .shield-note{text-align:left}
+/* ===== Profile page backdrops: replace the site background on a profile page only ===== */
+body.profile-bg,body.profile-bg .App,body.profile-bg .terminal-app,body.profile-bg .command-terminal,body.profile-bg .terminal-body,body.profile-bg .terminal-main{background:transparent!important}
+body.profile-bg .ambient-orb-one,body.profile-bg .ambient-orb-two{display:none}
+body.profile-bg .wallet-profile-page{background:transparent!important}body.profile-bg .wallet-profile-page::before{display:none}
+.profile-backdrop{position:fixed;inset:0;z-index:-1;pointer-events:none;background:#000}
+/* free · basic */
+.pbg-midnight{background:#040507}.pbg-graphite{background:linear-gradient(180deg,#16181c,#0b0c0e)}.pbg-navy{background:linear-gradient(180deg,#0b1633,#050a1a)}
+.pbg-plum{background:linear-gradient(180deg,#221030,#0e0616)}.pbg-ember{background:linear-gradient(180deg,#2a0f09,#110504)}.pbg-slate{background:linear-gradient(180deg,#152027,#0a1014)}
+/* free · FEE styled */
+.pbg-grid{background:linear-gradient(rgba(0,255,163,.06) 1px,transparent 1px) 0 0/32px 32px,linear-gradient(90deg,rgba(0,255,163,.06) 1px,transparent 1px) 0 0/32px 32px,#030806}
+.pbg-feeglow{background:radial-gradient(60% 45% at 50% 0%,rgba(0,255,163,.22),transparent 70%),radial-gradient(40% 30% at 90% 100%,rgba(0,255,163,.12),transparent 70%),#020604}
+/* holders · animated */
+@keyframes pbg-pan{from{background-position:0% 50%}to{background-position:100% 50%}}
+@keyframes pbg-rain{from{background-position:0 0,0 0}to{background-position:0 600px,0 0}}
+@keyframes pbg-spin{to{transform:rotate(1turn)}}
+.pbg-glitter{background:radial-gradient(2px 2px at 20% 30%,#fff8,transparent),radial-gradient(2px 2px at 70% 60%,#ffd6ff99,transparent),radial-gradient(1.5px 1.5px at 40% 80%,#fff7,transparent),linear-gradient(160deg,#2a0b3d,#12051f 60%,#3a0a2a);background-size:220px 220px,260px 260px,180px 180px,100% 100%;animation:pbg-pan 18s linear infinite alternate}
+.pbg-matrix{background:repeating-linear-gradient(180deg,transparent 0 22px,rgba(0,255,120,.10) 22px 24px),repeating-linear-gradient(90deg,transparent 0 18px,rgba(0,255,120,.05) 18px 20px),#000a03;animation:pbg-rain 6s linear infinite}
+.pbg-sunset,.pbg-vapor,.pbg-aurora,.pbg-plasma,.pbg-goldrush,.pbg-neoncat,.pbg-alpha,.pbg-hologram,.pbg-diamond,.pbg-whale{background-size:300% 300%;animation:pbg-pan 14s ease-in-out infinite alternate}
+.pbg-sunset{background-image:linear-gradient(120deg,#3d1020,#7a2a12,#2a0f05,#140a1f)}
+.pbg-vapor{background-image:linear-gradient(120deg,#2b0a3d,#0b2a4d,#3d0a33,#0a1a3d)}
+.pbg-aurora{background-image:linear-gradient(120deg,#02140e,#0a3d2e,#0b2a4d,#2b0a3d,#02140e)}
+.pbg-plasma{background-image:linear-gradient(120deg,#3d0a2a,#0a0a3d,#3d1a0a,#0a2a3d)}
+.pbg-goldrush{background-image:linear-gradient(120deg,#1a1203,#4d3a0a,#2a1f05,#5a450c,#1a1203)}
+.pbg-neoncat{background-image:linear-gradient(120deg,#1a0320,#3d0a4d,#0a2a3d,#4d0a3a)}
+/* alpha · animated */
+.pbg-alpha{background-image:radial-gradient(50% 50% at 50% 50%,rgba(179,136,255,.25),transparent 70%),linear-gradient(120deg,#10061f,#2b0f55,#0c0418,#3a1470)}
+.pbg-hologram{background-image:linear-gradient(120deg,#07121f,#10334d,#2b0f40,#0f403a,#07121f)}
+/* whale · animated */
+.pbg-diamond{background-image:linear-gradient(120deg,#06121f,#1e4a6b,#0a0f1f,#5ab4ff33,#06121f)}
+.pbg-whale{background-image:linear-gradient(180deg,#020a1a,#04224a,#012033,#062e5c,#020a1a)}
+@media(prefers-reduced-motion:reduce){.profile-backdrop{animation:none!important}}
+/* picker */
+.wp-theme-group{display:grid;gap:6px;margin-top:8px}.wp-theme-group>em{font:700 10px 'JetBrains Mono',monospace;font-style:normal;text-transform:uppercase;letter-spacing:.1em;color:#00ffa3}
+.wp-theme-group>div{display:flex;flex-wrap:wrap;gap:6px}
+.wp-theme-swatch[class*="pbg-"]{min-width:92px;height:46px;border-radius:10px;border:1px solid rgba(255,255,255,.12);display:flex;align-items:flex-end;padding:5px 7px;cursor:pointer;transition:transform .15s,border-color .15s}
+.wp-theme-swatch[class*="pbg-"] span{font:600 10.5px 'JetBrains Mono',monospace;color:#fff;text-shadow:0 1px 3px #000}
+.wp-theme-swatch[class*="pbg-"]:hover:not(:disabled){transform:translateY(-2px);border-color:#00ffa3}
+.wp-theme-swatch[class*="pbg-"].active{border:2px solid #00ffa3;box-shadow:0 0 14px rgba(0,255,163,.4)}
+.wp-theme-swatch[class*="pbg-"]:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.4)}
+.fee-table{margin:12px 0;padding:12px;border:1px solid rgba(0,255,163,.25);border-radius:12px;background:rgba(0,255,163,.03)}
+.fee-table p{margin:0 0 10px;font-size:12.5px;color:#b9d6c4}.fee-table p b{color:#eafff3}
+.fee-table table{width:100%;border-collapse:collapse;font:12px 'JetBrains Mono',monospace}
+.fee-table th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#6f8f7c;text-align:right;padding:6px 8px;border-bottom:1px solid rgba(0,255,163,.15)}
+.fee-table th:first-child,.fee-table td:first-child{text-align:left}.fee-table td{padding:7px 8px;text-align:right;color:#eafff3;border-bottom:1px solid rgba(255,255,255,.04)}
+.fee-table td:nth-child(2){color:#00ffa3;font-weight:700}.fee-table tr:hover td{background:rgba(0,255,163,.04)}
+body.theme-day .fee-table td{color:#0a1f14}
+/* Command Center: roomier */
+.cc-shell{padding:22px!important}.cc-studio-grid{gap:18px!important}.cc-block{padding:20px!important}.cc-panel{display:grid;gap:18px}

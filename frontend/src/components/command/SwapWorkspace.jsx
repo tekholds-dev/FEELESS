@@ -287,7 +287,7 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
       <span className="srh-clock" style={{ '--p': `${Math.min(100, (secs / 60) * 100)}%` }}><em>{secs}s</em></span></div>
   </div>; })()}<dl className="review-facts"><div><dt>Minimum output</dt><dd>{quote && units(quote.otherAmountThreshold, order.output_metadata?.decimals)}</dd></div><div><dt>Slippage</dt><dd>{Number(slippage) / 100}%</dd></div>{(() => {
         // USD everywhere: pay / get values, FEELESS fee, chain fees, total cost.
-        const usd = v => (Number.isFinite(v) ? `$${v < 0.01 && v > 0 ? v.toFixed(4) : v.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—');
+        const usd = v => (Number.isFinite(v) ? `$${v < 0.01 && v > 0 ? v.toFixed(4) : v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—');
         const inUsd = Number(quote?.inUsdValue);
         // Swap API quotes carry the input value only: estimate what you get as input − price impact − FEELESS fee.
         const outUsd = Number(quote?.outUsdValue) || (Number(quote?.inUsdValue) > 0 ? Number(quote.inUsdValue) * (1 - Math.abs(Number(quote.priceImpactPct || 0))) * (1 - Number(order?.feeless_fee?.bps || 0) / 10000) : NaN);

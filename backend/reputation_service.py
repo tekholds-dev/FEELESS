@@ -1832,7 +1832,7 @@ def _clean_profile(p: dict) -> dict:
         'mood': str(p.get('mood') or '')[:40],
         'links': {k: _safe_url(links.get(k)) for k in ('x', 'website', 'telegram') if _safe_url(links.get(k))},
         'top8': top8,
-        'theme': p.get('theme') if p.get('theme') in ('grid', 'glitter', 'matrix', 'sunset', 'vapor', 'goldrush', 'neoncat') else 'grid',
+        'theme': p.get('theme') if p.get('theme') in PROFILE_THEMES else 'grid',
         'friends': [str(f)[:44] for f in (p.get('friends') or [])[:8] if _re.match(r'^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$', str(f))],
         'songs': [{'url': str(x.get('url'))[:300], 'title': str(x.get('title') or '')[:60]} for x in (p.get('songs') or [])[:15]
                   if isinstance(x, dict) and _re.match(r'^https://(www\.|m\.|music\.|open\.)?(youtube\.com|youtu\.be|spotify\.com|soundcloud\.com)/', str(x.get('url') or ''))],
@@ -1922,7 +1922,8 @@ async def save_profile(payload: ProfileSave):
         if (RING_TIERS[clean['ring']] > tier and f"ring:{clean['ring']}" not in un) or (NAMEFX_TIERS[clean['nameFx']] > tier and f"nameFx:{clean['nameFx']}" not in un):
             raise HTTPException(403, 'That style is a $FEE holder perk — hold more $FEE to unlock it.')
         if TIER_THEMES.get(clean['theme'], 0) > tier:
-            raise HTTPException(403, 'That theme is a Fee Friend perk — hold $10+ of $FEE.')
+            raise HTTPException(403, {1: 'That backdrop is a $FEE holder perk: hold $10+ of $FEE.', 2: 'That backdrop is an Alpha perk: reach Fee Insider tier.',
+                                      3: 'That backdrop is a Whale perk: reach Fee Whale tier.'}[TIER_THEMES[clean['theme']]])
         # Pictures never disappear by accident: an empty avatar/cover keeps the previous one unless
         # the owner explicitly removed it; every image ever set is kept in mediaHistory.
         cleared = set((payload.profile or {}).get('cleared') or [])
@@ -3273,7 +3274,11 @@ PERK_TIERS = [
     {'tier': 2, 'name': 'Fee Insider', 'minUsd': 100, 'icon': '💎', 'perks': ['/alpha — Fee\'s live read in chat', 'Boost a message (1 per 10 min)', 'Aurora animated profile frame']},
     {'tier': 3, 'name': 'Fee Whale', 'minUsd': 1000, 'icon': '🐋', 'perks': ['/whales — who is accumulating', 'Gold animated profile frame + crown', 'Priority line to FEELESS HQ']},
 ]
-TIER_THEMES = {'goldrush': 1, 'neoncat': 1}
+# Profile page backdrops (the whole page, only on that profile). tier: 0 free · 1 $FEE holder · 2 alpha · 3 whale.
+PROFILE_THEMES = {'midnight': 0, 'graphite': 0, 'navy': 0, 'plum': 0, 'ember': 0, 'slate': 0, 'grid': 0, 'feeglow': 0,
+                  'glitter': 1, 'matrix': 1, 'sunset': 1, 'vapor': 1, 'aurora': 1, 'plasma': 1, 'goldrush': 1, 'neoncat': 1,
+                  'alpha': 2, 'hologram': 2, 'diamond': 3, 'whale': 3}
+TIER_THEMES = {k: v for k, v in PROFILE_THEMES.items() if v}
 # Avatar rings + name effects. 0 = free for everyone; higher = $FEE holder tier required.
 RING_TIERS = {'none': 0, 'mint': 0, 'sunset': 0, 'ocean': 0, 'candy': 0, 'neon': 0, 'ghost': 0,
               'emerald': 1, 'plasma': 1, 'diamond': 2, 'aurora': 2, 'gold': 3, 'royal': 3}

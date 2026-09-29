@@ -45,3 +45,10 @@ def test_feeless_wallets_can_never_be_blocklisted(monkeypatch, tmp_path):
     wallets = rs._block_load()['wallets']
     assert rs.FEE_CREATOR_WALLET not in wallets and 'Bad1' in wallets
     assert rs.shield_verdict({'flags': [], 'creator': rs.FEE_CREATOR_WALLET}, wallets)['level'] == 'ok'
+
+
+def test_profile_backdrops_free_basic_and_tiered_animated():
+    free = [k for k, v in rs.PROFILE_THEMES.items() if v == 0]
+    assert {'midnight', 'graphite', 'grid', 'feeglow'} <= set(free)
+    assert rs.PROFILE_THEMES['alpha'] == 2 and rs.PROFILE_THEMES['whale'] == 3
+    assert rs._clean_profile({'theme': 'not-a-theme'})['theme'] == 'grid'

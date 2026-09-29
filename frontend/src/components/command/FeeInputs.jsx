@@ -72,3 +72,15 @@ export function LiveMoney({ call, solUsd }) {
       <small className="cc-empty">Balances are read on-chain. Per-window fees are from confirmed trades (trade value × fee).</small></>}
   </div>;
 }
+
+// Plain-English earnings table: your cut on common trade sizes, before and after holder discounts.
+export function FeeTable({ feeBps, discounts = {} }) {
+  const bps = Number(feeBps) || 0;
+  const tiers = [['No discount', 0], ['Fee Friend', Number(discounts['1']) || 0], ['Fee Insider', Number(discounts['2']) || 0], ['Fee Whale', Number(discounts['3']) || 0]];
+  const cell = (size, off) => { const v = size * bps / 10000 * (1 - Math.min(90, off) / 100); return v >= 1 ? `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `${(v * 100).toFixed(v * 100 >= 10 ? 0 : 1)}¢`; };
+  return <div className="fee-table" data-testid="fee-table">
+    <p><b>You earn {(bps / 100).toFixed(2)}% of every trade.</b> Holders get a discount off your cut (never below 10% of it).</p>
+    <table><thead><tr><th>Trade size</th>{tiers.map(([n, off]) => <th key={n}>{n}{off ? ` −${off}%` : ''}</th>)}</tr></thead>
+      <tbody>{[1, 10, 100, 1000].map(size => <tr key={size}><td>${size.toLocaleString('en-US')}</td>{tiers.map(([n, off]) => <td key={n}>{cell(size, off)}</td>)}</tr>)}</tbody></table>
+  </div>;
+}

@@ -22,3 +22,11 @@ test('number box shows commas and the chip switches SOL ↔ USD on click', () =>
   act(() => chip.click());
   expect(chip.textContent).toContain('$7.00');
 });
+
+test('fee table: your cut on $1 / $10 / $100 / $1000, before and after holder discounts', () => {
+  const { FeeTable } = require('./FeeInputs');
+  const host = mount(<FeeTable feeBps={500} discounts={{ 1: 1, 2: 10, 3: 20 }} />);
+  const rows = [...host.querySelectorAll('tbody tr')].map(r => [...r.children].map(td => td.textContent));
+  expect(rows[0]).toEqual(['$1', '5.0¢', '5.0¢', '4.5¢', '4.0¢']);
+  expect(rows[3]).toEqual(['$1,000', '$50.00', '$49.50', '$45.00', '$40.00']);
+});

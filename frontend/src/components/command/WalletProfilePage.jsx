@@ -36,7 +36,23 @@ import { OnchainStrip, PerksCard, PortfolioCard, SetupCallout, SocialStrip, useP
 const RINGS = [['none', 'Classic', 0], ['mint', 'Mint pulse', 0], ['sunset', 'Sunset', 0], ['ocean', 'Ocean', 0], ['candy', 'Candy', 0], ['neon', 'Neon', 0], ['ghost', 'Ghost', 0], ['emerald', 'Emerald', 1], ['plasma', 'Plasma', 1], ['diamond', 'Diamond', 2], ['aurora', 'Aurora', 2], ['gold', 'Molten Gold', 3], ['royal', 'Royal', 3]];
 const NAMEFX = [['none', 'Plain', 0], ['glow', 'Glow', 0], ['gradient', 'Gradient', 0], ['rainbow', 'Rainbow', 1], ['diamond', 'Diamond', 2], ['gold', 'Gold', 3]];
 const TIER_NAMES = ['', 'Fee Friend ($10+)', 'Fee Insider ($100+)', 'Fee Whale ($1k+)'];
-const THEMES = [['grid', 'Midnight grid'], ['glitter', 'Glitter'], ['matrix', 'Matrix rain'], ['sunset', 'Sunset'], ['vapor', 'Vaporwave'], ['goldrush', 'Gold Rush', 1], ['neoncat', 'Neon Cat', 1]];
+// Profile backdrops: the whole page behind this profile (only here). Same ids + tiers as the server's PROFILE_THEMES.
+const THEME_GROUPS = [
+  ['Free', 0, [['midnight', 'Midnight'], ['graphite', 'Graphite'], ['navy', 'Navy'], ['plum', 'Plum'], ['ember', 'Ember'], ['slate', 'Slate'], ['grid', 'FEE Grid'], ['feeglow', 'FEE Glow']]],
+  ['Holders · animated', 1, [['glitter', 'Glitter'], ['matrix', 'Matrix rain'], ['sunset', 'Sunset'], ['vapor', 'Vaporwave'], ['aurora', 'Aurora'], ['plasma', 'Plasma'], ['goldrush', 'Gold Rush'], ['neoncat', 'Neon Cat']]],
+  ['Alpha · animated', 2, [['alpha', 'Alpha Violet'], ['hologram', 'Hologram']]],
+  ['Whale · animated', 3, [['diamond', 'Diamond'], ['whale', 'Deep Whale']]],
+];
+const TIER_NAME = { 1: '$FEE holder perk: hold $10+ of $FEE', 2: 'Alpha perk: reach Fee Insider tier', 3: 'Whale perk: reach Fee Whale tier' };
+
+// While a profile is open, its backdrop replaces the site background (restored on leave).
+function useProfileBackdrop(theme) {
+  useEffect(() => {
+    document.body.classList.add('profile-bg');
+    return () => document.body.classList.remove('profile-bg');
+  }, []);
+  return theme || 'grid';
+}
 
 function FriendCard({ address }) {
   const [p, setP] = useState(null);
@@ -150,6 +166,7 @@ export function WalletProfilePage({ address }) {
   const load = useCallback(() => fetch(apiUrl(`/api/reputation/profile/${address}`)).then(r => r.json()).then(setData).catch(() => setData({ profile: null })), [address]);
   useEffect(() => { load(); }, [load]);
   const p = (edit ? draft : data?.profile) || {};
+  const backdrop = useProfileBackdrop(p.theme);
   const accent = p.accent || '#12c07a';
   const set = (k, v) => setDraft(d => ({ ...d, [k]: v }));
   const startEdit = () => { setDraft({ displayName: '', bio: '', mood: '', accent: '#12c07a', links: {}, top8: [], theme: 'grid', friends: [], featuredBadges: [], ring: 'none', nameFx: 'none', handle: '', songs: [], ...(data?.profile || {}) }); setEdit(true); };
@@ -178,7 +195,7 @@ export function WalletProfilePage({ address }) {
   const caller = data?.caller;
   const [friend, setFriend] = useState('');
   if (ccOpen && isAdmin) return <CommandCenter address={address} signMessage={signMessage} onClose={() => setCcOpen(false)} />;
-  return <div className={`wallet-profile-page theme-${p.theme || 'grid'} ptier-${tier}`} style={{ '--wp-accent': accent }} data-testid="wallet-profile-page">
+  return <><div className={`profile-backdrop pbg-${backdrop}`} aria-hidden="true" data-testid="profile-backdrop" /><div className={`wallet-profile-page theme-${p.theme || 'grid'} ptier-${tier}`} style={{ '--wp-accent': accent }} data-testid="wallet-profile-page">
     <header className="xp-card" data-testid="profile-header">
       <div className={`xp-cover ${p.bannerUrl ? 'has-img' : ''}`}>
         {p.bannerUrl ? <img src={p.bannerUrl} alt="" decoding="async" /> : <span className="xp-cover-mark" aria-hidden="true">{p.displayName || shortAddress(address)}</span>}
@@ -227,7 +244,7 @@ export function WalletProfilePage({ address }) {
           <small>Name effect</small>
           <div className="wp-rings">{NAMEFX.map(([id, label, need]) => <button type="button" key={id} disabled={need > tier} className={`wp-ring-opt ${draft.nameFx === id ? 'active' : ''} ${need ? 'premium' : ''}`} onClick={() => set('nameFx', id)}><b className={`namefx-${id}`}>{need > tier ? '🔒 ' : ''}{label}</b></button>)}</div>
         </div>}
-        {edit && <div className="wp-themes"><small>Theme</small>{THEMES.map(([id, label, need = 0]) => <button type="button" key={id} disabled={need > tier} title={need > tier ? 'Fee Friend perk — hold $10+ of $FEE' : label} className={`wp-theme-swatch swatch-${id} ${draft.theme === id ? 'active' : ''}`} onClick={() => set('theme', id)}>{need > tier ? '🔒 ' : ''}{label}</button>)}</div>}
+        {edit && <div className="wp-themes" data-testid="profile-backdrops"><small>Page backdrop</small>{THEME_GROUPS.map(([group, need, items]) => <div key={group} className="wp-theme-group"><em>{group}{need > tier ? ' · 🔒' : ''}</em><div>{items.map(([id, label]) => <button type="button" key={id} disabled={need > tier} title={need > tier ? TIER_NAME[need] : label} className={`wp-theme-swatch pbg-${id} ${draft.theme === id ? 'active' : ''}`} onClick={() => set('theme', id)}><span>{need > tier ? '🔒 ' : ''}{label}</span></button>)}</div></div>)}</div>}
         {edit && <div className="wp-accents"><small>Accent</small>{ACCENTS.map(c => <button type="button" key={c} style={{ background: c }} className={draft.accent === c ? 'active' : ''} onClick={() => set('accent', c)} aria-label={`Accent ${c}`} />)}</div>}
       </section>
       <section className="wp-card">
@@ -262,7 +279,7 @@ export function WalletProfilePage({ address }) {
     <ReceiptsCard address={address} />
     </div>
     <div className="wp-foot"><ReportBug address={wallet?.address} /></div>
-  </div>;
+  </div></>;
 }
 
 // Your own swap desk inside your profile: any Solana coin to any coin, prefilled when you tap Swap
