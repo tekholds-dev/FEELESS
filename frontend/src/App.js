@@ -35,6 +35,13 @@ class AppErrorBoundary extends React.Component {
     return { error };
   }
 
+  componentDidCatch(error, info) {
+    // Keep the real cause visible (console + recovery screen) instead of a generic message.
+    console.error('FEELESS crash:', error, info?.componentStack);
+    try { sessionStorage.setItem('feeless:last-crash', JSON.stringify({ at: Date.now(), path: window.location.pathname, message: String(error?.message || error), stack: String(info?.componentStack || '').slice(0, 1500) })); } catch { /* ignore */ }
+    this.setState({ stack: info?.componentStack || '' });
+  }
+
   render() {
     if (!this.state.error) return this.props.children;
     const isChunkError = /ChunkLoadError|Loading chunk|dynamically imported module/i.test(this.state.error?.message || '');
@@ -43,6 +50,7 @@ class AppErrorBoundary extends React.Component {
       <h1>{isChunkError ? 'This screen needs a fresh bundle.' : 'This screen could not load.'}</h1>
       <p>{isChunkError ? 'The preview updated while this tab was open. Reload once to use the current interface.' : 'The app caught the error before it could leave you with a blank screen.'}</p>
       <button type="button" className="btn-primary" onClick={() => window.location.reload()}>Reload FEELESS</button>
+      {!isChunkError && <details className="app-fatal-detail"><summary>What went wrong</summary><code>{String(this.state.error?.message || this.state.error)}</code>{this.state.stack && <pre>{String(this.state.stack).trim().split('\n').slice(0, 6).join('\n')}</pre>}</details>}
     </main>;
   }
 }

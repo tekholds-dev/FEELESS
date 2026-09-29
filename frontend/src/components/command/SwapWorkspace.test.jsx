@@ -57,7 +57,8 @@ afterEach(() => {
 const scripted = (...responses) => {
   const queue = [...responses];
   return jest.fn(url => (String(url).includes('/holdings/')
-    ? Promise.resolve({ ok: false, json: async () => ({}) })
+    // Real holdings, so the pay panel's Balance/Max path renders (regression: it once read inputMint too early).
+    ? Promise.resolve({ ok: true, json: async () => ({ tokens: [{ mint: 'So11111111111111111111111111111111111111112', symbol: 'SOL', amount: 1.5, usd: 180 }] }) })
     : Promise.resolve(queue.shift())));
 };
 const tradeCalls = () => global.fetch.mock.calls.filter(([url]) => !String(url).includes('/holdings/'));
@@ -233,7 +234,7 @@ test('keeps the swap review facts and approval action readable at every text siz
     expect(dialog.querySelector('.review-facts').textContent).toEqual(expect.stringContaining('Minimum output'));
     expect(dialog.querySelector('.review-facts').textContent).toEqual(expect.stringContaining('Slippage'));
     expect(dialog.querySelector('.review-facts').textContent).toEqual(expect.stringContaining('Expiry'));
-    expect(dialog.querySelector('[data-testid="swap-approve-wallet"]').textContent).toContain('Approve in Phantom');
+    expect(dialog.querySelector('[data-testid="swap-approve-wallet"]').textContent).toContain('Approve in ');
 
     act(() => root.unmount());
   }

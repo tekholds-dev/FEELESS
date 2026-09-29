@@ -3681,3 +3681,4 @@ body.theme-day .top-pump{background:#fff}
 @media (min-width:1280px){.trade-simple .receipt-preview{position:static!important;left:auto!important;width:auto!important}}
 @media (max-width:1799px){.swap-desk{grid-template-columns:minmax(0,480px)!important}.swap-desk>.receipt-preview{grid-column:1!important;grid-row:auto!important}}
 @media (min-width:1800px){.swap-desk{grid-template-columns:minmax(0,480px) 290px!important}}
+.app-fatal-detail{margin-top:16px;font-size:12px;color:var(--muted)}.app-fatal-detail summary{cursor:pointer}.app-fatal-detail code{display:block;margin-top:8px;color:#ff9aa9;white-space:pre-wrap}.app-fatal-detail pre{margin-top:6px;font-size:11px;white-space:pre-wrap;opacity:.8}
