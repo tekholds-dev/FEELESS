@@ -78,13 +78,19 @@ LEADER_ID = 'leader'
 MARKET_FEED = 'http://127.0.0.1:5001/api/market/feed?kind={kind}&chain=solana&page={page}'
 RULES = {'minLiquidity': 40_000, 'minVolume24h': 100_000, 'minMarketCap': 150_000, 'maxMarketCap': 50_000_000,
          'minAgeHours': 3, 'h1Min': 3, 'h1Max': 40, 'h6Max': 120, 'h24Max': 400, 'minBuySellRatio': 1.2,
-         'stopLoss': -10, 'takeProfit': 22, 'trailArm': 12, 'trailGive': 8, 'maxHoldHours': 4, 'maxPositions': 4,
-         'cooldownHours': 2,
-         # v3 safety + exits
+         'maxPositions': 5, 'cooldownHours': 2,
+         # safety gates at entry
          'maxM5Chase': 8, 'maxTop10Pct': 35, 'maxInsiderPct': 20, 'maxDevPct': 10, 'maxSnipers': 15, 'maxBundled': 10,
-         'breakEvenArm': 8, 'scaleOutFraction': 0.5, 'runnerTrailGive': 6, 'liqPullPct': 30, 'dumpSellRatio': 2.0,
-         # trench strats: add once on a healthy dip; fresh-launch lane at half size
-         'dipAddFrom': -4, 'dipAddTo': -8, 'dipAddFraction': 0.5, 'freshMinMinutes': 10, 'freshMinLiquidity': 15_000, 'freshSize': 0.5}
+         # Trench Lord v2 — thesis-based position management (see run_engine):
+         # open with a starter, add on healthy dips (re-averaging the entry), hold while the thesis holds,
+         # take profit in pieces, let a runner ride, and cut only when the thesis breaks or the hard stop hits.
+         'starterFraction': 0.5, 'add1At': -18, 'add1Fraction': 0.3, 'add2At': -32, 'add2Fraction': 0.2,
+         'hardStop': -45, 'lowCapHardStop': -55, 'lowCapMc': 300_000,
+         'takeProfit1': 50, 'takeProfit1Sell': 0.3, 'takeProfit2': 120, 'takeProfit2Sell': 0.4, 'runnerTrail': 35,
+         'liqPullPct': 30, 'dumpSellRatio': 2.0, 'thesisVolKeep': 0.3, 'deadMoneyHours': 24, 'maxHoldHours': 72,
+         'maxExposure': 0.4,
+         # fresh-launch lane at half size
+         'freshMinMinutes': 10, 'freshMinLiquidity': 15_000, 'freshSize': 0.5}
 _intel_cache = {}
 
 
@@ -214,12 +220,14 @@ def _buy_analysis(p, size, sym, safety='', conviction=1.0):
             f"• Activity: {_fmt_usd(vol)} traded in 24h; pool is {age_h:.1f}h old (I skip anything under {R['minAgeHours']}h).\n"
             f"• Holders (FEELESS on-chain intel): {safety or 'checked'} — I skip anything with top-10 over {R['maxTop10Pct']}%, insiders over {R['maxInsiderPct']}%, dev over {R['maxDevPct']}% or heavy sniping/bundling.\n"
             f"• Size: {conviction}× conviction — cleaner holder distribution earns a bigger position.\n\n"
-            f"Risk plan: stop at {R['stopLoss']}%, moved to break-even once it's up +{R['breakEvenArm']}%. At +{R['takeProfit']}% I sell half and let the rest run with a {R['runnerTrailGive']}% trailing stop. "
-            f"I also bail instantly if liquidity drops {R['liqPullPct']}% or sellers outnumber buyers {R['dumpSellRatio']:.0f}:1 while I'm red, and I'm out after {R['maxHoldHours']}h no matter what. "
+            f"Plan (trench + stock mindset): this is a {int(R['starterFraction'] * 100)}% starter. If it dips {R['add1At']}% and {R['add2At']}% from here while liquidity, volume and buyers still hold, "
+            f"I add and re-average my entry instead of panic-selling. I take {int(R['takeProfit1Sell'] * 100)}% profit at +{R['takeProfit1']}% and more at +{R['takeProfit2']}%, "
+            f"then let the rest run with a {R['runnerTrail']}% trailing stop that never drops below break-even. "
+            f"I only cut early if the thesis breaks (liquidity pulled {R['liqPullPct']}%+, sellers dumping {R['dumpSellRatio']:.0f}:1, or volume dies while red); hard stop {R['hardStop']}% from my average. "
             f"Every trade pays 1% each way so you see real costs.\n\nNot financial advice — this is how a disciplined bot thinks, out loud.")
 
 
-LEARN_BOUNDS = {'trailGive': (8, 16), 'runnerTrailGive': (6, 14), 'takeProfit': (22, 45), 'scaleOutFraction': (0.33, 0.5)}
+LEARN_BOUNDS = {'runnerTrail': (25, 50), 'takeProfit1': (40, 100)}
 
 
 # ---- Hourly entry tuning (bounded): tighten after a bad day, freeze + study after a good one -----
@@ -295,20 +303,17 @@ def _learn(store, cat):
     P = _params(cat)
     for e in done:
         e['scored'] = True
-        # Only a price-based exit (not a stop-loss) can be "too early".
-        early = e['peakAfter'] >= 40 and ('trailing' in e['why'] or 'take-profit' in e['why'] or 'sell pressure' in e['why'] or 'time exit' in e['why'])
+        # A profit-taking or patience exit is "too early" when the coin kept running long after.
+        early = e['peakAfter'] >= 60 and any(k in e['why'] for k in ('trailing', 'profit', 'dead money', 'max hold'))
         if early:
             L['missed'] += 1
-            P['trailGive'] = min(LEARN_BOUNDS['trailGive'][1], P['trailGive'] + 2)
-            P['runnerTrailGive'] = min(LEARN_BOUNDS['runnerTrailGive'][1], P['runnerTrailGive'] + 2)
-            P['takeProfit'] = min(LEARN_BOUNDS['takeProfit'][1], P['takeProfit'] + 5)
-            P['scaleOutFraction'] = max(LEARN_BOUNDS['scaleOutFraction'][0], round(P['scaleOutFraction'] - 0.05, 2))
-            note = f"Sold {e['symbol']} at {e['changeAtExit']:+.1f}%, it ran another +{e['peakAfter']:.0f}%. Loosening: trail {P['trailGive']}%, runner {P['runnerTrailGive']}%, TP +{P['takeProfit']}%, scale-out {int(P['scaleOutFraction']*100)}%."
+            P['runnerTrail'] = min(LEARN_BOUNDS['runnerTrail'][1], P['runnerTrail'] + 5)
+            P['takeProfit1'] = min(LEARN_BOUNDS['takeProfit1'][1], P['takeProfit1'] + 10)
+            note = f"Sold {e['symbol']} at {e['changeAtExit']:+.1f}%, it ran another +{e['peakAfter']:.0f}%. Giving winners more room: runner trail {P['runnerTrail']}%, first profit at +{P['takeProfit1']}%."
         else:
             L['good'] += 1
-            for k, (lo, hi) in LEARN_BOUNDS.items():
-                base = RULES[k]
-                P[k] = round(P[k] + (base - P[k]) * 0.25, 2)  # drift back toward the disciplined defaults
+            for k in LEARN_BOUNDS:
+                P[k] = round(P[k] + (RULES[k] - P[k]) * 0.25, 2)  # drift back toward the defaults
             note = f"Exit on {e['symbol']} held up (best after sell +{e['peakAfter']:.0f}%, low {e['lowAfter']:.0f}%). Keeping discipline."
         L['params'] = {k: P[k] for k in LEARN_BOUNDS}
         L['log'].insert(0, {'at': time.time(), 'note': note, 'symbol': e['symbol'], 'missed': early})
@@ -319,8 +324,10 @@ def _learn(store, cat):
 def _post_as_fee(pair_address, text, register_call=False):
     try:
         key = (DATA_DIR / 'internal.key').read_text().strip()
-        httpx.post('http://127.0.0.1:5077/api/reputation/internal/fee-post', json={'pairAddress': pair_address, 'text': text, 'registerCall': register_call},
-                   headers={'x-feeless-internal': key}, timeout=15)
+        r = httpx.post('http://127.0.0.1:5077/api/reputation/internal/fee-post', json={'pairAddress': pair_address, 'text': text, 'registerCall': register_call},
+                       headers={'x-feeless-internal': key}, timeout=15)
+        if r.status_code != 200:
+            print('fee post rejected', r.status_code, r.text[:200])
     except Exception as exc:
         print('fee post failed', exc)
 
@@ -357,9 +364,9 @@ def _close(store, cat, pos, price_native, why, fraction=1.0, market_cap=None):
     _log_event(store, cat, 'SELL', f"Sold {part}{pos['symbol']} at {change:+.1f}% — {why}. Net {pnl:+.4f} SOL after fees (paper, live price).", pnl, pos.get('pairAddress'), price_native, market_cap, pos.get('entryMarketCapUsd'))
     if cat.get('isLeader') and pos.get('pairAddress'):
         held = (time.time() - pos.get('openedAt', time.time())) / 3600
-        verdict = 'Took the win.' if pnl >= 0 else 'Cut it — protecting capital beats hoping.'
+        verdict = 'Took the win.' if pnl >= 0 else 'The thesis broke, so I cut it — protecting capital beats hoping.'
         if fraction < 1:
-            _post_as_fee(pos['pairAddress'], f"🐱 Fee took {int(fraction * 100)}% off ${pos['symbol']} at {change:+.1f}% — {why}. Locked {pnl:+.4f} SOL.\nThe rest rides as a runner with a tighter trailing stop and a break-even floor. House money now.")
+            _post_as_fee(pos['pairAddress'], f"🐱 Fee took profit on ${pos['symbol']}: sold {int(fraction * 100)}% at {change:+.1f}% — {why}. Locked {pnl:+.4f} SOL.\nThe rest keeps riding with a trailing stop, and it can't turn into a loss: the floor is my break-even.")
             return
         _post_as_fee(pos['pairAddress'], f"🐱 Fee sold ${pos['symbol']} at {change:+.1f}% after {held:.1f}h — {why}.\nNet {pnl:+.4f} SOL after the 1% fee each way (peak was {pos.get('peakChange', 0):+.1f}%).\n{verdict} The rules decide the exit, not feelings.")
 
@@ -402,6 +409,28 @@ async def _fvg(http, pair_address, price_usd):
     return None
 
 
+def _thesis(pos, live, R):
+    """Is the reason Fee bought still true? Returns (broken_reason | None, ok_to_add, h1 volume vs entry)."""
+    liq_now = _num((live.get('liquidity') or {}).get('usd'))
+    vol_h1 = _num((live.get('volume') or {}).get('h1'))
+    t5 = (live.get('txns') or {}).get('m5') or {}
+    t1 = (live.get('txns') or {}).get('h1') or {}
+    b5, s5, b1, s1 = _num(t5.get('buys')), _num(t5.get('sells')), _num(t1.get('buys')), _num(t1.get('sells'))
+    change = (_num(live.get('priceNative')) / pos['entryPriceNative'] - 1) * 100
+    entry_liq, entry_vol = _num(pos.get('entryLiq')), _num(pos.get('entryVolH1'))
+    vol_ratio = vol_h1 / entry_vol if entry_vol else None
+    if entry_liq and liq_now and liq_now < entry_liq * (1 - R['liqPullPct'] / 100):
+        return f"liquidity pulled ({_fmt_usd(entry_liq)} → {_fmt_usd(liq_now)})", False, vol_ratio
+    if s5 >= 10 and s5 >= b5 * R['dumpSellRatio'] and change < 0:
+        return f'sellers dumping ({s5:.0f} sells vs {b5:.0f} buys in 5m)', False, vol_ratio
+    if vol_ratio is not None and vol_ratio < R['thesisVolKeep'] and change < -10:
+        return f'volume dried up ({vol_ratio:.0%} of entry-hour volume) while red', False, vol_ratio
+    if s1 >= 40 and s1 > b1 * 1.6 and change < 0:
+        return f'sellers own the hour ({s1:.0f} sells vs {b1:.0f} buys)', False, vol_ratio
+    ok_to_add = b5 >= s5 and (vol_ratio is None or vol_ratio >= 0.5) and (not entry_liq or liq_now >= entry_liq * 0.85)
+    return None, ok_to_add, vol_ratio
+
+
 async def run_engine(store, cats):
     now = time.time()
     async with httpx.AsyncClient(timeout=10) as http:
@@ -440,44 +469,66 @@ async def run_engine(store, cats):
             px = _num(live.get('priceNative'))
             if px <= 0:
                 continue
-            change = (px / pos['entryPriceNative'] - 1) * 100
+            pos.setdefault('firstEntryPriceNative', pos['entryPriceNative'])
+            pos.setdefault('plannedSol', round(pos['costSol'] / R['starterFraction'], 4))
+            pos.setdefault('adds', 1 if pos.get('dipAdded') else 0)
+            pos.setdefault('profitTaken', 1 if pos.get('scaled') else 0)
+            change = (px / pos['entryPriceNative'] - 1) * 100            # vs average entry
+            from_first = (px / pos['firstEntryPriceNative'] - 1) * 100   # vs first buy (drives the dip ladder)
             pos['currentChange'] = round(change, 2)
             pos['peakChange'] = max(pos.get('peakChange', 0), change)
+            pos['peakPx'] = max(pos.get('peakPx', 0), px)
             pos['lastPriceUsd'] = live.get('priceUsd')
+            mc_now = _num(live.get('marketCap') or live.get('fdv'))
             held_h = (now - pos['openedAt']) / 3600
+            broken, add_ok, vol_ratio = _thesis(pos, live, R)
+            hard = R['lowCapHardStop'] if 0 < _num(pos.get('entryMarketCapUsd')) < R['lowCapMc'] else R['hardStop']
             why = None
-            liq_now = _num((live.get('liquidity') or {}).get('usd'))
-            t5 = (live.get('txns') or {}).get('m5') or {}
-            b5, s5 = _num(t5.get('buys')), _num(t5.get('sells'))
-            floor = -1 if pos['peakChange'] >= R['breakEvenArm'] else R['stopLoss']
-            give = R['runnerTrailGive'] if pos.get('scaled') else R['trailGive']
-            if pos.get('entryLiq') and liq_now and liq_now < pos['entryLiq'] * (1 - R['liqPullPct'] / 100):
-                why = f"liquidity pulled ({_fmt_usd(pos['entryLiq'])} → {_fmt_usd(liq_now)})"
-            elif change <= floor:
-                why = 'break-even stop' if floor > R['stopLoss'] else f'stop-loss {R["stopLoss"]}%'
-            elif change >= R['takeProfit'] and not pos.get('scaled'):
-                pos['scaled'] = True
-                _close(store, cat, pos, px, f'take-profit +{R["takeProfit"]}% (scaling out)', R['scaleOutFraction'], _num(live.get('marketCap') or live.get('fdv')))
+            if broken:
+                why = f'thesis broken: {broken}'
+            elif change <= hard:
+                why = f'hard stop {hard}% from my average entry'
+            elif pos['profitTaken'] and change <= 0:
+                why = 'runner fell back to break-even after taking profit'
+            elif pos['profitTaken'] and px <= pos['peakPx'] * (1 - R['runnerTrail'] / 100):
+                why = f'trailing stop: {R["runnerTrail"]}% off the peak (peak +{pos["peakChange"]:.0f}%)'
+            elif pos['profitTaken'] == 0 and change >= R['takeProfit1']:
+                pos['profitTaken'] = 1
+                _close(store, cat, pos, px, f'first profit target +{R["takeProfit1"]}%', R['takeProfit1Sell'], mc_now)
                 continue
-            elif pos['peakChange'] >= R['trailArm'] and change <= pos['peakChange'] - give:
-                why = f'trailing stop (peak +{pos["peakChange"]:.1f}%)'
-            elif change < 0 and s5 >= 10 and s5 >= b5 * R['dumpSellRatio']:
-                why = f'sell pressure ({s5:.0f} sells vs {b5:.0f} buys in 5m)'
-            elif held_h >= R['maxHoldHours'] * (1.5 if pos.get('scaled') else 1):
-                why = f'time exit after {held_h:.1f}h'
-            elif not pos.get('dipAdded') and R['dipAddTo'] <= change <= R['dipAddFrom'] and change > floor and b5 >= s5:
-                # Buy the dip once: price is lower than planned but buyers still hold the 5m tape — a better seat.
-                add = round(min(pos['costSol'] * R['dipAddFraction'], cat['balanceSol']), 4)
-                if add >= 0.01:
-                    tokens_old = pos['notionalSol'] / pos['entryPriceNative']; tokens_new = add * (1 - FEE_PER_SIDE) / px
-                    pos['entryPriceNative'] = (pos['notionalSol'] + add * (1 - FEE_PER_SIDE)) / (tokens_old + tokens_new)
-                    pos['costSol'] = round(pos['costSol'] + add, 6); pos['notionalSol'] = round(pos['notionalSol'] + add * (1 - FEE_PER_SIDE), 6)
-                    pos['dipAdded'] = True; pos['peakChange'] = 0
-                    cat['balanceSol'] = round(cat['balanceSol'] - add, 6); cat['volumeSol'] = round(cat.get('volumeSol', 0) + add, 6)
-                    _log_event(store, cat, 'BUY', f"Added {add} SOL to {pos['symbol']} on a {change:.1f}% dip with buyers still in control — better average entry (paper).", None, pos['pairAddress'], px, _num(live.get('marketCap') or live.get('fdv')))
+            elif pos['profitTaken'] == 1 and change >= R['takeProfit2']:
+                pos['profitTaken'] = 2
+                _close(store, cat, pos, px, f'second profit target +{R["takeProfit2"]}%', R['takeProfit2Sell'], mc_now)
+                continue
+            elif held_h >= R['deadMoneyHours'] and abs(change) < 10 and vol_ratio is not None and vol_ratio < 0.4:
+                why = f'dead money: flat for {held_h:.0f}h and volume faded'
+            elif held_h >= R['maxHoldHours'] and not pos['profitTaken']:
+                why = f'max hold {R["maxHoldHours"]}h without a profit target'
+            else:
+                # Each add has a band: a controlled dip, not a crash. No adds while the 5m candle is collapsing.
+                ladder = [(R['add1At'], R['add2At'], R['add1Fraction']), (R['add2At'], hard + 5, R['add2Fraction'])]
+                m5_change = _num((live.get('priceChange') or {}).get('m5'))
+                step = ladder[pos['adds']] if pos['adds'] < len(ladder) else None
+                if step and add_ok and step[1] < from_first <= step[0] and m5_change > -15:
+                    # Buy the dip with a plan: lower price, thesis intact → add and re-average the entry.
+                    add = round(min(pos['plannedSol'] * step[2], cat['balanceSol']), 4)
+                    if add >= 0.01:
+                        old_avg_mc = _num(pos.get('entryMarketCapUsd'))
+                        tokens_old = pos['notionalSol'] / pos['entryPriceNative']; tokens_new = add * (1 - FEE_PER_SIDE) / px
+                        pos['entryPriceNative'] = (pos['notionalSol'] + add * (1 - FEE_PER_SIDE)) / (tokens_old + tokens_new)
+                        if old_avg_mc and mc_now:
+                            pos['entryMarketCapUsd'] = round((old_avg_mc * tokens_old + mc_now * tokens_new) / (tokens_old + tokens_new), 2)
+                        pos['costSol'] = round(pos['costSol'] + add, 6); pos['notionalSol'] = round(pos['notionalSol'] + add * (1 - FEE_PER_SIDE), 6)
+                        pos['adds'] += 1; pos['peakChange'] = 0; pos['peakPx'] = px
+                        cat['balanceSol'] = round(cat['balanceSol'] - add, 6); cat['volumeSol'] = round(cat.get('volumeSol', 0) + add, 6)
+                        detail = (f"Added {add} SOL to {pos['symbol']} at {_fmt_usd(mc_now)} MC ({from_first:.0f}% from my first buy) — liquidity, volume and buyers still hold. "
+                                  f"New average entry {_fmt_usd(pos.get('entryMarketCapUsd'))} MC (paper).")
+                        _log_event(store, cat, 'BUY', detail, None, pos['pairAddress'], px, mc_now, pos.get('entryMarketCapUsd'))
+                        if cat.get('isLeader'):
+                            _post_as_fee(pos['pairAddress'], f"🐱 {detail}\nSame thesis, better price. Holding.")
             if why:
                 cat['positions'].remove(pos)
-                _close(store, cat, pos, px, why, market_cap=_num(live.get('marketCap') or live.get('fdv')))
+                _close(store, cat, pos, px, why, market_cap=mc_now)
         day = time.strftime('%Y-%m-%d')
         if cat.get('dailyLoss', {}).get(day, 0) >= float(cat['risk'].get('maxDailyLossSol') or 0.5):
             continue
@@ -516,7 +567,11 @@ async def run_engine(store, cats):
                 reason = f'{reason}; retesting a 5m fair value gap (${gap[0]:.6g}–${gap[1]:.6g})'
             reason = f'{reason}; holders: {safe_why}; conviction {conviction}×'
             px = _num(p.get('priceNative'))
-            size = round(min(float(cat['risk']['maxPositionSol']), cat['balanceSol'] * 0.1 * conviction) * (R['freshSize'] if p.get('_fresh') else 1), 4)
+            planned = round(min(float(cat['risk']['maxPositionSol']), cat['balanceSol'] * 0.1 * conviction) * (R['freshSize'] if p.get('_fresh') else 1), 4)
+            size = round(planned * R['starterFraction'], 4)
+            invested = sum(x['costSol'] for x in cat['positions'])
+            if invested + planned > R['maxExposure'] * (cat['balanceSol'] + invested):
+                break  # capital first: never more than maxExposure of equity at work
             if px <= 0 or size < 0.01 or cat['balanceSol'] < size:
                 continue
             cat['balanceSol'] = round(cat['balanceSol'] - size, 6)
@@ -528,6 +583,8 @@ async def run_engine(store, cats):
                 'peakChange': 0, 'openedAt': now, 'reason': reason,
                 'entryLiq': _num((p.get('liquidity') or {}).get('usd')), 'conviction': conviction,
                 'entryMarketCapUsd': _num(p.get('marketCap') or p.get('fdv')),
+                'entryVolH1': _num((p.get('volume') or {}).get('h1')), 'plannedSol': planned,
+                'firstEntryPriceNative': px, 'adds': 0, 'profitTaken': 0, 'peakPx': px,
             })
             _log_event(store, cat, 'BUY', f"Bought {size} SOL of {sym} at live price — {reason} (paper).", None, pa, px, _num(p.get('marketCap') or p.get('fdv')))
             if cat.get('isLeader'):
@@ -536,6 +593,11 @@ async def run_engine(store, cats):
 
 
 def _migrate(store):
+    if store.get('rulesVersion') != 'trench-lord-v2':
+        # Trench Lord v2 changed what the hold/exit settings mean; drop old-engine overrides for them.
+        ov = store.get('rulesOverride') or {}
+        store['rulesOverride'] = {k: v for k, v in ov.items() if k in TUNABLE and k != 'maxHoldHours'}
+        store['rulesVersion'] = 'trench-lord-v2'
     for cat in store['cats'].values():
         if cat.get('engine') != ENGINE_VERSION:
             # Earlier numbers came from a random-walk simulator — reset so every figure shown is real.
@@ -548,7 +610,7 @@ def _migrate(store):
             'id': LEADER_ID, 'ownerId': 'feeless-system', 'name': 'Fee', 'handle': 'fee', 'avatar': 'Mint Mackerel',
             'isLeader': True, 'brain': 'rules', 'brainLabel': 'FEELESS rule engine',
             'brainProfile': {'provider': 'FEELESS', 'status': 'rule_engine', 'available': False, 'estimatedTokenCostUsd': 0},
-            'strategy': 'trend', 'strategyLabel': 'Disciplined momentum', 'status': 'running', 'level': 1, 'xp': 0,
+            'strategy': 'trend', 'strategyLabel': 'Trench Lord', 'status': 'running', 'level': 1, 'xp': 0,
             'wallet': 'paper', 'startingBalanceSol': 25, 'balanceSol': 25, 'realizedPnlSol': 0, 'totalPnlSol': 0,
             'volumeSol': 0, 'wins': 0, 'losses': 0, 'winRate': None, 'positions': [], 'pnlHistory': [{'value': 0}],
             'risk': {'maxPositionSol': 2, 'maxDailyLossSol': 3, 'allowlist': [], 'blocklist': []},
@@ -731,15 +793,16 @@ async def health():
 
 
 TUNABLE = {'minLiquidity': (10_000, 500_000), 'minVolume24h': (20_000, 5_000_000), 'minMarketCap': (20_000, 5_000_000), 'maxMarketCap': (500_000, 500_000_000),
-           'minAgeHours': (0.5, 72), 'stopLoss': (-25, -4), 'takeProfit': (10, 80), 'maxHoldHours': (1, 24), 'maxPositions': (1, 8),
-           'maxTop10Pct': (15, 50), 'maxSnipers': (0, 40), 'maxBundled': (0, 20), 'maxM5Chase': (3, 20), 'breakEvenArm': (4, 20),
-           'dipAddFrom': (-15, -1), 'dipAddTo': (-30, -3), 'dipAddFraction': (0.1, 1.0)}
+           'minAgeHours': (0.5, 72), 'maxPositions': (1, 8), 'maxTop10Pct': (15, 50), 'maxSnipers': (0, 40), 'maxBundled': (0, 20), 'maxM5Chase': (3, 20),
+           'add1At': (-35, -8), 'add2At': (-50, -15), 'hardStop': (-60, -25), 'takeProfit1': (20, 150), 'takeProfit2': (50, 400),
+           'runnerTrail': (15, 50), 'maxHoldHours': (6, 96), 'maxExposure': (0.1, 0.8)}
 
 
 def _apply_overrides(store):
     for k, v in (store.get('rulesOverride') or {}).items():
-        if k in TUNABLE:
-            RULES[k] = v
+        if k in TUNABLE:  # clamp: settings saved under an older engine may sit outside today's safe range
+            lo, hi = TUNABLE[k]
+            RULES[k] = type(RULES[k])(max(lo, min(hi, float(v))))
 
 
 @app.get('/api/cats/internal/rules')
@@ -799,10 +862,10 @@ async def cat_profile(cat_id: str):
                   'roiPct': round((cat.get('balanceSol', 0) + sum(p.get('costSol', 0) for p in cat.get('positions', [])) - cat.get('startingBalanceSol', 0)) / max(cat.get('startingBalanceSol', 1), 1e-9) * 100, 2)},
         'trades': trades[:80],
         'exits': list(reversed(cat.get('exits', [])))[:30],
-        'learning': {'params': {**{k: RULES[k] for k in LEARN_BOUNDS}, **(learn.get('params') or {})}, 'defaults': {k: RULES[k] for k in LEARN_BOUNDS},
+        'learning': {'params': {**{k: RULES[k] for k in LEARN_BOUNDS}, **{k: v for k, v in (learn.get('params') or {}).items() if k in LEARN_BOUNDS}}, 'defaults': {k: RULES[k] for k in LEARN_BOUNDS},
                      'entry': {**{k: RULES[k] for k in ENTRY_BOUNDS}, **(learn.get('entry') or {})}, 'mode': learn.get('mode', 'warming'), 'tunedAt': learn.get('tunedAt'), 'study': learn.get('study'),
                      'missed': learn.get('missed', 0), 'good': learn.get('good', 0), 'log': learn.get('log', [])},
-        'rules': {k: RULES[k] for k in ('stopLoss', 'breakEvenArm', 'maxHoldHours', 'maxTop10Pct', 'maxInsiderPct', 'maxSnipers', 'maxBundled', 'maxM5Chase')},
+        'rules': {k: RULES[k] for k in ('hardStop', 'add1At', 'add2At', 'takeProfit1', 'takeProfit2', 'runnerTrail', 'maxHoldHours', 'maxTop10Pct', 'maxInsiderPct', 'maxSnipers', 'maxBundled', 'maxM5Chase')},
     }
 
 

@@ -2457,7 +2457,19 @@ async def fee_post(payload: FeeCallPayload, request: Request):
     if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key()):
         raise HTTPException(403, 'Internal endpoint.')
     room = f'coin-{payload.chain}-{payload.pairAddress}-trenches'
-    msg = chat_system_post(room, 'Fee 🐱', FEE_ADDRESS, payload.text[:2000])
+    # Attach the coin card: the call ledger only accepts calls whose message carries the coin,
+    # and readers see what Fee bought right in the post.
+    tokens = [{'chainId': payload.chain, 'pairAddress': payload.pairAddress}]
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            r = await http.get(f'https://api.dexscreener.com/latest/dex/pairs/{payload.chain}/{payload.pairAddress}')
+            snap = ((r.json() or {}).get('pairs') or [None])[0]
+        if snap:
+            tokens = [{'chainId': payload.chain, 'pairAddress': payload.pairAddress, 'pair': snap,
+                       'fetched_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}]
+    except Exception:
+        pass
+    msg = chat_system_post(room, 'Fee 🐱', FEE_ADDRESS, payload.text[:2000], tokens=tokens)
     try:
         head = payload.text.split('\n', 1)[0][:120]
         followers = [e for e in _push_load()['subs'].values() if (e.get('prefs') or {}).get('followFee')]

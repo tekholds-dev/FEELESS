@@ -263,3 +263,9 @@ body.theme-day .eco-chart{background:#fff;border-color:#9fd3b6}body.theme-day .e
 .coin-claim{display:grid;gap:8px;margin-top:10px}.coin-claim-banner{width:100%;aspect-ratio:3/1;object-fit:cover;border-radius:10px}
 .coin-claim-links{display:flex;gap:10px;flex-wrap:wrap;font-size:12px}.coin-claim-links a{color:var(--mint)}
 .coin-claim-form{display:grid;gap:6px}.coin-claim-form input,.coin-claim-form textarea{background:#0b120e;color:inherit;border:1px solid #ffffff1f;border-radius:8px;padding:7px 9px;font:inherit;font-size:12.5px}.coin-claim-act{display:flex;gap:8px}
+
+/* FeeCat audit rows: MC line, share button in the content column, readable timestamps */
+.paper-event time{font-size:9px}
+.paper-event-mc{display:block;margin-top:5px;font:10px 'JetBrains Mono',monospace;color:#a7cdb5}
+.paper-event-share{grid-column:2/-1;justify-self:start;padding:5px 10px!important;font-size:10.5px!important;min-height:0!important}
+.wp-report{display:inline-flex;align-items:center;gap:6px}

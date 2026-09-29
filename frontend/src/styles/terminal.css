@@ -3548,3 +3548,8 @@ body.theme-day .explain-tip{background:#fff;color:#173b2b;border-color:#07784f44
 .pump-pulse-banner>svg{color:#ff7ad9;filter:drop-shadow(0 0 5px #ff7ad9)}.pump-pulse-banner>b{font:800 10.5px 'JetBrains Mono',monospace;letter-spacing:.08em;color:#ff9ae1}
 .pump-pulse-banner span{display:inline-flex;align-items:baseline;gap:4px;font-weight:700}.pump-pulse-banner small{font-weight:500;font-size:10px;color:var(--muted);text-transform:uppercase}
 .pump-pulse-banner.pulse-3{border-color:#ff7ad9;box-shadow:0 0 18px #ff7ad933}
+
+/* ---- FeeCat Command Center: plain-language mechanics ---- */
+.fee-howto{margin:6px 0 0;padding-left:20px;display:grid;gap:7px;font-size:12.5px;line-height:1.55;color:var(--text,#e8f3ec)}.fee-howto b{color:var(--mint)}.fee-howto i{font-style:normal;text-decoration:underline;text-decoration-color:#00e9a066}
+.fee-rule-help{display:block;font-size:10.5px;line-height:1.4;color:var(--muted);margin:-2px 0 2px}
+body.theme-day .fee-howto{color:#10231a}

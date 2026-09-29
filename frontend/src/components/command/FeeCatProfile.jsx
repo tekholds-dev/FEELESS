@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { FeeCatMark } from '../FeeCatMark';
 import { PnlCard } from './MetaPanels';
+
+const LEARN_LABELS = { runnerTrail: 'Runner trailing stop', takeProfit1: 'First profit target' };
 import { currentSubscription, enablePush, readPushPrefs, savePushPrefs, syncPush } from '../../lib/push';
 
 const sol = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(4)} SOL`);
@@ -49,11 +51,11 @@ export function FeeCatProfile({ catId = 'leader' }) {
     {tab === 'after' && <div className="fcp-list">{!d.exits.length ? <p className="wp-bio">No exits yet.</p> : d.exits.map(e => <a key={`${e.pairAddress}-${e.exitAt}`} className={`fcp-exit ${e.peakAfter >= 40 ? 'missed' : ''}`} href={`/terminal/chat?chain=solana&pair=${e.pairAddress}&room=bulls`} target="_blank" rel="noopener noreferrer">
       <b>${e.symbol}</b><span>sold {e.changeAtExit >= 0 ? '+' : ''}{e.changeAtExit}% · {e.why}</span><span>after: best <b className="positive">+{e.peakAfter}%</b> · low <b className="negative">{e.lowAfter}%</b></span><small>{ago(e.exitAt)} ago{e.peakAfter >= 40 ? ' · 🧠 lesson: sold a runner' : ''}</small></a>)}{d.exits[0] && <PnlCard symbol={d.exits[0].symbol} pnlPct={d.exits[0].changeAtExit} pnlSol={d.exits[0].pnlSol} note={d.exits[0].why} />}</div>}
     {tab === 'brain' && <div className="fcp-brain">
-      <p className="wp-bio">Fee watches every coin for 24h after selling. Runners it cut early loosen its exits; good exits pull it back to discipline. Bounded so it never gets reckless.</p>
-      <div className="fcp-params">{Object.entries(L.params).map(([k, v]) => <span key={k}><small>{({ trailGive: 'Trailing give', runnerTrailGive: 'Runner trail', takeProfit: 'Scale-out at', scaleOutFraction: 'Scale-out size' })[k] || k}</small><b>{k === 'scaleOutFraction' ? `${Math.round(v * 100)}%` : `${k === 'takeProfit' ? '+' : ''}${v}%`}</b><em>{v !== L.defaults[k] ? `default ${k === 'scaleOutFraction' ? `${Math.round(L.defaults[k] * 100)}%` : `${L.defaults[k]}%`}` : 'default'}</em></span>)}</div>
+      <p className="wp-bio">Fee watches every coin for 24h after selling. Runners she sold too early give winners more room next time; good exits pull her back to the defaults. Bounded so it never gets reckless.</p>
+      <div className="fcp-params">{Object.entries(L.params).filter(([k]) => LEARN_LABELS[k]).map(([k, v]) => <span key={k}><small>{LEARN_LABELS[k]}</small><b>{k === 'takeProfit1' ? '+' : ''}{v}%</b><em>{v !== L.defaults?.[k] ? `default ${L.defaults?.[k]}%` : 'default'}</em></span>)}</div>
       <div className="fcp-score"><span>🧠 Runners missed: <b>{L.missed}</b></span><span>✅ Good exits: <b>{L.good}</b></span></div>
       <div className="fcp-list">{L.log.map((x, i) => <div key={i} className={`fcp-trade ${x.missed ? 't-sell' : 't-buy'}`}><em>LEARN</em><p>{x.note}</p><small>{ago(x.at)} ago</small></div>)}{!L.log.length && <p className="wp-bio">First lessons land 6h after each exit.</p>}</div>
-      <p className="wp-bio">Safety rules that never loosen: stop {d.rules.stopLoss}%, break-even at +{d.rules.breakEvenArm}%, skip top-10 &gt; {d.rules.maxTop10Pct}%, insiders &gt; {d.rules.maxInsiderPct}%, &gt;{d.rules.maxSnipers} snipers, &gt;{d.rules.maxBundled} bundled, no chasing &gt; +{d.rules.maxM5Chase}% in 5m. Paper trading on live prices — not financial advice.</p>
+      <p className="wp-bio">Safety rules that never loosen: hard stop {d.rules.hardStop}% from her average entry, dip adds only at {d.rules.add1At}% / {d.rules.add2At}% while the thesis holds, first profit at +{d.rules.takeProfit1}%, runner trail {d.rules.runnerTrail}%, skip top-10 &gt; {d.rules.maxTop10Pct}%, insiders &gt; {d.rules.maxInsiderPct}%, &gt;{d.rules.maxSnipers} snipers, &gt;{d.rules.maxBundled} bundled, no chasing &gt; +{d.rules.maxM5Chase}% in 5m. Paper trading on live prices — not financial advice.</p>
     </div>}
   </section>;
 }
