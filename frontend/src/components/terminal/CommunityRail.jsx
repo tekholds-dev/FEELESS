@@ -64,16 +64,20 @@ const usePumpCallouts = pair => {
     let alive = true;
     const controller = new AbortController();
     let timer;
+    let failed = false;
     const load = async () => {
+      failed = false;
       try {
         const response = await fetch(apiUrl(`/api/market/pump/callouts/${encodeURIComponent(mint)}`), { signal: controller.signal });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.detail || 'Pump callouts unavailable.');
         if (alive) setState(current => ({ ...current, calls: mergePumpCallouts(current.calls, data.items, mint), status: 'live' }));
       } catch (error) {
+        failed = true;
         if (alive && error.name !== 'AbortError') setState(current => ({ ...current, status: 'unavailable' }));
       } finally {
-        if (alive) timer = setTimeout(load, 15000);
+        // Unavailable (no provider access) → check again in 5 minutes instead of hammering every 15s.
+        if (alive) timer = setTimeout(load, failed ? 300000 : 15000);
       }
     };
     load();
