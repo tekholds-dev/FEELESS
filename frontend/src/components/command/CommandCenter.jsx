@@ -274,10 +274,11 @@ function FeesPanel({ call }) {
   if (!cfg) return <p className="cc-empty">Loading fee settings…</p>;
   const set = (k, v) => setCfg(c => ({ ...c, [k]: v }));
   const loadEarnings = async () => { setEarningsBusy(true); try { setEarnings(await call('/admin/fees/balances')); } catch (e) { toast.error(e.message); } finally { setEarningsBusy(false); } };
-  const save = async () => {
-    const body = { ...cfg, platformFeeBps: Math.min(Number(cfg.platformFeeBps) || 0, limits.maxBps), priorityMaxLamports: Number(cfg.priorityMaxLamports) || 0, ultraFallback: Boolean(cfg.ultraFallback), engine: cfg.engine || 'swap',
-      feeAccountSol: (cfg.feeAccountSol || '').trim(), feeAccountUsdc: (cfg.feeAccountUsdc || '').trim(), lifiFeeBps: Number(cfg.lifiFeeBps) || 0, lifiIntegrator: cfg.lifiIntegrator || '', zeroFeeMints: [],
-      promo: { ...(cfg.promo || {}), until: promoDays > 0 ? Date.now() / 1000 + promoDays * 86400 : cfg.promo?.until || 0 } };
+  const save = async (override) => {
+    const cur = override && override.platformFeeBps !== undefined ? override : cfg;
+    const body = { ...cur, platformFeeBps: Math.min(Number(cur.platformFeeBps) || 0, limits.maxBps), priorityMaxLamports: Number(cur.priorityMaxLamports) || 0, ultraFallback: Boolean(cur.ultraFallback), engine: cur.engine || 'swap',
+      feeAccountSol: (cur.feeAccountSol || '').trim(), feeAccountUsdc: (cur.feeAccountUsdc || '').trim(), lifiFeeBps: Number(cur.lifiFeeBps) || 0, lifiIntegrator: cur.lifiIntegrator || '', zeroFeeMints: [],
+      promo: { ...(cur.promo || {}), until: promoDays > 0 ? Date.now() / 1000 + promoDays * 86400 : cur.promo?.until || 0 } };
     try { const d = await call('/admin/fees', { method: 'POST', body: JSON.stringify(body) }); setCfg(d.fees); toast.success('Fee settings saved — applied to the next quote.'); } catch (e) { toast.error(e.message); }
   };
   const TIERS = ['Trencher', 'Fee Friend', 'Fee Insider', 'Fee Whale'];
@@ -303,7 +304,7 @@ function FeesPanel({ call }) {
       <div className="cc-block cc-engine" data-testid="trading-engine"><h4>1 · Trading engine</h4>
         <div className="cc-seg">{[['swap', 'Swap API · your fee'], ['ultra', 'Ultra only · 0.5–2.55%']].map(([id, label]) => <button key={id} type="button" className={engine === id ? 'active' : ''} onClick={() => set('engine', id)}>{label}</button>)}</div>
         <label className="cc-check"><input type="checkbox" checked={Boolean(cfg.ultraFallback)} disabled={engine === 'ultra'} onChange={e => set('ultraFallback', e.target.checked)} />Ultra fallback when the Swap API fails (fee capped at 2.55% on those trades). Off = trading pauses.</label>
-        <FeeAccountMaker onDone={a => setCfg(c => ({ ...c, feeAccountSol: a.sol, feeAccountUsdc: a.usdc }))} />
+        <FeeAccountMaker onDone={(a, created) => { const next = { ...cfg, feeAccountSol: a.sol, feeAccountUsdc: a.usdc }; setCfg(next); if (created) save(next); }} />
         <label>SOL fee account (wSOL token account)<input placeholder="Token account for So111…112 owned by your treasury" value={cfg.feeAccountSol || ''} onChange={e => set('feeAccountSol', e.target.value.trim())} /></label>
         <label>USDC fee account (optional)<input placeholder="Token account for USDC owned by your treasury" value={cfg.feeAccountUsdc || ''} onChange={e => set('feeAccountUsdc', e.target.value.trim())} /></label>
         <label>Max priority fee (lamports)<input type="number" min="0" max={limits.priorityMaxLamports} value={cfg.priorityMaxLamports ?? 200000} onChange={e => set('priorityMaxLamports', e.target.value)} /></label>
@@ -355,13 +356,13 @@ function FeeAccountMaker({ onDone }) {
     try {
       const { createFeeAccounts } = await import('../../lib/feeAccounts');
       const out = await createFeeAccounts({ provider, payer: wallet.address, owner: feeWallet, onStatus: setStatus });
-      onDone(out); setStatus('');
-      toast.success('Fee accounts ready and filled in. Press Save.');
+      onDone(out, true); setStatus('');
     } catch (e) { setStatus(''); toast.error(e.code === 4001 ? 'Declined in wallet. Nothing was created.' : e.message); }
   };
   return <div className="fee-maker" data-testid="fee-account-maker">
     <label>Fee wallet (receives the fees)<input placeholder={wallet?.address ? `${wallet.address.slice(0, 6)}… (connected wallet)` : 'Your fee wallet address'} value={owner} onChange={e => setOwner(e.target.value.trim())} /></label>
-    <button type="button" className="btn-primary" onClick={run} disabled={Boolean(status) || !feeWallet}>{status || 'Create fee accounts in Phantom'}</button>
+    <div className="cc-toolbar"><button type="button" className="btn-primary" onClick={run} disabled={Boolean(status) || !feeWallet}>{status || 'Create fee accounts in Phantom'}</button>
+      <button type="button" className="btn-outline" disabled={!feeWallet} onClick={async () => { try { const { findFeeAccounts } = await import('../../lib/feeAccounts'); onDone(await findFeeAccounts(feeWallet), false); toast.success('Fee accounts filled in (no transaction). Press Save.'); } catch { toast.error('That is not a valid Solana address.'); } }}>Already created? Find them (free)</button></div>
     <small className="cc-empty">Creates the wSOL + USDC fee accounts for that wallet in one approval (~0.004 SOL rent, paid by the connected wallet). Safe to repeat.</small>
   </div>;
 }

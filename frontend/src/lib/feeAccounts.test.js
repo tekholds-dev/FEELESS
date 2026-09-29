@@ -25,3 +25,11 @@ test('creates the wSOL + USDC fee accounts owned by the fee wallet, paid by the 
   expect(tx.feePayer.toBase58()).toBe(payer.publicKey.toBase58());
   expect(mockConnection.sendRawTransaction).toHaveBeenCalledTimes(1);
 });
+
+test('finds existing fee accounts with no transaction', async () => {
+  const { findFeeAccounts } = require('./feeAccounts');
+  const owner = web3.Keypair.fromSeed(new Uint8Array(32).fill(2)).publicKey;
+  const out = await findFeeAccounts(owner.toBase58());
+  expect(out.sol).toBe(getAssociatedTokenAddressSync(new web3.PublicKey(WSOL_MINT), owner, true).toBase58());
+  expect(out.usdc).toBe(getAssociatedTokenAddressSync(new web3.PublicKey(USDC_MINT), owner, true).toBase58());
+});

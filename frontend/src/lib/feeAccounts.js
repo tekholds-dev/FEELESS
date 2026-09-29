@@ -5,6 +5,14 @@ import { relayConnection } from './launchRail';
 export const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
+// The fee accounts are deterministic (associated token accounts), so an existing setup is found with no transaction.
+export async function findFeeAccounts(owner) {
+  const [{ PublicKey }, spl] = await Promise.all([import('@solana/web3.js'), import('@solana/spl-token')]);
+  const ownerKey = new PublicKey(owner);
+  const [sol, usdc] = [WSOL_MINT, USDC_MINT].map(m => spl.getAssociatedTokenAddressSync(new PublicKey(m), ownerKey, true).toBase58());
+  return { sol, usdc };
+}
+
 export async function createFeeAccounts({ provider, payer, owner, onStatus }) {
   const { web3, connection } = await relayConnection();
   const spl = await import('@solana/spl-token');
