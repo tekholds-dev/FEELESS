@@ -56,8 +56,13 @@ export const EVM_CHAINS = {
 };
 export const ecoOf = chain => (chain === 'solana' ? 'solana' : EVM_CHAINS[chain] ? 'evm' : null);
 export const networkLabel = hex => Object.entries(EVM_CHAINS).find(([, c]) => c.chainId === String(hex || '').toLowerCase())?.[1].chainName || (hex ? `Chain ${parseInt(hex, 16)}` : null);
-const bytesToBase64 = bytes => {
-  const value = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+// Wallets disagree on what signMessage returns: Uint8Array, ArrayBuffer, number[], a Node-style
+// { type: 'Buffer', data: [...] }, or an already-encoded string (base58/base64/hex). Normalise all of it.
+const bytesToBase64 = raw => {
+  if (typeof raw === 'string') return raw;   // already encoded; the server accepts base64, base58 or hex
+  const src = raw?.data && !(raw instanceof Uint8Array) ? raw.data : raw;
+  const value = src instanceof Uint8Array ? src : src instanceof ArrayBuffer ? new Uint8Array(src) : Array.isArray(src) ? Uint8Array.from(src) : null;
+  if (!value || !value.length) throw new Error('Your wallet returned an empty signature. Try again, or sign with Phantom.');
   let binary = '';
   value.forEach(byte => { binary += String.fromCharCode(byte); });
   return window.btoa(binary);

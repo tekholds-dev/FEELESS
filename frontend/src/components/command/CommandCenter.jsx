@@ -43,7 +43,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
   const call = useCallback(async (path, opts = {}) => {
     const res = await fetch(apiUrl(`/api/reputation${path}`), { ...opts, headers: { 'Content-Type': 'application/json', 'x-admin-address': address, 'x-admin-ts': String(session?.ts || ''), 'x-admin-sig': session?.sig || '', ...(opts.headers || {}) } });
     const body = await res.json().catch(() => ({}));
-    if (res.status === 401) { localStorage.removeItem(SESSION_KEY); setSession(null); }
+    if (res.status === 401) { localStorage.removeItem(SESSION_KEY); setSession(null); toast.error(body.detail || 'Command center session ended — sign in again.'); }
     if (!res.ok) throw new Error(body.detail || `Request failed (${res.status})`);
     return body;
   }, [address, session]);
@@ -54,8 +54,11 @@ export function CommandCenter({ address, signMessage, onClose }) {
       const ts = Math.floor(Date.now() / 1000);
       const sig = await signMessage(`FEELESS command center\naddress:${address}\nts:${ts}`);
       const s = { address, ts, sig };
+      // Check the signature before opening the panels, so a bad signature shows its reason instead of looping back here.
+      const res = await fetch(apiUrl('/api/reputation/admin/security'), { headers: { 'x-admin-address': address, 'x-admin-ts': String(ts), 'x-admin-sig': sig } });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || `Sign-in rejected (${res.status}).`); }
       localStorage.setItem(SESSION_KEY, JSON.stringify(s)); setSession(s);
-    } catch (e) { toast.error(e.code === 4001 ? 'Signature declined.' : e.message); } finally { setBusy(false); }
+    } catch (e) { toast.error(e.code === 4001 ? 'Signature declined.' : e.message || 'Sign-in failed.'); } finally { setBusy(false); }
   };
 
   const loadSec = useCallback(() => call('/admin/security').then(setSec).catch(e => toast.error(e.message)), [call]);
@@ -446,9 +449,10 @@ function FeeCatPanel({ call }) {
   const [draft, setDraft] = useState({});
   const [size, setSize] = useState('');
   const [preset, setPreset] = useState('feecat');
-  const load = useCallback(() => call('/admin/feecat').then(x => { setD(x); setDraft(x.rules); setSize(x.leader?.risk?.maxPositionSol ?? ''); setPreset(x.strategyPreset || 'feecat'); }).catch(e => toast.error(e.message)), [call]);
+  const [loadErr, setLoadErr] = useState('');
+  const load = useCallback(() => { setLoadErr(''); return call('/admin/feecat').then(x => { setD(x); setDraft(x.rules); setSize(x.leader?.risk?.maxPositionSol ?? ''); setPreset(x.strategyPreset || 'feecat'); }).catch(e => { setLoadErr(e.message || 'Fee service did not answer.'); }); }, [call]);
   useEffect(() => { load(); }, [load]);
-  if (!d) return <p className="cc-empty">Waking Fee up…</p>;
+  if (!d) return <p className="cc-empty">{loadErr ? <>Couldn't load Fee: {loadErr} <button type="button" className="btn-outline" onClick={load}>Retry</button></> : 'Waking Fee up…'}</p>;
   const save = extra => call('/admin/feecat', { method: 'POST', body: JSON.stringify({ rules: draft, maxPositionSol: Number(size) || undefined, ...extra }) }).then(() => { toast.success(extra.action === 'run' ? 'Fee completed an intelligence cycle.' : 'Fee updated — applies on the next tick.'); load(); }).catch(e => toast.error(e.message));
   const running = d.leader?.status === 'running';
   const choosePreset = id => { setPreset(id); setDraft(current => ({ ...current, ...FEE_PRESETS[id][2] })); };

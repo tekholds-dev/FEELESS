@@ -1832,13 +1832,27 @@ def _verify_wallet(address: str, message: str, signature: str) -> bool:
 
 
 def _verify_solana(address: str, message: str, signature_b64: str) -> bool:
+    """Ed25519 check. Wallets encode the 64-byte signature differently (base64 from our client,
+    base58 or hex from some wallets), so try each decoding that yields exactly 64 bytes."""
     try:
         import base58
         from nacl.signing import VerifyKey
-        VerifyKey(base58.b58decode(address)).verify(message.encode(), base64.b64decode(signature_b64))
-        return True
+        key = VerifyKey(base58.b58decode(address))
     except Exception:
         return False
+    sig = (signature_b64 or '').strip()
+    hexsig = sig[2:] if sig.lower().startswith('0x') else sig
+    decoders = (lambda: base64.b64decode(sig, validate=True), lambda: base58.b58decode(sig), lambda: bytes.fromhex(hexsig))
+    for decode in decoders:
+        try:
+            raw = decode()
+            if len(raw) != 64:
+                continue
+            key.verify(message.encode(), raw)
+            return True
+        except Exception:
+            continue
+    return False
 
 
 @app.post('/api/reputation/profile')
