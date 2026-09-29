@@ -636,6 +636,69 @@ def _migrate(store):
     leader['strategyLabel'] = 'Trench Lord'
 
 
+WALL_EVERY = 30 * 60
+
+
+def _wall_post(text):
+    try:
+        key = (DATA_DIR / 'internal.key').read_text().strip()
+        r = httpx.post('http://127.0.0.1:5077/api/reputation/internal/fee-post', json={'room': 'wall', 'text': text},
+                       headers={'x-feeless-internal': key}, timeout=15)
+        if r.status_code != 200:
+            print('fee wall post rejected', r.status_code, r.text[:200])
+    except Exception as exc:
+        print('fee wall post failed', exc)
+
+
+def _pct(v):
+    v = _num(v)
+    return f"{'+' if v >= 0 else ''}{v:.0f}%"
+
+
+async def _meta_post(store):
+    """Fee's wall: what the trenches look like right now — the board's bangers, the weather, the big coins, her book."""
+    async with httpx.AsyncClient(timeout=20) as http:
+        try:
+            board = (await http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': 'trending', 'chain': 'solana', 'page': 1, 'scope': 'launchpads'})).json().get('pairs') or []
+        except Exception:
+            board = []
+        try:
+            fresh = (await http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': 'new', 'chain': 'solana', 'page': 1, 'scope': 'launchpads'})).json().get('pairs') or []
+        except Exception:
+            fresh = []
+        try:
+            sol = (await http.get('https://api.dexscreener.com/latest/dex/pairs/solana/58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2')).json().get('pairs', [{}])[0]
+        except Exception:
+            sol = {}
+    if not board:
+        return
+    moves = sorted(_num((p.get('priceChange') or {}).get('h1')) for p in board)
+    median = moves[len(moves) // 2] if moves else 0
+    green = sum(1 for m in moves if m > 0) / max(1, len(moves))
+    weather = ('☀️ scorching' if green >= 0.7 and median >= 20 else '🌤️ mostly green' if green >= 0.55
+               else '⛅ crab weather' if green >= 0.4 else '🌧️ red rain')
+    lines = [f"🐱 Trench report — {weather}: {green:.0%} of the board is green, median {_pct(median)} on the hour."]
+    if sol:
+        lines.append(f"SOL {_fmt_usd(sol.get('priceUsd'))} ({_pct((sol.get('priceChange') or {}).get('h24'))} 24h) — the tide every meme swims in.")
+    lines.append('\nBangers on my radar:')
+    for p in board[:3]:
+        why = ', '.join(r for r in (p.get('quality') or {}).get('reasons') or [] if not r.endswith(' 1h') or 'vol' in r) or 'steady two-sided flow'
+        lines.append(f"• ${(p.get('baseToken') or {}).get('symbol')} — MC {_fmt_usd(p.get('marketCap'))}, {_pct((p.get('priceChange') or {}).get('h1'))} 1h ({why})")
+    if fresh:
+        f = fresh[0]
+        lines.append(f"\nFresh one with real traction: ${(f.get('baseToken') or {}).get('symbol')} at {_fmt_usd(f.get('marketCap'))} — early, so size small.")
+    leader = store['cats'].get(LEADER_ID) or {}
+    pos = leader.get('positions') or []
+    if pos:
+        book = ', '.join(f"${x['symbol']} {_pct(x.get('currentChange'))}" for x in pos[:4])
+        lines.append(f"\nMy book: {book}. Thesis intact = I hold; a healthy dip with buyers still there = I add.")
+    else:
+        lines.append("\nMy book is flat — waiting for a setup that passes every rule. Cash is a position too.")
+    lines.append('Meta, not advice. Paper trades on live prices.')
+    _wall_post('\n'.join(lines))
+    store['lastWallPost'] = time.time()
+
+
 async def _engine_loop():
     while True:
         try:
@@ -645,6 +708,9 @@ async def _engine_loop():
             running = [c for c in store['cats'].values() if c['status'] == 'running' and not c['revoked']]
             if running:
                 await run_engine(store, running)
+            if time.time() - store.get('lastWallPost', 0) >= WALL_EVERY:
+                store['lastWallPost'] = time.time()   # claim the slot first; a failed post retries next window
+                await _meta_post(store)
             _save(store)
         except Exception as exc:  # keep the loop alive; surface in logs
             print('engine error', exc)
