@@ -2494,6 +2494,11 @@ async def badge_catalog():
     return {'catalog': BADGE_CATALOG}
 
 
+@app.get('/api/reputation/badges/limits')
+async def badge_limits_public():
+    return _badge_limits()
+
+
 @app.get('/api/reputation/badges/{address}')
 async def wallet_badges(address: str):
     """Automatic, data-backed badges. Every badge states the evidence behind it."""
@@ -2745,11 +2750,6 @@ class AdminBadge(BaseModel):
 class BadgeLimits(BaseModel):
     profile: int = Field(ge=0, le=12)
     chat: int = Field(ge=0, le=12)
-
-
-@app.get('/api/reputation/badges/limits')
-async def badge_limits_public():
-    return _badge_limits()
 
 
 @app.get('/api/reputation/admin/badges/limits')
