@@ -19,7 +19,8 @@ while true; do
   if git fetch -q origin "$branch" 2>/dev/null; then
     local_rev="$(git rev-parse HEAD)"
     remote_rev="$(git rev-parse "origin/$branch")"
-    if [[ "$local_rev" != "$remote_rev" ]]; then
+    # Nothing to pull when GitHub has nothing new (same commit, or this copy is already ahead).
+    if [[ "$local_rev" != "$remote_rev" ]] && ! git merge-base --is-ancestor "origin/$branch" HEAD; then
       if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
         echo "$(date +%T) new commits on origin/$branch, but you have uncommitted changes, so skipping"
       elif git merge-base --is-ancestor HEAD "origin/$branch"; then
