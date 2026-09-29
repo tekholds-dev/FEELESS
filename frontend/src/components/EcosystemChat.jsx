@@ -253,7 +253,6 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
     {pinned && <div className="chat-pinned" data-testid="chat-pinned" style={{ '--pin-s': `${pinned.pinnedFor}s` }}><span>📌 Hot take · {pinned.pinnedFor}s</span><b>{pinned.username}</b><p>{pinned.text}</p><i /></div>}
     <div className="chat-messages custom-scroll" ref={scroller} onScroll={() => { const e = scroller.current; stick.current = e.scrollHeight - e.scrollTop - e.clientHeight < 65; }}>
       {loading && <div className="chat-empty" data-testid={`chat-loading-${room}`}><span className="loader" />Connecting to the room…</div>}
-      {pump?.enabled && pump.status === 'unavailable' && <div className="pump-chat-status" data-testid="pump-chat-status"><span className="pump-pill">PUMP</span>Pump callouts are offline for this coin right now.</div>}
       {!loading && !messages.length && !pump?.visible?.length && <div className="chat-empty" data-testid={`chat-empty-${room}`}><MessageCircle size={28} /><strong>The next alpha starts here.</strong><span>No messages in this channel yet.</span></div>}
       {prefsOpen && <div className="chat-prefs" data-testid="chat-prefs">
         <label><span>Badges per name <b>{shownBadges}</b> <small>(Command Center max {badgeCap})</small></span><input type="range" min="0" max={badgeCap} value={shownBadges} onChange={e => setPrefs({ maxBadges: Number(e.target.value) })} /></label>

@@ -194,6 +194,31 @@ def normalise_pools(payload):
     return pairs
 
 
+# Pump Pulse: a coin is "pulsing" when the last 5 minutes show real, rising, two-sided flow.
+# Minimum average trade size and a buy-share ceiling filter out micro-buy volume bots.
+PULSE_MIN_TRADES = 20
+PULSE_MIN_VOLUME = 5_000
+PULSE_MIN_AVG_TRADE = 20
+PULSE_BUY_SHARE = (0.55, 0.97)
+PULSE_MIN_CHANGE = 2.0
+
+
+def pulse_stats(pair):
+    m5 = (pair.get('txns') or {}).get('m5') or {}
+    buys, sells = int(safe_float(m5.get('buys')) or 0), int(safe_float(m5.get('sells')) or 0)
+    trades = buys + sells
+    volume = safe_float((pair.get('volume') or {}).get('m5')) or 0
+    change = safe_float((pair.get('priceChange') or {}).get('m5'), None)
+    avg = volume / trades if trades else 0
+    share = buys / trades if trades else 0
+    pulse = (trades >= PULSE_MIN_TRADES and volume >= PULSE_MIN_VOLUME and avg >= PULSE_MIN_AVG_TRADE
+             and PULSE_BUY_SHARE[0] <= share <= PULSE_BUY_SHARE[1] and change is not None and change >= PULSE_MIN_CHANGE)
+    return {'pairAddress': pair.get('pairAddress'), 'dexId': pair.get('dexId'), 'm5Change': change, 'buys': buys, 'sells': sells,
+            'volumeM5': round(volume, 2), 'avgTradeUsd': round(avg, 2), 'buyShare': round(share * 100),
+            'marketCap': safe_float(pair.get('marketCap')), 'pulse': pulse,
+            'level': 0 if not pulse else 3 if volume >= 50_000 else 2 if volume >= 20_000 else 1}
+
+
 def normalise_pump_coins(payload, kind='trending'):
     """Map Pump.fun coin-index fields into the shared market contract.
 
@@ -640,6 +665,24 @@ def create_market_router(db, intelligence=None):
                 items.append({'id': name.lower(), 'label': name, 'mint': mint, 'chain': 'solana', 'pair': None,
                               'status': 'provider_unavailable', 'error': exc.detail})
         return {'assets': items}
+
+    @router.get('/pulse')
+    async def pump_pulse(mints: str = Query(..., max_length=2800)):
+        """Pump Pulse: 5-minute activity per Solana mint (DexScreener batch), plus the pulse verdict."""
+        ids = sorted({m for m in mints.split(',') if 32 <= len(m) <= 44 and m.isalnum()})[:60]
+        best = {}
+        for i in range(0, len(ids), 30):
+            try:
+                data, _ = await cached('DexScreener', '/tokens/v1/solana/' + ','.join(ids[i:i + 30]), ttl=20)
+            except HTTPException:
+                continue
+            for pair in data if isinstance(data, list) else []:
+                mint = (pair.get('baseToken') or {}).get('address')
+                vol = safe_float((pair.get('volume') or {}).get('m5')) or 0
+                if mint in ids and vol >= (best.get(mint, {}).get('_vol') or -1):
+                    best[mint] = {**pair, '_vol': vol}
+        return {'coins': {mint: pulse_stats(pair) for mint, pair in best.items()},
+                'fetched_at': datetime.now(timezone.utc).isoformat()}
 
     @router.get('/pair/{chain}/{address}', response_model=MarketResult)
     async def pair(chain: str, address: str):
