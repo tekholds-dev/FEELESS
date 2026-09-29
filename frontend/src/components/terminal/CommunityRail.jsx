@@ -3,7 +3,7 @@ import { TrendingCards, TrenchLanding, TrenchBar, HotCalls, LiveCalls, CallerBoa
 import { LivePrice } from './LiveCells';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle, Radio, Rocket, Compass, Star, BarChart3, ArrowUpRight, CandlestickChart, Layers3 } from 'lucide-react';
+import { MessageCircle, Radio, Rocket, Compass, Star, BarChart3, ArrowUpRight, CandlestickChart, Layers3, Zap } from 'lucide-react';
 import EcosystemChat from '../EcosystemChat';
 import { useWorkspace } from '../../hooks/useWorkspace';
 
@@ -48,6 +48,20 @@ export const LivePoolsPanel = ({ pairs = [], newPairs = [], onSelect }) => {
   </div>;
 };
 
+// A provider snapshot belongs beside the conversation for a Pump-discovered coin. It is context,
+// not an injected chat message or a trading call, so the coin room remains owned by its community.
+const PumpRadarCallout = ({ pair }) => {
+  const isPump = pair?.launchpadId === 'pump' || String(pair?.dexId || '').toLowerCase().includes('pump');
+  if (!isPump) return null;
+  const m5 = Number(pair.priceChange?.m5);
+  return <div className="pump-chat-callout" data-testid="pump-chat-callout">
+    <span><Zap size={13} /> PUMP RADAR</span>
+    <b>{pair.marketStage === 'new' ? 'New coin observed' : 'Top coin observed'}</b>
+    <small>{Number.isFinite(m5) ? `${m5 >= 0 ? '+' : ''}${m5.toFixed(2)}% · 5m` : 'Live snapshot'} · MC {formatUSD(pair.marketCap)} · Liq {formatUSD(pair.liquidity?.usd)}</small>
+    <Link to="/terminal/pump">Open Pump Radar <ArrowUpRight size={11} /></Link>
+  </div>;
+};
+
 export const ChatRoom = ({ large = false, pairs = [], newPairs = [], onSelect, selectedPair = null, selectedPerspective = null, onPerspectiveChange, onConnect }) => {
   const { ecosystem } = useWorkspace();
   const [channel, setChannel] = useState(selectedPair ? (normalizeRoomPerspective(selectedPerspective) || 'bulls') : 'general');
@@ -65,7 +79,7 @@ export const ChatRoom = ({ large = false, pairs = [], newPairs = [], onSelect, s
     setChannel(next);
     if (selectedPair && normalizeRoomPerspective(next)) onPerspectiveChange?.(next);
   };
-  return <section className={`community-chat ${large ? 'large-chat' : ''}`}><div className="section-title"><h2><MessageCircle size={18} />{selectedPair ? `${selectedPair.baseToken?.symbol || 'Coin'} discussion` : 'The Trenches'}</h2><span className="positive small" data-testid="chat-active-ecosystem">{selectedPair ? `${selectedPair.chainId} · ${shortAddress(selectedPair.pairAddress)}` : ecosystem.name}</span></div><div className="chat-tabs">{tabs.map(([id, label]) => <button key={id} data-testid={`chat-tab-${id}`} aria-selected={channel === id} title={`${label} discussion`} onClick={() => changeChannel(id)} className={`${channel === id ? 'active' : ''} ${id === 'trenches' ? 'trenches-font' : ''}`}>{label}</button>)}</div>{selectedPair ? <EcosystemChat key={room} room={room} compact ecosystem={{ id: room, name: roomName }} onConnect={onConnect} /> : channel === 'pools' ? <LivePoolsPanel pairs={pairs} newPairs={newPairs} onSelect={onSelect} /> : <EcosystemChat key={`${ecosystem.id}-${channel}`} compact ecosystem={{ id: `${ecosystem.id}-${channel}`, name: roomName }} onConnect={onConnect} />}</section>;
+  return <section className={`community-chat ${large ? 'large-chat' : ''}`}><div className="section-title"><h2><MessageCircle size={18} />{selectedPair ? `${selectedPair.baseToken?.symbol || 'Coin'} discussion` : 'The Trenches'}</h2><span className="positive small" data-testid="chat-active-ecosystem">{selectedPair ? `${selectedPair.chainId} · ${shortAddress(selectedPair.pairAddress)}` : ecosystem.name}</span></div><div className="chat-tabs">{tabs.map(([id, label]) => <button key={id} data-testid={`chat-tab-${id}`} aria-selected={channel === id} title={`${label} discussion`} onClick={() => changeChannel(id)} className={`${channel === id ? 'active' : ''} ${id === 'trenches' ? 'trenches-font' : ''}`}>{label}</button>)}</div>{selectedPair && <PumpRadarCallout pair={selectedPair} />}{selectedPair ? <EcosystemChat key={room} room={room} compact ecosystem={{ id: room, name: roomName }} onConnect={onConnect} /> : channel === 'pools' ? <LivePoolsPanel pairs={pairs} newPairs={newPairs} onSelect={onSelect} /> : <EcosystemChat key={`${ecosystem.id}-${channel}`} compact ecosystem={{ id: `${ecosystem.id}-${channel}`, name: roomName }} onConnect={onConnect} />}</section>;
 };
 
 export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair: routeSelectedPair = null, selectedPerspective = null, onPerspectiveChange, onConnect }) => {

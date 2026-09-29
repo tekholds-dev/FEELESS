@@ -79,6 +79,9 @@ export default function Terminal() {
   const market = useMarket(query ? `/search?q=${encodeURIComponent(query)}` : `/feed?kind=${kind}&chain=${chain}&page=${pagination}${screenParam}${page === 'pump' ? pumpScope : ''}`, cadence);
   const newFeed = useMarket(`/feed?kind=new&chain=${chain}&page=${pagination}${screenParam}${pumpScope}`, cadence);
   const pumpTrendingFeed = useMarket(page === 'pump' ? `/feed?kind=trending&chain=${ecosystem.chainId}&page=1${screenParam}${pumpScope}` : null, page === 'pump' ? 15000 : 0);
+  // Trenches should see the same Pump.fun discovery snapshot as Pump Radar, not just the generic DEX list.
+  const trenchPumpTop = useMarket(page === 'chat' && chain === 'solana' ? '/feed?kind=trending&chain=solana&page=1&scope=pump' : null, page === 'chat' ? 15000 : 0);
+  const trenchPumpNew = useMarket(page === 'chat' && chain === 'solana' ? '/feed?kind=new&chain=solana&page=1&scope=pump' : null, page === 'chat' ? 15000 : 0);
   const pairLookup = useMarket(pairLookupPath, 60000);
   const assets = useMarket('/assets', 90000); const feeAssets = assets.data?.assets || []; const fee = feeAssets.find(a => a.id === 'fee'); const feeCat = feeAssets.find(a => a.id === 'feecat');
   const { data: community } = useMarket(`/api/intelligence/community?context=${ecosystem.id}`, 30000);
@@ -118,6 +121,16 @@ export default function Terminal() {
   const marketModeMatches = requestedScreener == null || !market.data?.screener || market.data.screener === requestedScreener;
   const providerCanRequestNextPage = market.data?.provider_pagination?.can_request_next_page;
   const newPairs = (newFeed.data?.pairs || []).filter(p => matchesPad(p, activePad) && hasProviderImage(p) && (p.marketStage === 'new' || isNewPoolDeal(p)));
+  const trenchPairs = useMemo(() => {
+    const pump = trenchPumpTop.data?.pairs || [];
+    const merged = [...pump, ...pairs];
+    return [...new Map(merged.map(p => [`${p.chainId}:${p.baseToken?.address || p.pairAddress}`, p])).values()];
+  }, [pairs, trenchPumpTop.data]);
+  const trenchNewPairs = useMemo(() => {
+    const pump = trenchPumpNew.data?.pairs || [];
+    const merged = [...pump, ...newPairs];
+    return [...new Map(merged.map(p => [`${p.chainId}:${p.baseToken?.address || p.pairAddress}`, p])).values()];
+  }, [newPairs, trenchPumpNew.data]);
   useEffect(() => { setPagination(1); setPad('all'); setMinLiquidity('0'); setMenuOpen(false); if (page === 'pump' && ecosystem.id !== 'pump') setEcosystem('pump'); }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPagination(1); setPad('all'); setMinLiquidity('0'); }, [ecosystem.id, query, kind]);
   useEffect(() => { if (page === 'launch' && metaLaunchRequested && ecosystem.id !== 'feeless-launch') setEcosystem('feeless-launch'); }, [page, metaLaunchRequested, ecosystem.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -197,7 +210,7 @@ export default function Terminal() {
         </section><div className="context-platforms"><Link to="/terminal/launch" data-testid="context-launchpads-link">Ecosystem launchpads<ArrowUpRight size={13} /></Link>{ecosystem.explorer && <a data-testid="context-explorer" href={ecosystem.explorer} target="_blank" rel="noreferrer">{ecosystem.name} explorer<ArrowUpRight size={13} /></a>}{ecosystem.dex && <a data-testid="context-dex" href={ecosystem.dex} target="_blank" rel="noreferrer">Ecosystem DEX<ArrowUpRight size={13} /></a>}</div>
         </div><aside className={`community-rail ${page === 'chat' ? 'is-primary' : ''} ${page === 'trade' ? 'is-hidden' : ''}`}><ChatRoom pairs={pairs} newPairs={newFeed.data?.pairs || newPairs} onSelect={onSelect} selectedPair={selected} selectedPerspective={perspective} onPerspectiveChange={onPerspectiveChange} /><AlphaTape /><div className="command-quick-links"><Link to="/terminal/feeback" data-testid="quick-feeback">FEE-BACK<span>THE RETURN PATH ↗</span></Link><Link to="/terminal/feecat" data-testid="quick-feecat">FEECAT<span>CULTURE + UTILITY ↗</span></Link><Link to="/terminal/whitepaper" data-testid="quick-whitepaper">WHITEPAPER<span>WEB + ACTUAL PDF ↗</span></Link></div><div className="risk-note">Markets can be illiquid or malicious. Provider matches are not audits. New pools are not necessarily new tokens.</div></aside></div>}
        {page === 'launch' && (params.get('setup') === 'feeless' ? <><MetaLaunchSetup onWallet={() => setWalletOpen(true)} /><details className="launch-shield-later"><summary>🛡 After launch — Shield your coin <small>public promises buyers can verify on-chain</small></summary><ShieldCommit /></details></> : <LaunchpadDirectory />)}{page === 'watchlist' && <><AdvancedWatchlist /><CopyTrading /><div className="command-section-title unified-watch-title"><span>CREATORS YOU FOLLOW</span><small>Launches and rug flags from wallets you've starred</small></div><WatchlistDashboard /></>}
-         {page === 'chat' && <TrenchesView pairs={pairs} newPairs={newFeed.data?.pairs || newPairs} onSelect={onSelect} selectedPair={selected} selectedPerspective={perspective} onPerspectiveChange={onPerspectiveChange} onConnect={() => setWalletOpen(true)} />}
+         {page === 'chat' && <TrenchesView pairs={trenchPairs} newPairs={trenchNewPairs} onSelect={onSelect} selectedPair={selected} selectedPerspective={perspective} onPerspectiveChange={onPerspectiveChange} onConnect={() => setWalletOpen(true)} />}
       {page === 'alerts' && <><TrustSignals /><AlertsPage alerts={alerts} setAlerts={setAlerts} selected={alertPair || selected} watchlist={watchlist} ecosystem={ecosystem} /></>}
       {page === 'fee' && <FeeAssetPage asset={fee}>{fee?.pair ? <TokenFocus pair={fee.pair} has={has} toggle={toggle} /> : <FeeHeartbeat asset={fee} loading={assets.loading} />}</FeeAssetPage>}
         {page === 'feeback' && <FeeBackCenter feeCat={feeCat} />}{page === 'feecat' && <><FeeCatProfile /><FeeCatCenter asset={feeCat} community={community} onSelect={onSelect} /></>}{page === 'feecat/cats' && <FeelessCats />}{page === 'feecat/agents' && <FeeCatsPlatform />}

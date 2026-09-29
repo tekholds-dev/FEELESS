@@ -24,12 +24,12 @@ const time = value => value ? new Date(value).toLocaleTimeString([], { hour: '2-
 const usd = value => Number(value) > 0 ? `$${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : 'MC unavailable';
 const eventSymbol = event => event.symbol || event.detail?.match(/\bof\s+([A-Z0-9_]{2,})\b/i)?.[1] || 'TRADE';
 const tradeCard = event => ({
-  kicker: `${event.catName?.toUpperCase() || 'FEE'} · PAPER ${event.type} · LIVE-PRICE RECEIPT`,
+  kicker: `FEELESS · ${event.catName?.toUpperCase() || 'FEE'} TRADE RECEIPT`,
   title: `$${eventSymbol(event)}`,
   tone: event.type === 'SELL' && Number(event.pnlSol) < 0 ? 'down' : 'up',
-  bigValue: Math.abs(Number(event.pnlSol || 0)), bigPrefix: Number(event.pnlSol || 0) >= 0 ? '+' : '−', bigSuffix: ' SOL', bigDigits: 4,
-  lines: [event.type === 'BUY' ? `entry MC ${usd(event.marketCapUsd)}` : `entry MC ${usd(event.entryMarketCapUsd)} · exit MC ${usd(event.marketCapUsd)}`, event.detail?.replace(/\s*\(paper[^)]*\)\.?/i, '') || '', `audit ${event.id?.slice(0, 10) || 'receipt'} · no real SOL`],
-  footer: 'FEELESS Fee Cats · paper trading only',
+  big: event.type === 'BUY' ? 'ENTRY' : `${Number(event.pnlSol || 0) >= 0 ? '+' : '−'}${Math.abs(Number(event.pnlSol || 0)).toFixed(4)} SOL`,
+  lines: [event.type === 'BUY' ? `BUY · entry MC ${usd(event.marketCapUsd)}` : `SELL · entry MC ${usd(event.entryMarketCapUsd)} · exit MC ${usd(event.marketCapUsd)}`, event.priceNative ? `Execution price ${Number(event.priceNative).toPrecision(6)} SOL` : 'Execution price unavailable', `Receipt ${event.id?.slice(0, 10) || '—'}`],
+  footer: 'FEELESS · trade receipt',
 });
 
 function PaperBadge() {
