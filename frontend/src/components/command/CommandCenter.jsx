@@ -204,18 +204,21 @@ function AwardBadges({ call, initial }) {
   const [tone, setTone] = useState('gold');
   const [why, setWhy] = useState('');
   const [limits, setLimits] = useState({ profile: 3, chat: 3 });
-  useEffect(() => { call('/admin/badges/limits').then(setLimits).catch(e => toast.error(e.message)); }, [call]);
+  const [awards, setAwards] = useState({ rows: [], wallets: 0, awards: 0 });
+  const loadAwards = useCallback(() => call('/admin/badges').then(setAwards).catch(e => toast.error(e.message)), [call]);
+  useEffect(() => { call('/admin/badges/limits').then(setLimits).catch(e => toast.error(e.message)); loadAwards(); }, [call, loadAwards]);
   const addrs = text.split(/[\s,]+/).filter(a => /^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$/.test(a));
   const award = async () => {
-    try { const r = await call('/admin/badges', { method: 'POST', body: JSON.stringify({ addresses: addrs, label, icon, tone, why }) }); toast.success(`Awarded ${label} to ${r.awarded} wallet(s).`); }
+    try { const r = await call('/admin/badges', { method: 'POST', body: JSON.stringify({ addresses: addrs, label, icon, tone, why }) }); toast.success(`Awarded ${label} to ${r.awarded} wallet(s).`); setLabel(''); setWhy(''); loadAwards(); }
     catch (e) { toast.error(e.message); }
   };
   const saveLimits = async () => {
     try { setLimits(await call('/admin/badges/limits', { method: 'PUT', body: JSON.stringify({ profile: Number(limits.profile), chat: Number(limits.chat) }) })); toast.success('Badge limits saved and enforced site-wide.'); }
     catch (e) { toast.error(e.message); }
   };
+  const revoke = async (address, bid) => { try { await call(`/admin/badges/${address}/${bid}`, { method: 'DELETE' }); toast.success('Badge revoked.'); loadAwards(); } catch (e) { toast.error(e.message); } };
   return <section className="cc-panel cc-award">
-    <div className="cc-block"><h4>Applied badge limits</h4><p className="cc-note">Only Command Center can set these caps. Users may choose fewer badges, but cannot apply more than the profile or chat limit.</p><div className="cc-studio-grid"><label>Profile badges<input type="number" min="0" max="12" value={limits.profile} onChange={e => setLimits(x => ({ ...x, profile: e.target.value }))} /></label><label>Chat badges per name<input type="number" min="0" max="12" value={limits.chat} onChange={e => setLimits(x => ({ ...x, chat: e.target.value }))} /></label></div><button type="button" className="btn-primary" onClick={saveLimits}>Save badge limits</button></div>
+    <div className="cc-block"><h4>Badge mechanics</h4><div className="cc-kpis"><span><small>Wallets badged</small><b>{awards.wallets}</b></span><span><small>Custom awards</small><b>{awards.awards}</b></span><span><small>Profile cap</small><b>{limits.profile}</b></span><span><small>Chat cap</small><b>{limits.chat}</b></span></div><p className="cc-note">Awards are earned inventory. The profile and chat caps only control how many a user may display; they do not delete awards. Only Command Center can issue or revoke them.</p><div className="cc-studio-grid"><label>Profile display cap<input type="number" min="0" max="12" value={limits.profile} onChange={e => setLimits(x => ({ ...x, profile: e.target.value }))} /></label><label>Chat display cap<input type="number" min="0" max="12" value={limits.chat} onChange={e => setLimits(x => ({ ...x, chat: e.target.value }))} /></label></div><button type="button" className="btn-primary" onClick={saveLimits}>Save display caps</button></div>
     <div className="cc-award-preview"><span className={`badge-pill tone-${tone}`}>{icon} {label || 'Badge name'}</span><small>{why || 'Why they earned it'}</small></div>
     <div className="cc-award-form">
       <div className="cc-icons">{['⭐', '💎', '🔥', '🏆', '🧠', '🐞', '🛠️', '🎖️', '🦾', '🌙'].map(i => <button key={i} type="button" className={icon === i ? 'active' : ''} onClick={() => setIcon(i)}>{i}</button>)}</div>
@@ -225,6 +228,7 @@ function AwardBadges({ call, initial }) {
       <textarea rows={6} placeholder="Wallet addresses — one per line (select holders first to prefill)" value={text} onChange={e => setText(e.target.value)} />
       <button type="button" className="btn-primary" disabled={!addrs.length || label.length < 2} onClick={award}><Award size={14} />Award to {addrs.length} wallet{addrs.length === 1 ? '' : 's'}</button>
     </div>
+    <div className="cc-block cc-badge-ledger"><h4>Issued badge ledger</h4>{!awards.rows.length ? <p className="cc-empty">No custom badges issued yet.</p> : awards.rows.map(row => <div className="cc-badge-wallet" key={row.address}><code>{shortAddress(row.address)}</code><div>{row.badges.map(b => <span key={b.id} className={`badge-pill tone-${b.tone}`} title={b.why}><i>{b.icon}</i>{b.label}<button type="button" aria-label={`Revoke ${b.label}`} onClick={() => revoke(row.address, b.id)}>×</button></span>)}</div></div>)}</div>
   </section>;
 }
 
@@ -408,24 +412,34 @@ function TreasuryPanel({ call }) {
   </section>;
 }
 
-const FEE_LABELS = { minLiquidity: 'Min liquidity ($)', minVolume24h: 'Min 24h volume ($)', minMarketCap: 'Min market cap ($)', maxMarketCap: 'Max market cap ($)', minAgeHours: 'Min pool age (h)', stopLoss: 'Stop-loss (%)', takeProfit: 'Scale-out at (+%)', maxHoldHours: 'Max hold (h)', maxPositions: 'Max open positions', maxTop10Pct: 'Max top-10 holders (%)', maxSnipers: 'Max snipers', maxBundled: 'Max bundled wallets', maxM5Chase: 'No chase above 5m (%)', breakEvenArm: 'Break-even after (+%)' };
+const FEE_LABELS = { minLiquidity: 'Min liquidity ($)', minVolume24h: 'Min 24h volume ($)', minMarketCap: 'Min market cap ($)', maxMarketCap: 'Max market cap ($)', minAgeHours: 'Min pool age (h)', stopLoss: 'Stop-loss (%)', takeProfit: 'Scale-out at (+%)', maxHoldHours: 'Max hold (h)', maxPositions: 'Max open positions', maxTop10Pct: 'Max top-10 holders (%)', maxSnipers: 'Max snipers', maxBundled: 'Max bundled wallets', maxM5Chase: 'No chase above 5m (%)', breakEvenArm: 'Break-even after (+%)', dipAddFrom: 'Arm smart dip at (%)', dipAddTo: 'Deepest dip add (%)', dipAddFraction: 'Dip add size (× entry)' };
+const FEE_PRESETS = {
+  feecat: ['FeeCat', 'Disciplined all-rounder', { minLiquidity: 40000, minVolume24h: 100000, minMarketCap: 150000, minAgeHours: 3, stopLoss: -10, takeProfit: 22, maxHoldHours: 4, maxPositions: 4, maxM5Chase: 8, dipAddFrom: -4, dipAddTo: -8, dipAddFraction: 0.5 }],
+  trench: ['Trench', 'Earlier entries, hard safety gates', { minLiquidity: 25000, minVolume24h: 75000, minMarketCap: 75000, minAgeHours: 1, stopLoss: -12, takeProfit: 28, maxHoldHours: 6, maxPositions: 5, maxM5Chase: 10, dipAddFrom: -4, dipAddTo: -10, dipAddFraction: 0.45 }],
+  meme: ['Meme', 'Fresh narrative, wider volatility', { minLiquidity: 15000, minVolume24h: 50000, minMarketCap: 50000, minAgeHours: 0.5, stopLoss: -15, takeProfit: 35, maxHoldHours: 6, maxPositions: 4, maxM5Chase: 12, dipAddFrom: -5, dipAddTo: -15, dipAddFraction: 0.5 }],
+  scalper: ['Trader / Scalper', 'Liquid tape, quick exits', { minLiquidity: 150000, minVolume24h: 500000, minMarketCap: 500000, minAgeHours: 1, stopLoss: -6, takeProfit: 12, maxHoldHours: 1, maxPositions: 3, maxM5Chase: 6, dipAddFrom: -2, dipAddTo: -5, dipAddFraction: 0.25 }],
+};
 function FeeCatPanel({ call }) {
   const [d, setD] = useState(null);
   const [draft, setDraft] = useState({});
   const [size, setSize] = useState('');
-  const load = useCallback(() => call('/admin/feecat').then(x => { setD(x); setDraft(x.rules); setSize(x.leader?.risk?.maxPositionSol ?? ''); }).catch(e => toast.error(e.message)), [call]);
+  const [preset, setPreset] = useState('feecat');
+  const load = useCallback(() => call('/admin/feecat').then(x => { setD(x); setDraft(x.rules); setSize(x.leader?.risk?.maxPositionSol ?? ''); setPreset(x.strategyPreset || 'feecat'); }).catch(e => toast.error(e.message)), [call]);
   useEffect(() => { load(); }, [load]);
   if (!d) return <p className="cc-empty">Waking Fee up…</p>;
   const save = extra => call('/admin/feecat', { method: 'POST', body: JSON.stringify({ rules: draft, maxPositionSol: Number(size) || undefined, ...extra }) }).then(() => { toast.success(extra.action === 'run' ? 'Fee completed an intelligence cycle.' : 'Fee updated — applies on the next tick.'); load(); }).catch(e => toast.error(e.message));
   const running = d.leader?.status === 'running';
+  const choosePreset = id => { setPreset(id); setDraft(current => ({ ...current, ...FEE_PRESETS[id][2] })); };
+  const lastCycle = d.cat.lastTick ? Math.max(0, Math.round(Date.now() / 1000 - d.cat.lastTick)) : null;
   return <section className="cc-panel">
-    <div className="cc-kpis cc-kpis-5"><span><small>Status</small><b className={running ? 'positive' : 'negative'}>{running ? 'Trading' : 'Paused'}</b></span><span><small>Balance</small><b>{Number(d.cat.balanceSol || 0).toFixed(2)} SOL</b></span><span><small>Realized</small><b>{Number(d.cat.realizedPnlSol || 0).toFixed(3)}</b></span><span><small>Win rate</small><b>{d.cat.winRate ?? '—'}%</b></span><span><small>Lessons</small><b>{(d.learning?.missed || 0) + (d.learning?.good || 0)}</b></span></div>
+    <div className="cc-kpis cc-kpis-5"><span><small>Engine</small><b className={running && lastCycle != null && lastCycle < 90 ? 'positive' : 'negative'}>{running ? (lastCycle == null ? 'Starting' : `${lastCycle}s ago`) : 'Paused'}</b></span><span><small>Open</small><b>{d.cat.positions?.length || 0}</b></span><span><small>Balance</small><b>{Number(d.cat.balanceSol || 0).toFixed(2)} SOL</b></span><span><small>Realized</small><b>{Number(d.cat.realizedPnlSol || 0).toFixed(3)}</b></span><span><small>Win rate</small><b>{d.cat.winRate ?? '—'}%</b></span></div>
     <div className="cc-toolbar"><button type="button" className="btn-primary" onClick={() => save({ status: running ? 'paused' : 'running' })}>{running ? '⏸ Pause Fee' : '▶ Resume Fee'}</button><button type="button" disabled={!running} onClick={() => save({ action: 'run' })}>⚡ Run intelligence cycle</button><button type="button" onClick={() => window.confirm('Reset what Fee has learned? Exits go back to defaults.') && save({ resetLearning: true })}>Reset learning</button><a href="/terminal/feecat" target="_blank" rel="noopener noreferrer">Open Fee's profile ↗</a></div>
     <p className="cc-note">Tune Fee's brain. Every value is clamped to a safe range on the server — Fee can get more aggressive, never reckless. Changes are logged in the audit trail.</p>
     <div className="cc-block"><h4>FeeCat mechanics <Explain>Fee Cats are paper agents: balances and P/L are simulated, while prices, liquidity and market-cap snapshots are read live. They cannot sign, spend, bridge, or move real SOL. Every paper entry and exit applies the displayed 1% per-side model and creates an auditable event; Fee-Back rewards are planned, not active.</Explain></h4><p className="cc-note"><b>Trench Lord controls:</b> set hard entry/safety rules, a maximum simulated position size, pause/resume the engine, and run one live-data intelligence cycle. The audit trail records the rule engine, price and market-cap snapshots used for each trade.</p></div>
+    <div className="cc-block"><h4>Trading brain</h4><div className="fee-presets">{Object.entries(FEE_PRESETS).map(([id, [name, note]]) => <button type="button" key={id} className={preset === id ? 'active' : ''} onClick={() => choosePreset(id)}><b>{name}</b><small>{note}</small></button>)}</div><p className="cc-note">Smart dip adds happen once per position only inside the configured dip band, above the stop, and while 5-minute buyers still match or beat sellers.</p></div>
     <div className="cc-block"><h4>Entry + safety rules</h4><div className="fee-rules">{Object.keys(d.bounds).map(k => { const [lo, hi] = d.bounds[k]; return <label key={k}><span>{FEE_LABELS[k] || k}<em>{lo}–{hi}</em></span><input type="number" step="any" min={lo} max={hi} value={draft[k] ?? ''} onChange={e => setDraft(x => ({ ...x, [k]: e.target.value }))} /></label>; })}
       <label><span>Max SOL per trade<em>0.1–10</em></span><input type="number" step="0.1" value={size} onChange={e => setSize(e.target.value)} /></label></div>
-      <button type="button" className="btn-primary" onClick={() => save({})}>Save Fee's rules</button></div>
+      <button type="button" className="btn-primary" onClick={() => save({ strategyPreset: preset })}>Save {FEE_PRESETS[preset][0]} brain</button></div>
     {d.learning && <div className="cc-block"><h4>What Fee has learned</h4>{Object.entries(d.learning.params || {}).map(([k, v]) => <div key={k} className="cc-sig"><span>{k}</span><b>{v} <small className="cc-empty">(default {d.learning.defaults?.[k]})</small></b></div>)}</div>}
     <div className="cc-block"><h4>Recent paper audit</h4>{d.events?.length ? d.events.map(e => <div key={e.id} className="cc-sig"><span>{e.type} · {e.catName}</span><b>{e.type === 'SELL' ? `entry MC ${e.entryMarketCapUsd ? formatUSD(e.entryMarketCapUsd) : '—'} → exit ${e.marketCapUsd ? formatUSD(e.marketCapUsd) : '—'}` : e.marketCapUsd ? `entry MC ${formatUSD(e.marketCapUsd)}` : 'snapshot unavailable'}</b></div>) : <p className="cc-empty">No paper trade receipts yet.</p>}</div>
   </section>;

@@ -83,7 +83,7 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
     const load = () => fetch(apiUrl('/api/reputation/calls/recent?limit=100')).then(r => r.ok ? r.json() : { calls: [] }).then(d => {
       if (!alive) return;
       const next = {};
-      (d.calls || []).forEach(call => { next[call.pairAddress] = (next[call.pairAddress] || 0) + 1; });
+      (d.calls || []).forEach(call => { [...new Set([call.pairAddress, call.mint].filter(Boolean))].forEach(key => { next[key] = (next[key] || 0) + 1; }); });
       setCallCounts(next);
     }).catch(() => {});
     load(); const timer = setInterval(load, 8000);
@@ -147,7 +147,7 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
        key={pairKey(pair)}
        pair={pair}
        rank={index + 1}
-       callCount={callCounts[pair.pairAddress] || 0}
+       callCount={callCounts[pair.pairAddress] || callCounts[pair.baseToken?.address] || 0}
        onSelect={onSelect}
        onLogoExhausted={stage === 'new' ? () => setFailedNewLogos(previous => {
          const next = new Set(previous);

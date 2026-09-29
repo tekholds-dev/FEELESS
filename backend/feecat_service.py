@@ -147,6 +147,14 @@ async def _market_candidates(http):
                     pairs[p.get('pairAddress')] = p
             except Exception:
                 pass
+        # Include the launchpad-native Pump index on page one; safety and liquidity gates still
+        # decide whether Fee may enter. This prevents the engine from watching only older DEX lists.
+        try:
+            r = await http.get(MARKET_FEED.format(kind=kind, page=1) + '&scope=pump')
+            for p in (r.json() or {}).get('pairs') or []:
+                pairs[p.get('pairAddress')] = p
+        except Exception:
+            pass
     return list(pairs.values())
 
 
@@ -724,7 +732,8 @@ async def health():
 
 TUNABLE = {'minLiquidity': (10_000, 500_000), 'minVolume24h': (20_000, 5_000_000), 'minMarketCap': (20_000, 5_000_000), 'maxMarketCap': (500_000, 500_000_000),
            'minAgeHours': (0.5, 72), 'stopLoss': (-25, -4), 'takeProfit': (10, 80), 'maxHoldHours': (1, 24), 'maxPositions': (1, 8),
-           'maxTop10Pct': (15, 50), 'maxSnipers': (0, 40), 'maxBundled': (0, 20), 'maxM5Chase': (3, 20), 'breakEvenArm': (4, 20)}
+           'maxTop10Pct': (15, 50), 'maxSnipers': (0, 40), 'maxBundled': (0, 20), 'maxM5Chase': (3, 20), 'breakEvenArm': (4, 20),
+           'dipAddFrom': (-15, -1), 'dipAddTo': (-30, -3), 'dipAddFraction': (0.1, 1.0)}
 
 
 def _apply_overrides(store):
@@ -737,7 +746,7 @@ def _apply_overrides(store):
 async def internal_rules_get(request: Request):
     _internal(request)
     store = _load()
-    return {'rules': {k: RULES[k] for k in TUNABLE}, 'bounds': TUNABLE, 'overrides': store.get('rulesOverride') or {},
+    return {'rules': {k: RULES[k] for k in TUNABLE}, 'bounds': TUNABLE, 'overrides': store.get('rulesOverride') or {}, 'strategyPreset': store.get('strategyPreset', 'feecat'),
             'leader': {k: store['cats'][LEADER_ID].get(k) for k in ('status', 'risk')}}
 
 
@@ -758,6 +767,8 @@ async def internal_rules_set(request: Request):
         leader['risk']['maxPositionSol'] = max(0.1, min(10.0, float(body['maxPositionSol'])))
     if body.get('resetLearning'):
         leader.pop('learn', None)
+    if body.get('strategyPreset') in ('feecat', 'trench', 'meme', 'scalper'):
+        store['strategyPreset'] = body['strategyPreset']
     _apply_overrides(store)
     _save(store)
     return {'ok': True, 'rules': {k: RULES[k] for k in TUNABLE}, 'status': leader['status']}
@@ -783,7 +794,7 @@ async def cat_profile(cat_id: str):
     pnls = [e.get('pnlSol') for e in trades if e.get('pnlSol') is not None]
     return {
         'cat': {k: cat.get(k) for k in ('id', 'name', 'title', 'avatar', 'strategyLabel', 'level', 'xp', 'balanceSol', 'startingBalanceSol', 'realizedPnlSol',
-                                        'volumeSol', 'wins', 'losses', 'winRate', 'positions', 'pnlHistory', 'status')},
+                                        'volumeSol', 'wins', 'losses', 'winRate', 'positions', 'pnlHistory', 'status', 'lastTick')},
         'stats': {'trades': closed, 'best': max(pnls) if pnls else None, 'worst': min(pnls) if pnls else None,
                   'roiPct': round((cat.get('balanceSol', 0) + sum(p.get('costSol', 0) for p in cat.get('positions', [])) - cat.get('startingBalanceSol', 0)) / max(cat.get('startingBalanceSol', 1), 1e-9) * 100, 2)},
         'trades': trades[:80],

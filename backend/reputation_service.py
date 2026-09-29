@@ -1641,8 +1641,8 @@ async def _start_calls():
 
 
 @app.get('/api/reputation/calls/recent')
-async def recent_calls(room: Optional[str] = None, pair: Optional[str] = None, limit: int = Query(30, ge=1, le=100)):
-    calls = [_call_view(c) for c in _calls_load()['calls'].values() if (not room or c['room'].startswith(room)) and (not pair or c['pairAddress'] == pair)]
+async def recent_calls(room: Optional[str] = None, pair: Optional[str] = None, mint: Optional[str] = None, limit: int = Query(30, ge=1, le=100)):
+    calls = [_call_view(c) for c in _calls_load()['calls'].values() if (not room or c['room'].startswith(room)) and (not pair or c['pairAddress'] == pair) and (not mint or c.get('mint') == mint)]
     calls.sort(key=lambda c: -c['at'])
     return {'calls': calls[:limit]}
 
@@ -2757,6 +2757,15 @@ class BadgeLimits(BaseModel):
 async def badge_limits_admin_get(request: Request):
     _require_admin(request)
     return _badge_limits()
+
+
+@app.get('/api/reputation/admin/badges')
+async def badge_awards_admin_get(request: Request):
+    _require_admin(request)
+    d = _admin_load()
+    rows = [{'address': address, 'badges': list(items.values())} for address, items in d['badges'].items() if items]
+    rows.sort(key=lambda row: -max((b.get('at', 0) for b in row['badges']), default=0))
+    return {'rows': rows[:500], 'limits': _badge_limits(), 'wallets': len(rows), 'awards': sum(len(row['badges']) for row in rows)}
 
 
 @app.put('/api/reputation/admin/badges/limits')
@@ -4108,7 +4117,7 @@ async def admin_feecat_get(request: Request):
         r = await http.get('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()})
         prof = (await http.get('http://127.0.0.1:5088/api/cats/leader/profile')).json()
         activity = (await http.get('http://127.0.0.1:5088/api/cats/activity?catId=leader')).json()
-    return {**r.json(), 'learning': prof.get('learning'), 'stats': prof.get('stats'), 'events': (activity.get('events') or [])[:8], 'cat': {k: (prof.get('cat') or {}).get(k) for k in ('balanceSol', 'realizedPnlSol', 'winRate', 'status')}}
+    return {**r.json(), 'learning': prof.get('learning'), 'stats': prof.get('stats'), 'events': (activity.get('events') or [])[:8], 'cat': {k: (prof.get('cat') or {}).get(k) for k in ('balanceSol', 'realizedPnlSol', 'winRate', 'status', 'lastTick', 'positions')}}
 
 
 @app.post('/api/reputation/admin/feecat')
