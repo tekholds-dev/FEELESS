@@ -15,6 +15,7 @@ import { AdBanner } from '../AdBanner';
 import { RadarPanel } from '../command/MetaPanels';
 import { formatUSD, pairKey, coinIdentity, coinRoom, normalizeRoomPerspective, shortAddress, formatTime } from '../../lib/dexscreener';
 import { apiUrl } from '../../lib/api';
+import { useReputation } from '../../lib/reputation';
 
 export const LivePoolsPanel = ({ pairs = [], newPairs = [], onSelect }) => {
   const { data, loading, refreshing, error } = useMarket('/feed?kind=trending&chain=all&page=1', 15000);
@@ -70,6 +71,16 @@ const PumpRadarCallout = ({ pair }) => {
     <Link to="/terminal/pump">Open Pump Radar <ArrowUpRight size={11} /></Link>
     {calls.length > 0 && <div className="pump-chat-call-list">{calls.map(call => <span key={call.id}><Zap size={10} /><b>{call.caller}</b> called at {formatUSD(call.mcAtCall)} <small>{formatTime(call.at * 1000)}</small></span>)}</div>}
   </div>;
+};
+
+const TrenchCoinCard = ({ pair, callCount, onPick }) => {
+  const rep = useReputation(pair);
+  const pump = pair.launchpadId === 'pump' || String(pair.dexId || '').toLowerCase().includes('pump');
+  const reputable = rep && ['trusted', 'veteran', 'building'].includes(rep.badge) && Number(rep.score) >= 50;
+  const showBolt = reputable && (pump || callCount > 0);
+  return <button className="trenches-coin" data-testid={`trenches-coin-${pairKey(pair)}`} onClick={onPick}>
+    <TokenAvatar pair={pair} size={38} /><span><b>{pair.baseToken?.symbol || 'Unknown'}{showBolt && <i className="pink-bolt" title={callCount ? `${callCount} tracked callout${callCount === 1 ? '' : 's'} · reputation ${rep.score}` : `Pump top coin · reputation ${rep.score}`}><Zap size={12} />{callCount || ''}</i>}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId} · {pair.dexId}</small><small>LIQ {formatUSD(pair.liquidity?.usd)} · MC {formatUSD(pair.marketCap)}</small><ReputationBadge pair={pair} compact /></span><Change value={pair.priceChange?.h24} />
+  </button>;
 };
 
 export const ChatRoom = ({ large = false, pairs = [], newPairs = [], onSelect, selectedPair = null, selectedPerspective = null, onPerspectiveChange, onConnect }) => {
@@ -138,7 +149,7 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair
       <section className="trenches-chart-panel"><div className="section-title"><h2><CandlestickChart size={18} />DEX chart</h2><span className="provider-note">Jupiter · OHLCV</span></div>{chartPair ? <TokenFocus pair={chartPair} has={has} toggle={toggle} defaultInterval="1m" onExpand={() => setWide(w => !w)} expanded={wide} /> : <div className="truth-empty" data-testid="trenches-chart-empty"><CandlestickChart size={28} /><span>Select a provider-indexed coin to open its chart.</span></div>}</section>
       <aside className="trenches-tools"><HotCalls onPick={pickCall} /><LiveCalls onPick={pickCall} /><CallerBoard /></aside>
     </div>
-    <section className="trenches-stages trenches-stage-panel" data-testid="trenches-stage-panel"><div className="section-title"><h2><Layers3 size={18} />Coin viewer</h2><span className="provider-note">Liquidity · market cap first</span></div><div className="trenches-stage-tabs">{[['new', 'New coins'], ['graduated', 'Graduated'], ['trending', 'Trending coins'], ['watchlist', 'Watchlist']].map(([id, label]) => <button key={id} className={stage === id ? 'active' : ''} data-testid={`trenches-stage-${id}`} onClick={() => setStage(id)}>{label}<small>{id === 'graduated' && !graduated.length ? 'unavailable' : stagePairs.length}</small></button>)}</div><div className="trenches-coin-grid">{stagePairs.slice(0, 6).map(pair => { const calls = callCounts[pair.pairAddress] || 0; const pump = pair.launchpadId === 'pump' || String(pair.dexId || '').toLowerCase().includes('pump'); return <button className="trenches-coin" key={pairKey(pair)} data-testid={`trenches-coin-${pairKey(pair)}`} onClick={() => { selectPair(pair); onSelect?.(pair); }}><TokenAvatar pair={pair} size={38} /><span><b>{pair.baseToken?.symbol || 'Unknown'}{(pump || calls > 0) && <i className="pink-bolt" title={calls ? `${calls} tracked callout${calls === 1 ? '' : 's'}` : 'Pump top coin'}><Zap size={12} />{calls || ''}</i>}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId} · {pair.dexId}</small><small>LIQ {formatUSD(pair.liquidity?.usd)} · MC {formatUSD(pair.marketCap)}</small><ReputationBadge pair={pair} compact /></span><Change value={pair.priceChange?.h24} /></button>; })}</div>{!stagePairs.length && <div className="truth-empty" data-testid={`trenches-${stage}-empty`}>{stage === 'graduated' ? 'Graduation status is unavailable in the current provider feed.' : `No ${stage} coins are available in this ecosystem snapshot.`}</div>}</section>
+    <section className="trenches-stages trenches-stage-panel" data-testid="trenches-stage-panel"><div className="section-title"><h2><Layers3 size={18} />Coin viewer</h2><span className="provider-note">Liquidity · market cap first</span></div><div className="trenches-stage-tabs">{[['new', 'New coins'], ['graduated', 'Graduated'], ['trending', 'Trending coins'], ['watchlist', 'Watchlist']].map(([id, label]) => <button key={id} className={stage === id ? 'active' : ''} data-testid={`trenches-stage-${id}`} onClick={() => setStage(id)}>{label}<small>{id === 'graduated' && !graduated.length ? 'unavailable' : stagePairs.length}</small></button>)}</div><div className="trenches-coin-grid">{stagePairs.slice(0, 6).map(pair => <TrenchCoinCard key={pairKey(pair)} pair={pair} callCount={callCounts[pair.pairAddress] || 0} onPick={() => { selectPair(pair); onSelect?.(pair); }} />)}</div>{!stagePairs.length && <div className="truth-empty" data-testid={`trenches-${stage}-empty`}>{stage === 'graduated' ? 'Graduation status is unavailable in the current provider feed.' : `No ${stage} coins are available in this ecosystem snapshot.`}</div>}</section>
   </div>;
 };
 

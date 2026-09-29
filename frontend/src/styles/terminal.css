@@ -965,7 +965,7 @@ body.theme-day .reputation-badge.badge-building,body.theme-day .reputation-badge
 .pump-radar-price-row>strong{font:14px 'JetBrains Mono',monospace;color:#d5e9db;margin-right:auto}
 .pump-radar-price-row>.positive,.pump-radar-price-row>.negative{display:flex;align-items:center;gap:3px;font:9px 'JetBrains Mono',monospace}
 .pump-radar-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
-.pump-radar-metrics span{display:flex;flex-direction:column;gap:5px;min-width:0}
+.pump-radar-metrics>span{display:flex;flex-direction:column;gap:5px;min-width:0}
 .pump-radar-metrics small{color:#6e927b;font:7px 'JetBrains Mono',monospace}
 .pump-radar-metrics b{color:#b9d8c2;font:9px 'JetBrains Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pump-radar-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:13px;color:#4fae78;font-size:8px}

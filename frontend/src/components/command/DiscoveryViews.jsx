@@ -14,6 +14,7 @@ import { useLiveTokenMarkets, withLiveMarket } from '../../lib/liveTokens';
 import { LivePrice, LiveChange24, LiveMarketCap } from '../terminal/LiveCells';
 import { formatUSD, formatAge, formatTime, pairKey, hasProviderImage } from '../../lib/dexscreener';
 import { matchesPad } from '../../lib/launchpads';
+import { useReputation } from '../../lib/reputation';
 
 export const RadarView = ({ pairs, onSelect, kind = 'pump' }) => {
   useClock(10000); const { ecosystem } = useWorkspace();
@@ -43,6 +44,9 @@ const PUMP_RADAR_STAGES = [
 const formatPoolAddress = address => address.length > 12 ? `${address.slice(0, 6)}…${address.slice(-4)}` : address;
 
 export const PumpRadarCard = ({ pair, onSelect, rank, onLogoExhausted, callCount = 0 }) => {
+  const rep = useReputation(pair);
+  const reputable = rep && ['trusted', 'veteran', 'building'].includes(rep.badge) && Number(rep.score) >= 50;
+  const showBolt = reputable && (rank <= 3 || callCount > 0);
   const change = Number(pair.priceChange?.h24);
   const momentum = pair.priceChange?.m5 ?? pair.priceChange?.h1;
   const signal = Number.isFinite(Number(pair.signals?.velocity_pct_min))
@@ -60,7 +64,7 @@ export const PumpRadarCard = ({ pair, onSelect, rank, onLogoExhausted, callCount
     onSelect(pair);
   };
   return <article ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave} className="pump-radar-card tilt-card" data-testid={`pump-radar-card-${pairKey(pair)}`} onClick={activate} onKeyDown={handleKeyDown} role="button" tabIndex="0" aria-label={`Open ${pair.baseToken?.symbol || 'token'} market`}>
-     <div className="pump-radar-card-top"><span className="pump-radar-rank">{String(rank).padStart(2, '0')}</span><span className="pink-bolt" title={callCount ? `${callCount} tracked callout${callCount === 1 ? '' : 's'}` : 'Pump top coin'}><Zap size={14} />{callCount || ''}</span><TokenAvatar pair={pair} size={38} maxAttempts={onLogoExhausted ? 3 : undefined} onExhausted={onLogoExhausted} /><span className="pump-radar-token"><b>{pair.baseToken?.symbol || 'Unknown'}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId || 'chain unavailable'} · {pair.dexId || 'venue unavailable'}</small></span><span className="pump-radar-alive" title="Live price stream and provider list refresh"><i />LIVE</span><span className="pump-radar-age">{formatAge(pair.pairCreatedAt)}</span></div>
+     <div className="pump-radar-card-top"><span className="pump-radar-rank">{String(rank).padStart(2, '0')}</span>{showBolt && <span className="pink-bolt" title={callCount ? `${callCount} tracked callout${callCount === 1 ? '' : 's'} · reputation ${rep.score}` : `Top 3 · reputation ${rep.score}`}><Zap size={14} />{callCount || ''}</span>}<TokenAvatar pair={pair} size={38} maxAttempts={onLogoExhausted ? 3 : undefined} onExhausted={onLogoExhausted} /><span className="pump-radar-token"><b>{pair.baseToken?.symbol || 'Unknown'}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId || 'chain unavailable'} · {pair.dexId || 'venue unavailable'}</small></span><span className="pump-radar-alive" title="Live price stream and provider list refresh"><i />LIVE</span><span className="pump-radar-age">{formatAge(pair.pairCreatedAt)}</span></div>
     <div className="pump-radar-price-row"><span className="pump-radar-value-block"><small>PRICE</small><strong><LivePrice pair={pair} precise /></strong></span><LiveChange24 pair={pair} id={`pump-radar-change-${pairKey(pair)}`} /><span className={change >= 0 ? 'positive' : 'negative'}><Activity size={11} />{signal}</span></div>
     <div className="pump-radar-reputation-row"><ReputationBadge pair={pair} /></div>
     <div className="pump-radar-metrics"><span><small>LIQUIDITY</small><FlashValue raw={pair.liquidity?.usd}><b>{formatUSD(pair.liquidity?.usd)}</b></FlashValue></span><span><small>MARKET CAP · LIVE</small><b><LiveMarketCap pair={pair} /></b></span><span><small>24H VOL</small><FlashValue raw={pair.volume?.h24}><b>{formatUSD(pair.volume?.h24)}</b></FlashValue></span></div>
