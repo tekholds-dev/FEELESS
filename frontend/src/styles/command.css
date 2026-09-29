@@ -269,3 +269,9 @@ body.theme-day .eco-chart{background:#fff;border-color:#9fd3b6}body.theme-day .e
 .paper-event-mc{display:block;margin-top:5px;font:10px 'JetBrains Mono',monospace;color:#a7cdb5}
 .paper-event-share{grid-column:2/-1;justify-self:start;padding:5px 10px!important;font-size:10.5px!important;min-height:0!important}
 .wp-report{display:inline-flex;align-items:center;gap:6px}
+
+/* War room: chart sits at the top of the tools column and stays usable in every layout. */
+.eco-layout-chat-first .eco-world-grid{grid-template-columns:minmax(0,1.2fr) minmax(380px,.9fr)}
+.eco-layout-feed-first .eco-world-grid{grid-template-columns:minmax(380px,.9fr) minmax(0,1.2fr)}
+.eco-right-col>.eco-chart{margin-bottom:12px}
+.eco-layout-balanced .eco-chart .candle-canvas,.eco-layout-chat-first .eco-chart .candle-canvas,.eco-layout-feed-first .eco-chart .candle-canvas{height:clamp(260px,34vh,420px)!important}
