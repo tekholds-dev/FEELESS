@@ -3644,3 +3644,40 @@ body.theme-day .degen-weather{background:#f2fbf6}body.theme-day .dw-says{color:#
 .xp-cover.has-img{width:100%!important;aspect-ratio:auto!important;height:clamp(150px,calc((100vw - 260px) / 3),440px)!important;max-height:none!important}
 .xp-cover.has-img img{object-fit:cover;object-position:center 40%}
 @media (max-width:900px){.xp-cover.has-img{height:clamp(120px,calc(100vw / 3),300px)!important}}
+
+/* ==== Trade page: Top 10 on Pump | swap | receipt ==== */
+.trade-main{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start}
+@media (min-width:1180px){.trade-main{grid-template-columns:300px minmax(0,1fr)}}
+.trade-center{min-width:0}
+.top-pump{position:sticky;top:12px;border:1px solid var(--royal-edge,rgba(18,192,122,.22));border-radius:18px;background:linear-gradient(170deg,rgba(18,192,122,.07),rgba(10,17,16,.96) 40%);padding:12px;animation:royalIn .35s ease both}
+.top-pump header{display:flex;justify-content:space-between;align-items:center;margin:2px 4px 10px}.top-pump header span{display:inline-flex;gap:6px;align-items:center;font-weight:800;font-size:14px}.top-pump header svg{color:#ff9a4d}
+.top-pump header small{display:inline-flex;gap:5px;align-items:center;font:700 10px 'JetBrains Mono',monospace;color:var(--royal-hi,#3ee39c)}
+.top-pump ol{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.top-pump li{animation:royalIn .35s ease both}.top-pump li:nth-child(n+2){animation-delay:.03s}.top-pump li:nth-child(n+4){animation-delay:.06s}.top-pump li:nth-child(n+7){animation-delay:.09s}
+.top-pump li button{width:100%;display:grid;grid-template-columns:18px 30px minmax(0,1fr) auto;gap:9px;align-items:center;padding:7px 8px;border-radius:12px;border:1px solid transparent;background:transparent;color:inherit;text-align:left;cursor:pointer;transition:background .15s,border-color .15s,transform .15s}
+.top-pump li button:hover{background:rgba(18,192,122,.08);border-color:rgba(62,227,156,.35);transform:translateX(2px)}
+.top-pump em{font:700 11px 'JetBrains Mono',monospace;font-style:normal;color:var(--muted);text-align:center}
+.tp-name{display:grid;min-width:0}.tp-name b{font-size:13px;display:flex;align-items:center;gap:3px;overflow:hidden;white-space:nowrap}.tp-name small{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp-moves{display:grid;justify-items:end;gap:1px;font-size:12px}.tp-moves small{font-size:10px;color:var(--muted);white-space:nowrap}
+.top-pump-empty{font-size:12px;color:var(--muted);margin:8px 4px}
+@media (max-width:1179px){.top-pump{position:static}.top-pump ol{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}}
+/* swap + receipt side by side on wide screens (receipt was absolutely positioned before) */
+@media (min-width:1800px){.swap-desk{grid-template-columns:minmax(0,480px) 290px!important;justify-content:start}.swap-desk>.receipt-preview{position:static!important;grid-column:2;grid-row:1;align-self:start;margin-top:0}.swap-desk>details.route-intelligence{grid-column:1}}
+.trade-simple .receipt-preview{position:static}
+/* token picker: never clipped, animated, wallet group */
+.swap-order.jup-card{overflow:visible!important}
+.jup-card .tkp-pop{z-index:200;width:min(380px,calc(100vw - 32px));transform-origin:top left;animation:tkpDrop .18s cubic-bezier(.2,.8,.2,1) both}
+@keyframes tkpDrop{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
+.jup-card .tkp-list{max-height:min(360px,55vh)}
+.tkp-group{padding:8px 10px 4px;font:700 9.5px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--royal-hi,#3ee39c)}
+.tkp-mine code{color:var(--text,#e8f3ec)!important;font-weight:700}
+.jup-bal{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}.jup-bal button{padding:2px 7px;border-radius:6px;border:1px solid rgba(62,227,156,.4);background:transparent;color:var(--royal-hi,#3ee39c);font:700 10px 'JetBrains Mono',monospace;cursor:pointer}.jup-bal button:hover{background:rgba(18,192,122,.12)}
+.jup-panel{transition:border-color .15s,background .2s}.jup-out{transition:color .2s}
+.jup-card .btn-primary{transition:transform .15s,box-shadow .2s,filter .2s}.jup-card .btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 14px 34px -14px rgba(18,192,122,.7);filter:brightness(1.05)}
+body.theme-day .top-pump{background:#fff}
+/* Trade page width: room for Top 10 + swap (+ receipt column on very wide screens). */
+@media (min-width:1180px){.trade-simple{max-width:1120px!important}.trade-main{grid-template-columns:300px minmax(0,1fr)}.trade-center .trade-desk{max-width:560px}}
+@media (min-width:1800px){.trade-simple{max-width:1440px!important}.trade-center .trade-desk{max-width:860px}}
+@media (min-width:1280px){.trade-simple .receipt-preview{position:static!important;left:auto!important;width:auto!important}}
+@media (max-width:1799px){.swap-desk{grid-template-columns:minmax(0,480px)!important}.swap-desk>.receipt-preview{grid-column:1!important;grid-row:auto!important}}
+@media (min-width:1800px){.swap-desk{grid-template-columns:minmax(0,480px) 290px!important}}

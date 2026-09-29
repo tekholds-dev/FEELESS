@@ -6,7 +6,7 @@ import { ChevronDown, Lock, Search } from 'lucide-react';
 // token the router can't actually fill. EVM trades live in the Trade Desk (LI.FI).
 const NETWORKS = [['solana', 'Solana', true], ['ethereum', 'Ethereum'], ['base', 'Base'], ['bsc', 'BNB'], ['arbitrum', 'Arbitrum']];
 
-export function TokenPicker({ label, value, options, onChange, onPickRemote, disabled, testId }) {
+export function TokenPicker({ label, value, options, onChange, onPickRemote, holdings = [], disabled, testId }) {
   const [open, setOpen] = useState(false);
   const [net, setNet] = useState('solana');
   const [q, setQ] = useState('');
@@ -32,6 +32,9 @@ export function TokenPicker({ label, value, options, onChange, onPickRemote, dis
   const live = NETWORKS.find(n => n[0] === net)?.[2];
   const needle = q.trim().toLowerCase();
   const rows = live ? options.filter(o => (o.chain || 'solana') === 'solana' && (!needle || `${o.symbol} ${o.name} ${o.mint}`.toLowerCase().includes(needle))) : [];
+  // Your coins first: wallet holdings matching the search, by USD value.
+  const mine = holdings.filter(h => !needle || `${h.symbol} ${h.name} ${h.mint}`.toLowerCase().includes(needle)).slice(0, 8);
+  const pickMine = h => { if (options.some(o => o.mint === h.mint)) onChange(h.mint); else onPickRemote?.(h); setOpen(false); setQ(''); };
   return <div className="tkp" ref={box}>
     {label && <small>{label}</small>}
     <button type="button" className="tkp-btn" data-testid={testId} disabled={disabled} aria-expanded={open} onClick={() => setOpen(o => !o)}>
@@ -41,7 +44,9 @@ export function TokenPicker({ label, value, options, onChange, onPickRemote, dis
       <nav>{NETWORKS.map(([id, name, ok]) => <button key={id} type="button" className={`${net === id ? 'on' : ''} ${ok ? '' : 'locked'}`} onClick={() => setNet(id)} title={ok ? name : `${name}: swap on the Trade Desk`}>{!ok && <Lock size={10} />}{name}</button>)}</nav>
       {live ? <>
         <div className="tkp-search"><Search size={13} /><input autoFocus aria-label="Filter tokens" placeholder="Search name, $ticker or contract" value={q} onChange={e => setQ(e.target.value)} /></div>
-        <div className="tkp-list">{rows.map(o => <button key={o.mint} type="button" role="option" aria-selected={o.mint === value} className={o.mint === value ? 'sel' : ''} onClick={() => { onChange(o.mint); setOpen(false); setQ(''); }}>
+        <div className="tkp-list">{mine.length > 0 && <><div className="tkp-group">In your wallet</div>{mine.map(h => <button key={`w-${h.mint}`} type="button" role="option" aria-selected={h.mint === value} className={`tkp-mine ${h.mint === value ? 'sel' : ''}`} onClick={() => pickMine(h)}>
+          {avatar(h)}<b>{h.symbol}</b><em>{Number(h.amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}</em><code>{h.usd != null ? `$${Number(h.usd).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—'}</code>
+        </button>)}<div className="tkp-group">All coins</div></>}{rows.filter(o => !mine.some(h => h.mint === o.mint)).map(o => <button key={o.mint} type="button" role="option" aria-selected={o.mint === value} className={o.mint === value ? 'sel' : ''} onClick={() => { onChange(o.mint); setOpen(false); setQ(''); }}>
           {avatar(o)}<b>{o.symbol}</b><em>{o.name}</em><code>{o.mint.slice(0, 4)}…{o.mint.slice(-4)}</code>
         </button>)}{remote.filter(t => !rows.some(o => o.mint === t.mint)).map(t => <button key={`r-${t.mint}`} type="button" role="option" aria-selected={false} onClick={() => { onPickRemote(t); setOpen(false); setQ(''); }}>
           {avatar(t)}<b>{t.symbol}{t.verified && <span className="tkp-ok" title="Verified by Jupiter"> ✓</span>}</b><em>{t.name}</em><code>{t.liquidity ? `liq $${Math.round(t.liquidity).toLocaleString()}` : `${t.mint.slice(0, 4)}…${t.mint.slice(-4)}`}</code>

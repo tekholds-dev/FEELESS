@@ -133,6 +133,39 @@ class TradingService:
             result = await self.rpc('getBalance', [valid_key(wallet), {'commitment': 'confirmed'}])
             return {'lamports': result['value'], 'slot': result['context']['slot'], 'source': 'Solana RPC'}
 
+        @router.get('/holdings/{wallet}')
+        async def holdings(wallet: str):
+            """Coins in the wallet (SOL + SPL + Token-2022), with symbol/icon/USD value from Jupiter,
+            sorted by value — used to show "your coins first" in the swap picker."""
+            valid_key(wallet)
+            sol = await self.rpc('getBalance', [wallet, {'commitment': 'confirmed'}])
+            amounts = {'So11111111111111111111111111111111111111112': sol['value'] / 1e9}
+            for program in ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'):
+                res = await self.rpc('getTokenAccountsByOwner', [wallet, {'programId': program}, {'encoding': 'jsonParsed', 'commitment': 'confirmed'}])
+                for row in (res or {}).get('value', []):
+                    info = (((row.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
+                    ui = float((info.get('tokenAmount') or {}).get('uiAmount') or 0)
+                    if ui > 0 and info.get('mint'):
+                        amounts[info['mint']] = amounts.get(info['mint'], 0) + ui
+            mints = list(amounts)[:100]
+            meta = {}
+            if mints and os.environ.get('JUPITER_API_KEY'):
+                try:
+                    async with httpx.AsyncClient(timeout=12) as http:
+                        r = await http.get(JUPITER_API_URL + '/tokens/v2/search', params={'query': ','.join(mints)},
+                                           headers={'x-api-key': os.environ['JUPITER_API_KEY']})
+                        meta = {t.get('id'): t for t in (r.json() or []) if isinstance(t, dict)}
+                except (httpx.HTTPError, ValueError):
+                    meta = {}
+            out = []
+            for mint in mints:
+                t = meta.get(mint) or {}
+                price = t.get('usdPrice')
+                out.append({'mint': mint, 'symbol': t.get('symbol') or mint[:4], 'name': t.get('name') or '', 'icon': t.get('icon'),
+                            'amount': amounts[mint], 'usd': round(amounts[mint] * price, 2) if price else None, 'verified': bool(t.get('isVerified'))})
+            out.sort(key=lambda x: -(x['usd'] or 0))
+            return {'wallet': wallet, 'tokens': out, 'source': 'Solana RPC + Jupiter tokens'}
+
         @router.post('/quote')
         async def quote(body: QuoteIn, request: Request):
             self.require_configured()

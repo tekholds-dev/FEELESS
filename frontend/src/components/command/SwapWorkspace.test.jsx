@@ -53,6 +53,15 @@ afterEach(() => {
   mockWalletState.provider = null;
 });
 
+// Wallet-holdings requests (swap picker "your coins") are answered separately and left out of call-order checks.
+const scripted = (...responses) => {
+  const queue = [...responses];
+  return jest.fn(url => (String(url).includes('/holdings/')
+    ? Promise.resolve({ ok: false, json: async () => ({}) })
+    : Promise.resolve(queue.shift())));
+};
+const tradeCalls = () => global.fetch.mock.calls.filter(([url]) => !String(url).includes('/holdings/'));
+
 test('restores a saved submitted order and checks its status without storing transaction data', async () => {
   const orderId = 'a'.repeat(36);
   localStorage.setItem('feeless.pending-swap-order', JSON.stringify({ order_id: orderId }));
@@ -92,11 +101,11 @@ test('offers a safe status retry when saved-order recovery is temporarily unavai
   expect(container.querySelector('[data-testid="swap-retry-recovery"]')).not.toBeNull();
   expect(container.querySelector('[data-testid="swap-fresh-order"]')).not.toBeNull();
   expect(JSON.parse(localStorage.getItem('feeless.pending-swap-order'))).toEqual({ order_id: orderId });
-  expect(global.fetch).toHaveBeenNthCalledWith(1, `/api/trading/order/${orderId}`, {});
+  expect(tradeCalls()[0]).toEqual([`/api/trading/order/${orderId}`, {}]);
 
   await act(async () => container.querySelector('[data-testid="swap-retry-recovery"]').click());
 
-  expect(global.fetch).toHaveBeenNthCalledWith(2, `/api/trading/order/${orderId}`, {});
+  expect(tradeCalls()[1]).toEqual([`/api/trading/order/${orderId}`, {}]);
   expect(global.fetch.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
   expect(container.querySelector('[data-testid="swap-result"] b').textContent).toBe('CONFIRMED');
   expect(localStorage.getItem('feeless.pending-swap-order')).toBeNull();
@@ -147,13 +156,11 @@ test('keeps an uncertain execution pending across reopen without resending the s
   VersionedTransaction.deserialize.mockReturnValue({
     message: { staticAccountKeys: [{ toBase58: () => walletAddress }] },
   });
-  global.fetch = jest.fn()
-    .mockResolvedValueOnce({ ok: true, json: async () => quote })
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, broadcast: false }) })
-    .mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ order_id: orderId, state: 'submitted', signature: 'sig-uncertain' }),
-    });
+  global.fetch = scripted(
+    { ok: true, json: async () => quote },
+    { ok: true, json: async () => ({ success: true, broadcast: false }) },
+    { ok: true, json: async () => ({ order_id: orderId, state: 'submitted', signature: 'sig-uncertain' }) },
+  );
 
   const firstMount = mount({ feeAsset });
   await act(async () => firstMount.container.querySelector('[data-testid="swap-get-quote"]').click());
@@ -161,37 +168,31 @@ test('keeps an uncertain execution pending across reopen without resending the s
   await act(async () => firstMount.container.querySelector('[data-testid="swap-approve-wallet"]').click());
 
   expect(provider.signTransaction).toHaveBeenCalledTimes(1);
-  expect(global.fetch).toHaveBeenNthCalledWith(
-    3,
+  expect(tradeCalls()[2]).toEqual([
     '/api/trading/execute',
     expect.objectContaining({ method: 'POST', body: expect.stringContaining(orderId) }),
-  );
+  ]);
   expect(firstMount.container.querySelector('[data-testid="swap-result"] b').textContent).toBe('SUBMITTED');
   expect(JSON.parse(localStorage.getItem('feeless.pending-swap-order'))).toEqual({ order_id: orderId });
   expect(localStorage.getItem('feeless.pending-swap-order')).not.toContain('signed_transaction');
   expect(localStorage.getItem('feeless.pending-swap-order')).not.toContain('AQIDBA==');
   act(() => firstMount.root.unmount());
 
-  global.fetch = jest.fn()
-    .mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ order_id: orderId, state: 'submitted', signature: 'sig-uncertain' }),
-    })
-    .mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ order_id: orderId, state: 'submitted', signature: 'sig-uncertain' }),
-    });
+  global.fetch = scripted(
+    { ok: true, json: async () => ({ order_id: orderId, state: 'submitted', signature: 'sig-uncertain' }) },
+    { ok: true, json: async () => ({ order_id: orderId, state: 'submitted', signature: 'sig-uncertain' }) },
+  );
   const reopened = mount({ feeAsset });
   await act(async () => {});
 
-  expect(global.fetch).toHaveBeenNthCalledWith(1, `/api/trading/order/${orderId}`, {});
+  expect(tradeCalls()[0]).toEqual([`/api/trading/order/${orderId}`, {}]);
   expect(reopened.container.querySelector('[data-testid="swap-result"] b').textContent).toBe('SUBMITTED');
   expect(reopened.container.querySelector('[data-testid="swap-check-status"]')).not.toBeNull();
   expect(reopened.container.querySelector('[data-testid="swap-status-message"]').textContent).toContain('Nothing was resubmitted');
 
   await act(async () => reopened.container.querySelector('[data-testid="swap-check-status"]').click());
 
-  expect(global.fetch).toHaveBeenNthCalledWith(2, `/api/trading/order/${orderId}`, {});
+  expect(tradeCalls()[1]).toEqual([`/api/trading/order/${orderId}`, {}]);
   expect(global.fetch.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
   expect(provider.signTransaction).toHaveBeenCalledTimes(1);
   act(() => reopened.root.unmount());

@@ -6,6 +6,7 @@ import { apiUrl } from '../../lib/api';
 import { EdgeScore } from '../terminal/EdgeScore';
 import { useMarket } from '../../hooks/useMarket';
 import { lifiQuote, lifiFeelessFee } from '../../lib/lifiFee';
+import { TopPumpCoins } from './TopPumpCoins';
 
 // The trade desk: Swap (the existing Jupiter/LI.FI flows), Bridge (any EVM chain -> any EVM chain)
 // and Get Gas (turn what you hold on one chain into gas on another). Non-custodial throughout:
@@ -166,7 +167,7 @@ export function SimpleTrade({ swap, pair }) {
   const found = needLookup ? (data?.pairs || []).filter(p => p.baseToken?.address === target).sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0] : null;
   const edgePair = needLookup ? found : pair;
   return <div className="trade-simple" data-testid="trade-simple">
-    <TradeDesk swap={swap} />
+    <div className="trade-main"><TopPumpCoins /><div className="trade-center"><TradeDesk swap={swap} /></div></div>
     <StatusStrip />
     {edgePair && <section className="td-edge" data-testid="trade-edge"><h3>FEELESS Edge score · ${edgePair.baseToken?.symbol || 'this coin'}</h3><EdgeScore pair={edgePair} /></section>}
     <div className="td-info">
