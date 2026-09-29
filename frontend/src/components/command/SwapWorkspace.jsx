@@ -70,7 +70,10 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
     return () => document.body.style.removeProperty('--swap-review-readable-scale');
   }, [reviewScale]);
   const [found, setFound] = useState([]);   // tokens picked from search join the pickers
-  const options = [...assetOptions(feeAssets, pair), ...found.filter(t => !assetOptions(feeAssets, pair).some(o => o.mint === t.mint))];
+  const options = useMemo(() => {
+    const base = assetOptions(feeAssets, pair);
+    return [...base, ...found.filter(t => !base.some(o => o.mint === t.mint))];
+  }, [feeAssets, pair, found]);
   const selectedPairAsset = assetFromPair(pair);
   const [inputMint, setInputMint] = useState(SOL);
   const [outputMint, setOutputMint] = useState(selectedPairAsset?.mint || feeAsset?.mint || SOL);

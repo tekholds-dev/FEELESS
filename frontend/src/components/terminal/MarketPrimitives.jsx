@@ -2,6 +2,7 @@ import { AnimatedNumber } from './AnimatedNumber';
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, Coins, RefreshCw, UserRound } from 'lucide-react';
 import { formatPct, formatUSD, formatTime, shortAddress } from '../../lib/dexscreener';
+import { useReputation } from '../../lib/reputation';
 
 const isImageSource = value => typeof value === 'string' && (/^https?:\/\//i.test(value) || /^data:image\//i.test(value));
 
@@ -127,7 +128,10 @@ export function getCreatorProfile(pair) {
 }
 
 export const CreatorProfile = ({ pair, compact = false }) => {
-  const creator = getCreatorProfile(pair);
+  const observed = useReputation(pair);
+  // Providers regularly omit creator metadata. Fall back to FEELESS's observed on-chain identity
+  // so a resolved mint authority / launch payer replaces the permanent loading label.
+  const creator = getCreatorProfile(pair) || (observed?.creator ? { name: observed.creator, address: observed.creator } : null);
   if (!creator) return <span className={`creator-profile pending ${compact ? 'compact' : ''}`} data-testid="creator-profile-pending"><UserRound size={compact ? 12 : 15} /><span>Finding creator…</span></span>;
   return <span className={`creator-profile ${compact ? 'compact' : ''}`} data-testid="creator-profile"><span className="creator-avatar">{creator.imageUrl ? <img src={creator.imageUrl} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} /> : <UserRound size={compact ? 12 : 15} />}</span><span><b>{creator.name}</b>{creator.address && <small>{shortAddress(creator.address)}</small>}</span>{creator.url && <a href={creator.url} target="_blank" rel="noreferrer">↗</a>}</span>;
 };

@@ -6,20 +6,22 @@ const RECENT_KEY = 'feeless:recent-searches';
 const readRecent = () => { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]').slice(0, 6); } catch { return []; } };
 const pushRecent = item => { try { const next = [item, ...readRecent().filter(r => r.href !== item.href)].slice(0, 6); localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch { /* ignore */ } };
 // Coin search ranked for relevance: FEELESS assets first, exact $SYMBOL matches, then real volume.
-const ALIASES = { btc: ['WBTC', 'cbBTC', 'BTC'], bitcoin: ['WBTC', 'cbBTC'], eth: ['WETH', 'ETH'], ethereum: ['WETH'], sol: ['SOL'], solana: ['SOL'], usdc: ['USDC'], usdt: ['USDT'] };
+const ALIASES = { btc: ['WBTC', 'cbBTC', 'BTC'], bitcoin: ['WBTC', 'cbBTC'], eth: ['WETH', 'ETH'], ethereum: ['WETH'], sol: ['SOL'], solana: ['SOL'], usdc: ['USDC'], usdt: ['USDT'], feeless: ['FEE'], fee: ['FEE'], feecat: ['FEECAT'], rfee: ['RFEE'] };
 let feeAssets = null;
 // Coins are scoped to the network you're on: a Solana search never returns Base pairs.
 async function searchCoins(q, chainId) {
   const ql = q.toLowerCase();
   if (!feeAssets) feeAssets = fetch('/api/market/assets').then(r => r.json()).then(d => d.assets || []).catch(() => []);
   const assets = await feeAssets;
-  const own = assets.filter(a => a.pair && (a.id.includes(ql) || String(a.label || '').toLowerCase().includes(ql) || String(a.pair.baseToken?.symbol || '').toLowerCase().startsWith(ql))).map(a => ({ ...a.pair, info: a.pair.info || { imageUrl: a.logo }, _own: true }));
+  const officialTerms = new Set([ql, ...(ALIASES[ql] || []).map(x => x.toLowerCase())]);
+  // Official ecosystem assets always appear first, even if the viewer is currently on another network.
+  const own = assets.filter(a => a.pair && ([a.id, a.label, a.pair.baseToken?.symbol, a.pair.baseToken?.name].some(v => officialTerms.has(String(v || '').toLowerCase()) || String(v || '').toLowerCase().includes(ql)))).map(a => ({ ...a.pair, info: a.pair.info || { imageUrl: a.logo }, _own: true }));
   const terms = [q, ...(ALIASES[ql] || [])].slice(0, 3);
   const lists = await Promise.all(terms.map(t => fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(t)}`).then(r => r.json()).then(d => d.pairs || []).catch(() => [])));
   const wanted = new Set([ql, ...(ALIASES[ql] || []).map(x => x.toLowerCase())]);
   const score = p => { const sym = String(p.baseToken?.symbol || '').toLowerCase(); const name = String(p.baseToken?.name || '').toLowerCase(); return (p._own ? 1e15 : 0) + (wanted.has(sym) ? 1e12 : sym.startsWith(ql) ? 1e10 : name.includes(ql) ? 1e8 : 0) + (Number(p.liquidity?.usd) > 5000 ? Number(p.volume?.h24) || 0 : 0); };
   const seen = new Set();
-  return [...own, ...lists.flat()].filter(p => !chainId || p.chainId === chainId).filter(p => { const k = `${p.chainId}:${p.baseToken?.address}`; if (!p.baseToken?.address || seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => score(b) - score(a)).slice(0, 8);
+  return [...own, ...lists.flat()].filter(p => p._own || !chainId || p.chainId === chainId).filter(p => { const k = `${p.chainId}:${p.baseToken?.address}`; if (!p.baseToken?.address || seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => score(b) - score(a)).slice(0, 8);
 }
 
 const ADDR = /^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$/;

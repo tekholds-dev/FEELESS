@@ -97,7 +97,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     let timer = setInterval(() => { load(); }, 15000);
     const settle = setTimeout(() => { clearInterval(timer); timer = setInterval(load, 60000); }, 120000);
     return () => { alive = false; clearInterval(timer); clearTimeout(settle); };
-  }, [pair?.chainId, pair?.pairAddress, interval]);
+  }, [pair?.baseToken?.address, pair?.chainId, pair?.pairAddress, interval]);
   const allFeeless = useMemo(() => {
     if (!olderCandles.length) return feelessCandles;
     const first = feelessCandles.length ? feelessCandles[0][0] : Infinity;
@@ -112,7 +112,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     return points.map(pt => ({ time: Math.floor(pt.t / 1000), value: pt.p * ratio }))
       .filter((pt, i, arr) => i === 0 || pt.time !== arr[i - 1].time);
   }, [usingFallbackTrail, pair?.pairAddress, ratio]);
-  const baseCandles = useMemo(() => candleRows.length ? scrubCandles(candleRows) : usingFeelessCandles ? scrubCandles(allFeeless) : [], [candleRows, usingFeelessCandles, allFeeless, interval]);
+  const baseCandles = useMemo(() => candleRows.length ? scrubCandles(candleRows) : usingFeelessCandles ? scrubCandles(allFeeless) : [], [candleRows, usingFeelessCandles, allFeeless]);
   const displayCandles = useMemo(() => ratio === 1 ? baseCandles : baseCandles.map(([t, o, h, l, c, v]) => [t, o * ratio, h * ratio, l * ratio, c * ratio, v]), [baseCandles, ratio]);
   const hasChart = displayCandles.length > 0 || trail.length >= 2;
   useEffect(() => {
@@ -344,7 +344,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     let n = 0;
     const timer = setInterval(() => { n += 1; if (!streaming || n % 4 === 0) tick(); }, 1200);   // ≤1.5s freshness; ~5s when streaming
     return () => { alive = false; clearInterval(timer); try { ws?.close(); } catch { /* ignore */ } };
-  }, [charting, pair?.baseToken?.address, pair?.chainId, pair?.pairAddress, interval, ratio]);
+  }, [charting, interval, pair, pair?.baseToken?.address, pair?.chainId, pair?.pairAddress, ratio]);
   const [livePx, setLivePx] = useState(null);
   useEffect(() => { if (!feePos) return undefined; const t = setInterval(() => { const b = lastBarRef.current; if (b) setLivePx(b.close ?? b.value); }, 1200); return () => clearInterval(t); }, [feePos]);
   const feePnl = feePos?.entryPriceUsd > 0 && (livePx || feePos.lastPriceUsd) ? ((livePx || feePos.lastPriceUsd) / feePos.entryPriceUsd - 1) * 100 : feePos?.currentChange;

@@ -2904,6 +2904,7 @@ body.theme-day .shield-commit input:not([type=checkbox]){background:#fff}
 .td-status{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.04);color:var(--muted)}
 .td-status i{width:7px;height:7px;border-radius:50%;background:#8fa89a}.td-status.up i{background:var(--mint);box-shadow:0 0 8px var(--mint)}.td-status.down i{background:#ff5a7a}.td-status.down{color:#ff8fa3}
 .td-edge{border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02)}.td-edge summary{cursor:pointer;padding:11px 14px;font-weight:600;font-size:13px;list-style:none}.td-edge summary::before{content:'▸ ';color:var(--mint)}.td-edge[open] summary::before{content:'▾ '}.td-edge .edge-score{margin:0 10px 10px}
+.td-edge.edge-static .edge-static-head{display:flex;align-items:center;gap:7px;padding:11px 14px;font-weight:600;font-size:13px}.td-edge.edge-static .edge-static-head::before{content:'◆';color:var(--mint);font-size:10px}
 .td-info{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.td-info div{display:grid;gap:4px;padding:10px;border-radius:12px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06)}.td-info b{font-size:12.5px;color:var(--mint)}.td-info span{font-size:11.5px;color:var(--muted);line-height:1.45}
 @media(max-width:600px){.td-info{grid-template-columns:1fr}}
 /* Wallet swaps + copy trading */

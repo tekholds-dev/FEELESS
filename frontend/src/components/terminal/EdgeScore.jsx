@@ -72,11 +72,11 @@ export function computeEdge(pair, rep, intel, feeRead) {
   const tx = pair?.txns?.h1 || {};
   const b = n(tx.buys) || 0; const s = n(tx.sells) || 0;
   f.push(['Order flow', 20, b + s >= 10 ? clamp(((b / (b + s)) - 0.35) / 0.3 * 100) : null, b + s >= 10 ? `${Math.round(b / (b + s) * 100)}% buys in the last hour (${b + s} trades)` : 'too few trades this hour']);
-  const h1 = n(pair?.priceChange?.h1); const h6 = n(pair?.priceChange?.h6); const h24 = n(pair?.priceChange?.h24);
+  const m5 = n(pair?.priceChange?.m5); const h1 = n(pair?.priceChange?.h1); const h24 = n(pair?.priceChange?.h24);
   let mom = null; let momWhy = 'no price history';
-  if (h1 != null && h6 != null) {
-    mom = clamp(50 + Math.min(h1, 40) * 1.2 + Math.min(h6, 60) * 0.4 - Math.max(0, h6 - 150) * 0.3);
-    momWhy = `1h ${h1 >= 0 ? '+' : ''}${h1.toFixed(1)}%, 6h ${h6 >= 0 ? '+' : ''}${h6.toFixed(1)}%${h6 > 150 ? ' — overextended' : ''}`;
+  if (m5 != null && h1 != null) {
+    mom = clamp(50 + Math.max(-18, Math.min(h1, 35)) * 1.35 + Math.max(-8, Math.min(m5, 12)) * 2 - Math.max(0, m5 - 18) * 2.2 - Math.max(0, h1 - 80) * 0.45);
+    momWhy = `5m ${m5 >= 0 ? '+' : ''}${m5.toFixed(1)}%, 1h ${h1 >= 0 ? '+' : ''}${h1.toFixed(1)}%${m5 > 18 || h1 > 80 ? ' — overheated' : ''}`;
   }
   if (h24 != null && h24 <= -70) {
     mom = Math.min(mom ?? 100, 5);
@@ -85,10 +85,12 @@ export function computeEdge(pair, rep, intel, feeRead) {
   f.push(['Momentum', 15, mom, momWhy]);
   const liq = n(pair?.liquidity?.usd); const mc = n(pair?.marketCap || pair?.fdv);
   const depth = liq && mc ? (liq / mc) * 100 : null;
-  const depthScore = depth == null ? null : depth > 100 ? 15 : clamp(depth >= 10 ? 100 : depth >= 3 ? 55 + (depth - 3) * 6.4 : depth * 18);
-  f.push(['Liquidity depth', 15, depthScore, depth == null ? 'liquidity not reported (bonding curve?)' : depth > 100 ? `${depth.toFixed(0)}% of market cap — abnormal, pool outlived the token` : `${depth.toFixed(1)}% of market cap`]);
-  const t24 = (n(pair?.txns?.h24?.buys) || 0) + (n(pair?.txns?.h24?.sells) || 0);
-  f.push(['Activity', 10, t24 ? clamp(Math.log10(t24) * 25) : null, t24 ? `${t24.toLocaleString()} trades in 24h` : 'no trade count']);
+  const turnover = liq && n(pair?.volume?.h24) ? n(pair.volume.h24) / liq : null;
+  let depthScore = depth == null ? null : clamp(depth < 1 ? depth * 30 : depth < 5 ? 30 + depth * 10 : depth <= 25 ? 70 + (depth - 5) * 1.5 : depth <= 60 ? 100 - (depth - 25) * 0.35 : 55 - Math.min(40, depth - 60) * 0.7);
+  if (depthScore != null && turnover != null && turnover > 120) depthScore = Math.max(0, depthScore - Math.min(35, (turnover - 120) / 8));
+  f.push(['Liquidity depth', 15, depthScore, depth == null ? 'liquidity not reported (bonding curve?)' : `${depth.toFixed(1)}% of market cap${turnover != null ? ` · ${turnover.toFixed(1)}× 24h turnover` : ''}${turnover > 120 ? ' — abnormal turnover' : ''}`]);
+  const t1 = (n(pair?.txns?.h1?.buys) || 0) + (n(pair?.txns?.h1?.sells) || 0);
+  f.push(['Activity', 10, t1 ? clamp(Math.log10(t1 + 1) * 32) : null, t1 ? `${t1.toLocaleString()} trades in the last hour` : 'no trade count this hour']);
   if (rep && rep.score != null) f.push(['Creator trust', 20, rep.badge === 'flagged' ? 0 : rep.score, `${rep.badge} creator · ${rep.tokenCount} launches${rep.dumpedCount ? ` · ${rep.dumpedCount} dumped` : ''}`]);
   else f.push(['Creator trust', 20, null, 'finding creator…']);
   if (intel) {
