@@ -11,7 +11,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Literal
 import httpx
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from solders.pubkey import Pubkey
 from solders.transaction import VersionedTransaction
 from solders.message import to_bytes_versioned
@@ -40,6 +40,14 @@ class QuoteIn(BaseModel):
     input_mint: str
     output_mint: str
     amount: str = Field(min_length=1, max_length=40, pattern=r'^\d+(\.\d+)?$')
+
+    @field_validator('amount', mode='before')
+    @classmethod
+    def _amount(cls, v):
+        # Accept what traders type: ".01" → "0.01", "1." → "1", "1,5" → "1.5".
+        s = str(v or '').strip().replace(',', '.')
+        s = ('0' + s) if s.startswith('.') else s
+        return s[:-1] if s.endswith('.') else s
     wallet: str | None = None
     slippage_bps: int = Field(50, ge=1, le=5000)  # up to 50% for thin meme pools
 

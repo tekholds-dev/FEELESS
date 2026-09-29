@@ -56,9 +56,29 @@ def test_wallet_case_wiring(monkeypatch, tmp_path):
         return None
     monkeypatch.setattr(rs, 'resolve_funding_source', none)
     monkeypatch.setattr(rs, '_kol_stats', none)
+    monkeypatch.setattr(rs, 'wallet_stats', none)
     monkeypatch.setattr(rs, '_load', lambda: {'creators': {}, 'funding': {}})
     case = asyncio.run(rs._wallet_case('Sus1'))
     assert case['kind'] == 'wallet' and case['trail']['fundedBy'] == 'Boss'
     assert {e['kind'] for e in case['evidence']} == {'sniper', 'funded-by'} and case['level'] in ('watch', 'suspect')
     boss = asyncio.run(rs._wallet_case('Boss'))
     assert boss['trail']['fundedWallets'] == ['W1', 'W2', 'W3'] and boss['evidence'][0]['kind'] == 'funder'
+
+
+
+def test_protected_wallet_case_hides_trader_stats(monkeypatch):
+    import asyncio
+    import pytest
+    rs = pytest.importorskip('reputation_service')
+
+    async def flips(*a, **k):
+        return {'quickFlipPct': 100, 'dumpPct': 100, 'closed': 1, 'danger': False}
+
+    async def none(*a, **k):
+        return None
+    monkeypatch.setattr(rs, '_kol_stats', flips)
+    monkeypatch.setattr(rs, 'wallet_stats', none)
+    monkeypatch.setattr(rs, 'resolve_funding_source', none)
+    monkeypatch.setattr(rs, '_load', lambda: {'creators': {}, 'funding': {}})
+    case = asyncio.run(rs._wallet_case(rs.FEE_CREATOR_WALLET))
+    assert case['level'] == 'feeless' and case['caller'] is None and case['protected'] is True

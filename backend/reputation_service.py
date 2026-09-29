@@ -3838,11 +3838,16 @@ async def _wallet_case(address):
             if other['address'] != a and store['funding'].get(_creator_key(other['chain'], other['address'])) == fsrc:
                 sc = score_creator(other)
                 linked.append({'address': other['address'], 'badge': sc.get('badge'), 'ruggedCount': sc.get('ruggedCount')})
-    try:
-        caller = await _kol_stats(a, 'solana')
-    except Exception:
-        caller = None
     protected = a in _protected_wallets()
+
+    async def safe(coro):
+        try:
+            return await coro
+        except Exception:
+            return None
+    caller, vitals = await asyncio.gather(safe(_kol_stats(a, 'solana')), safe(wallet_stats(a)))
+    if protected:
+        caller = None  # the official wallet moves treasury/launch funds; trader stats would mislead
     ctx = {'blocked': None if protected else _block_load()['wallets'].get(a), 'funderOfSquads': squads, 'fundedBy': funded_by,
            'fundedByFlagged': bool(funded_by and _is_flagged_funder(fund['funders'].get(funded_by))),
            'creator': creator, 'caller': caller, 'linkedCreators': linked}
@@ -3852,7 +3857,10 @@ async def _wallet_case(address):
             **investigate.verdict(evidence, protected), 'evidence': evidence,
             'trail': {'fundedBy': funded_by, 'fundedWallets': (squads or {}).get('funded', [])[:20], 'squadLaunches': len((squads or {}).get('mints', {}))},
             'launches': {k: (creator or {}).get(k) for k in ('tokenCount', 'ruggedCount', 'dumpedCount', 'deadCount', 'bigWinners', 'sustainedCount', 'badge')} if creator else None,
-            'linked': linked[:12], 'caller': {k: (caller or {}).get(k) for k in ('quickFlipPct', 'dumpPct', 'danger')} if caller else None}
+            'linked': linked[:12],
+            'vitals': {k: (vitals or {}).get(k) for k in ('sol', 'tokensHeld', 'txCount', 'txCountCapped', 'firstSeen')},
+            'caller': {k: (caller or {}).get(k) for k in ('tradesSeen', 'tokens', 'closed', 'quickFlipPct', 'dumpPct', 'winPct', 'netUsd', 'medianHoldMin', 'danger')} if caller else None,
+            'protected': protected}
 
 
 async def _coin_case(mint, auth):
@@ -5985,7 +5993,8 @@ async def _kol_stats(address, chain):
     tokens, holds, flips, dumps, wins, closed = [], [], 0, 0, 0, 0
     for tok, t in by.items():
         bought = sum(u for _, u in t['buys']); sold = sum(u for _, u in t['sells'])
-        if t['buys'] and t['sells']:
+        # A position only counts as closed once a real part of it (20%+) was sold: dust/fee sells are not exits.
+        if t['buys'] and t['sells'] and bought and sold >= bought * 0.2:
             first_buy = min(ts for ts, _ in t['buys']); first_sell = min((ts for ts, _ in t['sells'] if ts >= first_buy), default=None)
             if first_sell:
                 closed += 1
@@ -6006,8 +6015,9 @@ async def _kol_stats(address, chain):
     if not flags and closed >= 3:
         flags.append('No call-and-dump pattern in their recent trades.')
     stats = {'tradesSeen': len(items), 'tokens': len(by), 'closed': closed, 'medianHoldMin': round(avg_hold) if avg_hold is not None else None,
-             'quickFlipPct': round(flips / closed * 100) if closed else None, 'dumpPct': round(dumps / closed * 100) if closed else None,
-             'winPct': round(wins / closed * 100) if closed else None, 'netUsd': round(sum((x['pnlUsd'] or 0) for x in tokens)),
+             # Percentages need a sample: one or two closed positions say nothing about a trader.
+             'quickFlipPct': round(flips / closed * 100) if closed >= 3 else None, 'dumpPct': round(dumps / closed * 100) if closed >= 3 else None,
+             'winPct': round(wins / closed * 100) if closed >= 3 else None, 'netUsd': round(sum((x['pnlUsd'] or 0) for x in tokens)),
              'flags': flags, 'topTokens': tokens[:8], 'danger': bool(closed >= 3 and (flips / closed >= 0.5 or dumps / closed >= 0.4))}
     _kol_cache[address] = (time.time(), stats)
     return stats

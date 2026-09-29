@@ -18,16 +18,36 @@ function Gauge({ score, level }) {
   return <div className={`cf-gauge lvl-${level}`} style={{ '--p': `${score}%` }}><em>{score}</em><small>{LEVEL[level] || level}</small></div>;
 }
 
+const age = ts => { if (!ts) return '—'; const d = (Date.now() / 1000 - ts) / 86400; return d < 1 ? '<1d' : d < 365 ? `${Math.floor(d)}d` : `${(d / 365).toFixed(1)}y`; };
+const usd = v => (v == null ? '—' : `${v < 0 ? '−' : '+'}$${Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 })}`);
+
+function Vitals({ v, caller }) {
+  const cells = [['SOL', v?.sol != null ? Number(v.sol).toFixed(3) : '—'], ['Tokens held', v?.tokensHeld ?? '—'], ['Transactions', v?.txCount != null ? `${v.txCount.toLocaleString('en-US')}${v.txCountCapped ? '+' : ''}` : '—'],
+    ['Wallet age', v?.firstSeen ? age(v.firstSeen) : v?.txCountCapped ? 'veteran' : '—'], ['Swaps seen', caller?.tradesSeen ?? '—'], ['Coins traded', caller?.tokens ?? '—']];
+  return <div className="cf-vitals" data-testid="case-vitals">{cells.map(([k, val]) => <span key={k}><small>{k}</small><b>{val}</b></span>)}</div>;
+}
+
+function Trader({ c }) {
+  if (!c) return null;
+  const judged = (c.closed || 0) >= 3;
+  return <section><h5>As a trader</h5>
+    {judged ? <p>Win rate {c.winPct}% · flips {c.quickFlipPct}% within 1h · dumps {c.dumpPct}% within 2h · median hold {c.medianHoldMin ?? '—'}m · net {usd(c.netUsd)}</p>
+      : <p>Not enough closed trades to judge ({c.closed || 0} closed of {c.tokens || 0} coins traded). Holding, not flipping.</p>}
+  </section>;
+}
+
 function WalletCase({ c }) {
   return <>
-    <Evidence items={c.evidence} />
+    <Vitals v={c.vitals} caller={c.caller} />
+    {c.protected && <div className="cf-official">✓ Official FEELESS wallet: treasury, launches and fee accounts. Never blocklisted, never scored as a suspect.</div>}
+    {!c.protected && <Evidence items={c.evidence} />}
     <div className="cf-grid">
       <section><h5>Funding trail</h5>
         <p>Funded by {c.trail?.fundedBy ? <button type="button" className="cf-link" onClick={() => investigate(c.trail.fundedBy)}>{short(c.trail.fundedBy)}</button> : 'self / unknown'}</p>
         {c.trail?.fundedWallets?.length > 0 && <p>Funded {c.trail.fundedWallets.length} flagged wallet(s): {c.trail.fundedWallets.slice(0, 6).map(w => <button key={w} type="button" className="cf-link" onClick={() => investigate(w)}>{short(w)}</button>)}</p>}
       </section>
       {c.launches && <section><h5>Launches</h5><p>{c.launches.tokenCount} coins · {c.launches.ruggedCount || 0} rugged · {c.launches.dumpedCount || 0} dumped · {c.launches.bigWinners || 0} winners</p></section>}
-      {c.caller && <section><h5>As a caller</h5><p>Flips {c.caller.quickFlipPct ?? '—'}% within 1h · dumps {c.caller.dumpPct ?? '—'}%</p></section>}
+      <Trader c={c.caller} />
       {c.linked?.length > 0 && <section><h5>Linked wallets (same funder)</h5><p>{c.linked.map(l => <button key={l.address} type="button" className={`cf-link b-${l.badge}`} onClick={() => investigate(l.address)}>{short(l.address)}</button>)}</p></section>}
     </div>
   </>;

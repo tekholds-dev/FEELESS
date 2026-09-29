@@ -4,7 +4,7 @@ import { Zap, Wallet, ArrowUpRight, Settings2 } from 'lucide-react';
 import { keepReceipt } from '../../lib/receipts';
 import { useWallet } from '../../hooks/useWallet';
 import { useMarket } from '../../hooks/useMarket';
-import { apiUrl } from '../../lib/api';
+import { apiUrl, cleanAmount, errorText } from '../../lib/api';
 import { EvmTrade, EVM_TRADE_CHAINS } from './EvmTrade';
 import { formatUSD } from '../../lib/dexscreener';
 import { SlippagePicker } from '../command/SlippagePicker';
@@ -23,7 +23,7 @@ const presetsFor = (prefs, unit) => (unit === 'USD' ? prefs.presetsUSD : prefs.p
 async function tradeApi(path, body) {
   const res = await fetch(apiUrl(`/api/trading${path}`), body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Trade request failed.');
+  if (!res.ok) throw new Error(errorText(data, res.status));
   return data;
 }
 
@@ -161,7 +161,7 @@ export function QuickTrade({ pair }) {
     </div>}
     {side === 'buy' ? <>
       <div className="qt-row"><span>Amount in</span><div className="qt-seg">{['SOL', 'USD'].map(u => <button type="button" key={u} className={prefs.unit === u ? 'active' : ''} onClick={() => { setPrefs(p => ({ ...p, unit: u })); setAmount(presetsFor(prefs, u)[0]); }}>{u}</button>)}</div></div>
-      <div className="qt-presets">{presetsFor(prefs, prefs.unit).map(v => <button type="button" key={v} className={amount === v ? 'active' : ''} onClick={() => setAmount(v)}>{prefs.unit === 'USD' ? `$${v}` : `${v} SOL`}</button>)}<input type="number" min="0" step="any" value={amount} onChange={e => setAmount(e.target.value)} aria-label="Custom amount" /></div>
+      <div className="qt-presets">{presetsFor(prefs, prefs.unit).map(v => <button type="button" key={v} className={amount === v ? 'active' : ''} onClick={() => setAmount(v)}>{prefs.unit === 'USD' ? `$${v}` : `${v} SOL`}</button>)}<input type="text" inputMode="decimal" value={amount} onChange={e => setAmount(cleanAmount(e.target.value))} aria-label="Custom amount" /></div>
       <small className="qt-note">{prefs.unit === 'USD'
         ? `≈ ${solUsd && Number(amount) > 0 ? `${(Number(amount) / solUsd).toFixed(4)} SOL` : '…'} at $${solUsd ? solUsd.toFixed(2) : '…'}/SOL`
         : `≈ ${solUsd && Number(amount) > 0 ? formatUSD(Number(amount) * solUsd) : '…'}`}</small>

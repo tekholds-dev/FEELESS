@@ -177,3 +177,9 @@ def test_simulation_errors_read_like_english():
     assert 'Not enough balance' in trading.explain_sim_error({'InstructionError': [2, {'Custom': 1}]})
     assert 'slippage' in trading.explain_sim_error({'InstructionError': [4, {'Custom': 6001}]})
     assert 'expired' in trading.explain_sim_error('BlockhashNotFound')
+
+
+def test_amount_typed_without_leading_zero_is_accepted(engine):
+    client, state, _ = engine
+    res = client.post('/api/trading/quote', json={'input_mint': SOL, 'output_mint': MEME, 'amount': '.01', 'slippage_bps': 100, 'wallet': WALLET})
+    assert res.status_code == 200 and res.json()['amount'] == '0.01'

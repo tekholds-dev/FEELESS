@@ -15,7 +15,7 @@ import { useWallet } from '../../hooks/useWallet';
 import { useClock } from './WorkspaceChrome';
 import { FeeBackPreview } from './FeeBack';
 import { shortAddress } from '../../lib/dexscreener';
-import { apiUrl } from '../../lib/api';
+import { apiUrl, errorText, cleanAmount } from '../../lib/api';
 import { ReputationBadge } from '../terminal/ReputationBadge';
 
 const API = apiUrl('/api/trading');
@@ -33,7 +33,7 @@ function assetOptions(feeAssets, pair) {
 async function request(path, body) {
   const res = await fetch(`${API}${path}`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
   const data = await res.json();
-  if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Unable to process this swap request.');
+  if (!res.ok) throw new Error(errorText(data, res.status));
   return data;
 }
 function readPendingOrder() {
@@ -275,7 +275,7 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
     {slipOpen && <div className="slippage-controls"><span>Max slippage</span><SlippagePicker value={slippage} onChange={setSlippage} disabled={busy} /></div>}
     <div className="jup-panel"><div className="jup-panel-head"><small>You pay</small>{payHolding && <span className="jup-bal">Balance {Number(payHolding.amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}<button type="button" onClick={() => setAmount(String(inputMint === SOL ? Math.floor(spendable * 1e6) / 1e6 : payHolding.amount))} disabled={busy}>Max</button></span>}</div>
       <div className="jup-row"><TokenPicker testId="swap-input-asset" onNetwork={setNetwork} holdings={holdings} value={inputMint} options={options} onChange={setInputMint} onPickRemote={t => { addFound(t); setInputMint(t.mint); setOrder(null); }} disabled={busy} />
-        <input className="jup-amount" data-testid="swap-amount" type="text" inputMode="decimal" placeholder="0.00" aria-label={`Amount of ${inputAsset.symbol}`} value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} disabled={busy} /></div>
+        <input className="jup-amount" data-testid="swap-amount" type="text" inputMode="decimal" placeholder="0.00" aria-label={`Amount of ${inputAsset.symbol}`} value={amount} onChange={e => setAmount(cleanAmount(e.target.value))} disabled={busy} /></div>
       <div className="jup-quick">{['0.1', '0.5', '1'].map(v => inputMint === SOL && <button key={v} type="button" onClick={() => setAmount(v)} disabled={busy}>{v} SOL</button>)}</div></div>
     <button className="swap-reverse-button jup-flip" data-testid="swap-reverse" title="Reverse trade direction" aria-label="Reverse trade direction" onClick={reverse} disabled={busy}><ArrowDownUp size={16} /></button>
     <div className="jup-panel is-receive"><div className="jup-panel-head"><small>You receive</small>{outputIsPair && <span className="jup-trust"><ReputationBadge pair={pair} compact /></span>}</div>

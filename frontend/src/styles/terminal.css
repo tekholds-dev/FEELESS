@@ -4004,3 +4004,13 @@ body.theme-day .cf-modal,body.theme-day .cf-grid section{background:#fff}body.th
 .pbg-vapor::before{background:linear-gradient(rgba(255,64,200,.7) 2px,transparent 2px) 0 0/60px 60px,linear-gradient(90deg,rgba(0,220,255,.6) 2px,transparent 2px) 0 0/60px 60px;bottom:-30%;height:90%}
 .wp-themes{display:grid!important;gap:6px}
 .pbg-vapor::before{bottom:0!important;height:70%!important;transform-origin:50% 100%}
+.cf-vitals{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}@media(max-width:640px){.cf-vitals{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.cf-vitals span{display:grid;gap:2px;padding:8px 10px;border-radius:10px;background:#040806;border:1px solid rgba(0,255,163,.15)}
+.cf-vitals small{font:9.5px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;color:#6f8f7c}.cf-vitals b{font:800 14px 'JetBrains Mono',monospace;color:#eafff3}
+.cf-official{padding:10px 12px;border-radius:10px;border:1px solid rgba(0,255,163,.45);background:rgba(0,255,163,.07);color:#bfffe3;font-size:12.5px}
+body.theme-day .cf-vitals span{background:#fff}body.theme-day .cf-vitals b{color:#0a1f14}
+/* Profile: centred, a touch narrower, tighter */
+.wallet-profile-page{max-width:1180px!important;margin:0 auto!important;width:calc(100% - 32px)!important}
+@media(min-width:1500px){.wallet-profile-page{max-width:1240px!important}}
+.xp-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.xp-case{border-color:rgba(0,255,163,.4)!important;color:#00ffa3!important}.xp-case:hover{background:#00ffa3!important;color:#02140c!important}
