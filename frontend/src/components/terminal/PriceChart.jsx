@@ -272,7 +272,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       catch { /* chart torn down between render and effect */ }
     };
     add(feeRead.resistance, '#fa708c', '🐱 resistance');
-    add(feeRead.support, '#00e9a0', '🐱 support');
+    add(feeRead.support, '#12c07a', '🐱 support');
     if (feeRead.vwap) add(feeRead.vwap, '#e9bd65', '🐱 fair value', 1);
     if (feeRead.entry) { add(feeRead.entry, '#5ec8ff', '🐱 Fee entry', 0); add(feeRead.entry * 0.9, '#ff5d73', '🐱 stop −10%', 3); add(feeRead.entry * 1.22, '#7df9d0', '🐱 target +22%', 3); }
     // Fibonacci retracements of the visible swing: where Fee expects bounces / rejections.

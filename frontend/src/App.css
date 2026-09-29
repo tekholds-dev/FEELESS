@@ -15,7 +15,7 @@
   --ambient-start: #06130e;
   --ambient-end: #020705;
   --ambient-grid: rgba(54, 169, 111, .08);
-  --ambient-glow-one: rgba(0, 233, 160, .14);
+  --ambient-glow-one: rgba(18, 192, 122, .14);
   --ambient-glow-two: rgba(76, 130, 255, .09);
   --ambient-line: rgba(111, 228, 165, .14);
   position: fixed;

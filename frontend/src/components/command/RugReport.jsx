@@ -12,21 +12,21 @@ async function downloadCard(r) {
   const logo = await new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = '/assets/feeless-logo.png'; });
   const c = document.createElement('canvas'); c.width = 1200; c.height = 675; const g = c.getContext('2d');
   g.fillStyle = '#021a10'; g.fillRect(0, 0, 1200, 675);
-  for (const [x, y, rad, col] of [[260, 120, 620, '0,233,160,.35'], [1050, 640, 520, '255,45,85,.22']]) { const rg = g.createRadialGradient(x, y, 0, x, y, rad); rg.addColorStop(0, `rgba(${col})`); rg.addColorStop(1, 'rgba(2,26,16,0)'); g.fillStyle = rg; g.fillRect(0, 0, 1200, 675); }
+  for (const [x, y, rad, col] of [[260, 120, 620, '18,192,122,.35'], [1050, 640, 520, '255,45,85,.22']]) { const rg = g.createRadialGradient(x, y, 0, x, y, rad); rg.addColorStop(0, `rgba(${col})`); rg.addColorStop(1, 'rgba(2,26,16,0)'); g.fillStyle = rg; g.fillRect(0, 0, 1200, 675); }
   if (logo) { g.globalAlpha = 0.09; g.drawImage(logo, 760, 60, 520, 520); g.globalAlpha = 1; }
-  g.strokeStyle = 'rgba(0,233,160,.5)'; g.lineWidth = 2; g.beginPath(); g.roundRect(28, 28, 1144, 619, 28); g.stroke();
+  g.strokeStyle = 'rgba(18,192,122,.5)'; g.lineWidth = 2; g.beginPath(); g.roundRect(28, 28, 1144, 619, 28); g.stroke();
   if (logo) g.drawImage(logo, 60, 58, 64, 64);
   g.fillStyle = '#ffffff'; g.font = '400 60px Bungee, sans-serif'; g.fillText('RUG REPORT', 140, 112);
   g.fillStyle = '#9dffd9'; g.font = '600 22px "Space Grotesk", sans-serif'; g.fillText(`Last ${r.days} days · on-chain evidence only`, 142, 148);
   const t = r.totals;
-  [['Caught', t.caught, '#00e9a0'], ['Blocklisted', t.blocklisted, '#ff6b8b'], ['Repeat funders', t.funders, '#ffc36b'], ['Broken Shields', t.brokenShields, '#ff6b8b']].forEach(([l, v, col], i) => {
+  [['Caught', t.caught, '#12c07a'], ['Blocklisted', t.blocklisted, '#ff6b8b'], ['Repeat funders', t.funders, '#ffc36b'], ['Broken Shields', t.brokenShields, '#ff6b8b']].forEach(([l, v, col], i) => {
     const x = 60 + i * 272; g.fillStyle = 'rgba(3,20,12,.7)'; g.strokeStyle = 'rgba(255,255,255,.12)'; g.beginPath(); g.roundRect(x, 190, 252, 130, 18); g.fill(); g.stroke();
     g.fillStyle = col; g.shadowColor = col; g.shadowBlur = 16; g.font = '400 54px Bungee, sans-serif'; g.fillText(Number(v).toLocaleString(), x + 22, 262); g.shadowBlur = 0;
     g.fillStyle = '#b9d6c8'; g.font = '600 19px "Space Grotesk", sans-serif'; g.fillText(l, x + 24, 298);
   });
   g.font = '600 22px "JetBrains Mono", monospace';
-  r.caught.slice(0, 5).forEach((c2, i) => { g.fillStyle = i % 2 ? 'rgba(255,255,255,.03)' : 'rgba(0,233,160,.06)'; g.fillRect(60, 350 + i * 44, 1080, 40); g.fillStyle = '#eafff3'; g.fillText(`${short(c2.wallet)}   ${c2.roles.join(' + ')} · ${c2.launches} launches${c2.blocked ? '   ⛔ blocked' : ''}`, 76, 377 + i * 44); });
-  g.fillStyle = '#00e9a0'; g.font = '400 26px Bungee, sans-serif'; g.fillText('FEELESS', 60, 624); g.fillStyle = '#9fb3a8'; g.font = '600 20px "Space Grotesk", sans-serif'; g.fillText('the chain remembers.', 214, 622);
+  r.caught.slice(0, 5).forEach((c2, i) => { g.fillStyle = i % 2 ? 'rgba(255,255,255,.03)' : 'rgba(18,192,122,.06)'; g.fillRect(60, 350 + i * 44, 1080, 40); g.fillStyle = '#eafff3'; g.fillText(`${short(c2.wallet)}   ${c2.roles.join(' + ')} · ${c2.launches} launches${c2.blocked ? '   ⛔ blocked' : ''}`, 76, 377 + i * 44); });
+  g.fillStyle = '#12c07a'; g.font = '400 26px Bungee, sans-serif'; g.fillText('FEELESS', 60, 624); g.fillStyle = '#9fb3a8'; g.font = '600 20px "Space Grotesk", sans-serif'; g.fillText('the chain remembers.', 214, 622);
   const a = document.createElement('a'); a.download = `feeless-rug-report-${new Date().toISOString().slice(0, 10)}.png`; a.href = c.toDataURL('image/png'); a.click();
 }
 

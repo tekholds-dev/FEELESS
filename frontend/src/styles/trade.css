@@ -78,8 +78,8 @@
 
 .swap-asset-grid select:hover,
 .swap-asset-grid select:focus {
-  border-color: #00e9a0;
-  box-shadow: 0 0 0 3px #00e9a014;
+  border-color: #12c07a;
+  box-shadow: 0 0 0 3px #12c07a14;
 }
 
 .swap-asset-grid option {
@@ -95,14 +95,14 @@
   justify-content: center;
   border: 1px solid #43805a;
   border-radius: 50%;
-  color: #00e9a0;
-  background: #00e9a00d;
+  color: #12c07a;
+  background: #12c07a0d;
   transition: transform .18s ease, background .18s ease, border-color .18s ease;
 }
 
 .swap-reverse-button:hover:not(:disabled) {
-  border-color: #00e9a0;
-  background: #00e9a01c;
+  border-color: #12c07a;
+  background: #12c07a1c;
   transform: rotate(180deg);
 }
 
@@ -121,7 +121,7 @@
 }
 
 .swap-pair-heading > b span {
-  color: #00e9a0;
+  color: #12c07a;
 }
 
 .swap-pair-heading > small {
@@ -137,7 +137,7 @@
 }
 
 .route-metrics b.impact-low {
-  color: #00e9a0;
+  color: #12c07a;
 }
 
 .route-metrics b.impact-medium {
@@ -153,8 +153,8 @@
 }
 
 .swap-amount-label input:focus {
-  caret-color: #00e9a0;
-  text-shadow: 0 0 14px #00e9a040;
+  caret-color: #12c07a;
+  text-shadow: 0 0 14px #12c07a40;
 }
 
 .swap-amount-label {
@@ -192,8 +192,8 @@
 }
 
 .slippage-controls button:hover:not(:disabled) {
-  border-color: #00e9a0;
-  color: #00e9a0;
+  border-color: #12c07a;
+  color: #12c07a;
 }
 
 .swap-output {

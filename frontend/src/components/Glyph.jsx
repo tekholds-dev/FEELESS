@@ -20,7 +20,7 @@ const P = {
   fire: 'M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-4-1-6 1-9z',
   cat: 'M4 4l4 4h8l4-4v9a8 8 0 0 1-16 0zm5 8a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z',
 };
-const TONES = { mint: ['#c9fff0', '#00e9a0', '#00784f'], rose: ['#ffd0d8', '#fa708c', '#9b1c38'], violet: ['#eadcff', '#b388ff', '#5a2fb0'], gold: ['#fff3c4', '#f5c542', '#a8740a'], sky: ['#d6f1ff', '#5ec8ff', '#1b6fb3'], plain: ['#ffffff', '#cfe8da', '#5f7d6d'] };
+const TONES = { mint: ['#c9fff0', '#12c07a', '#00784f'], rose: ['#ffd0d8', '#fa708c', '#9b1c38'], violet: ['#eadcff', '#b388ff', '#5a2fb0'], gold: ['#fff3c4', '#f5c542', '#a8740a'], sky: ['#d6f1ff', '#5ec8ff', '#1b6fb3'], plain: ['#ffffff', '#cfe8da', '#5f7d6d'] };
 export function Glyph({ name, tone = 'mint', size = 18, className = '' }) {
   const [a, b, c] = TONES[tone] || TONES.mint;
   const id = `g-${name}-${tone}`;

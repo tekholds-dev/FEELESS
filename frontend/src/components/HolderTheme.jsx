@@ -8,7 +8,7 @@ import { getChatSession } from '../lib/chatSession';
 // holdings and the wallet session on every save; the browser only ever applies what it returns.
 const MINT_HUE = 158;
 const hueOf = hex => { const r = parseInt(hex.slice(1, 3), 16) / 255, g = parseInt(hex.slice(3, 5), 16) / 255, b = parseInt(hex.slice(5, 7), 16) / 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b); if (mx === mn) return 0; const d = mx - mn; const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return h * 60; };
-const PRESETS = [['Mint (default)', '#00e9a0'], ['Gold', '#f5c542'], ['Diamond', '#7cc8ff'], ['Rose', '#fa708c'], ['Violet', '#b388ff'], ['Solar', '#ff8a3d'], ['Ice', '#e7f3ff']];
+const PRESETS = [['Mint (default)', '#12c07a'], ['Gold', '#f5c542'], ['Diamond', '#7cc8ff'], ['Rose', '#fa708c'], ['Violet', '#b388ff'], ['Solar', '#ff8a3d'], ['Ice', '#e7f3ff']];
 
 export function applyTheme(t) {
   const root = document.documentElement;
@@ -32,7 +32,7 @@ export function useHolderTheme() {
 export function HolderThemePicker() {
   const { wallet, signMessage } = useWallet() || {};
   const [info, setInfo] = useState(null);
-  const [accent, setAccent] = useState('#00e9a0');
+  const [accent, setAccent] = useState('#12c07a');
   useEffect(() => {
     if (!wallet?.address) { setInfo(null); return; }
     fetch(apiUrl(`/api/reputation/theme/${wallet.address}`)).then(r => r.json()).then(d => { setInfo(d); if (d.theme?.accent) setAccent(d.theme.accent); }).catch(() => {});

@@ -9,7 +9,7 @@ const ease = t => 1 - (1 - t) ** 3;
 function frame(g, card, logo, coin, t, seed) {
   // Base: deep royal green with two orbiting light pools.
   g.fillStyle = '#021a10'; g.fillRect(0, 0, W, H);
-  for (const [cx, cy, r, c] of [[W * (0.25 + 0.15 * Math.cos(t * 2 * Math.PI)), H * 0.3, 380, '0,233,160'], [W * (0.8 - 0.12 * Math.sin(t * 2 * Math.PI)), H * 0.85, 330, '11,122,82']]) {
+  for (const [cx, cy, r, c] of [[W * (0.25 + 0.15 * Math.cos(t * 2 * Math.PI)), H * 0.3, 380, '18,192,122'], [W * (0.8 - 0.12 * Math.sin(t * 2 * Math.PI)), H * 0.85, 330, '11,122,82']]) {
     const rg = g.createRadialGradient(cx, cy, 0, cx, cy, r); rg.addColorStop(0, `rgba(${c},.55)`); rg.addColorStop(1, 'rgba(2,26,16,0)'); g.fillStyle = rg; g.fillRect(0, 0, W, H);
   }
   // Diagonal flare sweeping across once per loop.
@@ -24,14 +24,14 @@ function frame(g, card, logo, coin, t, seed) {
   // Watermark: big faint FEE mark, pulsing.
   if (logo) { g.globalAlpha = 0.1 + 0.05 * Math.sin(t * Math.PI * 2); g.drawImage(logo, W - 330, -20, 380, 380); g.globalAlpha = 1; }
   // Card content.
-  g.fillStyle = 'rgba(3,20,12,.55)'; g.strokeStyle = 'rgba(0,233,160,.55)'; g.lineWidth = 2; g.beginPath(); g.roundRect(28, 28, W - 56, H - 56, 22); g.fill(); g.stroke();
+  g.fillStyle = 'rgba(3,20,12,.55)'; g.strokeStyle = 'rgba(18,192,122,.55)'; g.lineWidth = 2; g.beginPath(); g.roundRect(28, 28, W - 56, H - 56, 22); g.fill(); g.stroke();
   if (coin) { g.save(); g.beginPath(); g.arc(84, 92, 34, 0, Math.PI * 2); g.clip(); g.drawImage(coin, 50, 58, 68, 68); g.restore(); }
   g.fillStyle = '#9dffd9'; g.font = '700 15px "Space Grotesk", sans-serif'; g.fillText(card.kicker || 'FEELESS', coin ? 134 : 56, 78);
   g.fillStyle = '#ffffff'; g.font = '800 34px "Space Grotesk", sans-serif'; g.fillText(card.title, coin ? 134 : 56, 114);
   const k = ease(Math.min(1, t * 2.2)); const big = card.bigValue != null ? `${card.bigPrefix || ''}${(card.bigValue * k).toFixed(card.bigDigits ?? 1)}${card.bigSuffix || ''}` : card.big;
-  g.font = '400 76px "Bungee", sans-serif'; g.fillStyle = card.tone === 'down' ? '#ff6b8b' : '#00e9a0'; g.shadowColor = g.fillStyle; g.shadowBlur = 18 + 10 * Math.sin(t * Math.PI * 4); g.fillText(big, 54, 228); g.shadowBlur = 0;
+  g.font = '400 76px "Bungee", sans-serif'; g.fillStyle = card.tone === 'down' ? '#ff6b8b' : '#12c07a'; g.shadowColor = g.fillStyle; g.shadowBlur = 18 + 10 * Math.sin(t * Math.PI * 4); g.fillText(big, 54, 228); g.shadowBlur = 0;
   g.font = '500 17px "Space Grotesk", sans-serif'; g.fillStyle = '#d9efe4'; (card.lines || []).slice(0, 3).forEach((l, i) => g.fillText(l, 56, 274 + i * 26));
-  g.font = '400 20px "Bungee", sans-serif'; g.fillStyle = '#00e9a0'; g.fillText('FEELESS', W - 190, H - 52);
+  g.font = '400 20px "Bungee", sans-serif'; g.fillStyle = '#12c07a'; g.fillText('FEELESS', W - 190, H - 52);
   g.font = '500 12px "Space Grotesk", sans-serif'; g.fillStyle = '#8fbfa8'; g.fillText(card.footer || 'feeless · non-custodial trading', W - 262, H - 34);
 }
 
