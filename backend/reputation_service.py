@@ -12,6 +12,7 @@ This intentionally has zero dependency on the rest of the monorepo backend (no M
 no provider API keys) so it can run standalone.
 """
 import env_loader  # noqa: F401  (must run before reading os.environ)
+import investigate
 from ecosystem import ecosystem_mints
 import asyncio
 import json
@@ -3775,14 +3776,20 @@ async def rug_shield(mint: str):
     if mint in FEE_SETTLEMENT_MINTS:
         return {'mint': mint, 'level': 'ok', 'reasons': []}
     try:
-        intel = await token_intel('solana', mint)
+        async with httpx.AsyncClient(timeout=10) as http:
+            intel, auth = await asyncio.gather(token_intel('solana', mint), _mint_authorities(http, mint))
     except HTTPException:
         return {'mint': mint, 'level': 'unknown', 'reasons': ['On-chain check unavailable right now.']}
-    return {'mint': mint, **shield_verdict(intel, _block_load()['wallets'])}
+    return {'mint': mint, **shield_verdict(intel, _block_load()['wallets'], auth or {})}
 
 
-def shield_verdict(intel, blocklist):
+def shield_verdict(intel, blocklist, auth=None):
     reasons, danger = list(intel.get('flags') or []), False
+    auth = auth or {}
+    if auth.get('freezeAuthority'):
+        reasons.insert(0, 'Freeze authority is live: the creator can freeze your tokens so you cannot sell.'); danger = True
+    if auth.get('mintAuthority'):
+        reasons.append('Mint authority is live: the creator can print more supply.')
     creator = intel.get('creator')
     if creator and _is_blocked(blocklist.get(creator)):
         reasons.insert(0, 'Creator wallet is on the FEELESS blocklist (repeat sniper/bundler or reported rug).'); danger = True
@@ -3790,6 +3797,103 @@ def shield_verdict(intel, blocklist):
         danger = True
     return {'level': 'danger' if danger else 'caution' if reasons else 'ok', 'reasons': reasons[:5],
             'devPct': intel.get('devHoldingPct'), 'insidersPct': intel.get('insidersHoldingPct'), 'top10Pct': intel.get('top10Pct')}
+
+
+# ---- Investigation engine: case files for wallets and coins (scoring lives in investigate.py) -------------
+_case_cache: dict = {}
+_funding_memo: dict = {}
+
+
+async def _funder_of(wallet):
+    """First-transaction funder, memoised (the funding-graph store first, then one RPC trace)."""
+    known = _funders_load()['offenderFunder'].get(wallet)
+    if known:
+        return known
+    if wallet not in _funding_memo:
+        _funding_memo[wallet] = await resolve_funding_source('solana', wallet)
+    return _funding_memo[wallet]
+
+
+async def _mint_authorities(http, mint):
+    info = await _rpc(http, 'getAccountInfo', [mint, {'encoding': 'jsonParsed'}])
+    parsed = ((((info or {}).get('value') or {}).get('data') or {}).get('parsed') or {}) if isinstance(((info or {}).get('value') or {}).get('data'), dict) else {}
+    if parsed.get('type') != 'mint':
+        return None
+    i = parsed.get('info') or {}
+    return {'mintAuthority': i.get('mintAuthority'), 'freezeAuthority': i.get('freezeAuthority'), 'decimals': i.get('decimals')}
+
+
+async def _wallet_case(address):
+    a = primary_of(address)
+    fund = _funders_load()
+    squads = fund['funders'].get(a)
+    funded_by = await _funder_of(a)
+    store = _load()
+    entry = store['creators'].get(_creator_key('solana', a))
+    creator = score_creator(entry) if entry else None
+    linked = []
+    fsrc = store['funding'].get(_creator_key('solana', a)) or funded_by
+    if fsrc:
+        for other in store['creators'].values():
+            if other['address'] != a and store['funding'].get(_creator_key(other['chain'], other['address'])) == fsrc:
+                sc = score_creator(other)
+                linked.append({'address': other['address'], 'badge': sc.get('badge'), 'ruggedCount': sc.get('ruggedCount')})
+    try:
+        caller = await _kol_stats(a, 'solana')
+    except Exception:
+        caller = None
+    protected = a in _protected_wallets()
+    ctx = {'blocked': None if protected else _block_load()['wallets'].get(a), 'funderOfSquads': squads, 'fundedBy': funded_by,
+           'fundedByFlagged': bool(funded_by and _is_flagged_funder(fund['funders'].get(funded_by))),
+           'creator': creator, 'caller': caller, 'linkedCreators': linked}
+    evidence = [] if protected else investigate.wallet_evidence(ctx)
+    prof = _profiles_load()['profiles'].get(a) or {}
+    return {'kind': 'wallet', 'address': a, 'identity': {'name': prof.get('displayName'), 'handle': prof.get('handle')},
+            **investigate.verdict(evidence, protected), 'evidence': evidence,
+            'trail': {'fundedBy': funded_by, 'fundedWallets': (squads or {}).get('funded', [])[:20], 'squadLaunches': len((squads or {}).get('mints', {}))},
+            'launches': {k: (creator or {}).get(k) for k in ('tokenCount', 'ruggedCount', 'dumpedCount', 'deadCount', 'bigWinners', 'sustainedCount', 'badge')} if creator else None,
+            'linked': linked[:12], 'caller': {k: (caller or {}).get(k) for k in ('quickFlipPct', 'dumpPct', 'danger')} if caller else None}
+
+
+async def _coin_case(mint, auth):
+    intel = await token_intel('solana', mint)
+    holders = [{'owner': r['owner'], 'pct': r.get('pct')} for r in intel.get('topHolders') or [] if r.get('kind') == 'wallet' and r.get('owner')]
+    sem = asyncio.Semaphore(6)
+
+    async def trace(w):
+        async with sem:
+            try:
+                return w, await _funder_of(w)
+            except Exception:
+                return w, None
+    funder_of = dict(await asyncio.gather(*(trace(h['owner']) for h in holders[:12])))
+    cl = investigate.clusters(holders, {w: f for w, f in funder_of.items() if f})
+    creator = intel.get('creator')
+    blocked = bool(creator and _is_blocked(_block_load()['wallets'].get(creator)))
+    risk = investigate.coin_risk(intel, auth, creator_blocked=blocked, linked_pct=cl['linkedPct'])
+    return {'kind': 'coin', 'address': mint, **risk, 'authorities': auth, 'clusters': cl,
+            'holders': {k: intel.get(k) for k in ('top10Pct', 'devHoldingPct', 'insidersHoldingPct', 'snipersHoldingPct', 'poolPct')},
+            'launch': {'bundled': len(intel.get('bundledWallets') or []), 'snipers': len(intel.get('sniperWallets') or []), 'creator': creator},
+            'creatorCase': (await _wallet_case(creator)) if creator else None}
+
+
+@app.get('/api/reputation/case/{address}')
+async def case_file(address: str):
+    """One case file for any Solana address: a coin (risk score, holder clusters, launch forensics, the creator's
+    case) or a wallet (verdict, cited evidence, funding trail, launches, linked wallets, caller behaviour)."""
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address):
+        raise HTTPException(400, 'Paste a Solana wallet or coin address.')
+    hit = _case_cache.get(address)
+    if hit and time.time() - hit[0] < 120:
+        return hit[1]
+    async with httpx.AsyncClient(timeout=12) as http:
+        auth = await _mint_authorities(http, address)
+    out = await (_coin_case(address, auth) if auth else _wallet_case(address))
+    out['at'] = time.time()
+    _case_cache[address] = (time.time(), out)
+    if len(_case_cache) > 3000:
+        _case_cache.clear()
+    return out
 
 
 # ---- Copy callers: calls from wallets you follow, newest first, with each caller's record ---------------

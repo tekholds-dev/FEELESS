@@ -52,3 +52,8 @@ def test_profile_backdrops_free_basic_and_tiered_animated():
     assert {'midnight', 'graphite', 'grid', 'feeglow'} <= set(free)
     assert rs.PROFILE_THEMES['alpha'] == 2 and rs.PROFILE_THEMES['whale'] == 3
     assert rs._clean_profile({'theme': 'not-a-theme'})['theme'] == 'grid'
+
+
+def test_shield_blocks_live_freeze_authority():
+    v = rs.shield_verdict({'flags': []}, {}, {'freezeAuthority': 'Dev'})
+    assert v['level'] == 'danger' and 'freeze' in v['reasons'][0].lower()

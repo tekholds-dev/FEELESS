@@ -42,6 +42,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - The wallet signs everything; the server verifies the signed message equals the quoted one; no resubmits.
 - Only show or sign an order that matches the coins, side and amount on screen.
 
+## Reputation / investigation
+- `backend/investigate.py` is the scoring core (pure functions, tested): every score point is cited evidence
+  (claim + source). Wallet cases, coin risk (mint/freeze authority, holders, forensics), funder clusters.
+- `/api/reputation/case/{address}` builds a case for a wallet or a coin; the UI opens it anywhere via
+  `investigate(address)` (`components/CaseFile.jsx`). Rug shield, radar and alerts must cite the same evidence.
+- FEELESS wallets (`_protected_wallets`) can never be blocklisted or scored as suspects.
+
 ## Layout
 - Backend services (restart all after backend changes: `bash scripts/start-backend.sh`):
   `server` 5001 (market + trading), `reputation_service` 5077 (social, fees, admin), `feecat_service` 5088, `candles_service` 5099.
