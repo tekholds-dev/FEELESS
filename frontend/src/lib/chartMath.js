@@ -9,7 +9,12 @@ export function scrubCandles(rows) {
     const [t, o, h, l, c, v] = r;
     const m = med(i);
     // A bar 4x away from its neighbours is a bad print (wrong pool / quote), not a move.
-    if (!(c > 0) || c > m * 4 || c < m / 4) return;
+    // Never drop it (that skips a candle): redraw it flat at the previous close instead.
+    if (!(c > 0) || c > m * 4 || c < m / 4) {
+      const prev = out.length ? out[out.length - 1][4] : m;
+      if (prev > 0) out.push([t, prev, prev, prev, prev, v]);
+      return;
+    }
     const open = o > 0 && o < c * 4 && o > c / 4 ? o : (out.length ? out[out.length - 1][4] : c);
     const top = Math.max(open, c), bot = Math.min(open, c);
     out.push([t, open, Math.min(h, top * 3), Math.max(l, bot / 3) || bot, c, v]);

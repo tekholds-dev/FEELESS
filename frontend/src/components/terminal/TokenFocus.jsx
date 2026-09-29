@@ -27,7 +27,7 @@ import { useMarket } from '../../hooks/useMarket';
 
 export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1m', onExpand, expanded }) => {
   const [interval, setInterval] = useState(defaultInterval);
-  const [metric, setMetric] = useState('price');
+  const [metric, setMetric] = useState('marketCap');
   const nav = useNavigate(); const { selectPair } = useWorkspace();
   const [volume, setVolume] = useState(true);
   const [showCalls, setShowCalls] = useState(false);
@@ -41,7 +41,7 @@ export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1m', onExpand
     signals: { ...(pair?.signals || {}), ...(livePair.signals || {}) },
     rankingContext: { ...(pair?.rankingContext || {}), ...(livePair.rankingContext || {}) },
   } : pair;
-  useEffect(() => { setMetric('price'); }, [current?.chainId, current?.pairAddress]);
+  useEffect(() => { setMetric(Number(current?.marketCap) > 0 ? 'marketCap' : 'price'); }, [current?.chainId, current?.pairAddress]); // eslint-disable-line react-hooks/exhaustive-deps
   const markers = useChartMarkers(current, { calls: showCalls, fee: showFee });
   const [myPos, tradeFlash] = useMyPosition(current);
   if (!current) return <section className="empty-focus" data-testid="token-focus-empty"><BarChart3 size={32} /><p>Select a market to open its chart.</p></section>;
@@ -62,7 +62,7 @@ export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1m', onExpand
     {live.error && <MarketError error={`${live.error} Showing the discovery snapshot.`} reload={live.reload} id="token-refresh-error" />}
     <div className="token-metrics"><div className="metric"><small>Price USD</small><strong className="mono"><LivePrice pair={current} precise id="selected-token-price" /></strong></div><div className="metric"><small>24h change</small><LiveChange24 pair={current} id="selected-token-change" /></div><div className="metric"><small>{current.marketCap != null ? 'Market cap' : 'FDV'}</small><strong className="mono"><LiveMarketCap pair={current} id="selected-token-mcap" /></strong></div><Metric label="24h volume" value={current.volume?.h24} id="selected-token-volume" /><Metric label="Liquidity" value={current.liquidity?.usd} id="selected-token-liquidity" /></div>
      <div className="chart-toolbar"><button type="button" className="chart-metric-switch" title={`Showing ${METRIC_LABEL[metric]} · click to switch (${availableMetrics.map(id => METRIC_LABEL[id]).join(' → ')})`} data-testid="chart-metric-switch" onClick={cycleMetric} disabled={availableMetrics.length < 2}><ArrowLeftRight size={13} /><span data-testid="chart-metric-active">{METRIC_LABEL[metric]}</span></button><div className="timeframes">{['1m', '5m', '15m', '1h', '4h', '1d'].map(t => <button className={t === interval ? 'active' : ''} data-testid={`chart-interval-${t}`} key={t} onClick={() => setInterval(t)}>{t.toUpperCase()}</button>)}</div><button className={`volume-control ${volume ? 'positive' : ''}`} title="Toggle volume bars" data-testid="chart-volume-toggle" onClick={() => setVolume(v => !v)}><BarChart3 size={13} /><span>Volume</span></button><ChartMetaButtons pair={current} calls={showCalls} setCalls={setShowCalls} fee={showFee} setFee={setShowFee} fullscreenRef={chartWrap} onExpand={onExpand} expanded={expanded} count={{ calls: markers.filter(m => m.color === '#e9bd65').length, fee: markers.filter(m => m.text?.startsWith('Fee')).length }} /><PriceAlertButton pair={current} /><a title="Open advanced chart" data-testid="chart-advanced-link" href={dexUrl(current)} target="_blank" rel="noreferrer"><ExternalLink size={13} /></a></div>
-     <div className="chart-with-trade"><div className="chart-fullscreen-wrap" ref={chartWrap}><PnlBadge pos={myPos} price={Number(current.priceUsd)} flash={tradeFlash} symbol={current.baseToken?.symbol} imageUrl={current.info?.imageUrl} /><ChartBoundary key={`${current.chainId}-${current.pairAddress}-${interval}-${metric}`} pair={current}><PriceChart userEntry={myPos?.avgEntry} pair={current} interval={interval} metric={metric} showVolume={volume} markers={markers} feeLive={showFee} /></ChartBoundary></div><div className="chart-side-stack"><QuickTrade pair={current} /><DipRipTool pair={current} />{current.chainId === 'solana' && <ShieldBadge mint={current.baseToken?.address} />}</div></div>
+     <div className="chart-with-trade"><div className="chart-fullscreen-wrap" ref={chartWrap}><PnlBadge mcPerPrice={Number(current.marketCap) > 0 && Number(current.priceUsd) > 0 ? Number(current.marketCap) / Number(current.priceUsd) : null} pos={myPos} price={Number(current.priceUsd)} flash={tradeFlash} symbol={current.baseToken?.symbol} imageUrl={current.info?.imageUrl} /><ChartBoundary key={`${current.chainId}-${current.pairAddress}-${interval}-${metric}`} pair={current}><PriceChart userEntry={myPos?.avgEntry} pair={current} interval={interval} metric={metric} showVolume={volume} markers={markers} feeLive={showFee} /></ChartBoundary></div><div className="chart-side-stack"><QuickTrade pair={current} /><DipRipTool pair={current} />{current.chainId === 'solana' && <ShieldBadge mint={current.baseToken?.address} />}</div></div>
      <div className="focus-meta"><span data-testid="selected-token-age">Pool age {formatAge(current.pairCreatedAt)}</span><CreatorProfile pair={current} /><DataStatus data={live.data} id="token-data-status" /></div>
      <details className="td-edge edge-collapse"><summary>FEELESS Edge score <Explain>One grade for how tradeable this coin looks right now: buy/sell order flow, liquidity depth, the creator's track record, and how many snipers or bundled wallets got in early. Every reason behind the grade is listed when you open this.</Explain></summary><EdgeScore pair={current} /></details>
      <LaunchForensics pair={current} />
@@ -88,12 +88,14 @@ function useMyPosition(pair) {
   return [pos, flash];
 }
 
-function PnlBadge({ pos, price, flash, symbol, imageUrl }) {
+function PnlBadge({ pos, price, flash, symbol, imageUrl, mcPerPrice }) {
   if (!pos || !(pos.tokensHeld > 0) || !(price > 0)) return null;
+  const fmtMc = v => (v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${v.toFixed(0)}`);
+  const entryMc = mcPerPrice ? fmtMc(pos.avgEntry * mcPerPrice) : null; const nowMc = mcPerPrice ? fmtMc(price * mcPerPrice) : null;
   const pct = (price / pos.avgEntry - 1) * 100; const usd = (price - pos.avgEntry) * pos.tokensHeld;
   return <div key={flash} className={`my-pnl ${pct >= 0 ? 'up' : 'down'} ${flash ? 'just-traded' : ''}`} data-testid="my-pnl">
-    <small>Your position</small><b>{pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</b><span>{usd >= 0 ? '+' : '−'}${Math.abs(usd).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span><em>avg ${pos.avgEntry < 0.01 ? pos.avgEntry.toPrecision(4) : pos.avgEntry.toFixed(4)}</em>
-    <ShareGifButton className="my-pnl-share" label="🎞 Share" card={{ kicker: 'LIVE POSITION · FEELESS TRENCHES', title: `$${symbol}`, imageUrl, tone: pct >= 0 ? 'up' : 'down', bigValue: Math.abs(pct), bigPrefix: pct >= 0 ? '+' : '−', bigSuffix: '%', bigDigits: 1, lines: [`${usd >= 0 ? '+' : '−'}$${Math.abs(usd).toLocaleString(undefined, { maximumFractionDigits: 2 })} unrealized`, `avg entry $${pos.avgEntry.toPrecision(4)} · now $${price.toPrecision(4)}`] }} />
+    <small>Your position</small><b>{pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</b><span>{usd >= 0 ? '+' : '−'}${Math.abs(usd).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span><em>{entryMc ? <>entry MC {entryMc} · </> : null}avg ${pos.avgEntry < 0.01 ? pos.avgEntry.toPrecision(4) : pos.avgEntry.toFixed(4)}</em>
+    <ShareGifButton className="my-pnl-share" label="🎞 Share" card={{ kicker: 'LIVE POSITION · FEELESS TRENCHES', title: `$${symbol}`, imageUrl, tone: pct >= 0 ? 'up' : 'down', bigValue: Math.abs(pct), bigPrefix: pct >= 0 ? '+' : '−', bigSuffix: '%', bigDigits: 1, lines: [`${usd >= 0 ? '+' : '−'}$${Math.abs(usd).toLocaleString(undefined, { maximumFractionDigits: 2 })} unrealized`, entryMc ? `entry MC ${entryMc} · now MC ${nowMc}` : `avg entry $${pos.avgEntry.toPrecision(4)} · now $${price.toPrecision(4)}`] }} />
     <button type="button" className="my-pnl-exit" onClick={() => window.dispatchEvent(new CustomEvent('feeless:quick-exit', { detail: { pct: 100 } }))}>Exit position</button>
   </div>;
 }

@@ -4,7 +4,7 @@ import { useMarket } from '../../hooks/useMarket';
 import { dexUrl, formatUSD } from '../../lib/dexscreener';
 import { DataStatus } from './MarketPrimitives';
 import { recordPricePoint, getPriceTrail } from '../../lib/priceHistory';
-import { recordCandleTick, fetchFeelessCandles } from '../../lib/candles';
+import { recordCandleTick, fetchFeelessCandles, getCachedCandles, cacheCandles, prefetchAllIntervals } from '../../lib/candles';
 import { scrubCandles } from '../../lib/chartMath';
 import { fetchLivePrice } from '../../lib/livePrice';
 import { computeFeeRead } from './FeeLiveRead';
@@ -78,18 +78,21 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
 
   const needsFallback = (priceMetric || metricChart) && candlesLoaded;
   useEffect(() => {
-    setFeelessCandles([]);
+    const cached = pair?.pairAddress ? getCachedCandles(pair.chainId, pair.pairAddress, interval) : null;
+    setFeelessCandles(cached?.candles || []);
+    if (cached) setCandleProvider(cached.provider || 'FEELESS');
     setOlderCandles([]);
     olderState.current = { loading: false, exhausted: false };
     rangeRef.current = null;
-    setCandlesLoaded(false);
+    setCandlesLoaded(!!cached);
     if (!pair?.pairAddress) return undefined;
     let alive = true;
     const load = () => fetchFeelessCandles(pair.chainId, pair.pairAddress, interval, undefined, pair.baseToken?.address)
-      .then(res => { if (alive && Array.isArray(res?.candles)) { setFeelessCandles(res.candles); setCandleProvider(res.provider || 'FEELESS'); if (res.partial) setTimeout(() => { if (alive) load(); }, 2500); } })
+      .then(res => { if (!res?.partial) cacheCandles(pair.chainId, pair.pairAddress, interval, res); if (alive && Array.isArray(res?.candles)) { setFeelessCandles(res.candles); setCandleProvider(res.provider || 'FEELESS'); if (res.partial) setTimeout(() => { if (alive) load(); }, 2500); } })
       .catch(() => {})
       .finally(() => { if (alive) setCandlesLoaded(true); });
     load();
+    prefetchAllIntervals(pair.chainId, pair.pairAddress, pair.baseToken?.address);
     // Poll fast until real provider candles arrive, then settle to once a minute.
     let timer = setInterval(() => { load(); }, 15000);
     const settle = setTimeout(() => { clearInterval(timer); timer = setInterval(load, 60000); }, 120000);
@@ -245,7 +248,8 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     load(); const t = setInterval(load, 20000);
     return () => { alive = false; clearInterval(t); };
   }, [feeLive, pair?.pairAddress]);
-  const feeRead = useMemo(() => (feeLive && priceMetric ? computeFeeRead(displayCandles, pair, feePos) : null), [feeLive, priceMetric, displayCandles, pair, feePos]);
+  // Fee works on MC charts too: every level is scaled by the same supply ratio as the candles.
+  const feeRead = useMemo(() => (feeLive && charting ? computeFeeRead(displayCandles, ratio === 1 ? pair : { ...pair, priceUsd: price * ratio }, feePos && ratio !== 1 ? { ...feePos, entryPriceUsd: Number(feePos.entryPriceUsd) * ratio } : feePos) : null), [feeLive, charting, displayCandles, pair, feePos, ratio, price]);
 
   // Draw Fee's levels as price lines; turning Fee off removes every one of them.
   useEffect(() => {
@@ -281,10 +285,10 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     const ref = seriesRef.current;
     const drop = () => { if (entryLineRef.current) { try { ref?.series.removePriceLine(entryLineRef.current); } catch { /* chart gone */ } entryLineRef.current = null; } };
     drop();
-    if (!ref || !(userEntry > 0) || !priceMetric) return drop;
-    try { entryLineRef.current = ref.series.createPriceLine({ price: userEntry, color: '#f5c542', lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: '◆ your avg entry' }); } catch { /* chart torn down */ }
+    if (!ref || !(userEntry > 0) || !charting) return drop;
+    try { entryLineRef.current = ref.series.createPriceLine({ price: userEntry * ratio, color: '#f5c542', lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: '◆ your avg entry' }); } catch { /* chart torn down */ }
     return drop;
-  }, [userEntry, priceMetric, displayCandles]);
+  }, [userEntry, charting, ratio, displayCandles]);
 
   // Live ticks: every 3s pull the pair's current price straight from DexScreener and
   // update the forming candle in place (no redraw, zoom preserved).
@@ -304,6 +308,10 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
         if (ref0 > 0 && !(value > ref0 / 20 && value < ref0 * 20)) return; // bad read, not a real 1s move
         const t = Math.floor(Date.now() / 1000 / bucket) * bucket;
         if (ref.kind === 'candle') {
+          // Missed buckets (hidden tab, stalled stream): draw them flat at the last close — never skip a candle.
+          for (let gt = last.time + bucket; gt < t && t - gt < bucket * 500; gt += bucket) {
+            ref.series.update({ time: gt, open: last.close, high: last.close, low: last.close, close: last.close });
+          }
           const bar = t > last.time ? { time: t, open: last.close, high: Math.max(last.close, value), low: Math.min(last.close, value), close: value }
             : { ...last, high: Math.max(last.high, value), low: Math.min(last.low, value), close: value };
           ref.series.update(bar);
