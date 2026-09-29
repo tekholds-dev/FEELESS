@@ -15,7 +15,7 @@ import { FlashValue } from './FlashValue';
 const ITEMS = [
   ['', 'Home', Home], ['reputation', 'Reputation', ShieldCheck], ['trade', 'Trade', CandlestickChart], ['pump', 'Pump radar', Rocket],
   ['discover', 'Discover', Compass], ['launch', 'Launchpads', Rocket],
-  ['watchlist', 'Watchlist', Star], ['chat', 'The Trenches', MessageCircle], ['alpha', 'Alpha rooms', Lock],
+  ['watchlist', 'Watchlist', Star], ['chat', 'The Trenches', MessageCircle],
   ['alerts', 'Signal alerts', Bell], ['feeback', 'Fee-Back', Coins], ['fee', '$FEE', Activity], ['feecat', 'FeeCat', Cat], ['seasons', 'Seasons', Crown], ['leaderboard', 'Leaderboard', Trophy], ['learn', 'Learn', BookOpen], ['roadmap', 'Roadmap', Map],
   ['whitepaper', 'Whitepaper', FileText], ['settings', 'Settings', Settings],
 ];

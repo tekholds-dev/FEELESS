@@ -143,8 +143,10 @@ export function QuickTrade({ pair }) {
   const impact = order ? Number(order.quote?.priceImpactPct ?? order.quote?.priceImpact) : null;
   const toFee = counter === 'FEE';
   return <aside ref={box} className="quick-trade" data-testid="quick-trade">
-    <div className="qt-head"><Zap size={13} /><b>Quick trade</b><button type="button" className={`qt-gear ${showSettings ? 'active' : ''}`} onClick={() => setShowSettings(v => !v)} title="Quick trade settings" aria-label="Quick trade settings"><Settings2 size={13} /></button><div className="qt-side">{['buy', 'sell'].map(s => <button type="button" key={s} className={`${s} ${side === s ? 'active' : ''}`} onClick={() => setSide(s)}>{s === 'buy' ? 'Buy' : 'Sell'}</button>)}</div></div>
+    <div className="qt-head"><Zap size={13} /><b>Quick trade</b><button type="button" className={`qt-gear ${showSettings ? 'active' : ''}`} onClick={() => setShowSettings(v => !v)} title="Quick trade settings" aria-label="Quick trade settings"><Settings2 size={13} /></button><button type="button" className="qt-slip-chip" onClick={() => setShowSettings(true)} title="Max slippage (change in settings)">Slip {Number(prefs.slippage) / 100}%</button><div className="qt-side">{['buy', 'sell'].map(s => <button type="button" key={s} className={`${s} ${side === s ? 'active' : ''}`} onClick={() => setSide(s)}>{s === 'buy' ? 'Buy' : 'Sell'}</button>)}</div></div>
     {showSettings && <div className="qt-settings" data-testid="quick-trade-settings">
+      <small>Max slippage</small>
+      <SlippagePicker value={prefs.slippage} onChange={v => setPrefs(p => ({ ...p, slippage: v }))} disabled={busy} />
       <small>Your buy presets</small>
       {['SOL', 'USD'].map(u => <div key={u} className="qt-settings-row"><span>{u}</span>{presetsFor(prefs, u).map((v, i) => <input key={i} type="number" min="0" step="any" value={v} onChange={e => { const next = [...presetsFor(prefs, u)]; next[i] = e.target.value; setPrefs(p => ({ ...p, [u === 'USD' ? 'presetsUSD' : 'presetsSOL']: next })); }} aria-label={`${u} preset ${i + 1}`} />)}</div>)}
       <div className="qt-settings-row"><button type="button" onClick={() => { setPrefs({ ...DEFAULT_PREFS }); setAmount(PRESETS.SOL[0]); }}>Reset</button><button type="button" className="qt-settings-done" onClick={() => setShowSettings(false)}>Done</button></div>
@@ -162,7 +164,6 @@ export function QuickTrade({ pair }) {
       <div className="qt-row"><span>Receive</span><div className="qt-seg">{[['SOL', 'SOL'], ['FEE', '$FEE']].map(([id, l]) => <button type="button" key={id} disabled={id === 'FEE' && !feeMint} className={counter === id ? 'active' : ''} onClick={() => setCounter(id)}>{l}</button>)}</div></div>
       {toFee && <small className="qt-fee-free">Buying $FEE · 0% FEELESS fee</small>}
     </>}
-    <div className="qt-row"><span>Slippage</span><SlippagePicker className="qt-seg" value={prefs.slippage} onChange={v => setPrefs(p => ({ ...p, slippage: v }))} disabled={busy} /></div>
     {order && <div className="qt-quote"><div className="qt-fee" data-testid="qt-fee"><small>FEELESS fee</small><b>{order.feeless_fee?.bps ? `${(order.feeless_fee.bps / 100).toFixed(2)}%` : 'Free'}</b>{order.feeless_fee?.notes?.length ? <em>{order.feeless_fee.notes.join(' · ')}</em> : null}</div><div><small>You get ≈</small><b>{out != null ? `${out.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${side === 'buy' ? symbol : toFee ? '$FEE' : 'SOL'}` : '—'}</b></div><div><small>Min received</small><b>{minOut != null ? minOut.toLocaleString(undefined, { maximumFractionDigits: 6 }) : '—'}</b></div><div><small>Price impact</small><b className={Math.abs(impact) > 5 ? 'negative' : ''}>{Number.isFinite(impact) ? `${Math.abs(impact).toFixed(2)}%` : '—'}</b></div></div>}
     {quoteError && !order && <small className="qt-note qt-error" role="status">{quoteError}</small>}
     {order && order.key === requestKey

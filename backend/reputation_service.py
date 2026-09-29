@@ -1282,7 +1282,7 @@ def _vapid():
 def _push_load():
     if PUSH_PATH.exists():
         try:
-            return json.loads(PUSH_PATH.read_text())
+            return _cached_json(PUSH_PATH)
         except Exception:
             pass
     return {'subs': {}}
@@ -1525,7 +1525,7 @@ _calls_lock = asyncio.Lock()
 def _calls_load():
     if CALLS_PATH.exists():
         try:
-            return json.loads(CALLS_PATH.read_text())
+            return _cached_json(CALLS_PATH)  # parsed once per file version, not on every request
         except Exception:
             pass
     return {'calls': {}}
@@ -1671,6 +1671,19 @@ async def recent_calls(room: Optional[str] = None, pair: Optional[str] = None, m
 
 @app.get('/api/reputation/calls/leaderboard')
 async def caller_board(days: int = Query(7, ge=1, le=90), room: Optional[str] = None):
+    # Profiles, the league and the feed all ask for this: rebuild at most every 20s.
+    hit = _board_cache.get((days, room))
+    if hit and time.time() - hit[0] < 20:
+        return hit[1]
+    out = _build_caller_board(days, room)
+    _board_cache[(days, room)] = (time.time(), out)
+    return out
+
+
+_board_cache: dict = {}
+
+
+def _build_caller_board(days, room):
     since = time.time() - days * 86400
     by = {}
     for c in _calls_load()['calls'].values():
@@ -1717,7 +1730,7 @@ _react_lock = asyncio.Lock()
 def _react_load():
     if REACT_PATH.exists():
         try:
-            return json.loads(REACT_PATH.read_text())
+            return _cached_json(REACT_PATH)
         except Exception:
             pass
     return {'rooms': {}}
@@ -1793,7 +1806,7 @@ HEX = set('0123456789abcdefABCDEF')
 def _profiles_load():
     if PROFILE_PATH.exists():
         try:
-            return json.loads(PROFILE_PATH.read_text())
+            return _cached_json(PROFILE_PATH)
         except Exception:
             pass
     return {'profiles': {}}
@@ -2644,7 +2657,7 @@ def _admin_wallets():
 
 def _admin_load():
     try:
-        d = json.loads(ADMIN_PATH.read_text())
+        d = _cached_json(ADMIN_PATH)
     except Exception:
         d = {}
     d.setdefault('badges', {}); d.setdefault('airdrops', []); d.setdefault('audit', [])
