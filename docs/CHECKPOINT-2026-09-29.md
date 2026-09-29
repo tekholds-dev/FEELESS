@@ -1,19 +1,16 @@
-# Bounded recovery checkpoint
+# Checkpoint — 2026-09-29
 
-Implemented in this pass:
-- Replaced the incorrectly labelled local-call-ledger chat integration with Pump's current coin-activity callout contract, in both Python and preview APIs.
-- Chat retains the latest three returned callouts timestamped before coin entry, then appends/deduplicates new arrivals every 15 seconds. Author, message, entry market cap, timestamp, and original Pump link are displayed. Polling is not a websocket and cannot guarantee no gaps outside the provider's returned window.
-- Removed automatic reopening of the global previous coin when entering Trenches.
-- Preserved provider market-cap ordering for Python Pump top coins (previously reordered oldest first).
+Codex's `recovery/codex-sept28` work (41ecf2a…f7a4271) is merged into `main`, plus the cleanup pass below.
 
-External blocker:
-- Verified Pump's published client contract on 2026-09-29: GET /coin-activity/{mint}, includeCallouts=true. The live endpoint returned 401 without authorization; old /replies/{mint} returned 404.
-- Deployment requires legitimately authorized `PUMP_CALLOUT_TOKEN` server-side. No credentials were read, copied, invented, or committed. UI reports unavailable until access works. Authenticated end-to-end import remains unverified. Never present local calls as Pump users' calls.
+Done:
+- Pump user callouts live inside the FEELESS coin chat (Bulls / Trenches / Bears) with a pink PUMP pill: the 3 callouts made just before you open the coin, then every 3rd new Pump callout. FEELESS posts stay first-class; Pump rows follow the chat's "All" and "Calls only" filters. Entry time is per coin, so switching tabs keeps the cadence.
+- Shared reputation lookups: bolt, badge and card on the same coin share one in-flight request (fixes bolts silently missing).
+- Swap page crash fixed (`useMemo` was not imported in SwapWorkspace).
+- Liquidity depth: liquidity at or above market cap now floors at 15 (dead-pool tell).
+- Tests updated for the MC-first chart default. 148/148 frontend tests pass; preview API 22/22; production build clean.
+- FeeCat engine verified cycling after restarting the 5088 service on current code. Presets fill the rule fields and apply when "Save brain" is pressed.
 
-Still needs separate bounded work, not certified complete:
-- FeeCat runtime diagnosis, strategy settings and dip-add risk controls; paper execution must not be represented as real execution.
-- Badge command-center mechanics/UI validation.
-- Bolt ranking provenance and shared reputation-hook race (duplicate hook consumers can miss the same response).
-- Remaining historical fee/treasury/reward requests require separate verification; no assurance of fund destinations is made by this checkpoint.
+External blocker (unchanged):
+- Pump's `GET /coin-activity/{mint}?includeCallouts=true` needs authorization. Set `PUMP_CALLOUT_TOKEN` server-side with legitimately issued access. Until then, coin chats show "Pump callouts are offline for this coin right now." Never present FEELESS calls as Pump users' calls.
 
-Do not overwrite unrelated work or force-push main. Current delivery branch: recovery/codex-sept28.
+Local dev note: the backend runs as four processes — `server` (5001), `reputation_service` (5077), `feecat_service` (5088), `candles_service` (5099). Restart all of them after pulling backend changes, or the preview runs stale code.

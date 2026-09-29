@@ -86,7 +86,7 @@ export function computeEdge(pair, rep, intel, feeRead) {
   const liq = n(pair?.liquidity?.usd); const mc = n(pair?.marketCap || pair?.fdv);
   const depth = liq && mc ? (liq / mc) * 100 : null;
   const turnover = liq && n(pair?.volume?.h24) ? n(pair.volume.h24) / liq : null;
-  let depthScore = depth == null ? null : clamp(depth < 1 ? depth * 30 : depth < 5 ? 30 + depth * 10 : depth <= 25 ? 70 + (depth - 5) * 1.5 : depth <= 60 ? 100 - (depth - 25) * 0.35 : 55 - Math.min(40, depth - 60) * 0.7);
+  let depthScore = depth == null ? null : clamp(depth < 1 ? depth * 30 : depth < 5 ? 30 + depth * 10 : depth <= 25 ? 70 + (depth - 5) * 1.5 : depth <= 60 ? 100 - (depth - 25) * 0.35 : Math.max(15, 55 - (depth - 60)));  // liquidity at/above market cap is a dead-pool tell
   if (depthScore != null && turnover != null && turnover > 120) depthScore = Math.max(0, depthScore - Math.min(35, (turnover - 120) / 8));
   f.push(['Liquidity depth', 15, depthScore, depth == null ? 'liquidity not reported (bonding curve?)' : `${depth.toFixed(1)}% of market cap${turnover != null ? ` · ${turnover.toFixed(1)}× 24h turnover` : ''}${turnover > 120 ? ' — abnormal turnover' : ''}`]);
   const t1 = (n(pair?.txns?.h1?.buys) || 0) + (n(pair?.txns?.h1?.sells) || 0);

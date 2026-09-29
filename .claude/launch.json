@@ -2,6 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "feeless-api",
+      "runtimeExecutable": ".venv/bin/uvicorn",
+      "runtimeArgs": ["server:app", "--app-dir", "backend", "--host", "127.0.0.1", "--port", "5001"],
+      "port": 5001,
+      "url": "http://127.0.0.1:5001"
+    },
+    {
       "name": "feeless-frontend",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["--prefix", "frontend", "craco", "start"],

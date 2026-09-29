@@ -1,7 +1,7 @@
 import { LaunchRadar } from '../LaunchRadar';
 import { TrendingCards, TrenchLanding, TrenchBar, HotCalls, LiveCalls, CallerBoard } from './TrenchesTools';
 import { LivePrice } from './LiveCells';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, Radio, Rocket, Compass, Star, BarChart3, ArrowUpRight, CandlestickChart, Layers3, Zap } from 'lucide-react';
 import EcosystemChat from '../EcosystemChat';
@@ -16,7 +16,7 @@ import { RadarPanel } from '../command/MetaPanels';
 import { formatUSD, pairKey, coinIdentity, coinRoom, normalizeRoomPerspective, shortAddress, formatTime } from '../../lib/dexscreener';
 import { apiUrl } from '../../lib/api';
 import { BoltLegend, BoltSignal } from './BoltSignal';
-import { mergePumpCallouts } from '../../lib/pumpCallouts';
+import { mergePumpCallouts, visiblePumpCallouts, isPumpCoin } from '../../lib/pumpCallouts';
 
 export const LivePoolsPanel = ({ pairs = [], newPairs = [], onSelect }) => {
   const { data, loading, refreshing, error } = useMarket('/feed?kind=trending&chain=all&page=1', 15000);
@@ -51,47 +51,34 @@ export const LivePoolsPanel = ({ pairs = [], newPairs = [], onSelect }) => {
   </div>;
 };
 
-export const PumpRadarCallout = ({ pair }) => {
+// Pump user callouts for a Pump coin. Owned by the coin (not the bulls/bears tab) so switching tabs
+// keeps the entry time and the every-3rd cadence.
+const usePumpCallouts = pair => {
   const mint = pair?.baseToken?.address;
-  const isPump = pair?.chainId === 'solana' && Boolean(mint) && (pair?.launchpadId === 'pump' || String(pair?.dexId || '').toLowerCase().includes('pump') || mint.endsWith('pump'));
-  const [calls, setCalls] = useState([]);
-  const [status, setStatus] = useState('Loading Pump callouts…');
+  const enabled = isPumpCoin(pair);
+  const [state, setState] = useState({ calls: [], enteredAt: 0, status: 'idle' });
   useEffect(() => {
-    setCalls([]);
-    if (!isPump) return undefined;
-    setStatus('Loading Pump callouts…');
+    setState({ calls: [], enteredAt: Date.now(), status: enabled ? 'loading' : 'idle' });
+    if (!enabled) return undefined;
     let alive = true;
-    const enteredAt = Date.now();
     const controller = new AbortController();
     let timer;
     const load = async () => {
       try {
         const response = await fetch(apiUrl(`/api/market/pump/callouts/${encodeURIComponent(mint)}`), { signal: controller.signal });
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.detail || 'Pump callouts unavailable.');
-        if (!alive) return;
-        setCalls(previous => mergePumpCallouts(previous, data.items, enteredAt, mint));
-        setStatus('Latest 3 before entry · new callouts refresh every 15s');
+        if (alive) setState(current => ({ ...current, calls: mergePumpCallouts(current.calls, data.items, mint), status: 'live' }));
       } catch (error) {
-        if (alive) setStatus(error.message || 'Pump callouts unavailable.');
+        if (alive && error.name !== 'AbortError') setState(current => ({ ...current, status: 'unavailable' }));
       } finally {
         if (alive) timer = setTimeout(load, 15000);
       }
     };
     load();
     return () => { alive = false; controller.abort(); clearTimeout(timer); };
-  }, [isPump, mint]);
-  if (!isPump) return null;
-  return <div className="pump-chat-callout" data-testid="pump-chat-callout">
-    <span><Zap size={13} /> PUMP USER CALLOUTS</span>
-    <small role="status">{status}</small>
-    <div className="pump-user-call-list">{calls.map(call => <article key={call.id}>
-      <header><b>{call.caller}</b><time dateTime={new Date(call.at).toISOString()}>{formatTime(call.at)}</time></header>
-      {call.text && <p>{call.text}</p>}
-      <footer><small>Entry MC {formatUSD(call.marketCap)}</small><a href={`https://pump.fun/callouts/${encodeURIComponent(mint)}/${encodeURIComponent(call.id)}`} target="_blank" rel="noopener noreferrer">View on Pump <ArrowUpRight size={11} /></a></footer>
-    </article>)}</div>
-    {!calls.length && status.startsWith('Latest') && <small>No Pump callouts returned for this coin.</small>}
-  </div>;
+  }, [enabled, mint]);
+  return useMemo(() => ({ ...state, enabled, mint, visible: visiblePumpCallouts(state.calls, state.enteredAt) }), [state, enabled, mint]);
 };
 
 const TrenchCoinCard = ({ pair, rank, callCount, onPick }) => {
@@ -113,11 +100,12 @@ export const ChatRoom = ({ large = false, pairs = [], newPairs = [], onSelect, s
   const tabs = selectedPair ? coinChannels : channels;
   const room = selectedPair ? coinRoom(selectedPair, channel) : `${ecosystem.id}-${channel}`;
   const roomName = selectedPair ? `${selectedPair.baseToken?.symbol || 'Coin'} / ${channel}` : `${ecosystem.name} / ${channel}`;
+  const pump = usePumpCallouts(selectedPair);
   const changeChannel = next => {
     setChannel(next);
     if (selectedPair && normalizeRoomPerspective(next)) onPerspectiveChange?.(next);
   };
-  return <section className={`community-chat ${large ? 'large-chat' : ''}`}><div className="section-title"><h2><MessageCircle size={18} />{selectedPair ? `${selectedPair.baseToken?.symbol || 'Coin'} discussion` : 'The Trenches'}</h2><span className="positive small" data-testid="chat-active-ecosystem">{selectedPair ? `${selectedPair.chainId} · ${shortAddress(selectedPair.pairAddress)}` : ecosystem.name}</span></div><div className="chat-tabs">{tabs.map(([id, label]) => <button key={id} data-testid={`chat-tab-${id}`} aria-selected={channel === id} title={`${label} discussion`} onClick={() => changeChannel(id)} className={`${channel === id ? 'active' : ''} ${id === 'trenches' ? 'trenches-font' : ''}`}>{label}</button>)}</div>{selectedPair && <PumpRadarCallout pair={selectedPair} />}{selectedPair ? <EcosystemChat key={room} room={room} compact ecosystem={{ id: room, name: roomName }} onConnect={onConnect} /> : channel === 'pools' ? <LivePoolsPanel pairs={pairs} newPairs={newPairs} onSelect={onSelect} /> : <EcosystemChat key={`${ecosystem.id}-${channel}`} compact ecosystem={{ id: `${ecosystem.id}-${channel}`, name: roomName }} onConnect={onConnect} />}</section>;
+  return <section className={`community-chat ${large ? 'large-chat' : ''}`}><div className="section-title"><h2><MessageCircle size={18} />{selectedPair ? `${selectedPair.baseToken?.symbol || 'Coin'} discussion` : 'The Trenches'}</h2><span className="positive small" data-testid="chat-active-ecosystem">{selectedPair ? `${selectedPair.chainId} · ${shortAddress(selectedPair.pairAddress)}` : ecosystem.name}</span></div><div className="chat-tabs">{tabs.map(([id, label]) => <button key={id} data-testid={`chat-tab-${id}`} aria-selected={channel === id} title={`${label} discussion`} onClick={() => changeChannel(id)} className={`${channel === id ? 'active' : ''} ${id === 'trenches' ? 'trenches-font' : ''}`}>{label}</button>)}</div>{selectedPair ? <EcosystemChat key={room} room={room} compact ecosystem={{ id: room, name: roomName }} onConnect={onConnect} pump={pump} /> : channel === 'pools' ? <LivePoolsPanel pairs={pairs} newPairs={newPairs} onSelect={onSelect} /> : <EcosystemChat key={`${ecosystem.id}-${channel}`} compact ecosystem={{ id: `${ecosystem.id}-${channel}`, name: roomName }} onConnect={onConnect} />}</section>;
 };
 
 export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair: routeSelectedPair = null, selectedPerspective = null, onPerspectiveChange, onConnect }) => {

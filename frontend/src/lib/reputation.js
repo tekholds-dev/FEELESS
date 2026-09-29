@@ -2,7 +2,8 @@ import { readChatSession } from './chatSession';
 import { useEffect, useRef, useState } from 'react';
 import { apiUrl } from './api';
 
-const seenPairs = new Set();
+// One observe request per pair, shared by every consumer (bolt, badge, card) that mounts while it is in flight.
+const inflight = new Map();
 const memoryCache = new Map();
 
 export const BADGE_LABEL = {
@@ -45,14 +46,15 @@ export function useReputation(pair) {
   useEffect(() => {
     if (!key) return;
     const cached = memoryCache.get(key);
-    if (cached) setResult(cached);
-    if (seenPairs.has(key)) return;
-    seenPairs.add(key);
-    observe(pair).then(data => {
-      if (!data) return;
-      memoryCache.set(key, data);
-      if (mounted.current) setResult(data);
-    });
+    if (cached) { setResult(cached); return; }
+    if (!inflight.has(key)) {
+      inflight.set(key, observe(pair).then(data => {
+        if (data) memoryCache.set(key, data);
+        else inflight.delete(key); // a failed observe may be retried by the next consumer
+        return data;
+      }));
+    }
+    inflight.get(key).then(data => { if (data && mounted.current) setResult(data); });
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   return result;
 }

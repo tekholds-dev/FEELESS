@@ -2,7 +2,7 @@ import { useDraft } from '../../lib/useDraft';
 import { ReceiptsCard } from './ReceiptsCard';
 import { ReceiptPreview } from './ReceiptPreview';
 import { TokenPicker } from './TokenPicker';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { VersionedTransaction } from '@solana/web3.js';
 import { ArrowDownUp, ArrowUpRight, ShieldCheck, Wallet, RefreshCw } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../ui/dialog';

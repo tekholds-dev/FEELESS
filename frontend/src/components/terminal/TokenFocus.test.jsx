@@ -68,13 +68,14 @@ test('switches to provider-supplied market cap without changing candle data', ()
 
   const toggle = mounted.host.querySelector('[data-testid="chart-metric-switch"]');
   expect(toggle.disabled).toBe(false);
-  expect(mounted.host.querySelector('[data-testid="mock-price-chart"]').getAttribute('data-metric')).toBe('price');
-  act(() => toggle.click());
+  // Charts open market-cap first when the provider reports one, then cycle FDV → price.
   expect(mounted.host.querySelector('[data-testid="mock-price-chart"]').getAttribute('data-metric')).toBe('marketCap');
   act(() => toggle.click());
   expect(mounted.host.querySelector('[data-testid="mock-price-chart"]').getAttribute('data-metric')).toBe('fdv');
   act(() => toggle.click());
   expect(mounted.host.querySelector('[data-testid="mock-price-chart"]').getAttribute('data-metric')).toBe('price');
+  act(() => toggle.click());
+  expect(mounted.host.querySelector('[data-testid="mock-price-chart"]').getAttribute('data-metric')).toBe('marketCap');
   expect(mounted.host.querySelector('[data-testid="token-analytics-snipers"]').textContent).toContain('Unavailable');
   act(() => mounted.root.unmount());
 });
