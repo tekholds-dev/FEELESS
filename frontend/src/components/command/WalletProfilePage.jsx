@@ -15,6 +15,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Globe, Send, Pencil, Save, X, Plus, Image as ImageIcon, Trophy, ShieldCheck } from 'lucide-react';
 import { apiUrl } from '../../lib/api';
+import { isCoinAddress } from '../../lib/resolveCoin';
 import { useWallet } from '../../hooks/useWallet';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { LivePrice } from '../terminal/LiveCells';
@@ -107,6 +108,14 @@ function FeedCallers() {
 export function WalletProfilePage({ address }) {
   const { wallet, signMessage, connect } = useWallet() || {};
   const navigate = useNavigate();
+  const navRef = React.useRef(navigate); navRef.current = navigate;
+  // A coin's mint (e.g. rFEE, FEECAT) is not a person: send it to the coin profile instead of an empty wallet page.
+  useEffect(() => {
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) return undefined;
+    let alive = true;
+    isCoinAddress('solana', address).then(coin => { if (alive && coin) navRef.current(`/terminal/coin/solana/${address}`, { replace: true }); });
+    return () => { alive = false; };
+  }, [address]);
   useEffect(() => { if (!address.startsWith('@')) return; fetch(apiUrl(`/api/reputation/resolve/${encodeURIComponent(address)}`)).then(r => (r.ok ? r.json() : null)).then(d => { if (d?.address) navigate(`/terminal/profile/${d.address}`, { replace: true }); }).catch(() => {}); }, [address, navigate]);
   // ?view=history deep-links straight to this wallet's swap history + P&L chart (used by search).
   const [flipped, setFlipped] = useState(() => new URLSearchParams(window.location.search).get('view') === 'history');

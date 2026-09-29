@@ -5,12 +5,14 @@ import { LivePrice } from '../terminal/LiveCells';
 import { DipRipTool } from '../terminal/DipRipTool';
 import { CreatorFeesCard } from './CreatorFeesCard';
 import { CoinProfileClaim } from './CoinProfileClaim';
+import { resolveCoin } from '../../lib/resolveCoin';
 
 const ago = ts => { const s = Math.max(0, Date.now() / 1000 - ts); return s < 60 ? `${Math.floor(s)}s` : s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h` : `${Math.floor(s / 86400)}d`; };
 
 // Every coin gets a profile: identity + market + holder intel on the front, live activity on the back.
 export function CoinProfile({ chain, pairAddress }) {
   const [pair, setPair] = useState(null);
+  const [missing, setMissing] = useState(false);
   const [intel, setIntel] = useState(null);
   const [rep, setRep] = useState(null);
   const [flipped, setFlipped] = useState(false);
@@ -19,29 +21,34 @@ export function CoinProfile({ chain, pairAddress }) {
   const [trades, setTrades] = useState([]);
   useEffect(() => {
     let alive = true;
-    const load = () => fetch(`https://api.dexscreener.com/latest/dex/pairs/${chain}/${pairAddress}`).then(r => r.json()).then(d => alive && setPair(d.pairs?.[0] || null)).catch(() => {});
+    // Accept a pool address or a coin mint: mints (how rFEE / FEECAT / $FEE are known) resolve to their deepest pool.
+    const load = async () => {
+      const found = await resolveCoin(chain, pairAddress);
+      if (alive) { if (found) setPair(found); else setMissing(true); }
+    };
     load(); const t = setInterval(load, 15000);
     return () => { alive = false; clearInterval(t); };
   }, [chain, pairAddress]);
   const mint = pair?.baseToken?.address;
+  const pool = pair?.pairAddress || pairAddress;   // resolved pool (the route may carry a mint)
   useEffect(() => {
     if (!mint) return;
     fetch(`/api/reputation/intel/${chain}/${mint}`).then(r => r.json()).then(setIntel).catch(() => {});
-    fetch(`/api/reputation/token/${chain}/${pairAddress}?baseTokenAddress=${mint}`).then(r => r.json()).then(setRep).catch(() => {});
-  }, [chain, pairAddress, mint]);
+    fetch(`/api/reputation/token/${chain}/${pool}?baseTokenAddress=${mint}`).then(r => r.json()).then(setRep).catch(() => {});
+  }, [chain, pool, mint]);
   useEffect(() => {
     if (!flipped) return undefined;
     let alive = true;
     const load = () => {
-      fetch(`/api/reputation/calls/recent?pair=${pairAddress}&limit=30`).then(r => r.json()).then(d => alive && setCalls(d.calls || [])).catch(() => {});
-      Promise.all(['bulls', 'trenches', 'bears'].map(side => fetch(`/api/reputation/chat/coin-${chain}-${pairAddress}-${side}`).then(r => r.json()).then(d => (d.messages || []).map(m => ({ ...m, side }))).catch(() => [])))
+      fetch(`/api/reputation/calls/recent?pair=${pool}&limit=30`).then(r => r.json()).then(d => alive && setCalls(d.calls || [])).catch(() => {});
+      Promise.all(['bulls', 'trenches', 'bears'].map(side => fetch(`/api/reputation/chat/coin-${chain}-${pool}-${side}`).then(r => r.json()).then(d => (d.messages || []).map(m => ({ ...m, side }))).catch(() => [])))
         .then(all => alive && setChat(all.flat().sort((a, b) => b.ts - a.ts).slice(0, 30)));
-      fetch(`/api/candles/trades/${chain}/${pairAddress}`).then(r => r.json()).then(d => alive && d.trades?.length && setTrades(d.trades.slice(0, 40))).catch(() => {});
+      fetch(`/api/candles/trades/${chain}/${pool}`).then(r => r.json()).then(d => alive && d.trades?.length && setTrades(d.trades.slice(0, 40))).catch(() => {});
     };
     load(); const t = setInterval(load, 15000);
     return () => { alive = false; clearInterval(t); };
-  }, [flipped, chain, pairAddress]);
-  if (!pair) return <section className="coin-profile" data-testid="coin-profile"><p className="wp-bio">Loading coin…</p></section>;
+  }, [flipped, chain, pool]);
+  if (!pair) return <section className="coin-profile" data-testid="coin-profile"><p className="wp-bio">{missing ? 'No market found for this address yet. Check the address, or try again once the coin has a pool.' : 'Loading coin…'}</p></section>;
   const tx = pair.txns?.h24 || {}; const b = tx.buys || 0; const s = tx.sells || 0;
   const snip = intel?.sniperWallets?.length ?? null; const bund = intel?.bundledWallets?.length ?? null;
   return <section className="coin-profile" data-testid="coin-profile">
@@ -49,7 +56,7 @@ export function CoinProfile({ chain, pairAddress }) {
     <div className="cp-head">
       <div className="cp-logo">{pair.info?.imageUrl ? <img src={pair.info.imageUrl} alt="" /> : <span>{pair.baseToken.symbol.slice(0, 2)}</span>}</div>
       <div className="cp-id"><h1>${pair.baseToken.symbol} <small>{pair.baseToken.name}</small></h1><span>{chain} · {pair.dexId} · pool {formatAge(pair.pairCreatedAt)} old · <code>{shortAddress(mint)}</code><CopyBtn value={mint} /></span>
-        <div className="cp-links">{(pair.info?.socials || []).map(x => <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer">{x.type}</a>)}{(pair.info?.websites || []).slice(0, 1).map(x => <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer">website</a>)}<a href={`/terminal/chat?chain=${chain}&pair=${pairAddress}&room=bulls`}>Chart + trade →</a></div></div>
+        <div className="cp-links">{(pair.info?.socials || []).map(x => <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer">{x.type}</a>)}{(pair.info?.websites || []).slice(0, 1).map(x => <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer">website</a>)}<a href={`/terminal/chat?chain=${chain}&pair=${pool}&room=bulls`}>Chart + trade →</a></div></div>
       <button type="button" className="btn-outline wp-flip-btn" data-testid="coin-flip" onClick={() => setFlipped(f => !f)}>{flipped ? '↺ Profile' : '↻ Activity'}</button>
     </div>
     {!flipped ? <div className="cp-grid">
