@@ -51,8 +51,16 @@ class OrderId(BaseModel):
 class TradingService:
     def __init__(self, db):
         self.db = db
+        self._http = None
         self.metadata_cache = {}
         self.rate = defaultdict(deque)
+
+    @property
+    def http(self):
+        # One pooled client for every RPC / Jupiter call (keep-alive), instead of a new connection per request.
+        if self._http is None or self._http.is_closed:
+            self._http = httpx.AsyncClient(limits=httpx.Limits(max_connections=200, max_keepalive_connections=50))
+        return self._http
 
     def configured(self):
         return bool(os.environ.get('JUPITER_API_KEY') and os.environ.get('SOLANA_RPC_URL'))
@@ -64,10 +72,9 @@ class TradingService:
     async def rpc(self, method, params):
         self.require_configured()
         try:
-            async with httpx.AsyncClient(timeout=15) as http:
-                res = await http.post(os.environ['SOLANA_RPC_URL'], json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
-                res.raise_for_status()
-                data = res.json()
+            res = await self.http.post(os.environ['SOLANA_RPC_URL'], json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}, timeout=15)
+            res.raise_for_status()
+            data = res.json()
             if data.get('error'):
                 raise HTTPException(503, 'Solana RPC rejected the request. Try later or configure a dedicated RPC.')
             return data.get('result')
@@ -77,17 +84,16 @@ class TradingService:
     async def jupiter(self, method, path, **kwargs):
         self.require_configured()
         try:
-            async with httpx.AsyncClient(timeout=25) as http:
-                # Jupiter rate-limits per key: back off and retry briefly instead of failing the trade.
-                for attempt in range(3):
-                    res = await http.request(method, JUPITER_API_URL + path,
-                                             headers={'x-api-key': os.environ['JUPITER_API_KEY']}, **kwargs)
-                    if res.status_code != 429:
-                        break
-                    await asyncio.sleep(1.2 * (attempt + 1))
-                if res.status_code == 429:
-                    raise HTTPException(503, 'Jupiter is busy right now — try again in a few seconds. Nothing was sent.')
-                data = res.json()
+            # Jupiter rate-limits per key: back off and retry briefly instead of failing the trade.
+            for attempt in range(3):
+                res = await self.http.request(method, JUPITER_API_URL + path, timeout=25,
+                                              headers={'x-api-key': os.environ['JUPITER_API_KEY']}, **kwargs)
+                if res.status_code != 429:
+                    break
+                await asyncio.sleep(1.2 * (attempt + 1))
+            if res.status_code == 429:
+                raise HTTPException(503, 'Jupiter is busy right now — try again in a few seconds. Nothing was sent.')
+            data = res.json()
             if res.status_code >= 400:
                 detail = str(data.get('errorMessage') or data.get('error') or data.get('message') or 'Jupiter route unavailable')
                 if 'failed to get quotes' in detail.lower() or 'no routes' in detail.lower():
@@ -116,6 +122,84 @@ class TradingService:
                     'checked_at': datetime.now(timezone.utc).isoformat()}
         self.metadata_cache[mint] = {'checked': time.time(), 'value': metadata}
         return metadata
+
+    async def swap_order(self, params, fee, wallet):
+        """Jupiter Swap API: quote with the FEELESS platform fee, then build the wallet's transaction.
+        The fee is paid into the FEELESS token account for SOL or USDC (whichever side of the trade it is)."""
+        bps = int(fee.get('bps') or 0) if fee.get('feeAccount') else 0
+        query = {k: v for k, v in params.items() if k != 'taker'}
+        if bps:
+            query['platformFeeBps'] = bps
+        quote = await self.jupiter('GET', '/swap/v1/quote', params=query)
+        if not quote.get('outAmount'):
+            raise HTTPException(400, quote.get('error') or 'No executable route available for this pair')
+        built = {}
+        if wallet:
+            req = {'quoteResponse': quote, 'userPublicKey': wallet, 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True}
+            if bps:
+                req['feeAccount'] = fee['feeAccount']
+            cap = int(fee.get('priorityMaxLamports') or 0)
+            if cap:
+                req['prioritizationFeeLamports'] = {'priorityLevelWithMaxLamports': {'maxLamports': cap, 'priorityLevel': 'high'}}
+            try:
+                built = await self.jupiter('POST', '/swap/v1/swap', json=req)
+            except HTTPException:
+                if not bps:
+                    raise
+                # A misconfigured fee account must never block a trade: rebuild without the fee and flag it.
+                quote = await self.jupiter('GET', '/swap/v1/quote', params={k: v for k, v in query.items() if k != 'platformFeeBps'})
+                req.pop('feeAccount', None); req['quoteResponse'] = quote
+                built = await self.jupiter('POST', '/swap/v1/swap', json=req)
+                bps = 0
+                fee = {**fee, 'fallback': 'FEELESS fee skipped: the fee account was rejected for this route.'}
+                fee['notes'] = [fee['fallback']]
+            if not built.get('swapTransaction'):
+                raise HTTPException(503, 'Jupiter did not return a transaction.')
+        usd = quote.get('swapUsdValue')
+        data = {**quote, 'transaction': built.get('swapTransaction'), 'router': 'Jupiter Swap API',
+                'lastValidBlockHeight': built.get('lastValidBlockHeight'), 'signatureFeeLamports': 5000,
+                'prioritizationFeeLamports': built.get('prioritizationFeeLamports'), 'rentFeeLamports': None,
+                'inUsdValue': float(usd) if usd else None}
+        return data, {**fee, 'bps': bps}
+
+    async def ultra_order(self, params, fee):
+        """Jupiter Ultra: Jupiter builds and lands the transaction; fee via the referral account (0.5–2.55%)."""
+        params = dict(params)
+        bps = int(fee.get('ultraBps') or 0)
+        if bps and fee.get('referralAccount'):
+            params['referralAccount'] = fee['referralAccount']
+            params['referralFee'] = bps
+        try:
+            data = await self.jupiter('GET', '/swap/v2/order', params=params)
+        except HTTPException as exc:
+            if 'referralAccount' not in params or 'referral' not in str(exc.detail).lower():
+                raise
+            params.pop('referralAccount'); params.pop('referralFee')
+            data = await self.jupiter('GET', '/swap/v2/order', params=params)
+            note = 'FEELESS fee skipped: the fee referral account is not set up for this route yet.'
+            return self._ultra_checked(data), {**fee, 'bps': 0, 'notes': [note], 'fallback': note}
+        return self._ultra_checked(data), {**fee, 'bps': bps if 'referralAccount' in params else 0}
+
+    @staticmethod
+    def _ultra_checked(data):
+        if data.get('errorCode') or not data.get('outAmount'):
+            raise HTTPException(400, data.get('errorMessage') or 'No executable route available for this pair')
+        return data
+
+    async def broadcast(self, signed_b64, signature, last_valid_block_height=None):
+        """Swap API trades are ours to land: send, then re-send every 2s until confirmed, failed or expired."""
+        opts = {'encoding': 'base64', 'skipPreflight': True, 'maxRetries': 0}
+        for _ in range(30):
+            try:
+                await self.rpc('sendTransaction', [signed_b64, opts])
+                status = ((await self.rpc('getSignatureStatuses', [[signature]])) or {}).get('value', [None])[0]
+                if status and (status.get('err') or status.get('confirmationStatus') in ('confirmed', 'finalized')):
+                    return
+                if last_valid_block_height and (await self.rpc('getBlockHeight', [{'commitment': 'confirmed'}])) > last_valid_block_height:
+                    return
+            except HTTPException:
+                pass
+            await asyncio.sleep(2)
 
     async def fee_rule(self, body):
         """Creator-controlled FEELESS fee (Jupiter integrator fee → creator's referral account).
@@ -220,33 +304,31 @@ class TradingService:
                       'amount': str(int(atoms)), 'slippageBps': body.slippage_bps}
             if body.wallet:
                 params['taker'] = body.wallet
-            fee_fallback = None
-            if fee.get('bps') and fee.get('referralAccount'):
-                params['referralAccount'] = fee['referralAccount']
-                params['referralFee'] = int(fee['bps'])
+            # Primary: Jupiter Swap API (FEELESS fee, capped priority fee, our broadcast).
+            # Ultra runs only when configured as the engine, or as a fallback the creator switched on.
+            engine = fee.get('engine') or 'swap'
             try:
-                data = await self.jupiter('GET', '/swap/v2/order', params=params)
+                data, fee = await (self.ultra_order(params, fee) if engine == 'ultra' else self.swap_order(params, fee, body.wallet))
             except HTTPException as exc:
-                # A broken fee setup (referral account / fee-mint token account not initialized at Jupiter)
-                # must never block a user's trade: re-quote without the fee and flag it for the creator.
-                if 'referralAccount' not in params or 'referral' not in str(exc.detail).lower():
+                if engine != 'swap' or not fee.get('ultraFallback'):
+                    if exc.status_code >= 500:
+                        raise HTTPException(503, f'Trading engine unavailable right now: {exc.detail} Nothing was sent.')
                     raise
-                params.pop('referralAccount'); params.pop('referralFee')
-                fee_fallback = 'FEELESS fee skipped — the fee referral account is not set up for this route yet.'
-                fee = {'bps': 0, 'notes': [fee_fallback], 'referralAccount': None}
-                data = await self.jupiter('GET', '/swap/v2/order', params=params)
-            if data.get('errorCode') or not data.get('outAmount'):
-                raise HTTPException(400, data.get('errorMessage') or 'No executable route available for this pair')
+                engine = 'ultra'
+                data, fee = await self.ultra_order(params, fee)
+                fee['notes'] = [*fee.get('notes', []), 'Routed by the Ultra fallback.']
+            fee_fallback = fee.get('fallback')
             order_id = str(uuid.uuid4())
             created = datetime.now(timezone.utc).isoformat()
             record = {'order_id': order_id, 'wallet': body.wallet, 'state': 'quoted', 'created_at': created,
                       'expires_at': time.time() + 45, 'input_mint': body.input_mint, 'output_mint': body.output_mint,
-                      'quote': data, 'simulated': False}
+                      'quote': data, 'simulated': False, 'engine': engine}
             await self.db.swap_orders.insert_one(record)
             return {'order_id': order_id, 'created_at': created, 'expires_at': record['expires_at'],
                     # Echoed so the UI can refuse to show or sign an order that no longer matches the picked coins.
                     'input_mint': body.input_mint, 'output_mint': body.output_mint, 'amount': body.amount,
                     'input_metadata': meta_in, 'output_metadata': meta_out, 'quote': data,
+                    'engine': engine,
                     'feeless_fee': {'bps': int(fee.get('bps') or 0), 'notes': fee.get('notes') or [], 'fallback': bool(fee_fallback)},
                     'fee_back': {'status': 'PLANNED', 'eligible_usd': None, 'distribution': None}}
 
@@ -291,6 +373,14 @@ class TradingService:
                 {'$set': {'state': 'submitted', 'signature': signature}}, projection={'_id': 0}, return_document=ReturnDocument.AFTER)
             if not locked:
                 raise HTTPException(409, 'Order already submitted. Check its transaction status.')
+            if order.get('engine') == 'swap':
+                try:
+                    await self.rpc('sendTransaction', [body.signed_transaction, {'encoding': 'base64', 'skipPreflight': True, 'maxRetries': 0}])
+                except HTTPException:
+                    pass  # the rebroadcast loop keeps trying; status is checked below
+                asyncio.create_task(self.broadcast(body.signed_transaction, signature, order['quote'].get('lastValidBlockHeight')))
+                await asyncio.sleep(1.5)
+                return await check_status(body.order_id)
             try:
                 payload = {'signedTransaction': body.signed_transaction, 'requestId': order['quote']['requestId']}
                 if order['quote'].get('lastValidBlockHeight') is not None:

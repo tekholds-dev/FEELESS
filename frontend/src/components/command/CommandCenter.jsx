@@ -261,7 +261,7 @@ function FeesPanel({ call }) {
   const [routes, setRoutes] = useState([]);
   const [earnings, setEarnings] = useState(null);
   const [earningsBusy, setEarningsBusy] = useState(false);
-  const [limits, setLimits] = useState({ minBps: 50, maxBps: 255 });
+  const [limits, setLimits] = useState({ minBps: 0, maxBps: 2000, ultraMaxBps: 255, priorityMaxLamports: 5000000 });
   const [zero, setZero] = useState('');
   const [promoDays, setPromoDays] = useState(0);
   useEffect(() => {
@@ -273,7 +273,8 @@ function FeesPanel({ call }) {
   const set = (k, v) => setCfg(c => ({ ...c, [k]: v }));
   const loadEarnings = async () => { setEarningsBusy(true); try { setEarnings(await call('/admin/fees/balances')); } catch (e) { toast.error(e.message); } finally { setEarningsBusy(false); } };
   const save = async () => {
-    const body = { ...cfg, platformFeeBps: Math.min(Number(cfg.platformFeeBps) || 0, limits.maxBps), lifiFeeBps: Number(cfg.lifiFeeBps) || 0, lifiIntegrator: cfg.lifiIntegrator || '', zeroFeeMints: zero.split(/[\s,]+/).filter(Boolean),
+    const body = { ...cfg, platformFeeBps: Math.min(Number(cfg.platformFeeBps) || 0, limits.maxBps), priorityMaxLamports: Number(cfg.priorityMaxLamports) || 0, ultraFallback: Boolean(cfg.ultraFallback), engine: cfg.engine || 'swap',
+      feeAccountSol: (cfg.feeAccountSol || '').trim(), feeAccountUsdc: (cfg.feeAccountUsdc || '').trim(), lifiFeeBps: Number(cfg.lifiFeeBps) || 0, lifiIntegrator: cfg.lifiIntegrator || '', zeroFeeMints: zero.split(/[\s,]+/).filter(Boolean),
       promo: { ...(cfg.promo || {}), until: promoDays > 0 ? Date.now() / 1000 + promoDays * 86400 : cfg.promo?.until || 0 } };
     try { const d = await call('/admin/fees', { method: 'POST', body: JSON.stringify(body) }); setCfg(d.fees); toast.success('Fee settings saved — applied to the next quote.'); } catch (e) { toast.error(e.message); }
   };
@@ -291,6 +292,14 @@ function FeesPanel({ call }) {
     <p className="cc-note"><b>Why Jupiter needs a referral account:</b> it is the on-chain fee vault and authority record used by Jupiter. It is not a referral code and does not charge anything by itself. When a fee is enabled, Jupiter collects it into mint-specific token accounts under this referral account; the authority wallet later signs a claim into your treasury wallet. A normal treasury address cannot be passed directly in its place.</p>
     <div className={`fee-routing-status ${enabled && cfg.referralAccount ? 'ok' : enabled ? 'bad' : 'off'}`}><b>{enabled ? (cfg.referralAccount ? 'Fee destination configured' : 'Fee collection blocked') : 'Platform fee disabled'}</b><span>{enabled && cfg.referralAccount ? `Jupiter referral account ${cfg.referralAccount.slice(0, 6)}…${cfg.referralAccount.slice(-4)} receives the fee. Treasury routes below are records only; they do not automatically split or transfer these funds.` : enabled ? 'Add a valid Jupiter referral account before a non-zero fee can be saved.' : 'Users pay no FEELESS platform fee. Network and provider fees may still apply.'}</span></div>
     <div className="cc-studio-grid">
+      <div className="cc-block cc-engine" data-testid="trading-engine"><h4>Trading engine</h4>
+        <div className="cc-seg">{[['swap', 'Swap API (your fee, your broadcast)'], ['ultra', 'Ultra only (0.5–2.55%)']].map(([id, label]) => <button key={id} type="button" className={(cfg.engine || 'swap') === id ? 'active' : ''} onClick={() => set('engine', id)}>{label}</button>)}</div>
+        <label className="cc-check"><input type="checkbox" checked={Boolean(cfg.ultraFallback)} disabled={(cfg.engine || 'swap') === 'ultra'} onChange={e => set('ultraFallback', e.target.checked)} />Use Ultra as a fallback when the Swap API fails (fee capped at 2.55% on those trades). Off = trading pauses instead.</label>
+        <label>Your SOL fee account (wSOL token account)<input placeholder="Token account for So111…112 owned by your treasury" value={cfg.feeAccountSol || ''} onChange={e => set('feeAccountSol', e.target.value.trim())} /></label>
+        <label>Your USDC fee account (optional)<input placeholder="Token account for USDC owned by your treasury" value={cfg.feeAccountUsdc || ''} onChange={e => set('feeAccountUsdc', e.target.value.trim())} /></label>
+        <label>Max priority fee per trade (lamports · 1,000,000 = 0.001 SOL)<input type="number" min="0" max={limits.priorityMaxLamports} value={cfg.priorityMaxLamports ?? 200000} onChange={e => set('priorityMaxLamports', e.target.value)} /></label>
+        <small className="cc-empty">{`≤ ${((Number(cfg.priorityMaxLamports) || 0) / 1e9).toFixed(6)} SOL priority per trade. Base network fee is 0.000005 SOL; first buys of a coin also pay ~0.002 SOL account rent (refunded when that token account is closed).`}</small>
+      </div>
       <div className="cc-block"><h4>Platform fee</h4>
         <label>Fee (basis points · 100 = 1% · max {limits.maxBps} = {(limits.maxBps / 100).toFixed(2)}%)<input type="number" min="0" max={limits.maxBps} value={cfg.platformFeeBps} onChange={e => set('platformFeeBps', e.target.value)} /></label>
         {/* Jupiter rejects integrator fees above its cap, so a higher number can never be charged: say so instead of failing on save. */}

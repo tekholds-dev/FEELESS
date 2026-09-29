@@ -3752,3 +3752,5 @@ body.theme-day [data-testid="swap-review-dialog"]{background:#fff!important}
 @media(prefers-reduced-motion:reduce){.notif-pop,.np-item,.np-group,.np-sniper{animation:none}}
 .snipers-out-tag{font-style:normal;font-size:11px;margin-left:4px;filter:drop-shadow(0 0 4px rgba(0,255,163,.7));animation:srh-dot 2s ease-in-out infinite}
 .radar-coin{color:#00ffa3;margin-right:6px}.radar-mc{font-style:normal;font:10.5px 'JetBrains Mono',monospace;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:0 6px;margin-right:4px}
+.cc-seg{display:flex;border:1px solid rgba(0,255,163,.25);border-radius:9px;overflow:hidden;margin-bottom:10px}.cc-seg button{flex:1;padding:8px 10px;font-size:12px;border:0;background:transparent;color:#9fc3ad;cursor:pointer}.cc-seg button.active{background:#00ffa3;color:#02140c;font-weight:700}
+.cc-check{display:flex!important;gap:8px;align-items:flex-start;font-size:12px;line-height:1.5;margin-bottom:10px}.cc-check input{width:auto!important;margin-top:3px}

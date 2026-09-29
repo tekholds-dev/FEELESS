@@ -3474,8 +3474,15 @@ async def chat_delete(payload: ChatDelete):
 FEE_DEFAULTS = {'platformFeeBps': 0, 'referralAccount': '', 'tierDiscountPct': {'0': 0, '1': 10, '2': 25, '3': 50},
                 'zeroFeeMints': [], 'promo': {'label': '', 'discountPct': 0, 'until': 0},
                 # LI.FI (EVM swaps + bridges): fees go to the integrator's fee wallet registered at portal.li.fi.
-                'lifiIntegrator': '', 'lifiFeeBps': 0}
-JUP_MIN_BPS, JUP_MAX_BPS = 50, 255
+                'lifiIntegrator': '', 'lifiFeeBps': 0,
+                # Trading engine. 'swap' = Jupiter Swap API: FEELESS sets the fee (paid into its own SOL / USDC
+                # token accounts), caps the priority fee and broadcasts. 'ultra' = Jupiter Ultra (referral fee,
+                # 0.5–2.55%). ultraFallback: Ultra is only used when the Swap API fails AND this is switched on.
+                'engine': 'swap', 'ultraFallback': False, 'feeAccountSol': '', 'feeAccountUsdc': '', 'priorityMaxLamports': 200000}
+JUP_MIN_BPS, JUP_MAX_BPS = 50, 255   # Jupiter Ultra referral-fee limits
+SWAP_MAX_BPS = 2000                  # FEELESS cap on the Swap API fee (20%)
+PRIORITY_MAX_LAMPORTS = 5_000_000    # never let a setting spend more than 0.005 SOL on priority
+WSOL_MINT, USDC_MINT = WSOL, 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 LIFI_MAX_BPS = 300
 FEE_SETTLEMENT_MINTS = {WSOL, 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'}
 
@@ -3487,39 +3494,59 @@ def _fee_cfg():
     return cfg
 
 
+def _engine_cfg(cfg):
+    return {'engine': cfg.get('engine') if cfg.get('engine') in ('swap', 'ultra') else 'swap', 'ultraFallback': bool(cfg.get('ultraFallback')),
+            'priorityMaxLamports': max(0, min(PRIORITY_MAX_LAMPORTS, int(cfg.get('priorityMaxLamports') or 0)))}
+
+
+def _swap_fee_account(cfg, input_mint, output_mint):
+    """The FEELESS token account that can take this swap's fee: its mint must be one side of the trade.
+    SOL first (most meme trades), then USDC."""
+    for mint, acct in ((WSOL_MINT, cfg.get('feeAccountSol')), (USDC_MINT, cfg.get('feeAccountUsdc'))):
+        if acct and mint in (input_mint, output_mint):
+            return acct
+    return None
+
+
 async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''):
+    """The fee for one trade plus how each engine collects it.
+    bps: Swap API fee (paid to feeAccount). ultraBps / referralAccount: the Ultra fallback's fee."""
     cfg = _fee_cfg()
+    eng = _engine_cfg(cfg)
     base = int(cfg['platformFeeBps'] or 0)
-    notes = []
-    if not base or not cfg['referralAccount']:
-        return {'bps': 0, 'baseBps': base, 'notes': ['No FEELESS fee on this trade.'], 'referralAccount': None}
+    fee_account = _swap_fee_account(cfg, input_mint, output_mint)
+    none = lambda note: {'bps': 0, 'ultraBps': 0, 'baseBps': base, 'notes': [note] if note else [], 'referralAccount': None, 'feeAccount': None, **eng}
+    if not base:
+        return none('No FEELESS fee on this trade.')
     mints = await _ecosystem_mints()
     if input_mint in cfg['zeroFeeMints'] or output_mint in cfg['zeroFeeMints']:
-        return {'bps': 0, 'baseBps': base, 'notes': ['This token is on the Command Center fee-free list.'], 'referralAccount': None}
+        return none('This token is on the Command Center fee-free list.')
     # FEELESS coins ($FEE, FEECAT, rFEE) are free to BUY with SOL, USDC or USDT. Selling them, buying them with
     # any other token, and every other swap pays the platform fee.
     eco = {m: k for k, m in mints.items() if k in ('fee', 'feecat', 'rfee') and m}
     if output_mint in eco and input_mint in FEE_SETTLEMENT_MINTS:
-        return {'bps': 0, 'baseBps': base, 'notes': [f"Buying ${eco[output_mint].upper()} with SOL or USD is fee-free."], 'referralAccount': None}
+        return none(f"Buying ${eco[output_mint].upper()} with SOL or USD is fee-free.")
+    notes = []
     tier = (await _perk_tier(wallet))[0] if wallet else 0
     disc = float(cfg['tierDiscountPct'].get(str(tier), 0))
     promo = cfg.get('promo') or {}
     if promo.get('discountPct') and time.time() < float(promo.get('until') or 0):
         disc = max(disc, float(promo['discountPct']))
         notes.append(f"{promo.get('label') or 'Promo'}: {promo['discountPct']:.0f}% off")
-    bps = round(base * (1 - disc / 100))
+    bps = min(round(base * (1 - disc / 100)), SWAP_MAX_BPS)
     if disc:
         notes.append(f'{disc:.0f}% holder discount (tier {tier})')
-    if bps < JUP_MIN_BPS:
-        notes.append('Below Jupiter\'s 0.5% minimum — waived.')
-        bps = 0
-    return {'bps': min(bps, JUP_MAX_BPS), 'baseBps': base, 'notes': notes, 'referralAccount': cfg['referralAccount'] if bps else None}
+    if not fee_account:
+        notes.append('No FEELESS fee account for this pair (fee is paid in SOL or USDC).')
+    ultra = min(bps, JUP_MAX_BPS) if cfg['referralAccount'] and bps >= JUP_MIN_BPS else 0
+    return {'bps': bps if fee_account else 0, 'ultraBps': ultra, 'baseBps': base, 'notes': notes,
+            'referralAccount': cfg['referralAccount'] if ultra else None, 'feeAccount': fee_account if bps else None, **eng}
 
 
 @app.get('/api/reputation/fees/quote')
 async def fee_quote(wallet: str = '', inputMint: str = '', outputMint: str = ''):
     out = await effective_fee(wallet, inputMint, outputMint)
-    return {k: v for k, v in out.items() if k != 'referralAccount'} | {'active': bool(out['bps'])}
+    return {k: v for k, v in out.items() if k not in ('referralAccount', 'feeAccount')} | {'active': bool(out['bps'])}
 
 
 @app.get('/api/reputation/internal/fees')
@@ -3530,7 +3557,12 @@ async def internal_fees(request: Request, wallet: str = '', inputMint: str = '',
 
 
 class FeeCfg(BaseModel):
-    platformFeeBps: int = Field(ge=0, le=JUP_MAX_BPS)
+    platformFeeBps: int = Field(ge=0, le=SWAP_MAX_BPS)
+    engine: str = 'swap'
+    ultraFallback: bool = False
+    feeAccountSol: str = ''
+    feeAccountUsdc: str = ''
+    priorityMaxLamports: int = Field(200000, ge=0, le=PRIORITY_MAX_LAMPORTS)
     referralAccount: str = ''
     tierDiscountPct: dict = {}
     zeroFeeMints: list = []
@@ -3542,7 +3574,7 @@ class FeeCfg(BaseModel):
 @app.get('/api/reputation/admin/fees')
 async def admin_fees_get(request: Request):
     _require_admin(request)
-    return {'fees': _fee_cfg(), 'limits': {'minBps': JUP_MIN_BPS, 'maxBps': JUP_MAX_BPS}}
+    return {'fees': _fee_cfg(), 'limits': {'minBps': 0, 'maxBps': SWAP_MAX_BPS, 'ultraMinBps': JUP_MIN_BPS, 'ultraMaxBps': JUP_MAX_BPS, 'priorityMaxLamports': PRIORITY_MAX_LAMPORTS}}
 
 
 @app.get('/api/reputation/admin/fees/balances')
@@ -3574,6 +3606,8 @@ async def admin_fee_health(request: Request):
     """Will Jupiter actually pay the FEELESS fee? Checks the referral account on-chain: it must belong to the
     Jupiter Ultra referral project (the one /swap/v2 pays into) and have SOL + USDC fee token accounts."""
     _require_admin(request)
+    if _engine_cfg(_fee_cfg())['engine'] == 'swap':
+        return await _swap_fee_health()
     import base64
     from solders.pubkey import Pubkey
     referral = str(_fee_cfg().get('referralAccount') or '').strip()
@@ -3604,6 +3638,28 @@ async def admin_fee_health(request: Request):
         return {'ok': False, 'project': project, 'partner': partner, 'vaults': vaults,
                 'problem': f"Missing fee token account for {', '.join(missing)}.", 'fix': 'Create the missing token accounts for this referral account at referral.jup.ag.'}
     return {'ok': True, 'project': project, 'partner': partner, 'vaults': vaults, 'note': 'Jupiter will pay the FEELESS fee into this referral account (SOL/USDC vaults ready).'}
+
+
+TOKEN_PROGRAMS = {'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'}
+
+
+async def _swap_fee_health():
+    """Swap API engine: each fee account must be a live token account for its coin (wSOL / USDC)."""
+    cfg = _fee_cfg()
+    wanted = [(label, acct, mint) for label, acct, mint in (('SOL', cfg.get('feeAccountSol'), WSOL_MINT), ('USDC', cfg.get('feeAccountUsdc'), USDC_MINT)) if acct]
+    if not wanted:
+        return {'ok': False, 'problem': 'No fee account set, so the Swap engine collects nothing.',
+                'fix': 'Create a wSOL token account owned by your treasury wallet (e.g. spl-token create-account So11111111111111111111111111111111111111112) and paste it.'}
+    async with httpx.AsyncClient(timeout=20) as http:
+        info = await _rpc(http, 'getMultipleAccounts', [[a for _, a, _ in wanted], {'encoding': 'jsonParsed'}])
+    for (label, acct, mint), value in zip(wanted, (info or {}).get('value') or [None] * len(wanted)):
+        parsed = (((value or {}).get('data') or {}).get('parsed') or {}) if isinstance((value or {}).get('data'), dict) else {}
+        if not value or value.get('owner') not in TOKEN_PROGRAMS or parsed.get('type') != 'account':
+            return {'ok': False, 'problem': f'{label} fee account {acct[:6]}… is not a token account on-chain.', 'fix': f'Create a {label} token account for your treasury and paste that address.'}
+        if (parsed.get('info') or {}).get('mint') != mint:
+            return {'ok': False, 'problem': f'{label} fee account holds a different coin.', 'fix': f'Use a token account whose mint is {mint}.'}
+    fallback = 'on' if cfg.get('ultraFallback') else 'off'
+    return {'ok': True, 'note': f"Swap engine ready: fees land in your {' + '.join(l for l, _, _ in wanted)} fee account(s). Ultra fallback {fallback}."}
 
 
 @app.get('/api/reputation/admin/fees/selftest')
@@ -3681,12 +3737,19 @@ async def admin_fee_selftest(request: Request):
 @app.post('/api/reputation/admin/fees')
 async def admin_fees_set(request: Request, payload: FeeCfg):
     admin = _require_admin(request)
-    if payload.platformFeeBps and not payload.referralAccount:
-        raise HTTPException(400, 'A Jupiter referral account is required before enabling a platform fee.')
-    if payload.referralAccount and not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', payload.referralAccount):
-        raise HTTPException(400, 'Referral account must be a Solana address.')
-    if payload.platformFeeBps and payload.platformFeeBps < JUP_MIN_BPS:
-        raise HTTPException(400, f'Jupiter needs at least {JUP_MIN_BPS} bps (0.5%) — or set 0 for no fee.')
+    addr = r'^[1-9A-HJ-NP-Za-km-z]{32,44}$'
+    if payload.engine not in ('swap', 'ultra'):
+        raise HTTPException(400, 'Engine must be swap or ultra.')
+    for label, v in (('Referral account', payload.referralAccount), ('SOL fee account', payload.feeAccountSol), ('USDC fee account', payload.feeAccountUsdc)):
+        if v and not _re.match(addr, v):
+            raise HTTPException(400, f'{label} must be a Solana address.')
+    uses_ultra = payload.engine == 'ultra' or payload.ultraFallback
+    if payload.platformFeeBps and payload.engine == 'swap' and not (payload.feeAccountSol or payload.feeAccountUsdc):
+        raise HTTPException(400, 'Add a SOL (wSOL) or USDC fee token account: the Swap API pays your fee into it.')
+    if payload.platformFeeBps and uses_ultra and not payload.referralAccount:
+        raise HTTPException(400, 'Ultra needs a Jupiter referral account (referral.jup.ag) to pay your fee.')
+    if payload.engine == 'ultra' and payload.platformFeeBps and not JUP_MIN_BPS <= payload.platformFeeBps <= JUP_MAX_BPS:
+        raise HTTPException(400, f'Ultra charges {JUP_MIN_BPS}–{JUP_MAX_BPS} bps (0.5–2.55%). Use the Swap engine for other fees.')
     tiers = {str(k): max(0.0, min(100.0, float(v))) for k, v in (payload.tierDiscountPct or {}).items() if str(k) in ('0', '1', '2', '3')}
     zero = [m for m in payload.zeroFeeMints[:50] if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', str(m))]
     promo = {'label': str((payload.promo or {}).get('label') or '')[:40], 'discountPct': max(0.0, min(100.0, float((payload.promo or {}).get('discountPct') or 0))),
@@ -3699,8 +3762,10 @@ async def admin_fees_set(request: Request, payload: FeeCfg):
     async with _admin_lock:
         d = _admin_load()
         d['fees'] = {'platformFeeBps': payload.platformFeeBps, 'referralAccount': payload.referralAccount, 'tierDiscountPct': tiers, 'zeroFeeMints': zero, 'promo': promo,
-                     'lifiIntegrator': integrator, 'lifiFeeBps': payload.lifiFeeBps if integrator else 0}
-        _audit(d, admin, 'fees', f"{payload.platformFeeBps} bps · discounts {tiers} · promo {promo['discountPct']:.0f}%")
+                     'lifiIntegrator': integrator, 'lifiFeeBps': payload.lifiFeeBps if integrator else 0,
+                     'engine': payload.engine, 'ultraFallback': payload.ultraFallback, 'feeAccountSol': payload.feeAccountSol,
+                     'feeAccountUsdc': payload.feeAccountUsdc, 'priorityMaxLamports': payload.priorityMaxLamports}
+        _audit(d, admin, 'fees', f"{payload.engine} · {payload.platformFeeBps} bps · ultra fallback {'on' if payload.ultraFallback else 'off'} · discounts {tiers} · promo {promo['discountPct']:.0f}%")
         _admin_save(d)
     return {'ok': True, 'fees': _fee_cfg()}
 
