@@ -3725,3 +3725,4 @@ body.theme-day .top-pump{background:#fff}
 .slip-pick label{display:inline-flex;align-items:center;gap:2px}.slip-pick input{width:44px;background:none;border:0;outline:0;color:inherit;font:inherit;text-align:right}
 .slip-warn{flex-basis:100%;color:var(--gold);font-size:10px}
 body.theme-day [data-testid="swap-review-dialog"]{background:#fff!important}
+.fee-over-cap{color:var(--gold)!important}

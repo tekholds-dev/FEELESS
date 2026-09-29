@@ -273,7 +273,7 @@ function FeesPanel({ call }) {
   const set = (k, v) => setCfg(c => ({ ...c, [k]: v }));
   const loadEarnings = async () => { setEarningsBusy(true); try { setEarnings(await call('/admin/fees/balances')); } catch (e) { toast.error(e.message); } finally { setEarningsBusy(false); } };
   const save = async () => {
-    const body = { ...cfg, platformFeeBps: Number(cfg.platformFeeBps) || 0, lifiFeeBps: Number(cfg.lifiFeeBps) || 0, lifiIntegrator: cfg.lifiIntegrator || '', zeroFeeMints: zero.split(/[\s,]+/).filter(Boolean),
+    const body = { ...cfg, platformFeeBps: Math.min(Number(cfg.platformFeeBps) || 0, limits.maxBps), lifiFeeBps: Number(cfg.lifiFeeBps) || 0, lifiIntegrator: cfg.lifiIntegrator || '', zeroFeeMints: zero.split(/[\s,]+/).filter(Boolean),
       promo: { ...(cfg.promo || {}), until: promoDays > 0 ? Date.now() / 1000 + promoDays * 86400 : cfg.promo?.until || 0 } };
     try { const d = await call('/admin/fees', { method: 'POST', body: JSON.stringify(body) }); setCfg(d.fees); toast.success('Fee settings saved — applied to the next quote.'); } catch (e) { toast.error(e.message); }
   };
@@ -292,8 +292,11 @@ function FeesPanel({ call }) {
     <div className={`fee-routing-status ${enabled && cfg.referralAccount ? 'ok' : enabled ? 'bad' : 'off'}`}><b>{enabled ? (cfg.referralAccount ? 'Fee destination configured' : 'Fee collection blocked') : 'Platform fee disabled'}</b><span>{enabled && cfg.referralAccount ? `Jupiter referral account ${cfg.referralAccount.slice(0, 6)}…${cfg.referralAccount.slice(-4)} receives the fee. Treasury routes below are records only; they do not automatically split or transfer these funds.` : enabled ? 'Add a valid Jupiter referral account before a non-zero fee can be saved.' : 'Users pay no FEELESS platform fee. Network and provider fees may still apply.'}</span></div>
     <div className="cc-studio-grid">
       <div className="cc-block"><h4>Platform fee</h4>
-        <label>Fee (basis points · 100 = 1%)<input type="number" min="0" max={limits.maxBps} value={cfg.platformFeeBps} onChange={e => set('platformFeeBps', e.target.value)} /></label>
-        <small className="cc-empty">{Number(cfg.platformFeeBps) ? `${(cfg.platformFeeBps / 100).toFixed(2)}% per swap` : 'Free trading'}</small>
+        <label>Fee (basis points · 100 = 1% · max {limits.maxBps} = {(limits.maxBps / 100).toFixed(2)}%)<input type="number" min="0" max={limits.maxBps} value={cfg.platformFeeBps} onChange={e => set('platformFeeBps', e.target.value)} /></label>
+        {/* Jupiter rejects integrator fees above its cap, so a higher number can never be charged: say so instead of failing on save. */}
+        {Number(cfg.platformFeeBps) > limits.maxBps
+          ? <small className="cc-empty fee-over-cap">Jupiter caps app fees at {(limits.maxBps / 100).toFixed(2)}% per swap. Saving will use {(limits.maxBps / 100).toFixed(2)}%.</small>
+          : <small className="cc-empty">{Number(cfg.platformFeeBps) ? `${(cfg.platformFeeBps / 100).toFixed(2)}% per swap` : 'Free trading'}</small>}
         <label>Jupiter referral account (actual fee destination)<input placeholder="Create at referral.jup.ag, paste the account" value={cfg.referralAccount} onChange={e => set('referralAccount', e.target.value.trim())} /></label>
         <div className="cc-block fee-lifi"><h4>EVM swaps &amp; bridges (LI.FI)</h4>
           <p className="cc-note">LI.FI pays app fees only to a registered integrator. Sign up at <a href="https://portal.li.fi/" target="_blank" rel="noopener noreferrer">portal.li.fi</a>, create an integrator and set its EVM fee wallet there, then enter the exact integrator name below. Fees are collected per chain in LI.FI's fee contract and withdrawn from the portal.</p>
