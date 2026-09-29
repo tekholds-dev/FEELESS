@@ -3519,8 +3519,7 @@ async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''
     if not base:
         return none('No FEELESS fee on this trade.')
     mints = await _ecosystem_mints()
-    if input_mint in cfg['zeroFeeMints'] or output_mint in cfg['zeroFeeMints']:
-        return none('This token is on the Command Center fee-free list.')
+    # The ONLY fee-free trades: buying a FEELESS coin. There is no other exemption.
     # FEELESS coins ($FEE, FEECAT, rFEE) are free to BUY with SOL, USDC or USDT. Selling them, buying them with
     # any other token, and every other swap pays the platform fee.
     eco = {m: k for k, m in mints.items() if k in ('fee', 'feecat', 'rfee') and m}
@@ -3528,19 +3527,23 @@ async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''
         return none(f"Buying ${eco[output_mint].upper()} with SOL or USD is fee-free.")
     notes = []
     tier = (await _perk_tier(wallet))[0] if wallet else 0
-    disc = float(cfg['tierDiscountPct'].get(str(tier), 0))
+    disc = min(90.0, float(cfg['tierDiscountPct'].get(str(tier), 0)))
     promo = cfg.get('promo') or {}
     if promo.get('discountPct') and time.time() < float(promo.get('until') or 0):
-        disc = max(disc, float(promo['discountPct']))
+        disc = min(90.0, max(disc, float(promo['discountPct'])))
         notes.append(f"{promo.get('label') or 'Promo'}: {promo['discountPct']:.0f}% off")
     bps = min(round(base * (1 - disc / 100)), SWAP_MAX_BPS)
     if disc:
         notes.append(f'{disc:.0f}% holder discount (tier {tier})')
-    if not fee_account:
-        notes.append('No FEELESS fee account for this pair (fee is paid in SOL or USDC).')
-    ultra = min(bps, JUP_MAX_BPS) if cfg['referralAccount'] and bps >= JUP_MIN_BPS else 0
-    return {'bps': bps if fee_account else 0, 'ultraBps': ultra, 'baseBps': base, 'notes': notes,
-            'referralAccount': cfg['referralAccount'] if ultra else None, 'feeAccount': fee_account if bps else None, **eng}
+    # Ultra can't charge below 0.5%: round a discounted fee up to its minimum instead of waiving it.
+    ultra = max(JUP_MIN_BPS, min(bps, JUP_MAX_BPS)) if cfg['referralAccount'] and bps else 0
+    out = {'bps': bps, 'ultraBps': ultra, 'baseBps': base, 'notes': notes,
+           'referralAccount': cfg['referralAccount'] if ultra else None, 'feeAccount': fee_account if bps else None, **eng}
+    if bps and not fee_account and eng['engine'] == 'swap':
+        # The fee is collected in SOL or USDC. A coin-to-coin trade has neither side, so it can't pay: refuse it
+        # rather than let it through free.
+        out['blocked'] = 'Every FEELESS trade pays the platform fee in SOL or USDC. Put SOL or USDC on one side (coin → SOL → coin).'
+    return out
 
 
 @app.get('/api/reputation/fees/quote')
@@ -3750,9 +3753,10 @@ async def admin_fees_set(request: Request, payload: FeeCfg):
         raise HTTPException(400, 'Ultra needs a Jupiter referral account (referral.jup.ag) to pay your fee.')
     if payload.engine == 'ultra' and payload.platformFeeBps and not JUP_MIN_BPS <= payload.platformFeeBps <= JUP_MAX_BPS:
         raise HTTPException(400, f'Ultra charges {JUP_MIN_BPS}–{JUP_MAX_BPS} bps (0.5–2.55%). Use the Swap engine for other fees.')
-    tiers = {str(k): max(0.0, min(100.0, float(v))) for k, v in (payload.tierDiscountPct or {}).items() if str(k) in ('0', '1', '2', '3')}
-    zero = [m for m in payload.zeroFeeMints[:50] if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', str(m))]
-    promo = {'label': str((payload.promo or {}).get('label') or '')[:40], 'discountPct': max(0.0, min(100.0, float((payload.promo or {}).get('discountPct') or 0))),
+    # Discounts lower the fee, never remove it: at most 90% off.
+    tiers = {str(k): max(0.0, min(90.0, float(v))) for k, v in (payload.tierDiscountPct or {}).items() if str(k) in ('0', '1', '2', '3')}
+    zero = []  # no fee-free list: only FEELESS coin buys are exempt (see effective_fee)
+    promo = {'label': str((payload.promo or {}).get('label') or '')[:40], 'discountPct': max(0.0, min(90.0, float((payload.promo or {}).get('discountPct') or 0))),
              'until': float((payload.promo or {}).get('until') or 0)}
     integrator = (payload.lifiIntegrator or '').strip() or os.environ.get('LIFI_INTEGRATOR', '').strip()
     if integrator and not _re.match(r'^[A-Za-z0-9_.-]{2,40}$', integrator):
@@ -6458,6 +6462,11 @@ SETUP_KEYS = [
     ('HELIUS_WEBHOOK_SECRET', 'Helius webhook secret', 'Instant whale / dev-sell events', False),
     ('BASE_RPC_URL', 'Base RPC', 'Dedicated Base endpoint for pool reads', False),
     ('PUBLIC_SITE_URL', 'Public site URL', 'Hosts new coins\' metadata so wallets/explorers show name + image (required to launch)', True),
+    ('PRICE_STREAM_WS_URL', 'Live chart stream', 'Tick-by-tick candles on charts (Helius / Triton websocket); without it charts poll', False),
+    ('MONGO_URL', 'Database', 'Orders, swap history and trade receipts (required for trading)', True),
+    ('LIFI_API_KEY', 'LI.FI', 'Higher rate limits for EVM swaps, bridges and gas', False),
+    ('ETHERSCAN_API_KEY', 'Etherscan', 'EVM contract + holder reads', False),
+    ('PUMPPORTAL_API_KEY', 'PumpPortal', 'Paid live Pump trade stream (instant new-coin flow)', False),
 ]
 
 

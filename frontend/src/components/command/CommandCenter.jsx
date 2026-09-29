@@ -79,10 +79,13 @@ export function CommandCenter({ address, signMessage, onClose }) {
     <div className="cc-gate-actions"><button type="button" className="btn-primary" disabled={busy} onClick={signIn}><ShieldCheck size={15} />{busy ? 'Check your wallet…' : 'Sign in to Command Center'}</button><button type="button" className="btn-outline" onClick={onClose}>Back to profile</button></div>
   </div></div>;
 
-  const TABS = [['launch', 'Launch & setup', ShieldCheck], ['latency', 'Charts & latency', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['circle', 'Circle wallets', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Fees & Pricing', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  // Grouped so the money + infra controls are always first; every tab id appears exactly once.
+  const TAB_GROUPS = [['Core', ['launch', 'fees', 'latency', 'treasury', 'circle']], ['Growth', ['numbers', 'traffic', 'pulse', 'marketing', 'kols', 'invites', 'ads', 'ideas']],
+    ['Community', ['holders', 'studio', 'airdrops', 'snapshots', 'badges', 'seasons', 'pools', 'feecat', 'broadcast']], ['Safety', ['overview', 'mod', 'access', 'bugs']]];
+  const TABS = [['launch', 'Launch & setup', ShieldCheck], ['latency', 'Charts & latency', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['circle', 'Circle wallets', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div>
-      <nav className="cc-tabs">{TABS.map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</nav>
+      <nav className="cc-tabs" data-testid="cc-nav">{TAB_GROUPS.map(([group, ids]) => <div key={group} className="cc-tab-group"><small>{group}</small>{ids.map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</div>)}</nav>
       <button type="button" className="cc-close" onClick={onClose} aria-label="Close command center"><X size={16} /></button></header>
 
     {tab === 'launch' && <LaunchRailAdmin call={call} isOwner={isOwner} />}
@@ -262,11 +265,10 @@ function FeesPanel({ call }) {
   const [earnings, setEarnings] = useState(null);
   const [earningsBusy, setEarningsBusy] = useState(false);
   const [limits, setLimits] = useState({ minBps: 0, maxBps: 2000, ultraMaxBps: 255, priorityMaxLamports: 5000000 });
-  const [zero, setZero] = useState('');
   const [promoDays, setPromoDays] = useState(0);
   useEffect(() => {
     call('/admin/fees/health').then(setHealth).catch(() => setHealth(null));
-    call('/admin/fees').then(d => { setCfg(d.fees); setLimits(d.limits); setZero((d.fees.zeroFeeMints || []).join('\n')); }).catch(e => toast.error(e.message));
+    call('/admin/fees').then(d => { setCfg(d.fees); setLimits(d.limits); }).catch(e => toast.error(e.message));
     call('/admin/treasury/routes').then(d => setRoutes(d.routes || [])).catch(() => {});
   }, [call]);
   if (!cfg) return <p className="cc-empty">Loading fee settings…</p>;
@@ -274,64 +276,70 @@ function FeesPanel({ call }) {
   const loadEarnings = async () => { setEarningsBusy(true); try { setEarnings(await call('/admin/fees/balances')); } catch (e) { toast.error(e.message); } finally { setEarningsBusy(false); } };
   const save = async () => {
     const body = { ...cfg, platformFeeBps: Math.min(Number(cfg.platformFeeBps) || 0, limits.maxBps), priorityMaxLamports: Number(cfg.priorityMaxLamports) || 0, ultraFallback: Boolean(cfg.ultraFallback), engine: cfg.engine || 'swap',
-      feeAccountSol: (cfg.feeAccountSol || '').trim(), feeAccountUsdc: (cfg.feeAccountUsdc || '').trim(), lifiFeeBps: Number(cfg.lifiFeeBps) || 0, lifiIntegrator: cfg.lifiIntegrator || '', zeroFeeMints: zero.split(/[\s,]+/).filter(Boolean),
+      feeAccountSol: (cfg.feeAccountSol || '').trim(), feeAccountUsdc: (cfg.feeAccountUsdc || '').trim(), lifiFeeBps: Number(cfg.lifiFeeBps) || 0, lifiIntegrator: cfg.lifiIntegrator || '', zeroFeeMints: [],
       promo: { ...(cfg.promo || {}), until: promoDays > 0 ? Date.now() / 1000 + promoDays * 86400 : cfg.promo?.until || 0 } };
     try { const d = await call('/admin/fees', { method: 'POST', body: JSON.stringify(body) }); setCfg(d.fees); toast.success('Fee settings saved — applied to the next quote.'); } catch (e) { toast.error(e.message); }
   };
   const TIERS = ['Trencher', 'Fee Friend', 'Fee Insider', 'Fee Whale'];
   const enabled = Number(cfg.platformFeeBps) > 0;
+  const engine = cfg.engine || 'swap';
+  const feeAcct = Boolean(cfg.feeAccountSol || cfg.feeAccountUsdc);
+  const pct = v => `${((Number(v) || 0) / 100).toFixed(2)}%`;
+  const status = [['Engine', engine === 'swap' ? 'Swap API' : 'Ultra', true], ['Ultra fallback', cfg.ultraFallback ? 'On' : 'Off', true],
+    ['Fee', enabled ? pct(cfg.platformFeeBps) : 'Off', enabled], ['Fee account', engine === 'swap' ? (feeAcct ? 'Set' : 'Missing') : (cfg.referralAccount ? 'Referral set' : 'Missing'), engine === 'swap' ? feeAcct : Boolean(cfg.referralAccount)],
+    ['Health', health ? (health.ok ? 'Collecting' : 'Not collecting') : 'Checking…', Boolean(health?.ok)]];
   return <section className="cc-panel cc-fees" data-testid="fees-panel">
-    <div className="cc-block fee-selftest" data-testid="fee-selftest"><h4>Does it actually work? <Explain>Runs real quotes against Jupiter (and LI.FI if configured) using your live fee rules. Nothing is signed or sent. A pass means the FEELESS fee is added on real trades.</Explain></h4>
-      <div className="cc-toolbar"><button type="button" className="btn-primary" onClick={runTest} disabled={testBusy}><RefreshCw size={13} className={testBusy ? 'spin' : ''} />{testBusy ? 'Testing live quotes…' : 'Run fee self-test'}</button>{test?.at && <small className="cc-empty">Last run {new Date(test.at * 1000).toLocaleTimeString()}</small>}</div>
+    <div className="cc-status-strip" data-testid="fee-status">{status.map(([k, v, ok]) => <span key={k} className={ok ? 'ok' : 'bad'}><small>{k}</small><b>{v}</b></span>)}</div>
+    {health && !health.ok && <div className="fee-health bad" data-testid="fee-health"><b>⚠ Fees are NOT being collected</b><span>{health.problem}</span>{health.fix && <small><b>Fix:</b> {health.fix}</small>}</div>}
+
+    <div className="cc-block cc-rules" data-testid="fee-rules"><h4>Fee rules</h4><ul>
+      <li><b>Every Solana trade pays {enabled ? pct(cfg.platformFeeBps) : 'the platform fee'}</b>, collected in SOL or USDC.</li>
+      <li><b>Only exemption:</b> buying $FEE, FEECAT or rFEE with SOL, USDC or USDT is 0%. Selling them pays the fee.</li>
+      <li><b>Coin → coin</b> trades have no SOL/USDC side to pay from, so they are refused: traders route coin → SOL → coin.</li>
+      <li><b>Holder tiers and promos</b> lower the fee (max 90% off). They never make a trade free.</li>
+      <li><b>EVM swaps, bridges and gas</b> pay the LI.FI fee below.</li></ul></div>
+
+    <div className="cc-studio-grid">
+      <div className="cc-block cc-engine" data-testid="trading-engine"><h4>1 · Trading engine</h4>
+        <div className="cc-seg">{[['swap', 'Swap API · your fee'], ['ultra', 'Ultra only · 0.5–2.55%']].map(([id, label]) => <button key={id} type="button" className={engine === id ? 'active' : ''} onClick={() => set('engine', id)}>{label}</button>)}</div>
+        <label className="cc-check"><input type="checkbox" checked={Boolean(cfg.ultraFallback)} disabled={engine === 'ultra'} onChange={e => set('ultraFallback', e.target.checked)} />Ultra fallback when the Swap API fails (fee capped at 2.55% on those trades). Off = trading pauses.</label>
+        <label>SOL fee account (wSOL token account)<input placeholder="Token account for So111…112 owned by your treasury" value={cfg.feeAccountSol || ''} onChange={e => set('feeAccountSol', e.target.value.trim())} /></label>
+        <label>USDC fee account (optional)<input placeholder="Token account for USDC owned by your treasury" value={cfg.feeAccountUsdc || ''} onChange={e => set('feeAccountUsdc', e.target.value.trim())} /></label>
+        <label>Max priority fee (lamports)<input type="number" min="0" max={limits.priorityMaxLamports} value={cfg.priorityMaxLamports ?? 200000} onChange={e => set('priorityMaxLamports', e.target.value)} /></label>
+        <small className="cc-empty">{`≤ ${((Number(cfg.priorityMaxLamports) || 0) / 1e9).toFixed(6)} SOL per trade on top of the 0.000005 SOL network fee. A first buy of a coin also pays ~0.002 SOL account rent (refunded when that account is closed).`}</small>
+      </div>
+      <div className="cc-block"><h4>2 · Platform fee</h4>
+        <label>Fee in basis points (100 = 1% · max {limits.maxBps} = {pct(limits.maxBps)})<input type="number" min="0" max={limits.maxBps} value={cfg.platformFeeBps} onChange={e => set('platformFeeBps', e.target.value)} /></label>
+        {Number(cfg.platformFeeBps) > limits.maxBps
+          ? <small className="cc-empty fee-over-cap">Max is {pct(limits.maxBps)}. Saving will use {pct(limits.maxBps)}.</small>
+          : <small className="cc-empty">{enabled ? `${pct(cfg.platformFeeBps)} per trade${engine === 'ultra' || cfg.ultraFallback ? ` · Ultra trades: ${pct(Math.min(Math.max(Number(cfg.platformFeeBps), limits.ultraMinBps || 50), limits.ultraMaxBps || 255))}` : ''}` : 'Fee off: every trade is free until you set one.'}</small>}
+        <h5>$FEE holder discounts (% off)</h5>
+        <div className="cc-mini-grid">{TIERS.map((t, i) => <label key={t}>{t}<input type="number" min="0" max="90" value={cfg.tierDiscountPct?.[String(i)] ?? 0} onChange={e => set('tierDiscountPct', { ...cfg.tierDiscountPct, [String(i)]: Number(e.target.value) })} /></label>)}</div>
+        <h5>Promo</h5>
+        <div className="cc-mini-grid"><label>Label<input value={cfg.promo?.label || ''} onChange={e => set('promo', { ...cfg.promo, label: e.target.value })} placeholder="Launch week" /></label>
+          <label>% off<input type="number" min="0" max="90" value={cfg.promo?.discountPct || 0} onChange={e => set('promo', { ...cfg.promo, discountPct: Number(e.target.value) })} /></label>
+          <label>Days<input type="number" min="0" value={promoDays} onChange={e => setPromoDays(Number(e.target.value))} /></label></div>
+        {cfg.promo?.until > Date.now() / 1000 && <small className="cc-empty">Promo live until {new Date(cfg.promo.until * 1000).toLocaleString()}</small>}
+      </div>
+      <div className="cc-block"><h4>3 · Ultra fallback (Jupiter referral)</h4>
+        <label>Jupiter referral account<input placeholder="Create at referral.jup.ag, paste the account" value={cfg.referralAccount} onChange={e => set('referralAccount', e.target.value.trim())} /></label>
+        <small className="cc-empty">Only used when Ultra is the engine or the fallback is on. Fees collect in the referral account's vaults; claim them at referral.jup.ag with the authority wallet.</small>
+        <div className="cc-toolbar"><button type="button" className="btn-outline" onClick={loadEarnings} disabled={earningsBusy || !cfg.referralAccount}><RefreshCw size={13} />{earningsBusy ? 'Reading chain…' : 'Referral balances'}</button><a className="btn-outline" href="https://referral.jup.ag/" target="_blank" rel="noopener noreferrer">Claim ↗</a></div>
+        {earnings?.accounts?.length > 0 && <ul className="fee-checks">{earnings.accounts.map(a => <li key={a.tokenAccount || a.mint} className="ok"><b>◎</b><span>{a.symbol || a.mint?.slice(0, 4)}</span><small>{a.amount ?? a.uiAmount}</small></li>)}</ul>}
+      </div>
+      <div className="cc-block fee-lifi"><h4>4 · EVM swaps &amp; bridges (LI.FI)</h4>
+        <label>LI.FI integrator name<input placeholder="as registered at portal.li.fi" value={cfg.lifiIntegrator || ''} onChange={e => set('lifiIntegrator', e.target.value.trim())} /></label>
+        <label>LI.FI fee (basis points)<input type="number" min="0" max="300" value={cfg.lifiFeeBps || 0} onChange={e => set('lifiFeeBps', e.target.value)} /></label>
+        <small className="cc-empty">{Number(cfg.lifiFeeBps) && cfg.lifiIntegrator ? `${pct(cfg.lifiFeeBps)} on EVM swaps, bridges and gas (LI.FI adds its own 0.25%).` : 'Register at portal.li.fi and set a fee to charge EVM routes.'}</small>
+      </div>
+    </div>
+
+    <div className="cc-block fee-selftest" data-testid="fee-selftest"><h4>5 · Prove it <Explain>Runs real quotes through the same endpoints the swap boxes use. Nothing is signed or sent. A pass means FEELESS is paid on real trades.</Explain></h4>
+      <div className="cc-toolbar"><button type="button" className="btn-outline" onClick={runTest} disabled={testBusy}><RefreshCw size={13} className={testBusy ? 'spin' : ''} />{testBusy ? 'Testing live quotes…' : 'Run fee self-test'}</button>{test?.at && <small className="cc-empty">Last run {new Date(test.at * 1000).toLocaleTimeString()}</small>}{health?.ok && <small className="cc-empty">✓ {health.note}</small>}</div>
       {test && <ul className="fee-checks">{test.checks.map(c => <li key={c.label} className={c.ok ? 'ok' : 'bad'}><b>{c.ok ? '✓' : '✗'}</b><span>{c.label}</span><small>{c.detail}</small></li>)}
         {(test.lifiChecks || []).map(c => <li key={c.label} className={c.ok ? 'ok' : 'bad'}><b>{c.ok ? '✓' : '✗'}</b><span>LI.FI · {c.label}</span><small>{c.detail}</small></li>)}</ul>}
-      <p className="cc-note"><b>How the money moves:</b> on each Solana swap Jupiter adds your fee to the trader's quote and deposits it (mostly in SOL, sometimes USDC) into your referral account's fee vaults. It sits there until the referral authority wallet claims it at referral.jup.ag — use <i>Refresh received fees</i> below to see the balances. Jupiter keeps a share of the referral fee; the trader sees the full amount before signing.</p>
-      <p className="cc-note"><b>Who pays what:</b> buying $FEE, FEECAT or rFEE with SOL, USDC or USDT: 0%. Selling them, and every other Solana buy, sell or swap: the platform fee (minus holder-tier and promo discounts). EVM swaps, bridges and gas: the LI.FI fee below, paid to your LI.FI integrator wallet (LI.FI adds its own 0.25% on top). Tokens on the fee-free list: 0%.</p></div>
-    {health && <div className={`fee-health ${health.ok ? 'ok' : 'bad'}`} data-testid="fee-health"><b>{health.ok ? '✓ Jupiter will pay your fee' : '⚠ Fees are NOT being collected'}</b><span>{health.ok ? health.note : health.problem}</span>{!health.ok && health.fix && <small><b>Fix:</b> {health.fix}</small>}</div>}
-    <p className="cc-note"><b>What gets charged:</b> only eligible in-app Solana trades/swaps. Buying $FEE with any token is fee-free. Selling $FEE into SOL, USDC or USDT is also fee-free; selling $FEE into another token uses the platform fee. FEECAT and rFEE follow the normal platform fee unless their mint is added to the fee-free list. LI.FI bridge and gas routes have no FEELESS platform fee. Holder and promo discounts can reduce charged swaps, and the exact rate appears before signing.</p>
-    <p className="cc-note"><b>Why Jupiter needs a referral account:</b> it is the on-chain fee vault and authority record used by Jupiter. It is not a referral code and does not charge anything by itself. When a fee is enabled, Jupiter collects it into mint-specific token accounts under this referral account; the authority wallet later signs a claim into your treasury wallet. A normal treasury address cannot be passed directly in its place.</p>
-    <div className={`fee-routing-status ${enabled && cfg.referralAccount ? 'ok' : enabled ? 'bad' : 'off'}`}><b>{enabled ? (cfg.referralAccount ? 'Fee destination configured' : 'Fee collection blocked') : 'Platform fee disabled'}</b><span>{enabled && cfg.referralAccount ? `Jupiter referral account ${cfg.referralAccount.slice(0, 6)}…${cfg.referralAccount.slice(-4)} receives the fee. Treasury routes below are records only; they do not automatically split or transfer these funds.` : enabled ? 'Add a valid Jupiter referral account before a non-zero fee can be saved.' : 'Users pay no FEELESS platform fee. Network and provider fees may still apply.'}</span></div>
-    <div className="cc-studio-grid">
-      <div className="cc-block cc-engine" data-testid="trading-engine"><h4>Trading engine</h4>
-        <div className="cc-seg">{[['swap', 'Swap API (your fee, your broadcast)'], ['ultra', 'Ultra only (0.5–2.55%)']].map(([id, label]) => <button key={id} type="button" className={(cfg.engine || 'swap') === id ? 'active' : ''} onClick={() => set('engine', id)}>{label}</button>)}</div>
-        <label className="cc-check"><input type="checkbox" checked={Boolean(cfg.ultraFallback)} disabled={(cfg.engine || 'swap') === 'ultra'} onChange={e => set('ultraFallback', e.target.checked)} />Use Ultra as a fallback when the Swap API fails (fee capped at 2.55% on those trades). Off = trading pauses instead.</label>
-        <label>Your SOL fee account (wSOL token account)<input placeholder="Token account for So111…112 owned by your treasury" value={cfg.feeAccountSol || ''} onChange={e => set('feeAccountSol', e.target.value.trim())} /></label>
-        <label>Your USDC fee account (optional)<input placeholder="Token account for USDC owned by your treasury" value={cfg.feeAccountUsdc || ''} onChange={e => set('feeAccountUsdc', e.target.value.trim())} /></label>
-        <label>Max priority fee per trade (lamports · 1,000,000 = 0.001 SOL)<input type="number" min="0" max={limits.priorityMaxLamports} value={cfg.priorityMaxLamports ?? 200000} onChange={e => set('priorityMaxLamports', e.target.value)} /></label>
-        <small className="cc-empty">{`≤ ${((Number(cfg.priorityMaxLamports) || 0) / 1e9).toFixed(6)} SOL priority per trade. Base network fee is 0.000005 SOL; first buys of a coin also pay ~0.002 SOL account rent (refunded when that token account is closed).`}</small>
-      </div>
-      <div className="cc-block"><h4>Platform fee</h4>
-        <label>Fee (basis points · 100 = 1% · max {limits.maxBps} = {(limits.maxBps / 100).toFixed(2)}%)<input type="number" min="0" max={limits.maxBps} value={cfg.platformFeeBps} onChange={e => set('platformFeeBps', e.target.value)} /></label>
-        {/* Jupiter rejects integrator fees above its cap, so a higher number can never be charged: say so instead of failing on save. */}
-        {Number(cfg.platformFeeBps) > limits.maxBps
-          ? <small className="cc-empty fee-over-cap">Jupiter caps app fees at {(limits.maxBps / 100).toFixed(2)}% per swap. Saving will use {(limits.maxBps / 100).toFixed(2)}%.</small>
-          : <small className="cc-empty">{Number(cfg.platformFeeBps) ? `${(cfg.platformFeeBps / 100).toFixed(2)}% per swap` : 'Free trading'}</small>}
-        <label>Jupiter referral account (actual fee destination)<input placeholder="Create at referral.jup.ag, paste the account" value={cfg.referralAccount} onChange={e => set('referralAccount', e.target.value.trim())} /></label>
-        <div className="cc-block fee-lifi"><h4>EVM swaps &amp; bridges (LI.FI)</h4>
-          <p className="cc-note">LI.FI pays app fees only to a registered integrator. Sign up at <a href="https://portal.li.fi/" target="_blank" rel="noopener noreferrer">portal.li.fi</a>, create an integrator and set its EVM fee wallet there, then enter the exact integrator name below. Fees are collected per chain in LI.FI's fee contract and withdrawn from the portal.</p>
-          <label>LI.FI integrator name<input placeholder="e.g. feeless" value={cfg.lifiIntegrator || ''} onChange={e => set('lifiIntegrator', e.target.value.trim())} /></label>
-          <label>LI.FI fee (basis points · 100 = 1%)<input type="number" min="0" max="300" value={cfg.lifiFeeBps || 0} onChange={e => set('lifiFeeBps', e.target.value)} /></label>
-          <small className="cc-empty">{Number(cfg.lifiFeeBps) && cfg.lifiIntegrator ? `${(cfg.lifiFeeBps / 100).toFixed(2)}% on EVM swaps, bridges and gas` : 'No FEELESS fee on LI.FI routes'}</small></div>
-        <small className="cc-empty">Confirm this account's authority can be claimed into your treasury. Saved treasury destinations: {routes.length || 0}.</small>
-      </div>
-      <div className="cc-block"><h4>$FEE holder discounts</h4>
-        {TIERS.map((t, i) => <label key={t}>{t}<input type="number" min="0" max="100" value={cfg.tierDiscountPct?.[String(i)] ?? 0} onChange={e => set('tierDiscountPct', { ...cfg.tierDiscountPct, [String(i)]: Number(e.target.value) })} /></label>)}
-        <small className="cc-empty">% off the platform fee for each tier.</small>
-      </div>
-      <div className="cc-block"><h4>Promo + fee-free tokens</h4>
-        <label>Promo label<input value={cfg.promo?.label || ''} onChange={e => set('promo', { ...cfg.promo, label: e.target.value })} placeholder="e.g. Launch week" /></label>
-        <label>Promo discount %<input type="number" min="0" max="100" value={cfg.promo?.discountPct || 0} onChange={e => set('promo', { ...cfg.promo, discountPct: Number(e.target.value) })} /></label>
-        <label>Run promo for (days from now)<input type="number" min="0" value={promoDays} onChange={e => setPromoDays(Number(e.target.value))} /></label>
-        {cfg.promo?.until > Date.now() / 1000 && <small className="cc-empty">Live until {new Date(cfg.promo.until * 1000).toLocaleString()}</small>}
-        <label>Fee-free token mints (one per line)<textarea rows={3} value={zero} onChange={e => setZero(e.target.value)} /></label>
-      </div>
     </div>
-    <div className="cc-block cc-fee-tools"><h4>Fee earnings &amp; withdrawal</h4>
-      <div className="cc-toolbar"><button type="button" className="btn-outline" onClick={loadEarnings} disabled={earningsBusy || !cfg.referralAccount}><RefreshCw size={13} />{earningsBusy ? 'Reading chain…' : 'Refresh received fees'}</button><a className="btn-primary" href="https://referral.jup.ag/" target="_blank" rel="noopener noreferrer">Claim / withdraw with authority wallet ↗</a></div>
-      {!cfg.referralAccount ? <p className="cc-empty">Add your Jupiter referral account to read fee balances.</p> : !earnings ? <p className="cc-empty">Balances are read directly from the referral account's Solana token accounts.</p> : !earnings.accounts?.length ? <p className="cc-empty">No unclaimed token balances found. Also confirm referral token accounts exist for the fee mints you accept.</p> : <div className="fee-balance-list">{earnings.accounts.map(a => <div key={a.tokenAccount}><span><b>{a.amount}</b><small>{a.program}</small></span><code title={a.mint}>{a.mint?.slice(0, 6)}…{a.mint?.slice(-4)}</code></div>)}</div>}
-      <small className="cc-empty">Jupiter chooses the collected fee mint from the route; this setting does not force every fee into SOL or USD. Withdrawals require the referral authority wallet signature. FEELESS does not hold that key. After claiming, send the assets to the treasury destination you choose.</small>
-    </div>
-    <button type="button" className="btn-primary" onClick={save}>Save fee settings</button>
+    <div className="cc-savebar"><span>{routes.length || 0} treasury route{routes.length === 1 ? '' : 's'} saved</span><button type="button" className="btn-primary" onClick={save} data-testid="fees-save">Save trading &amp; fees</button></div>
   </section>;
 }
 

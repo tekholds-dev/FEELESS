@@ -352,9 +352,16 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   }, [charting, interval, pair, pair?.baseToken?.address, pair?.chainId, pair?.pairAddress, ratio]);
   const [livePx, setLivePx] = useState(null);
   useEffect(() => { if (!feePos) return undefined; const t = setInterval(() => { const b = lastBarRef.current; if (b) setLivePx(b.close ?? b.value); }, 1200); return () => clearInterval(t); }, [feePos]);
-  const feePnl = feePos?.entryPriceUsd > 0 && (livePx || feePos.lastPriceUsd) ? ((livePx || feePos.lastPriceUsd) / feePos.entryPriceUsd - 1) * 100 : feePos?.currentChange;
+  // The last bar is a market cap when the chart shows MC: convert back to a price before comparing to entry.
+  const fillPx = livePx ? livePx / (ratio || 1) : null;
+  const feePnl = feePos?.entryPriceUsd > 0 && (fillPx || feePos.lastPriceUsd) ? ((fillPx || feePos.lastPriceUsd) / feePos.entryPriceUsd - 1) * 100 : feePos?.currentChange;
+  // SOL/USD from the pair itself (priceUsd / priceNative on a SOL-quoted pool): turns the SOL stake into dollars.
+  const solUsd = /^W?SOL$/i.test(pair?.quoteToken?.symbol || '') && Number(pair?.priceNative) > 0 ? Number(pair.priceUsd) / Number(pair.priceNative) : null;
+  const feePnlUsd = solUsd && feePnl != null ? Number(feePos?.costSol || 0) * solUsd * feePnl / 100 : null;
+  const shortPct = v => (Math.abs(v) >= 1000 ? `${(v / 100 + 1).toFixed(1)}x` : `${v >= 0 ? '+' : ''}${v.toFixed(Math.abs(v) >= 100 ? 0 : 1)}%`);
+  const usd = v => `${v < 0 ? '−' : '+'}$${Math.abs(v) >= 1000 ? `${(Math.abs(v) / 1000).toFixed(1)}K` : Math.abs(v).toFixed(2)}`;
   return <div className="chart-area" data-testid="price-chart">
-    {feeLive && feePos && feePnl != null && <div className={`fee-pnl ${feePnl >= 0 ? 'up' : 'down'}`} data-testid="fee-pnl"><span>🐱 Fee is in</span><b>{feePnl >= 0 ? '+' : ''}{feePnl.toFixed(2)}%</b><small>{Number(feePos.costSol).toFixed(2)} SOL{feePos.peakChange ? ` · peak +${Number(feePos.peakChange).toFixed(1)}%` : ''}</small></div>}
+    {feeLive && feePos && feePnl != null && <div className={`fee-pnl ${feePnl >= 0 ? 'up' : 'down'}`} data-testid="fee-pnl"><span>🐱 Fee is in</span><b>{shortPct(feePnl)}</b>{feePnlUsd != null && <b className="fee-pnl-usd">{usd(feePnlUsd)}</b>}<small>{Number(feePos.costSol).toFixed(2)} SOL{solUsd ? ` ($${(Number(feePos.costSol) * solUsd).toFixed(2)})` : ''}{feePos.peakChange ? ` · peak +${Number(feePos.peakChange).toFixed(1)}%` : ''}</small></div>}
     {charting && !candlesLoaded && <div className="chart-message" data-testid="chart-loading"><span className="loader" />Loading on-chain candles…</div>}
     {charting && !loading && usingFallbackTrail && trail.length < 2 && <div className="chart-message chart-building" role="status" data-testid="chart-building">
       <span className="signal-lines"><i /><i /><i /><i /></span>

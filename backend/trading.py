@@ -304,6 +304,8 @@ class TradingService:
                       'amount': str(int(atoms)), 'slippageBps': body.slippage_bps}
             if body.wallet:
                 params['taker'] = body.wallet
+            if fee.get('blocked'):
+                raise HTTPException(400, fee['blocked'])
             # Primary: Jupiter Swap API (FEELESS fee, capped priority fee, our broadcast).
             # Ultra runs only when configured as the engine, or as a fallback the creator switched on.
             engine = fee.get('engine') or 'swap'
