@@ -1748,17 +1748,18 @@ async def token_balance(owner: str, mint: str):
         async with httpx.AsyncClient(timeout=8) as http:
             if mint == 'So11111111111111111111111111111111111111112':
                 r = await _rpc(http, 'getBalance', [owner])
-                return {'amount': ((r or {}).get('value') or 0) / 1e9, 'decimals': 9}
+                return {'amount': ((r or {}).get('value') or 0) / 1e9, 'decimals': 9, 'raw': str((r or {}).get('value') or 0)}
             r = await _rpc(http, 'getTokenAccountsByOwner', [owner, {'mint': mint}, {'encoding': 'jsonParsed'}])
     except Exception:
         raise HTTPException(502, 'Balance unavailable right now.')
-    total, decimals = 0.0, None
+    total, decimals, raw = 0.0, None, 0
     for acc in (r or {}).get('value') or []:
         info = (((acc.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
         amt = (info.get('tokenAmount') or {})
         total += float(amt.get('uiAmount') or 0)
+        raw += int(amt.get('amount') or 0)
         decimals = amt.get('decimals', decimals)
-    return {'amount': total, 'decimals': decimals}
+    return {'amount': total, 'decimals': decimals, 'raw': str(raw)}
 
 
 # ---- Wallet profiles (customizable, wallet-signed) ------------------------------

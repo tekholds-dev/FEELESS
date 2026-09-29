@@ -24,6 +24,8 @@ async function tradeApi(path, body) {
 }
 
 const units = (raw, decimals) => (raw == null || decimals == null ? null : Number(raw) / 10 ** decimals);
+// Exact atoms -> decimal string, so a sell of 25% of a 6-decimals coin never carries a 7th decimal (the API rejects those).
+const rawToUi = (raw, dec) => { const s = raw.toString().padStart(dec + 1, '0'); const w = s.slice(0, s.length - dec); const f = s.slice(s.length - dec).replace(/0+$/, ''); return f ? `${w}.${f}` : w; };
 
 // Compact buy/sell box that lives next to every chart. Real Jupiter routes, simulated before
 // signing, your wallet signs — nothing custodial. Anything into $FEE carries no FEELESS fee.
@@ -57,7 +59,8 @@ export function QuickTrade({ pair }) {
   }, []);
   const [counter, setCounter] = useState('SOL');
   const [solUsd, setSolUsd] = useState(null);
-  const [balance, setBalance] = useState(null);
+  const [bal, setBal] = useState(null);
+  const balance = bal?.amount ?? null;
   const [order, setOrder] = useState(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
@@ -71,18 +74,22 @@ export function QuickTrade({ pair }) {
   }, []);
   useEffect(() => {
     setOrder(null); setResult(null);
-    if (side !== 'sell' || !wallet?.address || !mint) { setBalance(null); return; }
-    fetch(apiUrl(`/api/reputation/balance/${wallet.address}/${mint}`)).then(r => r.json()).then(d => setBalance(Number(d.amount) || 0)).catch(() => setBalance(null));
+    if (side !== 'sell' || !wallet?.address || !mint) { setBal(null); return; }
+    fetch(apiUrl(`/api/reputation/balance/${wallet.address}/${mint}`)).then(r => r.json()).then(d => setBal({ amount: Number(d.amount) || 0, decimals: d.decimals, raw: d.raw })).catch(() => setBal(null));
   }, [side, wallet?.address, mint]);
   useEffect(() => { setOrder(null); }, [amount, sellPct, counter, prefs.slippage, prefs.unit]);
   if (pair?.chainId !== 'solana') return EVM_TRADE_CHAINS.includes(pair?.chainId) ? <EvmTrade pair={pair} /> : <aside className="quick-trade qt-unsupported" data-testid="quick-trade"><Zap size={14} /> In-app swaps cover Solana and EVM chains. Use the DEX link for {pair?.chainId || 'this chain'}.</aside>;
 
   const counterMint = counter === 'FEE' && feeMint ? feeMint : SOL;
   const payAmount = () => {
-    if (side === 'sell') return balance ? String((balance * sellPct) / 100) : null;
+    if (side === 'sell') {
+      if (!balance) return null;
+      if (bal?.raw != null && bal.decimals != null) { const r = (BigInt(bal.raw) * BigInt(sellPct)) / 100n; return r > 0n ? rawToUi(r, bal.decimals) : null; }
+      return Number((balance * sellPct) / 100).toFixed(bal?.decimals ?? 6).replace(/\.?0+$/, '');
+    }
     const n = Number(amount);
     if (!(n > 0)) return null;
-    if (counter === 'SOL') return prefs.unit === 'USD' ? (solUsd ? String(n / solUsd) : null) : String(n);
+    if (counter === 'SOL') { const sol = prefs.unit === 'USD' ? (solUsd ? n / solUsd : null) : n; return sol ? sol.toFixed(9).replace(/\.?0+$/, '') : null; }
     return null; // paying with $FEE uses its own balance flow via the full Trade page
   };
   const quote = async () => {
@@ -92,7 +99,7 @@ export function QuickTrade({ pair }) {
     if (!amt) { toast.error(side === 'sell' ? 'No balance to sell.' : 'Enter an amount.'); return; }
     setBusy(true); setResult(null);
     try {
-      const data = await tradeApi('/quote', { input_mint: side === 'buy' ? counterMint : mint, output_mint: side === 'buy' ? mint : counterMint, amount: Number(amt).toFixed(9).replace(/\.?0+$/, ''), slippage_bps: Number(prefs.slippage), wallet: wallet.address });
+      const data = await tradeApi('/quote', { input_mint: side === 'buy' ? counterMint : mint, output_mint: side === 'buy' ? mint : counterMint, amount: amt, slippage_bps: Number(prefs.slippage), wallet: wallet.address });
       await tradeApi('/simulate', { order_id: data.order_id });
       setOrder(data);
     } catch (e) { toast.error(e.message); } finally { setBusy(false); }

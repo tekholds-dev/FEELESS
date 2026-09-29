@@ -82,8 +82,10 @@ class TradingService:
                                          headers={'x-api-key': os.environ['JUPITER_API_KEY']}, **kwargs)
                 data = res.json()
             if res.status_code >= 400:
-                detail = data.get('errorMessage') or data.get('error') or 'Jupiter route unavailable'
-                raise HTTPException(503 if res.status_code >= 500 else 400, str(detail)[:200])
+                detail = str(data.get('errorMessage') or data.get('error') or data.get('message') or 'Jupiter route unavailable')
+                if 'failed to get quotes' in detail.lower() or 'no routes' in detail.lower():
+                    detail = 'No route for this pair right now — it may be too new, too thin, or not indexed by Jupiter yet. Try a smaller amount or check the coin in a moment.'
+                raise HTTPException(503 if res.status_code >= 500 else 400, detail[:240])
             return data
         except (httpx.HTTPError, ValueError):
             raise HTTPException(503, 'Jupiter unavailable. Check status before retrying a submitted swap.')
@@ -167,10 +169,21 @@ class TradingService:
                         fee = r.json()
             except Exception:
                 pass  # fee service down → no fee is charged, never a surprise fee
+            fee_fallback = None
             if fee.get('bps') and fee.get('referralAccount'):
                 params['referralAccount'] = fee['referralAccount']
                 params['referralFee'] = int(fee['bps'])
-            data = await self.jupiter('GET', '/swap/v2/order', params=params)
+            try:
+                data = await self.jupiter('GET', '/swap/v2/order', params=params)
+            except HTTPException as exc:
+                # A broken fee setup (referral account / fee-mint token account not initialized at Jupiter)
+                # must never block a user's trade: re-quote without the fee and flag it for the creator.
+                if 'referralAccount' not in params or 'referral' not in str(exc.detail).lower():
+                    raise
+                params.pop('referralAccount'); params.pop('referralFee')
+                fee_fallback = 'FEELESS fee skipped — the fee referral account is not set up for this route yet.'
+                fee = {'bps': 0, 'notes': [fee_fallback], 'referralAccount': None}
+                data = await self.jupiter('GET', '/swap/v2/order', params=params)
             if data.get('errorCode') or not data.get('outAmount'):
                 raise HTTPException(400, data.get('errorMessage') or 'No executable route available for this pair')
             try:
@@ -185,7 +198,7 @@ class TradingService:
             await self.db.swap_orders.insert_one(record)
             return {'order_id': order_id, 'created_at': created, 'expires_at': record['expires_at'],
                     'input_metadata': meta_in, 'output_metadata': meta_out, 'quote': data,
-                    'feeless_fee': {'bps': int(fee.get('bps') or 0), 'notes': fee.get('notes') or []},
+                    'feeless_fee': {'bps': int(fee.get('bps') or 0), 'notes': fee.get('notes') or [], 'fallback': bool(fee_fallback)},
                     'fee_back': {'status': 'PLANNED', 'eligible_usd': None, 'distribution': None}}
 
         @router.post('/simulate')

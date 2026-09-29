@@ -11,6 +11,8 @@ import { EdgeScore } from '../terminal/EdgeScore';
 const CHAIN_ID = { ethereum: 1, base: 8453, bsc: 56, arbitrum: 42161, avalanche: 43114, polygon: 137, optimism: 10, zksync: 324, zora: 7777777, cronos: 25, unichain: 130, worldchain: 480 };
 const NAMES = { ethereum: 'Ethereum', base: 'Base', bsc: 'BNB Chain', arbitrum: 'Arbitrum', avalanche: 'Avalanche', polygon: 'Polygon', optimism: 'Optimism', zksync: 'zkSync', zora: 'Zora', cronos: 'Cronos', unichain: 'Unichain', worldchain: 'World Chain' };
 const NATIVE = '0x0000000000000000000000000000000000000000';
+const USDC_DECIMALS = { bsc: 18 }; // Binance-Peg USDC has 18 decimals; everywhere else it is 6
+const cleanAmount = v => { const [w, ...f] = v.replace(/[^0-9.]/g, '').split('.'); return f.length ? `${w}.${f.join('')}` : w; };
 const toUnits = (amt, dec) => { const [w, f = ''] = String(amt).split('.'); return BigInt(w || 0) * 10n ** BigInt(dec) + BigInt((f + '0'.repeat(dec)).slice(0, dec) || 0); };
 const fromUnits = (v, dec) => Number(BigInt(v || 0)) / 10 ** dec;
 
@@ -79,8 +81,8 @@ function Bridge() {
   const tok = c => (asset === 'native' ? NATIVE : 'USDC');
   return <div className="td-panel">
     <div className="td-row"><ChainSelect label="From" value={from} onChange={v => { setFrom(v); r.clear(); }} /><button type="button" className="td-swapbtn" aria-label="Flip chains" onClick={() => { setFrom(to); setTo(from); r.clear(); }}><ArrowLeftRight size={15} /></button><ChainSelect label="To" value={to} onChange={v => { setTo(v); r.clear(); }} /></div>
-    <div className="td-row"><label className="td-field"><small>Asset</small><select value={asset} onChange={e => { setAsset(e.target.value); r.clear(); }}><option value="native">Native gas coin</option><option value="usdc">USDC</option></select></label><label className="td-field"><small>Amount</small><input inputMode="decimal" value={amount} onChange={e => { setAmount(e.target.value.replace(/[^0-9.]/g, '')); r.clear(); }} /></label></div>
-    {!r.quote && <button type="button" className="btn-primary td-go" disabled={r.busy || from === to || !Number(amount)} onClick={() => r.getQuote({ fromChain: from, toChain: to, fromToken: tok(from), toToken: tok(to), amount, decimals: asset === 'usdc' ? 6 : 18 })}>{r.busy ? 'Finding the best route…' : from === to ? 'Pick two different chains' : 'Get bridge quote'}</button>}
+    <div className="td-row"><label className="td-field"><small>Asset</small><select value={asset} onChange={e => { setAsset(e.target.value); r.clear(); }}><option value="native">Native gas coin</option><option value="usdc">USDC</option></select></label><label className="td-field"><small>Amount</small><input inputMode="decimal" value={amount} onChange={e => { setAmount(cleanAmount(e.target.value)); r.clear(); }} /></label></div>
+    {!r.quote && <button type="button" className="btn-primary td-go" disabled={r.busy || from === to || !Number(amount)} onClick={() => r.getQuote({ fromChain: from, toChain: to, fromToken: tok(from), toToken: tok(to), amount, decimals: asset === 'usdc' ? (USDC_DECIMALS[from] ?? 6) : 18 })}>{r.busy ? 'Finding the best route…' : from === to ? 'Pick two different chains' : 'Get bridge quote'}</button>}
     <RouteReview quote={r.quote} busy={r.busy} onExecute={r.execute} onClear={r.clear} />
   </div>;
 }
@@ -102,7 +104,7 @@ function GetGas() {
     <div className="td-gas-grid">{gas.chains.map(c => <button key={c.chain} type="button" className={`td-gas ${c.enough ? 'ok' : 'low'} ${target === c.chain ? 'on' : ''}`} onClick={() => { setTarget(c.chain); r.clear(); }}>
       <b>{NAMES[c.chain] || c.chain}</b><small>{c.balance == null ? 'unavailable' : `${c.balance.toFixed(4)} ${c.symbol}`}</small><em>{c.enough ? '✓ gas ok' : '⛽ needs gas'}</em></button>)}</div>
     {target && <div className="td-row">
-      <label className="td-field"><small>Gas to add (USD)</small><input inputMode="decimal" value={usd} onChange={e => { setUsd(e.target.value.replace(/[^0-9.]/g, '')); r.clear(); }} /></label>
+      <label className="td-field"><small>Gas to add (USD)</small><input inputMode="decimal" value={usd} onChange={e => { setUsd(cleanAmount(e.target.value)); r.clear(); }} /></label>
       {source ? <button type="button" className="btn-primary td-go" disabled={r.busy || source.chain === target} onClick={() => r.getQuote({ fromChain: source.chain, toChain: target, fromToken: NATIVE, toToken: NATIVE, amount: (Number(usd) / (source.usd / source.balance)).toFixed(8) })}>{r.busy ? 'Routing…' : `Use ${source.symbol} on ${NAMES[source.chain]} → gas on ${NAMES[target]}`}</button>
         : <p className="wp-bio">No chain with enough spare balance to route from — add funds on any chain first.</p>}
     </div>}
@@ -114,10 +116,11 @@ function FeeExplainer() {
   const [f, setF] = useState(null);
   useEffect(() => { fetch(apiUrl('/api/reputation/fees/public')).then(x => x.json()).then(setF).catch(() => {}); }, []);
   const pct = f ? (f.platformFeeBps / 100).toFixed(2) : null;
+  const best = f ? Math.max(...Object.values(f.tierDiscountPct || { 0: 0 })) : 0;
   return <div className="td-fees" data-testid="td-fees">
-    <div className="td-fee good"><b>0%</b><span>Trade anything into $FEE (or its coins) — always FEELESS.</span></div>
-    <div className="td-fee"><b>{pct == null ? '…' : `${pct}%`}</b><span>Base FEELESS fee on eligible Solana swaps{f && Number(pct) > 0 ? ` — reduced up to ${Math.max(...Object.values(f.tierDiscountPct || { 0: 0 }))}% by holder tier` : ' — currently disabled'}.</span></div>
-    <div className="td-fee"><ShieldCheck size={18} /><span>Bridge and gas routes have 0% FEELESS platform fee; provider and network fees are itemized before signing.</span></div>
+    <span className="td-fee good" title="Buying $FEE or its coins never carries a FEELESS fee."><b>0%</b>into $FEE</span>
+    <span className="td-fee" title={f && Number(pct) > 0 ? `Charged on eligible Solana swaps, reduced up to ${best}% by holder tier. The exact fee is shown on every quote before you sign.` : 'No FEELESS fee is active right now.'}><b>{pct == null ? '…' : Number(pct) > 0 ? `≤${pct}%` : '0%'}</b>other Solana swaps</span>
+    <span className="td-fee" title="Bridge and gas routes have 0% FEELESS platform fee; provider and network fees are itemized before signing."><ShieldCheck size={14} /><b>0%</b>bridge &amp; gas</span>
   </div>;
 }
 
@@ -125,11 +128,11 @@ export function TradeDesk({ swap }) {
   const [mode, setMode] = useState('swap');
   const modes = [['swap', 'Swap', Repeat], ['bridge', 'Bridge', ArrowLeftRight], ['gas', 'Get gas', Fuel]];
   return <section className="trade-desk" data-testid="trade-desk">
-    <FeeExplainer />
     <nav className="td-modes">{modes.map(([k, l, Icon]) => <button key={k} type="button" className={mode === k ? 'active' : ''} onClick={() => setMode(k)} data-testid={`td-mode-${k}`}><Icon size={15} />{l}</button>)}</nav>
     {mode === 'swap' && swap}
     {mode === 'bridge' && <Bridge />}
     {mode === 'gas' && <GetGas />}
+    <FeeExplainer />
   </section>;
 }
 
@@ -150,8 +153,8 @@ function StatusStrip() {
 // Simple trade page: one swap box, optional Edge score, a little context. Nothing else.
 export function SimpleTrade({ swap, pair }) {
   return <div className="trade-simple" data-testid="trade-simple">
-    <StatusStrip />
     <TradeDesk swap={swap} />
+    <StatusStrip />
     {pair && <details className="td-edge"><summary>FEELESS Edge score for ${pair.baseToken?.symbol || 'this coin'}</summary><EdgeScore pair={pair} /></details>}
     <div className="td-info">
       <div><b>Swap</b><span>Best route across Solana DEXs (Jupiter) or any EVM chain (LI.FI). You see the exact output, price impact and fees before signing.</span></div>
