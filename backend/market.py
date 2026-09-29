@@ -337,12 +337,38 @@ def create_market_router(db, intelligence=None):
         pairs = normalise_pump_coins(data, kind)
         if not pairs:
             raise HTTPException(503, 'Pump.fun returned no indexed coins.')
-        pairs.sort(key=lambda pair: pair.get('pairCreatedAt') or 0, reverse=kind == 'new')
+        if kind == 'new':
+            pairs.sort(key=lambda pair: pair.get('pairCreatedAt') or 0, reverse=True)
         return pairs, {
             **meta,
             'source_label': 'Pump.fun public coin index · launchpad coverage',
             'coverage': PROVIDER_COVERAGE['Pump.fun'],
         }
+
+    @router.get('/pump/callouts/{mint}')
+    async def pump_callouts(mint: str):
+        if not 32 <= len(mint) <= 44 or any(c not in '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz' for c in mint):
+            raise HTTPException(400, 'Invalid Solana mint.')
+        token = os.getenv('PUMP_CALLOUT_TOKEN', '')
+        if not token:
+            raise HTTPException(503, 'Pump callouts require authorized provider access. Configure PUMP_CALLOUT_TOKEN on the server.')
+        try:
+            async with httpx.AsyncClient(timeout=12) as http:
+                response = await http.get(bases['Pump.fun'] + '/coin-activity/' + mint,
+                    params={'includeCallouts': 'true', 'includeTweets': 'false', 'includeTrades': 'false', 'includeNarrative': 'false'},
+                    headers={'Authorization': 'Bearer ' + token, 'Accept': 'application/json'})
+                if response.status_code in (401, 403):
+                    raise HTTPException(503, 'Pump callout access is not authorized. Update the server provider credentials.')
+                response.raise_for_status()
+                data = response.json()
+            if not isinstance(data, dict) or not isinstance(data.get('items'), list) or data.get('degraded', {}).get('callouts'):
+                raise HTTPException(503, 'Pump callouts are temporarily unavailable.')
+            return {'provider': 'Pump.fun', 'items': [item for item in data['items']
+                    if isinstance(item, dict) and item.get('kind') == 'callout'
+                    and isinstance(item.get('data'), dict) and item['data'].get('coinMint') == mint],
+                    'fetchedAt': datetime.now(timezone.utc).isoformat()}
+        except (httpx.HTTPError, ValueError):
+            raise HTTPException(503, 'Pump callouts are temporarily unavailable.')
 
     async def graduation_status(mints):
         """Use Pump.fun's completion flag; market indexes cannot prove graduation."""

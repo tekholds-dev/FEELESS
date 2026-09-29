@@ -16,6 +16,7 @@ import { RadarPanel } from '../command/MetaPanels';
 import { formatUSD, pairKey, coinIdentity, coinRoom, normalizeRoomPerspective, shortAddress, formatTime } from '../../lib/dexscreener';
 import { apiUrl } from '../../lib/api';
 import { BoltLegend, BoltSignal } from './BoltSignal';
+import { mergePumpCallouts } from '../../lib/pumpCallouts';
 
 export const LivePoolsPanel = ({ pairs = [], newPairs = [], onSelect }) => {
   const { data, loading, refreshing, error } = useMarket('/feed?kind=trending&chain=all&page=1', 15000);
@@ -50,27 +51,46 @@ export const LivePoolsPanel = ({ pairs = [], newPairs = [], onSelect }) => {
   </div>;
 };
 
-// A provider snapshot belongs beside the conversation for a Pump-discovered coin. It is context,
-// not an injected chat message or a trading call, so the coin room remains owned by its community.
-const PumpRadarCallout = ({ pair }) => {
-  const isPump = pair?.launchpadId === 'pump' || String(pair?.dexId || '').toLowerCase().includes('pump');
+export const PumpRadarCallout = ({ pair }) => {
+  const mint = pair?.baseToken?.address;
+  const isPump = pair?.chainId === 'solana' && Boolean(mint) && (pair?.launchpadId === 'pump' || String(pair?.dexId || '').toLowerCase().includes('pump') || mint.endsWith('pump'));
   const [calls, setCalls] = useState([]);
+  const [status, setStatus] = useState('Loading Pump callouts…');
   useEffect(() => {
-    if (!isPump || !pair?.pairAddress) { setCalls([]); return undefined; }
+    setCalls([]);
+    if (!isPump) return undefined;
+    setStatus('Loading Pump callouts…');
     let alive = true;
-    const identity = pair.baseToken?.address || pair.pairAddress;
-    const load = () => fetch(apiUrl(`/api/reputation/calls/recent?mint=${encodeURIComponent(identity)}&limit=3`)).then(r => r.ok ? r.json() : { calls: [] }).then(d => alive && setCalls(d.calls || [])).catch(() => alive && setCalls([]));
-    load(); const timer = setInterval(load, 8000);
-    return () => { alive = false; clearInterval(timer); };
-  }, [isPump, pair?.pairAddress, pair?.baseToken?.address]);
+    const enteredAt = Date.now();
+    const controller = new AbortController();
+    let timer;
+    const load = async () => {
+      try {
+        const response = await fetch(apiUrl(`/api/market/pump/callouts/${encodeURIComponent(mint)}`), { signal: controller.signal });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Pump callouts unavailable.');
+        if (!alive) return;
+        setCalls(previous => mergePumpCallouts(previous, data.items, enteredAt, mint));
+        setStatus('Latest 3 before entry · new callouts refresh every 15s');
+      } catch (error) {
+        if (alive) setStatus(error.message || 'Pump callouts unavailable.');
+      } finally {
+        if (alive) timer = setTimeout(load, 15000);
+      }
+    };
+    load();
+    return () => { alive = false; controller.abort(); clearTimeout(timer); };
+  }, [isPump, mint]);
   if (!isPump) return null;
-  const m5 = Number(pair.priceChange?.m5);
   return <div className="pump-chat-callout" data-testid="pump-chat-callout">
-    <span><Zap size={13} /> PUMP RADAR {calls.length ? `· ${calls.length} CALLOUT${calls.length === 1 ? '' : 'S'}` : ''}</span>
-    <b>{pair.marketStage === 'new' ? 'New coin observed' : 'Top coin observed'}</b>
-    <small>{Number.isFinite(m5) ? `${m5 >= 0 ? '+' : ''}${m5.toFixed(2)}% · 5m` : 'Live snapshot'} · MC {formatUSD(pair.marketCap)} · Liq {formatUSD(pair.liquidity?.usd)}</small>
-    <Link to="/terminal/pump">Open Pump Radar <ArrowUpRight size={11} /></Link>
-    {calls.length > 0 && <div className="pump-chat-call-list">{calls.map(call => <span key={call.id}><Zap size={10} /><b>{call.caller}</b> called at {formatUSD(call.mcAtCall)} <small>{formatTime(call.at * 1000)}</small></span>)}</div>}
+    <span><Zap size={13} /> PUMP USER CALLOUTS</span>
+    <small role="status">{status}</small>
+    <div className="pump-user-call-list">{calls.map(call => <article key={call.id}>
+      <header><b>{call.caller}</b><time dateTime={new Date(call.at).toISOString()}>{formatTime(call.at)}</time></header>
+      {call.text && <p>{call.text}</p>}
+      <footer><small>Entry MC {formatUSD(call.marketCap)}</small><a href={`https://pump.fun/callouts/${encodeURIComponent(mint)}/${encodeURIComponent(call.id)}`} target="_blank" rel="noopener noreferrer">View on Pump <ArrowUpRight size={11} /></a></footer>
+    </article>)}</div>
+    {!calls.length && status.startsWith('Latest') && <small>No Pump callouts returned for this coin.</small>}
   </div>;
 };
 
@@ -101,7 +121,7 @@ export const ChatRoom = ({ large = false, pairs = [], newPairs = [], onSelect, s
 };
 
 export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair: routeSelectedPair = null, selectedPerspective = null, onPerspectiveChange, onConnect }) => {
-  const { ecosystem, selectedPair, selectPair, watchlist, has, toggle } = useWorkspace();
+  const { ecosystem, selectPair, watchlist, has, toggle } = useWorkspace();
   const [stage, setStage] = useState('new');
   const [callCounts, setCallCounts] = useState({});
   useEffect(() => {
@@ -114,7 +134,7 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair
   }, []);
   // Keep one local active coin. Route restoration may initialize/update it, but a card click updates
   // it synchronously so a stale route/global selection cannot reopen the previous coin.
-  const [activePair, setActivePair] = useState(() => routeSelectedPair || selectedPair || null);
+  const [activePair, setActivePair] = useState(() => routeSelectedPair || null);
   useEffect(() => { if (routeSelectedPair) setActivePair(routeSelectedPair); }, [routeSelectedPair]);
   const chartPair = activePair || pairs[0] || newPairs[0] || null;
   const graduated = pairs.filter(pair => pair.graduated === true || pair.info?.graduated === true || pair.baseToken?.graduated === true);

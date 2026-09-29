@@ -102,7 +102,7 @@ export default function Terminal() {
         : restoredPair
           ? null
           : 'unavailable';
-  const selected = hasPairRoute ? restoredPair : selectedPair || null;
+  const selected = hasPairRoute ? restoredPair : page === 'chat' ? null : selectedPair || null;
   const perspective = normalizeRoomPerspective(params.get('room')) || 'bulls';
   const activePad = ecosystem.isLaunchpad ? ecosystem.id : pad;
   const pairs = useMemo(() => {
@@ -143,18 +143,6 @@ export default function Terminal() {
     if (!hasPairRoute) return;
     selectPair(restoredPair);
   }, [hasPairRoute, restoredPair?.chainId, restoredPair?.pairAddress, routeChain, routePairAddress]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    // Only sync the URL on the trade chart page itself; elsewhere onSelect already navigated there,
-    // and replacing the *current* (old) path would bounce the user back where they clicked.
-    if (hasPairRoute || !selectedPair || page !== 'chat') return;
-    const identity = coinIdentity(selectedPair);
-    if (!identity) return;
-    const next = new URLSearchParams(params);
-    next.set('chain', identity.chainId);
-    next.set('pair', identity.pairAddress);
-    next.set('room', 'bulls');
-    setParams(next, { replace: true });
-  }, [hasPairRoute, selectedPair?.chainId, selectedPair?.pairAddress, page]); // eslint-disable-line react-hooks/exhaustive-deps
   const onSelect = p => {
     const identity = coinIdentity(p);
     if (!identity) return;

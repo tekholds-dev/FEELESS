@@ -1747,6 +1747,21 @@ async function route(req, res, url) {
   }
   if (req.method === 'GET' && url.pathname === '/api/') return json(res, 200, { message: 'FEELESS API', mode: 'preview', market: 'live public providers' });
   if (req.method === 'GET' && url.pathname === '/api/market/assets') return json(res, 200, await assets());
+  if (req.method === 'GET' && url.pathname.startsWith('/api/market/pump/callouts/')) {
+    const mint = url.pathname.slice('/api/market/pump/callouts/'.length);
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(mint)) return json(res, 400, { detail: 'Invalid Solana mint.' });
+    const token = process.env.PUMP_CALLOUT_TOKEN;
+    if (!token) return json(res, 503, { detail: 'Pump callouts require authorized provider access. Configure PUMP_CALLOUT_TOKEN on the server.' });
+    try {
+      const response = await fetch(`${PUMP_API}/coin-activity/${mint}?includeCallouts=true&includeTweets=false&includeTrades=false&includeNarrative=false`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }, signal: AbortSignal.timeout(12000),
+      });
+      if (!response.ok) return json(res, 503, { detail: [401, 403].includes(response.status) ? 'Pump callout access is not authorized. Update the server provider credentials.' : 'Pump callouts are temporarily unavailable.' });
+      const data = await response.json();
+      if (!Array.isArray(data.items) || data.degraded?.callouts) throw new Error('Unavailable');
+      return json(res, 200, { provider: 'Pump.fun', items: data.items.filter(item => item?.kind === 'callout' && item.data?.coinMint === mint), fetchedAt: new Date().toISOString() });
+    } catch { return json(res, 503, { detail: 'Pump callouts are temporarily unavailable.' }); }
+  }
   if (req.method === 'GET' && url.pathname === '/api/market/feed') {
     const kind = url.searchParams.get('kind') === 'new' ? 'new' : 'trending';
     const chain = url.searchParams.get('chain') || 'solana';
