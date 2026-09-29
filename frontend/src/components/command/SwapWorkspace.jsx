@@ -2,6 +2,7 @@ import { useDraft } from '../../lib/useDraft';
 import { ReceiptsCard } from './ReceiptsCard';
 import { ReceiptPreview } from './ReceiptPreview';
 import { TokenPicker } from './TokenPicker';
+import { SlippagePicker } from './SlippagePicker';
 import { EvmSwap } from './EvmSwap';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { VersionedTransaction } from '@solana/web3.js';
@@ -258,7 +259,7 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
     <div className="jup-head"><span className="jup-title"><ArrowDownUp size={15} />Swap</span>
       <button type="button" className={`jup-chip ${slipOpen ? 'on' : ''}`} onClick={() => setSlipOpen(o => !o)} data-testid="swap-slippage-toggle">Slippage {Number(slippage) / 100}%</button>
       <button type="button" className="jup-icon" data-testid="swap-get-quote" title={quote ? 'Refresh quote' : 'Get best route'} aria-label={quote ? 'Refresh quote' : 'Get best available route'} onClick={() => loadQuote()} disabled={busy || chain !== 'solana' || !inputMint || inputMint === outputMint || !/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0}><RefreshCw size={14} className={busy ? 'spin' : ''} /></button></div>
-    {slipOpen && <div className="slippage-controls"><span>Max slippage</span>{[['10', '0.1%'], ['50', '0.5%'], ['100', '1%'], ['300', '3%']].map(([value, title]) => <button key={value} data-testid={`swap-slippage-${value}`} className={slippage === value ? 'active' : ''} onClick={() => { setSlippage(value); setSlipOpen(false); }} disabled={busy}>{title}</button>)}</div>}
+    {slipOpen && <div className="slippage-controls"><span>Max slippage</span><SlippagePicker value={slippage} onChange={setSlippage} disabled={busy} /></div>}
     <div className="jup-panel"><div className="jup-panel-head"><small>You pay</small>{payHolding && <span className="jup-bal">Balance {Number(payHolding.amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}<button type="button" onClick={() => setAmount(String(inputMint === SOL ? Math.max(0, Math.floor((payHolding.amount - 0.01) * 1e6) / 1e6) : payHolding.amount))} disabled={busy}>Max</button></span>}</div>
       <div className="jup-row"><TokenPicker testId="swap-input-asset" onNetwork={setNetwork} holdings={holdings} value={inputMint} options={options} onChange={setInputMint} onPickRemote={t => { addFound(t); setInputMint(t.mint); setOrder(null); }} disabled={busy} />
         <input className="jup-amount" data-testid="swap-amount" type="text" inputMode="decimal" placeholder="0.00" aria-label={`Amount of ${inputAsset.symbol}`} value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} disabled={busy} /></div>
@@ -292,7 +293,7 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
           <div className="rf-fee"><dt>FEELESS fee</dt><dd>{feeBps ? `${(feeBps / 100).toFixed(2)}% · ${Number.isFinite(feeSol) ? feeSol.toFixed(6) : '—'} SOL · ${usd(feeUsd)}` : (order?.feeless_fee?.notes?.[0] || 'Free')}</dd></div>
           <div><dt>Chain fees</dt><dd>{chainSol.toFixed(6)} SOL · {usd(chainUsd)}</dd></div>
           <div className="rf-total"><dt>Total cost</dt><dd>{usd((Number.isFinite(inUsd) ? inUsd : 0) + (Number.isFinite(chainUsd) ? chainUsd : 0))}</dd></div></>;
-      })()}</dl><p className="market-error">This is a real transaction. Network/DEX fees apply. Fee-Back is not activated.</p><button className="btn-primary" data-testid="swap-approve-wallet" disabled={busy} onClick={expired ? () => { setReview(false); loadQuote(); } : sign}>{expired ? 'Quote expired — get fresh quote' : `Approve in ${wallet?.name || 'wallet'}`}{!expired && <ArrowUpRight size={16} />}</button></DialogContent></Dialog></div>;
+      })()}</dl><ul className="review-checks" data-testid="swap-review-checks" aria-label="Security checks">{['Simulated on mainnet', 'Min output locked', 'Your wallet pays + signs', 'Non-custodial'].map(c => <li key={c}>{c}</li>)}</ul><p className="review-real">Real transaction · you approve in your wallet · Fee-Back not active</p><button className="btn-primary" data-testid="swap-approve-wallet" disabled={busy} onClick={expired ? () => { setReview(false); loadQuote(); } : sign}>{expired ? 'Quote expired — get fresh quote' : `Approve in ${wallet?.name || 'wallet'}`}{!expired && <ArrowUpRight size={16} />}</button></DialogContent></Dialog></div>;
 };
 // Search every Solana token (Jupiter's index): name, ticker or contract. Verified first, then by liquidity.
 

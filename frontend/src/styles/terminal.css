@@ -3704,3 +3704,24 @@ body.theme-day .top-pump{background:#fff}
 [data-testid="swap-review-dialog"] .review-facts dd{min-width:0}
 [data-testid="swap-review-dialog"]>p.market-error{margin:8px 0;padding:10px 12px}
 .qt-error{color:var(--gold)}
+/* ===== Swap review: secure engine look, fits without a scrollbar ===== */
+[data-testid="swap-review-dialog"]{max-height:calc(100vh - 16px)!important;overflow-y:auto!important;scrollbar-width:none;padding:18px 22px!important;border:1px solid rgba(0,255,163,.35)!important;
+  background:linear-gradient(rgba(0,255,163,.035) 1px,transparent 1px) 0 0/100% 22px,#030605!important;box-shadow:0 0 0 1px rgba(0,255,163,.08),0 0 40px rgba(0,255,163,.12)!important}
+[data-testid="swap-review-dialog"]::-webkit-scrollbar{display:none}
+[data-testid="swap-review-dialog"]>h2{font-family:'JetBrains Mono',monospace;letter-spacing:.04em;text-transform:uppercase;font-size:15px!important}
+[data-testid="swap-review-dialog"]>h2::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#00ffa3;box-shadow:0 0 8px #00ffa3;margin-right:9px;vertical-align:middle;animation:srh-dot 1.6s ease-in-out infinite}
+[data-testid="swap-review-dialog"]>p:first-of-type{font-size:11px!important;margin:0}
+[data-testid="swap-review-dialog"] .review-facts>div{padding:6px 0;border-bottom-color:rgba(0,255,163,.12)}
+[data-testid="swap-review-dialog"] .review-facts dt{font:10px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.05em}
+.review-checks{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px;padding:0;list-style:none}
+.review-checks li{font:10px 'JetBrains Mono',monospace;color:#00ffa3;border:1px solid rgba(0,255,163,.3);background:rgba(0,255,163,.06);border-radius:999px;padding:3px 9px}
+.review-checks li::before{content:'✓ '}
+.review-real{font:10px 'JetBrains Mono',monospace;color:#8fa99a;margin:4px 0 10px;text-align:center}
+[data-testid="swap-review-dialog"]>.btn-primary{box-shadow:0 0 24px rgba(0,255,163,.35);text-transform:uppercase;letter-spacing:.06em}
+/* Slippage picker (swap + quick trade) */
+.slip-pick{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+.slip-pick button,.slip-pick label{border:1px solid #295238;border-radius:4px;padding:5px 8px;font:10px 'JetBrains Mono',monospace;color:#9fc3ad;background:transparent}
+.slip-pick .active{color:#00ffa3;border-color:#00ffa3;background:rgba(0,255,163,.08)}
+.slip-pick label{display:inline-flex;align-items:center;gap:2px}.slip-pick input{width:44px;background:none;border:0;outline:0;color:inherit;font:inherit;text-align:right}
+.slip-warn{flex-basis:100%;color:var(--gold);font-size:10px}
+body.theme-day [data-testid="swap-review-dialog"]{background:#fff!important}

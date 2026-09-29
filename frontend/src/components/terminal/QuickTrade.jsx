@@ -7,12 +7,12 @@ import { useMarket } from '../../hooks/useMarket';
 import { apiUrl } from '../../lib/api';
 import { EvmTrade, EVM_TRADE_CHAINS } from './EvmTrade';
 import { formatUSD } from '../../lib/dexscreener';
+import { SlippagePicker } from '../command/SlippagePicker';
 
 const SOL = 'So11111111111111111111111111111111111111112';
 const PRESETS = { SOL: ['0.1', '0.5', '1'], USD: ['10', '50', '100'] };
 const QUOTE_REFRESH_MS = 10000;
 const WALLET_TIMEOUT_MS = 60000;
-const SLIPPAGE = [['50', '0.5%'], ['100', '1%'], ['300', '3%']];
 const PREFS_KEY = 'feeless-quicktrade';
 const DEFAULT_PREFS = { unit: 'SOL', slippage: '100', presetsSOL: PRESETS.SOL, presetsUSD: PRESETS.USD };
 const readPrefs = () => { try { return { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') }; } catch { return { ...DEFAULT_PREFS }; } };
@@ -162,7 +162,7 @@ export function QuickTrade({ pair }) {
       <div className="qt-row"><span>Receive</span><div className="qt-seg">{[['SOL', 'SOL'], ['FEE', '$FEE']].map(([id, l]) => <button type="button" key={id} disabled={id === 'FEE' && !feeMint} className={counter === id ? 'active' : ''} onClick={() => setCounter(id)}>{l}</button>)}</div></div>
       {toFee && <small className="qt-fee-free">Buying $FEE · 0% FEELESS fee</small>}
     </>}
-    <div className="qt-row"><span>Slippage</span><div className="qt-seg">{SLIPPAGE.map(([v, l]) => <button type="button" key={v} className={prefs.slippage === v ? 'active' : ''} onClick={() => setPrefs(p => ({ ...p, slippage: v }))}>{l}</button>)}</div></div>
+    <div className="qt-row"><span>Slippage</span><SlippagePicker className="qt-seg" value={prefs.slippage} onChange={v => setPrefs(p => ({ ...p, slippage: v }))} disabled={busy} /></div>
     {order && <div className="qt-quote"><div className="qt-fee" data-testid="qt-fee"><small>FEELESS fee</small><b>{order.feeless_fee?.bps ? `${(order.feeless_fee.bps / 100).toFixed(2)}%` : 'Free'}</b>{order.feeless_fee?.notes?.length ? <em>{order.feeless_fee.notes.join(' · ')}</em> : null}</div><div><small>You get ≈</small><b>{out != null ? `${out.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${side === 'buy' ? symbol : toFee ? '$FEE' : 'SOL'}` : '—'}</b></div><div><small>Min received</small><b>{minOut != null ? minOut.toLocaleString(undefined, { maximumFractionDigits: 6 }) : '—'}</b></div><div><small>Price impact</small><b className={Math.abs(impact) > 5 ? 'negative' : ''}>{Number.isFinite(impact) ? `${Math.abs(impact).toFixed(2)}%` : '—'}</b></div></div>}
     {quoteError && !order && <small className="qt-note qt-error" role="status">{quoteError}</small>}
     {order && order.key === requestKey

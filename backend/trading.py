@@ -39,7 +39,7 @@ class QuoteIn(BaseModel):
     output_mint: str
     amount: str = Field(min_length=1, max_length=40, pattern=r'^\d+(\.\d+)?$')
     wallet: str | None = None
-    slippage_bps: int = Field(50, ge=1, le=500)
+    slippage_bps: int = Field(50, ge=1, le=5000)  # up to 50% for thin meme pools
 
 class ExecuteIn(BaseModel):
     order_id: str = Field(min_length=32, max_length=40)
