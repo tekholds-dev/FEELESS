@@ -307,11 +307,13 @@ function FeesPanel({ call }) {
         <FeeAccountMaker onDone={(a, created) => { const next = { ...cfg, feeAccountSol: a.sol, feeAccountUsdc: a.usdc }; setCfg(next); if (created) save(next); }} />
         <label>SOL fee account (wSOL token account)<input placeholder="Token account for So111…112 owned by your treasury" value={cfg.feeAccountSol || ''} onChange={e => set('feeAccountSol', e.target.value.trim())} /></label>
         <label>USDC fee account (optional)<input placeholder="Token account for USDC owned by your treasury" value={cfg.feeAccountUsdc || ''} onChange={e => set('feeAccountUsdc', e.target.value.trim())} /></label>
-        <label>Max priority fee (lamports)<UnitInput min="0" max={limits.priorityMaxLamports} value={cfg.priorityMaxLamports ?? 200000} onChange={e => set('priorityMaxLamports', e.target.value)} suffix={`= ${((Number(cfg.priorityMaxLamports ?? 200000) || 0) / 1e9).toFixed(6)} SOL`} /></label>
-        <small className="cc-empty">{`≤ ${((Number(cfg.priorityMaxLamports) || 0) / 1e9).toFixed(6)} SOL per trade on top of the 0.000005 SOL network fee. A first buy of a coin also pays ~0.002 SOL account rent (refunded when that account is closed).`}</small>
+        <label>Speed tip per trade (lamports)<UnitInput min="0" max={limits.priorityMaxLamports} value={cfg.priorityMaxLamports ?? 200000} onChange={e => set('priorityMaxLamports', e.target.value)} suffix={`= ${((Number(cfg.priorityMaxLamports ?? 200000) || 0) / 1e9).toFixed(6)} SOL`} /></label>
+        {Number(cfg.priorityMaxLamports) > limits.priorityMaxLamports
+          ? <small className="cc-empty fee-over-cap">Too high: the max is {limits.priorityMaxLamports.toLocaleString('en-US')} ({(limits.priorityMaxLamports / 1e9).toFixed(3)} SOL). Saving will use that.</small>
+          : <small className="cc-empty"><b>Paid by your traders, not to you.</b> A tip to Solana validators so swaps land faster in busy moments. Higher = faster, but pricier for traders. <b>200,000</b> (0.0002 SOL, about 3¢) is a good default; 1,000,000 for launch rushes.</small>}
       </div>
       <div className="cc-block"><h4>2 · Platform fee</h4>
-        <label>Fee in basis points (100 = 1% · max {limits.maxBps} = {pct(limits.maxBps)})<UnitInput min="0" max={limits.maxBps} value={cfg.platformFeeBps} onChange={e => set('platformFeeBps', e.target.value)} suffix={`= ${pct(cfg.platformFeeBps)}`} /></label>
+        <label>Your cut of every trade (100 = 1% · max {Number(limits.maxBps).toLocaleString('en-US')} = {pct(limits.maxBps)})<UnitInput min="0" max={limits.maxBps} value={cfg.platformFeeBps} onChange={e => set('platformFeeBps', e.target.value)} suffix={`= ${pct(cfg.platformFeeBps)}`} /></label>
         {Number(cfg.platformFeeBps) > limits.maxBps
           ? <small className="cc-empty fee-over-cap">Max is {pct(limits.maxBps)}. Saving will use {pct(limits.maxBps)}.</small>
           : <small className="cc-empty">{enabled ? `${pct(cfg.platformFeeBps)} per trade${engine === 'ultra' || cfg.ultraFallback ? ` · Ultra trades: ${pct(Math.min(Math.max(Number(cfg.platformFeeBps), limits.ultraMinBps || 50), limits.ultraMaxBps || 255))}` : ''}` : 'Fee off: every trade is free until you set one.'}</small>}
@@ -346,8 +348,11 @@ function FeesPanel({ call }) {
 }
 
 // Number box with its live meaning pinned inside the right edge (e.g. 150 → "= 1.50%").
-function UnitInput({ suffix, ...props }) {
-  return <span className="unit-input"><input type="number" {...props} /><em aria-hidden="true">{suffix}</em></span>;
+// Whole numbers show with commas (70,000,000) and hand back plain digits to onChange.
+function UnitInput({ suffix, value, onChange, min, max, ...props }) {
+  const shown = value === '' || value == null ? '' : Number(String(value).replace(/,/g, '')).toLocaleString('en-US');
+  const change = e => { const digits = e.target.value.replace(/[^0-9]/g, ''); onChange({ target: { value: digits === '' ? '' : String(Number(digits)) } }); };
+  return <span className="unit-input"><input type="text" inputMode="numeric" value={shown} onChange={change} {...props} /><em aria-hidden="true">{suffix}</em></span>;
 }
 
 // One-click fee accounts: the connected wallet pays ~0.004 SOL rent and signs once; the accounts belong to the fee wallet.
