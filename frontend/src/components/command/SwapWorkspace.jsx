@@ -209,7 +209,8 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
       if (!provider?.signTransaction || provider.publicKey?.toString() !== wallet.address) throw new Error('Connected Phantom account changed. Reconnect and request a fresh quote.');
       const tx = VersionedTransaction.deserialize(Uint8Array.from(atob(quote.transaction), c => c.charCodeAt(0)));
       if (tx.message.staticAccountKeys[0].toBase58() !== wallet.address) throw new Error('Wallet does not match the quoted fee payer.');
-      const signed = await provider.signTransaction(tx);
+      // Never hang: if the wallet popup is blocked or ignored, stop after 60s and say so.
+      const signed = await Promise.race([provider.signTransaction(tx), new Promise((_, rej) => setTimeout(() => rej(new Error('Wallet did not respond. Open your wallet (check for a blocked popup), then get a fresh quote.')), 60000))]);
       const encoded = btoa(String.fromCharCode(...signed.serialize()));
       rememberPendingOrder(order.order_id);
       recoveredOrder.current = order.order_id;
