@@ -218,9 +218,8 @@ test('keeps the swap review facts and approval action readable at every text siz
   mockWalletState.provider = {};
 
   for (const [fontScale, expectedScale] of [['normal', '1'], ['large', '1.12'], ['xlarge', '1.24']]) {
-    global.fetch = jest.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => quote })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) });
+    // Answer by endpoint, not call order: the wallet-holdings lookup runs alongside the quote.
+    global.fetch = jest.fn(async url => ({ ok: true, json: async () => (String(url).includes('/quote') ? quote : String(url).includes('/holdings') ? { tokens: [] } : { success: true }) }));
 
     const { container, root } = mount({ feeAsset, fontScale });
     await act(async () => container.querySelector('[data-testid="swap-get-quote"]').click());

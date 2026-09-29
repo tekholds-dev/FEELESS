@@ -39,9 +39,33 @@ export function NotificationBell() {
       <div className="np-head"><b>Notifications</b><button type="button" onClick={phone}>📱 Phone alerts</button></div>
       {!session ? <div className="np-empty"><p>Sign once to get messages, wall posts and mentions.</p><button type="button" className="btn-primary" onClick={signIn}>Sign in (free)</button></div>
         : !d?.items?.length ? <p className="np-empty">Nothing yet. Messages, wall posts and @mentions land here.</p>
-          : d.items.map(n => <a key={n.id} href={n.url || '#'} className={`np-item ${n.read ? '' : 'unread'} k-${n.kind}`}><span>{{ dm: '💬', wall: '🧱', mention: '📣', invite: '🎉', reward: '🎁' }[n.kind] || '🔔'}</span><p>{n.text}</p><small>{ago(n.at)}</small></a>)}
+          : <NotificationList items={d.items} />}
       <a className="np-all" href={`/terminal/profile/${wallet.address}?dm=1`}>Open my inbox →</a>
     </div>}</span>;
+}
+
+const ICONS = { dm: '💬', wall: '🧱', mention: '📣', invite: '🎉', reward: '🎁', snipers: '🎯' };
+const compactUsd = v => (!(v > 0) ? null : v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v)}`);
+// Older alerts carry only text ("Every sniper on your coin XYZ has sold out"): recover the ticker from it.
+const sniperCoin = n => n.meta || { symbol: (n.text.match(/your coin (\S+) has/) || [])[1] || 'coin' };
+
+// Snipers-out alerts collapse into one dropdown (one row per coin); everything else lists normally.
+export function NotificationList({ items }) {
+  const snipers = items.filter(n => n.kind === 'snipers');
+  const rest = items.filter(n => n.kind !== 'snipers');
+  const unreadSnipers = snipers.filter(n => !n.read).length;
+  return <>
+    {snipers.length > 0 && <details className="np-group" data-testid="np-snipers">
+      <summary className={unreadSnipers ? 'unread' : ''}><span>🎯</span><p><b>Snipers out</b> · {snipers.length} coin{snipers.length === 1 ? '' : 's'}</p>{unreadSnipers > 0 && <i className="np-count">{unreadSnipers}</i>}</summary>
+      {snipers.map(n => { const c = sniperCoin(n); const mc = compactUsd(c.mcap); return <div key={n.id} className="np-sniper">
+        <a href={n.url || '#'} className="np-coin" title={c.name || c.symbol}><b>${c.symbol}</b>{c.name && <em>{c.name}</em>}</a>
+        {mc && <span className="np-mc">MC {mc}</span>}
+        <small>{ago(n.at)}</small>
+        {n.url && <a className="np-buy" href={`${n.url}${n.url.includes('?') ? '&' : '?'}buy=1`}>Buy →</a>}
+      </div>; })}
+    </details>}
+    {rest.map((n, i) => <a key={n.id} href={n.url || '#'} style={{ '--i': Math.min(i, 12) }} className={`np-item ${n.read ? '' : 'unread'} k-${n.kind}`}><span>{ICONS[n.kind] || '🔔'}</span><p>{n.text}</p><small>{ago(n.at)}</small></a>)}
+  </>;
 }
 
 // Private chat between two wallets (profile chat).

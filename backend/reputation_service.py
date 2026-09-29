@@ -899,6 +899,28 @@ INTEL_TTL = 180
 SYSTEM_PROGRAM = '11111111111111111111111111111111'
 
 
+async def _coin_card(http, mint):
+    """Deepest pool + symbol/name/market cap for alerts. DexScreener first, Jupiter when the coin isn't indexed yet."""
+    card = {'pair': mint, 'symbol': None, 'name': None, 'mcap': None}
+    try:
+        pools = (await http.get(f'https://api.dexscreener.com/latest/dex/tokens/{mint}')).json().get('pairs') or []
+        if pools:
+            top = max(pools, key=lambda p: (p.get('liquidity') or {}).get('usd') or 0)
+            base = top.get('baseToken') or {}
+            card.update(pair=top.get('pairAddress') or mint, symbol=base.get('symbol'), name=base.get('name'), mcap=top.get('marketCap') or top.get('fdv'))
+    except Exception:
+        pass
+    if not card['symbol']:
+        try:
+            hit = next((t for t in (await http.get('https://lite-api.jup.ag/tokens/v2/search', params={'query': mint})).json() if t.get('id') == mint), None)
+            if hit:
+                card.update(symbol=hit.get('symbol'), name=hit.get('name'), mcap=card['mcap'] or hit.get('mcap'))
+        except Exception:
+            pass
+    card['symbol'] = card['symbol'] or f'{mint[:4]}…{mint[-4:]}'
+    return card
+
+
 @app.get('/api/reputation/intel/{chain}/{mint}')
 async def token_intel(chain: str, mint: str):
     """On-chain launch forensics for a token: bundles, snipers, holder concentration, dev bag.
@@ -994,16 +1016,15 @@ async def token_intel(chain: str, mint: str):
             if len(fh) >= 3 and all(v == 0 for v in fh.values()):
                 # Every sniper/bundler has sold out: the supply overhang is gone — often the dip entry.
                 # Alerts link to the coin's deepest pool so the Trenches chart opens on it.
-                try:
-                    pools = sorted((await http.get(f'https://api.dexscreener.com/latest/dex/tokens/{mint}')).json().get('pairs') or [], key=lambda p: -((p.get('liquidity') or {}).get('usd') or 0))
-                except Exception:
-                    pools = []
-                pa = pools[0]['pairAddress'] if pools else mint
-                sym = ((pools[0].get('baseToken') or {}).get('symbol') if pools else None) or mint[:4]
-                if _radar_event('snipers-out', pa, sym, f"All {len(fh)} flagged snipers/bundlers have sold out — no sniper supply left to dump."):
+                coin = await _coin_card(http, mint)
+                url = f"/terminal/chat?chain=solana&pair={coin['pair']}&room=bulls"
+                if _radar_event('snipers-out', coin['pair'], coin['symbol'], f"All {len(fh)} flagged snipers/bundlers sold out. No sniper supply left to dump.",
+                                mint=mint, mcap=coin['mcap'], name=coin['name'], cooldown=SNIPERS_OUT_COOLDOWN):
                     asyncio.create_task(_push_snipers_out(mint))
+                # The creator hears it once per coin (it used to repeat on every intel refresh).
                 if creator:
-                    notify(creator, 'reward', f"🎯 Every sniper on your coin {sym} has sold out", f'/terminal/chat?chain=solana&pair={pa}&room=bulls')
+                    notify(creator, 'snipers', f"Every sniper on your coin {coin['symbol']} has sold out", url, once=f'snipers:{mint}',
+                           meta={'mint': mint, 'symbol': coin['symbol'], 'name': coin['name'], 'mcap': coin['mcap'], 'flagged': len(fh)})
     flags = []
     if len(out['bundledWallets']) >= 3:
         flags.append(f"{len(out['bundledWallets'])} wallets bought in the same block as the mint — a bundled launch.")
@@ -4228,11 +4249,14 @@ async def _radar_loop():
         await asyncio.sleep(60)
 
 
-def _radar_event(kind, pa, sym, text):
+SNIPERS_OUT_COOLDOWN = 86400  # snipers can only sell out once; don't re-announce the same coin all day
+
+
+def _radar_event(kind, pa, sym, text, cooldown=3600, **extra):
     last = next((e for e in _radar['events'] if e['pair'] == pa and e['kind'] == kind), None)
-    if last and time.time() - last['at'] < 3600:
+    if last and time.time() - last['at'] < cooldown:
         return False
-    _radar['events'].insert(0, {'kind': kind, 'pair': pa, 'symbol': sym, 'text': text, 'at': time.time()})
+    _radar['events'].insert(0, {'kind': kind, 'pair': pa, 'symbol': sym, 'text': text, 'at': time.time(), **extra})
     _radar['events'] = _radar['events'][:100]
     return True
 
@@ -4287,19 +4311,23 @@ async def admin_feecat_set(request: Request):
 NOTIF_PATH = DATA_DIR / 'notifications.json'
 
 
-def notify(address: str, kind: str, text: str, url: str = '', actor: str = ''):
+def notify(address: str, kind: str, text: str, url: str = '', actor: str = '', once: str = '', meta: Optional[dict] = None):
+    """once: a dedupe key — a notification with the same key is never sent to this wallet twice."""
     to = primary_of(address)
     if not to or to in ('FEE-LEADER-CAT', 'FEELESS-HQ') or primary_of(actor or '') == to:
         return
     d = _json_load(NOTIF_PATH, {})
     box = d.setdefault(to, [])
-    box.insert(0, {'id': uuid.uuid4().hex[:10], 'kind': kind, 'text': text[:200], 'url': url, 'actor': actor, 'at': time.time(), 'read': False})
+    if once and any(n.get('once') == once for n in box):
+        return
+    box.insert(0, {'id': uuid.uuid4().hex[:10], 'kind': kind, 'text': text[:200], 'url': url, 'actor': actor, 'at': time.time(), 'read': False,
+                   **({'once': once} if once else {}), **({'meta': meta} if meta else {})})
     d[to] = box[:200]
     _json_save(NOTIF_PATH, d)
     try:
         for e in _push_load()['subs'].values():
             if primary_of((e.get('prefs') or {}).get('address') or '') == to:
-                asyncio.get_running_loop().run_in_executor(None, _send_push, e['subscription'], {'dm': '💬 New message', 'follow': '➕ New follower', 'wall': '🧱 New wall post', 'mention': '📣 You were mentioned', 'reward': '🎁 Reward ready', 'invite': '🎉 Invite joined'}.get(kind, 'FEELESS'), text[:120], url or '/terminal', f'n-{kind}')
+                asyncio.get_running_loop().run_in_executor(None, _send_push, e['subscription'], {'dm': '💬 New message', 'follow': '➕ New follower', 'wall': '🧱 New wall post', 'mention': '📣 You were mentioned', 'reward': '🎁 Reward ready', 'invite': '🎉 Invite joined', 'snipers': '🎯 Snipers are out'}.get(kind, 'FEELESS'), text[:120], url or '/terminal', f'n-{kind}')
     except Exception:
         pass
 
@@ -4314,8 +4342,23 @@ def _session_or_401(address, session):
 @app.get('/api/reputation/notifications')
 async def notifications(address: str, session: str):
     me = _session_or_401(address, session)
-    box = _json_load(NOTIF_PATH, {}).get(me, [])
+    box = _legacy_sniper_dedupe(_json_load(NOTIF_PATH, {}).get(me, []))
     return {'unread': sum(1 for n in box if not n['read']), 'items': box[:60]}
+
+
+def _legacy_sniper_dedupe(box):
+    """Older builds repeated the snipers-out alert on every intel refresh: keep only the newest per coin."""
+    seen, out = set(), []
+    for n in box:
+        legacy = n.get('kind') == 'reward' and 'sniper on your coin' in n.get('text', '')
+        key = n.get('text') if legacy else None
+        if key and key in seen:
+            continue
+        if key:
+            seen.add(key)
+            n = {**n, 'kind': 'snipers'}
+        out.append(n)
+    return out
 
 
 @app.post('/api/reputation/notifications/read')

@@ -212,7 +212,7 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
   const autoQuoteReady = useRef(false);
   useEffect(() => {
     if (!autoQuoteReady.current) { autoQuoteReady.current = true; return undefined; }
-    if (chain !== 'solana' || !inputMint || inputMint === outputMint || !/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0 || result) return undefined;
+    if (review || chain !== 'solana' || !inputMint || inputMint === outputMint || !/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0 || result) return undefined;
     const t = setTimeout(() => { loadQuote(); }, 300);
     return () => clearTimeout(t);
   }, [amount, inputMint, outputMint, slippage]); // eslint-disable-line react-hooks/exhaustive-deps

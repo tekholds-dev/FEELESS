@@ -2,6 +2,7 @@ import React from 'react';
 import { Zap } from 'lucide-react';
 import { useReputation } from '../../lib/reputation';
 import { usePumpPulse, pulseSummary } from '../../lib/pumpPulse';
+import { useSnipersOut } from '../../lib/snipersOut';
 
 const BAD_CREATOR = new Set(['flagged', 'risky']);
 
@@ -15,10 +16,14 @@ export function usePulse(pair) {
   return stats;
 }
 
+// Card signals: pink bolt (hot 5m flow) + 🎯 when every flagged sniper/bundler has sold out.
 export function BoltSignal({ pair, size = 13 }) {
   const pulse = usePulse(pair);
-  if (!pulse) return null;
-  return <i className={`pink-bolt pulse-${pulse.level}`} title={`Pump Pulse · 5m ${pulseSummary(pulse)}`} data-testid="bolt-signal"><Zap size={size} /></i>;
+  const snipers = useSnipersOut(pair);
+  return <>
+    {pulse && <i className={`pink-bolt pulse-${pulse.level}`} title={`Pump Pulse · 5m ${pulseSummary(pulse)}`} data-testid="bolt-signal"><Zap size={size} /></i>}
+    {snipers && <i className="snipers-out-tag" title={`Snipers out: ${snipers.text}`} data-testid="snipers-out-tag">🎯</i>}
+  </>;
 }
 
 // Coin chat banner: shown while the coin is pulsing, refreshed with the rest of the pulse hub.
