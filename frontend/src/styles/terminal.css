@@ -3640,3 +3640,7 @@ body.theme-day .degen-weather{background:#f2fbf6}body.theme-day .dw-says{color:#
 .xp-row>.xp-avatar{margin-top:calc(-1 * clamp(46px,5.5vw,66px));position:relative;z-index:2;align-self:flex-start}
 .xp-cover{border-radius:inherit;isolation:isolate}
 @media (max-width:640px){.xp-row>.xp-avatar{margin-top:-40px}}
+/* Cover always spans the full card width; height follows width (3:1) up to 440px, image fills without distortion. */
+.xp-cover.has-img{width:100%!important;aspect-ratio:auto!important;height:clamp(150px,calc((100vw - 260px) / 3),440px)!important;max-height:none!important}
+.xp-cover.has-img img{object-fit:cover;object-position:center 40%}
+@media (max-width:900px){.xp-cover.has-img{height:clamp(120px,calc(100vw / 3),300px)!important}}

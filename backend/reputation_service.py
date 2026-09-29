@@ -3442,8 +3442,11 @@ async def chat_delete(payload: ChatDelete):
 # ---- Trading fees & discounts, controlled only by the creator wallet -----------------------
 # Jupiter's integrator fee: charged via a referral account the creator owns (50–255 bps allowed).
 FEE_DEFAULTS = {'platformFeeBps': 0, 'referralAccount': '', 'tierDiscountPct': {'0': 0, '1': 10, '2': 25, '3': 50},
-                'zeroFeeMints': [], 'promo': {'label': '', 'discountPct': 0, 'until': 0}}
+                'zeroFeeMints': [], 'promo': {'label': '', 'discountPct': 0, 'until': 0},
+                # LI.FI (EVM swaps + bridges): fees go to the integrator's fee wallet registered at portal.li.fi.
+                'lifiIntegrator': '', 'lifiFeeBps': 0}
 JUP_MIN_BPS, JUP_MAX_BPS = 50, 255
+LIFI_MAX_BPS = 300
 FEE_SETTLEMENT_MINTS = {WSOL, 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'}
 
 
@@ -3502,6 +3505,8 @@ class FeeCfg(BaseModel):
     tierDiscountPct: dict = {}
     zeroFeeMints: list = []
     promo: dict = {}
+    lifiIntegrator: str = ''
+    lifiFeeBps: int = Field(0, ge=0, le=LIFI_MAX_BPS)
 
 
 @app.get('/api/reputation/admin/fees')
@@ -3584,9 +3589,15 @@ async def admin_fees_set(request: Request, payload: FeeCfg):
     zero = [m for m in payload.zeroFeeMints[:50] if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', str(m))]
     promo = {'label': str((payload.promo or {}).get('label') or '')[:40], 'discountPct': max(0.0, min(100.0, float((payload.promo or {}).get('discountPct') or 0))),
              'until': float((payload.promo or {}).get('until') or 0)}
+    integrator = (payload.lifiIntegrator or '').strip()
+    if integrator and not _re.match(r'^[A-Za-z0-9_.-]{2,40}$', integrator):
+        raise HTTPException(400, 'LI.FI integrator name: 2–40 letters, numbers, dot, dash or underscore (as registered at portal.li.fi).')
+    if payload.lifiFeeBps and not integrator:
+        raise HTTPException(400, 'Register an integrator at portal.li.fi and enter its name before setting a LI.FI fee.')
     async with _admin_lock:
         d = _admin_load()
-        d['fees'] = {'platformFeeBps': payload.platformFeeBps, 'referralAccount': payload.referralAccount, 'tierDiscountPct': tiers, 'zeroFeeMints': zero, 'promo': promo}
+        d['fees'] = {'platformFeeBps': payload.platformFeeBps, 'referralAccount': payload.referralAccount, 'tierDiscountPct': tiers, 'zeroFeeMints': zero, 'promo': promo,
+                     'lifiIntegrator': integrator, 'lifiFeeBps': payload.lifiFeeBps if integrator else 0}
         _audit(d, admin, 'fees', f"{payload.platformFeeBps} bps · discounts {tiers} · promo {promo['discountPct']:.0f}%")
         _admin_save(d)
     return {'ok': True, 'fees': _fee_cfg()}
@@ -5233,7 +5244,8 @@ async def gas_check(address: str):
 @app.get('/api/reputation/fees/public')
 async def fees_public():
     cfg = _fee_cfg()
-    return {'platformFeeBps': cfg['platformFeeBps'], 'tierDiscountPct': cfg['tierDiscountPct'], 'promo': cfg.get('promo'),
+    lifi = {'integrator': cfg['lifiIntegrator'], 'fee': round(cfg['lifiFeeBps'] / 10000, 4)} if cfg.get('lifiIntegrator') and cfg.get('lifiFeeBps') else None
+    return {'platformFeeBps': cfg['platformFeeBps'], 'tierDiscountPct': cfg['tierDiscountPct'], 'promo': cfg.get('promo'), 'lifi': lifi,
             'feelessIntoFee': True, 'note': 'Buying $FEE is fee-free. Selling $FEE to SOL, USDC or USDT is fee-free; other output tokens use the configured platform fee.'}
 
 

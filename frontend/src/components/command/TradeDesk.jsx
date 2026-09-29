@@ -5,6 +5,7 @@ import { useWallet } from '../../hooks/useWallet';
 import { apiUrl } from '../../lib/api';
 import { EdgeScore } from '../terminal/EdgeScore';
 import { useMarket } from '../../hooks/useMarket';
+import { lifiQuote, lifiFeelessFee } from '../../lib/lifiFee';
 
 // The trade desk: Swap (the existing Jupiter/LI.FI flows), Bridge (any EVM chain -> any EVM chain)
 // and Get Gas (turn what you hold on one chain into gas on another). Non-custodial throughout:
@@ -36,7 +37,7 @@ function useRoute() {
     try {
       const w = await ensureEvm(fromChain);
       const url = `https://li.quest/v1/quote?fromChain=${CHAIN_ID[fromChain]}&toChain=${CHAIN_ID[toChain]}&fromToken=${fromToken}&toToken=${toToken}&fromAmount=${toUnits(amount, decimals)}&fromAddress=${w.address}&slippage=0.01`;
-      const q = await (await fetch(url)).json();
+      const q = await lifiQuote(url);
       if (!q.transactionRequest) throw new Error(q.message || 'No route found for this amount — try a bit more.');
       setQuote(q);
     } catch (e) { toast.error(e.code === 4001 ? 'Declined in wallet.' : e.message); } finally { setBusy(false); }
@@ -66,7 +67,7 @@ function RouteReview({ quote, busy, onExecute, onClear }) {
   const feeUsd = (quote.estimate.feeCosts || []).reduce((a, g) => a + Number(g.amountUSD || 0), 0);
   return <div className="td-review" data-testid="td-review">
     <div><small>You receive ≈</small><b>{out.toLocaleString(undefined, { maximumFractionDigits: 6 })} {quote.action.toToken.symbol}</b></div>
-    <div className="td-review-meta"><span>via {quote.toolDetails?.name || quote.tool}</span><span>network gas ≈ ${gasUsd.toFixed(2)}</span><span>provider / route fees ≈ ${feeUsd.toFixed(2)}</span><span>FEELESS platform fee: 0%</span><span>~{Math.max(1, Math.round((quote.estimate.executionDuration || 30) / 60))} min</span></div>
+    <div className="td-review-meta"><span>via {quote.toolDetails?.name || quote.tool}</span><span>network gas ≈ ${gasUsd.toFixed(2)}</span><span>provider / route fees ≈ ${feeUsd.toFixed(2)}</span><span>{lifiFeelessFee(quote) ? `FEELESS fee ${(Number(lifiFeelessFee(quote).percentage || 0) * 100).toFixed(2)}% ≈ $${Number(lifiFeelessFee(quote).amountUSD || 0).toFixed(2)} (included above)` : 'FEELESS platform fee: 0%'}</span><span>~{Math.max(1, Math.round((quote.estimate.executionDuration || 30) / 60))} min</span></div>
     <div className="td-review-actions"><button type="button" className="btn-outline" onClick={onClear}>Cancel</button><button type="button" className="btn-primary" disabled={busy} onClick={onExecute}>{busy ? 'Confirm in wallet…' : 'Confirm & sign'}</button></div>
   </div>;
 }
@@ -121,7 +122,7 @@ function FeeExplainer() {
   return <div className="td-fees" data-testid="td-fees">
     <span className="td-fee good" title="Buying $FEE or its coins never carries a FEELESS fee."><b>0%</b>into $FEE</span>
     <span className="td-fee" title={f && Number(pct) > 0 ? `Charged on eligible Solana swaps, reduced up to ${best}% by holder tier. The exact fee is shown on every quote before you sign.` : 'No FEELESS fee is active right now.'}><b>{pct == null ? '…' : Number(pct) > 0 ? `≤${pct}%` : '0%'}</b>other Solana swaps</span>
-    <span className="td-fee" title="Bridge and gas routes have 0% FEELESS platform fee; provider and network fees are itemized before signing."><ShieldCheck size={14} /><b>0%</b>bridge &amp; gas</span>
+    <span className="td-fee" title={f?.lifi ? 'EVM swaps, bridges and gas carry the FEELESS fee through LI.FI; it is itemized on every quote before you sign.' : 'Bridge and gas routes have 0% FEELESS platform fee; provider and network fees are itemized before signing.'}><ShieldCheck size={14} /><b>{f?.lifi ? `${(f.lifi.fee * 100).toFixed(2)}%` : '0%'}</b>bridge &amp; gas</span>
   </div>;
 }
 
