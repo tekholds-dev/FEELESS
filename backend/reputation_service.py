@@ -6254,23 +6254,60 @@ _tok_search_cache = {}
 
 @app.get('/api/reputation/tokens/search')
 async def token_search(q: str = Query(..., min_length=1, max_length=64)):
-    q = q.strip()
+    """Name, $ticker or contract → Solana coins, biggest market cap first.
+    Jupiter (keyed, then the keyless lite API) and DexScreener are merged, so one provider being down,
+    rate-limited or missing a fresh Pump coin never leaves the swap picker empty."""
+    q = q.strip().lstrip('$')
     hit = _tok_search_cache.get(q.lower())
     if hit and time.time() - hit[0] < 30:
         return hit[1]
-    rows = []
-    try:
-        async with httpx.AsyncClient(timeout=8) as http:
-            r = await http.get('https://api.jup.ag/tokens/v2/search', params={'query': q}, headers={'x-api-key': os.environ.get('JUPITER_API_KEY', '')})
-        for t in (r.json() if r.status_code == 200 else [])[:20]:
-            rows.append({'mint': t.get('id'), 'symbol': t.get('symbol'), 'name': t.get('name'), 'icon': t.get('icon'), 'decimals': t.get('decimals'),
-                         'price': t.get('usdPrice'), 'mcap': t.get('mcap'), 'liquidity': t.get('liquidity'), 'verified': bool(t.get('isVerified')),
-                         'blocked': _is_blocked(_block_load()['wallets'].get(t.get('dev') or ''))})
-    except Exception:
-        pass
-    rows.sort(key=lambda x: (not x['verified'], -(x['liquidity'] or 0)))
-    data = {'q': q, 'tokens': rows}
-    _tok_search_cache[q.lower()] = (time.time(), data)
+    found: dict = {}
+    blocks = _block_load()['wallets']
+
+    def add(mint, **row):
+        if not mint:
+            return
+        cur = found.setdefault(mint, {'mint': mint, 'symbol': None, 'name': None, 'icon': None, 'decimals': None,
+                                      'price': None, 'mcap': None, 'liquidity': None, 'verified': False, 'blocked': False})
+        for k, v in row.items():
+            if v not in (None, '') and (cur.get(k) in (None, '', False) or k in ('mcap', 'liquidity') and (v or 0) > (cur.get(k) or 0)):
+                cur[k] = v
+
+    async with httpx.AsyncClient(timeout=8) as http:
+        async def jupiter():
+            key = os.environ.get('JUPITER_API_KEY', '')
+            urls = ([('https://api.jup.ag/tokens/v2/search', {'x-api-key': key})] if key else []) + [('https://lite-api.jup.ag/tokens/v2/search', {})]
+            for url, headers in urls:
+                try:
+                    r = await http.get(url, params={'query': q}, headers=headers)
+                    if r.status_code == 200 and isinstance(r.json(), list):
+                        return r.json()[:30]
+                except Exception:
+                    continue
+            return []
+
+        async def dexscreener():
+            try:
+                r = await http.get('https://api.dexscreener.com/latest/dex/search', params={'q': q})
+                return [p for p in ((r.json() or {}).get('pairs') or []) if p.get('chainId') == 'solana'][:40] if r.status_code == 200 else []
+            except Exception:
+                return []
+
+        jup, dex = await asyncio.gather(jupiter(), dexscreener())
+    for t in jup:
+        add(t.get('id'), symbol=t.get('symbol'), name=t.get('name'), icon=t.get('icon'), decimals=t.get('decimals'), price=t.get('usdPrice'),
+            mcap=t.get('mcap') or t.get('fdv'), liquidity=t.get('liquidity'), verified=bool(t.get('isVerified')),
+            blocked=_is_blocked(blocks.get(t.get('dev') or '')))
+    for p in dex:
+        b = p.get('baseToken') or {}
+        add(b.get('address'), symbol=b.get('symbol'), name=b.get('name'), icon=(p.get('info') or {}).get('imageUrl'),
+            price=float(p['priceUsd']) if p.get('priceUsd') else None, mcap=p.get('marketCap') or p.get('fdv'),
+            liquidity=(p.get('liquidity') or {}).get('usd'))
+    # Biggest market cap first; an exact contract paste always leads.
+    rows = sorted(found.values(), key=lambda x: (x['mint'] != q, -(x['mcap'] or 0), -(x['liquidity'] or 0)))[:20]
+    data = {'q': q, 'tokens': rows, 'ok': bool(jup or dex)}
+    if rows:  # never cache a miss: a provider hiccup must not blank the picker for 30s
+        _tok_search_cache[q.lower()] = (time.time(), data)
     if len(_tok_search_cache) > 2000:
         _tok_search_cache.clear()
     return data

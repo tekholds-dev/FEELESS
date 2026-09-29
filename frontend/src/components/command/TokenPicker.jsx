@@ -20,14 +20,19 @@ export function TokenPicker({ label, value, options, onChange, onPickRemote, onN
     return () => { document.removeEventListener('pointerdown', out); document.removeEventListener('keydown', esc); };
   }, [open]);
   // Any Solana coin: remote search (name, $ticker or contract) joins the local list, like Jupiter's picker.
-  const [remote, setRemote] = useState([]);
+  // status: idle | loading | done | failed — so the list never sits on "Searching…" forever.
+  const [remote, setRemote] = useState([]); const [status, setStatus] = useState('idle');
   useEffect(() => {
     const term = q.trim();
-    if (!open || !onPickRemote || term.length < 2) { setRemote([]); return undefined; }
-    let alive = true;
-    const t = setTimeout(() => fetch(apiUrl(`/api/reputation/tokens/search?q=${encodeURIComponent(term)}`)).then(r => r.json()).then(d => alive && setRemote(d.tokens || [])).catch(() => {}), 250);
+    if (!open || !onPickRemote || term.length < 2) { setRemote([]); setStatus('idle'); return undefined; }
+    let alive = true; setStatus('loading');
+    const t = setTimeout(() => fetch(apiUrl(`/api/reputation/tokens/search?q=${encodeURIComponent(term)}`))
+      .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then(d => { if (!alive) return; setRemote(d.tokens || []); setStatus(d.ok === false ? 'failed' : 'done'); })
+      .catch(() => { if (alive) { setRemote([]); setStatus('failed'); } }), 250);
     return () => { alive = false; clearTimeout(t); };
   }, [q, open, onPickRemote]);
+  const money = v => (v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v)}`);
   const avatar = o => (o?.icon ? <img className="tkp-av" src={o.icon} alt="" /> : <span className="tkp-av">{o?.symbol?.slice(0, 1)}</span>);
   const live = NETWORKS.find(n => n[0] === net)?.[2];
   const needle = q.trim().toLowerCase();
@@ -49,8 +54,8 @@ export function TokenPicker({ label, value, options, onChange, onPickRemote, onN
         </button>)}<div className="tkp-group">All coins</div></>}{rows.filter(o => !mine.some(h => h.mint === o.mint)).map(o => <button key={o.mint} type="button" role="option" aria-selected={o.mint === value} className={o.mint === value ? 'sel' : ''} onClick={() => { onChange(o.mint); setOpen(false); setQ(''); }}>
           {avatar(o)}<b>{o.symbol}</b><em>{o.name}</em><code>{o.mint.slice(0, 4)}…{o.mint.slice(-4)}</code>
         </button>)}{remote.filter(t => !rows.some(o => o.mint === t.mint)).map(t => <button key={`r-${t.mint}`} type="button" role="option" aria-selected={false} onClick={() => { onPickRemote(t); setOpen(false); setQ(''); }}>
-          {avatar(t)}<b>{t.symbol}{t.verified && <span className="tkp-ok" title="Verified by Jupiter"> ✓</span>}</b><em>{t.name}</em><code>{t.liquidity ? `liq $${Math.round(t.liquidity).toLocaleString()}` : `${t.mint.slice(0, 4)}…${t.mint.slice(-4)}`}</code>
-        </button>)}{!rows.length && !remote.length && <p>{needle.length >= 2 ? 'Searching every Solana coin…' : 'Type a name, $ticker or paste a contract.'}</p>}</div>
+          {avatar(t)}<b>{t.symbol}{t.verified && <span className="tkp-ok" title="Verified by Jupiter"> ✓</span>}</b><em>{t.name}</em><code>{t.mcap ? `MC ${money(t.mcap)}` : t.liquidity ? `liq ${money(t.liquidity)}` : `${t.mint.slice(0, 4)}…${t.mint.slice(-4)}`}</code>
+        </button>)}{!rows.length && !remote.length && <p>{needle.length < 2 ? 'Type a name, $ticker or paste a contract.' : status === 'loading' ? 'Searching every Solana coin…' : status === 'failed' ? 'Coin search is unavailable right now. Paste the contract address, or try again in a moment.' : 'No Solana coin matches that search.'}</p>}</div>
       </> : <div className="tkp-locked"><Lock size={18} /><b>Locked on this desk</b><p>The execution desk routes through Jupiter on Solana. {NETWORKS.find(n => n[0] === net)?.[1]} swaps and bridges run from the Trade Desk.</p></div>}
     </div>}
   </div>;
