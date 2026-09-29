@@ -4107,14 +4107,20 @@ async def admin_feecat_get(request: Request):
     async with httpx.AsyncClient(timeout=10) as http:
         r = await http.get('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()})
         prof = (await http.get('http://127.0.0.1:5088/api/cats/leader/profile')).json()
-    return {**r.json(), 'learning': prof.get('learning'), 'stats': prof.get('stats'), 'cat': {k: (prof.get('cat') or {}).get(k) for k in ('balanceSol', 'realizedPnlSol', 'winRate', 'status')}}
+        activity = (await http.get('http://127.0.0.1:5088/api/cats/activity?catId=leader')).json()
+    return {**r.json(), 'learning': prof.get('learning'), 'stats': prof.get('stats'), 'events': (activity.get('events') or [])[:8], 'cat': {k: (prof.get('cat') or {}).get(k) for k in ('balanceSol', 'realizedPnlSol', 'winRate', 'status')}}
 
 
 @app.post('/api/reputation/admin/feecat')
 async def admin_feecat_set(request: Request):
     admin = _require_admin(request)
     body = await request.json()
-    async with httpx.AsyncClient(timeout=10) as http:
+    action = body.pop('action', None)
+    async with httpx.AsyncClient(timeout=30) as http:
+        if action == 'run':
+            run = await http.post('http://127.0.0.1:5088/api/cats/leader/action', json={'action': 'run'})
+            if run.status_code != 200:
+                raise HTTPException(run.status_code, 'Fee service could not run the intelligence cycle.')
         r = await http.post('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()}, json=body)
     if r.status_code != 200:
         raise HTTPException(r.status_code, 'Fee service rejected the change.')

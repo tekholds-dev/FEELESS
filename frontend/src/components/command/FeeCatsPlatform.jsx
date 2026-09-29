@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Activity, AlertTriangle, ArrowLeft, Cat, ChevronRight, CircleStop, Copy, Gauge, LockKeyhole, Play, Plus, RefreshCw, ShieldAlert, SlidersHorizontal, Trophy, Wallet, X } from 'lucide-react';
 import { CAT_VARIATIONS, CatAvatar } from './FeeBack';
+import { ShareGifButton } from '../ShareGif';
 import '../../styles/brain-adapters.css';
 
 const OWNER_KEY = 'feeless-paper-owner';
@@ -20,6 +21,16 @@ const ownerId = () => {
 const money = value => `${Number(value || 0) >= 0 ? '+' : ''}${Number(value || 0).toFixed(4)} SOL`;
 const short = value => value ? `${value.slice(0, 6)}…${value.slice(-5)}` : '—';
 const time = value => value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+const usd = value => Number(value) > 0 ? `$${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : 'MC unavailable';
+const eventSymbol = event => event.symbol || event.detail?.match(/\bof\s+([A-Z0-9_]{2,})\b/i)?.[1] || 'TRADE';
+const tradeCard = event => ({
+  kicker: `${event.catName?.toUpperCase() || 'FEE'} · PAPER ${event.type} · LIVE-PRICE RECEIPT`,
+  title: `$${eventSymbol(event)}`,
+  tone: event.type === 'SELL' && Number(event.pnlSol) < 0 ? 'down' : 'up',
+  bigValue: Math.abs(Number(event.pnlSol || 0)), bigPrefix: Number(event.pnlSol || 0) >= 0 ? '+' : '−', bigSuffix: ' SOL', bigDigits: 4,
+  lines: [event.type === 'BUY' ? `entry MC ${usd(event.marketCapUsd)}` : `entry MC ${usd(event.entryMarketCapUsd)} · exit MC ${usd(event.marketCapUsd)}`, event.detail?.replace(/\s*\(paper[^)]*\)\.?/i, '') || '', `audit ${event.id?.slice(0, 10) || 'receipt'} · no real SOL`],
+  footer: 'FEELESS Fee Cats · paper trading only',
+});
 
 function PaperBadge() {
   return <span className="paper-badge"><i /> PAPER TRADING · NO REAL SOL</span>;
@@ -129,7 +140,7 @@ function ActivityFeed({ catId }) {
   const [data, setData] = useState({ events: [] });
   const load = useCallback(async () => { try { setData(await api(`/api/cats/activity${catId ? `?catId=${encodeURIComponent(catId)}` : ''}`)); } catch {} }, [catId]);
   useEffect(() => { load(); const interval = setInterval(load, 7000); return () => clearInterval(interval); }, [load]);
-  return <section className="paper-panel paper-activity"><div className="paper-panel-head"><div><span className="eyebrow"><Activity size={13} /> LIVE CAT ACTIVITY</span><h2>{catId ? 'This Cat’s audit trail.' : 'Watch the paper engine.'}</h2></div><span className="paper-live-dot"><i /> LIVE</span></div>{!data.events?.length && <div className="paper-empty"><Activity size={20} />No activity yet. Start a Cat to begin scanning.</div>}<div className="paper-event-list">{data.events?.map(event => <article className={`paper-event event-${event.type.toLowerCase()}`} key={event.id}><span className="paper-event-icon">{event.type === 'BUY' ? '↗' : event.type === 'SELL' ? '↘' : event.type === 'STOPPED' ? '!' : '·'}</span><div><b>{event.catName} <small>{event.type}</small></b><p>{event.detail}</p><time>{time(event.ts)} · PAPER{event.decisionSource ? ` · ${event.decisionSource === 'selected_brain' ? `${event.brainLabel || 'Selected brain'} decision` : 'FEELESS rule engine · live prices'}` : ''}</time></div>{event.pnlSol != null && <strong className={event.pnlSol >= 0 ? 'positive' : 'negative'}>{money(event.pnlSol)}</strong>}</article>)}</div></section>;
+  return <section className="paper-panel paper-activity"><div className="paper-panel-head"><div><span className="eyebrow"><Activity size={13} /> LIVE CAT ACTIVITY</span><h2>{catId ? 'This Cat’s audit trail.' : 'Watch the paper engine.'}</h2></div><span className="paper-live-dot"><i /> LIVE</span></div>{!data.events?.length && <div className="paper-empty"><Activity size={20} />No activity yet. Start a Cat to begin scanning.</div>}<div className="paper-event-list">{data.events?.map(event => <article className={`paper-event event-${event.type.toLowerCase()}`} key={event.id}><span className="paper-event-icon">{event.type === 'BUY' ? '↗' : event.type === 'SELL' ? '↘' : event.type === 'STOPPED' ? '!' : '·'}</span><div><b>{event.catName} <small>{event.type}</small></b><p>{event.detail}</p><time>{time(event.ts)} · PAPER{event.decisionSource ? ` · ${event.decisionSource === 'selected_brain' ? `${event.brainLabel || 'Selected brain'} decision` : 'FEELESS rule engine · live prices'}` : ''}</time>{['BUY', 'SELL'].includes(event.type) && <small className="paper-event-mc">{event.type === 'BUY' ? `Entry MC: ${usd(event.marketCapUsd)}` : `Entry: ${usd(event.entryMarketCapUsd)} · Exit: ${usd(event.marketCapUsd)}`}</small>}</div>{event.pnlSol != null && <strong className={event.pnlSol >= 0 ? 'positive' : 'negative'}>{money(event.pnlSol)}</strong>}{['BUY', 'SELL'].includes(event.type) && <ShareGifButton className="btn-outline paper-event-share" label="🎞 Share" card={tradeCard(event)} />}</article>)}</div></section>;
 }
 
 function CatDetail({ cat: initialCat, onBack, onChanged }) {

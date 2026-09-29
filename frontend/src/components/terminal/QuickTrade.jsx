@@ -66,6 +66,8 @@ export function QuickTrade({ pair }) {
   const [result, setResult] = useState(null);
   const mint = pair?.baseToken?.address;
   const symbol = pair?.baseToken?.symbol || 'token';
+  const tokenUsd = Number(pair?.priceUsd) || null;
+  const sellAmount = balance == null ? null : balance * sellPct / 100;
   useEffect(() => { try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch {} }, [prefs]);
   useEffect(() => {
     let alive = true;
@@ -134,10 +136,13 @@ export function QuickTrade({ pair }) {
     {side === 'buy' ? <>
       <div className="qt-row"><span>Amount in</span><div className="qt-seg">{['SOL', 'USD'].map(u => <button type="button" key={u} className={prefs.unit === u ? 'active' : ''} onClick={() => { setPrefs(p => ({ ...p, unit: u })); setAmount(presetsFor(prefs, u)[0]); }}>{u}</button>)}</div></div>
       <div className="qt-presets">{presetsFor(prefs, prefs.unit).map(v => <button type="button" key={v} className={amount === v ? 'active' : ''} onClick={() => setAmount(v)}>{prefs.unit === 'USD' ? `$${v}` : `${v} SOL`}</button>)}<input type="number" min="0" step="any" value={amount} onChange={e => setAmount(e.target.value)} aria-label="Custom amount" /></div>
-      {prefs.unit === 'USD' && <small className="qt-note">≈ {solUsd && Number(amount) > 0 ? `${(Number(amount) / solUsd).toFixed(4)} SOL` : '…'} at ${solUsd ? solUsd.toFixed(2) : '…'}/SOL</small>}
+      <small className="qt-note">{prefs.unit === 'USD'
+        ? `≈ ${solUsd && Number(amount) > 0 ? `${(Number(amount) / solUsd).toFixed(4)} SOL` : '…'} at $${solUsd ? solUsd.toFixed(2) : '…'}/SOL`
+        : `≈ ${solUsd && Number(amount) > 0 ? formatUSD(Number(amount) * solUsd) : '…'}`}</small>
     </> : <>
+      <div className="qt-row"><span>Amount out</span><b>{sellAmount == null ? '—' : `${sellAmount.toLocaleString(undefined, { maximumFractionDigits: 5 })} ${symbol}`}</b></div>
       <div className="qt-presets">{[25, 50, 100].map(p => <button type="button" key={p} className={sellPct === p ? 'active' : ''} onClick={() => setSellPct(p)}>{p}%</button>)}</div>
-      <small className="qt-note">{!wallet?.address ? 'Connect to load your balance.' : balance == null ? 'Loading balance…' : `You hold ${balance.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${symbol}`}</small>
+      <small className="qt-note">{!wallet?.address ? 'Connect to load your balance.' : balance == null ? 'Loading balance…' : <>You hold {balance.toLocaleString(undefined, { maximumFractionDigits: 4 })} {symbol}{tokenUsd ? ` · ≈ ${formatUSD(balance * tokenUsd)} total / ${formatUSD((sellAmount || 0) * tokenUsd)} selected` : ''}</>}</small>
       <div className="qt-row"><span>Receive</span><div className="qt-seg">{[['SOL', 'SOL'], ['FEE', '$FEE']].map(([id, l]) => <button type="button" key={id} disabled={id === 'FEE' && !feeMint} className={counter === id ? 'active' : ''} onClick={() => setCounter(id)}>{l}</button>)}</div></div>
       {toFee && <small className="qt-fee-free">Buying $FEE · 0% FEELESS fee</small>}
     </>}

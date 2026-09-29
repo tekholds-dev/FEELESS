@@ -12,6 +12,7 @@ import { shortAddress, formatUSD } from '../../lib/dexscreener';
 import { AirdropStudio, Snapshots } from './AirdropStudio';
 import { NumbersPanel } from './NumbersPanel';
 import { SeasonEditor } from '../SeasonEditor';
+import { Explain } from '../Explain';
 import { DEXES } from '../../lib/venues';
 
 const SESSION_KEY = 'feeless:cc-session';
@@ -415,16 +416,18 @@ function FeeCatPanel({ call }) {
   const load = useCallback(() => call('/admin/feecat').then(x => { setD(x); setDraft(x.rules); setSize(x.leader?.risk?.maxPositionSol ?? ''); }).catch(e => toast.error(e.message)), [call]);
   useEffect(() => { load(); }, [load]);
   if (!d) return <p className="cc-empty">Waking Fee up…</p>;
-  const save = extra => call('/admin/feecat', { method: 'POST', body: JSON.stringify({ rules: draft, maxPositionSol: Number(size) || undefined, ...extra }) }).then(() => { toast.success('Fee updated — applies on the next tick.'); load(); }).catch(e => toast.error(e.message));
+  const save = extra => call('/admin/feecat', { method: 'POST', body: JSON.stringify({ rules: draft, maxPositionSol: Number(size) || undefined, ...extra }) }).then(() => { toast.success(extra.action === 'run' ? 'Fee completed an intelligence cycle.' : 'Fee updated — applies on the next tick.'); load(); }).catch(e => toast.error(e.message));
   const running = d.leader?.status === 'running';
   return <section className="cc-panel">
     <div className="cc-kpis cc-kpis-5"><span><small>Status</small><b className={running ? 'positive' : 'negative'}>{running ? 'Trading' : 'Paused'}</b></span><span><small>Balance</small><b>{Number(d.cat.balanceSol || 0).toFixed(2)} SOL</b></span><span><small>Realized</small><b>{Number(d.cat.realizedPnlSol || 0).toFixed(3)}</b></span><span><small>Win rate</small><b>{d.cat.winRate ?? '—'}%</b></span><span><small>Lessons</small><b>{(d.learning?.missed || 0) + (d.learning?.good || 0)}</b></span></div>
-    <div className="cc-toolbar"><button type="button" className="btn-primary" onClick={() => save({ status: running ? 'paused' : 'running' })}>{running ? '⏸ Pause Fee' : '▶ Resume Fee'}</button><button type="button" onClick={() => window.confirm('Reset what Fee has learned? Exits go back to defaults.') && save({ resetLearning: true })}>Reset learning</button><a href="/terminal/feecat" target="_blank" rel="noopener noreferrer">Open Fee's profile ↗</a></div>
+    <div className="cc-toolbar"><button type="button" className="btn-primary" onClick={() => save({ status: running ? 'paused' : 'running' })}>{running ? '⏸ Pause Fee' : '▶ Resume Fee'}</button><button type="button" disabled={!running} onClick={() => save({ action: 'run' })}>⚡ Run intelligence cycle</button><button type="button" onClick={() => window.confirm('Reset what Fee has learned? Exits go back to defaults.') && save({ resetLearning: true })}>Reset learning</button><a href="/terminal/feecat" target="_blank" rel="noopener noreferrer">Open Fee's profile ↗</a></div>
     <p className="cc-note">Tune Fee's brain. Every value is clamped to a safe range on the server — Fee can get more aggressive, never reckless. Changes are logged in the audit trail.</p>
+    <div className="cc-block"><h4>FeeCat mechanics <Explain>Fee Cats are paper agents: balances and P/L are simulated, while prices, liquidity and market-cap snapshots are read live. They cannot sign, spend, bridge, or move real SOL. Every paper entry and exit applies the displayed 1% per-side model and creates an auditable event; Fee-Back rewards are planned, not active.</Explain></h4><p className="cc-note"><b>Trench Lord controls:</b> set hard entry/safety rules, a maximum simulated position size, pause/resume the engine, and run one live-data intelligence cycle. The audit trail records the rule engine, price and market-cap snapshots used for each trade.</p></div>
     <div className="cc-block"><h4>Entry + safety rules</h4><div className="fee-rules">{Object.keys(d.bounds).map(k => { const [lo, hi] = d.bounds[k]; return <label key={k}><span>{FEE_LABELS[k] || k}<em>{lo}–{hi}</em></span><input type="number" step="any" min={lo} max={hi} value={draft[k] ?? ''} onChange={e => setDraft(x => ({ ...x, [k]: e.target.value }))} /></label>; })}
       <label><span>Max SOL per trade<em>0.1–10</em></span><input type="number" step="0.1" value={size} onChange={e => setSize(e.target.value)} /></label></div>
       <button type="button" className="btn-primary" onClick={() => save({})}>Save Fee's rules</button></div>
     {d.learning && <div className="cc-block"><h4>What Fee has learned</h4>{Object.entries(d.learning.params || {}).map(([k, v]) => <div key={k} className="cc-sig"><span>{k}</span><b>{v} <small className="cc-empty">(default {d.learning.defaults?.[k]})</small></b></div>)}</div>}
+    <div className="cc-block"><h4>Recent paper audit</h4>{d.events?.length ? d.events.map(e => <div key={e.id} className="cc-sig"><span>{e.type} · {e.catName}</span><b>{e.type === 'SELL' ? `entry MC ${e.entryMarketCapUsd ? formatUSD(e.entryMarketCapUsd) : '—'} → exit ${e.marketCapUsd ? formatUSD(e.marketCapUsd) : '—'}` : e.marketCapUsd ? `entry MC ${formatUSD(e.marketCapUsd)}` : 'snapshot unavailable'}</b></div>) : <p className="cc-empty">No paper trade receipts yet.</p>}</div>
   </section>;
 }
 

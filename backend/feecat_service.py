@@ -60,12 +60,14 @@ def _save(store: dict):
     STORE_PATH.write_text(json.dumps(store, indent=2))
 
 
-def _log_event(store, cat, kind, detail, pnl=None, pair=None, price=None):
+def _log_event(store, cat, kind, detail, pnl=None, pair=None, price=None, market_cap=None, entry_market_cap=None):
     store['events'].insert(0, {
         'id': uuid.uuid4().hex, 'catId': cat['id'], 'catName': cat['name'],
         'type': kind, 'detail': detail, 'ts': time.time() * 1000,
         'pnlSol': pnl, 'decisionSource': 'selected_brain' if cat.get('brainProfile', {}).get('available') else 'rule_engine',
         'brainLabel': cat.get('brainLabel'), 'pairAddress': pair, 'priceNative': price,
+        # Persisted with the paper receipt so shared cards never invent MC data later.
+        'marketCapUsd': market_cap, 'entryMarketCapUsd': entry_market_cap,
     })
     store['events'] = store['events'][:200]
 
@@ -315,7 +317,7 @@ def _post_as_fee(pair_address, text, register_call=False):
         print('fee post failed', exc)
 
 
-def _close(store, cat, pos, price_native, why, fraction=1.0):
+def _close(store, cat, pos, price_native, why, fraction=1.0, market_cap=None):
     gross = pos['notionalSol'] * fraction * (price_native / pos['entryPriceNative'])
     proceeds = gross * (1 - FEE_PER_SIDE)
     pnl = round(proceeds - pos['costSol'] * fraction, 6)
@@ -344,7 +346,7 @@ def _close(store, cat, pos, price_native, why, fraction=1.0):
     cat['winRate'] = round(cat['wins'] / closed * 100) if closed else None
     change = (price_native / pos['entryPriceNative'] - 1) * 100
     part = f'{int(fraction * 100)}% of ' if fraction < 1 else ''
-    _log_event(store, cat, 'SELL', f"Sold {part}{pos['symbol']} at {change:+.1f}% — {why}. Net {pnl:+.4f} SOL after fees (paper, live price).", pnl, pos.get('pairAddress'), price_native)
+    _log_event(store, cat, 'SELL', f"Sold {part}{pos['symbol']} at {change:+.1f}% — {why}. Net {pnl:+.4f} SOL after fees (paper, live price).", pnl, pos.get('pairAddress'), price_native, market_cap, pos.get('entryMarketCapUsd'))
     if cat.get('isLeader') and pos.get('pairAddress'):
         held = (time.time() - pos.get('openedAt', time.time())) / 3600
         verdict = 'Took the win.' if pnl >= 0 else 'Cut it — protecting capital beats hoping.'
@@ -447,7 +449,7 @@ async def run_engine(store, cats):
                 why = 'break-even stop' if floor > R['stopLoss'] else f'stop-loss {R["stopLoss"]}%'
             elif change >= R['takeProfit'] and not pos.get('scaled'):
                 pos['scaled'] = True
-                _close(store, cat, pos, px, f'take-profit +{R["takeProfit"]}% (scaling out)', R['scaleOutFraction'])
+                _close(store, cat, pos, px, f'take-profit +{R["takeProfit"]}% (scaling out)', R['scaleOutFraction'], _num(live.get('marketCap') or live.get('fdv')))
                 continue
             elif pos['peakChange'] >= R['trailArm'] and change <= pos['peakChange'] - give:
                 why = f'trailing stop (peak +{pos["peakChange"]:.1f}%)'
@@ -464,10 +466,10 @@ async def run_engine(store, cats):
                     pos['costSol'] = round(pos['costSol'] + add, 6); pos['notionalSol'] = round(pos['notionalSol'] + add * (1 - FEE_PER_SIDE), 6)
                     pos['dipAdded'] = True; pos['peakChange'] = 0
                     cat['balanceSol'] = round(cat['balanceSol'] - add, 6); cat['volumeSol'] = round(cat.get('volumeSol', 0) + add, 6)
-                    _log_event(store, cat, 'BUY', f"Added {add} SOL to {pos['symbol']} on a {change:.1f}% dip with buyers still in control — better average entry (paper).", None, pos['pairAddress'], px)
+                    _log_event(store, cat, 'BUY', f"Added {add} SOL to {pos['symbol']} on a {change:.1f}% dip with buyers still in control — better average entry (paper).", None, pos['pairAddress'], px, _num(live.get('marketCap') or live.get('fdv')))
             if why:
                 cat['positions'].remove(pos)
-                _close(store, cat, pos, px, why)
+                _close(store, cat, pos, px, why, market_cap=_num(live.get('marketCap') or live.get('fdv')))
         day = time.strftime('%Y-%m-%d')
         if cat.get('dailyLoss', {}).get(day, 0) >= float(cat['risk'].get('maxDailyLossSol') or 0.5):
             continue
@@ -517,8 +519,9 @@ async def run_engine(store, cats):
                 'entryPriceNative': px, 'entryPriceUsd': p.get('priceUsd'), 'entryChange': 0, 'currentChange': 0,
                 'peakChange': 0, 'openedAt': now, 'reason': reason,
                 'entryLiq': _num((p.get('liquidity') or {}).get('usd')), 'conviction': conviction,
+                'entryMarketCapUsd': _num(p.get('marketCap') or p.get('fdv')),
             })
-            _log_event(store, cat, 'BUY', f"Bought {size} SOL of {sym} at live price — {reason} (paper).", None, pa, px)
+            _log_event(store, cat, 'BUY', f"Bought {size} SOL of {sym} at live price — {reason} (paper).", None, pa, px, _num(p.get('marketCap') or p.get('fdv')))
             if cat.get('isLeader'):
                 _post_as_fee(pa, _buy_analysis(p, size, sym, safe_why, conviction), register_call=True)
         cat['lastTick'] = now

@@ -77,6 +77,8 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   }, [pair?.chainId, pair?.pairAddress, pair?.priceUsd, pair?.volume?.h24]);
 
   const needsFallback = (priceMetric || metricChart) && candlesLoaded;
+  // Dependencies below are explicit; CRA's older hook parser misreads optional nested pair fields.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const cached = pair?.pairAddress ? getCachedCandles(pair.chainId, pair.pairAddress, interval) : null;
     setFeelessCandles(cached?.candles || []);
@@ -112,9 +114,12 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     return points.map(pt => ({ time: Math.floor(pt.t / 1000), value: pt.p * ratio }))
       .filter((pt, i, arr) => i === 0 || pt.time !== arr[i - 1].time);
   }, [usingFallbackTrail, pair?.pairAddress, ratio]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const baseCandles = useMemo(() => candleRows.length ? scrubCandles(candleRows) : usingFeelessCandles ? scrubCandles(allFeeless) : [], [candleRows, usingFeelessCandles, allFeeless]);
   const displayCandles = useMemo(() => ratio === 1 ? baseCandles : baseCandles.map(([t, o, h, l, c, v]) => [t, o * ratio, h * ratio, l * ratio, c * ratio, v]), [baseCandles, ratio]);
   const hasChart = displayCandles.length > 0 || trail.length >= 2;
+  // The socket/polling lifecycle is intentionally keyed to the full pair object and its stable identifiers.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
     const sync = () => setDayMode(document.body.classList.contains('theme-day'));
