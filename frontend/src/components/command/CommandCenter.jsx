@@ -7,7 +7,7 @@ import { MarketingPanel } from './MarketingPanel';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ShieldCheck, Users, Gift, Award, Bug, RefreshCw, Download, X, Activity, BarChart3, Wallet, Megaphone } from 'lucide-react';
-import { apiUrl } from '../../lib/api';
+import { apiUrl, errorText } from '../../lib/api';
 import { shortAddress, formatUSD } from '../../lib/dexscreener';
 import { AirdropStudio, Snapshots } from './AirdropStudio';
 import { NumbersPanel } from './NumbersPanel';
@@ -43,8 +43,8 @@ export function CommandCenter({ address, signMessage, onClose }) {
   const call = useCallback(async (path, opts = {}) => {
     const res = await fetch(apiUrl(`/api/reputation${path}`), { ...opts, headers: { 'Content-Type': 'application/json', 'x-admin-address': address, 'x-admin-ts': String(session?.ts || ''), 'x-admin-sig': session?.sig || '', ...(opts.headers || {}) } });
     const body = await res.json().catch(() => ({}));
-    if (res.status === 401) { localStorage.removeItem(SESSION_KEY); setSession(null); toast.error(body.detail || 'Command center session ended — sign in again.'); }
-    if (!res.ok) throw new Error(body.detail || `Request failed (${res.status})`);
+    if (res.status === 401) { localStorage.removeItem(SESSION_KEY); setSession(null); toast.error(body.detail ? errorText(body, 401) : 'Command center session ended — sign in again.'); }
+    if (!res.ok) throw new Error(errorText(body, res.status));
     return body;
   }, [address, session]);
 

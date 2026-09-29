@@ -37,3 +37,9 @@ def test_old_fee_free_list_and_full_discounts_no_longer_zero_the_fee(fee):
 
 def test_coin_to_coin_is_refused_instead_of_free(fee):
     assert 'SOL or USDC' in fee(MEME, MEME2)['blocked']
+
+
+def test_saving_settings_with_nulls_or_big_numbers_is_cleaned_not_rejected():
+    m = rs.FeeCfg(platformFeeBps='2500', engine=None, ultraFallback=None, feeAccountSol=None, priorityMaxLamports=None,
+                  referralAccount=None, tierDiscountPct=None, promo=None, lifiIntegrator=None, lifiFeeBps='250')
+    assert (m.platformFeeBps, m.engine, m.referralAccount, m.priorityMaxLamports, m.lifiFeeBps) == (rs.SWAP_MAX_BPS, 'swap', '', 200000, 250)

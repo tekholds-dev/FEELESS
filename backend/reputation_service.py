@@ -26,7 +26,7 @@ from fastapi.responses import JSONResponse
 from urllib.parse import quote
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 DATA_DIR = Path(__file__).parent / 'data'
 DATA_DIR.mkdir(exist_ok=True)
@@ -3572,6 +3572,44 @@ class FeeCfg(BaseModel):
     promo: dict = {}
     lifiIntegrator: str = ''
     lifiFeeBps: int = Field(0, ge=0, le=LIFI_MAX_BPS)
+
+    # Settings saved by older builds can come back as null or out of range: clean them instead of
+    # rejecting the whole save.
+    @field_validator('engine', mode='before')
+    @classmethod
+    def _engine(cls, v):
+        return v if v in ('swap', 'ultra') else 'swap'
+
+    @field_validator('feeAccountSol', 'feeAccountUsdc', 'referralAccount', 'lifiIntegrator', mode='before')
+    @classmethod
+    def _text(cls, v):
+        return '' if v is None else str(v).strip()
+
+    @field_validator('tierDiscountPct', 'promo', mode='before')
+    @classmethod
+    def _obj(cls, v):
+        return v if isinstance(v, dict) else {}
+
+    @field_validator('zeroFeeMints', mode='before')
+    @classmethod
+    def _list(cls, v):
+        return v if isinstance(v, list) else []
+
+    @field_validator('platformFeeBps', 'priorityMaxLamports', 'lifiFeeBps', mode='before')
+    @classmethod
+    def _num(cls, v, info):
+        top = {'platformFeeBps': SWAP_MAX_BPS, 'priorityMaxLamports': PRIORITY_MAX_LAMPORTS, 'lifiFeeBps': LIFI_MAX_BPS}[info.field_name]
+        if v in (None, '') and info.field_name == 'priorityMaxLamports':
+            return 200000
+        try:
+            return max(0, min(top, int(float(v or 0))))
+        except (TypeError, ValueError):
+            return 0
+
+    @field_validator('ultraFallback', mode='before')
+    @classmethod
+    def _bool(cls, v):
+        return bool(v)
 
 
 @app.get('/api/reputation/admin/fees')
