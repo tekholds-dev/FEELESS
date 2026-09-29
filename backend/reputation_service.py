@@ -3505,13 +3505,15 @@ def _engine_cfg(cfg):
             'priorityMaxLamports': max(0, min(PRIORITY_MAX_LAMPORTS, int(cfg.get('priorityMaxLamports') or 0)))}
 
 
+def _swap_fee_accounts(cfg, input_mint, output_mint):
+    """FEELESS token accounts that can take this swap's fee (their mint must be one side of the trade),
+    pay side first, then receive side. Jupiter is tried with each in order."""
+    by_mint = {WSOL_MINT: cfg.get('feeAccountSol'), USDC_MINT: cfg.get('feeAccountUsdc')}
+    return [by_mint[m] for m in (input_mint, output_mint) if by_mint.get(m)]
+
+
 def _swap_fee_account(cfg, input_mint, output_mint):
-    """The FEELESS token account that can take this swap's fee: its mint must be one side of the trade.
-    SOL first (most meme trades), then USDC."""
-    for mint, acct in ((WSOL_MINT, cfg.get('feeAccountSol')), (USDC_MINT, cfg.get('feeAccountUsdc'))):
-        if acct and mint in (input_mint, output_mint):
-            return acct
-    return None
+    return (_swap_fee_accounts(cfg, input_mint, output_mint) or [None])[0]
 
 
 async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''):
@@ -3544,7 +3546,8 @@ async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''
     # Ultra can't charge below 0.5%: round a discounted fee up to its minimum instead of waiving it.
     ultra = max(JUP_MIN_BPS, min(bps, JUP_MAX_BPS)) if cfg['referralAccount'] and bps else 0
     out = {'bps': bps, 'ultraBps': ultra, 'baseBps': base, 'notes': notes,
-           'referralAccount': cfg['referralAccount'] if ultra else None, 'feeAccount': fee_account if bps else None, **eng}
+           'referralAccount': cfg['referralAccount'] if ultra else None, 'feeAccount': fee_account if bps else None,
+           'feeAccounts': _swap_fee_accounts(cfg, input_mint, output_mint) if bps else [], **eng}
     if bps and not fee_account and eng['engine'] == 'swap':
         # The fee is collected in SOL or USDC. A coin-to-coin trade has neither side, so it can't pay: refuse it
         # rather than let it through free.
@@ -3555,7 +3558,7 @@ async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''
 @app.get('/api/reputation/fees/quote')
 async def fee_quote(wallet: str = '', inputMint: str = '', outputMint: str = ''):
     out = await effective_fee(wallet, inputMint, outputMint)
-    return {k: v for k, v in out.items() if k not in ('referralAccount', 'feeAccount')} | {'active': bool(out['bps'])}
+    return {k: v for k, v in out.items() if k not in ('referralAccount', 'feeAccount', 'feeAccounts')} | {'active': bool(out['bps'])}
 
 
 @app.get('/api/reputation/internal/fees')
@@ -3789,6 +3792,21 @@ async def following_calls(address: str, hours: int = Query(24, ge=1, le=168)):
     return {'calls': calls[:30], 'following': len(following)}
 
 
+async def _fee_wallet_owner(http, cfg):
+    """The wallet that owns the SOL/USDC fee account (read on-chain), used as the self-test's trader."""
+    for acct in (cfg.get('feeAccountSol'), cfg.get('feeAccountUsdc')):
+        if not acct:
+            continue
+        try:
+            info = await _rpc(http, 'getAccountInfo', [acct, {'encoding': 'jsonParsed'}])
+            owner = (((((info or {}).get('value') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}).get('owner')
+            if owner:
+                return owner
+        except Exception:
+            continue
+    return None
+
+
 def _quote_fee_bps(q):
     """The fee Jupiter says it will take on this quote: Swap API reports platformFee.feeBps, Ultra reports feeBps."""
     return int((q.get('platformFee') or {}).get('feeBps') or q.get('feeBps') or 0)
@@ -3813,13 +3831,16 @@ async def admin_fee_selftest(request: Request):
         cases = [('SOL → USDC', WSOL, usdc, '0.01'), ('SOL → top Pump coin', WSOL, pump, '0.01'), ('Top Pump coin → SOL (sell)', pump, WSOL, '1000')]
         if mints.get('fee'):
             cases += [('SOL → $FEE (free buy)', WSOL, mints['fee'], '0.01'), ('$FEE → SOL (sell pays fee)', mints['fee'], WSOL, '10000')]
+        # Build the real transaction (not just a price) so Jupiter validates the fee account exactly as it does
+        # for traders. The fee wallet is the test signer; nothing is signed or sent.
+        test_wallet = await _fee_wallet_owner(http, cfg)
         for label, a, b, amount in cases:
             if not a or not b:
                 checks.append({'label': label, 'ok': False, 'detail': 'No live Pump coin found to test with.'})
                 continue
             expected = int((await effective_fee('', a, b))['bps'])
             try:
-                r = await http.post('http://127.0.0.1:5001/api/trading/quote', json={'input_mint': a, 'output_mint': b, 'amount': amount, 'slippage_bps': 50})
+                r = await http.post('http://127.0.0.1:5001/api/trading/quote', json={'input_mint': a, 'output_mint': b, 'amount': amount, 'slippage_bps': 50, 'wallet': test_wallet})
                 d = r.json()
             except Exception as exc:
                 checks.append({'label': label, 'ok': False, 'detail': f'Swap server unreachable: {exc}'})

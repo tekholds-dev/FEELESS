@@ -289,7 +289,8 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
         // USD everywhere: pay / get values, FEELESS fee, chain fees, total cost.
         const usd = v => (Number.isFinite(v) ? `$${v < 0.01 && v > 0 ? v.toFixed(4) : v.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—');
         const inUsd = Number(quote?.inUsdValue);
-        const outUsd = Number(quote?.outUsdValue);
+        // Swap API quotes carry the input value only: estimate what you get as input − price impact − FEELESS fee.
+        const outUsd = Number(quote?.outUsdValue) || (Number(quote?.inUsdValue) > 0 ? Number(quote.inUsdValue) * (1 - Math.abs(Number(quote.priceImpactPct || 0))) * (1 - Number(order?.feeless_fee?.bps || 0) / 10000) : NaN);
         // SOL's USD price straight from this quote (Jupiter prices both legs) — no extra request.
         const outN = Number(units(quote?.outAmount, order?.output_metadata?.decimals));
         const solUsd = inputMint === SOL && Number(amount) > 0 && inUsd ? inUsd / Number(amount) : outputMint === SOL && outN > 0 && outUsd ? outUsd / outN : null;

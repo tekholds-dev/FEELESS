@@ -65,6 +65,8 @@ def engine():
         if path == '/swap/v1/quote':
             return {'outAmount': '1000', 'otherAmountThreshold': '990', 'swapUsdValue': '1.2'}
         if path == '/swap/v1/swap':
+            if json.get('feeAccount') in state.get('rejected', ()):
+                raise HTTPException(400, 'Invalid feeAccount for this route.')
             return {'swapTransaction': 'VFg=', 'lastValidBlockHeight': 100, 'prioritizationFeeLamports': 150000}
         if path == '/swap/v2/order':
             return {'outAmount': '999', 'transaction': 'VUw=', 'requestId': 'r'}
@@ -129,3 +131,28 @@ def test_swap_engine_broadcasts_itself_and_refuses_replays(engine):
     assert not any(p == '/swap/v2/execute' for p, _, _ in state['calls'])
     again = client.post('/api/trading/execute', json={'order_id': order_id, 'signed_transaction': signed}).json()
     assert again['detail'].startswith('Already processed')
+
+
+def test_fee_is_locked_a_rejected_fee_account_never_lets_the_trade_through_free(engine):
+    client, state, _ = engine
+    state['rejected'] = {'FeeAcct'}
+    res = quote(client)
+    assert res.status_code == 503 and 'fee account rejected' in res.json()['detail']
+    assert not any(p == '/swap/v1/swap' and 'feeAccount' not in (j or {}) for p, _, j in state['calls'])
+
+
+def test_second_fee_account_is_tried_before_giving_up(engine):
+    client, state, _ = engine
+    state['fee']['feeAccounts'] = ['FeeAcct', 'UsdcAcct']
+    state['rejected'] = {'FeeAcct'}
+    body = quote(client).json()
+    assert body['feeless_fee']['bps'] == 1500
+    assert [j['feeAccount'] for p, _, j in state['calls'] if p == '/swap/v1/swap'] == ['FeeAcct', 'UsdcAcct']
+
+
+def test_rejected_fee_goes_to_ultra_only_when_the_fallback_is_on(engine):
+    client, state, _ = engine
+    state['rejected'] = {'FeeAcct'}
+    state['fee']['ultraFallback'] = True
+    body = quote(client).json()
+    assert body['engine'] == 'ultra' and body['feeless_fee']['bps'] == 255

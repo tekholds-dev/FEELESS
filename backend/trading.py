@@ -167,8 +167,11 @@ class TradingService:
 
     async def swap_order(self, params, fee, wallet):
         """Jupiter Swap API: quote with the FEELESS platform fee, then build the wallet's transaction.
-        The fee is paid into the FEELESS token account for SOL or USDC (whichever side of the trade it is)."""
-        bps = int(fee.get('bps') or 0) if fee.get('feeAccount') else 0
+        The fee is LOCKED: it goes into a FEELESS fee account (SOL or USDC side of the trade). If Jupiter rejects
+        every fee account for this route, the trade is refused (or handed to the Ultra fallback when that is on);
+        it never silently goes through without the fee."""
+        accounts = fee.get('feeAccounts') or ([fee['feeAccount']] if fee.get('feeAccount') else [])
+        bps = int(fee.get('bps') or 0) if accounts else 0
         query = {k: v for k, v in params.items() if k != 'taker'}
         if bps:
             query['platformFeeBps'] = bps
@@ -178,23 +181,23 @@ class TradingService:
         built = {}
         if wallet:
             req = {'quoteResponse': quote, 'userPublicKey': wallet, 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True}
-            if bps:
-                req['feeAccount'] = fee['feeAccount']
             cap = int(fee.get('priorityMaxLamports') or 0)
             if cap:
                 req['prioritizationFeeLamports'] = {'priorityLevelWithMaxLamports': {'maxLamports': cap, 'priorityLevel': 'high'}}
-            try:
+            if not bps:
                 built = await self.jupiter('POST', '/swap/v1/swap', json=req)
-            except HTTPException:
-                if not bps:
-                    raise
-                # A misconfigured fee account must never block a trade: rebuild without the fee and flag it.
-                quote = await self.jupiter('GET', '/swap/v1/quote', params={k: v for k, v in query.items() if k != 'platformFeeBps'})
-                req.pop('feeAccount', None); req['quoteResponse'] = quote
-                built = await self.jupiter('POST', '/swap/v1/swap', json=req)
-                bps = 0
-                fee = {**fee, 'fallback': 'FEELESS fee skipped: the fee account was rejected for this route.'}
-                fee['notes'] = [fee['fallback']]
+            else:
+                errors = []
+                for acct in accounts:
+                    try:
+                        built = await self.jupiter('POST', '/swap/v1/swap', json={**req, 'feeAccount': acct})
+                        fee = {**fee, 'feeAccount': acct}
+                        break
+                    except HTTPException as exc:
+                        errors.append(f'{acct[:4]}…: {exc.detail}')
+                else:
+                    raise HTTPException(503, 'FEELESS fee account rejected by Jupiter, so the trade was not sent '
+                                             f'({"; ".join(errors)[:220]}). Run the fee self-test in Command Center.')
             if not built.get('swapTransaction'):
                 raise HTTPException(503, 'Jupiter did not return a transaction.')
         usd = quote.get('swapUsdValue')
