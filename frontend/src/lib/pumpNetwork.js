@@ -56,7 +56,7 @@ export function buyPressure(flow, pair) {
 }
 
 export const TRADE_STREAM_NOTE = {
-  'no-key': 'Live trade tape needs a PumpPortal API key on the server.',
+  'no-key': 'Free mode · pressure from DexScreener trade counts.',
   'invalid-key': 'PumpPortal rejected the server API key. Live trade tape is off.',
   unfunded: 'PumpPortal wallet needs at least 0.02 SOL for live trades.',
   capped: 'Daily trade-data budget reached. Tape resumes tomorrow.',
