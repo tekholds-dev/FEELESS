@@ -152,6 +152,11 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
     }
   }, [selectedPairAsset?.mint, feeAsset?.mint, options, outputMint]);
   const reverse = () => { setInputMint(outputMint); setOutputMint(inputMint); };
+  // Tell the page which coin is being traded (the non-SOL side) so context panels like the Edge score follow it.
+  useEffect(() => {
+    const target = outputMint !== SOL ? outputMint : inputMint !== SOL ? inputMint : null;
+    window.dispatchEvent(new CustomEvent('feeless:swap-target', { detail: { mint: target } }));
+  }, [inputMint, outputMint]);
   const outputIsPair = pair && outputAsset.mint === selectedPairAsset?.mint;
   const impactPct = quote?.priceImpactPct != null ? Number(quote.priceImpactPct) : quote?.priceImpact != null ? Number(quote.priceImpact) : null;
   const impactTier = impactPct == null ? '' : Math.abs(impactPct) >= 5 ? 'impact-high' : Math.abs(impactPct) >= 1 ? 'impact-medium' : 'impact-low';

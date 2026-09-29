@@ -64,6 +64,7 @@ export const PumpRadarCard = ({ pair, onSelect, rank, onLogoExhausted, callCount
      <div className="pump-radar-card-top"><span className="pump-radar-rank">{String(rank).padStart(2, '0')}</span><BoltSignal pair={pair} rank={rank} callCount={callCount} size={14} /><TokenAvatar pair={pair} size={38} maxAttempts={onLogoExhausted ? 3 : undefined} onExhausted={onLogoExhausted} /><span className="pump-radar-token"><b>{pair.baseToken?.symbol || 'Unknown'}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId || 'chain unavailable'} · {pair.dexId || 'venue unavailable'}</small></span><span className="pump-radar-alive" title="Live price stream and provider list refresh"><i />LIVE</span><span className="pump-radar-age">{formatAge(pair.pairCreatedAt)}</span></div>
     <div className="pump-radar-price-row"><span className="pump-radar-value-block"><small>PRICE</small><strong><LivePrice pair={pair} precise /></strong></span><LiveChange24 pair={pair} id={`pump-radar-change-${pairKey(pair)}`} /><span className={change >= 0 ? 'positive' : 'negative'}><Activity size={11} />{signal}</span></div>
     <div className="pump-radar-reputation-row"><ReputationBadge pair={pair} /></div>
+    {(pair.quality?.reasons?.length > 0 || pair.launchpadLabel) && <div className="pump-radar-why" data-testid={`pump-radar-why-${pairKey(pair)}`}>{pair.launchpadLabel && <em>{pair.launchpadLabel}</em>}{(pair.quality?.reasons || []).map(r => <span key={r}>{r}</span>)}</div>}
     <div className="pump-radar-metrics"><span><small>LIQUIDITY</small><FlashValue raw={pair.liquidity?.usd}><b>{formatUSD(pair.liquidity?.usd)}</b></FlashValue></span><span><small>MARKET CAP · LIVE</small><b><LiveMarketCap pair={pair} /></b></span><span><small>24H VOL</small><FlashValue raw={pair.volume?.h24}><b>{formatUSD(pair.volume?.h24)}</b></FlashValue></span></div>
     {pair.graduation && <div className="pump-radar-migration" data-testid={`pump-radar-migration-${pairKey(pair)}`}><small>MIGRATION POOL</small>{migrationPool ? <a href={`https://solscan.io/account/${encodeURIComponent(migrationPool)}`} target="_blank" rel="noreferrer" aria-label={`Open provider-reported migration pool ${migrationPool}`} onClick={event => event.stopPropagation()}><span>Provider-reported destination</span><code>{formatPoolAddress(migrationPool)}</code><ExternalLink size={11} /></a> : <span className="pump-radar-migration-unavailable" data-testid={`pump-radar-migration-unavailable-${pairKey(pair)}`}>Unavailable from Pump.fun</span>}</div>}
     <span className="pump-radar-card-foot"><span><Droplets size={11} />Provider snapshot</span><ArrowUpRight size={13} /></span>
@@ -109,15 +110,19 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
   }, [graduationMints]);
   const graduationFeed = useMarket(stableGraduationMints ? `/graduations?mints=${encodeURIComponent(stableGraduationMints)}` : null, 30000);
   const graduationByMint = useMemo(() => new Map((graduationFeed.data?.graduations || []).map(item => [item.mint, item])), [graduationFeed.data]);
+  // Graduated = launchpad completion flag from the ranked board, confirmed/extended by Pump.fun's per-coin status when available.
   const graduated = useMemo(() => allObserved
     .map(pair => {
       const graduation = graduationByMint.get(pair.baseToken?.address);
-      return graduation?.status === 'graduated' ? { ...pair, graduation } : null;
+      if (graduation?.status === 'graduated') return { ...pair, graduation };
+      return pair.graduated === true ? pair : null;
     })
     .filter(Boolean), [allObserved, graduationByMint]);
   const gainers = [...trendingPairs].filter(pair => Number.isFinite(Number(pair.priceChange?.h24))).sort((a, b) => Number(b.priceChange.h24) - Number(a.priceChange.h24));
   const stagePairs = { new: newPairs, graduated, trending: trendingPairs, gainers, watchlist: watchlist.filter(matches) }[stage] || [];
-  const feed = stage === 'graduated' ? graduationFeed : stage === 'new' ? newFeed : trendingFeed;
+  // Pump.fun's completion status is the primary source; the board's completion flags cover it when that lookup is throttled.
+  const graduationConfirmed = graduated.some(pair => pair.graduation);
+  const feed = stage === 'graduated' ? (graduationConfirmed || !graduated.length ? graduationFeed : trendingFeed) : stage === 'new' ? newFeed : trendingFeed;
   const providerError = feed.error || feed.data?.error;
   const liveBacked = live.size > 0 && (feed.data?.pairs?.length || 0) > 0;
   const fallbackReason = feed.data?.fallback_reason || feed.data?.fallbackReason;

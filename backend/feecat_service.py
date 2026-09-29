@@ -633,6 +633,7 @@ def _migrate(store):
     leader = store['cats'][LEADER_ID]
     leader['name'], leader['handle'] = 'Fee', 'fee'
     leader['title'] = 'The Leader of the FEELESS Cats'
+    leader['strategyLabel'] = 'Trench Lord'
 
 
 async def _engine_loop():

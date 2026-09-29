@@ -3553,3 +3553,7 @@ body.theme-day .explain-tip{background:#fff;color:#173b2b;border-color:#07784f44
 .fee-howto{margin:6px 0 0;padding-left:20px;display:grid;gap:7px;font-size:12.5px;line-height:1.55;color:var(--text,#e8f3ec)}.fee-howto b{color:var(--mint)}.fee-howto i{font-style:normal;text-decoration:underline;text-decoration-color:#00e9a066}
 .fee-rule-help{display:block;font-size:10.5px;line-height:1.4;color:var(--muted);margin:-2px 0 2px}
 body.theme-day .fee-howto{color:#10231a}
+.pump-radar-why{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 2px}.pump-radar-why span,.pump-radar-why em{padding:2px 7px;border-radius:999px;font:600 10px/1.5 'JetBrains Mono',monospace;font-style:normal;background:#00e9a012;border:1px solid #00e9a033;color:#9ff5d2}.pump-radar-why em{background:#ffffff0c;border-color:#ffffff1f;color:var(--muted)}
+body.theme-day .pump-radar-why span{background:#e6fbf2;color:#0b6b4a}
+.trenches-show-more{display:block;margin:12px auto 0;padding:8px 18px;border-radius:999px;border:1px solid #00e9a044;background:#00e9a00f;color:var(--mint);font-weight:700;font-size:12px;cursor:pointer}.trenches-show-more:hover{background:#00e9a022}
+section.td-edge{margin-top:14px;padding:14px;border:1px solid #ffffff14;border-radius:14px;background:#ffffff05}section.td-edge>h3{margin:0 0 10px;font-size:13px;color:var(--mint);letter-spacing:.02em}

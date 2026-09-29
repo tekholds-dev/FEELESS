@@ -4,6 +4,7 @@ import { ArrowLeftRight, Fuel, Repeat, ShieldCheck } from 'lucide-react';
 import { useWallet } from '../../hooks/useWallet';
 import { apiUrl } from '../../lib/api';
 import { EdgeScore } from '../terminal/EdgeScore';
+import { useMarket } from '../../hooks/useMarket';
 
 // The trade desk: Swap (the existing Jupiter/LI.FI flows), Bridge (any EVM chain -> any EVM chain)
 // and Get Gas (turn what you hold on one chain into gas on another). Non-custodial throughout:
@@ -152,10 +153,21 @@ function StatusStrip() {
 
 // Simple trade page: one swap box, optional Edge score, a little context. Nothing else.
 export function SimpleTrade({ swap, pair }) {
+  // The Edge score follows whatever coin is in the swap box, not just the page's default coin.
+  const [target, setTarget] = useState(null);
+  useEffect(() => {
+    const onTarget = e => setTarget(e.detail?.mint || null);
+    window.addEventListener('feeless:swap-target', onTarget);
+    return () => window.removeEventListener('feeless:swap-target', onTarget);
+  }, []);
+  const needLookup = target && target !== pair?.baseToken?.address;
+  const { data } = useMarket(needLookup ? `/search?q=${encodeURIComponent(target)}` : null, 60000);
+  const found = needLookup ? (data?.pairs || []).filter(p => p.baseToken?.address === target).sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0] : null;
+  const edgePair = needLookup ? found : pair;
   return <div className="trade-simple" data-testid="trade-simple">
     <TradeDesk swap={swap} />
     <StatusStrip />
-    {pair && <details className="td-edge"><summary>FEELESS Edge score for ${pair.baseToken?.symbol || 'this coin'}</summary><EdgeScore pair={pair} /></details>}
+    {edgePair && <section className="td-edge" data-testid="trade-edge"><h3>FEELESS Edge score · ${edgePair.baseToken?.symbol || 'this coin'}</h3><EdgeScore pair={edgePair} /></section>}
     <div className="td-info">
       <div><b>Swap</b><span>Best route across Solana DEXs (Jupiter) or any EVM chain (LI.FI). You see the exact output, price impact and fees before signing.</span></div>
       <div><b>Bridge</b><span>Move native coins or USDC between 12 EVM chains. Most routes land in 1–5 minutes.</span></div>

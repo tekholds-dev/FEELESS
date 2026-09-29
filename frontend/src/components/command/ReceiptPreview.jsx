@@ -15,7 +15,7 @@ export function ReceiptPreview({ order, amount, inputAsset, outputAsset, wallet 
       <div><dt>You pay</dt><dd>{amount} {inputAsset.symbol}</dd></div>
       <div><dt>You get ≈</dt><dd>{units(q.outAmount, dec)} {outputAsset.symbol}</dd></div>
       <div><dt>Minimum</dt><dd>{units(q.otherAmountThreshold, dec)} {outputAsset.symbol}</dd></div>
-      <div><dt>Price impact</dt><dd>{(Number(q.priceImpactPct || 0) * 100).toFixed(2)}%</dd></div>
+      <div><dt>Price impact</dt><dd>{Math.abs(Number(q.priceImpactPct || 0) * 100).toFixed(2)}%</dd></div>
       <div><dt>Chain fees</dt><dd>{fees.length ? `${feeSol.toFixed(6)} SOL` : '—'}</dd></div>
       <div><dt>Route</dt><dd>Jupiter · Solana</dd></div>
     </dl>
