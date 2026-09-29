@@ -10,6 +10,7 @@ import { useMarket } from '../hooks/useMarket';
 import { ChartMetaButtons, useChartMarkers } from './terminal/ChartMeta';
 import { PriceAlertButton } from './terminal/PriceAlertButton';
 import { DipRipTool } from './terminal/DipRipTool';
+import { DegenWeather } from './terminal/DegenWeather';
 
 const ROOM_LAYOUT_KEY = 'feeless-room-layout';
 const ROOM_EXPANDED_KEY = 'feeless-room-expanded';
@@ -119,6 +120,7 @@ export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose })
             <div className="eco-chart-head" onPointerDown={drag} title={chartBig ? 'Drag to move · resize from the corner' : undefined}><b>${chartPair.baseToken?.symbol}</b><span>{chartPair.baseToken?.name}</span><ChartMetaButtons pair={chartPair} calls={showCalls} setCalls={setShowCalls} fee={showFee} setFee={setShowFee} count={{ calls: markers.filter(m => m.color === '#e9bd65').length, fee: markers.filter(m => m.text?.startsWith('Fee')).length }} /><PriceAlertButton pair={chartPair} /><div className="timeframes">{['1m', '5m', '15m', '1h', '4h', '1d'].map(t => <button key={t} type="button" className={chartIv === t ? 'active' : ''} onClick={() => setChartIv(t)}>{t.toUpperCase()}</button>)}</div><a href={`/terminal/chat?chain=${chartPair.chainId}&pair=${chartPair.pairAddress}&room=bulls`} target="_blank" rel="noreferrer">Profile ↗</a><button type="button" className="eco-chart-x" aria-label={chartBig ? 'Shrink chart' : 'Expand chart'} title={chartBig ? 'Shrink (Esc)' : 'Expand'} onClick={() => { setChartBig(b => !b); setTimeout(() => window.dispatchEvent(new Event('resize')), 60); }}>{chartBig ? '⤡' : '⤢'}</button><button type="button" className="eco-chart-x" aria-label="Close chart" onClick={() => { setChartPair(null); setChartBig(false); }}><X size={14} /></button></div>
             <div className="eco-chart-body">{chartBig && <aside className="eco-chart-chat" data-testid="eco-chart-chat"><EcosystemChat key={chartPair.pairAddress} compact room={`coin-${chartPair.chainId}-${chartPair.pairAddress}-trenches`} ecosystem={{ id: `coin-${chartPair.pairAddress}`, name: `$${chartPair.baseToken?.symbol || ""}` }} /></aside>}<React.Suspense fallback={<div className="chart-message"><span className="loader" />Loading chart…</div>}><div className="chart-with-trade"><div className="chart-fullscreen-wrap"><PriceChart key={`${chartPair.pairAddress}-${chartIv}`} pair={chartPair} interval={chartIv} showVolume feeLive={showFee} markers={markers} /></div><div className="eco-chart-side"><QuickTrade pair={chartPair} /><DipRipTool pair={chartPair} /></div></div></React.Suspense></div>
           </div>}
+          {(ecosystem?.chainId || 'solana') === 'solana' && <DegenWeather compact scope={['pump', 'bonk', 'raydium'].includes(ecosystem?.id) ? ecosystem.id : 'launchpads'} />}
           <div className="activity-pulse" data-testid="eco-activity-pulse">
             {pulse.map(([label, value, sub]) => <div className="pulse-pill" key={label}>
               <small><i />{label}</small>

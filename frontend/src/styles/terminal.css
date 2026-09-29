@@ -3623,3 +3623,13 @@ body.theme-day .jup-card{background:#fff!important}body.theme-day .jup-panel{bac
 @media (max-width:520px){.swap-desk .jup-amount{font-size:23px}.swap-desk .jup-out{font-size:19px}.jup-row .tkp-btn{max-width:140px}}
 .jup-card input.jup-amount{background:transparent!important;box-shadow:none!important;border:0!important;height:auto!important;padding:0!important}
 .jup-card .jup-flip{display:grid!important;align-self:center!important;justify-self:center!important;margin:-12px auto!important;position:relative;left:auto;right:auto}
+
+/* ---- Degen Weather (live, funny, honest) ---- */
+.degen-weather{margin:12px 0;padding:14px 16px;border-radius:16px;border:1px solid var(--royal-edge,rgba(18,192,122,.22));background:radial-gradient(120% 140% at 0% 0%,rgba(18,192,122,.14),transparent 55%),linear-gradient(160deg,#0b1512,#08100d);animation:royalIn .4s ease both}
+.dw-main{display:flex;gap:14px;align-items:center}.dw-icon{font-size:34px;line-height:1;filter:drop-shadow(0 4px 10px rgba(0,0,0,.4));animation:dwFloat 4s ease-in-out infinite}
+@keyframes dwFloat{50%{transform:translateY(-3px)}}
+.dw-main small{display:block;font:700 9.5px 'JetBrains Mono',monospace;letter-spacing:.1em;color:var(--royal-hi,#3ee39c)}.dw-main b{display:block;font-size:15px;margin:3px 0}.dw-main em{font-style:normal;font-size:11px;color:var(--muted)}
+.dw-says{margin:10px 0 0;padding-top:10px;border-top:1px dashed #ffffff14;font-size:12px;color:#cfe4d8;animation:royalIn .45s ease both}.dw-says span{display:inline-block;margin-right:8px;font:700 10px 'JetBrains Mono',monospace;color:var(--gold,#e9bd65)}
+.degen-weather.is-compact{padding:11px 13px}.degen-weather.is-compact .dw-icon{font-size:26px}.degen-weather.is-compact .dw-main b{font-size:13px}
+body.theme-day .degen-weather{background:#f2fbf6}body.theme-day .dw-says{color:#23473a}
+@media (prefers-reduced-motion: reduce){.dw-icon{animation:none}}
