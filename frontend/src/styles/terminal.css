@@ -3789,3 +3789,14 @@ body.theme-day .cc-block,body.theme-day .cc-tabs,body.theme-day .cc-status-strip
 .unit-input em{position:absolute;right:8px;top:50%;transform:translateY(-50%);font:700 11px 'JetBrains Mono',monospace;font-style:normal;color:#02140c;background:#00ffa3;border-radius:6px;padding:3px 7px;pointer-events:none;white-space:nowrap}
 .cc-mini-grid .unit-input input{padding-right:58px!important}
 body.theme-day .unit-input em{color:#fff;background:#0a8a5a}
+.unit-chip{position:absolute;right:8px;top:50%;transform:translateY(-50%);font:700 11px 'JetBrains Mono',monospace;color:#02140c;background:#00ffa3;border:0;border-radius:6px;padding:3px 7px;cursor:pointer;white-space:nowrap;transition:filter .15s,transform .15s}
+.unit-chip:hover{filter:brightness(1.1);transform:translateY(-50%) scale(1.04)}
+.trade-preview{margin:12px 0;padding:12px;border:1px solid rgba(0,255,163,.25);border-radius:12px;background:rgba(0,255,163,.04);display:grid;gap:10px}
+.tp-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.tp-head b{font:700 10px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.08em;color:#8fb09c;margin-right:4px}
+.tp-head button{font:600 11px 'JetBrains Mono',monospace;padding:4px 8px;border-radius:7px;border:1px solid rgba(0,255,163,.25);background:transparent;color:#9fc3ad;cursor:pointer}
+.tp-head button.active{background:#00ffa3;color:#02140c;border-color:#00ffa3}
+.tp-rows{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.tp-rows span{display:grid;gap:2px;padding:8px 10px;border-radius:10px;background:#030605;border:1px solid rgba(255,255,255,.06)}
+.tp-rows small{font:10px 'JetBrains Mono',monospace;color:#6f8f7c;text-transform:uppercase}.tp-rows b{font:700 15px 'JetBrains Mono',monospace;color:#eafff3}.tp-rows em{font-style:normal;font-size:10.5px;color:#8fb09c}
+.tp-rows .you{border-color:rgba(0,255,163,.45)}.tp-rows .you b{color:#00ffa3}.tp-rows .total{border-color:rgba(245,197,66,.35)}.tp-rows .total b{color:var(--gold)}
+body.theme-day .tp-rows span{background:#fff}body.theme-day .tp-rows b{color:#0a1f14}
