@@ -112,7 +112,7 @@ export function EvmSwap({ chain, onNetwork }) {
       <div className="jup-row">{to ? <EvmTokenPicker chain={chain} value={to} onChange={t => setTo(t)} onNetwork={onNetwork} testId="evm-swap-to" /> : <span className="cc-empty">Loading…</span>}
         <strong className="jup-out" data-testid="evm-swap-out">{out != null ? out.toLocaleString(undefined, { maximumFractionDigits: 6 }) : busy ? '…' : '0'}</strong></div></div>
     {quote && <div className="jup-rate"><span>Min received <b>{min.toLocaleString(undefined, { maximumFractionDigits: 6 })} {quote.action.toToken.symbol}</b></span><span>Gas ≈ ${gasUsd.toFixed(2)}</span><span>via {quote.toolDetails?.name || quote.tool}</span></div>}
-    {quote && <p className="evm-safety"><ShieldCheck size={12} />Route verified: LI.FI contract on {EVM_CHAINS[chain]?.chainName}{quote.feeless?.feeBps ? ` · FEELESS fee ${(quote.feeless.feeBps / 100).toFixed(2)}%` : ''}{note ? ` · ${note}` : ''}</p>}
+    {quote && <p className="evm-safety"><ShieldCheck size={12} />Route verified: LI.FI contract on {EVM_CHAINS[chain]?.chainName}{quote.feeless?.feeBps ? ` · FEELESS fee ${(quote.feeless.feeBps / 100).toFixed(2)}% (+ LI.FI 0.25%)` : ''}{note ? ` · ${note}` : ''}</p>}
     {err && <p className="swap-message" role="alert">{err}</p>}
     <div className="swap-buttons jup-cta">{!evm
       ? <button type="button" className="btn-primary" onClick={() => (switchTo ? switchTo(chain) : connect('evm')).catch(e => setErr(e.message))}><Wallet size={15} />Connect EVM wallet</button>

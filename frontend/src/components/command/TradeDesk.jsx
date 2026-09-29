@@ -98,9 +98,9 @@ function FeeExplainer() {
   const pct = f ? (f.platformFeeBps / 100).toFixed(2) : null;
   const best = f ? Math.max(...Object.values(f.tierDiscountPct || { 0: 0 })) : 0;
   return <div className="td-fees" data-testid="td-fees">
-    <span className="td-fee good" title="Buying $FEE or its coins never carries a FEELESS fee."><b>0%</b>into $FEE</span>
+    <span className="td-fee good" title="Buying $FEE, FEECAT or rFEE with SOL, USDC or USDT is free. Selling them pays the platform fee."><b>0%</b>buying $FEE · FEECAT · rFEE</span>
     <span className="td-fee" title={f && Number(pct) > 0 ? `Charged on eligible Solana swaps, reduced up to ${best}% by holder tier. The exact fee is shown on every quote before you sign.` : 'No FEELESS fee is active right now.'}><b>{pct == null ? '…' : Number(pct) > 0 ? `≤${pct}%` : '0%'}</b>other Solana swaps</span>
-    <span className="td-fee" title={f?.lifi ? 'EVM swaps, bridges and gas carry the FEELESS fee through LI.FI; it is itemized on every quote before you sign.' : 'Bridge and gas routes have 0% FEELESS platform fee; provider and network fees are itemized before signing.'}><ShieldCheck size={14} /><b>{f?.lifi ? `${(f.lifi.fee * 100).toFixed(2)}%` : '0%'}</b>bridge &amp; gas</span>
+    <span className="td-fee" title={f?.lifi ? 'EVM swaps, bridges and gas carry the FEELESS fee through LI.FI (LI.FI adds its own 0.25%); shown on every quote before you sign.' : 'No FEELESS fee on EVM routes yet; provider and network fees are itemized before signing.'}><ShieldCheck size={14} /><b>{f?.lifi ? `${(f.lifi.fee * 100).toFixed(2)}%` : '0%'}</b>bridge &amp; gas</span>
   </div>;
 }
 

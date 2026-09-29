@@ -3472,11 +3472,11 @@ async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''
     mints = await _ecosystem_mints()
     if input_mint in cfg['zeroFeeMints'] or output_mint in cfg['zeroFeeMints']:
         return {'bps': 0, 'baseBps': base, 'notes': ['This token is on the Command Center fee-free list.'], 'referralAccount': None}
-    fee_mint = mints.get('fee')
-    if fee_mint and output_mint == fee_mint:
-        return {'bps': 0, 'baseBps': base, 'notes': ['Buying $FEE is fee-free.'], 'referralAccount': None}
-    if fee_mint and input_mint == fee_mint and output_mint in FEE_SETTLEMENT_MINTS:
-        return {'bps': 0, 'baseBps': base, 'notes': ['Selling $FEE into SOL, USDC or USDT is fee-free.'], 'referralAccount': None}
+    # FEELESS coins ($FEE, FEECAT, rFEE) are free to BUY with SOL, USDC or USDT. Selling them, buying them with
+    # any other token, and every other swap pays the platform fee.
+    eco = {m: k for k, m in mints.items() if k in ('fee', 'feecat', 'rfee') and m}
+    if output_mint in eco and input_mint in FEE_SETTLEMENT_MINTS:
+        return {'bps': 0, 'baseBps': base, 'notes': [f"Buying ${eco[output_mint].upper()} with SOL or USD is fee-free."], 'referralAccount': None}
     tier = (await _perk_tier(wallet))[0] if wallet else 0
     disc = float(cfg['tierDiscountPct'].get(str(tier), 0))
     promo = cfg.get('promo') or {}
@@ -3584,67 +3584,74 @@ async def admin_fee_health(request: Request):
 
 @app.get('/api/reputation/admin/fees/selftest')
 async def admin_fee_selftest(request: Request):
-    """Prove fees work end to end: real Jupiter quotes with the live fee rules, plus a LI.FI quote if configured.
-    Read-only: quotes are never signed or sent."""
+    """Prove FEELESS gets paid: quotes go through the SAME server endpoints the swap boxes use
+    (/api/trading/quote for Solana, /api/lifi/quote for EVM swaps + bridges). Nothing is signed or sent."""
     _require_admin(request)
     cfg = _fee_cfg()
-    key = os.environ.get('JUPITER_API_KEY', '')
-    base = os.environ.get('JUPITER_API_URL', 'https://api.jup.ag').rstrip('/')
     usdc = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-    fee_mint = (await _ecosystem_mints()).get('fee')
+    mints = await _ecosystem_mints()
     checks = []
-    async with httpx.AsyncClient(timeout=20) as http:
+    async with httpx.AsyncClient(timeout=40) as http:
         pump = None
         try:
             board = (await http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': 'trending', 'chain': 'solana', 'page': 1, 'scope': 'pump'})).json().get('pairs') or []
             pump = next(((p.get('baseToken') or {}).get('address') for p in board if (p.get('baseToken') or {}).get('address', '').endswith('pump')), None)
         except Exception:
             pump = None
-        cases = [('SOL → USDC', WSOL, usdc, '10000000'), ('SOL → top Pump coin', WSOL, pump, '10000000'), ('Top Pump coin → SOL', pump, WSOL, None)]
-        if fee_mint:
-            cases.append(('SOL → $FEE (should be fee-free)', WSOL, fee_mint, '10000000'))
+        cases = [('SOL → USDC', WSOL, usdc, '0.01'), ('SOL → top Pump coin', WSOL, pump, '0.01'), ('Top Pump coin → SOL (sell)', pump, WSOL, '1000')]
+        if mints.get('fee'):
+            cases += [('SOL → $FEE (free buy)', WSOL, mints['fee'], '0.01'), ('$FEE → SOL (sell pays fee)', mints['fee'], WSOL, '10000')]
         for label, a, b, amount in cases:
             if not a or not b:
                 checks.append({'label': label, 'ok': False, 'detail': 'No live Pump coin found to test with.'})
                 continue
-            rule = await effective_fee('', a, b)
-            params = {'inputMint': a, 'outputMint': b, 'amount': amount or '1000000000'}
-            if rule['bps'] and rule.get('referralAccount'):
-                params.update({'referralAccount': rule['referralAccount'], 'referralFee': rule['bps']})
+            expected = int((await effective_fee('', a, b))['bps'])
             try:
-                d = (await http.get(base + '/swap/v2/order', params=params, headers={'x-api-key': key})).json()
+                r = await http.post('http://127.0.0.1:5001/api/trading/quote', json={'input_mint': a, 'output_mint': b, 'amount': amount, 'slippage_bps': 50})
+                d = r.json()
             except Exception as exc:
-                checks.append({'label': label, 'ok': False, 'detail': f'Jupiter unreachable: {exc}'})
+                checks.append({'label': label, 'ok': False, 'detail': f'Swap server unreachable: {exc}'})
                 continue
-            if d.get('errorMessage') or d.get('error'):
-                checks.append({'label': label, 'ok': False, 'rule': rule['bps'], 'detail': str(d.get('errorMessage') or d.get('error'))[:160]})
+            if r.status_code != 200 or not (d.get('quote') or {}).get('outAmount'):
+                checks.append({'label': label, 'ok': False, 'detail': f"Quote failed ({r.status_code}): {str(d.get('detail') or d)[:140]}"})
                 continue
-            charged = int(d.get('feeBps') or 0)
-            expected = int(rule['bps'])
-            mint_name = {WSOL: 'SOL', usdc: 'USDC'}.get(d.get('feeMint'), (d.get('feeMint') or '')[:4] + '…')
+            q = d['quote']
+            charged = int(q.get('feeBps') or 0)
+            ff = d.get('feeless_fee') or {}
+            fee_note = '; '.join(ff.get('notes') or [])
             if expected:
-                # With a referral fee, feeBps is the total the trader pays (Jupiter keeps its share of it).
-                ok = charged >= expected
-                detail = f'Trader pays {charged / 100:.2f}% in {mint_name} — FEELESS fee {expected / 100:.2f}% is in' if ok else f'Only {charged / 100:.2f}% charged — FEELESS fee {expected / 100:.2f}% is NOT being applied'
+                ok = charged >= expected and not ff.get('fallback')
+                detail = f'FEELESS fee {expected / 100:.2f}% applied (trader pays {charged / 100:.2f}%)' if ok else f'FEELESS fee NOT applied — Jupiter charged {charged / 100:.2f}%. {fee_note}'
             else:
-                ok = True   # no FEELESS fee by rule; anything charged is Jupiter's own platform fee
-                detail = 'No FEELESS fee (rule)' + (f" · Jupiter's own fee {charged / 100:.2f}%" if charged else '')
-            checks.append({'label': label, 'ok': ok, 'rule': expected, 'charged': charged, 'detail': detail,
-                           'notes': rule.get('notes') or []})
-        lifi = None
-        if (cfg.get('lifiIntegrator') or os.environ.get('LIFI_INTEGRATOR')) and cfg.get('lifiFeeBps'):
+                ok = True
+                detail = 'Free by rule' + (f" · Jupiter's own fee {charged / 100:.2f}%" if charged else '')
+            checks.append({'label': label, 'ok': ok, 'rule': expected, 'charged': charged, 'detail': detail})
+            await asyncio.sleep(1.2)   # stay under Jupiter's per-key rate limit
+        lifi_bps = int(cfg.get('lifiFeeBps') or 0)
+        integrator = cfg.get('lifiIntegrator') or os.environ.get('LIFI_INTEGRATOR', '')
+        lifi = []
+        for label, fc, tc in (('Base swap ETH → USDC', 8453, 8453), ('Bridge Arbitrum → Base', 42161, 8453)):
+            if not integrator or not lifi_bps:
+                lifi.append({'label': label, 'ok': False, 'detail': 'Set a LI.FI fee (bps) below — EVM swaps and bridges are free until then.'})
+                continue
+            to_token = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' if tc == fc else '0x0000000000000000000000000000000000000000'
             try:
-                q = (await http.get('https://li.quest/v1/quote', params={'fromChain': 8453, 'toChain': 8453, 'fromToken': '0x0000000000000000000000000000000000000000',
-                     'toToken': '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', 'fromAmount': '10000000000000000', 'fromAddress': '0x552008c0f6870c2f77e5cC1d2eb9bdff03e30Ea0',
-                     'integrator': cfg.get('lifiIntegrator') or os.environ.get('LIFI_INTEGRATOR'), 'fee': cfg['lifiFeeBps'] / 10000},
-                     headers={'x-lifi-api-key': os.environ.get('LIFI_API_KEY', '')})).json()
-                fees = [f for f in (q.get('estimate') or {}).get('feeCosts') or [] if 'integrator' in f"{f.get('name')} {f.get('description')}".lower()]
-                lifi = {'ok': bool(fees), 'detail': (f"LI.FI charges {float(fees[0].get('percentage') or 0) * 100:.2f}% to integrator {cfg.get('lifiIntegrator') or os.environ.get('LIFI_INTEGRATOR')}" if fees
-                                                     else str(q.get('message') or 'LI.FI returned no integrator fee')[:160])}
+                r = await http.get('http://127.0.0.1:5001/api/lifi/quote', params={'fromChain': fc, 'toChain': tc, 'fromToken': '0x0000000000000000000000000000000000000000',
+                                   'toToken': to_token, 'fromAmount': '10000000000000000', 'fromAddress': '0x552008c0f6870c2f77e5cC1d2eb9bdff03e30Ea0'})
+                d = r.json()
             except Exception as exc:
-                lifi = {'ok': False, 'detail': f'LI.FI unreachable: {exc}'}
-    return {'checks': checks, 'lifi': lifi, 'at': time.time(),
-            'note': 'Quotes only — nothing is signed or sent. A pass means Jupiter/LI.FI will add the FEELESS fee on real trades.'}
+                lifi.append({'label': label, 'ok': False, 'detail': f'LI.FI proxy unreachable: {exc}'})
+                continue
+            if r.status_code != 200:
+                lifi.append({'label': label, 'ok': False, 'detail': f"Quote failed: {str(d.get('detail'))[:140]}"})
+                continue
+            ours = int((d.get('feeless') or {}).get('feeBps') or 0)
+            total = sum(float(f.get('percentage') or 0) for f in (d.get('estimate') or {}).get('feeCosts') or [])
+            ok = ours == lifi_bps and total >= 0.0025 + lifi_bps / 10000 - 1e-6
+            lifi.append({'label': label, 'ok': ok, 'detail': (f"FEELESS fee {ours / 100:.2f}% applied (LI.FI total {total * 100:.2f}% incl. its own 0.25%)" if ok
+                                                         else (d.get('feeless') or {}).get('note') or f'FEELESS fee not applied (got {ours / 100:.2f}%)')})
+    return {'checks': checks, 'lifiChecks': lifi, 'lifi': {'ok': all(x['ok'] for x in lifi), 'detail': ' · '.join(x['detail'] for x in lifi)}, 'at': time.time(),
+            'note': 'Quotes only through the real swap endpoints — nothing is signed or sent. A pass means FEELESS is paid on real trades.'}
 
 
 @app.post('/api/reputation/admin/fees')
@@ -5318,7 +5325,7 @@ async def fees_public():
     integ = cfg.get('lifiIntegrator') or os.environ.get('LIFI_INTEGRATOR', '').strip()
     lifi = {'integrator': integ, 'fee': round(cfg['lifiFeeBps'] / 10000, 4)} if integ and cfg.get('lifiFeeBps') else None
     return {'platformFeeBps': cfg['platformFeeBps'], 'tierDiscountPct': cfg['tierDiscountPct'], 'promo': cfg.get('promo'), 'lifi': lifi,
-            'feelessIntoFee': True, 'note': 'Buying $FEE is fee-free. Selling $FEE to SOL, USDC or USDT is fee-free; other output tokens use the configured platform fee.'}
+            'feelessIntoFee': True, 'note': 'Buying $FEE, FEECAT or rFEE with SOL, USDC or USDT is fee-free. Selling them and every other swap, buy, sell or bridge pays the platform fee.'}
 
 
 # ---- Holder themes: $1k+ in the FEELESS ecosystem recolors the logo + the whole site ----------
