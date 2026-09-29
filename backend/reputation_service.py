@@ -3516,6 +3516,43 @@ async def admin_fee_balances(request: Request):
             'note': 'Unclaimed on-chain referral-token balances. Claiming requires the referral authority wallet signature.'}
 
 
+JUP_ULTRA_REFERRAL_PROJECT = 'DkiqsTrw1u1bYFumumC7sCG2S8K25qc2vemJFHyW2wJc'
+JUP_REFERRAL_PROGRAM = 'REFER4ZgmyYx9c6He5XfaTMiGfdLwRnkV4RPp9t9iF3'
+
+
+@app.get('/api/reputation/admin/fees/health')
+async def admin_fee_health(request: Request):
+    """Will Jupiter actually pay the FEELESS fee? Checks the referral account on-chain: it must belong to the
+    Jupiter Ultra referral project (the one /swap/v2 pays into) and have SOL + USDC fee token accounts."""
+    _require_admin(request)
+    import base64
+    from solders.pubkey import Pubkey
+    referral = str(_fee_cfg().get('referralAccount') or '').strip()
+    if not referral:
+        return {'ok': False, 'problem': 'No referral account configured.', 'fix': 'Create one under the Jupiter Ultra project at referral.jup.ag and paste it here.'}
+    async with httpx.AsyncClient(timeout=20) as http:
+        info = await _rpc(http, 'getAccountInfo', [referral, {'encoding': 'base64'}])
+        value = (info or {}).get('value')
+        if not value or value.get('owner') != JUP_REFERRAL_PROGRAM:
+            return {'ok': False, 'problem': 'This address is not a Jupiter referral account.', 'fix': 'Create a referral account at referral.jup.ag (Jupiter Ultra project).'}
+        raw = base64.b64decode(value['data'][0])
+        project = str(Pubkey.from_bytes(raw[40:72]))
+        partner = str(Pubkey.from_bytes(raw[8:40]))
+        vaults = {}
+        for sym, mint in (('SOL', 'So11111111111111111111111111111111111111112'), ('USDC', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')):
+            ta, _ = Pubkey.find_program_address([b'referral_ata', bytes(Pubkey.from_string(referral)), bytes(Pubkey.from_string(mint))], Pubkey.from_string(JUP_REFERRAL_PROGRAM))
+            vaults[sym] = ((await _rpc(http, 'getAccountInfo', [str(ta), {'encoding': 'base64'}])) or {}).get('value') is not None
+    if project != JUP_ULTRA_REFERRAL_PROJECT:
+        return {'ok': False, 'project': project, 'partner': partner, 'vaults': vaults,
+                'problem': 'Referral account was created under an older Jupiter referral project, so Jupiter rejects the fee and every swap runs fee-free.',
+                'fix': f'At referral.jup.ag, connect the partner wallet {partner[:4]}…{partner[-4:]}, choose the Jupiter Ultra project, create a referral account, create SOL and USDC token accounts, then paste the new referral account here.'}
+    missing = [k for k, ok in vaults.items() if not ok]
+    if missing:
+        return {'ok': False, 'project': project, 'partner': partner, 'vaults': vaults,
+                'problem': f"Missing fee token account for {', '.join(missing)}.", 'fix': 'Create the missing token accounts for this referral account at referral.jup.ag.'}
+    return {'ok': True, 'project': project, 'partner': partner, 'vaults': vaults, 'note': 'Jupiter will pay the FEELESS fee into this referral account (SOL/USDC vaults ready).'}
+
+
 @app.post('/api/reputation/admin/fees')
 async def admin_fees_set(request: Request, payload: FeeCfg):
     admin = _require_admin(request)

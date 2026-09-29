@@ -249,6 +249,7 @@ export function ReportBug({ address }) {
 }
 
 function FeesPanel({ call }) {
+  const [health, setHealth] = useState(null);
   const [cfg, setCfg] = useState(null);
   const [routes, setRoutes] = useState([]);
   const [earnings, setEarnings] = useState(null);
@@ -257,6 +258,7 @@ function FeesPanel({ call }) {
   const [zero, setZero] = useState('');
   const [promoDays, setPromoDays] = useState(0);
   useEffect(() => {
+    call('/admin/fees/health').then(setHealth).catch(() => setHealth(null));
     call('/admin/fees').then(d => { setCfg(d.fees); setLimits(d.limits); setZero((d.fees.zeroFeeMints || []).join('\n')); }).catch(e => toast.error(e.message));
     call('/admin/treasury/routes').then(d => setRoutes(d.routes || [])).catch(() => {});
   }, [call]);
@@ -271,6 +273,7 @@ function FeesPanel({ call }) {
   const TIERS = ['Trencher', 'Fee Friend', 'Fee Insider', 'Fee Whale'];
   const enabled = Number(cfg.platformFeeBps) > 0;
   return <section className="cc-panel cc-fees" data-testid="fees-panel">
+    {health && <div className={`fee-health ${health.ok ? 'ok' : 'bad'}`} data-testid="fee-health"><b>{health.ok ? '✓ Jupiter will pay your fee' : '⚠ Fees are NOT being collected'}</b><span>{health.ok ? health.note : health.problem}</span>{!health.ok && health.fix && <small><b>Fix:</b> {health.fix}</small>}</div>}
     <p className="cc-note"><b>What gets charged:</b> only eligible in-app Solana trades/swaps. Buying $FEE with any token is fee-free. Selling $FEE into SOL, USDC or USDT is also fee-free; selling $FEE into another token uses the platform fee. FEECAT and rFEE follow the normal platform fee unless their mint is added to the fee-free list. LI.FI bridge and gas routes have no FEELESS platform fee. Holder and promo discounts can reduce charged swaps, and the exact rate appears before signing.</p>
     <p className="cc-note"><b>Why Jupiter needs a referral account:</b> it is the on-chain fee vault and authority record used by Jupiter. It is not a referral code and does not charge anything by itself. When a fee is enabled, Jupiter collects it into mint-specific token accounts under this referral account; the authority wallet later signs a claim into your treasury wallet. A normal treasury address cannot be passed directly in its place.</p>
     <div className={`fee-routing-status ${enabled && cfg.referralAccount ? 'ok' : enabled ? 'bad' : 'off'}`}><b>{enabled ? (cfg.referralAccount ? 'Fee destination configured' : 'Fee collection blocked') : 'Platform fee disabled'}</b><span>{enabled && cfg.referralAccount ? `Jupiter referral account ${cfg.referralAccount.slice(0, 6)}…${cfg.referralAccount.slice(-4)} receives the fee. Treasury routes below are records only; they do not automatically split or transfer these funds.` : enabled ? 'Add a valid Jupiter referral account before a non-zero fee can be saved.' : 'Users pay no FEELESS platform fee. Network and provider fees may still apply.'}</span></div>
