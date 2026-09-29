@@ -195,7 +195,10 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
     if (lock.current) return; // review / signing in progress
     const seq = ++quoteSeq.current;
     if (!silent) { setBusy(true); setMessage(''); setOrder(null); setResult(null); } else refreshing.current = true;
-    try { if (inputMint === outputMint) throw new Error('Choose two different assets.'); const data = await request('/quote', { input_mint: inputMint, output_mint: outputMint, amount, slippage_bps: Number(slippage), wallet: wallet?.chain === 'solana' ? wallet.address : null }); if (seq === quoteSeq.current) { setOrder(data); setQuotedAt(Date.now()); } }
+    try { if (inputMint === outputMint) throw new Error('Choose two different assets.'); const data = await request('/quote', { input_mint: inputMint, output_mint: outputMint, amount, slippage_bps: Number(slippage), wallet: wallet?.chain === 'solana' ? wallet.address : null }); if (seq !== quoteSeq.current) return; setOrder(data); setQuotedAt(Date.now());
+      // Pre-simulate in the background so "Review swap" opens instantly. A failure here is not shown:
+      // the Review click simulates again and reports it.
+      if (data.quote?.transaction) request('/simulate', { order_id: data.order_id }).then(() => { if (seq === quoteSeq.current) setOrder(o => (o?.order_id === data.order_id ? { ...o, simulated: true } : o)); }).catch(() => {}); }
     catch (e) { if (seq === quoteSeq.current && !silent) setMessage(e.message); }
     finally { if (silent) refreshing.current = false; if (seq === quoteSeq.current && !silent) setBusy(false); }
   };
@@ -209,13 +212,13 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
   useEffect(() => {
     if (!autoQuoteReady.current) { autoQuoteReady.current = true; return undefined; }
     if (chain !== 'solana' || !inputMint || inputMint === outputMint || !/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0 || result) return undefined;
-    const t = setTimeout(() => { loadQuote(); }, 800);
+    const t = setTimeout(() => { loadQuote(); }, 300);
     return () => clearTimeout(t);
   }, [amount, inputMint, outputMint, slippage]); // eslint-disable-line react-hooks/exhaustive-deps
   const simulate = async () => {
     if (lock.current || expired || !quote?.transaction) return;
     lock.current = true; quoteSeq.current++; setBusy(true); setMessage('');
-    try { await request('/simulate', { order_id: order.order_id }); setReview(true); }
+    try { if (!order.simulated) await request('/simulate', { order_id: order.order_id }); setReview(true); }
     catch (e) { setMessage(e.message); } finally { lock.current = false; setBusy(false); }
   };
   const sign = async () => {

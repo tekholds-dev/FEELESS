@@ -10,6 +10,8 @@ import { formatUSD } from '../../lib/dexscreener';
 
 const SOL = 'So11111111111111111111111111111111111111112';
 const PRESETS = { SOL: ['0.1', '0.5', '1'], USD: ['10', '50', '100'] };
+const QUOTE_REFRESH_MS = 10000;
+const WALLET_TIMEOUT_MS = 60000;
 const SLIPPAGE = [['50', '0.5%'], ['100', '1%'], ['300', '3%']];
 const PREFS_KEY = 'feeless-quicktrade';
 const DEFAULT_PREFS = { unit: 'SOL', slippage: '100', presetsSOL: PRESETS.SOL, presetsUSD: PRESETS.USD };
@@ -39,13 +41,8 @@ export function QuickTrade({ pair }) {
   const [showSettings, setShowSettings] = useState(false);
   const box = useRef(null);
   // Opened from a "snipers out" alert (?buy=1): bring the buy box into view, ready to quote.
-  // With a Solana wallet already connected it also fetches the quote at your default amount — you still approve in your wallet.
-  const fromAlert = useRef(new URLSearchParams(window.location.search).get('buy') === '1');
-  useEffect(() => { if (fromAlert.current) box.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, []);
-  useEffect(() => {
-    if (!fromAlert.current || wallet?.chain !== 'solana' || !pair?.baseToken?.address) return;
-    fromAlert.current = false; quote();
-  }, [wallet?.chain, pair?.baseToken?.address]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The quote at your default amount is already live (see below) — you still approve in your wallet.
+  useEffect(() => { if (new URLSearchParams(window.location.search).get('buy') === '1') box.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, []);
   // Auto-match the wallet to the coin's network: same wallet, Solana side, no popup if already trusted.
   useEffect(() => {
     if (pair?.chainId === 'solana' && wallet?.chain === 'evm' && connect) connect('solana', undefined, { silent: true }).catch(() => {});
@@ -79,9 +76,6 @@ export function QuickTrade({ pair }) {
     if (side !== 'sell' || !wallet?.address || !mint) { setBal(null); return; }
     fetch(apiUrl(`/api/reputation/balance/${wallet.address}/${mint}`)).then(r => r.json()).then(d => setBal({ amount: Number(d.amount) || 0, decimals: d.decimals, raw: d.raw })).catch(() => setBal(null));
   }, [side, wallet?.address, mint]);
-  useEffect(() => { setOrder(null); }, [amount, sellPct, counter, prefs.slippage, prefs.unit]);
-  if (pair?.chainId !== 'solana') return EVM_TRADE_CHAINS.includes(pair?.chainId) ? <EvmTrade pair={pair} /> : <aside className="quick-trade qt-unsupported" data-testid="quick-trade"><Zap size={14} /> In-app swaps cover Solana and EVM chains. Use the DEX link for {pair?.chainId || 'this chain'}.</aside>;
-
   const counterMint = counter === 'FEE' && feeMint ? feeMint : SOL;
   const payAmount = () => {
     if (side === 'sell') {
@@ -94,32 +88,54 @@ export function QuickTrade({ pair }) {
     if (counter === 'SOL') { const sol = prefs.unit === 'USD' ? (solUsd ? n / solUsd : null) : n; return sol ? sol.toFixed(9).replace(/\.?0+$/, '') : null; }
     return null; // paying with $FEE uses its own balance flow via the full Trade page
   };
+  // Instant trading: the route is quoted + simulated in the background as soon as the amount is set and kept
+  // fresh every 10s, so one tap goes straight to the wallet. Newest request wins; stale answers are dropped.
+  const solanaReady = pair?.chainId === 'solana' && wallet?.chain === 'solana' && Boolean(wallet?.address) && Boolean(mint);
+  const request = solanaReady ? (() => { const amt = payAmount(); return amt && { input_mint: side === 'buy' ? counterMint : mint, output_mint: side === 'buy' ? mint : counterMint, amount: amt, slippage_bps: Number(prefs.slippage), wallet: wallet.address }; })() : null;
+  const requestKey = request ? JSON.stringify(request) : '';
+  const quoteSeq = useRef(0);
+  const [routing, setRouting] = useState(false);
+  const [quoteError, setQuoteError] = useState('');
+  const fetchOrder = async () => {
+    if (!request || busy) return;
+    const seq = ++quoteSeq.current;
+    setRouting(true);
+    try {
+      const data = await tradeApi('/quote', request);
+      await tradeApi('/simulate', { order_id: data.order_id });
+      if (seq === quoteSeq.current) { setOrder({ ...data, key: requestKey, at: Date.now() }); setQuoteError(''); }
+    } catch (e) { if (seq === quoteSeq.current) { setOrder(null); setQuoteError(e.message); } } finally { if (seq === quoteSeq.current) setRouting(false); }
+  };
+  useEffect(() => {
+    quoteSeq.current++; setOrder(null); setQuoteError(''); setRouting(false);
+    if (!requestKey) return undefined;
+    const first = setTimeout(fetchOrder, 250);
+    const refresh = setInterval(() => { if (!document.hidden) fetchOrder(); }, QUOTE_REFRESH_MS);
+    return () => { clearTimeout(first); clearInterval(refresh); };
+  }, [requestKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (pair?.chainId !== 'solana') return EVM_TRADE_CHAINS.includes(pair?.chainId) ? <EvmTrade pair={pair} /> : <aside className="quick-trade qt-unsupported" data-testid="quick-trade"><Zap size={14} /> In-app swaps cover Solana and EVM chains. Use the DEX link for {pair?.chainId || 'this chain'}.</aside>;
+
+  // Button when no live quote yet: connect / switch the wallet, or explain what's missing.
   const quote = async () => {
     if (!wallet?.address) { try { await connect?.('solana'); } catch { toast.error('Connect a Solana wallet to trade.'); } return; }
-    if (wallet.chain !== 'solana') { try { await (switchTo ? switchTo('solana') : connect?.('solana')); toast.success(`Switched ${wallet.name || 'wallet'} to Solana — tap again to quote.`); } catch { toast.error('Open your wallet and enable its Solana account to trade this pair.'); } return; }
-    const amt = payAmount();
-    if (!amt) { toast.error(side === 'sell' ? 'No balance to sell.' : 'Enter an amount.'); return; }
-    setBusy(true); setResult(null);
-    try {
-      const data = await tradeApi('/quote', { input_mint: side === 'buy' ? counterMint : mint, output_mint: side === 'buy' ? mint : counterMint, amount: amt, slippage_bps: Number(prefs.slippage), wallet: wallet.address });
-      await tradeApi('/simulate', { order_id: data.order_id });
-      setOrder(data);
-    } catch (e) { toast.error(e.message); } finally { setBusy(false); }
+    if (wallet.chain !== 'solana') { try { await (switchTo ? switchTo('solana') : connect?.('solana')); } catch { toast.error('Open your wallet and enable its Solana account to trade this pair.'); } return; }
+    if (!request) { toast.error(side === 'sell' ? 'No balance to sell.' : 'Enter an amount.'); return; }
+    fetchOrder();
   };
   const approve = async () => {
-    if (!order) return;
-    setBusy(true);
+    if (!order || order.key !== requestKey) return;
+    quoteSeq.current++; setBusy(true);
     try {
       if (!provider?.signTransaction || provider.publicKey?.toString() !== wallet.address) throw new Error('Reconnect Phantom and get a fresh quote.');
       const { VersionedTransaction } = await import('@solana/web3.js');
       const tx = VersionedTransaction.deserialize(Uint8Array.from(atob(order.quote.transaction), c => c.charCodeAt(0)));
-      const signed = await provider.signTransaction(tx);
+      const signed = await Promise.race([provider.signTransaction(tx), new Promise((_, rej) => setTimeout(() => rej(new Error('Wallet did not respond. Open your wallet (check for a blocked popup) and tap again.')), WALLET_TIMEOUT_MS))]);
       const res = await tradeApi('/execute', { order_id: order.order_id, signed_transaction: btoa(String.fromCharCode(...signed.serialize())) });
       setResult(res); setOrder(null);
       window.dispatchEvent(new CustomEvent('feeless:trade-confirmed', { detail: { mint, side } }));
       if (res.signature && res.state !== 'failed') keepReceipt(res.signature, wallet.address, side);
       toast[res.state === 'failed' ? 'error' : 'success'](res.state === 'confirmed' ? 'Swap confirmed on-chain.' : res.state === 'failed' ? 'Swap failed.' : 'Submitted — confirming.');
-    } catch (e) { toast.error(e.code === 4001 ? 'Approval declined — nothing was sent.' : e.message); } finally { setBusy(false); }
+    } catch (e) { toast.error(e.code === 4001 ? 'Approval declined — nothing was sent.' : e.message); setOrder(null); } finally { setBusy(false); fetchOrder(); }
   };
   const outDecimals = order?.output_metadata?.decimals;
   const out = order ? units(order.quote?.outAmount, outDecimals) : null;
@@ -148,8 +164,10 @@ export function QuickTrade({ pair }) {
     </>}
     <div className="qt-row"><span>Slippage</span><div className="qt-seg">{SLIPPAGE.map(([v, l]) => <button type="button" key={v} className={prefs.slippage === v ? 'active' : ''} onClick={() => setPrefs(p => ({ ...p, slippage: v }))}>{l}</button>)}</div></div>
     {order && <div className="qt-quote"><div className="qt-fee" data-testid="qt-fee"><small>FEELESS fee</small><b>{order.feeless_fee?.bps ? `${(order.feeless_fee.bps / 100).toFixed(2)}%` : 'Free'}</b>{order.feeless_fee?.notes?.length ? <em>{order.feeless_fee.notes.join(' · ')}</em> : null}</div><div><small>You get ≈</small><b>{out != null ? `${out.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${side === 'buy' ? symbol : toFee ? '$FEE' : 'SOL'}` : '—'}</b></div><div><small>Min received</small><b>{minOut != null ? minOut.toLocaleString(undefined, { maximumFractionDigits: 6 }) : '—'}</b></div><div><small>Price impact</small><b className={Math.abs(impact) > 5 ? 'negative' : ''}>{Number.isFinite(impact) ? `${Math.abs(impact).toFixed(2)}%` : '—'}</b></div></div>}
-    {!order ? <button type="button" className={`qt-go ${side}`} disabled={busy} onClick={quote} data-testid="quick-trade-quote">{!wallet?.address ? <><Wallet size={14} />Connect wallet</> : busy ? 'Routing…' : `Get ${side === 'buy' ? 'buy' : 'sell'} quote`}</button>
-      : <button type="button" className={`qt-go ${side}`} disabled={busy} onClick={approve}>{busy ? 'Waiting for wallet…' : `Approve ${side} in Phantom`}</button>}
+    {quoteError && !order && <small className="qt-note qt-error" role="status">{quoteError}</small>}
+    {order && order.key === requestKey
+      ? <button type="button" className={`qt-go ${side}`} disabled={busy} onClick={approve} data-testid="quick-trade-approve">{busy ? 'Waiting for wallet…' : `${side === 'buy' ? 'Buy' : 'Sell'} ${symbol} in ${wallet?.name || 'Phantom'}`}</button>
+      : <button type="button" className={`qt-go ${side}`} disabled={busy || routing} onClick={quote} data-testid="quick-trade-quote">{!wallet?.address ? <><Wallet size={14} />Connect wallet</> : wallet.chain !== 'solana' ? 'Switch wallet to Solana' : routing ? 'Routing…' : quoteError ? 'Retry quote' : `Get ${side === 'buy' ? 'buy' : 'sell'} quote`}</button>}
     {result?.signature && <a className="qt-result" href={`https://solscan.io/tx/${result.signature}`} target="_blank" rel="noopener noreferrer">{result.state.toUpperCase()} · view transaction <ArrowUpRight size={11} /></a>}
     <small className="qt-foot">Jupiter route · simulated before you sign · non-custodial{side === 'buy' && prefs.unit === 'USD' ? ` · ${formatUSD(Number(amount))}` : ''}</small>
   </aside>;

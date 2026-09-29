@@ -3703,3 +3703,4 @@ body.theme-day .top-pump{background:#fff}
 [data-testid="swap-review-dialog"] .review-facts>div{padding:7px 0}
 [data-testid="swap-review-dialog"] .review-facts dd{min-width:0}
 [data-testid="swap-review-dialog"]>p.market-error{margin:8px 0;padding:10px 12px}
+.qt-error{color:var(--gold)}

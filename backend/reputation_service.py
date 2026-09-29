@@ -12,6 +12,7 @@ This intentionally has zero dependency on the rest of the monorepo backend (no M
 no provider API keys) so it can run standalone.
 """
 import env_loader  # noqa: F401  (must run before reading os.environ)
+from ecosystem import ecosystem_mints
 import asyncio
 import json
 import os
@@ -2506,20 +2507,9 @@ async def fee_post(payload: FeeCallPayload, request: Request):
 
 
 _badge_cache: dict = {}
-_fee_assets = {'at': 0, 'mints': {}}
-
-
 async def _ecosystem_mints():
-    if time.time() - _fee_assets['at'] < 600 and _fee_assets['mints']:
-        return _fee_assets['mints']
-    try:
-        async with httpx.AsyncClient(timeout=8) as http:
-            r = await http.get('http://127.0.0.1:5001/api/market/assets')
-            _fee_assets['mints'] = {a['id']: a['mint'] for a in (r.json() or {}).get('assets') or [] if a.get('mint')}
-            _fee_assets['at'] = time.time()
-    except Exception:
-        pass
-    return _fee_assets['mints']
+    # Config only (env or launch defaults): no network round trip on the fee / quote path.
+    return ecosystem_mints()
 
 
 @app.get('/api/reputation/badges/catalog')

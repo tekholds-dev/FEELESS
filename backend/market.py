@@ -10,6 +10,8 @@ from typing import Any, Literal
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query
+
+from ecosystem import DEFAULT_MINTS
 from pydantic import BaseModel, Field
 
 from launchpad_board import BONK_PLATFORM_ID, build_board, dex_candidate, gecko_pool_to_pair, launchlab_candidate, pump_candidate
@@ -26,11 +28,6 @@ CHAIN_QUOTES = {'solana': ['raydium', 'pumpswap', 'meteora', 'orca'], 'ethereum'
                 'zora': ['zora'], 'cronos': ['vvs', 'cronos', 'mm finance'], 'unichain': ['unichain'], 'worldchain': ['worldchain', 'world chain']}
 REVERSE_NETWORKS = {v: k for k, v in NETWORKS.items()}
 SUPPORTED_CHAINS = tuple(NETWORKS)
-DEFAULT_MINTS = {
-    'FEE': '49MmWE8sgNjuw342Eu7tB9thsVFtvTfKigUw9KSppump',
-    'FEECAT': 'AsX2abSJ2HqPqRxUbeYXE5R5ksrmUDz6BMGpg9mDpump',
-    'RFEE': '2vZjg2w58k4urtdNWPnNHizuSxesLCozQ5Pq9xxqNray',
-}
 MARKET_CACHE_RETENTION = timedelta(days=14)
 NEW_POOL_DEAL_PERCENT = 5
 PROVIDER_COVERAGE = {

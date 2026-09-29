@@ -117,6 +117,20 @@ class TradingService:
         self.metadata_cache[mint] = {'checked': time.time(), 'value': metadata}
         return metadata
 
+    async def fee_rule(self, body):
+        """Creator-controlled FEELESS fee (Jupiter integrator fee → creator's referral account).
+        The fee service is local and fast; if it is down or slow, no fee is charged — never a surprise fee."""
+        try:
+            key = (Path(__file__).parent / 'data' / 'internal.key').read_text().strip()
+            async with httpx.AsyncClient(timeout=3) as http:
+                r = await http.get('http://127.0.0.1:5077/api/reputation/internal/fees', headers={'x-feeless-internal': key},
+                                   params={'wallet': body.wallet or '', 'inputMint': body.input_mint, 'outputMint': body.output_mint})
+            if r.status_code == 200:
+                return r.json()
+        except Exception:
+            pass
+        return {'bps': 0, 'notes': [], 'referralAccount': None}
+
     def router(self):
         router = APIRouter(prefix='/api/trading')
 
@@ -189,7 +203,14 @@ class TradingService:
                 valid_key(body.wallet)
             if body.input_mint == body.output_mint:
                 raise HTTPException(400, 'Choose different input and output tokens')
-            meta_in = await self.metadata(body.input_mint)
+            # Independent lookups run together: pay-coin decimals, receive-coin metadata and the FEELESS fee rule.
+            meta_in, meta_out, fee = await asyncio.gather(self.metadata(body.input_mint), self.metadata(body.output_mint),
+                                                          self.fee_rule(body), return_exceptions=True)
+            if isinstance(meta_in, BaseException):
+                raise meta_in
+            meta_out = None if isinstance(meta_out, BaseException) else meta_out
+            if isinstance(fee, BaseException):
+                fee = {'bps': 0, 'notes': [], 'referralAccount': None}
             # Exact input units. Never silently round a user's amount.
             human = Decimal(body.amount)
             atoms = human * (Decimal(10) ** meta_in['decimals'])
@@ -199,17 +220,6 @@ class TradingService:
                       'amount': str(int(atoms)), 'slippageBps': body.slippage_bps}
             if body.wallet:
                 params['taker'] = body.wallet
-            # Creator-controlled FEELESS fee (Jupiter integrator fee → creator's referral account).
-            fee = {'bps': 0, 'notes': [], 'referralAccount': None}
-            try:
-                key = (Path(__file__).parent / 'data' / 'internal.key').read_text().strip()
-                async with httpx.AsyncClient(timeout=6) as http:
-                    r = await http.get('http://127.0.0.1:5077/api/reputation/internal/fees', headers={'x-feeless-internal': key},
-                                       params={'wallet': body.wallet or '', 'inputMint': body.input_mint, 'outputMint': body.output_mint})
-                    if r.status_code == 200:
-                        fee = r.json()
-            except Exception:
-                pass  # fee service down → no fee is charged, never a surprise fee
             fee_fallback = None
             if fee.get('bps') and fee.get('referralAccount'):
                 params['referralAccount'] = fee['referralAccount']
@@ -227,10 +237,6 @@ class TradingService:
                 data = await self.jupiter('GET', '/swap/v2/order', params=params)
             if data.get('errorCode') or not data.get('outAmount'):
                 raise HTTPException(400, data.get('errorMessage') or 'No executable route available for this pair')
-            try:
-                meta_out = await self.metadata(body.output_mint)
-            except HTTPException:
-                meta_out = None
             order_id = str(uuid.uuid4())
             created = datetime.now(timezone.utc).isoformat()
             record = {'order_id': order_id, 'wallet': body.wallet, 'state': 'quoted', 'created_at': created,

@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from xml.sax.saxutils import escape
 from fastapi import APIRouter, Response
-from market import DEFAULT_MINTS
+from ecosystem import DEFAULT_MINTS
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
