@@ -307,20 +307,20 @@ function FeesPanel({ call }) {
         <FeeAccountMaker onDone={(a, created) => { const next = { ...cfg, feeAccountSol: a.sol, feeAccountUsdc: a.usdc }; setCfg(next); if (created) save(next); }} />
         <label>SOL fee account (wSOL token account)<input placeholder="Token account for So111…112 owned by your treasury" value={cfg.feeAccountSol || ''} onChange={e => set('feeAccountSol', e.target.value.trim())} /></label>
         <label>USDC fee account (optional)<input placeholder="Token account for USDC owned by your treasury" value={cfg.feeAccountUsdc || ''} onChange={e => set('feeAccountUsdc', e.target.value.trim())} /></label>
-        <label>Max priority fee (lamports)<input type="number" min="0" max={limits.priorityMaxLamports} value={cfg.priorityMaxLamports ?? 200000} onChange={e => set('priorityMaxLamports', e.target.value)} /></label>
+        <label>Max priority fee (lamports)<UnitInput min="0" max={limits.priorityMaxLamports} value={cfg.priorityMaxLamports ?? 200000} onChange={e => set('priorityMaxLamports', e.target.value)} suffix={`= ${((Number(cfg.priorityMaxLamports ?? 200000) || 0) / 1e9).toFixed(6)} SOL`} /></label>
         <small className="cc-empty">{`≤ ${((Number(cfg.priorityMaxLamports) || 0) / 1e9).toFixed(6)} SOL per trade on top of the 0.000005 SOL network fee. A first buy of a coin also pays ~0.002 SOL account rent (refunded when that account is closed).`}</small>
       </div>
       <div className="cc-block"><h4>2 · Platform fee</h4>
-        <label>Fee in basis points (100 = 1% · max {limits.maxBps} = {pct(limits.maxBps)})<input type="number" min="0" max={limits.maxBps} value={cfg.platformFeeBps} onChange={e => set('platformFeeBps', e.target.value)} /></label>
+        <label>Fee in basis points (100 = 1% · max {limits.maxBps} = {pct(limits.maxBps)})<UnitInput min="0" max={limits.maxBps} value={cfg.platformFeeBps} onChange={e => set('platformFeeBps', e.target.value)} suffix={`= ${pct(cfg.platformFeeBps)}`} /></label>
         {Number(cfg.platformFeeBps) > limits.maxBps
           ? <small className="cc-empty fee-over-cap">Max is {pct(limits.maxBps)}. Saving will use {pct(limits.maxBps)}.</small>
           : <small className="cc-empty">{enabled ? `${pct(cfg.platformFeeBps)} per trade${engine === 'ultra' || cfg.ultraFallback ? ` · Ultra trades: ${pct(Math.min(Math.max(Number(cfg.platformFeeBps), limits.ultraMinBps || 50), limits.ultraMaxBps || 255))}` : ''}` : 'Fee off: every trade is free until you set one.'}</small>}
         <h5>$FEE holder discounts (% off)</h5>
-        <div className="cc-mini-grid">{TIERS.map((t, i) => <label key={t}>{t}<input type="number" min="0" max="90" value={cfg.tierDiscountPct?.[String(i)] ?? 0} onChange={e => set('tierDiscountPct', { ...cfg.tierDiscountPct, [String(i)]: Number(e.target.value) })} /></label>)}</div>
+        <div className="cc-mini-grid">{TIERS.map((t, i) => <label key={t}>{t}<UnitInput min="0" max="90" value={cfg.tierDiscountPct?.[String(i)] ?? 0} onChange={e => set('tierDiscountPct', { ...cfg.tierDiscountPct, [String(i)]: Number(e.target.value) })} suffix="% off" /></label>)}</div>
         <h5>Promo</h5>
         <div className="cc-mini-grid"><label>Label<input value={cfg.promo?.label || ''} onChange={e => set('promo', { ...cfg.promo, label: e.target.value })} placeholder="Launch week" /></label>
-          <label>% off<input type="number" min="0" max="90" value={cfg.promo?.discountPct || 0} onChange={e => set('promo', { ...cfg.promo, discountPct: Number(e.target.value) })} /></label>
-          <label>Days<input type="number" min="0" value={promoDays} onChange={e => setPromoDays(Number(e.target.value))} /></label></div>
+          <label>% off<UnitInput min="0" max="90" value={cfg.promo?.discountPct || 0} onChange={e => set('promo', { ...cfg.promo, discountPct: Number(e.target.value) })} suffix="% off" /></label>
+          <label>Days<UnitInput min="0" value={promoDays} onChange={e => setPromoDays(Number(e.target.value))} suffix="days" /></label></div>
         {cfg.promo?.until > Date.now() / 1000 && <small className="cc-empty">Promo live until {new Date(cfg.promo.until * 1000).toLocaleString()}</small>}
       </div>
       <div className="cc-block"><h4>3 · Ultra fallback (Jupiter referral)</h4>
@@ -331,7 +331,7 @@ function FeesPanel({ call }) {
       </div>
       <div className="cc-block fee-lifi"><h4>4 · EVM swaps &amp; bridges (LI.FI)</h4>
         <label>LI.FI integrator name<input placeholder="as registered at portal.li.fi" value={cfg.lifiIntegrator || ''} onChange={e => set('lifiIntegrator', e.target.value.trim())} /></label>
-        <label>LI.FI fee (basis points)<input type="number" min="0" max="300" value={cfg.lifiFeeBps || 0} onChange={e => set('lifiFeeBps', e.target.value)} /></label>
+        <label>LI.FI fee (basis points)<UnitInput min="0" max="300" value={cfg.lifiFeeBps || 0} onChange={e => set('lifiFeeBps', e.target.value)} suffix={`= ${pct(cfg.lifiFeeBps)}`} /></label>
         <small className="cc-empty">{Number(cfg.lifiFeeBps) && cfg.lifiIntegrator ? `${pct(cfg.lifiFeeBps)} on EVM swaps, bridges and gas (LI.FI adds its own 0.25%).` : 'Register at portal.li.fi and set a fee to charge EVM routes.'}</small>
       </div>
     </div>
@@ -343,6 +343,11 @@ function FeesPanel({ call }) {
     </div>
     <div className="cc-savebar"><span>{routes.length || 0} treasury route{routes.length === 1 ? '' : 's'} saved</span><button type="button" className="btn-primary" onClick={save} data-testid="fees-save">Save trading &amp; fees</button></div>
   </section>;
+}
+
+// Number box with its live meaning pinned inside the right edge (e.g. 150 → "= 1.50%").
+function UnitInput({ suffix, ...props }) {
+  return <span className="unit-input"><input type="number" {...props} /><em aria-hidden="true">{suffix}</em></span>;
 }
 
 // One-click fee accounts: the connected wallet pays ~0.004 SOL rent and signs once; the accounts belong to the fee wallet.
