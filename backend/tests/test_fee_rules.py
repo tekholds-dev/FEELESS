@@ -43,3 +43,9 @@ def test_saving_settings_with_nulls_or_big_numbers_is_cleaned_not_rejected():
     m = rs.FeeCfg(platformFeeBps='2500', engine=None, ultraFallback=None, feeAccountSol=None, priorityMaxLamports=None,
                   referralAccount=None, tierDiscountPct=None, promo=None, lifiIntegrator=None, lifiFeeBps='250')
     assert (m.platformFeeBps, m.engine, m.referralAccount, m.priorityMaxLamports, m.lifiFeeBps) == (rs.SWAP_MAX_BPS, 'swap', '', 200000, 250)
+
+
+def test_self_test_reads_the_fee_from_either_engine():
+    assert rs._quote_fee_bps({'platformFee': {'feeBps': 252, 'amount': '1'}}) == 252  # Swap API
+    assert rs._quote_fee_bps({'feeBps': 255}) == 255  # Ultra
+    assert rs._quote_fee_bps({}) == 0

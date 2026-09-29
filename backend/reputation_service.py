@@ -2703,6 +2703,10 @@ def _json_save(path, d):
     tmp = path.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(path)
 
 
+# Lookups that answer 404 by design when there's simply no data yet (a creator never seen before).
+EXPECTED_404_PREFIXES = ('/api/reputation/creator/', '/api/reputation/intel/', '/api/reputation/position/')
+
+
 @app.middleware('http')
 async def _record_status(request: Request, call_next):
     resp = await call_next(request)
@@ -3026,6 +3030,8 @@ async def admin_security(request: Request):
     recent = [s for s in _status_log if now - s[0] < 3600]
     by = {}
     for _, m, p, st in recent:
+        if st == 404 and m == 'GET' and p.startswith(EXPECTED_404_PREFIXES):
+            continue  # 'not observed yet' answers, not failures
         k = f'{st} {m} {_re.sub(r"/[1-9A-HJ-NP-Za-km-z]{32,}|/0x[0-9a-fA-F]{40}", "/:addr", p)}'
         by[k] = by.get(k, 0) + 1
     signals = {'forgedSignatures': sum(1 for s in recent if s[3] == 401), 'replays': sum(1 for s in recent if s[3] == 409),
@@ -3703,6 +3709,11 @@ async def _swap_fee_health():
     return {'ok': True, 'note': f"Swap engine ready: fees land in your {' + '.join(l for l, _, _ in wanted)} fee account(s). Ultra fallback {fallback}."}
 
 
+def _quote_fee_bps(q):
+    """The fee Jupiter says it will take on this quote: Swap API reports platformFee.feeBps, Ultra reports feeBps."""
+    return int((q.get('platformFee') or {}).get('feeBps') or q.get('feeBps') or 0)
+
+
 @app.get('/api/reputation/admin/fees/selftest')
 async def admin_fee_selftest(request: Request):
     """Prove FEELESS gets paid: quotes go through the SAME server endpoints the swap boxes use
@@ -3737,12 +3748,14 @@ async def admin_fee_selftest(request: Request):
                 checks.append({'label': label, 'ok': False, 'detail': f"Quote failed ({r.status_code}): {str(d.get('detail') or d)[:140]}"})
                 continue
             q = d['quote']
-            charged = int(q.get('feeBps') or 0)
+            charged = _quote_fee_bps(q)
             ff = d.get('feeless_fee') or {}
             fee_note = '; '.join(ff.get('notes') or [])
+            engine = 'Swap API' if d.get('engine') == 'swap' else 'Ultra'
             if expected:
                 ok = charged >= expected and not ff.get('fallback')
-                detail = f'FEELESS fee {expected / 100:.2f}% applied (trader pays {charged / 100:.2f}%)' if ok else f'FEELESS fee NOT applied — Jupiter charged {charged / 100:.2f}%. {fee_note}'
+                detail = (f'✓ {engine} · Jupiter confirms your {charged / 100:.2f}% fee on this trade' if ok
+                          else f'FEELESS fee NOT applied ({engine}) — Jupiter confirmed {charged / 100:.2f}%. {fee_note}')
             else:
                 ok = True
                 detail = 'Free by rule' + (f" · Jupiter's own fee {charged / 100:.2f}%" if charged else '')
@@ -3807,7 +3820,9 @@ async def admin_fees_set(request: Request, payload: FeeCfg):
                      'lifiIntegrator': integrator, 'lifiFeeBps': payload.lifiFeeBps if integrator else 0,
                      'engine': payload.engine, 'ultraFallback': payload.ultraFallback, 'feeAccountSol': payload.feeAccountSol,
                      'feeAccountUsdc': payload.feeAccountUsdc, 'priorityMaxLamports': payload.priorityMaxLamports}
-        _audit(d, admin, 'fees', f"{payload.engine} · {payload.platformFeeBps} bps · ultra fallback {'on' if payload.ultraFallback else 'off'} · discounts {tiers} · promo {promo['discountPct']:.0f}%")
+        tier_txt = ' / '.join(f"{float(tiers.get(k, 0)):g}%" for k in ('0', '1', '2', '3'))
+        _audit(d, admin, 'fees', f"{'Swap API' if payload.engine == 'swap' else 'Ultra'} · fee {payload.platformFeeBps / 100:.2f}% · Ultra fallback {'on' if payload.ultraFallback else 'off'} · "
+                                 f"holder discounts {tier_txt} · promo {promo['discountPct']:.0f}% · speed tip ≤ {payload.priorityMaxLamports / 1e9:.4f} SOL")
         _admin_save(d)
     return {'ok': True, 'fees': _fee_cfg()}
 
