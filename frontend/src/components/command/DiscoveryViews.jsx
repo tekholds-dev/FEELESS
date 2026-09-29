@@ -11,7 +11,7 @@ import { useTilt } from '../../hooks/useTilt';
 import { FlashValue } from '../terminal/FlashValue';
 import { useClock } from './WorkspaceChrome';
 import { useLiveTokenMarkets, withLiveMarket } from '../../lib/liveTokens';
-import { LivePrice, LiveChange24 } from '../terminal/LiveCells';
+import { LivePrice, LiveChange24, LiveMarketCap } from '../terminal/LiveCells';
 import { formatUSD, formatAge, formatTime, pairKey, hasProviderImage } from '../../lib/dexscreener';
 import { matchesPad } from '../../lib/launchpads';
 
@@ -42,7 +42,7 @@ const PUMP_RADAR_STAGES = [
 
 const formatPoolAddress = address => address.length > 12 ? `${address.slice(0, 6)}…${address.slice(-4)}` : address;
 
-export const PumpRadarCard = ({ pair, onSelect, rank, onLogoExhausted }) => {
+export const PumpRadarCard = ({ pair, onSelect, rank, onLogoExhausted, callCount = 0 }) => {
   const change = Number(pair.priceChange?.h24);
   const momentum = pair.priceChange?.m5 ?? pair.priceChange?.h1;
   const signal = Number.isFinite(Number(pair.signals?.velocity_pct_min))
@@ -60,10 +60,10 @@ export const PumpRadarCard = ({ pair, onSelect, rank, onLogoExhausted }) => {
     onSelect(pair);
   };
   return <article ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave} className="pump-radar-card tilt-card" data-testid={`pump-radar-card-${pairKey(pair)}`} onClick={activate} onKeyDown={handleKeyDown} role="button" tabIndex="0" aria-label={`Open ${pair.baseToken?.symbol || 'token'} market`}>
-     <div className="pump-radar-card-top"><span className="pump-radar-rank">{String(rank).padStart(2, '0')}</span><TokenAvatar pair={pair} size={38} maxAttempts={onLogoExhausted ? 3 : undefined} onExhausted={onLogoExhausted} /><span className="pump-radar-token"><b>{pair.baseToken?.symbol || 'Unknown'}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId || 'chain unavailable'} · {pair.dexId || 'venue unavailable'}</small></span><span className="pump-radar-alive" title="Recent provider snapshot"><i />ALIVE</span><span className="pump-radar-age">{formatAge(pair.pairCreatedAt)}</span></div>
+     <div className="pump-radar-card-top"><span className="pump-radar-rank">{String(rank).padStart(2, '0')}</span><span className="pink-bolt" title={callCount ? `${callCount} tracked callout${callCount === 1 ? '' : 's'}` : 'Pump top coin'}><Zap size={14} />{callCount || ''}</span><TokenAvatar pair={pair} size={38} maxAttempts={onLogoExhausted ? 3 : undefined} onExhausted={onLogoExhausted} /><span className="pump-radar-token"><b>{pair.baseToken?.symbol || 'Unknown'}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId || 'chain unavailable'} · {pair.dexId || 'venue unavailable'}</small></span><span className="pump-radar-alive" title="Live price stream and provider list refresh"><i />LIVE</span><span className="pump-radar-age">{formatAge(pair.pairCreatedAt)}</span></div>
     <div className="pump-radar-price-row"><span className="pump-radar-value-block"><small>PRICE</small><strong><LivePrice pair={pair} precise /></strong></span><LiveChange24 pair={pair} id={`pump-radar-change-${pairKey(pair)}`} /><span className={change >= 0 ? 'positive' : 'negative'}><Activity size={11} />{signal}</span></div>
     <div className="pump-radar-reputation-row"><ReputationBadge pair={pair} /></div>
-    <div className="pump-radar-metrics"><span><small>LIQUIDITY</small><FlashValue raw={pair.liquidity?.usd}><b>{formatUSD(pair.liquidity?.usd)}</b></FlashValue></span><span><small>MARKET CAP</small><FlashValue raw={pair.marketCap}><b>{formatUSD(pair.marketCap)}</b></FlashValue></span><span><small>24H VOL</small><FlashValue raw={pair.volume?.h24}><b>{formatUSD(pair.volume?.h24)}</b></FlashValue></span></div>
+    <div className="pump-radar-metrics"><span><small>LIQUIDITY</small><FlashValue raw={pair.liquidity?.usd}><b>{formatUSD(pair.liquidity?.usd)}</b></FlashValue></span><span><small>MARKET CAP · LIVE</small><b><LiveMarketCap pair={pair} /></b></span><span><small>24H VOL</small><FlashValue raw={pair.volume?.h24}><b>{formatUSD(pair.volume?.h24)}</b></FlashValue></span></div>
     {pair.graduation && <div className="pump-radar-migration" data-testid={`pump-radar-migration-${pairKey(pair)}`}><small>MIGRATION POOL</small>{migrationPool ? <a href={`https://solscan.io/account/${encodeURIComponent(migrationPool)}`} target="_blank" rel="noreferrer" aria-label={`Open provider-reported migration pool ${migrationPool}`} onClick={event => event.stopPropagation()}><span>Provider-reported destination</span><code>{formatPoolAddress(migrationPool)}</code><ExternalLink size={11} /></a> : <span className="pump-radar-migration-unavailable" data-testid={`pump-radar-migration-unavailable-${pairKey(pair)}`}>Unavailable from Pump.fun</span>}</div>}
     <span className="pump-radar-card-foot"><span><Droplets size={11} />Provider snapshot</span><ArrowUpRight size={13} /></span>
   </article>;
@@ -75,7 +75,19 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
   const [layout, setLayout] = useState(() => { try { return localStorage.getItem('feeless-radar-layout') || 'cards'; } catch { return 'cards'; } });
   const pickLayout = v => { setLayout(v); try { localStorage.setItem('feeless-radar-layout', v); } catch { /* ignore */ } };
   const [failedNewLogos, setFailedNewLogos] = useState(() => new Set());
+  const [callCounts, setCallCounts] = useState({});
   const now = useClock(1000);
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch(apiUrl('/api/reputation/calls/recent?limit=100')).then(r => r.ok ? r.json() : { calls: [] }).then(d => {
+      if (!alive) return;
+      const next = {};
+      (d.calls || []).forEach(call => { next[call.pairAddress] = (next[call.pairAddress] || 0) + 1; });
+      setCallCounts(next);
+    }).catch(() => {});
+    load(); const timer = setInterval(load, 8000);
+    return () => { alive = false; clearInterval(timer); };
+  }, []);
   const matches = useMemo(() => pair => matchesPad(pair, ecosystem.id) && (ecosystem.chainId === 'all' || pair.chainId === ecosystem.chainId), [ecosystem.id, ecosystem.chainId]);
   const rawMints = useMemo(() => [...(newFeed.data?.pairs || []), ...(trendingFeed.data?.pairs || [])].map(p => p.baseToken?.address), [newFeed.data, trendingFeed.data]);
   const live = useLiveTokenMarkets(ecosystem.chainId === 'all' ? 'solana' : ecosystem.chainId, rawMints);
@@ -134,6 +146,7 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
        key={pairKey(pair)}
        pair={pair}
        rank={index + 1}
+       callCount={callCounts[pair.pairAddress] || 0}
        onSelect={onSelect}
        onLogoExhausted={stage === 'new' ? () => setFailedNewLogos(previous => {
          const next = new Set(previous);

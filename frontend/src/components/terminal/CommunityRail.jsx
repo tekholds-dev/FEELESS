@@ -13,7 +13,8 @@ import { TokenFocus } from './TokenFocus';
 import { useMarket } from '../../hooks/useMarket';
 import { AdBanner } from '../AdBanner';
 import { RadarPanel } from '../command/MetaPanels';
-import { formatUSD, pairKey, coinIdentity, coinRoom, normalizeRoomPerspective, shortAddress } from '../../lib/dexscreener';
+import { formatUSD, pairKey, coinIdentity, coinRoom, normalizeRoomPerspective, shortAddress, formatTime } from '../../lib/dexscreener';
+import { apiUrl } from '../../lib/api';
 
 export const LivePoolsPanel = ({ pairs = [], newPairs = [], onSelect }) => {
   const { data, loading, refreshing, error } = useMarket('/feed?kind=trending&chain=all&page=1', 15000);
@@ -52,13 +53,22 @@ export const LivePoolsPanel = ({ pairs = [], newPairs = [], onSelect }) => {
 // not an injected chat message or a trading call, so the coin room remains owned by its community.
 const PumpRadarCallout = ({ pair }) => {
   const isPump = pair?.launchpadId === 'pump' || String(pair?.dexId || '').toLowerCase().includes('pump');
+  const [calls, setCalls] = useState([]);
+  useEffect(() => {
+    if (!isPump || !pair?.pairAddress) { setCalls([]); return undefined; }
+    let alive = true;
+    const load = () => fetch(apiUrl(`/api/reputation/calls/recent?pair=${encodeURIComponent(pair.pairAddress)}&limit=3`)).then(r => r.ok ? r.json() : { calls: [] }).then(d => alive && setCalls(d.calls || [])).catch(() => alive && setCalls([]));
+    load(); const timer = setInterval(load, 8000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [isPump, pair?.pairAddress]);
   if (!isPump) return null;
   const m5 = Number(pair.priceChange?.m5);
   return <div className="pump-chat-callout" data-testid="pump-chat-callout">
-    <span><Zap size={13} /> PUMP RADAR</span>
+    <span><Zap size={13} /> PUMP RADAR {calls.length ? `· ${calls.length} CALLOUT${calls.length === 1 ? '' : 'S'}` : ''}</span>
     <b>{pair.marketStage === 'new' ? 'New coin observed' : 'Top coin observed'}</b>
     <small>{Number.isFinite(m5) ? `${m5 >= 0 ? '+' : ''}${m5.toFixed(2)}% · 5m` : 'Live snapshot'} · MC {formatUSD(pair.marketCap)} · Liq {formatUSD(pair.liquidity?.usd)}</small>
     <Link to="/terminal/pump">Open Pump Radar <ArrowUpRight size={11} /></Link>
+    {calls.length > 0 && <div className="pump-chat-call-list">{calls.map(call => <span key={call.id}><Zap size={10} /><b>{call.caller}</b> called at {formatUSD(call.mcAtCall)} <small>{formatTime(call.at * 1000)}</small></span>)}</div>}
   </div>;
 };
 
@@ -85,6 +95,15 @@ export const ChatRoom = ({ large = false, pairs = [], newPairs = [], onSelect, s
 export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair: routeSelectedPair = null, selectedPerspective = null, onPerspectiveChange, onConnect }) => {
   const { ecosystem, selectedPair, selectPair, watchlist, has, toggle } = useWorkspace();
   const [stage, setStage] = useState('new');
+  const [callCounts, setCallCounts] = useState({});
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch(apiUrl('/api/reputation/calls/recent?limit=100')).then(r => r.ok ? r.json() : { calls: [] }).then(d => {
+      if (!alive) return;
+      const next = {}; (d.calls || []).forEach(call => { next[call.pairAddress] = (next[call.pairAddress] || 0) + 1; }); setCallCounts(next);
+    }).catch(() => {});
+    load(); const timer = setInterval(load, 8000); return () => { alive = false; clearInterval(timer); };
+  }, []);
   // A coin you click beats the one in the URL — otherwise every click snaps back to the linked coin.
   const firstSelection = useRef(selectedPair);
   const clicked = selectedPair && selectedPair !== firstSelection.current ? selectedPair : null;
@@ -119,7 +138,7 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair
       <section className="trenches-chart-panel"><div className="section-title"><h2><CandlestickChart size={18} />DEX chart</h2><span className="provider-note">Jupiter · OHLCV</span></div>{chartPair ? <TokenFocus pair={chartPair} has={has} toggle={toggle} defaultInterval="1m" onExpand={() => setWide(w => !w)} expanded={wide} /> : <div className="truth-empty" data-testid="trenches-chart-empty"><CandlestickChart size={28} /><span>Select a provider-indexed coin to open its chart.</span></div>}</section>
       <aside className="trenches-tools"><HotCalls onPick={pickCall} /><LiveCalls onPick={pickCall} /><CallerBoard /></aside>
     </div>
-    <section className="trenches-stages trenches-stage-panel" data-testid="trenches-stage-panel"><div className="section-title"><h2><Layers3 size={18} />Coin viewer</h2><span className="provider-note">Liquidity · market cap first</span></div><div className="trenches-stage-tabs">{[['new', 'New coins'], ['graduated', 'Graduated'], ['trending', 'Trending coins'], ['watchlist', 'Watchlist']].map(([id, label]) => <button key={id} className={stage === id ? 'active' : ''} data-testid={`trenches-stage-${id}`} onClick={() => setStage(id)}>{label}<small>{id === 'graduated' && !graduated.length ? 'unavailable' : stagePairs.length}</small></button>)}</div><div className="trenches-coin-grid">{stagePairs.slice(0, 6).map(pair => <button className="trenches-coin" key={pairKey(pair)} data-testid={`trenches-coin-${pairKey(pair)}`} onClick={() => { selectPair(pair); onSelect?.(pair); }}><TokenAvatar pair={pair} size={38} /><span><b>{pair.baseToken?.symbol || 'Unknown'}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId} · {pair.dexId}</small><small>LIQ {formatUSD(pair.liquidity?.usd)} · MC {formatUSD(pair.marketCap)}</small><ReputationBadge pair={pair} compact /></span><Change value={pair.priceChange?.h24} /></button>)}</div>{!stagePairs.length && <div className="truth-empty" data-testid={`trenches-${stage}-empty`}>{stage === 'graduated' ? 'Graduation status is unavailable in the current provider feed.' : `No ${stage} coins are available in this ecosystem snapshot.`}</div>}</section>
+    <section className="trenches-stages trenches-stage-panel" data-testid="trenches-stage-panel"><div className="section-title"><h2><Layers3 size={18} />Coin viewer</h2><span className="provider-note">Liquidity · market cap first</span></div><div className="trenches-stage-tabs">{[['new', 'New coins'], ['graduated', 'Graduated'], ['trending', 'Trending coins'], ['watchlist', 'Watchlist']].map(([id, label]) => <button key={id} className={stage === id ? 'active' : ''} data-testid={`trenches-stage-${id}`} onClick={() => setStage(id)}>{label}<small>{id === 'graduated' && !graduated.length ? 'unavailable' : stagePairs.length}</small></button>)}</div><div className="trenches-coin-grid">{stagePairs.slice(0, 6).map(pair => { const calls = callCounts[pair.pairAddress] || 0; const pump = pair.launchpadId === 'pump' || String(pair.dexId || '').toLowerCase().includes('pump'); return <button className="trenches-coin" key={pairKey(pair)} data-testid={`trenches-coin-${pairKey(pair)}`} onClick={() => { selectPair(pair); onSelect?.(pair); }}><TokenAvatar pair={pair} size={38} /><span><b>{pair.baseToken?.symbol || 'Unknown'}{(pump || calls > 0) && <i className="pink-bolt" title={calls ? `${calls} tracked callout${calls === 1 ? '' : 's'}` : 'Pump top coin'}><Zap size={12} />{calls || ''}</i>}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId} · {pair.dexId}</small><small>LIQ {formatUSD(pair.liquidity?.usd)} · MC {formatUSD(pair.marketCap)}</small><ReputationBadge pair={pair} compact /></span><Change value={pair.priceChange?.h24} /></button>; })}</div>{!stagePairs.length && <div className="truth-empty" data-testid={`trenches-${stage}-empty`}>{stage === 'graduated' ? 'Graduation status is unavailable in the current provider feed.' : `No ${stage} coins are available in this ecosystem snapshot.`}</div>}</section>
   </div>;
 };
 
