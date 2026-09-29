@@ -3913,3 +3913,94 @@ body.theme-day .fee-table td{color:#0a1f14}
 .shield-investigate{margin-top:8px;border:0;background:transparent;color:#00ffa3;font:700 11px 'JetBrains Mono',monospace;cursor:pointer;padding:0}.shield-investigate:hover{text-decoration:underline}
 body.theme-day .cf-modal,body.theme-day .cf-grid section{background:#fff}body.theme-day .case-file header h4{color:#0a1f14}
 @media(prefers-reduced-motion:reduce){.cf-overlay,.cf-loading{animation:none}}
+/* ===== Backdrops v2: every animated scene moves on the GPU only (transform/opacity), no full-page repaints ===== */
+.pbg-sunset,.pbg-vapor,.pbg-aurora,.pbg-plasma,.pbg-goldrush,.pbg-neoncat,.pbg-alpha,.pbg-hologram,.pbg-diamond,.pbg-whale,.pbg-glitter,.pbg-matrix{animation:none!important;background-size:auto!important}
+.profile-backdrop,.wp-theme-swatch[class*="pbg-"]{overflow:hidden;isolation:isolate}
+.profile-backdrop::before,.profile-backdrop::after,.wp-theme-swatch[class*="pbg-"]::before,.wp-theme-swatch[class*="pbg-"]::after{position:absolute;pointer-events:none;will-change:transform,opacity;z-index:-1}
+.wp-theme-swatch[class*="pbg-"]{position:relative}
+.wp-theme-swatch[class*="pbg-"]::before,.wp-theme-swatch[class*="pbg-"]::after{animation-play-state:paused!important}
+.wp-theme-swatch[class*="pbg-"]:hover::before,.wp-theme-swatch[class*="pbg-"]:hover::after,.wp-theme-swatch[class*="pbg-"].active::before,.wp-theme-swatch[class*="pbg-"].active::after{animation-play-state:running!important}
+@keyframes bd-drift{0%{transform:translate3d(-8%,-4%,0) rotate(0)}50%{transform:translate3d(6%,5%,0) rotate(8deg)}100%{transform:translate3d(-8%,-4%,0) rotate(0)}}
+@keyframes bd-spin{to{transform:rotate(1turn)}}
+@keyframes bd-fall{from{transform:translate3d(0,-50%,0)}to{transform:translate3d(0,0,0)}}
+@keyframes bd-slide{from{transform:translate3d(-50%,0,0)}to{transform:translate3d(0,0,0)}}
+@keyframes bd-pulse{0%,100%{opacity:.45;transform:scale(1)}50%{opacity:1;transform:scale(1.12)}}
+@keyframes bd-twinkle{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes bd-sweep{0%{transform:translate3d(-120%,0,0) skewX(-20deg)}60%,100%{transform:translate3d(220%,0,0) skewX(-20deg)}}
+@keyframes bd-bob{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(0,-4%,0) scale(1.06)}}
+/* glitter: two star fields twinkling out of phase */
+.pbg-glitter{background:linear-gradient(160deg,#2a0b3d,#12051f 60%,#3a0a2a)}
+.pbg-glitter::before,.pbg-glitter::after{content:'';inset:0;background:radial-gradient(1.6px 1.6px at 20% 30%,#fff,transparent),radial-gradient(1.2px 1.2px at 70% 60%,#ffd6ff,transparent),radial-gradient(1.4px 1.4px at 45% 85%,#fff,transparent),radial-gradient(1px 1px at 85% 15%,#fff,transparent);background-size:180px 180px;animation:bd-twinkle 3.2s ease-in-out infinite}
+.pbg-glitter::after{background-size:240px 240px;background-position:60px 90px;animation-delay:-1.6s}
+/* matrix: code rain falling */
+.pbg-matrix{background:#000a03}
+.pbg-matrix::before{content:'';left:0;right:0;top:0;height:200%;background:repeating-linear-gradient(180deg,transparent 0 26px,rgba(0,255,120,.16) 26px 28px),repeating-linear-gradient(90deg,transparent 0 22px,rgba(0,255,120,.06) 22px 24px);animation:bd-fall 5s linear infinite}
+/* sunset: a sun that breathes over a horizon */
+.pbg-sunset{background:linear-gradient(180deg,#140a1f,#3d1020 55%,#2a0f05)}
+.pbg-sunset::before{content:'';left:30%;right:30%;top:40%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(255,150,60,.55),rgba(255,70,90,.25) 45%,transparent 70%);animation:bd-bob 8s ease-in-out infinite}
+/* vaporwave: neon grid rolling toward you */
+.pbg-vapor{background:linear-gradient(180deg,#0b0a2a,#2b0a3d 55%,#0a1a3d)}
+.pbg-vapor::before{content:'';left:-50%;right:-50%;bottom:-40%;height:120%;background:linear-gradient(rgba(255,64,200,.35) 1px,transparent 1px) 0 0/60px 60px,linear-gradient(90deg,rgba(0,220,255,.3) 1px,transparent 1px) 0 0/60px 60px;transform-origin:50% 100%;transform:perspective(420px) rotateX(62deg);animation:bd-vapor 3s linear infinite}
+@keyframes bd-vapor{from{transform:perspective(420px) rotateX(62deg) translate3d(0,0,0)}to{transform:perspective(420px) rotateX(62deg) translate3d(0,60px,0)}}
+/* aurora: soft colour curtains drifting */
+.pbg-aurora{background:#02100c}
+.pbg-aurora::before{content:'';inset:-30%;background:radial-gradient(35% 25% at 30% 30%,rgba(0,255,163,.35),transparent 70%),radial-gradient(30% 22% at 70% 40%,rgba(60,140,255,.3),transparent 70%),radial-gradient(28% 20% at 50% 70%,rgba(179,136,255,.28),transparent 70%);filter:blur(10px);animation:bd-drift 22s ease-in-out infinite}
+/* plasma: rotating energy */
+.pbg-plasma{background:#0a0418}
+.pbg-plasma::before{content:'';inset:-60%;background:conic-gradient(from 0deg,rgba(255,64,160,.35),rgba(60,90,255,.3),rgba(255,140,40,.3),rgba(0,220,255,.3),rgba(255,64,160,.35));filter:blur(40px);animation:bd-spin 24s linear infinite}
+/* gold rush: gold shimmer sweeping across */
+.pbg-goldrush{background:radial-gradient(60% 40% at 50% 0,rgba(245,197,66,.3),transparent 70%),linear-gradient(180deg,#1a1203,#0d0901)}
+.pbg-goldrush::before{content:'';top:-20%;bottom:-20%;left:0;width:35%;background:linear-gradient(90deg,transparent,rgba(255,215,90,.28),transparent);animation:bd-sweep 5s ease-in-out infinite}
+/* neon cat: two neon blobs pulsing */
+.pbg-neoncat{background:#10031a}
+.pbg-neoncat::before,.pbg-neoncat::after{content:'';width:55%;aspect-ratio:1;border-radius:50%;filter:blur(30px);animation:bd-pulse 4s ease-in-out infinite}
+.pbg-neoncat::before{left:-10%;top:-10%;background:radial-gradient(circle,rgba(255,64,200,.45),transparent 65%)}
+.pbg-neoncat::after{right:-10%;bottom:-15%;background:radial-gradient(circle,rgba(0,220,255,.35),transparent 65%);animation-delay:-2s}
+/* alpha: violet core pulse */
+.pbg-alpha{background:linear-gradient(180deg,#0c0418,#10061f)}
+.pbg-alpha::before{content:'';left:15%;right:15%;top:10%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(179,136,255,.45),rgba(120,60,255,.15) 45%,transparent 70%);animation:bd-pulse 5s ease-in-out infinite}
+/* hologram: iridescent spin + scanlines */
+.pbg-hologram{background:#06101a}
+.pbg-hologram::before{content:'';inset:-60%;background:conic-gradient(rgba(0,255,200,.22),rgba(179,136,255,.22),rgba(255,120,200,.18),rgba(0,180,255,.22),rgba(0,255,200,.22));filter:blur(30px);animation:bd-spin 18s linear infinite}
+.pbg-hologram::after{content:'';left:0;right:0;top:0;height:200%;background:repeating-linear-gradient(180deg,transparent 0 3px,rgba(255,255,255,.04) 3px 4px);animation:bd-fall 8s linear infinite}
+/* diamond: icy light sweep + sparkles */
+.pbg-diamond{background:linear-gradient(180deg,#06121f,#0a1a2e)}
+.pbg-diamond::before{content:'';top:-20%;bottom:-20%;left:0;width:30%;background:linear-gradient(90deg,transparent,rgba(160,220,255,.3),transparent);animation:bd-sweep 6s ease-in-out infinite}
+.pbg-diamond::after{content:'';inset:0;background:radial-gradient(1.6px 1.6px at 15% 25%,#e6f6ff,transparent),radial-gradient(1.2px 1.2px at 65% 55%,#bfe6ff,transparent),radial-gradient(1.8px 1.8px at 40% 80%,#fff,transparent);background-size:200px 200px;animation:bd-twinkle 2.6s ease-in-out infinite}
+/* deep whale: slow ocean swell */
+.pbg-whale{background:linear-gradient(180deg,#020a1a,#031a36)}
+.pbg-whale::before{content:'';left:0;width:200%;bottom:-10%;height:60%;background:radial-gradient(60px 18px at 60px 18px,rgba(90,180,255,.18),transparent 70%) 0 0/120px 40px,linear-gradient(180deg,transparent,rgba(20,90,160,.35));animation:bd-slide 16s linear infinite}
+@media(prefers-reduced-motion:reduce){.profile-backdrop::before,.profile-backdrop::after{animation:none!important}}
+/* picker dropdowns */
+.wp-theme-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.wp-theme-drop{margin-top:8px;border:1px solid rgba(0,255,163,.2);border-radius:12px;background:rgba(0,0,0,.25);padding:4px 10px 10px;animation:np-in .2s ease-out}
+.wp-theme-drop>summary{display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;list-style:none}.wp-theme-drop>summary::-webkit-details-marker{display:none}
+.wp-theme-drop>summary em{font:700 10px 'JetBrains Mono',monospace;font-style:normal;text-transform:uppercase;letter-spacing:.1em;color:#00ffa3}
+.wp-theme-drop>summary span{font-size:11px;color:var(--muted)}.wp-theme-drop>summary i{margin-left:auto;font-style:normal;font-size:10.5px;color:#ffd08a}.wp-theme-drop>summary i.ok{color:#00ffa3}
+.wp-theme-drop>summary::after{content:'▾';color:#00ffa3;transition:transform .2s}.wp-theme-drop[open]>summary::after{transform:rotate(180deg)}
+.wp-theme-drop.is-locked{border-color:rgba(245,197,66,.25)}
+/* Profile name + @handle: one left edge, handle tucked under the name, meta mono */
+.xp-name{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.xp-name h1{padding:0!important;text-indent:0}
+.xp-sub{margin:0!important;padding:0!important;gap:8px;font:600 12.5px 'JetBrains Mono',monospace;letter-spacing:.02em}
+.xp-sub .wp-handle{color:var(--wp-accent,#00ffa3)!important;font:700 13px 'JetBrains Mono',monospace;padding:0}
+.xp-sub code{font-size:11.5px;color:var(--muted)}
+.wp-mood{margin:2px 0 0!important}
+/* Music: live equalizer, queue, modes, reorder */
+.eq{display:inline-flex;align-items:flex-end;gap:2px;height:12px;width:14px;vertical-align:middle}
+.eq b{flex:1;height:100%;background:#00ffa3;border-radius:1px;transform-origin:bottom;animation:eq-bar .9s ease-in-out infinite}
+.eq b:nth-child(2){animation-delay:-.3s}.eq b:nth-child(3){animation-delay:-.6s}.eq b:nth-child(4){animation-delay:-.45s}
+.eq.big{height:22px;width:26px;margin-left:auto;gap:3px}
+@keyframes eq-bar{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
+.pm-now{display:flex;align-items:center;gap:12px}
+.pm-controls button.on,.feecat-controls button.on{color:#02140c!important;background:#00ffa3!important;border-color:#00ffa3!important}
+.pm-list li{display:flex;align-items:center;gap:6px}.pm-list li>button:first-child{flex:1;text-align:left}
+.pm-list li.on>button:first-child{color:#00ffa3}
+.pm-edit{display:inline-flex;gap:3px}.pm-edit button{border:1px solid rgba(255,255,255,.12);background:transparent;color:#9fc3ad;border-radius:6px;padding:3px;cursor:pointer}.pm-edit button:hover:not(:disabled){border-color:#00ffa3;color:#00ffa3}.pm-edit button:disabled{opacity:.3}
+.feecat-queue{list-style:none;margin:8px 0 0;padding:0;max-height:150px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(0,255,163,.3) transparent;display:grid;gap:2px}
+.feecat-queue button{width:100%;display:flex;gap:8px;align-items:center;text-align:left;padding:5px 7px;border-radius:7px;border:0;background:transparent;color:#b9d6c4;font-size:11.5px;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.feecat-queue button:hover{background:rgba(0,255,163,.06)}.feecat-queue button.on{color:#00ffa3;background:rgba(0,255,163,.08)}.feecat-queue span{width:14px;color:var(--muted);font-size:10px}
+@media(prefers-reduced-motion:reduce){.eq b{animation:none;transform:scaleY(.6)}}
+.pbg-vapor::before{background:linear-gradient(rgba(255,64,200,.7) 2px,transparent 2px) 0 0/60px 60px,linear-gradient(90deg,rgba(0,220,255,.6) 2px,transparent 2px) 0 0/60px 60px;bottom:-30%;height:90%}
+.wp-themes{display:grid!important;gap:6px}
+.pbg-vapor::before{bottom:0!important;height:70%!important;transform-origin:50% 100%}

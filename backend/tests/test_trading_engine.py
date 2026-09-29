@@ -83,6 +83,10 @@ def engine():
 
     async def rpc(method, params):
         state['rpc'].append(method)
+        if method == 'getBalance':
+            return {'value': state.get('sol', 10**10)}
+        if method == 'getTokenAccountsByOwner':
+            return {'value': [{'account': {'data': {'parsed': {'info': {'tokenAmount': {'amount': str(state.get('tokens', 10**9))}}}}}}]}
         if method == 'getLatestBlockhash':
             return {'value': {'blockhash': str(Hash.default()), 'lastValidBlockHeight': 500}}
         return {'value': [{'confirmationStatus': 'confirmed'}]} if method == 'getSignatureStatuses' else 'sig'
@@ -159,3 +163,17 @@ def test_swap_engine_broadcasts_itself_and_refuses_replays(engine):
     assert not any(p == '/swap/v2/execute' for p, _, _ in state['calls'])
     again = client.post('/api/trading/execute', json={'order_id': order_id, 'signed_transaction': signed}).json()
     assert again['detail'].startswith('Already processed')
+
+
+def test_quote_refuses_what_the_wallet_cannot_pay_like_the_big_swap_apps(engine):
+    client, state, _ = engine
+    state['sol'] = 18_500_000  # 0.0185 SOL, the owner's screenshot
+    res = client.post('/api/trading/quote', json={'input_mint': SOL, 'output_mint': MEME, 'amount': '1', 'slippage_bps': 100, 'wallet': WALLET})
+    assert res.status_code == 400 and 'Not enough SOL: you have 0.0185 SOL' in res.json()['detail'] and 'most you can swap is 0.0140' in res.json()['detail']
+    assert not any(p.startswith('/swap/') for p, _, _ in state['calls'])  # nothing quoted or built
+
+
+def test_simulation_errors_read_like_english():
+    assert 'Not enough balance' in trading.explain_sim_error({'InstructionError': [2, {'Custom': 1}]})
+    assert 'slippage' in trading.explain_sim_error({'InstructionError': [4, {'Custom': 6001}]})
+    assert 'expired' in trading.explain_sim_error('BlockhashNotFound')

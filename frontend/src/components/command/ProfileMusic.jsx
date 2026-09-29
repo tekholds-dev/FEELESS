@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Music, Trash2, Plus } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Play, Pause, SkipBack, SkipForward, Music, Trash2, Plus, Shuffle, Repeat, Repeat1, ChevronUp, ChevronDown } from 'lucide-react';
 
 // MySpace-style profile playlist: YouTube, Spotify and SoundCloud links.
 export function parse(url) {
@@ -11,55 +11,45 @@ export function parse(url) {
   return null;
 }
 
+const cmd = (c, extra = {}) => window.dispatchEvent(new CustomEvent('feeless:music-cmd', { detail: { cmd: c, ...extra } }));
+
+// Profile playlist: the Fee mini player is the one engine (it keeps playing while you browse). This view
+// sends it the playlist + commands and mirrors its live state, so play / pause / skip always match.
 export function ProfileMusic({ songs = [], edit, onChange }) {
-  const [i, setI] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [vol, setVol] = useState(() => { try { return Number(localStorage.getItem('feeless:music-vol') || 60); } catch { return 60; } });
-  const [muted, setMuted] = useState(false);
+  const [live, setLive] = useState({ playing: false, url: null, mode: 'all' });
   const [url, setUrl] = useState(''); const [title, setTitle] = useState('');
-  // Playback lives in the Fee mini player (it survives page changes), so music keeps going in the
-  // background while you browse. The profile just hands over its playlist and position.
   useEffect(() => {
-    if (playing && songs.length) window.dispatchEvent(new CustomEvent('feeless:music', { detail: { songs, i } }));
-  }, [playing, i]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    const onState = e => { if (!e.detail?.playing) setPlaying(false); };
+    const onState = e => setLive(e.detail || {});
     window.addEventListener('feeless:music-state', onState);
     return () => window.removeEventListener('feeless:music-state', onState);
   }, []);
-  const frame = useRef(null);
+  const ours = live.url && songs.some(sg => sg.url === live.url);   // is the mini player on this playlist?
+  const i = ours ? Math.max(0, songs.findIndex(sg => sg.url === live.url)) : 0;
+  const playing = ours && live.playing;
   const song = songs[i]; const src = song && parse(song.url);
-  const send = msg => { try { frame.current?.contentWindow?.postMessage(typeof msg === 'string' ? msg : JSON.stringify(msg), '*'); } catch { /* cross-origin player not ready */ } };
-  useEffect(() => {
-    const v = muted ? 0 : vol;
-    try { localStorage.setItem('feeless:music-vol', String(vol)); } catch { /* ignore */ }
-    if (src?.kind === 'youtube') send({ event: 'command', func: 'setVolume', args: [v] });
-    if (src?.kind === 'soundcloud') send({ method: 'setVolume', value: v });
-  }, [vol, muted, src?.kind, i]); // eslint-disable-line react-hooks/exhaustive-deps
-  const toggle = () => {
-    if (!playing) { setPlaying(true); return; }
-    if (src?.kind === 'youtube') send({ event: 'command', func: 'pauseVideo', args: [] });
-    if (src?.kind === 'soundcloud') send({ method: 'pause' });
-    setPlaying(false);
-  };
-  const go = d => { if (!songs.length) return; setI(x => (x + d + songs.length) % songs.length); setPlaying(true); };
+  const start = at => window.dispatchEvent(new CustomEvent('feeless:music', { detail: { songs, i: at } }));
+  const toggle = () => (ours ? cmd('toggle') : start(0));
+  const skip = d => (ours ? cmd(d > 0 ? 'next' : 'prev') : start(d > 0 ? Math.min(1, songs.length - 1) : 0));
+  const move = (k, d) => { const j = k + d; if (j < 0 || j >= songs.length) return; const n = [...songs]; [n[k], n[j]] = [n[j], n[k]]; onChange?.(n); };
   const add = () => { if (!parse(url)) return; onChange?.([...songs, { url: url.trim(), title: title.trim() || 'Untitled' }].slice(0, 15)); setUrl(''); setTitle(''); };
+  const MODES = [['all', Repeat, 'Repeat all'], ['one', Repeat1, 'Repeat one'], ['shuffle', Shuffle, 'Shuffle']];
   if (!songs.length && !edit) return null;
   return <section className="wp-card wp-music" data-testid="profile-music">
-    <h3><Music size={15} /> Profile playlist</h3>
+    <h3><Music size={15} /> Profile playlist <small>{songs.length}/15</small></h3>
     {songs.length > 0 && <div className="pm-player">
-      <div className="pm-now"><div className={`pm-disc ${playing ? 'spin' : ''}`}>♫</div><div><b>{song.title || 'Untitled'}</b><small>{src?.kind || 'link'} · {i + 1}/{songs.length}</small></div></div>
+      <div className="pm-now"><div className={`pm-disc ${playing ? 'spin' : ''}`}>♫</div><div><b>{song.title || 'Untitled'}</b><small>{src?.kind || 'link'} · {i + 1}/{songs.length}{playing ? ' · live in the Fee player' : ''}</small></div>{playing && <i className="eq big" aria-hidden="true"><b /><b /><b /><b /></i>}</div>
       <div className="pm-controls">
-        <button type="button" onClick={() => go(-1)} aria-label="Previous"><SkipBack size={15} /></button>
-        <button type="button" className="pm-play" onClick={toggle} aria-label={playing ? 'Pause' : 'Play'}>{playing ? <Pause size={17} /> : <Play size={17} />}</button>
-        <button type="button" onClick={() => go(1)} aria-label="Next"><SkipForward size={15} /></button>
-        <button type="button" onClick={() => setMuted(m => !m)} aria-label="Mute">{muted || !vol ? <VolumeX size={15} /> : <Volume2 size={15} />}</button>
-        <input type="range" min="0" max="100" value={muted ? 0 : vol} onChange={e => { setMuted(false); setVol(Number(e.target.value)); }} aria-label="Volume" disabled={src?.kind === 'spotify'} title={src?.kind === 'spotify' ? 'Spotify controls its own volume' : 'Volume'} />
+        <button type="button" onClick={() => skip(-1)} aria-label="Previous"><SkipBack size={15} /></button>
+        <button type="button" className="pm-play" onClick={toggle} aria-label={playing ? 'Pause' : 'Play'} data-testid="pm-play">{playing ? <Pause size={17} /> : <Play size={17} />}</button>
+        <button type="button" onClick={() => skip(1)} aria-label="Next"><SkipForward size={15} /></button>
+        {MODES.map(([m, Icon, label]) => <button key={m} type="button" className={live.mode === m ? 'on' : ''} onClick={() => cmd('mode', { mode: m })} aria-label={label} title={label}><Icon size={14} /></button>)}
       </div>
-      {playing && src && <small className="pm-handoff">♪ Playing in the Fee mini player — keeps going while you browse</small>}{false && src && <iframe ref={frame} key={`${i}-${src.src}`} className={`pm-frame pm-${src.kind}`} src={src.src} title={song.title || 'song'} allow="autoplay; encrypted-media" onLoad={() => { if (src.kind === 'youtube') { send({ event: 'listening' }); setTimeout(() => send({ event: 'command', func: 'setVolume', args: [muted ? 0 : vol] }), 600); } }} />}
-      <ol className="pm-list">{songs.map((sng, k) => <li key={`${sng.url}-${k}`} className={k === i ? 'on' : ''}><button type="button" onClick={() => { setI(k); setPlaying(true); }}>{k === i && playing ? '▶' : k + 1}. {sng.title || sng.url}</button>{edit && <button type="button" className="pm-del" onClick={() => onChange?.(songs.filter((_, j) => j !== k))} aria-label="Remove"><Trash2 size={12} /></button>}</li>)}</ol>
+      <ol className="pm-list">{songs.map((sng, k) => <li key={`${sng.url}-${k}`} className={k === i && ours ? 'on' : ''}>
+        <button type="button" onClick={() => (ours ? cmd('jump', { i: k }) : start(k))}>{k === i && playing ? <i className="eq"><b /><b /><b /></i> : <span>{k + 1}.</span>} {sng.title || sng.url}</button>
+        {edit && <span className="pm-edit"><button type="button" onClick={() => move(k, -1)} disabled={!k} aria-label="Move up"><ChevronUp size={12} /></button><button type="button" onClick={() => move(k, 1)} disabled={k === songs.length - 1} aria-label="Move down"><ChevronDown size={12} /></button><button type="button" className="pm-del" onClick={() => onChange?.(songs.filter((_, j) => j !== k))} aria-label="Remove"><Trash2 size={12} /></button></span>}
+      </li>)}</ol>
     </div>}
     {edit && <div className="pm-add"><input placeholder="YouTube, Spotify or SoundCloud link" value={url} onChange={e => setUrl(e.target.value)} /><input placeholder="Title" maxLength={60} value={title} onChange={e => setTitle(e.target.value)} /><button type="button" className="btn-outline" disabled={!parse(url) || songs.length >= 15} onClick={add}><Plus size={13} />Add song</button></div>}
-    {!songs.length && edit && <p className="wp-bio">Add up to 15 songs — visitors can play, skip and set the volume.</p>}
+    {!songs.length && edit && <p className="wp-bio">Add up to 15 songs. Visitors play, skip, shuffle and repeat, and it keeps playing while they browse.</p>}
   </section>;
 }

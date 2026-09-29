@@ -245,7 +245,11 @@ export function WalletProfilePage({ address }) {
           <small>Name effect</small>
           <div className="wp-rings">{NAMEFX.map(([id, label, need]) => <button type="button" key={id} disabled={need > tier} className={`wp-ring-opt ${draft.nameFx === id ? 'active' : ''} ${need ? 'premium' : ''}`} onClick={() => set('nameFx', id)}><b className={`namefx-${id}`}>{need > tier ? '🔒 ' : ''}{label}</b></button>)}</div>
         </div>}
-        {edit && <div className="wp-themes" data-testid="profile-backdrops"><small>Page backdrop</small>{THEME_GROUPS.map(([group, need, items]) => <div key={group} className="wp-theme-group"><em>{group}{need > tier ? ' · 🔒' : ''}</em><div>{items.map(([id, label]) => <button type="button" key={id} disabled={need > tier} title={need > tier ? TIER_NAME[need] : label} className={`wp-theme-swatch pbg-${id} ${draft.theme === id ? 'active' : ''}`} onClick={() => set('theme', id)}><span>{need > tier ? '🔒 ' : ''}{label}</span></button>)}</div></div>)}</div>}
+        {edit && <div className="wp-themes" data-testid="profile-backdrops"><small>Page backdrop</small>
+          {THEME_GROUPS.map(([group, need, items], gi) => { const locked = need > tier; const swatches = <div className="wp-theme-row">{items.map(([id, label]) => <button type="button" key={id} disabled={locked} title={locked ? TIER_NAME[need] : label} className={`wp-theme-swatch pbg-${id} ${draft.theme === id ? 'active' : ''}`} onClick={() => set('theme', id)}><span>{label}</span></button>)}</div>;
+            // Free options always open; the animated tiers sit in dropdowns (open when one is selected).
+            return gi === 0 ? <div key={group} className="wp-theme-group"><em>{group}</em>{swatches}</div>
+              : <details key={group} className={`wp-theme-drop ${locked ? 'is-locked' : ''}`} open={items.some(([id]) => id === draft.theme)}><summary><em>{group}</em><span>{items.length} options</span>{locked ? <i>🔒 {TIER_NAME[need]}</i> : <i className="ok">Unlocked</i>}</summary>{swatches}</details>; })}</div>}
         {edit && <div className="wp-accents"><small>Accent</small>{ACCENTS.map(c => <button type="button" key={c} style={{ background: c }} className={draft.accent === c ? 'active' : ''} onClick={() => set('accent', c)} aria-label={`Accent ${c}`} />)}</div>}
       </section>
       <section className="wp-card">

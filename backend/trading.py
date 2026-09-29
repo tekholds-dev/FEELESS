@@ -92,6 +92,37 @@ def summarize_orders(orders, now=None):
     return {**{k: round(v, 4) if isinstance(v, float) else v for k, v in out.items() if k != 'coins'}, 'coins': [{**c, 'feesUsd': round(c['feesUsd'], 4)} for c in coins]}
 
 
+# SOL kept back on a SOL-paid trade: network + priority fee and the temporary wSOL/token-account rent.
+SOL_RESERVE_LAMPORTS = 4_500_000
+
+
+def insufficient_message(mint, held, decimals, _out_symbol=None):
+    have = held / 10 ** decimals
+    if mint == SOL_MINT:
+        room = max(0, held - SOL_RESERVE_LAMPORTS) / 1e9
+        return (f'Not enough SOL: you have {have:.4f} SOL. The most you can swap is {room:.4f} SOL '
+                f'(about {SOL_RESERVE_LAMPORTS / 1e9:.4f} SOL stays for network fees and account rent).')
+    return f'Not enough of this coin: you hold {have:,.6g}.'
+
+
+def explain_sim_error(err):
+    """Solana simulation errors → plain English (what the big swap apps show instead of raw codes)."""
+    text = str(err)
+    code = None
+    if isinstance(err, dict) and isinstance(err.get('InstructionError'), list) and len(err['InstructionError']) == 2:
+        inner = err['InstructionError'][1]
+        code = inner.get('Custom') if isinstance(inner, dict) else inner
+    if code == 1 or 'InsufficientFunds' in text:
+        return 'Not enough balance for this trade once fees are included. Lower the amount.'
+    if code in (6001, 0x1771) or 'SlippageToleranceExceeded' in text:
+        return 'Price moved more than your slippage. Get a fresh quote or raise slippage.'
+    if 'BlockhashNotFound' in text:
+        return 'Quote expired. Get a fresh quote.'
+    if 'AccountNotFound' in text:
+        return 'Your wallet has no SOL on this network yet. Fund it first.'
+    return f'Simulation failed ({text[:120]}).'
+
+
 class TradingService:
     def __init__(self, db):
         self.db = db
@@ -258,6 +289,19 @@ class TradingService:
                 pass
             await asyncio.sleep(2)
 
+    async def balance_atoms(self, wallet, mint):
+        """What the wallet holds of the coin it pays with (atoms), or None when unknown (no wallet / RPC down)."""
+        if not wallet:
+            return None
+        try:
+            if mint == SOL_MINT:
+                return int(((await self.rpc('getBalance', [wallet, {'commitment': 'confirmed'}])) or {}).get('value') or 0)
+            res = await self.rpc('getTokenAccountsByOwner', [wallet, {'mint': mint}, {'encoding': 'jsonParsed', 'commitment': 'confirmed'}])
+            return sum(int((((a.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info', {}).get('tokenAmount', {}).get('amount') or 0)
+                       for a in (res or {}).get('value') or [])
+        except Exception:
+            return None  # unknown balance never blocks a quote; the simulation still guards it
+
     async def fee_rule(self, body):
         """Creator-controlled FEELESS fee (Jupiter integrator fee → creator's referral account).
         The fee service is local and fast; if it is down or slow, no fee is charged — never a surprise fee."""
@@ -345,8 +389,8 @@ class TradingService:
             if body.input_mint == body.output_mint:
                 raise HTTPException(400, 'Choose different input and output tokens')
             # Independent lookups run together: pay-coin decimals, receive-coin metadata and the FEELESS fee rule.
-            meta_in, meta_out, fee = await asyncio.gather(self.metadata(body.input_mint), self.metadata(body.output_mint),
-                                                          self.fee_rule(body), return_exceptions=True)
+            meta_in, meta_out, fee, held = await asyncio.gather(self.metadata(body.input_mint), self.metadata(body.output_mint),
+                                                                self.fee_rule(body), self.balance_atoms(body.wallet, body.input_mint), return_exceptions=True)
             if isinstance(meta_in, BaseException):
                 raise meta_in
             meta_out = None if isinstance(meta_out, BaseException) else meta_out
@@ -357,6 +401,11 @@ class TradingService:
             atoms = human * (Decimal(10) ** meta_in['decimals'])
             if human <= 0 or atoms != atoms.to_integral_value() or atoms > 2**64 - 1:
                 raise HTTPException(400, 'Invalid amount or too many decimal places')
+            # Like the big swap apps: never quote what the wallet can't pay (SOL also covers fees + temporary rent).
+            if isinstance(held, int):
+                need = int(atoms) + (SOL_RESERVE_LAMPORTS if body.input_mint == SOL_MINT else 0)
+                if held < need:
+                    raise HTTPException(400, insufficient_message(body.input_mint, held, meta_in['decimals'], (meta_out or {}).get('symbol')))
             params = {'inputMint': body.input_mint, 'outputMint': body.output_mint,
                       'amount': str(int(atoms)), 'slippageBps': body.slippage_bps}
             if body.wallet:
@@ -405,7 +454,7 @@ class TradingService:
                                      'replaceRecentBlockhash': False, 'commitment': 'confirmed'}])
             value = result.get('value', {})
             if value.get('err'):
-                raise HTTPException(400, f'Simulation failed: {str(value["err"])[:150]}. No transaction submitted.')
+                raise HTTPException(400, f'{explain_sim_error(value["err"])} Nothing was sent.')
             await self.db.swap_orders.update_one({'order_id': body.order_id, 'state': 'quoted'}, {'$set': {'simulated': True}})
             return {'success': True, 'units_consumed': value.get('unitsConsumed'), 'broadcast': False}
 
