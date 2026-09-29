@@ -229,11 +229,12 @@ test('keeps the swap review facts and approval action readable at every text siz
     const dialog = container.querySelector('[data-testid="swap-review-dialog"]');
     expect(dialog).not.toBeNull();
     expect(document.body.style.getPropertyValue('--swap-review-readable-scale')).toBe(expectedScale);
-    expect(dialog.querySelector('.review-facts').textContent).toEqual(expect.stringContaining('Pay'));
-    expect(dialog.querySelector('.review-facts').textContent).toEqual(expect.stringContaining('Expected output'));
+    // Pay / get / countdown live in the hero card; the fact list holds the rest (no duplicates, no scroll).
+    expect(dialog.querySelector('[data-testid="swap-review-hero"]').textContent).toEqual(expect.stringContaining('You pay'));
+    expect(dialog.querySelector('[data-testid="swap-review-hero"]').textContent).toEqual(expect.stringContaining('You get'));
     expect(dialog.querySelector('.review-facts').textContent).toEqual(expect.stringContaining('Minimum output'));
     expect(dialog.querySelector('.review-facts').textContent).toEqual(expect.stringContaining('Slippage'));
-    expect(dialog.querySelector('.review-facts').textContent).toEqual(expect.stringContaining('Expiry'));
+    expect(dialog.querySelector('.review-facts').textContent).toEqual(expect.stringContaining('Total cost'));
     expect(dialog.querySelector('[data-testid="swap-approve-wallet"]').textContent).toContain('Approve in ');
 
     act(() => root.unmount());

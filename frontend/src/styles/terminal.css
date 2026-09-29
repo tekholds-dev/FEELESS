@@ -3696,3 +3696,10 @@ body.theme-day .top-pump{background:#fff}
 @keyframes reviewSweep{to{background-position:-250% 0}}
 [data-testid="swap-review-dialog"] .swap-review-hero{background:#000!important}
 .review-facts .rf-fee dd{color:var(--royal-hi,#3ee39c)}.review-facts .rf-total dt,.review-facts .rf-total dd{font-weight:800;color:#fff}
+/* Review swap fits on one screen: no inner scroll box, no sideways scroll, tighter rows. */
+[data-testid="swap-review-dialog"]{overflow-x:hidden!important;padding:22px 24px!important}
+[data-testid="swap-review-dialog"] .swap-review-hero{margin:4px 0 8px}
+.feeless-dialog .review-facts{max-height:none;overflow:visible}
+[data-testid="swap-review-dialog"] .review-facts>div{padding:7px 0}
+[data-testid="swap-review-dialog"] .review-facts dd{min-width:0}
+[data-testid="swap-review-dialog"]>p.market-error{margin:8px 0;padding:10px 12px}

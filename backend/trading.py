@@ -180,7 +180,8 @@ class TradingService:
             queue = self.rate[ip]
             while queue and time.monotonic() - queue[0] > 60:
                 queue.popleft()
-            if len(queue) >= 12:
+            # Room for the swap card's 10s auto-refresh (6/min) plus manual quotes.
+            if len(queue) >= 20:
                 raise HTTPException(429, 'Quote limit reached. Wait one minute.')
             queue.append(time.monotonic())
             valid_key(body.input_mint); valid_key(body.output_mint)
@@ -237,6 +238,8 @@ class TradingService:
                       'quote': data, 'simulated': False}
             await self.db.swap_orders.insert_one(record)
             return {'order_id': order_id, 'created_at': created, 'expires_at': record['expires_at'],
+                    # Echoed so the UI can refuse to show or sign an order that no longer matches the picked coins.
+                    'input_mint': body.input_mint, 'output_mint': body.output_mint, 'amount': body.amount,
                     'input_metadata': meta_in, 'output_metadata': meta_out, 'quote': data,
                     'feeless_fee': {'bps': int(fee.get('bps') or 0), 'notes': fee.get('notes') or [], 'fallback': bool(fee_fallback)},
                     'fee_back': {'status': 'PLANNED', 'eligible_usd': None, 'distribution': None}}
