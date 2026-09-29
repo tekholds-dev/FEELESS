@@ -253,9 +253,26 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
     <div className="srh-side"><small>You pay</small><b>{amount}</b><span>{inputAsset.symbol}</span></div>
     <div className="srh-flow" aria-hidden="true"><ArrowRight size={20} /></div>
     <div className="srh-side get"><small>You get ≈</small><b>{Number.isFinite(out) ? out.toLocaleString(undefined, { maximumFractionDigits: 6 }) : '—'}</b><span>{outputAsset.symbol}</span></div>
-    <div className="srh-meta">{rate && <span>1 {inputAsset.symbol} = {rate.toLocaleString(undefined, { maximumFractionDigits: 6 })} {outputAsset.symbol}</span>}<span className={`srh-impact ${impact > 3 ? 'bad' : impact > 1 ? 'mid' : 'good'}`}>impact {impact.toFixed(2)}%</span>
+    <div className="srh-meta">{rate && <span>1 {inputAsset.symbol} = {rate.toLocaleString(undefined, { maximumFractionDigits: 6 })} {outputAsset.symbol}</span>}<span className={`srh-impact ${impact > 3 ? 'bad' : impact > 1 ? 'mid' : 'good'}`}>impact {Math.abs(impact).toFixed(2)}%</span>
       <span className="srh-clock" style={{ '--p': `${Math.min(100, (secs / 60) * 100)}%` }}><em>{secs}s</em></span></div>
-  </div>; })()}<dl className="review-facts"><div><dt>Pay</dt><dd>{amount} {inputAsset.symbol}</dd></div><div><dt>Expected output</dt><dd>{quote && units(quote.outAmount, order.output_metadata?.decimals)} {outputAsset.symbol}</dd></div><div><dt>Minimum output</dt><dd>{quote && units(quote.otherAmountThreshold, order.output_metadata?.decimals)}</dd></div><div><dt>Slippage</dt><dd>{Number(slippage) / 100}%</dd></div><div><dt>Expiry</dt><dd>{remaining}s</dd></div></dl><p className="market-error">This is a real transaction. Network/DEX fees apply. Fee-Back is not activated.</p><button className="btn-primary" data-testid="swap-approve-wallet" disabled={busy} onClick={expired ? () => { setReview(false); loadQuote(); } : sign}>{expired ? 'Quote expired — get fresh quote' : `Approve in ${wallet?.name || 'wallet'}`}{!expired && <ArrowUpRight size={16} />}</button></DialogContent></Dialog></div>;
+  </div>; })()}<dl className="review-facts"><div><dt>Pay</dt><dd>{amount} {inputAsset.symbol}</dd></div><div><dt>Expected output</dt><dd>{quote && units(quote.outAmount, order.output_metadata?.decimals)} {outputAsset.symbol}</dd></div><div><dt>Minimum output</dt><dd>{quote && units(quote.otherAmountThreshold, order.output_metadata?.decimals)}</dd></div><div><dt>Slippage</dt><dd>{Number(slippage) / 100}%</dd></div>{(() => {
+        // USD everywhere: pay / get values, FEELESS fee, chain fees, total cost.
+        const usd = v => (Number.isFinite(v) ? `$${v < 0.01 && v > 0 ? v.toFixed(4) : v.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—');
+        const inUsd = Number(quote?.inUsdValue);
+        const outUsd = Number(quote?.outUsdValue);
+        // SOL's USD price straight from this quote (Jupiter prices both legs) — no extra request.
+        const outN = Number(units(quote?.outAmount, order?.output_metadata?.decimals));
+        const solUsd = inputMint === SOL && Number(amount) > 0 && inUsd ? inUsd / Number(amount) : outputMint === SOL && outN > 0 && outUsd ? outUsd / outN : null;
+        const feeBps = Number(order?.feeless_fee?.bps || 0);
+        const feeUsd = Number.isFinite(inUsd) ? inUsd * feeBps / 10000 : NaN;
+        const feeSol = solUsd && Number.isFinite(feeUsd) ? feeUsd / solUsd : NaN;
+        const chainSol = ['signatureFeeLamports', 'prioritizationFeeLamports', 'rentFeeLamports'].reduce((a, k) => a + Number(quote?.[k] || 0), 0) / 1e9;
+        const chainUsd = solUsd ? chainSol * solUsd : NaN;
+        return <><div><dt>You pay (USD)</dt><dd>{usd(inUsd)}</dd></div><div><dt>You get (USD)</dt><dd>{usd(outUsd)}</dd></div>
+          <div className="rf-fee"><dt>FEELESS fee</dt><dd>{feeBps ? `${(feeBps / 100).toFixed(2)}% · ${Number.isFinite(feeSol) ? feeSol.toFixed(6) : '—'} SOL · ${usd(feeUsd)}` : (order?.feeless_fee?.notes?.[0] || 'Free')}</dd></div>
+          <div><dt>Chain fees</dt><dd>{chainSol.toFixed(6)} SOL · {usd(chainUsd)}</dd></div>
+          <div className="rf-total"><dt>Total cost</dt><dd>{usd((Number.isFinite(inUsd) ? inUsd : 0) + (Number.isFinite(chainUsd) ? chainUsd : 0))}</dd></div></>;
+      })()}<div><dt>Expiry</dt><dd>{remaining}s</dd></div></dl><p className="market-error">This is a real transaction. Network/DEX fees apply. Fee-Back is not activated.</p><button className="btn-primary" data-testid="swap-approve-wallet" disabled={busy} onClick={expired ? () => { setReview(false); loadQuote(); } : sign}>{expired ? 'Quote expired — get fresh quote' : `Approve in ${wallet?.name || 'wallet'}`}{!expired && <ArrowUpRight size={16} />}</button></DialogContent></Dialog></div>;
 };
 // Search every Solana token (Jupiter's index): name, ticker or contract. Verified first, then by liquidity.
 

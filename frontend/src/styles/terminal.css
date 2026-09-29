@@ -3689,3 +3689,10 @@ body.theme-day .top-pump{background:#fff}
 .evm-safety{display:flex;align-items:center;gap:6px;margin:8px 4px 0;font-size:11px;color:var(--royal-hi,#3ee39c)}
 .jup-card .tkp-pop nav{display:flex;flex-wrap:wrap;gap:4px}
 .fee-wall-pin{margin:0 0 12px;padding:14px 16px;border-radius:14px;border:1px solid rgba(233,189,101,.35);background:linear-gradient(160deg,rgba(233,189,101,.08),transparent 70%)}.fee-wall-pin>b{font-size:13px;color:var(--gold,#e9bd65)}.fee-wall-pin ul{margin:8px 0;padding-left:18px;display:grid;gap:6px;font-size:12.5px;line-height:1.5}.fee-wall-pin small{display:block;color:var(--muted);font-size:11px;line-height:1.5}
+/* Review swap: black, animated edge, clear fee rows */
+[data-testid="swap-review-dialog"]{background:#030605!important;border:1px solid rgba(18,192,122,.35)!important;box-shadow:0 0 0 1px #000,0 30px 80px -20px rgba(18,192,122,.35)!important;animation:reviewIn .28s cubic-bezier(.2,.8,.2,1) both}
+[data-testid="swap-review-dialog"]::before{content:'';position:absolute;inset:-1px;border-radius:inherit;padding:1px;background:linear-gradient(120deg,transparent,rgba(62,227,156,.7),transparent 60%);background-size:250% 100%;animation:reviewSweep 3s linear infinite;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+@keyframes reviewIn{from{opacity:0;transform:translate(-50%,-48%) scale(.97)}to{opacity:1}}
+@keyframes reviewSweep{to{background-position:-250% 0}}
+[data-testid="swap-review-dialog"] .swap-review-hero{background:#000!important}
+.review-facts .rf-fee dd{color:var(--royal-hi,#3ee39c)}.review-facts .rf-total dt,.review-facts .rf-total dd{font-weight:800;color:#fff}
