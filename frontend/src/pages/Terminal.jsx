@@ -79,9 +79,9 @@ export default function Terminal() {
   const market = useMarket(query ? `/search?q=${encodeURIComponent(query)}` : `/feed?kind=${kind}&chain=${chain}&page=${pagination}${screenParam}${page === 'pump' ? pumpScope : ''}`, cadence);
   const newFeed = useMarket(`/feed?kind=new&chain=${chain}&page=${pagination}${screenParam}${pumpScope}`, cadence);
   const pumpTrendingFeed = useMarket(page === 'pump' ? `/feed?kind=trending&chain=${ecosystem.chainId}&page=1${screenParam}${pumpScope}` : null, page === 'pump' ? 15000 : 0);
-  // Trenches should see the same Pump.fun discovery snapshot as Pump Radar, not just the generic DEX list.
-  const trenchPumpTop = useMarket(page === 'chat' && chain === 'solana' ? '/feed?kind=trending&chain=solana&page=1&scope=pump' : null, page === 'chat' ? 15000 : 0);
-  const trenchPumpNew = useMarket(page === 'chat' && chain === 'solana' ? '/feed?kind=new&chain=solana&page=1&scope=pump' : null, page === 'chat' ? 15000 : 0);
+  // Trenches lead with the ranked launchpad board (Pump.fun + LetsBONK + LaunchLab), then the generic DEX list.
+  const trenchPumpTop = useMarket(page === 'chat' && chain === 'solana' ? '/feed?kind=trending&chain=solana&page=1&scope=launchpads' : null, page === 'chat' ? 15000 : 0);
+  const trenchPumpNew = useMarket(page === 'chat' && chain === 'solana' ? '/feed?kind=new&chain=solana&page=1&scope=launchpads' : null, page === 'chat' ? 15000 : 0);
   const pairLookup = useMarket(pairLookupPath, 60000);
   const assets = useMarket('/assets', 90000); const feeAssets = assets.data?.assets || []; const fee = feeAssets.find(a => a.id === 'fee'); const feeCat = feeAssets.find(a => a.id === 'feecat');
   const { data: community } = useMarket(`/api/intelligence/community?context=${ecosystem.id}`, 30000);

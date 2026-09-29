@@ -12,6 +12,10 @@ import httpx
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from launchpad_board import BONK_PLATFORM_ID, build_board, dex_candidate, gecko_pool_to_pair, launchlab_candidate, pump_candidate
+
+BOARD_SCOPES = ('launchpads', 'pump', 'bonk', 'raydium')
+
 NETWORKS = {'solana': 'solana', 'ethereum': 'eth', 'base': 'base', 'bsc': 'bsc',
             'arbitrum': 'arbitrum', 'avalanche': 'avax', 'polygon': 'polygon_pos', 'sui': 'sui',
             'optimism': 'optimism', 'zksync': 'zksync', 'zora': 'zora', 'cronos': 'cronos', 'unichain': 'unichain', 'worldchain': 'worldchain'}
@@ -60,6 +64,7 @@ PROVIDER_LABELS = {
     'DexScreener': 'DexScreener boosted discovery',
 }
 PROVIDER_URLS = {
+    'FEELESS launchpad board': 'https://pump.fun',
     'Pump.fun': 'https://pump.fun',
     'DexScreener': 'https://dexscreener.com',
 }
@@ -309,6 +314,8 @@ def create_market_router(db, intelligence=None):
     bases = {
         'DexScreener': os.getenv('DEX_API_URL', 'https://api.dexscreener.com'),
         'Pump.fun': os.getenv('PUMP_API_URL', 'https://frontend-api-v3.pump.fun'),
+        'LaunchLab': os.getenv('LAUNCHLAB_API_URL', 'https://launch-mint-v1.raydium.io'),
+        'GeckoTerminal': os.getenv('GECKO_API_URL', 'https://api.geckoterminal.com/api/v2'),
     }
 
     async def cached(provider, path, params=None, ttl=60):
@@ -369,6 +376,81 @@ def create_market_router(db, intelligence=None):
             'source_label': 'Pump.fun public coin index · launchpad coverage',
             'coverage': PROVIDER_COVERAGE['Pump.fun'],
         }
+
+    board_cache = {}
+
+    async def launchpad_board(kind):
+        """Ranked Pump.fun + LetsBONK + LaunchLab coins (see launchpad_board.py). Cached 20s per kind."""
+        hit = board_cache.get(kind)
+        if hit and monotonic() - hit[0] < 20:
+            return hit[1], hit[2]
+        pump_pages = ([('created_timestamp', 0), ('created_timestamp', 50), ('last_trade_timestamp', 0), ('last_trade_timestamp', 50)] if kind == 'new'
+                      else [('last_trade_timestamp', 0), ('last_trade_timestamp', 50), ('market_cap', 0)])
+        lab_sorts = ['new', 'lastTrade'] if kind == 'new' else ['lastTrade', 'marketCap']
+        jobs = [('pump', cached('Pump.fun', '/coins', {'offset': off, 'limit': 50, 'sort': s, 'order': 'DESC', 'includeNsfw': 'false'}, ttl=20)) for s, off in pump_pages]
+        jobs.append(('pump', cached('Pump.fun', '/coins/currently-live', {'offset': 0, 'limit': 30, 'includeNsfw': 'false'}, ttl=30)))
+        for s in lab_sorts:
+            jobs.append(('bonk', cached('LaunchLab', '/get/list', {'sort': s, 'size': 50, 'mintType': 'default', 'includeNsfw': 'false', 'platformId': BONK_PLATFORM_ID}, ttl=20)))
+            jobs.append(('raydium', cached('LaunchLab', '/get/list', {'sort': s, 'size': 50, 'mintType': 'default', 'includeNsfw': 'false'}, ttl=20)))
+        results = await asyncio.gather(*[job for _pad, job in jobs], return_exceptions=True)
+        candidates, meta = {}, None
+        for (pad, _job), res in zip(jobs, results):
+            if isinstance(res, Exception):
+                continue
+            data, m = res
+            meta = meta or m
+            rows = data if isinstance(data, list) else (((data or {}).get('data') or {}).get('rows') or [])
+            for row in rows:
+                cand = pump_candidate(row) if pad == 'pump' else launchlab_candidate(row, pad)
+                if cand and cand['mint'] not in candidates and (cand['marketCap'] >= 5_000 or kind == 'new'):
+                    candidates[cand['mint']] = cand
+        seeded = {}
+        try:  # migrated Pump/LetsBONK coins that DexScreener discovery is already surfacing
+            boosted, _ = await dex_boost_feed(kind, 'solana', 1)
+            for pair in boosted:
+                cand = dex_candidate(pair)
+                if cand and cand['mint'] not in candidates:
+                    candidates[cand['mint']] = cand
+                    seeded[cand['mint']] = pair
+        except HTTPException:
+            pass
+        if not candidates:
+            raise HTTPException(503, 'Launchpad indexes returned no coins.')
+        # Priority order, not alphabetical: discovery-seeded, then Pump's active lists, then LaunchLab.
+        mints = (list(seeded) + [m for m in candidates if m not in seeded])[:270]
+        dex_pairs = dict(seeded)
+        lookup = sorted(m for m in mints if m not in seeded)
+        chunks = await asyncio.gather(*[cached('DexScreener', '/tokens/v1/solana/' + ','.join(lookup[i:i + 30]), ttl=20)
+                                        for i in range(0, len(lookup), 30)], return_exceptions=True)
+        for res in chunks:
+            if isinstance(res, Exception):
+                continue
+            for pair in res[0] if isinstance(res[0], list) else []:
+                mint = (pair.get('baseToken') or {}).get('address')
+                if mint in candidates and pair.get('chainId') == 'solana':
+                    best = dex_pairs.get(mint)
+                    if not best or safe_float((pair.get('volume') or {}).get('h1')) > safe_float((best.get('volume') or {}).get('h1')):
+                        dex_pairs[mint] = pair
+        # LaunchLab curves are not on DexScreener until they migrate; GeckoTerminal indexes their pools.
+        lab_missing = [m for m in mints if m not in dex_pairs and candidates[m]['launchpad'] != 'pump' and candidates[m].get('pool')]
+        for i in range(0, min(len(lab_missing), 60), 30):
+            batch = lab_missing[i:i + 30]
+            try:
+                data, _ = await cached('GeckoTerminal', '/networks/solana/pools/multi/' + ','.join(sorted(candidates[m]['pool'] for m in batch)), ttl=60)
+            except HTTPException:
+                continue
+            by_pool = {candidates[m]['pool']: m for m in batch}
+            for pool in (data or {}).get('data') or []:
+                mint = by_pool.get((pool.get('attributes') or {}).get('address'))
+                if mint:
+                    dex_pairs[mint] = gecko_pool_to_pair(pool, mint, candidates[mint])
+        ranked = build_board({m: candidates[m] for m in mints}, dex_pairs, kind)
+        meta = {**(meta or provider_meta('DexScreener', datetime.now(timezone.utc).isoformat())), 'provider': 'FEELESS launchpad board',
+                'source_label': 'Pump.fun + LetsBONK + LaunchLab indexes · ranked on DexScreener 5m/1h flow',
+                'coverage': {'discovery': 'Launchpad indexes (recent trades, top market cap, newest, live)', 'snapshot': 'DexScreener pair snapshots',
+                             'graduation': 'Launchpad completion flags', 'stream': 'Polling snapshot, 20s'}}
+        board_cache[kind] = (monotonic(), ranked, meta)
+        return ranked, meta
 
     @router.get('/pump/callouts/{mint}')
     async def pump_callouts(mint: str):
@@ -470,7 +552,15 @@ def create_market_router(db, intelligence=None):
         try:
             if source == 'search':
                 raise HTTPException(503, 'Main-DEX search requested.')
-            if scope == 'pump' and chain == 'solana':
+            if scope in BOARD_SCOPES and chain == 'solana' and page == 1:
+                pairs, meta = await launchpad_board(kind)
+                if scope != 'launchpads':
+                    pairs = [pair for pair in pairs if pair.get('launchpadId') == scope]
+                if not pairs and scope == 'pump':
+                    pairs, meta = await pump_feed(kind, page)   # quiet market: fall back to the raw index
+                elif not pairs and scope != 'launchpads':
+                    pairs, meta = await dex_boost_feed(kind, chain, page)   # quiet launchpad: show the live market
+            elif scope == 'pump' and chain == 'solana':
                 pairs, meta = await pump_feed(kind, page)
             elif scope == 'pump':
                 fallback_reason = 'Pump.fun coverage is limited to Solana; using public pool discovery fallback.'
@@ -696,6 +786,17 @@ def create_market_router(db, intelligence=None):
             streamed = pump_network.pair_for(address, await pump_network.sol_price())
             if streamed:
                 return MarketResult(**{**meta, 'provider': 'PumpPortal'}, source_url='https://pumpportal.fun', pairs=[streamed], label='Pump network launch snapshot')
+            try:  # LaunchLab / LetsBONK curve pools are indexed by GeckoTerminal before DexScreener
+                gdata, _ = await cached('GeckoTerminal', f'/networks/solana/pools/{address}', ttl=30)
+                pool = (gdata or {}).get('data') or {}
+                base_id = (((pool.get('relationships') or {}).get('base_token') or {}).get('data') or {}).get('id', '')
+                mint = base_id.split('_', 1)[-1]
+                if mint:
+                    symbol = str((pool.get('attributes') or {}).get('name') or '').split(' / ')[0]
+                    geck = gecko_pool_to_pair(pool, mint, {'symbol': symbol, 'name': symbol, 'launchpad': 'raydium', 'image': None})
+                    return MarketResult(**{**meta, 'provider': 'GeckoTerminal'}, source_url='https://www.geckoterminal.com', pairs=[geck], label='GeckoTerminal pool snapshot')
+            except HTTPException:
+                pass
         if intelligence:
             pairs = await intelligence.observe(pairs, meta)
         return MarketResult(**meta, source_url=PROVIDER_URLS['DexScreener'], pairs=pairs, label='Pair snapshot')
