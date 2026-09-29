@@ -17,7 +17,7 @@ const write = s => fs.writeFileSync(STATE, JSON.stringify(s));
 function client() {
   dotenv.config({ path: ENV, override: true });
   if (!process.env.CIRCLE_API_KEY) return { error: 'CIRCLE_API_KEY missing' };
-  if (!process.env.ENTITY_SECRET) return { error: 'ENTITY_SECRET not registered yet — run node circle/register-entity-secret.mjs' };
+  if (!process.env.ENTITY_SECRET) return { error: 'ENTITY_SECRET not registered yet — run: cd circle && npm install && node setup.mjs' };
   return { sdk: initiateDeveloperControlledWalletsClient({ apiKey: process.env.CIRCLE_API_KEY, entitySecret: process.env.ENTITY_SECRET }) };
 }
 

@@ -19,3 +19,11 @@ restart 5001 "$root/backend" "$root/.venv"          server:app             api
 restart 5077 "$root/backend" "$root/backend/.venv"  reputation_service:app reputation
 restart 5088 "$root/backend" "$root/backend/.venv"  feecat_service:app     feecat
 restart 5099 "$root/backend" "$root/backend/.venv"  candles_service:app    candles
+
+# Circle wallets sidecar (localhost:5111), only when it's installed and a Circle key is set.
+if [[ -d "$root/circle/node_modules" ]] && grep -q '^CIRCLE_API_KEY=.' "$root/backend/.env" 2>/dev/null; then
+  pid="$(lsof -tiTCP:5111 -sTCP:LISTEN 2>/dev/null || true)"
+  [[ -n "$pid" ]] && kill $pid && sleep 1
+  (cd "$root/circle" && nohup node server.mjs > /tmp/feeless-circle.log 2>&1 &)
+  echo "started circle on :5111"
+fi
