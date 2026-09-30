@@ -4,12 +4,13 @@ import { useWallet } from '../../hooks/useWallet';
 import { errorText } from '../../lib/api';
 import { shortAddress } from '../../lib/dexscreener';
 import { CopyBtn } from '../CopyBtn';
+import { MoneyFlows } from './MoneyFlows';
 import { useSolUsd, money } from './FeeInputs';
 
 // Treasury: where FEELESS money sits right now, the split plan, and a real split you sign from your own wallet.
 // Nothing moves automatically: that would need a hot key on the server, which FEELESS never holds.
 const WSOL = 'So11111111111111111111111111111111111111112';
-const USDC = 'EPjFWdd5AufqSSqeM2qJ1Mzybapc8G4wNGGkZwyTDt1v';
+const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const floor = (v, d) => Math.floor(v * 10 ** d + 1e-6) / 10 ** d;
 
 export function TreasuryHub({ call, prefill }) {
@@ -50,6 +51,7 @@ export function TreasuryHub({ call, prefill }) {
     } catch (e) { toast.error(errorText(e)); } finally { setBusy(''); }
   };
   return <section className="cc-panel treasury-hub" data-testid="treasury-hub">
+    <MoneyFlows />
     <div className="tr-explains">
       <details className="tr-explain"><summary>💸 Where do trading fees go?</summary>
         <p>Every FEELESS trade carries its own fee transfer inside the transaction the trader signs. Buys pay in SOL into the <b>SOL fee account</b> (a wrapped-SOL token account you own); USDC trades pay into the <b>USDC fee account</b>. The money lands the moment the trade confirms — no claiming, no middleman.</p></details>

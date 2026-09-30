@@ -23,6 +23,7 @@ import { CoinVerifyPanel } from './CoinVerifyPanel';
 import { TreasuryPulse } from './TreasuryPulse';
 import { TAB_INFO } from './ccTabInfo';
 import { FeeBrain } from './FeeBrain';
+import { MoneyFlows } from './MoneyFlows';
 
 const SESSION_KEY = 'feeless:cc-session';
 const readSession = addr => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.address === addr && Date.now() / 1000 - s.ts < 86000 ? s : null; } catch { return null; } };
@@ -143,7 +144,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'badges' && <AwardBadges call={call} initial={[...selected]} />}
     {tab === 'feecat' && <FeeCatPanel call={call} />}
     {tab === 'pools' && <PoolsPanel call={call} />}
-    {tab === 'fees' && <FeesPanel call={call} />}
+    {tab === 'fees' && <><MoneyFlows /><FeesPanel call={call} /></>}
     {tab === 'ads' && <AdsPanel call={call} />}
     {tab === 'invites' && <InvitesPanel call={call} />}
     {tab === 'bugs' && <section className="cc-panel">{!bugs.length ? <p className="cc-empty">No reports yet. Anyone can file one from a profile's “Report a bug” button.</p>
@@ -618,10 +619,15 @@ function PoolsPanel({ call }) {
   const verify = async () => { setFound(null); try { const d = await (await fetch(`https://api.dexscreener.com/latest/dex/pairs/solana/${check.trim()}`)).json(); setFound(d.pairs?.[0] || false); } catch { setFound(false); } };
   return <section className="cc-panel">
     <div className="cc-toolbar"><select value={asset} onChange={e => setAsset(e.target.value)}>{Object.keys(mints).map(k => <option key={k} value={k}>{k.toUpperCase()}</option>)}</select>{mint && <><code className="pool-mint">{mint}</code><button type="button" onClick={() => copy(mint)}>Copy mint</button><button type="button" onClick={() => copy('So11111111111111111111111111111111111111112')}>Copy SOL mint</button></>}</div>
-    <details className="tr-explain"><summary>🌊 What this tab launches (and what it doesn't)</summary>
-      <ul><li><b>Pools here</b> = a TOKEN/SOL pool on Meteora DAMM v2 for a token that <i>already exists</i> (e.g. $FEE, or a token held by your fee reserve wallet). You deposit both sides from the connected wallet; the ratio sets the opening price.</li>
-        <li><b>New coins</b> are launched on the Launch page (FEELESS bonding curve or pump.fun), not here. A FEELESS coin gets its locked pool automatically at graduation.</li>
-        <li><b>Your reserve token:</b> connect the reserve wallet, create the pool here with "Lock forever" on. The swap fees accrue to that wallet's position; badge pools can then pay holders from it.</li>
+    <details className="tr-explain" open><summary>🔒 What does "lock" actually lock? (read this first)</summary>
+      <ul><li><b>A pool can never be deleted by anyone</b> — once it exists on-chain, anyone can trade it or add to it. Locking is about <b>your deposit</b> (your liquidity position), not the pool.</li>
+        <li><b>Locked forever:</b> you can never pull your tokens + SOL back out, but that position keeps earning swap fees and you can claim them anytime. Holders can verify it → rug-proof badge.</li>
+        <li><b>Not locked:</b> you keep full control — withdraw your deposit whenever you want, plus the fees. Holders see it can be pulled, so no rug-proof badge and less trust.</li>
+        <li><b>A pool can't peg the price.</b> Price is just the ratio of the two piles; buyers and sellers move it. To turn fees into price support: <b>buy back</b> the coin with fees (raises price), then burn or lock what you bought. That's the Buy &amp; burn setup, fed from Treasury › Split now.</li></ul></details>
+    <details className="tr-explain"><summary>🌊 Which coins need a pool from here?</summary>
+      <ul><li><b>Coins launched on a FEELESS config</b> get their pool automatically when the curve graduates (liquidity locked per the config). Don't make one yourself before that — it splits liquidity and gets arbitraged.</li>
+        <li><b>Tokens that already exist</b> (e.g. $FEE) — create the TOKEN/SOL pool here. You deposit both sides; the ratio is the opening price.</li>
+        <li><b>Your fee reserve coin:</b> use a separate Phantom account (Add account — same recovery phrase, new address) or a Squads multisig as the reserve wallet. Launch the coin from that wallet on a house config, or create its pool from that wallet here. That wallet owns the position and earns its fees; badge pools can pay holders from it.</li>
         <li>One pool per token/SOL pair on this rail. Everything is simulated before you sign.</li></ul></details>
     <PoolCreator defaultMint={mint || ''} call={call} />
     <h4 className="cc-sub">Other DEXes (external, their own pool pages)</h4>

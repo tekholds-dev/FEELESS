@@ -6862,6 +6862,8 @@ class LaunchRailIn(BaseModel):
     config: str
     feeClaimer: str
     params: dict = {}
+    scope: str = 'public'      # public: the Launch page for everyone · house: owner-only launches (FEELESS's own coins)
+    label: str = ''
 
 
 @app.get('/api/reputation/launch-rail')
@@ -6885,8 +6887,18 @@ async def launch_rail_set(request: Request, p: LaunchRailIn):
         raise HTTPException(409, 'That config is not on-chain yet (or is not a Meteora DBC config). Wait for confirmation and retry.')
     keep = {k: p.params[k] for k in ('initialMarketCap', 'migrationMarketCap', 'startingFeeBps', 'endingFeeBps', 'feeDecayMin', 'creatorFeePct', 'lockedLpPct', 'supply', 'quote', 'preset', 'buyBurn') if k in p.params}
     rec = {'config': p.config, 'feeClaimer': p.feeClaimer, 'params': keep, 'setBy': me, 'at': time.time()}
-    _json_save(LAUNCH_RAIL_PATH, rec)
-    return rec
+    d = _json_load(LAUNCH_RAIL_PATH, {})
+    if p.scope == 'house':
+        # House configs never replace the public one; they sit beside it for owner-only launches.
+        house = [h for h in d.get('house') or [] if h['config'] != p.config]
+        house.append({**rec, 'id': p.config[:8], 'label': (p.label or 'House config')[:40]})
+        d['house'] = house[-8:]
+    elif p.scope == 'public':
+        d = {**d, **rec}
+    else:
+        raise HTTPException(400, 'Scope must be public or house.')
+    _json_save(LAUNCH_RAIL_PATH, d)
+    return d
 
 
 class TokenMetaIn(BaseModel):
@@ -7877,7 +7889,7 @@ async def after_sell(address: str):
 
 
 # ---- Treasury hub: where the money sits, the split plan, and verified splits signed by the owner ----------
-USDC_MINT = 'EPjFWdd5AufqSSqeM2qJ1Mzybapc8G4wNGGkZwyTDt1v'
+USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 
 
 @app.get('/api/reputation/admin/treasury/money')

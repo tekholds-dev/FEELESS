@@ -5,7 +5,7 @@ import { apiUrl } from './api';
 // the browser for the user's own wallet to sign. The only keypairs created are the new config /
 // mint addresses, which sign once to prove the address and are then discarded.
 export const RAIL_DEFAULTS = { initialMarketCap: 30, migrationMarketCap: 500, startingFeeBps: 9900, endingFeeBps: 100, feeDecayMin: 3, creatorFeePct: 50, lockedLpPct: 100, supply: 1_000_000_000, quote: 'SOL' };
-export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qJ1Mzybapc8G4wNGGkZwyTDt1v';
+export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 // Launch styles. Every preset keeps 100% of graduated liquidity locked (unruggable) and uses the strongest
 // anti-snipe Meteora allows: a 99% launch fee that decays exponentially, plus volatility (dynamic) fees.
@@ -103,6 +103,27 @@ export async function createLaunchRail({ provider, owner, feeClaimer, params, on
   const signature = await signSend(web3, connection, provider, tx, payer, [config], onStatus);
   keepReceipt(signature, owner, 'launch');
   return { config: config.publicKey.toBase58(), signature };
+}
+
+// FEELESS's share of trading fees on every coin launched on a config. It builds up inside each coin's pool
+// (not in a wallet) until the config's fee claimer signs a claim. Amounts in the quote token (SOL or USDC).
+export async function partnerFees(config, quoteDecimals = 9) {
+  const { client } = await sdk();
+  const rows = await client.state.getPoolsFeesByConfig(config);
+  return rows.map(r => ({ pool: r.poolAddress.toBase58(), unclaimed: Number(r.partnerQuoteFee.toString()) / 10 ** quoteDecimals, total: Number(r.totalTradingQuoteFee.toString()) / 10 ** quoteDecimals }))
+    .filter(r => r.unclaimed > 0).sort((a, b) => b.unclaimed - a.unclaimed);
+}
+
+// Fee claimer only: move FEELESS's share out of one pool into the claimer's wallet. Simulated before signing.
+export async function claimPartnerFees({ provider, feeClaimer, pool, onStatus }) {
+  const { web3, connection, client } = await sdk();
+  const BN = (await import('bn.js')).default;
+  const me = new web3.PublicKey(feeClaimer);
+  const max = new BN('18446744073709551615');
+  const tx = await client.partner.claimPartnerTradingFee({ feeClaimer: me, payer: me, pool: new web3.PublicKey(pool), maxBaseAmount: max, maxQuoteAmount: max });
+  const signature = await signSend(web3, connection, provider, tx, me, [], onStatus);
+  keepReceipt(signature, feeClaimer, 'claim');
+  return signature;
 }
 
 // Any creator: launch a coin on the FEELESS config, optionally buying first in the same transaction.

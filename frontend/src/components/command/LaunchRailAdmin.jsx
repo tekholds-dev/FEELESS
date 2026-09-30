@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
-import { RAIL_DEFAULTS, RAIL_PRESETS, railWarnings, checkRail, createLaunchRail, fetchLaunchRail } from '../../lib/launchRail';
+import { RAIL_DEFAULTS, RAIL_PRESETS, railWarnings, checkRail, createLaunchRail, fetchLaunchRail, partnerFees, claimPartnerFees } from '../../lib/launchRail';
 import { CopyBtn } from '../CopyBtn';
 import { useSolPrice, usd } from '../../lib/solPrice';
 import { TreasurySend } from './TreasurySend';
@@ -16,6 +16,30 @@ const FIELDS = [
   ['lockedLpPct', 'Liquidity locked forever (%)', 'Share of graduated LP nobody can withdraw. 100 = unruggable.'],
   ['supply', 'Token supply', 'Fixed; mint authority is revoked at creation.'],
 ];
+
+// FEELESS's share of trading fees on coins launched on our configs. It sits inside each coin's pool until
+// the config's fee claimer claims it; then it lands in that wallet as SOL (or USDC).
+function PartnerFees({ configs }) {
+  const { wallet, provider, connect } = useWallet() || {};
+  const [rows, setRows] = useState(null);
+  const [busy, setBusy] = useState('');
+  const load = useCallback(() => Promise.all(configs.map(c => partnerFees(c.config, c.quote === 'USDC' ? 6 : 9).then(r => r.map(x => ({ ...x, ...c }))).catch(() => [])))
+    .then(all => setRows(all.flat())), [configs.map(c => c.config).join()]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [load]);
+  const claim = async r => {
+    try {
+      if (wallet?.address !== r.feeClaimer) { toast.message?.(`Connect the fee claimer ${r.feeClaimer.slice(0, 4)}… to claim.`); await connect?.('solana'); return; }
+      await claimPartnerFees({ provider, feeClaimer: wallet.address, pool: r.pool, onStatus: setBusy });
+      toast.success('Claimed — it is in the fee claimer wallet now.'); load();
+    } catch (e) { toast.error(e.message || 'Claim failed'); } finally { setBusy(''); }
+  };
+  const total = (rows || []).reduce((a, r) => a + r.unclaimed, 0);
+  return <div className="cc-block"><h4>💰 FEELESS fee share to claim <small className="chain-tag">{rows ? `${total.toFixed(4)} across ${rows.length} coin${rows.length === 1 ? '' : 's'}` : 'reading pools…'}</small></h4>
+    <p className="cc-empty">Every coin launched on your configs pays FEELESS its share of trading fees. It waits inside that coin's pool until the fee claimer wallet signs a claim — then it lands in that wallet.</p>
+    {rows && !rows.length && <p className="cc-empty">Nothing to claim yet.</p>}
+    {(rows || []).slice(0, 20).map(r => <div key={r.pool} className="rail-house"><b>{r.label}</b><span>{r.unclaimed.toFixed(5)} {r.quote === 'USDC' ? 'USDC' : 'SOL'} unclaimed · pool <code>{r.pool.slice(0, 4)}…{r.pool.slice(-4)}</code></span><button type="button" className="btn-primary" disabled={!!busy} onClick={() => claim(r)}>{busy || (wallet?.address === r.feeClaimer ? 'Claim' : 'Connect claimer')}</button></div>)}
+  </div>;
+}
 
 // What can be launched on FEELESS, what each one needs, and whether it's ready right now.
 function LaunchMap({ rail }) {
@@ -69,6 +93,8 @@ export function LaunchRailAdmin({ call, isOwner }) {
   const [claimer, setClaimer] = useState('');
   const [status, setStatus] = useState('');
   const [preset, setPreset] = useState('shield');
+  const [scope, setScope] = useState('public');
+  const [houseLabel, setHouseLabel] = useState('');
   const [check, setCheck] = useState(null);
   const unit = p.quote === 'USDC' ? 'USDC' : 'SOL';
   const warnings = railWarnings({ ...p, feeClaimerSet: !!claimer.trim() });
@@ -93,7 +119,7 @@ export function LaunchRailAdmin({ call, isOwner }) {
       setStatus('Building and dry-running the config…');
       const r = await createLaunchRail({ provider, owner: wallet.address, feeClaimer: fc, params: p, onStatus: setStatus });
       setStatus('Saving…');
-      await call('/admin/launch-rail', { method: 'PUT', body: JSON.stringify({ config: r.config, feeClaimer: fc, params: { ...p, preset } }) });
+      await call('/admin/launch-rail', { method: 'PUT', body: JSON.stringify({ config: r.config, feeClaimer: fc, params: { ...p, preset }, scope, label: houseLabel }) });
       toast.success('FEELESS launch rail is live');
       setStatus(''); load();
     } catch (e) { setStatus(''); toast.error(e.message || 'Could not create the launch config'); }
@@ -136,9 +162,15 @@ export function LaunchRailAdmin({ call, isOwner }) {
         <div className="rail-form">{FIELDS.map(([k, l0, why]) => { const l = l0.replace('(SOL)', `(${unit})`); return <label key={k}><span>{l}{/SOL/.test(l) && solPx ? <em className="usd-hint"> {usd(p[k], solPx)}</em> : null}</span><input inputMode="decimal" value={p[k]} onChange={e => setP(v => ({ ...v, [k]: e.target.value.replace(/[^0-9.]/g, '') }))} /><small>{why}</small></label>; })}
           <label className="wide"><span>Fee claimer (receives FEELESS's share)</span><input placeholder={wallet?.address || 'Treasury / multisig address'} value={claimer} onChange={e => setClaimer(e.target.value.trim())} /><small>Defaults to your first Solana treasury route, else the signing wallet. Use a multisig.</small></label>
         </div>
-        <button type="button" className="btn-primary" disabled={!!status || check?.ok === false} onClick={create}>{status || (wallet?.chain === 'solana' ? `${rail?.ready ? 'Create a new' : 'Create the'} launch config · sign with ${wallet.address.slice(0, 4)}…` : 'Connect Solana wallet')}</button>
+        <div className="rail-scope"><div className="bdg-seg" role="radiogroup" aria-label="Who launches on this config">{[['public', '🌐 Public site config'], ['house', '🏠 House config (owners only)']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={scope === k} className={scope === k ? 'active' : ''} onClick={() => setScope(k)}>{l}</button>)}</div>
+          <small className="cc-empty">{scope === 'public' ? 'Used by the Launch page for everyone. Creating a new one replaces it for new coins only.' : 'Only owners see it on the Launch page, for FEELESS\'s own coins (e.g. your fee reserve coin). Set its fee claimer to the wallet that should earn from it. It never replaces the public config.'}</small>
+          {scope === 'house' && <input placeholder="House config name (e.g. Reserve coins)" maxLength={40} value={houseLabel} onChange={e => setHouseLabel(e.target.value)} />}</div>
+        <button type="button" className="btn-primary" disabled={!!status || check?.ok === false} onClick={create}>{status || (wallet?.chain === 'solana' ? `Create ${scope === 'house' ? 'a house' : rail?.ready ? 'a new public' : 'the public'} launch config · sign with ${wallet.address.slice(0, 4)}…` : 'Connect Solana wallet')}</button>
         <small className="cc-empty">Any owner wallet can sign; switch wallets in Phantom and reconnect to use a different one. The transaction is simulated before you're asked to sign.</small>
       </> : <p className="cc-empty">Only the owner wallet can create the launch config.</p>}
     </div>
+    {rail?.house?.length > 0 && <div className="cc-block"><h4>🏠 House configs <small className="chain-tag">owners launch with these from the Launch page</small></h4>
+      {rail.house.map(h => <div key={h.config} className="rail-house"><b>{h.label}</b><span>{Number(h.params?.initialMarketCap ?? 30)} → {Number(h.params?.migrationMarketCap ?? 500)} {h.params?.quote === 'USDC' ? 'USDC' : 'SOL'} · snipe tax {Number(h.params?.startingFeeBps ?? 9900) / 100}% · fees to <code>{h.feeClaimer.slice(0, 4)}…{h.feeClaimer.slice(-4)}</code></span><a href={`https://solscan.io/account/${h.config}`} target="_blank" rel="noreferrer">config ↗</a></div>)}</div>}
+    {rail?.ready && <PartnerFees configs={[{ label: 'Public', config: rail.config, feeClaimer: rail.feeClaimer, quote: rail.params?.quote }, ...(rail.house || []).map(h => ({ label: h.label, config: h.config, feeClaimer: h.feeClaimer, quote: h.params?.quote }))]} />}
   </section>;
 }
