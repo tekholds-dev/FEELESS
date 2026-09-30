@@ -7,6 +7,7 @@ import { CROP, uploadCropped } from '../../lib/cropImage';
 import { launchCoin, launchOnPump } from '../../lib/launchRail';
 import { launchTerms, receiptLinks, coinErrors, socialLink } from '../../lib/cmdLaunch';
 import { CopyBtn } from '../CopyBtn';
+import { moneyConfirmed } from '../../lib/moneyConfirm';
 
 // Command Center launcher: pick the rail (house / FEELESS / pump.fun), pick the config for THIS coin, fill the coin,
 // review every term, sign once, get the full receipt (CA, links, tx, metadata) right after.
@@ -78,7 +79,7 @@ export function CmdLaunch({ rail }) {
       setReceipt(rec); setStep('receipt');
       const next = [rec, ...readHistory()].slice(0, 20); setHistory(next);
       try { localStorage.setItem(HISTORY, JSON.stringify(next)); } catch { /* storage full: receipt still on screen */ }
-      toast.success(`$${form.symbol} is live.`);
+      moneyConfirmed({ title: `$${form.symbol} is live`, hash: res.signature, mint: res.mint, side: 'buy', usd: 0, wallet: wallet.address, detail: `Launch confirmed on-chain${Number(f.devBuy) > 0 ? ` · dev buy ${f.devBuy} ${kind === 'pump' ? 'SOL' : unit}` : ''}` });
       // Tag it as a FEELESS launch + save banner/links to its coin profile (retries while the chain catches up).
       const body = JSON.stringify({ chain: 'solana', wallet: wallet.address, mint: res.mint, symbol: form.symbol, signature: res.signature, rail: kind === 'pump' ? 'pump' : 'feeless',
         profile: { description: form.description, bannerUrl: form.bannerUrl, website: form.website, twitter: form.twitter, telegram: form.telegram } });

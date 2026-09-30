@@ -9,6 +9,7 @@ import { lifiFeelessFee } from '../../lib/lifiFee';
 import { CHAIN_ID, NATIVE, toUnits, fromUnits, lifiServerQuote, executeLifi } from '../../lib/lifiExec';
 import { FollowingCalls } from './FollowingCalls';
 import { TopPumpCoins } from './TopPumpCoins';
+import { moneyConfirmed, watchBridge } from '../../lib/moneyConfirm';
 
 // The trade desk: Swap (the existing Jupiter/LI.FI flows), Bridge (any EVM chain -> any EVM chain)
 // and Get Gas (turn what you hold on one chain into gas on another). Non-custodial throughout:
@@ -33,7 +34,10 @@ function useRoute() {
     setBusy(true);
     try {
       const out = await executeLifi({ quote, wallet, provider, switchTo, onStep: setStep });
-      toast.success(out.status === 'DONE' ? 'Done — funds delivered.' : `Sent ${out.hash.slice(0, 10)}… — cross-chain routes land in 1–5 min.`); setQuote(null);
+      const done = out.status === 'DONE'; const fc = quote.action.fromChainId, tc = quote.action.toChainId;
+      if (done || fc === tc) moneyConfirmed({ title: fc === tc ? 'Swap confirmed' : 'Bridge delivered', chain: fc, hash: out.hash, wallet: wallet?.address });
+      else { toast.info('Bridge sent — source confirmed', { description: 'Cross-chain routes land in 1–5 min. We\'ll confirm when funds arrive.' }); watchBridge({ hash: out.hash, fromChainId: fc, toChainId: tc }); }
+      setQuote(null);
     } catch (e) { toast.error(e.code === 4001 ? 'Declined in wallet — nothing sent.' : e.message); } finally { setBusy(false); setStep(''); }
   };
   return { wallet, quote, busy, step, getQuote, execute, clear: () => setQuote(null) };

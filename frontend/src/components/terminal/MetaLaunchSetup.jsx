@@ -1,3 +1,4 @@
+import { moneyConfirmed } from '../../lib/moneyConfirm';
 import { useSolPrice, usd } from '../../lib/solPrice';
 import { fetchLaunchRail, launchCoin, launchOnPump } from '../../lib/launchRail';
 import { getChatSession } from '../../lib/chatSession';
@@ -491,6 +492,7 @@ export default function MetaLaunchSetup({ initialValues }) {
         const res = await launchOnPump({ provider: activeProvider, creator: activeWallet.address, session, form, onStatus: detail => setDeployment(d => ({ ...d, detail })) });
         const ok = { state: 'confirmed', signature: res.signature };
         setDeployment({ state: 'confirmed', mint: res.mint, signature: res.signature, detail: 'Live on pump.fun.', statuses: { token: ok, curve: ok, liquidity: ok } });
+        moneyConfirmed({ title: `$${form.symbol} is live on pump.fun`, hash: res.signature, mint: res.mint, wallet: activeWallet.address, detail: 'Launch confirmed on-chain' });
         return;
       }
       if (railReady) {
@@ -504,6 +506,7 @@ export default function MetaLaunchSetup({ initialValues }) {
           firstBuySol: Number(form.devBuyAmount) || 0, quoteDecimals: railActive.params?.quote === 'USDC' ? 6 : 9, onStatus: detail => setDeployment(d => ({ ...d, detail })) });
         const ok = { state: 'confirmed', signature: res.signature };
         setDeployment({ state: 'confirmed', mint: res.mint, signature: res.signature, detail: 'Live on Solana. Trading is open on the FEELESS curve.', statuses: { token: ok, curve: ok, liquidity: ok, fee: ok } });
+        moneyConfirmed({ title: `$${form.symbol.trim().toUpperCase()} is live`, hash: res.signature, mint: res.mint, wallet: activeWallet.address, detail: 'Launch confirmed on-chain' });
         return;
       }
        const plan = deployment.plan || await requestMetaLaunchPlan(form, activeWallet, form.providerId);

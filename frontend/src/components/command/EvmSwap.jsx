@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { apiUrl } from '../../lib/api';
 import { useWallet, EVM_CHAINS } from '../../hooks/useWallet';
 import { CHAIN_ID, NATIVE, toUnits, fromUnits, lifiServerQuote, executeLifi } from '../../lib/lifiExec';
+import { moneyConfirmed } from '../../lib/moneyConfirm';
 
 // Same-chain swaps on EVM networks (Base, Ethereum, BNB, Arbitrum, …) through LI.FI, in the same compact card
 // as the Solana swap. Quotes come from the FEELESS server (key + fee server-side, route verified); execution
@@ -91,7 +92,7 @@ export function EvmSwap({ chain, onNetwork }) {
       let q = quote;
       if (!q || q.action.fromAddress.toLowerCase() !== evm.address.toLowerCase()) q = await lifiServerQuote({ fromChain: CHAIN_ID[chain], toChain: CHAIN_ID[chain], fromToken: from.address, toToken: to.address, fromAmount: toUnits(amount, from.decimals), fromAddress: evm.address, slippage });
       const out = await executeLifi({ quote: q, wallet: evm, provider, switchTo, onStep: setStep });
-      toast.success(`Swapped on ${EVM_CHAINS[chain]?.chainName}: ${out.hash.slice(0, 10)}…`);
+      moneyConfirmed({ title: `Swap confirmed on ${EVM_CHAINS[chain]?.chainName}`, chain: q.action.fromChainId, hash: out.hash, wallet: evm.address });
       setQuote(null); balanceOf(chain, from, evm.address).then(setBal);
     } catch (e) { setErr(e.code === 4001 ? 'Declined in wallet — nothing sent.' : e.message); } finally { setBusy(false); setStep(''); }
   };

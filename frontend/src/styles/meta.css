@@ -363,3 +363,6 @@ select.m-input { appearance: none; background-image: linear-gradient(45deg, tran
 a.fb-row:hover { background: color-mix(in srgb, var(--m-accent) 7%, transparent); } a.fb-row:focus-visible { outline: 2px solid var(--m-accent); outline-offset: -2px; }
 .fb-head { font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--m-mute); }
 .fb-row code { font-family: var(--m-mono); color: var(--m-accent); } .fb-row em { font-style: normal; color: var(--m-mute); }
+/* Chat avatars are always round: the image is clipped to the circle, never a square photo */
+.chat-avatar{border-radius:50%;overflow:hidden;padding:0}
+.chat-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}

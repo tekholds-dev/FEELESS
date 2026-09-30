@@ -6830,19 +6830,46 @@ async def is_admin(address: str):
 
 
 
+_fills_cache: dict = {}
+
+
+async def _feeless_fills(address: str) -> list:
+    """Every confirmed FEELESS order for this wallet (trading service), so a position shows even when the
+    live confirm hook was missed (old trades, a restart, a closed tab). Cached 8s."""
+    hit = _fills_cache.get(address)
+    if hit and time.time() - hit[0] < 8:
+        return hit[1]
+    rows = hit[1] if hit else []
+    if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address):
+        try:
+            async with httpx.AsyncClient(timeout=4) as http:
+                r = await http.get(f'http://127.0.0.1:5001/api/trading/internal/fills/{address}', params={'sol': await _sol_usd()},
+                                   headers={'x-feeless-internal': _internal_key()})
+                if r.status_code == 200:
+                    rows = r.json().get('fills') or []
+        except Exception:
+            pass
+    _fills_cache[address] = (time.time(), rows)
+    return rows
+
+
 @app.get('/api/reputation/position/{address}/{token}')
 async def position(address: str, token: str):
     """A wallet's position in one coin from its real swaps: average entry, size, live-ready.
     The chart turns this into the 'Your avg entry' line and a live P&L badge."""
     if not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address) or _re.match(r'^0x[0-9a-fA-F]{40}$', address)) or len(token) > 64:
         raise HTTPException(400, 'Bad address.')
-    try:
-        await wallet_trades(address)
-    except Exception:
-        pass   # wallet-history provider down: FEELESS's own trade records still give the position
+    async def history():
+        try:
+            await wallet_trades(address)
+        except Exception:
+            pass   # wallet-history provider down: FEELESS's own trade records still give the position
+    _, fills = await asyncio.gather(history(), _feeless_fills(address))
     rows = [r for r in (_wtrades_all.get(address) or (0, []))[1] if r['token'].lower() == token.lower() and r['price'] > 0]
     seen = {r.get('tx') for r in rows}
-    rows += [r for r in _json_load(FEELESS_TRADES_PATH, {}).get(address, []) if r['token'].lower() == token.lower() and r['tx'] not in seen]
+    for r in _json_load(FEELESS_TRADES_PATH, {}).get(address, []) + fills:   # live hook rows, then the order book backfill
+        if r['token'].lower() == token.lower() and r.get('price', 0) > 0 and r['tx'] not in seen:
+            rows.append(r); seen.add(r['tx'])
     buy_usd = sum(r['usd'] for r in rows if r['side'] == 'buy'); buy_tok = sum(r['usd'] / r['price'] for r in rows if r['side'] == 'buy')
     sell_usd = sum(r['usd'] for r in rows if r['side'] == 'sell'); sell_tok = sum(r['usd'] / r['price'] for r in rows if r['side'] == 'sell')
     if not buy_tok:

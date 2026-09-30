@@ -5,6 +5,7 @@ import { apiUrl } from '../../lib/api';
 import { toast } from 'sonner';
 import { Zap, ArrowLeftRight } from 'lucide-react';
 import { useWallet, EVM_CHAINS } from '../../hooks/useWallet';
+import { moneyConfirmed, watchBridge } from '../../lib/moneyConfirm';
 
 // EVM swaps + bridging via LI.FI (the router behind Jumper). Non-custodial: the wallet signs every tx.
 export const EVM_TRADE_CHAINS = Object.keys(CHAIN_ID);
@@ -40,7 +41,10 @@ export function EvmTrade({ pair }) {
     setBusy(true);
     try {
       const out = await executeLifi({ quote, wallet, provider, switchTo, onStep: setStep });
-      toast.success(out.status === 'DONE' ? `Done: ${out.hash.slice(0, 10)}…` : `Submitted: ${out.hash.slice(0, 10)}… (bridging)`); setQuote(null);
+      const done = out.status === 'DONE'; const fc = quote.action.fromChainId, tc = quote.action.toChainId;
+      if (done || fc === tc) moneyConfirmed({ title: fc === tc ? 'Swap confirmed' : 'Bridge delivered', chain: fc, hash: out.hash, wallet: wallet?.address });
+      else { toast.info('Bridge sent — source confirmed', { description: 'Cross-chain routes land in 1–5 min. We\'ll confirm when funds arrive.' }); watchBridge({ hash: out.hash, fromChainId: fc, toChainId: tc }); }
+      setQuote(null);
     } catch (e) { toast.error(e.code === 4001 ? 'Declined in wallet — nothing sent.' : e.message); } finally { setBusy(false); setStep(''); }
   };
   const bridging = fromChain !== chain;

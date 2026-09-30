@@ -76,6 +76,36 @@ def _human(atoms, decimals):
         return 0.0
 
 
+STABLE_USD = {'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'}
+WSOL_MINT = 'So11111111111111111111111111111111111111112'
+
+
+def fills_from_orders(orders, sol_usd=0.0):
+    """Confirmed FEELESS orders → position rows {ts, side, usd, price, token, tx} (the chart's entry line + pins).
+    Buys pay SOL/USDC for a coin; sells pay a coin for SOL/USDC. USD falls back to the SOL/USDC leg when the quote lacked it."""
+    out = []
+    for o in orders or []:
+        if o.get('state') != 'confirmed' or not o.get('signature'):
+            continue
+        im, om = o.get('input_mint') or '', o.get('output_mint') or ''
+        base = {WSOL_MINT} | STABLE_USD
+        if im in base and om not in base:
+            side, coin, coin_amt, cash_mint, cash_amt = 'buy', om, _human((o.get('quote') or {}).get('outAmount'), o.get('out_decimals')), im, _human(o.get('in_atoms'), o.get('in_decimals'))
+        elif om in base and im not in base:
+            side, coin, coin_amt, cash_mint, cash_amt = 'sell', im, _human(o.get('in_atoms'), o.get('in_decimals')), om, _human((o.get('quote') or {}).get('outAmount'), o.get('out_decimals'))
+        else:
+            continue
+        usd = float(o.get('in_usd') or 0) or (cash_amt if cash_mint in STABLE_USD else cash_amt * sol_usd)
+        if coin_amt <= 0 or usd <= 0:
+            continue
+        try:
+            ts = datetime.fromisoformat(str(o.get('created_at'))).timestamp()
+        except ValueError:
+            ts = time.time()
+        out.append({'ts': ts, 'side': side, 'usd': round(usd, 2), 'price': usd / coin_amt, 'token': coin, 'tx': o['signature'], 'via': 'feeless'})
+    return out
+
+
 def _usd_value(quote):
     for k in ('inUsdValue', 'swapUsdValue'):
         try:
@@ -367,8 +397,51 @@ class TradingService:
         except Exception:
             pass
 
+    async def confirm_sweep(self):
+        """Server-side confirmations: every submitted order is checked on-chain even if the trader closed the page,
+        so positions, the chart entry line, P&L and the ✅ notification never depend on the browser still polling."""
+        orders = await self.db.swap_orders.find({'state': 'submitted', 'signature': {'$exists': True}}, {'_id': 0}).sort('created_at', -1).limit(200).to_list(200)
+        if not orders:
+            return 0
+        res = await self.rpc('getSignatureStatuses', [[o['signature'] for o in orders], {'searchTransactionHistory': True}])
+        landed = 0
+        for o, st in zip(orders, res.get('value') or []):
+            if not st:
+                continue
+            state = 'failed' if st.get('err') else 'confirmed' if st.get('confirmationStatus') in ('confirmed', 'finalized') else None
+            if not state:
+                continue
+            moved = await self.db.swap_orders.update_one({'order_id': o['order_id'], 'state': 'submitted'}, {'$set': {'state': state}})
+            if state == 'confirmed' and getattr(moved, 'modified_count', 0):
+                landed += 1
+                await self.trade_landed(o)
+        return landed
+
+    async def confirm_loop(self, every=12):
+        while True:
+            try:
+                if self.configured():
+                    await self.confirm_sweep()
+            except Exception:
+                pass
+            await asyncio.sleep(every)
+
     def router(self):
         router = APIRouter(prefix='/api/trading')
+
+        @router.get('/internal/fills/{wallet}')
+        async def fills(wallet: str, request: Request):
+            """Internal: the wallet's confirmed FEELESS trades as position rows (backfills anything the live hook missed)."""
+            key = (Path(__file__).parent / 'data' / 'internal.key').read_text().strip()
+            if request.headers.get('x-feeless-internal') != key:
+                raise HTTPException(403, 'Internal only.')
+            valid_key(wallet)
+            orders = await self.db.swap_orders.find({'wallet': wallet, 'state': 'confirmed'}, {'_id': 0}).sort('created_at', -1).limit(300).to_list(300)
+            try:
+                sol = float(request.query_params.get('sol') or 0)
+            except ValueError:
+                sol = 0.0
+            return {'fills': fills_from_orders(orders, sol)}
 
         @router.get('/status')
         async def status():

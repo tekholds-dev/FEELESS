@@ -2,6 +2,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, Query
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+import asyncio
 import os
 import logging
 from pathlib import Path
@@ -31,7 +32,8 @@ intelligence = Intelligence(db)
 market_router = create_market_router(db, intelligence)
 app.include_router(market_router)
 app.include_router(intelligence.router())
-app.include_router(TradingService(db).router())
+trading_service = TradingService(db)
+app.include_router(trading_service.router())
 app.include_router(docs_router)
 app.include_router(create_pump_router())
 app.include_router(create_lifi_router())
@@ -159,6 +161,12 @@ logger = logging.getLogger(__name__)
 @app.on_event("startup")
 async def start_pump_network():
     pump_network.start()
+
+
+@app.on_event("startup")
+async def start_trade_confirmations():
+    # Confirms submitted swaps on-chain even after the trader closed the page (positions, P&L, notifications).
+    asyncio.create_task(trading_service.confirm_loop())
 
 
 @app.on_event("startup")
