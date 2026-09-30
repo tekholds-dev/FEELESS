@@ -70,7 +70,7 @@ export function BadgePools({ call }) {
       if (wallet?.chain !== 'solana' || wallet?.address !== p.wallet) { toast.message?.(`Connect ${shortAddress(p.wallet)} (the pool wallet) to pay.`); await connect?.('solana'); return; }
       const { batchSend } = await import('../../lib/batchSend');
       const sigs = await batchSend({ provider, owner: wallet.address, recipients: plan.rows.map(r => ({ address: r.address, amount: r.sol })), kind: 'badge-pool', onStatus: setBusy });
-      const r = await call(`/admin/badge-pools/${p.id}/paid`, { method: 'POST', body: JSON.stringify({ sigs }) });
+      const r = await call(`/admin/badge-pools/${p.id}/paid`, { method: 'POST', body: JSON.stringify({ sigs, perKey: plan.perKey || {}, plannedSol: plan.paidSol || 0 }) });
       toast.success(`Paid ${r.paidSol} SOL to ${r.wallets} wallets.`); refreshPulse(true); load();
     } catch (e) { toast.error(errorText(e)); } finally { setBusy(''); }
   };

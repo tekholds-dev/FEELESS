@@ -67,13 +67,3 @@ export function WeeklyDrops() {
 }
 
 // A wallet's vault: every season badge and weekly drop it has ever earned.
-export function SeasonVault({ address }) {
-  const [items, setItems] = useState(null); const [open, setOpen] = useState(null);
-  useEffect(() => { if (!address) return; fetch(apiUrl(`/api/reputation/collection/${address}`)).then(r => r.json()).then(d => setItems(d.items || [])).catch(() => setItems([])); }, [address]);
-  return <section className="wp-card season-vault" data-testid="season-vault">
-    <h3>Vault <small>{items ? `${items.length} item${items.length === 1 ? '' : 's'}` : ''}</small></h3>
-    {items == null ? <p className="wp-bio">Opening the vault…</p> : !items.length ? <p className="wp-bio">Empty for now — weekly drops land here every Monday of a season.</p>
-      : <div className="vault-grid">{items.map(it => <button key={it.id} type="button" onClick={() => setOpen(it)} title={it.name}><BadgeThumb item={it} size={56} /><small>{it.name}</small></button>)}</div>}
-    <BadgeDetail item={open} onClose={() => setOpen(null)} />
-  </section>;
-}

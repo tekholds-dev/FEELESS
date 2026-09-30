@@ -19,7 +19,7 @@ export function FeeReport({ address }) {
   return <div className="m-card is-hot fee-report m-pop" data-testid="fee-report">
     <div className="m-label">FEE REPORT <em>7 days</em></div>
     <div className="fr-top">
-      <div className="m-stat"><small>Fees paid · 7d</small><b className="m-num">{d ? usd(d.fees7dUsd) : '…'}</b><span className="m-dim">{d ? `${d.trades7d} trade${d.trades7d === 1 ? '' : 's'} · ${usd(d.volume7dUsd)} vol` : ''}</span></div>
+      <div className="m-stat"><small>Fees paid · 7d</small><b className="m-num">{d ? usd(d.fees7dUsd) : '…'}</b><span className="m-dim">{d ? `${d.fees7dSol ? `${d.fees7dSol.toFixed(4)} SOL · ` : ''}${d.trades7d} trade${d.trades7d === 1 ? '' : 's'} · ${usd(d.volume7dUsd)} vol` : ''}</span></div>
       <div className="m-bars" aria-label="Fees per day, last 7 days">{days.map((v, i) => <i key={i} className={v ? '' : 'zero'} style={{ transform: `scaleY(${peak ? Math.max(0.08, v / peak) : 0.08})` }} title={`${DAYS[(today - 6 + i + 7) % 7]} · ${usd(v)}`} />)}</div>
     </div>
     <div className="fr-row"><div className="m-stat"><small>All-time fees</small><b className="m-num sm">{d ? usd(d.feesTotalUsd) : '…'}</b></div>

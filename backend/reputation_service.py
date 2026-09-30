@@ -19,6 +19,7 @@ import verify
 import launch_meta
 import fee_report
 import money_pulse
+import badge_cards
 from ecosystem import ecosystem_mints
 import asyncio
 import collections
@@ -7507,6 +7508,8 @@ async def admin_reserve_plan(request: Request, sid: str):
 
 class ReservePaid(BaseModel):
     sigs: list[str] = Field(min_length=1, max_length=40)
+    perKey: dict = {}           # badge pools: the plan's per-holder amount per badge key (scaled to what moved)
+    plannedSol: float = 0
 
 
 @app.post('/api/reputation/admin/reserve/{sid}/paid')
@@ -7648,7 +7651,9 @@ async def admin_badge_pool_pay_circle(request: Request, pid: str, p: CirclePayIn
         ok, bad = [r for r in res if r.get('circleTx')], [r for r in res if not r.get('circleTx')]
         d = _pools(); pool = next((x for x in d['pools'] if x['id'] == pid), None)
         if ok and pool:
+            scale = sum(r['sol'] for r in ok) / plan['paidSol'] if plan.get('paidSol') else 0
             pool.setdefault('payouts', []).append({'via': 'circle', 'sigs': [], 'at': time.time(), 'by': me, 'rows': ok, 'failed': bad,
+                                                   'perKey': {k: int(v * scale * 1e6) / 1e6 for k, v in (plan.get('perKey') or {}).items()},
                                                    'totalSol': round(sum(r['sol'] for r in ok), 6)})
             pool['payouts'] = pool['payouts'][-50:]
             _json_save(BADGE_POOLS_PATH, d)
@@ -7722,6 +7727,7 @@ async def _pool_plan(pool, bal=None):
         except Exception:
             bal, known = 0, False
     holders, allocated = _pool_inputs(pool)
+    counts = badge_cards.key_counts(pool.get('_tiers'), pool.get('_badges'))
     # Fixed SOL-each badges are paid first (never more than the wallet can spare); the % pot comes from what's left.
     fixed, fixed_total = reserve_pool.fixed_rows(pool.get('fixed') or {}, pool.pop('_tiers', {}), pool.pop('_badges', {}), max(0.0, bal - reserve_pool.KEEP_SOL))
     rest = bal - fixed_total
@@ -7732,6 +7738,12 @@ async def _pool_plan(pool, bal=None):
             by[a]['sol'] = round(by[a]['sol'] + v, 6); by[a]['fixedSol'] = v
         elif v >= reserve_pool.DUST_SOL:
             plan['rows'].append({'address': a, 'tier': 'Recruit', 'score': 0, 'weight': 0, 'sharePct': 0, 'sol': v, 'fixedSol': v, 'why': 'fixed badge reward'})
+    # What ONE holder of each badge / tier key gets from this payout: stored on the payout, summed on card backs.
+    want = sum(float(v or 0) * counts.get(k, 0) for k, v in (pool.get('fixed') or {}).items())
+    pct_mode = pool.get('mode', 'weight') == 'pct'
+    plan['perKey'] = badge_cards.per_key_each('pct' if pct_mode else 'weight', pool.get('weights') or {}, pool.get('fixed') or {}, counts,
+                                              (plan['potSol'] * 100 / allocated if allocated else 0) if pct_mode else plan['potSol'], plan['totalWeight'],
+                                              fixed_total / want if want else 1.0)
     plan['fixedSol'] = fixed_total; plan['potSol'] = round(plan['potSol'] + fixed_total, 6)
     plan['paidSol'] = round(sum(r['sol'] for r in plan['rows']), 6)
     plan['allocatedPct'] = allocated
@@ -7835,7 +7847,9 @@ async def admin_badge_pool_paid(request: Request, pid: str, p: ReservePaid):
                 paid[info['destination']] = round(paid.get(info['destination'], 0) + info['lamports'] / 1e9, 9)
     if not paid:
         raise HTTPException(400, 'No SOL transfers from the pool wallet in those transactions.')
-    pool.setdefault('payouts', []).append({'sigs': p.sigs, 'at': time.time(), 'by': admin, 'rows': [{'address': a, 'sol': v} for a, v in paid.items()],
+    moved = sum(paid.values()); scale = min(1.0, moved / p.plannedSol) if p.plannedSol > 0 else 0
+    per_key = {str(k)[:60]: int(float(v) * scale * 1e6) / 1e6 for k, v in list((p.perKey or {}).items())[:200] if isinstance(v, (int, float)) and v > 0}
+    pool.setdefault('payouts', []).append({'sigs': p.sigs, 'at': time.time(), 'by': admin, 'rows': [{'address': a, 'sol': v} for a, v in paid.items()], 'perKey': per_key,
                                            'totalSol': round(sum(paid.values()), 6)})
     pool['payouts'] = pool['payouts'][-50:]
     _json_save(BADGE_POOLS_PATH, d)
@@ -7965,6 +7979,24 @@ class TradeLanded(BaseModel):
     feeBps: int = 0
     inputMint: str = ''
     outputMint: str = ''
+    feeAtoms: int = 0
+    feeMint: str = ''
+
+
+async def _sol_usd() -> float:
+    hit = _sol_px.get('v')
+    if hit and time.time() - hit[0] < 120:
+        return hit[1]
+    try:
+        async with httpx.AsyncClient(timeout=4) as http:
+            v = float(((await http.get(f'https://lite-api.jup.ag/price/v3?ids={WSOL}')).json().get(WSOL) or {}).get('usdPrice') or 0)
+    except Exception:
+        v = hit[1] if hit else 0.0
+    _sol_px['v'] = (time.time(), v)
+    return v
+
+
+_sol_px: dict = {}
 
 
 @app.post('/api/reputation/internal/trade')
@@ -7979,7 +8011,8 @@ async def internal_trade(request: Request, p: TradeLanded):
     d['tradeSigs'] = (seen + [p.signature])[-5000:]
     _json_save(SEASONS_PATH, d)
     led = _json_load(FEE_LEDGER_PATH, {}); who = primary_of(p.wallet)
-    led[who] = (led.get(who) or [])[-1999:] + [fee_report.ledger_row(time.time(), p.signature, p.inUsd, p.feeBps)]
+    px = await _sol_usd() if p.feeAtoms and p.feeMint == WSOL else 0
+    led[who] = (led.get(who) or [])[-1999:] + [fee_report.ledger_row(time.time(), p.signature, p.inUsd, p.feeBps, p.feeAtoms, p.feeMint, px)]
     _json_save(FEE_LEDGER_PATH, led)
     if pts > 0:
         season_award(primary_of(p.wallet), pts, f'trade:{p.signature[:10]}')
@@ -8429,6 +8462,117 @@ async def admin_badge_edit(request: Request, bid: str, p: BadgeEdit):
         _audit(d, admin, 'badge-edit', f'{bid} → {p.label}')
         _admin_save(d)
     return {'ok': True, 'holders': n}
+
+
+# ---- FEELESS cards: every badge + season drop as a 3D card (front art, back lore + money) ----------------------
+CARDS_PATH = DATA_DIR / 'badge_cards.json'
+_cards_cache: dict = {}
+
+
+def _card_defaults() -> dict:
+    """Every card that exists: catalog badges, custom awards, built-ins seen lately, season + weekly drops."""
+    out, holders = {}, {}
+    for b in BADGE_CATALOG:
+        out[f"badge:{b['id']}"] = badge_cards.default_badge_card(b)
+    for a, items in (_admin_load().get('badges') or {}).items():
+        for b in items.values():
+            k = f"badge:{b['id']}"
+            out.setdefault(k, badge_cards.default_badge_card({**b, 'tier': 4 if b.get('tone') == 'gold' else 3}))
+            holders[k] = holders.get(k, 0) + 1
+    for a, (at, rec) in list(_badge_cache.items()):
+        if time.time() - at < 86400:
+            for b in (rec or {}).get('badges', []):
+                k = f"badge:{b['id']}"
+                out.setdefault(k, badge_cards.default_badge_card(b))
+                holders[k] = holders.get(k, 0) + 1
+    col = _json_load(COLLECTION_PATH, {})
+    for s in _seasons()['seasons']:
+        out[f"season:{s['id']}"] = badge_cards.default_season_card(s)
+        for w in _season_weeks(s):
+            out[f"week:{s['id']}:w{w['week']}"] = badge_cards.default_week_card(s, w)
+    for items in col.values():
+        for it in items:
+            k = _collection_card_key(it)
+            if k:
+                holders[k] = holders.get(k, 0) + 1
+    return out, holders
+
+
+def _collection_card_key(it):
+    if it.get('kind') == 'season':
+        return f"season:{it.get('season')}"
+    if it.get('kind') == 'weekly':
+        return f"week:{it.get('season')}:w{it.get('week')}"
+    return None
+
+
+def _cards_all() -> dict:
+    hit = _cards_cache.get('all')
+    if hit and time.time() - hit[0] < 60:
+        return hit[1]
+    defaults, holders = _card_defaults()
+    edits = _json_load(CARDS_PATH, {})
+    pools = _pools()['pools']; d = _seasons()
+    season_pct = {s['id']: float(s.get('badgeRewardPct') or 0) for s in d['seasons'] if s.get('reserveWallet')}
+    cards = {k: {**badge_cards.merge(v, edits.get(k)), 'holders': holders.get(k, 0), **badge_cards.card_money(k, pools, d.get('reservePayouts') or {}, season_pct)}
+             for k, v in defaults.items()}
+    _cards_cache['all'] = (time.time(), cards)
+    return cards
+
+
+@app.get('/api/reputation/cards')
+async def cards_catalog():
+    """Every FEELESS card with its look, lore, holders and money (what it earns + earned so far per holder)."""
+    return {'cards': list(_cards_all().values()), 'designs': list(badge_cards.DESIGNS), 'rarities': list(badge_cards.RARITIES)}
+
+
+@app.get('/api/reputation/cards/{address}')
+async def cards_of(address: str):
+    """The cards this wallet holds, with what THIS wallet has earned from each."""
+    me = primary_of(address)
+    cards = _cards_all()
+    held = {}
+    try:
+        for b in (await wallet_badges(address)).get('badges', []):
+            held[f"badge:{b['id']}"] = {'why': b.get('why')}
+    except Exception:
+        pass
+    for bid, b in ((_admin_load().get('badges') or {}).get(address) or {}).items():
+        held[f'badge:{bid}'] = {'why': b.get('why')}
+    for it in _json_load(COLLECTION_PATH, {}).get(me, []):
+        k = _collection_card_key(it)
+        if k:
+            held[k] = {'why': it.get('how'), 'rarity': it.get('rarity'), 'rank': it.get('rank'), 'tier': it.get('tier'), 'rewardSol': it.get('rewardSol'), 'at': it.get('at')}
+    mine_paid = {}
+    for p in _pools()['pools']:
+        for po in p.get('payouts') or []:
+            if any(r.get('address') == me for r in po.get('rows') or []):
+                for k, v in (po.get('perKey') or {}).items():
+                    mine_paid[k] = mine_paid.get(k, 0) + v
+    out = []
+    for k, h in held.items():
+        c = cards.get(k)
+        if not c:
+            continue
+        mine = h.get('rewardSol') if k.startswith('season:') and h.get('rewardSol') else mine_paid.get(k, 0)
+        out.append({**c, **({'rarity': h['rarity']} if h.get('rarity') else {}), 'why': h.get('why'), 'rank': h.get('rank'), 'tier': h.get('tier'), 'earnedMine': round(float(mine or 0), 6)})
+    order = {r: i for i, r in enumerate(reversed(badge_cards.RARITIES))}
+    out.sort(key=lambda c: (order.get(c['rarity'], 9), c['title']))
+    return {'address': me, 'cards': out}
+
+
+@app.put('/api/reputation/admin/cards/{key:path}')
+async def admin_card_edit(request: Request, key: str):
+    """Edit a card's look + lore everywhere it shows. Holders keep it; money rules stay in pools / reserve."""
+    admin = _require_admin(request)
+    if not _re.match(r'^(badge:[a-z0-9-]{1,40}|season:[\w-]{1,20}|week:[\w-]{1,20}:w\d{1,2})$', key):
+        raise HTTPException(400, 'Unknown card.')
+    edit = badge_cards.clean_edit(await request.json())
+    async with _admin_lock:
+        d = _json_load(CARDS_PATH, {}); d[key] = {**(d.get(key) or {}), **edit}; _json_save(CARDS_PATH, d)
+        ad = _admin_load(); _audit(ad, admin, 'card-edit', f"{key} → {edit.get('title', '')} {edit.get('design', '')}".strip()); _admin_save(ad)
+    _cards_cache.pop('all', None)
+    return _cards_all().get(key) or {'key': key, **edit}
 
 
 # ---- Circle wallets: names, descriptions, sends (owner-only, audited) -----------------------------------

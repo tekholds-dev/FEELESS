@@ -154,3 +154,82 @@ img.wallet-icon { border-radius: 8px; object-fit: contain; background: var(--m-s
 .cm-group button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
 .cm-group button.active { background: var(--m-accent); border-color: var(--m-accent); color: var(--m-accent-ink); }
 .cm-group button code { font-family: var(--m-mono); opacity: .8; }
+
+/* ============================== FEELESS CARDS (components/cards/MetaCard) ==============================
+   5:7 card, two faces, preserve-3d. Only transform/opacity move; patterns are static per design. */
+.mc-stage { perspective: 1100px; display: inline-block; flex: none; }
+.mc-lg { width: 280px; height: 392px; } .mc-md { width: 190px; height: 266px; } .mc-sm { width: 120px; height: 168px; }
+.mc { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; cursor: pointer; touch-action: none; user-select: none; outline: none; }
+.mc:focus-visible .mc-face { box-shadow: 0 0 0 2px var(--m-accent), 0 18px 40px rgba(0, 0, 0, .55); }
+.mc-face { position: absolute; inset: 0; border-radius: 16px; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  background: #04100a; border: 1px solid color-mix(in srgb, var(--a) 55%, transparent); box-shadow: 0 18px 40px rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .04);
+  display: flex; flex-direction: column; padding: 10px; color: #eafff3; }
+.mc-back { transform: rotateY(180deg); }
+.mc-bg, .mc-pattern { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.mc-bg { background: radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--a) 28%, transparent), transparent 60%), radial-gradient(90% 60% at 50% 110%, color-mix(in srgb, var(--b) 22%, transparent), transparent 60%), #030a06; }
+.mc-sheen { position: absolute; inset: -60%; pointer-events: none; mix-blend-mode: screen; opacity: .0; will-change: transform;
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, .22) 46%, color-mix(in srgb, var(--a) 40%, transparent) 50%, transparent 58%); }
+.mc-face > *:not(.mc-bg):not(.mc-pattern):not(.mc-sheen) { position: relative; }
+
+/* designs */
+.d-holo .mc-bg { background: conic-gradient(from 200deg at 50% 45%, color-mix(in srgb, var(--a) 40%, transparent), color-mix(in srgb, var(--b) 40%, transparent), #6ad7ff55, #ff5ad155, color-mix(in srgb, var(--a) 40%, transparent)), repeating-linear-gradient(135deg, rgba(255, 255, 255, .05) 0 2px, transparent 2px 7px), #04100a; }
+.d-holo .mc-sheen, .d-glitch .mc-sheen, .r-legendary .mc-sheen, .r-mythic .mc-sheen { opacity: 1; }
+.d-aurora .mc-bg { background: radial-gradient(80% 50% at 15% 20%, color-mix(in srgb, var(--a) 55%, transparent), transparent 70%), radial-gradient(70% 45% at 85% 45%, color-mix(in srgb, var(--b) 50%, transparent), transparent 70%), radial-gradient(90% 50% at 40% 100%, #5b8cff44, transparent 70%), #020906; }
+.d-obsidian .mc-bg { background: linear-gradient(160deg, #0b0f0d, #020403 60%, #0e0b05); }
+.d-obsidian .mc-face { border-color: color-mix(in srgb, var(--b) 70%, transparent); }
+.d-glitch .mc-bg { background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .045) 0 1px, transparent 1px 3px), linear-gradient(180deg, #05060a, #0a0314); }
+.d-glitch .mc-name b { text-shadow: -1.5px 0 #00e5ff, 1.5px 0 #ff2bd6; }
+.d-ember .mc-bg { background: radial-gradient(100% 60% at 50% 115%, #ff6a1a88, transparent 65%), radial-gradient(60% 40% at 50% 100%, color-mix(in srgb, var(--b) 60%, transparent), transparent 70%), #0b0503; }
+.d-circuit .mc-bg { background: linear-gradient(180deg, #03140b, #010604); }
+
+/* front */
+.mc-top { display: flex; justify-content: space-between; align-items: center; font-family: var(--m-mono); font-size: 9px; letter-spacing: .18em; color: color-mix(in srgb, var(--a) 85%, #fff); }
+.mc-pips { display: inline-flex; gap: 3px; } .mc-pips b { width: 6px; height: 6px; transform: rotate(45deg); border: 1px solid var(--a); }
+.mc-pips b.on { background: var(--a); box-shadow: 0 0 6px var(--a); }
+.mc-crest { width: 78%; margin: 8% auto 4%; display: block; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .6)); }
+.mc-name { text-align: center; display: grid; gap: 2px; margin-top: auto; }
+.mc-name b { font-size: 17px; letter-spacing: .01em; line-height: 1.1; }
+.mc-name small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: rgba(234, 255, 243, .6); }
+.mc-foot { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 7px; border-top: 1px solid color-mix(in srgb, var(--a) 30%, transparent); font-family: var(--m-mono); font-size: 8.5px; letter-spacing: .1em; color: rgba(234, 255, 243, .65); }
+.r-legendary .mc-front, .r-mythic .mc-front { border-width: 2px; border-color: var(--b); }
+.r-mythic .mc-front { box-shadow: 0 0 0 1px var(--a), 0 0 26px color-mix(in srgb, var(--b) 45%, transparent), 0 18px 40px rgba(0, 0, 0, .5); }
+
+/* back */
+.mc-lore { font-size: 12px; line-height: 1.45; color: rgba(234, 255, 243, .86); margin: 10px 0; max-height: 34%; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--a) transparent; }
+.mc-money { display: grid; gap: 5px; padding: 8px; border-radius: 10px; background: rgba(0, 0, 0, .45); border: 1px solid color-mix(in srgb, var(--a) 30%, transparent); }
+.mc-money small { font-family: var(--m-mono); font-size: 8.5px; letter-spacing: .16em; color: var(--a); }
+.mc-money div { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; } .mc-money div span { color: rgba(234, 255, 243, .65); }
+.mc-money b { font-family: var(--m-mono); font-size: 11px; text-align: right; }
+.mc-earned { padding-top: 5px; border-top: 1px dashed color-mix(in srgb, var(--a) 30%, transparent); } .mc-earned b { color: var(--a); }
+.mc-earned.mine b { color: var(--b); }
+.mc-how { margin-top: auto; font-size: 10.5px; color: rgba(234, 255, 243, .6); line-height: 1.35; }
+.mc-sm .mc-name b { font-size: 11px; } .mc-sm .mc-name small, .mc-sm .mc-foot { display: none; } .mc-sm .mc-top { font-size: 7px; } .mc-sm .mc-face { padding: 7px; border-radius: 11px; }
+.mc-md .mc-name b { font-size: 14px; } .mc-md .mc-lore { font-size: 11px; max-height: 40%; margin: 6px 0; } .mc-md .mc-money { padding: 6px; gap: 3px; } .mc-md .mc-money div, .mc-md .mc-money b { font-size: 10px; }
+
+/* hover lift for static cards (grids) */
+.mc-pick { background: none; border: 0; padding: 0; cursor: pointer; border-radius: 16px; transition: transform .15s var(--m-ease); }
+.mc-pick:hover { transform: translateY(-3px); } .mc-pick:active { transform: scale(.98); }
+.mc-pick:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 3px; }
+.mc-pick.active .mc-face { box-shadow: 0 0 0 2px var(--m-accent), 0 12px 30px rgba(0, 0, 0, .5); }
+body.fx-lite .mc-sheen { display: none; }
+@media (prefers-reduced-motion: reduce) { .mc { transition: none !important; } .mc-pick { transition: none; } }
+/* day theme: cards stay dark collectibles (like a real card), only their shadow softens */
+body.theme-day .mc-face { box-shadow: 0 12px 28px rgba(10, 40, 25, .28), inset 0 0 0 1px rgba(255, 255, 255, .04); }
+
+/* Card studio (Cmd Ctr) + card vault (profile) */
+.card-studio { display: grid; gap: 12px; }
+.cs-bar { justify-content: space-between; }
+.cs-body { display: grid; gap: 14px; }
+.cs-body.has-pick { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); align-items: start; }
+.cs-grid, .cv-grid { display: flex; flex-wrap: wrap; gap: 12px; max-height: 620px; padding: 4px; }
+.cs-editor { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
+.cs-preview { display: grid; gap: 10px; justify-items: center; }
+.cs-color { width: 44px; height: 34px; padding: 2px; border-radius: 8px; border: 1px solid var(--m-line); background: var(--m-bg); cursor: pointer; }
+.cs-color:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.cv-grid { max-height: 380px; }
+.cv-overlay { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: rgba(0, 0, 0, .72); animation: mPop .18s var(--m-ease); }
+.cv-hold { display: grid; gap: 14px; justify-items: center; }
+@media (max-width: 1100px) { .cs-body.has-pick { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .cs-editor { grid-template-columns: 1fr; justify-items: center; } }
+@media (prefers-reduced-motion: reduce) { .cv-overlay { animation: none; } }
+body.theme-day .cv-overlay { background: rgba(230, 245, 236, .78); }

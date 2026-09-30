@@ -331,7 +331,10 @@ class TradingService:
             async with httpx.AsyncClient(timeout=5) as http:
                 await http.post('http://127.0.0.1:5077/api/reputation/internal/trade', headers={'x-feeless-internal': key},
                                 json={'wallet': order.get('wallet') or '', 'signature': order.get('signature') or '', 'inUsd': order.get('in_usd') or 0,
-                                      'feeBps': order.get('fee_bps') or 0, 'inputMint': order.get('input_mint') or '', 'outputMint': order.get('output_mint') or ''})
+                                      'feeBps': order.get('fee_bps') or 0, 'inputMint': order.get('input_mint') or '', 'outputMint': order.get('output_mint') or '',
+                                      # the fee actually built into the transaction (Swap API): atoms of the input or output mint
+                                      'feeAtoms': int((order.get('quote') or {}).get('feelessFeeAtoms') or 0),
+                                      'feeMint': order.get('input_mint') if (order.get('quote') or {}).get('feelessFeeMode') == 'input' else order.get('output_mint') if (order.get('quote') or {}).get('feelessFeeMode') == 'output' else ''})
         except Exception:
             pass
 

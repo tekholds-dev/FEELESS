@@ -9,7 +9,7 @@ import { CROP } from '../../lib/cropImage';
 import { WalletSwaps } from '../WalletSwaps';
 import { SwapWorkspace } from './SwapWorkspace';
 import { useMarket } from '../../hooks/useMarket';
-import { SeasonVault } from '../SeasonBadges';
+import { CardVault } from '../cards/CardVault';
 import { COIN_MAKERS, DEXES } from '../../lib/venues';
 import { CopyBtn } from '../CopyBtn';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -243,7 +243,7 @@ export function WalletProfilePage({ address }) {
     {flipped && actTab === 'posts' && <ReceiptsCard address={address} />}
     {flipped && actTab === 'posts' && <section className="wp-card wp-activity" data-testid="profile-activity"><h3>Activity</h3>{!acts ? <p className="wp-bio">Loading…</p> : !acts.posts.length ? <p className="wp-bio">No posts yet.</p> : <div className="wpa-list">{acts.posts.map(a => <a key={a.id} className="wpa-row" href={a.room.startsWith('coin-') ? `/terminal/chat` : a.room.startsWith('wall-') ? `/terminal/profile/${a.room.slice(5)}` : '/terminal/chat'} target="_blank" rel="noopener noreferrer"><span className="wpa-room">{a.room.startsWith('wall-') ? '🧱 wall' : a.room.startsWith('coin-') ? `🪙 ${a.room.split('-').pop()}` : `# ${a.room}`}</span><p>{a.text}</p><time>{new Date(a.ts).toLocaleString()}</time></a>)}</div>}</section>}
     {flipped && actTab === 'rewards' && <><RewardsCard address={address} mine={mine} />{mine && <PointsShop address={address} />}</>}
-    {flipped && actTab === 'vault' && <SeasonVault address={address} />}
+    {flipped && actTab === 'vault' && <CardVault address={address} />}
     {flipped && actTab === 'builder' && mine && <PoolBuilderCard />}
     <div className={`wp-flip-body ${flipped ? 'is-flipped' : ''}`}>
     {mine && !edit && data && <SetupCallout profile={data.profile} onEdit={startEdit} />}

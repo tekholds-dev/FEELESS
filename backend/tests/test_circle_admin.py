@@ -118,3 +118,23 @@ def test_money_pulse_one_read_for_every_card(monkeypatch):
     assert out['reserves']['s1']['poolSol'] == 3.0 and out['circle']['up'] and out['circle']['wallets'][0]['address'] == RES
     assert any(c['key'] == 'jup' for c in out['checks'])
     assert asyncio.run(rs.admin_money_pulse(None)).get('cached')
+
+
+def test_card_edit_and_catalog(monkeypatch, tmp_path):
+    """Owner edits a badge card; the catalog carries the look plus what the card earns from pools."""
+    monkeypatch.setattr(rs, 'CARDS_PATH', tmp_path / 'cards.json')
+    monkeypatch.setattr(rs, 'COLLECTION_PATH', tmp_path / 'col.json')
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'Owner')
+    monkeypatch.setattr(rs, '_admin_load', lambda: {'badges': {'W1': {'custom-og': {'id': 'custom-og', 'label': 'OG', 'icon': '⭐', 'tone': 'gold'}}}})
+    monkeypatch.setattr(rs, '_admin_save', lambda d: None); monkeypatch.setattr(rs, '_audit', lambda *a: None)
+    monkeypatch.setattr(rs, '_seasons', lambda: {'seasons': [], 'scores': {}})
+    monkeypatch.setattr(rs, '_pools', lambda: {'pools': [{'name': 'OG pool', 'mode': 'pct', 'weights': {'badge:custom-og': 30}, 'payouts': [{'perKey': {'badge:custom-og': 0.2}}]}]})
+    rs._cards_cache.clear()
+
+    class Req:
+        async def json(self): return {'title': 'Original Gangster', 'design': 'glitch', 'lore': 'Here before the chart.'}
+    card = asyncio.run(rs.admin_card_edit(Req(), 'badge:custom-og'))
+    assert card['title'] == 'Original Gangster' and card['design'] == 'glitch' and card['holders'] == 1
+    assert card['earnedEach'] == 0.2 and card['earns'][0]['pct'] == 30
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.admin_card_edit(Req(), 'nope:<script>'))

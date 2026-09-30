@@ -26,6 +26,7 @@ import { TAB_INFO } from './ccTabInfo';
 import { FeeBrain } from './FeeBrain';
 import { MoneyFlows } from './MoneyFlows';
 import { CirclePay, useCircleWallet } from './CirclePay';
+import { CardStudio } from '../cards/CardStudio';
 import { useMoneyPulse, refreshPulse } from '../../lib/moneyPulse';
 
 const SESSION_KEY = 'feeless:cc-session';
@@ -228,7 +229,7 @@ function AwardBadges({ call, initial }) {
   const [why, setWhy] = useState('');
   const [limits, setLimits] = useState({ profile: 3, chat: 3 });
   const [awards, setAwards] = useState({ rows: [], wallets: 0, awards: 0 });
-  const [view, setView] = useState(initial.length ? 'award' : 'catalog');
+  const [view, setView] = useState(initial.length ? 'award' : 'cards');
   const loadAwards = useCallback(() => call('/admin/badges').then(setAwards).catch(e => toast.error(e.message)), [call]);
   useEffect(() => { call('/admin/badges/limits').then(setLimits).catch(e => toast.error(e.message)); loadAwards(); }, [call, loadAwards]);
   const addrs = text.split(/[\s,]+/).filter(a => /^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$/.test(a));
@@ -244,7 +245,8 @@ function AwardBadges({ call, initial }) {
   return <section className="cc-panel cc-award cc-badges-meta" data-testid="cc-badges">
     <div className="bdg-hero"><div><small>BADGE ENGINE</small><h3>Earned, displayed, <em>paid</em>.</h3><p>Season tiers earn a cut of the Fee Reserve. Custom awards flex on profiles and in chat.</p></div>
       <div className="bdg-kpis"><span><small>Wallets badged</small><b>{awards.wallets}</b></span><span><small>Awards</small><b>{awards.awards}</b></span><span><small>Profile / chat cap</small><b>{limits.profile} / {limits.chat}</b></span></div></div>
-    <div className="bdg-seg" role="tablist">{[['catalog', '🏷 All badges'], ['pool', '💰 Reserve pool'], ['award', '🎖️ Award'], ['ledger', '📜 Ledger'], ['caps', '⚙ Caps']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'active' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
+    <div className="bdg-seg" role="tablist">{[['cards', '🃏 Cards'], ['catalog', '🏷 All badges'], ['pool', '💰 Reserve pool'], ['award', '🎖️ Award'], ['ledger', '📜 Ledger'], ['caps', '⚙ Caps']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'active' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
+    {view === 'cards' && <CardStudio call={call} />}
     {view === 'catalog' && <BadgeCatalog call={call} />}
     {view === 'pool' && <><ReservePool call={call} /><BadgePools call={call} /></>}
     {view === 'caps' && <>
