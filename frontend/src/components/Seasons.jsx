@@ -7,6 +7,19 @@ import { WeeklyDrops } from './SeasonBadges';
 import { SeasonEditor } from './SeasonEditor';
 import { useAdmin } from '../lib/adminCall';
 
+// Season badges earn a weighted cut of the Fee Reserve: show the pot and this wallet's projected share.
+function ReservePot({ address }) {
+  const [r, setR] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    fetch(apiUrl(`/api/reputation/season/reserve${address ? `?address=${address}` : ''}`)).then(x => x.json()).then(x => alive && setR(x)).catch(() => {});
+    return () => { alive = false; };
+  }, [address]);
+  if (!r?.active) return null;
+  return <div className="season-reserve" data-testid="season-reserve"><small>💰 RESERVE POOL · {r.pct}%</small><b>{r.potSol} SOL</b>
+    <span>{r.me ? <>your {r.me.tier} badge ≈ <em>{r.me.sol} SOL</em> ({r.me.sharePct}%)</> : `split by tier across ${r.wallets} wallets · reach Bronze to earn`}</span></div>;
+}
+
 const TIER_COLOR = { Recruit: '#8fa89a', Bronze: '#d08a4e', Silver: '#cfd8dc', Gold: '#f5c542', Diamond: '#7cc8ff', Legend: '#ff5ad1' };
 const HOW = [['📣', 'Sharp calls', '+100 for each Call Ledger call that reaches 2×'], ['🚩', 'Rug reports', '+25 per sniper/bundler you flag first (proof required, max 100 per coin)'], ['💎', 'Hold $FEE', '+20 a day while you hold $1+ of $FEE'], ['🔥', 'Show up', 'Daily check-in +10 (+5 per streak day), post +5, invites +75, profile +50'], ['🧹', 'Stay clean', 'Blocklisted wallets score zero — sniping or bundling ends your season']];
 
@@ -96,6 +109,7 @@ export function SeasonsPage() {
           <div className="season-bar"><i style={{ width: `${Math.min(100, tierPct)}%`, background: TIER_COLOR[me.next || me.tier] }} /></div>
           <small>{me.next ? `${me.toNext.toLocaleString()} pts to ${me.next}` : 'Max tier — Legend.'}</small></>
           : <p className="wp-bio">Connect a wallet to join the season.</p>}
+        <ReservePot address={me?.address} />
         <div className="season-tiers">{d.tiers.map(([n, need]) => <span key={n} style={{ '--t': TIER_COLOR[n] }}><i />{n}<small>{need.toLocaleString()}</small></span>)}</div>
       </section>
       <section className="season-card">

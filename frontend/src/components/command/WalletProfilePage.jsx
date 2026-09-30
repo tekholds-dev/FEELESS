@@ -1,4 +1,5 @@
 import { Explain } from '../Explain';
+import { IntelRail, SeasonRail } from './ProfileRails';
 import { FeedBar } from '../FeedBar';
 import { AlphaRoomsCard } from '../AlphaRooms';
 import { investigate } from '../CaseFile';
@@ -33,6 +34,17 @@ import { ProfileDM, RewardsCard } from '../Social';
 import { VerifiedMark } from '../terminal/VerifiedMark';
 import { PointsShop, PnlTracker } from '../MetaExtras';
 import { OnchainStrip, PerksCard, PortfolioCard, SetupCallout, SocialStrip, usePerks } from './ProfileExtras';
+
+const WIDE_Q = '(min-width: 1480px)';
+function useWide() {
+  const [wide, setWide] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(WIDE_Q).matches);
+  useEffect(() => {
+    const m = window.matchMedia?.(WIDE_Q); if (!m) return undefined;
+    const on = () => setWide(m.matches); m.addEventListener?.('change', on);
+    return () => m.removeEventListener?.('change', on);
+  }, []);
+  return wide;
+}
 
 const RINGS = [['none', 'Classic', 0], ['mint', 'Mint pulse', 0], ['sunset', 'Sunset', 0], ['ocean', 'Ocean', 0], ['candy', 'Candy', 0], ['neon', 'Neon', 0], ['ghost', 'Ghost', 0], ['emerald', 'Emerald', 1], ['plasma', 'Plasma', 1], ['diamond', 'Diamond', 2], ['aurora', 'Aurora', 2], ['gold', 'Molten Gold', 3], ['royal', 'Royal', 3]];
 const NAMEFX = [['none', 'Plain', 0], ['glow', 'Glow', 0], ['gradient', 'Gradient', 0], ['rainbow', 'Rainbow', 1], ['diamond', 'Diamond', 2], ['gold', 'Gold', 3]];
@@ -195,8 +207,9 @@ export function WalletProfilePage({ address }) {
   };
   const caller = data?.caller;
   const [friend, setFriend] = useState('');
+  const wide = useWide();
   if (ccOpen && isAdmin) return <CommandCenter address={address} signMessage={signMessage} onClose={() => setCcOpen(false)} />;
-  return <><div className={`profile-backdrop pbg-${backdrop}`} aria-hidden="true" data-testid="profile-backdrop" /><div className={`wallet-profile-page theme-${p.theme || 'grid'} ptier-${tier}`} style={{ '--wp-accent': accent }} data-testid="wallet-profile-page">
+  return <><div className={`profile-backdrop pbg-${backdrop}`} aria-hidden="true" data-testid="profile-backdrop" /><div className={`wp-stage ${wide ? 'has-rails' : ''}`}>{wide && <IntelRail address={address} />}<div className={`wallet-profile-page theme-${p.theme || 'grid'} ptier-${tier}`} style={{ '--wp-accent': accent }} data-testid="wallet-profile-page">
     <header className="xp-card" data-testid="profile-header">
       <div className={`xp-cover ${p.bannerUrl ? 'has-img' : ''}`}>
         {p.bannerUrl ? <img src={p.bannerUrl} alt="" decoding="async" /> : <span className="xp-cover-mark" aria-hidden="true">{p.displayName || shortAddress(address)}</span>}
@@ -284,7 +297,7 @@ export function WalletProfilePage({ address }) {
     <ReceiptsCard address={address} />
     </div>
     <div className="wp-foot"><ReportBug address={wallet?.address} /></div>
-  </div></>;
+  </div>{wide && <SeasonRail address={address} />}</div></>;
 }
 
 // Your own swap desk inside your profile: any Solana coin to any coin, prefilled when you tap Swap

@@ -214,6 +214,7 @@ function AwardBadges({ call, initial }) {
   const [why, setWhy] = useState('');
   const [limits, setLimits] = useState({ profile: 3, chat: 3 });
   const [awards, setAwards] = useState({ rows: [], wallets: 0, awards: 0 });
+  const [view, setView] = useState(initial.length ? 'award' : 'pool');
   const loadAwards = useCallback(() => call('/admin/badges').then(setAwards).catch(e => toast.error(e.message)), [call]);
   useEffect(() => { call('/admin/badges/limits').then(setLimits).catch(e => toast.error(e.message)); loadAwards(); }, [call, loadAwards]);
   const addrs = text.split(/[\s,]+/).filter(a => /^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$/.test(a));
@@ -226,8 +227,15 @@ function AwardBadges({ call, initial }) {
     catch (e) { toast.error(e.message); }
   };
   const revoke = async (address, bid) => { try { await call(`/admin/badges/${address}/${bid}`, { method: 'DELETE' }); toast.success('Badge revoked.'); loadAwards(); } catch (e) { toast.error(e.message); } };
-  return <section className="cc-panel cc-award">
-    <div className="cc-block"><h4>Badge mechanics</h4><div className="cc-kpis"><span><small>Wallets badged</small><b>{awards.wallets}</b></span><span><small>Custom awards</small><b>{awards.awards}</b></span><span><small>Profile cap</small><b>{limits.profile}</b></span><span><small>Chat cap</small><b>{limits.chat}</b></span></div><p className="cc-note">Awards are earned inventory. The profile and chat caps only control how many a user may display; they do not delete awards. Only Command Center can issue or revoke them.</p><div className="cc-studio-grid"><label>Profile display cap<input type="number" min="0" max="12" value={limits.profile} onChange={e => setLimits(x => ({ ...x, profile: e.target.value }))} /></label><label>Chat display cap<input type="number" min="0" max="12" value={limits.chat} onChange={e => setLimits(x => ({ ...x, chat: e.target.value }))} /></label></div><button type="button" className="btn-primary" onClick={saveLimits}>Save display caps</button></div>
+  return <section className="cc-panel cc-award cc-badges-meta" data-testid="cc-badges">
+    <div className="bdg-hero"><div><small>BADGE ENGINE</small><h3>Earned, displayed, <em>paid</em>.</h3><p>Season tiers earn a cut of the Fee Reserve. Custom awards flex on profiles and in chat.</p></div>
+      <div className="bdg-kpis"><span><small>Wallets badged</small><b>{awards.wallets}</b></span><span><small>Awards</small><b>{awards.awards}</b></span><span><small>Profile / chat cap</small><b>{limits.profile} / {limits.chat}</b></span></div></div>
+    <div className="bdg-seg" role="tablist">{[['pool', '💰 Reserve pool'], ['award', '🎖️ Award'], ['ledger', '📜 Ledger'], ['caps', '⚙ Caps']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'active' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
+    {view === 'pool' && <ReservePool call={call} />}
+    {view === 'caps' && <>
+    <div className="cc-block"><h4>Badge mechanics</h4><p className="cc-note">Awards are earned inventory. The profile and chat caps only control how many a user may display; they do not delete awards. Only Command Center can issue or revoke them.</p><div className="cc-studio-grid"><label>Profile display cap<input type="number" min="0" max="12" value={limits.profile} onChange={e => setLimits(x => ({ ...x, profile: e.target.value }))} /></label><label>Chat display cap<input type="number" min="0" max="12" value={limits.chat} onChange={e => setLimits(x => ({ ...x, chat: e.target.value }))} /></label></div><button type="button" className="btn-primary" onClick={saveLimits}>Save display caps</button></div>
+    </>}
+    {view === 'award' && <div className="bdg-award">
     <div className="cc-award-preview"><span className={`badge-pill tone-${tone}`}>{icon} {label || 'Badge name'}</span><small>{why || 'Why they earned it'}</small></div>
     <div className="cc-award-form">
       <div className="cc-icons">{['⭐', '💎', '🔥', '🏆', '🧠', '🐞', '🛠️', '🎖️', '🦾', '🌙'].map(i => <button key={i} type="button" className={icon === i ? 'active' : ''} onClick={() => setIcon(i)}>{i}</button>)}</div>
@@ -237,8 +245,59 @@ function AwardBadges({ call, initial }) {
       <textarea rows={6} placeholder="Wallet addresses — one per line (select holders first to prefill)" value={text} onChange={e => setText(e.target.value)} />
       <button type="button" className="btn-primary" disabled={!addrs.length || label.length < 2} onClick={award}><Award size={14} />Award to {addrs.length} wallet{addrs.length === 1 ? '' : 's'}</button>
     </div>
+    </div>}
+    {view === 'ledger' && <>
     <div className="cc-block cc-badge-ledger"><h4>Issued badge ledger</h4>{!awards.rows.length ? <p className="cc-empty">No custom badges issued yet.</p> : awards.rows.map(row => <div className="cc-badge-wallet" key={row.address}><code>{shortAddress(row.address)}</code><div>{row.badges.map(b => <span key={b.id} className={`badge-pill tone-${b.tone}`} title={b.why}><i>{b.icon}</i>{b.label}<button type="button" aria-label={`Revoke ${b.label}`} onClick={() => revoke(row.address, b.id)}>×</button></span>)}</div></div>)}</div>
+    </>}
   </section>;
+}
+
+const TIER_ICON = { Legend: '👑', Diamond: '💎', Gold: '🥇', Silver: '🥈', Bronze: '🥉' };
+
+// Season badges earn a weighted cut of the Fee Reserve wallet. The reserve wallet signs the payout itself (no custody).
+export function ReservePool({ call }) {
+  const { wallet, provider, connect } = useWallet() || {};
+  const px = useSolUsd();
+  const [seasons, setSeasons] = useState([]);
+  const [sid, setSid] = useState('');
+  const [plan, setPlan] = useState(null);
+  const [form, setForm] = useState({ reserveWallet: '', badgeRewardPct: '' });
+  const [busy, setBusy] = useState('');
+  useEffect(() => { call('/admin/seasons').then(d => { const list = [...(d.seasons || [])].sort((a, b) => b.start - a.start); setSeasons(list); const now = Date.now() / 1000; setSid((list.find(s => s.start <= now && now < s.end) || list[0])?.id || ''); }).catch(e => toast.error(e.message)); }, [call]);
+  const load = useCallback(() => { if (sid) call(`/admin/reserve/${sid}`).then(p => { setPlan(p); setForm({ reserveWallet: p.season.reserveWallet || '', badgeRewardPct: String(p.season.badgeRewardPct || '') }); }).catch(e => toast.error(e.message)); }, [call, sid]);
+  useEffect(() => { setPlan(null); load(); }, [load]);
+  const usd = v => (px && v != null ? money(v * px) : '');
+  const save = async () => {
+    try { setBusy('Saving…'); await call(`/admin/seasons/${sid}`, { method: 'PUT', body: JSON.stringify({ reserveWallet: form.reserveWallet.trim(), badgeRewardPct: Number(form.badgeRewardPct) || 0 }) }); toast.success('Reserve pool saved.'); load(); }
+    catch (e) { toast.error(errorText(e)); } finally { setBusy(''); }
+  };
+  const isReserve = wallet?.chain === 'solana' && wallet?.address === plan?.season.reserveWallet;
+  const pay = async () => {
+    try {
+      if (!isReserve) { await connect?.('solana'); return; }
+      const { batchSend } = await import('../../lib/batchSend');
+      const sigs = await batchSend({ provider, owner: wallet.address, recipients: plan.rows.map(r => ({ address: r.address, amount: r.sol })), kind: 'reserve', onStatus: setBusy });
+      await call(`/admin/reserve/${sid}/paid`, { method: 'POST', body: JSON.stringify({ sigs }) });
+      toast.success(`Paid ${plan.paidSol} SOL to ${plan.rows.length} badge holders.`); load();
+    } catch (e) { toast.error(errorText(e)); } finally { setBusy(''); }
+  };
+  if (!seasons.length) return <div className="cc-block"><p className="cc-empty">Create a season first (Seasons tab). Its badges then earn from the reserve pool.</p></div>;
+  return <div className="bdg-pool">
+    <div className="bdg-seg bdg-seasons">{seasons.slice(0, 5).map(s => <button key={s.id} type="button" className={sid === s.id ? 'active' : ''} onClick={() => setSid(s.id)}>{s.name}</button>)}</div>
+    <div className="bdg-pool-grid">
+      <div className="bdg-card"><small>Reserve wallet</small>{plan?.assigned ? <b className="bdg-ok">● assigned</b> : <b className="bdg-warn">● not assigned</b>}
+        <input placeholder="Fee Reserve wallet (Solana address)" value={form.reserveWallet} onChange={e => setForm(f => ({ ...f, reserveWallet: e.target.value }))} />
+        <label className="bdg-pct"><input inputMode="decimal" placeholder="0" value={form.badgeRewardPct} onChange={e => setForm(f => ({ ...f, badgeRewardPct: e.target.value.replace(/[^0-9.]/g, '') }))} /><span>% of the wallet to badge holders</span></label>
+        <button type="button" className="btn-primary" disabled={!!busy} onClick={save}>Save pool</button></div>
+      <div className="bdg-card bdg-pot"><small>Pot this season</small><b>{plan ? `${plan.potSol} SOL` : '…'}</b><em>{plan && usd(plan.potSol)}</em>
+        <span>{plan ? `${plan.pct}% of ${plan.poolSol} SOL${plan.balanceKnown ? '' : ' (balance unreadable)'}` : ''}</span><span>0.01 SOL always stays for rent + fees</span></div>
+      <div className="bdg-card"><small>Tier weights</small><div className="bdg-weights">{Object.entries(plan?.weights || {}).filter(([, w]) => w).map(([t, w]) => <span key={t}>{TIER_ICON[t]} {t}<b>{w}×</b></span>)}</div><span>Recruit, blocklisted and FEELESS wallets earn nothing.</span></div>
+    </div>
+    {plan?.payout ? <div className="bdg-paid">✅ Paid {plan.payout.rows.reduce((a, r) => a + r.sol, 0).toFixed(4)} SOL to {plan.payout.rows.length} wallets · <a href={`https://solscan.io/tx/${plan.payout.sigs[0]}`} target="_blank" rel="noopener noreferrer">receipt</a></div>
+      : <div className="bdg-payrow"><span>{plan ? `${plan.rows.length} wallets · ${plan.paidSol} SOL${plan.droppedDust ? ` · ${plan.droppedDust} dust shares re-split` : ''}` : 'Loading…'}</span>
+        <button type="button" className="btn-primary" disabled={!!busy || !plan?.rows.length} title={plan?.ended ? '' : 'Season still live: shares will move until it ends'} onClick={pay}>{busy || (isReserve ? `Pay out ${plan?.paidSol ?? ''} SOL` : 'Connect the reserve wallet to pay')}</button></div>}
+    <div className="bdg-table">{!plan?.rows.length ? <p className="cc-empty">{plan && !plan.pct ? 'Set a % to start paying badge holders.' : 'No tiered badge holders yet.'}</p> : plan.rows.slice(0, 60).map((r, i) => <div key={r.address} className="bdg-row"><i>#{i + 1}</i><span className={`bdg-tier t-${r.tier.toLowerCase()}`}>{TIER_ICON[r.tier]} {r.tier}</span><code>{shortAddress(r.address)}</code><small>{r.sharePct}%</small><b>{r.sol} SOL</b><em>{usd(r.sol)}</em></div>)}</div>
+  </div>;
 }
 
 export function ReportBug({ address }) {

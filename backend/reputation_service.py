@@ -13,6 +13,7 @@ no provider API keys) so it can run standalone.
 """
 import env_loader  # noqa: F401  (must run before reading os.environ)
 import investigate
+import reserve_pool
 from ecosystem import ecosystem_mints
 import asyncio
 import json
@@ -7370,3 +7371,101 @@ async def circle_create_wallet(request: Request, p: CircleWalletIn):
     out = await _circle('POST', '/wallets', {'blockchain': p.blockchain, 'name': p.name[:40]})
     ad = _admin_load(); _audit(ad, me, 'circle-wallet', f"{p.blockchain} {(out.get('wallet') or {}).get('address', '')}"); _admin_save(ad)
     return out
+
+
+# ================================================================================================
+# SEASON BADGE RESERVE POOL: tiers earn weighted shares of the Fee Reserve wallet, owner-signed payouts
+# ================================================================================================
+async def _reserve_plan(s, d):
+    wallet = s.get('reserveWallet') or ''
+    pool = None
+    if wallet:
+        try:
+            async with httpx.AsyncClient(timeout=8) as http:
+                pool = ((await _rpc(http, 'getBalance', [wallet])) or {}).get('value', 0) / 1e9
+        except Exception:
+            pool = None
+    blocked = _block_load()['wallets']
+    holders = [{'address': a, 'score': r['score'], 'tier': _tier(r['score'])['tier']}
+               for a, r in (d['scores'].get(s['id']) or {}).items() if not _is_blocked(blocked.get(a))]
+    plan = reserve_pool.payout_plan(pool or 0, float(s.get('badgeRewardPct') or 0), holders, excluded=frozenset(_protected_wallets()))
+    return {**plan, 'season': {k: s.get(k) for k in ('id', 'name', 'start', 'end', 'accent', 'reserveWallet', 'badgeRewardPct')},
+            'assigned': bool(wallet), 'balanceKnown': pool is not None, 'ended': s['end'] <= time.time(),
+            'payout': (d.get('reservePayouts') or {}).get(s['id'])}
+
+
+@app.get('/api/reputation/admin/reserve/{sid}')
+async def admin_reserve_plan(request: Request, sid: str):
+    _require_admin(request)
+    d = _seasons(); s = next((x for x in d['seasons'] if x['id'] == sid), None)
+    if not s:
+        raise HTTPException(404, 'Season not found.')
+    return await _reserve_plan(s, d)
+
+
+class ReservePaid(BaseModel):
+    sigs: list[str] = Field(min_length=1, max_length=40)
+
+
+@app.post('/api/reputation/admin/reserve/{sid}/paid')
+async def admin_reserve_paid(request: Request, sid: str, p: ReservePaid):
+    """Record a payout the reserve wallet signed. Every signature must be on-chain, succeeded and signed by the reserve wallet."""
+    admin = _require_admin(request)
+    d = _seasons(); s = next((x for x in d['seasons'] if x['id'] == sid), None)
+    if not s:
+        raise HTTPException(404, 'Season not found.')
+    if (d.get('reservePayouts') or {}).get(sid):
+        raise HTTPException(409, 'This season was already paid out.')
+    wallet = s.get('reserveWallet')
+    if not wallet:
+        raise HTTPException(400, 'Assign a Fee Reserve wallet to this season first.')
+    if not all(_re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', x) for x in p.sigs):
+        raise HTTPException(400, 'Bad transaction signature.')
+    plan = await _reserve_plan(s, d)
+    async with httpx.AsyncClient(timeout=20) as http:
+        txs = await asyncio.gather(*(_rpc(http, 'getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}]) for x in p.sigs))
+    for sig, tx in zip(p.sigs, txs):
+        if not tx or (tx.get('meta') or {}).get('err'):
+            raise HTTPException(400, f'Transaction {sig[:8]}… is not on-chain or failed.')
+        if wallet not in [k['pubkey'] for k in tx['transaction']['message']['accountKeys'] if k.get('signer')]:
+            raise HTTPException(400, 'Payout must be signed by the season Fee Reserve wallet.')
+    paid = {}  # record what actually moved on-chain, not what was planned
+    for tx in txs:
+        for ix in tx['transaction']['message'].get('instructions') or []:
+            info = (ix.get('parsed') or {}).get('info') or {}
+            if ix.get('program') == 'system' and (ix.get('parsed') or {}).get('type') == 'transfer' and info.get('source') == wallet:
+                paid[info['destination']] = round(paid.get(info['destination'], 0) + info['lamports'] / 1e9, 9)
+    if not paid:
+        raise HTTPException(400, 'No SOL transfers from the reserve wallet in those transactions.')
+    tiers = {r['address']: r['tier'] for r in plan['rows']}
+    d = _seasons()
+    d.setdefault('reservePayouts', {})[sid] = {'sigs': p.sigs, 'at': time.time(), 'by': admin, 'potSol': plan['potSol'],
+                                               'rows': [{'address': a, 'tier': tiers.get(a, ''), 'sol': v} for a, v in paid.items()]}
+    _json_save(SEASONS_PATH, d)
+    col = _json_load(COLLECTION_PATH, {})
+    for a, items in col.items():
+        for it in items:
+            if it.get('id') == f'{sid}:season' and a in paid:
+                it['rewardStatus'] = 'paid'; it['rewardSol'] = paid[a]; it['rewardSig'] = p.sigs[0]
+    _json_save(COLLECTION_PATH, col)
+    total = round(sum(paid.values()), 6)
+    ad = _admin_load(); _audit(ad, admin, 'reserve-payout', f"{sid} {total} SOL to {len(paid)}"); _admin_save(ad)
+    return {'ok': True, 'paidSol': total, 'wallets': len(paid)}
+
+
+_reserve_pub_cache = {}
+
+
+@app.get('/api/reputation/season/reserve')
+async def season_reserve(address: str = ''):
+    """Public: the live season's reserve pot and this wallet's projected share."""
+    d = _seasons(); s = _current_season(d)
+    if not s or not s.get('reserveWallet') or not float(s.get('badgeRewardPct') or 0):
+        return {'active': False}
+    hit = _reserve_pub_cache.get(s['id'])
+    if not hit or time.time() - hit[0] > 60:
+        hit = (time.time(), await _reserve_plan(s, d)); _reserve_pub_cache[s['id']] = hit
+    plan = hit[1]
+    me = reserve_pool.wallet_share(plan, primary_of(address)) if address else None
+    return {'active': True, 'season': plan['season']['name'], 'pct': plan['pct'], 'potSol': plan['potSol'], 'wallets': len(plan['rows']),
+            'weights': plan['weights'], 'me': me}
