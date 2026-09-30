@@ -3787,12 +3787,19 @@ async def rug_shield(mint: str):
     if mint in FEE_SETTLEMENT_MINTS:
         return {'mint': mint, 'level': 'ok', 'reasons': []}
     try:
+        if mint in set((await _ecosystem_mints()).values()):
+            return {'mint': mint, 'level': 'ok', 'reasons': [], 'official': True, 'note': 'Official FEELESS coin.'}
+    except Exception:
+        pass
+    try:
         async with httpx.AsyncClient(timeout=10) as http:
             intel, auth = await asyncio.gather(token_intel('solana', mint), _mint_authorities(http, mint))
     except HTTPException:
         return {'mint': mint, 'level': 'unknown', 'reasons': ['On-chain check unavailable right now.']}
     creator = intel.get('creator')
-    return {'mint': mint, **shield_verdict(intel, _block_load()['wallets'], auth or {}, _quick_rep(creator) if creator else None)}
+    if creator in _protected_wallets():
+        intel = {**intel, 'creator': None}   # FEELESS wallets are never the risk
+    return {'mint': mint, **shield_verdict(intel, _block_load()['wallets'], auth or {}, _quick_rep(creator) if creator and creator not in _protected_wallets() else None)}
 
 
 def shield_verdict(intel, blocklist, auth=None, creator_rep=None):
@@ -3803,8 +3810,12 @@ def shield_verdict(intel, blocklist, auth=None, creator_rep=None):
     if auth.get('mintAuthority'):
         reasons.append('Mint authority is live: the creator can print more supply.')
     creator = intel.get('creator')
-    if creator and _is_blocked(blocklist.get(creator)):
-        reasons.insert(0, 'Creator wallet is on the FEELESS blocklist (repeat sniper/bundler or reported rug).'); danger = True
+    rec = blocklist.get(creator) if creator else None
+    if creator and _is_blocked(rec) and rec.get('reported'):
+        reasons.insert(0, 'Creator wallet was reported for a rug and is on the FEELESS blocklist.'); danger = True
+    elif creator and _is_blocked(rec):
+        # Blocklisted for sniping/bundling OTHER launches, not for rugging: a warning, not a hard stop.
+        reasons.insert(0, f"Creator wallet snipes/bundles other launches ({len(rec.get('mints') or {})} on record) — no rug reported on this coin.")
     elif creator_rep and creator_rep.get('level') in ('suspect', 'high') and creator_rep.get('top'):
         # Same verdict and cited evidence as the creator's case file.
         reasons.insert(0, f"Creator case file: {creator_rep['label']} ({creator_rep['score']}/100): {creator_rep['top']['claim']}")

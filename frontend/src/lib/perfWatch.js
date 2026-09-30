@@ -5,6 +5,7 @@ import { apiUrl } from './api';
 // wrapper, one PerformanceObserver, and a 1-second FPS sample every 30 seconds while the tab is visible.
 const LITE_KEY = 'feeless:fx-lite';
 let started = false;
+let origFetch = null;
 const state = { api: {}, longTasks: 0, longMs: 0, fps: [], errors: 0, slowStreak: 0 };
 
 export const liteMode = () => { try { return localStorage.getItem(LITE_KEY) || ''; } catch { return ''; } };
@@ -32,7 +33,8 @@ function flush() {
   const has = Object.keys(report.api).length || report.longTasks || fps != null;
   Object.assign(state, { api: {}, longTasks: 0, longMs: 0, fps: [], errors: 0 });
   if (!has) return;
-  try { navigator.sendBeacon?.(apiUrl('/api/reputation/perf'), new Blob([JSON.stringify(report)], { type: 'application/json' })); } catch { /* best effort */ }
+  // keepalive fetch, not sendBeacon: Chrome refuses beacons with a JSON content type, so reports never arrived.
+  try { (origFetch || fetch)(apiUrl('/api/reputation/perf'), { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(report) }).catch(() => {}); } catch { /* best effort */ }
 }
 
 export function startPerfWatch() {
@@ -41,6 +43,7 @@ export function startPerfWatch() {
   if (liteMode()) document.body.classList.add('fx-lite');
   fetch(apiUrl('/api/reputation/perf/config')).then(r => r.json()).then(c => { if (c.forceLite) document.body.classList.add('fx-lite'); }).catch(() => {});
   const orig = window.fetch.bind(window);
+  origFetch = orig;
   window.fetch = async (input, init) => {
     const url = typeof input === 'string' ? input : input?.url || '';
     if (!url.includes('/api/') || url.includes('/api/reputation/perf')) return orig(input, init);

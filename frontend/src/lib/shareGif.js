@@ -38,7 +38,7 @@ function frame(g, card, logo, coin, t, seed) {
   const k = ease(Math.min(1, t * 2.2)); const big = card.bigValue != null ? `${card.bigPrefix || ''}${(card.bigValue * k).toFixed(card.bigDigits ?? 1)}${card.bigSuffix || ''}` : card.big;
   g.font = '400 76px "Bungee", sans-serif'; g.fillStyle = P.big; g.shadowColor = g.fillStyle; g.shadowBlur = 18 + 10 * Math.sin(t * Math.PI * 4); g.fillText(big, 54, 228); g.shadowBlur = 0;
   g.font = '500 17px "Space Grotesk", sans-serif'; g.fillStyle = P.text; (card.lines || []).slice(0, 3).forEach((l, i) => g.fillText(l, 56, 274 + i * 26));
-  // FeeCat effects: a paw-print trail walks across the card and a pair of cat eyes blinks in the corner.
+  // FeeCat effects: a paw-print trail walks across the card.
   if (card.mascot) {
     g.fillStyle = P.spark;
     for (let i = 0; i < 7; i++) {
@@ -47,15 +47,8 @@ function frame(g, card, logo, coin, t, seed) {
       for (const [dx, dy] of [[-9, -11], [-3, -15], [4, -15], [10, -11]]) { g.beginPath(); g.arc(px + dx, py + dy, 3.2, 0, Math.PI * 2); g.fill(); }
     }
     g.globalAlpha = 1;
-    const blink = (t * 3) % 1 > 0.92 ? 0.12 : 1;
-    for (const ex of [W - 118, W - 76]) {
-      const eg = g.createRadialGradient(ex, 64, 0, ex, 64, 18); eg.addColorStop(0, `rgba(${P.flare},.95)`); eg.addColorStop(1, `rgba(${P.flare},0)`);
-      g.fillStyle = eg; g.beginPath(); g.ellipse(ex, 64, 16, 9 * blink, 0, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#021008'; g.beginPath(); g.ellipse(ex, 64, 2.6, 7 * blink, 0, 0, Math.PI * 2); g.fill();
-    }
   }
-  // FeeCat cards: the cat badge bobs in the corner beside the brand.
-  if (card.mascot && logo) { const by = H - 118 + 5 * Math.sin(t * Math.PI * 4); g.drawImage(logo, W - 262, by, 60, 60); }
+  // Brand mark.
   g.font = '400 20px "Bungee", sans-serif'; g.fillStyle = P.brand; g.fillText(card.mascot ? 'FEECAT' : 'FEELESS', W - 190, H - 52);
   g.font = '500 12px "Space Grotesk", sans-serif'; g.fillStyle = P.foot; g.fillText(card.footer || 'feeless · non-custodial trading', W - 262, H - 34);
 }

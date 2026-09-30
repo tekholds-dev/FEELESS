@@ -17,7 +17,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 5. UI change ⇒ open it (Playwright/Chromium is preinstalled) or say plainly that you didn't.
 
 ## Meta styling (no dead UI, ever)
-- Palette: black/very dark green surfaces, neon `#00ffa3` accent, `#ff8fa3` danger, `var(--gold)` warn.
+- Palette: black/very dark green surfaces, royal green `#16d67f` accent (matches the logo), `#ff8fa3` danger, `var(--gold)` warn.
   Labels/numbers in `JetBrains Mono`, uppercase micro-labels with letter-spacing.
 - Every interactive element has hover, active and focus states. Selected = solid neon fill with dark text.
 - Dropdowns, popovers and modals animate in (≤200ms, opacity + small translate/scale) and respect

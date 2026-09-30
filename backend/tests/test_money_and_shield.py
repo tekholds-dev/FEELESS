@@ -35,7 +35,9 @@ def test_shield_danger_on_blocklisted_creator_or_heavy_dev_bag():
     assert rs.shield_verdict({'flags': ['Top 10 wallets hold 40%'], 'devHoldingPct': 2}, {})['level'] == 'caution'
     assert rs.shield_verdict({'flags': [], 'devHoldingPct': 25}, {})['level'] == 'danger'
     bad = rs.shield_verdict({'flags': [], 'creator': 'Dev1'}, {'Dev1': {'reported': True}})
-    assert bad['level'] == 'danger' and 'blocklist' in bad['reasons'][0]
+    assert bad['level'] == 'danger' and 'rug' in bad['reasons'][0]
+    sniper = rs.shield_verdict({'flags': [], 'creator': 'Dev2'}, {'Dev2': {'mints': {'a': 'sniper', 'b': 'sniper', 'c': 'bundler'}}})
+    assert sniper['level'] == 'caution' and 'no rug reported' in sniper['reasons'][0]
 
 
 def test_feeless_wallets_can_never_be_blocklisted(monkeypatch, tmp_path):

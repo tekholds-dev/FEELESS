@@ -14,3 +14,18 @@ test('lite mode toggles the body class and persists', () => {
   setLite('');
   expect(document.body.classList.contains('fx-lite')).toBe(false);
 });
+
+test('reports reach the server with a keepalive JSON POST (not a beacon Chrome rejects)', async () => {
+  jest.useFakeTimers();
+  const calls = [];
+  window.fetch = jest.fn(async (url, opts) => { calls.push([String(url), opts]); return { json: async () => ({}) }; });
+  window.PerformanceObserver = class { observe() {} };
+  const { startPerfWatch } = require('./perfWatch');
+  startPerfWatch();
+  await window.fetch('/api/market/feed?x=1');
+  jest.advanceTimersByTime(61000);
+  const sent = calls.find(([u, o]) => u.includes('/api/reputation/perf') && o?.method === 'POST');
+  expect(sent[1].keepalive).toBe(true);
+  expect(JSON.parse(sent[1].body).api['/api/market/feed']).toHaveLength(1);
+  jest.useRealTimers();
+});
