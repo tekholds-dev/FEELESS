@@ -1,7 +1,8 @@
 """Fee report: what a wallet paid in FEELESS fees (7d + all time) and the FeeBack it has accrued.
 
 Pure functions over the fee ledger the trading service feeds (one row per confirmed trade, per signature).
-FeeBack accrues FEEBACK_PCT of every fee paid; it is paid out in FEECAT once the program goes live.
+FeeBack accrues FEEBACK_PCT of the fees paid on FEE-ecosystem trades only ($FEE / FEECAT / rFEE on either side);
+ordinary coin trades (e.g. SOL → any other coin) pay the fee but earn no FeeBack. Paid in FEECAT once the program goes live.
 """
 FEEBACK_PCT = 100.0
 DAY = 86400
@@ -11,7 +12,7 @@ SOL_MINT = 'So11111111111111111111111111111111111111112'
 USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 
 
-def ledger_row(ts: float, sig: str, in_usd: float, fee_bps: int, fee_atoms: int = 0, fee_mint: str = '', sol_usd: float = 0) -> dict:
+def ledger_row(ts: float, sig: str, in_usd: float, fee_bps: int, fee_atoms: int = 0, fee_mint: str = '', sol_usd: float = 0, feeback: bool = False) -> dict:
     """One confirmed trade. The fee actually built into the transaction wins; trade value × fee % is the fallback."""
     usd = max(0.0, float(in_usd or 0))
     row = {'t': float(ts), 'sig': sig, 'inUsd': round(usd, 2), 'feeUsd': round(usd * max(0, int(fee_bps or 0)) / 10000, 4)}
@@ -23,6 +24,7 @@ def ledger_row(ts: float, sig: str, in_usd: float, fee_bps: int, fee_atoms: int 
     elif atoms and fee_mint == USDC_MINT:
         row['feeUsdc'] = atoms / 1e6
         row['feeUsd'] = round(row['feeUsdc'], 4)
+    row['fbUsd'] = row['feeUsd'] if feeback else 0.0   # the FeeBack base: only FEE-ecosystem trades
     return row
 
 
@@ -36,9 +38,10 @@ def fee_report(rows: list, now: float, feeback_pct: float = FEEBACK_PCT) -> dict
             days[i] = round(days[i] + r['feeUsd'], 4)
     total = round(sum(r['feeUsd'] for r in rows), 4)
     fee7 = round(sum(r['feeUsd'] for r in week), 4)
+    fb, fb7 = sum(r.get('fbUsd', 0) for r in rows), sum(r.get('fbUsd', 0) for r in week)
     return {'fees7dUsd': fee7, 'trades7d': len(week), 'fees7dSol': round(sum(r.get('feeSol', 0) for r in week), 9), 'volume7dUsd': round(sum(r['inUsd'] for r in week), 2),
             'feesTotalUsd': total, 'tradesTotal': len(rows), 'days': days,
-            'feeBackPct': feeback_pct, 'feeBackUsd': round(total * feeback_pct / 100, 4), 'feeBack7dUsd': round(fee7 * feeback_pct / 100, 4),
+            'feeBackPct': feeback_pct, 'feeBackUsd': round(fb * feeback_pct / 100, 4), 'feeBack7dUsd': round(fb7 * feeback_pct / 100, 4),
             'feeBackStatus': 'accruing'}
 
 
@@ -63,6 +66,7 @@ def add_total(totals: dict, who: str, row: dict) -> dict:
     t['feeUsd'] = round(t['feeUsd'] + row.get('feeUsd', 0), 6)
     t['feeSol'] = round(t['feeSol'] + row.get('feeSol', 0), 9)
     t['feeUsdc'] = round(t['feeUsdc'] + row.get('feeUsdc', 0), 6)
+    t['feeBackBaseUsd'] = round(t.get('feeBackBaseUsd', 0.0) + row.get('fbUsd', 0), 6)
     t['volumeUsd'] = round(t['volumeUsd'] + row.get('inUsd', 0), 2)
     t['trades'] += 1
     t['first'], t['last'] = min(t['first'], row['t']), max(t['last'], row['t'])
@@ -73,7 +77,7 @@ def fee_book(totals: dict, paid: dict, feeback_pct: float = FEEBACK_PCT) -> list
     """Every account: lifetime fees, FeeBack earned at feeback_pct, already paid, still owed. Biggest first."""
     rows = []
     for who, t in (totals or {}).items():
-        earned = round(t['feeUsd'] * feeback_pct / 100, 6)
+        earned = round(t.get('feeBackBaseUsd', 0.0) * feeback_pct / 100, 6)
         done = round(float((paid or {}).get(who, 0)), 6)
         rows.append({'address': who, **t, 'feeBackUsd': earned, 'paidUsd': done, 'owedUsd': round(max(0.0, earned - done), 6)})
     return sorted(rows, key=lambda r: -r['feeUsd'])

@@ -27,6 +27,6 @@ export function FeeReport({ address }) {
     </div>
     <div className="fr-row"><div className="m-stat"><small>All-time fees</small><b className="m-num sm">{d ? usd(d.feesTotalUsd) : '…'}</b></div>
       <div className="m-stat"><small>FeeBack accrued</small><b className="m-num sm m-pos">{d ? usd(d.feeBackUsd) : '…'}</b></div></div>
-    <span className="m-chip ok">🐱 {d?.feeBackPct ?? 100}% of fees back in FEECAT · paid when FeeBack goes live</span>
+    <span className="m-chip ok">🐱 {d?.feeBackPct ?? 100}% of $FEE · FEECAT · rFEE trade fees back in FEECAT · other coins earn none · paid when FeeBack goes live</span>
   </div>;
 }

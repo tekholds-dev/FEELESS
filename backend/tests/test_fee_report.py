@@ -4,11 +4,12 @@ NOW = 1_000_000_000
 
 
 def test_week_and_total():
-    rows = [ledger_row(NOW - 3600, 'a', 100, 50), ledger_row(NOW - 3 * 86400, 'b', 200, 50), ledger_row(NOW - 30 * 86400, 'c', 1000, 50)]
+    # a = selling $FEE (FeeBack), b + c = ordinary coin trades (fee paid, no FeeBack)
+    rows = [ledger_row(NOW - 3600, 'a', 100, 50, feeback=True), ledger_row(NOW - 3 * 86400, 'b', 200, 50), ledger_row(NOW - 30 * 86400, 'c', 1000, 50)]
     r = fee_report(rows, NOW)
     assert r['fees7dUsd'] == 1.5 and r['trades7d'] == 2 and r['feesTotalUsd'] == 6.5
     assert r['days'][6] == 0.5 and r['days'][3] == 1.0 and len(r['days']) == 7
-    assert r['feeBackUsd'] == 6.5 and r['feeBackStatus'] == 'accruing'
+    assert r['feeBackUsd'] == 0.5 and r['feeBack7dUsd'] == 0.5 and r['feeBackStatus'] == 'accruing'
 
 
 def test_empty_and_fee_free():
@@ -38,8 +39,11 @@ def test_lifetime_fee_book():
     from fee_report import add_total, fee_book
     tot = {}
     for i in range(3):
-        add_total(tot, 'A', ledger_row(NOW + i, f's{i}', 100, 50))
-    add_total(tot, 'B', ledger_row(NOW, 'b', 1000, 50))
+        add_total(tot, 'A', ledger_row(NOW + i, f's{i}', 100, 50, feeback=True))
+    add_total(tot, 'B', ledger_row(NOW, 'b', 1000, 50, feeback=True))
+    add_total(tot, 'C', ledger_row(NOW, 'c', 1000, 50))   # SOL → ordinary coin: fee on the books, no FeeBack
     assert tot['A']['trades'] == 3 and tot['A']['feeUsd'] == 1.5 and tot['A']['first'] == NOW and tot['A']['last'] == NOW + 2
     book = fee_book(tot, {'B': 1.0}, 100)
-    assert [r['address'] for r in book] == ['B', 'A'] and book[0]['owedUsd'] == 4.0 and book[1]['owedUsd'] == 1.5
+    assert [r['address'] for r in book][:1] == ['B'] and book[0]['owedUsd'] == 4.0
+    by = {r['address']: r for r in book}
+    assert by['A']['owedUsd'] == 1.5 and by['C']['feeUsd'] == 5.0 and by['C']['feeBackUsd'] == 0

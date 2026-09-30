@@ -8241,7 +8241,8 @@ async def internal_trade(request: Request, p: TradeLanded):
     _json_save(SEASONS_PATH, d)
     led = _json_load(FEE_LEDGER_PATH, {}); who = primary_of(p.wallet)
     px = await _sol_usd() if p.feeAtoms and p.feeMint == WSOL else 0
-    row = fee_report.ledger_row(time.time(), p.signature, p.inUsd, p.feeBps, p.feeAtoms, p.feeMint, px)
+    eco = set((await _ecosystem_mints()).values())
+    row = fee_report.ledger_row(time.time(), p.signature, p.inUsd, p.feeBps, p.feeAtoms, p.feeMint, px, feeback=bool(eco & {p.inputMint, p.outputMint}))
     led[who] = (led.get(who) or [])[-1999:] + [row]
     _json_save(FEE_LEDGER_PATH, led)
     _json_save(FEE_TOTALS_PATH, fee_report.add_total(_json_load(FEE_TOTALS_PATH, {}), who, row))   # lifetime, never trimmed
