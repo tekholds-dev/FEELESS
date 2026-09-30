@@ -31,3 +31,15 @@ def test_known_destinations_dedup_and_network():
                              [{'address': 'T', 'label': 'Multisig'}], [{'address': 'C', 'name': 'Ops'}], [{'address': 'X', 'label': 'Cold'}])
     assert [d['address'] for d in out] == ['O', 'A', 'F', 'R', 'P', 'T', 'C', 'X'] and out[0]['kind'] == 'owner'
     assert same_network('SOL', 'Abc') and not same_network('SOL', '0xabc') and same_network('BASE', '0xabc')
+
+
+def test_check_flips():
+    from money_pulse import check_flips
+    c1 = [{'key': 'jup', 'label': 'Jupiter', 'ok': True}, {'key': 'rpc', 'label': 'RPC', 'ok': True}, {'key': 'ledger', 'ok': True, 'info': True}]
+    assert check_flips({}, c1)[:2] == ([], [])
+    state = check_flips({}, c1)[2]
+    c2 = [{'key': 'jup', 'label': 'Jupiter', 'ok': False, 'fix': 'add key'}, {'key': 'rpc', 'label': 'RPC', 'ok': True}]
+    bad, fixed, state2 = check_flips(state, c2)
+    assert [c['key'] for c in bad] == ['jup'] and not fixed
+    assert check_flips(state2, c2)[0] == []           # still red: no repeat alert
+    assert [c['key'] for c in check_flips(state2, c1)[1]] == ['jup']

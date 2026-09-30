@@ -8255,6 +8255,12 @@ async def admin_money_pulse(request: Request, fresh: int = 0):
     hit = _pulse_cache.get(key)
     if hit and not fresh and time.time() - hit[0] < 15:
         return {**hit[1], 'cached': True}
+    out = await _money_pulse_build(me, owner)
+    _pulse_cache[key] = (time.time(), out)
+    return out
+
+
+async def _money_pulse_build(me: str, owner: bool) -> dict:
     cfg = _fee_cfg(); d = _seasons(); pools = _pools()['pools']
     seasons = [x for x in d['seasons'] if x.get('reserveWallet')][-4:]
     addrs = list(dict.fromkeys([a for a in (cfg.get('feeAccountSol'), cfg.get('feeAccountUsdc'), me) if a] + [x['reserveWallet'] for x in seasons] + [p['wallet'] for p in pools]))
@@ -8304,8 +8310,38 @@ async def admin_money_pulse(request: Request, fresh: int = 0):
     out = {'at': time.time(), 'owner': owner, 'chainOk': chain_ok, 'feesTodayUsd': fees_day, 'fees7dUsd': fees_week, 'admin': me, 'adminSol': sol(me), 'feeAccounts': fee_rows,
            'reserves': {r['season']['id']: trim(r) for r in reserves}, 'pools': {p['pool']['id']: trim(p) for p in pool_plans},
            'circle': circ, 'checks': checks, 'alerts': money_pulse.alerts(reserves, pool_plans, circ.get('wallets'))}
-    _pulse_cache[key] = (time.time(), out)
     return out
+
+
+PREFLIGHT_STATE_PATH = DATA_DIR / 'preflight_state.json'
+
+
+async def _preflight_watch():
+    """Every 10 min: re-run the money preflight; when a check turns red (or recovers) the owners get a bell + phone push."""
+    await asyncio.sleep(90)
+    while True:
+        try:
+            owners = sorted(_owner_wallets())
+            if owners:
+                snap = await _money_pulse_build(owners[0], True)
+                _pulse_cache['owner'] = (time.time(), snap)
+                prev = _json_load(PREFLIGHT_STATE_PATH, {})
+                bad, fixed, state = money_pulse.check_flips(prev, snap['checks'])
+                _json_save(PREFLIGHT_STATE_PATH, state)
+                for c in bad:
+                    for o in owners:
+                        notify(o, 'system', f"⚠ Money check failing: {c['label']}. {c.get('fix') or ''}".strip(), '/terminal', once=f"pf-bad:{c['key']}:{int(time.time() // 3600)}")
+                for c in fixed:
+                    for o in owners:
+                        notify(o, 'system', f"✅ Back to green: {c['label']}", '/terminal', once=f"pf-ok:{c['key']}:{int(time.time() // 3600)}")
+        except Exception:
+            pass
+        await asyncio.sleep(600)
+
+
+@app.on_event('startup')
+async def _preflight_start():
+    asyncio.create_task(_preflight_watch())
 
 
 class SplitRecord(BaseModel):

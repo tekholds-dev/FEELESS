@@ -29,7 +29,7 @@ export function TreasuryPulse({ call, onOpen }) {
     <button type="button" onClick={() => onOpen('fees')} title="Trading & fees"><small>FEES TODAY</small><b>{money(d.feesTodayUsd || 0)}</b><em>{money(d.fees7dUsd || 0)} · 7d</em></button>
     <button type="button" className={wsol + usdc > 0 ? 'hot' : ''} onClick={() => onOpen('treasury', { asset: wsol >= usdc ? 'wSOL' : 'USDC', amount: String(wsol >= usdc ? wsol : usdc) })} title="Split now">
       <small>UNSPLIT</small><b>{wsol ? `${wsol.toFixed(3)} SOL` : ''}{wsol && usdc ? ' + ' : ''}{usdc ? `$${usdc.toFixed(2)}` : ''}{!wsol && !usdc ? '0' : ''}</b>{unsplitUsd > 0 && <em>{money(unsplitUsd)} → split</em>}</button>
-    <button type="button" className={ready ? 'hot' : ''} onClick={() => onOpen('badges')} title="Badges & pools"><small>PAYOUTS</small><b>{ready ? `${ready} ready` : 'none due'}</b>{needs > 0 && <em className="m-neg">{needs} need you</em>}</button>
+    <button type="button" className={ready ? 'hot' : ''} onClick={() => onOpen('reserve')} title="Reserve & badge pools"><small>PAYOUTS</small><b>{ready ? `${ready} ready` : 'none due'}</b>{needs > 0 && <em className="m-neg">{needs} need you</em>}</button>
     <button type="button" className={`tr-ready ${good === checks.length ? 'ok' : 'bad'}`} aria-expanded={open} onClick={() => setOpen(v => !v)} data-testid="pulse-ready"><small>READY</small><b>{good}/{checks.length}</b><em>{ago < 5 ? 'live' : `${ago}s ago`}</em></button>
     {open && <div className="m-card m-pop pulse-panel" role="dialog" aria-label="Money preflight">
       <div className="m-row"><span className="m-label">MONEY PREFLIGHT <em>everything a real trade depends on</em></span><button type="button" className="m-btn" onClick={() => refreshPulse(true)}>↻ Re-check</button></div>

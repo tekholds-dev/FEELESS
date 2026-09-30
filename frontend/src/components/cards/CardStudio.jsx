@@ -56,10 +56,49 @@ export function CardStudio({ call }) {
             <label className="m-btn"><input type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" onChange={e => art(e.target.files?.[0])} />🖼 {draft.art ? 'Change art' : 'Add art'}</label>
             {draft.art && <button type="button" className="m-btn danger" onClick={() => set('art', '')}>Remove art</button>}</div>
           <label className="m-field"><span>Lore (back of the card) · {(draft.lore || '').length}/600</span><textarea className="m-input" rows={4} maxLength={600} value={draft.lore} onChange={e => { set('lore', e.target.value); setFlipped(true); }} placeholder="The story holders read when they flip it." /></label>
-          <div className="m-note"><b>Money on the back</b>{(live.earns || []).length ? `Earns from ${live.earns.map(m => m.pool).join(', ')} · ${live.earnedEach || 0} SOL per card paid so far.` : 'This card earns nothing yet.'} Change what it earns in 💰 Reserve pool / badge pools.</div>
+          <CardRewards call={call} card={live} onSaved={load} />
           <div className="m-row"><button type="button" className="m-btn primary" disabled={!dirty || !!busy || (draft.title || '').trim().length < 2} onClick={save} data-testid="card-save">{busy || (dirty ? 'Save card' : 'Saved')}</button>
             {dirty && <button type="button" className="m-btn" onClick={() => open(base)}>Undo changes</button>}</div>
         </div></div>}
     </div>
+  </div>;
+}
+
+// What a card earns, edited on the card: its % of each badge pool's pot and/or fixed SOL each per holder.
+// Season cards earn by tier from pools tied to that season (and from the season reserve, set in 💰 Reserve pool).
+const TIERS = [['Legend', '👑'], ['Diamond', '💎'], ['Gold', '🥇'], ['Silver', '🥈'], ['Bronze', '🥉']];
+function CardRewards({ call, card, onSaved }) {
+  const [pools, setPools] = useState(null);
+  const [v, setV] = useState({});
+  const [busy, setBusy] = useState(false);
+  const loadPools = () => call('/admin/badge-pools').then(d => setPools(d.pools || [])).catch(() => setPools([]));
+  useEffect(() => { loadPools(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const sid = card.kind === 'season' ? card.key.split(':')[1] : null;
+  const keys = card.kind === 'badge' ? [[card.key, card.title]] : sid ? TIERS.map(([t, i]) => [`tier:${t}`, `${i} ${t}`]) : [];
+  const mine = (pools || []).filter(p => card.kind === 'badge' || p.seasonId === sid);
+  useEffect(() => {
+    const s = {}; mine.forEach(p => keys.forEach(([k]) => { s[`${p.id}|${k}`] = p.weights?.[k] != null ? String(p.weights[k]) : ''; s[`${p.id}|${k}|sol`] = p.fixed?.[k] != null ? String(p.fixed[k]) : ''; })); setV(s);
+  }, [pools, card.key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const save = async () => {
+    setBusy(true);
+    try {
+      for (const p of mine) {
+        const weights = { ...(p.weights || {}) }; const fixed = { ...(p.fixed || {}) }; let changed = false;
+        keys.forEach(([k]) => { const w = Number(v[`${p.id}|${k}`]) || 0; const f = Number(v[`${p.id}|${k}|sol`]) || 0;
+          if ((Number(weights[k]) || 0) !== w || (Number(fixed[k]) || 0) !== f) { weights[k] = w; fixed[k] = f; changed = true; } });
+        if (changed) await call('/admin/badge-pools', { method: 'POST', body: JSON.stringify({ id: p.id, name: p.name, wallet: p.wallet, pct: p.pct, seasonId: p.seasonId || '', mode: p.mode || 'pct', weights, fixed }) });
+      }
+      toast.success('Rewards saved — the back of the card updates on the next refresh.'); loadPools(); onSaved?.();
+    } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); }
+  };
+  if (card.kind === 'weekly') return <div className="m-note"><b>Money on the back</b>Weekly drops are flex only. Season cards and badges earn.</div>;
+  return <div className="m-card m-stack cr-box" data-testid="card-rewards"><div className="m-label">WHAT THIS CARD EARNS <em>{card.earnedEach || 0} SOL per card paid so far</em></div>
+    {pools == null ? <p className="m-dim">Loading pools…</p> : !mine.length ? <p className="m-dim">{sid ? 'No badge pool is tied to this season yet.' : 'No badge pools yet.'} Create one in Money › Reserve & badge pools.</p>
+      : mine.map(p => <div key={p.id} className="m-stack"><span className="m-dim">{p.name} · pot = {p.pct}% of {p.wallet.slice(0, 4)}…</span>
+        {keys.map(([k, l]) => <div key={k} className="m-row">{keys.length > 1 && <span className="cr-key">{l}</span>}
+          <label className="m-field"><span>% of pot</span><input className="m-input" style={{ width: 90 }} inputMode="decimal" placeholder="0" value={v[`${p.id}|${k}`] ?? ''} onChange={e => setV(x => ({ ...x, [`${p.id}|${k}`]: e.target.value.replace(/[^0-9.]/g, '') }))} /></label>
+          <label className="m-field"><span>+ SOL each</span><input className="m-input" style={{ width: 90 }} inputMode="decimal" placeholder="0" value={v[`${p.id}|${k}|sol`] ?? ''} onChange={e => setV(x => ({ ...x, [`${p.id}|${k}|sol`]: e.target.value.replace(/[^0-9.]/g, '') }))} /></label></div>)}</div>)}
+    {mine.length > 0 && <button type="button" className="m-btn" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save rewards'}</button>}
+    {sid && <small className="m-dim">Season reserve share: set the reserve wallet and % in Money › Reserve & badge pools (split by tier weight).</small>}
   </div>;
 }

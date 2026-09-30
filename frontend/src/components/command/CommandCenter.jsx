@@ -16,7 +16,6 @@ import { SeasonEditor } from '../SeasonEditor';
 import { Explain } from '../Explain';
 import { DEXES } from '../../lib/venues';
 import { BadgePools } from './BadgePools';
-import { BadgeCatalog } from './BadgeCatalog';
 import { LagCatcher } from './LagCatcher';
 import { TreasuryHub } from './TreasuryHub';
 import { CoinVerifyPanel } from './CoinVerifyPanel';
@@ -43,6 +42,9 @@ const sortBugs = list => [...list].sort((a, b) => ((SEVERITY[a.kind]?.[0] ?? 1) 
 export function CommandCenter({ address, signMessage, onClose }) {
   const [session, setSession] = useState(() => readSession(address));
   const [tab, setTab] = useState('numbers');
+  const [moneyView, setMoneyView] = useState('treasury');
+  // Old tab ids (treasury, circle, reserve) and header shortcuts all land in the one Money tab, on the right section.
+  const openTab = (t, pre) => { setPrefill(pre || null); if (['treasury', 'circle', 'reserve'].includes(t)) { setMoneyView(t); setTab('money'); } else setTab(t); };
   const [prefill, setPrefill] = useState(null);
   const [sec, setSec] = useState(null);
   const [holders, setHolders] = useState(null);
@@ -95,11 +97,11 @@ export function CommandCenter({ address, signMessage, onClose }) {
   </div></div>;
 
   // Grouped so the money + infra controls are always first; every tab id appears exactly once.
-  const TAB_GROUPS = [['Core', ['launch', 'fees', 'latency', 'treasury', 'circle']], ['Growth', ['numbers', 'traffic', 'pulse', 'marketing', 'kols', 'invites', 'ads', 'ideas']],
+  const TAB_GROUPS = [['Core', ['launch', 'fees', 'money', 'latency']], ['Growth', ['numbers', 'traffic', 'pulse', 'marketing', 'kols', 'invites', 'ads', 'ideas']],
     ['Community', ['holders', 'studio', 'airdrops', 'snapshots', 'badges', 'seasons', 'pools', 'feecat', 'broadcast']], ['Safety', ['investigate', 'verify', 'overview', 'mod', 'access', 'bugs']]];
-  const TABS = [['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['circle', 'Circle wallets', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
-    <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div><TreasuryPulse call={call} onOpen={(t, pre) => { setPrefill(pre || null); setTab(t); }} />
+    <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div><TreasuryPulse call={call} onOpen={openTab} />
       <nav className="cc-tabs" data-testid="cc-nav">{TAB_GROUPS.map(([group, ids]) => <div key={group} className="cc-tab-group"><small>{group}</small>{ids.map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</div>)}</nav>
       <button type="button" className="cc-close" onClick={onClose} aria-label="Close command center"><X size={16} /></button></header>
     {TAB_INFO[tab] && <div className="cc-tab-hero" key={tab} data-testid="cc-tab-hero"><div><small>{TAB_GROUPS.find(g => g[1].includes(tab))?.[0]?.toUpperCase()}</small><h3>{TAB_INFO[tab][0]}</h3><p>{TAB_INFO[tab][1]}</p></div>{TAB_INFO[tab][2].length > 0 && <div className="cc-tab-does">{TAB_INFO[tab][2].map(x => <span key={x}>{x}</span>)}</div>}</div>}
@@ -117,8 +119,12 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'mod' && <ModPanel call={call} />}
     {tab === 'broadcast' && <BroadcastPanel call={call} />}
     {tab === 'marketing' && <MarketingPanel call={call} />}
-    {tab === 'circle' && (isOwner ? <CircleWallets call={call} /> : <p className="cc-empty">Only owner wallets can manage Circle wallets.</p>)}
-    {tab === 'treasury' && <><TreasuryHub call={call} prefill={prefill} /><TreasuryRoutes call={call} isOwner={isOwner} /></>}
+    {tab === 'money' && <section className="m-stack" data-testid="cc-money">
+      <div className="m-seg" role="tablist" aria-label="Money">{[['treasury', '🏦 Treasury & splits'], ['reserve', '💰 Reserve & badge pools'], ['circle', '◎ Circle wallets']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={moneyView === k} className={moneyView === k ? 'active' : ''} onClick={() => setMoneyView(k)}>{l}</button>)}</div>
+      {moneyView === 'treasury' && <><TreasuryHub call={call} prefill={prefill} /><TreasuryRoutes call={call} isOwner={isOwner} /></>}
+      {moneyView === 'reserve' && <><ReservePool call={call} /><BadgePools call={call} /></>}
+      {moneyView === 'circle' && (isOwner ? <CircleWallets call={call} /> : <p className="cc-empty">Only owner wallets can manage Circle wallets.</p>)}
+    </section>}
     {tab === 'overview' && <Overview sec={sec} reload={loadSec} />}
     {tab === 'investigate' && <IntelDesk call={call} />}
     {tab === 'holders' && <section className="cc-panel">
@@ -245,10 +251,8 @@ function AwardBadges({ call, initial }) {
   return <section className="cc-panel cc-award cc-badges-meta" data-testid="cc-badges">
     <div className="bdg-hero"><div><small>BADGE ENGINE</small><h3>Earned, displayed, <em>paid</em>.</h3><p>Season tiers earn a cut of the Fee Reserve. Custom awards flex on profiles and in chat.</p></div>
       <div className="bdg-kpis"><span><small>Wallets badged</small><b>{awards.wallets}</b></span><span><small>Awards</small><b>{awards.awards}</b></span><span><small>Profile / chat cap</small><b>{limits.profile} / {limits.chat}</b></span></div></div>
-    <div className="bdg-seg" role="tablist">{[['cards', '🃏 Cards'], ['catalog', '🏷 All badges'], ['pool', '💰 Reserve pool'], ['award', '🎖️ Award'], ['ledger', '📜 Ledger'], ['caps', '⚙ Caps']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'active' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
+    <div className="bdg-seg" role="tablist">{[['cards', '🃏 Cards'], ['award', '🎖️ Award'], ['ledger', '📜 Ledger'], ['caps', '⚙ Caps']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'active' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
     {view === 'cards' && <CardStudio call={call} />}
-    {view === 'catalog' && <BadgeCatalog call={call} />}
-    {view === 'pool' && <><ReservePool call={call} /><BadgePools call={call} /></>}
     {view === 'caps' && <>
     <div className="cc-block"><h4>Badge mechanics</h4><p className="cc-note">Awards are earned inventory. The profile and chat caps only control how many a user may display; they do not delete awards. Only Command Center can issue or revoke them.</p><div className="cc-studio-grid"><label>Profile display cap<input type="number" min="0" max="12" value={limits.profile} onChange={e => setLimits(x => ({ ...x, profile: e.target.value }))} /></label><label>Chat display cap<input type="number" min="0" max="12" value={limits.chat} onChange={e => setLimits(x => ({ ...x, chat: e.target.value }))} /></label></div><button type="button" className="btn-primary" onClick={saveLimits}>Save display caps</button></div>
     </>}

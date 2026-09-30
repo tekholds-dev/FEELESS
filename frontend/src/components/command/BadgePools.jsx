@@ -75,10 +75,10 @@ export function BadgePools({ call }) {
     } catch (e) { toast.error(errorText(e)); } finally { setBusy(''); }
   };
   const anyDirty = meta.pools.some(p => dirty(p.id));
-  return <div className="bdg-pools" data-testid="badge-pools">
-    <div className="bdg-pools-head"><div><small>BADGE POOLS</small><p>Pick a wallet, choose how much of it is up for grabs, then give each badge its own % of that pot.</p></div>
-      <button type="button" className="btn-primary" onClick={() => setForm({ ...EMPTY })}>+ New pool</button></div>
-    <details className="bdg-explain"><summary>How pool payouts work</summary>
+  return <div className="bdg-pools m-stack" data-testid="badge-pools">
+    <div className="m-card m-row cs-bar"><div className="m-stack"><span className="m-label">BADGE POOLS</span><span className="m-dim">Pick a wallet, choose how much of it is up for grabs, then give each badge its own % of that pot (or edit it on the card in Badges › Cards).</span></div>
+      <button type="button" className="m-btn primary" onClick={() => setForm({ ...EMPTY })}>+ New pool</button></div>
+    <details className="m-card m-details"><summary className="m-label">How pool payouts work</summary>
       <ol>
         <li><b>Pool</b> = any Solana wallet you control (treasury, sponsor, buy-back) + the % of its SOL that badge holders share. 0.01 SOL always stays for fees.</li>
         <li><b>Badge share</b> = the % of that pot one badge earns. Its slice is split equally between everyone holding it. A wallet with two badges stacks both slices.</li>
@@ -86,12 +86,12 @@ export function BadgePools({ call }) {
         <li><b>Paying</b>: connect the pool wallet, press Pay. If the pool wallet is one of your <b>Circle wallets</b>, press Pay via Circle instead and type the confirmation: Circle signs each transfer for you. It's simulated first, you approve once, and the server records only what landed on-chain (never the same tx twice, 1h cooldown).</li>
         <li>Blocklisted and FEELESS wallets never receive a share.</li>
       </ol></details>
-    {form && <div className="bdg-card bdg-pool-form">
-      <div className="bdg-form-row"><input placeholder="Pool name (e.g. OG holders)" maxLength={40} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-        <input placeholder="Pool wallet (any Solana address you control)" value={form.wallet} onChange={e => setForm(f => ({ ...f, wallet: e.target.value.trim() }))} />
-        <label className="bdg-pct"><input inputMode="decimal" placeholder="0" value={form.pct} onChange={e => setForm(f => ({ ...f, pct: e.target.value.replace(/[^0-9.]/g, '') }))} /><span>% of wallet is the pot</span></label>
-        <select value={form.seasonId} onChange={e => setForm(f => ({ ...f, seasonId: e.target.value }))} aria-label="Season for tier rows"><option value="">No season tiers</option>{meta.seasons.map(s => <option key={s.id} value={s.id}>Tiers from {s.name}</option>)}</select></div>
-      <div className="bdg-form-row"><button type="button" className="btn-primary" disabled={!!busy || form.name.length < 2 || !form.wallet} onClick={saveForm}>{busy || (form.id ? 'Save pool' : 'Create pool')}</button><button type="button" className="btn-outline" onClick={() => setForm(null)}>Cancel</button><small className="cc-empty">Then set each badge's % in the matrix below.</small></div>
+    {form && <div className="m-card is-hot m-stack m-pop">
+      <div className="m-grid"><label className="m-field"><span>Pool name</span><input className="m-input" placeholder="e.g. OG holders" maxLength={40} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></label>
+        <label className="m-field"><span>Pool wallet</span><input className="m-input" placeholder="Any Solana address you control (or a Circle wallet)" value={form.wallet} onChange={e => setForm(f => ({ ...f, wallet: e.target.value.trim() }))} /></label>
+        <label className="m-field"><span>% of the wallet that is the pot</span><input className="m-input" inputMode="decimal" placeholder="0" value={form.pct} onChange={e => setForm(f => ({ ...f, pct: e.target.value.replace(/[^0-9.]/g, '') }))} /></label></div>
+      <div className="m-field"><span>Season tiers in this pool</span><div className="m-seg">{[{ id: '', name: 'None' }, ...meta.seasons].map(s2 => <button key={s2.id || 'none'} type="button" className={form.seasonId === s2.id ? 'active' : ''} onClick={() => setForm(f => ({ ...f, seasonId: s2.id }))}>{s2.id ? `Tiers from ${s2.name}` : 'No season tiers'}</button>)}</div></div>
+      <div className="m-row"><button type="button" className="m-btn primary" disabled={!!busy || form.name.length < 2 || !form.wallet} onClick={saveForm}>{busy || (form.id ? 'Save pool' : 'Create pool')}</button><button type="button" className="m-btn" onClick={() => setForm(null)}>Cancel</button><small className="m-dim">Then set each badge's % in the matrix below.</small></div>
     </div>}
     {!meta.pools.length && !form && <p className="cc-empty">No pools yet. Create one, then give badges their % in the matrix.</p>}
     {meta.pools.length > 0 && <div className="bdg-matrix-wrap"><table className="bdg-matrix" data-testid="badge-matrix">
@@ -106,6 +106,6 @@ export function BadgePools({ call }) {
           <PoolPay call={call} pool={p} plan={pl} blocked={!!busy || dirty(p.id) || pl?.cooldownLeft > 0} onDone={load}><button type="button" className="btn-primary" disabled={!!busy || dirty(p.id) || !pl?.rows.length || pl?.cooldownLeft > 0} title={dirty(p.id) ? 'Save shares first' : pl?.cooldownLeft ? 'Paid within the last hour' : ''} onClick={() => pay(p)}>{mine ? `Pay ${pl?.paidSol ?? ''} SOL` : 'Connect to pay'}</button></PoolPay>
           {pl?.lastPayout && <small>last {pl.lastPayout.totalSol} SOL · {new Date(pl.lastPayout.at * 1000).toLocaleDateString()}</small>}</td>; })}</tr></tfoot>
     </table></div>}
-    {anyDirty && <div className="bdg-payrow"><span>Unsaved badge shares</span><button type="button" className="btn-primary" disabled={!!busy || meta.pools.some(p => total(p.id) > 100)} onClick={saveMatrix}>{busy || 'Save shares'}</button></div>}
+    {anyDirty && <div className="m-card m-row cs-bar"><span className="m-dim">Unsaved badge shares</span><button type="button" className="m-btn primary" disabled={!!busy || meta.pools.some(p => total(p.id) > 100)} onClick={saveMatrix}>{busy || 'Save shares'}</button></div>}
   </div>;
 }

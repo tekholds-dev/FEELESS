@@ -51,15 +51,15 @@ def alerts(reserves: list, pools: list, circle_wallets: list) -> list:
         if r.get('payout') and not (r['payout'].get('failed')):
             continue
         if r.get('rows') and r.get('paidSol', 0) > 0:
-            out.append({'tone': 'ok', 'text': f"{name}: {r['paidSol']} SOL ready for {len(r['rows'])} holders" + (' · pays via Circle' if (r.get('season') or {}).get('reserveWallet') in circle else ''), 'tab': 'badges'})
+            out.append({'tone': 'ok', 'text': f"{name}: {r['paidSol']} SOL ready for {len(r['rows'])} holders" + (' · pays via Circle' if (r.get('season') or {}).get('reserveWallet') in circle else ''), 'tab': 'reserve'})
         elif r.get('assigned') and not r.get('potSol'):
-            out.append({'tone': 'warn', 'text': f"{name}: reserve wallet is empty — fund it to pay badge holders", 'tab': 'badges'})
+            out.append({'tone': 'warn', 'text': f"{name}: reserve wallet is empty — fund it to pay badge holders", 'tab': 'reserve'})
         if (r.get('payout') or {}).get('failed'):
-            out.append({'tone': 'bad', 'text': f"{name}: {len(r['payout']['failed'])} Circle payouts failed — retry", 'tab': 'badges'})
+            out.append({'tone': 'bad', 'text': f"{name}: {len(r['payout']['failed'])} Circle payouts failed — retry", 'tab': 'reserve'})
     for p in pools:
         nm = (p.get('pool') or {}).get('name') or 'Pool'
         if p.get('rows') and not p.get('cooldownLeft') and p.get('paidSol', 0) > 0:
-            out.append({'tone': 'ok', 'text': f"Pool {nm}: {p['paidSol']} SOL ready for {len(p['rows'])} wallets", 'tab': 'badges'})
+            out.append({'tone': 'ok', 'text': f"Pool {nm}: {p['paidSol']} SOL ready for {len(p['rows'])} wallets", 'tab': 'reserve'})
     return out
 
 
@@ -98,3 +98,13 @@ def known_destinations(owners, admins, fee_owners, reserves, pools, routes, circ
 def same_network(from_chain: str, address: str) -> bool:
     evm = address.startswith('0x')
     return evm != (from_chain or '').upper().startswith('SOL')
+
+
+def check_flips(prev: dict, checks: list):
+    """(newly failing, recovered, new state) between two preflight runs. The first run only records the state."""
+    state = {c['key']: bool(c['ok']) for c in checks if not c.get('info')}
+    if not prev:
+        return [], [], state
+    bad = [c for c in checks if not c.get('info') and not c['ok'] and prev.get(c['key'], True)]
+    fixed = [c for c in checks if not c.get('info') and c['ok'] and prev.get(c['key']) is False]
+    return bad, fixed, state
