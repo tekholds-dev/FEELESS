@@ -8,7 +8,7 @@ so three lucky trades never rewrite her playbook. Pure functions; the service st
 """
 
 MIN_N = 4          # samples before a bucket counts at all
-VETO_N = 6         # samples before a bucket can veto
+VETO_N = 5         # samples before a bucket can veto
 MEMORY = 400       # closed trades remembered
 
 
@@ -64,7 +64,7 @@ def setup_edge(setup: dict, table: dict) -> dict:
     """Size multiplier (0.5-1.5) and an optional veto for a new entry, with the buckets that decided it."""
     seen = [(f'{f}={b}', table[f'{f}={b}']) for f, b in setup.items() if table.get(f'{f}={b}', {}).get('n', 0) >= MIN_N]
     for k, s in seen:
-        if s['n'] >= VETO_N and s['winRate'] <= 20 and s['avgRet'] <= -8:
+        if s['n'] >= VETO_N and s['winRate'] <= 25 and s['avgRet'] <= -5:
             return {'mult': 0.0, 'veto': True, 'why': f"{k} lost {s['n'] - s['wins']}/{s['n']} (avg {s['avgRet']:+.1f}%)", 'used': [k]}
     if not seen:
         return {'mult': 1.0, 'veto': False, 'why': 'new setup, default size', 'used': []}
@@ -80,3 +80,37 @@ def playbook(table: dict, top: int = 5) -> dict:
     rows = sorted(((k, v) for k, v in table.items() if v['n'] >= MIN_N), key=lambda kv: -kv[1]['edge'])
     fmt = lambda kv: {'setup': kv[0], **kv[1]}
     return {'best': [fmt(r) for r in rows[:top] if r[1]['edge'] > 0], 'worst': [fmt(r) for r in rows[::-1][:top] if r[1]['edge'] < 0]}
+
+
+def discipline(exits: list, now: float, window: int = 10) -> dict:
+    """Trader's discipline from her own recent closed trades (the part that keeps a bad day from becoming a bad week):
+      - 5 losses in a row → stop trading 3h (tilt guard)
+      - cold market (8+ recent trades, win rate < 25%, net red) → sit out 2h
+      - 3 losses in a row → half size; negative expectancy → 0.7× size; proven edge (expectancy > 0, win rate ≥ 50%) → 1.2×
+    Expectancy = average SOL made per trade — the number that actually decides if a strategy makes money."""
+    done = [e for e in exits or [] if e.get('pnlSol') is not None]
+    recent = done[-window:]
+    streak = 0
+    for e in reversed(done):
+        if e['pnlSol'] < 0:
+            streak += 1
+        else:
+            break
+    n = len(recent)
+    wins = sum(1 for e in recent if e['pnlSol'] > 0)
+    net = sum(e['pnlSol'] for e in recent)
+    exp = net / n if n else 0.0
+    wr = wins / n if n else 0.0
+    last = max((e.get('exitAt') or 0 for e in done), default=0)
+    out = {'streak': streak, 'trades': n, 'winRate': round(wr * 100), 'expectancySol': round(exp, 5), 'netSol': round(net, 5), 'pause': False, 'sizeMult': 1.0}
+    if streak >= 5 and now - last < 3 * 3600:
+        return {**out, 'pause': True, 'sizeMult': 0.0, 'why': f'{streak} losses in a row — stepping away for 3h instead of revenge trading'}
+    if n >= 8 and wr < 0.25 and net < 0 and now - last < 2 * 3600:
+        return {**out, 'pause': True, 'sizeMult': 0.0, 'why': f'cold market: {wins}/{n} recent trades won — sitting out 2h'}
+    if streak >= 3:
+        return {**out, 'sizeMult': 0.5, 'why': f'{streak} losses in a row — half size until a win'}
+    if n >= 5 and exp < 0:
+        return {**out, 'sizeMult': 0.7, 'why': f'negative expectancy ({exp:+.4f} SOL/trade) — smaller size'}
+    if n >= 5 and exp > 0 and wr >= 0.5:
+        return {**out, 'sizeMult': 1.2, 'why': f'edge confirmed ({wr:.0%} wins, {exp:+.4f} SOL/trade) — slightly bigger'}
+    return {**out, 'why': 'normal size'}

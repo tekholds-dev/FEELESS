@@ -10,19 +10,36 @@ const readList = () => { try { return JSON.parse(localStorage.getItem(PLAYLIST_K
 
 // Small always-on-top FeeCat button: pick a chat room to lurk in, or a song to ride the charts to.
 // Nothing here needs a wallet — it's read-only chat + a personal (browser-local) playlist.
+// Resume mid-song where the player supports it (YouTube ?start, SoundCloud #t).
+export const withStart = (src, secs) => (secs < 3 ? src.src : src.kind === 'youtube' ? `${src.src}&start=${secs}` : src.kind === 'soundcloud' ? `${src.src}#t=${secs}s` : src.src);
+
 export function FeeCatWidget() {
   const loc = useLocation();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState('chat');
   const [room, setRoom] = useState('feeless-general');
   const [songs, setSongs] = useState(readList);
-  const [i, setI] = useState(0);
-  const [playing, setPlaying] = useState(false);
+  // Keeps playing across reloads and full-page links: song, play state and when it started live in localStorage.
+  const saved = (() => { try { return JSON.parse(localStorage.getItem('feeless:music-now') || 'null'); } catch { return null; } })();
+  const [i, setI] = useState(() => (saved && saved.i < readList().length ? saved.i : 0));
+  const [playing, setPlaying] = useState(() => Boolean(saved?.playing && readList().length));
+  const startedAt = useRef(saved?.playing ? saved.startedAt || Date.now() : Date.now());
   const [url, setUrl] = useState('');
   // repeat: 'all' loops the list, 'one' repeats the song, 'shuffle' picks a random next song.
   const [mode, setMode] = useState(() => { try { return localStorage.getItem('feeless:music-mode') || 'all'; } catch { return 'all'; } });
   const [nonce, setNonce] = useState(0); // bump to restart the same song (repeat one)
   const frame = useRef(null);
+  const resumed = useRef(false); const [kick, setKick] = useState(0);
+  useEffect(() => { if (!resumed.current) return; startedAt.current = Date.now(); }, [i, nonce, playing]);   // a new song (or play after pause) starts at 0
+  useEffect(() => { resumed.current = true; }, []);
+  useEffect(() => { try { localStorage.setItem('feeless:music-now', JSON.stringify({ i, playing, startedAt: startedAt.current })); } catch { /* private mode */ } }, [i, playing, nonce]);
+  // Browsers may block sound until the first tap after a reload: restart the song (same spot) on that first tap.
+  useEffect(() => {
+    if (!playing) return undefined;
+    const once = () => setKick(k => k + 1);   // re-mount at the same spot (not a restart)
+    window.addEventListener('pointerdown', once, { once: true });
+    return () => window.removeEventListener('pointerdown', once);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { try { localStorage.setItem(PLAYLIST_KEY, JSON.stringify(songs)); localStorage.setItem('feeless:music-mode', mode); } catch { /* ignore */ } }, [songs, mode]);
   const next = (auto = false) => {
     if (!songs.length) return;
@@ -101,7 +118,7 @@ export function FeeCatWidget() {
         <div className="feecat-add"><input placeholder="Paste a song link…" value={url} onChange={e => setUrl(e.target.value)} /><button type="button" disabled={!parse(url)} onClick={add}><Plus size={13} /></button></div>
       </div>}
     </div>}
-    {playing && src && <iframe ref={frame} key={`${i}-${nonce}-${src.src}`} onLoad={() => setTimeout(hookEnd, 600)} className={`feecat-frame pm-${src.kind} ${open && tab === 'music' ? '' : 'is-background'}`} src={src.src} title="now playing" allow="autoplay; encrypted-media" />}
+    {playing && src && <iframe ref={frame} key={`${i}-${nonce}-${kick}-${src.src}`} onLoad={() => setTimeout(hookEnd, 600)} className={`feecat-frame pm-${src.kind} ${open && tab === 'music' ? '' : 'is-background'}`} src={withStart(src, Math.floor((Date.now() - startedAt.current) / 1000))} title="now playing" allow="autoplay; encrypted-media" />}
     <button type="button" className={`feecat-fab ${open ? 'on' : ''}`} onClick={() => setOpen(o => !o)} data-testid="feecat-fab" aria-label="FeeCat">
       <FeeCatMark size={32} variant={playing ? 'gold' : 'mint'} /> {playing && <i className="feecat-note">♪</i>}
     </button>

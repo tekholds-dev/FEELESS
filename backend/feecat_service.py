@@ -86,10 +86,13 @@ RULES = {'minLiquidity': 40_000, 'minVolume24h': 100_000, 'minMarketCap': 150_00
          # Trench Lord v2 — thesis-based position management (see run_engine):
          # open with a starter, add on healthy dips (re-averaging the entry), hold while the thesis holds,
          # take profit in pieces, let a runner ride, and cut only when the thesis breaks or the hard stop hits.
-         'starterFraction': 0.5, 'add1At': -18, 'add1Fraction': 0.3, 'add2At': -32, 'add2Fraction': 0.2,
-         'hardStop': -45, 'lowCapHardStop': -55, 'lowCapMc': 300_000,
-         'takeProfit1': 50, 'takeProfit1Sell': 0.3, 'takeProfit2': 120, 'takeProfit2Sell': 0.4, 'runnerTrail': 35,
-         'liqPullPct': 30, 'dumpSellRatio': 2.0, 'thesisVolKeep': 0.3, 'deadMoneyHours': 24, 'maxHoldHours': 72,
+         # v3 discipline: cut losers fast, never average down, add only to a winner, let the runner ride.
+         'starterFraction': 0.6, 'add1At': -18, 'add1Fraction': 0.0, 'add2At': -32, 'add2Fraction': 0.0,
+         'pyramidAt': 15, 'pyramidFraction': 0.4,
+         'hardStop': -20, 'lowCapHardStop': -25, 'lowCapMc': 300_000,
+         'protectAt': 20, 'timeStopHours': 2, 'timeStopMin': 8,
+         'takeProfit1': 40, 'takeProfit1Sell': 0.4, 'takeProfit2': 100, 'takeProfit2Sell': 0.4, 'runnerTrail': 25,
+         'liqPullPct': 30, 'dumpSellRatio': 2.0, 'thesisVolKeep': 0.3, 'deadMoneyHours': 12, 'maxHoldHours': 48,
          'maxExposure': 0.4,
          # fresh-launch lane at half size
          'freshMinMinutes': 10, 'freshMinLiquidity': 15_000, 'freshSize': 0.5}
@@ -232,7 +235,7 @@ def _buy_analysis(p, size, sym, safety='', conviction=1.0):
             f"Every trade pays 1% each way so you see real costs.\n\nNot financial advice — this is how a disciplined bot thinks, out loud.")
 
 
-LEARN_BOUNDS = {'runnerTrail': (25, 50), 'takeProfit1': (40, 100)}
+LEARN_BOUNDS = {'runnerTrail': (20, 45), 'takeProfit1': (30, 90)}
 
 
 # ---- Hourly entry tuning (bounded): tighten after a bad day, freeze + study after a good one -----
@@ -501,6 +504,10 @@ async def run_engine(store, cats):
                 why = f'hard stop {hard}% from my average entry'
             elif pos['profitTaken'] and change <= 0:
                 why = 'runner fell back to break-even after taking profit'
+            elif pos['peakChange'] >= R['protectAt'] and change <= 2:
+                why = f'protected break-even: was up +{pos["peakChange"]:.0f}%, never let a winner turn red'
+            elif held_h >= R['timeStopHours'] and pos['peakChange'] < R['timeStopMin'] and change < 3:
+                why = f'time stop: no follow-through in {held_h:.1f}h (best +{pos["peakChange"]:.0f}%) — momentum trades work fast or not at all'
             elif pos['profitTaken'] and px <= pos['peakPx'] * (1 - R['runnerTrail'] / 100):
                 why = f'trailing stop: {R["runnerTrail"]}% off the peak (peak +{pos["peakChange"]:.0f}%)'
             elif pos['profitTaken'] == 0 and change >= R['takeProfit1']:
@@ -516,13 +523,10 @@ async def run_engine(store, cats):
             elif held_h >= R['maxHoldHours'] and not pos['profitTaken']:
                 why = f'max hold {R["maxHoldHours"]}h without a profit target'
             else:
-                # Each add has a band: a controlled dip, not a crash. No adds while the 5m candle is collapsing.
-                ladder = [(R['add1At'], R['add2At'], R['add1Fraction']), (R['add2At'], hard + 5, R['add2Fraction'])]
+                # Never average down. Add once to a WINNER: up +pyramidAt% with buyers still in control and the 5m green.
                 m5_change = _num((live.get('priceChange') or {}).get('m5'))
-                step = ladder[pos['adds']] if pos['adds'] < len(ladder) else None
-                if step and add_ok and step[1] < from_first <= step[0] and m5_change > -15:
-                    # Buy the dip with a plan: lower price, thesis intact → add and re-average the entry.
-                    add = round(min(pos['plannedSol'] * step[2], cat['balanceSol']), 4)
+                if pos['adds'] == 0 and add_ok and R['pyramidAt'] <= from_first <= R['pyramidAt'] + 25 and m5_change > 0 and R['pyramidFraction'] > 0:
+                    add = round(min(pos['plannedSol'] * R['pyramidFraction'], cat['balanceSol']), 4)
                     if add >= 0.01:
                         old_avg_mc = _num(pos.get('entryMarketCapUsd'))
                         tokens_old = pos['notionalSol'] / pos['entryPriceNative']; tokens_new = add * (1 - FEE_PER_SIDE) / px
@@ -532,16 +536,23 @@ async def run_engine(store, cats):
                         pos['costSol'] = round(pos['costSol'] + add, 6); pos['notionalSol'] = round(pos['notionalSol'] + add * (1 - FEE_PER_SIDE), 6)
                         pos['adds'] += 1; pos['peakChange'] = 0; pos['peakPx'] = px
                         cat['balanceSol'] = round(cat['balanceSol'] - add, 6); cat['volumeSol'] = round(cat.get('volumeSol', 0) + add, 6)
-                        detail = (f"Added {add} SOL to {pos['symbol']} at {_fmt_usd(mc_now)} MC ({from_first:.0f}% from my first buy) — liquidity, volume and buyers still hold. "
+                        detail = (f"Added {add} SOL to winner {pos['symbol']} at {_fmt_usd(mc_now)} MC ({from_first:+.0f}% from my first buy) — buyers, volume and liquidity still hold. "
                                   f"New average entry {_fmt_usd(pos.get('entryMarketCapUsd'))} MC (paper).")
                         _log_event(store, cat, 'BUY', detail, None, pos['pairAddress'], px, mc_now, pos.get('entryMarketCapUsd'))
                         if cat.get('isLeader'):
-                            _post_as_fee(pos['pairAddress'], f"🐱 {detail}\nSame thesis, better price. Holding.")
+                            _post_as_fee(pos['pairAddress'], f"🐱 {detail}\nAdding to what works, never to what doesn't.")
             if why:
                 cat['positions'].remove(pos)
                 _close(store, cat, pos, px, why, market_cap=mc_now)
         day = time.strftime('%Y-%m-%d')
         if cat.get('dailyLoss', {}).get(day, 0) >= float(cat['risk'].get('maxDailyLossSol') or 0.5):
+            continue
+        disc = feecat_brain.discipline(cat.get('exits', []), now)
+        prev = (cat.get('discipline') or {}).get('why')
+        cat['discipline'] = {**disc, 'at': now}
+        if disc['why'] != prev and disc['sizeMult'] != 1.0:
+            _log_event(store, cat, 'LEARN', f"Discipline: {disc['why']}.")
+        if disc['pause']:
             continue
         block = {x.upper() for x in cat['risk'].get('blocklist') or []}
         allow = {x.upper() for x in cat['risk'].get('allowlist') or []}
@@ -583,6 +594,8 @@ async def run_engine(store, cats):
                 store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': brain['why'], 'at': now})
                 store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
                 continue
+            if disc['sizeMult'] != 1.0:
+                conviction = round(conviction * disc['sizeMult'], 2)
             if brain['mult'] != 1.0:
                 conviction = round(conviction * brain['mult'], 2)
                 reason = f"{reason}; setup memory ×{brain['mult']} ({brain['why']})"
@@ -614,11 +627,19 @@ async def run_engine(store, cats):
 
 
 def _migrate(store):
-    if store.get('rulesVersion') != 'trench-lord-v2':
+    if store.get('rulesVersion') not in ('trench-lord-v2', 'trench-lord-v3'):
         # Trench Lord v2 changed what the hold/exit settings mean; drop old-engine overrides for them.
         ov = store.get('rulesOverride') or {}
         store['rulesOverride'] = {k: v for k, v in ov.items() if k in TUNABLE and k != 'maxHoldHours'}
         store['rulesVersion'] = 'trench-lord-v2'
+    if store.get('rulesVersion') != 'trench-lord-v3':
+        # v3 discipline: stops, adds and profit targets changed meaning — old overrides / learned exits would undo it.
+        exit_keys = {'add1At', 'add2At', 'hardStop', 'takeProfit1', 'takeProfit2', 'runnerTrail', 'maxHoldHours'}
+        store['rulesOverride'] = {k: v for k, v in (store.get('rulesOverride') or {}).items() if k not in exit_keys}
+        for c in store['cats'].values():
+            if isinstance(c.get('learn'), dict):
+                c['learn']['params'] = {}
+        store['rulesVersion'] = 'trench-lord-v3'
     for cat in store['cats'].values():
         if cat.get('engine') != ENGINE_VERSION:
             # Earlier numbers came from a random-walk simulator — reset so every figure shown is real.
@@ -885,7 +906,7 @@ async def health():
 
 TUNABLE = {'minLiquidity': (10_000, 500_000), 'minVolume24h': (20_000, 5_000_000), 'minMarketCap': (20_000, 5_000_000), 'maxMarketCap': (500_000, 500_000_000),
            'minAgeHours': (0.5, 72), 'maxPositions': (1, 8), 'maxTop10Pct': (15, 50), 'maxSnipers': (0, 40), 'maxBundled': (0, 20), 'maxM5Chase': (3, 20),
-           'add1At': (-35, -8), 'add2At': (-50, -15), 'hardStop': (-60, -25), 'takeProfit1': (20, 150), 'takeProfit2': (50, 400),
+           'add1At': (-35, -8), 'add2At': (-50, -15), 'hardStop': (-40, -10), 'takeProfit1': (20, 150), 'takeProfit2': (50, 400),
            'runnerTrail': (15, 50), 'maxHoldHours': (6, 96), 'maxExposure': (0.1, 0.8)}
 
 

@@ -298,8 +298,8 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     drop();
     if (!ref || !charting) return drop;
     const add = o => { try { entryLinesRef.current.push(ref.series.createPriceLine({ axisLabelVisible: true, ...o })); } catch { /* chart torn down */ } };
-    tradeLevels(userTrades).forEach(t => add({ price: t.price * ratio, color: t.side === 'sell' ? '#ff8fa3aa' : '#16d67faa', lineWidth: 1, lineStyle: 2, title: t.title }));
-    if (userEntry > 0) add({ price: userEntry * ratio, color: '#f5c542', lineWidth: 2, lineStyle: 0, title: '◆ break-even (fees in)' });
+    const lv = tradeLevels(userTrades); if (lv.length > 1) lv.forEach(t => add({ price: t.price * ratio, color: t.side === 'sell' ? '#ff8fa3aa' : '#16d67faa', lineWidth: 1, lineStyle: 2, title: t.title }));
+    if (userEntry > 0) add({ price: userEntry * ratio, color: '#f5c542', lineWidth: 2, lineStyle: 0, title: '◆ your entry' });
     return drop;
   }, [userEntry, tradeKey, charting, ratio, displayCandles]); // eslint-disable-line react-hooks/exhaustive-deps
 

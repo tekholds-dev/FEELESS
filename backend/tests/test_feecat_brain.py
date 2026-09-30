@@ -43,3 +43,28 @@ def test_memory_is_bounded():
     for _ in range(fb.MEMORY + 50):
         mem = fb.remember(mem, {'h1': '<5%'}, 1, 0.01, NOW)
     assert len(mem) == fb.MEMORY
+
+
+def test_discipline_sizes_down_on_streaks_and_steps_away_on_tilt():
+    from feecat_brain import discipline
+    now = 1_000_000
+    ex = lambda pnls, gap=600: [{'pnlSol': p, 'exitAt': now - gap * (len(pnls) - i)} for i, p in enumerate(pnls)]
+    assert discipline([], now)['sizeMult'] == 1.0
+    three = discipline(ex([0.2, -0.1, -0.1, -0.1]), now)
+    assert three['sizeMult'] == 0.5 and three['streak'] == 3 and not three['pause']
+    tilt = discipline(ex([-0.1] * 5), now)
+    assert tilt['pause'] and 'revenge' in tilt['why']
+    assert not discipline(ex([-0.1] * 5, gap=4 * 3600), now)['pause']            # cooled off after 3h
+    cold = discipline(ex([-0.1, -0.1, 0.02, -0.1, -0.1, -0.2, -0.1, 0.01, -0.1, -0.1]), now)   # 2/10 won, net red
+    assert cold['pause'] and 'cold market' in cold['why']
+    neg = discipline(ex([0.1, -0.2, 0.1, -0.2, 0.05]), now)
+    assert neg['sizeMult'] == 0.7 and neg['expectancySol'] < 0
+    good = discipline(ex([0.3, -0.1, 0.2, 0.1, -0.05, 0.2]), now)
+    assert good['sizeMult'] == 1.2 and good['winRate'] >= 50
+
+
+def test_v3_rules_cut_losers_fast_and_never_average_down():
+    import feecat_service as fs
+    R = fs.RULES
+    assert R['hardStop'] >= -20 and R['add1Fraction'] == 0 and R['add2Fraction'] == 0 and R['pyramidAt'] > 0
+    assert R['takeProfit1'] > abs(R['hardStop']) and R['timeStopHours'] <= 3   # winners bigger than losers, dead trades cut
