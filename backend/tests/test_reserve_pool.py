@@ -139,3 +139,10 @@ def test_badge_edit_updates_every_holder(monkeypatch):
     assert d['badges'][B]['custom-og']['label'] == 'OG Degen' and d['badges'][A]['custom-og']['tone'] == 'mint'
     with pytest.raises(rs.HTTPException):
         asyncio.run(rs.admin_badge_edit(None, 'nobody', rs.BadgeEdit(label='X1')))
+
+
+def test_fixed_sol_each_paid_first_and_never_overspends():
+    rows, total = rp.fixed_rows({'badge:og': 0.5, 'tier:Gold': 0.25}, {A: 'Gold'}, {A: ['og'], B: ['og']}, 10)
+    assert rows == {A: 0.75, B: 0.5} and total == 1.25
+    rows, total = rp.fixed_rows({'badge:og': 5}, {}, {A: ['og'], B: ['og']}, 2)   # wants 10, budget 2 → scaled
+    assert rows[A] == rows[B] == 1.0 and total == 2.0

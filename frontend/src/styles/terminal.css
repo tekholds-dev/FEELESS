@@ -4549,3 +4549,4 @@ body.theme-day .mk-coin{background:#f4fbf7;border-color:#00875c33}body.theme-day
 .rt-side ul{margin:0;padding:0;list-style:none;display:grid;gap:5px}.rt-side li{display:grid;gap:2px;font-size:12px;padding:6px 8px;border-radius:8px;background:#ffffff06}
 .rt-side li i{font:600 9.5px 'JetBrains Mono',monospace;font-style:normal;color:#16d67f99;text-transform:uppercase}
 body.theme-day .rep-tools,body.theme-day .rt-side{background:#f4fbf7;border-color:#00875c33}body.theme-day .rt-head p{color:#0b1f16a8}
+.bc-pool{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:6px 10px;border-radius:10px;border:1px solid #ffffff10}.bc-pool>span{font:600 11px "JetBrains Mono",monospace;color:#bfeedd;min-width:90px}.bc-auto{font-style:normal;font:600 10px "JetBrains Mono",monospace;padding:2px 8px;border-radius:999px;border:1px solid #f5c54255;color:var(--gold,#f5c542)}

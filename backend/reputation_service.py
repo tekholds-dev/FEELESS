@@ -2848,7 +2848,15 @@ async def badge_awards_admin_get(request: Request):
     d = _admin_load()
     rows = [{'address': address, 'badges': list(items.values())} for address, items in d['badges'].items() if items]
     rows.sort(key=lambda row: -max((b.get('at', 0) for b in row['badges']), default=0))
-    return {'rows': rows[:500], 'limits': _badge_limits(), 'wallets': len(rows), 'awards': sum(len(row['badges']) for row in rows)}
+    seen = {}
+    for a, (at, rec) in list(_badge_cache.items()):
+        if time.time() - at < 86400:
+            for b in (rec or {}).get('badges', []):
+                x = seen.setdefault(b['id'], {'id': b['id'], 'label': b.get('label'), 'icon': b.get('icon'), 'tone': b.get('tone'), 'why': b.get('why'), 'holders': 0, 'builtin': True})
+                x['holders'] += 1
+    custom = {b['id'] for row in rows for b in row['badges']}
+    builtin = sorted((v for k, v in seen.items() if k not in custom), key=lambda v: -v['holders'])
+    return {'rows': rows[:500], 'limits': _badge_limits(), 'wallets': len(rows), 'awards': sum(len(row['badges']) for row in rows), 'builtin': builtin}
 
 
 @app.put('/api/reputation/admin/badges/limits')
@@ -7526,6 +7534,7 @@ class BadgePoolIn(BaseModel):
     seasonId: str = ''
     weights: dict = Field(default_factory=dict)
     mode: str = 'pct'           # 'pct': each badge gets a fixed % of the pot · 'weight': legacy weighted split
+    fixed: dict = Field(default_factory=dict)   # 'badge:<id>' | 'tier:<Tier>' -> SOL each holder gets, paid before the % pot
 
 
 def _pools():
@@ -7540,6 +7549,10 @@ def _pool_inputs(pool):
     blocked, safe = _block_load()['wallets'], _protected_wallets() | {pool['wallet']}
     tiers = {a: t for a, t in tiers.items() if a not in safe and not _is_blocked(blocked.get(a))}
     badges = {a: list(items) for a, items in (_admin_load().get('badges') or {}).items() if items and a not in safe and not _is_blocked(blocked.get(a))}
+    for a, (at, rec) in list(_badge_cache.items()):   # built-in badges (creator, caller, holder…) for wallets scored in the last day
+        if time.time() - at < 86400 and a not in safe and not _is_blocked(blocked.get(a)):
+            badges.setdefault(a, []).extend(b['id'] for b in (rec or {}).get('badges', []) if b.get('id') and b['id'] not in badges.get(a, []))
+    pool['_tiers'], pool['_badges'] = tiers, badges
     if pool.get('mode', 'weight') == 'pct':
         return reserve_pool.pct_holders(pool.get('weights') or {}, tiers, badges)
     return reserve_pool.pool_holders(pool.get('weights') or {}, tiers, badges), 100.0
@@ -7553,8 +7566,18 @@ async def _pool_plan(pool):
     except Exception:
         bal, known = 0, False
     holders, allocated = _pool_inputs(pool)
-    # % mode: only the allocated slices leave the wallet; the rest of the pot stays put.
-    plan = reserve_pool.payout_plan(bal, pool['pct'] * allocated / 100, holders, excluded=frozenset(_protected_wallets()) | {pool['wallet']})
+    # Fixed SOL-each badges are paid first (never more than the wallet can spare); the % pot comes from what's left.
+    fixed, fixed_total = reserve_pool.fixed_rows(pool.get('fixed') or {}, pool.pop('_tiers', {}), pool.pop('_badges', {}), max(0.0, bal - reserve_pool.KEEP_SOL))
+    rest = bal - fixed_total
+    plan = reserve_pool.payout_plan(rest, pool['pct'] * allocated / 100, holders, excluded=frozenset(_protected_wallets()) | {pool['wallet']})
+    by = {r['address']: r for r in plan['rows']}
+    for a, v in fixed.items():
+        if a in by:
+            by[a]['sol'] = round(by[a]['sol'] + v, 6); by[a]['fixedSol'] = v
+        elif v >= reserve_pool.DUST_SOL:
+            plan['rows'].append({'address': a, 'tier': 'Recruit', 'score': 0, 'weight': 0, 'sharePct': 0, 'sol': v, 'fixedSol': v, 'why': 'fixed badge reward'})
+    plan['fixedSol'] = fixed_total; plan['potSol'] = round(plan['potSol'] + fixed_total, 6)
+    plan['paidSol'] = round(sum(r['sol'] for r in plan['rows']), 6)
     plan['allocatedPct'] = allocated
     last = (pool.get('payouts') or [None])[-1]
     return {**plan, 'pool': {k: v for k, v in pool.items() if k != 'payouts'}, 'balanceKnown': known, 'lastPayout': last,
@@ -7596,7 +7619,19 @@ async def admin_badge_pool_save(request: Request, p: BadgePoolIn):
     d = _pools()
     pid = p.id or f"pool{int(time.time())}"
     prev = next((x for x in d['pools'] if x['id'] == pid), {})
-    rec = {**prev, 'id': pid, 'name': p.name, 'wallet': p.wallet, 'pct': p.pct, 'seasonId': p.seasonId, 'weights': weights, 'mode': p.mode}
+    fixed = {}
+    for k, v in list(p.fixed.items())[:60]:
+        if not _re.match(r'^(tier|badge):[A-Za-z0-9_-]{1,40}$', str(k)):
+            raise HTTPException(400, f'Bad key {k}.')
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            raise HTTPException(400, f'SOL each for {k} must be a number.')
+        if not 0 <= v <= 100:
+            raise HTTPException(400, 'SOL each must be 0–100.')
+        if v:
+            fixed[k] = v
+    rec = {**prev, 'id': pid, 'name': p.name, 'wallet': p.wallet, 'pct': p.pct, 'seasonId': p.seasonId, 'weights': weights, 'mode': p.mode, 'fixed': fixed}
     d['pools'] = [x for x in d['pools'] if x['id'] != pid] + [rec]
     _json_save(BADGE_POOLS_PATH, d)
     ad = _admin_load(); _audit(ad, admin, 'badge-pool', f'{p.name} {p.pct}% of {p.wallet[:6]}'); _admin_save(ad)

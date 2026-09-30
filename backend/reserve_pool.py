@@ -98,3 +98,24 @@ def parsed_transfers(tx: dict, signer: str) -> list:
             amt = (info.get('tokenAmount') or {}).get('uiAmount')
             out.append({'asset': info.get('mint') or 'SPL', 'to': info['destination'], 'amount': float(amt if amt is not None else info.get('amount') or 0)})
     return out
+
+
+def fixed_rows(fixed: dict, tiers: dict, badges: dict, budget: float):
+    """Fixed SOL per holder for a badge / tier ('badge:<id>' | 'tier:<Tier>' -> SOL each). If the total would
+    overspend the budget, everyone is scaled down equally. Returns ({address: sol}, total)."""
+    holders_of = {}
+    for a, t in (tiers or {}).items():
+        holders_of.setdefault(f'tier:{t}', set()).add(a)
+    for a, ids in (badges or {}).items():
+        for bid in set(ids):
+            holders_of.setdefault(f'badge:{bid}', set()).add(a)
+    want = {}
+    for key, each in (fixed or {}).items():
+        each = float(each or 0)
+        for a in holders_of.get(key, ()):
+            if each > 0:
+                want[a] = want.get(a, 0) + each
+    total = sum(want.values())
+    scale = min(1.0, max(0.0, budget) / total) if total else 1.0
+    out = {a: int(v * scale * 1e6) / 1e6 for a, v in want.items()}
+    return out, round(sum(out.values()), 6)
