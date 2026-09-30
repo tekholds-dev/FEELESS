@@ -97,7 +97,15 @@ def fills_from_orders(orders, sol_usd=0.0):
         else:
             continue
         usd = float(o.get('in_usd') or 0) or (cash_amt if cash_mint in STABLE_USD else cash_amt * sol_usd)
+        q = o.get('quote') or {}
         fee = usd * (o.get('fee_bps') or 0) / 10000   # estimate only: the FEELESS fee rides on top of a buy, comes out of a sell
+        atoms = int(q.get('feelessFeeAtoms') or 0)
+        if atoms and q.get('feelessFeeMode') in ('input', 'output'):   # the fee actually built into the tx beats the %
+            fee_mint = o.get('input_mint') if q['feelessFeeMode'] == 'input' else o.get('output_mint')
+            if fee_mint == WSOL_MINT and sol_usd:
+                fee = atoms / 1e9 * sol_usd
+            elif fee_mint in STABLE_USD:
+                fee = atoms / 1e6
         usd = usd + fee if side == 'buy' else max(0.0, usd - fee)
         if coin_amt <= 0 or usd <= 0:
             continue

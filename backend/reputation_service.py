@@ -8326,7 +8326,7 @@ async def _sol_usd() -> float:
 _sol_px: dict = {}
 
 
-def _trade_record(p: 'TradeLanded', coin: str, amt: float, side: str, sol_usd: float) -> Optional[dict]:
+def _trade_record(p: 'TradeLanded', coin: str, amt: float, side: str, sol_usd: float, fee_usd: Optional[float] = None) -> Optional[dict]:
     """The trader's position row. The exact on-chain fill wins (what really left / reached the wallet, fees in);
     the quote is only a fallback, with the FEELESS fee added so it is never rosier than reality."""
     f = p.fill or {}
@@ -8336,7 +8336,7 @@ def _trade_record(p: 'TradeLanded', coin: str, amt: float, side: str, sol_usd: f
             return {**{k: f[k] for k in ('side', 'tokens', 'sol', 'networkSol', 'balanceAfter') if k in f}, 'ts': f.get('ts') or time.time(),
                     'usd': round(usd, 4), 'price': usd / f['tokens'], 'token': coin, 'tx': p.signature, 'via': 'chain'}
     if amt > 0 and p.inUsd > 0:
-        fee = p.inUsd * max(0, p.feeBps) / 10000
+        fee = fee_usd if fee_usd is not None else p.inUsd * max(0, p.feeBps) / 10000   # the fee actually charged beats the %
         usd = p.inUsd + fee if side == 'buy' else max(0.0, p.inUsd - fee)
         return {'ts': time.time(), 'side': side, 'usd': round(usd, 4), 'price': usd / amt, 'tokens': amt, 'token': coin, 'tx': p.signature, 'via': 'estimate'}
     return None
@@ -8363,7 +8363,7 @@ async def internal_trade(request: Request, p: TradeLanded):
     # The trader's own FEELESS trades: instant position / entry line / chart pins (no wallet-history provider needed).
     stable_ = {WSOL, 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'}
     coin, amt, side_ = (p.outputMint, p.outAmount, 'buy') if p.inputMint in stable_ else (p.inputMint, p.inAmount, 'sell')
-    rec = _trade_record(p, coin, amt, side_, await _sol_usd()) if coin not in stable_ else None
+    rec = _trade_record(p, coin, amt, side_, await _sol_usd(), row.get('feeUsd')) if coin not in stable_ else None
     if rec:
         ft = _json_load(FEELESS_TRADES_PATH, {})
         ft[p.wallet] = ([r for r in ft.get(p.wallet) or [] if r.get('tx') != p.signature] + [rec])[-300:]

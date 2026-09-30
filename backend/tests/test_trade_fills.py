@@ -89,3 +89,23 @@ def test_old_quote_estimates_self_heal_to_the_exact_fill(tmp_path, monkeypatch):
     row = rs._json_load(rs.FEELESS_TRADES_PATH, {})[W][0]
     assert row['via'] == 'chain' and row['usd'] == 1.15 and abs(row['price'] - 1.15 / 103.9455) < 1e-12
     asyncio.run(rs._repair_estimates(W, MINT))   # exact now: nothing left to repair, no second read
+
+
+def test_owner_paid_trade_reads_down_not_up():
+    """Regression (owner's real trade): $1.15 left the wallet for 103.9455 PAID, $0.135 of it FEELESS fee; worth $1.13 now.
+    Exact fill and quote-only estimate must both say DOWN — the old code showed +14.8% (entry built from the quote)."""
+    held, now_value = 103.9455, 1.13
+    live = now_value / held
+    exact = tf.position([{'ts': 1, 'side': 'buy', 'usd': 1.15, 'sol': 0.00766, 'networkSol': 0.00002, 'price': 1.15 / held, 'tokens': held, 'tx': 'paid', 'via': 'chain'}],
+                        held_chain=held, fees_by_sig={'paid': 0.135})
+    assert (live - exact['avgEntry']) * exact['tokensHeld'] < 0 and exact['exact'] is True
+    assert abs((live / exact['avgEntry'] - 1) * 100 - (-1.74)) < 0.05       # −1.7%, matching the wallet
+
+
+def test_quote_only_estimate_uses_the_fee_actually_charged(tmp_path, monkeypatch):
+    import reputation_service as rs
+    p = rs.TradeLanded(wallet=W, signature='paid', inUsd=1.0, feeBps=50, inputMint=rs.WSOL, outputMint=MINT, inAmount=0.0067, outAmount=103.9455)
+    rec = rs._trade_record(p, MINT, 103.9455, 'buy', 150.0, fee_usd=0.135)   # flat fee from the ledger, not 0.5% of $1
+    assert rec['via'] == 'estimate' and rec['usd'] == 1.135
+    live = 1.13 / 103.9455
+    assert live < rec['price']   # still reads down
