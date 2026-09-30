@@ -19,6 +19,10 @@ import { DEXES } from '../../lib/venues';
 import { BadgePools } from './BadgePools';
 import { LagCatcher } from './LagCatcher';
 import { TreasuryHub } from './TreasuryHub';
+import { CoinVerifyPanel } from './CoinVerifyPanel';
+import { TreasuryPulse } from './TreasuryPulse';
+import { TAB_INFO } from './ccTabInfo';
+import { FeeBrain } from './FeeBrain';
 
 const SESSION_KEY = 'feeless:cc-session';
 const readSession = addr => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.address === addr && Date.now() / 1000 - s.ts < 86000 ? s : null; } catch { return null; } };
@@ -34,6 +38,7 @@ const sortBugs = list => [...list].sort((a, b) => ((SEVERITY[a.kind]?.[0] ?? 1) 
 export function CommandCenter({ address, signMessage, onClose }) {
   const [session, setSession] = useState(() => readSession(address));
   const [tab, setTab] = useState('numbers');
+  const [prefill, setPrefill] = useState(null);
   const [sec, setSec] = useState(null);
   const [holders, setHolders] = useState(null);
   const [asset, setAsset] = useState('fee');
@@ -86,14 +91,16 @@ export function CommandCenter({ address, signMessage, onClose }) {
 
   // Grouped so the money + infra controls are always first; every tab id appears exactly once.
   const TAB_GROUPS = [['Core', ['launch', 'fees', 'latency', 'treasury', 'circle']], ['Growth', ['numbers', 'traffic', 'pulse', 'marketing', 'kols', 'invites', 'ads', 'ideas']],
-    ['Community', ['holders', 'studio', 'airdrops', 'snapshots', 'badges', 'seasons', 'pools', 'feecat', 'broadcast']], ['Safety', ['investigate', 'overview', 'mod', 'access', 'bugs']]];
-  const TABS = [['investigate', 'Investigate', Search], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['circle', 'Circle wallets', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+    ['Community', ['holders', 'studio', 'airdrops', 'snapshots', 'badges', 'seasons', 'pools', 'feecat', 'broadcast']], ['Safety', ['investigate', 'verify', 'overview', 'mod', 'access', 'bugs']]];
+  const TABS = [['investigate', 'Investigate', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['circle', 'Circle wallets', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
-    <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div>
+    <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div><TreasuryPulse call={call} onOpen={(t, pre) => { setPrefill(pre || null); setTab(t); }} />
       <nav className="cc-tabs" data-testid="cc-nav">{TAB_GROUPS.map(([group, ids]) => <div key={group} className="cc-tab-group"><small>{group}</small>{ids.map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</div>)}</nav>
       <button type="button" className="cc-close" onClick={onClose} aria-label="Close command center"><X size={16} /></button></header>
+    {TAB_INFO[tab] && <div className="cc-tab-hero" key={tab} data-testid="cc-tab-hero"><div><small>{TAB_GROUPS.find(g => g[1].includes(tab))?.[0]?.toUpperCase()}</small><h3>{TAB_INFO[tab][0]}</h3><p>{TAB_INFO[tab][1]}</p></div>{TAB_INFO[tab][2].length > 0 && <div className="cc-tab-does">{TAB_INFO[tab][2].map(x => <span key={x}>{x}</span>)}</div>}</div>}
 
     {tab === 'launch' && <LaunchRailAdmin call={call} isOwner={isOwner} />}
+    {tab === 'verify' && <CoinVerifyPanel call={call} />}
     {tab === 'latency' && <><LagCatcher call={call} /><LatencyPanel call={call} /></>}
     {tab === 'numbers' && <NumbersPanel call={call} />}
     {tab === 'kols' && <KolAdmin call={call} />}
@@ -106,7 +113,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'broadcast' && <BroadcastPanel call={call} />}
     {tab === 'marketing' && <MarketingPanel call={call} />}
     {tab === 'circle' && (isOwner ? <CircleWallets call={call} /> : <p className="cc-empty">Only owner wallets can manage Circle wallets.</p>)}
-    {tab === 'treasury' && <><TreasuryHub call={call} /><TreasuryRoutes call={call} isOwner={isOwner} /></>}
+    {tab === 'treasury' && <><TreasuryHub call={call} prefill={prefill} /><TreasuryRoutes call={call} isOwner={isOwner} /></>}
     {tab === 'overview' && <Overview sec={sec} reload={loadSec} />}
     {tab === 'investigate' && <InvestigatePanel />}
     {tab === 'holders' && <section className="cc-panel">
@@ -581,6 +588,7 @@ function FeeCatPanel({ call }) {
     <div className="cc-kpis cc-kpis-5"><span><small>Engine</small><b className={running && lastCycle != null && lastCycle < 90 ? 'positive' : 'negative'}>{running ? (lastCycle == null ? 'Starting' : `${lastCycle}s ago`) : 'Paused'}</b></span><span><small>Open</small><b>{d.cat.positions?.length || 0}</b></span><span><small>Balance</small><b>{Number(d.cat.balanceSol || 0).toFixed(2)} SOL</b></span><span><small>Realized</small><b>{Number(d.cat.realizedPnlSol || 0).toFixed(3)}</b></span><span><small>Win rate</small><b>{d.cat.winRate ?? '—'}%</b></span></div>
     <div className="cc-toolbar"><button type="button" className="btn-primary" onClick={() => save({ status: running ? 'paused' : 'running' })}>{running ? '⏸ Pause Fee' : '▶ Resume Fee'}</button><button type="button" disabled={!running} onClick={() => save({ action: 'run' })}>⚡ Run intelligence cycle</button><button type="button" onClick={() => window.confirm('Reset what Fee has learned? Exits go back to defaults.') && save({ resetLearning: true })}>Reset learning</button><a href="/terminal/feecat" target="_blank" rel="noopener noreferrer">Open Fee's profile ↗</a></div>
     <p className="cc-note">Tune Fee's brain. Every value is clamped to a safe range on the server — Fee can get more aggressive, never reckless. Changes are logged in the audit trail.</p>
+    <FeeBrain />
     <div className="cc-block"><h4>How Fee trades <Explain>Fee is a paper agent: her balance and P/L are simulated, but every price, liquidity and market-cap number is read live. She cannot sign, spend or move real SOL. Every entry and exit pays a 1% fee each way so the results are honest.</Explain></h4>
       <ol className="fee-howto">
         <li><b>Pick.</b> Only coins that pass the entry and safety rules below: enough liquidity and volume, buyers in control, clean holders, not already vertical.</li>

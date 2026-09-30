@@ -44,7 +44,7 @@ export function NotificationBell() {
     </div>}</span>;
 }
 
-const ICONS = { dm: '💬', wall: '🧱', mention: '📣', invite: '🎉', reward: '🎁', snipers: '🎯' };
+const ICONS = { dm: '💬', wall: '🧱', mention: '📣', invite: '🎉', reward: '🎁', snipers: '🎯', watch: '👁' };
 const compactUsd = v => (!(v > 0) ? null : v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v)}`);
 // Older alerts carry only text ("Every sniper on your coin XYZ has sold out"): recover the ticker from it.
 const sniperCoin = n => n.meta || { symbol: (n.text.match(/your coin (\S+) has/) || [])[1] || 'coin' };
@@ -64,7 +64,10 @@ export function NotificationList({ items }) {
         {n.url && <a className="np-buy" href={`${n.url}${n.url.includes('?') ? '&' : '?'}buy=1`}>Buy →</a>}
       </div>; })}
     </details>}
-    {rest.map((n, i) => <a key={n.id} href={n.url || '#'} style={{ '--i': Math.min(i, 12) }} className={`np-item ${n.read ? '' : 'unread'} k-${n.kind}`}><span>{ICONS[n.kind] || '🔔'}</span><p>{n.text}</p><small>{ago(n.at)}</small></a>)}
+    {rest.map((n, i) => n.kind === 'watch' && n.url?.includes('pair=')
+      // Watched wallet traded: jump straight into a pre-quoted Quick trade (rug shield runs before you sign).
+      ? <div key={n.id} style={{ '--i': Math.min(i, 12) }} className={`np-item np-watch ${n.read ? '' : 'unread'} k-watch`} data-testid="np-watch"><span>👁</span><a href={n.url}><p>{n.text}</p></a><small>{ago(n.at)}</small>{/ bought /.test(n.text) && <a className="np-buy" href={`${n.url}&buy=1`}>Buy →</a>}</div>
+      : <a key={n.id} href={n.url || '#'} style={{ '--i': Math.min(i, 12) }} className={`np-item ${n.read ? '' : 'unread'} k-${n.kind}`}><span>{ICONS[n.kind] || '🔔'}</span><p>{n.text}</p><small>{ago(n.at)}</small></a>)}
   </>;
 }
 

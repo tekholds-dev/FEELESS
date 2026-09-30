@@ -5,12 +5,23 @@ import { FeeCatMark } from '../FeeCatMark';
 import { PnlCard } from './MetaPanels';
 
 const LEARN_LABELS = { runnerTrail: 'Runner trailing stop', takeProfit1: 'First profit target' };
+import { ShareGifButton } from '../ShareGif';
 import { currentSubscription, enablePush, readPushPrefs, savePushPrefs, syncPush } from '../../lib/push';
 
 const sol = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(4)} SOL`);
 const ago = ts => { const m = Math.floor((Date.now() / 1000 - ts) / 60); return m < 60 ? `${m}m` : m < 1440 ? `${Math.floor(m / 60)}h` : `${Math.floor(m / 1440)}d`; };
 
 // Fee the Leader cat's full profile: live book, every trade, what happened after each sell, and how it's learning.
+// Fee's trades as shareable FeeCat GIFs (paw prints + blinking eyes); losses get the crimson palette.
+const feeCard = t => {
+  const up = t.type === 'BUY' || (t.pnlSol ?? 0) >= 0;
+  const sym = (t.detail.match(/\b(?:of|Sold(?: \d+% of)?)\s+\$?([A-Z0-9]{2,12})\b/) || [])[1] || 'the trenches';
+  return { mascot: 'feecat', tone: up ? 'up' : 'down', kicker: `FEECAT ${t.type === 'BUY' ? 'BUYS' : 'SELLS'} · PAPER · LIVE PRICES`, title: `$${sym}`,
+    big: t.pnlSol != null ? `${t.pnlSol >= 0 ? '+' : ''}${t.pnlSol.toFixed(3)} SOL` : t.type === 'BUY' ? 'ENTERED' : 'EXITED', lines: [t.detail.slice(0, 64), t.detail.slice(64, 128)].filter(Boolean), footer: 'feeless · fee the cat trades out loud' };
+};
+const exitCard = e => ({ mascot: 'feecat', tone: e.peakAfter >= 40 ? 'down' : 'up', kicker: 'FEECAT · AFTER THE SELL', title: `$${e.symbol}`,
+  big: `${e.changeAtExit >= 0 ? '+' : ''}${e.changeAtExit}%`, lines: [`Sold: ${e.why}`.slice(0, 60), `After: best +${e.peakAfter}% · low ${e.lowAfter}%`, e.peakAfter >= 40 ? '🧠 Lesson learned: give runners room' : '✅ The exit held up'], footer: 'feeless · she learns from every sell' });
+
 export function FeeCatProfile({ catId = 'leader' }) {
   const [d, setD] = useState(null);
   const [tab, setTab] = useState('wall');
@@ -53,13 +64,15 @@ export function FeeCatProfile({ catId = 'leader' }) {
           <li><b>Calls every buy</b> in the coin's chat and on Live Calls, with the reasons — so her record is public.</li>
           <li><b>Posts a trench report here every ~30 min</b>: the board's bangers and why, the Degen Weather, SOL, and her book.</li></ul>
         <small>Posting here is signed by your wallet (free, no transaction) — nobody can post as you. FEELESS never asks for your seed phrase or private key; anyone who does is a scammer. Keep calls to a coin's contract address, not links.</small></details><EcosystemChat compact room="wall-FEE-LEADER-CAT" ecosystem={{ id: 'wall-FEE-LEADER-CAT', name: "Fee's wall" }} /></div>}
-    {tab === 'trades' && <div className="fcp-list">{!(d.trades || []).length ? <p className="wp-bio">No trades yet.</p> : (d.trades || []).map(t => <div key={t.id} className={`fcp-trade t-${t.type.toLowerCase()}`}><em>{t.type}</em><p>{t.detail}</p><small>{ago(t.ts / 1000)} ago{t.pnlSol != null ? ` · ${sol(t.pnlSol)}` : ''}</small></div>)}</div>}
+    {tab === 'trades' && <div className="fcp-list">{!(d.trades || []).length ? <p className="wp-bio">No trades yet.</p> : (d.trades || []).map(t => <div key={t.id} className={`fcp-trade t-${t.type.toLowerCase()}`}><em>{t.type}</em><p>{t.detail}</p><small>{ago(t.ts / 1000)} ago{t.pnlSol != null ? ` · ${sol(t.pnlSol)}` : ''}</small><ShareGifButton className="fcp-share" label="🎞" card={feeCard(t)} /></div>)}</div>}
     {tab === 'after' && <div className="fcp-list">{!(d.exits || []).length ? <p className="wp-bio">No exits yet.</p> : (d.exits || []).map(e => <a key={`${e.pairAddress}-${e.exitAt}`} className={`fcp-exit ${e.peakAfter >= 40 ? 'missed' : ''}`} href={`/terminal/chat?chain=solana&pair=${e.pairAddress}&room=bulls`} target="_blank" rel="noopener noreferrer">
-      <b>${e.symbol}</b><span>sold {e.changeAtExit >= 0 ? '+' : ''}{e.changeAtExit}% · {e.why}</span><span>after: best <b className="positive">+{e.peakAfter}%</b> · low <b className="negative">{e.lowAfter}%</b></span><small>{ago(e.exitAt)} ago{e.peakAfter >= 40 ? ' · 🧠 lesson: sold a runner' : ''}</small></a>)}{(d.exits || [])[0] && <PnlCard symbol={(d.exits || [])[0]?.symbol} pnlPct={(d.exits || [])[0]?.changeAtExit} pnlSol={(d.exits || [])[0]?.pnlSol} note={(d.exits || [])[0]?.why} />}</div>}
+      <b>${e.symbol}</b><span>sold {e.changeAtExit >= 0 ? '+' : ''}{e.changeAtExit}% · {e.why}</span><span>after: best <b className="positive">+{e.peakAfter}%</b> · low <b className="negative">{e.lowAfter}%</b></span><small>{ago(e.exitAt)} ago{e.peakAfter >= 40 ? ' · 🧠 lesson: sold a runner' : ''}</small><ShareGifButton className="fcp-share" label="🎞" card={exitCard(e)} /></a>)}{(d.exits || [])[0] && <PnlCard symbol={(d.exits || [])[0]?.symbol} pnlPct={(d.exits || [])[0]?.changeAtExit} pnlSol={(d.exits || [])[0]?.pnlSol} note={(d.exits || [])[0]?.why} />}</div>}
     {tab === 'brain' && <div className="fcp-brain">
       <p className="wp-bio">Fee watches every coin for 24h after selling. Runners she sold too early give winners more room next time; good exits pull her back to the defaults. Bounded so it never gets reckless.</p>
       <div className="fcp-params">{Object.entries(L.params || {}).filter(([k]) => LEARN_LABELS[k]).map(([k, v]) => <span key={k}><small>{LEARN_LABELS[k]}</small><b>{k === 'takeProfit1' ? '+' : ''}{v}%</b><em>{v !== L.defaults?.[k] ? `default ${L.defaults?.[k]}%` : 'default'}</em></span>)}</div>
-      <div className="fcp-score"><span>🧠 Runners missed: <b>{L.missed}</b></span><span>✅ Good exits: <b>{L.good}</b></span></div>
+      <div className="fcp-score"><span>🧠 Runners missed: <b>{L.missed}</b></span><span>✅ Good exits: <b>{L.good}</b></span><span>📚 Trades remembered: <b>{L.memory ?? 0}</b></span></div>
+      {(L.playbook?.best?.length > 0 || L.playbook?.worst?.length > 0) && <div className="fcp-playbook"><div><small>SETUPS THAT PAY HER</small>{(L.playbook.best || []).map(r => <p key={r.setup} className="up">{r.setup.replace('=', ': ')} <b>{r.winRate}% · {r.avgRet >= 0 ? '+' : ''}{r.avgRet}%</b></p>)}</div>
+        <div><small>SETUPS SHE AVOIDS</small>{(L.playbook.worst || []).map(r => <p key={r.setup} className="down">{r.setup.replace('=', ': ')} <b>{r.winRate}% · {r.avgRet}%</b></p>)}</div></div>}
       <div className="fcp-list">{(L.log || []).map((x, i) => <div key={i} className={`fcp-trade ${x.missed ? 't-sell' : 't-buy'}`}><em>LEARN</em><p>{x.note}</p><small>{ago(x.at)} ago</small></div>)}{!(L.log || []).length && <p className="wp-bio">First lessons land 6h after each exit.</p>}</div>
       <p className="wp-bio">Safety rules that never loosen: hard stop {R.hardStop}% from her average entry, dip adds only at {R.add1At}% / {R.add2At}% while the thesis holds, first profit at +{R.takeProfit1}%, runner trail {R.runnerTrail}%, skip top-10 &gt; {R.maxTop10Pct}%, insiders &gt; {R.maxInsiderPct}%, &gt;{R.maxSnipers} snipers, &gt;{R.maxBundled} bundled, no chasing &gt; +{R.maxM5Chase}% in 5m. Paper trading on live prices — not financial advice.</p>
     </div>}

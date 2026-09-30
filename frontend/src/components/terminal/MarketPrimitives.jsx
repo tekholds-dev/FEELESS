@@ -2,6 +2,7 @@ import { AnimatedNumber } from './AnimatedNumber';
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, Coins, RefreshCw, UserRound } from 'lucide-react';
 import { formatPct, formatUSD, formatTime, shortAddress } from '../../lib/dexscreener';
+import { useVerified } from '../../lib/verifyBatch';
 import { useReputation } from '../../lib/reputation';
 
 const isImageSource = value => typeof value === 'string' && (/^https?:\/\//i.test(value) || /^data:image\//i.test(value));
@@ -73,6 +74,16 @@ export const withRankingContext = (pair, fallback = {}) => {
   return { ...pair, rankingContext: { ...(pair.rankingContext || {}), ...getRankingContext(pair, fallback) } };
 };
 
+// Green check (earned) or gold check (official / FEELESS-reviewed) pinned to the logo, pump.fun-style.
+export function VerifiedTick({ mint, size = 34 }) {
+  const v = useVerified(mint);
+  if (!v || !['verified', 'gold'].includes(v.level)) return null;
+  const d = Math.max(12, Math.round(size * 0.36));
+  return <i className={`verified-tick vt-${v.level}`} style={{ width: d, height: d }} data-testid="verified-tick"
+    title={v.level === 'gold' ? 'FEELESS verified (official / reviewed)' : `Verified: passed every safety gate${v.score != null ? ` · ${v.score}/100` : ''}`}
+    role="img" aria-label="Verified coin"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8.4l2.6 2.5L12 5.4" /></svg></i>;
+}
+
 export const TokenAvatar = ({ pair, size = 34, onExhausted, maxAttempts }) => {
   const sources = tokenImageUrls(pair);
   const [imageIndex, setImageIndex] = useState(0);
@@ -92,7 +103,9 @@ export const TokenAvatar = ({ pair, size = 34, onExhausted, maxAttempts }) => {
   }, [exhausted, maxAttempts, onExhausted, pair, sources.length]);
   const imageUrl = sources[imageIndex];
   const symbol = pair?.baseToken?.symbol || 'token';
+  const mint = pair?.chainId === 'solana' || !pair?.chainId ? pair?.baseToken?.address : null;
   return <span className="token-avatar" style={{ width: size, height: size }} aria-label={`${symbol} token logo`}>
+    {mint && size >= 18 && <VerifiedTick mint={mint} size={size} />}
     {(!imageUrl || exhausted) && <span className="token-avatar-fallback" aria-hidden="true"><Coins size={Math.round(size * 0.42)} /></span>}
     {imageUrl && !exhausted && <img data-fb-skip="1"
       key={`${imageUrl}-${attempts}`}

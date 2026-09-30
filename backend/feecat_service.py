@@ -22,6 +22,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+import feecat_brain
+
 DATA_DIR = Path(__file__).parent / 'data'
 DATA_DIR.mkdir(exist_ok=True)
 STORE_PATH = DATA_DIR / 'feecats.json'
@@ -337,6 +339,8 @@ def _close(store, cat, pos, price_native, why, fraction=1.0, market_cap=None):
     proceeds = gross * (1 - FEE_PER_SIDE)
     pnl = round(proceeds - pos['costSol'] * fraction, 6)
     if fraction < 1:
+        pos['realizedPartialSol'] = round(pos.get('realizedPartialSol', 0) + pnl, 6)
+        pos.setdefault('costBasisSol', pos['costSol'])
         pos['notionalSol'] = round(pos['notionalSol'] * (1 - fraction), 6)
         pos['costSol'] = round(pos['costSol'] * (1 - fraction), 6)
     cat['balanceSol'] = round(cat['balanceSol'] + proceeds, 6)
@@ -355,6 +359,10 @@ def _close(store, cat, pos, price_native, why, fraction=1.0, market_cap=None):
         cat.setdefault('exits', []).append({'pairAddress': pos['pairAddress'], 'symbol': pos['symbol'], 'exitPx': price_native, 'exitAt': time.time(),
                                             'why': why, 'pnlSol': pnl, 'changeAtExit': round((price_native / pos['entryPriceNative'] - 1) * 100, 2), 'peakAfter': 0.0, 'lowAfter': 0.0})
         cat['exits'] = cat['exits'][-60:]
+        # File the whole trade (partial profits included) under its setup so the next entry learns from it.
+        total_pnl = round(pnl + pos.get('realizedPartialSol', 0), 6)
+        ret = total_pnl / max(pos.get('costBasisSol') or pos['costSol'], 1e-9) * 100
+        cat['setupMemory'] = feecat_brain.remember(cat.get('setupMemory') or [], pos.get('setup'), ret, total_pnl, time.time())
     cat.setdefault('pnlHistory', []).append({'value': cat['realizedPnlSol'], 't': time.time()})
     cat['pnlHistory'] = cat['pnlHistory'][-60:]
     closed = cat.get('wins', 0) + cat.get('losses', 0)
@@ -565,6 +573,16 @@ async def run_engine(store, cats):
             if gap:
                 conviction = round(conviction * 1.2, 2)
                 reason = f'{reason}; retesting a 5m fair value gap (${gap[0]:.6g}–${gap[1]:.6g})'
+            # Setup memory: her own closed trades decide whether this kind of entry deserves more, less or no size.
+            setup = feecat_brain.setup_features(p, now, fresh=bool(p.get('_fresh')), gap=bool(gap))
+            brain = feecat_brain.setup_edge(setup, feecat_brain.edge_table(cat.get('setupMemory') or []))
+            if brain['veto']:
+                store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': brain['why'], 'at': now})
+                store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
+                continue
+            if brain['mult'] != 1.0:
+                conviction = round(conviction * brain['mult'], 2)
+                reason = f"{reason}; setup memory ×{brain['mult']} ({brain['why']})"
             reason = f'{reason}; holders: {safe_why}; conviction {conviction}×'
             px = _num(p.get('priceNative'))
             planned = round(min(float(cat['risk']['maxPositionSol']), cat['balanceSol'] * 0.1 * conviction) * (R['freshSize'] if p.get('_fresh') else 1), 4)
@@ -584,7 +602,7 @@ async def run_engine(store, cats):
                 'entryLiq': _num((p.get('liquidity') or {}).get('usd')), 'conviction': conviction,
                 'entryMarketCapUsd': _num(p.get('marketCap') or p.get('fdv')),
                 'entryVolH1': _num((p.get('volume') or {}).get('h1')), 'plannedSol': planned,
-                'firstEntryPriceNative': px, 'adds': 0, 'profitTaken': 0, 'peakPx': px,
+                'firstEntryPriceNative': px, 'adds': 0, 'profitTaken': 0, 'peakPx': px, 'setup': setup,
             })
             _log_event(store, cat, 'BUY', f"Bought {size} SOL of {sym} at live price — {reason} (paper).", None, pa, px, _num(p.get('marketCap') or p.get('fdv')))
             if cat.get('isLeader'):
@@ -934,7 +952,9 @@ async def cat_profile(cat_id: str):
         'exits': list(reversed(cat.get('exits', [])))[:30],
         'learning': {'params': {**{k: RULES[k] for k in LEARN_BOUNDS}, **{k: v for k, v in (learn.get('params') or {}).items() if k in LEARN_BOUNDS}}, 'defaults': {k: RULES[k] for k in LEARN_BOUNDS},
                      'entry': {**{k: RULES[k] for k in ENTRY_BOUNDS}, **(learn.get('entry') or {})}, 'mode': learn.get('mode', 'warming'), 'tunedAt': learn.get('tunedAt'), 'study': learn.get('study'),
-                     'missed': learn.get('missed', 0), 'good': learn.get('good', 0), 'log': learn.get('log', [])},
+                     'missed': learn.get('missed', 0), 'good': learn.get('good', 0), 'log': learn.get('log', []),
+                     'playbook': feecat_brain.playbook(feecat_brain.edge_table(cat.get('setupMemory') or [])), 'memory': len(cat.get('setupMemory') or []),
+                     'vetoes': (store.get('scan') or {}).get('brainRejects', [])[-5:] if cat.get('isLeader') else []},
         'rules': {k: RULES[k] for k in ('hardStop', 'add1At', 'add2At', 'takeProfit1', 'takeProfit2', 'runnerTrail', 'maxHoldHours', 'maxTop10Pct', 'maxInsiderPct', 'maxSnipers', 'maxBundled', 'maxM5Chase')},
     }
 

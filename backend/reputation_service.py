@@ -15,6 +15,7 @@ import env_loader  # noqa: F401  (must run before reading os.environ)
 import investigate
 import reserve_pool
 import perf
+import verify
 from ecosystem import ecosystem_mints
 import asyncio
 import collections
@@ -4708,7 +4709,7 @@ def notify(address: str, kind: str, text: str, url: str = '', actor: str = '', o
     try:
         for e in _push_load()['subs'].values():
             if primary_of((e.get('prefs') or {}).get('address') or '') == to:
-                asyncio.get_running_loop().run_in_executor(None, _send_push, e['subscription'], {'dm': '💬 New message', 'follow': '➕ New follower', 'wall': '🧱 New wall post', 'mention': '📣 You were mentioned', 'reward': '🎁 Reward ready', 'invite': '🎉 Invite joined', 'snipers': '🎯 Snipers are out'}.get(kind, 'FEELESS'), text[:120], url or '/terminal', f'n-{kind}')
+                asyncio.get_running_loop().run_in_executor(None, _send_push, e['subscription'], {'dm': '💬 New message', 'follow': '➕ New follower', 'wall': '🧱 New wall post', 'mention': '📣 You were mentioned', 'reward': '🎁 Reward ready', 'invite': '🎉 Invite joined', 'snipers': '🎯 Snipers are out', 'watch': '👁 Watched wallet moved'}.get(kind, 'FEELESS'), text[:120], url or '/terminal', f'n-{kind}')
     except Exception:
         pass
 
@@ -7946,3 +7947,162 @@ async def treasury_split_record(request: Request, p: SplitRecord):
     ad.setdefault('splits', []).append(rec); ad['splits'] = ad['splits'][-50:]
     _audit(ad, admin, 'treasury-split', f"{rec['total']} {p.asset} in {len(p.sigs)} tx"); _admin_save(ad)
     return {'ok': True, 'total': rec['total'], 'transfers': len(moved)}
+
+
+# ================================================================================================
+# COIN VERIFICATION: the green check over a coin's logo, earned by passing cited safety checks
+# ================================================================================================
+VERIFY_PATH = DATA_DIR / 'verify.json'
+VERIFY_TTL = 6 * 3600
+_verify_cache: dict = {}      # mint -> (at, report)
+_verify_pending: set = set()
+
+
+def _verify_store():
+    return _json_load(VERIFY_PATH, {'mints': {}, 'requests': []})
+
+
+async def _verify_facts(mint):
+    """Everything the checks need, gathered in parallel: holder forensics, mint account, the live pool."""
+    async def market():
+        async with httpx.AsyncClient(timeout=10) as http:
+            return (await http.get(f'https://api.dexscreener.com/latest/dex/tokens/{mint}')).json().get('pairs') or []
+
+    async def safe(coro, default):
+        try:
+            return await coro
+        except Exception:
+            return default
+    async with httpx.AsyncClient(timeout=10) as http:
+        intel, auth, pairs = await asyncio.gather(safe(token_intel('solana', mint), {}), safe(_mint_authorities(http, mint), None), safe(market(), []))
+    pairs = sorted((p for p in pairs if p.get('chainId') == 'solana'), key=lambda p: -((p.get('liquidity') or {}).get('usd') or 0))
+    top = pairs[0] if pairs else {}
+    info = top.get('info') or {}
+    tx = (top.get('txns') or {}).get('h24') or {}
+    buys, sells = tx.get('buys') or 0, tx.get('sells') or 0
+    reg = [p for p in _json_load(POOLS_REG_PATH, {'pools': []})['pools'] if p.get('mint') == mint and p.get('locked')]
+    creator = intel.get('creator')
+    rep = _quick_rep(creator) if creator else {}
+    created = min((p.get('pairCreatedAt') or 9e15 for p in pairs), default=None)
+    facts = {
+        'mintAuthority': (auth or {}).get('mintAuthority') if auth is not None else 'unknown',
+        'freezeAuthority': (auth or {}).get('freezeAuthority') if auth is not None else 'unknown',
+        'creatorBlocked': bool(creator and _is_blocked(_block_load()['wallets'].get(creator))), 'creatorLevel': rep.get('level'),
+        'ageHours': (time.time() * 1000 - created) / 3.6e6 if created and created < 9e15 else 0,
+        'liquidityUsd': (top.get('liquidity') or {}).get('usd') or 0, 'volume24h': (top.get('volume') or {}).get('h24') or 0,
+        'buyRatio': buys / (buys + sells) if buys + sells >= 50 else None,
+        'socials': len(info.get('socials') or []) + len(info.get('websites') or []),
+        'lpLocked': bool(reg) or str(top.get('dexId') or '').lower() == 'pumpswap',
+        'top10Pct': intel.get('top10Pct'), 'insidersPct': intel.get('insidersHoldingPct'), 'devPct': intel.get('devHoldingPct'),
+    }
+    return facts, {'symbol': (top.get('baseToken') or {}).get('symbol'), 'pair': top.get('pairAddress'), 'dexId': top.get('dexId')}
+
+
+async def _verify_run(mint):
+    facts, meta = await _verify_facts(mint)
+    manual = _verify_store()['mints'].get(mint)
+    try:
+        official = mint in set((await _ecosystem_mints()).values())
+    except Exception:
+        official = False
+    rep = {**verify.verify_report(facts, manual, official), 'mint': mint, **meta, 'at': time.time()}
+    _verify_cache[mint] = (time.time(), rep)
+    if len(_verify_cache) > 5000:
+        _verify_cache.clear()
+    return rep
+
+
+async def _verify_fill(mint):
+    try:
+        await _verify_run(mint)
+    except Exception:
+        pass
+    finally:
+        _verify_pending.discard(mint)
+
+
+@app.get('/api/reputation/verify/batch')
+async def verify_batch(mints: str = Query('', max_length=4000)):
+    """Checks for logos on screen: answers from cache instantly, verifies missing coins in the background
+    (a few at a time), and always reflects Command Center grants/revokes immediately."""
+    store = _verify_store()['mints']
+    out = {}
+    for m in [x.strip() for x in mints.split(',') if x.strip()][:60]:
+        if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', m):
+            continue
+        manual = (store.get(m) or {}).get('state')
+        hit = _verify_cache.get(m)
+        if manual == 'revoked':
+            out[m] = {'level': 'revoked'}
+        elif manual == 'granted':
+            out[m] = {'level': 'gold', 'score': hit[1]['score'] if hit else None}
+        elif hit:
+            out[m] = {'level': hit[1]['level'], 'score': hit[1]['score']}
+        if (not hit or time.time() - hit[0] > VERIFY_TTL) and m not in _verify_pending and len(_verify_pending) < 6:
+            _verify_pending.add(m); asyncio.create_task(_verify_fill(m))
+    return {'verify': out}
+
+
+@app.get('/api/reputation/verify/{mint}')
+async def verify_one(mint: str, fresh: bool = False):
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', mint):
+        raise HTTPException(400, 'Bad mint.')
+    hit = _verify_cache.get(mint)
+    if hit and not fresh and time.time() - hit[0] < VERIFY_TTL:
+        return hit[1]
+    return await _verify_run(mint)
+
+
+class VerifyRequest(BaseModel):
+    address: str
+    session: str
+    mint: str
+    note: str = Field(default='', max_length=280)
+
+
+@app.post('/api/reputation/verify/request')
+async def verify_request(p: VerifyRequest):
+    """A creator asks for review (e.g. a strong coin that just misses a gate)."""
+    me = _session_or_401(p.address, p.session)
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.mint):
+        raise HTTPException(400, 'Bad mint.')
+    d = _verify_store()
+    if any(r['mint'] == p.mint and r.get('status') == 'open' for r in d['requests']):
+        return {'ok': True, 'queued': False}
+    d['requests'] = (d['requests'] + [{'mint': p.mint, 'by': me, 'note': p.note[:280], 'at': time.time(), 'status': 'open'}])[-300:]
+    _json_save(VERIFY_PATH, d)
+    return {'ok': True, 'queued': True}
+
+
+class VerifyAdminIn(BaseModel):
+    mint: str
+    action: str            # grant | revoke | clear
+    note: str = Field(default='', max_length=200)
+
+
+@app.post('/api/reputation/admin/coin-verify')
+async def verify_admin(request: Request, p: VerifyAdminIn):
+    admin = _require_admin(request)
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.mint) or p.action not in ('grant', 'revoke', 'clear'):
+        raise HTTPException(400, 'Mint + grant / revoke / clear.')
+    d = _verify_store()
+    if p.action == 'clear':
+        d['mints'].pop(p.mint, None)
+    else:
+        d['mints'][p.mint] = {'state': 'granted' if p.action == 'grant' else 'revoked', 'note': p.note, 'by': admin, 'at': time.time()}
+    for r in d['requests']:
+        if r['mint'] == p.mint and r.get('status') == 'open':
+            r['status'] = {'grant': 'granted', 'revoke': 'denied', 'clear': 'closed'}[p.action]
+    _json_save(VERIFY_PATH, d)
+    _verify_cache.pop(p.mint, None)
+    ad = _admin_load(); _audit(ad, admin, f'verify-{p.action}', p.mint); _admin_save(ad)
+    return {'ok': True, 'state': d['mints'].get(p.mint)}
+
+
+@app.get('/api/reputation/admin/coin-verify')
+async def verify_admin_list(request: Request):
+    _require_admin(request)
+    d = _verify_store()
+    auto = sorted((r for _, r in _verify_cache.values() if r.get('level') == 'verified'), key=lambda r: -r['score'])[:40]
+    return {'manual': [{'mint': m, **v} for m, v in d['mints'].items()], 'requests': [r for r in d['requests'] if r.get('status') == 'open'][-50:],
+            'auto': [{k: r.get(k) for k in ('mint', 'symbol', 'score', 'level', 'at')} for r in auto]}

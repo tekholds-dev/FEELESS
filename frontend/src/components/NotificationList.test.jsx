@@ -27,3 +27,10 @@ test('groups snipers-out alerts into one dropdown with a clickable coin and its 
   expect(rows[1].textContent).toContain('$CAT'); // older alert: ticker recovered from its text
   expect(host.querySelectorAll('.np-item')).toHaveLength(1);
 });
+
+test('a watched wallet buy opens a pre-quoted Quick trade', () => {
+  const host = document.createElement('div');
+  act(() => createRoot(host).render(<NotificationList items={[{ id: 'w1', kind: 'watch', text: '👁 Dev bought $CAT ($1,200)', url: '/terminal/chat?chain=solana&pair=P9', at: Date.now() / 1000, read: false }]} />));
+  const row = host.querySelector('[data-testid="np-watch"]');
+  expect(row.querySelector('.np-buy').getAttribute('href')).toBe('/terminal/chat?chain=solana&pair=P9&buy=1');
+});

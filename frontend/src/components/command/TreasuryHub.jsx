@@ -12,12 +12,13 @@ const WSOL = 'So11111111111111111111111111111111111111112';
 const USDC = 'EPjFWdd5AufqSSqeM2qJ1Mzybapc8G4wNGGkZwyTDt1v';
 const floor = (v, d) => Math.floor(v * 10 ** d + 1e-6) / 10 ** d;
 
-export function TreasuryHub({ call }) {
+export function TreasuryHub({ call, prefill }) {
   const { wallet, provider, connect } = useWallet() || {};
   const px = useSolUsd();
   const [d, setD] = useState(null);
-  const [asset, setAsset] = useState('SOL');
-  const [amount, setAmount] = useState('');
+  const [asset, setAsset] = useState(prefill?.asset || 'SOL');
+  const [amount, setAmount] = useState(prefill?.amount || '');
+  useEffect(() => { if (prefill) { setAsset(prefill.asset); setAmount(prefill.amount); } }, [prefill]);
   const [busy, setBusy] = useState('');
   const load = useCallback(() => call('/admin/treasury/money').then(setD).catch(e => toast.error(errorText(e))), [call]);
   useEffect(() => { load(); }, [load]);

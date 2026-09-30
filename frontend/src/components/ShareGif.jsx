@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import { renderShareGif } from '../lib/shareGif';
 
@@ -17,13 +18,13 @@ export function ShareGifButton({ card, label = '🎞 Share GIF', className = 'bt
   const canShare = !!file && !!navigator.canShare?.({ files: [file] });
   return <>
     <button type="button" className={className} disabled={busy} onClick={make} data-testid="share-gif">{busy ? 'Rendering…' : label}</button>
-    {gif && <div className="gif-overlay" role="dialog" aria-label="Share GIF" onPointerDown={e => e.target === e.currentTarget && setGif(null)}>
+    {gif && createPortal(<div className="gif-overlay" role="dialog" aria-label="Share GIF" onPointerDown={e => e.target === e.currentTarget && setGif(null)}>
       <div className="gif-card"><img src={gif.url} alt={card.title} /><footer>
         <small>{(gif.blob.size / 1048576).toFixed(1)} MB · GIF</small>
         <a className="btn-primary" href={gif.url} download={name}>⬇ Download</a>
         {canShare && <button type="button" className="btn-outline" onClick={() => navigator.share({ files: [file], title: card.title }).catch(() => {})}>Share…</button>}
         <button type="button" className="btn-outline" onClick={() => setGif(null)}>Close</button>
       </footer></div>
-    </div>}
+    </div>, document.body)}
   </>;
 }

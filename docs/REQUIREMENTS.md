@@ -83,6 +83,14 @@ Meteora's own validator checks the curve before you can sign. The warnings flag 
   - **Pump.fun coins:** launched from the same page.
   - **Pools for existing tokens:** created in the Pools tab.
   - Airdrops and badge payouts.
+- **Coin verification.** A coin earns a green ✓ on its logo, site-wide, by passing all 5 safety gates and scoring 70+ out of 100 on 8 cited checks:
+  - **Gates:** mint and freeze authority revoked, creator not flagged, 24h+ of trading, $25K+ liquidity.
+  - **Checks:** locked LP, holder spread, insider share, dev bag, socials, real volume, two-sided flow, 72h+ age.
+  - Official or reviewed coins get a gold ✦ granted in Cmd Ctr › Verify coins. A revoke always wins.
+  - Checks re-run every 6h. Case files and the coin passport show the same report.
+- **Fee's setup memory.** Fee files every closed trade under its setup buckets (1h move, flow, depth, age, 5m heat, market-cap band, lane, fair value gap).
+  - Setups with a proven edge size her up, to at most 1.5×. Setups that keep losing size her down, or veto the entry outright after 6+ trades at ≤20% wins and −8% or worse on average.
+  - Cmd Ctr › Fee 🐱 shows her playbook, her vetoes and her exit tuning.
 - **Lag catcher.** Browsers report API latency, long tasks and FPS once a minute. A device that lags switches itself to lite effects. The owner can force lite effects site-wide.
 
 ## Open items (not built yet)

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { WatchButton } from './WatchButton';
+import { VerifyReport } from './VerifyReport';
 import { apiUrl, errorText } from '../lib/api';
 
 const short = a => (a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '—');
@@ -57,6 +58,7 @@ function WalletCase({ c }) {
 function CoinCase({ c }) {
   const a = c.authorities || {};
   return <>
+    <VerifyReport mint={c.address} />
     <div className="cf-chips"><span className={a.mintAuthority ? 'bad' : 'ok'}>Mint {a.mintAuthority ? 'LIVE' : 'revoked'}</span><span className={a.freezeAuthority ? 'bad' : 'ok'}>Freeze {a.freezeAuthority ? 'LIVE' : 'revoked'}</span>
       <span>Top 10 {c.holders?.top10Pct ?? '—'}%</span><span>Dev {c.holders?.devHoldingPct ?? '—'}%</span><span>Insiders {c.holders?.insidersHoldingPct ?? '—'}%</span><span>{c.launch?.bundled} bundled · {c.launch?.snipers} snipers</span></div>
     <Evidence items={c.evidence} />
