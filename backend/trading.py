@@ -37,6 +37,15 @@ def valid_key(value):
         raise HTTPException(400, 'Invalid Solana public key')
     return value
 
+def rpc_pool() -> list:
+    """Primary first, then any backups: SOLANA_RPC_FALLBACKS (comma list), Alchemy, then free public nodes."""
+    urls = [os.environ.get('SOLANA_RPC_URL', '').strip()] + [u.strip() for u in os.environ.get('SOLANA_RPC_FALLBACKS', '').split(',')]
+    if os.environ.get('ALCHEMY_API_KEY', '').strip():
+        urls.append(f"https://solana-mainnet.g.alchemy.com/v2/{os.environ['ALCHEMY_API_KEY'].strip()}")
+    urls += ['https://solana-rpc.publicnode.com', 'https://api.mainnet-beta.solana.com']
+    return list(dict.fromkeys(u for u in urls if u.startswith('http')))
+
+
 class QuoteIn(BaseModel):
     input_mint: str
     output_mint: str
@@ -155,16 +164,25 @@ class TradingService:
             raise HTTPException(503, 'Trading execution is not configured. Add backend Jupiter and Solana RPC settings.')
 
     async def rpc(self, method, params):
+        """Reads fall through a pool (SOLANA_RPC_URL, then SOLANA_RPC_FALLBACKS / ALCHEMY_API_KEY, then public nodes) so one
+        rate-limited free plan never stops trading. sendTransaction only ever goes to the primary: no silent resubmits."""
         self.require_configured()
-        try:
-            res = await self.http.post(os.environ['SOLANA_RPC_URL'], json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}, timeout=15)
-            res.raise_for_status()
-            data = res.json()
-            if data.get('error'):
-                raise HTTPException(503, 'Solana RPC rejected the request. Try later or configure a dedicated RPC.')
-            return data.get('result')
-        except (httpx.HTTPError, ValueError):
-            raise HTTPException(503, 'Solana RPC unavailable. No transaction was submitted.')
+        urls = rpc_pool() if method != 'sendTransaction' else rpc_pool()[:1]
+        for url in urls:
+            try:
+                res = await self.http.post(url, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}, timeout=15)
+                if res.status_code in (401, 403, 429) or res.status_code >= 500:
+                    continue
+                res.raise_for_status()
+                data = res.json()
+                if data.get('error'):
+                    if (data['error'] or {}).get('code') in (-32005, 429):   # node-side rate limit: try the next one
+                        continue
+                    raise HTTPException(503, 'Solana RPC rejected the request. Try later or configure a dedicated RPC.')
+                return data.get('result')
+            except (httpx.HTTPError, ValueError):
+                continue
+        raise HTTPException(503, 'Solana RPC unavailable. No transaction was submitted.')
 
     async def jupiter(self, method, path, **kwargs):
         self.require_configured()

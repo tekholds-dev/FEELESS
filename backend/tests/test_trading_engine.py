@@ -216,3 +216,24 @@ def test_fee_selftest_probe_skips_balance_only_with_the_internal_key(engine, mon
     assert client.post('/api/trading/quote', json=body, headers={'x-feeless-internal': 'wrong'}).status_code == 400
     ok = client.post('/api/trading/quote', json=body, headers={'x-feeless-internal': 'k3y'})
     assert ok.status_code == 200 and ok.json()['feeless_fee']['bps'] == 1500
+
+
+def test_rpc_falls_through_rate_limited_nodes_but_never_resends(monkeypatch):
+    """A 429 / down primary falls through to the backups for reads; sendTransaction only ever hits the primary."""
+    import asyncio, httpx
+    monkeypatch.setenv('SOLANA_RPC_URL', 'https://primary'); monkeypatch.setenv('SOLANA_RPC_FALLBACKS', 'https://backup')
+    monkeypatch.setenv('JUPITER_API_KEY', 'k'); monkeypatch.delenv('ALCHEMY_API_KEY', raising=False)
+    hits = []
+
+    class Http:
+        async def post(self, url, json=None, timeout=None):
+            hits.append((url, json['method']))
+            if url == 'https://primary':
+                return httpx.Response(429, request=httpx.Request('POST', url))
+            return httpx.Response(200, json={'result': 'ok'}, request=httpx.Request('POST', url))
+    svc = trading.TradingService(None); svc._http = Http(); svc._http.is_closed = False
+    assert asyncio.run(svc.rpc('getBalance', ['x'])) == 'ok' and hits[-1][0] == 'https://backup'
+    hits.clear()
+    with pytest.raises(trading.HTTPException):
+        asyncio.run(svc.rpc('sendTransaction', ['tx']))
+    assert hits == [('https://primary', 'sendTransaction')]
