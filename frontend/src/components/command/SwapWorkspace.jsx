@@ -182,15 +182,18 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
     recoverSavedOrder(() => active).catch(() => {});
     return () => { active = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Follow the opened pair only when it changes — never re-force it after the user flips the direction.
+  const syncedPair = useRef(null);
   useEffect(() => {
     if (selectedPairAsset?.mint) {
+      if (syncedPair.current === selectedPairAsset.mint) return;
+      syncedPair.current = selectedPairAsset.mint;
       setOutputMint(selectedPairAsset.mint);
       setInputMint(SOL);
-    } else if (feeAsset?.mint && (outputMint === SOL || !options.some(asset => asset.mint === outputMint))) {
+    } else if (feeAsset?.mint && inputMint === SOL && (outputMint === SOL || !options.some(asset => asset.mint === outputMint))) {
       setOutputMint(feeAsset.mint);
-      setInputMint(SOL);
     }
-  }, [selectedPairAsset?.mint, feeAsset?.mint, options, outputMint]);
+  }, [selectedPairAsset?.mint, feeAsset?.mint, options, outputMint, inputMint]);
   const payHolding = holdings.find(h => h.mint === inputMint);   // after inputMint is declared
   // Same reserve as the server: a SOL-paid trade keeps ~0.0045 SOL for network fees + temporary rent.
   const SOL_RESERVE = 0.0045;

@@ -261,3 +261,20 @@ test('rug shield: a high-risk coin keeps Approve locked until the trader ticks "
   expect(dialog.querySelector('[data-testid="swap-approve-wallet"]').disabled).toBe(false);
   act(() => root.unmount());
 });
+
+test('reverse trade direction swaps pay/receive coins and keeps them swapped', async () => {
+  global.fetch = scripted();
+  const MINT = 'Coin1111111111111111111111111111111111111111';
+  const pair = { chainId: 'solana', baseToken: { address: MINT, symbol: 'DOGWIF' } };
+  const { container } = mount({ pair });
+  const side = id => container.querySelector(`[data-testid="${id}"]`).textContent;
+  expect(side('swap-input-asset')).toContain('SOL');
+  expect(side('swap-output-asset')).toContain('DOGWIF');
+  await act(async () => { container.querySelector('[data-testid="swap-reverse"]').click(); });
+  await act(async () => { await Promise.resolve(); });
+  expect(side('swap-input-asset')).toContain('DOGWIF');
+  expect(side('swap-output-asset')).toContain('SOL');
+  await act(async () => { container.querySelector('[data-testid="swap-reverse"]').click(); });
+  expect(side('swap-input-asset')).toContain('SOL');
+  expect(side('swap-output-asset')).toContain('DOGWIF');
+});
