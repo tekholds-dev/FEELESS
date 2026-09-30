@@ -10,8 +10,11 @@ export function FeeReport({ address }) {
   const [d, setD] = useState(null);
   useEffect(() => {
     let alive = true; setD(null);
-    fetch(apiUrl(`/api/reputation/fee-report/${address}`)).then(r => (r.ok ? r.json() : null)).then(x => alive && setD(x)).catch(() => {});
-    return () => { alive = false; };
+    const load = () => fetch(apiUrl(`/api/reputation/fee-report/${address}`)).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
+    load();
+    const onTrade = () => setTimeout(load, 4000);   // the fee lands in the ledger once the server confirms the trade
+    window.addEventListener('feeless:trade-confirmed', onTrade);
+    return () => { alive = false; window.removeEventListener('feeless:trade-confirmed', onTrade); };
   }, [address]);
   const days = Array.isArray(d?.days) ? d.days : Array(7).fill(0);
   const peak = Math.max(...days, 0);

@@ -16,8 +16,12 @@ function useJson(path) {
   const [d, setD] = useState(null);
   useEffect(() => {
     let alive = true; setD(null);
-    if (path) fetch(apiUrl(path)).then(r => (r.ok ? r.json() : null)).then(x => alive && setD(x)).catch(() => {});
-    return () => { alive = false; };
+    const load = fresh => path && fetch(apiUrl(fresh && path.includes('/portfolio/') ? `${path}?fresh=1` : path)).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
+    load(false);
+    // Trades change bags, moves, fees and season points: refresh the rails once the chain has settled.
+    const onTrade = () => setTimeout(() => load(true), 3000);
+    window.addEventListener('feeless:trade-confirmed', onTrade);
+    return () => { alive = false; window.removeEventListener('feeless:trade-confirmed', onTrade); };
   }, [path]);
   return d;
 }

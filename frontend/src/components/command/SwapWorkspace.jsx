@@ -252,9 +252,15 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
       const encoded = btoa(String.fromCharCode(...signed.serialize()));
       rememberPendingOrder(order.order_id);
       recoveredOrder.current = order.order_id;
-      const response = await request('/execute', { order_id: order.order_id, signed_transaction: encoded });
+      let response = await request('/execute', { order_id: order.order_id, signed_transaction: encoded });
       setResult(response);
-      if (response.signature && response.state !== 'failed') keepReceipt(response.signature, wallet.address, 'swap');
+      // Still landing: poll the status (never resend) so the fee, points and confirmation notice are recorded.
+      for (let i = 0; i < 30 && response.signature && !['confirmed', 'failed'].includes(response.state); i++) {
+        setMessage('Submitted — confirming on Solana…');
+        await new Promise(r => setTimeout(r, 2000));
+        try { response = await request(`/order/${encodeURIComponent(order.order_id)}`); setResult(response); } catch { /* keep polling */ }
+      }
+      if (response.signature && response.state === 'confirmed') keepReceipt(response.signature, wallet.address, 'swap');
       if (['confirmed', 'failed'].includes(response.state)) forgetPendingOrder();
       if (response.state === 'confirmed') window.dispatchEvent(new CustomEvent('feeless:trade-confirmed', { detail: { mint: outputMint === SOL ? inputMint : outputMint } }));
       setMessage(response.state === 'confirmed' ? 'Swap confirmed on-chain.' : response.state === 'failed' ? 'Swap failed. Inspect the transaction reference.' : 'Submitted / confirmation pending. Check status before another trade.');

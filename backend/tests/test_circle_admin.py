@@ -199,3 +199,25 @@ def test_nft_crossmint_create_drop_and_metaplex_record(monkeypatch, tmp_path):
     assert rec['address'] == COL and rec['status'] == 'live'
     meta = asyncio.run(rs.nft_meta(f"{mp['id']}-3.json", type('R', (), {'base_url': 'http://x/'})()))
     assert meta['name'] == 'Core Cards #3'
+
+
+def test_confirmed_trade_notifies_once_and_refreshes_holdings(monkeypatch, tmp_path):
+    """The trading service reports a confirmed trade: the fee lands in the ledger, the trader gets ONE notice
+    (deduped by signature with the receipt's), and their cached holdings are dropped."""
+    W = 'Aaaa1111111111111111111111111111111111111111'
+    SIG = '5' * 88
+    monkeypatch.setattr(rs, 'FEE_LEDGER_PATH', tmp_path / 'l.json'); monkeypatch.setattr(rs, 'REF_PATH', tmp_path / 'r.json')
+    monkeypatch.setattr(rs, 'REF_CFG_PATH', tmp_path / 'rc.json'); monkeypatch.setattr(rs, 'NOTIF_PATH', tmp_path / 'n.json')
+    monkeypatch.setattr(rs, 'SEASONS_PATH', tmp_path / 's.json'); monkeypatch.setattr(rs, 'season_award', lambda *a: None)
+    monkeypatch.setattr(rs, '_seasons', lambda: rs._json_load(tmp_path / 's.json', {'seasons': [], 'scores': {}}))
+    monkeypatch.setattr(rs, '_internal_key', lambda: 'k')
+    rs._pf_cache[W] = (0, {'stale': True})
+
+    class Req:
+        headers = {'x-feeless-internal': 'k'}
+    body = rs.TradeLanded(wallet=W, signature=SIG, inUsd=100, feeBps=50, inputMint=rs.WSOL, outputMint='Coin1111111111111111111111111111111111111111')
+    asyncio.run(rs.internal_trade(Req(), body))
+    asyncio.run(rs.internal_trade(Req(), body))   # duplicate report: ignored
+    box = rs._json_load(tmp_path / 'n.json', {})[W]
+    assert len(box) == 1 and box[0]['text'].startswith('✅ Buy confirmed') and W not in rs._pf_cache
+    assert rs._json_load(tmp_path / 'l.json', {})[W][0]['feeUsd'] == 0.5

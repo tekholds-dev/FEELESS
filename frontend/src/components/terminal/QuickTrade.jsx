@@ -143,11 +143,20 @@ function QuickTradeInner({ pair }) {
       const { VersionedTransaction } = await import('@solana/web3.js');
       const tx = VersionedTransaction.deserialize(Uint8Array.from(atob(order.quote.transaction), c => c.charCodeAt(0)));
       const signed = await Promise.race([provider.signTransaction(tx), new Promise((_, rej) => setTimeout(() => rej(new Error('Wallet did not respond. Open your wallet (check for a blocked popup) and tap again.')), WALLET_TIMEOUT_MS))]);
-      const res = await tradeApi('/execute', { order_id: order.order_id, signed_transaction: btoa(String.fromCharCode(...signed.serialize())) });
+      let res = await tradeApi('/execute', { order_id: order.order_id, signed_transaction: btoa(String.fromCharCode(...signed.serialize())) });
       setResult(res); setOrder(null);
-      window.dispatchEvent(new CustomEvent('feeless:trade-confirmed', { detail: { mint, side } }));
-      if (res.signature && res.state !== 'failed') keepReceipt(res.signature, wallet.address, side);
-      toast[res.state === 'failed' ? 'error' : 'success'](res.state === 'confirmed' ? 'Swap confirmed on-chain.' : res.state === 'failed' ? 'Swap failed.' : 'Submitted — confirming.');
+      // Still landing? Keep asking (never resending) until the chain answers: that check is also what records the fee,
+      // season points and the confirmation notification on the server.
+      for (let i = 0; i < 30 && res.signature && !['confirmed', 'failed'].includes(res.state); i++) {
+        if (i === 0) toast.message?.('Submitted — confirming on Solana…');
+        await new Promise(r => setTimeout(r, 2000));
+        try { res = await tradeApi(`/order/${order.order_id}`); setResult(res); } catch { /* keep polling */ }
+      }
+      if (res.state === 'confirmed') {
+        window.dispatchEvent(new CustomEvent('feeless:trade-confirmed', { detail: { mint, side, signature: res.signature } }));
+        keepReceipt(res.signature, wallet.address, side);
+      }
+      toast[res.state === 'failed' ? 'error' : 'success'](res.state === 'confirmed' ? `${side === 'buy' ? 'Buy' : 'Sell'} confirmed on-chain.` : res.state === 'failed' ? 'Swap failed. Nothing moved.' : 'Still confirming — check the transaction link before trading again.');
     } catch (e) { toast.error(e.code === 4001 ? 'Approval declined — nothing was sent.' : e.message); setOrder(null); } finally { setBusy(false); fetchOrder(); }
   };
   const outDecimals = order?.output_metadata?.decimals;

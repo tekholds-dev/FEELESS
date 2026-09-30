@@ -62,10 +62,13 @@ export function PortfolioCard({ address, onSwap }) {
   const [showAll, setShowAll] = useState(false);
   useEffect(() => {
     let alive = true;
-    const load = () => fetch(apiUrl(`/api/reputation/portfolio/${address}`)).then(r => r.json()).then(x => alive && setD(x)).catch(() => {});
+    const load = (fresh = false) => fetch(apiUrl(`/api/reputation/portfolio/${address}${fresh ? '?fresh=1' : ''}`)).then(r => r.json()).then(x => alive && setD(x)).catch(() => {});
     load(); const t = setInterval(load, 60000);
+    // Right after a trade: re-read the wallet (twice: RPC balances can lag a few seconds behind confirmation).
+    const onTrade = () => { setTimeout(() => load(true), 2500); setTimeout(() => load(true), 9000); };
+    window.addEventListener('feeless:trade-confirmed', onTrade);
     fetch(apiUrl('/api/market/assets')).then(r => r.json()).then(x => alive && setLogos(Object.fromEntries((x.assets || []).map(a => [a.mint, { logo: a.logo || a.pair?.info?.imageUrl, pair: a.pair?.pairAddress }])))).catch(() => {});
-    return () => { alive = false; clearInterval(t); };
+    return () => { alive = false; clearInterval(t); window.removeEventListener('feeless:trade-confirmed', onTrade); };
   }, [address]);
   if (!d?.supported) return null;
   const fmt = v => (v == null ? '—' : v >= 1000 ? `$${(v / 1000).toFixed(1)}K` : `$${v.toFixed(2)}`);

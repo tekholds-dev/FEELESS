@@ -3224,7 +3224,7 @@ async def store_receipt(payload: ReceiptIn, request: Request):
             _receipt_sigs[payload.sig] = payload.wallet
             try:  # confirmed on-chain → a receipt notification (the bell), linking the tx
                 label = {'swap': 'Swap', 'buy': 'Buy', 'sell': 'Sell', 'launch': 'Launch', 'pool': 'Pool creation', 'airdrop': 'Airdrop', 'transfer': 'Transfer', 'claim': 'Creator fee claim'}[kind]
-                notify(payload.wallet, 'reward', f"✅ {label} confirmed on-chain · {sol:+.4f} SOL", f'https://solscan.io/tx/{payload.sig}')
+                notify(payload.wallet, 'reward', f"✅ {label} confirmed on-chain · {sol:+.4f} SOL", f'https://solscan.io/tx/{payload.sig}', once=f'tx:{payload.sig}')
             except Exception:
                 pass
     return {'ok': True, 'receipt': row}
@@ -5315,12 +5315,12 @@ _pf_cache = {}
 
 
 @app.get('/api/reputation/portfolio/{address}')
-async def portfolio(address: str):
+async def portfolio(address: str, fresh: int = 0):
     a = primary_of(address)
     if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', a):
         return {'address': a, 'supported': False, 'tokens': [], 'totalUsd': None}
     hit = _pf_cache.get(a)
-    if hit and time.time() - hit[0] < 90:
+    if hit and time.time() - hit[0] < (8 if fresh else 90):   # fresh=1 right after a trade (still shielded from hammering)
         return hit[1]
     held = {}
     sol = 0.0
@@ -8153,6 +8153,16 @@ async def internal_trade(request: Request, p: TradeLanded):
     led[who] = (led.get(who) or [])[-1999:] + [row]
     _json_save(FEE_LEDGER_PATH, led)
     inviter = _json_load(REF_PATH, {'by': {}, 'of': {}})['of'].get(who)
+    # The trade is confirmed on-chain (the trading service checked): tell the trader and refresh their holdings,
+    # whether or not their browser is still open. Deduped with the receipt notification by signature.
+    stable = {WSOL, 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'}
+    side = 'Buy' if p.inputMint in stable and p.outputMint not in stable else 'Sell' if p.outputMint in stable else 'Swap'
+    try:
+        _pf_cache.pop(who, None); _badge_cache.pop(who, None)
+        notify(p.wallet, 'reward', f"✅ {side} confirmed on-chain" + (f" · ${p.inUsd:,.2f}" if p.inUsd else '') + (f" · +{pts:g} season pts" if pts > 0 else ''),
+               f'https://solscan.io/tx/{p.signature}', once=f'tx:{p.signature}')
+    except Exception:
+        pass
     pct = float(_json_load(REF_CFG_PATH, {}).get('pct') or 0)
     if inviter and pct > 0:
         _json_save(REF_EARN_PATH, fee_report.referral_credit(_json_load(REF_EARN_PATH, {}), inviter, who, row, pct, time.time()))
