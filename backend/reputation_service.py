@@ -6986,6 +6986,32 @@ async def version():
     return v
 
 
+@app.post('/api/reputation/local/update')
+async def local_update(request: Request):
+    """One-click update from the footer, for the machine running FEELESS itself: runs scripts/update.sh detached
+    (it restarts this service). Refused from anywhere but localhost, so a public site can never be poked."""
+    host = (request.client.host if request.client else '') or ''
+    origin = (request.headers.get('origin') or '').lower()
+    if host not in ('127.0.0.1', '::1', 'localhost') or (origin and not _re.match(r'^https?://(localhost|127\.0\.0\.1)(:\d+)?$', origin)):
+        raise HTTPException(403, 'Updates can only be started on the machine running FEELESS.')
+    root = Path(__file__).resolve().parents[1]
+    log = open('/tmp/feeless-update.log', 'w')
+    await asyncio.create_subprocess_exec('bash', str(root / 'scripts' / 'update.sh'), cwd=str(root), stdout=log, stderr=log, start_new_session=True)
+    _version_cache.clear()
+    return {'ok': True, 'log': '/tmp/feeless-update.log'}
+
+
+@app.get('/api/reputation/local/update-log')
+async def local_update_log(request: Request):
+    host = (request.client.host if request.client else '') or ''
+    if host not in ('127.0.0.1', '::1', 'localhost'):
+        raise HTTPException(403, 'Local only.')
+    try:
+        return {'log': Path('/tmp/feeless-update.log').read_text()[-4000:]}
+    except OSError:
+        return {'log': ''}
+
+
 # ---- Setup checklist for the command center: which keys/URLs are configured (never the values) ----
 SETUP_KEYS = [
     ('SOLANA_RPC_URL', 'Solana RPC (Helius)', 'Chain reads, forensics, trades feed', True),

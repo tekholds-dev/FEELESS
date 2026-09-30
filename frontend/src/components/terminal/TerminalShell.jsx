@@ -93,17 +93,31 @@ export const TerminalSidebar = ({ open, onClose, savedCount }) => {
 
 // Which code this machine runs vs GitHub main: a stale copy shows "N updates waiting" instead of silently lagging.
 export function BuildTag() {
-  const [v, setV] = useState(null);
+  const [v, setV] = useState(null); const [busy, setBusy] = useState(false); const [from, setFrom] = useState(null);
   useEffect(() => {
     let alive = true;
     const load = () => fetch(apiUrl('/api/reputation/version')).then(r => (r.ok ? r.json() : null)).then(d => alive && d && setV(d)).catch(() => {});
-    load(); const t = setInterval(load, 60000);
+    load(); const t = setInterval(load, busy ? 4000 : 60000);
     return () => { alive = false; clearInterval(t); };
-  }, []);
+  }, [busy]);
+  // The update landed (new commit on disk): reload so the browser runs it.
+  useEffect(() => { if (busy && from && v?.head && v.head !== from && !(v.behind > 0)) setTimeout(() => window.location.reload(), 2500); }, [busy, from, v]);
   if (!v?.head) return null;
   const stale = v.behind > 0 || (v.branch && v.branch !== 'main');
-  return <span className={`m-chip build-tag ${stale ? 'warn' : ''}`} data-testid="build-tag" title={stale ? `Run: ${v.fix}${v.dirty?.length ? ` · local edits: ${v.dirty.join(', ')}` : ''}` : 'Up to date with GitHub main'}>
-    build {v.head}{v.branch && v.branch !== 'main' ? ` · on ${v.branch}` : ''}{v.behind > 0 ? ` · ${v.behind} update${v.behind === 1 ? '' : 's'} waiting — run ${v.fix}` : stale ? '' : ' · up to date'}</span>;
+  const local = /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
+  const update = async () => {
+    setBusy(true); setFrom(v.head);
+    try { const r = await fetch(apiUrl('/api/reputation/local/update'), { method: 'POST' }); if (!r.ok) throw new Error(); }
+    catch { setBusy(false); window.alert(`Could not start the update here. In Terminal, from the FEELESS folder: ${v.fix}`); }
+  };
+  const label = <>build {v.head}{v.branch && v.branch !== 'main' ? ` · on ${v.branch}` : ''}{v.behind > 0 ? ` · ${v.behind} update${v.behind === 1 ? '' : 's'} waiting` : stale ? '' : ' · up to date'}</>;
+  return <>
+    <span className={`m-chip build-tag ${stale ? 'warn' : 'ok'}`} data-testid="build-tag" title={stale ? `Run: ${v.fix}` : 'Up to date with GitHub main'}>{label}</span>
+    {stale && <div className="m-note warn update-banner" role="alert" data-testid="update-banner"><b>This copy of FEELESS is out of date ({label}).</b>
+      {busy ? <span>Updating… the page reloads by itself when it lands (about 20–60s).</span>
+        : local ? <button type="button" className="m-btn primary" onClick={update}>⟳ Update now</button>
+          : <span>On the machine running FEELESS: <code>{v.fix}</code></span>}</div>}
+  </>;
 }
 
 export const TerminalFooter = () => <footer className="terminal-footer"><span>© {new Date().getFullYear()} FEELESS <BuildTag /></span><span>Non-custodial · Solana routing via Jupiter · Fee-Back planned</span><Link to="/terminal/whitepaper" data-testid="footer-whitepaper">Whitepaper / PDF ↗</Link></footer>;

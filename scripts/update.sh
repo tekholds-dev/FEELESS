@@ -14,7 +14,12 @@ fi
 before="$(git rev-parse HEAD)"
 git fetch -q origin main || { echo "Could not reach GitHub"; exit 1; }
 git checkout -q main 2>/dev/null || git checkout -q -b main origin/main
-git merge -q --ff-only origin/main || { echo "main has local commits that GitHub doesn't: run 'git reset --keep origin/main' if you don't need them"; exit 1; }
+if ! git merge -q --ff-only origin/main; then
+  # This copy's main went its own way: keep it on a backup branch (nothing lost), then match GitHub exactly.
+  backup="backup/main-$(date +%Y%m%d-%H%M%S)"
+  git branch -q "$backup" && echo "Local main saved as $backup"
+  git reset -q --keep origin/main || { echo "Could not move to origin/main; send this output to Claude"; exit 1; }
+fi
 echo "Now on $(git log --oneline -1)"
 if ! git diff --quiet "$before" HEAD -- frontend/package.json 2>/dev/null; then (cd frontend && yarn install --prefer-offline); fi
 bash scripts/start-backend.sh

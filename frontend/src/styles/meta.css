@@ -425,3 +425,5 @@ body.theme-day .my-pnl{background:#ffffffee!important}
 .terminal-content-grid.is-chart-wide>.community-rail{position:static;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px;align-items:start}
 @media(max-width:900px){.terminal-content-grid.is-chart-wide>.community-rail{grid-template-columns:1fr}}
 .build-tag{text-transform:none;margin-left:8px}
+.update-banner{position:fixed;left:16px;bottom:16px;z-index:60;max-width:min(420px,calc(100vw - 32px));display:grid;gap:8px;box-shadow:0 10px 30px #000a;text-transform:none}
+.update-banner code{font-family:var(--m-mono);color:var(--m-text)}
