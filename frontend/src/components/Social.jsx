@@ -49,11 +49,24 @@ const compactUsd = v => (!(v > 0) ? null : v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B
 // Older alerts carry only text ("Every sniper on your coin XYZ has sold out"): recover the ticker from it.
 const sniperCoin = n => n.meta || { symbol: (n.text.match(/your coin (\S+) has/) || [])[1] || 'coin' };
 
+const GROUP_AT = 3;
+const GROUP_LABEL = { dm: 'Messages', wall: 'Wall posts', mention: 'Mentions', invite: 'Invites', reward: 'Rewards', watch: 'Watched wallets', follow: 'New followers', calls: 'Calls' };
+function Row({ n, i }) {
+  if (n.kind === 'watch' && n.url?.includes('pair=')) {
+    // Watched wallet traded: jump straight into a pre-quoted Quick trade (rug shield runs before you sign).
+    return <div style={{ '--i': Math.min(i, 12) }} className={`np-item np-watch ${n.read ? '' : 'unread'} k-watch`} data-testid="np-watch"><span>👁</span><a href={n.url}><p>{n.text}</p></a><small>{ago(n.at)}</small>{/ bought /.test(n.text) && <a className="np-buy" href={`${n.url}&buy=1`}>Buy →</a>}</div>;
+  }
+  return <a href={n.url || '#'} style={{ '--i': Math.min(i, 12) }} className={`np-item ${n.read ? '' : 'unread'} k-${n.kind}`}><span>{ICONS[n.kind] || '🔔'}</span><p>{n.text}</p><small>{ago(n.at)}</small></a>;
+}
+
 // Snipers-out alerts collapse into one dropdown (one row per coin); everything else lists normally.
 export function NotificationList({ items }) {
   const snipers = items.filter(n => n.kind === 'snipers');
   const rest = items.filter(n => n.kind !== 'snipers');
   const unreadSnipers = snipers.filter(n => !n.read).length;
+  // Keep the newest-first order of kinds; each kind becomes a dropdown once it has GROUP_AT+ alerts.
+  const groups = [];
+  rest.forEach(n => { const g = groups.find(([k]) => k === n.kind); if (g) g[1].push(n); else groups.push([n.kind, [n]]); });
   return <>
     {snipers.length > 0 && <details className="np-group" data-testid="np-snipers">
       <summary className={unreadSnipers ? 'unread' : ''}><span>🎯</span><p><b>Snipers out</b> · {snipers.length} coin{snipers.length === 1 ? '' : 's'}</p>{unreadSnipers > 0 && <i className="np-count">{unreadSnipers}</i>}</summary>
@@ -64,10 +77,13 @@ export function NotificationList({ items }) {
         {n.url && <a className="np-buy" href={`${n.url}${n.url.includes('?') ? '&' : '?'}buy=1`}>Buy →</a>}
       </div>; })}
     </details>}
-    {rest.map((n, i) => n.kind === 'watch' && n.url?.includes('pair=')
-      // Watched wallet traded: jump straight into a pre-quoted Quick trade (rug shield runs before you sign).
-      ? <div key={n.id} style={{ '--i': Math.min(i, 12) }} className={`np-item np-watch ${n.read ? '' : 'unread'} k-watch`} data-testid="np-watch"><span>👁</span><a href={n.url}><p>{n.text}</p></a><small>{ago(n.at)}</small>{/ bought /.test(n.text) && <a className="np-buy" href={`${n.url}&buy=1`}>Buy →</a>}</div>
-      : <a key={n.id} href={n.url || '#'} style={{ '--i': Math.min(i, 12) }} className={`np-item ${n.read ? '' : 'unread'} k-${n.kind}`}><span>{ICONS[n.kind] || '🔔'}</span><p>{n.text}</p><small>{ago(n.at)}</small></a>)}
+    {groups.map(([kind, list]) => list.length >= GROUP_AT
+      // 3+ of one kind: one tidy dropdown instead of a wall of rows.
+      ? <details key={kind} className="np-group" data-testid={`np-group-${kind}`}>
+          <summary className={list.some(n => !n.read) ? 'unread' : ''}><span>{ICONS[kind] || '🔔'}</span><p><b>{GROUP_LABEL[kind] || kind}</b> · {list.length}</p>{list.filter(n => !n.read).length > 0 && <i className="np-count">{list.filter(n => !n.read).length}</i>}</summary>
+          {list.map((n, i) => <Row key={n.id} n={n} i={i} />)}
+        </details>
+      : list.map((n, i) => <Row key={n.id} n={n} i={i} />))}
   </>;
 }
 

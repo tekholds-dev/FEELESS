@@ -6885,7 +6885,7 @@ async def launch_rail_set(request: Request, p: LaunchRailIn):
     owner = ((info or {}).get('value') or {}).get('owner')
     if owner != DBC_PROGRAM:
         raise HTTPException(409, 'That config is not on-chain yet (or is not a Meteora DBC config). Wait for confirmation and retry.')
-    keep = {k: p.params[k] for k in ('initialMarketCap', 'migrationMarketCap', 'startingFeeBps', 'endingFeeBps', 'feeDecayMin', 'creatorFeePct', 'lockedLpPct', 'supply', 'quote', 'preset', 'buyBurn') if k in p.params}
+    keep = {k: p.params[k] for k in ('initialMarketCap', 'migrationMarketCap', 'startingFeeBps', 'endingFeeBps', 'feeDecayMin', 'creatorFeePct', 'lockedLpPct', 'supply', 'quote', 'preset', 'buyBurn', 'poolCreationFeeSol') if k in p.params}
     rec = {'config': p.config, 'feeClaimer': p.feeClaimer, 'params': keep, 'setBy': me, 'at': time.time()}
     d = _json_load(LAUNCH_RAIL_PATH, {})
     if p.scope == 'house':

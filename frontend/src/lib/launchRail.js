@@ -31,6 +31,8 @@ export function railWarnings(p) {
   if (n('creatorFeePct') >= 100) w.push('Creator gets 100% of fees: FEELESS earns nothing from this config.');
   if (n('migrationMarketCap') <= n('initialMarketCap') * 2) w.push('Graduation market cap should be well above the opening one (5×+).');
   if (p.buyBurn && !p.feeClaimerSet) w.push('Buy & burn: set the fee claimer to your buy-back wallet.');
+  const toll = Number(p.poolCreationFeeSol) || 0;
+  if (toll && (toll < 0.001 || toll > 100)) w.push('Outsider toll must be between 0.001 and 100 SOL (Meteora limits).');
   return w;
 }
 
@@ -62,7 +64,7 @@ export function curveFor(dbc, p = RAIL_DEFAULTS) {
     token: { tokenType: TokenType.SPLToken, tokenBaseDecimal: TokenDecimal.SIX, tokenQuoteDecimal: p.quote === 'USDC' ? 6 : 9, tokenAuthorityOption: TokenAuthorityOption.Immutable, totalTokenSupply: Number(p.supply), leftover: 0 },
     // Anti-snipe: fees start high and decay to the base fee over the first minutes of trading.
     fee: { baseFeeParams: { baseFeeMode: BaseFeeMode.FeeSchedulerExponential, feeSchedulerParam: { startingFeeBps: Number(p.startingFeeBps), endingFeeBps: Number(p.endingFeeBps), numberOfPeriod: 30, totalDuration: Number(p.feeDecayMin) * 60 } },
-      dynamicFeeEnabled: true, collectFeeMode: CollectFeeMode.QuoteToken, creatorTradingFeePercentage: Number(p.creatorFeePct), poolCreationFee: 0, enableFirstSwapWithMinFee: false },
+      dynamicFeeEnabled: true, collectFeeMode: CollectFeeMode.QuoteToken, creatorTradingFeePercentage: Number(p.creatorFeePct), poolCreationFee: Number(p.poolCreationFeeSol) || 0, enableFirstSwapWithMinFee: false },
     migration: { migrationOption: MigrationOption.MET_DAMM_V2, migrationFeeOption: MigrationFeeOption.FixedBps100, migrationFee: { feePercentage: 0, creatorFeePercentage: 0 } },
     // Graduated liquidity is split partner/creator; the locked share can never be pulled.
     liquidityDistribution: { partnerPermanentLockedLiquidityPercentage: Math.floor(locked / 2), partnerLiquidityPercentage: 50 - Math.floor(locked / 2), creatorPermanentLockedLiquidityPercentage: Math.ceil(locked / 2), creatorLiquidityPercentage: 50 - Math.ceil(locked / 2) },
@@ -112,6 +114,23 @@ export async function partnerFees(config, quoteDecimals = 9) {
   const rows = await client.state.getPoolsFeesByConfig(config);
   return rows.map(r => ({ pool: r.poolAddress.toBase58(), unclaimed: Number(r.partnerQuoteFee.toString()) / 10 ** quoteDecimals, total: Number(r.totalTradingQuoteFee.toString()) / 10 ** quoteDecimals }))
     .filter(r => r.unclaimed > 0).sort((a, b) => b.unclaimed - a.unclaimed);
+}
+
+// Every coin ever launched on a config, with who created it (house configs: spot outsiders).
+export async function configPools(config) {
+  const { client } = await sdk();
+  const pools = await client.state.getPoolsByConfig(config);
+  return pools.map(p => ({ pool: p.publicKey.toBase58(), creator: p.account.creator.toBase58(), mint: p.account.baseMint.toBase58() }));
+}
+
+// Fee claimer only: collect the pool-creation toll an outsider (or you) paid to launch on a house config.
+export async function claimCreationToll({ provider, feeClaimer, pool, onStatus }) {
+  const { web3, connection, client } = await sdk();
+  const me = new web3.PublicKey(feeClaimer);
+  const tx = await client.partner.claimPartnerPoolCreationFee({ pool: new web3.PublicKey(pool), feeReceiver: me });
+  const signature = await signSend(web3, connection, provider, tx, me, [], onStatus);
+  keepReceipt(signature, feeClaimer, 'claim');
+  return signature;
 }
 
 // Fee claimer only: move FEELESS's share out of one pool into the claimer's wallet. Simulated before signing.

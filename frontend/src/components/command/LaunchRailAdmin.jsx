@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
-import { RAIL_DEFAULTS, RAIL_PRESETS, railWarnings, checkRail, createLaunchRail, fetchLaunchRail, partnerFees, claimPartnerFees } from '../../lib/launchRail';
+import { RAIL_DEFAULTS, RAIL_PRESETS, railWarnings, checkRail, createLaunchRail, fetchLaunchRail, partnerFees, claimPartnerFees, configPools, claimCreationToll } from '../../lib/launchRail';
 import { CopyBtn } from '../CopyBtn';
 import { useSolPrice, usd } from '../../lib/solPrice';
 import { TreasurySend } from './TreasurySend';
@@ -38,6 +38,25 @@ function PartnerFees({ configs }) {
     <p className="cc-empty">Every coin launched on your configs pays FEELESS its share of trading fees. It waits inside that coin's pool until the fee claimer wallet signs a claim — then it lands in that wallet.</p>
     {rows && !rows.length && <p className="cc-empty">Nothing to claim yet.</p>}
     {(rows || []).slice(0, 20).map(r => <div key={r.pool} className="rail-house"><b>{r.label}</b><span>{r.unclaimed.toFixed(5)} {r.quote === 'USDC' ? 'USDC' : 'SOL'} unclaimed · pool <code>{r.pool.slice(0, 4)}…{r.pool.slice(-4)}</code></span><button type="button" className="btn-primary" disabled={!!busy} onClick={() => claim(r)}>{busy || (wallet?.address === r.feeClaimer ? 'Claim' : 'Connect claimer')}</button></div>)}
+  </div>;
+}
+
+// Coins launched on house configs. Created by an owner wallet = house coin; anyone else = outsider (they paid your toll).
+function HouseCoins({ house, owners }) {
+  const { wallet, provider, connect } = useWallet() || {};
+  const [rows, setRows] = useState(null);
+  const [busy, setBusy] = useState('');
+  useEffect(() => { Promise.all(house.map(h => configPools(h.config).then(r => r.map(x => ({ ...x, label: h.label, feeClaimer: h.feeClaimer, toll: h.params?.poolCreationFeeSol }))).catch(() => []))).then(a => setRows(a.flat())); }, [house]);
+  const own = new Set(owners || []);
+  const claim = async r => {
+    try {
+      if (wallet?.address !== r.feeClaimer) { await connect?.('solana'); return; }
+      await claimCreationToll({ provider, feeClaimer: wallet.address, pool: r.pool, onStatus: setBusy }); toast.success('Toll claimed.');
+    } catch (e) { toast.error(e.message?.includes('Claimed') ? 'Already claimed.' : e.message || 'Claim failed'); } finally { setBusy(''); }
+  };
+  return <div className="cc-block"><h4>🏠 Coins on house configs <small className="chain-tag">{rows ? `${rows.filter(r => own.has(r.creator)).length} house · ${rows.filter(r => !own.has(r.creator)).length} outsiders` : 'reading…'}</small></h4>
+    {rows && !rows.length && <p className="cc-empty">No coins launched on house configs yet.</p>}
+    {(rows || []).slice(0, 30).map(r => <div key={r.pool} className="rail-house"><b className={own.has(r.creator) ? 'hc-house' : 'hc-out'}>{own.has(r.creator) ? '🏠 House' : '⚠ Outsider'}</b><span>{r.label} · mint <code>{r.mint.slice(0, 4)}…{r.mint.slice(-4)}</code> · by <code>{r.creator.slice(0, 4)}…{r.creator.slice(-4)}</code></span>{Number(r.toll) > 0 && <button type="button" className="btn-outline" disabled={!!busy} onClick={() => claim(r)}>{busy || `Claim ${r.toll} SOL toll`}</button>}</div>)}
   </div>;
 }
 
@@ -117,9 +136,10 @@ export function LaunchRailAdmin({ call, isOwner }) {
       if (!wallet?.address || wallet.chain !== 'solana' || !provider?.signTransaction) { await connect?.('solana'); return; }
       const fc = claimer.trim() || wallet.address;
       setStatus('Building and dry-running the config…');
-      const r = await createLaunchRail({ provider, owner: wallet.address, feeClaimer: fc, params: p, onStatus: setStatus });
+      const params = scope === 'house' ? { ...p, poolCreationFeeSol: Number(p.poolCreationFeeSol ?? 5) || 0 } : { ...p, poolCreationFeeSol: 0 };
+      const r = await createLaunchRail({ provider, owner: wallet.address, feeClaimer: fc, params, onStatus: setStatus });
       setStatus('Saving…');
-      await call('/admin/launch-rail', { method: 'PUT', body: JSON.stringify({ config: r.config, feeClaimer: fc, params: { ...p, preset }, scope, label: houseLabel }) });
+      await call('/admin/launch-rail', { method: 'PUT', body: JSON.stringify({ config: r.config, feeClaimer: fc, params: { ...params, preset }, scope, label: houseLabel }) });
       toast.success('FEELESS launch rail is live');
       setStatus(''); load();
     } catch (e) { setStatus(''); toast.error(e.message || 'Could not create the launch config'); }
@@ -164,13 +184,16 @@ export function LaunchRailAdmin({ call, isOwner }) {
         </div>
         <div className="rail-scope"><div className="bdg-seg" role="radiogroup" aria-label="Who launches on this config">{[['public', '🌐 Public site config'], ['house', '🏠 House config (owners only)']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={scope === k} className={scope === k ? 'active' : ''} onClick={() => setScope(k)}>{l}</button>)}</div>
           <small className="cc-empty">{scope === 'public' ? 'Used by the Launch page for everyone. Creating a new one replaces it for new coins only.' : 'Only owners see it on the Launch page, for FEELESS\'s own coins (e.g. your fee reserve coin). Set its fee claimer to the wallet that should earn from it. It never replaces the public config.'}</small>
-          {scope === 'house' && <input placeholder="House config name (e.g. Reserve coins)" maxLength={40} value={houseLabel} onChange={e => setHouseLabel(e.target.value)} />}</div>
+          {scope === 'house' && <><input placeholder="House config name (e.g. Reserve coins)" maxLength={40} value={houseLabel} onChange={e => setHouseLabel(e.target.value)} />
+            <label className="bdg-pct"><input inputMode="decimal" value={p.poolCreationFeeSol ?? '5'} onChange={e => setP(v => ({ ...v, poolCreationFeeSol: e.target.value.replace(/[^0-9.]/g, '') }))} /><span>SOL outsider toll</span></label>
+            <small className="cc-empty">Meteora configs can't block other launchers on-chain, so house configs charge a <b>launch toll</b> paid to your fee claimer. An outsider launching on it pays you {Number(p.poolCreationFeeSol ?? 5) || 0} SOL. You pay it too when you launch, then claim 90% back (Meteora keeps 10%) — so each of your own launches costs ≈ {((Number(p.poolCreationFeeSol ?? 5) || 0) * 0.1).toFixed(3)} SOL. Outsider coins are flagged below and never count as house coins on the site.</small></>}</div>
         <button type="button" className="btn-primary" disabled={!!status || check?.ok === false} onClick={create}>{status || (wallet?.chain === 'solana' ? `Create ${scope === 'house' ? 'a house' : rail?.ready ? 'a new public' : 'the public'} launch config · sign with ${wallet.address.slice(0, 4)}…` : 'Connect Solana wallet')}</button>
         <small className="cc-empty">Any owner wallet can sign; switch wallets in Phantom and reconnect to use a different one. The transaction is simulated before you're asked to sign.</small>
       </> : <p className="cc-empty">Only the owner wallet can create the launch config.</p>}
     </div>
     {rail?.house?.length > 0 && <div className="cc-block"><h4>🏠 House configs <small className="chain-tag">owners launch with these from the Launch page</small></h4>
       {rail.house.map(h => <div key={h.config} className="rail-house"><b>{h.label}</b><span>{Number(h.params?.initialMarketCap ?? 30)} → {Number(h.params?.migrationMarketCap ?? 500)} {h.params?.quote === 'USDC' ? 'USDC' : 'SOL'} · snipe tax {Number(h.params?.startingFeeBps ?? 9900) / 100}% · fees to <code>{h.feeClaimer.slice(0, 4)}…{h.feeClaimer.slice(-4)}</code></span><a href={`https://solscan.io/account/${h.config}`} target="_blank" rel="noreferrer">config ↗</a></div>)}</div>}
+    {rail?.house?.length > 0 && <HouseCoins house={rail.house} owners={owners} />}
     {rail?.ready && <PartnerFees configs={[{ label: 'Public', config: rail.config, feeClaimer: rail.feeClaimer, quote: rail.params?.quote }, ...(rail.house || []).map(h => ({ label: h.label, config: h.config, feeClaimer: h.feeClaimer, quote: h.params?.quote }))]} />}
   </section>;
 }

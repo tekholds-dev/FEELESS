@@ -36,6 +36,7 @@ export function IntelRail({ address }) {
       </>}
       <button type="button" className="wpr-btn" onClick={() => investigate(address)}>🔎 Open case file</button>
     </div>
+    <RecentMoves address={address} />
   </aside>;
 }
 
@@ -60,6 +61,7 @@ export function SeasonRail({ address }) {
       {pools.map(p => <div key={p.id} className="wpr-pot"><span>🎖 {p.name}</span><b>{p.me.sol} SOL</b><em>{p.me.why ? `earned by ${p.me.why}` : `${p.me.sharePct}% of the pot`}</em></div>)}
       <Link className="wpr-link" to="/terminal/seasons">Season board →</Link>
     </div>
+    <TopBags address={address} />
     <div className="wpr-card">
       <small>MOVES</small>
       <div className="wpr-moves">
@@ -80,4 +82,29 @@ export function AfterSell({ address }) {
     <div className="after-sell-list">{d.rows.map(x => <Link key={x.token + x.ts} to={x.pair ? `/terminal/chat?chain=solana&pair=${x.pair}` : `/terminal/coin/solana/${x.token}`} className={`after-sell-row l-${x.lesson}`}>
       <b>${x.symbol || x.token.slice(0, 4)}</b><span>{x.movePct >= 0 ? '+' : ''}{x.movePct >= 900 ? `${(x.movePct / 100 + 1).toFixed(1)}x` : `${x.movePct}%`} since you sold</span>
       <em>{x.lesson === 'runner' ? '🧠 sold a runner' : x.lesson === 'saved' ? '✅ good exit' : '·'}</em></Link>)}</div></section>;
+}
+
+const usdC = v => (v == null ? '—' : v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v)}`);
+const agoS = ts => { const s2 = Math.max(0, Date.now() / 1000 - ts); return s2 < 3600 ? `${Math.floor(s2 / 60)}m` : s2 < 86400 ? `${Math.floor(s2 / 3600)}h` : `${Math.floor(s2 / 86400)}d`; };
+
+// Last few swaps this wallet made, newest first: side, coin, size, when. One click to the coin.
+function RecentMoves({ address }) {
+  const d = useJson(`/api/reputation/wallet-trades/${address}`);
+  const rows = (d?.trades || []).slice(0, 4);
+  if (!rows.length) return null;
+  const buys = (d.trades || []).filter(t => t.side === 'buy').length;
+  return <div className="wpr-card" data-testid="rail-moves"><small>RECENT MOVES <em>{buys}B · {(d.trades || []).length - buys}S</em></small>
+    {rows.map(t => <Link key={t.tx || t.ts} className="wpr-move" to={t.pair ? `/terminal/chat?chain=solana&pair=${t.pair}` : `/terminal/coin/solana/${t.token}`}>
+      <i className={t.side === 'buy' ? 'b' : 's'}>{t.side === 'buy' ? 'B' : 'S'}</i><b>${t.symbol || String(t.token).slice(0, 4)}</b><span>{usdC(t.usd)}</span><em>{agoS(t.ts)}</em></Link>)}
+  </div>;
+}
+
+// Biggest bags right now, with the total value. Links to each coin.
+function TopBags({ address }) {
+  const d = useJson(`/api/reputation/portfolio/${address}`);
+  const rows = (d?.tokens || []).filter(t => t.usd).slice(0, 3);
+  if (!d || d.supported === false || (!rows.length && !d.totalUsd)) return null;
+  return <div className="wpr-card" data-testid="rail-bags"><small>TOP BAGS <em>{usdC(d.totalUsd)} total</em></small>
+    {rows.map(t => <Link key={t.mint} className="wpr-move" to={`/terminal/coin/solana/${t.mint}`}>{t.logo ? <img src={t.logo} alt="" /> : <i className="b">{(t.symbol || '?').slice(0, 1)}</i>}<b>${t.symbol || t.mint.slice(0, 4)}</b><span>{usdC(t.usd)}</span><em>{d.totalUsd ? `${Math.round((t.usd / d.totalUsd) * 100)}%` : ''}</em></Link>)}
+  </div>;
 }

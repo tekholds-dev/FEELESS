@@ -34,3 +34,16 @@ test('a watched wallet buy opens a pre-quoted Quick trade', () => {
   const row = host.querySelector('[data-testid="np-watch"]');
   expect(row.querySelector('.np-buy').getAttribute('href')).toBe('/terminal/chat?chain=solana&pair=P9&buy=1');
 });
+
+test('three or more of one kind collapse into a dropdown; fewer stay as rows', () => {
+  const now = Date.now() / 1000;
+  const host = document.createElement('div');
+  const items = [1, 2, 3].map(i => ({ id: `m${i}`, kind: 'mention', text: `@you mention ${i}`, url: '/x', at: now - i, read: i > 1 }))
+    .concat([{ id: 'd1', kind: 'dm', text: 'hey', url: '/dm', at: now, read: false }]);
+  act(() => createRoot(host).render(<NotificationList items={items} />));
+  const g = host.querySelector('[data-testid="np-group-mention"]');
+  expect(g.querySelector('summary').textContent).toContain('Mentions · 3');
+  expect(g.querySelector('.np-count').textContent).toBe('1');
+  expect(host.querySelector('[data-testid="np-group-dm"]')).toBeNull();
+  expect(host.querySelectorAll('a.k-dm')).toHaveLength(1);
+});

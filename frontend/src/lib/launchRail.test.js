@@ -14,3 +14,8 @@ test('flags weak anti-snipe, steep fees and withdrawable liquidity', () => {
   expect(w).toMatch(/Normal fee 10% is steep/);
   expect(w).toMatch(/20% of graduated liquidity/);
 });
+
+test('house outsider toll must respect Meteora limits', () => {
+  expect(railWarnings({ ...RAIL_DEFAULTS, poolCreationFeeSol: 5 }).join(' ')).not.toMatch(/toll/);
+  expect(railWarnings({ ...RAIL_DEFAULTS, poolCreationFeeSol: 500 }).join(' ')).toMatch(/Outsider toll must be between/);
+});
