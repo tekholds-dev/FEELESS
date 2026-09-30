@@ -22,6 +22,7 @@ import money_pulse
 import badge_cards
 import intel_desk
 import nft_studio
+import coin_meta
 from ecosystem import ecosystem_mints
 import asyncio
 import collections
@@ -5862,8 +5863,10 @@ async def theme_get(address: str):
         if not seen.get(a):
             seen[a] = time.time(); _json_save(DATA_DIR / 'perk_notices.json', seen)
             notify(a, 'perk', f'🏗 Pool builder unlocked — you hold ${held:,.0f} of $FEE coins. Open your profile to build pools.', f'/terminal/profile/{a}', a)
-    return {'address': a, 'holdingUsd': held, 'poolBuilder': held >= POOL_BUILDER_MIN_USD, 'minUsd': THEME_MIN_USD, 'eligible': held >= THEME_MIN_USD,
-            'theme': saved if held >= THEME_MIN_USD else None}
+    staff = a in {primary_of(w) for w in _admin_wallets()}   # the creator / admin wallets always get their colors
+    ok = staff or held >= THEME_MIN_USD
+    return {'address': a, 'holdingUsd': held, 'poolBuilder': held >= POOL_BUILDER_MIN_USD, 'minUsd': THEME_MIN_USD, 'eligible': ok, 'staff': staff,
+            'theme': saved if ok else None}
 
 
 class ThemePayload(BaseModel):
@@ -5883,7 +5886,7 @@ async def theme_set(p: ThemePayload):
             raise HTTPException(400, 'Colors must be #RRGGBB.')
     a = primary_of(p.address)
     held = await _eco_holding_usd(a)
-    if held < THEME_MIN_USD:
+    if held < THEME_MIN_USD and a not in {primary_of(w) for w in _admin_wallets()}:
         raise HTTPException(403, f'Custom site colors unlock at ${THEME_MIN_USD:,.0f} held across $FEE coins (you hold ${held:,.2f}).')
     d = _json_load(THEMES_PATH, {})
     d[a] = {'accent': p.accent, 'accent2': p.accent2 or p.accent, 'logo': p.logo or p.accent, 'at': time.time()}
@@ -7297,6 +7300,33 @@ async def pools_register(request: Request, p: PoolRegIn):
 LOGO_DIR = DATA_DIR / 'logos'
 IPFS_GATEWAYS = ['https://cloudflare-ipfs.com/ipfs/', 'https://gateway.pinata.cloud/ipfs/', 'https://nftstorage.link/ipfs/', 'https://dweb.link/ipfs/', 'https://ipfs.io/ipfs/']
 _logo_miss: dict = {}
+LOGO_OVERRIDE_PATH = DATA_DIR / 'logo_overrides.json'
+
+
+class LogoIn(BaseModel):
+    mint: str
+    image: str = ''       # an upload path; empty clears the override
+
+
+@app.post('/api/reputation/admin/token-logo')
+async def admin_token_logo(request: Request, p: LogoIn):
+    """Owner sets a coin's logo by hand (FEELESS coins first). Clears the cached lookup so it shows everywhere now."""
+    me = _require_admin(request)
+    if not _re.match(_B58, p.mint):
+        raise HTTPException(400, 'Solana mint required.')
+    if p.image and not _re.match(r'^/api/reputation/uploads/[a-f0-9]{32}\.(png|jpg|webp|gif)$', p.image):
+        raise HTTPException(400, 'Upload the image first.')
+    d = _json_load(LOGO_OVERRIDE_PATH, {})
+    if p.image:
+        d[p.mint] = p.image
+    else:
+        d.pop(p.mint, None)
+    _json_save(LOGO_OVERRIDE_PATH, d)
+    for f in LOGO_DIR.glob(f'{p.mint}.*'):
+        f.unlink(missing_ok=True)
+    _logo_miss.pop(p.mint, None)
+    ad = _admin_load(); _audit(ad, me, 'token-logo', f"{p.mint[:6]}… {'set' if p.image else 'cleared'}"); _admin_save(ad)
+    return {'ok': True, 'mint': p.mint, 'image': p.image}
 _logo_locks: dict = {}
 
 
@@ -7329,9 +7359,12 @@ async def token_logo(mint: str):
     LOGO_DIR.mkdir(parents=True, exist_ok=True)
     hit = next(LOGO_DIR.glob(f'{mint}.*'), None)
     headers = {'Cache-Control': 'public, max-age=604800, immutable'}
+    over = _json_load(LOGO_OVERRIDE_PATH, {}).get(mint)
+    if over and (UPLOAD_DIR / over.rsplit('/', 1)[-1]).exists():   # owner-set logo (Cmd Ctr) always wins
+        return FileResponse(UPLOAD_DIR / over.rsplit('/', 1)[-1], headers={'Cache-Control': 'public, max-age=300'})
     if hit:
         return FileResponse(hit, headers=headers)
-    if time.time() - _logo_miss.get(mint, 0) < 3600:
+    if time.time() - _logo_miss.get(mint, 0) < 600:
         raise HTTPException(404, 'No logo found.')
     lock = _logo_locks.setdefault(mint, asyncio.Lock())
     async with lock:
@@ -7350,6 +7383,22 @@ async def token_logo(mint: str):
                 cands += [x.get('icon') for x in d if x.get('id') == mint]
             except Exception:
                 pass
+            try:   # on-chain Metaplex metadata: works on any RPC (getAsset below is Helius-only)
+                acct = await _rpc(http, 'getAccountInfo', [coin_meta.metadata_pda(mint), {'encoding': 'base64'}])
+                data = (((acct or {}).get('value') or {}).get('data') or [None])[0]
+                if data:
+                    uri = coin_meta.parse_metadata(data).get('uri')
+                    if uri:
+                        meta = await _fetch_first(http, _ipfs_variants(uri), want_json=True)
+                        cands.append((meta or {}).get('image'))
+            except Exception:
+                pass
+            if mint.endswith('pump'):
+                try:
+                    d = (await http.get(f'https://frontend-api-v3.pump.fun/coins/{mint}', timeout=8)).json()
+                    cands.append((d or {}).get('image_uri'))
+                except Exception:
+                    pass
             try:
                 a = await _rpc(http, 'getAsset', {'id': mint})
                 c = (a or {}).get('content') or {}

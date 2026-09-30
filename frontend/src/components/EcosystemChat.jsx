@@ -249,7 +249,7 @@ function EcosystemChatInner({ ecosystem, room: roomProp, compact = false, onConn
     } catch (nextError) { setError(nextError.message || 'Profile flag was not recorded.'); }
   };
   const openProfile = message => { const a = message.profile?.address || message.address; if (a && !message.system) window.open(`/terminal/profile/${a}`, '_blank', 'noopener'); else setInspected(message.profile || { address: message.address, chain: message.chain, username: message.username }); };
-  return <div className={`ecosystem-chat ${compact ? 'compact-chat' : ''}`} data-testid={`chat-${room}`}>
+  return <AlphaFrame on={String(room).startsWith('alpha-')}><div className={`ecosystem-chat ${compact ? 'compact-chat' : ''}`} data-testid={`chat-${room}`}>
     {launchRooms && <nav className="chat-subrooms">{launchRooms.map(([id, label]) => <button key={id || 'general'} type="button" className={subRoom === id ? 'active' : ''} onClick={() => setSubRoom(id)}>{label}</button>)}{subRoom === 'feeless-updates' && <small>Read-only · admins post</small>}</nav>}
     {!compact && <div className="chat-room-heading"><MessageCircle size={17} /><strong>{ecosystem?.name || 'General'}</strong><span className="data-status"><i />POLLING</span></div>}
     <div className="chat-identity" data-testid={`chat-identity-${room}`}><span>#{room}</span><select className="chat-filter" aria-label="Filter messages" value={prefs.filter} onChange={e => setPrefs({ filter: e.target.value })}><option value="all">All</option><option value="calls">Calls only</option><option value="trusted">Trusted posters</option><option value="mentions">Mentions me</option></select><button type="button" className={`chat-gear ${prefsOpen ? 'on' : ''}`} aria-label="Chat settings" aria-expanded={prefsOpen} onClick={() => setPrefsOpen(o => !o)}>⚙</button>{wallet ? <span className="chat-wallet-state"><i />SIGNED · {displayAddress(wallet.address)}</span> : <button type="button" onClick={onConnect}>Connect wallet to post</button>}</div>
@@ -272,10 +272,16 @@ function EcosystemChatInner({ ecosystem, room: roomProp, compact = false, onConn
     {cmdCard && <CommandCard card={cmdCard} onClose={() => setCmdCard(null)} />}
     <form onSubmit={send} className="chat-compose"><SlashMenu input={input} tier={myTier} onPick={c => setInput(`/${c.cmd}${c.args ? ' ' : ''}`)} />{myTier >= 2 && <button type="button" className={`chat-boost ${boostNext ? 'on' : ''}`} onClick={() => setBoostNext(b => !b)} title="Boost this message (Fee Insider perk, 1 per 10 min)" aria-label="Boost message">⚡</button>}<input aria-label="Chat message" data-testid={`chat-input-${room}`} value={input} onChange={e => setInput(e.target.value)} maxLength={500} disabled={Boolean(gate?.gated && !gate.allowed && wallet && !gate.needsChain)} placeholder={replyTarget ? 'Write a reply…' : 'Drop alpha, $TICKER, CA: … or type / for commands'} /><button aria-label="Send message" data-testid={`chat-send-${room}`} disabled={sending || !input.trim()}>{sending ? <span className="loader" /> : <Send size={16} />}</button></form>
     {inspected && <div className="chat-profile-popover" role="dialog" aria-label="Chat profile"><button type="button" className="chat-profile-close" aria-label="Close profile" onClick={() => setInspected(null)}><X size={14} /></button><div className="profile-cover small-cover" style={inspected.backgroundUrl ? { backgroundImage: `url(${inspected.backgroundUrl})` } : {}} /><div className="chat-profile-body"><div className="profile-picture small-picture">{inspected.avatarUrl ? <img src={inspected.avatarUrl} alt="" /> : <UserRound size={20} />}</div>{inspected.hidden ? <><strong>Private wallet</strong><p>This creator keeps profile details and flag count private.</p></> : <><strong>{profileLabel(inspected)}</strong><small>{displayAddress(inspected.address)} · {inspected.category || 'Trader'}</small>{inspected.bio && <p>{inspected.bio}</p>}<div className="chat-profile-links">{inspected.xUrl && <a href={inspected.xUrl} target="_blank" rel="noreferrer"><ExternalLink size={12} />X</a>}{inspected.websiteUrl && <a href={inspected.websiteUrl} target="_blank" rel="noreferrer"><Link2 size={12} />Website</a>}</div><div className="chat-profile-footer"><span><Flag size={12} />{inspected.flagCount || 0} flags</span><button type="button" onClick={() => flagProfile(inspected)}><Flag size={12} />Flag profile</button></div></>}<a className="btn-primary chat-profile-go" href={`/terminal/profile/${inspected.address}`} data-testid="chat-goto-profile">Go to profile →</a></div></div>}
-  </div>;
+  </div></AlphaFrame>;
 }
 
 // Safety net: a broken chat never takes the page down (see PanelBoundary).
+// Alpha rooms get a living frame: rotating neon ring, breathing inner glow, sweeping ALPHA tag.
+function AlphaFrame({ on, children }) {
+  if (!on) return children;
+  return <div className="alpha-frame" data-testid="alpha-frame"><span className="alpha-ring" aria-hidden="true" /><span className="alpha-glow" aria-hidden="true" /><span className="alpha-tag" aria-hidden="true">ALPHA</span>{children}</div>;
+}
+
 export default function EcosystemChat(props) {
   return <PanelBoundary name="Chat" resetKey={JSON.stringify(props.pair?.pairAddress || props.room || props.mint || '')}><EcosystemChatInner {...props} /></PanelBoundary>;
 }

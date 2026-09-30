@@ -318,3 +318,29 @@ body.fx-lite .mc-sweep { display: none; }
 .nft-detail { display: grid; grid-template-columns: 300px 1fr; gap: 18px; align-items: start; }
 @media (max-width: 900px) { .nft-wiz, .nft-detail { grid-template-columns: 1fr; justify-items: center; } }
 .invite-code { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; font-family: var(--m-mono); color: var(--m-accent); }
+
+/* Alpha room chat frame: rotating conic ring behind a 2px gap, breathing glow, sweeping tag (transform/opacity only) */
+.alpha-frame { position: relative; padding: 3px; border-radius: 16px; overflow: hidden; isolation: isolate; box-shadow: 0 0 22px #16d67f26; }
+.alpha-ring { position: absolute; left: 50%; top: 50%; width: 260%; height: 260%; z-index: -2; pointer-events: none; transform: translate(-50%, -50%);
+  background: conic-gradient(from 0deg, transparent 0 30%, #16d67f 42%, #f5c451 50%, #ff5ad1 56%, #7cc8ff 62%, transparent 72% 100%); animation: alphaSpin 5s linear infinite; will-change: transform; }
+.alpha-glow { position: absolute; inset: 2px; border-radius: 14px; z-index: -1; pointer-events: none; box-shadow: inset 0 0 28px #16d67f40, 0 0 0 1px #16d67f33; animation: alphaBreath 2.6s ease-in-out infinite; }
+.alpha-frame > .ecosystem-chat { position: relative; z-index: 0; border-radius: 14px; background: #040b07; }
+.alpha-tag { position: absolute; top: 8px; right: 12px; z-index: 2; pointer-events: none; overflow: hidden; padding: 2px 8px; border-radius: 999px; font: 700 9px/1.4 var(--m-mono); letter-spacing: .22em;
+  color: #03170c; background: linear-gradient(90deg, #16d67f, #f5c451); }
+.alpha-tag::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .7) 50%, transparent 70%); transform: translateX(-120%); animation: alphaSweep 3.2s ease-in-out infinite; }
+@keyframes alphaSpin { from { transform: translate(-50%, -50%) rotate(0); } to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes alphaBreath { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+@keyframes alphaSweep { 0%, 55% { transform: translateX(-120%); } 85%, 100% { transform: translateX(120%); } }
+body.fx-lite .alpha-ring, body.fx-lite .alpha-glow, body.fx-lite .alpha-tag::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .alpha-ring, .alpha-glow, .alpha-tag::after { animation: none !important; } }
+body.theme-day .alpha-frame > .ecosystem-chat { background: #ffffff; }
+body.theme-day .alpha-glow { box-shadow: inset 0 0 22px #16d67f30, 0 0 0 1px #16d67f40; }
+
+/* Settings page */
+.cfg-hero { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cfg-hero h1 { margin: 4px 0 0; font-size: 26px; } .cfg-hero h1 em { color: var(--m-accent); font-style: normal; }
+.cfg-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+select.m-input { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--m-accent) 50%), linear-gradient(135deg, var(--m-accent) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 28px; cursor: pointer; }
+.ht-bar { height: 8px; } .ht-bar i { transform-origin: left; height: 100%; border-radius: 4px; }
+.m-label > svg { display: inline-block; vertical-align: -2px; margin-right: 6px; }

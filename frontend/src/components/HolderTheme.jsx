@@ -45,14 +45,14 @@ export function HolderThemePicker() {
       applyTheme(d.theme); toast.success('Your FEELESS colors are live.');
     } catch (e) { toast.error(e.message); }
   };
-  return <section className="holder-theme-card" data-testid="holder-theme">
-    <h3>Your FEELESS colors <small>holder perk</small></h3>
-    <p>Hold ${(info?.minUsd || 1000).toLocaleString()}+ across $FEE, RFEE and FEECAT to recolor the logo and the whole site.</p>
-    {!wallet?.address ? <p className="wp-bio">Connect a wallet to check eligibility.</p> : !info ? <p className="wp-bio">Checking your holdings…</p> : <>
-      <div className="ht-meter"><i style={{ width: `${Math.min(100, (info.holdingUsd / info.minUsd) * 100)}%` }} /></div>
-      <small>You hold ${Number(info.holdingUsd).toLocaleString()} {info.eligible ? '— unlocked ✓' : `— $${(info.minUsd - info.holdingUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })} to go`}</small>
+  return <section className="m-card m-stack holder-theme-card" data-testid="holder-theme">
+    <div className="m-row cs-bar"><span className="m-label">YOUR FEELESS COLORS <em>{info?.staff ? 'FEELESS HQ · always unlocked' : 'holder perk'}</em></span>{info?.eligible && <span className="m-chip ok">✓ unlocked</span>}</div>
+    <p className="m-dim">{info?.staff ? 'Creator and admin wallets can recolor the logo and the whole site for themselves.' : `Hold $${(info?.minUsd || 1000).toLocaleString()}+ across $FEE, RFEE and FEECAT to recolor the logo and the whole site.`}</p>
+    {!wallet?.address ? <p className="m-dim">Connect a wallet to check eligibility.</p> : !info ? <p className="m-dim">Checking your holdings…</p> : <>
+      {!info.staff && <div className="m-bars ht-bar"><i style={{ transform: `scaleX(${Math.min(1, info.holdingUsd / info.minUsd)})` }} /></div>}
+      {!info.staff && <small className="m-dim">You hold ${Number(info.holdingUsd).toLocaleString()} {info.eligible ? '— unlocked ✓' : `— $${(info.minUsd - info.holdingUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })} to go`}</small>}
       <div className="ht-swatches">{PRESETS.map(([n, c]) => <button key={c} type="button" title={n} className={accent === c ? 'on' : ''} style={{ background: c }} onClick={() => { setAccent(c); if (info.eligible) applyTheme({ accent: c }); }} />)}<input type="color" value={accent} onChange={e => { setAccent(e.target.value); if (info.eligible) applyTheme({ accent: e.target.value }); }} aria-label="Custom color" /></div>
-      <button type="button" className="btn-primary" disabled={!info.eligible} onClick={save}>{info.eligible ? 'Save my colors' : 'Locked — hold more $FEE'}</button>
+      <button type="button" className="m-btn primary" disabled={!info.eligible} onClick={save}>{info.eligible ? 'Save my colors' : 'Locked — hold more $FEE'}</button>
     </>}
   </section>;
 }

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiUrl } from '../lib/api';
 import { useMarket } from '../hooks/useMarket';
 import { useWorkspace } from '../hooks/useWorkspace';
 import { DataStatus, MarketAvailabilityNotice, MarketError } from './terminal/MarketPrimitives';
@@ -7,9 +8,9 @@ import { matchesPad } from '../lib/launchpads';
 import TokenCard from './TokenCard';
 
 const FEeless_COIN_IDENTITIES = [
-  { id: 'fee', name: 'FEE', symbol: 'FEE', description: 'Core FEELESS identity asset', imageUrl: '/api/reputation/token-logo/49MmWE8sgNjuw342Eu7tB9thsVFtvTfKigUw9KSppump' },
-  { id: 'feecat', name: 'FeeCat', symbol: 'FEECAT', description: 'Community and Fee-Back culture asset', imageUrl: '/api/reputation/token-logo/AsX2abSJ2HqPqRxUbeYXE5R5ksrmUDz6BMGpg9mDpump' },
-  { id: 'rfee', name: 'RFEE', symbol: 'RFEE', description: 'Fee-Back return-path asset', imageUrl: '/api/reputation/token-logo/2vZjg2w58k4urtdNWPnNHizuSxesLCozQ5Pq9xxqNray' },
+  { id: 'fee', name: 'FEE', symbol: 'FEE', description: 'Core FEELESS identity asset', imageUrl: apiUrl('/api/reputation/token-logo/49MmWE8sgNjuw342Eu7tB9thsVFtvTfKigUw9KSppump') },
+  { id: 'feecat', name: 'FeeCat', symbol: 'FEECAT', description: 'Community and Fee-Back culture asset', imageUrl: apiUrl('/api/reputation/token-logo/AsX2abSJ2HqPqRxUbeYXE5R5ksrmUDz6BMGpg9mDpump') },
+  { id: 'rfee', name: 'RFEE', symbol: 'RFEE', description: 'Fee-Back return-path asset', imageUrl: apiUrl('/api/reputation/token-logo/2vZjg2w58k4urtdNWPnNHizuSxesLCozQ5Pq9xxqNray') },
 ];
 
 export function FeelessCoinCards() {
