@@ -5,6 +5,7 @@ import { ImpactNote } from '../command/ImpactNote';
 import { toast } from 'sonner';
 import { Zap, Wallet, ArrowUpRight, Settings2 } from 'lucide-react';
 import { keepReceipt } from '../../lib/receipts';
+import { ShareGifButton } from '../ShareGif';
 import { useWallet } from '../../hooks/useWallet';
 import { useMarket } from '../../hooks/useMarket';
 import { apiUrl, cleanAmount, errorText } from '../../lib/api';
@@ -77,7 +78,7 @@ function QuickTradeInner({ pair }) {
     return () => { alive = false; };
   }, []);
   useEffect(() => {
-    setOrder(null); setResult(null);
+    setOrder(null); setResult(null); setShareCard(null);
     if (side !== 'sell' || !wallet?.address || !mint) { setBal(null); return; }
     fetch(apiUrl(`/api/reputation/balance/${wallet.address}/${mint}`)).then(r => r.json()).then(d => setBal({ amount: Number(d.amount) || 0, decimals: d.decimals, raw: d.raw })).catch(() => setBal(null));
   }, [side, wallet?.address, mint]);
@@ -88,6 +89,7 @@ function QuickTradeInner({ pair }) {
   useEffect(() => { setShieldAck(false); }, [mint, side]);
   const shieldBlocks = side === 'buy' && shield?.level === 'danger' && !shieldAck;
   const [impactAck, setImpactAck] = useState(false);
+  const [shareCard, setShareCard] = useState(null);
   useEffect(() => { setImpactAck(false); }, [mint, side, amount, sellPct]);
   const points = usePoints(wallet?.chain === 'solana' ? wallet.address : null, result?.signature);
   const payAmount = () => {
@@ -143,6 +145,10 @@ function QuickTradeInner({ pair }) {
       const { VersionedTransaction } = await import('@solana/web3.js');
       const tx = VersionedTransaction.deserialize(Uint8Array.from(atob(order.quote.transaction), c => c.charCodeAt(0)));
       const signed = await Promise.race([provider.signTransaction(tx), new Promise((_, rej) => setTimeout(() => rej(new Error('Wallet did not respond. Open your wallet (check for a blocked popup) and tap again.')), WALLET_TIMEOUT_MS))]);
+      const tradeUsd = Number(order.quote?.inUsdValue) || 0;
+      const outDec = order.output_metadata?.decimals;
+      const got = units(order.quote?.outAmount, outDec);
+      const feePct = order.feeless_fee?.bps ? order.feeless_fee.bps / 100 : 0;
       let res = await tradeApi('/execute', { order_id: order.order_id, signed_transaction: btoa(String.fromCharCode(...signed.serialize())) });
       setResult(res); setOrder(null);
       // Still landing? Keep asking (never resending) until the chain answers: that check is also what records the fee,
@@ -153,8 +159,13 @@ function QuickTradeInner({ pair }) {
         try { res = await tradeApi(`/order/${order.order_id}`); setResult(res); } catch { /* keep polling */ }
       }
       if (res.state === 'confirmed') {
-        window.dispatchEvent(new CustomEvent('feeless:trade-confirmed', { detail: { mint, side, signature: res.signature } }));
+        window.dispatchEvent(new CustomEvent('feeless:trade-confirmed', { detail: { mint, side, signature: res.signature, usd: tradeUsd, wallet: wallet.address } }));
         keepReceipt(res.signature, wallet.address, side);
+        // Shareable receipt (GIF): what you sold / bought, what you got, the fee, the tx.
+        const sold = side === 'sell';
+        setShareCard({ kicker: sold ? 'SOLD ON FEELESS' : 'BOUGHT ON FEELESS', title: `$${symbol}`, imageUrl: apiUrl(`/api/reputation/token-logo/${mint}`), tone: sold ? 'down' : 'up',
+          big: got != null ? `${sold ? '+' : ''}${Number(got).toLocaleString(undefined, { maximumFractionDigits: sold ? 4 : 0 })} ${sold ? (toFee ? '$FEE' : 'SOL') : symbol}` : sold ? 'SOLD' : 'BOUGHT',
+          lines: [tradeUsd ? `Trade value ${formatUSD(tradeUsd)}` : null, feePct ? `FEELESS fee ${feePct.toFixed(2)}%` : 'Fee-free buy', `tx ${res.signature.slice(0, 6)}…${res.signature.slice(-4)}`, 'Signed in my own wallet · feeless'].filter(Boolean) });
       }
       toast[res.state === 'failed' ? 'error' : 'success'](res.state === 'confirmed' ? `${side === 'buy' ? 'Buy' : 'Sell'} confirmed on-chain.` : res.state === 'failed' ? 'Swap failed. Nothing moved.' : 'Still confirming — check the transaction link before trading again.');
     } catch (e) { toast.error(e.code === 4001 ? 'Approval declined — nothing was sent.' : e.message); setOrder(null); } finally { setBusy(false); fetchOrder(); }
@@ -194,6 +205,7 @@ function QuickTradeInner({ pair }) {
     {order && order.key === requestKey
       ? <button type="button" className={`qt-go ${side}`} disabled={busy || shieldBlocks || impactStop} onClick={approve} data-testid="quick-trade-approve">{busy ? 'Waiting for wallet…' : `${side === 'buy' ? 'Buy' : 'Sell'} ${symbol} in ${wallet?.name || 'Phantom'}`}</button>
       : <button type="button" className={`qt-go ${side}`} disabled={busy || routing} onClick={quote} data-testid="quick-trade-quote">{!wallet?.address ? <><Wallet size={14} />Connect wallet</> : wallet.chain !== 'solana' ? 'Switch wallet to Solana' : routing ? 'Routing…' : quoteError ? 'Retry quote' : `Get ${side === 'buy' ? 'buy' : 'sell'} quote`}</button>}
+    {shareCard && result?.state === 'confirmed' && <ShareGifButton label="🎞 Share receipt GIF" card={shareCard} className="m-btn qt-share" />}
     {result?.signature && <a className="qt-result" href={`https://solscan.io/tx/${result.signature}`} target="_blank" rel="noopener noreferrer">{result.state.toUpperCase()} · view transaction <ArrowUpRight size={11} /></a>}
     <small className="qt-foot">{side === 'buy' && shield?.level === 'ok' ? '🛡 Rug shield clear · ' : ''}{points?.points > 0 ? `⚡ ${points.points.toLocaleString('en-US')} FEE pts · ` : ''}Jupiter route · simulated before you sign · non-custodial{side === 'buy' && prefs.unit === 'USD' ? ` · ${formatUSD(Number(amount))}` : ''}</small>
   </aside>;

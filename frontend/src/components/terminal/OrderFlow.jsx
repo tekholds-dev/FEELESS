@@ -3,6 +3,7 @@ import { Activity, Droplets, Gauge, Layers, Scale, Timer, Zap } from 'lucide-rea
 import { formatUSD, formatPct, formatCompact } from '../../lib/dexscreener';
 import { AnimatedNumber } from './AnimatedNumber';
 import { useTradeStream } from '../../lib/tradeStream';
+import { useWallet } from '../../hooks/useWallet';
 import { formatLivePrice } from '../../lib/livePrice';
 
 const TX_EXPLORER = { solana: 'https://solscan.io/tx/', ethereum: 'https://etherscan.io/tx/', base: 'https://basescan.org/tx/', bsc: 'https://bscscan.com/tx/', arbitrum: 'https://arbiscan.io/tx/', avalanche: 'https://snowtrace.io/tx/', polygon: 'https://polygonscan.com/tx/', sui: 'https://suiscan.xyz/mainnet/tx/' };
@@ -19,6 +20,7 @@ function ageLabel(ms) {
 // Live order flow + market structure, derived only from the pair's real DexScreener snapshot.
 export function OrderFlow({ pair }) {
   const { trades, fresh } = useTradeStream(pair);
+  const me = (useWallet() || {}).wallet?.address;
   if (!pair) return null;
   const tx = pair.txns || {};
   const vol = pair.volume || {};
@@ -65,8 +67,8 @@ export function OrderFlow({ pair }) {
     </div>
     <div className="trade-tape">
       <div className="trade-tape-head"><span><i />LIVE TRADE TAPE</span><small>{trades.length ? `last trade ${Math.max(0, Math.round((Date.now() - Date.parse(trades[0].ts)) / 1000))}s ago · Helius` : 'waiting for trades…'}</small></div>
-      <div className="trade-tape-list">{trades.slice(0, 14).map(t => <a key={t.tx} className={`tape-row ${t.kind}`} href={TX_EXPLORER[pair.chainId] ? `${TX_EXPLORER[pair.chainId]}${t.tx}` : undefined} target="_blank" rel="noopener noreferrer">
-        <b>{t.kind === 'buy' ? 'BUY' : 'SELL'}</b><span>{formatUSD(t.usd)}</span><span>{formatLivePrice(t.price)}</span><code>{(t.wallet || '').slice(0, 4)}…{(t.wallet || '').slice(-4)}</code><time>{new Date(t.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time>
+      <div className="trade-tape-list">{trades.slice(0, 14).map(t => <a key={t.tx} className={`tape-row ${t.kind} ${t.mine || (me && t.wallet === me) ? 'is-mine' : ''}`} href={TX_EXPLORER[pair.chainId] ? `${TX_EXPLORER[pair.chainId]}${t.tx}` : undefined} target="_blank" rel="noopener noreferrer">
+        <b>{t.kind === 'buy' ? 'BUY' : 'SELL'}</b><span>{formatUSD(t.usd)}</span><span>{formatLivePrice(t.price)}</span><code>{t.mine || (me && t.wallet === me) ? 'YOU' : `${(t.wallet || '').slice(0, 4)}…${(t.wallet || '').slice(-4)}`}</code><time>{new Date(t.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time>
       </a>)}</div>
     </div>
   </section>;

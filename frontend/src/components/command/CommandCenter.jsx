@@ -26,6 +26,7 @@ import { MoneyFlows } from './MoneyFlows';
 import { CirclePay, useCircleWallet } from './CirclePay';
 import { CardStudio } from '../cards/CardStudio';
 import { IntelDesk } from './IntelDesk';
+import { FeeBook } from './FeeBook';
 import { useMoneyPulse, refreshPulse } from '../../lib/moneyPulse';
 const NftStudio = lazy(() => import('../nft/NftStudio').then(m => ({ default: m.NftStudio })));
 
@@ -156,7 +157,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'badges' && <AwardBadges call={call} initial={[...selected]} />}
     {tab === 'feecat' && <FeeCatPanel call={call} />}
     {tab === 'pools' && <PoolsPanel call={call} />}
-    {tab === 'fees' && <><MoneyFlows /><FeesPanel call={call} /></>}
+    {tab === 'fees' && <><MoneyFlows /><FeesPanel call={call} /><FeeBook call={call} /></>}
     {tab === 'ads' && <AdsPanel call={call} />}
     {tab === 'invites' && <InvitesPanel call={call} />}
     {tab === 'bugs' && <section className="cc-panel">{!bugs.length ? <p className="cc-empty">No reports yet. Anyone can file one from a profile's “Report a bug” button.</p>

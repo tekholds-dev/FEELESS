@@ -55,3 +55,25 @@ def referral_credit(book: dict, inviter: str, invitee: str, row: dict, pct: floa
         rec['invitees'].append(invitee)
     rec['lastAt'] = now
     return book
+
+
+def add_total(totals: dict, who: str, row: dict) -> dict:
+    """Lifetime fee book per account (never trimmed): the base for any future FeeBack / payback."""
+    t = totals.setdefault(who, {'feeUsd': 0.0, 'feeSol': 0.0, 'feeUsdc': 0.0, 'volumeUsd': 0.0, 'trades': 0, 'first': row['t'], 'last': row['t']})
+    t['feeUsd'] = round(t['feeUsd'] + row.get('feeUsd', 0), 6)
+    t['feeSol'] = round(t['feeSol'] + row.get('feeSol', 0), 9)
+    t['feeUsdc'] = round(t['feeUsdc'] + row.get('feeUsdc', 0), 6)
+    t['volumeUsd'] = round(t['volumeUsd'] + row.get('inUsd', 0), 2)
+    t['trades'] += 1
+    t['first'], t['last'] = min(t['first'], row['t']), max(t['last'], row['t'])
+    return totals
+
+
+def fee_book(totals: dict, paid: dict, feeback_pct: float = FEEBACK_PCT) -> list:
+    """Every account: lifetime fees, FeeBack earned at feeback_pct, already paid, still owed. Biggest first."""
+    rows = []
+    for who, t in (totals or {}).items():
+        earned = round(t['feeUsd'] * feeback_pct / 100, 6)
+        done = round(float((paid or {}).get(who, 0)), 6)
+        rows.append({'address': who, **t, 'feeBackUsd': earned, 'paidUsd': done, 'owedUsd': round(max(0.0, earned - done), 6)})
+    return sorted(rows, key=lambda r: -r['feeUsd'])

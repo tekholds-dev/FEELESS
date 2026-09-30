@@ -8099,6 +8099,28 @@ def trade_points(in_usd: float, fee_bps: int) -> float:
 
 
 FEE_LEDGER_PATH = DATA_DIR / 'fee_ledger.json'
+FEE_TOTALS_PATH = DATA_DIR / 'fee_totals.json'        # lifetime per-account fee book (the payback base)
+FEEBACK_PAID_PATH = DATA_DIR / 'feeback_paid.json'     # {account: usd already paid back}
+
+
+@app.get('/api/reputation/admin/fee-book')
+async def admin_fee_book(request: Request, format: str = ''):
+    """Every account's lifetime FEELESS fees, FeeBack earned, paid and still owed (CSV with ?format=csv)."""
+    _require_admin(request)
+    if not FEE_TOTALS_PATH.exists():   # first run: rebuild lifetime totals from the ledger history
+        tot = {}
+        for who, rows_ in _json_load(FEE_LEDGER_PATH, {}).items():
+            for r in rows_:
+                fee_report.add_total(tot, who, r)
+        _json_save(FEE_TOTALS_PATH, tot)
+    rows = fee_report.fee_book(_json_load(FEE_TOTALS_PATH, {}), _json_load(FEEBACK_PAID_PATH, {}))
+    if format == 'csv':
+        from fastapi.responses import Response
+        cols = ['address', 'trades', 'volumeUsd', 'feeUsd', 'feeSol', 'feeUsdc', 'feeBackUsd', 'paidUsd', 'owedUsd', 'first', 'last']
+        body = ','.join(cols) + '\n' + '\n'.join(','.join(str(r.get(c, '')) for c in cols) for r in rows)
+        return Response(body, media_type='text/csv', headers={'Content-Disposition': 'attachment; filename=feeless-fee-book.csv'})
+    return {'accounts': len(rows), 'totalFeesUsd': round(sum(r['feeUsd'] for r in rows), 4), 'owedUsd': round(sum(r['owedUsd'] for r in rows), 4),
+            'feeBackPct': fee_report.FEEBACK_PCT, 'rows': rows[:500]}
 
 
 @app.get('/api/reputation/fee-report/{address}')
@@ -8152,6 +8174,7 @@ async def internal_trade(request: Request, p: TradeLanded):
     row = fee_report.ledger_row(time.time(), p.signature, p.inUsd, p.feeBps, p.feeAtoms, p.feeMint, px)
     led[who] = (led.get(who) or [])[-1999:] + [row]
     _json_save(FEE_LEDGER_PATH, led)
+    _json_save(FEE_TOTALS_PATH, fee_report.add_total(_json_load(FEE_TOTALS_PATH, {}), who, row))   # lifetime, never trimmed
     inviter = _json_load(REF_PATH, {'by': {}, 'of': {}})['of'].get(who)
     # The trade is confirmed on-chain (the trading service checked): tell the trader and refresh their holdings,
     # whether or not their browser is still open. Deduped with the receipt notification by signature.

@@ -32,3 +32,14 @@ def test_referral_credit():
     assert book['INV']['usd'] == 0.3 and book['INV']['sol'] == 0.001 and book['INV']['trades'] == 2 and book['INV']['invitees'] == ['A', 'B']
     assert referral_credit({}, 'INV', 'A', {'feeUsd': 2.0}, 0, NOW) == {}
     assert referral_credit({}, 'INV', 'A', {'feeUsd': 2.0}, 90, NOW)['INV']['usd'] == 1.0   # capped at 50%
+
+
+def test_lifetime_fee_book():
+    from fee_report import add_total, fee_book
+    tot = {}
+    for i in range(3):
+        add_total(tot, 'A', ledger_row(NOW + i, f's{i}', 100, 50))
+    add_total(tot, 'B', ledger_row(NOW, 'b', 1000, 50))
+    assert tot['A']['trades'] == 3 and tot['A']['feeUsd'] == 1.5 and tot['A']['first'] == NOW and tot['A']['last'] == NOW + 2
+    book = fee_book(tot, {'B': 1.0}, 100)
+    assert [r['address'] for r in book] == ['B', 'A'] and book[0]['owedUsd'] == 4.0 and book[1]['owedUsd'] == 1.5

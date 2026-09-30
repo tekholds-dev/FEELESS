@@ -354,3 +354,12 @@ select.m-input { appearance: none; background-image: linear-gradient(45deg, tran
 .qt-side button:active { transform: scale(.98); }
 .qt-side button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: -2px; }
 .qt-head .qt-slip-chip { white-space: nowrap; }
+.tape-row.is-mine { background: color-mix(in srgb, var(--m-accent) 14%, transparent); box-shadow: inset 3px 0 0 var(--m-accent); animation: mPop .25s var(--m-ease); }
+.tape-row.is-mine code { color: var(--m-accent); font-weight: 700; }
+@media (prefers-reduced-motion: reduce) { .tape-row.is-mine { animation: none; } }
+/* Fee book */
+.fb-table { display: grid; gap: 2px; max-height: 480px; }
+.fb-row { display: grid; grid-template-columns: 1.2fr .6fr 1fr 1.4fr 1fr .9fr; gap: 10px; align-items: center; padding: 7px 10px; border-radius: var(--m-r-sm); color: var(--m-text); font-size: 12px; text-decoration: none; transition: background .15s; }
+a.fb-row:hover { background: color-mix(in srgb, var(--m-accent) 7%, transparent); } a.fb-row:focus-visible { outline: 2px solid var(--m-accent); outline-offset: -2px; }
+.fb-head { font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--m-mute); }
+.fb-row code { font-family: var(--m-mono); color: var(--m-accent); } .fb-row em { font-style: normal; color: var(--m-mute); }
