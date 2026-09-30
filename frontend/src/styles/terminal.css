@@ -4524,3 +4524,13 @@ body.theme-day .wpr-move span{color:#0b1f16}body.theme-day .wpr-move em{color:#0
 .bdg-catalog{display:grid;gap:8px}.bc-row{gap:10px}.bc-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.bc-head small{flex:1;color:#ffffff90;font-size:12px}.bc-shares{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.bc-shares .bdg-cell span:first-child{font:11px "JetBrains Mono",monospace;color:#bfeedd}body.theme-day .bc-head small{color:#0b1f16a0}
 .cw-row-x{display:grid!important;gap:8px}.cw-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.cw-top em{flex:1}.cw-desc{color:#ffffffa0;font-size:12px}body.theme-day .cw-desc{color:#0b1f16a0}
 .tr-cost{display:block;font:11.5px "JetBrains Mono",monospace;color:#ffffffa0}body.theme-day .tr-cost{color:#0b1f16a0}
+.mk-coins{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.mk-coin{display:grid;gap:10px;padding:14px;border-radius:14px;border:1px solid #16d67f33;background:radial-gradient(120% 120% at 0 0,#16d67f14,transparent 60%),#030a07}
+.mk-coin-head{display:flex;align-items:center;gap:10px}.mk-coin-head img,.mk-coin-head i{width:40px;height:40px;border-radius:50%;object-fit:cover;display:grid;place-items:center;background:#0b1512;font-style:normal;font-weight:800}
+.mk-coin-head div{flex:1}.mk-coin-head b{display:block;font:800 16px 'JetBrains Mono',monospace}.mk-coin-head small{color:#ffffff70;font:11px 'JetBrains Mono',monospace}
+.mk-coin-head>span{font:700 13px 'JetBrains Mono',monospace}
+.mk-coin-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.mk-coin-stats span{display:grid;gap:2px;padding:6px 8px;border-radius:8px;background:#ffffff06}
+.mk-coin-stats small{font:600 9px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#16d67f99}.mk-coin-stats b{font:700 12px 'JetBrains Mono',monospace}
+.mk-post{margin:0;white-space:pre-wrap;font:11.5px/1.5 'JetBrains Mono',monospace;color:#ffffffc0;padding:10px;border-radius:10px;background:#010503;border:1px solid #ffffff0d;max-height:180px;overflow:auto}
+.mk-coin-actions{display:flex;gap:8px;flex-wrap:wrap}
+body.theme-day .mk-coin{background:#f4fbf7;border-color:#00875c33}body.theme-day .mk-post{background:#fff;color:#0b1f16}
