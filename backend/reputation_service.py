@@ -6914,6 +6914,35 @@ async def trade_cards(address: str):
     return {'address': address, 'cards': cards}
 
 
+_version_cache: dict = {}
+
+
+async def _git(*args, timeout=8):
+    proc = await asyncio.create_subprocess_exec('git', *args, cwd=str(Path(__file__).resolve().parents[1]), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+    try:
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout)
+    except asyncio.TimeoutError:
+        proc.kill(); return ''
+    return out.decode().strip() if proc.returncode == 0 else ''
+
+
+@app.get('/api/reputation/version')
+async def version():
+    """Which code this machine is running vs GitHub main, so a stale copy is obvious (footer shows it)."""
+    hit = _version_cache.get('v')
+    if hit and time.time() - hit[0] < 30:
+        return hit[1]
+    if time.time() - _version_cache.get('fetched', 0) > 300:
+        _version_cache['fetched'] = time.time()
+        await _git('fetch', '-q', 'origin', 'main', timeout=20)
+    head, branch, behind, dirty = await asyncio.gather(_git('rev-parse', '--short', 'HEAD'), _git('rev-parse', '--abbrev-ref', 'HEAD'),
+                                                       _git('rev-list', '--count', 'HEAD..origin/main'), _git('status', '--porcelain', '--untracked-files=no'))
+    v = {'head': head or None, 'branch': branch or None, 'behind': int(behind) if behind.isdigit() else None,
+         'dirty': [l[3:] for l in dirty.splitlines()][:8], 'fix': 'bash scripts/update.sh'}
+    _version_cache['v'] = (time.time(), v)
+    return v
+
+
 # ---- Setup checklist for the command center: which keys/URLs are configured (never the values) ----
 SETUP_KEYS = [
     ('SOLANA_RPC_URL', 'Solana RPC (Helius)', 'Chain reads, forensics, trades feed', True),

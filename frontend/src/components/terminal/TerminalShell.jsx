@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Crown, Home, CandlestickChart, Rocket, Compass, Star, MessageCircle, Trophy, Bell, BookOpen, Map, FileText, Settings, Menu, Wallet, Globe2, ArrowUpRight, X, Coins, Cat, Activity, Sun, Moon, UserRound, ShieldCheck, Lock } from 'lucide-react';
 import { useWorkspace } from '../../hooks/useWorkspace';
+import { apiUrl } from '../../lib/api';
 import { FeelessMark, FeelessWordmark } from '../FeelessLogo';
 import { useMarket } from '../../hooks/useMarket';
 import { useWallet } from '../../hooks/useWallet';
@@ -90,4 +91,19 @@ export const TerminalSidebar = ({ open, onClose, savedCount }) => {
   return <><aside className={`terminal-sidebar ${open ? 'sidebar-open' : ''} ${collapsed ? 'is-collapsed' : ''}`} data-testid="terminal-sidebar"><button type="button" className="nav-collapse-toggle" onClick={() => setCollapsed(c => !c)} title={collapsed ? 'Expand navigation' : 'Collapse navigation'} aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'} data-testid="nav-collapse-toggle">{collapsed ? '»' : '«'}</button><SidebarProfileLink onClose={onClose} /><div className="sidebar-section-label">WORKSPACE<button title="Close navigation" className="mobile-close" onClick={onClose} data-testid="sidebar-close"><X size={17} /></button></div><nav>{ITEMS.map(([path, title, Icon]) => <React.Fragment key={path}>{path === 'feeback' && <div className="sidebar-section-label secondary-label">THE ECOSYSTEM</div>}{path === 'feecat' ? <FeeCatNav onClose={onClose} /> : <NavLink end to={`/terminal${path ? `/${path}` : ''}`} onClick={onClose} title={title} data-testid={`nav-${path || 'home'}`} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}><Icon size={18} /><span className={path === 'chat' ? 'trenches-font' : undefined}>{title}</span>{path === 'pump' && <span className="nav-hot">HOT</span>}{path === 'reputation' && <span className="nav-hot">NEW</span>}{path === 'watchlist' && savedCount > 0 && <span className="nav-count" data-testid="watchlist-count">{savedCount}</span>}</NavLink>}</React.Fragment>)}</nav><div className="sidebar-bottom"><FeelessMark size={50} /><strong>A little less noise.<br /><span>A lot more signal.</span></strong><Link data-testid="sidebar-globe-link" to="/"><Globe2 size={14} />Explore the globe<ArrowUpRight size={13} /></Link><small>YOUR NEXT MOVE STARTS HERE.</small></div></aside>{open && <button className="sidebar-overlay" data-testid="sidebar-overlay" aria-label="Close navigation" onClick={onClose} />}</>;
 };
 
-export const TerminalFooter = () => <footer className="terminal-footer"><span>© {new Date().getFullYear()} FEELESS</span><span>Non-custodial · Solana routing via Jupiter · Fee-Back planned</span><Link to="/terminal/whitepaper" data-testid="footer-whitepaper">Whitepaper / PDF ↗</Link></footer>;
+// Which code this machine runs vs GitHub main: a stale copy shows "N updates waiting" instead of silently lagging.
+export function BuildTag() {
+  const [v, setV] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch(apiUrl('/api/reputation/version')).then(r => (r.ok ? r.json() : null)).then(d => alive && d && setV(d)).catch(() => {});
+    load(); const t = setInterval(load, 60000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+  if (!v?.head) return null;
+  const stale = v.behind > 0 || (v.branch && v.branch !== 'main');
+  return <span className={`m-chip build-tag ${stale ? 'warn' : ''}`} data-testid="build-tag" title={stale ? `Run: ${v.fix}${v.dirty?.length ? ` · local edits: ${v.dirty.join(', ')}` : ''}` : 'Up to date with GitHub main'}>
+    build {v.head}{v.branch && v.branch !== 'main' ? ` · on ${v.branch}` : ''}{v.behind > 0 ? ` · ${v.behind} update${v.behind === 1 ? '' : 's'} waiting — run ${v.fix}` : stale ? '' : ' · up to date'}</span>;
+}
+
+export const TerminalFooter = () => <footer className="terminal-footer"><span>© {new Date().getFullYear()} FEELESS <BuildTag /></span><span>Non-custodial · Solana routing via Jupiter · Fee-Back planned</span><Link to="/terminal/whitepaper" data-testid="footer-whitepaper">Whitepaper / PDF ↗</Link></footer>;
