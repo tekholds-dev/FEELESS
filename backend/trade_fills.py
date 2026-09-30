@@ -115,6 +115,9 @@ def position(rows: list, held_chain: float | None = None, fees_by_sig: dict | No
     for r in rows[-30:]:
         t = {k: r.get(k) for k in ('ts', 'side', 'usd', 'price', 'tx', 'tokens', 'via', 'networkSol')}
         t['feeUsd'] = fees_by_sig.get(r['tx'])
+        # Per trade: the pool price you got (fees out) and that trade's own break-even (every dollar in / coins).
+        t['fillPrice'] = market_usd(r, fees_by_sig) / tok(r)
+        t['breakEven'] = r['usd'] / tok(r)
         if r['side'] == 'sell':
             t['pnlUsd'] = round(r['usd'] - tok(r) * avg, 2)   # what actually landed in the wallet vs the coins' entry cost
         trades.append(t)

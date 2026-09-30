@@ -109,3 +109,13 @@ def test_quote_only_estimate_uses_the_fee_actually_charged(tmp_path, monkeypatch
     assert rec['via'] == 'estimate' and rec['usd'] == 1.135
     live = 1.13 / 103.9455
     assert live < rec['price']   # still reads down
+
+
+
+def test_each_trade_carries_its_own_fill_and_break_even():
+    rows = [{'ts': 1, 'side': 'buy', 'usd': 1.15, 'sol': 0.00766, 'networkSol': 0.0, 'price': 1.15 / 100, 'tokens': 100.0, 'tx': 'b1', 'via': 'chain'},
+            {'ts': 2, 'side': 'buy', 'usd': 2.0, 'price': 0.02 / 1, 'tokens': 100.0, 'tx': 'b2', 'via': 'chain', 'sol': 0.013}]
+    p = tf.position(rows, fees_by_sig={'b1': 0.15})
+    b1, b2 = p['trades']
+    assert abs(b1['fillPrice'] - 0.01) < 1e-12 and abs(b1['breakEven'] - 0.0115) < 1e-12    # $1.00 at the pool, $1.15 all-in
+    assert abs(b2['fillPrice'] - 0.02) < 1e-12 and abs(p['avgEntry'] - 3.15 / 200) < 1e-12  # blended break-even across both buys

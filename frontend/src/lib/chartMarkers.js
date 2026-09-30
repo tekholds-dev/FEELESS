@@ -11,3 +11,12 @@ export function snapMarkers(markers, times, bucket) {
   });
   return out.sort((x, y) => x.time - y.time);
 }
+
+// One level per trade at the exact pool price it filled at: B1, B2… for buys, S1… for sells (last 6 shown).
+export function tradeLevels(trades, max = 6) {
+  let b = 0; let s = 0;
+  return (trades || []).filter(t => Number(t.fillPrice) > 0).map(t => {
+    const sell = t.side === 'sell'; const n = sell ? `S${++s}` : `B${++b}`;
+    return { side: sell ? 'sell' : 'buy', price: Number(t.fillPrice), title: `${n} ${sell ? 'sold' : 'bought'} $${Number(t.usd || 0).toFixed(t.usd >= 100 ? 0 : 2)}` };
+  }).slice(-max);
+}

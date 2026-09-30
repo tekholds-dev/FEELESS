@@ -8,14 +8,14 @@ import { recordCandleTick, fetchFeelessCandles, getCachedCandles, cacheCandles, 
 import { scrubCandles } from '../../lib/chartMath';
 import { fetchLivePrice } from '../../lib/livePrice';
 import { computeFeeRead } from './FeeLiveRead';
-import { snapMarkers } from '../../lib/chartMarkers';
+import { snapMarkers, tradeLevels } from '../../lib/chartMarkers';
 
 const LIVE_INTERVAL_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 };
 
 
 const ageLabel = t => { const s = (Date.now() - t) / 1000; return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : s < 86400 ? `${Math.round(s / 3600)}h` : s < 86400 * 60 ? `${Math.round(s / 86400)}d` : `${Math.round(s / 86400 / 30)}mo`; };
 
-export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive: feeLiveProp, userEntry = null }) => {
+export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive: feeLiveProp, userEntry = null, userTrades = null }) => {
   // Every chart gets the same tools: pages that don't control Fee's overlay get a built-in toggle.
   const [feeOwn, setFeeOwn] = useState(false);
   const feeLive = feeLiveProp ?? feeOwn;
@@ -239,14 +239,15 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     // sits on the last bar, one older than the chart is dropped. Otherwise the chart silently hides it.
     let times = [];
     try { times = (ref.series.data?.() || []).map(d => d.time).filter(Number.isFinite); } catch { times = []; }
-    const list = snapMarkers(markers, times, bucket);
+    // Pins that know their price (your fills) sit exactly at that price, scaled like the candles (MC charts too).
+    const list = snapMarkers(markers, times, bucket).map(({ price, ...m }) => (Number(price) > 0 ? { ...m, price: Number(price) * ratio } : m));
     try {
       if (!markersRef.current) markersRef.current = createSeriesMarkers(ref.series, list);
       else markersRef.current.setMarkers(list);
     } catch {
       // Chart was torn down between render and effect (rapid prop changes); skip this pass.
     }
-  }, [markers, interval, displayCandles, trail, dayMode]);
+  }, [markers, interval, displayCandles, trail, dayMode, ratio]);
 
   // Fee cat live mode: is the Leader in this coin right now?
   useEffect(() => {
@@ -287,16 +288,20 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     return clear;
   }, [feeRead, displayCandles, trail, dayMode, showVolume]);
 
-  // The viewer's own average entry (from their real swaps) — always shown when they hold the coin.
-  const entryLineRef = useRef(null);
+  // The viewer's own levels (from their real swaps): the blended break-even (fees in, bold gold) plus one thin line
+  // per trade at the exact pool price it filled at — B1, B2… for buys, S1… for sells.
+  const entryLinesRef = useRef([]);
+  const tradeKey = (userTrades || []).map(t => `${t.tx}:${t.fillPrice}`).join('|');
   useEffect(() => {
     const ref = seriesRef.current;
-    const drop = () => { if (entryLineRef.current) { try { ref?.series.removePriceLine(entryLineRef.current); } catch { /* chart gone */ } entryLineRef.current = null; } };
+    const drop = () => { entryLinesRef.current.forEach(l => { try { ref?.series.removePriceLine(l); } catch { /* chart gone */ } }); entryLinesRef.current = []; };
     drop();
-    if (!ref || !(userEntry > 0) || !charting) return drop;
-    try { entryLineRef.current = ref.series.createPriceLine({ price: userEntry * ratio, color: '#f5c542', lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: '◆ your break-even (fees in)' }); } catch { /* chart torn down */ }
+    if (!ref || !charting) return drop;
+    const add = o => { try { entryLinesRef.current.push(ref.series.createPriceLine({ axisLabelVisible: true, ...o })); } catch { /* chart torn down */ } };
+    tradeLevels(userTrades).forEach(t => add({ price: t.price * ratio, color: t.side === 'sell' ? '#ff8fa3aa' : '#16d67faa', lineWidth: 1, lineStyle: 2, title: t.title }));
+    if (userEntry > 0) add({ price: userEntry * ratio, color: '#f5c542', lineWidth: 2, lineStyle: 0, title: '◆ break-even (fees in)' });
     return drop;
-  }, [userEntry, charting, ratio, displayCandles]);
+  }, [userEntry, tradeKey, charting, ratio, displayCandles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Live ticks: every 3s pull the pair's current price straight from DexScreener and
   // update the forming candle in place (no redraw, zoom preserved).
