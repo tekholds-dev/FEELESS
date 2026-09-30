@@ -8,6 +8,7 @@ Pure functions (no I/O): the trading service fetches transactions, these turn th
 SOL_MINT = 'So11111111111111111111111111111111111111112'
 STABLES = {'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'}
 ATA_RENT_SOL = 0.00203928
+LOCKING = ('signing', 'block', 'stable')   # prices that belong to the trade's own moment: the row never re-prices
 
 
 def _key(k):
@@ -63,7 +64,10 @@ def _feeless_fee(tx: dict, keys: list, wallet: str, fee_accounts) -> tuple:
     return sol, stable
 
 
-def fill_from_tx(tx: dict, wallet: str, mint: str, sol_usd: float, fee_accounts=()) -> dict | None:
+def raw_fill(tx: dict, wallet: str, mint: str, fee_accounts=()) -> dict | None:
+    """What moved on-chain for one trade of `mint` by `wallet` — amounts only, no prices, so it can be stored forever.
+    cashSol / cashStable: everything that left (buy) or reached (sell) the wallet, network + FEELESS fee in, refundable
+    token-account rent out. poolSol / poolStable: what the pool itself got / gave. None for failed txs and non-trades."""
     if not tx or not (tx.get('meta') or {}) or (tx['meta'].get('err') is not None):
         return None
     meta, msg = tx['meta'], ((tx.get('transaction') or {}).get('message') or {})
@@ -103,20 +107,61 @@ def fill_from_tx(tx: dict, wallet: str, mint: str, sol_usd: float, fee_accounts=
         side = 'sell'
     else:
         return None   # a transfer or airdrop, not a trade
-    usd = abs(sol) * sol_usd + abs(stable)
-    if usd <= 0:
-        return None
-    sig = ((tx.get('transaction') or {}).get('signatures') or [''])[0]
     network = (meta.get('fee') or 0) / 1e9 if keys and keys[0] == wallet else 0.0   # only the fee payer pays it
     fee_sol, fee_stable = _feeless_fee(tx, keys, wallet, fee_accounts)
-    # What actually went into / came out of the pool: the wallet's cash move with FEELESS's cut and the network fee taken out.
-    pool_sol = abs(sol) - network - fee_sol if side == 'buy' else abs(sol) + network + fee_sol
-    pool_usd = max(0.0, pool_sol) * sol_usd + (abs(stable) - fee_stable if side == 'buy' else abs(stable) + fee_stable)
-    return {'ts': tx.get('blockTime') or 0, 'side': side, 'usd': round(usd, 4), 'price': usd / abs(coin), 'tokens': abs(coin),
-            'sol': round(abs(sol), 9), 'networkSol': network, 'token': mint, 'tx': sig, 'via': 'chain',
-            'poolUsd': round(pool_usd, 6), 'fillPrice': pool_usd / abs(coin) if pool_usd > 0 else None,
-            'feelessFeeUsd': round(fee_sol * sol_usd + fee_stable, 6), 'networkUsd': round(network * sol_usd, 6),
-            'signer': wallet, 'balanceAfter': b}
+    buy = side == 'buy'
+    pool_sol = abs(sol) - network - fee_sol if buy else abs(sol) + network + fee_sol
+    pool_stable = abs(stable) - fee_stable if buy else abs(stable) + fee_stable
+    sig = ((tx.get('transaction') or {}).get('signatures') or [''])[0]
+    return {'ts': tx.get('blockTime') or 0, 'side': side, 'tokens': abs(coin), 'token': mint, 'tx': sig, 'via': 'chain', 'signer': wallet,
+            'balanceAfter': b, 'cashSol': round(abs(sol), 9), 'poolSol': round(max(0.0, pool_sol), 9), 'feeSol': round(fee_sol, 9),
+            'networkSol': network, 'cashStable': round(abs(stable), 6), 'poolStable': round(max(0.0, pool_stable), 6), 'feeStable': round(fee_stable, 6)}
+
+
+def price_fill(raw: dict, sol_usd: float, priced: str = 'given') -> dict | None:
+    """Put dollars on a raw fill at ONE SOL price. `priced` says where that price came from: 'signing' (the quote the
+    wallet signed) or 'block' (SOL/USD at the trade's block time) are final and lock the row; 'now' is a stand-in."""
+    if not raw:
+        return None
+    px = max(0.0, float(sol_usd or 0))
+    usd = raw['cashSol'] * px + raw['cashStable']
+    if usd <= 0:
+        return None
+    pool = raw['poolSol'] * px + raw['poolStable']
+    return {**raw, 'sol': raw['cashSol'], 'usd': round(usd, 6), 'price': usd / raw['tokens'], 'poolUsd': round(pool, 6),
+            'fillPrice': pool / raw['tokens'] if pool > 0 else None, 'feelessFeeUsd': round(raw['feeSol'] * px + raw['feeStable'], 6),
+            'networkUsd': round(raw['networkSol'] * px, 6), 'solUsd': px, 'priced': priced, 'locked': priced in LOCKING}
+
+
+def fill_from_tx(tx: dict, wallet: str, mint: str, sol_usd: float, fee_accounts=()) -> dict | None:
+    """raw_fill + price_fill in one step (SOL price supplied by the caller)."""
+    return price_fill(raw_fill(tx, wallet, mint, fee_accounts), sol_usd)
+
+
+def _num(x) -> float:
+    try:
+        return float(x or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def order_sol_usd(order: dict) -> float:
+    """SOL/USD at the moment the wallet signed a FEELESS order, from the quote it signed — works for every order ever
+    stored, old ones included (they lack in_atoms but always carry the quote). 0 when there is no SOL leg to read."""
+    o = order or {}
+    q = o.get('quote') or {}
+    if o.get('input_mint') == SOL_MINT:
+        if _num(o.get('in_usd')) > 0 and _num(o.get('in_atoms')) > 0:
+            return _num(o['in_usd']) / (_num(o['in_atoms']) / 1e9)
+        usd = _num(q.get('swapUsdValue')) or _num(q.get('inUsdValue'))
+        if usd > 0 and _num(q.get('inAmount')) > 0:
+            return usd / (_num(q['inAmount']) / 1e9)
+    if o.get('output_mint') == SOL_MINT:
+        out = _num(q.get('outAmount')) + (_num(q.get('feelessFeeAtoms')) if q.get('feelessFeeMode') == 'output' else 0)
+        usd = _num(q.get('outUsdValue')) or _num(q.get('swapUsdValue')) or _num(o.get('in_usd'))
+        if usd > 0 and out > 0:
+            return usd / (out / 1e9)
+    return 0.0
 
 
 def merge(*sources):
@@ -168,7 +213,7 @@ def position(rows: list, held_chain: float | None = None, fees_by_sig: dict | No
     fees = sum(trade_costs(r, fees_by_sig) if r.get('via') == 'chain' else fees_by_sig.get(r['tx'], 0) for r in rows)
     trades = []
     for r in rows[-30:]:
-        t = {k: r.get(k) for k in ('ts', 'side', 'usd', 'price', 'tx', 'tokens', 'via', 'networkSol')}
+        t = {k: r.get(k) for k in ('ts', 'side', 'usd', 'price', 'tx', 'tokens', 'via', 'networkSol', 'priced', 'locked', 'solUsd')}
         t['feeUsd'] = fees_by_sig.get(r['tx'])
         # Per trade: the pool price you got (fees out) and that trade's own break-even (every dollar in / coins).
         t['fillPrice'] = r['poolUsd'] / tok(r) if r.get('poolUsd') else market_usd(r, fees_by_sig) / tok(r)
@@ -178,6 +223,7 @@ def position(rows: list, held_chain: float | None = None, fees_by_sig: dict | No
         trades.append(t)
     return {'avgEntry': avg, 'fillPrice': fill, 'tokensHeld': held, 'costUsd': round(avg * held, 2), 'realizedUsd': round(sell_usd - sell_tok * avg, 2),
             'entryIncludes': 'FEELESS + network fees (break-even)',
-            'investedUsd': round(buy_usd, 2), 'feesUsd': round(fees, 4), 'exact': all(r.get('via') == 'chain' for r in rows),
+            'investedUsd': round(buy_usd, 2), 'soldUsd': round(sell_usd, 2), 'feesUsd': round(fees, 4), 'exact': all(r.get('via') == 'chain' for r in rows),
+            'locked': all(r.get('locked') for r in rows),   # every dollar figure fixed at its own trade time, never re-priced
             'coverage': round(min(1.0, max(0.0, buy_tok - sell_tok) / held), 3) if held > 0 else 1.0,
             'buys': len(buys), 'sells': len(sells), 'lastTradeAt': max(r['ts'] for r in rows), 'trades': trades}

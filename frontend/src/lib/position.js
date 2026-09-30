@@ -12,6 +12,19 @@ export function applyFill(pos, f) {
     return { ...pos, avgEntry: nextAvg, tokensHeld: nextHeld, costUsd: nextAvg * nextHeld, investedUsd: (pos.investedUsd || 0) + usd, buys: (pos.buys || 0) + 1, lastTradeAt: trade.ts, trades: [...(pos.trades || []), trade], pending: true };
   }
   const pnl = usd - tokens * avg;
-  return { ...pos, tokensHeld: Math.max(0, held - tokens), costUsd: avg * Math.max(0, held - tokens), realizedUsd: (pos.realizedUsd || 0) + pnl, sells: (pos.sells || 0) + 1,
+  return { ...pos, tokensHeld: Math.max(0, held - tokens), costUsd: avg * Math.max(0, held - tokens), realizedUsd: (pos.realizedUsd || 0) + pnl, soldUsd: (pos.soldUsd || 0) + usd, sells: (pos.sells || 0) + 1,
     lastTradeAt: trade.ts, trades: [...(pos.trades || []), { ...trade, pnlUsd: pnl }], pending: true };
+}
+
+// The position panel the big terminals show: Bought / Sold / Holding / total P&L. Total P&L = realized on sells +
+// unrealized on what you still hold, against the locked all-in cost (fees in) — so it matches your wallet's real money.
+export function pnlSummary(pos, live) {
+  const held = Number(pos?.tokensHeld) || 0; const avg = Number(pos?.avgEntry) || 0; const px = Number(live) || 0;
+  const value = px * held;
+  const bought = Number(pos?.investedUsd) || avg * held;
+  const sold = Number(pos?.soldUsd) || 0;
+  const unrealized = (px - avg) * held;
+  const realized = Number(pos?.realizedUsd) || 0;
+  const pnl = realized + unrealized;
+  return { value, bought, sold, unrealized, realized, pnl, pct: bought > 0 ? (pnl / bought) * 100 : 0 };
 }

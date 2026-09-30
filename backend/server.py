@@ -178,6 +178,10 @@ async def ensure_indexes():
     await db.market_observations.create_index("key")
     await db.market_cache.create_index("key")
     await db.chat_messages.create_index([("room", 1), ("ts", -1)])
+    # Locked trade fills (entry / P&L): one row per wallet + coin + tx, read by every chart load.
+    await db.wallet_fills.create_index([("wallet", 1), ("mint", 1)])
+    await db.wallet_fills.create_index([("wallet", 1), ("mint", 1), ("tx", 1)], unique=True)
+    await db.swap_orders.create_index("signature")
 
 
 @app.on_event("shutdown")

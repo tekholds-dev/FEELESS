@@ -17,6 +17,27 @@ USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 MEME = '49MmWE8sgNjuw342Eu7tB9thsVFtvTfKigUw9KSppump'
 
 
+class FakeHttp:
+    """Stands in for the pooled httpx client: Pyth (history), Coinbase, CoinGecko and Jupiter's live price."""
+    def __init__(self, pyth=None, coinbase=None, gecko=None, now=None):
+        self.pyth, self.coinbase, self.gecko, self.now, self.urls = pyth, coinbase, gecko, now, []
+        self.is_closed = False
+
+    async def get(self, url, params=None, headers=None, timeout=None):
+        self.urls.append(url)
+        if 'hermes.pyth' in url and self.pyth:
+            body = {'parsed': [{'id': trading.SOL_PYTH_ID, 'price': {'price': str(int(self.pyth * 1e8)), 'expo': -8, 'conf': '1', 'publish_time': 0}}]}
+        elif 'coinbase' in url and self.coinbase:
+            body = [[0, 1, 2, 3, self.coinbase, 9]]
+        elif 'coingecko' in url and self.gecko:
+            body = {'prices': [[0, self.gecko]]}
+        elif 'lite-api.jup.ag' in url and self.now:
+            body = {SOL: {'usdPrice': self.now}}
+        else:
+            raise trading.httpx.ConnectError('unreachable')
+        return type('R', (), {'json': lambda self_: body, 'status_code': 200})()
+
+
 def order(i, state='confirmed', **kw):
     base = {'order_id': f'o{i}', 'wallet': 'W', 'state': state, 'signature': f'sig{i}', 'created_at': '2026-09-30T12:00:00+00:00',
             'input_mint': SOL, 'output_mint': MEME, 'in_atoms': '100000000', 'in_decimals': 9, 'out_decimals': 6,
@@ -96,15 +117,10 @@ def test_exact_fill_reads_the_confirmed_tx_and_retries_until_served(monkeypatch)
     real_sleep = asyncio.sleep
     monkeypatch.setattr(trading.asyncio, 'sleep', lambda s: real_sleep(0))
 
-    class Http:
-        async def __aenter__(self): return self
-        async def __aexit__(self, *a): return False
-        async def get(self, url):
-            return type('R', (), {'json': lambda self: {SOL: {'usdPrice': 150}}})()
-    monkeypatch.setattr(trading.httpx, 'AsyncClient', lambda **k: Http())
+    svc._http = FakeHttp(pyth=150, now=999)   # no signed quote here: SOL/USD at the block time (Pyth), never "now"
     f = asyncio.run(svc.exact_fill({'input_mint': SOL, 'output_mint': MEME, 'signature': 'sigX', 'wallet': W}))
     assert calls == ['getTransaction', 'getTransaction'] and f['side'] == 'buy' and f['tokens'] == 5000 and f['via'] == 'chain'
-    assert abs(f['usd'] - 0.100005 * 150) < 1e-3   # 0.1 SOL swap + network fee, account rent excluded
+    assert abs(f['usd'] - 0.100005 * 150) < 1e-3 and f['priced'] == 'block' and f['locked'] is True   # rent excluded
 
 
 def test_dollars_are_locked_at_signing_not_repriced_later(monkeypatch):
@@ -126,10 +142,6 @@ def test_dollars_are_locked_at_signing_not_repriced_later(monkeypatch):
         return tx
     svc.rpc = rpc
 
-    class Http:   # SOL is $160 "today" — must be ignored
-        async def __aenter__(self): return self
-        async def __aexit__(self, *a): return False
-        async def get(self, url): return type('R', (), {'json': lambda self: {SOL: {'usdPrice': 160}}})()
-    monkeypatch.setattr(trading.httpx, 'AsyncClient', lambda **k: Http())
+    svc._http = FakeHttp(pyth=160, now=160)   # SOL is $160 "today" and at block time — the signed quote still wins
     f = asyncio.run(svc.exact_fill({**buy, 'signature': 's', 'wallet': W}))
     assert abs(f["usd"] - 1.15) < 1e-3 and f["locked"] is True and abs(f["solUsd"] - 150) < 1e-4

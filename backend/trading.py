@@ -118,20 +118,12 @@ def fills_from_orders(orders, sol_usd=0.0):
 
 
 def signing_sol_usd(order):
-    """SOL's USD price at the moment the wallet signed, read from the quote it signed (Jupiter prices both legs):
-    buy = quoted USD / SOL paid, sell = quoted USD / SOL out. 0 when the quote has no SOL leg or no USD value."""
-    usd = float((order or {}).get('in_usd') or 0)
-    q = (order or {}).get('quote') or {}
-    try:
-        if usd <= 0:
-            return 0.0
-        if order.get('input_mint') == WSOL_MINT and int(order.get('in_atoms') or 0) > 0:
-            return usd / (int(order['in_atoms']) / 1e9)
-        if order.get('output_mint') == WSOL_MINT and int(q.get('outAmount') or 0) > 0:
-            return usd / (int(q['outAmount']) / 1e9)
-    except (TypeError, ValueError):
-        pass
-    return 0.0
+    """SOL/USD inside the quote the wallet signed (see trade_fills.order_sol_usd)."""
+    return trade_fills.order_sol_usd(order)
+
+
+SOL_PYTH_ID = 'ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d'   # Pyth Crypto.SOL/USD
+FILL_VERSION = 2   # bump when the tx parser changes: stored rows get re-read (their locked price is kept)
 
 
 def _usd_value(quote):
@@ -211,6 +203,8 @@ class TradingService:
     def __init__(self, db):
         self.db = db
         self._fills_cache = {}
+        self._sol_hist = {}
+        self._scan_locks = {}
         self._http = None
         self.metadata_cache = {}
         self.rate = defaultdict(deque)
@@ -410,30 +404,135 @@ class TradingService:
             pass
         return {'bps': 0, 'notes': [], 'referralAccount': None}
 
+    # ---- Fills: every trade read from the chain ONCE, priced ONCE at its own moment, stored forever -----------------
+    # FEELESS orders are priced with the SOL price inside the quote the wallet signed; trades made in other apps with
+    # SOL/USD at their block time. The chart line, break-even, P&L and pins all read these stored rows, so a trade's
+    # dollars can never drift with today's SOL price.
+    async def _stored_fills(self, wallet, mint):
+        if self.db is None:
+            return {}
+        try:
+            docs = await self.db.wallet_fills.find({'wallet': wallet, 'mint': mint}, {'_id': 0}).to_list(5000)
+        except Exception:
+            return {}
+        return {d['tx']: d for d in docs if d.get('tx')}
+
+    async def _store_fill(self, wallet, mint, doc):
+        doc = {**doc, 'wallet': wallet, 'mint': mint, 'v': FILL_VERSION, 'at': time.time()}
+        if self.db is not None:
+            try:
+                await self.db.wallet_fills.update_one({'wallet': wallet, 'mint': mint, 'tx': doc['tx']}, {'$set': doc}, upsert=True)
+            except Exception:
+                pass
+        self._fills_cache.pop((wallet, mint), None)
+        return doc
+
+    async def _orders_by_sig(self, sigs):
+        sigs = [x for x in dict.fromkeys(sigs) if x]
+        if not sigs or self.db is None:
+            return {}
+        try:
+            return {o['signature']: o for o in await self.db.swap_orders.find({'signature': {'$in': sigs}}, {'_id': 0}).to_list(len(sigs))}
+        except Exception:
+            return {}
+
+    async def _sol_now(self):
+        """Today's SOL/USD (30s cache) — only ever used for rows still waiting for their own moment's price."""
+        hit = self._sol_hist.get('now')
+        if hit and time.time() - hit[0] < 30:
+            return hit[1]
+        try:
+            r = await self.http.get(f'https://lite-api.jup.ag/price/v3?ids={SOL_MINT}', timeout=4)
+            px = float((r.json().get(SOL_MINT) or {}).get('usdPrice') or 0)
+        except Exception:
+            px = 0.0
+        if px > 0:
+            self._sol_hist['now'] = (time.time(), px)
+        return px or (hit[1] if hit else 0.0)
+
+    async def sol_usd_at(self, ts):
+        """SOL/USD at a past moment (a trade's block time): Pyth, then Coinbase 1-minute candles, then CoinGecko.
+        Cached per minute. 0.0 when every source is unreachable (the row then stays unlocked and is retried)."""
+        ts = int(ts or 0)
+        if ts <= 0:
+            return 0.0
+        minute = ts // 60 * 60
+        if minute in self._sol_hist:
+            return self._sol_hist[minute]
+        for source in (self._px_pyth, self._px_coinbase, self._px_coingecko):
+            try:
+                px = float(await source(ts) or 0)
+            except Exception:
+                px = 0.0
+            if 1 < px < 100000:
+                self._sol_hist[minute] = px
+                return px
+        return 0.0
+
+    async def _px_pyth(self, ts):
+        r = await self.http.get(f'https://hermes.pyth.network/v2/updates/price/{ts}', params={'ids[]': SOL_PYTH_ID, 'parsed': 'true'}, timeout=6)
+        for p in (r.json() or {}).get('parsed') or []:
+            pr = p.get('price') or {}
+            return int(pr['price']) * 10 ** int(pr['expo'])
+        return 0.0
+
+    async def _px_coinbase(self, ts):
+        iso = lambda t: datetime.fromtimestamp(t, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        r = await self.http.get('https://api.exchange.coinbase.com/products/SOL-USD/candles', params={'granularity': 60, 'start': iso(ts - 120), 'end': iso(ts + 120)},
+                                headers={'User-Agent': 'feeless'}, timeout=6)
+        rows = r.json()
+        if isinstance(rows, list) and rows:
+            return float(min(rows, key=lambda c: abs(c[0] - ts))[4])   # [time, low, high, open, CLOSE, volume]
+        return 0.0
+
+    async def _px_coingecko(self, ts):
+        r = await self.http.get('https://api.coingecko.com/api/v3/coins/solana/market_chart/range', params={'vs_currency': 'usd', 'from': ts - 1800, 'to': ts + 1800}, timeout=6)
+        pts = (r.json() or {}).get('prices') or []
+        return float(min(pts, key=lambda p: abs(p[0] / 1000 - ts))[1]) if pts else 0.0
+
+    async def price_for(self, raw, order, now_px):
+        """(SOL/USD, how it was priced) for one raw fill. Signing and block-time prices lock the row; 'now' does not."""
+        if order and order.get('input_mint') == SOL_MINT:
+            px = signing_sol_usd(order)   # a SOL-paid buy: the signed quote knows SOL's price exactly
+            if px:
+                return px, 'signing'
+        if raw.get('cashSol', 0) <= raw.get('networkSol', 0) + 1e-9 and raw.get('cashStable', 0) > 0:
+            return (now_px or await self._sol_now()), 'stable'   # a USDC/USDT trade: its dollars are exact, SOL only paid gas
+        px = await self.sol_usd_at(raw.get('ts'))
+        if px:
+            return px, 'block'
+        if order:
+            px = signing_sol_usd(order)
+            if px:
+                return px, 'signing'
+        return (now_px or await self._sol_now()), 'now'
+
+    async def _fill_doc(self, wallet, mint, sig, tx, order, now_px, prev=None):
+        raw = trade_fills.raw_fill(tx, wallet, mint, [order['fee_account']] if order and order.get('fee_account') else ())
+        if not raw:
+            return await self._store_fill(wallet, mint, {'tx': sig, 'skip': True, 'locked': True})
+        if prev and prev.get('locked') and prev.get('solUsd'):
+            px, priced = prev['solUsd'], prev['priced']   # a price once locked stays locked, even across parser upgrades
+        else:
+            px, priced = await self.price_for(raw, order, now_px)
+        return await self._store_fill(wallet, mint, {**raw, 'solUsd': px, 'priced': priced, 'locked': priced in trade_fills.LOCKING})
+
     async def exact_fill(self, order, tries=4):
-        """Read the confirmed transaction once and return exactly what the wallet paid / received for the coin
-        (fees in, refundable rent out). Retries briefly: a just-confirmed tx can take a moment to be served."""
+        """Read one confirmed FEELESS order's transaction, price it at signing, store it, return the priced fill.
+        Retries briefly: a just-confirmed tx can take a moment to be served."""
         im, om = order.get('input_mint') or '', order.get('output_mint') or ''
         base = {SOL_MINT} | STABLE_USD
         coin = om if im in base else im if om in base else None
         if not coin or not order.get('signature') or not order.get('wallet'):
             return None
-        # Dollars are locked at SIGNING: the SOL price is the one inside the quote the wallet signed, never today's.
-        sol_usd = signing_sol_usd(order)
-        if not sol_usd:
-            try:
-                async with httpx.AsyncClient(timeout=4) as http:
-                    sol_usd = float(((await http.get(f'https://lite-api.jup.ag/price/v3?ids={SOL_MINT}')).json().get(SOL_MINT) or {}).get('usdPrice') or 0)
-            except Exception:
-                pass
+        wallet, sig = order['wallet'], order['signature']
         for i in range(tries):
             try:
-                tx = await self.rpc('getTransaction', [order['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+                tx = await self.rpc('getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
                 if tx:
-                    f = trade_fills.fill_from_tx(tx, order['wallet'], coin, sol_usd, [a for a in [order.get('fee_account')] if a])
-                    if f and not sol_usd and f.get('sol'):
-                        return {**f, 'usd': 0.0, 'price': 0.0}   # SOL price unknown: caller prices it
-                    return {**f, 'solUsd': sol_usd, 'locked': bool(signing_sol_usd(order))} if f else f
+                    prev = (await self._stored_fills(wallet, coin)).get(sig)
+                    doc = await self._fill_doc(wallet, coin, sig, tx, order, 0.0, prev)
+                    return None if doc.get('skip') else trade_fills.price_fill(doc, doc['solUsd'], doc['priced'])
             except Exception:
                 pass
             await asyncio.sleep(1.5 * (i + 1))
@@ -478,26 +577,60 @@ class TradingService:
                 await self.trade_landed(o)
         return landed
 
-    async def chain_fills(self, wallet, mint, sol_usd, limit=25):
-        """The wallet's real buys/sells of `mint`, read from its token accounts' transactions (any app, exact amounts),
-        plus its live balance. Cached 10s per wallet+coin."""
+    def _answer(self, stored, sol_usd, accs, bal):
+        fills = [f for f in (trade_fills.price_fill(d, d['solUsd'] if d.get('locked') else (sol_usd or d.get('solUsd')), d.get('priced') or 'now')
+                             for d in stored.values() if not d.get('skip')) if f]
+        return {'fills': sorted(fills, key=lambda f: f.get('ts') or 0), 'balance': bal if accs else 0.0}
+
+    async def chain_fills(self, wallet, mint, sol_usd, limit=50, max_pages=20, max_fresh=400):
+        """The wallet's buys/sells of `mint` (any app) + its live balance. Only transactions never seen before are fetched;
+        everything already stored comes back with its locked dollars. Cached 10s per wallet+coin; one scan at a time
+        per wallet+coin (a second caller gets the stored rows right away instead of starting a duplicate scan)."""
         k = (wallet, mint); hit = self._fills_cache.get(k)
         if hit and time.time() - hit[0] < 10:
             return hit[1]
-        accs = (await self.rpc('getTokenAccountsByOwner', [wallet, {'mint': mint}, {'encoding': 'jsonParsed'}])) or {}
-        accs = accs.get('value') or []
+        accs = ((await self.rpc('getTokenAccountsByOwner', [wallet, {'mint': mint}, {'encoding': 'jsonParsed'}])) or {}).get('value') or []
         bal = 0.0
         for a in accs:
             ui = ((((a.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}).get('tokenAmount') or {}
             bal += int(ui.get('amount') or 0) / 10 ** int(ui.get('decimals') or 0)
+        lock = self._scan_locks.setdefault(k, asyncio.Lock())
+        if lock.locked():
+            return self._answer(await self._stored_fills(wallet, mint), sol_usd, accs, bal)
+        async with lock:
+            return await self._scan(wallet, mint, sol_usd, accs, bal, limit, max_pages, max_fresh)
+
+    async def _scan(self, wallet, mint, sol_usd, accs, bal, limit, max_pages, max_fresh):
+        k = (wallet, mint)
+        stored = await self._stored_fills(wallet, mint)
         sigs = []
-        for group in await asyncio.gather(*(self.rpc('getSignaturesForAddress', [a['pubkey'], {'limit': limit}]) for a in accs[:3]), return_exceptions=True):
-            if isinstance(group, list):
+        for a in accs[:3]:
+            before = None
+            for _ in range(max_pages):   # newest first; stop at the first page that reaches rows already locked
+                try:
+                    group = await self.rpc('getSignaturesForAddress', [a['pubkey'], {'limit': limit, **({'before': before} if before else {})}]) or []
+                except HTTPException:
+                    break
                 sigs += [g['signature'] for g in group if not g.get('err')]
-        sigs = list(dict.fromkeys(sigs))[:limit]
-        txs = await asyncio.gather(*(self.rpc('getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}]) for sig in sigs), return_exceptions=True)
-        fills = [f for f in (trade_fills.fill_from_tx(t, wallet, mint, sol_usd) for t in txs if isinstance(t, dict)) if f]
-        out = {'fills': fills, 'balance': bal if accs else 0.0}
+                if len(group) < limit or any((stored.get(g['signature']) or {}).get('locked') for g in group):
+                    break
+                before = group[-1]['signature']
+        # never seen, or seen by an older parser (re-read, but a locked price is carried over by _fill_doc)
+        fresh = [x for x in dict.fromkeys(sigs) if x not in stored or stored[x].get('v') != FILL_VERSION][:max_fresh]
+        retry = [d for d in stored.values() if not d.get('locked')]
+        orders = await self._orders_by_sig(fresh + [d['tx'] for d in retry])
+        for n in range(0, len(fresh), 10):   # gentle on the RPC: 10 transactions at a time
+            chunk = fresh[n:n + 10]
+            txs = await asyncio.gather(*(self.rpc('getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}]) for x in chunk),
+                                       return_exceptions=True)
+            for x, tx in zip(chunk, txs):
+                if isinstance(tx, dict):   # not served right now: simply read again on the next scan
+                    stored[x] = await self._fill_doc(wallet, mint, x, tx, orders.get(x), sol_usd, stored.get(x))
+        for d in retry:   # rows priced 'now' earlier: try once more for their real moment
+            px, priced = await self.price_for(d, orders.get(d['tx']), sol_usd)
+            if priced in trade_fills.LOCKING:
+                stored[d['tx']] = await self._store_fill(wallet, mint, {**d, 'solUsd': px, 'priced': priced, 'locked': True})
+        out = self._answer(stored, sol_usd, accs, bal)
         self._fills_cache[k] = (time.time(), out)
         return out
 
@@ -522,10 +655,28 @@ class TradingService:
             order = await self.db.swap_orders.find_one({'signature': signature, 'state': 'confirmed'}, {'_id': 0})
             return {'fill': await self.exact_fill(order, tries=2) if order else None}
 
+        @router.get('/internal/wallet-fills/{wallet}')
+        async def wallet_fills(wallet: str, request: Request):
+            """Internal: every stored, locked fill of a wallet across all coins (profile trade cards)."""
+            key = (Path(__file__).parent / 'data' / 'internal.key').read_text().strip()
+            if request.headers.get('x-feeless-internal') != key:
+                raise HTTPException(403, 'Internal only.')
+            valid_key(wallet)
+            try:
+                docs = await self.db.wallet_fills.find({'wallet': wallet}, {'_id': 0}).to_list(5000)
+            except Exception:
+                docs = []
+            fills = [f for f in (trade_fills.price_fill(d, d['solUsd'], d['priced']) for d in docs if d.get('locked') and not d.get('skip') and d.get('solUsd')) if f]
+            return {'fills': [{**f, 'token': f.get('mint') or f.get('token')} for f in fills]}
+
         @router.get('/chain-fills/{wallet}/{mint}')
-        async def chain_fills(wallet: str, mint: str, sol: float = 0):
+        async def chain_fills(wallet: str, mint: str, request: Request):
+            """Internal: a wallet's locked fills for one coin + its balance (the reputation service's position endpoint)."""
+            key = (Path(__file__).parent / 'data' / 'internal.key').read_text().strip()
+            if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), key):
+                raise HTTPException(403, 'Internal only.')
             valid_key(wallet); valid_key(mint)
-            return await self.chain_fills(wallet, mint, max(0.0, min(sol, 100000.0)))
+            return await self.chain_fills(wallet, mint, await self._sol_now())
 
         @router.get('/internal/fills/{wallet}')
         async def fills(wallet: str, request: Request):

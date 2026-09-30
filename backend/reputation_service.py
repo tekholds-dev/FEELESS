@@ -6856,8 +6856,8 @@ async def _chain_fills(address: str, token: str) -> dict:
     if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address) or not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', token):
         return {}
     try:
-        async with httpx.AsyncClient(timeout=9) as http:
-            r = await http.get(f'http://127.0.0.1:5001/api/trading/chain-fills/{address}/{token}', params={'sol': await _sol_usd()})
+        async with httpx.AsyncClient(timeout=15) as http:   # a wallet's first scan reads its history once; later ones are instant
+            r = await http.get(f'http://127.0.0.1:5001/api/trading/chain-fills/{address}/{token}', headers={'x-feeless-internal': _internal_key()})
             return r.json() if r.status_code == 200 else {}
     except Exception:
         return {}
@@ -6920,10 +6920,11 @@ async def position(address: str, token: str):
     tok = token.lower()
     provider = [r for r in (_wtrades_all.get(address) or (0, []))[1] if r['token'].lower() == tok]
     own = [r for r in _json_load(FEELESS_TRADES_PATH, {}).get(address, []) + fills if r['token'].lower() == tok]
-    # FEELESS trades are locked at signing (exact amounts, that moment's SOL price) and always win; the live chain scan
-    # only fills in trades made outside FEELESS (priced now, since their signing price is unknown), then the provider.
-    rows = trade_fills.merge([r for r in own if r.get('locked')], [r for r in own if r.get('via') == 'chain'], chain.get('fills'),
-                             [r for r in own if r.get('via') != 'chain'], provider)
+    # Locked rows first — every one of them was read from the chain once and priced at its own moment (FEELESS trades
+    # at signing, outside trades at their block time) — then anything still waiting for its price, then estimates.
+    cf = chain.get('fills') or []
+    rows = trade_fills.merge([r for r in cf if r.get('locked')], [r for r in own if r.get('locked')],
+                             [r for r in cf if not r.get('locked')], [r for r in own if not r.get('locked')], provider)
     fees = {r.get('sig'): r.get('feeUsd') or 0 for r in _json_load(FEE_LEDGER_PATH, {}).get(primary_of(address), [])}
     pos = trade_fills.position(rows, chain.get('balance') if 'balance' in chain else None, fees)
     if pos:
@@ -6932,12 +6933,23 @@ async def position(address: str, token: str):
     return {'address': address, 'token': token, 'position': pos, 'balance': chain.get('balance')}
 
 
+async def _locked_fills(address: str) -> list:
+    """Every locked fill stored for this wallet (all coins), from the trading service. Same numbers as the chart."""
+    try:
+        async with httpx.AsyncClient(timeout=5) as http:
+            r = await http.get(f'http://127.0.0.1:5001/api/trading/internal/wallet-fills/{address}', headers={'x-feeless-internal': _internal_key()})
+            return r.json().get('fills') or [] if r.status_code == 200 else []
+    except Exception:
+        return []
+
+
 @app.get('/api/reputation/trade-cards/{address}')
 async def trade_cards(address: str):
     """A wallet's recent FEELESS trades as shareable cards: side, size, per-sell P&L (average cost), fee, tx, coin."""
     if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address):
         raise HTTPException(400, 'Bad address.')
-    rows = trade_fills.merge(_json_load(FEELESS_TRADES_PATH, {}).get(address, []), await _feeless_fills(address))
+    own = _json_load(FEELESS_TRADES_PATH, {}).get(address, [])
+    rows = trade_fills.merge(await _locked_fills(address), [r for r in own if r.get('locked')], own, await _feeless_fills(address))
     fees = {r.get('sig'): r.get('feeUsd') or 0 for r in _json_load(FEE_LEDGER_PATH, {}).get(primary_of(address), [])}
     cards = []
     for tok in {r['token'] for r in rows}:
@@ -8337,8 +8349,8 @@ def _trade_record(p: 'TradeLanded', coin: str, amt: float, side: str, sol_usd: f
     if f.get('token') == coin and f.get('tokens', 0) > 0 and f.get('side') == side:
         usd = f.get('usd') or (f.get('sol') or 0) * sol_usd
         if usd > 0:
-            return {**{k: f[k] for k in ('side', 'tokens', 'sol', 'networkSol', 'balanceAfter', 'poolUsd', 'feelessFeeUsd', 'networkUsd', 'solUsd', 'locked') if k in f}, 'ts': f.get('ts') or time.time(),
-                    'usd': round(usd, 4), 'price': usd / f['tokens'], 'token': coin, 'tx': p.signature, 'via': 'chain', 'locked': True}
+            return {**{k: f[k] for k in ('side', 'tokens', 'sol', 'networkSol', 'balanceAfter', 'poolUsd', 'fillPrice', 'feelessFeeUsd', 'networkUsd', 'solUsd', 'priced', 'locked') if k in f}, 'ts': f.get('ts') or time.time(),
+                    'usd': round(usd, 6), 'price': usd / f['tokens'], 'token': coin, 'tx': p.signature, 'via': 'chain', 'locked': bool(f.get('locked'))}
     if amt > 0 and p.inUsd > 0:
         fee = fee_usd if fee_usd is not None else p.inUsd * max(0, p.feeBps) / 10000   # the fee actually charged beats the %
         usd = p.inUsd + fee if side == 'buy' else max(0.0, p.inUsd - fee)
@@ -8351,27 +8363,32 @@ async def internal_trade(request: Request, p: TradeLanded):
     """Called by the trading service once a FEELESS trade is confirmed on-chain (idempotent per signature)."""
     if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key()):
         raise HTTPException(403, 'Internal only.')
+    who = primary_of(p.wallet)
+    px = await _sol_usd() if p.feeAtoms and p.feeMint == WSOL else 0
+    eco = set((await _ecosystem_mints()).values())
+    row = fee_report.ledger_row(time.time(), p.signature, p.inUsd, p.feeBps, p.feeAtoms, p.feeMint, px, feeback=bool(eco & {p.inputMint, p.outputMint}))
+    # The trader's position row is saved on EVERY call (idempotent per tx) — before the points dedupe below, which once
+    # skipped it and left a trade with no locked entry. A locked row is never replaced by a weaker (unlocked) one.
+    stable_ = {WSOL, 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'}
+    coin, amt, side_ = (p.outputMint, p.outAmount, 'buy') if p.inputMint in stable_ else (p.inputMint, p.inAmount, 'sell')
+    rec = _trade_record(p, coin, amt, side_, await _sol_usd(), row.get('feeUsd')) if coin not in stable_ else None
+    if rec:
+        ft = _json_load(FEELESS_TRADES_PATH, {})
+        mine = ft.get(p.wallet) or []
+        old = next((r for r in mine if r.get('tx') == p.signature), None)
+        if not (old and old.get('locked') and not rec.get('locked')):
+            ft[p.wallet] = ([r for r in mine if r.get('tx') != p.signature] + [rec])[-300:]
+            _json_save(FEELESS_TRADES_PATH, ft)
     d = _seasons(); seen = d.setdefault('tradeSigs', [])
     if p.signature in seen:
         return {'ok': True, 'points': 0, 'duplicate': True}
     pts = trade_points(p.inUsd, p.feeBps)
     d['tradeSigs'] = (seen + [p.signature])[-5000:]
     _json_save(SEASONS_PATH, d)
-    led = _json_load(FEE_LEDGER_PATH, {}); who = primary_of(p.wallet)
-    px = await _sol_usd() if p.feeAtoms and p.feeMint == WSOL else 0
-    eco = set((await _ecosystem_mints()).values())
-    row = fee_report.ledger_row(time.time(), p.signature, p.inUsd, p.feeBps, p.feeAtoms, p.feeMint, px, feeback=bool(eco & {p.inputMint, p.outputMint}))
+    led = _json_load(FEE_LEDGER_PATH, {})
     led[who] = (led.get(who) or [])[-1999:] + [row]
     _json_save(FEE_LEDGER_PATH, led)
     _json_save(FEE_TOTALS_PATH, fee_report.add_total(_json_load(FEE_TOTALS_PATH, {}), who, row))   # lifetime, never trimmed
-    # The trader's own FEELESS trades: instant position / entry line / chart pins (no wallet-history provider needed).
-    stable_ = {WSOL, 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'}
-    coin, amt, side_ = (p.outputMint, p.outAmount, 'buy') if p.inputMint in stable_ else (p.inputMint, p.inAmount, 'sell')
-    rec = _trade_record(p, coin, amt, side_, await _sol_usd(), row.get('feeUsd')) if coin not in stable_ else None
-    if rec:
-        ft = _json_load(FEELESS_TRADES_PATH, {})
-        ft[p.wallet] = ([r for r in ft.get(p.wallet) or [] if r.get('tx') != p.signature] + [rec])[-300:]
-        _json_save(FEELESS_TRADES_PATH, ft)
     inviter = _json_load(REF_PATH, {'by': {}, 'of': {}})['of'].get(who)
     # The trade is confirmed on-chain (the trading service checked): tell the trader and refresh their holdings,
     # whether or not their browser is still open. Deduped with the receipt notification by signature.
