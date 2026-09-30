@@ -40,18 +40,20 @@ def test_position_uses_real_balance_fees_and_per_sell_pnl():
         [{'ts': 2, 'side': 'buy', 'usd': 14.0, 'price': 0.0028, 'tx': 'b1', 'via': 'feeless'}],   # same tx: chain wins
     )
     p = tf.position(rows, held_chain=2400.0, fees_by_sig={'b1': 0.15})
-    # entry = the market price paid for the coins: $15 spent minus the $0.15 FEELESS fee, over 5000 coins
-    assert abs(p['avgEntry'] - 14.85 / 5000) < 1e-12 and p['tokensHeld'] == 2400.0 and p['exact'] is True
-    assert abs(p['realizedUsd'] - 1.575) <= 0.006 and p['feesUsd'] == 0.15 and p['buys'] == 1 and p['sells'] == 1
-    assert abs(p['trades'][1]['pnlUsd'] - 1.575) <= 0.006 and p['trades'][0]['feeUsd'] == 0.15
+    # entry = break-even: all $15 that left the wallet over 5000 coins; fill price = $14.85 (fee out) over 5000
+    assert p['avgEntry'] == 0.003 and abs(p['fillPrice'] - 14.85 / 5000) < 1e-12 and p['tokensHeld'] == 2400.0 and p['exact'] is True
+    assert p['realizedUsd'] == 1.5 and p['feesUsd'] == 0.15 and p['buys'] == 1 and p['sells'] == 1
+    assert p['trades'][1]['pnlUsd'] == 1.5 and p['trades'][0]['feeUsd'] == 0.15
     assert tf.position([r for r in rows if r['side'] == 'sell']) is None
 
 
 
-def test_network_fee_comes_out_of_the_entry_too():
+def test_break_even_includes_fees_so_pnl_is_real_money():
     buy = {'ts': 1, 'side': 'buy', 'usd': 10.0, 'sol': 0.1, 'networkSol': 0.001, 'price': 0.01, 'tokens': 1000, 'tx': 'b', 'via': 'chain'}
     p = tf.position([buy], fees_by_sig={'b': 0.1})
-    assert abs(p['avgEntry'] - (10 - 0.1 - 0.1) / 1000) < 1e-12 and abs(p['feesUsd'] - 0.2) < 1e-9   # $100/SOL network fee
+    assert p['avgEntry'] == 0.01 and abs(p['fillPrice'] - (10 - 0.1 - 0.1) / 1000) < 1e-12 and abs(p['feesUsd'] - 0.2) < 1e-9   # $100/SOL network fee
+    # price back exactly at the pool fill: you're down by the fees, never shown as up
+    assert (p['fillPrice'] - p['avgEntry']) * p['tokensHeld'] < 0
 
 
 def test_trade_cards_endpoint_prices_each_sell_against_average_entry(tmp_path, monkeypatch):

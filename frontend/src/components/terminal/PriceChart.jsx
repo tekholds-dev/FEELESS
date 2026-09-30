@@ -294,7 +294,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     const drop = () => { if (entryLineRef.current) { try { ref?.series.removePriceLine(entryLineRef.current); } catch { /* chart gone */ } entryLineRef.current = null; } };
     drop();
     if (!ref || !(userEntry > 0) || !charting) return drop;
-    try { entryLineRef.current = ref.series.createPriceLine({ price: userEntry * ratio, color: '#f5c542', lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: '◆ your avg entry' }); } catch { /* chart torn down */ }
+    try { entryLineRef.current = ref.series.createPriceLine({ price: userEntry * ratio, color: '#f5c542', lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: '◆ your break-even (fees in)' }); } catch { /* chart torn down */ }
     return drop;
   }, [userEntry, charting, ratio, displayCandles]);
 

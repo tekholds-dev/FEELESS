@@ -96,17 +96,19 @@ def market_usd(r: dict, fees_by_sig: dict) -> float:
 
 
 def position(rows: list, held_chain: float | None = None, fees_by_sig: dict | None = None) -> dict | None:
-    """Average-cost position. Entry = the market price you got (fees excluded, so the chart line sits where you bought);
-    fees are reported on their own and taken off `netUsd`-style figures by the UI. `held_chain` beats the sum of fills."""
+    """Average-cost position on real money: avgEntry is the break-even price (fees included), so P&L against the live price
+    is exactly what you're up or down. fillPrice is the pool price you got. `held_chain` beats the sum of fills."""
     fees_by_sig = fees_by_sig or {}
     buys = [r for r in rows if r['side'] == 'buy']
     if not buys:
         return None
     tok = lambda r: r.get('tokens') or r['usd'] / r['price']
-    buy_usd = sum(market_usd(r, fees_by_sig) for r in buys); buy_tok = sum(tok(r) for r in buys)
+    # Real money: what left / reached the wallet, fees included. P&L against this is what you're actually up or down.
+    buy_usd = sum(r['usd'] for r in buys); buy_tok = sum(tok(r) for r in buys)
     sells = [r for r in rows if r['side'] == 'sell']
-    sell_usd = sum(market_usd(r, fees_by_sig) for r in sells); sell_tok = sum(tok(r) for r in sells)
-    avg = buy_usd / buy_tok
+    sell_usd = sum(r['usd'] for r in sells); sell_tok = sum(tok(r) for r in sells)
+    avg = buy_usd / buy_tok                                                   # break-even price, fees included
+    fill = sum(market_usd(r, fees_by_sig) for r in buys) / buy_tok           # the pool price you actually got
     held = max(0.0, buy_tok - sell_tok) if held_chain is None else max(0.0, held_chain)
     fees = sum(trade_costs(r, fees_by_sig) if r.get('via') == 'chain' else fees_by_sig.get(r['tx'], 0) for r in rows)
     trades = []
@@ -116,7 +118,7 @@ def position(rows: list, held_chain: float | None = None, fees_by_sig: dict | No
         if r['side'] == 'sell':
             t['pnlUsd'] = round(r['usd'] - tok(r) * avg, 2)   # what actually landed in the wallet vs the coins' entry cost
         trades.append(t)
-    return {'avgEntry': avg, 'tokensHeld': held, 'costUsd': round(avg * held, 2), 'realizedUsd': round(sell_usd - sell_tok * avg, 2),
-            'feesInclude': 'FEELESS + network fees',
+    return {'avgEntry': avg, 'fillPrice': fill, 'tokensHeld': held, 'costUsd': round(avg * held, 2), 'realizedUsd': round(sell_usd - sell_tok * avg, 2),
+            'entryIncludes': 'FEELESS + network fees (break-even)',
             'investedUsd': round(buy_usd, 2), 'feesUsd': round(fees, 4), 'exact': any(r.get('via') == 'chain' for r in rows),
             'buys': len(buys), 'sells': len(sells), 'lastTradeAt': max(r['ts'] for r in rows), 'trades': trades}
