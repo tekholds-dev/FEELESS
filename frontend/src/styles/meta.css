@@ -400,3 +400,8 @@ a.fb-row:hover { background: color-mix(in srgb, var(--m-accent) 7%, transparent)
 .chart-with-trade .candle-canvas{flex:1 1 auto}
 .chart-with-trade :is(.chart-style-toggle,.chart-foot-chips){bottom:60px}
 .chart-with-trade .chart-area .chart-stale-note{bottom:60px!important}
+/* Profile swap tab: columns wrap inside whatever width the profile gives them — never spill under the right rail */
+.profile-swap-layout{display:flex!important;flex-wrap:wrap;align-items:flex-start}
+.profile-swap-layout>*{flex:1 1 260px;min-width:0;max-width:100%}
+.profile-swap-layout>.profile-swap{flex:2 1 420px}
+.profile-swap-layout .wp-receipts{overflow:hidden}.profile-swap-layout .wp-receipts h3 small{white-space:nowrap}
