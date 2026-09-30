@@ -12,6 +12,7 @@ import { CoinPassport } from '../CoinPassport';
 import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
 import { useWallet } from '../../hooks/useWallet';
 import { apiUrl } from '../../lib/api';
+import { applyFill } from '../../lib/position';
 import { ChartMetaButtons, useChartMarkers } from './ChartMeta';
 import { LaunchForensics } from './LaunchForensics';
 import { Copy, ExternalLink, Rocket, Star, BarChart3, ArrowUpRight, ArrowLeftRight } from 'lucide-react';
@@ -48,7 +49,7 @@ export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1m', onExpand
   const [myPos, tradeFlash] = useMyPosition(current);
   // Your own buys and sells, pinned on the candle they happened in (gold = you).
   const markers = useMemo(() => [...metaMarkers, ...((myPos?.trades) || []).map(t => ({ time: Math.floor(t.ts), position: t.side === 'buy' ? 'belowBar' : 'aboveBar',
-    shape: t.side === 'buy' ? 'arrowUp' : 'arrowDown', color: t.side === 'buy' ? '#f5c451' : '#ff8fa3', text: `YOU ${t.side === 'buy' ? 'BUY' : 'SELL'} $${Number(t.usd || 0).toFixed(t.usd >= 100 ? 0 : 2)}` }))], [metaMarkers, myPos]);
+    shape: t.side === 'buy' ? 'arrowUp' : 'arrowDown', color: t.side === 'buy' ? '#f5c451' : '#ff8fa3', text: `YOU ${t.side === 'buy' ? 'BUY' : 'SELL'} $${Number(t.usd || 0).toFixed(t.usd >= 100 ? 0 : 2)}${t.pnlUsd != null ? ` ${t.pnlUsd >= 0 ? '+' : '−'}$${Math.abs(t.pnlUsd).toFixed(2)}` : ''} ✓` }))], [metaMarkers, myPos]);
   if (!current) return <section className="empty-focus" data-testid="token-focus-empty"><BarChart3 size={32} /><p>Select a market to open its chart.</p></section>;
   const address = current.baseToken?.address;
   const metricValue = id => id === 'marketCap' ? current.marketCap : current.fdv;
@@ -81,13 +82,25 @@ function useMyPosition(pair) {
   const { wallet } = useWallet() || {};
   const [pos, setPos] = useState(null); const [flash, setFlash] = useState(0);
   const token = pair?.baseToken?.address; const address = wallet?.address;
+  // Trades confirmed in this tab that the server hasn't read back yet: kept on top of its answer for 90s.
+  const pending = useRef([]);
+  const withPending = useCallback(server => {
+    const now = Date.now();
+    pending.current = pending.current.filter(f => now - f.at < 90000 && !(server?.trades || []).some(t => t.tx === f.signature));
+    return pending.current.reduce(applyFill, server || null);
+  }, []);
   const load = useCallback(() => {
     if (!address || !token || typeof fetch !== 'function') { setPos(null); return; }
-    fetch(apiUrl(`/api/reputation/position/${address}/${token}`)).then(r => r.json()).then(d => setPos(d.position)).catch(() => {});
-  }, [address, token]);
-  useEffect(() => { load(); const timer = setInterval(load, 10000); return () => clearInterval(timer); }, [load]);
+    fetch(apiUrl(`/api/reputation/position/${address}/${token}`)).then(r => (r.ok ? r.json() : Promise.reject(new Error('busy')))).then(d => setPos(withPending(d.position))).catch(() => {});
+  }, [address, token, withPending]);
+  useEffect(() => { pending.current = []; load(); const timer = setInterval(load, 10000); return () => clearInterval(timer); }, [load]);
   useEffect(() => {
-    const onTrade = e => { if (!e.detail?.mint || e.detail.mint === token) { setFlash(Date.now()); setTimeout(load, 2500); setTimeout(load, 8000); } };
+    const onTrade = e => {
+      const d = e.detail || {};
+      if (d.mint && d.mint !== token) return;
+      if (d.mint && d.tokens > 0) { pending.current.push({ ...d, at: Date.now() }); setPos(p => applyFill(p, d)); }
+      setFlash(Date.now()); setTimeout(load, 2500); setTimeout(load, 8000); setTimeout(load, 20000);
+    };
     window.addEventListener('feeless:trade-confirmed', onTrade);
     return () => window.removeEventListener('feeless:trade-confirmed', onTrade);
   }, [token, load]);
@@ -109,7 +122,7 @@ function PnlBadge({ pos, pair, price, flash, symbol, imageUrl, mcPerPrice }) {
   const entryMc = mcPerPrice ? fmtMc(pos.avgEntry * mcPerPrice) : null; const nowMc = mcPerPrice ? fmtMc(livePrice * mcPerPrice) : null;
   const pct = (livePrice / pos.avgEntry - 1) * 100; const usd = (livePrice - pos.avgEntry) * pos.tokensHeld; const value = livePrice * pos.tokensHeld;
   return <div key={flash} className={`my-pnl ${pct >= 0 ? 'up' : 'down'} ${flash ? 'just-traded' : ''}`} data-testid="my-pnl">
-    <small>Live position · updates ~2.5s</small><b>{pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</b><span>{usd >= 0 ? '+' : '−'}${Math.abs(usd).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span><em>value ${value.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 })} · {entryMc ? <>entry MC {entryMc} · now {nowMc}</> : `avg $${pos.avgEntry.toPrecision(4)} · live $${livePrice.toPrecision(4)}`}</em>
+    <small>Live position · updates ~2.5s</small><b>{pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</b><span>{usd >= 0 ? '+' : '−'}${Math.abs(usd).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span><em>value ${value.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 })} · {entryMc ? <>entry MC {entryMc} · now {nowMc}</> : `avg $${pos.avgEntry.toPrecision(4)} · live $${livePrice.toPrecision(4)}`}</em><em className="my-pnl-src" data-testid="my-pnl-src">{pos.pending ? '⏳ just confirmed · syncing exact fills' : pos.exact ? '✓ exact · your wallet\'s on-chain fills' : 'from FEELESS trade records'}{pos.realizedUsd ? ` · realized ${pos.realizedUsd >= 0 ? '+' : '−'}$${Math.abs(pos.realizedUsd).toFixed(2)}` : ''}{pos.feesUsd ? ` · fees paid $${pos.feesUsd.toFixed(pos.feesUsd < 1 ? 3 : 2)}` : ''}</em>
     <ShareGifButton className="my-pnl-share" label="🎞 Share" card={{ kicker: 'LIVE POSITION · FEELESS TRENCHES', title: `$${symbol}`, imageUrl, tone: pct >= 0 ? 'up' : 'down', bigValue: Math.abs(pct), bigPrefix: pct >= 0 ? '+' : '−', bigSuffix: '%', bigDigits: 1, lines: [`${usd >= 0 ? '+' : '−'}$${Math.abs(usd).toLocaleString(undefined, { maximumFractionDigits: 2 })} unrealized · value $${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, entryMc ? `entry MC ${entryMc} · now MC ${nowMc}` : `avg entry $${pos.avgEntry.toPrecision(4)} · live $${livePrice.toPrecision(4)}`] }} />
     <button type="button" className="my-pnl-exit" onClick={() => window.dispatchEvent(new CustomEvent('feeless:quick-exit', { detail: { pct: 100 } }))}>Exit position</button>
   </div>;

@@ -366,3 +366,37 @@ a.fb-row:hover { background: color-mix(in srgb, var(--m-accent) 7%, transparent)
 /* Chat avatars are always round: the image is clipped to the circle, never a square photo */
 .chat-avatar{border-radius:50%;overflow:hidden;padding:0}
 .chat-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
+.qt-retry{background:none;border:0;padding:0;color:#16d67f;font:inherit;text-decoration:underline;cursor:pointer}
+.qt-retry:hover{color:#5dffb0}.qt-retry:active{opacity:.7}.qt-retry:focus-visible{outline:1px solid #16d67f;outline-offset:2px}
+/* Live trade timeline: quoted → signed → broadcast → confirmed, each with its time; fees spelled out */
+.trade-timeline { margin-top: 10px; display: grid; gap: 8px; animation: tt-in .18s ease-out; }
+.trade-timeline ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.trade-timeline li { display: grid; grid-template-columns: 18px 1fr; column-gap: 8px; align-items: center; color: var(--m-mute); font-size: 12px; }
+.trade-timeline li i { grid-row: span 2; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--m-mute); display: grid; place-items: center; font-style: normal; font-size: 10px; }
+.trade-timeline li small { font-family: var(--m-mono); font-size: 10px; letter-spacing: .04em; }
+.trade-timeline li.is-done { color: var(--m-text); }
+.trade-timeline li.is-done i { background: var(--m-accent); border-color: var(--m-accent); color: #04110a; }
+.trade-timeline li.is-now i { border-color: var(--m-accent); border-top-color: transparent; animation: tt-spin .8s linear infinite; }
+.trade-timeline li.is-bad { color: #ff8fa3; } .trade-timeline li.is-bad i { background: #ff8fa3; border-color: #ff8fa3; color: #1a0508; }
+.trade-costs span { font-family: var(--m-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--m-mute); }
+.trade-tx { justify-self: start; }
+@keyframes tt-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes tt-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .trade-timeline, .trade-timeline li.is-now i { animation: none; } }
+.my-pnl .my-pnl-src{color:var(--m-accent);opacity:.85}
+/* Profile trade cards: one row per FEELESS trade, P&L tinted, GIF share at the end */
+.trade-cards-list { display: grid; gap: 6px; max-height: 320px; }
+.trade-card { display: grid; grid-template-columns: auto minmax(60px, 1fr) auto auto auto auto; align-items: center; gap: 10px; padding: 8px 10px; }
+.trade-card.is-up { border-color: color-mix(in srgb, var(--m-accent) 45%, transparent); }
+.trade-card.is-down { border-color: color-mix(in srgb, #ff8fa3 45%, transparent); }
+.trade-card .pos { color: var(--m-accent); } .trade-card .neg { color: #ff8fa3; }
+.trade-card a { font-family: var(--m-mono); font-size: 10px; text-decoration: none; }
+.trade-card a:hover { color: var(--m-accent); } .trade-card a:focus-visible { outline: 1px solid var(--m-accent); outline-offset: 2px; }
+.trade-card-share { min-height: 28px; padding: 0 8px; }
+@media (max-width: 560px) { .trade-card { grid-template-columns: auto 1fr auto; } }
+/* Trenches chart fills its column (no blank block under it next to the tall trade stack); chips sit above the time axis */
+.chart-with-trade>.chart-fullscreen-wrap{display:flex;flex-direction:column}
+.chart-with-trade .chart-area{flex:1 1 auto;display:flex;flex-direction:column}
+.chart-with-trade .candle-canvas{flex:1 1 auto}
+.chart-with-trade :is(.chart-style-toggle,.chart-foot-chips){bottom:60px}
+.chart-with-trade .chart-area .chart-stale-note{bottom:60px!important}

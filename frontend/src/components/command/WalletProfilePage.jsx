@@ -33,7 +33,7 @@ import { ProfileMusic } from './ProfileMusic';
 import { ProfileDM, RewardsCard } from '../Social';
 import { VerifiedMark } from '../terminal/VerifiedMark';
 import { PointsShop, PnlTracker } from '../MetaExtras';
-import { OnchainStrip, PerksCard, PortfolioCard, SetupCallout, SocialStrip, usePerks } from './ProfileExtras';
+import { OnchainStrip, PerksCard, PortfolioCard, SetupCallout, SocialStrip, TradeCards, usePerks } from './ProfileExtras';
 
 const WIDE_Q = '(min-width: 1480px)';
 function useWide() {
@@ -235,6 +235,7 @@ export function WalletProfilePage({ address }) {
     <div className="wp-quickrow">{mine && <AlphaRoomsCard />}<FeedBar onOpen={() => { setFlipped(true); setActTab('feed'); }} /></div>
     <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />
     {!flipped && <PortfolioCard address={address} />}
+    {!flipped && <TradeCards address={address} />}
     {flipped && <nav className="wp-act-tabs" data-testid="activity-tabs">{[mine && ['swap', 'Swap'], mine && poolPerk && ['builder', '🏗 Pool builder'], ['holdings', 'Holdings'], ['history', 'Swap history'], ['feed', 'FEEd'], ['posts', 'Posts'], ['rewards', 'Rewards'], mine && ['invites', '🎟 Invites'], ['vault', 'Vault']].filter(Boolean).map(([k, l]) => <button key={k} type="button" className={actTab === k ? 'active' : ''} onClick={() => setActTab(k)}>{l}</button>)}</nav>}
     {flipped && actTab === 'swap' && mine && <section className="profile-swap-layout" data-testid="profile-swap"><SwapTopCoins onSelect={setSwapPair} /><div className="wp-card profile-swap"><ProfileSwapBox pair={swapPair} /><small className="wp-bio">Signed in your own wallet — FEELESS never holds funds. Buying $FEE is fee-free; selling it to SOL, USDC or USDT is also free. Other routes show the platform fee before signing.</small></div><div className="profile-swap-receipts"><ReceiptsCard address={address} /></div></section>}
     {flipped && actTab === 'holdings' && <PortfolioCard address={address} onSwap={mine ? pr => { setSwapPair(pr); setActTab('swap'); } : undefined} />}

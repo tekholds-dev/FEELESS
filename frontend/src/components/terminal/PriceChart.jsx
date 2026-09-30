@@ -8,6 +8,7 @@ import { recordCandleTick, fetchFeelessCandles, getCachedCandles, cacheCandles, 
 import { scrubCandles } from '../../lib/chartMath';
 import { fetchLivePrice } from '../../lib/livePrice';
 import { computeFeeRead } from './FeeLiveRead';
+import { snapMarkers } from '../../lib/chartMarkers';
 
 const LIVE_INTERVAL_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 };
 
@@ -234,9 +235,11 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     const ref = seriesRef.current;
     if (!ref) return;
     const bucket = LIVE_INTERVAL_SECONDS[interval] || 3600;
-    const list = (markers || []).filter(m => Number.isFinite(m.time))
-      .map(m => ({ ...m, time: Math.floor(m.time / bucket) * bucket }))
-      .sort((a, b) => a.time - b.time);
+    // Snap each pin onto a point the series really has (candle or line mode); a trade newer than the last bar
+    // sits on the last bar, one older than the chart is dropped. Otherwise the chart silently hides it.
+    let times = [];
+    try { times = (ref.series.data?.() || []).map(d => d.time).filter(Number.isFinite); } catch { times = []; }
+    const list = snapMarkers(markers, times, bucket);
     try {
       if (!markersRef.current) markersRef.current = createSeriesMarkers(ref.series, list);
       else markersRef.current.setMarkers(list);

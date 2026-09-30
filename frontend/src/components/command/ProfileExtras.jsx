@@ -5,6 +5,7 @@ import { apiUrl } from '../../lib/api';
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
 import { getChatSession } from '../../lib/chatSession';
+import { ShareGifButton } from '../ShareGif';
 
 export function usePerks(address) {
   const [d, setD] = useState(null);
@@ -117,4 +118,41 @@ export function SocialStrip({ address, mine }) {
     {!mine && <button type="button" className={f?.viewerFollows ? 'btn-outline' : 'btn-primary'} data-testid="follow-btn" onClick={toggle}>{f?.viewerFollows ? 'Following' : 'Follow'}</button>}
     {open && trust && <div className="trust-pop" data-testid="trust-pop"><b>Trust {s ?? '—'}{trust.level ? ` · ${trust.level}` : ''}</b>{trust.note && <p>{trust.note}</p>}{trust.parts.map((p, i) => <div key={i}><span>{p.label}</span><em className={p.points >= 0 ? 'positive' : 'negative'}>{p.points >= 0 ? '+' : ''}{p.points}</em></div>)}<small>Evidence-only: wallet age, blocklist strikes, creator record, call results, followers, verification.</small></div>}
   </div>;
+}
+
+// Your FEELESS trades as cards: each one shows size, P&L on sells (vs your average entry), the fee and the tx,
+// and turns into a shareable GIF in one tap.
+const usd2 = v => `$${Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+export function tradeCardGif(c) {
+  const sell = c.side === 'sell'; const sym = c.symbol ? `$${c.symbol}` : `${c.token.slice(0, 4)}…`;
+  const up = sell ? (c.pnlUsd || 0) >= 0 : true;
+  return { kicker: sell ? 'SOLD ON FEELESS' : 'BOUGHT ON FEELESS', title: sym, imageUrl: apiUrl(`/api/reputation/token-logo/${c.token}`), tone: up ? 'up' : 'down',
+    ...(sell && c.pnlPct != null ? { bigValue: Math.abs(c.pnlPct), bigPrefix: up ? '+' : '−', bigSuffix: '%', bigDigits: 1 } : { big: usd2(c.usd) }),
+    lines: [sell && c.pnlUsd != null ? `${up ? '+' : '−'}${usd2(c.pnlUsd)} realized on ${usd2(c.usd)}` : `Size ${usd2(c.usd)}`,
+      c.feeUsd ? `FEELESS fee ${usd2(c.feeUsd)}` : 'Fee-free', `tx ${c.tx.slice(0, 6)}…${c.tx.slice(-4)} · signed in my wallet`], footer: 'feeless · trade out loud' };
+}
+
+export function TradeCards({ address }) {
+  const [cards, setCards] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch(apiUrl(`/api/reputation/trade-cards/${address}`)).then(r => (r.ok ? r.json() : null)).then(d => alive && d && setCards(d.cards || [])).catch(() => {});
+    load();
+    const onTrade = () => { setTimeout(load, 3000); setTimeout(load, 12000); };
+    window.addEventListener('feeless:trade-confirmed', onTrade);
+    return () => { alive = false; window.removeEventListener('feeless:trade-confirmed', onTrade); };
+  }, [address]);
+  if (!cards?.length) return null;
+  return <section className="wp-card m-stack trade-cards" data-testid="trade-cards">
+    <span className="m-label">TRADES <em>on FEELESS · every one signed by this wallet</em></span>
+    <div className="trade-cards-list m-scroll">{cards.map(c => { const sell = c.side === 'sell'; const up = (c.pnlUsd || 0) >= 0;
+      return <div key={c.tx} className={`m-card trade-card ${sell ? (up ? 'is-up' : 'is-down') : 'is-buy'}`}>
+        <span className={`m-chip ${sell ? (up ? '' : 'bad') : ''}`}>{sell ? 'SELL' : 'BUY'}</span>
+        <b>{c.symbol ? `$${c.symbol}` : `${c.token.slice(0, 4)}…`}</b>
+        <span className="m-num sm">{usd2(c.usd)}</span>
+        <span className={`m-num sm ${sell ? (up ? 'pos' : 'neg') : ''}`}>{sell && c.pnlUsd != null ? `${up ? '+' : '−'}${usd2(c.pnlUsd)}${c.pnlPct != null ? ` · ${up ? '+' : '−'}${Math.abs(c.pnlPct).toFixed(1)}%` : ''}` : c.feeUsd ? `fee ${usd2(c.feeUsd)}` : ''}</span>
+        <a className="m-dim" href={`https://solscan.io/tx/${c.tx}`} target="_blank" rel="noopener noreferrer" title="Signed by this wallet · verified on-chain">✓ tx ↗</a>
+        <ShareGifButton className="m-btn trade-card-share" label="🎞" card={tradeCardGif(c)} />
+      </div>; })}</div>
+  </section>;
 }

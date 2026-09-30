@@ -68,7 +68,7 @@ export function OrderFlow({ pair }) {
     <div className="trade-tape">
       <div className="trade-tape-head"><span><i />LIVE TRADE TAPE</span><small>{trades.length ? `last trade ${Math.max(0, Math.round((Date.now() - Date.parse(trades[0].ts)) / 1000))}s ago · Helius` : 'waiting for trades…'}</small></div>
       <div className="trade-tape-list">{trades.slice(0, 14).map(t => <a key={t.tx} className={`tape-row ${t.kind} ${t.mine || (me && t.wallet === me) ? 'is-mine' : ''}`} href={TX_EXPLORER[pair.chainId] ? `${TX_EXPLORER[pair.chainId]}${t.tx}` : undefined} target="_blank" rel="noopener noreferrer">
-        <b>{t.kind === 'buy' ? 'BUY' : 'SELL'}</b><span>{formatUSD(t.usd)}</span><span>{formatLivePrice(t.price)}</span><code>{t.mine || (me && t.wallet === me) ? 'YOU' : `${(t.wallet || '').slice(0, 4)}…${(t.wallet || '').slice(-4)}`}</code><time>{new Date(t.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time>
+        <b>{t.kind === 'buy' ? 'BUY' : 'SELL'}</b><span>{formatUSD(t.usd)}</span><span>{formatLivePrice(t.price)}</span><code title={t.mine || (me && t.wallet === me) ? `Signed by your wallet ${(t.wallet || me || '').slice(0, 4)}…${(t.wallet || me || '').slice(-4)} · verified on-chain · tap for the tx` : undefined}>{t.mine || (me && t.wallet === me) ? '✓ YOU' : `${(t.wallet || '').slice(0, 4)}…${(t.wallet || '').slice(-4)}`}</code><time>{new Date(t.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time>
       </a>)}</div>
     </div>
   </section>;

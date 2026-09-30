@@ -25,6 +25,7 @@ import nft_studio
 import coin_meta
 from ecosystem import ecosystem_mints
 import asyncio
+import trade_fills
 import collections
 import json
 import os
@@ -90,24 +91,21 @@ def _save(store: dict):
 
 
 def _next_rpc_endpoint() -> Optional[str]:
-    """Round-robins the pool, skipping any endpoint still in its cooldown window."""
-    global _rpc_cursor
+    """Priority order (dedicated key, then Alchemy, then public nodes), skipping any endpoint in its cooldown window.
+    Public nodes are fallback-only: they lag and rate-limit, so balances read right after a trade came back stale."""
     now = time.time()
-    for _ in range(len(RPC_POOL)):
-        endpoint = RPC_POOL[_rpc_cursor % len(RPC_POOL)]
-        _rpc_cursor += 1
+    for endpoint in RPC_POOL:
         if _rpc_cooldown_until.get(endpoint, 0) <= now:
             return endpoint
-    return RPC_POOL[0] if RPC_POOL else None
+    return min(RPC_POOL, key=lambda e: _rpc_cooldown_until.get(e, 0)) if RPC_POOL else None
 
 
 async def _rpc(http: httpx.AsyncClient, method: str, params: list):
     """Calls the RPC pool with retry + per-endpoint cooldown on failure or rate-limit."""
     last_error = None
-    for _ in range(RPC_MAX_RETRIES):
-        endpoint = _next_rpc_endpoint()
-        if not endpoint:
-            break
+    now = time.time()
+    order = [e for e in RPC_POOL if _rpc_cooldown_until.get(e, 0) <= now] or ([_next_rpc_endpoint()] if RPC_POOL else [])
+    for endpoint in order[:RPC_MAX_RETRIES]:
         try:
             res = await http.post(endpoint, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
             if res.status_code == 429:
@@ -6853,31 +6851,67 @@ async def _feeless_fills(address: str) -> list:
     return rows
 
 
+async def _chain_fills(address: str, token: str) -> dict:
+    """Exact fills from the wallet's own transactions (trading service RPC pool) + its live balance."""
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address) or not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', token):
+        return {}
+    try:
+        async with httpx.AsyncClient(timeout=9) as http:
+            r = await http.get(f'http://127.0.0.1:5001/api/trading/chain-fills/{address}/{token}', params={'sol': await _sol_usd()})
+            return r.json() if r.status_code == 200 else {}
+    except Exception:
+        return {}
+
+
 @app.get('/api/reputation/position/{address}/{token}')
 async def position(address: str, token: str):
-    """A wallet's position in one coin from its real swaps: average entry, size, live-ready.
-    The chart turns this into the 'Your avg entry' line and a live P&L badge."""
+    """A wallet's position in one coin: exact on-chain fills first (any app), then the wallet-history provider, then
+    FEELESS's own order records. Average entry, real balance, fees paid, per-trade P&L. Feeds the chart line + badge."""
     if not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address) or _re.match(r'^0x[0-9a-fA-F]{40}$', address)) or len(token) > 64:
         raise HTTPException(400, 'Bad address.')
+
     async def history():
         try:
             await wallet_trades(address)
         except Exception:
-            pass   # wallet-history provider down: FEELESS's own trade records still give the position
-    _, fills = await asyncio.gather(history(), _feeless_fills(address))
-    rows = [r for r in (_wtrades_all.get(address) or (0, []))[1] if r['token'].lower() == token.lower() and r['price'] > 0]
-    seen = {r.get('tx') for r in rows}
-    for r in _json_load(FEELESS_TRADES_PATH, {}).get(address, []) + fills:   # live hook rows, then the order book backfill
-        if r['token'].lower() == token.lower() and r.get('price', 0) > 0 and r['tx'] not in seen:
-            rows.append(r); seen.add(r['tx'])
-    buy_usd = sum(r['usd'] for r in rows if r['side'] == 'buy'); buy_tok = sum(r['usd'] / r['price'] for r in rows if r['side'] == 'buy')
-    sell_usd = sum(r['usd'] for r in rows if r['side'] == 'sell'); sell_tok = sum(r['usd'] / r['price'] for r in rows if r['side'] == 'sell')
-    if not buy_tok:
-        return {'address': address, 'token': token, 'position': None}
-    avg = buy_usd / buy_tok; held = max(0.0, buy_tok - sell_tok)
-    return {'address': address, 'token': token, 'position': {'avgEntry': avg, 'tokensHeld': held, 'costUsd': round(avg * held, 2), 'realizedUsd': round(sell_usd - sell_tok * avg, 2),
-                                                             'buys': sum(1 for r in rows if r['side'] == 'buy'), 'sells': sum(1 for r in rows if r['side'] == 'sell'), 'lastTradeAt': max(r['ts'] for r in rows),
-                                                             'trades': [{k: r.get(k) for k in ('ts', 'side', 'usd', 'price', 'tx')} for r in sorted(rows, key=lambda r: r['ts'])[-30:]]}}
+            pass   # wallet-history provider down: the chain + FEELESS's own records still give the position
+    _, fills, chain = await asyncio.gather(history(), _feeless_fills(address), _chain_fills(address, token))
+    tok = token.lower()
+    provider = [r for r in (_wtrades_all.get(address) or (0, []))[1] if r['token'].lower() == tok]
+    own = [r for r in _json_load(FEELESS_TRADES_PATH, {}).get(address, []) + fills if r['token'].lower() == tok]
+    rows = trade_fills.merge(chain.get('fills'), provider, own)
+    fees = {r.get('sig'): r.get('feeUsd') or 0 for r in _json_load(FEE_LEDGER_PATH, {}).get(primary_of(address), [])}
+    pos = trade_fills.position(rows, chain.get('balance') if 'balance' in chain else None, fees)
+    return {'address': address, 'token': token, 'position': pos, 'balance': chain.get('balance')}
+
+
+@app.get('/api/reputation/trade-cards/{address}')
+async def trade_cards(address: str):
+    """A wallet's recent FEELESS trades as shareable cards: side, size, per-sell P&L (average cost), fee, tx, coin."""
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address):
+        raise HTTPException(400, 'Bad address.')
+    rows = trade_fills.merge(_json_load(FEELESS_TRADES_PATH, {}).get(address, []), await _feeless_fills(address))
+    fees = {r.get('sig'): r.get('feeUsd') or 0 for r in _json_load(FEE_LEDGER_PATH, {}).get(primary_of(address), [])}
+    cards = []
+    for tok in {r['token'] for r in rows}:
+        mine = [r for r in rows if r['token'] == tok]
+        pos = trade_fills.position(mine, None, fees)
+        for t in (pos or {}).get('trades') or []:
+            cost = (t.get('tokens') or (t['usd'] / t['price'])) * pos['avgEntry']
+            cards.append({**t, 'token': tok, 'pnlPct': round(t['pnlUsd'] / cost * 100, 2) if t.get('pnlUsd') is not None and cost else None})
+    cards = sorted(cards, key=lambda c: -(c.get('ts') or 0))[:24]
+
+    async def sym(mint):
+        try:
+            async with httpx.AsyncClient(timeout=4) as http:
+                r = await http.get(f'http://127.0.0.1:5001/api/trading/mint/{mint}')
+                return mint, (r.json().get('symbol') if r.status_code == 200 else None)
+        except Exception:
+            return mint, None
+    symbols = dict(await asyncio.gather(*(sym(m) for m in list({c['token'] for c in cards})[:12])))
+    for c in cards:
+        c['symbol'] = symbols.get(c['token'])
+    return {'address': address, 'cards': cards}
 
 
 # ---- Setup checklist for the command center: which keys/URLs are configured (never the values) ----

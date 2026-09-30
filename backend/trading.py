@@ -1,5 +1,6 @@
 """Jupiter-managed Solana swaps. The wallet signs; this service never signs."""
 import asyncio
+import trade_fills
 import hmac
 import base64
 import os
@@ -182,6 +183,7 @@ def explain_sim_error(err):
 class TradingService:
     def __init__(self, db):
         self.db = db
+        self._fills_cache = {}
         self._http = None
         self.metadata_cache = {}
         self.rate = defaultdict(deque)
@@ -417,6 +419,29 @@ class TradingService:
                 await self.trade_landed(o)
         return landed
 
+    async def chain_fills(self, wallet, mint, sol_usd, limit=25):
+        """The wallet's real buys/sells of `mint`, read from its token accounts' transactions (any app, exact amounts),
+        plus its live balance. Cached 10s per wallet+coin."""
+        k = (wallet, mint); hit = self._fills_cache.get(k)
+        if hit and time.time() - hit[0] < 10:
+            return hit[1]
+        accs = (await self.rpc('getTokenAccountsByOwner', [wallet, {'mint': mint}, {'encoding': 'jsonParsed'}])) or {}
+        accs = accs.get('value') or []
+        bal = 0.0
+        for a in accs:
+            ui = ((((a.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}).get('tokenAmount') or {}
+            bal += int(ui.get('amount') or 0) / 10 ** int(ui.get('decimals') or 0)
+        sigs = []
+        for group in await asyncio.gather(*(self.rpc('getSignaturesForAddress', [a['pubkey'], {'limit': limit}]) for a in accs[:3]), return_exceptions=True):
+            if isinstance(group, list):
+                sigs += [g['signature'] for g in group if not g.get('err')]
+        sigs = list(dict.fromkeys(sigs))[:limit]
+        txs = await asyncio.gather(*(self.rpc('getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}]) for sig in sigs), return_exceptions=True)
+        fills = [f for f in (trade_fills.fill_from_tx(t, wallet, mint, sol_usd) for t in txs if isinstance(t, dict)) if f]
+        out = {'fills': fills, 'balance': bal if accs else 0.0}
+        self._fills_cache[k] = (time.time(), out)
+        return out
+
     async def confirm_loop(self, every=12):
         while True:
             try:
@@ -428,6 +453,11 @@ class TradingService:
 
     def router(self):
         router = APIRouter(prefix='/api/trading')
+
+        @router.get('/chain-fills/{wallet}/{mint}')
+        async def chain_fills(wallet: str, mint: str, sol: float = 0):
+            valid_key(wallet); valid_key(mint)
+            return await self.chain_fills(wallet, mint, max(0.0, min(sol, 100000.0)))
 
         @router.get('/internal/fills/{wallet}')
         async def fills(wallet: str, request: Request):
