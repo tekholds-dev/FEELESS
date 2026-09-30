@@ -187,3 +187,23 @@ def dex_candidate(pair):
         'socials': len(info.get('socials') or []) + len(info.get('websites') or []),
         'url': f"https://{'pump.fun/coin' if pad == 'pump' else 'letsbonk.fun/token'}/{mint}",
     }
+
+
+def gecko_network_pairs(payload, chain):
+    """GeckoTerminal /networks/{net}/(trending|new)_pools?include=base_token,quote_token → shared pair contract.
+    Covers every chain's own DEXes, so small networks (Cronos, zkSync, Zora…) never load empty."""
+    tokens = {t.get('id'): (t.get('attributes') or {}) for t in payload.get('included') or []}
+    out = []
+    for pool in payload.get('data') or []:
+        rel = pool.get('relationships') or {}
+        base = tokens.get(((rel.get('base_token') or {}).get('data') or {}).get('id')) or {}
+        quote = tokens.get(((rel.get('quote_token') or {}).get('data') or {}).get('id')) or {}
+        if not base.get('address'):
+            continue
+        pair = gecko_pool_to_pair(pool, base['address'], {'launchpad': 'dex', 'symbol': base.get('symbol'), 'name': base.get('name'),
+                                                          'image': base.get('image_url') if str(base.get('image_url') or '').startswith('http') else None})
+        addr = pair['pairAddress']
+        pair.update({'chainId': chain, 'url': f"https://dexscreener.com/{chain}/{addr}",
+                     'quoteToken': {'address': quote.get('address'), 'symbol': quote.get('symbol'), 'name': quote.get('name')}})
+        out.append(pair)
+    return out

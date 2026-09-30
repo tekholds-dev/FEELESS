@@ -200,7 +200,7 @@ export const ECOSYSTEMS = [
     lng: 114.1095,
     color: '#002D74',
     accent: '#3B5FA0',
-    logo: '',
+    logo: 'https://dd.dexscreener.com/ds-data/chains/cronos.png',
     explorer: 'https://cronoscan.com',
     dex: 'https://vvs.finance',
     website: 'https://cronos.org',

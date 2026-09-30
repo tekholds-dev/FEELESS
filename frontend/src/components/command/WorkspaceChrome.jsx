@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { ArrowUpRight, Globe2, ScanLine, Radio } from 'lucide-react';
+import { ArrowUpRight, ScanLine, Radio } from 'lucide-react';
 import { useWorkspace, CONTEXTS } from '../../hooks/useWorkspace';
 import { useMarket } from '../../hooks/useMarket';
 import { formatTime, formatUSD } from '../../lib/dexscreener';
@@ -38,6 +38,34 @@ export const AmbientFlakes = () => {
   return <div className="ambient-flakes" aria-hidden="true">{flakes.map(f => <span key={f.id} className="ambient-flake" style={{ left: f.left, animationDelay: f.delay, animationDuration: f.duration, width: f.size, height: f.size, '--drift': f.drift }} />)}</div>;
 };
 
+// Chain marks: DexScreener keeps every network's current logo (incl. Cronos' new CRO mark); initials if it fails.
+export const chainLogo = e => e?.logoUrl || (e?.isLaunchpad ? e.logo : `https://dd.dexscreener.com/ds-data/chains/${e?.chainId}.png`);
+export function ChainMark({ eco, size = 18 }) {
+  const [bad, setBad] = useState(false);
+  const src = chainLogo(eco);
+  if (bad || !src) return <i className="chain-mark chain-mark-txt" style={{ width: size, height: size, background: eco?.color }}>{(eco?.symbol || eco?.name || '?').slice(0, 2)}</i>;
+  return <img className="chain-mark" src={src} alt="" width={size} height={size} loading="lazy" decoding="async" onError={() => setBad(true)} />;
+}
+
+function NetworkPicker({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = e => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    const esc = e => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('pointerdown', close); document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  const pick = id => { onChange(id); setOpen(false); };
+  const nets = CONTEXTS.filter(e => !e.isLaunchpad), pads = CONTEXTS.filter(e => e.isLaunchpad);
+  const Item = e => <button key={e.id} type="button" role="option" aria-selected={e.id === value.id} className={e.id === value.id ? 'active' : ''} onClick={() => pick(e.id)} style={{ '--net': e.color }}><ChainMark eco={e} /><span>{e.name}</span><small>{e.isLaunchpad ? 'WAR ROOM' : e.symbol}</small></button>;
+  return <div className="net-picker" ref={ref}>
+    <button type="button" className="net-trigger" data-testid="workspace-ecosystem" aria-label="Active ecosystem" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(o => !o)}><ChainMark eco={value} /><b>{value.name}</b><span>/ {value.isLaunchpad ? 'WAR ROOM' : 'INTELLIGENCE'}</span><i aria-hidden="true">▾</i></button>
+    {open && <div className="net-menu" role="listbox"><small>NETWORKS</small><div className="net-grid">{nets.map(Item)}</div>{pads.length > 0 && <><small>LAUNCHPAD WAR ROOMS</small><div className="net-grid">{pads.map(Item)}</div></>}</div>}
+  </div>;
+}
+
 export const ContextBar = () => {
   const { ecosystem, setEcosystem } = useWorkspace();
   const [params, setParams] = useSearchParams();
@@ -52,7 +80,7 @@ export const ContextBar = () => {
       setParams(next);
     }
   };
-  return <div className="context-bar" style={{ '--context-accent': ecosystem.color }}><span className="context-indicator"><i />NETWORK LINK</span><Globe2 size={15} /><select data-testid="workspace-ecosystem" aria-label="Active ecosystem" value={ecosystem.id} onChange={e => changeNetwork(e.target.value)}>{CONTEXTS.map(e => <option key={e.id} value={e.id}>{e.name}{e.isLaunchpad ? ' / WAR ROOM' : ' / INTELLIGENCE'}</option>)}</select><span className="context-chain" data-testid="context-chain">{ecosystem.chainId.toUpperCase()}</span><span className="context-clock" data-testid="terminal-clock">{new Date(time).toISOString().slice(11, 19)} UTC</span></div>;
+  return <div className="context-bar" style={{ '--context-accent': ecosystem.color }}><span className="context-indicator"><i />NETWORK LINK</span><NetworkPicker value={ecosystem} onChange={changeNetwork} /><span className="context-chain" data-testid="context-chain">{ecosystem.chainId.toUpperCase()}</span><span className="context-clock" data-testid="terminal-clock">{new Date(time).toISOString().slice(11, 19)} UTC</span></div>;
 };
 
 export const AlphaTape = ({ horizontal = false }) => {

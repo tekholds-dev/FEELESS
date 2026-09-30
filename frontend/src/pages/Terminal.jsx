@@ -203,7 +203,7 @@ export default function Terminal() {
          {page === 'chat' && <TrenchesView pairs={trenchPairs} newPairs={trenchNewPairs} onSelect={onSelect} selectedPair={selected} selectedPerspective={perspective} onPerspectiveChange={onPerspectiveChange} onConnect={() => setWalletOpen(true)} />}
       {page === 'alerts' && <><TrustSignals /><AlertsPage alerts={alerts} setAlerts={setAlerts} selected={alertPair || selected} watchlist={watchlist} ecosystem={ecosystem} /></>}
       {page === 'fee' && <FeeAssetPage asset={fee}>{fee?.pair ? <TokenFocus pair={fee.pair} has={has} toggle={toggle} /> : <FeeHeartbeat asset={fee} loading={assets.loading} />}</FeeAssetPage>}
-        {page === 'feeback' && <FeeBackCenter feeCat={feeCat} />}{page === 'feecat' && <><FeeCatCenter asset={feeCat} community={community} onSelect={onSelect} /><FeeCatProfile /></>}{page === 'feecat/cats' && <FeelessCats />}{page === 'feecat/agents' && <FeeCatsPlatform />}
+        {page === 'feeback' && <FeeBackCenter feeCat={feeCat} />}{page === 'feecat' && <FeeCatCenter asset={feeCat} community={community} onSelect={onSelect}><FeeCatProfile /></FeeCatCenter>}{page === 'feecat/cats' && <FeelessCats />}{page === 'feecat/agents' && <FeeCatsPlatform />}
       {page === 'reputation' && <ReputationCenter />}
       {!page.startsWith('profile/') && page !== 'legal' && <AdBanner placement="banner" />}
       <Shortcuts />

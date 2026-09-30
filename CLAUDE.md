@@ -34,6 +34,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Shared pollers for anything shown on many cards (`lib/pumpPulse.js`, `lib/snipersOut.js`), never one per card.
 - Debounce typing (≤300ms); prefetch what the next click needs (quotes are pre-simulated).
 - One pooled `httpx.AsyncClient` per service for outbound calls.
+- Animate only transform/opacity. Never animate a custom property (`--ang` repaints every frame), never
+  `backdrop-filter` over animated layers, no `filter: blur()` on moving layers. Heavy FX must die under `body.fx-lite`.
+- Lag catcher (Cmd Ctr › Lag catcher) is the source of truth: fix its list before adding features. Full list: `docs/REQUIREMENTS.md`.
 
 ## Money rules (trading)
 - Engine: Jupiter Swap API primary (FEELESS fee into our SOL/USDC token accounts, capped priority,

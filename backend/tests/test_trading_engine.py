@@ -40,7 +40,11 @@ class Orders:
         return self.rows.get(q['order_id'])
 
     async def update_one(self, q, u):
-        self.rows[q['order_id']].update(u['$set'])
+        r = self.rows[q['order_id']]
+        skip = r.get('state') in (q.get('state') or {}).get('$nin', [])
+        if not skip:
+            r.update(u['$set'])
+        return type('R', (), {'modified_count': 0 if skip else 1})()
 
     async def find_one_and_update(self, q, u, **_):
         r = self.rows.get(q['order_id'])
@@ -183,3 +187,18 @@ def test_amount_typed_without_leading_zero_is_accepted(engine):
     client, state, _ = engine
     res = client.post('/api/trading/quote', json={'input_mint': SOL, 'output_mint': MEME, 'amount': '.01', 'slippage_bps': 100, 'wallet': WALLET})
     assert res.status_code == 200 and res.json()['amount'] == '0.01'
+
+
+def test_confirmed_trade_reports_season_points_exactly_once(engine):
+    client, state, db = engine
+    landed = []
+    db.swap_orders.rows['o1'] = {'order_id': 'o1', 'state': 'submitted', 'signature': 'sig1', 'wallet': WALLET, 'in_usd': 50, 'fee_bps': 200}
+
+    async def fake_landed(order):
+        landed.append(order['signature'])
+    route = next(r for r in client.app.routes if getattr(r, 'path', '') == '/api/trading/order/{order_id}')
+    svc = route.endpoint.__closure__ and next(c.cell_contents for c in route.endpoint.__closure__ if isinstance(c.cell_contents, trading.TradingService))
+    svc.trade_landed = fake_landed
+    assert client.get('/api/trading/order/o1').json()['state'] == 'confirmed'
+    assert client.get('/api/trading/order/o1').json()['state'] == 'confirmed'
+    assert landed == ['sig1']

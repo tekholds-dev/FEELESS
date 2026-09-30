@@ -16,6 +16,7 @@ import { captureInvite } from './lib/chatSession';
 captureInvite();
 import { installOverflowTitles, installImageFallback, installChartDisposalGuard } from './components/Hint';
 installOverflowTitles();
+if (process.env.NODE_ENV !== 'test') import('./lib/perfWatch').then(m => m.startPerfWatch()).catch(() => {});
 installImageFallback();
 installChartDisposalGuard();
 import AmbientBackground from './components/AmbientBackground';

@@ -14,7 +14,8 @@ def payout_plan(pool_sol: float, pct: float, holders: list, excluded=frozenset()
     pct = max(0.0, min(100.0, float(pct or 0)))
     pot = round(max(0.0, min(float(pool_sol or 0) * pct / 100, float(pool_sol or 0) - keep_sol)), 6)
     rows = [{'address': h['address'], 'tier': h.get('tier') or 'Recruit', 'score': h.get('score') or 0,
-             'weight': TIER_WEIGHTS.get(h.get('tier'), 0)} for h in holders if h.get('address') and h['address'] not in excluded]
+             'weight': h['weight'] if h.get('weight') is not None else TIER_WEIGHTS.get(h.get('tier'), 0),
+             **({'why': h['why']} if h.get('why') else {})} for h in holders if h.get('address') and h['address'] not in excluded]
     rows = [r for r in rows if r['weight'] > 0]
     dropped = 0
     for _ in range(3):  # drop dust shares and re-split, so the pot goes to wallets that actually get paid
@@ -34,3 +35,19 @@ def payout_plan(pool_sol: float, pct: float, holders: list, excluded=frozenset()
 
 def wallet_share(plan: dict, address: str):
     return next((r for r in plan['rows'] if r['address'] == address), None)
+
+
+def pool_holders(weights: dict, tiers: dict, badges: dict) -> list:
+    """Badge pools: weights keyed 'tier:<Tier>' (season tier) or 'badge:<id>' (custom award), summed per wallet.
+    tiers: {address: tier}, badges: {address: [badge ids]}."""
+    out = {}
+    for a, t in (tiers or {}).items():
+        w = float(weights.get(f'tier:{t}') or 0)
+        if w > 0:
+            out.setdefault(a, [0, []]); out[a][0] += w; out[a][1].append(t)
+    for a, ids in (badges or {}).items():
+        for bid in ids:
+            w = float(weights.get(f'badge:{bid}') or 0)
+            if w > 0:
+                out.setdefault(a, [0, []]); out[a][0] += w; out[a][1].append(bid)
+    return [{'address': a, 'weight': w, 'tier': tiers.get(a) or 'Recruit', 'why': ' + '.join(why)} for a, (w, why) in out.items()]

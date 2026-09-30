@@ -40,6 +40,11 @@ export function useRep(address) {
 
 export function RepMark({ address, compact }) {
   const rep = useRep(address);
+  const risk = rep?.case && ['suspect', 'high'].includes(rep.case.level) ? rep.case : null;
+  // One verdict everywhere: a suspect/high case file overrides the trust mark, citing the same evidence.
+  if (risk) return <button type="button" className={`rep-mark rep-risk lvl-${risk.level} ${compact ? 'compact' : ''}`} data-testid="rep-risk"
+    title={`Case file: ${risk.label} ${risk.score}/100${risk.top ? ` · ${risk.top.claim} (${risk.top.source})` : ''} · click to open`}
+    onClick={e => { e.stopPropagation(); import('./CaseFile').then(m => m.investigate(address)); }}>⚠<b>{risk.score}</b></button>;
   if (!rep || rep.score == null) return null;
   const lvl = rep.blocked ? 'blocked' : rep.gold ? 'gold' : rep.level;
   return <span className={`rep-mark lvl-${lvl} ${compact ? 'compact' : ''}`} title={`Rep ${rep.score}/100 · ${rep.blocked ? 'blocklisted, full record kept' : rep.gold ? 'gold creator: 3+ launches, none dumped' : rep.level}`}>

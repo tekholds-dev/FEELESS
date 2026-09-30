@@ -482,7 +482,7 @@ export default function MetaLaunchSetup({ initialValues }) {
         const meta = await metaRes.json().catch(() => ({}));
         if (!metaRes.ok) throw new Error(meta.detail || 'Could not publish coin metadata.');
         const res = await launchCoin({ provider: activeProvider, creator: activeWallet.address, config: rail.config, name: form.name.trim(), symbol: form.symbol.trim().toUpperCase(), uri: meta.uri,
-          firstBuySol: Number(form.devBuyAmount) || 0, onStatus: detail => setDeployment(d => ({ ...d, detail })) });
+          firstBuySol: Number(form.devBuyAmount) || 0, quoteDecimals: rail.params?.quote === 'USDC' ? 6 : 9, onStatus: detail => setDeployment(d => ({ ...d, detail })) });
         const ok = { state: 'confirmed', signature: res.signature };
         setDeployment({ state: 'confirmed', mint: res.mint, signature: res.signature, detail: 'Live on Solana. Trading is open on the FEELESS curve.', statuses: { token: ok, curve: ok, liquidity: ok, fee: ok } });
         return;

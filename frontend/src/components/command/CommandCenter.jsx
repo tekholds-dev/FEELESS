@@ -16,6 +16,8 @@ import { NumbersPanel } from './NumbersPanel';
 import { SeasonEditor } from '../SeasonEditor';
 import { Explain } from '../Explain';
 import { DEXES } from '../../lib/venues';
+import { BadgePools } from './BadgePools';
+import { LagCatcher } from './LagCatcher';
 
 const SESSION_KEY = 'feeless:cc-session';
 const readSession = addr => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.address === addr && Date.now() / 1000 - s.ts < 86000 ? s : null; } catch { return null; } };
@@ -84,14 +86,14 @@ export function CommandCenter({ address, signMessage, onClose }) {
   // Grouped so the money + infra controls are always first; every tab id appears exactly once.
   const TAB_GROUPS = [['Core', ['launch', 'fees', 'latency', 'treasury', 'circle']], ['Growth', ['numbers', 'traffic', 'pulse', 'marketing', 'kols', 'invites', 'ads', 'ideas']],
     ['Community', ['holders', 'studio', 'airdrops', 'snapshots', 'badges', 'seasons', 'pools', 'feecat', 'broadcast']], ['Safety', ['investigate', 'overview', 'mod', 'access', 'bugs']]];
-  const TABS = [['investigate', 'Investigate', Search], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Charts & latency', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['circle', 'Circle wallets', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['investigate', 'Investigate', Search], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['circle', 'Circle wallets', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div>
       <nav className="cc-tabs" data-testid="cc-nav">{TAB_GROUPS.map(([group, ids]) => <div key={group} className="cc-tab-group"><small>{group}</small>{ids.map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</div>)}</nav>
       <button type="button" className="cc-close" onClick={onClose} aria-label="Close command center"><X size={16} /></button></header>
 
     {tab === 'launch' && <LaunchRailAdmin call={call} isOwner={isOwner} />}
-    {tab === 'latency' && <LatencyPanel call={call} />}
+    {tab === 'latency' && <><LagCatcher call={call} /><LatencyPanel call={call} /></>}
     {tab === 'numbers' && <NumbersPanel call={call} />}
     {tab === 'kols' && <KolAdmin call={call} />}
     {tab === 'traffic' && <TrafficPanel call={call} />}
@@ -231,7 +233,7 @@ function AwardBadges({ call, initial }) {
     <div className="bdg-hero"><div><small>BADGE ENGINE</small><h3>Earned, displayed, <em>paid</em>.</h3><p>Season tiers earn a cut of the Fee Reserve. Custom awards flex on profiles and in chat.</p></div>
       <div className="bdg-kpis"><span><small>Wallets badged</small><b>{awards.wallets}</b></span><span><small>Awards</small><b>{awards.awards}</b></span><span><small>Profile / chat cap</small><b>{limits.profile} / {limits.chat}</b></span></div></div>
     <div className="bdg-seg" role="tablist">{[['pool', '💰 Reserve pool'], ['award', '🎖️ Award'], ['ledger', '📜 Ledger'], ['caps', '⚙ Caps']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'active' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
-    {view === 'pool' && <ReservePool call={call} />}
+    {view === 'pool' && <><ReservePool call={call} /><BadgePools call={call} /></>}
     {view === 'caps' && <>
     <div className="cc-block"><h4>Badge mechanics</h4><p className="cc-note">Awards are earned inventory. The profile and chat caps only control how many a user may display; they do not delete awards. Only Command Center can issue or revoke them.</p><div className="cc-studio-grid"><label>Profile display cap<input type="number" min="0" max="12" value={limits.profile} onChange={e => setLimits(x => ({ ...x, profile: e.target.value }))} /></label><label>Chat display cap<input type="number" min="0" max="12" value={limits.chat} onChange={e => setLimits(x => ({ ...x, chat: e.target.value }))} /></label></div><button type="button" className="btn-primary" onClick={saveLimits}>Save display caps</button></div>
     </>}

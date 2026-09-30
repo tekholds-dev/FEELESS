@@ -324,6 +324,17 @@ class TradingService:
             pass
         return {'bps': 0, 'notes': [], 'referralAccount': None}
 
+    async def trade_landed(self, order):
+        """A confirmed trade earns season points (fees paid weigh most). Best effort, idempotent per signature."""
+        try:
+            key = (Path(__file__).parent / 'data' / 'internal.key').read_text().strip()
+            async with httpx.AsyncClient(timeout=5) as http:
+                await http.post('http://127.0.0.1:5077/api/reputation/internal/trade', headers={'x-feeless-internal': key},
+                                json={'wallet': order.get('wallet') or '', 'signature': order.get('signature') or '', 'inUsd': order.get('in_usd') or 0,
+                                      'feeBps': order.get('fee_bps') or 0, 'inputMint': order.get('input_mint') or '', 'outputMint': order.get('output_mint') or ''})
+        except Exception:
+            pass
+
     def router(self):
         router = APIRouter(prefix='/api/trading')
 
@@ -528,7 +539,9 @@ class TradingService:
                         state = 'failed'
                     elif status and status.get('confirmationStatus') in ['confirmed', 'finalized']:
                         state = 'confirmed'
-                    await self.db.swap_orders.update_one({'order_id': order_id}, {'$set': {'state': state}})
+                    moved = await self.db.swap_orders.update_one({'order_id': order_id, 'state': {'$nin': ['confirmed', 'failed']}}, {'$set': {'state': state}})
+                    if state == 'confirmed' and getattr(moved, 'modified_count', 0):
+                        asyncio.create_task(self.trade_landed(order))
                 except HTTPException:
                     pass
             return {'state': state, 'signature': signature, 'order_id': order_id,

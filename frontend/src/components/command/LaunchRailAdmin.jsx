@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
-import { RAIL_DEFAULTS, createLaunchRail, fetchLaunchRail } from '../../lib/launchRail';
+import { RAIL_DEFAULTS, RAIL_PRESETS, railWarnings, checkRail, createLaunchRail, fetchLaunchRail } from '../../lib/launchRail';
 import { CopyBtn } from '../CopyBtn';
 import { useSolPrice, usd } from '../../lib/solPrice';
 import { TreasurySend } from './TreasurySend';
@@ -9,7 +9,7 @@ import { TreasurySend } from './TreasurySend';
 const FIELDS = [
   ['initialMarketCap', 'Opening market cap (SOL)', 'Where the curve starts. 30 SOL ≈ pump.fun-style low open.'],
   ['migrationMarketCap', 'Graduation market cap (SOL)', 'When reached, liquidity moves to a Meteora DAMM v2 pool automatically.'],
-  ['startingFeeBps', 'Launch fee (bps)', 'Anti-snipe: first-block buyers pay this (5000 = 50%). Decays fast.'],
+  ['startingFeeBps', 'Launch fee (bps)', 'Anti-snipe: first-block buyers pay this (9900 = 99%, the max). Decays to the normal fee.'],
   ['endingFeeBps', 'Normal fee (bps)', 'Fee after the decay window (100 = 1%).'],
   ['feeDecayMin', 'Anti-snipe window (min)', 'How long the launch fee takes to fall to normal.'],
   ['creatorFeePct', 'Creator share of fees (%)', 'The rest goes to the FEELESS fee claimer below.'],
@@ -46,6 +46,18 @@ export function LaunchRailAdmin({ call, isOwner }) {
   const [p, setP] = useState(RAIL_DEFAULTS);
   const [claimer, setClaimer] = useState('');
   const [status, setStatus] = useState('');
+  const [preset, setPreset] = useState('shield');
+  const [check, setCheck] = useState(null);
+  const unit = p.quote === 'USDC' ? 'USDC' : 'SOL';
+  const warnings = railWarnings({ ...p, feeClaimerSet: !!claimer.trim() });
+  // Debounced dry-check with Meteora's own validator: nobody signs a config the program would reject.
+  useEffect(() => {
+    const fc = claimer.trim() || wallet?.address;
+    if (!fc) { setCheck(null); return undefined; }
+    const t = setTimeout(() => checkRail(p, fc).then(r => setCheck({ ok: true, ...r })).catch(e => setCheck({ ok: false, error: e.message })), 300);
+    return () => clearTimeout(t);
+  }, [p, claimer, wallet?.address]);
+  const pick = pr => { setPreset(pr.id); setP(v => ({ ...RAIL_DEFAULTS, supply: v.supply, lockedLpPct: 100, ...pr.params })); };
   const load = useCallback(() => {
     fetchLaunchRail().then(setRail);
     call('/admin/setup').then(d => { setKeys(d.keys); setOwners(d.owners || []); }).catch(() => setKeys([]));
@@ -59,7 +71,7 @@ export function LaunchRailAdmin({ call, isOwner }) {
       setStatus('Building and dry-running the config…');
       const r = await createLaunchRail({ provider, owner: wallet.address, feeClaimer: fc, params: p, onStatus: setStatus });
       setStatus('Saving…');
-      await call('/admin/launch-rail', { method: 'PUT', body: JSON.stringify({ config: r.config, feeClaimer: fc, params: p }) });
+      await call('/admin/launch-rail', { method: 'PUT', body: JSON.stringify({ config: r.config, feeClaimer: fc, params: { ...p, preset } }) });
       toast.success('FEELESS launch rail is live');
       setStatus(''); load();
     } catch (e) { setStatus(''); toast.error(e.message || 'Could not create the launch config'); }
@@ -92,10 +104,16 @@ export function LaunchRailAdmin({ call, isOwner }) {
         <p className="cc-empty">Config <code>{rail.config}</code><CopyBtn value={rail.config} /> · <a href={`https://solscan.io/account/${rail.config}`} target="_blank" rel="noreferrer">Solscan ↗</a>. On-chain configs can't be edited; to change terms, create a new one (old coins keep theirs).</p>
       </div> : <p className="cc-empty">Not created yet. Launches stay disabled until the owner signs this once.</p>}
       {isOwner ? <>
-        <div className="rail-form">{FIELDS.map(([k, l, why]) => <label key={k}><span>{l}{/SOL/.test(l) && solPx ? <em className="usd-hint"> {usd(p[k], solPx)}</em> : null}</span><input inputMode="decimal" value={p[k]} onChange={e => setP(v => ({ ...v, [k]: e.target.value.replace(/[^0-9.]/g, '') }))} /><small>{why}</small></label>)}
+        <div className="rail-presets" role="radiogroup" aria-label="Launch style">{RAIL_PRESETS.map(pr => <button key={pr.id} type="button" role="radio" aria-checked={preset === pr.id} className={preset === pr.id ? 'active' : ''} onClick={() => pick(pr)}><b>{pr.label}</b><small>{pr.blurb}</small></button>)}</div>
+        <div className={`rail-ready ${check?.ok && !warnings.length ? 'ok' : check?.ok ? 'warn' : 'bad'}`} data-testid="rail-ready">
+          <b>{!check ? '… checking' : check.ok ? `✓ Valid on Meteora · ${Number(check.raise.toFixed(check.quote === 'USDC' ? 0 : 1)).toLocaleString()} ${check.quote} raise to graduate` : `✗ Meteora would reject this: ${check.error}`}</b>
+          {warnings.map(w => <span key={w}>⚠ {w}</span>)}
+          <em>{rail?.ready ? 'Launches are LIVE on the current config.' : 'Launches go live the moment this config is signed and saved.'} Anti-snipe stack: decaying launch fee + dynamic (volatility) fee + fixed supply, mint & freeze revoked, 100% LP lock.</em>
+        </div>
+        <div className="rail-form">{FIELDS.map(([k, l0, why]) => { const l = l0.replace('(SOL)', `(${unit})`); return <label key={k}><span>{l}{/SOL/.test(l) && solPx ? <em className="usd-hint"> {usd(p[k], solPx)}</em> : null}</span><input inputMode="decimal" value={p[k]} onChange={e => setP(v => ({ ...v, [k]: e.target.value.replace(/[^0-9.]/g, '') }))} /><small>{why}</small></label>; })}
           <label className="wide"><span>Fee claimer (receives FEELESS's share)</span><input placeholder={wallet?.address || 'Treasury / multisig address'} value={claimer} onChange={e => setClaimer(e.target.value.trim())} /><small>Defaults to your first Solana treasury route, else the signing wallet. Use a multisig.</small></label>
         </div>
-        <button type="button" className="btn-primary" disabled={!!status} onClick={create}>{status || (wallet?.chain === 'solana' ? `${rail?.ready ? 'Create a new' : 'Create the'} launch config · sign with ${wallet.address.slice(0, 4)}…` : 'Connect Solana wallet')}</button>
+        <button type="button" className="btn-primary" disabled={!!status || check?.ok === false} onClick={create}>{status || (wallet?.chain === 'solana' ? `${rail?.ready ? 'Create a new' : 'Create the'} launch config · sign with ${wallet.address.slice(0, 4)}…` : 'Connect Solana wallet')}</button>
         <small className="cc-empty">Any owner wallet can sign; switch wallets in Phantom and reconnect to use a different one. The transaction is simulated before you're asked to sign.</small>
       </> : <p className="cc-empty">Only the owner wallet can create the launch config.</p>}
     </div>

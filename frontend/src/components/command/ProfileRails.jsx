@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { investigate } from '../CaseFile';
+import { WatchButton } from '../WatchButton';
 import { apiUrl } from '../../lib/api';
 import { shortAddress } from '../../lib/dexscreener';
 
@@ -41,6 +42,7 @@ export function IntelRail({ address }) {
 export function SeasonRail({ address }) {
   const s = useJson(`/api/reputation/season?address=${address}`);
   const r = useJson(`/api/reputation/season/reserve?address=${address}`);
+  const pools = (useJson(`/api/reputation/badge-pools?address=${address}`)?.pools || []).filter(p => p.me);
   const me = s?.me;
   const tiers = Array.isArray(s?.tiers) ? s.tiers : [];
   const idx = me ? tiers.findIndex(([n]) => n === me.tier) : -1;
@@ -55,15 +57,27 @@ export function SeasonRail({ address }) {
         <p className="wpr-dim">{me?.next ? `${me.toNext.toLocaleString()} pts to ${me.next}` : 'Max tier.'}</p>
       </>}
       {r?.active && <div className="wpr-pot"><span>💰 Reserve pot</span><b>{r.potSol} SOL</b><em>{r.me ? `this wallet ≈ ${r.me.sol} SOL` : 'Bronze+ earns a cut'}</em></div>}
+      {pools.map(p => <div key={p.id} className="wpr-pot"><span>🎖 {p.name}</span><b>{p.me.sol} SOL</b><em>{p.me.why ? `earned by ${p.me.why}` : `${p.me.sharePct}% of the pot`}</em></div>)}
       <Link className="wpr-link" to="/terminal/seasons">Season board →</Link>
     </div>
     <div className="wpr-card">
       <small>MOVES</small>
       <div className="wpr-moves">
+        <WatchButton target={address} className="wpr-btn" />
         <Link to="/terminal/chat" className="wpr-btn">⚔️ Trenches</Link>
         <button type="button" className="wpr-btn" onClick={() => copy(address, 'Address')}>⧉ Address</button>
         <button type="button" className="wpr-btn" onClick={() => copy(window.location.href, 'Profile link')}>↗ Share</button>
       </div>
     </div>
   </aside>;
+}
+
+// Your sells vs where the coin is now: FeeCat's "after the sell" lesson, pointed at your own trades.
+export function AfterSell({ address }) {
+  const d = useJson(`/api/reputation/after-sell/${address}`);
+  if (!d?.rows?.length) return null;
+  return <section className="wp-card after-sell" data-testid="after-sell"><h3>👀 After the sell <small>{d.runners} runner{d.runners === 1 ? '' : 's'} sold early · {d.saved} good exit{d.saved === 1 ? '' : 's'}</small></h3>
+    <div className="after-sell-list">{d.rows.map(x => <Link key={x.token + x.ts} to={x.pair ? `/terminal/chat?chain=solana&pair=${x.pair}` : `/terminal/coin/solana/${x.token}`} className={`after-sell-row l-${x.lesson}`}>
+      <b>${x.symbol || x.token.slice(0, 4)}</b><span>{x.movePct >= 0 ? '+' : ''}{x.movePct >= 900 ? `${(x.movePct / 100 + 1).toFixed(1)}x` : `${x.movePct}%`} since you sold</span>
+      <em>{x.lesson === 'runner' ? '🧠 sold a runner' : x.lesson === 'saved' ? '✅ good exit' : '·'}</em></Link>)}</div></section>;
 }

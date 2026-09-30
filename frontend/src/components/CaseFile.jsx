@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Search, X } from 'lucide-react';
+import { WatchButton } from './WatchButton';
 import { apiUrl, errorText } from '../lib/api';
 
 const short = a => (a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '—');
@@ -82,7 +83,7 @@ export function CaseFileView({ address }) {
   if (!c) return <p className="cf-empty cf-loading">Pulling the chain records…</p>;
   return <div className={`case-file lvl-${c.level}`} data-testid="case-file">
     <header><Gauge score={c.score} level={c.level} /><div><small>{c.kind === 'coin' ? 'COIN CASE' : 'WALLET CASE'} · {short(c.address)}</small>
-      <h4>{c.identity?.name || c.identity?.handle ? `${c.identity.name || ''} ${c.identity.handle ? `@${c.identity.handle}` : ''}` : LEVEL[c.level]}</h4><p>{c.summary || (c.evidence?.[0]?.claim ?? 'No red flags on record.')}</p></div></header>
+      <h4>{c.identity?.name || c.identity?.handle ? `${c.identity.name || ''} ${c.identity.handle ? `@${c.identity.handle}` : ''}` : LEVEL[c.level]}</h4><p>{c.summary || (c.evidence?.[0]?.claim ?? 'No red flags on record.')}</p>{c.kind === 'wallet' && <WatchButton target={c.address} />}</div></header>
     {c.kind === 'coin' ? <CoinCase c={c} /> : <WalletCase c={c} />}
     <small className="cf-foot">Evidence from on-chain forensics, the FEELESS funding graph and blocklist. Every point is cited; nothing is guessed.</small>
   </div>;

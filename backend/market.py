@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ecosystem import DEFAULT_MINTS
 from pydantic import BaseModel, Field
 
-from launchpad_board import BONK_PLATFORM_ID, build_board, dex_candidate, gecko_pool_to_pair, launchlab_candidate, pump_candidate
+from launchpad_board import BONK_PLATFORM_ID, build_board, dex_candidate, gecko_network_pairs, gecko_pool_to_pair, launchlab_candidate, pump_candidate
 
 BOARD_SCOPES = ('launchpads', 'pump', 'bonk', 'raydium')
 
@@ -563,7 +563,7 @@ def create_market_router(db, intelligence=None):
                 fallback_reason = 'Pump.fun coverage is limited to Solana; using public pool discovery fallback.'
                 pairs, meta = await dex_boost_feed(kind, chain, page)
             else:
-                pairs, meta = await dex_boost_feed(kind, chain, page)
+                pairs, meta = await chain_feed(kind, chain, page)
             if fallback_reason:
                 meta = {
                     **meta,
@@ -632,6 +632,27 @@ def create_market_router(db, intelligence=None):
             else p.get('baseToken', {}).get('address') == address)]
         pairs.sort(key=lambda p: float(p.get('liquidity', {}).get('usd') or 0), reverse=True)
         return pairs, meta
+
+    async def gecko_chain_feed(kind, chain):
+        net = NETWORKS.get(chain)
+        if not net:
+            return [], None
+        data, meta = await cached('GeckoTerminal', f'/networks/{net}/{"new_pools" if kind == "new" else "trending_pools"}', {'include': 'base_token,quote_token'}, ttl=60)
+        return gecko_network_pairs(data, chain), meta
+
+    async def chain_feed(kind, chain, page):
+        """Boosted DexScreener coins first; chains the boost lists barely cover get topped up from GeckoTerminal."""
+        if chain in ('solana', 'all') or page != 1:
+            return await dex_boost_feed(kind, chain, page)
+        boosted, gecko = await asyncio.gather(dex_boost_feed(kind, chain, page), gecko_chain_feed(kind, chain), return_exceptions=True)
+        pairs, meta = ([], None) if isinstance(boosted, BaseException) else boosted
+        if not isinstance(gecko, BaseException) and gecko[0]:
+            seen = {(p.get('baseToken') or {}).get('address', '').lower() for p in pairs}
+            pairs = pairs + [p for p in gecko[0] if p['baseToken']['address'].lower() not in seen]
+            meta = meta or {**gecko[1], 'provider': 'GeckoTerminal'}
+        if not pairs or meta is None:
+            raise HTTPException(503, f'No live pools indexed for {chain} right now.')
+        return pairs[:60], meta
 
     async def dex_boost_feed(kind, chain='solana', page=1):
         """Use DexScreener's fast boost index for the first radar page."""

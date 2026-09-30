@@ -59,3 +59,38 @@ def test_payout_record_requires_reserve_wallet_signature(monkeypatch, tmp_path):
         asyncio.run(rs.admin_reserve_paid(None, 's1', rs.ReservePaid(sigs=[sig])))
     pub = asyncio.run(rs.season_reserve(A))
     assert pub['active'] and pub['me']['tier'] == 'Legend'
+
+
+def test_pool_holders_sum_tier_and_custom_badge_weights():
+    hs = rp.pool_holders({'tier:Gold': 3, 'badge:custom-og': 5}, {A: 'Gold', B: 'Bronze'}, {A: ['custom-og'], C: ['custom-og', 'custom-x']})
+    by = {h['address']: h for h in hs}
+    assert by[A]['weight'] == 8 and by[C]['weight'] == 5 and B not in by
+    plan = rp.payout_plan(10.01, 100, hs)
+    assert plan['potSol'] == 10 and rp.wallet_share(plan, A)['sol'] == pytest.approx(10 * 8 / 13, abs=1e-6)
+
+
+def test_badge_pool_any_wallet_payout_verified_never_recorded_twice(monkeypatch, tmp_path):
+    pytest.importorskip('solders')
+    rs = pytest.importorskip('reputation_service')
+    for k, f in (('SEASONS_PATH', 's.json'), ('BADGE_POOLS_PATH', 'p.json'), ('BLOCK_PATH', 'b.json')):
+        monkeypatch.setattr(rs, k, tmp_path / f)
+    admin = {'badges': {A: {'custom-og': {'id': 'custom-og', 'label': 'OG'}}, B: {'custom-og': {'id': 'custom-og', 'label': 'OG'}}}, 'audit': []}
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'Admin'); monkeypatch.setattr(rs, '_admin_load', lambda: admin)
+    monkeypatch.setattr(rs, '_audit', lambda *a: None); monkeypatch.setattr(rs, '_admin_save', lambda d: None)
+
+    async def fake_rpc(http, method, params):
+        if method == 'getBalance':
+            return {'value': 2 * 10**9}
+        return {'meta': {'err': None}, 'transaction': {'message': {'accountKeys': [{'pubkey': D, 'signer': True}],
+                'instructions': [{'program': 'system', 'parsed': {'type': 'transfer', 'info': {'source': D, 'destination': A, 'lamports': 5 * 10**8}}}]}}}
+    monkeypatch.setattr(rs, '_rpc', fake_rpc)
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.admin_badge_pool_save(None, rs.BadgePoolIn(name='OG pool', wallet=D, pct=50, weights={'bad key': 1})))
+    pid = asyncio.run(rs.admin_badge_pool_save(None, rs.BadgePoolIn(name='OG pool', wallet=D, pct=50, weights={'badge:custom-og': 2})))['pool']['id']
+    plan = asyncio.run(rs.admin_badge_pool_plan(None, pid))
+    assert plan['potSol'] == 1 and {r['address'] for r in plan['rows']} == {A, B}
+    assert asyncio.run(rs.admin_badge_pool_paid(None, pid, rs.ReservePaid(sigs=['6' * 88])))['paidSol'] == 0.5
+    with pytest.raises(rs.HTTPException):  # same transaction can't be recorded twice
+        asyncio.run(rs.admin_badge_pool_paid(None, pid, rs.ReservePaid(sigs=['6' * 88])))
+    pub = asyncio.run(rs.badge_pools_public(A))
+    assert pub['pools'][0]['me']['sol'] == 0.5 and pub['pools'][0]['earns'] == ['custom-og']

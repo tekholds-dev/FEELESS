@@ -57,3 +57,10 @@ def test_profile_backdrops_free_basic_and_tiered_animated():
 def test_shield_blocks_live_freeze_authority():
     v = rs.shield_verdict({'flags': []}, {}, {'freezeAuthority': 'Dev'})
     assert v['level'] == 'danger' and 'freeze' in v['reasons'][0].lower()
+
+
+def test_shield_cites_creator_case_file_verdict():
+    rep = {'score': 75, 'level': 'high', 'label': 'High risk', 'top': {'claim': '2 launches rugged (liquidity pulled).', 'source': 'Creator record'}}
+    v = rs.shield_verdict({'flags': [], 'creator': 'Dev1'}, {}, {}, rep)
+    assert v['level'] == 'danger' and v['reasons'][0].startswith('Creator case file: High risk (75/100): 2 launches rugged')
+    assert rs.shield_verdict({'flags': [], 'creator': 'Dev1'}, {}, {}, {**rep, 'level': 'clean'})['level'] == 'ok'

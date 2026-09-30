@@ -1,5 +1,5 @@
 import { Explain } from '../Explain';
-import { IntelRail, SeasonRail } from './ProfileRails';
+import { AfterSell, IntelRail, SeasonRail } from './ProfileRails';
 import { FeedBar } from '../FeedBar';
 import { AlphaRoomsCard } from '../AlphaRooms';
 import { investigate } from '../CaseFile';
@@ -197,9 +197,11 @@ export function WalletProfilePage({ address }) {
     if (!wallet?.address || !mine) { toast.error('Connect a wallet linked to this profile.'); return; }
     setSaving(true);
     try {
-      const message = `FEELESS profile update\naddress:${wallet.address}\nts:${Math.floor(Date.now() / 1000)}`;
-      const signature = await signMessage(message);
-      const res = await fetch(apiUrl('/api/reputation/profile'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: wallet.address, message, signature, profile: draft, target: address }) });
+      // One wallet session (signed once, 7 days, shared with chat) — no signature per save.
+      const { getChatSession, clearChatSession } = await import('../../lib/chatSession');
+      const send = async session => fetch(apiUrl('/api/reputation/profile'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: wallet.address, session, profile: draft, target: address }) });
+      let res = await send(await getChatSession(wallet.address, signMessage));
+      if (res.status === 401) { clearChatSession(wallet.address); res = await send(await getChatSession(wallet.address, signMessage)); }
       const body = await res.json();
       if (!res.ok) throw new Error(body.detail || 'Save failed');
       toast.success('Profile saved'); setEdit(false); load();
@@ -222,7 +224,7 @@ export function WalletProfilePage({ address }) {
           <div className="xp-sub">{edit ? <input className="wp-handle-input" maxLength={21} placeholder="@handle (3–20: a-z 0-9 _)" value={draft.handle ? `@${draft.handle}` : ''} onChange={e => set('handle', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))} /> : <span className="wp-handle">@{p.handle || address.slice(0, 6).toLowerCase()}</span>}<span className="xp-dot">·</span><code>{shortAddress(address)}</code><CopyBtn value={address} /></div>
           {edit ? <input className="wp-mood-input" maxLength={40} placeholder="Mood / status (e.g. 🔥 hunting 10×s)" value={draft.mood} onChange={e => set('mood', e.target.value)} /> : p.mood && <p className="wp-mood">{p.mood}</p>}
         </div>
-        <div className="xp-actions"><ProfileDM peer={address} mine={mine} initialOpen={new URLSearchParams(window.location.search).get('dm') === '1'} /><button type="button" className="btn-outline xp-case" data-testid="open-case-file" onClick={() => investigate(address)}>🔎 Case file</button><button type="button" className="btn-outline wp-flip-btn" data-testid="profile-flip" onClick={() => setFlipped(f => !f)}>{flipped ? '↺ Profile' : '↻ Activity'}</button>{isAdmin && <button type="button" className="cc-launch" data-testid="open-command-center" onClick={() => setCcOpen(true)}>👑 Command Center</button>}{mine ? (edit ? <><button type="button" className="btn-primary" disabled={saving} onClick={save}><Save size={14} />{saving ? 'Sign in wallet…' : 'Save (sign)'}</button><button type="button" className="btn-outline" onClick={() => setEdit(false)}><X size={14} />Cancel</button></> : <button type="button" className="btn-outline" onClick={startEdit}><Pencil size={14} />Edit profile</button>) : !wallet?.address && <button type="button" className="btn-outline" onClick={() => connect?.('solana')}>Connect to edit yours</button>}</div>
+        <div className="xp-actions"><ProfileDM peer={address} mine={mine} initialOpen={new URLSearchParams(window.location.search).get('dm') === '1'} /><button type="button" className="btn-outline xp-case" data-testid="open-case-file" onClick={() => investigate(address)}>🔎 Case file</button><button type="button" className="btn-outline wp-flip-btn" data-testid="profile-flip" onClick={() => setFlipped(f => !f)}>{flipped ? '↺ Profile' : '↻ Activity'}</button>{isAdmin && <button type="button" className="cc-launch" data-testid="open-command-center" onClick={() => setCcOpen(true)}>👑 Command Center</button>}{mine ? (edit ? <><button type="button" className="btn-primary" disabled={saving} onClick={save}><Save size={14} />{saving ? 'Saving…' : 'Save'}</button><button type="button" className="btn-outline" onClick={() => setEdit(false)}><X size={14} />Cancel</button></> : <button type="button" className="btn-outline" onClick={startEdit}><Pencil size={14} />Edit profile</button>) : !wallet?.address && <button type="button" className="btn-outline" onClick={() => connect?.('solana')}>Connect to edit yours</button>}</div>
       </div>
       <div className="xp-meta">
         <SocialStrip address={address} mine={mine} />
@@ -236,7 +238,7 @@ export function WalletProfilePage({ address }) {
     {flipped && <nav className="wp-act-tabs" data-testid="activity-tabs">{[mine && ['swap', 'Swap'], mine && poolPerk && ['builder', '🏗 Pool builder'], ['holdings', 'Holdings'], ['history', 'Swap history'], ['feed', 'FEEd'], ['posts', 'Posts'], ['rewards', 'Rewards'], ['vault', 'Vault']].filter(Boolean).map(([k, l]) => <button key={k} type="button" className={actTab === k ? 'active' : ''} onClick={() => setActTab(k)}>{l}</button>)}</nav>}
     {flipped && actTab === 'swap' && mine && <section className="profile-swap-layout" data-testid="profile-swap"><SwapTopCoins onSelect={setSwapPair} /><div className="wp-card profile-swap"><ProfileSwapBox pair={swapPair} /><small className="wp-bio">Signed in your own wallet — FEELESS never holds funds. Buying $FEE is fee-free; selling it to SOL, USDC or USDT is also free. Other routes show the platform fee before signing.</small></div><div className="profile-swap-receipts"><ReceiptsCard address={address} /></div></section>}
     {flipped && actTab === 'holdings' && <PortfolioCard address={address} onSwap={mine ? pr => { setSwapPair(pr); setActTab('swap'); } : undefined} />}
-    {flipped && actTab === 'history' && <><WalletSwaps address={address} title="Swap history" /><PnlTracker address={address} /></>}
+    {flipped && actTab === 'history' && <><AfterSell address={address} /><WalletSwaps address={address} title="Swap history" /><PnlTracker address={address} /></>}
     {flipped && actTab === 'feed' && <FeedPanel mine={mine} onConnect={() => connect?.('solana')} />}
     {flipped && actTab === 'posts' && <ReceiptsCard address={address} />}
     {flipped && actTab === 'posts' && <section className="wp-card wp-activity" data-testid="profile-activity"><h3>Activity</h3>{!acts ? <p className="wp-bio">Loading…</p> : !acts.posts.length ? <p className="wp-bio">No posts yet.</p> : <div className="wpa-list">{acts.posts.map(a => <a key={a.id} className="wpa-row" href={a.room.startsWith('coin-') ? `/terminal/chat` : a.room.startsWith('wall-') ? `/terminal/profile/${a.room.slice(5)}` : '/terminal/chat'} target="_blank" rel="noopener noreferrer"><span className="wpa-room">{a.room.startsWith('wall-') ? '🧱 wall' : a.room.startsWith('coin-') ? `🪙 ${a.room.split('-').pop()}` : `# ${a.room}`}</span><p>{a.text}</p><time>{new Date(a.ts).toLocaleString()}</time></a>)}</div>}</section>}
