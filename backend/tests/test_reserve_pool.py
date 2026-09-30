@@ -127,3 +127,15 @@ def test_parsed_transfers_only_what_the_signer_moved():
           'meta': {'innerInstructions': [{'instructions': [{'program': 'spl-token', 'parsed': {'type': 'transferChecked', 'info': {
               'authority': D, 'destination': 'Ata1', 'mint': 'USDC', 'tokenAmount': {'uiAmount': 12.5}}}}]}]}}
     assert rp.parsed_transfers(tx, D) == [{'asset': 'SOL', 'to': A, 'amount': 0.5}, {'asset': 'USDC', 'to': 'Ata1', 'amount': 12.5}]
+
+
+def test_badge_edit_updates_every_holder(monkeypatch):
+    pytest.importorskip('solders')
+    rs = pytest.importorskip('reputation_service')
+    d = {'badges': {A: {'custom-og': {'id': 'custom-og', 'label': 'OG', 'icon': '⭐'}}, B: {'custom-og': {'id': 'custom-og', 'label': 'OG', 'icon': '⭐'}}}, 'audit': []}
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'Admin'); monkeypatch.setattr(rs, '_admin_load', lambda: d)
+    monkeypatch.setattr(rs, '_audit', lambda *a: None); monkeypatch.setattr(rs, '_admin_save', lambda x: None)
+    assert asyncio.run(rs.admin_badge_edit(None, 'custom-og', rs.BadgeEdit(label='OG Degen', icon='💎', tone='mint')))['holders'] == 2
+    assert d['badges'][B]['custom-og']['label'] == 'OG Degen' and d['badges'][A]['custom-og']['tone'] == 'mint'
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.admin_badge_edit(None, 'nobody', rs.BadgeEdit(label='X1')))

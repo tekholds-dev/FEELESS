@@ -8118,3 +8118,29 @@ async def verify_admin_list(request: Request):
     auto = sorted((r for _, r in _verify_cache.values() if r.get('level') == 'verified'), key=lambda r: -r['score'])[:40]
     return {'manual': [{'mint': m, **v} for m, v in d['mints'].items()], 'requests': [r for r in d['requests'] if r.get('status') == 'open'][-50:],
             'auto': [{k: r.get(k) for k in ('mint', 'symbol', 'score', 'level', 'at')} for r in auto]}
+
+
+class BadgeEdit(BaseModel):
+    label: str = Field(min_length=2, max_length=32)
+    icon: str = Field(default='⭐', max_length=8)
+    tone: str = 'gold'
+    why: str = Field(default='', max_length=140)
+
+
+@app.put('/api/reputation/admin/badges/{bid}')
+async def admin_badge_edit(request: Request, bid: str, p: BadgeEdit):
+    """Edit a badge everywhere it's held (label, icon, tone, why). Holders keep it; only the look changes."""
+    admin = _require_admin(request)
+    tone = p.tone if p.tone in ('mint', 'gold', 'plain', 'bad') else 'gold'
+    n = 0
+    async with _admin_lock:
+        d = _admin_load()
+        for a, items in d['badges'].items():
+            if bid in items:
+                items[bid].update({'label': p.label, 'icon': p.icon, 'tone': tone, 'why': p.why or items[bid].get('why', '')}); n += 1
+                _badge_cache.pop(a, None)
+        if not n:
+            raise HTTPException(404, 'No one holds that badge.')
+        _audit(d, admin, 'badge-edit', f'{bid} → {p.label}')
+        _admin_save(d)
+    return {'ok': True, 'holders': n}

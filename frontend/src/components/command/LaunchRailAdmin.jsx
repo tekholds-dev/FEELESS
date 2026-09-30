@@ -166,7 +166,8 @@ export function LaunchRailAdmin({ call, isOwner }) {
       </ol>
     </details>
     {isOwner && <TreasurySend ownerWallets={owners} />}
-    <div className="cc-block"><h4>FEELESS launch config {rail?.ready && <span className="pill-ok">LIVE</span>}</h4>
+    <div className="cc-block"><h4>Step 1 · Launch rules {rail?.ready && <span className="pill-ok">LIVE</span>}</h4>
+      <div className="rail-notcoin"><b>⚠ This does not create a coin.</b> It sets the rules every coin follows (curve, fees, anti-snipe, locked liquidity). No name, ticker or image here. To launch an actual coin, open the <a href="/terminal/launch">Launch page →</a> (name, ticker, image, first buy) after these rules exist.</div>
       {rail?.ready ? <div className="rail-live">
         <p>Every FEELESS launch uses this on-chain config. Fees go to <code>{rail.feeClaimer.slice(0, 4)}…{rail.feeClaimer.slice(-4)}</code><CopyBtn value={rail.feeClaimer} profile />.</p>
         <div className="rail-kv">{FIELDS.map(([k, l]) => <span key={k}><small>{l}</small><b>{Number(rail.params?.[k] ?? RAIL_DEFAULTS[k]).toLocaleString()}</b></span>)}</div>
@@ -187,7 +188,7 @@ export function LaunchRailAdmin({ call, isOwner }) {
           {scope === 'house' && <><input placeholder="House config name (e.g. Reserve coins)" maxLength={40} value={houseLabel} onChange={e => setHouseLabel(e.target.value)} />
             <label className="bdg-pct"><input inputMode="decimal" value={p.poolCreationFeeSol ?? '5'} onChange={e => setP(v => ({ ...v, poolCreationFeeSol: e.target.value.replace(/[^0-9.]/g, '') }))} /><span>SOL outsider toll</span></label>
             <small className="cc-empty">Meteora configs can't block other launchers on-chain, so house configs charge a <b>launch toll</b> paid to your fee claimer. An outsider launching on it pays you {Number(p.poolCreationFeeSol ?? 5) || 0} SOL. You pay it too when you launch, then claim 90% back (Meteora keeps 10%) — so each of your own launches costs ≈ {((Number(p.poolCreationFeeSol ?? 5) || 0) * 0.1).toFixed(3)} SOL. Outsider coins are flagged below and never count as house coins on the site.</small></>}</div>
-        <button type="button" className="btn-primary" disabled={!!status || check?.ok === false} onClick={create}>{status || (wallet?.chain === 'solana' ? `Create ${scope === 'house' ? 'a house' : rail?.ready ? 'a new public' : 'the public'} launch config · sign with ${wallet.address.slice(0, 4)}…` : 'Connect Solana wallet')}</button>
+        <button type="button" className="btn-primary" disabled={!!status || check?.ok === false} onClick={create}>{status || (wallet?.chain === 'solana' ? `Create ${scope === 'house' ? 'house' : 'public'} launch rules (no coin) · sign with ${wallet.address.slice(0, 4)}…` : 'Connect Solana wallet')}</button>
         <small className="cc-empty">Any owner wallet can sign; switch wallets in Phantom and reconnect to use a different one. The transaction is simulated before you're asked to sign.</small>
       </> : <p className="cc-empty">Only the owner wallet can create the launch config.</p>}
     </div>
