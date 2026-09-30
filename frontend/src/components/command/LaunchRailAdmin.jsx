@@ -192,6 +192,7 @@ export function LaunchRailAdmin({ call, isOwner }) {
         <div className="rail-kv">{FIELDS.map(([k, l]) => <span key={k}><small>{l}</small><b>{Number(rail.params?.[k] ?? RAIL_DEFAULTS[k]).toLocaleString()}</b></span>)}</div>
         <p className="cc-empty">Config <code>{rail.config}</code><CopyBtn value={rail.config} /> · <a href={`https://solscan.io/account/${rail.config}`} target="_blank" rel="noreferrer">Solscan ↗</a>. On-chain configs can't be edited; to change terms, create a new one (old coins keep theirs).</p>
       </div> : <p className="cc-empty">Not created yet. Launches stay disabled until the owner or an admin signs this once.</p>}
+      {rail && !rail.siteUrl && <div className="m-note warn" data-testid="rail-needs-domain"><b>Pump.fun launches work right now — Step 2 › Open the launcher › 💊 Pump.fun.</b>FEELESS-rail and House launches also need a public https domain: set PUBLIC_SITE_URL in backend/.env (coin names + images are hosted there forever, so a localhost or tunnel address would break the coin).</div>}
       {<>
         <div className="rail-presets" role="radiogroup" aria-label="Launch style">{RAIL_PRESETS.map(pr => <button key={pr.id} type="button" role="radio" aria-checked={preset === pr.id} className={preset === pr.id ? 'active' : ''} onClick={() => pick(pr)}><b>{pr.label}</b><small>{pr.blurb}</small></button>)}</div>
         <div className={`rail-ready ${check?.ok && !warnings.length ? 'ok' : check?.ok ? 'warn' : 'bad'}`} data-testid="rail-ready">

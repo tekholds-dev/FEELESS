@@ -21,8 +21,13 @@ while true; do
     remote_rev="$(git rev-parse "origin/$branch")"
     # Nothing to pull when GitHub has nothing new (same commit, or this copy is already ahead).
     if [[ "$local_rev" != "$remote_rev" ]] && ! git merge-base --is-ancestor "origin/$branch" HEAD; then
-      if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
-        echo "$(date +%T) new commits on origin/$branch, but you have uncommitted changes, so skipping"
+      # yarn install rewrites lockfiles on its own: those are never real work, so put them back instead of stalling forever.
+      git checkout -q -- frontend/yarn.lock frontend/package-lock.json 2>/dev/null || true
+      dirty="$(git status --porcelain --untracked-files=no)"
+      if [[ -n "$dirty" ]]; then
+        echo "$(date +%T) new commits on origin/$branch, but these files have local edits, so skipping:"
+        echo "$dirty" | sed 's/^/    /'
+        echo "    keep them: git stash   ·   drop them: git checkout -- <file>"
       elif git merge-base --is-ancestor HEAD "origin/$branch"; then
         changed="$(git diff --name-only HEAD "origin/$branch")"
         git merge -q --ff-only "origin/$branch"
