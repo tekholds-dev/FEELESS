@@ -202,3 +202,17 @@ def test_confirmed_trade_reports_season_points_exactly_once(engine):
     assert client.get('/api/trading/order/o1').json()['state'] == 'confirmed'
     assert client.get('/api/trading/order/o1').json()['state'] == 'confirmed'
     assert landed == ['sig1']
+
+
+def test_fee_selftest_probe_skips_balance_only_with_the_internal_key(engine, monkeypatch):
+    """The Cmd Ctr fee self-test quotes as the fee wallet (which holds none of the test coins). A probe with the
+    internal key skips the balance check; without the key the check still applies."""
+    client, state, _ = engine
+    state['tokens'] = 0
+    body = {'input_mint': MEME, 'output_mint': SOL, 'amount': '1000', 'slippage_bps': 100, 'wallet': WALLET, 'probe': True}
+    real_read = trading.Path.read_text
+    monkeypatch.setattr(trading.Path, 'read_text', lambda self, *a, **k: 'k3y' if self.name == 'internal.key' else real_read(self, *a, **k))
+    assert client.post('/api/trading/quote', json=body).status_code == 400
+    assert client.post('/api/trading/quote', json=body, headers={'x-feeless-internal': 'wrong'}).status_code == 400
+    ok = client.post('/api/trading/quote', json=body, headers={'x-feeless-internal': 'k3y'})
+    assert ok.status_code == 200 and ok.json()['feeless_fee']['bps'] == 1500

@@ -3,7 +3,6 @@ import { useWallet } from '../../hooks/useWallet';
 import { PoolCreator } from './PoolCreator';
 import { LaunchRailAdmin } from './LaunchRailAdmin';
 import { CircleWallets } from './CircleWallets';
-import { InvestigatePanel } from '../CaseFile';
 import { UnitInput, TradePreview, useSolUsd, money, LiveMoney, FeeTable } from './FeeInputs';
 import { MarketingPanel } from './MarketingPanel';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -27,6 +26,7 @@ import { FeeBrain } from './FeeBrain';
 import { MoneyFlows } from './MoneyFlows';
 import { CirclePay, useCircleWallet } from './CirclePay';
 import { CardStudio } from '../cards/CardStudio';
+import { IntelDesk } from './IntelDesk';
 import { useMoneyPulse, refreshPulse } from '../../lib/moneyPulse';
 
 const SESSION_KEY = 'feeless:cc-session';
@@ -97,7 +97,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
   // Grouped so the money + infra controls are always first; every tab id appears exactly once.
   const TAB_GROUPS = [['Core', ['launch', 'fees', 'latency', 'treasury', 'circle']], ['Growth', ['numbers', 'traffic', 'pulse', 'marketing', 'kols', 'invites', 'ads', 'ideas']],
     ['Community', ['holders', 'studio', 'airdrops', 'snapshots', 'badges', 'seasons', 'pools', 'feecat', 'broadcast']], ['Safety', ['investigate', 'verify', 'overview', 'mod', 'access', 'bugs']]];
-  const TABS = [['investigate', 'Investigate', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['circle', 'Circle wallets', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['treasury', 'Treasury', Award], ['circle', 'Circle wallets', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div><TreasuryPulse call={call} onOpen={(t, pre) => { setPrefill(pre || null); setTab(t); }} />
       <nav className="cc-tabs" data-testid="cc-nav">{TAB_GROUPS.map(([group, ids]) => <div key={group} className="cc-tab-group"><small>{group}</small>{ids.map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</div>)}</nav>
@@ -120,7 +120,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'circle' && (isOwner ? <CircleWallets call={call} /> : <p className="cc-empty">Only owner wallets can manage Circle wallets.</p>)}
     {tab === 'treasury' && <><TreasuryHub call={call} prefill={prefill} /><TreasuryRoutes call={call} isOwner={isOwner} /></>}
     {tab === 'overview' && <Overview sec={sec} reload={loadSec} />}
-    {tab === 'investigate' && <InvestigatePanel />}
+    {tab === 'investigate' && <IntelDesk call={call} />}
     {tab === 'holders' && <section className="cc-panel">
       <div className="cc-toolbar">
         <select value={asset} onChange={e => { setAsset(e.target.value); setSelected(new Set()); }}>{(holders?.assets || ['fee', 'feecat', 'rfee']).map(a => <option key={a} value={a}>{a.toUpperCase()}</option>)}</select>
@@ -434,7 +434,7 @@ function FeesPanel({ call }) {
     <div className="cc-block fee-selftest" data-testid="fee-selftest"><h4>5 · Prove it <Explain>Runs real quotes through the same endpoints the swap boxes use. Nothing is signed or sent. A pass means FEELESS is paid on real trades.</Explain></h4>
       <div className="cc-toolbar"><button type="button" className="btn-outline" onClick={runTest} disabled={testBusy}><RefreshCw size={13} className={testBusy ? 'spin' : ''} />{testBusy ? 'Testing live quotes…' : 'Run fee self-test'}</button>{test?.at && <small className="cc-empty">Last run {new Date(test.at * 1000).toLocaleTimeString()}</small>}{health?.ok && <small className="cc-empty">✓ {health.note}</small>}</div>
       {test && <ul className="fee-checks">{test.checks.map(c => <li key={c.label} className={c.ok ? 'ok' : 'bad'}><b>{c.ok ? '✓' : '✗'}</b><span>{c.label}</span><small>{c.detail}</small></li>)}
-        {(test.lifiChecks || []).map(c => <li key={c.label} className={c.ok ? 'ok' : 'bad'}><b>{c.ok ? '✓' : '✗'}</b><span>LI.FI · {c.label}</span><small>{c.detail}</small></li>)}</ul>}
+        {(test.lifiChecks || []).map(c => <li key={c.label} className={c.skipped ? 'skip' : c.ok ? 'ok' : 'bad'}><b>{c.skipped ? '–' : c.ok ? '✓' : '✗'}</b><span>LI.FI · {c.label}</span><small>{c.detail}</small></li>)}</ul>}
     </div>
     <div className="cc-savebar"><span>{routes.length || 0} treasury route{routes.length === 1 ? '' : 's'} saved</span><button type="button" className="btn-primary" onClick={save} data-testid="fees-save">Save trading &amp; fees</button></div>
   </section>;

@@ -20,6 +20,7 @@ import launch_meta
 import fee_report
 import money_pulse
 import badge_cards
+import intel_desk
 from ecosystem import ecosystem_mints
 import asyncio
 import collections
@@ -1051,6 +1052,16 @@ async def token_intel(chain: str, mint: str):
     if flagged_funders:
         distinct_funders = {v['funder'] for v in flagged_funders.values()}
         flags.append(f"{len(flagged_funders)} sniper/bundler wallet(s) here were funded by {len(distinct_funders)} wallet(s) already linked to prior rug/snipe launches.")
+    try:   # the Intel desk: are known crews inside this launch?
+        crew = intel_desk.check(_desk_build()['snap']['index'], _desk['rings'], all_offenders + ([creator] if creator else []))
+    except Exception:
+        crew = {'known': {}, 'rings': []}
+    out['knownActors'] = len(crew['known'])
+    out['knownRings'] = crew['rings']
+    if crew['rings']:
+        r0 = max(crew['rings'], key=lambda r: r['threat'])
+        rugs = f", {r0['rugs']} rugs" if r0['rugs'] else ''
+        flags.append(f"Known crew inside: ring {r0['id']} ({r0['size']} wallets, {r0['launchesHit']} launches hit{rugs}).")
     out['flags'] = flags
     out['flaggedFunders'] = flagged_funders
     await _record_offenders(mint, out.get('bundledWallets', []), out.get('sniperWallets', []))
@@ -4038,7 +4049,8 @@ async def admin_fee_selftest(request: Request):
             # Same wallet as the quote below, so holder-tier discounts match.
             expected = int((await effective_fee(test_wallet or '', a, b))['bps'])
             try:
-                r = await http.post('http://127.0.0.1:5001/api/trading/quote', json={'input_mint': a, 'output_mint': b, 'amount': amount, 'slippage_bps': 50, 'wallet': test_wallet})
+                r = await http.post('http://127.0.0.1:5001/api/trading/quote', headers={'x-feeless-internal': _internal_key()},
+                                  json={'input_mint': a, 'output_mint': b, 'amount': amount, 'slippage_bps': 50, 'wallet': test_wallet, 'probe': True})
                 d = r.json()
             except Exception as exc:
                 checks.append({'label': label, 'ok': False, 'detail': f'Swap server unreachable: {exc}'})
@@ -4065,7 +4077,7 @@ async def admin_fee_selftest(request: Request):
         lifi = []
         for label, fc, tc in (('Base swap ETH → USDC', 8453, 8453), ('Bridge Arbitrum → Base', 42161, 8453)):
             if not integrator or not lifi_bps:
-                lifi.append({'label': label, 'ok': False, 'detail': 'Set a LI.FI fee (bps) below — EVM swaps and bridges are free until then.'})
+                lifi.append({'label': label, 'ok': None, 'skipped': True, 'detail': 'Skipped: no LI.FI fee set, so EVM swaps and bridges are free (set one below to charge).'})
                 continue
             to_token = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' if tc == fc else '0x0000000000000000000000000000000000000000'
             try:
@@ -4083,7 +4095,8 @@ async def admin_fee_selftest(request: Request):
             ok = ours == lifi_bps and total >= 0.0025 + lifi_bps / 10000 - 1e-6
             lifi.append({'label': label, 'ok': ok, 'detail': (f"FEELESS fee {ours / 100:.2f}% applied (LI.FI total {total * 100:.2f}% incl. its own 0.25%)" if ok
                                                          else (d.get('feeless') or {}).get('note') or f'FEELESS fee not applied (got {ours / 100:.2f}%)')})
-    return {'checks': checks, 'lifiChecks': lifi, 'lifi': {'ok': all(x['ok'] for x in lifi), 'detail': ' · '.join(x['detail'] for x in lifi)}, 'at': time.time(),
+    live = [x for x in lifi if not x.get('skipped')]
+    return {'checks': checks, 'lifiChecks': lifi, 'lifi': {'ok': all(x['ok'] for x in live) if live else None, 'skipped': not live, 'detail': ' · '.join(x['detail'] for x in lifi)}, 'at': time.time(),
             'note': 'Quotes only through the real swap endpoints — nothing is signed or sent. A pass means FEELESS is paid on real trades.'}
 
 
@@ -8515,6 +8528,86 @@ async def admin_badge_edit(request: Request, bid: str, p: BadgeEdit):
         _audit(d, admin, 'badge-edit', f'{bid} → {p.label}')
         _admin_save(d)
     return {'ok': True, 'holders': n}
+
+
+# ---- Intel desk: the reputation department's database of ruggers, snipers, bundlers, funders and their crews -------
+INTEL_DESK_PATH = DATA_DIR / 'intel_desk.json'
+_desk = {'at': 0, 'snap': None, 'rings': [], 'actors': {}}
+
+
+def _desk_build(force=False):
+    """Rebuild the desk from the blocklist, funder graph and creator records (cheap: local data only). Cached 10 min;
+    the saved file keeps a daily history so the owner can see the department's catch grow."""
+    if not force and _desk['snap'] and time.time() - _desk['at'] < 600:
+        return _desk
+    creators = {}
+    for key, rec in (_load().get('creators') or {}).items():
+        if not str(key).startswith('solana:'):
+            continue
+        sc = score_creator(rec)
+        if sc.get('ruggedCount') or sc.get('dumpedCount'):
+            creators[rec.get('address') or key.split(':', 1)[1]] = {'rugged': sc['ruggedCount'], 'dumped': sc['dumpedCount'], 'launches': sc['tokenCount'],
+                                                                    'launchTimes': [t.get('firstSeenAt') for t in (rec.get('tokens') or {}).values()]}
+    actors = intel_desk.build_actors(_block_load()['wallets'], _funders_load(), creators, protected=frozenset(_protected_wallets()))
+    now = time.time()
+    snap = intel_desk.snapshot(actors, now)
+    rg = intel_desk.rings(actors)
+    _desk.update({'at': now, 'snap': snap, 'rings': rg, 'actors': actors})
+    saved = _json_load(INTEL_DESK_PATH, {'history': []})
+    day = time.strftime('%Y-%m-%d', time.gmtime(now))
+    hist = [h for h in saved.get('history', []) if h.get('day') != day] + [{'day': day, **snap['totals']}]
+    _json_save(INTEL_DESK_PATH, {'at': now, 'totals': snap['totals'], 'history': hist[-90:], 'index': snap['index'],
+                                 'rings': [{k: r[k] for k in ('id', 'core', 'size', 'launchesHit', 'rugs', 'threat', 'members')} for r in rg[:200]]})
+    return _desk
+
+
+async def _desk_loop():
+    while True:
+        try:
+            _desk_build(force=True)
+        except Exception:
+            pass
+        await asyncio.sleep(1800)
+
+
+@app.on_event('startup')
+async def _desk_start():
+    asyncio.create_task(_desk_loop())
+
+
+@app.get('/api/reputation/admin/intel-desk')
+async def intel_desk_view(request: Request):
+    """Most wanted, crews, predicted next moves and the department's daily catch."""
+    _require_admin(request)
+    d = _desk_build()
+    snap = {k: v for k, v in d['snap'].items() if k != 'index'}
+    return {**snap, 'history': _json_load(INTEL_DESK_PATH, {'history': []}).get('history', [])[-30:]}
+
+
+@app.post('/api/reputation/admin/intel-desk/sweep')
+async def intel_desk_sweep(request: Request):
+    _require_admin(request)
+    d = _desk_build(force=True)
+    return {'ok': True, 'totals': d['snap']['totals']}
+
+
+@app.get('/api/reputation/admin/intel-desk/actor/{address}')
+async def intel_desk_actor(request: Request, address: str):
+    _require_admin(request)
+    d = _desk_build()
+    a = d['actors'].get(address)
+    if not a:
+        raise HTTPException(404, 'Not in the database (no strikes, no funding links, no bad launches).')
+    ring = next((r for r in d['rings'] if address in r['members']), None)
+    return {**intel_desk.public_actor(a, time.time()), 'fundedWallets': a['funded'][:50], 'mints': sorted(a['mints'])[:50], 'crew': ring}
+
+
+@app.get('/api/reputation/intel/check')
+async def intel_check(addresses: str = Query('', max_length=6000)):
+    """Which known ruggers / snipers / funders (and crews) are in this list of wallets. Used by FeeCat, shield, chat."""
+    d = _desk_build()
+    wanted = [a for a in dict.fromkeys(x.strip() for x in addresses.split(',')) if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', a)][:150]
+    return intel_desk.check(d['snap']['index'], d['rings'], wanted)
 
 
 # ---- FEELESS cards: every badge + season drop as a 3D card (front art, back lore + money) ----------------------

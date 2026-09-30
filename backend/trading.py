@@ -1,5 +1,6 @@
 """Jupiter-managed Solana swaps. The wallet signs; this service never signs."""
 import asyncio
+import hmac
 import base64
 import os
 from pathlib import Path
@@ -50,6 +51,7 @@ class QuoteIn(BaseModel):
         return s[:-1] if s.endswith('.') else s
     wallet: str | None = None
     slippage_bps: int = Field(50, ge=1, le=5000)  # up to 50% for thin meme pools
+    probe: bool = False   # fee self-test only (needs the internal key): quote as the fee wallet without its balance
 
 class ExecuteIn(BaseModel):
     order_id: str = Field(min_length=32, max_length=40)
@@ -397,6 +399,14 @@ class TradingService:
         @router.post('/quote')
         async def quote(body: QuoteIn, request: Request):
             self.require_configured()
+            # The Command Center fee self-test quotes as the fee wallet, which doesn't hold the coins it tests with.
+            # Only a caller holding the internal key may skip the balance check; nothing is ever signed or sent.
+            probe = False
+            if body.probe:
+                try:
+                    probe = hmac.compare_digest(request.headers.get('x-feeless-internal', ''), (Path(__file__).parent / 'data' / 'internal.key').read_text().strip())
+                except OSError:
+                    probe = False
             ip = request.client.host
             queue = self.rate[ip]
             while queue and time.monotonic() - queue[0] > 60:
@@ -424,7 +434,7 @@ class TradingService:
             if human <= 0 or atoms != atoms.to_integral_value() or atoms > 2**64 - 1:
                 raise HTTPException(400, 'Invalid amount or too many decimal places')
             # Like the big swap apps: never quote what the wallet can't pay (SOL also covers fees + temporary rent).
-            if isinstance(held, int):
+            if isinstance(held, int) and not probe:
                 need = int(atoms) + (SOL_RESERVE_LAMPORTS if body.input_mint == SOL_MINT else 0)
                 if held < need:
                     raise HTTPException(400, insufficient_message(body.input_mint, held, meta_in['decimals'], (meta_out or {}).get('symbol')))

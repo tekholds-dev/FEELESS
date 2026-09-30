@@ -22,7 +22,7 @@ export const TAB_INFO = {
   pools: ['Pools', 'Create a locked TOKEN/SOL pool for a token that already exists.', ['Create pool', 'Verify pool']],
   feecat: ['Fee 🐱', "FeeCat's trading brain: rules, what she's learning, and her results.", ['Brain', 'Lessons', 'Book']],
   broadcast: ['Broadcast', 'Message everyone at once (site banner / push).', []],
-  investigate: ['Investigate', 'Case files for any wallet or coin, with every point cited.', []],
+  investigate: ['Intel desk', 'The reputation department: ruggers, snipers, bundlers, their funders and crews, with each one\'s likely next move. FeeCat and the rug shield read the same database.', []],
   verify: ['Verify coins', 'Run the verification checks, grant the gold check or revoke one.', ['Run checks', 'Grant', 'Revoke']],
   overview: ['Security', 'Platform health, keys and risks at a glance.', []],
   mod: ['Moderation', 'Reports, mutes and the blocklist.', []],

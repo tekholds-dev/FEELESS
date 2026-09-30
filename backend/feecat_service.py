@@ -120,7 +120,10 @@ async def _safety(http, p):
               (snip <= R['maxSnipers'], f'{snip} snipers'), (bund <= R['maxBundled'], f'{bund} bundled wallets'),
               # Learned from the FEELESS blocklist: a coin whose snipers were bankrolled by a known
               # repeat funder is the same crew running the same play — Fee never touches it.
-              (not d.get('flaggedFunders'), f"{len(d.get('flaggedFunders') or {})} sniper(s) funded by a known repeat rug/snipe funder")]
+              (not d.get('flaggedFunders'), f"{len(d.get('flaggedFunders') or {})} sniper(s) funded by a known repeat rug/snipe funder"),
+              # Intel desk: a known crew (funder + puppets) inside the launch with rugs on record, or a high-threat crew, is a veto.
+              (not any(r.get('rugs') or (r.get('threat') or 0) >= 60 for r in d.get('knownRings') or []),
+               'known crew inside: ' + ', '.join(f"ring {r.get('id')} ({r.get('size')} wallets, {r.get('rugs') or 0} rugs)" for r in (d.get('knownRings') or [])[:2]))]
     for ok, why in checks:
         if not ok:
             return False, why, 0
