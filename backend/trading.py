@@ -117,6 +117,23 @@ def fills_from_orders(orders, sol_usd=0.0):
     return out
 
 
+def signing_sol_usd(order):
+    """SOL's USD price at the moment the wallet signed, read from the quote it signed (Jupiter prices both legs):
+    buy = quoted USD / SOL paid, sell = quoted USD / SOL out. 0 when the quote has no SOL leg or no USD value."""
+    usd = float((order or {}).get('in_usd') or 0)
+    q = (order or {}).get('quote') or {}
+    try:
+        if usd <= 0:
+            return 0.0
+        if order.get('input_mint') == WSOL_MINT and int(order.get('in_atoms') or 0) > 0:
+            return usd / (int(order['in_atoms']) / 1e9)
+        if order.get('output_mint') == WSOL_MINT and int(q.get('outAmount') or 0) > 0:
+            return usd / (int(q['outAmount']) / 1e9)
+    except (TypeError, ValueError):
+        pass
+    return 0.0
+
+
 def _usd_value(quote):
     for k in ('inUsdValue', 'swapUsdValue'):
         try:
@@ -401,12 +418,14 @@ class TradingService:
         coin = om if im in base else im if om in base else None
         if not coin or not order.get('signature') or not order.get('wallet'):
             return None
-        sol_usd = 0.0
-        try:
-            async with httpx.AsyncClient(timeout=4) as http:
-                sol_usd = float(((await http.get(f'https://lite-api.jup.ag/price/v3?ids={SOL_MINT}')).json().get(SOL_MINT) or {}).get('usdPrice') or 0)
-        except Exception:
-            pass
+        # Dollars are locked at SIGNING: the SOL price is the one inside the quote the wallet signed, never today's.
+        sol_usd = signing_sol_usd(order)
+        if not sol_usd:
+            try:
+                async with httpx.AsyncClient(timeout=4) as http:
+                    sol_usd = float(((await http.get(f'https://lite-api.jup.ag/price/v3?ids={SOL_MINT}')).json().get(SOL_MINT) or {}).get('usdPrice') or 0)
+            except Exception:
+                pass
         for i in range(tries):
             try:
                 tx = await self.rpc('getTransaction', [order['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
@@ -414,7 +433,7 @@ class TradingService:
                     f = trade_fills.fill_from_tx(tx, order['wallet'], coin, sol_usd, [a for a in [order.get('fee_account')] if a])
                     if f and not sol_usd and f.get('sol'):
                         return {**f, 'usd': 0.0, 'price': 0.0}   # SOL price unknown: caller prices it
-                    return f
+                    return {**f, 'solUsd': sol_usd, 'locked': bool(signing_sol_usd(order))} if f else f
             except Exception:
                 pass
             await asyncio.sleep(1.5 * (i + 1))

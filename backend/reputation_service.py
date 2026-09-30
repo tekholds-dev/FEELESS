@@ -6870,7 +6870,7 @@ async def _repair_estimates(address: str, token: str):
     """Self-heal: any of this wallet's FEELESS trades saved from a quote gets its exact on-chain fill read once and
     saved over the estimate (at most one attempt per trade per minute; never blocks the position for long)."""
     # Estimates, and exact rows saved before the pool amount was read, both get one exact re-read.
-    rows = [r for r in _json_load(FEELESS_TRADES_PATH, {}).get(address, []) if r.get('token', '').lower() == token.lower() and (r.get('via') != 'chain' or 'poolUsd' not in r)]
+    rows = [r for r in _json_load(FEELESS_TRADES_PATH, {}).get(address, []) if r.get('token', '').lower() == token.lower() and not r.get('locked')]
     now = time.time()
     todo = [r['tx'] for r in rows if r.get('tx') and now - _repair_tried.get(r['tx'], 0) > 60][:3]
     if not todo:
@@ -6895,7 +6895,8 @@ async def _repair_estimates(address: str, token: str):
         usd = (f.get('usd') or (f.get('sol') or 0) * px) if f else 0
         if f and usd > 0:
             r = {**r, 'side': f['side'], 'tokens': f['tokens'], 'sol': f.get('sol'), 'networkSol': f.get('networkSol'), 'usd': round(usd, 4),
-                 **{k: f[k] for k in ('poolUsd', 'feelessFeeUsd', 'networkUsd') if f.get(k) is not None},
+                 **{k: f[k] for k in ('poolUsd', 'feelessFeeUsd', 'networkUsd', 'solUsd', 'locked') if f.get(k) is not None},
+                 'locked': True,   # read once, priced once: never re-read or re-priced again
                  'price': usd / f['tokens'], 'ts': f.get('ts') or r.get('ts'), 'via': 'chain'}
         fixed.append(r)
     ft[address] = fixed
@@ -6919,9 +6920,10 @@ async def position(address: str, token: str):
     tok = token.lower()
     provider = [r for r in (_wtrades_all.get(address) or (0, []))[1] if r['token'].lower() == tok]
     own = [r for r in _json_load(FEELESS_TRADES_PATH, {}).get(address, []) + fills if r['token'].lower() == tok]
-    # Truth first: fills read from the chain (live scan, then the exact fill saved at confirmation), then FEELESS's own
-    # estimates (fees in), and the wallet-history provider last (it only fills in trades made outside FEELESS).
-    rows = trade_fills.merge(chain.get('fills'), [r for r in own if r.get('via') == 'chain'], [r for r in own if r.get('via') != 'chain'], provider)
+    # FEELESS trades are locked at signing (exact amounts, that moment's SOL price) and always win; the live chain scan
+    # only fills in trades made outside FEELESS (priced now, since their signing price is unknown), then the provider.
+    rows = trade_fills.merge([r for r in own if r.get('locked')], [r for r in own if r.get('via') == 'chain'], chain.get('fills'),
+                             [r for r in own if r.get('via') != 'chain'], provider)
     fees = {r.get('sig'): r.get('feeUsd') or 0 for r in _json_load(FEE_LEDGER_PATH, {}).get(primary_of(address), [])}
     pos = trade_fills.position(rows, chain.get('balance') if 'balance' in chain else None, fees)
     if pos:
@@ -8335,8 +8337,8 @@ def _trade_record(p: 'TradeLanded', coin: str, amt: float, side: str, sol_usd: f
     if f.get('token') == coin and f.get('tokens', 0) > 0 and f.get('side') == side:
         usd = f.get('usd') or (f.get('sol') or 0) * sol_usd
         if usd > 0:
-            return {**{k: f[k] for k in ('side', 'tokens', 'sol', 'networkSol', 'balanceAfter', 'poolUsd', 'feelessFeeUsd', 'networkUsd') if k in f}, 'ts': f.get('ts') or time.time(),
-                    'usd': round(usd, 4), 'price': usd / f['tokens'], 'token': coin, 'tx': p.signature, 'via': 'chain'}
+            return {**{k: f[k] for k in ('side', 'tokens', 'sol', 'networkSol', 'balanceAfter', 'poolUsd', 'feelessFeeUsd', 'networkUsd', 'solUsd', 'locked') if k in f}, 'ts': f.get('ts') or time.time(),
+                    'usd': round(usd, 4), 'price': usd / f['tokens'], 'token': coin, 'tx': p.signature, 'via': 'chain', 'locked': True}
     if amt > 0 and p.inUsd > 0:
         fee = fee_usd if fee_usd is not None else p.inUsd * max(0, p.feeBps) / 10000   # the fee actually charged beats the %
         usd = p.inUsd + fee if side == 'buy' else max(0.0, p.inUsd - fee)

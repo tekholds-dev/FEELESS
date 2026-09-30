@@ -105,3 +105,31 @@ def test_exact_fill_reads_the_confirmed_tx_and_retries_until_served(monkeypatch)
     f = asyncio.run(svc.exact_fill({'input_mint': SOL, 'output_mint': MEME, 'signature': 'sigX', 'wallet': W}))
     assert calls == ['getTransaction', 'getTransaction'] and f['side'] == 'buy' and f['tokens'] == 5000 and f['via'] == 'chain'
     assert abs(f['usd'] - 0.100005 * 150) < 1e-3   # 0.1 SOL swap + network fee, account rent excluded
+
+
+def test_dollars_are_locked_at_signing_not_repriced_later(monkeypatch):
+    """Owner's bug: the entry drifted with SOL ($1.15 at signing became $1.21 a day later). The SOL price must come from
+    the quote the wallet signed, so the same trade reads the same dollars forever."""
+    buy = {'input_mint': SOL, 'output_mint': MEME, 'in_atoms': '7666667', 'in_usd': 1.15, 'quote': {'outAmount': '103945500'}}
+    assert abs(trading.signing_sol_usd(buy) - 150.0) < 1e-4
+    sell = {'input_mint': MEME, 'output_mint': SOL, 'in_usd': 1.2, 'quote': {'outAmount': '8000000'}}
+    assert abs(trading.signing_sol_usd(sell) - 150.0) < 1e-6
+    assert trading.signing_sol_usd({'input_mint': SOL, 'in_atoms': '1', 'in_usd': None}) == 0.0
+
+    W = 'Wa11et1111111111111111111111111111111111111'
+    tx = {'blockTime': 5, 'transaction': {'signatures': ['s'], 'message': {'accountKeys': [{'pubkey': W}]}},
+          'meta': {'err': None, 'fee': 0, 'preBalances': [10**9], 'postBalances': [10**9 - 7_666_667], 'preTokenBalances': [{'accountIndex': 1, 'mint': MEME, 'owner': W, 'uiTokenAmount': {'amount': '1', 'decimals': 6}}],
+                   'postTokenBalances': [{'accountIndex': 1, 'mint': MEME, 'owner': W, 'uiTokenAmount': {'amount': '103945501', 'decimals': 6}}]}}
+    svc = trading.TradingService(None)
+
+    async def rpc(method, params):
+        return tx
+    svc.rpc = rpc
+
+    class Http:   # SOL is $160 "today" — must be ignored
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, url): return type('R', (), {'json': lambda self: {SOL: {'usdPrice': 160}}})()
+    monkeypatch.setattr(trading.httpx, 'AsyncClient', lambda **k: Http())
+    f = asyncio.run(svc.exact_fill({**buy, 'signature': 's', 'wallet': W}))
+    assert abs(f["usd"] - 1.15) < 1e-3 and f["locked"] is True and abs(f["solUsd"] - 150) < 1e-4
