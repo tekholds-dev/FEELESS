@@ -231,13 +231,11 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
     if (!orderMatches || review || result || busy || lock.current || refreshing.current || chain !== 'solana' || document.hidden) return;
     if (now - quotedAt >= QUOTE_REFRESH_MS) loadQuote(true);
   }, [now]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Like Jupiter: re-quote shortly after the amount or a coin changes (never on first render).
-  const autoQuoteReady = useRef(false);
+  // No auto-quote: the user picks coins + amount, then clicks Get quote. Editing clears a stale error.
+  const editedReady = useRef(false);
   useEffect(() => {
-    if (!autoQuoteReady.current) { autoQuoteReady.current = true; return undefined; }
-    if (review || insufficient || chain !== 'solana' || !inputMint || inputMint === outputMint || !/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0 || result) return undefined;
-    const t = setTimeout(() => { loadQuote(); }, 300);
-    return () => clearTimeout(t);
+    if (!editedReady.current) { editedReady.current = true; return; }
+    if (!busy && !result) setMessage('');
   }, [amount, inputMint, outputMint, slippage]); // eslint-disable-line react-hooks/exhaustive-deps
   const simulate = async () => {
     if (lock.current || expired || !quote?.transaction) return;

@@ -278,3 +278,21 @@ test('reverse trade direction swaps pay/receive coins and keeps them swapped', a
   expect(side('swap-input-asset')).toContain('SOL');
   expect(side('swap-output-asset')).toContain('DOGWIF');
 });
+
+test('never auto-quotes: changing the amount waits for the user to click Get quote', async () => {
+  jest.useFakeTimers();
+  mockWalletState.wallet = { chain: 'solana', address: 'Wallet1111111111111111111111111111111111111' };
+  mockWalletState.provider = {};
+  global.fetch = scripted({ ok: true, json: async () => ({ order_id: 'e'.repeat(36), expires_at: 1_700_000_045, output_metadata: { decimals: 6 }, quote: { transaction: 'AQIDBA==', outAmount: '1000000', otherAmountThreshold: '990000', routePlan: [] } }) });
+  const feeAsset = { id: 'token', label: 'TOKEN', mint: 'Token1111111111111111111111111111111111111', chain: 'solana' };
+  const { container, root } = mount({ feeAsset });
+  const input = container.querySelector('[data-testid="swap-amount"]');
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+  await act(async () => { setter.call(input, '0.02'); input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { jest.advanceTimersByTime(2000); });
+  expect(tradeCalls().some(([url]) => String(url).includes('/quote'))).toBe(false);
+  await act(async () => container.querySelector('[data-testid="swap-review"]').click());
+  expect(tradeCalls().filter(([url]) => String(url).includes('/quote'))).toHaveLength(1);
+  act(() => root.unmount());
+  jest.useRealTimers();
+});
