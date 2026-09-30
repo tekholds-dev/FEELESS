@@ -6869,7 +6869,8 @@ _repair_tried: dict = {}
 async def _repair_estimates(address: str, token: str):
     """Self-heal: any of this wallet's FEELESS trades saved from a quote gets its exact on-chain fill read once and
     saved over the estimate (at most one attempt per trade per minute; never blocks the position for long)."""
-    rows = [r for r in _json_load(FEELESS_TRADES_PATH, {}).get(address, []) if r.get('token', '').lower() == token.lower() and r.get('via') != 'chain']
+    # Estimates, and exact rows saved before the pool amount was read, both get one exact re-read.
+    rows = [r for r in _json_load(FEELESS_TRADES_PATH, {}).get(address, []) if r.get('token', '').lower() == token.lower() and (r.get('via') != 'chain' or 'poolUsd' not in r)]
     now = time.time()
     todo = [r['tx'] for r in rows if r.get('tx') and now - _repair_tried.get(r['tx'], 0) > 60][:3]
     if not todo:
@@ -6894,6 +6895,7 @@ async def _repair_estimates(address: str, token: str):
         usd = (f.get('usd') or (f.get('sol') or 0) * px) if f else 0
         if f and usd > 0:
             r = {**r, 'side': f['side'], 'tokens': f['tokens'], 'sol': f.get('sol'), 'networkSol': f.get('networkSol'), 'usd': round(usd, 4),
+                 **{k: f[k] for k in ('poolUsd', 'feelessFeeUsd', 'networkUsd') if f.get(k) is not None},
                  'price': usd / f['tokens'], 'ts': f.get('ts') or r.get('ts'), 'via': 'chain'}
         fixed.append(r)
     ft[address] = fixed
@@ -8333,7 +8335,7 @@ def _trade_record(p: 'TradeLanded', coin: str, amt: float, side: str, sol_usd: f
     if f.get('token') == coin and f.get('tokens', 0) > 0 and f.get('side') == side:
         usd = f.get('usd') or (f.get('sol') or 0) * sol_usd
         if usd > 0:
-            return {**{k: f[k] for k in ('side', 'tokens', 'sol', 'networkSol', 'balanceAfter') if k in f}, 'ts': f.get('ts') or time.time(),
+            return {**{k: f[k] for k in ('side', 'tokens', 'sol', 'networkSol', 'balanceAfter', 'poolUsd', 'feelessFeeUsd', 'networkUsd') if k in f}, 'ts': f.get('ts') or time.time(),
                     'usd': round(usd, 4), 'price': usd / f['tokens'], 'token': coin, 'tx': p.signature, 'via': 'chain'}
     if amt > 0 and p.inUsd > 0:
         fee = fee_usd if fee_usd is not None else p.inUsd * max(0, p.feeBps) / 10000   # the fee actually charged beats the %

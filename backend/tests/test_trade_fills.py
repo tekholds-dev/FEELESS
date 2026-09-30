@@ -119,3 +119,28 @@ def test_each_trade_carries_its_own_fill_and_break_even():
     b1, b2 = p['trades']
     assert abs(b1['fillPrice'] - 0.01) < 1e-12 and abs(b1['breakEven'] - 0.0115) < 1e-12    # $1.00 at the pool, $1.15 all-in
     assert abs(b2['fillPrice'] - 0.02) < 1e-12 and abs(p['avgEntry'] - 3.15 / 200) < 1e-12  # blended break-even across both buys
+
+
+def test_fill_is_what_went_into_the_pool_read_from_the_tx():
+    """Real buy shape: wallet pays 0.0070 SOL into the pool, 0.00007 SOL FEELESS fee into FEELESS's wSOL account,
+    0.00060 SOL network (priority) fee, and opens a Token-2022 account (0.00207408 SOL refundable rent)."""
+    FEEACC, POOL, ATA = 'FeeWso1Acc111111111111111111111111111111111', 'Poo1Vau1t11111111111111111111111111111111111', 'Ata11111111111111111111111111111111111111111'
+    lam = lambda sol: int(round(sol * 1e9))
+    pool, fee, net, rent = 0.0070, 0.00007, 0.0006, 0.00207408
+    tx = {'blockTime': 9, 'transaction': {'signatures': ['real'], 'message': {
+        'accountKeys': [{'pubkey': W}, {'pubkey': FEEACC}, {'pubkey': ATA}, {'pubkey': POOL}],
+        'instructions': [{'program': 'system', 'parsed': {'type': 'transfer', 'info': {'source': W, 'destination': FEEACC, 'lamports': lam(fee)}}}]}},
+        'meta': {'err': None, 'fee': lam(net), 'innerInstructions': [],
+                 'preBalances': [lam(1.0), lam(5), 0, lam(100)], 'postBalances': [lam(1.0 - pool - fee - net - rent), lam(5 + fee), lam(rent), lam(100 + pool)],
+                 'preTokenBalances': [{'accountIndex': 1, 'mint': tf.SOL_MINT, 'owner': 'FeelessTreasury', 'uiTokenAmount': {'amount': '5000000000', 'decimals': 9}}],
+                 'postTokenBalances': [{'accountIndex': 1, 'mint': tf.SOL_MINT, 'owner': 'FeelessTreasury', 'uiTokenAmount': {'amount': str(lam(5 + fee)), 'decimals': 9}},
+                                       {'accountIndex': 2, 'mint': MINT, 'owner': W, 'uiTokenAmount': {'amount': '103945500', 'decimals': 6}}]}}
+    f = tf.fill_from_tx(tx, W, MINT, 150.0)
+    assert f['side'] == 'buy' and f['tokens'] == 103.9455
+    assert abs(f['usd'] - (pool + fee + net) * 150) < 1e-3               # all-in: what left the wallet, rent excluded
+    assert abs(f['poolUsd'] - pool * 150) < 1e-6                           # exactly what the pool got
+    assert abs(f['feelessFeeUsd'] - fee * 150) < 1e-6 and abs(f['networkUsd'] - net * 150) < 1e-6
+    p = tf.position([f], held_chain=103.9455)
+    t = p['trades'][0]
+    assert abs(t['fillPrice'] - pool * 150 / 103.9455) < 1e-12 and abs(t['breakEven'] - f['usd'] / 103.9455) < 1e-12
+    assert abs(p['feesUsd'] - (fee + net) * 150) < 1e-3

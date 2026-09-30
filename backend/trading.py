@@ -411,7 +411,7 @@ class TradingService:
             try:
                 tx = await self.rpc('getTransaction', [order['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
                 if tx:
-                    f = trade_fills.fill_from_tx(tx, order['wallet'], coin, sol_usd)
+                    f = trade_fills.fill_from_tx(tx, order['wallet'], coin, sol_usd, [a for a in [order.get('fee_account')] if a])
                     if f and not sol_usd and f.get('sol'):
                         return {**f, 'usd': 0.0, 'price': 0.0}   # SOL price unknown: caller prices it
                     return f
@@ -643,7 +643,8 @@ class TradingService:
                       'expires_at': time.time() + 45, 'input_mint': body.input_mint, 'output_mint': body.output_mint,
                       'quote': data, 'simulated': False, 'engine': engine,
                       'fee_bps': int(fee.get('bps') or 0), 'in_usd': _usd_value(data),
-                      'in_decimals': meta_in.get('decimals'), 'out_decimals': (meta_out or {}).get('decimals'), 'in_atoms': str(int(atoms))}
+                      'in_decimals': meta_in.get('decimals'), 'out_decimals': (meta_out or {}).get('decimals'), 'in_atoms': str(int(atoms)),
+                      'fee_account': fee.get('feeAccount')}   # lets the exact fill pick FEELESS's cut out of the tx
             await self.db.swap_orders.insert_one(record)
             return {'order_id': order_id, 'created_at': created, 'expires_at': record['expires_at'],
                     # Echoed so the UI can refuse to show or sign an order that no longer matches the picked coins.

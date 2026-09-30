@@ -1,5 +1,6 @@
 import { useWalletTotal, fmtTotal } from '../WalletBalance';
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Crown, Home, CandlestickChart, Rocket, Compass, Star, MessageCircle, Trophy, Bell, BookOpen, Map, FileText, Settings, Menu, Wallet, Globe2, ArrowUpRight, X, Coins, Cat, Activity, Sun, Moon, UserRound, ShieldCheck, Lock } from 'lucide-react';
 import { useWorkspace } from '../../hooks/useWorkspace';
@@ -113,10 +114,10 @@ export function BuildTag() {
   const label = <>build {v.head}{v.branch && v.branch !== 'main' ? ` · on ${v.branch}` : ''}{v.behind > 0 ? ` · ${v.behind} update${v.behind === 1 ? '' : 's'} waiting` : stale ? '' : ' · up to date'}</>;
   return <>
     <span className={`m-chip build-tag ${stale ? 'warn' : 'ok'}`} data-testid="build-tag" title={stale ? `Run: ${v.fix}` : 'Up to date with GitHub main'}>{label}</span>
-    {stale && <div className="m-note warn update-banner" role="alert" data-testid="update-banner"><b>This copy of FEELESS is out of date ({label}).</b>
+    {stale && createPortal(<div className="m-note warn update-banner" role="alert" data-testid="update-banner"><b>This copy of FEELESS is out of date ({label}).</b>
       {busy ? <span>Updating… the page reloads by itself when it lands (about 20–60s).</span>
         : local ? <button type="button" className="m-btn primary" onClick={update}>⟳ Update now</button>
-          : <span>On the machine running FEELESS: <code>{v.fix}</code></span>}</div>}
+          : <span>On the machine running FEELESS: <code>{v.fix}</code></span>}</div>, document.body)}
   </>;
 }
 

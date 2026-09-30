@@ -28,7 +28,42 @@ def _tok(balances, wallet, mint):
     return total, seen
 
 
-def fill_from_tx(tx: dict, wallet: str, mint: str, sol_usd: float) -> dict | None:
+def _instructions(tx: dict) -> list:
+    msg = ((tx.get('transaction') or {}).get('message') or {})
+    out = list(msg.get('instructions') or [])
+    for inner in (tx.get('meta') or {}).get('innerInstructions') or []:
+        out += inner.get('instructions') or []
+    return out
+
+
+def _feeless_fee(tx: dict, keys: list, wallet: str, fee_accounts) -> tuple:
+    """(SOL, stable USD) the wallet sent to FEELESS in this tx. A known fee account always counts; with none known,
+    a SOL transfer from the wallet into a wrapped-SOL account the wallet does not own is the FEELESS fee
+    (the swap itself wraps SOL into the wallet's OWN account, and bonding curves are not token accounts)."""
+    meta = tx.get('meta') or {}
+    wsol_foreign = {keys[b['accountIndex']] for b in (meta.get('postTokenBalances') or []) + (meta.get('preTokenBalances') or [])
+                    if b.get('mint') == SOL_MINT and b.get('owner') != wallet and b.get('accountIndex', -1) < len(keys)}
+    fee_accounts = set(fee_accounts or ())
+    sol = stable = 0.0
+    for ix in _instructions(tx):
+        p = ix.get('parsed') if isinstance(ix.get('parsed'), dict) else None
+        if not p:
+            continue
+        info, kind = p.get('info') or {}, p.get('type')
+        dest = info.get('destination')
+        if ix.get('program') == 'system' and kind == 'transfer' and info.get('source') == wallet and (dest in fee_accounts or (not fee_accounts and dest in wsol_foreign)):
+            sol += (info.get('lamports') or 0) / 1e9
+        elif ix.get('program') in ('spl-token', 'spl-token-2022') and kind in ('transfer', 'transferChecked') and dest in fee_accounts:
+            amt = (info.get('tokenAmount') or {}).get('uiAmount')
+            if amt is None and info.get('mint') in STABLES:
+                amt = int(info.get('amount') or 0) / 1e6
+            stable += float(amt or 0) if info.get('mint', '') != SOL_MINT else 0.0
+            if info.get('mint') == SOL_MINT:
+                sol += float((info.get('tokenAmount') or {}).get('uiAmount') or 0)
+    return sol, stable
+
+
+def fill_from_tx(tx: dict, wallet: str, mint: str, sol_usd: float, fee_accounts=()) -> dict | None:
     if not tx or not (tx.get('meta') or {}) or (tx['meta'].get('err') is not None):
         return None
     meta, msg = tx['meta'], ((tx.get('transaction') or {}).get('message') or {})
@@ -48,10 +83,19 @@ def fill_from_tx(tx: dict, wallet: str, mint: str, sol_usd: float) -> dict | Non
             sol = 0.0
     sol += _tok(post_t, wallet, SOL_MINT)[0] - _tok(pre_t, wallet, SOL_MINT)[0]
     # Opening the coin's token account parks refundable rent; closing it hands it back. Neither is a trade cost.
+    # Read the account's real lamports (Token-2022 accounts rent more than classic ones); fall back to the classic rent.
+    def rent(bals, lamports):
+        for x in bals or []:
+            if x.get('owner') == wallet and x.get('mint') == mint:
+                try:
+                    return lamports[x['accountIndex']] / 1e9
+                except (KeyError, IndexError, TypeError):
+                    break
+        return ATA_RENT_SOL
     if has and not had:
-        sol += ATA_RENT_SOL
+        sol += rent(post_t, meta.get('postBalances'))
     elif had and not has:
-        sol -= ATA_RENT_SOL
+        sol -= rent(pre_t, meta.get('preBalances'))
     stable = sum(_tok(post_t, wallet, m)[0] - _tok(pre_t, wallet, m)[0] for m in STABLES)
     if coin > 0 and (sol < 0 or stable < 0):
         side = 'buy'
@@ -63,8 +107,15 @@ def fill_from_tx(tx: dict, wallet: str, mint: str, sol_usd: float) -> dict | Non
     if usd <= 0:
         return None
     sig = ((tx.get('transaction') or {}).get('signatures') or [''])[0]
+    network = (meta.get('fee') or 0) / 1e9 if keys and keys[0] == wallet else 0.0   # only the fee payer pays it
+    fee_sol, fee_stable = _feeless_fee(tx, keys, wallet, fee_accounts)
+    # What actually went into / came out of the pool: the wallet's cash move with FEELESS's cut and the network fee taken out.
+    pool_sol = abs(sol) - network - fee_sol if side == 'buy' else abs(sol) + network + fee_sol
+    pool_usd = max(0.0, pool_sol) * sol_usd + (abs(stable) - fee_stable if side == 'buy' else abs(stable) + fee_stable)
     return {'ts': tx.get('blockTime') or 0, 'side': side, 'usd': round(usd, 4), 'price': usd / abs(coin), 'tokens': abs(coin),
-            'sol': round(abs(sol), 9), 'networkSol': (meta.get('fee') or 0) / 1e9, 'token': mint, 'tx': sig, 'via': 'chain',
+            'sol': round(abs(sol), 9), 'networkSol': network, 'token': mint, 'tx': sig, 'via': 'chain',
+            'poolUsd': round(pool_usd, 6), 'fillPrice': pool_usd / abs(coin) if pool_usd > 0 else None,
+            'feelessFeeUsd': round(fee_sol * sol_usd + fee_stable, 6), 'networkUsd': round(network * sol_usd, 6),
             'signer': wallet, 'balanceAfter': b}
 
 
@@ -85,12 +136,16 @@ def trade_costs(r: dict, fees_by_sig: dict) -> float:
     """FEELESS fee + network fee (USD) baked into an on-chain fill's SOL amount."""
     if r.get('via') != 'chain':
         return 0.0
+    if r.get('poolUsd') is not None:   # read straight from the tx: the exact gap between your money and the pool
+        return abs(r['usd'] - r['poolUsd'])
     sol_px = r['usd'] / r['sol'] if r.get('sol') else 0.0
     return (fees_by_sig.get(r['tx']) or 0.0) + (r.get('networkSol') or 0.0) * sol_px
 
 
 def market_usd(r: dict, fees_by_sig: dict) -> float:
     """What the coins themselves cost (buy) or fetched (sell) at the pool, fees taken out — the price you traded at."""
+    if r.get('poolUsd') is not None:
+        return r['poolUsd']
     c = trade_costs(r, fees_by_sig)
     return max(0.0, r['usd'] - c) if r['side'] == 'buy' else r['usd'] + c
 
@@ -116,7 +171,7 @@ def position(rows: list, held_chain: float | None = None, fees_by_sig: dict | No
         t = {k: r.get(k) for k in ('ts', 'side', 'usd', 'price', 'tx', 'tokens', 'via', 'networkSol')}
         t['feeUsd'] = fees_by_sig.get(r['tx'])
         # Per trade: the pool price you got (fees out) and that trade's own break-even (every dollar in / coins).
-        t['fillPrice'] = market_usd(r, fees_by_sig) / tok(r)
+        t['fillPrice'] = r['poolUsd'] / tok(r) if r.get('poolUsd') else market_usd(r, fees_by_sig) / tok(r)
         t['breakEven'] = r['usd'] / tok(r)
         if r['side'] == 'sell':
             t['pnlUsd'] = round(r['usd'] - tok(r) * avg, 2)   # what actually landed in the wallet vs the coins' entry cost
