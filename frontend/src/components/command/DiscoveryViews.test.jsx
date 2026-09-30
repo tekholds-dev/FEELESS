@@ -164,4 +164,23 @@ describe('PumpRadarView graduation status boundary', () => {
     expect(source).toContain('Observed');
     expect(host.querySelector('.pump-radar-summary').textContent).toContain('STATUS OBSERVED');
   });
+
+  test('hovering the grid freezes the cards and counts new arrivals until you leave', () => {
+    const newFeed = mockMarketResponses['/feed?kind=new&chain=solana&page=1&scope=pump'];
+    const trendingFeed = mockMarketResponses['/feed?kind=trending&chain=solana&page=1&scope=pump'];
+    window.matchMedia = window.matchMedia || (() => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
+    act(() => root.render(<PumpRadarView newFeed={newFeed} trendingFeed={trendingFeed} onSelect={jest.fn()} />));
+    act(() => host.querySelector('[data-testid="pump-radar-stage-trending"]').click());
+    const grid = host.querySelector('[data-testid="pump-radar-grid"]');
+    const before = host.querySelectorAll('[data-testid^="pump-radar-card-"]').length;
+    act(() => { grid.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, relatedTarget: document.body })); });
+    expect(host.querySelector('[data-testid="radar-paused"]')).not.toBeNull();
+    const more = { ...trendingFeed, data: { ...trendingFeed.data, pairs: [...trendingFeed.data.pairs, { ...basePair, pairAddress: 'fresh-pool', launchpadId: 'pump', baseToken: { address: 'MintFresh', symbol: 'NEW', name: 'Fresh' } }] } };
+    act(() => root.render(<PumpRadarView newFeed={newFeed} trendingFeed={more} onSelect={jest.fn()} />));
+    expect(host.querySelectorAll('[data-testid^="pump-radar-card-"]').length).toBe(before);
+    expect(host.querySelector('[data-testid="radar-paused"]').textContent).toContain('1 new');
+    act(() => { grid.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body })); });
+    expect(host.querySelector('[data-testid="radar-paused"]')).toBeNull();
+    expect(host.querySelectorAll('[data-testid^="pump-radar-card-"]').length).toBe(before + 1);
+  });
 });

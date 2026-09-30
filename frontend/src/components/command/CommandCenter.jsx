@@ -18,6 +18,7 @@ import { Explain } from '../Explain';
 import { DEXES } from '../../lib/venues';
 import { BadgePools } from './BadgePools';
 import { LagCatcher } from './LagCatcher';
+import { TreasuryHub } from './TreasuryHub';
 
 const SESSION_KEY = 'feeless:cc-session';
 const readSession = addr => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.address === addr && Date.now() / 1000 - s.ts < 86000 ? s : null; } catch { return null; } };
@@ -105,7 +106,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'broadcast' && <BroadcastPanel call={call} />}
     {tab === 'marketing' && <MarketingPanel call={call} />}
     {tab === 'circle' && (isOwner ? <CircleWallets call={call} /> : <p className="cc-empty">Only owner wallets can manage Circle wallets.</p>)}
-    {tab === 'treasury' && <><TreasuryPanel call={call} /><TreasuryRoutes call={call} isOwner={isOwner} /></>}
+    {tab === 'treasury' && <><TreasuryHub call={call} /><TreasuryRoutes call={call} isOwner={isOwner} /></>}
     {tab === 'overview' && <Overview sec={sec} reload={loadSec} />}
     {tab === 'investigate' && <InvestigatePanel />}
     {tab === 'holders' && <section className="cc-panel">
@@ -537,16 +538,6 @@ function BroadcastPanel({ call }) {
   </section>;
 }
 
-function TreasuryPanel({ call }) {
-  const [d, setD] = useState(null);
-  useEffect(() => { call('/admin/treasury').then(setD).catch(e => toast.error(e.message)); }, [call]);
-  if (!d) return <p className="cc-empty">Reading the creator wallet…</p>;
-  return <section className="cc-panel">
-    <div className="cc-kpis"><span><small>SOL</small><b>{d.sol != null ? d.sol.toFixed(3) : '—'}</b></span>{Object.entries(d.holdingsUsd).map(([k, v]) => <span key={k}><small>{k.toUpperCase()} value</small><b>{v != null ? formatUSD(v) : '—'}</b></span>)}</div>
-    <div className="cc-block"><h4>Recent transactions</h4>{d.recent.map(t => <div key={t.sig} className="cc-sig"><a href={`https://solscan.io/tx/${t.sig}`} target="_blank" rel="noopener noreferrer">{t.sig.slice(0, 10)}…</a><span>{t.at ? new Date(t.at * 1000).toLocaleString() : ''}</span><b className={t.ok ? 'positive' : 'negative'}>{t.ok ? 'ok' : 'failed'}</b></div>)}</div>
-  </section>;
-}
-
 const FEE_LABELS = {
   minLiquidity: ['Min liquidity ($)', 'Pool must hold at least this much, so she can always get out.'],
   minVolume24h: ['Min 24h volume ($)', 'Skip coins nobody is trading.'],
@@ -619,6 +610,11 @@ function PoolsPanel({ call }) {
   const verify = async () => { setFound(null); try { const d = await (await fetch(`https://api.dexscreener.com/latest/dex/pairs/solana/${check.trim()}`)).json(); setFound(d.pairs?.[0] || false); } catch { setFound(false); } };
   return <section className="cc-panel">
     <div className="cc-toolbar"><select value={asset} onChange={e => setAsset(e.target.value)}>{Object.keys(mints).map(k => <option key={k} value={k}>{k.toUpperCase()}</option>)}</select>{mint && <><code className="pool-mint">{mint}</code><button type="button" onClick={() => copy(mint)}>Copy mint</button><button type="button" onClick={() => copy('So11111111111111111111111111111111111111112')}>Copy SOL mint</button></>}</div>
+    <details className="tr-explain"><summary>🌊 What this tab launches (and what it doesn't)</summary>
+      <ul><li><b>Pools here</b> = a TOKEN/SOL pool on Meteora DAMM v2 for a token that <i>already exists</i> (e.g. $FEE, or a token held by your fee reserve wallet). You deposit both sides from the connected wallet; the ratio sets the opening price.</li>
+        <li><b>New coins</b> are launched on the Launch page (FEELESS bonding curve or pump.fun), not here. A FEELESS coin gets its locked pool automatically at graduation.</li>
+        <li><b>Your reserve token:</b> connect the reserve wallet, create the pool here with "Lock forever" on. The swap fees accrue to that wallet's position; badge pools can then pay holders from it.</li>
+        <li>One pool per token/SOL pair on this rail. Everything is simulated before you sign.</li></ul></details>
     <PoolCreator defaultMint={mint || ''} call={call} />
     <h4 className="cc-sub">Other DEXes (external, their own pool pages)</h4>
     <div className="cc-studio-grid">{DEXES.map(x => <div key={x.id} className="cc-block"><h4>{x.name}</h4><small className="cc-empty">{x.note}</small><a className="btn-primary" href={x.url} target="_blank" rel="noopener noreferrer">Create on {x.name.split(' ')[0]} ↗</a></div>)}</div>
@@ -715,8 +711,8 @@ function TreasuryRoutes({ call, isOwner }) {
   const total = rows.reduce((a, r) => a + Number(r.pct || 0), 0);
   const set = (i, k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
   const save = async () => { try { await call('/admin/treasury/routes', { method: 'PUT', body: JSON.stringify({ routes: rows.map(r => ({ ...r, pct: Number(r.pct) })) }) }); toast.success('Treasury routing saved.'); } catch (e) { toast.error(e.message); } };
-  return <section className="cc-card"><h3>Treasury allocation plan</h3>
-    <p className="market-error"><b>Record only — no automatic transfers.</b> Jupiter swap fees first accrue to the referral account configured under Fees &amp; Pricing. These percentages document the intended allocation after fees are claimed; the app does not currently execute that split.</p>
+  return <section className="cc-card"><h3>Split plan</h3>
+    <p className="wp-bio">Where fees go when you press <b>Split now</b> above. Each split is signed by you and verified on-chain; nothing moves on its own.</p>
     <p className="wp-bio">Record wallets you control — e.g. 60% treasury multisig, 25% buybacks, 15% team. FEELESS stores addresses only, never keys. Use a <a href="https://squads.so" target="_blank" rel="noopener noreferrer">Squads</a> (Solana) or <a href="https://app.safe.global" target="_blank" rel="noopener noreferrer">Safe</a> (Base) multisig for the main destination.</p>
     <div className="routes">{rows.map((r, i) => <div key={i} className="route-row"><input placeholder="Label" value={r.label} disabled={!isOwner} onChange={e => set(i, 'label', e.target.value)} /><input placeholder="Wallet address" value={r.address} disabled={!isOwner} onChange={e => set(i, 'address', e.target.value.trim())} /><input type="number" min="0" max="100" value={r.pct} disabled={!isOwner} onChange={e => set(i, 'pct', e.target.value)} /><span>%</span>{isOwner && <button type="button" className="btn-outline" onClick={() => setRows(rows.filter((_, j) => j !== i))}>×</button>}</div>)}</div>
     <div className="routes-foot"><span className={Math.abs(total - 100) < 0.01 ? 'ok' : 'bad'}>Total {total}%</span>{isOwner ? <><button type="button" className="btn-outline" onClick={() => setRows([...rows, { label: '', address: '', pct: 0 }])}>+ Add destination</button><button type="button" className="btn-primary" disabled={Math.abs(total - 100) > 0.01} onClick={save}>Save allocation plan</button></> : <small>Only the owner wallet can change this plan.</small>}</div>

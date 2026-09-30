@@ -17,6 +17,28 @@ const FIELDS = [
   ['supply', 'Token supply', 'Fixed; mint authority is revoked at creation.'],
 ];
 
+// What can be launched on FEELESS, what each one needs, and whether it's ready right now.
+function LaunchMap({ rail }) {
+  const live = !!rail?.ready;
+  const items = [
+    ['🪙', 'FEELESS coin', 'Bonding curve on your launch config → graduates to a locked Meteora pool.', live ? 'Ready' : 'Needs the config below (once)', live, '/terminal/launch'],
+    ['💊', 'Pump.fun coin', 'Launches on pump.fun from the same Launch page. Fees go to pump.fun, not FEELESS.', 'Ready', true, '/terminal/launch'],
+    ['🌊', 'Pool for a token you hold', 'Token/SOL pool on Meteora DAMM v2 (e.g. your reserve token). You deposit both sides.', 'Pools tab · needs tokens + SOL', true, null],
+    ['🪂', 'Airdrop / holder rewards', 'Batch SOL or token drops from your wallet, simulated first.', 'Airdrop Studio', true, null],
+    ['🎖', 'Badge payouts', 'Badges earn a % of a wallet you choose; the wallet signs its payout.', 'Badges tab', true, null],
+  ];
+  return <div className="launch-map" data-testid="launch-map">
+    <div className="launch-steps">
+      <div className={live ? 'done' : 'now'}><i>1</i><b>Launch config</b><small>ONE-TIME · owner signs a template on-chain</small></div>
+      <div className={live ? 'now' : ''}><i>2</i><b>Anyone launches coins</b><small>Launch page · each coin uses the config</small></div>
+      <div><i>3</i><b>Graduation</b><small>auto Meteora pool · LP locked forever</small></div>
+    </div>
+    <details className="tr-explain"><summary>❓ Is the config one-time? Do I pick it per coin?</summary>
+      <p><b>One-time.</b> The config is a template stored on-chain: curve, fees, anti-snipe, where FEELESS's fee share goes. You create it once; after that the Launch page uses it automatically for every coin — nobody picks it per coin. It can't be edited. To change terms, create a new one: new coins use the new config, coins already launched keep theirs. Launching your own coin (e.g. from your fee reserve wallet) is step 2: connect that wallet on the Launch page, and its creator share of fees becomes claimable by that wallet.</p></details>
+    <div className="launch-kinds">{items.map(([ic, t, what, need, ok, href]) => <div key={t} className={`launch-kind ${ok ? 'ok' : 'todo'}`}><i>{ic}</i><b>{t}</b><small>{what}</small><em>{ok ? '✓' : '!'} {need}</em>{href && <a href={href}>Open →</a>}</div>)}</div>
+  </div>;
+}
+
 // The order the site owner hooks things up in. Status comes from the server (presence only).
 function SetupGuide({ keys, rail, routes }) {
   const has = k => keys?.find(x => x.key === k)?.set;
@@ -77,16 +99,17 @@ export function LaunchRailAdmin({ call, isOwner }) {
     } catch (e) { setStatus(''); toast.error(e.message || 'Could not create the launch config'); }
   };
   return <section className="cc-panel launch-rail-admin">
+    <LaunchMap rail={rail} />
     <SetupGuide keys={keys} rail={rail} routes={routes} />
-    <div className="cc-block rail-explain"><h4>What these numbers cost you</h4>
+    <details className="tr-explain"><summary>💰 What the config numbers cost you</summary>
       <ul>
         <li><b>Opening / graduation market cap are valuations, not deposits.</b> Nobody pays {Number(p.initialMarketCap) || 0} SOL{solPx ? ` (${usd(p.initialMarketCap, solPx).slice(2)})` : ''} to launch. The curve simply starts pricing the coin there; buyers' SOL moves it up to graduation.</li>
         <li><b>Creating this config:</b> ~0.01 SOL{solPx ? ` (${usd(0.01, solPx).slice(2)})` : ''} rent, once, from your wallet.</li>
         <li><b>Each coin launch:</b> ~0.02 SOL rent + network fee paid by the creator, plus any optional first buy they choose.</li>
         <li><b>Lower opening MC</b> = cheaper early tokens and more room to run; <b>higher</b> = fewer tokens per SOL at open.</li>
       </ul>
-    </div>
-    <div className="cc-block rail-explain"><h4>Secure your FEE coins & airdrop on a small budget</h4>
+    </details>
+    <details className="tr-explain"><summary>🔐 Secure your coins & airdrop on a small budget</summary>
       <ol>
         <li><b>Split roles:</b> keep the creator wallet cold (hardware wallet) and only connect it to sign; use a separate hot wallet for day-to-day.</li>
         <li><b>Treasury in a multisig:</b> create a Squads vault (2-of-3), set it as the fee claimer and treasury route. Fees can then only move with 2 signatures.</li>
@@ -95,7 +118,7 @@ export function LaunchRailAdmin({ call, isOwner }) {
         <li><b>Batch, don't spray:</b> schedule in Airdrop Studio, then "Send from wallet" packs transfers and simulates before you sign.</li>
         <li><b>Never</b> paste a seed phrase anywhere, including here. FEELESS never asks for one.</li>
       </ol>
-    </div>
+    </details>
     {isOwner && <TreasurySend ownerWallets={owners} />}
     <div className="cc-block"><h4>FEELESS launch config {rail?.ready && <span className="pill-ok">LIVE</span>}</h4>
       {rail?.ready ? <div className="rail-live">
@@ -108,7 +131,7 @@ export function LaunchRailAdmin({ call, isOwner }) {
         <div className={`rail-ready ${check?.ok && !warnings.length ? 'ok' : check?.ok ? 'warn' : 'bad'}`} data-testid="rail-ready">
           <b>{!check ? '… checking' : check.ok ? `✓ Valid on Meteora · ${Number(check.raise.toFixed(check.quote === 'USDC' ? 0 : 1)).toLocaleString()} ${check.quote} raise to graduate` : `✗ Meteora would reject this: ${check.error}`}</b>
           {warnings.map(w => <span key={w}>⚠ {w}</span>)}
-          <em>{rail?.ready ? 'Launches are LIVE on the current config.' : 'Launches go live the moment this config is signed and saved.'} Anti-snipe stack: decaying launch fee + dynamic (volatility) fee + fixed supply, mint & freeze revoked, 100% LP lock.</em>
+          <em><b className="rail-once">ONE-TIME SETUP</b> {rail?.ready ? 'Launches are LIVE on the current config; creating another only affects new coins.' : 'Sign once and every coin launched on FEELESS uses it — nobody picks it per coin.'} Anti-snipe stack: decaying launch fee + dynamic (volatility) fee + fixed supply, mint & freeze revoked, 100% LP lock.</em>
         </div>
         <div className="rail-form">{FIELDS.map(([k, l0, why]) => { const l = l0.replace('(SOL)', `(${unit})`); return <label key={k}><span>{l}{/SOL/.test(l) && solPx ? <em className="usd-hint"> {usd(p[k], solPx)}</em> : null}</span><input inputMode="decimal" value={p[k]} onChange={e => setP(v => ({ ...v, [k]: e.target.value.replace(/[^0-9.]/g, '') }))} /><small>{why}</small></label>; })}
           <label className="wide"><span>Fee claimer (receives FEELESS's share)</span><input placeholder={wallet?.address || 'Treasury / multisig address'} value={claimer} onChange={e => setClaimer(e.target.value.trim())} /><small>Defaults to your first Solana treasury route, else the signing wallet. Use a multisig.</small></label>

@@ -51,3 +51,50 @@ def pool_holders(weights: dict, tiers: dict, badges: dict) -> list:
             if w > 0:
                 out.setdefault(a, [0, []]); out[a][0] += w; out[a][1].append(bid)
     return [{'address': a, 'weight': w, 'tier': tiers.get(a) or 'Recruit', 'why': ' + '.join(why)} for a, (w, why) in out.items()]
+
+
+def pct_holders(alloc: dict, tiers: dict, badges: dict):
+    """Badge pools in % mode: alloc {'badge:<id>' | 'tier:<Tier>': % of the pot}. Each key's slice is split equally
+    between the wallets holding it; a wallet holding several keys stacks slices. Unallocated % stays in the wallet.
+    Returns (holders with weight = their % of the pot, allocated %)."""
+    alloc = {k: float(v) for k, v in (alloc or {}).items() if float(v or 0) > 0}
+    holders_of = {}
+    for a, t in (tiers or {}).items():
+        holders_of.setdefault(f'tier:{t}', []).append(a)
+    for a, ids in (badges or {}).items():
+        for bid in set(ids):
+            holders_of.setdefault(f'badge:{bid}', []).append(a)
+    out, used = {}, 0.0
+    for key, pct in alloc.items():
+        who = holders_of.get(key) or []
+        if not who:
+            continue  # nobody holds it yet: its slice stays in the wallet
+        used += pct
+        for a in who:
+            rec = out.setdefault(a, [0.0, []]); rec[0] += pct / len(who); rec[1].append(key.split(':', 1)[1])
+    rows = [{'address': a, 'weight': round(w, 6), 'tier': (tiers or {}).get(a) or 'Recruit', 'why': ' + '.join(why)} for a, (w, why) in out.items()]
+    return rows, round(min(100.0, used), 6)
+
+
+def route_split(amount: float, routes: list, decimals: int = 9) -> list:
+    """Treasury split: amount across routes by % (floored to the asset's precision so it never overspends)."""
+    q = 10 ** min(decimals, 9)
+    return [{'label': r.get('label') or '', 'address': r['address'], 'pct': float(r['pct']),
+             'amount': int(float(amount) * float(r['pct']) / 100 * q + 1e-6) / q} for r in routes if float(r.get('pct') or 0) > 0]
+
+
+def parsed_transfers(tx: dict, signer: str) -> list:
+    """Every SOL / SPL transfer the signer made in a jsonParsed transaction (what actually moved)."""
+    out = []
+    ixs = list((tx.get('transaction') or {}).get('message', {}).get('instructions') or [])
+    for inner in (tx.get('meta') or {}).get('innerInstructions') or []:
+        ixs += inner.get('instructions') or []
+    for ix in ixs:
+        p = ix.get('parsed') or {}
+        info = p.get('info') or {}
+        if ix.get('program') == 'system' and p.get('type') == 'transfer' and info.get('source') == signer:
+            out.append({'asset': 'SOL', 'to': info['destination'], 'amount': info['lamports'] / 1e9})
+        elif ix.get('program') in ('spl-token', 'spl-token-2022') and p.get('type') in ('transfer', 'transferChecked') and (info.get('authority') or info.get('multisigAuthority')) == signer:
+            amt = (info.get('tokenAmount') or {}).get('uiAmount')
+            out.append({'asset': info.get('mint') or 'SPL', 'to': info['destination'], 'amount': float(amt if amt is not None else info.get('amount') or 0)})
+    return out

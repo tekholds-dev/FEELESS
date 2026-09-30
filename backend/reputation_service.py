@@ -7501,6 +7501,7 @@ class BadgePoolIn(BaseModel):
     pct: float = Field(ge=0, le=100)
     seasonId: str = ''
     weights: dict = Field(default_factory=dict)
+    mode: str = 'pct'           # 'pct': each badge gets a fixed % of the pot · 'weight': legacy weighted split
 
 
 def _pools():
@@ -7508,13 +7509,16 @@ def _pools():
 
 
 def _pool_inputs(pool):
+    """(holders, allocated %) — blocklisted and FEELESS wallets never hold a share."""
     tiers = {}
     if pool.get('seasonId'):
         tiers = {a: _tier(r['score'])['tier'] for a, r in (_seasons()['scores'].get(pool['seasonId']) or {}).items()}
-    badges = {a: list(items) for a, items in (_admin_load().get('badges') or {}).items() if items}
-    blocked = _block_load()['wallets']
-    holders = [h for h in reserve_pool.pool_holders(pool.get('weights') or {}, tiers, badges) if not _is_blocked(blocked.get(h['address']))]
-    return holders
+    blocked, safe = _block_load()['wallets'], _protected_wallets() | {pool['wallet']}
+    tiers = {a: t for a, t in tiers.items() if a not in safe and not _is_blocked(blocked.get(a))}
+    badges = {a: list(items) for a, items in (_admin_load().get('badges') or {}).items() if items and a not in safe and not _is_blocked(blocked.get(a))}
+    if pool.get('mode', 'weight') == 'pct':
+        return reserve_pool.pct_holders(pool.get('weights') or {}, tiers, badges)
+    return reserve_pool.pool_holders(pool.get('weights') or {}, tiers, badges), 100.0
 
 
 async def _pool_plan(pool):
@@ -7524,7 +7528,10 @@ async def _pool_plan(pool):
         known = True
     except Exception:
         bal, known = 0, False
-    plan = reserve_pool.payout_plan(bal, pool['pct'], _pool_inputs(pool), excluded=frozenset(_protected_wallets()) | {pool['wallet']})
+    holders, allocated = _pool_inputs(pool)
+    # % mode: only the allocated slices leave the wallet; the rest of the pot stays put.
+    plan = reserve_pool.payout_plan(bal, pool['pct'] * allocated / 100, holders, excluded=frozenset(_protected_wallets()) | {pool['wallet']})
+    plan['allocatedPct'] = allocated
     last = (pool.get('payouts') or [None])[-1]
     return {**plan, 'pool': {k: v for k, v in pool.items() if k != 'payouts'}, 'balanceKnown': known, 'lastPayout': last,
             'cooldownLeft': max(0, round(POOL_COOLDOWN - (time.time() - last['at']))) if last else 0}
@@ -7555,13 +7562,17 @@ async def admin_badge_pool_save(request: Request, p: BadgePoolIn):
         except (TypeError, ValueError):
             raise HTTPException(400, f'Weight for {k} must be a number.')
         if not 0 <= w <= 100:
-            raise HTTPException(400, 'Weights are 0–100.')
+            raise HTTPException(400, 'Each badge share is 0–100.')
         if w:
             weights[k] = w
+    if p.mode not in ('pct', 'weight'):
+        raise HTTPException(400, 'Unknown pool mode.')
+    if p.mode == 'pct' and sum(weights.values()) > 100.0001:
+        raise HTTPException(400, f'Badge shares add up to {round(sum(weights.values()), 2)}% — keep the total at 100% or less.')
     d = _pools()
     pid = p.id or f"pool{int(time.time())}"
     prev = next((x for x in d['pools'] if x['id'] == pid), {})
-    rec = {**prev, 'id': pid, 'name': p.name, 'wallet': p.wallet, 'pct': p.pct, 'seasonId': p.seasonId, 'weights': weights}
+    rec = {**prev, 'id': pid, 'name': p.name, 'wallet': p.wallet, 'pct': p.pct, 'seasonId': p.seasonId, 'weights': weights, 'mode': p.mode}
     d['pools'] = [x for x in d['pools'] if x['id'] != pid] + [rec]
     _json_save(BADGE_POOLS_PATH, d)
     ad = _admin_load(); _audit(ad, admin, 'badge-pool', f'{p.name} {p.pct}% of {p.wallet[:6]}'); _admin_save(ad)
@@ -7862,3 +7873,76 @@ async def after_sell(address: str):
             pass
     rows = after_sell_lessons(trades, prices)
     return {'address': address, 'rows': rows, 'runners': sum(r['lesson'] == 'runner' for r in rows), 'saved': sum(r['lesson'] == 'saved' for r in rows)}
+
+
+# ---- Treasury hub: where the money sits, the split plan, and verified splits signed by the owner ----------
+USDC_MINT = 'EPjFWdd5AufqSSqeM2qJ1Mzybapc8G4wNGGkZwyTDt1v'
+
+
+@app.get('/api/reputation/admin/treasury/money')
+async def treasury_money(request: Request):
+    """Every wallet that holds FEELESS money, read live: fee accounts (wSOL / USDC), the admin wallet,
+    season reserves and badge pools. Read-only; nothing here can move funds."""
+    admin = _require_admin(request)
+    cfg = _fee_cfg()
+    fee_accts = [('SOL fee account (wSOL)', cfg.get('feeAccountSol') or '', 'wSOL'), ('USDC fee account', cfg.get('feeAccountUsdc') or '', 'USDC')]
+    reserves = [(f"Season reserve · {s['name']}", s['reserveWallet']) for s in _seasons()['seasons'] if s.get('reserveWallet')]
+    reserves += [(f"Badge pool · {p['name']}", p['wallet']) for p in _pools()['pools']]
+
+    async with httpx.AsyncClient(timeout=10) as http:
+        async def token(addr):
+            if not addr:
+                return None
+            try:
+                v = ((await _rpc(http, 'getAccountInfo', [addr, {'encoding': 'jsonParsed'}])) or {}).get('value') or {}
+                info = ((v.get('data') or {}).get('parsed') or {}).get('info') or {}
+                return {'owner': info.get('owner'), 'mint': info.get('mint'), 'amount': float((info.get('tokenAmount') or {}).get('uiAmount') or 0)}
+            except Exception:
+                return None
+
+        async def sol(addr):
+            try:
+                return ((await _rpc(http, 'getBalance', [addr])) or {}).get('value', 0) / 1e9
+            except Exception:
+                return None
+        results = await asyncio.gather(*(token(a) for _, a, _ in fee_accts), sol(admin), *(sol(a) for _, a in reserves))
+    fee_rows = [{'label': l, 'address': a, 'asset': asset, **(r or {}), 'ok': bool(r)} for (l, a, asset), r in zip(fee_accts, results[:2])]
+    return {'admin': admin, 'adminSol': results[2], 'feeAccounts': fee_rows,
+            'reserves': [{'label': l, 'address': a, 'sol': b} for (l, a), b in zip(reserves, results[3:])],
+            'routes': _json_load(ROUTES_PATH, {'routes': []}).get('routes', []), 'splits': (_admin_load().get('splits') or [])[-10:][::-1],
+            'owners': list(_owner_wallets())}
+
+
+class SplitRecord(BaseModel):
+    sigs: list[str] = Field(min_length=1, max_length=40)
+    asset: str = 'SOL'
+
+
+@app.post('/api/reputation/admin/treasury/split')
+async def treasury_split_record(request: Request, p: SplitRecord):
+    """Record a split the owner signed from their own wallet. Every signature is re-read on-chain and only the
+    transfers the signer really made are stored."""
+    admin = _require_admin(request)
+    if not all(_re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', x) for x in p.sigs):
+        raise HTTPException(400, 'Bad transaction signature.')
+    ad = _admin_load()
+    if {s for sp in ad.get('splits') or [] for s in sp['sigs']} & set(p.sigs):
+        raise HTTPException(409, 'Already recorded.')
+    async with httpx.AsyncClient(timeout=20) as http:
+        txs = await asyncio.gather(*(_rpc(http, 'getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}]) for x in p.sigs))
+    moved, signer = [], None
+    allowed = set(_owner_wallets()) | set(_admin_wallets())
+    for sig, tx in zip(p.sigs, txs):
+        if not tx or (tx.get('meta') or {}).get('err'):
+            raise HTTPException(400, f'Transaction {sig[:8]}… is not on-chain or failed.')
+        signers = [k['pubkey'] for k in tx['transaction']['message']['accountKeys'] if k.get('signer')]
+        signer = next((s for s in signers if s in allowed), None)
+        if not signer:
+            raise HTTPException(400, 'Splits must be signed by a FEELESS owner/admin wallet.')
+        moved += reserve_pool.parsed_transfers(tx, signer)
+    if not moved:
+        raise HTTPException(400, 'No transfers found in those transactions.')
+    rec = {'sigs': p.sigs, 'asset': p.asset[:10], 'by': signer, 'at': time.time(), 'moved': moved[:60], 'total': round(sum(m['amount'] for m in moved), 6)}
+    ad.setdefault('splits', []).append(rec); ad['splits'] = ad['splits'][-50:]
+    _audit(ad, admin, 'treasury-split', f"{rec['total']} {p.asset} in {len(p.sigs)} tx"); _admin_save(ad)
+    return {'ok': True, 'total': rec['total'], 'transfers': len(moved)}

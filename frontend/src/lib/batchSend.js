@@ -15,7 +15,7 @@ async function confirm(connection, sig, lastValidBlockHeight) {
   }
 }
 
-export async function batchSend({ provider, owner, mint, recipients, onStatus, kind = 'airdrop' }) {
+export async function batchSend({ provider, owner, mint, recipients, onStatus, kind = 'airdrop', source = null }) {
   const { web3, connection } = await relayConnection();
   const spl = await import('@solana/spl-token');
   const payer = new web3.PublicKey(owner);
@@ -28,7 +28,7 @@ export async function batchSend({ provider, owner, mint, recipients, onStatus, k
     if (decimals == null) throw new Error('Could not read the token mint.');
     programId = info.value.owner;
   }
-  const src = isSol ? null : spl.getAssociatedTokenAddressSync(mintKey, payer, true, programId);
+  const src = isSol ? null : source ? new web3.PublicKey(source) : spl.getAssociatedTokenAddressSync(mintKey, payer, true, programId);
   const size = isSol ? PER_TX.sol : PER_TX.spl;
   const chunks = [];
   for (let i = 0; i < recipients.length; i += size) chunks.push(recipients.slice(i, i + size));

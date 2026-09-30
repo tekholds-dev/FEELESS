@@ -119,7 +119,13 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
     })
     .filter(Boolean), [allObserved, graduationByMint]);
   const gainers = [...trendingPairs].filter(pair => Number.isFinite(Number(pair.priceChange?.h24))).sort((a, b) => Number(b.priceChange.h24) - Number(a.priceChange.h24));
-  const stagePairs = { new: newPairs, graduated, trending: trendingPairs, gainers, watchlist: watchlist.filter(matches) }[stage] || [];
+  const liveStagePairs = { new: newPairs, graduated, trending: trendingPairs, gainers, watchlist: watchlist.filter(matches) }[stage] || [];
+  // Hover to freeze: while the pointer is on the grid the cards hold still (no reshuffle under your cursor);
+  // new arrivals are counted and land the moment you leave or tap the chip.
+  const [frozen, setFrozen] = useState(null);
+  useEffect(() => { setFrozen(null); }, [stage]);
+  const stagePairs = frozen || liveStagePairs;
+  const pendingNew = frozen ? liveStagePairs.filter(p => !frozen.some(f => pairKey(f) === pairKey(p))).length : 0;
   // Pump.fun's completion status is the primary source; the board's completion flags cover it when that lookup is throttled.
   const graduationConfirmed = graduated.some(pair => pair.graduation);
   const feed = stage === 'graduated' ? (graduationConfirmed || !graduated.length ? graduationFeed : trendingFeed) : stage === 'new' ? newFeed : trendingFeed;
@@ -148,7 +154,9 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
     {stage !== 'feeless' && !providerError && feed.loading && !stagePairs.length && <p className="truth-empty" role="status" data-testid="pump-radar-loading">Connecting to live provider snapshots…</p>}
     {stage !== 'feeless' && !providerError && !feed.loading && !stagePairs.length && <div className="truth-empty" data-testid={`pump-radar-${stage}-empty`}>{stageUnavailable ? (feed.data?.status === 'unavailable' ? 'Graduation status is unavailable from Pump.fun right now.' : 'No Pump.fun completion event matches an observed coin.') : stage === 'watchlist' ? 'Star provider-indexed coins to build a personal radar.' : `No ${stage} coins are currently visible in this provider snapshot.`}</div>}
      {stage === 'feeless' && <LaunchRadar />}
-     <div hidden={stage === 'feeless'} className={`pump-radar-grid ${layout === 'list' ? 'is-list' : ''}`}>{stagePairs.slice(0, layout === 'list' ? 30 : 8).map((pair, index) => <PumpRadarCard
+     {frozen && stage !== 'feeless' && <button type="button" className="radar-paused" data-testid="radar-paused" onClick={() => setFrozen(null)}><i />Paused while you look{pendingNew ? ` · ${pendingNew} new` : ''} · tap to refresh</button>}
+     <div hidden={stage === 'feeless'} className={`pump-radar-grid ${layout === 'list' ? 'is-list' : ''} ${frozen ? 'is-frozen' : ''}`} data-testid="pump-radar-grid"
+       onMouseEnter={() => { if (!window.matchMedia?.('(pointer: coarse)').matches) setFrozen(liveStagePairs); }} onMouseLeave={() => setFrozen(null)}>{stagePairs.slice(0, layout === 'list' ? 30 : 8).map((pair, index) => <PumpRadarCard
        key={pairKey(pair)}
        pair={pair}
        rank={index + 1}

@@ -86,7 +86,7 @@ def test_badge_pool_any_wallet_payout_verified_never_recorded_twice(monkeypatch,
     monkeypatch.setattr(rs, '_rpc', fake_rpc)
     with pytest.raises(rs.HTTPException):
         asyncio.run(rs.admin_badge_pool_save(None, rs.BadgePoolIn(name='OG pool', wallet=D, pct=50, weights={'bad key': 1})))
-    pid = asyncio.run(rs.admin_badge_pool_save(None, rs.BadgePoolIn(name='OG pool', wallet=D, pct=50, weights={'badge:custom-og': 2})))['pool']['id']
+    pid = asyncio.run(rs.admin_badge_pool_save(None, rs.BadgePoolIn(name='OG pool', wallet=D, pct=50, weights={'badge:custom-og': 2}, mode='weight')))['pool']['id']
     plan = asyncio.run(rs.admin_badge_pool_plan(None, pid))
     assert plan['potSol'] == 1 and {r['address'] for r in plan['rows']} == {A, B}
     assert asyncio.run(rs.admin_badge_pool_paid(None, pid, rs.ReservePaid(sigs=['6' * 88])))['paidSol'] == 0.5
@@ -94,3 +94,36 @@ def test_badge_pool_any_wallet_payout_verified_never_recorded_twice(monkeypatch,
         asyncio.run(rs.admin_badge_pool_paid(None, pid, rs.ReservePaid(sigs=['6' * 88])))
     pub = asyncio.run(rs.badge_pools_public(A))
     assert pub['pools'][0]['me']['sol'] == 0.5 and pub['pools'][0]['earns'] == ['custom-og']
+
+
+def test_pct_mode_each_badge_gets_its_own_slice_rest_stays():
+    rows, used = rp.pct_holders({'badge:og': 30, 'badge:bug': 20, 'tier:Gold': 10, 'badge:nobody': 25},
+                                {A: 'Gold'}, {A: ['og'], B: ['og', 'bug'], C: ['bug']})
+    by = {r['address']: r['weight'] for r in rows}
+    assert used == 60  # the 25% nobody holds stays in the wallet
+    assert by[A] == pytest.approx(15 + 10) and by[B] == pytest.approx(15 + 10) and by[C] == pytest.approx(10)
+    plan = rp.payout_plan(10.01, 100 * used / 100, rows)
+    assert plan['potSol'] == pytest.approx(6.006, abs=1e-3) and rp.wallet_share(plan, C)['sol'] == pytest.approx(1.0, abs=0.01)
+
+
+def test_pct_mode_rejects_over_100(monkeypatch, tmp_path):
+    pytest.importorskip('solders')
+    rs = pytest.importorskip('reputation_service')
+    monkeypatch.setattr(rs, 'BADGE_POOLS_PATH', tmp_path / 'p.json')
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'Admin')
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.admin_badge_pool_save(None, rs.BadgePoolIn(name='Big', wallet=D, pct=50, weights={'badge:a': 60, 'badge:b': 50})))
+
+
+def test_route_split_never_overspends():
+    rows = rp.route_split(1.0, [{'address': A, 'pct': 33.333}, {'address': B, 'pct': 33.333}, {'address': C, 'pct': 33.334}], 6)
+    assert sum(r['amount'] for r in rows) <= 1.0 and rows[0]['amount'] == 0.33333
+
+
+def test_parsed_transfers_only_what_the_signer_moved():
+    tx = {'transaction': {'message': {'instructions': [
+        {'program': 'system', 'parsed': {'type': 'transfer', 'info': {'source': D, 'destination': A, 'lamports': 5 * 10**8}}},
+        {'program': 'system', 'parsed': {'type': 'transfer', 'info': {'source': B, 'destination': D, 'lamports': 10**9}}}]}},
+          'meta': {'innerInstructions': [{'instructions': [{'program': 'spl-token', 'parsed': {'type': 'transferChecked', 'info': {
+              'authority': D, 'destination': 'Ata1', 'mint': 'USDC', 'tokenAmount': {'uiAmount': 12.5}}}}]}]}}
+    assert rp.parsed_transfers(tx, D) == [{'asset': 'SOL', 'to': A, 'amount': 0.5}, {'asset': 'USDC', 'to': 'Ata1', 'amount': 12.5}]

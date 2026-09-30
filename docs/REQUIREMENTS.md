@@ -67,12 +67,22 @@ Meteora's own validator checks the curve before you can sign. The warnings flag 
 - **After the sell.** Your recent sells compared with the price now ("sold a runner" / "good exit"). This is FeeCat's learning loop applied to you.
 - **Badges → money.**
   - Season tiers earn a share of the season **reserve wallet**.
-  - **Badge pools**: any badge (a season tier or a custom award) can earn a weighted share of **any wallet you choose**.
+  - **Badge pools**: a pool is any wallet you choose plus the % of it that forms the pot. In the badge × pool matrix, each badge gets its own **% of each pool's pot**, split equally between that badge's holders. A pool's shares can't pass 100%, and unassigned % stays in the wallet.
   - The pool wallet always signs its own payout. The server records only SOL transfers verified on-chain, and never the same transaction twice.
 - **Networks.**
   - DexScreener boosts are the first source.
   - Small chains (Cronos, zkSync, Zora…) are topped up from GeckoTerminal trending/new pools, so no network loads empty.
   - Chain logos come from DexScreener, which carries the current CRO mark.
+- **Treasury.** Cmd Ctr › Treasury shows every wallet holding FEELESS money: the fee accounts (wSOL / USDC), the admin wallet, season reserves and badge pools.
+  - **Split now** sends fees to the split-plan destinations. You sign from the wallet that owns the fee account.
+  - The server re-reads each transaction on-chain and records only what actually moved.
+  - Nothing splits automatically, because that would need a server-held key.
+- **What's launchable** (Cmd Ctr › Launch & setup):
+  - **Launch config:** a one-time on-chain template.
+  - **FEELESS coins:** launched on the Launch page. The config's terms apply and the page's planning fields lock.
+  - **Pump.fun coins:** launched from the same page.
+  - **Pools for existing tokens:** created in the Pools tab.
+  - Airdrops and badge payouts.
 - **Lag catcher.** Browsers report API latency, long tasks and FPS once a minute. A device that lags switches itself to lite effects. The owner can force lite effects site-wide.
 
 ## Open items (not built yet)
