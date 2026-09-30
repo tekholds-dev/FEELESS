@@ -108,6 +108,7 @@ function useMyPosition(pair) {
 }
 
 function PnlBadge({ pos, pair, price, flash, symbol, imageUrl, mcPerPrice }) {
+  const [open, setOpen] = useState(false);
   const [livePrice, setLivePrice] = useState(price);
   useEffect(() => { setLivePrice(price); }, [price]);
   useEffect(() => {
@@ -121,10 +122,18 @@ function PnlBadge({ pos, pair, price, flash, symbol, imageUrl, mcPerPrice }) {
   const fmtMc = v => (v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${v.toFixed(0)}`);
   const entryMc = mcPerPrice ? fmtMc(pos.avgEntry * mcPerPrice) : null; const nowMc = mcPerPrice ? fmtMc(livePrice * mcPerPrice) : null;
   const pct = (livePrice / pos.avgEntry - 1) * 100; const usd = (livePrice - pos.avgEntry) * pos.tokensHeld; const value = livePrice * pos.tokensHeld;
-  return <div key={flash} className={`my-pnl ${pct >= 0 ? 'up' : 'down'} ${flash ? 'just-traded' : ''}`} data-testid="my-pnl">
-    <small>Live position · updates ~2.5s</small><b>{pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</b><span>{usd >= 0 ? '+' : '−'}${Math.abs(usd).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span><em>value ${value.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 })} · {entryMc ? <>entry MC {entryMc} · now {nowMc}</> : `avg $${pos.avgEntry.toPrecision(4)} · live $${livePrice.toPrecision(4)}`}</em><em className="my-pnl-src" data-testid="my-pnl-src">{pos.pending ? '⏳ just confirmed · syncing exact fills' : pos.exact ? '✓ exact · your wallet\'s on-chain fills' : 'from FEELESS trade records'}{pos.realizedUsd ? ` · realized ${pos.realizedUsd >= 0 ? '+' : '−'}$${Math.abs(pos.realizedUsd).toFixed(2)}` : ''}{pos.feesUsd ? ` · fees paid $${pos.feesUsd.toFixed(pos.feesUsd < 1 ? 3 : 2)}` : ''}</em>
-    <ShareGifButton className="my-pnl-share" label="🎞 Share" card={{ kicker: 'LIVE POSITION · FEELESS TRENCHES', title: `$${symbol}`, imageUrl, tone: pct >= 0 ? 'up' : 'down', bigValue: Math.abs(pct), bigPrefix: pct >= 0 ? '+' : '−', bigSuffix: '%', bigDigits: 1, lines: [`${usd >= 0 ? '+' : '−'}$${Math.abs(usd).toLocaleString(undefined, { maximumFractionDigits: 2 })} unrealized · value $${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, entryMc ? `entry MC ${entryMc} · now MC ${nowMc}` : `avg entry $${pos.avgEntry.toPrecision(4)} · live $${livePrice.toPrecision(4)}`] }} />
-    <button type="button" className="my-pnl-exit" onClick={() => window.dispatchEvent(new CustomEvent('feeless:quick-exit', { detail: { pct: 100 } }))}>Exit position</button>
+  const sign = v => (v >= 0 ? '+' : '−');
+  const money = v => `$${Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) >= 100 ? 0 : 2 })}`;
+  return <div key={flash} className={`my-pnl ${pct >= 0 ? 'up' : 'down'} ${flash ? 'just-traded' : ''} ${open ? 'is-open' : ''}`} data-testid="my-pnl">
+    <button type="button" className="my-pnl-head" onClick={() => setOpen(o => !o)} aria-expanded={open} title="Your live position · tap for details">
+      <small>YOU</small><b>{sign(pct)}{Math.abs(pct).toFixed(Math.abs(pct) >= 100 ? 0 : 2)}%</b><span>{sign(usd)}{money(usd)}</span><em>{money(value)}</em><i aria-hidden="true">{open ? '▾' : '▸'}</i>
+    </button>
+    {open && <div className="my-pnl-more">
+      <dl className="m-kv"><dt>Entry</dt><dd>{entryMc ? `MC ${entryMc}` : `$${pos.avgEntry.toPrecision(4)}`}</dd><dt>Now</dt><dd>{nowMc ? `MC ${nowMc}` : `$${livePrice.toPrecision(4)}`}</dd>
+        {pos.realizedUsd ? <><dt>Realized</dt><dd>{sign(pos.realizedUsd)}{money(pos.realizedUsd)}</dd></> : null}{pos.feesUsd ? <><dt>Fees paid</dt><dd>${pos.feesUsd.toFixed(pos.feesUsd < 1 ? 3 : 2)}</dd></> : null}</dl>
+      <small className="my-pnl-src" data-testid="my-pnl-src">{pos.pending ? '⏳ just confirmed · syncing' : pos.exact ? '✓ exact · on-chain fills' : 'from FEELESS records'} · live ~2.5s</small>
+      <div className="my-pnl-actions"><ShareGifButton className="my-pnl-share" label="🎞 Share" card={{ kicker: 'LIVE POSITION · FEELESS TRENCHES', title: `$${symbol}`, imageUrl, tone: pct >= 0 ? 'up' : 'down', bigValue: Math.abs(pct), bigPrefix: pct >= 0 ? '+' : '−', bigSuffix: '%', bigDigits: 1, lines: [`${usd >= 0 ? '+' : '−'}$${Math.abs(usd).toLocaleString(undefined, { maximumFractionDigits: 2 })} unrealized · value $${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, entryMc ? `entry MC ${entryMc} · now MC ${nowMc}` : `avg entry $${pos.avgEntry.toPrecision(4)} · live $${livePrice.toPrecision(4)}`] }} /><button type="button" className="my-pnl-exit" onClick={() => window.dispatchEvent(new CustomEvent('feeless:quick-exit', { detail: { pct: 100 } }))}>Exit</button></div>
+    </div>}
   </div>;
 }
 
