@@ -4299,6 +4299,8 @@ async def _live_stats_compute():
 
 # ---- Invite / promo links: every wallet gets one ---------------------------------------------
 REF_PATH = DATA_DIR / 'referrals.json'
+REF_CFG_PATH = DATA_DIR / 'referral_cfg.json'      # {'pct': % of invitees' FEELESS fees earned by the inviter}
+REF_EARN_PATH = DATA_DIR / 'referral_earnings.json'
 
 
 class RefIn(BaseModel):
@@ -4338,15 +4340,34 @@ async def referral_info(address: str):
     a = primary_of(address)
     d = _json_load(REF_PATH, {'by': {}, 'of': {}})
     invited = d['by'].get(a, [])
-    return {'address': a, 'code': invite_code(a), 'handle': handle_of(a), 'invited': len(invited), 'recent': invited[-10:][::-1], 'invitedBy': d['of'].get(a)}
+    earned = _json_load(REF_EARN_PATH, {}).get(a) or {}
+    return {'address': a, 'code': invite_code(a), 'handle': handle_of(a), 'invited': len(invited), 'recent': invited[-10:][::-1], 'invitedBy': d['of'].get(a),
+            'pct': float(_json_load(REF_CFG_PATH, {}).get('pct') or 0), 'earnedUsd': earned.get('usd', 0), 'earnedSol': earned.get('sol', 0),
+            'paidUsd': earned.get('paidUsd', 0), 'tradingInvitees': len(earned.get('invitees') or [])}
 
 
 @app.get('/api/reputation/admin/referrals')
 async def admin_referrals(request: Request):
     _require_admin(request)
     d = _json_load(REF_PATH, {'by': {}, 'of': {}})
-    rows = sorted(({'address': a, 'handle': handle_of(a), 'invited': len(v)} for a, v in d['by'].items()), key=lambda r: -r['invited'])
-    return {'total': len(d['of']), 'top': rows[:50]}
+    earn = _json_load(REF_EARN_PATH, {})
+    rows = sorted(({'address': a, 'handle': handle_of(a), 'invited': len(v), 'earnedUsd': (earn.get(a) or {}).get('usd', 0), 'earnedSol': (earn.get(a) or {}).get('sol', 0)}
+                   for a, v in d['by'].items()), key=lambda r: (-r['earnedUsd'], -r['invited']))
+    return {'total': len(d['of']), 'top': rows[:50], 'pct': float(_json_load(REF_CFG_PATH, {}).get('pct') or 0),
+            'owedUsd': round(sum((r.get('usd') or 0) - (r.get('paidUsd') or 0) for r in earn.values()), 4)}
+
+
+class RefCfgIn(BaseModel):
+    pct: float = Field(ge=0, le=50)
+
+
+@app.put('/api/reputation/admin/referrals/config')
+async def admin_referral_cfg(request: Request, p: RefCfgIn):
+    """Every inviter earns this % of the FEELESS fees their invitees pay (accrues on each confirmed trade)."""
+    me = _require_owner(request)
+    _json_save(REF_CFG_PATH, {'pct': round(p.pct, 2), 'by': me, 'at': time.time()})
+    ad = _admin_load(); _audit(ad, me, 'referral-pct', f'{p.pct}% of invitee fees'); _admin_save(ad)
+    return {'pct': round(p.pct, 2)}
 
 
 # ---- Ads & announcements (creator wallet only) ----------------------------------------------
@@ -8079,8 +8100,13 @@ async def internal_trade(request: Request, p: TradeLanded):
     _json_save(SEASONS_PATH, d)
     led = _json_load(FEE_LEDGER_PATH, {}); who = primary_of(p.wallet)
     px = await _sol_usd() if p.feeAtoms and p.feeMint == WSOL else 0
-    led[who] = (led.get(who) or [])[-1999:] + [fee_report.ledger_row(time.time(), p.signature, p.inUsd, p.feeBps, p.feeAtoms, p.feeMint, px)]
+    row = fee_report.ledger_row(time.time(), p.signature, p.inUsd, p.feeBps, p.feeAtoms, p.feeMint, px)
+    led[who] = (led.get(who) or [])[-1999:] + [row]
     _json_save(FEE_LEDGER_PATH, led)
+    inviter = _json_load(REF_PATH, {'by': {}, 'of': {}})['of'].get(who)
+    pct = float(_json_load(REF_CFG_PATH, {}).get('pct') or 0)
+    if inviter and pct > 0:
+        _json_save(REF_EARN_PATH, fee_report.referral_credit(_json_load(REF_EARN_PATH, {}), inviter, who, row, pct, time.time()))
     if pts > 0:
         season_award(primary_of(p.wallet), pts, f'trade:{p.signature[:10]}')
     return {'ok': True, 'points': pts}

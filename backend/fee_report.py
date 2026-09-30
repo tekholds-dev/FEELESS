@@ -40,3 +40,18 @@ def fee_report(rows: list, now: float, feeback_pct: float = FEEBACK_PCT) -> dict
             'feesTotalUsd': total, 'tradesTotal': len(rows), 'days': days,
             'feeBackPct': feeback_pct, 'feeBackUsd': round(total * feeback_pct / 100, 4), 'feeBack7dUsd': round(fee7 * feeback_pct / 100, 4),
             'feeBackStatus': 'accruing'}
+
+
+def referral_credit(book: dict, inviter: str, invitee: str, row: dict, pct: float, now: float) -> dict:
+    """Credit an inviter pct% of the FEELESS fee their invitee just paid (accrues; paid out by the owner)."""
+    pct = max(0.0, min(50.0, float(pct or 0)))
+    if not inviter or pct <= 0 or not row.get('feeUsd'):
+        return book
+    rec = book.setdefault(inviter, {'usd': 0.0, 'sol': 0.0, 'trades': 0, 'invitees': [], 'lastAt': 0})
+    rec['usd'] = round(rec['usd'] + row['feeUsd'] * pct / 100, 6)
+    rec['sol'] = round(rec['sol'] + row.get('feeSol', 0) * pct / 100, 9)
+    rec['trades'] += 1
+    if invitee not in rec['invitees']:
+        rec['invitees'].append(invitee)
+    rec['lastAt'] = now
+    return book

@@ -2184,8 +2184,6 @@ body.theme-day .search-drop{background:#fff;border-color:#9fd3b6}body.theme-day 
 .li-cell{display:grid;gap:2px;padding:12px;border-radius:12px;border:1px solid var(--line);background:#ffffff05}.li-cell b{font:700 26px 'JetBrains Mono',monospace}.li-cell small{color:var(--muted);font-size:11px}
 .li-cell.tone-bad b{color:#ff8a9a}.li-cell.tone-mint b{color:var(--mint)}.li-cell.tone-gold b{color:#f5c542}
 /* Invite card */
-.invite-link{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.invite-link code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:9px 12px;border-radius:10px;border:1px dashed rgba(18,192,122,.45);background:#12c07a0c;color:var(--mint);font-size:12px}
-.invite-recent{display:flex;flex-wrap:wrap;gap:6px}.invite-recent a{font:11px 'JetBrains Mono',monospace;color:var(--mint);padding:3px 8px;border-radius:999px;border:1px solid var(--line)}
 .invite-card h3{display:flex;gap:6px;align-items:center}
 /* Ads */
 .ad-banner{position:relative;display:flex;gap:12px;align-items:center;margin:0 0 14px;padding:10px 40px 10px 12px;border-radius:14px;border:1px solid rgba(245,197,66,.35);background:linear-gradient(100deg,rgba(245,197,66,.1),rgba(18,192,122,.06));overflow:hidden}
@@ -2229,7 +2227,7 @@ body.reduced-motion-setting :is(.heartbeat-mark,.heartbeat-mark::before,.heartbe
 .cp-trade.buy{animation:flr-in .4s ease}
 /* ===== Day mode for every new surface ===== */
 body.theme-day :is(.coin-profile,.fcp,.live-intel){background:linear-gradient(180deg,#ffffffee,#f1f8f4ee)!important;border-color:var(--day-border)!important;color:#173b2b}
-body.theme-day :is(.cp-card,.fcp-kpis span,.fcp-params span,.fcp-trade,.fcp-exit,.fcp-pos,.li-cell,.cc-block,.cc-kpis span,.cc-drop,.cc-bug,.wpj-badge,.wpp-tier,.wp-onchain span,.wpa-row,.cp-links a,.invite-recent a,.wallet-networks button,.wp-ring-opt,.fcp-tabs button,.cc-tabs button){border-color:var(--day-border)!important;background:#ffffffcc!important;color:#173b2b}
+body.theme-day :is(.cp-card,.fcp-kpis span,.fcp-params span,.fcp-trade,.fcp-exit,.fcp-pos,.li-cell,.cc-block,.cc-kpis span,.cc-drop,.cc-bug,.wpj-badge,.wpp-tier,.wp-onchain span,.wpa-row,.cp-links a,.wallet-networks button,.wp-ring-opt,.fcp-tabs button,.cc-tabs button){border-color:var(--day-border)!important;background:#ffffffcc!important;color:#173b2b}
 body.theme-day :is(.cp-kv span,.cp-card h4,.fcp-id span,.li-cell small,.cc-block h4,.fcp-trade small,.cp-trade small,.wpa-room,.wpa-row time,.cc-sig span,.wp-onchain small){color:var(--day-muted)!important}
 body.theme-day :is(.cp-msg p,.fcp-trade p,.cc-note){color:#173b2b!important}
 body.theme-day .cp-logo{box-shadow:0 0 0 4px #e8f0ea,0 0 24px rgba(8,118,78,.25)}
@@ -2240,7 +2238,6 @@ body.theme-day .cc-shell{color:#173b2b}body.theme-day .cc-tabs button.active,bod
 body.theme-day .cc-th{color:var(--day-muted)}body.theme-day .cc-tr{border-color:var(--day-border)}body.theme-day .cc-tr a{color:#07784f}
 body.theme-day :is(.cc-toolbar,.cc-selbar,.cc-drop-actions,.cc-award-form,.cc-bug,.cc-studio .cc-block) :is(button:not(.btn-primary),select,input,textarea){background:#fff!important;color:#173b2b!important;border-color:var(--day-border)!important}
 body.theme-day .ad-banner{background:linear-gradient(100deg,#fff4dc,#e3f2e8);border-color:#e2c27a}body.theme-day .ad-banner a span{color:var(--day-muted)}body.theme-day .ad-tag{color:#8a5d00;border-color:#e2c27a}
-body.theme-day .invite-link code{background:#e3f2e8;color:#07784f;border-color:#9fd3b6}
 body.theme-day .pad-fallback{background:#e3f2e8;color:#173b2b;border-color:#9fd3b6}
 body.theme-day .wallet-link{color:#173b2b}body.theme-day .wallet-networks button.active{background:#e3f2e8!important;color:#07784f!important;border-color:#07784f!important}
 body.theme-day .wp-handle{color:#1667a8}body.theme-day .chat-handle{color:var(--day-muted)}

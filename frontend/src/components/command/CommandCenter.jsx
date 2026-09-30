@@ -503,13 +503,26 @@ function AdsPanel({ call }) {
 function InvitesPanel({ call }) {
   const [d, setD] = useState(null);
   const [url, setUrl] = useState('');
-  useEffect(() => { call('/admin/referrals').then(setD).catch(e => toast.error(e.message)); fetch('/api/reputation/site').then(r => r.json()).then(x => setUrl(x.publicUrl || '')).catch(() => {}); }, [call]);
+  const [pct, setPct] = useState('');
+  const load = useCallback(() => call('/admin/referrals').then(x => { setD(x); setPct(String(x.pct ?? 0)); }).catch(e => toast.error(e.message)), [call]);
+  useEffect(() => { load(); fetch('/api/reputation/site').then(r => r.json()).then(x => setUrl(x.publicUrl || '')).catch(() => {}); }, [load]);
   const saveUrl = () => call('/admin/site', { method: 'POST', body: JSON.stringify({ publicUrl: url }) }).then(r => toast.success(`Invite links use ${url}${r.webhook?.ok ? ' · Helius webhook connected' : r.webhook?.reason ? ` · webhook: ${r.webhook.reason}` : ''}`)).catch(e => toast.error(e.message));
+  const savePct = () => call('/admin/referrals/config', { method: 'PUT', body: JSON.stringify({ pct: Number(pct) || 0 }) }).then(r => { toast.success(`Every inviter now earns ${r.pct}% of their invitees' FEELESS fees.`); load(); }).catch(e => toast.error(errorText(e)));
   if (!d) return <p className="cc-empty">Loading invites…</p>;
-  return <section className="cc-panel">
-    <div className="cc-block"><h4>Public site domain (used in every invite link)</h4><div className="cc-toolbar"><input placeholder="https://your-domain.com" value={url} onChange={e => setUrl(e.target.value)} /><button type="button" className="btn-primary" onClick={saveUrl}>Save</button></div><small className="cc-empty">Links look like {url || 'https://your-domain.com'}/r/b26hhajg — one unique code per wallet.</small></div>
-    <div className="cc-kpis"><span><small>Wallets invited</small><b>{d.total}</b></span><span><small>Active inviters</small><b>{d.top.length}</b></span></div>
-    <div className="cc-block"><h4>Top inviters</h4>{!d.top.length ? <small className="cc-empty">No invites yet — every wallet has a link in Settings and on its profile.</small> : d.top.map((r, i) => <div key={r.address} className="cc-sig"><span>{i + 1}. <a href={`/terminal/profile/${r.address}`} target="_blank" rel="noopener noreferrer">@{r.handle}</a></span><b>{r.invited}</b></div>)}</div>
+  const usd = v => `$${Number(v || 0).toFixed(Number(v) >= 1 ? 2 : 4)}`;
+  return <section className="cc-panel m-stack" data-testid="cc-invites">
+    <div className="m-grid">
+      <div className="m-card is-hot m-stack"><span className="m-label">INVITE REWARD · ALL USERS</span>
+        <span className="m-dim">Every inviter earns this share of the FEELESS fees their invitees pay, on every confirmed trade. It accrues on their profile; you pay it out.</span>
+        <div className="m-row"><input className="m-input" style={{ width: 100 }} inputMode="decimal" value={pct} onChange={e => setPct(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="Invite reward percent" /><span className="m-dim">% of invitee fees (max 50)</span>
+          <button type="button" className="m-btn primary" disabled={Number(pct) > 50 || String(d.pct) === pct} onClick={savePct}>Save</button></div></div>
+      <div className="m-card m-stack"><span className="m-label">PUBLIC SITE DOMAIN <em>used in every invite link</em></span>
+        <div className="m-row"><input className="m-input" style={{ flex: 1 }} placeholder="https://your-domain.com" value={url} onChange={e => setUrl(e.target.value)} /><button type="button" className="m-btn primary" onClick={saveUrl}>Save</button></div>
+        <small className="m-dim">Links look like {url || 'https://your-domain.com'}/r/b26hhajg — one per wallet.</small></div>
+      <div className="m-card m-grid"><div className="m-stat"><small>Wallets invited</small><b className="m-num">{d.total}</b></div><div className="m-stat"><small>Active inviters</small><b className="m-num">{d.top.length}</b></div><div className="m-stat"><small>Rewards owed</small><b className="m-num m-pos">{usd(d.owedUsd)}</b></div></div>
+    </div>
+    <div className="m-card"><span className="m-label">TOP INVITERS</span>{!d.top.length ? <p className="m-dim">No invites yet — every wallet has its link in its profile › Invites.</p>
+      : <dl className="m-kv">{d.top.map((r, i) => <React.Fragment key={r.address}><dt>{i + 1}. <a href={`/terminal/profile/${r.address}`} target="_blank" rel="noopener noreferrer">@{r.handle}</a></dt><dd>{r.invited} invited · earned {usd(r.earnedUsd)}{r.earnedSol ? ` · ${r.earnedSol.toFixed(4)} SOL` : ''}</dd></React.Fragment>)}</dl>}</div>
   </section>;
 }
 

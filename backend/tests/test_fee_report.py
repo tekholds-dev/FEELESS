@@ -23,3 +23,12 @@ def test_real_fee_atoms_win():
     assert ledger_row(NOW, 'u', 100, 50, 480_000, USDC_MINT)['feeUsd'] == 0.48
     assert ledger_row(NOW, 'x', 100, 50)['feeUsd'] == 0.5
     assert fee_report([ledger_row(NOW - 60, 's', 0, 50, 5_000_000, SOL_MINT)], NOW)['fees7dSol'] == 0.005
+
+
+def test_referral_credit():
+    from fee_report import referral_credit
+    book = referral_credit({}, 'INV', 'A', {'feeUsd': 2.0, 'feeSol': 0.01}, 10, NOW)
+    book = referral_credit(book, 'INV', 'B', {'feeUsd': 1.0}, 10, NOW)
+    assert book['INV']['usd'] == 0.3 and book['INV']['sol'] == 0.001 and book['INV']['trades'] == 2 and book['INV']['invitees'] == ['A', 'B']
+    assert referral_credit({}, 'INV', 'A', {'feeUsd': 2.0}, 0, NOW) == {}
+    assert referral_credit({}, 'INV', 'A', {'feeUsd': 2.0}, 90, NOW)['INV']['usd'] == 1.0   # capped at 50%
