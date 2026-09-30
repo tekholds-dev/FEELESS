@@ -42,5 +42,5 @@ test('shows the pot, tier shares and only pays from the reserve wallet', async (
   await act(async () => { btn.click(); });
   expect(mockSend.mock.calls[0][0].recipients).toEqual([{ address: plan.rows[0].address, amount: 1.8 }, { address: plan.rows[1].address, amount: 0.15 }]);
   expect(call).toHaveBeenCalledWith('/admin/reserve/s1/paid', expect.objectContaining({ body: JSON.stringify({ sigs: ['sig1'] }) }));
-  require('fs').writeFileSync('/tmp/claude-0/pool.html', el.innerHTML);
+  if (process.env.DUMP_PANEL) require('fs').writeFileSync('/tmp/claude-0/panels.html', el.innerHTML);
 });

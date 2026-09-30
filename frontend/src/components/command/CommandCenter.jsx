@@ -306,21 +306,22 @@ export function ReservePool({ call }) {
     } catch (e) { toast.error(errorText(e)); } finally { setBusy(''); }
   };
   if (!seasons.length) return <div className="cc-block"><p className="cc-empty">Create a season first (Seasons tab). Its badges then earn from the reserve pool.</p></div>;
-  return <div className="bdg-pool">
-    <div className="bdg-seg bdg-seasons">{seasons.slice(0, 5).map(s => <button key={s.id} type="button" className={sid === s.id ? 'active' : ''} onClick={() => setSid(s.id)}>{s.name}</button>)}</div>
-    <div className="bdg-pool-grid">
-      <div className="bdg-card"><small>Reserve wallet</small>{plan?.assigned ? <b className="bdg-ok">● assigned</b> : <b className="bdg-warn">● not assigned</b>}
+  return <div className="bdg-pool m-stack">
+    <div className="m-seg">{seasons.slice(0, 5).map(s => <button key={s.id} type="button" className={sid === s.id ? 'active' : ''} onClick={() => setSid(s.id)}>{s.name}</button>)}</div>
+    <div className="m-grid">
+      <div className="m-card m-stack"><div className="m-row"><span className="m-label">RESERVE WALLET</span>{plan?.assigned ? <span className="m-chip ok">● assigned</span> : <span className="m-chip warn">● not assigned</span>}</div>
         {circleW && <span className="m-chip ok" data-testid="reserve-circle">◎ Circle wallet “{circleW.name || 'Circle'}” · {circleW.balances?.find(b => b.symbol === 'SOL')?.amount ?? 0} SOL · pays via Circle</span>}
-        <input placeholder="Fee Reserve wallet (Solana address)" value={form.reserveWallet} onChange={e => setForm(f => ({ ...f, reserveWallet: e.target.value }))} />
-        <label className="bdg-pct"><input inputMode="decimal" placeholder="0" value={form.badgeRewardPct} onChange={e => setForm(f => ({ ...f, badgeRewardPct: e.target.value.replace(/[^0-9.]/g, '') }))} /><span>% of the wallet to badge holders</span></label>
-        <button type="button" className="btn-primary" disabled={!!busy} onClick={save}>Save pool</button></div>
-      <div className="bdg-card bdg-pot"><small>Pot this season</small><b>{plan ? `${plan.potSol} SOL` : '…'}</b><em>{plan && usd(plan.potSol)}</em>
-        <span>{plan ? `${plan.pct}% of ${plan.poolSol} SOL${plan.balanceKnown ? '' : ' (balance unreadable)'}` : ''}</span><span>0.01 SOL always stays for rent + fees</span></div>
-      <div className="bdg-card"><small>Tier weights</small><div className="bdg-weights">{Object.entries(plan?.weights || {}).filter(([, w]) => w).map(([t, w]) => <span key={t}>{TIER_ICON[t]} {t}<b>{w}×</b></span>)}</div><span>Recruit, blocklisted and FEELESS wallets earn nothing.</span></div>
+        <label className="m-field"><span>Wallet (Solana address)</span><input className="m-input" placeholder="Fee Reserve wallet" value={form.reserveWallet} onChange={e => setForm(f => ({ ...f, reserveWallet: e.target.value }))} /></label>
+        <label className="m-field"><span>% of the wallet to badge holders</span><input className="m-input" style={{ maxWidth: 110 }} inputMode="decimal" placeholder="0" value={form.badgeRewardPct} onChange={e => setForm(f => ({ ...f, badgeRewardPct: e.target.value.replace(/[^0-9.]/g, '') }))} /></label>
+        <button type="button" className="m-btn primary" disabled={!!busy} onClick={save}>Save pool</button></div>
+      <div className="m-card is-hot m-stat"><span className="m-label">POT THIS SEASON</span><b className="m-num">{plan ? `${plan.potSol} SOL` : '…'}</b><span className="m-dim">{plan && usd(plan.potSol)}</span>
+        <span className="m-dim">{plan ? `${plan.pct}% of ${plan.poolSol} SOL${plan.balanceKnown ? '' : ' (balance unreadable)'}` : ''}</span><span className="m-dim">0.01 SOL always stays for rent + fees</span>
+        {plan && plan.assigned && !plan.poolSol && <div className="m-note warn"><b>Why 0?</b>The reserve wallet holds no SOL yet. Send SOL to it (fees, or your own wallet) and the pot fills at {plan.pct}% of whatever it holds.</div>}</div>
+      <div className="m-card m-stack"><span className="m-label">TIER WEIGHTS</span><div className="m-row">{Object.entries(plan?.weights || {}).filter(([, w]) => w).map(([t, w]) => <span key={t} className="m-chip ok">{TIER_ICON[t]} {t} {w}×</span>)}</div><span className="m-dim">Recruit, blocklisted and FEELESS wallets earn nothing.</span></div>
     </div>
     {plan?.payout ? <div className="bdg-paid">✅ {plan.payout.via === 'circle' ? 'Sent' : 'Paid'} {plan.payout.rows.reduce((a, r) => a + r.sol, 0).toFixed(4)} SOL to {plan.payout.rows.length} wallets · {plan.payout.via === 'circle' ? 'via Circle' : <a href={`https://solscan.io/tx/${plan.payout.sigs[0]}`} target="_blank" rel="noopener noreferrer">receipt</a>}
         {plan.payout.failed?.length > 0 && <><span className="bdg-warn"> · {plan.payout.failed.length} failed</span><CirclePay call={call} circle={circleW} rows={plan.payout.failed} path={`/admin/reserve/${sid}/pay-circle`} onDone={reload} label={`Retry ${plan.payout.failed.length} via Circle`} /></>}</div>
-      : <div className="bdg-payrow"><span>{plan ? `${plan.rows.length} wallets · ${plan.paidSol} SOL${plan.droppedDust ? ` · ${plan.droppedDust} dust shares re-split` : ''}` : 'Loading…'}</span>
+      : <div className="m-card m-row cs-bar"><span className="m-dim">{plan ? `${plan.rows.length} wallets · ${plan.paidSol} SOL${plan.droppedDust ? ` · ${plan.droppedDust} dust shares re-split` : ''}` : 'Loading…'}</span>
         {circleW ? <CirclePay call={call} circle={circleW} rows={plan?.rows || []} path={`/admin/reserve/${sid}/pay-circle`} onDone={reload} label={`Pay ${plan?.paidSol ?? ''} SOL via Circle`} /> : <button type="button" className="btn-primary" disabled={!!busy || !plan?.rows.length} title={plan?.ended ? '' : 'Season still live: shares will move until it ends'} onClick={pay}>{busy || (isReserve ? `Pay out ${plan?.paidSol ?? ''} SOL` : 'Connect the reserve wallet to pay')}</button>}</div>}
     <div className="bdg-table">{!plan?.rows.length ? <p className="cc-empty">{plan && !plan.pct ? 'Set a % to start paying badge holders.' : 'No tiered badge holders yet.'}</p> : plan.rows.slice(0, 60).map((r, i) => <div key={r.address} className="bdg-row"><i>#{i + 1}</i><span className={`bdg-tier t-${r.tier.toLowerCase()}`}>{TIER_ICON[r.tier]} {r.tier}</span><code>{shortAddress(r.address)}</code><small>{r.sharePct}%</small><b>{r.sol} SOL</b><em>{usd(r.sol)}</em></div>)}</div>
   </div>;
