@@ -74,7 +74,7 @@ function LaunchMap({ rail }) {
   ];
   return <div className="launch-map" data-testid="launch-map">
     <div className="launch-steps">
-      <div className={live ? 'done' : 'now'}><i>1</i><b>Launch config</b><small>ONE-TIME · owner signs a template on-chain</small></div>
+      <div className={live ? 'done' : 'now'}><i>1</i><b>Launch config</b><small>ONE-TIME · owner or admin signs a template on-chain</small></div>
       <div className={live ? 'now' : ''}><i>2</i><b>Anyone launches coins</b><small>Launch page · each coin uses the config</small></div>
       <div><i>3</i><b>Graduation</b><small>auto Meteora pool · LP locked forever</small></div>
     </div>
@@ -93,7 +93,7 @@ function SetupGuide({ keys, rail, routes }) {
     ['Public site URL', has('PUBLIC_SITE_URL'), 'PUBLIC_SITE_URL=https://your-domain in backend/.env. New coins\' name + image are served from here.'],
     ['Owner wallets', has('FEELESS_ADMIN_WALLETS'), 'FEELESS_ADMIN_WALLETS=addr1,addr2 — who can open this center. Use a hardware or multisig wallet.'],
     ['Fee claimer / treasury', routes, 'Treasury tab → set where earnings go. A Squads multisig vault is safest.'],
-    ['FEELESS launch config', rail?.ready, 'Below: one signed transaction from the owner wallet (~0.01 SOL rent). After this, anyone can launch.'],
+    ['FEELESS launch config', rail?.ready, 'Below: one signed transaction from the owner or an admin wallet (~0.01 SOL rent). After this, anyone can launch.'],
     ['Lock the API to your domain', has('ALLOWED_ORIGINS'), 'ALLOWED_ORIGINS=https://your-domain before going public.'],
   ];
   const done = steps.filter(s => s[1]).length;
@@ -191,8 +191,8 @@ export function LaunchRailAdmin({ call, isOwner }) {
         <p>Every FEELESS launch uses this on-chain config. Fees go to <code>{rail.feeClaimer.slice(0, 4)}…{rail.feeClaimer.slice(-4)}</code><CopyBtn value={rail.feeClaimer} profile />.</p>
         <div className="rail-kv">{FIELDS.map(([k, l]) => <span key={k}><small>{l}</small><b>{Number(rail.params?.[k] ?? RAIL_DEFAULTS[k]).toLocaleString()}</b></span>)}</div>
         <p className="cc-empty">Config <code>{rail.config}</code><CopyBtn value={rail.config} /> · <a href={`https://solscan.io/account/${rail.config}`} target="_blank" rel="noreferrer">Solscan ↗</a>. On-chain configs can't be edited; to change terms, create a new one (old coins keep theirs).</p>
-      </div> : <p className="cc-empty">Not created yet. Launches stay disabled until the owner signs this once.</p>}
-      {isOwner ? <>
+      </div> : <p className="cc-empty">Not created yet. Launches stay disabled until the owner or an admin signs this once.</p>}
+      {<>
         <div className="rail-presets" role="radiogroup" aria-label="Launch style">{RAIL_PRESETS.map(pr => <button key={pr.id} type="button" role="radio" aria-checked={preset === pr.id} className={preset === pr.id ? 'active' : ''} onClick={() => pick(pr)}><b>{pr.label}</b><small>{pr.blurb}</small></button>)}</div>
         <div className={`rail-ready ${check?.ok && !warnings.length ? 'ok' : check?.ok ? 'warn' : 'bad'}`} data-testid="rail-ready">
           <b>{!check ? '… checking' : check.ok ? `✓ Valid on Meteora · ${Number(check.raise.toFixed(check.quote === 'USDC' ? 0 : 1)).toLocaleString()} ${check.quote} raise to graduate` : `✗ Meteora would reject this: ${check.error}`}</b>
@@ -202,16 +202,16 @@ export function LaunchRailAdmin({ call, isOwner }) {
         <div className="rail-form">{FIELDS.map(([k, l0, why]) => { const l = l0.replace('(SOL)', `(${unit})`); return <label key={k}><span>{l}{/SOL/.test(l) && solPx ? <em className="usd-hint"> {usd(p[k], solPx)}</em> : null}</span><input inputMode="decimal" value={p[k]} onChange={e => setP(v => ({ ...v, [k]: e.target.value.replace(/[^0-9.]/g, '') }))} /><small>{why}</small></label>; })}
           <label className="wide"><span>Fee claimer (receives FEELESS's share)</span><input placeholder={wallet?.address || 'Treasury / multisig address'} value={claimer} onChange={e => setClaimer(e.target.value.trim())} /><small>Defaults to your first Solana treasury route, else the signing wallet. Use a multisig.</small></label>
         </div>
-        <div className="rail-scope"><div className="bdg-seg" role="radiogroup" aria-label="Who launches on this config">{[['public', '🌐 Public site config'], ['house', '🏠 House config (owners only)']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={scope === k} className={scope === k ? 'active' : ''} onClick={() => setScope(k)}>{l}</button>)}</div>
-          <small className="cc-empty">{scope === 'public' ? 'Used by the Launch page for everyone. Creating a new one replaces it for new coins only.' : 'Only owners see it on the Launch page, for FEELESS\'s own coins (e.g. your fee reserve coin). Set its fee claimer to the wallet that should earn from it. It never replaces the public config.'}</small>
+        <div className="rail-scope"><div className="bdg-seg" role="radiogroup" aria-label="Who launches on this config">{[['public', '🌐 Public site config'], ['house', '🏠 House config (owner + admins)']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={scope === k} className={scope === k ? 'active' : ''} onClick={() => setScope(k)}>{l}</button>)}</div>
+          <small className="cc-empty">{scope === 'public' ? 'Used by the Launch page for everyone. Creating a new one replaces it for new coins only.' : 'Only owners and admins see it on the Launch page, for FEELESS\'s own coins (e.g. your fee reserve coin). Set its fee claimer to the wallet that should earn from it. It never replaces the public config.'}</small>
           {scope === 'house' && <><input placeholder="House config name (e.g. Reserve coins)" maxLength={40} value={houseLabel} onChange={e => setHouseLabel(e.target.value)} />
             <label className="bdg-pct"><input inputMode="decimal" value={p.poolCreationFeeSol ?? '5'} onChange={e => setP(v => ({ ...v, poolCreationFeeSol: e.target.value.replace(/[^0-9.]/g, '') }))} /><span>SOL outsider toll</span></label>
             <small className="cc-empty">Meteora configs can't block other launchers on-chain, so house configs charge a <b>launch toll</b> paid to your fee claimer. An outsider launching on it pays you {Number(p.poolCreationFeeSol ?? 5) || 0} SOL. You pay it too when you launch, then claim 90% back (Meteora keeps 10%) — so each of your own launches costs ≈ {((Number(p.poolCreationFeeSol ?? 5) || 0) * 0.1).toFixed(3)} SOL. Outsider coins are flagged below and never count as house coins on the site.</small></>}</div>
         <button type="button" className="btn-primary" disabled={!!status || check?.ok === false} onClick={create}>{status || (wallet?.chain === 'solana' ? `Create ${scope === 'house' ? 'house' : 'public'} launch rules (no coin) · sign with ${wallet.address.slice(0, 4)}…` : 'Connect Solana wallet')}</button>
-        <small className="cc-empty">Any owner wallet can sign; switch wallets in Phantom and reconnect to use a different one. The transaction is simulated before you're asked to sign.</small>
-      </> : <p className="cc-empty">Only the owner wallet can create the launch config.</p>}
+        <small className="cc-empty">The owner or any admin wallet can sign; switch wallets in Phantom and reconnect to use a different one. The transaction is simulated before you're asked to sign.</small>
+      </>}
     </div>
-    {rail?.house?.length > 0 && <div className="cc-block"><h4>🏠 House configs <small className="chain-tag">owners launch with these from the Launch page</small></h4>
+    {rail?.house?.length > 0 && <div className="cc-block"><h4>🏠 House configs <small className="chain-tag">owners + admins launch with these from the Launch page</small></h4>
       {rail.house.map(h => <div key={h.config} className="rail-house"><b>{h.label}</b><span>{Number(h.params?.initialMarketCap ?? 30)} → {Number(h.params?.migrationMarketCap ?? 500)} {h.params?.quote === 'USDC' ? 'USDC' : 'SOL'} · snipe tax {Number(h.params?.startingFeeBps ?? 9900) / 100}% · fees to <code>{h.feeClaimer.slice(0, 4)}…{h.feeClaimer.slice(-4)}</code></span><a href={`https://solscan.io/account/${h.config}`} target="_blank" rel="noreferrer">config ↗</a></div>)}</div>}
     <div className="cc-block cc-launch-coin"><h4>Step 2 · Launch a coin <small className="chain-tag">rail · config · coin · sign · receipt</small></h4>
       {!launchOpen

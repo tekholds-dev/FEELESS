@@ -7019,7 +7019,7 @@ class LaunchRailIn(BaseModel):
     config: str
     feeClaimer: str
     params: dict = {}
-    scope: str = 'public'      # public: the Launch page for everyone · house: owner-only launches (FEELESS's own coins)
+    scope: str = 'public'      # public: the Launch page for everyone · house: owner/admin-only launches (FEELESS's own coins)
     label: str = ''
 
 
@@ -7031,9 +7031,7 @@ async def launch_rail():
 
 @app.put('/api/reputation/admin/launch-rail')
 async def launch_rail_set(request: Request, p: LaunchRailIn):
-    me = _require_admin(request)
-    if me not in _owner_wallets():
-        raise HTTPException(403, 'Only the FEELESS owner wallet can set the launch rail.')
+    me = _require_admin(request)   # owner and admins: the config is verified on-chain below, and every change is audited
     if not (_re.match(_B58, p.config) and _re.match(_B58, p.feeClaimer)):
         raise HTTPException(400, 'Config and fee claimer must be Solana addresses.')
     # Only accept a config that really exists on-chain and belongs to the DBC program.
@@ -7055,6 +7053,7 @@ async def launch_rail_set(request: Request, p: LaunchRailIn):
     else:
         raise HTTPException(400, 'Scope must be public or house.')
     _json_save(LAUNCH_RAIL_PATH, d)
+    ad = _admin_load(); _audit(ad, me, 'launch-rail', f"{p.scope} config {p.config[:8]}"); _admin_save(ad)
     return d
 
 
