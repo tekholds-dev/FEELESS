@@ -19,14 +19,14 @@ async function downloadCard(r) {
   g.fillStyle = '#ffffff'; g.font = '400 60px Bungee, sans-serif'; g.fillText('RUG REPORT', 140, 112);
   g.fillStyle = '#9dffd9'; g.font = '600 22px "Space Grotesk", sans-serif'; g.fillText(`Last ${r.days} days · on-chain evidence only`, 142, 148);
   const t = r.totals;
-  [['Caught', t.caught, '#12c07a'], ['Blocklisted', t.blocklisted, '#ff6b8b'], ['Repeat funders', t.funders, '#ffc36b'], ['Broken Shields', t.brokenShields, '#ff6b8b']].forEach(([l, v, col], i) => {
+  [['Caught', t.caught, '#19f58f'], ['Blocklisted', t.blocklisted, '#ff6b8b'], ['Repeat funders', t.funders, '#ffc36b'], ['Broken Shields', t.brokenShields, '#ff6b8b']].forEach(([l, v, col], i) => {
     const x = 60 + i * 272; g.fillStyle = 'rgba(3,20,12,.7)'; g.strokeStyle = 'rgba(255,255,255,.12)'; g.beginPath(); g.roundRect(x, 190, 252, 130, 18); g.fill(); g.stroke();
     g.fillStyle = col; g.shadowColor = col; g.shadowBlur = 16; g.font = '400 54px Bungee, sans-serif'; g.fillText(Number(v).toLocaleString(), x + 22, 262); g.shadowBlur = 0;
     g.fillStyle = '#b9d6c8'; g.font = '600 19px "Space Grotesk", sans-serif'; g.fillText(l, x + 24, 298);
   });
   g.font = '600 22px "JetBrains Mono", monospace';
   (r.caught || []).slice(0, 5).forEach((c2, i) => { g.fillStyle = i % 2 ? 'rgba(255,255,255,.03)' : 'rgba(18,192,122,.06)'; g.fillRect(60, 350 + i * 44, 1080, 40); g.fillStyle = '#eafff3'; g.fillText(`${short(c2.wallet)}   ${c2.roles.join(' + ')} · ${c2.launches} launches${c2.blocked ? '   ⛔ blocked' : ''}`, 76, 377 + i * 44); });
-  g.fillStyle = '#12c07a'; g.font = '400 26px Bungee, sans-serif'; g.fillText('FEELESS', 60, 624); g.fillStyle = '#9fb3a8'; g.font = '600 20px "Space Grotesk", sans-serif'; g.fillText('the chain remembers.', 214, 622);
+  g.fillStyle = '#19f58f'; g.font = '400 26px Bungee, sans-serif'; g.fillText('FEELESS', 60, 624); g.fillStyle = '#9fb3a8'; g.font = '600 20px "Space Grotesk", sans-serif'; g.fillText('the chain remembers.', 214, 622);
   const a = document.createElement('a'); a.download = `feeless-rug-report-${new Date().toISOString().slice(0, 10)}.png`; a.href = c.toDataURL('image/png'); a.click();
 }
 

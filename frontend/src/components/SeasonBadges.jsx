@@ -4,7 +4,7 @@ import { apiUrl } from '../lib/api';
 const RARITY = {
   legendary: { label: 'Legendary', c1: '#ff5ad1', c2: '#f5c542', sides: 6 },
   epic: { label: 'Epic', c1: '#b388ff', c2: '#7cc8ff', sides: 8 },
-  rare: { label: 'Rare', c1: '#7cc8ff', c2: '#12c07a', sides: 0 },
+  rare: { label: 'Rare', c1: '#7cc8ff', c2: '#19f58f', sides: 0 },
   common: { label: 'Common', c1: '#8fa89a', c2: '#cfd8dc', sides: 0 },
 };
 const poly = (n, r, cx = 50, cy = 50) => Array.from({ length: n }, (_, i) => { const a = (Math.PI * 2 * i) / n - Math.PI / 2; return `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`; }).join(' ');

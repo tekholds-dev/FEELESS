@@ -21,7 +21,7 @@ export function useChartMarkers(pair, { calls, fee }) {
       if (fee) {
         try {
           const d = await (await fetch(`/api/cats/trades?pairAddress=${encodeURIComponent(pair.pairAddress)}`)).json();
-          (d.trades || []).forEach(t => out.push({ time: Math.floor(t.ts / 1000), position: t.type === 'BUY' ? 'belowBar' : 'aboveBar', shape: t.type === 'BUY' ? 'arrowUp' : 'arrowDown', color: t.type === 'BUY' ? '#12c07a' : '#fa708c', text: `Fee ${t.type === 'BUY' ? 'buy' : 'sell'}` }));
+          (d.trades || []).forEach(t => out.push({ time: Math.floor(t.ts / 1000), position: t.type === 'BUY' ? 'belowBar' : 'aboveBar', shape: t.type === 'BUY' ? 'arrowUp' : 'arrowDown', color: t.type === 'BUY' ? '#19f58f' : '#fa708c', text: `Fee ${t.type === 'BUY' ? 'buy' : 'sell'}` }));
         } catch { /* no fee overlay */ }
       }
       if (alive) setMarkers(out);

@@ -2,7 +2,7 @@
 // 1) IPFS link → retry once on a second gateway; 2) otherwise show a neutral coin mark, never the
 // browser's broken-image icon. Cover/background images just hide so their gradient shows through.
 const GATEWAYS = ['https://ipfs.io/ipfs/', 'https://cloudflare-ipfs.com/ipfs/', 'https://gateway.pinata.cloud/ipfs/', 'https://cf-ipfs.com/ipfs/', 'https://nftstorage.link/ipfs/'];
-const PLACEHOLDER = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#12c07a"/><stop offset="1" stop-color="#0b5f45"/></linearGradient></defs><circle cx="20" cy="20" r="19" fill="url(#g)" opacity=".35"/><circle cx="20" cy="20" r="11" fill="none" stroke="#7df9d0" stroke-opacity=".7" stroke-width="2"/></svg>');
+const PLACEHOLDER = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#19f58f"/><stop offset="1" stop-color="#0b5f45"/></linearGradient></defs><circle cx="20" cy="20" r="19" fill="url(#g)" opacity=".35"/><circle cx="20" cy="20" r="11" fill="none" stroke="#7df9d0" stroke-opacity=".7" stroke-width="2"/></svg>');
 
 function ipfsCid(src) {
   const m = src.match(/\/ipfs\/([^?#]+)/) || src.match(/^https?:\/\/([a-z0-9]{46,})\.ipfs\.[^/]+\/?(.*)$/i);

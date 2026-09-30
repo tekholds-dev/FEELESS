@@ -78,7 +78,7 @@ export function MetaCard({ card, size = 'md', interactive = false, flipped, onFl
   };
   const clickOnly = () => { if (!interactive) onFlip?.(); };
   const r = card.rarity || 'rare';
-  const style = { '--a': card.accent || '#16d67f', '--b': card.accent2 || '#f5c451' };
+  const style = { '--a': card.accent || '#19f58f', '--b': card.accent2 || '#f5c451' };
   const money = card.earns || [];
   const alive = card.motion === 'alive';
   return <div className={`mc-stage mc-${size} ${alive ? 'is-alive' : ''} ${className}`} style={style}><div className="mc-idle">

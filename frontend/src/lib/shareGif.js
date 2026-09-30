@@ -8,7 +8,7 @@ const ease = t => 1 - (1 - t) ** 3;
 
 // Gains glow royal green; anything negative (drops, losses, flagged creators) gets its own crimson world.
 const PALETTES = {
-  up: { base: '#021a10', pools: ['18,192,122', '11,122,82'], fade: 'rgba(2,26,16,0)', flare: '184,255,228', spark: '157,255,217', kicker: '#9dffd9', big: '#12c07a', brand: '#12c07a', frame: 'rgba(18,192,122,.55)', panel: 'rgba(3,20,12,.55)', text: '#d9efe4', foot: '#8fbfa8' },
+  up: { base: '#021a10', pools: ['18,192,122', '11,122,82'], fade: 'rgba(2,26,16,0)', flare: '184,255,228', spark: '157,255,217', kicker: '#9dffd9', big: '#19f58f', brand: '#19f58f', frame: 'rgba(18,192,122,.55)', panel: 'rgba(3,20,12,.55)', text: '#d9efe4', foot: '#8fbfa8' },
   down: { base: '#1a0208', pools: ['255,64,100', '140,20,50'], fade: 'rgba(26,2,8,0)', flare: '255,190,205', spark: '255,150,170', kicker: '#ffb3c3', big: '#ff6b8b', brand: '#ff6b8b', frame: 'rgba(255,90,122,.6)', panel: 'rgba(24,4,10,.6)', text: '#f3dbe1', foot: '#c9929f' },
 };
 

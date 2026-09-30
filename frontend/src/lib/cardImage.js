@@ -9,7 +9,7 @@ export async function cardToPng(card) {
   const W = 1000, H = 1400, cx = W / 2, cy = 560;
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const x = c.getContext('2d');
-  const a = card.accent || '#16d67f', b = card.accent2 || '#f5c451', r = RANK[card.rarity] || 2;
+  const a = card.accent || '#19f58f', b = card.accent2 || '#f5c451', r = RANK[card.rarity] || 2;
   // base + design wash
   x.fillStyle = '#030a06'; x.fillRect(0, 0, W, H);
   let g = x.createRadialGradient(cx, 0, 50, cx, 0, 1100); g.addColorStop(0, `${a}66`); g.addColorStop(1, 'transparent'); x.fillStyle = g; x.fillRect(0, 0, W, H);

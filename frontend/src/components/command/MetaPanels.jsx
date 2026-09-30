@@ -38,10 +38,10 @@ export function PnlCard({ symbol, pnlPct, pnlSol, label = 'Fee 🐱', note }) {
     const x = c.getContext('2d'); const W = 600, H = 315; c.width = W; c.height = H;
     const up = pnlPct >= 0; const g = x.createLinearGradient(0, 0, W, H);
     g.addColorStop(0, '#04120b'); g.addColorStop(1, up ? '#0b3a26' : '#3a0b17'); x.fillStyle = g; x.fillRect(0, 0, W, H);
-    x.strokeStyle = up ? '#12c07a' : '#fa708c'; x.lineWidth = 3; x.strokeRect(10, 10, W - 20, H - 20);
+    x.strokeStyle = up ? '#19f58f' : '#fa708c'; x.lineWidth = 3; x.strokeRect(10, 10, W - 20, H - 20);
     x.fillStyle = '#9fd3b6'; x.font = '600 18px sans-serif'; x.fillText('FEELESS', 36, 52);
     x.fillStyle = '#ffffff'; x.font = '700 34px sans-serif'; x.fillText(`$${symbol}`, 36, 110);
-    x.fillStyle = up ? '#12c07a' : '#fa708c'; x.font = '800 76px sans-serif'; x.fillText(`${up ? '+' : ''}${pnlPct.toFixed(1)}%`, 36, 200);
+    x.fillStyle = up ? '#19f58f' : '#fa708c'; x.font = '800 76px sans-serif'; x.fillText(`${up ? '+' : ''}${pnlPct.toFixed(1)}%`, 36, 200);
     x.fillStyle = '#cfe8da'; x.font = '500 18px sans-serif'; x.fillText(`${pnlSol != null ? `${pnlSol >= 0 ? '+' : ''}${pnlSol.toFixed(4)} SOL · ` : ''}${label}`, 36, 240);
     if (note) { x.fillStyle = '#7f9a8b'; x.font = '14px sans-serif'; x.fillText(note.slice(0, 70), 36, 272); }
     x.font = '64px serif'; x.fillText(up ? '🚀' : '🩸', W - 120, 110);

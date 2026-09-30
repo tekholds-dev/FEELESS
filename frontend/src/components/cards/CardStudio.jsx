@@ -51,7 +51,7 @@ export function CardStudio({ call }) {
           <div className="m-field"><span>Motion</span><div className="m-seg">{[['still', '◻ Still'], ['alive', '✦ Alive — floats, foil sweeps, crest glows']].map(([k, l]) => <button key={k} type="button" className={(draft.motion || 'still') === k ? 'active' : ''} onClick={() => set('motion', k)}>{l}</button>)}</div></div>
           <div className="m-field"><span>Rarity (crest + frame)</span><div className="m-seg">{RARITIES.map(r => <button key={r} type="button" className={draft.rarity === r ? 'active' : ''} onClick={() => set('rarity', r)}>{r}</button>)}</div></div>
           <div className="m-row"><label className="m-field"><span>Glyph</span><input className="m-input" style={{ width: 70, textAlign: 'center' }} maxLength={8} value={draft.glyph} onChange={e => set('glyph', e.target.value)} /></label>
-            <label className="m-field"><span>Colour 1</span><input type="color" className="cs-color" value={draft.accent || '#16d67f'} onChange={e => set('accent', e.target.value)} /></label>
+            <label className="m-field"><span>Colour 1</span><input type="color" className="cs-color" value={draft.accent || '#19f58f'} onChange={e => set('accent', e.target.value)} /></label>
             <label className="m-field"><span>Colour 2</span><input type="color" className="cs-color" value={draft.accent2 || '#f5c451'} onChange={e => set('accent2', e.target.value)} /></label>
             <label className="m-btn"><input type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" onChange={e => art(e.target.files?.[0])} />🖼 {draft.art ? 'Change art' : 'Add art'}</label>
             {draft.art && <button type="button" className="m-btn danger" onClick={() => set('art', '')}>Remove art</button>}</div>
