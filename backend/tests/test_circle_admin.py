@@ -25,6 +25,13 @@ def test_meta_and_send_guards(monkeypatch, tmp_path):
     for bad in (dict(to='nope', confirm='nope'[-4:], amount='1'), dict(to=TO, confirm='0000', amount='1'), dict(to=TO, confirm='WXYZ', amount='-2')):
         with pytest.raises(rs.HTTPException):
             asyncio.run(rs.circle_transfer(None, rs.CircleSendIn(walletId='w1', tokenId='t1', **bad)))
+    monkeypatch.setattr(rs, 'CIRCLE_DEST_PATH', tmp_path / 'd.json')
+    monkeypatch.setattr(rs, '_seasons', lambda: {'seasons': []}); monkeypatch.setattr(rs, '_pools', lambda: {'pools': []})
+    monkeypatch.setattr(rs, 'ROUTES_PATH', tmp_path / 'r.json'); monkeypatch.setattr(rs, '_owner_wallets', lambda: {'Owner'}); monkeypatch.setattr(rs, '_admin_wallets', lambda: {'Owner'})
+    with pytest.raises(rs.HTTPException) as unknown:   # not a Command Center wallet and not saved → refused
+        asyncio.run(rs.circle_transfer(None, rs.CircleSendIn(walletId='w1', tokenId='t1', to=TO, amount='2.5', confirm='WXYZ')))
+    assert unknown.value.status_code == 403
+    asyncio.run(rs.circle_destination_save(None, rs.CircleDestIn(address=TO, label='Cold wallet')))
     out = asyncio.run(rs.circle_transfer(None, rs.CircleSendIn(walletId='w1', tokenId='t1', to=TO, amount='2.5', confirm='WXYZ')))
     assert out['state'] == 'INITIATED' and sent[-1][0] == '/transfer' and sent[-1][1]['amount'] == '2.5'
 
@@ -86,3 +93,28 @@ def test_circle_autostarts_when_down(monkeypatch):
     real_sleep = asyncio.sleep
     monkeypatch.setattr(rs.asyncio, 'sleep', lambda s: real_sleep(0))
     assert asyncio.run(rs._circle('GET', '/status')) == {'ok': True} and len(started) == 1
+
+
+def test_money_pulse_one_read_for_every_card(monkeypatch):
+    """Pulse: one getMultipleAccounts for all wallets, Circle listed, reserve plan fed from that read."""
+    RES = 'Resv111111111111111111111111111111111111111'
+    rpc_calls = []
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'Owner')
+    monkeypatch.setattr(rs, '_owner_wallets', lambda: {'Owner'})
+    monkeypatch.setattr(rs, '_fee_cfg', lambda: {'platformFeeBps': 50, 'engine': 'swap'})
+    monkeypatch.setattr(rs, '_seasons', lambda: {'seasons': [{'id': 's1', 'name': 'S1', 'reserveWallet': RES, 'badgeRewardPct': 10, 'start': 0, 'end': 1}], 'scores': {}})
+    monkeypatch.setattr(rs, '_pools', lambda: {'pools': []})
+    monkeypatch.setattr(rs, '_json_load', lambda path, default=None: {} if default is None else default)
+    rs._pulse_cache.clear()
+
+    async def rpc(http, method, params):
+        rpc_calls.append(method); return {'value': [{'lamports': 3_000_000_000, 'data': ['', 'base64']} for _ in params[0]]}
+
+    async def circle(method, path, body=None):
+        return {'wallets': [{'id': 'c', 'address': RES, 'blockchain': 'SOL', 'balances': []}]}
+    monkeypatch.setattr(rs, '_rpc', rpc); monkeypatch.setattr(rs, '_circle', circle)
+    out = asyncio.run(rs.admin_money_pulse(None))
+    assert rpc_calls == ['getMultipleAccounts']
+    assert out['reserves']['s1']['poolSol'] == 3.0 and out['circle']['up'] and out['circle']['wallets'][0]['address'] == RES
+    assert any(c['key'] == 'jup' for c in out['checks'])
+    assert asyncio.run(rs.admin_money_pulse(None)).get('cached')

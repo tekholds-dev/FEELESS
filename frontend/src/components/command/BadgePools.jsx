@@ -5,6 +5,7 @@ import { errorText } from '../../lib/api';
 import { shortAddress } from '../../lib/dexscreener';
 import { useSolUsd, money } from './FeeInputs';
 import { CirclePay, useCircleWallet } from './CirclePay';
+import { useMoneyPulse, refreshPulse } from '../../lib/moneyPulse';
 
 // Badge pools: a pool is a wallet you control + how much of it goes to badge holders. The matrix sets, for every
 // badge, the exact % of each pool's pot it earns (split equally between that badge's holders). Unassigned % stays put.
@@ -35,8 +36,12 @@ export function BadgePools({ call }) {
     setGrid(Object.fromEntries((d.pools || []).map(p => [p.id, Object.fromEntries(Object.entries(p.weights || {}).map(([k, v]) => [k, String(v)]))])));
   }).catch(e => toast.error(errorText(e))), [call]);
   useEffect(() => { load(); }, [load]);
-  const loadPlans = useCallback(() => meta.pools.forEach(p => call(`/admin/badge-pools/${p.id}/plan`).then(pl => setPlans(x => ({ ...x, [p.id]: pl }))).catch(() => {})), [meta.pools, call]);
-  useEffect(() => { loadPlans(); }, [loadPlans]);
+  // Pool plans ride the shared money pulse; only a pool the pulse hasn't seen yet (just created) is fetched directly.
+  const pulsePools = useMoneyPulse(call).data?.pools;
+  useEffect(() => {
+    if (pulsePools) setPlans(x => ({ ...x, ...pulsePools }));
+    meta.pools.filter(p => !pulsePools?.[p.id]).forEach(p => call(`/admin/badge-pools/${p.id}/plan`).then(pl => setPlans(x => ({ ...x, [p.id]: pl }))).catch(() => {}));
+  }, [meta.pools, pulsePools, call]);
   const usd = v => (px && v ? money(v * px) : '');
   const rows = useMemo(() => [
     ...meta.badges.map(b => ({ key: `badge:${b.id}`, label: `${b.icon || '🎖'} ${b.label}`, sub: `${b.count} holder${b.count === 1 ? '' : 's'}` })),
@@ -66,7 +71,7 @@ export function BadgePools({ call }) {
       const { batchSend } = await import('../../lib/batchSend');
       const sigs = await batchSend({ provider, owner: wallet.address, recipients: plan.rows.map(r => ({ address: r.address, amount: r.sol })), kind: 'badge-pool', onStatus: setBusy });
       const r = await call(`/admin/badge-pools/${p.id}/paid`, { method: 'POST', body: JSON.stringify({ sigs }) });
-      toast.success(`Paid ${r.paidSol} SOL to ${r.wallets} wallets.`); load();
+      toast.success(`Paid ${r.paidSol} SOL to ${r.wallets} wallets.`); refreshPulse(true); load();
     } catch (e) { toast.error(errorText(e)); } finally { setBusy(''); }
   };
   const anyDirty = meta.pools.some(p => dirty(p.id));

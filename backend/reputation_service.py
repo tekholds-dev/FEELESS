@@ -18,6 +18,7 @@ import perf
 import verify
 import launch_meta
 import fee_report
+import money_pulse
 from ecosystem import ecosystem_mints
 import asyncio
 import collections
@@ -7477,10 +7478,10 @@ async def circle_create_wallet(request: Request, p: CircleWalletIn):
 # ================================================================================================
 # SEASON BADGE RESERVE POOL: tiers earn weighted shares of the Fee Reserve wallet, owner-signed payouts
 # ================================================================================================
-async def _reserve_plan(s, d):
+async def _reserve_plan(s, d, bal=None):
     wallet = s.get('reserveWallet') or ''
-    pool = None
-    if wallet:
+    pool = bal
+    if wallet and bal is None:
         try:
             async with httpx.AsyncClient(timeout=8) as http:
                 pool = ((await _rpc(http, 'getBalance', [wallet])) or {}).get('value', 0) / 1e9
@@ -7711,13 +7712,15 @@ def _pool_inputs(pool):
     return reserve_pool.pool_holders(pool.get('weights') or {}, tiers, badges), 100.0
 
 
-async def _pool_plan(pool):
-    try:
-        async with httpx.AsyncClient(timeout=8) as http:
-            bal = ((await _rpc(http, 'getBalance', [pool['wallet']])) or {}).get('value', 0) / 1e9
-        known = True
-    except Exception:
-        bal, known = 0, False
+async def _pool_plan(pool, bal=None):
+    known = bal is not None
+    if bal is None:
+        try:
+            async with httpx.AsyncClient(timeout=8) as http:
+                bal = ((await _rpc(http, 'getBalance', [pool['wallet']])) or {}).get('value', 0) / 1e9
+            known = True
+        except Exception:
+            bal, known = 0, False
     holders, allocated = _pool_inputs(pool)
     # Fixed SOL-each badges are paid first (never more than the wallet can spare); the % pot comes from what's left.
     fixed, fixed_total = reserve_pool.fixed_rows(pool.get('fixed') or {}, pool.pop('_tiers', {}), pool.pop('_badges', {}), max(0.0, bal - reserve_pool.KEEP_SOL))
@@ -8139,6 +8142,73 @@ async def treasury_money(request: Request):
             'owners': list(_owner_wallets())}
 
 
+_pulse_cache: dict = {}
+
+
+@app.get('/api/reputation/admin/money-pulse')
+async def admin_money_pulse(request: Request, fresh: int = 0):
+    """ONE snapshot for every Command Center money card: fee accounts, admin, season reserves, badge pools and Circle
+    wallets (one batched chain read + Circle in parallel), their payout plans, a preflight of everything trading
+    depends on, and nudges. Owners also get Circle (and calling it keeps the Circle service alive)."""
+    me = _require_admin(request)
+    owner = me in _owner_wallets()
+    key = 'owner' if owner else 'admin'
+    hit = _pulse_cache.get(key)
+    if hit and not fresh and time.time() - hit[0] < 15:
+        return {**hit[1], 'cached': True}
+    cfg = _fee_cfg(); d = _seasons(); pools = _pools()['pools']
+    seasons = [x for x in d['seasons'] if x.get('reserveWallet')][-4:]
+    addrs = list(dict.fromkeys([a for a in (cfg.get('feeAccountSol'), cfg.get('feeAccountUsdc'), me) if a] + [x['reserveWallet'] for x in seasons] + [p['wallet'] for p in pools]))
+
+    async def chain():
+        try:
+            async with httpx.AsyncClient(timeout=10) as http:
+                res = await _rpc(http, 'getMultipleAccounts', [addrs[:100], {'encoding': 'jsonParsed', 'commitment': 'confirmed'}])
+            return money_pulse.parse_accounts(addrs, (res or {}).get('value') or []), True
+        except Exception:
+            return {}, False
+
+    async def circle():
+        if not owner:
+            return {'configured': False}
+        try:
+            return {'configured': True, 'up': True, 'wallets': (await _circle('GET', '/wallets')).get('wallets') or []}
+        except HTTPException as e:
+            return {'configured': bool(os.environ.get('CIRCLE_API_KEY')), 'up': False, 'error': str(e.detail)[:160], 'wallets': []}
+
+    async def trading():
+        try:
+            async with httpx.AsyncClient(timeout=4) as http:
+                return (await http.get('http://127.0.0.1:5001/api/trading/status')).json()
+        except Exception:
+            return {}
+    (acc, chain_ok), circ, trade = await asyncio.gather(chain(), circle(), trading())
+    sol = lambda a: (acc.get(a) or {}).get('sol') if chain_ok else None
+    reserves, pool_plans = await asyncio.gather(
+        asyncio.gather(*(_reserve_plan(x, d, bal=sol(x['reserveWallet'])) for x in seasons)),
+        asyncio.gather(*(_pool_plan(dict(p), bal=sol(p['wallet'])) for p in pools)))
+    fee_rows = []
+    for label, a, asset in (('SOL fee account (wSOL)', cfg.get('feeAccountSol') or '', 'wSOL'), ('USDC fee account', cfg.get('feeAccountUsdc') or '', 'USDC')):
+        t = (acc.get(a) or {}).get('token') if a else None
+        fee_rows.append({'label': label, 'address': a, 'asset': asset, 'ok': bool(t), **(t or {})})
+    ledger = _json_load(FEE_LEDGER_PATH, {})
+    last = max((r[-1]['t'] for r in ledger.values() if r), default=0)
+    now = time.time()
+    fees_day = round(sum(x['feeUsd'] for r in ledger.values() for x in r if now - x['t'] < 86400), 4)
+    fees_week = round(sum(x['feeUsd'] for r in ledger.values() for x in r if now - x['t'] < 7 * 86400), 4)
+    env = {k: os.environ.get(k, '').strip() for k in ('SOLANA_RPC_URL', 'JUPITER_API_KEY')}
+    env['_internal_key'] = (Path(__file__).parent / 'data' / 'internal.key').exists()
+    checks = money_pulse.preflight(env, cfg, fee_rows, trade, last, time.time(), circ)
+    if not chain_ok:
+        checks.insert(0, {'key': 'chain', 'label': 'Chain read', 'ok': False, 'fix': 'RPC did not answer; balances below may be stale.'})
+    trim = lambda plan: {**plan, 'rows': plan['rows'][:60]}
+    out = {'at': time.time(), 'owner': owner, 'chainOk': chain_ok, 'feesTodayUsd': fees_day, 'fees7dUsd': fees_week, 'admin': me, 'adminSol': sol(me), 'feeAccounts': fee_rows,
+           'reserves': {r['season']['id']: trim(r) for r in reserves}, 'pools': {p['pool']['id']: trim(p) for p in pool_plans},
+           'circle': circ, 'checks': checks, 'alerts': money_pulse.alerts(reserves, pool_plans, circ.get('wallets'))}
+    _pulse_cache[key] = (time.time(), out)
+    return out
+
+
 class SplitRecord(BaseModel):
     sigs: list[str] = Field(min_length=1, max_length=40)
     asset: str = 'SOL'
@@ -8384,6 +8454,52 @@ async def circle_wallet_meta(request: Request, wid: str, p: CircleMetaIn):
     return {'ok': True, **d[wid]}
 
 
+CIRCLE_DEST_PATH = DATA_DIR / 'circle_destinations.json'
+
+
+async def _circle_destinations(circle_wallets=None) -> list:
+    d = _seasons()
+    if circle_wallets is None:
+        try:
+            circle_wallets = (await _circle('GET', '/wallets')).get('wallets') or []
+        except HTTPException:
+            circle_wallets = []
+    snap = (_pulse_cache.get('owner') or (0, {}))[1]   # fee account owners, as last read on-chain by the money pulse
+    fee_owners = [f['owner'] for f in snap.get('feeAccounts') or [] if f.get('owner')]
+    return money_pulse.known_destinations(sorted(_owner_wallets()), sorted(_admin_wallets()), fee_owners,
+                                          [(f"Season reserve · {x['name']}", x['reserveWallet']) for x in d['seasons'] if x.get('reserveWallet')],
+                                          [(f"Badge pool · {x['name']}", x['wallet']) for x in _pools()['pools']],
+                                          _json_load(ROUTES_PATH, {'routes': []}).get('routes', []), circle_wallets,
+                                          _json_load(CIRCLE_DEST_PATH, {'saved': []}).get('saved', []))
+
+
+@app.get('/api/reputation/admin/circle/destinations')
+async def circle_destinations(request: Request):
+    """Where a Circle wallet may send: Command Center wallets + ones the owner saved."""
+    _require_owner(request)
+    return {'destinations': await _circle_destinations()}
+
+
+class CircleDestIn(BaseModel):
+    address: str
+    label: str = ''
+    remove: bool = False
+
+
+@app.post('/api/reputation/admin/circle/destinations')
+async def circle_destination_save(request: Request, p: CircleDestIn):
+    me = _require_owner(request)
+    if not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.address) or _re.match(r'^0x[0-9a-fA-F]{40}$', p.address)):
+        raise HTTPException(400, 'That is not a wallet address.')
+    d = _json_load(CIRCLE_DEST_PATH, {'saved': []})
+    d['saved'] = [x for x in d.get('saved', []) if x['address'] != p.address]
+    if not p.remove:
+        d['saved'] = (d['saved'] + [{'address': p.address, 'label': (p.label or 'Saved wallet')[:40], 'by': me, 'at': time.time()}])[-50:]
+    _json_save(CIRCLE_DEST_PATH, d)
+    ad = _admin_load(); _audit(ad, me, 'circle-dest', f"{'removed' if p.remove else 'saved'} {p.address[:6]}… {p.label[:20]}"); _admin_save(ad)
+    return {'saved': d['saved']}
+
+
 @app.get('/api/reputation/admin/circle/meta')
 async def circle_meta_get(request: Request):
     _require_owner(request)
@@ -8405,6 +8521,9 @@ async def circle_transfer(request: Request, p: CircleSendIn):
         raise HTTPException(400, 'Destination must be a wallet address.')
     if p.confirm != p.to[-4:]:
         raise HTTPException(400, 'Type the last 4 characters of the destination to confirm.')
+    dest = {x['address'] for x in await _circle_destinations()}
+    if p.to not in dest:
+        raise HTTPException(403, 'Circle wallets only send to Command Center wallets or wallets you saved. Save this address first.')
     if not _re.match(r'^\d+(\.\d+)?$', p.amount) or float(p.amount) <= 0:
         raise HTTPException(400, 'Amount must be a positive number.')
     out = await _circle('POST', '/transfer', {'walletId': p.walletId, 'tokenId': p.tokenId, 'to': p.to, 'amount': p.amount, 'idempotencyKey': str(uuid.uuid4())})

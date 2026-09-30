@@ -26,6 +26,7 @@ import { TAB_INFO } from './ccTabInfo';
 import { FeeBrain } from './FeeBrain';
 import { MoneyFlows } from './MoneyFlows';
 import { CirclePay, useCircleWallet } from './CirclePay';
+import { useMoneyPulse, refreshPulse } from '../../lib/moneyPulse';
 
 const SESSION_KEY = 'feeless:cc-session';
 const readSession = addr => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.address === addr && Date.now() / 1000 - s.ts < 86000 ? s : null; } catch { return null; } };
@@ -60,13 +61,6 @@ export function CommandCenter({ address, signMessage, onClose }) {
     if (!res.ok) throw new Error(errorText(body, res.status));
     return body;
   }, [address, session]);
-  // Circle stays up while the owner is signed in: a quiet status ping every 3 min restarts the sidecar if it died.
-  useEffect(() => {
-    if (!isOwner || !session) return undefined;
-    const ping = () => call('/admin/circle/status').catch(() => {});
-    ping(); const id = setInterval(ping, 180_000);
-    return () => clearInterval(id);
-  }, [isOwner, session, call]);
 
   const signIn = async () => {
     setBusy(true);
@@ -285,11 +279,17 @@ export function ReservePool({ call }) {
   const [form, setForm] = useState({ reserveWallet: '', badgeRewardPct: '' });
   const [busy, setBusy] = useState('');
   useEffect(() => { call('/admin/seasons').then(d => { const list = [...(d.seasons || [])].sort((a, b) => b.start - a.start); setSeasons(list); const now = Date.now() / 1000; setSid((list.find(s => s.start <= now && now < s.end) || list[0])?.id || ''); }).catch(e => toast.error(e.message)); }, [call]);
-  const load = useCallback(() => { if (sid) call(`/admin/reserve/${sid}`).then(p => { setPlan(p); setForm({ reserveWallet: p.season.reserveWallet || '', badgeRewardPct: String(p.season.badgeRewardPct || '') }); }).catch(e => toast.error(e.message)); }, [call, sid]);
-  useEffect(() => { setPlan(null); load(); }, [load]);
+  // Plans come from the shared money pulse; the direct call is only for seasons the pulse doesn't carry (no reserve wallet yet).
+  const pulse = useMoneyPulse(call).data;
+  const pulsed = pulse?.reserves?.[sid];
+  const load = useCallback(() => { if (sid) call(`/admin/reserve/${sid}`).then(setPlan).catch(e => toast.error(e.message)); }, [call, sid]);
+  const reload = () => { refreshPulse(true); load(); };
+  useEffect(() => { setPlan(null); if (!pulsed) load(); }, [sid]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (pulsed) setPlan(pulsed); }, [pulsed]);
+  useEffect(() => { if (plan?.season?.id === sid) setForm({ reserveWallet: plan.season.reserveWallet || '', badgeRewardPct: String(plan.season.badgeRewardPct || '') }); }, [sid, plan?.season?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const usd = v => (px && v != null ? money(v * px) : '');
   const save = async () => {
-    try { setBusy('Saving…'); await call(`/admin/seasons/${sid}`, { method: 'PUT', body: JSON.stringify({ reserveWallet: form.reserveWallet.trim(), badgeRewardPct: Number(form.badgeRewardPct) || 0 }) }); toast.success('Reserve pool saved.'); load(); }
+    try { setBusy('Saving…'); await call(`/admin/seasons/${sid}`, { method: 'PUT', body: JSON.stringify({ reserveWallet: form.reserveWallet.trim(), badgeRewardPct: Number(form.badgeRewardPct) || 0 }) }); toast.success('Reserve pool saved.'); reload(); }
     catch (e) { toast.error(errorText(e)); } finally { setBusy(''); }
   };
   const isReserve = wallet?.chain === 'solana' && wallet?.address === plan?.season.reserveWallet;
@@ -300,7 +300,7 @@ export function ReservePool({ call }) {
       const { batchSend } = await import('../../lib/batchSend');
       const sigs = await batchSend({ provider, owner: wallet.address, recipients: plan.rows.map(r => ({ address: r.address, amount: r.sol })), kind: 'reserve', onStatus: setBusy });
       await call(`/admin/reserve/${sid}/paid`, { method: 'POST', body: JSON.stringify({ sigs }) });
-      toast.success(`Paid ${plan.paidSol} SOL to ${plan.rows.length} badge holders.`); load();
+      toast.success(`Paid ${plan.paidSol} SOL to ${plan.rows.length} badge holders.`); reload();
     } catch (e) { toast.error(errorText(e)); } finally { setBusy(''); }
   };
   if (!seasons.length) return <div className="cc-block"><p className="cc-empty">Create a season first (Seasons tab). Its badges then earn from the reserve pool.</p></div>;
@@ -317,9 +317,9 @@ export function ReservePool({ call }) {
       <div className="bdg-card"><small>Tier weights</small><div className="bdg-weights">{Object.entries(plan?.weights || {}).filter(([, w]) => w).map(([t, w]) => <span key={t}>{TIER_ICON[t]} {t}<b>{w}×</b></span>)}</div><span>Recruit, blocklisted and FEELESS wallets earn nothing.</span></div>
     </div>
     {plan?.payout ? <div className="bdg-paid">✅ {plan.payout.via === 'circle' ? 'Sent' : 'Paid'} {plan.payout.rows.reduce((a, r) => a + r.sol, 0).toFixed(4)} SOL to {plan.payout.rows.length} wallets · {plan.payout.via === 'circle' ? 'via Circle' : <a href={`https://solscan.io/tx/${plan.payout.sigs[0]}`} target="_blank" rel="noopener noreferrer">receipt</a>}
-        {plan.payout.failed?.length > 0 && <><span className="bdg-warn"> · {plan.payout.failed.length} failed</span><CirclePay call={call} circle={circleW} rows={plan.payout.failed} path={`/admin/reserve/${sid}/pay-circle`} onDone={load} label={`Retry ${plan.payout.failed.length} via Circle`} /></>}</div>
+        {plan.payout.failed?.length > 0 && <><span className="bdg-warn"> · {plan.payout.failed.length} failed</span><CirclePay call={call} circle={circleW} rows={plan.payout.failed} path={`/admin/reserve/${sid}/pay-circle`} onDone={reload} label={`Retry ${plan.payout.failed.length} via Circle`} /></>}</div>
       : <div className="bdg-payrow"><span>{plan ? `${plan.rows.length} wallets · ${plan.paidSol} SOL${plan.droppedDust ? ` · ${plan.droppedDust} dust shares re-split` : ''}` : 'Loading…'}</span>
-        {circleW ? <CirclePay call={call} circle={circleW} rows={plan?.rows || []} path={`/admin/reserve/${sid}/pay-circle`} onDone={load} label={`Pay ${plan?.paidSol ?? ''} SOL via Circle`} /> : <button type="button" className="btn-primary" disabled={!!busy || !plan?.rows.length} title={plan?.ended ? '' : 'Season still live: shares will move until it ends'} onClick={pay}>{busy || (isReserve ? `Pay out ${plan?.paidSol ?? ''} SOL` : 'Connect the reserve wallet to pay')}</button>}</div>}
+        {circleW ? <CirclePay call={call} circle={circleW} rows={plan?.rows || []} path={`/admin/reserve/${sid}/pay-circle`} onDone={reload} label={`Pay ${plan?.paidSol ?? ''} SOL via Circle`} /> : <button type="button" className="btn-primary" disabled={!!busy || !plan?.rows.length} title={plan?.ended ? '' : 'Season still live: shares will move until it ends'} onClick={pay}>{busy || (isReserve ? `Pay out ${plan?.paidSol ?? ''} SOL` : 'Connect the reserve wallet to pay')}</button>}</div>}
     <div className="bdg-table">{!plan?.rows.length ? <p className="cc-empty">{plan && !plan.pct ? 'Set a % to start paying badge holders.' : 'No tiered badge holders yet.'}</p> : plan.rows.slice(0, 60).map((r, i) => <div key={r.address} className="bdg-row"><i>#{i + 1}</i><span className={`bdg-tier t-${r.tier.toLowerCase()}`}>{TIER_ICON[r.tier]} {r.tier}</span><code>{shortAddress(r.address)}</code><small>{r.sharePct}%</small><b>{r.sol} SOL</b><em>{usd(r.sol)}</em></div>)}</div>
   </div>;
 }

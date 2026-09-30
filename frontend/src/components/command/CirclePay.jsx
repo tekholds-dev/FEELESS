@@ -1,20 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { errorText } from '../../lib/api';
+import { useMoneyPulse, circleFor, refreshPulse } from '../../lib/moneyPulse';
 
 // Pools whose wallet is a Circle wallet can't be connected in Phantom: Circle holds the key and signs on the
 // server. So the owner pays here instead: type "PAY <total>", Circle sends one transfer per holder.
-let cache = null;
+// Circle wallets come from the shared money pulse (one request a minute for every card).
 export function useCircleWallet(call, address) {
-  const [w, setW] = useState(null);
-  useEffect(() => {
-    if (!address) { setW(null); return undefined; }
-    let alive = true;
-    if (!cache || Date.now() - cache.at > 60_000) cache = { at: Date.now(), p: call('/admin/circle/wallets').then(d => d.wallets || []).catch(() => []) };
-    cache.p.then(list => { if (alive) setW(list.find(x => x.address === address) || null); });
-    return () => { alive = false; };
-  }, [call, address]);
-  return w;
+  const { data } = useMoneyPulse(call);
+  return circleFor(data, address);
 }
 
 export const payPhrase = rows => `PAY ${Math.round(rows.reduce((a, r) => a + Number(r.sol || 0), 0) * 1e6) / 1e6}`;
@@ -32,7 +26,7 @@ export function CirclePay({ call, circle, rows, path, onDone, label = 'Pay via C
       const r = await call(path, { method: 'POST', body: JSON.stringify({ confirm: typed.trim() }) });
       if (r.failed?.length) toast.error(`Circle sent ${r.paidSol} SOL to ${r.wallets}; ${r.failed.length} failed. Retry sends only those.`);
       else toast.success(`Circle is sending ${r.paidSol} SOL to ${r.wallets} wallets.`);
-      setOpen(false); setTyped(''); onDone?.();
+      setOpen(false); setTyped(''); refreshPulse(true); onDone?.();
     } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); }
   };
   if (!open) return <button type="button" className="btn-primary circle-pay-btn" data-testid="circle-pay" onClick={() => setOpen(true)}>◎ {label}</button>;
