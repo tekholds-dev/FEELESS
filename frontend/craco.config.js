@@ -114,6 +114,8 @@ let webpackConfig = {
       '@': path.resolve(__dirname, 'src'),
     },
     configure: (webpackConfig) => {
+      // Metaplex ships source maps that point at .ts files it doesn't publish: skip them (quiet, faster builds).
+      webpackConfig.ignoreWarnings = [...(webpackConfig.ignoreWarnings || []), /Failed to parse source map/];
 
       // Add ignored patterns to reduce watched directories
         webpackConfig.watchOptions = {
@@ -264,5 +266,16 @@ if (emergentOverlay) {
 const configureDevServer = webpackConfig.devServer;
 webpackConfig.devServer = (devServerConfig) =>
   makeDevServerV5Compatible(configureDevServer(devServerConfig));
+
+// Jest's resolver doesn't follow package.json "exports" subpaths (webpack does): map the one Metaplex needs.
+webpackConfig.jest = {
+  configure: (jestConfig) => ({
+    ...jestConfig,
+    moduleNameMapper: {
+      ...(jestConfig.moduleNameMapper || {}),
+      '^@metaplex-foundation/umi/serializers$': '<rootDir>/node_modules/@metaplex-foundation/umi/dist/cjs/serializers.cjs',
+    },
+  }),
+};
 
 module.exports = webpackConfig;

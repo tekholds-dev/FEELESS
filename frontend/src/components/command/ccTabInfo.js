@@ -3,6 +3,7 @@ export const TAB_INFO = {
   launch: ['Launch & setup', 'Hook up keys, then sign the one-time launch config. Everything launchable is mapped here.', ['Launch map', 'Presets', 'Readiness check']],
   fees: ['Trading & fees', 'The FEELESS fee on every trade: rate, engine, fee accounts and live earnings.', ['Fee %', 'Engine', 'Fee accounts']],
   latency: ['Lag catcher', 'What real visitors feel: slow routes, janky pages, and the fix for each.', ['Speed score', 'Lite effects', 'Fix list']],
+  nfts: ['NFTs', 'Your cards as Solana collections on Metaplex Core, Crossmint or Underdog, dropped to any wallets or to everyone holding the card.', ['Create collection', 'Drop to holders']],
   money: ['Money', 'Every FEELESS wallet in one place: fee accounts + splits, the season reserve and badge pools, and Circle wallets. One live pulse feeds it all.', ['Treasury & splits', 'Reserve & badge pools', 'Circle wallets']],
   numbers: ['Numbers', 'Growth at a glance: users, trades, volume, retention.', []],
   traffic: ['Traffic', 'Where visitors come from and which pages they use.', []],

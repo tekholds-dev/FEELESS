@@ -160,3 +160,42 @@ def test_launch_check_pump(monkeypatch):
     out = asyncio.run(rs.launch_check(MINT, 'pump'))
     assert out['onChain'] and out['onPump'] and out['onDex'] is False and out['pumpUrl'].endswith(MINT)
     assert asyncio.run(rs.launch_check(MINT, 'feeless'))['onPump'] is None
+
+
+def test_nft_crossmint_create_drop_and_metaplex_record(monkeypatch, tmp_path):
+    """Crossmint: created + dropped through its API (typed DROP n). Metaplex: only what the owner's wallet signed is recorded."""
+    IMG = '/api/reputation/uploads/' + 'a' * 32 + '.png'
+    W1, W2 = 'Aaaa1111111111111111111111111111111111111111', 'Bbbb1111111111111111111111111111111111111111'
+    monkeypatch.setattr(rs, 'NFT_PATH', tmp_path / 'nft.json')
+    monkeypatch.setattr(rs, '_require_owner', lambda r: 'Owner1111111111111111111111111111111111111111')
+    monkeypatch.setattr(rs, '_admin_load', lambda: {}); monkeypatch.setattr(rs, '_audit', lambda *a: None); monkeypatch.setattr(rs, '_admin_save', lambda d: None)
+    monkeypatch.setenv('PUBLIC_SITE_URL', 'https://feeless.xyz'); monkeypatch.setenv('CROSSMINT_API_KEY', 'sk_staging_x')
+    calls = []
+
+    async def api(platform, method, path, body=None):
+        calls.append((platform, path, body))
+        return {'id': 'cm-col-1'} if path.endswith('/collections') else {'id': f"nft-{len(calls)}"}
+    monkeypatch.setattr(rs, '_nft_api', api)
+
+    class Req:
+        headers = {}
+        def __init__(self, body): self.body = body
+        async def json(self): return self.body
+    c = asyncio.run(rs.nft_create(Req({'name': 'OG Cards', 'symbol': 'OG', 'platform': 'crossmint', 'image': IMG, 'supply': 5})))
+    assert c['address'] == 'cm-col-1' and c['status'] == 'live' and calls[0][2]['metadata']['imageUrl'] == 'https://feeless.xyz' + IMG
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.nft_drop(Req({}), c['id'], rs.NftDropIn(to=[W1, W2], confirm='DROP 1')))
+    out = asyncio.run(rs.nft_drop(Req({}), c['id'], rs.NftDropIn(to=[W1, W2, 'junk'], confirm='DROP 2')))
+    assert out['minted'] == 2 and calls[-1][2]['recipient'] == f'solana:{W2}'
+
+    mp = asyncio.run(rs.nft_create(Req({'name': 'Core Cards', 'symbol': 'CORE', 'platform': 'metaplex', 'image': IMG})))
+    assert mp['status'] == 'draft'
+    COL = 'Coxx1111111111111111111111111111111111111111'
+
+    async def verify(sig, signer, touch):
+        assert signer.startswith('Owner') and COL in touch
+    monkeypatch.setattr(rs, '_nft_verify', verify)
+    rec = asyncio.run(rs.nft_onchain(Req({}), mp['id'], rs.NftOnchainIn(address=COL, signature='5' * 88)))
+    assert rec['address'] == COL and rec['status'] == 'live'
+    meta = asyncio.run(rs.nft_meta(f"{mp['id']}-3.json", type('R', (), {'base_url': 'http://x/'})()))
+    assert meta['name'] == 'Core Cards #3'

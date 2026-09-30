@@ -5,7 +5,7 @@ import { LaunchRailAdmin } from './LaunchRailAdmin';
 import { CircleWallets } from './CircleWallets';
 import { UnitInput, TradePreview, useSolUsd, money, LiveMoney, FeeTable } from './FeeInputs';
 import { MarketingPanel } from './MarketingPanel';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ShieldCheck, Users, Gift, Award, Bug, RefreshCw, Download, X, Activity, BarChart3, Wallet, Megaphone, Search } from 'lucide-react';
 import { apiUrl, errorText } from '../../lib/api';
@@ -27,6 +27,7 @@ import { CirclePay, useCircleWallet } from './CirclePay';
 import { CardStudio } from '../cards/CardStudio';
 import { IntelDesk } from './IntelDesk';
 import { useMoneyPulse, refreshPulse } from '../../lib/moneyPulse';
+const NftStudio = lazy(() => import('../nft/NftStudio').then(m => ({ default: m.NftStudio })));
 
 const SESSION_KEY = 'feeless:cc-session';
 const readSession = addr => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.address === addr && Date.now() / 1000 - s.ts < 86000 ? s : null; } catch { return null; } };
@@ -98,8 +99,8 @@ export function CommandCenter({ address, signMessage, onClose }) {
 
   // Grouped so the money + infra controls are always first; every tab id appears exactly once.
   const TAB_GROUPS = [['Core', ['launch', 'fees', 'money', 'latency']], ['Growth', ['numbers', 'traffic', 'pulse', 'marketing', 'kols', 'invites', 'ads', 'ideas']],
-    ['Community', ['holders', 'studio', 'airdrops', 'snapshots', 'badges', 'seasons', 'pools', 'feecat', 'broadcast']], ['Safety', ['investigate', 'verify', 'overview', 'mod', 'access', 'bugs']]];
-  const TABS = [['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+    ['Community', ['holders', 'studio', 'airdrops', 'snapshots', 'badges', 'nfts', 'seasons', 'pools', 'feecat', 'broadcast']], ['Safety', ['investigate', 'verify', 'overview', 'mod', 'access', 'bugs']]];
+  const TABS = [['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['nfts', 'NFTs', Gift], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div><TreasuryPulse call={call} onOpen={openTab} />
       <nav className="cc-tabs" data-testid="cc-nav">{TAB_GROUPS.map(([group, ids]) => <div key={group} className="cc-tab-group"><small>{group}</small>{ids.map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</div>)}</nav>
@@ -127,6 +128,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     </section>}
     {tab === 'overview' && <Overview sec={sec} reload={loadSec} />}
     {tab === 'investigate' && <IntelDesk call={call} />}
+    {tab === 'nfts' && (isOwner ? <Suspense fallback={<p className="cc-empty">Opening the studio…</p>}><NftStudio call={call} /></Suspense> : <p className="cc-empty">Only owner wallets can create and drop NFT collections.</p>)}
     {tab === 'holders' && <section className="cc-panel">
       <div className="cc-toolbar">
         <select value={asset} onChange={e => { setAsset(e.target.value); setSelected(new Set()); }}>{(holders?.assets || ['fee', 'feecat', 'rfee']).map(a => <option key={a} value={a}>{a.toUpperCase()}</option>)}</select>

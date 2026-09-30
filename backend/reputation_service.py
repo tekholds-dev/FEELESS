@@ -21,6 +21,7 @@ import fee_report
 import money_pulse
 import badge_cards
 import intel_desk
+import nft_studio
 from ecosystem import ecosystem_mints
 import asyncio
 import collections
@@ -8564,6 +8565,190 @@ async def admin_badge_edit(request: Request, bid: str, p: BadgeEdit):
         _audit(d, admin, 'badge-edit', f'{bid} → {p.label}')
         _admin_save(d)
     return {'ok': True, 'holders': n}
+
+
+# ---- NFT studio: FEELESS cards → NFT collections (Metaplex Core / Crossmint / Underdog) + drops ---------------------
+NFT_PATH = DATA_DIR / 'nft_collections.json'
+_nft_lock = asyncio.Lock()
+
+
+def _nft_load():
+    return _json_load(NFT_PATH, {'collections': []})
+
+
+def _public_site(request: Request) -> str:
+    """NFT + coin metadata is permanent: it must live on a public https domain, never localhost."""
+    site = os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/') or (request.headers.get('origin') or '').rstrip('/')
+    host = _re.sub(r'^https?://', '', site).split('/')[0].split(':')[0]
+    if not site.startswith('https://') or host in ('localhost', '127.0.0.1', '0.0.0.0') or host.endswith('.local') or _re.match(r'^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\.', host):
+        raise HTTPException(503, 'NFTs need a public https domain for their metadata (set PUBLIC_SITE_URL). A local address would break them forever.')
+    return site
+
+
+def _nft_platforms() -> dict:
+    cm, ud = os.environ.get('CROSSMINT_API_KEY', '').strip(), os.environ.get('UNDERDOG_API_KEY', '').strip()
+    return {'metaplex': {'ready': True, 'how': 'Your connected wallet signs. ~0.003 SOL rent per NFT + network fee. No key needed.'},
+            'crossmint': {'ready': bool(cm), 'env': 'staging' if cm.startswith(('sk_staging', 'sk_test')) else 'production' if cm else None,
+                          'how': 'Add CROSSMINT_API_KEY (console.crossmint.com, scopes collections.create + nfts.create) to backend/.env.'},
+            'underdog': {'ready': bool(ud), 'env': os.environ.get('UNDERDOG_ENV', 'mainnet'),
+                         'how': 'Add UNDERDOG_API_KEY (app.underdogprotocol.com) to backend/.env; UNDERDOG_ENV=devnet to test.'}}
+
+
+async def _nft_api(platform: str, method: str, path: str, body=None):
+    if platform == 'crossmint':
+        key = os.environ.get('CROSSMINT_API_KEY', '').strip()
+        url, headers = nft_studio.crossmint_base(key) + path, {'X-API-KEY': key}
+    else:
+        key = os.environ.get('UNDERDOG_API_KEY', '').strip()
+        url, headers = nft_studio.underdog_base(os.environ.get('UNDERDOG_ENV', '')) + path, {'Authorization': f'Bearer {key}'}
+    if not key:
+        raise HTTPException(400, f'{platform.title()} is not connected yet (API key missing).')
+    try:
+        async with httpx.AsyncClient(timeout=30) as http:
+            r = await http.request(method, url, json=body, headers=headers)
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f'{platform.title()} did not answer ({e.__class__.__name__}).')
+    data = r.json() if r.content else {}
+    if r.status_code >= 400:
+        raise HTTPException(502, f"{platform.title()}: {str(data.get('message') or data.get('error') or data)[:160]}")
+    return data
+
+
+@app.get('/api/reputation/admin/nft')
+async def nft_home(request: Request):
+    _require_admin(request)
+    return {'platforms': _nft_platforms(), 'collections': sorted(_nft_load()['collections'], key=lambda c: -c.get('createdAt', 0))}
+
+
+@app.post('/api/reputation/admin/nft/collections')
+async def nft_create(request: Request):
+    """Create a collection. Crossmint / Underdog are created here via their API; Metaplex Core is created in the
+    browser (your wallet signs) and recorded with /onchain."""
+    me = _require_owner(request)
+    try:
+        c = nft_studio.clean_collection(await request.json())
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    site = _public_site(request)
+    cid = uuid.uuid4().hex[:12]
+    c.update({'id': cid, 'createdAt': time.time(), 'by': me, 'drops': [], 'status': 'draft', 'address': None,
+              'uri': f'{site}/api/reputation/nft-meta/{cid}.json'})
+    if c['platform'] == 'crossmint':
+        out = await _nft_api('crossmint', 'POST', '/api/2022-06-09/collections', nft_studio.crossmint_collection_body(c, site))
+        c.update({'address': out.get('id'), 'status': 'live'})
+    elif c['platform'] == 'underdog':
+        out = await _nft_api('underdog', 'POST', '/v2/projects', nft_studio.underdog_project_body(c, site))
+        c.update({'address': str(out.get('projectId') or out.get('id') or ''), 'mint': out.get('mintAddress'), 'status': 'live'})
+    async with _nft_lock:
+        d = _nft_load(); d['collections'].append(c); _json_save(NFT_PATH, d)
+    ad = _admin_load(); _audit(ad, me, 'nft-collection', f"{c['platform']} {c['name']} ({c['symbol']})"); _admin_save(ad)
+    return c
+
+
+class NftOnchainIn(BaseModel):
+    address: str
+    signature: str
+    assets: list = []     # for drops: [{address, owner}]
+
+
+async def _nft_verify(sig: str, signer: str, must_touch: list):
+    async with httpx.AsyncClient(timeout=20) as http:
+        tx = await _rpc(http, 'getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+    if not tx or (tx.get('meta') or {}).get('err'):
+        raise HTTPException(400, 'That transaction is not confirmed on-chain (or it failed).')
+    keys = tx['transaction']['message']['accountKeys']
+    if signer not in [k['pubkey'] for k in keys if k.get('signer')]:
+        raise HTTPException(400, 'Signed by a different wallet.')
+    if any(a not in [k['pubkey'] for k in keys] for a in must_touch):
+        raise HTTPException(400, 'That transaction does not create this collection / these NFTs.')
+
+
+@app.post('/api/reputation/admin/nft/collections/{cid}/onchain')
+async def nft_onchain(request: Request, cid: str, p: NftOnchainIn):
+    """Metaplex Core: record what the owner's wallet created (collection) or minted (a drop), verified on-chain."""
+    me = _require_owner(request)
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', p.signature) or not _re.match(_B58, p.address):
+        raise HTTPException(400, 'Bad signature or address.')
+    assets = [a for a in p.assets if isinstance(a, dict) and _re.match(_B58, str(a.get('address') or '')) and _re.match(_B58, str(a.get('owner') or ''))][:nft_studio.MAX_DROP]
+    await _nft_verify(p.signature, me, [p.address] + [a['address'] for a in assets])
+    async with _nft_lock:
+        d = _nft_load(); c = next((x for x in d['collections'] if x['id'] == cid), None)
+        if not c or c['platform'] != 'metaplex':
+            raise HTTPException(404, 'Metaplex collection not found.')
+        if not assets:
+            c.update({'address': p.address, 'status': 'live', 'createSig': p.signature})
+        else:
+            if c.get('address') != p.address:
+                raise HTTPException(400, 'Those NFTs belong to a different collection.')
+            c['drops'].append({'at': time.time(), 'ok': [{'to': a['owner'], 'asset': a['address'], 'sig': p.signature} for a in assets], 'failed': []})
+        _json_save(NFT_PATH, d)
+    return c
+
+
+class NftDropIn(BaseModel):
+    to: list = []
+    confirm: str = ''
+
+
+@app.post('/api/reputation/admin/nft/collections/{cid}/drop')
+async def nft_drop(request: Request, cid: str, p: NftDropIn):
+    """Crossmint / Underdog: mint one NFT to each wallet via the platform API. Type DROP <count> to confirm."""
+    me = _require_owner(request)
+    site = _public_site(request)
+    c = next((x for x in _nft_load()['collections'] if x['id'] == cid), None)
+    if not c or c['platform'] == 'metaplex' or c.get('status') != 'live':
+        raise HTTPException(404, 'Live Crossmint / Underdog collection not found.')
+    to = nft_studio.recipients(p.to)[:nft_studio.room_left(c)]
+    if not to:
+        raise HTTPException(400, 'No valid Solana wallets (or the supply cap is reached).')
+    if p.confirm.strip() != f'DROP {len(to)}':
+        raise HTTPException(400, f'Type "DROP {len(to)}" to confirm.')
+    start = sum(len(x.get('ok') or []) for x in c['drops']) + 1
+    sem = asyncio.Semaphore(4)
+
+    async def one(i, w):
+        async with sem:
+            try:
+                if c['platform'] == 'crossmint':
+                    out = await _nft_api('crossmint', 'POST', f"/api/2022-06-09/collections/{c['address']}/nfts", nft_studio.crossmint_mint_body(c, site, w, start + i))
+                else:
+                    out = await _nft_api('underdog', 'POST', f"/v2/projects/{c['address']}/nfts", nft_studio.underdog_nft_body(c, site, w, start + i))
+                return {'to': w, 'asset': str(out.get('id') or out.get('nftId') or out.get('mintAddress') or ''), 'ok': True}
+            except HTTPException as e:
+                return {'to': w, 'error': str(e.detail)[:160], 'ok': False}
+    res = await asyncio.gather(*(one(i, w) for i, w in enumerate(to)))
+    ok, bad = [r for r in res if r['ok']], [r for r in res if not r['ok']]
+    async with _nft_lock:
+        d = _nft_load(); cc = next(x for x in d['collections'] if x['id'] == cid)
+        cc['drops'].append({'at': time.time(), 'by': me, 'ok': ok, 'failed': bad}); _json_save(NFT_PATH, d)
+    ad = _admin_load(); _audit(ad, me, 'nft-drop', f"{c['name']}: {len(ok)} minted, {len(bad)} failed"); _admin_save(ad)
+    return {'minted': len(ok), 'failed': bad}
+
+
+@app.get('/api/reputation/admin/nft/holders/{key:path}')
+async def nft_card_holders(request: Request, key: str):
+    """Wallets that hold a card (badge or season card): the natural drop list for that card's collection."""
+    _require_admin(request)
+    out = set()
+    if key.startswith('badge:'):
+        bid = key.split(':', 1)[1]
+        out |= {a for a, items in (_admin_load().get('badges') or {}).items() if bid in items}
+        out |= {a for a, (at, rec) in _badge_cache.items() if any(b.get('id') == bid for b in (rec or {}).get('badges', []))}
+    else:
+        out |= {a for a, items in _json_load(COLLECTION_PATH, {}).items() if any(_collection_card_key(it) == key for it in items)}
+    safe = _protected_wallets()
+    return {'key': key, 'wallets': sorted(a for a in out if _re.match(_B58, a) and a not in safe)[:nft_studio.MAX_DROP]}
+
+
+@app.get('/api/reputation/nft-meta/{name}')
+async def nft_meta(name: str, request: Request):
+    """Public metadata JSON: {id}.json for the collection, {id}-{n}.json for item n."""
+    m = _re.match(r'^([a-f0-9]{12})(?:-(\d{1,6}))?\.json$', name)
+    c = m and next((x for x in _nft_load()['collections'] if x['id'] == m.group(1)), None)
+    if not c:
+        raise HTTPException(404, 'Not found')
+    site = os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/') or str(request.base_url).rstrip('/')
+    return nft_studio.item_json(c, site, int(m.group(2))) if m.group(2) else nft_studio.collection_json(c, site)
 
 
 # ---- Intel desk: the reputation department's database of ruggers, snipers, bundlers, funders and their crews -------
