@@ -5,6 +5,7 @@ import { investigate } from '../CaseFile';
 import { WatchButton } from '../WatchButton';
 import { apiUrl } from '../../lib/api';
 import { shortAddress } from '../../lib/dexscreener';
+import { FeeReport } from './FeeReport';
 
 // Sticky side rails beside the centred profile card: the case verdict (same cited evidence as the case file)
 // on the left, the season run + reserve-pool share and quick moves on the right. Hidden on narrow screens.
@@ -50,6 +51,7 @@ export function SeasonRail({ address }) {
   const pct = idx >= 0 && tiers[idx + 1] ? Math.min(100, ((me.score - tiers[idx][1]) / (tiers[idx + 1][1] - tiers[idx][1])) * 100) : 100;
   const copy = (text, what) => navigator.clipboard?.writeText(text).then(() => toast.success(`${what} copied`)).catch(() => {});
   return <aside className="wp-rail wp-rail-right" data-testid="profile-rail-season">
+    <FeeReport address={address} />
     <div className="wpr-card">
       <small>SEASON RUN</small>
       {!s?.season ? <p className="wpr-dim">{s ? 'Between seasons.' : 'Loading…'}</p> : <>

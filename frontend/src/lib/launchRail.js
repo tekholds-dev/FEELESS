@@ -204,5 +204,5 @@ export async function launchOnPump({ provider, creator, session, form, onStatus 
   const tx = web3.VersionedTransaction.deserialize(Uint8Array.from(atob(body.tx), c => c.charCodeAt(0)));
   const signature = await signSend(web3, connection, provider, tx, new web3.PublicKey(creator), [mint], onStatus);
   keepReceipt(signature, creator, 'launch');
-  return { mint: mint.publicKey.toBase58(), signature };
+  return { mint: mint.publicKey.toBase58(), signature, uri: body.uri };
 }

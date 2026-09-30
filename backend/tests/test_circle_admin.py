@@ -62,3 +62,27 @@ def test_reserve_pays_via_circle_once(monkeypatch, tmp_path):
     with pytest.raises(rs.HTTPException):   # everything paid: nothing to send twice
         asyncio.run(rs.admin_reserve_pay_circle(None, 's1', rs.CirclePayIn(confirm='PAY 0')))
     assert len(store['reservePayouts']['s1']['rows']) == 2
+
+
+def test_circle_autostarts_when_down(monkeypatch):
+    """Owner call while the sidecar is down: it's started once, then the request goes through."""
+    import httpx
+    started, calls = [], []
+
+    async def start():
+        started.append(1); return True
+
+    class Client:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def request(self, method, url, json=None):
+            calls.append(url)
+            if not started:
+                raise httpx.ConnectError('down')
+            return httpx.Response(200, json={'ok': True})
+    monkeypatch.setattr(rs, '_circle_start', start)
+    monkeypatch.setattr(rs.httpx, 'AsyncClient', Client)
+    real_sleep = asyncio.sleep
+    monkeypatch.setattr(rs.asyncio, 'sleep', lambda s: real_sleep(0))
+    assert asyncio.run(rs._circle('GET', '/status')) == {'ok': True} and len(started) == 1

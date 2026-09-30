@@ -60,6 +60,13 @@ export function CommandCenter({ address, signMessage, onClose }) {
     if (!res.ok) throw new Error(errorText(body, res.status));
     return body;
   }, [address, session]);
+  // Circle stays up while the owner is signed in: a quiet status ping every 3 min restarts the sidecar if it died.
+  useEffect(() => {
+    if (!isOwner || !session) return undefined;
+    const ping = () => call('/admin/circle/status').catch(() => {});
+    ping(); const id = setInterval(ping, 180_000);
+    return () => clearInterval(id);
+  }, [isOwner, session, call]);
 
   const signIn = async () => {
     setBusy(true);
@@ -301,6 +308,7 @@ export function ReservePool({ call }) {
     <div className="bdg-seg bdg-seasons">{seasons.slice(0, 5).map(s => <button key={s.id} type="button" className={sid === s.id ? 'active' : ''} onClick={() => setSid(s.id)}>{s.name}</button>)}</div>
     <div className="bdg-pool-grid">
       <div className="bdg-card"><small>Reserve wallet</small>{plan?.assigned ? <b className="bdg-ok">● assigned</b> : <b className="bdg-warn">● not assigned</b>}
+        {circleW && <span className="m-chip ok" data-testid="reserve-circle">◎ Circle wallet “{circleW.name || 'Circle'}” · {circleW.balances?.find(b => b.symbol === 'SOL')?.amount ?? 0} SOL · pays via Circle</span>}
         <input placeholder="Fee Reserve wallet (Solana address)" value={form.reserveWallet} onChange={e => setForm(f => ({ ...f, reserveWallet: e.target.value }))} />
         <label className="bdg-pct"><input inputMode="decimal" placeholder="0" value={form.badgeRewardPct} onChange={e => setForm(f => ({ ...f, badgeRewardPct: e.target.value.replace(/[^0-9.]/g, '') }))} /><span>% of the wallet to badge holders</span></label>
         <button type="button" className="btn-primary" disabled={!!busy} onClick={save}>Save pool</button></div>

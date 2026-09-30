@@ -60,3 +60,22 @@ def pump_form(name: str, symbol: str, description: str, website: str = '', twitt
         if u:
             form[k] = u
     return form
+
+
+TAB_DEFAULT = {'rails': ['feeless', 'pump'], 'devBuy': True, 'maxDevBuySol': 5.0, 'banner': True}
+
+
+def clean_tab(t: dict) -> dict:
+    """Owner's choices for the public Launch tab: which rails show, first buy on/off + cap, banner upload."""
+    t = t or {}
+    rails = [r for r in (t.get('rails') or []) if r in ('feeless', 'pump')]
+    try:
+        cap = max(0.0, min(50.0, float(t.get('maxDevBuySol', TAB_DEFAULT['maxDevBuySol']))))
+    except (TypeError, ValueError):
+        cap = TAB_DEFAULT['maxDevBuySol']
+    return {'rails': rails or ['feeless'], 'devBuy': bool(t.get('devBuy', True)), 'maxDevBuySol': cap, 'banner': bool(t.get('banner', True))}
+
+
+def dev_buy_ok(tab: dict, sol: float) -> bool:
+    tab = clean_tab(tab)
+    return sol <= 0 or (tab['devBuy'] and sol <= tab['maxDevBuySol'])

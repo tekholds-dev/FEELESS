@@ -101,3 +101,22 @@ export function cropImage(file, shape = CROP.avatar) {
     root.render(<Cropper src={url} isGif={file.type === 'image/gif'} shape={shape} done={done} />);
   });
 }
+
+// Crop → resize → upload to FEELESS. Resolves the upload path ('/api/reputation/uploads/<id>.webp') or null if cancelled.
+export async function uploadCropped(file, shape, max = 512) {
+  if (!/^image\/(png|jpeg|webp|gif)$/.test(file?.type || '')) throw new Error('PNG, JPG, WEBP or GIF');
+  if (file.size > 10_000_000) throw new Error('Max 10 MB');
+  const cropped = await cropImage(file, shape);
+  if (!cropped) return null;
+  const bitmap = await createImageBitmap(cropped);
+  const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const dataUrl = canvas.toDataURL(cropped.type === 'image/png' || cropped.type === 'image/gif' ? 'image/png' : 'image/webp', 0.9);
+  const { apiUrl } = await import('./api');
+  const res = await fetch(apiUrl('/api/reputation/uploads'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataUrl }) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Upload failed');
+  return data.url;
+}

@@ -1,11 +1,12 @@
 import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
-const MetaLaunchSetup = lazy(() => import('../terminal/MetaLaunchSetup'));
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
 import { RAIL_DEFAULTS, RAIL_PRESETS, railWarnings, checkRail, createLaunchRail, fetchLaunchRail, partnerFees, claimPartnerFees, configPools, claimCreationToll } from '../../lib/launchRail';
 import { CopyBtn } from '../CopyBtn';
+import { errorText } from '../../lib/api';
 import { useSolPrice, usd } from '../../lib/solPrice';
 import { TreasurySend } from './TreasurySend';
+const CmdLaunch = lazy(() => import('./CmdLaunch').then(m => ({ default: m.CmdLaunch })));
 
 const FIELDS = [
   ['initialMarketCap', 'Opening market cap (SOL)', 'Where the curve starts. 30 SOL ≈ pump.fun-style low open.'],
@@ -102,6 +103,22 @@ function SetupGuide({ keys, rail, routes }) {
   </div>;
 }
 
+// What the public Launch tab offers. Owners always see every rail and house configs.
+function LaunchTabRules({ call, tab, onSaved }) {
+  const [t, setT] = useState(() => ({ rails: ['feeless', 'pump'], devBuy: true, maxDevBuySol: 5, banner: true, ...(tab || {}) }));
+  const [busy, setBusy] = useState(false);
+  const has = r => t.rails.includes(r);
+  const flip = r => setT(x => ({ ...x, rails: has(r) ? x.rails.filter(y => y !== r) : [...x.rails, r] }));
+  const save = async () => { setBusy(true); try { await call('/admin/launch-tab', { method: 'PUT', body: JSON.stringify({ ...t, maxDevBuySol: Number(t.maxDevBuySol) || 0 }) }); toast.success('Launch tab updated.'); onSaved?.(); } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); } };
+  return <div className="cc-block m-card" data-testid="launch-tab-rules"><div className="m-label">LAUNCH TAB · WHAT EVERYONE ELSE GETS <em>owners always see everything</em></div>
+    <div className="m-row">{[['feeless', '🌐 FEELESS rail'], ['pump', '💊 Pump.fun']].map(([k, l]) => <label key={k} className="m-toggle"><input type="checkbox" checked={has(k)} onChange={() => flip(k)} />{l}</label>)}
+      <label className="m-toggle"><input type="checkbox" checked={t.banner} onChange={e => setT(x => ({ ...x, banner: e.target.checked }))} />Banner upload</label>
+      <label className="m-toggle"><input type="checkbox" checked={t.devBuy} onChange={e => setT(x => ({ ...x, devBuy: e.target.checked }))} />First buy</label>
+      {t.devBuy && <label className="m-field"><span>Max first buy (SOL)</span><input className="m-input" inputMode="decimal" style={{ width: 90 }} value={t.maxDevBuySol} onChange={e => setT(x => ({ ...x, maxDevBuySol: e.target.value.replace(/[^0-9.]/g, '') }))} /></label>}
+      <button type="button" className="m-btn primary" disabled={busy || !t.rails.length} onClick={save}>{busy ? 'Saving…' : 'Save launch tab'}</button></div>
+    {!t.rails.length && <small className="m-neg">Keep at least one rail on.</small>}</div>;
+}
+
 export function LaunchRailAdmin({ call, isOwner }) {
   const { wallet, provider, connect } = useWallet() || {};
   const [rail, setRail] = useState(null);
@@ -196,10 +213,11 @@ export function LaunchRailAdmin({ call, isOwner }) {
     </div>
     {rail?.house?.length > 0 && <div className="cc-block"><h4>🏠 House configs <small className="chain-tag">owners launch with these from the Launch page</small></h4>
       {rail.house.map(h => <div key={h.config} className="rail-house"><b>{h.label}</b><span>{Number(h.params?.initialMarketCap ?? 30)} → {Number(h.params?.migrationMarketCap ?? 500)} {h.params?.quote === 'USDC' ? 'USDC' : 'SOL'} · snipe tax {Number(h.params?.startingFeeBps ?? 9900) / 100}% · fees to <code>{h.feeClaimer.slice(0, 4)}…{h.feeClaimer.slice(-4)}</code></span><a href={`https://solscan.io/account/${h.config}`} target="_blank" rel="noreferrer">config ↗</a></div>)}</div>}
-    <div className="cc-block cc-launch-coin"><h4>Step 2 · Launch a coin <small className="chain-tag">name · ticker · image · first buy</small></h4>
-      {!rail?.ready ? <p className="cc-empty">Create the launch rules above first; then launch coins right here.</p> : !launchOpen
-        ? <><p className="cc-empty">Same launcher as the site, with your house configs available (pick "🏠 Launch with" on the last step). Launch from the wallet that should own the coin — e.g. switch Phantom to your fee reserve account first.</p><button type="button" className="btn-primary" onClick={() => setLaunchOpen(true)}>🚀 Open the coin launcher</button></>
-        : <Suspense fallback={<p className="cc-empty">Loading the launcher…</p>}><MetaLaunchSetup /></Suspense>}</div>
+    <div className="cc-block cc-launch-coin"><h4>Step 2 · Launch a coin <small className="chain-tag">rail · config · coin · sign · receipt</small></h4>
+      {!launchOpen
+        ? <><p className="cc-empty">Pick 🏠 House, 🌐 FEELESS or 💊 Pump.fun, choose the config for this coin, fill it in, sign once. The receipt (CA, pump link, tx, terms) shows right after. Launch from the wallet that should own the coin.</p><button type="button" className="btn-primary" onClick={() => setLaunchOpen(true)} data-testid="open-cmd-launch">🚀 Open the launcher</button></>
+        : <Suspense fallback={<p className="cc-empty">Loading the launcher…</p>}><CmdLaunch rail={rail} /></Suspense>}</div>
+    {isOwner && rail && <LaunchTabRules call={call} tab={rail.tab} onSaved={load} />}
     {rail?.house?.length > 0 && <HouseCoins house={rail.house} owners={owners} />}
     {rail?.ready && <PartnerFees configs={[{ label: 'Public', config: rail.config, feeClaimer: rail.feeClaimer, quote: rail.params?.quote }, ...(rail.house || []).map(h => ({ label: h.label, config: h.config, feeClaimer: h.feeClaimer, quote: h.params?.quote }))]} />}
   </section>;

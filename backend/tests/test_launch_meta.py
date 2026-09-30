@@ -34,3 +34,12 @@ def test_uploads_are_rerooted_on_the_public_site():
     assert upload_path(u) == '/api/reputation/uploads/' + 'c' * 32 + '.webp'
     assert token_metadata('https://feeless.xyz', 'A', 'A', image=u)['image'] == 'https://feeless.xyz' + upload_path(u)
     assert upload_path('https://evil.xyz/api/reputation/uploads/../x.png') == ''
+
+
+def test_launch_tab_rules():
+    from launch_meta import clean_tab, dev_buy_ok
+    t = clean_tab({'rails': ['pump', 'raydium'], 'devBuy': True, 'maxDevBuySol': 99})
+    assert t['rails'] == ['pump'] and t['maxDevBuySol'] == 50
+    assert clean_tab({'rails': []})['rails'] == ['feeless']
+    assert dev_buy_ok({'devBuy': False}, 0) and not dev_buy_ok({'devBuy': False}, 0.1)
+    assert dev_buy_ok({'maxDevBuySol': 2}, 2) and not dev_buy_ok({'maxDevBuySol': 2}, 2.5)

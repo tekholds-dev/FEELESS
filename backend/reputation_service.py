@@ -17,6 +17,7 @@ import reserve_pool
 import perf
 import verify
 import launch_meta
+import fee_report
 from ecosystem import ecosystem_mints
 import asyncio
 import collections
@@ -6900,7 +6901,7 @@ class LaunchRailIn(BaseModel):
 @app.get('/api/reputation/launch-rail')
 async def launch_rail():
     r = _json_load(LAUNCH_RAIL_PATH, {})
-    return {'ready': bool(r.get('config')), **r, 'siteUrl': os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/')}
+    return {'ready': bool(r.get('config')), **r, 'tab': launch_meta.clean_tab(r.get('tab') or launch_meta.TAB_DEFAULT), 'siteUrl': os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/')}
 
 
 @app.put('/api/reputation/admin/launch-rail')
@@ -6930,6 +6931,22 @@ async def launch_rail_set(request: Request, p: LaunchRailIn):
         raise HTTPException(400, 'Scope must be public or house.')
     _json_save(LAUNCH_RAIL_PATH, d)
     return d
+
+
+class LaunchTabIn(BaseModel):
+    rails: list = ['feeless', 'pump']
+    devBuy: bool = True
+    maxDevBuySol: float = 5
+    banner: bool = True
+
+
+@app.put('/api/reputation/admin/launch-tab')
+async def launch_tab_set(request: Request, p: LaunchTabIn):
+    """Owner picks what the public Launch tab offers. Owners themselves always see every rail."""
+    me = _require_owner(request)
+    d = _json_load(LAUNCH_RAIL_PATH, {}); d['tab'] = launch_meta.clean_tab(p.model_dump()); _json_save(LAUNCH_RAIL_PATH, d)
+    ad = _admin_load(); _audit(ad, me, 'launch-tab', f"rails {','.join(d['tab']['rails'])} · first buy {'≤ ' + str(d['tab']['maxDevBuySol']) + ' SOL' if d['tab']['devBuy'] else 'off'}"); _admin_save(ad)
+    return d['tab']
 
 
 class TokenMetaIn(BaseModel):
@@ -7062,6 +7079,12 @@ async def pump_create_tx(p: PumpCreateIn):
         raise HTTPException(400, 'Bad address.')
     if not (0 <= p.devBuySol <= 50):
         raise HTTPException(400, 'Dev buy must be between 0 and 50 SOL.')
+    if primary_of(me) not in {primary_of(w) for w in _owner_wallets()}:
+        tab = launch_meta.clean_tab(_json_load(LAUNCH_RAIL_PATH, {}).get('tab') or launch_meta.TAB_DEFAULT)
+        if 'pump' not in tab['rails']:
+            raise HTTPException(403, 'Pump.fun launches are switched off on FEELESS right now.')
+        if not launch_meta.dev_buy_ok(tab, p.devBuySol):
+            raise HTTPException(400, f"First buy is capped at {tab['maxDevBuySol']} SOL." if tab['devBuy'] else 'First buys are switched off right now.')
     m = _re.match(r'^/api/reputation/uploads/([a-f0-9]{32}\.(png|jpg|webp|gif))$', launch_meta.upload_path(p.image))
     if not m or not (UPLOAD_DIR / m.group(1)).exists():
         raise HTTPException(400, 'Upload the coin image first.')
@@ -7386,12 +7409,38 @@ class CircleWalletIn(BaseModel):
     name: str = 'Creator wallet'
 
 
-async def _circle(method, path, body=None):
+CIRCLE_DIR = Path(__file__).resolve().parents[1] / 'circle'
+_circle_boot = {'at': 0.0}
+
+
+async def _circle_start() -> bool:
+    """Start the Circle sidecar if it's installed and keyed. At most one attempt per 20s; never raises."""
+    if time.time() - _circle_boot['at'] < 20 or not (CIRCLE_DIR / 'node_modules').exists() or not os.environ.get('CIRCLE_API_KEY'):
+        return False
+    _circle_boot['at'] = time.time()
     try:
-        async with httpx.AsyncClient(timeout=30) as http:
-            r = await http.request(method, f'http://127.0.0.1:5111{path}', json=body)
-    except httpx.HTTPError:
-        raise HTTPException(503, 'Circle wallet service is not running (node circle/server.mjs).')
+        import subprocess
+        subprocess.Popen(['node', 'server.mjs'], cwd=str(CIRCLE_DIR), stdout=open('/tmp/feeless-circle.log', 'ab'), stderr=subprocess.STDOUT,
+                         stdin=subprocess.DEVNULL, start_new_session=True)
+    except Exception:
+        return False
+    await asyncio.sleep(1.5)
+    return True
+
+
+async def _circle(method, path, body=None):
+    r = None
+    for attempt in range(3):   # sidecar down → start it (owner is signed in: every caller is owner-gated) and retry
+        try:
+            async with httpx.AsyncClient(timeout=30) as http:
+                r = await http.request(method, f'http://127.0.0.1:5111{path}', json=body)
+            break
+        except httpx.ConnectError:
+            if attempt == 2 or not (await _circle_start() or attempt == 1):
+                raise HTTPException(503, 'Circle wallet service is not running and could not be started (check CIRCLE_API_KEY and circle/node_modules).')
+            await asyncio.sleep(1.5)
+        except httpx.HTTPError:
+            raise HTTPException(503, 'Circle wallet service did not answer.')
     data = r.json() if r.content else {}
     if r.status_code >= 400:
         raise HTTPException(r.status_code, data.get('detail') or 'Circle request failed.')
@@ -7895,6 +7944,17 @@ def trade_points(in_usd: float, fee_bps: int) -> float:
     return round(min(50.0, fee_usd * 20 + min(usd, 1000) / 200), 1)
 
 
+FEE_LEDGER_PATH = DATA_DIR / 'fee_ledger.json'
+
+
+@app.get('/api/reputation/fee-report/{address}')
+async def fee_report_get(address: str):
+    """FEELESS fees this wallet paid (7d + all time, linked accounts count once) and the FeeBack it has accrued."""
+    if not _re.match(r'^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$', address):
+        raise HTTPException(400, 'Bad address.')
+    return {'address': address, **fee_report.fee_report(_json_load(FEE_LEDGER_PATH, {}).get(primary_of(address)) or [], time.time())}
+
+
 class TradeLanded(BaseModel):
     wallet: str
     signature: str
@@ -7915,6 +7975,9 @@ async def internal_trade(request: Request, p: TradeLanded):
     pts = trade_points(p.inUsd, p.feeBps)
     d['tradeSigs'] = (seen + [p.signature])[-5000:]
     _json_save(SEASONS_PATH, d)
+    led = _json_load(FEE_LEDGER_PATH, {}); who = primary_of(p.wallet)
+    led[who] = (led.get(who) or [])[-1999:] + [fee_report.ledger_row(time.time(), p.signature, p.inUsd, p.feeBps)]
+    _json_save(FEE_LEDGER_PATH, led)
     if pts > 0:
         season_award(primary_of(p.wallet), pts, f'trade:{p.signature[:10]}')
     return {'ok': True, 'points': pts}
