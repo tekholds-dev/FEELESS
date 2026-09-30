@@ -3768,7 +3768,7 @@ _fee_coin_names: dict = {}
 
 
 # ---- Rug shield: one verdict for the swap review / quick trade, from on-chain forensics --------------
-@app.get('/api/reputation/shield/{mint}')
+@app.get('/api/reputation/rugshield/{mint}')  # its own path: /shield/{mint} is the launch-promise Shield
 async def rug_shield(mint: str):
     """ok / caution / danger with the reasons. danger = the trader must tick 'I understand' before signing."""
     if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', mint):

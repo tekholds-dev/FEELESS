@@ -61,7 +61,8 @@ export function LaunchForensics({ pair }) {
     return () => { alive = false; };
   }, [mint, chain]);
   useEffect(() => load(), [load]);
-  const d = state.data;
+  // Only real forensics count as data (an error body or empty reply renders as unavailable, never crashes).
+  const d = Array.isArray(state.data?.sniperWallets) && Array.isArray(state.data?.bundledWallets) ? state.data : null;
   const pct = v => (v == null ? '—' : `${Number(v).toFixed(v >= 10 ? 1 : 2)}%`);
   const cards = [
     ['snipers', Crosshair, 'Snipers', d ? String(d.sniperWallets.length) : state.loading ? '…' : 'Unavailable', d?.snipersHoldingPct != null ? `Current group holds ${d.snipersHoldingPct}% · wallets below` : 'Bought within ~1s of launch', d?.sniperWallets, d && d.sniperWallets.length >= 5],

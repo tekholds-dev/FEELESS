@@ -12,7 +12,7 @@ export function SentimentMeter({ pair }) {
     load(); const t = setInterval(load, 30000);
     return () => { alive = false; clearInterval(t); };
   }, [pair?.chainId, pair?.pairAddress]);
-  if (!d) return null;
+  if (!d?.bulls || !d?.bears) return null;
   const pct = d.bullPct;
   return <div className="sentiment-meter" data-testid="sentiment-meter">
     <span className="sm-label">🐂 {d.bulls.posts}</span>

@@ -12,7 +12,7 @@ export function useShield(mint) {
     if (!mint || SETTLE.has(mint)) { setV(null); return undefined; }
     let alive = true;
     const hit = shields.get(mint);
-    if (!hit || Date.now() - hit.at > SHIELD_TTL_MS) shields.set(mint, { at: Date.now(), promise: fetch(apiUrl(`/api/reputation/shield/${mint}`)).then(r => (r.ok ? r.json() : null)).catch(() => null) });
+    if (!hit || Date.now() - hit.at > SHIELD_TTL_MS) shields.set(mint, { at: Date.now(), promise: fetch(apiUrl(`/api/reputation/rugshield/${mint}`)).then(r => (r.ok ? r.json() : null)).catch(() => null) });
     shields.get(mint).promise.then(x => alive && setV(x));
     return () => { alive = false; };
   }, [mint]);

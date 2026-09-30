@@ -40,6 +40,13 @@ class AppErrorBoundary extends React.Component {
     console.error('FEELESS crash:', error, info?.componentStack);
     try { sessionStorage.setItem('feeless:last-crash', JSON.stringify({ at: Date.now(), path: window.location.pathname, message: String(error?.message || error), stack: String(info?.componentStack || '').slice(0, 1500) })); } catch { /* ignore */ }
     this.setState({ stack: info?.componentStack || '' });
+    // Auto crash report → Command Center > Bugs, with the real error and the component that threw.
+    try {
+      const firstComp = (String(info?.componentStack || '').match(/at (\w+)/) || [])[1] || '?';
+      fetch('/api/reputation/bugs', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'bug', page: `${window.location.pathname}${window.location.search}`.slice(0, 300),
+          text: `[auto crash] ${String(error?.message || error).slice(0, 400)} · in <${firstComp}> · ${String(info?.componentStack || '').replace(/\s+/g, ' ').slice(0, 1200)}` }) }).catch(() => {});
+    } catch { /* never crash the crash screen */ }
   }
 
   render() {

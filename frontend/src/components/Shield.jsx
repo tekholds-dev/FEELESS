@@ -15,13 +15,13 @@ export function ShieldBadge({ mint }) {
     fetch(apiUrl(`/api/reputation/shield/${mint}`)).then(r => r.json()).then(d => alive && setS(d)).catch(() => {});
     return () => { alive = false; };
   }, [mint]);
-  if (!s || s.status === 'none') return null;
+  if (!s || !s.status || s.status === 'none') return null;
   const broken = s.status === 'broken';
   const Icon = broken ? ShieldAlert : ShieldCheck;
   return <section className={`shield-badge ${s.status}`} data-testid="shield-badge">
     <header><Icon size={20} /><div><b>{broken ? 'Shield BROKEN' : s.status === 'active' ? 'FEELESS Shield active' : 'Shield kept'}</b><small>{broken ? 'The creator broke a public launch promise — permanent strike.' : s.status === 'active' ? `Promises checked on-chain · ends ${new Date(s.endsAt * 1000).toLocaleDateString()}` : 'Every promise held to the end.'}</small></div></header>
-    <ul>{s.checks.map(c => <li key={c.rule} className={c.ok ? 'ok' : 'bad'}><i>{c.ok ? '✓' : '✗'}</i><span>{c.rule}</span><small>{c.detail}</small></li>)}</ul>
-    {s.breaches.length > 0 && <p className="shield-breach">Broken: {s.breaches.map(b => b.rule).join(' · ')}</p>}
+    <ul>{(s.checks || []).map(c => <li key={c.rule} className={c.ok ? 'ok' : 'bad'}><i>{c.ok ? '✓' : '✗'}</i><span>{c.rule}</span><small>{c.detail}</small></li>)}</ul>
+    {(s.breaches || []).length > 0 && <p className="shield-breach">Broken: {(s.breaches || []).map(b => b.rule).join(' · ')}</p>}
   </section>;
 }
 

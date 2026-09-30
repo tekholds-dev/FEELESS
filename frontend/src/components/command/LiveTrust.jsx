@@ -123,12 +123,12 @@ export function RoadmapVoting() {
       await load();
     } catch (err) { toast.error(err.message); } finally { setBusy(''); }
   };
-  const max = Math.max(1, ...Object.values(state.counts));
-  const sorted = [...VOTE_ITEMS].sort((a, b) => (state.counts[b[0]] || 0) - (state.counts[a[0]] || 0));
+  const max = Math.max(1, ...Object.values(state.counts || {}));
+  const sorted = [...VOTE_ITEMS].sort((a, b) => ((state.counts || {})[b[0]] || 0) - ((state.counts || {})[a[0]] || 0));
   return <section className="live-trust-panel" data-testid="roadmap-voting">
     <div className="live-trust-head"><ThumbsUp size={15} /><h2>What should ship next?</h2><small>One vote per wallet per item · tap again to remove</small></div>
     <div className="vote-list">{sorted.map(([id, label]) => {
-      const count = state.counts[id] || 0; const mine = state.mine.includes(id);
+      const count = (state.counts || {})[id] || 0; const mine = (state.mine || []).includes(id);
       return <button type="button" key={id} className={`vote-row ${mine ? 'is-mine' : ''}`} disabled={busy === id} onClick={() => vote(id)}>
         <span className="vote-bar" style={{ width: `${(count / max) * 100}%` }} /><b>{label}</b><strong>{count}</strong><ThumbsUp size={13} fill={mine ? 'currentColor' : 'none'} />
       </button>;

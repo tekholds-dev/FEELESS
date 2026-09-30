@@ -1,3 +1,4 @@
+import { PanelBoundary } from '../PanelBoundary';
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Zap, Wallet, ArrowUpRight, Settings2 } from 'lucide-react';
@@ -33,7 +34,7 @@ const rawToUi = (raw, dec) => { const s = raw.toString().padStart(dec + 1, '0');
 
 // Compact buy/sell box that lives next to every chart. Real Jupiter routes, simulated before
 // signing, your wallet signs — nothing custodial. Anything into $FEE carries no FEELESS fee.
-export function QuickTrade({ pair }) {
+function QuickTradeInner({ pair }) {
   const { wallet, provider, connect, switchTo } = useWallet() || {};
   const assets = useMarket('/assets', 300000);
   const feeMint = (assets.data?.assets || []).find(a => a.id === 'fee')?.mint;
@@ -181,4 +182,9 @@ export function QuickTrade({ pair }) {
     {result?.signature && <a className="qt-result" href={`https://solscan.io/tx/${result.signature}`} target="_blank" rel="noopener noreferrer">{result.state.toUpperCase()} · view transaction <ArrowUpRight size={11} /></a>}
     <small className="qt-foot">{side === 'buy' && shield?.level === 'ok' ? '🛡 Rug shield clear · ' : ''}{points?.points > 0 ? `⚡ ${points.points.toLocaleString('en-US')} FEE pts · ` : ''}Jupiter route · simulated before you sign · non-custodial{side === 'buy' && prefs.unit === 'USD' ? ` · ${formatUSD(Number(amount))}` : ''}</small>
   </aside>;
+}
+
+// Safety net: a broken quick trade never takes the page down (see PanelBoundary).
+export function QuickTrade(props) {
+  return <PanelBoundary name="Quick trade" resetKey={JSON.stringify(props.pair?.pairAddress || props.room || props.mint || '')}><QuickTradeInner {...props} /></PanelBoundary>;
 }

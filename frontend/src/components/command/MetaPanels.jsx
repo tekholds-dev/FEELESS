@@ -13,7 +13,7 @@ export function CallerLeague() {
   return <section className="meta-panel league" data-testid="caller-league">
     <div className="mp-head"><h2><Glyph name="trophy" tone="gold" size={24} /> <span className="live-gradient-text">Weekly Caller League</span> <Hint text="Points = calls ×2 + hit-rate ×50 + peak bonus. Resets every Monday 00:00 UTC." /></h2><span>{d ? `ends in ${Math.floor(left / 86400)}d ${Math.floor((left % 86400) / 3600)}h` : ''}</span></div>
     <p className="wp-bio">Drop CAs in chat — every call is tracked live. Points = calls ×2 + hit-rate ×50 + peak bonus. Top 3 each week win league badges and a FEELESS airdrop.</p>
-    {!d ? <p className="wp-bio">Loading…</p> : !d.rows.length ? <p className="wp-bio">No calls this week yet — be the first on the board.</p> : <div className="league-rows">{d.rows.slice(0, 20).map((r, i) => <a key={r.address} href={`/terminal/profile/${r.address}`} className={`league-row r${i + 1}`}>
+    {!d ? <p className="wp-bio">Loading…</p> : !(d.rows || []).length ? <p className="wp-bio">No calls this week yet — be the first on the board.</p> : <div className="league-rows">{(d.rows || []).slice(0, 20).map((r, i) => <a key={r.address} href={`/terminal/profile/${r.address}`} className={`league-row r${i + 1}`}>
       <b className="lr-rank">{['🥇', '🥈', '🥉'][i] || i + 1}</b><span className="lr-name">{r.caller}</span><span>{r.calls} calls</span><span>{Math.round((r.hitRate || 0) * 100)}% 2×</span><span>best avg {(r.avgPeakX || 1).toFixed(2)}×</span><b className="lr-pts">{r.points}</b></a>)}</div>}
   </section>;
 }

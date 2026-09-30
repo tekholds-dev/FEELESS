@@ -1,5 +1,6 @@
 import { AlphaRooms } from '../components/AlphaRooms';
 import { CaseFileModal } from '../components/CaseFile';
+import { PanelBoundary } from '../components/PanelBoundary';
 import { CoinAura } from '../components/CoinAura';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -174,7 +175,7 @@ export default function Terminal() {
   const focusKey = selected ? `token-${selected.chainId}-${selected.pairAddress}` : 'fee';
   const focus = <div key={focusKey} className="focus-flip">{selected ? <TokenFocus pair={selected} has={has} toggle={toggle} defaultInterval={chartInterval} /> : page === 'trade' && fee?.pair ? <TokenFocus pair={fee.pair} has={has} toggle={toggle} defaultInterval={chartInterval} /> : <FeeHeartbeat asset={fee} assets={feeAssets} loading={assets.loading} />}</div>;
   return <div className={`terminal-app command-terminal ${compact ? 'compact-rows' : ''} ${reducedMotion ? 'reduced-motion' : ''} text-scale-${fontScale}`} style={{ '--context-accent': ecosystem.color }}><MouseGlow /><AmbientFlakes /><div className="theme-flip-wipe" aria-hidden="true" /><TerminalHeader onWallet={() => setWalletOpen(true)} onProfile={() => setProfileOpen(true)} onMenu={() => setMenuOpen(v => !v)} query={query} /><MarketTicker /><ContextBar /><SeasonBanner />
-    <CaseFileModal /><div className="terminal-body"><TerminalSidebar open={menuOpen} onClose={() => setMenuOpen(false)} savedCount={watchlist.length} /><main className={`terminal-main page-${(page.split("/")[0] || "home").replace(/[^a-z]/g, "")}`} data-testid={`terminal-page-${page || 'home'}`}>
+    <CaseFileModal /><div className="terminal-body"><TerminalSidebar open={menuOpen} onClose={() => setMenuOpen(false)} savedCount={watchlist.length} /><main className={`terminal-main page-${(page.split("/")[0] || "home").replace(/[^a-z]/g, "")}`} data-testid={`terminal-page-${page || 'home'}`}><PanelBoundary name="This page" resetKey={`${page}${window.location.search}`}>
       <div className="workspace-topline"><span><i className="live-dot" /> FEELESS OS / <b data-testid="workspace-context-label">{ecosystem.name.toUpperCase()} {ecosystem.isLaunchpad ? 'WAR ROOM' : 'INTELLIGENCE'}</b><span className="workspace-mode">{page || '$FEE COMMAND'}</span></span><Link to={`/?node=${ecosystem.id}`} data-testid="workspace-globe-link">Globe view<ArrowUpRight size={12} /></Link></div>
        <div className="context-transition" key={ecosystem.id}>
        {pairRouteState === 'loading' && <p className="pair-route-status" role="status" data-testid="selected-pair-route-loading">Restoring {routeChain} coin {routePairAddress} from the market provider…</p>}
@@ -215,5 +216,5 @@ export default function Terminal() {
       {page === 'settings' && <div className="tab-stage has-aura" style={{ '--stage': '#f5c542' }}><CoinAura color="#f5c542" change24h={14} /><TerminalConfiguration settings={settings} setSettings={setSettings} onWallet={() => setWalletOpen(true)} /><HolderThemePicker /><MyInviteCard /><NetworkStatus /></div>}
        {!isMarket && !page.startsWith('reputation') && !page.startsWith('profile/') && !page.startsWith('coin/') && !['launch', 'watchlist', 'chat', 'alerts', 'fee', 'feeback', 'feecat', 'feecat/cats', 'feecat/agents', 'leaderboard', 'whitepaper', 'roadmap', 'learn', 'settings', 'legal'].includes(page) && <div className="page-heading"><h1>Off the radar.</h1><Link to="/terminal" className="btn-primary" data-testid="unknown-page-home">Back to terminal</Link></div>}
        </div><TerminalFooter />
-     </main></div><WalletModal open={walletOpen} onClose={() => setWalletOpen(false)} /><WalletProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} /></div>;
+     </PanelBoundary></main></div><WalletModal open={walletOpen} onClose={() => setWalletOpen(false)} /><WalletProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} /></div>;
 }

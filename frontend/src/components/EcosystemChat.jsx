@@ -1,3 +1,4 @@
+import { PanelBoundary } from './PanelBoundary';
 import { useDraft } from '../lib/useDraft';
 import { RepMark } from './RepMark';
 import { readChatSession } from '../lib/chatSession';
@@ -99,7 +100,7 @@ const PumpChatRow = ({ call, mint, size }) => <div className={`chat-size-${size}
     <div className="pump-call-foot">{Number(call.marketCap) > 0 && <small>Called at MC {formatUSD(call.marketCap)}</small>}<a href={`https://pump.fun/coin/${encodeURIComponent(mint)}`} target="_blank" rel="noopener noreferrer">View on Pump ↗</a></div></div>
 </div>;
 
-export default function EcosystemChat({ ecosystem, room: roomProp, compact = false, onConnect, pump = null }) {
+function EcosystemChatInner({ ecosystem, room: roomProp, compact = false, onConnect, pump = null }) {
   // Launch on FEELESS gets meta rooms: general floor, admin-only updates, and launch talk.
   const launchRooms = !roomProp && ecosystem?.id === 'feeless-launch' ? [['', 'General'], ['feeless-updates', '📣 Updates'], ['feeless-launches', '🚀 Launch talk']] : null;
   const [subRoom, setSubRoom] = useState('');
@@ -142,7 +143,7 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
   const [myTier, setMyTier] = useState(0);
   const [boostNext, setBoostNext] = useState(false);
   useEffect(() => { if (!wallet?.address) { setMyTier(0); return; } fetch(apiUrl(`/api/reputation/perks/${wallet.address}`)).then(r => r.json()).then(d => setMyTier(d.tier || 0)).catch(() => {}); }, [wallet?.address]);
-  const people = useMemo(() => { const out = {}; messages.forEach(m => { const a = m.profile?.address || m.address; if (!a || m.system) return; [m.username, m.handle, fx[a]?.displayName, fx[a]?.handle].filter(Boolean).forEach(n => { out[String(n).toLowerCase()] = a; }); }); return out; }, [messages, fx]);
+  const people = useMemo(() => { const out = {}; (messages || []).forEach(m => { const a = m.profile?.address || m.address; if (!a || m.system) return; [m.username, m.handle, fx[a]?.displayName, fx[a]?.handle].filter(Boolean).forEach(n => { out[String(n).toLowerCase()] = a; }); }); return out; }, [messages, fx]);
   const authorKey = messages.map(m => m.profile?.address || m.address).filter(Boolean).sort().join(',');
   useEffect(() => {
     const list = [...new Set(authorKey.split(',').filter(Boolean))];
@@ -167,7 +168,8 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
         const res = await fetch(apiUrl(`/api/reputation/chat/${encodeURIComponent(room)}${alphaSession ? `?session=${encodeURIComponent(alphaSession)}` : ''}`), { signal: controller.signal });
         if (!res.ok) throw new Error();
         const data = await res.json();
-        if (!controller.signal.aborted) { setMessages(data.messages); setPinned(data.pinned || null); setError(''); registerCalls(room, data.messages); }
+        // A room with no list (new room, error body, timeout) must never take the page down: always an array.
+        if (!controller.signal.aborted) { const list = Array.isArray(data?.messages) ? data.messages : []; setMessages(list); setPinned(data?.pinned || null); setError(''); registerCalls(room, list); }
       } catch (e) { if (e.name !== 'AbortError') setError('Chat connection interrupted. Retry the room connection.'); }
       finally { if (!controller.signal.aborted) setLoading(false); }
     };
@@ -270,4 +272,9 @@ export default function EcosystemChat({ ecosystem, room: roomProp, compact = fal
     <form onSubmit={send} className="chat-compose"><SlashMenu input={input} tier={myTier} onPick={c => setInput(`/${c.cmd}${c.args ? ' ' : ''}`)} />{myTier >= 2 && <button type="button" className={`chat-boost ${boostNext ? 'on' : ''}`} onClick={() => setBoostNext(b => !b)} title="Boost this message (Fee Insider perk, 1 per 10 min)" aria-label="Boost message">⚡</button>}<input aria-label="Chat message" data-testid={`chat-input-${room}`} value={input} onChange={e => setInput(e.target.value)} maxLength={500} disabled={Boolean(gate?.gated && !gate.allowed && wallet && !gate.needsChain)} placeholder={replyTarget ? 'Write a reply…' : 'Drop alpha, $TICKER, CA: … or type / for commands'} /><button aria-label="Send message" data-testid={`chat-send-${room}`} disabled={sending || !input.trim()}>{sending ? <span className="loader" /> : <Send size={16} />}</button></form>
     {inspected && <div className="chat-profile-popover" role="dialog" aria-label="Chat profile"><button type="button" className="chat-profile-close" aria-label="Close profile" onClick={() => setInspected(null)}><X size={14} /></button><div className="profile-cover small-cover" style={inspected.backgroundUrl ? { backgroundImage: `url(${inspected.backgroundUrl})` } : {}} /><div className="chat-profile-body"><div className="profile-picture small-picture">{inspected.avatarUrl ? <img src={inspected.avatarUrl} alt="" /> : <UserRound size={20} />}</div>{inspected.hidden ? <><strong>Private wallet</strong><p>This creator keeps profile details and flag count private.</p></> : <><strong>{profileLabel(inspected)}</strong><small>{displayAddress(inspected.address)} · {inspected.category || 'Trader'}</small>{inspected.bio && <p>{inspected.bio}</p>}<div className="chat-profile-links">{inspected.xUrl && <a href={inspected.xUrl} target="_blank" rel="noreferrer"><ExternalLink size={12} />X</a>}{inspected.websiteUrl && <a href={inspected.websiteUrl} target="_blank" rel="noreferrer"><Link2 size={12} />Website</a>}</div><div className="chat-profile-footer"><span><Flag size={12} />{inspected.flagCount || 0} flags</span><button type="button" onClick={() => flagProfile(inspected)}><Flag size={12} />Flag profile</button></div></>}<a className="btn-primary chat-profile-go" href={`/terminal/profile/${inspected.address}`} data-testid="chat-goto-profile">Go to profile →</a></div></div>}
   </div>;
+}
+
+// Safety net: a broken chat never takes the page down (see PanelBoundary).
+export default function EcosystemChat(props) {
+  return <PanelBoundary name="Chat" resetKey={JSON.stringify(props.pair?.pairAddress || props.room || props.mint || '')}><EcosystemChatInner {...props} /></PanelBoundary>;
 }

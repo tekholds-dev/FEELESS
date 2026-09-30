@@ -35,9 +35,9 @@ export function PerksCard({ perks, mine }) {
   return <section className="wp-card wp-perks" data-testid="perks-card">
     <div className="wpj-head"><h3>$FEE holder perks <Hint text="Your tier is checked live from the $FEE in your wallet — no subscriptions. Hold more to unlock more." /></h3><span className="wpj-count">holding <b>${perks.feeUsd}</b></span></div>
     <p className="wp-bio">No subscriptions. Hold $FEE and FEELESS unlocks more — checked live against the wallet.</p>
-    <div className="wpp-ladder">{perks.tiers.map(t => <div key={t.tier} className={`wpp-tier ${t.tier <= perks.tier ? 'on' : ''} ${t.tier === perks.tier ? 'current' : ''}`}>
+    <div className="wpp-ladder">{(perks.tiers || []).map(t => <div key={t.tier} className={`wpp-tier ${t.tier <= perks.tier ? 'on' : ''} ${t.tier === perks.tier ? 'current' : ''}`}>
       <div className="wpp-top"><span>{t.icon}</span><b>{t.name}</b><small>{t.minUsd ? `$${t.minUsd.toLocaleString()}+` : 'free'}</small></div>
-      <ul>{t.perks.map(x => <li key={x}>{t.tier <= perks.tier ? '✓' : '🔒'} {x}</li>)}</ul>
+      <ul>{(t.perks || []).map(x => <li key={x}>{t.tier <= perks.tier ? '✓' : '🔒'} {x}</li>)}</ul>
     </div>)}</div>
     {perks.next && <div className="wpp-next"><div className="wpj-bar"><i style={{ width: `${pct}%` }} /></div><span>{mine ? 'You are' : 'They are'} ${perks.next.needUsd} of $FEE away from <b>{perks.next.name}</b>{mine && <> · <Link to="/terminal/fee">Get $FEE →</Link></>}</span></div>}
   </section>;

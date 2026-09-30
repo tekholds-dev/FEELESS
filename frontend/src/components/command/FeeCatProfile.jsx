@@ -31,7 +31,7 @@ export function FeeCatProfile({ catId = 'leader' }) {
     return () => { alive = false; clearInterval(t); };
   }, [catId]);
   if (!d) return <section className="fcp" data-testid="feecat-profile"><p className="wp-bio">Loading Fee…</p></section>;
-  const c = d.cat; const L = d.learning;
+  const c = d.cat || {}; const L = { params: {}, defaults: {}, log: [], missed: 0, good: 0, ...(d.learning || {}) }; const R = d.rules || {};
   return <section className="fcp" data-testid="feecat-profile">
     <header className="fcp-head">
       <div className="fcp-avatar"><FeeCatMark size={54} variant={(c.realizedPnlSol || 0) >= 0 ? 'mint' : 'rose'} /><i className="flr-dot" /></div>
@@ -41,8 +41,8 @@ export function FeeCatProfile({ catId = 'leader' }) {
         <span><small>Balance</small><b>{Number(c.balanceSol).toFixed(2)} SOL</b></span>
         <span><small>Realized PnL</small><b className={c.realizedPnlSol >= 0 ? 'positive' : 'negative'}>{sol(c.realizedPnlSol)}</b></span>
         <span><small>Win rate</small><b>{c.winRate != null ? `${c.winRate}%` : '—'}</b></span>
-        <span><small>Trades</small><b>{d.stats.trades}</b></span>
-        <span><small>Best / worst</small><b>{sol(d.stats.best)} / {sol(d.stats.worst)}</b></span>
+        <span><small>Trades</small><b>{d.stats?.trades}</b></span>
+        <span><small>Best / worst</small><b>{sol(d.stats?.best)} / {sol(d.stats?.worst)}</b></span>
       </div>
     </header>
     {c.positions?.length > 0 && <div className="fcp-open"><h4>Open now</h4>{c.positions.map(p => <a key={p.pairAddress} className="fcp-pos" href={`/terminal/chat?chain=solana&pair=${p.pairAddress}&room=bulls`} target="_blank" rel="noopener noreferrer">
@@ -53,15 +53,15 @@ export function FeeCatProfile({ catId = 'leader' }) {
           <li><b>Calls every buy</b> in the coin's chat and on Live Calls, with the reasons — so her record is public.</li>
           <li><b>Posts a trench report here every ~30 min</b>: the board's bangers and why, the Degen Weather, SOL, and her book.</li></ul>
         <small>Posting here is signed by your wallet (free, no transaction) — nobody can post as you. FEELESS never asks for your seed phrase or private key; anyone who does is a scammer. Keep calls to a coin's contract address, not links.</small></div><EcosystemChat compact room="wall-FEE-LEADER-CAT" ecosystem={{ id: 'wall-FEE-LEADER-CAT', name: "Fee's wall" }} /></div>}
-    {tab === 'trades' && <div className="fcp-list">{!d.trades.length ? <p className="wp-bio">No trades yet.</p> : d.trades.map(t => <div key={t.id} className={`fcp-trade t-${t.type.toLowerCase()}`}><em>{t.type}</em><p>{t.detail}</p><small>{ago(t.ts / 1000)} ago{t.pnlSol != null ? ` · ${sol(t.pnlSol)}` : ''}</small></div>)}</div>}
-    {tab === 'after' && <div className="fcp-list">{!d.exits.length ? <p className="wp-bio">No exits yet.</p> : d.exits.map(e => <a key={`${e.pairAddress}-${e.exitAt}`} className={`fcp-exit ${e.peakAfter >= 40 ? 'missed' : ''}`} href={`/terminal/chat?chain=solana&pair=${e.pairAddress}&room=bulls`} target="_blank" rel="noopener noreferrer">
-      <b>${e.symbol}</b><span>sold {e.changeAtExit >= 0 ? '+' : ''}{e.changeAtExit}% · {e.why}</span><span>after: best <b className="positive">+{e.peakAfter}%</b> · low <b className="negative">{e.lowAfter}%</b></span><small>{ago(e.exitAt)} ago{e.peakAfter >= 40 ? ' · 🧠 lesson: sold a runner' : ''}</small></a>)}{d.exits[0] && <PnlCard symbol={d.exits[0].symbol} pnlPct={d.exits[0].changeAtExit} pnlSol={d.exits[0].pnlSol} note={d.exits[0].why} />}</div>}
+    {tab === 'trades' && <div className="fcp-list">{!(d.trades || []).length ? <p className="wp-bio">No trades yet.</p> : (d.trades || []).map(t => <div key={t.id} className={`fcp-trade t-${t.type.toLowerCase()}`}><em>{t.type}</em><p>{t.detail}</p><small>{ago(t.ts / 1000)} ago{t.pnlSol != null ? ` · ${sol(t.pnlSol)}` : ''}</small></div>)}</div>}
+    {tab === 'after' && <div className="fcp-list">{!(d.exits || []).length ? <p className="wp-bio">No exits yet.</p> : (d.exits || []).map(e => <a key={`${e.pairAddress}-${e.exitAt}`} className={`fcp-exit ${e.peakAfter >= 40 ? 'missed' : ''}`} href={`/terminal/chat?chain=solana&pair=${e.pairAddress}&room=bulls`} target="_blank" rel="noopener noreferrer">
+      <b>${e.symbol}</b><span>sold {e.changeAtExit >= 0 ? '+' : ''}{e.changeAtExit}% · {e.why}</span><span>after: best <b className="positive">+{e.peakAfter}%</b> · low <b className="negative">{e.lowAfter}%</b></span><small>{ago(e.exitAt)} ago{e.peakAfter >= 40 ? ' · 🧠 lesson: sold a runner' : ''}</small></a>)}{(d.exits || [])[0] && <PnlCard symbol={(d.exits || [])[0]?.symbol} pnlPct={(d.exits || [])[0]?.changeAtExit} pnlSol={(d.exits || [])[0]?.pnlSol} note={(d.exits || [])[0]?.why} />}</div>}
     {tab === 'brain' && <div className="fcp-brain">
       <p className="wp-bio">Fee watches every coin for 24h after selling. Runners she sold too early give winners more room next time; good exits pull her back to the defaults. Bounded so it never gets reckless.</p>
-      <div className="fcp-params">{Object.entries(L.params).filter(([k]) => LEARN_LABELS[k]).map(([k, v]) => <span key={k}><small>{LEARN_LABELS[k]}</small><b>{k === 'takeProfit1' ? '+' : ''}{v}%</b><em>{v !== L.defaults?.[k] ? `default ${L.defaults?.[k]}%` : 'default'}</em></span>)}</div>
+      <div className="fcp-params">{Object.entries(L.params || {}).filter(([k]) => LEARN_LABELS[k]).map(([k, v]) => <span key={k}><small>{LEARN_LABELS[k]}</small><b>{k === 'takeProfit1' ? '+' : ''}{v}%</b><em>{v !== L.defaults?.[k] ? `default ${L.defaults?.[k]}%` : 'default'}</em></span>)}</div>
       <div className="fcp-score"><span>🧠 Runners missed: <b>{L.missed}</b></span><span>✅ Good exits: <b>{L.good}</b></span></div>
-      <div className="fcp-list">{L.log.map((x, i) => <div key={i} className={`fcp-trade ${x.missed ? 't-sell' : 't-buy'}`}><em>LEARN</em><p>{x.note}</p><small>{ago(x.at)} ago</small></div>)}{!L.log.length && <p className="wp-bio">First lessons land 6h after each exit.</p>}</div>
-      <p className="wp-bio">Safety rules that never loosen: hard stop {d.rules.hardStop}% from her average entry, dip adds only at {d.rules.add1At}% / {d.rules.add2At}% while the thesis holds, first profit at +{d.rules.takeProfit1}%, runner trail {d.rules.runnerTrail}%, skip top-10 &gt; {d.rules.maxTop10Pct}%, insiders &gt; {d.rules.maxInsiderPct}%, &gt;{d.rules.maxSnipers} snipers, &gt;{d.rules.maxBundled} bundled, no chasing &gt; +{d.rules.maxM5Chase}% in 5m. Paper trading on live prices — not financial advice.</p>
+      <div className="fcp-list">{(L.log || []).map((x, i) => <div key={i} className={`fcp-trade ${x.missed ? 't-sell' : 't-buy'}`}><em>LEARN</em><p>{x.note}</p><small>{ago(x.at)} ago</small></div>)}{!(L.log || []).length && <p className="wp-bio">First lessons land 6h after each exit.</p>}</div>
+      <p className="wp-bio">Safety rules that never loosen: hard stop {R.hardStop}% from her average entry, dip adds only at {R.add1At}% / {R.add2At}% while the thesis holds, first profit at +{R.takeProfit1}%, runner trail {R.runnerTrail}%, skip top-10 &gt; {R.maxTop10Pct}%, insiders &gt; {R.maxInsiderPct}%, &gt;{R.maxSnipers} snipers, &gt;{R.maxBundled} bundled, no chasing &gt; +{R.maxM5Chase}% in 5m. Paper trading on live prices — not financial advice.</p>
     </div>}
   </section>;
 }

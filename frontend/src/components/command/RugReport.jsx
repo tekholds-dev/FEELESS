@@ -25,7 +25,7 @@ async function downloadCard(r) {
     g.fillStyle = '#b9d6c8'; g.font = '600 19px "Space Grotesk", sans-serif'; g.fillText(l, x + 24, 298);
   });
   g.font = '600 22px "JetBrains Mono", monospace';
-  r.caught.slice(0, 5).forEach((c2, i) => { g.fillStyle = i % 2 ? 'rgba(255,255,255,.03)' : 'rgba(18,192,122,.06)'; g.fillRect(60, 350 + i * 44, 1080, 40); g.fillStyle = '#eafff3'; g.fillText(`${short(c2.wallet)}   ${c2.roles.join(' + ')} · ${c2.launches} launches${c2.blocked ? '   ⛔ blocked' : ''}`, 76, 377 + i * 44); });
+  (r.caught || []).slice(0, 5).forEach((c2, i) => { g.fillStyle = i % 2 ? 'rgba(255,255,255,.03)' : 'rgba(18,192,122,.06)'; g.fillRect(60, 350 + i * 44, 1080, 40); g.fillStyle = '#eafff3'; g.fillText(`${short(c2.wallet)}   ${c2.roles.join(' + ')} · ${c2.launches} launches${c2.blocked ? '   ⛔ blocked' : ''}`, 76, 377 + i * 44); });
   g.fillStyle = '#12c07a'; g.font = '400 26px Bungee, sans-serif'; g.fillText('FEELESS', 60, 624); g.fillStyle = '#9fb3a8'; g.font = '600 20px "Space Grotesk", sans-serif'; g.fillText('the chain remembers.', 214, 622);
   const a = document.createElement('a'); a.download = `feeless-rug-report-${new Date().toISOString().slice(0, 10)}.png`; a.href = c.toDataURL('image/png'); a.click();
 }
@@ -36,12 +36,12 @@ const reportGif = r => ({ kicker: `RUG REPORT · LAST ${r.days} DAYS`, title: 'T
 export function RugReport() {
   const [r, setR] = useState(null);
   useEffect(() => { fetch(apiUrl('/api/reputation/rug-report?days=7')).then(x => x.json()).then(setR).catch(() => {}); }, []);
-  if (!r) return null;
+  if (!r?.totals) return null;  // no report yet (or an error body): render nothing, never crash
   const t = r.totals;
   return <section className="rug-report" data-testid="rug-report">
     <header><div><h3>Rug Report</h3><small>Last 7 days · every entry is on-chain evidence</small></div><div className="rr-share"><button type="button" className="btn-outline" onClick={() => downloadCard(r)}>⬇ Download card</button><ShareGifButton card={reportGif(r)} /></div></header>
     <div className="rr-totals">{[['Caught', t.caught], ['Blocklisted', t.blocklisted], ['Repeat funders', t.funders], ['Broken Shields', t.brokenShields], ['Rugs/dumps', t.rugs]].map(([l, v]) => <div key={l}><b>{v.toLocaleString()}</b><small>{l}</small></div>)}</div>
-    <div className="rr-list">{r.caught.slice(0, 5).map(c => <Link key={c.wallet} to={`/terminal/profile/${c.wallet}`}><code>{short(c.wallet)}</code><CopyBtn value={c.wallet} profile /><span>{c.roles.join(' + ')} on {c.launches} launch{c.launches === 1 ? '' : 'es'}</span>{c.blocked && <em>⛔</em>}</Link>)}</div>
+    <div className="rr-list">{(r.caught || []).slice(0, 5).map(c => <Link key={c.wallet} to={`/terminal/profile/${c.wallet}`}><code>{short(c.wallet)}</code><CopyBtn value={c.wallet} profile /><span>{c.roles.join(' + ')} on {c.launches} launch{c.launches === 1 ? '' : 'es'}</span>{c.blocked && <em>⛔</em>}</Link>)}</div>
   </section>;
 }
 

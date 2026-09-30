@@ -4014,3 +4014,5 @@ body.theme-day .cf-vitals span{background:#fff}body.theme-day .cf-vitals b{color
 @media(min-width:1500px){.wallet-profile-page{max-width:1240px!important}}
 .xp-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .xp-case{border-color:rgba(0,255,163,.4)!important;color:#00ffa3!important}.xp-case:hover{background:#00ffa3!important;color:#02140c!important}
+.panel-crash{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:14px 16px;border:1px dashed rgba(245,197,66,.45);border-radius:12px;background:rgba(245,197,66,.05);font-size:12.5px;color:#e8d9b0;margin:8px 0}
+.panel-crash b{color:var(--gold)}.panel-crash button{margin-left:auto;border:1px solid rgba(0,255,163,.4);background:transparent;color:#00ffa3;border-radius:8px;padding:5px 12px;font:700 11px 'JetBrains Mono',monospace;cursor:pointer}.panel-crash button:hover{background:#00ffa3;color:#02140c}
