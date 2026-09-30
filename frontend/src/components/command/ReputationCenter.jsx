@@ -4,6 +4,7 @@ import { ShieldCheck, ShieldAlert, Shield, ShieldQuestion, Search, Layers, Star,
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { fetchLeaderboard, fetchCreator, fetchClusters, BADGE_LABEL } from '../../lib/reputation';
 import { CreatorProfileCard, AddressPill, WatchlistDashboard } from './CreatorProfile';
+import { RepTools } from '../RepTools';
 import { RepStanding } from './RepStanding';
 
 const ICON = { trusted: ShieldCheck, building: Shield, unproven: ShieldQuestion, flagged: ShieldAlert };
@@ -99,7 +100,7 @@ export function ReputationCenter() {
     }
   };
 
-  return <div className="reputation-center" data-testid="reputation-center">
+  return <div className="reputation-center" data-testid="reputation-center"><RepTools />
     <RepStanding />
     <div className="command-page-title"><span className="eyebrow"><Layers size={13} />THE TRUST LAYER · CHAIN-AGNOSTIC</span><h1>Creators earn trust.<br /><em>Every launch remembers.</em></h1><p>A wallet's launch history, not the current meta, is what should decide whether you buy. Every observation FEELESS makes across every chain and launchpad gets recorded here permanently — mint authority status, liquidity survival, and every past rug. This dataset only gets harder to fake the longer it runs.</p></div>
     <div className="reputation-summary"><div><small>CREATORS TRACKED</small><strong data-testid="reputation-total-creators">{data.totalCreators}</strong></div><div><small>TOKENS OBSERVED</small><strong data-testid="reputation-total-tokens">{data.totalTokensTracked}</strong></div><div><small>ACTIVE CHAIN</small><strong>{ecosystem.name}</strong></div></div>

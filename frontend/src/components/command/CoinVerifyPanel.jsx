@@ -21,7 +21,7 @@ export function CoinVerifyPanel({ call }) {
   const open = m => { setMint(m); setRun(x => x + 1); };
   return <section className="cc-panel coin-verify" data-testid="coin-verify">
     <details className="tr-explain"><summary>✓ How coins earn the check</summary>
-      <ul><li><b>Green ✓ (earned):</b> passes all 5 safety gates (mint + freeze revoked, creator not flagged, 24h+ trading, $25K+ liquidity) and scores {70}+ on 8 cited checks (locked LP, holder spread, insiders, dev bag, socials, real volume, two-sided flow, 72h+).</li>
+      <ul><li><b>Green ✓ (earned):</b> passes all 7 safety gates (mint + freeze revoked, creator not flagged, 24h+ trading, $25K+ liquidity, top 10 under 50%, insiders under 25%) and scores 75+ on 10 cited checks (locked LP, holder spread, insiders, pool depth, clean launch, dev bag, socials, real volume, two-sided flow, 72h+).</li>
         <li><b>Gold ✦ (granted):</b> official FEELESS coins, or coins you review and grant here.</li>
         <li><b>Revoke</b> removes any check site-wide instantly, even an earned one. Checks re-run every 6h, so a coin that turns bad loses it on its own.</li>
         <li>The check shows on the coin's logo everywhere: radar, chat, search, charts, profiles.</li></ul></details>

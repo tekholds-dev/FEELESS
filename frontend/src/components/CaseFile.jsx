@@ -2,6 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { WatchButton } from './WatchButton';
 import { VerifyReport } from './VerifyReport';
+import { ShareGifButton } from './ShareGif';
+
+// A case file as a shareable GIF: verdict, score and the top cited findings, readable at a glance.
+const cut = (t, n = 58) => (t && t.length > n ? `${t.slice(0, n - 1)}…` : t || '');
+export const caseCard = c => {
+  const bad = ['suspect', 'high', 'danger'].includes(c.level);
+  const ev = (c.evidence || []).filter(e => e.weight > 0).slice(0, 2).map(e => `• ${cut(e.claim, 54)}`);
+  return { kicker: `FEELESS CASE FILE · ${c.kind === 'coin' ? 'COIN' : 'WALLET'} · ${String(c.address || '').slice(0, 4)}…${String(c.address || '').slice(-4)}`,
+    title: cut(c.identity?.name || c.identity?.handle ? `${c.identity?.name || ''} ${c.identity?.handle ? `@${c.identity.handle}` : ''}` : (c.label || 'Case file'), 30),
+    tone: bad ? 'down' : 'up', big: `${c.score ?? 0}/100`, lines: [cut(c.summary || 'No red flags on record.'), ...(ev.length ? ev : ['• Every point cited: forensics, funding graph, blocklist'])],
+    footer: 'feeless · reputation engine · check any wallet' };
+};
 import { apiUrl, errorText } from '../lib/api';
 
 const short = a => (a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '—');
@@ -85,7 +97,7 @@ export function CaseFileView({ address }) {
   if (!c) return <p className="cf-empty cf-loading">Pulling the chain records…</p>;
   return <div className={`case-file lvl-${c.level}`} data-testid="case-file">
     <header><Gauge score={c.score} level={c.level} /><div><small>{c.kind === 'coin' ? 'COIN CASE' : 'WALLET CASE'} · {short(c.address)}</small>
-      <h4>{c.identity?.name || c.identity?.handle ? `${c.identity.name || ''} ${c.identity.handle ? `@${c.identity.handle}` : ''}` : LEVEL[c.level]}</h4><p>{c.summary || (c.evidence?.[0]?.claim ?? 'No red flags on record.')}</p>{c.kind === 'wallet' && <WatchButton target={c.address} />}</div></header>
+      <h4>{c.identity?.name || c.identity?.handle ? `${c.identity.name || ''} ${c.identity.handle ? `@${c.identity.handle}` : ''}` : LEVEL[c.level]}</h4><p>{c.summary || (c.evidence?.[0]?.claim ?? 'No red flags on record.')}</p><div className="cf-actions">{c.kind === 'wallet' && <WatchButton target={c.address} />}<ShareGifButton className="btn-outline cf-share" label="🎞 Share case GIF" card={caseCard(c)} /></div></div></header>
     {c.kind === 'coin' ? <CoinCase c={c} /> : <WalletCase c={c} />}
     <small className="cf-foot">Evidence from on-chain forensics, the FEELESS funding graph and blocklist. Every point is cited; nothing is guessed.</small>
   </div>;

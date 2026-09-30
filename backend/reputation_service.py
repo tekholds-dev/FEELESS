@@ -8017,6 +8017,8 @@ async def _verify_facts(mint):
         'socials': len(info.get('socials') or []) + len(info.get('websites') or []),
         'lpLocked': bool(reg) or str(top.get('dexId') or '').lower() == 'pumpswap',
         'top10Pct': intel.get('top10Pct'), 'insidersPct': intel.get('insidersHoldingPct'), 'devPct': intel.get('devHoldingPct'),
+        'marketCapUsd': top.get('marketCap') or top.get('fdv') or 0,
+        'bundled': len(intel.get('bundledWallets') or []), 'snipers': len(intel.get('sniperWallets') or []),
     }
     return facts, {'symbol': (top.get('baseToken') or {}).get('symbol'), 'pair': top.get('pairAddress'), 'dexId': top.get('dexId')}
 

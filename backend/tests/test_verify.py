@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import verify  # noqa: E402
 
 GOOD = {'mintAuthority': None, 'freezeAuthority': None, 'creatorBlocked': False, 'creatorLevel': 'clean', 'ageHours': 100,
-        'liquidityUsd': 80_000, 'volume24h': 60_000, 'buyRatio': 0.55, 'socials': 3, 'lpLocked': True, 'top10Pct': 22, 'insidersPct': 4, 'devPct': 1}
+        'liquidityUsd': 80_000, 'marketCapUsd': 500_000, 'bundled': 0, 'snipers': 1, 'volume24h': 60_000, 'buyRatio': 0.55, 'socials': 3, 'lpLocked': True, 'top10Pct': 22, 'insidersPct': 4, 'devPct': 1}
 
 
 def test_clean_coin_is_verified_with_every_check_cited():
@@ -19,14 +19,14 @@ def test_clean_coin_is_verified_with_every_check_cited():
 
 
 def test_any_failed_gate_blocks_the_check_even_with_perfect_score():
-    for bad in ({'freezeAuthority': 'Dev'}, {'mintAuthority': 'unknown'}, {'creatorLevel': 'suspect'}, {'ageHours': 5}, {'liquidityUsd': 9000}):
+    for bad in ({'freezeAuthority': 'Dev'}, {'mintAuthority': 'unknown'}, {'creatorLevel': 'suspect'}, {'ageHours': 5}, {'liquidityUsd': 9000}, {'top10Pct': 55}, {'insidersPct': 30}):
         r = verify.verify_report({**GOOD, **bad})
         assert r['level'] is None and r['reason'].startswith('Missing:')
 
 
 def test_score_threshold_and_manual_overrides():
     weak = {**GOOD, 'lpLocked': False, 'top10Pct': 60, 'insidersPct': 30}
-    assert verify.verify_report(weak)['level'] is None  # 50/100
+    assert verify.verify_report(weak)['level'] is None  # below 75
     assert verify.verify_report(weak, {'state': 'granted'})['level'] == 'gold'
     assert verify.verify_report(GOOD, {'state': 'revoked', 'note': 'Team dumped'})['level'] == 'revoked'
     assert verify.verify_report({**GOOD, 'freezeAuthority': 'x'}, official=True)['level'] == 'gold'

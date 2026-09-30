@@ -4534,3 +4534,18 @@ body.theme-day .wpr-move span{color:#0b1f16}body.theme-day .wpr-move em{color:#0
 .mk-post{margin:0;white-space:pre-wrap;font:11.5px/1.5 'JetBrains Mono',monospace;color:#ffffffc0;padding:10px;border-radius:10px;background:#010503;border:1px solid #ffffff0d;max-height:180px;overflow:auto}
 .mk-coin-actions{display:flex;gap:8px;flex-wrap:wrap}
 body.theme-day .mk-coin{background:#f4fbf7;border-color:#00875c33}body.theme-day .mk-post{background:#fff;color:#0b1f16}
+.fcp-result{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font:700 10.5px "JetBrains Mono",monospace}.fcp-result.win{background:#16d67f;color:#02140c}.fcp-result.loss{background:#ff8fa3;color:#1a0306}
+.cf-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}.cf-actions .watch-btn{margin-top:0}
+/* Reputation tools */
+.rep-tools{display:grid;gap:12px;margin-bottom:16px;padding:18px 20px;border-radius:18px;border:1px solid #16d67f33;background:radial-gradient(120% 160% at 0 0,#16d67f1a,transparent 55%),#030a07}
+.rt-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px}
+.rt-head small{font:700 9.5px 'JetBrains Mono',monospace;letter-spacing:.18em;color:#16d67f}.rt-head h3{margin:4px 0}.rt-head p{margin:0;font-size:12.5px;color:#ffffffa8}
+.rt-body{display:grid;gap:10px}.rt-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.rt-row input{flex:1 1 260px}
+.rt-cmp{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
+.rt-side{display:grid;gap:6px;padding:14px;border-radius:14px;border:1px solid #ffffff14;background:#020604;animation:bdgIn .18s ease-out}
+.rt-side small{font:600 10px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#ffffff80}.rt-side b{font:800 34px/1 'JetBrains Mono',monospace;color:#16d67f}.rt-side b em{font-size:13px;font-style:normal;color:#ffffff60}
+.rt-side>span{font:700 12px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.08em}
+.rt-side.lv-suspect,.rt-side.lv-high,.rt-side.lv-danger{border-color:#ff8fa366}.rt-side.lv-suspect b,.rt-side.lv-high b,.rt-side.lv-danger b{color:#ff8fa3}.rt-side.lv-watch b,.rt-side.lv-caution b{color:var(--gold,#f5c542)}
+.rt-side ul{margin:0;padding:0;list-style:none;display:grid;gap:5px}.rt-side li{display:grid;gap:2px;font-size:12px;padding:6px 8px;border-radius:8px;background:#ffffff06}
+.rt-side li i{font:600 9.5px 'JetBrains Mono',monospace;font-style:normal;color:#16d67f99;text-transform:uppercase}
+body.theme-day .rep-tools,body.theme-day .rt-side{background:#f4fbf7;border-color:#00875c33}body.theme-day .rt-head p{color:#0b1f16a8}

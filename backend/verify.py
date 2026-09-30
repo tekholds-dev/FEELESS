@@ -6,7 +6,7 @@ case files cite evidence. Command Center can grant a gold check (official / revi
 always wins. Pure functions only: the service gathers the facts.
 """
 
-VERIFY_MIN = 70
+VERIFY_MIN = 75
 
 GATES = (
     ('mint', 'Mint authority revoked', lambda f: f.get('mintAuthority') is None, 'Mint account'),
@@ -14,17 +14,21 @@ GATES = (
     ('creator', 'Creator not flagged (blocklist / case file)', lambda f: not f.get('creatorBlocked') and f.get('creatorLevel') not in ('suspect', 'high'), 'FEELESS case file'),
     ('age', 'Trading for 24h+', lambda f: (f.get('ageHours') or 0) >= 24, 'Pool creation time'),
     ('liquidity', 'Liquidity $25K+', lambda f: (f.get('liquidityUsd') or 0) >= 25_000, 'DEX pool'),
+    ('whales', 'No whale control (top 10 under 50%)', lambda f: f.get('top10Pct') is not None and f['top10Pct'] < 50, 'Holder scan'),
+    ('insiders', 'Insiders under 25%', lambda f: f.get('insidersPct') is not None and f['insidersPct'] < 25, 'Launch forensics'),
 )
 
 SCORED = (
-    ('lp', 20, 'Liquidity locked or burned', lambda f: bool(f.get('lpLocked')), 'Pool registry / launchpad'),
-    ('top10', 15, 'Top 10 wallets hold under 30%', lambda f: f.get('top10Pct') is not None and f['top10Pct'] < 30, 'Holder scan'),
-    ('insiders', 15, 'Snipers/bundlers hold under 10%', lambda f: f.get('insidersPct') is not None and f['insidersPct'] < 10, 'Launch forensics'),
-    ('dev', 10, 'Creator holds under 5%', lambda f: f.get('devPct') is not None and f['devPct'] < 5, 'Holder scan'),
-    ('socials', 10, 'Website + social linked', lambda f: (f.get('socials') or 0) >= 2, 'Token profile'),
-    ('volume', 10, 'Real volume (24h volume ≥ 25% of liquidity)', lambda f: (f.get('volume24h') or 0) >= 0.25 * (f.get('liquidityUsd') or 1), 'DEX pool'),
-    ('flow', 10, 'Two-sided flow (buys 35–80% of trades)', lambda f: f.get('buyRatio') is not None and 0.35 <= f['buyRatio'] <= 0.8, 'DEX trades 24h'),
-    ('seasoned', 10, 'Survived 72h+', lambda f: (f.get('ageHours') or 0) >= 72, 'Pool creation time'),
+    ('lp', 15, 'Liquidity locked or burned', lambda f: bool(f.get('lpLocked')), 'Pool registry / launchpad'),
+    ('top10', 12, 'Top 10 wallets hold under 30%', lambda f: f.get('top10Pct') is not None and f['top10Pct'] < 30, 'Holder scan'),
+    ('insiders', 12, 'Snipers/bundlers hold under 10%', lambda f: f.get('insidersPct') is not None and f['insidersPct'] < 10, 'Launch forensics'),
+    ('depth', 11, 'Deep pool (liquidity ≥ 10% of market cap)', lambda f: (f.get('liquidityUsd') or 0) >= 0.10 * (f.get('marketCapUsd') or 1e18), 'DEX pool'),
+    ('cleanlaunch', 10, 'Clean launch (under 3 bundled, under 5 snipers)', lambda f: (f.get('bundled') or 0) < 3 and (f.get('snipers') or 0) < 5, 'Launch forensics'),
+    ('dev', 8, 'Creator holds under 5%', lambda f: f.get('devPct') is not None and f['devPct'] < 5, 'Holder scan'),
+    ('socials', 8, 'Website + social linked', lambda f: (f.get('socials') or 0) >= 2, 'Token profile'),
+    ('volume', 8, 'Real volume (24h volume ≥ 25% of liquidity)', lambda f: (f.get('volume24h') or 0) >= 0.25 * (f.get('liquidityUsd') or 1), 'DEX pool'),
+    ('flow', 8, 'Two-sided flow (buys 35–80% of trades)', lambda f: f.get('buyRatio') is not None and 0.35 <= f['buyRatio'] <= 0.8, 'DEX trades 24h'),
+    ('seasoned', 8, 'Survived 72h+', lambda f: (f.get('ageHours') or 0) >= 72, 'Pool creation time'),
 )
 
 

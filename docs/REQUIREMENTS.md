@@ -83,7 +83,7 @@ Meteora's own validator checks the curve before you can sign. The warnings flag 
   - **Pump.fun coins:** launched from the same page.
   - **Pools for existing tokens:** created in the Pools tab.
   - Airdrops and badge payouts.
-- **Coin verification.** A coin earns a green ✓ on its logo, site-wide, by passing all 5 safety gates and scoring 70+ out of 100 on 8 cited checks:
+- **Coin verification.** A coin earns a green ✓ on its logo, site-wide, by passing all 5 safety gates and scoring 75+ out of 100 on 10 cited checks:
   - **Gates:** mint and freeze authority revoked, creator not flagged, 24h+ of trading, $25K+ liquidity.
   - **Checks:** locked LP, holder spread, insider share, dev bag, socials, real volume, two-sided flow, 72h+ age.
   - Official or reviewed coins get a gold ✦ granted in Cmd Ctr › Verify coins. A revoke always wins.
