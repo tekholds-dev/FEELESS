@@ -7345,6 +7345,9 @@ class PumpCreateIn(BaseModel):
     devBuySol: float = 0
 
 
+PUMP_PRIORITY_SOL = float(os.environ.get('PUMP_PRIORITY_SOL', '0.0001'))   # was 0.0005: 5× what pump.fun's own site uses
+
+
 @app.post('/api/reputation/pump/create-tx')
 async def pump_create_tx(p: PumpCreateIn):
     me = _session_or_401(p.address, p.session)
@@ -7370,7 +7373,10 @@ async def pump_create_tx(p: PumpCreateIn):
             raise HTTPException(502, 'Pump.fun metadata upload failed — try again.')
         uri = (r.json() or {}).get('metadataUri')
         t = await http.post('https://pumpportal.fun/api/trade-local', json={'publicKey': p.address, 'action': 'create', 'tokenMetadata': {'name': form['name'], 'symbol': form['symbol'], 'uri': uri},
-                                                                           'mint': p.mint, 'denominatedInSol': 'true', 'amount': p.devBuySol, 'slippage': 10, 'priorityFee': 0.0005, 'pool': 'pump'})
+                                                                           'mint': p.mint, 'denominatedInSol': 'true', 'amount': p.devBuySol,
+                                                                           # the dev buy is the very first buy on a brand-new curve in the same tx: nobody can move
+                                                                           # the price in between, so 1% slippage is plenty (10% made wallets preview a 10% bigger spend)
+                                                                           'slippage': 1, 'priorityFee': PUMP_PRIORITY_SOL, 'pool': 'pump'})
     if t.status_code != 200:
         raise HTTPException(502, f'Pump.fun could not build the launch ({t.text[:120]}).')
     import base64 as _b64
