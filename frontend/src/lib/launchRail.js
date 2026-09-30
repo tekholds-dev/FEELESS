@@ -146,7 +146,14 @@ export async function claimPartnerFees({ provider, feeClaimer, pool, onStatus })
 }
 
 // Any creator: launch a coin on the FEELESS config, optionally buying first in the same transaction.
-export async function launchCoin({ provider, creator, config, name, symbol, uri, firstBuySol = 0, quoteDecimals = 9, onStatus }) {
+// Priority fee (SOL) → compute-budget instructions. 300k units covers create + first buy on the bonding curve.
+export function priorityIxs(web3, prioritySol, units = 300_000) {
+  const lamports = Math.round(Math.max(0, Math.min(0.01, Number(prioritySol) || 0)) * 1e9);
+  if (!lamports) return [];
+  return [web3.ComputeBudgetProgram.setComputeUnitLimit({ units }), web3.ComputeBudgetProgram.setComputeUnitPrice({ microLamports: Math.floor(lamports * 1e6 / units) })];
+}
+
+export async function launchCoin({ provider, creator, config, name, symbol, uri, firstBuySol = 0, quoteDecimals = 9, priorityFeeSol = 0, onStatus }) {
   const { web3, connection, client } = await sdk();
   const BN = (await import('bn.js')).default;
   const payer = new web3.PublicKey(creator);
@@ -155,6 +162,7 @@ export async function launchCoin({ provider, creator, config, name, symbol, uri,
   const tx = firstBuySol > 0
     ? await client.creator.createPoolWithFirstBuy({ createPoolParam, firstBuyParam: { buyer: payer, buyAmount: new BN(Math.round(firstBuySol * 10 ** quoteDecimals)), minimumAmountOut: new BN(1), referralTokenAccount: null } })
     : await client.creator.createPool(createPoolParam);
+  if (Array.isArray(tx?.instructions)) tx.instructions.unshift(...priorityIxs(web3, priorityFeeSol));   // Cmd Ctr › Launch › Costs
   const signature = await signSend(web3, connection, provider, tx, payer, [mint], onStatus);
   keepReceipt(signature, creator, 'launch');
   return { mint: mint.publicKey.toBase58(), signature };

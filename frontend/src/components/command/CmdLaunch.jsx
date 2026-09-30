@@ -71,7 +71,7 @@ export function CmdLaunch({ rail }) {
           body: JSON.stringify({ address: wallet.address, session, name: form.name, symbol: form.symbol, description: form.description, image: form.imageUrl, banner: form.bannerUrl, website: form.website, twitter: form.twitter, telegram: form.telegram }) });
         const meta = await m.json().catch(() => ({}));
         if (!m.ok) throw new Error(meta.detail || 'Could not publish coin metadata.');
-        const out = await launchCoin({ provider, creator: wallet.address, config: cfg.config, name: form.name, symbol: form.symbol, uri: meta.uri, firstBuySol: Number(f.devBuy) || 0, quoteDecimals: unit === 'USDC' ? 6 : 9, onStatus: setBusy });
+        const out = await launchCoin({ provider, creator: wallet.address, config: cfg.config, name: form.name, symbol: form.symbol, uri: meta.uri, firstBuySol: Number(f.devBuy) || 0, quoteDecimals: unit === 'USDC' ? 6 : 9, priorityFeeSol: rail?.costs?.feelessPriorityFeeSol ?? 0.0001, onStatus: setBusy });
         res = { ...out, uri: meta.uri };
       }
       const rec = { at: Date.now(), kind, mint: res.mint, signature: res.signature, uri: res.uri || '', wallet: wallet.address, name: form.name, symbol: form.symbol,

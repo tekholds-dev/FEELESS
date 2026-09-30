@@ -79,3 +79,21 @@ def clean_tab(t: dict) -> dict:
 def dev_buy_ok(tab: dict, sol: float) -> bool:
     tab = clean_tab(tab)
     return sol <= 0 or (tab['devBuy'] and sol <= tab['maxDevBuySol'])
+
+
+# ---- Launch costs (Cmd Ctr › Launch › Costs): what the platform adds on top of the chain's own rent ----------
+COSTS_DEFAULT = {'pumpSlippagePct': 1.0, 'pumpPriorityFeeSol': 0.0001, 'feelessPriorityFeeSol': 0.0001}
+COSTS_BOUNDS = {'pumpSlippagePct': (0.5, 25.0), 'pumpPriorityFeeSol': (0.0, 0.01), 'feelessPriorityFeeSol': (0.0, 0.01)}
+
+
+def clean_costs(raw) -> dict:
+    """Owner/admin launch-cost settings, clamped so a typo can never make a launch overpay (max 0.01 SOL priority)."""
+    out = {}
+    for k, d in COSTS_DEFAULT.items():
+        try:
+            v = float((raw or {}).get(k, d))
+        except (TypeError, ValueError):
+            v = d
+        lo, hi = COSTS_BOUNDS[k]
+        out[k] = round(max(lo, min(hi, v)), 6)
+    return out

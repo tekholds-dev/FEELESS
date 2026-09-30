@@ -429,3 +429,7 @@ body.theme-day .my-pnl{background:#ffffffee!important}
 @keyframes ub-in{from{opacity:0;transform:translate(-50%,-6px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (prefers-reduced-motion: reduce){.update-banner{animation:none}}
 .update-banner code{font-family:var(--m-mono);color:var(--m-text)}
+/* Cmd Ctr › Launch desk: status header + sections */
+.lr-meta{display:grid;gap:14px}
+.lr-head{display:grid;gap:10px}.lr-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.lr-cost{display:grid;gap:4px}.lr-cost>span{font-family:var(--m-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--m-mute)}

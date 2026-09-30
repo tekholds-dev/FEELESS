@@ -7140,7 +7140,7 @@ class LaunchRailIn(BaseModel):
 @app.get('/api/reputation/launch-rail')
 async def launch_rail():
     r = _json_load(LAUNCH_RAIL_PATH, {})
-    return {'ready': bool(r.get('config')), **r, 'tab': launch_meta.clean_tab(r.get('tab') or launch_meta.TAB_DEFAULT), 'siteUrl': os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/')}
+    return {'ready': bool(r.get('config')), **r, 'tab': launch_meta.clean_tab(r.get('tab') or launch_meta.TAB_DEFAULT), 'costs': launch_meta.clean_costs(r.get('costs')), 'siteUrl': os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/')}
 
 
 @app.put('/api/reputation/admin/launch-rail')
@@ -7169,6 +7169,22 @@ async def launch_rail_set(request: Request, p: LaunchRailIn):
     _json_save(LAUNCH_RAIL_PATH, d)
     ad = _admin_load(); _audit(ad, me, 'launch-rail', f"{p.scope} config {p.config[:8]}"); _admin_save(ad)
     return d
+
+
+class LaunchCostsIn(BaseModel):
+    pumpSlippagePct: float = 1.0
+    pumpPriorityFeeSol: float = 0.0001
+    feelessPriorityFeeSol: float = 0.0001
+
+
+@app.put('/api/reputation/admin/launch-costs')
+async def launch_costs_set(request: Request, p: LaunchCostsIn):
+    """Owner/admin: slippage + priority fee for pump.fun launches and priority fee for FEELESS / House launches.
+    Stored beside the launch rules (nothing else in that file changes)."""
+    me = _require_admin(request)
+    d = _json_load(LAUNCH_RAIL_PATH, {}); d['costs'] = launch_meta.clean_costs(p.model_dump()); _json_save(LAUNCH_RAIL_PATH, d)
+    ad = _admin_load(); _audit(ad, me, 'launch-costs', ', '.join(f'{k} {v}' for k, v in d['costs'].items())); _admin_save(ad)
+    return d['costs']
 
 
 class LaunchTabIn(BaseModel):
@@ -7345,9 +7361,6 @@ class PumpCreateIn(BaseModel):
     devBuySol: float = 0
 
 
-PUMP_PRIORITY_SOL = float(os.environ.get('PUMP_PRIORITY_SOL', '0.0001'))   # was 0.0005: 5× what pump.fun's own site uses
-
-
 @app.post('/api/reputation/pump/create-tx')
 async def pump_create_tx(p: PumpCreateIn):
     me = _session_or_401(p.address, p.session)
@@ -7367,6 +7380,7 @@ async def pump_create_tx(p: PumpCreateIn):
     img = (UPLOAD_DIR / m.group(1)).read_bytes()
     mime = {'png': 'image/png', 'jpg': 'image/jpeg', 'webp': 'image/webp', 'gif': 'image/gif'}[m.group(2)]
     form = launch_meta.pump_form(p.name, p.symbol, p.description, p.website, p.twitter, p.telegram)
+    costs = launch_meta.clean_costs(_json_load(LAUNCH_RAIL_PATH, {}).get('costs'))   # Cmd Ctr › Launch › Costs
     async with httpx.AsyncClient(timeout=30, headers={'User-Agent': 'Mozilla/5.0'}) as http:
         r = await http.post('https://pump.fun/api/ipfs', data=form, files={'file': (m.group(1), img, mime)})
         if r.status_code != 200:
@@ -7376,7 +7390,7 @@ async def pump_create_tx(p: PumpCreateIn):
                                                                            'mint': p.mint, 'denominatedInSol': 'true', 'amount': p.devBuySol,
                                                                            # the dev buy is the very first buy on a brand-new curve in the same tx: nobody can move
                                                                            # the price in between, so 1% slippage is plenty (10% made wallets preview a 10% bigger spend)
-                                                                           'slippage': 1, 'priorityFee': PUMP_PRIORITY_SOL, 'pool': 'pump'})
+                                                                           'slippage': costs['pumpSlippagePct'], 'priorityFee': costs['pumpPriorityFeeSol'], 'pool': 'pump'})
     if t.status_code != 200:
         raise HTTPException(502, f'Pump.fun could not build the launch ({t.text[:120]}).')
     import base64 as _b64

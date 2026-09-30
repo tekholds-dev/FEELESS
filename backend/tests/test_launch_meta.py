@@ -43,3 +43,24 @@ def test_launch_tab_rules():
     assert clean_tab({'rails': []})['rails'] == ['feeless']
     assert dev_buy_ok({'devBuy': False}, 0) and not dev_buy_ok({'devBuy': False}, 0.1)
     assert dev_buy_ok({'maxDevBuySol': 2}, 2) and not dev_buy_ok({'maxDevBuySol': 2}, 2.5)
+
+
+def test_launch_costs_are_clamped_and_default_cheap():
+    from launch_meta import clean_costs, COSTS_DEFAULT
+    assert clean_costs(None) == COSTS_DEFAULT and COSTS_DEFAULT['pumpSlippagePct'] == 1.0
+    c = clean_costs({'pumpSlippagePct': 99, 'pumpPriorityFeeSol': 5, 'feelessPriorityFeeSol': -1})
+    assert c == {'pumpSlippagePct': 25.0, 'pumpPriorityFeeSol': 0.01, 'feelessPriorityFeeSol': 0.0}
+    assert clean_costs({'pumpSlippagePct': 'abc'})['pumpSlippagePct'] == 1.0
+
+
+def test_saving_costs_keeps_the_launch_rules_and_house_configs(tmp_path, monkeypatch):
+    import asyncio
+    import reputation_service as rs
+    monkeypatch.setattr(rs, 'LAUNCH_RAIL_PATH', tmp_path / 'rail.json')
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'Adm1n'); monkeypatch.setattr(rs, '_admin_load', lambda: {}); monkeypatch.setattr(rs, '_admin_save', lambda d: None)
+    monkeypatch.setattr(rs, '_audit', lambda *a: None)
+    rs._json_save(rs.LAUNCH_RAIL_PATH, {'config': 'Cfg1', 'feeClaimer': 'F', 'house': [{'config': 'H1', 'label': 'Reserve'}], 'tab': {'rails': ['pump']}})
+    asyncio.run(rs.launch_costs_set(None, rs.LaunchCostsIn(pumpSlippagePct=2, pumpPriorityFeeSol=0.0002, feelessPriorityFeeSol=0)))
+    d = rs._json_load(rs.LAUNCH_RAIL_PATH, {})
+    assert d['config'] == 'Cfg1' and d['house'][0]['label'] == 'Reserve' and d['tab'] == {'rails': ['pump']}
+    assert d['costs'] == {'pumpSlippagePct': 2.0, 'pumpPriorityFeeSol': 0.0002, 'feelessPriorityFeeSol': 0.0}

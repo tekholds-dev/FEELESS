@@ -119,6 +119,28 @@ function LaunchTabRules({ call, tab, onSaved }) {
     {!t.rails.length && <small className="m-neg">Keep at least one rail on.</small>}</div>;
 }
 
+const LR_TABS = [['launch', '🚀 Launch'], ['earnings', '💰 Earnings'], ['rules', '📜 Rules'], ['costs', '⛽ Costs'], ['setup', '⚙ Setup']];
+const COST_FIELDS = [
+  ['pumpSlippagePct', 'Pump.fun first-buy slippage (%)', 'The first buy lands in the same tx as the launch, so nobody can move the price: 1% is plenty. Higher only inflates the wallet preview.'],
+  ['pumpPriorityFeeSol', 'Pump.fun priority fee (SOL)', 'Tip for faster inclusion. 0.0001 is enough most of the time; raise it when the network is congested.'],
+  ['feelessPriorityFeeSol', 'FEELESS / House priority fee (SOL)', 'Same tip for launches on your own Meteora configs (public and house).'],
+];
+
+// Launch costs: what the platform adds on top of the chain's own rent. Clamped server-side (max 0.01 SOL priority).
+function LaunchCosts({ call, costs, onSaved, solPx }) {
+  const [v, setV] = useState(null);
+  useEffect(() => { if (costs) setV(costs); }, [costs]);
+  const save = async () => { try { await call('/admin/launch-costs', { method: 'PUT', body: JSON.stringify(v) }); toast.success('Launch costs saved'); onSaved?.(); } catch (e) { toast.error(e.message || 'Could not save'); } };
+  if (!v) return <p className="cc-empty">Loading…</p>;
+  return <div className="m-card m-stack" data-testid="launch-costs">
+    <span className="m-label">LAUNCH COSTS <em>applies to every launch from now on</em></span>
+    {COST_FIELDS.map(([k, label, why]) => <label key={k} className="lr-cost"><span>{label}{/SOL/.test(label) && solPx ? <em className="usd-hint"> {usd(v[k], solPx)}</em> : null}</span>
+      <input className="m-input" inputMode="decimal" value={v[k]} onChange={e => setV(x => ({ ...x, [k]: e.target.value.replace(/[^0-9.]/g, '') }))} /><small className="m-dim">{why}</small></label>)}
+    <div className="m-note">Not adjustable: pump.fun's own ~1% on the first buy, PumpPortal's 0.5% on the first buy (pump.fun launches only), ~0.02 SOL refundable rent per coin.</div>
+    <button type="button" className="m-btn primary" onClick={save}>Save launch costs</button>
+  </div>;
+}
+
 export function LaunchRailAdmin({ call, isOwner }) {
   const { wallet, provider, connect } = useWallet() || {};
   const [rail, setRail] = useState(null);
@@ -132,6 +154,8 @@ export function LaunchRailAdmin({ call, isOwner }) {
   const [preset, setPreset] = useState('shield');
   const [scope, setScope] = useState('public');
   const [launchOpen, setLaunchOpen] = useState(false);
+  const [view, setView] = useState(() => { try { return localStorage.getItem('feeless:launch-desk') || 'launch'; } catch { return 'launch'; } });
+  const pickView = v => { setView(v); try { localStorage.setItem('feeless:launch-desk', v); } catch { /* private mode */ } };
   const [houseLabel, setHouseLabel] = useState('');
   const [check, setCheck] = useState(null);
   const unit = p.quote === 'USDC' ? 'USDC' : 'SOL';
@@ -163,28 +187,31 @@ export function LaunchRailAdmin({ call, isOwner }) {
       setStatus(''); load();
     } catch (e) { setStatus(''); toast.error(e.message || 'Could not create the launch config'); }
   };
-  return <section className="cc-panel launch-rail-admin">
-    <LaunchMap rail={rail} />
-    <SetupGuide keys={keys} rail={rail} routes={routes} />
-    <details className="tr-explain"><summary>💰 What the config numbers cost you</summary>
-      <ul>
-        <li><b>Opening / graduation market cap are valuations, not deposits.</b> Nobody pays {Number(p.initialMarketCap) || 0} SOL{solPx ? ` (${usd(p.initialMarketCap, solPx).slice(2)})` : ''} to launch. The curve simply starts pricing the coin there; buyers' SOL moves it up to graduation.</li>
-        <li><b>Creating this config:</b> ~0.01 SOL{solPx ? ` (${usd(0.01, solPx).slice(2)})` : ''} rent, once, from your wallet.</li>
-        <li><b>Each coin launch:</b> ~0.02 SOL rent + network fee paid by the creator, plus any optional first buy they choose.</li>
-        <li><b>Lower opening MC</b> = cheaper early tokens and more room to run; <b>higher</b> = fewer tokens per SOL at open.</li>
-      </ul>
-    </details>
-    <details className="tr-explain"><summary>🔐 Secure your coins & airdrop on a small budget</summary>
-      <ol>
-        <li><b>Split roles:</b> keep the creator wallet cold (hardware wallet) and only connect it to sign; use a separate hot wallet for day-to-day.</li>
-        <li><b>Treasury in a multisig:</b> create a Squads vault (2-of-3), set it as the fee claimer and treasury route. Fees can then only move with 2 signatures.</li>
-        <li><b>Lock liquidity</b> when you create pools (Pools tab, "Lock forever") — it earns the rug-proof badge and costs nothing extra.</li>
-        <li><b>Airdrop cheaply:</b> SOL-only drops cost ~0.000005 SOL per transaction (18 wallets each). Token drops cost ~0.002 SOL per <i>new</i> holder (their token account rent) — so 100 new holders ≈ 0.2 SOL{solPx ? ` (${usd(0.2, solPx).slice(2)})` : ''}. Target existing holders first (Holders tab) — no account rent.</li>
-        <li><b>Batch, don't spray:</b> schedule in Airdrop Studio, then "Send from wallet" packs transfers and simulates before you sign.</li>
-        <li><b>Never</b> paste a seed phrase anywhere, including here. FEELESS never asks for one.</li>
-      </ol>
-    </details>
-    {isOwner && <TreasurySend ownerWallets={owners} />}
+  const houses = rail?.house?.length || 0;
+  return <section className="cc-panel launch-rail-admin lr-meta">
+    <div className="m-card lr-head">
+      <span className="m-label">LAUNCH DESK <em>pump.fun · FEELESS · house</em></span>
+      <div className="lr-kpis">
+        <div className="m-stat"><small>FEELESS rules</small><b className={`m-num sm ${rail?.ready ? 'm-pos' : ''}`}>{rail?.ready ? 'LIVE' : 'not set'}</b></div>
+        <div className="m-stat"><small>House configs</small><b className="m-num sm">{houses}</b></div>
+        <div className="m-stat"><small>Public rails</small><b className="m-num sm">{(rail?.tab?.rails || []).join(' · ') || '—'}</b></div>
+        <div className="m-stat"><small>Pump slippage · priority</small><b className="m-num sm">{rail?.costs ? `${rail.costs.pumpSlippagePct}% · ${rail.costs.pumpPriorityFeeSol} SOL` : '…'}</b></div>
+      </div>
+    </div>
+    <div className="m-seg lr-tabs" role="tablist">{LR_TABS.map(([k2, l2]) => <button key={k2} type="button" role="tab" aria-selected={view === k2} className={view === k2 ? 'active' : ''} onClick={() => pickView(k2)}>{l2}</button>)}</div>
+    {view === 'launch' && <>
+    <div className="cc-block cc-launch-coin"><h4>Step 2 · Launch a coin <small className="chain-tag">rail · config · coin · sign · receipt</small></h4>
+      {!launchOpen
+        ? <><p className="cc-empty">Pick 🏠 House, 🌐 FEELESS or 💊 Pump.fun, choose the config for this coin, fill it in, sign once. The receipt (CA, pump link, tx, terms) shows right after. Launch from the wallet that should own the coin.</p><button type="button" className="btn-primary" onClick={() => setLaunchOpen(true)} data-testid="open-cmd-launch">🚀 Open the launcher</button></>
+        : <Suspense fallback={<p className="cc-empty">Loading the launcher…</p>}><CmdLaunch rail={rail} /></Suspense>}</div>
+    </>}
+    {view === 'earnings' && <>
+    {rail?.house?.length > 0 && <HouseCoins house={rail.house} owners={owners} />}
+    {rail?.ready && <PartnerFees configs={[{ label: 'Public', config: rail.config, feeClaimer: rail.feeClaimer, quote: rail.params?.quote }, ...(rail.house || []).map(h => ({ label: h.label, config: h.config, feeClaimer: h.feeClaimer, quote: h.params?.quote }))]} />}
+      {!houses && !rail?.ready && <p className="m-note">Nothing earning yet — fee share and house-coin tolls show here once FEELESS or House configs have coins.</p>}
+    </>}
+    {view === 'rules' && <>
+      <LaunchMap rail={rail} />
     <div className="cc-block"><h4>Step 1 · Launch rules {rail?.ready && <span className="pill-ok">LIVE</span>}</h4>
       <div className="rail-notcoin"><b>⚠ This does not create a coin.</b> It sets the rules every coin follows (curve, fees, anti-snipe, locked liquidity). No name, ticker or image here. To launch an actual coin, open the <a href="/terminal/launch">Launch page →</a> (name, ticker, image, first buy) after these rules exist.</div>
       {rail?.ready ? <div className="rail-live">
@@ -214,12 +241,32 @@ export function LaunchRailAdmin({ call, isOwner }) {
     </div>
     {rail?.house?.length > 0 && <div className="cc-block"><h4>🏠 House configs <small className="chain-tag">owners + admins launch with these from the Launch page</small></h4>
       {rail.house.map(h => <div key={h.config} className="rail-house"><b>{h.label}</b><span>{Number(h.params?.initialMarketCap ?? 30)} → {Number(h.params?.migrationMarketCap ?? 500)} {h.params?.quote === 'USDC' ? 'USDC' : 'SOL'} · snipe tax {Number(h.params?.startingFeeBps ?? 9900) / 100}% · fees to <code>{h.feeClaimer.slice(0, 4)}…{h.feeClaimer.slice(-4)}</code></span><a href={`https://solscan.io/account/${h.config}`} target="_blank" rel="noreferrer">config ↗</a></div>)}</div>}
-    <div className="cc-block cc-launch-coin"><h4>Step 2 · Launch a coin <small className="chain-tag">rail · config · coin · sign · receipt</small></h4>
-      {!launchOpen
-        ? <><p className="cc-empty">Pick 🏠 House, 🌐 FEELESS or 💊 Pump.fun, choose the config for this coin, fill it in, sign once. The receipt (CA, pump link, tx, terms) shows right after. Launch from the wallet that should own the coin.</p><button type="button" className="btn-primary" onClick={() => setLaunchOpen(true)} data-testid="open-cmd-launch">🚀 Open the launcher</button></>
-        : <Suspense fallback={<p className="cc-empty">Loading the launcher…</p>}><CmdLaunch rail={rail} /></Suspense>}</div>
+    </>}
+    {view === 'costs' && <>
+      <LaunchCosts call={call} costs={rail?.costs} onSaved={load} solPx={solPx} />
+    <details className="tr-explain"><summary>💰 What the config numbers cost you</summary>
+      <ul>
+        <li><b>Opening / graduation market cap are valuations, not deposits.</b> Nobody pays {Number(p.initialMarketCap) || 0} SOL{solPx ? ` (${usd(p.initialMarketCap, solPx).slice(2)})` : ''} to launch. The curve simply starts pricing the coin there; buyers' SOL moves it up to graduation.</li>
+        <li><b>Creating this config:</b> ~0.01 SOL{solPx ? ` (${usd(0.01, solPx).slice(2)})` : ''} rent, once, from your wallet.</li>
+        <li><b>Each coin launch:</b> ~0.02 SOL rent + network fee paid by the creator, plus any optional first buy they choose.</li>
+        <li><b>Lower opening MC</b> = cheaper early tokens and more room to run; <b>higher</b> = fewer tokens per SOL at open.</li>
+      </ul>
+    </details>
+    </>}
+    {view === 'setup' && <>
+      <SetupGuide keys={keys} rail={rail} routes={routes} />
     {isOwner && rail && <LaunchTabRules call={call} tab={rail.tab} onSaved={load} />}
-    {rail?.house?.length > 0 && <HouseCoins house={rail.house} owners={owners} />}
-    {rail?.ready && <PartnerFees configs={[{ label: 'Public', config: rail.config, feeClaimer: rail.feeClaimer, quote: rail.params?.quote }, ...(rail.house || []).map(h => ({ label: h.label, config: h.config, feeClaimer: h.feeClaimer, quote: h.params?.quote }))]} />}
+      {isOwner && <TreasurySend ownerWallets={owners} />}
+    <details className="tr-explain"><summary>🔐 Secure your coins & airdrop on a small budget</summary>
+      <ol>
+        <li><b>Split roles:</b> keep the creator wallet cold (hardware wallet) and only connect it to sign; use a separate hot wallet for day-to-day.</li>
+        <li><b>Treasury in a multisig:</b> create a Squads vault (2-of-3), set it as the fee claimer and treasury route. Fees can then only move with 2 signatures.</li>
+        <li><b>Lock liquidity</b> when you create pools (Pools tab, "Lock forever") — it earns the rug-proof badge and costs nothing extra.</li>
+        <li><b>Airdrop cheaply:</b> SOL-only drops cost ~0.000005 SOL per transaction (18 wallets each). Token drops cost ~0.002 SOL per <i>new</i> holder (their token account rent) — so 100 new holders ≈ 0.2 SOL{solPx ? ` (${usd(0.2, solPx).slice(2)})` : ''}. Target existing holders first (Holders tab) — no account rent.</li>
+        <li><b>Batch, don't spray:</b> schedule in Airdrop Studio, then "Send from wallet" packs transfers and simulates before you sign.</li>
+        <li><b>Never</b> paste a seed phrase anywhere, including here. FEELESS never asks for one.</li>
+      </ol>
+    </details>
+    </>}
   </section>;
 }
