@@ -81,25 +81,42 @@ def merge(*sources):
     return sorted(out, key=lambda r: r.get('ts') or 0)
 
 
+def trade_costs(r: dict, fees_by_sig: dict) -> float:
+    """FEELESS fee + network fee (USD) baked into an on-chain fill's SOL amount."""
+    if r.get('via') != 'chain':
+        return 0.0
+    sol_px = r['usd'] / r['sol'] if r.get('sol') else 0.0
+    return (fees_by_sig.get(r['tx']) or 0.0) + (r.get('networkSol') or 0.0) * sol_px
+
+
+def market_usd(r: dict, fees_by_sig: dict) -> float:
+    """What the coins themselves cost (buy) or fetched (sell) at the pool, fees taken out — the price you traded at."""
+    c = trade_costs(r, fees_by_sig)
+    return max(0.0, r['usd'] - c) if r['side'] == 'buy' else r['usd'] + c
+
+
 def position(rows: list, held_chain: float | None = None, fees_by_sig: dict | None = None) -> dict | None:
-    """Average-cost position. `held_chain` (the wallet's real balance) beats the sum of fills when known."""
+    """Average-cost position. Entry = the market price you got (fees excluded, so the chart line sits where you bought);
+    fees are reported on their own and taken off `netUsd`-style figures by the UI. `held_chain` beats the sum of fills."""
     fees_by_sig = fees_by_sig or {}
     buys = [r for r in rows if r['side'] == 'buy']
     if not buys:
         return None
-    buy_usd = sum(r['usd'] for r in buys); buy_tok = sum(r.get('tokens') or r['usd'] / r['price'] for r in buys)
+    tok = lambda r: r.get('tokens') or r['usd'] / r['price']
+    buy_usd = sum(market_usd(r, fees_by_sig) for r in buys); buy_tok = sum(tok(r) for r in buys)
     sells = [r for r in rows if r['side'] == 'sell']
-    sell_usd = sum(r['usd'] for r in sells); sell_tok = sum(r.get('tokens') or r['usd'] / r['price'] for r in sells)
+    sell_usd = sum(market_usd(r, fees_by_sig) for r in sells); sell_tok = sum(tok(r) for r in sells)
     avg = buy_usd / buy_tok
     held = max(0.0, buy_tok - sell_tok) if held_chain is None else max(0.0, held_chain)
-    fees = sum(fees_by_sig.get(r['tx'], 0) for r in rows)
+    fees = sum(trade_costs(r, fees_by_sig) if r.get('via') == 'chain' else fees_by_sig.get(r['tx'], 0) for r in rows)
     trades = []
     for r in rows[-30:]:
         t = {k: r.get(k) for k in ('ts', 'side', 'usd', 'price', 'tx', 'tokens', 'via', 'networkSol')}
         t['feeUsd'] = fees_by_sig.get(r['tx'])
         if r['side'] == 'sell':
-            t['pnlUsd'] = round(r['usd'] - (r.get('tokens') or r['usd'] / r['price']) * avg, 2)
+            t['pnlUsd'] = round(r['usd'] - tok(r) * avg, 2)   # what actually landed in the wallet vs the coins' entry cost
         trades.append(t)
     return {'avgEntry': avg, 'tokensHeld': held, 'costUsd': round(avg * held, 2), 'realizedUsd': round(sell_usd - sell_tok * avg, 2),
+            'feesInclude': 'FEELESS + network fees',
             'investedUsd': round(buy_usd, 2), 'feesUsd': round(fees, 4), 'exact': any(r.get('via') == 'chain' for r in rows),
             'buys': len(buys), 'sells': len(sells), 'lastTradeAt': max(r['ts'] for r in rows), 'trades': trades}

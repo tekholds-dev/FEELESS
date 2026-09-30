@@ -12,7 +12,19 @@ set -uo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 interval="${1:-30}"
-branch="$(git rev-parse --abbrev-ref HEAD)"
+# Always follow main (the live site). A copy left on an old session branch would otherwise never update.
+branch="${FEELESS_BRANCH:-main}"
+current="$(git rev-parse --abbrev-ref HEAD)"
+if [[ "$current" != "$branch" ]]; then
+  git checkout -q -- frontend/yarn.lock frontend/package-lock.json 2>/dev/null || true
+  if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+    echo "On $current with local edits, so NOT following $branch. Run: git stash && git checkout $branch"
+  elif git fetch -q origin "$branch" && { git checkout -q "$branch" 2>/dev/null || git checkout -q -b "$branch" "origin/$branch"; }; then
+    echo "Switched from $current to $branch"
+  else
+    echo "Could not switch to $branch; run: git checkout $branch"
+  fi
+fi
 echo "Following origin/$branch every ${interval}s in $root (Ctrl+C to stop)"
 
 while true; do
