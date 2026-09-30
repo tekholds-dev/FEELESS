@@ -120,5 +120,6 @@ def position(rows: list, held_chain: float | None = None, fees_by_sig: dict | No
         trades.append(t)
     return {'avgEntry': avg, 'fillPrice': fill, 'tokensHeld': held, 'costUsd': round(avg * held, 2), 'realizedUsd': round(sell_usd - sell_tok * avg, 2),
             'entryIncludes': 'FEELESS + network fees (break-even)',
-            'investedUsd': round(buy_usd, 2), 'feesUsd': round(fees, 4), 'exact': any(r.get('via') == 'chain' for r in rows),
+            'investedUsd': round(buy_usd, 2), 'feesUsd': round(fees, 4), 'exact': all(r.get('via') == 'chain' for r in rows),
+            'coverage': round(min(1.0, max(0.0, buy_tok - sell_tok) / held), 3) if held > 0 else 1.0,
             'buys': len(buys), 'sells': len(sells), 'lastTradeAt': max(r['ts'] for r in rows), 'trades': trades}

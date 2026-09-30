@@ -79,3 +79,29 @@ def test_sweep_confirms_orders_nobody_is_polling_and_reports_each_once():
     assert landed == ['sig1']
     assert [db.swap_orders.rows[k]['state'] for k in ('o1', 'o2', 'o3')] == ['confirmed', 'submitted', 'failed']
     assert asyncio.run(svc.confirm_sweep()) == 0 and landed == ['sig1']   # never reported twice
+
+
+def test_exact_fill_reads_the_confirmed_tx_and_retries_until_served(monkeypatch):
+    svc = trading.TradingService(None)
+    W = 'Wa11et1111111111111111111111111111111111111'
+    tx = {'blockTime': 5, 'transaction': {'signatures': ['sigX'], 'message': {'accountKeys': [{'pubkey': W}]}},
+          'meta': {'err': None, 'fee': 5000, 'preBalances': [10**9], 'postBalances': [10**9 - 100_005_000 - 2_039_280],
+                   'preTokenBalances': [], 'postTokenBalances': [{'accountIndex': 1, 'mint': MEME, 'owner': W, 'uiTokenAmount': {'amount': '5000000000', 'decimals': 6}}]}}
+    calls = []
+
+    async def rpc(method, params):
+        calls.append(method)
+        return tx if len(calls) > 1 else None   # first read: not served yet
+    svc.rpc = rpc
+    real_sleep = asyncio.sleep
+    monkeypatch.setattr(trading.asyncio, 'sleep', lambda s: real_sleep(0))
+
+    class Http:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, url):
+            return type('R', (), {'json': lambda self: {SOL: {'usdPrice': 150}}})()
+    monkeypatch.setattr(trading.httpx, 'AsyncClient', lambda **k: Http())
+    f = asyncio.run(svc.exact_fill({'input_mint': SOL, 'output_mint': MEME, 'signature': 'sigX', 'wallet': W}))
+    assert calls == ['getTransaction', 'getTransaction'] and f['side'] == 'buy' and f['tokens'] == 5000 and f['via'] == 'chain'
+    assert abs(f['usd'] - 0.100005 * 150) < 1e-3   # 0.1 SOL swap + network fee, account rent excluded

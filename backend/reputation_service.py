@@ -6863,6 +6863,43 @@ async def _chain_fills(address: str, token: str) -> dict:
         return {}
 
 
+_repair_tried: dict = {}
+
+
+async def _repair_estimates(address: str, token: str):
+    """Self-heal: any of this wallet's FEELESS trades saved from a quote gets its exact on-chain fill read once and
+    saved over the estimate (at most one attempt per trade per minute; never blocks the position for long)."""
+    rows = [r for r in _json_load(FEELESS_TRADES_PATH, {}).get(address, []) if r.get('token', '').lower() == token.lower() and r.get('via') != 'chain']
+    now = time.time()
+    todo = [r['tx'] for r in rows if r.get('tx') and now - _repair_tried.get(r['tx'], 0) > 60][:3]
+    if not todo:
+        return
+
+    async def one(sig):
+        _repair_tried[sig] = now
+        try:
+            async with httpx.AsyncClient(timeout=6) as http:
+                r = await http.get(f'http://127.0.0.1:5001/api/trading/internal/exact-fill/{sig}', headers={'x-feeless-internal': _internal_key()})
+                return sig, (r.json().get('fill') if r.status_code == 200 else None)
+        except Exception:
+            return sig, None
+    got = {sig: f for sig, f in await asyncio.gather(*(one(s) for s in todo)) if f and f.get('tokens')}
+    if not got:
+        return
+    px = await _sol_usd()
+    ft = _json_load(FEELESS_TRADES_PATH, {})
+    fixed = []
+    for r in ft.get(address) or []:
+        f = got.get(r.get('tx'))
+        usd = (f.get('usd') or (f.get('sol') or 0) * px) if f else 0
+        if f and usd > 0:
+            r = {**r, 'side': f['side'], 'tokens': f['tokens'], 'sol': f.get('sol'), 'networkSol': f.get('networkSol'), 'usd': round(usd, 4),
+                 'price': usd / f['tokens'], 'ts': f.get('ts') or r.get('ts'), 'via': 'chain'}
+        fixed.append(r)
+    ft[address] = fixed
+    _json_save(FEELESS_TRADES_PATH, ft)
+
+
 @app.get('/api/reputation/position/{address}/{token}')
 async def position(address: str, token: str):
     """A wallet's position in one coin: exact on-chain fills first (any app), then the wallet-history provider, then
@@ -6875,13 +6912,19 @@ async def position(address: str, token: str):
             await wallet_trades(address)
         except Exception:
             pass   # wallet-history provider down: the chain + FEELESS's own records still give the position
+    await _repair_estimates(address, token)
     _, fills, chain = await asyncio.gather(history(), _feeless_fills(address), _chain_fills(address, token))
     tok = token.lower()
     provider = [r for r in (_wtrades_all.get(address) or (0, []))[1] if r['token'].lower() == tok]
     own = [r for r in _json_load(FEELESS_TRADES_PATH, {}).get(address, []) + fills if r['token'].lower() == tok]
-    rows = trade_fills.merge(chain.get('fills'), provider, own)
+    # Truth first: fills read from the chain (live scan, then the exact fill saved at confirmation), then FEELESS's own
+    # estimates (fees in), and the wallet-history provider last (it only fills in trades made outside FEELESS).
+    rows = trade_fills.merge(chain.get('fills'), [r for r in own if r.get('via') == 'chain'], [r for r in own if r.get('via') != 'chain'], provider)
     fees = {r.get('sig'): r.get('feeUsd') or 0 for r in _json_load(FEE_LEDGER_PATH, {}).get(primary_of(address), [])}
     pos = trade_fills.position(rows, chain.get('balance') if 'balance' in chain else None, fees)
+    if pos:
+        pos['sources'] = {k: sum(1 for r in rows if (r.get('via') or 'provider') == k) for k in ('chain', 'estimate', 'feeless', 'provider')}
+        pos['chainRead'] = 'balance' in chain
     return {'address': address, 'token': token, 'position': pos, 'balance': chain.get('balance')}
 
 
@@ -8238,6 +8281,7 @@ class TradeLanded(BaseModel):
     feeMint: str = ''
     inAmount: float = 0
     outAmount: float = 0
+    fill: Optional[dict] = None   # exact on-chain fill read by the trading service at confirmation
 
 
 async def _sol_usd() -> float:
@@ -8254,6 +8298,22 @@ async def _sol_usd() -> float:
 
 
 _sol_px: dict = {}
+
+
+def _trade_record(p: 'TradeLanded', coin: str, amt: float, side: str, sol_usd: float) -> Optional[dict]:
+    """The trader's position row. The exact on-chain fill wins (what really left / reached the wallet, fees in);
+    the quote is only a fallback, with the FEELESS fee added so it is never rosier than reality."""
+    f = p.fill or {}
+    if f.get('token') == coin and f.get('tokens', 0) > 0 and f.get('side') == side:
+        usd = f.get('usd') or (f.get('sol') or 0) * sol_usd
+        if usd > 0:
+            return {**{k: f[k] for k in ('side', 'tokens', 'sol', 'networkSol', 'balanceAfter') if k in f}, 'ts': f.get('ts') or time.time(),
+                    'usd': round(usd, 4), 'price': usd / f['tokens'], 'token': coin, 'tx': p.signature, 'via': 'chain'}
+    if amt > 0 and p.inUsd > 0:
+        fee = p.inUsd * max(0, p.feeBps) / 10000
+        usd = p.inUsd + fee if side == 'buy' else max(0.0, p.inUsd - fee)
+        return {'ts': time.time(), 'side': side, 'usd': round(usd, 4), 'price': usd / amt, 'tokens': amt, 'token': coin, 'tx': p.signature, 'via': 'estimate'}
+    return None
 
 
 @app.post('/api/reputation/internal/trade')
@@ -8277,9 +8337,10 @@ async def internal_trade(request: Request, p: TradeLanded):
     # The trader's own FEELESS trades: instant position / entry line / chart pins (no wallet-history provider needed).
     stable_ = {WSOL, 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'}
     coin, amt, side_ = (p.outputMint, p.outAmount, 'buy') if p.inputMint in stable_ else (p.inputMint, p.inAmount, 'sell')
-    if amt > 0 and p.inUsd > 0 and coin not in stable_:
+    rec = _trade_record(p, coin, amt, side_, await _sol_usd()) if coin not in stable_ else None
+    if rec:
         ft = _json_load(FEELESS_TRADES_PATH, {})
-        ft[p.wallet] = ((ft.get(p.wallet) or []) + [{'ts': time.time(), 'side': side_, 'usd': round(p.inUsd, 2), 'price': p.inUsd / amt, 'token': coin, 'tx': p.signature, 'via': 'feeless'}])[-300:]
+        ft[p.wallet] = ([r for r in ft.get(p.wallet) or [] if r.get('tx') != p.signature] + [rec])[-300:]
         _json_save(FEELESS_TRADES_PATH, ft)
     inviter = _json_load(REF_PATH, {'by': {}, 'of': {}})['of'].get(who)
     # The trade is confirmed on-chain (the trading service checked): tell the trader and refresh their holdings,

@@ -240,4 +240,10 @@ def test_feeless_trade_feeds_the_position(monkeypatch, tmp_path):
         headers = {'x-feeless-internal': 'k'}
     asyncio.run(rs.internal_trade(Req(), rs.TradeLanded(wallet=W, signature='5' * 88, inUsd=50, feeBps=50, inputMint=rs.WSOL, outputMint=COIN, inAmount=0.4, outAmount=1000)))
     pos = asyncio.run(rs.position(W, COIN))['position']
-    assert pos['avgEntry'] == 0.05 and pos['buys'] == 1 and pos['trades'][0]['side'] == 'buy'
+    # quote-only estimate: $50 + the 0.5% FEELESS fee over 1000 coins, never rosier than reality; flagged as not exact
+    assert pos['avgEntry'] == 0.05025 and pos['buys'] == 1 and pos['trades'][0]['side'] == 'buy' and pos['exact'] is False
+    # the exact on-chain fill saved at confirmation replaces the estimate: $57.50 really left the wallet for 1000 coins
+    fill = {'side': 'buy', 'tokens': 1000.0, 'sol': 0.46, 'usd': 57.5, 'networkSol': 0.00001, 'token': COIN, 'tx': '6' * 88}
+    asyncio.run(rs.internal_trade(Req(), rs.TradeLanded(wallet=W, signature='6' * 88, inUsd=50, feeBps=50, inputMint=rs.WSOL, outputMint=COIN, inAmount=0.4, outAmount=1000, fill=fill)))
+    rows = rs._json_load(rs.FEELESS_TRADES_PATH, {})[W]
+    assert rows[-1]['via'] == 'chain' and rows[-1]['usd'] == 57.5 and rows[-1]['price'] == 0.0575

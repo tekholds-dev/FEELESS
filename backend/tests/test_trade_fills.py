@@ -69,3 +69,23 @@ def test_trade_cards_endpoint_prices_each_sell_against_average_entry(tmp_path, m
     out = asyncio.run(rs.trade_cards(W))
     sell = out['cards'][0]
     assert sell['tx'] == 's' and sell['pnlUsd'] == 2.0 and sell['pnlPct'] == 50.0 and sell['token'] == MINT
+
+
+def test_old_quote_estimates_self_heal_to_the_exact_fill(tmp_path, monkeypatch):
+    import asyncio
+    import reputation_service as rs
+    monkeypatch.setattr(rs, 'FEELESS_TRADES_PATH', tmp_path / 'ft.json'); monkeypatch.setattr(rs, '_internal_key', lambda: 'k')
+    rs._repair_tried.clear()
+    rs._json_save(rs.FEELESS_TRADES_PATH, {W: [{'ts': 1, 'side': 'buy', 'usd': 1.0, 'price': 0.0096, 'token': MINT, 'tx': 'paid', 'via': 'feeless'}]})
+
+    class Http:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, url, headers=None):
+            assert url.endswith('/internal/exact-fill/paid')
+            return type('R', (), {'status_code': 200, 'json': lambda self: {'fill': {'side': 'buy', 'tokens': 103.9455, 'sol': 0.0077, 'usd': 1.15, 'networkSol': 0.00001}}})()
+    monkeypatch.setattr(rs.httpx, 'AsyncClient', lambda **k: Http())
+    asyncio.run(rs._repair_estimates(W, MINT))
+    row = rs._json_load(rs.FEELESS_TRADES_PATH, {})[W][0]
+    assert row['via'] == 'chain' and row['usd'] == 1.15 and abs(row['price'] - 1.15 / 103.9455) < 1e-12
+    asyncio.run(rs._repair_estimates(W, MINT))   # exact now: nothing left to repair, no second read

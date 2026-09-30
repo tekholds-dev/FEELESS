@@ -97,13 +97,15 @@ def fills_from_orders(orders, sol_usd=0.0):
         else:
             continue
         usd = float(o.get('in_usd') or 0) or (cash_amt if cash_mint in STABLE_USD else cash_amt * sol_usd)
+        fee = usd * (o.get('fee_bps') or 0) / 10000   # estimate only: the FEELESS fee rides on top of a buy, comes out of a sell
+        usd = usd + fee if side == 'buy' else max(0.0, usd - fee)
         if coin_amt <= 0 or usd <= 0:
             continue
         try:
             ts = datetime.fromisoformat(str(o.get('created_at'))).timestamp()
         except ValueError:
             ts = time.time()
-        out.append({'ts': ts, 'side': side, 'usd': round(usd, 2), 'price': usd / coin_amt, 'token': coin, 'tx': o['signature'], 'via': 'feeless'})
+        out.append({'ts': ts, 'side': side, 'usd': round(usd, 4), 'price': usd / coin_amt, 'tokens': coin_amt, 'token': coin, 'tx': o['signature'], 'via': 'estimate'})
     return out
 
 
@@ -383,8 +385,37 @@ class TradingService:
             pass
         return {'bps': 0, 'notes': [], 'referralAccount': None}
 
+    async def exact_fill(self, order, tries=4):
+        """Read the confirmed transaction once and return exactly what the wallet paid / received for the coin
+        (fees in, refundable rent out). Retries briefly: a just-confirmed tx can take a moment to be served."""
+        im, om = order.get('input_mint') or '', order.get('output_mint') or ''
+        base = {SOL_MINT} | STABLE_USD
+        coin = om if im in base else im if om in base else None
+        if not coin or not order.get('signature') or not order.get('wallet'):
+            return None
+        sol_usd = 0.0
+        try:
+            async with httpx.AsyncClient(timeout=4) as http:
+                sol_usd = float(((await http.get(f'https://lite-api.jup.ag/price/v3?ids={SOL_MINT}')).json().get(SOL_MINT) or {}).get('usdPrice') or 0)
+        except Exception:
+            pass
+        for i in range(tries):
+            try:
+                tx = await self.rpc('getTransaction', [order['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+                if tx:
+                    f = trade_fills.fill_from_tx(tx, order['wallet'], coin, sol_usd)
+                    if f and not sol_usd and f.get('sol'):
+                        return {**f, 'usd': 0.0, 'price': 0.0}   # SOL price unknown: caller prices it
+                    return f
+            except Exception:
+                pass
+            await asyncio.sleep(1.5 * (i + 1))
+        return None
+
     async def trade_landed(self, order):
-        """A confirmed trade earns season points (fees paid weigh most). Best effort, idempotent per signature."""
+        """A confirmed trade earns season points (fees paid weigh most). Best effort, idempotent per signature.
+        Sends the exact on-chain fill so positions / P&L use what really moved, not the quote."""
+        fill = await self.exact_fill(order)
         try:
             key = (Path(__file__).parent / 'data' / 'internal.key').read_text().strip()
             async with httpx.AsyncClient(timeout=5) as http:
@@ -395,7 +426,8 @@ class TradingService:
                                       'feeAtoms': int((order.get('quote') or {}).get('feelessFeeAtoms') or 0),
                                       'feeMint': order.get('input_mint') if (order.get('quote') or {}).get('feelessFeeMode') == 'input' else order.get('output_mint') if (order.get('quote') or {}).get('feelessFeeMode') == 'output' else '',
                                       # coin amounts for the trader's position (entry line + chart pins): what they paid and what they got
-                                      'inAmount': _human(order.get('in_atoms'), order.get('in_decimals')), 'outAmount': _human((order.get('quote') or {}).get('outAmount'), order.get('out_decimals'))})
+                                      'inAmount': _human(order.get('in_atoms'), order.get('in_decimals')), 'outAmount': _human((order.get('quote') or {}).get('outAmount'), order.get('out_decimals')),
+                                      'fill': fill})
         except Exception:
             pass
 
@@ -453,6 +485,15 @@ class TradingService:
 
     def router(self):
         router = APIRouter(prefix='/api/trading')
+
+        @router.get('/internal/exact-fill/{signature}')
+        async def exact_fill_get(signature: str, request: Request):
+            """Internal: the exact on-chain fill of one confirmed FEELESS order (repairs positions saved from a quote)."""
+            key = (Path(__file__).parent / 'data' / 'internal.key').read_text().strip()
+            if request.headers.get('x-feeless-internal') != key:
+                raise HTTPException(403, 'Internal only.')
+            order = await self.db.swap_orders.find_one({'signature': signature, 'state': 'confirmed'}, {'_id': 0})
+            return {'fill': await self.exact_fill(order, tries=2) if order else None}
 
         @router.get('/chain-fills/{wallet}/{mint}')
         async def chain_fills(wallet: str, mint: str, sol: float = 0):
