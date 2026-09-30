@@ -44,6 +44,8 @@ export function checkQuote(quote, wallet) {
   if (!LIFI_CONTRACTS.has(String(tx.to || '').toLowerCase())) throw new Error('Blocked: this route does not go to LI.FI’s contract.');
   if (approval && !LIFI_CONTRACTS.has(approval)) throw new Error('Blocked: unexpected approval target.');
   if (String(quote?.action?.fromAddress || '').toLowerCase() !== String(wallet?.address || '').toLowerCase()) throw new Error('Blocked: this quote was made for a different wallet. Get a fresh quote.');
+  const to = String(quote?.action?.toAddress || '').toLowerCase();
+  if (to && to !== String(quote?.action?.fromAddress || '').toLowerCase()) throw new Error('Blocked: this route pays out to a different wallet than yours.');
   if (!chainKey(tx.chainId)) throw new Error('Blocked: unsupported network.');
 }
 

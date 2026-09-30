@@ -5,6 +5,8 @@ import { TokenPicker } from './TokenPicker';
 import { SlippagePicker } from './SlippagePicker';
 import { ShieldNote } from './ShieldNote';
 import { useShield, usePoints } from '../../lib/tradeIntel';
+import { impactBlocks } from '../../lib/impactGuard';
+import { ImpactNote } from './ImpactNote';
 import { EvmSwap } from './EvmSwap';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { VersionedTransaction } from '@solana/web3.js';
@@ -119,6 +121,8 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
   const [shieldAck, setShieldAck] = useState(false);
   useEffect(() => { setShieldAck(false); }, [outputMint]);
   const shieldBlocks = shield?.level === 'danger' && !shieldAck;
+  const [impactAck, setImpactAck] = useState(false);
+  useEffect(() => { setImpactAck(false); }, [inputMint, outputMint, amount]);
   const points = usePoints(wallet?.chain === 'solana' ? wallet.address : null, result?.state);
   const tradePoints = Math.floor(Number(quote?.inUsdValue || 0) * Number(order?.feeless_fee?.bps || 0) / 10000 * 100);
   const [quotedAt, setQuotedAt] = useState(0); const quoteSeq = useRef(0); const refreshing = useRef(false);
@@ -202,6 +206,7 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
   const impactPct = quote?.priceImpactPct != null ? Number(quote.priceImpactPct) : quote?.priceImpact != null ? Number(quote.priceImpact) : null;
   // Jupiter's priceImpactPct is a fraction (-0.0092 = 0.92% worse); show it as a plain positive percent.
   const impactShown = quote?.priceImpactPct != null ? Math.abs(Number(quote.priceImpactPct) * 100) : quote?.priceImpact != null ? Math.abs(Number(quote.priceImpact)) : null;
+  const impactStop = impactBlocks(impactShown, impactAck);
   const impactTier = impactPct == null ? '' : Math.abs(impactPct) >= 5 ? 'impact-high' : Math.abs(impactPct) >= 1 ? 'impact-medium' : 'impact-low';
   // Newest request wins: every call takes a ticket and only the latest ticket may set the order.
   // silent = background refresh: keep the current quote on screen until the new one lands.
@@ -236,7 +241,7 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
     catch (e) { setMessage(e.message); } finally { lock.current = false; setBusy(false); }
   };
   const sign = async () => {
-    if (lock.current || expired || !quote?.transaction || wallet?.chain !== 'solana' || shieldBlocks) return;
+    if (lock.current || expired || !quote?.transaction || wallet?.chain !== 'solana' || shieldBlocks || impactStop) return;
     lock.current = true; quoteSeq.current++; setBusy(true); setReview(false); setMessage('Review the transaction in Phantom. Nothing is sent until you approve.');
     try {
       if (!provider?.signTransaction || provider.publicKey?.toString() !== wallet.address) throw new Error('Connected Phantom account changed. Reconnect and request a fresh quote.');
@@ -307,7 +312,7 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
           <div className="rf-fee"><dt>FEELESS fee</dt><dd>{feeBps ? `${(feeBps / 100).toFixed(2)}% · ${Number.isFinite(feeSol) ? feeSol.toFixed(6) : '—'} SOL · ${usd(feeUsd)}` : (order?.feeless_fee?.notes?.[0] || 'Free')}</dd></div>
           <div><dt>Chain fees</dt><dd>{chainSol.toFixed(6)} SOL · {usd(chainUsd)}</dd></div>
           <div className="rf-total"><dt>Total cost</dt><dd>{usd((Number.isFinite(inUsd) ? inUsd : 0) + (Number.isFinite(chainUsd) ? chainUsd : 0))}</dd></div></>;
-      })()}</dl><ShieldNote shield={shield} ack={shieldAck} onAck={setShieldAck} /><ul className="review-checks" data-testid="swap-review-checks" aria-label="Security checks">{['Simulated on mainnet', 'Min output locked', 'Your wallet pays + signs', 'Non-custodial'].map(c => <li key={c}>{c}</li>)}</ul><p className="review-real">Real transaction · you approve in your wallet{tradePoints > 0 ? ` · +${tradePoints.toLocaleString('en-US')} FEE points` : ''}</p><button className="btn-primary" data-testid="swap-approve-wallet" disabled={busy || (!expired && shieldBlocks)} onClick={expired ? () => { setReview(false); loadQuote(); } : sign}>{expired ? 'Quote expired — get fresh quote' : `Approve in ${wallet?.name || 'wallet'}`}{!expired && <ArrowUpRight size={16} />}</button></DialogContent></Dialog></div>;
+      })()}</dl><ShieldNote shield={shield} ack={shieldAck} onAck={setShieldAck} /><ImpactNote pct={impactShown} ack={impactAck} onAck={setImpactAck} /><ul className="review-checks" data-testid="swap-review-checks" aria-label="Security checks">{['Simulated on mainnet', 'Min output locked', 'Your wallet pays + signs', 'Non-custodial'].map(c => <li key={c}>{c}</li>)}</ul><p className="review-real">Real transaction · you approve in your wallet{tradePoints > 0 ? ` · +${tradePoints.toLocaleString('en-US')} FEE points` : ''}</p><button className="btn-primary" data-testid="swap-approve-wallet" disabled={busy || (!expired && (shieldBlocks || impactStop))} onClick={expired ? () => { setReview(false); loadQuote(); } : sign}>{expired ? 'Quote expired — get fresh quote' : `Approve in ${wallet?.name || 'wallet'}`}{!expired && <ArrowUpRight size={16} />}</button></DialogContent></Dialog></div>;
 };
 // Search every Solana token (Jupiter's index): name, ticker or contract. Verified first, then by liquidity.
 

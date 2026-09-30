@@ -4,6 +4,7 @@ import { useWallet } from '../../hooks/useWallet';
 import { errorText } from '../../lib/api';
 import { shortAddress } from '../../lib/dexscreener';
 import { useSolUsd, money } from './FeeInputs';
+import { CirclePay, useCircleWallet } from './CirclePay';
 
 // Badge pools: a pool is a wallet you control + how much of it goes to badge holders. The matrix sets, for every
 // badge, the exact % of each pool's pot it earns (split equally between that badge's holders). Unassigned % stays put.
@@ -12,6 +13,14 @@ const EMPTY = { id: '', name: '', wallet: '', pct: '', seasonId: '', weights: {}
 const TIER_ROWS = ['Legend', 'Diamond', 'Gold', 'Silver', 'Bronze'];
 const TIER_ICON = { Legend: '👑', Diamond: '💎', Gold: '🥇', Silver: '🥈', Bronze: '🥉' };
 const num = v => Number(v) || 0;
+
+// Circle-held pool wallets pay through Circle (typed confirm); everything else signs in Phantom.
+function PoolPay({ call, pool, plan, blocked, onDone, children }) {
+  const circle = useCircleWallet(call, pool.wallet);
+  if (!circle) return children;
+  return blocked || !plan?.rows.length ? <button type="button" className="btn-primary" disabled>Pay via Circle</button>
+    : <CirclePay call={call} circle={circle} rows={plan.rows} path={`/admin/badge-pools/${pool.id}/pay-circle`} onDone={onDone} label={`Pay ${plan.paidSol} SOL via Circle`} />;
+}
 
 export function BadgePools({ call }) {
   const { wallet, provider, connect } = useWallet() || {};
@@ -69,7 +78,7 @@ export function BadgePools({ call }) {
         <li><b>Pool</b> = any Solana wallet you control (treasury, sponsor, buy-back) + the % of its SOL that badge holders share. 0.01 SOL always stays for fees.</li>
         <li><b>Badge share</b> = the % of that pot one badge earns. Its slice is split equally between everyone holding it. A wallet with two badges stacks both slices.</li>
         <li>Shares in a pool can't pass 100%. Anything unassigned, or assigned to a badge nobody holds yet, stays in the wallet.</li>
-        <li><b>Paying</b>: connect the pool wallet, press Pay. It's simulated first, you approve once, and the server records only what landed on-chain (never the same tx twice, 1h cooldown).</li>
+        <li><b>Paying</b>: connect the pool wallet, press Pay. If the pool wallet is one of your <b>Circle wallets</b>, press Pay via Circle instead and type the confirmation: Circle signs each transfer for you. It's simulated first, you approve once, and the server records only what landed on-chain (never the same tx twice, 1h cooldown).</li>
         <li>Blocklisted and FEELESS wallets never receive a share.</li>
       </ol></details>
     {form && <div className="bdg-card bdg-pool-form">
@@ -89,7 +98,7 @@ export function BadgePools({ call }) {
         <tr><td />{meta.pools.map(p => { const pl = plans[p.id]; const mine = wallet?.address === p.wallet; return <td key={p.id} className="bdg-actions-cell">
           <button type="button" className="btn-outline" onClick={() => setForm({ ...EMPTY, ...p, pct: String(p.pct) })}>Edit</button>
           <button type="button" className="btn-outline" onClick={() => remove(p.id)}>✕</button>
-          <button type="button" className="btn-primary" disabled={!!busy || dirty(p.id) || !pl?.rows.length || pl?.cooldownLeft > 0} title={dirty(p.id) ? 'Save shares first' : pl?.cooldownLeft ? 'Paid within the last hour' : ''} onClick={() => pay(p)}>{mine ? `Pay ${pl?.paidSol ?? ''} SOL` : 'Connect to pay'}</button>
+          <PoolPay call={call} pool={p} plan={pl} blocked={!!busy || dirty(p.id) || pl?.cooldownLeft > 0} onDone={load}><button type="button" className="btn-primary" disabled={!!busy || dirty(p.id) || !pl?.rows.length || pl?.cooldownLeft > 0} title={dirty(p.id) ? 'Save shares first' : pl?.cooldownLeft ? 'Paid within the last hour' : ''} onClick={() => pay(p)}>{mine ? `Pay ${pl?.paidSol ?? ''} SOL` : 'Connect to pay'}</button></PoolPay>
           {pl?.lastPayout && <small>last {pl.lastPayout.totalSol} SOL · {new Date(pl.lastPayout.at * 1000).toLocaleDateString()}</small>}</td>; })}</tr></tfoot>
     </table></div>}
     {anyDirty && <div className="bdg-payrow"><span>Unsaved badge shares</span><button type="button" className="btn-primary" disabled={!!busy || meta.pools.some(p => total(p.id) > 100)} onClick={saveMatrix}>{busy || 'Save shares'}</button></div>}

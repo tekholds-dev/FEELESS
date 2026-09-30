@@ -190,12 +190,15 @@ export async function fetchLaunchRail() {
 
 // Pump.fun launch: FEELESS's server asks PumpPortal to build the create tx for this wallet; the new
 // mint signs here and the creator's wallet signs last.
+// '@coin' → full link, so a handle never silently drops off the coin's metadata
+const link = (kind, v) => { const t = String(v || '').trim(); if (!t || /^https:\/\//i.test(t)) return t; const h = t.replace(/^@/, ''); return kind === 'twitter' ? `https://x.com/${h}` : `https://t.me/${h}`; };
+
 export async function launchOnPump({ provider, creator, session, form, onStatus }) {
   const { web3, connection } = await relayConnection();
   const mint = web3.Keypair.generate();
   onStatus?.('Uploading metadata to pump.fun…');
   const r = await fetch(apiUrl('/api/reputation/pump/create-tx'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ address: creator, session, mint: mint.publicKey.toBase58(), name: form.name, symbol: form.symbol, description: form.description, image: form.imageUrl, website: form.website, twitter: form.twitter, telegram: form.telegram, devBuySol: Number(form.devBuyAmount) || 0 }) });
+    body: JSON.stringify({ address: creator, session, mint: mint.publicKey.toBase58(), name: form.name, symbol: form.symbol, description: form.description, image: form.imageUrl, website: form.website, twitter: link('twitter', form.twitter), telegram: link('telegram', form.telegram), devBuySol: Number(form.devBuyAmount) || 0 }) });
   const body = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(body.detail || 'Pump.fun launch could not be prepared.');
   const tx = web3.VersionedTransaction.deserialize(Uint8Array.from(atob(body.tx), c => c.charCodeAt(0)));

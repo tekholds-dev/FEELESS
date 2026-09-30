@@ -119,3 +119,22 @@ def fixed_rows(fixed: dict, tiers: dict, badges: dict, budget: float):
     scale = min(1.0, max(0.0, budget) / total) if total else 1.0
     out = {a: int(v * scale * 1e6) / 1e6 for a, v in want.items()}
     return out, round(sum(out.values()), 6)
+
+
+def circle_sol_token(wallet: dict):
+    """Circle token id of native SOL in a Circle wallet listing (balances: [{symbol, amount, tokenId}])."""
+    return next((b.get('tokenId') for b in wallet.get('balances') or [] if b.get('symbol') == 'SOL' and b.get('tokenId')), None)
+
+
+def circle_idem(scope: str, address: str, sol: float) -> str:
+    """Same payout row → same Circle idempotency key, so a retry or double click can never pay twice."""
+    import uuid
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, f'feeless:{scope}:{address}:{sol:.6f}'))
+
+
+def circle_amount(sol: float) -> str:
+    return f'{float(sol):.6f}'.rstrip('0').rstrip('.')
+
+
+def circle_confirm_phrase(rows: list) -> str:
+    return f"PAY {round(sum(float(r['sol']) for r in rows), 6)}"

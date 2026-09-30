@@ -2,6 +2,16 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 const WalletContext = createContext(null);
 const solanaProvider = () => window.phantom?.solana || window.trustwallet?.solana || window.solflare || window.backpack?.solana || window.solana;
 const evmProvider = () => window.trustwallet?.ethereum || window.ethereum || window.phantom?.ethereum;
+// EIP-6963: every EVM wallet announces itself (MetaMask, Rabby, Crypto.com Onchain, OKX…), even when another
+// extension grabbed window.ethereum. Collected once per page load; the modal lists each one by its own name + icon.
+const announced = new Map();
+if (typeof window !== 'undefined') {
+  window.addEventListener('eip6963:announceProvider', e => { const d = e?.detail; if (d?.info?.rdns && d.provider) announced.set(d.info.rdns, d); });
+  try { window.dispatchEvent(new Event('eip6963:requestProvider')); } catch { /* old browser */ }
+}
+export const announcedWallets = () => [...announced.values()];
+const announcedFor = p => [...announced.values()].find(d => d.provider === p);
+const isCryptoCom = d => /crypto\.com|com\.crypto|defi ?wallet|onchain/i.test(`${d?.info?.rdns} ${d?.info?.name}`);
 // Same wallet, other chain: Trust Wallet 0x ↔ Trust Wallet Solana, Phantom ↔ Phantom, etc.
 // Never jump to a different wallet extension just because it was injected first.
 const brandOf = p => {
@@ -12,7 +22,10 @@ const brandOf = p => {
   if (p.isBackpack || p === w.backpack?.solana || p === w.backpack?.ethereum) return 'backpack';
   if (p.isSolflare || p === w.solflare) return 'solflare';
   if (p.isCoinbaseWallet || p === w.coinbaseSolana) return 'coinbase';
-  return null;
+  if (p.isOkxWallet || p === w.okxwallet || p === w.okxwallet?.solana) return 'okx';
+  if (p.isDeficonnectProvider || isCryptoCom(announcedFor(p))) return 'cryptocom';
+  const a = announcedFor(p);
+  return a ? `eip6963:${a.info.rdns}` : null;
 };
 const pairedProvider = (brand, type) => {
   const w = window;
@@ -22,7 +35,10 @@ const pairedProvider = (brand, type) => {
     backpack: { solana: w.backpack?.solana || (w.backpack?.isBackpack ? w.backpack : null), evm: w.backpack?.ethereum },
     solflare: { solana: w.solflare, evm: null },
     coinbase: { solana: w.coinbaseSolana, evm: w.coinbaseWalletExtension || (w.ethereum?.isCoinbaseWallet ? w.ethereum : null) },
+    okx: { solana: w.okxwallet?.solana, evm: w.okxwallet?.request ? w.okxwallet : null },
+    cryptocom: { solana: null, evm: [...announced.values()].find(isCryptoCom)?.provider || w.deficonnectProvider || (w.ethereum?.isDeficonnectProvider ? w.ethereum : null) },
   };
+  if (brand?.startsWith?.('eip6963:')) return type === 'evm' ? announced.get(brand.slice(8))?.provider || null : null;
   return brand ? map[brand]?.[type] || null : null;
 };
 // Every wallet the browser exposes, with which networks it can connect.
@@ -35,10 +51,14 @@ export function detectWallets() {
   add('solflare', 'Solflare', ['solana']);
   add('backpack', 'Backpack', ['solana', 'evm']);
   add('coinbase', 'Coinbase Wallet', ['solana', 'evm']);
-  if (w.ethereum && !out.some(x => x.types.includes('evm') && pairedProvider(x.brand, 'evm') === w.ethereum)) out.push({ brand: null, label: w.ethereum.isRabby ? 'Rabby' : w.ethereum.isMetaMask ? 'MetaMask' : 'Browser wallet', types: ['evm'] });
+  add('okx', 'OKX Wallet', ['solana', 'evm']);
+  add('cryptocom', 'Crypto.com Onchain', ['evm']);
+  const taken = p => out.some(x => x.types.includes('evm') && pairedProvider(x.brand, 'evm') === p);
+  for (const d of announced.values()) if (!taken(d.provider)) out.push({ brand: `eip6963:${d.info.rdns}`, label: d.info.name, icon: d.info.icon, types: ['evm'], provider: d.provider });
+  if (w.ethereum && !out.some(x => x.types.includes('evm') && (x.provider || pairedProvider(x.brand, 'evm')) === w.ethereum)) out.push({ brand: null, label: w.ethereum.isRabby ? 'Rabby' : w.ethereum.isMetaMask ? 'MetaMask' : 'Browser wallet', types: ['evm'] });
   return out;
 }
-const walletName = (p, chain) => (brandOf(p) === 'trust' ? 'Trust Wallet' : p?.isPhantom ? 'Phantom' : p?.isSolflare ? 'Solflare' : p?.isBackpack ? 'Backpack' : p?.isCoinbaseWallet ? 'Coinbase Wallet' : p?.isRabby ? 'Rabby' : p?.isMetaMask ? 'MetaMask' : chain === 'solana' ? 'Solana wallet' : 'EVM wallet');
+const walletName = (p, chain) => (announcedFor(p)?.info?.name || (brandOf(p) === 'trust' ? 'Trust Wallet' : p?.isPhantom ? 'Phantom' : p?.isSolflare ? 'Solflare' : p?.isBackpack ? 'Backpack' : p?.isCoinbaseWallet ? 'Coinbase Wallet' : p?.isRabby ? 'Rabby' : p?.isMetaMask ? 'MetaMask' : chain === 'solana' ? 'Solana wallet' : 'EVM wallet'));
 // EVM networks FEELESS trades on, keyed by DexScreener chain id.
 export const EVM_CHAINS = {
   ethereum: { chainId: '0x1', chainName: 'Ethereum', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://eth.llamarpc.com'], blockExplorerUrls: ['https://etherscan.io'] },
@@ -95,7 +115,13 @@ export const WalletProvider = ({ children }) => {
     } else {
       const accounts = await p.request({ method: 'eth_requestAccounts' });
       if (!accounts?.[0]) throw new Error('No wallet account was returned.');
-      const evmChainId = await p.request({ method: 'eth_chainId' }).catch(() => null);
+      let evmChainId = await p.request({ method: 'eth_chainId' }).catch(() => null);
+      const want = opts.chain && EVM_CHAINS[opts.chain];
+      if (want && String(evmChainId || '').toLowerCase() !== want.chainId) {
+        try { await p.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: want.chainId }] }); }
+        catch (e) { if (e?.code !== 4902) throw e; await p.request({ method: 'wallet_addEthereumChain', params: [want] }); }
+        evmChainId = want.chainId;
+      }
       const nextWallet = { name: walletName(p, 'evm'), chain: type, address: accounts[0], evmChainId };
       try { localStorage.setItem('feeless:last-wallet', JSON.stringify({ type, brand: brandOf(p) })); } catch { /* ignore */ }
       setWallet(nextWallet);

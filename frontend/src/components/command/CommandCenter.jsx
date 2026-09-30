@@ -25,6 +25,7 @@ import { TreasuryPulse } from './TreasuryPulse';
 import { TAB_INFO } from './ccTabInfo';
 import { FeeBrain } from './FeeBrain';
 import { MoneyFlows } from './MoneyFlows';
+import { CirclePay, useCircleWallet } from './CirclePay';
 
 const SESSION_KEY = 'feeless:cc-session';
 const readSession = addr => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.address === addr && Date.now() / 1000 - s.ts < 86000 ? s : null; } catch { return null; } };
@@ -285,6 +286,7 @@ export function ReservePool({ call }) {
     catch (e) { toast.error(errorText(e)); } finally { setBusy(''); }
   };
   const isReserve = wallet?.chain === 'solana' && wallet?.address === plan?.season.reserveWallet;
+  const circleW = useCircleWallet(call, plan?.season.reserveWallet);
   const pay = async () => {
     try {
       if (!isReserve) { await connect?.('solana'); return; }
@@ -306,9 +308,10 @@ export function ReservePool({ call }) {
         <span>{plan ? `${plan.pct}% of ${plan.poolSol} SOL${plan.balanceKnown ? '' : ' (balance unreadable)'}` : ''}</span><span>0.01 SOL always stays for rent + fees</span></div>
       <div className="bdg-card"><small>Tier weights</small><div className="bdg-weights">{Object.entries(plan?.weights || {}).filter(([, w]) => w).map(([t, w]) => <span key={t}>{TIER_ICON[t]} {t}<b>{w}×</b></span>)}</div><span>Recruit, blocklisted and FEELESS wallets earn nothing.</span></div>
     </div>
-    {plan?.payout ? <div className="bdg-paid">✅ Paid {plan.payout.rows.reduce((a, r) => a + r.sol, 0).toFixed(4)} SOL to {plan.payout.rows.length} wallets · <a href={`https://solscan.io/tx/${plan.payout.sigs[0]}`} target="_blank" rel="noopener noreferrer">receipt</a></div>
+    {plan?.payout ? <div className="bdg-paid">✅ {plan.payout.via === 'circle' ? 'Sent' : 'Paid'} {plan.payout.rows.reduce((a, r) => a + r.sol, 0).toFixed(4)} SOL to {plan.payout.rows.length} wallets · {plan.payout.via === 'circle' ? 'via Circle' : <a href={`https://solscan.io/tx/${plan.payout.sigs[0]}`} target="_blank" rel="noopener noreferrer">receipt</a>}
+        {plan.payout.failed?.length > 0 && <><span className="bdg-warn"> · {plan.payout.failed.length} failed</span><CirclePay call={call} circle={circleW} rows={plan.payout.failed} path={`/admin/reserve/${sid}/pay-circle`} onDone={load} label={`Retry ${plan.payout.failed.length} via Circle`} /></>}</div>
       : <div className="bdg-payrow"><span>{plan ? `${plan.rows.length} wallets · ${plan.paidSol} SOL${plan.droppedDust ? ` · ${plan.droppedDust} dust shares re-split` : ''}` : 'Loading…'}</span>
-        <button type="button" className="btn-primary" disabled={!!busy || !plan?.rows.length} title={plan?.ended ? '' : 'Season still live: shares will move until it ends'} onClick={pay}>{busy || (isReserve ? `Pay out ${plan?.paidSol ?? ''} SOL` : 'Connect the reserve wallet to pay')}</button></div>}
+        {circleW ? <CirclePay call={call} circle={circleW} rows={plan?.rows || []} path={`/admin/reserve/${sid}/pay-circle`} onDone={load} label={`Pay ${plan?.paidSol ?? ''} SOL via Circle`} /> : <button type="button" className="btn-primary" disabled={!!busy || !plan?.rows.length} title={plan?.ended ? '' : 'Season still live: shares will move until it ends'} onClick={pay}>{busy || (isReserve ? `Pay out ${plan?.paidSol ?? ''} SOL` : 'Connect the reserve wallet to pay')}</button>}</div>}
     <div className="bdg-table">{!plan?.rows.length ? <p className="cc-empty">{plan && !plan.pct ? 'Set a % to start paying badge holders.' : 'No tiered badge holders yet.'}</p> : plan.rows.slice(0, 60).map((r, i) => <div key={r.address} className="bdg-row"><i>#{i + 1}</i><span className={`bdg-tier t-${r.tier.toLowerCase()}`}>{TIER_ICON[r.tier]} {r.tier}</span><code>{shortAddress(r.address)}</code><small>{r.sharePct}%</small><b>{r.sol} SOL</b><em>{usd(r.sol)}</em></div>)}</div>
   </div>;
 }

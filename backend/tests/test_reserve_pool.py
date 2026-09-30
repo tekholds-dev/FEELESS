@@ -146,3 +146,12 @@ def test_fixed_sol_each_paid_first_and_never_overspends():
     assert rows == {A: 0.75, B: 0.5} and total == 1.25
     rows, total = rp.fixed_rows({'badge:og': 5}, {}, {A: ['og'], B: ['og']}, 2)   # wants 10, budget 2 → scaled
     assert rows[A] == rows[B] == 1.0 and total == 2.0
+
+
+def test_circle_helpers():
+    from reserve_pool import circle_sol_token, circle_idem, circle_amount, circle_confirm_phrase
+    w = {'balances': [{'symbol': 'USDC', 'tokenId': 'u'}, {'symbol': 'SOL', 'tokenId': 's', 'amount': '1'}]}
+    assert circle_sol_token(w) == 's' and circle_sol_token({}) is None
+    assert circle_idem('reserve:x', 'A', 0.1) == circle_idem('reserve:x', 'A', 0.1) != circle_idem('reserve:x', 'B', 0.1)
+    assert circle_amount(0.25) == '0.25' and circle_amount(1.0) == '1'
+    assert circle_confirm_phrase([{'sol': 0.1}, {'sol': 0.2}]) == 'PAY 0.3'

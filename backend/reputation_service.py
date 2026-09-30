@@ -16,6 +16,7 @@ import investigate
 import reserve_pool
 import perf
 import verify
+import launch_meta
 from ecosystem import ecosystem_mints
 import asyncio
 import collections
@@ -1215,6 +1216,7 @@ class FeelessLaunchPayload(BaseModel):
     symbol: Optional[str] = None
     signature: Optional[str] = None
     rail: Optional[str] = None  # 'feeless' (Meteora DBC config) or 'pump'
+    profile: Optional[dict] = None  # {description, bannerUrl, website, twitter, telegram} from the launch form
 
 
 @app.post('/api/reputation/feeless-launch')
@@ -1251,6 +1253,16 @@ async def register_feeless_launch(payload: FeelessLaunchPayload):
         entry['tokens'][payload.mint]['launchedOnFeeless'] = True
         _push_feed(store, payload.chain, payload.wallet, 'new_token', f'Launched {payload.symbol or "a token"} on FEELESS.')
         _save(store)
+    pr = payload.profile or {}
+    if isinstance(pr, dict) and any(pr.get(k) for k in ('bannerUrl', 'website', 'twitter', 'telegram', 'description')):
+        ban = str(pr.get('bannerUrl') or '').strip()[:300]
+        ban = launch_meta.upload_path(ban) or (ban if ban.startswith('https://') else '')
+        rec = {'description': str(pr.get('description') or '').strip()[:600], 'bannerUrl': ban,
+               **{k: launch_meta.social_url(k, str(pr.get(k) or '')) for k in ('website', 'twitter', 'telegram')}, 'claimedBy': primary_of(creator), 'updatedAt': time.time()}
+        async with _admin_lock:
+            d = _json_load(COIN_PROFILES_PATH, {})
+            if payload.mint not in d:
+                d[payload.mint] = rec; _json_save(COIN_PROFILES_PATH, d)
     return {'ok': True, 'creator': creator}
 
 
@@ -6930,6 +6942,7 @@ class TokenMetaIn(BaseModel):
     website: str = ''
     twitter: str = ''
     telegram: str = ''
+    banner: str = ''
 
 
 @app.post('/api/reputation/token-meta')
@@ -6945,13 +6958,7 @@ async def token_meta_create(p: TokenMetaIn, request: Request):
     host = _re.sub(r'^https?://', '', site).split('/')[0].split(':')[0]
     if not site.startswith('https://') or host in ('localhost', '127.0.0.1', '0.0.0.0') or host.endswith('.local') or _re.match(r'^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\.', host):
         raise HTTPException(503, 'FEELESS launches need a public https domain (set PUBLIC_SITE_URL). Coin metadata is permanent, so a local address would break the coin forever. Pump.fun launches work now.')
-    img = p.image.strip()
-    if img.startswith('/api/reputation/uploads/'):
-        img = site + img
-    link = lambda v: v.strip()[:200] if v.strip().startswith('https://') else ''
-    meta = {'name': name, 'symbol': symbol, 'description': p.description.strip()[:600], 'image': img[:300],
-            'external_url': link(p.website), 'extensions': {'website': link(p.website), 'twitter': link(p.twitter), 'telegram': link(p.telegram)},
-            'properties': {'files': [{'uri': img[:300], 'type': 'image/webp'}] if img else [], 'category': 'image'}}
+    meta = launch_meta.token_metadata(site, name, symbol, p.description, p.image, p.banner, p.website, p.twitter, p.telegram)
     TOKEN_META_DIR.mkdir(parents=True, exist_ok=True)
     mid = uuid.uuid4().hex
     (TOKEN_META_DIR / f'{mid}.json').write_text(json.dumps(meta))
@@ -7055,16 +7062,12 @@ async def pump_create_tx(p: PumpCreateIn):
         raise HTTPException(400, 'Bad address.')
     if not (0 <= p.devBuySol <= 50):
         raise HTTPException(400, 'Dev buy must be between 0 and 50 SOL.')
-    m = _re.match(r'^/api/reputation/uploads/([a-f0-9]{32}\.(png|jpg|webp|gif))$', p.image.strip())
+    m = _re.match(r'^/api/reputation/uploads/([a-f0-9]{32}\.(png|jpg|webp|gif))$', launch_meta.upload_path(p.image))
     if not m or not (UPLOAD_DIR / m.group(1)).exists():
         raise HTTPException(400, 'Upload the coin image first.')
     img = (UPLOAD_DIR / m.group(1)).read_bytes()
     mime = {'png': 'image/png', 'jpg': 'image/jpeg', 'webp': 'image/webp', 'gif': 'image/gif'}[m.group(2)]
-    form = {'name': p.name.strip()[:32], 'symbol': p.symbol.strip().upper()[:10], 'description': p.description.strip()[:600], 'showName': 'true'}
-    for k in ('website', 'twitter', 'telegram'):
-        v = getattr(p, k).strip()
-        if v.startswith('https://'):
-            form[k] = v[:200]
+    form = launch_meta.pump_form(p.name, p.symbol, p.description, p.website, p.twitter, p.telegram)
     async with httpx.AsyncClient(timeout=30, headers={'User-Agent': 'Mozilla/5.0'}) as http:
         r = await http.post('https://pump.fun/api/ipfs', data=form, files={'file': (m.group(1), img, mime)})
         if r.status_code != 200:
@@ -7500,6 +7503,107 @@ async def admin_reserve_paid(request: Request, sid: str, p: ReservePaid):
     total = round(sum(paid.values()), 6)
     ad = _admin_load(); _audit(ad, admin, 'reserve-payout', f"{sid} {total} SOL to {len(paid)}"); _admin_save(ad)
     return {'ok': True, 'paidSol': total, 'wallets': len(paid)}
+
+
+class CirclePayIn(BaseModel):
+    confirm: str = ''          # must read "PAY <total SOL>" exactly
+
+
+_circle_pay_lock = asyncio.Lock()
+
+
+async def _circle_pay(wallet_addr: str, rows: list, scope: str, confirm: str) -> list:
+    """Pay each row from a Circle wallet (Circle signs server-side with the entity secret). Owner-only callers.
+    Deterministic idempotency keys: a retry or double click re-sends nothing that already went out."""
+    want = reserve_pool.circle_confirm_phrase(rows)
+    if confirm.strip() != want:
+        raise HTTPException(400, f'Type "{want}" to confirm.')
+    ws = (await _circle('GET', '/wallets')).get('wallets') or []
+    w = next((x for x in ws if x.get('address') == wallet_addr), None)
+    if not w:
+        raise HTTPException(400, 'This wallet is not one of your Circle wallets. Connect it in Phantom to pay instead.')
+    if w.get('blockchain') != 'SOL':
+        raise HTTPException(400, f"That Circle wallet is on {w.get('blockchain')}, not Solana mainnet.")
+    tok = reserve_pool.circle_sol_token(w)
+    bal = next((float(b.get('amount') or 0) for b in w.get('balances') or [] if b.get('tokenId') == tok), 0.0)
+    total = round(sum(float(r['sol']) for r in rows), 6)
+    if not tok or bal < total:
+        raise HTTPException(400, f'The Circle wallet holds {bal} SOL; this payout needs {total} SOL plus network fees.')
+    sem = asyncio.Semaphore(4)
+
+    async def one(r):
+        async with sem:
+            try:
+                out = await _circle('POST', '/transfer', {'walletId': w['id'], 'tokenId': tok, 'to': r['address'], 'amount': reserve_pool.circle_amount(r['sol']),
+                                                          'idempotencyKey': reserve_pool.circle_idem(scope, r['address'], float(r['sol']))})
+                return {**r, 'circleTx': out.get('id'), 'state': out.get('state') or 'INITIATED'}
+            except HTTPException as e:
+                return {**r, 'error': str(e.detail)[:160]}
+    return list(await asyncio.gather(*(one(r) for r in rows)))
+
+
+@app.post('/api/reputation/admin/reserve/{sid}/pay-circle')
+async def admin_reserve_pay_circle(request: Request, sid: str, p: CirclePayIn):
+    """Season reserve held in a Circle wallet: Circle sends each badge holder's share. Retries only the rows that failed."""
+    me = _require_owner(request)
+    async with _circle_pay_lock:
+        d = _seasons(); s = next((x for x in d['seasons'] if x['id'] == sid), None)
+        if not s or not s.get('reserveWallet'):
+            raise HTTPException(404, 'Season or reserve wallet not found.')
+        prev = (d.get('reservePayouts') or {}).get(sid)
+        if prev and prev.get('via') != 'circle':
+            raise HTTPException(409, 'This season was already paid out.')
+        if prev:
+            todo = prev.get('failed') or []
+        else:
+            plan = await _reserve_plan(s, d)
+            todo = [{'address': r['address'], 'tier': r['tier'], 'sol': r['sol']} for r in plan['rows']]
+        todo = [{k: r[k] for k in ('address', 'tier', 'sol') if k in r} for r in todo]
+        if not todo:
+            raise HTTPException(409, 'Nothing left to pay for this season.')
+        res = await _circle_pay(s['reserveWallet'], todo, f'reserve:{sid}', p.confirm)
+        ok, bad = [r for r in res if r.get('circleTx')], [r for r in res if not r.get('circleTx')]
+        d = _seasons()
+        rec = d.setdefault('reservePayouts', {}).get(sid) or {'via': 'circle', 'sigs': [], 'at': time.time(), 'by': me, 'rows': []}
+        rec['rows'] = (rec.get('rows') or []) + ok; rec['failed'] = bad; rec['updatedAt'] = time.time()
+        if ok or prev:
+            d['reservePayouts'][sid] = rec
+            _json_save(SEASONS_PATH, d)
+        if ok:
+            col = _json_load(COLLECTION_PATH, {}); sent = {r['address']: r for r in ok}
+            for a, items in col.items():
+                for it in items:
+                    if it.get('id') == f'{sid}:season' and a in sent:
+                        it['rewardStatus'] = 'paid'; it['rewardSol'] = sent[a]['sol']; it['rewardCircleTx'] = sent[a]['circleTx']
+            _json_save(COLLECTION_PATH, col)
+        ad = _admin_load(); _audit(ad, me, 'reserve-payout-circle', f"{sid} {round(sum(r['sol'] for r in ok), 6)} SOL to {len(ok)}, {len(bad)} failed"); _admin_save(ad)
+    return {'ok': not bad, 'paidSol': round(sum(r['sol'] for r in ok), 6), 'wallets': len(ok), 'failed': bad}
+
+
+@app.post('/api/reputation/admin/badge-pools/{pid}/pay-circle')
+async def admin_badge_pool_pay_circle(request: Request, pid: str, p: CirclePayIn):
+    """Badge pool held in a Circle wallet: Circle sends each holder's share of the current plan."""
+    me = _require_owner(request)
+    async with _circle_pay_lock:
+        pool = next((x for x in _pools()['pools'] if x['id'] == pid), None)
+        if not pool:
+            raise HTTPException(404, 'Pool not found.')
+        plan = await _pool_plan(pool)
+        if (plan.get('cooldownLeft') or 0) > 0:
+            raise HTTPException(409, 'This pool was paid within the last hour.')
+        rows = [{'address': r['address'], 'sol': r['sol']} for r in plan['rows'] if r.get('sol', 0) > 0]
+        if not rows:
+            raise HTTPException(400, 'Nothing to pay from this pool yet.')
+        res = await _circle_pay(pool['wallet'], rows, f"pool:{pid}:{len(pool.get('payouts') or [])}", p.confirm)
+        ok, bad = [r for r in res if r.get('circleTx')], [r for r in res if not r.get('circleTx')]
+        d = _pools(); pool = next((x for x in d['pools'] if x['id'] == pid), None)
+        if ok and pool:
+            pool.setdefault('payouts', []).append({'via': 'circle', 'sigs': [], 'at': time.time(), 'by': me, 'rows': ok, 'failed': bad,
+                                                   'totalSol': round(sum(r['sol'] for r in ok), 6)})
+            pool['payouts'] = pool['payouts'][-50:]
+            _json_save(BADGE_POOLS_PATH, d)
+        ad = _admin_load(); _audit(ad, me, 'badge-pool-payout-circle', f"{pid} {round(sum(r['sol'] for r in ok), 6)} SOL to {len(ok)}, {len(bad)} failed"); _admin_save(ad)
+    return {'ok': not bad, 'paidSol': round(sum(r['sol'] for r in ok), 6), 'wallets': len(ok), 'failed': bad}
 
 
 _reserve_pub_cache = {}

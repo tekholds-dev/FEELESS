@@ -26,7 +26,7 @@ export function CoinProfileClaim({ mint, creator }) {
   if (!prof) return null;
   const links = [['website', '🌐'], ['twitter', '𝕏'], ['telegram', '✈']].filter(([k]) => prof[k]);
   return <div className="coin-claim" data-testid="coin-claim">
-    {prof.bannerUrl && <img className="coin-claim-banner" src={prof.bannerUrl} alt="" />}
+    {prof.bannerUrl && <img className="coin-claim-banner" src={prof.bannerUrl.startsWith('/') ? apiUrl(prof.bannerUrl) : prof.bannerUrl} alt="" />}
     {prof.claimedBy ? <><p>{prof.description}</p>{links.length > 0 && <div className="coin-claim-links">{links.map(([k, i]) => <a key={k} href={prof[k]} target="_blank" rel="noopener noreferrer">{i} {k}</a>)}</div>}<small className="wp-bio">✓ Claimed by the creator wallet</small></>
       : <small className="wp-bio">{mine ? "You created this coin — claim its profile below." : "Not claimed yet. Only the creator's wallet can claim it."}</small>}
     {mine && !draft && <button type="button" className="btn-outline" onClick={() => setDraft({ description: prof.description || '', bannerUrl: prof.bannerUrl || '', website: prof.website || '', twitter: prof.twitter || '', telegram: prof.telegram || '' })}>{prof.claimedBy ? 'Edit coin profile' : 'Claim coin profile'}</button>}

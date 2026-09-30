@@ -24,6 +24,7 @@ export const DEFAULT_META_LAUNCH_FORM = {
   name: '',
   symbol: '',
   imageUrl: '',
+  bannerUrl: '',
   supply: '1000000000',
   openingMarketCap: '35',
   curveType: 'linear',
@@ -80,7 +81,7 @@ const OPENING_MARKET_CAPS = [
 ];
 
 const LAUNCH_STEPS = [[1, 'Identity', 'Name, image, socials'], [2, 'Economics', 'Supply, curve, pairing, fees'], [3, 'Protection', 'Anti-snipe, locks, launch rail']];
-const STEP_ONE_KEYS = ['name', 'symbol', 'imageUrl', 'description', 'website', 'twitter', 'telegram', 'discord'];
+const STEP_ONE_KEYS = ['name', 'symbol', 'imageUrl', 'bannerUrl', 'description', 'website', 'twitter', 'telegram', 'discord'];
 const STEP_TWO_KEYS = ['supply', 'openingMarketCap', 'curveType', 'graduationTarget', 'liquidityPair', 'migrationVenue', 'liquidityLock', 'swapFee', 'creatorFeeShare', 'referralShare', 'holderRewardShare', 'buybackBurnShare', 'feeShares', 'tradeBurn'];
 
 export const QUOTE_ASSETS = [
@@ -309,7 +310,7 @@ async function resizeToDataUrl(file, max = 512) {
   return canvas.toDataURL(file.type === 'image/png' || file.type === 'image/gif' ? 'image/png' : 'image/webp', 0.9);
 }
 
-function ImageDrop({ value, name, onUploaded }) {
+function ImageDrop({ value, name, onUploaded, shape = CROP.token, wide = false, label = 'Click or drop image', testId = 'meta-launch-image-preview' }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [over, setOver] = useState(false);
@@ -318,7 +319,7 @@ function ImageDrop({ value, name, onUploaded }) {
     setErr('');
     if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) { setErr('PNG, JPG, WEBP or GIF'); return; }
     if (file.size > 10_000_000) { setErr('Max 10 MB'); return; }
-    const cropped = await cropImage(file, CROP.token);
+    const cropped = await cropImage(file, shape);
     if (!cropped) return;
     setBusy(true);
     try {
@@ -329,11 +330,11 @@ function ImageDrop({ value, name, onUploaded }) {
       onUploaded(`${window.location.origin}${data.url}`);
     } catch (e) { setErr(e.message || 'Upload failed'); } finally { setBusy(false); }
   };
-  return <label className={`meta-launch-image-preview image-drop ${over ? 'is-over' : ''}`} data-testid="meta-launch-image-preview"
+  return <label className={`meta-launch-image-preview image-drop ${wide ? 'is-wide' : ''} ${over ? 'is-over' : ''}`} data-testid={testId}
     onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
     onDrop={e => { e.preventDefault(); setOver(false); handle(e.dataTransfer.files?.[0]); }}>
     <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={e => handle(e.target.files?.[0])} />
-    {value ? <img src={value} alt={`${name || 'Token'} preview`} onError={event => { event.currentTarget.style.display = 'none'; }} /> : <><ImageIcon size={20} /><span>{busy ? 'Uploading…' : 'Click or drop image'}</span></>}
+    {value ? <img src={value} alt={`${name || 'Token'} preview`} onError={event => { event.currentTarget.style.display = 'none'; }} /> : <><ImageIcon size={20} /><span>{busy ? 'Uploading…' : label}</span></>}
     {value && <span className="image-drop-change">{busy ? 'Uploading…' : 'Change'}</span>}
     {err && <small className="meta-launch-error">{err}</small>}
   </label>;
@@ -367,6 +368,7 @@ function LaunchPreviewCard({ form }) {
   const style = LAUNCH_STYLES.find(x => x.id === form.launchStyle);
   return <div className="launch-preview-card" data-testid="launch-preview-card">
     <span className="eyebrow">LIVE PREVIEW · HOW BUYERS SEE IT</span>
+    {form.bannerUrl && <img className="launch-preview-banner" src={form.bannerUrl} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} />}
     <div className="launch-preview-id">
       <div className="launch-preview-img">{form.imageUrl ? <img src={form.imageUrl} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} /> : <span>{(form.symbol || '?').slice(0, 2).toUpperCase()}</span>}</div>
       <div><b>{form.name || 'Your coin'}</b><small>${(form.symbol || 'TICKER').toUpperCase()}{style ? ` · ${style.name}` : ''}</small></div>
@@ -417,7 +419,8 @@ export default function MetaLaunchSetup({ initialValues }) {
     registered.current = true;
     // Tag the coin as a FEELESS launch (radar, rug-proof, launcher badge). The chain can lag a few
     // seconds behind confirmation, so retry instead of silently dropping the registration.
-    const body = JSON.stringify({ chain: 'solana', wallet: wallet.address, mint: deployment.mint, symbol: form.symbol, signature: deployment.signature, rail: form.providerId === 'pump' ? 'pump' : 'feeless' });
+    const body = JSON.stringify({ chain: 'solana', wallet: wallet.address, mint: deployment.mint, symbol: form.symbol, signature: deployment.signature, rail: form.providerId === 'pump' ? 'pump' : 'feeless',
+      profile: { description: form.description, bannerUrl: form.bannerUrl, website: form.website, twitter: socialHref('twitter', form.twitter) || '', telegram: socialHref('telegram', form.telegram) || '' } });
     (async () => {
       for (let i = 0; i < 8; i++) {
         try {
@@ -427,7 +430,7 @@ export default function MetaLaunchSetup({ initialValues }) {
         await new Promise(res => setTimeout(res, 4000));
       }
     })();
-  }, [deployment.state, deployment.mint, deployment.signature, wallet?.address, form.symbol, form.providerId]);
+  }, [deployment.state, deployment.mint, deployment.signature, wallet?.address, form.symbol, form.providerId]); // eslint-disable-line react-hooks/exhaustive-deps
   const goStep = n => { setLaunchStep(n); if (typeof window !== 'undefined') window.scrollTo?.({ top: 0, behavior: 'smooth' }); };
   const stepOf = key => STEP_ONE_KEYS.includes(key) ? 1 : STEP_TWO_KEYS.includes(key) ? 2 : 3;
   const nextStep = () => {
@@ -487,7 +490,7 @@ export default function MetaLaunchSetup({ initialValues }) {
         const session = await getChatSession(activeWallet.address, signMessage);
         setDeployment(d => ({ ...d, statuses: { token: { state: 'pending' } }, detail: 'Publishing coin metadata…' }));
         const metaRes = await fetch(apiUrl('/api/reputation/token-meta'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ address: activeWallet.address, session, name: form.name, symbol: form.symbol, description: form.description, image: form.imageUrl, website: form.website, twitter: form.twitter, telegram: form.telegram }) });
+          body: JSON.stringify({ address: activeWallet.address, session, name: form.name, symbol: form.symbol, description: form.description, image: form.imageUrl, banner: form.bannerUrl, website: form.website, twitter: socialHref('twitter', form.twitter) || '', telegram: socialHref('telegram', form.telegram) || '' }) });
         const meta = await metaRes.json().catch(() => ({}));
         if (!metaRes.ok) throw new Error(meta.detail || 'Could not publish coin metadata.');
         const res = await launchCoin({ provider: activeProvider, creator: activeWallet.address, config: railActive.config, name: form.name.trim(), symbol: form.symbol.trim().toUpperCase(), uri: meta.uri,
@@ -562,7 +565,7 @@ export default function MetaLaunchSetup({ initialValues }) {
       <section className="meta-launch-box-guide" data-testid="meta-launch-box-guide"><div className="meta-launch-box-guide-heading"><div><span className="eyebrow">READ THE LAUNCH PLAN</span><h2>Know what each box controls.</h2></div><small>Nothing is hidden behind a wallet prompt.</small></div><div className="meta-launch-box-guide-grid">{LAUNCH_BOX_GUIDE.map(([title, label, detail], index) => <article key={title}><span>0{index + 1}</span><div><b>{title}</b><strong>{label}</strong><p>{detail}</p></div></article>)}</div></section></details>}
      {step === 'setup' ? <form className="meta-launch-grid" onSubmit={review} noValidate>
        <nav className="launch-stepper" aria-label="Launch steps">{LAUNCH_STEPS.map(([n, title, sub]) => <button type="button" key={n} className={`${launchStep === n ? 'active' : ''} ${launchStep > n ? 'done' : ''}`} aria-current={launchStep === n ? 'step' : undefined} data-testid={`launch-step-${n}`} onClick={() => goStep(n)}><i>{launchStep > n ? '✓' : n}</i><span><b>{title}</b><small>{sub}</small></span></button>)}</nav>
-        <section hidden={launchStep !== 1} className="meta-launch-section"><div className="meta-launch-section-heading"><Rocket size={17} /><div><h2>Token identity</h2><p>Name, ticker, image, and whole-token supply. The public image is included in the launch metadata.</p></div></div><div className="meta-launch-fields two"><Field label="Coin name" name="name" placeholder="Meta Coin" value={form.name} onChange={update} error={errors.name} /><Field label="Symbol" name="symbol" placeholder="META" value={form.symbol} onChange={update} error={errors.symbol} autoCapitalize="characters" /></div><div className="meta-launch-image-row"><ImageDrop value={form.imageUrl} name={form.name} onUploaded={url => update('imageUrl', url)} />{errors.imageUrl && <small className="meta-launch-error">{errors.imageUrl}</small>}</div><label className="meta-launch-field meta-launch-desc"><span>Description<small>{(form.description || '').length}/280</small></span><textarea name="description" rows="3" maxLength={280} placeholder="What is this coin about? One or two lines buyers will see." value={form.description} onChange={event => update('description', event.target.value)} />{errors.description && <small className="meta-launch-error">{errors.description}</small>}</label></section>
+        <section hidden={launchStep !== 1} className="meta-launch-section"><div className="meta-launch-section-heading"><Rocket size={17} /><div><h2>Token identity</h2><p>Name, ticker, image, and whole-token supply. The public image is included in the launch metadata.</p></div></div><div className="meta-launch-fields two"><Field label="Coin name" name="name" placeholder="Meta Coin" value={form.name} onChange={update} error={errors.name} /><Field label="Symbol" name="symbol" placeholder="META" value={form.symbol} onChange={update} error={errors.symbol} autoCapitalize="characters" /></div><div className="meta-launch-image-row"><ImageDrop value={form.imageUrl} name={form.name} onUploaded={url => update('imageUrl', url)} />{errors.imageUrl && <small className="meta-launch-error">{errors.imageUrl}</small>}</div><div className="meta-launch-banner-row"><span className="meta-launch-banner-label">Banner <small>optional · 3:1 · FEELESS coin page + metadata (pump.fun: add it on the coin's pump page after launch)</small></span><ImageDrop wide shape={CROP.banner} label="Click or drop a banner (1500×500)" testId="meta-launch-banner" value={form.bannerUrl} name={form.name} onUploaded={url => update('bannerUrl', url)} />{form.bannerUrl && <button type="button" className="meta-launch-banner-clear" onClick={() => update('bannerUrl', '')}>Remove banner</button>}</div><label className="meta-launch-field meta-launch-desc"><span>Description<small>{(form.description || '').length}/280</small></span><textarea name="description" rows="3" maxLength={280} placeholder="What is this coin about? One or two lines buyers will see." value={form.description} onChange={event => update('description', event.target.value)} />{errors.description && <small className="meta-launch-error">{errors.description}</small>}</label></section>
       <section hidden={launchStep !== 1} className="meta-launch-section" id="launch-links"><div className="meta-launch-section-heading"><Link2 size={17} /><div><h2>Links & socials</h2><p>Shown on the coin page and preview so buyers can verify the project. All optional.</p></div></div><div className="meta-launch-fields two"><Field label="Website" name="website" type="url" placeholder="https://yourcoin.xyz" value={form.website} onChange={update} error={errors.website} /><Field label="X (Twitter)" name="twitter" placeholder="@yourcoin or https://x.com/yourcoin" value={form.twitter} onChange={update} error={errors.twitter} /><Field label="Telegram" name="telegram" placeholder="@yourcoin or https://t.me/yourcoin" value={form.telegram} onChange={update} error={errors.telegram} /><Field label="Discord" name="discord" placeholder="https://discord.gg/invite" value={form.discord} onChange={update} error={errors.discord} /></div></section>
        {isAdmin && form.providerId === 'feeless' && rail?.house?.length > 0 && launchStep === 3 && <div className="rail-house-pick" data-testid="rail-house-pick"><b>🏠 Launch with</b><div className="bdg-seg">{[['', '🌐 Public config'], ...rail.house.map(h => [h.config, `🏠 ${h.label}`])].map(([id, l]) => <button key={id || 'pub'} type="button" className={houseId === id ? 'active' : ''} onClick={() => setHouseId(id)}>{l}</button>)}</div><small>{house ? `House config: fees go to ${house.feeClaimer.slice(0, 4)}…${house.feeClaimer.slice(-4)}. Only owners see this option.` : 'Everyone else launches on the public config.'}</small></div>}
        {railLocked && launchStep !== 1 && <div className="rail-lock-note" data-testid="rail-lock-note"><b>🔒 Set by the {form.providerId === 'pump' ? 'pump.fun' : 'FEELESS'} launch rail</b><span>{form.providerId === 'pump' ? 'Pump.fun fixes supply, curve and fees for every coin.' : `Every FEELESS coin uses the owner's one-time config: opens at ${Number(railActive?.params?.initialMarketCap ?? 30)} ${railUnit}, graduates at ${Number(railActive?.params?.migrationMarketCap ?? 500)} ${railUnit}, snipers pay ${Number(railActive?.params?.startingFeeBps ?? 9900) / 100}% falling to ${Number(railActive?.params?.endingFeeBps ?? 100) / 100}% over ${Number(railActive?.params?.feeDecayMin ?? 3)} min, you earn ${Number(railActive?.params?.creatorFeePct ?? 50)}% of fees, 100% of graduated liquidity locked.`} The fields below are for reference only; you just pick your name, image and optional first buy.</span>{launchStep === 3 && <label className="rail-devbuy"><span>Your first buy ({railUnit})</span><input inputMode="decimal" data-testid="rail-devbuy" value={form.devBuyAmount} onChange={e => update('devBuyAmount', e.target.value.replace(/[^0-9.]/g, ''))} /><small>Bought in the same transaction as the launch, before anyone else. 0 = none.</small></label>}</div>}

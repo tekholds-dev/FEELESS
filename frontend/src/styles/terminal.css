@@ -4550,3 +4550,56 @@ body.theme-day .mk-coin{background:#f4fbf7;border-color:#00875c33}body.theme-day
 .rt-side li i{font:600 9.5px 'JetBrains Mono',monospace;font-style:normal;color:#16d67f99;text-transform:uppercase}
 body.theme-day .rep-tools,body.theme-day .rt-side{background:#f4fbf7;border-color:#00875c33}body.theme-day .rt-head p{color:#0b1f16a8}
 .bc-pool{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:6px 10px;border-radius:10px;border:1px solid #ffffff10}.bc-pool>span{font:600 11px "JetBrains Mono",monospace;color:#bfeedd;min-width:90px}.bc-auto{font-style:normal;font:600 10px "JetBrains Mono",monospace;padding:2px 8px;border-radius:999px;border:1px solid #f5c54255;color:var(--gold,#f5c542)}
+
+/* Price-impact brake (Quick trade + swap review) */
+.impact-note{display:grid;gap:4px;margin:8px 0;padding:8px 10px;border-radius:8px;border:1px solid color-mix(in srgb,var(--gold,#f5c451) 45%,transparent);background:rgba(245,196,81,.07);font-size:12px;animation:impactIn .18s ease-out}
+.impact-note b{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold,#f5c451)}
+.impact-note span{color:rgba(230,255,240,.7)}
+.impact-note.block{border-color:rgba(255,143,163,.5);background:rgba(255,143,163,.08)}
+.impact-note.block b{color:#ff8fa3}
+.impact-note label{display:flex;gap:6px;align-items:center;cursor:pointer;font-weight:600}
+.impact-note input{accent-color:#16d67f}
+.impact-note input:focus-visible{outline:2px solid #16d67f;outline-offset:2px}
+@keyframes impactIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.impact-note{animation:none}}
+body.theme-day .impact-note{background:#fff8e6;border-color:#e0b64a}
+body.theme-day .impact-note span{color:#3a4a40}
+body.theme-day .impact-note.block{background:#fff0f2;border-color:#e88a9b}
+
+/* Launch: banner upload (3:1) + preview */
+.meta-launch-banner-row{display:grid;gap:6px;margin-top:10px}
+.meta-launch-banner-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(230,255,240,.75)}
+.meta-launch-banner-label small{margin-left:6px;letter-spacing:.02em;text-transform:none;color:rgba(230,255,240,.45)}
+.meta-launch-image-preview.is-wide{width:100%;max-width:540px;height:auto;aspect-ratio:3/1;border-radius:10px}
+.meta-launch-image-preview.is-wide img{width:100%;height:100%;object-fit:cover;border-radius:10px}
+.meta-launch-banner-clear{justify-self:start;background:none;border:1px solid rgba(255,143,163,.35);color:#ff8fa3;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;transition:background .15s,transform .1s}
+.meta-launch-banner-clear:hover{background:rgba(255,143,163,.1)}
+.meta-launch-banner-clear:active{transform:scale(.97)}
+.meta-launch-banner-clear:focus-visible{outline:2px solid #ff8fa3;outline-offset:2px}
+.launch-preview-banner{display:block;width:100%;aspect-ratio:3/1;object-fit:cover;border-radius:8px;margin:6px 0 8px}
+body.theme-day .meta-launch-banner-label{color:#23402f}
+body.theme-day .meta-launch-banner-label small{color:#5b7466}
+
+/* Wallet modal: Cronos on-chain strip + announced wallet icons */
+.wallet-cronos{display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;border:1px solid rgba(22,214,127,.22);border-radius:10px;background:rgba(0,40,110,.14)}
+.wallet-cronos span{display:grid;gap:2px;flex:1;min-width:0}
+.wallet-cronos b{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#16d67f}
+.wallet-cronos small{font-size:11px;color:rgba(230,255,240,.6)}
+.wallet-cronos .btn-outline{white-space:nowrap}
+img.wallet-icon{border-radius:8px;object-fit:contain;background:#0b1a12}
+body.theme-day .wallet-cronos{background:#eef6ff;border-color:#b9d8c8}
+body.theme-day .wallet-cronos small{color:#4a5d53}
+
+/* Pay via Circle (reserve + badge pools held in a Circle wallet) */
+.circle-pay{display:grid;gap:8px;padding:10px 12px;border:1px solid rgba(22,214,127,.35);border-radius:10px;background:rgba(22,214,127,.05);animation:impactIn .18s ease-out}
+.circle-pay p{margin:0;font-size:12px;color:rgba(230,255,240,.75)}
+.circle-pay label{display:grid;gap:4px;font-size:11px}
+.circle-pay label span{font-family:'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:rgba(230,255,240,.6)}
+.circle-pay code{color:#16d67f}
+.circle-pay input{background:#06120b;border:1px solid #1f3a2a;border-radius:6px;color:#e6fff0;padding:6px 8px;font-family:'JetBrains Mono',monospace}
+.circle-pay input:focus{outline:none;border-color:#16d67f}
+.circle-pay div{display:flex;gap:8px}
+@media (prefers-reduced-motion:reduce){.circle-pay{animation:none}}
+body.theme-day .circle-pay{background:#f1fbf5;border-color:#9fd9b8}
+body.theme-day .circle-pay p,body.theme-day .circle-pay label span{color:#34503f}
+body.theme-day .circle-pay input{background:#fff;color:#10261a;border-color:#b9d8c8}

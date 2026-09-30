@@ -16,15 +16,19 @@ const MORE = [
   { brand: 'backpack', label: 'Backpack', types: ['solana', 'evm'], url: 'https://backpack.app/download' },
   { brand: 'coinbase', label: 'Coinbase Wallet', types: ['solana', 'evm'], url: 'https://www.coinbase.com/wallet/downloads' },
   { brand: 'metamask', label: 'MetaMask', types: ['evm'], url: 'https://metamask.io/download/' },
+  { brand: 'cryptocom', label: 'Crypto.com Onchain', types: ['evm'], url: 'https://crypto.com/onchain' },
+  { brand: 'okx', label: 'OKX Wallet', types: ['solana', 'evm'], url: 'https://www.okx.com/web3' },
 ];
+const WalletMark = ({ w, size }) => (w.icon && /^data:image\/(svg\+xml|png|webp)|^https:\/\//.test(w.icon) ? <img className="wallet-icon" src={w.icon} alt="" width={size} height={size} /> : <WalletIcon brand={w.iconBrand || w.brand} size={size} />);
 
 function WalletChooser({ busy, onPick }) {
   const found = detectWallets();
   const installed = brand => brand === 'metamask'
-    ? found.find(w => !w.brand && w.label === 'MetaMask')
+    ? found.find(w => /metamask/i.test(w.label) && (!w.brand || w.brand.startsWith('eip6963:')))
     : found.find(w => w.brand === brand);
+  const listed = new Set([...FEATURED, ...MORE].map(w => installed(w.brand)).filter(Boolean));
   const [more, setMore] = useState(() => MORE.some(w => installed(w.brand)) && !FEATURED.some(w => installed(w.brand)));
-  const pickBrand = w => (w.brand === 'metamask' ? null : w.brand);
+  const pickBrand = w => (w.brand === 'metamask' ? installed('metamask')?.brand || null : w.brand);
   const row = (w, featured) => {
     const hit = installed(w.brand);
     const types = hit ? hit.types : [];
@@ -33,7 +37,7 @@ function WalletChooser({ busy, onPick }) {
     return <div key={w.brand} className={`wallet-choice ${featured ? 'is-featured' : ''} ${hit ? 'is-installed' : ''}`}>
       {hit
         ? <button type="button" className="wallet-choice-main" data-testid={testId} disabled={busy} onClick={() => onPick(primary, pickBrand(w))}>
-            <WalletIcon brand={w.brand} size={featured ? 40 : 30} /><span><b>{w.label}</b><small>{featured ? w.tag : primary === 'solana' ? 'Solana' : 'Ethereum & EVM'}</small></span>
+            <WalletMark w={{ ...w, icon: hit.icon }} size={featured ? 40 : 30} /><span><b>{w.label}</b><small>{featured ? w.tag : primary === 'solana' ? 'Solana' : 'Ethereum & EVM'}</small></span>
             <em className="wallet-choice-state">Detected</em><ArrowUpRight size={16} /></button>
         : <a className="wallet-choice-main" href={w.url} target="_blank" rel="noopener noreferrer" data-testid={`wallet-install-${w.brand}`}>
             <WalletIcon brand={w.brand} size={featured ? 40 : 30} /><span><b>{w.label}</b><small>{featured ? w.tag : 'Not installed'}</small></span>
@@ -41,12 +45,20 @@ function WalletChooser({ busy, onPick }) {
       {hit && types.length > 1 && <button type="button" className="wallet-choice-alt" disabled={busy} onClick={() => onPick('evm', pickBrand(w))} data-testid={`wallet-connect-${w.brand}-evm`}>EVM</button>}
     </div>;
   };
-  const others = found.filter(w => !w.brand && w.label !== 'MetaMask');   // e.g. Rabby or another injected EVM wallet
+  const others = found.filter(w => !listed.has(w));   // every other wallet the browser announced (Rabby, Zerion, …)
+  const evmWallets = found.filter(w => w.types.includes('evm'));
+  const cronosPick = installed('cryptocom') || evmWallets[0];
   return <div className="wallet-chooser">
     <div className="wallet-featured">{FEATURED.map(w => row(w, true))}</div>
     <button type="button" className={`wallet-more-toggle ${more ? 'open' : ''}`} aria-expanded={more} onClick={() => setMore(v => !v)} data-testid="wallet-more">
-      More wallets<small>Solflare · Backpack · Coinbase · MetaMask</small><ChevronDown size={16} /></button>
-    {more && <div className="wallet-more-list">{MORE.map(w => row(w, false))}{others.map(w => <div key={w.label} className="wallet-choice is-installed"><button type="button" className="wallet-choice-main" disabled={busy} onClick={() => onPick('evm', null)}><WalletIcon brand={w.label === 'Rabby' ? 'rabby' : 'evm'} size={30} /><span><b>{w.label}</b><small>Ethereum & EVM</small></span><em className="wallet-choice-state">Detected</em><ArrowUpRight size={16} /></button></div>)}</div>}
+      More wallets<small>Solflare · Backpack · Coinbase · MetaMask · Crypto.com · OKX{others.length ? ` · +${others.length} detected` : ''}</small><ChevronDown size={16} /></button>
+    {more && <div className="wallet-more-list">{MORE.map(w => row(w, false))}{others.map(w => <div key={w.brand || w.label} className="wallet-choice is-installed"><button type="button" className="wallet-choice-main" disabled={busy} onClick={() => onPick('evm', w.brand || null)}><WalletMark w={{ ...w, iconBrand: w.label === 'Rabby' ? 'rabby' : 'evm' }} size={30} /><span><b>{w.label}</b><small>Ethereum & EVM</small></span><em className="wallet-choice-state">Detected</em><ArrowUpRight size={16} /></button></div>)}</div>}
+    <div className="wallet-cronos" data-testid="wallet-cronos">
+      <span><b>Cronos on-chain</b><small>{cronosPick ? `Connects ${cronosPick.label} straight onto Cronos (CRO), adding the network if needed.` : 'Needs an EVM wallet: Crypto.com Onchain, MetaMask, Trust or Rabby.'}</small></span>
+      {cronosPick
+        ? <button type="button" className="btn-outline" disabled={busy} onClick={() => onPick('evm', cronosPick.brand || null, 'cronos')} data-testid="wallet-connect-cronos">Connect on Cronos</button>
+        : <a className="btn-outline" href="https://crypto.com/onchain" target="_blank" rel="noopener noreferrer">Get Crypto.com Onchain</a>}
+    </div>
   </div>;
 }
 
@@ -59,9 +71,9 @@ export default function WalletModal({ open, onClose }) {
   const current = wallet?.chain === 'solana' ? 'solana' : Object.entries(EVM_CHAINS).find(([, c]) => c.chainId === String(wallet?.evmChainId || '').toLowerCase())?.[0];
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const handle = async (type, brand) => {
+  const handle = async (type, brand, chain) => {
     setBusy(true); setError('');
-    try { const r = await connect(type, brand); onClose(); try { await getChatSession(r.wallet.address, msg => signWith(r.provider, r.wallet.chain, r.wallet.address, msg)); } catch { /* declined: they'll be asked once when they first post/follow */ } } catch (e) { setError(e.code === 4001 ? 'Connection declined. Your wallet is unchanged.' : e.message || 'Connection failed.'); } finally { setBusy(false); }
+    try { const r = await connect(type, brand, chain ? { chain } : undefined); onClose(); try { await getChatSession(r.wallet.address, msg => signWith(r.provider, r.wallet.chain, r.wallet.address, msg)); } catch { /* declined: they'll be asked once when they first post/follow */ } } catch (e) { setError(e.code === 4001 ? 'Connection declined. Your wallet is unchanged.' : e.message || 'Connection failed.'); } finally { setBusy(false); }
   };
   return <Dialog open={open} onOpenChange={value => { if (!value) { onClose(); setError(''); } }}><DialogContent className="feeless-dialog" data-testid="wallet-dialog"><span className="dialog-icon"><Wallet size={26} /></span><DialogTitle>{wallet ? 'Connected wallet' : 'Your wallet. Your keys.'}</DialogTitle><DialogDescription>Connecting exposes your public account. Swap signing is a separate action requiring your wallet approval.</DialogDescription>
     {wallet ? <><code className="wallet-address" data-testid="connected-wallet-address">{wallet.address}</code>
