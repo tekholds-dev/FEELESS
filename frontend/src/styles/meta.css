@@ -344,3 +344,13 @@ select.m-input { appearance: none; background-image: linear-gradient(45deg, tran
   background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 28px; cursor: pointer; }
 .ht-bar { height: 8px; } .ht-bar i { transform-origin: left; height: 100%; border-radius: 4px; }
 .m-label > svg { display: inline-block; vertical-align: -2px; margin-right: 6px; }
+
+/* Quick trade: Buy/Sell gets its own full-width row so it never clips in a narrow panel */
+.qt-head { flex-wrap: wrap; row-gap: 8px; }
+.qt-head b { white-space: nowrap; }
+.qt-head .qt-side { order: 9; flex: 1 1 100%; margin-left: 0; }
+.qt-side button { flex: 1; padding: 8px 12px; font-family: var(--m-mono); letter-spacing: .08em; text-transform: uppercase; transition: background .15s, color .15s, transform .1s; }
+.qt-side button:hover:not(.active) { color: var(--m-text); background: color-mix(in srgb, var(--m-accent) 8%, transparent); }
+.qt-side button:active { transform: scale(.98); }
+.qt-side button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: -2px; }
+.qt-head .qt-slip-chip { white-space: nowrap; }
