@@ -9,7 +9,7 @@ import { CoinAura } from '../CoinAura';
 import { useCoinColor } from '../../lib/coinColor';
 import { ShieldBadge } from '../Shield';
 import { CoinPassport } from '../CoinPassport';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
 import { useWallet } from '../../hooks/useWallet';
 import { apiUrl } from '../../lib/api';
 import { ChartMetaButtons, useChartMarkers } from './ChartMeta';
@@ -44,8 +44,11 @@ export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1m', onExpand
     rankingContext: { ...(pair?.rankingContext || {}), ...(livePair.rankingContext || {}) },
   } : pair;
   useEffect(() => { setMetric(Number(current?.marketCap) > 0 ? 'marketCap' : 'price'); }, [current?.chainId, current?.pairAddress]); // eslint-disable-line react-hooks/exhaustive-deps
-  const markers = useChartMarkers(current, { calls: showCalls, fee: showFee });
+  const metaMarkers = useChartMarkers(current, { calls: showCalls, fee: showFee });
   const [myPos, tradeFlash] = useMyPosition(current);
+  // Your own buys and sells, pinned on the candle they happened in (gold = you).
+  const markers = useMemo(() => [...metaMarkers, ...((myPos?.trades) || []).map(t => ({ time: Math.floor(t.ts), position: t.side === 'buy' ? 'belowBar' : 'aboveBar',
+    shape: t.side === 'buy' ? 'arrowUp' : 'arrowDown', color: t.side === 'buy' ? '#f5c451' : '#ff8fa3', text: `YOU ${t.side === 'buy' ? 'BUY' : 'SELL'} $${Number(t.usd || 0).toFixed(t.usd >= 100 ? 0 : 2)}` }))], [metaMarkers, myPos]);
   if (!current) return <section className="empty-focus" data-testid="token-focus-empty"><BarChart3 size={32} /><p>Select a market to open its chart.</p></section>;
   const address = current.baseToken?.address;
   const metricValue = id => id === 'marketCap' ? current.marketCap : current.fdv;

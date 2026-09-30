@@ -221,3 +221,23 @@ def test_confirmed_trade_notifies_once_and_refreshes_holdings(monkeypatch, tmp_p
     box = rs._json_load(tmp_path / 'n.json', {})[W]
     assert len(box) == 1 and box[0]['text'].startswith('✅ Buy confirmed') and W not in rs._pf_cache
     assert rs._json_load(tmp_path / 'l.json', {})[W][0]['feeUsd'] == 0.5
+
+
+def test_feeless_trade_feeds_the_position(monkeypatch, tmp_path):
+    """A confirmed FEELESS buy gives an instant position (avg entry + chart pin), even when the wallet-history
+    provider has nothing yet."""
+    W, COIN = 'Aaaa1111111111111111111111111111111111111111', 'Coin1111111111111111111111111111111111111111'
+    for k in ('FEE_LEDGER_PATH', 'FEE_TOTALS_PATH', 'FEELESS_TRADES_PATH', 'REF_PATH', 'REF_CFG_PATH', 'NOTIF_PATH', 'SEASONS_PATH'):
+        monkeypatch.setattr(rs, k, tmp_path / f'{k}.json')
+    monkeypatch.setattr(rs, 'season_award', lambda *a: None); monkeypatch.setattr(rs, '_internal_key', lambda: 'k')
+    monkeypatch.setattr(rs, '_seasons', lambda: rs._json_load(tmp_path / 'SEASONS_PATH.json', {'seasons': [], 'scores': {}}))
+
+    async def no_history(a, limit=40):
+        raise RuntimeError('provider down')
+    monkeypatch.setattr(rs, 'wallet_trades', no_history)
+
+    class Req:
+        headers = {'x-feeless-internal': 'k'}
+    asyncio.run(rs.internal_trade(Req(), rs.TradeLanded(wallet=W, signature='5' * 88, inUsd=50, feeBps=50, inputMint=rs.WSOL, outputMint=COIN, inAmount=0.4, outAmount=1000)))
+    pos = asyncio.run(rs.position(W, COIN))['position']
+    assert pos['avgEntry'] == 0.05 and pos['buys'] == 1 and pos['trades'][0]['side'] == 'buy'

@@ -69,6 +69,13 @@ class ExecuteIn(BaseModel):
 class OrderId(BaseModel):
     order_id: str = Field(min_length=32, max_length=40)
 
+def _human(atoms, decimals):
+    try:
+        return int(atoms) / 10 ** int(decimals) if atoms is not None and decimals is not None else 0.0
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _usd_value(quote):
     for k in ('inUsdValue', 'swapUsdValue'):
         try:
@@ -354,7 +361,9 @@ class TradingService:
                                       'feeBps': order.get('fee_bps') or 0, 'inputMint': order.get('input_mint') or '', 'outputMint': order.get('output_mint') or '',
                                       # the fee actually built into the transaction (Swap API): atoms of the input or output mint
                                       'feeAtoms': int((order.get('quote') or {}).get('feelessFeeAtoms') or 0),
-                                      'feeMint': order.get('input_mint') if (order.get('quote') or {}).get('feelessFeeMode') == 'input' else order.get('output_mint') if (order.get('quote') or {}).get('feelessFeeMode') == 'output' else ''})
+                                      'feeMint': order.get('input_mint') if (order.get('quote') or {}).get('feelessFeeMode') == 'input' else order.get('output_mint') if (order.get('quote') or {}).get('feelessFeeMode') == 'output' else '',
+                                      # coin amounts for the trader's position (entry line + chart pins): what they paid and what they got
+                                      'inAmount': _human(order.get('in_atoms'), order.get('in_decimals')), 'outAmount': _human((order.get('quote') or {}).get('outAmount'), order.get('out_decimals'))})
         except Exception:
             pass
 
@@ -481,7 +490,8 @@ class TradingService:
             record = {'order_id': order_id, 'wallet': body.wallet, 'state': 'quoted', 'created_at': created,
                       'expires_at': time.time() + 45, 'input_mint': body.input_mint, 'output_mint': body.output_mint,
                       'quote': data, 'simulated': False, 'engine': engine,
-                      'fee_bps': int(fee.get('bps') or 0), 'in_usd': _usd_value(data)}
+                      'fee_bps': int(fee.get('bps') or 0), 'in_usd': _usd_value(data),
+                      'in_decimals': meta_in.get('decimals'), 'out_decimals': (meta_out or {}).get('decimals'), 'in_atoms': str(int(atoms))}
             await self.db.swap_orders.insert_one(record)
             return {'order_id': order_id, 'created_at': created, 'expires_at': record['expires_at'],
                     # Echoed so the UI can refuse to show or sign an order that no longer matches the picked coins.

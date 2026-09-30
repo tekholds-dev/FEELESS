@@ -6836,15 +6836,21 @@ async def position(address: str, token: str):
     The chart turns this into the 'Your avg entry' line and a live P&L badge."""
     if not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address) or _re.match(r'^0x[0-9a-fA-F]{40}$', address)) or len(token) > 64:
         raise HTTPException(400, 'Bad address.')
-    await wallet_trades(address)
+    try:
+        await wallet_trades(address)
+    except Exception:
+        pass   # wallet-history provider down: FEELESS's own trade records still give the position
     rows = [r for r in (_wtrades_all.get(address) or (0, []))[1] if r['token'].lower() == token.lower() and r['price'] > 0]
+    seen = {r.get('tx') for r in rows}
+    rows += [r for r in _json_load(FEELESS_TRADES_PATH, {}).get(address, []) if r['token'].lower() == token.lower() and r['tx'] not in seen]
     buy_usd = sum(r['usd'] for r in rows if r['side'] == 'buy'); buy_tok = sum(r['usd'] / r['price'] for r in rows if r['side'] == 'buy')
     sell_usd = sum(r['usd'] for r in rows if r['side'] == 'sell'); sell_tok = sum(r['usd'] / r['price'] for r in rows if r['side'] == 'sell')
     if not buy_tok:
         return {'address': address, 'token': token, 'position': None}
     avg = buy_usd / buy_tok; held = max(0.0, buy_tok - sell_tok)
     return {'address': address, 'token': token, 'position': {'avgEntry': avg, 'tokensHeld': held, 'costUsd': round(avg * held, 2), 'realizedUsd': round(sell_usd - sell_tok * avg, 2),
-                                                             'buys': sum(1 for r in rows if r['side'] == 'buy'), 'sells': sum(1 for r in rows if r['side'] == 'sell'), 'lastTradeAt': max(r['ts'] for r in rows)}}
+                                                             'buys': sum(1 for r in rows if r['side'] == 'buy'), 'sells': sum(1 for r in rows if r['side'] == 'sell'), 'lastTradeAt': max(r['ts'] for r in rows),
+                                                             'trades': [{k: r.get(k) for k in ('ts', 'side', 'usd', 'price', 'tx')} for r in sorted(rows, key=lambda r: r['ts'])[-30:]]}}
 
 
 # ---- Setup checklist for the command center: which keys/URLs are configured (never the values) ----
@@ -7172,7 +7178,7 @@ async def pump_create_tx(p: PumpCreateIn):
         raise HTTPException(400, 'Bad address.')
     if not (0 <= p.devBuySol <= 50):
         raise HTTPException(400, 'Dev buy must be between 0 and 50 SOL.')
-    if primary_of(me) not in {primary_of(w) for w in _owner_wallets()}:
+    if primary_of(me) not in {primary_of(w) for w in set(_owner_wallets()) | set(_admin_wallets())}:   # owner + admins launch freely
         tab = launch_meta.clean_tab(_json_load(LAUNCH_RAIL_PATH, {}).get('tab') or launch_meta.TAB_DEFAULT)
         if 'pump' not in tab['rails']:
             raise HTTPException(403, 'Pump.fun launches are switched off on FEELESS right now.')
@@ -8099,7 +8105,8 @@ def trade_points(in_usd: float, fee_bps: int) -> float:
 
 
 FEE_LEDGER_PATH = DATA_DIR / 'fee_ledger.json'
-FEE_TOTALS_PATH = DATA_DIR / 'fee_totals.json'        # lifetime per-account fee book (the payback base)
+FEE_TOTALS_PATH = DATA_DIR / 'fee_totals.json'
+FEELESS_TRADES_PATH = DATA_DIR / 'feeless_trades.json'   # {wallet: [confirmed FEELESS trades]} for positions + chart pins        # lifetime per-account fee book (the payback base)
 FEEBACK_PAID_PATH = DATA_DIR / 'feeback_paid.json'     # {account: usd already paid back}
 
 
@@ -8140,6 +8147,8 @@ class TradeLanded(BaseModel):
     outputMint: str = ''
     feeAtoms: int = 0
     feeMint: str = ''
+    inAmount: float = 0
+    outAmount: float = 0
 
 
 async def _sol_usd() -> float:
@@ -8175,6 +8184,13 @@ async def internal_trade(request: Request, p: TradeLanded):
     led[who] = (led.get(who) or [])[-1999:] + [row]
     _json_save(FEE_LEDGER_PATH, led)
     _json_save(FEE_TOTALS_PATH, fee_report.add_total(_json_load(FEE_TOTALS_PATH, {}), who, row))   # lifetime, never trimmed
+    # The trader's own FEELESS trades: instant position / entry line / chart pins (no wallet-history provider needed).
+    stable_ = {WSOL, 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'}
+    coin, amt, side_ = (p.outputMint, p.outAmount, 'buy') if p.inputMint in stable_ else (p.inputMint, p.inAmount, 'sell')
+    if amt > 0 and p.inUsd > 0 and coin not in stable_:
+        ft = _json_load(FEELESS_TRADES_PATH, {})
+        ft[p.wallet] = ((ft.get(p.wallet) or []) + [{'ts': time.time(), 'side': side_, 'usd': round(p.inUsd, 2), 'price': p.inUsd / amt, 'token': coin, 'tx': p.signature, 'via': 'feeless'}])[-300:]
+        _json_save(FEELESS_TRADES_PATH, ft)
     inviter = _json_load(REF_PATH, {'by': {}, 'of': {}})['of'].get(who)
     # The trade is confirmed on-chain (the trading service checked): tell the trader and refresh their holdings,
     # whether or not their browser is still open. Deduped with the receipt notification by signature.
