@@ -27,6 +27,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Segmented controls instead of loose button rows; settings live behind the ⚙ panel, not on the card.
 - Numbers: compact (`$4.4M`, `+12.3%`, huge moves as `12.4x`) and always show the $ value next to SOL.
 - Day theme: every new surface gets a `body.theme-day` override.
+- Build new UI from the `m-*` presets in `frontend/src/styles/meta.css` (m-card, m-label, m-num, m-chip, m-seg, m-btn,
+  m-input, m-toggle, m-note, m-bars, m-kv). Add a preset there before writing one-off CSS. `styles/cssHygiene.test.js`
+  fails on dead class rules and on legacy sheets growing past their KB budget; lower budgets when you delete CSS.
 
 ## Speed (no lag)
 - No request waterfalls: run independent lookups with `asyncio.gather` / parallel fetches.

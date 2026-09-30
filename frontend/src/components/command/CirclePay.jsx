@@ -36,9 +36,9 @@ export function CirclePay({ call, circle, rows, path, onDone, label = 'Pay via C
     } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); }
   };
   if (!open) return <button type="button" className="btn-primary circle-pay-btn" data-testid="circle-pay" onClick={() => setOpen(true)}>◎ {label}</button>;
-  return <div className="circle-pay" data-testid="circle-pay-confirm">
+  return <div className="m-note circle-pay" data-testid="circle-pay-confirm">
     <p><b>Circle wallet “{circle.name || 'Circle'}”</b> holds {sol ?? '?'} SOL. Circle signs {rows.length} transfer{rows.length > 1 ? 's' : ''} from it — no Phantom needed. Retries never pay the same holder twice.</p>
-    <label><span>Type <code>{phrase}</code> to send</span><input autoFocus value={typed} onChange={e => setTyped(e.target.value)} placeholder={phrase} data-testid="circle-pay-input" /></label>
-    <div><button type="button" className="btn-primary" disabled={busy || typed.trim() !== phrase} onClick={go}>{busy ? 'Sending…' : `Send ${phrase.slice(4)} SOL`}</button><button type="button" className="btn-outline" disabled={busy} onClick={() => setOpen(false)}>Cancel</button></div>
+    <label className="m-field"><span>Type <code>{phrase}</code> to send</span><input className="m-input" autoFocus value={typed} onChange={e => setTyped(e.target.value)} placeholder={phrase} data-testid="circle-pay-input" /></label>
+    <div className="m-row"><button type="button" className="m-btn primary" disabled={busy || typed.trim() !== phrase} onClick={go}>{busy ? 'Sending…' : `Send ${phrase.slice(4)} SOL`}</button><button type="button" className="m-btn" disabled={busy} onClick={() => setOpen(false)}>Cancel</button></div>
   </div>;
 }

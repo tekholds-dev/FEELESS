@@ -112,3 +112,19 @@ body.fx-lite .m-pop { animation: none; }
 .cl-hist-row:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
 .cl-hist-row code { font-family: var(--m-mono); color: var(--m-accent); } .cl-hist-row em { font-style: normal; color: var(--m-mute); font-size: 11px; }
 @media (max-width: 560px) { .cmd-launch .cl-id { grid-template-columns: 1fr; } .cl-hist-row { grid-template-columns: 1fr 1fr; } }
+
+/* Notes / callouts: tone via .warn / .bad / .ok. Use for confirm strips, risk notes, info panels. */
+.m-note { display: grid; gap: 6px; margin: 8px 0; padding: 10px 12px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line-hi); background: color-mix(in srgb, var(--m-accent) 5%, var(--m-surface)); color: var(--m-dim); font-size: 12px; animation: mPop .18s var(--m-ease); }
+.m-note > b { font-family: var(--m-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--m-accent); }
+.m-note.warn { border-color: color-mix(in srgb, var(--m-warn) 45%, transparent); background: color-mix(in srgb, var(--m-warn) 7%, var(--m-surface)); } .m-note.warn > b { color: var(--m-warn); }
+.m-note.bad { border-color: color-mix(in srgb, var(--m-danger) 50%, transparent); background: color-mix(in srgb, var(--m-danger) 8%, var(--m-surface)); } .m-note.bad > b { color: var(--m-danger); }
+.m-note label { display: flex; gap: 6px; align-items: center; cursor: pointer; font-weight: 600; color: var(--m-text); }
+.m-note input[type='checkbox'] { accent-color: var(--m-accent); }
+.m-note input[type='checkbox']:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.m-note code { font-family: var(--m-mono); color: var(--m-accent); }
+.m-note.row { grid-template-columns: 1fr auto; align-items: center; }
+@media (prefers-reduced-motion: reduce) { .m-note { animation: none; } }
+body.fx-lite .m-note { animation: none; }
+img.wallet-icon { border-radius: 8px; object-fit: contain; background: var(--m-surface-2); }
+.m-note.row > span { display: grid; gap: 2px; min-width: 0; }
+.m-note.row > span > b { font-family: var(--m-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--m-accent); }

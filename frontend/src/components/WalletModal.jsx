@@ -53,7 +53,7 @@ function WalletChooser({ busy, onPick }) {
     <button type="button" className={`wallet-more-toggle ${more ? 'open' : ''}`} aria-expanded={more} onClick={() => setMore(v => !v)} data-testid="wallet-more">
       More wallets<small>Solflare · Backpack · Coinbase · MetaMask · Crypto.com · OKX{others.length ? ` · +${others.length} detected` : ''}</small><ChevronDown size={16} /></button>
     {more && <div className="wallet-more-list">{MORE.map(w => row(w, false))}{others.map(w => <div key={w.brand || w.label} className="wallet-choice is-installed"><button type="button" className="wallet-choice-main" disabled={busy} onClick={() => onPick('evm', w.brand || null)}><WalletMark w={{ ...w, iconBrand: w.label === 'Rabby' ? 'rabby' : 'evm' }} size={30} /><span><b>{w.label}</b><small>Ethereum & EVM</small></span><em className="wallet-choice-state">Detected</em><ArrowUpRight size={16} /></button></div>)}</div>}
-    <div className="wallet-cronos" data-testid="wallet-cronos">
+    <div className="m-note row wallet-cronos" data-testid="wallet-cronos">
       <span><b>Cronos on-chain</b><small>{cronosPick ? `Connects ${cronosPick.label} straight onto Cronos (CRO), adding the network if needed.` : 'Needs an EVM wallet: Crypto.com Onchain, MetaMask, Trust or Rabby.'}</small></span>
       {cronosPick
         ? <button type="button" className="btn-outline" disabled={busy} onClick={() => onPick('evm', cronosPick.brand || null, 'cronos')} data-testid="wallet-connect-cronos">Connect on Cronos</button>

@@ -499,11 +499,7 @@ test('keeps trade readouts and controls bounded at a narrow preview width for ev
     renderCurrentPage(root);
   });
 
-  expect(narrowTradeRule('.swap-amount-label input').style.getPropertyValue('font-size'))
-    .toBe('calc(30px * var(--swap-readable-scale))');
-  expect(narrowTradeRule('.swap-output > strong').style.getPropertyValue('font-size'))
-    .toBe('calc(24px * var(--swap-readable-scale))');
-  expect(narrowTradeRule('.swap-pair-heading').style.getPropertyValue('flex-direction')).toBe('column');
+  // (.swap-amount-label / .swap-output / .swap-pair-heading were retired with the old swap layout; their CSS is gone.)
   expect(tradeRule('.swap-buttons button').style.getPropertyValue('width')).toBe('100%');
   expect(tradeRule('[data-testid="swap-review-dialog"]').style.getPropertyValue('max-height')).toBe('calc(100vh - 24px)');
   expect(tradeRule('[data-testid="swap-review-dialog"] > .btn-primary').style.getPropertyValue('width')).toBe('100%');
