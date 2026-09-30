@@ -26,3 +26,8 @@ def test_card_money_sums_payouts():
     s = card_money('season:s1', [], {'s1': {'rows': [{'tier': 'Gold', 'sol': 0.2}, {'tier': 'Gold', 'sol': 0.4}, {'tier': 'Bronze', 'sol': 0.1}]}}, {'s1': 10})
     assert s['byTier'] == {'tier:Gold': 0.3, 'tier:Bronze': 0.1} and s['earns'][0]['pct'] == 10
     assert tier_each([]) == {}
+
+
+def test_motion_edit():
+    assert clean_edit({'motion': 'alive'}) == {'motion': 'alive'} and clean_edit({'motion': 'spin'}) == {}
+    assert default_season_card({'id': 's1'})['motion'] == 'alive'

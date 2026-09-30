@@ -80,13 +80,14 @@ export function MetaCard({ card, size = 'md', interactive = false, flipped, onFl
   const r = card.rarity || 'rare';
   const style = { '--a': card.accent || '#16d67f', '--b': card.accent2 || '#f5c451' };
   const money = card.earns || [];
-  return <div className={`mc-stage mc-${size} ${className}`} style={style}>
+  const alive = card.motion === 'alive';
+  return <div className={`mc-stage mc-${size} ${alive ? 'is-alive' : ''} ${className}`} style={style}><div className="mc-idle">
     <div ref={el} className={`mc d-${card.design || 'holo'} r-${r}`} role={interactive ? 'button' : undefined} tabIndex={interactive ? 0 : undefined}
       aria-label={interactive ? `${card.title} card — drag to turn, click to flip` : undefined}
       onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onClick={clickOnly}
       onKeyDown={e => { if (interactive && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); flip(); } }} data-testid="meta-card">
       <div className="mc-face mc-front">
-        <div className="mc-bg" /><Pattern design={card.design} id={id} /><div className="mc-sheen" ref={sheen} />
+        <div className="mc-bg" /><Pattern design={card.design} id={id} /><div className="mc-sheen" ref={sheen} />{alive && <><div className="mc-sweep" /><div className="mc-glow" /></>}
         <div className="mc-top"><span>{KIND[card.kind] || 'CARD'}</span><i className="mc-pips" aria-label={r}>{Array.from({ length: 5 }, (_, i) => <b key={i} className={i < (RANK[r] || 2) ? 'on' : ''} />)}</i></div>
         <Crest card={card} id={id} />
         <div className="mc-name"><b>{card.title}</b><small>{card.subtitle}</small></div>
@@ -106,7 +107,7 @@ export function MetaCard({ card, size = 'md', interactive = false, flipped, onFl
         <p className="mc-how">{card.why || card.how}</p>
       </div>
     </div>
-  </div>;
+  </div></div>;
 }
 
 export const CARD_DESIGNS = [['holo', 'Holo foil'], ['circuit', 'Circuit'], ['obsidian', 'Obsidian'], ['aurora', 'Aurora'], ['glitch', 'Glitch'], ['ember', 'Emberforge']];

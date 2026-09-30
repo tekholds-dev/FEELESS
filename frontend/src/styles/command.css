@@ -170,6 +170,7 @@ body.theme-day .eco-world-head{border-color:#c6d8cc!important}
 .flash-value{transition:background .6s ease;border-radius:4px}.flash-value.flash-up{background:#12c07a2e}.flash-value.flash-down{background:#fa708c2e}
 @media(max-width:1100px){.order-flow-windows{grid-template-columns:repeat(2,1fr)}.order-flow-metrics{grid-template-columns:repeat(2,1fr)}}
 body.theme-day :is(.order-flow,.flow-window,.order-flow-metrics>div){background:var(--day-surface,#f7faf6)!important;border-color:#c3d6c9!important}
+body.theme-day :is(.order-flow-head small,.flow-window small,.order-flow-metrics small,.order-flow-metrics em){color:#43604f!important}
 body.theme-day .order-flow-metrics svg{color:#07784f!important;background:#07784f}
 body.theme-day .order-flow-metrics svg{background:none}
 body.theme-day .order-flow-read svg{color:#a06a00!important}

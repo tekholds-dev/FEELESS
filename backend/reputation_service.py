@@ -2651,6 +2651,24 @@ async def wallet_badges(address: str):
     badges.extend(_admin_load()['badges'].get(address, {}).values())
     if address in _admin_wallets():
         badges.insert(0, {'id': 'feeless-hq', 'label': 'FEELESS HQ', 'icon': '👑', 'tone': 'gold', 'why': 'Created $FEE — runs the FEELESS command center'})
+    # Season cards count as badges too (best rarity first), so chat + profiles show them.
+    rank = {'mythic': 5, 'legendary': 4, 'epic': 3, 'rare': 2, 'common': 1}
+    seasonal = sorted((it for it in _json_load(COLLECTION_PATH, {}).get(primary_of(address), []) if it.get('kind') in ('season', 'weekly')),
+                      key=lambda it: (-rank.get(it.get('rarity'), 0), -(it.get('at') or 0)))
+    for it in seasonal[:2]:
+        key = f"season:{it['season']}" if it['kind'] == 'season' else f"week:{it['season']}:w{it.get('week')}"
+        badges.append({'id': key.replace(':', '-'), 'card': key, 'label': it.get('name') or 'Season card', 'icon': it.get('glyph') or '🏅',
+                       'tone': 'gold' if rank.get(it.get('rarity'), 0) >= 3 else 'mint', 'rarity': it.get('rarity'), 'why': it.get('how') or 'Season card'})
+    # Card edits (Cmd Ctr › Badges › Cards) change the name + glyph everywhere, chat included.
+    edits = _json_load(CARDS_PATH, {})
+    for b in badges:
+        e = edits.get(b.get('card') or f"badge:{b['id']}") or {}
+        if e.get('title'):
+            b['label'] = e['title']
+        if e.get('glyph'):
+            b['icon'] = e['glyph']
+        if e.get('rarity'):
+            b['rarity'] = e['rarity']
     progress = {'feeUsd': round(fee_usd, 2), 'calls': me['calls'] if me else 0, 'hitRate': me['hitRate'] if me else 0}
     out = {'address': address, 'badges': badges, 'progress': progress, 'at': time.time()}
     _badge_cache[address] = (time.time(), out)
@@ -6951,6 +6969,41 @@ async def launch_tab_set(request: Request, p: LaunchTabIn):
     return d['tab']
 
 
+@app.get('/api/reputation/launch-check/{mint}')
+async def launch_check(mint: str, rail: str = 'pump'):
+    """After a launch: is the coin really live? Mint on-chain (RPC), listed on pump.fun (pump rail), seen by DexScreener."""
+    if not _re.match(_B58, mint):
+        raise HTTPException(400, 'Bad address.')
+
+    async def chain():
+        try:
+            async with httpx.AsyncClient(timeout=8) as http:
+                return bool(((await _rpc(http, 'getAccountInfo', [mint, {'encoding': 'base64', 'commitment': 'confirmed'}])) or {}).get('value'))
+        except Exception:
+            return None
+
+    async def pump():
+        if rail != 'pump':
+            return None
+        try:
+            async with httpx.AsyncClient(timeout=8, headers={'User-Agent': 'Mozilla/5.0'}) as http:
+                r = await http.get(f'https://frontend-api-v3.pump.fun/coins/{mint}')
+            return r.status_code == 200 and (r.json() or {}).get('mint') == mint
+        except Exception:
+            return None
+
+    async def dex():
+        try:
+            async with httpx.AsyncClient(timeout=8) as http:
+                r = await http.get(f'https://api.dexscreener.com/latest/dex/tokens/{mint}')
+            return bool((r.json() or {}).get('pairs'))
+        except Exception:
+            return None
+    on_chain, on_pump, on_dex = await asyncio.gather(chain(), pump(), dex())
+    return {'mint': mint, 'rail': rail, 'onChain': on_chain, 'onPump': on_pump, 'onDex': on_dex,
+            'pumpUrl': f'https://pump.fun/coin/{mint}' if rail == 'pump' else None}
+
+
 class TokenMetaIn(BaseModel):
     address: str
     session: str
@@ -8572,6 +8625,7 @@ async def admin_card_edit(request: Request, key: str):
         d = _json_load(CARDS_PATH, {}); d[key] = {**(d.get(key) or {}), **edit}; _json_save(CARDS_PATH, d)
         ad = _admin_load(); _audit(ad, admin, 'card-edit', f"{key} → {edit.get('title', '')} {edit.get('design', '')}".strip()); _admin_save(ad)
     _cards_cache.pop('all', None)
+    _badge_cache.clear()   # chat + profile badges pick up the new name / glyph
     return _cards_all().get(key) or {'key': key, **edit}
 
 

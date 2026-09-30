@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { BadgeIcon } from './BadgeIcon';
 
+const BUILTIN = new Set(['feeless-hq', 'fee-holder', 'feecat-holder', 'rfee-holder', 'fee-whale', 'rides-with-fee', 'caller', 'sharp-caller', 'feeless-launcher', 'trusted-creator', 'flagged-creator', 'blocklisted', 'airdrop-recipient']);
+
 const cache = new Map();
 export function useBadges(address) {
   const [badges, setBadges] = useState(() => cache.get(address)?.badges || []);
@@ -29,7 +31,10 @@ const order = (badges, featured) => {
 export function Badges({ address, compact = false, max = 3, featured }) {
   const badges = order(useBadges(address), featured);
   if (!badges.length) return null;
-  if (compact) return <span className="badge-icons">{badges.slice(0, max).map((b, i) => <i key={b.id} className={`tone-${b.tone}`} style={{ animationDelay: `${i * 0.4}s` }} title={`${b.label} — ${b.why}`}><BadgeIcon id={b.id} tone={b.tone} size={14} /></i>)}</span>;
+  // Chat: small card chips (tone ring + emblem), hover/focus shows the name and why. Emblem = hand-made SVG for
+  // built-ins, the card glyph for custom badges and season cards.
+  if (compact) return <span className="badge-chips" data-testid="chat-badges">{badges.slice(0, max).map(b => <i key={b.id} tabIndex={0} className={`badge-chip tone-${b.tone} ${b.rarity ? `r-${b.rarity}` : ''}`} data-tip={`${b.label}${b.why ? ` — ${b.why}` : ''}`} aria-label={b.label}>
+    {BUILTIN.has(b.id) ? <BadgeIcon id={b.id} tone={b.tone} size={13} /> : <span>{b.icon || '⭐'}</span>}</i>)}</span>;
   return <div className="badge-shelf" data-testid="badge-shelf">{badges.map((b, i) => <span key={b.id} className={`badge-pill tone-${b.tone} ${featured?.includes(b.id) ? 'is-featured' : ''}`} style={{ animationDelay: `${i * 0.35}s` }} title={b.why}><i><BadgeIcon id={b.id} tone={b.tone} size={15} /></i>{b.label}</span>)}</div>;
 }
 

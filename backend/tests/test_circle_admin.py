@@ -138,3 +138,25 @@ def test_card_edit_and_catalog(monkeypatch, tmp_path):
     assert card['earnedEach'] == 0.2 and card['earns'][0]['pct'] == 30
     with pytest.raises(rs.HTTPException):
         asyncio.run(rs.admin_card_edit(Req(), 'nope:<script>'))
+
+
+def test_launch_check_pump(monkeypatch):
+    """Receipt check: mint on-chain + listed on pump.fun + DexScreener, each answered independently."""
+    import httpx
+    MINT = 'Mint1111111111111111111111111111111111pump'
+
+    async def rpc(http, method, params):
+        return {'value': {'lamports': 1}}
+
+    class Client:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, url):
+            if 'pump.fun' in url:
+                return httpx.Response(200, json={'mint': MINT})
+            return httpx.Response(200, json={'pairs': None})
+    monkeypatch.setattr(rs, '_rpc', rpc); monkeypatch.setattr(rs.httpx, 'AsyncClient', Client)
+    out = asyncio.run(rs.launch_check(MINT, 'pump'))
+    assert out['onChain'] and out['onPump'] and out['onDex'] is False and out['pumpUrl'].endswith(MINT)
+    assert asyncio.run(rs.launch_check(MINT, 'feeless'))['onPump'] is None

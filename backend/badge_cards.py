@@ -10,6 +10,7 @@ import re
 
 DESIGNS = ('holo', 'circuit', 'obsidian', 'aurora', 'glitch', 'ember')
 RARITIES = ('common', 'rare', 'epic', 'legendary', 'mythic')
+MOTIONS = ('still', 'alive')   # alive = idle float + foil sweep + crest glow (dies under fx-lite / reduced motion)
 TONE_RARITY = {'plain': 'common', 'mint': 'rare', 'gold': 'epic', 'bad': 'common'}
 TIER_RARITY = {1: 'common', 2: 'rare', 3: 'epic', 4: 'legendary'}
 _HEX = re.compile(r'^#[0-9a-fA-F]{6}$')
@@ -20,19 +21,19 @@ def default_badge_card(b: dict) -> dict:
     design = {'common': 'circuit', 'rare': 'aurora', 'epic': 'holo', 'legendary': 'obsidian'}.get(rarity, 'holo')
     return {'key': f"badge:{b['id']}", 'kind': 'badge', 'title': b.get('label') or b['id'], 'subtitle': 'FEELESS badge',
             'glyph': b.get('icon') or '⭐', 'lore': b.get('why') or b.get('how') or '', 'how': b.get('how') or b.get('why') or '',
-            'design': 'ember' if b.get('tone') == 'bad' else design, 'accent': '#16d67f', 'accent2': '#f5c451', 'art': '', 'rarity': rarity}
+            'design': 'ember' if b.get('tone') == 'bad' else design, 'accent': '#16d67f', 'accent2': '#f5c451', 'art': '', 'rarity': rarity, 'motion': 'still'}
 
 
 def default_season_card(s: dict) -> dict:
     return {'key': f"season:{s['id']}", 'kind': 'season', 'title': s.get('name') or s['id'], 'subtitle': f"Season {str(s['id']).lstrip('s')} card",
             'glyph': '🏅', 'lore': s.get('theme') or '', 'how': 'Finish the season at Bronze tier or higher.',
-            'design': 'obsidian', 'accent': s.get('accent') or '#16d67f', 'accent2': s.get('accent2') or '#f5c451', 'art': s.get('badgeUrl') or '', 'rarity': 'legendary'}
+            'design': 'obsidian', 'accent': s.get('accent') or '#16d67f', 'accent2': s.get('accent2') or '#f5c451', 'art': s.get('badgeUrl') or '', 'rarity': 'legendary', 'motion': 'alive'}
 
 
 def default_week_card(s: dict, w: dict) -> dict:
     return {'key': f"week:{s['id']}:w{w['week']}", 'kind': 'weekly', 'title': w.get('name') or f"Week {w['week']}", 'subtitle': f"{s.get('name') or s['id']} · week {w['week']}",
             'glyph': w.get('glyph') or '✦', 'lore': w.get('story') or '', 'how': 'Score 50+ points that week (top 3 = legendary).',
-            'design': 'glitch' if w['week'] % 2 else 'circuit', 'accent': s.get('accent') or '#16d67f', 'accent2': s.get('accent2') or '#ff5ad1', 'art': w.get('imageUrl') or '', 'rarity': 'epic'}
+            'design': 'glitch' if w['week'] % 2 else 'circuit', 'accent': s.get('accent') or '#16d67f', 'accent2': s.get('accent2') or '#ff5ad1', 'art': w.get('imageUrl') or '', 'rarity': 'epic', 'motion': 'still'}
 
 
 def clean_edit(p: dict) -> dict:
@@ -45,6 +46,8 @@ def clean_edit(p: dict) -> dict:
         out['design'] = p['design']
     if p.get('rarity') in RARITIES:
         out['rarity'] = p['rarity']
+    if p.get('motion') in MOTIONS:
+        out['motion'] = p['motion']
     for k in ('accent', 'accent2'):
         if isinstance(p.get(k), str) and _HEX.match(p[k]):
             out[k] = p[k].lower()

@@ -89,7 +89,6 @@ body.fx-lite .m-pop { animation: none; }
 .fee-report .m-chip { text-transform: none; letter-spacing: .02em; white-space: normal; line-height: 1.35; border-radius: 8px; }
 
 /* Command Center launcher */
-.cmd-launch .cl-head { justify-content: space-between; }
 .cmd-launch .cl-id { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: center; }
 .cl-drop { position: relative; display: grid; place-items: center; width: 110px; aspect-ratio: 1; border: 1px dashed var(--m-line-hi); border-radius: 50%; background: var(--m-bg); color: var(--m-mute); font-size: 11px; text-align: center; cursor: pointer; overflow: hidden; transition: border-color .15s, transform .1s; }
 .cl-drop.wide { width: 100%; max-width: 540px; aspect-ratio: 3 / 1; border-radius: var(--m-r); }
@@ -241,3 +240,47 @@ body.theme-day .cv-overlay { background: rgba(230, 245, 236, .78); }
 .m-details p { margin: 8px 0 0; font-size: 12px; color: var(--m-dim); line-height: 1.5; }
 @media (prefers-reduced-motion: reduce) { .m-details[open] > :not(summary) { animation: none; } }
 .m-card.m-stat { align-content: start; gap: 6px; } .m-card.m-stat b.m-num { font-size: 18px; } .m-card.m-stat code { display: inline-flex; gap: 4px; align-items: center; font-family: var(--m-mono); font-size: 11px; }
+
+/* Chat badge chips: visible at a glance, name + why on hover / focus */
+.badge-chips { display: inline-flex; gap: 3px; margin-left: 6px; vertical-align: middle; }
+.badge-chip { position: relative; display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; font-style: normal; font-size: 12px; line-height: 1; cursor: help;
+  background: linear-gradient(145deg, rgba(255, 255, 255, .08), rgba(0, 0, 0, .35)); border: 1px solid var(--m-line-hi); transition: transform .12s var(--m-ease), border-color .15s; }
+.badge-chip.tone-gold { border-color: #f5c451aa; box-shadow: inset 0 0 6px #f5c45133; } .badge-chip.tone-mint { border-color: #16d67faa; box-shadow: inset 0 0 6px #16d67f33; }
+.badge-chip.tone-bad { border-color: #ff8fa3aa; } .badge-chip.r-legendary, .badge-chip.r-mythic { border-color: #f5c451; box-shadow: 0 0 8px #f5c45155; }
+.badge-chip:hover, .badge-chip:focus-visible { transform: translateY(-1px) scale(1.12); outline: none; border-color: var(--m-accent); }
+.badge-chip::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translate(-50%, 3px); opacity: 0; pointer-events: none; white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis;
+  padding: 5px 8px; border-radius: 7px; background: #03110a; border: 1px solid var(--m-line-hi); color: var(--m-text); font: 600 11px/1.2 var(--m-mono); letter-spacing: .02em; z-index: 30; transition: opacity .15s, transform .15s var(--m-ease); }
+.badge-chip:hover::after, .badge-chip:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) { .badge-chip, .badge-chip::after { transition: none; } }
+body.theme-day .badge-chip { background: linear-gradient(145deg, #ffffff, #e9f4ee); }
+body.theme-day .badge-chip::after { background: #ffffff; color: #0f2419; }
+
+/* Alive cards: idle float on a wrapper (the card itself stays free for drag), a foil sweep and a crest glow.
+   Transform/opacity only; off under fx-lite and reduced motion. */
+.mc-idle { width: 100%; height: 100%; transform-style: preserve-3d; }
+.is-alive .mc-idle { animation: mcFloat 5.5s ease-in-out infinite; }
+.mc-sweep { position: absolute; inset: -20% -60%; pointer-events: none; mix-blend-mode: screen; background: linear-gradient(100deg, transparent 42%, rgba(255, 255, 255, .28) 50%, transparent 58%); animation: mcSweep 3.8s ease-in-out infinite; }
+.mc-glow { position: absolute; left: 50%; top: 38%; width: 70%; aspect-ratio: 1; margin-left: -35%; margin-top: -35%; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, color-mix(in srgb, var(--a) 45%, transparent), transparent 65%); animation: mcGlow 2.8s ease-in-out infinite; }
+@keyframes mcFloat { 0%, 100% { transform: translateY(0) rotateZ(-.6deg); } 50% { transform: translateY(-6px) rotateZ(.6deg); } }
+@keyframes mcSweep { 0% { transform: translateX(-60%); opacity: 0; } 20% { opacity: 1; } 60%, 100% { transform: translateX(60%); opacity: 0; } }
+@keyframes mcGlow { 0%, 100% { opacity: .35; transform: scale(.94); } 50% { opacity: .85; transform: scale(1.04); } }
+body.fx-lite .is-alive .mc-idle, body.fx-lite .mc-sweep, body.fx-lite .mc-glow { animation: none; }
+body.fx-lite .mc-sweep { display: none; }
+@media (prefers-reduced-motion: reduce) { .is-alive .mc-idle, .mc-sweep, .mc-glow { animation: none !important; } .mc-sweep { display: none; } }
+
+/* Launcher: step bar + rail cards */
+.cl-steps { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+.cl-steps li { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--m-line); font-family: var(--m-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--m-mute); }
+.cl-steps li b { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; border: 1px solid currentColor; font-size: 9px; }
+.cl-steps li.done { color: var(--m-accent); border-color: color-mix(in srgb, var(--m-accent) 40%, transparent); }
+.cl-steps li.now { background: var(--m-accent); color: var(--m-accent-ink); border-color: var(--m-accent); }
+.cl-rails { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.cl-rail { display: grid; gap: 6px; text-align: left; padding: 12px; border-radius: var(--m-r); border: 1px solid var(--m-line); background: var(--m-surface); color: var(--m-text); font-size: 12px; line-height: 1.4; cursor: pointer; transition: border-color .15s, transform .1s, background .15s; }
+.cl-rail:hover:not(:disabled) { border-color: var(--m-accent); } .cl-rail:active:not(:disabled) { transform: scale(.99); }
+.cl-rail:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.cl-rail:disabled { opacity: .45; cursor: not-allowed; }
+.cl-rail.active { border-color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 9%, var(--m-surface)); box-shadow: 0 0 0 1px var(--m-accent) inset; }
+.cl-rail-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; } .cl-rail-top b { font-size: 14px; }
+.cl-rail-top em { font-style: normal; font-family: var(--m-mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--m-accent); }
+.cl-rail small { color: var(--m-dim); }
