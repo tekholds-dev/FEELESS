@@ -630,6 +630,7 @@ function PoolsPanel({ call }) {
       <ul><li><b>Coins launched on a FEELESS config</b> get their pool automatically when the curve graduates (liquidity locked per the config). Don't make one yourself before that — it splits liquidity and gets arbitraged.</li>
         <li><b>Tokens that already exist</b> (e.g. $FEE) — create the TOKEN/SOL pool here. You deposit both sides; the ratio is the opening price.</li>
         <li><b>Your fee reserve coin:</b> use a separate Phantom account (Add account — same recovery phrase, new address) or a Squads multisig as the reserve wallet. Launch the coin from that wallet on a house config, or create its pool from that wallet here. That wallet owns the position and earns its fees; badge pools can pay holders from it.</li>
+        <li><b>Platform swapping uses your pools automatically.</b> FEELESS trades route through Jupiter, which indexes Meteora pools within minutes — so a pool you create here becomes a route for every swap of that coin on the site (and everywhere else Jupiter is used). Deeper pool = better prices for your traders.</li>
         <li>One pool per token/SOL pair on this rail. Everything is simulated before you sign.</li></ul></details>
     <PoolCreator defaultMint={mint || ''} call={call} />
     <h4 className="cc-sub">Other DEXes (external, their own pool pages)</h4>

@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
+const MetaLaunchSetup = lazy(() => import('../terminal/MetaLaunchSetup'));
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
 import { RAIL_DEFAULTS, RAIL_PRESETS, railWarnings, checkRail, createLaunchRail, fetchLaunchRail, partnerFees, claimPartnerFees, configPools, claimCreationToll } from '../../lib/launchRail';
@@ -113,6 +114,7 @@ export function LaunchRailAdmin({ call, isOwner }) {
   const [status, setStatus] = useState('');
   const [preset, setPreset] = useState('shield');
   const [scope, setScope] = useState('public');
+  const [launchOpen, setLaunchOpen] = useState(false);
   const [houseLabel, setHouseLabel] = useState('');
   const [check, setCheck] = useState(null);
   const unit = p.quote === 'USDC' ? 'USDC' : 'SOL';
@@ -194,6 +196,10 @@ export function LaunchRailAdmin({ call, isOwner }) {
     </div>
     {rail?.house?.length > 0 && <div className="cc-block"><h4>🏠 House configs <small className="chain-tag">owners launch with these from the Launch page</small></h4>
       {rail.house.map(h => <div key={h.config} className="rail-house"><b>{h.label}</b><span>{Number(h.params?.initialMarketCap ?? 30)} → {Number(h.params?.migrationMarketCap ?? 500)} {h.params?.quote === 'USDC' ? 'USDC' : 'SOL'} · snipe tax {Number(h.params?.startingFeeBps ?? 9900) / 100}% · fees to <code>{h.feeClaimer.slice(0, 4)}…{h.feeClaimer.slice(-4)}</code></span><a href={`https://solscan.io/account/${h.config}`} target="_blank" rel="noreferrer">config ↗</a></div>)}</div>}
+    <div className="cc-block cc-launch-coin"><h4>Step 2 · Launch a coin <small className="chain-tag">name · ticker · image · first buy</small></h4>
+      {!rail?.ready ? <p className="cc-empty">Create the launch rules above first; then launch coins right here.</p> : !launchOpen
+        ? <><p className="cc-empty">Same launcher as the site, with your house configs available (pick "🏠 Launch with" on the last step). Launch from the wallet that should own the coin — e.g. switch Phantom to your fee reserve account first.</p><button type="button" className="btn-primary" onClick={() => setLaunchOpen(true)}>🚀 Open the coin launcher</button></>
+        : <Suspense fallback={<p className="cc-empty">Loading the launcher…</p>}><MetaLaunchSetup /></Suspense>}</div>
     {rail?.house?.length > 0 && <HouseCoins house={rail.house} owners={owners} />}
     {rail?.ready && <PartnerFees configs={[{ label: 'Public', config: rail.config, feeClaimer: rail.feeClaimer, quote: rail.params?.quote }, ...(rail.house || []).map(h => ({ label: h.label, config: h.config, feeClaimer: h.feeClaimer, quote: h.params?.quote }))]} />}
   </section>;

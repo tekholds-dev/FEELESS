@@ -36,7 +36,7 @@ const routes = {
     const r = await sdk.listWallets({ walletSetId: setId, pageSize: 50 });
     const wallets = r.data?.wallets || [];
     const withBal = await Promise.all(wallets.map(async w => {
-      try { const b = await sdk.getWalletTokenBalance({ id: w.id }); return { ...w, balances: (b.data?.tokenBalances || []).map(t => ({ symbol: t.token?.symbol, amount: t.amount })) }; }
+      try { const b = await sdk.getWalletTokenBalance({ id: w.id }); return { ...w, balances: (b.data?.tokenBalances || []).map(t => ({ symbol: t.token?.symbol, amount: t.amount, tokenId: t.token?.id })) }; }
       catch { return { ...w, balances: [] }; }
     }));
     return { wallets: withBal.map(w => ({ id: w.id, address: w.address, blockchain: w.blockchain, name: w.name, state: w.state, createDate: w.createDate, balances: w.balances })) };
@@ -49,6 +49,22 @@ const routes = {
     const r = await sdk.createWallets({ walletSetId: await walletSet(sdk), accountType: 'EOA', blockchains: [chain], count: 1, metadata: [{ name }], idempotencyKey: crypto.randomUUID() });
     const w = r.data?.wallets?.[0] || {};
     return { wallet: { id: w.id, address: w.address, blockchain: w.blockchain, name } };
+  },
+  'POST /wallets/rename': async body => {
+    const { sdk, error } = client(); if (error) throw new Error(error);
+    const name = String(body.name || '').slice(0, 40);
+    if (!body.id || name.length < 2) throw new Error('Wallet id and a name (2+ chars) are required.');
+    await sdk.updateWallet({ id: String(body.id), name });
+    return { ok: true, id: body.id, name };
+  },
+  // Send from a Circle wallet. Circle signs with the entity secret; the FEELESS backend checks owner + amount first.
+  'POST /transfer': async body => {
+    const { sdk, error } = client(); if (error) throw new Error(error);
+    const amount = String(body.amount || '');
+    if (!body.walletId || !body.tokenId || !body.to || !/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0) throw new Error('walletId, tokenId, to and a positive amount are required.');
+    const r = await sdk.createTransaction({ walletId: String(body.walletId), tokenId: String(body.tokenId), destinationAddress: String(body.to), amount: [amount],
+      fee: { type: 'level', config: { feeLevel: 'MEDIUM' } }, idempotencyKey: String(body.idempotencyKey || crypto.randomUUID()) });
+    return { id: r.data?.id, state: r.data?.state };
   },
 };
 

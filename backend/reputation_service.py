@@ -8155,3 +8155,54 @@ async def admin_badge_edit(request: Request, bid: str, p: BadgeEdit):
         _audit(d, admin, 'badge-edit', f'{bid} → {p.label}')
         _admin_save(d)
     return {'ok': True, 'holders': n}
+
+
+# ---- Circle wallets: names, descriptions, sends (owner-only, audited) -----------------------------------
+CIRCLE_META_PATH = DATA_DIR / 'circle_meta.json'
+
+
+class CircleMetaIn(BaseModel):
+    name: str = Field(min_length=2, max_length=40)
+    description: str = Field(default='', max_length=200)
+
+
+@app.put('/api/reputation/admin/circle/wallets/{wid}')
+async def circle_wallet_meta(request: Request, wid: str, p: CircleMetaIn):
+    me = _require_owner(request)
+    try:
+        await _circle('POST', '/wallets/rename', {'id': wid, 'name': p.name})
+    except HTTPException:
+        pass  # Circle rename is best effort; the FEELESS label below is what the Command Center shows
+    d = _json_load(CIRCLE_META_PATH, {})
+    d[wid] = {'name': p.name, 'description': p.description, 'at': time.time()}
+    _json_save(CIRCLE_META_PATH, d)
+    ad = _admin_load(); _audit(ad, me, 'circle-meta', f'{wid[:8]} → {p.name}'); _admin_save(ad)
+    return {'ok': True, **d[wid]}
+
+
+@app.get('/api/reputation/admin/circle/meta')
+async def circle_meta_get(request: Request):
+    _require_owner(request)
+    return _json_load(CIRCLE_META_PATH, {})
+
+
+class CircleSendIn(BaseModel):
+    walletId: str
+    tokenId: str
+    to: str
+    amount: str
+    confirm: str = ''          # must repeat the destination's last 4 characters
+
+
+@app.post('/api/reputation/admin/circle/transfer')
+async def circle_transfer(request: Request, p: CircleSendIn):
+    me = _require_owner(request)
+    if not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.to) or _re.match(r'^0x[0-9a-fA-F]{40}$', p.to)):
+        raise HTTPException(400, 'Destination must be a wallet address.')
+    if p.confirm != p.to[-4:]:
+        raise HTTPException(400, 'Type the last 4 characters of the destination to confirm.')
+    if not _re.match(r'^\d+(\.\d+)?$', p.amount) or float(p.amount) <= 0:
+        raise HTTPException(400, 'Amount must be a positive number.')
+    out = await _circle('POST', '/transfer', {'walletId': p.walletId, 'tokenId': p.tokenId, 'to': p.to, 'amount': p.amount, 'idempotencyKey': str(uuid.uuid4())})
+    ad = _admin_load(); _audit(ad, me, 'circle-send', f'{p.amount} from {p.walletId[:8]} to {p.to[:6]}…'); _admin_save(ad)
+    return out
