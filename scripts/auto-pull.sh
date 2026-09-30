@@ -31,8 +31,11 @@ while true; do
           echo "$(date +%T) backend changed, so restarting services"
           bash "$root/scripts/start-backend.sh" || echo "backend restart failed, see /tmp/feeless-*.log"
         fi
-        if grep -q '^frontend/package.json$' <<<"$changed"; then
-          echo "$(date +%T) frontend dependencies changed: run 'cd frontend && yarn install' and restart the dev server"
+        if grep -qE '^frontend/(package.json|yarn.lock)$' <<<"$changed"; then
+          echo "$(date +%T) frontend dependencies changed, so installing them"
+          (cd "$root/frontend" && yarn install --prefer-offline) \
+            && echo "$(date +%T) dependencies installed (the dev server picks them up; restart it if it still errors)" \
+            || echo "$(date +%T) yarn install failed: run 'cd frontend && yarn install' by hand"
         fi
       else
         echo "$(date +%T) your branch and origin/$branch have diverged, so not pulling (resolve manually)"

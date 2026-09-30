@@ -9,6 +9,7 @@
     "@metaplex-foundation/umi": "1.6.0",
     "@metaplex-foundation/umi-bundle-defaults": "1.6.0",
     "@metaplex-foundation/umi-signer-wallet-adapters": "1.6.0",
+    "@metaplex-foundation/umi-web3js-adapters": "^1.6.0",
     "@meteora-ag/cp-amm-sdk": "1.4.10",
     "@meteora-ag/dynamic-bonding-curve-sdk": "1.5.13",
     "@radix-ui/react-accordion": "1.2.8",
