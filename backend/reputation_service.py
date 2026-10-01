@@ -2744,7 +2744,7 @@ async def _quest_rarity():
 async def quest_board(address: str):
     s = await _quest_summary(address)
     r = await _quest_rarity()
-    return {**s, 'rarity': r['pct'], 'metricsLabels': _quests.METRICS}
+    return {**s, 'rarity': r['pct'], 'holders': r['holders'], 'metricsLabels': _quests.METRICS}
 
 
 class QuestCheckin(BaseModel):

@@ -27,14 +27,17 @@ test('badges tab: level, streak, quests, sets, posters (GIF only in detail), dai
   await act(async () => { createRoot(host).render(<QuestBoard />); });
   await act(async () => { await Promise.resolve(); });
   expect(host.textContent).toContain('LEVEL 2 · DEGEN'); expect(host.textContent).toContain('🔥 4'); expect(host.textContent).toContain('1/3');
-  expect(host.querySelectorAll('.qb-grid .qb-badge')).toHaveLength(2);
+  expect(host.querySelectorAll('.qb-grid .qb-slot')).toHaveLength(2);
   expect(host.querySelector('[data-testid="quest-season"]').textContent).toContain('paused until launch');
-  expect(host.querySelector('[data-testid="badge-q-trader"] img').getAttribute('src')).toBe('/assets/badges/feeless/trader.jpg');
-  expect(host.querySelector('[data-testid="badge-q-trader"]').textContent).toContain('12.5% hold');
+  expect(host.querySelector('[data-testid="badge-q-trader"] image').getAttribute('href')).toContain('/assets/badges/feeless/trader.jpg');   // poster, not GIF
+  expect(host.querySelector('[data-testid="badge-q-trader"] .mc-stage').className).toContain('is-alive');   // earned = alive
+  expect(host.querySelector('[data-testid="badge-q-pro"] .mc-stage').className).not.toContain('is-alive');
+  expect(host.querySelector('.qb-grid').textContent).toContain('12.5% hold');
   act(() => host.querySelector('[data-testid="badge-set-frsv"]').click());
   expect(host.querySelector('[data-testid="badge-frsv-vip"]')).not.toBeNull();
-  act(() => host.querySelector('[data-testid="badge-frsv-vip"]').click());
-  expect(host.querySelector('[data-testid="badge-detail"] img').getAttribute('src')).toBe('/assets/badges/frsv/vip.gif');
+  act(() => host.querySelector('[data-testid="badge-frsv-vip"] [data-testid="meta-card"]').click());
+  expect(host.querySelector('[data-testid="badge-detail"] image').getAttribute('href')).toContain('/assets/badges/frsv/vip.gif');
+  expect(host.querySelector('[data-testid="badge-detail"] .qbc-back').textContent).toContain('v');
   await act(async () => host.querySelector('[data-testid="quest-checkin"]').click());
   expect(calls.some(([u, m]) => u.includes('/quests/checkin') && m === 'POST')).toBe(true);
 });

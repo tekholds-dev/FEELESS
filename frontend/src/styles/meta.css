@@ -525,7 +525,6 @@ body.theme-day .ecosystem-chat.has-fx .chat-message p { background: rgba(255, 25
 .badge-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .badge-art.sm { width: 56px; height: 40px; } .badge-art.md { width: 100%; aspect-ratio: 7 / 5; } .badge-art.lg { width: min(100%, 420px); aspect-ratio: 7 / 5; }
 .badge-art.is-locked img { opacity: .38; } .badge-art.is-empty { width: 56px; height: 40px; font-size: 20px; }
-.badge-chip-art { width: 18px; height: 13px; object-fit: cover; border-radius: 3px; display: block; }
 .quest-board { display: grid; gap: 14px; }
 .qb-hero { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: center; }
 .qb-stats { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
@@ -540,12 +539,8 @@ body.theme-day .ecosystem-chat.has-fx .chat-message p { background: rgba(255, 25
 .qb-tile { display: flex; gap: 10px; align-items: center; text-align: left; padding: 8px; border-radius: var(--m-r); border: 1px solid var(--m-line); background: var(--m-surface); color: var(--m-text); cursor: pointer; transition: border-color .15s, transform .1s; }
 .qb-tile span { display: grid; min-width: 0; } .qb-tile small { color: var(--m-dim); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .qb-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
-.qb-badge { display: grid; gap: 6px; padding: 8px; border-radius: 14px; border: 1px solid var(--m-line); background: var(--m-surface); color: var(--m-text); text-align: left; cursor: pointer; transition: border-color .15s, transform .12s var(--m-ease); }
-.qb-badge small { color: var(--m-dim); font-family: var(--m-mono); font-size: 10px; letter-spacing: .04em; }
-:is(.qb-badge, .qb-tile):hover { border-color: var(--m-accent); transform: translateY(-2px); } :is(.qb-badge, .qb-tile):active { transform: scale(.98); }
-:is(.qb-badge, .qb-tile):focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
-.qb-badge.is-earned { border-color: color-mix(in srgb, var(--m-accent) 55%, transparent); box-shadow: 0 0 22px -10px var(--m-accent); }
-.qb-badge.is-earned.tier-legendary, .qb-badge.is-earned.tier-mythic { border-color: var(--m-warn); box-shadow: 0 0 26px -8px var(--m-warn); }
+.qb-tile:hover { border-color: var(--m-accent); transform: translateY(-2px); } .qb-tile:active { transform: scale(.98); }
+.qb-tile:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
 .tier-common { color: var(--m-dim); } .tier-rare { color: #5ec8ff; } .tier-epic { color: #c08bff; } .tier-legendary, .tier-mythic { color: var(--m-warn); }
 .qb-detail { position: fixed; inset: 0; z-index: 1300; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, .7); }
 .qb-detail > .m-card { width: min(480px, 100%); max-height: 92vh; overflow: auto; display: grid; gap: 10px; position: relative; }
@@ -553,7 +548,19 @@ body.theme-day .ecosystem-chat.has-fx .chat-message p { background: rgba(255, 25
 .qe-list { display: grid; gap: 6px; max-height: 420px; overflow: auto; scrollbar-width: thin; }
 .qe-row { display: grid; grid-template-columns: 56px 1fr auto; gap: 10px; align-items: center; padding: 6px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); }
 .qe-row.is-off { opacity: .5; } .qe-edit, .qe-grant { margin-top: 8px; }
-body.theme-day .qb-badge, body.theme-day .qb-tile { background: #fff; } body.theme-day .qb-detail { background: rgba(15, 36, 25, .45); }
+body.theme-day .qb-tile { background: #fff; } body.theme-day .qb-detail { background: rgba(15, 36, 25, .45); }
 .qb-lb { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
 .qb-lb li { display: grid; grid-template-columns: 38px 1fr auto auto; gap: 8px; align-items: center; padding: 5px 8px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); font-size: 13px; }
 .qb-lb li.is-me { border-color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 8%, transparent); } .qb-lb small { color: var(--m-dim); }
+/* Quest badge cards (MetaCard): grid of small cards, big draggable card in the detail view. */
+.qb-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.qb-slot { display: grid; gap: 6px; justify-items: center; } .qb-meta { font-family: var(--m-mono); font-size: 10px; color: var(--m-dim); letter-spacing: .04em; }
+.qb-slot .qb-bar { width: 80%; } .qbc { cursor: pointer; border-radius: 18px; } .qbc:focus-within { outline: 2px solid var(--m-accent); outline-offset: 3px; }
+.qbc.is-locked .mc-crest { opacity: .45; } .qbc.is-locked .mc-name { opacity: .7; }
+.qb-detail-card { display: grid; place-items: center; } .qb-hint { text-align: center; }
+.qbc-back { position: relative; display: grid; gap: 8px; padding: 14px; height: 100%; align-content: start; }
+.qbc-back ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; font-size: 12px; }
+.qbc-back li { display: grid; gap: 3px; } .qbc-back li.done span { color: var(--m-accent); }
+.qbc-back li > i { display: block; height: 4px; border-radius: 9px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+.qbc-back li > i > i { display: block; height: 100%; background: var(--a, var(--m-accent)); transform-origin: left; }
+.badge-chip-art { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; object-position: 50% 42%; }

@@ -50,7 +50,8 @@ function Pattern({ design, id }) {
   return null;
 }
 
-export function MetaCard({ card, size = 'md', interactive = false, flipped, onFlip, className = '' }) {
+// back: optional custom back face (quest badges show their tasks + perks there instead of lore/money).
+export function MetaCard({ card, size = 'md', interactive = false, flipped, onFlip, className = '', back = null }) {
   const id = `mc${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const el = useRef(null);
   const sheen = useRef(null);
@@ -93,7 +94,7 @@ export function MetaCard({ card, size = 'md', interactive = false, flipped, onFl
         <div className="mc-name"><b>{card.title}</b><small>{card.subtitle}</small></div>
         <div className="mc-foot"><span>{r.toUpperCase()}</span><span>#{serial(card.key)}</span><span>{card.holders ?? 0} held</span></div>
       </div>
-      <div className="mc-face mc-back">
+      {back ? <div className="mc-face mc-back"><div className="mc-bg" /><Pattern design={card.design} id={`${id}b`} />{back}</div> : <div className="mc-face mc-back">
         <div className="mc-bg" /><Pattern design={card.design} id={`${id}b`} />
         <div className="mc-top"><span>LORE</span><span>{card.glyph}</span></div>
         <p className="mc-lore">{card.lore || 'No lore written yet.'}</p>
@@ -105,7 +106,7 @@ export function MetaCard({ card, size = 'md', interactive = false, flipped, onFl
           {card.earnedMine != null && <div className="mc-earned mine"><span>This wallet earned</span><b>{sol(card.earnedMine)} SOL</b></div>}
         </div>
         <p className="mc-how">{card.why || card.how}</p>
-      </div>
+      </div>}
     </div>
   </div></div>;
 }
