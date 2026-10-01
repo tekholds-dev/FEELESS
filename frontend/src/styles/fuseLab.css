@@ -167,7 +167,7 @@ body.fx-lite .fl-bar::after, body.fx-lite .fl-row::after, body.fx-lite .fx-flow 
 .fe-champ { justify-items: center; background: transparent; border: 0; box-shadow: none; padding: 0; }
 .fe-champ.is-top { box-shadow: none; } .fe-champ:hover { transform: none; }
 .fcd { position: relative; } .fcd-card .mc-foot span:last-child { display: none; }
-.fcd-flip { position: absolute; right: -8px; top: -8px; z-index: 6; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--m-accent); background: #04100a; color: var(--m-accent); font-size: 16px; cursor: pointer; box-shadow: 0 0 14px -4px var(--m-accent); transition: transform .2s var(--m-ease), background .15s; }
+.fcd-flip { position: absolute; right: -10px; bottom: -10px; z-index: 6; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--m-accent); background: #04100a; color: var(--m-accent); font-size: 16px; cursor: pointer; box-shadow: 0 0 14px -4px var(--m-accent); transition: transform .2s var(--m-ease), background .15s; }
 .fcd-flip:hover { background: var(--m-accent); color: var(--m-accent-ink); transform: rotate(-180deg); } .fcd-flip:active { transform: rotate(-180deg) scale(.9); } .fcd-flip:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
 .fcd-back { display: grid; gap: 8px; font-size: 11px; }
 .fcd-back ul { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; } .fcd-back li { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; }

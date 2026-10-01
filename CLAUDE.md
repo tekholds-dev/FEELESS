@@ -156,6 +156,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   never wait, noted on the quote) and chat backgrounds. Only add perk kinds that something actually honours.
 - Season: `QUESTS_PATH.season`, PAUSED until launch (no leaderboard, no trophies). Unpause in Cmd Ctr › Badges on launch
   day; "Award week's top 3" writes `kind: 'quest'` trophies once per week.
+- MetaCard sizes: md is THE layout; sm/xs are the same card scaled with CSS `zoom` (never re-flow or hide its parts).
 - Every badge renders as a `MetaCard` via `QuestBadgeCard` (art in the crest circle, alive when earned, back = tasks +
   perks). Chat chips show only the circle. Profiles showcase featured (else 3 rarest) quest badges as cards.
 - Quest data is shared: `useQuests` (Badges tab, Trenches `QuestNudge`, `ReserveProgress` on $FEE + Fee Reserve, Season

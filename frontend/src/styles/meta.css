@@ -157,7 +157,8 @@ img.wallet-icon { border-radius: 8px; object-fit: contain; background: var(--m-s
 /* ============================== FEELESS CARDS (components/cards/MetaCard) ==============================
    5:7 card, two faces, preserve-3d. Only transform/opacity move; patterns are static per design. */
 .mc-stage { perspective: 1100px; display: inline-block; flex: none; }
-.mc-lg { width: 280px; height: 392px; } .mc-md { width: 190px; height: 266px; } .mc-sm { width: 120px; height: 168px; }
+/* One layout at every size: sm/xs are the md card scaled with zoom (layout box shrinks too), never a re-flowed mini card. */
+.mc-lg { width: 280px; height: 392px; } .mc-md, .mc-sm, .mc-xs { width: 190px; height: 266px; } .mc-sm { zoom: .64; } .mc-xs { zoom: .6; }
 .mc { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; cursor: pointer; touch-action: none; user-select: none; outline: none; }
 .mc:focus-visible .mc-face { box-shadow: 0 0 0 2px var(--m-accent), 0 18px 40px rgba(0, 0, 0, .55); }
 .mc-face { position: absolute; inset: 0; border-radius: 16px; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden;
@@ -202,7 +203,6 @@ img.wallet-icon { border-radius: 8px; object-fit: contain; background: var(--m-s
 .mc-earned { padding-top: 5px; border-top: 1px dashed color-mix(in srgb, var(--a) 30%, transparent); } .mc-earned b { color: var(--a); }
 .mc-earned.mine b { color: var(--b); }
 .mc-how { margin-top: auto; font-size: 10.5px; color: rgba(234, 255, 243, .6); line-height: 1.35; }
-.mc-sm .mc-name b { font-size: 11px; } .mc-sm .mc-name small, .mc-sm .mc-foot { display: none; } .mc-sm .mc-top { font-size: 7px; } .mc-sm .mc-face { padding: 7px; border-radius: 11px; }
 .mc-md .mc-name b { font-size: 14px; } .mc-md .mc-lore { font-size: 11px; max-height: 40%; margin: 6px 0; } .mc-md .mc-money { padding: 6px; gap: 3px; } .mc-md .mc-money div, .mc-md .mc-money b { font-size: 10px; }
 
 /* hover lift for static cards (grids) */
@@ -590,10 +590,7 @@ body.theme-day .qb-tile { background: #fff; } body.theme-day .qb-detail { backgr
 body.fx-lite .pump-particles, body.fx-lite .pump-hub .pump-radar-card { animation: none; } body.fx-lite .pump-particles { display: none; }
 @media (prefers-reduced-motion: reduce) { .pump-particles { display: none; } .pump-hub .pump-radar-card { animation: none; } }
 /* Showcase-size card (profiles): tiny, no pips/labels (they crowd at this size), lifts + plays the GIF on hover. */
-.mc-xs { width: 96px; height: 134px; } .mc-xs .mc-foot, .mc-xs .mc-name small, .mc-xs .mc-top > span { display: none; }
-.mc-xs .mc-top { justify-content: flex-end; } .mc-xs .mc-pips { gap: 2px; } .mc-xs .mc-pips b { width: 4px; height: 4px; }
 .mc-xs .mc-face { box-shadow: 0 10px 22px -12px var(--a); }
-.mc-xs .mc-name b { font-size: 9px; } .mc-xs .mc-face { padding: 5px; border-radius: 9px; }
 .artifact-card { cursor: pointer; border: 0; background: none; padding: 0; transition: transform .15s var(--m-ease); } .artifact-card:hover { transform: translateY(-3px); }
 .artifact-card:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 3px; border-radius: 10px; }
 .prc-tools { position: absolute; right: 10px; bottom: 10px; z-index: 5; display: flex; gap: 6px; transform: translateZ(40px); }
