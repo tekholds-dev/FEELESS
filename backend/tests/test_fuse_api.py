@@ -381,3 +381,13 @@ def test_freeze_keeps_the_engine_off_a_coin_and_card_window_lists_24h_autos(monk
     monkeypatch.setattr(rs, '_hq_prices', no_px)
     row = asyncio.run(rs.fuse_pnl(W))['rows'][0]
     assert row['frozen'] == ['PA'] and [a['text'] for a in row['autos']] == ['💸 collect']
+
+
+def test_every_badge_icon_is_unique():
+    import re
+    import collections
+    s = open(rs.__file__).read()
+    icons = collections.defaultdict(set)
+    for bid, icon in re.findall(r"'id': '([\w-]+)', 'label': '[^']*', 'icon': '([^']*)'", s):
+        icons[icon].add(bid)
+    assert not {k: v for k, v in icons.items() if len(v) > 1}

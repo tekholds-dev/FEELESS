@@ -4792,7 +4792,10 @@ async def runners_discover():
             for leg in f.get('legs') or []:
                 if leg.get('role') == 'runner':
                     tag(leg.get('baseAddress') or leg.get('mint'), 'creator', f"in the {f.get('name')} Fuse")
-    rows = _rn.discover(live['passing'], tags, limit=80)
+    grads = _rn.fresh_grads(live['dropped'])
+    for r in grads:
+        tag(r['mint'], 'grad', f"graduated, passes every other gate · score {round(_fuse._f(r.get('score')))}")
+    rows = _rn.discover(live['passing'] + grads, tags, limit=80)
     data = {'runners': rows, 'counts': {k: sum(1 for r in rows if any(s['kind'] == k for s in r['sources'])) for k in _rn.SOURCES},
             'sources': _rn.SOURCES, 'nextRoundAt': (rnd['at'] + _rn.ROUND_SECONDS) if rnd else now, 'gates': [g[1] for g in _rn.gates(cfg)],
             'swaps': ((rnd or {}).get('swaps') or [])[-5:], 'at': now, 'seen': live['seen'],
@@ -5507,7 +5510,7 @@ async def wallet_badges(address: str):
     me = next((r for r in board['rows'] if r.get('callerAddress') == address), None)
     if me:
         sharp = me['calls'] >= 5 and me['hitRate'] >= 0.5
-        badges.append({'id': 'sharp-caller' if sharp else 'caller', 'label': 'Sharp Caller' if sharp else 'Caller', 'icon': '🎯', 'tone': 'gold' if sharp else 'plain',
+        badges.append({'id': 'sharp-caller' if sharp else 'caller', 'label': 'Sharp Caller' if sharp else 'Caller', 'icon': '🏹' if sharp else '🎯', 'tone': 'gold' if sharp else 'plain',
                        'why': f"{me['calls']} calls, {round(me['hitRate'] * 100)}% hit 2× (30d)"})
     creator = _load()['creators'].get(_creator_key('solana', address))
     if creator:
@@ -5525,7 +5528,7 @@ async def wallet_badges(address: str):
     if invited >= 3:
         badges.append({'id': 'recruiter', 'label': 'Recruiter' if invited < 10 else 'Legendary Recruiter', 'icon': '📣', 'tone': 'gold' if invited >= 10 else 'mint', 'why': f'Invited {invited} wallets to FEELESS'})
     if 'badge:points-og' in _unlocks(address)[0]:
-        badges.append({'id': 'points-og', 'label': 'Points OG', 'icon': '💠', 'tone': 'gold', 'why': 'Spent 2,000 earned points on it'})
+        badges.append({'id': 'points-og', 'label': 'Points OG', 'icon': '🏅', 'tone': 'gold', 'why': 'Spent 2,000 earned points on it'})
     badges.extend(_admin_load()['badges'].get(address, {}).values())
     try:   # earned quest badges (animated art) join chat + profile badges, rarest first
         rank_q = {'mythic': 5, 'legendary': 4, 'epic': 3, 'rare': 2, 'common': 1}
@@ -6107,7 +6110,7 @@ BADGE_CATALOG = [
     {'id': 'rfee-holder', 'label': 'rFEE Holder', 'icon': '💠', 'tone': 'mint', 'tier': 1, 'how': 'Hold at least $1 of rFEE.'},
     {'id': 'rides-with-fee', 'label': 'Rides with Fee', 'icon': '🐾', 'tone': 'mint', 'tier': 2, 'how': 'Hold a coin the Leader cat is currently in (see FeeCats).'},
     {'id': 'caller', 'label': 'Caller', 'icon': '🎯', 'tone': 'plain', 'tier': 2, 'how': 'Drop a CA in chat — it lands on the Call Ledger and is tracked live.'},
-    {'id': 'sharp-caller', 'label': 'Sharp Caller', 'icon': '🎯', 'tone': 'gold', 'tier': 3, 'how': '5+ calls in 30 days with at least half reaching 2×.'},
+    {'id': 'sharp-caller', 'label': 'Sharp Caller', 'icon': '🏹', 'tone': 'gold', 'tier': 3, 'how': '5+ calls in 30 days with at least half reaching 2×.'},
     {'id': 'feeless-launcher', 'label': 'FEELESS Launcher', 'icon': '🚀', 'tone': 'mint', 'tier': 3, 'how': 'Launch a token through FEELESS (verified on-chain).'},
     {'id': 'trusted-creator', 'label': 'Trusted Creator', 'icon': '🛡️', 'tone': 'mint', 'tier': 3, 'how': 'Have launches tracked by FEELESS with none dumped or rugged.'},
     {'id': 'airdrop-recipient', 'label': 'Airdropped', 'icon': '🪂', 'tone': 'gold', 'tier': 3, 'how': 'Receive a FEELESS airdrop — verified by its on-chain transaction.'},

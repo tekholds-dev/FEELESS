@@ -384,7 +384,13 @@ def addon(legs, runners, slice_pct=20.0, n=2):
                     'weight': round(slice_pct / len(rs), 2), 'runner': True, 'lane': r.get('lane'), 'exits': EXITS[r.get('lane') or 'runner']['label']} for r in rs]
 
 
-SOURCES = {'bond': '🔔 About to bond', 'watch': '👀 Bond watch', 'arena': '🏟 Arena pick', 'lit': '🔥 Lit card', 'pump': '🚀 Pump scan', 'snipers': '🎯 Snipers out', 'creator': "📣 Creators' pick"}
+SOURCES = {'grad': '🎓 Fresh grad', 'bond': '🔔 About to bond', 'watch': '👀 Bond watch', 'arena': '🏟 Arena pick', 'lit': '🔥 Lit card', 'pump': '🚀 Pump scan', 'snipers': '🎯 Snipers out', 'creator': "📣 Creators' pick"}
+
+
+def fresh_grads(dropped):
+    """🎓 Fresh grads: coins that graduated in the last 48h and pass EVERY other gate (holders, insiders, dev, creator, flow,
+    volume, size). The pre-bond gate is the only one they miss — so the board never sits empty while clean young coins run."""
+    return [r for r in dropped or [] if r.get('stage') == 'graduated' and r.get('gates') == ['Pre-bond (still on the curve)']]
 
 
 def discover(passing, tags, limit=40):

@@ -169,3 +169,10 @@ def test_prebond_volume_goes_a_long_way():
     grad = rn.score({**base, 'stage': 'graduated', 'vol1h': 300000})
     assert part(grad, 'volume') == round(part(busy, 'volume') / 2, 1)          # pre-bond weighs volume double
     assert busy[0] - thin[0] > 15
+
+
+def test_fresh_grads_fill_the_board_only_when_every_other_gate_passes():
+    rows = [{'mint': 'G', 'stage': 'graduated', 'gates': ['Pre-bond (still on the curve)']},
+            {'mint': 'X', 'stage': 'graduated', 'gates': ['Pre-bond (still on the curve)', 'Top 10 under 25%']},
+            {'mint': 'C', 'stage': 'curve', 'gates': ['Top 10 under 25%']}]
+    assert [r['mint'] for r in rn.fresh_grads(rows)] == ['G'] and 'grad' in rn.SOURCES
