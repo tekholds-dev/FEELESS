@@ -100,6 +100,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   launch; A–F score with reasons; pool picker drops parked/fake pools (no volume or liquidity > 2,000× volume).
 - Fuse in = one normal wallet-signed swap per leg (no new money path). A Fuse buy counts only if the signature is the
   buyer's confirmed FEELESS trade; the creator's cut (≤50% of that FEELESS fee) is tracked earned/paid/owed.
+- Fuse Lab (`FuseLab.jsx`, Trade page + Cmd Ctr › Fuse): browse the chain's real pools (`/fuses/discover`, lenses
+  popular/yield/deep/new), tick 2–6, live preview (`POST /fuses/preview` = `fuse.preview` + `fuse_vault.auto_weights`). Read-only.
 - Built and paid out in Cmd Ctr › ⚛️ Fuse. System map: `docs/ARCHITECTURE.md`.
 - FUSE Vault (one contract, ≤3 v2/v3 pools, SOL in → shares, fees in SOL to Trading & fees › Vault fee wallet):
   engine `backend/fuse_vault.py` (spec, tested) ⇄ program `contracts/fuse_vault` (Anchor; math.rs mirrors it —

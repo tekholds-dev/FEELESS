@@ -1,5 +1,6 @@
 """FUSE math: legs cleaned, index from launch prices, A–F score with reasons, exact splits, capped creator cut."""
 import fuse as f
+fuse = f
 
 
 def test_clean_legs_normalises_and_dedupes():
@@ -39,3 +40,29 @@ def test_pool_picker_drops_parked_pools_and_sorts_by_volume():
     p = lambda liq, vol, n: {'pairAddress': n, 'liquidity': {'usd': liq}, 'volume': {'h24': vol}}
     out = f.real_pools([p(2.5e9, 0, 'fake'), p(2e8, 50, 'parked'), p(7e5, 8e6, 'busy'), p(3e5, 6e5, 'ok')])
     assert [x['pairAddress'] for x in out] == ['busy', 'ok']
+
+
+def _pair(pa, vol, liq, chain='solana', created=None, sym='X'):
+    return {'chainId': chain, 'pairAddress': pa, 'volume': {'h24': vol}, 'liquidity': {'usd': liq}, 'priceUsd': '1', 'pairCreatedAt': created,
+            'baseToken': {'symbol': sym}, 'quoteToken': {'symbol': 'SOL'}, 'priceChange': {'h24': 2}}
+
+
+def test_discover_lenses_filter_chain_fakes_and_rank():
+    pairs = [_pair('a', 1_000_000, 500_000), _pair('b', 100_000, 30_000), _pair('c', 10, 9_000_000),   # c parked
+             _pair('d', 900_000, 900_000, chain='base'), _pair('e', 200_000, 10_000, created=99_000_000), _pair('a', 1, 1)]
+    pop = fuse.discover(pairs, 'popular')
+    assert [r['pairAddress'] for r in pop] == ['a', 'e', 'b']
+    assert [r['pairAddress'] for r in fuse.discover(pairs, 'yield')] == ['b', 'a']        # e too shallow for yield
+    assert fuse.discover(pairs, 'deep')[0]['pairAddress'] == 'a'
+    assert [r['pairAddress'] for r in fuse.discover(pairs, 'new', now_ms=300_000_000)] == ['e']
+
+
+def test_preview_splits_sol_by_auto_weights_and_sums():
+    import fuse_vault
+    pools = [{'pairAddress': 'a', 'weight': 1}, {'pairAddress': 'b', 'weight': 1}]
+    metas = {'a': fuse.leg_meta(_pair('a', 1_000_000, 500_000, sym='A')), 'b': fuse.leg_meta(_pair('b', 50_000, 30_000, sym='B'))}
+    w = fuse_vault.auto_weights(pools, metas)
+    p = fuse.preview(pools, metas, 1.5, 200, w)
+    assert round(sum(x['sol'] for x in p['legs']), 6) == 1.5 and p['usd'] == 300
+    assert {x['symbol'] for x in p['legs']} == {'A', 'B'} and p['score']['grade'] in 'ABCDF'
+    assert p['dailyUsd'] > 0 and p['blendedAprPct'] > 0

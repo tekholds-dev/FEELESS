@@ -590,7 +590,9 @@ body.theme-day .qb-tile { background: #fff; } body.theme-day .qb-detail { backgr
 body.fx-lite .pump-particles, body.fx-lite .pump-hub .pump-radar-card { animation: none; } body.fx-lite .pump-particles { display: none; }
 @media (prefers-reduced-motion: reduce) { .pump-particles { display: none; } .pump-hub .pump-radar-card { animation: none; } }
 /* Showcase-size card (profiles): tiny, no pips/labels (they crowd at this size), lifts + plays the GIF on hover. */
-.mc-xs { width: 84px; height: 118px; } .mc-xs .mc-top, .mc-xs .mc-foot, .mc-xs .mc-name small { display: none; }
+.mc-xs { width: 96px; height: 134px; } .mc-xs .mc-foot, .mc-xs .mc-name small, .mc-xs .mc-top > span { display: none; }
+.mc-xs .mc-top { justify-content: flex-end; } .mc-xs .mc-pips { gap: 2px; } .mc-xs .mc-pips b { width: 4px; height: 4px; }
+.mc-xs .mc-face { box-shadow: 0 10px 22px -12px var(--a); }
 .mc-xs .mc-name b { font-size: 9px; } .mc-xs .mc-face { padding: 5px; border-radius: 9px; }
 .artifact-card { cursor: pointer; border: 0; background: none; padding: 0; transition: transform .15s var(--m-ease); } .artifact-card:hover { transform: translateY(-3px); }
 .artifact-card:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 3px; border-radius: 10px; }
@@ -630,3 +632,9 @@ body.fx-lite .pump-particles, body.fx-lite .pump-hub .pump-radar-card { animatio
 .vault-designer { display: grid; gap: 10px; } .vd-dep { max-width: 220px; } .vd-vault { display: grid; gap: 8px; } .vd-sim { gap: 16px; }
 .vd-table { width: 100%; border-collapse: collapse; font-size: 12px; } .vd-table th { text-align: left; font-family: var(--m-mono); font-size: 9px; letter-spacing: .1em; color: var(--m-mute); padding: 4px 6px; }
 .vd-table td { padding: 6px; border-top: 1px solid var(--m-line); }
+
+/* Profile links: creator chip (chart header) + tape wallets open the wallet's profile. */
+.creator-link { display: inline-flex; align-items: center; gap: inherit; color: inherit; text-decoration: none; border-radius: 999px; transition: color .15s, transform .1s; }
+.creator-link:hover { color: var(--m-accent); } .creator-link:hover .creator-avatar { box-shadow: 0 0 0 1px var(--m-accent); } .creator-link:active { transform: scale(.97); }
+.creator-link:focus-visible, .tape-who:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.tape-who { color: inherit; text-decoration: none; } .tape-who:hover { color: var(--m-accent); text-decoration: underline; } .tape-who:active { opacity: .7; }

@@ -34,7 +34,7 @@ export function TradeTape({ pair, rows = 12 }) {
       return <div key={t.tx} className={`tape-row ${t.kind} ${mine ? 'is-mine' : ''} ${(Number(t.usd) || 0) >= cut ? 'is-whale' : ''}`} data-testid="tape-row">
         <b>{t.kind === 'buy' ? 'BUY' : 'SELL'}</b><span>{formatUSD(t.usd)}</span>
         <a href={explorer ? `${explorer}${t.tx}` : undefined} target="_blank" rel="noopener noreferrer" title="Open the transaction">{formatLivePrice(t.price)}</a>
-        <code>{mine ? '✓ YOU' : t.wallet ? `${t.wallet.slice(0, 4)}…${t.wallet.slice(-4)}` : '—'}{(tags.get(t.wallet) || []).map(g => <em key={g.id} className={`tape-tag ${g.tone}`} title={g.why} data-testid={`tape-tag-${g.id}`}>{g.label}</em>)}</code>
+        <code>{mine ? '✓ YOU' : t.wallet ? <a className="tape-who" href={`/terminal/profile/${t.wallet}`} title="Open this wallet's profile">{`${t.wallet.slice(0, 4)}…${t.wallet.slice(-4)}`}</a> : '—'}{(tags.get(t.wallet) || []).map(g => <em key={g.id} className={`tape-tag ${g.tone}`} title={g.why} data-testid={`tape-tag-${g.id}`}>{g.label}</em>)}</code>
         {t.wallet && !mine ? <button type="button" className="tape-case" title="Open this wallet's case file" aria-label="Open case file" onClick={() => investigate(t.wallet)}>🔎</button> : <span />}
       </div>;
     })}</div>

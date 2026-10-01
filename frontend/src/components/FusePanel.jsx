@@ -4,6 +4,7 @@ import { resolveCoin } from '../lib/resolveCoin';
 import { readChatSession } from '../lib/chatSession';
 import { useWallet } from '../hooks/useWallet';
 import { QuickTrade } from './terminal/QuickTrade';
+import { FuseLab } from './FuseLab';
 
 // ⚛️ FUSE: fused pools. Each card is a basket of live pools with weights — one grade, one index, combined depth.
 // "Fuse in" splits your SOL by weight; each leg is a normal Quick trade your wallet signs. Confirmed legs are
@@ -17,12 +18,12 @@ export function splitSol(amount, legs) {
   return parts;
 }
 
-function Leg({ leg, sol, fuseId }) {
+export function FuseLeg({ leg, sol, fuseId }) {
   const [pair, setPair] = useState(null); const [open, setOpen] = useState(false);
   const { wallet } = useWallet() || {};
   useEffect(() => { if (open && !pair) resolveCoin(leg.chainId, leg.pairAddress).then(setPair).catch(() => {}); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!open || !pair) return undefined;
+    if (!open || !pair || !fuseId) return undefined;
     // A confirmed buy of this leg's coin while it's open counts toward the Fuse (retried: the fill is read from chain first).
     const onTrade = e => { const d = e.detail || {}; const s = wallet?.address && readChatSession(wallet.address);
       if (!s || !d.signature || d.side === 'sell' || d.mint !== pair.baseToken?.address) return;
@@ -48,7 +49,7 @@ export function FuseCard({ f }) {
     <ul className="fz-legs">{f.legs.map(l => <li key={l.pairAddress}><b>{l.symbol}/{l.quote}</b><span>{usd(l.liquidityUsd)} liq</span><span>{l.turnover}× turnover</span><span className={l.change24h >= 0 ? 'm-pos' : 'm-neg'}>{l.change24h >= 0 ? '+' : ''}{(l.change24h || 0).toFixed(1)}%</span></li>)}</ul>
     {!going ? <button type="button" className="m-btn primary m-go wide" onClick={() => setGoing(true)} data-testid={`fuse-in-${f.id}`}>⚡ Fuse in</button>
       : <div className="fz-in"><label className="m-field"><span>SOL to fuse</span><input className="m-input" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="0.5" /></label>
-        {parts.map(p => <div key={p.pairAddress} className="fz-split"><span>{p.symbol} · {p.weight}%</span><Leg leg={p} sol={p.sol} fuseId={f.id} /></div>)}
+        {parts.map(p => <div key={p.pairAddress} className="fz-split"><span>{p.symbol} · {p.weight}%</span><FuseLeg leg={p} sol={p.sol} fuseId={f.id} /></div>)}
         <small className="m-dim">Each leg is its own swap you sign · normal FEELESS fees · {f.creatorBps ? `${f.creatorBps / 100}% of the fee goes to the Fuse's creator` : 'no creator cut'}</small></div>}
   </article>;
 }
@@ -57,7 +58,6 @@ export function FusePanel() {
   const [d, setD] = useState(null);
   useEffect(() => { let alive = true; const load = () => !document.hidden && fetch(apiUrl('/api/reputation/fuses')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
     load(); const t = setInterval(load, 60000); return () => { alive = false; clearInterval(t); }; }, []);
-  if (!d?.fuses?.length) return null;
-  return <section className="fz-panel" data-testid="fuse-panel"><div className="m-row"><span className="m-label">⚛️ FUSE · FUSED POOLS</span><small className="m-dim">baskets of live pools — one grade, one index, one tap in</small></div>
-    <div className="fz-grid">{d.fuses.map(f => <FuseCard key={f.id} f={f} />)}</div></section>;
+  return <><FuseLab />{d?.fuses?.length > 0 && <section className="fz-panel" data-testid="fuse-panel"><div className="m-row"><span className="m-label">⚛️ FUSE · FUSED POOLS</span><small className="m-dim">baskets of live pools — one grade, one index, one tap in</small></div>
+    <div className="fz-grid">{d.fuses.map(f => <FuseCard key={f.id} f={f} />)}</div></section>}</>;
 }

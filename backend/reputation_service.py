@@ -2730,6 +2730,57 @@ async def fuses_search(q: str = Query(..., min_length=2, max_length=60)):
     return {'pools': [{'chainId': p.get('chainId'), 'pairAddress': p.get('pairAddress'), **_fuse.leg_meta(p)} for p in pairs]}
 
 
+_fuse_discover_cache = {}
+FUSE_DISCOVER_Q = {'solana': ('SOL', 'USDC', 'raydium', 'orca', 'meteora', 'pumpswap', 'JUP', 'BONK')}
+
+
+async def _fuse_discover_pairs(chain):
+    """Popular pools on a chain: DexScreener searches (hub tokens + venues) and the top-boosted tokens' pairs, in parallel; 60s cache."""
+    hit = _fuse_discover_cache.get(chain)
+    if hit and time.time() - hit[0] < 60:
+        return hit[1]
+    async with httpx.AsyncClient(timeout=8) as http:
+        async def search(q):
+            try:
+                return ((await http.get('https://api.dexscreener.com/latest/dex/search', params={'q': q})).json() or {}).get('pairs') or []
+            except Exception:
+                return []
+
+        async def boosted():
+            try:
+                toks = [t.get('tokenAddress') for t in (await http.get('https://api.dexscreener.com/token-boosts/top/v1')).json() or [] if t.get('chainId') == chain][:30]
+                return (await http.get(f'https://api.dexscreener.com/tokens/v1/{chain}/{",".join(toks)}')).json() or [] if toks else []
+            except Exception:
+                return []
+        got = await asyncio.gather(*[search(q) for q in FUSE_DISCOVER_Q.get(chain, (chain,))], boosted())
+    pairs = [p for rows in got for p in (rows if isinstance(rows, list) else [])]
+    _fuse_discover_cache[chain] = (time.time(), pairs)
+    return pairs
+
+
+@app.get('/api/reputation/fuses/discover')
+async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solana')):
+    """Fuse Lab: browse real pools on the chain you're on, by lens (popular / yield / deep / new)."""
+    lens = lens if lens in _fuse.LENSES else 'popular'
+    return {'lens': lens, 'chain': chain, 'pools': _fuse.discover(await _fuse_discover_pairs(chain), lens, chain, now_ms=time.time() * 1000)}
+
+
+class FusePreview(BaseModel):
+    pools: list
+    sol: float = 1.0
+
+
+@app.post('/api/reputation/fuses/preview')
+async def fuses_preview(payload: FusePreview):
+    """Fuse Lab preview: auto-weights (fee APR × depth, 10–70% per pool) and where `sol` SOL would go. Read-only — moves nothing."""
+    pools = _fuse.clean_legs([{**p, 'weight': p.get('weight') or 1} for p in payload.pools or []])
+    if len(pools) < 2:
+        raise HTTPException(400, 'Pick at least 2 pools.')
+    pairs, sol_usd = await asyncio.gather(_fuse_pairs(pools), _sol_usd_live())
+    metas = {k: _fuse.leg_meta(v) for k, v in pairs.items()}
+    return _fuse.preview(pools, metas, max(0.0, min(100000.0, payload.sol)), sol_usd, _vault.auto_weights(pools, metas))
+
+
 class FuseBuy(BaseModel):
     address: str
     session: str

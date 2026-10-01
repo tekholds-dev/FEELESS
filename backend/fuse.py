@@ -106,3 +106,49 @@ def real_pools(pairs):
     'liquidity' with no trading), busiest first."""
     vol = lambda p: _f((p.get('volume') or {}).get('h24')); liq = lambda p: _f((p.get('liquidity') or {}).get('usd'))
     return sorted((p for p in pairs or [] if vol(p) > 0 and 0 < liq(p) < vol(p) * 2000), key=lambda p: -vol(p))
+
+
+LENSES = ('popular', 'yield', 'deep', 'new')
+
+
+def discover(pairs, lens='popular', chain='solana', now_ms=None, limit=30):
+    """Fuse Lab pool browser: real pools on one chain, one row per pool, ranked by lens.
+    popular = 24h volume · yield = fee APR est. (≥$25K liquidity so tiny pools can't top it) · deep = liquidity ·
+    new = created in the last 72h, busiest first."""
+    seen, rows = set(), []
+    for p in real_pools(pairs):
+        pa = p.get('pairAddress')
+        if p.get('chainId') != chain or not pa or pa in seen:
+            continue
+        seen.add(pa)
+        rows.append({'chainId': chain, 'pairAddress': pa, 'createdAt': p.get('pairCreatedAt'), 'logo': (p.get('info') or {}).get('imageUrl'),
+                     'baseAddress': (p.get('baseToken') or {}).get('address'), **leg_meta(p)})
+    if lens == 'yield':
+        rows = sorted((r for r in rows if r['liquidityUsd'] >= 25_000), key=lambda r: -r['aprEst'])
+    elif lens == 'deep':
+        rows.sort(key=lambda r: -r['liquidityUsd'])
+    elif lens == 'new':
+        cut = (now_ms or 0) - 72 * 3600 * 1000
+        rows = [r for r in rows if _f(r['createdAt']) and _f(r['createdAt']) >= cut]
+    return rows[:limit]
+
+
+def preview(pools, metas, sol, sol_usd, weights):
+    """What one Fuse-in of `sol` SOL does across the picked pools (weights from fuse_vault.auto_weights): SOL + $ per pool,
+    est. daily fee yield of each pool at that size, blended APR, grade. Weights are fractions summing to 1."""
+    amt = max(0.0, _f(sol)); px = max(0.0, _f(sol_usd))
+    legs = [{'pairAddress': p['pairAddress'], 'chainId': p.get('chainId', 'solana'), 'symbol': (metas.get(p['pairAddress']) or {}).get('symbol') or p.get('symbol'),
+             'weight': round(_f(weights.get(p['pairAddress'])) * 100, 2)} for p in pools]
+    parts = {x['pairAddress']: x['sol'] for x in split(amt, legs)}
+    out, metas_ok = [], []
+    for leg in legs:
+        m = metas.get(leg['pairAddress']) or {}
+        if m:
+            metas_ok.append({**m, 'weight': leg['weight']})
+        s = parts.get(leg['pairAddress'], 0.0)
+        out.append({**leg, **{k: m.get(k) for k in ('quote', 'liquidityUsd', 'volume24h', 'aprEst', 'change24h', 'dex')}, 'sol': s, 'usd': round(s * px, 2),
+                    'dailyUsd': round(s * px * min(400.0, _f(m.get('aprEst'))) / 100 / 365, 4), 'missing': not m})
+    usd_in = amt * px
+    apr = sum(x['weight'] * min(400.0, _f(x['aprEst'])) for x in out if not x['missing']) / max(1e-9, sum(x['weight'] for x in out if not x['missing'])) if metas_ok else 0.0
+    return {'sol': amt, 'usd': round(usd_in, 2), 'solUsd': px, 'legs': out, 'blendedAprPct': round(apr, 1),
+            'dailyUsd': round(sum(x['dailyUsd'] for x in out), 4), 'score': score(metas_ok)}

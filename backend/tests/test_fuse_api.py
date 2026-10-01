@@ -36,3 +36,16 @@ def test_fuse_lifecycle(monkeypatch):
     assert st == {'buys': 1, 'volumeUsd': 50.0, 'creatorEarnedUsd': 0.2, 'creatorPaidUsd': 0.0, 'creatorOwedUsd': 0.2}
     asyncio.run(rs.admin_fuses_save(Req({'id': fid, 'paidUsd': 0.15})))
     assert asyncio.run(rs.fuses_list())['fuses'][0]['stats']['creatorOwedUsd'] == 0.05
+
+
+def test_fuse_lab_discover_and_preview(monkeypatch):
+    async def pairs(legs): return {leg['pairAddress']: PAIRS[leg['pairAddress']] for leg in legs}
+    async def disc(chain): return [{**p, 'chainId': 'solana'} for p in PAIRS.values()] + [{**PAIRS['P1'], 'pairAddress': 'B1', 'chainId': 'base'}]
+    async def px(): return 200.0
+    monkeypatch.setattr(rs, '_fuse_pairs', pairs); monkeypatch.setattr(rs, '_fuse_discover_pairs', disc); monkeypatch.setattr(rs, '_sol_usd_live', px)
+    d = asyncio.run(rs.fuses_discover(lens='deep', chain='solana'))
+    assert [p['pairAddress'] for p in d['pools']] == ['P1', 'P2']
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.fuses_preview(rs.FusePreview(pools=[{'chainId': 'solana', 'pairAddress': 'P1'}], sol=1)))
+    p = asyncio.run(rs.fuses_preview(rs.FusePreview(pools=[{'chainId': 'solana', 'pairAddress': 'P1'}, {'chainId': 'solana', 'pairAddress': 'P2'}], sol=2)))
+    assert round(sum(x['sol'] for x in p['legs']), 6) == 2 and p['usd'] == 400 and abs(sum(x['weight'] for x in p['legs']) - 100) < 0.1
