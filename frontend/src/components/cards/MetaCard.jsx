@@ -5,7 +5,7 @@ import { apiUrl } from '../../lib/api';
 // Motion is transform-only and written straight to the element in rAF (no re-render per frame);
 // reduced-motion users get an instant flip and no drag spin.
 const RANK = { common: 1, rare: 2, epic: 3, legendary: 4, mythic: 5 };
-const KIND = { badge: 'BADGE', season: 'SEASON', weekly: 'DROP' };
+const KIND = { badge: 'BADGE', season: 'SEASON', weekly: 'DROP', fuse: 'FUSE' };
 const src = u => (u && u.startsWith('/') ? apiUrl(u) : u);
 const sol = v => (v >= 1 ? v.toFixed(2) : v >= 0.01 ? v.toFixed(3) : v > 0 ? v.toFixed(5) : '0');
 const serial = key => { let h = 7; for (const c of String(key)) h = (h * 31 + c.charCodeAt(0)) % 99991; return String(h).padStart(5, '0'); };

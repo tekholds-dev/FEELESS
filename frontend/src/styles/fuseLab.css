@@ -92,10 +92,6 @@ body.fx-lite .fg-pulse { animation: none; }
 .fe-champ { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); background: var(--m-surface); animation: mCardIn .3s var(--m-ease) backwards; transition: border-color .15s, transform .15s; }
 .fe-champ:hover { border-color: var(--m-line-hi); transform: translateY(-2px); }
 .fe-champ.is-top { border-color: var(--m-accent); box-shadow: 0 10px 30px -18px var(--m-accent); }
-.fe-champ-head { display: flex; align-items: center; gap: 8px; } .fe-champ-head b { font-family: var(--m-mono); font-size: 16px; } .fe-champ-head small { margin-left: auto; font-family: var(--m-mono); font-size: 10px; }
-.fe-champ-head .fl-grade { font-size: 16px; }
-.fe-legs { display: flex; gap: 4px; flex-wrap: wrap; } .fe-legs small { color: var(--m-dim); } .fe-legs b { color: var(--m-accent); }
-.fe-kv { font-size: 11px; gap: 3px 10px; }
 body.theme-day .fe-chart, body.theme-day .fe-champ { background: var(--m-surface-2); }
 body.fx-lite .fe-champ { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fe-champ { animation: none; } .fe-chart i { transition: none; } }
@@ -157,14 +153,62 @@ body.theme-day .fpn-row, body.theme-day .fhq-tile, body.theme-day .fcc { backgro
 /* Cmd Ctr deck: matches cc-block (near-black, mono caps, green hairline glow). */
 .fdeck { display: grid; gap: 14px; padding: 16px; border: 1px solid var(--cc-line, var(--m-line)); border-radius: 14px; background: linear-gradient(rgba(22, 214, 127, .03) 1px, transparent 1px) 0 0 / 100% 18px, #050a07; box-shadow: var(--cc-glow, none); }
 .fdeck-head { display: grid; gap: 10px; } .fdeck-head h3 { margin: 4px 0 0; font-size: 22px; }
-.fdeck-nav { position: sticky; top: 8px; z-index: 5; justify-self: start; flex-wrap: wrap; background: #040806; box-shadow: 0 8px 20px -12px #000; }
 .fdeck-body { display: grid; gap: 14px; animation: mCardIn .22s var(--m-ease); }
 .fdeck .fl.is-admin, .fdeck .fhq { background: #040806; }
 .fdeck .fz-builder, .fdeck .cc-block { margin: 0; }
-body.theme-day .fdeck { background: var(--m-surface-2); } body.theme-day .fdeck-nav { background: var(--m-surface); } body.theme-day .fdeck .fl.is-admin, body.theme-day .fdeck .fhq { background: var(--m-surface); }
+body.theme-day .fdeck { background: var(--m-surface-2); } body.theme-day .fdeck .fl.is-admin, body.theme-day .fdeck .fhq { background: var(--m-surface); }
 body.theme-day .fl-head h3, body.theme-day .fdeck-head h3 { background: linear-gradient(90deg, #0f2419, #0b8f55 60%, #a8720a); -webkit-background-clip: text; background-clip: text; }
 body.fx-lite .fl-bar::after, body.fx-lite .fl-row::after, body.fx-lite .fx-flow li { animation: none; } body.fx-lite .fl-row::after { display: none; }
 @media (prefers-reduced-motion: reduce) { .fl-bar::after, .fl-row::after { display: none; } .fx-flow li, .fx-body, .fdeck-body, .fl-row.is-on .fl-check { animation: none; } }
 @media (max-width: 560px) { .fx-flow li:not(:last-child)::after { display: none; } }
 .fl-list { grid-auto-rows: max-content; align-content: start; } .fl-row { min-height: 46px; }
 .fl-best .m-seg { flex-wrap: nowrap; }
+
+/* Fuse champion cards: MetaCard tilt + a flip button; back = why it won. */
+.fe-champ { justify-items: center; background: transparent; border: 0; box-shadow: none; padding: 0; }
+.fe-champ.is-top { box-shadow: none; } .fe-champ:hover { transform: none; }
+.fcd { position: relative; } .fcd-card .mc-foot span:last-child { display: none; }
+.fcd-flip { position: absolute; right: -8px; top: -8px; z-index: 6; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--m-accent); background: #04100a; color: var(--m-accent); font-size: 16px; cursor: pointer; box-shadow: 0 0 14px -4px var(--m-accent); transition: transform .2s var(--m-ease), background .15s; }
+.fcd-flip:hover { background: var(--m-accent); color: var(--m-accent-ink); transform: rotate(-180deg); } .fcd-flip:active { transform: rotate(-180deg) scale(.9); } .fcd-flip:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.fcd-back { display: grid; gap: 8px; font-size: 11px; }
+.fcd-back ul { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; } .fcd-back li { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; }
+.fcd-back li span { color: var(--a); font-family: var(--m-mono); } .fcd-back li em { font-style: normal; opacity: .65; font-family: var(--m-mono); font-size: 10px; }
+.fcd-back dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0; } .fcd-back dt { opacity: .65; font-family: var(--m-mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; } .fcd-back dd { margin: 0; text-align: right; font-family: var(--m-mono); }
+.fe-champ .fe-acts { width: 190px; }
+/* Deck v2: KPI ribbon + left rail. */
+.fdeck-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.fdeck-kpi { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--cc-line, var(--m-line)); border-radius: 10px; background: #040806; position: relative; overflow: hidden; transition: border-color .15s, transform .15s; }
+.fdeck-kpi:hover { border-color: var(--m-accent); transform: translateY(-1px); }
+.fdeck-kpi small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .14em; color: var(--m-dim); } .fdeck-kpi b { font-size: 20px; } .fdeck-kpi em { font-style: normal; font-family: var(--m-mono); font-size: 10px; color: var(--m-dim); }
+.fdeck-kpi.up b { color: var(--m-accent); text-shadow: 0 0 14px color-mix(in srgb, var(--m-accent) 50%, transparent); } .fdeck-kpi.down b { color: var(--m-danger); }
+.fdeck-kpi.is-outlook { border-color: color-mix(in srgb, var(--m-warn) 45%, var(--m-line)); cursor: help; }
+.fdeck-kpi::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--m-line-hi); } .fdeck-kpi.up::before { background: var(--m-accent); } .fdeck-kpi.down::before { background: var(--m-danger); }
+.fdeck-main { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 14px; align-items: start; }
+.fdeck-rail { position: sticky; top: 10px; display: grid; gap: 6px; }
+.fdeck-rail button { display: grid; gap: 3px; text-align: left; padding: 10px 12px; border: 1px solid var(--cc-line, var(--m-line)); border-radius: 10px; background: #040806; color: var(--m-text); font: inherit; cursor: pointer; transition: border-color .15s, background .15s, transform .1s; }
+.fdeck-rail button b { font-size: 13px; } .fdeck-rail button small { font-size: 10.5px; color: var(--m-dim); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fdeck-rail button:hover { border-color: var(--m-line-hi); background: color-mix(in srgb, var(--m-accent) 6%, #040806); } .fdeck-rail button:active { transform: scale(.98); }
+.fdeck-rail button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.fdeck-rail button.active { background: var(--m-accent); border-color: var(--m-accent); color: var(--m-accent-ink); box-shadow: 0 10px 26px -14px var(--m-accent); } .fdeck-rail button.active small { color: color-mix(in srgb, var(--m-accent-ink) 75%, transparent); }
+.fdeck-intro { margin: 0; padding: 8px 12px; border-left: 2px solid var(--m-accent); background: color-mix(in srgb, var(--m-accent) 5%, transparent); border-radius: 0 8px 8px 0; font-size: 12.5px; color: var(--m-dim); }
+body.theme-day .fdeck-kpi, body.theme-day .fdeck-rail button:not(.active) { background: var(--m-surface); }
+@media (max-width: 900px) { .fdeck-main { grid-template-columns: 1fr; } .fdeck-rail { position: static; display: flex; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; } .fdeck-rail button { flex: 0 0 180px; } }
+/* 🛡 Bot shield (Cmd Ctr › Safety). */
+.bsh { display: grid; gap: 12px; padding: 16px; }
+.bsh-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; } .bsh-head h3 { margin: 4px 0 2px; } .bsh-head p { margin: 0; font-size: 12px; max-width: 640px; }
+.bsh-counts { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; } .bsh-counts small { font-family: var(--m-mono); font-size: 10px; }
+.bsh-engines { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.bsh-engine { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); background: var(--m-surface); font-size: 12px; }
+.bsh-engine.hot { border-color: color-mix(in srgb, var(--m-danger) 55%, var(--m-line)); } .bsh-engine.hot b { color: var(--m-danger); }
+.bsh-list { display: grid; gap: 6px; }
+.bsh-row { border: 1px solid var(--m-line); border-radius: var(--m-r-sm); background: var(--m-surface); overflow: hidden; animation: mCardIn .2s var(--m-ease) backwards; }
+.bsh-row.v-bot { box-shadow: inset 3px 0 0 var(--m-danger); } .bsh-row.v-watch { box-shadow: inset 3px 0 0 var(--m-warn); }
+.bsh-sum { display: grid; grid-template-columns: 40px auto 1fr auto; gap: 10px; align-items: center; width: 100%; padding: 8px 12px; border: 0; background: none; color: var(--m-text); font: inherit; text-align: left; cursor: pointer; }
+.bsh-sum:hover { background: color-mix(in srgb, var(--m-accent) 5%, transparent); } .bsh-sum:focus-visible { outline: 2px solid var(--m-accent); outline-offset: -2px; }
+.bsh-sum code { font-family: var(--m-mono); font-size: 12px; } .bsh-tags { display: flex; gap: 4px; flex-wrap: wrap; } .bsh-tags em { font-style: normal; font-size: 10px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--m-line-hi); }
+.bsh-detail { display: grid; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--m-line); animation: mCardIn .18s var(--m-ease); }
+.bsh-detail ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; } .bsh-detail li { display: grid; gap: 1px; font-size: 12px; } .bsh-detail li b { font-family: var(--m-mono); font-size: 10px; letter-spacing: .06em; }
+.bsh-acts { display: flex; gap: 6px; flex-wrap: wrap; } .bsh-acts a.m-btn { text-decoration: none; }
+body.theme-day .bsh-engine, body.theme-day .bsh-row { background: var(--m-surface-2); }
+@media (prefers-reduced-motion: reduce) { .bsh-row, .bsh-detail { animation: none; } }
+@media (max-width: 560px) { .bsh-sum { grid-template-columns: 34px 1fr auto; } .bsh-tags { grid-column: 1 / -1; } }

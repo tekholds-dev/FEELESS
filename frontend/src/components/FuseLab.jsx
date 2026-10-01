@@ -17,7 +17,7 @@ const pct = v => (Math.abs(v) >= 1000 ? `${(1 + v / 100).toFixed(1)}x` : `${v >=
 const apr = v => (v >= 1000 ? `${(v / 100).toFixed(0)}x` : `${Math.round(v || 0)}%`);
 
 export function FuseLab({ chain = 'solana', call }) {
-  const admin = Boolean(call); const MAX = admin ? 6 : 3;
+  const admin = Boolean(call); const MAX = admin ? 10 : 3;
   const [manual, setManual] = useState(false); const [wts, setWts] = useState({}); const [pub, setPub] = useState({ name: '', emoji: '⚛️', creatorBps: 1000 });
   const [lens, setLens] = useState('popular');
   const [pools, setPools] = useState(null);
@@ -57,8 +57,8 @@ export function FuseLab({ chain = 'solana', call }) {
   return <section className={`m-card m-live fl ${admin ? 'is-admin' : ''}`} data-testid="fuse-lab">
     <header className="fl-head">
       <div><span className="m-label">⚛️ FUSE LAB</span><h3>{admin ? 'Design a Fuse.' : 'Many pools. One buy.'}</h3>
-        <p className="m-dim">{admin ? 'Up to 6 pools, auto or your own weights, 24h backtest, size guard — then publish it for traders.' : `Pick 2–${MAX} live pools. FEELESS weighs them and shows exactly where your SOL goes. One approval buys them all.`}</p></div>
-      <span className="fl-badges">{admin && <span className="m-chip warn">CMD CTR · 6 POOLS</span>}<span className="m-chip ok fl-chain"><i />{chain.toUpperCase()}</span></span>
+        <p className="m-dim">{admin ? 'Up to 10 pools, auto or your own weights, 24h backtest, size guard — then publish it for traders.' : `Pick 2–${MAX} live pools. FEELESS weighs them and shows exactly where your SOL goes. One approval buys them all.`}</p></div>
+      <span className="fl-badges">{admin && <span className="m-chip warn">CMD CTR · 10 POOLS</span>}<span className="m-chip ok fl-chain"><i />{chain.toUpperCase()}</span></span>
     </header>
     {!admin && <FuseExplainer />}
     {admin ? <FuseEvolve call={call} maxLegs={MAX} onLoad={load} /> : <>

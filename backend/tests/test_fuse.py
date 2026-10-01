@@ -74,7 +74,7 @@ def test_preview_backtest_and_impact_guard():
     metas = {'a': fuse.leg_meta(_pair('a', 1_000_000, 500_000, sym='A')), 'b': fuse.leg_meta(_pair('b', 5_000, 2_000, sym='B'))}
     p = fuse.preview(pools, metas, 10, 200, fuse_vault.auto_weights(pools, metas))
     assert p['backtest24hPct'] == 2.0 and p['impactWarn'] == ['B']   # every leg moved +2%; $ into B ≫ 1% of its $2K
-    assert fuse.legs_cap(False) == 3 and fuse.legs_cap(True) == 6
+    assert fuse.legs_cap(False) == 3 and fuse.legs_cap(True) == 10
     assert fuse.manual_weights([{'chainId': 's', 'pairAddress': 'a', 'weight': 3}, {'chainId': 's', 'pairAddress': 'b', 'weight': 1}]) == {'a': 0.75, 'b': 0.25}
 
 
@@ -107,3 +107,9 @@ def test_styles_and_fee_drag_change_the_winner():
     assert mo['momentum24h'] > st['momentum24h']
     tiny = fuse.fitness(['p1', 'p2', 'p3'], m, 'yield', sol=0.001)
     assert tiny['parts']['feeDragPct'] > 20 and tiny['fitness'] < fuse.fitness(['p1', 'p2', 'p3'], m, 'yield', sol=1)['fitness']
+
+
+def test_big_cmd_ctr_fuse_weights_still_differ():
+    m = _metas(10)
+    w = fuse._weights_for(sorted(m), m)
+    assert abs(sum(w.values()) - 1) < 1e-4 and max(w.values()) - min(w.values()) > 0.02 and min(w.values()) >= 0.05 - 1e-9

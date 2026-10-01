@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { FuseCard } from './FuseCard';
 
 // 🧬 Cmd Ctr › Fuse Evolution: pick a strategy + budget, the server breeds baskets of live pools over generations
 // (keep the elite, crossover, mutate — backend fuse.evolve) and returns 3 champions with every fitness part shown.
@@ -7,10 +8,9 @@ import { toast } from 'sonner';
 const STYLES = [['yield', '💧 Yield hunter'], ['momentum', '🚀 Momentum'], ['steady', '🛡 Steady'], ['degen', '🎲 Degen']];
 const BUDGETS = [5, 20, 100];
 const GENS = [8, 16, 32];
-const usd = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v || 0)}`);
 const SOL = 'So11111111111111111111111111111111111111112';
 
-export function FuseEvolve({ call, onLoad, maxLegs = 6 }) {
+export function FuseEvolve({ call, onLoad, maxLegs = 10 }) {
   const [style, setStyle] = useState('yield'); const [legs, setLegs] = useState(3); const [gens, setGens] = useState(16); const [budget, setBudget] = useState(5);
   const [solUsd, setSolUsd] = useState(null); const [d, setD] = useState(null); const [shown, setShown] = useState(0); const [busy, setBusy] = useState(false); const [blood, setBlood] = useState(false);
   const timer = useRef(null);
@@ -32,7 +32,7 @@ export function FuseEvolve({ call, onLoad, maxLegs = 6 }) {
       <p className="m-dim">Live pools compete over generations: the fittest survive, cross over and mutate. You pick the strategy and budget; every score is shown.</p></div></header>
     <div className="fe-genes">
       <div className="fe-gene"><small>STRATEGY</small><div className="m-seg" role="radiogroup" aria-label="Strategy">{STYLES.map(([k, l]) => <button type="button" key={k} role="radio" aria-checked={style === k} className={style === k ? 'active' : ''} onClick={() => setStyle(k)}>{l}</button>)}</div></div>
-      <div className="fe-gene"><small>POOLS</small><div className="m-seg">{[2, 3, 4, 5, 6].filter(n => n <= maxLegs).map(n => <button type="button" key={n} className={legs === n ? 'active' : ''} onClick={() => setLegs(n)}>{n}</button>)}</div></div>
+      <div className="fe-gene"><small>POOLS</small><div className="m-seg">{[2, 3, 4, 5, 6, 8, 10].filter(n => n <= maxLegs).map(n => <button type="button" key={n} className={legs === n ? 'active' : ''} onClick={() => setLegs(n)}>{n}</button>)}</div></div>
       <div className="fe-gene"><small>GENERATIONS</small><div className="m-seg">{GENS.map(n => <button type="button" key={n} className={gens === n ? 'active' : ''} onClick={() => setGens(n)}>{n}</button>)}</div></div>
       <div className="fe-gene"><small>BUDGET</small><div className="m-seg">{BUDGETS.map(n => <button type="button" key={n} className={budget === n ? 'active' : ''} onClick={() => setBudget(n)}>${n}</button>)}</div>
         <em className="m-dim">{sol ? `≈ ${sol.toFixed(4)} SOL` : 'SOL price loading…'}</em></div>
@@ -43,11 +43,7 @@ export function FuseEvolve({ call, onLoad, maxLegs = 6 }) {
       <div className="fe-chart" aria-label="Best fitness per generation">{d.history.map((h, i) => <i key={h.gen} className={i < shown ? 'on' : ''} style={{ transform: `scaleY(${i < shown ? Math.max(0.04, h.best / top) : 0.02})` }} title={`Gen ${h.gen}: best ${h.best} · avg ${h.avg}`} />)}</div>
       <div className="fe-meta m-dim"><span>{d.pool} live pools in the gene pool</span><span>{d.evaluated} baskets tested</span><span>gen {Math.min(shown, d.history.length)}/{d.history.length}</span>{d.seeded > 0 && <span>🧬 {d.seeded} bloodline seeds</span>}</div>
       {done && <div className="fe-champs">{d.champions.map((c, i) => <article key={c.pools.join()} className={`fe-champ ${i === 0 ? 'is-top' : ''}`} style={{ animationDelay: `${i * 70}ms` }}>
-        <div className="fe-champ-head"><b>{['🥇', '🥈', '🥉'][i]} {c.fitness}</b><span className={`fl-grade g-${c.parts.grade}`}>{c.parts.grade}</span><small className="m-dim">born gen {c.bornGen}</small></div>
-        <div className="fe-legs">{c.legs.map(l => <span key={l.pairAddress} className="m-chip">{l.symbol}<small>/{l.quote}</small> <b>{Math.round(l.weight)}%</b></span>)}</div>
-        <dl className="m-kv fe-kv"><dt>APR score</dt><dd>{c.parts.aprScore}</dd><dt>24h momentum</dt><dd className={c.parts.momentum24h >= 0 ? 'm-pos' : 'm-neg'}>{c.parts.momentum24h}%</dd><dt>Calm</dt><dd>{c.parts.calm}</dd>
-          <dt>Fee drag</dt><dd className={c.parts.feeDragPct > 5 ? 'm-neg' : ''}>{c.parts.feeDragPct}%</dd>{c.parts.impactLegs > 0 && <><dt>Size guard</dt><dd className="m-neg">{c.parts.impactLegs} pool(s) too thin</dd></>}
-          <dt>Depth</dt><dd>{usd(c.legs.reduce((a, l) => a + (l.liquidityUsd || 0), 0))}</dd></dl>
+        <FuseCard c={c} style={d.style || style} rank={i} />
         <div className="fe-acts"><button type="button" className={`m-btn ${i === 0 ? 'primary' : ''}`} onClick={() => onLoad?.(c.legs, sol)} data-testid={`fe-load-${i}`}>Load into Lab →</button>
           <button type="button" className="m-btn" title="Paper $5 for 24h at real prices" onClick={() => act('arena', c)} data-testid={`fe-arena-${i}`}>🏟</button>
           <button type="button" className="m-btn" title="Save to bloodline" onClick={() => act('bloodline', c)}>🧬</button></div>

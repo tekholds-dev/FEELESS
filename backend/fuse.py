@@ -9,7 +9,7 @@ a hot meme 20%). Pure functions, no I/O — every number on a Fuse card comes fr
 import math
 
 DEX_FEE_EST = 0.0025          # typical pool fee tier used for the APR estimate (shown as an estimate)
-MAX_LEGS = 6                  # Cmd Ctr / admin Fuses
+MAX_LEGS = 10                 # Cmd Ctr / admin Fuses
 USER_MAX_LEGS = 3             # what a trader can fuse in the Fuse Lab
 IMPACT_WARN_PCT = 1.0         # a leg bigger than ~1% of its pool's liquidity moves price noticeably
 MAX_CREATOR_BPS = 5000        # a creator can take at most half of the FEELESS fee on their Fuse's buys
@@ -183,9 +183,14 @@ STYLES = {   # weights for (grade points 0–100, APR 0–100 scaled, momentum 2
 NET_FEE_SOL = 0.0001          # ≈ base + capped priority fee per swap (estimate for fee drag)
 
 
+def min_share(n):
+    """Floor per pool: 10% for small fuses, shrinking for big Cmd Ctr fuses so weights can still differ (≤ half of equal)."""
+    return min(0.1, 0.5 / max(1, n))
+
+
 def _weights_for(genome, metas):
     import fuse_vault   # local import keeps fuse.py importable on its own
-    return fuse_vault.auto_weights([{'pairAddress': pa, 'weight': 1} for pa in genome], metas)
+    return fuse_vault.auto_weights([{'pairAddress': pa, 'weight': 1} for pa in genome], metas, min_share=min_share(len(genome)))
 
 
 def fitness(genome, metas, style='yield', sol=0.05, sol_usd=150.0):

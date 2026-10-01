@@ -2792,13 +2792,13 @@ async def fuses_preview(payload: FusePreview, request: Request = None):
         raise HTTPException(400, 'Pick at least 2 pools.')
     pairs, sol_usd = await asyncio.gather(_fuse_pairs(pools), _sol_usd_live())
     metas = {k: _fuse.leg_meta(v) for k, v in pairs.items()}
-    w = _fuse.manual_weights(payload.pools) if admin and payload.manual else _vault.auto_weights(pools, metas)
+    w = _fuse.manual_weights(payload.pools) if admin and payload.manual else _vault.auto_weights(pools, metas, min_share=_fuse.min_share(len(pools)))
     return {**_fuse.preview(pools, metas, max(0.0, min(100000.0, payload.sol)), sol_usd, w), 'cap': cap, 'admin': admin}
 
 
 class FuseEvolveIn(BaseModel):
     style: str = 'yield'
-    legs: int = Field(default=3, ge=2, le=6)
+    legs: int = Field(default=3, ge=2, le=10)
     generations: int = Field(default=16, ge=1, le=40)
     population: int = Field(default=32, ge=8, le=80)
     sol: float = Field(default=0.05, gt=0, le=1000)
@@ -2903,7 +2903,9 @@ async def fuse_hq_admin(request: Request):
     rows = [_hq.position_pnl(x, px) for x in pos]
     board = _hq.arena_board(vals)
     return {'book': _hq.book(rows), 'rows': sorted(rows, key=lambda r: -r['pnlUsd'])[:50], 'arena': sorted(vals, key=lambda v: -v['at'])[:40],
-            'board': board, 'bestStyle': _hq.best_style(board), 'bloodline': d.get('bloodline') or [], 'minSettled': _hq.MIN_SETTLED}
+            'board': board, 'bestStyle': _hq.best_style(board), 'bloodline': d.get('bloodline') or [], 'minSettled': _hq.MIN_SETTLED,
+            'outlook': _hq.outlook(board), 'published': len(_json_load(FUSES_PATH, {'fuses': {}})['fuses']),
+            'blockedCuts': sum(1 for b in _json_load(FUSES_PATH, {}).get('buys') or [] if b.get('selfDeal') or b.get('bot'))}
 
 
 @app.post('/api/reputation/admin/fuses/hq')
@@ -3008,8 +3010,11 @@ async def fuse_buy(fid: str, payload: FuseBuy):
         if any(b['sig'] == payload.signature for b in store.get('buys', [])):
             return {'ok': True, 'counted': False}
         fee = float(trade.get('feelessFeeUsd') or 0)
+        self_deal = primary_of(f.get('creator') or '') == me or me in set(linked_of(primary_of(f.get('creator') or '')))
+        bot = (await _shield_of(me))['verdict'] == 'bot'
         store.setdefault('buys', []).append({'fuse': fid, 'sig': payload.signature, 'wallet': me, 'usd': float(trade.get('usd') or trade.get('poolUsd') or 0),
-                                             'feeUsd': fee, 'creatorUsd': _fuse.creator_cut(fee, f.get('creatorBps', 0)), 'at': time.time()})
+                                             'feeUsd': fee, 'creatorUsd': 0.0 if self_deal or bot else _fuse.creator_cut(fee, f.get('creatorBps', 0)),
+                                             'selfDeal': self_deal, 'bot': bot, 'at': time.time()})
         _json_save(FUSES_PATH, store)
     return {'ok': True, 'counted': True}
 
@@ -3259,6 +3264,10 @@ async def quest_checkin(payload: QuestCheckin):
     async with _admin_lock:
         d = _json_load(QUEST_STATE_PATH, {})
         st = d.setdefault(me, {'days': [], 'first': time.time()})
+        st['checkinAt'] = ((st.get('checkinAt') or []) + [time.time()])[-60:]   # Bot shield: clockwork / batch engines
+        if (await _shield_of(me))['verdict'] == 'bot':   # bots don't earn daily rewards
+            _json_save(QUEST_STATE_PATH, d)
+            return {'ok': True, 'fresh': False, 'streak': _streak(st['days']), 'days': len(st['days']), 'shield': 'bot'}
         fresh = day not in st['days']
         if fresh:
             st['days'] = (st['days'] + [day])[-400:]
@@ -4765,6 +4774,10 @@ async def _wallet_case(address):
            'fundedByFlagged': bool(funded_by and _is_flagged_funder(fund['funders'].get(funded_by))),
            'creator': creator, 'caller': caller, 'linkedCreators': linked}
     evidence = [] if protected else investigate.wallet_evidence(ctx)
+    if not protected:
+        sh = await _shield_of(a)
+        evidence += [{'kind': f"bot-{h['engine']}", 'weight': round(h['score'] / 2), 'claim': f"Bot shield · {h['evidence'][0]['claim']}", 'source': h['evidence'][0]['source']}
+                     for h in sh['hits'] if h['score'] >= _shield.WATCH]
     prof = _profiles_load()['profiles'].get(a) or {}
     return {'kind': 'wallet', 'address': a, 'identity': {'name': prof.get('displayName'), 'handle': prof.get('handle')},
             **investigate.verdict(evidence, protected), 'evidence': evidence,
@@ -4796,6 +4809,111 @@ async def _coin_case(mint, auth):
             'holders': {k: intel.get(k) for k in ('top10Pct', 'devHoldingPct', 'insidersHoldingPct', 'snipersHoldingPct', 'poolPct')},
             'launch': {'bundled': len(intel.get('bundledWallets') or []), 'snipers': len(intel.get('sniperWallets') or []), 'creator': creator},
             'creatorCase': (await _wallet_case(creator)) if creator else None}
+
+
+# ---- BOT SHIELD (backend/bot_shield.py): the defender. Engines over FEELESS records; ties into rep, rewards, Fuse --------
+import bot_shield as _shield
+SHIELD_PATH = DATA_DIR / 'bot_shield.json'   # {'manual': {wallet: 'cleared' | 'bot'}, 'at': {...}}
+_shield_cache: dict = {}
+
+
+def _shield_features(me, ck_all=None, trades_all=None, chat_all=None):
+    mine = set(linked_of(me)) | {me}
+    trades_all = trades_all if trades_all is not None else _json_load(FEELESS_TRADES_PATH, {})
+    trades = [{'side': x.get('side'), 'usd': x.get('usd') or x.get('poolUsd') or 0, 'token': x.get('token'), 'ts': x.get('ts')}
+              for w, rows in trades_all.items() if w in mine for x in rows or []]
+    chat_all = chat_all if chat_all is not None else [m for ms in _chat_load()['rooms'].values() for m in ms if isinstance(m, dict) and not m.get('system')]
+    chat = [{'ts': _ts_num(m.get('ts')), 'text': m.get('text')} for m in chat_all if (m.get('identity') or m.get('address')) in mine]
+    qs = _json_load(QUEST_STATE_PATH, {})
+    st = qs.get(me) or {}
+    ck_all = ck_all if ck_all is not None else {w: v.get('checkinAt') or [] for w, v in qs.items()}
+    inv = _json_load(REF_PATH, {'by': {}})['by'].get(me, [])
+    active = set(trades_all) | {(m.get('identity') or m.get('address')) for m in chat_all}
+    fz = _json_load(FUSES_PATH, {'fuses': {}})
+    own = {fid for fid, f in fz['fuses'].items() if primary_of(f.get('creator') or '') in mine}
+    return {'signin_days': st.get('days') or [], 'checkin_at': st.get('checkinAt') or [], 'trades': trades, 'chat': chat,
+            'batch_days': _shield.batch_days(ck_all, me), 'invitees': [{'active': w in active} for w in inv],
+            'own_fuse_buys': sum(1 for b in fz.get('buys') or [] if b['fuse'] in own and b.get('wallet') in mine)}
+
+
+def _ts_num(v):
+    if isinstance(v, (int, float)):
+        return float(v)
+    try:
+        from datetime import datetime as _dt
+        return _dt.fromisoformat(str(v).replace('Z', '+00:00')).timestamp()
+    except Exception:
+        return 0.0
+
+
+async def _shield_of(address):
+    """One wallet's Bot shield verdict (cached 5 min). FEELESS wallets are never flagged; Cmd Ctr decisions win."""
+    a = primary_of(address)
+    hit = _shield_cache.get(a)
+    if hit and time.time() - hit[0] < 300:
+        return hit[1]
+    try:
+        r = _shield.scan(_shield_features(a), protected=a in _protected_wallets(), manual=(_json_load(SHIELD_PATH, {}).get('manual') or {}).get(a))
+    except Exception:
+        r = {'verdict': 'clean', 'score': 0, 'hits': [], 'why': 'scan unavailable'}
+    _shield_cache[a] = (time.time(), r)
+    return r
+
+
+def _fuse_rep(a):
+    """Fuse ties into rep: published Fuses with real outside buyers earn trust; self-dealing costs it."""
+    fz = _json_load(FUSES_PATH, {'fuses': {}})
+    own = {fid for fid, f in fz['fuses'].items() if primary_of(f.get('creator') or '') == a}
+    if not own:
+        return None
+    buys = [b for b in fz.get('buys') or [] if b['fuse'] in own]
+    real = len({b['wallet'] for b in buys if not b.get('selfDeal') and not b.get('bot')})
+    selfd = sum(1 for b in buys if b.get('selfDeal'))
+    pts = min(10, real) - 10 * min(3, selfd)
+    return {'label': f'Fuse creator: {real} outside buyer(s)' + (f', {selfd} self-buy(s)' if selfd else ''), 'points': pts} if pts else None
+
+
+@app.get('/api/reputation/admin/shield')
+async def shield_admin(request: Request, verdict: str = Query('flagged')):
+    """Cmd Ctr › Security › Bot shield: scan every known wallet with every engine (data loaded once)."""
+    _require_admin(request)
+    qs = _json_load(QUEST_STATE_PATH, {})
+    trades_all = _json_load(FEELESS_TRADES_PATH, {})
+    chat_all = [m for ms in _chat_load()['rooms'].values() for m in ms if isinstance(m, dict) and not m.get('system')]
+    ck_all = {w: v.get('checkinAt') or [] for w, v in qs.items()}
+    wallets = set(qs) | set(trades_all) | {m.get('identity') or m.get('address') for m in chat_all} | set(_json_load(REF_PATH, {'by': {}})['by'])
+    wallets = {w for w in wallets if isinstance(w, str) and _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', w)}
+    manual = _json_load(SHIELD_PATH, {}).get('manual') or {}
+    prot = _protected_wallets()
+    rows = []
+    for w in wallets:
+        r = _shield.scan(_shield_features(w, ck_all, trades_all, chat_all), protected=w in prot, manual=manual.get(w))
+        _shield_cache[w] = (time.time(), r)
+        rows.append({'address': w, **r, 'manual': manual.get(w)})
+    counts = {k: sum(1 for r in rows if r['verdict'] == k) for k in ('bot', 'watch', 'clean')}
+    engines = {e.__name__: sum(1 for r in rows for h in r['hits'] if h['engine'] == e.__name__) for e in _shield.ENGINES}
+    shown = [r for r in rows if verdict == 'all' or (verdict == 'flagged' and r['verdict'] != 'clean') or r['verdict'] == verdict]
+    return {'scanned': len(rows), 'counts': counts, 'engines': engines, 'rows': sorted(shown, key=lambda r: -r['score'])[:200]}
+
+
+@app.post('/api/reputation/admin/shield')
+async def shield_admin_set(request: Request):
+    admin = _require_admin(request)
+    body = await request.json()
+    a, act = primary_of(str(body.get('address') or '')), body.get('action')
+    if act not in ('cleared', 'bot', 'reset') or not a:
+        raise HTTPException(400, 'address + cleared | bot | reset')
+    async with _admin_lock:
+        d = _json_load(SHIELD_PATH, {})
+        m = d.setdefault('manual', {})
+        if act == 'reset':
+            m.pop(a, None)
+        else:
+            m[a] = act
+        _json_save(SHIELD_PATH, d)
+    _shield_cache.pop(a, None); _case_cache.pop(a, None)
+    ad = _admin_load(); _audit(ad, admin, f'shield-{act}', a); _admin_save(ad)
+    return {'ok': True}
 
 
 @app.get('/api/reputation/case/{address}')
@@ -6374,6 +6492,12 @@ async def trust_score(address: str):
             score += 8 * sh['kept']; evidence += 1; parts.append({'label': f"Kept {sh['kept']} FEELESS Shield(s) to the end", 'points': 8 * sh['kept']})
     except Exception:
         pass
+    sh = await _shield_of(a)
+    if _shield.rep_penalty(sh):
+        score += _shield.rep_penalty(sh); evidence += 1; parts.append({'label': f"Bot shield: {sh['verdict']} — {sh['why']}", 'points': _shield.rep_penalty(sh)})
+    fz = _fuse_rep(a)
+    if fz:
+        score += fz['points']; evidence += 1; parts.append(fz)
     if is_verified(a):
         score += 10; evidence += 1; parts.append({'label': 'Verified by FEELESS', 'points': 10})
     if is_muted(a):

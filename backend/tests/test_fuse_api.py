@@ -64,7 +64,7 @@ def test_fuse_lab_caps_users_at_3_and_admin_gets_6_and_manual_weights(monkeypatc
     monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN')
     man = [{**four[0], 'weight': 75}, {**four[1], 'weight': 25}]
     p = asyncio.run(rs.fuses_preview(rs.FusePreview(pools=man, sol=4, manual=True), Req()))
-    assert p['cap'] == 6 and [x['weight'] for x in p['legs']] == [75, 25] and p['legs'][0]['sol'] == 3
+    assert p['cap'] == 10 and [x['weight'] for x in p['legs']] == [75, 25] and p['legs'][0]['sol'] == 3
     six = [{'chainId': 'solana', 'pairAddress': f'P{i}'} for i in range(1, 7)]
     assert len(asyncio.run(rs.fuses_preview(rs.FusePreview(pools=six, sol=1), Req()))['legs']) == 6
 
@@ -103,3 +103,17 @@ def test_fuse_hq_position_pnl_arena_bloodline_best3(monkeypatch):
     hq = asyncio.run(rs.fuse_hq_admin(Req()))
     assert hq['arena'][0]['settled'] and hq['arena'][0]['pnlPct'] == 50 and len(hq['bloodline']) == 1 and hq['book']['positions'] == 1
     assert hq['board'][0]['style'] == 'degen' and hq['bestStyle'] == 'yield'      # one run isn't proof yet
+
+
+def test_creator_buying_own_fuse_earns_no_cut_and_costs_rep(monkeypatch):
+    async def pairs(legs): return {leg['pairAddress']: PAIRS[leg['pairAddress']] for leg in legs}
+    monkeypatch.setattr(rs, '_fuse_pairs', pairs); monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN')
+    monkeypatch.setattr(rs, '_session_or_401', lambda a, s: rs.primary_of(a))
+    me = rs.primary_of(W)
+    fid = asyncio.run(rs.admin_fuses_save(Req({'name': 'Mine', 'creator': me, 'creatorBps': 5000, 'legs': [{'chainId': 'solana', 'pairAddress': 'P1', 'weight': 1}, {'chainId': 'solana', 'pairAddress': 'P2', 'weight': 1}]})))['id']
+    rs._json_save(rs.FEELESS_TRADES_PATH, {me: [{'tx': 'SELF', 'usd': 50, 'feelessFeeUsd': 1.0, 'side': 'buy', 'tokens': 1, 'ts': time.time()}]})
+    rs._shield_cache.clear()
+    asyncio.run(rs.fuse_buy(fid, rs.FuseBuy(address=W, session='s', signature='SELF')))
+    b = rs._json_load(rs.FUSES_PATH, {})['buys'][-1]
+    assert b['selfDeal'] and b['creatorUsd'] == 0
+    assert rs._fuse_rep(me)['points'] < 0

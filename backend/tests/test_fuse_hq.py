@@ -30,3 +30,10 @@ def test_bloodline_seeds_evolution_and_health_flags_beaten():
     seeded = fuse.evolve(m, legs=3, generations=1, population=8, seeds=[['p7', 'p8', 'p9']], seed=1)
     assert seeded['champions'][0]['fitness'] >= fuse.fitness(['p7', 'p8', 'p9'], m)['fitness']
     assert hq.health(50, 60)['beaten'] and not hq.health(58, 60)['beaten']
+
+
+def test_outlook_is_honest_until_proven():
+    assert hq.outlook([])['proven'] is False
+    o = hq.outlook([{'style': 'yield', 'runs': 4, 'avgPct': 3.0, 'winRate': 75}])
+    assert o['proven'] and o['per1'] == 1.03 and o['per100'] == 103.0 and 'not a promise' in o['note']
+    assert hq.outlook([{'style': 'degen', 'runs': 5, 'avgPct': -4.0, 'winRate': 20}])['proven'] is False

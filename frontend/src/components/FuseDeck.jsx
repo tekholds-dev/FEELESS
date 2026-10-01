@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 // How Fuse works, in one strip. Admin = the full pipeline (breed → prove → publish → traders → P&L).
 // Trader = what you're buying, in plain words. Shared by Cmd Ctr and Trade › Fuse Lab.
@@ -29,21 +29,43 @@ export function FuseExplainer({ admin = false }) {
     </> : <>
       <p><b>A Fuse buys several coins at once.</b> Your SOL is split across the pools you picked; each one is a normal swap you approve in your wallet — all with one approval. You end up holding the coins, like any buy.</p>
       <p><b>The numbers are estimates from the last 24h.</b> "APR est." is the trading-fee rate those pools earn for liquidity providers — it shows how busy a pool is; it is not paid to you for holding. Prices can fall as easily as rise.</p>
+      <p><b>Where Fuses come from:</b> the FEELESS team breeds baskets from live pools, proves each strategy with 24h paper runs, then publishes the winners here and in chat. "Find my best 3" uses whichever strategy has actually proven itself. A FUSE Vault (deposit SOL, hold one share of many pools) is being built and audited first — it is not live.</p>
       <p><b>Tiny buys:</b> every swap pays a small network fee, so at $5 fewer pools keeps more of your money working. The Size guard warns if your slice would move a thin pool.</p>
     </>}</div>}
   </div>;
 }
 
-// Cmd Ctr › Fuse: one deck, one panel at a time (no scroll wall). Tab remembered per viewer.
+// Cmd Ctr › Fuse: live KPI ribbon, a left rail (each stop says what it is), one panel at a time. Tab remembered per viewer.
+// panels: [key, label, node, blurb]. call = admin fetch (ribbon reads /admin/fuses/hq once a minute).
 const KEY = 'feeless-fuse-deck';
-export function FuseDeck({ panels }) {
+const money = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0).toFixed(2)}`;
+export function FuseDeck({ panels, call }) {
   const read = () => { try { return localStorage.getItem(KEY) || panels[0][0]; } catch { return panels[0][0]; } };
   const [tab, setTab] = useState(read);
+  const [hq, setHq] = useState(null);
+  useEffect(() => {
+    if (!call) return undefined;
+    const load = () => call('/admin/fuses/hq').then(setHq).catch(() => {});
+    load(); const t = setInterval(() => !document.hidden && load(), 60000); window.addEventListener('feeless:fuse-hq', load);
+    return () => { clearInterval(t); window.removeEventListener('feeless:fuse-hq', load); };
+  }, [call]);
   const cur = panels.find(p => p[0] === tab) || panels[0];
   const go = k => { setTab(k); try { localStorage.setItem(KEY, k); } catch { /* private mode */ } };
+  const o = hq?.outlook; const b = hq?.book;
   return <section className="fdeck" data-testid="fuse-deck">
     <header className="fdeck-head"><div><span className="m-label">⚛️ FUSE DECK</span><h3>Breed it. Prove it. Ship it.</h3></div><FuseExplainer admin /></header>
-    <nav className="m-seg fdeck-nav" role="tablist" aria-label="Fuse deck">{panels.map(([k, l]) => <button type="button" key={k} role="tab" aria-selected={cur[0] === k} className={cur[0] === k ? 'active' : ''} onClick={() => go(k)} data-testid={`fdeck-${k}`}>{l}</button>)}</nav>
-    <div className="fdeck-body" key={cur[0]}>{cur[2]}</div>
+    {hq && <div className="fdeck-kpis" data-testid="fuse-kpis">
+      <div className={`fdeck-kpi ${b.pnlUsd > 0 ? 'up' : b.pnlUsd < 0 ? 'down' : ''}`}><small>REAL FUSE P&L</small><b className="m-num">{money(b.pnlUsd)}</b><em>{b.positions} fuses · {b.winners}▲ {b.losers}▼</em></div>
+      <div className={`fdeck-kpi is-outlook ${o.proven ? 'up' : ''}`} title={o.note}><small>24H OUTLOOK · ARENA</small>
+        {o.style ? <><b className="m-num">$1 → ${o.per1.toFixed(2)}</b><em>{o.style} · {o.runs} runs · {o.winRate}% won</em></> : <><b className="m-num">unproven</b><em>run champions in the arena</em></>}</div>
+      <div className="fdeck-kpi"><small>PUBLISHED</small><b className="m-num">{hq.published}</b><em>live for traders</em></div>
+      <div className="fdeck-kpi"><small>BLOODLINE</small><b className="m-num">{hq.bloodline.length}</b><em>saved champions</em></div>
+      <div className="fdeck-kpi"><small>SHIELD</small><b className="m-num">{hq.blockedCuts}</b><em>self/bot cuts blocked</em></div>
+    </div>}
+    <div className="fdeck-main">
+      <nav className="fdeck-rail" role="tablist" aria-label="Fuse deck">{panels.map(([k, l, , blurb]) => <button type="button" key={k} role="tab" aria-selected={cur[0] === k} className={cur[0] === k ? 'active' : ''} onClick={() => go(k)} data-testid={`fdeck-${k}`}>
+        <b>{l}</b>{blurb && <small>{blurb}</small>}</button>)}</nav>
+      <div className="fdeck-body" key={cur[0]}>{cur[3] && <p className="fdeck-intro">{cur[3]}</p>}{cur[2]}</div>
+    </div>
   </section>;
 }

@@ -92,3 +92,13 @@ def health(fuse_fitness, champion_fitness):
     beaten = champion_fitness > 0 and fuse_fitness < champion_fitness / BEATEN_BY
     return {'fitness': round(fuse_fitness, 2), 'champion': round(champion_fitness, 2), 'beaten': beaten,
             'gapPct': round((champion_fitness / fuse_fitness - 1) * 100, 1) if fuse_fitness > 0 else None}
+
+
+def outlook(board):
+    """The honest daily outlook: the proven style's settled 24h average → what $1 / $100 became. None until proven."""
+    best = next((r for r in board if r['runs'] >= MIN_SETTLED), None)
+    if not best:
+        return {'proven': False, 'note': f'No strategy has {MIN_SETTLED} settled arena runs yet — run the arena before trusting any number.'}
+    return {'proven': best['avgPct'] > 0, 'style': best['style'], 'avgPct': best['avgPct'], 'winRate': best['winRate'], 'runs': best['runs'],
+            'per1': round(1 + best['avgPct'] / 100, 3), 'per100': round(100 * (1 + best['avgPct'] / 100), 2),
+            'note': f"{best['runs']} settled $5 runs, {best['winRate']}% won. Past 24h results, not a promise."}
