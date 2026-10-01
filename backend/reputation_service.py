@@ -2795,6 +2795,83 @@ async def admin_fuses_save(request: Request):
     return {'ok': True, 'id': fid}
 
 
+# ---- FUSE Vault (backend/fuse_vault.py; on-chain program in programs/fuse_vault) ----------------------------------
+import fuse_vault as _vault
+VAULTS_PATH = DATA_DIR / 'fuse_vaults.json'   # {'vaults': {id: {name, emoji, pools[≤3], mgmtBps, perfBps, status}}}
+VAULT_MAX_MGMT_BPS, VAULT_MAX_PERF_BPS = 300, 3000   # ≤3%/yr management, ≤30% performance
+
+
+async def _sol_usd_live():
+    try:
+        p = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': '58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2'}])   # Raydium SOL/USDC
+        return float(next(iter(p.values())).get('priceUsd') or 0) or 150.0
+    except Exception:
+        return 150.0
+
+
+async def _vault_view(vid, v, deposit_sol=10.0):
+    pools = _vault.clean_pools(v.get('pools'))
+    pairs = await _fuse_pairs(pools)
+    meta = {k: _fuse.leg_meta(p) for k, p in pairs.items()}
+    sol_usd = await _sol_usd_live()
+    sim = _vault.simulate(pools, meta, sol_usd, deposit_sol, v.get('mgmtBps', 0), v.get('perfBps', 0))
+    return {'id': vid, **{k: v.get(k) for k in ('name', 'emoji', 'tagline', 'mgmtBps', 'perfBps', 'status', 'programId', 'createdAt')},
+            'pools': [{**p, **meta.get(p['pairAddress'], {}), 'liveWeight': sim['weights'].get(p['pairAddress'])} for p in pools],
+            'solUsd': sol_usd, 'sim': sim, 'feeWallet': _fee_cfg().get('vaultFeeWallet') or ''}
+
+
+@app.get('/api/reputation/vaults')
+async def vaults_list(deposit: float = Query(10.0, gt=0, le=100000)):
+    d = _json_load(VAULTS_PATH, {'vaults': {}})
+    return {'vaults': await asyncio.gather(*[_vault_view(vid, v, deposit) for vid, v in d['vaults'].items() if v.get('status') != 'off'])}
+
+
+@app.get('/api/reputation/vaults/pools')
+async def vault_pool_search(q: str = Query(..., min_length=2, max_length=60)):
+    """Pool picker for the vault designer: real pools only, tagged v2 (constant product) or v3 (concentrated)."""
+    async with httpx.AsyncClient(timeout=8) as http:
+        try:
+            pairs = ((await http.get('https://api.dexscreener.com/latest/dex/search', params={'q': q})).json() or {}).get('pairs') or []
+        except Exception:
+            pairs = []
+    pairs = [p for p in _fuse.real_pools(pairs) if p.get('chainId') == 'solana'][:15]
+    return {'pools': [{'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'kind': _vault.kind_of(p), 'venue': p.get('dexId'), **_fuse.leg_meta(p)} for p in pairs]}
+
+
+@app.get('/api/reputation/admin/vaults')
+async def admin_vaults(request: Request, deposit: float = Query(10.0, gt=0, le=100000)):
+    _require_admin(request)
+    d = _json_load(VAULTS_PATH, {'vaults': {}})
+    return {'vaults': await asyncio.gather(*[_vault_view(vid, v, deposit) for vid, v in d['vaults'].items()]), 'maxPools': _vault.MAX_POOLS,
+            'maxMgmtBps': VAULT_MAX_MGMT_BPS, 'maxPerfBps': VAULT_MAX_PERF_BPS, 'feeWallet': _fee_cfg().get('vaultFeeWallet') or ''}
+
+
+@app.post('/api/reputation/admin/vaults')
+async def admin_vaults_save(request: Request):
+    """Design a vault: up to 3 pools (v2/v3), base weights, per-pool caps (% of pool TVL), v3 range widths, fees.
+    Status stays 'design' until the on-chain program is deployed and audited — nothing here moves funds."""
+    admin = _require_admin(request)
+    body = await request.json()
+    async with _admin_lock:
+        d = _json_load(VAULTS_PATH, {'vaults': {}})
+        vid = body.get('id') or uuid.uuid4().hex[:10]
+        if body.get('delete'):
+            d['vaults'].pop(vid, None)
+        else:
+            pools = _vault.clean_pools(body.get('pools'))
+            name = str(body.get('name') or '').strip()[:40]
+            if not name or not 1 <= len(pools) <= _vault.MAX_POOLS:
+                raise HTTPException(400, f'A vault needs a name and 1–{_vault.MAX_POOLS} pools.')
+            prev = d['vaults'].get(vid) or {}
+            d['vaults'][vid] = {'name': name, 'emoji': str(body.get('emoji') or '🏦')[:4], 'tagline': str(body.get('tagline') or '')[:120], 'pools': pools,
+                                'mgmtBps': max(0, min(VAULT_MAX_MGMT_BPS, int(body.get('mgmtBps') or 0))), 'perfBps': max(0, min(VAULT_MAX_PERF_BPS, int(body.get('perfBps') or 0))),
+                                'status': prev.get('status', 'design') if body.get('status') not in ('design', 'off') else body['status'],
+                                'programId': prev.get('programId'), 'createdAt': prev.get('createdAt') or time.time()}
+        _json_save(VAULTS_PATH, d)
+        ad = _admin_load(); _audit(ad, admin, 'vault', json.dumps({'id': vid, 'name': body.get('name'), 'delete': body.get('delete')})[:160]); _admin_save(ad)
+    return {'ok': True, 'id': vid}
+
+
 # ---- Quest engine: 40 animated badges (FEELESS + Fee Reserve), daily/weekly quests, levels (backend/quests.py) ----
 import quests as _quests
 QUESTS_PATH = DATA_DIR / 'quests.json'            # admin: {'badges': {id: override}, 'manual': {wallet: {grant, revoke}}}
@@ -4051,7 +4128,9 @@ FEE_DEFAULTS = {'platformFeeBps': 0, 'referralAccount': '', 'tierDiscountPct': {
                 # Trading engine. 'swap' = Jupiter Swap API: FEELESS sets the fee (paid into its own SOL / USDC
                 # token accounts), caps the priority fee and broadcasts. 'ultra' = Jupiter Ultra (referral fee,
                 # 0.5–2.55%). ultraFallback: Ultra is only used when the Swap API fails AND this is switched on.
-                'engine': 'swap', 'ultraFallback': False, 'feeAccountSol': '', 'feeAccountUsdc': '', 'priorityMaxLamports': 200000}
+                'engine': 'swap', 'ultraFallback': False, 'feeAccountSol': '', 'feeAccountUsdc': '', 'priorityMaxLamports': 200000,
+                # FUSE Vault: management + performance fees are paid in SOL to this wallet.
+                'vaultFeeWallet': ''}
 JUP_MIN_BPS, JUP_MAX_BPS = 50, 255   # Jupiter Ultra referral-fee limits
 SWAP_MAX_BPS = 2000                  # FEELESS cap on the Swap API fee (20%)
 PRIORITY_MAX_LAMPORTS = 5_000_000    # never let a setting spend more than 0.005 SOL on priority
@@ -4155,6 +4234,7 @@ class FeeCfg(BaseModel):
     promo: dict = {}
     lifiIntegrator: str = ''
     lifiFeeBps: int = Field(0, ge=0, le=LIFI_MAX_BPS)
+    vaultFeeWallet: str = ''
 
     # Settings saved by older builds can come back as null or out of range: clean them instead of
     # rejecting the whole save.
@@ -4167,6 +4247,12 @@ class FeeCfg(BaseModel):
     @classmethod
     def _text(cls, v):
         return '' if v is None else str(v).strip()
+
+    @field_validator('vaultFeeWallet', mode='before')
+    @classmethod
+    def _vault_wallet(cls, v):
+        v = '' if v is None else str(v).strip()
+        return v if not v or _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', v) else ''
 
     @field_validator('tierDiscountPct', 'promo', mode='before')
     @classmethod

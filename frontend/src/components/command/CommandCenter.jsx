@@ -1,3 +1,4 @@
+import { VaultDesigner } from './VaultDesigner';
 import { FuseBuilder } from './FuseBuilder';
 import { QuestEngineAdmin } from './QuestEngineAdmin';
 import { LatencyPanel } from './LatencyPanel';
@@ -156,7 +157,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'studio' && (holders?.rows ? <AirdropStudio call={call} asset={asset} holders={holders.rows} selected={[...selected]} onScheduled={() => { loadDrops(); setTab('airdrops'); }} /> : <p className="cc-empty">Loading holders…</p>)}
     {tab === 'snapshots' && <Snapshots call={call} asset={asset} />}
     {tab === 'airdrops' && <Airdrops drops={drops} call={call} reload={loadDrops} />}
-    {tab === 'fuse' && <FuseBuilder call={call} />}{tab === 'badges' && <><QuestEngineAdmin call={call} /><AwardBadges call={call} initial={[...selected]} /></>}
+    {tab === 'fuse' && <><FuseBuilder call={call} /><VaultDesigner call={call} /></>}{tab === 'badges' && <><QuestEngineAdmin call={call} /><AwardBadges call={call} initial={[...selected]} /></>}
     {tab === 'feecat' && <FeeCatPanel call={call} />}
     {tab === 'pools' && <PoolsPanel call={call} />}
     {tab === 'fees' && <><MoneyFlows /><FeesPanel call={call} /><FeeBook call={call} /></>}
@@ -376,7 +377,7 @@ function FeesPanel({ call }) {
   const save = async (override) => {
     const cur = override && override.platformFeeBps !== undefined ? override : cfg;
     const body = { ...cur, platformFeeBps: Math.min(Number(cur.platformFeeBps) || 0, limits.maxBps), priorityMaxLamports: Number(cur.priorityMaxLamports) || 0, ultraFallback: Boolean(cur.ultraFallback), engine: cur.engine || 'swap',
-      feeAccountSol: (cur.feeAccountSol || '').trim(), feeAccountUsdc: (cur.feeAccountUsdc || '').trim(), lifiFeeBps: Number(cur.lifiFeeBps) || 0, lifiIntegrator: cur.lifiIntegrator || '', zeroFeeMints: [],
+      feeAccountSol: (cur.feeAccountSol || '').trim(), feeAccountUsdc: (cur.feeAccountUsdc || '').trim(), lifiFeeBps: Number(cur.lifiFeeBps) || 0, lifiIntegrator: cur.lifiIntegrator || '', vaultFeeWallet: (cur.vaultFeeWallet || '').trim(), zeroFeeMints: [],
       promo: { ...(cur.promo || {}), until: promoDays > 0 ? Date.now() / 1000 + promoDays * 86400 : cur.promo?.until || 0 } };
     try { const d = await call('/admin/fees', { method: 'POST', body: JSON.stringify(body) }); setCfg(d.fees); toast.success('Fee settings saved — applied to the next quote.'); } catch (e) { toast.error(e.message); }
   };
@@ -438,6 +439,9 @@ function FeesPanel({ call }) {
         <label>LI.FI fee (basis points)<UnitInput min="0" max="300" value={cfg.lifiFeeBps || 0} onChange={e => set('lifiFeeBps', e.target.value)} suffix={`= ${pct(cfg.lifiFeeBps)}`} /></label>
         <small className="cc-empty">{Number(cfg.lifiFeeBps) && cfg.lifiIntegrator ? `${pct(cfg.lifiFeeBps)} on EVM swaps, bridges and gas (LI.FI adds its own 0.25%).` : 'Register at portal.li.fi and set a fee to charge EVM routes.'}</small>
       </div>
+      <div className="cc-block fee-vault"><h4>5 · FUSE Vault fees</h4>
+        <label>Vault fee wallet<input placeholder="SOL wallet that receives vault management + performance fees" value={cfg.vaultFeeWallet || ''} onChange={e => set('vaultFeeWallet', e.target.value.trim())} data-testid="vault-fee-wallet" /></label>
+        <small className="cc-empty">{cfg.vaultFeeWallet ? 'Every FUSE Vault pays its management + performance fees here, in SOL.' : 'Set it before a vault goes live — vault fees have nowhere to go without it.'}</small></div>
     </div>
 
     <div className="cc-block fee-selftest" data-testid="fee-selftest"><h4>5 · Prove it <Explain>Runs real quotes through the same endpoints the swap boxes use. Nothing is signed or sent. A pass means FEELESS is paid on real trades.</Explain></h4>
