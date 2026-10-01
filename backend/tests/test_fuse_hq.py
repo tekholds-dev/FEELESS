@@ -65,3 +65,31 @@ def test_unfuse_realizes_from_sells_once():
     assert r['legs'][0]['valueUsd'] == 2.6 and not r['closed']
     pos, n2 = hq.close_legs(pos, [{'tx': 's2', 'token': 'MA', 'usd': 9}, {'tx': 's3', 'token': 'MB', 'usd': 3.3}])
     assert n2 == 1 and pos['legs'][0]['soldUsd'] == 2.6 and hq.position_pnl(pos, {})['closed']
+
+
+def test_fuse_card_meta_and_svg_are_safe():
+    v = {'name': '<script>x</script>', 'creatorBps': 2500, 'score': {'grade': 'A'}, 'legs': [{'symbol': 'A&B', 'weight': 60}, {'symbol': 'C', 'weight': 40}]}
+    m = hq.card_meta('f1', v, 'https://feeless.app')
+    assert m['symbol'] == 'FUSE' and m['image'].endswith('/fuse-card/f1.svg') and {'trait_type': 'Rarity', 'value': 'Legendary'} in m['attributes'] and '25%' in m['description']
+    svg = hq.card_svg(v)
+    assert '<script>' not in svg and '&lt;script&gt;' in svg and 'A&amp;B' in svg and svg.startswith('<svg')
+
+
+def test_basket_limits():
+    import pytest
+    g = hq.clean_guard({'tp': 50, 'sl': 20, 'trail': 0})
+    assert g == {'tp': 50, 'sl': 20, 'trail': None}
+    with pytest.raises(ValueError):
+        hq.clean_guard({})
+    assert hq.guard_check(g, 55)[0] == 'tp' and hq.guard_check(g, -21)[0] == 'sl' and hq.guard_check(g, 10)[0] is None
+    t = {'trail': 15, 'peak': 40}
+    assert hq.guard_check(t, 30) == (None, 40) and hq.guard_check(t, 24)[0] == 'trail' and hq.guard_check(t, 60) == (None, 60)
+
+
+def test_creator_season_ranks_by_buyers_real_pnl():
+    fz = {'F1': {'creator': 'C1', 'name': 'Core'}, 'F2': {'creator': 'C2', 'name': 'Meme'}}
+    R = lambda w, f, cost, val, at=10: {'wallet': w, 'fuseId': f, 'costUsd': cost, 'valueUsd': val, 'pnlUsd': val - cost, 'at': at}
+    rows = [R('a', 'F1', 10, 12), R('b', 'F1', 10, 11), R('C1', 'F1', 100, 500), R('a', 'F2', 10, 30), R('old', 'F1', 10, 0, at=1)]
+    b = hq.creator_board(rows, fz, since=5)
+    assert b[0]['creator'] == 'C1' and b[0]['buyers'] == 2 and b[0]['pnlPct'] == 15.0 and b[0]['ranked']   # creator's own 5x ignored
+    assert b[1]['creator'] == 'C2' and not b[1]['ranked']                                                  # one buyer can't rank

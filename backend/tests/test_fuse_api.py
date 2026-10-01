@@ -170,3 +170,44 @@ def test_unfuse_close_needs_your_verified_sells(monkeypatch):
     assert asyncio.run(rs.fuse_position_close(rs.FuseCloseIn(address=W, session='s', id='p1', signatures=['SELL1'])))['closedLegs'] == 1
     with pytest.raises(rs.HTTPException):
         asyncio.run(rs.fuse_position_close(rs.FuseCloseIn(address=W, session='s', id='nope', signatures=['SELL1'])))
+
+
+def test_fuse_card_holder_gets_paid_and_public_files(monkeypatch):
+    async def pairs(legs): return {leg['pairAddress']: PAIRS[leg['pairAddress']] for leg in legs}
+    async def owner(asset): return 'HOLDER' + '1' * 38
+    async def ok(*a): return None
+    monkeypatch.setattr(rs, '_fuse_pairs', pairs); monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN'); monkeypatch.setattr(rs, '_require_owner', lambda r: 'OWNER')
+    monkeypatch.setattr(rs, '_asset_owner', owner); monkeypatch.setattr(rs, '_nft_verify', ok)
+    fid = asyncio.run(rs.admin_fuses_save(Req({'name': 'Card me', 'creator': 'CREATOR', 'legs': [{'chainId': 'solana', 'pairAddress': 'P1', 'weight': 1}, {'chainId': 'solana', 'pairAddress': 'P2', 'weight': 1}]})))['id']
+    col, asset = 'C' * 43, 'A' * 43
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.fuse_card_minted(Req(), fid, rs.FuseCardIn(signature='s', asset=asset)))          # needs the collection first
+    asyncio.run(rs.fuse_card_collection(Req(), rs.FuseCardIn(signature='s', collection=col)))
+    asyncio.run(rs.fuse_card_minted(Req(), fid, rs.FuseCardIn(signature='s', asset=asset)))
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.fuse_card_minted(Req(), fid, rs.FuseCardIn(signature='s', asset=asset)))          # 1 of 1
+    row = next(r for r in asyncio.run(rs.admin_fuses(Req()))['fuses'] if r['id'] == fid)
+    assert row['payTo'].startswith('HOLDER') and row['card']['asset'] == asset
+    class R:
+        base_url = 'https://x.test/'
+    meta = asyncio.run(rs.fuse_card_public(f'{fid}.json', R()))
+    assert meta['symbol'] == 'FUSE' and meta['image'] == f'https://x.test/api/reputation/fuse-card/{fid}.svg'
+    assert asyncio.run(rs.fuse_card_public(f'{fid}.svg', R())).media_type == 'image/svg+xml'
+
+
+def test_basket_guard_fires_once_with_unfuse_link(monkeypatch):
+    px = {'P1': 2.0}
+    async def prices(legs): return {leg['pairAddress']: px['P1'] for leg in legs}
+    sent = []
+    monkeypatch.setattr(rs, '_hq_prices', prices); monkeypatch.setattr(rs, '_session_or_401', lambda a, s: rs.primary_of(a))
+    monkeypatch.setattr(rs, 'notify', lambda *a, **k: sent.append((a, k)))
+    me = rs.primary_of(W)
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'g1', 'wallet': me, 'name': 'Core', 'at': 1, 'legs': [{'pairAddress': 'P1', 'mint': 'M', 'usd': 2, 'tokens': 1}]}]})
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.fuse_guard(rs.FuseGuardIn(address=W, session='s', id='g1')))          # nothing set
+    asyncio.run(rs.fuse_guard(rs.FuseGuardIn(address=W, session='s', id='g1', tp=50, sl=20)))
+    assert asyncio.run(rs._fuse_guard_tick()) == 0
+    px['P1'] = 3.2                                                                          # +60%
+    assert asyncio.run(rs._fuse_guard_tick()) == 1 and asyncio.run(rs._fuse_guard_tick()) == 0
+    a, k = sent[0]
+    assert 'Take-profit' in a[2] and k['url'].endswith('unfuse=g1') and k['meta']['source']

@@ -1,6 +1,7 @@
 import { VaultDesigner } from './VaultDesigner';
 import { FuseBuilder } from './FuseBuilder';
 import { BotShield } from './BotShield';
+import { FuseCardMint } from '../nft/FuseCardMint';
 import { FuseLab } from '../FuseLab';
 import { FuseHQ } from '../FuseHQ';
 import { FuseDeck } from '../FuseDeck';
@@ -137,7 +138,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     </section>}
     {tab === 'overview' && <Overview sec={sec} reload={loadSec} />}
     {tab === 'investigate' && <IntelDesk call={call} />}
-    {tab === 'nfts' && (isOwner ? <Suspense fallback={<p className="cc-empty">Opening the studio…</p>}><NftStudio call={call} /></Suspense> : <p className="cc-empty">Only owner wallets can create and drop NFT collections.</p>)}
+    {tab === 'nfts' && (isOwner ? <Suspense fallback={<p className="cc-empty">Opening the studio…</p>}><FuseCardMint call={call} /><NftStudio call={call} /></Suspense> : <p className="cc-empty">Only owner wallets can create and drop NFT collections.</p>)}
     {tab === 'holders' && <section className="cc-panel">
       <div className="cc-toolbar">
         <select value={asset} onChange={e => { setAsset(e.target.value); setSelected(new Set()); }}>{(holders?.assets || ['fee', 'feecat', 'rfee']).map(a => <option key={a} value={a}>{a.toUpperCase()}</option>)}</select>

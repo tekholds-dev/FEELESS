@@ -17,7 +17,7 @@ test('champion card: pools on the front, flip button shows why it won', async ()
   expect(el.textContent).toContain('AAA · BBB'); expect(el.textContent).toContain('GEN 04');
   await act(async () => { el.querySelector('[data-testid="fuse-card-flip-0"]').click(); });
   expect(el.querySelector('[data-testid="fuse-card-flip-0"]').getAttribute('aria-label')).toBe('Show front');
-  expect(el.textContent).toContain('WHY IT WON');
+  expect(el.textContent).toContain('$20 IN · LAST 24H');
 });
 
 test('bot shield lists cited flags and a Clear goes to the server', async () => {
@@ -46,4 +46,11 @@ test('card crest walks the logo fallback chain, then the glyph', async () => {
   expect(img().getAttribute('href')).toBe('https://x/b.png');
   await act(async () => { img().dispatchEvent(new Event('error')); });
   expect(img()).toBeNull(); expect(el.querySelector('.mc-crest text').textContent).toBe('A');
+});
+
+test('card math: each leg $ slice × its 24h move, minus fee drag', () => {
+  const { cardMath } = require('./FuseCard');
+  const m = cardMath({ parts: { feeDragPct: 1 }, legs: [{ pairAddress: 'a', weight: 60, change24h: 10 }, { pairAddress: 'b', weight: 40, change24h: -5 }] }, 20);
+  expect(m.legs[0].usd).toBe(12); expect(m.legs[0].pnl).toBeCloseTo(1.2); expect(m.legs[1].pnl).toBeCloseTo(-0.4);
+  expect(m.gross).toBeCloseTo(0.8); expect(m.fees).toBeCloseTo(0.2); expect(m.end).toBeCloseTo(20.6);
 });

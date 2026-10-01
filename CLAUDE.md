@@ -132,6 +132,17 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Hourly loop `_fuse_autopilot_tick`: settles 24h arena runs, enters each strategy's champion once/hour (`auto: True`),
   then `_shield_alerts` → admin inbox once per newly flagged bot. Published Fuses rank by `fuse_hq.trust_rank`.
 - Hover explainers: `[data-tip]` inside `.fe` / `.frail` (CSS tooltip, focus too). Explain every gene/control there.
+- Card backs = money math (`cardMath`): per leg weight %, $ slice of the budget, its 24h move in % and $, total, fee drag,
+  "$B → $end". Always labelled a replay of the last 24h, never a forecast.
+- Basket limits (`fuse_hq.clean_guard/guard_check`, `POST /fuses/guard`, 60s `_fuse_guard_tick`): TP / SL / trailing on a
+  position; free to set, fees only on the actual Unfuse; fires once → inbox + phone with `?unfuse=<id>` (opens the exit).
+  FEELESS never signs for the user.
+- Fuse cards NFT (Cmd Ctr › NFTs, `FuseCardMint`): Metaplex Core collection once, 1/1 card per published Fuse
+  (`/fuse-card/{fid}.json|svg`, `fuse_hq.card_meta/card_svg`); creator cut is paid to the card's on-chain holder
+  (`_fuse_pay_to` via DAS getAsset, 5 min cache).
+- Creator season (Trade › Fuse side panel › 🏅 Creators, `GET /fuses/creators`, `fuse_hq.creator_board`): weekly, ranked by
+  buyers' real P&L; own buys excluded, ≥2 buyers to rank.
+- Tooltips sitewide: `data-tip="…"` + `lib/tipLayer.js` (one fixed bubble on body, never clipped). Don't build CSS ::after tips.
 - FeeCat Fuse: NOT built on purpose — only after a strategy beats holding SOL in the arena over weeks.
 - One-click Fuse in (`FuseGo` + `lib/fuseGo.js`): quote+simulate every leg in parallel (refresh 10s), review must match
   (`orderMatches`), ONE `signAllTransactions`, then `/execute` each leg. Same trading path as Quick trade — no new money path.

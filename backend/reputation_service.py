@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from urllib.parse import quote
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -2909,6 +2909,87 @@ async def fuse_position_close(p: FuseCloseIn):
     return {'ok': True, 'closedLegs': n}
 
 
+class FuseGuardIn(BaseModel):
+    address: str
+    session: str
+    id: str
+    tp: float = 0
+    sl: float = 0
+    trail: float = 0
+    off: bool = False
+
+
+@app.post('/api/reputation/fuses/guard')
+async def fuse_guard(p: FuseGuardIn):
+    """Basket limits on YOUR Fuse position. Setting them costs nothing: fees are only paid if and when you Unfuse."""
+    me = _session_or_401(p.address, p.session)
+    mine = set(linked_of(me)) | {me}
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {})
+        pos = next((x for x in d.get('positions') or [] if x['id'] == p.id and x['wallet'] in mine), None)
+        if not pos:
+            raise HTTPException(404, 'No such Fuse position for this wallet.')
+        if p.off:
+            pos.pop('guard', None)
+        else:
+            try:
+                g = _hq.clean_guard(p.dict())
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            pos['guard'] = {**g, 'peak': 0.0, 'armedAt': time.time(), 'firedAt': None}
+        _json_save(FUSE_HQ_PATH, d)
+    return {'ok': True, 'guard': pos.get('guard')}
+
+
+async def _fuse_guard_tick():
+    """Every minute: value open, guarded positions; when a limit hits, alert the holder once (inbox + phone) with a
+    one-tap Unfuse link. FEELESS never signs for you — the exit is still your wallet's approval."""
+    d = _json_load(FUSE_HQ_PATH, {})
+    live = [x for x in d.get('positions') or [] if x.get('guard') and not x['guard'].get('firedAt') and not x.get('closedAt')]
+    if not live:
+        return 0
+    px = await _hq_prices([leg for x in live for leg in x['legs']])
+    hits, peaks = [], {}
+    for x in live:
+        r = _hq.position_pnl(x, px)
+        hit, peak = _hq.guard_check(x['guard'], r['pnlPct'])
+        peaks[x['id']] = peak
+        if hit:
+            hits.append((x, hit, r))
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {})
+        by = {x['id']: x for x in d.get('positions') or []}
+        for pid, pk in peaks.items():
+            if pid in by and by[pid].get('guard'):
+                by[pid]['guard']['peak'] = round(pk, 2)
+        for x, hit, r in hits:
+            if by.get(x['id'], {}).get('guard'):
+                by[x['id']]['guard']['firedAt'] = time.time(); by[x['id']]['guard']['hit'] = hit
+        _json_save(FUSE_HQ_PATH, d)
+    label = {'tp': '🎯 Take-profit hit', 'sl': '🛑 Stop-loss hit', 'trail': '📉 Trailing stop hit'}
+    for x, hit, r in hits:
+        notify(x['wallet'], 'fuse-guard', f"{label[hit]} on {x.get('name') or 'your Fuse'}: {r['pnlPct']:+.1f}% ({'+' if r['pnlUsd'] >= 0 else '−'}${abs(r['pnlUsd']):.2f}). Tap to Unfuse.",
+               url=f"/terminal/trade?tab=fuse&unfuse={x['id']}", once=f"guard-{x['id']}-{x['guard'].get('armedAt')}",
+               meta={'claim': f"Basket P&L {r['pnlPct']:+.1f}% vs your limit", 'source': 'Fuse P&L (live DexScreener prices)'})
+    return len(hits)
+
+
+async def _fuse_guard_loop():
+    await asyncio.sleep(45)
+    while True:
+        try:
+            await _fuse_guard_tick()
+        except Exception as e:
+            print('fuse guard:', e)
+        await asyncio.sleep(60)
+
+
+@app.on_event('startup')
+async def _fuse_guard_start():
+    if not os.environ.get('PYTEST_CURRENT_TEST'):
+        asyncio.create_task(_fuse_guard_loop())
+
+
 async def _hq_prices(legs):
     pairs = await _fuse_pairs([{'chainId': leg.get('chainId', 'solana'), 'pairAddress': leg['pairAddress']} for leg in legs])
     return {k: _fuse._f(v.get('priceUsd')) for k, v in pairs.items()}
@@ -2919,11 +3000,30 @@ async def fuse_pnl(address: str):
     mine = set(linked_of(primary_of(address))) | {primary_of(address), address}
     pos = [x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if x['wallet'] in mine]
     px = await _hq_prices([leg for x in pos for leg in x['legs']]) if pos else {}
-    rows = sorted((_hq.position_pnl(x, px) for x in pos), key=lambda r: -(r['at'] or 0))
+    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard')} for x in pos), key=lambda r: -(r['at'] or 0))
     return {**_hq.book(rows), 'rows': rows[:20]}
 
 
 _fuse_holders_cache: dict = {}
+
+
+@app.get('/api/reputation/fuses/creators')
+async def fuse_creators():
+    """Fuse creator season (this week, from Monday 00:00 UTC): ranked by buyers' real P&L. 60s cache."""
+    hit = _fuse_holders_cache.get('creators')
+    if hit and time.time() - hit[0] < 60:
+        return hit[1]
+    now = time.time(); since = now - ((time.gmtime(now).tm_wday * 86400) + now % 86400)
+    pos = [x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if (x.get('at') or 0) >= since and x.get('fuseId')]
+    px = await _hq_prices([leg for x in pos for leg in x['legs']]) if pos else {}
+    fz = {fid: {'creator': f.get('creator'), 'name': f.get('name')} for fid, f in _json_load(FUSES_PATH, {'fuses': {}})['fuses'].items()}
+    board = _hq.creator_board([{**_hq.position_pnl(x, px), 'wallet': x['wallet'], 'fuseId': x['fuseId'], 'at': x.get('at')} for x in pos], fz, since)
+    out = {'since': since, 'endsAt': since + 7 * 86400, 'minBuyers': _hq.MIN_BUYERS, 'rows': [{**r, 'handle': handle_of(r['creator'])} for r in board[:30]]}
+    _fuse_holders_cache['creators'] = (time.time(), out)
+    return out
+
+
+
 
 
 @app.get('/api/reputation/fuses/holders')
@@ -3156,6 +3256,107 @@ async def fuse_best3(p: FuseLiteIn):
     return out
 
 
+# ---- Fuse cards: 1/1 Metaplex Core NFT per published Fuse; the HOLDER is paid its creator cut -------------------------
+_asset_owner_cache: dict = {}
+
+
+async def _asset_owner(asset):
+    """Current owner of a Core asset (DAS getAsset), cached 5 min. None if unknown."""
+    hit = _asset_owner_cache.get(asset)
+    if hit and time.time() - hit[0] < 300:
+        return hit[1]
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            r = await _rpc(http, 'getAsset', {'id': asset})
+        owner = ((r or {}).get('ownership') or {}).get('owner')
+    except Exception:
+        owner = None
+    _asset_owner_cache[asset] = (time.time(), owner)
+    return owner
+
+
+async def _fuse_pay_to(f):
+    """Who the creator cut is paid to: the card's on-chain holder if the Fuse has a card, else the creator."""
+    card = f.get('card') or {}
+    return (await _asset_owner(card['asset']) if card.get('asset') else None) or f.get('creator')
+
+
+def _site(request):
+    return os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/') or str(request.base_url).rstrip('/')
+
+
+@app.get('/api/reputation/fuse-card/{name}')
+async def fuse_card_public(name: str, request: Request):
+    """Public card files: collection.json, {fid}.json (Metaplex metadata), {fid}.svg (image)."""
+    if name == 'collection.json':
+        return {'name': 'FEELESS Fuse Cards', 'symbol': 'FUSE', 'description': 'Each card is one published FEELESS Fuse. Its holder earns that Fuse\'s creator cut.',
+                'image': f'{_site(request)}/api/reputation/fuse-card/collection.svg'}
+    m = _re.match(r'^([a-f0-9]{6,16}|collection)\.(json|svg)$', name)
+    store = _json_load(FUSES_PATH, {'fuses': {}})
+    if not m:
+        raise HTTPException(404, 'Not found')
+    if m.group(1) == 'collection':
+        view = {'name': 'Fuse Cards', 'score': {'grade': 'A'}, 'legs': []}
+    else:
+        f = store['fuses'].get(m.group(1))
+        if not f:
+            raise HTTPException(404, 'Not found')
+        view = await _fuse_view(m.group(1), f, store)
+    if m.group(2) == 'svg':
+        return Response(_hq.card_svg(view), media_type='image/svg+xml', headers={'Cache-Control': 'public, max-age=600'})
+    return _hq.card_meta(m.group(1), view, _site(request))
+
+
+class FuseCardIn(BaseModel):
+    signature: str
+    collection: str = ''
+    asset: str = ''
+
+
+@app.post('/api/reputation/admin/fuses/card-collection')
+async def fuse_card_collection(request: Request, p: FuseCardIn):
+    """Record the Fuse Cards collection the owner's wallet created (verified on-chain)."""
+    me = _require_owner(request)
+    if not _re.match(_B58, p.collection):
+        raise HTTPException(400, 'Bad collection address.')
+    await _nft_verify(p.signature, me, [p.collection])
+    async with _admin_lock:
+        d = _json_load(FUSES_PATH, {'fuses': {}}); d['cardCollection'] = {'address': p.collection, 'sig': p.signature, 'at': time.time()}; _json_save(FUSES_PATH, d)
+    return {'ok': True}
+
+
+@app.post('/api/reputation/admin/fuses/{fid}/card')
+async def fuse_card_minted(request: Request, fid: str, p: FuseCardIn):
+    """Record a minted Fuse card (verified on-chain). From now on the card's holder is paid the creator cut."""
+    me = _require_owner(request)
+    if not _re.match(_B58, p.asset):
+        raise HTTPException(400, 'Bad asset address.')
+    d = _json_load(FUSES_PATH, {'fuses': {}})
+    col = (d.get('cardCollection') or {}).get('address')
+    if not col or fid not in d['fuses']:
+        raise HTTPException(404, 'Create the Fuse Cards collection and publish this Fuse first.')
+    if (d['fuses'][fid].get('card') or {}).get('asset'):
+        raise HTTPException(400, 'This Fuse already has its card (1 of 1).')
+    await _nft_verify(p.signature, me, [p.asset, col])
+    async with _admin_lock:
+        d = _json_load(FUSES_PATH, {'fuses': {}})
+        d['fuses'][fid]['card'] = {'asset': p.asset, 'sig': p.signature, 'at': time.time()}
+        _json_save(FUSES_PATH, d)
+    ad = _admin_load(); _audit(ad, me, 'fuse-card', f'{fid} → {p.asset[:8]}…'); _admin_save(ad)
+    return {'ok': True}
+
+
+@app.get('/api/reputation/admin/fuses/cards')
+async def fuse_cards_admin(request: Request):
+    """NFT tab: collection status + every published Fuse with its card, current holder (paid the cut) and owed amount."""
+    _require_admin(request)
+    store = _json_load(FUSES_PATH, {'fuses': {}})
+    views = await asyncio.gather(*[_fuse_view(fid, f, store) for fid, f in store['fuses'].items()])
+    pay = await asyncio.gather(*[_fuse_pay_to(f) for f in store['fuses'].values()])
+    rows = [{**v, 'card': store['fuses'][v['id']].get('card'), 'payTo': p} for v, p in zip(views, pay)]
+    return {'collection': store.get('cardCollection'), 'rows': rows, 'site': _site(request)}
+
+
 class FuseBuy(BaseModel):
     address: str
     session: str
@@ -3192,7 +3393,9 @@ async def fuse_buy(fid: str, payload: FuseBuy):
 async def admin_fuses(request: Request):
     _require_admin(request)
     store = _json_load(FUSES_PATH, {'fuses': {}})
-    return {'fuses': await asyncio.gather(*[_fuse_view(fid, f, store) for fid, f in store['fuses'].items()]), 'maxCreatorBps': _fuse.MAX_CREATOR_BPS, 'maxLegs': _fuse.MAX_LEGS}
+    views = await asyncio.gather(*[_fuse_view(fid, f, store) for fid, f in store['fuses'].items()])
+    pay = await asyncio.gather(*[_fuse_pay_to(store['fuses'][v['id']]) for v in views])
+    return {'fuses': [{**v, 'payTo': p, 'card': store['fuses'][v['id']].get('card')} for v, p in zip(views, pay)], 'maxCreatorBps': _fuse.MAX_CREATOR_BPS, 'maxLegs': _fuse.MAX_LEGS}
 
 
 @app.post('/api/reputation/admin/fuses')

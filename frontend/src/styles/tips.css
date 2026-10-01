@@ -1,0 +1,6 @@
+/* Sitewide tooltip layer (lib/tipLayer.js): one fixed bubble for every [data-tip], never clipped by a card. */
+.tip-layer { position: fixed; left: 0; top: 0; z-index: 9999; max-width: 280px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--m-accent); background: #03100a; color: #eafff3;
+  font: 500 11.5px/1.45 system-ui, sans-serif; box-shadow: 0 12px 30px -12px #000, 0 0 18px -8px var(--m-accent); pointer-events: none; opacity: 0; transition: opacity .12s; }
+.tip-layer.on { opacity: 1; } [data-tip] { cursor: help; } button[data-tip], label[data-tip] { cursor: pointer; }
+body.theme-day .tip-layer { background: #ffffff; color: #0f2419; }
+@media (prefers-reduced-motion: reduce) { .tip-layer { transition: none; } }

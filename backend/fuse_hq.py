@@ -153,3 +153,87 @@ def close_legs(pos, sells):
         if hit:
             leg['soldUsd'] = round(_f(hit.get('usd')), 6); leg['sellSig'] = hit.get('tx'); n += 1
     return pos, n
+
+
+# ---- Fuse cards (NFT): one 1/1 Metaplex Core asset per published Fuse; its HOLDER is paid the creator cut ----------
+RARITY = {'A': 'Legendary', 'B': 'Epic', 'C': 'Rare', 'D': 'Common', 'F': 'Common'}
+
+
+def _esc(t):
+    return str(t or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+
+
+def card_meta(fid, view, site):
+    """Metaplex JSON for a Fuse card: name, image (our SVG), attributes = the Fuse's real makeup at mint time."""
+    g = (view.get('score') or {}).get('grade', 'C')
+    return {'name': f"FUSE · {view.get('name', 'Fuse')}"[:32], 'symbol': 'FUSE',
+            'description': f"FEELESS Fuse card. Holder earns the creator cut ({(view.get('creatorBps') or 0) / 100:g}% of the FEELESS fee) on every verified buy of this Fuse.",
+            'image': f'{site}/api/reputation/fuse-card/{fid}.svg', 'external_url': f'{site}/terminal/trade?tab=fuse',
+            'attributes': [{'trait_type': 'Grade', 'value': g}, {'trait_type': 'Rarity', 'value': RARITY.get(g, 'Rare')},
+                           {'trait_type': 'Pools', 'value': len(view.get('legs') or [])}, {'trait_type': 'Creator cut', 'value': f"{(view.get('creatorBps') or 0) / 100:g}%"}]
+            + [{'trait_type': f"Leg {i + 1}", 'value': f"{l.get('symbol')} {round(_f(l.get('weight')))}%"} for i, l in enumerate((view.get('legs') or [])[:10])],
+            'properties': {'category': 'image', 'files': [{'uri': f'{site}/api/reputation/fuse-card/{fid}.svg', 'type': 'image/svg+xml'}]}}
+
+
+def card_svg(view):
+    """A static card image (no scripts, escaped text) in the MetaCard layout: label + pips, grade crest, name, legs, footer."""
+    g = (view.get('score') or {}).get('grade', 'C')
+    pips = {'A': 5, 'B': 4, 'C': 3, 'D': 2, 'F': 1}.get(g, 3)
+    legs = (view.get('legs') or [])[:5]
+    rows = ''.join(f'<text x="40" y="{318 + i * 22}" font-size="15" fill="#eafff3" font-family="monospace">{_esc(l.get("symbol"))}</text>'
+                   f'<text x="340" y="{318 + i * 22}" font-size="15" fill="#19f58f" text-anchor="end" font-family="monospace">{round(_f(l.get("weight")))}%</text>' for i, l in enumerate(legs))
+    dots = ''.join(f'<rect x="{292 + i * 13}" y="34" width="8" height="8" transform="rotate(45 {296 + i * 13} 38)" fill="{"#19f58f" if i < pips else "none"}" stroke="#19f58f"/>' for i in range(5))
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 532" width="380" height="532">'
+            f'<defs><radialGradient id="b" cx="50%" cy="0%" r="90%"><stop offset="0" stop-color="#19f58f" stop-opacity=".35"/><stop offset="1" stop-color="#030a06"/></radialGradient></defs>'
+            f'<rect x="4" y="4" width="372" height="524" rx="28" fill="url(#b)" stroke="#f5c451" stroke-width="3"/>'
+            f'<text x="34" y="44" font-size="16" letter-spacing="3" fill="#19f58f" font-family="monospace">FUSE</text>{dots}'
+            f'<circle cx="190" cy="160" r="78" fill="#020805" stroke="#19f58f" stroke-width="4"/><circle cx="190" cy="160" r="92" fill="none" stroke="#f5c451" stroke-dasharray="2 6"/>'
+            f'<text x="190" y="185" font-size="72" text-anchor="middle" fill="#eafff3" font-family="sans-serif" font-weight="700">{_esc(g)}</text>'
+            f'<text x="190" y="282" font-size="24" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-weight="700">{_esc(view.get("name"))[:22]}</text>{rows}'
+            f'<line x1="34" y1="470" x2="346" y2="470" stroke="#19f58f" stroke-opacity=".3"/>'
+            f'<text x="34" y="500" font-size="14" fill="#9fd9b8" font-family="monospace">{RARITY.get(g, "Rare").upper()}</text>'
+            f'<text x="346" y="500" font-size="14" fill="#f5c451" text-anchor="end" font-family="monospace">FEELESS</text></svg>')
+
+
+# ---- Basket limits: take-profit / stop-loss / trailing stop on a whole Fuse position ---------------------------------
+def clean_guard(g):
+    """tp/sl/trail in % (tp 1–1000, sl 1–95, trail 1–90); any may be off (None). At least one must be set."""
+    def pct(v, lo, hi):
+        x = _f(v)
+        return round(min(hi, max(lo, x)), 2) if x > 0 else None
+    out = {'tp': pct(g.get('tp'), 1, 1000), 'sl': pct(g.get('sl'), 1, 95), 'trail': pct(g.get('trail'), 1, 90)}
+    if not any(out.values()):
+        raise ValueError('Set a take-profit, stop-loss or trailing stop.')
+    return out
+
+
+def guard_check(guard, pnl_pct):
+    """→ (hit, peak). hit = 'tp' | 'sl' | 'trail' | None. Trailing fires when the basket falls `trail` points below its best."""
+    peak = max(_f(guard.get('peak')), pnl_pct)
+    if guard.get('tp') and pnl_pct >= guard['tp']:
+        return 'tp', peak
+    if guard.get('sl') and pnl_pct <= -guard['sl']:
+        return 'sl', peak
+    if guard.get('trail') and peak > 0 and peak - pnl_pct >= guard['trail']:
+        return 'trail', peak
+    return None, peak
+
+
+MIN_BUYERS = 2
+
+
+def creator_board(rows, fuses, since=0):
+    """Weekly Fuse creator season: creators ranked by their BUYERS' combined real P&L on Fuses opened since `since`.
+    rows = valued positions (position_pnl + wallet + fuseId); fuses = {fid: {creator, name}}. The creator's own buys don't
+    count; a creator needs MIN_BUYERS outside buyers to rank (no farming with one friend)."""
+    by = {}
+    for r in rows:
+        f = fuses.get(r.get('fuseId') or '')
+        if not f or (r.get('at') or 0) < since or r.get('wallet') == f.get('creator'):
+            continue
+        c = by.setdefault(f['creator'], {'creator': f['creator'], 'fuses': set(), 'buyers': set(), 'costUsd': 0.0, 'valueUsd': 0.0, 'wins': 0, 'n': 0})
+        c['fuses'].add(f.get('name')); c['buyers'].add(r['wallet']); c['costUsd'] += r['costUsd']; c['valueUsd'] += r['valueUsd']; c['n'] += 1; c['wins'] += r['pnlUsd'] > 0
+    out = [{'creator': c['creator'], 'fuses': sorted(x for x in c['fuses'] if x)[:3], 'buyers': len(c['buyers']), 'costUsd': round(c['costUsd'], 2),
+            'pnlPct': round((c['valueUsd'] / c['costUsd'] - 1) * 100, 2) if c['costUsd'] else 0.0, 'winRate': round(c['wins'] / c['n'] * 100), 'ranked': len(c['buyers']) >= MIN_BUYERS}
+           for c in by.values()]
+    return sorted(out, key=lambda x: (not x['ranked'], -x['pnlPct'], -x['buyers']))

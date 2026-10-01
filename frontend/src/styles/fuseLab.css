@@ -224,14 +224,8 @@ body.theme-day .bsh-engine, body.theme-day .bsh-row { background: var(--m-surfac
 .fg-rcpt td small { display: block; color: var(--m-dim); font-size: 9px; } .fg-rcpt tfoot td { border-top: 1px solid var(--m-line-hi); font-weight: 700; color: var(--m-text); }
 .fg-rcpt-note { margin: 0; font-size: 11px; color: var(--m-dim); } .fg-rcpt-note b { color: var(--m-text); }
 .fg-rcpt { overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
-/* Hover / focus explainers: any [data-tip] inside Fuse surfaces. */
-.fe [data-tip], .frail [data-tip], .fdeck [data-tip] { position: relative; }
-.fe [data-tip]::after, .frail [data-tip]::after { content: attr(data-tip); position: absolute; left: 50%; bottom: calc(100% + 8px); z-index: 30; width: max-content; max-width: 260px;
-  padding: 8px 10px; border-radius: 8px; border: 1px solid var(--m-accent); background: #03100a; color: #eafff3; font: 500 11.5px/1.45 inherit; letter-spacing: 0; text-transform: none; text-align: left; white-space: normal;
-  box-shadow: 0 12px 30px -12px #000, 0 0 18px -8px var(--m-accent); pointer-events: none; opacity: 0; transform: translate(-50%, 4px); transition: opacity .15s, transform .15s var(--m-ease); }
-.fe [data-tip]:hover::after, .fe [data-tip]:focus-visible::after, .fe [data-tip]:focus-within::after, .frail [data-tip]:hover::after, .frail [data-tip]:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+
 .fe-gene small i { font-style: normal; display: inline-grid; place-items: center; width: 13px; height: 13px; margin-left: 4px; border-radius: 50%; border: 1px solid var(--m-line-hi); font-size: 8px; color: var(--m-accent); }
-body.theme-day .fe [data-tip]::after, body.theme-day .frail [data-tip]::after { background: #ffffff; color: #0f2419; }
 /* Strategy cards (replace the wrapping pill row). */
 .fe-styles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
 .fe-style { display: grid; gap: 3px; text-align: left; padding: 10px 12px; border: 1px solid var(--m-line); border-radius: 10px; background: var(--m-surface); color: var(--m-text); font: inherit; cursor: pointer; transition: border-color .15s, background .15s, transform .12s var(--m-ease), box-shadow .15s; }
@@ -257,20 +251,20 @@ body.theme-day .fe [data-tip]::after, body.theme-day .frail [data-tip]::after { 
 .frail-ghost { width: 190px; height: 300px; border-radius: 16px; border: 1px solid var(--m-line); background: var(--m-surface); animation: mGhost 1.2s ease-in-out infinite alternate; }
 .fe-champ { animation: fcdDeal .45s var(--m-ease) backwards; }
 body.fx-lite .frail-item, body.fx-lite .fe-champ { animation: none; }
-@media (prefers-reduced-motion: reduce) { .frail-item, .fe-champ, .frail-ghost { animation: none; } .fe [data-tip]::after, .frail [data-tip]::after { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .frail-item, .fe-champ, .frail-ghost { animation: none; } }
 /* Fuse chat side panel: chat ⇄ holders slide. */
 .fz-split-view { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; align-items: start; }
 .fz-split-view > .fl { margin-bottom: 0; }
 .fside { position: sticky; top: 12px; display: grid; grid-template-rows: auto 1fr; height: min(78vh, 760px); padding: 0; overflow: hidden; }
-.fside-tabs { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 4px; margin: 10px; border: 1px solid var(--m-line); border-radius: 10px; background: var(--m-bg); }
+.fside-tabs { position: relative; display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 4px; margin: 10px; border: 1px solid var(--m-line); border-radius: 10px; background: var(--m-bg); }
 .fside-tabs button { position: relative; z-index: 1; border: 0; background: none; color: var(--m-dim); padding: 8px; font: 600 12px inherit; cursor: pointer; border-radius: 7px; transition: color .2s; }
 .fside-tabs button[aria-selected='true'] { color: var(--m-accent-ink); } .fside-tabs button:hover:not([aria-selected='true']) { color: var(--m-text); }
 .fside-tabs button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
-.fside-ink { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 7px; background: var(--m-accent); box-shadow: 0 6px 18px -8px var(--m-accent); transition: transform .28s var(--m-ease); }
-.fside-tabs[data-pane='holders'] .fside-ink { transform: translateX(100%); }
+.fside-ink { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(33.333% - 2.67px); border-radius: 7px; background: var(--m-accent); box-shadow: 0 6px 18px -8px var(--m-accent); transition: transform .28s var(--m-ease); }
+.fside-tabs[data-pane='holders'] .fside-ink { transform: translateX(100%); } .fside-tabs[data-pane='creators'] .fside-ink { transform: translateX(200%); }
 .fside-view { min-height: 0; overflow: hidden; }
-.fside-track { display: grid; grid-template-columns: 100% 100%; height: 100%; transition: transform .32s var(--m-ease); }
-.fside-track.at-holders { transform: translateX(-100%); }
+.fside-track { display: grid; grid-template-columns: 100% 100% 100%; height: 100%; transition: transform .32s var(--m-ease); }
+.fside-track.at-holders { transform: translateX(-100%); } .fside-track.at-creators { transform: translateX(-200%); }
 .fside-pane { min-width: 0; min-height: 0; height: 100%; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
 .fside-pane .ecosystem-chat, .fside-pane > * { height: 100%; }
 .fside-empty { padding: 20px; text-align: center; }
@@ -285,3 +279,26 @@ body.theme-day .fside-tabs { background: var(--m-surface-2); }
 .trade-tab-body { container-type: inline-size; }
 @container (max-width: 980px) { .fz-split-view { grid-template-columns: 1fr; } .fside { position: static; height: 560px; } }
 .fpn-row.has-act { grid-template-columns: minmax(80px, auto) 1fr auto auto; } .fpn-row.is-closed { opacity: .7; }
+/* NFTs › Fuse cards. */
+.fcm { display: grid; gap: 12px; padding: 16px; margin-bottom: 16px; } .fcm h3 { margin: 4px 0 0; }
+.fcm-col code, .fcm-item code { font-family: var(--m-mono); color: var(--m-accent); }
+.fcm-grid { display: grid; grid-auto-flow: column; grid-auto-columns: 214px; gap: 14px; overflow-x: auto; padding: 8px 6px 12px; scroll-snap-type: x mandatory; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
+.fcm-item { display: grid; gap: 6px; justify-items: center; align-content: start; scroll-snap-align: start; animation: fcdDeal .4s var(--m-ease) backwards; }
+.fcm-item .m-input, .fcm-item .m-btn { width: 190px; } .fcm-item small { text-align: center; font-size: 11px; } .fcm-name { font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { .fcm-item { animation: none; } }
+/* Basket limits editor. */
+.fpn-acts { display: flex; gap: 4px; } .fl-clear.is-armed { border-color: var(--m-warn); color: var(--m-warn); box-shadow: 0 0 10px -4px var(--m-warn); }
+.fpn-lim { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px; border: 1px solid color-mix(in srgb, var(--m-warn) 40%, var(--m-line)); border-radius: var(--m-r-sm); background: var(--m-bg); animation: mCardIn .2s var(--m-ease); }
+.fpn-lim label { display: grid; gap: 4px; } .fpn-lim label small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; color: var(--m-dim); }
+.fpn-lim label span { display: flex; align-items: center; gap: 4px; font-family: var(--m-mono); } .fpn-lim .m-input { width: 100%; min-width: 0; }
+.fpn-lim-note, .fpn-lim .fg-acts { grid-column: 1 / -1; } .fpn-lim-note { margin: 0; font-size: 11.5px; color: var(--m-dim); line-height: 1.5; } .fpn-lim-note b { color: var(--m-text); }
+@media (max-width: 560px) { .fpn-lim { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .fpn-lim { animation: none; } }
+
+.fside-season { margin: 0 10px 8px; padding: 8px 10px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--m-warn) 40%, var(--m-line)); font-family: var(--m-mono); font-size: 9.5px; letter-spacing: .06em; color: var(--m-warn); line-height: 1.5; }
+.fside-holders li.is-unranked { opacity: .65; }
+.fside-tabs button { font-size: 11px; padding: 8px 4px; }
+.fcd-back li { grid-template-columns: auto 1fr; } .fcd-back li em { grid-column: 1 / -1; text-align: right; }
+.fcd-back .up { color: #19f58f; } .fcd-back .down { color: #ff8fa3; } .fcd-back dd b { font-size: 14px; }
+.fcd-note { font-size: 9px; line-height: 1.35; opacity: .7; }
+.fcd-back ul { max-height: 124px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--a) transparent; padding-right: 2px; } .fcd-back li { font-size: 10.5px; row-gap: 0; }

@@ -4,6 +4,7 @@ import { apiUrl } from '../lib/api';
 import { useWallet } from '../hooks/useWallet';
 import { FuseGo } from './FuseGo';
 import { unfuseOrders } from '../lib/fuseGo';
+import { readChatSession } from '../lib/chatSession';
 
 // Fuse money side. FusePnl = a trader's own fuses (Trade › Fuse Lab). FuseHQ = Cmd Ctr: everyone's P&L, the paper
 // arena (champions run a pretend $5 for 24h — the proof a strategy works), bloodlines, published-Fuse health.
@@ -17,6 +18,13 @@ export function FusePnl() {
   const addr = wallet?.chain === 'solana' ? wallet.address : null;
   const [d, setD] = useState(null);
   const [exit, setExit] = useState(null);   // {id, orders} while unfusing one position
+  const [lim, setLim] = useState(null);     // {id, tp, sl, trail} while editing limits
+  const saveLim = async off => {
+    const ses = readChatSession(addr); if (!ses) { toast.error('Open chat once to sign in your wallet, then set limits.'); return; }
+    const r = await fetch(apiUrl('/api/reputation/fuses/guard'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: addr, session: ses, id: lim.id, off, tp: Number(lim.tp) || 0, sl: Number(lim.sl) || 0, trail: Number(lim.trail) || 0 }) });
+    const x = await r.json().catch(() => ({})); if (!r.ok) { toast.error(x.detail || 'Could not save limits'); return; }
+    toast.success(off ? 'Limits off' : 'Limits armed — we alert you the moment one hits'); setLim(null); window.dispatchEvent(new Event('feeless:fuse-pnl'));
+  };
   const unfuse = async r => {
     const bal = Object.fromEntries(await Promise.all(r.legs.filter(l => l.mint).map(l => fetch(apiUrl(`/api/reputation/balance/${addr}/${l.mint}`)).then(x => (x.ok ? x.json() : null)).catch(() => null).then(b => [l.mint, b]))));
     setExit({ id: r.id, orders: unfuseOrders(r.legs, bal, addr) });
@@ -27,11 +35,22 @@ export function FusePnl() {
     load(); const t = setInterval(() => !document.hidden && load(), 30000); window.addEventListener('feeless:fuse-pnl', load);
     return () => { alive = false; clearInterval(t); window.removeEventListener('feeless:fuse-pnl', load); };
   }, [addr]);
+  // Alert link (?unfuse=<id>) opens that position's one-tap exit.
+  useEffect(() => { const id = new URLSearchParams(window.location.search).get('unfuse'); const r = id && d?.rows?.find(x => x.id === id && !x.closed); if (r && !exit) unfuse(r); }, [d]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!d?.positions) return null;
   return <section className="m-card fpn" data-testid="fuse-pnl">
     <div className="fpn-head"><span className="m-label">YOUR FUSES</span><b className={`m-num ${tone(d.pnlUsd)}`}>{money(d.pnlUsd)} <small>{pct(d.pnlPct)}</small></b><small className="m-dim">{money(d.valueUsd)} now · {d.positions} fused</small></div>
     <div className="fpn-rows">{d.rows.slice(0, 4).map(r => <React.Fragment key={r.id}><div className={`fpn-row has-act ${r.closed ? 'is-closed' : ''}`}><span>{r.name}</span><small className="m-dim">{r.legs.map(l => l.symbol).join(' · ')} · {ago(r.at)}{r.closed ? ' · closed' : ''}</small><b className={`m-num ${tone(r.pnlUsd)}`}>{pct(r.pnlPct)}</b>
-      {!r.closed && <button type="button" className="m-btn fl-clear" onClick={() => (exit?.id === r.id ? setExit(null) : unfuse(r))} data-testid={`unfuse-${r.id}`} title="Sell every leg back to SOL — one approval">{exit?.id === r.id ? 'Close' : '↩ Unfuse'}</button>}</div>
+      {!r.closed && <span className="fpn-acts"><button type="button" className={`m-btn fl-clear ${r.guard && !r.guard.firedAt ? 'is-armed' : ''}`} onClick={() => setLim(l => (l?.id === r.id ? null : { id: r.id, tp: r.guard?.tp || 50, sl: r.guard?.sl || 20, trail: r.guard?.trail || '' }))}
+        data-tip={r.guard ? `Armed: ${r.guard.tp ? `TP +${r.guard.tp}%` : ''} ${r.guard.sl ? `SL −${r.guard.sl}%` : ''} ${r.guard.trail ? `trail ${r.guard.trail}%` : ''}${r.guard.firedAt ? ' · fired' : ''}` : 'Set take-profit / stop-loss for the whole basket'} data-testid={`limits-${r.id}`}>🎯</button>
+        <button type="button" className="m-btn fl-clear" onClick={() => (exit?.id === r.id ? setExit(null) : unfuse(r))} data-testid={`unfuse-${r.id}`} data-tip="Sell every leg back to SOL — one approval">{exit?.id === r.id ? 'Close' : '↩ Unfuse'}</button></span>}</div>
+      {lim?.id === r.id && <div className="fpn-lim" data-testid="limits-editor">
+        <label data-tip="Alert + one-tap exit when the whole basket is up this much."><small>TAKE PROFIT</small><span>+<input className="m-input m-num" inputMode="decimal" value={lim.tp} onChange={e => setLim(l => ({ ...l, tp: e.target.value.replace(/[^0-9.]/g, '') }))} />%</span></label>
+        <label data-tip="Alert + one-tap exit when the basket is down this much."><small>STOP LOSS</small><span>−<input className="m-input m-num" inputMode="decimal" value={lim.sl} onChange={e => setLim(l => ({ ...l, sl: e.target.value.replace(/[^0-9.]/g, '') }))} />%</span></label>
+        <label data-tip="Fires when the basket falls this many points below its best (locks in gains). Leave empty for off."><small>TRAILING</small><span><input className="m-input m-num" inputMode="decimal" placeholder="off" value={lim.trail} onChange={e => setLim(l => ({ ...l, trail: e.target.value.replace(/[^0-9.]/g, '') }))} />%</span></label>
+        <p className="fpn-lim-note">Free to set. Fees are paid <b>only once, when you Unfuse</b> (normal FEELESS fee + network). We check every minute and alert your phone + inbox; your wallet still approves the exit — nobody can sell for you.</p>
+        <div className="fg-acts"><button type="button" className="m-btn primary m-go" onClick={() => saveLim(false)} data-testid="limits-save">Arm limits</button>{r.guard && <button type="button" className="m-btn" onClick={() => saveLim(true)}>Turn off</button>}</div>
+      </div>}
       {exit?.id === r.id && <FuseGo side="sell" orders={exit.orders} position={r.id} onClose={() => setExit(null)} />}</React.Fragment>)}</div>
   </section>;
 }

@@ -5,9 +5,11 @@ import "@/index.css";
 import App from "@/App";
 import { cleanBrowserStorage } from "@/lib/storageHygiene";
 import { installImageFallback } from "@/lib/imageFallback";
+import { installTipLayer } from "@/lib/tipLayer";
 
 cleanBrowserStorage();
 installImageFallback();
+installTipLayer();
 
 // Any link that leaves FEELESS opens in a new tab, even if a component forgot target=_blank.
 document.addEventListener('click', event => {
