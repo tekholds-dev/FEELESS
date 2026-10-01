@@ -4657,9 +4657,25 @@ async def fuse_prime_admin(request: Request):
         pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), **(body.get('cfg') or {})})
         if body.get('reset'):
             pr['cards'] = {}
+        if body.get('redeal') in _prime.TEMPLATES:          # one tier fresh
+            (pr.get('cards') or {}).pop(body['redeal'], None)
         _json_save(FUSE_HQ_PATH, d)
+    rep = body.get('replace') or {}
+    if rep.get('tpl') in _prime.TEMPLATES and rep.get('pairAddress'):   # ⇄ one coin on one Prime card
+        pools, runners, anchors = await _prime_candidates()
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
+            card = cards.get(rep['tpl'])
+            if not card:
+                raise HTTPException(404, 'No card for that tier yet.')
+            px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in card['legs']])
+            try:
+                cards[rep['tpl']] = _prime.replace_leg(card, rep['pairAddress'], px, pools, runners, anchors, pr['cfg'], time.time())
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            _json_save(FUSE_HQ_PATH, d)
     ad = _admin_load(); _audit(ad, admin, 'arena-prime', json.dumps(pr['cfg'])[:160] + (' reset' if body.get('reset') else '')); _admin_save(ad)
-    if body.get('reset'):
+    if body.get('reset') or body.get('redeal'):
         await _prime_tick(time.time())
     return {'cfg': pr['cfg'], 'cards': await _prime_view()}
 

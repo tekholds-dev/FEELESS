@@ -86,3 +86,14 @@ def test_service_deals_ticks_and_admin_config(monkeypatch):
         async def json(self): return {'cfg': {'rotateHours': 3, 'on': False}}
     out = asyncio.run(rs.fuse_prime_admin(Rq()))
     assert out['cfg']['rotateHours'] == 3 and out['cfg']['on'] is False and asyncio.run(rs._prime_tick(2000)) == 0
+
+
+def test_cmd_ctr_replaces_one_coin_with_best_same_role():
+    card = ap.deal('balanced', [P('a', 1), P('b', 1)], [R('r1', 1), R('r2', 1)], CFG, 0, SOL[:1])
+    out = ap.replace_leg(card, 'Pr1', {'Pr1': 2}, [P('a', 1)], [R('r1', 1), R('r9', 1)], SOL, CFG, 10)
+    mints = [l['mint'] for l in out['legs']]
+    assert 'r9' in mints and 'r1' not in mints and abs(next(l for l in out['legs'] if l['mint'] == 'r9')['costUsd'] - 40) < 1e-9
+    assert out['events'][-1]['why'] == 'replaced from Cmd Ctr'
+    import pytest
+    with pytest.raises(ValueError):
+        ap.replace_leg(card, 'Pnope', {}, [], [], [], CFG, 10)

@@ -38,3 +38,14 @@ test('collect is one tap and disabled when the card is not up', async () => {
   expect([...document.querySelectorAll('[data-testid="ce-collect"]')].pop().disabled).toBe(true);
   await act(async () => { [...document.querySelectorAll('[data-testid="card-earnings"]')].pop().click(); }); expect(onClose).toHaveBeenCalled();
 });
+
+test('Cmd Ctr: ⇄ replaces one coin on a Prime card, 🃏 re-deals one tier', async () => {
+  const { PrimeControls } = require('./ArenaPrime');
+  global.fetch = jest.fn(async () => ({ json: async () => ({ cards: [CARD], cfg: { sizeUsd: 100, rotateHours: 6, rotateCount: 2, compound: true, floorPct: 20, on: true } }) }));
+  const call = jest.fn(async () => ({ cfg: {} }));
+  const el = await mount(<PrimeControls call={call} />);
+  await act(async () => { el.querySelector('[data-testid="prime-swap-degen-PR"]').click(); });
+  expect(JSON.parse(call.mock.calls.at(-1)[1].body)).toEqual({ replace: { tpl: 'degen', pairAddress: 'PR' } });
+  await act(async () => { el.querySelector('[data-testid="prime-redeal-degen"]').click(); });
+  expect(JSON.parse(call.mock.calls.at(-1)[1].body)).toEqual({ redeal: 'degen' });
+});

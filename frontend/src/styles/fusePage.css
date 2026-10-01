@@ -481,3 +481,4 @@ body.fx-lite .ce-auto { animation: none; }
 body.theme-day .prime-rec span { background: var(--m-surface); }
 body.fx-lite .prime-tier { display: none; }
 @media (prefers-reduced-motion: reduce) { .pt-ring, .pt-sweep, .pt-spark { animation: none; } }
+.prime-edit { display: grid; gap: 6px; } .prime-edit .m-row { flex-wrap: wrap; gap: 6px; } .prime-edit .m-btn { padding: 4px 9px; font-size: 11.5px; }

@@ -403,6 +403,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   a live "$ example" under each input, money in SOL AND $. Tier FX = own layers (`pt-*`), transform/opacity, off in fx-lite.
 
 ## NEXT SESSION — continue here (in this order)
+0. Cmd Ctr › Fee 🐱: FeeCat builds + learns Fuse — she breeds her own card from `crowd` elite flow + runner/Prime proof,
+   shows what she learned (setup memory tags `fuse`/`crowd`, dial proof) and proposes engine tweaks (admin Apply, audited).
+   Prime ⇄ coin / 🃏 re-deal per tier already live (`arena_prime.replace_leg`, `POST /admin/arena/prime {replace|redeal}`).
 1. Prime: rotate weak coins at SL OR every 1h (cfg `rotateHours` min 1 → default 1), and ⏸ PAUSE a coin (user + Cmd Ctr):
    below its SL → sold to SOL and parked; re-bought only when price is back above the SL WITH volume (1h vol ≥ entry-time vol,
    buys ≥55%). Pure + tested in `arena_prime.py`, then the same "pause" as a one-tap alert on real cards (never auto-signs).

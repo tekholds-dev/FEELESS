@@ -229,3 +229,21 @@ def record(card):
     days = (card.get('days') or [])[-10:]
     return {'days': days, 'goodDays': sum(1 for d in days if _f(d.get('pct')) >= HIT_PCT), 'loggedDays': len(days),
             'lowPct': _f(card.get('lowPct')), 'floored': bool(card.get('flooredAt')), 'runs': (card.get('runs') or [])[-5:]}
+
+
+def replace_leg(card, pair, prices, pools, runners, anchors, cfg, now):
+    """Cmd Ctr ⇄: swap ONE coin on a Prime card for the best 3★+ candidate of the same role not already on it (same $)."""
+    c = {**card, 'legs': [dict(l) for l in card['legs']], 'events': list(card['events'])}
+    l = next((x for x in c['legs'] if x['pairAddress'] == pair), None)
+    if not l:
+        raise ValueError('That coin is not on this card.')
+    have = {x['mint'] for x in c['legs']}
+    src = {'runner': runners, 'anchor': anchors}.get(l['role'], pools)
+    nxt = next((x for x in rated(src, l['role']) if x['mint'] not in have and _f(x.get('price')) > 0), None)
+    if not nxt:
+        raise ValueError('No 3★+ replacement available right now.')
+    usd = l['units'] * (_f(prices.get(pair)) or l['entry'])
+    c['legs'][c['legs'].index(l)] = _leg(nxt, usd, now, l['role'])
+    c['feesUsd'] = round(_f(c['feesUsd']) + 2 * cfg['paperFeeUsd'], 4)
+    c['events'].append({'at': now, 'kind': 'rotate', 'symbol': l['symbol'], 'usd': round(usd, 4), 'why': 'replaced from Cmd Ctr', 'to': [nxt.get('symbol')]})
+    return c
