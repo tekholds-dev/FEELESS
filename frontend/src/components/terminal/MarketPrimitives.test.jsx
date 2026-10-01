@@ -73,10 +73,10 @@ test('counts down to the primary-provider retry while keeping fallback data visi
   act(() => root.render(<><MarketAvailabilityNotice
     data={{
       provider: 'DexScreener',
-      primary_provider: 'GeckoTerminal',
+      primary_provider: 'Pump.fun',
       pairs: [{ pairAddress: 'fallback-pair' }],
       provider_warning: {
-        provider: 'GeckoTerminal',
+        provider: 'Pump.fun',
         status: 429,
         rate_limited: true,
         retry_after_seconds: 12,
@@ -88,7 +88,7 @@ test('counts down to the primary-provider retry while keeping fallback data visi
   const notice = host.querySelector('[data-testid="market-retry-countdown"]');
   expect(notice.getAttribute('role')).toBe('status');
   expect(notice.getAttribute('aria-live')).toBe('polite');
-  expect(notice.textContent).toMatch(/primary provider GeckoTerminal is cooling down/i);
+  expect(notice.textContent).toMatch(/primary provider Pump.fun is cooling down/i);
   expect(notice.textContent).toMatch(/available in about 12 seconds/i);
   expect(host.querySelector('[data-testid="fallback-row"]').textContent).toBe('fallback-pair');
 

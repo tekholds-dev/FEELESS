@@ -83,7 +83,7 @@ test('keeps visible rows during a live feed refresh and writes the refreshed res
 test('keeps the last usable feed snapshot when a later provider response is empty', async () => {
   const path = '/feed?kind=trending&chain=solana&page=1';
   const usableRows = { provider: 'DexScreener', pairs: [{ pairAddress: 'last-usable-pool' }] };
-  const emptyRows = { provider: 'GeckoTerminal', pairs: [] };
+  const emptyRows = { provider: 'Pump.fun', pairs: [] };
   writeFeedCache(path, usableRows);
   let fetcher;
   swrMock.mockImplementation((key, request, options) => {

@@ -145,33 +145,6 @@ def build_board(candidates, dex_pairs, kind, now_ms=None):
     return out
 
 
-def gecko_pool_to_pair(pool, mint, cand):
-    """GeckoTerminal pool (LaunchLab curves DexScreener hasn't indexed) → shared pair contract."""
-    a = pool.get('attributes') or {}
-    tx, vol, ch = a.get('transactions') or {}, a.get('volume_usd') or {}, a.get('price_change_percentage') or {}
-    created = a.get('pool_created_at')
-    try:
-        from datetime import datetime
-        created_ms = int(datetime.fromisoformat(created.replace('Z', '+00:00')).timestamp() * 1000) if created else None
-    except ValueError:
-        created_ms = None
-    window = lambda w: {'buys': int(_f((tx.get(w) or {}).get('buys'))), 'sells': int(_f((tx.get(w) or {}).get('sells')))}
-    dex = ((pool.get('relationships') or {}).get('dex') or {}).get('data', {}).get('id')
-    return {
-        'chainId': 'solana', 'dexId': dex or cand['launchpad'], 'pairAddress': a.get('address'),
-        'url': f"https://www.geckoterminal.com/solana/pools/{a.get('address')}",
-        'baseToken': {'address': mint, 'symbol': cand.get('symbol'), 'name': cand.get('name')},
-        'quoteToken': {'address': 'So11111111111111111111111111111111111111112', 'symbol': 'SOL', 'name': 'Wrapped SOL'},
-        'priceUsd': a.get('base_token_price_usd'),
-        'marketCap': _f(a.get('market_cap_usd')) or _f(a.get('fdv_usd')) or None, 'fdv': _f(a.get('fdv_usd')) or None,
-        'liquidity': {'usd': _f(a.get('reserve_in_usd'))},
-        'volume': {w: _f(vol.get(w)) for w in ('m5', 'h1', 'h6', 'h24')},
-        'txns': {w: window(w) for w in ('m5', 'h1', 'h6', 'h24')},
-        'priceChange': {w: _f(ch.get(w)) for w in ('m5', 'h1', 'h6', 'h24')},
-        'pairCreatedAt': created_ms, 'info': {'imageUrl': cand.get('image')}, 'source': 'GeckoTerminal',
-    }
-
-
 def dex_candidate(pair):
     """Migrated launchpad coins found in DexScreener discovery. Pump/LetsBONK mints carry their suffix."""
     mint = (pair.get('baseToken') or {}).get('address') or ''
@@ -187,23 +160,3 @@ def dex_candidate(pair):
         'socials': len(info.get('socials') or []) + len(info.get('websites') or []),
         'url': f"https://{'pump.fun/coin' if pad == 'pump' else 'letsbonk.fun/token'}/{mint}",
     }
-
-
-def gecko_network_pairs(payload, chain):
-    """GeckoTerminal /networks/{net}/(trending|new)_pools?include=base_token,quote_token → shared pair contract.
-    Covers every chain's own DEXes, so small networks (Cronos, zkSync, Zora…) never load empty."""
-    tokens = {t.get('id'): (t.get('attributes') or {}) for t in payload.get('included') or []}
-    out = []
-    for pool in payload.get('data') or []:
-        rel = pool.get('relationships') or {}
-        base = tokens.get(((rel.get('base_token') or {}).get('data') or {}).get('id')) or {}
-        quote = tokens.get(((rel.get('quote_token') or {}).get('data') or {}).get('id')) or {}
-        if not base.get('address'):
-            continue
-        pair = gecko_pool_to_pair(pool, base['address'], {'launchpad': 'dex', 'symbol': base.get('symbol'), 'name': base.get('name'),
-                                                          'image': base.get('image_url') if str(base.get('image_url') or '').startswith('http') else None})
-        addr = pair['pairAddress']
-        pair.update({'chainId': chain, 'url': f"https://dexscreener.com/{chain}/{addr}",
-                     'quoteToken': {'address': quote.get('address'), 'symbol': quote.get('symbol'), 'name': quote.get('name')}})
-        out.append(pair)
-    return out

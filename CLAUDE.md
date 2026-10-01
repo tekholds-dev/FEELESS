@@ -52,6 +52,23 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `backdrop-filter` over animated layers, no `filter: blur()` on moving layers. Heavy FX must die under `body.fx-lite`.
 - Lag catcher (Cmd Ctr › Lag catcher) is the source of truth: fix its list before adding features. Full list: `docs/REQUIREMENTS.md`.
 
+## Data sources
+- **NO GeckoTerminal, sitewide, ever** (backend or frontend). `backend/tests/test_no_geckoterminal.py` enforces it.
+  Market data = DexScreener + our own indexes (Pump.fun, LetsBONK, LaunchLab, Helius, Alchemy, Jupiter).
+- No dead war rooms: `chain_feed` tops up any chain under `THIN_FEED` pools from its own DEXes (`CHAIN_QUOTES` search)
+  and its hub token's pools (`NATIVE_POOLS`, DexScreener /token-pairs). Quiet "new" lists add the youngest active pools
+  tagged `discovery: 'rising'`; coins hosted on another chain are tagged `via` (Zora → Base). Never pad with unrelated coins.
+- Search ranks most trusted first (`rankSearch`/`trustScore` in SearchBox): FEELESS assets, pasted CA, exact $SYMBOL,
+  then liquidity/mcap/age/profile; one row per token = its deepest pool.
+- Candles: `_sanitize` + `_fill_gaps` (server) and the live gap-filler in PriceChart: every bucket exists, OHLC valid,
+  no skipped candle ever. Change either only with a test.
+
+## Degen meta playbook (how to build here)
+- Ship what a trader feels in 5 seconds: live numbers, their own position, one-tap action, the evidence behind a warning.
+- One component per job, reused everywhere (TrenchChart, TradeTape, HeldChip, ChatFx, IntelligenceCard).
+- Every surface: works at 360px wide inside a chat, in every war room layout, day + night, fx-lite, reduced motion.
+- Chats: per-room animated background (`ChatFx`, picked in ⚙, stored as `themes[room]`) always with the FEE mark.
+
 ## Money rules (trading)
 - Engine: Jupiter Swap API primary (FEELESS fee into our SOL/USDC token accounts, capped priority,
   our broadcast). Ultra only as engine or opt-in fallback. Fallback off + Swap API down ⇒ trading pauses.

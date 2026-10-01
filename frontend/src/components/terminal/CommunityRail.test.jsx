@@ -81,7 +81,7 @@ describe('The Trenches pools tab', () => {
 
   test.each([
     ['provider failure', { data: undefined, loading: false, refreshing: false, error: 'Provider unavailable' }, 'fallback-pool', 'FALLBACK', 'Fallback Coin', '0.42', -2.1, 84000, '$84.00K', 12000, '$12.00K'],
-    ['empty provider response', { data: { provider: 'GeckoTerminal', pairs: [] }, loading: false, refreshing: false, error: undefined }, 'snapshot-pool', 'SNAP', 'Snapshot Coin', '2.50', -1.25, 250000, '$250.00K', 88000, '$88.00K'],
+    ['empty provider response', { data: { provider: 'Pump.fun', pairs: [] }, loading: false, refreshing: false, error: undefined }, 'snapshot-pool', 'SNAP', 'Snapshot Coin', '2.50', -1.25, 250000, '$250.00K', 88000, '$88.00K'],
   ])('uses the page snapshot when the all-chain feed has a %s', (_failure, marketState, pairAddress, symbol, name, priceUsd, h24, liquidityUsd, liquidityLabel, volumeH24, volumeLabel) => {
     const onSelect = jest.fn();
     const snapshotPair = {

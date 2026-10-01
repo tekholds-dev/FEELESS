@@ -60,7 +60,7 @@ export default function NewStuffFeed({ ecosystem, onPick, activePair }) {
         return <div className={`new-stuff-item ${onPick ? 'is-pickable' : ''} ${activePair === p.pairAddress ? 'is-active' : ''}`} key={`${p.chainId}-${p.pairAddress}`} data-testid={`new-stuff-item-${addr}`} role={onPick ? 'button' : undefined} tabIndex={onPick ? 0 : undefined} onClick={e => { if (onPick && !e.target.closest('button,a')) onPick(p); }} onKeyDown={e => { if (onPick && e.key === 'Enter') onPick(p); }}>
           <TokenAvatar pair={p} size={48} />
           <div className="new-stuff-meta">
-            <b>{p.baseToken?.symbol || '—'} <HeldChip pair={p} /></b>
+            <b>{p.baseToken?.symbol || '—'} <HeldChip pair={p} />{p.discovery === 'rising' && <span className="m-chip" title="No brand-new pools here today: this is one of the chain's youngest active pools">RISING</span>}{p.via && <span className="m-chip" title={p.via}>{p.via}</span>}</b>
             <small>{p.baseToken?.name || p.dexId}</small>
           </div>
           <div className="new-stuff-stats">

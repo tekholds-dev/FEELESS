@@ -182,12 +182,34 @@ async def observe(payload: TickPayload):
     return {'ok': True}
 
 
+def _sanitize(candles, step):
+    """Secure candles: drop non-finite/non-positive prices, snap every bar to its interval bucket, merge duplicates
+    (first open, max high, min low, last close, summed volume), keep high >= max(o,c) and low <= min(o,c), sort by time."""
+    import math
+    by = {}
+    for c in sorted((c for c in candles or [] if c and len(c) >= 5), key=lambda c: c[0]):
+        try:
+            t, o, h, l, cl = int(c[0]) // step * step, float(c[1]), float(c[2]), float(c[3]), float(c[4])
+            v = float(c[5]) if len(c) > 5 and c[5] is not None else 0.0
+        except (TypeError, ValueError):
+            continue
+        if not all(math.isfinite(x) and x > 0 for x in (o, h, l, cl)) or not math.isfinite(v) or v < 0:
+            continue
+        h, l = max(o, h, l, cl), min(o, h, l, cl)
+        if t in by:
+            b = by[t]; b[2] = max(b[2], h); b[3] = min(b[3], l); b[4] = cl; b[5] += v
+        else:
+            by[t] = [t, o, h, l, cl, v]
+    return [by[t] for t in sorted(by)]
+
+
 def _fill_gaps(candles, step, own=None, limit=5000):
     """No skipped candles: quiet intervals become flat bars at the last close (zero volume);
     if FEELESS recorded its own tick in that gap, the real observed price is used instead."""
+    candles = _sanitize(candles, step)
     if not candles:
         return candles
-    by_own = {int(c[0]): c for c in (own or [])}
+    by_own = {int(c[0]): c for c in _sanitize(own or [], step)}
     out = [candles[0]]
     for c in candles[1:]:
         t = out[-1][0] + step

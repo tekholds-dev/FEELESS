@@ -1,7 +1,7 @@
 import { apiUrl } from './api';
 
 // Find a coin's market from a pool address OR a mint. Order: DexScreener pool → DexScreener token (deepest
-// pool) → FEELESS pair lookup (Pump stream / GeckoTerminal fallbacks) → FEELESS ecosystem assets ($FEE, rFEE,
+// pool) → FEELESS pair lookup (Pump stream fallback) → FEELESS ecosystem assets ($FEE, rFEE,
 // FEECAT, priced via Jupiter even without a DEX listing). Returns null when nothing knows the address.
 export async function resolveCoin(chain, address) {
   const tryJson = async url => { try { const r = await fetch(url); return r.ok ? await r.json() : null; } catch { return null; } };

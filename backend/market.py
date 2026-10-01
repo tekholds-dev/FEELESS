@@ -14,19 +14,26 @@ from fastapi import APIRouter, HTTPException, Query
 from ecosystem import DEFAULT_MINTS
 from pydantic import BaseModel, Field
 
-from launchpad_board import BONK_PLATFORM_ID, build_board, dex_candidate, gecko_network_pairs, gecko_pool_to_pair, launchlab_candidate, pump_candidate
+from launchpad_board import BONK_PLATFORM_ID, build_board, dex_candidate, launchlab_candidate, pump_candidate
 
 BOARD_SCOPES = ('launchpads', 'pump', 'bonk', 'raydium')
 
-NETWORKS = {'solana': 'solana', 'ethereum': 'eth', 'base': 'base', 'bsc': 'bsc',
-            'arbitrum': 'arbitrum', 'avalanche': 'avax', 'polygon': 'polygon_pos', 'sui': 'sui',
+NETWORKS = {'solana': 'solana', 'ethereum': 'ethereum', 'base': 'base', 'bsc': 'bsc',
+            'arbitrum': 'arbitrum', 'avalanche': 'avalanche', 'polygon': 'polygon', 'sui': 'sui',
             'optimism': 'optimism', 'zksync': 'zksync', 'zora': 'zora', 'cronos': 'cronos', 'unichain': 'unichain', 'worldchain': 'worldchain'}
 # Each chain's main DEXes + its name: DexScreener search on these returns that chain's live pools (filtered by chainId after).
 CHAIN_QUOTES = {'solana': ['raydium', 'pumpswap', 'meteora', 'orca'], 'ethereum': ['uniswap', 'ethereum'], 'base': ['aerodrome', 'base', 'uniswap base'],
                 'bsc': ['pancakeswap', 'bsc'], 'arbitrum': ['camelot', 'arbitrum'], 'avalanche': ['traderjoe', 'avalanche', 'pharaoh'],
                 'polygon': ['quickswap', 'polygon'], 'sui': ['cetus', 'sui'], 'optimism': ['velodrome', 'optimism'], 'zksync': ['syncswap', 'zksync'],
                 'zora': ['zora'], 'cronos': ['vvs', 'cronos', 'mm finance'], 'unichain': ['unichain'], 'worldchain': ['worldchain', 'world chain']}
-REVERSE_NETWORKS = {v: k for k, v in NETWORKS.items()}
+THIN_FEED = 8  # fewer pools than this and a chain's feed gets topped up (no dead war rooms)
+# Each thin chain's hub token: DexScreener lists every pool paired with it (/token-pairs; the hub itself is skipped).
+# DexScreener doesn't index the Zora chain — Zora coins trade on Base, so that room searches Base (tagged as such).
+HOST_CHAIN = {'zora': 'base'}
+_WETH_OP = '0x4200000000000000000000000000000000000006'
+NATIVE_POOLS = {'unichain': [('unichain', _WETH_OP)], 'worldchain': [('worldchain', _WETH_OP)], 'optimism': [('optimism', _WETH_OP)],
+                'cronos': [('cronos', '0x5C7F8A570d578ED84E63fdFA7b1eE72dEae1AE23')],
+                'zksync': [('zksync', '0x5AEa5775959fBC2557Cc8789bC1bf90A239D9a91')]}
 SUPPORTED_CHAINS = tuple(NETWORKS)
 MARKET_CACHE_RETENTION = timedelta(days=14)
 NEW_POOL_DEAL_PERCENT = 5
@@ -156,55 +163,6 @@ def provider_meta(provider, fetched_at, stale=False, error=None, primary_provide
     }
 
 
-def normalise_pools(payload):
-    included = {item['id']: item.get('attributes', {}) for item in payload.get('included', [])}
-    pairs = []
-    for item in payload.get('data', []):
-        a = item.get('attributes', {})
-        rel = item.get('relationships', {})
-        network = item['id'].split('_', 1)[0]
-        chain = REVERSE_NETWORKS.get(network, network)
-        base_id = rel.get('base_token', {}).get('data', {}).get('id', '')
-        quote_id = rel.get('quote_token', {}).get('data', {}).get('id', '')
-        base, quote = included.get(base_id, {}), included.get(quote_id, {})
-        created = a.get('pool_created_at')
-        image_url = base.get('image_url') or a.get('image_url')
-        creator = base.get('creator') or base.get('creator_profile') or a.get('creator') or a.get('creator_profile')
-        info = {
-            'imageUrl': image_url,
-            'websites': base.get('websites') or a.get('websites') or [],
-            'socials': base.get('socials') or a.get('socials') or [],
-        }
-        if creator:
-            info['creator'] = creator
-        pairs.append({
-            'chainId': chain, 'network': network, 'pairAddress': a['address'],
-            'dexId': rel.get('dex', {}).get('data', {}).get('id', 'unknown'),
-            'url': f"{os.getenv('DEX_SITE_URL', 'https://dexscreener.com')}/{chain}/{a['address']}",
-            'baseToken': {'address': base.get('address', base_id.split('_', 1)[-1]),
-                          'name': base.get('name', a.get('name', 'Unknown')),
-                          'symbol': base.get('symbol', a.get('name', '?').split(' / ')[0])},
-            'quoteToken': {'address': quote.get('address'), 'symbol': quote.get('symbol')},
-            'priceUsd': a.get('base_token_price_usd'),
-            'priceChange': a.get('price_change_percentage', {}),
-            'liquidity': {'usd': a.get('reserve_in_usd')}, 'volume': a.get('volume_usd', {}),
-            'marketCap': a.get('market_cap_usd'), 'fdv': a.get('fdv_usd'),
-            'txns': a.get('transactions', {}),
-            'pairCreatedAt': int(datetime.fromisoformat(created.replace('Z', '+00:00')).timestamp() * 1000) if created else None,
-            'info': info,
-        })
-    return pairs
-
-
-# Pump Pulse: a coin is "pulsing" when the last 5 minutes show real, rising, two-sided flow.
-# Minimum average trade size and a buy-share ceiling filter out micro-buy volume bots.
-PULSE_MIN_TRADES = 20
-PULSE_MIN_VOLUME = 5_000
-PULSE_MIN_AVG_TRADE = 20
-PULSE_BUY_SHARE = (0.55, 0.97)
-PULSE_MIN_CHANGE = 2.0
-
-
 def pulse_stats(pair):
     m5 = (pair.get('txns') or {}).get('m5') or {}
     buys, sells = int(safe_float(m5.get('buys')) or 0), int(safe_float(m5.get('sells')) or 0)
@@ -312,7 +270,6 @@ def create_market_router(db, intelligence=None):
         'DexScreener': os.getenv('DEX_API_URL', 'https://api.dexscreener.com'),
         'Pump.fun': os.getenv('PUMP_API_URL', 'https://frontend-api-v3.pump.fun'),
         'LaunchLab': os.getenv('LAUNCHLAB_API_URL', 'https://launch-mint-v1.raydium.io'),
-        'GeckoTerminal': os.getenv('GECKO_API_URL', 'https://api.geckoterminal.com/api/v2'),
     }
 
     async def cached(provider, path, params=None, ttl=60):
@@ -428,19 +385,6 @@ def create_market_router(db, intelligence=None):
                     best = dex_pairs.get(mint)
                     if not best or safe_float((pair.get('volume') or {}).get('h1')) > safe_float((best.get('volume') or {}).get('h1')):
                         dex_pairs[mint] = pair
-        # LaunchLab curves are not on DexScreener until they migrate; GeckoTerminal indexes their pools.
-        lab_missing = [m for m in mints if m not in dex_pairs and candidates[m]['launchpad'] != 'pump' and candidates[m].get('pool')]
-        for i in range(0, min(len(lab_missing), 60), 30):
-            batch = lab_missing[i:i + 30]
-            try:
-                data, _ = await cached('GeckoTerminal', '/networks/solana/pools/multi/' + ','.join(sorted(candidates[m]['pool'] for m in batch)), ttl=60)
-            except HTTPException:
-                continue
-            by_pool = {candidates[m]['pool']: m for m in batch}
-            for pool in (data or {}).get('data') or []:
-                mint = by_pool.get((pool.get('attributes') or {}).get('address'))
-                if mint:
-                    dex_pairs[mint] = gecko_pool_to_pair(pool, mint, candidates[mint])
         ranked = build_board({m: candidates[m] for m in mints}, dex_pairs, kind)
         meta = {**(meta or provider_meta('DexScreener', datetime.now(timezone.utc).isoformat())), 'provider': 'FEELESS launchpad board',
                 'source_label': 'Pump.fun + LetsBONK + LaunchLab indexes · ranked on DexScreener 5m/1h flow',
@@ -633,26 +577,53 @@ def create_market_router(db, intelligence=None):
         pairs.sort(key=lambda p: float(p.get('liquidity', {}).get('usd') or 0), reverse=True)
         return pairs, meta
 
-    async def gecko_chain_feed(kind, chain):
-        net = NETWORKS.get(chain)
-        if not net:
-            return [], None
-        data, meta = await cached('GeckoTerminal', f'/networks/{net}/{"new_pools" if kind == "new" else "trending_pools"}', {'include': 'base_token,quote_token'}, ttl=60)
-        return gecko_network_pairs(data, chain), meta
-
     async def chain_feed(kind, chain, page):
-        """Boosted DexScreener coins first; chains the boost lists barely cover get topped up from GeckoTerminal."""
+        """Boosted DexScreener coins first; thin chains are topped up from their own DEXes (no GeckoTerminal, ever)."""
         if chain in ('solana', 'all') or page != 1:
             return await dex_boost_feed(kind, chain, page)
-        boosted, gecko = await asyncio.gather(dex_boost_feed(kind, chain, page), gecko_chain_feed(kind, chain), return_exceptions=True)
-        pairs, meta = ([], None) if isinstance(boosted, BaseException) else boosted
-        if not isinstance(gecko, BaseException) and gecko[0]:
+        try:
+            pairs, meta = await dex_boost_feed(kind, chain, page)
+        except HTTPException:
+            pairs, meta = [], None
+        # Meta engine: no dead war rooms. A thin chain is topped up from its own main DEXes (DexScreener search,
+        # filtered to this chain); a quiet "new" list adds the chain's youngest active pools, labelled as such.
+        if len(pairs) < THIN_FEED:
+            extra, m2 = await chain_search_pairs(chain)
             seen = {(p.get('baseToken') or {}).get('address', '').lower() for p in pairs}
-            pairs = pairs + [p for p in gecko[0] if p['baseToken']['address'].lower() not in seen]
-            meta = meta or {**gecko[1], 'provider': 'GeckoTerminal'}
+            extra = [p for p in extra if (p.get('baseToken') or {}).get('address', '').lower() not in seen]
+            if kind == 'new':
+                fresh = [p for p in extra if is_new_pool_deal(p)]
+                rising = sorted((p for p in extra if not is_new_pool_deal(p) and p.get('pairCreatedAt')), key=lambda p: -safe_float(p.get('pairCreatedAt')))
+                extra = fresh + [{**p, 'discovery': 'rising'} for p in rising]
+            pairs = pairs + extra
+            meta = meta or m2
         if not pairs or meta is None:
             raise HTTPException(503, f'No live pools indexed for {chain} right now.')
         return pairs[:60], meta
+
+    async def chain_search_pairs(chain):
+        """This chain's live pools via its main DEX names (one cached search each), deepest-volume first."""
+        queries = CHAIN_QUOTES.get(chain, [])
+        hubs = NATIVE_POOLS.get(chain, [])
+        results = await asyncio.gather(*[cached('DexScreener', '/latest/dex/search', {'q': q}, ttl=120) for q in queries],
+                                       *[cached('DexScreener', f'/token-pairs/v1/{c}/{a}', ttl=120) for c, a in hubs], return_exceptions=True)
+        hub_addrs = {a.lower() for _c, a in hubs}
+        allowed = {chain, HOST_CHAIN.get(chain, chain)} | {c for c, _a in hubs}
+        best, meta = {}, None
+        for res in results:
+            if isinstance(res, BaseException):
+                continue
+            data, m = res
+            meta = meta or m
+            for pair in (data if isinstance(data, list) else data.get('pairs') or []):
+                addr = (pair.get('baseToken') or {}).get('address')
+                if pair.get('chainId') not in allowed or not addr or addr.lower() in hub_addrs or safe_float((pair.get('liquidity') or {}).get('usd')) < 1000:
+                    continue
+                if pair['chainId'] != chain:
+                    pair = {**pair, 'via': f"{chain} coin on {pair['chainId']}"}
+                if addr not in best or safe_float((pair.get('volume') or {}).get('h24')) > safe_float((best[addr].get('volume') or {}).get('h24')):
+                    best[addr] = pair
+        return sorted(best.values(), key=lambda p: -safe_float((p.get('volume') or {}).get('h24'))), meta
 
     async def dex_boost_feed(kind, chain='solana', page=1):
         """Use DexScreener's fast boost index for the first radar page."""
@@ -804,17 +775,6 @@ def create_market_router(db, intelligence=None):
             streamed = pump_network.pair_for(address, await pump_network.sol_price())
             if streamed:
                 return MarketResult(**{**meta, 'provider': 'PumpPortal'}, source_url='https://pumpportal.fun', pairs=[streamed], label='Pump network launch snapshot')
-            try:  # LaunchLab / LetsBONK curve pools are indexed by GeckoTerminal before DexScreener
-                gdata, _ = await cached('GeckoTerminal', f'/networks/solana/pools/{address}', ttl=30)
-                pool = (gdata or {}).get('data') or {}
-                base_id = (((pool.get('relationships') or {}).get('base_token') or {}).get('data') or {}).get('id', '')
-                mint = base_id.split('_', 1)[-1]
-                if mint:
-                    symbol = str((pool.get('attributes') or {}).get('name') or '').split(' / ')[0]
-                    geck = gecko_pool_to_pair(pool, mint, {'symbol': symbol, 'name': symbol, 'launchpad': 'raydium', 'image': None})
-                    return MarketResult(**{**meta, 'provider': 'GeckoTerminal'}, source_url='https://www.geckoterminal.com', pairs=[geck], label='GeckoTerminal pool snapshot')
-            except HTTPException:
-                pass
         if intelligence:
             pairs = await intelligence.observe(pairs, meta)
         return MarketResult(**meta, source_url=PROVIDER_URLS['DexScreener'], pairs=pairs, label='Pair snapshot')

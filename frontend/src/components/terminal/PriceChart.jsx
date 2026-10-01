@@ -322,7 +322,8 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
         const t = Math.floor(Date.now() / 1000 / bucket) * bucket;
         if (ref.kind === 'candle') {
           // Missed buckets (hidden tab, stalled stream): draw them flat at the last close — never skip a candle.
-          for (let gt = last.time + bucket; gt < t && t - gt < bucket * 500; gt += bucket) {
+          // (a very long gap fills its last 500 buckets — it used to skip the whole gap).
+          for (let gt = Math.max(last.time + bucket, t - bucket * 500); gt < t; gt += bucket) {
             ref.series.update({ time: gt, open: last.close, high: last.close, low: last.close, close: last.close });
           }
           const bar = t > last.time ? { time: t, open: last.close, high: Math.max(last.close, value), low: Math.min(last.close, value), close: value }

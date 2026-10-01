@@ -1,3 +1,4 @@
+import { ChatFx, CHAT_THEMES, chatTheme } from './ChatFx';
 import { PanelBoundary } from './PanelBoundary';
 import { useDraft } from '../lib/useDraft';
 import { RepMark } from './RepMark';
@@ -249,7 +250,7 @@ function EcosystemChatInner({ ecosystem, room: roomProp, compact = false, onConn
     } catch (nextError) { setError(nextError.message || 'Profile flag was not recorded.'); }
   };
   const openProfile = message => { const a = message.profile?.address || message.address; if (a && !message.system) window.open(`/terminal/profile/${a}`, '_blank', 'noopener'); else setInspected(message.profile || { address: message.address, chain: message.chain, username: message.username }); };
-  return <AlphaFrame on={String(room).startsWith('alpha-')}><div className={`ecosystem-chat ${compact ? 'compact-chat' : ''}`} data-testid={`chat-${room}`}>
+  return <AlphaFrame on={String(room).startsWith('alpha-')}><div className={`ecosystem-chat has-fx ${compact ? 'compact-chat' : ''}`} data-testid={`chat-${room}`}><ChatFx theme={chatTheme(prefs, room)} />
     {launchRooms && <nav className="chat-subrooms">{launchRooms.map(([id, label]) => <button key={id || 'general'} type="button" className={subRoom === id ? 'active' : ''} onClick={() => setSubRoom(id)}>{label}</button>)}{subRoom === 'feeless-updates' && <small>Read-only · admins post</small>}</nav>}
     {!compact && <div className="chat-room-heading"><MessageCircle size={17} /><strong>{ecosystem?.name || 'General'}</strong><span className="data-status"><i />POLLING</span></div>}
     <div className="chat-identity" data-testid={`chat-identity-${room}`}><span>#{room}</span><select className="chat-filter" aria-label="Filter messages" value={prefs.filter} onChange={e => setPrefs({ filter: e.target.value })}><option value="all">All</option><option value="calls">Calls only</option><option value="trusted">Trusted posters</option><option value="mentions">Mentions me</option></select><button type="button" className={`chat-gear ${prefsOpen ? 'on' : ''}`} aria-label="Chat settings" aria-expanded={prefsOpen} onClick={() => setPrefsOpen(o => !o)}>⚙</button>{wallet ? <span className="chat-wallet-state"><i />SIGNED · {displayAddress(wallet.address)}</span> : <button type="button" onClick={onConnect}>Connect wallet to post</button>}</div>
@@ -259,6 +260,7 @@ function EcosystemChatInner({ ecosystem, room: roomProp, compact = false, onConn
       {!loading && !messages.length && !pump?.visible?.length && <div className="chat-empty" data-testid={`chat-empty-${room}`}><MessageCircle size={28} /><strong>The next alpha starts here.</strong><span>No messages in this channel yet.</span></div>}
       {prefsOpen && <div className="chat-prefs" data-testid="chat-prefs">
         <label><span>Badges per name <b>{shownBadges}</b> <small>(Command Center max {badgeCap})</small></span><input type="range" min="0" max={badgeCap} value={shownBadges} onChange={e => setPrefs({ maxBadges: Number(e.target.value) })} /></label>
+        <div className="chat-theme-pick"><span>Room background</span><div className="m-seg" role="radiogroup" aria-label="Room background">{CHAT_THEMES.map(([id, label]) => <button key={id} type="button" role="radio" aria-checked={chatTheme(prefs, room) === id} data-testid={`chat-theme-${id}`} onClick={() => setPrefs({ themes: { ...(prefs.themes || {}), [room]: id } })}>{label}</button>)}</div></div>
         <label className="chk"><input type="checkbox" checked={prefs.showRep} onChange={e => setPrefs({ showRep: e.target.checked })} />Show rep marks</label>
         <label className="chk"><input type="checkbox" checked={prefs.showFee} onChange={e => setPrefs({ showFee: e.target.checked })} />Show Fee 🐱 posts</label>
         <label><span>Text size</span><select value={prefs.size} onChange={e => setPrefs({ size: e.target.value })}><option value="small">Small</option><option value="normal">Normal</option><option value="large">Large</option></select></label>

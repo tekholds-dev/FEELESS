@@ -250,7 +250,7 @@ test('shows provider retry timing in Terminal discovery without hiding the fallb
   mockMarketResult = {
     data: {
       provider: 'DexScreener',
-      primary_provider: 'GeckoTerminal',
+      primary_provider: 'Pump.fun',
       pairs: [{
         chainId: 'solana',
         pairAddress: 'fallback-pair',
@@ -258,7 +258,7 @@ test('shows provider retry timing in Terminal discovery without hiding the fallb
         liquidity: { usd: 5000 },
       }],
       provider_warning: {
-        provider: 'GeckoTerminal',
+        provider: 'Pump.fun',
         status: 429,
         rate_limited: true,
         retry_after_seconds: 6,
@@ -272,7 +272,7 @@ test('shows provider retry timing in Terminal discovery without hiding the fallb
   const { container, root } = mount();
 
   const notice = container.querySelector('[data-testid="market-feed-availability"]');
-  expect(notice.textContent).toMatch(/GeckoTerminal is cooling down/i);
+  expect(notice.textContent).toMatch(/Pump.fun is cooling down/i);
   expect(notice.textContent).toMatch(/available in about 6 seconds/i);
   expect(container.querySelectorAll('[data-testid="terminal-market-row"]')).toHaveLength(1);
   act(() => root.unmount());
@@ -513,7 +513,7 @@ test('all-chain fresh discovery advances through the next bounded provider page 
   mockSearch = new URLSearchParams('chain=all&screen=new');
   mockMarketResult = {
     data: {
-      provider: 'GeckoTerminal',
+      provider: 'Pump.fun',
       pairs: Array.from({ length: 21 }, (_, index) => ({
         chainId: 'solana',
         pairAddress: `pool-${index}`,

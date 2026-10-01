@@ -65,10 +65,10 @@ test('shows the primary-provider retry hint while keeping Coin Radar fallback ro
     top: {
       data: {
         provider: 'DexScreener',
-        primary_provider: 'GeckoTerminal',
+        primary_provider: 'Pump.fun',
         pairs: [pair],
         provider_warning: {
-          provider: 'GeckoTerminal',
+          provider: 'Pump.fun',
           status: 429,
           rate_limited: true,
           retry_after_seconds: 8,
@@ -80,7 +80,7 @@ test('shows the primary-provider retry hint while keeping Coin Radar fallback ro
   });
 
   const notice = container.querySelector('[data-testid="globe-coins-trending-availability"]');
-  expect(notice.textContent).toMatch(/GeckoTerminal is cooling down/i);
+  expect(notice.textContent).toMatch(/Pump.fun is cooling down/i);
   expect(notice.textContent).toMatch(/available in about 8 seconds/i);
   expect(container.querySelector('[data-testid="token-card"]').textContent).toBe('FALLBACK');
   act(() => root.unmount());
