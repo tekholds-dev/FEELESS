@@ -479,3 +479,56 @@ def lane_weights(proofs):
     if good:
         w[max(good, key=lambda x: x[1]['avgPct'])[0]] = 1.25
     return w
+
+
+# ---- 🎚 Engine dial (Cmd Ctr): one choice sets the runner engine (gates + lanes), on top of the tested defaults ----------
+ENGINE_DIALS = {
+    'safe': {'label': '🛡 Safe', 'cfg': {'minMcap': 15000, 'minVol1h': 12000, 'maxTop10': 22, 'maxInsiders': 8, 'maxDev': 4, 'maxBundled': 1, 'roundSize': 3,
+                                        'scalpTp': 35, 'scalpStop': 15, 'runnerTp1': 35, 'runnerTp2': 80, 'runnerTrail': 15, 'runnerStop': 20, 'lightRounds': 16},
+             'why': 'Strictest gates, 3 picks, quick exits, needs 16 proven rounds'},
+    'balanced': {'label': '⚖ Balanced', 'cfg': {k: v for k, (v, _) in RECOMMENDED.items()}, 'why': 'The recommended engine (⚡ Stronger engine values)'},
+    'degen': {'label': '🚀 Degen', 'cfg': {'minMcap': 8000, 'minVol1h': 6000, 'maxTop10': 30, 'maxInsiders': 15, 'maxDev': 8, 'roundSize': 6,
+                                          'scalpTp': 80, 'scalpStop': 30, 'runnerTp1': 60, 'runnerTp2': 150, 'runnerTrail': 30, 'runnerStop': 35, 'lightRounds': 8},
+              'why': 'Looser gates, 6 picks, let winners run longer'},
+}
+
+
+def engine_dial(dial, cfg=None):
+    """Cmd Ctr dial → a full engine cfg (clean_cfg-validated). Unknown dial → ValueError."""
+    if dial not in ENGINE_DIALS:
+        raise ValueError('Pick Safe, Balanced or Degen.')
+    return {**clean_cfg({**(cfg or {}), **ENGINE_DIALS[dial]['cfg']}), 'dial': dial}
+
+
+def dial_proof(rounds, paths, now, dials, window=24 * 3600):
+    """Auto paper cards per RISK dial: every round's picks played with that dial's take-profit / stop-loss on the prices seen
+    after the round. dials = {id: {'runner': (tp, sl)}}. → {id: {rounds, avgPct, winRate, per1}} (a dial lights like proof())."""
+    out = {}
+    for did, d in dials.items():
+        tp, sl = d['runner']
+        rows = []
+        for r in rounds:
+            if now - r['at'] > window or not r.get('picks'):
+                continue
+            mults = []
+            for p in r['picks']:
+                path = [px for t, px in paths.get(p['mint'], []) if t > r['at']]
+                if path and p.get('entry', 0) > 0:
+                    mults.append(_dial_play(p['entry'], path, tp, sl))
+            if mults:
+                rows.append(sum(mults) / len(mults))
+        n = len(rows)
+        avg = round((sum(rows) / n - 1) * 100, 2) if n else 0.0
+        out[did] = {'rounds': n, 'avgPct': avg, 'winRate': round(sum(1 for m in rows if m > 1) / n * 100) if n else 0, 'per1': round(1 + avg / 100, 3),
+                    'lit': n >= LIGHT_MIN_ROUNDS and avg > 0 and (sum(1 for m in rows if m > 1) / n) >= 0.5}
+    return out
+
+
+def _dial_play(entry, path, tp, sl):
+    for px in path:
+        g = (px / entry - 1) * 100
+        if g >= tp:
+            return round(px / entry, 4)
+        if g <= -sl:
+            return round(px / entry, 4)
+    return round(path[-1] / entry, 4)

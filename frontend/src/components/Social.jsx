@@ -46,7 +46,7 @@ export function NotificationBell() {
 
 const ICONS = { dm: '💬', wall: '🧱', mention: '📣', invite: '🎉', reward: '🎁', snipers: '🎯', watch: '👁', alert: '🔔', feecat: '🐱', rug: '🛡' };
 // One stream, two lenses: what moves money vs. people talking to you.
-const TRADING = new Set(['alert', 'snipers', 'watch', 'feecat', 'rug', 'calls']);
+const TRADING = new Set(['alert', 'snipers', 'watch', 'feecat', 'rug', 'calls', 'fuse-guard', 'fuse-card', 'fuse-signal']);   // Fuse alerts = Trading (one stream)
 const compactUsd = v => (!(v > 0) ? null : v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v)}`);
 // Older alerts carry only text ("Every sniper on your coin XYZ has sold out"): recover the ticker from it.
 const sniperCoin = n => n.meta || { symbol: (n.text.match(/your coin (\S+) has/) || [])[1] || 'coin' };

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Countdown } from '../RunnersPanel';
 import '../../styles/fusePage.css';
+import { toast } from 'sonner';
+import { RiskDial, DialBoard } from '../RiskDial';
 
 // Cmd Ctr › Fuse › ⚔ Arena ops: the live battlefield (pairs, move since the bell, time left), the last results, what's
 // on the stage (by kind) and this week's season board. Read-only views of the public Arena + Season data (60s).
@@ -24,7 +26,7 @@ export function ArenaOps() {
   if (!a || !s) return <div className="fl-row is-ghost" />;
   const b = a.battles || { pairs: [], log: [] };
   const kinds = (a.mega || []).reduce((m, c) => ({ ...m, [c.kind]: (m[c.kind] || 0) + 1 }), {});
-  return <section className="m-card fops" data-testid="arena-ops">
+  return <section className="m-card fops" data-testid="arena-ops"><DialBoard dials={a.dials} />
     <div className="fops-row">
       <div className="fops-tile"><small>STAGE</small><b className="m-num">{(a.mega || []).length}</b><em>{Object.entries(kinds).map(([k, n]) => `${KIND[k] || k} ${n}`).join(' · ') || 'empty'}</em></div>
       <div className="fops-tile"><small>BATTLES</small><b className="m-num">{b.pairs.length}</b><em>{b.endsAt ? <>bell in <Countdown at={b.endsAt} /></> : 'pairing on next tick'}</em></div>
@@ -62,4 +64,16 @@ export function ContractStatus() {
       <ul className="fops-steps">{steps.map(([t, ok]) => <li key={t} className={ok ? 'ok' : ''}><i>{ok ? '✓' : '⏳'}</i>{t}</li>)}</ul>
       <small className="m-dim">Test: <code>{cmd}</code></small></div>)}</div>
   </section>;
+}
+
+// Cmd Ctr › ⚡ Engine: ONE dial sets the runner engine (gates + lanes) — Safe / Balanced (recommended) / Degen. Fine-tune below.
+export function EngineDial({ call }) {
+  const [c, setC] = useState(null);
+  const load = () => call('/admin/runners/config').then(setC).catch(() => {});
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!c?.dials) return null;
+  const pick = dial => call('/admin/runners/config', { method: 'POST', body: JSON.stringify({ dial }) })
+    .then(r => { toast.success(`Engine: ${c.dials[dial].label} — ${c.dials[dial].why}`); setC(x => ({ ...x, dial: r.dial, cfg: r.cfg })); window.dispatchEvent(new Event('feeless:runners')); }).catch(e => toast.error(e.message));
+  return <section className="m-card fops" data-testid="engine-dial"><div className="m-row"><span className="m-label">🎚 ENGINE DIAL</span><small className="m-dim">one choice sets every gate + lane exit · fine-tune below makes it Custom</small></div>
+    <RiskDial value={c.dial || 'custom'} onChange={pick} dials={c.dials} noProof testid="engine" /></section>;
 }

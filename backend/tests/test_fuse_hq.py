@@ -139,3 +139,15 @@ def test_card_entries_and_sells_use_pool_value_never_fees():
 def test_one_rotation_per_24h():
     assert hq.next_switch_at({}) == 0 and hq.next_switch_at({'lastSwitchAt': 1000}) == 1000 + 86400
     assert hq.next_switch_at({'lastSwitchAt': 1000}, staff=True) == 0
+
+
+def test_risk_dial_sets_the_whole_plan_server_side():
+    legs = [{'pairAddress': 'P'}, {'pairAddress': 'R', 'runner': True}]
+    p = hq.risk_plan('degen', legs)
+    assert p['legs'] == {'P': {'tp': 100, 'sl': 40}, 'R': {'tp': 100, 'sl': 40}} and p['mode'] == 'swap' and p['onProfit'] == 'compound'
+    c = hq.clean_plan({'risk': 'safe', 'legs': {'P': {'tp': 999}}, 'at': 7}, {}, ['P', 'R'], runner_pairs=['R'])
+    assert c['risk'] == 'safe' and c['legs']['P'] == {'tp': 30, 'sl': 15} and c['at'] in hq.clean_rules({})['yieldLevels'] and c['mode'] == 'hold'
+    assert hq.clean_plan({'legs': {'P': {'tp': 40}}}, {}, ['P'])['risk'] == 'custom'
+    import pytest
+    with pytest.raises(ValueError):
+        hq.risk_plan('yolo', legs)

@@ -7,7 +7,7 @@ import { FuseHQ } from '../FuseHQ';
 import { FuseDeck, VaultMath } from '../FuseDeck';
 import { RunnersPanel } from '../RunnersPanel';
 import { BundlePricing, EngineSuggest, RunnerSettings, CardRules, AutoYieldDefault, FusePayouts } from './FuseAdminSettings';
-import { ArenaOps, ContractStatus } from './FuseOpsPanels';
+import { ArenaOps, ContractStatus, EngineDial } from './FuseOpsPanels';
 import { QuestEngineAdmin } from './QuestEngineAdmin';
 import { LatencyPanel } from './LatencyPanel';
 import { useWallet } from '../../hooks/useWallet';
@@ -174,7 +174,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
       ['hq', '💰 HQ · P&L', <FuseHQ call={call} />, 'Real money: every verified Fuse in, live. Arena = $5 runs that prove a strategy before you trust it.', 'MONEY'],
       ['payouts', '💸 Payouts', <FusePayouts call={call} />, 'Weekly Fee-Back / copy / creator payouts: plan frozen at today\'s SOL price, ONE approval from the fee wallet, credited only from verified transfers.', 'MONEY'],
       ['rules', '🃏 Card rules', <><CardRules call={call} /><AutoYieldDefault call={call} /></>, 'What traders can pick: auto-profit levels, hold/swap, Arena tiers, Fee-Back + copy cuts, and the default 💸 auto-collect.', 'MONEY'],
-      ['engine', '⚡ Engine', <><EngineSuggest call={call} /><RunnerSettings call={call} /></>, 'Runner engine settings: gates, flow, bond boxes, lanes, battles, auto card. ⚡ shows anything weaker than recommended — one click applies it.', 'SYSTEM'],
+      ['engine', '⚡ Engine', <><EngineDial call={call} /><EngineSuggest call={call} /><RunnerSettings call={call} /></>, 'Runner engine settings: gates, flow, bond boxes, lanes, battles, auto card. ⚡ shows anything weaker than recommended — one click applies it.', 'SYSTEM'],
       ['contract', '⛓ Contract', <ContractStatus />, 'FUSE Vault + FUSE Card programs: what\'s built, what\'s blocked, how to test. Localnet only — never deployed or funded without you.', 'SYSTEM'],
       ['vault', '🏦 Vault', <><VaultMath /><VaultDesigner call={call} /></>, 'Design only: a future on-chain vault (SOL in → shares, fees in SOL). Localnet v0.1 — never deployed or funded without you.', 'SYSTEM']]} />}{tab === 'badges' && <><QuestEngineAdmin call={call} /><AwardBadges call={call} initial={[...selected]} /></>}
     {tab === 'feecat' && <FeeCatPanel call={call} />}

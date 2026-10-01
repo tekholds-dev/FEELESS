@@ -422,3 +422,25 @@ body.theme-day .cx { background: var(--m-surface-2); } body.theme-day .cx-legs l
 .fdeck-rail button.active small { -webkit-line-clamp: 3; }
 @media (prefers-reduced-motion: reduce) { .fdeck-rail button::before { transition: none; } }
 @media (max-width: 900px) { .fdeck-group { display: none; } }
+/* 🎚 Risk dial (RiskDial): three big options, each with its Arena paper proof. */
+.rdial { display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: 6px; align-items: stretch; }
+.rdial-opt { display: grid; gap: 2px; justify-items: center; padding: 10px 6px; border-radius: 12px; border: 1px solid var(--m-line); background: var(--m-surface); color: var(--m-text); font: inherit; cursor: pointer;
+  transition: border-color .15s, transform .12s var(--m-ease), background .15s, box-shadow .15s; }
+.rdial-opt b { font-size: 13px; } .rdial-opt small { font-family: var(--m-mono); font-size: 9.5px; }
+.rdial-opt:hover { border-color: var(--m-line-hi); transform: translateY(-2px); } .rdial-opt:active { transform: scale(.97); } .rdial-opt:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.rdial-opt.active { background: var(--m-accent); border-color: var(--m-accent); color: var(--m-accent-ink); box-shadow: 0 10px 24px -14px var(--m-accent); }
+.rdial-opt.active small { color: var(--m-accent-ink) !important; opacity: .8; }
+.rdial-opt.r-degen.active { background: linear-gradient(120deg, #ff7a2f, var(--m-accent)); border-color: #ff7a2f; }
+.rdial-opt.r-safe.active { background: linear-gradient(120deg, #6ad7ff, var(--m-accent)); border-color: #6ad7ff; }
+.rdial-custom { align-self: center; font-family: var(--m-mono); font-size: 10px; color: var(--m-warn); padding: 0 6px; }
+@media (prefers-reduced-motion: reduce) { .rdial-opt { transition: none; } }
+@media (max-width: 640px) { .rdial { grid-template-columns: repeat(3, 1fr); } .rdial-custom { grid-column: 1 / -1; } }
+.fl-risk { align-items: start; } .fl-plan-tune > summary { cursor: pointer; font-family: var(--m-mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--m-dim); padding: 4px 0; } .fl-plan-tune > summary:hover { color: var(--m-accent); }
+/* 🏟 Which dial wins (DialBoard). */
+.dboard { display: grid; gap: 10px; padding: 14px; } .dboard header { display: grid; gap: 2px; } .dboard header small { font-size: 11px; }
+.dboard-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.dboard-tile { position: relative; display: grid; gap: 2px; padding: 12px; border-radius: 12px; border: 1px solid var(--m-line); background: var(--m-surface); transition: border-color .15s, transform .15s; }
+.dboard-tile:hover { transform: translateY(-2px); border-color: var(--m-line-hi); } .dboard-tile b { font-size: 13px; } .dboard-tile em { font-style: normal; font-size: 22px; } .dboard-tile small { font-family: var(--m-mono); font-size: 10px; }
+.dboard-tile.is-best { border-color: var(--m-accent); box-shadow: 0 10px 26px -16px var(--m-accent); }
+.dboard-lit { position: absolute; top: 8px; right: 10px; font-family: var(--m-mono); font-size: 9px; letter-spacing: .1em; color: #ff9a5a; }
+body.theme-day .dboard-tile { background: var(--m-surface-2); }

@@ -593,8 +593,13 @@ def copy_cut(copier_fees_usd, rules):
 LEG_TP, LEG_SL = (5.0, 1000.0), (5.0, 95.0)
 
 
-def clean_plan(plan, rules, pair_addresses):
+def clean_plan(plan, rules, pair_addresses, runner_pairs=()):
     plan = plan if isinstance(plan, dict) else {}
+    if plan.get('risk') in RISK_DIALS:   # the dial wins: server-side values only, nothing free-typed
+        rp = risk_plan(plan['risk'], [{'pairAddress': pa, 'runner': pa in set(runner_pairs)} for pa in pair_addresses])
+        lvl = clean_rules(rules)['yieldLevels']
+        rp['at'] = rp['at'] if rp['at'] in lvl else min(lvl, key=lambda v: abs(v - rp['at']))
+        return {k: rp[k] for k in ('risk', 'at', 'mode', 'onProfit', 'legs')}
     rl = clean_rules(rules)
     at = plan.get('at')
     try:
@@ -614,7 +619,7 @@ def clean_plan(plan, rules, pair_addresses):
             raise ValueError(f'Coin stop-loss must be −{LEG_SL[0]:g}% to −{LEG_SL[1]:g}%.')
         if tp or sl:
             legs[pa] = {'tp': tp, 'sl': sl}
-    return {'at': at, 'mode': 'swap' if plan.get('mode') == 'swap' else 'hold', 'onProfit': 'compound' if plan.get('onProfit') == 'compound' else 'collect', 'legs': legs}
+    return {'risk': 'custom', 'at': at, 'mode': 'swap' if plan.get('mode') == 'swap' else 'hold', 'onProfit': 'compound' if plan.get('onProfit') == 'compound' else 'collect', 'legs': legs}
 
 
 def leg_limit_hits(r, leg_guard):
@@ -679,3 +684,23 @@ def next_switch_at(pos, staff=False):
     """When this card may switch again (0 = now). Hard-coded rotation: one switch-in per 24h."""
     last = _f(pos.get('lastSwitchAt'))
     return 0.0 if staff or not last else last + ROTATE_EVERY
+
+
+# ---- 🎚 Risk dial: ONE choice sets the whole card plan (hard-coded here; the Lab / My cards / contract mirror it) ---------
+RISK_DIALS = {
+    'safe':     {'label': '🛡 Safe',     'pool': (30, 15),  'runner': (30, 15), 'at': 25,  'onProfit': 'collect',  'mode': 'hold', 'runners': 1,
+                 'why': 'Small, quick wins: every coin +30% / −15%, collect at +25%, holds together, 1 runner max'},
+    'balanced': {'label': '⚖ Balanced', 'pool': (50, 25),  'runner': (50, 30), 'at': 50,  'onProfit': 'collect',  'mode': 'hold', 'runners': 2,
+                 'why': 'Pools +50% / −25%, runners on lane-style +50% / −30%, collect at +50%, up to 2 runners'},
+    'degen':    {'label': '🚀 Degen',    'pool': (100, 40), 'runner': (100, 40), 'at': 100, 'onProfit': 'compound', 'mode': 'swap', 'runners': 3,
+                 'why': 'Let it run: +100% / −40%, compound at +100%, auto-rotate the weakest coin daily, 3 runners'},
+}
+
+
+def risk_plan(risk, legs):
+    """Expand a dial into the full card plan for these legs ([{pairAddress, runner?}]). Unknown dial → ValueError."""
+    if risk not in RISK_DIALS:
+        raise ValueError('Pick Safe, Balanced or Degen.')
+    d = RISK_DIALS[risk]
+    lim = {l['pairAddress']: dict(zip(('tp', 'sl'), d['runner' if l.get('runner') or l.get('role') == 'runner' else 'pool'])) for l in legs if l.get('pairAddress')}
+    return {'risk': risk, 'at': d['at'], 'mode': d['mode'], 'onProfit': d['onProfit'], 'legs': lim, 'maxRunners': d['runners']}

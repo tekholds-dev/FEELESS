@@ -2910,11 +2910,11 @@ async def fuse_position(p: FusePositionIn):
             return {'ok': True, 'counted': False}
         pos = {'id': uuid.uuid4().hex[:10], 'wallet': me, 'name': p.name.strip() or 'Lab fuse', 'fuseId': p.fuseId[:16], 'at': time.time(), 'legs': legs}
         try:
-            plan = _hq.clean_plan(p.plan, _json_load(FUSE_HQ_PATH, {}).get('cardRules'), [leg['pairAddress'] for leg in legs]) if p.plan else None
+            plan = _hq.clean_plan(p.plan, _json_load(FUSE_HQ_PATH, {}).get('cardRules'), [leg['pairAddress'] for leg in legs], [leg['pairAddress'] for leg in legs if leg.get('role') == 'runner']) if p.plan else None
         except ValueError:
             plan = None   # a bad plan never blocks recording a real buy
         if plan:
-            pos.update(mode=plan['mode'], onProfit=plan['onProfit'])
+            pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'))
             if plan['legs']:
                 pos['legGuard'] = {pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()}
             if plan['at']:
@@ -2927,6 +2927,9 @@ async def fuse_position(p: FusePositionIn):
             pos['autoYield'] = {'at': float(dflt.get('at') or _hq.YIELD_DEFAULT_AT), 'base': round(sum(_fuse._f(x.get('usd')) for x in legs), 6), 'armedAt': time.time(), 'firedAt': None}
         d.setdefault('positions', []).append(pos)
         _json_save(FUSE_HQ_PATH, d)
+    # AFTER notice (inbox + phone): the card is recorded. Never P&L here — numbers live in Fuse › My cards / the profile.
+    notify(me, 'fuse-card', f"🧬 Card opened: {len(legs)} coin{'s' if len(legs) != 1 else ''} ({', '.join('$' + (leg.get('symbol') or '?') for leg in legs[:4])}){' · ' + _hq.RISK_DIALS[pos['risk']]['label'] if pos.get('risk') in _hq.RISK_DIALS else ''}. Receipt + live P&L in My cards.",
+           url=f"/terminal/fuse?tab=cards&card={pos['id']}", once=f"card-open-{pos['id']}", meta={'claim': 'Confirmed FEELESS buys from your wallet', 'source': 'Fuse cards'})
     return {'ok': True, 'counted': True, 'legs': len(legs)}
 
 
@@ -2970,6 +2973,11 @@ async def fuse_position_close(p: FuseCloseIn):
         if n and pos.get('autoYield') and not pos.get('closedAt'):   # collected → re-arm from the new held value (next tick)
             pos['autoYield'].update(firedAt=None, rebase=True)
         _json_save(FUSE_HQ_PATH, d)
+    if n:   # AFTER notice — no P&L in the text
+        closed = bool(pos.get('closedAt'))
+        notify(me, 'fuse-card', f"{'↩ Card withdrawn' if closed else '💰 Profit taken'}: {pos.get('name') or 'your Fuse card'} — {n} coin sell{'s' if n != 1 else ''} confirmed. {'Receipt on your profile.' if closed else 'Live P&L in My cards.'}",
+               url=f"/terminal/profile/{me}" if closed else f"/terminal/fuse?tab=cards&card={pos['id']}", once=f"card-sell-{pos['id']}-{sorted(sigs)[0] if sigs else ''}",
+               meta={'claim': 'Confirmed FEELESS sells from your wallet', 'source': 'Fuse cards'})
     return {'ok': True, 'closedLegs': n}
 
 
@@ -3066,11 +3074,11 @@ async def _fuse_yield_tick(d, now):
     for x, r, pct in fired:
         gain = _hq.held_value(r) - x['autoYield']['base']
         if x.get('onProfit') == 'compound':   # ♻ compound: move the gain from the winners into the rest of the card
-            notify(x['wallet'], 'fuse-guard', f"♻ {x.get('name') or 'Your Fuse card'} is up +{x['autoYield']['at']:.0f}% — compound ${gain:,.2f}: trim the winners, top up the rest. One approval.",
+            notify(x['wallet'], 'fuse-guard', f"♻ {x.get('name') or 'Your Fuse card'} hit your +{x['autoYield']['at']:.0f}% level — compound it: trim the winners, top up the rest. One approval (numbers in My cards).",
                    url=f"/terminal/fuse?tab=cards&rebalance={x['id']}", once=f"compound-{x['id']}-{x['autoYield'].get('armedAt')}-{int(x['autoYield']['base'] * 100)}",
                    meta={'claim': f"Held value up {x['autoYield']['at']:.0f}% on your base", 'source': 'Fuse P&L (live prices)'})
             continue
-        notify(x['wallet'], 'fuse-guard', f"💸 {x.get('name') or 'Your Fuse card'} is up +{x['autoYield']['at']:.0f}% — collect ${gain:,.2f} profit (sells {pct:.0f}% of each leg, your base stays in). One approval.",
+        notify(x['wallet'], 'fuse-guard', f"💸 {x.get('name') or 'Your Fuse card'} hit your +{x['autoYield']['at']:.0f}% level — collect the gain (sells {pct:.0f}% of each leg, your base stays in). One approval (numbers in My cards).",
                url=f"/terminal/fuse?tab=cards&collect={x['id']}&pct={pct}", once=f"yield-{x['id']}-{x['autoYield'].get('armedAt')}-{int(x['autoYield']['base'] * 100)}",
                meta={'claim': f"Held value up {x['autoYield']['at']:.0f}% on your base", 'source': 'Fuse P&L (live prices)'})
     return len(fired)
@@ -3118,7 +3126,7 @@ async def _fuse_leg_tick(d, now):
         _json_save(FUSE_HQ_PATH, d2)
     for x, leg, kind, pct in fired:
         what = f"hit its +{x['legGuard'][leg['pairAddress']]['tp']:g}% take-profit" if kind == 'tp' else f"hit its −{x['legGuard'][leg['pairAddress']]['sl']:g}% stop"
-        notify(x['wallet'], 'fuse-guard', f"{'🎯' if kind == 'tp' else '🛑'} ${leg.get('symbol')} in {x.get('name') or 'your Fuse card'} {what} ({pct:+.1f}%). Sell it — one approval.",
+        notify(x['wallet'], 'fuse-guard', f"{'🎯' if kind == 'tp' else '🛑'} ${leg.get('symbol')} in {x.get('name') or 'your Fuse card'} {what}. Sell it — one approval (numbers in My cards).",
                url=f"/terminal/fuse?tab=cards&collect={x['id']}&pct=100&legs={leg['pairAddress']}", once=f"leg-{kind}-{x['id']}-{leg['pairAddress']}",
                meta={'claim': f"{leg.get('symbol')} {pct:+.1f}% since your buy", 'source': 'Fuse P&L (live prices)'})
     return len(fired)
@@ -3142,12 +3150,15 @@ async def fuse_plan(p: FusePlanIn):
         if not pos:
             raise HTTPException(404, 'No such open Fuse card for this wallet.')
         try:
-            plan = _hq.clean_plan({**p.plan, 'at': None}, d.get('cardRules'), [leg['pairAddress'] for leg in pos['legs'] if leg.get('soldUsd') is None])
+            plan = _hq.clean_plan({**p.plan, 'at': None} if p.plan.get('risk') not in _hq.RISK_DIALS else p.plan, d.get('cardRules'),
+                                  [leg['pairAddress'] for leg in pos['legs'] if leg.get('soldUsd') is None], [leg['pairAddress'] for leg in pos['legs'] if leg.get('role') == 'runner'])
         except ValueError as e:
             raise HTTPException(400, str(e))
-        pos.update(mode=plan['mode'], onProfit=plan['onProfit'], legGuard={pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()})
+        pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'), legGuard={pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()})
+        if plan.get('risk') in _hq.RISK_DIALS and plan.get('at'):   # the dial also re-arms the card's profit level
+            pos['autoYield'] = {'at': plan['at'], 'base': round(sum(_fuse._f(x.get('heldUsd') or x.get('usd')) for x in pos['legs'] if x.get('soldUsd') is None), 6), 'armedAt': time.time(), 'firedAt': None, 'rebase': True}
         _json_save(FUSE_HQ_PATH, d)
-    return {'ok': True, 'plan': {k: plan[k] for k in ('mode', 'onProfit', 'legs')}}
+    return {'ok': True, 'plan': {k: plan.get(k) for k in ('risk', 'mode', 'onProfit', 'legs', 'at')}}
 
 
 class FuseModeIn(BaseModel):
@@ -3477,10 +3488,42 @@ async def _fuse_guard_tick():
         _json_save(FUSE_HQ_PATH, d)
     label = {'tp': '🎯 Take-profit hit', 'sl': '🛑 Stop-loss hit', 'trail': '📉 Trailing stop hit'}
     for x, hit, r in hits:
-        notify(x['wallet'], 'fuse-guard', f"{label[hit]} on {x.get('name') or 'your Fuse'}: {r['pnlPct']:+.1f}% ({'+' if r['pnlUsd'] >= 0 else '−'}${abs(r['pnlUsd']):.2f}). Tap to Unfuse.",
+        notify(x['wallet'], 'fuse-guard', f"{label[hit]} on {x.get('name') or 'your Fuse'}. Tap to Unfuse — one approval (numbers in My cards).",
                url=f"/terminal/trade?tab=fuse&unfuse={x['id']}", once=f"guard-{x['id']}-{x['guard'].get('armedAt')}",
                meta={'claim': f"Basket P&L {r['pnlPct']:+.1f}% vs your limit", 'source': 'Fuse P&L (live DexScreener prices)'})
     return len(hits)
+
+
+async def _card_signal_tick(now=None):
+    """ONE signal stream (the inbox you already have — no new tab): coins on your OPEN cards that just got a coin-edge signal
+    (🔔 bond run, 🎯 snipers out, ⚠ now failing a runner gate) → one inbox + phone notice each, with the card one tap away.
+    Reads caches only. No P&L in the text."""
+    now = now or time.time()
+    d = _json_load(FUSE_HQ_PATH, {})
+    live = _runner_live_cache.get('data') or {}
+    board = {r['mint']: r for r in (live.get('passing') or []) + (live.get('dropped') or [])}
+    snip = {e.get('mint') or e['pair'] for e in _radar['events'] if e['kind'] == 'snipers-out' and now - e['at'] < 3600}
+    n = 0
+    for x in d.get('positions') or []:
+        if x.get('closedAt'):
+            continue
+        for leg in x['legs']:
+            if leg.get('soldUsd') is not None or not leg.get('mint'):
+                continue
+            m, sym = leg['mint'], leg.get('symbol') or '?'
+            r = board.get(m) or {}
+            sigs = []
+            if r.get('bondTier'):
+                sigs.append(('bond', f"🔔 ${sym} on {x.get('name') or 'your card'}: {r['bondTier']} — every bond box ticked.", 'Fuse Runners bond check'))
+            if m in snip or leg.get('pairAddress') in snip:
+                sigs.append(('snipers', f"🎯 ${sym} on {x.get('name') or 'your card'}: every flagged sniper sold out.", 'Launch forensics radar'))
+            if leg.get('role') == 'runner' and r.get('gates'):
+                sigs.append(('gate', f"⚠ ${sym} on {x.get('name') or 'your card'} now fails: {r['gates'][0]}. Switch or sell it — one approval.", 'Fuse Runners gates'))
+            for kind, text, src in sigs:
+                notify(x['wallet'], 'fuse-signal', text, url=f"/terminal/fuse?tab=cards&card={x['id']}", once=f"sig-{x['id']}-{m}-{kind}-{int(now // 21600)}",
+                       meta={'claim': text, 'source': src})
+                n += 1
+    return n
 
 
 async def _fuse_guard_loop():
@@ -3488,6 +3531,7 @@ async def _fuse_guard_loop():
     while True:
         try:
             await _fuse_guard_tick()
+            await _card_signal_tick()
         except Exception as e:
             print('fuse guard:', e)
         await asyncio.sleep(60)
@@ -3523,9 +3567,13 @@ async def fuse_position_switch(p: FuseSwitchIn):
         pairs = [(t, m) for t, m in pairs if t['tx'] not in used]
         buys_before = sum(1 for e in pos.get('events') or [] if e.get('kind') == 'buy')
         pos, n = _hq.add_legs(pos, [t for t, _ in pairs], [m for _, m in pairs], now=time.time())
-        if sum(1 for e in pos.get('events') or [] if e.get('kind') == 'buy') > buys_before:   # a real switch-in (not a top-up)
+        switched = sum(1 for e in pos.get('events') or [] if e.get('kind') == 'buy') > buys_before
+        if switched:   # a real switch-in (not a top-up)
             pos['lastSwitchAt'] = time.time()
         _json_save(FUSE_HQ_PATH, d)
+    if n:
+        notify(me, 'fuse-card', f"{'⇄ Switched in' if switched else '⚖ Topped up'}: {', '.join('$' + (m.get('symbol') or '?') for _, m in pairs[:3])} on {pos.get('name') or 'your Fuse card'}.{' Next switch in 24h.' if switched and not _is_staff(me) else ''}",
+               url=f"/terminal/fuse?tab=cards&card={pos['id']}", once=f"card-in-{pos['id']}-{pairs[0][0]['tx'] if pairs else ''}", meta={'claim': 'Confirmed FEELESS buys from your wallet', 'source': 'Fuse cards'})
     return {'ok': True, 'added': n, 'nextSwitchAt': _hq.next_switch_at(pos, _is_staff(me))}
 
 
@@ -3566,7 +3614,7 @@ async def fuse_pnl(address: str):
     by, rules, now = _ledger_by_sig(), _card_rules(), time.time()
     hot = {c['id'] for c in (_arena_mega_cache.get('data') or []) if c.get('kind') == 'user' and c['activity']['tier'] in ('hot', 'blazing')}
     wins = _season_wins()
-    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold', 'nextSwitchAt': _hq.next_switch_at(x),
+    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold', 'nextSwitchAt': _hq.next_switch_at(x), 'risk': x.get('risk') or 'custom',
                     'onProfit': x.get('onProfit') or 'collect', 'legGuard': x.get('legGuard') or {},
                     'feeback': _hq.card_feeback(_card_fees(x, by), (x.get('closedAt') or now) - _fuse._f(x.get('at')), x['id'] in hot, rules, x['id'] in wins), 'onArena': x['id'] in hot,
                     'seasonWin': wins.get(x['id']), 'beatCat': [w['week'] for w in _json_load(FUSE_HQ_PATH, {}).get('catChallenge') or [] if x['id'] in (w.get('ids') or [])]} for x in pos), key=lambda r: -(r['at'] or 0))
@@ -3942,7 +3990,10 @@ async def fuse_arena_public():
             rounds.append({'at': r['at'], 'symbols': [p.get('symbol') for p in r['picks']], 'pct': round((sum(mults) / len(mults) - 1) * 100, 2)})
     return {'board': board, 'outlook': _hq.outlook(board), 'bestStyle': _hq.best_style(board), 'runs': [v for v in sorted(vals, key=lambda v: -v['at']) if v['settled']][:12],
             'runners': {'proof': _rn.proof(rd['rounds'], rd['paths'], now, cfg=cfg), 'rounds': rounds}, 'minSettled': _hq.MIN_SETTLED,
-            'mega': (mega := await _arena_mega(rd, cfg, now)), 'battles': _battle_view(mega, now)}
+            'mega': (mega := await _arena_mega(rd, cfg, now)), 'battles': _battle_view(mega, now),
+            # 🎚 auto paper cards per Risk dial: every round also played with each dial's TP/SL — proves a dial BEFORE it goes auto live
+            'dials': {k: {**v, 'label': _hq.RISK_DIALS[k]['label'], 'why': _hq.RISK_DIALS[k]['why']} for k, v in _rn.dial_proof(rd['rounds'], rd['paths'], now, _hq.RISK_DIALS).items()},
+            'engineDial': rd.get('cfgDial') or 'custom'}
 
 
 _arena_mega_cache: dict = {'at': 0.0, 'data': None}
@@ -4602,7 +4653,8 @@ async def runners_board():
 @app.get('/api/reputation/admin/runners/config')
 async def runners_cfg_get(request: Request):
     _require_admin(request)
-    return {'cfg': _runner_cfg(), 'defaults': _rn.DEFAULT_CFG, 'ranges': _rn.CFG_RANGES}
+    return {'cfg': _runner_cfg(), 'defaults': _rn.DEFAULT_CFG, 'ranges': _rn.CFG_RANGES, 'dial': _json_load(RUNNERS_PATH, {}).get('cfgDial') or 'custom',
+            'dials': {k: {'label': v['label'], 'why': v['why']} for k, v in _rn.ENGINE_DIALS.items()}}
 
 
 @app.post('/api/reputation/admin/runners/config')
@@ -4610,12 +4662,19 @@ async def runners_cfg_set(request: Request):
     """Cmd Ctr › Runners settings: gates, round size, each lane's exits, rounds needed to light up. Range-checked; reset = defaults."""
     admin = _require_admin(request)
     body = await request.json()
-    cfg = _rn.DEFAULT_CFG if body.get('reset') else _rn.clean_cfg({**_runner_cfg(), **(body.get('cfg') or {})})
+    if body.get('dial'):   # 🎚 Engine dial: Safe / Balanced / Degen sets gates + lanes together
+        try:
+            dialed = _rn.engine_dial(str(body['dial']), _runner_cfg())
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        dial, cfg = dialed.pop('dial'), _rn.clean_cfg(dialed)
+    else:
+        dial, cfg = 'custom', (_rn.DEFAULT_CFG if body.get('reset') else _rn.clean_cfg({**_runner_cfg(), **(body.get('cfg') or {})}))
     async with _admin_lock:
-        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['cfg'] = cfg; _json_save(RUNNERS_PATH, d)
+        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['cfg'] = cfg; d['cfgDial'] = dial; _json_save(RUNNERS_PATH, d)
     _runner_live_cache.update(at=0, data=None)
     ad = _admin_load(); _audit(ad, admin, 'runners-config', json.dumps(cfg)[:160]); _admin_save(ad)
-    return {'cfg': cfg}
+    return {'cfg': cfg, 'dial': dial}
 
 
 @app.post('/api/reputation/admin/runners/round')

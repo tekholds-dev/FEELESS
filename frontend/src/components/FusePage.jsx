@@ -1,6 +1,8 @@
 import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ShareGifButton } from './ShareGif';
+import { RiskDial, DialBoard } from './RiskDial';
+import { RISK_DIALS } from '../lib/riskDial';
 import { apiUrl } from '../lib/api';
 import { useWallet } from '../hooks/useWallet';
 import { readChatSession } from '../lib/chatSession';
@@ -225,6 +227,7 @@ export function ArenaBoard({ onPicks, onLoad }) {
       : <div className="ar-stage" data-testid="arena-stage">{mega.map((c, i) => <MegaCard key={`${c.kind}-${c.id}`} c={c} i={i} onPicks={onPicks} onLoad={onLoad} chatOpen={chat?.id === c.id} onChat={() => setChat(x => (x?.id === c.id ? null : c))}
         onReplay={() => setReplay(x => (x?.id === c.id ? null : c))} />)}</div>}
     {a?.battles?.pairs?.length > 0 && <Battlefield b={a.battles} />}
+    {a?.dials && <DialBoard dials={a.dials} />}
     {replay && <CardReplay c={replay} onClose={() => setReplay(null)} />}
     {chat && <CardChat c={chat} onClose={() => setChat(null)} />}
     <FuseSeason />
@@ -327,6 +330,9 @@ export function MyCards({ addr }) {
     return () => { clearInterval(t); window.removeEventListener('feeless:fuse-pnl', load); }; }, [load]);
   const ses = () => { const s = addr && readChatSession(addr); if (!s) toast.error('Open chat once to sign in your wallet first.'); return s; };
   const refresh = () => setTimeout(() => window.dispatchEvent(new Event('feeless:fuse-pnl')), 1200);
+  // 🎚 One dial re-plans the whole card (server expands the id: every coin's TP/SL, profit level, collect/compound, rotation).
+  const setRisk = async (r, risk) => { const s = ses(); if (!s || r.risk === risk) return;
+    try { await post('/api/reputation/fuses/plan', { address: addr, session: s, id: r.id, plan: { risk } }); toast.success(`${RISK_DIALS[risk].label}: ${RISK_DIALS[risk].why}`); load(); } catch (e) { toast.error(e.message); } };
   const setMode = async (r, mode) => { const s = ses(); if (!s || (r.mode || 'hold') === mode) return;
     try { await post('/api/reputation/fuses/mode', { address: addr, session: s, id: r.id, mode }); toast.success(mode === 'swap' ? 'Swap mode: weak legs get a one-tap swap alert' : 'Hold mode: the card stays together'); load(); } catch (e) { toast.error(e.message); } };
   const open = useCallback(async (r, kind, extra = {}) => {
@@ -348,10 +354,10 @@ export function MyCards({ addr }) {
   if (!addr) return <div className="m-card fp-empty"><b>Connect your Solana wallet to see your Fuse cards.</b></div>;
   if (!d) return <div className="m-card"><span className="loader" /> Loading your cards…</div>;
   const openRows = (d.rows || []).filter(r => !r.closed);
-  return <MyCardsBody d={d} openRows={openRows} act={act} setAct={setAct} open={open} setMode={setMode} addr={addr} ses={ses} refresh={refresh} />;
+  return <MyCardsBody d={d} openRows={openRows} act={act} setAct={setAct} open={open} setMode={setMode} setRisk={setRisk} addr={addr} ses={ses} refresh={refresh} />;
 }
 
-function MyCardsBody({ d, openRows, act, setAct, open, setMode, addr, ses, refresh }) {
+function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, addr, ses, refresh }) {
   const live = useLivePrices(openRows.flatMap(r => r.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress)));
   const held = openRows.length ? liveBook(openRows, live) : { pnlUsd: d.held?.pnlUsd, pnlPct: d.held?.pnlPct, value: d.held?.valueUsd };
   return <section className="fp-cards" data-testid="my-cards">
@@ -359,8 +365,7 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, addr, ses, refre
       <small className="m-dim">{m$(held.value)} now · {openRows.length} open · all-time {m$(d.pnlUsd)}</small>{d.feebackUsd > 0 && <span className="m-chip ok" data-tip="Fuse Fee-Back: your unlocked share of the fees you paid on cards">🎁 {m$(d.feebackUsd)} Fee-Back</span>}</div>
     {!openRows.length && <div className="m-card fp-empty"><b>No open cards.</b><small className="m-dim">Build one in the Lab — 3 pools + up to 3 runners.</small></div>}
     <div className="fp-cgrid">{openRows.map(r => <div key={r.id} className={`fp-cell ${r.onArena ? 'is-arena' : ''}`}><LiveFuseCard r={r} aura={r.onArena ? 'fire' : ''} />
-      <div className="m-seg fp-mode" role="radiogroup" aria-label="Card mode">{[['hold', '🔒 Hold · switch by hand', 'The card stays as you built it. You may still switch ONE pool or coin every 24h, your pick.'], ['swap', '🤖 Auto-rotate daily', `Once a day, if a coin fails a runner gate or drops ${d.rules?.swapDropPct ?? 25}%, we pre-fill the swap for the best gated runner — one approval. Still max one switch per 24h.`]].map(([k, l, tip]) =>
-        <button key={k} type="button" role="radio" aria-checked={(r.mode || 'hold') === k} className={(r.mode || 'hold') === k ? 'active' : ''} data-tip={tip} onClick={() => setMode(r, k)} data-testid={`mode-${k}-${r.id}`}>{l}</button>)}</div>
+      <div className="fp-risk"><RiskDial value={r.risk || 'custom'} onChange={id => setRisk(r, id)} testid={`card-risk-${r.id}`} /></div>
       {r.beatCat?.length > 0 && <span className="fs-crown r-cat" data-tip="Weeks this card beat FeeCat's average trade" data-testid={`beatcat-${r.id}`}>🐱 Beat FeeCat ×{r.beatCat.length}</span>}
       {r.seasonWin && <span className={`fs-crown r-${r.seasonWin.rank}`} data-tip={`Fuse season · week of ${wk(r.seasonWin.week)} — +Fee-Back boost on this card`} data-testid={`crown-${r.id}`}>{MEDAL[r.seasonWin.rank]} #{r.seasonWin.rank} · week of {wk(r.seasonWin.week)}</span>}
       {(r.streak?.tier || r.compound?.tier || r.copies > 0) && <span className="ar-badges">{r.streak?.tier && <StreakBadge s={r.streak} />}{r.compound?.tier && <CompoundBadge s={r.compound} />}{r.copies > 0 && <span className="ar-copies" data-tip="Traders who copied this card — you earn a share of their FEELESS fee">⚡ {r.copies} {r.copies === 1 ? 'copy' : 'copies'} · {m$(r.copyEarnedUsd)} earned</span>}</span>}
@@ -370,7 +375,10 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, addr, ses, refre
         <SwitchButton r={r} onClick={() => open(r, 'switch')} />
         <button type="button" className="m-btn danger" data-tip="Sell every coin back to SOL — one approval. The card closes and its receipt goes to your profile." onClick={() => open(r, 'withdraw')} data-testid={`act-withdraw-${r.id}`}>↩ Withdraw all</button>
       </div>
-      <details className="fp-more"><summary>⋯ More · auto-collect · rebalance · limits · replay · charts</summary><div className="fp-acts" role="toolbar" aria-label={`${r.name} more actions`}>
+      <details className="fp-more"><summary>⋯ More · rotate · auto-collect · rebalance · limits · replay · charts</summary>
+        <div className="m-seg fp-mode" role="radiogroup" aria-label="Card mode">{[['hold', '🔒 Hold · switch by hand', 'The card stays as you built it. You may still switch ONE pool or coin every 24h, your pick.'], ['swap', '🤖 Auto-rotate daily', `Once a day, if a coin fails a runner gate or drops ${d.rules?.swapDropPct ?? 25}%, we pre-fill the swap for the best gated runner — one approval. Still max one switch per 24h.`]].map(([k, l, tip]) =>
+        <button key={k} type="button" role="radio" aria-checked={(r.mode || 'hold') === k} className={(r.mode || 'hold') === k ? 'active' : ''} data-tip={tip} onClick={() => setMode(r, k)} data-testid={`mode-${k}-${r.id}`}>{l}</button>)}</div>
+        <div className="fp-acts" role="toolbar" aria-label={`${r.name} more actions`}>
         <button type="button" className={`m-btn ${r.autoYield ? 'is-armed' : ''}`} data-tip="Auto-collect: alert + pre-filled Collect profit when the card is up +X% (sells only the gain). You approve once." onClick={() => open(r, 'yield', { at: r.autoYield?.at || d.rules?.yieldDefault || 50, levels: d.rules?.yieldLevels || [25, 50, 100, 200] })} data-testid={`act-yield-${r.id}`}>💸 {r.autoYield ? `Auto +${Math.round(r.autoYield.at)}%` : 'Auto-collect'}</button>
         <button type="button" className={`m-btn ${r.drift >= 5 ? 'is-warn' : ''}`} data-tip={`Back to the weights you bought (drift ${Math.round(r.drift || 0)} pts) — one approval`} onClick={() => open(r, 'rebalance')} data-testid={`act-rebalance-${r.id}`}>⚖ Rebalance</button>
         <button type="button" className={`m-btn ${r.guard && !r.guard.firedAt ? 'is-armed' : ''}`} data-tip="Take-profit / stop-loss / trailing on the whole card" onClick={() => open(r, 'limits', { tp: r.guard?.tp || 50, sl: r.guard?.sl || 20, trail: r.guard?.trail || '', legs: Object.fromEntries(Object.entries(r.legGuard || {}).map(([pa, g]) => [pa, { tp: g.tp ?? '', sl: g.sl ?? '' }])), onProfit: r.onProfit || 'collect' })} data-testid={`act-limits-${r.id}`}>🎯 Limits</button>

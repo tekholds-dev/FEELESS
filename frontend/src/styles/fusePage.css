@@ -341,3 +341,4 @@ body.theme-day .fp-trader { background: var(--m-surface-2); } body.theme-day .fp
 .fp-more[open] .fp-acts { padding: 0 8px 8px; animation: mCardIn .18s var(--m-ease); }
 @media (prefers-reduced-motion: reduce) { .fp-more[open] .fp-acts { animation: none; } }
 @media (max-width: 640px) { .fp-quick { grid-template-columns: 1fr; } }
+.fp-risk { margin-top: 8px; } .fp-more .fp-mode { margin: 4px 8px 8px; }

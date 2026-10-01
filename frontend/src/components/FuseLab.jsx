@@ -11,6 +11,8 @@ import { useLivePrices } from '../lib/livePrices';
 import { formatLivePrice } from '../lib/livePrice';
 import { FuseExplainer, VaultMath } from './FuseDeck';
 import { CardExplain } from './CardExplain';
+import { RiskDial } from './RiskDial';
+import { RISK_DIALS, applyRisk } from '../lib/riskDial';
 import '../styles/fuseLab.css';
 
 // ⚛️ FUSE LAB: browse the chain's real pools, tick them, and see live how FEELESS auto-weighs them (fee APR × depth,
@@ -79,11 +81,18 @@ export const defaultLegLimits = legs => Object.fromEntries(legs.filter(l => l.ru
 export function CardPlan({ legs, plan, setPlan }) {
   const rules = useCardRules();
   const levels = rules?.yieldLevels || [25, 50, 100, 200];
-  const lim = (pa, k, v) => setPlan(p => ({ ...p, legs: { ...p.legs, [pa]: { ...(p.legs[pa] || {}), [k]: v.replace(/[^0-9.]/g, '') } } }));
-  const seg = (k, opts) => <div className="m-seg" role="radiogroup">{opts.map(([v, l, tip]) => <button key={String(v)} type="button" role="radio" aria-checked={plan[k] === v} className={plan[k] === v ? 'active' : ''} data-tip={tip} onClick={() => setPlan(p => ({ ...p, [k]: v }))} data-testid={`plan-${k}-${v}`}>{l}</button>)}</div>;
-  return <details className="fl-plan" open data-testid="card-plan"><summary><span className="m-label">🎯 CARD PLAN</span><small className="m-dim">limits per coin · auto-profit · collect or compound — alerts with one-tap actions, you approve</small></summary>
-    <div className="fl-plan-row"><span>Auto-set TP / SL</span><div className="m-seg" role="group">{PLAN_PRESETS.map(([id, l, , , tip]) => <button key={id} type="button" data-tip={tip} onClick={() => setPlan(p => ({ ...p, legs: applyPreset(legs, id) }))} data-testid={`plan-preset-${id}`}>{l}</button>)}
-      <button type="button" data-tip="Clear every coin's limits" onClick={() => setPlan(p => ({ ...p, legs: {} }))}>Off</button></div></div>
+  const lim = (pa, k, v) => setPlan(p => ({ ...p, risk: 'custom', legs: { ...p.legs, [pa]: { ...(p.legs[pa] || {}), [k]: v.replace(/[^0-9.]/g, '') } } }));
+  const legKey = legs.map(l => l.pairAddress).join(',');
+  useEffect(() => { if (plan.risk && plan.risk !== 'custom') setPlan(applyRisk(legs, plan.risk)); }, [legKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const runners = legs.filter(l => l.runner || l.role === 'runner').length;
+  const maxR = RISK_DIALS[plan.risk]?.runners;
+  const seg = (k, opts) => <div className="m-seg" role="radiogroup">{opts.map(([v, l, tip]) => <button key={String(v)} type="button" role="radio" aria-checked={plan[k] === v} className={plan[k] === v ? 'active' : ''} data-tip={tip} onClick={() => setPlan(p => ({ ...p, risk: 'custom', [k]: v }))} data-testid={`plan-${k}-${v}`}>{l}</button>)}</div>;
+  return <details className="fl-plan" open data-testid="card-plan"><summary><span className="m-label">🎯 CARD PLAN</span><small className="m-dim">one dial sets it all · alerts with one-tap actions, you approve</small></summary>
+    <div className="fl-plan-row fl-risk"><span>🎚 Risk</span><RiskDial value={plan.risk || 'custom'} onChange={id => setPlan(applyRisk(legs, id))} /></div>
+    {maxR != null && runners > maxR && <div className="m-note warn"><b>{RISK_DIALS[plan.risk].label} = {maxR} runner{maxR === 1 ? '' : 's'} max</b><span>You picked {runners}. Remove {runners - maxR} or pick a bolder dial.</span></div>}
+    <details className="fl-plan-tune"><summary>✎ Customize (TP/SL per coin · profit trigger · collect or compound · hold or rotate)</summary>
+    <div className="fl-plan-row"><span>Auto-set TP / SL</span><div className="m-seg" role="group">{PLAN_PRESETS.map(([id, l, , , tip]) => <button key={id} type="button" data-tip={tip} onClick={() => setPlan(p => ({ ...p, risk: 'custom', legs: applyPreset(legs, id) }))} data-testid={`plan-preset-${id}`}>{l}</button>)}
+      <button type="button" data-tip="Clear every coin's limits" onClick={() => setPlan(p => ({ ...p, risk: 'custom', legs: {} }))}>Off</button></div></div>
     <details className="fl-plan-list" data-testid="plan-list"><summary>Per-coin TP / SL · {legs.length} coins · {Object.values(plan.legs).filter(v => Number(v.tp) || Number(v.sl)).length} set <span aria-hidden="true">▾</span></summary>
     <div className="fl-plan-legs">{legs.map(l => { const v = plan.legs[l.pairAddress] || {}; return <div key={l.pairAddress} className={`fl-plan-leg ${l.runner ? 'is-runner' : ''}`}>
       <b>{l.runner ? '🏃 ' : ''}{l.symbol}</b>
@@ -91,7 +100,8 @@ export function CardPlan({ legs, plan, setPlan }) {
       <label data-tip="Stop-loss on this coin: alert + pre-filled sell when it's down this much">SL −<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.sl ?? ''} onChange={e => lim(l.pairAddress, 'sl', e.target.value)} />%</label></div>; })}</div></details>
     <div className="fl-plan-row"><span>Profit trigger (price move)</span>{seg('at', [[null, 'Off', 'No card-level auto-profit'], ...levels.map(v => [v, `+${v}%`, `Alert when the whole card is up +${v}% from your confirmed buy (fees never mixed into card P&L)`])])}</div>
     <div className="fl-plan-row"><span>On profit</span>{seg('onProfit', [['collect', '💸 Auto TP', 'At your level: a one-tap sell of just the gain back to SOL — your base stays in'], ['compound', '♻ Auto-compound', 'At your level: a one-tap roll of the gain back into the card (trim winners, top up the rest) — builds a compound streak']])}</div>
-    <div className="fl-plan-row"><span>Card</span>{seg('mode', [['hold', '🔒 Hold together', 'The card stays as built'], ['swap', '⇄ Swap weak legs', `A coin that fails a gate or drops ${rules?.swapDropPct ?? 25}% gets a one-tap swap for the best gated runner`]])}</div>
+    <div className="fl-plan-row"><span>Card</span>{seg('mode', [['hold', '🔒 Hold · switch by hand', 'The card stays as built. One switch per 24h, your pick.'], ['swap', '🤖 Auto-rotate daily', `Once a day a coin that fails a gate or drops ${rules?.swapDropPct ?? 25}% gets a pre-filled swap for the best gated runner — one approval`]])}</div>
+    </details>
   </details>;
 }
 
@@ -142,7 +152,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
   }, [key, sol, manual, addon]); // eslint-disable-line react-hooks/exhaustive-deps
   // Featured / Runners tabs hand the Lab a basket to load (pools here, runners into the picks).
   const [copy, setCopy] = useState(null);   // ⚡ copying another trader's card: {id, owner, pct}
-  const [plan, setPlan] = useState({ at: null, onProfit: 'collect', mode: 'hold', legs: {} });
+  const [plan, setPlan] = useState({ risk: 'balanced', at: 50, onProfit: 'collect', mode: 'hold', legs: {} });
   const legKey = (prev?.legs || []).map(l => l.pairAddress).join(',');
   useEffect(() => { if (prev?.legs) setPlan(p => ({ ...p, legs: { ...defaultLegLimits(prev.legs), ...Object.fromEntries(Object.entries(p.legs).filter(([pa]) => legKey.includes(pa))) } })); }, [legKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!incoming?.n) return; const pools = incoming.legs.filter(l => !l.runner && l.role !== 'runner').slice(0, MAX);

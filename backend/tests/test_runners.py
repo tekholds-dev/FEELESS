@@ -147,3 +147,14 @@ def test_prebond_only_no_mayhem_and_creator_rep():
     clean = rn.score(rn.candidate(pair('c'), CLEAN, now_ms=NOW, creator_rep='clean'))[0]
     watch = rn.score(rn.candidate(pair('c'), CLEAN, now_ms=NOW, creator_rep='watch'))[0]
     assert clean - watch == 15 and rn.failed_gates(rn.candidate(pair('c'), CLEAN, now_ms=NOW, creator_rep='watch')) == []
+
+
+def test_engine_dial_and_dial_proof():
+    c = rn.engine_dial('safe')
+    assert c['dial'] == 'safe' and c['roundSize'] == 3 and c['maxTop10'] == 22 and rn.engine_dial('balanced')['maxTop10'] == rn.RECOMMENDED['maxTop10'][0]
+    with pytest.raises(ValueError):
+        rn.engine_dial('x')
+    rounds = [{'at': i, 'picks': [{'mint': 'a', 'entry': 1.0}]} for i in range(8)]
+    paths = {'a': [(t, 1.0 + 0.1 * (t % 10)) for t in range(1, 60)]}       # climbs to 1.9 then resets
+    pr = rn.dial_proof(rounds, paths, 50, {'safe': {'runner': (30, 15)}, 'degen': {'runner': (100, 40)}})
+    assert pr['safe']['avgPct'] == 48.75 and pr['safe']['lit'] and pr['degen']['rounds'] == 8

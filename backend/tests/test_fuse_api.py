@@ -289,3 +289,24 @@ def test_switch_sets_24h_rotation_but_topups_do_not(monkeypatch):
     assert up['added'] == 1 and up['nextSwitchAt'] == 0                                     # top-up: no cooldown
     sw = asyncio.run(rs.fuse_position_switch(rs.FuseSwitchIn(address=W, session='s', id='r9', legs=[{'pairAddress': 'P2', 'symbol': 'N', 'signature': 'T2'}])))
     assert sw['added'] == 1 and sw['nextSwitchAt'] > time.time() + 86000                    # real switch-in: next one in 24h
+
+
+def test_one_signal_stream_and_engine_dial(monkeypatch):
+    sent = []
+    monkeypatch.setattr(rs, 'notify', lambda *a, **k: sent.append((a, k)))
+    me = rs.primary_of(W); now = time.time()
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'c1', 'wallet': me, 'name': 'Moon', 'at': 1, 'legs': [
+        {'pairAddress': 'PB', 'mint': 'MB', 'symbol': 'BOND', 'role': 'runner', 'usd': 1, 'tokens': 1},
+        {'pairAddress': 'PG', 'mint': 'MG', 'symbol': 'BAD', 'role': 'runner', 'usd': 1, 'tokens': 1},
+        {'pairAddress': 'PS', 'mint': 'MS', 'symbol': 'CLEAN', 'role': 'pool', 'usd': 1, 'tokens': 1}]}]})
+    rs._runner_live_cache.update(at=now, data={'passing': [{'mint': 'MB', 'bondTier': '🔔 Bond run', 'gates': []}], 'dropped': [{'mint': 'MG', 'gates': ['Dev holds under 5%']}]})
+    rs._radar['events'].insert(0, {'kind': 'snipers-out', 'pair': 'PS', 'mint': 'MS', 'at': now})
+    assert asyncio.run(rs._card_signal_tick(now)) == 3
+    texts = [a[2] for a, _ in sent]
+    assert any('BOND' in t and 'Bond run' in t for t in texts) and any('BAD' in t and 'Dev holds' in t for t in texts) and any('CLEAN' in t and 'sniper' in t for t in texts)
+    assert all('$' not in t.split(' on ')[1] for t in texts if ' on ' in t) and all(k['url'].endswith('card=c1') for _, k in sent)
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN')
+    out = asyncio.run(rs.runners_cfg_set(Req({'dial': 'safe'})))
+    assert out['dial'] == 'safe' and out['cfg']['roundSize'] == 3
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.runners_cfg_set(Req({'dial': 'nope'})))
