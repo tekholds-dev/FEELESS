@@ -97,7 +97,7 @@ def test_staff_get_every_unlock(monkeypatch, tmp_path):
     monkeypatch.setattr(rs, '_push_load', lambda: {'subs': {}})
     monkeypatch.setattr(rs, '_admin_wallets', lambda: {W})
     s = asyncio.run(rs.quest_board(W))
-    assert s['earned'] == s['total'] == 40
+    assert s['earned'] == s['total'] == 45
     assert s['perks']['feeDiscountPct'] == 25 and 'vortex' in s['perks']['chatBgs']
     assert asyncio.run(rs._alpha_allowed(next(iter(rs._ALPHA)), W)) if rs._ALPHA else True
 

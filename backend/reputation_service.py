@@ -3649,6 +3649,8 @@ async def _fuse_season_tick(now):
             notify(adm, 'shield', f"💸 Weekly Fuse payout ready: ${plan['totalUsd']:,.2f} to {len(plan['rows'])} wallets (Fee-Back + copy cuts). Cmd Ctr › Fuse › Card rules › Pay.",
                    url='/terminal/command?tab=fuse', once=f"fuse-payout-{prev}", meta={'claim': 'Owed from the fee ledger', 'source': 'Fuse Fee-Back book'})
     medal = {1: '🥇', 2: '🥈', 3: '🥉'}
+    if top:
+        _fuse_chat('fuse-lab', '🏆 Fuse season crowned: ' + ' · '.join(f"{medal[t_['rank']]} {handle_of(t_['wallet']) or t_['wallet'][:4] + '…'} {t_.get('name') or ''} {t_['pnlPct']:+.1f}%" for t_ in top), f"season-{prev}")
     for t_ in top:
         notify(t_['wallet'], 'fuse-guard', f"🏆 {medal[t_['rank']]} Your card {t_.get('name') or ''} finished #{t_['rank']} in this week's Fuse season ({t_['pnlPct']:+.1f}%). "
                f"+{_card_rules()['seasonBoostPct']:g}% Fee-Back on it.", url='/terminal/fuse?tab=arena', once=f"season-{prev}-{t_['id']}",
@@ -3761,7 +3763,8 @@ async def fuse_season():
     board = [{**b, 'beatsCat': b['id'] in beat} for b in board]
     if _FUSE_FORCE.get():   # background only: the race ticker + top-3 alerts (viewers never trigger them)
         _season_race(start, board, now)
-    data = {'week': start, 'endsAt': start + _hq.WEEK, 'cards': len(rows), 'board': board, 'feecat': {'pct': cat_pct, 'winPts': _hq.CAT_WIN_PTS}, 'boostPct': _card_rules()['seasonBoostPct'], 'moves': list(_season_moves['list'])[-12:],
+    season = {**QUEST_SEASON_DEFAULT, **(_json_load(QUESTS_PATH, {}).get('season') or {})}
+    data = {'week': start, 'endsAt': start + _hq.WEEK, 'cards': len(rows), 'board': board, 'seasonName': season.get('name'), 'feecat': {'pct': cat_pct, 'winPts': _hq.CAT_WIN_PTS}, 'boostPct': _card_rules()['seasonBoostPct'], 'moves': list(_season_moves['list'])[-12:],
             'past': list(reversed((_json_load(FUSE_HQ_PATH, {}).get('seasons') or [])[-4:])), 'at': now}
     _fuse_season_cache.update(at=now, data=data)
     return data
@@ -3883,6 +3886,38 @@ async def fuse_arena_public():
 _arena_mega_cache: dict = {'at': 0.0, 'data': None}
 
 
+FUSE_ARENA_NAME = '⚔ Fuse Arena'
+
+
+def _fuse_chat(room, text, key, tokens=None):
+    """Fuse moments into chat — battle results, bond runs, FeeCat's book, season crowns. Once per key (kept 2 days)."""
+    d = _json_load(FUSE_HQ_PATH, {})
+    posted = d.get('chatPosted') or {}
+    if key in posted:
+        return None
+    msg = chat_system_post(room, FUSE_ARENA_NAME, FEE_ADDRESS, text[:600], tokens=tokens)
+    now = time.time()
+    d['chatPosted'] = {k: v for k, v in {**posted, key: now}.items() if now - v < 2 * 86400}
+    _json_save(FUSE_HQ_PATH, d)
+    return msg
+
+
+def _fuse_chat_tick(now):
+    """Background: 🔔 new bond runs → the coin's own room + fuse-lab; 🐱 FeeCat book changes → fuse-lab."""
+    live = _runner_live_cache.get('data') or {}
+    for r in live.get('passing') or []:
+        if r.get('bondTier') == 'run' and r.get('pairAddress'):
+            txt = f"🔔 BOND RUN: ${r.get('symbol')} ticked every box at {_fuse._f(r.get('curve')):.0f}% up the curve — {r.get('buyShare')}% buys, curve +{_fuse._f(r.get('curveSpeed')):.0f} pts in 10m. Gated, not a promise."
+            tok = [{'chainId': 'solana', 'pairAddress': r['pairAddress']}]
+            _fuse_chat(f"coin-solana-{r['pairAddress']}-trenches", txt, f"bond-{r['mint']}-{int(now // 21600)}", tok)
+            _fuse_chat('fuse-lab', txt, f"bond-lab-{r['mint']}-{int(now // 21600)}", tok)
+    fc = next((c for c in _arena_mega_cache.get('data') or [] if c.get('kind') == 'feecat'), None)
+    if fc:
+        syms = sorted(l.get('symbol') or '?' for l in fc['legs'])
+        _fuse_chat('fuse-lab', f"🐱 FeeCat's book now: {' · '.join('$' + s for s in syms)} ({(fc['index'] or 100) - 100:+.1f}% sim, {fc['record'].get('winRate')}% wins). Beat her this week for +8 Fuse score.",
+                   f"feecat-book-{'-'.join(syms)}")
+
+
 def _battle_view(mega, now):
     """⚔ Live battlefield: each pair with both cards' move since the bell (live from the stage), time left, recent results."""
     b = _json_load(FUSE_HQ_PATH, {}).get('battles') or {}
@@ -3908,6 +3943,7 @@ async def _battle_tick(now):
             continue
         w = _rn.settle_battle(a['start'], pct[a['key']], bb['start'], pct[bb['key']])
         results.append({'at': now, 'a': a['name'], 'b': bb['name'], 'winner': {'a': a['name'], 'b': bb['name']}.get(w), 'draw': w == 'draw',
+                        'winnerKey': {'a': a['key'], 'b': bb['key']}.get(w),
                         'aMove': round(pct[a['key']] - a['start'], 2), 'bMove': round(pct[bb['key']] - bb['start'], 2)})
         for side, key in (('a', a['key']), ('b', bb['key'])):
             r_ = d.setdefault('battleRecord', {}).setdefault(key, {'w': 0, 'l': 0, 'd': 0})
@@ -3918,6 +3954,9 @@ async def _battle_tick(now):
     mins = _runner_cfg()['battleMins']
     pairs = [{'a': {'key': f"{x['kind']}:{x['id']}", 'name': x['name'], 'emoji': x.get('emoji'), 'start': pct.get(f"{x['kind']}:{x['id']}", 0.0)},
               'b': {'key': f"{y['kind']}:{y['id']}", 'name': y['name'], 'emoji': y.get('emoji'), 'start': pct.get(f"{y['kind']}:{y['id']}", 0.0)}} for x, y in _rn.pair_battles(mega)]
+    if results:
+        _fuse_chat('fuse-lab', '⚔ Battle results: ' + ' · '.join(f"{'🤝 ' + x['a'] + ' = ' + x['b'] if x['draw'] else '🏆 ' + x['winner'] + ' beat ' + (x['b'] if x['winner'] == x['a'] else x['a'])} ({x['aMove']:+.1f}% vs {x['bMove']:+.1f}%)" for x in results[:4]),
+                   f"battles-{int(now)}")
     async with _admin_lock:
         d2 = _json_load(FUSE_HQ_PATH, {})
         d2['battles'] = {'at': now, 'endsAt': now + mins * 60, 'pairs': pairs}
@@ -4388,6 +4427,7 @@ async def _fuse_warm():
     await _arena_auto_refresh(time.time())
     await asyncio.gather(runners_discover(), fuse_arena_public(), fuse_season(), _sol_usd_live(), return_exceptions=True)
     await _battle_tick(time.time())
+    _fuse_chat_tick(time.time())
 
 
 _runner_disc_cache = {'at': 0.0, 'data': None}
@@ -4840,6 +4880,20 @@ def _streak(days):
     return n
 
 
+def _fuse_quest_stats(mine):
+    """⚛️ Fuse → the ONE season: cards opened, survivors (swapped a weak coin and closed in profit), battles won, weeks
+    that beat FeeCat, season medals — counts for badges + timestamps so weekly quests and season XP see them."""
+    d = _json_load(FUSE_HQ_PATH, {})
+    pos = [x for x in d.get('positions') or [] if x['wallet'] in mine]
+    ids = {x['id'] for x in pos}
+    surv = [x for x in pos if x.get('closedAt') and any(e.get('kind') == 'buy' for e in x.get('events') or []) and _hq.position_pnl(x, {})['pnlUsd'] > 0]
+    wins = [b['at'] for b in d.get('battleLog') or [] if (b.get('winnerKey') or '').startswith('user:') and b['winnerKey'][5:] in ids]
+    beats = [w['week'] + _hq.WEEK for w in d.get('catChallenge') or [] for cid in w.get('ids') or [] if cid in ids]
+    medals = [s['week'] + _hq.WEEK for s in d.get('seasons') or [] for t_ in s.get('top') or [] if t_['id'] in ids]
+    return {'counts': {'fuse_cards': len(pos), 'fuse_survivors': len(surv), 'battle_wins': len(wins), 'feecat_beats': len(beats), 'season_medals': len(medals)},
+            'events': {'fuse_card': [_fuse._f(x.get('at')) for x in pos], 'battle_win': wins, 'feecat_beat': beats, 'season_medal': medals}}
+
+
 async def _quest_raw(me, board=None):
     """Everything the engine measures, read from FEELESS's own records (nothing self-reported)."""
     mine = set(linked_of(me)) | {me}
@@ -4860,7 +4914,7 @@ async def _quest_raw(me, board=None):
             'launches': score_creator(creator)['tokenCount'] if creator else 0, 'points': int(pts.get('total') or 0),
             'signin_days': sorted(days), 'streak': max(_streak(days), int(pts.get('streak') or 0)),
             'fee_usd': await _fee_usd(me), 'fee_mints': [m for m in (await _ecosystem_mints()).values() if m], 'first_seen': st.get('first'),
-            'events': st.get('events') or {},
+            'events': {**(st.get('events') or {}), **(fz := _fuse_quest_stats(mine))['events']}, 'fuse': fz['counts'],
             'alerts_set': sum(len(e.get('watch') or []) for e in _push_load()['subs'].values() if (e.get('prefs') or {}).get('address') in mine)}
 
 

@@ -17,7 +17,7 @@ def badge(s, bid):
 
 
 def test_forty_badges_two_sets_with_art_and_tasks():
-    assert len(q.DEFAULTS) == 40
+    assert len(q.DEFAULTS) == 45   # 20 FEELESS + 20 FRSV + 5 Fuse (one season)
     assert {d['set'] for d in q.DEFAULTS} == {'feeless', 'frsv'}
     assert all(d['tasks'] and q.is_valid_def(d) for d in q.DEFAULTS)
     assert badge({'badges': q.DEFAULTS}, 'frsv-diamond_hands')['art'] == '/assets/badges/frsv/diamond_hands'

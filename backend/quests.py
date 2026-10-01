@@ -22,6 +22,9 @@ METRICS = {
     'followers': 'followers', 'launches': 'coins launched', 'points': 'season points', 'account_days': 'days since your first visit',
     'early': 'joined before 2027', 'badges': 'badges earned',
     'cases_opened': 'case files opened', 'warroom_trades': 'trades from a war room', 'alerts_set': 'price / Dip-Rip alerts set',
+    # ⚛️ Fuse feeds the ONE season: every card, battle, FeeCat win and medal counts toward the same badges, quests and XP
+    'fuse_cards': 'Fuse cards opened', 'fuse_survivors': 'cards that swapped a weak coin and closed in profit', 'battle_wins': 'Arena battles won',
+    'feecat_beats': 'weeks your card beat FeeCat', 'season_medals': 'Fuse season top-3 finishes',
 }
 
 
@@ -51,6 +54,12 @@ FEELESS = [
     ('treasure_hunter', 'Treasure Hunter', 'epic', [_t('coins_traded', 25)]),
     ('legend', 'Legend', 'mythic', [_t('badges', 15, 'Earn 15 FEELESS badges'), _t('volume_usd', 50000)]),
     ('founder', 'Founder', 'mythic', [_t('early', 1, 'Be here before 2027'), _t('account_days', 30), _t('trades', 25)]),
+    # ⚛️ Fuse set (same season, same XP)
+    ('fuser', 'Fuser', 'common', [_t('fuse_cards', 1, 'Fuse your first card')]),
+    ('survivor', 'Survivor', 'rare', [_t('fuse_survivors', 1, 'Swap a weak coin and close the card in profit')]),
+    ('battle_champ', 'Battle Champ', 'epic', [_t('battle_wins', 5, 'Win 5 Arena battles')]),
+    ('cat_slayer', 'Cat Slayer', 'epic', [_t('feecat_beats', 1, 'Beat FeeCat in a weekly Fuse challenge')]),
+    ('medalist', 'Medalist', 'legendary', [_t('season_medals', 1, 'Finish top 3 in a Fuse season week')]),
 ]
 
 # Fee Reserve (FRSV) set: the holder tier. Same 20 badges, harder tasks, and every one needs $FEE held.
@@ -120,7 +129,8 @@ DEFAULTS = _defs('feeless', FEELESS) + _defs('frsv', FRSV)
 DAILY = [('checkin', 'Check in', 'signin', 1, 10), ('trade', 'Make a trade', 'trades', 1, 15), ('chat', 'Post in any chat', 'chat_msgs', 1, 10),
          ('volume', 'Trade $50', 'volume_usd', 50, 20), ('call', 'Call a coin', 'calls', 1, 15), ('case', 'Open a case file', 'case_open', 1, 10)]
 WEEKLY = [('checkins', 'Check in 5 days', 'signin', 5, 60), ('trades', '10 trades', 'trades', 10, 80), ('volume', 'Trade $500', 'volume_usd', 500, 120),
-          ('rooms', 'Chat in 3 rooms', 'chat_rooms', 3, 50), ('warroom', 'Trade from a war room', 'warroom_trade', 1, 70), ('cases', 'Open 5 case files', 'case_open', 5, 40)]
+          ('rooms', 'Chat in 3 rooms', 'chat_rooms', 3, 50), ('warroom', 'Trade from a war room', 'warroom_trade', 1, 70), ('cases', 'Open 5 case files', 'case_open', 5, 40),
+          ('fuse', 'Fuse a card', 'fuse_card', 1, 60), ('battle', 'Win an Arena battle', 'battle_win', 1, 80)]
 
 
 def merge(defaults, overrides):
@@ -160,6 +170,7 @@ def metrics(raw, now=None):
         'account_days': int((now - first) // DAY), 'early': 1 if first < FOUNDER_CUTOFF else 0,
         'cases_opened': len((raw.get('events') or {}).get('case_open') or []), 'warroom_trades': len((raw.get('events') or {}).get('warroom_trade') or []),
         'alerts_set': int(raw.get('alerts_set') or 0),
+        **{k: int((raw.get('fuse') or {}).get(k) or 0) for k in ('fuse_cards', 'fuse_survivors', 'battle_wins', 'feecat_beats', 'season_medals')},
     }
 
 

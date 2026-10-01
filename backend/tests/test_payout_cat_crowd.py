@@ -111,3 +111,34 @@ def test_stronger_engine_suggestions_endpoint_and_one_nudge(rs, monkeypatch):
     assert {s['key'] for s in out['suggestions']} >= {'minMcap', 'maxTop10'} and out['weights'] == {}
     rs._engine_nudge(time.time())
     assert sent and sent[0][1]['once'].startswith('engine-') and 'Cmd Ctr › Fuse › Engine' in sent[0][0][2]
+
+
+def test_fuse_moments_post_to_chat_once(rs, monkeypatch):
+    posts = []
+    monkeypatch.setattr(rs, 'chat_system_post', lambda room, name, addr, text, tokens=None: posts.append((room, text)) or {'id': 'm'})
+    rs._json_save(rs.FUSE_HQ_PATH, {})
+    now = time.time()
+    rs._runner_live_cache.update(at=now, data={'passing': [{'mint': 'M', 'symbol': 'RUN', 'pairAddress': 'PA', 'bondTier': 'run', 'curve': 93, 'buyShare': 66, 'curveSpeed': 11}]})
+    rs._arena_mega_cache.update(at=now, data=[{'kind': 'feecat', 'id': 'feecat', 'legs': [{'symbol': 'UDR'}], 'index': 95, 'record': {'winRate': 41}}])
+    rs._fuse_chat_tick(now); rs._fuse_chat_tick(now)                                               # twice → still once each
+    rooms = [p[0] for p in posts]
+    assert rooms.count('coin-solana-PA-trenches') == 1 and rooms.count('fuse-lab') == 2
+    assert any('BOND RUN: $RUN' in p[1] for p in posts) and any('FeeCat' in p[1] and '-5.0% sim' in p[1] for p in posts)
+
+
+def test_one_season_fuse_feeds_badges_quests_and_xp(rs):
+    import quests as q
+    now = time.time()
+    me = A
+    rs._json_save(rs.FUSE_HQ_PATH, {
+        'positions': [{'id': 'c1', 'wallet': me, 'at': now - 100, 'legs': [{'pairAddress': 'P', 'usd': 10, 'tokens': 0, 'soldUsd': 14}], 'closedAt': now - 50,
+                       'events': [{'kind': 'buy', 'at': now - 90}]}],
+        'battleLog': [{'at': now - 30, 'winnerKey': 'user:c1'}, {'at': now - 20, 'winnerKey': 'lit:x'}],
+        'catChallenge': [{'week': now - 8 * 86400, 'ids': ['c1']}], 'seasons': [{'week': now - 8 * 86400, 'top': [{'id': 'c1', 'rank': 2}]}]})
+    s = rs._fuse_quest_stats({me})
+    assert s['counts'] == {'fuse_cards': 1, 'fuse_survivors': 1, 'battle_wins': 1, 'feecat_beats': 1, 'season_medals': 1}
+    m = q.metrics({'fuse': s['counts']}, now)
+    earned = {b['id'] for b in q.evaluate(q.DEFAULTS, m) if b['earned']}
+    assert {'q-fuser', 'q-survivor', 'q-cat_slayer', 'q-medalist'} <= earned and 'q-battle_champ' not in earned   # 5 wins needed
+    weekly = {x['id']: x['done'] for x in q.quests({'events': s['events']}, now)['weekly']['tasks']}
+    assert weekly['fuse'] and weekly['battle']
