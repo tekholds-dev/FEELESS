@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { FuseGo } from './FuseGo';
 import { FuseEvolve } from './FuseEvolve';
 import { FusePnl } from './FuseHQ';
+import { FuseExplainer } from './FuseDeck';
 import '../styles/fuseLab.css';
 
 // ⚛️ FUSE LAB: browse the chain's real pools, tick them, and see live how FEELESS auto-weighs them (fee APR × depth,
@@ -53,13 +54,13 @@ export function FuseLab({ chain = 'solana', call }) {
   const isOn = p => picked.some(x => x.pairAddress === p.pairAddress);
   const toggle = p => setPicked(list => (isOn(p) ? list.filter(x => x.pairAddress !== p.pairAddress) : list.length >= MAX ? list : [...list, p]));
 
-  return <section className="m-card m-live fl" data-testid="fuse-lab">
+  return <section className={`m-card m-live fl ${admin ? 'is-admin' : ''}`} data-testid="fuse-lab">
     <header className="fl-head">
       <div><span className="m-label">⚛️ FUSE LAB</span><h3>{admin ? 'Design a Fuse.' : 'Many pools. One buy.'}</h3>
         <p className="m-dim">{admin ? 'Up to 6 pools, auto or your own weights, 24h backtest, size guard — then publish it for traders.' : `Pick 2–${MAX} live pools. FEELESS weighs them and shows exactly where your SOL goes. One approval buys them all.`}</p></div>
       <span className="fl-badges">{admin && <span className="m-chip warn">CMD CTR · 6 POOLS</span>}<span className="m-chip ok fl-chain"><i />{chain.toUpperCase()}</span></span>
     </header>
-    <ol className="fl-steps"><li><b>1</b><span>Pick pools</span></li><li><b>2</b><span>Auto-weigh<small>fee APR × depth · 10–70% each</small></span></li><li><b>3</b><span>One click in<small>one approval · a swap per pool</small></span></li></ol>
+    {!admin && <FuseExplainer />}
     {admin ? <FuseEvolve call={call} maxLegs={MAX} onLoad={load} /> : <>
       <FusePnl />
       <div className="fl-best" data-testid="fl-best"><div><b>🧬 Find my best 3</b><small className="m-dim">{best.style ? `Bred with the ${best.style} strategy${best.proven ? ' — proven in our 24h arena' : ''}` : 'We breed hundreds of baskets from live pools and hand you the winner.'}</small></div>

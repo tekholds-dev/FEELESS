@@ -118,6 +118,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   Bloodline (saved champions seed gen 0), Health (published Fuse vs fresh champion → BEATEN ≥10%).
   Traders get ONE button: `POST /fuses/best3` ($5/$20/$100) breeds with the arena's proven style (else yield), cached 2 min.
 - Chat: `/fuse [name]` posts `⚛️ fuse:<id>`; `FuseChatCard` (≤340px, shared `lib/fuseFeed.js` poll) → amount → FuseGo.
+- Cmd Ctr › Fuse = `FuseDeck` (cc-block look, sticky m-seg: Breed & fuse | HQ · P&L | Published | Vault — one panel at a
+  time) with the admin `FuseExplainer` pipeline; traders get the plain-words `FuseExplainer` (APR est. = LP fee rate, not
+  paid to holders; fee drag on tiny buys). Explain every money mechanic on the surface that uses it.
 - FeeCat Fuse: NOT built on purpose — only after a strategy beats holding SOL in the arena over weeks.
 - One-click Fuse in (`FuseGo` + `lib/fuseGo.js`): quote+simulate every leg in parallel (refresh 10s), review must match
   (`orderMatches`), ONE `signAllTransactions`, then `/execute` each leg. Same trading path as Quick trade — no new money path.
