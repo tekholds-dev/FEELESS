@@ -16,6 +16,8 @@ import { formatUSD, formatAge, formatTime, pairKey, hasProviderImage } from '../
 import { matchesPad } from '../../lib/launchpads';
 import { BoltLegend, BoltSignal } from '../terminal/BoltSignal';
 import { MiniChart } from '../terminal/MiniChart';
+import { openWarRoom } from '../WarRoomHost';
+import { heatScore } from '../../lib/heat';
 import { useSnipersOut, snipersOutFor } from '../../lib/snipersOut';
 
 export const RadarView = ({ pairs, onSelect, kind = 'pump' }) => {
@@ -41,6 +43,7 @@ const PUMP_RADAR_STAGES = [
   ['trending', 'Trending coins', TrendingUp],
   ['gainers', 'Gainers', Activity],
   ['snipers', '🎯 Snipers out', Users],
+  ['heat', '🔥 Heat', Activity],
   ['watchlist', 'Watchlist', Star],
 ];
 
@@ -65,6 +68,7 @@ export const PumpRadarCard = ({ pair, onSelect, rank, onLogoExhausted, callCount
     onSelect(pair);
   };
   return <article ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={e => { tilt.onMouseLeave?.(e); setFlipped(false); }} className={`pump-radar-card tilt-card ${flipped ? 'is-flipped' : ''}`} data-testid={`pump-radar-card-${pairKey(pair)}`} onClick={activate} onKeyDown={handleKeyDown} role="button" tabIndex="0" aria-label={`Open ${pair.baseToken?.symbol || 'token'} market`}>
+     <button type="button" className="prc-flip prc-war" title="Open this coin's war room" data-testid="prc-war" onClick={e => { e.stopPropagation(); openWarRoom(pair); }}>⚔️</button>
      <button type="button" className="prc-flip" aria-pressed={flipped} title={flipped ? 'Back to the card' : 'Mini chart'} data-testid="prc-flip" onClick={e => { e.stopPropagation(); setFlipped(f => !f); }}>{flipped ? '↩' : '📈'}</button>
      {flipped && <div className="prc-back" onClick={e => { e.stopPropagation(); onSelect(pair); }}><b>${pair.baseToken?.symbol}</b><MiniChart pair={pair} /><small className="m-dim">Tap to open the trench chart</small></div>}
      <div className="pump-radar-card-top"><span className="pump-radar-rank">{String(rank).padStart(2, '0')}</span><BoltSignal pair={pair} rank={rank} callCount={callCount} size={14} /><TokenAvatar pair={pair} size={38} maxAttempts={onLogoExhausted ? 3 : undefined} onExhausted={onLogoExhausted} /><span className="pump-radar-token"><b>{pair.baseToken?.symbol || 'Unknown'}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId || 'chain unavailable'} · {pair.dexId || 'venue unavailable'}</small></span><span className="pump-radar-alive" title="Live price stream and provider list refresh"><i />LIVE</span><span className="pump-radar-age">{formatAge(pair.pairCreatedAt)}</span></div>
@@ -128,7 +132,8 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
   const gainers = [...trendingPairs].filter(pair => Number.isFinite(Number(pair.priceChange?.h24))).sort((a, b) => Number(b.priceChange.h24) - Number(a.priceChange.h24));
   // Snipers out: every flagged sniper/bundler has sold (launch forensics) — the cleanest charts on the radar.
   const snipersOut = allObserved.filter(p => snipersOutFor(p));
-  const liveStagePairs = { new: newPairs, graduated, trending: trendingPairs, gainers, snipers: snipersOut, watchlist: watchlist.filter(matches) }[stage] || [];
+  const heat = useMemo(() => allObserved.map(p => [p, heatScore(p, { calls: callCounts[p.pairAddress] || callCounts[p.baseToken?.address] || 0, snipersOut: !!snipersOutFor(p) })]).sort((a, b) => b[1] - a[1]).map(([p]) => p), [allObserved, callCounts]);
+  const liveStagePairs = { new: newPairs, graduated, trending: trendingPairs, gainers, snipers: snipersOut, heat, watchlist: watchlist.filter(matches) }[stage] || [];
   // Hover to freeze: while the pointer is on the grid the cards hold still (no reshuffle under your cursor);
   // new arrivals are counted and land the moment you leave or tap the chip.
   const [frozen, setFrozen] = useState(null);

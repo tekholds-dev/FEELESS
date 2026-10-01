@@ -12,6 +12,7 @@ import { useMarket } from '../../hooks/useMarket';
 import { CardVault } from '../cards/CardVault';
 import { COIN_MAKERS, DEXES } from '../../lib/venues';
 import { CopyBtn } from '../CopyBtn';
+import { MintedTimeline } from '../MintedTimeline';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -230,7 +231,7 @@ export function WalletProfilePage({ address }) {
         <SocialStrip address={address} mine={mine} />
         <OnchainStrip address={address} />
       </div>
-      <div className="xp-badges"><BadgeArtifacts address={address} featured={p.featuredBadges} /></div>
+      <div className="xp-badges"><BadgeArtifacts address={address} featured={p.featuredBadges} /></div><MintedTimeline address={address} />
     </header>
     <div className="wp-quickrow">{mine && <AlphaRoomsCard />}<FeedBar onOpen={() => { setFlipped(true); setActTab('feed'); }} /></div>
     <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />

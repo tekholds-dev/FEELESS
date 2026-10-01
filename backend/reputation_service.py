@@ -2776,7 +2776,9 @@ async def _quest_rarity():
 async def quest_board(address: str):
     s = await _quest_summary(address)
     r = await _quest_rarity()
-    return {**s, 'rarity': r['pct'], 'holders': r['holders'], 'metricsLabels': _quests.METRICS}
+    eds = _json_load(EDITIONS_PATH, {})
+    left = {b['id']: max(0, EDITION_CAP - len(eds.get(b['id']) or [])) for b in s['badges']}   # edition hunt: numbered spots left
+    return {**s, 'rarity': r['pct'], 'holders': r['holders'], 'editionsLeft': left, 'metricsLabels': _quests.METRICS}
 
 
 class QuestCheckin(BaseModel):

@@ -96,7 +96,8 @@ export function QuestBoard() {
       <button type="button" key={b.id} className="qb-tile" onClick={() => setOpen(b)}><BadgeArt art={b.art} name={b.name} locked size="sm" /><span><b>{b.name}</b><small>{b.pct}% · {b.tasks.find(t => !t.done)?.label}</small></span></button>)}</div></div>}
     <div className="m-seg" role="tablist" aria-label="Badge set">{SETS.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={set === id} className={set === id ? 'active' : ''} data-testid={`badge-set-${id}`} onClick={() => setSet(id)}>{label}</button>)}</div>
     <div className="qb-grid">{shown.map(b => <div key={b.id} className="qb-slot"><QuestBadgeCard b={b} size="sm" holders={d.holders?.[b.id]} edition={d.editions?.[b.id]} editionCap={d.editionCap} onOpen={() => setOpen(b)} />
-      <small className="qb-meta">{b.earned ? '✓ earned' : `${b.pct}%`}{d.rarity?.[b.id] != null ? ` · ${d.rarity[b.id]}% hold` : ''}</small>
+      <small className="qb-meta">{b.earned ? (d.editions?.[b.id] ? `✓ #${String(d.editions[b.id]).padStart(3, '0')}` : '✓ earned') : `${b.pct}%`}{d.rarity?.[b.id] != null ? ` · ${d.rarity[b.id]}% hold` : ''}</small>
+      {!b.earned && d.editionsLeft?.[b.id] > 0 && <small className={`qb-left ${d.editionsLeft[b.id] <= 10 ? 'is-low' : ''}`} data-testid={`editions-left-${b.id}`}>{d.editionsLeft[b.id]} / {d.editionCap || 100} numbered left</small>}
       {!b.earned && <i className="qb-bar"><i style={{ transform: `scaleX(${b.pct / 100})` }} /></i>}</div>)}
       {!shown.length && <p className="m-dim">Nothing here yet — finish a quest above.</p>}</div>
     {open && <BadgeDetail b={open} rarity={d.rarity?.[open.id]} edition={d.editions?.[open.id]} editionCap={d.editionCap} onClose={() => setOpen(null)} />}

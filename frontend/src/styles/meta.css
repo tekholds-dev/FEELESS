@@ -602,3 +602,8 @@ body.fx-lite .pump-particles, body.fx-lite .pump-hub .pump-radar-card { animatio
 .mini-chart .mc-line { fill: none; stroke: var(--m-accent); stroke-width: 1.6; vector-effect: non-scaling-stroke; } .mini-chart .mc-area { fill: color-mix(in srgb, var(--m-accent) 14%, transparent); }
 .mini-chart.down .mc-line { stroke: var(--m-danger); } .mini-chart.down .mc-area { fill: color-mix(in srgb, var(--m-danger) 12%, transparent); }
 @media (prefers-reduced-motion: reduce) { .prc-back { animation: none; } }
+.prc-war { right: 42px; }
+.qb-left { font-family: var(--m-mono); font-size: 9px; letter-spacing: .06em; color: var(--m-warn); } .qb-left.is-low { color: var(--m-danger); }
+.minted-timeline ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; max-height: 320px; overflow: auto; scrollbar-width: thin; }
+.minted-timeline li { display: flex; gap: 10px; align-items: center; } .minted-timeline li span { display: grid; } .minted-timeline small { color: var(--m-dim); font-size: 11px; }
+.mt-glyph { width: 56px; text-align: center; font-size: 24px; }
