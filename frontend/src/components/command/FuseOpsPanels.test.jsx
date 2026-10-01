@@ -19,7 +19,7 @@ test('Arena ops: stage mix, live battles with the leader marked, season board vs
 test('Contract status never claims deployment and lists what is still blocked', async () => {
   const el = await mount(<ContractStatus />);
   expect(el.textContent).toContain('LOCALNET ONLY · NOT AUDITED · NOT DEPLOYED');
-  expect(el.querySelectorAll('.fops-steps li.ok').length).toBeGreaterThan(0); expect(el.textContent).toContain('swap adapters');
+  expect(el.querySelectorAll('.fops-steps li.ok').length).toBeGreaterThan(0); expect(el.textContent).toContain('Audited venue adapter');
 });
 
 test('FeeCat tunes the engine in one click: best proven dial + stronger settings', async () => {
