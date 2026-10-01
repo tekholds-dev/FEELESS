@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { TrendingDown, TrendingUp } from 'lucide-react';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { currentSubscription, enablePush, readPushPrefs } from '../../lib/push';
+import { useWallet } from '../../hooks/useWallet';
 
 const DIPS = [10, 20, 30];
 const RIPS = [25, 50, 100];
@@ -10,6 +11,8 @@ const RIPS = [25, 50, 100];
 // Meta trading tool: one-tap "buy the dip" / "sell the rip" alert presets.
 // FEELESS is non-custodial — this arms a push alert at the target price, it never trades for you.
 export function DipRipTool({ pair }) {
+  // Linking the phone to your wallet also drops every alert into the in-app inbox (one stream).
+  const { wallet } = useWallet() || {};
   const { watchlist = [], toggle, updateWatch, has } = useWorkspace() || {};
   const [armed, setArmed] = useState(null);
   const now = Number(pair?.priceUsd) || 0;
@@ -20,7 +23,7 @@ export function DipRipTool({ pair }) {
     try {
       if (!has?.(pair)) toggle?.(pair);
       setTimeout(() => updateWatch?.(pair, { alerts: { [key]: target } }), 0);
-      if (!(await currentSubscription())) await enablePush([...watchlist, { ...pair, alerts: { [key]: target } }], readPushPrefs());
+      if (!(await currentSubscription())) await enablePush([...watchlist, { ...pair, alerts: { [key]: target } }], { ...readPushPrefs(), ...(wallet?.address ? { address: wallet.address } : {}) });
       setArmed(`${dir === 'down' ? 'Dip' : 'Rip'} ${pct}%`);
       toast.success(`🎯 Armed: push alert when ${pair.baseToken?.symbol} ${dir === 'down' ? 'dips' : 'rips'} ${pct}% (~$${target.toPrecision(4)})`);
     } catch (e) { toast.error(e.message); }

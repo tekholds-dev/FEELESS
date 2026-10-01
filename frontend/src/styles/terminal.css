@@ -1565,7 +1565,7 @@ body.theme-day :is(.push-filters select,.rule-num input){border-color:var(--day-
 /* Day: see-through frosted surfaces so the living background shows */
 body.theme-day{--day-surface:rgba(236,245,239,.62)}
 body.theme-day :is(.terminal-header,.terminal-sidebar,.market-ticker,.context-bar){background:rgba(228,240,232,.66)!important;backdrop-filter:blur(14px) saturate(1.25);-webkit-backdrop-filter:blur(14px) saturate(1.25)}
-body.theme-day .terminal-main :is(section,article,aside,.metric,.pulse-pill,.token-analytics-item,.flow-window,.order-flow-metrics>div,.launch-row,.adv-watch-row:not(.adv-watch-labels),.pump-radar-card,.case-card,.proof-row,.vote-row,.network-row,.trust-signal,.reputation-rank-row,.watch-row,.meta-card,.launch-style-card,.supply-options button,.launchpad-card){background-color:rgba(238,246,240,.55)!important;background-image:none!important}
+body.theme-day .terminal-main :is(section,article,aside,.metric,.pulse-pill,.token-analytics-item,.launch-row,.adv-watch-row:not(.adv-watch-labels),.pump-radar-card,.case-card,.proof-row,.vote-row,.network-row,.trust-signal,.reputation-rank-row,.watch-row,.meta-card,.launch-style-card,.supply-options button,.launchpad-card){background-color:rgba(238,246,240,.55)!important;background-image:none!important}
 body.theme-day .terminal-main :is(section,article,aside):hover{background-color:rgba(240,248,242,.68)!important}
 body.theme-day .eco-world-inner{background:rgba(232,242,236,.82)!important;backdrop-filter:blur(18px) saturate(1.2);-webkit-backdrop-filter:blur(18px) saturate(1.2)}
 body.theme-day .community-rail>*{background:rgba(236,245,239,.6)!important}

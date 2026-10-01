@@ -493,9 +493,15 @@ _pair_info: dict = {}
 
 
 def _helius_key():
+    """HELIUS_API_KEY, else the api-key in HELIUS_RPC_URL, else in SOLANA_RPC_URL (which may point at another RPC)."""
     import re as _re2
-    m = _re2.search(r'api-key=([A-Za-z0-9-]+)', os.environ.get('SOLANA_RPC_URL', ''))
-    return m.group(1) if m else None
+    if os.environ.get('HELIUS_API_KEY'):
+        return os.environ['HELIUS_API_KEY'].strip()
+    for var in ('HELIUS_RPC_URL', 'SOLANA_RPC_URL'):
+        m = _re2.search(r'helius[^?]*\?(?:.*&)?api-key=([A-Za-z0-9-]{20,})', os.environ.get(var, ''))
+        if m:
+            return m.group(1)
+    return None
 
 
 async def _pair_snapshot(chain, pool):

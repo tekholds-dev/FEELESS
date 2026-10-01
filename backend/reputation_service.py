@@ -1375,6 +1375,19 @@ async def push_unsubscribe(payload: PushUnsubscribe):
     return {'ok': True}
 
 
+# Where each watch rule's evidence comes from (shown under the alert in the inbox).
+ALERT_SOURCE = {'up': 'Live price (DexScreener)', 'down': 'Live price (DexScreener)', 'volSpike': '5m vs 24h volume (DexScreener)',
+                'feeRead': 'FeeCat entry rules', 'creatorFlag': 'FEELESS creator reputation'}
+
+
+def _inbox_alert(entry, kind, text, w):
+    """A phone alert also lands in the wallet's in-app inbox (one stream), with the rule and its data source."""
+    address = (entry.get('prefs') or {}).get('address')
+    if address:
+        notify(address, 'alert', text, f"/?coin={w['chainId']}:{w['pairAddress']}", push=False,
+               meta={'symbol': w.get('symbol'), 'rule': kind, 'claim': text, 'source': ALERT_SOURCE.get(kind, 'Watchlist rule')})
+
+
 def _send_push(sub, title, body, url='/terminal/watchlist', tag=None):
     from pywebpush import webpush, WebPushException
     from py_vapid import Vapid01
@@ -1511,6 +1524,7 @@ async def _evaluate_alerts():
                         if kind in ('up', 'down') and last:
                             continue
                         state[kind] = now
+                        _inbox_alert(entry, kind, text, w)
                         if quiet:
                             continue
                         res = await asyncio.to_thread(_send_push, entry['subscription'], f'FEELESS · {sym}', text,
@@ -2579,6 +2593,9 @@ async def fee_post(payload: FeeCallPayload, request: Request):
         followers = [e for e in _push_load()['subs'].values() if (e.get('prefs') or {}).get('followFee')]
         for e in followers[:500]:
             asyncio.get_running_loop().run_in_executor(None, _send_push, e['subscription'], 'Fee 🐱 just traded', head, f"/terminal/coin/solana/{payload.pairAddress}", 'fee-copy')
+            if (e.get('prefs') or {}).get('address'):
+                notify(e['prefs']['address'], 'feecat', head, f"/terminal/coin/solana/{payload.pairAddress}", push=False,
+                       meta={'claim': head, 'source': 'FeeCat trade post'})
     except Exception:
         pass
     call_id = None
@@ -4734,6 +4751,10 @@ async def _push_snipers_out(mint):
     for entry in list(_push_load()['subs'].values()):
         w = next((x for x in entry['watch'] if mint in (x.get('mint'), x.get('pairAddress'))), None)
         if w:
+            if (entry.get('prefs') or {}).get('address'):
+                notify(entry['prefs']['address'], 'snipers', f"Every flagged sniper/bundler on {w.get('symbol') or mint[:4]} has sold out",
+                       f"/terminal/chat?chain=solana&pair={w['pairAddress']}&room=bulls", once=f'snipers-{mint}', push=False,
+                       meta={'symbol': w.get('symbol'), 'claim': 'All flagged sniper/bundler wallets sold', 'source': 'Launch forensics (holder scan)'})
             await asyncio.to_thread(_send_push, entry['subscription'], f"🎯 {w.get('symbol') or mint[:4]}: snipers are out",
                                     'Every flagged sniper/bundler has sold. Tap to buy.', f"/terminal/chat?chain=solana&pair={w['pairAddress']}&room=bulls&buy=1", f'snipers-{mint}')
 
@@ -4779,8 +4800,9 @@ async def admin_feecat_set(request: Request):
 NOTIF_PATH = DATA_DIR / 'notifications.json'
 
 
-def notify(address: str, kind: str, text: str, url: str = '', actor: str = '', once: str = '', meta: Optional[dict] = None):
-    """once: a dedupe key — a notification with the same key is never sent to this wallet twice."""
+def notify(address: str, kind: str, text: str, url: str = '', actor: str = '', once: str = '', meta: Optional[dict] = None, push: bool = True):
+    """once: a dedupe key — a notification with the same key is never sent to this wallet twice.
+    push=False: inbox only (the caller already pushed to the phone)."""
     to = primary_of(address)
     if not to or to in ('FEE-LEADER-CAT', 'FEELESS-HQ') or primary_of(actor or '') == to:
         return
@@ -4792,6 +4814,8 @@ def notify(address: str, kind: str, text: str, url: str = '', actor: str = '', o
                    **({'once': once} if once else {}), **({'meta': meta} if meta else {})})
     d[to] = box[:200]
     _json_save(NOTIF_PATH, d)
+    if not push:
+        return
     try:
         for e in _push_load()['subs'].values():
             if primary_of((e.get('prefs') or {}).get('address') or '') == to:
@@ -5273,8 +5297,15 @@ async def helius_webhook(request: Request):
 
 # ---- Auto-managed Helius webhook: follows the public domain set in the Command Center ---------
 def _helius_key():
-    m = _re.search(r'api-key=([0-9a-f-]{20,})', os.environ.get('SOLANA_RPC_URL', ''))
-    return m.group(1) if m else None
+    """HELIUS_API_KEY, else the api-key in HELIUS_RPC_URL, else in SOLANA_RPC_URL (which may point at another RPC)."""
+    import re as _re2
+    if os.environ.get('HELIUS_API_KEY'):
+        return os.environ['HELIUS_API_KEY'].strip()
+    for var in ('HELIUS_RPC_URL', 'SOLANA_RPC_URL'):
+        m = _re2.search(r'helius[^?]*\?(?:.*&)?api-key=([A-Za-z0-9-]{20,})', os.environ.get(var, ''))
+        if m:
+            return m.group(1)
+    return None
 
 
 def _webhook_secret():

@@ -47,3 +47,20 @@ test('three or more of one kind collapse into a dropdown; fewer stay as rows', (
   expect(host.querySelector('[data-testid="np-group-dm"]')).toBeNull();
   expect(host.querySelectorAll('a.k-dm')).toHaveLength(1);
 });
+
+test('one alert stream: Trading / Social lenses, and each trading alert cites its source', () => {
+  const now = Date.now() / 1000;
+  const host = mount(<NotificationList items={[
+    { id: 'a', kind: 'alert', text: 'WIF volume spike', url: '/?coin=solana:P', at: now, read: false, meta: { source: '5m vs 24h volume (DexScreener)' } },
+    { id: 'f', kind: 'feecat', text: 'Fee bought BONK', url: '/x', at: now, read: false, meta: { source: 'FeeCat trade post' } },
+    { id: 'd', kind: 'dm', text: 'gm', url: '/y', at: now, read: false },
+  ]} />);
+  const texts = () => [...host.querySelectorAll('.np-item p')].map(p => p.textContent);
+  expect(texts()).toHaveLength(3);
+  expect(host.querySelector('[data-testid="np-why"]').textContent).toBe('source · 5m vs 24h volume (DexScreener)');
+  act(() => host.querySelector('[data-testid="np-lens-trading"]').click());
+  expect(texts().join('|')).not.toContain('gm');
+  expect(texts()).toHaveLength(2);
+  act(() => host.querySelector('[data-testid="np-lens-social"]').click());
+  expect(texts()).toEqual(['gm']);
+});

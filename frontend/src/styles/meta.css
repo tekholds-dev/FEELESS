@@ -454,3 +454,16 @@ body.theme-day .m-live::before { opacity: .55; }
 .m-go:active:not(:disabled) { transform: translateY(0) scale(.98); } .m-go:focus-visible { outline: 2px solid #b8ffe0; outline-offset: 2px; }
 body.theme-day .m-go { background: linear-gradient(135deg, #056b45, #07895a) !important; color: #fff !important; box-shadow: 0 8px 20px -12px rgba(7, 120, 79, .7); }
 .trench-chart { display: contents; } .trench-chart .chart-toolbar { flex-wrap: wrap; row-gap: 6px; }
+.np-lens { margin: 6px 10px 8px; } .np-why { display: block; margin-top: 2px; font-family: var(--m-mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--m-mute); }
+.tape-row.is-whale { box-shadow: inset 3px 0 0 var(--m-warn); } .tape-row.is-whale b::after { content: ' 🐋'; }
+.tape-row a { color: inherit; text-decoration: none; } .tape-row a:hover { color: var(--m-accent); }
+.tape-case { border: 1px solid var(--m-line); background: transparent; border-radius: 6px; width: 24px; height: 22px; font-size: 11px; cursor: pointer; transition: border-color .15s, transform .1s; }
+.tape-case:hover { border-color: var(--m-accent); } .tape-case:active { transform: scale(.94); } .tape-case:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
+.eco-chart .trade-tape-list { max-height: 200px; }
+/* Coins you hold: a chip + a breathing green ring on the card (opacity only; off in fx-lite / reduced motion). */
+.held-chip { margin-left: 6px; vertical-align: middle; font-size: 9px; }
+.new-stuff-item:has(.held-chip) { position: relative; border-color: color-mix(in srgb, var(--m-accent) 55%, transparent); }
+.new-stuff-item:has(.held-chip)::after { content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; box-shadow: 0 0 0 1px var(--m-accent), 0 0 18px -4px var(--m-accent); animation: mBreathe 2.4s ease-in-out infinite; }
+@keyframes mBreathe { 0%, 100% { opacity: .25; } 50% { opacity: .9; } }
+body.fx-lite .new-stuff-item:has(.held-chip)::after { animation: none; opacity: .5; }
+@media (prefers-reduced-motion: reduce) { .new-stuff-item:has(.held-chip)::after { animation: none; opacity: .5; } }

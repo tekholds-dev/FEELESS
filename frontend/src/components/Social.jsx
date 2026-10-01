@@ -44,23 +44,28 @@ export function NotificationBell() {
     </div>}</span>;
 }
 
-const ICONS = { dm: '💬', wall: '🧱', mention: '📣', invite: '🎉', reward: '🎁', snipers: '🎯', watch: '👁' };
+const ICONS = { dm: '💬', wall: '🧱', mention: '📣', invite: '🎉', reward: '🎁', snipers: '🎯', watch: '👁', alert: '🔔', feecat: '🐱', rug: '🛡' };
+// One stream, two lenses: what moves money vs. people talking to you.
+const TRADING = new Set(['alert', 'snipers', 'watch', 'feecat', 'rug', 'calls']);
 const compactUsd = v => (!(v > 0) ? null : v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v)}`);
 // Older alerts carry only text ("Every sniper on your coin XYZ has sold out"): recover the ticker from it.
 const sniperCoin = n => n.meta || { symbol: (n.text.match(/your coin (\S+) has/) || [])[1] || 'coin' };
 
 const GROUP_AT = 3;
-const GROUP_LABEL = { dm: 'Messages', wall: 'Wall posts', mention: 'Mentions', invite: 'Invites', reward: 'Rewards', watch: 'Watched wallets', follow: 'New followers', calls: 'Calls' };
+const GROUP_LABEL = { dm: 'Messages', wall: 'Wall posts', mention: 'Mentions', invite: 'Invites', reward: 'Rewards', watch: 'Watched wallets', follow: 'New followers', calls: 'Calls', alert: 'Price & Dip/Rip alerts', feecat: 'FeeCat trades', rug: 'Rug shield' };
 function Row({ n, i }) {
   if (n.kind === 'watch' && n.url?.includes('pair=')) {
     // Watched wallet traded: jump straight into a pre-quoted Quick trade (rug shield runs before you sign).
     return <div style={{ '--i': Math.min(i, 12) }} className={`np-item np-watch ${n.read ? '' : 'unread'} k-watch`} data-testid="np-watch"><span>👁</span><a href={n.url}><p>{n.text}</p></a><small>{ago(n.at)}</small>{/ bought /.test(n.text) && <a className="np-buy" href={`${n.url}&buy=1`}>Buy →</a>}</div>;
   }
-  return <a href={n.url || '#'} style={{ '--i': Math.min(i, 12) }} className={`np-item ${n.read ? '' : 'unread'} k-${n.kind}`}><span>{ICONS[n.kind] || '🔔'}</span><p>{n.text}</p><small>{ago(n.at)}</small></a>;
+  // Every trading alert shows where its claim comes from.
+  return <a href={n.url || '#'} style={{ '--i': Math.min(i, 12) }} className={`np-item ${n.read ? '' : 'unread'} k-${n.kind}`}><span>{ICONS[n.kind] || '🔔'}</span><p>{n.text}{n.meta?.source && <small className="np-why" data-testid="np-why">source · {n.meta.source}</small>}</p><small>{ago(n.at)}</small></a>;
 }
 
 // Snipers-out alerts collapse into one dropdown (one row per coin); everything else lists normally.
-export function NotificationList({ items }) {
+export function NotificationList({ items: all }) {
+  const [lens, setLens] = useState('all');
+  const items = lens === 'all' ? all : all.filter(n => TRADING.has(n.kind) === (lens === 'trading'));
   const snipers = items.filter(n => n.kind === 'snipers');
   const rest = items.filter(n => n.kind !== 'snipers');
   const unreadSnipers = snipers.filter(n => !n.read).length;
@@ -68,6 +73,8 @@ export function NotificationList({ items }) {
   const groups = [];
   rest.forEach(n => { const g = groups.find(([k]) => k === n.kind); if (g) g[1].push(n); else groups.push([n.kind, [n]]); });
   return <>
+    <div className="m-seg np-lens" role="radiogroup" aria-label="Filter notifications">{[['all', 'All'], ['trading', 'Trading'], ['social', 'Social']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={lens === k} data-testid={`np-lens-${k}`} onClick={() => setLens(k)}>{l} {k === 'all' ? all.length : all.filter(n => TRADING.has(n.kind) === (k === 'trading')).length}</button>)}</div>
+    {!items.length && <p className="np-empty">Nothing here yet.</p>}
     {snipers.length > 0 && <details className="np-group" data-testid="np-snipers">
       <summary className={unreadSnipers ? 'unread' : ''}><span>🎯</span><p><b>Snipers out</b> · {snipers.length} coin{snipers.length === 1 ? '' : 's'}</p>{unreadSnipers > 0 && <i className="np-count">{unreadSnipers}</i>}</summary>
       {snipers.map(n => { const c = sniperCoin(n); const mc = compactUsd(c.mcap); return <div key={n.id} className="np-sniper">

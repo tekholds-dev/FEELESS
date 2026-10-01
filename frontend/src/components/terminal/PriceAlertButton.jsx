@@ -3,9 +3,12 @@ import { toast } from 'sonner';
 import { BellPlus } from 'lucide-react';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { currentSubscription, enablePush, readPushPrefs } from '../../lib/push';
+import { useWallet } from '../../hooks/useWallet';
 
 // Set a price target right from the chart → push to your phone when it hits.
 export function PriceAlertButton({ pair }) {
+  // Linking the phone to your wallet also drops every alert into the in-app inbox (one stream).
+  const { wallet } = useWallet() || {};
   const { watchlist = [], toggle, updateWatch, has } = useWorkspace() || {};
   const [open, setOpen] = useState(false);
   const [dir, setDir] = useState('above');
@@ -17,7 +20,7 @@ export function PriceAlertButton({ pair }) {
     try {
       if (!has?.(pair)) toggle?.(pair);
       setTimeout(() => updateWatch?.(pair, { alerts: { [dir]: v, [dir === 'above' ? 'below' : 'above']: null } }), 0);
-      if (!(await currentSubscription())) await enablePush([...watchlist, { ...pair, alerts: { [dir]: v } }], readPushPrefs());
+      if (!(await currentSubscription())) await enablePush([...watchlist, { ...pair, alerts: { [dir]: v } }], { ...readPushPrefs(), ...(wallet?.address ? { address: wallet.address } : {}) });
       toast.success(`🔔 Alert set: ${pair.baseToken.symbol} ${dir === 'above' ? '≥' : '≤'} $${v}`);
       setOpen(false);
     } catch (e) { toast.error(e.message); }

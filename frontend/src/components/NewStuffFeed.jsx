@@ -1,3 +1,4 @@
+import { HeldChip } from '../lib/myHoldings';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { Sparkles, Flame, Copy, ExternalLink, RefreshCw } from 'lucide-react';
@@ -59,7 +60,7 @@ export default function NewStuffFeed({ ecosystem, onPick, activePair }) {
         return <div className={`new-stuff-item ${onPick ? 'is-pickable' : ''} ${activePair === p.pairAddress ? 'is-active' : ''}`} key={`${p.chainId}-${p.pairAddress}`} data-testid={`new-stuff-item-${addr}`} role={onPick ? 'button' : undefined} tabIndex={onPick ? 0 : undefined} onClick={e => { if (onPick && !e.target.closest('button,a')) onPick(p); }} onKeyDown={e => { if (onPick && e.key === 'Enter') onPick(p); }}>
           <TokenAvatar pair={p} size={48} />
           <div className="new-stuff-meta">
-            <b>{p.baseToken?.symbol || '—'}</b>
+            <b>{p.baseToken?.symbol || '—'} <HeldChip pair={p} /></b>
             <small>{p.baseToken?.name || p.dexId}</small>
           </div>
           <div className="new-stuff-stats">

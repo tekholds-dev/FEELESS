@@ -35,6 +35,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 ## One component per job
 - Every coin chart is `components/terminal/TrenchChart.jsx` (toolbar, P&L badge, your trades on candles, Quick trade,
   Dip/Rip, rug shield). Trenches and the globe war room both use it; fix or extend it there, never fork a copy.
+- Under the chart: `TradeTape` (live swaps, whales = ≥$1K and ≥5× median, 🔎 opens any wallet's case file). Room chart
+  cards size by a `--chart-h` token per layout; nothing inside may be clipped in any layout or the floating window.
+- Coins you hold: `lib/myHoldings.js` (`useHeld`, `HeldChip`), one shared poller of `/api/reputation/pnl/{address}`.
+- One alert stream: every phone alert also goes to the wallet inbox via `notify(..., push=False)` with
+  `meta.claim` + `meta.source`; push subscriptions carry `prefs.address`. Inbox lenses: All / Trading / Social.
 - Swaps never auto-quote: the user picks coins + amount, then clicks Get quote (an open quote still refreshes every 10s).
 
 ## Speed (no lag)
@@ -62,6 +67,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - FEELESS wallets (`_protected_wallets`) can never be blocklisted or scored as suspects.
 
 ## Layout
+- Helius key: `HELIUS_API_KEY` or `HELIUS_RPC_URL` (SOLANA_RPC_URL may point at another RPC).
 - Backend services (restart all after backend changes: `bash scripts/start-backend.sh`):
   `server` 5001 (market + trading), `reputation_service` 5077 (social, fees, admin), `feecat_service` 5088, `candles_service` 5099.
 - Frontend: CRA + craco on 51367. Styles mostly in `frontend/src/styles/terminal.css` (append scoped blocks).
