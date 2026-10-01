@@ -48,6 +48,10 @@ export function FuseFx() {
 export const FUSE_TABS = [['lab', '🧪 Lab'], ['runners', '🏃 Runners'], ['arena', '🏟 Arena'], ['cards', '🃏 My cards']];
 const m$ = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0) >= 1e3 ? `${(Math.abs(v) / 1e3).toFixed(1)}K` : Math.abs(v || 0).toFixed(2)}`;
 const pc = v => `${v >= 0 ? '+' : ''}${(v || 0).toFixed(1)}%`;
+// Watching row: graduated coins are never runners (pre-bond engine) → hidden; the rest say WHAT failed, in plain words.
+const FAIL_WHY = { 'Top 10 under 25%': 'top 10 hold too much', 'Holder scan done': 'holder scan pending', 'Creator not flagged (Bot shield / blocklist)': 'creator flagged',
+  'Creator reputation not suspect / high-risk': 'creator rep risky', 'Market cap ≥ $12K': 'mcap too small', '1h volume ≥ $10K': 'volume too thin' };
+const failWhy = g => FAIL_WHY[g] || (g ? `not: ${g.toLowerCase()}` : 'a gate');
 const MAX_RUNNERS = 3;
 const post = (path, body) => fetch(apiUrl(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   .then(async r => { const x = await r.json().catch(() => ({})); if (!r.ok) throw new Error(x.detail || 'Request failed'); return x; });
@@ -109,6 +113,7 @@ export function RunnerPicker({ picks, onPicks, onDone }) {
   const live = useLivePrices((d?.runners || []).map(x => x.pairAddress));
   if (!d) return <div className="fp-disc is-loading" data-testid="runner-picker"><div className="fp-scan" /><span className="m-dim">Scanning launchpads, the arena, the radar and the callers…</span></div>;
   const rows = filterBySource(d.runners || [], src);
+  const watch = (d.watching || []).filter(w => !(w.gates || []).includes('Pre-bond (still on the curve)'));
   return <section className="fp-disc" data-testid="runner-picker">
     <header className="fp-disc-head m-card m-live"><div><span className="m-label">🏃 RUNNER DISCOVERY · LIVE</span><h2>Good runners, found for you.</h2>
       <p className="m-dim">Every coin here passed every gate right now ({d.gates.slice(0, 3).join(' · ')}…). The more sources that like it, the higher it sits.</p></div>
@@ -117,9 +122,9 @@ export function RunnerPicker({ picks, onPicks, onDone }) {
       <button key={k} type="button" role="tab" aria-selected={src === k} className={src === k ? 'active' : ''} onClick={() => setSrc(k)} data-testid={`src-${k}`}>{l} <em>{n}</em></button>)}</div>
     {(d.swaps || []).length > 0 && <div className="fp-swaps" aria-label="Auto-swaps">{d.swaps.slice().reverse().map(s => <span key={s.at} className="fp-swap">🔁 ${s.out.symbol} → ${s.in.symbol} <small>{s.why[0]}</small></span>)}</div>}
     {!rows.length && <p className="m-dim fp-none">Nothing from this source passes every gate right now — that's the gates working. Next scan in seconds.</p>}
-    {rows.length < 6 && (d.watching || []).length > 0 && <div className="fp-watch" data-testid="fp-watching"><span className="m-label">👀 WATCHING · FAILED A GATE (NOT ADDABLE)</span>
-      <div className="fp-watch-row">{d.watching.map((w, i) => <span key={w.mint} className="fp-wchip" style={{ '--i': i }} data-tip={(w.gates || []).join(' · ')}>
-        <span className="fp-ava sm">{w.logo ? <img src={w.logo} alt="" loading="lazy" /> : '👀'}</span><b>${w.symbol}</b><small>{(w.gates || [])[0]}</small></span>)}</div></div>}
+    {rows.length < 6 && watch.length > 0 && <div className="fp-watch" data-testid="fp-watching"><span className="m-label">👀 WATCHING · PRE-BOND, FAILS A GATE (NOT ADDABLE YET)</span>
+      <div className="fp-watch-row">{watch.map((w, i) => <span key={w.mint} className="fp-wchip" style={{ '--i': i }} data-tip={`Fails: ${(w.gates || []).join(' · ')}`}>
+        <span className="fp-ava sm">{w.logo ? <img src={w.logo} alt="" loading="lazy" /> : '👀'}</span><b>${w.symbol}</b><small>✕ {failWhy((w.gates || [])[0])}</small></span>)}</div></div>}
     <div className="fp-rgrid">{rows.map((r, i) => { const on = picks.some(p => p.mint === r.mint); const full = !on && picks.length >= MAX_RUNNERS; const hot = r.sources.length >= 2;
       return <article key={r.mint} className={`fp-runner ${on ? 'is-on' : ''} ${hot ? 'is-hot' : ''}`} style={{ '--i': Math.min(i, 14) }} data-testid={`runner-${r.mint}`}>
         {hot && <span className="fp-hotband">{r.sources.length} sources</span>}
