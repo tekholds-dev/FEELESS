@@ -4,10 +4,12 @@ import { createPortal } from 'react-dom';
 // 📜 Where the profit went: a slide-in window for ONE card — profit taken out (sits in the wallet as SOL), profit compounded back
 // in (and into which coins), fees paid (shown apart, never inside P&L) and every automation step with its reason.
 // Real cards get one button: 💸 Collect (sell just the gain, one approval). Click outside / Esc closes.
+// 🪟 Card window: the same slide-in also carries the card's actions (＋ Top up · ⇄ Switch · ↩ Withdraw …), its coins with ❄ freeze
+// (a frozen coin is never touched by the engine — only you switch it) and every auto the engine fired in the last 24h.
 const $ = v => `$${Math.abs(v || 0).toFixed(2)}`;
 const ago = t => { const s = Date.now() / 1000 - t; return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : s < 86400 ? `${Math.round(s / 3600)}h` : `${Math.round(s / 86400)}d`; };
 
-export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fees, gainNow, onCollect, onClose, paper }) {
+export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fees, gainNow, onCollect, onClose, paper, actions, legs, onFreeze, autos }) {
   useEffect(() => { const k = e => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   return createPortal(<div className="ce-shade" role="presentation" onClick={onClose} data-testid="card-earnings">
     <aside className="ce" role="dialog" aria-modal="true" aria-label={`${title} earnings`} onClick={e => e.stopPropagation()}>
@@ -19,6 +21,13 @@ export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fe
       </div>
       {onCollect && <button type="button" className="m-btn primary m-go ce-collect" disabled={!(gainNow > 0.01)} onClick={onCollect} data-testid="ce-collect">
         {gainNow > 0.01 ? `💸 Collect ${$(gainNow)} gain — one approval` : 'Nothing to collect yet (card is not up)'}</button>}
+      {actions?.length > 0 && <div className="ce-acts" role="toolbar" aria-label="Card actions">{actions.map(a => <button key={a.label} type="button" className={`m-btn ${a.cls || ''}`} disabled={a.disabled} data-tip={a.tip} onClick={a.onClick} data-testid={a.testid}>{a.label}</button>)}</div>}
+      {legs?.length > 0 && <section className="ce-legs"><span className="m-label">{onFreeze ? '❄ COINS · FREEZE = ENGINE HANDS OFF' : 'COINS'}</span>{legs.map(l => <div key={l.pairAddress} className={`ce-leg ${l.frozen ? 'is-frozen' : ''}`}>
+        <b>${l.symbol}</b><small className="m-dim">{l.role === 'runner' ? 'runner' : 'pool'}{l.stars ? ` · ${'★'.repeat(l.stars)}` : ''}</small><em className={`m-num ${(l.pnlPct || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{l.pnlPct == null ? '—' : `${l.pnlPct >= 0 ? '+' : ''}${Number(l.pnlPct).toFixed(1)}%`}</em>
+        {onFreeze && <button type="button" className={`m-btn ce-frz ${l.frozen ? 'is-on' : ''}`} aria-pressed={!!l.frozen} onClick={() => onFreeze(l, !l.frozen)} data-testid={`freeze-${l.pairAddress}`}
+          data-tip={l.frozen ? 'Frozen: auto-rotate / swap suggestions skip it. Tap to let the engine manage it again.' : 'Freeze: the engine never switches this coin — only you can.'}>{l.frozen ? '❄ Frozen' : '❄ Freeze'}</button>}</div>)}</section>}
+      {autos && <section className="ce-autos"><span className="m-label">⚡ LAST 24H · AUTOS</span>{autos.length ? autos.map((a, i) => <a key={i} href={a.url} className="ce-auto" style={{ '--i': i }}><span>{a.text}</span><time className="m-dim">{ago(a.at)} ago</time></a>)
+        : <small className="m-dim">No autos fired in the last 24h — your levels haven't been hit.</small>}</section>}
       <ol className="ce-tl">{events.length ? events.map((e, i) => <li key={i} className={`k-${e.kind}`} style={{ '--i': i }}>
         <b>{e.label || e.kind}</b>{e.symbol && <span>${e.symbol}</span>}{e.usd != null && <em className="m-num">{$(e.usd)}</em>}
         {e.to?.length > 0 && <small>→ {e.to.map(t => (t === 'cash' ? (paper ? 'cash' : 'your wallet') : `$${t}`)).join(', ')}</small>}

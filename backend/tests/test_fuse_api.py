@@ -358,3 +358,26 @@ def test_trader_ids_cache_only_and_warm(monkeypatch):
     out = asyncio.run(run())['ids']
     assert out == {A: {'score': 64, 'medals': {'1': 1}, 'battles': {'w': 3, 'l': 1, 'd': 0}, 'catWins': 1, 'held': 2}}   # B not cached → not waited on
     assert warmed == [B]
+
+
+def test_freeze_keeps_the_engine_off_a_coin_and_card_window_lists_24h_autos(monkeypatch):
+    monkeypatch.setattr(rs, '_session_or_401', lambda a, s: rs.primary_of(a))
+    me = rs.primary_of(W); now = time.time()
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'f1', 'wallet': me, 'at': 1, 'legs': [
+        {'pairAddress': 'PA', 'mint': 'MA', 'symbol': 'A', 'role': 'runner', 'usd': 5, 'tokens': 5},
+        {'pairAddress': 'PB', 'mint': 'MB', 'symbol': 'B', 'role': 'runner', 'usd': 5, 'tokens': 5}]}]})
+    assert asyncio.run(rs.fuse_freeze(rs.FuseFreezeIn(address=W, session='s', id='f1', pairAddress='PA')))['frozen'] == ['PA']
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.fuse_freeze(rs.FuseFreezeIn(address=W, session='s', id='f1', pairAddress='NOPE')))
+    r = rs._hq.position_pnl(rs._json_load(rs.FUSE_HQ_PATH, {})['positions'][0], {})
+    fail = {'MA': ['dev sold'], 'MB': ['dev sold']}
+    passing = [{'mint': 'MN', 'symbol': 'NEW', 'score': 80}]
+    assert rs._hq.swap_suggest(r, fail, passing, 25, {'PA'})['out']['symbol'] == 'B'          # frozen A is skipped
+    assert rs._hq.swap_suggest(r, fail, passing, 25, {'PA', 'PB'}) is None                     # freeze all → engine stays off
+    rs._json_save(rs.NOTIF_PATH, {me: [{'kind': 'fuse-guard', 'text': '💸 collect', 'url': '/terminal/fuse?tab=cards&collect=f1&pct=33', 'at': now - 60},
+                                       {'kind': 'fuse-guard', 'text': 'old', 'url': '/terminal/fuse?tab=cards&collect=f1', 'at': now - 90000},
+                                       {'kind': 'fuse-signal', 'text': 'other card', 'url': '/terminal/fuse?tab=cards&card=f12', 'at': now}]})
+    async def no_px(legs): return {}
+    monkeypatch.setattr(rs, '_hq_prices', no_px)
+    row = asyncio.run(rs.fuse_pnl(W))['rows'][0]
+    assert row['frozen'] == ['PA'] and [a['text'] for a in row['autos']] == ['💸 collect']

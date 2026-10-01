@@ -438,3 +438,16 @@ body.fx-lite .vd-flow li { animation: none; }
 body.theme-day .cr-story { background: var(--m-surface); } body.theme-day .cr-levels .m-chip.is-on { color: #fff; background: #0f6b45; }
 body.fx-lite .cr-group { animation: none; }
 @media (prefers-reduced-motion: reduce) { .cr-group { animation: none; } .cr-levels .m-chip { transition: none; } }
+
+/* 🪟 Card window extras (CardEarnings): actions, ❄ coins, last-24h autos */
+.ce-acts { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px; }
+.ce-legs, .ce-autos { display: grid; gap: 6px; }
+.ce-leg { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--m-line); border-radius: 10px; transition: border-color .15s, background .15s; }
+.ce-leg.is-frozen { border-color: #7fd4ff; background: color-mix(in srgb, #7fd4ff 8%, transparent); }
+.ce-frz { padding: 3px 8px; font-size: 11px; } .ce-frz.is-on { background: #7fd4ff; color: #04121c; border-color: #7fd4ff; }
+.ce-auto { display: flex; justify-content: space-between; gap: 8px; padding: 7px 9px; border-left: 3px solid var(--gold); border-radius: 0 8px 8px 0; background: var(--m-bg); color: inherit; text-decoration: none; font-size: 12px;
+  animation: mCardIn .2s var(--m-ease) calc(var(--i, 0) * 45ms) backwards; transition: transform .15s; }
+.ce-auto:hover { transform: translateX(2px); } .ce-auto:focus-visible { outline: 2px solid var(--m-accent); } .ce-auto time { white-space: nowrap; font: 10px var(--m-mono); }
+body.theme-day .ce-auto { background: var(--m-surface); } body.theme-day .ce-frz.is-on { background: #1d6fa0; color: #fff; }
+body.fx-lite .ce-auto { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ce-auto { animation: none; transition: none; } }

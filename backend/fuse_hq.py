@@ -450,13 +450,26 @@ def exit_fee_usd(r, bundle, swap_bps, net_per_leg=0.01):
     return round(fee, 6)
 
 
-def swap_suggest(r, failing, passing, drop_pct):
+def card_autos(inbox, card_id, now, hours=24):
+    """The card window's 'last 24h autos': every alert the engine sent about THIS card (take-profit, stop, collect,
+    compound, switch, rebalance, signals) — read from the holder's inbox, newest first. No P&L in them by design."""
+    import re
+    hit = re.compile(rf'=({re.escape(str(card_id))})(&|$)')
+    out = []
+    for n in inbox or []:
+        u = str(n.get('url') or '')
+        if n.get('kind') in ('fuse-guard', 'fuse-signal', 'fuse-card') and now - _f(n.get('at')) < hours * 3600 and hit.search(u):
+            out.append({'at': n.get('at'), 'kind': n.get('kind'), 'text': n.get('text'), 'url': u})
+    return out[:20]
+
+
+def swap_suggest(r, failing, passing, drop_pct, frozen=()):
     """Swap mode: the ONE weakest leg that fails a runner gate now or is down ≥ drop_pct, and the best gated runner to
     replace it (not already in the card). Hold mode never calls this. → {'out', 'in', 'why'} or None."""
     have = {l.get('mint') for l in r.get('legs') or []} | {l.get('pairAddress') for l in r.get('legs') or []}
     weak = []
     for l in r.get('legs') or []:
-        if l.get('soldUsd') is not None:
+        if l.get('soldUsd') is not None or l.get('pairAddress') in frozen:   # ❄ frozen coins: only the holder switches them
             continue
         if l.get('mint') in failing:
             weak.append((0, l, f"fails a gate: {(failing[l['mint']] or ['gate'])[0]}"))

@@ -3119,7 +3119,7 @@ async def _fuse_swap_tick(d, now):
     failing = {x['mint']: x.get('gates') or ['failed a gate'] for x in live['dropped']}
     rules = _card_rules(); n = 0
     for x in sw:
-        s = _hq.swap_suggest(_hq.position_pnl(x, px), failing, live['passing'], rules['swapDropPct'])
+        s = _hq.swap_suggest(_hq.position_pnl(x, px), failing, live['passing'], rules['swapDropPct'], set(x.get('frozen') or []))
         if not s:
             continue
         n += 1
@@ -3602,6 +3602,33 @@ async def fuse_position_switch(p: FuseSwitchIn):
     return {'ok': True, 'added': n, 'nextSwitchAt': _hq.next_switch_at(pos, _is_staff(me))}
 
 
+
+class FuseFreezeIn(BaseModel):
+    address: str
+    session: str
+    id: str
+    pairAddress: str = Field(..., max_length=64)
+    frozen: bool = True
+
+
+@app.post('/api/reputation/fuses/freeze')
+async def fuse_freeze(p: FuseFreezeIn):
+    """❄ Freeze a coin / pool on YOUR card: the engine (swap mode, auto-rotate suggestions) never touches it — only you can
+    switch or sell it. Freeze 1, 2 or all of them; unfreeze any time."""
+    me = _session_or_401(p.address, p.session)
+    mine = set(linked_of(me)) | {me}
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {})
+        pos = next((x for x in d.get('positions') or [] if x['id'] == p.id and x['wallet'] in mine and not x.get('closedAt')), None)
+        if not pos:
+            raise HTTPException(404, 'No open Fuse card with that id for this wallet.')
+        if not any(leg['pairAddress'] == p.pairAddress and leg.get('soldUsd') is None for leg in pos['legs']):
+            raise HTTPException(400, 'That coin is not open on this card.')
+        fz = [x for x in pos.get('frozen') or [] if x != p.pairAddress] + ([p.pairAddress] if p.frozen else [])
+        pos['frozen'] = fz
+        _json_save(FUSE_HQ_PATH, d)
+    return {'ok': True, 'frozen': fz}
+
 @app.get('/api/reputation/fuses/limits/{address}')
 async def fuse_limits(address: str):
     """How many Fuse cards this wallet may hold open: 2, or 3 with ≥ $200 of $FEE. Each card: 3 pools + 3 runners."""
@@ -3648,7 +3675,9 @@ async def fuse_pnl(address: str):
     for c in allpos:
         if c.get('copyOf'):
             k = copies.setdefault(c['copyOf'], {'n': 0, 'usd': 0.0}); k['n'] += 1; k['usd'] = round(k['usd'] + _hq.copy_cut(_card_fees(c, by), rules), 6)
-    rows = [{**r, 'drift': _hq.drift(r), 'exitFeeUsd': 0.0 if r['closed'] else _exit_fee(r), 'streak': _hq.swap_streak(r), 'compound': _hq.compound_streak(r),
+    box = _json_load(NOTIF_PATH, {}).get(primary_of(address)) or []
+    frz = {x['id']: x.get('frozen') or [] for x in pos}
+    rows = [{**r, 'frozen': frz.get(r['id'], []), 'autos': _hq.card_autos(box, r['id'], now), 'drift': _hq.drift(r), 'exitFeeUsd': 0.0 if r['closed'] else _exit_fee(r), 'streak': _hq.swap_streak(r), 'compound': _hq.compound_streak(r),
              'copies': (copies.get(r['id']) or {}).get('n', 0), 'copyEarnedUsd': (copies.get(r['id']) or {}).get('usd', 0.0)} for r in rows]
     held = [r for r in rows if not r['closed']]
     return {**_hq.book(rows), 'rows': rows[:20], 'rules': {k: rules[k] for k in ('yieldLevels', 'yieldDefault', 'swapDropPct')},

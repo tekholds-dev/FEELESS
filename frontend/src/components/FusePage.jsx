@@ -10,7 +10,7 @@ import { RISK_DIALS } from '../lib/riskDial';
 import { apiUrl } from '../lib/api';
 import { useWallet } from '../hooks/useWallet';
 import { readChatSession } from '../lib/chatSession';
-import { unfuseOrders, rebalanceOrders, SOL_MINT } from '../lib/fuseGo';
+import { unfuseOrders, rebalanceOrders, topupOrders, SOL_MINT } from '../lib/fuseGo';
 import { FuseLab } from './FuseLab';
 import { FuseSide } from './FuseSide';
 import { FuseGo } from './FuseGo';
@@ -344,6 +344,8 @@ export function MyCards({ addr }) {
     if (kind === 'withdraw' || kind === 'take') {
       const bal = await balancesOf(addr, r.legs); const pct = extra.pct || (kind === 'withdraw' ? 100 : 50);
       setAct({ id: r.id, kind, pct, legs: (extra.legs || r.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress)), bal });
+    } else if (kind === 'topup') {
+      setAct({ id: r.id, kind, sol: extra.sol || '0.1', mode: extra.mode || 'equal', pick: extra.pick || '', solUsd: await solPrice() });
     } else if (kind === 'rebalance' || kind === 'switch') {
       const [bal, solUsd] = await Promise.all([balancesOf(addr, r.legs), solPrice()]);
       setAct({ id: r.id, kind, bal, solUsd, ...extra });
@@ -366,6 +368,9 @@ const sumKind = (r, k) => (r.events || []).filter(e => e.kind === k).reduce((a, 
 
 function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, addr, ses, refresh }) {
   const [earn, setEarn] = useState(null);
+  // ❄ Freeze a coin: the engine (swap mode / auto-rotate) never touches it — only the holder switches it.
+  const freeze = async (r, l, on) => { const s = ses(); if (!s) return;
+    try { await post('/api/reputation/fuses/freeze', { address: addr, session: s, id: r.id, pairAddress: l.pairAddress, frozen: on }); toast.success(on ? `❄ $${l.symbol} frozen — only you switch it` : `$${l.symbol} back under the engine`); refresh(); } catch (e) { toast.error(e.message); } };
   const live = useLivePrices(openRows.flatMap(r => r.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress)));
   const held = openRows.length ? liveBook(openRows, live) : { pnlUsd: d.held?.pnlUsd, pnlPct: d.held?.pnlPct, value: d.held?.valueUsd };
   return <section className="fp-cards" data-testid="my-cards">
@@ -383,10 +388,15 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, addr, s
         <SwitchButton r={r} onClick={() => open(r, 'switch')} />
         <button type="button" className="m-btn danger" data-tip="Sell every coin back to SOL — one approval. The card closes and its receipt goes to your profile." onClick={() => open(r, 'withdraw')} data-testid={`act-withdraw-${r.id}`}>↩ Withdraw all</button>
       </div>
-      <button type="button" className="m-btn fp-earn" onClick={() => setEarn(r.id)} data-testid={`act-earn-${r.id}`} data-tip="Profit taken out, profit compounded back in (and where), every move — plus 💸 Collect">📜 Earnings · {m$(r.realizedUsd || 0)} out · {m$(sumKind(r, 'topup'))} compounded</button>
+      <button type="button" className="m-btn fp-earn" onClick={() => setEarn(r.id)} data-testid={`act-earn-${r.id}`} data-tip="Profit taken out, profit compounded back in (and where), every move — plus 💸 Collect">🪟 Open card · {m$(r.realizedUsd || 0)} out · {m$(sumKind(r, 'topup'))} compounded{r.autos?.length ? ` · ⚡${r.autos.length}` : ''}{r.frozen?.length ? ` · ❄${r.frozen.length}` : ''}</button>
       {earn === r.id && <CardEarnings title={r.name || 'Your card'} taken={r.realizedUsd || 0} compounded={sumKind(r, 'topup')}
         events={[...(r.events || [])].reverse().map(e => ({ ...e, label: EARN_KIND[e.kind] || e.kind, to: e.kind === 'sell' ? ['cash'] : e.kind === 'topup' ? [e.symbol] : undefined, symbol: e.kind === 'topup' ? undefined : e.symbol }))}
-        gainNow={Math.max(0, Math.min(r.pnlUsd || 0, (r.valueUsd || 0) - (r.realizedUsd || 0)))} onCollect={() => { setEarn(null); open(r, 'yield', { at: r.autoYield?.at || d.rules?.yieldDefault || 50, levels: d.rules?.yieldLevels || [25, 50, 100, 200] }); }} onClose={() => setEarn(null)} />}
+        gainNow={Math.max(0, Math.min(r.pnlUsd || 0, (r.valueUsd || 0) - (r.realizedUsd || 0)))} onCollect={() => { setEarn(null); open(r, 'yield', { at: r.autoYield?.at || d.rules?.yieldDefault || 50, levels: d.rules?.yieldLevels || [25, 50, 100, 200] }); }} onClose={() => setEarn(null)}
+        autos={r.autos || []} legs={r.legs.filter(l => l.soldUsd == null).map(l => ({ ...l, frozen: (r.frozen || []).includes(l.pairAddress) }))} onFreeze={(l, on) => freeze(r, l, on)}
+        actions={[{ label: '＋ Top up', tip: 'Add SOL — equal split, by weight, or into one coin. One approval.', onClick: () => { setEarn(null); open(r, 'topup'); }, testid: `cw-topup-${r.id}` },
+          { label: '💰 Take 50%', onClick: () => { setEarn(null); open(r, 'take', { pct: 50 }); } },
+          { label: '⇄ Switch', disabled: r.nextSwitchAt > Date.now() / 1000, tip: 'One pool or coin per 24h', onClick: () => { setEarn(null); open(r, 'switch'); } },
+          { label: '↩ Withdraw', cls: 'danger', onClick: () => { setEarn(null); open(r, 'withdraw'); } }]} />}
       <details className="fp-more"><summary>⋯ More · rotate · auto-collect · rebalance · limits · replay · charts</summary>
         <div className="m-seg fp-mode" role="radiogroup" aria-label="Card mode">{[['hold', '🔒 Hold · switch by hand', 'The card stays as you built it. You may still switch ONE pool or coin every 24h, your pick.'], ['swap', '🤖 Auto-rotate daily', `Once a day, if a coin fails a runner gate or drops ${d.rules?.swapDropPct ?? 25}%, we pre-fill the swap for the best gated runner — one approval. Still max one switch per 24h.`]].map(([k, l, tip]) =>
         <button key={k} type="button" role="radio" aria-checked={(r.mode || 'hold') === k} className={(r.mode || 'hold') === k ? 'active' : ''} data-tip={tip} onClick={() => setMode(r, k)} data-testid={`mode-${k}-${r.id}`}>{l}</button>)}</div>
@@ -466,6 +476,17 @@ function ActionPanel({ r, act, setAct, addr, ses, refresh }) {
     return <div className="m-card fp-panel" data-testid="act-panel-rebalance"><div className="m-row"><b>⚖ Rebalance</b><label className="m-toggle"><input type="checkbox" checked={Boolean(r.autoRebalance)} onChange={e => auto(e.target.checked)} data-testid="auto-rebalance" />Auto-rebalance alerts</label></div>
       {!orders.length ? <p className="m-dim">Every leg is within 5 points of its weight — nothing to do.</p>
         : <><ul className="fp-moves">{orders.map(o => <li key={o.leg.pairAddress}>{o.target.symbol}: {o.why}</li>)}</ul><FuseGo side="sell" orders={orders} onLanded={record} onClose={close} /></>}</div>;
+  }
+  if (act.kind === 'topup') {
+    const orders = topupOrders(r.legs, act.sol, act.mode, addr, act.pick);
+    const usdOf = x => (act.solUsd ? m$(Number(x) * act.solUsd) : '');
+    return <div className="m-card fp-panel" data-testid="act-panel-topup"><div className="m-row"><b>＋ Top up with SOL</b><small className="m-dim">buys merge into this card · one approval</small></div>
+      <div className="m-row"><label className="m-field"><span>SOL</span><input className="m-input m-num" inputMode="decimal" value={act.sol} onChange={e => setAct({ ...act, sol: e.target.value.replace(/[^0-9.]/g, '') })} data-testid="topup-sol" /></label><small className="m-dim">{usdOf(act.sol)}</small>
+        <div className="m-seg" role="radiogroup" aria-label="Split">{[['equal', '⚖ Equal', 'Same SOL into every coin'], ['weight', '📊 By weight', 'Keeps the card\'s current mix'], ['one', '🎯 One coin', 'All into the coin you pick']].map(([k, l, tip]) =>
+          <button key={k} type="button" role="radio" aria-checked={act.mode === k} className={act.mode === k ? 'active' : ''} data-tip={tip} onClick={() => setAct({ ...act, mode: k, pick: act.pick || live[0]?.pairAddress })} data-testid={`topup-${k}`}>{l}</button>)}</div></div>
+      {act.mode === 'one' && <div className="m-seg">{live.map(l => <button key={l.pairAddress} type="button" className={act.pick === l.pairAddress ? 'active' : ''} onClick={() => setAct({ ...act, pick: l.pairAddress })}>{l.symbol}</button>)}</div>}
+      <ul className="fp-moves">{orders.map(o => <li key={o.leg.pairAddress}>{o.leg.symbol}: +{Number(o.request.amount).toFixed(4)} SOL <small className="m-dim">{usdOf(o.request.amount)}</small></li>)}</ul>
+      {orders.length ? <FuseGo side="sell" orders={orders} onLanded={record} onClose={close} /> : <small className="m-dim">Enter at least 0.001 SOL.</small>}</div>;
   }
   // switch: sell one leg, buy a new coin (by mint) with roughly what it returns
   const leg = r.legs.find(l => l.pairAddress === act.from);

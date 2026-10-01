@@ -67,3 +67,16 @@ export function rebalanceOrders(r, balances, px, solUsd, wallet, tolPct = 5, sli
   }
   return out.sort((a, b) => (a.request.input_mint === SOL_MINT) - (b.request.input_mint === SOL_MINT));   // sells first
 }
+
+// ＋ Top up a card with SOL: 'equal' = same SOL into every open coin · 'weight' = by each coin's share of the card now ·
+// 'one' = all of it into the coin you pick. Buys only (one approval for all); they merge into the card like a switch-in.
+export function topupOrders(legs, sol, mode, wallet, pick, slippageBps = 150) {
+  const open = (legs || []).filter(l => l.soldUsd == null && l.mint);
+  const amt = Number(sol) || 0;
+  if (!open.length || amt < 0.001 || !wallet) return [];
+  const val = l => Math.max(0, Number(l.heldUsd ?? l.valueUsd) || 0);
+  const total = open.reduce((a, l) => a + val(l), 0);
+  const share = l => (mode === 'one' ? (l.pairAddress === pick ? 1 : 0) : mode === 'weight' && total > 0 ? val(l) / total : 1 / open.length);
+  return open.map(l => ({ l, s: amt * share(l) })).filter(x => x.s >= 0.0005).map(({ l, s }) => ({ leg: l, target: { mint: l.mint, symbol: l.symbol },
+    request: { input_mint: SOL_MINT, output_mint: l.mint, amount: s.toFixed(9).replace(/\.?0+$/, ''), slippage_bps: slippageBps, wallet } }));
+}
