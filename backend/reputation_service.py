@@ -2704,7 +2704,7 @@ async def _fuse_view(fid, f, store):
     now_px = {leg['pairAddress']: leg.get('priceUsd') for leg in metas}
     buys = [b for b in store.get('buys', []) if b['fuse'] == fid]
     earned = round(sum(b['creatorUsd'] for b in buys), 6); paid = round(float((store.get('paid') or {}).get(fid, 0)), 6)
-    return {'id': fid, **{k: f.get(k) for k in ('name', 'emoji', 'tagline', 'creator', 'creatorBps', 'createdAt', 'enabled', 'aura', 'featured')}, 'legs': legs,
+    return {'id': fid, **{k: f.get(k) for k in ('name', 'emoji', 'tagline', 'creator', 'creatorBps', 'createdAt', 'enabled', 'aura', 'featured', 'arena')}, 'legs': legs,
             'index': _fuse.index(f['legs'], f.get('basePrices') or {}, now_px), 'score': _fuse.score(metas, sum(1 for leg in f['legs'] if pairs.get(leg['pairAddress']) and _fuse_risky(pairs[leg['pairAddress']]))),
             'tvlUsd': round(sum(m['liquidityUsd'] for m in metas)), 'volume24h': round(sum(m['volume24h'] for m in metas)),
             'aprEst': round(sum(m['aprEst'] * m['weight'] for m in metas) / max(1, sum(m['weight'] for m in metas)), 1),
@@ -2792,8 +2792,12 @@ async def fuses_preview(payload: FusePreview, request: Request = None):
     if len(payload.pools or []) > cap:
         raise HTTPException(400, f'Fuse up to {cap} pools.')
     pools = _fuse.clean_legs([{**p, 'weight': p.get('weight') or 1} for p in payload.pools or []])
-    if len(pools) + len([x for x in payload.runnerMints or [] if x]) < 2:
+    n_run = len({str(x) for x in payload.runnerMints or [] if x})
+    if len(pools) + n_run < 2:
         raise HTTPException(400, 'Pick at least 2 legs (pools and/or runners).')
+    if not _hq.legs_ok(len(pools), n_run, admin):
+        raise HTTPException(400, f'Cmd Ctr cards hold up to {_hq.ADMIN_LEGS} legs (pools + runners).' if admin else
+                            f'A card holds up to {_hq.CARD_POOLS} pools + {_hq.CARD_RUNNERS} runners.')
     pairs, sol_usd = await asyncio.gather(_fuse_pairs(pools) if pools else asyncio.sleep(0, {}), _sol_usd_live())
     metas = {k: _fuse.leg_meta(v) for k, v in pairs.items()}
     w = (_fuse.manual_weights(payload.pools) if admin and payload.manual else _vault.auto_weights(pools, metas, min_share=_fuse.min_share(len(pools)))) if pools else {}
@@ -3348,7 +3352,51 @@ async def fuse_arena_public():
         if mults:
             rounds.append({'at': r['at'], 'symbols': [p.get('symbol') for p in r['picks']], 'pct': round((sum(mults) / len(mults) - 1) * 100, 2)})
     return {'board': board, 'outlook': _hq.outlook(board), 'bestStyle': _hq.best_style(board), 'runs': [v for v in sorted(vals, key=lambda v: -v['at']) if v['settled']][:12],
-            'runners': {'proof': _rn.proof(rd['rounds'], rd['paths'], now, cfg=cfg), 'rounds': rounds}, 'minSettled': _hq.MIN_SETTLED}
+            'runners': {'proof': _rn.proof(rd['rounds'], rd['paths'], now, cfg=cfg), 'rounds': rounds}, 'minSettled': _hq.MIN_SETTLED,
+            'mega': await _arena_mega(rd, cfg, now)}
+
+
+_arena_mega_cache: dict = {'at': 0.0, 'data': None}
+
+
+async def _arena_mega(rd, cfg, now):
+    """Cards on the Arena stage: Cmd Ctr mega cards (published Fuses flagged `arena`) + runner cards that lit after their
+    rounds. Each carries its live activity (fuse_hq.activity → hard-coded effect tier). 30s cache, parallel lookups."""
+    if _arena_mega_cache['data'] is not None and now - _arena_mega_cache['at'] < 30:
+        return _arena_mega_cache['data']
+    store = _json_load(FUSES_PATH, {'fuses': {}})
+    staged = [(fid, f) for fid, f in (store.get('fuses') or {}).items() if f.get('arena') and f.get('enabled', True)][:8]
+    views = await asyncio.gather(*[_fuse_view(fid, f, store) for fid, f in staged], return_exceptions=True)
+    out = []
+    for v in views:
+        if isinstance(v, BaseException):
+            continue
+        day = [b for b in store.get('buys', []) if b['fuse'] == v['id'] and now - _fuse._f(b.get('at')) < 86400]
+        act = _hq.activity(len(day), len({b['wallet'] for b in day}), v['volume24h'], (v['index'] or 100) - 100)
+        out.append({'kind': 'mega', 'id': v['id'], 'name': v['name'], 'emoji': v['emoji'], 'aura': v.get('aura') or '', 'legs': v['legs'],
+                    'index': v['index'], 'grade': (v['score'] or {}).get('grade'), 'buyers': v['trust']['buyers'], 'activity': act})
+    live = {r['mint']: r for r in (await _runner_live())['passing']}
+    for c in reversed((rd.get('litCards') or [])[-6:]):
+        pct = _rn.card_result(c, rd['paths'], now, cfg)
+        flow = sum(_fuse._f(live.get(p['mint'], {}).get('vol1h')) * 24 for p in c['picks'])
+        out.append({'kind': 'lit', 'id': c['id'], 'name': ' · '.join(f"${p.get('symbol')}" for p in c['picks'][:4]), 'emoji': '🔥', 'aura': '',
+                    'legs': [{'pairAddress': p.get('pairAddress') or p['mint'], 'symbol': p.get('symbol'), 'baseAddress': p['mint'], 'logo': p.get('logo'),
+                              'weight': round(100 / max(1, len(c['picks'])), 2)} for p in c['picks']],
+                    'index': round(100 + pct, 2), 'grade': 'A' if pct > 0 else 'C', 'buyers': 0, 'at': c['at'], 'proof': c.get('proof'),
+                    'activity': _hq.activity(0, 0, flow, pct)})
+    rnd = (rd.get('rounds') or [None])[-1]
+    if not out and rnd and rnd.get('picks'):   # never an empty stage: the live round stands in as a proving card
+        ps = rnd['picks']
+        moves = [((_fuse._f(live.get(p['mint'], {}).get('price')) or p['entry']) / p['entry'] - 1) * 100 for p in ps if _fuse._f(p.get('entry')) > 0]
+        mv = round(sum(moves) / len(moves), 2) if moves else 0.0
+        out.append({'kind': 'round', 'id': str(rnd.get('id')), 'name': ' · '.join(f"${p.get('symbol')}" for p in ps[:4]), 'emoji': '⏳', 'aura': '',
+                    'legs': [{'pairAddress': p.get('pairAddress') or p['mint'], 'symbol': p.get('symbol'), 'baseAddress': p['mint'], 'logo': p.get('logo'),
+                              'weight': round(100 / len(ps), 2)} for p in ps],
+                    'index': round(100 + mv, 2), 'grade': 'B', 'buyers': 0, 'at': rnd.get('at'),
+                    'activity': _hq.activity(0, 0, sum(_fuse._f(live.get(p['mint'], {}).get('vol1h')) * 24 for p in ps), mv)})
+    out.sort(key=lambda x: -x['activity']['score'])
+    _arena_mega_cache.update(at=now, data=out)
+    return out
 
 
 @app.get('/api/reputation/admin/fuses/hq')
@@ -3445,9 +3493,9 @@ _fuse_prebuilt_cache: dict = {}
 
 
 @app.get('/api/reputation/fuses/prebuilt')
-async def fuses_prebuilt(request: Request, legs: int = Query(3, ge=2, le=10), budget: float = Query(20, ge=1, le=10000)):
+async def fuses_prebuilt(request: Request, legs: int = Query(3, ge=2, le=12), budget: float = Query(20, ge=1, le=10000)):
     """Discover rail: the best basket for EACH strategy right now (bred from live pools), with that strategy's arena record.
-    Traders get 3-pool baskets; Cmd Ctr may ask for up to 10. Cached 5 min per size."""
+    Traders get 3-pool baskets; Cmd Ctr may ask for up to 12. Cached 5 min per size."""
     legs = legs if _is_admin_req(request) else min(legs, _fuse.USER_MAX_LEGS)
     # Breeding buckets (fee drag + size guard depend on size): $1 · $5 · $20 · $100. The buyer's exact amount is used at Fuse in.
     key = (legs, 1 if budget < 3 else 5 if budget < 12 else 20 if budget < 60 else 100)
@@ -3629,8 +3677,8 @@ async def runners_discover():
             res = _rn.card_result(c, d['paths'], now, cfg)
             for p in c['picks']:
                 tag(p['mint'], 'lit', f"lit card {res:+.1f}% since lit")
-    for r in sorted(live['passing'], key=lambda r: -_fuse._f(r.get('score')))[:8]:
-        tag(r['mint'], 'pump', f"scan score {round(_fuse._f(r.get('score')))}")
+    for r in live['passing']:   # every coin passing every gate is a pump-scan find (never a dead tab while anything passes)
+        tag(r['mint'], 'pump', f"passes every gate · score {round(_fuse._f(r.get('score')))}")
     for e in _radar['events']:
         if e.get('kind') == 'snipers-out' and now - (e.get('at') or 0) < 6 * 3600:
             tag(e.get('mint'), 'snipers', 'every flagged sniper sold')
@@ -3646,7 +3694,10 @@ async def runners_discover():
     rows = _rn.discover(live['passing'], tags)
     data = {'runners': rows, 'counts': {k: sum(1 for r in rows if any(s['kind'] == k for s in r['sources'])) for k in _rn.SOURCES},
             'sources': _rn.SOURCES, 'nextRoundAt': (rnd['at'] + _rn.ROUND_SECONDS) if rnd else now, 'gates': [g[1] for g in _rn.gates(cfg)],
-            'swaps': ((rnd or {}).get('swaps') or [])[-5:], 'at': now}
+            'swaps': ((rnd or {}).get('swaps') or [])[-5:], 'at': now, 'seen': live['seen'],
+            # Watch-only: the busiest coins that FAILED a gate, with the reason — shown so the tab is never dead, never addable.
+            'watching': [{k: x.get(k) for k in ('mint', 'symbol', 'logo', 'mcap', 'vol1h', 'chg1h', 'buyShare', 'gates')}
+                         for x in sorted(live['dropped'], key=lambda x: -_fuse._f(x.get('vol1h')))[:12]]}
     _runner_disc_cache.update(at=now, data=data)
     return data
 
@@ -3908,7 +3959,9 @@ async def admin_fuses_save(request: Request):
             store['fuses'][fid] = {'name': name, 'emoji': str(body.get('emoji') or '⚛️')[:4], 'tagline': str(body.get('tagline') or '')[:120], 'legs': legs,
                                    'creator': body.get('creator') or prev.get('creator') or admin, 'creatorBps': max(0, min(_fuse.MAX_CREATOR_BPS, int(body.get('creatorBps') or 0))),
                                    'enabled': bool(body.get('enabled', True)), 'basePrices': base, 'createdAt': prev.get('createdAt') or time.time(),
-                                   'featured': bool(body.get('featured', prev.get('featured', False))), 'aura': prev.get('aura', '')}
+                                   'featured': bool(body.get('featured', prev.get('featured', False))), 'aura': prev.get('aura', ''),
+                                   'arena': bool(body.get('arena', prev.get('arena', False)))}
+            _arena_mega_cache.update(at=0.0, data=None)
         _json_save(FUSES_PATH, store)
         ad = _admin_load(); _audit(ad, admin, 'fuse', json.dumps({'id': fid, **{k: body.get(k) for k in ('name', 'delete', 'paidUsd') if k in body}})[:160]); _admin_save(ad)
     return {'ok': True, 'id': fid}
@@ -5287,9 +5340,27 @@ def _swap_fee_account(cfg, input_mint, output_mint):
     return (_swap_fee_accounts(cfg, input_mint, output_mint) or [None])[0]
 
 
-async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''):
+async def _leg_usd(input_mint, amount):
+    """$ size of a swap from its pay side (SOL/USDC instantly; a coin from its live price, ≤3s)."""
+    amount = _fuse._f(amount)
+    if amount <= 0:
+        return 0.0
+    if input_mint in (USDC_MINT, 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'):
+        return amount
+    if input_mint == WSOL_MINT:
+        return amount * (await _sol_usd_live() or 0)
+    try:
+        px = (await asyncio.wait_for(_token_prices([input_mint]), 3)).get(input_mint) or 0
+    except Exception:
+        px = 0
+    return amount * px
+
+
+async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = '', bundle: int = 0, amount: float = 0):
     """The fee for one trade plus how each engine collects it.
-    bps: Swap API fee (paid to feeAccount). ultraBps / referralAccount: the Ultra fallback's fee."""
+    bps: Swap API fee (paid to feeAccount). ultraBps / referralAccount: the Ultra fallback's fee.
+    bundle ≥ 2 = one leg of a Fuse / runner card bought all at once → bundle pricing (flat $ per coin); Cmd Ctr (staff)
+    pays no FEELESS fee on bundles — only the network / partner fees."""
     cfg = _fee_cfg()
     eng = _engine_cfg(cfg)
     base = int(cfg['platformFeeBps'] or 0)
@@ -5319,6 +5390,14 @@ async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''
     bps = min(round(base * (1 - disc / 100)), SWAP_MAX_BPS)
     if disc and not any(' badge: ' in n for n in notes):
         notes.append(f'{disc:.0f}% holder discount (tier {tier})')
+    if bundle >= 2:
+        if wallet and _is_staff(wallet):
+            return none('Cmd Ctr card: no FEELESS fee — only network / partner fees.')
+        bcfg = _hq.clean_bundle(cfg.get('bundle'))
+        flat = _hq.bundle_bps(await _leg_usd(input_mint, amount), bcfg)
+        if flat is not None:
+            bps = min(round(flat * (1 - disc / 100)), SWAP_MAX_BPS)
+            notes.append(f"Bundle pricing: ${bcfg['perLegUsd']:.2f} per coin (max {bcfg['maxPct']:g}% of the leg)")
     # Ultra can't charge below 0.5%: round a discounted fee up to its minimum instead of waiving it.
     ultra = max(JUP_MIN_BPS, min(bps, JUP_MAX_BPS)) if cfg['referralAccount'] and bps else 0
     out = {'bps': bps, 'ultraBps': ultra, 'baseBps': base, 'notes': notes,
@@ -5340,10 +5419,18 @@ async def fee_quote(wallet: str = '', inputMint: str = '', outputMint: str = '')
 
 
 @app.get('/api/reputation/internal/fees')
-async def internal_fees(request: Request, wallet: str = '', inputMint: str = '', outputMint: str = ''):
+async def internal_fees(request: Request, wallet: str = '', inputMint: str = '', outputMint: str = '', bundle: int = Query(0, ge=0, le=12), amount: float = Query(0, ge=0)):
     if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key()):
         raise HTTPException(403, 'Internal only.')
-    return await effective_fee(wallet, inputMint, outputMint)
+    return await effective_fee(wallet, inputMint, outputMint, bundle, amount)
+
+
+@app.get('/api/reputation/fees/pricing')
+async def fee_pricing():
+    """Public pricing: the % fee on a normal swap and the bundle price for cards bought all at once."""
+    cfg = _fee_cfg()
+    return {'swapBps': int(cfg['platformFeeBps'] or 0), 'bundle': _hq.clean_bundle(cfg.get('bundle')),
+            'cardLegs': {'pools': _hq.CARD_POOLS, 'runners': _hq.CARD_RUNNERS}, 'freeBuys': ['$FEE', 'FEECAT', 'rFEE']}
 
 
 class FeeCfg(BaseModel):
@@ -5406,10 +5493,31 @@ class FeeCfg(BaseModel):
         return bool(v)
 
 
+@app.get('/api/reputation/admin/fuses/fees')
+async def admin_fuse_fees(request: Request):
+    """Cmd Ctr › Fees: live $ from people fusing (Fuse card legs matched to the fee ledger by signature)."""
+    _require_admin(request)
+    rows = [r for v in _json_load(FEE_LEDGER_PATH, {}).values() for r in (v or [])]
+    return _hq.fuse_fees(_json_load(FUSE_HQ_PATH, {}).get('positions') or [], rows, time.time())
+
+
+@app.post('/api/reputation/admin/fees/bundle')
+async def admin_fees_bundle(request: Request, body: dict):
+    """Core › Fees › Bundle pricing: flat $ per coin for cards bought all at once (Fuse / runners)."""
+    admin = _require_admin(request)
+    async with _admin_lock:
+        d = _admin_load()
+        b = _hq.clean_bundle(body)
+        d.setdefault('fees', {})['bundle'] = b
+        _audit(d, admin, 'fees', f"bundle pricing {'on' if b['on'] else 'off'} · ${b['perLegUsd']:.2f}/coin · max {b['maxPct']:g}% · legs ≤ ${b['maxLegUsd']:g}")
+        _admin_save(d)
+    return {'bundle': b}
+
+
 @app.get('/api/reputation/admin/fees')
 async def admin_fees_get(request: Request):
     _require_admin(request)
-    return {'fees': _fee_cfg(), 'limits': {'minBps': 0, 'maxBps': SWAP_MAX_BPS, 'ultraMinBps': JUP_MIN_BPS, 'ultraMaxBps': JUP_MAX_BPS, 'priorityMaxLamports': PRIORITY_MAX_LAMPORTS}}
+    return {'fees': {**_fee_cfg(), 'bundle': _hq.clean_bundle(_fee_cfg().get('bundle'))}, 'limits': {'minBps': 0, 'maxBps': SWAP_MAX_BPS, 'ultraMinBps': JUP_MIN_BPS, 'ultraMaxBps': JUP_MAX_BPS, 'priorityMaxLamports': PRIORITY_MAX_LAMPORTS}}
 
 
 @app.get('/api/reputation/admin/fees/balances')
@@ -5966,7 +6074,8 @@ async def admin_fees_set(request: Request, payload: FeeCfg):
         d['fees'] = {'platformFeeBps': payload.platformFeeBps, 'referralAccount': payload.referralAccount, 'tierDiscountPct': tiers, 'zeroFeeMints': zero, 'promo': promo,
                      'lifiIntegrator': integrator, 'lifiFeeBps': payload.lifiFeeBps if integrator else 0,
                      'engine': payload.engine, 'ultraFallback': payload.ultraFallback, 'feeAccountSol': payload.feeAccountSol,
-                     'feeAccountUsdc': payload.feeAccountUsdc, 'priorityMaxLamports': payload.priorityMaxLamports}
+                     'feeAccountUsdc': payload.feeAccountUsdc, 'priorityMaxLamports': payload.priorityMaxLamports,
+                     'vaultFeeWallet': payload.vaultFeeWallet, **{k: v for k, v in (d.get('fees') or {}).items() if k == 'bundle'}}
         tier_txt = ' / '.join(f"{float(tiers.get(k, 0)):g}%" for k in ('0', '1', '2', '3'))
         _audit(d, admin, 'fees', f"{'Swap API' if payload.engine == 'swap' else 'Ultra'} · fee {payload.platformFeeBps / 100:.2f}% · Ultra fallback {'on' if payload.ultraFallback else 'off'} · "
                                  f"holder discounts {tier_txt} · promo {promo['discountPct']:.0f}% · speed tip ≤ {payload.priorityMaxLamports / 1e9:.4f} SOL")

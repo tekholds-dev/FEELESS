@@ -12,7 +12,7 @@ test('one pooled request puts a green check on verified logos, gold on official,
   const pair = m => ({ chainId: 'solana', baseToken: { address: m, symbol: 'X' } });
   await act(async () => { createRoot(el).render(<>{[M1, M2, M3].map(m => <TokenAvatar key={m} pair={pair(m)} size={34} />)}</>); });
   await act(async () => { await new Promise(r => setTimeout(r, 250)); });
-  expect(global.fetch).toHaveBeenCalledTimes(1);
+  expect(global.fetch.mock.calls.filter(c => !String(c[0]).includes('/market/pulse'))).toHaveLength(1);   // the pulse hub has its own batched poll
   const ticks = el.querySelectorAll('[data-testid="verified-tick"]');
   expect(ticks).toHaveLength(2);
   expect(ticks[0].className).toContain('vt-verified');

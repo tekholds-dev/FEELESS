@@ -337,3 +337,13 @@ body.theme-day .vmath-col { background: var(--m-surface-2); }
 .fl-rchip { display: inline-flex; gap: 6px; align-items: center; padding: 3px 4px 3px 9px; border-radius: 999px; background: color-mix(in srgb, #ff7a2f 14%, var(--m-surface)); border: 1px solid color-mix(in srgb, #ff7a2f 45%, transparent); font-size: 12px; font-weight: 700; animation: mCardIn .2s var(--m-ease); }
 .fl-rchip em { font-style: normal; font-family: var(--m-mono); font-size: 8.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--m-dim); }
 .fl-rchip button { width: 20px; height: 20px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, .35); color: var(--m-text); cursor: pointer; } .fl-rchip button:hover { background: var(--m-danger); color: #fff; } .fl-rchip button:focus-visible { outline: 2px solid var(--m-accent); }
+
+/* Lab: 🏃 Runners lens rows (stagger in) + card pricing strip */
+.fl-runrow { animation: flRunIn .3s var(--m-ease) backwards; animation-delay: calc(var(--i, 0) * 40ms); }
+.fl-runrow .fl-name em { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+.fl-price { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 8px 12px; border-radius: 10px; border: 1px dashed color-mix(in srgb, var(--m-accent) 45%, var(--m-line)); }
+.fl-price b { font-size: 15px; color: var(--m-accent); } .fl-price small { color: var(--m-dim); font-size: 11px; } .fl-price.is-free { border-style: solid; border-color: var(--m-warn); } .fl-price.is-free b { color: var(--m-warn); }
+@keyframes flRunIn { from { opacity: 0; transform: translateX(-8px); } }
+body.fx-lite .fl-runrow { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fl-runrow { animation: none; } }
+body.theme-day .fl-price { background: #fff; }

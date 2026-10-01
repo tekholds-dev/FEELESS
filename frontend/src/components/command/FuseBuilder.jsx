@@ -19,7 +19,7 @@ export function FuseBuilder({ call }) {
     const t = setTimeout(() => fetch(apiUrl(`/api/reputation/fuses/search?q=${encodeURIComponent(q.trim())}`)).then(r => r.json()).then(x => setFound(x.pools || [])).catch(() => {}), 300);
     return () => clearTimeout(t);
   }, [q]);
-  const add = p => setDraft(x => (x.legs.some(l => l.pairAddress === p.pairAddress) || x.legs.length >= (d?.maxLegs || 6) ? x : { ...x, legs: [...x.legs, { chainId: p.chainId, pairAddress: p.pairAddress, symbol: p.symbol, weight: 25, meta: p }] }));
+  const add = p => setDraft(x => (x.legs.some(l => l.pairAddress === p.pairAddress) || x.legs.length >= (d?.maxLegs || 12) ? x : { ...x, legs: [...x.legs, { chainId: p.chainId, pairAddress: p.pairAddress, symbol: p.symbol, weight: 25, meta: p }] }));
   const save = async body => { try { await call('/admin/fuses', { method: 'POST', body: JSON.stringify(body) }); toast.success('Saved'); setDraft(EMPTY); load(); } catch (e) { toast.error(e.message); } };
   return <div className="cc-block fz-builder" data-testid="fuse-builder"><AutoYieldDefault call={call} />
     <div className="m-row"><h4>⚛️ Fuse builder</h4><span className="m-dim">Fuse popular pools into one basket. Buyers fuse in leg by leg (their wallet signs each swap); the creator earns a cut of the FEELESS fee.</span></div>
@@ -30,6 +30,7 @@ export function FuseBuilder({ call }) {
         {f.stats.creatorOwedUsd > 0 && <button type="button" className="m-btn" onClick={() => save({ id: f.id, paidUsd: f.stats.creatorOwedUsd })}>Mark {usd(f.stats.creatorOwedUsd)} paid</button>}
         <button type="button" className="m-btn" onClick={() => save({ id: f.id, name: f.name, emoji: f.emoji, tagline: f.tagline, creatorBps: f.creatorBps, legs: f.legs, enabled: f.enabled === false })}>{f.enabled === false ? 'Turn on' : 'Turn off'}</button>
         <button type="button" className={`m-btn ${f.featured ? 'primary' : ''}`} data-testid={`feature-${f.id}`} onClick={() => save({ id: f.id, name: f.name, emoji: f.emoji, tagline: f.tagline, creatorBps: f.creatorBps, legs: f.legs, enabled: f.enabled !== false, featured: !f.featured })}>{f.featured ? '⭐ Featured' : '☆ Feature in Lab'}</button>
+        <button type="button" className={`m-btn ${f.arena ? 'primary' : ''}`} data-testid={`arena-${f.id}`} data-tip="Stage this card on the Fuse 🧬 Arena — its effects grow with real activity" onClick={() => save({ id: f.id, name: f.name, emoji: f.emoji, tagline: f.tagline, creatorBps: f.creatorBps, legs: f.legs, enabled: f.enabled !== false, featured: Boolean(f.featured), arena: !f.arena })}>{f.arena ? '🏟 On Arena' : '🏟 Show on Arena'}</button>
         <button type="button" className="m-btn danger" onClick={() => window.confirm(`Delete ${f.name}?`) && save({ id: f.id, delete: true })}>Delete</button></div></div>)}
       {d && !d.fuses.length && <p className="m-dim">No Fuses yet — build the first one below.</p>}</div>
     <div className="m-card fz-draft"><div className="m-row"><input className="m-input fz-emoji-in" value={draft.emoji} onChange={e => setDraft({ ...draft, emoji: e.target.value })} aria-label="Emoji" />
@@ -42,6 +43,6 @@ export function FuseBuilder({ call }) {
       <input className="m-input" placeholder="Search pools: SOL USDC, FEE, a ticker or address…" value={q} onChange={e => setQ(e.target.value)} aria-label="Search pools" data-testid="fuse-search" />
       {found.length > 0 && <div className="fz-found">{found.map(p => <button type="button" key={p.pairAddress} className="qb-tile" onClick={() => add(p)}><span><b>{p.symbol}/{p.quote} · {p.chainId}</b><small>{usd(p.liquidityUsd)} liq · {usd(p.volume24h)} vol · {p.aprEst}% APR est. · {p.turnover}× turnover · {p.dex}</small></span></button>)}</div>}
       <div className="m-row"><button type="button" className="m-btn primary" disabled={!draft.name || draft.legs.length < 2} onClick={() => save({ ...draft, legs: draft.legs.map(({ meta, ...l }) => l) })}>{draft.id ? 'Save Fuse' : 'Launch Fuse'}</button>
-        {draft.id && <button type="button" className="m-btn" onClick={() => setDraft(EMPTY)}>Cancel</button>}<small className="m-dim">2–{d?.maxLegs || 6} pools · weights are normalised to 100%</small></div></div>
+        {draft.id && <button type="button" className="m-btn" onClick={() => setDraft(EMPTY)}>Cancel</button>}<small className="m-dim">2–{d?.maxLegs || 12} legs · weights are normalised to 100%</small></div></div>
   </div>;
 }

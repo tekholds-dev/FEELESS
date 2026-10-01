@@ -197,8 +197,69 @@ def add_legs(pos, buys, metas, now=0, max_pools=3, max_runners=3):
 
 
 CARD_POOLS, CARD_RUNNERS = 3, 3
-ADMIN_POOLS, ADMIN_RUNNERS = 10, 6
+ADMIN_POOLS, ADMIN_RUNNERS = 12, 12   # Cmd Ctr: any mix up to ADMIN_LEGS in total (6 pools + 6 runners, or 12 runners)
+ADMIN_LEGS = 12
 FEE_FOR_3RD_CARD = 200.0
+
+
+def legs_ok(pools, runners, admin=False):
+    """A card's leg mix: traders 3 pools + 3 runners; Cmd Ctr up to 12 legs in any mix."""
+    if admin:
+        return pools <= ADMIN_POOLS and runners <= ADMIN_RUNNERS and pools + runners <= ADMIN_LEGS
+    return pools <= CARD_POOLS and runners <= CARD_RUNNERS
+
+
+BUNDLE_DEFAULTS = {'on': True, 'perLegUsd': 0.10, 'maxPct': 5.0, 'maxLegUsd': 50.0}
+BUNDLE_RANGES = {'perLegUsd': (0.0, 5.0), 'maxPct': (0.1, 20.0), 'maxLegUsd': (1.0, 10000.0)}
+
+
+def clean_bundle(b):
+    b = b if isinstance(b, dict) else {}
+    out = {'on': bool(b.get('on', BUNDLE_DEFAULTS['on']))}
+    for k, (lo, hi) in BUNDLE_RANGES.items():
+        try:
+            out[k] = round(max(lo, min(hi, float(b.get(k, BUNDLE_DEFAULTS[k])))), 4)
+        except (TypeError, ValueError):
+            out[k] = BUNDLE_DEFAULTS[k]
+    return out
+
+
+def bundle_bps(leg_usd, b):
+    """Bundle pricing (a Fuse / runner card bought all at once): a flat $ per coin instead of a %, never more than maxPct
+    of the leg. Legs above maxLegUsd (or unknown size) pay the normal % fee → None."""
+    b = clean_bundle(b)
+    leg_usd = _f(leg_usd)
+    if not b['on'] or leg_usd <= 0 or leg_usd > b['maxLegUsd']:
+        return None
+    return int(min(round(b['perLegUsd'] / leg_usd * 10000), round(b['maxPct'] * 100)))
+
+
+def fuse_fees(positions, ledger_rows, now):
+    """Live FEELESS fees from people fusing: every Fuse card leg (buys + sells) matched by signature to the fee ledger
+    (the source of truth). → $ per hour / 24h / 7d / all time, legs and cards counted."""
+    by_sig = {r.get('sig'): r for r in ledger_rows if r.get('sig')}
+    sigs, cards = set(), set()
+    for pos in positions or []:
+        for leg in pos.get('legs') or []:
+            for sg in [leg.get('sig'), *(leg.get('sellSigs') or [leg.get('sellSig')])]:
+                if sg in by_sig:
+                    sigs.add(sg); cards.add(pos.get('id'))
+    rows = [by_sig[s] for s in sigs]
+    win = lambda sec: round(sum(_f(r.get('feeUsd')) for r in rows if now - _f(r.get('t')) <= sec), 6)
+    return {'hour': win(3600), 'day': win(86400), 'week': win(7 * 86400), 'all': round(sum(_f(r.get('feeUsd')) for r in rows), 6),
+            'legs': len(rows), 'cards': len(cards)}
+
+
+ACTIVITY_TIERS = ((75, 'blazing'), (50, 'hot'), (25, 'warm'), (0, 'calm'))
+
+
+def activity(buys24h=0, buyers=0, flow_usd=0.0, move_pct=0.0):
+    """A card's live activity 0–100 (drives its Arena effects — hard-coded tiers, never a forecast):
+    real FEELESS buys in 24h, distinct buyers, $ flow through its pools, and how far its index moved."""
+    s = (min(35.0, _f(buys24h) * 5) + min(25.0, _f(buyers) * 5) + min(25.0, math.log10(1 + max(0.0, _f(flow_usd))) * 4.2)
+         + min(15.0, abs(_f(move_pct)) * 0.75))
+    s = round(max(0.0, min(100.0, s)))
+    return {'score': s, 'tier': next(t for cut, t in ACTIVITY_TIERS if s >= cut)}
 
 
 def card_limit(fee_usd, admin=False):

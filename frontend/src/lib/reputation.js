@@ -38,6 +38,9 @@ async function observe(pair) {
   }
 }
 
+// Read-only peek (never fetches): lets sitewide badges skip a coin's own reputation lookup.
+export const cachedReputation = key => (key ? memoryCache.get(key) || null : null);
+
 export function useReputation(pair) {
   const [result, setResult] = useState(() => memoryCache.get(pair?.pairAddress) || null);
   const key = pair?.pairAddress;

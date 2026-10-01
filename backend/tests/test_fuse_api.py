@@ -64,7 +64,7 @@ def test_fuse_lab_caps_users_at_3_and_admin_gets_6_and_manual_weights(monkeypatc
     monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN')
     man = [{**four[0], 'weight': 75}, {**four[1], 'weight': 25}]
     p = asyncio.run(rs.fuses_preview(rs.FusePreview(pools=man, sol=4, manual=True), Req()))
-    assert p['cap'] == 10 and [x['weight'] for x in p['legs']] == [75, 25] and p['legs'][0]['sol'] == 3
+    assert p['cap'] == 12 and [x['weight'] for x in p['legs']] == [75, 25] and p['legs'][0]['sol'] == 3
     six = [{'chainId': 'solana', 'pairAddress': f'P{i}'} for i in range(1, 7)]
     assert len(asyncio.run(rs.fuses_preview(rs.FusePreview(pools=six, sol=1), Req()))['legs']) == 6
 

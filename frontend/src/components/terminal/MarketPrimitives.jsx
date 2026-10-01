@@ -3,7 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { AlertTriangle, Coins, RefreshCw, UserRound } from 'lucide-react';
 import { formatPct, formatUSD, formatTime, shortAddress } from '../../lib/dexscreener';
 import { useVerified } from '../../lib/verifyBatch';
-import { useReputation } from '../../lib/reputation';
+import { useReputation, cachedReputation } from '../../lib/reputation';
+import { usePumpPulse, pulseSummary } from '../../lib/pumpPulse';
+import '../../styles/pulseBolt.css';
 
 const isImageSource = value => typeof value === 'string' && (/^https?:\/\//i.test(value) || /^data:image\//i.test(value));
 
@@ -84,6 +86,16 @@ export function VerifiedTick({ mint, size = 34 }) {
     role="img" aria-label="Verified coin"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8.4l2.6 2.5L12 5.4" /></svg></i>;
 }
 
+// Pump Pulse on every coin logo, sitewide: one shared batched poll (lib/pumpPulse, 15s). Shown only while the coin is
+// pulsing (market.py pulse_stats); a creator already known as flagged/risky never gets it (cached reputation only).
+function PulseDot({ mint, pairAddress, size }) {
+  const s = usePumpPulse(mint);
+  if (!s?.pulse || ['flagged', 'risky'].includes(cachedReputation(pairAddress)?.badge)) return null;
+  const d = Math.max(12, Math.round(size * 0.42));
+  return <i className={`pulse-dot pd-${s.level}`} style={{ width: d, height: d }} data-tip={`⚡ Pump Pulse · 5m ${pulseSummary(s)}`} role="img" aria-label="Pump Pulse" data-testid="pulse-dot">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z" /></svg></i>;
+}
+
 export const TokenAvatar = ({ pair, size = 34, onExhausted, maxAttempts }) => {
   const sources = tokenImageUrls(pair);
   const [imageIndex, setImageIndex] = useState(0);
@@ -106,6 +118,7 @@ export const TokenAvatar = ({ pair, size = 34, onExhausted, maxAttempts }) => {
   const mint = pair?.chainId === 'solana' || !pair?.chainId ? pair?.baseToken?.address : null;
   return <span className="token-avatar" style={{ width: size, height: size }} aria-label={`${symbol} token logo`}>
     {mint && size >= 18 && <VerifiedTick mint={mint} size={size} />}
+    {mint && size >= 18 && <PulseDot mint={mint} pairAddress={pair?.pairAddress} size={size} />}
     {(!imageUrl || exhausted) && <span className="token-avatar-fallback" aria-hidden="true"><Coins size={Math.round(size * 0.42)} /></span>}
     {imageUrl && !exhausted && <img data-fb-skip="1"
       key={`${imageUrl}-${attempts}`}

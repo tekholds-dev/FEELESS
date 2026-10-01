@@ -40,7 +40,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 ## CSS map (where styles live — keep it organized)
 - `meta.css` = m-* presets only (budget-capped). `terminal.css` = legacy terminal (append scoped blocks only when no sheet fits).
 - Feature sheets, imported by their component, built from m-* tokens: `fuseLab.css` (Lab, FuseRail `frail-*`, FuseEvolve `fe-*`),
-  `fusePage.css` (Fuse 🧬 page `fp-*`: discovery tiles, Arena round card/lit list, My cards, banner), `runners.css` (`rn-*`
+  `fusePage.css` (Fuse 🧬 page `fp-*`, Arena stage `ar-*`, Cmd Ctr bundle/vault/fuse-fee bits), `pulseBolt.css` (PulseDot), `runners.css` (`rn-*`
   hero/ring/countdown/lanes/CoinRow, fire accent `--rn-fire`), `auras.css`, `command.css` (Cmd Ctr).
 - Each sheet ends with its own `body.fx-lite`, `prefers-reduced-motion` and `body.theme-day` blocks + a 640px media query.
 - Motion: one keyframe set per sheet (`fp*`, `rn*`, `fcd*`), transform/opacity only, list stagger via `--i` × 45–60ms.
@@ -238,6 +238,17 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `proof.lights`; each newly dealt round under lit proof is saved (`runners.lit_card`, ≤30, 72h price watch) → lit-cards list
   with `card_result` % since lit + "Use". Mid-round, ONE failing pick per tick is auto-swapped (`runners.swap_failing`) for
   the best passing runner; swaps are listed with the failed gate and counted honestly in `proof` (swapped-out mult kept).
+- Arena tab (`ArenaBoard`) = STAGE first: `GET /fuses/arena` → `mega` = Cmd Ctr cards flagged 🏟 Show on Arena (FuseBuilder,
+  `arena: true`) + runner cards that lit after their rounds (+ the live round as a "proving" card when the stage is empty).
+  Each card's `activity` (`fuse_hq.activity`: 24h FEELESS buys, buyers, $ flow, index move → calm/warm/hot/blazing) drives
+  HARD-CODED effects (`TIER_FX`: aura + ember count, heat glow, shock ring, page-wide `.ar-sky`); `MegaCard` = FuseCard (tilt/flip).
+  Lit/round → runner picks; mega → Lab (users get the top 3). Then `<RunnersPanel />` (old look) + strategies.
+- Runners tab: a full card (3 picks) renders as a prebuilt FuseCard (`RunnerCardFull`) → Lab. Lab has a 🏃 Runners lens.
+- Leg caps (`fuse_hq.legs_ok`, `legCaps`): traders 3 pools + 3 runners; Cmd Ctr 12 legs any mix (6/6, 12 runners).
+- Bundle pricing (`fuse_hq.bundle_bps`, fee cfg `bundle`, Cmd Ctr › Fees › 6, `POST /admin/fees/bundle`, public `GET /fees/pricing`):
+  a card bought all at once (FuseGo sends `bundle`=legs on /quote) pays a flat $/coin (default $0.10), ≤ maxPct of a leg; legs
+  > maxLegUsd pay the normal %. Staff (Cmd Ctr) bundles pay 0 FEELESS fee. Live "⚛️ Fuse fees" tile (`GET /admin/fuses/fees`).
+- Pump Pulse sitewide: every `TokenAvatar` shows a pink `PulseDot` while the coin pulses (shared batched `lib/pumpPulse`).
 - Prebuilt rail budgets: $1 / $20 / $100 or a custom $ (debounced 250ms); server breeds for the nearest bucket, Fuse in
   uses the exact amount. Pools-per-fuse segment is Cmd Ctr only.
 

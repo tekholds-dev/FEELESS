@@ -1,0 +1,11 @@
+/* Pump Pulse dot on every coin logo (TokenAvatar). Pink bolt, top-left; beats faster with the pulse level.
+   transform/opacity only; still under fx-lite / reduced motion. */
+.pulse-dot { position: absolute; left: 0; top: 0; z-index: 2; display: grid; place-items: center; border-radius: 50%; background: #2a0a22; border: 1.5px solid #ff7ad9;
+  box-shadow: 0 0 8px #ff7ad966; animation: pdIn .2s ease-out, pdBeat 1.6s ease-in-out .2s infinite; cursor: help; }
+.pulse-dot svg { width: 64%; height: 64%; fill: #ff7ad9; }
+.pulse-dot.pd-2 { animation-duration: .2s, 1.1s; } .pulse-dot.pd-3 { animation-duration: .2s, .75s; background: #ff7ad9; } .pulse-dot.pd-3 svg { fill: #2a0a22; }
+@keyframes pdIn { from { opacity: 0; transform: scale(.4); } }
+@keyframes pdBeat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+body.theme-day .pulse-dot { background: #fff; }
+body.fx-lite .pulse-dot { animation: none; }
+@media (prefers-reduced-motion: reduce) { .pulse-dot { animation: none; } }

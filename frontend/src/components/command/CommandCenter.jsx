@@ -1,5 +1,6 @@
 import { VaultDesigner } from './VaultDesigner';
 import { FuseBuilder } from './FuseBuilder';
+import { BundlePricing } from './FuseAdminSettings';
 import { BotShield } from './BotShield';
 import { FuseCardMint } from '../nft/FuseCardMint';
 import { FuseLab } from '../FuseLab';
@@ -166,7 +167,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'airdrops' && <Airdrops drops={drops} call={call} reload={loadDrops} />}
     {tab === 'fuse' && <FuseDeck call={call} panels={[
       ['runners', '🏃 Runners', <RunnersPanel call={call} />, 'Coins come to it: every Pump.fun coin gated, scored and laned (scalp / runner / hold) as it arrives; rounds every 15 min; lights only when paper-proven.'],
-      ['lab', '🧬 Breed & fuse', <FuseLab call={call} />, 'Evolve baskets from live pools (up to 10), load a champion, preview it, one-click it with $1–$100, publish it.'],
+      ['lab', '🧬 Breed & fuse', <FuseLab call={call} />, 'Build mega cards: up to 12 legs (pools, runners or any mix), load a champion, preview it, one-click it with no FEELESS fee, publish it or stage it on the Arena.'],
       ['hq', '💰 HQ · P&L', <FuseHQ call={call} />, 'Real money: every verified Fuse in, live. Arena = $5 paper runs that prove a strategy before you trust it.'],
       ['pub', '📣 Published', <FuseBuilder call={call} />, 'Fuses traders see on Trade and in chat (/fuse). Set the creator cut; self-buys and bots never earn it.'],
       ['vault', '🏦 Vault', <><VaultMath /><VaultDesigner call={call} /></>, 'Design only: a future on-chain vault (SOL in → shares, fees in SOL). Localnet v0.1 — never deployed or funded without you.']]} />}{tab === 'badges' && <><QuestEngineAdmin call={call} /><AwardBadges call={call} initial={[...selected]} /></>}
@@ -372,6 +373,7 @@ function FeesPanel({ call }) {
   useEffect(() => { runTest(); }, [runTest]);
   const [health, setHealth] = useState(null);
   const [cfg, setCfg] = useState(null);
+  const [savedCfg, setSavedCfg] = useState(null);   // what the server holds (status chips compare against it)
   const [routes, setRoutes] = useState([]);
   const [earnings, setEarnings] = useState(null);
   const [earningsBusy, setEarningsBusy] = useState(false);
@@ -379,7 +381,7 @@ function FeesPanel({ call }) {
   const [promoDays, setPromoDays] = useState(0);
   useEffect(() => {
     call('/admin/fees/health').then(setHealth).catch(() => setHealth(null));
-    call('/admin/fees').then(d => { setCfg(d.fees); setLimits(d.limits); }).catch(e => toast.error(e.message));
+    call('/admin/fees').then(d => { setCfg(d.fees); setSavedCfg(d.fees); setLimits(d.limits); }).catch(e => toast.error(e.message));
     call('/admin/treasury/routes').then(d => setRoutes(d.routes || [])).catch(() => {});
   }, [call]);
   const solUsd = useSolUsd();
@@ -391,7 +393,7 @@ function FeesPanel({ call }) {
     const body = { ...cur, platformFeeBps: Math.min(Number(cur.platformFeeBps) || 0, limits.maxBps), priorityMaxLamports: Number(cur.priorityMaxLamports) || 0, ultraFallback: Boolean(cur.ultraFallback), engine: cur.engine || 'swap',
       feeAccountSol: (cur.feeAccountSol || '').trim(), feeAccountUsdc: (cur.feeAccountUsdc || '').trim(), lifiFeeBps: Number(cur.lifiFeeBps) || 0, lifiIntegrator: cur.lifiIntegrator || '', vaultFeeWallet: (cur.vaultFeeWallet || '').trim(), zeroFeeMints: [],
       promo: { ...(cur.promo || {}), until: promoDays > 0 ? Date.now() / 1000 + promoDays * 86400 : cur.promo?.until || 0 } };
-    try { const d = await call('/admin/fees', { method: 'POST', body: JSON.stringify(body) }); setCfg(d.fees); toast.success('Fee settings saved — applied to the next quote.'); } catch (e) { toast.error(e.message); }
+    try { const d = await call('/admin/fees', { method: 'POST', body: JSON.stringify(body) }); setCfg(d.fees); setSavedCfg(d.fees); toast.success('Fee settings saved — applied to the next quote.'); } catch (e) { toast.error(e.message); }
   };
   const TIERS = ['Trencher', 'Fee Friend', 'Fee Insider', 'Fee Whale'];
   const enabled = Number(cfg.platformFeeBps) > 0;
@@ -411,6 +413,7 @@ function FeesPanel({ call }) {
       <li><b>Only exemption:</b> buying $FEE, FEECAT or rFEE with SOL, USDC or USDT is 0%. Selling them pays the fee.</li>
       <li><b>Coin → coin</b> trades have no SOL/USDC side to pay from, so they are refused: traders route coin → SOL → coin.</li>
       <li><b>Holder tiers and promos</b> lower the fee (max 90% off). They never make a trade free.</li>
+      <li><b>Cards bought all at once</b> (Fuse / runners) pay the bundle price per coin (section 6). Cmd Ctr cards pay no FEELESS fee.</li>
       <li><b>EVM swaps, bridges and gas</b> pay the LI.FI fee below.</li></ul></div>
 
     <div className="cc-studio-grid">
@@ -453,7 +456,8 @@ function FeesPanel({ call }) {
       </div>
       <div className="cc-block fee-vault"><h4>5 · FUSE Vault fees</h4>
         <label>Vault fee wallet<input placeholder="SOL wallet that receives vault management + performance fees" value={cfg.vaultFeeWallet || ''} onChange={e => set('vaultFeeWallet', e.target.value.trim())} data-testid="vault-fee-wallet" /></label>
-        <small className="cc-empty">{cfg.vaultFeeWallet ? 'Every FUSE Vault pays its management + performance fees here, in SOL.' : 'Set it before a vault goes live — vault fees have nowhere to go without it.'}</small></div>
+        <VaultWalletStatus value={cfg.vaultFeeWallet} saved={savedCfg?.vaultFeeWallet} /></div>
+      <BundlePricing call={call} initial={cfg.bundle} swapBps={Number(cfg.platformFeeBps) || 0} />
     </div>
 
     <div className="cc-block fee-selftest" data-testid="fee-selftest"><h4>5 · Prove it <Explain>Runs real quotes through the same endpoints the swap boxes use. Nothing is signed or sent. A pass means FEELESS is paid on real trades.</Explain></h4>
@@ -463,6 +467,14 @@ function FeesPanel({ call }) {
     </div>
     <div className="cc-savebar"><span>{routes.length || 0} treasury route{routes.length === 1 ? '' : 's'} saved</span><button type="button" className="btn-primary" onClick={save} data-testid="fees-save">Save trading &amp; fees</button></div>
   </section>;
+}
+
+// Vault fee wallet status: saved ✓ / unsaved edit / not a Solana address / missing.
+export const vaultStatus = (v, saved) => (!v ? ['bad', 'Not set — vault fees have nowhere to go'] : !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(v) ? ['bad', 'Not a Solana address']
+  : v === saved ? ['ok', `✓ Saved · vault fees land in ${v.slice(0, 4)}…${v.slice(-4)}`] : ['warn', 'Not saved yet — press Save below']);
+function VaultWalletStatus({ value, saved }) {
+  const [tone, text] = vaultStatus(value, saved);
+  return <small className={`vault-status is-${tone}`} data-testid="vault-status">{text}</small>;
 }
 
 // One-click fee accounts: the connected wallet pays ~0.004 SOL rent and signs once; the accounts belong to the fee wallet.

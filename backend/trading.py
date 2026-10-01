@@ -61,6 +61,7 @@ class QuoteIn(BaseModel):
         return s[:-1] if s.endswith('.') else s
     wallet: str | None = None
     slippage_bps: int = Field(50, ge=1, le=5000)  # up to 50% for thin meme pools
+    bundle: int = Field(0, ge=0, le=12)   # legs in a card bought all at once (Fuse / runners) → bundle pricing
     probe: bool = False   # fee self-test only (needs the internal key): quote as the fee wallet without its balance
 
 class ExecuteIn(BaseModel):
@@ -397,7 +398,8 @@ class TradingService:
             key = (Path(__file__).parent / 'data' / 'internal.key').read_text().strip()
             async with httpx.AsyncClient(timeout=3) as http:
                 r = await http.get('http://127.0.0.1:5077/api/reputation/internal/fees', headers={'x-feeless-internal': key},
-                                   params={'wallet': body.wallet or '', 'inputMint': body.input_mint, 'outputMint': body.output_mint})
+                                   params={'wallet': body.wallet or '', 'inputMint': body.input_mint, 'outputMint': body.output_mint,
+                                           'bundle': body.bundle, 'amount': body.amount})
             if r.status_code == 200:
                 return r.json()
         except Exception:

@@ -75,7 +75,8 @@ export function RunnersPanel({ call }) {
       <header><b>{ic} {name}</b><small>{sub}</small><em data-tip="Preset exits — alerts you at each step for a one-tap sell">{d.exits[k]}</em></header>
       {rows.length ? rows.map(r => <CoinRow key={r.mint} r={r} live />) : <p className="m-dim rn-empty">{k === 'hold' ? 'A runner lands here after 2 rounds in the top.' : 'Nothing in this lane this round.'}</p>}
     </div>; })}</div>
-    {picks.length > 0 && <div className="rn-fuse">
+    {(d.round?.swaps || []).length > 0 && <div className="rn-swaps" data-testid="rn-swaps">{d.round.swaps.slice(-3).reverse().map(s => <span key={s.at}>🔁 auto-swapped <b>${s.out.symbol}</b> → <b>${s.in.symbol}</b><small>{s.why[0]}</small></span>)}</div>}
+    {picks.length > 0 && <div className={`rn-fuse ${d.proof.lights ? 'is-lit' : ''}`} key={d.round?.id}>
       <FuseCard c={{ pools: legs.map(l => l.pairAddress), fitness: Math.round(picks.reduce((a, p) => a + p.score, 0) / picks.length), bornGen: d.history.length,
         parts: { grade: d.proof.lights ? 'A' : 'C', aprScore: 0, momentum24h: 0, calm: '—', feeDragPct: sol ? Math.min(100, 0.0001 * picks.length * d.solUsd / budget * 100) : 0, impactLegs: 0 }, legs }} style="degen" rank={0} budget={budget} autoFlip={6000} />
       <div className="rn-fuse-side">
@@ -89,6 +90,8 @@ export function RunnersPanel({ call }) {
     </div>}
     <div className="rn-cols">
       <div className="rn-board"><header><b>📡 Live board</b><small className="m-dim">{d.live.length} passing every gate · best first</small></header>{d.live.slice(0, 12).map(r => <CoinRow key={r.mint} r={r} />)}
+        {!d.live.length && <><p className="m-dim rn-empty">Nothing passes every gate this minute — watching the busiest arrivals:</p>
+          <ul className="rn-drop">{d.dropped.slice(0, 6).map(r => <li key={r.mint}><b>${r.symbol}</b><span>{r.gates.slice(0, 2).join(' · ')}</span></li>)}</ul></>}
         <button type="button" className="rn-drop-toggle" aria-expanded={showDrop} onClick={() => setShowDrop(s => !s)}>{showDrop ? 'Hide' : 'Show'} the {d.dropped.length} dropped (why)</button>
         {showDrop && <ul className="rn-drop">{d.dropped.map(r => <li key={r.mint}><b>${r.symbol}</b><span>{r.gates.slice(0, 2).join(' · ')}{r.gates.length > 2 ? ` +${r.gates.length - 2}` : ''}</span></li>)}</ul>}</div>
       <div className="rn-hist"><header><b>🏟 Last rounds (paper)</b><small className="m-dim">equal $ · lane exits</small></header>

@@ -7,8 +7,8 @@ import { unfuseOrders, rebalanceOrders, SOL_MINT } from '../lib/fuseGo';
 import { FuseLab } from './FuseLab';
 import { FuseSide } from './FuseSide';
 import { FuseGo } from './FuseGo';
-import { LiveFuseCard } from './FuseCard';
-import { useRunners, Countdown, ProofRing, CoinRow, LANES } from './RunnersPanel';
+import { RunnersPanel, Countdown } from './RunnersPanel';
+import { FuseCard, LiveFuseCard } from './FuseCard';
 import '../styles/runners.css';
 import '../styles/fusePage.css';
 
@@ -46,7 +46,7 @@ export function FusePage() {
       {tab === 'lab' && <div className="fz-split-view fp-lab"><FuseLab runnerPicks={runnerPicks} onRunnerPicks={setRunnerPicks} incoming={incoming} limits={limits} />
         <aside className="fp-right"><FeaturedFuses onLoad={f => setIncoming({ legs: f.legs, sol: 0, n: Date.now() })} /><FuseSide /></aside></div>}
       {tab === 'runners' && <RunnerPicker picks={runnerPicks} onPicks={setRunnerPicks} onDone={() => go('lab')} />}
-      {tab === 'arena' && <ArenaBoard onPicks={list => { setRunnerPicks(list); go('lab'); }} />}
+      {tab === 'arena' && <ArenaBoard onPicks={list => { setRunnerPicks(list); go('lab'); }} onLoad={legs => { setIncoming({ legs: [...legs].sort((x, y) => (y.weight || 0) - (x.weight || 0)), sol: 0, n: Date.now() }); go('lab'); }} />}
       {tab === 'cards' && <MyCards addr={addr} />}
     </div>
   </section>;
@@ -84,6 +84,9 @@ export function RunnerPicker({ picks, onPicks, onDone }) {
       <button key={k} type="button" role="tab" aria-selected={src === k} className={src === k ? 'active' : ''} onClick={() => setSrc(k)} data-testid={`src-${k}`}>{l} <em>{n}</em></button>)}</div>
     {(d.swaps || []).length > 0 && <div className="fp-swaps" aria-label="Auto-swaps">{d.swaps.slice().reverse().map(s => <span key={s.at} className="fp-swap">🔁 ${s.out.symbol} → ${s.in.symbol} <small>{s.why[0]}</small></span>)}</div>}
     {!rows.length && <p className="m-dim fp-none">Nothing from this source passes every gate right now — that's the gates working. Next scan in seconds.</p>}
+    {rows.length < 6 && (d.watching || []).length > 0 && <div className="fp-watch" data-testid="fp-watching"><span className="m-label">👀 WATCHING · FAILED A GATE (NOT ADDABLE)</span>
+      <div className="fp-watch-row">{d.watching.map((w, i) => <span key={w.mint} className="fp-wchip" style={{ '--i': i }} data-tip={(w.gates || []).join(' · ')}>
+        <span className="fp-ava sm">{w.logo ? <img src={w.logo} alt="" loading="lazy" /> : '👀'}</span><b>${w.symbol}</b><small>{(w.gates || [])[0]}</small></span>)}</div></div>}
     <div className="fp-rgrid">{rows.map((r, i) => { const on = picks.some(p => p.mint === r.mint); const full = !on && picks.length >= MAX_RUNNERS; const hot = r.sources.length >= 2;
       return <article key={r.mint} className={`fp-runner ${on ? 'is-on' : ''} ${hot ? 'is-hot' : ''}`} style={{ '--i': Math.min(i, 14) }} data-testid={`runner-${r.mint}`}>
         {hot && <span className="fp-hotband">{r.sources.length} sources</span>}
@@ -94,40 +97,66 @@ export function RunnerPicker({ picks, onPicks, onDone }) {
         <div className="m-row fp-rstats"><span>MC {m$(r.mcap)}</span><span>{Math.round(r.buyShare || 0)}% buys</span><span>{m$(r.vol1h)} 1h vol</span></div>
         <button type="button" className={`m-btn wide ${on ? 'primary' : ''}`} disabled={full} onClick={() => onPicks(togglePick(picks, r))} data-testid={`runner-add-${r.mint}`}>{on ? '✓ On your card' : full ? 'Card full (3)' : '+ Add to card'}</button>
       </article>; })}</div>
-    {picks.length > 0 && <div className="fp-dock" data-testid="fp-dock"><span>{picks.map(p => `$${p.symbol}`).join(' · ')}</span><button type="button" className="m-btn primary m-go" onClick={onDone} data-testid="runners-to-lab">Build card with {picks.length} →</button></div>}
+    {picks.length > 0 && picks.length < MAX_RUNNERS && <div className="fp-dock" data-testid="fp-dock"><span>{picks.map(p => `$${p.symbol}`).join(' · ')} <small className="m-dim">· {MAX_RUNNERS - picks.length} more fills the card</small></span><button type="button" className="m-btn primary m-go" onClick={onDone} data-testid="runners-to-lab">Build card with {picks.length} →</button></div>}
+    {picks.length >= MAX_RUNNERS && <RunnerCardFull picks={picks} onDone={onDone} />}
   </section>;
 }
 
-// ---- Arena: the runners' live show — proof ring, countdown, the round card that lights up, lit cards, swaps, strategies ----
-export function ArenaBoard({ onPicks }) {
-  const d = useRunners();
+// A full runner card looks exactly like a prebuilt card (FuseCard: tilt, ⟲ money-math back), then goes to the Lab to fuse in.
+export const runnerLegs = picks => picks.map(p => ({ chainId: 'solana', pairAddress: p.pairAddress || p.mint, symbol: p.symbol, baseAddress: p.mint, logo: p.logo,
+  weight: Math.round(10000 / picks.length) / 100, change24h: p.chg1h || 0, liquidityUsd: p.liq || 0 }));
+export function RunnerCardFull({ picks, onDone }) {
+  const legs = runnerLegs(picks); const score = Math.round(picks.reduce((a, p) => a + (p.score || 0), 0) / picks.length);
+  return <div className="fp-full m-card m-live" data-testid="runner-card-full">
+    <FuseCard c={{ pools: legs.map(l => l.pairAddress), fitness: score, bornGen: 0, parts: { grade: score >= 70 ? 'A' : score >= 50 ? 'B' : 'C', aprScore: 0, momentum24h: 0, calm: '—', feeDragPct: 0, impactLegs: 0 }, legs }} style="degen" rank={0} budget={5} aura="sparkle" />
+    <div className="fp-full-side"><span className="m-label">🃏 YOUR RUNNER CARD · FULL</span><h3>{picks.map(p => `$${p.symbol}`).join(' · ')}</h3>
+      <p className="m-dim">Equal weight, gated right now, each with its lane's exit plan. Drag to tilt · ⟲ for the money math. Fuse it in from the Lab with one approval — bundle pricing per coin.</p>
+      <button type="button" className="m-btn primary m-go" onClick={onDone} data-testid="runners-to-lab">Fuse this card in the Lab →</button></div></div>;
+}
+
+// ---- Arena: the stage. Cmd Ctr mega cards + runner cards that lit after their rounds, each wrapped in effects driven by
+// its real activity (server fuse_hq.activity → hard-coded tier: calm / warm / hot / blazing). Then the Runners show
+// (RunnersPanel: proof ring, countdown, lanes, round card, live board, last rounds) and the strategies board.
+export const TIER_FX = { calm: { aura: 'aurora', embers: 3 }, warm: { aura: 'sparkle', embers: 6 }, hot: { aura: 'fire', embers: 10 }, blazing: { aura: 'lightning', embers: 16 } };
+export const stageTier = cards => (cards || []).reduce((top, c) => (['calm', 'warm', 'hot', 'blazing'].indexOf(c.activity?.tier) > ['calm', 'warm', 'hot', 'blazing'].indexOf(top) ? c.activity.tier : top), 'calm');
+
+export function ArenaBoard({ onPicks, onLoad }) {
   const [a, setA] = useState(null);
-  useEffect(() => { let alive = true; fetch(apiUrl('/api/reputation/fuses/arena')).then(r => (r.ok ? r.json() : null)).then(x => alive && setA(x)).catch(() => {}); return () => { alive = false; }; }, []);
-  if (!d) return <div className="fp-disc is-loading" data-testid="fuse-arena"><div className="fp-scan" /><span className="m-dim">Loading the arena…</span></div>;
-  const picks = d.round?.picks || []; const lit = d.proof?.lights;
-  const use = list => onPicks?.(list.slice(0, MAX_RUNNERS).map(p => ({ ...p })));
-  return <section className="fp-arena" data-testid="fuse-arena">
-    <header className="rn-hero"><div className="rn-title"><span className="m-label">🏟 RUNNERS ARENA · LIVE</span><h3>Every round, played on paper.</h3>
-      <p>A round deals the best gated runners every 15 min. When the last 24h of rounds win, the round card <b>lights up</b> and joins the lit-cards list. A runner that starts failing a gate is auto-swapped for the next best.</p></div>
-      <ProofRing p={d.proof} need={d.lightMinRounds} /><div className="rn-clock"><small>NEXT ROUND</small><Countdown at={d.nextRoundAt} /></div></header>
-    <div className={`fp-roundcard m-card ${lit ? 'is-lit' : ''}`} data-testid="round-card">
-      <div className="m-row"><span className="m-label">{lit ? '🔥 THIS ROUND · LIT' : '⏳ THIS ROUND · PROVING'}</span><small className="m-dim">{picks.length} runners · equal weight · lane exits</small>
-        {picks.length > 0 && <button type="button" className="m-btn primary m-go" onClick={() => use(picks)} data-testid="arena-use-round">Use in my card →</button>}</div>
-      <div className="rn-lanes">{LANES.map(([k, ic, name]) => { const rows = picks.filter(p => p.lane === k); return <div key={k} className={`rn-lane lane-${k}`}><header><b>{ic} {name}</b><em>{d.exits[k]}</em></header>
-        {rows.length ? rows.map(r => <CoinRow key={r.mint} r={r} live />) : <p className="m-dim rn-empty">—</p>}</div>; })}</div>
-      {(d.round?.swaps || []).length > 0 && <div className="fp-swaps">{d.round.swaps.slice(-3).reverse().map(s => <span key={s.at} className="fp-swap">🔁 auto-swapped ${s.out.symbol} → ${s.in.symbol} <small>{s.why[0]}</small></span>)}</div>}
-    </div>
-    <div className="m-card"><span className="m-label">🔥 LIT CARDS · TRACKED 72H</span>
-      {!(d.litCards || []).length ? <p className="m-dim">No round has lit yet. The first lit round lands here with its live paper result.</p>
-        : <div className="fp-litlist">{d.litCards.map((c, i) => <div key={c.id} className="fp-lit" style={{ '--i': i }}><span className="fp-litglow" aria-hidden="true" />
-          <div className="fp-litcoins">{c.picks.slice(0, 5).map(p => <span key={p.mint} className="fp-ava sm" title={p.symbol}>{p.logo ? <img src={p.logo} alt="" loading="lazy" /> : '🏃'}</span>)}</div>
-          <div><b>{c.picks.map(p => `$${p.symbol}`).join(' · ')}</b><small className="m-dim">lit {new Date(c.at * 1000).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · proof {pc(c.proof?.avgPct)} / {c.proof?.winRate}% won</small></div>
-          <b className={`m-num ${c.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(c.pct)}</b><button type="button" className="m-btn" onClick={() => use(c.picks)}>Use</button></div>)}</div>}</div>
+  useEffect(() => { let alive = true; const load = () => !document.hidden && fetch(apiUrl('/api/reputation/fuses/arena')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setA(x)).catch(() => {});
+    load(); const t = setInterval(load, 30000); return () => { alive = false; clearInterval(t); }; }, []);
+  const mega = a?.mega || [];
+  const top = stageTier(mega);
+  return <section className={`fp-arena ar-tier-${top}`} data-testid="fuse-arena">
+    <div className="ar-sky" aria-hidden="true">{Array.from({ length: TIER_FX[top].embers + 6 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</div>
+    <header className="ar-head m-card m-live"><span className="m-label">🏟 ARENA STAGE · LIVE</span><h2>Cards that made it.</h2>
+      <p className="m-dim">Cmd Ctr mega cards and runner cards that lit after their rounds. The more real activity a card has — FEELESS buys, buyers, $ flowing through its coins, how far it moved — the hotter it burns.</p>
+      <div className="ar-legend">{Object.keys(TIER_FX).map(k => <span key={k} className={`ar-chip t-${k}`}>{k}</span>)}</div></header>
+    {!a ? <div className="ar-stage">{[0, 1, 2].map(i => <div key={i} className="frail-ghost" />)}</div>
+      : !mega.length ? <p className="m-dim ar-none">No card on stage yet — a runner round that lights up lands here, and Cmd Ctr can stage its mega cards.</p>
+      : <div className="ar-stage" data-testid="arena-stage">{mega.map((c, i) => <MegaCard key={`${c.kind}-${c.id}`} c={c} i={i} onPicks={onPicks} onLoad={onLoad} />)}</div>}
+    <RunnersPanel />
     {a && <div className="m-card"><span className="m-label">STRATEGIES · $5 PAPER FOR 24H</span><p className="m-dim">{a.outlook?.note || (a.outlook?.style ? `${a.outlook.style}: ${pc(a.outlook.avgPct)} avg over ${a.outlook.runs} runs, ${a.outlook.winRate}% won.` : 'Not enough settled runs yet.')}</p>
       <table className="vd-table"><thead><tr><th>Strategy</th><th>Runs</th><th>Avg</th><th>Won</th><th /></tr></thead><tbody>
       {(a.board || []).map(b => <tr key={b.style}><td><b>{b.style}</b>{a.bestStyle === b.style ? ' 👑' : ''}</td><td>{b.runs}</td><td className={(b.avgPct || 0) >= 0 ? 'm-pos' : 'm-neg'}>{pc(b.avgPct || 0)}</td><td>{Math.round(b.winRate ?? 0)}%</td><td>{b.runs >= a.minSettled && b.avgPct > 0 ? <span className="m-chip ok">proven</span> : <span className="m-chip">needs {a.minSettled}+</span>}</td></tr>)}</tbody></table></div>}
-    <small className="m-dim">Paper replays on prices seen after each round — never a promise. Fresh coins can go to zero in minutes; gates and exits cut that, they don't prevent it.</small>
+    <small className="m-dim">Effects show activity, never a promise. Paper replays use prices seen after each round; fresh coins can go to zero in minutes.</small>
   </section>;
+}
+
+export function MegaCard({ c, i, onPicks, onLoad }) {
+  const fx = TIER_FX[c.activity?.tier] || TIER_FX.calm;
+  const move = (c.index || 100) - 100;
+  const use = () => (c.kind !== 'mega' ? onPicks?.(c.legs.slice(0, MAX_RUNNERS).map(l => ({ mint: l.baseAddress, symbol: l.symbol, logo: l.logo, pairAddress: l.pairAddress, lane: 'runner' })))
+    : onLoad?.(c.legs));
+  return <article className={`ar-card t-${c.activity?.tier || 'calm'}`} style={{ '--i': i, '--act': (c.activity?.score || 0) / 100 }} data-testid={`mega-${c.id}`}>
+    <span className="ar-heat" aria-hidden="true" /><span className="ar-ring" aria-hidden="true" />
+    <FuseCard c={{ pools: c.legs.map(l => l.pairAddress), fitness: c.activity?.score || 0, bornGen: c.legs.length, parts: { grade: c.grade || 'B', aprScore: 0, momentum24h: move, calm: '—', feeDragPct: 0, impactLegs: 0 }, legs: c.legs }}
+      style={c.kind === 'lit' ? 'degen' : 'momentum'} rank={0} budget={20} aura={c.aura || fx.aura} />
+    <div className="ar-embers" aria-hidden="true">{Array.from({ length: fx.embers }, (_, k) => <i key={k} style={{ '--i': k }} />)}</div>
+    <div className="ar-meta"><b>{c.emoji} {c.name}</b>
+      <span className="ar-act" data-tip="Activity: FEELESS buys + buyers (24h), $ flow through its coins, index move. Drives the effects."><i style={{ transform: `scaleX(${(c.activity?.score || 0) / 100})` }} /><em className="m-num">{c.activity?.score || 0}</em></span>
+      <small className="m-dim">{c.kind === 'lit' ? '🔥 lit runner card' : c.kind === 'round' ? '⏳ this round · proving' : `⚛️ Cmd Ctr · ${c.legs.length} legs`} · <span className={move >= 0 ? 'm-pos' : 'm-neg'}>{pc(move)}</span>{c.buyers ? ` · ${c.buyers} buyers` : ''}</small>
+      <button type="button" className="m-btn primary m-go" onClick={use} data-testid={`mega-use-${c.id}`}>{c.kind !== 'mega' ? 'Use runners →' : c.legs.length > 3 ? 'Load top 3 →' : 'Load →'}</button></div>
+  </article>;
 }
 
 // ---- My cards: live cards + every action ------------------------------------------------------------------------------

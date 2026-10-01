@@ -136,7 +136,8 @@ def test_card_preview_with_picked_runners(monkeypatch):
     assert [round(l['weight']) for l in only['legs']] == [50, 50]
     with pytest.raises(rs.HTTPException):
         asyncio.run(rs.fuses_preview(rs.FusePreview(pools=pools, sol=1, runnerMints=['gone'])))
-    assert len(asyncio.run(rs.fuses_preview(rs.FusePreview(pools=pools, sol=1, runnerMints=['r1', 'r2', 'r3', 'r4'])))['legs']) == 6   # traders: 3 runners max
+    with pytest.raises(rs.HTTPException, match='3 pools \\+ 3 runners'):                          # traders: 3 runners max, refused clearly
+        asyncio.run(rs.fuses_preview(rs.FusePreview(pools=pools, sol=1, runnerMints=['r1', 'r2', 'r3', 'r4'])))
 
 
 def test_prebond_only_no_mayhem_and_creator_rep():
