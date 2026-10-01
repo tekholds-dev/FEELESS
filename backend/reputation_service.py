@@ -2661,6 +2661,140 @@ async def badge_limits_public():
     return _badge_limits()
 
 
+# ---- FUSE: fused pools (backend/fuse.py) — named baskets of live pools, creator revenue on Fuse buys ----------------
+import fuse as _fuse
+FUSES_PATH = DATA_DIR / 'fuses.json'   # {'fuses': {id: {...}}, 'buys': [{fuse, sig, wallet, usd, feeUsd, creatorUsd, at}], 'paid': {id: usd}}
+_fuse_pairs_cache: dict = {}
+
+
+async def _fuse_pairs(legs):
+    """Live DexScreener pairs for every leg: one batched call per chain (≤30 pairs), cached 60s."""
+    out, need = {}, {}
+    for leg in legs:
+        hit = _fuse_pairs_cache.get(leg['pairAddress'])
+        if hit and time.time() - hit[0] < 60:
+            out[leg['pairAddress']] = hit[1]
+        else:
+            need.setdefault(leg['chainId'], []).append(leg['pairAddress'])
+    if need:
+        async with httpx.AsyncClient(timeout=8) as http:
+            async def one(chain, pairs):
+                try:
+                    r = await http.get(f'https://api.dexscreener.com/latest/dex/pairs/{chain}/{",".join(pairs[:30])}')
+                    return (r.json() or {}).get('pairs') or []
+                except Exception:
+                    return []
+            for rows in await asyncio.gather(*[one(c, p) for c, p in need.items()]):
+                for p in rows:
+                    _fuse_pairs_cache[p.get('pairAddress')] = (time.time(), p); out[p.get('pairAddress')] = p
+    return out
+
+
+def _fuse_risky(pair):
+    """Launch-forensics flag from CACHED intel only (never blocks a list): heavy top-10 or repeat-rug funders."""
+    hit = _intel_cache.get((pair.get('baseToken') or {}).get('address'))
+    d = hit[1] if hit else None
+    return bool(d) and ((d.get('top10Pct') or 0) > 60 or bool(d.get('flaggedFunders')))
+
+
+async def _fuse_view(fid, f, store):
+    pairs = await _fuse_pairs(f['legs'])
+    legs = [{**leg, **(_fuse.leg_meta(pairs[leg['pairAddress']]) if pairs.get(leg['pairAddress']) else {'missing': True})} for leg in f['legs']]
+    metas = [leg for leg in legs if not leg.get('missing')]
+    now_px = {leg['pairAddress']: leg.get('priceUsd') for leg in metas}
+    buys = [b for b in store.get('buys', []) if b['fuse'] == fid]
+    earned = round(sum(b['creatorUsd'] for b in buys), 6); paid = round(float((store.get('paid') or {}).get(fid, 0)), 6)
+    return {'id': fid, **{k: f.get(k) for k in ('name', 'emoji', 'tagline', 'creator', 'creatorBps', 'createdAt', 'enabled')}, 'legs': legs,
+            'index': _fuse.index(f['legs'], f.get('basePrices') or {}, now_px), 'score': _fuse.score(metas, sum(1 for leg in f['legs'] if pairs.get(leg['pairAddress']) and _fuse_risky(pairs[leg['pairAddress']]))),
+            'tvlUsd': round(sum(m['liquidityUsd'] for m in metas)), 'volume24h': round(sum(m['volume24h'] for m in metas)),
+            'aprEst': round(sum(m['aprEst'] * m['weight'] for m in metas) / max(1, sum(m['weight'] for m in metas)), 1),
+            'stats': {'buys': len(buys), 'volumeUsd': round(sum(b['usd'] for b in buys), 2), 'creatorEarnedUsd': earned, 'creatorPaidUsd': paid, 'creatorOwedUsd': round(max(0.0, earned - paid), 6)}}
+
+
+@app.get('/api/reputation/fuses')
+async def fuses_list():
+    store = _json_load(FUSES_PATH, {'fuses': {}})
+    rows = await asyncio.gather(*[_fuse_view(fid, f, store) for fid, f in store['fuses'].items() if f.get('enabled', True)])
+    return {'fuses': sorted(rows, key=lambda r: -r['score']['points'])}
+
+
+@app.get('/api/reputation/fuses/search')
+async def fuses_search(q: str = Query(..., min_length=2, max_length=60)):
+    """Pool picker for the Fuse builder: live pools with the meta a builder needs (depth, volume, APR est., turnover)."""
+    async with httpx.AsyncClient(timeout=8) as http:
+        try:
+            pairs = ((await http.get('https://api.dexscreener.com/latest/dex/search', params={'q': q})).json() or {}).get('pairs') or []
+        except Exception:
+            pairs = []
+    pairs = _fuse.real_pools(pairs)[:15]
+    return {'pools': [{'chainId': p.get('chainId'), 'pairAddress': p.get('pairAddress'), **_fuse.leg_meta(p)} for p in pairs]}
+
+
+class FuseBuy(BaseModel):
+    address: str
+    session: str
+    signature: str
+
+
+@app.post('/api/reputation/fuses/{fid}/buy')
+async def fuse_buy(fid: str, payload: FuseBuy):
+    """A Fuse leg bought: counted once, only if the signature is already one of YOUR confirmed FEELESS trades.
+    The creator's share of that trade's FEELESS fee is recorded for payout."""
+    me = _session_or_401(payload.address, payload.session)
+    mine = set(linked_of(me)) | {me}
+    trade = next((x for w, rows in _json_load(FEELESS_TRADES_PATH, {}).items() if w in mine for x in rows or [] if x.get('tx') == payload.signature), None)
+    if not trade:
+        raise HTTPException(400, 'That trade is not a confirmed FEELESS trade from your wallet (yet).')
+    async with _admin_lock:
+        store = _json_load(FUSES_PATH, {'fuses': {}})
+        f = store['fuses'].get(fid)
+        if not f:
+            raise HTTPException(404, 'No such Fuse.')
+        if any(b['sig'] == payload.signature for b in store.get('buys', [])):
+            return {'ok': True, 'counted': False}
+        fee = float(trade.get('feelessFeeUsd') or 0)
+        store.setdefault('buys', []).append({'fuse': fid, 'sig': payload.signature, 'wallet': me, 'usd': float(trade.get('usd') or trade.get('poolUsd') or 0),
+                                             'feeUsd': fee, 'creatorUsd': _fuse.creator_cut(fee, f.get('creatorBps', 0)), 'at': time.time()})
+        _json_save(FUSES_PATH, store)
+    return {'ok': True, 'counted': True}
+
+
+@app.get('/api/reputation/admin/fuses')
+async def admin_fuses(request: Request):
+    _require_admin(request)
+    store = _json_load(FUSES_PATH, {'fuses': {}})
+    return {'fuses': await asyncio.gather(*[_fuse_view(fid, f, store) for fid, f in store['fuses'].items()]), 'maxCreatorBps': _fuse.MAX_CREATOR_BPS, 'maxLegs': _fuse.MAX_LEGS}
+
+
+@app.post('/api/reputation/admin/fuses')
+async def admin_fuses_save(request: Request):
+    """Create / edit / delete a Fuse, or record a creator payout. Launch prices are captured on create (index = 100)."""
+    admin = _require_admin(request)
+    body = await request.json()
+    async with _admin_lock:
+        store = _json_load(FUSES_PATH, {'fuses': {}})
+        fid = body.get('id') or uuid.uuid4().hex[:10]
+        if body.get('delete'):
+            store['fuses'].pop(fid, None)
+        elif body.get('paidUsd') is not None:
+            store.setdefault('paid', {})[fid] = round(float((store.get('paid') or {}).get(fid, 0)) + max(0.0, float(body['paidUsd'])), 6)
+        else:
+            legs = _fuse.clean_legs(body.get('legs'))
+            name = str(body.get('name') or '').strip()[:40]
+            if not name or len(legs) < 2:
+                raise HTTPException(400, 'A Fuse needs a name and at least 2 pools.')
+            prev = store['fuses'].get(fid) or {}
+            pairs = await _fuse_pairs(legs)
+            base = {**(prev.get('basePrices') or {}), **{leg['pairAddress']: float(pairs[leg['pairAddress']].get('priceUsd') or 0) for leg in legs
+                                                         if pairs.get(leg['pairAddress']) and leg['pairAddress'] not in (prev.get('basePrices') or {})}}
+            store['fuses'][fid] = {'name': name, 'emoji': str(body.get('emoji') or '⚛️')[:4], 'tagline': str(body.get('tagline') or '')[:120], 'legs': legs,
+                                   'creator': body.get('creator') or prev.get('creator') or admin, 'creatorBps': max(0, min(_fuse.MAX_CREATOR_BPS, int(body.get('creatorBps') or 0))),
+                                   'enabled': bool(body.get('enabled', True)), 'basePrices': base, 'createdAt': prev.get('createdAt') or time.time()}
+        _json_save(FUSES_PATH, store)
+        ad = _admin_load(); _audit(ad, admin, 'fuse', json.dumps({'id': fid, **{k: body.get(k) for k in ('name', 'delete', 'paidUsd') if k in body}})[:160]); _admin_save(ad)
+    return {'ok': True, 'id': fid}
+
+
 # ---- Quest engine: 40 animated badges (FEELESS + Fee Reserve), daily/weekly quests, levels (backend/quests.py) ----
 import quests as _quests
 QUESTS_PATH = DATA_DIR / 'quests.json'            # admin: {'badges': {id: override}, 'manual': {wallet: {grant, revoke}}}

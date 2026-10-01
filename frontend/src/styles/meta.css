@@ -615,3 +615,15 @@ body.fx-lite .pump-particles, body.fx-lite .pump-hub .pump-radar-card { animatio
 .fhq-kpis { gap: 18px; } .feecat-banner.is-compact { min-height: 0; max-height: 260px; }
 
 .pump-hub .pump-radar-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; } .pump-hub .pump-radar-stages { flex: 1 1 420px; }
+/* ⚛️ FUSE */
+.fz-panel { display: grid; gap: 10px; margin-bottom: 16px; } .fz-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.fz-card { display: grid; gap: 10px; } .fz-head { display: flex; align-items: center; gap: 10px; } .fz-head > div { display: grid; flex: 1; min-width: 0; } .fz-head small { color: var(--m-dim); font-size: 11px; }
+.fz-emoji { font-size: 26px; } .fz-grade { font-family: var(--m-mono); font-weight: 800; font-size: 20px; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 10px; border: 1px solid currentColor; }
+.grade-A .fz-grade { color: var(--m-accent); } .grade-B .fz-grade { color: #5ec8ff; } .grade-C .fz-grade { color: var(--m-warn); } .grade-D .fz-grade, .grade-F .fz-grade { color: var(--m-danger); }
+.fz-bar { display: flex; gap: 2px; height: 22px; border-radius: 8px; overflow: hidden; } .fz-bar i { display: grid; place-items: center; min-width: 0; background: color-mix(in srgb, var(--m-accent) 22%, var(--m-surface)); font-style: normal; }
+.fz-bar i:nth-child(2n) { background: color-mix(in srgb, var(--m-warn) 22%, var(--m-surface)); } .fz-bar span { font-family: var(--m-mono); font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; }
+.fz-kpis { gap: 14px; } .fz-legs { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12px; }
+.fz-legs li { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; color: var(--m-dim); } .fz-legs li b { color: var(--m-text); }
+.fz-in, .fz-draft { display: grid; gap: 8px; } .fz-split { display: grid; gap: 4px; } .fz-leg-buy { display: grid; gap: 6px; }
+.fz-admin-list { display: grid; gap: 6px; margin: 8px 0; } .fz-emoji-in { width: 64px; } .fz-found { display: grid; gap: 6px; max-height: 260px; overflow: auto; scrollbar-width: thin; }
+.fz-draft-leg { align-items: end; }
