@@ -29,10 +29,12 @@ export const tokenImageUrls = pair => {
   // the same endpoint is the last resort after DexScreener's CDN.
   const logo = chainId === 'solana' && address ? `/api/reputation/token-logo/${encodeURIComponent(address)}` : null;
   const direct = logo ? candidates.map(u => (/\/ipfs\/|^ipfs:\/\//.test(u) ? logo : u)) : candidates;
+  // FEELESS's own logo cache first (disk-cached forever once found: DexScreener → Jupiter → on-chain metadata → pump.fun),
+  // then DexScreener's CDN (often 404 for young coins) as the last try.
+  if (logo) direct.push(logo);
   if (chainId && address) {
     direct.push(`https://dd.dexscreener.com/ds-data/tokens/${encodeURIComponent(chainId)}/${encodeURIComponent(address)}.png`);
   }
-  if (logo) direct.push(logo);
   return [...new Set(direct)];
 };
 

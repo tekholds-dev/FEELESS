@@ -17,8 +17,10 @@ const reduced = () => typeof window !== 'undefined' && window.matchMedia?.('(pre
 function Crest({ card, id }) {
   const r = RANK[card.rarity] || 2;
   const arts = (Array.isArray(card.art) ? card.art : [card.art]).filter(Boolean);
-  const [tried, setTry] = useState(0);
-  const art = arts[tried];
+  const [tried, setTry] = useState({ key: '', n: 0 });
+  const artKey = arts.join('|');
+  const n = tried.key === artKey ? tried.n : 0;   // new coin on the card → start its image chain over (never stuck on the glyph)
+  const art = arts[n];
   const pts = (n, rad, rot = -90) => Array.from({ length: n }, (_, i) => { const a = ((360 / n) * i + rot) * Math.PI / 180; return `${50 + rad * Math.cos(a)},${50 + rad * Math.sin(a)}`; }).join(' ');
   const star = Array.from({ length: 16 }, (_, i) => { const a = (22.5 * i - 90) * Math.PI / 180; const rad = i % 2 ? 36 : 47; return `${50 + rad * Math.cos(a)},${50 + rad * Math.sin(a)}`; }).join(' ');
   return <svg className="mc-crest" viewBox="0 0 100 100" aria-hidden="true">
@@ -33,7 +35,7 @@ function Crest({ card, id }) {
         : <circle cx="50" cy="50" r="38" fill="rgba(0,0,0,.45)" stroke={`url(#${id}g)`} strokeWidth={r >= 4 ? 3 : 2} />}
     {r >= 3 && Array.from({ length: r >= 4 ? 12 : 8 }, (_, i) => { const a = ((360 / (r >= 4 ? 12 : 8)) * i) * Math.PI / 180; return <line key={i} x1={50 + 33 * Math.cos(a)} y1={50 + 33 * Math.sin(a)} x2={50 + 36 * Math.cos(a)} y2={50 + 36 * Math.sin(a)} stroke="var(--a)" strokeWidth="1.4" />; })}
     <circle cx="50" cy="50" r="30" fill="#020805" stroke="var(--a)" strokeOpacity=".5" />
-    {art ? <image key={art} href={src(art)} x="21" y="21" width="58" height="58" preserveAspectRatio="xMidYMid slice" clipPath={`url(#${id}c)`} onError={() => setTry(t => t + 1)} />
+    {art ? <image key={art} href={src(art)} x="21" y="21" width="58" height="58" preserveAspectRatio="xMidYMid slice" clipPath={`url(#${id}c)`} onError={() => setTry({ key: artKey, n: n + 1 })} />
       : <text x="50" y="61" textAnchor="middle" fontSize="30">{card.glyph || '✦'}</text>}
   </svg>;
 }

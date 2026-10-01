@@ -11,7 +11,9 @@ const RARITY = { A: 'legendary', B: 'epic', C: 'rare', D: 'common', F: 'common' 
 const DESIGN = { yield: 'aurora', momentum: 'ember', steady: 'obsidian', degen: 'glitch' };
 const ACCENT = { yield: ['#19f58f', '#6ad7ff'], momentum: ['#ff8a3d', '#f5c451'], steady: ['#19f58f', '#f5c451'], degen: ['#ff5ad1', '#00e5ff'] };
 // The crest shows the basket's top-weighted coin, through the sitewide logo chain (DexScreener → CDN → FEELESS cache).
-export const legPair = l => { const t = legTarget(l) || {}; return { chainId: l.chainId || 'solana', baseToken: { address: t.mint || l.baseAddress, symbol: t.symbol }, info: { imageUrl: t.mint === l.baseAddress ? l.logo : null } }; };
+// The coin a leg shows: the leg's own mint (card legs / runners / a SOL anchor), else the coin a pool buys. Never empty.
+export const legPair = l => { const t = legTarget(l) || {}; const address = l.mint || t.mint || l.baseAddress;
+  return { chainId: l.chainId || 'solana', baseToken: { address, symbol: l.symbol || t.symbol }, info: { imageUrl: address === l.baseAddress || address === l.mint ? (l.logo || l.imageUrl || null) : null } }; };
 const usd = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v || 0)}`);
 
 // The back's money math for a budget: each leg's $ slice and what its last-24h move did to it, then the basket total

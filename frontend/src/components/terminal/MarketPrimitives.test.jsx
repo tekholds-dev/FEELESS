@@ -26,8 +26,8 @@ test('uses provider image fields before the indexed token-image fallback', () =>
   expect(tokenImageUrls(pair)).toEqual([
     'https://provider.test/alpha-info.png',
     'https://provider.test/alpha.png',
-    'https://dd.dexscreener.com/ds-data/tokens/solana/mint-1.png',
     '/api/reputation/token-logo/mint-1',
+    'https://dd.dexscreener.com/ds-data/tokens/solana/mint-1.png',
   ]);
   const { host, root } = mount(pair);
   expect(host.querySelector('img').getAttribute('src')).toBe('https://provider.test/alpha-info.png');
