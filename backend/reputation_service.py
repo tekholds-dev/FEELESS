@@ -2770,6 +2770,8 @@ class FusePreview(BaseModel):
     pools: list
     sol: float = 1.0
     manual: bool = False     # Cmd Ctr only: use the pools' own weights instead of auto
+    runners: bool = False    # Runner add-on: bolt the top 2 runners on as a small slice
+    runnerSlice: float = 20.0
 
 
 def _is_admin_req(request):
@@ -2794,7 +2796,22 @@ async def fuses_preview(payload: FusePreview, request: Request = None):
     pairs, sol_usd = await asyncio.gather(_fuse_pairs(pools), _sol_usd_live())
     metas = {k: _fuse.leg_meta(v) for k, v in pairs.items()}
     w = _fuse.manual_weights(payload.pools) if admin and payload.manual else _vault.auto_weights(pools, metas, min_share=_fuse.min_share(len(pools)))
-    return {**_fuse.preview(pools, metas, max(0.0, min(100000.0, payload.sol)), sol_usd, w), 'cap': cap, 'admin': admin}
+    added = []
+    if payload.runners:   # Runner add-on: top 2 runners of the current round as a small slice (server-picked, gated)
+        live = await _runner_live()
+        rnd = (_json_load(RUNNERS_PATH, {'rounds': []}).get('rounds') or [None])[-1]
+        tops = [p for p in ((rnd or {}).get('picks') or []) if p['mint'] in {r['mint'] for r in live['passing']}] or live['passing']
+        legs = _rn.addon([{**p, 'weight': w[p['pairAddress']] * 100} for p in pools], [t for t in tops if t['pairAddress'] not in w], payload.runnerSlice, 2)
+        added = [l for l in legs if l.get('runner')]
+        if added:
+            rp = await _fuse_pairs(added)
+            metas.update({k: _fuse.leg_meta(v) for k, v in rp.items()})
+            pools = pools + [{k: l[k] for k in ('chainId', 'pairAddress', 'symbol')} for l in added if l['pairAddress'] in rp]
+            w = {l['pairAddress']: l['weight'] / 100 for l in legs if l['pairAddress'] in metas}
+    out = _fuse.preview(pools, metas, max(0.0, min(100000.0, payload.sol)), sol_usd, w)
+    rinfo = {l['pairAddress']: l for l in added}
+    out['legs'] = [{**x, **({'runner': True, 'exits': rinfo[x['pairAddress']]['exits'], 'lane': rinfo[x['pairAddress']]['lane']} if x['pairAddress'] in rinfo else {})} for x in out['legs']]
+    return {**out, 'cap': cap, 'admin': admin, 'runners': len(added)}
 
 
 class FuseEvolveIn(BaseModel):
@@ -3230,6 +3247,145 @@ async def fuses_prebuilt(request: Request, legs: int = Query(3, ge=2, le=10), bu
     out = {'legs': legs, 'budgetUsd': key[1], 'solUsd': sol_usd, 'cards': sorted(cards, key=lambda c: -((c['arena'] or {}).get('avgPct') or -999))}
     _fuse_prebuilt_cache[key] = (time.time(), out)
     return out
+
+
+# ---- FUSE RUNNERS (backend/runners.py): coins come to it — live launchpad feed → gates → lanes → rounds → paper proof --
+import runners as _rn
+RUNNERS_PATH = DATA_DIR / 'runners.json'      # {'rounds': [...], 'paths': {mint: [[t, price], ...]}}
+_runner_live_cache = {'at': 0.0, 'data': None}
+_runner_sem = asyncio.Semaphore(4)
+
+
+async def _runner_intel(mint):
+    hit = _intel_cache.get(mint)
+    if hit and time.time() - hit[0] < INTEL_TTL:
+        return hit[1]
+    async with _runner_sem:
+        try:
+            return await asyncio.wait_for(token_intel('solana', mint), 12)
+        except Exception:
+            return None
+
+
+async def _runner_live():
+    """Every launchpad coin the feed sees right now (trending + new, pre-bond + graduated), forensics for the busiest,
+    gated + scored. 30s cache — the board is shared by every viewer."""
+    if _runner_live_cache['data'] and time.time() - _runner_live_cache['at'] < 30:
+        return _runner_live_cache['data']
+    async with httpx.AsyncClient(timeout=10) as http:
+        async def feed(kind):
+            try:
+                return (await http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': kind, 'chain': 'solana', 'page': 1, 'scope': 'launchpads'})).json().get('pairs') or []
+            except Exception:
+                return []
+        got = await asyncio.gather(feed('trending'), feed('new'))
+    now_ms = time.time() * 1000
+    seen, pairs = set(), []
+    for p in [x for rows in got for x in rows]:
+        m = (p.get('baseToken') or {}).get('address')
+        if m and m not in seen and (now_ms - _fuse._f(p.get('pairCreatedAt'))) <= _rn.MAX_AGE_H * 3.6e6:
+            seen.add(m); pairs.append(p)
+    busiest = sorted(pairs, key=lambda p: -_fuse._f((p.get('volume') or {}).get('h1')))[:16]
+    # Never block the board on scans: wait ≤6s, the rest keep running and land in the cache for the next refresh.
+    tasks = {(p.get('baseToken') or {}).get('address'): asyncio.ensure_future(_runner_intel((p.get('baseToken') or {}).get('address'))) for p in busiest}
+    if tasks:
+        await asyncio.wait(list(tasks.values()), timeout=6)
+    intel = {m: t.result() for m, t in tasks.items() if t.done() and not t.cancelled() and t.exception() is None}
+    blocks = _block_load()['wallets']
+    out_pairs = {e['pair'] for e in _radar['events'] if e['kind'] == 'snipers-out'}
+    cands = []
+    for p in pairs:
+        m = (p.get('baseToken') or {}).get('address'); it = intel.get(m) or (_intel_cache.get(m) or (0, None))[1]
+        creator = (it or {}).get('creator')
+        flagged = bool(creator and (_is_blocked(blocks.get(creator)) or (_shield_cache.get(creator, (0, {}))[1] or {}).get('verdict') == 'bot'))
+        cands.append(_rn.candidate(p, it, flagged, p.get('pairAddress') in out_pairs or m in out_pairs, now_ms))
+    data = {**_rn.board(cands), 'seen': len(cands), 'at': time.time()}
+    _runner_live_cache.update(at=time.time(), data=data)
+    return data
+
+
+async def _token_prices(mints):
+    """Best-liquidity USD price per mint (DexScreener tokens/v1, 30 per call, in parallel)."""
+    out = {}
+    async with httpx.AsyncClient(timeout=10) as http:
+        async def batch(chunk):
+            try:
+                for p in (await http.get(f"https://api.dexscreener.com/tokens/v1/solana/{','.join(chunk)}")).json() or []:
+                    m = (p.get('baseToken') or {}).get('address')
+                    liq = _fuse._f((p.get('liquidity') or {}).get('usd'))
+                    if m and (m not in out or liq > out[m][0]):
+                        out[m] = (liq, _fuse._f(p.get('priceUsd')))
+            except Exception:
+                pass
+        ms = list(mints)
+        await asyncio.gather(*[batch(ms[i:i + 30]) for i in range(0, len(ms), 30)])
+    return {m: v[1] for m, v in out.items() if v[1] > 0}
+
+
+async def _runner_tick(now=None, force=False):
+    """Every 5 min: record prices for every pick of the last 24h (the proof's price paths); every 15 min (or forced): a new
+    round — the best runners stay, newcomers fill the rest."""
+    now = now or time.time()
+    live = await _runner_live()
+    d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
+    recent = [r for r in d['rounds'] if now - r['at'] <= 24 * 3600]
+    watch = {p['mint'] for r in recent for p in r['picks']}
+    px = {r['mint']: r['price'] for r in live['passing'] + live['dropped'] if r.get('price')}
+    missing = [m for m in watch if m not in px]
+    if missing:
+        px.update(await _token_prices(missing))
+    async with _admin_lock:
+        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
+        for m in watch:
+            if px.get(m):
+                d['paths'].setdefault(m, []).append([now, px[m]])
+        d['paths'] = {m: pts[-400:] for m, pts in d['paths'].items() if m in watch or pts and now - pts[-1][0] < 26 * 3600}
+        last = d['rounds'][-1] if d['rounds'] else None
+        if force or not last or now - last['at'] >= _rn.ROUND_SECONDS:
+            d['rounds'] = (d['rounds'] + [_rn.next_round(last, live['passing'], now, rid=uuid.uuid4().hex[:8])])[-200:]
+        _json_save(RUNNERS_PATH, d)
+    return d['rounds'][-1] if d['rounds'] else None
+
+
+async def _runner_loop():
+    await asyncio.sleep(60)
+    while True:
+        try:
+            await _runner_tick()
+        except Exception as e:
+            print('runners:', e)
+        await asyncio.sleep(300)
+
+
+@app.on_event('startup')
+async def _runner_start():
+    if not os.environ.get('PYTEST_CURRENT_TEST'):
+        asyncio.create_task(_runner_loop())
+
+
+@app.get('/api/reputation/runners')
+async def runners_board():
+    """FUSE RUNNERS: live board (every arriving coin gated + scored), the current round by lane, recent rounds' paper
+    results and the proof that decides whether the Fuse button lights up."""
+    live, sol_usd = await asyncio.gather(_runner_live(), _sol_usd_live())
+    d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
+    now = time.time()
+    rnd = d['rounds'][-1] if d['rounds'] else None
+    hist = []
+    for r in reversed(d['rounds'][-8:-1] if len(d['rounds']) > 1 else []):
+        mults = [_rn.play_exits(p['lane'], p['entry'], [x for t, x in d['paths'].get(p['mint'], []) if t > r['at']]) for p in r['picks']]
+        hist.append({'id': r['id'], 'at': r['at'], 'symbols': [p.get('symbol') for p in r['picks']], 'pct': round((sum(mults) / len(mults) - 1) * 100, 2) if mults else 0.0})
+    cur = {p['mint']: p for p in live['passing']}
+    picks = [{**p, 'now': cur.get(p['mint'], {}).get('price') or p['price'], 'exits': _rn.EXITS[p['lane']]['label']} for p in (rnd or {}).get('picks', [])]
+    return {'live': live['passing'][:24], 'dropped': live['dropped'][:15], 'seen': live['seen'], 'round': rnd and {**rnd, 'picks': picks},
+            'nextRoundAt': (rnd['at'] + _rn.ROUND_SECONDS) if rnd else now, 'history': hist, 'proof': _rn.proof(d['rounds'], d['paths'], now),
+            'exits': {k: v['label'] for k, v in _rn.EXITS.items()}, 'gates': [g[1] for g in _rn.GATES], 'lightMinRounds': _rn.LIGHT_MIN_ROUNDS, 'solUsd': sol_usd}
+
+
+@app.post('/api/reputation/admin/runners/round')
+async def runners_force_round(request: Request):
+    _require_admin(request)
+    return {'round': await _runner_tick(force=True)}
 
 
 class FuseLiteIn(BaseModel):

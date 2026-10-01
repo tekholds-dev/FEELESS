@@ -5,6 +5,7 @@ import { FuseCardMint } from '../nft/FuseCardMint';
 import { FuseLab } from '../FuseLab';
 import { FuseHQ } from '../FuseHQ';
 import { FuseDeck, VaultMath } from '../FuseDeck';
+import { RunnersPanel } from '../RunnersPanel';
 import { QuestEngineAdmin } from './QuestEngineAdmin';
 import { LatencyPanel } from './LatencyPanel';
 import { useWallet } from '../../hooks/useWallet';
@@ -164,6 +165,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'snapshots' && <Snapshots call={call} asset={asset} />}
     {tab === 'airdrops' && <Airdrops drops={drops} call={call} reload={loadDrops} />}
     {tab === 'fuse' && <FuseDeck call={call} panels={[
+      ['runners', '🏃 Runners', <RunnersPanel call={call} />, 'Coins come to it: every Pump.fun coin gated, scored and laned (scalp / runner / hold) as it arrives; rounds every 15 min; lights only when paper-proven.'],
       ['lab', '🧬 Breed & fuse', <FuseLab call={call} />, 'Evolve baskets from live pools (up to 10), load a champion, preview it, one-click it with $1–$100, publish it.'],
       ['hq', '💰 HQ · P&L', <FuseHQ call={call} />, 'Real money: every verified Fuse in, live. Arena = $5 paper runs that prove a strategy before you trust it.'],
       ['pub', '📣 Published', <FuseBuilder call={call} />, 'Fuses traders see on Trade and in chat (/fuse). Set the creator cut; self-buys and bots never earn it.'],

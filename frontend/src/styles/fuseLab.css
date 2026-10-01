@@ -323,3 +323,5 @@ body.theme-day .fside-tabs { background: var(--m-surface-2); }
 body.theme-day .vmath-col { background: var(--m-surface-2); }
 @container (max-width: 620px) { .vmath { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .vmath { grid-template-columns: 1fr; } }
+.fl-addon { font-size: 12px; padding: 8px 10px; border-radius: var(--m-r-sm); border: 1px dashed color-mix(in srgb, #ff7a2f 55%, var(--m-line)); } .fl-addon small { color: var(--m-dim); font-family: var(--m-mono); font-size: 10px; }
+.fl-legs li.is-runner b { color: #ff9a5a; }
