@@ -330,3 +330,14 @@ body.theme-day .fops-tile, body.theme-day .fops-box { background: var(--m-surfac
 body.theme-day .fp-trader { background: var(--m-surface-2); } body.theme-day .fp-trader-stats > div, body.theme-day .fp-trader-score > span { background: var(--m-surface); }
 @media (prefers-reduced-motion: reduce) { .fp-trader { animation: none; } }
 @media (max-width: 640px) { .fp-trader { grid-template-columns: auto 1fr; } .fp-trader-share { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; } }
+
+/* My cards: 3 quick actions up front, the rest folded under ⋯ More (one system, not 20 buttons). */
+.fp-quick { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 6px; margin-top: 8px; }
+.fp-quick .m-btn { min-height: 38px; } .fp-quick .m-btn:disabled { opacity: .55; cursor: not-allowed; } .fp-wait { font-family: var(--m-mono); font-size: 10px; opacity: .8; }
+.fp-more { margin-top: 6px; border-radius: 10px; border: 1px dashed var(--m-line); }
+.fp-more > summary { cursor: pointer; padding: 6px 10px; font-family: var(--m-mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--m-dim); list-style: none; transition: color .15s; }
+.fp-more > summary::-webkit-details-marker { display: none; } .fp-more > summary:hover, .fp-more[open] > summary { color: var(--m-accent); }
+.fp-more > summary:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.fp-more[open] .fp-acts { padding: 0 8px 8px; animation: mCardIn .18s var(--m-ease); }
+@media (prefers-reduced-motion: reduce) { .fp-more[open] .fp-acts { animation: none; } }
+@media (max-width: 640px) { .fp-quick { grid-template-columns: 1fr; } }

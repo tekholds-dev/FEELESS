@@ -355,16 +355,28 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Frontend: CRA + craco on 51367. Styles mostly in `frontend/src/styles/terminal.css` (append scoped blocks).
 - Command Center settings that matter at scale (keys, engine, fees) must be visible in its **Core** group.
 
+## Shipped from the last plan (keep these rules)
+- Cmd Ctr › Fuse rail is GROUPED (`FuseDeck` panels = [key, label, node, blurb, group]): LIVE (🏃 Runners, ⚔ Arena ops) ·
+  BUILD (🧬 Breed & fuse, 📣 Published) · MONEY (💰 HQ, 💸 Payouts, 🃏 Card rules) · SYSTEM (⚡ Engine, ⛓ Contract, 🏦 Vault).
+  Settings are mounted ONCE, in their own panel (`FuseAdminSettings` → Engine / Card rules / Payouts); `FuseOpsPanels` =
+  `ArenaOps` (stage mix, battles + bell, log, season vs FeeCat) + `ContractStatus` (static, never claims deployment).
+- FUSE Card localnet test `contracts/fuse_vault/tests/fuse_card.ts` (5) + vault (5): `solana-test-validator --reset` then
+  `anchor test --skip-local-validator --provider.cluster localnet`. On-chain selling = DESIGN in the contract README.
+- Profile top = `TraderCard` (from `/fuses/score` → `trader`: medals by place, battles W/L/D, catWins, held P&L, copies) +
+  Share GIF + 𝕏 post intent.
+- Coin edge: `GET /api/reputation/edge?mints=` (`backend/coin_edge.py`, 15s/coin, caches only; `intel=1` ≤3 coins runs the
+  scan) + ONE client poller `lib/coinEdge.js`. `usePumpPulse`, `useSnipersOut`, `useVerified`, `fetchIntel` read it. New
+  per-coin data ⇒ add it to the edge record, never a new poller. (Snipers-out LIST view keeps `useSnipersOutList`.)
+- My cards = 3 quick actions (💰 Take 50% · ⇄ Switch · ↩ Withdraw all) + "⋯ More" (auto-collect, rebalance, limits, replay,
+  charts). Rotation is hard-coded: ONE switch-in per card per 24h (`fuse_hq.next_switch_at`, `lastSwitchAt`; top-ups don't
+  count; staff exempt); 🔒 Hold = switch by hand · 🤖 Auto-rotate daily = one pre-filled swap alert per day (`_fuse_swap_tick`).
+- Lab: "🔍 Explain this card" (`CardExplain`, portal; click outside / Esc closes): every coin line in plain words.
+
 ## NEXT SESSION — continue here (in this order)
-1. **Cmd Ctr › Fuse layout rework**: `FuseDeck` left rail gets clean panels — ⚡ Engine (`EngineSuggest` + `RunnerSettings`),
-   🃏 Card rules (`CardRules`, `AutoYieldDefault`), 💸 Payouts (`FusePayouts`), ⚔ Arena (battles, auto card, season), ⛓ Contract
-   status. Today they are stacked on top of `FuseBuilder` / `RunnersPanel` — move them, no duplicate mounts, no dead CSS.
-2. **FUSE Card contract**: localnet TS integration test (`contracts/fuse_vault/tests/fuse_card.ts`: init_config, open_card caps,
-   deposit/withdraw with hand-built SPL instructions, keeper_return only to owner + only when auto on, pause, close_card).
-   Then swap adapters + price checks design (auto TP / auto-compound sell on-chain) — still localnet, audit before any deploy.
-3. **Trader page** (idea 6): top of `/terminal/profile/<address>` — Fuse score, season medals, battle W/L, FeeCat wins, held
-   cards + a "Share" image for X. Reuse `FuseScore`, `FuseHeldCards`, `StreakBadge`.
-4. **Coin edge record**: one cached `/coin/{mint}/edge` (pulse, snipers-out, rug shield, runner gates + bond checks, elite flow,
-   verification, Fuse sources) + ONE shared client poller; migrate `pumpPulse`, `snipersOut`, `coinIntel`, `verifyBatch` readers.
-5. Radar signals for bond runs / coin TP-SL hits / battle wins; "＋ Add to card" next to Quick trade on every chart.
-6. Browser-verify the last batch (Cmd Ctr ⚡ Engine apply, bond watch tiles, season badges in Badges tab) — not opened yet.
+1. **Auto-config (one dial)**: a single "Risk" dial per card (Safe / Balanced / Degen) that sets TP/SL presets, auto-collect
+   level, rotation mode and runner count together (reuse `PLAN_PRESETS`); Cmd Ctr gets the same dial for engine cfg
+   (maps to `RECOMMENDED` variants). Server validates the preset ids; nothing free-typed.
+2. **One coin drawer sitewide**: clicking any coin anywhere opens ONE drawer reading the coin edge — chart, case file, signals,
+   "＋ Add to card", Quick trade, runner/bond boxes. Replace the scattered per-surface popovers.
+3. Radar signals for bond runs / coin TP-SL hits / battle wins (from `edge.signals`), "＋ Add to card" next to Quick trade.
+4. Browser-verify Cmd Ctr › Fuse (needs an admin session): grouped rail, Arena ops, Contract status, Engine apply.

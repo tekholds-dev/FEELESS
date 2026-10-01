@@ -359,25 +359,37 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, addr, ses, refre
       <small className="m-dim">{m$(held.value)} now · {openRows.length} open · all-time {m$(d.pnlUsd)}</small>{d.feebackUsd > 0 && <span className="m-chip ok" data-tip="Fuse Fee-Back: your unlocked share of the fees you paid on cards">🎁 {m$(d.feebackUsd)} Fee-Back</span>}</div>
     {!openRows.length && <div className="m-card fp-empty"><b>No open cards.</b><small className="m-dim">Build one in the Lab — 3 pools + up to 3 runners.</small></div>}
     <div className="fp-cgrid">{openRows.map(r => <div key={r.id} className={`fp-cell ${r.onArena ? 'is-arena' : ''}`}><LiveFuseCard r={r} aura={r.onArena ? 'fire' : ''} />
-      <div className="m-seg fp-mode" role="radiogroup" aria-label="Card mode">{[['hold', '🔒 Hold together', 'The card stays as you built it'], ['swap', '⇄ Swap weak legs', `When a leg fails a gate or drops ${d.rules?.swapDropPct ?? 25}%, we alert you with the best gated runner pre-filled — one approval`]].map(([k, l, tip]) =>
+      <div className="m-seg fp-mode" role="radiogroup" aria-label="Card mode">{[['hold', '🔒 Hold · switch by hand', 'The card stays as you built it. You may still switch ONE pool or coin every 24h, your pick.'], ['swap', '🤖 Auto-rotate daily', `Once a day, if a coin fails a runner gate or drops ${d.rules?.swapDropPct ?? 25}%, we pre-fill the swap for the best gated runner — one approval. Still max one switch per 24h.`]].map(([k, l, tip]) =>
         <button key={k} type="button" role="radio" aria-checked={(r.mode || 'hold') === k} className={(r.mode || 'hold') === k ? 'active' : ''} data-tip={tip} onClick={() => setMode(r, k)} data-testid={`mode-${k}-${r.id}`}>{l}</button>)}</div>
       {r.beatCat?.length > 0 && <span className="fs-crown r-cat" data-tip="Weeks this card beat FeeCat's average trade" data-testid={`beatcat-${r.id}`}>🐱 Beat FeeCat ×{r.beatCat.length}</span>}
       {r.seasonWin && <span className={`fs-crown r-${r.seasonWin.rank}`} data-tip={`Fuse season · week of ${wk(r.seasonWin.week)} — +Fee-Back boost on this card`} data-testid={`crown-${r.id}`}>{MEDAL[r.seasonWin.rank]} #{r.seasonWin.rank} · week of {wk(r.seasonWin.week)}</span>}
       {(r.streak?.tier || r.compound?.tier || r.copies > 0) && <span className="ar-badges">{r.streak?.tier && <StreakBadge s={r.streak} />}{r.compound?.tier && <CompoundBadge s={r.compound} />}{r.copies > 0 && <span className="ar-copies" data-tip="Traders who copied this card — you earn a share of their FEELESS fee">⚡ {r.copies} {r.copies === 1 ? 'copy' : 'copies'} · {m$(r.copyEarnedUsd)} earned</span>}</span>}
       {r.feeback && <small className={`fp-fb ${r.feeback.unlocked ? 'is-on' : ''}`} data-tip={`Fee-Back: ${r.feeback.pct}% of the $${(r.feeback.feesUsd || 0).toFixed(2)} fees you paid on this card${r.feeback.arena ? ' (incl. Arena bonus)' : ''}`}>🎁 {r.feeback.unlocked ? `${m$(r.feeback.usd)} back · ${r.feeback.pct}%` : 'Fee-Back'}{r.feeback.next ? ` · ${r.feeback.next}` : ''}</small>}
-      <div className="fp-acts" role="toolbar" aria-label={`${r.name} actions`}>
-        <button type="button" className="m-btn" data-tip="Sell part of chosen legs back to SOL (25 / 50 / 100%)" onClick={() => open(r, 'take')} data-testid={`act-take-${r.id}`}>💰 Take profit</button>
+      <div className="fp-quick" role="toolbar" aria-label={`${r.name} quick actions`}>
+        <button type="button" className="m-btn primary m-go" data-tip="Sell 50% of every coin back to SOL (change to 25 / 33 / 100% or pick coins before you approve)" onClick={() => open(r, 'take', { pct: 50 })} data-testid={`act-take-${r.id}`}>💰 Take 50%</button>
+        <SwitchButton r={r} onClick={() => open(r, 'switch')} />
+        <button type="button" className="m-btn danger" data-tip="Sell every coin back to SOL — one approval. The card closes and its receipt goes to your profile." onClick={() => open(r, 'withdraw')} data-testid={`act-withdraw-${r.id}`}>↩ Withdraw all</button>
+      </div>
+      <details className="fp-more"><summary>⋯ More · auto-collect · rebalance · limits · replay · charts</summary><div className="fp-acts" role="toolbar" aria-label={`${r.name} more actions`}>
         <button type="button" className={`m-btn ${r.autoYield ? 'is-armed' : ''}`} data-tip="Auto-collect: alert + pre-filled Collect profit when the card is up +X% (sells only the gain). You approve once." onClick={() => open(r, 'yield', { at: r.autoYield?.at || d.rules?.yieldDefault || 50, levels: d.rules?.yieldLevels || [25, 50, 100, 200] })} data-testid={`act-yield-${r.id}`}>💸 {r.autoYield ? `Auto +${Math.round(r.autoYield.at)}%` : 'Auto-collect'}</button>
         <button type="button" className={`m-btn ${r.drift >= 5 ? 'is-warn' : ''}`} data-tip={`Back to the weights you bought (drift ${Math.round(r.drift || 0)} pts) — one approval`} onClick={() => open(r, 'rebalance')} data-testid={`act-rebalance-${r.id}`}>⚖ Rebalance</button>
-        <button type="button" className="m-btn" data-tip="Sell one leg and buy a new pool or runner in one approval" onClick={() => open(r, 'switch')} data-testid={`act-switch-${r.id}`}>⇄ Switch</button>
         <button type="button" className={`m-btn ${r.guard && !r.guard.firedAt ? 'is-armed' : ''}`} data-tip="Take-profit / stop-loss / trailing on the whole card" onClick={() => open(r, 'limits', { tp: r.guard?.tp || 50, sl: r.guard?.sl || 20, trail: r.guard?.trail || '', legs: Object.fromEntries(Object.entries(r.legGuard || {}).map(([pa, g]) => [pa, { tp: g.tp ?? '', sl: g.sl ?? '' }])), onProfit: r.onProfit || 'collect' })} data-testid={`act-limits-${r.id}`}>🎯 Limits</button>
         <button type="button" className="m-btn" data-tip="Replay this card's last 24h" onClick={() => open(r, 'replay')} data-testid={`act-replay-${r.id}`}>▶ Replay</button>
         <span className="fp-legcharts" aria-label="Open each coin's chart (your trades marked)">{r.legs.filter(l => l.soldUsd == null).map(l => <button key={l.pairAddress} type="button" className="m-btn" data-tip={`${l.symbol}: open its chart — your confirmed buy is marked on the candles`} onClick={() => openWarRoom({ chainId: 'solana', pairAddress: l.pairAddress, baseToken: { address: l.mint, symbol: l.symbol } })} data-testid={`chart-${l.pairAddress}`}>📈 {l.symbol}</button>)}</span>
-        <button type="button" className="m-btn danger" data-tip="Sell every leg back to SOL — one approval" onClick={() => open(r, 'withdraw')} data-testid={`act-withdraw-${r.id}`}>↩ Withdraw</button>
-      </div>
+      </div></details>
       {act?.id === r.id && <ActionPanel r={r} act={act} setAct={setAct} addr={addr} ses={ses} refresh={refresh} />}
     </div>)}</div>
   </section>;
+}
+
+// ⇄ Switch: one pool or coin per card every 24h (hard-coded server-side; top-ups / rebalances don't count).
+function SwitchButton({ r, onClick }) {
+  const [now, setNow] = useState(Date.now() / 1000);
+  useEffect(() => { if (!(r.nextSwitchAt > now)) return undefined; const t = setInterval(() => setNow(Date.now() / 1000), 30000); return () => clearInterval(t); }, [r.nextSwitchAt, now]);
+  const wait = r.nextSwitchAt > now ? r.nextSwitchAt - now : 0;
+  return <button type="button" className="m-btn" disabled={wait > 0} onClick={onClick} data-testid={`act-switch-${r.id}`}
+    data-tip={wait ? `One switch per card every 24h — next in ${Math.floor(wait / 3600)}h ${Math.floor((wait % 3600) / 60)}m` : 'Swap ONE pool or coin for another (sell + buy in one approval). One switch per 24h.'}>
+    ⇄ Switch{wait ? <small className="fp-wait"> · {Math.ceil(wait / 3600)}h</small> : ''}</button>;
 }
 
 function ActionPanel({ r, act, setAct, addr, ses, refresh }) {

@@ -62,3 +62,16 @@ test('trader card: medals, battles, FeeCat wins, held P&L and an X post link', a
   expect(el.textContent).toContain('🥇×1'); expect(el.textContent).toContain('🥉×2'); expect(el.textContent).not.toContain('🥈');
   expect(el.textContent).toContain('5W 2L 1D'); expect(el.querySelector('[data-testid="trader-x"]').href).toContain('x.com/intent/post');
 });
+
+test('explain this card: every coin line, honest replay + APR wording, click outside closes', async () => {
+  const { CardExplain } = require('./CardExplain');
+  const prev = { usd: 20, sol: 0.17, solUsd: 118, blendedAprPct: 240, backtest24hPct: -3, impactWarn: [], score: { grade: 'A', parts: [{ part: 'depth', points: 28 }] },
+    legs: [{ pairAddress: 'P', symbol: 'POOL', weight: 70, usd: 14, sol: 0.12, liquidityUsd: 2e6, change24h: 2, dex: 'raydium' }, { pairAddress: 'R', symbol: 'RUN', weight: 30, usd: 6, sol: 0.05, change24h: -10, runner: true, exits: 'Sell all at +50%' }] };
+  const onClose = jest.fn();
+  await mount(<CardExplain prev={prev} onClose={onClose} card={<i />} />);
+  const ex = document.querySelector('[data-testid="card-explain"]');
+  expect(ex.textContent).toContain('POOL · 70%'); expect(ex.textContent).toContain('🏃 RUN'); expect(ex.textContent).toContain('Sell all at +50%');
+  expect(ex.textContent).toContain('Not a promise'); expect(ex.textContent).toContain('not to you');
+  await act(async () => { ex.querySelector('.cx').click(); }); expect(onClose).not.toHaveBeenCalled();
+  await act(async () => { ex.click(); }); expect(onClose).toHaveBeenCalledTimes(1);
+});

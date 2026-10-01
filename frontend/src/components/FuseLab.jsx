@@ -10,6 +10,7 @@ import { TokenAvatar } from './terminal/MarketPrimitives';
 import { useLivePrices } from '../lib/livePrices';
 import { formatLivePrice } from '../lib/livePrice';
 import { FuseExplainer, VaultMath } from './FuseDeck';
+import { CardExplain } from './CardExplain';
 import '../styles/fuseLab.css';
 
 // ⚛️ FUSE LAB: browse the chain's real pools, tick them, and see live how FEELESS auto-weighs them (fee APR × depth,
@@ -112,6 +113,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
   const [prev, setPrev] = useState(null);
   const [err, setErr] = useState('');
   const [going, setGoing] = useState(false);
+  const [explain, setExplain] = useState(false);
   const [best, setBest] = useState({ budget: 20, busy: false, style: null });
   const load = (legs, s) => { setManual(false); setPicked(legs); if (s) setSol(s.toFixed(4)); scrollToMix(); };
   // Find it: the best basket for EACH budget ($5 / $20 / $100 — small budgets punish many pools, big ones thin pools), as cards.
@@ -220,7 +222,10 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
           {err ? <div className="m-note bad">{err}</div> : !prev ? <div className="fl-row is-ghost" /> : <>
             <div className="fl-preview-card" data-testid="fl-preview-card"><FuseCard c={{ pools: prev.legs.map(l => l.pairAddress), fitness: prev.score.points, bornGen: 0,
               parts: { grade: prev.score.grade, aprScore: Math.round(Math.min(400, prev.blendedAprPct) / 4), momentum24h: prev.backtest24hPct, calm: '—', feeDragPct: prev.usd ? Math.min(100, (0.0001 * prev.legs.length * prev.solUsd) / prev.usd * 100) : 0, impactLegs: (prev.impactWarn || []).length },
-              legs: prev.legs }} style={manual ? 'steady' : 'yield'} rank={0} budget={Math.max(1, Math.round(prev.usd))} /><small className="m-dim">Live card of your picks · ⟲ for the money math</small></div>
+              legs: prev.legs }} style={manual ? 'steady' : 'yield'} rank={0} budget={Math.max(1, Math.round(prev.usd))} /><small className="m-dim">Live card of your picks · ⟲ for the money math</small>
+              <button type="button" className="m-btn fl-explain" onClick={() => setExplain(true)} data-testid="fl-explain">🔍 Explain this card</button></div>
+            {explain && <CardExplain prev={prev} onClose={() => setExplain(false)} card={<FuseCard c={{ pools: prev.legs.map(l => l.pairAddress), fitness: prev.score.points, bornGen: 0,
+              parts: { grade: prev.score.grade, aprScore: Math.round(Math.min(400, prev.blendedAprPct) / 4), momentum24h: prev.backtest24hPct, calm: '—', feeDragPct: 0, impactLegs: (prev.impactWarn || []).length }, legs: prev.legs }} style={manual ? 'steady' : 'yield'} rank={0} budget={Math.max(1, Math.round(prev.usd))} autoFlip={5000} />} />}
             <div className="fl-bar">{prev.legs.map(l => <i key={l.pairAddress} style={{ flexGrow: l.weight }} title={`${l.symbol} ${l.weight}%`}><span>{l.symbol} {Math.round(l.weight)}%</span></i>)}</div>
             <ul className="fl-legs">{prev.legs.map(l => <li key={l.pairAddress} className={l.runner ? 'is-runner' : ''}><b>{l.runner ? '🏃 ' : ''}{l.symbol}</b><span className="m-num">{l.weight.toFixed(0)}%</span><span className="m-num">{l.sol} SOL</span><span className="m-num m-dim">{usd(l.usd)}</span><span className={`m-num ${(l.change24h || 0) >= 0 ? 'm-pos' : 'm-neg'}`} data-tip="What this slice did over the last 24h (price move × your $)">{(l.change24h || 0) >= 0 ? '+' : '−'}${Math.abs(l.usd * (l.change24h || 0) / 100).toFixed(2)}</span></li>)}</ul>
             <div className="fl-kpis">

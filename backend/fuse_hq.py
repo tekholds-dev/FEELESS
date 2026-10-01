@@ -670,3 +670,12 @@ def collect_pct(r, y):
     """% of each leg to sell so only the gain comes out (e.g. +50% → sell 33.3%, the base stays in)."""
     held, base = held_value(r), _f((y or {}).get('base'))
     return round(min(100.0, max(0.0, (held - base) / held * 100)), 1) if held > 0 and held > base else 0.0
+
+
+ROTATE_EVERY = 24 * 3600   # a trader card may switch ONE pool/coin per 24h (top-ups / rebalances don't count); staff exempt
+
+
+def next_switch_at(pos, staff=False):
+    """When this card may switch again (0 = now). Hard-coded rotation: one switch-in per 24h."""
+    last = _f(pos.get('lastSwitchAt'))
+    return 0.0 if staff or not last else last + ROTATE_EVERY

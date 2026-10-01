@@ -3079,7 +3079,7 @@ async def _fuse_yield_tick(d, now):
 async def _fuse_swap_tick(d, now):
     """Swap mode (holder's choice per card): when a leg fails a runner gate or drops past swapDropPct, alert ONCE per leg
     with a pre-filled ⇄ Switch (sell the weak leg, buy the best gated runner) — one approval. Hold mode is never touched."""
-    sw = [x for x in d.get('positions') or [] if x.get('mode') == 'swap' and not x.get('closedAt')]
+    sw = [x for x in d.get('positions') or [] if x.get('mode') == 'swap' and not x.get('closedAt') and now >= _hq.next_switch_at(x)]   # 1 rotation / 24h
     if not sw:
         return 0
     live, px = await asyncio.gather(_runner_live(), _hq_prices([leg for x in sw for leg in x['legs']]))
@@ -3092,7 +3092,7 @@ async def _fuse_swap_tick(d, now):
         n += 1
         notify(x['wallet'], 'fuse-guard', f"⇄ {x.get('name') or 'Your Fuse card'}: ${s['out']['symbol']} {s['why']} — swap it for ${s['in']['symbol']} (gated runner, score {round(_fuse._f(s['in'].get('score')))}). One approval.",
                url=f"/terminal/fuse?tab=cards&switch={x['id']}&out={s['out']['pairAddress']}&in={s['in']['mint']}&sym={s['in']['symbol']}&pair={s['in'].get('pairAddress') or ''}",
-               once=f"swap-{x['id']}-{s['out']['pairAddress']}", meta={'claim': s['why'], 'source': 'Runner gates + Fuse P&L (live prices)'})
+               once=f"swap-{x['id']}-{int(now // _hq.ROTATE_EVERY)}", meta={'claim': s['why'], 'source': 'Runner gates + Fuse P&L (live prices)'})
     return n
 
 
@@ -3521,9 +3521,12 @@ async def fuse_position_switch(p: FuseSwitchIn):
             raise HTTPException(404, 'No open Fuse card with that id for this wallet.')
         used = {leg.get('sig') for x in d.get('positions') or [] for leg in x['legs']}
         pairs = [(t, m) for t, m in pairs if t['tx'] not in used]
+        buys_before = sum(1 for e in pos.get('events') or [] if e.get('kind') == 'buy')
         pos, n = _hq.add_legs(pos, [t for t, _ in pairs], [m for _, m in pairs], now=time.time())
+        if sum(1 for e in pos.get('events') or [] if e.get('kind') == 'buy') > buys_before:   # a real switch-in (not a top-up)
+            pos['lastSwitchAt'] = time.time()
         _json_save(FUSE_HQ_PATH, d)
-    return {'ok': True, 'added': n}
+    return {'ok': True, 'added': n, 'nextSwitchAt': _hq.next_switch_at(pos, _is_staff(me))}
 
 
 @app.get('/api/reputation/fuses/limits/{address}')
@@ -3563,7 +3566,7 @@ async def fuse_pnl(address: str):
     by, rules, now = _ledger_by_sig(), _card_rules(), time.time()
     hot = {c['id'] for c in (_arena_mega_cache.get('data') or []) if c.get('kind') == 'user' and c['activity']['tier'] in ('hot', 'blazing')}
     wins = _season_wins()
-    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold',
+    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold', 'nextSwitchAt': _hq.next_switch_at(x),
                     'onProfit': x.get('onProfit') or 'collect', 'legGuard': x.get('legGuard') or {},
                     'feeback': _hq.card_feeback(_card_fees(x, by), (x.get('closedAt') or now) - _fuse._f(x.get('at')), x['id'] in hot, rules, x['id'] in wins), 'onArena': x['id'] in hot,
                     'seasonWin': wins.get(x['id']), 'beatCat': [w['week'] for w in _json_load(FUSE_HQ_PATH, {}).get('catChallenge') or [] if x['id'] in (w.get('ids') or [])]} for x in pos), key=lambda r: -(r['at'] or 0))

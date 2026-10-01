@@ -391,3 +391,34 @@ body.theme-day .fcd-flip { background: #04100a; color: var(--m-accent); }
 .fl-plan-list > summary span { transition: transform .15s; } .fl-plan-list[open] > summary span { transform: rotate(180deg); }
 .fl-plan-list[open] .fl-plan-legs { max-height: 320px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
 .fl-plan-list .fl-plan-legs::-webkit-scrollbar { width: 6px; } .fl-plan-list .fl-plan-legs::-webkit-scrollbar-thumb { background: var(--m-accent); border-radius: 6px; }
+/* 🔍 Explain this card (CardExplain): click outside / Esc closes. */
+.fl-explain { margin-top: 4px; font-size: 11.5px; }
+.cx-shade { position: fixed; inset: 0; z-index: 9000; display: grid; place-items: center; padding: 16px; background: rgba(2, 6, 4, .72); animation: cxIn .18s ease-out; }
+.cx { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 22px; width: min(860px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: 22px;
+  border-radius: 18px; border: 1px solid color-mix(in srgb, var(--m-accent) 45%, var(--m-line)); background: var(--m-surface); box-shadow: 0 30px 80px -30px #000, 0 0 40px -20px var(--m-accent);
+  animation: cxPop .2s var(--m-ease); scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
+@keyframes cxIn { from { opacity: 0; } } @keyframes cxPop { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+.cx-x { position: absolute; right: 10px; top: 8px; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--m-line); background: none; color: var(--m-text); font-size: 18px; cursor: pointer; }
+.cx-x:hover { border-color: var(--m-accent); color: var(--m-accent); } .cx-x:focus-visible { outline: 2px solid var(--m-accent); }
+.cx-card { align-self: center; } .cx-body { display: grid; gap: 10px; align-content: start; }
+.cx-lead { margin: 0; font-size: 14px; line-height: 1.5; }
+.cx-legs { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.cx-legs li { display: grid; gap: 2px; padding: 8px 10px; border-left: 3px solid var(--m-accent); border-radius: 0 8px 8px 0; background: var(--m-bg); font-size: 12.5px; line-height: 1.45; animation: mCardIn .25s var(--m-ease) backwards; animation-delay: calc(var(--i) * 50ms); }
+.cx-legs em { font-style: normal; font-family: var(--m-mono); font-size: 11px; }
+.cx-sum { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; margin: 0; font-size: 12.5px; line-height: 1.45; }
+.cx-sum dt { font-family: var(--m-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--m-dim); padding-top: 2px; } .cx-sum dd { margin: 0; }
+body.theme-day .cx { background: var(--m-surface-2); } body.theme-day .cx-legs li { background: var(--m-surface); }
+@media (prefers-reduced-motion: reduce) { .cx-shade, .cx, .cx-legs li { animation: none; } }
+@media (max-width: 640px) { .cx { grid-template-columns: 1fr; justify-items: center; } .cx-sum { grid-template-columns: 1fr; } }
+/* Fuse deck rail v3: grouped (LIVE · BUILD · MONEY · SYSTEM), one system not ten features. */
+.fdeck-group { margin: 8px 2px 0; font-family: var(--m-mono); font-size: 8.5px; letter-spacing: .22em; color: var(--m-dim); display: flex; align-items: center; gap: 8px; }
+.fdeck-group::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--m-line-hi), transparent); }
+.fdeck-group:first-child { margin-top: 0; }
+.fdeck-rail button { position: relative; padding: 9px 12px 9px 14px; }
+.fdeck-rail button::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: var(--m-accent); opacity: 0; transform: scaleY(.4); transition: opacity .15s, transform .2s var(--m-ease); }
+.fdeck-rail button:hover::before { opacity: .5; transform: scaleY(.7); }
+.fdeck-rail button.active::before { opacity: 1; transform: none; background: var(--m-accent-ink); }
+.fdeck-rail button small { -webkit-line-clamp: 1; }
+.fdeck-rail button.active small { -webkit-line-clamp: 3; }
+@media (prefers-reduced-motion: reduce) { .fdeck-rail button::before { transition: none; } }
+@media (max-width: 900px) { .fdeck-group { display: none; } }

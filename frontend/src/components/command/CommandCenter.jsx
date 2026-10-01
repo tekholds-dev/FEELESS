@@ -167,16 +167,16 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'snapshots' && <Snapshots call={call} asset={asset} />}
     {tab === 'airdrops' && <Airdrops drops={drops} call={call} reload={loadDrops} />}
     {tab === 'fuse' && <FuseDeck call={call} panels={[
-      ['runners', '🏃 Runners', <RunnersPanel call={call} />, 'Coins come to it: every Pump.fun coin gated, scored and laned (scalp / runner / hold) as it arrives; rounds every 15 min; lights only when paper-proven.'],
-      ['lab', '🧬 Breed & fuse', <FuseLab call={call} />, 'Build mega cards: up to 12 legs (pools, runners or any mix), load a champion, preview it, one-click it with no FEELESS fee, publish it or stage it on the Arena.'],
-      ['hq', '💰 HQ · P&L', <FuseHQ call={call} />, 'Real money: every verified Fuse in, live. Arena = $5 runs that prove a strategy before you trust it.'],
-      ['pub', '📣 Published', <FuseBuilder call={call} />, 'Fuses traders see on Trade and in chat (/fuse). Set the creator cut; self-buys and bots never earn it.'],
-      ['engine', '⚡ Engine', <><EngineSuggest call={call} /><RunnerSettings call={call} /></>, 'Runner engine settings: gates, flow, bond boxes, lanes, battles, auto card. ⚡ shows anything weaker than recommended — one click applies it.'],
-      ['rules', '🃏 Card rules', <><CardRules call={call} /><AutoYieldDefault call={call} /></>, 'What traders can pick: auto-profit levels, hold/swap, Arena tiers, Fee-Back + copy cuts, and the default 💸 auto-collect.'],
-      ['payouts', '💸 Payouts', <FusePayouts call={call} />, 'Weekly Fee-Back / copy / creator payouts: plan frozen at today\'s SOL price, ONE approval from the fee wallet, credited only from verified transfers.'],
-      ['arena', '⚔ Arena', <ArenaOps />, 'The live stage: battles and their bell, recent results, what kind of cards are up, and this week\'s season race (vs FeeCat).'],
-      ['contract', '⛓ Contract', <ContractStatus />, 'FUSE Vault + FUSE Card programs: what\'s built, what\'s blocked, how to test. Localnet only — never deployed or funded without you.'],
-      ['vault', '🏦 Vault', <><VaultMath /><VaultDesigner call={call} /></>, 'Design only: a future on-chain vault (SOL in → shares, fees in SOL). Localnet v0.1 — never deployed or funded without you.']]} />}{tab === 'badges' && <><QuestEngineAdmin call={call} /><AwardBadges call={call} initial={[...selected]} /></>}
+      ['runners', '🏃 Runners', <RunnersPanel call={call} />, 'Coins come to it: every Pump.fun coin gated, scored and laned (scalp / runner / hold) as it arrives; rounds every 15 min; lights only when paper-proven.', 'LIVE'],
+      ['arena', '⚔ Arena', <ArenaOps />, 'The live stage: battles and their bell, recent results, what kind of cards are up, and this week\'s season race (vs FeeCat).', 'LIVE'],
+      ['lab', '🧬 Breed & fuse', <FuseLab call={call} />, 'Build mega cards: up to 12 legs (pools, runners or any mix), load a champion, preview it, one-click it with no FEELESS fee, publish it or stage it on the Arena.', 'BUILD'],
+      ['pub', '📣 Published', <FuseBuilder call={call} />, 'Fuses traders see on Trade and in chat (/fuse). Set the creator cut; self-buys and bots never earn it.', 'BUILD'],
+      ['hq', '💰 HQ · P&L', <FuseHQ call={call} />, 'Real money: every verified Fuse in, live. Arena = $5 runs that prove a strategy before you trust it.', 'MONEY'],
+      ['payouts', '💸 Payouts', <FusePayouts call={call} />, 'Weekly Fee-Back / copy / creator payouts: plan frozen at today\'s SOL price, ONE approval from the fee wallet, credited only from verified transfers.', 'MONEY'],
+      ['rules', '🃏 Card rules', <><CardRules call={call} /><AutoYieldDefault call={call} /></>, 'What traders can pick: auto-profit levels, hold/swap, Arena tiers, Fee-Back + copy cuts, and the default 💸 auto-collect.', 'MONEY'],
+      ['engine', '⚡ Engine', <><EngineSuggest call={call} /><RunnerSettings call={call} /></>, 'Runner engine settings: gates, flow, bond boxes, lanes, battles, auto card. ⚡ shows anything weaker than recommended — one click applies it.', 'SYSTEM'],
+      ['contract', '⛓ Contract', <ContractStatus />, 'FUSE Vault + FUSE Card programs: what\'s built, what\'s blocked, how to test. Localnet only — never deployed or funded without you.', 'SYSTEM'],
+      ['vault', '🏦 Vault', <><VaultMath /><VaultDesigner call={call} /></>, 'Design only: a future on-chain vault (SOL in → shares, fees in SOL). Localnet v0.1 — never deployed or funded without you.', 'SYSTEM']]} />}{tab === 'badges' && <><QuestEngineAdmin call={call} /><AwardBadges call={call} initial={[...selected]} /></>}
     {tab === 'feecat' && <FeeCatPanel call={call} />}
     {tab === 'pools' && <PoolsPanel call={call} />}
     {tab === 'fees' && <><MoneyFlows /><FeesPanel call={call} /><FeeBook call={call} /></>}

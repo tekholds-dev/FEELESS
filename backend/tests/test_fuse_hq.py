@@ -134,3 +134,8 @@ def test_card_entries_and_sells_use_pool_value_never_fees():
     pos = {'legs': [{'mint': 'M', 'tokens': 10, 'usd': 10, 'symbol': 'X'}]}
     pos, n = h.close_legs(pos, [{'token': 'M', 'tokens': 10, 'usd': 11.2, 'poolUsd': 12.0, 'tx': 's'}], now=1)
     assert n == 1 and pos['legs'][0]['soldUsd'] == 12.0                                           # gross at the pool, fee not deducted
+
+
+def test_one_rotation_per_24h():
+    assert hq.next_switch_at({}) == 0 and hq.next_switch_at({'lastSwitchAt': 1000}) == 1000 + 86400
+    assert hq.next_switch_at({'lastSwitchAt': 1000}, staff=True) == 0

@@ -278,3 +278,14 @@ def test_auto_collect_fires_once_then_rearms_after_collecting(monkeypatch):
     assert round(rs._json_load(rs.FUSE_HQ_PATH, {})['positions'][0]['autoYield']['base']) == 100
     # Cmd Ctr default arms new cards
     assert asyncio.run(rs.admin_auto_yield_set(Req({'on': True, 'at': 75}))) == {'on': True, 'at': 75.0}
+
+
+def test_switch_sets_24h_rotation_but_topups_do_not(monkeypatch):
+    monkeypatch.setattr(rs, '_session_or_401', lambda a, s: rs.primary_of(a))
+    me = rs.primary_of(W)
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'r9', 'wallet': me, 'at': 1, 'legs': [{'pairAddress': 'P1', 'mint': 'M1', 'usd': 5, 'tokens': 5, 'role': 'pool'}]}]})
+    rs._json_save(rs.FEELESS_TRADES_PATH, {me: [{'tx': 'T1', 'side': 'buy', 'usd': 1, 'tokens': 1, 'token': 'M1'}, {'tx': 'T2', 'side': 'buy', 'usd': 2, 'tokens': 4, 'token': 'M2'}]})
+    up = asyncio.run(rs.fuse_position_switch(rs.FuseSwitchIn(address=W, session='s', id='r9', legs=[{'pairAddress': 'P1', 'signature': 'T1'}])))
+    assert up['added'] == 1 and up['nextSwitchAt'] == 0                                     # top-up: no cooldown
+    sw = asyncio.run(rs.fuse_position_switch(rs.FuseSwitchIn(address=W, session='s', id='r9', legs=[{'pairAddress': 'P2', 'symbol': 'N', 'signature': 'T2'}])))
+    assert sw['added'] == 1 and sw['nextSwitchAt'] > time.time() + 86000                    # real switch-in: next one in 24h

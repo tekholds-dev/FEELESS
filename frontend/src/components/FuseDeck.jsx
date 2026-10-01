@@ -37,7 +37,7 @@ export function FuseExplainer({ admin = false }) {
 }
 
 // Cmd Ctr › Fuse: live KPI ribbon, a left rail (each stop says what it is), one panel at a time. Tab remembered per viewer.
-// panels: [key, label, node, blurb]. call = admin fetch (ribbon reads /admin/fuses/hq once a minute).
+// panels: [key, label, node, blurb, group] — consecutive panels with the same group sit under one rail heading. call = admin fetch (ribbon reads /admin/fuses/hq once a minute).
 const KEY = 'feeless-fuse-deck';
 const money = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0).toFixed(2)}`;
 export function FuseDeck({ panels, call }) {
@@ -64,8 +64,10 @@ export function FuseDeck({ panels, call }) {
       <div className="fdeck-kpi"><small>SHIELD</small><b className="m-num">{hq.blockedCuts}</b><em>self/bot cuts blocked</em></div>
     </div>}
     <div className="fdeck-main">
-      <nav className="fdeck-rail" role="tablist" aria-label="Fuse deck">{panels.map(([k, l, , blurb]) => <button type="button" key={k} role="tab" aria-selected={cur[0] === k} className={cur[0] === k ? 'active' : ''} onClick={() => go(k)} data-testid={`fdeck-${k}`}>
-        <b>{l}</b>{blurb && <small>{blurb}</small>}</button>)}</nav>
+      <nav className="fdeck-rail" role="tablist" aria-label="Fuse deck">{panels.map(([k, l, , blurb, group], i) => <React.Fragment key={k}>
+        {group && group !== panels[i - 1]?.[4] && <span className="fdeck-group">{group}</span>}
+        <button type="button" role="tab" aria-selected={cur[0] === k} className={cur[0] === k ? 'active' : ''} onClick={() => go(k)} data-testid={`fdeck-${k}`}>
+        <b>{l}</b>{blurb && <small>{blurb}</small>}</button></React.Fragment>)}</nav>
       <div className="fdeck-body" key={cur[0]}>{cur[3] && <p className="fdeck-intro">{cur[3]}</p>}{cur[2]}</div>
     </div>
   </section>;
