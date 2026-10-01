@@ -1,0 +1,65 @@
+import React, { useEffect, useState } from 'react';
+import { apiUrl } from '../../lib/api';
+import { Countdown } from '../RunnersPanel';
+import '../../styles/fusePage.css';
+
+// Cmd Ctr › Fuse › ⚔ Arena ops: the live battlefield (pairs, move since the bell, time left), the last results, what's
+// on the stage (by kind) and this week's season board. Read-only views of the public Arena + Season data (60s).
+const pct = v => `${v >= 0 ? '+' : ''}${Number(v || 0).toFixed(1)}%`;
+const KIND = { auto: '🤖 Auto card', mega: '⚛️ Cmd Ctr', user: '👤 Trader', lit: '🔥 Lit runners', round: '⏳ Proving', feecat: '🐱 FeeCat' };
+
+function useJson(path, ms = 60000) {
+  const [d, setD] = useState(null);
+  useEffect(() => {
+    let alive = true; const load = first => (first || !document.hidden) && fetch(apiUrl(path)).then(r => r.json()).then(x => alive && setD(x)).catch(() => {});
+    load(true); const t = setInterval(() => load(false), ms);
+    return () => { alive = false; clearInterval(t); };
+  }, [path, ms]);
+  return d;
+}
+
+export function ArenaOps() {
+  const a = useJson('/api/reputation/fuses/arena');
+  const s = useJson('/api/reputation/fuses/season');
+  if (!a || !s) return <div className="fl-row is-ghost" />;
+  const b = a.battles || { pairs: [], log: [] };
+  const kinds = (a.mega || []).reduce((m, c) => ({ ...m, [c.kind]: (m[c.kind] || 0) + 1 }), {});
+  return <section className="m-card fops" data-testid="arena-ops">
+    <div className="fops-row">
+      <div className="fops-tile"><small>STAGE</small><b className="m-num">{(a.mega || []).length}</b><em>{Object.entries(kinds).map(([k, n]) => `${KIND[k] || k} ${n}`).join(' · ') || 'empty'}</em></div>
+      <div className="fops-tile"><small>BATTLES</small><b className="m-num">{b.pairs.length}</b><em>{b.endsAt ? <>bell in <Countdown at={b.endsAt} /></> : 'pairing on next tick'}</em></div>
+      <div className="fops-tile"><small>SEASON · THIS WEEK</small><b className="m-num">{s.cards}</b><em>cards · ends {new Date(s.endsAt * 1000).toLocaleDateString(undefined, { weekday: 'short' })}</em></div>
+      <div className="fops-tile" data-tip="FeeCat's average trade this week — cards above it are marked and win the challenge"><small>🐱 FEECAT WEEK</small><b className={`m-num ${(s.feecat?.pct || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{s.feecat?.pct == null ? '—' : pct(s.feecat.pct)}</b><em>beat her: +{s.feecat?.winPts} score</em></div>
+    </div>
+    <div className="fops-cols">
+      <div className="fops-box"><header><b>⚔ Live battles</b><small className="m-dim">bigger move since the bell wins</small></header>
+        {b.pairs.length ? b.pairs.map(p => <div key={p.a.key + p.b.key} className="fops-fight"><span className={p.a.now >= p.b.now ? 'lead' : ''}>{p.a.emoji} {p.a.name} <b className="m-num">{pct(p.a.now)}</b></span><i>vs</i>
+          <span className={p.b.now > p.a.now ? 'lead' : ''}>{p.b.emoji} {p.b.name} <b className="m-num">{pct(p.b.now)}</b></span></div>) : <p className="m-dim">Needs 2+ cards on the stage.</p>}
+        {b.log?.length > 0 && <ul className="fops-log">{b.log.map((x, i) => <li key={i}>{x.draw ? `🤝 ${x.a} = ${x.b}` : `🏆 ${x.winner} beat ${x.winner === x.a ? x.b : x.a}`} <small className="m-dim">{pct(x.aMove)} vs {pct(x.bMove)}</small></li>)}</ul>}</div>
+      <div className="fops-box"><header><b>🏆 Season board</b><small className="m-dim">real P&L % · cards opened this week</small></header>
+        {s.board.length ? <ol className="fops-board">{s.board.map(r => <li key={r.id}><b>{r.rank}</b><span>{r.name || 'Card'} <small className="m-dim">{r.handle}{r.beatsCat ? ' · 🐱 beat FeeCat' : ''}</small></span><em className={`m-num ${r.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(r.pnlPct)}</em></li>)}</ol>
+          : <p className="m-dim">No cards this week yet.</p>}
+        {s.past?.length > 0 && <small className="m-dim">Last crowned: {s.past.map(w => (w.top || []).slice(0, 1).map(t => t.name).join('')).filter(Boolean).join(' · ') || '—'}</small>}</div>
+    </div>
+    <small className="m-dim">Battle length, auto-card coins/pools and season boost live in ⚡ Engine and 🃏 Card rules.</small>
+  </section>;
+}
+
+// Cmd Ctr › Fuse › ⛓ Contract status: what is on-chain-ready and what is not. Static by design — nothing here deploys.
+const PROGRAMS = [
+  ['fuse_vault', 'FUSE Vault', 'SOL in → shares at NAV, mgmt + performance fees to the vault fee wallet, pause never blocks exits.',
+    [['Custody, shares, fees, admin, pause', true], ['NAV = SOL held (no value reporting)', true], ['Pool adapters (Raydium / Orca / Meteora)', false], ['Rebalance crank', false]],
+    'cargo test -p fuse_vault --lib && anchor test --skip-local-validator'],
+  ['fuse_card', 'FUSE Card', 'One account per card, coins held by the card. Rules hard-coded (3+3 / 12 admin, profit levels, TP/SL ranges).',
+    [['Owner-only toggles + withdraw any time', true], ['Keeper returns coins ONLY to the owner, only when auto is on', true], ['Localnet transaction test', false], ['On-chain sell: swap adapters + price checks', false]],
+    'cargo test -p fuse_card --lib && anchor test --skip-local-validator'],
+];
+export function ContractStatus() {
+  return <section className="m-card fops" data-testid="contract-status">
+    <div className="m-note warn"><b>LOCALNET ONLY · NOT AUDITED · NOT DEPLOYED</b><span>Nothing here can hold real money. Order of work: adapters → devnet run → external audit → deploy with the owner's keys + a multisig upgrade authority.</span></div>
+    <div className="fops-cols">{PROGRAMS.map(([id, name, what, steps, cmd]) => <div key={id} className="fops-box"><header><b>⛓ {name}</b><code>contracts/fuse_vault/programs/{id}</code></header>
+      <p className="m-dim fops-what">{what}</p>
+      <ul className="fops-steps">{steps.map(([t, ok]) => <li key={t} className={ok ? 'ok' : ''}><i>{ok ? '✓' : '⏳'}</i>{t}</li>)}</ul>
+      <small className="m-dim">Test: <code>{cmd}</code></small></div>)}</div>
+  </section>;
+}
