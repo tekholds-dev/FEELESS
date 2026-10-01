@@ -2643,6 +2643,158 @@ async def badge_limits_public():
     return _badge_limits()
 
 
+# ---- Quest engine: 40 animated badges (FEELESS + Fee Reserve), daily/weekly quests, levels (backend/quests.py) ----
+import quests as _quests
+QUESTS_PATH = DATA_DIR / 'quests.json'            # admin: {'badges': {id: override}, 'manual': {wallet: {grant, revoke}}}
+QUEST_STATE_PATH = DATA_DIR / 'quest_state.json'  # {wallet: {'days': [YYYY-MM-DD], 'first': ts}}
+_quest_cache: dict = {}
+
+
+def _quest_defs():
+    return _quests.merge(_quests.DEFAULTS, _json_load(QUESTS_PATH, {}))
+
+
+def _streak(days):
+    have, n, d = set(days), 0, time.time()
+    if time.strftime('%Y-%m-%d', time.gmtime(d)) not in have:
+        d -= 86400   # today not checked in yet: the streak is still alive from yesterday
+    while time.strftime('%Y-%m-%d', time.gmtime(d)) in have:
+        n += 1; d -= 86400
+    return n
+
+
+async def _quest_raw(me, board=None):
+    """Everything the engine measures, read from FEELESS's own records (nothing self-reported)."""
+    mine = set(linked_of(me)) | {me}
+    trades = [{'side': x.get('side'), 'usd': x.get('usd') or x.get('poolUsd') or 0, 'token': x.get('token'), 'ts': x.get('ts')}
+              for w, rows in _json_load(FEELESS_TRADES_PATH, {}).items() if w in mine for x in rows or []]
+    chat = [{'room': m.get('room'), 'chain': m.get('chain'), 'ts': m.get('ts')} for ms in _chat_load()['rooms'].values() for m in ms
+            if isinstance(m, dict) and not m.get('system') and (m.get('identity') or m.get('address')) in mine]
+    calls = [c for c in (_json_load(CALLS_PATH, {}).get('calls') or {}).values() if c.get('callerAddress') in mine]
+    board = board or await caller_board(days=90)
+    hits = sum(r.get('hits', 0) for r in board['rows'] if r.get('callerAddress') in mine)
+    pts = _pts().get(me) or {}
+    st = _json_load(QUEST_STATE_PATH, {}).get(me) or {}
+    days = set(st.get('days') or []) | ({pts['claims']['daily']} if (pts.get('claims') or {}).get('daily') else set())
+    creator = _load()['creators'].get(_creator_key('solana', me))
+    return {'trades': trades, 'chat': chat, 'call_ts': [c.get('at') or 0 for c in calls], 'call_hits': hits,
+            'invited': len(_json_load(REF_PATH, {'by': {}})['by'].get(me, [])),
+            'followers': sum(1 for lst in (_json_load(FOLLOW_PATH, {}).get('following') or {}).values() if me in lst),
+            'launches': score_creator(creator)['tokenCount'] if creator else 0, 'points': int(pts.get('total') or 0),
+            'signin_days': sorted(days), 'streak': max(_streak(days), int(pts.get('streak') or 0)),
+            'fee_usd': await _fee_usd(me), 'fee_mints': [m for m in (await _ecosystem_mints()).values() if m], 'first_seen': st.get('first')}
+
+
+async def _quest_summary(address):
+    me = primary_of(address)
+    hit = _quest_cache.get(me)
+    if hit and time.time() - hit[0] < 60:
+        return hit[1]
+    manual = (_json_load(QUESTS_PATH, {}).get('manual') or {}).get(me)
+    out = {'address': me, **_quests.summary(_quest_defs(), await _quest_raw(me), manual)}
+    _quest_cache[me] = (time.time(), out)
+    return out
+
+
+_rarity_cache: dict = {}
+
+
+async def _quest_rarity():
+    """Share of active wallets holding each badge, recomputed at most every 10 minutes (one caller-board read)."""
+    if _rarity_cache.get('at', 0) > time.time() - 600:
+        return _rarity_cache['data']
+    wallets = set(_json_load(FEELESS_TRADES_PATH, {})) | set(_pts()) | set(_json_load(QUEST_STATE_PATH, {}))
+    board = await caller_board(days=90); defs = _quest_defs(); held = {}
+    for w in list(wallets)[:2000]:
+        try:
+            s = _quests.summary(defs, await _quest_raw(primary_of(w), board), (_json_load(QUESTS_PATH, {}).get('manual') or {}).get(primary_of(w)))
+        except Exception:
+            continue
+        for b in s['badges']:
+            if b['earned']:
+                held[b['id']] = held.get(b['id'], 0) + 1
+    data = {'pct': _quests.rarity(held, len(wallets)), 'holders': held, 'wallets': len(wallets)}
+    _rarity_cache.update(at=time.time(), data=data)
+    return data
+
+
+@app.get('/api/reputation/quests/{address}')
+async def quest_board(address: str):
+    s = await _quest_summary(address)
+    r = await _quest_rarity()
+    return {**s, 'rarity': r['pct'], 'metricsLabels': _quests.METRICS}
+
+
+class QuestCheckin(BaseModel):
+    address: str
+    session: str
+
+
+@app.post('/api/reputation/quests/checkin')
+async def quest_checkin(payload: QuestCheckin):
+    me = _session_or_401(payload.address, payload.session)
+    day = time.strftime('%Y-%m-%d', time.gmtime())
+    async with _admin_lock:
+        d = _json_load(QUEST_STATE_PATH, {})
+        st = d.setdefault(me, {'days': [], 'first': time.time()})
+        fresh = day not in st['days']
+        if fresh:
+            st['days'] = (st['days'] + [day])[-400:]
+            _json_save(QUEST_STATE_PATH, d)
+    _quest_cache.pop(me, None); _badge_cache.pop(me, None)
+    return {'ok': True, 'fresh': fresh, 'streak': _streak(st['days']), 'days': len(st['days'])}
+
+
+@app.get('/api/reputation/admin/quests')
+async def admin_quests(request: Request):
+    _require_admin(request)
+    return {'badges': _quest_defs(), 'defaults': _quests.DEFAULTS, 'overrides': _json_load(QUESTS_PATH, {}), 'metrics': _quests.METRICS,
+            'tiers': list(_quests.TIER_XP), 'daily': _quests.DAILY, 'weekly': _quests.WEEKLY, 'stats': await _quest_rarity()}
+
+
+@app.post('/api/reputation/admin/quests')
+async def admin_quests_save(request: Request):
+    """Edit any badge (name, tier, tasks/targets, on/off) or add one. Invalid task lists are refused."""
+    admin = _require_admin(request)
+    body = await request.json()
+    edits = body.get('badges') or {}
+    for bid, o in edits.items():
+        if not _re.match(r'^[a-z0-9-]{2,40}$', bid) or (o.get('tasks') is not None and not _quests.is_valid_def({'name': o.get('name') or bid, 'tasks': o['tasks']})):
+            raise HTTPException(400, f'Badge {bid}: every task needs a known metric and a positive target.')
+        if o.get('tier') and o['tier'] not in _quests.TIER_XP:
+            raise HTTPException(400, f'Badge {bid}: unknown tier.')
+    async with _admin_lock:
+        d = _json_load(QUESTS_PATH, {})
+        for bid, o in edits.items():
+            if o.get('reset'):
+                (d.get('badges') or {}).pop(bid, None)
+            else:
+                d.setdefault('badges', {})[bid] = {**(d.get('badges') or {}).get(bid, {}), **{k: v for k, v in o.items() if k in ('name', 'tier', 'enabled', 'tasks', 'art', 'set')}}
+        _json_save(QUESTS_PATH, d)
+        ad = _admin_load(); _audit(ad, admin, 'quests', ','.join(edits)[:160]); _admin_save(ad)
+    _quest_cache.clear(); _badge_cache.clear(); _rarity_cache.clear()
+    return {'ok': True, 'badges': _quest_defs()}
+
+
+@app.post('/api/reputation/admin/quests/grant')
+async def admin_quests_grant(request: Request):
+    admin = _require_admin(request)
+    body = await request.json()
+    who, bid, action = primary_of(body.get('address', '')), body.get('badge', ''), body.get('action', 'grant')
+    if not who or not any(b['id'] == bid for b in _quest_defs()) or action not in ('grant', 'revoke', 'clear'):
+        raise HTTPException(400, 'Pick a wallet, a badge and grant / revoke / clear.')
+    async with _admin_lock:
+        d = _json_load(QUESTS_PATH, {})
+        m = d.setdefault('manual', {}).setdefault(who, {'grant': [], 'revoke': []})
+        m['grant'] = [x for x in m.get('grant', []) if x != bid]; m['revoke'] = [x for x in m.get('revoke', []) if x != bid]
+        if action != 'clear':
+            m[action].append(bid)
+        _json_save(QUESTS_PATH, d)
+        ad = _admin_load(); _audit(ad, admin, f'quest-{action}', f'{bid} {who[:8]}'); _admin_save(ad)
+    _quest_cache.pop(who, None); _badge_cache.pop(who, None)
+    return {'ok': True, 'manual': m}
+
+
 @app.get('/api/reputation/badges/{address}')
 async def wallet_badges(address: str):
     """Automatic, data-backed badges. Every badge states the evidence behind it."""
@@ -2698,6 +2850,14 @@ async def wallet_badges(address: str):
     if 'badge:points-og' in _unlocks(address)[0]:
         badges.append({'id': 'points-og', 'label': 'Points OG', 'icon': '💠', 'tone': 'gold', 'why': 'Spent 2,000 earned points on it'})
     badges.extend(_admin_load()['badges'].get(address, {}).values())
+    try:   # earned quest badges (animated art) join chat + profile badges, rarest first
+        rank_q = {'mythic': 5, 'legendary': 4, 'epic': 3, 'rare': 2, 'common': 1}
+        qs = [b for b in (await _quest_summary(address))['badges'] if b['earned']]
+        for b in sorted(qs, key=lambda b: -rank_q.get(b['tier'], 0)):
+            badges.append({'id': b['id'], 'label': b['name'], 'icon': '', 'art': b['art'], 'rarity': b['tier'], 'tone': 'gold' if rank_q.get(b['tier'], 0) >= 4 else 'mint',
+                           'why': ' · '.join(t['label'] for t in b['tasks']) + (' (granted by FEELESS HQ)' if b.get('granted') else '')})
+    except Exception:
+        pass
     if address in _admin_wallets():
         badges.insert(0, {'id': 'feeless-hq', 'label': 'FEELESS HQ', 'icon': '👑', 'tone': 'gold', 'why': 'Created $FEE — runs the FEELESS command center'})
     # Season cards count as badges too (best rarity first), so chat + profiles show them.

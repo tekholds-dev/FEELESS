@@ -18,7 +18,7 @@ const ITEMS = [
   ['', 'Home', Home], ['reputation', 'Reputation', ShieldCheck], ['trade', 'Trade', CandlestickChart], ['pump', 'Pump radar', Rocket],
   ['discover', 'Discover', Compass], ['launch', 'Launchpads', Rocket],
   ['watchlist', 'Radar', Star], ['chat', 'The Trenches', MessageCircle],
-  ['feeback', 'Fee-Back', Coins], ['fee', '$FEE', Activity], ['feecat', 'FeeCat', Cat], ['seasons', 'Seasons', Crown], ['leaderboard', 'Leaderboard', Trophy], ['learn', 'Learn', BookOpen], ['roadmap', 'Roadmap', Map],
+  ['feeback', 'Fee-Back', Coins], ['fee', '$FEE', Activity], ['feecat', 'FeeCat', Cat], ['badges', 'Badges', Crown], ['seasons', 'Seasons', Crown], ['leaderboard', 'Leaderboard', Trophy], ['learn', 'Learn', BookOpen], ['roadmap', 'Roadmap', Map],
   ['whitepaper', 'Whitepaper', FileText], ['settings', 'Settings', Settings],
 ];
 

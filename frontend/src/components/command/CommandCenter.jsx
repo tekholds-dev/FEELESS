@@ -1,3 +1,4 @@
+import { QuestEngineAdmin } from './QuestEngineAdmin';
 import { LatencyPanel } from './LatencyPanel';
 import { useWallet } from '../../hooks/useWallet';
 import { PoolCreator } from './PoolCreator';
@@ -154,7 +155,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'studio' && (holders?.rows ? <AirdropStudio call={call} asset={asset} holders={holders.rows} selected={[...selected]} onScheduled={() => { loadDrops(); setTab('airdrops'); }} /> : <p className="cc-empty">Loading holders…</p>)}
     {tab === 'snapshots' && <Snapshots call={call} asset={asset} />}
     {tab === 'airdrops' && <Airdrops drops={drops} call={call} reload={loadDrops} />}
-    {tab === 'badges' && <AwardBadges call={call} initial={[...selected]} />}
+    {tab === 'badges' && <><QuestEngineAdmin call={call} /><AwardBadges call={call} initial={[...selected]} /></>}
     {tab === 'feecat' && <FeeCatPanel call={call} />}
     {tab === 'pools' && <PoolsPanel call={call} />}
     {tab === 'fees' && <><MoneyFlows /><FeesPanel call={call} /><FeeBook call={call} /></>}

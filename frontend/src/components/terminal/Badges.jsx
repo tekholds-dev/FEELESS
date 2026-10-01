@@ -34,8 +34,8 @@ export function Badges({ address, compact = false, max = 3, featured }) {
   // Chat: small card chips (tone ring + emblem), hover/focus shows the name and why. Emblem = hand-made SVG for
   // built-ins, the card glyph for custom badges and season cards.
   if (compact) return <span className="badge-chips" data-testid="chat-badges">{badges.slice(0, max).map(b => <i key={b.id} tabIndex={0} className={`badge-chip tone-${b.tone} ${b.rarity ? `r-${b.rarity}` : ''}`} data-tip={`${b.label}${b.why ? ` — ${b.why}` : ''}`} aria-label={b.label}>
-    {BUILTIN.has(b.id) ? <BadgeIcon id={b.id} tone={b.tone} size={13} /> : <span>{b.icon || '⭐'}</span>}</i>)}</span>;
-  return <div className="badge-shelf" data-testid="badge-shelf">{badges.map((b, i) => <span key={b.id} className={`badge-pill tone-${b.tone} ${featured?.includes(b.id) ? 'is-featured' : ''}`} style={{ animationDelay: `${i * 0.35}s` }} title={b.why}><i><BadgeIcon id={b.id} tone={b.tone} size={15} /></i>{b.label}</span>)}</div>;
+    {b.art ? <img className="badge-chip-art" src={`${b.art}.jpg`} alt="" loading="lazy" /> : BUILTIN.has(b.id) ? <BadgeIcon id={b.id} tone={b.tone} size={13} /> : <span>{b.icon || '⭐'}</span>}</i>)}</span>;
+  return <div className="badge-shelf" data-testid="badge-shelf">{badges.map((b, i) => <span key={b.id} className={`badge-pill tone-${b.tone} ${featured?.includes(b.id) ? 'is-featured' : ''}`} style={{ animationDelay: `${i * 0.35}s` }} title={b.why}><i>{b.art ? <img className="badge-chip-art" src={`${b.art}.jpg`} alt="" loading="lazy" /> : <BadgeIcon id={b.id} tone={b.tone} size={15} />}</i>{b.label}</span>)}</div>;
 }
 
 // Featured badges as spinning 3D artifacts (profile header).

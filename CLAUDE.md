@@ -78,6 +78,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Trade tape: Helius first; when it fails (quota) the candles service parses swaps from Solana RPC (Alchemy). Rows need a
   real SOL/USD leg (dust spam dropped). Tags from `/api/reputation/intel` via `lib/coinIntel.js` (one fetch/coin/min).
 
+## Badges + quest engine
+- `backend/quests.py` (pure, tested): 40 animated badges = FEELESS set (`q-*`, everyone) + Fee Reserve set (`frsv-*`, every
+  task needs $FEE held). Each badge = tasks on metrics computed only from FEELESS records (verified trades, chat, calls,
+  invites, follows, points, check-ins, $FEE held) — nothing self-reported. Daily + weekly quests reset 00:00 UTC / Monday.
+- Endpoints: `GET /api/reputation/quests/{address}` (60s cache; rarity 10 min), `POST /quests/checkin` (chat session),
+  admin `GET|POST /admin/quests` (edit name/tier/tasks/on-off, add badges, validated) and `POST /admin/quests/grant`.
+- Earned quest badges join `wallet_badges` (chat chips + profiles) with their art. Cmd Ctr › Badges › Quest engine edits all.
+- Art lives in `public/assets/badges/{feeless,frsv}/<id>.{jpg,gif}`: show the ~35KB .jpg poster; play the .gif only on
+  hover/focus or in the detail view (`BadgeArt`). Never autoplay a grid of GIFs.
+
 ## Money rules (trading)
 - Engine: Jupiter Swap API primary (FEELESS fee into our SOL/USDC token accounts, capped priority,
   our broadcast). Ultra only as engine or opt-in fallback. Fallback off + Swap API down ⇒ trading pauses.
