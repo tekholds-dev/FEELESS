@@ -9,6 +9,7 @@ export class PanelBoundary extends React.Component {
 
   componentDidCatch(error, info) {
     try {
+      if (/\.hot-update\.js/.test(String(info?.componentStack || '') + String(error?.stack || ''))) return;   // dev hot-reload, not a bug
       const comp = (String(info?.componentStack || '').match(/at (\w+)/) || [])[1] || '?';
       fetch('/api/reputation/bugs', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kind: 'bug', page: `${window.location.pathname}${window.location.search}`.slice(0, 300),

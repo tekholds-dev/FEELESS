@@ -5724,6 +5724,13 @@ class BugReport(BaseModel):
     address: Optional[str] = None
 
 
+def _bug_key(text, page):
+    """Crash identity: the message + the component that threw (stack frames / hot-update hashes dropped) + the page path."""
+    t = _re.sub(r'\s+·\s+at .*$', '', str(text or '').strip())
+    t = _re.sub(r'[0-9a-f]{12,}', '#', t)
+    return f"{t[:300]}|{str(page or '').split('?')[0]}"
+
+
 @app.post('/api/reputation/bugs')
 async def report_bug(request: Request, payload: BugReport):
     ip = request.headers.get('x-forwarded-for', request.client.host if request.client else '?').split(',')[0]
@@ -5734,8 +5741,14 @@ async def report_bug(request: Request, payload: BugReport):
     kind = payload.kind if payload.kind in ('bug', 'security', 'idea') else 'bug'
     async with _admin_lock:
         d = _json_load(BUGS_PATH, {'bugs': []})
+        key = _bug_key(payload.text, payload.page)
+        same = next((b for b in reversed(d['bugs']) if b.get('status', 'open') == 'open' and _bug_key(b['text'], b.get('page', '')) == key), None)
+        if same:   # the same crash on the same page is ONE report with a count, never 33 rows
+            same['count'] = int(same.get('count') or 1) + 1; same['lastAt'] = time.time()
+            _json_save(BUGS_PATH, d)
+            return {'ok': True, 'merged': True}
         d['bugs'].append({'id': uuid.uuid4().hex[:10], 'text': payload.text.strip(), 'page': payload.page, 'kind': kind,
-                          'address': (payload.address or '')[:44] or None, 'status': 'open', 'at': time.time()})
+                          'address': (payload.address or '')[:44] or None, 'status': 'open', 'at': time.time(), 'count': 1})
         d['bugs'] = d['bugs'][-1000:]
         _json_save(BUGS_PATH, d)
     return {'ok': True}

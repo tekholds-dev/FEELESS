@@ -310,3 +310,16 @@ def test_one_signal_stream_and_engine_dial(monkeypatch):
     assert out['dial'] == 'safe' and out['cfg']['roundSize'] == 3
     with pytest.raises(rs.HTTPException):
         asyncio.run(rs.runners_cfg_set(Req({'dial': 'nope'})))
+
+
+def test_same_crash_on_same_page_is_one_report_with_a_count():
+    class Q:
+        headers = {}
+        client = None
+    rs._json_save(rs.BUGS_PATH, {'bugs': []}); rs._bug_ip_hits.clear()
+    t1 = "[auto crash] Cannot access 'TerminalHeader' before initialization · in <Terminal> ·  at Terminal (http://x/src_pages_Terminal_jsx.8a1755b1b2014ba392ef.hot-update.js:3734:75)"
+    t2 = t1.replace('8a1755b1b2014ba392ef', '53fbb899f468474c720e').replace('3734', '4930')
+    for t, page in ((t1, '/terminal/trade?tab=fuse'), (t2, '/terminal/trade?tab=runners'), ('[panel crash] FuseRail: boom · in <FuseRail>', '/terminal/trade')):
+        rs._bug_ip_hits.clear(); asyncio.run(rs.report_bug(Q(), rs.BugReport(text=t, page=page)))
+    bugs = rs._json_load(rs.BUGS_PATH, {})['bugs']
+    assert len(bugs) == 2 and bugs[0]['count'] == 2 and bugs[0].get('lastAt')

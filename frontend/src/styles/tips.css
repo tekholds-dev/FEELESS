@@ -8,3 +8,7 @@ body.theme-day .tip-layer { background: #ffffff; color: #0f2419; }
 .cf-live.is-live { color: #19f58f; border-color: #19f58f; animation: cfLive 1.6s ease-in-out infinite alternate; }
 @keyframes cfLive { from { opacity: .6; } to { opacity: 1; } }
 body.fx-lite .cf-live.is-live { animation: none; } @media (prefers-reduced-motion: reduce) { .cf-live.is-live { animation: none; } }
+
+/* Cmd Ctr › Bugs: merged repeat count + fix note */
+.cc-bug-count { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--m-danger, #ff8fa3); color: #1a0006; font: 700 10px 'JetBrains Mono', monospace; }
+.cc-bug-fix { display: block; margin-top: 3px; color: var(--m-accent, #19f58f); font-size: 11px; }
