@@ -5,6 +5,7 @@ import { readChatSession } from '../lib/chatSession';
 import { useWallet } from '../hooks/useWallet';
 import { QuickTrade } from './terminal/QuickTrade';
 import { FuseLab } from './FuseLab';
+import { FuseSide } from './FuseSide';
 
 // ⚛️ FUSE: fused pools. Each card is a basket of live pools with weights — one grade, one index, combined depth.
 // "Fuse in" splits your SOL by weight; each leg is a normal Quick trade your wallet signs. Confirmed legs are
@@ -58,6 +59,6 @@ export function FusePanel() {
   const [d, setD] = useState(null);
   useEffect(() => { let alive = true; const load = () => !document.hidden && fetch(apiUrl('/api/reputation/fuses')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
     load(); const t = setInterval(load, 60000); return () => { alive = false; clearInterval(t); }; }, []);
-  return <><FuseLab />{d?.fuses?.length > 0 && <section className="fz-panel" data-testid="fuse-panel"><div className="m-row"><span className="m-label">⚛️ FUSE · FUSED POOLS</span><small className="m-dim">baskets of live pools — one grade, one index, one tap in</small></div>
+  return <><div className="fz-split-view"><FuseLab /><FuseSide /></div>{d?.fuses?.length > 0 && <section className="fz-panel" data-testid="fuse-panel"><div className="m-row"><span className="m-label">⚛️ FUSE · FUSED POOLS</span><small className="m-dim">baskets of live pools — one grade, one index, one tap in</small></div>
     <div className="fz-grid">{d.fuses.map(f => <FuseCard key={f.id} f={f} />)}</div></section>}</>;
 }

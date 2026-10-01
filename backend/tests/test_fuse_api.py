@@ -117,3 +117,45 @@ def test_creator_buying_own_fuse_earns_no_cut_and_costs_rep(monkeypatch):
     b = rs._json_load(rs.FUSES_PATH, {})['buys'][-1]
     assert b['selfDeal'] and b['creatorUsd'] == 0
     assert rs._fuse_rep(me)['points'] < 0
+
+
+def test_prebuilt_rail_one_card_per_style_and_user_cap(monkeypatch):
+    raw = [{'chainId': 'solana', 'pairAddress': f'R{i}', 'priceUsd': '1', 'liquidity': {'usd': 100000 + i * 30000}, 'volume': {'h24': 60000 * (i + 1)},
+            'priceChange': {'h24': i * 2 - 6}, 'baseToken': {'symbol': f'K{i}', 'address': f'N{i}'}, 'quoteToken': {'symbol': 'SOL'}} for i in range(9)]
+    async def disc(chain): return raw
+    async def px(): return 150.0
+    monkeypatch.setattr(rs, '_fuse_discover_pairs', disc); monkeypatch.setattr(rs, '_sol_usd_live', px)
+    monkeypatch.setattr(rs, '_require_admin', lambda r: (_ for _ in ()).throw(rs.HTTPException(403, 'no')))
+    rs._fuse_prebuilt_cache.clear()
+    d = asyncio.run(rs.fuses_prebuilt(Req(), legs=6, budget=5))
+    assert d['legs'] == 3 and {c['style'] for c in d['cards']} == set(rs._fuse.STYLES) and all(len(c['legs']) == 3 for c in d['cards'])
+    assert d['cards'][0]['legs'][0]['baseAddress'].startswith('N')
+
+
+def test_fuse_holders_board(monkeypatch):
+    async def pairs(legs): return {leg['pairAddress']: {**PAIRS[leg['pairAddress']], 'priceUsd': '3'} for leg in legs}
+    monkeypatch.setattr(rs, '_fuse_pairs', pairs)
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': '1', 'wallet': 'A' * 43, 'name': 'Core', 'at': 5, 'legs': [{'pairAddress': 'P1', 'usd': 2, 'tokens': 1}]},
+                                                  {'id': '2', 'wallet': 'B' * 43, 'name': 'Meme', 'at': 6, 'legs': [{'pairAddress': 'P1', 'usd': 6, 'tokens': 1}]}]})
+    rs._fuse_holders_cache.clear()
+    d = asyncio.run(rs.fuse_holders())
+    assert d['total'] == 2 and d['holders'][0]['pnlPct'] == 50 and d['holders'][1]['pnlPct'] == -50 and 'valueUsd' not in d['holders'][0]
+
+
+def test_autopilot_tick_enters_each_style_once_and_alerts_bots(monkeypatch):
+    raw = [{'chainId': 'solana', 'pairAddress': f'U{i}', 'priceUsd': '1', 'liquidity': {'usd': 100000 + i * 30000}, 'volume': {'h24': 60000 * (i + 1)},
+            'priceChange': {'h24': i - 4}, 'baseToken': {'symbol': f'Z{i}', 'address': f'Y{i}'}, 'quoteToken': {'symbol': 'SOL'}} for i in range(8)]
+    async def disc(chain): return raw
+    async def px(): return 150.0
+    async def prices(legs): return {leg['pairAddress']: 1.0 for leg in legs}
+    sent = []
+    monkeypatch.setattr(rs, '_fuse_discover_pairs', disc); monkeypatch.setattr(rs, '_sol_usd_live', px); monkeypatch.setattr(rs, '_hq_prices', prices)
+    monkeypatch.setattr(rs, '_admin_wallets', lambda: ['ADMINWALLET'])
+    monkeypatch.setattr(rs, 'notify', lambda *a, **k: sent.append((a, k)))
+    farm = 'Farm222222222222222222222222222222222222222'
+    rs._json_save(rs.QUEST_STATE_PATH, {farm: {'days': [f'2026-08-{d:02d}' for d in range(1, 20)], 'first': 1}})
+    asyncio.run(rs._fuse_autopilot_tick(now=1_000_000))
+    asyncio.run(rs._fuse_autopilot_tick(now=1_000_100))      # same hour → no duplicates, no repeat alert
+    arena = rs._json_load(rs.FUSE_HQ_PATH, {})['arena']
+    assert sorted(e['style'] for e in arena) == sorted(rs._fuse.STYLES) and all(e['auto'] for e in arena)
+    assert len(sent) == 1 and 'Bot shield flagged' in sent[0][0][2] and sent[0][1]['meta']['source']

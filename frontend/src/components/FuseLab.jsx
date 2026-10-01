@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { FuseGo } from './FuseGo';
 import { FuseEvolve } from './FuseEvolve';
 import { FusePnl } from './FuseHQ';
+import { FuseRail } from './FuseRail';
 import { FuseExplainer } from './FuseDeck';
 import '../styles/fuseLab.css';
 
@@ -15,6 +16,9 @@ const LENSES = [['popular', 'Popular'], ['yield', 'Top yield'], ['deep', 'Deepes
 const usd = v => (v >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${(v || 0).toFixed(v < 10 ? 2 : 0)}`);
 const pct = v => (Math.abs(v) >= 1000 ? `${(1 + v / 100).toFixed(1)}x` : `${v >= 0 ? "+" : ""}${(v || 0).toFixed(1)}%`);
 const apr = v => (v >= 1000 ? `${(v / 100).toFixed(0)}x` : `${Math.round(v || 0)}%`);
+
+// Scroll the PAGE to the preview (never scrollIntoView: it would scroll inside the clipped card).
+const scrollToMix = () => { const el = document.querySelector('[data-testid="fuse-lab"] .fl-mix'); if (el) window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 120), behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); };
 
 export function FuseLab({ chain = 'solana', call }) {
   const admin = Boolean(call); const MAX = admin ? 10 : 3;
@@ -28,7 +32,7 @@ export function FuseLab({ chain = 'solana', call }) {
   const [err, setErr] = useState('');
   const [going, setGoing] = useState(false);
   const [best, setBest] = useState({ budget: 20, busy: false, style: null });
-  const load = (legs, s) => { setManual(false); setPicked(legs); if (s) setSol(s.toFixed(4)); document.querySelector('[data-testid="fuse-lab"] .fl-mix')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+  const load = (legs, s) => { setManual(false); setPicked(legs); if (s) setSol(s.toFixed(4)); scrollToMix(); };
   const findBest = () => { setBest(b => ({ ...b, busy: true }));
     fetch(apiUrl('/api/reputation/fuses/best3'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ budgetUsd: best.budget }) }).then(r => r.json())
       .then(d => { if (!d.champion) throw new Error('No live pools right now.'); setBest(b => ({ ...b, busy: false, style: d.style, proven: d.proven }));
@@ -61,16 +65,18 @@ export function FuseLab({ chain = 'solana', call }) {
       <span className="fl-badges">{admin && <span className="m-chip warn">CMD CTR · 10 POOLS</span>}<span className="m-chip ok fl-chain"><i />{chain.toUpperCase()}</span></span>
     </header>
     {!admin && <FuseExplainer />}
-    {admin ? <FuseEvolve call={call} maxLegs={MAX} onLoad={load} /> : <>
+    {admin ? <><FuseRail call={call} onUse={load} /><FuseEvolve call={call} maxLegs={MAX} onLoad={load} /></> : <>
       <FusePnl />
       <div className="fl-best" data-testid="fl-best"><div><b>🧬 Find my best 3</b><small className="m-dim">{best.style ? `Bred with the ${best.style} strategy${best.proven ? ' — proven in our 24h arena' : ''}` : 'We breed hundreds of baskets from live pools and hand you the winner.'}</small></div>
         <div className="m-seg">{[5, 20, 100].map(v => <button type="button" key={v} className={best.budget === v ? 'active' : ''} onClick={() => setBest(b => ({ ...b, budget: v }))}>${v}</button>)}</div>
         <button type="button" className="m-btn primary m-go" disabled={best.busy} onClick={findBest} data-testid="fl-best-go">{best.busy ? 'Breeding…' : 'Find it'}</button></div>
+      <FuseRail onUse={load} />
     </>}
     <div className="fl-body">
       <div className="fl-browse">
         <div className="fl-tools"><div className="m-seg" role="radiogroup" aria-label="Pool lens">{LENSES.map(([k, l]) => <button type="button" key={k} role="radio" aria-checked={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)}>{l}</button>)}</div>
           <input className="m-input fl-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Filter $SYMBOL or DEX" aria-label="Filter pools" /></div>
+        {picked.length >= MAX && <small className="fl-full">All {MAX} slots used — untick a pool to swap it.</small>}
         <div className="fl-list" role="listbox" aria-multiselectable="true" aria-label="Pools">
           {pools == null ? Array.from({ length: 6 }, (_, i) => <div key={i} className="fl-row is-ghost" />)
             : !shown.length ? <p className="m-dim fl-empty">No live pools in this lens right now.</p>

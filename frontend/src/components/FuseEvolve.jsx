@@ -6,6 +6,12 @@ import { FuseCard } from './FuseCard';
 // (keep the elite, crossover, mutate — backend fuse.evolve) and returns 3 champions with every fitness part shown.
 // "Load" drops a champion into the Lab above, where ⚡ Fuse in is still one wallet approval.
 const STYLES = [['yield', '💧 Yield hunter'], ['momentum', '🚀 Momentum'], ['steady', '🛡 Steady'], ['degen', '🎲 Degen']];
+const STYLE_TIP = {
+  yield: ['busy pools vs depth', 'Score = 55% fee APR, 35% grade, 10% calm. Finds pools trading a lot relative to their liquidity.'],
+  momentum: ['what ran in 24h', 'Score = 45% 24h move, 30% grade, 15% APR. Rides what is already moving — and can reverse.'],
+  steady: ['deep + calm', 'Score = 55% grade, 30% calm, 15% APR. Deep pools with small swings; slowest but safest mix.'],
+  degen: ['max APR + momentum', 'Score = 45% momentum, 40% APR, 15% grade, no calm. Biggest upside, biggest drawdowns.'],
+};
 const BUDGETS = [5, 20, 100];
 const GENS = [8, 16, 32];
 const SOL = 'So11111111111111111111111111111111111111112';
@@ -30,17 +36,22 @@ export function FuseEvolve({ call, onLoad, maxLegs = 10 }) {
   return <section className="m-card fe" data-testid="fuse-evolve">
     <header className="fe-head"><div><span className="m-label">🧬 FUSE EVOLUTION</span><h4>Breed the basket. Keep the strongest.</h4>
       <p className="m-dim">Live pools compete over generations: the fittest survive, cross over and mutate. You pick the strategy and budget; every score is shown.</p></div></header>
+    <div className="fe-styles" role="radiogroup" aria-label="Strategy">{STYLES.map(([k, l]) => <button type="button" key={k} role="radio" aria-checked={style === k} className={`fe-style ${style === k ? 'active' : ''}`} onClick={() => setStyle(k)} data-tip={STYLE_TIP[k][1]}>
+      <b>{l}</b><small>{STYLE_TIP[k][0]}</small></button>)}</div>
     <div className="fe-genes">
-      <div className="fe-gene"><small>STRATEGY</small><div className="m-seg" role="radiogroup" aria-label="Strategy">{STYLES.map(([k, l]) => <button type="button" key={k} role="radio" aria-checked={style === k} className={style === k ? 'active' : ''} onClick={() => setStyle(k)}>{l}</button>)}</div></div>
-      <div className="fe-gene"><small>POOLS</small><div className="m-seg">{[2, 3, 4, 5, 6, 8, 10].filter(n => n <= maxLegs).map(n => <button type="button" key={n} className={legs === n ? 'active' : ''} onClick={() => setLegs(n)}>{n}</button>)}</div></div>
-      <div className="fe-gene"><small>GENERATIONS</small><div className="m-seg">{GENS.map(n => <button type="button" key={n} className={gens === n ? 'active' : ''} onClick={() => setGens(n)}>{n}</button>)}</div></div>
-      <div className="fe-gene"><small>BUDGET</small><div className="m-seg">{BUDGETS.map(n => <button type="button" key={n} className={budget === n ? 'active' : ''} onClick={() => setBudget(n)}>${n}</button>)}</div>
+      <div className="fe-gene" data-tip="How many pools each basket holds. More pools = more spread, but more network fees on small budgets."><small>POOLS <i>?</i></small>
+        <div className="fe-range"><input type="range" min="2" max={maxLegs} value={legs} onChange={e => setLegs(Number(e.target.value))} aria-label="Pools" /><b className="m-num">{legs}</b></div></div>
+      <div className="fe-gene" data-tip="Rounds of breeding. Each round keeps the best 20%, crosses them over and mutates the rest. More rounds = a more refined winner (slower)."><small>GENERATIONS <i>?</i></small>
+        <div className="m-seg">{GENS.map(n => <button type="button" key={n} className={gens === n ? 'active' : ''} onClick={() => setGens(n)}>{n}</button>)}</div></div>
+      <div className="fe-gene" data-tip="What you plan to put in. Small budgets punish many pools (network fees); big ones punish thin pools (price impact)."><small>BUDGET <i>?</i></small>
+        <div className="m-seg">{BUDGETS.map(n => <button type="button" key={n} className={budget === n ? 'active' : ''} onClick={() => setBudget(n)}>${n}</button>)}</div>
         <em className="m-dim">{sol ? `≈ ${sol.toFixed(4)} SOL` : 'SOL price loading…'}</em></div>
+      <label className="fe-gene m-toggle fe-blood" data-tip="Bloodline = champions you saved with 🧬. When on, they start generation 0, so good genes carry over between runs."><small>BLOODLINE <i>?</i></small>
+        <span className="fe-blood-row"><input type="checkbox" checked={blood} onChange={e => setBlood(e.target.checked)} /><span>{blood ? 'Breeding from saved champions' : 'Fresh random start'}</span></span></label>
     </div>
-    <label className="m-toggle fe-blood"><input type="checkbox" checked={blood} onChange={e => setBlood(e.target.checked)} /><span>Breed from bloodline (saved champions seed gen 0)</span></label>
     <button type="button" className="m-btn primary m-go wide" disabled={busy} onClick={run} data-testid="fe-run">{busy ? 'Breeding…' : d ? '🧬 Evolve again (new seed)' : '🧬 Evolve'}</button>
     {d && <>
-      <div className="fe-chart" aria-label="Best fitness per generation">{d.history.map((h, i) => <i key={h.gen} className={i < shown ? 'on' : ''} style={{ transform: `scaleY(${i < shown ? Math.max(0.04, h.best / top) : 0.02})` }} title={`Gen ${h.gen}: best ${h.best} · avg ${h.avg}`} />)}</div>
+      <div className="fe-chart" aria-label="Best fitness per generation" data-tip="Each bar = the best basket's score in that generation. It never drops (the best always survives).">{d.history.map((h, i) => <i key={h.gen} className={i < shown ? 'on' : ''} style={{ transform: `scaleY(${i < shown ? Math.max(0.04, h.best / top) : 0.02})` }} title={`Gen ${h.gen}: best ${h.best} · avg ${h.avg}`} />)}</div>
       <div className="fe-meta m-dim"><span>{d.pool} live pools in the gene pool</span><span>{d.evaluated} baskets tested</span><span>gen {Math.min(shown, d.history.length)}/{d.history.length}</span>{d.seeded > 0 && <span>🧬 {d.seeded} bloodline seeds</span>}</div>
       {done && <div className="fe-champs">{d.champions.map((c, i) => <article key={c.pools.join()} className={`fe-champ ${i === 0 ? 'is-top' : ''}`} style={{ animationDelay: `${i * 70}ms` }}>
         <FuseCard c={c} style={d.style || style} rank={i} />

@@ -4,6 +4,7 @@ import { apiUrl } from '../lib/api';
 import { useWallet } from '../hooks/useWallet';
 import { fuseOrders, orderMatches } from '../lib/fuseGo';
 import { readChatSession } from '../lib/chatSession';
+import { impactPercent } from '../lib/impactGuard';
 
 // ⚡ One-click Fuse in. Quote + simulate every leg in parallel (refreshed every 10s while open), show the exact
 // review (coin, SOL in, est. out, fee), ONE wallet approval for all legs, then send + confirm each leg live.
@@ -14,6 +15,14 @@ async function api(path, body) {
 }
 const b64 = u8 => btoa(String.fromCharCode(...u8));
 const outOf = o => { const dec = o?.output_metadata?.decimals; const raw = o?.quote?.outAmount; return dec == null || raw == null ? null : Number(raw) / 10 ** dec; };
+// What the review screen promises per leg (the "before" half of the receipt).
+export function quoteLine(r) {
+  const q = r.order?.quote || {}; const usd = Number(q.inUsdValue) || 0; const sol = Number(r.request?.amount) || 0;
+  const solUsd = sol > 0 && usd > 0 ? usd / sol : 0;
+  const lamports = ['signatureFeeLamports', 'prioritizationFeeLamports'].reduce((a, k) => a + Number(q[k] || 0), 0);
+  return { sig: r.sig, symbol: r.target?.symbol, sol, usd, tokens: outOf(r.order), feeUsd: usd * (r.order?.feeless_fee?.bps || 0) / 10000,
+    networkUsd: lamports / 1e9 * solUsd, impact: impactPercent(q) };
+}
 const fmt = n => (n == null ? '—' : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n >= 1 ? n.toFixed(2) : n.toPrecision(3));
 
 export function FuseGo({ legs, onClose, fuse }) {
@@ -22,6 +31,7 @@ export function FuseGo({ legs, onClose, fuse }) {
   const [rows, setRows] = useState([]);       // {leg, target, request, order, err, state, sig, skip}
   const [phase, setPhase] = useState('quote'); // quote | review | signing | sending | done
   const seq = useRef(0);
+  const [rcpt, setRcpt] = useState(null);       // after: quoted vs paid (server receipt)
 
   const quoteAll = async () => {
     const plan = fuseOrders(legs, addr); const my = ++seq.current;
@@ -62,6 +72,10 @@ export function FuseGo({ legs, onClose, fuse }) {
         } catch (e) { up(id, { state: 'failed', err: e.message }); }
       }));
       setPhase('done');
+      // After receipt: quoted vs exact fills (fills are read from chain a few seconds after confirm).
+      const quoted = ready.map(r => ({ ...quoteLine(r), sig: landed.find(l => l.pairAddress === r.leg.pairAddress)?.signature })).filter(q => q.sig);
+      if (quoted.length) [4000, 15000, 40000].forEach(ms => setTimeout(() => fetch(apiUrl('/api/reputation/fuses/receipt'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: addr, legs: quoted }) }).then(r => r.json()).then(d => d?.legs && setRcpt(d)).catch(() => {}), ms));
       // Fuse P&L: the server re-checks every signature is your confirmed FEELESS buy (retried while the fill is read).
       const ses = landed.length && readChatSession(addr);
       if (ses) [5000, 20000].forEach(ms => setTimeout(() => fetch(apiUrl('/api/reputation/fuses/position'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -71,8 +85,9 @@ export function FuseGo({ legs, onClose, fuse }) {
     } catch (e) { toast.error(/reject|cancel/i.test(e.message) ? 'Cancelled in your wallet — nothing was sent.' : e.message); setPhase('review'); }
   };
 
-  const totalSol = ready.reduce((a, r) => a + Number(r.request.amount), 0);
-  const feeUsd = ready.reduce((a, r) => a + (Number(r.order.quote?.inUsdValue) || 0) * (r.order.feeless_fee?.bps || 0) / 10000, 0);
+  const lines = ready.map(quoteLine);
+  const tot = lines.reduce((a, l) => ({ sol: a.sol + l.sol, usd: a.usd + l.usd, fee: a.fee + l.feeUsd, net: a.net + l.networkUsd }), { sol: 0, usd: 0, fee: 0, net: 0 });
+  const usd2 = v => `$${(v || 0).toFixed(v > 0 && v < 0.1 ? 3 : 2)}`;
   if (!addr) return <div className="fg"><p className="m-dim">Connect a Solana wallet to fuse in — one approval covers every pool.</p>
     <div className="fg-acts"><button type="button" className="m-btn primary m-go" onClick={() => (wallet && switchTo ? switchTo('solana') : connect?.('solana'))}>Connect Solana wallet</button><button type="button" className="m-btn" onClick={onClose}>Back</button></div></div>;
   return <div className="fg" data-testid="fuse-go">
@@ -82,10 +97,20 @@ export function FuseGo({ legs, onClose, fuse }) {
       <span className="m-num m-dim">{r.skip || r.err || (r.order ? `≈ ${fmt(outOf(r.order))} ${r.target.symbol}` : 'quoting…')}</span>
       <em>{r.state === 'confirmed' ? <a href={`https://solscan.io/tx/${r.sig}`} target="_blank" rel="noopener noreferrer">✓ done</a> : r.state === 'failed' ? '✕ failed' : r.state ? '… landing' : r.order ? '✓ simulated' : ''}</em></li>)}</ul>
     {phase !== 'done' ? <>
-      <div className="fg-sum"><span>{ready.length} swap{ready.length === 1 ? '' : 's'} · {totalSol.toFixed(4)} SOL</span><span className="m-dim">FEELESS fee ≈ ${feeUsd.toFixed(2)}</span></div>
+      {lines.length > 0 && <div className="fg-rcpt" data-testid="fg-before"><div className="fg-rcpt-head"><span className="m-label">RECEIPT · BEFORE YOU SIGN</span></div>
+        <table><thead><tr><th>Coin</th><th>Pay</th><th>Get ≈</th><th>FEELESS fee</th><th>Network</th><th>Impact</th></tr></thead>
+          <tbody>{lines.map(l => <tr key={l.symbol}><td>{l.symbol}</td><td>{l.sol} SOL<small>{usd2(l.usd)}</small></td><td>{fmt(l.tokens)}</td><td>{usd2(l.feeUsd)}</td><td>{usd2(l.networkUsd)}</td><td className={l.impact > 1 ? 'm-neg' : ''}>{l.impact != null ? `${l.impact.toFixed(2)}%` : '—'}</td></tr>)}</tbody>
+          <tfoot><tr><td>Total</td><td>{tot.sol.toFixed(4)} SOL<small>{usd2(tot.usd)}</small></td><td /><td>{usd2(tot.fee)}</td><td>{usd2(tot.net)}</td><td /></tr></tfoot></table>
+        <p className="fg-rcpt-note">Costs {usd2(tot.fee + tot.net)} = <b>{tot.usd ? ((tot.fee + tot.net) / tot.usd * 100).toFixed(1) : 0}%</b> of {usd2(tot.usd)}. {tot.usd && (tot.fee + tot.net) / tot.usd > 0.05 ? 'High for this size — fewer pools or more SOL keeps more working.' : 'Quotes refresh every 10s until you sign.'}</p></div>}
       <div className="fg-acts"><button type="button" className="m-btn primary m-go" disabled={!ready.length || phase !== 'review'} onClick={signAll} data-testid="fg-sign">{phase === 'signing' ? 'Waiting for wallet…' : phase === 'sending' ? 'Sending…' : `⚡ Approve ${ready.length} swap${ready.length === 1 ? '' : 's'} · 1 click`}</button>
         <button type="button" className="m-btn" disabled={['signing', 'sending'].includes(phase)} onClick={onClose}>Cancel</button></div>
       <small className="m-dim">Each pool is a normal swap your wallet signs. You approve them together; each lands on its own.</small>
-    </> : <div className="fg-acts"><button type="button" className="m-btn" onClick={onClose}>Done</button></div>}
+    </> : <>
+      <div className="fg-rcpt is-after" data-testid="fg-after"><div className="fg-rcpt-head"><span className="m-label">RECEIPT · AFTER</span><small className="m-dim">{!rcpt ? 'reading exact fills from chain…' : rcpt.settled ? 'exact fills' : 'some fills still landing'}</small></div>
+        {rcpt && <table><thead><tr><th>Coin</th><th>Quoted</th><th>Paid</th><th>Fees</th><th>Got</th><th>Slip</th></tr></thead>
+          <tbody>{rcpt.legs.map(l => <tr key={l.sig}><td>{l.symbol}</td><td>{usd2(l.quotedUsd)}</td><td>{l.pending ? '…' : usd2(l.paidUsd)}</td><td>{l.pending ? '…' : usd2(l.paidFeesUsd)}</td><td>{l.pending ? '…' : fmt(l.gotTokens)}</td>
+            <td className={l.slippagePct > 1 ? 'm-neg' : 'm-pos'}>{l.slippagePct == null ? '—' : `${l.slippagePct.toFixed(2)}%`}</td></tr>)}</tbody>
+          <tfoot><tr><td>Total</td><td>{usd2(rcpt.quotedUsd)}</td><td>{usd2(rcpt.paidUsd)}</td><td>{usd2(rcpt.paidFeesUsd)}</td><td colSpan={2}>{rcpt.feePct}% in fees</td></tr></tfoot></table>}</div>
+      <div className="fg-acts"><button type="button" className="m-btn" onClick={onClose}>Done</button></div></>}
   </div>;
 }

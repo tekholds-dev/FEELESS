@@ -37,3 +37,21 @@ def test_outlook_is_honest_until_proven():
     o = hq.outlook([{'style': 'yield', 'runs': 4, 'avgPct': 3.0, 'winRate': 75}])
     assert o['proven'] and o['per1'] == 1.03 and o['per100'] == 103.0 and 'not a promise' in o['note']
     assert hq.outlook([{'style': 'degen', 'runs': 5, 'avgPct': -4.0, 'winRate': 20}])['proven'] is False
+
+
+def test_receipt_before_after_and_pending():
+    q = [{'sig': 'A', 'symbol': 'AAA', 'usd': 5, 'tokens': 100, 'feeUsd': 0.05, 'networkUsd': 0.02}, {'sig': 'B', 'symbol': 'BBB', 'usd': 5, 'tokens': 10, 'feeUsd': 0.05, 'networkUsd': 0.02}]
+    r = hq.receipt(q, {'A': {'usd': 5.03, 'tokens': 98, 'feelessFeeUsd': 0.05, 'networkUsd': 0.01, 'via': 'chain'}})
+    a, b = r['legs']
+    assert a['slippagePct'] == 2.0 and a['exact'] and a['paidFeesUsd'] == 0.06 and b['pending'] and not r['settled']
+    assert r['quotedFeesUsd'] == 0.14 and r['paidUsd'] == 5.03
+    full = hq.receipt(q, {'A': {'usd': 5, 'tokens': 100}, 'B': {'usd': 5, 'tokens': 10}})
+    assert full['settled'] and full['feePct'] == 0.0
+
+
+def test_autopilot_once_per_hour_per_style_and_trust_rank():
+    arena = [{'style': 'yield', 'auto': True, 'at': 1000}, {'style': 'degen', 'at': 1000}]
+    assert not hq.autopilot_due(arena, 'yield', 2000) and hq.autopilot_due(arena, 'yield', 5000)
+    assert hq.autopilot_due(arena, 'degen', 2000)                       # manual entries don't block autopilot
+    assert hq.trust_rank(60, 0, 0) == 60 and hq.trust_rank(60, 10, 10) == 75 and hq.trust_rank(60, 1, 1) == 63
+    assert hq.trust_rank(60, 10, 2) < hq.trust_rank(60, 10, 9)

@@ -2708,6 +2708,7 @@ async def _fuse_view(fid, f, store):
             'index': _fuse.index(f['legs'], f.get('basePrices') or {}, now_px), 'score': _fuse.score(metas, sum(1 for leg in f['legs'] if pairs.get(leg['pairAddress']) and _fuse_risky(pairs[leg['pairAddress']]))),
             'tvlUsd': round(sum(m['liquidityUsd'] for m in metas)), 'volume24h': round(sum(m['volume24h'] for m in metas)),
             'aprEst': round(sum(m['aprEst'] * m['weight'] for m in metas) / max(1, sum(m['weight'] for m in metas)), 1),
+            'trust': {'buyers': len({b['wallet'] for b in buys}), 'trusted': len({b['wallet'] for b in buys if not b.get('selfDeal') and not b.get('bot')})},
             'stats': {'buys': len(buys), 'volumeUsd': round(sum(b['usd'] for b in buys), 2), 'creatorEarnedUsd': earned, 'creatorPaidUsd': paid, 'creatorOwedUsd': round(max(0.0, earned - paid), 6)}}
 
 
@@ -2715,7 +2716,7 @@ async def _fuse_view(fid, f, store):
 async def fuses_list():
     store = _json_load(FUSES_PATH, {'fuses': {}})
     rows = await asyncio.gather(*[_fuse_view(fid, f, store) for fid, f in store['fuses'].items() if f.get('enabled', True)])
-    return {'fuses': sorted(rows, key=lambda r: -r['score']['points'])}
+    return {'fuses': sorted(rows, key=lambda r: -_hq.trust_rank(r['score']['points'], r['trust']['buyers'], r['trust']['trusted']))}
 
 
 @app.get('/api/reputation/fuses/search')
@@ -2868,6 +2869,20 @@ async def fuse_position(p: FusePositionIn):
     return {'ok': True, 'counted': True, 'legs': len(legs)}
 
 
+class FuseReceiptIn(BaseModel):
+    address: str
+    legs: list          # [{sig, symbol, usd, tokens, feeUsd, networkUsd}] as quoted on the review screen
+
+
+@app.post('/api/reputation/fuses/receipt')
+async def fuse_receipt(p: FuseReceiptIn):
+    """Before vs after: what the review screen quoted vs what each confirmed FEELESS trade actually cost (exact fill)."""
+    mine = set(linked_of(primary_of(p.address))) | {primary_of(p.address), p.address}
+    sigs = {str(x.get('sig') or '') for x in (p.legs or [])[:_fuse.MAX_LEGS]}
+    actual = {x['tx']: x for w, rows in _json_load(FEELESS_TRADES_PATH, {}).items() if w in mine for x in rows or [] if x.get('tx') in sigs}
+    return _hq.receipt((p.legs or [])[:_fuse.MAX_LEGS], actual)
+
+
 async def _hq_prices(legs):
     pairs = await _fuse_pairs([{'chainId': leg.get('chainId', 'solana'), 'pairAddress': leg['pairAddress']} for leg in legs])
     return {k: _fuse._f(v.get('priceUsd')) for k, v in pairs.items()}
@@ -2882,6 +2897,103 @@ async def fuse_pnl(address: str):
     return {**_hq.book(rows), 'rows': rows[:20]}
 
 
+_fuse_holders_cache: dict = {}
+
+
+@app.get('/api/reputation/fuses/holders')
+async def fuse_holders():
+    """Fuse holders board (Fuse chat side panel): every wallet with verified Fuse positions, live P&L, best first. 60s cache."""
+    hit = _fuse_holders_cache.get('all')
+    if hit and time.time() - hit[0] < 60:
+        return hit[1]
+    pos = _json_load(FUSE_HQ_PATH, {}).get('positions') or []
+    px = await _hq_prices([leg for x in pos for leg in x['legs']]) if pos else {}
+    by = {}
+    for x in pos:
+        r = _hq.position_pnl(x, px)
+        a = by.setdefault(x['wallet'], {'address': x['wallet'], 'handle': handle_of(x['wallet']), 'fuses': 0, 'costUsd': 0.0, 'valueUsd': 0.0, 'lastAt': 0, 'names': []})
+        a['fuses'] += 1; a['costUsd'] += r['costUsd']; a['valueUsd'] += r['valueUsd']; a['lastAt'] = max(a['lastAt'], x.get('at') or 0)
+        if r.get('name') and r['name'] not in a['names']:
+            a['names'].append(r['name'])
+    rows = [{**a, 'names': a['names'][:3], 'costUsd': round(a['costUsd'], 2), 'pnlPct': round((a['valueUsd'] / a['costUsd'] - 1) * 100, 2) if a['costUsd'] else 0.0}
+            for a in by.values()]
+    out = {'holders': sorted(rows, key=lambda r: -r['pnlPct'])[:50], 'total': len(rows)}
+    for r in out['holders']:
+        r.pop('valueUsd', None)
+    _fuse_holders_cache['all'] = (time.time(), out)
+    return out
+
+
+async def _arena_settle(px=None, now=None):
+    """Close every arena run older than 24h at today's prices, once. Returns the saved store."""
+    now = now or time.time()
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {})
+        due = [e for e in d.get('arena') or [] if not e.get('close') and now - e['at'] >= _hq.ARENA_HOURS * 3600]
+        if due:
+            px = px if px is not None else await _hq_prices([leg for e in due for leg in e['legs']])
+            for e in due:
+                e['close'] = {leg['pairAddress']: px.get(leg['pairAddress']) or leg['start'] for leg in e['legs']}; e['closedAt'] = now
+            _json_save(FUSE_HQ_PATH, d)
+    return d
+
+
+async def _fuse_autopilot_tick(now=None):
+    """Hourly: settle due arena runs, then enter each strategy's current champion ($5 paper, 3 pools) once per hour —
+    the arena proves strategies on its own. Then alert Cmd Ctr about wallets newly flagged as bots."""
+    now = now or time.time()
+    await _arena_settle(now=now)
+    arena = _json_load(FUSE_HQ_PATH, {}).get('arena') or []
+    styles = [st for st in _fuse.STYLES if _hq.autopilot_due(arena, st, now)]
+    if styles:
+        metas, sol_usd = await asyncio.gather(_fuse_candidates(), _sol_usd_live())
+        if len(metas) >= 3:
+            runs = await asyncio.gather(*[asyncio.to_thread(_fuse.evolve, metas, 3, 14, 28, st, 5 / sol_usd, sol_usd, int(now // 3600)) for st in styles])
+            champs = [(st, _champ_view(ev['champions'][0], metas)) for st, ev in zip(styles, runs) if ev['champions']]
+            prices = await _hq_prices([leg for _, c in champs for leg in c['legs']])
+            async with _admin_lock:
+                d = _json_load(FUSE_HQ_PATH, {})
+                for st, c in champs:
+                    if _hq.autopilot_due(d.get('arena') or [], st, now):
+                        d['arena'] = ((d.get('arena') or []) + [{**_hq.arena_entry(c, st, prices, now, uuid.uuid4().hex[:10]), 'auto': True}])[-300:]
+                _json_save(FUSE_HQ_PATH, d)
+    await _shield_alerts()
+
+
+async def _shield_alerts():
+    """Bot shield → Cmd Ctr inbox: each wallet newly judged 'bot' is reported once to every admin wallet (cited)."""
+    rows = _shield_scan_all()
+    d = _json_load(SHIELD_PATH, {})
+    told = set(d.get('alerted') or [])
+    new = [r for r in rows if r['verdict'] == 'bot' and not r.get('manual') and r['address'] not in told]
+    for r in new[:20]:
+        claim = r['hits'][0]['evidence'][0] if r['hits'] else {'claim': r['why'], 'source': 'Bot shield'}
+        for adm in _admin_wallets():
+            notify(adm, 'shield', f"🛡 Bot shield flagged {r['address'][:4]}…{r['address'][-4:]} ({r['score']}): {claim['claim']}",
+                   url='/terminal/command', once=f"shield-{r['address']}", meta={'claim': claim['claim'], 'source': claim['source']}, push=False)
+        told.add(r['address'])
+    if new:
+        d['alerted'] = sorted(told)[-5000:]
+        _json_save(SHIELD_PATH, d)
+    return len(new)
+
+
+async def _fuse_autopilot_loop():
+    await asyncio.sleep(90)
+    while True:
+        try:
+            await _fuse_autopilot_tick()
+        except Exception as e:
+            print('fuse autopilot:', e)
+        await asyncio.sleep(_hq.AUTOPILOT_EVERY)
+
+
+@app.on_event('startup')
+async def _fuse_autopilot_start():
+    if not os.environ.get('PYTEST_CURRENT_TEST'):
+        asyncio.create_task(_fuse_autopilot_loop())
+
+
 @app.get('/api/reputation/admin/fuses/hq')
 async def fuse_hq_admin(request: Request):
     """Cmd Ctr › Fuse HQ: everyone's Fuse P&L, the paper arena (settles at 24h), bloodlines, published-Fuse health."""
@@ -2891,14 +3003,8 @@ async def fuse_hq_admin(request: Request):
     pos, arena = d.get('positions') or [], d.get('arena') or []
     px = await _hq_prices([leg for x in pos for leg in x['legs']] + [leg for e in arena if not e.get('close') for leg in e['legs']])
     vals = [_hq.arena_value(e, px, now) for e in arena]
-    due = [v for v in vals if v['due']]
-    if due:   # settle at today's prices, once
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {})
-            for e in d.get('arena') or []:
-                if any(v['id'] == e['id'] for v in due) and not e.get('close'):
-                    e['close'] = {leg['pairAddress']: px.get(leg['pairAddress']) or leg['start'] for leg in e['legs']}; e['closedAt'] = now
-            _json_save(FUSE_HQ_PATH, d)
+    if any(v['due'] for v in vals):
+        d = await _arena_settle(px, now)
         vals = [_hq.arena_value(e, px, now) for e in d.get('arena') or []]
     rows = [_hq.position_pnl(x, px) for x in pos]
     board = _hq.arena_board(vals)
@@ -2955,6 +3061,43 @@ async def fuse_health(request: Request):
         out.append({'id': fid, 'name': f.get('name'), 'emoji': f.get('emoji'), **_hq.health(mine, champ['champions'][0]['fitness'] if champ['champions'] else 0),
                     'suggest': champ['champions'][0]['pools'] if champ['champions'] else []})
     return {'fuses': out}
+
+
+async def _fuse_candidates(chain='solana'):
+    """The gene pool: best ~40 live pools across popular / yield / deep / new (one row per pool)."""
+    raw = await _fuse_discover_pairs(chain)
+    cands = {}
+    for lens in _fuse.LENSES:
+        for r in _fuse.discover(raw, lens, chain, now_ms=time.time() * 1000, limit=12):
+            cands.setdefault(r['pairAddress'], r)
+    return dict(list(cands.items())[:40])
+
+
+def _champ_view(c, metas, chain='solana'):
+    return {**c, 'legs': [{**{k: metas[pa].get(k) for k in ('symbol', 'quote', 'dex', 'logo', 'liquidityUsd', 'aprEst', 'change24h', 'baseAddress', 'quoteAddress')},
+                           'chainId': chain, 'pairAddress': pa, 'weight': c['weights'][pa]} for pa in c['pools']]}
+
+
+_fuse_prebuilt_cache: dict = {}
+
+
+@app.get('/api/reputation/fuses/prebuilt')
+async def fuses_prebuilt(request: Request, legs: int = Query(3, ge=2, le=10), budget: float = Query(20, ge=1, le=10000)):
+    """Discover rail: the best basket for EACH strategy right now (bred from live pools), with that strategy's arena record.
+    Traders get 3-pool baskets; Cmd Ctr may ask for up to 10. Cached 5 min per size."""
+    legs = legs if _is_admin_req(request) else min(legs, _fuse.USER_MAX_LEGS)
+    key = (legs, 5 if budget < 12 else 20 if budget < 60 else 100)
+    hit = _fuse_prebuilt_cache.get(key)
+    if hit and time.time() - hit[0] < 300:
+        return hit[1]
+    metas, sol_usd = await asyncio.gather(_fuse_candidates(), _sol_usd_live())
+    board = {r['style']: r for r in _hq.arena_board([_hq.arena_value(e, {}, time.time()) for e in _json_load(FUSE_HQ_PATH, {}).get('arena') or []])}
+    seed = int(time.time() // 300)
+    runs = await asyncio.gather(*[asyncio.to_thread(_fuse.evolve, metas, legs, 14, 28, st, key[1] / sol_usd, sol_usd, seed) for st in _fuse.STYLES])
+    cards = [{'style': st, 'arena': board.get(st), **_champ_view(ev['champions'][0], metas)} for st, ev in zip(_fuse.STYLES, runs) if ev['champions']]
+    out = {'legs': legs, 'budgetUsd': key[1], 'solUsd': sol_usd, 'cards': sorted(cards, key=lambda c: -((c['arena'] or {}).get('avgPct') or -999))}
+    _fuse_prebuilt_cache[key] = (time.time(), out)
+    return out
 
 
 class FuseLiteIn(BaseModel):
@@ -4873,10 +5016,8 @@ def _fuse_rep(a):
     return {'label': f'Fuse creator: {real} outside buyer(s)' + (f', {selfd} self-buy(s)' if selfd else ''), 'points': pts} if pts else None
 
 
-@app.get('/api/reputation/admin/shield')
-async def shield_admin(request: Request, verdict: str = Query('flagged')):
-    """Cmd Ctr › Security › Bot shield: scan every known wallet with every engine (data loaded once)."""
-    _require_admin(request)
+def _shield_scan_all():
+    """Every known wallet through every engine, data loaded once (Cmd Ctr list + hourly alerts)."""
     qs = _json_load(QUEST_STATE_PATH, {})
     trades_all = _json_load(FEELESS_TRADES_PATH, {})
     chat_all = [m for ms in _chat_load()['rooms'].values() for m in ms if isinstance(m, dict) and not m.get('system')]
@@ -4890,6 +5031,14 @@ async def shield_admin(request: Request, verdict: str = Query('flagged')):
         r = _shield.scan(_shield_features(w, ck_all, trades_all, chat_all), protected=w in prot, manual=manual.get(w))
         _shield_cache[w] = (time.time(), r)
         rows.append({'address': w, **r, 'manual': manual.get(w)})
+    return rows
+
+
+@app.get('/api/reputation/admin/shield')
+async def shield_admin(request: Request, verdict: str = Query('flagged')):
+    """Cmd Ctr › Security › Bot shield: scan every known wallet with every engine."""
+    _require_admin(request)
+    rows = _shield_scan_all()
     counts = {k: sum(1 for r in rows if r['verdict'] == k) for k in ('bot', 'watch', 'clean')}
     engines = {e.__name__: sum(1 for r in rows for h in r['hits'] if h['engine'] == e.__name__) for e in _shield.ENGINES}
     shown = [r for r in rows if verdict == 'all' or (verdict == 'flagged' and r['verdict'] != 'clean') or r['verdict'] == verdict]

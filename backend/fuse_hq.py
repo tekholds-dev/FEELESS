@@ -102,3 +102,40 @@ def outlook(board):
     return {'proven': best['avgPct'] > 0, 'style': best['style'], 'avgPct': best['avgPct'], 'winRate': best['winRate'], 'runs': best['runs'],
             'per1': round(1 + best['avgPct'] / 100, 3), 'per100': round(100 * (1 + best['avgPct'] / 100), 2),
             'note': f"{best['runs']} settled $5 runs, {best['winRate']}% won. Past 24h results, not a promise."}
+
+
+def receipt(quoted, actual):
+    """Before vs after for one Fuse in. quoted = [{sig, symbol, usd, tokens, feeUsd, networkUsd}] from the review screen;
+    actual = {sig: FEELESS trade record (usd, tokens, feelessFeeUsd, networkUsd, via)}. Missing fills show as pending."""
+    legs, tot = [], {'quotedUsd': 0.0, 'paidUsd': 0.0, 'quotedFeesUsd': 0.0, 'paidFeesUsd': 0.0}
+    for q in quoted:
+        a = actual.get(q.get('sig')) or {}
+        row = {'symbol': q.get('symbol'), 'sig': q.get('sig'), 'quotedUsd': round(_f(q.get('usd')), 4), 'quotedTokens': _f(q.get('tokens')),
+               'quotedFeesUsd': round(_f(q.get('feeUsd')) + _f(q.get('networkUsd')), 4), 'pending': not a}
+        tot['quotedUsd'] += row['quotedUsd']; tot['quotedFeesUsd'] += row['quotedFeesUsd']
+        if a:
+            paid, got = _f(a.get('usd')), _f(a.get('tokens'))
+            fees = _f(a.get('feelessFeeUsd')) + _f(a.get('networkUsd'))
+            row.update(paidUsd=round(paid, 4), gotTokens=got, paidFeesUsd=round(fees, 4), exact=a.get('via') == 'chain',
+                       slippagePct=round((row['quotedTokens'] - got) / row['quotedTokens'] * 100, 2) if row['quotedTokens'] > 0 and got > 0 else None)
+            tot['paidUsd'] += paid; tot['paidFeesUsd'] += fees
+        legs.append(row)
+    done = [x for x in legs if not x['pending']]
+    return {'legs': legs, **{k: round(v, 4) for k, v in tot.items()}, 'settled': len(done) == len(legs) and bool(legs),
+            'feePct': round(tot['paidFeesUsd'] / tot['paidUsd'] * 100, 2) if tot['paidUsd'] else round(tot['quotedFeesUsd'] / tot['quotedUsd'] * 100, 2) if tot['quotedUsd'] else 0.0}
+
+
+AUTOPILOT_EVERY = 3600
+
+
+def autopilot_due(arena, style, now, every=AUTOPILOT_EVERY):
+    """True when `style` has no autopilot arena entry in the last `every` seconds (one paper run per style per hour)."""
+    return not any(e.get('style') == style and e.get('auto') and now - e.get('at', 0) < every for e in arena or [])
+
+
+def trust_rank(points, buyers, trusted):
+    """Published Fuse ordering: grade points + up to 15 for a buyer base that is mostly real (not bots / self-buys).
+    Needs ≥5 buyers for the full boost so one friend can't game it."""
+    if not buyers:
+        return float(points)
+    return round(points + 15 * (trusted / buyers) * min(1.0, buyers / 5), 2)
