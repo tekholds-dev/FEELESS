@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { ShareGifButton } from './ShareGif';
 import { apiUrl } from '../lib/api';
 import { useWallet } from '../hooks/useWallet';
 import { readChatSession } from '../lib/chatSession';
@@ -481,4 +482,29 @@ export function FuseReceipts({ address }) {
   return <section className="wp-card fp-receipts" data-testid="fuse-receipts"><h3>Fuse receipts</h3><ol>{d.receipts.map(r => <li key={r.id}>
     <b>{r.name}</b><small className="m-dim">{r.legs.map(l => l.symbol).join(' · ')} · {new Date((r.at || 0) * 1000).toLocaleDateString()} → {r.closedAt ? new Date(r.closedAt * 1000).toLocaleDateString() : 'open'}</small>
     <span className={r.pnlUsd >= 0 ? 'm-pos' : 'm-neg'}>{m$(r.pnlUsd)} ({pc(r.pnlPct)})</span><small className="m-dim">in {m$(r.costUsd)} · out {m$(r.realizedUsd || r.valueUsd)}</small></li>)}</ol></section>;
+}
+
+// ---- Profile top › 🃏 Trader card: the wallet's Fuse record in one strip — score, season medals, battle W/L/D, FeeCat wins,
+// held cards P&L — plus a Share GIF and a Post-to-X link. Every number comes from /fuses/score (FEELESS's own records).
+export function TraderCard({ address }) {
+  const [s, setS] = useState(null);
+  useEffect(() => { let alive = true; if (address) fetch(apiUrl(`/api/reputation/fuses/score/${address}`)).then(r => (r.ok ? r.json() : null)).then(x => alive && setS(x)).catch(() => {}); return () => { alive = false; }; }, [address]);
+  if (!s?.cards || !s.trader) return null;
+  const t = s.trader; const b = t.battles || {}; const m = t.medals || {};
+  const medals = [['🥇', m['1']], ['🥈', m['2']], ['🥉', m['3']]].filter(([, n]) => n);
+  const url = `${window.location.origin}/terminal/profile/${address}`;
+  const lines = [`Fuse score ${s.score}/100 · ${s.cards} cards`, `⚔ ${b.w || 0}W ${b.l || 0}L ${b.d || 0}D · 🐱 beat FeeCat ${t.catWins}×`, medals.length ? `Season medals ${medals.map(([e, n]) => `${e}×${n}`).join(' ')}` : `Best card ${t.bestPct >= 0 ? '+' : ''}${t.bestPct}%`];
+  const xText = encodeURIComponent(`My FEELESS ⚛️ Fuse record: score ${s.score} · ${b.w || 0}-${b.l || 0} in Arena battles · best card ${t.bestPct >= 0 ? '+' : ''}${t.bestPct}%`);
+  return <section className="wp-card fp-trader" data-testid="trader-card">
+    <div className="fp-trader-score" style={{ '--deg': `${Math.max(0, Math.min(100, s.score)) * 3.6}deg` }} data-tip={`Performance ${s.perf}/75 + reputation ${s.rep}/25`}><span><b className="m-num">{s.score}</b><small>FUSE</small></span></div>
+    <div className="fp-trader-stats">
+      <div data-tip="Crowned in a weekly Fuse season (top 3)"><small>SEASON MEDALS</small><b>{medals.length ? medals.map(([e, n]) => <span key={e}>{e}<em>×{n}</em></span>) : <em className="m-dim">none yet</em>}</b></div>
+      <div data-tip="Arena battles: the card that moved more since the bell wins"><small>BATTLES</small><b className="m-num">{b.w || 0}<i>W</i> {b.l || 0}<i>L</i> {b.d || 0}<i>D</i></b></div>
+      <div data-tip="Weeks a card of theirs beat FeeCat's average trade"><small>🐱 FEECAT WINS</small><b className="m-num">{t.catWins}</b></div>
+      <div data-tip="Cards they hold right now, live P&L"><small>HELD CARDS</small><b className={`m-num ${t.heldPnlUsd >= 0 ? 'm-pos' : 'm-neg'}`}>{t.held} · {t.heldPnlUsd >= 0 ? '+' : '−'}${Math.abs(t.heldPnlUsd).toFixed(2)}</b></div>
+      <div data-tip="Other traders who copied one of their cards"><small>COPIED</small><b className="m-num">{t.copies}×</b></div>
+    </div>
+    <div className="fp-trader-share"><ShareGifButton className="m-btn" label="🎞 Share card" card={{ mascot: 'feecat', tone: t.heldPnlUsd >= 0 ? 'up' : 'down', kicker: 'FEELESS · FUSE TRADER', title: `Fuse score ${s.score}`, big: `${b.w || 0}-${b.l || 0}`, lines, footer: 'feeless · fuse 🧬' }} />
+      <a className="m-btn" href={`https://x.com/intent/post?text=${xText}&url=${encodeURIComponent(url)}`} target="_blank" rel="noopener noreferrer" data-testid="trader-x">𝕏 Post</a></div>
+  </section>;
 }

@@ -53,3 +53,12 @@ test('Fuse vs Vault shows live $1 numbers for both engines', async () => {
   const el = await mount(<VaultMath />);
   expect(el.textContent).toContain('$1 → $1.40'); expect(el.textContent).toContain('+0.40¢/day'); expect(el.textContent).toContain('7,300% APR');
 });
+
+test('trader card: medals, battles, FeeCat wins, held P&L and an X post link', async () => {
+  const { TraderCard } = require('./FusePage');
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ score: 72, perf: 55, rep: 17, cards: 4,
+    trader: { medals: { 1: 1, 2: 0, 3: 2 }, battles: { w: 5, l: 2, d: 1 }, catWins: 2, copies: 3, held: 2, heldPnlUsd: 4.5, bestPct: 61, closed: 2 } }) }));
+  const el = await mount(<TraderCard address={'A'.repeat(43)} />);
+  expect(el.textContent).toContain('🥇×1'); expect(el.textContent).toContain('🥉×2'); expect(el.textContent).not.toContain('🥈');
+  expect(el.textContent).toContain('5W 2L 1D'); expect(el.querySelector('[data-testid="trader-x"]').href).toContain('x.com/intent/post');
+});

@@ -3795,7 +3795,15 @@ async def _fuse_score(address, fresh=False):
     tr = (_trust_cache.get(a) or (0, {}))[1].get('score')
     sh = await _shield_of(a)
     cat_wins = sum(1 for w in _json_load(FUSE_HQ_PATH, {}).get('catChallenge') or [] for cid in w.get('ids') or [] if cid in ids)
-    out = {'address': a, **_hq.fuse_score(rows, wins, copies, tr, bot=sh.get('verdict') == 'bot', cat_wins=cat_wins)}
+    rec = _json_load(FUSE_HQ_PATH, {}).get('battleRecord') or {}
+    bat = {k: sum(int((rec.get(f'user:{cid}') or {}).get(k) or 0) for cid in ids) for k in ('w', 'l', 'd')}
+    medals = {str(r): sum(1 for w in wins if w.get('rank') == r) for r in (1, 2, 3)}
+    held = [r for r in rows if not r.get('closed')]
+    out = {'address': a, **_hq.fuse_score(rows, wins, copies, tr, bot=sh.get('verdict') == 'bot', cat_wins=cat_wins),
+           # Trader page (profile top): the record behind the score, every number from FEELESS's own Fuse records
+           'trader': {'medals': medals, 'battles': bat, 'catWins': cat_wins, 'copies': copies, 'held': len(held),
+                      'heldPnlUsd': round(sum(r['pnlUsd'] for r in held), 2), 'bestPct': round(max((r['pnlPct'] for r in rows), default=0.0), 2),
+                      'closed': sum(1 for r in rows if r.get('closed'))}}
     _fuse_score_cache[a] = (time.time(), out)
     return out
 

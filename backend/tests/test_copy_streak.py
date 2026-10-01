@@ -226,3 +226,17 @@ def test_an_empty_battlefield_pairs_as_soon_as_two_cards_arrive(rs):
                                               {'kind': 'lit', 'id': 'b', 'name': 'B', 'index': 101, 'activity': {'score': 9}}])
     asyncio.run(rs._battle_tick(now))
     assert len(rs._json_load(rs.FUSE_HQ_PATH, {})['battles']['pairs']) == 1
+
+
+def test_trader_record_medals_battles_cat_wins(rs, monkeypatch):
+    async def shield(a): return {'verdict': 'clean'}
+    monkeypatch.setattr(rs, '_shield_of', shield)
+    now = time.time()
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'k1', 'wallet': A, 'at': now - 86400, 'legs': [{'pairAddress': 'P1', 'usd': 10, 'tokens': 5}]},
+                                                  {'id': 'k2', 'wallet': A, 'at': now - 86400, 'closedAt': now, 'legs': [{'pairAddress': 'P1', 'usd': 10, 'tokens': 5, 'soldUsd': 14}]}],
+                                    'seasons': [{'week': 1, 'top': [{'id': 'k1', 'rank': 1, 'wallet': A}, {'id': 'zz', 'rank': 2, 'wallet': 'other'}]}],
+                                    'battleRecord': {'user:k1': {'w': 3, 'l': 1, 'd': 0}, 'user:k2': {'w': 1, 'l': 0, 'd': 2}, 'user:other': {'w': 9}},
+                                    'catChallenge': [{'week': 1, 'ids': ['k1']}]})
+    t = asyncio.run(rs._fuse_score(A, fresh=True))['trader']
+    assert t['medals'] == {'1': 1, '2': 0, '3': 0} and t['battles'] == {'w': 4, 'l': 1, 'd': 2} and t['catWins'] == 1
+    assert t['held'] == 1 and t['closed'] == 1 and t['bestPct'] >= 40

@@ -315,3 +315,18 @@ body.fx-lite .eng-sug.is-on { animation: none; }
 .fops-what { margin: 0; font-size: 12px; line-height: 1.5; }
 body.theme-day .fops-tile, body.theme-day .fops-box { background: var(--m-surface-2); } body.theme-day .fops-fight { background: var(--m-surface); }
 @media (max-width: 640px) { .fops-fight { grid-template-columns: 1fr; } .fops-fight > span:last-child { text-align: left; } }
+
+/* Profile top › 🃏 Trader card (TraderCard). */
+.fp-trader { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 14px 16px; margin: 10px 0;
+  border: 1px solid color-mix(in srgb, var(--m-accent) 40%, var(--m-line)); background: linear-gradient(120deg, color-mix(in srgb, #b46bff 10%, transparent), transparent 55%), var(--m-surface); animation: mCardIn .25s var(--m-ease); }
+.fp-trader-score { width: 76px; height: 76px; border-radius: 50%; padding: 5px; display: grid; background: conic-gradient(var(--m-accent) var(--deg), var(--m-line) 0); }
+.fp-trader-score > span { border-radius: 50%; background: var(--m-bg); display: grid; place-items: center; align-content: center; } .fp-trader-score b { font-size: 22px; } .fp-trader-score small { font-family: var(--m-mono); font-size: 8px; letter-spacing: .16em; color: var(--m-dim); }
+.fp-trader-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.fp-trader-stats > div { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--m-line); background: var(--m-bg); transition: border-color .15s, transform .15s; }
+.fp-trader-stats > div:hover { border-color: var(--m-line-hi); transform: translateY(-1px); }
+.fp-trader-stats small { font-family: var(--m-mono); font-size: 8.5px; letter-spacing: .12em; color: var(--m-dim); } .fp-trader-stats b { font-size: 15px; display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.fp-trader-stats b i, .fp-trader-stats b em { font-style: normal; font-size: 10px; color: var(--m-dim); }
+.fp-trader-share { display: grid; gap: 6px; } .fp-trader-share a.m-btn { text-decoration: none; }
+body.theme-day .fp-trader { background: var(--m-surface-2); } body.theme-day .fp-trader-stats > div, body.theme-day .fp-trader-score > span { background: var(--m-surface); }
+@media (prefers-reduced-motion: reduce) { .fp-trader { animation: none; } }
+@media (max-width: 640px) { .fp-trader { grid-template-columns: auto 1fr; } .fp-trader-share { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; } }
