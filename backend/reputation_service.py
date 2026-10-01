@@ -25,6 +25,7 @@ import nft_studio
 import coin_meta
 from ecosystem import ecosystem_mints
 import asyncio
+import math
 import contextvars
 import trade_fills
 import collections
@@ -4511,6 +4512,73 @@ async def _runner_start():
         asyncio.create_task(_fuse_warm_loop())
 
 
+# ---- ⭐ ARENA PRIME (backend/arena_prime.py): FEELESS's top-tier cards, FULLY AUTO on paper — the proof before configs go live ----
+import arena_prime as _prime
+
+
+def _prime_cfg():
+    return _prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cfg') or {})
+
+
+async def _prime_candidates():
+    """Pools: the deepest busy pools from the Fuse gene pool. Runners: pre-bond coins passing every runner gate, best first."""
+    metas = await _fuse_candidates()
+    pools = sorted(({'mint': m.get('baseAddress'), 'pairAddress': pa, 'symbol': m.get('symbol'), 'price': m.get('priceUsd'),
+                     'rank': min(400.0, _fuse._f(m.get('aprEst'))) * math.log10(max(10.0, _fuse._f(m.get('liquidityUsd'))))} for pa, m in metas.items()
+                    if m.get('baseAddress') and _fuse._f(m.get('priceUsd')) > 0 and _fuse._f(m.get('liquidityUsd')) >= 100_000), key=lambda x: -x['rank'])
+    live = await _runner_live()
+    runners = [{'mint': r['mint'], 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'price': r.get('price')} for r in live.get('passing') or [] if _fuse._f(r.get('price')) > 0]
+    return pools, runners
+
+
+async def _prime_tick(now):
+    cfg = _prime_cfg()
+    if not cfg['on']:
+        return 0
+    pools, runners = await _prime_candidates()
+    d = _json_load(FUSE_HQ_PATH, {})
+    cards = dict((d.get('prime') or {}).get('cards') or {})
+    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for c in cards.values() for l in c['legs']]) if cards else {}
+    for tid in _prime.TEMPLATES:
+        cur = cards.get(tid)
+        cards[tid] = _prime.tick(cur, px, pools, runners, cfg, now) if cur else _prime.deal(tid, pools, runners, cfg, now)
+    cards = {k: v for k, v in cards.items() if v}
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); d.setdefault('prime', {})['cards'] = cards; _json_save(FUSE_HQ_PATH, d)
+    return len(cards)
+
+
+async def _prime_view():
+    cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
+    if not cards:
+        return []
+    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for c in cards.values() for l in c['legs']])
+    return [_prime.summary(c, px) for c in cards.values()]
+
+
+@app.get('/api/reputation/fuses/prime')
+async def fuse_prime():
+    """⭐ Arena Prime cards (paper, fully auto) with every automation event + the config they run."""
+    return {'cards': await _prime_view(), 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES}
+
+
+@app.post('/api/reputation/admin/arena/prime')
+async def fuse_prime_admin(request: Request):
+    """Cmd Ctr › Arena: turn Prime on/off, set size, rotation (hours / coins), compound; reset deals 3 fresh cards."""
+    admin = _require_admin(request)
+    body = await request.json()
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), **(body.get('cfg') or {})})
+        if body.get('reset'):
+            pr['cards'] = {}
+        _json_save(FUSE_HQ_PATH, d)
+    ad = _admin_load(); _audit(ad, admin, 'arena-prime', json.dumps(pr['cfg'])[:160] + (' reset' if body.get('reset') else '')); _admin_save(ad)
+    if body.get('reset'):
+        await _prime_tick(time.time())
+    return {'cfg': pr['cfg'], 'cards': await _prime_view()}
+
+
 async def _fuse_warm_loop():
     """Fuse runs in the background: every 25s the live runner board, Runner discovery, the Arena stage and the season board
     are rebuilt, so every page load is served from a fresh cache and never waits on scans or prices."""
@@ -4536,6 +4604,8 @@ async def _fuse_warm():
     if _fuse_warm_n['n'] % 12 == 1:   # ~5 min: refresh card holders' Fuse scores (feeds their trust score)
         holders = list({x['wallet'] for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or []})[:200]
         await asyncio.gather(*[_fuse_score(w, fresh=True) for w in holders], return_exceptions=True)
+    if _fuse_warm_n['n'] % 12 == 4:   # ~5 min: ⭐ Arena Prime cards run their full automation (paper)
+        await _prime_tick(time.time())
     await _runner_live()
     await _arena_auto_refresh(time.time())
     await asyncio.gather(runners_discover(), fuse_arena_public(), fuse_season(), _sol_usd_live(), return_exceptions=True)

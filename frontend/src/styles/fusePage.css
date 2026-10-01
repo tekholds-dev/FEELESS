@@ -342,3 +342,31 @@ body.theme-day .fp-trader { background: var(--m-surface-2); } body.theme-day .fp
 @media (prefers-reduced-motion: reduce) { .fp-more[open] .fp-acts { animation: none; } }
 @media (max-width: 640px) { .fp-quick { grid-template-columns: 1fr; } }
 .fp-risk { margin-top: 8px; } .fp-more .fp-mode { margin: 4px 8px 8px; }
+
+/* ⭐ Arena Prime + 📜 earnings slide-in. */
+.prime { display: grid; gap: 12px; margin-bottom: 16px; }
+.prime-head { padding: 16px; display: grid; gap: 4px; } .prime-head h3 { margin: 0; font-size: 20px; } .prime-head p { margin: 0; font-size: 12.5px; line-height: 1.5; }
+.prime-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(230px, 1fr); gap: 14px; overflow-x: auto; padding: 12px 6px; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
+.prime-card { display: grid; gap: 8px; justify-items: center; align-content: start; padding: 12px; border-radius: 16px; border: 1px solid var(--m-line); background: var(--m-surface); animation: mCardIn .3s var(--m-ease) backwards; }
+.prime-card.t-degen { border-color: color-mix(in srgb, #ff7a2f 45%, var(--m-line)); } .prime-card.t-safe { border-color: color-mix(in srgb, #6ad7ff 45%, var(--m-line)); }
+.prime-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 100%; }
+.prime-stats span { display: grid; gap: 1px; justify-items: center; padding: 6px; border-radius: 8px; background: var(--m-bg); } .prime-stats small { font-family: var(--m-mono); font-size: 8px; letter-spacing: .12em; color: var(--m-dim); } .prime-stats b { font-size: 13px; }
+.prime-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; }
+.prime-ctl { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: 12px; } .prime-ctl > span { font-family: var(--m-mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--m-dim); }
+.ce-shade { position: fixed; inset: 0; z-index: 9000; background: rgba(2, 6, 4, .55); animation: cxIn .18s ease-out; }
+.ce { position: absolute; right: 0; top: 0; bottom: 0; width: min(420px, 100%); display: grid; grid-template-rows: auto auto auto 1fr; gap: 12px; padding: 18px; overflow-y: auto;
+  background: var(--m-surface); border-left: 1px solid color-mix(in srgb, var(--m-accent) 45%, var(--m-line)); box-shadow: -30px 0 60px -30px #000; animation: ceIn .22s var(--m-ease);
+  scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
+@keyframes ceIn { from { transform: translateX(40px); opacity: 0; } }
+.ce header { position: relative; display: grid; gap: 2px; } .ce header h3 { margin: 0; font-size: 18px; }
+.ce-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.ce-sum > div { display: grid; gap: 2px; padding: 10px; border-radius: 10px; border: 1px solid var(--m-line); background: var(--m-bg); }
+.ce-sum small { font-family: var(--m-mono); font-size: 8.5px; letter-spacing: .12em; color: var(--m-dim); } .ce-sum b { font-size: 18px; } .ce-sum em { font-style: normal; font-size: 10px; color: var(--m-dim); }
+.ce-collect { width: 100%; }
+.ce-tl { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; align-content: start; }
+.ce-tl li { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; padding: 8px 10px; border-left: 3px solid var(--m-line-hi); border-radius: 0 8px 8px 0; background: var(--m-bg); font-size: 12px; animation: mCardIn .2s var(--m-ease) backwards; animation-delay: calc(var(--i) * 40ms); }
+.ce-tl li.k-tp, .ce-tl li.k-sell { border-left-color: var(--m-accent); } .ce-tl li.k-sl { border-left-color: var(--m-danger); } .ce-tl li.k-rotate, .ce-tl li.k-buy { border-left-color: #6ad7ff; } .ce-tl li.k-compound, .ce-tl li.k-topup { border-left-color: var(--m-warn); }
+.ce-tl li em { font-style: normal; } .ce-tl li small { width: 100%; font-size: 10.5px; } .ce-tl time { margin-left: auto; font-family: var(--m-mono); font-size: 10px; }
+body.theme-day .ce, body.theme-day .prime-card { background: var(--m-surface-2); } body.theme-day .ce-sum > div, body.theme-day .ce-tl li, body.theme-day .prime-stats span { background: var(--m-surface); }
+@media (prefers-reduced-motion: reduce) { .ce, .ce-shade, .ce-tl li, .prime-card { animation: none; } }
+.fp-earn { width: 100%; margin-top: 6px; font-size: 11.5px; justify-content: flex-start; }

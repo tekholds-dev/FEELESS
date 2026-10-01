@@ -2,6 +2,8 @@ import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ShareGifButton } from './ShareGif';
 import { RiskDial, DialBoard } from './RiskDial';
+import { ArenaPrime } from './ArenaPrime';
+import { CardEarnings } from './CardEarnings';
 import { RISK_DIALS } from '../lib/riskDial';
 import { apiUrl } from '../lib/api';
 import { useWallet } from '../hooks/useWallet';
@@ -217,7 +219,7 @@ export function ArenaBoard({ onPicks, onLoad }) {
     load(); const t = setInterval(() => !document.hidden && load(), 30000); return () => { alive = false; clearInterval(t); }; }, []);
   const mega = a?.mega || [];
   const top = stageTier(mega);
-  return <section className={`fp-arena ar-tier-${top}`} data-testid="fuse-arena">
+  return <section className={`fp-arena ar-tier-${top}`} data-testid="fuse-arena"><ArenaPrime onLoad={legs => onLoad?.(legs)} />
     <div className="ar-sky" aria-hidden="true">{Array.from({ length: TIER_FX[top].embers + 6 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</div>
     <header className="ar-head m-card m-live"><span className="m-label">🏟 ARENA STAGE · LIVE</span><h2>Cards that made it.</h2>
       <p className="m-dim">Cmd Ctr mega cards, runner cards that lit after their rounds, and every trader's open card until it's withdrawn — cards up big take the top tier. The more real activity a card has — FEELESS buys, buyers, $ flowing through its coins, how far it moved — the hotter it burns.</p>
@@ -357,7 +359,11 @@ export function MyCards({ addr }) {
   return <MyCardsBody d={d} openRows={openRows} act={act} setAct={setAct} open={open} setMode={setMode} setRisk={setRisk} addr={addr} ses={ses} refresh={refresh} />;
 }
 
+const EARN_KIND = { sell: '💰 Profit / sell', buy: '⇄ Switched in', topup: '♻ Compounded / topped up' };
+const sumKind = (r, k) => (r.events || []).filter(e => e.kind === k).reduce((a, e) => a + (e.usd || 0), 0);
+
 function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, addr, ses, refresh }) {
+  const [earn, setEarn] = useState(null);
   const live = useLivePrices(openRows.flatMap(r => r.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress)));
   const held = openRows.length ? liveBook(openRows, live) : { pnlUsd: d.held?.pnlUsd, pnlPct: d.held?.pnlPct, value: d.held?.valueUsd };
   return <section className="fp-cards" data-testid="my-cards">
@@ -375,6 +381,10 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, addr, s
         <SwitchButton r={r} onClick={() => open(r, 'switch')} />
         <button type="button" className="m-btn danger" data-tip="Sell every coin back to SOL — one approval. The card closes and its receipt goes to your profile." onClick={() => open(r, 'withdraw')} data-testid={`act-withdraw-${r.id}`}>↩ Withdraw all</button>
       </div>
+      <button type="button" className="m-btn fp-earn" onClick={() => setEarn(r.id)} data-testid={`act-earn-${r.id}`} data-tip="Profit taken out, profit compounded back in (and where), every move — plus 💸 Collect">📜 Earnings · {m$(r.realizedUsd || 0)} out · {m$(sumKind(r, 'topup'))} compounded</button>
+      {earn === r.id && <CardEarnings title={r.name || 'Your card'} taken={r.realizedUsd || 0} compounded={sumKind(r, 'topup')}
+        events={[...(r.events || [])].reverse().map(e => ({ ...e, label: EARN_KIND[e.kind] || e.kind, to: e.kind === 'sell' ? ['cash'] : e.kind === 'topup' ? [e.symbol] : undefined, symbol: e.kind === 'topup' ? undefined : e.symbol }))}
+        gainNow={Math.max(0, Math.min(r.pnlUsd || 0, (r.valueUsd || 0) - (r.realizedUsd || 0)))} onCollect={() => { setEarn(null); open(r, 'yield', { at: r.autoYield?.at || d.rules?.yieldDefault || 50, levels: d.rules?.yieldLevels || [25, 50, 100, 200] }); }} onClose={() => setEarn(null)} />}
       <details className="fp-more"><summary>⋯ More · rotate · auto-collect · rebalance · limits · replay · charts</summary>
         <div className="m-seg fp-mode" role="radiogroup" aria-label="Card mode">{[['hold', '🔒 Hold · switch by hand', 'The card stays as you built it. You may still switch ONE pool or coin every 24h, your pick.'], ['swap', '🤖 Auto-rotate daily', `Once a day, if a coin fails a runner gate or drops ${d.rules?.swapDropPct ?? 25}%, we pre-fill the swap for the best gated runner — one approval. Still max one switch per 24h.`]].map(([k, l, tip]) =>
         <button key={k} type="button" role="radio" aria-checked={(r.mode || 'hold') === k} className={(r.mode || 'hold') === k ? 'active' : ''} data-tip={tip} onClick={() => setMode(r, k)} data-testid={`mode-${k}-${r.id}`}>{l}</button>)}</div>
