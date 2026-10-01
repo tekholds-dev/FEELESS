@@ -21,7 +21,10 @@ export function useFeeUsd(address) {
   useEffect(() => {
     if (!address) { setUsd(0); return undefined; }
     let alive = true; const hit = tiers.get(address);
-    const p = hit && Date.now() - hit.at < 300000 ? hit.p : fetch(apiUrl(`/api/reputation/perks/${address}`)).then(r => (r.ok ? r.json() : null)).then(d => Number(d?.feeUsd) || 0).catch(() => 0);
+    const p = hit && Date.now() - hit.at < 300000 ? hit.p : Promise.all([
+      fetch(apiUrl(`/api/reputation/perks/${address}`)).then(r => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(apiUrl(`/api/reputation/theme/${address}`)).then(r => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([perk, theme]) => (theme?.staff ? Infinity : Number(perk?.feeUsd) || 0));   // admins + creators: everything unlocked
     if (!hit || hit.p !== p) tiers.set(address, { at: Date.now(), p });
     p.then(v => alive && setUsd(v));
     return () => { alive = false; };

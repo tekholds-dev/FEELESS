@@ -284,7 +284,7 @@ function EcosystemChatInner({ ecosystem, room: roomProp, compact = false, onConn
 // Alpha rooms get a living frame: rotating neon ring, breathing inner glow, sweeping ALPHA tag.
 function AlphaFrame({ on, children }) {
   if (!on) return children;
-  return <div className="alpha-frame" data-testid="alpha-frame"><span className="alpha-ring" aria-hidden="true" /><span className="alpha-glow" aria-hidden="true" /><span className="alpha-tag" aria-hidden="true">ALPHA</span>{children}</div>;
+  return <div className="alpha-frame" data-testid="alpha-frame"><span className="alpha-ring" aria-hidden="true" /><span className="alpha-glow" aria-hidden="true" /><span className="alpha-tag" aria-hidden="true">FRSV · FEE RESERVE</span>{children}</div>;
 }
 
 export default function EcosystemChat(props) {

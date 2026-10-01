@@ -98,7 +98,7 @@ export const ChatRoom = ({ large = false, pairs = [], newPairs = [], onSelect, s
   const identity = coinIdentity(selectedPair);
   const hasSelectedPair = Boolean(identity);
   const coinChannels = [['bulls', 'Bulls'], ['trenches', 'Trenches'], ['bears', 'Bears']];
-  const channels = [['general', 'General'], ['alpha', 'Alpha'], ['launches', 'Launches'], ['trading', 'Trading'], ['whales', 'Whales'], ['pools', 'Pools']];
+  const channels = [['general', 'General'], ['alpha', 'FRSV'], ['launches', 'Launches'], ['trading', 'Trading'], ['whales', 'Whales'], ['pools', 'Pools']];
   React.useEffect(() => {
     setChannel(hasSelectedPair ? (normalizeRoomPerspective(selectedPerspective) || 'bulls') : 'general');
   }, [identity?.key, hasSelectedPair, selectedPerspective]);
