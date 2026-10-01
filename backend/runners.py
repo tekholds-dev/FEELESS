@@ -51,21 +51,51 @@ def candidate(pair, intel=None, creator_flagged=False, snipers_out=False, now_ms
             'bundled': len(intel.get('bundledWallets') or []), 'scanned': bool(intel), 'creatorFlagged': bool(creator_flagged), 'snipersOut': bool(snipers_out)}
 
 
-GATES = (   # key, label, test — ALL must pass (unknown forensics fail closed except where noted)
-    ('age', 'Under 48h old', lambda c: c['ageH'] is not None and 0 <= c['ageH'] <= MAX_AGE_H),
-    ('size', 'Market cap ≥ $8K', lambda c: c['mcap'] >= 8_000),
-    ('volume', '1h volume ≥ $5K', lambda c: c['vol1h'] >= 5_000),
-    ('flow', 'Two-sided flow (40–85% buys, 50+ trades/h)', lambda c: c['buyShare'] is not None and 40 <= c['buyShare'] <= 85 and c['txns1h'] >= 50),
-    ('scan', 'Holder scan done', lambda c: c['scanned']),
-    ('top10', 'Top 10 under 30%', lambda c: c['top10'] is not None and c['top10'] < 30),
-    ('insiders', 'Snipers/bundlers under 15%', lambda c: (c['insiders'] or 0) < 15 and c['bundled'] < 3),
-    ('dev', 'Dev holds under 10%', lambda c: (c['dev'] or 0) < 10),
-    ('creator', 'Creator not flagged (Bot shield / blocklist)', lambda c: not c['creatorFlagged']),
-)
+# Cmd Ctr › Runners settings. Every key is range-checked by clean_cfg(); defaults = the tested engine.
+DEFAULT_CFG = {'roundSize': 5, 'minMcap': 8000, 'minVol1h': 5000, 'maxTop10': 30, 'maxInsiders': 15, 'maxDev': 10,
+               'scalpTp': 50, 'scalpStop': 25, 'runnerTp1': 50, 'runnerTp2': 100, 'runnerTrail': 25, 'runnerStop': 30, 'holdTrail': 30, 'holdStop': 35, 'lightRounds': 8}
+CFG_RANGES = {'roundSize': (2, 10), 'minMcap': (1000, 1_000_000), 'minVol1h': (500, 1_000_000), 'maxTop10': (10, 60), 'maxInsiders': (2, 40), 'maxDev': (1, 30),
+              'scalpTp': (10, 300), 'scalpStop': (5, 80), 'runnerTp1': (10, 300), 'runnerTp2': (20, 1000), 'runnerTrail': (5, 80), 'runnerStop': (5, 80),
+              'holdTrail': (5, 80), 'holdStop': (5, 80), 'lightRounds': (3, 48)}
 
 
-def failed_gates(c):
-    return [label for _, label, test in GATES if not test(c)]
+def clean_cfg(p):
+    out = dict(DEFAULT_CFG)
+    for k, (lo, hi) in CFG_RANGES.items():
+        if k in (p or {}):
+            out[k] = int(min(hi, max(lo, _f(p[k]))))
+    out['runnerTp2'] = max(out['runnerTp2'], out['runnerTp1'] + 10)
+    return out
+
+
+def gates(cfg=None):
+    g = clean_cfg(cfg)
+    return (   # key, label, test — ALL must pass (unknown forensics fail closed)
+        ('age', 'Under 48h old', lambda c: c['ageH'] is not None and 0 <= c['ageH'] <= MAX_AGE_H),
+        ('size', f"Market cap ≥ ${g['minMcap'] / 1000:g}K", lambda c: c['mcap'] >= g['minMcap']),
+        ('volume', f"1h volume ≥ ${g['minVol1h'] / 1000:g}K", lambda c: c['vol1h'] >= g['minVol1h']),
+        ('flow', 'Two-sided flow (40–85% buys, 50+ trades/h)', lambda c: c['buyShare'] is not None and 40 <= c['buyShare'] <= 85 and c['txns1h'] >= 50),
+        ('scan', 'Holder scan done', lambda c: c['scanned']),
+        ('top10', f"Top 10 under {g['maxTop10']}%", lambda c: c['top10'] is not None and c['top10'] < g['maxTop10']),
+        ('insiders', f"Snipers/bundlers under {g['maxInsiders']}%", lambda c: (c['insiders'] or 0) < g['maxInsiders'] and c['bundled'] < 3),
+        ('dev', f"Dev holds under {g['maxDev']}%", lambda c: (c['dev'] or 0) < g['maxDev']),
+        ('creator', 'Creator not flagged (Bot shield / blocklist)', lambda c: not c['creatorFlagged']),
+    )
+
+
+GATES = gates()
+
+
+def exits(cfg=None):
+    g = clean_cfg(cfg)
+    return {'scalp': {'ladder': [(float(g['scalpTp']), 1.0)], 'trail': None, 'stop': -float(g['scalpStop']), 'label': f"Sell all at +{g['scalpTp']}% · stop −{g['scalpStop']}%"},
+            'runner': {'ladder': [(float(g['runnerTp1']), 1 / 3), (float(g['runnerTp2']), 1 / 3)], 'trail': float(g['runnerTrail']), 'stop': -float(g['runnerStop']),
+                       'label': f"⅓ at +{g['runnerTp1']}% · ⅓ at +{g['runnerTp2']}% · trail {g['runnerTrail']} · stop −{g['runnerStop']}%"},
+            'hold': {'ladder': [], 'trail': float(g['holdTrail']), 'stop': -float(g['holdStop']), 'label': f"Trail {g['holdTrail']} pts · stop −{g['holdStop']}%"}}
+
+
+def failed_gates(c, cfg=None):
+    return [label for _, label, test in (gates(cfg) if cfg else GATES) if not test(c)]
 
 
 def score(c):
@@ -93,13 +123,14 @@ def lane_of(c, streak=0, pts=0):
     return 'runner'
 
 
-def board(cands):
+def board(cands, cfg=None):
     """Every arriving coin, gated + scored: {passing: [...best first], dropped: [...with reasons]}."""
     passing, dropped = [], []
+    gs = gates(cfg) if cfg else GATES
     for c in cands:
         if not c.get('mint'):
             continue
-        bad = failed_gates(c)
+        bad = [label for _, label, test in gs if not test(c)]
         pts, parts = score(c)
         row = {**c, 'score': pts, 'parts': parts, 'gates': bad}
         (dropped if bad else passing).append(row)
@@ -128,13 +159,13 @@ def next_round(prev, passing, now, size=ROUND_SIZE, rid=''):
     return {'id': rid, 'at': now, 'picks': picks, 'out': [{'mint': p['mint'], 'symbol': p.get('symbol')} for p in out]}
 
 
-def play_exits(lane, entry, path):
+def play_exits(lane, entry, path, cfg=None):
     """Paper-play a lane's exit plan on the prices seen after entry → realized multiple (1.0 = flat).
     Ladder rungs sell their slice when hit; trail sells the rest when it falls `trail` pts below the peak gain;
     stop sells everything left. Whatever is left at the end is marked at the last price."""
     if entry <= 0:
         return 1.0
-    plan = EXITS[lane]
+    plan = (exits(cfg) if cfg else EXITS)[lane]
     left, cash, peak, rungs = 1.0, 0.0, 0.0, list(plan['ladder'])
     for px in path:
         g = (px / entry - 1) * 100
@@ -148,7 +179,7 @@ def play_exits(lane, entry, path):
     return round(cash + left * (path[-1] / entry if path else 1.0), 4)
 
 
-def proof(rounds, paths, now, window=24 * 3600):
+def proof(rounds, paths, now, window=24 * 3600, cfg=None):
     """Each round in the window (at least one later price seen): equal-$ basket of its picks played with their lane exits.
     lights = enough rounds, positive average, ≥50% won."""
     rows = []
@@ -159,14 +190,15 @@ def proof(rounds, paths, now, window=24 * 3600):
         for p in r['picks']:
             path = [px for t, px in paths.get(p['mint'], []) if t > r['at']]
             if path:
-                mults.append(play_exits(p['lane'], p['entry'], path))
+                mults.append(play_exits(p['lane'], p['entry'], path, cfg))
         if mults:
             rows.append(sum(mults) / len(mults))
     n = len(rows)
     avg = round((sum(rows) / n - 1) * 100, 2) if n else 0.0
     win = round(sum(1 for m in rows if m > 1) / n * 100) if n else 0
-    return {'rounds': n, 'avgPct': avg, 'winRate': win, 'lights': n >= LIGHT_MIN_ROUNDS and avg > 0 and win >= 50,
-            'per1': round(1 + avg / 100, 3), 'need': max(0, LIGHT_MIN_ROUNDS - n)}
+    need_n = clean_cfg(cfg)['lightRounds'] if cfg else LIGHT_MIN_ROUNDS
+    return {'rounds': n, 'avgPct': avg, 'winRate': win, 'lights': n >= need_n and avg > 0 and win >= 50,
+            'per1': round(1 + avg / 100, 3), 'need': max(0, need_n - n)}
 
 
 def addon(legs, runners, slice_pct=20.0, n=2):
@@ -175,7 +207,7 @@ def addon(legs, runners, slice_pct=20.0, n=2):
     rs = [r for r in runners if r.get('pairAddress')][:n]
     if not rs:
         return [dict(l) for l in legs]
-    slice_pct = max(5.0, min(40.0, _f(slice_pct)))
+    slice_pct = 100.0 if not legs else max(5.0, min(60.0, _f(slice_pct)))   # runners-only card = 100%
     total = sum(_f(l.get('weight')) for l in legs) or 1
     base = [{**l, 'weight': round(_f(l.get('weight')) / total * (100 - slice_pct), 2)} for l in legs]
     return base + [{'chainId': 'solana', 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'baseAddress': r.get('mint'), 'logo': r.get('logo'),

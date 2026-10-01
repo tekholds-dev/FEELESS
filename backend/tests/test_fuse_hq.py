@@ -101,3 +101,19 @@ def test_yield_math_is_honest():
     y = hq.yield_math(m)
     assert y['pools'] == 3 and y['vaultAprPct'] == 146.0 and y['vaultPerDay']['1'] == 0.004       # tiny pool ignored
     assert y['aprFor20c'] == 7300 and y['fuse1'] == {'best': 1.4, 'median': 1.02, 'worst': 0.7}
+
+
+def test_card_take_profit_switch_and_withdraw():
+    pos = {'id': 'c', 'legs': [{'pairAddress': 'A', 'mint': 'MA', 'usd': 10, 'tokens': 100, 'role': 'pool'}, {'pairAddress': 'R', 'mint': 'MR', 'usd': 5, 'tokens': 50, 'role': 'runner'}]}
+    pos, n = hq.close_legs(pos, [{'tx': 't1', 'token': 'MA', 'usd': 8, 'tokens': 40}], now=1)        # take 40% of A for $8
+    a = pos['legs'][0]
+    assert n == 1 and a['tokens'] == 60 and a['realizedUsd'] == 8 and a.get('soldUsd') is None
+    r = hq.position_pnl(pos, {'A': 0.2, 'R': 0.1})                                                   # A: 60×0.2 + 8 = 20
+    assert r['legs'][0]['valueUsd'] == 20 and r['legs'][0]['heldUsd'] == 12 and r['realizedUsd'] == 8 and r['legs'][0]['priceIn'] == 0.1
+    pos, _ = hq.close_legs(pos, [{'tx': 't2', 'token': 'MR', 'usd': 6, 'tokens': 50}], now=2)       # switch-out runner R
+    pos, added = hq.add_legs(pos, [{'tx': 'b1', 'token': 'MX', 'usd': 6, 'tokens': 30}], [{'pairAddress': 'X', 'symbol': 'X', 'role': 'runner'}], now=3)
+    assert added == 1 and pos['legs'][1]['soldUsd'] == 6 and pos['legs'][2]['role'] == 'runner'
+    pos, _ = hq.add_legs(pos, [{'tx': 'b%d' % i, 'token': 'P%d' % i, 'usd': 1, 'tokens': 1} for i in range(5)], [{'pairAddress': 'p%d' % i} for i in range(5)])
+    assert sum(1 for l in pos['legs'] if l['role'] == 'pool' and l.get('soldUsd') is None) == 3                # pool cap 3
+    assert [e['kind'] for e in pos['events']][:3] == ['sell', 'sell', 'buy']
+    assert hq.card_limit(199) == 2 and hq.card_limit(200) == 3 and hq.card_limit(0, admin=True) == 10

@@ -2704,7 +2704,7 @@ async def _fuse_view(fid, f, store):
     now_px = {leg['pairAddress']: leg.get('priceUsd') for leg in metas}
     buys = [b for b in store.get('buys', []) if b['fuse'] == fid]
     earned = round(sum(b['creatorUsd'] for b in buys), 6); paid = round(float((store.get('paid') or {}).get(fid, 0)), 6)
-    return {'id': fid, **{k: f.get(k) for k in ('name', 'emoji', 'tagline', 'creator', 'creatorBps', 'createdAt', 'enabled', 'aura')}, 'legs': legs,
+    return {'id': fid, **{k: f.get(k) for k in ('name', 'emoji', 'tagline', 'creator', 'creatorBps', 'createdAt', 'enabled', 'aura', 'featured')}, 'legs': legs,
             'index': _fuse.index(f['legs'], f.get('basePrices') or {}, now_px), 'score': _fuse.score(metas, sum(1 for leg in f['legs'] if pairs.get(leg['pairAddress']) and _fuse_risky(pairs[leg['pairAddress']]))),
             'tvlUsd': round(sum(m['liquidityUsd'] for m in metas)), 'volume24h': round(sum(m['volume24h'] for m in metas)),
             'aprEst': round(sum(m['aprEst'] * m['weight'] for m in metas) / max(1, sum(m['weight'] for m in metas)), 1),
@@ -2771,6 +2771,7 @@ class FusePreview(BaseModel):
     sol: float = 1.0
     manual: bool = False     # Cmd Ctr only: use the pools' own weights instead of auto
     runners: bool = False    # Runner add-on: bolt the top 2 runners on as a small slice
+    runnerMints: list = []   # Fuse card: the runners YOU picked (≤3 traders / ≤6 Cmd Ctr), each from the live board
     runnerSlice: float = 20.0
 
 
@@ -2791,13 +2792,31 @@ async def fuses_preview(payload: FusePreview, request: Request = None):
     if len(payload.pools or []) > cap:
         raise HTTPException(400, f'Fuse up to {cap} pools.')
     pools = _fuse.clean_legs([{**p, 'weight': p.get('weight') or 1} for p in payload.pools or []])
-    if len(pools) < 2:
-        raise HTTPException(400, 'Pick at least 2 pools.')
-    pairs, sol_usd = await asyncio.gather(_fuse_pairs(pools), _sol_usd_live())
+    if len(pools) + len([x for x in payload.runnerMints or [] if x]) < 2:
+        raise HTTPException(400, 'Pick at least 2 legs (pools and/or runners).')
+    pairs, sol_usd = await asyncio.gather(_fuse_pairs(pools) if pools else asyncio.sleep(0, {}), _sol_usd_live())
     metas = {k: _fuse.leg_meta(v) for k, v in pairs.items()}
-    w = _fuse.manual_weights(payload.pools) if admin and payload.manual else _vault.auto_weights(pools, metas, min_share=_fuse.min_share(len(pools)))
+    w = (_fuse.manual_weights(payload.pools) if admin and payload.manual else _vault.auto_weights(pools, metas, min_share=_fuse.min_share(len(pools)))) if pools else {}
     added = []
-    if payload.runners:   # Runner add-on: top 2 runners of the current round as a small slice (server-picked, gated)
+    if payload.runnerMints:   # Fuse card: picked runners, 10% each, must be passing every gate right now
+        live = await _runner_live()
+        board_by = {r['mint']: r for r in live['passing']}
+        rnd = (_json_load(RUNNERS_PATH, {'rounds': []}).get('rounds') or [None])[-1]
+        for p_ in ((rnd or {}).get('picks') or []):
+            board_by.setdefault(p_['mint'], p_) if p_['mint'] in board_by else None
+        lim = _hq.ADMIN_RUNNERS if admin else _hq.CARD_RUNNERS
+        wanted = [m for m in dict.fromkeys(str(x) for x in payload.runnerMints) if m]
+        picked = [board_by[m] for m in wanted if m in board_by][:lim]
+        if any(m not in board_by for m in wanted):
+            raise HTTPException(400, 'A picked runner no longer passes the gates — pick from the live board.')
+        legs = _rn.addon([{**p, 'weight': w[p['pairAddress']] * 100} for p in pools], picked, 10.0 * len(picked), len(picked))
+        added = [l for l in legs if l.get('runner')]
+        if added:
+            rp = await _fuse_pairs(added)
+            metas.update({k: _fuse.leg_meta(v) for k, v in rp.items()})
+            pools = pools + [{k: l[k] for k in ('chainId', 'pairAddress', 'symbol')} for l in added if l['pairAddress'] in rp]
+            w = {l['pairAddress']: l['weight'] / 100 for l in legs if l['pairAddress'] in metas}
+    elif payload.runners:   # Runner add-on: top 2 runners of the current round as a small slice (server-picked, gated)
         live = await _runner_live()
         rnd = (_json_load(RUNNERS_PATH, {'rounds': []}).get('rounds') or [None])[-1]
         tops = [p for p in ((rnd or {}).get('picks') or []) if p['mint'] in {r['mint'] for r in live['passing']}] or live['passing']
@@ -2871,7 +2890,8 @@ async def fuse_position(p: FusePositionIn):
         t = trades.get(str(leg.get('signature') or ''))
         if t and t.get('side', 'buy') == 'buy' and _fuse._f(t.get('tokens')) > 0:
             legs.append({'pairAddress': str(leg.get('pairAddress'))[:64], 'chainId': str(leg.get('chainId') or 'solana')[:16], 'symbol': str(leg.get('symbol') or '')[:16],
-                         'mint': t.get('token'), 'sig': t['tx'], 'usd': _fuse._f(t.get('usd')), 'tokens': _fuse._f(t.get('tokens'))})
+                         'mint': t.get('token'), 'sig': t['tx'], 'usd': _fuse._f(t.get('usd')), 'tokens': _fuse._f(t.get('tokens')), 'tokens0': _fuse._f(t.get('tokens')),
+                         'role': 'runner' if leg.get('role') == 'runner' else 'pool'})
     if not legs:
         raise HTTPException(400, 'None of those legs is a confirmed FEELESS buy from your wallet (yet).')
     async with _admin_lock:
@@ -2918,8 +2938,8 @@ async def fuse_position_close(p: FuseCloseIn):
         pos = next((x for x in d.get('positions') or [] if x['id'] == p.id and x['wallet'] in mine), None)
         if not pos:
             raise HTTPException(404, 'No such Fuse position for this wallet.')
-        used = {leg.get('sellSig') for x in d.get('positions') or [] for leg in x['legs']}
-        pos, n = _hq.close_legs(pos, [t for t in sells if t['tx'] not in used])
+        used = {sg for x in d.get('positions') or [] for leg in x['legs'] for sg in (leg.get('sellSigs') or [leg.get('sellSig')])}
+        pos, n = _hq.close_legs(pos, [t for t in sells if t['tx'] not in used], now=time.time())
         if n and all(leg.get('soldUsd') is not None for leg in pos['legs']):
             pos['closedAt'] = time.time()
         _json_save(FUSE_HQ_PATH, d)
@@ -3005,6 +3025,57 @@ async def _fuse_guard_loop():
 async def _fuse_guard_start():
     if not os.environ.get('PYTEST_CURRENT_TEST'):
         asyncio.create_task(_fuse_guard_loop())
+
+
+class FuseSwitchIn(BaseModel):
+    address: str
+    session: str
+    id: str
+    legs: list          # [{pairAddress, symbol, role, signature}] — the BUYS that land in this card
+
+
+@app.post('/api/reputation/fuses/position/switch')
+async def fuse_position_switch(p: FuseSwitchIn):
+    """Switch-in / top-up: new legs join YOUR card only from your verified FEELESS buys, within 3 pools + 3 runners."""
+    me = _session_or_401(p.address, p.session)
+    mine = set(linked_of(me)) | {me}
+    metas = [x for x in (p.legs or [])[:6] if isinstance(x, dict)]
+    trades = {x.get('tx'): x for w, rows in _json_load(FEELESS_TRADES_PATH, {}).items() if w in mine for x in rows or []}
+    pairs = [(trades[str(m.get('signature'))], m) for m in metas if str(m.get('signature')) in trades and trades[str(m.get('signature'))].get('side', 'buy') == 'buy']
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {})
+        pos = next((x for x in d.get('positions') or [] if x['id'] == p.id and x['wallet'] in mine and not x.get('closedAt')), None)
+        if not pos:
+            raise HTTPException(404, 'No open Fuse card with that id for this wallet.')
+        used = {leg.get('sig') for x in d.get('positions') or [] for leg in x['legs']}
+        pairs = [(t, m) for t, m in pairs if t['tx'] not in used]
+        pos, n = _hq.add_legs(pos, [t for t, _ in pairs], [m for _, m in pairs], now=time.time())
+        _json_save(FUSE_HQ_PATH, d)
+    return {'ok': True, 'added': n}
+
+
+@app.get('/api/reputation/fuses/limits/{address}')
+async def fuse_limits(address: str):
+    """How many Fuse cards this wallet may hold open: 2, or 3 with ≥ $200 of $FEE. Each card: 3 pools + 3 runners."""
+    me = primary_of(address)
+    mine = set(linked_of(me)) | {me}
+    open_n = sum(1 for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if x['wallet'] in mine and not x.get('closedAt'))
+    try:
+        fee = await _fee_usd(me)
+    except Exception:
+        fee = 0.0
+    mx = _hq.card_limit(fee, _is_staff(me))
+    return {'open': open_n, 'max': mx, 'canOpen': open_n < mx, 'feeUsd': round(fee, 2), 'feeFor3rd': _hq.FEE_FOR_3RD_CARD,
+            'pools': _hq.CARD_POOLS, 'runners': _hq.CARD_RUNNERS}
+
+
+@app.get('/api/reputation/fuses/receipts/{address}')
+async def fuse_receipts(address: str):
+    """Profile › Fuse receipts: every withdrawn (closed) card with its whole lifecycle — legs in, take-profits, switches, out."""
+    me = primary_of(address)
+    mine = set(linked_of(me)) | {me}
+    rows = [_hq.position_pnl(x, {}) for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if x['wallet'] in mine and x.get('closedAt')]
+    return {'receipts': sorted(rows, key=lambda r: -(r.get('closedAt') or 0))[:30]}
 
 
 async def _hq_prices(legs):
@@ -3253,6 +3324,10 @@ async def fuses_prebuilt(request: Request, legs: int = Query(3, ge=2, le=10), bu
 import runners as _rn
 RUNNERS_PATH = DATA_DIR / 'runners.json'      # {'rounds': [...], 'paths': {mint: [[t, price], ...]}}
 _runner_live_cache = {'at': 0.0, 'data': None}
+
+
+def _runner_cfg():
+    return _rn.clean_cfg(_json_load(RUNNERS_PATH, {}).get('cfg') or {})
 _runner_sem = asyncio.Semaphore(4)
 
 
@@ -3299,7 +3374,7 @@ async def _runner_live():
         creator = (it or {}).get('creator')
         flagged = bool(creator and (_is_blocked(blocks.get(creator)) or (_shield_cache.get(creator, (0, {}))[1] or {}).get('verdict') == 'bot'))
         cands.append(_rn.candidate(p, it, flagged, p.get('pairAddress') in out_pairs or m in out_pairs, now_ms))
-    data = {**_rn.board(cands), 'seen': len(cands), 'at': time.time()}
+    data = {**_rn.board(cands, _runner_cfg()), 'seen': len(cands), 'at': time.time()}
     _runner_live_cache.update(at=time.time(), data=data)
     return data
 
@@ -3342,7 +3417,7 @@ async def _runner_tick(now=None, force=False):
         d['paths'] = {m: pts[-400:] for m, pts in d['paths'].items() if m in watch or pts and now - pts[-1][0] < 26 * 3600}
         last = d['rounds'][-1] if d['rounds'] else None
         if force or not last or now - last['at'] >= _rn.ROUND_SECONDS:
-            d['rounds'] = (d['rounds'] + [_rn.next_round(last, live['passing'], now, rid=uuid.uuid4().hex[:8])])[-200:]
+            d['rounds'] = (d['rounds'] + [_rn.next_round(last, live['passing'], now, size=_runner_cfg()['roundSize'], rid=uuid.uuid4().hex[:8])])[-200:]
         _json_save(RUNNERS_PATH, d)
     return d['rounds'][-1] if d['rounds'] else None
 
@@ -3371,15 +3446,35 @@ async def runners_board():
     d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
     now = time.time()
     rnd = d['rounds'][-1] if d['rounds'] else None
+    cfg = _runner_cfg(); ex = _rn.exits(cfg)
     hist = []
     for r in reversed(d['rounds'][-8:-1] if len(d['rounds']) > 1 else []):
-        mults = [_rn.play_exits(p['lane'], p['entry'], [x for t, x in d['paths'].get(p['mint'], []) if t > r['at']]) for p in r['picks']]
+        mults = [_rn.play_exits(p['lane'], p['entry'], [x for t, x in d['paths'].get(p['mint'], []) if t > r['at']], cfg) for p in r['picks']]
         hist.append({'id': r['id'], 'at': r['at'], 'symbols': [p.get('symbol') for p in r['picks']], 'pct': round((sum(mults) / len(mults) - 1) * 100, 2) if mults else 0.0})
     cur = {p['mint']: p for p in live['passing']}
-    picks = [{**p, 'now': cur.get(p['mint'], {}).get('price') or p['price'], 'exits': _rn.EXITS[p['lane']]['label']} for p in (rnd or {}).get('picks', [])]
+    picks = [{**p, 'now': cur.get(p['mint'], {}).get('price') or p['price'], 'exits': ex[p['lane']]['label']} for p in (rnd or {}).get('picks', [])]
     return {'live': live['passing'][:24], 'dropped': live['dropped'][:15], 'seen': live['seen'], 'round': rnd and {**rnd, 'picks': picks},
-            'nextRoundAt': (rnd['at'] + _rn.ROUND_SECONDS) if rnd else now, 'history': hist, 'proof': _rn.proof(d['rounds'], d['paths'], now),
-            'exits': {k: v['label'] for k, v in _rn.EXITS.items()}, 'gates': [g[1] for g in _rn.GATES], 'lightMinRounds': _rn.LIGHT_MIN_ROUNDS, 'solUsd': sol_usd}
+            'nextRoundAt': (rnd['at'] + _rn.ROUND_SECONDS) if rnd else now, 'history': hist, 'proof': _rn.proof(d['rounds'], d['paths'], now, cfg=cfg),
+            'exits': {k: v['label'] for k, v in ex.items()}, 'gates': [g[1] for g in _rn.gates(cfg)], 'lightMinRounds': cfg['lightRounds'], 'solUsd': sol_usd}
+
+
+@app.get('/api/reputation/admin/runners/config')
+async def runners_cfg_get(request: Request):
+    _require_admin(request)
+    return {'cfg': _runner_cfg(), 'defaults': _rn.DEFAULT_CFG, 'ranges': _rn.CFG_RANGES}
+
+
+@app.post('/api/reputation/admin/runners/config')
+async def runners_cfg_set(request: Request):
+    """Cmd Ctr › Runners settings: gates, round size, each lane's exits, rounds needed to light up. Range-checked; reset = defaults."""
+    admin = _require_admin(request)
+    body = await request.json()
+    cfg = _rn.DEFAULT_CFG if body.get('reset') else _rn.clean_cfg({**_runner_cfg(), **(body.get('cfg') or {})})
+    async with _admin_lock:
+        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['cfg'] = cfg; _json_save(RUNNERS_PATH, d)
+    _runner_live_cache.update(at=0, data=None)
+    ad = _admin_load(); _audit(ad, admin, 'runners-config', json.dumps(cfg)[:160]); _admin_save(ad)
+    return {'cfg': cfg}
 
 
 @app.post('/api/reputation/admin/runners/round')
@@ -3598,7 +3693,8 @@ async def admin_fuses_save(request: Request):
                                                          if pairs.get(leg['pairAddress']) and leg['pairAddress'] not in (prev.get('basePrices') or {})}}
             store['fuses'][fid] = {'name': name, 'emoji': str(body.get('emoji') or '⚛️')[:4], 'tagline': str(body.get('tagline') or '')[:120], 'legs': legs,
                                    'creator': body.get('creator') or prev.get('creator') or admin, 'creatorBps': max(0, min(_fuse.MAX_CREATOR_BPS, int(body.get('creatorBps') or 0))),
-                                   'enabled': bool(body.get('enabled', True)), 'basePrices': base, 'createdAt': prev.get('createdAt') or time.time()}
+                                   'enabled': bool(body.get('enabled', True)), 'basePrices': base, 'createdAt': prev.get('createdAt') or time.time(),
+                                   'featured': bool(body.get('featured', prev.get('featured', False))), 'aura': prev.get('aura', '')}
         _json_save(FUSES_PATH, store)
         ad = _admin_load(); _audit(ad, admin, 'fuse', json.dumps({'id': fid, **{k: body.get(k) for k in ('name', 'delete', 'paidUsd') if k in body}})[:160]); _admin_save(ad)
     return {'ok': True, 'id': fid}

@@ -23,15 +23,24 @@ def _f(v):
 
 
 def position_pnl(pos, prices):
-    """pos = {legs: [{pairAddress, symbol, usd, tokens}]}; prices = {pairAddress: priceUsd now}."""
+    """pos = {legs: [{pairAddress, symbol, usd, tokens, realizedUsd?, soldUsd?, role?}]}; prices = {pairAddress: priceUsd now}.
+    A leg's value = what's still held × live price + what was already taken out (take-profits, switches). Fully sold legs
+    use their realized $. No live price → held part at cost, never invented."""
     legs, cost, value = [], 0.0, 0.0
     for leg in pos.get('legs') or []:
         c, t, px = _f(leg.get('usd')), _f(leg.get('tokens')), _f(prices.get(leg.get('pairAddress')))
-        sold = leg.get('soldUsd')
-        v = _f(sold) if sold is not None else t * px if px > 0 else c   # unfused leg = realized; no live price → at cost, never invented
+        realized = _f(leg.get('realizedUsd'))
+        if leg.get('soldUsd') is not None:
+            held, v = 0.0, _f(leg['soldUsd'])
+        else:
+            t0 = _f(leg.get('tokens0')) or t
+            held = t * px if px > 0 else c * (t / t0 if t0 else 1)
+            v = held + realized
         cost += c; value += v
-        legs.append({**leg, 'valueUsd': round(v, 4), 'pnlUsd': round(v - c, 4), 'pnlPct': round((v / c - 1) * 100, 2) if c > 0 else 0.0, 'priced': px > 0})
-    return {**{k: pos.get(k) for k in ('id', 'name', 'fuseId', 'at', 'wallet', 'closedAt')}, 'closed': all(l.get('soldUsd') is not None for l in legs) and bool(legs), 'legs': legs, 'costUsd': round(cost, 4), 'valueUsd': round(value, 4),
+        legs.append({**leg, 'heldUsd': round(held, 4), 'valueUsd': round(v, 4), 'pnlUsd': round(v - c, 4), 'pnlPct': round((v / c - 1) * 100, 2) if c > 0 else 0.0,
+                     'priced': px > 0, 'priceNow': px or None, 'priceIn': round(c / (_f(leg.get('tokens0')) or t), 12) if (_f(leg.get('tokens0')) or t) else None})
+    return {**{k: pos.get(k) for k in ('id', 'name', 'fuseId', 'at', 'wallet', 'closedAt', 'events')}, 'closed': all(l.get('soldUsd') is not None for l in legs) and bool(legs), 'legs': legs, 'costUsd': round(cost, 4), 'valueUsd': round(value, 4),
+            'realizedUsd': round(sum(_f(l.get('soldUsd')) if l.get('soldUsd') is not None else _f(l.get('realizedUsd')) for l in legs), 4),
             'pnlUsd': round(value - cost, 4), 'pnlPct': round((value / cost - 1) * 100, 2) if cost > 0 else 0.0}
 
 
@@ -142,17 +151,51 @@ def trust_rank(points, buyers, trusted):
     return round(points + 15 * (trusted / buyers) * min(1.0, buyers / 5), 2)
 
 
-def close_legs(pos, sells):
-    """Unfuse: attach realized $ to each leg from the wallet's verified SELL trades of that leg's coin (sig → record).
-    A leg can be closed once; returns (updated pos, legs closed now)."""
+def close_legs(pos, sells, now=0):
+    """Sell from a card (take-profit, switch-out or full withdraw): each verified SELL of a leg's coin moves its $ into
+    realizedUsd and its tokens out of the held amount. A leg whose held tokens hit ~0 is closed (soldUsd = all it
+    realized). Sells without a token amount count as selling the whole leg. Returns (pos, legs touched)."""
     n = 0
-    for leg in pos.get('legs') or []:
-        if leg.get('soldUsd') is not None:
+    for t in sells:
+        leg = next((l for l in pos.get('legs') or [] if l.get('mint') == t.get('token') and l.get('soldUsd') is None), None)
+        if not leg:
             continue
-        hit = next((t for t in sells if t.get('token') == leg.get('mint')), None)
-        if hit:
-            leg['soldUsd'] = round(_f(hit.get('usd')), 6); leg['sellSig'] = hit.get('tx'); n += 1
+        leg.setdefault('tokens0', leg.get('tokens'))
+        sold = _f(t.get('tokens')) or _f(leg.get('tokens'))
+        leg['realizedUsd'] = round(_f(leg.get('realizedUsd')) + _f(t.get('usd')), 6)
+        leg['tokens'] = max(0.0, _f(leg.get('tokens')) - sold)
+        leg.setdefault('sellSigs', []).append(t.get('tx'))
+        if leg['tokens'] <= _f(leg['tokens0']) * 0.001:
+            leg['soldUsd'] = leg['realizedUsd']; leg['sellSig'] = t.get('tx'); leg['tokens'] = 0.0
+        pos.setdefault('events', []).append({'kind': 'sell', 'symbol': leg.get('symbol'), 'usd': round(_f(t.get('usd')), 4), 'at': now})
+        n += 1
     return pos, n
+
+
+def add_legs(pos, buys, metas, now=0, max_pools=3, max_runners=3):
+    """Switch-in / top-up: verified BUY trades become new legs (role pool|runner), within the card's limits."""
+    legs = pos.setdefault('legs', [])
+    live = lambda role: sum(1 for l in legs if l.get('soldUsd') is None and (l.get('role') or 'pool') == role)
+    added = 0
+    for t, m in zip(buys, metas):
+        role = 'runner' if m.get('role') == 'runner' else 'pool'
+        if live(role) >= (max_runners if role == 'runner' else max_pools) or _f(t.get('tokens')) <= 0:
+            continue
+        legs.append({'pairAddress': str(m.get('pairAddress'))[:64], 'chainId': 'solana', 'symbol': str(m.get('symbol') or '')[:16], 'role': role,
+                     'mint': t.get('token'), 'sig': t.get('tx'), 'usd': _f(t.get('usd')), 'tokens': _f(t.get('tokens')), 'tokens0': _f(t.get('tokens')), 'addedAt': now})
+        pos.setdefault('events', []).append({'kind': 'buy', 'symbol': m.get('symbol'), 'usd': round(_f(t.get('usd')), 4), 'at': now})
+        added += 1
+    return pos, added
+
+
+CARD_POOLS, CARD_RUNNERS = 3, 3
+ADMIN_POOLS, ADMIN_RUNNERS = 10, 6
+FEE_FOR_3RD_CARD = 200.0
+
+
+def card_limit(fee_usd, admin=False):
+    """Open Fuse cards a wallet may hold: 2, or 3 when it holds ≥ $200 of $FEE (admin: 10)."""
+    return 10 if admin else 3 if _f(fee_usd) >= FEE_FOR_3RD_CARD else 2
 
 
 # ---- Fuse cards (NFT): one 1/1 Metaplex Core asset per published Fuse; its HOLDER is paid the creator cut ----------

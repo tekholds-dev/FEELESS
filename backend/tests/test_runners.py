@@ -104,3 +104,35 @@ def test_service_board_rounds_proof_and_addon(monkeypatch):
     pv = asyncio.run(rs.fuses_preview(rs.FusePreview(pools=[{'chainId': 'solana', 'pairAddress': 'X1'}, {'chainId': 'solana', 'pairAddress': 'X2'}], sol=1, runners=True)))
     assert pv['runners'] == 2 and [l['pairAddress'] for l in pv['legs'] if l.get('runner')] == ['Paaa', 'Pbbb']
     assert abs(sum(l['weight'] for l in pv['legs']) - 100) < 0.1 and round(sum(l['sol'] for l in pv['legs']), 6) == 1
+
+
+def test_config_changes_gates_exits_and_light_threshold():
+    cfg = rn.clean_cfg({'maxTop10': 50, 'scalpTp': 80, 'lightRounds': 3, 'roundSize': 99, 'runnerTp1': 200, 'runnerTp2': 100})
+    assert cfg['roundSize'] == 10 and cfg['runnerTp2'] == 210                                   # clamped + ordered
+    c = rn.candidate(pair('a'), {**CLEAN, 'top10Pct': 40}, now_ms=NOW)
+    assert 'Top 10 under 30%' in rn.failed_gates(c) and rn.failed_gates(c, cfg) == []
+    assert rn.play_exits('scalp', 1.0, [1.6, 1.9], cfg) == 1.9 and 'Sell all at +80%' in rn.exits(cfg)['scalp']['label']
+    rounds = [{'at': i, 'picks': [{'mint': 'a', 'lane': 'runner', 'entry': 1.0}]} for i in range(3)]
+    assert rn.proof(rounds, {'a': [(t, 1.3) for t in range(1, 50)]}, now=10, cfg=cfg)['lights']
+
+
+def test_card_preview_with_picked_runners(monkeypatch):
+    import asyncio
+    import time as _t
+    import pytest
+    rs = pytest.importorskip('reputation_service')
+    live = {'passing': [{**rn.candidate(pair(m, price=1.0), CLEAN, now_ms=NOW), 'score': 80, 'lane': 'runner'} for m in ('r1', 'r2', 'r3', 'r4')], 'dropped': [], 'seen': 4}
+    async def fake_live(): return live
+    async def pairs(legs): return {l['pairAddress']: {'pairAddress': l['pairAddress'], 'priceUsd': '1', 'liquidity': {'usd': 9e5}, 'volume': {'h24': 5e5}, 'priceChange': {'h24': 3},
+                                                        'baseToken': {'symbol': 'S', 'address': 'B' + l['pairAddress']}} for l in legs}
+    async def px(): return 150.0
+    monkeypatch.setattr(rs, '_runner_live', fake_live); monkeypatch.setattr(rs, '_fuse_pairs', pairs); monkeypatch.setattr(rs, '_sol_usd_live', px)
+    pools = [{'chainId': 'solana', 'pairAddress': f'X{i}'} for i in range(3)]
+    pv = asyncio.run(rs.fuses_preview(rs.FusePreview(pools=pools, sol=1, runnerMints=['r1', 'r2', 'r3'])))
+    assert sum(1 for l in pv['legs'] if l.get('runner')) == 3 and abs(sum(l['weight'] for l in pv['legs']) - 100) < .1
+    assert round(sum(l['weight'] for l in pv['legs'] if l.get('runner'))) == 30
+    only = asyncio.run(rs.fuses_preview(rs.FusePreview(pools=[], sol=1, runnerMints=['r1', 'r2'])))
+    assert [round(l['weight']) for l in only['legs']] == [50, 50]
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.fuses_preview(rs.FusePreview(pools=pools, sol=1, runnerMints=['gone'])))
+    assert len(asyncio.run(rs.fuses_preview(rs.FusePreview(pools=pools, sol=1, runnerMints=['r1', 'r2', 'r3', 'r4'])))['legs']) == 6   # traders: 3 runners max
