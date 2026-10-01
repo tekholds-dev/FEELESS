@@ -66,3 +66,13 @@ def test_preview_splits_sol_by_auto_weights_and_sums():
     assert round(sum(x['sol'] for x in p['legs']), 6) == 1.5 and p['usd'] == 300
     assert {x['symbol'] for x in p['legs']} == {'A', 'B'} and p['score']['grade'] in 'ABCDF'
     assert p['dailyUsd'] > 0 and p['blendedAprPct'] > 0
+
+
+def test_preview_backtest_and_impact_guard():
+    import fuse_vault
+    pools = [{'pairAddress': 'a', 'weight': 1}, {'pairAddress': 'b', 'weight': 1}]
+    metas = {'a': fuse.leg_meta(_pair('a', 1_000_000, 500_000, sym='A')), 'b': fuse.leg_meta(_pair('b', 5_000, 2_000, sym='B'))}
+    p = fuse.preview(pools, metas, 10, 200, fuse_vault.auto_weights(pools, metas))
+    assert p['backtest24hPct'] == 2.0 and p['impactWarn'] == ['B']   # every leg moved +2%; $ into B ≫ 1% of its $2K
+    assert fuse.legs_cap(False) == 3 and fuse.legs_cap(True) == 6
+    assert fuse.manual_weights([{'chainId': 's', 'pairAddress': 'a', 'weight': 3}, {'chainId': 's', 'pairAddress': 'b', 'weight': 1}]) == {'a': 0.75, 'b': 0.25}

@@ -17,6 +17,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 5. UI change ⇒ open it (Playwright/Chromium is preinstalled) or say plainly that you didn't.
 
 ## Meta styling (no dead UI, ever)
+- Trade page = segmented tabs (Swap | Fuse Lab), no market lists under the swap. New page sections go behind a tab, not
+  stacked below (less scroll). Feature CSS that would bust meta.css's budget gets its own sheet imported by the component
+  (e.g. `styles/fuseLab.css`), still built from m-* tokens.
 - "Meta UI" = everything below, on EVERY feature end to end (backend data → frontend surface): m-* presets, live
   numbers, hover/active/focus, animated popovers, day theme, 360px. A backend-only feature isn't done until its UI is meta.
 - Palette: black/very dark green surfaces, live royal green `#19f58f` accent (matches the logo), `#ff8fa3` danger, `var(--gold)` warn.
@@ -100,8 +103,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   launch; A–F score with reasons; pool picker drops parked/fake pools (no volume or liquidity > 2,000× volume).
 - Fuse in = one normal wallet-signed swap per leg (no new money path). A Fuse buy counts only if the signature is the
   buyer's confirmed FEELESS trade; the creator's cut (≤50% of that FEELESS fee) is tracked earned/paid/owed.
-- Fuse Lab (`FuseLab.jsx`, Trade page + Cmd Ctr › Fuse): browse the chain's real pools (`/fuses/discover`, lenses
-  popular/yield/deep/new), tick 2–6, live preview (`POST /fuses/preview` = `fuse.preview` + `fuse_vault.auto_weights`). Read-only.
+- Fuse Lab (`FuseLab.jsx`) starts in Cmd Ctr › Fuse (`<FuseLab call>`: 6 pools, auto|manual weights, publish as a Fuse) and
+  reaches traders as Trade › ⚛️ Fuse Lab tab (`TradeTabs`, `?tab=fuse`; 3 pools). Caps are HARDCODED server-side
+  (`fuse.USER_MAX_LEGS`=3 / `MAX_LEGS`=6). Pools: `/fuses/discover` (popular/yield/deep/new); preview: `POST /fuses/preview`
+  (`fuse.preview`: split, $/day, blended APR, grade, 24h backtest, size guard >1% of pool liquidity).
+- One-click Fuse in (`FuseGo` + `lib/fuseGo.js`): quote+simulate every leg in parallel (refresh 10s), review must match
+  (`orderMatches`), ONE `signAllTransactions`, then `/execute` each leg. Same trading path as Quick trade — no new money path.
 - Built and paid out in Cmd Ctr › ⚛️ Fuse. System map: `docs/ARCHITECTURE.md`.
 - FUSE Vault (one contract, ≤3 v2/v3 pools, SOL in → shares, fees in SOL to Trading & fees › Vault fee wallet):
   engine `backend/fuse_vault.py` (spec, tested) ⇄ program `contracts/fuse_vault` (Anchor; math.rs mirrors it —
@@ -140,6 +147,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Nothing trades fee-free except **buying** $FEE / FEECAT / rFEE. Coin→coin with no SOL/USDC side is refused.
 - The wallet signs everything; the server verifies the signed message equals the quoted one; no resubmits.
 - Only show or sign an order that matches the coins, side and amount on screen.
+
+## Coin verification + coin badges
+- `backend/verify.py`: coins EARN and LOSE the check and coin badges (`COIN_BADGES`) the same way — recomputed each run
+  (6h TTL); `transitions()` logs earned/lost with the reason into verify.json `history` (shown in `VerifyReport`).
+  A granted gold check is suspended while a `CRITICAL` gate fails (mint/freeze/creator/liquidity); official coins keep gold.
 
 ## Reputation / investigation
 - `backend/investigate.py` is the scoring core (pure functions, tested): every score point is cited evidence

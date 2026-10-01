@@ -9,7 +9,9 @@ a hot meme 20%). Pure functions, no I/O — every number on a Fuse card comes fr
 import math
 
 DEX_FEE_EST = 0.0025          # typical pool fee tier used for the APR estimate (shown as an estimate)
-MAX_LEGS = 6
+MAX_LEGS = 6                  # Cmd Ctr / admin Fuses
+USER_MAX_LEGS = 3             # what a trader can fuse in the Fuse Lab
+IMPACT_WARN_PCT = 1.0         # a leg bigger than ~1% of its pool's liquidity moves price noticeably
 MAX_CREATOR_BPS = 5000        # a creator can take at most half of the FEELESS fee on their Fuse's buys
 
 
@@ -44,6 +46,7 @@ def leg_meta(pair):
     tx = (pair.get('txns') or {}).get('h24') or {}
     buys, sells = _f(tx.get('buys')), _f(tx.get('sells'))
     return {'symbol': (pair.get('baseToken') or {}).get('symbol'), 'quote': (pair.get('quoteToken') or {}).get('symbol'),
+            'baseAddress': (pair.get('baseToken') or {}).get('address'), 'quoteAddress': (pair.get('quoteToken') or {}).get('address'),
             'priceUsd': _f(pair.get('priceUsd')), 'liquidityUsd': liq, 'volume24h': vol, 'change24h': _f((pair.get('priceChange') or {}).get('h24')),
             'aprEst': round(vol * DEX_FEE_EST / liq * 365 * 100, 1) if liq > 0 else 0.0, 'turnover': round(vol / liq, 2) if liq > 0 else 0.0,
             'buyShare': round(buys / (buys + sells) * 100) if buys + sells else None, 'dex': pair.get('dexId'), 'url': pair.get('url')}
@@ -146,9 +149,22 @@ def preview(pools, metas, sol, sol_usd, weights):
         if m:
             metas_ok.append({**m, 'weight': leg['weight']})
         s = parts.get(leg['pairAddress'], 0.0)
-        out.append({**leg, **{k: m.get(k) for k in ('quote', 'liquidityUsd', 'volume24h', 'aprEst', 'change24h', 'dex')}, 'sol': s, 'usd': round(s * px, 2),
-                    'dailyUsd': round(s * px * min(400.0, _f(m.get('aprEst'))) / 100 / 365, 4), 'missing': not m})
+        liq = _f(m.get('liquidityUsd'))
+        out.append({**leg, **{k: m.get(k) for k in ('quote', 'liquidityUsd', 'volume24h', 'aprEst', 'change24h', 'dex', 'baseAddress', 'quoteAddress')}, 'sol': s, 'usd': round(s * px, 2),
+                    'dailyUsd': round(s * px * min(400.0, _f(m.get('aprEst'))) / 100 / 365, 4), 'missing': not m,
+                    'sizePct': round(s * px / liq * 100, 3) if liq > 0 else None})
     usd_in = amt * px
     apr = sum(x['weight'] * min(400.0, _f(x['aprEst'])) for x in out if not x['missing']) / max(1e-9, sum(x['weight'] for x in out if not x['missing'])) if metas_ok else 0.0
     return {'sol': amt, 'usd': round(usd_in, 2), 'solUsd': px, 'legs': out, 'blendedAprPct': round(apr, 1),
-            'dailyUsd': round(sum(x['dailyUsd'] for x in out), 4), 'score': score(metas_ok)}
+            'dailyUsd': round(sum(x['dailyUsd'] for x in out), 4), 'score': score(metas_ok),
+            'backtest24hPct': round(sum(x['weight'] * _f(x['change24h']) for x in out if not x['missing']) / 100, 2),   # if fused 24h ago
+            'impactWarn': [x['symbol'] for x in out if (x['sizePct'] or 0) > IMPACT_WARN_PCT]}
+
+
+def legs_cap(is_admin):
+    return MAX_LEGS if is_admin else USER_MAX_LEGS
+
+
+def manual_weights(pools):
+    """Cmd Ctr override: the admin's own weights (cleaned like any Fuse: positive, normalised), as fractions."""
+    return {x['pairAddress']: x['weight'] / 100 for x in clean_legs(pools)}

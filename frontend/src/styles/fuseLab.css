@@ -41,7 +41,7 @@
 .fl-legs { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .fl-legs li { display: grid; grid-template-columns: minmax(50px, 1fr) 40px auto auto auto; gap: 8px; align-items: center; font-size: 12px; padding: 5px 0; border-bottom: 1px solid var(--m-line); }
 .fl-legs li > :not(b) { text-align: right; }
-.fl-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.fl-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; }
 .fl-grade { font-family: var(--m-mono); font-size: 22px; color: var(--m-accent); cursor: help; } .fl-grade.g-C, .fl-grade.g-D { color: var(--m-warn); } .fl-grade.g-F { color: var(--m-danger); }
 .fl-why { font-size: 12px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); padding: 8px 10px; }
 .fl-why summary { cursor: pointer; font-family: var(--m-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--m-accent); }
@@ -56,3 +56,29 @@ body.fx-lite .fl-row { animation: none; }
 @container (max-width: 820px) { .fl-body { grid-template-columns: 1fr; } .fl-mix { position: static; } }
 @container (max-width: 560px) { .fl-steps { grid-template-columns: 1fr; } .fl-row { grid-template-columns: 22px 28px minmax(0, 1fr) auto auto; } .fl-row .fl-cell:nth-of-type(5), .fl-row .fl-cell:nth-of-type(7) { display: none; } }
 @media (max-width: 560px) { .fl { padding: 12px; } }
+.fl-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+/* Cmd Ctr extras: weight mode, manual sliders, publish. */
+.fl-wmode { display: grid; gap: 6px; }
+.fl-slider { display: grid; grid-template-columns: 70px 1fr 34px; gap: 8px; align-items: center; font-size: 12px; }
+.fl-slider input { accent-color: var(--m-accent); cursor: pointer; } .fl-slider input:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.fl-pub { display: grid; gap: 8px; padding-top: 10px; border-top: 1px dashed var(--m-line-hi); }
+.fl-pub-row { display: flex; gap: 6px; align-items: center; } .fl-pub-row .m-input { min-width: 0; flex: 1; } .fl-emoji { flex: 0 0 48px !important; text-align: center; }
+.fl-cut { display: flex; align-items: center; gap: 4px; font-size: 12px; } .fl-cut small { font-family: var(--m-mono); font-size: 8px; letter-spacing: .1em; color: var(--m-dim); }
+.fl-cut .m-input { flex: 0 0 48px !important; }
+/* ⚡ FuseGo: one-click review → approve → per-leg live status. */
+.fg { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--m-accent); border-radius: var(--m-r-sm); background: color-mix(in srgb, var(--m-accent) 6%, var(--m-surface)); animation: mCardIn .2s var(--m-ease); }
+.fg-head { display: flex; align-items: center; justify-content: space-between; }
+.fg-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--m-accent); box-shadow: 0 0 8px var(--m-accent); animation: fgPulse 1.2s ease-in-out infinite alternate; }
+@keyframes fgPulse { from { opacity: .3; transform: scale(.8); } to { opacity: 1; transform: scale(1); } }
+.fg-legs { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.fg-leg { display: grid; grid-template-columns: minmax(50px, auto) auto 1fr auto; gap: 8px; align-items: center; font-size: 12px; padding: 6px 8px; border-radius: 6px; background: var(--m-surface); border: 1px solid var(--m-line); animation: mCardIn .2s var(--m-ease) backwards; }
+.fg-leg em { font-style: normal; font-family: var(--m-mono); font-size: 10px; color: var(--m-dim); } .fg-leg em a { color: var(--m-accent); text-decoration: none; } .fg-leg em a:hover { text-decoration: underline; }
+.fg-leg.s-ok, .fg-leg.s-confirmed { border-color: color-mix(in srgb, var(--m-accent) 50%, var(--m-line)); } .fg-leg.s-confirmed em { color: var(--m-accent); }
+.fg-leg.s-err, .fg-leg.s-failed { border-color: color-mix(in srgb, var(--m-danger) 50%, var(--m-line)); } .fg-leg.s-failed em, .fg-leg.s-err > span:nth-child(3) { color: var(--m-danger); }
+.fg-sum { display: flex; justify-content: space-between; font-family: var(--m-mono); font-size: 12px; }
+.fg-acts { display: flex; gap: 8px; } .fg-acts .m-go { flex: 1; }
+/* Trade page tabs: Swap | Fuse Lab. */
+.trade-tabs { margin: 0 0 14px; } .trade-tab-body { animation: mCardIn .2s var(--m-ease); }
+body.theme-day .fg { background: var(--m-surface-2); }
+body.fx-lite .fg-pulse { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fg, .fg-leg, .fg-pulse, .trade-tab-body { animation: none; } }

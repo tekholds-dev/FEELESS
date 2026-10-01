@@ -1,17 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiUrl } from '../lib/api';
-import { FuseLeg } from './FusePanel';
+import { toast } from 'sonner';
+import { FuseGo } from './FuseGo';
 import '../styles/fuseLab.css';
 
-// ⚛️ FUSE LAB: browse the chain's real pools, tick 2–6, and see live how FEELESS auto-weighs them (fee APR × depth,
-// 10–70% each) and where one SOL amount goes. Preview is read-only; "Fuse in" = one normal wallet-signed swap per pool.
+// ⚛️ FUSE LAB: browse the chain's real pools, tick them, and see live how FEELESS auto-weighs them (fee APR × depth,
+// 10–70% each) and where one SOL amount goes. Traders fuse up to 3 pools; Cmd Ctr (pass `call`) up to 6 with manual
+// weights + publish-as-Fuse. Preview is read-only; Fuse in = one wallet approval for one normal swap per pool (FuseGo).
+// Caps are enforced server-side (fuse.USER_MAX_LEGS / MAX_LEGS).
 const LENSES = [['popular', 'Popular'], ['yield', 'Top yield'], ['deep', 'Deepest'], ['new', 'New 72h']];
-const MAX = 6;
 const usd = v => (v >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${(v || 0).toFixed(v < 10 ? 2 : 0)}`);
 const pct = v => (Math.abs(v) >= 1000 ? `${(1 + v / 100).toFixed(1)}x` : `${v >= 0 ? "+" : ""}${(v || 0).toFixed(1)}%`);
 const apr = v => (v >= 1000 ? `${(v / 100).toFixed(0)}x` : `${Math.round(v || 0)}%`);
 
-export function FuseLab({ chain = 'solana' }) {
+export function FuseLab({ chain = 'solana', call }) {
+  const admin = Boolean(call); const MAX = admin ? 6 : 3;
+  const [manual, setManual] = useState(false); const [wts, setWts] = useState({}); const [pub, setPub] = useState({ name: '', emoji: '⚛️', creatorBps: 1000 });
   const [lens, setLens] = useState('popular');
   const [pools, setPools] = useState(null);
   const [q, setQ] = useState('');
@@ -25,15 +29,16 @@ export function FuseLab({ chain = 'solana' }) {
     fetch(apiUrl(`/api/reputation/fuses/discover?lens=${lens}&chain=${chain}`)).then(r => (r.ok ? r.json() : { pools: [] })).then(d => alive && setPools(d.pools || [])).catch(() => alive && setPools([]));
     return () => { alive = false; }; }, [lens, chain]);
 
-  const key = picked.map(p => p.pairAddress).join(',');
+  const key = picked.map(p => `${p.pairAddress}:${manual ? wts[p.pairAddress] || 1 : ''}`).join(',');
   useEffect(() => {
     setGoing(false);
     if (picked.length < 2) { setPrev(null); setErr(''); return undefined; }
-    const t = setTimeout(() => fetch(apiUrl('/api/reputation/fuses/preview'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pools: picked.map(p => ({ chainId: p.chainId, pairAddress: p.pairAddress, symbol: p.symbol })), sol: Number(sol) || 0 }) })
-      .then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.detail || 'Preview failed'); setPrev(d); setErr(''); }).catch(e => setErr(e.message)), 250);
+    const body = JSON.stringify({ pools: picked.map(p => ({ chainId: p.chainId, pairAddress: p.pairAddress, symbol: p.symbol, weight: manual ? wts[p.pairAddress] || 1 : 1 })), sol: Number(sol) || 0, manual: admin && manual });
+    const run = () => (admin ? call('/fuses/preview', { method: 'POST', body })
+      : fetch(apiUrl('/api/reputation/fuses/preview'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.detail || 'Preview failed'); return d; }));
+    const t = setTimeout(() => run().then(d => { setPrev(d); setErr(''); }).catch(e => setErr(e.message)), 250);
     return () => clearTimeout(t);
-  }, [key, sol]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [key, sol, manual]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const shown = useMemo(() => { const s = q.trim().toLowerCase(); return (pools || []).filter(p => !s || `${p.symbol}/${p.quote} ${p.dex}`.toLowerCase().includes(s)); }, [pools, q]);
   const isOn = p => picked.some(x => x.pairAddress === p.pairAddress);
@@ -41,11 +46,11 @@ export function FuseLab({ chain = 'solana' }) {
 
   return <section className="m-card m-live fl" data-testid="fuse-lab">
     <header className="fl-head">
-      <div><span className="m-label">⚛️ FUSE LAB</span><h3>Many pools. One buy.</h3>
-        <p className="m-dim">Pick 2–6 live pools. FEELESS weighs them for you and shows exactly where your SOL goes.</p></div>
-      <span className="m-chip ok fl-chain"><i />{chain.toUpperCase()}</span>
+      <div><span className="m-label">⚛️ FUSE LAB</span><h3>{admin ? 'Design a Fuse.' : 'Many pools. One buy.'}</h3>
+        <p className="m-dim">{admin ? 'Up to 6 pools, auto or your own weights, 24h backtest, size guard — then publish it for traders.' : `Pick 2–${MAX} live pools. FEELESS weighs them and shows exactly where your SOL goes. One approval buys them all.`}</p></div>
+      <span className="fl-badges">{admin && <span className="m-chip warn">CMD CTR · 6 POOLS</span>}<span className="m-chip ok fl-chain"><i />{chain.toUpperCase()}</span></span>
     </header>
-    <ol className="fl-steps"><li><b>1</b><span>Pick pools</span></li><li><b>2</b><span>Auto-weigh<small>fee APR × depth · 10–70% each</small></span></li><li><b>3</b><span>One amount in<small>split into swaps you sign</small></span></li></ol>
+    <ol className="fl-steps"><li><b>1</b><span>Pick pools</span></li><li><b>2</b><span>Auto-weigh<small>fee APR × depth · 10–70% each</small></span></li><li><b>3</b><span>One click in<small>one approval · a swap per pool</small></span></li></ol>
     <div className="fl-body">
       <div className="fl-browse">
         <div className="fl-tools"><div className="m-seg" role="radiogroup" aria-label="Pool lens">{LENSES.map(([k, l]) => <button type="button" key={k} role="radio" aria-checked={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)}>{l}</button>)}</div>
@@ -71,6 +76,8 @@ export function FuseLab({ chain = 'solana' }) {
           <label className="m-field fl-amt"><span>SOL in</span><div className="fl-amt-row"><input className="m-input m-num" inputMode="decimal" value={sol} onChange={e => setSol(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="SOL amount" />
             <div className="m-seg">{['0.5', '1', '5'].map(v => <button type="button" key={v} className={sol === v ? 'active' : ''} onClick={() => setSol(v)}>{v}</button>)}</div></div>
             {prev && <small className="m-dim">≈ {usd(prev.usd)} at {usd(prev.solUsd)}/SOL</small>}</label>
+          {admin && <div className="fl-wmode"><div className="m-seg" role="radiogroup" aria-label="Weights"><button type="button" role="radio" aria-checked={!manual} className={!manual ? 'active' : ''} onClick={() => setManual(false)}>Auto weights</button><button type="button" role="radio" aria-checked={manual} className={manual ? 'active' : ''} onClick={() => setManual(true)}>Manual</button></div>
+            {manual && picked.map(p => <label key={p.pairAddress} className="fl-slider"><span>{p.symbol}</span><input type="range" min="1" max="100" value={wts[p.pairAddress] || 1} onChange={e => setWts(w => ({ ...w, [p.pairAddress]: Number(e.target.value) }))} /><b className="m-num">{wts[p.pairAddress] || 1}</b></label>)}</div>}
           {err ? <div className="m-note bad">{err}</div> : !prev ? <div className="fl-row is-ghost" /> : <>
             <div className="fl-bar">{prev.legs.map(l => <i key={l.pairAddress} style={{ flexGrow: l.weight }} title={`${l.symbol} ${l.weight}%`}><span>{l.symbol} {Math.round(l.weight)}%</span></i>)}</div>
             <ul className="fl-legs">{prev.legs.map(l => <li key={l.pairAddress}><b>{l.symbol}</b><span className="m-num">{l.weight.toFixed(0)}%</span><span className="m-num">{l.sol} SOL</span><span className="m-num m-dim">{usd(l.usd)}</span><span className="m-num m-pos" title="Est. fee yield per day at this size">{usd(l.dailyUsd)}/d</span></li>)}</ul>
@@ -78,16 +85,33 @@ export function FuseLab({ chain = 'solana' }) {
               <div className="m-stat"><small>GRADE</small><b className={`fl-grade g-${prev.score.grade}`} title={prev.score.parts.map(p => `${p.part}: ${p.why}`).join('\n')}>{prev.score.grade}</b></div>
               <div className="m-stat"><small>BLENDED APR</small><b className="m-num m-pos">{apr(prev.blendedAprPct)}</b></div>
               <div className="m-stat"><small>EST / DAY</small><b className="m-num">{usd(prev.dailyUsd)}</b></div>
+              <div className="m-stat" title="What this mix did over the last 24h"><small>IF FUSED 24H AGO</small><b className={`m-num ${prev.backtest24hPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(prev.backtest24hPct)}</b></div>
             </div>
+            {prev.impactWarn?.length > 0 && <div className="m-note warn"><b>SIZE GUARD</b><span>{prev.impactWarn.join(', ')}: your slice is over 1% of that pool — expect price impact. Lower the SOL or swap the pool.</span></div>}
             <details className="fl-why"><summary>Why these weights?</summary><p>Each pool scores <b>fee APR</b> (24h volume × 0.25% ÷ liquidity, capped 400%) × <b>depth</b> (log of liquidity). Shares are clamped to 10–70% so one pool never runs the fuse. Grade = depth + healthy turnover + calm 24h moves + forensics safety.</p>
               <ul>{prev.score.parts.map(p => <li key={p.part}><span>{p.part}</span><b className="m-num">{p.points}</b><small>{p.why}</small></li>)}</ul></details>
-            {!going ? <button type="button" className="m-btn primary m-go wide" disabled={!(Number(sol) > 0)} onClick={() => setGoing(true)} data-testid="fl-go">⚡ Fuse in {Number(sol) || 0} SOL</button>
-              : <div className="fl-go">{prev.legs.map(l => <div key={l.pairAddress} className="fz-split"><span>{l.symbol} · {Math.round(l.weight)}%</span><FuseLeg leg={l} sol={l.sol} /></div>)}
-                <small className="m-dim">Each pool is its own swap your wallet signs · normal FEELESS fees.</small></div>}
+            {!going ? <button type="button" className="m-btn primary m-go wide" disabled={!(Number(sol) > 0)} onClick={() => setGoing(true)} data-testid="fl-go">⚡ Fuse in {Number(sol) || 0} SOL · 1 click</button>
+              : <FuseGo legs={prev.legs} onClose={() => setGoing(false)} />}
+            {admin && <div className="fl-pub"><span className="m-label">PUBLISH AS A FUSE</span><div className="fl-pub-row"><input className="m-input fl-emoji" value={pub.emoji} maxLength={4} onChange={e => setPub(x => ({ ...x, emoji: e.target.value }))} aria-label="Emoji" />
+              <input className="m-input" value={pub.name} maxLength={40} placeholder="Fuse name" onChange={e => setPub(x => ({ ...x, name: e.target.value }))} />
+              <label className="fl-cut"><small>CREATOR CUT</small><input className="m-input m-num" inputMode="numeric" value={pub.creatorBps / 100} onChange={e => setPub(x => ({ ...x, creatorBps: Math.min(5000, Math.round((Number(e.target.value) || 0) * 100)) }))} />%</label></div>
+              <button type="button" className="m-btn primary" disabled={pub.name.trim().length < 2} data-testid="fl-publish" onClick={() => call('/admin/fuses', { method: 'POST', body: JSON.stringify({ ...pub, legs: prev.legs.map(l => ({ chainId: l.chainId, pairAddress: l.pairAddress, symbol: l.symbol, weight: l.weight })) }) })
+                .then(() => { toast.success(`${pub.name} is live in the Fuse Lab`); setPub(x => ({ ...x, name: '' })); }).catch(e => toast.error(e.message))}>Publish for traders</button></div>}
             <small className="m-dim fl-fine">Preview only — nothing moves until you sign. Yields are estimates from the last 24h.</small>
           </>}
         </>}
       </aside>
     </div>
   </section>;
+}
+
+// Trade page: Swap | Fuse Lab as a segmented tab at the top, so the swap keeps its look and nothing stacks below it.
+export function TradeTabs({ children, fuse }) {
+  const read = () => (new URLSearchParams(window.location.search).get('tab') === 'fuse' ? 'fuse' : 'swap');
+  const [tab, setTab] = useState(read);
+  const go = t => { setTab(t); const u = new URL(window.location.href); if (t === 'fuse') u.searchParams.set('tab', 'fuse'); else u.searchParams.delete('tab'); window.history.replaceState(null, '', u); };
+  return <>
+    <div className="m-seg trade-tabs" role="tablist" aria-label="Trade">{[['swap', '⇄ Swap'], ['fuse', '⚛️ Fuse Lab']].map(([k, l]) => <button type="button" key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => go(k)} data-testid={`trade-tab-${k}`}>{l}</button>)}</div>
+    <div className="trade-tab-body" key={tab}>{tab === 'fuse' ? fuse : children}</div>
+  </>;
 }

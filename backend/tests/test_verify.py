@@ -45,3 +45,38 @@ def test_batch_reflects_revoke_immediately_and_schedules_missing(monkeypatch, tm
     assert asyncio.run(rs.verify_batch(m))['verify'][m]['level'] == 'revoked'
     asyncio.run(rs.verify_admin(None, rs.VerifyAdminIn(mint=m, action='grant')))
     assert asyncio.run(rs.verify_batch(m))['verify'][m]['level'] == 'gold'
+
+
+def test_coin_badges_are_earned_and_lost_the_same_way():
+    r = verify.verify_report(GOOD)
+    assert all(b['earned'] for b in r['badges'])
+    rugged = verify.verify_report({**GOOD, 'lpLocked': False, 'freezeAuthority': 'Dev', 'volume24h': 0})
+    lost = {e['id'] for e in verify.transitions({'level': r['level'], 'badges': [b['id'] for b in r['badges'] if b['earned']]}, rugged) if e['kind'] == 'lost'}
+    assert lost == {'verified', 'renounced', 'lp-locked', 'real-vol'}
+    back = verify.transitions({'level': None, 'badges': []}, r)
+    assert {e['id'] for e in back if e['kind'] == 'earned'} >= {'verified', 'lp-locked'}
+    assert verify.transitions({}, r) == []   # first sighting is not news
+
+
+def test_granted_gold_is_suspended_while_a_critical_gate_fails_and_returns_after():
+    g = {'state': 'granted'}
+    assert verify.verify_report({**GOOD, 'mintAuthority': 'Dev'}, g)['level'] is None
+    assert 'suspended' in verify.verify_report({**GOOD, 'liquidityUsd': 100}, g)['reason']
+    assert verify.verify_report(GOOD, g)['level'] == 'gold'
+    assert verify.verify_report({**GOOD, 'mintAuthority': 'Dev'}, None, official=True)['level'] == 'gold'
+
+
+def test_service_records_earned_then_lost_history(monkeypatch, tmp_path):
+    rs = pytest.importorskip('reputation_service')
+    monkeypatch.setattr(rs, 'VERIFY_PATH', tmp_path / 'v.json')
+    facts = {'f': GOOD}
+    async def fake(m): return facts['f'], {'symbol': 'X'}
+    async def eco(): return {}
+    monkeypatch.setattr(rs, '_verify_facts', fake); monkeypatch.setattr(rs, '_ecosystem_mints', eco)
+    m = 'So11111111111111111111111111111111111111112'
+    assert asyncio.run(rs._verify_run(m))['history'] == []
+    facts['f'] = {**GOOD, 'lpLocked': False}
+    h = asyncio.run(rs._verify_run(m))['history']
+    assert [(e['kind'], e['id']) for e in h] == [('lost', 'lp-locked')]
+    facts['f'] = GOOD
+    assert asyncio.run(rs._verify_run(m))['history'][0]['kind'] == 'earned'

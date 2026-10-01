@@ -2768,17 +2768,32 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
 class FusePreview(BaseModel):
     pools: list
     sol: float = 1.0
+    manual: bool = False     # Cmd Ctr only: use the pools' own weights instead of auto
+
+
+def _is_admin_req(request):
+    try:
+        _require_admin(request)
+        return True
+    except Exception:
+        return False
 
 
 @app.post('/api/reputation/fuses/preview')
-async def fuses_preview(payload: FusePreview):
-    """Fuse Lab preview: auto-weights (fee APR × depth, 10–70% per pool) and where `sol` SOL would go. Read-only — moves nothing."""
+async def fuses_preview(payload: FusePreview, request: Request = None):
+    """Fuse Lab preview: auto-weights (fee APR × depth, 10–70% per pool) and where `sol` SOL would go. Read-only — moves nothing.
+    Traders fuse up to 3 pools; Cmd Ctr up to 6 and may set manual weights."""
+    admin = request is not None and _is_admin_req(request)
+    cap = _fuse.legs_cap(admin)
+    if len(payload.pools or []) > cap:
+        raise HTTPException(400, f'Fuse up to {cap} pools.')
     pools = _fuse.clean_legs([{**p, 'weight': p.get('weight') or 1} for p in payload.pools or []])
     if len(pools) < 2:
         raise HTTPException(400, 'Pick at least 2 pools.')
     pairs, sol_usd = await asyncio.gather(_fuse_pairs(pools), _sol_usd_live())
     metas = {k: _fuse.leg_meta(v) for k, v in pairs.items()}
-    return _fuse.preview(pools, metas, max(0.0, min(100000.0, payload.sol)), sol_usd, _vault.auto_weights(pools, metas))
+    w = _fuse.manual_weights(payload.pools) if admin and payload.manual else _vault.auto_weights(pools, metas)
+    return {**_fuse.preview(pools, metas, max(0.0, min(100000.0, payload.sol)), sol_usd, w), 'cap': cap, 'admin': admin}
 
 
 class FuseBuy(BaseModel):
@@ -9451,6 +9466,16 @@ async def _verify_run(mint):
     except Exception:
         official = False
     rep = {**verify.verify_report(facts, manual, official), 'mint': mint, **meta, 'at': time.time()}
+    snap = {'level': rep['level'], 'badges': [b['id'] for b in rep['badges'] if b['earned']]}
+    d = _verify_store()
+    prev = (d.get('last') or {}).get(mint)
+    if prev != snap:   # coins earn AND lose checks + badges the same way: every run is compared with the last one
+        events = [{**e, 'at': rep['at']} for e in verify.transitions(prev, rep)]
+        d.setdefault('last', {})[mint] = snap
+        if events:
+            d.setdefault('history', {})[mint] = ((d.get('history') or {}).get(mint, []) + events)[-20:]
+        _json_save(VERIFY_PATH, d)
+    rep['history'] = list(reversed((d.get('history') or {}).get(mint, [])))[:10]
     _verify_cache[mint] = (time.time(), rep)
     if len(_verify_cache) > 5000:
         _verify_cache.clear()
@@ -9479,7 +9504,7 @@ async def verify_batch(mints: str = Query('', max_length=4000)):
         hit = _verify_cache.get(m)
         if manual == 'revoked':
             out[m] = {'level': 'revoked'}
-        elif manual == 'granted':
+        elif manual == 'granted' and not (hit and 'suspended' in str(hit[1].get('reason'))):
             out[m] = {'level': 'gold', 'score': hit[1]['score'] if hit else None}
         elif hit:
             out[m] = {'level': hit[1]['level'], 'score': hit[1]['score']}

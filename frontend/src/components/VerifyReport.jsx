@@ -15,6 +15,8 @@ export function VerifyReport({ mint, report: given, fresh = 0 }) {
   const verdict = { gold: ['vr-gold', '✦ FEELESS verified'], verified: ['vr-ok', '✓ Verified'], revoked: ['vr-bad', '✕ Verification revoked'] }[r.level] || ['vr-none', 'Not verified yet'];
   return <div className="verify-report" data-testid="verify-report">
     <div className={`vr-head ${verdict[0]}`}><b>{verdict[1]}</b><span className="vr-score"><i style={{ width: `${r.score}%` }} /><em>{r.score}/100 · needs {r.min}</em></span><small>{r.reason}</small></div>
+    {r.badges?.length > 0 && <div className="m-row vr-badges" data-testid="coin-badges">{r.badges.map(b => <span key={b.id} className={`m-chip ${b.earned ? 'ok' : ''}`} title={`${b.earned ? 'Earned' : 'Not now'}: ${b.why} — lost the moment it stops being true`} style={b.earned ? undefined : { opacity: 0.45 }}>{b.icon} {b.label}</span>)}</div>}
+    {r.history?.length > 0 && <div className="m-note" data-testid="coin-badge-history"><b>EARNED · LOST</b>{r.history.slice(0, 5).map((e, i) => <span key={i} className={e.kind === 'lost' ? 'm-neg' : 'm-pos'}>{e.kind === 'lost' ? '▼ lost' : '▲ earned'} {e.label} · <small className="m-dim">{e.why} · {new Date(e.at * 1000).toLocaleDateString()}</small></span>)}</div>}
     <div className="vr-cols">
       <div><small>SAFETY GATES · all must pass</small>{r.gates.map(g => <div key={g.key} className={`vr-line ${g.pass ? 'pass' : 'fail'}`}><i>{g.pass ? '✓' : '✕'}</i><span>{g.label}</span><em>{g.source}</em></div>)}</div>
       <div><small>SCORED CHECKS</small>{r.checks.map(c => <div key={c.key} className={`vr-line ${c.pass ? 'pass' : 'miss'}`}><i>{c.pass ? '✓' : '·'}</i><span>{c.label}</span><em>+{c.weight} · {c.source}</em></div>)}</div>

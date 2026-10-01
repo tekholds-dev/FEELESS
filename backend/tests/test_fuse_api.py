@@ -49,3 +49,21 @@ def test_fuse_lab_discover_and_preview(monkeypatch):
         asyncio.run(rs.fuses_preview(rs.FusePreview(pools=[{'chainId': 'solana', 'pairAddress': 'P1'}], sol=1)))
     p = asyncio.run(rs.fuses_preview(rs.FusePreview(pools=[{'chainId': 'solana', 'pairAddress': 'P1'}, {'chainId': 'solana', 'pairAddress': 'P2'}], sol=2)))
     assert round(sum(x['sol'] for x in p['legs']), 6) == 2 and p['usd'] == 400 and abs(sum(x['weight'] for x in p['legs']) - 100) < 0.1
+
+
+def test_fuse_lab_caps_users_at_3_and_admin_gets_6_and_manual_weights(monkeypatch):
+    P = {f'P{i}': {**PAIRS['P1'], 'pairAddress': f'P{i}'} for i in range(1, 7)}
+    async def pairs(legs): return {leg['pairAddress']: P[leg['pairAddress']] for leg in legs}
+    async def px(): return 100.0
+    monkeypatch.setattr(rs, '_fuse_pairs', pairs); monkeypatch.setattr(rs, '_sol_usd_live', px)
+    four = [{'chainId': 'solana', 'pairAddress': f'P{i}'} for i in range(1, 5)]
+    monkeypatch.setattr(rs, '_require_admin', lambda r: (_ for _ in ()).throw(rs.HTTPException(403, 'no')))
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.fuses_preview(rs.FusePreview(pools=four, sol=1), Req()))
+    assert asyncio.run(rs.fuses_preview(rs.FusePreview(pools=four[:3], sol=1), Req()))['cap'] == 3
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN')
+    man = [{**four[0], 'weight': 75}, {**four[1], 'weight': 25}]
+    p = asyncio.run(rs.fuses_preview(rs.FusePreview(pools=man, sol=4, manual=True), Req()))
+    assert p['cap'] == 6 and [x['weight'] for x in p['legs']] == [75, 25] and p['legs'][0]['sol'] == 3
+    six = [{'chainId': 'solana', 'pairAddress': f'P{i}'} for i in range(1, 7)]
+    assert len(asyncio.run(rs.fuses_preview(rs.FusePreview(pools=six, sol=1), Req()))['legs']) == 6
