@@ -56,8 +56,6 @@
 .eco-world-close{width:38px;height:38px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.12);border-radius:9px;color:#c7e3d3;background:rgba(255,255,255,.03)}
 .eco-world-close:hover{border-color:var(--eco-accent,#14F195);color:var(--eco-accent,#14F195)}
 .eco-world-grid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);gap:18px;padding-top:16px}
-.eco-layout-chat-first .eco-world-grid{grid-template-columns:minmax(0,1.35fr) minmax(300px,.8fr)}
-.eco-layout-feed-first .eco-world-grid{grid-template-columns:minmax(300px,.8fr) minmax(0,1.35fr)}
 .eco-layout-feed-first .eco-chat-col{grid-column:2;grid-row:1}
 .eco-layout-feed-first .eco-right-col{grid-column:1;grid-row:1}
 .eco-chat-col{display:flex;flex-direction:column;min-height:0;background:rgba(9,16,13,.72);border:1px solid rgba(20,241,149,.16);border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.5)}
@@ -206,7 +204,7 @@ body.theme-day .eco-chart{background:#fff;border-color:#9fd3b6}body.theme-day .e
 .eco-chart.is-big .chart-with-trade{flex:1;min-height:0;height:100%}
 .eco-chart.is-big .chart-fullscreen-wrap,.eco-chart.is-big .chart-area{height:100%;display:flex;flex-direction:column}
 .eco-chart.is-big .candle-canvas{flex:1;height:auto!important;min-height:200px}
-/* Room chart: one height token per layout; the trade stack never outgrows the chart, it scrolls. */
+/* Room chart: --chart-h per layout; trade stack scrolls */
 .eco-chart{--chart-h:clamp(300px,44vh,520px)}.eco-chart .candle-canvas{height:var(--chart-h)!important}
 .eco-chart .chart-with-trade{align-items:start;gap:10px}.eco-chart .chart-side-stack{max-height:calc(var(--chart-h) + 34px);overflow-y:auto;overscroll-behavior:contain;padding-right:2px}
 .eco-chart.is-big .chart-side-stack{max-height:100%}
