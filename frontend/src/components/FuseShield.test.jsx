@@ -54,3 +54,11 @@ test('card math: each leg $ slice × its 24h move, minus fee drag', () => {
   expect(m.legs[0].usd).toBe(12); expect(m.legs[0].pnl).toBeCloseTo(1.2); expect(m.legs[1].pnl).toBeCloseTo(-0.4);
   expect(m.gross).toBeCloseTo(0.8); expect(m.fees).toBeCloseTo(0.2); expect(m.end).toBeCloseTo(20.6);
 });
+
+test('owned card revalues held tokens at the live price; sold legs keep their realized $', () => {
+  const { revalue } = require('./FuseCard');
+  const r = { legs: [{ pairAddress: 'A', usd: 10, tokens: 60, realizedUsd: 8, valueUsd: 18 }, { pairAddress: 'B', usd: 5, soldUsd: 6, valueUsd: 6 }] };
+  const out = revalue(r, new Map([['A', { price: 0.5 }], ['B', { price: 99 }]]));
+  expect(out.legs[0].valueUsd).toBe(38); expect(out.legs[0].priceNow).toBe(0.5);       // 60 × 0.5 + 8 realized
+  expect(out.legs[1].valueUsd).toBe(6); expect(out.valueUsd).toBe(44); expect(Math.round(out.pnlPct)).toBe(193);
+});

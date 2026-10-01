@@ -40,3 +40,30 @@ export function unfuseOrders(legs, balances, wallet, slippageBps = 150, pct = 10
     return { leg, target: { mint: leg.mint, symbol: leg.symbol }, request: { input_mint: leg.mint, output_mint: SOL_MINT, amount: atomsToUi(atoms, b.decimals), slippage_bps: slippageBps, wallet } };
   });
 }
+
+// Rebalance a card back to its original weights (each leg's share of what was put in). Over-weight legs sell the excess,
+// under-weight legs buy the gap with SOL — all in one approval. Legs within `tolPct` of target, unpriced or sold are left
+// alone. r = a /fuses/pnl row; balances = {mint: {raw, decimals}}; px = {pairAddress: usd price}.
+export function rebalanceOrders(r, balances, px, solUsd, wallet, tolPct = 5, slippageBps = 150) {
+  const open = (r.legs || []).filter(l => l.soldUsd == null && px[l.pairAddress] > 0 && l.mint);
+  const cost = open.reduce((a, l) => a + (Number(l.usd) || 0), 0);
+  const held = open.reduce((a, l) => a + (Number(l.heldUsd) || 0), 0);
+  if (!(cost > 0) || !(held > 0) || !(solUsd > 0)) return [];
+  const out = [];
+  for (const l of open) {
+    const target = held * (Number(l.usd) || 0) / cost; const diff = (Number(l.heldUsd) || 0) - target;
+    if (Math.abs(diff) < held * tolPct / 100) continue;
+    if (diff > 0) {
+      const b = balances?.[l.mint]; if (!b || b.decimals == null) continue;
+      const atoms = BigInt(Math.floor(diff / px[l.pairAddress] * 10 ** b.decimals)); const cap = BigInt(b.raw || 0);
+      const amt = atoms < cap ? atoms : cap; if (amt <= 0n) continue;
+      out.push({ leg: { ...l, role: l.role }, target: { mint: l.mint, symbol: l.symbol }, why: `−$${diff.toFixed(2)} (over target)`,
+        request: { input_mint: l.mint, output_mint: SOL_MINT, amount: atomsToUi(amt, b.decimals), slippage_bps: slippageBps, wallet } });
+    } else {
+      const sol = -diff / solUsd; if (sol < 0.001) continue;
+      out.push({ leg: { ...l, role: l.role }, target: { mint: l.mint, symbol: l.symbol }, why: `+$${(-diff).toFixed(2)} (under target)`,
+        request: { input_mint: SOL_MINT, output_mint: l.mint, amount: sol.toFixed(9).replace(/\.?0+$/, ''), slippage_bps: slippageBps, wallet } });
+    }
+  }
+  return out.sort((a, b) => (a.request.input_mint === SOL_MINT) - (b.request.input_mint === SOL_MINT));   // sells first
+}

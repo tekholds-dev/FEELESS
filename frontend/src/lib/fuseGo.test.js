@@ -20,3 +20,16 @@ test('unfuse sells min(bought, held) back to SOL; skips sold / empty legs', () =
   expect(o[2].skip).toMatch(/Already/); expect(o[3].skip).toMatch(/Nothing/);
   expect(orderMatches(o[1], { input_mint: 'B', output_mint: SOL_MINT, amount: '1.5' })).toBe(true);
 });
+
+test('rebalance: sell the over-weight leg, buy the under-weight one, leave near-target legs', () => {
+  const { rebalanceOrders } = require('./fuseGo');
+  const r = { legs: [
+    { pairAddress: 'A', mint: 'MA', symbol: 'A', usd: 10, heldUsd: 30 },   // target 20 of 40 → sell $10
+    { pairAddress: 'B', mint: 'MB', symbol: 'B', usd: 10, heldUsd: 9 },    // target 20 → buy $11
+    { pairAddress: 'C', mint: 'MC', symbol: 'C', usd: 0.1, heldUsd: 1, soldUsd: 2 } ] };
+  const o = rebalanceOrders(r, { MA: { raw: '100000000', decimals: 6 } }, { A: 0.5, B: 1 }, 100, 'W');
+  expect(o).toHaveLength(2);
+  expect(o[0].request).toMatchObject({ input_mint: 'MA', output_mint: SOL_MINT, amount: '21' });          // held $39 → target $19.50 each: sell $10.50 = 21 tokens
+  expect(o[1].request).toMatchObject({ input_mint: SOL_MINT, output_mint: 'MB', amount: '0.105' });      // buy $10.50 / $100
+  expect(rebalanceOrders({ legs: [{ pairAddress: 'A', mint: 'MA', usd: 5, heldUsd: 5.1 }, { pairAddress: 'B', mint: 'MB', usd: 5, heldUsd: 5 }] }, {}, { A: 1, B: 1 }, 100, 'W')).toEqual([]);
+});

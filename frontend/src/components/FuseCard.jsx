@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MetaCard } from './cards/MetaCard';
 import '../styles/fuseLab.css';
 import { tokenImageUrls } from './terminal/MarketPrimitives';
 import { legTarget } from '../lib/fuseGo';
+import { useLivePrices } from '../lib/livePrices';
 
 // A Fuse champion as a collectible card: drag to tilt, ⟲ to flip. Front = grade crest + the fused pools;
 // back = every number behind its score. Grade sets rarity, strategy sets the design.
@@ -21,34 +22,58 @@ export function cardMath(c, budget = 20) {
   const gross = legs.reduce((a, l) => a + l.pnl, 0); const fees = budget * (Number(c.parts?.feeDragPct) || 0) / 100;
   return { legs, gross, fees, net: gross - fees, end: budget + gross - fees };
 }
+const fmtPx = v => (v >= 1 ? v.toFixed(3) : v >= 0.001 ? v.toFixed(5) : v.toPrecision(3));
 const sgn = v => `${v >= 0 ? '+' : '−'}$${Math.abs(v).toFixed(Math.abs(v) < 1 ? 2 : 2)}`;
 
-export function FuseCard({ c, style = 'yield', rank = 0, budget = 20, aura = '' }) {
+export function FuseCard({ c, style = 'yield', rank = 0, budget = 20, aura = '', autoFlip = 0 }) {
   const [flipped, setFlipped] = useState(false);
+  const [hold, setHold] = useState(false);
+  // autoFlip (ms): showcase cards turn by themselves front ⇄ back; paused while hovered/focused, off for reduced motion.
+  useEffect(() => {
+    if (!autoFlip || hold || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const t = setInterval(() => setFlipped(f => !f), autoFlip); return () => clearInterval(t);
+  }, [autoFlip, hold]);
   const [a, b] = ACCENT[style] || ACCENT.yield;
   const p = c.parts || {};
   const card = { key: c.pools.join(), kind: 'fuse', title: c.legs.slice(0, 3).map(l => l.symbol).join(' · ') + (c.legs.length > 3 ? ` +${c.legs.length - 3}` : ''),
     subtitle: `${['🥇', '🥈', '🥉'][rank] || ''} ${style.toUpperCase()} · FIT ${c.fitness}`, rarity: RARITY[p.grade] || 'rare', design: DESIGN[style] || 'holo',
     accent: a, accent2: b, glyph: p.grade || '✦', art: tokenImageUrls(legPair([...c.legs].sort((x, y) => (y.weight || 0) - (x.weight || 0))[0] || {})), motion: rank === 0 ? 'alive' : 'still', aura, holders: c.legs.length, edition: `GEN ${String(c.bornGen ?? 0).padStart(2, '0')}` };
+  const live = useLivePrices(c.legs.map(l => l.pairAddress));
   const m = cardMath(c, budget);
+  const lp = pa => live.get(pa);
   const back = <div className="fcd-back">
     <div className="mc-top"><span>${budget} IN · LAST 24H</span><span>{p.grade}</span></div>
-    <ul>{m.legs.map(l => <li key={l.pairAddress}><b>{l.symbol}</b><span>{Math.round(l.weight)}% · ${l.usd.toFixed(2)}</span><em className={l.pnl >= 0 ? 'up' : 'down'}>{l.move >= 0 ? '+' : ''}{l.move.toFixed(1)}% {sgn(l.pnl)}</em></li>)}</ul>
+    <ul>{m.legs.map(l => <li key={l.pairAddress}><b>{l.symbol || (l.baseAddress ? `${l.baseAddress.slice(0, 4)}…` : '—')}</b><span>{Math.round(l.weight)}% · ${l.usd.toFixed(2)}</span><em className={l.pnl >= 0 ? 'up' : 'down'}>{l.move >= 0 ? '+' : ''}{l.move.toFixed(1)}% {sgn(l.pnl)}{lp(l.pairAddress) ? <i className={`fcd-px ${lp(l.pairAddress).m5 >= 0 ? 'up' : 'down'}`}> · ● ${fmtPx(lp(l.pairAddress).price)} {lp(l.pairAddress).m5 >= 0 ? '+' : ''}{lp(l.pairAddress).m5.toFixed(1)}% 5m</i> : null}</em></li>)}</ul>
     <dl><dt>Moves</dt><dd className={m.gross >= 0 ? 'up' : 'down'}>{sgn(m.gross)}</dd><dt>Fee drag</dt><dd className="down">−${m.fees.toFixed(2)}</dd>
       <dt>${budget} → </dt><dd className={m.net >= 0 ? 'up' : 'down'}><b>${m.end.toFixed(2)}</b></dd><dt>Calm · APR</dt><dd>{p.calm} · {p.aprScore}</dd></dl>
     <small className="fcd-note">Replay of the last 24h, not a promise. APR = pool fee rate (busy-ness), not paid to holders.</small>
   </div>;
-  return <div className="fcd" data-testid={`fuse-card-${rank}`}>
+  return <div className="fcd" data-testid={`fuse-card-${rank}`} onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} onFocus={() => setHold(true)} onBlur={() => setHold(false)}>
     <MetaCard card={card} size="md" interactive flipped={flipped} onFlip={setFlipped} back={back} className="fcd-card" />
     <button type="button" className="fcd-flip" aria-label={flipped ? 'Show front' : 'Show details'} onClick={() => setFlipped(f => !f)} data-testid={`fuse-card-flip-${rank}`}>⟲</button>
   </div>;
 }
 
+// Recompute an owned card's value from live prices (same rules as the server's position_pnl).
+export function revalue(r, live) {
+  let cost = 0; let value = 0;
+  const legs = r.legs.map(l => {
+    const px = live?.get?.(l.pairAddress)?.price;
+    if (l.soldUsd != null || !(px > 0)) { cost += l.usd || 0; value += l.valueUsd || 0; return l; }
+    const held = (l.tokens || 0) * px; const v = held + (l.realizedUsd || 0); const c = l.usd || 0;
+    cost += c; value += v;
+    return { ...l, priceNow: px, heldUsd: held, valueUsd: v, pnlUsd: v - c, pnlPct: c ? (v / c - 1) * 100 : 0, priced: true };
+  });
+  return { ...r, legs, valueUsd: value, pnlUsd: value - cost, pnlPct: cost ? (value / cost - 1) * 100 : 0 };
+}
+
 // An OWNED Fuse card (a real position from /fuses/pnl): front = the same card, back = live money per leg — what you put in,
 // what you still hold at today's price, what you've already taken out, and the P&L. Never preview numbers.
 const m$ = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0).toFixed(2)}`;
-export function LiveFuseCard({ r, aura = '' }) {
+export function LiveFuseCard({ r: r0, aura = '' }) {
   const [flipped, setFlipped] = useState(false);
+  const live = useLivePrices(r0.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress));
+  const r = revalue(r0, live);   // every 10s: held tokens × the live price (server P&L every 30s backs it)
   const legs = [...r.legs].sort((a, b) => (b.usd || 0) - (a.usd || 0));
   const up = r.pnlUsd >= 0;
   const g = r.closed ? 'C' : r.pnlPct >= 25 ? 'A' : r.pnlPct >= 0 ? 'B' : r.pnlPct >= -15 ? 'C' : 'D';
@@ -58,11 +83,11 @@ export function LiveFuseCard({ r, aura = '' }) {
     art: tokenImageUrls(legPair(legs[0] || {})) };
   const back = <div className="fcd-back fcd-live">
     <div className="mc-top"><span>{r.closed ? 'WITHDRAWN' : 'LIVE · YOUR MONEY'}</span><span>{m$(r.valueUsd)}</span></div>
-    <ul>{legs.map(l => <li key={l.pairAddress + (l.sig || '')} className={l.soldUsd != null ? 'is-out' : ''}><b>{l.role === 'runner' ? '🏃 ' : ''}{l.symbol}</b><span>in {m$(l.usd)} → {m$(l.valueUsd)}</span>
+    <ul>{legs.map(l => <li key={l.pairAddress + (l.sig || '')} className={l.soldUsd != null ? 'is-out' : ''}><b>{l.role === 'runner' ? '🏃 ' : ''}{l.symbol}</b><span>in {m$(l.usd)} → {m$(l.valueUsd)}{l.priceNow ? <i className="fcd-px"> · ● ${fmtPx(l.priceNow)}</i> : null}</span>
       <em className={l.pnlUsd >= 0 ? 'up' : 'down'}>{l.pnlPct >= 0 ? '+' : ''}{l.pnlPct.toFixed(1)}% {m$(l.pnlUsd)}{l.soldUsd != null ? ' · sold' : (l.realizedUsd || 0) > 0 ? ` · took ${m$(l.realizedUsd)}` : ''}{!l.priced && l.soldUsd == null ? ' · no price' : ''}</em></li>)}</ul>
     <dl><dt>Put in</dt><dd>{m$(r.costUsd)}</dd><dt>Taken out</dt><dd className="up">{m$(r.realizedUsd || 0)}</dd><dt>Still held</dt><dd>{m$(r.valueUsd - (r.realizedUsd || 0))}</dd>
       <dt>P&L</dt><dd className={up ? 'up' : 'down'}><b>{m$(r.pnlUsd)} ({up ? '+' : ''}{r.pnlPct.toFixed(1)}%)</b></dd></dl>
-    <small className="fcd-note">Live prices · exact fills from chain · updates every 30s.</small>
+    <small className="fcd-note">● Live prices every 10s · exact fills from chain.</small>
   </div>;
   return <div className="fcd" data-testid={`live-card-${r.id}`}>
     <MetaCard card={card} size="md" interactive flipped={flipped} onFlip={setFlipped} back={back} className="fcd-card" />

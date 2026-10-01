@@ -179,7 +179,15 @@ def add_legs(pos, buys, metas, now=0, max_pools=3, max_runners=3):
     added = 0
     for t, m in zip(buys, metas):
         role = 'runner' if m.get('role') == 'runner' else 'pool'
-        if live(role) >= (max_runners if role == 'runner' else max_pools) or _f(t.get('tokens')) <= 0:
+        if _f(t.get('tokens')) <= 0:
+            continue
+        same = next((l for l in legs if l.get('soldUsd') is None and l.get('mint') == t.get('token')), None)
+        if same:   # rebalance top-up: the leg grows, it doesn't count as a new leg
+            same['usd'] = round(_f(same.get('usd')) + _f(t.get('usd')), 6); same['tokens'] = _f(same.get('tokens')) + _f(t.get('tokens'))
+            same['tokens0'] = _f(same.get('tokens0') or same.get('tokens')) + _f(t.get('tokens'))
+            pos.setdefault('events', []).append({'kind': 'topup', 'symbol': same.get('symbol'), 'usd': round(_f(t.get('usd')), 4), 'at': now}); added += 1
+            continue
+        if live(role) >= (max_runners if role == 'runner' else max_pools):
             continue
         legs.append({'pairAddress': str(m.get('pairAddress'))[:64], 'chainId': 'solana', 'symbol': str(m.get('symbol') or '')[:16], 'role': role,
                      'mint': t.get('token'), 'sig': t.get('tx'), 'usd': _f(t.get('usd')), 'tokens': _f(t.get('tokens')), 'tokens0': _f(t.get('tokens')), 'addedAt': now})
@@ -297,3 +305,12 @@ def yield_math(metas, min_liq=100_000):
     return {'pools': len(deep), 'vaultAprPct': round(apr, 1), 'vaultPerDay': {'1': per_day(1), '20': per_day(20), '100': per_day(100)},
             'aprFor20c': 7300.0, 'aprFor50c': 18250.0,
             'fuse1': {'best': round(1 + (moves[-1] if moves else 0) / 100, 3), 'median': round(1 + med / 100, 3), 'worst': round(1 + (moves[0] if moves else 0) / 100, 3)}}
+
+
+def drift(row):
+    """Largest gap (percentage points) between a leg's share of what's held now and its share of what was put in."""
+    open_ = [l for l in row.get('legs') or [] if l.get('soldUsd') is None]
+    cost = sum(_f(l.get('usd')) for l in open_); held = sum(_f(l.get('heldUsd')) for l in open_)
+    if cost <= 0 or held <= 0 or len(open_) < 2:
+        return 0.0
+    return round(max(abs(_f(l.get('heldUsd')) / held - _f(l.get('usd')) / cost) * 100 for l in open_), 2)

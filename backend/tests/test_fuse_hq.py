@@ -117,3 +117,11 @@ def test_card_take_profit_switch_and_withdraw():
     assert sum(1 for l in pos['legs'] if l['role'] == 'pool' and l.get('soldUsd') is None) == 3                # pool cap 3
     assert [e['kind'] for e in pos['events']][:3] == ['sell', 'sell', 'buy']
     assert hq.card_limit(199) == 2 and hq.card_limit(200) == 3 and hq.card_limit(0, admin=True) == 10
+
+
+def test_topup_merges_and_drift():
+    pos = {'legs': [{'pairAddress': 'A', 'mint': 'MA', 'usd': 10, 'tokens': 100, 'role': 'pool'}]}
+    pos, n = hq.add_legs(pos, [{'tx': 'b', 'token': 'MA', 'usd': 5, 'tokens': 40}], [{'pairAddress': 'A', 'role': 'pool'}])
+    assert n == 1 and len(pos['legs']) == 1 and pos['legs'][0]['usd'] == 15 and pos['legs'][0]['tokens'] == 140 and pos['events'][-1]['kind'] == 'topup'
+    row = {'legs': [{'usd': 10, 'heldUsd': 30}, {'usd': 10, 'heldUsd': 10}]}
+    assert hq.drift(row) == 25.0 and hq.drift({'legs': [{'usd': 1, 'heldUsd': 1}]}) == 0.0

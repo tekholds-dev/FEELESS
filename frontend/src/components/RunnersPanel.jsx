@@ -44,7 +44,7 @@ function CoinRow({ r, live }) {
   const move = live && r.entry ? ((r.now || r.price) / r.entry - 1) * 100 : r.chg1h;
   return <div className={`rn-coin lane-${r.lane || 'runner'}`}>
     <span className="rn-logo"><TokenAvatar pair={pairOf(r)} size={30} /></span>
-    <span className="rn-name"><b>${r.symbol}</b><small>{r.stage === 'curve' ? <i className="rn-curve" data-tip={`${r.curve.toFixed(0)}% up the bonding curve — pre-bond`}><i style={{ transform: `scaleX(${Math.min(1, r.curve / 100)})` }} /></i> : <em className="rn-grad" data-tip="Graduated — has its own pool">GRAD</em>}
+    <span className="rn-name"><b>{r.symbol ? `$${r.symbol}` : `${r.mint.slice(0, 4)}…`}</b><small>{r.stage === 'curve' ? <i className="rn-curve" data-tip={`${r.curve.toFixed(0)}% up the bonding curve — pre-bond`}><i style={{ transform: `scaleX(${Math.min(1, r.curve / 100)})` }} /></i> : <em className="rn-grad" data-tip="Graduated — has its own pool">GRAD</em>}
       {r.streak > 1 && <em className="rn-streak" data-tip={`Stayed in the top for ${r.streak} rounds`}>🔁×{r.streak}</em>}</small></span>
     <span className="rn-score" data-tip={(r.parts || []).map(p => `${p.part}: +${p.points} (${p.why})`).join('\n')}><i style={{ transform: `scaleX(${Math.min(1, (r.score || 0) / 100)})` }} /><b className="m-num">{Math.round(r.score || 0)}</b></span>
     <span className={`m-num rn-move ${move >= 0 ? 'm-pos' : 'm-neg'}`} data-tip={live ? 'Since this round picked it' : 'Last hour'}>{pct(move)}</span>
@@ -56,7 +56,7 @@ export function RunnersPanel({ call }) {
   const d = useRunners();
   const [budget, setBudget] = useState(5); const [go, setGo] = useState(false); const [override, setOverride] = useState(false); const [showDrop, setShowDrop] = useState(false);
   const picks = useMemo(() => d?.round?.picks || [], [d]);
-  const legs = useMemo(() => picks.map(p => ({ chainId: 'solana', pairAddress: p.pairAddress, symbol: p.symbol, baseAddress: p.mint, logo: p.logo, weight: 100 / picks.length, change24h: p.chg1h, liquidityUsd: p.liq })), [picks]);
+  const legs = useMemo(() => picks.map(p => ({ chainId: 'solana', pairAddress: p.pairAddress, symbol: p.symbol || `${p.mint.slice(0, 4)}…`, baseAddress: p.mint, logo: p.logo, weight: 100 / picks.length, change24h: p.chg1h, liquidityUsd: p.liq })), [picks]);
   if (!d) return <section className="rn" data-testid="runners"><div className="rn-hero is-ghost" /></section>;
   const lit = d.proof.lights || override;
   const sol = d.solUsd ? budget / d.solUsd : null;
@@ -76,7 +76,7 @@ export function RunnersPanel({ call }) {
     </div>; })}</div>
     {picks.length > 0 && <div className="rn-fuse">
       <FuseCard c={{ pools: legs.map(l => l.pairAddress), fitness: Math.round(picks.reduce((a, p) => a + p.score, 0) / picks.length), bornGen: d.history.length,
-        parts: { grade: d.proof.lights ? 'A' : 'C', aprScore: 0, momentum24h: 0, calm: '—', feeDragPct: sol ? Math.min(100, 0.0001 * picks.length * d.solUsd / budget * 100) : 0, impactLegs: 0 }, legs }} style="degen" rank={0} budget={budget} />
+        parts: { grade: d.proof.lights ? 'A' : 'C', aprScore: 0, momentum24h: 0, calm: '—', feeDragPct: sol ? Math.min(100, 0.0001 * picks.length * d.solUsd / budget * 100) : 0, impactLegs: 0 }, legs }} style="degen" rank={0} budget={budget} autoFlip={6000} />
       <div className="rn-fuse-side">
         <span className="m-label">RUNNER FUSE · THIS ROUND</span>
         <p className="m-dim">{picks.length} runners, equal weight. Each is bought by mint (pre-bond on the curve or from its new pool) in one wallet approval; its lane's exit plan goes on your 🎯 limits.</p>

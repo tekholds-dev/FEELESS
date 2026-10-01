@@ -114,16 +114,20 @@ export function CaseFileView({ address }) {
   useEffect(() => {
     if (!address) return undefined;
     let alive = true; setC(null); setErr('');
-    fetch(apiUrl(`/api/reputation/case/${address}`)).then(async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(errorText(b, r.status)); return b; })
-      .then(b => alive && setC(b)).catch(e => alive && setErr(e.message));
-    return () => { alive = false; };
+    let t = null;
+    // Coin cases stay LIVE (re-read every 20s: holders, snipers, flow) until the coin's volume falls 85% from its peak.
+    const load = fresh => fetch(apiUrl(`/api/reputation/case/${address}${fresh ? '?fresh=1' : ''}`)).then(async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(errorText(b, r.status)); return b; })
+      .then(b => { if (!alive) return; setC(b); clearTimeout(t); if (b.kind === 'coin' && b.live?.live) t = setTimeout(() => !document.hidden ? load(true) : (t = setTimeout(() => load(true), 20000)), 20000); })
+      .catch(e => alive && setErr(e.message));
+    load(false);
+    return () => { alive = false; clearTimeout(t); };
   }, [address]);
   const [coin, setCoin] = useState(null);   // coin name/image/market for the share GIF (coin cases)
   useEffect(() => { setCoin(null); if (c?.kind === 'coin') resolveCoin('solana', c.address).then(setCoin).catch(() => {}); }, [c?.kind, c?.address]);
   if (err) return <p className="cf-empty">{err}</p>;
   if (!c) return <p className="cf-empty cf-loading">Pulling the chain records…</p>;
   return <div className={`case-file lvl-${c.level}`} data-testid="case-file">
-    <header><Gauge score={c.score} level={c.level} /><div><small>{c.kind === 'coin' ? 'COIN CASE' : 'WALLET CASE'} · {short(c.address)}</small>
+    <header><Gauge score={c.score} level={c.level} /><div><small>{c.kind === 'coin' ? 'COIN CASE' : 'WALLET CASE'} · {short(c.address)}{c.kind === 'coin' && c.live && <span className={`cf-live ${c.live.live ? 'is-live' : ''}`} data-tip={c.live.live ? 'Re-read every 20s until volume falls 85% from its peak' : 'Volume died down — this is the final read'}>{c.live.live ? `● LIVE · vol ${Math.round(c.live.pctOfPeak)}% of peak` : '■ FINAL · volume died'}</span>}</small>
       <h4>{c.identity?.name || c.identity?.handle ? `${c.identity.name || ''} ${c.identity.handle ? `@${c.identity.handle}` : ''}` : LEVEL[c.level]}</h4><p>{c.summary || (c.evidence?.[0]?.claim ?? 'No red flags on record.')}</p><div className="cf-actions">{c.kind === 'wallet' && <WatchButton target={c.address} />}<ShareGifButton className="btn-outline cf-share" label="🎞 Share case GIF" card={caseCard(c, coin)} /></div></div></header>
     {c.kind === 'coin' ? <CoinCase c={c} /> : <WalletCase c={c} />}
     <small className="cf-foot">Evidence from on-chain forensics, the FEELESS funding graph and blocklist. Every point is cited; nothing is guessed.</small>

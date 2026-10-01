@@ -82,3 +82,13 @@ def test_protected_wallet_case_hides_trader_stats(monkeypatch):
     monkeypatch.setattr(rs, '_load', lambda: {'creators': {}, 'funding': {}})
     case = asyncio.run(rs._wallet_case(rs.FEE_CREATOR_WALLET))
     assert case['level'] == 'feeless' and case['caller'] is None and case['protected'] is True
+
+
+def test_case_file_stays_live_until_volume_dies():
+    import investigate as inv
+    s = inv.live_state(1000, 10000)                       # 12K/h now, peak 12K
+    assert s['live'] and s['peakPerH'] == 12000
+    s2 = inv.live_state(150, 1500, peak=s['peakPerH'])    # 1.8K/h = 15% of peak → still (just) live
+    assert s2['live'] and s2['pctOfPeak'] == 15.0
+    assert not inv.live_state(50, 500, peak=12000)['live']   # −95% → final
+    assert not inv.live_state(0, 0)['live']

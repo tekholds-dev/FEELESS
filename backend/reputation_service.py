@@ -2954,6 +2954,7 @@ class FuseGuardIn(BaseModel):
     sl: float = 0
     trail: float = 0
     off: bool = False
+    rebalance: float = 0      # auto-rebalance: alert when the card drifts this many points from its weights (0 = off)
 
 
 @app.post('/api/reputation/fuses/guard')
@@ -2966,6 +2967,12 @@ async def fuse_guard(p: FuseGuardIn):
         pos = next((x for x in d.get('positions') or [] if x['id'] == p.id and x['wallet'] in mine), None)
         if not pos:
             raise HTTPException(404, 'No such Fuse position for this wallet.')
+        if p.rebalance or (p.off and not (p.tp or p.sl or p.trail) and pos.get('autoRebalance')):
+            pos['autoRebalance'] = {'tol': round(min(50.0, max(3.0, p.rebalance)), 1), 'lastAt': 0} if p.rebalance and not p.off else None
+            if not pos['autoRebalance']:
+                pos.pop('autoRebalance')
+            _json_save(FUSE_HQ_PATH, d)
+            return {'ok': True, 'autoRebalance': pos.get('autoRebalance')}
         if p.off:
             pos.pop('guard', None)
         else:
@@ -2982,6 +2989,26 @@ async def _fuse_guard_tick():
     """Every minute: value open, guarded positions; when a limit hits, alert the holder once (inbox + phone) with a
     one-tap Unfuse link. FEELESS never signs for you — the exit is still your wallet's approval."""
     d = _json_load(FUSE_HQ_PATH, {})
+    now = time.time()
+    rb = [x for x in d.get('positions') or [] if x.get('autoRebalance') and not x.get('closedAt') and now - (x['autoRebalance'].get('lastAt') or 0) > 6 * 3600]
+    if rb:   # auto-rebalance: one alert (≤ every 6h) with a one-tap rebalance link when a card drifts past its tolerance
+        rpx = await _hq_prices([leg for x in rb for leg in x['legs']])
+        fired = []
+        for x in rb:
+            dr = _hq.drift(_hq.position_pnl(x, rpx))
+            if dr >= x['autoRebalance']['tol']:
+                fired.append(x['id'])
+                notify(x['wallet'], 'fuse-guard', f"⚖ {x.get('name') or 'Your Fuse card'} drifted {dr:.0f} pts from its weights — tap to rebalance (one approval).",
+                       url=f"/terminal/fuse?tab=cards&rebalance={x['id']}", once=f"rb-{x['id']}-{int(now // (6 * 3600))}",
+                       meta={'claim': f'Largest leg is {dr:.0f} points off its target share', 'source': 'Fuse P&L (live prices)'})
+        if fired:
+            async with _admin_lock:
+                d2 = _json_load(FUSE_HQ_PATH, {})
+                for x in d2.get('positions') or []:
+                    if x['id'] in fired and x.get('autoRebalance'):
+                        x['autoRebalance']['lastAt'] = now
+                _json_save(FUSE_HQ_PATH, d2)
+        d = _json_load(FUSE_HQ_PATH, {})
     live = [x for x in d.get('positions') or [] if x.get('guard') and not x['guard'].get('firedAt') and not x.get('closedAt')]
     if not live:
         return 0
@@ -3088,7 +3115,8 @@ async def fuse_pnl(address: str):
     mine = set(linked_of(primary_of(address))) | {primary_of(address), address}
     pos = [x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if x['wallet'] in mine]
     px = await _hq_prices([leg for x in pos for leg in x['legs']]) if pos else {}
-    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard')} for x in pos), key=lambda r: -(r['at'] or 0))
+    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance')} for x in pos), key=lambda r: -(r['at'] or 0))
+    rows = [{**r, 'drift': _hq.drift(r)} for r in rows]
     return {**_hq.book(rows), 'rows': rows[:20]}
 
 
@@ -5601,18 +5629,34 @@ async def shield_admin_set(request: Request):
     return {'ok': True}
 
 
+_case_peak: dict = {}   # mint → peak volume $/h seen (live case files)
+
+
 @app.get('/api/reputation/case/{address}')
-async def case_file(address: str):
+async def case_file(address: str, fresh: bool = False):
     """One case file for any Solana address: a coin (risk score, holder clusters, launch forensics, the creator's
     case) or a wallet (verdict, cited evidence, funding trail, launches, linked wallets, caller behaviour)."""
     if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address):
         raise HTTPException(400, 'Paste a Solana wallet or coin address.')
     hit = _case_cache.get(address)
-    if hit and time.time() - hit[0] < 120:
+    if hit and time.time() - hit[0] < (20 if fresh and hit[1].get('kind') == 'coin' else 120):
         return hit[1]
+    if fresh and (_intel_cache.get(address) or (0,))[0] < time.time() - 30:
+        _intel_cache.pop(address, None)            # live coin case: re-read holders / snipers at most every 30s
     async with httpx.AsyncClient(timeout=12) as http:
         auth = await _mint_authorities(http, address)
     out = await (_coin_case(address, auth) if auth else _wallet_case(address))
+    if out.get('kind') == 'coin':   # live until its volume dies (−85% from peak)
+        try:
+            async with httpx.AsyncClient(timeout=8) as http:
+                prs = (await http.get(f'https://api.dexscreener.com/tokens/v1/solana/{address}')).json() or []
+            top = max(prs, key=lambda p: (p.get('volume') or {}).get('h1') or 0) if prs else {}
+            vol = top.get('volume') or {}
+            st = investigate.live_state(vol.get('m5'), vol.get('h1'), _case_peak.get(address, 0))
+            _case_peak[address] = st['peakPerH']
+            out['live'] = st
+        except Exception:
+            out['live'] = {'live': False, 'pctOfPeak': None}
     out['at'] = time.time()
     _case_cache[address] = (time.time(), out)
     if len(_case_cache) > 3000:

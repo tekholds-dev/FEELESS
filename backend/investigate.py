@@ -118,3 +118,20 @@ def coin_risk(intel: dict, auth: dict, creator_blocked: bool = False, linked_pct
     score = min(100, sum(e['weight'] for e in ev))
     level = 'danger' if score >= 50 else 'caution' if score >= 20 else 'ok'
     return {'score': score, 'level': level, 'evidence': sorted(ev, key=lambda e: -e['weight'])}
+
+
+DEAD_DROP = 0.85   # a case file stops refreshing once trading volume has fallen 85% from its peak
+
+
+def live_state(vol5m, vol1h, peak=0.0):
+    """Is this coin still trading hard enough to keep its case file live? Volume rate = max(5m × 12, 1h) $/h; the peak
+    rate is remembered by the caller. Live until the rate falls below (1 − DEAD_DROP) of the peak."""
+    def f(v):
+        try:
+            return max(0.0, float(v or 0))
+        except (TypeError, ValueError):
+            return 0.0
+    rate = max(f(vol5m) * 12, f(vol1h))
+    peak = max(f(peak), rate)
+    pct = round(rate / peak * 100, 1) if peak else 0.0
+    return {'live': bool(peak) and rate >= round(peak * (1 - DEAD_DROP), 6), 'ratePerH': round(rate, 2), 'peakPerH': round(peak, 2), 'pctOfPeak': pct}

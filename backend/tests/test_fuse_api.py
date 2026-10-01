@@ -232,3 +232,15 @@ def test_public_arena_has_no_admin_data():
                                     'positions': [{'id': 'secret', 'wallet': 'W', 'legs': []}], 'bloodline': [{'pools': ['A']}]})
     d = asyncio.run(rs.fuse_arena_public())
     assert d['board'][0]['avgPct'] == 20 and d['runs'][0]['settled'] and 'positions' not in d and 'bloodline' not in d and 'proof' in d['runners']
+
+
+def test_auto_rebalance_alert(monkeypatch):
+    async def prices(legs): return {'P1': 3.0, 'P2': 1.0}
+    sent = []
+    monkeypatch.setattr(rs, '_hq_prices', prices); monkeypatch.setattr(rs, '_session_or_401', lambda a, s: rs.primary_of(a))
+    monkeypatch.setattr(rs, 'notify', lambda *a, **k: sent.append((a, k)))
+    me = rs.primary_of(W)
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'r1', 'wallet': me, 'name': 'Card', 'at': 1, 'legs': [{'pairAddress': 'P1', 'mint': 'M1', 'usd': 1, 'tokens': 1}, {'pairAddress': 'P2', 'mint': 'M2', 'usd': 1, 'tokens': 1}]}]})
+    assert asyncio.run(rs.fuse_guard(rs.FuseGuardIn(address=W, session='s', id='r1', rebalance=10)))['autoRebalance']['tol'] == 10
+    asyncio.run(rs._fuse_guard_tick()); asyncio.run(rs._fuse_guard_tick())                 # drift 25 pts → once
+    assert len(sent) == 1 and 'rebalance=r1' in sent[0][1]['url']
