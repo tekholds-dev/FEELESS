@@ -451,3 +451,33 @@ body.fx-lite .cr-group { animation: none; }
 body.theme-day .ce-auto { background: var(--m-surface); } body.theme-day .ce-frz.is-on { background: #1d6fa0; color: #fff; }
 body.fx-lite .ce-auto { animation: none; }
 @media (prefers-reduced-motion: reduce) { .ce-auto { animation: none; transition: none; } }
+
+/* ⭐ Prime tiers: 💎 diamond · 🥇 gold · 🔥 blaze — live FX layers (transform/opacity only), brighter when the card is up ≥ +10% */
+.prime-card { position: relative; overflow: hidden; isolation: isolate; }
+.prime-tier { position: absolute; inset: 0; pointer-events: none; z-index: -1; opacity: .55; transition: opacity .3s; }
+.prime-card.is-hot .prime-tier { opacity: 1; }
+.pt-ring { position: absolute; left: 50%; top: 38%; width: 150%; aspect-ratio: 1; margin: -75% 0 0 -75%; border-radius: 50%; opacity: .35; animation: ptSpin 14s linear infinite; }
+.pt-sweep { position: absolute; inset: -20% -60%; background: linear-gradient(100deg, transparent 40%, rgba(255, 255, 255, .16) 50%, transparent 60%); transform: translateX(-60%); animation: ptSweep 4.8s var(--m-ease) infinite; }
+.pt-spark { position: absolute; bottom: -6px; left: calc(10% + var(--i) * 15%); width: 4px; height: 4px; border-radius: 50%; opacity: 0; animation: ptRise 3.6s ease-out calc(var(--i) * 600ms) infinite; }
+.tier-diamond .pt-ring { background: conic-gradient(from 0deg, #7fd4ff33, #c49bff33, #7fffd433, #ffffff22, #7fd4ff33); }
+.tier-diamond .pt-spark { background: #dff6ff; box-shadow: 0 0 6px #9fe3ff; }
+.tier-gold .pt-ring { background: conic-gradient(from 0deg, #ffd56a33, transparent 30%, #ffb34733, transparent 70%, #ffd56a33); }
+.tier-gold .pt-sweep { background: linear-gradient(100deg, transparent 40%, rgba(255, 214, 106, .22) 50%, transparent 60%); } .tier-gold .pt-spark { background: #ffd56a; box-shadow: 0 0 6px #ffb347; }
+.tier-blaze .pt-ring { background: conic-gradient(from 0deg, #ff7a2f33, transparent 40%, #ff3d5a33, transparent 80%, #ff7a2f33); }
+.tier-blaze .pt-spark { background: #ffb15c; box-shadow: 0 0 8px #ff7a2f; animation-duration: 2.4s; }
+.tier-diamond { border-color: color-mix(in srgb, #9fe3ff 55%, var(--m-line)); } .tier-gold { border-color: color-mix(in srgb, #ffd56a 55%, var(--m-line)); } .tier-blaze { border-color: color-mix(in srgb, #ff7a2f 55%, var(--m-line)); }
+.prime-badge { font: 800 10px var(--m-mono); letter-spacing: .3em; padding: 2px 10px; border-radius: 999px; border: 1px solid currentColor; }
+.tier-diamond .prime-badge { color: #9fe3ff; } .tier-gold .prime-badge { color: #ffd56a; } .tier-blaze .prime-badge { color: #ff9a4d; }
+.prime-legs { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; gap: 3px; font-size: 11.5px; }
+.prime-legs li { display: grid; grid-template-columns: auto auto 1fr auto; gap: 6px; align-items: center; }
+.prime-legs small { font: 9.5px var(--m-mono); color: var(--m-dim); text-transform: uppercase; } .prime-legs .pl-anchor { color: #9fe3ff; }
+.prime-legs i { font-style: normal; color: var(--gold); letter-spacing: -1px; font-size: 10px; }
+.prime-rec { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+.prime-rec span { display: grid; flex: 1; gap: 1px; justify-items: center; padding: 6px; border-radius: 8px; background: var(--m-bg); }
+.prime-rec small { font: 8.5px var(--m-mono); letter-spacing: .1em; color: var(--m-dim); } .prime-rec .prime-floored { color: #9fe3ff; font: 700 10px var(--m-mono); align-content: center; }
+@keyframes ptSpin { to { transform: rotate(360deg); } }
+@keyframes ptSweep { 0%, 55% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
+@keyframes ptRise { 0% { opacity: 0; transform: translateY(0) scale(.6); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-240px) scale(1.2); } }
+body.theme-day .prime-rec span { background: var(--m-surface); }
+body.fx-lite .prime-tier { display: none; }
+@media (prefers-reduced-motion: reduce) { .pt-ring, .pt-sweep, .pt-spark { animation: none; } }

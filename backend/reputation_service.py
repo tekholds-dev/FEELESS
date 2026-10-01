@@ -4605,24 +4605,28 @@ async def _prime_candidates():
     """Pools: the deepest busy pools from the Fuse gene pool. Runners: pre-bond coins passing every runner gate, best first."""
     metas = await _fuse_candidates()
     pools = sorted(({'mint': m.get('baseAddress'), 'pairAddress': pa, 'symbol': m.get('symbol'), 'price': m.get('priceUsd'),
-                     'rank': min(400.0, _fuse._f(m.get('aprEst'))) * math.log10(max(10.0, _fuse._f(m.get('liquidityUsd'))))} for pa, m in metas.items()
+                     'liquidityUsd': m.get('liquidityUsd'), 'volume24h': m.get('volume24h'), 'rank': min(400.0, _fuse._f(m.get('aprEst'))) * math.log10(max(10.0, _fuse._f(m.get('liquidityUsd'))))} for pa, m in metas.items()
                     if m.get('baseAddress') and _fuse._f(m.get('priceUsd')) > 0 and _fuse._f(m.get('liquidityUsd')) >= 100_000), key=lambda x: -x['rank'])
     live = await _runner_live()
-    runners = [{'mint': r['mint'], 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'price': r.get('price')} for r in live.get('passing') or [] if _fuse._f(r.get('price')) > 0]
-    return pools, runners
+    runners = [{'mint': r['mint'], 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'price': r.get('price'), 'score': r.get('score')} for r in live.get('passing') or [] if _fuse._f(r.get('price')) > 0]
+    # Anchors: the real majors (SOL first, then JitoSOL / cbBTC / WBTC / ETH) at their deepest Solana pool — stable base of every card.
+    order = ['SOL', 'JitoSOL', 'cbBTC', 'WBTC', 'ETH']
+    maj = {str(r.get('symbol')): r for r in await _majors_rows()}
+    anchors = [{'mint': r.get('baseAddress'), 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'price': r.get('priceUsd')} for k in order for r in [maj.get(k)] if r and _fuse._f(r.get('priceUsd')) > 0]
+    return pools, runners, anchors
 
 
 async def _prime_tick(now):
     cfg = _prime_cfg()
     if not cfg['on']:
         return 0
-    pools, runners = await _prime_candidates()
+    pools, runners, anchors = await _prime_candidates()
     d = _json_load(FUSE_HQ_PATH, {})
     cards = dict((d.get('prime') or {}).get('cards') or {})
     px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for c in cards.values() for l in c['legs']]) if cards else {}
     for tid in _prime.TEMPLATES:
         cur = cards.get(tid)
-        cards[tid] = _prime.tick(cur, px, pools, runners, cfg, now) if cur else _prime.deal(tid, pools, runners, cfg, now)
+        cards[tid] = _prime.tick(cur, px, pools, runners, cfg, now, anchors) if cur else _prime.deal(tid, pools, runners, cfg, now, anchors)
     cards = {k: v for k, v in cards.items() if v}
     async with _admin_lock:
         d = _json_load(FUSE_HQ_PATH, {}); d.setdefault('prime', {})['cards'] = cards; _json_save(FUSE_HQ_PATH, d)
