@@ -93,7 +93,9 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
     return () => clearTimeout(t);
   }, [key, sol, manual, addon]); // eslint-disable-line react-hooks/exhaustive-deps
   // Featured / Runners tabs hand the Lab a basket to load (pools here, runners into the picks).
+  const [copy, setCopy] = useState(null);   // ⚡ copying another trader's card: {id, owner, pct}
   useEffect(() => { if (!incoming?.n) return; const pools = incoming.legs.filter(l => !l.runner && l.role !== 'runner').slice(0, MAX);
+    setCopy(incoming.copyOf ? { id: incoming.copyOf, owner: incoming.owner, pct: incoming.copyPct } : null);
     setManual(false); setPicked(pools); if (incoming.sol) setSol(incoming.sol.toFixed(4)); scrollToMix(); }, [incoming?.n]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const shown = useMemo(() => { const s = q.trim().toLowerCase(); return (pools || []).filter(p => !s || `${p.symbol}/${p.quote || ''} ${p.dex || ''}`.toLowerCase().includes(s)); }, [pools, q]);
@@ -154,7 +156,8 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
         </div>
       </div>
       <aside className="fl-mix" aria-live="polite">
-        <div className="fl-mix-head"><span className="m-label">YOUR FUSE · {legsN}/{caps.total}</span>{legsN > 0 && <button type="button" className="m-btn fl-clear" onClick={() => { setPicked([]); onRunnerPicks([]); }}>Clear</button>}</div>
+        <div className="fl-mix-head"><span className="m-label">YOUR FUSE · {legsN}/{caps.total}</span>{legsN > 0 && <button type="button" className="m-btn fl-clear" onClick={() => { setPicked([]); onRunnerPicks([]); setCopy(null); }}>Clear</button>}</div>
+        {copy && <div className="fl-copy" data-testid="fl-copy"><b>⚡ Copying {copy.owner}'s card</b><small>They earn {copy.pct ?? 10}% of the FEELESS fee you pay — not an extra cost to you.</small><button type="button" className="m-btn fl-clear" onClick={() => setCopy(null)} aria-label="Stop copying">×</button></div>}
         {runnerPicks.length > 0 && <div className="fl-runner-picks" data-testid="fl-runner-picks"><small>🏃 RUNNERS {runnerPicks.length}/{caps.runners}</small>{runnerPicks.map(r => <span key={r.mint} className="fl-rchip">{r.symbol || `${r.mint.slice(0, 4)}…`}<em>{r.lane}</em>
           <button type="button" aria-label={`Remove ${r.symbol}`} onClick={() => onRunnerPicks(runnerPicks.filter(x => x.mint !== r.mint))}>×</button></span>)}</div>}
         {legsN < 2 ? <div className="fl-hint"><b>{legsN ? 'Pick one more leg' : 'Tap pools on the left'}</b><small>{admin ? 'Up to 12 legs: pools and 🏃 Runners in any mix. ' : 'Up to 3 pools + 3 runners (🏃 Runners lens). '}The preview builds live as you pick.</small></div> : <>
@@ -182,7 +185,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
             {prev && <CardPricing legs={prev.legs} admin={admin} />}
             {limits && !limits.canOpen && <div className="m-note warn"><b>CARD LIMIT</b><span>You have {limits.open} open Fuse cards (max {limits.max}). Withdraw one in My cards{limits.max < 3 ? ` — or hold $${limits.feeFor3rd} of $FEE for a 3rd card` : ''}.</span></div>}
             {!going ? <button type="button" className="m-btn primary m-go wide" disabled={!(Number(sol) > 0) || (limits && !limits.canOpen)} onClick={() => setGoing(true)} data-testid="fl-go">⚡ Fuse in {Number(sol) || 0} SOL · 1 click</button>
-              : <FuseGo legs={prev.legs} onClose={() => setGoing(false)} />}
+              : <FuseGo legs={prev.legs} fuse={copy ? { name: `Copy · ${copy.owner}`.slice(0, 40), copyOf: copy.id } : undefined} onClose={() => setGoing(false)} />}
             {admin && <div className="fl-pub"><span className="m-label">PUBLISH AS A FUSE</span><div className="fl-pub-row"><input className="m-input fl-emoji" value={pub.emoji} maxLength={4} onChange={e => setPub(x => ({ ...x, emoji: e.target.value }))} aria-label="Emoji" />
               <input className="m-input" value={pub.name} maxLength={40} placeholder="Fuse name" onChange={e => setPub(x => ({ ...x, name: e.target.value }))} />
               <label className="fl-cut"><small>CREATOR CUT</small><input className="m-input m-num" inputMode="numeric" value={pub.creatorBps / 100} onChange={e => setPub(x => ({ ...x, creatorBps: Math.min(5000, Math.round((Number(e.target.value) || 0) * 100)) }))} />%</label></div>

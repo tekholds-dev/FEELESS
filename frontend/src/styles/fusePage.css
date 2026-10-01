@@ -118,3 +118,15 @@ body.theme-day .fp-cell.is-arena::before { color: #fff; }
 /* Cmd Ctr › Card rules */
 .cr-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); margin: 10px 0; } .cr-grid small { color: var(--m-dim); font-size: 10px; }
 .cr-book { margin-top: 10px; } .ay-default.is-loading { opacity: .7; }
+
+/* ⚡ Copy cards + swap streak badges (Survivor / Phoenix / Immortal). Sweep = transform only; still under fx-lite / reduced motion. */
+.ar-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.ar-copies { font-family: var(--m-mono); font-size: 10.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--m-accent) 50%, var(--m-line)); color: var(--m-accent); cursor: help; }
+.streak-badge { position: relative; overflow: hidden; display: inline-flex; align-items: center; font-family: var(--m-mono); font-size: 10.5px; letter-spacing: .06em; padding: 2px 9px; border-radius: 999px; border: 1px solid; cursor: help; animation: fpIn .3s var(--m-ease) backwards; }
+.streak-badge > i { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, .28), transparent 65%); transform: translateX(-100%); animation: stSweep 2.8s ease-in-out infinite; }
+.streak-badge.st-survivor { color: #8fd8ff; border-color: #8fd8ff; } .streak-badge.st-phoenix { color: var(--rn-fire, #ff9a3c); border-color: var(--rn-fire, #ff9a3c); box-shadow: 0 0 14px -6px var(--rn-fire, #ff9a3c); }
+.streak-badge.st-immortal { color: #ffd36b; border-color: #ffd36b; box-shadow: 0 0 18px -6px #ffd36b; } .streak-badge.st-immortal > i { animation-duration: 1.6s; }
+@keyframes stSweep { 0%, 45% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+body.fx-lite .streak-badge, body.fx-lite .streak-badge > i { animation: none; }
+@media (prefers-reduced-motion: reduce) { .streak-badge, .streak-badge > i { animation: none; } }
+body.theme-day .streak-badge.st-survivor { color: #1b6f9a; border-color: #1b6f9a; } body.theme-day .streak-badge.st-immortal { color: #9a6a00; border-color: #9a6a00; }

@@ -405,9 +405,9 @@ def yield_due(r, y, exit_fee=0.0):
 
 # ---- Card rules (Cmd Ctr › Fuse › Card rules): auto-profit levels, swap mode, Arena top tier, Fuse Fee-Back -----------
 CARD_RULES = {'yieldLevels': [25, 50, 100, 200], 'yieldDefault': 50, 'netFeeUsdPerLeg': 0.01, 'swapDropPct': 25, 'topTierPct': 50,
-              'fbHolderPct': 20, 'fbHoldHours': 24, 'fbLoyaltyPct': 10, 'fbLoyaltyDays': 7, 'fbArenaPct': 10, 'fbCapPct': 50}
+              'fbHolderPct': 20, 'fbHoldHours': 24, 'fbLoyaltyPct': 10, 'fbLoyaltyDays': 7, 'fbArenaPct': 10, 'fbCapPct': 50, 'copyPct': 10}
 RULE_RANGES = {'netFeeUsdPerLeg': (0, 1), 'swapDropPct': (5, 90), 'topTierPct': (5, 1000), 'fbHolderPct': (0, 100), 'fbHoldHours': (1, 720),
-               'fbLoyaltyPct': (0, 100), 'fbLoyaltyDays': (1, 90), 'fbArenaPct': (0, 100), 'fbCapPct': (0, 100)}
+               'fbLoyaltyPct': (0, 100), 'fbLoyaltyDays': (1, 90), 'fbArenaPct': (0, 100), 'fbCapPct': (0, 100), 'copyPct': (0, 50)}
 
 
 def clean_rules(r):
@@ -459,6 +459,23 @@ def swap_suggest(r, failing, passing, drop_pct):
         return None
     _, leg, why = sorted(weak, key=lambda w: (w[0], _f(w[1].get('pnlPct'))))[0]
     return {'out': {k: leg.get(k) for k in ('pairAddress', 'mint', 'symbol', 'heldUsd')}, 'in': {k: pick.get(k) for k in ('mint', 'symbol', 'pairAddress', 'logo', 'score')}, 'why': why}
+
+
+STREAK_TIERS = ((5, 'immortal', '👑 Immortal'), (3, 'phoenix', '🔥 Phoenix'), (1, 'survivor', '🛡 Survivor'))
+
+
+def swap_streak(r):
+    """Swap streak: how many weak legs a card swapped out (each switch-in = a 'buy' event) and whether it still wins.
+    Survivor ≥1 swap, Phoenix ≥3, Immortal ≥5 — only while the card is up. Bonus activity: +5 per swap (max 15)."""
+    swaps = sum(1 for e in r.get('events') or [] if e.get('kind') == 'buy')
+    won = _f(r.get('pnlPct')) > 0
+    hit = next(((k, lab) for n, k, lab in STREAK_TIERS if swaps >= n), None) if won else None
+    return {'swaps': swaps, 'won': won, 'tier': hit[0] if hit else None, 'label': hit[1] if hit else None, 'bonus': min(15, swaps * 5) if hit else 0}
+
+
+def copy_cut(copier_fees_usd, rules):
+    """Copy cards: the original card's owner earns copyPct of the FEELESS fees the copier paid (not an extra cost)."""
+    return round(_f(copier_fees_usd) * clean_rules(rules)['copyPct'] / 100, 6)
 
 
 def card_feeback(fees_usd, held_s, on_arena, rules):

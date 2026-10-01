@@ -5,7 +5,7 @@ import { createRoot } from 'react-dom/client';
 jest.mock('react-router-dom', () => ({ Link: ({ children, ...p }) => <a {...p}>{children}</a>, useNavigate: () => jest.fn() }), { virtual: true });
 jest.mock('../hooks/useWallet', () => ({ useWallet: () => ({ wallet: { chain: 'solana', address: 'MeWa11et' } }) }));
 jest.mock('../lib/chatSession', () => ({ readChatSession: () => 'sess' }));
-jest.mock('./FuseLab', () => ({ FuseLab: p => <div data-testid="lab">picks:{p.runnerPicks.length}</div> }));
+jest.mock('./FuseLab', () => ({ FuseLab: p => <div data-testid="lab" data-copy={p.incoming?.copyOf ? `${p.incoming.copyOf}:${p.incoming.owner}` : ''}>picks:{p.runnerPicks.length}</div> }));
 jest.mock('./FuseSide', () => ({ FuseSide: () => null }));
 jest.mock('./FuseCard', () => ({ LiveFuseCard: ({ r }) => <div data-testid={`live-${r.id}`} />, FuseCard: ({ c, aura }) => <div className="fcd-mock" data-aura={aura} data-n={c.legs.length} /> }));
 jest.mock('./FuseGo', () => ({ FuseGo: p => <div data-testid="fusego" data-side={p.side} data-n={(p.orders || []).length} /> }));
@@ -21,6 +21,8 @@ const RUNNERS = { round: { picks: PICKS, swaps: [{ at: 5, out: { symbol: 'OLD' }
   litCards: [{ id: 'L1', at: 1700000000, picks: PICKS.slice(0, 2), proof: { avgPct: 12, winRate: 60 }, pct: 34.5 }] };
 const ARENA = { board: [{ style: 'yield', runs: 3, avgPct: 2, winRate: 66 }], outlook: { note: 'n' }, minSettled: 3, mega: [
   { kind: 'mega', id: 'M1', name: 'Mega', emoji: '⚛️', legs: PICKS.map(p => ({ pairAddress: `P${p.mint}`, symbol: p.symbol, weight: 25 })), index: 120, grade: 'A', buyers: 5, activity: { score: 90, tier: 'blazing' } },
+  { kind: 'user', id: 'U1', name: 'Degen card', emoji: '🃏', owner: '@chad', legs: PICKS.slice(0, 3).map(p => ({ pairAddress: `P${p.mint}`, symbol: p.symbol, weight: 33 })), index: 140, grade: 'A', buyers: 1, mode: 'swap',
+    activity: { score: 70, tier: 'hot' }, streak: { swaps: 3, won: true, tier: 'phoenix', label: '🔥 Phoenix', bonus: 15 }, copies: 2, copyPct: 10 },
   { kind: 'lit', id: 'L1', name: '$RUN1 · $RUN2', emoji: '🔥', legs: PICKS.slice(0, 2).map(p => ({ pairAddress: `P${p.mint}`, baseAddress: p.mint, symbol: p.symbol, weight: 50 })), index: 134.5, grade: 'A', buyers: 0, activity: { score: 30, tier: 'warm' } }] };
 const SRC = { arena: '🏟 Arena pick', lit: '🔥 Lit card', pump: '🚀 Pump scan', snipers: '🎯 Snipers out', creator: "📣 Creators' pick" };
 const DISCOVER = { runners: PICKS.map((p, i) => ({ ...p, sources: i ? [{ kind: 'pump', label: SRC.pump, detail: 'top score' }] : [{ kind: 'arena', label: SRC.arena, detail: 'round' }, { kind: 'pump', label: SRC.pump, detail: 'top' }] })),
@@ -96,4 +98,15 @@ test('Arena stage: mega + lit cards with activity effects; lit card → runner p
   expect(host.textContent).toContain('auto-swapped');
   act(() => host.querySelector('[data-testid="mega-use-L1"]').click()); await tick();
   expect(host.querySelector('[data-testid="lab"]').textContent).toBe('picks:2');
+});
+
+test('Arena: a trader card shows its streak + copies and ⚡ Fuse this too hands the Lab a copy', async () => {
+  window.history.replaceState(null, '', '/terminal/fuse?tab=arena');
+  const host = document.createElement('div'); document.body.appendChild(host);
+  await act(async () => { createRoot(host).render(<FusePage />); }); await tick(); await tick();
+  const card = host.querySelector('[data-testid="mega-U1"]');
+  expect(card.querySelector('[data-testid="streak-phoenix"]').textContent).toContain('Phoenix ×3');
+  expect(card.textContent).toContain('⚡ 2 copies'); expect(card.textContent).toContain('swaps weak legs');
+  act(() => host.querySelector('[data-testid="mega-use-U1"]').click()); await tick();
+  expect(host.querySelector('[data-testid="lab"]').dataset.copy).toBe('U1:@chad');
 });

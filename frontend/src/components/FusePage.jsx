@@ -46,7 +46,7 @@ export function FusePage() {
       {tab === 'lab' && <div className="fz-split-view fp-lab"><FuseLab runnerPicks={runnerPicks} onRunnerPicks={setRunnerPicks} incoming={incoming} limits={limits} />
         <aside className="fp-right"><FeaturedFuses onLoad={f => setIncoming({ legs: f.legs, sol: 0, n: Date.now() })} /><FuseSide /></aside></div>}
       {tab === 'runners' && <RunnerPicker picks={runnerPicks} onPicks={setRunnerPicks} onDone={() => go('lab')} />}
-      {tab === 'arena' && <ArenaBoard onPicks={list => { setRunnerPicks(list); go('lab'); }} onLoad={legs => { setIncoming({ legs: [...legs].sort((x, y) => (y.weight || 0) - (x.weight || 0)), sol: 0, n: Date.now() }); go('lab'); }} />}
+      {tab === 'arena' && <ArenaBoard onPicks={list => { setRunnerPicks(list); go('lab'); }} onLoad={(legs, from) => { setIncoming({ legs: [...legs].sort((x, y) => (y.weight || 0) - (x.weight || 0)), sol: 0, n: Date.now(), ...(from || {}) }); go('lab'); }} />}
       {tab === 'cards' && <MyCards addr={addr} />}
     </div>
   </section>;
@@ -142,12 +142,18 @@ export function ArenaBoard({ onPicks, onLoad }) {
   </section>;
 }
 
+// Swap streak badge: Survivor (≥1 swap) · Phoenix (≥3) · Immortal (≥5), only while the card still wins.
+export function StreakBadge({ s }) {
+  if (!s?.tier) return null;
+  return <span className={`streak-badge st-${s.tier}`} data-tip={`Swapped out ${s.swaps} weak leg${s.swaps === 1 ? '' : 's'} and still up — +${s.bonus} activity on the Arena`} data-testid={`streak-${s.tier}`}><i aria-hidden="true" />{s.label} ×{s.swaps}</span>;
+}
+
 export function MegaCard({ c, i, onPicks, onLoad }) {
   const fx = TIER_FX[c.activity?.tier] || TIER_FX.calm;
   const move = (c.index || 100) - 100;
   const runners = c.kind === 'lit' || c.kind === 'round';
   const use = () => (runners ? onPicks?.(c.legs.slice(0, MAX_RUNNERS).map(l => ({ mint: l.baseAddress, symbol: l.symbol, logo: l.logo, pairAddress: l.pairAddress, lane: 'runner' })))
-    : onLoad?.(c.legs));
+    : onLoad?.(c.legs, c.kind === 'user' ? { copyOf: c.id, owner: c.owner, copyPct: c.copyPct } : null));
   return <article className={`ar-card t-${c.activity?.tier || 'calm'}`} style={{ '--i': i, '--act': (c.activity?.score || 0) / 100 }} data-testid={`mega-${c.id}`}>
     <span className="ar-heat" aria-hidden="true" /><span className="ar-ring" aria-hidden="true" />
     <FuseCard c={{ pools: c.legs.map(l => l.pairAddress), fitness: c.activity?.score || 0, bornGen: c.legs.length, parts: { grade: c.grade || 'B', aprScore: 0, momentum24h: move, calm: '—', feeDragPct: 0, impactLegs: 0 }, legs: c.legs }}
@@ -155,8 +161,9 @@ export function MegaCard({ c, i, onPicks, onLoad }) {
     <div className="ar-embers" aria-hidden="true">{Array.from({ length: fx.embers }, (_, k) => <i key={k} style={{ '--i': k }} />)}</div>
     <div className="ar-meta"><b>{c.emoji} {c.name}</b>
       <span className="ar-act" data-tip="Activity: FEELESS buys + buyers (24h), $ flow through its coins, index move. Drives the effects."><i style={{ transform: `scaleX(${(c.activity?.score || 0) / 100})` }} /><em className="m-num">{c.activity?.score || 0}</em></span>
+      {(c.streak?.tier || c.copies > 0) && <span className="ar-badges">{c.streak?.tier && <StreakBadge s={c.streak} />}{c.copies > 0 && <span className="ar-copies" data-tip="Traders who fused this card too">⚡ {c.copies} {c.copies === 1 ? 'copy' : 'copies'}</span>}</span>}
       <small className="m-dim">{c.kind === 'lit' ? '🔥 lit runner card' : c.kind === 'round' ? '⏳ this round · proving' : c.kind === 'user' ? `🃏 ${c.owner} · ${c.mode === 'swap' ? '⇄ swaps weak legs' : '🔒 holds together'}` : `⚛️ Cmd Ctr · ${c.legs.length} legs`} · <span className={move >= 0 ? 'm-pos' : 'm-neg'}>{pc(move)}</span>{c.buyers ? ` · ${c.buyers} buyers` : ''}</small>
-      <button type="button" className="m-btn primary m-go" onClick={use} data-testid={`mega-use-${c.id}`}>{runners ? 'Use runners →' : c.legs.length > 3 ? 'Load top 3 →' : 'Load →'}</button></div>
+      <button type="button" className="m-btn primary m-go" onClick={use} data-testid={`mega-use-${c.id}`}>{runners ? 'Use runners →' : c.kind === 'user' ? '⚡ Fuse this too' : c.legs.length > 3 ? 'Load top 3 →' : 'Load →'}</button></div>
   </article>;
 }
 
@@ -201,6 +208,7 @@ export function MyCards({ addr }) {
     <div className="fp-cgrid">{openRows.map(r => <div key={r.id} className={`fp-cell ${r.onArena ? 'is-arena' : ''}`}><LiveFuseCard r={r} aura={r.onArena ? 'fire' : ''} />
       <div className="m-seg fp-mode" role="radiogroup" aria-label="Card mode">{[['hold', '🔒 Hold together', 'The card stays as you built it'], ['swap', '⇄ Swap weak legs', `When a leg fails a gate or drops ${d.rules?.swapDropPct ?? 25}%, we alert you with the best gated runner pre-filled — one approval`]].map(([k, l, tip]) =>
         <button key={k} type="button" role="radio" aria-checked={(r.mode || 'hold') === k} className={(r.mode || 'hold') === k ? 'active' : ''} data-tip={tip} onClick={() => setMode(r, k)} data-testid={`mode-${k}-${r.id}`}>{l}</button>)}</div>
+      {(r.streak?.tier || r.copies > 0) && <span className="ar-badges">{r.streak?.tier && <StreakBadge s={r.streak} />}{r.copies > 0 && <span className="ar-copies" data-tip="Traders who copied this card — you earn a share of their FEELESS fee">⚡ {r.copies} {r.copies === 1 ? 'copy' : 'copies'} · {m$(r.copyEarnedUsd)} earned</span>}</span>}
       {r.feeback && <small className={`fp-fb ${r.feeback.unlocked ? 'is-on' : ''}`} data-tip={`Fee-Back: ${r.feeback.pct}% of the $${(r.feeback.feesUsd || 0).toFixed(2)} fees you paid on this card${r.feeback.arena ? ' (incl. Arena bonus)' : ''}`}>🎁 {r.feeback.unlocked ? `${m$(r.feeback.usd)} back · ${r.feeback.pct}%` : 'Fee-Back'}{r.feeback.next ? ` · ${r.feeback.next}` : ''}</small>}
       <div className="fp-acts" role="toolbar" aria-label={`${r.name} actions`}>
         <button type="button" className="m-btn" data-tip="Sell part of chosen legs back to SOL (25 / 50 / 100%)" onClick={() => open(r, 'take')} data-testid={`act-take-${r.id}`}>💰 Take profit</button>

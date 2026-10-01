@@ -57,3 +57,16 @@ test('switching the Lab lens to 🏃 Runners never renders the old pool rows as 
   expect(el.querySelector('[data-testid="fl-runner-A"]').disabled).toBe(true);
   expect(el.textContent).toContain('left the live feed');
 });
+
+test('Lab: a copied card shows who earns from it and Clear stops copying', async () => {
+  const React = require('react'); const { act } = React; const { createRoot } = require('react-dom/client');
+  const { FuseLab } = require('./FuseLab');
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ pools: [] }) }));
+  const el = document.createElement('div'); document.body.appendChild(el);
+  const incoming = { n: 1, legs: [{ pairAddress: 'P1', symbol: 'A', chainId: 'solana' }, { pairAddress: 'P2', symbol: 'B', chainId: 'solana' }], sol: 0, copyOf: 'U1', owner: '@chad', copyPct: 10 };
+  await act(async () => { createRoot(el).render(<FuseLab runnerPicks={[]} onRunnerPicks={() => {}} incoming={incoming} />); });
+  expect(el.querySelector('[data-testid="fl-copy"]').textContent).toContain("Copying @chad's card");
+  expect(el.querySelector('[data-testid="fl-copy"]').textContent).toContain('10% of the FEELESS fee you pay');
+  await act(async () => { el.querySelector('[aria-label="Stop copying"]').click(); });
+  expect(el.querySelector('[data-testid="fl-copy"]')).toBeNull();
+});

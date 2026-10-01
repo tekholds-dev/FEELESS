@@ -2879,6 +2879,7 @@ class FusePositionIn(BaseModel):
     session: str
     name: str = Field(default='Lab fuse', max_length=40)
     fuseId: str = ''
+    copyOf: str = Field(default='', max_length=16)   # ⚡ copied from another trader's open card (its owner earns copyPct of your fee)
     legs: list          # [{pairAddress, chainId, symbol, signature}]
 
 
@@ -2905,6 +2906,9 @@ async def fuse_position(p: FusePositionIn):
         if not legs:
             return {'ok': True, 'counted': False}
         pos = {'id': uuid.uuid4().hex[:10], 'wallet': me, 'name': p.name.strip() or 'Lab fuse', 'fuseId': p.fuseId[:16], 'at': time.time(), 'legs': legs}
+        src = next((x for x in d.get('positions') or [] if p.copyOf and x['id'] == p.copyOf), None)
+        if src and primary_of(src['wallet']) != primary_of(me) and src['wallet'] not in set(linked_of(me)):   # never a self-copy
+            pos.update(copyOf=src['id'], copyOwner=src['wallet'])
         dflt = d.get('autoYieldDefault') or {}
         if dflt.get('on'):   # Cmd Ctr default: new cards arm 💸 collect-profit at +at% of what was put in
             pos['autoYield'] = {'at': float(dflt.get('at') or _hq.YIELD_DEFAULT_AT), 'base': round(sum(_fuse._f(x.get('usd')) for x in legs) + _buy_fees(pos), 6), 'armedAt': time.time(), 'firedAt': None}
@@ -3143,8 +3147,12 @@ async def _feeback_book():
     out = {}
     for x in d.get('positions') or []:
         fb = _hq.card_feeback(_card_fees(x, by), (x.get('closedAt') or now) - _fuse._f(x.get('at')), x['id'] in hot, rules)
-        a = out.setdefault(x['wallet'], {'wallet': x['wallet'], 'earnedUsd': 0.0, 'cards': 0})
+        a = out.setdefault(x['wallet'], {'wallet': x['wallet'], 'earnedUsd': 0.0, 'cards': 0, 'copyUsd': 0.0})
         a['earnedUsd'] = round(a['earnedUsd'] + fb['usd'], 6); a['cards'] += 1
+        if x.get('copyOwner'):
+            o = out.setdefault(x['copyOwner'], {'wallet': x['copyOwner'], 'earnedUsd': 0.0, 'cards': 0, 'copyUsd': 0.0})
+            cut = _hq.copy_cut(_card_fees(x, by), rules)
+            o['earnedUsd'] = round(o['earnedUsd'] + cut, 6); o['copyUsd'] = round(o['copyUsd'] + cut, 6)
     paid = d.get('feebackPaid') or {}
     rows = [{**a, 'paidUsd': _fuse._f(paid.get(w)), 'owedUsd': round(max(0.0, a['earnedUsd'] - _fuse._f(paid.get(w))), 6)} for w, a in out.items()]
     return {'rows': sorted(rows, key=lambda a: -a['owedUsd'])[:200], 'owedUsd': round(sum(a['owedUsd'] for a in rows), 6), 'earnedUsd': round(sum(a['earnedUsd'] for a in rows), 6)}
@@ -3346,7 +3354,13 @@ async def fuse_pnl(address: str):
     hot = {c['id'] for c in (_arena_mega_cache.get('data') or []) if c.get('kind') == 'user' and c['activity']['tier'] in ('hot', 'blazing')}
     rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold',
                     'feeback': _hq.card_feeback(_card_fees(x, by), (x.get('closedAt') or now) - _fuse._f(x.get('at')), x['id'] in hot, rules), 'onArena': x['id'] in hot} for x in pos), key=lambda r: -(r['at'] or 0))
-    rows = [{**r, 'drift': _hq.drift(r), 'exitFeeUsd': 0.0 if r['closed'] else _exit_fee(r)} for r in rows]
+    allpos = _json_load(FUSE_HQ_PATH, {}).get('positions') or []
+    copies = {}
+    for c in allpos:
+        if c.get('copyOf'):
+            k = copies.setdefault(c['copyOf'], {'n': 0, 'usd': 0.0}); k['n'] += 1; k['usd'] = round(k['usd'] + _hq.copy_cut(_card_fees(c, by), rules), 6)
+    rows = [{**r, 'drift': _hq.drift(r), 'exitFeeUsd': 0.0 if r['closed'] else _exit_fee(r), 'streak': _hq.swap_streak(r),
+             'copies': (copies.get(r['id']) or {}).get('n', 0), 'copyEarnedUsd': (copies.get(r['id']) or {}).get('usd', 0.0)} for r in rows]
     held = [r for r in rows if not r['closed']]
     return {**_hq.book(rows), 'rows': rows[:20], 'rules': {k: rules[k] for k in ('yieldLevels', 'yieldDefault', 'swapDropPct')},
             'held': {'cards': len(held), 'costUsd': round(sum(r['costUsd'] for r in held), 4), 'valueUsd': round(sum(r['valueUsd'] for r in held), 4),
@@ -3518,7 +3532,8 @@ async def _arena_mega(rd, cfg, now):
                     'index': round(100 + pct, 2), 'grade': 'A' if pct > 0 else 'C', 'buyers': 0, 'at': c['at'], 'proof': c.get('proof'),
                     'activity': _hq.activity(0, 0, flow, pct)})
     # Traders' cards: every open card shows until it's withdrawn; one that's up ≥ topTierPct takes the top tier.
-    hq = [x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if not x.get('closedAt')]
+    hq_all = _json_load(FUSE_HQ_PATH, {}).get('positions') or []
+    hq = [x for x in hq_all if not x.get('closedAt')]
     hq = sorted(hq, key=lambda x: -_fuse._f(x.get('at')))[:24]
     if hq:
         upx = await _hq_prices([leg for x in hq for leg in x['legs']])
@@ -3527,13 +3542,17 @@ async def _arena_mega(rd, cfg, now):
             rr = _hq.position_pnl(x, upx)
             if rr['closed']:
                 continue
-            act = _hq.activity(len(rr['legs']), 1, rr['valueUsd'] * 24, rr['pnlPct'])
+            stk = _hq.swap_streak({**rr, 'events': x.get('events')})
+            ncopy = sum(1 for c in hq_all if c.get('copyOf') == x['id'])
+            act = _hq.activity(len(rr['legs']) + ncopy, 1 + ncopy, rr['valueUsd'] * 24, rr['pnlPct'])
+            act = {**act, 'score': min(100, act['score'] + stk['bonus'])}
+            act['tier'] = next(tn for cut, tn in _hq.ACTIVITY_TIERS if act['score'] >= cut)
             if rr['pnlPct'] >= top:
                 act = {'score': max(act['score'], 90), 'tier': 'blazing'}
             out.append({'kind': 'user', 'id': x['id'], 'name': x.get('name') or 'Fuse card', 'emoji': '🃏', 'aura': '', 'owner': handle_of(x['wallet']) or f"{x['wallet'][:4]}…{x['wallet'][-4:]}",
                         'legs': [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': round(_fuse._f(l.get('usd')) / max(1e-9, rr['costUsd']) * 100, 2)} for l in rr['legs']],
                         'index': round(100 + rr['pnlPct'], 2), 'grade': 'A' if rr['pnlPct'] >= top else 'B' if rr['pnlPct'] >= 0 else 'C', 'buyers': 1, 'mode': x.get('mode') or 'hold',
-                        'pnlPct': rr['pnlPct'], 'at': x.get('at'), 'activity': act})
+                        'pnlPct': rr['pnlPct'], 'at': x.get('at'), 'activity': act, 'streak': stk, 'copies': ncopy, 'copyPct': _card_rules()['copyPct']})
     rnd = (rd.get('rounds') or [None])[-1]
     if not out and rnd and rnd.get('picks'):   # never an empty stage: the live round stands in as a proving card
         ps = rnd['picks']
