@@ -34,7 +34,7 @@ export function AutoYieldDefault({ call }) {
   return <div className="m-card m-row ay-default" data-testid="auto-yield-default"><span className="m-label">💸 AUTO-COLLECT DEFAULT</span>
     <label className="m-toggle"><input type="checkbox" checked={v.on} onChange={e => save({ ...v, on: e.target.checked })} />Arm on every new card</label>
     <label className="m-field"><span>at +%</span><input className="m-input m-num" type="number" min="10" max="1000" value={v.at} onChange={e => setV({ ...v, at: Number(e.target.value) })} onBlur={() => save(v)} /></label>
-    <small className="m-dim">Alert + pre-filled Collect profit (sells only the gain). Holders still approve it and can turn it off per card — FEELESS never signs.</small></div>;
+    <small className="m-dim">Example: a $100 card hits <b className="m-pos">${(100 * (1 + v.at / 100)).toFixed(0)}</b> → the holder gets ONE alert with “Collect ${(v.at).toFixed(0)} profit” pre-filled (sells only the ${v.at.toFixed(0)} gain, the $100 keeps riding). They approve it; they can switch it off per card. FEELESS never signs.</small></div>;
 }
 
 // Core › Fees › Card bundle pricing: cards bought all at once (Fuse / runners) pay a flat $ per coin instead of the %,
@@ -62,9 +62,26 @@ export function BundlePricing({ call, initial, swapBps = 0 }) {
 // Cmd Ctr › Fuse › Card rules: what traders can pick (auto-profit levels, counted after fees from their confirmed buy),
 // the swap-mode trigger, the Arena top tier, and Fuse Fee-Back (share of fees paid on a card, unlocked by holding it;
 // loyalty + Arena bonuses; cap). The book shows earned / paid / owed per wallet; "Paid" records a payout you sent.
-const RULE_LABELS = [['swapDropPct', 'Swap mode: alert when a leg is down', '%'], ['topTierPct', 'Arena top tier: card up at least', '+%'],
-  ['fbHolderPct', 'Fee-Back: share of fees paid', '%'], ['fbHoldHours', 'Unlocks after holding', 'h'], ['fbLoyaltyPct', 'Loyalty bonus', '+%'],
-  ['fbLoyaltyDays', 'Loyalty after', 'days'], ['fbArenaPct', 'Arena bonus (card hot/blazing)', '+%'], ['fbCapPct', 'Fee-Back cap', '%'], ['netFeeUsdPerLeg', 'Network fee estimate per leg', '$'], ['copyPct', '⚡ Copy cards: owner earns of the copier\'s fee', '%'], ['seasonBoostPct', '🏆 Season top 3: Fee-Back boost', '+%']];
+// Card rules, in plain words: every number explained with a $ example on a $100 card that paid $1.00 of FEELESS fees.
+const m$ = v => `$${Number(v || 0).toFixed(Math.abs(v) < 10 ? 2 : 0)}`;
+const RULE_GROUPS = [
+  ['⇄ SWAP MODE', 'Cards set to ⇄ swap get ONE alert to switch a weak coin. Nothing sells by itself.', [
+    ['swapDropPct', 'Alert when a coin is down', '%', r => `A $20 coin slice → alert at ${m$(20 * (1 - r.swapDropPct / 100))}`]]],
+  ['🏟 ARENA', 'Which trader cards get the top-tier glow on the Arena.', [
+    ['topTierPct', 'Top tier when the card is up', '+%', r => `$100 card → top tier at ${m$(100 * (1 + r.topTierPct / 100))}`]]],
+  ['🎁 FEE-BACK', 'Holders earn back part of the FEELESS fees they paid on a card. You pay it out weekly (💸 Payouts).', [
+    ['fbHolderPct', 'Base share back', '%', r => `$1.00 fees → ${m$(r.fbHolderPct / 100)} back`],
+    ['fbHoldHours', 'Unlocks after holding', 'h', r => `Sold before ${r.fbHoldHours}h → $0 back`],
+    ['fbLoyaltyPct', 'Loyalty bonus', '+%', r => `+${m$(r.fbLoyaltyPct / 100)} per $1 fees`],
+    ['fbLoyaltyDays', 'Loyalty after', 'days', r => `Held ${r.fbLoyaltyDays}+ days`],
+    ['fbArenaPct', 'Arena bonus (card hot/blazing)', '+%', r => `+${m$(r.fbArenaPct / 100)} per $1 while hot`],
+    ['fbCapPct', 'Never more than', '%', r => `Max ${m$(r.fbCapPct / 100)} back per $1 fees`]]],
+  ['⚡ COPY + 🏆 SEASON', 'Rewards for cards others copy, and the weekly top 3.', [
+    ['copyPct', 'Card owner earns of a copier\'s fee', '%', r => `Copier pays $1.00 fee → owner gets ${m$(r.copyPct / 100)}`],
+    ['seasonBoostPct', 'Season top 3: extra Fee-Back', '+%', r => `+${m$(r.seasonBoostPct / 100)} per $1 fees for the winners`]]],
+  ['🌐 NETWORK', 'Used only to warn about fee drag on tiny buys (shown in the Lab).', [
+    ['netFeeUsdPerLeg', 'Network fee per coin', '$', r => `6-coin card ≈ ${m$(r.netFeeUsdPerLeg * 6)} to buy`]]],
+];
 
 export function CardRules({ call }) {
   const [d, setD] = useState(null); const [r, setR] = useState(null); const [lv, setLv] = useState('');
@@ -72,19 +89,24 @@ export function CardRules({ call }) {
   if (!r) return <div className="m-card ay-default is-loading" data-testid="card-rules"><span className="m-label">🃏 CARD RULES</span><span className="m-dim">Loading…</span></div>;
   const save = async body => { try { const x = await call('/admin/fuses/rules', { method: 'POST', body: JSON.stringify(body) }); setD(d0 => ({ ...d0, ...x })); setR(x.rules); setLv(x.rules.yieldLevels.join(', ')); toast.success(body.wallet ? 'Payout recorded' : 'Card rules saved'); } catch (e) { toast.error(e.message); } };
   const fb = d.feeback || { rows: [], owedUsd: 0, earnedUsd: 0 };
-  return <details className="m-card rn-settings card-rules" data-testid="card-rules"><summary><span className="m-label">🃏 CARD RULES · AUTO-PROFIT · SWAP · FEE-BACK</span><small className="m-dim">Fee-Back owed ${fb.owedUsd.toFixed(2)} of ${fb.earnedUsd.toFixed(2)} earned</small></summary>
-    <div className="cr-grid">
-      <label className="m-field"><span>Auto-profit levels traders pick (after fees)</span><input className="m-input m-num" value={lv} onChange={e => setLv(e.target.value)} placeholder="25, 50, 100, 200" data-testid="cr-levels" /></label>
-      <label className="m-field"><span>Default level</span><input className="m-input m-num" type="number" value={r.yieldDefault} onChange={e => setR({ ...r, yieldDefault: Number(e.target.value) })} /></label>
-      {RULE_LABELS.map(([k, l, u]) => <label key={k} className="m-field"><span>{l} <small>{u}</small></span><input className="m-input m-num" type="number" step="any" value={r[k]} onChange={e => setR({ ...r, [k]: Number(e.target.value) })} /></label>)}
-    </div>
-    <p className="m-note">A card holder gets back {r.fbHolderPct}% of the FEELESS fees they paid on a card after holding it {r.fbHoldHours}h, +{r.fbLoyaltyPct}% after {r.fbLoyaltyDays} days, +{r.fbArenaPct}% while it burns hot on the Arena (max {r.fbCapPct}%). Tracked from the fee ledger; you pay it out.</p>
-    <div className="fg-acts"><button type="button" className="m-btn primary m-go" onClick={() => save({ ...r, yieldLevels: lv.split(/[ ,]+/).map(Number).filter(Boolean) })} data-testid="cr-save">Save card rules</button>
-      <button type="button" className="m-btn" onClick={() => save(d.defaults)}>Reset</button></div>
+  const levels = lv.split(/[ ,]+/).map(Number).filter(Boolean);
+  const best = Math.min(r.fbCapPct, r.fbHolderPct + r.fbLoyaltyPct + r.fbArenaPct + r.seasonBoostPct);
+  return <section className="m-card card-rules" data-testid="card-rules">
+    <div className="m-row"><span className="m-label">🃏 CARD RULES</span><small className="m-dim">what traders can pick + what FEELESS pays back · examples on a $100 card that paid $1.00 fees</small>
+      <span className="cr-owed" data-tip="Fee-Back earned by holders vs still owed (pay it in 💸 Payouts)"><small>FEE-BACK OWED</small><b className="m-num">${fb.owedUsd.toFixed(2)}</b><em>of ${fb.earnedUsd.toFixed(2)} earned</em></span></div>
+    <div className="cr-group"><header><b>💰 AUTO-PROFIT LEVELS</b><small>The +% choices a trader sees (no free typing). Counted AFTER exit fees, so +50% means +50% in their pocket.</small></header>
+      <div className="cr-levels">{levels.map(x => <button key={x} type="button" className={`m-chip ${r.yieldDefault === x ? 'is-on' : ''}`} onClick={() => setR({ ...r, yieldDefault: x })} data-tip={`$100 card → alert at $${100 + x}${r.yieldDefault === x ? ' · default' : ' · tap to make default'}`}>+{x}%{r.yieldDefault === x ? ' ★' : ''}</button>)}</div>
+      <label className="m-field"><span>Levels (comma list) · ★ = default</span><input className="m-input m-num" value={lv} onChange={e => setLv(e.target.value)} placeholder="25, 50, 100, 200" data-testid="cr-levels" /></label></div>
+    {RULE_GROUPS.map(([title, why, fields]) => <div key={title} className="cr-group"><header><b>{title}</b><small>{why}</small></header>
+      <div className="cr-grid">{fields.map(([k, l, u, ex]) => <label key={k} className="m-field cr-f"><span>{l} <small>{u}</small></span>
+        <input className="m-input m-num" type="number" step="any" value={r[k]} onChange={e => setR({ ...r, [k]: Number(e.target.value) })} data-testid={`cr-${k}`} /><em className="cr-ex">{ex(r)}</em></label>)}</div>
+      {title === '🎁 FEE-BACK' && <p className="cr-story" data-testid="cr-story">Pay <b>$1.00</b> in fees → hold {r.fbHoldHours}h: <b>{m$(r.fbHolderPct / 100)}</b> back → {r.fbLoyaltyDays} days: <b>{m$(Math.min(r.fbCapPct, r.fbHolderPct + r.fbLoyaltyPct) / 100)}</b> → hot on the Arena: <b>{m$(Math.min(r.fbCapPct, r.fbHolderPct + r.fbLoyaltyPct + r.fbArenaPct) / 100)}</b> → best case <b>{m$(best / 100)}</b> (cap {r.fbCapPct}%).</p>}</div>)}
+    <div className="fg-acts"><button type="button" className="m-btn primary m-go" onClick={() => save({ ...r, yieldLevels: levels })} data-testid="cr-save">Save card rules</button>
+      <button type="button" className="m-btn" onClick={() => save(d.defaults)}>Reset to defaults</button></div>
     {fb.rows.length > 0 && <table className="vd-table cr-book"><thead><tr><th>Wallet</th><th>Cards</th><th>Earned</th><th>Paid</th><th>Owed</th><th /></tr></thead><tbody>
       {fb.rows.slice(0, 30).map(w => <tr key={w.wallet}><td><code>{w.wallet.slice(0, 4)}…{w.wallet.slice(-4)}</code></td><td>{w.cards}</td><td>${w.earnedUsd.toFixed(3)}</td><td>${w.paidUsd.toFixed(3)}</td><td className={w.owedUsd > 0 ? 'm-pos' : ''}>${w.owedUsd.toFixed(3)}</td>
         <td>{w.owedUsd > 0 && <button type="button" className="m-btn" onClick={() => save({ wallet: w.wallet, paidUsd: w.owedUsd })}>Mark paid</button>}</td></tr>)}</tbody></table>}
-  </details>;
+  </section>;
 }
 
 
