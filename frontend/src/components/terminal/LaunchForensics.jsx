@@ -45,6 +45,13 @@ function OffenderPanel({ mint, intel, onChanged }) {
   </div>;
 }
 
+// Start → now: how many wallets got in at launch, how many still sit in the top holders, what the group holds today.
+export function startNow(wallets = [], intel = {}, pct) {
+  const top = new Set((intel.topHolders || []).map(h => h.owner));
+  const still = wallets.filter(w => top.has(w)).length;
+  return `${wallets.length} at launch → ${still} still in top holders · group holds ${pct}% now`;
+}
+
 export function LaunchForensics({ pair }) {
   const mint = pair?.baseToken?.address;
   const chain = pair?.chainId;
@@ -65,8 +72,8 @@ export function LaunchForensics({ pair }) {
   const d = Array.isArray(state.data?.sniperWallets) && Array.isArray(state.data?.bundledWallets) ? state.data : null;
   const pct = v => (v == null ? '—' : `${Number(v).toFixed(v >= 10 ? 1 : 2)}%`);
   const cards = [
-    ['snipers', Crosshair, 'Snipers', d ? String(d.sniperWallets.length) : state.loading ? '…' : 'Unavailable', d?.snipersHoldingPct != null ? `Current group holds ${d.snipersHoldingPct}% · wallets below` : 'Bought within ~1s of launch', d?.sniperWallets, d && d.sniperWallets.length >= 5],
-    ['bundlers', Layers, 'Bundled', d ? String(d.bundledWallets.length) : state.loading ? '…' : 'Unavailable', d?.bundledHoldingPct != null ? `Current group holds ${d.bundledHoldingPct}% · wallets below` : 'Same block as the mint', d?.bundledWallets, d && d.bundledWallets.length >= 3],
+    ['snipers', Crosshair, 'Snipers', d ? String(d.sniperWallets.length) : state.loading ? '…' : 'Unavailable', d?.snipersHoldingPct != null ? startNow(d.sniperWallets, d, d.snipersHoldingPct) : 'Bought within ~1s of launch', d?.sniperWallets, d && d.sniperWallets.length >= 5],
+    ['bundlers', Layers, 'Bundled', d ? String(d.bundledWallets.length) : state.loading ? '…' : 'Unavailable', d?.bundledHoldingPct != null ? startNow(d.bundledWallets, d, d.bundledHoldingPct) : 'Same block as the mint', d?.bundledWallets, d && d.bundledWallets.length >= 3],
     ['insiders', AlertTriangle, 'Insiders hold', d ? pct(d.insidersHoldingPct) : state.loading ? '…' : 'Unavailable', 'Snipers + bundlers still in top holders', null, d && d.insidersHoldingPct >= 10],
     ['holders', Users, 'Top 10 hold', d ? pct(d.top10Pct) : state.loading ? '…' : 'Unavailable', `Excl. pools${d?.poolPct != null ? ` · pool/curve ${pct(d.poolPct)}` : ''}`, null, d && d.top10Pct >= 35],
     ['dev', UserRound, 'Dev holds', d ? pct(d.devHoldingPct) : state.loading ? '…' : 'Unavailable', d?.creator ? `Creator ${shortAddress(d.creator)}` : 'Creator wallet', null, d && d.devHoldingPct >= 5],
