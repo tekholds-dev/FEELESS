@@ -288,7 +288,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     return clear;
   }, [feeRead, displayCandles, trail, dayMode, showVolume]);
 
-  // The viewer's own levels (from their real swaps): the blended break-even (fees in, bold gold) plus one thin line
+  // The viewer's own levels (from their real swaps): your entry = where you filled, after fees (bold gold), plus one thin line
   // per trade at the exact pool price it filled at — B1, B2… for buys, S1… for sells.
   const entryLinesRef = useRef([]);
   const tradeKey = (userTrades || []).map(t => `${t.tx}:${t.fillPrice}`).join('|');
