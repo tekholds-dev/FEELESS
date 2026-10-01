@@ -286,7 +286,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   like get ×(1+0.05N) ≤1.2, never while discipline is cutting size; setup memory learns the `fuse` tag.
 - 🔔 About to bond (`runners.near_bond`): pre-bond 85–99.9% curve, ≥55% buys, 5m green → +12 score + its own source.
   Forensics scan the 28 busiest (background); Cmd Ctr sees every passing runner, traders the busiest 24.
-- Fuse tab look: deep purple `.fuse-page::before` sky, electric title (`fp-zap` + two `fp-bolt` strikes), 🧬 spins (`fp-dna`).
+- Fuse tab look: blackish-purple tokens scoped to `.fuse-page` (night), `::before` sky + `::after` drifting nebula (clipped),
+  violet `m-live` banners, breathing violet edges on cards, electric title (`fp-zap` + `fp-bolt`), real 3D helix `DnaHelix`.
+- 🐱 FeeCat on the Arena (`_feecat_card`): her open SIM book as a card with her record (win %, realized SOL, lives); tests must
+  stub `_feecat_card` (never reach the live service). ▶ Card replay (`GET /fuses/replay/{kind}/{id}`, `CardReplay`): 24h of
+  15m closes per coin + the card's moments as markers; lines reveal via a clip-rect scaleX.
 - Copy: Runners/Arena say "we run $5" (never "paper"); a missing live price shows "—", never a fake 0%.
 - Pump Pulse sitewide: every `TokenAvatar` shows a pink `PulseDot` while the coin pulses (shared batched `lib/pumpPulse`).
 - Prebuilt rail budgets: $1 / $20 / $100 or a custom $ (debounced 250ms); server breeds for the nearest bucket, Fuse in

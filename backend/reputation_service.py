@@ -3579,6 +3579,61 @@ def _season_race(week, board, now):
     _season_moves['prev'] = now_rank
 
 
+_replay_cache: dict = {}
+
+
+async def _series_24h(pair):
+    """Last 24h of 15m closes for one pool (candles service), [[t, close], …]. 60s cache."""
+    hit = _replay_cache.get(pair)
+    if hit and time.time() - hit[0] < 60:
+        return hit[1]
+    try:
+        async with httpx.AsyncClient(timeout=6) as http:
+            cs = (await http.get(f'http://127.0.0.1:5099/api/candles/solana/{pair}', params={'interval': '15m'})).json().get('candles') or []
+    except Exception:
+        cs = []
+    since = time.time() - 86400
+    out = [[int(c[0]), c[4]] for c in cs if c and c[0] >= since and c[4]]
+    _replay_cache[pair] = (time.time(), out)
+    return out
+
+
+@app.get('/api/reputation/fuses/replay/{kind}/{cid}')
+async def fuse_replay(kind: str, cid: str):
+    """▶ Card replay: each coin's last 24h path (15m) + the card's moments (buys, take-profits, swaps, compounds) as markers."""
+    now = time.time(); legs, marks = [], []
+    if kind == 'user':
+        pos = next((x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if x['id'] == cid), None)
+        if not pos:
+            raise HTTPException(404, 'No such card.')
+        legs = [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'entry': round(_fuse._f(l.get('usd')) / _fuse._f(l.get('tokens0') or l.get('tokens')), 12) if _fuse._f(l.get('tokens0') or l.get('tokens')) else None,
+                 'at': l.get('addedAt') or pos.get('at')} for l in pos['legs']]
+        marks = [{'at': e.get('at'), 'kind': e.get('kind'), 'label': f"{e.get('kind')} {e.get('symbol') or ''}".strip()} for e in pos.get('events') or [] if e.get('at')]
+        marks.insert(0, {'at': pos.get('at'), 'kind': 'open', 'label': 'card opened'})
+    elif kind in ('lit', 'round'):
+        rd = _json_load(RUNNERS_PATH, {'rounds': []})
+        c = next((x for x in (rd.get('litCards') or []) + (rd.get('rounds') or []) if str(x.get('id')) == cid), None)
+        if not c:
+            raise HTTPException(404, 'No such card.')
+        legs = [{'pairAddress': p.get('pairAddress') or p['mint'], 'symbol': p.get('symbol'), 'entry': p.get('entry'), 'at': p.get('swappedIn') or c['at']} for p in c['picks']]
+        marks = [{'at': c['at'], 'kind': 'open', 'label': 'lit' if kind == 'lit' else 'round dealt'}] + [{'at': s['at'], 'kind': 'swap', 'label': f"swap ${s['out'].get('symbol')} → ${s['in'].get('symbol')}"} for s in c.get('swaps') or []]
+    elif kind == 'mega':
+        f = (_json_load(FUSES_PATH, {'fuses': {}}).get('fuses') or {}).get(cid)
+        if not f:
+            raise HTTPException(404, 'No such card.')
+        legs = [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'entry': (f.get('basePrices') or {}).get(l['pairAddress']), 'at': f.get('createdAt')} for l in f['legs']]
+    elif kind == 'feecat':
+        fc = await _feecat_card()
+        legs = [{k: l.get(k) for k in ('pairAddress', 'symbol', 'entry', 'at')} for l in (fc or {}).get('legs') or []]
+        marks = [{'at': l['at'], 'kind': 'buy', 'label': f"🐱 bought ${l['symbol']}"} for l in legs if l.get('at')]
+    else:
+        raise HTTPException(400, 'Unknown card kind.')
+    legs = legs[:12]
+    series = await asyncio.gather(*[_series_24h(l['pairAddress']) for l in legs])
+    return {'from': now - 86400, 'to': now, 'legs': [{**l, 'series': s} for l, s in zip(legs, series)],
+            'markers': [m for m in marks if _fuse._f(m.get('at')) >= now - 86400]}
+
+
 @app.get('/api/reputation/fuses/season')
 async def fuse_season():
     """This week's live Fuse season board (top 10) + the last 4 crowned weeks. 60s cache, warmed in the background."""
@@ -3711,6 +3766,30 @@ async def fuse_arena_public():
 _arena_mega_cache: dict = {'at': 0.0, 'data': None}
 
 
+async def _feecat_card():
+    """🐱 FeeCat on the Arena: her open simulated book as one card (legs = her positions, entry = her fill), with her
+    record, so traders can see whether her edge beats theirs. Never real money — labelled sim everywhere."""
+    try:
+        async with httpx.AsyncClient(timeout=2.5) as http:
+            c = (await http.get('http://127.0.0.1:5088/api/cats/leader')).json()
+        c = c.get('cat') or c
+    except Exception:
+        return None
+    ps = [p for p in c.get('positions') or [] if p.get('pairAddress')]
+    if not ps:
+        return None
+    cost = sum(_fuse._f(p.get('costSol')) for p in ps) or 1.0
+    pct = round(sum(_fuse._f(p.get('costSol')) * _fuse._f(p.get('currentChange')) for p in ps) / cost, 2)
+    wr = _fuse._f(c.get('winRate'))
+    act = _hq.activity(len(ps), 0, sum(_fuse._f(p.get('entryVolH1')) for p in ps) * 24, pct)
+    return {'kind': 'feecat', 'id': 'feecat', 'name': f"{c.get('name') or 'FeeCat'}'s book", 'emoji': '🐱', 'aura': '', 'chat': 'fuse-card-feecat',
+            'legs': [{'pairAddress': p['pairAddress'], 'symbol': p.get('symbol'), 'baseAddress': p.get('mint'), 'entry': _fuse._f(p.get('entryPriceUsd')),
+                      'weight': round(_fuse._f(p.get('costSol')) / cost * 100, 2), 'at': p.get('openedAt')} for p in ps],
+            'index': round(100 + pct, 2), 'grade': 'A' if wr >= 55 else 'B' if wr >= 45 else 'C', 'buyers': 0, 'activity': act,
+            'record': {'winRate': round(wr), 'wins': c.get('wins'), 'losses': c.get('losses'), 'realizedSol': round(_fuse._f(c.get('realizedPnlSol')), 4),
+                       'lives': (c.get('discipline') or {}).get('lives')}}
+
+
 async def _arena_mega(rd, cfg, now):
     """Cards on the Arena stage: Cmd Ctr mega cards (published Fuses flagged `arena`) + runner cards that lit after their
     rounds. Each carries its live activity (fuse_hq.activity → hard-coded effect tier). 30s cache, parallel lookups."""
@@ -3764,6 +3843,9 @@ async def _arena_mega(rd, cfg, now):
                         'costUsd': rr['costUsd'], 'compound': cmp_, 'chat': f"fuse-card-{x['id']}",
                         'index': round(100 + rr['pnlPct'], 2), 'grade': 'A' if rr['pnlPct'] >= top else 'B' if rr['pnlPct'] >= 0 else 'C', 'buyers': 1, 'mode': x.get('mode') or 'hold',
                         'pnlPct': rr['pnlPct'], 'at': x.get('at'), 'activity': act, 'streak': stk, 'copies': ncopy, 'copyPct': _card_rules()['copyPct']})
+    fc = await _feecat_card()
+    if fc:
+        out.append(fc)
     rnd = (rd.get('rounds') or [None])[-1]
     if not out and rnd and rnd.get('picks'):   # never an empty stage: the live round stands in as a proving card
         ps = rnd['picks']

@@ -227,7 +227,11 @@ def test_auras_validated_for_fuses_badges_and_cards(monkeypatch):
         asyncio.run(rs.admin_quests_save(Req({'badges': {'q-test': {'aura': 'bogus'}}})))
 
 
-def test_public_arena_has_no_admin_data():
+def test_public_arena_has_no_admin_data(monkeypatch):
+    async def none(): return None
+    async def lv(): return {'passing': [], 'dropped': [], 'seen': 0}
+    monkeypatch.setattr(rs, '_feecat_card', none); monkeypatch.setattr(rs, '_runner_live', lv)   # never reach live services
+    rs._arena_mega_cache.update(at=0, data=None)
     rs._json_save(rs.FUSE_HQ_PATH, {'arena': [{'id': 'e', 'style': 'yield', 'at': 1, 'usd': 5, 'legs': [{'pairAddress': 'A', 'weight': 100, 'start': 1}], 'close': {'A': 1.2}}],
                                     'positions': [{'id': 'secret', 'wallet': 'W', 'legs': []}], 'bloodline': [{'pools': ['A']}]})
     d = asyncio.run(rs.fuse_arena_public())

@@ -120,3 +120,20 @@ test('profile ⚛️ Fuse score shows the ring and every cited part (incl. reput
   const s = el.querySelector('[data-testid="fuse-score"]');
   expect(s.textContent).toContain('79'); expect(s.textContent).toContain('reputation 20/25'); expect(s.textContent).toContain('Reputation (trust 80/100)');
 });
+
+test('replay: each coin as % from its entry, the card as the average, markers placed on the 24h axis', () => {
+  const { replayPaths } = require('./FusePage');
+  const d = { from: 0, to: 100, legs: [{ symbol: 'A', entry: 1, series: [[0, 1], [50, 1.5], [100, 2]] }, { symbol: 'B', series: [[0, 2], [100, 1]] }], markers: [{ at: 50, kind: 'swap', label: 'swap' }] };
+  const g = replayPaths(d, 600, 160);
+  expect(g.lines.map(l => [l.symbol, l.last])).toEqual([['A', 100], ['B', -50]]);
+  expect(g.last).toBe(25); expect(g.marks[0].x).toBe(300); expect(g.lines[0].d.startsWith('M0.0 ')).toBe(true);
+});
+
+test('the 🧬 is a real 3D helix: 10 rungs, each on its own phase', () => {
+  const React = require('react'); const { act } = React; const { createRoot } = require('react-dom/client');
+  const { DnaHelix } = require('./FusePage');
+  const el = document.createElement('div'); document.body.appendChild(el);
+  act(() => { createRoot(el).render(<DnaHelix />); });
+  const rungs = el.querySelectorAll('[data-testid="dna3d"] > i');
+  expect(rungs).toHaveLength(10); expect(rungs[3].style.getPropertyValue('--i')).toBe('3'); expect(rungs[0].querySelectorAll('b')).toHaveLength(2);
+});

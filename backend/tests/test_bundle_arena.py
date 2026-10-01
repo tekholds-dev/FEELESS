@@ -33,8 +33,11 @@ def test_activity_tiers_are_hard_coded_from_real_activity():
 
 
 @pytest.fixture
-def rs(monkeypatch):
+def rs(monkeypatch, request):
     rs = pytest.importorskip('reputation_service')
+    if 'feecat_card' not in request.node.name:   # never reach the live FeeCat service from a test
+        async def no_cat(): return None
+        monkeypatch.setattr(rs, '_feecat_card', no_cat)
     cfg = {**rs.FEE_DEFAULTS, 'platformFeeBps': 100, 'feeAccountSol': 'SolAcct', 'feeAccountUsdc': 'UsdcAcct', 'tierDiscountPct': {'0': 0},
            'bundle': {'on': True, 'perLegUsd': 0.10, 'maxPct': 5, 'maxLegUsd': 50}}
     monkeypatch.setattr(rs, '_fee_cfg', lambda: cfg)

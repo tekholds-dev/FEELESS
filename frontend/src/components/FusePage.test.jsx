@@ -25,6 +25,8 @@ const ARENA = { board: [{ style: 'yield', runs: 3, avgPct: 2, winRate: 66 }], ou
   { kind: 'user', id: 'U1', name: 'Degen card', emoji: '🃏', owner: '@chad', legs: PICKS.slice(0, 3).map(p => ({ pairAddress: `P${p.mint}`, symbol: p.symbol, weight: 33 })), index: 140, grade: 'A', buyers: 1, mode: 'swap',
     activity: { score: 70, tier: 'hot' }, streak: { swaps: 3, won: true, tier: 'phoenix', label: '🔥 Phoenix', bonus: 15 }, copies: 2, copyPct: 10,
     compound: { compounds: 3, tier: 'snowball', label: '❄ Snowball', bonus: 15 }, chat: 'fuse-card-u1' },
+  { kind: 'feecat', id: 'feecat', name: "Fee's book", emoji: '🐱', legs: [{ pairAddress: 'PF', symbol: 'UDR', entry: 0.0074, weight: 100 }], index: 92, grade: 'A', buyers: 0,
+    activity: { score: 20, tier: 'calm' }, record: { winRate: 61, realizedSol: 0.31, lives: 8 }, chat: 'fuse-card-feecat' },
   { kind: 'lit', id: 'L1', name: '$RUN1 · $RUN2', emoji: '🔥', legs: PICKS.slice(0, 2).map(p => ({ pairAddress: `P${p.mint}`, baseAddress: p.mint, symbol: p.symbol, weight: 50 })), index: 134.5, grade: 'A', buyers: 0, activity: { score: 30, tier: 'warm' } }] };
 const SEASON = { week: 1790553600, endsAt: 9e9, cards: 4, boostPct: 10, board: [
   { rank: 1, id: 'S1', name: 'Moon card', handle: '@chad', pnlPct: 88, streak: { swaps: 1, tier: 'survivor', label: '🛡 Survivor', bonus: 5 } },
@@ -139,4 +141,14 @@ test('Arena: compound badge, the season race ticker, and 💬 opens that card\'s
   expect(host.querySelector('[data-testid="season-race"]').textContent).toContain('▲ @chad Moon card #3 → #1');
   await act(async () => host.querySelector('[data-testid="mega-chat-U1"]').click()); await tick();
   expect(host.querySelector('[data-testid="card-chat-U1"] [data-testid="chat-room"]').textContent).toBe('fuse-card-u1');
+});
+
+test('Arena: FeeCat\'s sim book is on stage with her record, and ▶ opens a card replay', async () => {
+  window.history.replaceState(null, '', '/terminal/fuse?tab=arena');
+  const host = document.createElement('div'); document.body.appendChild(host);
+  await act(async () => { createRoot(host).render(<FusePage />); }); await tick(); await tick();
+  const fc = host.querySelector('[data-testid="mega-feecat"]');
+  expect(fc.textContent).toContain('sim book · 61% wins · +0.31 SOL realized · ❤8');
+  await act(async () => fc.querySelector('[data-testid="mega-replay-feecat"]').click()); await tick();
+  expect(host.querySelector('[data-testid="replay-feecat"]')).not.toBeNull();
 });

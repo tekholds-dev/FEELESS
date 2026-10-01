@@ -25,8 +25,11 @@ def test_copy_cut_is_a_share_of_the_copiers_fee():
 
 
 @pytest.fixture
-def rs(monkeypatch):
+def rs(monkeypatch, request):
     rs = pytest.importorskip('reputation_service')
+    if 'feecat_card' not in request.node.name:   # never reach the live FeeCat service from a test
+        async def no_cat(): return None
+        monkeypatch.setattr(rs, '_feecat_card', no_cat)
     monkeypatch.setattr(rs, '_session_or_401', lambda a, s: a)
     async def px(legs): return {'P1': 3.0}
     monkeypatch.setattr(rs, '_hq_prices', px)
@@ -147,3 +150,32 @@ def test_fuse_score_feeds_trust_from_cache(rs, monkeypatch):
     assert s['cards'] == 2 and s['perf'] >= 30
     parts = asyncio.run(rs.trust_score(A))['parts']
     assert any(p['label'].startswith('Fuse score') and p['points'] > 0 for p in parts)
+
+
+def test_feecat_card_on_the_arena_is_her_sim_book(rs, monkeypatch):
+    class R:
+        def json(self): return {'name': 'Fee', 'winRate': 61, 'wins': 11, 'losses': 7, 'realizedPnlSol': 0.31, 'discipline': {'lives': 8},
+                                'positions': [{'pairAddress': 'P1', 'symbol': 'UDR', 'mint': 'M', 'entryPriceUsd': '0.0074', 'costSol': 0.1, 'currentChange': -8, 'entryVolH1': 1000, 'openedAt': 5},
+                                              {'pairAddress': 'P2', 'symbol': 'X', 'mint': 'N', 'entryPriceUsd': '1', 'costSol': 0.3, 'currentChange': 20, 'entryVolH1': 1000, 'openedAt': 6}]}
+    class C:
+        def __init__(self, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, url, **k): return R()
+    monkeypatch.setattr(rs.httpx, 'AsyncClient', C)
+    c = asyncio.run(rs._feecat_card())
+    assert c['kind'] == 'feecat' and c['index'] == 113.0 and c['record']['winRate'] == 61 and c['legs'][0]['entry'] == 0.0074
+    assert c['legs'][1]['weight'] == 75.0 and c['grade'] == 'A'
+
+
+def test_replay_returns_each_coins_24h_path_and_the_cards_moments(rs, monkeypatch):
+    now = time.time()
+    async def series(pair): return [[int(now - 3600), 1.0], [int(now - 60), 1.5]]
+    monkeypatch.setattr(rs, '_series_24h', series)
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'c1', 'wallet': A, 'at': now - 7200, 'legs': [{'pairAddress': 'P1', 'symbol': 'X', 'usd': 10, 'tokens': 10, 'addedAt': now - 7200}],
+                                                   'events': [{'kind': 'topup', 'symbol': 'X', 'at': now - 1800}, {'kind': 'sell', 'symbol': 'X', 'at': now - 90000}]}]})
+    out = asyncio.run(rs.fuse_replay('user', 'c1'))
+    assert out['legs'][0]['entry'] == 1.0 and len(out['legs'][0]['series']) == 2
+    assert [m['kind'] for m in out['markers']] == ['open', 'topup']                                 # older than 24h dropped
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.fuse_replay('nope', 'x'))

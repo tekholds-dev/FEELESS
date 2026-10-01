@@ -38,8 +38,11 @@ def test_feeback_unlocks_then_grows_with_loyalty_and_arena_capped():
 
 
 @pytest.fixture
-def rs(monkeypatch):
+def rs(monkeypatch, request):
     rs = pytest.importorskip('reputation_service')
+    if 'feecat_card' not in request.node.name:   # never reach the live FeeCat service from a test
+        async def no_cat(): return None
+        monkeypatch.setattr(rs, '_feecat_card', no_cat)
     async def px(legs): return {'P1': 3.0, 'P2': 1.0}
     monkeypatch.setattr(rs, '_hq_prices', px)
     return rs

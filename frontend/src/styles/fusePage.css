@@ -8,18 +8,38 @@
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Cpath d='M0 20 L22 8 L38 26 L58 6 L74 30 L96 10 L112 28 L132 4 L150 24 L170 12 L200 22' fill='none' stroke='%23e9d8ff' stroke-width='2.4' stroke-linejoin='round'/%3E%3Cpath d='M0 20 L22 8 L38 26 L58 6 L74 30 L96 10 L112 28 L132 4 L150 24 L170 12 L200 22' fill='none' stroke='%239b5cff' stroke-width='7' stroke-opacity='.35'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
   animation: fpStrike 3.4s ease-out infinite; }
 .fp-bolt.b2 { top: 30%; transform: scaleY(-1); animation-delay: 1.7s; animation-duration: 4.1s; }
-.fp-dna { display: inline-block; font-size: .9em; animation: fpSpin 3.2s linear infinite; filter: drop-shadow(0 0 8px #b98cff88); }
 @keyframes fpStrike { 0%, 62% { opacity: 0; transform: scaleX(.2); } 64% { opacity: 1; transform: scaleX(1); } 67% { opacity: .2; } 69% { opacity: .9; } 76%, 100% { opacity: 0; transform: scaleX(1); } }
 @keyframes fpFlicker { 0%, 62% { opacity: 0; } 64% { opacity: .85; } 67% { opacity: .1; } 69% { opacity: .6; } 76%, 100% { opacity: 0; } }
-@keyframes fpSpin { from { transform: rotateY(0); } to { transform: rotateY(360deg); } }
-/* The Fuse tab's own night sky: deep purple behind everything on the page. */
-.fuse-page { position: relative; isolation: isolate; }
-.fuse-page::before { content: ''; position: absolute; inset: -22px -24px -40px; z-index: -1; border-radius: 18px; pointer-events: none;
+/* The Fuse tab's own night sky: blackish purple, a nebula drifting behind everything (transform only), clipped to the page. */
+.fuse-page { position: relative; isolation: isolate; padding: 18px 20px 30px; margin: -18px -20px -30px; border-radius: 18px; overflow: clip; }
+.fuse-page::before { content: ''; position: absolute; inset: 0; z-index: -2; pointer-events: none;
   background: radial-gradient(120% 60% at 20% 0%, #3a1670 0%, transparent 60%), radial-gradient(90% 50% at 90% 30%, #251055 0%, transparent 65%), linear-gradient(180deg, #120821, #0a0614 70%); }
-body.theme-day .fuse-page::before { background: radial-gradient(120% 60% at 20% 0%, #e7dbff 0%, transparent 60%), linear-gradient(180deg, #f4efff, #eef6f1 80%); }
+.fuse-page::after { content: ''; position: absolute; inset: -25%; z-index: -1; pointer-events: none; opacity: .75; will-change: transform;
+  background: radial-gradient(18% 14% at 30% 30%, rgba(155, 92, 255, .22), transparent 70%), radial-gradient(16% 12% at 70% 55%, rgba(25, 245, 143, .10), transparent 70%),
+    radial-gradient(22% 16% at 55% 80%, rgba(111, 60, 220, .18), transparent 70%), radial-gradient(10% 8% at 82% 18%, rgba(111, 231, 255, .12), transparent 70%);
+  animation: fzNebula 38s ease-in-out infinite alternate; }
+@keyframes fzNebula { 0% { transform: translate3d(-4%, -3%, 0) rotate(0deg); } 100% { transform: translate3d(5%, 4%, 0) rotate(10deg); } }
+/* Blackish-purple surfaces for every m-* card on the page (night), violet aurora on banners, breathing violet edges on cards. */
+body:not(.theme-day) .fuse-page { --m-bg: #0b0614; --m-surface: #120a1f; --m-surface-2: #190e2c; --m-line: #2d1d4c; --m-line-hi: #4a2f7d; --fz-violet: #9b5cff; }
+body:not(.theme-day) .fuse-page .m-live { border-color: color-mix(in srgb, var(--fz-violet) 50%, transparent) !important; box-shadow: 0 0 0 1px rgba(155, 92, 255, .12) inset, 0 24px 60px -34px rgba(155, 92, 255, .6); }
+body:not(.theme-day) .fuse-page .m-live::before { background: radial-gradient(38% 32% at 28% 30%, rgba(155, 92, 255, .22), transparent 70%), radial-gradient(34% 30% at 72% 68%, rgba(25, 245, 143, .11), transparent 70%), radial-gradient(22% 22% at 58% 18%, rgba(111, 231, 255, .10), transparent 70%); }
+body:not(.theme-day) .fuse-page .m-live::after { background: linear-gradient(90deg, transparent, #c08bff, transparent); }
+body:not(.theme-day) .fuse-page .rn-hero { background: linear-gradient(120deg, #24103f, #120a1f 55%, #1a0d2a); }
+.fuse-page .fp-runner::before, .fuse-page .fs-row::before { content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; border: 1px solid #9b5cff; opacity: .1; animation: fzEdge 4.2s ease-in-out infinite alternate; animation-delay: calc(var(--i, 0) * -.45s); }
+@keyframes fzEdge { from { opacity: .06; } to { opacity: .45; } }
+/* 🧬 3D helix: each rung spins on Y with a phase offset → two strands spiral. Pink/cyan bases, a strand bar between. */
+.dna3d { position: relative; display: inline-block; width: 26px; height: 36px; perspective: 160px; transform: rotate(18deg); }
+.dna3d > i { position: absolute; left: 0; right: 0; top: calc(var(--i) * 9.5%); height: 2px; transform-style: preserve-3d; animation: dnaTurn 2.6s linear infinite; animation-delay: calc(var(--i) * -.26s);
+  background: linear-gradient(90deg, #ff6ad5, #b98cff 50%, #6fe7ff); border-radius: 2px; }
+.dna3d > i > b { position: absolute; top: -3px; width: 7px; height: 7px; border-radius: 50%; } .dna3d > i > b:first-child { left: -3px; background: radial-gradient(circle at 35% 35%, #fff, #ff6ad5 55%, #8a1f73); }
+.dna3d > i > b:last-child { right: -3px; background: radial-gradient(circle at 35% 35%, #fff, #6fe7ff 55%, #1d5f87); }
+@keyframes dnaTurn { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
+body.fx-lite .fuse-page::after, body.fx-lite .fp-runner::before, body.fx-lite .fs-row::before, body.fx-lite .dna3d > i { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fuse-page::after, .fp-runner::before, .fs-row::before, .dna3d > i { animation: none; } }
+body.theme-day .fuse-page::after { opacity: .35; } body.theme-day .fuse-page::before { background: radial-gradient(120% 60% at 20% 0%, #e7dbff 0%, transparent 60%), linear-gradient(180deg, #f4efff, #eef6f1 80%); }
 body.theme-day .terminal-main .fuse-page span.fp-zap { color: transparent; filter: drop-shadow(0 0 6px #7d3cff44); } body.theme-day .fp-zap::after { color: #5a1fd1; -webkit-text-fill-color: #5a1fd1; text-shadow: 0 0 8px #b98cff; }
-body.fx-lite .fp-bolt, body.fx-lite .fp-zap::after, body.fx-lite .fp-dna { animation: none; opacity: 0; } body.fx-lite .fp-dna { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .fp-bolt, .fp-zap::after, .fp-dna { animation: none; } .fp-bolt { opacity: 0; } }
+body.fx-lite .fp-bolt, body.fx-lite .fp-zap::after { animation: none; opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .fp-bolt, .fp-zap::after { animation: none; } .fp-bolt { opacity: 0; } }
 .fp-tabs { width: fit-content; } .fp-body { animation: mCardIn .2s var(--m-ease) backwards; }
 .fp-lab { align-items: start; } .fp-right { display: grid; gap: 12px; align-content: start; }
 .fp-featured { display: grid; gap: 8px; } .fp-feat { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
@@ -195,3 +215,20 @@ body.fx-lite .ar-chat, body.fx-lite .fs-move, body.fx-lite .fsc-ring { animation
 body.theme-day .fsc-ring > span { background: #fff; } body.theme-day .fs-move.mv-new { color: #9a6a00; border-color: #9a6a00; } body.theme-day .streak-badge.st-snowball { color: #1b6f9a; border-color: #1b6f9a; } body.theme-day .streak-badge.st-diamond { color: #6a4fc9; border-color: #6a4fc9; }
 @media (max-width: 520px) { .fsc { grid-template-columns: 1fr; justify-items: center; } }
 body.theme-day .fp-chip.src-bond { color: #5a1fd1; border-color: #5a1fd1; }
+
+/* ▶ Card replay: lines reveal left→right (clip rect scaleX), markers pop in after; palette shared with the legend. */
+.rp { display: grid; gap: 8px; animation: fpIn .2s var(--m-ease) backwards; } .rp > header { gap: 8px; } .rp > header .m-btn:first-of-type { margin-left: auto; }
+.rp-chart { width: 100%; height: 170px; border-radius: 10px; background: var(--m-bg); border: 1px solid var(--m-line); }
+.rp-reveal { transform-origin: left center; transform-box: fill-box; animation: rpReveal 3.2s cubic-bezier(.4, 0, .2, 1) both; }
+.rp-zero { stroke: var(--m-line-hi); stroke-dasharray: 4 4; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.rp-line, .rp-avg { fill: none; stroke-width: 1.6; vector-effect: non-scaling-stroke; opacity: .75; } .rp-avg { stroke-width: 3; opacity: 1; } .rp-avg.up { stroke: var(--m-accent); } .rp-avg.down { stroke: var(--m-danger); }
+.c0 { --rc: #b98cff; } .c1 { --rc: #6fe7ff; } .c2 { --rc: #ff6ad5; } .c3 { --rc: #ffd36b; } .c4 { --rc: #8fd8ff; } .c5 { --rc: #ff9a3c; } .rp-line { stroke: var(--rc); }
+.rp-mark line { stroke: #ffd36b; stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; opacity: .7; } .rp-mark circle { fill: #ffd36b; }
+.rp-mark { opacity: 0; animation: rpMark .3s ease-out forwards; animation-delay: calc(3s + var(--i) * .08s); } .rp-mark.k-swap line, .rp-mark.k-swap circle { stroke: #ff9a3c; fill: #ff9a3c; } .rp-mark.k-topup circle { fill: var(--m-accent); } .rp-mark.k-sell circle { fill: var(--m-danger); }
+.rp-legend { display: flex; gap: 10px; flex-wrap: wrap; font-family: var(--m-mono); font-size: 11px; } .rp-legend span { display: inline-flex; gap: 5px; align-items: center; }
+.rp-legend i { width: 10px; height: 3px; border-radius: 2px; background: var(--rc, var(--m-accent)); } .rp-card i { height: 4px; }
+.rp-moments { display: flex; gap: 8px; flex-wrap: wrap; } .rp-moments small { font-size: 10.5px; color: var(--m-dim); } .rp-moments .k-swap { color: #ff9a3c; } .rp-moments .k-topup { color: var(--m-accent); }
+@keyframes rpReveal { from { transform: scaleX(0); } to { transform: scaleX(1); } } @keyframes rpMark { to { opacity: 1; } }
+body.fx-lite .rp-reveal, body.fx-lite .rp-mark, body.fx-lite .rp { animation: none; opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .rp-reveal, .rp-mark, .rp { animation: none; opacity: 1; } }
+body.theme-day .rp-chart { background: #fff; } body.theme-day .rp-mark line, body.theme-day .rp-mark circle { stroke: #9a6a00; fill: #9a6a00; }

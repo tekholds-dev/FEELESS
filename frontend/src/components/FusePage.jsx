@@ -17,6 +17,11 @@ import '../styles/fusePage.css';
 // Fuse 🧬 — the whole Fuse product in one tab: Lab (build + featured) · Runners (pick ≤3 fresh coins) · Arena (proof)
 // · My cards (live cards + every action). Runner picks and "Load" carry across tabs. Every money action is a normal
 // wallet-signed FuseGo approval; the server re-checks every signature before anything counts.
+// 🧬 A real 3D double helix (CSS 3D, transform-only): 10 base-pair rungs, each turning on its own phase so the strands spiral.
+export function DnaHelix({ rungs = 10 }) {
+  return <span className="dna3d" aria-hidden="true" data-testid="dna3d">{Array.from({ length: rungs }, (_, i) => <i key={i} style={{ '--i': i }}><b /><b /></i>)}</span>;
+}
+
 export const FUSE_TABS = [['lab', '🧪 Lab'], ['runners', '🏃 Runners'], ['arena', '🏟 Arena'], ['cards', '🃏 My cards']];
 const m$ = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0) >= 1e3 ? `${(Math.abs(v) / 1e3).toFixed(1)}K` : Math.abs(v || 0).toFixed(2)}`;
 const pc = v => `${v >= 0 ? '+' : ''}${(v || 0).toFixed(1)}%`;
@@ -42,7 +47,7 @@ export function FusePage() {
   const limits = useFuseLimits(addr);
   const go = t => { setTab(t); const u = new URL(window.location.href); u.searchParams.set('tab', t); window.history.replaceState(null, '', u); };
   return <section className="fuse-page" data-testid="fuse-page">
-    <header className="fp-head"><h1 className="fp-title"><span className="fp-zap" data-text="Fuse">Fuse<i className="fp-bolt" aria-hidden="true" /><i className="fp-bolt b2" aria-hidden="true" /></span> <span className="fp-dna" aria-hidden="true">🧬</span></h1><p className="m-dim">Fuse pools + fresh runners into one card. You sign every move; we show every fee.</p>
+    <header className="fp-head"><h1 className="fp-title"><span className="fp-zap" data-text="Fuse">Fuse<i className="fp-bolt" aria-hidden="true" /><i className="fp-bolt b2" aria-hidden="true" /></span> <DnaHelix /></h1><p className="m-dim">Fuse pools + fresh runners into one card. You sign every move; we show every fee.</p>
       <div className="m-seg fp-tabs" role="tablist" aria-label="Fuse">{FUSE_TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} data-testid={`fuse-tab-${k}`} onClick={() => go(k)}>{l}{k === 'runners' && runnerPicks.length ? ` · ${runnerPicks.length}` : ''}</button>)}</div></header>
     <div className="fp-body" key={tab}>
       {tab === 'lab' && <div className="fz-split-view fp-lab"><FuseLab runnerPicks={runnerPicks} onRunnerPicks={setRunnerPicks} incoming={incoming} limits={limits} />
@@ -132,6 +137,43 @@ export function CardChat({ c, onClose }) {
     <Suspense fallback={<div className="fl-row is-ghost" />}><EcosystemChat compact room={c.chat} ecosystem={{ id: c.chat, name: c.name }} /></Suspense></section>;
 }
 
+// ▶ Card replay: each coin's last 24h (15m closes from the candles service) as % lines + the card's average (bold), with the
+// card's moments (opened, buys, take-profits, swaps, compounds) as markers. The lines draw in left→right (a scaleX reveal —
+// transform only); "Replay" restarts it.
+export function replayPaths(d, w = 600, h = 160) {
+  const span = Math.max(1, d.to - d.from); const x = t => ((t - d.from) / span) * w;
+  const lines = (d.legs || []).filter(l => (l.series || []).length > 1).map(l => {
+    const base = l.entry > 0 ? l.entry : l.series[0][1];
+    return { symbol: l.symbol, pts: l.series.map(([t, c]) => [t, (c / base - 1) * 100]) };
+  });
+  const times = [...new Set(lines.flatMap(l => l.pts.map(p => p[0])))].sort((a, b) => a - b);
+  const avg = times.map(t => { const vals = lines.map(l => { const p = l.pts.filter(q => q[0] <= t).pop(); return p ? p[1] : null; }).filter(v => v != null); return [t, vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0]; });
+  const top = Math.max(5, ...lines.flatMap(l => l.pts.map(p => Math.abs(p[1]))), ...avg.map(p => Math.abs(p[1])));
+  const y = v => h / 2 - (v / top) * (h / 2 - 6);
+  const path = pts => pts.map(([t, v], i) => `${i ? 'L' : 'M'}${x(t).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+  return { lines: lines.map(l => ({ symbol: l.symbol, d: path(l.pts), last: l.pts[l.pts.length - 1][1] })), avg: avg.length > 1 ? path(avg) : '', last: avg.length ? avg[avg.length - 1][1] : 0,
+    marks: (d.markers || []).map(m => ({ ...m, x: x(m.at) })), zero: y(0), top };
+}
+
+export function CardReplay({ c, onClose }) {
+  const [d, setD] = useState(null); const [run, setRun] = useState(0);
+  useEffect(() => { let alive = true; fetch(apiUrl(`/api/reputation/fuses/replay/${c.kind}/${encodeURIComponent(c.id)}`)).then(r => (r.ok ? r.json() : null)).then(x => alive && setD(x || { legs: [] })).catch(() => alive && setD({ legs: [] })); return () => { alive = false; }; }, [c.kind, c.id]);
+  const g = d && d.legs?.length ? replayPaths(d) : null;
+  return <section className="m-card rp" data-testid={`replay-${c.id}`}><header className="m-row"><span className="m-label">▶ REPLAY · LAST 24H</span><small className="m-dim">{c.emoji} {c.name}</small>
+    <button type="button" className="m-btn" onClick={() => setRun(n => n + 1)} disabled={!g}>↻ Replay</button><button type="button" className="m-btn fl-clear" onClick={onClose} aria-label="Close replay">×</button></header>
+    {!d ? <div className="fs-ghost" /> : !g || !g.lines.length ? <p className="m-dim">No price history for these coins yet.</p> : <>
+      <svg className="rp-chart" viewBox="0 0 600 160" preserveAspectRatio="none" key={run} role="img" aria-label={`Card replay: ${pc(g.last)} over 24h`}>
+        <defs><clipPath id={`rp-clip-${c.id}`}><rect className="rp-reveal" x="0" y="0" width="600" height="160" /></clipPath></defs>
+        <line x1="0" x2="600" y1={g.zero} y2={g.zero} className="rp-zero" />
+        <g clipPath={`url(#rp-clip-${c.id})`}>{g.lines.map((l, i) => <path key={l.symbol + i} d={l.d} className={`rp-line c${i % 6}`} />)}{g.avg && <path d={g.avg} className={`rp-avg ${g.last >= 0 ? 'up' : 'down'}`} />}</g>
+        {g.marks.map((m, i) => <g key={i} className={`rp-mark k-${m.kind}`} style={{ '--i': i }}><line x1={m.x} x2={m.x} y1="4" y2="156" /><circle cx={m.x} cy="8" r="4"><title>{m.label}</title></circle></g>)}
+      </svg>
+      <div className="rp-legend">{g.lines.map((l, i) => <span key={l.symbol + i} className={`c${i % 6}`}><i />{l.symbol} <b className={l.last >= 0 ? 'm-pos' : 'm-neg'}>{pc(l.last)}</b></span>)}
+        <span className="rp-card"><i />card <b className={g.last >= 0 ? 'm-pos' : 'm-neg'}>{pc(g.last)}</b></span></div>
+      {g.marks.length > 0 && <div className="rp-moments">{g.marks.map((m, i) => <small key={i} className={`k-${m.kind}`}>● {m.label}</small>)}</div>}</>}
+  </section>;
+}
+
 // ---- Arena: the stage. Cmd Ctr mega cards + runner cards that lit after their rounds, each wrapped in effects driven by
 // its real activity (server fuse_hq.activity → hard-coded tier: calm / warm / hot / blazing). Then the Runners show
 // (RunnersPanel: proof ring, countdown, lanes, round card, live board, last rounds) and the strategies board.
@@ -141,6 +183,7 @@ export const stageTier = cards => (cards || []).reduce((top, c) => (['calm', 'wa
 export function ArenaBoard({ onPicks, onLoad }) {
   const [a, setA] = useState(null);
   const [chat, setChat] = useState(null);
+  const [replay, setReplay] = useState(null);
   useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/fuses/arena')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setA(x)).catch(() => {});
     load(); const t = setInterval(() => !document.hidden && load(), 30000); return () => { alive = false; clearInterval(t); }; }, []);
   const mega = a?.mega || [];
@@ -152,7 +195,9 @@ export function ArenaBoard({ onPicks, onLoad }) {
       <div className="ar-legend">{Object.keys(TIER_FX).map(k => <span key={k} className={`ar-chip t-${k}`}>{k}</span>)}</div></header>
     {!a ? <div className="ar-stage">{[0, 1, 2].map(i => <div key={i} className="frail-ghost" />)}</div>
       : !mega.length ? <p className="m-dim ar-none">No card on stage yet — a runner round that lights up lands here, and Cmd Ctr can stage its mega cards.</p>
-      : <div className="ar-stage" data-testid="arena-stage">{mega.map((c, i) => <MegaCard key={`${c.kind}-${c.id}`} c={c} i={i} onPicks={onPicks} onLoad={onLoad} chatOpen={chat?.id === c.id} onChat={() => setChat(x => (x?.id === c.id ? null : c))} />)}</div>}
+      : <div className="ar-stage" data-testid="arena-stage">{mega.map((c, i) => <MegaCard key={`${c.kind}-${c.id}`} c={c} i={i} onPicks={onPicks} onLoad={onLoad} chatOpen={chat?.id === c.id} onChat={() => setChat(x => (x?.id === c.id ? null : c))}
+        onReplay={() => setReplay(x => (x?.id === c.id ? null : c))} />)}</div>}
+    {replay && <CardReplay c={replay} onClose={() => setReplay(null)} />}
     {chat && <CardChat c={chat} onClose={() => setChat(null)} />}
     <FuseSeason />
     <RunnersPanel />
@@ -199,7 +244,7 @@ export function FuseSeason() {
   </section>;
 }
 
-export function MegaCard({ c, i, onPicks, onLoad, onChat, chatOpen }) {
+export function MegaCard({ c, i, onPicks, onLoad, onChat, chatOpen, onReplay }) {
   const fx = TIER_FX[c.activity?.tier] || TIER_FX.calm;
   const live = useLivePrices((c.legs || []).map(l => l.pairAddress));
   const lp = liveStagePct(c, live);
@@ -215,8 +260,8 @@ export function MegaCard({ c, i, onPicks, onLoad, onChat, chatOpen }) {
     <div className="ar-meta"><b>{c.emoji} {c.name}</b>
       <span className="ar-act" data-tip="Activity: FEELESS buys + buyers (24h), $ flow through its coins, index move. Drives the effects."><small>ACT</small><i style={{ transform: `scaleX(${(c.activity?.score || 0) / 100})` }} /><em className="m-num">{c.activity?.score || 0}</em></span>
       {(c.streak?.tier || c.compound?.tier || c.copies > 0) && <span className="ar-badges">{c.streak?.tier && <StreakBadge s={c.streak} />}{c.compound?.tier && <CompoundBadge s={c.compound} />}{c.copies > 0 && <span className="ar-copies" data-tip="Traders who fused this card too">⚡ {c.copies} {c.copies === 1 ? 'copy' : 'copies'}</span>}</span>}
-      <small className="m-dim">{c.kind === 'lit' ? '🔥 lit runner card' : c.kind === 'round' ? '⏳ this round · proving' : c.kind === 'user' ? `🃏 ${c.owner} · ${c.mode === 'swap' ? '⇄ swaps weak legs' : '🔒 holds together'}` : `⚛️ Cmd Ctr · ${c.legs.length} legs`} · <span className={`fl-tick ${move >= 0 ? 'm-pos' : 'm-neg'}`} key={move.toFixed(1)} data-tip={lp != null ? 'Live (10s prices)' : 'Last server update'}>{pc(move)}{lp != null && <i className="fl-livedot" />}</span>{c.buyers ? ` · ${c.buyers} buyers` : ''}</small>
-      <span className="ar-acts">{c.chat && <button type="button" className={`m-btn ${chatOpen ? 'primary' : ''}`} onClick={onChat} aria-pressed={chatOpen} data-tip="This card's chat" data-testid={`mega-chat-${c.id}`}>💬</button>}
+      <small className="m-dim">{c.kind === 'feecat' ? `🐱 sim book · ${c.record?.winRate ?? '—'}% wins · ${(c.record?.realizedSol ?? 0) >= 0 ? '+' : ''}${c.record?.realizedSol ?? 0} SOL realized${c.record?.lives != null ? ` · ❤${c.record.lives}` : ''}` : c.kind === 'lit' ? '🔥 lit runner card' : c.kind === 'round' ? '⏳ this round · proving' : c.kind === 'user' ? `🃏 ${c.owner} · ${c.mode === 'swap' ? '⇄ swaps weak legs' : '🔒 holds together'}` : `⚛️ Cmd Ctr · ${c.legs.length} legs`} · <span className={`fl-tick ${move >= 0 ? 'm-pos' : 'm-neg'}`} key={move.toFixed(1)} data-tip={lp != null ? 'Live (10s prices)' : 'Last server update'}>{pc(move)}{lp != null && <i className="fl-livedot" />}</span>{c.buyers ? ` · ${c.buyers} buyers` : ''}</small>
+      <span className="ar-acts">{onReplay && <button type="button" className="m-btn" onClick={onReplay} data-tip="Replay the last 24h of this card" data-testid={`mega-replay-${c.id}`}>▶</button>}{c.chat && <button type="button" className={`m-btn ${chatOpen ? 'primary' : ''}`} onClick={onChat} aria-pressed={chatOpen} data-tip="This card's chat" data-testid={`mega-chat-${c.id}`}>💬</button>}
       <button type="button" className="m-btn primary m-go" onClick={use} data-testid={`mega-use-${c.id}`}>{runners ? 'Use runners →' : c.kind === 'user' ? '⚡ Fuse this too' : c.legs.length > 3 ? 'Load top 3 →' : 'Load →'}</button></span></div>
   </article>;
 }
@@ -277,6 +322,7 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, addr, ses, refre
         <button type="button" className={`m-btn ${r.drift >= 5 ? 'is-warn' : ''}`} data-tip={`Back to the weights you bought (drift ${Math.round(r.drift || 0)} pts) — one approval`} onClick={() => open(r, 'rebalance')} data-testid={`act-rebalance-${r.id}`}>⚖ Rebalance</button>
         <button type="button" className="m-btn" data-tip="Sell one leg and buy a new pool or runner in one approval" onClick={() => open(r, 'switch')} data-testid={`act-switch-${r.id}`}>⇄ Switch</button>
         <button type="button" className={`m-btn ${r.guard && !r.guard.firedAt ? 'is-armed' : ''}`} data-tip="Take-profit / stop-loss / trailing on the whole card" onClick={() => open(r, 'limits', { tp: r.guard?.tp || 50, sl: r.guard?.sl || 20, trail: r.guard?.trail || '', legs: Object.fromEntries(Object.entries(r.legGuard || {}).map(([pa, g]) => [pa, { tp: g.tp ?? '', sl: g.sl ?? '' }])), onProfit: r.onProfit || 'collect' })} data-testid={`act-limits-${r.id}`}>🎯 Limits</button>
+        <button type="button" className="m-btn" data-tip="Replay this card's last 24h" onClick={() => open(r, 'replay')} data-testid={`act-replay-${r.id}`}>▶ Replay</button>
         <button type="button" className="m-btn danger" data-tip="Sell every leg back to SOL — one approval" onClick={() => open(r, 'withdraw')} data-testid={`act-withdraw-${r.id}`}>↩ Withdraw</button>
       </div>
       {act?.id === r.id && <ActionPanel r={r} act={act} setAct={setAct} addr={addr} ses={ses} refresh={refresh} />}
@@ -286,6 +332,7 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, addr, ses, refre
 
 function ActionPanel({ r, act, setAct, addr, ses, refresh }) {
   const close = () => setAct(null);
+  if (act.kind === 'replay') return <CardReplay c={{ kind: 'user', id: r.id, name: r.name, emoji: '🃏' }} onClose={close} />;
   const live = r.legs.filter(l => l.soldUsd == null);
   if (act.kind === 'take' || act.kind === 'withdraw') {
     const chosen = r.legs.filter(l => act.legs.includes(l.pairAddress));
