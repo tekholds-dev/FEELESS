@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { FuseEvolve } from './FuseEvolve';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-jest.mock('sonner', () => ({ toast: { error: () => {} } }));
+jest.mock('sonner', () => ({ toast: { error: () => {}, success: () => {} } }));
 const tick = ms => act(() => new Promise(r => setTimeout(r, ms)));
 const CH = (n, f) => ({ pools: [`a${n}`, `b${n}`], fitness: f, bornGen: 2, parts: { grade: 'B', points: 60, aprScore: 40, momentum24h: 3, calm: 80, impactLegs: 0, dupes: 0, feeDragPct: 12 },
   legs: [{ pairAddress: `a${n}`, symbol: 'AAA', quote: 'SOL', weight: 60, chainId: 'solana' }, { pairAddress: `b${n}`, symbol: 'BBB', quote: 'SOL', weight: 40, chainId: 'solana' }] });
@@ -21,4 +21,7 @@ test('evolve: sends strategy + budget, replays generations, loads a champion int
   expect(el.textContent).toContain('FEE DRAG');
   await act(async () => { el.querySelector('[data-testid="fe-load-0"]').click(); });
   expect(onLoad.mock.calls[0][0].map(l => l.symbol)).toEqual(['AAA', 'BBB']);
+  await act(async () => { el.querySelector('[data-testid="fe-showcase-1"]').click(); });   // ⭐ champion → published + on the Arena
+  const pub = call.mock.calls.at(-1);
+  expect(pub[0]).toBe('/admin/fuses'); expect(JSON.parse(pub[1].body)).toMatchObject({ arena: true, enabled: true, legs: [{ pairAddress: 'a2', weight: 60 }, { pairAddress: 'b2', weight: 40 }] });
 });
