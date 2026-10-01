@@ -354,3 +354,17 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `server` 5001 (market + trading), `reputation_service` 5077 (social, fees, admin), `feecat_service` 5088, `candles_service` 5099.
 - Frontend: CRA + craco on 51367. Styles mostly in `frontend/src/styles/terminal.css` (append scoped blocks).
 - Command Center settings that matter at scale (keys, engine, fees) must be visible in its **Core** group.
+
+## NEXT SESSION — continue here (in this order)
+1. **Cmd Ctr › Fuse layout rework**: `FuseDeck` left rail gets clean panels — ⚡ Engine (`EngineSuggest` + `RunnerSettings`),
+   🃏 Card rules (`CardRules`, `AutoYieldDefault`), 💸 Payouts (`FusePayouts`), ⚔ Arena (battles, auto card, season), ⛓ Contract
+   status. Today they are stacked on top of `FuseBuilder` / `RunnersPanel` — move them, no duplicate mounts, no dead CSS.
+2. **FUSE Card contract**: localnet TS integration test (`contracts/fuse_vault/tests/fuse_card.ts`: init_config, open_card caps,
+   deposit/withdraw with hand-built SPL instructions, keeper_return only to owner + only when auto on, pause, close_card).
+   Then swap adapters + price checks design (auto TP / auto-compound sell on-chain) — still localnet, audit before any deploy.
+3. **Trader page** (idea 6): top of `/terminal/profile/<address>` — Fuse score, season medals, battle W/L, FeeCat wins, held
+   cards + a "Share" image for X. Reuse `FuseScore`, `FuseHeldCards`, `StreakBadge`.
+4. **Coin edge record**: one cached `/coin/{mint}/edge` (pulse, snipers-out, rug shield, runner gates + bond checks, elite flow,
+   verification, Fuse sources) + ONE shared client poller; migrate `pumpPulse`, `snipersOut`, `coinIntel`, `verifyBatch` readers.
+5. Radar signals for bond runs / coin TP-SL hits / battle wins; "＋ Add to card" next to Quick trade on every chart.
+6. Browser-verify the last batch (Cmd Ctr ⚡ Engine apply, bond watch tiles, season badges in Badges tab) — not opened yet.
