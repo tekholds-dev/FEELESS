@@ -3651,7 +3651,12 @@ async def fuse_receipts(address: str):
     """Profile › Fuse receipts: every withdrawn (closed) card with its whole lifecycle — legs in, take-profits, switches, out."""
     me = primary_of(address)
     mine = set(linked_of(me)) | {me}
-    rows = [_hq.position_pnl(x, {}) for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if x['wallet'] in mine and x.get('closedAt')]
+    by, rl = _ledger_by_sig(), _card_rules()
+    # each receipt carries its moves (buys / sells / switches / top-ups) and the FEELESS fees actually paid (fee ledger) +
+    # a network estimate — shown on the receipt, never inside P&L
+    rows = [{**_hq.position_pnl(x, {}), 'events': (x.get('events') or [])[-30:], 'feesUsd': _card_fees(x, by),
+             'netUsd': round(rl['netFeeUsdPerLeg'] * 2 * len(x.get('legs') or []), 4)}
+            for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if x['wallet'] in mine and x.get('closedAt')]
     return {'receipts': sorted(rows, key=lambda r: -(r.get('closedAt') or 0))[:30]}
 
 

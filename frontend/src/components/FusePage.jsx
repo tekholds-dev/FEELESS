@@ -537,9 +537,21 @@ export function FuseReceipts({ address }) {
   const [d, setD] = useState(null);
   useEffect(() => { let alive = true; if (address) fetch(apiUrl(`/api/reputation/fuses/receipts/${address}`)).then(r => (r.ok ? r.json() : null)).then(x => alive && setD(x)).catch(() => {}); return () => { alive = false; }; }, [address]);
   if (!d?.receipts?.length) return null;
-  return <section className="wp-card fp-receipts" data-testid="fuse-receipts"><h3>Fuse receipts</h3><ol>{d.receipts.map(r => <li key={r.id}>
-    <b>{r.name}</b><small className="m-dim">{r.legs.map(l => l.symbol).join(' · ')} · {new Date((r.at || 0) * 1000).toLocaleDateString()} → {r.closedAt ? new Date(r.closedAt * 1000).toLocaleDateString() : 'open'}</small>
-    <span className={r.pnlUsd >= 0 ? 'm-pos' : 'm-neg'}>{m$(r.pnlUsd)} ({pc(r.pnlPct)})</span><small className="m-dim">in {m$(r.costUsd)} · out {m$(r.realizedUsd || r.valueUsd)}</small></li>)}</ol></section>;
+  const EV = { buy: '🟢 Bought', sell: '🔴 Sold', topup: '♻ Topped up', switch: '⇄ Switched' };
+  return <section className="wp-card fp-receipts" data-testid="fuse-receipts"><h3>Fuse receipts</h3><small className="m-dim">Every withdrawn card, tap one for its whole story · fees shown apart, never inside P&L</small>
+    <div className="fr-list">{d.receipts.map(r => <details key={r.id} className="fr-item" data-testid={`receipt-${r.id}`}>
+      <summary><b>{r.name || 'Fuse card'}</b><small className="m-dim">{r.legs.map(l => l.symbol).join(' · ')} · {new Date((r.at || 0) * 1000).toLocaleDateString()} → {r.closedAt ? new Date(r.closedAt * 1000).toLocaleDateString() : 'open'}</small>
+        <span className={`m-num ${r.pnlUsd >= 0 ? 'm-pos' : 'm-neg'}`}>{m$(r.pnlUsd)} ({pc(r.pnlPct)})</span></summary>
+      <div className="fr-body">
+        <div className="fr-kv"><span><small>PUT IN</small><b className="m-num">{m$(r.costUsd)}</b></span><span><small>TOOK OUT</small><b className="m-num">{m$(r.realizedUsd || r.valueUsd)}</b></span>
+          <span data-tip="FEELESS fee from the fee ledger (the flat $/coin bundle price or your % on bigger buys) + an estimate of Solana network fees. Paid at each buy / sell — that's why P&L doesn't include them."><small>FEES (APART)</small><b className="m-num m-dim">{m$((r.feesUsd || 0) + (r.netUsd || 0))}</b><em>{m$(r.feesUsd || 0)} FEELESS + ≈{m$(r.netUsd || 0)} network</em></span></div>
+        <ul className="fr-legs">{r.legs.map(l => <li key={l.pairAddress + (l.sig || '')}><b>{l.role === 'runner' ? '🏃 ' : ''}${l.symbol}</b><span>in {m$(l.usd)} → out {m$(l.soldUsd ?? l.valueUsd)}</span><em className={l.pnlPct >= 0 ? 'm-pos' : 'm-neg'}>{pc(l.pnlPct)}</em>
+          {l.sig && <a href={`https://solscan.io/tx/${l.sig}`} target="_blank" rel="noopener noreferrer" data-tip="The buy on-chain">tx ↗</a>}</li>)}</ul>
+        {r.events?.length > 0 && <ol className="fr-tl">{r.events.map((e, i) => <li key={i}><b>{EV[e.kind] || e.kind}</b>{e.symbol && <span>${e.symbol}</span>}{e.usd != null && <em className="m-num">{m$(e.usd)}</em>}<time className="m-dim">{new Date((e.at || 0) * 1000).toLocaleString()}</time></li>)}</ol>}
+        <div className="m-row fr-share"><ShareGifButton className="m-btn" label="🎞 Share receipt" card={{ mascot: 'feecat', tone: r.pnlUsd >= 0 ? 'up' : 'down', kicker: 'FEELESS · FUSE RECEIPT', title: r.name || 'Fuse card', big: pc(r.pnlPct),
+          lines: [r.legs.map(l => `$${l.symbol}`).join(' · ').slice(0, 60), `in ${m$(r.costUsd)} → out ${m$(r.realizedUsd || r.valueUsd)}`, `fees ${m$((r.feesUsd || 0) + (r.netUsd || 0))} (shown apart)`], footer: 'feeless · fuse 🧬' }} />
+          <a className="m-btn" target="_blank" rel="noopener noreferrer" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`My FEELESS ⚛️ Fuse card ${r.name || ''}: ${pc(r.pnlPct)} (${r.legs.map(l => '$' + l.symbol).join(' ')})`)}&url=${encodeURIComponent(`${window.location.origin}/terminal/profile/${address}`)}`}>𝕏 Post</a></div>
+      </div></details>)}</div></section>;
 }
 
 // ---- Profile top › 🃏 Trader card: the wallet's Fuse record in one strip — score, season medals, battle W/L/D, FeeCat wins,

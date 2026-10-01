@@ -75,3 +75,16 @@ test('explain this card: every coin line, honest replay + APR wording, click out
   await act(async () => { ex.querySelector('.cx').click(); }); expect(onClose).not.toHaveBeenCalled();
   await act(async () => { ex.click(); }); expect(onClose).toHaveBeenCalledTimes(1);
 });
+
+test('profile receipts: one dropdown per withdrawn card — legs + tx, moves, fees apart (explained), share', async () => {
+  const { FuseReceipts } = require('./FusePage');
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ receipts: [{ id: 'c1', name: 'Moon', at: 1, closedAt: 2, costUsd: 20, realizedUsd: 26, valueUsd: 26, pnlUsd: 6, pnlPct: 30, feesUsd: 0.3, netUsd: 0.02,
+    legs: [{ pairAddress: 'P', symbol: 'AAA', usd: 20, soldUsd: 26, pnlPct: 30, sig: 'SIG1' }], events: [{ kind: 'buy', at: 1, symbol: 'AAA', usd: 20 }, { kind: 'sell', at: 2, symbol: 'AAA', usd: 26 }] }] }) }));
+  const { createRoot } = require('react-dom/client'); const { act } = require('react');
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<FuseReceipts address="Aaaa1111111111111111111111111111111111111111" />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+  const r = el.querySelector('[data-testid="receipt-c1"]');
+  expect(r.textContent).toContain('$0.30 FEELESS'); expect(r.textContent).toContain('🔴 Sold'); expect(r.querySelector('a[href*="solscan.io/tx/SIG1"]')).toBeTruthy();
+  expect(r.querySelector('a[href*="twitter.com/intent"]')).toBeTruthy();
+});
