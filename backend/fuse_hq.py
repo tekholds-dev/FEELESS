@@ -719,3 +719,12 @@ def risk_plan(risk, legs):
     d = RISK_DIALS[risk]
     lim = {l['pairAddress']: dict(zip(('tp', 'sl'), d['runner' if l.get('runner') or l.get('role') == 'runner' else 'pool'])) for l in legs if l.get('pairAddress')}
     return {'risk': risk, 'at': d['at'], 'mode': d['mode'], 'onProfit': d['onProfit'], 'legs': lim, 'maxRunners': d['runners']}
+
+
+def feecat_weekly(dial, tuned, beat, cat_pct):
+    """🐱 FeeCat's weekly note to a card holder (inbox): what she ran + tuned, and whether THEIR card beat her week.
+    No P&L numbers about the holder (notice rule) — only her own week, which is public on the Arena."""
+    her = f"her average trade {cat_pct:+.1f}%" if cat_pct is not None else 'no trades of hers this week'
+    you = 'one of your cards beat her 🏆' if beat else 'she beat your cards this time — see why on the Arena'
+    t = f" · {tuned} engine setting{'s' if tuned != 1 else ''} tuned" if tuned else ''
+    return f"🐱 FeeCat's week: engine on the {dial or 'custom'} dial{t} · {her} · {you}."

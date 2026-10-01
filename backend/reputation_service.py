@@ -3806,6 +3806,13 @@ async def _fuse_season_tick(now):
         if cid in owners:
             notify(owners[cid]['wallet'], 'fuse-guard', f"🐱 Your card {owners[cid].get('name') or ''} beat FeeCat last week ({cat_pct:+.1f}% her average trade). +{_hq.CAT_WIN_PTS} Fuse score.",
                    url='/terminal/fuse?tab=arena', once=f"beatcat-{prev}-{cid}", meta={'claim': 'Card P&L above FeeCat\'s weekly average trade', 'source': 'Fuse season + FeeCat sim book'})
+    # 🐱 FeeCat's weekly note: every wallet with a card opened last week, once per week
+    dial = _json_load(RUNNERS_PATH, {}).get('cfgDial')
+    tuned = sum(1 for a in _admin_load().get('audit') or [] if a.get('action') == 'runners-config' and prev <= _fuse._f(a.get('at')) < start)
+    beat_wallets = {owners[c]['wallet'] for c in beat if c in owners}
+    for w in {r['wallet'] for r in rows if r.get('wallet')}:
+        notify(w, 'fuse-card', _hq.feecat_weekly(dial, tuned, w in beat_wallets, cat_pct), url='/terminal/fuse?tab=arena', once=f"feecat-week-{prev}",
+               meta={'claim': "FeeCat's sim book + engine changes that week", 'source': 'Fuse season + Cmd Ctr audit log'})
     plan = _hq.payout_plan((await _feeback_book())['rows'], await _sol_usd_live(), exclude=_protected_wallets())
     if plan['totalUsd'] >= 1:
         for adm in _admin_wallets():

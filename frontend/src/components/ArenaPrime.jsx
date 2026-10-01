@@ -12,7 +12,14 @@ import { CardEarnings } from './CardEarnings';
 const KIND = { tp: '💰 Auto TP', sl: '🛑 Auto stop', rotate: '⇄ Rotate', compound: '♻ Compound', deal: '🃏 Dealt', floor: '🛡 Floor', park: '🅿 Parked', rebuy: '↩ Bought back' };
 // Tier FX: 💎 Diamond = frost aura + prism ring + glints · 🥇 Gold = gold dust + shine sweep · 🔥 Blaze = fire + embers.
 // They burn brighter (is-hot) when the card is up ≥ +10%. Transform/opacity only; frozen under fx-lite / reduced motion.
-const TIER = { diamond: { aura: 'frost', name: 'DIAMOND' }, gold: { aura: 'gold', name: 'GOLD' }, blaze: { aura: 'fire', name: 'BLAZE' }, next: { aura: 'lightning', name: 'NEXT LEVEL' }, ever: { aura: 'aurora', name: 'EVERLASTING' } };
+// Each tier is its OWN MetaCard build: design pattern, rarity frame, colours and aura — recognisable at a glance (and in lite mode).
+const TIER = {
+  diamond: { aura: 'frost', name: 'DIAMOND', look: { design: 'holo', rarity: 'legendary', accent: '#9fe3ff', accent2: '#e4d4ff' } },
+  gold: { aura: 'gold', name: 'GOLD', look: { design: 'obsidian', rarity: 'epic', accent: '#ffd56a', accent2: '#ff9a4d' } },
+  blaze: { aura: 'fire', name: 'BLAZE', look: { design: 'ember', rarity: 'epic', accent: '#ff7a2f', accent2: '#ff3d5a' } },
+  next: { aura: 'lightning', name: 'NEXT LEVEL', look: { design: 'glitch', rarity: 'mythic', accent: '#c58bff', accent2: '#3cdcff' } },
+  ever: { aura: 'aurora', name: 'EVERLASTING', look: { design: 'circuit', rarity: 'legendary', accent: '#19f58f', accent2: '#6ad7ff' } },
+};
 // Cmd Ctr ⚡ meta config: the settings the Arena proof backs today (hourly rotation of 1 coin, −15% floor, compound on, park & rebuy).
 export const PRIME_META = { rotateHours: 1, rotateCount: 1, floorPct: 15, compound: true, slMode: 'park' };
 export const primeRow = c => ({ id: c.id, name: c.label, closed: false, costUsd: c.startUsd, valueUsd: c.valueUsd, realizedUsd: c.takenUsd || 0,
@@ -42,7 +49,7 @@ export function ArenaPrime({ onLoad }) {
     <div className="prime-row">{d.cards.map(c0 => { const rv = revalue(primeRow(c0), live); const c = { ...c0, pnlPct: rv.pnlPct, valueUsd: rv.valueUsd }; const t = TIER[c.tier] || TIER.gold; return <article key={c.id} className={`prime-card t-${c.tpl} tier-${c.tier || 'gold'} ${c.pnlPct >= 10 ? 'is-hot' : ''}`} data-testid={`prime-${c.tpl}`}>
       <span className="prime-tier" aria-hidden="true"><i className="pt-ring" /><i className="pt-sweep" />{Array.from({ length: 6 }, (_, i) => <i key={i} className="pt-spark" style={{ '--i': i }} />)}</span>
       <b className="prime-badge">{t.name}</b>{c.why && <small className="prime-why">{c.why}</small>}
-      <LiveFuseCard r={primeRow(c)} aura={t.aura} />
+      <LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} />
       <ul className="prime-legs">{c.legs.map(l => ({ ...l, pnlPct: l.pnlPct ?? (l.costUsd ? (l.usd / l.costUsd - 1) * 100 : 0) })).map(l => <li key={l.pairAddress}><b>${l.symbol}</b><small className={`pl-${l.role}`}>{l.role === 'anchor' ? '⚓ anchor' : l.role}</small><i data-tip={`${l.stars || 3}★ — ${l.role === 'anchor' ? 'real major, the stable base' : l.role === 'pool' ? 'depth + volume' : 'runner score'}`}>{'★'.repeat(l.stars || 3)}</i>
         <em className={`m-num ${l.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{l.pnlPct >= 0 ? '+' : ''}{l.pnlPct.toFixed(1)}%</em></li>)}</ul>
       {c.parked?.length > 0 && <ul className="prime-parked">{c.parked.map(p => <li key={p.pairAddress} data-tip="Stopped out and sold to SOL — the slot is kept; it's bought back when price returns to its entry with momentum">🅿 ${p.symbol} <b className="m-num">${p.usd.toFixed(2)}</b> parked · back at ${Number(p.backAt).toPrecision(3)}</li>)}</ul>}

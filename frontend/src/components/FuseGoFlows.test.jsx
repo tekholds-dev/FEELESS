@@ -23,6 +23,8 @@ beforeEach(() => {
     let d = {};
     if (u.endsWith('/quote')) d = { order_id: `o-${b.output_mint}-${b.input_mint}`, input_mint: b.input_mint, output_mint: b.output_mint, amount: b.amount, quote: { transaction: btoa('x'), outAmount: '1000000', inUsdValue: 10 }, output_metadata: { decimals: 6 }, feeless_fee: { bps: 50 } };
     if (u.endsWith('/execute')) d = { state: 'confirmed', signature: `sig-${b.order_id}` };
+    if (u.endsWith('/fuses/receipt')) d = { settled: true, quotedUsd: 10, paidUsd: 10.02, paidFeesUsd: 0.12, feePct: 1.2,
+      legs: (b.legs || []).map(l => ({ sig: l.sig, symbol: l.symbol, quotedUsd: 5, paidUsd: 5.01, paidFeesUsd: 0.06, gotTokens: 990, slippagePct: 0.4 })) };
     return { ok: true, json: async () => d };
   });
 });
@@ -61,4 +63,22 @@ test('a wallet that refuses signs NOTHING and sends nothing', async () => {
   mockSignAll.mockImplementation(async () => { throw new Error('User rejected the request'); });
   await run(<FuseGo legs={[{ pairAddress: 'P1', baseAddress: 'A', symbol: 'A', sol: 0.5 }]} onClose={() => {}} />);
   expect(global.fetch.mock.calls.some(([u]) => String(u).endsWith('/execute'))).toBe(false);
+});
+
+
+test('BEFORE and AFTER receipts: buy and sell both show every coin before signing, then exact fills read back from chain', async () => {
+  for (const side of ['buy', 'sell']) {
+    const props = side === 'buy' ? { legs: [{ pairAddress: 'P1', baseAddress: 'A', symbol: 'A', sol: 0.05 }, { pairAddress: 'P2', baseAddress: 'B', symbol: 'B', sol: 0.05 }] }
+      : { side: 'sell', position: 'card1', orders: unfuseOrders([{ pairAddress: 'P1', mint: 'A', symbol: 'A', tokens: 10 }], { A: { raw: '10000000', decimals: 6 } }, 'W', 150, 100) };
+    const el = document.createElement('div'); document.body.appendChild(el);
+    await act(async () => { createRoot(el).render(<FuseGo {...props} onClose={() => {}} />); }); await tick(80);
+    const before = el.querySelector('[data-testid="fg-before"]');
+    expect(before).toBeTruthy(); expect(before.textContent).toContain('BEFORE YOU SIGN'); expect(before.textContent).toContain('FEELESS fee'); expect(before.textContent).toContain('Total');
+    await act(async () => { el.querySelector('[data-testid="fg-sign"]').click(); }); await tick(400);
+    expect(el.querySelector('[data-testid="fg-before"]')).toBeNull();
+    await tick(4200);                                                        // exact fills are read ~4s after confirm
+    const after = el.querySelector('[data-testid="fg-after"]');
+    expect(after.textContent).toContain('exact fills'); expect(after.textContent).toContain('$10.02'); expect(after.textContent).toContain('1.2% in fees');
+    expect(posts.some(([p, b]) => p === '/fuses/receipt' && b.legs.every(l => l.sig))).toBe(true);
+  }
 });

@@ -98,3 +98,32 @@ def test_roles_scoped_and_grants_need_owner_signature(monkeypatch):
     assert sigs[-1] == (OWNER, rs.grant_message(MOD, 'admin', ts))
     with pytest.raises(rs.HTTPException):                                             # stale signature refused
         asyncio.run(rs.admin_role_grant(None, rs.RolePayload(address=MOD, role='admin', ts=ts - 3600, sig='GOOD')))
+
+
+def test_command_center_sign_in_with_a_real_wallet_signature(monkeypatch):
+    """The real Ed25519 path (no stubs): the admin wallet signs `FEELESS command center\\naddress:…\\nts:…`."""
+    rs = pytest.importorskip('reputation_service')
+    nacl = pytest.importorskip('nacl.signing')
+    import base58
+    import base64
+    import time as _t
+    sk = nacl.SigningKey.generate(); addr = base58.b58encode(bytes(sk.verify_key)).decode()
+    other = nacl.SigningKey.generate(); other_addr = base58.b58encode(bytes(other.verify_key)).decode()
+    monkeypatch.setattr(rs, '_admin_wallets', lambda: [addr])
+    monkeypatch.setattr(rs, '_owner_wallets', lambda: [addr])
+
+    class U:
+        path = '/api/reputation/admin/security'
+
+    class R:
+        def __init__(self, a, ts, sig): self.headers = {'x-admin-address': a, 'x-admin-ts': str(ts), 'x-admin-sig': sig}; self.url = U(); self.method = 'GET'
+    sign = lambda k, a, ts: base64.b64encode(k.sign(f'FEELESS command center\naddress:{a}\nts:{ts}'.encode()).signature).decode()
+    ts = int(_t.time())
+    assert rs._require_admin(R(addr, ts, sign(sk, addr, ts))) == addr                      # ✓ the admin wallet gets in
+    for req, code in ((R(addr, ts, sign(other, addr, ts)), 401),                            # someone else's signature
+                      (R(other_addr, ts, sign(other, other_addr, ts)), 403),                # a valid wallet that isn't admin
+                      (R(addr, ts - 90000, sign(sk, addr, ts - 90000)), 401),               # an expired session
+                      (R(addr, 'x', ''), 401)):                                              # no signature
+        with pytest.raises(rs.HTTPException) as e:
+            rs._require_admin(req)
+        assert e.value.status_code == code

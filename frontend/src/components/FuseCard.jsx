@@ -77,7 +77,7 @@ export function revalue(r, live) {
 // An OWNED Fuse card (a real position from /fuses/pnl): front = the same card, back = live money per leg — what you put in,
 // what you still hold at today's price, what you've already taken out, and the P&L. Never preview numbers.
 const m$ = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0).toFixed(2)}`;
-export function LiveFuseCard({ r: r0, aura = '' }) {
+export function LiveFuseCard({ r: r0, aura = '', look = null }) {
   const [flipped, setFlipped] = useState(false);
   const live = useLivePrices(r0.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress));
   const r = revalue(r0, live);   // every 10s: held tokens × the live price (server P&L every 30s backs it)
@@ -85,7 +85,7 @@ export function LiveFuseCard({ r: r0, aura = '' }) {
   const up = r.pnlUsd >= 0;
   const g = r.closed ? 'C' : r.pnlPct >= 25 ? 'A' : r.pnlPct >= 0 ? 'B' : r.pnlPct >= -15 ? 'C' : 'D';
   const card = { key: r.id, kind: 'fuse', title: legs.slice(0, 3).map(l => l.symbol).join(' · ') + (legs.length > 3 ? ` +${legs.length - 3}` : ''),
-    subtitle: `${r.name || 'MY FUSE'} · ${up ? '+' : ''}${r.pnlPct.toFixed(1)}%`, rarity: RARITY[g], design: up ? 'aurora' : 'ember', accent: up ? '#19f58f' : '#ff8fa3', accent2: '#f5c451',
+    subtitle: `${r.name || 'MY FUSE'} · ${up ? '+' : ''}${r.pnlPct.toFixed(1)}%`, rarity: RARITY[g], design: up ? 'aurora' : 'ember', accent: up ? '#19f58f' : '#ff8fa3', accent2: '#f5c451', ...(look || {}),
     glyph: g, motion: up && !r.closed ? 'alive' : 'still', holders: legs.length, edition: r.closed ? 'CLOSED' : 'LIVE', aura,
     art: tokenImageUrls(legPair(legs[0] || {})), fallbackGlyph: String(legs[0]?.symbol || '✦').slice(0, 4) };
   const back = <div className="fcd-back fcd-live">

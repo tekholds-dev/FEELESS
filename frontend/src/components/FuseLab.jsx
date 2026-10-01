@@ -30,17 +30,27 @@ const scrollToMix = () => { const el = document.querySelector('[data-testid="fus
 // Card pricing (public /fees/pricing, fetched once per page): a card bought all at once pays a flat $ per coin, never more
 // than maxPct of a leg; legs above maxLegUsd pay the normal %. Cmd Ctr cards: no FEELESS fee.
 let pricingP = null;
-export const cardFee = (legs, pr) => legs.reduce((a, l) => { const u = Number(l.usd) || 0; const b = pr.bundle;
-  return a + (!b.on || u > b.maxLegUsd ? u * pr.swapBps / 10000 : Math.min(b.perLegUsd, u * b.maxPct / 100)); }, 0);
+// One coin's FEELESS fee and WHY (shown line by line so the math reads): flat $/coin · capped at maxPct on small coins ·
+// normal % above maxLegUsd. Same rule as the server (fuse_hq.bundle_bps) and Cmd Ctr's bundleExample.
+export const legFee = (u, pr) => { const b = pr.bundle;
+  if (!b.on || u > b.maxLegUsd) return { fee: u * pr.swapBps / 10000, why: `${(pr.swapBps / 100).toFixed(2)}% (coin over $${b.maxLegUsd})` };
+  const cap = u * b.maxPct / 100;
+  return cap < b.perLegUsd ? { fee: cap, why: `${b.maxPct}% cap (small coin)` } : { fee: b.perLegUsd, why: `flat $${b.perLegUsd.toFixed(2)}` }; };
+export const cardFee = (legs, pr) => legs.reduce((a, l) => a + legFee(Number(l.usd) || 0, pr).fee, 0);
 export function CardPricing({ legs, admin }) {
   const [pr, setPr] = useState(null);
   useEffect(() => { let alive = true; pricingP = pricingP || fetch(apiUrl('/api/reputation/fees/pricing')).then(r => r.json()).catch(() => { pricingP = null; return null; });
     pricingP.then(d => alive && d?.bundle && setPr(d)); return () => { alive = false; }; }, []);
   if (admin) return <div className="fl-price is-free" data-testid="card-pricing"><span className="m-label">💲 CMD CTR CARD</span><b>$0 FEELESS fee</b><small>network + partner (Jupiter / pool) fees only</small></div>;
   if (!pr) return null;
-  const fee = cardFee(legs, pr); const usdIn = legs.reduce((a, l) => a + (Number(l.usd) || 0), 0);
-  return <div className="fl-price" data-testid="card-pricing" data-tip={`Bundle pricing: $${pr.bundle.perLegUsd.toFixed(2)} per coin, never more than ${pr.bundle.maxPct}% of a leg. Legs over $${pr.bundle.maxLegUsd} pay the normal ${(pr.swapBps / 100).toFixed(2)}%. Network fees are separate.`}>
-    <span className="m-label">💲 CARD PRICING</span><b className="m-num">${fee.toFixed(fee < 1 ? 3 : 2)}</b><small>{legs.length} coins · ${pr.bundle.perLegUsd.toFixed(2)}/coin{usdIn ? ` · ${(fee / usdIn * 100).toFixed(2)}% of $${usdIn.toFixed(2)}` : ''}</small></div>;
+  const rows = legs.map(l => ({ sym: l.symbol, u: Number(l.usd) || 0, ...legFee(Number(l.usd) || 0, pr) }));
+  const fee = rows.reduce((a, r) => a + r.fee, 0); const usdIn = rows.reduce((a, r) => a + r.u, 0); const pct = usdIn ? fee / usdIn * 100 : 0;
+  const flatAt = pr.bundle.perLegUsd / (pr.bundle.maxPct / 100);   // coin size where the flat fee starts
+  const f$ = v => `$${v.toFixed(v < 1 ? 3 : 2)}`;
+  return <div className={`fl-price ${pct > 5 ? 'is-warn' : ''}`} data-testid="card-pricing" data-tip={`Per coin: $${pr.bundle.perLegUsd.toFixed(2)} flat, but never more than ${pr.bundle.maxPct}% of that coin. Coins over $${pr.bundle.maxLegUsd} pay the normal ${(pr.swapBps / 100).toFixed(2)}%. Network fees are separate (shown on the receipt).`}>
+    <span className="m-label">💲 CARD PRICING</span><b className="m-num">{f$(fee)}</b><small>= {pct.toFixed(1)}% of your {f$(usdIn)} buy</small>
+    <ul className="fl-price-rows">{rows.map((r, i) => <li key={i}><span>${r.sym || `coin ${i + 1}`} · {f$(r.u)}</span><b className="m-num">{f$(r.fee)}</b><em>{r.why}</em></li>)}</ul>
+    {pct > 5 && <small className="fl-price-tip" data-testid="pricing-tip">⚠ Small buy: each coin pays up to {pr.bundle.maxPct}%. From {f$(flatAt)} per coin the flat {f$(pr.bundle.perLegUsd)} applies — that's {(pr.bundle.perLegUsd / Math.max(flatAt, pr.bundle.maxLegUsd) * 100).toFixed(1)}% at ${pr.bundle.maxLegUsd}/coin.</small>}</div>;
 }
 
 // 🏃 Runners lens: This round (addable while still passing every gate) · Hot now (gated, busiest first) · Watching (failed a

@@ -158,3 +158,10 @@ def test_yield_math_uses_replay_and_drops_outliers():
              'c': {'liquidityUsd': 4e5, 'aprEst': 10, 'replayPct': 900}}
     y = hq.yield_math(metas)
     assert y['fuse1']['best'] == 1.12 and y['fuse1']['worst'] == 0.95      # 3400% since launch never counts; 900% replay = outlier
+
+
+def test_feecat_weekly_note_has_no_holder_pnl():
+    t = hq.feecat_weekly('degen', 2, True, 4.25)
+    assert 'degen dial' in t and '2 engine settings tuned' in t and '+4.2%' in t and 'beat her' in t
+    t2 = hq.feecat_weekly(None, 0, False, None)
+    assert 'custom dial' in t2 and 'tuned' not in t2 and 'no trades' in t2 and 'she beat your cards' in t2

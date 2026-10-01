@@ -88,7 +88,10 @@ def test_season_crowns_last_weeks_top3_once_and_boosts_their_feeback(rs, monkeyp
     rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'w1', 'wallet': A, 'at': prev + 60, 'legs': leg(50)},       # $150 = +50%
                                                   {'id': 'w2', 'wallet': B, 'at': prev + 90, 'legs': leg(40)}]})      # $120 = +20%
     top = asyncio.run(rs._fuse_season_tick(now))
-    assert [t['id'] for t in top] == ['w1', 'w2'] and len(sent) == 2 and '#1' in sent[0][0][2]
+    crowns = [x for x in sent if x[0][1] == 'fuse-guard']
+    weekly = [x for x in sent if 'FeeCat' in x[0][2]]
+    assert [t['id'] for t in top] == ['w1', 'w2'] and len(crowns) == 2 and '#1' in crowns[0][0][2]
+    assert len(weekly) == 2 and all(x[1]['once'].startswith('feecat-week-') for x in weekly)   # 🐱 one weekly note per holder
     assert asyncio.run(rs._fuse_season_tick(now)) is None                                         # once per week
     assert rs._season_wins()['w1']['rank'] == 1
     rs._json_save(rs.FEE_LEDGER_PATH, {A: [{'sig': 'S50', 'feeUsd': 1.0, 't': now}]})
