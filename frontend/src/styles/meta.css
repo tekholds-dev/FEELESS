@@ -594,15 +594,16 @@ body.fx-lite .pump-particles, body.fx-lite .pump-hub .pump-radar-card { animatio
 .mc-xs .mc-name b { font-size: 9px; } .mc-xs .mc-face { padding: 5px; border-radius: 9px; }
 .artifact-card { cursor: pointer; border: 0; background: none; padding: 0; transition: transform .15s var(--m-ease); } .artifact-card:hover { transform: translateY(-3px); }
 .artifact-card:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 3px; border-radius: 10px; }
-.prc-flip { position: absolute; top: 8px; right: 8px; z-index: 4; width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--m-line); background: rgba(0, 0, 0, .55); color: var(--m-text); cursor: pointer; transition: border-color .15s, transform .1s; }
-.prc-flip:hover { border-color: var(--m-accent); } .prc-flip:active { transform: scale(.92); } .prc-flip:focus-visible { outline: 2px solid var(--m-accent); }
-.prc-back { position: absolute; inset: 0; z-index: 3; display: grid; align-content: center; gap: 6px; padding: 14px; border-radius: inherit; background: var(--m-bg); animation: mFlipIn .22s var(--m-ease); cursor: pointer; }
-@keyframes mFlipIn { from { opacity: 0; transform: rotateY(-70deg); } to { opacity: 1; transform: none; } }
+.prc-tools { position: absolute; right: 10px; bottom: 10px; z-index: 5; display: flex; gap: 6px; transform: translateZ(40px); }
+.prc-btn { width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--m-line); background: rgba(0, 0, 0, .6); color: var(--m-text); cursor: pointer; transition: border-color .15s, transform .1s; }
+.prc-btn:hover { border-color: var(--m-accent); } .prc-btn:active { transform: scale(.92); } .prc-btn:focus-visible { outline: 2px solid var(--m-accent); }
+/* The back sits last in the card and is lifted in 3D, so the tilted card's own content can never paint over it. */
+.prc-back { position: absolute; inset: 0; z-index: 4; display: grid; align-content: center; gap: 6px; padding: 14px 14px 48px; border-radius: inherit; background: var(--m-bg); transform: translateZ(30px); animation: mFlipIn .22s var(--m-ease); cursor: pointer; }
+@keyframes mFlipIn { from { opacity: 0; transform: translateZ(30px) rotateY(-70deg); } to { opacity: 1; transform: translateZ(30px); } }
 .mini-chart { display: grid; gap: 4px; } .mini-chart svg { width: 100%; height: 90px; } .mini-chart.is-loading { place-items: center; min-height: 90px; }
 .mini-chart .mc-line { fill: none; stroke: var(--m-accent); stroke-width: 1.6; vector-effect: non-scaling-stroke; } .mini-chart .mc-area { fill: color-mix(in srgb, var(--m-accent) 14%, transparent); }
 .mini-chart.down .mc-line { stroke: var(--m-danger); } .mini-chart.down .mc-area { fill: color-mix(in srgb, var(--m-danger) 12%, transparent); }
 @media (prefers-reduced-motion: reduce) { .prc-back { animation: none; } }
-.prc-war { right: 42px; }
 .qb-left { font-family: var(--m-mono); font-size: 9px; letter-spacing: .06em; color: var(--m-warn); } .qb-left.is-low { color: var(--m-danger); }
 .minted-timeline ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; max-height: 320px; overflow: auto; scrollbar-width: thin; }
 .minted-timeline li { display: flex; gap: 10px; align-items: center; } .minted-timeline li span { display: grid; } .minted-timeline small { color: var(--m-dim); font-size: 11px; }
@@ -612,3 +613,5 @@ body.fx-lite .pump-particles, body.fx-lite .pump-hub .pump-radar-card { animatio
 .fhq-lives { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; } .fhq-lives i { font-style: normal; font-size: 18px; opacity: .2; transition: opacity .3s, transform .3s var(--m-ease); }
 .fhq-lives i.on { opacity: 1; } .fhq-lives small { margin-left: 8px; color: var(--m-dim); font-size: 11px; }
 .fhq-kpis { gap: 18px; } .feecat-banner.is-compact { min-height: 0; max-height: 260px; }
+
+.pump-hub .pump-radar-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; } .pump-hub .pump-radar-stages { flex: 1 1 420px; }
