@@ -6,6 +6,7 @@ import { apiUrl } from '../../lib/api';
 const usd = v => (v == null ? '—' : v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : v >= 1 ? `$${v.toFixed(2)}` : v > 0 ? `$${v.toFixed(3)}` : '$0');
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
+// Also opens as a hover card on the Fee-Back tab (FeeReportChip).
 export function FeeReport({ address }) {
   const [d, setD] = useState(null);
   useEffect(() => {
@@ -27,6 +28,23 @@ export function FeeReport({ address }) {
     </div>
     <div className="fr-row"><div className="m-stat"><small>All-time fees</small><b className="m-num sm">{d ? usd(d.feesTotalUsd) : '…'}</b></div>
       <div className="m-stat"><small>FeeBack accrued</small><b className="m-num sm m-pos">{d ? usd(d.feeBackUsd) : '…'}</b></div></div>
+    <div className="fr-row"><div className="m-stat"><small>Paid back so far</small><b className="m-num sm">{d ? usd(d.feeBackPaidUsd) : '…'}</b></div>
+      <div className="m-stat"><small>Still owed to you</small><b className="m-num sm m-pos">{d ? usd(d.feeBackOwedUsd) : '…'}</b></div>
+      <div className="m-stat"><small>Of your fees back</small><b className="m-num sm">{d ? `${d.paidBackPct}%` : '…'}</b></div></div>
+    {d?.earned && <div className="fr-earned" data-testid="fee-report-earned"><div className="m-label">EARNED WHILE TRADING</div>
+      <div className="fr-row"><div className="m-stat"><small>XP · level</small><b className="m-num sm">{(d.earned.xp ?? 0).toLocaleString()} · {d.earned.level || 'Rookie'}</b></div>
+        <div className="m-stat"><small>Rep</small><b className="m-num sm">{d.earned.rep?.score ?? '—'}{d.earned.rep?.label ? ` · ${d.earned.rep.label}` : ''}</b></div>
+        <div className="m-stat"><small>Points</small><b className="m-num sm">{(d.earned.points ?? 0).toLocaleString()}</b></div></div>
+      {d.earned.badgeFeeDiscountPct > 0 && <span className="m-chip ok">🏅 {d.earned.badgeFeeFrom} badge: −{d.earned.badgeFeeDiscountPct}% on every fee</span>}</div>}
     <span className="m-chip ok">🐱 {d?.feeBackPct ?? 100}% of $FEE · FEECAT · rFEE trade fees back in FEECAT · other coins earn none · paid when FeeBack goes live</span>
   </div>;
+}
+
+// Fee-Back tab: a chip that opens the full fee report on hover / focus / tap.
+export function FeeReportChip({ address }) {
+  const [open, setOpen] = useState(false);
+  if (!address) return null;
+  return <span className={`fr-chip ${open ? 'is-open' : ''}`} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} data-testid="fee-report-chip">
+    <button type="button" className="m-btn" aria-expanded={open} onClick={() => setOpen(o => !o)} onFocus={() => setOpen(true)}>📊 Your fee report</button>
+    {open && <span className="fr-pop"><FeeReport address={address} /></span>}</span>;
 }

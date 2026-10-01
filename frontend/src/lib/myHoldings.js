@@ -45,6 +45,15 @@ export function useHeld(mint) {
   return mint ? held.get(mint) : undefined;
 }
 
+// Every coin you hold (same shared poller): [{ mint, holding, ... }].
+export function useHeldList() {
+  const { wallet } = useWallet() || {};
+  const address = wallet?.chain === 'solana' ? wallet.address : null;
+  const sub = useCallback(l => subscribe(address, l), [address]);
+  const held = useSyncExternalStore(sub, () => (address === store.address ? store.held : EMPTY));
+  return [...held.values()];
+}
+
 // "YOU HOLD · $12.40" on any coin card; the card itself lights up via `:has(.held-chip)` (see meta.css).
 export function HeldChip({ pair }) {
   const h = useHeld(pair?.baseToken?.address);

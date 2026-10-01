@@ -33,7 +33,7 @@ function Quests({ title, block }) {
 
 export const perkText = p => (p.kind === 'fee_discount' ? `−${p.pct}% FEELESS trading fee` : p.kind === 'chat_bg' ? `Unlocks the ${p.id} chat background` : p.id);
 
-function Season({ me }) {
+export function Season({ me }) {
   const [b, setB] = useState(null);
   useEffect(() => { fetch(apiUrl('/api/reputation/quests-leaderboard')).then(r => (r.ok ? r.json() : null)).then(setB).catch(() => {}); }, []);
   if (!b?.season) return null;

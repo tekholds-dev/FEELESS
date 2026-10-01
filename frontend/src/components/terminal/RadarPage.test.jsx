@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 
 const mockNav = jest.fn();
 jest.mock('react-router-dom', () => ({ useNavigate: () => mockNav }), { virtual: true });
+jest.mock('./HeldSignals', () => ({ HeldSignals: () => null }));
 // eslint-disable-next-line import/first
 import { RadarPage } from './RadarPage';
 

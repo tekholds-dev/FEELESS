@@ -33,6 +33,9 @@ import { WatchlistDashboard } from '../components/command/CreatorProfile';
 import { AdvancedWatchlist } from '../components/command/AdvancedWatchlist';
 import { RadarPage } from '../components/terminal/RadarPage';
 import { QuestBoard } from '../components/QuestBoard';
+import { ReserveProgress } from '../components/ReserveProgress';
+import { QuestNudge } from '../components/QuestNudge';
+import { LeaderboardHub } from '../components/terminal/LeaderboardHub';
 import { WalletProfilePage } from '../components/command/WalletProfilePage';
 import { TrustSignals, CaseStudies, LiveProof, RoadmapVoting, NetworkStatus } from '../components/command/LiveTrust';
 import { RadarView, PumpRadarView, SignalMovers, ParticipationBoard, MetaDetector } from '../components/command/DiscoveryViews';
@@ -207,8 +210,8 @@ export default function Terminal() {
        {page === 'launch' && (params.get('setup') === 'feeless' ? <><MetaLaunchSetup onWallet={() => setWalletOpen(true)} /><details className="launch-shield-later"><summary>🛡 After launch — Shield your coin <small>public promises buyers can verify on-chain</small></summary><ShieldCommit /></details></> : <LaunchpadDirectory />)}{(page === 'watchlist' || page === 'alerts') && <RadarPage view={page === 'alerts' || params.get('view') === 'signals' ? 'signals' : 'watching'} watchCount={watchlist.length}
         signals={<><TrustSignals /><AlertsPage alerts={alerts} setAlerts={setAlerts} selected={alertPair || selected} watchlist={watchlist} ecosystem={ecosystem} /></>}
         watching={<><AdvancedWatchlist /><CopyTrading /><div className="command-section-title unified-watch-title"><span>CREATORS YOU FOLLOW</span><small>Launches and rug flags from wallets you've starred</small></div><WatchlistDashboard /></>} />}
-         {page === 'chat' && <TrenchesView pairs={trenchPairs} newPairs={trenchNewPairs} onSelect={onSelect} selectedPair={selected} selectedPerspective={perspective} onPerspectiveChange={onPerspectiveChange} onConnect={() => setWalletOpen(true)} />}
-      {page === 'fee' && <FeeAssetPage asset={fee}>{fee?.pair ? <TokenFocus pair={fee.pair} has={has} toggle={toggle} /> : <FeeHeartbeat asset={fee} loading={assets.loading} />}</FeeAssetPage>}
+         {page === 'chat' && <QuestNudge />}{page === 'chat' && <TrenchesView pairs={trenchPairs} newPairs={trenchNewPairs} onSelect={onSelect} selectedPair={selected} selectedPerspective={perspective} onPerspectiveChange={onPerspectiveChange} onConnect={() => setWalletOpen(true)} />}
+      {page === 'fee' && <ReserveProgress />}{page === 'fee' && <FeeAssetPage asset={fee}>{fee?.pair ? <TokenFocus pair={fee.pair} has={has} toggle={toggle} /> : <FeeHeartbeat asset={fee} loading={assets.loading} />}</FeeAssetPage>}
         {page === 'feeback' && <FeeBackCenter feeCat={feeCat} />}{page === 'feecat' && <FeeCatCenter asset={feeCat} community={community} onSelect={onSelect}><FeeCatProfile /></FeeCatCenter>}{page === 'feecat/cats' && <FeelessCats />}{page === 'feecat/agents' && <FeeCatsPlatform />}
       {page === 'reputation' && <ReputationCenter />}
       {!page.startsWith('profile/') && page !== 'legal' && <AdBanner placement="banner" />}
@@ -218,7 +221,7 @@ export default function Terminal() {
       {page.startsWith('profile/') && <WalletProfilePage key={page} address={page.split('/')[1]} />}
       {page.startsWith('reputation/') && (() => { const [, repChain, repAddress] = page.split('/'); return repChain && repAddress ? <CreatorProfilePage chain={repChain} address={repAddress} /> : null; })()}
       {page === 'alpha' && <div className="command-page-title"><span className="eyebrow">HOLDER-ONLY · $FEE</span><h1>Fee Reserve <small>FRSV</small></h1><p>Hold $FEE to unlock private rooms. Access is checked on-chain every time you read or post.</p></div>}{page === 'alpha' && <AlphaRooms />}
-      {page === 'badges' && <QuestBoard />}{page === 'seasons' && <SeasonsPage />}{page === 'leaderboard' && <><TrenchWars /><CallerLeague /><ParticipationBoard /></>}{page === 'whitepaper' && <div className="tab-stage has-aura" style={{ '--stage': '#7cc8ff' }}><CoinAura color="#7cc8ff" change24h={20} /><LiveProof /><CommandWhitepaper /></div>}{page === 'roadmap' && <div className="tab-stage has-aura" style={{ '--stage': '#b388ff' }}><CoinAura color="#b388ff" change24h={20} /><MissionRoadmap /><RoadmapVoting /></div>}{page === 'learn' && <><LiveIntelStats /><RadarPanel /><UnderstandFeeless /><CaseStudies /></>}
+      {page === 'badges' && <QuestBoard />}{page === 'seasons' && <SeasonsPage />}{page === 'leaderboard' && <LeaderboardHub wars={<TrenchWars />} callers={<CallerLeague />} crew={<ParticipationBoard />} />}{page === 'whitepaper' && <div className="tab-stage has-aura" style={{ '--stage': '#7cc8ff' }}><CoinAura color="#7cc8ff" change24h={20} /><LiveProof /><CommandWhitepaper /></div>}{page === 'roadmap' && <div className="tab-stage has-aura" style={{ '--stage': '#b388ff' }}><CoinAura color="#b388ff" change24h={20} /><MissionRoadmap /><RoadmapVoting /></div>}{page === 'learn' && <><LiveIntelStats /><RadarPanel /><UnderstandFeeless /><CaseStudies /></>}
       {page === 'settings' && <div className="tab-stage has-aura" style={{ '--stage': '#f5c542' }}><CoinAura color="#f5c542" change24h={14} /><TerminalConfiguration settings={settings} setSettings={setSettings} onWallet={() => setWalletOpen(true)} /><HolderThemePicker /><MyInviteCard /><NetworkStatus /></div>}
        {!isMarket && !page.startsWith('reputation') && !page.startsWith('profile/') && !page.startsWith('coin/') && !['launch', 'watchlist', 'chat', 'alerts', 'badges', 'fee', 'feeback', 'feecat', 'feecat/cats', 'feecat/agents', 'leaderboard', 'whitepaper', 'roadmap', 'learn', 'settings', 'legal'].includes(page) && <div className="page-heading"><h1>Off the radar.</h1><Link to="/terminal" className="btn-primary" data-testid="unknown-page-home">Back to terminal</Link></div>}
        </div><TerminalFooter />

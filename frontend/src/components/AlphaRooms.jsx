@@ -1,3 +1,4 @@
+import { ReserveProgress } from './ReserveProgress';
 import React, { useEffect, useState } from 'react';
 import { Lock } from 'lucide-react';
 import { useWallet } from '../hooks/useWallet';
@@ -26,7 +27,7 @@ export function AlphaRooms() {
   if (!d) return null;
   const held = d.holdingUsd || 0;
   return <section className="alpha-rooms" data-testid="alpha-rooms">
-    <header><h3>Fee Reserve <small>FRSV</small></h3><small>{address ? `You hold $${held.toLocaleString()} in $FEE` : 'Connect a wallet holding $FEE'}</small></header>
+    <header><h3>Fee Reserve <small>FRSV</small></h3><small>{address ? `You hold $${held.toLocaleString()} in $FEE` : 'Connect a wallet holding $FEE'}</small></header><ReserveProgress />
     <div className="alpha-grid">{d.rooms.map((r, i) => { const pct = Math.min(100, (held / r.minUsd) * 100); return <button key={r.id} type="button" className={`alpha-card tier-${i} ${r.unlocked ? 'unlocked' : 'locked'} ${open?.id === r.id ? 'active' : ''}`} onClick={() => enter(r)} data-testid={`alpha-${r.id}`}>
       <span className="alpha-icon">{r.unlocked ? r.icon : <Lock size={18} />}</span><b>{r.name}</b><small>{r.vibe}</small>
       {r.unlocked ? <em className="alpha-open">{r.messages} msgs · enter →</em> : <><i className="alpha-bar"><i style={{ width: `${pct}%` }} /></i><em>${Math.max(0, r.minUsd - held).toLocaleString(undefined, { maximumFractionDigits: 0 })} more $FEE to unlock</em></>}

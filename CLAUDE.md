@@ -92,6 +92,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   never wait, noted on the quote) and chat backgrounds. Only add perk kinds that something actually honours.
 - Season: `QUESTS_PATH.season`, PAUSED until launch (no leaderboard, no trophies). Unpause in Cmd Ctr › Badges on launch
   day; "Award week's top 3" writes `kind: 'quest'` trophies once per week.
+- Every badge renders as a `MetaCard` via `QuestBadgeCard` (art in the crest circle, alive when earned, back = tasks +
+  perks). Chat chips show only the circle. Profiles showcase featured (else 3 rarest) quest badges as cards.
+- Quest data is shared: `useQuests` (Badges tab, Trenches `QuestNudge`, `ReserveProgress` on $FEE + Fee Reserve, Season
+  board in Leaderboard). Don't add a second fetch for it.
+- No new tabs for features: Radar (Signals + Watching, held-coin signals first), Leaderboard (?lens=season|callers|wars|crew),
+  Pump radar views (incl. 🎯 Snipers out). Fee-Back has the hover fee report (fees, fee-back paid/owed, % back, XP/rep/points).
 - Art lives in `public/assets/badges/{feeless,frsv}/<id>.{jpg,gif}`: show the ~35KB .jpg poster; play the .gif only on
   hover/focus or in the detail view (`BadgeArt`). Never autoplay a grid of GIFs.
 

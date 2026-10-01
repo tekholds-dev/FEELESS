@@ -1,3 +1,4 @@
+import { QuestBadgeCard } from '../QuestBadgeCard';
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { BadgeIcon } from './BadgeIcon';
@@ -41,9 +42,14 @@ export function Badges({ address, compact = false, max = 3, featured }) {
 // Featured badges as spinning 3D artifacts (profile header).
 export function BadgeArtifacts({ address, featured }) {
   const badges = useBadges(address);
-  const pick = (featured || []).map(id => badges.find(b => b.id === id)).filter(Boolean).slice(0, 3);
+  const RANK_Q = { mythic: 5, legendary: 4, epic: 3, rare: 2, common: 1 };
+  let pick = (featured || []).map(id => badges.find(b => b.id === id)).filter(Boolean).slice(0, 3);
+  // Nothing featured yet: showcase the 3 rarest quest badges earned, so every profile shows its story.
+  if (!pick.length) pick = badges.filter(b => b.art).sort((x, y) => (RANK_Q[y.rarity] || 0) - (RANK_Q[x.rarity] || 0)).slice(0, 3);
   if (!pick.length) return null;
-  return <div className="badge-artifacts" data-testid="badge-artifacts">{pick.map((b, i) => <div key={b.id} className={`artifact tone-${b.tone}`} title={`${b.label} — ${b.why}`} style={{ animationDelay: `${i * -2}s` }}>
+  return <div className="badge-artifacts" data-testid="badge-artifacts">{pick.map((b, i) => b.art
+    ? <div key={b.id} className="artifact-card"><QuestBadgeCard size="sm" b={{ id: b.id, set: b.id.startsWith('frsv-') ? 'frsv' : 'feeless', name: b.label, tier: b.rarity || 'rare', art: b.art, earned: true, tasks: [], perks: [], xp: 0, pct: 100 }} /></div>
+    : <div key={b.id} className={`artifact tone-${b.tone}`} title={`${b.label} — ${b.why}`} style={{ animationDelay: `${i * -2}s` }}>
     <div className="artifact-coin" style={{ animationDelay: `${i * -1.3}s` }}><span className="face front"><BadgeIcon id={b.id} tone={b.tone} size={30} /></span></div>
     <small>{b.label}</small>
   </div>)}</div>;

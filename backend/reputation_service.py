@@ -8665,10 +8665,26 @@ async def admin_fee_book(request: Request, format: str = ''):
 
 @app.get('/api/reputation/fee-report/{address}')
 async def fee_report_get(address: str):
-    """FEELESS fees this wallet paid (7d + all time, linked accounts count once) and the FeeBack it has accrued."""
+    """FEELESS fees this wallet paid (7d + all time, linked accounts count once), the FeeBack accrued / paid / owed,
+    how much of the fees came back, and what the wallet earned meanwhile (XP, rep, points, badge fee perk)."""
     if not _re.match(r'^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$', address):
         raise HTTPException(400, 'Bad address.')
-    return {'address': address, **fee_report.fee_report(_json_load(FEE_LEDGER_PATH, {}).get(primary_of(address)) or [], time.time())}
+    me = primary_of(address)
+    rep = fee_report.fee_report(_json_load(FEE_LEDGER_PATH, {}).get(me) or [], time.time())
+    paid = round(float(_json_load(FEEBACK_PAID_PATH, {}).get(me, 0) or 0), 6)
+    # What you earned while paying those fees: XP/level + badge fee perk (quests), rep verdict, season points.
+    try:
+        q = await _quest_summary(me)
+        quest = {'xp': q['level']['xp'], 'level': q['level']['name'], 'badges': q['earned'], 'badgeFeeDiscountPct': q['perks']['feeDiscountPct'],
+                 'badgeFeeFrom': q['perks']['from'].get('fee'), 'seasonXp': q['season']['score']}
+    except Exception:
+        quest = {}
+    qr = _quick_rep(me)
+    fees = rep.get('feesTotalUsd') or 0
+    back = rep.get('feeBackUsd') or 0
+    return {'address': address, **rep, 'feeBackPaidUsd': paid, 'feeBackOwedUsd': round(max(0.0, back - paid), 6),
+            'paidBackPct': round(back / fees * 100, 1) if fees else 0.0,
+            'earned': {**quest, 'rep': {'score': qr.get('score'), 'label': qr.get('label')}, 'points': int((_pts().get(me) or {}).get('total') or 0)}}
 
 
 class TradeLanded(BaseModel):

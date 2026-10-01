@@ -37,3 +37,10 @@ export function useSnipersOut(pair) {
   if (pair?.chainId !== 'solana') return null;
   return out.get(pair?.baseToken?.address) || out.get(pair?.pairAddress) || null;
 }
+
+// Read the shared snipers-out state without subscribing (a component that renders lists calls useSnipersOut once to
+// keep the poller alive, then filters with this).
+export function snipersOutFor(pair) {
+  if (pair?.chainId !== 'solana') return null;
+  return out.get(pair?.baseToken?.address) || out.get(pair?.pairAddress) || null;
+}

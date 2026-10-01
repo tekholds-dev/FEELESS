@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { HeldSignals } from './HeldSignals';
 
 // Radar = Watchlist + Signal alerts in one place: what you watch and what's firing, one tap apart.
 // /terminal/alerts and ?view=signals open the Signals side, so every old link still lands right.
@@ -11,6 +12,6 @@ export function RadarPage({ view, signals, watching, watchCount = 0 }) {
         <button type="button" role="tab" aria-selected={view === 'signals'} className={view === 'signals' ? 'active' : ''} data-testid="radar-signals" onClick={() => nav('/terminal/watchlist?view=signals')}>⚡ Signals</button>
         <button type="button" role="tab" aria-selected={view === 'watching'} className={view === 'watching' ? 'active' : ''} data-testid="radar-watching" onClick={() => nav('/terminal/watchlist')}>★ Watching {watchCount}</button>
       </div></div>
-    {view === 'signals' ? signals : watching}
+    {view === 'signals' ? <><HeldSignals />{signals}</> : watching}
   </section>;
 }

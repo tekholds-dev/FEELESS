@@ -15,6 +15,7 @@ import { LivePrice, LiveChange24, LiveMarketCap } from '../terminal/LiveCells';
 import { formatUSD, formatAge, formatTime, pairKey, hasProviderImage } from '../../lib/dexscreener';
 import { matchesPad } from '../../lib/launchpads';
 import { BoltLegend, BoltSignal } from '../terminal/BoltSignal';
+import { useSnipersOut, snipersOutFor } from '../../lib/snipersOut';
 
 export const RadarView = ({ pairs, onSelect, kind = 'pump' }) => {
   useClock(10000); const { ecosystem } = useWorkspace();
@@ -38,6 +39,7 @@ const PUMP_RADAR_STAGES = [
   ['graduated', 'Graduated', Layers3],
   ['trending', 'Trending coins', TrendingUp],
   ['gainers', 'Gainers', Activity],
+  ['snipers', '🎯 Snipers out', Users],
   ['watchlist', 'Watchlist', Star],
 ];
 
@@ -79,6 +81,7 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
   const [failedNewLogos, setFailedNewLogos] = useState(() => new Set());
   const [callCounts, setCallCounts] = useState({});
   const now = useClock(1000);
+  useSnipersOut(null);   // keeps the shared snipers-out poll alive for the filter below
   useEffect(() => {
     let alive = true;
     const load = () => fetch(apiUrl('/api/reputation/calls/recent?limit=100')).then(r => r.ok ? r.json() : { calls: [] }).then(d => {
@@ -119,7 +122,9 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
     })
     .filter(Boolean), [allObserved, graduationByMint]);
   const gainers = [...trendingPairs].filter(pair => Number.isFinite(Number(pair.priceChange?.h24))).sort((a, b) => Number(b.priceChange.h24) - Number(a.priceChange.h24));
-  const liveStagePairs = { new: newPairs, graduated, trending: trendingPairs, gainers, watchlist: watchlist.filter(matches) }[stage] || [];
+  // Snipers out: every flagged sniper/bundler has sold (launch forensics) — the cleanest charts on the radar.
+  const snipersOut = allObserved.filter(p => snipersOutFor(p));
+  const liveStagePairs = { new: newPairs, graduated, trending: trendingPairs, gainers, snipers: snipersOut, watchlist: watchlist.filter(matches) }[stage] || [];
   // Hover to freeze: while the pointer is on the grid the cards hold still (no reshuffle under your cursor);
   // new arrivals are counted and land the moment you leave or tap the chip.
   const [frozen, setFrozen] = useState(null);
