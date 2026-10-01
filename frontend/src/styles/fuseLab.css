@@ -82,3 +82,25 @@ body.fx-lite .fl-row { animation: none; }
 body.theme-day .fg { background: var(--m-surface-2); }
 body.fx-lite .fg-pulse { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fg, .fg-leg, .fg-pulse, .trade-tab-body { animation: none; } }
+/* 🧬 Fuse Evolution (Cmd Ctr). */
+.fe { display: grid; gap: 12px; padding: 14px; border-color: color-mix(in srgb, var(--m-warn) 40%, var(--m-line)); }
+.fe-head h4 { margin: 4px 0 2px; font-size: 18px; } .fe-head p { margin: 0; font-size: 12px; }
+.fe-genes { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.fe-gene { display: grid; gap: 4px; align-content: start; } .fe-gene > small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .14em; color: var(--m-dim); }
+.fe-gene .m-seg { flex-wrap: wrap; } .fe-gene em { font-style: normal; font-family: var(--m-mono); font-size: 10px; }
+.fe-chart { display: flex; align-items: flex-end; gap: 3px; height: 70px; padding: 6px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); background: var(--m-surface); }
+.fe-chart i { flex: 1; height: 100%; border-radius: 3px 3px 1px 1px; background: var(--m-line); transform-origin: bottom; transition: transform .25s var(--m-ease), background .2s; }
+.fe-chart i.on { background: linear-gradient(180deg, var(--m-accent), color-mix(in srgb, var(--m-accent) 35%, #000)); }
+.fe-chart i.on:last-of-type { box-shadow: 0 0 10px var(--m-accent); }
+.fe-meta { display: flex; gap: 14px; flex-wrap: wrap; font-family: var(--m-mono); font-size: 10px; }
+.fe-champs { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.fe-champ { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); background: var(--m-surface); animation: mCardIn .3s var(--m-ease) backwards; transition: border-color .15s, transform .15s; }
+.fe-champ:hover { border-color: var(--m-line-hi); transform: translateY(-2px); }
+.fe-champ.is-top { border-color: var(--m-accent); box-shadow: 0 10px 30px -18px var(--m-accent); }
+.fe-champ-head { display: flex; align-items: center; gap: 8px; } .fe-champ-head b { font-family: var(--m-mono); font-size: 16px; } .fe-champ-head small { margin-left: auto; font-family: var(--m-mono); font-size: 10px; }
+.fe-champ-head .fl-grade { font-size: 16px; }
+.fe-legs { display: flex; gap: 4px; flex-wrap: wrap; } .fe-legs small { color: var(--m-dim); } .fe-legs b { color: var(--m-accent); }
+.fe-kv { font-size: 11px; gap: 3px 10px; }
+body.theme-day .fe-chart, body.theme-day .fe-champ { background: var(--m-surface-2); }
+body.fx-lite .fe-champ { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fe-champ { animation: none; } .fe-chart i { transition: none; } }

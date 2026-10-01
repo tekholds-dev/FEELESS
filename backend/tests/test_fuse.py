@@ -76,3 +76,34 @@ def test_preview_backtest_and_impact_guard():
     assert p['backtest24hPct'] == 2.0 and p['impactWarn'] == ['B']   # every leg moved +2%; $ into B ≫ 1% of its $2K
     assert fuse.legs_cap(False) == 3 and fuse.legs_cap(True) == 6
     assert fuse.manual_weights([{'chainId': 's', 'pairAddress': 'a', 'weight': 3}, {'chainId': 's', 'pairAddress': 'b', 'weight': 1}]) == {'a': 0.75, 'b': 0.25}
+
+
+def _metas(n=10):
+    out = {}
+    for i in range(n):
+        p = _pair(f'p{i}', 50_000 * (i + 1), 100_000 + 40_000 * i, sym=f'S{i}')
+        p['priceChange'] = {'h24': (i - 4) * 3}; p['baseToken']['address'] = f'M{i}'
+        out[f'p{i}'] = fuse.leg_meta(p)
+    return out
+
+
+def test_evolution_improves_and_is_deterministic():
+    m = _metas()
+    a = fuse.evolve(m, legs=3, generations=10, population=16, style='yield', sol=1, sol_usd=150, seed=3)
+    b = fuse.evolve(m, legs=3, generations=10, population=16, style='yield', sol=1, sol_usd=150, seed=3)
+    assert a['champions'] == b['champions']                                     # seeded → reproducible
+    best = [h['best'] for h in a['history']]
+    assert best == sorted(best) and len(a['history']) == 10                      # elitism: never gets worse
+    c = a['champions'][0]
+    assert len(set(c['pools'])) == 3 and abs(sum(c['weights'].values()) - 100) < 0.5
+    brute = max(fuse.fitness(list(g), m, 'yield', 1, 150)['fitness'] for g in __import__('itertools').combinations(sorted(m), 3))
+    assert c['fitness'] >= brute * 0.97                                          # finds (near) the true best basket
+
+
+def test_styles_and_fee_drag_change_the_winner():
+    m = _metas()
+    mo = fuse.evolve(m, legs=2, generations=8, style='momentum', sol=1, seed=1)['champions'][0]['parts']
+    st = fuse.evolve(m, legs=2, generations=8, style='steady', sol=1, seed=1)['champions'][0]['parts']
+    assert mo['momentum24h'] > st['momentum24h']
+    tiny = fuse.fitness(['p1', 'p2', 'p3'], m, 'yield', sol=0.001)
+    assert tiny['parts']['feeDragPct'] > 20 and tiny['fitness'] < fuse.fitness(['p1', 'p2', 'p3'], m, 'yield', sol=1)['fitness']

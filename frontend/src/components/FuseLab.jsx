@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { apiUrl } from '../lib/api';
 import { toast } from 'sonner';
 import { FuseGo } from './FuseGo';
+import { FuseEvolve } from './FuseEvolve';
 import '../styles/fuseLab.css';
 
 // ⚛️ FUSE LAB: browse the chain's real pools, tick them, and see live how FEELESS auto-weighs them (fee APR × depth,
@@ -51,6 +52,7 @@ export function FuseLab({ chain = 'solana', call }) {
       <span className="fl-badges">{admin && <span className="m-chip warn">CMD CTR · 6 POOLS</span>}<span className="m-chip ok fl-chain"><i />{chain.toUpperCase()}</span></span>
     </header>
     <ol className="fl-steps"><li><b>1</b><span>Pick pools</span></li><li><b>2</b><span>Auto-weigh<small>fee APR × depth · 10–70% each</small></span></li><li><b>3</b><span>One click in<small>one approval · a swap per pool</small></span></li></ol>
+    {admin && <FuseEvolve call={call} maxLegs={MAX} onLoad={(legs, s) => { setManual(false); setPicked(legs); if (s) setSol(s.toFixed(4)); document.querySelector('[data-testid="fuse-lab"] .fl-mix')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} />}
     <div className="fl-body">
       <div className="fl-browse">
         <div className="fl-tools"><div className="m-seg" role="radiogroup" aria-label="Pool lens">{LENSES.map(([k, l]) => <button type="button" key={k} role="radio" aria-checked={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)}>{l}</button>)}</div>

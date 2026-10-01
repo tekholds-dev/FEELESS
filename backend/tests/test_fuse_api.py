@@ -67,3 +67,15 @@ def test_fuse_lab_caps_users_at_3_and_admin_gets_6_and_manual_weights(monkeypatc
     assert p['cap'] == 6 and [x['weight'] for x in p['legs']] == [75, 25] and p['legs'][0]['sol'] == 3
     six = [{'chainId': 'solana', 'pairAddress': f'P{i}'} for i in range(1, 7)]
     assert len(asyncio.run(rs.fuses_preview(rs.FusePreview(pools=six, sol=1), Req()))['legs']) == 6
+
+
+def test_admin_evolve_breeds_from_discovered_pools(monkeypatch):
+    raw = [{'chainId': 'solana', 'pairAddress': f'Q{i}', 'priceUsd': '1', 'liquidity': {'usd': 100000 + i * 20000}, 'volume': {'h24': 50000 * (i + 1)},
+            'priceChange': {'h24': i - 3}, 'baseToken': {'symbol': f'T{i}', 'address': f'M{i}'}, 'quoteToken': {'symbol': 'SOL'}} for i in range(8)]
+    async def disc(chain): return raw
+    async def px(): return 150.0
+    monkeypatch.setattr(rs, '_fuse_discover_pairs', disc); monkeypatch.setattr(rs, '_sol_usd_live', px)
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN')
+    d = asyncio.run(rs.fuses_evolve(Req(), rs.FuseEvolveIn(style='degen', legs=3, generations=5, population=10, sol=0.05, seed=2)))
+    c = d['champions'][0]
+    assert len(d['history']) == 5 and len(c['legs']) == 3 and c['legs'][0]['symbol'].startswith('T') and d['pool'] == 8

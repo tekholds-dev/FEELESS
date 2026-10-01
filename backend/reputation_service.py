@@ -2796,6 +2796,35 @@ async def fuses_preview(payload: FusePreview, request: Request = None):
     return {**_fuse.preview(pools, metas, max(0.0, min(100000.0, payload.sol)), sol_usd, w), 'cap': cap, 'admin': admin}
 
 
+class FuseEvolveIn(BaseModel):
+    style: str = 'yield'
+    legs: int = Field(default=3, ge=2, le=6)
+    generations: int = Field(default=16, ge=1, le=40)
+    population: int = Field(default=32, ge=8, le=80)
+    sol: float = Field(default=0.05, gt=0, le=1000)
+    chain: str = 'solana'
+    seed: int = 0
+
+
+@app.post('/api/reputation/admin/fuses/evolve')
+async def fuses_evolve(request: Request, p: FuseEvolveIn):
+    """🧬 Cmd Ctr: breed Fuse baskets from the chain's live pools (best 40 across popular/yield/deep/new) over generations.
+    Read-only ranking — the champion is loaded into the Lab, where Fuse in still needs your wallet."""
+    _require_admin(request)
+    raw = await _fuse_discover_pairs(p.chain)
+    cands = {}
+    for lens in _fuse.LENSES:
+        for r in _fuse.discover(raw, lens, p.chain, now_ms=time.time() * 1000, limit=12):
+            cands.setdefault(r['pairAddress'], r)
+    metas = dict(list(cands.items())[:40])
+    sol_usd = await _sol_usd_live()
+    out = await asyncio.to_thread(_fuse.evolve, metas, p.legs, p.generations, p.population, p.style if p.style in _fuse.STYLES else 'yield',
+                                  p.sol, sol_usd, p.seed or int(time.time()))
+    out['champions'] = [{**c, 'legs': [{**{k: metas[pa].get(k) for k in ('symbol', 'quote', 'dex', 'logo', 'liquidityUsd', 'aprEst', 'change24h')},
+                                        'chainId': p.chain, 'pairAddress': pa, 'weight': c['weights'][pa]} for pa in c['pools']]} for c in out['champions']]
+    return {**out, 'solUsd': sol_usd, 'styles': list(_fuse.STYLES)}
+
+
 class FuseBuy(BaseModel):
     address: str
     session: str

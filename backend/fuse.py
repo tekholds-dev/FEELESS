@@ -168,3 +168,80 @@ def legs_cap(is_admin):
 def manual_weights(pools):
     """Cmd Ctr override: the admin's own weights (cleaned like any Fuse: positive, normalised), as fractions."""
     return {x['pairAddress']: x['weight'] / 100 for x in clean_legs(pools)}
+
+
+# ---- 🧬 Fuse Evolution: breed baskets over generations (pure, seeded, tested) ------------------------------------
+# Genome = a set of pools. Fitness = the strategy's mix of grade, fee APR, 24h momentum, minus a size-impact penalty and
+# a fee-drag penalty (network fees eat tiny buys). Each generation keeps the elite, breeds the rest by crossover +
+# mutation. Nothing here predicts profit: it ranks baskets on the same cited numbers the Lab shows.
+STYLES = {   # weights for (grade points 0–100, APR 0–100 scaled, momentum 24h %, stability)
+    'yield': {'grade': .35, 'apr': .55, 'momo': .0, 'calm': .10},
+    'momentum': {'grade': .30, 'apr': .15, 'momo': .45, 'calm': .10},
+    'steady': {'grade': .55, 'apr': .15, 'momo': .0, 'calm': .30},
+    'degen': {'grade': .15, 'apr': .40, 'momo': .45, 'calm': .0},
+}
+NET_FEE_SOL = 0.0001          # ≈ base + capped priority fee per swap (estimate for fee drag)
+
+
+def _weights_for(genome, metas):
+    import fuse_vault   # local import keeps fuse.py importable on its own
+    return fuse_vault.auto_weights([{'pairAddress': pa, 'weight': 1} for pa in genome], metas)
+
+
+def fitness(genome, metas, style='yield', sol=0.05, sol_usd=150.0):
+    """Score one basket. Returns {fitness, parts} — every part is shown in the UI."""
+    st = STYLES.get(style, STYLES['yield'])
+    w = _weights_for(genome, metas)
+    ms = [{**metas[pa], 'weight': w[pa] * 100} for pa in genome]
+    sc = score(ms)
+    apr = sum(w[pa] * min(400.0, _f(metas[pa].get('aprEst'))) for pa in genome) / 4      # 0–100
+    momo = max(-50.0, min(50.0, sum(w[pa] * _f(metas[pa].get('change24h')) for pa in genome)))
+    calm = max(0.0, 100 - sum(abs(_f(metas[pa].get('change24h'))) for pa in genome) / len(genome) * 2)
+    impact = sum(1 for pa in genome if _f(metas[pa].get('liquidityUsd')) > 0 and sol * w[pa] * sol_usd / _f(metas[pa]['liquidityUsd']) * 100 > IMPACT_WARN_PCT)
+    drag = (NET_FEE_SOL * len(genome)) / sol * 100 if sol > 0 else 100.0          # % of the buy lost to network fees
+    bases = [metas[pa].get('baseAddress') or metas[pa].get('symbol') for pa in genome]
+    dupes = len(bases) - len(set(bases))
+    f = st['grade'] * sc['points'] + st['apr'] * apr + st['momo'] * momo * 2 + st['calm'] * calm - 15 * impact - 10 * dupes - min(40.0, drag * 2)
+    return {'fitness': round(f, 2), 'parts': {'grade': sc['grade'], 'points': sc['points'], 'aprScore': round(apr, 1), 'momentum24h': round(momo, 2),
+                                             'calm': round(calm, 1), 'impactLegs': impact, 'dupes': dupes, 'feeDragPct': round(drag, 2)}}
+
+
+def evolve(metas, legs=3, generations=12, population=24, style='yield', sol=0.05, sol_usd=150.0, seed=7):
+    """Genetic search over baskets of `legs` pools. Returns per-generation best/avg (the evolution chart), the top 3
+    champions with their fitness breakdown, and a lineage line for the winner."""
+    import random
+    rng = random.Random(seed)
+    pool = sorted(metas)
+    legs = max(2, min(MAX_LEGS, int(legs), len(pool)))
+    if len(pool) < 2:
+        return {'history': [], 'champions': [], 'pool': len(pool)}
+    key = lambda g: tuple(sorted(g))
+    cache = {}
+    def fit(g):
+        k = key(g)
+        if k not in cache:
+            cache[k] = fitness(list(k), metas, style, sol, sol_usd)
+        return cache[k]['fitness']
+    pop = [rng.sample(pool, legs) for _ in range(population)]
+    history, born = [], {}
+    for gen in range(generations):
+        pop = sorted({key(g): g for g in pop}.values(), key=lambda g: -fit(g))
+        for g in pop:
+            born.setdefault(key(g), gen)
+        scores = [fit(g) for g in pop]
+        history.append({'gen': gen, 'best': scores[0], 'avg': round(sum(scores) / len(scores), 2), 'unique': len(pop)})
+        elite = pop[:max(2, population // 5)]
+        nxt = [list(g) for g in elite]
+        while len(nxt) < population:
+            a, b = rng.sample(elite + pop[:population // 2], 2)
+            child = list(dict.fromkeys(rng.sample(a, legs // 2 + 1) + [x for x in b if x not in a]))[:legs]   # crossover
+            while len(child) < legs:
+                child.append(rng.choice([p for p in pool if p not in child]))
+            if rng.random() < 0.35:                                                                         # mutation
+                child[rng.randrange(legs)] = rng.choice([p for p in pool if p not in child] or child)
+            nxt.append(list(dict.fromkeys(child)) if len(set(child)) == legs else rng.sample(pool, legs))
+        pop = nxt
+    final = sorted({key(g): g for g in pop}.values(), key=lambda g: -fit(g))[:3]
+    champs = [{'pools': list(key(g)), 'bornGen': born.get(key(g), generations - 1), **cache[key(g)],
+               'weights': {k: round(v * 100, 1) for k, v in _weights_for(list(key(g)), metas).items()}} for g in final]
+    return {'history': history, 'champions': champs, 'pool': len(pool), 'style': style, 'legs': legs, 'evaluated': len(cache)}
