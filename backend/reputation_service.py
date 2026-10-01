@@ -4610,7 +4610,7 @@ async def _prime_candidates():
     live = await _runner_live()
     runners = [{'mint': r['mint'], 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'price': r.get('price'), 'score': r.get('score')} for r in live.get('passing') or [] if _fuse._f(r.get('price')) > 0]
     # Anchors: the real majors (SOL first, then JitoSOL / cbBTC / WBTC / ETH) at their deepest Solana pool — stable base of every card.
-    order = ['SOL', 'cbBTC', 'ETH', 'JitoSOL', 'WBTC']
+    order = ['SOL', 'cbBTC', 'WETH', 'ETH', 'JitoSOL', 'WBTC']
     maj = {str(r.get('symbol')): r for r in await _majors_rows()}
     anchors = [{'mint': r.get('baseAddress'), 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'price': r.get('priceUsd')} for k in order for r in [maj.get(k)] if r and _fuse._f(r.get('priceUsd')) > 0]
     return pools, runners, anchors
