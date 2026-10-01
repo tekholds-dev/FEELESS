@@ -61,3 +61,17 @@ test('Cmd Ctr: rotate every — typed minutes save as hours (15 min floor)', asy
   await act(async () => { inp.focus(); inp.blur(); });
   expect(JSON.parse(call.mock.calls.at(-1)[1].body).cfg.rotateHours).toBe(0.75);
 });
+
+test('meta config in one click + stop mode switch + parked coins shown on the card', async () => {
+  const { PrimeControls, ArenaPrime, PRIME_META } = require('./ArenaPrime');
+  const cfg = { sizeUsd: 100, rotateHours: 1, rotateCount: 1, compound: true, floorPct: 20, on: true, slMode: 'replace' };
+  global.fetch = jest.fn(async () => ({ json: async () => ({ cards: [{ ...CARD, why: 'all runners', parked: [{ pairAddress: 'PX', symbol: 'GONE', usd: 18.5, backAt: 0.0012 }] }], cfg }) }));
+  const call = jest.fn(async (p, o) => ({ cfg: { ...cfg, ...JSON.parse(o.body).cfg } }));
+  const el = await mount(<PrimeControls call={call} />);
+  await act(async () => { el.querySelector('[data-testid="prime-meta"]').click(); });
+  expect(JSON.parse(call.mock.calls.at(-1)[1].body).cfg).toEqual(PRIME_META);
+  await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === '❄ Hold').click(); });
+  expect(JSON.parse(call.mock.calls.at(-1)[1].body).cfg).toEqual({ slMode: 'hold' });
+  const ap = await mount(<ArenaPrime onLoad={() => {}} />);
+  expect(ap.textContent).toContain('🅿 $GONE'); expect(ap.textContent).toContain('$18.50'); expect(ap.textContent).toContain('all runners');
+});

@@ -27,3 +27,17 @@ test('vault designer: every SOL number has its $, the draft shows who earns what
   expect(m).toContain('100% APR'); expect(m).toContain('holder earns $1.3K/yr'); expect(m).toContain('$165');
   jest.useRealTimers();
 });
+
+test('vault ← Arena card: its majors + pools (not runners) load as vault pools in one tap', async () => {
+  const card = { id: 'prime-balanced', tpl: 'balanced', label: '🥇 Prime Gold', pnlPct: 2, legs: [{ mint: 'So1', pairAddress: 'PS', symbol: 'SOL', role: 'anchor' }, { mint: 'PumpM', pairAddress: 'PP', symbol: 'PUMP', role: 'pool' }, { mint: 'R', pairAddress: 'PR', symbol: 'RUN', role: 'runner' }] };
+  global.fetch = jest.fn(async url => ({ json: async () => (String(url).includes('/fuses/prime') ? { cards: [card] }
+    : { pools: [{ pairAddress: String(url).includes('So1') ? 'PS' : 'PP', symbol: String(url).includes('So1') ? 'SOL' : 'PUMP', quote: 'USDC', kind: 'v3', venue: 'orca', liquidityUsd: 3e7, aprEst: 30 }] }) }));
+  const call = jest.fn(async () => ({ vaults: [], feeWallet: '' }));
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<VaultDesigner call={call} />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 30)); });
+  await act(async () => { el.querySelector('[data-testid="vd-from-balanced"]').click(); });
+  await act(async () => { await new Promise(r => setTimeout(r, 30)); });
+  const legs = [...el.querySelectorAll('.vd-leg b')].map(b => b.textContent);
+  expect(legs).toEqual(['SOL/USDC', 'PUMP/USDC']); expect(el.querySelector('[aria-label="Vault name"]').value).toBe('Prime Gold Vault');
+});

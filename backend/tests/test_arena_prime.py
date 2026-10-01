@@ -17,15 +17,38 @@ def test_stars_and_only_3_star_coins_get_in():
     assert [l['mint'] for l in card['legs']] == ['sol', 'a', 'r2', 'r3'] and all(l['stars'] >= 3 for l in card['legs'])   # 2★ runner kept off
 
 
-def test_top_tiers_are_solid_holds_majors_first():
-    maj = [C('sol', 1, 'SOL'), C('btc', 1, 'cbBTC'), C('eth', 1, 'ETH')]
-    d = ap.deal('safe', [P('sol', 1), P('pump', 2)], [R('r1', 0.1)], CFG, 0, maj)            # Diamond: 3 majors + PUMP, no runners
-    assert [(l['mint'], l['role']) for l in d['legs']] == [('sol', 'anchor'), ('btc', 'anchor'), ('eth', 'anchor'), ('pump', 'pool')]
-    assert all(abs(l['costUsd'] - 25) < 1e-9 for l in d['legs']) and d['label'] == '💎 Prime Diamond'
-    g = ap.deal('balanced', [P('pump', 2)], [R('r1', 0.1)], CFG, 0, maj)
-    assert [l['role'] for l in g['legs']] == ['anchor', 'anchor', 'pool', 'runner']
-    assert {t['tier'] for t in ap.TEMPLATES.values()} == {'diamond', 'gold', 'blaze'}
-    assert all(t['anchors'] >= 1 and 3 <= t['anchors'] + t['pools'] + t['runners'] <= 5 and t['sl'] <= 20 for t in ap.TEMPLATES.values())
+def test_five_tiers_majors_solid_holds_and_young_coins_for_diamond():
+    maj = [C('sol', 1, 'SOL'), C('btc', 1, 'cbBTC'), C('eth', 1, 'WETH'), C('jito', 1, 'JitoSOL')]
+    d = ap.deal('safe', [P('pump', 2)], [R('y1', 0.1), R('y2', 0.1), R('y3', 0.1)], CFG, 0, maj)     # 💎 young coins toward 10×
+    assert [l['role'] for l in d['legs']] == ['anchor', 'runner', 'runner', 'runner'] and ap.TEMPLATES['safe']['tp'] == 900
+    ev = ap.deal('ever', [P('pump', 2)], [R('y1', 0.1)], CFG, 0, maj)                                 # ♾ 4 majors + PUMP, no stops
+    assert [l['mint'] for l in ev['legs']] == ['sol', 'btc', 'eth', 'jito', 'pump'] and ap.TEMPLATES['ever']['sl'] == 0
+    nx = ap.deal('next', [P('pump', 2)], [R(f'r{i}', 1) for i in range(5)], CFG, 0, maj)              # ⚡ all runners
+    assert [l['role'] for l in nx['legs']] == ['runner'] * 4
+    assert {t['tier'] for t in ap.TEMPLATES.values()} == {'diamond', 'gold', 'blaze', 'next', 'ever'}
+    assert all(3 <= t['anchors'] + t['pools'] + t['runners'] <= 5 and t.get('why') for t in ap.TEMPLATES.values())
+
+
+def test_stop_modes_replace_park_and_rebuy_or_hold():
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], CFG, 0, SOL[:1])
+    px = {'Psol': 1, 'Pa': 1, 'Pr1': 0.75, 'Pr2': 1}                                       # r1 −25% ≤ −20%
+    park = ap.tick(card, px, [], [R('r9', 1)], {**CFG, 'slMode': 'park'}, 60, SOL)
+    assert 'r1' not in [l['mint'] for l in park['legs']] and 'Pr1' in park['parked'] and 'r9' not in [l['mint'] for l in park['legs']]
+    assert abs(ap.value(park, px) - ap.value(card, px)) < 1e-6                               # parked $ still counts in the card
+    back = ap.tick(park, {**px, 'Pr1': 1.0}, [], [], {**CFG, 'slMode': 'park'}, 120, SOL)  # back at entry, no fading → rebuy
+    assert 'r1' in [l['mint'] for l in back['legs']] and not back['parked'] and back['events'][-1]['kind'] == 'rebuy'
+    stay = ap.tick(park, {**px, 'Pr1': 1.0}, [], [], {**CFG, 'slMode': 'park'}, 120, SOL, {'Pr1': {'chg1h': -5, 'buyShare': 40}})
+    assert 'Pr1' in stay['parked']                                                           # back at entry but fading → waits
+    hold = ap.tick(card, px, [], [R('r9', 1)], {**CFG, 'slMode': 'hold'}, 60, SOL)
+    assert 'r1' in [l['mint'] for l in hold['legs']]
+    assert ap.clean_cfg({'slMode': 'nope'})['slMode'] == 'replace' and ap.clean_cfg({'slMode': 'park'})['slMode'] == 'park'
+
+
+def test_everlasting_majors_are_never_stopped():
+    maj = [C('sol', 1, 'SOL'), C('btc', 1, 'cbBTC'), C('eth', 1, 'WETH'), C('jito', 1, 'JitoSOL')]
+    card = ap.deal('ever', [P('pump', 1)], [], CFG, 0, maj)
+    out = ap.tick(card, {'Psol': 0.85, 'Pbtc': 0.85, 'Peth': 0.85, 'Pjito': 0.85, 'Ppump': 0.7}, [], [], CFG, 60, maj)
+    assert len(out['legs']) == 5 and not [e for e in out['events'] if e['kind'] in ('sl', 'park')]
 
 
 def test_exit_plan_rides_strong_momentum_and_banks_fading():
@@ -98,9 +121,9 @@ def test_service_deals_ticks_and_admin_config(monkeypatch):
     async def prices(legs): return {l['pairAddress']: 1.0 for l in legs}
     monkeypatch.setattr(rs, '_prime_candidates', cands); monkeypatch.setattr(rs, '_hq_prices', prices); monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN')
     rs._json_save(rs.FUSE_HQ_PATH, {})
-    assert asyncio.run(rs._prime_tick(1000)) == 3
+    assert asyncio.run(rs._prime_tick(1000)) == 5
     v = asyncio.run(rs.fuse_prime())
-    assert {c['tier'] for c in v['cards']} == {'diamond', 'gold', 'blaze'} and all(c['valueUsd'] == 100 for c in v['cards'])
+    assert {'gold', 'blaze', 'ever'} <= {c['tier'] for c in v['cards']} and all(c['valueUsd'] == 100 for c in v['cards'])
     class Rq:
         async def json(self): return {'cfg': {'rotateHours': 3, 'on': False}}
     out = asyncio.run(rs.fuse_prime_admin(Rq()))

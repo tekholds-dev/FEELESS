@@ -957,6 +957,8 @@ async def token_intel(chain: str, mint: str):
         supply_res, largest = await asyncio.gather(
             _rpc(http, 'getTokenSupply', [mint]), _rpc(http, 'getTokenLargestAccounts', [mint]), return_exceptions=True)
         supply = float(((supply_res or {}).get('value') or {}).get('uiAmount') or 0) if isinstance(supply_res, dict) else 0
+        if not supply and mint.endswith(('pump', 'bonk')):   # launchpad coins mint exactly 1B — an RPC hiccup must not blank the scan
+            supply = 1_000_000_000.0
         holders = ((largest or {}).get('value') or []) if isinstance(largest, dict) else []
         owners = {}
         if holders:
@@ -4416,7 +4418,8 @@ _runner_sem = asyncio.Semaphore(4)
 
 async def _runner_intel(mint):
     hit = _intel_cache.get(mint)
-    if hit and time.time() - hit[0] < INTEL_TTL:
+    # an INCOMPLETE scan (no top-10 — RPC hiccup) is retried after 60s instead of failing the coin for the whole TTL
+    if hit and time.time() - hit[0] < (INTEL_TTL if (hit[1] or {}).get('top10Pct') is not None else 60):
         return hit[1]
     async with _runner_sem:
         try:
@@ -4608,7 +4611,10 @@ async def _prime_candidates():
                      'liquidityUsd': m.get('liquidityUsd'), 'volume24h': m.get('volume24h'), 'rank': min(400.0, _fuse._f(m.get('aprEst'))) * math.log10(max(10.0, _fuse._f(m.get('liquidityUsd'))))} for pa, m in metas.items()
                     if m.get('baseAddress') and _fuse._f(m.get('priceUsd')) > 0 and _fuse._f(m.get('liquidityUsd')) >= 100_000), key=lambda x: -x['rank'])
     live = await _runner_live()
-    runners = [{'mint': r['mint'], 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'price': r.get('price'), 'score': r.get('score')} for r in live.get('passing') or [] if _fuse._f(r.get('price')) > 0]
+    # runners = pre-bond coins passing every gate + CLEAN GRADUATED young coins (<48h, failing ONLY the pre-bond gate)
+    young = list(live.get('passing') or []) + [r for r in live.get('dropped') or [] if r.get('gates') == ['Pre-bond (still on the curve)']]
+    runners = sorted(({'mint': r['mint'], 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'price': r.get('price'), 'score': r.get('score')} for r in young if _fuse._f(r.get('price')) > 0),
+                     key=lambda x: -_fuse._f(x['score']))
     # Anchors: the real majors (SOL first, then JitoSOL / cbBTC / WBTC / ETH) at their deepest Solana pool — stable base of every card.
     order = ['SOL', 'cbBTC', 'WETH', 'ETH', 'JitoSOL', 'WBTC']
     maj = {str(r.get('symbol')): r for r in await _majors_rows()}
@@ -4623,7 +4629,7 @@ async def _prime_tick(now):
     pools, runners, anchors = await _prime_candidates()
     d = _json_load(FUSE_HQ_PATH, {})
     cards = dict((d.get('prime') or {}).get('cards') or {})
-    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for c in cards.values() for l in c['legs']]) if cards else {}
+    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': pa} for c in cards.values() for pa in [l['pairAddress'] for l in c['legs']] + list((c.get('parked') or {}).keys())]) if cards else {}
     # live momentum per pair (runner board: 1h move, buy share, 5m/1h volume) → exit_plan decides ride / gain / bank / cut early
     live = _runner_live_cache.get('data') or {}
     mom = {r['pairAddress']: {k: r.get(k) for k in ('chg1h', 'buyShare', 'vol5m', 'vol1h')} for r in (live.get('passing') or []) + (live.get('dropped') or []) if r.get('pairAddress')}

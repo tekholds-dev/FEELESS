@@ -50,7 +50,7 @@ def candidate(pair, intel=None, creator_flagged=False, snipers_out=False, now_ms
             'txns1h': int(buys + sells), 'buyShare': round(buys / (buys + sells) * 100, 1) if buys + sells else None,
             'quality': _f((pair.get('quality') or {}).get('score')),
             'top10': intel.get('top10Pct'), 'insiders': intel.get('insidersHoldingPct'), 'dev': intel.get('devHoldingPct'),
-            'bundled': len(intel.get('bundledWallets') or []), 'scanned': bool(intel), 'creatorFlagged': bool(creator_flagged), 'snipersOut': bool(snipers_out),
+            'bundled': len(intel.get('bundledWallets') or []), 'scanned': bool(intel) and intel.get('top10Pct') is not None, 'creatorFlagged': bool(creator_flagged), 'snipersOut': bool(snipers_out),
             'mayhem': bool(mayhem or pair.get('mayhem') or pair.get('is_mayhem_mode')), 'creatorRep': creator_rep,
             # New checks (service keeps ~20 min of history per coin): curve speed, buyer acceleration, kill-switch signals
             'buysAccel': round(_f(((pair.get('txns') or {}).get('m5') or {}).get('buys')) / max(1.0, buys / 12), 2) if buys else 0.0,

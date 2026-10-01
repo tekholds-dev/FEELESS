@@ -14,14 +14,22 @@ import math
 # Three top tiers. Every coin on a Prime card is rated 3–5★ (anything weaker never gets in). Each card holds a STABLE anchor
 # (a real major on Solana: SOL / JitoSOL / cbBTC …, never rotated, never stopped out) + deep pools + gated runners.
 TEMPLATES = {   # anchors / pools / runners per card + the dial it runs
-    # SOLID HOLDS first: majors (SOL / cbBTC / ETH / JitoSOL) carry the card; runners are a small, tightly stopped kicker.
-    'safe': {'label': '💎 Prime Diamond', 'tier': 'diamond', 'anchors': 3, 'pools': 1, 'runners': 0, 'tp': 30, 'sl': 12},
-    'balanced': {'label': '🥇 Prime Gold', 'tier': 'gold', 'anchors': 2, 'pools': 1, 'runners': 1, 'tp': 50, 'sl': 15},
-    'degen': {'label': '🔥 Prime Blaze', 'tier': 'blaze', 'anchors': 1, 'pools': 1, 'runners': 2, 'tp': 100, 'sl': 20},
+    # 5 top tiers. Majors = solid holds; "young" runners = pre-bond runners + clean graduated coins under 48h (every gate but pre-bond).
+    'safe': {'label': '💎 Prime Diamond', 'tier': 'diamond', 'anchors': 1, 'pools': 0, 'runners': 3, 'tp': 900, 'sl': 35,
+             'why': 'young coins held toward 10× — momentum decides ride / bank, SOL anchors the card'},
+    'balanced': {'label': '🥇 Prime Gold', 'tier': 'gold', 'anchors': 2, 'pools': 1, 'runners': 1, 'tp': 50, 'sl': 15,
+                 'why': 'two majors + a deep pool + one runner kicker'},
+    'degen': {'label': '🔥 Prime Blaze', 'tier': 'blaze', 'anchors': 1, 'pools': 1, 'runners': 2, 'tp': 100, 'sl': 20,
+              'why': 'one major, one pool, two runners — doubles get banked'},
+    'next': {'label': '⚡ Prime Next Level', 'tier': 'next', 'anchors': 0, 'pools': 0, 'runners': 4, 'tp': 300, 'sl': 25,
+             'why': 'all runners, 4× take-profit, house money rides — the floor goes to cash'},
+    'ever': {'label': '♾ Prime Everlasting', 'tier': 'ever', 'anchors': 4, 'pools': 1, 'runners': 0, 'tp': 40, 'sl': 0,
+             'why': 'SOL / BTC / ETH / JitoSOL + PUMP — never stopped, only rotated if a pool weakens'},
 }
 MIN_STARS = 3
 HIT_PCT = 10.0      # a "good day" = the card is up ≥ +10% over 24h
-DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.10, 'floorPct': 20.0}
+DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.10, 'floorPct': 20.0, 'slMode': 'replace'}
+SL_MODES = ('replace', 'park', 'hold')   # on a stop: auto-replace · sell + park the slot (rebuy at entry with momentum) · hold
 CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.25, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 25)}
 
 
@@ -86,6 +94,8 @@ def clean_cfg(p):
     for k in ('on', 'compound'):
         if k in (p or {}):
             out[k] = bool(p[k])
+    if (p or {}).get('slMode') in SL_MODES:
+        out['slMode'] = p['slMode']
     return out
 
 
@@ -128,7 +138,7 @@ def deal(tid, pools, runners, cfg, now, anchors=(), usd=None, keep=None):
 
 
 def value(card, prices):
-    v = sum(l['units'] * (_f(prices.get(l['pairAddress'])) or l['entry']) for l in card['legs']) + card['cash']
+    v = sum(l['units'] * (_f(prices.get(l['pairAddress'])) or l['entry']) for l in card['legs']) + card['cash'] + sum(_f(p['usd']) for p in (card.get('parked') or {}).values())
     return round(v, 4)
 
 
@@ -181,26 +191,44 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None):
             else:
                 c['cash'] += gain
                 ev(kind='tp', symbol=l['symbol'], usd=round(gain, 4), why=label, mode=mode, to=['cash'])
-    # 2) auto stop-loss → replaced at once by the best gated candidate of the same role
-    for i, l in enumerate(list(c['legs'])):
+    # 2) stop-loss (sl 0 = never stopped) — what happens follows cfg slMode:
+    #    replace → sold and swapped at once for the best gated coin of the same role
+    #    park    → sold to cash, the SLOT is kept; bought back when price is back at the stop-out entry with momentum
+    #    hold    → never sold on a stop (the floor still protects the card)
+    mode = cfg.get('slMode', 'replace')
+    c['parked'] = dict(c.get('parked') or {})
+    for l in list(c['legs']):
         px = _f(prices.get(l['pairAddress']))
-        if l.get('role') == 'anchor' or px <= 0 or l['entry'] <= 0:
+        if l.get('role') == 'anchor' or not t['sl'] or mode == 'hold' or px <= 0 or l['entry'] <= 0:
             continue
         dd = (px / l['entry'] - 1) * 100
         if dd > -t['sl'] and not (dd <= -t['sl'] / 2 and fading(mom.get(l['pairAddress']))):   # early cut: half the stop + fading
             continue
         out_usd = l['units'] * px
-        nxt = best(l['role'])
+        why = f"{dd:.0f}% ≤ −{t['sl']}%" if dd <= -t['sl'] else f"{dd:.0f}% and fading (1h down, sellers lead) — cut early"
         c['feesUsd'] += fee
+        nxt = best(l['role']) if mode == 'replace' else None
         if nxt:
             c['legs'][c['legs'].index(l)] = _leg(nxt, out_usd, now, l['role']); c['feesUsd'] += fee
-            ev(kind='sl', symbol=l['symbol'], usd=round(out_usd, 4), why=(f"{dd:.0f}% ≤ −{t['sl']}%" if dd <= -t['sl'] else f"{dd:.0f}% and fading (1h down, sellers lead) — cut early"), to=[nxt.get('symbol')])
+            ev(kind='sl', symbol=l['symbol'], usd=round(out_usd, 4), why=why, to=[nxt.get('symbol')])
+        elif mode == 'park':
+            c['legs'].remove(l)
+            c['parked'][l['pairAddress']] = {**{k: l.get(k) for k in ('mint', 'pairAddress', 'symbol', 'role', 'stars', 'firstEntry')}, 'usd': round(out_usd, 6),
+                                             'backAt': l['entry'], 'at': now, 'price': px}
+            ev(kind='park', symbol=l['symbol'], usd=round(out_usd, 4), why=f"{why} — sold to SOL, slot kept; buys back at ${l['entry']:.6g} with momentum", to=['parked'])
         else:
             c['legs'].remove(l); c['cash'] += out_usd
-            ev(kind='sl', symbol=l['symbol'], usd=round(out_usd, 4), why=(f"{dd:.0f}% ≤ −{t['sl']}%" if dd <= -t['sl'] else f"{dd:.0f}% and fading (1h down, sellers lead) — cut early"), to=['cash'])
+            ev(kind='sl', symbol=l['symbol'], usd=round(out_usd, 4), why=why, to=['cash'])
+    # 2b) parked coins come back: price ≥ the entry they stopped out from AND momentum not fading → bought back with the parked $
+    for pa, pk in list(c['parked'].items()):
+        px = _f(prices.get(pa))
+        if px > 0 and px >= _f(pk['backAt']) and not fading(mom.get(pa)):
+            c['legs'].append(_leg({**pk, 'price': px}, pk['usd'], now, pk.get('role') or 'runner')); c['feesUsd'] += fee
+            del c['parked'][pa]
+            ev(kind='rebuy', symbol=pk['symbol'], usd=round(pk['usd'], 4), why='back at its entry with momentum — bought back', to=[pk['symbol']])
     # 3) auto-rotate every rotateHours: the rotateCount weakest coins out, the best candidates in
     if now - c['lastRotateAt'] >= cfg['rotateHours'] * 3600 and not c.get('flooredAt'):
-        ranked = sorted((l for l in c['legs'] if l.get('role') != 'anchor'), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
+        ranked = sorted((l for l in c['legs'] if l.get('role') != 'anchor' and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
         swapped = 0
         for l in ranked[:cfg['rotateCount']]:
             nxt = best(l['role'])
@@ -254,7 +282,8 @@ def summary(card, prices):
              'usd': round(l['units'] * (_f(prices.get(l['pairAddress'])) or l['entry']), 4)} for l in card['legs']]
     return {**{k: card[k] for k in ('id', 'tpl', 'label', 'at', 'lastRotateAt', 'compoundedUsd', 'takenUsd', 'feesUsd', 'startUsd')}, 'cash': round(card['cash'], 4),
             'valueUsd': v, 'pnlPct': round((v / start - 1) * 100, 2), 'legs': legs, 'events': card['events'][-12:][::-1],
-            'tp': TEMPLATES[card['tpl']]['tp'], 'sl': TEMPLATES[card['tpl']]['sl'], 'tier': TEMPLATES[card['tpl']]['tier'],
+            'tp': TEMPLATES[card['tpl']]['tp'], 'sl': TEMPLATES[card['tpl']]['sl'], 'tier': TEMPLATES[card['tpl']]['tier'], 'why': TEMPLATES[card['tpl']].get('why'),
+            'parked': list((card.get('parked') or {}).values()),
             **record(card)}
 
 

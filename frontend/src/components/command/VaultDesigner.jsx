@@ -33,6 +33,18 @@ export function VaultDesigner({ call }) {
   const add = p => { setQ(''); setFound([]); setDraft(x => (x.pools.some(l => l.pairAddress === p.pairAddress) || x.pools.length >= 3 ? x
     : { ...x, pools: [...x.pools, { pairAddress: p.pairAddress, chainId: 'solana', symbol: `${p.symbol}/${p.quote}`, kind: p.kind, venue: p.venue, weight: 1, capPct: 2, rangePct: p.kind === 'v3' ? 20 : null, meta: p }] })); };
   const setPool = (i, patch) => setDraft(x => ({ ...x, pools: x.pools.map((p, j) => (j === i ? { ...p, ...patch } : p)) }));
+  // 🏟 Vault ← Arena: a Prime card's majors + pools become the vault's pools (runners stay on cards — a vault earns pool fees,
+  // so it needs deep pools). Each coin's deepest Solana pool is looked up live; max 3.
+  const [arena, setArena] = useState([]);
+  useEffect(() => { fetch(apiUrl('/api/reputation/fuses/prime')).then(r => r.json()).then(x => setArena(x.cards || [])).catch(() => {}); }, []);
+  const fromCard = async c => {
+    const legs = c.legs.filter(l => l.role !== 'runner').slice(0, 3);
+    const hits = await Promise.all(legs.map(l => fetch(apiUrl(`/api/reputation/vaults/pools?q=${encodeURIComponent(l.mint)}`)).then(r => r.json()).then(x => (x.pools || []).find(p => p.pairAddress === l.pairAddress) || (x.pools || [])[0]).catch(() => null)));
+    const got = hits.filter(Boolean);
+    if (!got.length) { toast.error('No vault-ready pools on that card right now.'); return; }
+    setDraft(x => ({ ...x, name: x.name || `${c.label.replace(/^\S+\s/, '')} Vault`, emoji: '🏟', pools: [] }));
+    got.forEach(add); toast.success(`${got.length} pools from ${c.label} loaded — set weights + caps, then save`);
+  };
   const save = async body => { try { await call('/admin/vaults', { method: 'POST', body: JSON.stringify(body) }); toast.success('Vault saved'); setDraft(EMPTY); load(); } catch (e) { toast.error(e.message); } };
   // Draft money preview: weighted pool APR (capped like the engine) on the simulated deposit → yield and what each fee takes.
   const wsum = draft.pools.reduce((a, p) => a + (Number(p.weight) || 0), 0) || 1;
@@ -64,6 +76,8 @@ export function VaultDesigner({ call }) {
         </article>)}</section>
 
     <section className="m-card vd-build"><div className="m-row"><span className="m-label">{draft.id ? '✎ EDIT VAULT' : '＋ DESIGN A VAULT'}</span><small className="m-dim">Solana pools only · max 3 · saved as a design</small></div>
+      {arena.length > 0 && <div className="vd-arena"><small className="m-label">🏟 START FROM AN ARENA CARD</small><div className="m-row">{arena.map(c => <button key={c.id} type="button" className="vd-hit" onClick={() => fromCard(c)} data-testid={`vd-from-${c.tpl}`}
+        data-tip={`Loads ${c.legs.filter(l => l.role !== 'runner').map(l => l.symbol).join(' · ') || 'its pools'} as vault pools — the vault earns their trading fees`}><b>{c.label}</b><small>{c.legs.filter(l => l.role !== 'runner').map(l => `$${l.symbol}`).join(' · ')} · {c.pnlPct >= 0 ? '+' : ''}{c.pnlPct.toFixed(1)}%</small></button>)}</div></div>}
       <div className="vd-step"><span className="vd-n">1</span><div className="vd-fields"><input className="m-input fz-emoji-in" value={draft.emoji} onChange={e => setDraft({ ...draft, emoji: e.target.value })} aria-label="Emoji" />
         <input className="m-input" placeholder="Vault name (e.g. FEE Yield)" value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} aria-label="Vault name" /></div></div>
       <div className="vd-step"><span className="vd-n">2</span><div className="vd-fields">
