@@ -302,3 +302,10 @@ body.theme-day .fside-tabs { background: var(--m-surface-2); }
 .fcd-back .up { color: #19f58f; } .fcd-back .down { color: #ff8fa3; } .fcd-back dd b { font-size: 14px; }
 .fcd-note { font-size: 9px; line-height: 1.35; opacity: .7; }
 .fcd-back ul { max-height: 124px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--a) transparent; padding-right: 2px; } .fcd-back li { font-size: 10.5px; row-gap: 0; }
+/* "How your money moves" (receipt). */
+.fg-how { border-top: 1px dashed var(--m-line); padding-top: 6px; }
+.fg-how summary { cursor: pointer; font-family: var(--m-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--m-accent); }
+.fg-how summary:hover { text-decoration: underline; } .fg-how summary:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.fg-flow { display: grid; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 11.5px; line-height: 1.5; color: var(--m-dim); }
+.fg-flow li { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; padding-left: 2px; border-left: 2px solid var(--m-line); padding: 2px 0 2px 8px; }
+.fg-flow b { color: var(--m-text); font-family: var(--m-mono); font-size: 11px; min-width: 18px; } .fg-flow em { font-style: normal; color: var(--m-text); }

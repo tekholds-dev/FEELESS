@@ -20,8 +20,11 @@ export function quoteLine(r) {
   const q = r.order?.quote || {}; const usd = Number(q.inUsdValue) || 0; const sol = Number(r.request?.amount) || 0;
   const solUsd = sol > 0 && usd > 0 ? usd / sol : 0;
   const lamports = ['signatureFeeLamports', 'prioritizationFeeLamports'].reduce((a, k) => a + Number(q[k] || 0), 0);
-  return { sig: r.sig, symbol: r.target?.symbol, sol, usd, tokens: outOf(r.order), feeUsd: usd * (r.order?.feeless_fee?.bps || 0) / 10000,
-    networkUsd: lamports / 1e9 * solUsd, impact: impactPercent(q) };
+  const tokens = outOf(r.order); const liq = Number(r.leg?.liquidityUsd) || 0;
+  const route = [...new Set((q.routePlan || []).map(x => x?.swapInfo?.label).filter(Boolean))];
+  return { sig: r.sig, symbol: r.target?.symbol, sol, usd, tokens, feeUsd: usd * (r.order?.feeless_fee?.bps || 0) / 10000, feeBps: r.order?.feeless_fee?.bps || 0,
+    networkUsd: lamports / 1e9 * solUsd, impact: impactPercent(q), price: tokens ? usd / tokens : null, weight: Number(r.leg?.weight) || null,
+    pool: r.leg?.dex || route[0] || 'best route', route, liq, share: liq ? usd / liq * 100 : null, side: r.request?.input_mint === r.order?.input_mint && r.order?.output_mint === 'So11111111111111111111111111111111111111112' ? 'sell' : 'buy' };
 }
 const fmt = n => (n == null ? '—' : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n >= 1 ? n.toFixed(2) : n.toPrecision(3));
 
@@ -104,6 +107,15 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position }) 
         <table><thead><tr><th>Coin</th><th>Pay</th><th>Get ≈</th><th>FEELESS fee</th><th>Network</th><th>Impact</th></tr></thead>
           <tbody>{lines.map(l => <tr key={l.symbol}><td>{l.symbol}</td><td>{l.sol} SOL<small>{usd2(l.usd)}</small></td><td>{fmt(l.tokens)}</td><td>{usd2(l.feeUsd)}</td><td>{usd2(l.networkUsd)}</td><td className={l.impact > 1 ? 'm-neg' : ''}>{l.impact != null ? `${l.impact.toFixed(2)}%` : '—'}</td></tr>)}</tbody>
           <tfoot><tr><td>Total</td><td>{tot.sol.toFixed(4)} SOL<small>{usd2(tot.usd)}</small></td><td /><td>{usd2(tot.fee)}</td><td>{usd2(tot.net)}</td><td /></tr></tfoot></table>
+        {!sell && <details className="fg-how" data-testid="fg-how"><summary>How your money moves</summary>
+          <ol className="fg-flow"><li><b>1</b>Your wallet sends {tot.sol.toFixed(4)} SOL ({usd2(tot.usd)}) — split by the Fuse weights.</li>
+            {lines.map(l => <li key={l.symbol}><b>{l.symbol}</b><span>{l.weight ? `${Math.round(l.weight)}% → ` : ''}{l.sol} SOL ({usd2(l.usd)}) is swapped through <em>{l.route.length ? l.route.join(' → ') : l.pool}</em>
+              {l.liq ? <> (pool depth {usd2(l.liq)}; your slice is <em>{l.share < 0.01 ? '<0.01' : l.share.toFixed(2)}%</em> of it{l.impact > 1 ? ' — big enough to move the price' : ''})</> : null}.
+              You get ≈ {fmt(l.tokens)} {l.symbol}{l.price ? <> at ≈ ${l.price < 0.01 ? l.price.toPrecision(3) : l.price.toFixed(4)} each</> : null}.
+              {l.feeUsd > 0 ? <> {usd2(l.feeUsd)} ({(l.feeBps / 100).toFixed(2)}%) is the FEELESS fee</> : <> No FEELESS fee</>}; {usd2(l.networkUsd)} goes to Solana validators.</span></li>)}
+            <li><b>✓</b>The coins land in <em>your</em> wallet. FEELESS never holds them. From here each one moves with its own price — up or down. You don't earn the pool's trading fees (that's for liquidity providers); you own the coins.</li>
+            <li><b>↩</b>Exit any time with Unfuse (one approval, same fees once) or set 🎯 limits to get pinged at your target.</li></ol>
+        </details>}
         <p className="fg-rcpt-note">Costs {usd2(tot.fee + tot.net)} = <b>{tot.usd ? ((tot.fee + tot.net) / tot.usd * 100).toFixed(1) : 0}%</b> of {usd2(tot.usd)}. {tot.usd && (tot.fee + tot.net) / tot.usd > 0.05 ? 'High for this size — fewer pools or more SOL keeps more working.' : 'Quotes refresh every 10s until you sign.'}</p></div>}
       <div className="fg-acts"><button type="button" className="m-btn primary m-go" disabled={!ready.length || phase !== 'review'} onClick={signAll} data-testid="fg-sign">{phase === 'signing' ? 'Waiting for wallet…' : phase === 'sending' ? 'Sending…' : `${sell ? '↩ Unfuse' : '⚡ Approve'} ${ready.length} ${sell ? 'sell' : 'swap'}${ready.length === 1 ? '' : 's'} · 1 click`}</button>
         <button type="button" className="m-btn" disabled={['signing', 'sending'].includes(phase)} onClick={onClose}>Cancel</button></div>
@@ -113,7 +125,8 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position }) 
         {rcpt && <table><thead><tr><th>Coin</th><th>Quoted</th><th>Paid</th><th>Fees</th><th>Got</th><th>Slip</th></tr></thead>
           <tbody>{rcpt.legs.map(l => <tr key={l.sig}><td>{l.symbol}</td><td>{usd2(l.quotedUsd)}</td><td>{l.pending ? '…' : usd2(l.paidUsd)}</td><td>{l.pending ? '…' : usd2(l.paidFeesUsd)}</td><td>{l.pending ? '…' : fmt(l.gotTokens)}</td>
             <td className={l.slippagePct > 1 ? 'm-neg' : 'm-pos'}>{l.slippagePct == null ? '—' : `${l.slippagePct.toFixed(2)}%`}</td></tr>)}</tbody>
-          <tfoot><tr><td>Total</td><td>{usd2(rcpt.quotedUsd)}</td><td>{usd2(rcpt.paidUsd)}</td><td>{usd2(rcpt.paidFeesUsd)}</td><td colSpan={2}>{rcpt.feePct}% in fees</td></tr></tfoot></table>}</div>
+          <tfoot><tr><td>Total</td><td>{usd2(rcpt.quotedUsd)}</td><td>{usd2(rcpt.paidUsd)}</td><td>{usd2(rcpt.paidFeesUsd)}</td><td colSpan={2}>{rcpt.feePct}% in fees</td></tr></tfoot></table>}
+        {rcpt && <p className="fg-rcpt-note"><b>What happened:</b> {usd2(rcpt.paidUsd)} left your wallet; {usd2(rcpt.paidFeesUsd)} of it was fees; the rest became the coins above, now in your wallet. "Slip" = fewer coins than quoted because the price moved while it landed. Your Fuse P&L now tracks these exact fills live.</p>}</div>
       <div className="fg-acts"><button type="button" className="m-btn" onClick={onClose}>Done</button></div></>}
   </div>;
 }

@@ -34,3 +34,9 @@ test('receipt line: $ in, FEELESS fee, network fee and impact from the quote', (
     quote: { inUsdValue: 100, outAmount: '2000000', signatureFeeLamports: 5000, prioritizationFeeLamports: 95000, priceImpactPct: '0.004' } } });
   expect(l.usd).toBe(100); expect(l.feeUsd).toBe(0.5); expect(l.tokens).toBe(2); expect(l.networkUsd).toBeCloseTo(0.02); expect(l.impact).toBeCloseTo(0.4);
 });
+
+test('receipt line knows the pool: route, depth, your share of it, price per coin', () => {
+  const l = quoteLine({ leg: { weight: 40, liquidityUsd: 50000, dex: 'raydium' }, request: { amount: '0.5' }, target: { symbol: 'X' },
+    order: { feeless_fee: { bps: 50 }, output_metadata: { decimals: 6 }, quote: { inUsdValue: 100, outAmount: '2000000', routePlan: [{ swapInfo: { label: 'Raydium CLMM' } }] } } });
+  expect(l.route).toEqual(['Raydium CLMM']); expect(l.share).toBeCloseTo(0.2); expect(l.price).toBe(50); expect(l.weight).toBe(40);
+});
