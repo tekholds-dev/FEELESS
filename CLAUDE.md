@@ -99,6 +99,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Fuse in = one normal wallet-signed swap per leg (no new money path). A Fuse buy counts only if the signature is the
   buyer's confirmed FEELESS trade; the creator's cut (≤50% of that FEELESS fee) is tracked earned/paid/owed.
 - Built and paid out in Cmd Ctr › ⚛️ Fuse. System map: `docs/ARCHITECTURE.md`.
+- FUSE Vault (one contract, ≤3 v2/v3 pools, SOL in → shares, fees in SOL to Trading & fees › Vault fee wallet):
+  engine `backend/fuse_vault.py` (spec, tested) ⇄ program `contracts/fuse_vault` (Anchor; math.rs mirrors it —
+  change both together). v0.1 = custody/shares/fees/admin on LOCALNET ONLY; pool adapters + audit before any
+  deploy. Never deploy or fund it without the owner; no instruction may set a position value that wasn't deployed.
 
 ## Badges + quest engine
 - `backend/quests.py` (pure, tested): 40 animated badges = FEELESS set (`q-*`, everyone) + Fee Reserve set (`frsv-*`, every
