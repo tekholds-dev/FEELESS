@@ -150,3 +150,15 @@ test('auto-set TP/SL presets fill every coin (runners by lane), and the bond met
   expect(el.textContent).toContain('bond 1/2'); expect(el.querySelectorAll('i.on')).toHaveLength(1);
   act(() => { createRoot(el).render(<BondMeter checks={[{ id: 'a', label: 'x', ok: true }]} />); });
 });
+
+test('Cmd Ctr engine: stronger config listed with reasons, one click applies the merged values', async () => {
+  const React = require('react'); const { act } = React; const { createRoot } = require('react-dom/client');
+  const { EngineSuggest } = require('./command/FuseAdminSettings');
+  const call = jest.fn(async (path) => (path === '/admin/runners/suggest' ? { cfg: { minMcap: 8000, roundSize: 5 }, suggestions: [{ key: 'minMcap', now: 8000, to: 12000, why: 'bots' }],
+    lanes: { scalp: { n: 5, avgPct: -3, winRate: 20, losingDays: 3 } }, weights: { scalp: 0.5 } } : { ok: true }));
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<EngineSuggest call={call} />); });
+  expect(el.textContent).toContain('Stronger config found · 1 settings'); expect(el.textContent).toContain('scalp -3% · ×0.5');
+  await act(async () => { el.querySelector('[data-testid="engine-apply"]').click(); });
+  expect(call).toHaveBeenCalledWith('/admin/runners/config', { method: 'POST', body: JSON.stringify({ cfg: { minMcap: 12000, roundSize: 5 } }) });
+});

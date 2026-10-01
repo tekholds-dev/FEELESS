@@ -67,7 +67,7 @@ export function QuestBoard() {
   const [open, setOpen] = useState(null);
   const [busy, setBusy] = useState(false);
   const shown = useMemo(() => (d?.badges || []).filter(b => (set === 'earned' ? b.earned : b.set === set)), [d, set]);
-  if (!wallet?.address) return <section className="m-card qb-empty" data-testid="quest-board"><span className="m-label">BADGES · QUESTS</span><h2>40 animated badges. Every one earned on-chain.</h2><button type="button" className="m-btn primary m-go" onClick={() => connect?.('solana')}>Connect wallet to start</button></section>;
+  if (!wallet?.address) return <section className="m-card qb-empty" data-testid="quest-board"><span className="m-label">BADGES · QUESTS</span><h2>45 animated badges. Every one earned on-chain.</h2><button type="button" className="m-btn primary m-go" onClick={() => connect?.('solana')}>Connect wallet to start</button></section>;
   if (!d) return <section className="m-card" data-testid="quest-board"><span className="loader" /> Loading your quests…</section>;
   const checkin = async () => {
     setBusy(true);

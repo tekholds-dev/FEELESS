@@ -116,3 +116,21 @@ export function FusePayouts({ call }) {
       {plan.history?.length > 0 && <details className="fpay-hist"><summary>Past payouts</summary>{plan.history.map(h => <small key={h.at}>{new Date(h.at * 1000).toLocaleDateString()} · ${h.rows.reduce((a, r) => a + r.usd, 0).toFixed(2)} to {h.rows.length} · {h.sigs[0].slice(0, 8)}…</small>)}</details>}</>}
   </div>;
 }
+
+// ⚡ Stronger engine found: the server compares the live runner config with the recommended one (runners.RECOMMENDED) and
+// lists every weaker setting with its reason + each lane's self-tuning record. Nothing changes until Cmd Ctr clicks Apply.
+export function EngineSuggest({ call }) {
+  const [d, setD] = useState(null);
+  const load = () => call('/admin/runners/suggest').then(setD).catch(() => {});
+  useEffect(() => { load(); }, [call]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!d?.suggestions) return null;
+  const apply = async () => { try { await call('/admin/runners/config', { method: 'POST', body: JSON.stringify({ cfg: { ...d.cfg, ...Object.fromEntries(d.suggestions.map(s => [s.key, s.to])) } }) });
+    toast.success('Stronger engine applied — the next round uses it.'); load(); } catch (e) { toast.error(e.message); } };
+  const lanes = Object.entries(d.lanes || {});
+  return <div className={`m-card eng-sug ${d.suggestions.length ? 'is-on' : ''}`} data-testid="engine-suggest">
+    <div className="m-row"><span className="m-label">⚡ ENGINE</span>{d.suggestions.length ? <b>Stronger config found · {d.suggestions.length} settings</b> : <small className="m-dim">Running the recommended engine.</small>}
+      {d.suggestions.length > 0 && <button type="button" className="m-btn primary m-go" onClick={apply} data-testid="engine-apply">Apply stronger engine</button>}</div>
+    {d.suggestions.length > 0 && <ul className="eng-list">{d.suggestions.map(s => <li key={s.key}><code>{s.key}</code><span className="m-num">{s.now} → <b>{s.to}</b></span><small className="m-dim">{s.why}</small></li>)}</ul>}
+    {lanes.length > 0 && <div className="eng-lanes">{lanes.map(([l, p]) => <span key={l} className={`m-chip ${d.weights?.[l] < 1 ? 'warn' : d.weights?.[l] > 1 ? 'ok' : ''}`} data-tip={`${p.n} picks · ${p.winRate}% won · lost ${p.losingDays} day(s) in a row`}>{l} {p.avgPct >= 0 ? '+' : ''}{p.avgPct}% · ×{d.weights?.[l] ?? 1}</span>)}</div>}
+  </div>;
+}

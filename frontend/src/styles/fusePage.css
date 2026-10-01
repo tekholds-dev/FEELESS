@@ -287,3 +287,10 @@ body.theme-day .bf-pair { background: #fff; } body.theme-day .ar-wl { color: #5a
 @keyframes bmOn { from { transform: scaleX(0); } } @keyframes bmFull { from { opacity: .65; } to { opacity: 1; } }
 body.fx-lite .bond-meter i { animation: none; } @media (prefers-reduced-motion: reduce) { .bond-meter i { animation: none; } }
 .fp-legcharts { display: inline-flex; gap: 4px; flex-wrap: wrap; } .fp-legcharts .m-btn { min-height: 28px; padding: 0 8px; font-size: 10.5px; }
+
+/* Cmd Ctr › ⚡ Engine suggestions + self-tuned lane chips */
+.eng-sug { display: grid; gap: 8px; margin-bottom: 10px; } .eng-sug > .m-row { gap: 10px; flex-wrap: wrap; } .eng-sug > .m-row .m-btn { margin-left: auto; }
+.eng-sug.is-on { border-color: var(--m-warn); animation: fpIn .25s var(--m-ease) backwards; }
+.eng-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; } .eng-list li { display: grid; grid-template-columns: 130px 110px 1fr; gap: 10px; font-size: 12px; align-items: baseline; }
+.eng-lanes { display: flex; gap: 6px; flex-wrap: wrap; }
+body.fx-lite .eng-sug.is-on { animation: none; }

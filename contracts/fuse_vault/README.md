@@ -37,3 +37,30 @@ anchor test --skip-local-validator --provider.cluster localnet
 1. Pool adapters + valuation, then a devnet run with real pool programs.
 2. External audit.
 3. Deploy with the owner's keys; set the upgrade authority to a multisig; set the vault fee wallet in Command Center.
+
+
+# FUSE Card (`programs/fuse_card`) — v0.1, localnet only
+
+One on-chain account per Fuse card (PDA `["card", owner, card_id]`). Each leg's coins sit in a token account owned by the
+card PDA. Rules are hard-coded in `constants.rs` (mirror `backend/fuse_hq.py` / `runners.py`):
+
+| Rule | Value |
+|---|---|
+| Trader card | ≤ 3 pools + ≤ 3 runners |
+| Cmd Ctr card (config admin) | ≤ 12 legs, any mix |
+| Auto-profit levels | +25 / +50 / +100 / +200 % (or off) |
+| Per-coin TP / SL | +5…+1000 % / −5…−95 % (or off) |
+
+| Who | Can |
+|---|---|
+| Owner | open, set toggles (auto TP, auto-compound, hold/swap, profit level) and per-coin TP/SL, deposit, **withdraw any time**, close when empty |
+| Keeper | `keeper_return` ONLY: send a leg's coins back to the **owner's own token account**, only when the owner switched automation on (TP / SL / profit / compound), never while paused |
+| Admin | set keeper, pause the keeper (owners can still withdraw) |
+
+v0.1 can't sell on-chain: auto TP and auto-compound return the coins to the owner's wallet as a standing order (no click each time).
+Selling / re-buying in-program needs swap adapters + price checks — next, then an audit, then the owner's keys.
+
+```bash
+cargo test -p fuse_card --lib            # hard-coded rules + keeper fence
+anchor build -p fuse_card                # target/deploy/fuse_card.so + IDL
+```
