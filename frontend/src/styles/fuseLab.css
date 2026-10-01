@@ -325,3 +325,6 @@ body.theme-day .vmath-col { background: var(--m-surface-2); }
 @media (max-width: 620px) { .vmath { grid-template-columns: 1fr; } }
 .fl-addon { font-size: 12px; padding: 8px 10px; border-radius: var(--m-r-sm); border: 1px dashed color-mix(in srgb, #ff7a2f 55%, var(--m-line)); } .fl-addon small { color: var(--m-dim); font-family: var(--m-mono); font-size: 10px; }
 .fl-legs li.is-runner b { color: #ff9a5a; }
+.fcm-aura { width: 190px; } .fcm-aura summary { cursor: pointer; font-family: var(--m-mono); font-size: 10px; letter-spacing: .08em; color: var(--m-warn); text-transform: uppercase; }
+.fcm-aura summary:hover { text-decoration: underline; } .fcm-aura[open] .aura-pick { margin-top: 6px; grid-template-columns: repeat(3, 1fr); }
+.qe-aura-row { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; padding: 16px 8px; }

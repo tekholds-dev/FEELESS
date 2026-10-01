@@ -129,11 +129,11 @@ def merge(defaults, overrides):
     out = []
     for d in defaults:
         o = ov.get(d['id']) or {}
-        out.append({**d, **{k: v for k, v in o.items() if k in ('name', 'tier', 'enabled', 'tasks', 'art', 'perks')}})
+        out.append({**d, **{k: v for k, v in o.items() if k in ('name', 'tier', 'enabled', 'tasks', 'art', 'perks', 'aura')}})
     for bid, o in ov.items():
         if not any(d['id'] == bid for d in defaults) and o.get('tasks'):
             out.append({'id': bid, 'set': o.get('set', 'feeless'), 'name': o.get('name', bid), 'tier': o.get('tier', 'rare'),
-                        'enabled': o.get('enabled', True), 'art': o.get('art', ''), 'tasks': o['tasks'], 'perks': o.get('perks') or []})
+                        'enabled': o.get('enabled', True), 'art': o.get('art', ''), 'tasks': o['tasks'], 'perks': o.get('perks') or [], 'aura': o.get('aura', '')})
     return out
 
 

@@ -211,3 +211,17 @@ def test_basket_guard_fires_once_with_unfuse_link(monkeypatch):
     assert asyncio.run(rs._fuse_guard_tick()) == 1 and asyncio.run(rs._fuse_guard_tick()) == 0
     a, k = sent[0]
     assert 'Take-profit' in a[2] and k['url'].endswith('unfuse=g1') and k['meta']['source']
+
+
+def test_auras_validated_for_fuses_badges_and_cards(monkeypatch):
+    import badge_cards
+    async def pairs(legs): return {leg['pairAddress']: PAIRS[leg['pairAddress']] for leg in legs}
+    monkeypatch.setattr(rs, '_fuse_pairs', pairs); monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN')
+    fid = asyncio.run(rs.admin_fuses_save(Req({'name': 'Aura', 'legs': [{'chainId': 'solana', 'pairAddress': 'P1', 'weight': 1}, {'chainId': 'solana', 'pairAddress': 'P2', 'weight': 1}]})))['id']
+    assert asyncio.run(rs.fuse_aura(Req({'aura': 'fire'}), fid))['aura'] == 'fire'
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.fuse_aura(Req({'aura': '<script>'}), fid))
+    assert next(f for f in asyncio.run(rs.fuses_list())['fuses'] if f['id'] == fid)['aura'] == 'fire'
+    assert len(badge_cards.AURAS) == 15 and badge_cards.clean_edit({'aura': 'matrix'})['aura'] == 'matrix' and 'aura' not in badge_cards.clean_edit({'aura': 'nope'})
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.admin_quests_save(Req({'badges': {'q-test': {'aura': 'bogus'}}})))

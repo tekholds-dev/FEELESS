@@ -2,13 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl, errorText } from '../../lib/api';
 import { CROP, uploadCropped } from '../../lib/cropImage';
-import { MetaCard, CARD_DESIGNS } from './MetaCard';
+import { MetaCard, CARD_DESIGNS, AuraPicker } from './MetaCard';
 
 // Cmd Ctr › Badges › Cards: every badge + season drop as a card. Pick one → edit front and back live
 // (drag the preview to turn it, click to flip). Money rules stay in Reserve pool / Badge pools.
 const KINDS = [['all', 'All'], ['badge', 'Badges'], ['season', 'Season'], ['weekly', 'Weekly drops']];
 const RARITIES = ['common', 'rare', 'epic', 'legendary', 'mythic'];
-const FIELDS = ['title', 'subtitle', 'glyph', 'lore', 'design', 'rarity', 'motion', 'accent', 'accent2', 'art'];
+const FIELDS = ['title', 'subtitle', 'glyph', 'lore', 'design', 'rarity', 'motion', 'aura', 'accent', 'accent2', 'art'];
 
 export function CardStudio({ call }) {
   const [cards, setCards] = useState(null);
@@ -49,6 +49,7 @@ export function CardStudio({ call }) {
             <label className="m-field"><span>Subtitle</span><input className="m-input" maxLength={60} value={draft.subtitle} onChange={e => set('subtitle', e.target.value)} /></label></div>
           <div className="m-field"><span>Design</span><div className="m-seg">{CARD_DESIGNS.map(([k, l]) => <button key={k} type="button" className={draft.design === k ? 'active' : ''} onClick={() => set('design', k)}>{l}</button>)}</div></div>
           <div className="m-field"><span>Motion</span><div className="m-seg">{[['still', '◻ Still'], ['alive', '✦ Alive — floats, foil sweeps, crest glows']].map(([k, l]) => <button key={k} type="button" className={(draft.motion || 'still') === k ? 'active' : ''} onClick={() => set('motion', k)}>{l}</button>)}</div></div>
+          <div className="m-field"><span>Aura · live effect outside the card</span><AuraPicker value={draft.aura} onChange={v => set('aura', v)} /></div>
           <div className="m-field"><span>Rarity (crest + frame)</span><div className="m-seg">{RARITIES.map(r => <button key={r} type="button" className={draft.rarity === r ? 'active' : ''} onClick={() => set('rarity', r)}>{r}</button>)}</div></div>
           <div className="m-row"><label className="m-field"><span>Glyph</span><input className="m-input" style={{ width: 70, textAlign: 'center' }} maxLength={8} value={draft.glyph} onChange={e => set('glyph', e.target.value)} /></label>
             <label className="m-field"><span>Colour 1</span><input type="color" className="cs-color" value={draft.accent || '#19f58f'} onChange={e => set('accent', e.target.value)} /></label>

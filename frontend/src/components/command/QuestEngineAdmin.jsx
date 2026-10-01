@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 import { BadgeArt } from '../BadgeArt';
 import { CHAT_THEMES } from '../ChatFx';
 import { perkText } from '../QuestBoard';
+import { AuraPicker } from '../cards/MetaCard';
+import { QuestBadgeCard } from '../QuestBadgeCard';
 
 // Command Center › Badges › Quest engine: every badge editable (name, tier, on/off, tasks + targets), live holder
 // counts, and grant / revoke for any wallet. Saves go through the signed admin session; bad task lists are refused.
@@ -39,12 +41,14 @@ export function QuestEngineAdmin({ call }) {
       <div className="m-row"><span className="m-label">PERKS</span>
         <label className="m-field"><span>Fee discount %</span><input className="m-input" type="number" min="0" max="50" value={perkOf(edit, 'fee_discount')?.pct || 0} onChange={e => setEdit({ ...edit, perks: [...(edit.perks || []).filter(p => p.kind !== 'fee_discount'), ...(Number(e.target.value) > 0 ? [{ kind: 'fee_discount', pct: Math.min(50, Number(e.target.value)) }] : [])] })} /></label>
         <label className="m-field"><span>Chat background</span><select className="m-input" value={perkOf(edit, 'chat_bg')?.id || ''} onChange={e => setEdit({ ...edit, perks: [...(edit.perks || []).filter(p => p.kind !== 'chat_bg'), ...(e.target.value ? [{ kind: 'chat_bg', id: e.target.value }] : [])] })}><option value="">none</option>{CHAT_THEMES.filter(([, , usd]) => usd > 0).map(([id, l]) => <option key={id} value={id}>{l}</option>)}</select></label></div>
+      <div className="m-field qe-aura"><span>Card aura · live effect outside the card</span><div className="qe-aura-row"><QuestBadgeCard b={{ ...edit, set: edit.set || (edit.id.startsWith('frsv') ? 'frsv' : 'feeless'), earned: true, tasks: [], perks: [] }} size="sm" />
+        <AuraPicker value={edit.aura} onChange={v => setEdit({ ...edit, aura: v })} /></div></div>
       {edit.tasks.map((t, i) => <div key={i} className="m-row"><select className="m-input" value={t.metric} onChange={e => setEdit({ ...edit, tasks: edit.tasks.map((x, j) => (j === i ? { ...x, metric: e.target.value } : x)) })} aria-label="Metric">{Object.entries(d.metrics).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
         <input className="m-input" type="number" min="1" value={t.target} onChange={e => setEdit({ ...edit, tasks: edit.tasks.map((x, j) => (j === i ? { ...x, target: Number(e.target.value) } : x)) })} aria-label="Target" />
         <input className="m-input" value={t.label} onChange={e => setEdit({ ...edit, tasks: edit.tasks.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })} aria-label="Task label" />
         <button type="button" className="m-btn danger" onClick={() => setEdit({ ...edit, tasks: edit.tasks.filter((_, j) => j !== i) })} aria-label="Remove task">✕</button></div>)}
       <div className="m-row"><button type="button" className="m-btn" onClick={() => setEdit({ ...edit, tasks: [...edit.tasks, { metric: 'trades', target: 1, label: '1 trade' }] })}>+ Task</button>
-        <button type="button" className="m-btn primary" onClick={() => save(edit, { name: edit.name, tier: edit.tier, tasks: edit.tasks, perks: edit.perks || [] })}>Save badge</button>
+        <button type="button" className="m-btn primary" onClick={() => save(edit, { name: edit.name, tier: edit.tier, tasks: edit.tasks, perks: edit.perks || [], aura: edit.aura || '' })}>Save badge</button>
         <button type="button" className="m-btn" onClick={() => save(edit, { reset: true })}>Reset to default</button><button type="button" className="m-btn" onClick={() => setEdit(null)}>Cancel</button></div></div>}
     <div className="m-row qe-grant"><input className="m-input" placeholder="Wallet address" value={grant.address} onChange={e => setGrant({ ...grant, address: e.target.value.trim() })} aria-label="Wallet" />
       <select className="m-input" value={grant.badge} onChange={e => setGrant({ ...grant, badge: e.target.value })} aria-label="Badge"><option value="">Badge…</option>{d.badges.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useId, useRef } from 'react';
 import { apiUrl } from '../../lib/api';
+import '../../styles/auras.css';
 
 // A FEELESS card: front = art, back = lore + money. Drag to turn it in 3D, click (or Enter) to flip.
 // Motion is transform-only and written straight to the element in rAF (no re-render per frame);
@@ -86,7 +87,7 @@ export function MetaCard({ card, size = 'md', interactive = false, flipped, onFl
   const style = { '--a': card.accent || '#19f58f', '--b': card.accent2 || '#f5c451' };
   const money = card.earns || [];
   const alive = card.motion === 'alive';
-  return <div className={`mc-stage mc-${size} ${alive ? 'is-alive' : ''} ${className}`} style={style}><div className="mc-idle">
+  return <div className={`mc-stage mc-${size} ${alive ? 'is-alive' : ''} ${className}`} style={style}>{card.aura && <Aura id={card.aura} />}<div className="mc-idle">
     <div ref={el} className={`mc d-${card.design || 'holo'} r-${r}`} role={interactive ? 'button' : undefined} tabIndex={interactive ? 0 : undefined}
       aria-label={interactive ? `${card.title} card — drag to turn, click to flip` : undefined}
       onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onClick={clickOnly}
@@ -113,6 +114,20 @@ export function MetaCard({ card, size = 'md', interactive = false, flipped, onFl
       </div>}
     </div>
   </div></div>;
+}
+
+// 15 auras: live effects OUTSIDE the card (styles/auras.css). [id, label, icon, particle count]
+export const CARD_AURAS = [['fire', 'Fire', '🔥', 14], ['static', 'Static', '📺', 9], ['lightning', 'Lightning', '⚡', 8], ['frost', 'Frost', '❄️', 11], ['smoke', 'Smoke', '💨', 8],
+  ['plasma', 'Plasma', '🌀', 0], ['sparkle', 'Sparkle', '✨', 12], ['halo', 'Halo', '😇', 0], ['matrix', 'Matrix', '🟩', 12], ['void', 'Void', '🕳', 0],
+  ['gold', 'Gold dust', '🪙', 12], ['neon', 'Neon', '💡', 0], ['shockwave', 'Shockwave', '💥', 4], ['toxic', 'Toxic', '☣️', 8], ['aurora', 'Aurora', '🌌', 4]];
+const AURA_N = Object.fromEntries(CARD_AURAS.map(a => [a[0], a[3]]));
+export function Aura({ id }) {
+  if (!(id in AURA_N)) return null;
+  return <div className={`mca mca-${id}`} aria-hidden="true" data-testid={`aura-${id}`}>{Array.from({ length: AURA_N[id] }, (_, i) => <i key={i} style={{ '--i': i }} />)}</div>;
+}
+export function AuraPicker({ value, onChange }) {
+  return <div className="aura-pick" role="radiogroup" aria-label="Card aura">{[['', 'None', '◻'], ...CARD_AURAS].map(([k, l, ic]) => <button key={k || 'none'} type="button" role="radio" aria-checked={(value || '') === k}
+    className={(value || '') === k ? 'active' : ''} onClick={() => onChange(k)} data-testid={`aura-pick-${k || 'none'}`}><b>{ic}</b>{l}</button>)}</div>;
 }
 
 export const CARD_DESIGNS = [['holo', 'Holo foil'], ['circuit', 'Circuit'], ['obsidian', 'Obsidian'], ['aurora', 'Aurora'], ['glitch', 'Glitch'], ['ember', 'Emberforge']];

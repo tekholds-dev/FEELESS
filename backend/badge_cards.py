@@ -10,7 +10,9 @@ import re
 
 DESIGNS = ('holo', 'circuit', 'obsidian', 'aurora', 'glitch', 'ember')
 RARITIES = ('common', 'rare', 'epic', 'legendary', 'mythic')
-MOTIONS = ('still', 'alive')   # alive = idle float + foil sweep + crest glow (dies under fx-lite / reduced motion)
+MOTIONS = ('still', 'alive')
+# Live effects OUTSIDE the card (frontend styles/auras.css, MetaCard CARD_AURAS). '' = none.
+AURAS = ('fire', 'static', 'lightning', 'frost', 'smoke', 'plasma', 'sparkle', 'halo', 'matrix', 'void', 'gold', 'neon', 'shockwave', 'toxic', 'aurora')   # alive = idle float + foil sweep + crest glow (dies under fx-lite / reduced motion)
 TONE_RARITY = {'plain': 'common', 'mint': 'rare', 'gold': 'epic', 'bad': 'common'}
 TIER_RARITY = {1: 'common', 2: 'rare', 3: 'epic', 4: 'legendary'}
 _HEX = re.compile(r'^#[0-9a-fA-F]{6}$')
@@ -48,6 +50,8 @@ def clean_edit(p: dict) -> dict:
         out['rarity'] = p['rarity']
     if p.get('motion') in MOTIONS:
         out['motion'] = p['motion']
+    if p.get('aura') == '' or p.get('aura') in AURAS:
+        out['aura'] = p['aura']
     for k in ('accent', 'accent2'):
         if isinstance(p.get(k), str) and _HEX.match(p[k]):
             out[k] = p[k].lower()

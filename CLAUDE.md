@@ -175,6 +175,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - MetaCard: never make absolute FX layers (`mc-sweep`, `mc-glow`) relative — they'd push the card's rows down.
 - Unfuse: `unfuseOrders` (min(bought, held) → SOL) → `FuseGo side="sell"` (one approval) → `POST /fuses/position/close`
   (closed only by YOUR verified sells; realized $ from those records).
+- Card auras: 15 live effects OUTSIDE the card (`card.aura`, `CARD_AURAS`/`Aura`/`AuraPicker` in MetaCard, `styles/auras.css`,
+  backend `badge_cards.AURAS` validates). Picked in Card Studio (badge/season/week cards), Quest engine (quest badges — shown
+  only when earned) and NFTs › Fuse cards (`POST /admin/fuses/{fid}/aura`). Particles: transform/opacity only, `--i` index
+  for stagger, frozen under fx-lite / reduced motion. New aura ⇒ add to all three lists + CSS + test.
 - MetaCard sizes: md is THE layout; sm/xs are the same card scaled with CSS `zoom` (never re-flow or hide its parts).
 - Every badge renders as a `MetaCard` via `QuestBadgeCard` (art in the crest circle, alive when earned, back = tasks +
   perks). Chat chips show only the circle. Profiles showcase featured (else 3 rarest) quest badges as cards.

@@ -2704,7 +2704,7 @@ async def _fuse_view(fid, f, store):
     now_px = {leg['pairAddress']: leg.get('priceUsd') for leg in metas}
     buys = [b for b in store.get('buys', []) if b['fuse'] == fid]
     earned = round(sum(b['creatorUsd'] for b in buys), 6); paid = round(float((store.get('paid') or {}).get(fid, 0)), 6)
-    return {'id': fid, **{k: f.get(k) for k in ('name', 'emoji', 'tagline', 'creator', 'creatorBps', 'createdAt', 'enabled')}, 'legs': legs,
+    return {'id': fid, **{k: f.get(k) for k in ('name', 'emoji', 'tagline', 'creator', 'creatorBps', 'createdAt', 'enabled', 'aura')}, 'legs': legs,
             'index': _fuse.index(f['legs'], f.get('basePrices') or {}, now_px), 'score': _fuse.score(metas, sum(1 for leg in f['legs'] if pairs.get(leg['pairAddress']) and _fuse_risky(pairs[leg['pairAddress']]))),
             'tvlUsd': round(sum(m['liquidityUsd'] for m in metas)), 'volume24h': round(sum(m['volume24h'] for m in metas)),
             'aprEst': round(sum(m['aprEst'] * m['weight'] for m in metas) / max(1, sum(m['weight'] for m in metas)), 1),
@@ -3507,6 +3507,22 @@ async def fuse_card_minted(request: Request, fid: str, p: FuseCardIn):
     return {'ok': True}
 
 
+@app.post('/api/reputation/admin/fuses/{fid}/aura')
+async def fuse_aura(request: Request, fid: str):
+    """Pick the live aura (outside-the-card effect) a Fuse's card shows everywhere."""
+    admin = _require_admin(request)
+    aura = str((await request.json()).get('aura') or '')
+    if aura not in ('', *badge_cards.AURAS):
+        raise HTTPException(400, 'Unknown aura.')
+    async with _admin_lock:
+        d = _json_load(FUSES_PATH, {'fuses': {}})
+        if fid not in d['fuses']:
+            raise HTTPException(404, 'No such Fuse.')
+        d['fuses'][fid]['aura'] = aura; _json_save(FUSES_PATH, d)
+    ad = _admin_load(); _audit(ad, admin, 'fuse-aura', f'{fid} {aura or "none"}'); _admin_save(ad)
+    return {'ok': True, 'aura': aura}
+
+
 @app.get('/api/reputation/admin/fuses/cards')
 async def fuse_cards_admin(request: Request):
     """NFT tab: collection status + every published Fuse with its card, current holder (paid the cut) and owed amount."""
@@ -3927,13 +3943,15 @@ async def admin_quests_save(request: Request):
             raise HTTPException(400, f'Badge {bid}: every task needs a known metric and a positive target.')
         if o.get('tier') and o['tier'] not in _quests.TIER_XP:
             raise HTTPException(400, f'Badge {bid}: unknown tier.')
+        if 'aura' in o and o['aura'] not in ('', *badge_cards.AURAS):
+            raise HTTPException(400, f'Badge {bid}: unknown aura.')
     async with _admin_lock:
         d = _json_load(QUESTS_PATH, {})
         for bid, o in edits.items():
             if o.get('reset'):
                 (d.get('badges') or {}).pop(bid, None)
             else:
-                d.setdefault('badges', {})[bid] = {**(d.get('badges') or {}).get(bid, {}), **{k: v for k, v in o.items() if k in ('name', 'tier', 'enabled', 'tasks', 'art', 'set', 'perks')}}
+                d.setdefault('badges', {})[bid] = {**(d.get('badges') or {}).get(bid, {}), **{k: v for k, v in o.items() if k in ('name', 'tier', 'enabled', 'tasks', 'art', 'set', 'perks', 'aura')}}
         _json_save(QUESTS_PATH, d)
         ad = _admin_load(); _audit(ad, admin, 'quests', ','.join(edits)[:160]); _admin_save(ad)
     _quest_cache.clear(); _badge_cache.clear(); _rarity_cache.clear()

@@ -14,7 +14,7 @@ export function QuestBadgeCard({ b, holders, size = 'md', interactive = false, l
   const card = {
     key: b.id, kind: 'badge', title: b.name, subtitle: b.set === 'frsv' ? 'FEE RESERVE BADGE' : 'FEELESS BADGE', rarity: b.tier,
     design: DESIGN[b.tier] || 'holo', accent: a, accent2: c, art: b.art ? `${b.art}.${hot || live ? 'gif' : 'jpg'}` : null,
-    holders: holders ?? 0, motion: b.earned ? 'alive' : 'still', edition: edition ? `${String(edition).padStart(3, '0')} / ${editionCap}` : null,
+    holders: holders ?? 0, motion: b.earned ? 'alive' : 'still', aura: b.earned ? b.aura : '', edition: edition ? `${String(edition).padStart(3, '0')} / ${editionCap}` : null,
   };
   const back = <div className="qbc-back">
     <div className="mc-top"><span>{b.earned ? 'EARNED' : `${b.pct}% DONE`}</span><span>+{b.xp} XP</span></div>

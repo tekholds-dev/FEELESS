@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
 import { FuseCard } from '../FuseCard';
+import { AuraPicker } from '../cards/MetaCard';
 
 // Cmd Ctr › NFTs › ⚛️ Fuse cards: each published Fuse can be minted ONCE as a 1/1 Metaplex Core card. Whoever holds the card
 // (read on-chain at payout time) is paid that Fuse's creator cut — sell or gift the card and the income follows it.
@@ -45,7 +46,8 @@ export function FuseCardMint({ call }) {
     {!d ? <div className="fl-row is-ghost" /> : !d.collection ? <button type="button" className="m-btn primary m-go" disabled={Boolean(busy)} onClick={createCol} data-testid="fcm-collection">{ready ? '① Create Fuse Cards collection' : 'Connect owner wallet'}</button>
       : <p className="m-dim fcm-col">Collection <code>{d.collection.address.slice(0, 6)}…{d.collection.address.slice(-4)}</code> · live</p>}
     {d && <div className="fcm-grid">{d.rows.length ? d.rows.map(f => <article key={f.id} className="fcm-item">
-      <FuseCard c={champ(f)} style="yield" rank={f.card ? 0 : 3} />
+      <FuseCard c={champ(f)} style="yield" rank={f.card ? 0 : 3} aura={f.aura || ''} />
+      <details className="fcm-aura"><summary>✨ Aura: {f.aura || 'none'}</summary><AuraPicker value={f.aura} onChange={v => call(`/admin/fuses/${f.id}/aura`, { method: 'POST', body: JSON.stringify({ aura: v }) }).then(load).catch(e => toast.error(e.message))} /></details>
       <b className="fcm-name">{f.emoji} {f.name}</b>
       {f.card ? <small className="m-dim" data-tip="Read on-chain every 5 min — sell or gift the card and the cut follows it.">Holder <code>{String(f.payTo || '').slice(0, 4)}…{String(f.payTo || '').slice(-4)}</code> earns {(f.creatorBps || 0) / 100}% · owed ${f.stats?.creatorOwedUsd?.toFixed(2)}</small>
         : <><input className="m-input" placeholder={`Mint to (default creator ${String(f.creator || '').slice(0, 4)}…)`} value={to[f.id] || ''} onChange={e => setTo(x => ({ ...x, [f.id]: e.target.value }))} aria-label="Recipient wallet" />

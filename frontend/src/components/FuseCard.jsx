@@ -23,13 +23,13 @@ export function cardMath(c, budget = 20) {
 }
 const sgn = v => `${v >= 0 ? '+' : '−'}$${Math.abs(v).toFixed(Math.abs(v) < 1 ? 2 : 2)}`;
 
-export function FuseCard({ c, style = 'yield', rank = 0, budget = 20 }) {
+export function FuseCard({ c, style = 'yield', rank = 0, budget = 20, aura = '' }) {
   const [flipped, setFlipped] = useState(false);
   const [a, b] = ACCENT[style] || ACCENT.yield;
   const p = c.parts || {};
   const card = { key: c.pools.join(), kind: 'fuse', title: c.legs.slice(0, 3).map(l => l.symbol).join(' · ') + (c.legs.length > 3 ? ` +${c.legs.length - 3}` : ''),
     subtitle: `${['🥇', '🥈', '🥉'][rank] || ''} ${style.toUpperCase()} · FIT ${c.fitness}`, rarity: RARITY[p.grade] || 'rare', design: DESIGN[style] || 'holo',
-    accent: a, accent2: b, glyph: p.grade || '✦', art: tokenImageUrls(legPair([...c.legs].sort((x, y) => (y.weight || 0) - (x.weight || 0))[0] || {})), motion: rank === 0 ? 'alive' : 'still', holders: c.legs.length, edition: `GEN ${String(c.bornGen ?? 0).padStart(2, '0')}` };
+    accent: a, accent2: b, glyph: p.grade || '✦', art: tokenImageUrls(legPair([...c.legs].sort((x, y) => (y.weight || 0) - (x.weight || 0))[0] || {})), motion: rank === 0 ? 'alive' : 'still', aura, holders: c.legs.length, edition: `GEN ${String(c.bornGen ?? 0).padStart(2, '0')}` };
   const m = cardMath(c, budget);
   const back = <div className="fcd-back">
     <div className="mc-top"><span>${budget} IN · LAST 24H</span><span>{p.grade}</span></div>
