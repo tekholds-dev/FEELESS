@@ -15,6 +15,7 @@ import { LivePrice, LiveChange24, LiveMarketCap } from '../terminal/LiveCells';
 import { formatUSD, formatAge, formatTime, pairKey, hasProviderImage } from '../../lib/dexscreener';
 import { matchesPad } from '../../lib/launchpads';
 import { BoltLegend, BoltSignal } from '../terminal/BoltSignal';
+import { MiniChart } from '../terminal/MiniChart';
 import { useSnipersOut, snipersOutFor } from '../../lib/snipersOut';
 
 export const RadarView = ({ pairs, onSelect, kind = 'pump' }) => {
@@ -53,8 +54,9 @@ export const PumpRadarCard = ({ pair, onSelect, rank, onLogoExhausted, callCount
     : Number.isFinite(Number(momentum)) ? `${Number(momentum).toFixed(2)}% 5m` : 'Awaiting delta';
   const migrationPool = typeof pair.graduation?.pool_address === 'string' ? pair.graduation.pool_address.trim() : '';
   const tilt = useTilt(7);
+  const [flipped, setFlipped] = useState(false);   // 📈 shows a mini chart; leaving the card flips it back
   const activate = event => {
-    if (event.target.closest('a')) return;
+    if (event.target.closest('a,button')) return;
     onSelect(pair);
   };
   const handleKeyDown = event => {
@@ -62,7 +64,9 @@ export const PumpRadarCard = ({ pair, onSelect, rank, onLogoExhausted, callCount
     event.preventDefault();
     onSelect(pair);
   };
-  return <article ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave} className="pump-radar-card tilt-card" data-testid={`pump-radar-card-${pairKey(pair)}`} onClick={activate} onKeyDown={handleKeyDown} role="button" tabIndex="0" aria-label={`Open ${pair.baseToken?.symbol || 'token'} market`}>
+  return <article ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={e => { tilt.onMouseLeave?.(e); setFlipped(false); }} className={`pump-radar-card tilt-card ${flipped ? 'is-flipped' : ''}`} data-testid={`pump-radar-card-${pairKey(pair)}`} onClick={activate} onKeyDown={handleKeyDown} role="button" tabIndex="0" aria-label={`Open ${pair.baseToken?.symbol || 'token'} market`}>
+     <button type="button" className="prc-flip" aria-pressed={flipped} title={flipped ? 'Back to the card' : 'Mini chart'} data-testid="prc-flip" onClick={e => { e.stopPropagation(); setFlipped(f => !f); }}>{flipped ? '↩' : '📈'}</button>
+     {flipped && <div className="prc-back" onClick={e => { e.stopPropagation(); onSelect(pair); }}><b>${pair.baseToken?.symbol}</b><MiniChart pair={pair} /><small className="m-dim">Tap to open the trench chart</small></div>}
      <div className="pump-radar-card-top"><span className="pump-radar-rank">{String(rank).padStart(2, '0')}</span><BoltSignal pair={pair} rank={rank} callCount={callCount} size={14} /><TokenAvatar pair={pair} size={38} maxAttempts={onLogoExhausted ? 3 : undefined} onExhausted={onLogoExhausted} /><span className="pump-radar-token"><b>{pair.baseToken?.symbol || 'Unknown'}</b><small>{pair.baseToken?.name || 'Coin name unavailable'}</small><small>{pair.chainId || 'chain unavailable'} · {pair.dexId || 'venue unavailable'}</small></span><span className="pump-radar-alive" title="Live price stream and provider list refresh"><i />LIVE</span><span className="pump-radar-age">{formatAge(pair.pairCreatedAt)}</span></div>
     <div className="pump-radar-price-row"><span className="pump-radar-value-block"><small>PRICE</small><strong><LivePrice pair={pair} precise /></strong></span><LiveChange24 pair={pair} id={`pump-radar-change-${pairKey(pair)}`} /><span className={change >= 0 ? 'positive' : 'negative'}><Activity size={11} />{signal}</span></div>
     <div className="pump-radar-reputation-row"><ReputationBadge pair={pair} /></div>

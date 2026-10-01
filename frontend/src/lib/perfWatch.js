@@ -9,6 +9,15 @@ let origFetch = null;
 const state = { api: {}, longTasks: 0, longMs: 0, fps: [], errors: 0, slowStreak: 0 };
 
 export const liteMode = () => { try { return localStorage.getItem(LITE_KEY) || ''; } catch { return ''; } };
+// Auto lite is temporary: it is stamped ('auto@<ms>') and expires after AUTO_LITE_MS, and 3 healthy minutes in a row
+// switch it back off. A lite mode the user picked ('on') is never touched.
+const AUTO_LITE_MS = 6 * 3600 * 1000;
+export const isAutoLite = m => String(m || '').startsWith('auto');
+export function autoLiteExpired(mode, now = Date.now()) {
+  if (!isAutoLite(mode)) return false;
+  const at = Number(String(mode).split('@')[1]);
+  return !at || now - at > AUTO_LITE_MS;
+}
 export function setLite(mode) {
   try { if (mode) localStorage.setItem(LITE_KEY, mode); else localStorage.removeItem(LITE_KEY); } catch { /* private mode */ }
   document.body.classList.toggle('fx-lite', !!mode);
@@ -29,7 +38,8 @@ function sampleFps() {
 function flush() {
   const fps = state.fps.length ? Math.round(state.fps.reduce((a, b) => a + b, 0) / state.fps.length) : null;
   const report = { page: window.location.pathname.replace(/\/[1-9A-HJ-NP-Za-km-z]{32,44}|\/0x[0-9a-fA-F]{40}/g, '/:id'), api: state.api, longTasks: state.longTasks, longMs: state.longMs, fps, lite: document.body.classList.contains('fx-lite'), errors: state.errors };
-  if (!liteMode() && shouldGoLite(report)) { state.slowStreak += 1; if (state.slowStreak >= 2) setLite('auto'); } else state.slowStreak = 0;
+  if (!liteMode() && shouldGoLite(report)) { state.slowStreak += 1; if (state.slowStreak >= 2) setLite(`auto@${Date.now()}`); } else state.slowStreak = 0;
+  if (isAutoLite(liteMode()) && fps != null) { state.okStreak = shouldGoLite(report) ? 0 : (state.okStreak || 0) + 1; if (state.okStreak >= 3) { state.okStreak = 0; setLite(''); } }
   const has = Object.keys(report.api).length || report.longTasks || fps != null;
   Object.assign(state, { api: {}, longTasks: 0, longMs: 0, fps: [], errors: 0 });
   if (!has) return;
@@ -40,6 +50,7 @@ function flush() {
 export function startPerfWatch() {
   if (started || typeof window === 'undefined' || !window.performance) return;
   started = true;
+  if (autoLiteExpired(liteMode())) setLite('');
   if (liteMode()) document.body.classList.add('fx-lite');
   fetch(apiUrl('/api/reputation/perf/config')).then(r => r.json()).then(c => { if (c.forceLite) document.body.classList.add('fx-lite'); }).catch(() => {});
   const orig = window.fetch.bind(window);

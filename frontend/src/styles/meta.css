@@ -589,3 +589,16 @@ body.theme-day .qb-tile { background: #fff; } body.theme-day .qb-detail { backgr
 @keyframes mCardIn { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
 body.fx-lite .pump-particles, body.fx-lite .pump-hub .pump-radar-card { animation: none; } body.fx-lite .pump-particles { display: none; }
 @media (prefers-reduced-motion: reduce) { .pump-particles { display: none; } .pump-hub .pump-radar-card { animation: none; } }
+/* Showcase-size card (profiles): tiny, no pips/labels (they crowd at this size), lifts + plays the GIF on hover. */
+.mc-xs { width: 84px; height: 118px; } .mc-xs .mc-top, .mc-xs .mc-foot, .mc-xs .mc-name small { display: none; }
+.mc-xs .mc-name b { font-size: 9px; } .mc-xs .mc-face { padding: 5px; border-radius: 9px; }
+.artifact-card { cursor: pointer; border: 0; background: none; padding: 0; transition: transform .15s var(--m-ease); } .artifact-card:hover { transform: translateY(-3px); }
+.artifact-card:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 3px; border-radius: 10px; }
+.prc-flip { position: absolute; top: 8px; right: 8px; z-index: 4; width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--m-line); background: rgba(0, 0, 0, .55); color: var(--m-text); cursor: pointer; transition: border-color .15s, transform .1s; }
+.prc-flip:hover { border-color: var(--m-accent); } .prc-flip:active { transform: scale(.92); } .prc-flip:focus-visible { outline: 2px solid var(--m-accent); }
+.prc-back { position: absolute; inset: 0; z-index: 3; display: grid; align-content: center; gap: 6px; padding: 14px; border-radius: inherit; background: var(--m-bg); animation: mFlipIn .22s var(--m-ease); cursor: pointer; }
+@keyframes mFlipIn { from { opacity: 0; transform: rotateY(-70deg); } to { opacity: 1; transform: none; } }
+.mini-chart { display: grid; gap: 4px; } .mini-chart svg { width: 100%; height: 90px; } .mini-chart.is-loading { place-items: center; min-height: 90px; }
+.mini-chart .mc-line { fill: none; stroke: var(--m-accent); stroke-width: 1.6; vector-effect: non-scaling-stroke; } .mini-chart .mc-area { fill: color-mix(in srgb, var(--m-accent) 14%, transparent); }
+.mini-chart.down .mc-line { stroke: var(--m-danger); } .mini-chart.down .mc-area { fill: color-mix(in srgb, var(--m-danger) 12%, transparent); }
+@media (prefers-reduced-motion: reduce) { .prc-back { animation: none; } }

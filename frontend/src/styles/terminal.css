@@ -4217,7 +4217,7 @@ body.theme-day .rail-lock-note{background:#f1fbf6;border-color:#00875c55}body.th
 .tilt-card:hover{border-color:#19f58f66!important;box-shadow:0 14px 40px #0009,0 0 0 1px #19f58f22}
 .tilt-glare{position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;background:radial-gradient(420px circle at 30% 0%,#19f58f1a,transparent 60%);transition:opacity .2s}
 .tilt-card:hover .tilt-glare{opacity:1}
-body.fx-lite .tilt-card{transform:none!important}body.fx-lite .tilt-glare{display:none}
+body.fx-lite .tilt-glare{display:none}
 @media (prefers-reduced-motion:reduce){.tilt-card{transform:none!important;transition:none}}
 .intelligence-card.tilt-card{display:grid;gap:10px;padding:14px!important;border-radius:16px!important;border:1px solid #19f58f26!important;background:radial-gradient(120% 120% at 0 0,#19f58f12,transparent 55%),#030a07!important;max-width:560px}
 .intelligence-card .intel-card-heading{display:flex!important;align-items:center;gap:10px}

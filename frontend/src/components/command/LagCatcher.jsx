@@ -18,7 +18,7 @@ export function LagCatcher({ call }) {
       <div className="bdg-seg">{[[1, '1H'], [6, '6H'], [24, '24H']].map(([h, l]) => <button key={h} type="button" className={hours === h ? 'active' : ''} onClick={() => setHours(h)}>{l}</button>)}</div></div>
     <div className="lag-fixers">
       <label className="lag-toggle"><input type="checkbox" checked={!!d?.forceLite} onChange={e => force(e.target.checked)} /><span><b>Lite effects site-wide</b><small>Pauses backdrops, glows and orbits for every visitor.</small></span></label>
-      <label className="lag-toggle"><input type="checkbox" checked={!!mine} onChange={e => { const m = e.target.checked ? 'manual' : ''; setLite(m); setMine(m); }} /><span><b>Lite on this device</b><small>{mine === 'auto' ? 'Auto-enabled: this device was lagging.' : 'Just for you.'}</small></span></label>
+      <label className="lag-toggle"><input type="checkbox" checked={!!mine} onChange={e => { const m = e.target.checked ? 'manual' : ''; setLite(m); setMine(m); }} /><span><b>Lite on this device</b><small>{String(mine).startsWith('auto') ? 'Auto-enabled: this device was lagging (switches back off once it runs smooth).' : 'Just for you.'}</small></span></label>
     </div>
     <div className="lag-grid">
       <div className="cc-block"><h4>Fix list</h4>{!d?.fixes?.length ? <p className="cc-empty">Nothing lagging. 🟢</p> : d.fixes.map((f, i) => <div key={i} className={`lag-fix t-${f.level}`}><b>{f.what}</b><span>{f.fix}</span></div>)}</div>

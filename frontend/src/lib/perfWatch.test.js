@@ -29,3 +29,13 @@ test('reports reach the server with a keepalive JSON POST (not a beacon Chrome r
   expect(JSON.parse(sent[1].body).api['/api/market/feed']).toHaveLength(1);
   jest.useRealTimers();
 });
+
+test('auto lite is temporary; a user-chosen lite mode never expires', () => {
+  const { autoLiteExpired, isAutoLite } = require('./perfWatch');
+  const now = 1_800_000_000_000;
+  expect(isAutoLite('auto@1')).toBe(true); expect(isAutoLite('on')).toBe(false);
+  expect(autoLiteExpired(`auto@${now - 7 * 3600e3}`, now)).toBe(true);
+  expect(autoLiteExpired(`auto@${now - 3600e3}`, now)).toBe(false);
+  expect(autoLiteExpired('auto', now)).toBe(true);      // old unstamped auto from before this fix: cleared
+  expect(autoLiteExpired('on', now)).toBe(false);
+});
