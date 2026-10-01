@@ -17,6 +17,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 5. UI change ⇒ open it (Playwright/Chromium is preinstalled) or say plainly that you didn't.
 
 ## Meta styling (no dead UI, ever)
+- "Meta UI" = everything below, on EVERY feature end to end (backend data → frontend surface): m-* presets, live
+  numbers, hover/active/focus, animated popovers, day theme, 360px. A backend-only feature isn't done until its UI is meta.
 - Palette: black/very dark green surfaces, live royal green `#19f58f` accent (matches the logo), `#ff8fa3` danger, `var(--gold)` warn.
   Labels/numbers in `JetBrains Mono`, uppercase micro-labels with letter-spacing.
 - Every interactive element has hover, active and focus states. Selected = solid neon fill with dark text.
@@ -102,7 +104,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - FUSE Vault (one contract, ≤3 v2/v3 pools, SOL in → shares, fees in SOL to Trading & fees › Vault fee wallet):
   engine `backend/fuse_vault.py` (spec, tested) ⇄ program `contracts/fuse_vault` (Anchor; math.rs mirrors it —
   change both together). v0.1 = custody/shares/fees/admin on LOCALNET ONLY; pool adapters + audit before any
-  deploy. Never deploy or fund it without the owner; no instruction may set a position value that wasn't deployed.
+  deploy. v0.1 NAV = SOL held in the `vault_sol` PDA (no external value reporting; adapters deferred). Tests: `cargo test`
+  + `anchor test` on a local validator (see its README). Never deploy or fund it without the owner; no instruction may
+  set a position value that wasn't deployed.
 
 ## Badges + quest engine
 - `backend/quests.py` (pure, tested): 40 animated badges = FEELESS set (`q-*`, everyone) + Fee Reserve set (`frsv-*`, every
