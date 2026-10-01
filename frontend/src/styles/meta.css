@@ -453,4 +453,4 @@ body.theme-day .m-live::before { opacity: .55; }
 .m-go:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 12px 30px -10px rgba(25, 245, 143, .95), 0 0 0 1px rgba(255, 255, 255, .2) inset; }
 .m-go:active:not(:disabled) { transform: translateY(0) scale(.98); } .m-go:focus-visible { outline: 2px solid #b8ffe0; outline-offset: 2px; }
 body.theme-day .m-go { background: linear-gradient(135deg, #056b45, #07895a) !important; color: #fff !important; box-shadow: 0 8px 20px -12px rgba(7, 120, 79, .7); }
-.trench-chart { display: contents; }
+.trench-chart { display: contents; } .trench-chart .chart-toolbar { flex-wrap: wrap; row-gap: 6px; }

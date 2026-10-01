@@ -57,10 +57,11 @@ function QuickTradeInner({ pair }) {
   const [sellPct, setSellPct] = useState(50);
   // One-tap exit from the chart's P&L badge: switch to Sell at the requested % (you still review + sign).
   useEffect(() => {
-    const onExit = e => { setSide('sell'); setSellPct(e.detail?.pct || 100); document.querySelector('.quick-trade')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+    // Only the box trading that coin answers (war room + trenches can both be mounted).
+    const onExit = e => { if (e.detail?.mint && e.detail.mint !== pair?.baseToken?.address) return; setSide('sell'); setSellPct(e.detail?.pct || 100); box.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
     window.addEventListener('feeless:quick-exit', onExit);
     return () => window.removeEventListener('feeless:quick-exit', onExit);
-  }, []);
+  }, [pair?.baseToken?.address]);
   const [counter, setCounter] = useState('SOL');
   const [solUsd, setSolUsd] = useState(null);
   const [bal, setBal] = useState(null); const [balErr, setBalErr] = useState(false);

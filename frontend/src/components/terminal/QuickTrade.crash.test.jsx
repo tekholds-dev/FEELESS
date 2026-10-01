@@ -25,3 +25,15 @@ test('quick trade renders for a Solana coin with a wallet (buy + sell)', async (
   expect(errors.filter(e => /Error|Cannot|undefined is not|not a function/.test(e)).join('\n')).toBe('');
   expect(host.querySelector('[data-testid="quick-trade"]')).not.toBeNull();
 });
+
+test('P&L Exit flips only the quick trade for that coin to Sell (war room + trenches mounted together)', async () => {
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({}) }));
+  Element.prototype.scrollIntoView = jest.fn();
+  const coin = n => ({ chainId: 'solana', pairAddress: `Pair${n}`.padEnd(43, '1'), baseToken: { address: `Coin${n}`.padEnd(44, '1'), symbol: `C${n}` }, priceUsd: '0.001', quoteToken: { symbol: 'SOL' } });
+  const mountOne = async p => { const h = document.createElement('div'); document.body.appendChild(h); await act(async () => createRoot(h).render(<QuickTrade pair={p} />)); return h; };
+  const a = await mountOne(coin('A')); const b = await mountOne(coin('B'));
+  const sideOf = h => h.querySelector('.qt-side button.active')?.textContent.trim().toUpperCase();
+  expect([sideOf(a), sideOf(b)]).toEqual(['BUY', 'BUY']);
+  await act(async () => { window.dispatchEvent(new CustomEvent('feeless:quick-exit', { detail: { pct: 100, mint: coin('A').baseToken.address } })); });
+  expect([sideOf(a), sideOf(b)]).toEqual(['SELL', 'BUY']);
+});

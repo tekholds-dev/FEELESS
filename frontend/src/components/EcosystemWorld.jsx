@@ -49,7 +49,9 @@ export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose })
   const { data: chartLive } = useMarket(chartPair ? `/pair/${chartPair.chainId}/${chartPair.pairAddress}` : null, 3000);
   const livePool = chartLive?.pairs?.[0];
   const liveChartPair = chartPair && livePool?.pairAddress === chartPair.pairAddress ? { ...chartPair, ...livePool } : chartPair;
-  const [winPos, setWinPos] = useState(() => ({ x: Math.max(16, window.innerWidth * 0.18), y: 80 }));
+  // Floating chart opens centred and fully on screen (its CSS width is min(1100px, 86vw)).
+  const centred = () => ({ x: Math.max(8, (window.innerWidth - Math.min(1100, window.innerWidth * 0.86)) / 2), y: Math.max(8, Math.min(80, (window.innerHeight - Math.min(640, window.innerHeight * 0.72)) / 2)) });
+  const [winPos, setWinPos] = useState(centred);
   const drag = e => {
     if (!chartBig || e.target.closest('button,a')) return;
     const sx = e.clientX - winPos.x; const sy = e.clientY - winPos.y;
@@ -114,7 +116,7 @@ export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose })
 
         <div className="eco-right-col custom-scroll">
           {chartPair && <div className={`eco-chart m-live ${chartBig ? 'is-big' : ''}`} data-testid="eco-room-chart" style={chartBig ? { left: winPos.x, top: winPos.y } : undefined}>
-            <div className="eco-chart-head" onPointerDown={drag} title={chartBig ? 'Drag to move · resize from the corner' : undefined}><b>${chartPair.baseToken?.symbol}</b><span>{chartPair.baseToken?.name}</span><a href={`/terminal/chat?chain=${chartPair.chainId}&pair=${chartPair.pairAddress}&room=bulls`} target="_blank" rel="noreferrer">Profile ↗</a><button type="button" className="eco-chart-x" aria-label={chartBig ? 'Shrink chart' : 'Expand chart'} title={chartBig ? 'Shrink (Esc)' : 'Expand'} onClick={() => { setChartBig(b => !b); setTimeout(() => window.dispatchEvent(new Event('resize')), 60); }}>{chartBig ? '⤡' : '⤢'}</button><button type="button" className="eco-chart-x" aria-label="Close chart" onClick={() => { setChartPair(null); setChartBig(false); }}><X size={14} /></button></div>
+            <div className="eco-chart-head" onPointerDown={drag} title={chartBig ? 'Drag to move · resize from the corner' : undefined}><b>${chartPair.baseToken?.symbol}</b><span>{chartPair.baseToken?.name}</span><a href={`/terminal/chat?chain=${chartPair.chainId}&pair=${chartPair.pairAddress}&room=bulls`} target="_blank" rel="noreferrer">Profile ↗</a><button type="button" className="eco-chart-x" aria-label={chartBig ? 'Shrink chart' : 'Expand chart'} title={chartBig ? 'Shrink (Esc)' : 'Expand'} onClick={() => { if (!chartBig) setWinPos(centred()); setChartBig(b => !b); setTimeout(() => window.dispatchEvent(new Event('resize')), 60); }}>{chartBig ? '⤡' : '⤢'}</button><button type="button" className="eco-chart-x" aria-label="Close chart" onClick={() => { setChartPair(null); setChartBig(false); }}><X size={14} /></button></div>
             <div className="eco-chart-body">{chartBig && <aside className="eco-chart-chat" data-testid="eco-chart-chat"><EcosystemChat key={chartPair.pairAddress} compact room={`coin-${chartPair.chainId}-${chartPair.pairAddress}-trenches`} ecosystem={{ id: `coin-${chartPair.pairAddress}`, name: `$${chartPair.baseToken?.symbol || ""}` }} /></aside>}<React.Suspense fallback={<div className="chart-message"><span className="loader" />Loading chart…</div>}><TrenchChart key={chartPair.pairAddress} pair={liveChartPair} className="eco-trench" /></React.Suspense></div>
           </div>}
           {(ecosystem?.chainId || 'solana') === 'solana' && <DegenWeather compact scope={['pump', 'bonk', 'raydium'].includes(ecosystem?.id) ? ecosystem.id : 'launchpads'} />}
