@@ -36,6 +36,7 @@ import { QuestBoard } from '../components/QuestBoard';
 import { ReserveProgress } from '../components/ReserveProgress';
 import { QuestNudge } from '../components/QuestNudge';
 import { LeaderboardHub } from '../components/terminal/LeaderboardHub';
+import { PumpHub } from '../components/terminal/PumpHub';
 import { WalletProfilePage } from '../components/command/WalletProfilePage';
 import { TrustSignals, CaseStudies, LiveProof, RoadmapVoting, NetworkStatus } from '../components/command/LiveTrust';
 import { RadarView, PumpRadarView, SignalMovers, ParticipationBoard, MetaDetector } from '../components/command/DiscoveryViews';
@@ -194,8 +195,9 @@ export default function Terminal() {
           {page === 'trade' && <><div className="command-page-title trade-title"><span className="eyebrow">SWAP · BRIDGE · GAS — YOU SIGN EVERYTHING</span><h1>Trade anything. <span className="live-gradient-text">Into $FEE, it's free.</span></h1></div><SimpleTrade pair={selected || fee?.pair} swap={<SwapWorkspace pair={selected} feeAsset={fee} feeAssets={feeAssets} feeCat={feeCat} fontScale={fontScale} onWallet={() => setWalletOpen(true)} />} /></>}
        {!['', 'trade', 'pump'].includes(page) && <div className="command-page-title"><span className="eyebrow">{ecosystem.name.toUpperCase()} / ON-CHAIN INTELLIGENCE</span><h1>{query ? 'Follow the contract.' : page === 'new' ? 'New pools, better entry points.' : page === 'movers' ? 'Read the acceleration.' : 'Find the next rotation.'}</h1><p>{query ? `Provider results for “${query}”` : page === 'new' ? `Provider-indexed pools within ${MARKET_RETENTION_DAYS} days with a 24h drawdown of at least ${NEW_POOL_DEAL_PERCENT}%. Not a buy recommendation.` : 'Real signals, within provider coverage. No invented activity.'}</p></div>}
         {page !== 'pump' && <ContractScanner />}
-        {(page === 'discover' || isHome) && <MetaDetector pairs={[...pairs, ...(newFeed.data?.pairs || [])]} onSelect={onSelect} />}
-         {page === 'pump' && <PumpRadarView newFeed={newFeed} trendingFeed={pumpTrendingFeed} onSelect={onSelect} />}
+        {isHome && <MetaDetector pairs={[...pairs, ...(newFeed.data?.pairs || [])]} onSelect={onSelect} />}
+         {(page === 'pump' || page === 'discover') && <PumpHub lens={page === 'discover' || params.get('view') === 'discover' ? 'discover' : 'radar'}
+           radar={<PumpRadarView newFeed={newFeed} trendingFeed={pumpTrendingFeed} onSelect={onSelect} />} discover={<MetaDetector pairs={[...pairs, ...(newFeed.data?.pairs || [])]} onSelect={onSelect} />} />}
         {page === 'new' && <RadarView pairs={pairs} onSelect={onSelect} kind="new" />}
         {page === 'movers' && <SignalMovers pairs={pairs} onSelect={onSelect} />}
           <section className="market-section"><div className="section-title market-title"><h2><Flame size={18} />{query ? 'Search results' : page === 'new' ? 'New pool deals ≥5%' : kind === 'new' ? 'New pool deals' : 'Top coin discovery'}</h2><DataStatus data={market.data} id="market-feed-status" />{market.refreshing && <span className="live-feed-badge" data-testid="market-feed-refreshing">LIVE</span>}<button title="Refresh market feed" data-testid="market-refresh" className="icon-btn small-icon" onClick={() => market.reload()}><RefreshCw size={14} /></button>{isHome && <Link to="/terminal/discover" className="section-more" data-testid="markets-view-all">Expand<ArrowUpRight size={13} /></Link>}</div>

@@ -35,12 +35,13 @@ export function useAdmin() {
 // Pick a file -> optional crop (shape from CROP) -> resize stills to ≤1600px, GIFs kept animated
 // -> FEELESS upload -> hosted URL. Resolves null if the user cancels the crop.
 export async function uploadImage(file, shape) {
-  if (shape) { file = await cropImage(file, shape); if (!file) return null; }
+  // GIFs keep their animation: no canvas crop (it would flatten them to one frame); the page shows them cover-fit.
+  if (shape && file.type !== 'image/gif') { file = await cropImage(file, shape); if (!file) return null; }
   if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) throw new Error('PNG, JPG, WEBP or GIF only.');
   // A live command-center session (creator/admin) lifts the size cap to 25 MB and keeps art sharper.
   let admin = null;
   try { const x = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); if (x && Date.now() / 1000 - x.ts < 3500) admin = x; } catch { /* none */ }
-  const cap = admin ? 25_000_000 : 2_000_000;
+  const cap = admin ? 25_000_000 : file.type === 'image/gif' ? 6_000_000 : 2_000_000;   // animated covers/avatars: 6 MB
   const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
   let body = dataUrl;
   if (file.type !== 'image/gif') {

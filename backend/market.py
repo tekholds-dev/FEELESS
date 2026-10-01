@@ -163,6 +163,15 @@ def provider_meta(provider, fetched_at, stale=False, error=None, primary_provide
     }
 
 
+# Pump Pulse: a coin is "pulsing" when the last 5 minutes show real, rising, two-sided flow.
+# Minimum average trade size and a buy-share ceiling filter out micro-buy volume bots.
+PULSE_MIN_TRADES = 20
+PULSE_MIN_VOLUME = 5_000
+PULSE_MIN_AVG_TRADE = 20
+PULSE_BUY_SHARE = (0.55, 0.97)
+PULSE_MIN_CHANGE = 2.0
+
+
 def pulse_stats(pair):
     m5 = (pair.get('txns') or {}).get('m5') or {}
     buys, sells = int(safe_float(m5.get('buys')) or 0), int(safe_float(m5.get('sells')) or 0)

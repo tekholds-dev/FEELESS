@@ -90,3 +90,28 @@ def test_fee_report_shows_paid_back_and_earnings(monkeypatch, tmp_path):
     out = asyncio.run(rs.fee_report_get(W))
     assert out['feeBackPaidUsd'] == 3.0 and out['feeBackOwedUsd'] == 2.0 and out['paidBackPct'] == 25.0
     assert out['earned']['points'] == 420 and out['earned']['rep'] == {'score': 77, 'label': 'Trusted'} and 'xp' in out['earned']
+
+
+def test_staff_get_every_unlock(monkeypatch, tmp_path):
+    _iso(monkeypatch, tmp_path)
+    monkeypatch.setattr(rs, '_push_load', lambda: {'subs': {}})
+    monkeypatch.setattr(rs, '_admin_wallets', lambda: {W})
+    s = asyncio.run(rs.quest_board(W))
+    assert s['earned'] == s['total'] == 40
+    assert s['perks']['feeDiscountPct'] == 25 and 'vortex' in s['perks']['chatBgs']
+    assert asyncio.run(rs._alpha_allowed(next(iter(rs._ALPHA)), W)) if rs._ALPHA else True
+
+
+def test_first_earners_get_numbered_editions(monkeypatch, tmp_path):
+    _iso(monkeypatch, tmp_path)
+    monkeypatch.setattr(rs, '_push_load', lambda: {'subs': {}})
+    monkeypatch.setattr(rs, 'EDITIONS_PATH', tmp_path / 'ed.json')
+    A, B = W, 'Bbbb1111111111111111111111111111111111111111'
+    for who in (A, B):
+        rs._json_save(rs.QUEST_STATE_PATH, {**rs._json_load(rs.QUEST_STATE_PATH, {}), rs.primary_of(who): {'days': [time.strftime('%Y-%m-%d', time.gmtime())], 'first': time.time()}})
+    rs._json_save(rs.FEELESS_TRADES_PATH, {rs.primary_of(x): [{'tx': f'S{x[:4]}', 'side': 'buy', 'usd': 5, 'token': 'X', 'ts': time.time()}] for x in (A, B)})
+    monkeypatch.setattr(rs, '_chat_load', lambda: {'rooms': {'r': [{'address': rs.primary_of(x), 'room': 'r', 'chain': 'solana', 'ts': time.time()} for x in (A, B)]}})
+    a = asyncio.run(rs.quest_board(A)); b = asyncio.run(rs.quest_board(B))
+    assert a['editions']['q-recruit'] == 1 and b['editions']['q-recruit'] == 2 and a['editionCap'] == 100
+    rs._quest_cache.clear()
+    assert asyncio.run(rs.quest_board(A))['editions']['q-recruit'] == 1   # numbers never change

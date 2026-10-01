@@ -92,7 +92,7 @@ export function MetaCard({ card, size = 'md', interactive = false, flipped, onFl
         <div className="mc-top"><span>{KIND[card.kind] || 'CARD'}</span><i className="mc-pips" aria-label={r}>{Array.from({ length: 5 }, (_, i) => <b key={i} className={i < (RANK[r] || 2) ? 'on' : ''} />)}</i></div>
         <Crest card={card} id={id} />
         <div className="mc-name"><b>{card.title}</b><small>{card.subtitle}</small></div>
-        <div className="mc-foot"><span>{r.toUpperCase()}</span><span>#{serial(card.key)}</span><span>{card.holders ?? 0} held</span></div>
+        <div className="mc-foot"><span>{r.toUpperCase()}</span><span className={card.edition ? 'mc-edition' : ''}>#{card.edition || serial(card.key)}</span><span>{card.holders ?? 0} held</span></div>
       </div>
       {back ? <div className="mc-face mc-back"><div className="mc-bg" /><Pattern design={card.design} id={`${id}b`} />{back}</div> : <div className="mc-face mc-back">
         <div className="mc-bg" /><Pattern design={card.design} id={`${id}b`} />

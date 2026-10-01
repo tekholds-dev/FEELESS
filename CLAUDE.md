@@ -79,6 +79,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Trade tape: Helius first; when it fails (quota) the candles service parses swaps from Solana RPC (Alchemy). Rows need a
   real SOL/USD leg (dust spam dropped). Tags from `/api/reputation/intel` via `lib/coinIntel.js` (one fetch/coin/min).
 
+## Staff + safety nets
+- `_is_staff(address)` is THE rule for admin/creator wallets (any linked wallet): every badge, perk, chat background,
+  color, Fee Reserve room and top perk tier unlock automatically. Never hand-roll `in _admin_wallets()` checks.
+- `test_no_undefined_names.py` (pyflakes) fails the suite on any undefined name — when deleting code "up to the next
+  def", re-read what sat between (a dropped constant once crashed Pump Pulse 65× before anyone noticed).
+- Uploads: no sign-in needed, so 20/hour per IP; GIFs skip the canvas crop (keeps animation), 6 MB cap; stills 2 MB.
+
 ## Badges + quest engine
 - `backend/quests.py` (pure, tested): 40 animated badges = FEELESS set (`q-*`, everyone) + Fee Reserve set (`frsv-*`, every
   task needs $FEE held). Each badge = tasks on metrics computed only from FEELESS records (verified trades, chat, calls,
@@ -97,7 +104,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Quest data is shared: `useQuests` (Badges tab, Trenches `QuestNudge`, `ReserveProgress` on $FEE + Fee Reserve, Season
   board in Leaderboard). Don't add a second fetch for it.
 - No new tabs for features: Radar (Signals + Watching, held-coin signals first), Leaderboard (?lens=season|callers|wars|crew),
-  Pump radar views (incl. 🎯 Snipers out). Fee-Back has the hover fee report (fees, fee-back paid/owed, % back, XP/rep/points).
+  Pump radar = `PumpHub` lenses Radar | Discover (`/terminal/discover` → Discover lens; particles in front, fx-lite off),
+  plus its 🎯 Snipers out view.
+- Badge editions: first 100 real earners of a badge are numbered forever (`quest_editions.json`), shown as #007 / 100. Fee-Back has the hover fee report (fees, fee-back paid/owed, % back, XP/rep/points).
 - Art lives in `public/assets/badges/{feeless,frsv}/<id>.{jpg,gif}`: show the ~35KB .jpg poster; play the .gif only on
   hover/focus or in the detail view (`BadgeArt`). Never autoplay a grid of GIFs.
 

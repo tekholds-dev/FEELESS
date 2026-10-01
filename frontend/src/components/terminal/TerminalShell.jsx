@@ -2,7 +2,7 @@ import { useWalletTotal, fmtTotal } from '../WalletBalance';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Crown, Home, CandlestickChart, Rocket, Compass, Star, MessageCircle, Trophy, Bell, BookOpen, Map, FileText, Settings, Menu, Wallet, Globe2, ArrowUpRight, X, Coins, Cat, Activity, Sun, Moon, UserRound, ShieldCheck, Lock } from 'lucide-react';
+import { Crown, Home, CandlestickChart, Rocket, Star, MessageCircle, Trophy, Bell, BookOpen, Map, FileText, Settings, Menu, Wallet, Globe2, ArrowUpRight, X, Coins, Cat, Activity, Sun, Moon, UserRound, ShieldCheck, Lock } from 'lucide-react';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { apiUrl } from '../../lib/api';
 import { FeelessMark, FeelessWordmark } from '../FeelessLogo';
@@ -16,7 +16,7 @@ import { FlashValue } from './FlashValue';
 
 const ITEMS = [
   ['', 'Home', Home], ['reputation', 'Reputation', ShieldCheck], ['trade', 'Trade', CandlestickChart], ['pump', 'Pump radar', Rocket],
-  ['discover', 'Discover', Compass], ['launch', 'Launchpads', Rocket],
+  ['launch', 'Launchpads', Rocket],
   ['watchlist', 'Radar', Star], ['chat', 'The Trenches', MessageCircle],
   ['feeback', 'Fee-Back', Coins], ['fee', '$FEE', Activity], ['feecat', 'FeeCat', Cat], ['badges', 'Badges', Crown], ['seasons', 'Seasons', Crown], ['leaderboard', 'Leaderboard', Trophy], ['learn', 'Learn', BookOpen], ['roadmap', 'Roadmap', Map],
   ['whitepaper', 'Whitepaper', FileText], ['settings', 'Settings', Settings],

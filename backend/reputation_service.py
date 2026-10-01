@@ -868,9 +868,12 @@ class UploadPayload(BaseModel):
     dataUrl: str
 
 
+_upload_ip: dict = {}
+
+
 @app.post('/api/reputation/uploads')
 async def upload_image(payload: UploadPayload, request: Request):
-    """Images for profiles, launches and seasons. Everyone: 2 MB. A signed-in creator/admin
+    """Images for profiles, launches and seasons. Everyone: 2 MB (animated GIFs: 6 MB). A signed-in creator/admin
     (command center session) may upload big GIFs/art up to 25 MB."""
     import base64
     import re
@@ -881,7 +884,13 @@ async def upload_image(payload: UploadPayload, request: Request):
     try:
         _require_admin(request); cap = 25_000_000
     except HTTPException:
-        cap = 2_000_000
+        cap = 6_000_000 if m.group(1) == 'image/gif' else 2_000_000   # animated profile covers / avatars
+        # No sign-in needed to upload, so cap it: 20 images per hour per IP (stops anyone filling the disk).
+        ip = request.headers.get('x-forwarded-for', request.client.host if request.client else '?').split(',')[0]
+        hits = [x for x in _upload_ip.get(ip, []) if time.time() - x < 3600]
+        if len(hits) >= 20:
+            raise HTTPException(429, 'Upload limit reached — try again in an hour.')
+        _upload_ip[ip] = hits + [time.time()]
     if len(raw) > cap:
         raise HTTPException(413, f'Image must be under {cap // 1_000_000} MB.')
     sig = raw[:12]
@@ -1859,7 +1868,7 @@ def _profiles_load():
 
 def _safe_url(v, max_len=400):
     v = (v or '').strip()
-    return v if v.startswith('https://') or v.startswith('/api/reputation/uploads/') and len(v) <= max_len else ''
+    return v if (v.startswith('https://') or v.startswith('/api/reputation/uploads/')) and len(v) <= max_len else ''
 
 
 def _clean_profile(p: dict) -> dict:
@@ -2429,12 +2438,21 @@ async def _fee_usd(address: str) -> float:
         return 0.0
 
 
+def _is_staff(address: str) -> bool:
+    """FEELESS HQ = the admin/creator wallets (any linked wallet of theirs). Staff get every unlock: all badges and
+    their perks, every chat background, colors, Fee Reserve rooms, top perk tier."""
+    if not address:
+        return False
+    admins = _admin_wallets()
+    return address in admins or primary_of(address) in {primary_of(w) for w in admins}
+
+
 async def _alpha_allowed(room: str, address: str) -> bool:
     r = _ALPHA.get(room)
     if not r:
         return True
     a = primary_of(address or '')
-    return bool(a) and (a in _admin_wallets() or await _fee_usd(a) >= r['minUsd'])
+    return bool(a) and (_is_staff(a) or await _fee_usd(a) >= r['minUsd'])
 
 
 @app.get('/api/reputation/alpha-rooms')
@@ -2647,6 +2665,8 @@ async def badge_limits_public():
 import quests as _quests
 QUESTS_PATH = DATA_DIR / 'quests.json'            # admin: {'badges': {id: override}, 'manual': {wallet: {grant, revoke}}}
 QUEST_STATE_PATH = DATA_DIR / 'quest_state.json'  # {wallet: {'days': [YYYY-MM-DD], 'first': ts}}
+EDITIONS_PATH = DATA_DIR / 'quest_editions.json'  # {badge: [wallets in earn order]} — first EDITION_CAP are numbered
+EDITION_CAP = 100
 _quest_cache: dict = {}
 
 
@@ -2700,6 +2720,8 @@ async def _quest_summary(address):
     if hit and time.time() - hit[0] < 60:
         return hit[1]
     manual = (_json_load(QUESTS_PATH, {}).get('manual') or {}).get(me)
+    if _is_staff(me):   # FEELESS HQ: every badge (and so every perk) unlocked
+        manual = {**(manual or {}), 'grant': [b['id'] for b in _quest_defs()], 'revoke': []}
     raw = await _quest_raw(me)
     out = {'address': me, **_quests.summary(_quest_defs(), raw, manual)}
     # First time each badge shows as earned is its earn date (season scoring + "new" flags). Written only on change.
@@ -2707,11 +2729,21 @@ async def _quest_summary(address):
     earned_at = dict(st.get('earned') or {})
     new = [b['id'] for b in out['badges'] if b['earned'] and b['id'] not in earned_at]
     if new:
+        # Editions: the first EDITION_CAP wallets to EARN a badge (not granted) are numbered forever: #007 / 100.
+        eds = _json_load(EDITIONS_PATH, {})
         for bid in new:
             earned_at[bid] = time.time()
+            real = next((b for b in out['badges'] if b['id'] == bid and not b.get('granted')), None)
+            lst = eds.setdefault(bid, [])
+            if real and me not in lst and len(lst) < EDITION_CAP:
+                lst.append(me)
+        _json_save(EDITIONS_PATH, eds)
         st_all[me] = {**st, 'earned': earned_at, 'first': st.get('first') or time.time(), 'days': st.get('days') or []}
         _json_save(QUEST_STATE_PATH, st_all)
     season = _quest_season()
+    eds = _json_load(EDITIONS_PATH, {})
+    out['editions'] = {bid: lst.index(me) + 1 for bid, lst in eds.items() if me in lst}
+    out['editionCap'] = EDITION_CAP
     out.update(earnedAt=earned_at, season={**season, 'score': _quests.season_score(out['badges'], raw, earned_at, season)},
                trophies=[it for it in _json_load(COLLECTION_PATH, {}).get(me, []) if it.get('kind') == 'quest'])
     _quest_cache[me] = (time.time(), out)
@@ -3684,8 +3716,8 @@ async def _perk_tier(address: str):
             except Exception:
                 usd = 0.0
     tier = max(t['tier'] for t in PERK_TIERS if usd >= t['minUsd'])
-    if address in _admin_wallets():
-        tier = 3
+    if _is_staff(address):
+        tier = max(t['tier'] for t in PERK_TIERS)
     _perk_cache[address] = (time.time(), (tier, usd))
     return tier, usd
 
@@ -6200,7 +6232,7 @@ async def theme_get(address: str):
         if not seen.get(a):
             seen[a] = time.time(); _json_save(DATA_DIR / 'perk_notices.json', seen)
             notify(a, 'perk', f'🏗 Pool builder unlocked — you hold ${held:,.0f} of $FEE coins. Open your profile to build pools.', f'/terminal/profile/{a}', a)
-    staff = a in {primary_of(w) for w in _admin_wallets()}   # the creator / admin wallets always get their colors
+    staff = _is_staff(a)   # the creator / admin wallets always get their colors
     ok = staff or held >= THEME_MIN_USD
     return {'address': a, 'holdingUsd': held, 'poolBuilder': held >= POOL_BUILDER_MIN_USD, 'minUsd': THEME_MIN_USD, 'eligible': ok, 'staff': staff,
             'theme': saved if ok else None}

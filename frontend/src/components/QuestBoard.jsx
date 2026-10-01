@@ -47,10 +47,10 @@ export function Season({ me }) {
     {me?.season && !b.paused && <small className="m-dim">Your season XP: {me.season.score.toLocaleString()}</small>}</div>;
 }
 
-export function BadgeDetail({ b, rarity, onClose }) {
+export function BadgeDetail({ b, rarity, onClose, edition, editionCap }) {
   return <div className="qb-detail m-pop" role="dialog" aria-label={b.name} data-testid="badge-detail" onPointerDown={e => e.target === e.currentTarget && onClose()}>
     <div className="m-card"><button type="button" className="m-btn qb-x" onClick={onClose} aria-label="Close">✕</button>
-      <div className="qb-detail-card"><QuestBadgeCard b={b} size="lg" interactive live /></div><small className="m-dim qb-hint">Drag to turn · click to flip for tasks</small>
+      <div className="qb-detail-card"><QuestBadgeCard b={b} size="lg" interactive live edition={edition} editionCap={editionCap} /></div><small className="m-dim qb-hint">Drag to turn · click to flip for tasks</small>
       <div className="m-row"><b className="qb-name">{b.name}</b><span className={`m-chip tier-${b.tier}`}>{b.tier}</span><span className="m-chip">+{b.xp} XP</span>{rarity != null && <span className="m-chip">held by {rarity}%</span>}</div>
       <p className="m-dim">{b.earned ? (b.granted ? 'Granted by FEELESS HQ.' : 'Earned. It shows next to your name in chat (pick it in chat ⚙).') : 'Finish every task to unlock it.'}</p>
       {b.tasks.map(t => <div key={t.id} className={`qb-task ${t.done ? 'done' : ''}`}><span>{t.done ? '✅' : '◻️'} {t.label}</span><b className="m-num sm">{fmt(Math.min(t.have, t.target))}/{fmt(t.target)}</b>
@@ -95,10 +95,10 @@ export function QuestBoard() {
     {d.next?.length > 0 && <div className="m-card"><span className="m-label">NEXT UP · closest to unlocking</span><div className="qb-next">{d.next.map(id => d.badges.find(b => b.id === id)).filter(Boolean).map(b =>
       <button type="button" key={b.id} className="qb-tile" onClick={() => setOpen(b)}><BadgeArt art={b.art} name={b.name} locked size="sm" /><span><b>{b.name}</b><small>{b.pct}% · {b.tasks.find(t => !t.done)?.label}</small></span></button>)}</div></div>}
     <div className="m-seg" role="tablist" aria-label="Badge set">{SETS.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={set === id} className={set === id ? 'active' : ''} data-testid={`badge-set-${id}`} onClick={() => setSet(id)}>{label}</button>)}</div>
-    <div className="qb-grid">{shown.map(b => <div key={b.id} className="qb-slot"><QuestBadgeCard b={b} size="sm" holders={d.holders?.[b.id]} onOpen={() => setOpen(b)} />
+    <div className="qb-grid">{shown.map(b => <div key={b.id} className="qb-slot"><QuestBadgeCard b={b} size="sm" holders={d.holders?.[b.id]} edition={d.editions?.[b.id]} editionCap={d.editionCap} onOpen={() => setOpen(b)} />
       <small className="qb-meta">{b.earned ? '✓ earned' : `${b.pct}%`}{d.rarity?.[b.id] != null ? ` · ${d.rarity[b.id]}% hold` : ''}</small>
       {!b.earned && <i className="qb-bar"><i style={{ transform: `scaleX(${b.pct / 100})` }} /></i>}</div>)}
       {!shown.length && <p className="m-dim">Nothing here yet — finish a quest above.</p>}</div>
-    {open && <BadgeDetail b={open} rarity={d.rarity?.[open.id]} onClose={() => setOpen(null)} />}
+    {open && <BadgeDetail b={open} rarity={d.rarity?.[open.id]} edition={d.editions?.[open.id]} editionCap={d.editionCap} onClose={() => setOpen(null)} />}
   </section>;
 }

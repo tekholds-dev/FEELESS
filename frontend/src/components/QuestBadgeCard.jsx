@@ -7,13 +7,14 @@ export const perkLine = p => (p.kind === 'fee_discount' ? `−${p.pct}% FEELESS 
 
 // A quest badge as a FEELESS card: the art lives in the crest circle (the same circle chat shows), rarity sets the frame,
 // earned cards come alive (sweep + glow), locked ones stay dim. Back = the tasks and perks. GIF only while hovered/open.
-export function QuestBadgeCard({ b, holders, size = 'md', interactive = false, live = false, onOpen }) {
+// edition: your number among the first earners (e.g. 7 → '#007 / 100' on the card).
+export function QuestBadgeCard({ b, holders, size = 'md', interactive = false, live = false, onOpen, edition, editionCap = 100 }) {
   const [hot, setHot] = useState(false);
   const [a, c] = ACCENT[b.set] || ACCENT.feeless;
   const card = {
     key: b.id, kind: 'badge', title: b.name, subtitle: b.set === 'frsv' ? 'FEE RESERVE BADGE' : 'FEELESS BADGE', rarity: b.tier,
     design: DESIGN[b.tier] || 'holo', accent: a, accent2: c, art: b.art ? `${b.art}.${hot || live ? 'gif' : 'jpg'}` : null,
-    holders: holders ?? 0, motion: b.earned ? 'alive' : 'still',
+    holders: holders ?? 0, motion: b.earned ? 'alive' : 'still', edition: edition ? `${String(edition).padStart(3, '0')} / ${editionCap}` : null,
   };
   const back = <div className="qbc-back">
     <div className="mc-top"><span>{b.earned ? 'EARNED' : `${b.pct}% DONE`}</span><span>+{b.xp} XP</span></div>
