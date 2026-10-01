@@ -13,8 +13,8 @@ export function FeeCatHQ({ catId = 'leader' }) {
   const [d, setD] = useState(null);
   useEffect(() => {
     let alive = true;
-    const load = () => !document.hidden && fetch(apiUrl(`/api/cats/${catId}/profile`)).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
-    load(); const t = setInterval(load, 20000);
+    const load = () => fetch(apiUrl(`/api/cats/${catId}/profile`)).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
+    load(); const t = setInterval(() => !document.hidden && load(), 20000);
     return () => { alive = false; clearInterval(t); };
   }, [catId]);
   if (!d) return null;

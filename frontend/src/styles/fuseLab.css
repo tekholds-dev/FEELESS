@@ -356,3 +356,28 @@ body.theme-day .fl-price { background: #fff; }
 .fl-copy { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; align-items: center; padding: 8px 10px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--m-accent) 50%, var(--m-line)); animation: flRunIn .2s var(--m-ease) backwards; }
 .fl-copy b { font-size: 12.5px; color: var(--m-accent); } .fl-copy small { grid-column: 1; font-size: 11px; color: var(--m-dim); } .fl-copy .m-btn { grid-row: 1 / span 2; grid-column: 2; }
 body.fx-lite .fl-copy { animation: none; } @media (prefers-reduced-motion: reduce) { .fl-copy { animation: none; } } body.theme-day .fl-copy { background: #fff; }
+
+/* Runners lens live cells: a value that changes re-mounts (key) and flashes once; LIVE dot pulses. transform/opacity only. */
+.fl-livedot { display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: var(--m-accent); vertical-align: middle; animation: flLive 1.6s ease-in-out infinite; }
+.fl-px { color: var(--m-text); text-transform: none; letter-spacing: 0; }
+.fl-tick { display: inline-block; animation: flTick .5s var(--m-ease); } .fl-tick.is-up { transform-origin: bottom; } .fl-tick.is-down { transform-origin: top; }
+@keyframes flLive { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+@keyframes flTick { from { opacity: .3; transform: translateY(-4px) scale(1.08); } }
+body.fx-lite .fl-livedot, body.fx-lite .fl-tick { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fl-livedot, .fl-tick { animation: none; } }
+
+/* 🎯 Card plan: per-coin TP / SL rows + auto-profit / on-profit / mode segments. */
+.fl-plan { display: grid; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--m-accent) 35%, var(--m-line)); background: var(--m-surface); }
+.fl-plan > summary { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; cursor: pointer; list-style: none; } .fl-plan > summary::-webkit-details-marker { display: none; }
+.fl-plan > summary small { font-size: 11px; } .fl-plan[open] > summary { margin-bottom: 4px; }
+.fl-plan-legs { display: grid; gap: 4px; }
+.fl-plan-leg { display: grid; grid-template-columns: minmax(70px, 1fr) auto auto; justify-content: start; gap: 10px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--m-line); font-size: 12.5px; animation: flRunIn .25s var(--m-ease) backwards; }
+.fl-plan-leg.is-runner b { color: var(--rn-fire, #ff9a3c); } .fl-plan-leg label { display: inline-flex; gap: 3px; align-items: center; font-family: var(--m-mono); font-size: 11px; color: var(--m-dim); cursor: help; }
+.fl-plan-leg label { white-space: nowrap; } .fl-plan .fl-plan-leg input.m-input { width: 64px; flex: none; min-height: 28px; padding: 2px 6px; text-align: right; }
+.fl-plan-row { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; } .fl-plan-row > span { font-family: var(--m-mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--m-dim); }
+.fl-plan-row .m-seg button { font-size: 10.5px; }
+body.fx-lite .fl-plan-leg { animation: none; } @media (prefers-reduced-motion: reduce) { .fl-plan-leg { animation: none; } }
+body.theme-day .fl-plan { background: #fff; }
+@media (max-width: 520px) { .fl-plan-leg { grid-template-columns: 1fr 1fr; } .fl-plan-leg b { grid-column: 1 / -1; } }
+/* Day theme: card faces are art and stay dark, so the ⟲ flip keeps the night palette too. */
+body.theme-day .fcd-flip { background: #04100a; color: var(--m-accent); }

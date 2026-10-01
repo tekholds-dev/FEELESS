@@ -24,13 +24,17 @@ const ARENA = { board: [{ style: 'yield', runs: 3, avgPct: 2, winRate: 66 }], ou
   { kind: 'user', id: 'U1', name: 'Degen card', emoji: '🃏', owner: '@chad', legs: PICKS.slice(0, 3).map(p => ({ pairAddress: `P${p.mint}`, symbol: p.symbol, weight: 33 })), index: 140, grade: 'A', buyers: 1, mode: 'swap',
     activity: { score: 70, tier: 'hot' }, streak: { swaps: 3, won: true, tier: 'phoenix', label: '🔥 Phoenix', bonus: 15 }, copies: 2, copyPct: 10 },
   { kind: 'lit', id: 'L1', name: '$RUN1 · $RUN2', emoji: '🔥', legs: PICKS.slice(0, 2).map(p => ({ pairAddress: `P${p.mint}`, baseAddress: p.mint, symbol: p.symbol, weight: 50 })), index: 134.5, grade: 'A', buyers: 0, activity: { score: 30, tier: 'warm' } }] };
+const SEASON = { week: 1790553600, endsAt: 9e9, cards: 4, boostPct: 10, board: [
+  { rank: 1, id: 'S1', name: 'Moon card', handle: '@chad', pnlPct: 88, streak: { swaps: 1, tier: 'survivor', label: '🛡 Survivor', bonus: 5 } },
+  { rank: 2, id: 'S2', name: 'Deep', handle: '@ann', pnlPct: 12 }, { rank: 4, id: 'S4', name: 'Down bad', handle: '@x', pnlPct: -9 }],
+  past: [{ week: 1789948800, top: [{ rank: 1, handle: '@og', pnlPct: 140, wallet: 'W' }] }] };
 const SRC = { arena: '🏟 Arena pick', lit: '🔥 Lit card', pump: '🚀 Pump scan', snipers: '🎯 Snipers out', creator: "📣 Creators' pick" };
 const DISCOVER = { runners: PICKS.map((p, i) => ({ ...p, sources: i ? [{ kind: 'pump', label: SRC.pump, detail: 'top score' }] : [{ kind: 'arena', label: SRC.arena, detail: 'round' }, { kind: 'pump', label: SRC.pump, detail: 'top' }] })),
   counts: { arena: 1, pump: 4 }, sources: SRC, nextRoundAt: 9e9, gates: ['a', 'b', 'c'], swaps: RUNNERS.round.swaps };
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/terminal/fuse');
-  global.fetch = jest.fn(async url => ({ ok: true, json: async () => (String(url).includes('/runners/discover') ? DISCOVER : String(url).includes('/runners') ? RUNNERS : String(url).includes('/fuses/arena') ? ARENA : String(url).includes('/fuses/pnl') ? { pnlUsd: 50, pnlPct: 50, valueUsd: 150, rows: [ROW] }
+  global.fetch = jest.fn(async url => ({ ok: true, json: async () => (String(url).includes('/runners/discover') ? DISCOVER : String(url).includes('/runners') ? RUNNERS : String(url).includes('/fuses/arena') ? ARENA : String(url).includes('/fuses/season') ? SEASON : String(url).includes('/fuses/pnl') ? { pnlUsd: 50, pnlPct: 50, valueUsd: 150, rows: [ROW] }
     : String(url).includes('/balance/') ? { raw: '10000000000', decimals: 9 } : String(url).includes('/limits/') ? { open: 1, max: 2, canOpen: true } : { fuses: [] }) }));
 });
 
@@ -59,6 +63,8 @@ test('Fuse 🧬: tabs, runners carry into the Lab, My cards shows every action',
   expect(host.querySelector('[data-testid="act-panel-yield"]').textContent).toContain('33.3% of each leg');   // +50% → sell only the gain
   expect(host.querySelector('[data-testid="yield-lvl-100"]')).not.toBeNull();                                      // Cmd Ctr levels, picked not typed
   expect(host.querySelector('[data-testid="act-panel-yield"]').textContent).toContain('after exit fees');
+  await act(async () => host.querySelector('[data-testid="act-limits-c1"]').click()); await tick();
+  expect(host.querySelector('[data-testid="leglim-tp-P1"]')).not.toBeNull();                   // per-coin TP / SL on the card
   await act(async () => host.querySelector('[data-testid="act-withdraw-c1"]').click()); await tick();
   expect(host.querySelector('[data-testid="fusego"]').dataset.side).toBe('sell');
 });
@@ -109,4 +115,15 @@ test('Arena: a trader card shows its streak + copies and ⚡ Fuse this too hands
   expect(card.textContent).toContain('⚡ 2 copies'); expect(card.textContent).toContain('swaps weak legs');
   act(() => host.querySelector('[data-testid="mega-use-U1"]').click()); await tick();
   expect(host.querySelector('[data-testid="lab"]').dataset.copy).toBe('U1:@chad');
+});
+
+test('Arena: the Fuse season board ranks this week with medals, a countdown and past champions', async () => {
+  window.history.replaceState(null, '', '/terminal/fuse?tab=arena');
+  const host = document.createElement('div'); document.body.appendChild(host);
+  await act(async () => { createRoot(host).render(<FusePage />); }); await tick(); await tick();
+  const s = host.querySelector('[data-testid="fuse-season"]');
+  expect(s.querySelector('[data-testid="season-S1"]').className).toContain('r-1');
+  expect(s.querySelector('[data-testid="season-S1"]').textContent).toContain('🥇');
+  expect(s.querySelector('[data-testid="season-S4"]').textContent).toContain('#4');
+  expect(s.textContent).toContain('PAST CHAMPIONS'); expect(s.textContent).toContain('@og');
 });

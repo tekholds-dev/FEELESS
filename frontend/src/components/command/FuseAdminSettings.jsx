@@ -60,7 +60,7 @@ export function BundlePricing({ call, initial, swapBps = 0 }) {
 // loyalty + Arena bonuses; cap). The book shows earned / paid / owed per wallet; "Paid" records a payout you sent.
 const RULE_LABELS = [['swapDropPct', 'Swap mode: alert when a leg is down', '%'], ['topTierPct', 'Arena top tier: card up at least', '+%'],
   ['fbHolderPct', 'Fee-Back: share of fees paid', '%'], ['fbHoldHours', 'Unlocks after holding', 'h'], ['fbLoyaltyPct', 'Loyalty bonus', '+%'],
-  ['fbLoyaltyDays', 'Loyalty after', 'days'], ['fbArenaPct', 'Arena bonus (card hot/blazing)', '+%'], ['fbCapPct', 'Fee-Back cap', '%'], ['netFeeUsdPerLeg', 'Network fee estimate per leg', '$'], ['copyPct', '⚡ Copy cards: owner earns of the copier\'s fee', '%']];
+  ['fbLoyaltyDays', 'Loyalty after', 'days'], ['fbArenaPct', 'Arena bonus (card hot/blazing)', '+%'], ['fbCapPct', 'Fee-Back cap', '%'], ['netFeeUsdPerLeg', 'Network fee estimate per leg', '$'], ['copyPct', '⚡ Copy cards: owner earns of the copier\'s fee', '%'], ['seasonBoostPct', '🏆 Season top 3: Fee-Back boost', '+%']];
 
 export function CardRules({ call }) {
   const [d, setD] = useState(null); const [r, setR] = useState(null); const [lv, setLv] = useState('');

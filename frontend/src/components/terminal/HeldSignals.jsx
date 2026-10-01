@@ -19,12 +19,12 @@ export function HeldSignals() {
   useEffect(() => {
     if (!key) return undefined;
     let alive = true;
-    const load = () => !document.hidden && fetch(`https://api.dexscreener.com/tokens/v1/solana/${key}`).then(r => (r.ok ? r.json() : [])).then(list => {
+    const load = () => fetch(`https://api.dexscreener.com/tokens/v1/solana/${key}`).then(r => (r.ok ? r.json() : [])).then(list => {
       const best = {};
       (Array.isArray(list) ? list : []).forEach(p => { const m = p.baseToken?.address; if (m && (!best[m] || (p.liquidity?.usd || 0) > (best[m].liquidity?.usd || 0))) best[m] = p; });
       if (alive) setPairs(best);
     }).catch(() => {});
-    load(); const t = setInterval(load, 60000);
+    load(); const t = setInterval(() => !document.hidden && load(), 60000);
     return () => { alive = false; clearInterval(t); };
   }, [key]);
   if (!held.length) return null;

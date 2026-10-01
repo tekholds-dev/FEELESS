@@ -405,9 +405,9 @@ def yield_due(r, y, exit_fee=0.0):
 
 # ---- Card rules (Cmd Ctr › Fuse › Card rules): auto-profit levels, swap mode, Arena top tier, Fuse Fee-Back -----------
 CARD_RULES = {'yieldLevels': [25, 50, 100, 200], 'yieldDefault': 50, 'netFeeUsdPerLeg': 0.01, 'swapDropPct': 25, 'topTierPct': 50,
-              'fbHolderPct': 20, 'fbHoldHours': 24, 'fbLoyaltyPct': 10, 'fbLoyaltyDays': 7, 'fbArenaPct': 10, 'fbCapPct': 50, 'copyPct': 10}
+              'fbHolderPct': 20, 'fbHoldHours': 24, 'fbLoyaltyPct': 10, 'fbLoyaltyDays': 7, 'fbArenaPct': 10, 'fbCapPct': 50, 'copyPct': 10, 'seasonBoostPct': 10}
 RULE_RANGES = {'netFeeUsdPerLeg': (0, 1), 'swapDropPct': (5, 90), 'topTierPct': (5, 1000), 'fbHolderPct': (0, 100), 'fbHoldHours': (1, 720),
-               'fbLoyaltyPct': (0, 100), 'fbLoyaltyDays': (1, 90), 'fbArenaPct': (0, 100), 'fbCapPct': (0, 100), 'copyPct': (0, 50)}
+               'fbLoyaltyPct': (0, 100), 'fbLoyaltyDays': (1, 90), 'fbArenaPct': (0, 100), 'fbCapPct': (0, 100), 'copyPct': (0, 50), 'seasonBoostPct': (0, 100)}
 
 
 def clean_rules(r):
@@ -478,17 +478,82 @@ def copy_cut(copier_fees_usd, rules):
     return round(_f(copier_fees_usd) * clean_rules(rules)['copyPct'] / 100, 6)
 
 
-def card_feeback(fees_usd, held_s, on_arena, rules):
+# ---- Card plan (set in the Lab before Fuse in, editable on My cards): per-coin TP / SL, auto-profit level, collect vs compound,
+# hold vs swap. Every trigger is an ALERT with a pre-filled one-approval action — FEELESS never signs.
+LEG_TP, LEG_SL = (5.0, 1000.0), (5.0, 95.0)
+
+
+def clean_plan(plan, rules, pair_addresses):
+    plan = plan if isinstance(plan, dict) else {}
+    rl = clean_rules(rules)
+    at = plan.get('at')
+    try:
+        at = float(at) if at not in (None, '', 0, '0', 'off') else None
+    except (TypeError, ValueError):
+        at = None
+    if at is not None and at not in rl['yieldLevels']:
+        raise ValueError(f"Pick one of the auto-profit levels: {', '.join(f'+{v:g}%' for v in rl['yieldLevels'])}.")
+    legs = {}
+    for pa, lim in ((plan.get('legs') or {}).items() if isinstance(plan.get('legs'), dict) else []):
+        if pa not in set(pair_addresses) or not isinstance(lim, dict):
+            continue
+        tp, sl = _f(lim.get('tp')) or None, _f(lim.get('sl')) or None
+        if tp is not None and not LEG_TP[0] <= tp <= LEG_TP[1]:
+            raise ValueError(f'Coin take-profit must be +{LEG_TP[0]:g}% to +{LEG_TP[1]:g}%.')
+        if sl is not None and not LEG_SL[0] <= sl <= LEG_SL[1]:
+            raise ValueError(f'Coin stop-loss must be −{LEG_SL[0]:g}% to −{LEG_SL[1]:g}%.')
+        if tp or sl:
+            legs[pa] = {'tp': tp, 'sl': sl}
+    return {'at': at, 'mode': 'swap' if plan.get('mode') == 'swap' else 'hold', 'onProfit': 'compound' if plan.get('onProfit') == 'compound' else 'collect', 'legs': legs}
+
+
+def leg_limit_hits(r, leg_guard):
+    """Per-coin limits: the open legs whose P&L % crossed their take-profit or stop-loss and haven't fired yet."""
+    out = []
+    for l in r.get('legs') or []:
+        g = (leg_guard or {}).get(l.get('pairAddress'))
+        if not g or g.get('firedAt') or l.get('soldUsd') is not None:
+            continue
+        pct = _f(l.get('pnlPct'))
+        if g.get('tp') and pct >= _f(g['tp']):
+            out.append((l, 'tp', pct))
+        elif g.get('sl') and pct <= -abs(_f(g['sl'])):
+            out.append((l, 'sl', pct))
+    return out
+
+
+WEEK = 7 * 86400
+SEASON_MIN_COST = 1.0
+
+
+def season_start(now):
+    """Fuse season week start: Monday 00:00 UTC."""
+    now = int(_f(now))
+    day = now - now % 86400
+    return day - ((day // 86400 + 3) % 7) * 86400   # 1970-01-01 was a Thursday
+
+
+def season_board(rows, since, until, bots=()):
+    """Weekly Fuse season: cards OPENED this week (cost ≥ $1, owner not a flagged bot), ranked by real P&L % (live for
+    open cards, realized for closed ones), then by $ P&L. One row per card."""
+    ok = [r for r in rows if since <= _f(r.get('at')) < until and _f(r.get('costUsd')) >= SEASON_MIN_COST and r.get('wallet') not in set(bots)]
+    ranked = sorted(ok, key=lambda r: (-_f(r.get('pnlPct')), -_f(r.get('pnlUsd'))))
+    return [{'rank': i + 1, **{k: r.get(k) for k in ('id', 'wallet', 'name', 'pnlPct', 'pnlUsd', 'costUsd', 'closed', 'streak')}} for i, r in enumerate(ranked)]
+
+
+def card_feeback(fees_usd, held_s, on_arena, rules, season_win=False):
     """Fuse Fee-Back: a share of the FEELESS fees you paid on a card comes back once you've held it fbHoldHours;
     +fbLoyaltyPct after fbLoyaltyDays; +fbArenaPct while it burns hot/blazing on the Arena. Capped at fbCapPct."""
     rl = clean_rules(rules)
     h = max(0.0, _f(held_s)) / 3600
     unlocked = h >= rl['fbHoldHours']
     loyal = h >= rl['fbLoyaltyDays'] * 24
-    pct = 0.0 if not unlocked else min(rl['fbCapPct'], rl['fbHolderPct'] + (rl['fbLoyaltyPct'] if loyal else 0) + (rl['fbArenaPct'] if on_arena else 0))
+    pct = 0.0 if not unlocked else min(rl['fbCapPct'], rl['fbHolderPct'] + (rl['fbLoyaltyPct'] if loyal else 0) + (rl['fbArenaPct'] if on_arena else 0)
+                                       + (rl['seasonBoostPct'] if season_win else 0))
     nxt = (f"{rl['fbHolderPct']:g}% unlocks in {max(0.0, rl['fbHoldHours'] - h):.0f}h" if not unlocked
            else f"+{rl['fbLoyaltyPct']:g}% at {rl['fbLoyaltyDays']:g}d held" if not loyal and rl['fbLoyaltyPct'] else '')
-    return {'feesUsd': round(_f(fees_usd), 6), 'pct': round(pct, 2), 'usd': round(_f(fees_usd) * pct / 100, 6), 'unlocked': unlocked, 'loyal': loyal, 'arena': bool(on_arena), 'next': nxt}
+    return {'feesUsd': round(_f(fees_usd), 6), 'pct': round(pct, 2), 'usd': round(_f(fees_usd) * pct / 100, 6), 'unlocked': unlocked, 'loyal': loyal, 'arena': bool(on_arena),
+            'season': bool(season_win), 'next': nxt}
 
 
 def collect_pct(r, y):

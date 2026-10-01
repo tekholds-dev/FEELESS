@@ -88,3 +88,34 @@ def test_round_move_is_none_when_the_feed_lost_the_coin(rs):
     live = {'passing': [{'mint': 'A', 'price': 1.5}], 'dropped': []}
     assert rs._round_move({'mint': 'A', 'entry': 1.0}, live) == 50.0
     assert rs._round_move({'mint': 'Z', 'entry': 1.0}, live) is None
+
+
+def test_card_plan_is_validated_and_leg_limits_fire_once(rs, monkeypatch):
+    plan = hq.clean_plan({'at': 50, 'mode': 'swap', 'onProfit': 'compound', 'legs': {'P1': {'tp': 100, 'sl': 30}, 'NOPE': {'tp': 50}}}, {}, ['P1', 'P2'])
+    assert plan == {'at': 50.0, 'mode': 'swap', 'onProfit': 'compound', 'legs': {'P1': {'tp': 100.0, 'sl': 30.0}}}
+    with pytest.raises(ValueError):
+        hq.clean_plan({'at': 75}, {}, [])
+    with pytest.raises(ValueError):
+        hq.clean_plan({'legs': {'P1': {'sl': 120}}}, {}, ['P1'])
+    r = {'legs': [{'pairAddress': 'P1', 'pnlPct': 120}, {'pairAddress': 'P2', 'pnlPct': -40}]}
+    hits = hq.leg_limit_hits(r, {'P1': {'tp': 100}, 'P2': {'sl': 30}})
+    assert [(l['pairAddress'], k) for l, k, _ in hits] == [('P1', 'tp'), ('P2', 'sl')]
+    assert hq.leg_limit_hits(r, {'P1': {'tp': 100, 'firedAt': 1}}) == []
+
+
+def test_plan_from_the_lab_lands_on_the_card_and_coin_tp_alerts_once(rs, monkeypatch):
+    me = 'Aaaa1111111111111111111111111111111111111111'
+    monkeypatch.setattr(rs, '_session_or_401', lambda a, s: me)
+    sent = []
+    monkeypatch.setattr(rs, 'notify', lambda *a, **k: sent.append((a, k)))
+    rs._json_save(rs.FEELESS_TRADES_PATH, {me: [{'tx': 'S1', 'side': 'buy', 'usd': 100.0, 'tokens': 50.0, 'token': 'M1'}]})
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': []})
+    asyncio.run(rs.fuse_position(rs.FusePositionIn(address=me, session='s', legs=[{'pairAddress': 'P1', 'symbol': 'X', 'signature': 'S1'}],
+                                                    plan={'at': 100, 'mode': 'swap', 'onProfit': 'compound', 'legs': {'P1': {'tp': 25}}})))
+    pos = rs._json_load(rs.FUSE_HQ_PATH, {})['positions'][0]
+    assert pos['mode'] == 'swap' and pos['onProfit'] == 'compound' and pos['autoYield']['at'] == 100 and pos['legGuard']['P1']['tp'] == 25
+    d = rs._json_load(rs.FUSE_HQ_PATH, {})
+    assert asyncio.run(rs._fuse_leg_tick(d, 10)) == 1 and 'legs=P1' in sent[0][1]['url']          # $150 = +50% ≥ +25%
+    assert asyncio.run(rs._fuse_leg_tick(rs._json_load(rs.FUSE_HQ_PATH, {}), 20)) == 0           # once
+    out = asyncio.run(rs.fuse_plan(rs.FusePlanIn(address=me, session='s', id=pos['id'], plan={'legs': {'P1': {'sl': 20}}, 'onProfit': 'collect'})))
+    assert out['plan']['legs'] == {'P1': {'tp': None, 'sl': 20.0}} and rs._json_load(rs.FUSE_HQ_PATH, {})['positions'][0]['legGuard']['P1']['firedAt'] is None

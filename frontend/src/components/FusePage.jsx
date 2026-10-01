@@ -72,8 +72,8 @@ export const filterBySource = (rows, src) => (src === 'all' ? rows : rows.filter
 
 export function RunnerPicker({ picks, onPicks, onDone }) {
   const [d, setD] = useState(null); const [src, setSrc] = useState('all');
-  useEffect(() => { let alive = true; const load = () => !document.hidden && fetch(apiUrl('/api/reputation/runners/discover')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
-    load(); const t = setInterval(load, 20000); return () => { alive = false; clearInterval(t); }; }, []);
+  useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/runners/discover')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
+    load(); const t = setInterval(() => !document.hidden && load(), 20000); return () => { alive = false; clearInterval(t); }; }, []);
   if (!d) return <div className="fp-disc is-loading" data-testid="runner-picker"><div className="fp-scan" /><span className="m-dim">Scanning launchpads, the arena, the radar and the callers…</span></div>;
   const rows = filterBySource(d.runners || [], src);
   return <section className="fp-disc" data-testid="runner-picker">
@@ -122,8 +122,8 @@ export const stageTier = cards => (cards || []).reduce((top, c) => (['calm', 'wa
 
 export function ArenaBoard({ onPicks, onLoad }) {
   const [a, setA] = useState(null);
-  useEffect(() => { let alive = true; const load = () => !document.hidden && fetch(apiUrl('/api/reputation/fuses/arena')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setA(x)).catch(() => {});
-    load(); const t = setInterval(load, 30000); return () => { alive = false; clearInterval(t); }; }, []);
+  useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/fuses/arena')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setA(x)).catch(() => {});
+    load(); const t = setInterval(() => !document.hidden && load(), 30000); return () => { alive = false; clearInterval(t); }; }, []);
   const mega = a?.mega || [];
   const top = stageTier(mega);
   return <section className={`fp-arena ar-tier-${top}`} data-testid="fuse-arena">
@@ -134,6 +134,7 @@ export function ArenaBoard({ onPicks, onLoad }) {
     {!a ? <div className="ar-stage">{[0, 1, 2].map(i => <div key={i} className="frail-ghost" />)}</div>
       : !mega.length ? <p className="m-dim ar-none">No card on stage yet — a runner round that lights up lands here, and Cmd Ctr can stage its mega cards.</p>
       : <div className="ar-stage" data-testid="arena-stage">{mega.map((c, i) => <MegaCard key={`${c.kind}-${c.id}`} c={c} i={i} onPicks={onPicks} onLoad={onLoad} />)}</div>}
+    <FuseSeason />
     <RunnersPanel />
     {a && <div className="m-card"><span className="m-label">STRATEGIES · WE RUN $5 FOR 24H</span><p className="m-dim">{a.outlook?.note || (a.outlook?.style ? `${a.outlook.style}: ${pc(a.outlook.avgPct)} avg over ${a.outlook.runs} runs, ${a.outlook.winRate}% won.` : 'Not enough settled runs yet.')}</p>
       <table className="vd-table"><thead><tr><th>Strategy</th><th>Runs</th><th>Avg</th><th>Won</th><th /></tr></thead><tbody>
@@ -148,6 +149,34 @@ export function StreakBadge({ s }) {
   return <span className={`streak-badge st-${s.tier}`} data-tip={`Swapped out ${s.swaps} weak leg${s.swaps === 1 ? '' : 's'} and still up — +${s.bonus} activity on the Arena`} data-testid={`streak-${s.tier}`}><i aria-hidden="true" />{s.label} ×{s.swaps}</span>;
 }
 
+// 🏆 Fuse season (weekly, Monday 00:00 UTC): cards opened this week ranked by real P&L; top 3 crowned with a Fee-Back boost.
+export const left = s => { s = Math.max(0, Math.round(s)); const d = Math.floor(s / 86400); const h = Math.floor((s % 86400) / 3600); const m = Math.floor((s % 3600) / 60);
+  return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`; };
+const MEDAL = { 1: '🥇', 2: '🥈', 3: '🥉' };
+const wk = s => new Date(s * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+export function FuseSeason() {
+  const [s, setS] = useState(null); const [now, setNow] = useState(Date.now() / 1000);
+  useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/fuses/season')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setS(x)).catch(() => {});
+    load(); const t = setInterval(() => !document.hidden && load(), 60000); const c = setInterval(() => setNow(Date.now() / 1000), 30000); return () => { alive = false; clearInterval(t); clearInterval(c); }; }, []);
+  if (!s) return <div className="m-card fs is-loading" data-testid="fuse-season"><span className="m-label">🏆 FUSE SEASON</span><div className="fs-ghost" /></div>;
+  const top = Math.max(1, ...s.board.map(b => Math.abs(b.pnlPct || 0)));
+  return <section className="m-card m-live fs" data-testid="fuse-season">
+    <header className="fs-head"><div><span className="m-label">🏆 FUSE SEASON · WEEK OF {wk(s.week).toUpperCase()}</span><h3>Best cards opened this week.</h3>
+      <small className="m-dim">Real P&L of verified buys · {s.cards} cards · top 3 crowned Monday 00:00 UTC with +{s.boostPct}% Fee-Back on the card</small></div>
+      <div className="fs-clock"><small>ENDS IN</small><b className="m-num">{left(s.endsAt - now)}</b></div></header>
+    {!s.board.length ? <p className="m-dim fs-none">No card opened this week yet — the first one you fuse lands on this board.</p>
+      : <ol className="fs-board">{s.board.map((b, i) => <li key={b.id} className={`fs-row r-${b.rank <= 3 ? b.rank : 'n'}`} style={{ '--i': i }} data-testid={`season-${b.id}`}>
+        <b className="fs-rank">{MEDAL[b.rank] || `#${b.rank}`}</b>
+        <span className="fs-who"><b>{b.name || 'Fuse card'}</b><small>{b.handle}{b.closed ? ' · closed' : ''}</small></span>
+        {b.streak?.tier ? <StreakBadge s={b.streak} /> : <span />}
+        <i className="fs-bar"><i className={b.pnlPct >= 0 ? 'up' : 'down'} style={{ transform: `scaleX(${Math.max(0.03, Math.abs(b.pnlPct || 0) / top)})` }} /></i>
+        <b className={`m-num ${b.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(b.pnlPct)}</b></li>)}</ol>}
+    {s.past?.length > 0 && <div className="fs-past"><small className="m-label">PAST CHAMPIONS</small>{s.past.map(w => <span key={w.week} className="fs-champ" data-tip={w.top.map(t => `${MEDAL[t.rank]} ${t.handle || ''} ${t.name || ''} ${pc(t.pnlPct)}`).join('\n')}>
+      <small>{wk(w.week)}</small>{MEDAL[1]} {w.top[0]?.handle || `${(w.top[0]?.wallet || '').slice(0, 4)}…`} <b className="m-pos">{pc(w.top[0]?.pnlPct)}</b></span>)}</div>}
+  </section>;
+}
+
 export function MegaCard({ c, i, onPicks, onLoad }) {
   const fx = TIER_FX[c.activity?.tier] || TIER_FX.calm;
   const move = (c.index || 100) - 100;
@@ -160,7 +189,7 @@ export function MegaCard({ c, i, onPicks, onLoad }) {
       style={c.kind === 'lit' ? 'degen' : 'momentum'} rank={0} budget={20} aura={c.aura || fx.aura} />
     <div className="ar-embers" aria-hidden="true">{Array.from({ length: fx.embers }, (_, k) => <i key={k} style={{ '--i': k }} />)}</div>
     <div className="ar-meta"><b>{c.emoji} {c.name}</b>
-      <span className="ar-act" data-tip="Activity: FEELESS buys + buyers (24h), $ flow through its coins, index move. Drives the effects."><i style={{ transform: `scaleX(${(c.activity?.score || 0) / 100})` }} /><em className="m-num">{c.activity?.score || 0}</em></span>
+      <span className="ar-act" data-tip="Activity: FEELESS buys + buyers (24h), $ flow through its coins, index move. Drives the effects."><small>ACT</small><i style={{ transform: `scaleX(${(c.activity?.score || 0) / 100})` }} /><em className="m-num">{c.activity?.score || 0}</em></span>
       {(c.streak?.tier || c.copies > 0) && <span className="ar-badges">{c.streak?.tier && <StreakBadge s={c.streak} />}{c.copies > 0 && <span className="ar-copies" data-tip="Traders who fused this card too">⚡ {c.copies} {c.copies === 1 ? 'copy' : 'copies'}</span>}</span>}
       <small className="m-dim">{c.kind === 'lit' ? '🔥 lit runner card' : c.kind === 'round' ? '⏳ this round · proving' : c.kind === 'user' ? `🃏 ${c.owner} · ${c.mode === 'swap' ? '⇄ swaps weak legs' : '🔒 holds together'}` : `⚛️ Cmd Ctr · ${c.legs.length} legs`} · <span className={move >= 0 ? 'm-pos' : 'm-neg'}>{pc(move)}</span>{c.buyers ? ` · ${c.buyers} buyers` : ''}</small>
       <button type="button" className="m-btn primary m-go" onClick={use} data-testid={`mega-use-${c.id}`}>{runners ? 'Use runners →' : c.kind === 'user' ? '⚡ Fuse this too' : c.legs.length > 3 ? 'Load top 3 →' : 'Load →'}</button></div>
@@ -194,7 +223,7 @@ export function MyCards({ addr }) {
   }, [act, addr]);
   // Alert links: ?collect=<id>&pct= (💸 auto-collect), ?rebalance=<id>, ?unfuse=<id>
   useEffect(() => { if (!d?.rows || act) return; const q = new URLSearchParams(window.location.search); const find = id => id && d.rows.find(x => x.id === id && !x.closed);
-    const c = find(q.get('collect')); if (c) { open(c, 'take', { pct: Number(q.get('pct')) || 33 }); return; }
+    const c = find(q.get('collect')); if (c) { open(c, 'take', { pct: Number(q.get('pct')) || 33, ...(q.get('legs') ? { legs: q.get('legs').split(',') } : {}) }); return; }
     const rb = find(q.get('rebalance')); if (rb) { open(rb, 'rebalance'); return; }
     const sw = find(q.get('switch')); if (sw) { open(sw, 'switch', { from: q.get('out'), toMint: q.get('in'), toSymbol: q.get('sym') || 'NEW', toPair: q.get('pair') || undefined, toRole: 'runner' }); return; }
     const u = find(q.get('unfuse')); if (u) open(u, 'withdraw'); }, [d]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -208,6 +237,7 @@ export function MyCards({ addr }) {
     <div className="fp-cgrid">{openRows.map(r => <div key={r.id} className={`fp-cell ${r.onArena ? 'is-arena' : ''}`}><LiveFuseCard r={r} aura={r.onArena ? 'fire' : ''} />
       <div className="m-seg fp-mode" role="radiogroup" aria-label="Card mode">{[['hold', '🔒 Hold together', 'The card stays as you built it'], ['swap', '⇄ Swap weak legs', `When a leg fails a gate or drops ${d.rules?.swapDropPct ?? 25}%, we alert you with the best gated runner pre-filled — one approval`]].map(([k, l, tip]) =>
         <button key={k} type="button" role="radio" aria-checked={(r.mode || 'hold') === k} className={(r.mode || 'hold') === k ? 'active' : ''} data-tip={tip} onClick={() => setMode(r, k)} data-testid={`mode-${k}-${r.id}`}>{l}</button>)}</div>
+      {r.seasonWin && <span className={`fs-crown r-${r.seasonWin.rank}`} data-tip={`Fuse season · week of ${wk(r.seasonWin.week)} — +Fee-Back boost on this card`} data-testid={`crown-${r.id}`}>{MEDAL[r.seasonWin.rank]} #{r.seasonWin.rank} · week of {wk(r.seasonWin.week)}</span>}
       {(r.streak?.tier || r.copies > 0) && <span className="ar-badges">{r.streak?.tier && <StreakBadge s={r.streak} />}{r.copies > 0 && <span className="ar-copies" data-tip="Traders who copied this card — you earn a share of their FEELESS fee">⚡ {r.copies} {r.copies === 1 ? 'copy' : 'copies'} · {m$(r.copyEarnedUsd)} earned</span>}</span>}
       {r.feeback && <small className={`fp-fb ${r.feeback.unlocked ? 'is-on' : ''}`} data-tip={`Fee-Back: ${r.feeback.pct}% of the $${(r.feeback.feesUsd || 0).toFixed(2)} fees you paid on this card${r.feeback.arena ? ' (incl. Arena bonus)' : ''}`}>🎁 {r.feeback.unlocked ? `${m$(r.feeback.usd)} back · ${r.feeback.pct}%` : 'Fee-Back'}{r.feeback.next ? ` · ${r.feeback.next}` : ''}</small>}
       <div className="fp-acts" role="toolbar" aria-label={`${r.name} actions`}>
@@ -215,7 +245,7 @@ export function MyCards({ addr }) {
         <button type="button" className={`m-btn ${r.autoYield ? 'is-armed' : ''}`} data-tip="Auto-collect: alert + pre-filled Collect profit when the card is up +X% (sells only the gain). You approve once." onClick={() => open(r, 'yield', { at: r.autoYield?.at || d.rules?.yieldDefault || 50, levels: d.rules?.yieldLevels || [25, 50, 100, 200] })} data-testid={`act-yield-${r.id}`}>💸 {r.autoYield ? `Auto +${Math.round(r.autoYield.at)}%` : 'Auto-collect'}</button>
         <button type="button" className={`m-btn ${r.drift >= 5 ? 'is-warn' : ''}`} data-tip={`Back to the weights you bought (drift ${Math.round(r.drift || 0)} pts) — one approval`} onClick={() => open(r, 'rebalance')} data-testid={`act-rebalance-${r.id}`}>⚖ Rebalance</button>
         <button type="button" className="m-btn" data-tip="Sell one leg and buy a new pool or runner in one approval" onClick={() => open(r, 'switch')} data-testid={`act-switch-${r.id}`}>⇄ Switch</button>
-        <button type="button" className={`m-btn ${r.guard && !r.guard.firedAt ? 'is-armed' : ''}`} data-tip="Take-profit / stop-loss / trailing on the whole card" onClick={() => open(r, 'limits', { tp: r.guard?.tp || 50, sl: r.guard?.sl || 20, trail: r.guard?.trail || '' })} data-testid={`act-limits-${r.id}`}>🎯 Limits</button>
+        <button type="button" className={`m-btn ${r.guard && !r.guard.firedAt ? 'is-armed' : ''}`} data-tip="Take-profit / stop-loss / trailing on the whole card" onClick={() => open(r, 'limits', { tp: r.guard?.tp || 50, sl: r.guard?.sl || 20, trail: r.guard?.trail || '', legs: Object.fromEntries(Object.entries(r.legGuard || {}).map(([pa, g]) => [pa, { tp: g.tp ?? '', sl: g.sl ?? '' }])), onProfit: r.onProfit || 'collect' })} data-testid={`act-limits-${r.id}`}>🎯 Limits</button>
         <button type="button" className="m-btn danger" data-tip="Sell every leg back to SOL — one approval" onClick={() => open(r, 'withdraw')} data-testid={`act-withdraw-${r.id}`}>↩ Withdraw</button>
       </div>
       {act?.id === r.id && <ActionPanel r={r} act={act} setAct={setAct} addr={addr} ses={ses} refresh={refresh} />}
@@ -248,8 +278,18 @@ function ActionPanel({ r, act, setAct, addr, ses, refresh }) {
   if (act.kind === 'limits') {
     const save = async off => { const s = ses(); if (!s) return; try { await post('/api/reputation/fuses/guard', { address: addr, session: s, id: r.id, off, tp: Number(act.tp) || 0, sl: Number(act.sl) || 0, trail: Number(act.trail) || 0 }); toast.success(off ? 'Limits off' : 'Limits armed'); close(); refresh(); } catch (e) { toast.error(e.message); } };
     const f = (k, label, sign) => <label className="m-field"><span>{label}</span><span className="m-row">{sign}<input className="m-input m-num" inputMode="decimal" placeholder="off" value={act[k]} onChange={e => setAct({ ...act, [k]: e.target.value.replace(/[^0-9.]/g, '') })} />%</span></label>;
+    const legLim = (pa, k, v) => setAct({ ...act, legs: { ...act.legs, [pa]: { ...(act.legs?.[pa] || {}), [k]: v.replace(/[^0-9.]/g, '') } } });
+    const savePlan = async () => { const s = ses(); if (!s) return;
+      try { await post('/api/reputation/fuses/plan', { address: addr, session: s, id: r.id, plan: { mode: r.mode || 'hold', onProfit: act.onProfit, legs: Object.fromEntries(Object.entries(act.legs || {}).map(([pa, v]) => [pa, { tp: Number(v.tp) || null, sl: Number(v.sl) || null }])) } });
+        toast.success('Coin limits saved'); refresh(); } catch (e) { toast.error(e.message); } };
     return <div className="m-card fp-panel" data-testid="act-panel-limits"><b>🎯 Card limits</b><div className="m-row">{f('tp', 'Take profit', '+')}{f('sl', 'Stop loss', '−')}{f('trail', 'Trailing', '')}</div>
       <p className="m-note">Free to set. We check every minute and alert you with a one-tap exit; fees only if you exit.</p>
+      <b>Per coin</b><div className="fp-leglims">{live.map(l => { const v = act.legs?.[l.pairAddress] || {}; const g = r.legGuard?.[l.pairAddress];
+        return <div key={l.pairAddress} className={`fp-leglim ${g?.firedAt ? 'is-fired' : ''}`}><b>{l.symbol}</b><small className={(l.pnlPct || 0) >= 0 ? 'm-pos' : 'm-neg'}>{pc(l.pnlPct)}</small>
+          <label>TP +<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.tp ?? ''} onChange={e => legLim(l.pairAddress, 'tp', e.target.value)} data-testid={`leglim-tp-${l.pairAddress}`} />%</label>
+          <label>SL −<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.sl ?? ''} onChange={e => legLim(l.pairAddress, 'sl', e.target.value)} />%</label>{g?.firedAt && <em>fired</em>}</div>; })}</div>
+      <div className="m-row"><span className="m-dim">On profit</span><div className="m-seg">{[['collect', '💸 Collect'], ['compound', '♻ Compound']].map(([k, l]) => <button key={k} type="button" className={act.onProfit === k ? 'active' : ''} onClick={() => setAct({ ...act, onProfit: k })}>{l}</button>)}</div>
+        <button type="button" className="m-btn" onClick={savePlan} data-testid="leglim-save">Save coin limits</button></div>
       <div className="fg-acts"><button type="button" className="m-btn primary m-go" onClick={() => save(false)}>Arm limits</button>{r.guard && <button type="button" className="m-btn" onClick={() => save(true)}>Turn off</button>}<button type="button" className="m-btn" onClick={close}>Cancel</button></div></div>;
   }
   const px = Object.fromEntries(r.legs.map(l => [l.pairAddress, Number(l.priceNow) || 0]));
@@ -283,8 +323,8 @@ function ActionPanel({ r, act, setAct, addr, ses, refresh }) {
 // ---- Profile › Fuse cards: every card the wallet holds (live) + one total P&L for all of them -----------------------------
 export function FuseHeldCards({ address }) {
   const [d, setD] = useState(null);
-  useEffect(() => { let alive = true; const load = () => address && !document.hidden && fetch(apiUrl(`/api/reputation/fuses/pnl/${address}`)).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
-    load(); const t = setInterval(load, 60000); return () => { alive = false; clearInterval(t); }; }, [address]);
+  useEffect(() => { let alive = true; const load = () => address && fetch(apiUrl(`/api/reputation/fuses/pnl/${address}`)).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
+    load(); const t = setInterval(() => !document.hidden && load(), 60000); return () => { alive = false; clearInterval(t); }; }, [address]);
   const held = (d?.rows || []).filter(r => !r.closed);
   if (!held.length) return null;
   return <section className="wp-card fp-held" data-testid="fuse-held"><div className="fp-held-head"><h3>🃏 Fuse cards</h3>

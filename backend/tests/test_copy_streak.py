@@ -61,3 +61,57 @@ def test_arena_user_card_shows_copies_and_streak(rs, monkeypatch):
                                                   {'id': 'c', 'wallet': B, 'at': now, 'legs': leg, 'copyOf': 'o', 'copyOwner': A}]})
     o = next(c for c in asyncio.run(rs.fuse_arena_public())['mega'] if c['id'] == 'o')
     assert o['copies'] == 1 and o['streak']['tier'] == 'phoenix' and o['copyPct'] == 10
+
+
+def test_season_week_starts_monday_utc_and_ranks_by_real_pnl():
+    mon = 1_790_553_600            # Monday 2026-09-28 00:00 UTC
+    assert hq.season_start(mon + 3 * 86400 + 5) == mon and hq.season_start(mon - 1) == mon - hq.WEEK
+    rows = [{'id': 'a', 'wallet': A, 'at': mon + 10, 'costUsd': 5, 'pnlPct': 12, 'pnlUsd': 0.6},
+            {'id': 'b', 'wallet': B, 'at': mon + 20, 'costUsd': 5, 'pnlPct': 40, 'pnlUsd': 2},
+            {'id': 'old', 'wallet': B, 'at': mon - 10, 'costUsd': 5, 'pnlPct': 99, 'pnlUsd': 5},            # last week
+            {'id': 'dust', 'wallet': B, 'at': mon + 30, 'costUsd': 0.5, 'pnlPct': 500, 'pnlUsd': 2},        # under $1
+            {'id': 'bot', 'wallet': 'BOT', 'at': mon + 40, 'costUsd': 5, 'pnlPct': 300, 'pnlUsd': 15}]
+    assert [r['id'] for r in hq.season_board(rows, mon, mon + hq.WEEK, bots={'BOT'})] == ['b', 'a']
+
+
+def test_season_crowns_last_weeks_top3_once_and_boosts_their_feeback(rs, monkeypatch):
+    now = time.time(); start = hq.season_start(now); prev = start - hq.WEEK
+    async def shield(a): return {'verdict': 'clean'}
+    sent = []
+    monkeypatch.setattr(rs, '_shield_of', shield); monkeypatch.setattr(rs, 'notify', lambda *a, **k: sent.append((a, k)))
+    leg = lambda tok: [{'pairAddress': 'P1', 'usd': 100, 'tokens': tok, 'sig': f'S{tok}'}]
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'w1', 'wallet': A, 'at': prev + 60, 'legs': leg(50)},       # $150 = +50%
+                                                  {'id': 'w2', 'wallet': B, 'at': prev + 90, 'legs': leg(40)}]})      # $120 = +20%
+    top = asyncio.run(rs._fuse_season_tick(now))
+    assert [t['id'] for t in top] == ['w1', 'w2'] and len(sent) == 2 and '#1' in sent[0][0][2]
+    assert asyncio.run(rs._fuse_season_tick(now)) is None                                         # once per week
+    assert rs._season_wins()['w1']['rank'] == 1
+    rs._json_save(rs.FEE_LEDGER_PATH, {A: [{'sig': 'S50', 'feeUsd': 1.0, 't': now}]})
+    row = next(r for r in asyncio.run(rs.fuse_pnl(A))['rows'] if r['id'] == 'w1')
+    assert row['seasonWin']['rank'] == 1 and row['feeback']['season'] and row['feeback']['pct'] == 40   # 20 + loyalty 10 (7d+) + season 10
+
+
+def test_live_season_board_endpoint(rs, monkeypatch):
+    async def shield(a): return {'verdict': 'clean'}
+    monkeypatch.setattr(rs, '_shield_of', shield)
+    rs._fuse_season_cache.update(at=0, data=None)
+    now = time.time()
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'c1', 'wallet': A, 'at': now - 5, 'legs': [{'pairAddress': 'P1', 'usd': 10, 'tokens': 5}]}]})
+    out = asyncio.run(rs.fuse_season())
+    assert out['board'][0]['id'] == 'c1' and out['board'][0]['pnlPct'] == 50 and out['endsAt'] - out['week'] == hq.WEEK
+
+
+def test_background_warm_rebuilds_while_viewers_read_the_last_copy(rs, monkeypatch):
+    calls = []
+    async def board(days=30): return {'rows': []}
+    async def lv():
+        calls.append(1); return {'passing': [], 'dropped': [], 'seen': len(calls)}
+    monkeypatch.setattr(rs, 'caller_board', board)
+    rs._runner_disc_cache.update(at=time.time(), data={'cached': True})
+    assert asyncio.run(rs.runners_discover()) == {'cached': True}                                # viewer: fresh cache, no work
+    monkeypatch.setattr(rs, '_runner_live', lv)
+    async def warm():
+        rs._FUSE_FORCE.set(True)
+        return await rs.runners_discover()
+    out = asyncio.run(warm())                                                                      # warmer task: forced rebuild
+    assert 'runners' in out and calls == [1] and rs._FUSE_FORCE.get() is False                    # the flag never leaks

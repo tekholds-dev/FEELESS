@@ -77,3 +77,19 @@ def test_discover_endpoint_tags_every_source(monkeypatch):
     kinds = {r['mint']: [s['kind'] for s in r['sources']] for r in out['runners']}
     assert 'arena' in kinds['A'] and 'creator' in kinds['B'] and 'snipers' in kinds['C']
     assert out['counts']['arena'] == 1 and out['counts']['snipers'] == 1
+
+
+def test_lit_card_rebuilds_with_two_strong_and_comes_down_when_weak_wins():
+    card = {'id': 'L', 'at': 100, 'picks': [{'mint': m, 'symbol': m, 'lane': 'runner', 'entry': 1.0} for m in ('A', 'B', 'C')]}
+    paths = {'A': [[150, 1.2]], 'B': [[150, 1.1]], 'C': [[150, 0.6]]}                       # C is −40%
+    passing = [pick('A'), pick('B'), pick('N', price=2.0, score=95)]
+    c2, what = rn.rebuild_lit(card, paths, passing, {}, 200)
+    assert what == 'swap' and [p['mint'] for p in c2['picks']] == ['A', 'B', 'N'] and c2['picks'][2]['swappedIn'] == 200
+    assert c2['swaps'][0]['out']['mint'] == 'C' and 'down -40.0%' in c2['swaps'][0]['why']
+    assert rn.card_result(c2, paths, 200) == round(((1.2 + 1.1 + 0.6 + 1.0) / 4 - 1) * 100, 2)   # C's result is kept
+    # only one strong left → the card is taken down (kept in history)
+    down, what = rn.rebuild_lit(card, paths, [pick('A')], {'B': ['dev now holds 18%']}, 200)
+    assert what == 'down' and down['downAt'] == 200 and '1 strong of 3' in down['downWhy']
+    assert rn.rebuild_lit(down, paths, passing, {}, 300) == (down, None)
+    healthy = {**card, 'picks': card['picks'][:2]}
+    assert rn.rebuild_lit(healthy, paths, passing, {}, 200) == (healthy, None)

@@ -191,10 +191,53 @@ def lit_card(rnd, proof_now):
             'picks': [{k: p.get(k) for k in ('mint', 'symbol', 'lane', 'entry', 'logo', 'pairAddress')} for p in rnd['picks']]}
 
 
+def _pick_mult(card, p, paths, now, cfg=None):
+    since = p.get('swappedIn') or card['at']
+    return play_exits(p.get('lane') or 'runner', p['entry'], [px for t, px in paths.get(p['mint'], []) if since < t <= now], cfg)
+
+
 def card_result(card, paths, now, cfg=None):
-    """Paper result of a lit card since it lit: equal $ per runner, each with its lane exits."""
-    mults = [play_exits(p['lane'], p['entry'], [px for t, px in paths.get(p['mint'], []) if card['at'] < t <= now], cfg) for p in card['picks'] if p.get('entry')]
+    """$5-run result of a lit card since it lit: equal $ per runner slot, each with its lane exits. A swapped-in pick counts
+    from its swap; a swapped-out pick keeps the result it closed at (never erased from the record)."""
+    mults = [_pick_mult(card, p, paths, now, cfg) for p in card['picks'] if p.get('entry')] + [_f(s['mult']) for s in card.get('swaps') or [] if 'mult' in s]
     return round((sum(mults) / len(mults) - 1) * 100, 2) if mults else 0.0
+
+
+CARD_WEAK_PCT = -25.0   # a lit-card pick at or below this since it joined the card is weak
+
+
+def rebuild_lit(card, paths, passing, failing, now, cfg=None):
+    """Lit cards stay strong. A pick is WEAK when it fails a gate now or is ≤ −25% since it joined; STRONG when it still
+    passes and is ≥ 0. With ≥2 strong and ≥1 weak, the worst weak pick is swapped for the best passing runner not in the
+    card (one per check, its result kept). With fewer than 2 strong and a weak one, the card is TAKEN DOWN (kept in history,
+    off the stage). Returns (card, 'swap' | 'down' | None)."""
+    if card.get('downAt'):
+        return card, None
+    live = {r['mint'] for r in passing}
+    rows = []
+    for p in card['picks']:
+        since = p.get('swappedIn') or card['at']
+        path = [px for t, px in paths.get(p['mint'], []) if since < t <= now]
+        mv = (path[-1] / p['entry'] - 1) * 100 if path and _f(p.get('entry')) > 0 else None
+        weak = p['mint'] in failing or (mv is not None and mv <= CARD_WEAK_PCT)
+        rows.append({'p': p, 'mv': mv, 'weak': weak, 'strong': not weak and p['mint'] in live and (mv or 0) >= 0})
+    weak = sorted((r for r in rows if r['weak']), key=lambda r: r['mv'] if r['mv'] is not None else -1e9)
+    strong = [r for r in rows if r['strong']]
+    if not weak:
+        return card, None
+    w = weak[0]['p']
+    why = (list(failing.get(w['mint']) or [])[:1] or [f"down {weak[0]['mv']:.1f}% since it joined"])[0]
+    if len(strong) >= 2:
+        have = {p['mint'] for p in card['picks']}
+        sub = next((x for x in sorted(passing, key=lambda x: -_f(x.get('score'))) if x['mint'] not in have and _f(x.get('price')) > 0), None)
+        if not sub:
+            return card, None
+        new = {k: sub.get(k) for k in ('mint', 'symbol', 'logo', 'pairAddress')}
+        new.update(lane=lane_of(sub, 1, sub.get('score')), entry=sub['price'], swappedIn=now)
+        swap = {'at': now, 'out': {'mint': w['mint'], 'symbol': w.get('symbol')}, 'in': {'mint': sub['mint'], 'symbol': sub.get('symbol')}, 'why': why,
+                'mult': round(_pick_mult(card, w, paths, now, cfg), 4)}
+        return {**card, 'picks': [new if p is w else p for p in card['picks']], 'swaps': (card.get('swaps') or []) + [swap]}, 'swap'
+    return {**card, 'downAt': now, 'downWhy': f"{len(strong)} strong of {len(rows)} — ${w.get('symbol')} {why}"}, 'down'
 
 
 def play_exits(lane, entry, path, cfg=None):

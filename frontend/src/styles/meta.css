@@ -57,6 +57,7 @@ label.m-field, .m-field { display: grid; gap: 4px; margin: 0; } .m-field > span 
 .m-seg > button:active { transform: scale(.97); }
 .m-seg > button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
 .m-seg > button.active, .m-seg > button[aria-checked='true'] { background: var(--m-accent); color: var(--m-accent-ink); }
+body.theme-day .m-seg > button.active, body.theme-day .m-seg > button[aria-checked='true'] { background: #07784f; color: #fff; }
 label.m-toggle, .m-toggle { margin: 0; flex-direction: row; white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; color: var(--m-dim); }
 .m-toggle input { appearance: none; flex: none; width: 30px; height: 17px; border-radius: 999px; background: var(--m-line); position: relative; cursor: pointer; transition: background .15s; }
 .m-toggle input::after { content: ''; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: var(--m-text); transition: transform .15s var(--m-ease); }

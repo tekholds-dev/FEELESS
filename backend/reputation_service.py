@@ -25,6 +25,7 @@ import nft_studio
 import coin_meta
 from ecosystem import ecosystem_mints
 import asyncio
+import contextvars
 import trade_fills
 import collections
 import json
@@ -2880,6 +2881,7 @@ class FusePositionIn(BaseModel):
     name: str = Field(default='Lab fuse', max_length=40)
     fuseId: str = ''
     copyOf: str = Field(default='', max_length=16)   # ⚡ copied from another trader's open card (its owner earns copyPct of your fee)
+    plan: dict = {}     # 🎯 card plan from the Lab: {at, mode, onProfit, legs: {pairAddress: {tp, sl}}}
     legs: list          # [{pairAddress, chainId, symbol, signature}]
 
 
@@ -2906,6 +2908,16 @@ async def fuse_position(p: FusePositionIn):
         if not legs:
             return {'ok': True, 'counted': False}
         pos = {'id': uuid.uuid4().hex[:10], 'wallet': me, 'name': p.name.strip() or 'Lab fuse', 'fuseId': p.fuseId[:16], 'at': time.time(), 'legs': legs}
+        try:
+            plan = _hq.clean_plan(p.plan, _json_load(FUSE_HQ_PATH, {}).get('cardRules'), [leg['pairAddress'] for leg in legs]) if p.plan else None
+        except ValueError:
+            plan = None   # a bad plan never blocks recording a real buy
+        if plan:
+            pos.update(mode=plan['mode'], onProfit=plan['onProfit'])
+            if plan['legs']:
+                pos['legGuard'] = {pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()}
+            if plan['at']:
+                pos['autoYield'] = {'at': plan['at'], 'base': round(sum(_fuse._f(x.get('usd')) for x in legs) + _buy_fees(pos), 6), 'armedAt': time.time(), 'firedAt': None}
         src = next((x for x in d.get('positions') or [] if p.copyOf and x['id'] == p.copyOf), None)
         if src and primary_of(src['wallet']) != primary_of(me) and src['wallet'] not in set(linked_of(me)):   # never a self-copy
             pos.update(copyOf=src['id'], copyOwner=src['wallet'])
@@ -3057,6 +3069,11 @@ async def _fuse_yield_tick(d, now):
             _json_save(FUSE_HQ_PATH, d2)
     for x, r, pct in fired:
         gain = _hq.held_value(r) - x['autoYield']['base']
+        if x.get('onProfit') == 'compound':   # ♻ compound: move the gain from the winners into the rest of the card
+            notify(x['wallet'], 'fuse-guard', f"♻ {x.get('name') or 'Your Fuse card'} is up +{x['autoYield']['at']:.0f}% after fees — compound ${gain:,.2f}: trim the winners, top up the rest. One approval.",
+                   url=f"/terminal/fuse?tab=cards&rebalance={x['id']}", once=f"compound-{x['id']}-{x['autoYield'].get('armedAt')}-{int(x['autoYield']['base'] * 100)}",
+                   meta={'claim': f"Held value up {x['autoYield']['at']:.0f}% on your base", 'source': 'Fuse P&L (live prices)'})
+            continue
         notify(x['wallet'], 'fuse-guard', f"💸 {x.get('name') or 'Your Fuse card'} is up +{x['autoYield']['at']:.0f}% after fees — collect ${gain:,.2f} profit (sells {pct:.0f}% of each leg, your base stays in). One approval.",
                url=f"/terminal/fuse?tab=cards&collect={x['id']}&pct={pct}", once=f"yield-{x['id']}-{x['autoYield'].get('armedAt')}-{int(x['autoYield']['base'] * 100)}",
                meta={'claim': f"Held value up {x['autoYield']['at']:.0f}% on your base", 'source': 'Fuse P&L (live prices)'})
@@ -3081,6 +3098,60 @@ async def _fuse_swap_tick(d, now):
                url=f"/terminal/fuse?tab=cards&switch={x['id']}&out={s['out']['pairAddress']}&in={s['in']['mint']}&sym={s['in']['symbol']}&pair={s['in'].get('pairAddress') or ''}",
                once=f"swap-{x['id']}-{s['out']['pairAddress']}", meta={'claim': s['why'], 'source': 'Runner gates + Fuse P&L (live prices)'})
     return n
+
+
+async def _fuse_leg_tick(d, now):
+    """🎯 Per-coin take-profit / stop-loss: alert once per limit with that coin's sell pre-filled (one approval)."""
+    lg = [x for x in d.get('positions') or [] if x.get('legGuard') and not x.get('closedAt')]
+    if not lg:
+        return 0
+    px = await _hq_prices([leg for x in lg for leg in x['legs']])
+    fired = []
+    for x in lg:
+        for leg, kind, pct in _hq.leg_limit_hits(_hq.position_pnl(x, px), x['legGuard']):
+            fired.append((x, leg, kind, pct))
+    if not fired:
+        return 0
+    async with _admin_lock:
+        d2 = _json_load(FUSE_HQ_PATH, {})
+        ids = {(x['id'], leg['pairAddress']) for x, leg, _, _ in fired}
+        for x in d2.get('positions') or []:
+            for pa, g in (x.get('legGuard') or {}).items():
+                if (x['id'], pa) in ids:
+                    g['firedAt'] = now
+        _json_save(FUSE_HQ_PATH, d2)
+    for x, leg, kind, pct in fired:
+        what = f"hit its +{x['legGuard'][leg['pairAddress']]['tp']:g}% take-profit" if kind == 'tp' else f"hit its −{x['legGuard'][leg['pairAddress']]['sl']:g}% stop"
+        notify(x['wallet'], 'fuse-guard', f"{'🎯' if kind == 'tp' else '🛑'} ${leg.get('symbol')} in {x.get('name') or 'your Fuse card'} {what} ({pct:+.1f}%). Sell it — one approval.",
+               url=f"/terminal/fuse?tab=cards&collect={x['id']}&pct=100&legs={leg['pairAddress']}", once=f"leg-{kind}-{x['id']}-{leg['pairAddress']}",
+               meta={'claim': f"{leg.get('symbol')} {pct:+.1f}% since your buy", 'source': 'Fuse P&L (live prices)'})
+    return len(fired)
+
+
+class FusePlanIn(BaseModel):
+    address: str
+    session: str
+    id: str
+    plan: dict
+
+
+@app.post('/api/reputation/fuses/plan')
+async def fuse_plan(p: FusePlanIn):
+    """Edit an open card's plan: per-coin TP / SL (re-arms them), collect vs compound, hold vs swap."""
+    me = _session_or_401(p.address, p.session)
+    mine = set(linked_of(me)) | {me}
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {})
+        pos = next((x for x in d.get('positions') or [] if x['id'] == p.id and x['wallet'] in mine and not x.get('closedAt')), None)
+        if not pos:
+            raise HTTPException(404, 'No such open Fuse card for this wallet.')
+        try:
+            plan = _hq.clean_plan({**p.plan, 'at': None}, d.get('cardRules'), [leg['pairAddress'] for leg in pos['legs'] if leg.get('soldUsd') is None])
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        pos.update(mode=plan['mode'], onProfit=plan['onProfit'], legGuard={pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()})
+        _json_save(FUSE_HQ_PATH, d)
+    return {'ok': True, 'plan': {k: plan[k] for k in ('mode', 'onProfit', 'legs')}}
 
 
 class FuseModeIn(BaseModel):
@@ -3142,11 +3213,11 @@ async def admin_fuse_rules_set(request: Request):
 async def _feeback_book():
     """Fuse Fee-Back per wallet: earned (unlocked shares of fees paid on cards), paid, owed."""
     d = _json_load(FUSE_HQ_PATH, {})
-    rules = _card_rules(); by = _ledger_by_sig(); now = time.time()
+    rules = _card_rules(); by = _ledger_by_sig(); now = time.time(); wins = _season_wins()
     hot = {c['id'] for c in (_arena_mega_cache.get('data') or []) if c.get('kind') == 'user' and c['activity']['tier'] in ('hot', 'blazing')}
     out = {}
     for x in d.get('positions') or []:
-        fb = _hq.card_feeback(_card_fees(x, by), (x.get('closedAt') or now) - _fuse._f(x.get('at')), x['id'] in hot, rules)
+        fb = _hq.card_feeback(_card_fees(x, by), (x.get('closedAt') or now) - _fuse._f(x.get('at')), x['id'] in hot, rules, x['id'] in wins)
         a = out.setdefault(x['wallet'], {'wallet': x['wallet'], 'earnedUsd': 0.0, 'cards': 0, 'copyUsd': 0.0})
         a['earnedUsd'] = round(a['earnedUsd'] + fb['usd'], 6); a['cards'] += 1
         if x.get('copyOwner'):
@@ -3243,6 +3314,7 @@ async def _fuse_guard_tick():
         d = _json_load(FUSE_HQ_PATH, {})
     await _fuse_yield_tick(d, now)
     await _fuse_swap_tick(d, now)
+    await _fuse_leg_tick(d, now)
     d = _json_load(FUSE_HQ_PATH, {})
     live = [x for x in d.get('positions') or [] if x.get('guard') and not x['guard'].get('firedAt') and not x.get('closedAt')]
     if not live:
@@ -3352,8 +3424,11 @@ async def fuse_pnl(address: str):
     px = await _hq_prices([leg for x in pos for leg in x['legs']]) if pos else {}
     by, rules, now = _ledger_by_sig(), _card_rules(), time.time()
     hot = {c['id'] for c in (_arena_mega_cache.get('data') or []) if c.get('kind') == 'user' and c['activity']['tier'] in ('hot', 'blazing')}
+    wins = _season_wins()
     rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold',
-                    'feeback': _hq.card_feeback(_card_fees(x, by), (x.get('closedAt') or now) - _fuse._f(x.get('at')), x['id'] in hot, rules), 'onArena': x['id'] in hot} for x in pos), key=lambda r: -(r['at'] or 0))
+                    'onProfit': x.get('onProfit') or 'collect', 'legGuard': x.get('legGuard') or {},
+                    'feeback': _hq.card_feeback(_card_fees(x, by), (x.get('closedAt') or now) - _fuse._f(x.get('at')), x['id'] in hot, rules, x['id'] in wins), 'onArena': x['id'] in hot,
+                    'seasonWin': wins.get(x['id'])} for x in pos), key=lambda r: -(r['at'] or 0))
     allpos = _json_load(FUSE_HQ_PATH, {}).get('positions') or []
     copies = {}
     for c in allpos:
@@ -3428,10 +3503,74 @@ async def _arena_settle(px=None, now=None):
     return d
 
 
+# ---- 🏆 Fuse seasons: weekly (Monday 00:00 UTC), cards opened that week ranked by real P&L %; top 3 crowned once ----------
+_fuse_season_cache: dict = {'at': 0.0, 'data': None}
+
+
+async def _season_rows(since, until):
+    pos = [x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if since <= _fuse._f(x.get('at')) < until]
+    if not pos:
+        return [], set()
+    px = await _hq_prices([leg for x in pos for leg in x['legs'] if leg.get('soldUsd') is None])
+    rows = []
+    for x in pos:
+        rr = _hq.position_pnl(x, px)
+        rows.append({**rr, 'wallet': x['wallet'], 'streak': _hq.swap_streak({**rr, 'events': x.get('events')})})
+    wallets = list({x['wallet'] for x in pos})
+    verdicts = await asyncio.gather(*[_shield_of(w) for w in wallets], return_exceptions=True)
+    bots = {w for w, v in zip(wallets, verdicts) if isinstance(v, dict) and v.get('verdict') == 'bot'}
+    return rows, bots
+
+
+def _season_wins():
+    """{card id: {'week', 'rank'}} for every crowned card (drives the 🏆 badge + the season Fee-Back boost)."""
+    return {t_['id']: {'week': s['week'], 'rank': t_['rank']} for s in _json_load(FUSE_HQ_PATH, {}).get('seasons') or [] for t_ in s.get('top') or []}
+
+
+async def _fuse_season_tick(now):
+    """Once per week: crown last week's top 3 cards (stored forever, winners notified, Fee-Back boost on those cards)."""
+    start = _hq.season_start(now); prev = start - _hq.WEEK
+    if _fuse._f(_json_load(FUSE_HQ_PATH, {}).get('seasonAwarded')) >= prev:
+        return None
+    rows, bots = await _season_rows(prev, start)
+    top = _hq.season_board(rows, prev, start, bots)[:3]
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {})
+        if _fuse._f(d.get('seasonAwarded')) >= prev:
+            return None
+        d['seasonAwarded'] = prev
+        if top:
+            d.setdefault('seasons', []).append({'week': prev, 'n': len(rows), 'top': [{**t_, 'handle': handle_of(t_['wallet'])} for t_ in top]})
+        _json_save(FUSE_HQ_PATH, d)
+    medal = {1: '🥇', 2: '🥈', 3: '🥉'}
+    for t_ in top:
+        notify(t_['wallet'], 'fuse-guard', f"🏆 {medal[t_['rank']]} Your card {t_.get('name') or ''} finished #{t_['rank']} in this week's Fuse season ({t_['pnlPct']:+.1f}%). "
+               f"+{_card_rules()['seasonBoostPct']:g}% Fee-Back on it.", url='/terminal/fuse?tab=arena', once=f"season-{prev}-{t_['id']}",
+               meta={'claim': f"#{t_['rank']} of {len(rows)} cards opened that week, by real P&L", 'source': 'Fuse season (verified FEELESS trades)'})
+    _fuse_season_cache.update(at=0.0, data=None)
+    return top
+
+
+@app.get('/api/reputation/fuses/season')
+async def fuse_season():
+    """This week's live Fuse season board (top 10) + the last 4 crowned weeks. 60s cache, warmed in the background."""
+    now = time.time()
+    if _fuse_season_cache['data'] and now - _fuse_season_cache['at'] < 60 and not _FUSE_FORCE.get():
+        return _fuse_season_cache['data']
+    start = _hq.season_start(now)
+    rows, bots = await _season_rows(start, start + _hq.WEEK)
+    board = [{**b, 'handle': handle_of(b['wallet']) or f"{b['wallet'][:4]}…{b['wallet'][-4:]}"} for b in _hq.season_board(rows, start, start + _hq.WEEK, bots)[:10]]
+    data = {'week': start, 'endsAt': start + _hq.WEEK, 'cards': len(rows), 'board': board, 'boostPct': _card_rules()['seasonBoostPct'],
+            'past': list(reversed((_json_load(FUSE_HQ_PATH, {}).get('seasons') or [])[-4:])), 'at': now}
+    _fuse_season_cache.update(at=now, data=data)
+    return data
+
+
 async def _fuse_autopilot_tick(now=None):
     """Hourly: settle due arena runs, then enter each strategy's current champion ($5 paper, 3 pools) once per hour —
     the arena proves strategies on its own. Then alert Cmd Ctr about wallets newly flagged as bots."""
     now = now or time.time()
+    await _fuse_season_tick(now)
     await _arena_settle(now=now)
     arena = _json_load(FUSE_HQ_PATH, {}).get('arena') or []
     styles = [st for st in _fuse.STYLES if _hq.autopilot_due(arena, st, now)]
@@ -3509,7 +3648,7 @@ _arena_mega_cache: dict = {'at': 0.0, 'data': None}
 async def _arena_mega(rd, cfg, now):
     """Cards on the Arena stage: Cmd Ctr mega cards (published Fuses flagged `arena`) + runner cards that lit after their
     rounds. Each carries its live activity (fuse_hq.activity → hard-coded effect tier). 30s cache, parallel lookups."""
-    if _arena_mega_cache['data'] is not None and now - _arena_mega_cache['at'] < 30:
+    if _arena_mega_cache['data'] is not None and now - _arena_mega_cache['at'] < 40 and not _FUSE_FORCE.get():
         return _arena_mega_cache['data']
     store = _json_load(FUSES_PATH, {'fuses': {}})
     staged = [(fid, f) for fid, f in (store.get('fuses') or {}).items() if f.get('arena') and f.get('enabled', True)][:8]
@@ -3523,13 +3662,14 @@ async def _arena_mega(rd, cfg, now):
         out.append({'kind': 'mega', 'id': v['id'], 'name': v['name'], 'emoji': v['emoji'], 'aura': v.get('aura') or '', 'legs': v['legs'],
                     'index': v['index'], 'grade': (v['score'] or {}).get('grade'), 'buyers': v['trust']['buyers'], 'activity': act})
     live = {r['mint']: r for r in (await _runner_live())['passing']}
-    for c in reversed((rd.get('litCards') or [])[-6:]):
+    for c in [c for c in reversed(rd.get('litCards') or []) if not c.get('downAt')][:6]:
         pct = _rn.card_result(c, rd['paths'], now, cfg)
         flow = sum(_fuse._f(live.get(p['mint'], {}).get('vol1h')) * 24 for p in c['picks'])
         out.append({'kind': 'lit', 'id': c['id'], 'name': ' · '.join(f"${p.get('symbol')}" for p in c['picks'][:4]), 'emoji': '🔥', 'aura': '',
                     'legs': [{'pairAddress': p.get('pairAddress') or p['mint'], 'symbol': p.get('symbol'), 'baseAddress': p['mint'], 'logo': p.get('logo'),
                               'weight': round(100 / max(1, len(c['picks'])), 2)} for p in c['picks']],
                     'index': round(100 + pct, 2), 'grade': 'A' if pct > 0 else 'C', 'buyers': 0, 'at': c['at'], 'proof': c.get('proof'),
+                    'streak': _hq.swap_streak({'events': [{'kind': 'buy'}] * len(c.get('swaps') or []), 'pnlPct': pct}), 'swaps': (c.get('swaps') or [])[-3:],
                     'activity': _hq.activity(0, 0, flow, pct)})
     # Traders' cards: every open card shows until it's withdrawn; one that's up ≥ topTierPct takes the top tier.
     hq_all = _json_load(FUSE_HQ_PATH, {}).get('positions') or []
@@ -3685,6 +3825,8 @@ async def fuses_prebuilt(request: Request, legs: int = Query(3, ge=2, le=12), bu
 import runners as _rn
 RUNNERS_PATH = DATA_DIR / 'runners.json'      # {'rounds': [...], 'paths': {mint: [[t, price], ...]}}
 _runner_live_cache = {'at': 0.0, 'data': None}
+# Set only inside the background warmer's own task: it rebuilds caches while viewers keep reading the last good copy.
+_FUSE_FORCE = contextvars.ContextVar('fuse_force', default=False)
 _mayhem_mints: set = set()
 
 
@@ -3707,7 +3849,7 @@ async def _runner_intel(mint):
 async def _runner_live():
     """Every launchpad coin the feed sees right now (trending + new, pre-bond + graduated), forensics for the busiest,
     gated + scored. 30s cache — the board is shared by every viewer."""
-    if _runner_live_cache['data'] and time.time() - _runner_live_cache['at'] < 30:
+    if _runner_live_cache['data'] and time.time() - _runner_live_cache['at'] < 40 and not _FUSE_FORCE.get():   # warmed every 25s in the background
         return _runner_live_cache['data']
     async with httpx.AsyncClient(timeout=10) as http:
         async def feed(kind):
@@ -3803,24 +3945,51 @@ async def _runner_tick(now=None, force=False):
             # Auto-swap: one pick that now FAILS a gate is replaced by the best passing runner (closed on paper, reason kept)
             failing = {x['mint']: x.get('gates') or ['failed a gate'] for x in live['dropped']}
             d['rounds'][-1], _swap = _rn.swap_failing(last, live['passing'], failing, d['paths'], now, cfg)
+        # Lit cards stay strong: 2+ strong + 1 weak → the weak coin is swapped for a new runner; fewer than 2 strong → taken down.
+        failing = {x['mint']: x.get('gates') or ['failed a gate'] for x in live['dropped']}
+        for i, c in enumerate(d.get('litCards') or []):
+            if now - c['at'] <= 72 * 3600:
+                d['litCards'][i], _ = _rn.rebuild_lit(c, d['paths'], live['passing'], failing, now, cfg)
         _json_save(RUNNERS_PATH, d)
     return d['rounds'][-1] if d['rounds'] else None
 
 
 async def _runner_loop():
+    """Price paths every 5 min, and wake exactly when the next round is due (the countdown never sits at 00:00)."""
     await asyncio.sleep(60)
     while True:
         try:
             await _runner_tick()
         except Exception as e:
             print('runners:', e)
-        await asyncio.sleep(300)
+        rounds = _json_load(RUNNERS_PATH, {'rounds': []}).get('rounds') or []
+        due = (rounds[-1]['at'] + _rn.ROUND_SECONDS - time.time()) if rounds else 300
+        await asyncio.sleep(max(5.0, min(300.0, due + 2)))
 
 
 @app.on_event('startup')
 async def _runner_start():
     if not os.environ.get('PYTEST_CURRENT_TEST'):
         asyncio.create_task(_runner_loop())
+        asyncio.create_task(_fuse_warm_loop())
+
+
+async def _fuse_warm_loop():
+    """Fuse runs in the background: every 25s the live runner board, Runner discovery, the Arena stage and the season board
+    are rebuilt, so every page load is served from a fresh cache and never waits on scans or prices."""
+    await asyncio.sleep(20)
+    while True:
+        try:
+            await _fuse_warm()
+        except Exception as e:
+            print('fuse warm:', e)
+        await asyncio.sleep(25)
+
+
+async def _fuse_warm():
+    _FUSE_FORCE.set(True)          # task-local: viewers never see it, they keep reading the previous copy
+    await _runner_live()
+    await asyncio.gather(runners_discover(), fuse_arena_public(), fuse_season(), _sol_usd_live(), return_exceptions=True)
 
 
 _runner_disc_cache = {'at': 0.0, 'data': None}
@@ -3838,7 +4007,7 @@ async def runners_discover():
     """Fuse 🧬 › Runners: one gated list of good runners, tagged by every source that independently likes them —
     arena round, lit cards, pump scan, snipers-out radar, creators' picks (proven callers + published Fuses). 20s cache."""
     now = time.time()
-    if _runner_disc_cache['data'] and now - _runner_disc_cache['at'] < 20:
+    if _runner_disc_cache['data'] and now - _runner_disc_cache['at'] < 40 and not _FUSE_FORCE.get():
         return _runner_disc_cache['data']
     live, board = await asyncio.gather(_runner_live(), caller_board(days=30))
     d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})

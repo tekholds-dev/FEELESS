@@ -70,3 +70,43 @@ test('Lab: a copied card shows who earns from it and Clear stops copying', async
   await act(async () => { el.querySelector('[aria-label="Stop copying"]').click(); });
   expect(el.querySelector('[data-testid="fl-copy"]')).toBeNull();
 });
+
+test('runner rows go live: mcap scales with the live price, round move from entry, else live 5m', () => {
+  const { liveRunner } = require('./FuseLab');
+  const r = liveRunner({ section: 'hot', price: 1, mcap: 10000, chg1h: 50 }, { price: 1.2, m5: 3.5 });
+  expect(r).toMatchObject({ live: true, mcap: 12000, move: 3.5, moveLabel: '5M LIVE' });
+  expect(liveRunner({ section: 'round', price: 1, entry: 0.5, mcap: 1 }, { price: 1, m5: 0 }).move).toBe(100);
+  expect(liveRunner({ section: 'hot', chg1h: 7, mcap: 5 }, undefined)).toMatchObject({ live: false, move: 7, moveLabel: '1H' });
+});
+
+test('season countdown reads d/h/m', () => {
+  const { left } = require('./FusePage');
+  expect(left(3 * 86400 + 4 * 3600)).toBe('3d 4h'); expect(left(2 * 3600 + 5 * 60)).toBe('2h 5m'); expect(left(-5)).toBe('0m');
+});
+
+test('card plan: runners start with lane exits, empty limits are dropped, plan rides on Fuse in', async () => {
+  const { defaultLegLimits, planBody, CardPlan } = require('./FuseLab');
+  expect(defaultLegLimits([{ pairAddress: 'P', runner: false }, { pairAddress: 'R', runner: true }])).toEqual({ R: { tp: 50, sl: 30 } });
+  expect(planBody({ at: 50, mode: 'swap', onProfit: 'compound', legs: { R: { tp: '50', sl: '' }, P: { tp: '', sl: '' } } }))
+    .toEqual({ at: 50, mode: 'swap', onProfit: 'compound', legs: { R: { tp: 50, sl: null } } });
+  const React = require('react'); const { act } = React; const { createRoot } = require('react-dom/client');
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ yieldLevels: [50, 100], swapDropPct: 25 }) }));
+  let plan = { at: null, onProfit: 'collect', mode: 'hold', legs: { R: { tp: 50, sl: 30 } } };
+  function Host() { const [p, setP] = React.useState(plan); plan = p; return <CardPlan legs={[{ pairAddress: 'R', symbol: 'RUN', runner: true }]} plan={p} setPlan={setP} />; }
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<Host />); }); await act(async () => new Promise(r => setTimeout(r, 0)));
+  expect(el.querySelector('[data-testid="plan-tp-R"]').value).toBe('50');
+  await act(async () => { el.querySelector('[data-testid="plan-at-100"]').click(); el.querySelector('[data-testid="plan-onProfit-compound"]').click(); });
+  expect(plan.at).toBe(100); expect(plan.onProfit).toBe('compound');
+});
+
+test('a Fuse panel opened in a background tab still loads (only repeat polls pause while hidden)', async () => {
+  const React = require('react'); const { act } = React; const { createRoot } = require('react-dom/client');
+  const { FuseSeason } = require('./FusePage');
+  Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ week: 1, endsAt: 9e9, cards: 0, board: [], boostPct: 10, past: [] }) }));
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<FuseSeason />); }); await act(async () => new Promise(r => setTimeout(r, 0)));
+  expect(el.querySelector('[data-testid="fuse-season"]').className).not.toContain('is-loading');
+  delete document.hidden;
+});

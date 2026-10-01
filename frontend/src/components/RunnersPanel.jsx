@@ -20,8 +20,8 @@ const pairOf = r => ({ chainId: 'solana', baseToken: { address: r.mint, symbol: 
 export function useRunners() {
   const [d, setD] = useState(null);
   useEffect(() => {
-    let alive = true; const load = () => !document.hidden && fetch(apiUrl('/api/reputation/runners')).then(r => r.json()).then(x => alive && x?.live && setD(x)).catch(() => {});
-    load(); const t = setInterval(load, 20000); window.addEventListener('feeless:runners', load);
+    let alive = true; const load = () => fetch(apiUrl('/api/reputation/runners')).then(r => r.json()).then(x => alive && x?.live && setD(x)).catch(() => {});
+    load(); const t = setInterval(() => !document.hidden && load(), 20000); window.addEventListener('feeless:runners', load);
     return () => { alive = false; clearInterval(t); window.removeEventListener('feeless:runners', load); };
   }, []);
   return d;

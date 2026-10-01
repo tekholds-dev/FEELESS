@@ -7,6 +7,8 @@ import { FusePnl } from './FuseHQ';
 import { FuseRail } from './FuseRail';
 import { FuseCard, legPair } from './FuseCard';
 import { TokenAvatar } from './terminal/MarketPrimitives';
+import { useLivePrices } from '../lib/livePrices';
+import { formatLivePrice } from '../lib/livePrice';
 import { FuseExplainer, VaultMath } from './FuseDeck';
 import '../styles/fuseLab.css';
 
@@ -49,6 +51,42 @@ export function runnerSections(d) {
   return [...round, ...hot, ...watch];
 }
 const SECTION = { round: ['🏟 This round', 'picked by the arena · live move since the round'], hot: ['🔥 Hot now', 'passing every gate · busiest first'], watch: ['👀 Watching', 'failed a gate — not addable'] };
+
+// Live numbers for a runner row from the shared 10s price poller: price, market cap scaled by the live price, and the move
+// (since the round for round picks, else the live 5m). Falls back to the server's numbers when the poller has none.
+export function liveRunner(p, lp) {
+  const px = lp?.price || 0; const base = Number(p.price) || 0;
+  const mcap = px && base && p.mcap ? p.mcap * (px / base) : p.mcap;
+  const move = p.section === 'round' ? (px && p.entry ? (px / p.entry - 1) * 100 : p.chg1h) : (lp ? lp.m5 : p.chg1h);
+  return { live: Boolean(px), price: px || base || null, mcap, move, moveLabel: p.section === 'round' ? 'ROUND' : lp ? '5M LIVE' : '1H' };
+}
+
+// 🎯 Card plan (set before Fuse in; lands on the card once the buy is verified): per-coin TP / SL, auto-profit level
+// (Cmd Ctr levels, after fees), on profit 💸 collect or ♻ compound, 🔒 hold or ⇄ swap. Every trigger = an alert with
+// a pre-filled one-approval action. Runners start with their lane's exits.
+let rulesP = null;
+export const useCardRules = () => { const [r, setR] = useState(null);
+  useEffect(() => { let alive = true; rulesP = rulesP || fetch(apiUrl('/api/reputation/fuses/rules')).then(x => x.json()).catch(() => { rulesP = null; return null; });
+    rulesP.then(x => alive && x && setR(x)); return () => { alive = false; }; }, []); return r; };
+export const defaultLegLimits = legs => Object.fromEntries(legs.filter(l => l.runner).map(l => [l.pairAddress, { tp: 50, sl: 30 }]));
+
+export function CardPlan({ legs, plan, setPlan }) {
+  const rules = useCardRules();
+  const levels = rules?.yieldLevels || [25, 50, 100, 200];
+  const lim = (pa, k, v) => setPlan(p => ({ ...p, legs: { ...p.legs, [pa]: { ...(p.legs[pa] || {}), [k]: v.replace(/[^0-9.]/g, '') } } }));
+  const seg = (k, opts) => <div className="m-seg" role="radiogroup">{opts.map(([v, l, tip]) => <button key={String(v)} type="button" role="radio" aria-checked={plan[k] === v} className={plan[k] === v ? 'active' : ''} data-tip={tip} onClick={() => setPlan(p => ({ ...p, [k]: v }))} data-testid={`plan-${k}-${v}`}>{l}</button>)}</div>;
+  return <details className="fl-plan" open data-testid="card-plan"><summary><span className="m-label">🎯 CARD PLAN</span><small className="m-dim">limits per coin · auto-profit · collect or compound — alerts with one-tap actions, you approve</small></summary>
+    <div className="fl-plan-legs">{legs.map(l => { const v = plan.legs[l.pairAddress] || {}; return <div key={l.pairAddress} className={`fl-plan-leg ${l.runner ? 'is-runner' : ''}`}>
+      <b>{l.runner ? '🏃 ' : ''}{l.symbol}</b>
+      <label data-tip="Take profit on this coin: alert + pre-filled sell when it's up this much since your buy">TP +<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.tp ?? ''} onChange={e => lim(l.pairAddress, 'tp', e.target.value)} data-testid={`plan-tp-${l.pairAddress}`} />%</label>
+      <label data-tip="Stop-loss on this coin: alert + pre-filled sell when it's down this much">SL −<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.sl ?? ''} onChange={e => lim(l.pairAddress, 'sl', e.target.value)} />%</label></div>; })}</div>
+    <div className="fl-plan-row"><span>Auto-profit (after fees)</span>{seg('at', [[null, 'Off', 'No card-level auto-profit'], ...levels.map(v => [v, `+${v}%`, `Alert when the whole card is up +${v}% after fees, from your confirmed buy`])])}</div>
+    <div className="fl-plan-row"><span>On profit</span>{seg('onProfit', [['collect', '💸 Collect', 'Sell only the gain back to SOL — your base stays in'], ['compound', '♻ Compound', 'Keep it working: trim the winners, top up the rest of the card']])}</div>
+    <div className="fl-plan-row"><span>Card</span>{seg('mode', [['hold', '🔒 Hold together', 'The card stays as built'], ['swap', '⇄ Swap weak legs', `A coin that fails a gate or drops ${rules?.swapDropPct ?? 25}% gets a one-tap swap for the best gated runner`]])}</div>
+  </details>;
+}
+
+export const planBody = plan => ({ ...plan, legs: Object.fromEntries(Object.entries(plan.legs).map(([pa, v]) => [pa, { tp: Number(v.tp) || null, sl: Number(v.sl) || null }]).filter(([, v]) => v.tp || v.sl)) });
 
 // Leg caps mirror the server (fuse_hq.legs_ok): traders 3 pools + 3 runners; Cmd Ctr 12 legs in any mix (6/6, 12 runners…).
 export const legCaps = admin => (admin ? { pools: 12, runners: 12, total: 12 } : { pools: 3, runners: 3, total: 6 });
@@ -94,10 +132,14 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
   }, [key, sol, manual, addon]); // eslint-disable-line react-hooks/exhaustive-deps
   // Featured / Runners tabs hand the Lab a basket to load (pools here, runners into the picks).
   const [copy, setCopy] = useState(null);   // ⚡ copying another trader's card: {id, owner, pct}
+  const [plan, setPlan] = useState({ at: null, onProfit: 'collect', mode: 'hold', legs: {} });
+  const legKey = (prev?.legs || []).map(l => l.pairAddress).join(',');
+  useEffect(() => { if (prev?.legs) setPlan(p => ({ ...p, legs: { ...defaultLegLimits(prev.legs), ...Object.fromEntries(Object.entries(p.legs).filter(([pa]) => legKey.includes(pa))) } })); }, [legKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!incoming?.n) return; const pools = incoming.legs.filter(l => !l.runner && l.role !== 'runner').slice(0, MAX);
     setCopy(incoming.copyOf ? { id: incoming.copyOf, owner: incoming.owner, pct: incoming.copyPct } : null);
     setManual(false); setPicked(pools); if (incoming.sol) setSol(incoming.sol.toFixed(4)); scrollToMix(); }, [incoming?.n]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const live = useLivePrices(lens === 'runners' ? (pools || []).filter(p => p.runner && !p.blocked).map(p => p.pairAddress) : []);
   const shown = useMemo(() => { const s = q.trim().toLowerCase(); return (pools || []).filter(p => !s || `${p.symbol}/${p.quote || ''} ${p.dex || ''}`.toLowerCase().includes(s)); }, [pools, q]);
   const isOn = p => (p.runner ? runnerPicks.some(x => x.mint === p.mint) : picked.some(x => x.pairAddress === p.pairAddress));
   const isFull = p => !isOn(p) && (legsN >= caps.total || (p.runner ? runnerPicks.length >= caps.runners : picked.length >= MAX));
@@ -132,16 +174,16 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
           {pools == null ? Array.from({ length: 6 }, (_, i) => <div key={i} className="fl-row is-ghost" />)
             : !shown.length ? <p className="m-dim fl-empty">{lens === 'runners' ? 'No runner passes every gate this minute — the scan refreshes every 20s.' : 'No live pools in this lens right now.'}</p>
             : lens === 'runners' ? shown.map((p, i) => { if (!SECTION[p.section]) return null;   // the previous lens's rows for one render
-              const on = isOn(p); const full = isFull(p) || Boolean(p.blocked);
+              const on = isOn(p); const full = isFull(p) || Boolean(p.blocked); const L = liveRunner(p, live.get(p.pairAddress));
               return <React.Fragment key={`${p.section}-${p.mint}`}>{(i === 0 || shown[i - 1].section !== p.section) && <div className={`fl-sec sec-${p.section}`} role="presentation"><b>{SECTION[p.section][0]}</b><small>{SECTION[p.section][1]}</small></div>}
               <button type="button" role="option" aria-selected={on} className={`fl-row fl-runrow sec-${p.section} ${on ? 'is-on' : ''} ${p.blocked ? 'is-blocked' : ''}`} style={{ '--i': Math.min(i, 12) }} disabled={full} onClick={() => toggle(p)} data-testid={`fl-runner-${p.mint}`} data-tip={p.blocked || undefined} title={!p.blocked && full ? 'Card full' : undefined}>
                 <span className="fl-check" aria-hidden="true">{on ? '✓' : '+'}</span>
                 <span className="fl-logo"><TokenAvatar pair={{ chainId: 'solana', baseToken: { address: p.mint, symbol: p.symbol }, info: { imageUrl: p.logo } }} size={28} /></span>
-                <span className="fl-name"><b>🏃 {p.symbol}</b><em>{p.blocked ? `✕ ${p.blocked}` : (p.sources || []).map(s => s.label).join(' · ') || `${p.lane || 'runner'} lane`}</em></span>
+                <span className="fl-name"><b>🏃 {p.symbol || `${(p.mint || '').slice(0, 4)}…`}{L.live && <i className="fl-livedot" title="Live price (10s)" />}</b><em>{p.blocked ? `✕ ${p.blocked}` : <>{(p.sources || []).map(s => s.label).join(' · ') || `${p.lane || 'runner'} lane`}{L.price ? <span className="fl-px m-num" key={L.price}> · {formatLivePrice(L.price)}</span> : null}</>}</em></span>
                 <span className="fl-cell"><small>SCORE</small><b className="m-num">{Math.round(p.score || 0)}</b></span>
-                <span className="fl-cell"><small>MCAP</small><b className="m-num">{p.mcap ? usd(p.mcap) : '—'}</b></span>
+                <span className="fl-cell"><small>MCAP</small><b className="m-num fl-tick" key={`m${Math.round(L.mcap || 0)}`}>{L.mcap ? usd(L.mcap) : '—'}</b></span>
                 <span className="fl-cell"><small>VOL 1H</small><b className="m-num">{p.vol1h ? usd(p.vol1h) : '—'}</b></span>
-                <span className="fl-cell"><small>{p.section === 'round' ? 'ROUND' : '1H'}</small><b className={`m-num ${p.chg1h == null ? 'm-dim' : p.chg1h >= 0 ? 'm-pos' : 'm-neg'}`}>{p.chg1h == null ? '—' : pct(p.chg1h)}</b></span>
+                <span className="fl-cell"><small>{L.moveLabel}</small><b className={`m-num fl-tick ${L.move == null ? 'm-dim' : L.move >= 0 ? 'm-pos is-up' : 'm-neg is-down'}`} key={`v${(L.move ?? 0).toFixed(1)}`}>{L.move == null ? '—' : pct(L.move)}</b></span>
               </button></React.Fragment>; })
             : shown.map(p => { const on = isOn(p); const full = isFull(p);
               return <button type="button" role="option" aria-selected={on} key={p.pairAddress} className={`fl-row ${on ? 'is-on' : ''}`} disabled={full} onClick={() => toggle(p)} data-testid={`fl-pool-${p.pairAddress}`} title={full ? `Max ${MAX} pools` : undefined}>
@@ -182,10 +224,11 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
             {prev.impactWarn?.length > 0 && <div className="m-note warn"><b>SIZE GUARD</b><span>{prev.impactWarn.join(', ')}: your slice is over 1% of that pool — expect price impact. Lower the SOL or swap the pool.</span></div>}
             <details className="fl-why"><summary>Why these weights?</summary><p>Each pool scores <b>fee APR</b> (24h volume × 0.25% ÷ liquidity, capped 400%) × <b>depth</b> (log of liquidity). Shares are clamped to 10–70% so one pool never runs the fuse. Grade = depth + healthy turnover + calm 24h moves + forensics safety.</p>
               <ul>{prev.score.parts.map(p => <li key={p.part}><span>{p.part}</span><b className="m-num">{p.points}</b><small>{p.why}</small></li>)}</ul></details>
+            {prev && <CardPlan legs={prev.legs} plan={plan} setPlan={setPlan} />}
             {prev && <CardPricing legs={prev.legs} admin={admin} />}
             {limits && !limits.canOpen && <div className="m-note warn"><b>CARD LIMIT</b><span>You have {limits.open} open Fuse cards (max {limits.max}). Withdraw one in My cards{limits.max < 3 ? ` — or hold $${limits.feeFor3rd} of $FEE for a 3rd card` : ''}.</span></div>}
             {!going ? <button type="button" className="m-btn primary m-go wide" disabled={!(Number(sol) > 0) || (limits && !limits.canOpen)} onClick={() => setGoing(true)} data-testid="fl-go">⚡ Fuse in {Number(sol) || 0} SOL · 1 click</button>
-              : <FuseGo legs={prev.legs} fuse={copy ? { name: `Copy · ${copy.owner}`.slice(0, 40), copyOf: copy.id } : undefined} onClose={() => setGoing(false)} />}
+              : <FuseGo legs={prev.legs} fuse={{ name: copy ? `Copy · ${copy.owner}`.slice(0, 40) : 'Lab fuse', copyOf: copy?.id || '', plan: planBody(plan) }} onClose={() => setGoing(false)} />}
             {admin && <div className="fl-pub"><span className="m-label">PUBLISH AS A FUSE</span><div className="fl-pub-row"><input className="m-input fl-emoji" value={pub.emoji} maxLength={4} onChange={e => setPub(x => ({ ...x, emoji: e.target.value }))} aria-label="Emoji" />
               <input className="m-input" value={pub.name} maxLength={40} placeholder="Fuse name" onChange={e => setPub(x => ({ ...x, name: e.target.value }))} />
               <label className="fl-cut"><small>CREATOR CUT</small><input className="m-input m-num" inputMode="numeric" value={pub.creatorBps / 100} onChange={e => setPub(x => ({ ...x, creatorBps: Math.min(5000, Math.round((Number(e.target.value) || 0) * 100)) }))} />%</label></div>
