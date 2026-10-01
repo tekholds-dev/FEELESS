@@ -55,10 +55,16 @@ def candidate(pair, intel=None, creator_flagged=False, snipers_out=False, now_ms
 
 # Cmd Ctr › Runners settings. Every key is range-checked by clean_cfg(); defaults = the tested engine.
 DEFAULT_CFG = {'roundSize': 5, 'minMcap': 8000, 'minVol1h': 5000, 'maxTop10': 30, 'maxInsiders': 15, 'maxDev': 10,
-               'scalpTp': 50, 'scalpStop': 25, 'runnerTp1': 50, 'runnerTp2': 100, 'runnerTrail': 25, 'runnerStop': 30, 'holdTrail': 30, 'holdStop': 35, 'lightRounds': 8}
+               'scalpTp': 50, 'scalpStop': 25, 'runnerTp1': 50, 'runnerTp2': 100, 'runnerTrail': 25, 'runnerStop': 30, 'holdTrail': 30, 'holdStop': 35, 'lightRounds': 8,
+               # 🔔 Bond run (right before graduation): every box must tick — stiff on purpose, fun to watch fill up
+               'bondCurve': 90, 'bondBuys': 60, 'bondVol1h': 10000, 'bondTop10': 20, 'bondPts': 15,
+               # ⚔ Arena: the auto-built card each round (coins + pools) and how long a battle lasts
+               'autoCoins': 4, 'autoPools': 3, 'battleMins': 60}
 CFG_RANGES = {'roundSize': (2, 10), 'minMcap': (1000, 1_000_000), 'minVol1h': (500, 1_000_000), 'maxTop10': (10, 60), 'maxInsiders': (2, 40), 'maxDev': (1, 30),
               'scalpTp': (10, 300), 'scalpStop': (5, 80), 'runnerTp1': (10, 300), 'runnerTp2': (20, 1000), 'runnerTrail': (5, 80), 'runnerStop': (5, 80),
-              'holdTrail': (5, 80), 'holdStop': (5, 80), 'lightRounds': (3, 48)}
+              'holdTrail': (5, 80), 'holdStop': (5, 80), 'lightRounds': (3, 48),
+              'bondCurve': (70, 99), 'bondBuys': (50, 90), 'bondVol1h': (1000, 1_000_000), 'bondTop10': (5, 40), 'bondPts': (0, 30),
+              'autoCoins': (2, 6), 'autoPools': (1, 5), 'battleMins': (15, 240)}
 
 
 def clean_cfg(p):
@@ -103,16 +109,30 @@ def failed_gates(c, cfg=None):
     return [label for _, label, test in (gates(cfg) if cfg else GATES) if not test(c)]
 
 
-BOND_AT = (85.0, 100.0)    # the last stretch of the bonding curve
-BOND_PTS = 12.0
+def bond_check(c, cfg=None):
+    """🔔 Bond run checklist (pre-bond coins only): the last stretch of the curve with real, clean demand. Every box must
+    tick for the boost; the UI shows which ones are lit so traders watch it 'charge up'. Cmd Ctr tunes every threshold."""
+    k = {**DEFAULT_CFG, **(cfg or {})}
+    if c.get('stage') != 'curve':
+        return []
+    return [{'id': 'curve', 'label': f"⚡ {k['bondCurve']:g}%+ up the curve", 'ok': k['bondCurve'] <= _f(c.get('curve')) < 100},
+            {'id': 'buys', 'label': f"🟢 {k['bondBuys']:g}%+ buys", 'ok': _f(c.get('buyShare')) >= k['bondBuys']},
+            {'id': 'green', 'label': '📈 5m green', 'ok': _f(c.get('chg5m')) > 0},
+            {'id': 'vol', 'label': f"🌊 ${k['bondVol1h'] / 1000:g}K+ 1h volume", 'ok': _f(c.get('vol1h')) >= k['bondVol1h']},
+            {'id': 'holders', 'label': f"🎯 snipers out or top-10 < {k['bondTop10']:g}%", 'ok': bool(c.get('snipersOut')) or (c.get('top10') is not None and _f(c.get('top10')) < k['bondTop10'])},
+            {'id': 'creator', 'label': '🧼 clean creator', 'ok': c.get('creatorRep') == 'clean'}]
 
 
-def near_bond(c):
-    """Catch it right before it bonds: pre-bond, 85–99.9% up the curve, buyers in control (≥55%) and the 5m still green."""
-    return c.get('stage') == 'curve' and BOND_AT[0] <= _f(c.get('curve')) < BOND_AT[1] and _f(c.get('buyShare')) >= 55 and _f(c.get('chg5m')) > 0
+def near_bond(c, cfg=None):
+    """Right before it bonds: every bond-run box ticks."""
+    ch = bond_check(c, cfg)
+    return bool(ch) and all(x['ok'] for x in ch)
 
 
-def score(c):
+BOND_PTS = DEFAULT_CFG['bondPts']
+
+
+def score(c, cfg=None):
     """0–100 with the reason for every part (shown on the board)."""
     mom = max(0.0, min(30.0, c['chg1h'] / 10))                                   # +300%/h → 30
     acc = max(0.0, min(15.0, c['chg5m'] / 2))                                    # +30%/5m → 15
@@ -121,14 +141,14 @@ def score(c):
     curve = 10.0 if c['stage'] == 'curve' and 60 <= c['curve'] <= 95 else 5.0 if c['stage'] == 'graduated' else 0.0
     rep_pts = {'clean': 5.0, 'watch': -10.0}.get(c.get('creatorRep'), 0.0)       # reputation: clean creators earn, "watch" pays
     bonus = (8.0 if c['snipersOut'] else 0.0) + min(7.0, c['quality'] / 14) + rep_pts
-    bond = BOND_PTS if near_bond(c) else 0.0
+    bond = float({**DEFAULT_CFG, **(cfg or {})}['bondPts']) if near_bond(c, cfg) else 0.0
     pts = round(min(100.0, mom + acc + vel + flow + curve + bonus + bond), 1)
     return pts, [{'part': 'momentum', 'points': round(mom, 1), 'why': f"{c['chg1h']:+.0f}% in 1h"},
                  {'part': 'acceleration', 'points': round(acc, 1), 'why': f"{c['chg5m']:+.0f}% in 5m"},
                  {'part': 'velocity', 'points': round(vel, 1), 'why': f"1h volume = {c['vol1h'] / c['mcap'] if c['mcap'] else 0:.1f}× market cap"},
                  {'part': 'flow', 'points': round(flow, 1), 'why': f"{c['buyShare']}% buys" if c['buyShare'] is not None else 'no flow'},
                  {'part': 'stage', 'points': curve, 'why': f"{c['curve']:.0f}% up the curve" if c['stage'] == 'curve' else 'graduated (own pool)'},
-                 *([{'part': 'bond run', 'points': bond, 'why': f"{c['curve']:.0f}% up the curve, {c['buyShare']}% buys, 5m green — about to bond"}] if bond else []),
+                 *([{'part': 'bond run', 'points': bond, 'why': f"{c['curve']:.0f}% up the curve, {c['buyShare']}% buys, every bond box ticked — about to bond"}] if bond else []),
                  {'part': 'bonus', 'points': round(bonus, 1), 'why': ('snipers sold out · ' if c['snipersOut'] else '') + f"quality {c['quality']:.0f}" + (f" · creator {c.get('creatorRep')}" if c.get('creatorRep') else '')}]
 
 
@@ -148,8 +168,8 @@ def board(cands, cfg=None):
         if not c.get('mint'):
             continue
         bad = [label for _, label, test in gs if not test(c)]
-        pts, parts = score(c)
-        row = {**c, 'score': pts, 'parts': parts, 'gates': bad}
+        pts, parts = score(c, cfg)
+        row = {**c, 'score': pts, 'parts': parts, 'gates': bad, 'bond': bond_check(c, cfg)}
         (dropped if bad else passing).append(row)
     passing.sort(key=lambda r: -r['score'])
     return {'passing': passing, 'dropped': sorted(dropped, key=lambda r: -r['score'])[:30]}
@@ -322,3 +342,34 @@ def discover(passing, tags, limit=40):
             continue
         out.append({**r, 'sources': [{'kind': k, 'label': SOURCES[k], 'detail': v} for k, v in t.items() if k in SOURCES]})
     return sorted(out, key=lambda r: (-len(r['sources']), -_f(r.get('score'))))[:limit]
+
+
+
+def auto_card(passing, pools, now, cfg=None):
+    """⚔ Arena build: each round the arena fuses its own card — the best `autoCoins` gated runners (bond runs first, then
+    score) + the best `autoPools` live pools (deep, busy, not falling). Coins 40% / pools 60% of the weight. Entry = the
+    price at build time, so its live % is honest from the moment it's dealt. Traders loading it still get 3 + 3."""
+    k = {**DEFAULT_CFG, **(cfg or {})}
+    coins = sorted([r for r in passing if _f(r.get('price')) > 0], key=lambda r: (-near_bond(r, cfg), -_f(r.get('score'))))[:int(k['autoCoins'])]
+    good = [p for p in pools if _f(p.get('liquidityUsd')) >= 100_000 and _f(p.get('priceUsd')) > 0 and _f(p.get('change24h')) > -15]
+    pls = sorted(good, key=lambda p: -(min(400.0, _f(p.get('aprEst'))) + min(50.0, _f(p.get('change24h')))))[:int(k['autoPools'])]
+    if not coins and not pls:
+        return None
+    cw = 40.0 if pls else 100.0
+    legs = [{'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'baseAddress': r['mint'], 'logo': r.get('logo'), 'entry': _f(r['price']), 'runner': True,
+             'lane': r.get('lane') or 'runner', 'weight': round(cw / len(coins), 2)} for r in coins if r.get('pairAddress')]
+    legs += [{'pairAddress': p['pairAddress'], 'symbol': p.get('symbol'), 'baseAddress': p.get('baseAddress'), 'logo': p.get('logo'), 'entry': _f(p['priceUsd']),
+              'weight': round((100 - cw if coins else 100) / len(pls), 2)} for p in pls]
+    return {'id': f"auto{int(now)}", 'at': now, 'legs': legs}
+
+
+def pair_battles(cards):
+    """⚔ Battles: stage cards paired by activity (1 v 2, 3 v 4…) — hot fights hot, calm fights calm. Odd one out sits."""
+    s = sorted(cards, key=lambda c: -_f((c.get('activity') or {}).get('score')))
+    return [(s[i], s[i + 1]) for i in range(0, len(s) - 1, 2)]
+
+
+def settle_battle(a_start, a_now, b_start, b_now):
+    """The card whose % moved more since the bell wins; a dead heat (< 0.05 pts) is a draw."""
+    da, db = _f(a_now) - _f(a_start), _f(b_now) - _f(b_start)
+    return 'draw' if abs(da - db) < 0.05 else 'a' if da > db else 'b'

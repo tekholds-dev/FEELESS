@@ -50,7 +50,7 @@ def rs(monkeypatch, request):
     return rs
 
 
-def test_auto_profit_only_at_cmd_ctr_levels_and_base_includes_the_buy_fee(rs, monkeypatch):
+def test_auto_profit_only_at_cmd_ctr_levels_and_entry_excludes_fees(rs, monkeypatch):
     me = 'Aaaa1111111111111111111111111111111111111111'
     monkeypatch.setattr(rs, '_session_or_401', lambda a, s: me)
     rs._json_save(rs.FUSE_HQ_PATH, {'cardRules': {'yieldLevels': [50, 100]}, 'positions': [{'id': 'y1', 'wallet': me, 'at': 1, 'legs': [{'pairAddress': 'P1', 'mint': 'M', 'usd': 100, 'tokens': 50, 'sig': 'S1'}]}]})
@@ -58,7 +58,7 @@ def test_auto_profit_only_at_cmd_ctr_levels_and_base_includes_the_buy_fee(rs, mo
     with pytest.raises(rs.HTTPException, match='levels'):
         asyncio.run(rs.fuse_auto_yield(rs.FuseYieldIn(address=me, session='s', id='y1', at=75)))
     y = asyncio.run(rs.fuse_auto_yield(rs.FuseYieldIn(address=me, session='s', id='y1', at=100)))['autoYield']
-    assert y['base'] == 100.5                                                                      # confirmed buy + its fee
+    assert y['base'] == 100                                                                        # confirmed buy at the pool — fees never in the entry
 
 
 def test_mode_feeback_and_held_pnl_in_card_rows(rs, monkeypatch):

@@ -247,3 +247,43 @@ body.fx-lite .fpay-rows li { animation: none; } @media (prefers-reduced-motion: 
 .fs-beat { margin-left: 6px; font-style: normal; font-family: var(--m-mono); font-size: 9.5px; padding: 1px 6px; border-radius: 999px; border: 1px solid #ff9ad8; color: #ff9ad8; cursor: help; }
 .fs-crown.r-cat { border-color: #ff9ad8; color: #ff9ad8; }
 body.theme-day .fs-beat, body.theme-day .fs-crown.r-cat { color: #b0237d; border-color: #b0237d; }
+
+/* ⚔ BATTLEFIELD FX (whole Fuse tab): synthwave grid floor rolling toward you, lightning strikes across the sky, sparks
+   rising. One fixed-size layer behind the content; transform/opacity only; gone under fx-lite / reduced motion. */
+.fz-fx { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.fz-grid { position: absolute; left: -50%; right: -50%; bottom: -10%; height: 55%; transform-origin: 50% 0; transform: perspective(420px) rotateX(62deg);
+  background-image: linear-gradient(rgba(155, 92, 255, .38) 1px, transparent 1px), linear-gradient(90deg, rgba(155, 92, 255, .30) 1px, transparent 1px); background-size: 64px 64px;
+  -webkit-mask-image: linear-gradient(transparent, #000 35%); mask-image: linear-gradient(transparent, #000 35%); animation: fzRoll 6s linear infinite; }
+@keyframes fzRoll { from { transform: perspective(420px) rotateX(62deg) translateY(0); } to { transform: perspective(420px) rotateX(62deg) translateY(64px); } }
+.fz-strike { position: absolute; top: 4%; left: calc(12% + var(--i) * 30%); width: 46px; height: 46%; opacity: 0; transform-origin: top center;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 200' preserveAspectRatio='none'%3E%3Cpath d='M22 0 L10 70 L26 72 L8 140 L30 96 L16 94 L32 0' fill='none' stroke='%23e9d8ff' stroke-width='2.2'/%3E%3Cpath d='M22 0 L10 70 L26 72 L8 140 L30 96 L16 94 L32 0' fill='none' stroke='%239b5cff' stroke-width='8' stroke-opacity='.35'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  animation: fzStrike 7s ease-out infinite; animation-delay: calc(var(--i) * 2.3s); }
+@keyframes fzStrike { 0%, 86% { opacity: 0; transform: scaleY(.3); } 88% { opacity: .95; transform: scaleY(1); } 90% { opacity: .2; } 92% { opacity: .8; } 97%, 100% { opacity: 0; transform: scaleY(1); } }
+.fz-spark { position: absolute; bottom: 4%; left: calc(4% + var(--i) * 6.8%); width: 3px; height: 3px; border-radius: 50%; background: #c08bff; box-shadow: 0 0 6px #9b5cff; opacity: 0;
+  animation: fzSpark calc(5s + var(--i) * .35s) linear infinite; animation-delay: calc(var(--i) * -.7s); }
+.fz-spark:nth-child(3n) { background: var(--m-accent); box-shadow: 0 0 6px var(--m-accent); }
+@keyframes fzSpark { 0% { opacity: 0; transform: translateY(0); } 12% { opacity: .9; } 100% { opacity: 0; transform: translateY(-70vh) translateX(20px); } }
+body.theme-day .fz-grid { opacity: .35; } body.theme-day .fz-strike, body.theme-day .fz-spark { display: none; }
+body.fx-lite .fz-fx { display: none; } @media (prefers-reduced-motion: reduce) { .fz-grid, .fz-strike, .fz-spark { animation: none; } .fz-strike, .fz-spark { opacity: 0; } }
+/* Fun one-liner per tab */
+.fp-tabtip { margin: -4px 0 0; font-size: 12.5px; color: var(--m-dim); animation: fpIn .25s var(--m-ease) backwards; } body.fx-lite .fp-tabtip { animation: none; }
+/* ⚔ Battlefield pairs: VS pulse, tug-of-war bar (scaleX), leader side glows */
+.bf { display: grid; gap: 10px; } .bf > header { gap: 10px; flex-wrap: wrap; } .bf-pairs { display: grid; gap: 8px; }
+.bf-pair { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: center; padding: 10px 12px 14px; border-radius: 12px; border: 1px solid var(--m-line); background: var(--m-bg); animation: fpIn .3s var(--m-ease) backwards; animation-delay: calc(var(--i, 0) * 70ms); }
+.bf-side { display: grid; gap: 2px; min-width: 0; } .bf-side b { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .bf-side.b { text-align: right; }
+.bf-side em { font-style: normal; font-size: 14px; } .bf-pair.a-lead .bf-side.a b, .bf-pair.b-lead .bf-side.b b { color: var(--m-accent); }
+.bf-vs { font-family: 'Audiowide', var(--m-mono); font-size: 16px; color: #c08bff; text-shadow: 0 0 12px #9b5cff; animation: bfVs 1.6s ease-in-out infinite; }
+@keyframes bfVs { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+.bf-tug { position: absolute; left: 12px; right: 12px; bottom: 5px; height: 4px; border-radius: 4px; background: var(--m-danger); overflow: hidden; }
+.bf-tug > i { display: block; height: 100%; background: linear-gradient(90deg, #0b6b42, var(--m-accent)); transform-origin: left; transition: transform .8s var(--m-ease); }
+.bf-log { display: flex; gap: 8px; flex-wrap: wrap; } .bf-log small { font-size: 11px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--m-line); } .bf-log em { font-style: normal; color: var(--m-dim); }
+.ar-wl { font-family: var(--m-mono); font-size: 10.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid #c08bff; color: #d9bfff; cursor: help; }
+body.fx-lite .bf-vs, body.fx-lite .bf-pair { animation: none; } @media (prefers-reduced-motion: reduce) { .bf-vs, .bf-pair { animation: none; } }
+body.theme-day .bf-pair { background: #fff; } body.theme-day .ar-wl { color: #5a1fd1; border-color: #5a1fd1; }
+/* 🔔 Bond meter: 6 boxes light one by one; full = BOND RUN pulses */
+.bond-meter { display: flex; gap: 4px; align-items: center; cursor: help; } .bond-meter small { font-family: var(--m-mono); font-size: 9.5px; letter-spacing: .08em; color: var(--m-dim); margin-right: 4px; }
+.bond-meter i { flex: 1; height: 5px; border-radius: 3px; background: var(--m-line); transform-origin: left; } .bond-meter i.on { background: linear-gradient(90deg, #9b5cff, #ff6ad5); animation: bmOn .4s var(--m-ease) backwards; animation-delay: calc(var(--i) * 80ms); }
+.bond-meter.is-full small { color: #ff9ad8; } .bond-meter.is-full i.on { animation: bmFull 1.2s ease-in-out infinite alternate; }
+@keyframes bmOn { from { transform: scaleX(0); } } @keyframes bmFull { from { opacity: .65; } to { opacity: 1; } }
+body.fx-lite .bond-meter i { animation: none; } @media (prefers-reduced-motion: reduce) { .bond-meter i { animation: none; } }
+.fp-legcharts { display: inline-flex; gap: 4px; flex-wrap: wrap; } .fp-legcharts .m-btn { min-height: 28px; padding: 0 8px; font-size: 10.5px; }

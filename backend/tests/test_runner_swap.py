@@ -95,10 +95,37 @@ def test_lit_card_rebuilds_with_two_strong_and_comes_down_when_weak_wins():
     assert rn.rebuild_lit(healthy, paths, passing, {}, 200) == (healthy, None)
 
 
-def test_near_bond_runners_get_the_boost_and_their_own_source():
-    base = {'stage': 'curve', 'curve': 92, 'buyShare': 62, 'chg5m': 4, 'chg1h': 40, 'vol1h': 20000, 'mcap': 40000, 'snipersOut': False, 'quality': 50}
-    assert rn.near_bond(base) and not rn.near_bond({**base, 'curve': 70}) and not rn.near_bond({**base, 'chg5m': -1})
-    assert not rn.near_bond({**base, 'stage': 'graduated'}) and not rn.near_bond({**base, 'buyShare': 40})
+def test_bond_run_needs_every_box_and_cmd_ctr_tunes_them():
+    base = {'stage': 'curve', 'curve': 93, 'buyShare': 64, 'chg5m': 4, 'chg1h': 40, 'vol1h': 20000, 'mcap': 40000, 'snipersOut': True, 'quality': 50, 'creatorRep': 'clean', 'top10': 25}
+    assert rn.near_bond(base) and [x['id'] for x in rn.bond_check(base)] == ['curve', 'buys', 'green', 'vol', 'holders', 'creator']
+    for k, v in (('curve', 88), ('buyShare', 58), ('chg5m', -1), ('vol1h', 9000), ('creatorRep', None)):
+        assert not rn.near_bond({**base, k: v}), k                                              # stiff: one miss = no boost
+    assert not rn.near_bond({**base, 'snipersOut': False}) and rn.near_bond({**base, 'snipersOut': False, 'top10': 12})
+    assert rn.near_bond({**base, 'curve': 85}, {'bondCurve': 80}) and rn.bond_check({**base, 'stage': 'graduated'}) == []
     pts, parts = rn.score(base); pts0, _ = rn.score({**base, 'chg5m': -0.1})
-    assert any(p['part'] == 'bond run' and p['points'] == rn.BOND_PTS for p in parts) and pts > pts0
+    assert any(p['part'] == 'bond run' and p['points'] == 15 for p in parts) and pts > pts0
+    full = {**base, 'mint': 'M', 'symbol': 'M', 'liq': 5000, 'scanned': True, 'insiders': 0, 'dev': 0, 'bundled': 0, 'ageH': 1, 'txns1h': 200,
+            'mayhem': False, 'creatorFlagged': False, 'chg24h': 40, 'price': 1, 'vol5m': 1000}
+    row = (rn.board([full])['passing'] or rn.board([full])['dropped'])[0]
+    assert len(row['bond']) == 6 and all(x['ok'] for x in row['bond'])                           # the board carries the checklist
     assert rn.SOURCES['bond'] == '🔔 About to bond'
+
+
+def test_arena_build_takes_best_coins_and_pools_with_honest_entries():
+    passing = [pick('A', price=1.0, score=70), pick('B', price=2.0, score=90), {**pick('C', price=3.0, score=50), 'stage': 'curve', 'curve': 95, 'buyShare': 70, 'chg5m': 3,
+               'vol1h': 50000, 'snipersOut': True, 'creatorRep': 'clean'}, pick('D', price=1.0, score=40), pick('E', price=1.0, score=30)]
+    pools = [{'pairAddress': f'pool{i}', 'symbol': f'P{i}', 'priceUsd': 1.0 + i, 'liquidityUsd': 500000, 'aprEst': 50 * i, 'change24h': 2} for i in range(5)]
+    pools.append({'pairAddress': 'thin', 'priceUsd': 1, 'liquidityUsd': 5000, 'aprEst': 999, 'change24h': 5})
+    passing = [{**x, 'pairAddress': f"pa{x['mint']}"} for x in passing]
+    card = rn.auto_card(passing, pools, 100)
+    coins = [l for l in card['legs'] if l.get('runner')]
+    assert [l['baseAddress'] for l in coins] == ['C', 'B', 'A', 'D']                              # bond run first, then score
+    assert [l['pairAddress'] for l in card['legs'] if not l.get('runner')] == ['pool4', 'pool3', 'pool2']   # thin pool never
+    assert round(sum(l['weight'] for l in card['legs'])) == 100 and coins[0]['entry'] == 3.0
+    assert len([l for l in rn.auto_card(passing, pools, 1, {'autoCoins': 2, 'autoPools': 1})['legs']]) == 3
+
+
+def test_battles_pair_by_heat_and_settle_on_the_move_since_the_bell():
+    cards = [{'id': i, 'activity': {'score': s}} for i, s in ((1, 10), (2, 90), (3, 50), (4, 70), (5, 5))]
+    assert [(a['id'], b['id']) for a, b in rn.pair_battles(cards)] == [(2, 4), (3, 1)]
+    assert rn.settle_battle(0, 5, 10, 12) == 'a' and rn.settle_battle(0, 1, 0, 4) == 'b' and rn.settle_battle(0, 1, 5, 6.02) == 'draw'

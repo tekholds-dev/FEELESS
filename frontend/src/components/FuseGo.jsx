@@ -5,6 +5,7 @@ import { useWallet } from '../hooks/useWallet';
 import { fuseOrders, orderMatches, SOL_MINT } from '../lib/fuseGo';
 import { readChatSession } from '../lib/chatSession';
 import { impactPercent } from '../lib/impactGuard';
+import { useLivePrices } from '../lib/livePrices';
 
 // ⚡ One-click Fuse in. Quote + simulate every leg in parallel (refreshed every 10s while open), show the exact
 // review (coin, SOL in, est. out, fee), ONE wallet approval for all legs, then send + confirm each leg live.
@@ -22,7 +23,7 @@ export function quoteLine(r) {
   const lamports = ['signatureFeeLamports', 'prioritizationFeeLamports'].reduce((a, k) => a + Number(q[k] || 0), 0);
   const tokens = outOf(r.order); const liq = Number(r.leg?.liquidityUsd) || 0;
   const route = [...new Set((q.routePlan || []).map(x => x?.swapInfo?.label).filter(Boolean))];
-  return { sig: r.sig, symbol: r.target?.symbol, sol, usd, tokens, feeUsd: usd * (r.order?.feeless_fee?.bps || 0) / 10000, feeBps: r.order?.feeless_fee?.bps || 0,
+  return { sig: r.sig, pairAddress: r.leg?.pairAddress, symbol: r.target?.symbol, sol, usd, tokens, feeUsd: usd * (r.order?.feeless_fee?.bps || 0) / 10000, feeBps: r.order?.feeless_fee?.bps || 0,
     networkUsd: lamports / 1e9 * solUsd, impact: impactPercent(q), price: tokens ? usd / tokens : null, weight: Number(r.leg?.weight) || null,
     pool: r.leg?.dex || route[0] || 'best route', route, liq, share: liq ? usd / liq * 100 : null, side: r.request?.input_mint === r.order?.input_mint && r.order?.output_mint === 'So11111111111111111111111111111111111111112' ? 'sell' : 'buy' };
 }
@@ -36,6 +37,7 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
   const [phase, setPhase] = useState('quote'); // quote | review | signing | sending | done
   const seq = useRef(0);
   const [rcpt, setRcpt] = useState(null);       // after: quoted vs paid (server receipt)
+  const live = useLivePrices((orders ? orders.map(o => o.leg) : legs || []).map(l => l?.pairAddress));   // receipt shows each coin live
 
   const quoteAll = async () => {
     const plan = orders || fuseOrders(legs, addr); const my = ++seq.current;
@@ -107,9 +109,10 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
       <em>{r.state === 'confirmed' ? <a href={`https://solscan.io/tx/${r.sig}`} target="_blank" rel="noopener noreferrer">✓ done</a> : r.state === 'failed' ? '✕ failed' : r.state ? '… landing' : r.order ? '✓ simulated' : ''}</em></li>)}</ul>
     {phase !== 'done' ? <>
       {lines.length > 0 && <div className="fg-rcpt" data-testid="fg-before"><div className="fg-rcpt-head"><span className="m-label">RECEIPT · BEFORE YOU SIGN</span></div>
-        <table><thead><tr><th>Coin</th><th>Pay</th><th>Get ≈</th><th>FEELESS fee</th><th>Network</th><th>Impact</th></tr></thead>
-          <tbody>{lines.map(l => <tr key={l.symbol}><td>{l.symbol}</td><td>{l.sol} SOL<small>{usd2(l.usd)}</small></td><td>{fmt(l.tokens)}</td><td>{usd2(l.feeUsd)}</td><td>{usd2(l.networkUsd)}</td><td className={l.impact > 1 ? 'm-neg' : ''}>{l.impact != null ? `${l.impact.toFixed(2)}%` : '—'}</td></tr>)}</tbody>
-          <tfoot><tr><td>Total</td><td>{tot.sol.toFixed(4)} SOL<small>{usd2(tot.usd)}</small></td><td /><td>{usd2(tot.fee)}</td><td>{usd2(tot.net)}</td><td /></tr></tfoot></table>
+        <table><thead><tr><th>Coin</th><th>Live</th><th>Pay</th><th>Get ≈</th><th>FEELESS fee</th><th>Network</th><th>Impact</th></tr></thead>
+          <tbody>{lines.map(l => { const lp = live.get(l.pairAddress); return <tr key={l.symbol}><td>{l.symbol}</td>
+            <td className="fg-live" data-tip="Live price (10s) and its last-5-minute move">{lp ? <><span className="m-num fl-tick" key={lp.price}>${lp.price < 0.01 ? lp.price.toPrecision(3) : lp.price.toFixed(4)}</span><small className={lp.m5 >= 0 ? 'm-pos' : 'm-neg'}>{lp.m5 >= 0 ? '+' : ''}{lp.m5.toFixed(1)}% 5m</small></> : '—'}</td><td>{l.sol} SOL<small>{usd2(l.usd)}</small></td><td>{fmt(l.tokens)}</td><td>{usd2(l.feeUsd)}</td><td>{usd2(l.networkUsd)}</td><td className={l.impact > 1 ? 'm-neg' : ''}>{l.impact != null ? `${l.impact.toFixed(2)}%` : '—'}</td></tr>; })}</tbody>
+          <tfoot><tr><td>Total</td><td /><td>{tot.sol.toFixed(4)} SOL<small>{usd2(tot.usd)}</small></td><td /><td>{usd2(tot.fee)}</td><td>{usd2(tot.net)}</td><td /></tr></tfoot></table>
         {!sell && <details className="fg-how" data-testid="fg-how"><summary>How your money moves</summary>
           <ol className="fg-flow"><li><b>1</b>Your wallet sends {tot.sol.toFixed(4)} SOL ({usd2(tot.usd)}) — split by the Fuse weights.</li>
             {lines.map(l => <li key={l.symbol}><b>{l.symbol}</b><span>{l.weight ? `${Math.round(l.weight)}% → ` : ''}{l.sol} SOL ({usd2(l.usd)}) is swapped through <em>{l.route.length ? l.route.join(' → ') : l.pool}</em>

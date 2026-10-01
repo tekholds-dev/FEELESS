@@ -2898,7 +2898,7 @@ async def fuse_position(p: FusePositionIn):
         t = trades.get(str(leg.get('signature') or ''))
         if t and t.get('side', 'buy') == 'buy' and _fuse._f(t.get('tokens')) > 0:
             legs.append({'pairAddress': str(leg.get('pairAddress'))[:64], 'chainId': str(leg.get('chainId') or 'solana')[:16], 'symbol': str(leg.get('symbol') or '')[:16],
-                         'mint': t.get('token'), 'sig': t['tx'], 'usd': _fuse._f(t.get('usd')), 'tokens': _fuse._f(t.get('tokens')), 'tokens0': _fuse._f(t.get('tokens')),
+                         'mint': t.get('token'), 'sig': t['tx'], 'usd': _hq.pool_usd(t), 'tokens': _fuse._f(t.get('tokens')), 'tokens0': _fuse._f(t.get('tokens')),
                          'role': 'runner' if leg.get('role') == 'runner' else 'pool'})
     if not legs:
         raise HTTPException(400, 'None of those legs is a confirmed FEELESS buy from your wallet (yet).')
@@ -2918,13 +2918,13 @@ async def fuse_position(p: FusePositionIn):
             if plan['legs']:
                 pos['legGuard'] = {pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()}
             if plan['at']:
-                pos['autoYield'] = {'at': plan['at'], 'base': round(sum(_fuse._f(x.get('usd')) for x in legs) + _buy_fees(pos), 6), 'armedAt': time.time(), 'firedAt': None}
+                pos['autoYield'] = {'at': plan['at'], 'base': round(sum(_fuse._f(x.get('usd')) for x in legs), 6), 'armedAt': time.time(), 'firedAt': None}
         src = next((x for x in d.get('positions') or [] if p.copyOf and x['id'] == p.copyOf), None)
         if src and primary_of(src['wallet']) != primary_of(me) and src['wallet'] not in set(linked_of(me)):   # never a self-copy
             pos.update(copyOf=src['id'], copyOwner=src['wallet'])
         dflt = d.get('autoYieldDefault') or {}
         if dflt.get('on'):   # Cmd Ctr default: new cards arm 💸 collect-profit at +at% of what was put in
-            pos['autoYield'] = {'at': float(dflt.get('at') or _hq.YIELD_DEFAULT_AT), 'base': round(sum(_fuse._f(x.get('usd')) for x in legs) + _buy_fees(pos), 6), 'armedAt': time.time(), 'firedAt': None}
+            pos['autoYield'] = {'at': float(dflt.get('at') or _hq.YIELD_DEFAULT_AT), 'base': round(sum(_fuse._f(x.get('usd')) for x in legs), 6), 'armedAt': time.time(), 'firedAt': None}
         d.setdefault('positions', []).append(pos)
         _json_save(FUSE_HQ_PATH, d)
     return {'ok': True, 'counted': True, 'legs': len(legs)}
@@ -3034,11 +3034,6 @@ def _card_fees(pos, by_sig=None):
     return round(sum(_fuse._f((by_sig.get(s) or {}).get('feeUsd')) for s in sigs), 6)
 
 
-def _buy_fees(pos, by_sig=None):
-    by_sig = by_sig if by_sig is not None else _ledger_by_sig()
-    return round(sum(_fuse._f((by_sig.get(leg.get('sig')) or {}).get('feeUsd')) for leg in pos.get('legs') or []), 6)
-
-
 def _exit_fee(r):
     cfg = _fee_cfg(); rl = _card_rules()
     return _hq.exit_fee_usd(r, _hq.clean_bundle(cfg.get('bundle')), int(cfg.get('platformFeeBps') or 0), rl['netFeeUsdPerLeg'])
@@ -3057,7 +3052,7 @@ async def _fuse_yield_tick(d, now):
         y = x['autoYield']
         if y.get('rebase'):
             upd[x['id']] = {'base': round(_hq.held_value(r), 6), 'rebase': False}
-        elif _hq.yield_due(r, y, _exit_fee(r)):
+        elif _hq.yield_due(r, y):   # price move only — fees are paid per trade and shown on the receipt
             pct = _hq.collect_pct(r, y)
             upd[x['id']] = {'firedAt': now}
             fired.append((x, r, pct))
@@ -3071,11 +3066,11 @@ async def _fuse_yield_tick(d, now):
     for x, r, pct in fired:
         gain = _hq.held_value(r) - x['autoYield']['base']
         if x.get('onProfit') == 'compound':   # ♻ compound: move the gain from the winners into the rest of the card
-            notify(x['wallet'], 'fuse-guard', f"♻ {x.get('name') or 'Your Fuse card'} is up +{x['autoYield']['at']:.0f}% after fees — compound ${gain:,.2f}: trim the winners, top up the rest. One approval.",
+            notify(x['wallet'], 'fuse-guard', f"♻ {x.get('name') or 'Your Fuse card'} is up +{x['autoYield']['at']:.0f}% — compound ${gain:,.2f}: trim the winners, top up the rest. One approval.",
                    url=f"/terminal/fuse?tab=cards&rebalance={x['id']}", once=f"compound-{x['id']}-{x['autoYield'].get('armedAt')}-{int(x['autoYield']['base'] * 100)}",
                    meta={'claim': f"Held value up {x['autoYield']['at']:.0f}% on your base", 'source': 'Fuse P&L (live prices)'})
             continue
-        notify(x['wallet'], 'fuse-guard', f"💸 {x.get('name') or 'Your Fuse card'} is up +{x['autoYield']['at']:.0f}% after fees — collect ${gain:,.2f} profit (sells {pct:.0f}% of each leg, your base stays in). One approval.",
+        notify(x['wallet'], 'fuse-guard', f"💸 {x.get('name') or 'Your Fuse card'} is up +{x['autoYield']['at']:.0f}% — collect ${gain:,.2f} profit (sells {pct:.0f}% of each leg, your base stays in). One approval.",
                url=f"/terminal/fuse?tab=cards&collect={x['id']}&pct={pct}", once=f"yield-{x['id']}-{x['autoYield'].get('armedAt')}-{int(x['autoYield']['base'] * 100)}",
                meta={'claim': f"Held value up {x['autoYield']['at']:.0f}% on your base", 'source': 'Fuse P&L (live prices)'})
     return len(fired)
@@ -3345,7 +3340,7 @@ async def fuse_auto_yield(p: FuseYieldIn):
         raise HTTPException(404, 'No such open Fuse card for this wallet.')
     # Entry = your confirmed buy + its FEELESS fee; after a collect, what's still held.
     rr = None if p.off else _hq.position_pnl(pos, await _hq_prices(pos['legs']))
-    base = 0.0 if p.off else round(rr['costUsd'] + _buy_fees(pos) if not rr['realizedUsd'] else _hq.held_value(rr), 6)
+    base = 0.0 if p.off else round(rr['costUsd'] if not rr['realizedUsd'] else _hq.held_value(rr), 6)   # entry = confirmed buy at the pool, no fees
     async with _admin_lock:
         d = _json_load(FUSE_HQ_PATH, {})
         pos = next(x for x in d['positions'] if x['id'] == p.id)
@@ -3733,6 +3728,12 @@ async def fuse_replay(kind: str, cid: str):
         if not f:
             raise HTTPException(404, 'No such card.')
         legs = [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'entry': (f.get('basePrices') or {}).get(l['pairAddress']), 'at': f.get('createdAt')} for l in f['legs']]
+    elif kind == 'auto':
+        ac = _json_load(RUNNERS_PATH, {}).get('autoCard') or {}
+        if ac.get('id') != cid:
+            raise HTTPException(404, 'No such card.')
+        legs = [{k: l.get(k) for k in ('pairAddress', 'symbol', 'entry')} | {'at': ac['at']} for l in ac['legs']]
+        marks = [{'at': ac['at'], 'kind': 'open', 'label': 'arena dealt it'}]
     elif kind == 'feecat':
         fc = await _feecat_card()
         legs = [{k: l.get(k) for k in ('pairAddress', 'symbol', 'entry', 'at')} for l in (fc or {}).get('legs') or []]
@@ -3876,10 +3877,68 @@ async def fuse_arena_public():
             rounds.append({'at': r['at'], 'symbols': [p.get('symbol') for p in r['picks']], 'pct': round((sum(mults) / len(mults) - 1) * 100, 2)})
     return {'board': board, 'outlook': _hq.outlook(board), 'bestStyle': _hq.best_style(board), 'runs': [v for v in sorted(vals, key=lambda v: -v['at']) if v['settled']][:12],
             'runners': {'proof': _rn.proof(rd['rounds'], rd['paths'], now, cfg=cfg), 'rounds': rounds}, 'minSettled': _hq.MIN_SETTLED,
-            'mega': await _arena_mega(rd, cfg, now)}
+            'mega': (mega := await _arena_mega(rd, cfg, now)), 'battles': _battle_view(mega, now)}
 
 
 _arena_mega_cache: dict = {'at': 0.0, 'data': None}
+
+
+def _battle_view(mega, now):
+    """⚔ Live battlefield: each pair with both cards' move since the bell (live from the stage), time left, recent results."""
+    b = _json_load(FUSE_HQ_PATH, {}).get('battles') or {}
+    pct = {f"{c['kind']}:{c['id']}": (c['index'] or 100) - 100 for c in mega}
+    pairs = [{side: {**x[side], 'now': round(pct.get(x[side]['key'], x[side]['start']) - x[side]['start'], 2)} for side in ('a', 'b')} for x in b.get('pairs') or []]
+    return {'pairs': pairs, 'endsAt': b.get('endsAt'), 'log': (_json_load(FUSE_HQ_PATH, {}).get('battleLog') or [])[-8:][::-1]}
+
+
+async def _battle_tick(now):
+    """Background: when the bell rings, settle every pair (bigger move since the start wins), write W/L/D records, alert
+    trader-card owners who won, then pair the stage again for the next round."""
+    mega = _arena_mega_cache.get('data') or []
+    d = _json_load(FUSE_HQ_PATH, {})
+    b = d.get('battles') or {}
+    if b.get('endsAt') and now < b['endsAt'] and (b.get('pairs') or len(mega) < 2):
+        return None   # mid-battle — or nothing to pair yet (an empty field pairs as soon as 2 cards are on stage)
+    pct = {f"{c['kind']}:{c['id']}": (c['index'] or 100) - 100 for c in mega}
+    owners = {x['id']: x['wallet'] for x in d.get('positions') or []}
+    results = []
+    for x in b.get('pairs') or []:
+        a, bb = x['a'], x['b']
+        if a['key'] not in pct or bb['key'] not in pct:
+            continue
+        w = _rn.settle_battle(a['start'], pct[a['key']], bb['start'], pct[bb['key']])
+        results.append({'at': now, 'a': a['name'], 'b': bb['name'], 'winner': {'a': a['name'], 'b': bb['name']}.get(w), 'draw': w == 'draw',
+                        'aMove': round(pct[a['key']] - a['start'], 2), 'bMove': round(pct[bb['key']] - bb['start'], 2)})
+        for side, key in (('a', a['key']), ('b', bb['key'])):
+            r_ = d.setdefault('battleRecord', {}).setdefault(key, {'w': 0, 'l': 0, 'd': 0})
+            r_['d' if w == 'draw' else 'w' if w == side else 'l'] += 1
+            if w == side and key.startswith('user:') and key[5:] in owners:
+                notify(owners[key[5:]], 'fuse-guard', f"⚔ Your card won its Arena battle vs {(bb if side == 'a' else a)['name']}.", url='/terminal/fuse?tab=arena',
+                       once=f"battle-{now:.0f}-{key}", meta={'claim': 'Bigger move since the bell', 'source': 'Arena battles'})
+    mins = _runner_cfg()['battleMins']
+    pairs = [{'a': {'key': f"{x['kind']}:{x['id']}", 'name': x['name'], 'emoji': x.get('emoji'), 'start': pct.get(f"{x['kind']}:{x['id']}", 0.0)},
+              'b': {'key': f"{y['kind']}:{y['id']}", 'name': y['name'], 'emoji': y.get('emoji'), 'start': pct.get(f"{y['kind']}:{y['id']}", 0.0)}} for x, y in _rn.pair_battles(mega)]
+    async with _admin_lock:
+        d2 = _json_load(FUSE_HQ_PATH, {})
+        d2['battles'] = {'at': now, 'endsAt': now + mins * 60, 'pairs': pairs}
+        d2['battleLog'] = ((d2.get('battleLog') or []) + results)[-40:]
+        d2['battleRecord'] = d.get('battleRecord') or {}
+        _json_save(FUSE_HQ_PATH, d2)
+    return results
+
+
+async def _arena_auto_refresh(now):
+    """Background: deal a fresh Arena build once per runner round (best gated coins + best live pools)."""
+    rd = _json_load(RUNNERS_PATH, {'rounds': []})
+    last = (rd.get('rounds') or [None])[-1]
+    if not last or ((rd.get('autoCard') or {}).get('at') or 0) >= last['at']:
+        return None
+    live, pools = await asyncio.gather(_runner_live(), _fuse_candidates())
+    card = _rn.auto_card(live['passing'], list(pools.values()), now, _runner_cfg())
+    if card:
+        async with _admin_lock:
+            rd = _json_load(RUNNERS_PATH, {'rounds': []}); rd['autoCard'] = card; _json_save(RUNNERS_PATH, rd)
+    return card
 
 
 async def _feecat_raw():
@@ -3968,6 +4027,15 @@ async def _arena_mega(rd, cfg, now):
     fc = await _feecat_card()
     if fc:
         out.append(fc)
+    ac = rd.get('autoCard')
+    if ac and ac.get('legs'):
+        apx = await _hq_prices([l for l in ac['legs']])
+        moves = [apx[l['pairAddress']] / l['entry'] for l in ac['legs'] if _fuse._f(apx.get(l['pairAddress'])) > 0 and _fuse._f(l.get('entry')) > 0]
+        pct = round((sum(moves) / len(moves) - 1) * 100, 2) if moves else 0.0
+        coins = sum(1 for l in ac['legs'] if l.get('runner'))
+        out.append({'kind': 'auto', 'id': ac['id'], 'name': f"Arena build · {coins} coins + {len(ac['legs']) - coins} pools", 'emoji': '⚔', 'aura': '',
+                    'legs': ac['legs'], 'index': round(100 + pct, 2), 'grade': 'A' if pct > 0 else 'B', 'buyers': 0, 'at': ac['at'], 'chat': f"fuse-card-{ac['id']}",
+                    'activity': _hq.activity(len(ac['legs']), 0, sum(_fuse._f(l.get('vol1h')) for l in ac['legs']) * 24, pct)})
     rnd = (rd.get('rounds') or [None])[-1]
     if not out and rnd and rnd.get('picks'):   # never an empty stage: the live round stands in as a proving card
         ps = rnd['picks']
@@ -3978,6 +4046,8 @@ async def _arena_mega(rd, cfg, now):
                               'weight': round(100 / len(ps), 2), 'entry': p.get('entry')} for p in ps], 'chat': f"fuse-card-{rnd.get('id')}",
                     'index': round(100 + mv, 2), 'grade': 'B', 'buyers': 0, 'at': rnd.get('at'),
                     'activity': _hq.activity(0, 0, sum(_fuse._f(live.get(p['mint'], {}).get('vol1h')) * 24 for p in ps), mv)})
+    rec = _json_load(FUSE_HQ_PATH, {}).get('battleRecord') or {}
+    out = [{**c, 'record_wl': rec.get(f"{c['kind']}:{c['id']}")} for c in out]
     out.sort(key=lambda x: -x['activity']['score'])
     _arena_mega_cache.update(at=now, data=out)
     return out
@@ -4273,7 +4343,9 @@ async def _fuse_warm():
         holders = list({x['wallet'] for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or []})[:200]
         await asyncio.gather(*[_fuse_score(w, fresh=True) for w in holders], return_exceptions=True)
     await _runner_live()
+    await _arena_auto_refresh(time.time())
     await asyncio.gather(runners_discover(), fuse_arena_public(), fuse_season(), _sol_usd_live(), return_exceptions=True)
+    await _battle_tick(time.time())
 
 
 _runner_disc_cache = {'at': 0.0, 'data': None}
@@ -4308,7 +4380,7 @@ async def runners_discover():
                 tag(p['mint'], 'lit', f"lit card {res:+.1f}% since lit")
     for r in live['passing']:   # every coin passing every gate is a pump-scan find (never a dead tab while anything passes)
         tag(r['mint'], 'pump', f"passes every gate · score {round(_fuse._f(r.get('score')))}")
-        if _rn.near_bond(r):
+        if _rn.near_bond(r, cfg):
             tag(r['mint'], 'bond', f"{_fuse._f(r.get('curve')):.0f}% up the curve, {r.get('buyShare')}% buys — about to bond")
     for e in _radar['events']:
         if e.get('kind') == 'snipers-out' and now - (e.get('at') or 0) < 6 * 3600:

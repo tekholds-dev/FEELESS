@@ -381,3 +381,13 @@ body.theme-day .fl-plan { background: #fff; }
 @media (max-width: 520px) { .fl-plan-leg { grid-template-columns: 1fr 1fr; } .fl-plan-leg b { grid-column: 1 / -1; } }
 /* Day theme: card faces are art and stay dark, so the ⟲ flip keeps the night palette too. */
 body.theme-day .fcd-flip { background: #04100a; color: var(--m-accent); }
+
+/* Fuse receipt: each coin live (price + 5m) right in the before-you-sign table */
+.fg-live { white-space: nowrap; } .fg-live small { display: block; font-size: 9.5px; }
+
+/* Card plan dropdown: the per-coin list folds away; the summary shows how many coins have limits. */
+.fl-plan-list > summary { cursor: pointer; list-style: none; display: flex; gap: 6px; align-items: center; font-family: var(--m-mono); font-size: 11px; letter-spacing: .06em; padding: 6px 0; color: var(--m-dim); transition: color .15s; }
+.fl-plan-list > summary:hover, .fl-plan-list > summary:focus-visible { color: var(--m-accent); } .fl-plan-list > summary::-webkit-details-marker { display: none; }
+.fl-plan-list > summary span { transition: transform .15s; } .fl-plan-list[open] > summary span { transform: rotate(180deg); }
+.fl-plan-list[open] .fl-plan-legs { max-height: 320px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
+.fl-plan-list .fl-plan-legs::-webkit-scrollbar { width: 6px; } .fl-plan-list .fl-plan-legs::-webkit-scrollbar-thumb { background: var(--m-accent); border-radius: 6px; }

@@ -198,3 +198,31 @@ def test_feecat_week_and_who_beat_her():
     assert hq.beats_cat([{'id': 'a', 'pnlPct': 6}, {'id': 'b', 'pnlPct': 4}], 5.0) == ['a'] and hq.beats_cat([{'id': 'a', 'pnlPct': 6}], None) == []
     s = hq.fuse_score([], [], 0, None, cat_wins=3)
     assert any('Beat FeeCat 3×' in p['label'] and p['points'] == 16 for p in s['parts'])
+
+
+def test_battle_tick_settles_records_and_repairs(rs, monkeypatch):
+    now = time.time()
+    rs._arena_mega_cache.update(at=now, data=[{'kind': 'user', 'id': 'x', 'name': 'X', 'index': 110, 'activity': {'score': 80}},
+                                              {'kind': 'lit', 'id': 'y', 'name': 'Y', 'index': 104, 'activity': {'score': 60}}])
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'x', 'wallet': A, 'legs': []}],
+                                    'battles': {'endsAt': now - 1, 'pairs': [{'a': {'key': 'user:x', 'name': 'X', 'start': 2.0}, 'b': {'key': 'lit:y', 'name': 'Y', 'start': 1.0}}]}})
+    res = asyncio.run(rs._battle_tick(now))
+    assert res[0]['winner'] == 'X' and res[0]['aMove'] == 8.0
+    d = rs._json_load(rs.FUSE_HQ_PATH, {})
+    assert d['battleRecord'] == {'user:x': {'w': 1, 'l': 0, 'd': 0}, 'lit:y': {'w': 0, 'l': 1, 'd': 0}}
+    assert d['battles']['pairs'][0]['a']['key'] == 'user:x' and d['battles']['endsAt'] > now
+    assert asyncio.run(rs._battle_tick(now + 5)) is None                                          # bell hasn't rung
+    view = rs._battle_view(rs._arena_mega_cache['data'], now)
+    assert view['pairs'][0]['a']['now'] == 0.0 and view['log'][0]['winner'] == 'X'
+
+
+
+def test_an_empty_battlefield_pairs_as_soon_as_two_cards_arrive(rs):
+    now = time.time()
+    rs._json_save(rs.FUSE_HQ_PATH, {'battles': {'endsAt': now + 3000, 'pairs': []}})
+    rs._arena_mega_cache.update(at=now, data=[{'kind': 'auto', 'id': 'a', 'name': 'A', 'index': 100, 'activity': {'score': 5}}])
+    assert asyncio.run(rs._battle_tick(now)) is None                                              # one card: nothing to fight
+    rs._arena_mega_cache.update(at=now, data=[{'kind': 'auto', 'id': 'a', 'name': 'A', 'index': 100, 'activity': {'score': 5}},
+                                              {'kind': 'lit', 'id': 'b', 'name': 'B', 'index': 101, 'activity': {'score': 9}}])
+    asyncio.run(rs._battle_tick(now))
+    assert len(rs._json_load(rs.FUSE_HQ_PATH, {})['battles']['pairs']) == 1

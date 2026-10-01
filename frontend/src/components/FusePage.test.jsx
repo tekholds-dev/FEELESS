@@ -20,7 +20,9 @@ const PICKS = [1, 2, 3, 4].map(i => ({ mint: `R${i}`, symbol: `RUN${i}`, lane: '
 const RUNNERS = { round: { picks: PICKS, swaps: [{ at: 5, out: { symbol: 'OLD' }, in: { symbol: 'RUN1' }, why: ['top10 41% > 30%'] }] }, live: [{ mint: 'LV1', symbol: 'LIVE', score: 70, stage: 'graduated' }], proof: { lights: true, rounds: 9, avgPct: 12, winRate: 60, per1: 1.12 },
   lightMinRounds: 8, exits: { scalp: 'x', runner: 'y', hold: 'z' }, nextRoundAt: 9e9, dropped: [], history: [], seen: 4, gates: ['g'], solUsd: 200,
   litCards: [{ id: 'L1', at: 1700000000, picks: PICKS.slice(0, 2), proof: { avgPct: 12, winRate: 60 }, pct: 34.5 }] };
-const ARENA = { board: [{ style: 'yield', runs: 3, avgPct: 2, winRate: 66 }], outlook: { note: 'n' }, minSettled: 3, mega: [
+const BATTLES = { endsAt: 9e9, pairs: [{ a: { key: 'user:U1', name: 'Degen card', emoji: '🃏', start: 0, now: 6.2 }, b: { key: 'lit:L1', name: 'Lit', emoji: '🔥', start: 0, now: -1.4 } }],
+  log: [{ at: 1, a: 'X', b: 'Y', winner: 'X', aMove: 3, bMove: 1 }] };
+const ARENA = { battles: BATTLES, board: [{ style: 'yield', runs: 3, avgPct: 2, winRate: 66 }], outlook: { note: 'n' }, minSettled: 3, mega: [
   { kind: 'mega', id: 'M1', name: 'Mega', emoji: '⚛️', legs: PICKS.map(p => ({ pairAddress: `P${p.mint}`, symbol: p.symbol, weight: 25 })), index: 120, grade: 'A', buyers: 5, activity: { score: 90, tier: 'blazing' } },
   { kind: 'user', id: 'U1', name: 'Degen card', emoji: '🃏', owner: '@chad', legs: PICKS.slice(0, 3).map(p => ({ pairAddress: `P${p.mint}`, symbol: p.symbol, weight: 33 })), index: 140, grade: 'A', buyers: 1, mode: 'swap',
     activity: { score: 70, tier: 'hot' }, streak: { swaps: 3, won: true, tier: 'phoenix', label: '🔥 Phoenix', bonus: 15 }, copies: 2, copyPct: 10,
@@ -67,7 +69,7 @@ test('Fuse 🧬: tabs, runners carry into the Lab, My cards shows every action',
   await act(async () => host.querySelector('[data-testid="act-yield-c1"]').click());
   expect(host.querySelector('[data-testid="act-panel-yield"]').textContent).toContain('33.3% of each leg');   // +50% → sell only the gain
   expect(host.querySelector('[data-testid="yield-lvl-100"]')).not.toBeNull();                                      // Cmd Ctr levels, picked not typed
-  expect(host.querySelector('[data-testid="act-panel-yield"]').textContent).toContain('after exit fees');
+  expect(host.querySelector('[data-testid="act-panel-yield"]').textContent).toContain('price move only — card P&L never mixes in fees');
   await act(async () => host.querySelector('[data-testid="act-limits-c1"]').click()); await tick();
   expect(host.querySelector('[data-testid="leglim-tp-P1"]')).not.toBeNull();                   // per-coin TP / SL on the card
   await act(async () => host.querySelector('[data-testid="act-withdraw-c1"]').click()); await tick();
@@ -160,4 +162,14 @@ test('Season board: FeeCat\'s week is the bar to beat, and cards above it are ma
   expect(host.querySelector('[data-testid="season-feecat"]').textContent).toContain('+7.5%');
   expect(host.querySelector('[data-testid="season-S1"]').textContent).toContain('🐱 beat');
   expect(host.querySelector('[data-testid="season-S2"]').textContent).not.toContain('🐱 beat');
+});
+
+test('Arena battlefield: pairs fight live (tug-of-war leans to the leader), results log, and each tab explains itself', async () => {
+  window.history.replaceState(null, '', '/terminal/fuse?tab=arena');
+  const host = document.createElement('div'); document.body.appendChild(host);
+  await act(async () => { createRoot(host).render(<FusePage />); }); await tick(); await tick();
+  const p = host.querySelector('[data-testid="battle-0"]');
+  expect(p.className).toContain('a-lead'); expect(p.textContent).toContain('VS'); expect(p.textContent).toContain('+6.2%');
+  expect(host.querySelector('[data-testid="battlefield"]').textContent).toContain('🏆 X beat Y');
+  expect(host.querySelector('[data-testid="fp-tabtip"]').textContent).toContain('battlefield');
 });

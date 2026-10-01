@@ -125,3 +125,12 @@ def test_topup_merges_and_drift():
     assert n == 1 and len(pos['legs']) == 1 and pos['legs'][0]['usd'] == 15 and pos['legs'][0]['tokens'] == 140 and pos['events'][-1]['kind'] == 'topup'
     row = {'legs': [{'usd': 10, 'heldUsd': 30}, {'usd': 10, 'heldUsd': 10}]}
     assert hq.drift(row) == 25.0 and hq.drift({'legs': [{'usd': 1, 'heldUsd': 1}]}) == 0.0
+
+
+
+def test_card_entries_and_sells_use_pool_value_never_fees():
+    import fuse_hq as h
+    assert h.pool_usd({'usd': 10.5, 'poolUsd': 10.0}) == 10.0 and h.pool_usd({'usd': 7}) == 7.0
+    pos = {'legs': [{'mint': 'M', 'tokens': 10, 'usd': 10, 'symbol': 'X'}]}
+    pos, n = h.close_legs(pos, [{'token': 'M', 'tokens': 10, 'usd': 11.2, 'poolUsd': 12.0, 'tx': 's'}], now=1)
+    assert n == 1 and pos['legs'][0]['soldUsd'] == 12.0                                           # gross at the pool, fee not deducted

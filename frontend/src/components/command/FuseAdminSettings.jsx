@@ -10,6 +10,9 @@ const LABELS = {
   maxInsiders: ['Max insiders', '%'], maxDev: ['Max dev hold', '%'], scalpTp: ['Scalp: take all at', '+%'], scalpStop: ['Scalp: stop', '−%'],
   runnerTp1: ['Runner: ⅓ at', '+%'], runnerTp2: ['Runner: ⅓ at', '+%'], runnerTrail: ['Runner: trail', '%'], runnerStop: ['Runner: stop', '−%'],
   holdTrail: ['Hold: trail', '%'], holdStop: ['Hold: stop', '−%'], lightRounds: ['Rounds before the Fuse button lights', ''],
+  bondCurve: ['🔔 Bond run: curve at least', '%'], bondBuys: ['🔔 Bond run: buys at least', '%'], bondVol1h: ['🔔 Bond run: 1h volume at least', '$'],
+  bondTop10: ['🔔 Bond run: top-10 under (if snipers not out)', '%'], bondPts: ['🔔 Bond run: score boost', 'pts'],
+  autoCoins: ['⚔ Arena build: coins', ''], autoPools: ['⚔ Arena build: pools', ''], battleMins: ['⚔ Battle length', 'min'],
 };
 
 export function RunnerSettings({ call }) {

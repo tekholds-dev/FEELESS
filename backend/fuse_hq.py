@@ -151,6 +151,12 @@ def trust_rank(points, buyers, trusted):
     return round(points + 15 * (trusted / buyers) * min(1.0, buyers / 5), 2)
 
 
+def pool_usd(t):
+    """A trade's $ at the pool — fees EXCLUDED (FEELESS + network are paid per trade and shown on the receipt, never mixed
+    into a card's entry or P&L). Falls back to cash $ for records without a pool value."""
+    return _f(t.get('poolUsd')) if t.get('poolUsd') is not None else _f(t.get('usd'))
+
+
 def close_legs(pos, sells, now=0):
     """Sell from a card (take-profit, switch-out or full withdraw): each verified SELL of a leg's coin moves its $ into
     realizedUsd and its tokens out of the held amount. A leg whose held tokens hit ~0 is closed (soldUsd = all it
@@ -162,12 +168,12 @@ def close_legs(pos, sells, now=0):
             continue
         leg.setdefault('tokens0', leg.get('tokens'))
         sold = _f(t.get('tokens')) or _f(leg.get('tokens'))
-        leg['realizedUsd'] = round(_f(leg.get('realizedUsd')) + _f(t.get('usd')), 6)
+        leg['realizedUsd'] = round(_f(leg.get('realizedUsd')) + pool_usd(t), 6)
         leg['tokens'] = max(0.0, _f(leg.get('tokens')) - sold)
         leg.setdefault('sellSigs', []).append(t.get('tx'))
         if leg['tokens'] <= _f(leg['tokens0']) * 0.001:
             leg['soldUsd'] = leg['realizedUsd']; leg['sellSig'] = t.get('tx'); leg['tokens'] = 0.0
-        pos.setdefault('events', []).append({'kind': 'sell', 'symbol': leg.get('symbol'), 'usd': round(_f(t.get('usd')), 4), 'at': now})
+        pos.setdefault('events', []).append({'kind': 'sell', 'symbol': leg.get('symbol'), 'usd': round(pool_usd(t), 4), 'at': now})
         n += 1
     return pos, n
 
@@ -183,15 +189,15 @@ def add_legs(pos, buys, metas, now=0, max_pools=3, max_runners=3):
             continue
         same = next((l for l in legs if l.get('soldUsd') is None and l.get('mint') == t.get('token')), None)
         if same:   # rebalance top-up: the leg grows, it doesn't count as a new leg
-            same['usd'] = round(_f(same.get('usd')) + _f(t.get('usd')), 6); same['tokens'] = _f(same.get('tokens')) + _f(t.get('tokens'))
+            same['usd'] = round(_f(same.get('usd')) + pool_usd(t), 6); same['tokens'] = _f(same.get('tokens')) + _f(t.get('tokens'))
             same['tokens0'] = _f(same.get('tokens0') or same.get('tokens')) + _f(t.get('tokens'))
-            pos.setdefault('events', []).append({'kind': 'topup', 'symbol': same.get('symbol'), 'usd': round(_f(t.get('usd')), 4), 'at': now}); added += 1
+            pos.setdefault('events', []).append({'kind': 'topup', 'symbol': same.get('symbol'), 'usd': round(pool_usd(t), 4), 'at': now}); added += 1
             continue
         if live(role) >= (max_runners if role == 'runner' else max_pools):
             continue
         legs.append({'pairAddress': str(m.get('pairAddress'))[:64], 'chainId': 'solana', 'symbol': str(m.get('symbol') or '')[:16], 'role': role,
-                     'mint': t.get('token'), 'sig': t.get('tx'), 'usd': _f(t.get('usd')), 'tokens': _f(t.get('tokens')), 'tokens0': _f(t.get('tokens')), 'addedAt': now})
-        pos.setdefault('events', []).append({'kind': 'buy', 'symbol': m.get('symbol'), 'usd': round(_f(t.get('usd')), 4), 'at': now})
+                     'mint': t.get('token'), 'sig': t.get('tx'), 'usd': pool_usd(t), 'tokens': _f(t.get('tokens')), 'tokens0': _f(t.get('tokens')), 'addedAt': now})
+        pos.setdefault('events', []).append({'kind': 'buy', 'symbol': m.get('symbol'), 'usd': round(pool_usd(t), 4), 'at': now})
         added += 1
     return pos, added
 

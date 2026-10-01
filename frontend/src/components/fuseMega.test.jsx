@@ -137,3 +137,16 @@ test('the 🧬 is a real 3D helix: 10 rungs, each on its own phase', () => {
   const rungs = el.querySelectorAll('[data-testid="dna3d"] > i');
   expect(rungs).toHaveLength(10); expect(rungs[3].style.getPropertyValue('--i')).toBe('3'); expect(rungs[0].querySelectorAll('b')).toHaveLength(2);
 });
+
+test('auto-set TP/SL presets fill every coin (runners by lane), and the bond meter lights box by box', () => {
+  const { applyPreset } = require('./FuseLab');
+  const legs = [{ pairAddress: 'P' }, { pairAddress: 'R', runner: true }];
+  expect(applyPreset(legs, 'degen')).toEqual({ P: { tp: 100, sl: 40 }, R: { tp: 100, sl: 40 } });
+  expect(applyPreset(legs, 'lanes')).toEqual({ P: { tp: 30, sl: 15 }, R: { tp: 50, sl: 30 } });
+  const React = require('react'); const { act } = React; const { createRoot } = require('react-dom/client');
+  const { BondMeter } = require('./FusePage');
+  const el = document.createElement('div'); document.body.appendChild(el);
+  act(() => { createRoot(el).render(<BondMeter checks={[{ id: 'a', label: 'x', ok: true }, { id: 'b', label: 'y', ok: false }]} />); });
+  expect(el.textContent).toContain('bond 1/2'); expect(el.querySelectorAll('i.on')).toHaveLength(1);
+  act(() => { createRoot(el).render(<BondMeter checks={[{ id: 'a', label: 'x', ok: true }]} />); });
+});

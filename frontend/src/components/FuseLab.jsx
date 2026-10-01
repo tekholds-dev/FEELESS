@@ -68,6 +68,11 @@ let rulesP = null;
 export const useCardRules = () => { const [r, setR] = useState(null);
   useEffect(() => { let alive = true; rulesP = rulesP || fetch(apiUrl('/api/reputation/fuses/rules')).then(x => x.json()).catch(() => { rulesP = null; return null; });
     rulesP.then(x => alive && x && setR(x)); return () => { alive = false; }; }, []); return r; };
+// One-tap TP / SL for the whole card (then fine-tune any coin in the dropdown).
+export const PLAN_PRESETS = [['safe', '🛡 Safe', 30, 15, 'Take +30%, stop −15% on every coin'], ['balanced', '⚖ Balanced', 50, 25, 'Take +50%, stop −25% on every coin'],
+  ['degen', '🚀 Degen', 100, 40, 'Let it run: take +100%, stop −40%'], ['lanes', '🏃 Lanes', null, null, 'Runners use their lane exits; pools +30 / −15']];
+export const applyPreset = (legs, id) => { const p = PLAN_PRESETS.find(x => x[0] === id);
+  return Object.fromEntries(legs.map(l => [l.pairAddress, id === 'lanes' ? (l.runner ? { tp: 50, sl: 30 } : { tp: 30, sl: 15 }) : { tp: p[2], sl: p[3] }])); };
 export const defaultLegLimits = legs => Object.fromEntries(legs.filter(l => l.runner).map(l => [l.pairAddress, { tp: 50, sl: 30 }]));
 
 export function CardPlan({ legs, plan, setPlan }) {
@@ -76,11 +81,14 @@ export function CardPlan({ legs, plan, setPlan }) {
   const lim = (pa, k, v) => setPlan(p => ({ ...p, legs: { ...p.legs, [pa]: { ...(p.legs[pa] || {}), [k]: v.replace(/[^0-9.]/g, '') } } }));
   const seg = (k, opts) => <div className="m-seg" role="radiogroup">{opts.map(([v, l, tip]) => <button key={String(v)} type="button" role="radio" aria-checked={plan[k] === v} className={plan[k] === v ? 'active' : ''} data-tip={tip} onClick={() => setPlan(p => ({ ...p, [k]: v }))} data-testid={`plan-${k}-${v}`}>{l}</button>)}</div>;
   return <details className="fl-plan" open data-testid="card-plan"><summary><span className="m-label">🎯 CARD PLAN</span><small className="m-dim">limits per coin · auto-profit · collect or compound — alerts with one-tap actions, you approve</small></summary>
+    <div className="fl-plan-row"><span>Auto-set TP / SL</span><div className="m-seg" role="group">{PLAN_PRESETS.map(([id, l, , , tip]) => <button key={id} type="button" data-tip={tip} onClick={() => setPlan(p => ({ ...p, legs: applyPreset(legs, id) }))} data-testid={`plan-preset-${id}`}>{l}</button>)}
+      <button type="button" data-tip="Clear every coin's limits" onClick={() => setPlan(p => ({ ...p, legs: {} }))}>Off</button></div></div>
+    <details className="fl-plan-list" data-testid="plan-list"><summary>Per-coin TP / SL · {legs.length} coins · {Object.values(plan.legs).filter(v => Number(v.tp) || Number(v.sl)).length} set <span aria-hidden="true">▾</span></summary>
     <div className="fl-plan-legs">{legs.map(l => { const v = plan.legs[l.pairAddress] || {}; return <div key={l.pairAddress} className={`fl-plan-leg ${l.runner ? 'is-runner' : ''}`}>
       <b>{l.runner ? '🏃 ' : ''}{l.symbol}</b>
       <label data-tip="Take profit on this coin: alert + pre-filled sell when it's up this much since your buy">TP +<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.tp ?? ''} onChange={e => lim(l.pairAddress, 'tp', e.target.value)} data-testid={`plan-tp-${l.pairAddress}`} />%</label>
-      <label data-tip="Stop-loss on this coin: alert + pre-filled sell when it's down this much">SL −<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.sl ?? ''} onChange={e => lim(l.pairAddress, 'sl', e.target.value)} />%</label></div>; })}</div>
-    <div className="fl-plan-row"><span>Profit trigger (after fees)</span>{seg('at', [[null, 'Off', 'No card-level auto-profit'], ...levels.map(v => [v, `+${v}%`, `Alert when the whole card is up +${v}% after fees, from your confirmed buy`])])}</div>
+      <label data-tip="Stop-loss on this coin: alert + pre-filled sell when it's down this much">SL −<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.sl ?? ''} onChange={e => lim(l.pairAddress, 'sl', e.target.value)} />%</label></div>; })}</div></details>
+    <div className="fl-plan-row"><span>Profit trigger (price move)</span>{seg('at', [[null, 'Off', 'No card-level auto-profit'], ...levels.map(v => [v, `+${v}%`, `Alert when the whole card is up +${v}% from your confirmed buy (fees never mixed into card P&L)`])])}</div>
     <div className="fl-plan-row"><span>On profit</span>{seg('onProfit', [['collect', '💸 Auto TP', 'At your level: a one-tap sell of just the gain back to SOL — your base stays in'], ['compound', '♻ Auto-compound', 'At your level: a one-tap roll of the gain back into the card (trim winners, top up the rest) — builds a compound streak']])}</div>
     <div className="fl-plan-row"><span>Card</span>{seg('mode', [['hold', '🔒 Hold together', 'The card stays as built'], ['swap', '⇄ Swap weak legs', `A coin that fails a gate or drops ${rules?.swapDropPct ?? 25}% gets a one-tap swap for the best gated runner`]])}</div>
   </details>;
