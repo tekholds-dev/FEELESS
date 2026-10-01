@@ -397,6 +397,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ⭐ Prime tiers (`arena_prime.py`): 💎 Diamond / 🥇 Gold / 🔥 Blaze, 3★+ coins only (`stars`), major anchor never rotated or
   stopped, card floor −20% (cfg `floorPct` ≤25) → anchor, re-deal next day as a NEW run (past runs on the record), honest
   record (good days ≥ +10% of last 10, worst %). "8/10 days up 10%" is a TARGET the Arena proves, never a promise.
+- ⭐ Prime = SOLID HOLDS: Diamond 3 majors + PUMP (no runners) · Gold 2 majors + pool + 1 runner · Blaze 1 major + pool + 2
+  runners; stops 12/15/20%. `exit_plan` (live momentum): 🚀 ride = only the cost comes out once 2×, house money rides ·
+  🏦 bank 75% when fading · 💰 gain otherwise; early cut at half the stop when fading. Tick ~50s, rotation 15 min–48 h (seg +
+  typed minutes in Cmd Ctr). Every coin keeps `firstEntry` + `at` → card window shows entry + a per-coin rundown.
+- 🐱 FeeCat engine tune (Cmd Ctr › Fee 🐱, `FeeCatTune`): best proven dial (`bestDial`: ≥8 rounds, avg > 0) + stronger
+  settings applied in ONE click (server audits). Whitepaper v1.1 (`backend/whitepaper.py`, served to web + PDF) covers
+  FUSE cards, Runners/Arena/Prime, automation + contract, bot shield, guard/roles — keep it short, update per feature.
 - Vault designer + Card rules: every number has a $ example; Vault math uses the replay window and drops ±95% outliers.
 - Runners: pre-bond lives on volume (log $1h volume part; thin pre-bond curve gets half points).
 - Style understanding: Cmd Ctr panels = numbered steps or grouped cards, plain-words header line, `data-tip` on every field,
@@ -406,7 +413,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 0. Cmd Ctr › Fee 🐱: FeeCat builds + learns Fuse — she breeds her own card from `crowd` elite flow + runner/Prime proof,
    shows what she learned (setup memory tags `fuse`/`crowd`, dial proof) and proposes engine tweaks (admin Apply, audited).
    Prime ⇄ coin / 🃏 re-deal per tier already live (`arena_prime.replace_leg`, `POST /admin/arena/prime {replace|redeal}`).
-1. Prime: rotate weak coins at SL OR every 1h (cfg `rotateHours` min 1 → default 1), and ⏸ PAUSE a coin (user + Cmd Ctr):
+0b. HANDS-FREE CARDS (owner ask): no signing per TP/SL — the card "nests" coins and pays the user back automatically. Only
+   possible NON-CUSTODIALLY via the FUSE Card program (keeper returns to owner, owner toggles) + swap adapters + price checks,
+   devnet run, external audit, owner deploy. Until then: one-tap alerts. Never hold user keys / never auto-sign server-side.
+   Receipts: withdrawn cards → profile receipts as a shareable dropdown (swaps + history), per-card entries already tracked.
+1. Prime: ⏸ PAUSE a coin (user + Cmd Ctr):
    below its SL → sold to SOL and parked; re-bought only when price is back above the SL WITH volume (1h vol ≥ entry-time vol,
    buys ≥55%). Pure + tested in `arena_prime.py`, then the same "pause" as a one-tap alert on real cards (never auto-signs).
 2. Prime runners: live check showed 0 runner legs (no 3★ runner passing) — confirm the runner board feeds `_prime_candidates`

@@ -49,3 +49,15 @@ test('Cmd Ctr: ⇄ replaces one coin on a Prime card, 🃏 re-deals one tier', a
   await act(async () => { el.querySelector('[data-testid="prime-redeal-degen"]').click(); });
   expect(JSON.parse(call.mock.calls.at(-1)[1].body)).toEqual({ redeal: 'degen' });
 });
+
+test('Cmd Ctr: rotate every — typed minutes save as hours (15 min floor)', async () => {
+  const { PrimeControls } = require('./ArenaPrime');
+  global.fetch = jest.fn(async () => ({ json: async () => ({ cards: [CARD], cfg: { sizeUsd: 100, rotateHours: 1, rotateCount: 1, compound: true, floorPct: 20, on: true } }) }));
+  const call = jest.fn(async (p, o) => ({ cfg: { sizeUsd: 100, rotateHours: JSON.parse(o.body).cfg.rotateHours ?? 1, rotateCount: 1, compound: true, floorPct: 20, on: true } }));
+  const el = await mount(<PrimeControls call={call} />);
+  const inp = el.querySelector('[data-testid="prime-rotate-min"]'); expect(inp.value).toBe('60');
+  const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+  await act(async () => { set.call(inp, '45'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { inp.focus(); inp.blur(); });
+  expect(JSON.parse(call.mock.calls.at(-1)[1].body).cfg.rotateHours).toBe(0.75);
+});

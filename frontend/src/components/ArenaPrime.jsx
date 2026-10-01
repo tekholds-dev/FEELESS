@@ -49,7 +49,7 @@ export function ArenaPrime({ onLoad }) {
       <div className="prime-acts"><button type="button" className="m-btn" onClick={() => setOpen(open === c.id ? null : c.id)} data-testid={`prime-earn-${c.tpl}`}>🪟 Open card · profit trail</button>
         <button type="button" className="m-btn primary m-go" onClick={() => { onLoad?.(c.legs.map(l => ({ chainId: 'solana', pairAddress: l.pairAddress, symbol: l.symbol, baseAddress: l.mint, runner: l.role === 'runner', role: l.role }))); toast.success(`${c.label} loaded into the Lab — you approve the buy`); }} data-testid={`prime-buy-${c.tpl}`}>⚡ Buy now</button></div>
       {open === c.id && <CardEarnings title={c.label} events={c.events.map(e => ({ ...e, label: e.kind === 'tp' ? ({ ride: '🚀 Ride · house money', bank: '🏦 Banked 75%' }[e.mode] || KIND.tp) : KIND[e.kind] || e.kind }))} taken={c.takenUsd} compounded={c.compoundedUsd} fees={c.feesUsd} onClose={() => setOpen(null)} paper
-        legs={c.legs.map(l => ({ ...l, symbol: l.symbol }))} autos={c.events.filter(e => Date.now() / 1000 - e.at < 86400 && e.kind !== 'deal').map(e => ({ at: e.at, text: `${KIND[e.kind] || e.kind} ${e.symbol ? `$${e.symbol} ` : ''}— ${e.why || ''}`, url: '#' }))} />}
+        legs={c.legs.map(l => ({ ...l, rundown: l.role === 'anchor' ? 'Solid hold — never stopped or rotated; the floor moves everything here' : `TP +${c.tp}% (momentum decides ride / gain / bank) · stop −${c.sl}% (cut at −${c.sl / 2}% if fading) · rotates when weakest` }))} autos={c.events.filter(e => Date.now() / 1000 - e.at < 86400 && e.kind !== 'deal').map(e => ({ at: e.at, text: `${KIND[e.kind] || e.kind} ${e.symbol ? `$${e.symbol} ` : ''}— ${e.why || ''}`, url: '#' }))} />}
     </article>; })}</div>
   </section>;
 }
@@ -59,6 +59,8 @@ export function PrimeControls({ call }) {
   const d = usePrime(30000);
   const [cfg, setCfg] = useState(null);
   useEffect(() => { if (d?.cfg && !cfg) setCfg(d.cfg); }, [d, cfg]);
+  const [mins, setMins] = useState('');
+  useEffect(() => { if (cfg) setMins(String(Math.round(cfg.rotateHours * 60))); }, [cfg]);
   if (!cfg) return null;
   const save = (patch, reset = false) => call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ cfg: patch, reset }) })
     .then(r => { setCfg(r.cfg); toast.success(reset ? 'Fresh Prime cards dealt' : 'Prime config saved'); }).catch(e => toast.error(e.message));
@@ -68,6 +70,8 @@ export function PrimeControls({ call }) {
   return <section className="m-card fops" data-testid="prime-controls"><div className="m-row"><span className="m-label">⭐ ARENA PRIME · FULLY AUTO (PAPER)</span>
     <label className="m-toggle"><input type="checkbox" checked={cfg.on} onChange={e => save({ on: e.target.checked })} /><span>{cfg.on ? 'Running' : 'Off'}</span></label></div>
     <div className="prime-ctl"><span>Size</span>{seg('sizeUsd', [25, 100, 500], v => `$${v}`)}<span>Rotate every</span>{seg('rotateHours', [0.25, 0.5, 1, 3, 6], v => (v < 1 ? `${v * 60}m` : `${v}h`))}
+      <label className="prime-min" data-tip="Any interval: 15 min – 48 h. The weakest non-anchor coins rotate out on this clock."><input className="m-input m-num" inputMode="numeric" value={mins} onChange={e => setMins(e.target.value.replace(/[^0-9]/g, ''))}
+        onBlur={() => Number(mins) >= 15 && Number(mins) !== Math.round(cfg.rotateHours * 60) && save({ rotateHours: Math.min(48, Number(mins) / 60) })} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} data-testid="prime-rotate-min" /><span>min</span></label>{null}
       <span>Coins per rotation</span>{seg('rotateCount', [1, 2, 3], v => `${v}`)}
       <span data-tip="Card-level floor: at this loss every pool + runner moves into the anchor (re-dealt next day as a new run)">Floor</span>{seg('floorPct', [10, 15, 20, 25], v => `−${v}%`)}
       <label className="m-toggle"><input type="checkbox" checked={cfg.compound} onChange={e => save({ compound: e.target.checked })} /><span>Auto-compound gains</span></label></div>
