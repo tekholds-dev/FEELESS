@@ -28,8 +28,8 @@ const ARENA = { board: [{ style: 'yield', runs: 3, avgPct: 2, winRate: 66 }], ou
   { kind: 'feecat', id: 'feecat', name: "Fee's book", emoji: '🐱', legs: [{ pairAddress: 'PF', symbol: 'UDR', entry: 0.0074, weight: 100 }], index: 92, grade: 'A', buyers: 0,
     activity: { score: 20, tier: 'calm' }, record: { winRate: 61, realizedSol: 0.31, lives: 8 }, chat: 'fuse-card-feecat' },
   { kind: 'lit', id: 'L1', name: '$RUN1 · $RUN2', emoji: '🔥', legs: PICKS.slice(0, 2).map(p => ({ pairAddress: `P${p.mint}`, baseAddress: p.mint, symbol: p.symbol, weight: 50 })), index: 134.5, grade: 'A', buyers: 0, activity: { score: 30, tier: 'warm' } }] };
-const SEASON = { week: 1790553600, endsAt: 9e9, cards: 4, boostPct: 10, board: [
-  { rank: 1, id: 'S1', name: 'Moon card', handle: '@chad', pnlPct: 88, streak: { swaps: 1, tier: 'survivor', label: '🛡 Survivor', bonus: 5 } },
+const SEASON = { week: 1790553600, endsAt: 9e9, cards: 4, boostPct: 10, feecat: { pct: 7.5, winPts: 8 }, board: [
+  { rank: 1, id: 'S1', name: 'Moon card', handle: '@chad', pnlPct: 88, beatsCat: true, streak: { swaps: 1, tier: 'survivor', label: '🛡 Survivor', bonus: 5 } },
   { rank: 2, id: 'S2', name: 'Deep', handle: '@ann', pnlPct: 12 }, { rank: 4, id: 'S4', name: 'Down bad', handle: '@x', pnlPct: -9 }],
   moves: [{ id: 'S1', name: 'Moon card', handle: '@chad', from: 3, to: 1, kind: 'up', pnlPct: 88, at: 5 }],
   past: [{ week: 1789948800, top: [{ rank: 1, handle: '@og', pnlPct: 140, wallet: 'W' }] }] };
@@ -151,4 +151,13 @@ test('Arena: FeeCat\'s sim book is on stage with her record, and ▶ opens a car
   expect(fc.textContent).toContain('sim book · 61% wins · +0.31 SOL realized · ❤8');
   await act(async () => fc.querySelector('[data-testid="mega-replay-feecat"]').click()); await tick();
   expect(host.querySelector('[data-testid="replay-feecat"]')).not.toBeNull();
+});
+
+test('Season board: FeeCat\'s week is the bar to beat, and cards above it are marked', async () => {
+  window.history.replaceState(null, '', '/terminal/fuse?tab=arena');
+  const host = document.createElement('div'); document.body.appendChild(host);
+  await act(async () => { createRoot(host).render(<FusePage />); }); await tick(); await tick();
+  expect(host.querySelector('[data-testid="season-feecat"]').textContent).toContain('+7.5%');
+  expect(host.querySelector('[data-testid="season-S1"]').textContent).toContain('🐱 beat');
+  expect(host.querySelector('[data-testid="season-S2"]').textContent).not.toContain('🐱 beat');
 });

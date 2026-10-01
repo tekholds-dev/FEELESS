@@ -232,3 +232,18 @@ body.theme-day .fp-chip.src-bond { color: #5a1fd1; border-color: #5a1fd1; }
 body.fx-lite .rp-reveal, body.fx-lite .rp-mark, body.fx-lite .rp { animation: none; opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .rp-reveal, .rp-mark, .rp { animation: none; opacity: 1; } }
 body.theme-day .rp-chart { background: #fff; } body.theme-day .rp-mark line, body.theme-day .rp-mark circle { stroke: #9a6a00; fill: #9a6a00; }
+
+/* Cmd Ctr › 💸 weekly Fuse payout */
+.fpay { display: grid; gap: 8px; margin-bottom: 10px; } .fpay > .m-row { gap: 10px; flex-wrap: wrap; } .fpay > .m-row .m-btn { margin-left: auto; }
+.fpay-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; max-height: 260px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
+.fpay-rows::-webkit-scrollbar { width: 6px; } .fpay-rows::-webkit-scrollbar-thumb { background: var(--m-accent); border-radius: 6px; }
+.fpay-rows li { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; font-size: 12px; padding: 4px 6px; border-bottom: 1px solid var(--m-line); animation: fpIn .25s var(--m-ease) backwards; animation-delay: calc(var(--i, 0) * 25ms); }
+.fpay-hist summary { cursor: pointer; font-size: 11px; color: var(--m-dim); } .fpay-hist small { display: block; font-size: 11px; color: var(--m-dim); }
+body.fx-lite .fpay-rows li { animation: none; } @media (prefers-reduced-motion: reduce) { .fpay-rows li { animation: none; } }
+
+/* 🐱 FeeCat challenge line on the season board + "beat" chips */
+.fs-cat { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; padding: 6px 10px; border-radius: 10px; border: 1px dashed #ff9ad855; } .fs-cat.is-idle { opacity: .7; }
+.fs-cat b { font-size: 12px; } .fs-cat em { font-style: normal; font-size: 13px; } .fs-cat small { font-size: 10.5px; }
+.fs-beat { margin-left: 6px; font-style: normal; font-family: var(--m-mono); font-size: 9.5px; padding: 1px 6px; border-radius: 999px; border: 1px solid #ff9ad8; color: #ff9ad8; cursor: help; }
+.fs-crown.r-cat { border-color: #ff9ad8; color: #ff9ad8; }
+body.theme-day .fs-beat, body.theme-day .fs-crown.r-cat { color: #b0237d; border-color: #b0237d; }

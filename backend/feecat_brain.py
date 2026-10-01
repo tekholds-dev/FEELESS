@@ -19,7 +19,7 @@ def _b(v, edges, labels):
     return labels[-1]
 
 
-def setup_features(p: dict, now: float, fresh: bool = False, gap: bool = False, fuse: str = 'none') -> dict:
+def setup_features(p: dict, now: float, fresh: bool = False, gap: bool = False, fuse: str = 'none', crowd: str = 'none') -> dict:
     num = lambda x, d=0.0: float(x) if isinstance(x, (int, float)) or (isinstance(x, str) and x.replace('.', '', 1).replace('-', '', 1).isdigit()) else d
     ch = p.get('priceChange') or {}
     tx = (p.get('txns') or {}).get('h1') or {}
@@ -36,6 +36,7 @@ def setup_features(p: dict, now: float, fresh: bool = False, gap: bool = False, 
         'lane': 'fresh' if fresh else 'core',
         'gap': 'fvg' if gap else 'no-fvg',
         'fuse': fuse,   # Fuse edge tag — her memory learns whether Fuse-backed entries actually pay
+        'crowd': crowd,  # elite-trader tag — she learns from FEELESS's proven traders, and memory decides if it pays
     }
 
 
@@ -151,3 +152,18 @@ def fuse_edge(mint: str, disc: dict) -> dict:
     n = len(r.get('sources') or [])
     return {'veto': False, 'mult': round(min(FUSE_MAX, 1 + FUSE_STEP * n), 2), 'tag': 'fuse-2+' if n >= 2 else 'fuse-1',
             'why': 'Fuse edge: ' + ', '.join(s.get('label', s.get('kind', '')) for s in r.get('sources') or [])}
+
+
+CROWD_STEP, CROWD_MAX = 0.05, 1.15
+
+
+def crowd_edge(mint: str, feed: dict) -> dict:
+    """Learn from users: coins FEELESS's ELITE traders (proven on verified buys) bought in the last 6h.
+    N distinct elites → conviction ×(1 + 0.05·N), max ×1.15; tag 'elite-2+' / 'elite-1' goes into her setup memory, so
+    the boost survives only if following elites actually wins for her. No elites on the coin → no change."""
+    f = ((feed or {}).get('flow') or {}).get(mint) if mint else None
+    if not f or not f.get('n'):
+        return {'mult': 1.0, 'tag': 'none', 'why': ''}
+    n = int(f['n'])
+    return {'mult': round(min(CROWD_MAX, 1 + CROWD_STEP * n), 2), 'tag': 'elite-2+' if n >= 2 else 'elite-1',
+            'why': f"{n} elite FEELESS trader{'s' if n > 1 else ''} bought it in 6h (${f.get('usd', 0):,.0f})"}

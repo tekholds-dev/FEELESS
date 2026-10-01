@@ -230,12 +230,15 @@ export function FuseSeason() {
     <header className="fs-head"><div><span className="m-label">🏆 FUSE SEASON · WEEK OF {wk(s.week).toUpperCase()}</span><h3>Best cards opened this week.</h3>
       <small className="m-dim">Real P&L of verified buys · {s.cards} cards · top 3 crowned Monday 00:00 UTC with +{s.boostPct}% Fee-Back on the card</small></div>
       <div className="fs-clock"><small>ENDS IN</small><b className="m-num">{left(s.endsAt - now)}</b></div></header>
+    <div className={`fs-cat ${s.feecat?.pct == null ? 'is-idle' : ''}`} data-testid="season-feecat"><span>🐱</span><b>FeeCat this week</b>
+      <em className={`m-num ${(s.feecat?.pct || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{s.feecat?.pct == null ? 'no trades yet' : pc(s.feecat.pct)}</em>
+      <small className="m-dim">her average trade (sim) · beat her with a real card for +{s.feecat?.winPts ?? 8} Fuse score</small></div>
     {(s.moves || []).length > 0 && <div className="fs-race" data-testid="season-race" aria-label="Season race">{s.moves.slice().reverse().slice(0, 8).map(m => <span key={`${m.id}-${m.at}`} className={`fs-move mv-${m.kind}`}>
       {m.kind === 'up' ? '▲' : m.kind === 'down' ? '▼' : '✦'} {m.handle} <b>{m.name || 'card'}</b> {m.from ? `#${m.from} → ` : ''}#{m.to} <em className={(m.pnlPct || 0) >= 0 ? 'm-pos' : 'm-neg'}>{pc(m.pnlPct)}</em></span>)}</div>}
     {!s.board.length ? <p className="m-dim fs-none">No card opened this week yet — the first one you fuse lands on this board.</p>
       : <ol className="fs-board">{s.board.map((b, i) => <li key={b.id} className={`fs-row r-${b.rank <= 3 ? b.rank : 'n'}`} style={{ '--i': i }} data-testid={`season-${b.id}`}>
         <b className="fs-rank">{MEDAL[b.rank] || `#${b.rank}`}</b>
-        <span className="fs-who"><b>{b.name || 'Fuse card'}</b><small>{b.handle}{b.closed ? ' · closed' : ''}</small></span>
+        <span className="fs-who"><b>{b.name || 'Fuse card'}{b.beatsCat && <em className="fs-beat" data-tip="Up more than FeeCat's average trade this week">🐱 beat</em>}</b><small>{b.handle}{b.closed ? ' · closed' : ''}</small></span>
         {b.streak?.tier ? <StreakBadge s={b.streak} /> : <span />}
         <i className="fs-bar"><i className={b.pnlPct >= 0 ? 'up' : 'down'} style={{ transform: `scaleX(${Math.max(0.03, Math.abs(b.pnlPct || 0) / top)})` }} /></i>
         <b className={`m-num ${b.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(b.pnlPct)}</b></li>)}</ol>}
@@ -313,6 +316,7 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, addr, ses, refre
     <div className="fp-cgrid">{openRows.map(r => <div key={r.id} className={`fp-cell ${r.onArena ? 'is-arena' : ''}`}><LiveFuseCard r={r} aura={r.onArena ? 'fire' : ''} />
       <div className="m-seg fp-mode" role="radiogroup" aria-label="Card mode">{[['hold', '🔒 Hold together', 'The card stays as you built it'], ['swap', '⇄ Swap weak legs', `When a leg fails a gate or drops ${d.rules?.swapDropPct ?? 25}%, we alert you with the best gated runner pre-filled — one approval`]].map(([k, l, tip]) =>
         <button key={k} type="button" role="radio" aria-checked={(r.mode || 'hold') === k} className={(r.mode || 'hold') === k ? 'active' : ''} data-tip={tip} onClick={() => setMode(r, k)} data-testid={`mode-${k}-${r.id}`}>{l}</button>)}</div>
+      {r.beatCat?.length > 0 && <span className="fs-crown r-cat" data-tip="Weeks this card beat FeeCat's average trade" data-testid={`beatcat-${r.id}`}>🐱 Beat FeeCat ×{r.beatCat.length}</span>}
       {r.seasonWin && <span className={`fs-crown r-${r.seasonWin.rank}`} data-tip={`Fuse season · week of ${wk(r.seasonWin.week)} — +Fee-Back boost on this card`} data-testid={`crown-${r.id}`}>{MEDAL[r.seasonWin.rank]} #{r.seasonWin.rank} · week of {wk(r.seasonWin.week)}</span>}
       {(r.streak?.tier || r.compound?.tier || r.copies > 0) && <span className="ar-badges">{r.streak?.tier && <StreakBadge s={r.streak} />}{r.compound?.tier && <CompoundBadge s={r.compound} />}{r.copies > 0 && <span className="ar-copies" data-tip="Traders who copied this card — you earn a share of their FEELESS fee">⚡ {r.copies} {r.copies === 1 ? 'copy' : 'copies'} · {m$(r.copyEarnedUsd)} earned</span>}</span>}
       {r.feeback && <small className={`fp-fb ${r.feeback.unlocked ? 'is-on' : ''}`} data-tip={`Fee-Back: ${r.feeback.pct}% of the $${(r.feeback.feesUsd || 0).toFixed(2)} fees you paid on this card${r.feeback.arena ? ' (incl. Arena bonus)' : ''}`}>🎁 {r.feeback.unlocked ? `${m$(r.feeback.usd)} back · ${r.feeback.pct}%` : 'Fee-Back'}{r.feeback.next ? ` · ${r.feeback.next}` : ''}</small>}

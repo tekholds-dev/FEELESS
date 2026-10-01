@@ -445,6 +445,15 @@ def _thesis(pos, live, R):
     return None, ok_to_add, vol_ratio
 
 
+async def _crowd_feed(http):
+    """Coins FEELESS's elite traders bought in the last 6h (counts only), so she learns from the best users."""
+    try:
+        r = await http.get('http://127.0.0.1:5077/api/reputation/crowd/elite-flow', timeout=4)
+        return r.json() if r.status_code == 200 else {}
+    except Exception:
+        return {}
+
+
 async def _fuse_discover(http):
     """The Fuse runner engine's view (gated runners + sources + coins that failed a gate). Served from its warm cache."""
     try:
@@ -460,7 +469,7 @@ async def run_engine(store, cats):
         held = sorted({p['pairAddress'] for c in cats for p in c['positions'] if p.get('pairAddress')}
                       | {e['pairAddress'] for c in cats for e in c.get('exits', []) if now - e['exitAt'] < 24 * 3600})
         prices = await _pair_prices(http, held) if held else {}
-        candidates, fuse_view = await asyncio.gather(_market_candidates(http), _fuse_discover(http))
+        candidates, fuse_view, crowd_feed = await asyncio.gather(_market_candidates(http), _fuse_discover(http), _crowd_feed(http))
     ranked, rejections = [], {}
     for p in candidates:
         score, reason = _qualifies(p, now)
@@ -603,7 +612,8 @@ async def run_engine(store, cats):
                 store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
                 continue
             # Setup memory: her own closed trades decide whether this kind of entry deserves more, less or no size.
-            setup = feecat_brain.setup_features(p, now, fresh=bool(p.get('_fresh')), gap=bool(gap), fuse=fe['tag'])
+            ce = feecat_brain.crowd_edge((p.get('baseToken') or {}).get('address'), crowd_feed)
+            setup = feecat_brain.setup_features(p, now, fresh=bool(p.get('_fresh')), gap=bool(gap), fuse=fe['tag'], crowd=ce['tag'])
             brain = feecat_brain.setup_edge(setup, feecat_brain.edge_table(cat.get('setupMemory') or []))
             if brain['veto']:
                 store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': brain['why'], 'at': now})
@@ -618,6 +628,9 @@ async def run_engine(store, cats):
             if fe['mult'] != 1.0 and not disc_cut:
                 conviction = round(conviction * fe['mult'], 2)
                 reason = f"{reason}; {fe['why']} ×{fe['mult']}"
+            if ce['mult'] != 1.0 and not disc_cut:
+                conviction = round(conviction * ce['mult'], 2)
+                reason = f"{reason}; learned from users: {ce['why']} ×{ce['mult']}"
             reason = f'{reason}; holders: {safe_why}; conviction {conviction}×'
             px = _num(p.get('priceNative'))
             planned = round(min(float(cat['risk']['maxPositionSol']), cat['balanceSol'] * 0.1 * conviction) * (R['freshSize'] if p.get('_fresh') else 1), 4)

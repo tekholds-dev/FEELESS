@@ -491,7 +491,7 @@ MEDAL_PTS = {1: 15, 2: 10, 3: 6}
 STREAK_PTS = {'survivor': 4, 'phoenix': 8, 'immortal': 12, 'compounder': 4, 'snowball': 8, 'diamond': 12}
 
 
-def fuse_score(rows, wins, copies, trust, bot=False):
+def fuse_score(rows, wins, copies, trust, bot=False, cat_wins=0):
     """Fuse score 0–100 for a wallet, every point cited. perf (≤75) = real verified card P&L + season medals + copies
     received + best streaks + cards held ≥24h; rep (≤25) = trust score × 0.25. Bots score 0. Trust reads `perf` only
     (never the rep half), so the two never feed each other in a loop."""
@@ -512,6 +512,8 @@ def fuse_score(rows, wins, copies, trust, bot=False):
     cp = max((STREAK_PTS.get((r.get('compound') or {}).get('tier'), 0) for r in rows), default=0)
     if sw or cp:
         parts.append({'label': 'Best swap / compound streaks', 'points': min(15, sw + cp)})
+    if cat_wins:
+        parts.append({'label': f"🐱 Beat FeeCat {cat_wins}× (weekly)", 'points': min(2 * CAT_WIN_PTS, CAT_WIN_PTS * cat_wins)})
     held = sum(1 for r in rows if _f(r.get('heldS')) >= 86400)
     if held:
         parts.append({'label': f"{held} card(s) held 24h+", 'points': min(10, 2 * held)})
@@ -536,6 +538,43 @@ def rank_moves(prev, board):
             out.append({'id': b['id'], 'name': b.get('name'), 'handle': b.get('handle'), 'from': was, 'to': b['rank'], 'pnlPct': b.get('pnlPct'),
                         'kind': 'new' if was is None else 'up' if b['rank'] < was else 'down'})
     return out
+
+
+# ---- 💸 Weekly creator payouts (owner-signed, verified on-chain) ------------------------------------------------------
+PAYOUT_MIN_USD = 0.05   # dust below this waits for next week (network fees would eat it)
+
+
+def payout_plan(book_rows, sol_usd, exclude=(), min_usd=PAYOUT_MIN_USD):
+    """Who is owed Fuse Fee-Back + copy cuts and how much SOL that is at today's price. Never pays excluded wallets
+    (FEELESS / flagged bots); dust waits."""
+    if _f(sol_usd) <= 0:
+        return {'rows': [], 'totalUsd': 0.0, 'totalSol': 0.0, 'solUsd': 0.0}
+    rows = [{'wallet': r['wallet'], 'owedUsd': round(_f(r['owedUsd']), 6), 'sol': round(_f(r['owedUsd']) / _f(sol_usd), 9)}
+            for r in book_rows if _f(r.get('owedUsd')) >= min_usd and r['wallet'] not in set(exclude)]
+    rows.sort(key=lambda r: -r['owedUsd'])
+    return {'rows': rows, 'totalUsd': round(sum(r['owedUsd'] for r in rows), 6), 'totalSol': round(sum(r['sol'] for r in rows), 9), 'solUsd': round(_f(sol_usd), 4)}
+
+
+def credit_paid(paid_sol, plan):
+    """$ credited per wallet = what actually moved on-chain × the plan's SOL price, never more than that wallet was owed."""
+    owed = {r['wallet']: r['owedUsd'] for r in plan.get('rows') or []}
+    return {w: round(min(owed[w], _f(s) * _f(plan.get('solUsd'))), 6) for w, s in paid_sol.items() if w in owed}
+
+
+# ---- 🐱 FeeCat challenge: beat her book over the week ---------------------------------------------------------------
+CAT_WIN_PTS = 8
+
+
+def feecat_week_pct(exits, positions, since, until):
+    """FeeCat's week: her average trade % — closed trades that exited this week + positions she opened this week."""
+    vals = [_f(e.get('changeAtExit')) for e in exits or [] if since <= _f(e.get('exitAt')) < until]
+    vals += [_f(p.get('currentChange')) for p in positions or [] if since <= _f(p.get('openedAt')) < until]
+    return round(sum(vals) / len(vals), 2) if vals else None
+
+
+def beats_cat(board, cat_pct):
+    """Cards (opened this week, ≥ $1, from the season board) up more than FeeCat's week. No FeeCat week → nobody."""
+    return [] if cat_pct is None else [b['id'] for b in board if _f(b.get('pnlPct')) > _f(cat_pct)]
 
 
 def copy_cut(copier_fees_usd, rules):

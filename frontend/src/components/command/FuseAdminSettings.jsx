@@ -1,6 +1,7 @@
 import '../../styles/fusePage.css';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useWallet } from '../../hooks/useWallet';
 
 // Cmd Ctr › Fuse admin settings. RunnerSettings: every gate / lane exit / light-up rule, range-checked by the server
 // (runners.CFG_RANGES); "Reset" = defaults. AutoYieldDefault: arm 💸 auto-collect on NEW cards (users can turn it off).
@@ -81,4 +82,34 @@ export function CardRules({ call }) {
       {fb.rows.slice(0, 30).map(w => <tr key={w.wallet}><td><code>{w.wallet.slice(0, 4)}…{w.wallet.slice(-4)}</code></td><td>{w.cards}</td><td>${w.earnedUsd.toFixed(3)}</td><td>${w.paidUsd.toFixed(3)}</td><td className={w.owedUsd > 0 ? 'm-pos' : ''}>${w.owedUsd.toFixed(3)}</td>
         <td>{w.owedUsd > 0 && <button type="button" className="m-btn" onClick={() => save({ wallet: w.wallet, paidUsd: w.owedUsd })}>Mark paid</button>}</td></tr>)}</tbody></table>}
   </details>;
+}
+
+
+// 💸 Weekly Fuse payout: everyone owed Fuse Fee-Back + copy cuts, paid in SOL from the connected fee wallet in ONE approval
+// (lib/batchSend: packed, simulated, then signed). The server credits only what actually moved on-chain, from a signer,
+// at the frozen plan price and never above what each wallet was owed. FEELESS wallets and flagged bots are never paid.
+export function FusePayouts({ call }) {
+  const { wallet, provider, connect } = useWallet() || {};
+  const [plan, setPlan] = useState(null); const [busy, setBusy] = useState('');
+  const load = () => call('/admin/fuses/payouts/plan').then(setPlan).catch(e => toast.error(e.message));
+  const pay = async () => {
+    if (!wallet?.address || !provider) { connect?.(); return; }
+    try {
+      setBusy('Preparing…');
+      const { batchSend } = await import('../../lib/batchSend');
+      const sigs = await batchSend({ provider, owner: wallet.address, recipients: plan.rows.map(r => ({ address: r.wallet, amount: r.sol })), kind: 'fuse-payout', onStatus: setBusy });
+      setBusy('Verifying on-chain…');
+      const out = await call('/admin/fuses/payouts/paid', { method: 'POST', body: JSON.stringify({ planId: plan.id, sigs }) });
+      toast.success(`Paid $${out.paidUsd.toFixed(2)} to ${out.wallets} wallets — verified on-chain.`); setPlan(null);
+    } catch (e) { toast.error(e.message); } finally { setBusy(''); }
+  };
+  return <div className="m-card fpay" data-testid="fuse-payouts"><div className="m-row"><span className="m-label">💸 WEEKLY FUSE PAYOUT</span>
+    <small className="m-dim">Fee-Back + copy cuts owed to traders · one approval from your fee wallet · verified on-chain</small>
+    {!plan && <button type="button" className="m-btn primary m-go" onClick={load} data-testid="payout-load">Build this week's payout</button>}</div>
+    {plan && <>{!plan.rows.length ? <p className="m-dim">Nobody is owed more than $0.05 right now{plan.bots ? ` (${plan.bots} flagged bot wallet${plan.bots > 1 ? 's' : ''} excluded)` : ''}.</p>
+      : <><ul className="fpay-rows">{plan.rows.slice(0, 40).map((r, i) => <li key={r.wallet} style={{ '--i': i }}><code>{r.wallet.slice(0, 4)}…{r.wallet.slice(-4)}</code><span className="m-num">${r.owedUsd.toFixed(3)}</span><b className="m-num">{r.sol.toFixed(5)} SOL</b></li>)}</ul>
+        <div className="m-row"><b className="m-num">${plan.totalUsd.toFixed(2)} · {plan.totalSol.toFixed(5)} SOL</b><small className="m-dim">at ${plan.solUsd}/SOL{plan.bots ? ` · ${plan.bots} bot wallet(s) excluded` : ''}</small>
+          <button type="button" className="m-btn primary m-go" disabled={Boolean(busy)} onClick={pay} data-testid="payout-pay">{busy || (wallet?.address ? `Pay ${plan.rows.length} wallets` : 'Connect fee wallet')}</button></div></>}
+      {plan.history?.length > 0 && <details className="fpay-hist"><summary>Past payouts</summary>{plan.history.map(h => <small key={h.at}>{new Date(h.at * 1000).toLocaleDateString()} · ${h.rows.reduce((a, r) => a + r.usd, 0).toFixed(2)} to {h.rows.length} · {h.sigs[0].slice(0, 8)}…</small>)}</details>}</>}
+  </div>;
 }

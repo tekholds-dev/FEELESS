@@ -42,7 +42,9 @@ def rs(monkeypatch, request):
     rs = pytest.importorskip('reputation_service')
     if 'feecat_card' not in request.node.name:   # never reach the live FeeCat service from a test
         async def no_cat(): return None
-        monkeypatch.setattr(rs, '_feecat_card', no_cat)
+        monkeypatch.setattr(rs, '_feecat_card', no_cat); monkeypatch.setattr(rs, '_feecat_raw', no_cat)
+    async def sol(): return 150.0
+    monkeypatch.setattr(rs, '_sol_usd_live', sol)
     async def px(legs): return {'P1': 3.0, 'P2': 1.0}
     monkeypatch.setattr(rs, '_hq_prices', px)
     return rs

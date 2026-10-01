@@ -12,7 +12,7 @@ PAIR = {'priceChange': {'h1': 22, 'm5': 2}, 'txns': {'h1': {'buys': 300, 'sells'
 
 def test_features_bucket_the_setup():
     f = fb.setup_features(PAIR, NOW, gap=True)
-    assert f == {'h1': '15-30%', 'flow': '2x+', 'depth': '10%+', 'age': '6-24h', 'm5': '1-3%', 'mc': '250K-1M', 'lane': 'core', 'gap': 'fvg', 'fuse': 'none'}
+    assert f == {'h1': '15-30%', 'flow': '2x+', 'depth': '10%+', 'age': '6-24h', 'm5': '1-3%', 'mc': '250K-1M', 'lane': 'core', 'gap': 'fvg', 'fuse': 'none', 'crowd': 'none'}
 
 
 def test_new_setups_trade_at_probation_size_and_luck_does_not_rewrite_the_playbook():
@@ -97,3 +97,13 @@ def test_fuse_edge_vetoes_gate_failures_and_boosts_multi_source_runners():
     assert fb.fuse_edge('HOT', {}) == {'veto': False, 'mult': 1.0, 'tag': 'none', 'why': ''}         # Fuse down → no change
     assert fb.fuse_edge('X', {'runners': [{'mint': 'X', 'sources': [{}] * 9}]})['mult'] == 1.2      # capped
     assert fb.setup_features({}, 0, fuse='fuse-2+')['fuse'] == 'fuse-2+'
+
+
+def test_feecat_learns_from_elite_traders_and_files_the_tag():
+    import feecat_brain as fb
+    feed = {'flow': {'HOT': {'n': 2, 'usd': 300}, 'ONE': {'n': 1, 'usd': 20}}}
+    hot = fb.crowd_edge('HOT', feed)
+    assert hot['mult'] == 1.1 and hot['tag'] == 'elite-2+' and '2 elite FEELESS traders' in hot['why']
+    assert fb.crowd_edge('ONE', feed)['tag'] == 'elite-1' and fb.crowd_edge('X', feed) == {'mult': 1.0, 'tag': 'none', 'why': ''}
+    assert fb.crowd_edge('HOT', {'flow': {'HOT': {'n': 9}}})['mult'] == 1.15                       # capped
+    assert fb.setup_features({}, 0, crowd='elite-1')['crowd'] == 'elite-1'

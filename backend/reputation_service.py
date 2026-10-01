@@ -2871,6 +2871,7 @@ async def fuses_evolve(request: Request, p: FuseEvolveIn):
 
 # ---- FUSE HQ (backend/fuse_hq.py): real Fuse P&L, paper arena, bloodlines, health, trader "Find my best 3" -------------
 import fuse_hq as _hq
+import crowd as _crowd
 FUSE_HQ_PATH = DATA_DIR / 'fuse_hq.json'   # {'positions': [], 'arena': [], 'bloodline': []}
 _fuse_lite_cache: dict = {}
 
@@ -3179,6 +3180,97 @@ async def fuse_mode(p: FuseModeIn):
     return {'ok': True, 'mode': p.mode}
 
 
+@app.get('/api/reputation/admin/fuses/payouts/plan')
+async def admin_fuse_payout_plan(request: Request):
+    """💸 This week's Fuse payout: every wallet owed Fee-Back + copy cuts, in SOL at today's price (FEELESS wallets and bots
+    excluded, dust waits). The plan is frozen so the paid record uses the same price."""
+    _require_admin(request)
+    book = await _feeback_book()
+    wallets = [r['wallet'] for r in book['rows'] if r['owedUsd'] > 0]
+    verdicts = await asyncio.gather(*[_shield_of(w) for w in wallets], return_exceptions=True)
+    bots = {w for w, v in zip(wallets, verdicts) if isinstance(v, dict) and v.get('verdict') == 'bot'}
+    plan = _hq.payout_plan(book['rows'], await _sol_usd_live(), exclude=set(_protected_wallets()) | bots)
+    plan = {**plan, 'id': uuid.uuid4().hex[:10], 'at': time.time(), 'bots': len(bots)}
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); d['payoutPlan'] = plan; _json_save(FUSE_HQ_PATH, d)
+    return {**plan, 'history': (d.get('payouts') or [])[-8:][::-1]}
+
+
+class FusePaidIn(BaseModel):
+    planId: str
+    sigs: list
+
+
+@app.post('/api/reputation/admin/fuses/payouts/paid')
+async def admin_fuse_payout_paid(request: Request, p: FusePaidIn):
+    """Record a payout the fee wallet signed. Every signature must be on-chain and succeeded; only SOL transfers whose
+    SOURCE signed the transaction count, and each wallet is credited what actually moved (× the plan's price, ≤ owed)."""
+    admin = _require_admin(request)
+    sigs = [str(x) for x in (p.sigs or [])][:20]
+    if not sigs or not all(_re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', x) for x in sigs):
+        raise HTTPException(400, 'Bad transaction signature.')
+    d = _json_load(FUSE_HQ_PATH, {})
+    plan = d.get('payoutPlan') or {}
+    if plan.get('id') != p.planId or time.time() - _fuse._f(plan.get('at')) > 2 * 3600:
+        raise HTTPException(409, 'That payout plan expired — open Pay again for fresh amounts.')
+    used = {s for x in d.get('payouts') or [] for s in x.get('sigs') or []}
+    if used & set(sigs):
+        raise HTTPException(409, 'Those transactions were already recorded.')
+    async with httpx.AsyncClient(timeout=20) as http:
+        txs = await asyncio.gather(*(_rpc(http, 'getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}]) for x in sigs))
+    paid_sol: dict = {}
+    for sig, tx in zip(sigs, txs):
+        if not tx or (tx.get('meta') or {}).get('err'):
+            raise HTTPException(400, f'Transaction {sig[:8]}… is not on-chain or failed.')
+        signers = {k['pubkey'] for k in tx['transaction']['message']['accountKeys'] if k.get('signer')}
+        for ix in tx['transaction']['message'].get('instructions') or []:
+            info = (ix.get('parsed') or {}).get('info') or {}
+            if ix.get('program') == 'system' and (ix.get('parsed') or {}).get('type') == 'transfer' and info.get('source') in signers:
+                paid_sol[info['destination']] = round(paid_sol.get(info['destination'], 0) + info['lamports'] / 1e9, 9)
+    credit = _hq.credit_paid(paid_sol, plan)
+    if not credit:
+        raise HTTPException(400, 'None of those transfers went to a wallet in this payout plan.')
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {})
+        fb = d.setdefault('feebackPaid', {})
+        for w, usd in credit.items():
+            fb[w] = round(_fuse._f(fb.get(w)) + usd, 6)
+        d.setdefault('payouts', []).append({'at': time.time(), 'by': admin, 'sigs': sigs, 'planId': plan['id'], 'solUsd': plan['solUsd'],
+                                            'rows': [{'wallet': w, 'usd': u, 'sol': paid_sol.get(w)} for w, u in credit.items()]})
+        d['payouts'] = d['payouts'][-200:]; d.pop('payoutPlan', None)
+        _json_save(FUSE_HQ_PATH, d)
+        ad = _admin_load(); _audit(ad, admin, 'fuse-payout', f"${sum(credit.values()):,.2f} to {len(credit)} wallets"); _admin_save(ad)
+    for w, usd in credit.items():
+        notify(w, 'fuse-guard', f"💸 You were paid ${usd:,.2f} in Fuse Fee-Back + copy cuts ({paid_sol[w]:.4f} SOL).", url='/terminal/fuse?tab=cards',
+               once=f"fuse-paid-{sigs[0][:16]}-{w}", meta={'claim': 'SOL transfer confirmed on-chain', 'source': 'Fuse payout'})
+    return {'ok': True, 'paidUsd': round(sum(credit.values()), 6), 'wallets': len(credit)}
+
+
+# ---- 🧠 Crowd edge: FeeCat learns from FEELESS traders (verified buys only) ------------------------------------------
+_crowd_cache: dict = {'at': 0.0, 'data': None}
+
+
+async def _crowd_build():
+    trades = _json_load(FEELESS_TRADES_PATH, {})
+    now = time.time()
+    toks = list({t.get('token') for rows in trades.values() for t in rows or [] if t.get('side', 'buy') == 'buy' and t.get('token')})[:600]
+    prices = await _token_prices(toks) if toks else {}
+    skills = {w: _crowd.trader_skill(rows, prices, now) for w, rows in trades.items()}
+    el = _crowd.elites(skills, exclude=set(_protected_wallets()))
+    data = {'elites': len(el), 'scored': sum(1 for s in skills.values() if s['n']), 'flow': _crowd.elite_flow(trades, el, now), 'at': now,
+            'rule': f"elite = ≥{_crowd.ELITE_N} verified buys scored after 24h, ≥{_crowd.ELITE_WR:g}% won ≥ +{_crowd.WIN_PCT:g}%, avg ≥ +{_crowd.ELITE_AVG:g}%"}
+    _crowd_cache.update(at=now, data=data)
+    return data
+
+
+@app.get('/api/reputation/crowd/elite-flow')
+async def crowd_elite_flow():
+    """Coins FEELESS's proven traders bought in the last 6h (counts only — no wallets exposed). Rebuilt every ~10 min."""
+    if _crowd_cache['data'] and time.time() - _crowd_cache['at'] < 900:
+        return _crowd_cache['data']
+    return await _crowd_build()
+
+
 @app.get('/api/reputation/fuses/rules')
 async def fuse_rules_public():
     """What traders can pick (auto-profit levels) and the Fee-Back / swap / Arena rules Cmd Ctr set."""
@@ -3428,7 +3520,7 @@ async def fuse_pnl(address: str):
     rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold',
                     'onProfit': x.get('onProfit') or 'collect', 'legGuard': x.get('legGuard') or {},
                     'feeback': _hq.card_feeback(_card_fees(x, by), (x.get('closedAt') or now) - _fuse._f(x.get('at')), x['id'] in hot, rules, x['id'] in wins), 'onArena': x['id'] in hot,
-                    'seasonWin': wins.get(x['id'])} for x in pos), key=lambda r: -(r['at'] or 0))
+                    'seasonWin': wins.get(x['id']), 'beatCat': [w['week'] for w in _json_load(FUSE_HQ_PATH, {}).get('catChallenge') or [] if x['id'] in (w.get('ids') or [])]} for x in pos), key=lambda r: -(r['at'] or 0))
     allpos = _json_load(FUSE_HQ_PATH, {}).get('positions') or []
     copies = {}
     for c in allpos:
@@ -3542,6 +3634,25 @@ async def _fuse_season_tick(now):
         if top:
             d.setdefault('seasons', []).append({'week': prev, 'n': len(rows), 'top': [{**t_, 'handle': handle_of(t_['wallet'])} for t_ in top]})
         _json_save(FUSE_HQ_PATH, d)
+    # 🐱 FeeCat challenge: every card opened last week that beat her average trade that week
+    cat = await _feecat_raw()
+    cat_pct = _hq.feecat_week_pct((cat or {}).get('exits'), (cat or {}).get('positions'), prev, start) if cat else None
+    beat = _hq.beats_cat(_hq.season_board(rows, prev, start, bots), cat_pct)
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {})
+        d.setdefault('catChallenge', []).append({'week': prev, 'catPct': cat_pct, 'ids': beat})
+        d['catChallenge'] = d['catChallenge'][-52:]
+        _json_save(FUSE_HQ_PATH, d)
+    owners = {x['id']: x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or []}
+    for cid in beat:
+        if cid in owners:
+            notify(owners[cid]['wallet'], 'fuse-guard', f"🐱 Your card {owners[cid].get('name') or ''} beat FeeCat last week ({cat_pct:+.1f}% her average trade). +{_hq.CAT_WIN_PTS} Fuse score.",
+                   url='/terminal/fuse?tab=arena', once=f"beatcat-{prev}-{cid}", meta={'claim': 'Card P&L above FeeCat\'s weekly average trade', 'source': 'Fuse season + FeeCat sim book'})
+    plan = _hq.payout_plan((await _feeback_book())['rows'], await _sol_usd_live(), exclude=_protected_wallets())
+    if plan['totalUsd'] >= 1:
+        for adm in _admin_wallets():
+            notify(adm, 'shield', f"💸 Weekly Fuse payout ready: ${plan['totalUsd']:,.2f} to {len(plan['rows'])} wallets (Fee-Back + copy cuts). Cmd Ctr › Fuse › Card rules › Pay.",
+                   url='/terminal/command?tab=fuse', once=f"fuse-payout-{prev}", meta={'claim': 'Owed from the fee ledger', 'source': 'Fuse Fee-Back book'})
     medal = {1: '🥇', 2: '🥈', 3: '🥉'}
     for t_ in top:
         notify(t_['wallet'], 'fuse-guard', f"🏆 {medal[t_['rank']]} Your card {t_.get('name') or ''} finished #{t_['rank']} in this week's Fuse season ({t_['pnlPct']:+.1f}%). "
@@ -3643,9 +3754,13 @@ async def fuse_season():
     start = _hq.season_start(now)
     rows, bots = await _season_rows(start, start + _hq.WEEK)
     board = [{**b, 'handle': handle_of(b['wallet']) or f"{b['wallet'][:4]}…{b['wallet'][-4:]}"} for b in _hq.season_board(rows, start, start + _hq.WEEK, bots)[:10]]
+    cat = await _feecat_raw()
+    cat_pct = _hq.feecat_week_pct((cat or {}).get('exits'), (cat or {}).get('positions'), start, start + _hq.WEEK) if cat else None
+    beat = set(_hq.beats_cat(board, cat_pct))
+    board = [{**b, 'beatsCat': b['id'] in beat} for b in board]
     if _FUSE_FORCE.get():   # background only: the race ticker + top-3 alerts (viewers never trigger them)
         _season_race(start, board, now)
-    data = {'week': start, 'endsAt': start + _hq.WEEK, 'cards': len(rows), 'board': board, 'boostPct': _card_rules()['seasonBoostPct'], 'moves': list(_season_moves['list'])[-12:],
+    data = {'week': start, 'endsAt': start + _hq.WEEK, 'cards': len(rows), 'board': board, 'feecat': {'pct': cat_pct, 'winPts': _hq.CAT_WIN_PTS}, 'boostPct': _card_rules()['seasonBoostPct'], 'moves': list(_season_moves['list'])[-12:],
             'past': list(reversed((_json_load(FUSE_HQ_PATH, {}).get('seasons') or [])[-4:])), 'at': now}
     _fuse_season_cache.update(at=now, data=data)
     return data
@@ -3675,7 +3790,8 @@ async def _fuse_score(address, fresh=False):
     copies = sum(1 for c in allp if c.get('copyOwner') in mine)
     tr = (_trust_cache.get(a) or (0, {}))[1].get('score')
     sh = await _shield_of(a)
-    out = {'address': a, **_hq.fuse_score(rows, wins, copies, tr, bot=sh.get('verdict') == 'bot')}
+    cat_wins = sum(1 for w in _json_load(FUSE_HQ_PATH, {}).get('catChallenge') or [] for cid in w.get('ids') or [] if cid in ids)
+    out = {'address': a, **_hq.fuse_score(rows, wins, copies, tr, bot=sh.get('verdict') == 'bot', cat_wins=cat_wins)}
     _fuse_score_cache[a] = (time.time(), out)
     return out
 
@@ -3766,14 +3882,20 @@ async def fuse_arena_public():
 _arena_mega_cache: dict = {'at': 0.0, 'data': None}
 
 
-async def _feecat_card():
-    """🐱 FeeCat on the Arena: her open simulated book as one card (legs = her positions, entry = her fill), with her
-    record, so traders can see whether her edge beats theirs. Never real money — labelled sim everywhere."""
+async def _feecat_raw():
     try:
         async with httpx.AsyncClient(timeout=2.5) as http:
             c = (await http.get('http://127.0.0.1:5088/api/cats/leader')).json()
-        c = c.get('cat') or c
+        return c.get('cat') or c
     except Exception:
+        return None
+
+
+async def _feecat_card():
+    """🐱 FeeCat on the Arena: her open simulated book as one card (legs = her positions, entry = her fill), with her
+    record, so traders can see whether her edge beats theirs. Never real money — labelled sim everywhere."""
+    c = await _feecat_raw()
+    if not c:
         return None
     ps = [p for p in c.get('positions') or [] if p.get('pairAddress')]
     if not ps:
@@ -4145,6 +4267,8 @@ _fuse_warm_n = {'n': 0}
 async def _fuse_warm():
     _FUSE_FORCE.set(True)          # task-local: viewers never see it, they keep reading the previous copy
     _fuse_warm_n['n'] += 1
+    if _fuse_warm_n['n'] % 24 == 2:   # ~10 min: who the elite traders are + what they bought (FeeCat learns from it)
+        await _crowd_build()
     if _fuse_warm_n['n'] % 12 == 1:   # ~5 min: refresh card holders' Fuse scores (feeds their trust score)
         holders = list({x['wallet'] for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or []})[:200]
         await asyncio.gather(*[_fuse_score(w, fresh=True) for w in holders], return_exceptions=True)

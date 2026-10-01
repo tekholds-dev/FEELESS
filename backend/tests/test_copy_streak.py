@@ -29,7 +29,9 @@ def rs(monkeypatch, request):
     rs = pytest.importorskip('reputation_service')
     if 'feecat_card' not in request.node.name:   # never reach the live FeeCat service from a test
         async def no_cat(): return None
-        monkeypatch.setattr(rs, '_feecat_card', no_cat)
+        monkeypatch.setattr(rs, '_feecat_card', no_cat); monkeypatch.setattr(rs, '_feecat_raw', no_cat)
+    async def sol(): return 150.0
+    monkeypatch.setattr(rs, '_sol_usd_live', sol)
     monkeypatch.setattr(rs, '_session_or_401', lambda a, s: a)
     async def px(legs): return {'P1': 3.0}
     monkeypatch.setattr(rs, '_hq_prices', px)
@@ -179,3 +181,20 @@ def test_replay_returns_each_coins_24h_path_and_the_cards_moments(rs, monkeypatc
     assert [m['kind'] for m in out['markers']] == ['open', 'topup']                                 # older than 24h dropped
     with pytest.raises(rs.HTTPException):
         asyncio.run(rs.fuse_replay('nope', 'x'))
+
+
+def test_payout_plan_skips_dust_and_excluded_and_credits_only_what_moved():
+    plan = hq.payout_plan([{'wallet': 'A', 'owedUsd': 3.0}, {'wallet': 'B', 'owedUsd': 0.01}, {'wallet': 'FEELESS', 'owedUsd': 9}], 150, exclude={'FEELESS'})
+    assert [r['wallet'] for r in plan['rows']] == ['A'] and plan['rows'][0]['sol'] == 0.02 and plan['totalUsd'] == 3.0
+    assert hq.credit_paid({'A': 0.03, 'X': 1}, plan) == {'A': 3.0}                                 # never above owed; unknown ignored
+    assert hq.credit_paid({'A': 0.01}, plan) == {'A': 1.5}
+    assert hq.payout_plan([{'wallet': 'A', 'owedUsd': 3}], 0)['rows'] == []
+
+
+def test_feecat_week_and_who_beat_her():
+    ex = [{'exitAt': 10, 'changeAtExit': 20}, {'exitAt': 11, 'changeAtExit': -10}, {'exitAt': 1, 'changeAtExit': 99}]
+    assert hq.feecat_week_pct(ex, [{'openedAt': 12, 'currentChange': 5}], 5, 100) == 5.0
+    assert hq.feecat_week_pct([], [], 5, 100) is None
+    assert hq.beats_cat([{'id': 'a', 'pnlPct': 6}, {'id': 'b', 'pnlPct': 4}], 5.0) == ['a'] and hq.beats_cat([{'id': 'a', 'pnlPct': 6}], None) == []
+    s = hq.fuse_score([], [], 0, None, cat_wins=3)
+    assert any('Beat FeeCat 3×' in p['label'] and p['points'] == 16 for p in s['parts'])
