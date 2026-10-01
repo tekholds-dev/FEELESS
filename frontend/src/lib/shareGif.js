@@ -38,6 +38,14 @@ function frame(g, card, logo, coin, t, seed) {
   const k = ease(Math.min(1, t * 2.2)); const big = card.bigValue != null ? `${card.bigPrefix || ''}${(card.bigValue * k).toFixed(card.bigDigits ?? 1)}${card.bigSuffix || ''}` : card.big;
   g.font = '400 76px "Bungee", sans-serif'; g.fillStyle = P.big; g.shadowColor = g.fillStyle; g.shadowBlur = 18 + 10 * Math.sin(t * Math.PI * 4); g.fillText(big, 54, 228); g.shadowBlur = 0;
   g.font = '500 17px "Space Grotesk", sans-serif'; g.fillStyle = P.text; (card.lines || []).slice(0, 3).forEach((l, i) => g.fillText(l, 56, 274 + i * 26));
+  // Stats panel (case files): up to 6 labelled pills, 2 columns, coloured by verdict (ok = mint, bad = red).
+  (card.stats || []).slice(0, 6).forEach((s, i) => {
+    const x = 392 + (i % 2) * 150, y = 136 + Math.floor(i / 2) * 50;
+    g.fillStyle = 'rgba(255,255,255,0.07)'; g.beginPath(); g.roundRect(x, y, 142, 42, 10); g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.55)'; g.font = '600 10px "Space Grotesk", sans-serif'; g.fillText(String(s.label).toUpperCase(), x + 10, y + 15);
+    g.fillStyle = s.tone === 'bad' ? '#ff8fa3' : s.tone === 'ok' ? '#19f58f' : s.tone === 'warn' ? '#f5c451' : '#ffffff';
+    g.font = '700 16px "Space Grotesk", sans-serif'; g.fillText(String(s.value).slice(0, 16), x + 10, y + 34);
+  });
   // FeeCat effects: a paw-print trail walks across the card.
   if (card.mascot) {
     g.fillStyle = P.spark;

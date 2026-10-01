@@ -6,16 +6,39 @@ import { ShareGifButton } from './ShareGif';
 
 // A case file as a shareable GIF: verdict, score and the top cited findings, readable at a glance.
 const cut = (t, n = 58) => (t && t.length > n ? `${t.slice(0, n - 1)}…` : t || '');
-export const caseCard = c => {
+const money = v => (!(Number(v) > 0) ? '—' : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v)}`);
+const pct = v => (v == null ? '—' : `${Number(v).toFixed(Number(v) >= 10 ? 0 : 1)}%`);
+// The share GIF for a case: coin image + $SYMBOL, the score, the verdict, and a stats panel with the facts behind it.
+export const caseCard = (c, coin) => {
   const bad = ['suspect', 'high', 'danger'].includes(c.level);
-  const ev = (c.evidence || []).filter(e => e.weight > 0).slice(0, 2).map(e => `• ${cut(e.claim, 54)}`);
-  return { kicker: `FEELESS CASE FILE · ${c.kind === 'coin' ? 'COIN' : 'WALLET'} · ${String(c.address || '').slice(0, 4)}…${String(c.address || '').slice(-4)}`,
-    title: cut(c.identity?.name || c.identity?.handle ? `${c.identity?.name || ''} ${c.identity?.handle ? `@${c.identity.handle}` : ''}` : (c.label || 'Case file'), 30),
-    tone: bad ? 'down' : 'up', big: `${c.score ?? 0}/100`, lines: [cut(c.summary || 'No red flags on record.'), ...(ev.length ? ev : ['• Every point cited: forensics, funding graph, blocklist'])],
-    footer: 'feeless · reputation engine · check any wallet' };
+  const ev = (c.evidence || []).filter(e => e.weight > 0).slice(0, 2).map(e => `• ${cut(e.claim, 40)}`);
+  const sym = coin?.baseToken?.symbol; const isCoin = c.kind === 'coin';
+  const a = c.authorities || {}; const h = c.holders || {}; const l = c.launch || {};
+  const stats = isCoin ? [
+    { label: 'Mint authority', value: a.mintAuthority ? 'LIVE ⚠' : 'revoked ✓', tone: a.mintAuthority ? 'bad' : 'ok' },
+    { label: 'Freeze authority', value: a.freezeAuthority ? 'LIVE ⚠' : 'revoked ✓', tone: a.freezeAuthority ? 'bad' : 'ok' },
+    { label: 'Top 10 hold', value: pct(h.top10Pct), tone: h.top10Pct > 40 ? 'bad' : h.top10Pct > 25 ? 'warn' : 'ok' },
+    { label: 'Dev holds', value: pct(h.devHoldingPct), tone: h.devHoldingPct > 10 ? 'bad' : 'ok' },
+    { label: 'Snipers · bundled', value: `${l.snipers ?? 0} · ${l.bundled ?? 0}`, tone: (l.snipers || 0) + (l.bundled || 0) > 5 ? 'warn' : 'ok' },
+    { label: 'Liq · MC', value: `${money(coin?.liquidity?.usd)} · ${money(coin?.marketCap || coin?.fdv)}` },
+  ] : [
+    { label: 'Risk level', value: String(c.level || 'clean'), tone: bad ? 'bad' : 'ok' },
+    { label: 'Launches', value: String((c.launches || []).length ?? 0) },
+    { label: 'Linked wallets', value: String((c.linked || []).length ?? 0) },
+    { label: 'Calls', value: c.caller ? `${c.caller.calls ?? 0} · ${Math.round((c.caller.hitRate || 0) * 100)}% hit` : '—' },
+  ];
+  const name = isCoin ? (sym ? `$${sym}${coin?.baseToken?.name ? ` · ${coin.baseToken.name}` : ''}` : (c.label || 'Coin case'))
+    : (c.identity?.name || c.identity?.handle ? `${c.identity?.name || ''} ${c.identity?.handle ? `@${c.identity.handle}` : ''}` : (c.label || 'Case file'));
+  return { kicker: `FEELESS CASE FILE · ${isCoin ? 'COIN' : 'WALLET'} · ${String(c.address || '').slice(0, 4)}…${String(c.address || '').slice(-4)}`,
+    title: cut(name, 26), tone: bad ? 'down' : 'up', big: `${c.score ?? 0}/100`, stats,
+    // Same-origin logo proxy first: third-party image hosts block canvas use, which would drop the coin from the GIF.
+    imageUrl: isCoin ? apiUrl(`/api/reputation/token-logo/${c.address}`) : (c.identity?.avatarUrl || undefined),
+    lines: [cut(c.summary || (ev.length ? `${String(c.level || 'caution').toUpperCase()} — ${ev.length} red flag${ev.length === 1 ? '' : 's'} on record` : 'No red flags on record.'), 60), ...(ev.length ? ev : ['• Every point cited: forensics, funding graph, blocklist'])],
+    footer: 'feeless · check any wallet or coin' };
 };
 import { apiUrl, errorText } from '../lib/api';
 import { reportQuest } from '../lib/questEvents';
+import { resolveCoin } from '../lib/resolveCoin';
 import { useWallet } from '../hooks/useWallet';
 
 const short = a => (a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '—');
@@ -95,11 +118,13 @@ export function CaseFileView({ address }) {
       .then(b => alive && setC(b)).catch(e => alive && setErr(e.message));
     return () => { alive = false; };
   }, [address]);
+  const [coin, setCoin] = useState(null);   // coin name/image/market for the share GIF (coin cases)
+  useEffect(() => { setCoin(null); if (c?.kind === 'coin') resolveCoin('solana', c.address).then(setCoin).catch(() => {}); }, [c?.kind, c?.address]);
   if (err) return <p className="cf-empty">{err}</p>;
   if (!c) return <p className="cf-empty cf-loading">Pulling the chain records…</p>;
   return <div className={`case-file lvl-${c.level}`} data-testid="case-file">
     <header><Gauge score={c.score} level={c.level} /><div><small>{c.kind === 'coin' ? 'COIN CASE' : 'WALLET CASE'} · {short(c.address)}</small>
-      <h4>{c.identity?.name || c.identity?.handle ? `${c.identity.name || ''} ${c.identity.handle ? `@${c.identity.handle}` : ''}` : LEVEL[c.level]}</h4><p>{c.summary || (c.evidence?.[0]?.claim ?? 'No red flags on record.')}</p><div className="cf-actions">{c.kind === 'wallet' && <WatchButton target={c.address} />}<ShareGifButton className="btn-outline cf-share" label="🎞 Share case GIF" card={caseCard(c)} /></div></div></header>
+      <h4>{c.identity?.name || c.identity?.handle ? `${c.identity.name || ''} ${c.identity.handle ? `@${c.identity.handle}` : ''}` : LEVEL[c.level]}</h4><p>{c.summary || (c.evidence?.[0]?.claim ?? 'No red flags on record.')}</p><div className="cf-actions">{c.kind === 'wallet' && <WatchButton target={c.address} />}<ShareGifButton className="btn-outline cf-share" label="🎞 Share case GIF" card={caseCard(c, coin)} /></div></div></header>
     {c.kind === 'coin' ? <CoinCase c={c} /> : <WalletCase c={c} />}
     <small className="cf-foot">Evidence from on-chain forensics, the FEELESS funding graph and blocklist. Every point is cited; nothing is guessed.</small>
   </div>;
