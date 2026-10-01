@@ -146,7 +146,7 @@ def test_prebond_only_no_mayhem_and_creator_rep():
     assert 'Creator reputation not suspect / high-risk' in rn.failed_gates(rn.candidate(pair('s'), CLEAN, now_ms=NOW, creator_rep='suspect'))
     clean = rn.score(rn.candidate(pair('c'), CLEAN, now_ms=NOW, creator_rep='clean'))[0]
     watch = rn.score(rn.candidate(pair('c'), CLEAN, now_ms=NOW, creator_rep='watch'))[0]
-    assert clean - watch == 15 and rn.failed_gates(rn.candidate(pair('c'), CLEAN, now_ms=NOW, creator_rep='watch')) == []
+    assert round(clean - watch, 1) == 15 and rn.failed_gates(rn.candidate(pair('c'), CLEAN, now_ms=NOW, creator_rep='watch')) == []
 
 
 def test_engine_dial_and_dial_proof():
@@ -158,3 +158,14 @@ def test_engine_dial_and_dial_proof():
     paths = {'a': [(t, 1.0 + 0.1 * (t % 10)) for t in range(1, 60)]}       # climbs to 1.9 then resets
     pr = rn.dial_proof(rounds, paths, 50, {'safe': {'runner': (30, 15)}, 'degen': {'runner': (100, 40)}})
     assert pr['safe']['avgPct'] == 48.75 and pr['safe']['lit'] and pr['degen']['rounds'] == 8
+
+
+def test_prebond_volume_goes_a_long_way():
+    base = {'mint': 'M', 'chg1h': 40, 'chg5m': 4, 'mcap': 60000, 'buyShare': 62, 'stage': 'curve', 'curve': 80, 'snipersOut': False, 'quality': 50}
+    thin, busy = rn.score({**base, 'vol1h': 8000}), rn.score({**base, 'vol1h': 300000})
+    part = lambda r, k: next(p['points'] for p in r[1] if p['part'] == k)
+    assert part(busy, 'volume') > 13 and part(thin, 'volume') < 2
+    assert part(thin, 'stage') == 5.0 and part(busy, 'stage') == 10.0          # thin pre-bond curve gets half
+    grad = rn.score({**base, 'stage': 'graduated', 'vol1h': 300000})
+    assert part(grad, 'volume') == round(part(busy, 'volume') / 2, 1)          # pre-bond weighs volume double
+    assert busy[0] - thin[0] > 15

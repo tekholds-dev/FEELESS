@@ -5560,9 +5560,43 @@ def _json_save(path, d):
 EXPECTED_404_PREFIXES = ('/api/reputation/creator/', '/api/reputation/intel/', '/api/reputation/position/')
 
 
+import guard as _guard
+GUARD_PATH = DATA_DIR / 'guard.json'
+_guard_state = None
+
+
+def _guard_s():
+    """Counters live in memory; suspects, approved blocks and the decision log persist (guard.json)."""
+    global _guard_state
+    if _guard_state is None:
+        _guard_state = _guard.new_state()
+        saved = _json_load(GUARD_PATH, {})
+        for k in ('suspects', 'blocks', 'log'):
+            if isinstance(saved.get(k), type(_guard_state[k])):
+                _guard_state[k] = saved[k]
+    return _guard_state
+
+
+def _guard_save():
+    s = _guard_s()
+    _json_save(GUARD_PATH, {k: s[k] for k in ('suspects', 'blocks', 'log')})
+
+
 @app.middleware('http')
 async def _record_status(request: Request, call_next):
+    gs = _guard_s()
+    ip = _guard.client_ip(request.headers, request.client.host if request.client else '', os.environ.get('FEELESS_TRUST_PROXY') == '1')
+    n_sus = len(gs['suspects'])
+    stop = _guard.check(gs, ip, request.method, request.url.path)
+    if stop:
+        _status_log.append((time.time(), request.method, request.url.path[:120], stop[0])); del _status_log[:-600]
+        if len(gs['suspects']) != n_sus:
+            _guard_save()
+        return JSONResponse({'detail': stop[1]}, status_code=stop[0])
     resp = await call_next(request)
+    _guard.after(gs, ip, request.method, request.url.path, resp.status_code)
+    if len(gs['suspects']) != n_sus:
+        _guard_save()
     if resp.status_code >= 400:
         _status_log.append((time.time(), request.method, request.url.path[:120], resp.status_code))
         del _status_log[:-600]
@@ -5923,6 +5957,32 @@ async def admin_security(request: Request):
                       'openBugs': sum(1 for b in bugs if b['status'] in ('open', 'fixing')), 'customBadges': sum(len(v) for v in _admin_load()['badges'].values())},
             'audit': _admin_load()['audit'][-25:][::-1], 'at': now}
 
+
+
+@app.get('/api/reputation/admin/security/guard')
+async def admin_guard(request: Request):
+    _require_admin(request)
+    return _guard.view(_guard_s())
+
+
+class GuardDecision(BaseModel):
+    ip: str = Field(..., max_length=64)
+    action: str = Field(..., max_length=10)
+    note: str = Field('', max_length=200)
+
+
+@app.post('/api/reputation/admin/security/guard')
+async def admin_guard_decide(payload: GuardDecision, request: Request):
+    """Every block is an admin approval (audited). The guard itself only slows floods and flags suspects."""
+    admin = _require_admin(request)
+    try:
+        _guard.decide(_guard_s(), payload.ip.strip(), payload.action, admin, note=payload.note)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    _guard_save()
+    async with _admin_lock:
+        d = _admin_load(); _audit(d, admin, f'guard-{payload.action}', payload.ip.strip()); _admin_save(d)
+    return _guard.view(_guard_s())
 
 BADGE_CATALOG = [
     {'id': 'fee-holder', 'label': '$FEE Holder', 'icon': '🌿', 'tone': 'mint', 'tier': 1, 'how': 'Hold at least $1 of $FEE in your wallet.'},

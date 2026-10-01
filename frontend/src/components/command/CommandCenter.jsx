@@ -1,3 +1,4 @@
+import { GuardPanel } from './GuardPanel';
 import { VaultDesigner } from './VaultDesigner';
 import { FuseBuilder } from './FuseBuilder';
 import { BotShield } from './BotShield';
@@ -140,7 +141,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
       {moneyView === 'reserve' && <><ReservePool call={call} /><BadgePools call={call} /></>}
       {moneyView === 'circle' && (isOwner ? <CircleWallets call={call} /> : <p className="cc-empty">Only owner wallets can manage Circle wallets.</p>)}
     </section>}
-    {tab === 'overview' && <Overview sec={sec} reload={loadSec} />}
+    {tab === 'overview' && <><GuardPanel call={call} /><Overview sec={sec} reload={loadSec} /></>}
     {tab === 'investigate' && <IntelDesk call={call} />}
     {tab === 'nfts' && (isOwner ? <Suspense fallback={<p className="cc-empty">Opening the studio…</p>}><FuseCardMint call={call} /><NftStudio call={call} /></Suspense> : <p className="cc-empty">Only owner wallets can create and drop NFT collections.</p>)}
     {tab === 'holders' && <section className="cc-panel">

@@ -181,14 +181,22 @@ def score(c, cfg=None):
     vel = max(0.0, min(20.0, (c['vol1h'] / c['mcap'] * 10) if c['mcap'] else 0))  # turnover 2×/h → 20
     flow = max(0.0, 10 - abs((c['buyShare'] or 0) - 60) / 2)                     # sweet spot ~60% buys
     curve = 10.0 if c['stage'] == 'curve' and 60 <= c['curve'] <= 95 else 5.0 if c['stage'] == 'graduated' else 0.0
+    # Pre-bond lives on volume: real $ traded in the last hour (log scale, $5K → 0 · $50K → 7.5 · $500K → 15). A pre-bond
+    # coin with thin volume (< $20K/h) only gets half the curve points — a curve climbing on dust isn't a runner.
+    pre = c['stage'] == 'curve'
+    vol = max(0.0, min(15.0, 7.5 * math.log10(c['vol1h'] / 5000))) if c['vol1h'] > 5000 else 0.0
+    vol = vol if pre else vol / 2
+    if pre and c['vol1h'] < 20000:
+        curve /= 2
     rep_pts = {'clean': 5.0, 'watch': -10.0}.get(c.get('creatorRep'), 0.0)       # reputation: clean creators earn, "watch" pays
     bonus = (8.0 if c['snipersOut'] else 0.0) + min(7.0, c['quality'] / 14) + rep_pts
     tier = bond_tier(c, cfg)
     bond = float(clean_cfg(cfg)['bondPts']) * (1.0 if tier == 'run' else 0.5 if tier == 'watch' else 0.0)
-    pts = round(min(100.0, mom + acc + vel + flow + curve + bonus + bond), 1)
+    pts = round(min(100.0, mom + acc + vel + vol + flow + curve + bonus + bond), 1)
     return pts, [{'part': 'momentum', 'points': round(mom, 1), 'why': f"{c['chg1h']:+.0f}% in 1h"},
                  {'part': 'acceleration', 'points': round(acc, 1), 'why': f"{c['chg5m']:+.0f}% in 5m"},
                  {'part': 'velocity', 'points': round(vel, 1), 'why': f"1h volume = {c['vol1h'] / c['mcap'] if c['mcap'] else 0:.1f}× market cap"},
+                 {'part': 'volume', 'points': round(vol, 1), 'why': f"${c['vol1h'] / 1000:,.0f}K traded in 1h" + (' (pre-bond: volume counts double)' if pre else '')},
                  {'part': 'flow', 'points': round(flow, 1), 'why': f"{c['buyShare']}% buys" if c['buyShare'] is not None else 'no flow'},
                  {'part': 'stage', 'points': curve, 'why': f"{c['curve']:.0f}% up the curve" if c['stage'] == 'curve' else 'graduated (own pool)'},
                  *([{'part': 'bond run' if tier == 'run' else 'bond watch', 'points': bond, 'why': f"{c['curve']:.0f}% up the curve, every {'bond run' if tier == 'run' else 'rep-confirmed bond watch'} box ticked"}] if bond else []),
