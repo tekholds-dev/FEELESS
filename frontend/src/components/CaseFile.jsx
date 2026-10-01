@@ -15,6 +15,8 @@ export const caseCard = c => {
     footer: 'feeless · reputation engine · check any wallet' };
 };
 import { apiUrl, errorText } from '../lib/api';
+import { reportQuest } from '../lib/questEvents';
+import { useWallet } from '../hooks/useWallet';
 
 const short = a => (a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '—');
 const LEVEL = { high: 'High risk', suspect: 'Suspect', watch: 'Watch', clean: 'No red flags', feeless: 'FEELESS wallet', danger: 'High risk', caution: 'Caution', ok: 'Clear' };
@@ -106,12 +108,13 @@ export function CaseFileView({ address }) {
 // Global modal: mounted once, opened by investigate(address).
 export function CaseFileModal() {
   const [address, setAddress] = useState(null);
+  const me = (useWallet() || {}).wallet?.address;
   useEffect(() => {
-    const open = e => setAddress(e.detail);
+    const open = e => { setAddress(e.detail); if (me && e.detail && e.detail !== me) reportQuest(me, 'case_open', e.detail); };   // quest: open case files
     const esc = e => e.key === 'Escape' && setAddress(null);
     window.addEventListener('feeless:investigate', open); window.addEventListener('keydown', esc);
     return () => { window.removeEventListener('feeless:investigate', open); window.removeEventListener('keydown', esc); };
-  }, []);
+  }, [me]);
   if (!address) return null;
   return <div className="cf-overlay" role="dialog" aria-label="Case file" onClick={e => e.target === e.currentTarget && setAddress(null)}>
     <div className="cf-modal"><button type="button" className="cf-close" aria-label="Close" onClick={() => setAddress(null)}><X size={16} /></button><CaseFileView address={address} /></div>

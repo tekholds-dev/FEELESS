@@ -47,3 +47,31 @@ def test_admin_edit_validation_and_grant(monkeypatch, tmp_path):
     s = asyncio.run(rs.quest_board(W))
     vip = next(b for b in s['badges'] if b['id'] == 'frsv-vip')
     assert vip['earned'] and vip['granted']
+
+
+def test_tool_events_verified_and_capped(monkeypatch, tmp_path):
+    _iso(monkeypatch, tmp_path)
+    monkeypatch.setattr(rs, '_push_load', lambda: {'subs': {}})
+    rs._json_save(rs.FEELESS_TRADES_PATH, {rs.primary_of(W): [{'tx': 'SIG1', 'side': 'buy', 'usd': 5, 'token': 'X', 'ts': time.time()}]})
+    ev = lambda kind, ref: asyncio.run(rs.quest_event(rs.QuestEvent(address=W, session='s', kind=kind, ref=ref)))
+    with pytest.raises(rs.HTTPException):
+        ev('warroom_trade', 'NOT-MINE')          # only your own verified trades count
+    assert ev('warroom_trade', 'SIG1')['counted'] and not ev('warroom_trade', 'SIG1')['counted']
+    assert ev('case_open', 'WalletA')['counted'] and not ev('case_open', 'WalletA')['counted']   # once per wallet per day
+    s = asyncio.run(rs.quest_board(W))
+    assert s['metrics']['warroom_trades'] == 1 and s['metrics']['cases_opened'] == 1
+    assert next(t for t in s['quests']['weekly']['tasks'] if t['id'] == 'warroom')['done']
+
+
+def test_season_paused_until_launch_then_scores(monkeypatch, tmp_path):
+    _iso(monkeypatch, tmp_path)
+    monkeypatch.setattr(rs, '_push_load', lambda: {'subs': {}})
+    monkeypatch.setattr(rs, 'COLLECTION_PATH', tmp_path / 'col.json')
+    assert asyncio.run(rs.quest_leaderboard())['paused']
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.admin_quest_season(Req({'awardWeek': True})))   # nothing awarded while paused
+    out = asyncio.run(rs.admin_quest_season(Req({'paused': False})))
+    assert not out['season']['paused'] and out['season']['start']
+    asyncio.run(rs.quest_checkin(rs.QuestCheckin(address=W, session='s')))
+    s = asyncio.run(rs.quest_board(W))
+    assert s['season']['score'] >= 10           # today's check-in counts toward the live season

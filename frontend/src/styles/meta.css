@@ -554,3 +554,6 @@ body.theme-day .ecosystem-chat.has-fx .chat-message p { background: rgba(255, 25
 .qe-row { display: grid; grid-template-columns: 56px 1fr auto; gap: 10px; align-items: center; padding: 6px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); }
 .qe-row.is-off { opacity: .5; } .qe-edit, .qe-grant { margin-top: 8px; }
 body.theme-day .qb-badge, body.theme-day .qb-tile { background: #fff; } body.theme-day .qb-detail { background: rgba(15, 36, 25, .45); }
+.qb-lb { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.qb-lb li { display: grid; grid-template-columns: 38px 1fr auto auto; gap: 8px; align-items: center; padding: 5px 8px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); font-size: 13px; }
+.qb-lb li.is-me { border-color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 8%, transparent); } .qb-lb small { color: var(--m-dim); }

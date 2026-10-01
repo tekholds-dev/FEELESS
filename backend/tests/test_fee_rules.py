@@ -49,3 +49,16 @@ def test_self_test_reads_the_fee_from_either_engine():
     assert rs._quote_fee_bps({'platformFee': {'feeBps': 252, 'amount': '1'}}) == 252  # Swap API
     assert rs._quote_fee_bps({'feeBps': 255}) == 255  # Ultra
     assert rs._quote_fee_bps({}) == 0
+
+
+def test_badge_perk_discount_shows_on_the_quote(monkeypatch):
+    cfg = {**rs.FEE_DEFAULTS, 'platformFeeBps': 100, 'referralAccount': 'Ref', 'feeAccountSol': 'SolAcct', 'feeAccountUsdc': 'UsdcAcct', 'tierDiscountPct': {'0': 0}}
+    monkeypatch.setattr(rs, '_fee_cfg', lambda: cfg)
+    async def tier(_w):
+        return (0, 0)
+    monkeypatch.setattr(rs, '_perk_tier', tier)
+    w = 'Wa11et'
+    monkeypatch.setitem(rs._quest_cache, rs.primary_of(w), (0, {'perks': {'feeDiscountPct': 15, 'from': {'fee': 'FRSV Diamond Hands'}}}))
+    out = asyncio.run(rs.effective_fee(w, rs.WSOL_MINT, MEME))
+    assert out['bps'] == 85 and 'FRSV Diamond Hands badge: 15% off' in out['notes']
+    assert not any('holder discount' in n for n in out['notes'])

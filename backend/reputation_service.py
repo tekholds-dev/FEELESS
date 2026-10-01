@@ -2682,7 +2682,16 @@ async def _quest_raw(me, board=None):
             'followers': sum(1 for lst in (_json_load(FOLLOW_PATH, {}).get('following') or {}).values() if me in lst),
             'launches': score_creator(creator)['tokenCount'] if creator else 0, 'points': int(pts.get('total') or 0),
             'signin_days': sorted(days), 'streak': max(_streak(days), int(pts.get('streak') or 0)),
-            'fee_usd': await _fee_usd(me), 'fee_mints': [m for m in (await _ecosystem_mints()).values() if m], 'first_seen': st.get('first')}
+            'fee_usd': await _fee_usd(me), 'fee_mints': [m for m in (await _ecosystem_mints()).values() if m], 'first_seen': st.get('first'),
+            'events': st.get('events') or {},
+            'alerts_set': sum(len(e.get('watch') or []) for e in _push_load()['subs'].values() if (e.get('prefs') or {}).get('address') in mine)}
+
+
+QUEST_SEASON_DEFAULT = {'id': 's1', 'name': 'Season 1', 'paused': True, 'start': None}   # paused until FEELESS launches
+
+
+def _quest_season():
+    return {**QUEST_SEASON_DEFAULT, **(_json_load(QUESTS_PATH, {}).get('season') or {})}
 
 
 async def _quest_summary(address):
@@ -2691,7 +2700,20 @@ async def _quest_summary(address):
     if hit and time.time() - hit[0] < 60:
         return hit[1]
     manual = (_json_load(QUESTS_PATH, {}).get('manual') or {}).get(me)
-    out = {'address': me, **_quests.summary(_quest_defs(), await _quest_raw(me), manual)}
+    raw = await _quest_raw(me)
+    out = {'address': me, **_quests.summary(_quest_defs(), raw, manual)}
+    # First time each badge shows as earned is its earn date (season scoring + "new" flags). Written only on change.
+    st_all = _json_load(QUEST_STATE_PATH, {}); st = st_all.get(me) or {}
+    earned_at = dict(st.get('earned') or {})
+    new = [b['id'] for b in out['badges'] if b['earned'] and b['id'] not in earned_at]
+    if new:
+        for bid in new:
+            earned_at[bid] = time.time()
+        st_all[me] = {**st, 'earned': earned_at, 'first': st.get('first') or time.time(), 'days': st.get('days') or []}
+        _json_save(QUEST_STATE_PATH, st_all)
+    season = _quest_season()
+    out.update(earnedAt=earned_at, season={**season, 'score': _quests.season_score(out['badges'], raw, earned_at, season)},
+               trophies=[it for it in _json_load(COLLECTION_PATH, {}).get(me, []) if it.get('kind') == 'quest'])
     _quest_cache[me] = (time.time(), out)
     return out
 
@@ -2745,11 +2767,111 @@ async def quest_checkin(payload: QuestCheckin):
     return {'ok': True, 'fresh': fresh, 'streak': _streak(st['days']), 'days': len(st['days'])}
 
 
+class QuestEvent(BaseModel):
+    address: str
+    session: str
+    kind: str
+    ref: str = Field(default='', max_length=120)
+
+
+@app.post('/api/reputation/quests/event')
+async def quest_event(payload: QuestEvent):
+    """Tool quests. case_open: one per wallet looked at per day (max 30/day). warroom_trade: only a signature that is
+    already one of YOUR verified FEELESS trades counts, once."""
+    me = _session_or_401(payload.address, payload.session)
+    if payload.kind not in ('case_open', 'warroom_trade') or not payload.ref:
+        raise HTTPException(400, 'Unknown quest event.')
+    if payload.kind == 'warroom_trade':
+        mine = set(linked_of(me)) | {me}
+        if not any(x.get('tx') == payload.ref for w, rows in _json_load(FEELESS_TRADES_PATH, {}).items() if w in mine for x in rows or []):
+            raise HTTPException(400, 'That trade is not a confirmed FEELESS trade from your wallet (yet).')
+    now = time.time(); day = time.strftime('%Y-%m-%d', time.gmtime(now))
+    async with _admin_lock:
+        d = _json_load(QUEST_STATE_PATH, {})
+        st = d.setdefault(me, {'days': [], 'first': now})
+        ev = st.setdefault('events', {}); refs = st.setdefault('eventRefs', {})
+        key = f'{payload.kind}:{payload.ref}' + (f':{day}' if payload.kind == 'case_open' else '')
+        today = sum(1 for x in ev.get(payload.kind, []) if x >= now // 86400 * 86400)
+        counted = key not in refs and not (payload.kind == 'case_open' and today >= 30)
+        if counted:
+            ev.setdefault(payload.kind, []).append(now); ev[payload.kind] = ev[payload.kind][-2000:]
+            refs[key] = now
+            if len(refs) > 4000:
+                st['eventRefs'] = dict(sorted(refs.items(), key=lambda kv: kv[1])[-3000:])
+            _json_save(QUEST_STATE_PATH, d)
+    _quest_cache.pop(me, None)
+    return {'ok': True, 'counted': counted}
+
+
+_board_cache: dict = {}
+
+
+@app.get('/api/reputation/quests-leaderboard')
+async def quest_leaderboard():
+    """Season XP leaderboard (10 min cache). Paused season: no ranking, just the plan."""
+    season = _quest_season()
+    if season.get('paused') or not season.get('start'):
+        return {'season': season, 'rows': [], 'paused': True}
+    if _board_cache.get('at', 0) > time.time() - 600:
+        return _board_cache['data']
+    wallets = set(_json_load(FEELESS_TRADES_PATH, {})) | set(_pts()) | set(_json_load(QUEST_STATE_PATH, {}))
+    rows = []
+    for w in list(wallets)[:2000]:
+        try:
+            s = await _quest_summary(primary_of(w))
+        except Exception:
+            continue
+        if s['season']['score'] > 0:
+            prof = (_profiles_load()['profiles'].get(s['address']) or {})
+            rows.append({'address': s['address'], 'name': prof.get('displayName') or prof.get('handle') or s['address'][:4] + '…' + s['address'][-4:],
+                         'xp': s['season']['score'], 'level': s['level']['name'], 'badges': s['earned']})
+    rows.sort(key=lambda r: -r['xp'])
+    data = {'season': season, 'rows': rows[:50], 'paused': False}
+    _board_cache.update(at=time.time(), data=data)
+    return data
+
+
+@app.post('/api/reputation/admin/quests/season')
+async def admin_quest_season(request: Request):
+    """Name the season, set its start, pause/unpause (paused until launch), or award the week's top 3 a trophy."""
+    admin = _require_admin(request)
+    body = await request.json()
+    async with _admin_lock:
+        d = _json_load(QUESTS_PATH, {})
+        s = {**QUEST_SEASON_DEFAULT, **(d.get('season') or {})}
+        for k in ('name', 'paused', 'start'):
+            if k in body:
+                s[k] = body[k]
+        if body.get('paused') is False and not s.get('start'):
+            s['start'] = time.time()
+        d['season'] = s
+        awarded = []
+        if body.get('awardWeek'):
+            if s.get('paused') or not s.get('start'):
+                raise HTTPException(400, 'Season is paused — unpause it (at launch) before awarding weeks.')
+            _board_cache.clear()
+            top = (await quest_leaderboard())['rows'][:3]
+            week = int((time.time() - float(s['start'])) // (7 * 86400)) + 1
+            col = _json_load(COLLECTION_PATH, {})
+            for rank, row in enumerate(top, 1):
+                iid = f"quest:{s['id']}:w{week}:{rank}"
+                items = col.setdefault(row['address'], [])
+                if not any(it.get('id') == iid for it in items):
+                    items.append({'id': iid, 'kind': 'quest', 'season': s['id'], 'week': week, 'rank': rank, 'name': f"{s['name']} · Week {week} #{rank}",
+                                  'glyph': ['🥇', '🥈', '🥉'][rank - 1], 'rarity': ['mythic', 'legendary', 'epic'][rank - 1], 'xp': row['xp'], 'at': time.time()})
+                    awarded.append(row['address'])
+            _json_save(COLLECTION_PATH, col)
+        _json_save(QUESTS_PATH, d)
+        ad = _admin_load(); _audit(ad, admin, 'quest-season', json.dumps({k: s.get(k) for k in ('name', 'paused')} | {'awarded': len(awarded)})[:160]); _admin_save(ad)
+    _quest_cache.clear(); _board_cache.clear()
+    return {'ok': True, 'season': s, 'awarded': awarded}
+
+
 @app.get('/api/reputation/admin/quests')
 async def admin_quests(request: Request):
     _require_admin(request)
     return {'badges': _quest_defs(), 'defaults': _quests.DEFAULTS, 'overrides': _json_load(QUESTS_PATH, {}), 'metrics': _quests.METRICS,
-            'tiers': list(_quests.TIER_XP), 'daily': _quests.DAILY, 'weekly': _quests.WEEKLY, 'stats': await _quest_rarity()}
+            'tiers': list(_quests.TIER_XP), 'daily': _quests.DAILY, 'weekly': _quests.WEEKLY, 'stats': await _quest_rarity(), 'season': _quest_season()}
 
 
 @app.post('/api/reputation/admin/quests')
@@ -2769,7 +2891,7 @@ async def admin_quests_save(request: Request):
             if o.get('reset'):
                 (d.get('badges') or {}).pop(bid, None)
             else:
-                d.setdefault('badges', {})[bid] = {**(d.get('badges') or {}).get(bid, {}), **{k: v for k, v in o.items() if k in ('name', 'tier', 'enabled', 'tasks', 'art', 'set')}}
+                d.setdefault('badges', {})[bid] = {**(d.get('badges') or {}).get(bid, {}), **{k: v for k, v in o.items() if k in ('name', 'tier', 'enabled', 'tasks', 'art', 'set', 'perks')}}
         _json_save(QUESTS_PATH, d)
         ad = _admin_load(); _audit(ad, admin, 'quests', ','.join(edits)[:160]); _admin_save(ad)
     _quest_cache.clear(); _badge_cache.clear(); _rarity_cache.clear()
@@ -3813,12 +3935,17 @@ async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''
     notes = []
     tier = (await _perk_tier(wallet))[0] if wallet else 0
     disc = min(90.0, float(cfg['tierDiscountPct'].get(str(tier), 0)))
+    # Badge perk (e.g. Diamond Hands): read from the cached quest summary only, so a quote never waits on it.
+    qhit = _quest_cache.get(primary_of(wallet)) if wallet else None
+    if qhit and qhit[1]['perks']['feeDiscountPct'] > disc:
+        disc = min(90.0, qhit[1]['perks']['feeDiscountPct'])
+        notes.append(f"{qhit[1]['perks']['from'].get('fee', 'Badge')} badge: {disc:.0f}% off")
     promo = cfg.get('promo') or {}
     if promo.get('discountPct') and time.time() < float(promo.get('until') or 0):
         disc = min(90.0, max(disc, float(promo['discountPct'])))
         notes.append(f"{promo.get('label') or 'Promo'}: {promo['discountPct']:.0f}% off")
     bps = min(round(base * (1 - disc / 100)), SWAP_MAX_BPS)
-    if disc:
+    if disc and not any(' badge: ' in n for n in notes):
         notes.append(f'{disc:.0f}% holder discount (tier {tier})')
     # Ultra can't charge below 0.5%: round a discounted fee up to its minimum instead of waiving it.
     ultra = max(JUP_MIN_BPS, min(bps, JUP_MAX_BPS)) if cfg['referralAccount'] and bps else 0

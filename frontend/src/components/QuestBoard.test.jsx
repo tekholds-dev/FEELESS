@@ -22,12 +22,13 @@ const board = {
 
 test('badges tab: level, streak, quests, sets, posters (GIF only in detail), daily check-in', async () => {
   const calls = [];
-  global.fetch = jest.fn(async (url, opts) => { calls.push([String(url), opts?.method]); return { ok: true, json: async () => (String(url).includes('checkin') ? { fresh: true, streak: 5 } : board) }; });
+  global.fetch = jest.fn(async (url, opts) => { calls.push([String(url), opts?.method]); return { ok: true, json: async () => (String(url).includes('checkin') ? { fresh: true, streak: 5 } : String(url).includes('leaderboard') ? { paused: true, rows: [], season: { name: 'Season 1', paused: true } } : board) }; });
   const host = document.createElement('div'); document.body.appendChild(host);
   await act(async () => { createRoot(host).render(<QuestBoard />); });
   await act(async () => { await Promise.resolve(); });
   expect(host.textContent).toContain('LEVEL 2 · DEGEN'); expect(host.textContent).toContain('🔥 4'); expect(host.textContent).toContain('1/3');
   expect(host.querySelectorAll('.qb-grid .qb-badge')).toHaveLength(2);
+  expect(host.querySelector('[data-testid="quest-season"]').textContent).toContain('paused until launch');
   expect(host.querySelector('[data-testid="badge-q-trader"] img').getAttribute('src')).toBe('/assets/badges/feeless/trader.jpg');
   expect(host.querySelector('[data-testid="badge-q-trader"]').textContent).toContain('12.5% hold');
   act(() => host.querySelector('[data-testid="badge-set-frsv"]').click());

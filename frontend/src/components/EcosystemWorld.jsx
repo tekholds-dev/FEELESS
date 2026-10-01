@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { X, ArrowUpRight, Rocket, Radio, Compass, Sparkles, Cat, Infinity as InfinityIcon } from 'lucide-react';
 import { searchTokens } from '../lib/dexscreener';
+import { reportQuest } from '../lib/questEvents';
 import EcosystemChat from './EcosystemChat';
 import NewStuffFeed from './NewStuffFeed';
 // Same chart as the trenches: every tool, your P&L + entries, Quick trade, Dip/Rip, rug shield.
@@ -61,6 +62,12 @@ export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose })
   };
   useEffect(() => { const k = e => { if (e.key === 'Escape') setChartBig(false); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, []);
   useEffect(() => { try { localStorage.setItem(ROOM_LAYOUT_KEY, layout); } catch {} }, [layout]);
+  // Quest: a trade that confirms while you're in a war room counts as a war room trade (server checks it's yours).
+  useEffect(() => {
+    const onTrade = e => { const d = e.detail || {}; if (d.signature && d.wallet) [6000, 25000].forEach(ms => setTimeout(() => reportQuest(d.wallet, 'warroom_trade', d.signature), ms)); };   // retried: the fill is read from chain first
+    window.addEventListener('feeless:trade-confirmed', onTrade);
+    return () => window.removeEventListener('feeless:trade-confirmed', onTrade);
+  }, []);
   useEffect(() => { try { localStorage.setItem(ROOM_EXPANDED_KEY, String(expanded)); } catch {} }, [expanded]);
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose?.(); };

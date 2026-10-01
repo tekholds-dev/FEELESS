@@ -21,7 +21,9 @@ def test_no_skipped_candles_and_bad_bars_are_cleaned():
     assert times == list(range(t0, times[-1] + step, step))  # every bucket, in order, no gaps
     assert times[-1] >= (int(time.time()) // step - 1) * step  # runs up to now
     bar = next(c for c in out if c[0] == t0 + 3 * step)
-    assert bar[1] == 2.1 and bar[4] == 2.2 and bar[2] == 2.5 and bar[3] == 1.9 and bar[5] == 6
+    assert bar[1] == 1.1 and bar[4] == 2.2 and bar[2] == 2.5 and bar[3] == 1.1 and bar[5] == 6   # opens at the prior close
+    for a_, b_ in zip(out, out[1:]):
+        assert b_[1] == a_[4]   # continuous: every candle opens where the last closed (no floating dashes)
     for c in out:
         assert c[2] >= max(c[1], c[4]) and c[3] <= min(c[1], c[4]) and c[3] > 0
     gap = next(c for c in out if c[0] == t0 + step)

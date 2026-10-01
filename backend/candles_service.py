@@ -224,6 +224,11 @@ def _fill_gaps(candles, step, own=None, limit=5000):
         t = out[-1][0] + step
         o = by_own.get(int(t)); prev = out[-1][4]
         out.append(o if o else [t, prev, prev, prev, prev, 0.0])
+    # Continuous market: each bar opens at the previous close (high/low widened to include it), so the chart
+    # never shows detached one-price dashes or gaps between consecutive candles.
+    for k in range(1, len(out)):
+        pc = out[k - 1][4]
+        bar = list(out[k]); bar[1] = pc; bar[2] = max(bar[2], pc, bar[4]); bar[3] = min(bar[3], pc, bar[4]); out[k] = bar
     return out[-limit:]
 
 
@@ -471,6 +476,9 @@ _resp_cache: dict = {}
 _history_tasks: dict = {}
 
 
+FULL_HISTORY = 120   # bars: enough to fill a chart at any interval
+
+
 async def _build_candles(chain, pair_address, interval):
     interval_seconds = INTERVAL_SECONDS.get(interval, 3600)
     store = _load()
@@ -483,11 +491,17 @@ async def _build_candles(chain, pair_address, interval):
         mint = await _pair_base_token(chain, pair_address) or pair_address
         anchor = await _stream_price(mint)
     agrees = lambda h: bool(h) and len(h) >= 1 and (not anchor or anchor / 3 <= h[-1][4] <= anchor * 3)
+    # Charts must be ready: take the first provider with a full history (FULL_HISTORY bars); if each is thin, keep the
+    # longest one that agrees with the live price instead of the first short answer.
     hist, provider = [], None
     for name, fn in (('Jupiter', jupiter_candles), ('Alchemy', alchemy_candles), ('Helius swaps', helius_candles)):
-        h = await fn(chain, pair_address, interval)
-        if agrees(h):
+        try:
+            h = await fn(chain, pair_address, interval)
+        except Exception:
+            h = None
+        if agrees(h) and len(h) > len(hist):
             hist, provider = h, name
+        if len(hist) >= FULL_HISTORY:
             break
     if hist and len(hist) >= 2:
         # FEELESS's own 15s ticks override/extend the provider bars, so the newest candle is live.

@@ -21,6 +21,7 @@ METRICS = {
     'chat_chains': 'chains you chatted on', 'calls': 'coin calls', 'call_hits': 'calls that ran', 'invited': 'friends invited',
     'followers': 'followers', 'launches': 'coins launched', 'points': 'season points', 'account_days': 'days since your first visit',
     'early': 'joined before 2027', 'badges': 'badges earned',
+    'cases_opened': 'case files opened', 'warroom_trades': 'trades from a war room', 'alerts_set': 'price / Dip-Rip alerts set',
 }
 
 
@@ -39,11 +40,11 @@ FEELESS = [
     ('lp_provider', 'LP Provider', 'rare', [_t('fee_buys', 5, 'Feed the $FEE pool 5 times')]),
     ('community', 'Community', 'rare', [_t('chat_msgs', 100), _t('chat_rooms', 5)]),
     ('ambassador', 'Ambassador', 'rare', [_t('invited', 5)]),
-    ('global', 'Global', 'rare', [_t('chat_chains', 3)]),
-    ('analyst', 'Analyst', 'rare', [_t('calls', 5)]),
+    ('global', 'Global', 'rare', [_t('chat_chains', 3), _t('warroom_trades', 3)]),
+    ('analyst', 'Analyst', 'rare', [_t('calls', 5), _t('cases_opened', 10)]),
     ('gamer', 'Gamer', 'rare', [_t('points', 1000), _t('streak', 7)]),
     ('launch', 'Launch', 'rare', [_t('launches', 1, 'Launch a coin on FEELESS')]),
-    ('alpha', 'Alpha', 'epic', [_t('calls', 10), _t('call_hits', 3)]),
+    ('alpha', 'Alpha', 'epic', [_t('calls', 10), _t('call_hits', 3), _t('alerts_set', 3)]),
     ('elite', 'Elite', 'epic', [_t('volume_usd', 10000), _t('streak', 7)]),
     ('diamond_hands', 'Diamond Hands', 'epic', [_t('diamond_days', 30), _t('fee_usd', 25, 'Hold $25 of $FEE')]),
     ('creator', 'Creator', 'epic', [_t('launches', 3), _t('followers', 10)]),
@@ -63,8 +64,8 @@ FRSV = [
     ('lp_provider', 'FRSV LP Provider', 'epic', [_t('fee_usd', 500, 'Hold $500 of $FEE'), _t('fee_buys', 25)]),
     ('community', 'FRSV Community', 'epic', [_t('fee_usd', 100, 'Hold $100 of $FEE'), _t('chat_msgs', 1000), _t('chat_rooms', 20)]),
     ('ambassador', 'FRSV Ambassador', 'epic', [_t('fee_usd', 100, 'Hold $100 of $FEE'), _t('invited', 25)]),
-    ('global', 'FRSV Global', 'epic', [_t('fee_usd', 100, 'Hold $100 of $FEE'), _t('chat_chains', 8)]),
-    ('analyst', 'FRSV Analyst', 'epic', [_t('fee_usd', 100, 'Hold $100 of $FEE'), _t('calls', 50), _t('call_hits', 10)]),
+    ('global', 'FRSV Global', 'epic', [_t('fee_usd', 100, 'Hold $100 of $FEE'), _t('chat_chains', 8), _t('warroom_trades', 25)]),
+    ('analyst', 'FRSV Analyst', 'epic', [_t('fee_usd', 100, 'Hold $100 of $FEE'), _t('calls', 50), _t('call_hits', 10), _t('cases_opened', 100)]),
     ('gamer', 'FRSV Gamer', 'epic', [_t('fee_usd', 100, 'Hold $100 of $FEE'), _t('points', 10000), _t('streak', 30)]),
     ('launch', 'FRSV Launch', 'epic', [_t('fee_usd', 250, 'Hold $250 of $FEE'), _t('launches', 3)]),
     ('alpha', 'FRSV Alpha', 'legendary', [_t('fee_usd', 1000, 'Hold $1,000 of $FEE'), _t('call_hits', 25)]),
@@ -77,10 +78,39 @@ FRSV = [
 ]
 
 
+# Badge perks (admin-editable per badge): a FEELESS fee discount (the best one applies, shown on the quote, capped with
+# holder tiers at 90%) and chat backgrounds. Earned badges are real utility, not just art.
+PERKS = {
+    'q-supporter': [{'kind': 'chat_bg', 'id': 'aurora'}], 'q-community': [{'kind': 'chat_bg', 'id': 'stars'}],
+    'q-gamer': [{'kind': 'chat_bg', 'id': 'grid'}], 'q-hodler': [{'kind': 'chat_bg', 'id': 'pulse'}],
+    'q-diamond_hands': [{'kind': 'fee_discount', 'pct': 5}], 'q-elite': [{'kind': 'chat_bg', 'id': 'warp'}, {'kind': 'fee_discount', 'pct': 5}],
+    'q-legend': [{'kind': 'fee_discount', 'pct': 10}], 'q-founder': [{'kind': 'chat_bg', 'id': 'matrix'}],
+    'frsv-vip': [{'kind': 'chat_bg', 'id': 'vortex'}], 'frsv-diamond_hands': [{'kind': 'fee_discount', 'pct': 15}, {'kind': 'chat_bg', 'id': 'lava'}],
+    'frsv-elite': [{'kind': 'chat_bg', 'id': 'gold'}, {'kind': 'fee_discount', 'pct': 15}], 'frsv-legend': [{'kind': 'fee_discount', 'pct': 25}],
+}
+
+
+def perks_of(badges):
+    """What your earned badges unlock: best fee discount (%), chat backgrounds, rings."""
+    out = {'feeDiscountPct': 0, 'chatBgs': [], 'rings': [], 'from': {}}
+    for b in badges:
+        if not b.get('earned'):
+            continue
+        for p in b.get('perks') or []:
+            if p.get('kind') == 'fee_discount' and float(p.get('pct') or 0) > out['feeDiscountPct']:
+                out['feeDiscountPct'] = min(50.0, float(p['pct'])); out['from']['fee'] = b['name']
+            elif p.get('kind') == 'chat_bg' and p.get('id') not in out['chatBgs']:
+                out['chatBgs'].append(p['id'])
+            elif p.get('kind') == 'ring' and p.get('id') not in out['rings']:
+                out['rings'].append(p['id'])
+    return out
+
+
 def _defs(set_id, rows):
     art = 'feeless' if set_id == 'feeless' else 'frsv'
     return [{'id': f'{"q" if set_id == "feeless" else "frsv"}-{bid}', 'set': set_id, 'name': name, 'tier': tier, 'enabled': True,
-             'art': f'/assets/badges/{art}/{bid}', 'tasks': [{**t, 'id': f'{bid}-{i}'} for i, t in enumerate(tasks)]}
+             'art': f'/assets/badges/{art}/{bid}', 'tasks': [{**t, 'id': f'{bid}-{i}'} for i, t in enumerate(tasks)],
+             'perks': PERKS.get(f'{"q" if set_id == "feeless" else "frsv"}-{bid}', [])}
             for bid, name, tier, tasks in rows]
 
 
@@ -88,9 +118,9 @@ DEFAULTS = _defs('feeless', FEELESS) + _defs('frsv', FRSV)
 
 # Daily + weekly quests (UTC). Derived from timestamps, so nothing to "claim" — they tick as you play.
 DAILY = [('checkin', 'Check in', 'signin', 1, 10), ('trade', 'Make a trade', 'trades', 1, 15), ('chat', 'Post in any chat', 'chat_msgs', 1, 10),
-         ('volume', 'Trade $50', 'volume_usd', 50, 20), ('call', 'Call a coin', 'calls', 1, 15)]
+         ('volume', 'Trade $50', 'volume_usd', 50, 20), ('call', 'Call a coin', 'calls', 1, 15), ('case', 'Open a case file', 'case_open', 1, 10)]
 WEEKLY = [('checkins', 'Check in 5 days', 'signin', 5, 60), ('trades', '10 trades', 'trades', 10, 80), ('volume', 'Trade $500', 'volume_usd', 500, 120),
-          ('rooms', 'Chat in 3 rooms', 'chat_rooms', 3, 50)]
+          ('rooms', 'Chat in 3 rooms', 'chat_rooms', 3, 50), ('warroom', 'Trade from a war room', 'warroom_trade', 1, 70), ('cases', 'Open 5 case files', 'case_open', 5, 40)]
 
 
 def merge(defaults, overrides):
@@ -99,11 +129,11 @@ def merge(defaults, overrides):
     out = []
     for d in defaults:
         o = ov.get(d['id']) or {}
-        out.append({**d, **{k: v for k, v in o.items() if k in ('name', 'tier', 'enabled', 'tasks', 'art')}})
+        out.append({**d, **{k: v for k, v in o.items() if k in ('name', 'tier', 'enabled', 'tasks', 'art', 'perks')}})
     for bid, o in ov.items():
         if not any(d['id'] == bid for d in defaults) and o.get('tasks'):
             out.append({'id': bid, 'set': o.get('set', 'feeless'), 'name': o.get('name', bid), 'tier': o.get('tier', 'rare'),
-                        'enabled': o.get('enabled', True), 'art': o.get('art', ''), 'tasks': o['tasks']})
+                        'enabled': o.get('enabled', True), 'art': o.get('art', ''), 'tasks': o['tasks'], 'perks': o.get('perks') or []})
     return out
 
 
@@ -128,6 +158,8 @@ def metrics(raw, now=None):
         'call_hits': int(raw.get('call_hits') or 0), 'invited': int(raw.get('invited') or 0), 'followers': int(raw.get('followers') or 0),
         'launches': int(raw.get('launches') or 0), 'points': int(raw.get('points') or 0),
         'account_days': int((now - first) // DAY), 'early': 1 if first < FOUNDER_CUTOFF else 0,
+        'cases_opened': len((raw.get('events') or {}).get('case_open') or []), 'warroom_trades': len((raw.get('events') or {}).get('warroom_trade') or []),
+        'alerts_set': int(raw.get('alerts_set') or 0),
     }
 
 
@@ -158,13 +190,15 @@ def evaluate(defs, m, manual=None):
     return sorted(out, key=lambda b: order.get(b['id'], 999))
 
 
-def _window(raw, since):
-    trades = [t for t in raw.get('trades') or [] if (t.get('ts') or 0) >= since]
-    chat = [c for c in raw.get('chat') or [] if (c.get('ts') or 0) >= since]
+def _window(raw, since, until=float('inf')):
+    trades = [t for t in raw.get('trades') or [] if since <= (t.get('ts') or 0) < until]
+    chat = [c for c in raw.get('chat') or [] if since <= (c.get('ts') or 0) < until]
     day0 = time.strftime('%Y-%m-%d', time.gmtime(since))
-    return {'signin': sum(1 for d in set(raw.get('signin_days') or []) if d >= day0), 'trades': len(trades),
+    day1 = time.strftime('%Y-%m-%d', time.gmtime(until)) if until != float('inf') else '9999'
+    return {'signin': sum(1 for d in set(raw.get('signin_days') or []) if day0 <= d < day1), 'trades': len(trades),
             'volume_usd': round(sum(float(t.get('usd') or 0) for t in trades), 2), 'chat_msgs': len(chat),
-            'chat_rooms': len({c.get('room') for c in chat}), 'calls': sum(1 for x in raw.get('call_ts') or [] if x >= since)}
+            'chat_rooms': len({c.get('room') for c in chat}), 'calls': sum(1 for x in raw.get('call_ts') or [] if since <= x < until),
+            **{k: sum(1 for x in v if since <= x < until) for k, v in (raw.get('events') or {}).items()}}
 
 
 def quests(raw, now=None):
@@ -194,7 +228,7 @@ def summary(defs, raw, manual=None, now=None):
     xp = sum(b['xp'] for b in badges if b['earned']) + sum(t['xp'] for t in q['daily']['tasks'] + q['weekly']['tasks'] if t['done'])
     # "Next up": the three unearned badges you're closest to — the hook that keeps people coming back.
     nxt = sorted((b for b in badges if not b['earned']), key=lambda b: -b['pct'])[:3]
-    return {'metrics': m, 'badges': badges, 'quests': q, 'level': level(xp), 'next': [b['id'] for b in nxt],
+    return {'metrics': m, 'badges': badges, 'quests': q, 'level': level(xp), 'next': [b['id'] for b in nxt], 'perks': perks_of(badges),
             'earned': sum(1 for b in badges if b['earned']), 'total': len(badges)}
 
 
@@ -206,3 +240,24 @@ def rarity(holders, wallets):
 def is_valid_def(d):
     return bool(d.get('name')) and isinstance(d.get('tasks'), list) and d['tasks'] and all(
         t.get('metric') in METRICS and isinstance(t.get('target'), (int, float)) and t['target'] > 0 and math.isfinite(t['target']) for t in d['tasks'])
+
+
+def season_score(badges, raw, earned_at, season, now=None):
+    """Season XP: badges earned inside the season + every daily/weekly quest finished inside it. A paused or
+    not-started season scores 0 (XP still counts toward your level)."""
+    now = now or time.time()
+    start = float((season or {}).get('start') or 0)
+    if not season or season.get('paused') or not start or now < start:
+        return 0
+    xp = sum(b['xp'] for b in badges if b.get('earned') and start <= float((earned_at or {}).get(b['id']) or 0) <= now)
+    day = start // DAY * DAY
+    while day < now and day < start + 200 * DAY:
+        w = _window(raw, day, day + DAY)
+        xp += sum(q[4] for q in DAILY if w.get(q[2], 0) >= q[3])
+        day += DAY
+    week = start // DAY * DAY - time.gmtime(start).tm_wday * DAY
+    while week < now and week < start + 30 * 7 * DAY:
+        w = _window(raw, week, week + 7 * DAY)
+        xp += sum(q[4] for q in WEEKLY if w.get(q[2], 0) >= q[3])
+        week += 7 * DAY
+    return xp

@@ -11,11 +11,26 @@ export const CHAT_THEMES = [
   ['matrix', 'Matrix', 100], ['lava', 'Lava', 100], ['warp', 'Warp', 100], ['vortex', 'Vortex', 100], ['gold', 'Gold rush', 100],
 ];
 const NEED = Object.fromEntries(CHAT_THEMES.map(([id, , usd]) => [id, usd]));
-export const canUse = (id, feeUsd) => (Number(feeUsd) || 0) >= (NEED[id] ?? Infinity);
+// Unlocked by $FEE held, or by a badge perk (e.g. FRSV VIP → Vortex): `unlocked` is the perk list from your badges.
+export const canUse = (id, feeUsd, unlocked = []) => (Number(feeUsd) || 0) >= (NEED[id] ?? Infinity) || unlocked.includes(id);
 // A saved theme you no longer qualify for falls back to Live (nothing breaks, nothing is lost).
-export const chatTheme = (prefs, room, feeUsd = Infinity) => { const t = (prefs?.themes || {})[room] || 'live'; return canUse(t, feeUsd) ? t : 'live'; };
+export const chatTheme = (prefs, room, feeUsd = Infinity, unlocked = []) => { const t = (prefs?.themes || {})[room] || 'live'; return canUse(t, feeUsd, unlocked) ? t : 'live'; };
 
 const tiers = new Map();
+const perkCache = new Map();
+export function useBadgeBgs(address) {
+  const [bgs, setBgs] = useState([]);
+  useEffect(() => {
+    if (!address) { setBgs([]); return undefined; }
+    let alive = true; const hit = perkCache.get(address);
+    const p = hit && Date.now() - hit.at < 300000 ? hit.p : fetch(apiUrl(`/api/reputation/quests/${address}`)).then(r => (r.ok ? r.json() : null)).then(d => d?.perks?.chatBgs || []).catch(() => []);
+    if (!hit || hit.p !== p) perkCache.set(address, { at: Date.now(), p });
+    p.then(v => alive && setBgs(v));
+    return () => { alive = false; };
+  }, [address]);
+  return bgs;
+}
+
 export function useFeeUsd(address) {
   const [usd, setUsd] = useState(0);
   useEffect(() => {

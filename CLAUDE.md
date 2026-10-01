@@ -60,8 +60,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   tagged `discovery: 'rising'`; coins hosted on another chain are tagged `via` (Zora → Base). Never pad with unrelated coins.
 - Search ranks most trusted first (`rankSearch`/`trustScore` in SearchBox): FEELESS assets, pasted CA, exact $SYMBOL,
   then liquidity/mcap/age/profile; one row per token = its deepest pool.
-- Candles: `_sanitize` + `_fill_gaps` (server) and the live gap-filler in PriceChart: every bucket exists, OHLC valid,
-  no skipped candle ever. Change either only with a test.
+- Candles (ONGOING PRIORITY): `_sanitize` + `_fill_gaps` (server), `scrubCandles` + the live gap-filler (client): every
+  bucket exists, OHLC valid, and every candle OPENS AT THE PREVIOUS CLOSE (continuous; no floating one-price dashes).
+  History = first provider with ≥120 bars, else the longest that agrees with the live price. Change only with a test.
 
 ## Degen meta playbook (how to build here)
 - Ship what a trader feels in 5 seconds: live numbers, their own position, one-tap action, the evidence behind a warning.
@@ -85,6 +86,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Endpoints: `GET /api/reputation/quests/{address}` (60s cache; rarity 10 min), `POST /quests/checkin` (chat session),
   admin `GET|POST /admin/quests` (edit name/tier/tasks/on-off, add badges, validated) and `POST /admin/quests/grant`.
 - Earned quest badges join `wallet_badges` (chat chips + profiles) with their art. Cmd Ctr › Badges › Quest engine edits all.
+- Tool quests: case files opened + war room trades via `POST /quests/event` (war room trade must be one of your verified
+  FEELESS trades; case files once per wallet per day, ≤30/day); alerts counted from your push watchlist.
+- Perks (`quests.PERKS`, editable per badge in Cmd Ctr): fee discount (best of tier/promo/badge, read from cache so quotes
+  never wait, noted on the quote) and chat backgrounds. Only add perk kinds that something actually honours.
+- Season: `QUESTS_PATH.season`, PAUSED until launch (no leaderboard, no trophies). Unpause in Cmd Ctr › Badges on launch
+  day; "Award week's top 3" writes `kind: 'quest'` trophies once per week.
 - Art lives in `public/assets/badges/{feeless,frsv}/<id>.{jpg,gif}`: show the ~35KB .jpg poster; play the .gif only on
   hover/focus or in the detail view (`BadgeArt`). Never autoplay a grid of GIFs.
 
