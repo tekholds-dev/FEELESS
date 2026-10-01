@@ -151,3 +151,10 @@ def test_risk_dial_sets_the_whole_plan_server_side():
     import pytest
     with pytest.raises(ValueError):
         hq.risk_plan('yolo', legs)
+
+
+def test_yield_math_uses_replay_and_drops_outliers():
+    metas = {'a': {'liquidityUsd': 2e5, 'aprEst': 50, 'change24h': 3400, 'replayPct': 12}, 'b': {'liquidityUsd': 3e5, 'aprEst': 20, 'change24h': -5},
+             'c': {'liquidityUsd': 4e5, 'aprEst': 10, 'replayPct': 900}}
+    y = hq.yield_math(metas)
+    assert y['fuse1']['best'] == 1.12 and y['fuse1']['worst'] == 0.95      # 3400% since launch never counts; 900% replay = outlier

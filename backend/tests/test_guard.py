@@ -67,3 +67,34 @@ def test_guard_endpoints_admin_only_and_audited(monkeypatch):
     assert rs._admin_load()['audit'][-1]['action'] == 'guard-block'
     monkeypatch.setattr(rs, '_guard_state', None)                                         # survives a restart
     assert IP in rs._guard_s()['blocks']
+
+
+def test_roles_scoped_and_grants_need_owner_signature(monkeypatch):
+    rs = pytest.importorskip('reputation_service')
+    OWNER = rs._owner_wallets()[0]; MOD = 'Mod11111111111111111111111111111111111111111'
+    rs._json_save(rs.DATA_DIR / 'roles.json', {'grants': {MOD: {'role': 'moderator'}}})
+
+    class U:
+        def __init__(self, p): self.path = p
+
+    class R:
+        def __init__(self, p, m='GET'): self.url = U(p); self.method = m
+    rs._role_gate(MOD, R('/api/reputation/admin/bugs', 'POST'))                      # own section
+    rs._role_gate(MOD, R('/api/reputation/admin/security'))                          # read-only health
+    for path, m in (('/api/reputation/admin/fees/bundle', 'POST'), ('/api/reputation/admin/fuses/payouts/paid', 'POST'), ('/api/reputation/admin/security/guard', 'POST'), ('/api/reputation/admin/roles', 'POST')):
+        with pytest.raises(rs.HTTPException) as e:
+            rs._role_gate(MOD, R(path, m))
+        assert e.value.status_code == 403
+    rs._role_gate(OWNER, R('/api/reputation/admin/fees/bundle', 'POST'))            # owner reaches everything
+    monkeypatch.setattr(rs, '_require_admin', lambda r: OWNER)
+    sigs = []
+    monkeypatch.setattr(rs, '_verify_wallet', lambda a, msg, sig: sigs.append((a, msg)) or sig == 'GOOD')
+    with pytest.raises(rs.HTTPException) as e:                                        # session alone is not enough
+        asyncio.run(rs.admin_role_grant(None, rs.RolePayload(address=MOD, role='admin')))
+    assert e.value.status_code == 401
+    import time as _t
+    ts = int(_t.time())
+    assert asyncio.run(rs.admin_role_grant(None, rs.RolePayload(address=MOD, role='admin', ts=ts, sig='GOOD')))['ok']
+    assert sigs[-1] == (OWNER, rs.grant_message(MOD, 'admin', ts))
+    with pytest.raises(rs.HTTPException):                                             # stale signature refused
+        asyncio.run(rs.admin_role_grant(None, rs.RolePayload(address=MOD, role='admin', ts=ts - 3600, sig='GOOD')))

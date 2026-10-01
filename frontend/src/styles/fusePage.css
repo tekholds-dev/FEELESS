@@ -393,3 +393,34 @@ body.theme-day .cd-sig li { background: var(--m-surface); }
 .tchip:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; } .tchip.is-ghost { opacity: .55; } .tchip.is-compact { padding: 0 5px; }
 body.theme-day .tchip { background: var(--m-surface); }
 @media (prefers-reduced-motion: reduce) { .tchip { transition: none; } }
+
+/* 🏦 Vault designer (Cmd Ctr › Fuse › Vault): flow strip, $ simulator, numbered builder. */
+.vd { display: grid; gap: 12px; } .vd-status code { font-family: var(--m-mono); }
+.vd-flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; counter-reset: none; }
+.vd-flow li { display: grid; gap: 4px; padding: 10px; border: 1px solid var(--m-line); border-radius: 12px; background: var(--m-bg); position: relative;
+  animation: mCardIn .2s var(--m-ease) calc(var(--i, 0) * 50ms) backwards; transition: border-color .15s, transform .15s; }
+.vd-flow li:hover { border-color: var(--m-accent); transform: translateY(-1px); } .vd-flow b { color: var(--m-accent); font-size: 12.5px; } .vd-flow small { color: var(--m-dim); font-size: 11px; line-height: 1.35; }
+.vd-flow li:not(:last-child)::after { content: '→'; position: absolute; right: -9px; top: 50%; transform: translateY(-50%); color: var(--m-accent); font-size: 12px; z-index: 1; }
+.vd-sim-box, .vd-build { display: grid; gap: 10px; }
+.vd-dep { display: inline-flex; align-items: center; gap: 6px; } .vd-dep input { width: 110px; } .vd-dep span { font: 600 11px var(--m-mono); color: var(--m-dim); }
+.vd-vault { display: grid; gap: 10px; padding: 10px; border: 1px solid var(--m-line); border-radius: 12px; } .vd-sp { flex: 1; }
+.vd-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.vd-kpis span { display: grid; gap: 2px; padding: 8px; border-radius: 10px; background: var(--m-bg); border: 1px solid var(--m-line); }
+.vd-kpis small { font: 9.5px var(--m-mono); letter-spacing: .08em; color: var(--m-dim); } .vd-kpis em { font: 10px var(--m-mono); color: var(--m-dim); font-style: normal; }
+.vd-pools { display: grid; gap: 6px; }
+.vd-pool { display: grid; grid-template-columns: auto auto 1fr minmax(80px, 160px) auto; align-items: center; gap: 8px; font-size: 12px; }
+.vd-bar { display: block; height: 6px; border-radius: 99px; background: var(--m-line); overflow: hidden; }
+.vd-bar i { display: block; height: 100%; background: var(--m-accent); transform-origin: left; transition: transform .3s var(--m-ease); }
+.vd-step { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; }
+.vd-n { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--m-accent); color: var(--m-accent); font: 700 12px var(--m-mono); }
+.vd-fields { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; } .vd-fields > .m-input:not(.fz-emoji-in) { flex: 1; min-width: 180px; } .vd-col { display: grid; }
+.vd-money { flex-basis: 100%; margin: 0; padding: 8px 10px; border-left: 3px solid var(--m-accent); border-radius: 0 8px 8px 0; background: var(--m-bg); font-size: 12px; }
+.vd-leg { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; padding: 8px; border: 1px solid var(--m-line); border-radius: 10px; }
+.vd-found { display: grid; gap: 4px; max-height: 260px; overflow: auto; scrollbar-width: thin; }
+.vd-hit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid var(--m-line); border-radius: 10px; background: var(--m-bg); color: inherit; font: inherit; text-align: left; cursor: pointer; transition: border-color .15s, transform .15s; }
+.vd-hit:hover { border-color: var(--m-accent); transform: translateX(2px); } .vd-hit:active { transform: scale(.99); } .vd-hit:focus-visible { outline: 2px solid var(--m-accent); }
+.vd-hit small { flex-basis: 100%; color: var(--m-dim); font-size: 11px; }
+body.theme-day :is(.vd-flow li, .vd-kpis span, .vd-money, .vd-hit) { background: var(--m-surface); }
+body.fx-lite .vd-flow li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .vd-flow li { animation: none; } .vd-bar i { transition: none; } }
+@media (max-width: 640px) { .vd-flow, .vd-kpis { grid-template-columns: 1fr 1fr; } .vd-flow li::after { display: none; } .vd-pool { grid-template-columns: 1fr auto; } }

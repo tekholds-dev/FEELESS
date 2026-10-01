@@ -5063,8 +5063,11 @@ async def vault_pool_search(q: str = Query(..., min_length=2, max_length=60)):
             pairs = ((await http.get('https://api.dexscreener.com/latest/dex/search', params={'q': q})).json() or {}).get('pairs') or []
         except Exception:
             pairs = []
-    pairs = [p for p in _fuse.real_pools(pairs) if p.get('chainId') == 'solana'][:15]
-    return {'pools': [{'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'kind': _vault.kind_of(p), 'venue': p.get('dexId'), **_fuse.leg_meta(p)} for p in pairs]}
+    # Solana ONLY (DexScreener search returns every chain — Base/ETH rows are dropped here), deepest first, and the real
+    # coin flagged (✓ REAL major mint vs ⚠ lookalike ticker) the same way the Fuse Lab search does.
+    pairs = sorted((p for p in _fuse.real_pools(pairs) if p.get('chainId') == 'solana'), key=lambda p: -_fuse._f((p.get('liquidity') or {}).get('usd')))[:15]
+    rows = [{'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'kind': _vault.kind_of(p), 'venue': p.get('dexId'), **_fuse.leg_meta(p)} for p in pairs]
+    return {'pools': _fuse.mark_real(rows, q)}
 
 
 @app.get('/api/reputation/admin/vaults')
@@ -5646,7 +5649,35 @@ def _require_admin(request: Request) -> str:
         raise HTTPException(401, 'Command center session expired — sign in again.')
     if not _verify_wallet(addr, f'FEELESS command center\naddress:{addr}\nts:{ts_i}', sig):
         raise HTTPException(401, 'Command center signature does not match.')
+    _role_gate(addr, request)
     return addr
+
+
+# Granted roles are SCOPED (hard-coded): a moderator / marketing wallet only reaches its own Cmd Ctr sections; 'admin'
+# grants reach everything except owner-only money (Circle, referrals, NFTs… via _require_owner). Owners reach everything.
+ROLE_SCOPES = {
+    'moderator': {'moderate', 'bugs', 'shield', 'chat-guard', 'chat-feed', 'verify', 'coin-verify', 'intel-desk', 'latency', 'perf'},
+    'marketing': {'marketing', 'broadcast', 'kols', 'ads', 'ideas', 'traffic', 'numbers'},
+}
+ROLE_READ = {'security', 'roles', 'whoami', 'is-admin'}      # every role may read these (its own access + health)
+
+
+def _role_of(addr):
+    if addr in _owner_wallets():
+        return 'owner'
+    return ((_json_load(DATA_DIR / 'roles.json', {'grants': {}})['grants'].get(addr)) or {}).get('role') or 'none'
+
+
+def _role_gate(addr, request):
+    role = _role_of(addr)
+    if role not in ROLE_SCOPES:
+        return
+    path = str(getattr(getattr(request, 'url', None), 'path', '') or '')
+    sec = path.split('/admin/', 1)[1].split('/', 1)[0] if '/admin/' in path else ''
+    method = getattr(request, 'method', 'GET')
+    if sec in ROLE_SCOPES[role] or (sec in ROLE_READ and method == 'GET'):
+        return
+    raise HTTPException(403, f'Your {role} access does not include this section.')
 
 
 def _audit(d, admin, action, detail):
@@ -9573,12 +9604,19 @@ def _granted():
 class RolePayload(BaseModel):
     address: str
     role: str
+    ts: int = 0
+    sig: str = ''
+
+
+def grant_message(address, role, ts):
+    return f'FEELESS grant command center access\nwallet:{address}\nrole:{role}\nts:{int(ts)}'
 
 
 @app.get('/api/reputation/admin/roles')
 async def admin_roles(request: Request):
     me = _require_admin(request)
-    return {'owners': _owner_wallets(), 'grants': _granted(), 'youAreOwner': me in _owner_wallets(), 'roles': ROLE_NAMES}
+    return {'owners': _owner_wallets(), 'grants': _granted(), 'youAreOwner': me in _owner_wallets(), 'roles': ROLE_NAMES,
+            'yourRole': _role_of(me), 'scopes': {k: sorted(v) for k, v in ROLE_SCOPES.items()}}
 
 
 @app.post('/api/reputation/admin/roles')
@@ -9588,8 +9626,11 @@ async def admin_role_grant(request: Request, p: RolePayload):
         raise HTTPException(403, 'Only the FEELESS owner wallet can grant command center access.')
     if p.role not in ROLE_NAMES or not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.address) or _re.match(r'^0x[0-9a-fA-F]{40}$', p.address)):
         raise HTTPException(400, 'Valid wallet + role (admin, moderator, marketing) required.')
+    # The creator signs THIS grant (wallet, role, time) — a leaked Cmd Ctr session alone can never hand out access.
+    if abs(time.time() - p.ts) > 600 or not _verify_wallet(me, grant_message(p.address, p.role, p.ts), p.sig):
+        raise HTTPException(401, 'Sign the grant with the owner wallet (signature missing, expired or wrong).')
     d = _json_load(ROLES_PATH, {'grants': {}})
-    d['grants'][p.address] = {'role': p.role, 'by': me, 'at': time.time()}
+    d['grants'][p.address] = {'role': p.role, 'by': me, 'at': time.time(), 'sig': p.sig[:120]}
     _json_save(ROLES_PATH, d)
     ad = _admin_load(); _audit(ad, me, 'role-grant', f'{p.address[:6]}… → {p.role}'); _admin_save(ad)
     return {'ok': True}

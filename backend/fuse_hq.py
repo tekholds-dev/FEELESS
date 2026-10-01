@@ -367,7 +367,9 @@ def yield_math(metas, min_liq=100_000):
     top = aprs[:3]
     apr = sum(top) / len(top) if top else 0.0
     per_day = lambda usd: round(usd * apr / 100 / 365, 4)
-    moves = sorted(_f(m.get('change24h')) for m in deep)
+    # Replay window per pool (fuse.replay_window: 24h → 6h → 1h by pool age) — a young pool's since-launch +3,000% never
+    # counts as a "day". Moves beyond ±95% in one window are dropped as outliers (thin-book prints, not a basket's day).
+    moves = sorted(x for x in (_f(m.get('replayPct', m.get('change24h'))) for m in deep) if -95 <= x <= 95)
     med = moves[len(moves) // 2] if moves else 0.0
     return {'pools': len(deep), 'vaultAprPct': round(apr, 1), 'vaultPerDay': {'1': per_day(1), '20': per_day(20), '100': per_day(100)},
             'aprFor20c': 7300.0, 'aprFor50c': 18250.0,

@@ -54,6 +54,7 @@ const SEVERITY = { security: [0, '🔴 Critical · security'], bug: [1, '🟠 Bu
 const sortBugs = list => [...list].sort((a, b) => ((SEVERITY[a.kind]?.[0] ?? 1) - (SEVERITY[b.kind]?.[0] ?? 1))
   || ((['fixed', 'wontfix'].includes(a.status) ? 1 : 0) - (['fixed', 'wontfix'].includes(b.status) ? 1 : 0)) || (b.at - a.at));
 
+const ROLE_TABS_FIRST = { moderator: 'mod', marketing: 'marketing' };
 export function CommandCenter({ address, signMessage, onClose }) {
   const [session, setSession] = useState(() => readSession(address));
   const [tab, setTab] = useState('numbers');
@@ -70,6 +71,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
   const [bugs, setBugs] = useState([]);
   const [busy, setBusy] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [role, setRole] = useState('');
   useEffect(() => { fetch(apiUrl(`/api/reputation/admin/is-admin/${address}`)).then(r => r.json()).then(d => setIsOwner(!!d.owner)).catch(() => {}); }, [address]);
 
   const call = useCallback(async (path, opts = {}) => {
@@ -98,6 +100,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
   const loadDrops = useCallback(() => call('/admin/airdrops').then(d => setDrops(d.airdrops || [])).catch(() => {}), [call]);
   const loadBugs = useCallback(() => call('/admin/bugs').then(d => setBugs((d.bugs || []).slice().reverse())).catch(() => {}), [call]);
 
+  useEffect(() => { if (session) call('/admin/roles').then(d => { setRole(d.yourRole || ''); if (ROLE_TABS_FIRST[d.yourRole]) setTab(ROLE_TABS_FIRST[d.yourRole]); }).catch(() => {}); }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!session) return; loadSec(); loadDrops(); loadBugs(); const t = setInterval(loadSec, 30000); return () => clearInterval(t); }, [session, loadSec, loadDrops, loadBugs]);
   useEffect(() => { if (session && (tab === 'holders' || tab === 'studio') && !holders) loadHolders(); }, [session, tab, loadHolders]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (session) loadHolders(); }, [asset]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -114,10 +117,13 @@ export function CommandCenter({ address, signMessage, onClose }) {
   // Grouped so the money + infra controls are always first; every tab id appears exactly once.
   const TAB_GROUPS = [['Core', ['launch', 'fees', 'money', 'latency']], ['Growth', ['numbers', 'traffic', 'pulse', 'marketing', 'kols', 'invites', 'ads', 'ideas']],
     ['Community', ['holders', 'studio', 'airdrops', 'snapshots', 'badges', 'nfts', 'seasons', 'pools', 'fuse', 'feecat', 'broadcast']], ['Safety', ['investigate', 'shield', 'verify', 'overview', 'mod', 'access', 'bugs']]];
+  // Granted roles see only their sections (the server refuses the rest anyway — ROLE_SCOPES in reputation_service).
+  const ROLE_TABS = { moderator: ['investigate', 'shield', 'verify', 'overview', 'mod', 'bugs', 'latency'], marketing: ['marketing', 'broadcast', 'kols', 'ads', 'ideas', 'traffic', 'numbers'] };
+  const allowed = id => !ROLE_TABS[role] || ROLE_TABS[role].includes(id);
   const TABS = [['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['shield', '🛡 Bot shield', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fuse', '⚛️ Fuse', Award], ['nfts', 'NFTs', Gift], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
-    <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>👑 {shortAddress(address)} · session signed · live</small></div><TreasuryPulse call={call} onOpen={openTab} />
-      <nav className="cc-tabs" data-testid="cc-nav">{TAB_GROUPS.map(([group, ids]) => <div key={group} className="cc-tab-group"><small>{group}</small>{ids.map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</div>)}</nav>
+    <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>{role && role !== 'owner' ? `🔑 ${role}` : '👑'} {shortAddress(address)} · session signed · live</small></div><TreasuryPulse call={call} onOpen={openTab} />
+      <nav className="cc-tabs" data-testid="cc-nav">{TAB_GROUPS.map(([group, ids]) => <div key={group} className="cc-tab-group"><small>{group}</small>{ids.filter(allowed).map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</div>)}</nav>
       <button type="button" className="cc-close" onClick={onClose} aria-label="Close command center"><X size={16} /></button></header>
     {TAB_INFO[tab] && <div className="cc-tab-hero" key={tab} data-testid="cc-tab-hero"><div><small>{TAB_GROUPS.find(g => g[1].includes(tab))?.[0]?.toUpperCase()}</small><h3>{TAB_INFO[tab][0]}</h3><p>{TAB_INFO[tab][1]}</p></div>{TAB_INFO[tab][2].length > 0 && <div className="cc-tab-does">{TAB_INFO[tab][2].map(x => <span key={x}>{x}</span>)}</div>}</div>}
 
@@ -128,7 +134,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'kols' && <KolAdmin call={call} />}
     {tab === 'traffic' && <TrafficPanel call={call} />}
     {tab === 'seasons' && <SeasonsAdmin call={call} />}
-    {tab === 'access' && <AccessAdmin call={call} />}
+    {tab === 'access' && <AccessAdmin call={call} signMessage={signMessage} address={address} />}
     {tab === 'shield' && <BotShield call={call} />}
     {tab === 'ideas' && <IdeasAdmin call={call} />}
     {tab === 'pulse' && <PulsePanel call={call} />}
@@ -767,11 +773,13 @@ function SeasonsAdmin({ call }) {
 }
 
 // Command center access: only the owner wallet can grant or revoke.
-function AccessAdmin({ call }) {
+function AccessAdmin({ call, signMessage, address }) {
   const [d, setD] = useState(null); const [f, setF] = useState({ address: '', role: 'moderator' });
   const load = () => call('/admin/roles').then(setD).catch(e => toast.error(e.message));
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const grant = async e => { e.preventDefault(); try { await call('/admin/roles', { method: 'POST', body: JSON.stringify(f) }); toast.success('Access granted.'); setF({ address: '', role: 'moderator' }); load(); } catch (err) { toast.error(err.message); } };
+  // The owner signs each grant (wallet + role + time) — a Cmd Ctr session alone can't hand out access.
+  const grant = async e => { e.preventDefault(); try { const ts = Math.floor(Date.now() / 1000); const sig = await signMessage(`FEELESS grant command center access\nwallet:${f.address}\nrole:${f.role}\nts:${ts}`);
+    await call('/admin/roles', { method: 'POST', body: JSON.stringify({ ...f, ts, sig }) }); toast.success('Access granted.'); setF({ address: '', role: 'moderator' }); load(); } catch (err) { toast.error(err.message); } };
   const revoke = async a => { try { await call(`/admin/roles/${a}`, { method: 'DELETE' }); load(); } catch (err) { toast.error(err.message); } };
   if (!d) return <p className="wp-bio">Loading access…</p>;
   return <section className="cc-card"><h3>Command center access</h3><p className="wp-bio">Owner: {d.owners.map(shortAddress).join(', ')}. {d.youAreOwner ? 'You can grant and revoke.' : 'Only the owner can change access.'}</p>

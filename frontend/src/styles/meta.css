@@ -627,7 +627,6 @@ body.fx-lite .pump-particles, body.fx-lite .pump-hub .pump-radar-card { animatio
 .fz-in, .fz-draft { display: grid; gap: 8px; } .fz-split { display: grid; gap: 4px; } .fz-leg-buy { display: grid; gap: 6px; }
 .fz-admin-list { display: grid; gap: 6px; margin: 8px 0; } .fz-emoji-in { width: 64px; } .fz-found { display: grid; gap: 6px; max-height: 260px; overflow: auto; scrollbar-width: thin; }
 .fz-draft-leg { align-items: end; }
-.vault-designer { display: grid; gap: 10px; } .vd-dep { max-width: 220px; } .vd-vault { display: grid; gap: 8px; } .vd-sim { gap: 16px; }
 .vd-table { width: 100%; border-collapse: collapse; font-size: 12px; } .vd-table th { text-align: left; font-family: var(--m-mono); font-size: 9px; letter-spacing: .1em; color: var(--m-mute); padding: 4px 6px; }
 .vd-table td { padding: 6px; border-top: 1px solid var(--m-line); }
 
