@@ -480,7 +480,7 @@ body.fx-lite .new-stuff-item:has(.held-chip)::after { animation: none; opacity: 
 .chat-fx { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; border-radius: inherit; }
 .chat-fx i { position: absolute; inset: -30%; will-change: transform; }
 .chat-fx-logo { position: absolute; left: 50%; top: 50%; width: 38%; max-width: 180px; transform: translate(-50%, -50%); opacity: .05; animation: mBreathe 6s ease-in-out infinite; }
-.fx-fee .chat-fx-a, .fx-aurora .chat-fx-a { background: radial-gradient(35% 30% at 30% 35%, rgba(25, 245, 143, .14), transparent 70%); animation: mLiveDrift 14s ease-in-out infinite alternate; }
+.fx-fee .chat-fx-a, .fx-aurora .chat-fx-a, .fx-live .chat-fx-a { background: radial-gradient(35% 30% at 30% 35%, rgba(25, 245, 143, .14), transparent 70%); animation: mLiveDrift 14s ease-in-out infinite alternate; }
 .fx-aurora .chat-fx-b { background: radial-gradient(30% 28% at 70% 65%, rgba(94, 200, 255, .12), transparent 70%), radial-gradient(22% 20% at 40% 80%, rgba(245, 196, 81, .08), transparent 70%); animation: mLiveDrift 19s ease-in-out infinite alternate-reverse; }
 .fx-grid .chat-fx-a { background: linear-gradient(rgba(25, 245, 143, .07) 1px, transparent 1px) 0 0 / 100% 28px, linear-gradient(90deg, rgba(25, 245, 143, .05) 1px, transparent 1px) 0 0 / 28px 100%; animation: mGridRun 6s linear infinite; }
 .fx-stars .chat-fx-a, .fx-stars .chat-fx-b { background: radial-gradient(1px 1px at 20% 30%, #fff8, transparent), radial-gradient(1px 1px at 70% 60%, #19f58f99, transparent), radial-gradient(1.5px 1.5px at 45% 85%, #fff6, transparent) 0 0 / 160px 160px; animation: mGridRun 9s linear infinite; }
@@ -492,3 +492,29 @@ body.fx-lite .chat-fx * { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .chat-fx * { animation: none !important; } }
 .chat-theme-pick { display: grid; gap: 4px; } .chat-theme-pick > span { font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--m-mute); }
 body.theme-day .chat-fx { opacity: .55; }
+.tape-row code { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; white-space: nowrap; }
+.tape-tag { font-style: normal; font-size: 8px; letter-spacing: .06em; padding: 1px 4px; border-radius: 4px; border: 1px solid currentColor; }
+.tape-tag.bad { color: var(--m-danger); } .tape-tag.warn { color: var(--m-warn); }
+/* Live mood: soft, slow colour that follows the coin (comforting, never flashing). */
+.fx-live .chat-fx-a { animation-duration: 18s; }
+.fx-live .chat-fx-b { background: radial-gradient(40% 35% at 70% 70%, var(--mood, rgba(25, 245, 143, .1)), transparent 70%); animation: mBreathe 8s ease-in-out infinite; }
+.mood-pump { --mood: rgba(25, 245, 143, .2); } .mood-dump { --mood: rgba(255, 143, 163, .16); } .mood-clear { --mood: rgba(245, 196, 81, .2); } .mood-calm { --mood: rgba(94, 200, 255, .08); }
+.fx-live.mood-dump .chat-fx-a { opacity: .35; }
+/* FEE rain: small logos drifting down. */
+.chat-fx-drop { position: absolute; top: -40px; width: 22px; opacity: .14; animation: mDrop 9s linear infinite; }
+@keyframes mDrop { to { transform: translateY(120vh) rotate(200deg); } }
+/* $100+ themes */
+.fx-matrix .chat-fx-a, .fx-matrix .chat-fx-b { background: repeating-linear-gradient(90deg, transparent 0 18px, rgba(25, 245, 143, .09) 18px 19px), linear-gradient(transparent 60%, rgba(25, 245, 143, .12)) 0 0 / 100% 40px; animation: mGridRun 1.6s linear infinite; }
+.fx-matrix .chat-fx-b { animation-duration: 2.7s; opacity: .6; }
+.fx-lava .chat-fx-a, .fx-lava .chat-fx-b { background: radial-gradient(28% 24% at 30% 70%, rgba(255, 120, 60, .16), transparent 70%), radial-gradient(22% 20% at 70% 30%, rgba(245, 196, 81, .14), transparent 70%); animation: mLiveDrift 11s ease-in-out infinite alternate; }
+.fx-lava .chat-fx-b { animation-direction: alternate-reverse; animation-duration: 15s; }
+.fx-warp .chat-fx-a { inset: 0; background: radial-gradient(1px 8px at 20% 30%, #fff9, transparent), radial-gradient(1px 10px at 75% 60%, #19f58fbb, transparent), radial-gradient(1px 6px at 50% 85%, #fff8, transparent), radial-gradient(1px 9px at 35% 10%, #5ec8ffaa, transparent); animation: mWarp 2.4s linear infinite; }
+@keyframes mWarp { 0% { transform: scale(.6); opacity: 0; } 30% { opacity: 1; } 100% { transform: scale(2.2); opacity: 0; } }
+.fx-vortex .chat-fx-a { inset: -50%; background: conic-gradient(from 0deg, transparent, rgba(25, 245, 143, .12), transparent 30%, rgba(94, 200, 255, .1), transparent 60%); animation: mSpin 24s linear infinite; }
+@keyframes mSpin { to { transform: rotate(360deg); } }
+.fx-gold .chat-fx-a, .fx-gold .chat-fx-b { background: radial-gradient(1.5px 1.5px at 15% 20%, #f5c451, transparent), radial-gradient(2px 2px at 60% 50%, #ffe08a, transparent), radial-gradient(1px 1px at 85% 80%, #f5c451, transparent) 0 0 / 140px 140px; animation: mGridRun 5s linear infinite reverse; }
+.fx-gold .chat-fx-b { background-size: 210px 210px; animation-duration: 8s; }
+/* Bubbles hug the text and stay readable over any background (no backdrop blur over animated layers). */
+.ecosystem-chat.has-fx .chat-message p { display: block; width: fit-content; max-width: 100%; margin: 3px 0 0; padding: 6px 10px; border-radius: 12px 12px 12px 4px; background: rgba(6, 14, 10, .82); border: 1px solid rgba(25, 245, 143, .12); overflow-wrap: anywhere; }
+body.theme-day .ecosystem-chat.has-fx .chat-message p { background: rgba(255, 255, 255, .9); border-color: #cfe3d7; }
+.chat-theme-pick .m-seg > button:disabled { opacity: .45; cursor: not-allowed; }

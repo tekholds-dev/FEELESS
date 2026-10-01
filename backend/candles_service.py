@@ -564,7 +564,13 @@ async def pool_trades(chain: str, pool: str):
     except Exception:
         rows = None
     if not isinstance(rows, list):
-        return hit[1] if hit else {'trades': [], 'error': 'provider unavailable'}
+        # Helius out of quota / down: read the pool's latest swaps straight from Solana RPC (Alchemy).
+        rpc = await _rpc_trades(pool, base, price_usd, sol_usd)
+        if rpc is None:
+            return hit[1] if hit else {'trades': [], 'error': 'provider unavailable'}
+        data = {'trades': rpc, 'at': now, 'source': 'Solana RPC (parsed swaps)'}
+        _trade_cache[key] = (now, data)
+        return data
     trades = []
     for tx in rows:
         who = tx.get('feePayer'); got = sent = 0.0; quote_usd = 0.0
@@ -591,6 +597,57 @@ async def pool_trades(chain: str, pool: str):
     data = {'trades': trades, 'at': now, 'source': 'Helius (parsed swaps)'}
     _trade_cache[key] = (now, data)
     return data
+
+
+def parse_rpc_swap(tx, base, price_usd, sol_usd, pool=None):
+    """One jsonParsed Solana transaction -> a tape row. The trader is the owner (not the pool) whose balance of the coin
+    moved most — bots and routers often pay fees from another key. Priced by their SOL/USDC leg; no leg + under 1¢ = spam."""
+    meta, msg = (tx or {}).get('meta') or {}, ((tx or {}).get('transaction') or {}).get('message') or {}
+    keys = [k.get('pubkey') if isinstance(k, dict) else k for k in msg.get('accountKeys') or []]
+    if meta.get('err') or not keys:
+        return None
+    def bal(rows, mint, owner):
+        return sum(float((r.get('uiTokenAmount') or {}).get('uiAmount') or 0) for r in rows or [] if r.get('mint') == mint and r.get('owner') == owner)
+    pre_t, post_t = meta.get('preTokenBalances'), meta.get('postTokenBalances')
+    owners = {r.get('owner') for r in (pre_t or []) + (post_t or []) if r.get('mint') == base and r.get('owner') and r.get('owner') != pool}
+    deltas = {o: bal(post_t, base, o) - bal(pre_t, base, o) for o in owners}
+    who = max(deltas, key=lambda o: abs(deltas[o]), default=None)
+    if not who or not deltas[who]:
+        return None
+    delta = deltas[who]; amt = abs(delta)
+    usd = sum(abs(bal(post_t, m, who) - bal(pre_t, m, who)) for m in USD_MINTS)
+    if not usd and sol_usd:
+        lamports = 0
+        if who in keys:
+            k = keys.index(who); pre, post = (meta.get('preBalances') or []), (meta.get('postBalances') or [])
+            if k < len(pre) and k < len(post):
+                lamports = abs(post[k] - pre[k] + (meta.get('fee') or 0 if k == 0 else 0))
+        wsol = abs(bal(post_t, WSOL, who) - bal(pre_t, WSOL, who))
+        usd = ((lamports / 1e9 if lamports > 100_000 else 0) + wsol) * sol_usd  # < 0.0001 SOL = fees, not a leg
+    if not usd or (price_usd and not (0.5 < (usd / amt) / price_usd < 1.5)):
+        usd = amt * price_usd  # routed through accounts we can't see: value it at the live price
+    if usd < 0.01:
+        return None  # dust transfer / bot spam, not a swap
+    sig = ((tx.get('transaction') or {}).get('signatures') or [None])[0]
+    return {'ts': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(tx.get('blockTime') or time.time())), 'kind': 'buy' if delta > 0 else 'sell',
+            'usd': round(usd, 2), 'price': usd / amt if amt else price_usd, 'wallet': who, 'tx': sig}
+
+
+async def _rpc_trades(pool, base, price_usd, sol_usd, limit=60):  # dust spam is common: look back far enough
+    key_ = os.environ.get('ALCHEMY_API_KEY')
+    if not key_ or not base:
+        return None
+    url = f'https://solana-mainnet.g.alchemy.com/v2/{key_}'
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            sigs = (await http.post(url, json={'jsonrpc': '2.0', 'id': 1, 'method': 'getSignaturesForAddress', 'params': [pool, {'limit': limit}]})).json().get('result') or []
+            batch = [{'jsonrpc': '2.0', 'id': i, 'method': 'getTransaction', 'params': [s['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}]}
+                     for i, s in enumerate(sigs) if not s.get('err')]
+            txs = (await http.post(url, json=batch)).json() if batch else []
+    except Exception:
+        return None
+    rows = [parse_rpc_swap(r.get('result'), base, price_usd, sol_usd, pool) for r in sorted(txs if isinstance(txs, list) else [], key=lambda r: r.get('id', 0))]
+    return [r for r in rows if r]
 
 
 @app.get('/api/candles/health')
