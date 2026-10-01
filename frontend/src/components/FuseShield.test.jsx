@@ -36,3 +36,14 @@ test('deck ribbon shows real P&L and an honest outlook', async () => {
   const el = await mount(<FuseDeck call={call} panels={[['lab', 'Lab', <p key="x">L</p>, 'blurb']]} />); await tick(10);
   expect(el.textContent).toContain('$3.20'); expect(el.textContent).toContain('unproven');
 });
+
+test('card crest walks the logo fallback chain, then the glyph', async () => {
+  const { MetaCard } = require('./cards/MetaCard');
+  const el = await mount(<MetaCard card={{ key: 'k', kind: 'fuse', title: 'T', rarity: 'rare', glyph: 'A', art: ['https://x/a.png', 'https://x/b.png'] }} />);
+  const img = () => el.querySelector('.mc-crest image');
+  expect(img().getAttribute('href')).toBe('https://x/a.png');
+  await act(async () => { img().dispatchEvent(new Event('error')); });
+  expect(img().getAttribute('href')).toBe('https://x/b.png');
+  await act(async () => { img().dispatchEvent(new Event('error')); });
+  expect(img()).toBeNull(); expect(el.querySelector('.mc-crest text').textContent).toBe('A');
+});

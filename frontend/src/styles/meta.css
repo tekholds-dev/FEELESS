@@ -169,7 +169,7 @@ img.wallet-icon { border-radius: 8px; object-fit: contain; background: var(--m-s
 .mc-bg { background: radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--a) 28%, transparent), transparent 60%), radial-gradient(90% 60% at 50% 110%, color-mix(in srgb, var(--b) 22%, transparent), transparent 60%), #030a06; }
 .mc-sheen { position: absolute; inset: -60%; pointer-events: none; mix-blend-mode: screen; opacity: .0; will-change: transform;
   background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, .22) 46%, color-mix(in srgb, var(--a) 40%, transparent) 50%, transparent 58%); }
-.mc-face > *:not(.mc-bg):not(.mc-pattern):not(.mc-sheen) { position: relative; }
+.mc-face > *:not(.mc-bg):not(.mc-pattern):not(.mc-sheen):not(.mc-sweep):not(.mc-glow) { position: relative; }
 
 /* designs */
 .d-holo .mc-bg { background: conic-gradient(from 200deg at 50% 45%, color-mix(in srgb, var(--a) 40%, transparent), color-mix(in srgb, var(--b) 40%, transparent), #6ad7ff55, #ff5ad155, color-mix(in srgb, var(--a) 40%, transparent)), repeating-linear-gradient(135deg, rgba(255, 255, 255, .05) 0 2px, transparent 2px 7px), #04100a; }

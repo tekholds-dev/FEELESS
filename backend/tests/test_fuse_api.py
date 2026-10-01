@@ -159,3 +159,14 @@ def test_autopilot_tick_enters_each_style_once_and_alerts_bots(monkeypatch):
     arena = rs._json_load(rs.FUSE_HQ_PATH, {})['arena']
     assert sorted(e['style'] for e in arena) == sorted(rs._fuse.STYLES) and all(e['auto'] for e in arena)
     assert len(sent) == 1 and 'Bot shield flagged' in sent[0][0][2] and sent[0][1]['meta']['source']
+
+
+def test_unfuse_close_needs_your_verified_sells(monkeypatch):
+    monkeypatch.setattr(rs, '_session_or_401', lambda a, s: rs.primary_of(a))
+    me = rs.primary_of(W)
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'p1', 'wallet': me, 'name': 'X', 'at': 1, 'legs': [{'pairAddress': 'P1', 'mint': 'M1', 'usd': 2, 'tokens': 1}]}]})
+    rs._json_save(rs.FEELESS_TRADES_PATH, {me: [{'tx': 'SELL1', 'side': 'sell', 'usd': 2.5, 'token': 'M1'}, {'tx': 'BUYX', 'side': 'buy', 'usd': 9, 'token': 'M1'}]})
+    assert asyncio.run(rs.fuse_position_close(rs.FuseCloseIn(address=W, session='s', id='p1', signatures=['BUYX'])))['closedLegs'] == 0
+    assert asyncio.run(rs.fuse_position_close(rs.FuseCloseIn(address=W, session='s', id='p1', signatures=['SELL1'])))['closedLegs'] == 1
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.fuse_position_close(rs.FuseCloseIn(address=W, session='s', id='nope', signatures=['SELL1'])))

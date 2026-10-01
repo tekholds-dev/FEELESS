@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { useWallet } from '../hooks/useWallet';
+import { FuseGo } from './FuseGo';
+import { unfuseOrders } from '../lib/fuseGo';
 
 // Fuse money side. FusePnl = a trader's own fuses (Trade › Fuse Lab). FuseHQ = Cmd Ctr: everyone's P&L, the paper
 // arena (champions run a pretend $5 for 24h — the proof a strategy works), bloodlines, published-Fuse health.
@@ -14,6 +16,11 @@ export function FusePnl() {
   const { wallet } = useWallet() || {};
   const addr = wallet?.chain === 'solana' ? wallet.address : null;
   const [d, setD] = useState(null);
+  const [exit, setExit] = useState(null);   // {id, orders} while unfusing one position
+  const unfuse = async r => {
+    const bal = Object.fromEntries(await Promise.all(r.legs.filter(l => l.mint).map(l => fetch(apiUrl(`/api/reputation/balance/${addr}/${l.mint}`)).then(x => (x.ok ? x.json() : null)).catch(() => null).then(b => [l.mint, b]))));
+    setExit({ id: r.id, orders: unfuseOrders(r.legs, bal, addr) });
+  };
   useEffect(() => {
     if (!addr) { setD(null); return undefined; }
     let alive = true; const load = () => fetch(apiUrl(`/api/reputation/fuses/pnl/${addr}`)).then(r => (r.ok ? r.json() : null)).then(x => alive && setD(x)).catch(() => {});
@@ -23,7 +30,9 @@ export function FusePnl() {
   if (!d?.positions) return null;
   return <section className="m-card fpn" data-testid="fuse-pnl">
     <div className="fpn-head"><span className="m-label">YOUR FUSES</span><b className={`m-num ${tone(d.pnlUsd)}`}>{money(d.pnlUsd)} <small>{pct(d.pnlPct)}</small></b><small className="m-dim">{money(d.valueUsd)} now · {d.positions} fused</small></div>
-    <div className="fpn-rows">{d.rows.slice(0, 4).map(r => <div key={r.id} className="fpn-row"><span>{r.name}</span><small className="m-dim">{r.legs.map(l => l.symbol).join(' · ')} · {ago(r.at)}</small><b className={`m-num ${tone(r.pnlUsd)}`}>{pct(r.pnlPct)}</b></div>)}</div>
+    <div className="fpn-rows">{d.rows.slice(0, 4).map(r => <React.Fragment key={r.id}><div className={`fpn-row has-act ${r.closed ? 'is-closed' : ''}`}><span>{r.name}</span><small className="m-dim">{r.legs.map(l => l.symbol).join(' · ')} · {ago(r.at)}{r.closed ? ' · closed' : ''}</small><b className={`m-num ${tone(r.pnlUsd)}`}>{pct(r.pnlPct)}</b>
+      {!r.closed && <button type="button" className="m-btn fl-clear" onClick={() => (exit?.id === r.id ? setExit(null) : unfuse(r))} data-testid={`unfuse-${r.id}`} title="Sell every leg back to SOL — one approval">{exit?.id === r.id ? 'Close' : '↩ Unfuse'}</button>}</div>
+      {exit?.id === r.id && <FuseGo side="sell" orders={exit.orders} position={r.id} onClose={() => setExit(null)} />}</React.Fragment>)}</div>
   </section>;
 }
 

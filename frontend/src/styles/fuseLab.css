@@ -284,3 +284,4 @@ body.theme-day .fside-tabs { background: var(--m-surface-2); }
 @media (prefers-reduced-motion: reduce) { .fside-ink, .fside-track { transition: none; } .fside-holders li { animation: none; } }
 .trade-tab-body { container-type: inline-size; }
 @container (max-width: 980px) { .fz-split-view { grid-template-columns: 1fr; } .fside { position: static; height: 560px; } }
+.fpn-row.has-act { grid-template-columns: minmax(80px, auto) 1fr auto auto; } .fpn-row.is-closed { opacity: .7; }

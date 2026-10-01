@@ -25,7 +25,8 @@ export function quoteLine(r) {
 }
 const fmt = n => (n == null ? '—' : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n >= 1 ? n.toFixed(2) : n.toPrecision(3));
 
-export function FuseGo({ legs, onClose, fuse }) {
+export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position }) {
+  const sell = side === 'sell';
   const { wallet, provider, connect, switchTo } = useWallet() || {};
   const addr = wallet?.chain === 'solana' ? wallet.address : null;
   const [rows, setRows] = useState([]);       // {leg, target, request, order, err, state, sig, skip}
@@ -34,7 +35,7 @@ export function FuseGo({ legs, onClose, fuse }) {
   const [rcpt, setRcpt] = useState(null);       // after: quoted vs paid (server receipt)
 
   const quoteAll = async () => {
-    const plan = fuseOrders(legs, addr); const my = ++seq.current;
+    const plan = orders || fuseOrders(legs, addr); const my = ++seq.current;
     const got = await Promise.all(plan.map(async o => {
       if (o.skip) return o;
       try { const order = await api('/quote', o.request); await api('/simulate', { order_id: order.order_id }); return orderMatches(o, order) ? { ...o, order } : { ...o, err: 'Quote did not match — refreshing' }; }
@@ -68,7 +69,7 @@ export function FuseGo({ legs, onClose, fuse }) {
           let res = await api('/execute', { order_id: id, signed_transaction: b64(signed[i].serialize()) }); up(id, { state: res.state, sig: res.signature });
           for (let k = 0; k < 30 && res.signature && !['confirmed', 'failed'].includes(res.state); k++) { await new Promise(z => setTimeout(z, 2000)); try { res = await api(`/order/${id}`); up(id, { state: res.state }); } catch { /* keep polling */ } }
           if (res.state === 'confirmed') landed.push({ pairAddress: r.leg.pairAddress, chainId: r.leg.chainId || 'solana', symbol: r.target.symbol, signature: res.signature });
-          if (res.state === 'confirmed') window.dispatchEvent(new CustomEvent('feeless:trade-confirmed', { detail: { mint: r.target.mint, side: 'buy', signature: res.signature, usd: Number(r.order.quote?.inUsdValue) || 0, wallet: addr, tokens: outOf(r.order) } }));
+          if (res.state === 'confirmed') window.dispatchEvent(new CustomEvent('feeless:trade-confirmed', { detail: { mint: r.target.mint, side, signature: res.signature, usd: Number(r.order.quote?.inUsdValue) || 0, wallet: addr, tokens: outOf(r.order) } }));
         } catch (e) { up(id, { state: 'failed', err: e.message }); }
       }));
       setPhase('done');
@@ -78,9 +79,11 @@ export function FuseGo({ legs, onClose, fuse }) {
         body: JSON.stringify({ address: addr, legs: quoted }) }).then(r => r.json()).then(d => d?.legs && setRcpt(d)).catch(() => {}), ms));
       // Fuse P&L: the server re-checks every signature is your confirmed FEELESS buy (retried while the fill is read).
       const ses = landed.length && readChatSession(addr);
-      if (ses) [5000, 20000].forEach(ms => setTimeout(() => fetch(apiUrl('/api/reputation/fuses/position'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      if (ses && sell && position) [5000, 20000].forEach(ms => setTimeout(() => fetch(apiUrl('/api/reputation/fuses/position/close'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: addr, session: ses, id: position, signatures: landed.map(l => l.signature) }) }).then(() => window.dispatchEvent(new Event('feeless:fuse-pnl'))).catch(() => {}), ms));
+      if (ses && !sell) [5000, 20000].forEach(ms => setTimeout(() => fetch(apiUrl('/api/reputation/fuses/position'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: addr, session: ses, name: fuse?.name || 'Lab fuse', fuseId: fuse?.id || '', legs: landed }) }).then(() => window.dispatchEvent(new Event('feeless:fuse-pnl'))).catch(() => {}), ms));
-      if (ses && fuse?.id) landed.forEach(l => [6000, 25000].forEach(ms => setTimeout(() => fetch(apiUrl(`/api/reputation/fuses/${fuse.id}/buy`), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      if (ses && !sell && fuse?.id) landed.forEach(l => [6000, 25000].forEach(ms => setTimeout(() => fetch(apiUrl(`/api/reputation/fuses/${fuse.id}/buy`), { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: addr, session: ses, signature: l.signature }) }).catch(() => {}), ms)));   // creator's cut
     } catch (e) { toast.error(/reject|cancel/i.test(e.message) ? 'Cancelled in your wallet — nothing was sent.' : e.message); setPhase('review'); }
   };
@@ -91,8 +94,8 @@ export function FuseGo({ legs, onClose, fuse }) {
   if (!addr) return <div className="fg"><p className="m-dim">Connect a Solana wallet to fuse in — one approval covers every pool.</p>
     <div className="fg-acts"><button type="button" className="m-btn primary m-go" onClick={() => (wallet && switchTo ? switchTo('solana') : connect?.('solana'))}>Connect Solana wallet</button><button type="button" className="m-btn" onClick={onClose}>Back</button></div></div>;
   return <div className="fg" data-testid="fuse-go">
-    <div className="fg-head"><span className="m-label">{phase === 'done' ? 'FUSED' : phase === 'sending' ? 'SENDING' : phase === 'signing' ? 'APPROVE IN WALLET' : 'REVIEW · LIVE QUOTES'}</span>{['quote', 'review'].includes(phase) && <i className="fg-pulse" title="Quotes refresh every 10s" />}</div>
-    <ul className="fg-legs">{(rows.length ? rows : fuseOrders(legs, addr)).map((r, i) => <li key={r.leg.pairAddress} className={`fg-leg s-${r.state || (r.err || r.skip ? 'err' : r.order ? 'ok' : 'wait')}`} style={{ animationDelay: `${i * 40}ms` }}>
+    <div className="fg-head"><span className="m-label">{phase === 'done' ? (sell ? 'UNFUSED' : 'FUSED') : phase === 'sending' ? 'SENDING' : phase === 'signing' ? 'APPROVE IN WALLET' : 'REVIEW · LIVE QUOTES'}</span>{['quote', 'review'].includes(phase) && <i className="fg-pulse" title="Quotes refresh every 10s" />}</div>
+    <ul className="fg-legs">{(rows.length ? rows : orders || fuseOrders(legs, addr)).map((r, i) => <li key={r.leg.pairAddress} className={`fg-leg s-${r.state || (r.err || r.skip ? 'err' : r.order ? 'ok' : 'wait')}`} style={{ animationDelay: `${i * 40}ms` }}>
       <b>{r.target?.symbol || r.leg.symbol}</b><span className="m-num">{r.request?.amount ?? r.leg.sol} SOL</span>
       <span className="m-num m-dim">{r.skip || r.err || (r.order ? `≈ ${fmt(outOf(r.order))} ${r.target.symbol}` : 'quoting…')}</span>
       <em>{r.state === 'confirmed' ? <a href={`https://solscan.io/tx/${r.sig}`} target="_blank" rel="noopener noreferrer">✓ done</a> : r.state === 'failed' ? '✕ failed' : r.state ? '… landing' : r.order ? '✓ simulated' : ''}</em></li>)}</ul>
@@ -102,7 +105,7 @@ export function FuseGo({ legs, onClose, fuse }) {
           <tbody>{lines.map(l => <tr key={l.symbol}><td>{l.symbol}</td><td>{l.sol} SOL<small>{usd2(l.usd)}</small></td><td>{fmt(l.tokens)}</td><td>{usd2(l.feeUsd)}</td><td>{usd2(l.networkUsd)}</td><td className={l.impact > 1 ? 'm-neg' : ''}>{l.impact != null ? `${l.impact.toFixed(2)}%` : '—'}</td></tr>)}</tbody>
           <tfoot><tr><td>Total</td><td>{tot.sol.toFixed(4)} SOL<small>{usd2(tot.usd)}</small></td><td /><td>{usd2(tot.fee)}</td><td>{usd2(tot.net)}</td><td /></tr></tfoot></table>
         <p className="fg-rcpt-note">Costs {usd2(tot.fee + tot.net)} = <b>{tot.usd ? ((tot.fee + tot.net) / tot.usd * 100).toFixed(1) : 0}%</b> of {usd2(tot.usd)}. {tot.usd && (tot.fee + tot.net) / tot.usd > 0.05 ? 'High for this size — fewer pools or more SOL keeps more working.' : 'Quotes refresh every 10s until you sign.'}</p></div>}
-      <div className="fg-acts"><button type="button" className="m-btn primary m-go" disabled={!ready.length || phase !== 'review'} onClick={signAll} data-testid="fg-sign">{phase === 'signing' ? 'Waiting for wallet…' : phase === 'sending' ? 'Sending…' : `⚡ Approve ${ready.length} swap${ready.length === 1 ? '' : 's'} · 1 click`}</button>
+      <div className="fg-acts"><button type="button" className="m-btn primary m-go" disabled={!ready.length || phase !== 'review'} onClick={signAll} data-testid="fg-sign">{phase === 'signing' ? 'Waiting for wallet…' : phase === 'sending' ? 'Sending…' : `${sell ? '↩ Unfuse' : '⚡ Approve'} ${ready.length} ${sell ? 'sell' : 'swap'}${ready.length === 1 ? '' : 's'} · 1 click`}</button>
         <button type="button" className="m-btn" disabled={['signing', 'sending'].includes(phase)} onClick={onClose}>Cancel</button></div>
       <small className="m-dim">Each pool is a normal swap your wallet signs. You approve them together; each lands on its own.</small>
     </> : <>

@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef } from 'react';
+import React, { useState, useEffect, useId, useRef } from 'react';
 import { apiUrl } from '../../lib/api';
 
 // A FEELESS card: front = art, back = lore + money. Drag to turn it in 3D, click (or Enter) to flip.
@@ -12,8 +12,12 @@ const serial = key => { let h = 7; for (const c of String(key)) h = (h * 31 + c.
 const reduced = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 // Rarity crest: more rank = more ornate frame. SVG so it stays crisp at any size.
+// card.art = one URL or a fallback chain (e.g. tokenImageUrls(pair)); a failed image falls to the next, then the glyph.
 function Crest({ card, id }) {
   const r = RANK[card.rarity] || 2;
+  const arts = (Array.isArray(card.art) ? card.art : [card.art]).filter(Boolean);
+  const [tried, setTry] = useState(0);
+  const art = arts[tried];
   const pts = (n, rad, rot = -90) => Array.from({ length: n }, (_, i) => { const a = ((360 / n) * i + rot) * Math.PI / 180; return `${50 + rad * Math.cos(a)},${50 + rad * Math.sin(a)}`; }).join(' ');
   const star = Array.from({ length: 16 }, (_, i) => { const a = (22.5 * i - 90) * Math.PI / 180; const rad = i % 2 ? 36 : 47; return `${50 + rad * Math.cos(a)},${50 + rad * Math.sin(a)}`; }).join(' ');
   return <svg className="mc-crest" viewBox="0 0 100 100" aria-hidden="true">
@@ -28,7 +32,7 @@ function Crest({ card, id }) {
         : <circle cx="50" cy="50" r="38" fill="rgba(0,0,0,.45)" stroke={`url(#${id}g)`} strokeWidth={r >= 4 ? 3 : 2} />}
     {r >= 3 && Array.from({ length: r >= 4 ? 12 : 8 }, (_, i) => { const a = ((360 / (r >= 4 ? 12 : 8)) * i) * Math.PI / 180; return <line key={i} x1={50 + 33 * Math.cos(a)} y1={50 + 33 * Math.sin(a)} x2={50 + 36 * Math.cos(a)} y2={50 + 36 * Math.sin(a)} stroke="var(--a)" strokeWidth="1.4" />; })}
     <circle cx="50" cy="50" r="30" fill="#020805" stroke="var(--a)" strokeOpacity=".5" />
-    {card.art ? <image href={src(card.art)} x="21" y="21" width="58" height="58" preserveAspectRatio="xMidYMid slice" clipPath={`url(#${id}c)`} />
+    {art ? <image key={art} href={src(art)} x="21" y="21" width="58" height="58" preserveAspectRatio="xMidYMid slice" clipPath={`url(#${id}c)`} onError={() => setTry(t => t + 1)} />
       : <text x="50" y="61" textAnchor="middle" fontSize="30">{card.glyph || '✦'}</text>}
   </svg>;
 }

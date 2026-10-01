@@ -2824,8 +2824,7 @@ async def fuses_evolve(request: Request, p: FuseEvolveIn):
     out = await asyncio.to_thread(_fuse.evolve, metas, p.legs, p.generations, p.population, p.style if p.style in _fuse.STYLES else 'yield',
                                   p.sol, sol_usd, p.seed or int(time.time()), seeds)
     out['seeded'] = len(seeds)
-    out['champions'] = [{**c, 'legs': [{**{k: metas[pa].get(k) for k in ('symbol', 'quote', 'dex', 'logo', 'liquidityUsd', 'aprEst', 'change24h')},
-                                        'chainId': p.chain, 'pairAddress': pa, 'weight': c['weights'][pa]} for pa in c['pools']]} for c in out['champions']]
+    out['champions'] = [_champ_view(c, metas, p.chain) for c in out['champions']]
     return {**out, 'solUsd': sol_usd, 'styles': list(_fuse.STYLES)}
 
 
@@ -2881,6 +2880,33 @@ async def fuse_receipt(p: FuseReceiptIn):
     sigs = {str(x.get('sig') or '') for x in (p.legs or [])[:_fuse.MAX_LEGS]}
     actual = {x['tx']: x for w, rows in _json_load(FEELESS_TRADES_PATH, {}).items() if w in mine for x in rows or [] if x.get('tx') in sigs}
     return _hq.receipt((p.legs or [])[:_fuse.MAX_LEGS], actual)
+
+
+class FuseCloseIn(BaseModel):
+    address: str
+    session: str
+    id: str
+    signatures: list
+
+
+@app.post('/api/reputation/fuses/position/close')
+async def fuse_position_close(p: FuseCloseIn):
+    """Unfuse: each leg is closed only by one of YOUR confirmed FEELESS sells of that leg's coin (realized $ from that record)."""
+    me = _session_or_401(p.address, p.session)
+    mine = set(linked_of(me)) | {me}
+    sigs = {str(x) for x in (p.signatures or [])[:_fuse.MAX_LEGS]}
+    sells = [x for w, rows in _json_load(FEELESS_TRADES_PATH, {}).items() if w in mine for x in rows or [] if x.get('tx') in sigs and x.get('side') == 'sell']
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {})
+        pos = next((x for x in d.get('positions') or [] if x['id'] == p.id and x['wallet'] in mine), None)
+        if not pos:
+            raise HTTPException(404, 'No such Fuse position for this wallet.')
+        used = {leg.get('sellSig') for x in d.get('positions') or [] for leg in x['legs']}
+        pos, n = _hq.close_legs(pos, [t for t in sells if t['tx'] not in used])
+        if n and all(leg.get('soldUsd') is not None for leg in pos['legs']):
+            pos['closedAt'] = time.time()
+        _json_save(FUSE_HQ_PATH, d)
+    return {'ok': True, 'closedLegs': n}
 
 
 async def _hq_prices(legs):

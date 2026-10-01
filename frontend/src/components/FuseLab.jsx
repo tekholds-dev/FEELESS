@@ -5,6 +5,8 @@ import { FuseGo } from './FuseGo';
 import { FuseEvolve } from './FuseEvolve';
 import { FusePnl } from './FuseHQ';
 import { FuseRail } from './FuseRail';
+import { legPair } from './FuseCard';
+import { TokenAvatar } from './terminal/MarketPrimitives';
 import { FuseExplainer } from './FuseDeck';
 import '../styles/fuseLab.css';
 
@@ -83,7 +85,7 @@ export function FuseLab({ chain = 'solana', call }) {
             : shown.map(p => { const on = isOn(p); const full = !on && picked.length >= MAX;
               return <button type="button" role="option" aria-selected={on} key={p.pairAddress} className={`fl-row ${on ? 'is-on' : ''}`} disabled={full} onClick={() => toggle(p)} data-testid={`fl-pool-${p.pairAddress}`} title={full ? `Max ${MAX} pools` : undefined}>
                 <span className="fl-check" aria-hidden="true">{on ? '✓' : '+'}</span>
-                <span className="fl-logo">{p.logo ? <img src={p.logo} alt="" loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} /> : (p.symbol || '?').slice(0, 2)}</span>
+                <span className="fl-logo"><TokenAvatar pair={legPair(p)} size={28} /></span>
                 <span className="fl-name"><b>{p.symbol}<small>/{p.quote}</small></b><em>{p.dex}</em></span>
                 <span className="fl-cell"><small>LIQ</small><b className="m-num">{usd(p.liquidityUsd)}</b></span>
                 <span className="fl-cell"><small>VOL 24H</small><b className="m-num">{usd(p.volume24h)}</b></span>

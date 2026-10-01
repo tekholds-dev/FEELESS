@@ -27,10 +27,11 @@ def position_pnl(pos, prices):
     legs, cost, value = [], 0.0, 0.0
     for leg in pos.get('legs') or []:
         c, t, px = _f(leg.get('usd')), _f(leg.get('tokens')), _f(prices.get(leg.get('pairAddress')))
-        v = t * px if px > 0 else c          # no live price → shown at cost, never invented
+        sold = leg.get('soldUsd')
+        v = _f(sold) if sold is not None else t * px if px > 0 else c   # unfused leg = realized; no live price → at cost, never invented
         cost += c; value += v
         legs.append({**leg, 'valueUsd': round(v, 4), 'pnlUsd': round(v - c, 4), 'pnlPct': round((v / c - 1) * 100, 2) if c > 0 else 0.0, 'priced': px > 0})
-    return {**{k: pos.get(k) for k in ('id', 'name', 'fuseId', 'at', 'wallet')}, 'legs': legs, 'costUsd': round(cost, 4), 'valueUsd': round(value, 4),
+    return {**{k: pos.get(k) for k in ('id', 'name', 'fuseId', 'at', 'wallet', 'closedAt')}, 'closed': all(l.get('soldUsd') is not None for l in legs) and bool(legs), 'legs': legs, 'costUsd': round(cost, 4), 'valueUsd': round(value, 4),
             'pnlUsd': round(value - cost, 4), 'pnlPct': round((value / cost - 1) * 100, 2) if cost > 0 else 0.0}
 
 
@@ -139,3 +140,16 @@ def trust_rank(points, buyers, trusted):
     if not buyers:
         return float(points)
     return round(points + 15 * (trusted / buyers) * min(1.0, buyers / 5), 2)
+
+
+def close_legs(pos, sells):
+    """Unfuse: attach realized $ to each leg from the wallet's verified SELL trades of that leg's coin (sig → record).
+    A leg can be closed once; returns (updated pos, legs closed now)."""
+    n = 0
+    for leg in pos.get('legs') or []:
+        if leg.get('soldUsd') is not None:
+            continue
+        hit = next((t for t in sells if t.get('token') == leg.get('mint')), None)
+        if hit:
+            leg['soldUsd'] = round(_f(hit.get('usd')), 6); leg['sellSig'] = hit.get('tx'); n += 1
+    return pos, n

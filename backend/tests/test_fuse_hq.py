@@ -55,3 +55,13 @@ def test_autopilot_once_per_hour_per_style_and_trust_rank():
     assert hq.autopilot_due(arena, 'degen', 2000)                       # manual entries don't block autopilot
     assert hq.trust_rank(60, 0, 0) == 60 and hq.trust_rank(60, 10, 10) == 75 and hq.trust_rank(60, 1, 1) == 63
     assert hq.trust_rank(60, 10, 2) < hq.trust_rank(60, 10, 9)
+
+
+def test_unfuse_realizes_from_sells_once():
+    pos = {'id': 'x', 'legs': [{'pairAddress': 'A', 'mint': 'MA', 'usd': 2, 'tokens': 100}, {'pairAddress': 'B', 'mint': 'MB', 'usd': 3, 'tokens': 10}]}
+    pos, n = hq.close_legs(pos, [{'tx': 's1', 'token': 'MA', 'usd': 2.6}])
+    assert n == 1 and pos['legs'][0]['soldUsd'] == 2.6
+    r = hq.position_pnl(pos, {'A': 999, 'B': 0.3})                      # sold leg ignores live price
+    assert r['legs'][0]['valueUsd'] == 2.6 and not r['closed']
+    pos, n2 = hq.close_legs(pos, [{'tx': 's2', 'token': 'MA', 'usd': 9}, {'tx': 's3', 'token': 'MB', 'usd': 3.3}])
+    assert n2 == 1 and pos['legs'][0]['soldUsd'] == 2.6 and hq.position_pnl(pos, {})['closed']
