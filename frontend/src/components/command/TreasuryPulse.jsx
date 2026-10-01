@@ -4,6 +4,13 @@ import { useMoneyPulse, refreshPulse } from '../../lib/moneyPulse';
 
 // Header strip, fed by the ONE money pulse (lib/moneyPulse): fees today, unsplit fees, money ready to pay out,
 // and the preflight (everything a real-money trade depends on). Click READY for every check + its fix.
+// True label for the second number: a ledger younger than 7 days is shown as what it is ("all since 9h ago").
+export function feeWindow(since, now = Date.now() / 1000) {
+  if (!since || now - since >= 7 * 86400) return '7d';
+  const h = (now - since) / 3600;
+  return `all since ${h < 48 ? `${Math.max(1, Math.round(h))}h` : `${Math.round(h / 24)}d`} ago`;
+}
+
 export function TreasuryPulse({ call, onOpen }) {
   const px = useSolUsd();
   const { data: d, error, at } = useMoneyPulse(call);
@@ -26,7 +33,7 @@ export function TreasuryPulse({ call, onOpen }) {
   const needs = (d.alerts || []).filter(a => a.tone !== 'ok').length;
   const ago = Math.max(0, Math.round((Date.now() - at) / 1000));
   return <div className="tr-pulse" data-testid="treasury-pulse" ref={box}>
-    <button type="button" onClick={() => onOpen('fees')} title="Trading & fees"><small>FEES TODAY</small><b>{money(d.feesTodayUsd || 0)}</b><em>{money(d.fees7dUsd || 0)} · 7d</em></button>
+    <button type="button" onClick={() => onOpen('fees')} title="Trading & fees"><small>FEES TODAY</small><b>{money(d.feesTodayUsd || 0)}</b><em title="Rolling windows from the on-chain fee ledger">{money(d.fees7dUsd || 0)} · {feeWindow(d.feesSince)}</em></button>
     <button type="button" className={wsol + usdc > 0 ? 'hot' : ''} onClick={() => onOpen('treasury', { asset: wsol >= usdc ? 'wSOL' : 'USDC', amount: String(wsol >= usdc ? wsol : usdc) })} title="Split now">
       <small>UNSPLIT</small><b>{wsol ? `${wsol.toFixed(3)} SOL` : ''}{wsol && usdc ? ' + ' : ''}{usdc ? `$${usdc.toFixed(2)}` : ''}{!wsol && !usdc ? '0' : ''}</b>{unsplitUsd > 0 && <em>{money(unsplitUsd)} → split</em>}</button>
     <button type="button" className={ready ? 'hot' : ''} onClick={() => onOpen('reserve')} title="Reserve & badge pools"><small>PAYOUTS</small><b>{ready ? `${ready} ready` : 'none due'}</b>{needs > 0 && <em className="m-neg">{needs} need you</em>}</button>

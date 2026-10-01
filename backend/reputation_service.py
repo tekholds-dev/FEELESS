@@ -8702,7 +8702,7 @@ async def _money_pulse_build(me: str, owner: bool) -> dict:
     if not chain_ok:
         checks.insert(0, {'key': 'chain', 'label': 'Chain read', 'ok': False, 'fix': 'RPC did not answer; balances below may be stale.'})
     trim = lambda plan: {**plan, 'rows': plan['rows'][:60]}
-    out = {'at': time.time(), 'owner': owner, 'chainOk': chain_ok, 'feesTodayUsd': fees_day, 'fees7dUsd': fees_week, 'admin': me, 'adminSol': sol(me), 'feeAccounts': fee_rows,
+    out = {'at': time.time(), 'owner': owner, 'chainOk': chain_ok, 'feesTodayUsd': fees_day, 'fees7dUsd': fees_week, 'feesSince': min((x['t'] for r in ledger.values() for x in r), default=None), 'admin': me, 'adminSol': sol(me), 'feeAccounts': fee_rows,
            'reserves': {r['season']['id']: trim(r) for r in reserves}, 'pools': {p['pool']['id']: trim(p) for p in pool_plans},
            'circle': circ, 'checks': checks, 'alerts': money_pulse.alerts(reserves, pool_plans, circ.get('wallets'))}
     return out
