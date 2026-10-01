@@ -15,11 +15,11 @@ def test_features_bucket_the_setup():
     assert f == {'h1': '15-30%', 'flow': '2x+', 'depth': '10%+', 'age': '6-24h', 'm5': '1-3%', 'mc': '250K-1M', 'lane': 'core', 'gap': 'fvg'}
 
 
-def test_new_setups_trade_at_default_size_and_luck_does_not_rewrite_the_playbook():
+def test_new_setups_trade_at_probation_size_and_luck_does_not_rewrite_the_playbook():
     setup = fb.setup_features(PAIR, NOW)
-    assert fb.setup_edge(setup, {})['mult'] == 1.0
+    assert fb.setup_edge(setup, {})['mult'] == fb.PROBATION_MULT == 0.25   # untested: small until it proves itself
     lucky = fb.edge_table([{'setup': setup, 'ret': 80, 'win': True, 'at': NOW}] * 3)   # 3 trades < MIN_N
-    assert fb.setup_edge(setup, lucky)['mult'] == 1.0
+    assert fb.setup_edge(setup, lucky)['mult'] == fb.PROBATION_MULT        # 3 lucky wins are not proof
 
 
 def test_proven_winner_sizes_up_proven_loser_is_vetoed():

@@ -93,6 +93,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - `openWarRoom(pair)` opens any coin's war room in the terminal (one lazy `WarRoomHost`).
 - Uploads: no sign-in needed, so 20/hour per IP; GIFs skip the canvas crop (keeps animation), 6 MB cap; stills 2 MB.
 
+## FUSE (fused pools)
+- `backend/fuse.py` (pure, tested) + `/api/reputation/fuses*`: baskets of 2–6 live pools with weights; index = 100 at
+  launch; A–F score with reasons; pool picker drops parked/fake pools (no volume or liquidity > 2,000× volume).
+- Fuse in = one normal wallet-signed swap per leg (no new money path). A Fuse buy counts only if the signature is the
+  buyer's confirmed FEELESS trade; the creator's cut (≤50% of that FEELESS fee) is tracked earned/paid/owed.
+- Built and paid out in Cmd Ctr › ⚛️ Fuse. System map: `docs/ARCHITECTURE.md`.
+
 ## Badges + quest engine
 - `backend/quests.py` (pure, tested): 40 animated badges = FEELESS set (`q-*`, everyone) + Fee Reserve set (`frsv-*`, every
   task needs $FEE held). Each badge = tasks on metrics computed only from FEELESS records (verified trades, chat, calls,

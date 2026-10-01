@@ -60,6 +60,9 @@ def edge_table(memory: list) -> dict:
     return out
 
 
+PROBATION_MULT = 0.25
+
+
 def setup_edge(setup: dict, table: dict) -> dict:
     """Size multiplier (0.5-1.5) and an optional veto for a new entry, with the buckets that decided it."""
     seen = [(f'{f}={b}', table[f'{f}={b}']) for f, b in setup.items() if table.get(f'{f}={b}', {}).get('n', 0) >= MIN_N]
@@ -67,7 +70,8 @@ def setup_edge(setup: dict, table: dict) -> dict:
         if s['n'] >= VETO_N and s['winRate'] <= 25 and s['avgRet'] <= -5:
             return {'mult': 0.0, 'veto': True, 'why': f"{k} lost {s['n'] - s['wins']}/{s['n']} (avg {s['avgRet']:+.1f}%)", 'used': [k]}
     if not seen:
-        return {'mult': 1.0, 'veto': False, 'why': 'new setup, default size', 'used': []}
+        # Never-seen setup: probation size until her own results prove it (most of her losses were untested setups).
+        return {'mult': PROBATION_MULT, 'veto': False, 'why': f'new setup — probation size ({PROBATION_MULT}×) until it proves itself', 'used': []}
     total = sum(s['n'] for _, s in seen)
     edge = sum(s['edge'] * s['n'] for _, s in seen) / total
     mult = round(max(0.5, min(1.5, 1 + edge * 0.6)), 2)
