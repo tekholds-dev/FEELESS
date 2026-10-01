@@ -75,3 +75,18 @@ def test_season_paused_until_launch_then_scores(monkeypatch, tmp_path):
     asyncio.run(rs.quest_checkin(rs.QuestCheckin(address=W, session='s')))
     s = asyncio.run(rs.quest_board(W))
     assert s['season']['score'] >= 10           # today's check-in counts toward the live season
+
+
+def test_fee_report_shows_paid_back_and_earnings(monkeypatch, tmp_path):
+    _iso(monkeypatch, tmp_path)
+    monkeypatch.setattr(rs, '_push_load', lambda: {'subs': {}})
+    me = rs.primary_of(W)
+    for k in ('FEE_LEDGER_PATH', 'FEEBACK_PAID_PATH'):
+        monkeypatch.setattr(rs, k, tmp_path / f'{k}.json')
+    monkeypatch.setattr(rs.fee_report, 'fee_report', lambda rows, now: {'feesTotalUsd': 20.0, 'feeBackUsd': 5.0, 'fees7dUsd': 2.0})
+    rs._json_save(rs.FEEBACK_PAID_PATH, {me: 3.0})
+    rs._json_save(rs.POINTS_PATH, {me: {'total': 420, 'claims': {}}})
+    monkeypatch.setattr(rs, '_quick_rep', lambda a: {'score': 77, 'label': 'Trusted'})
+    out = asyncio.run(rs.fee_report_get(W))
+    assert out['feeBackPaidUsd'] == 3.0 and out['feeBackOwedUsd'] == 2.0 and out['paidBackPct'] == 25.0
+    assert out['earned']['points'] == 420 and out['earned']['rep'] == {'score': 77, 'label': 'Trusted'} and 'xp' in out['earned']
