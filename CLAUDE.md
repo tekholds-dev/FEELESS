@@ -211,6 +211,24 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - UI: `RunnersPanel` (Cmd Ctr › Fuse › 🏃 Runners first; also Trade › 🏃 Runners tab; admin-only "fuse unproven" override),
   `styles/runners.css` (fire accent `--rn-fire`). Lab toggle "🏃 +2 Runners add-on".
 
+## NEXT SESSION — Fuse 🧬 page (in progress; backend + Lab hooks DONE, page NOT built yet)
+Owner's spec: a top-level **Fuse 🧬** sidebar tab (distinct font, e.g. Google 'Audiowide'; add `['fuse', ...]` to ITEMS in
+TerminalShell + `page === 'fuse'` in Terminal.jsx + 'fuse' in the non-market page list) with sub-tabs **Lab | Runners | Arena |
+My cards** (`?tab=`). Trade page: drop the Fuse/Runners TradeTabs → small "Fuse 🧬 →" banner.
+- Lab: `<FuseLab runnerPicks onRunnerPicks incoming limits />` (props DONE) + right column = Featured Fuses
+  (`fuses` with `featured: true`, "Load" → `incoming={legs,sol,n}`) above `FuseSide`. Limits from `GET /fuses/limits/{addr}`.
+- Runners (users): pickable tiles from `GET /runners` (round picks + live passing), "Add to card" (≤3) → runnerPicks.
+  Full `RunnersPanel` + a settings editor (`GET/POST /admin/runners/config`) stay Cmd Ctr-only.
+- Arena (users): `GET /fuses/arena` (strategy board, outlook, runners proof + round bars).
+- My cards: `LiveFuseCard` per open position (live back DONE) + actions: 💰 take profit (pick legs + 25/50/100% →
+  `unfuseOrders(legs, bal, addr, 150, pct)` → `FuseGo side="sell" orders onLanded` → `POST /fuses/position/close`),
+  ⚖ rebalance (`rebalanceOrders` → onLanded: sells → close, buys → `POST /fuses/position/switch` merges top-ups),
+  auto-rebalance toggle (`POST /fuses/guard {rebalance: tol}`; alert link `?tab=cards&rebalance=<id>`), ⇄ switch
+  (sell one leg + buy a new pool/runner in one approval → close + switch), 🎯 limits, ↩ withdraw → receipt.
+- Profile: "Fuse receipts" section from `GET /fuses/receipts/{addr}` (events lifecycle).
+- Cmd Ctr: "Featured in Fuse Lab" toggle in FuseBuilder (`POST /admin/fuses` with `featured`), runner settings editor.
+- The FUSE Vault (one contract auto-weighting) stays design-only until audited + owner keys.
+
 ## Coin verification + coin badges
 - `backend/verify.py`: coins EARN and LOSE the check and coin badges (`COIN_BADGES`) the same way — recomputed each run
   (6h TTL); `transitions()` logs earned/lost with the reason into verify.json `history` (shown in `VerifyReport`).

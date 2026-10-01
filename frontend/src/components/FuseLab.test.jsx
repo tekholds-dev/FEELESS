@@ -16,7 +16,7 @@ test('pick two pools → live auto-weighted preview of where the SOL goes', asyn
   await tick(0);
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   await act(async () => { q('fl-pool-A').click(); });
-  expect(el.textContent).toContain('Pick one more pool');
+  expect(el.textContent).toContain('Pick one more leg');
   await act(async () => { q('fl-pool-B').click(); });
   await tick(300);
   expect(el.textContent).toContain('0.6 SOL');

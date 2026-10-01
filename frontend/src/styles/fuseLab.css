@@ -330,3 +330,8 @@ body.theme-day .vmath-col { background: var(--m-surface-2); }
 .qe-aura-row { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; padding: 16px 8px; }
 .fcd-live li.is-out { opacity: .55; } .fcd-live li span { font-family: var(--m-mono); }
 .fcd-px { font-style: normal; opacity: .85; } .fcd-px.up { color: #19f58f; } .fcd-px.down { color: #ff8fa3; }
+.fl-runner-picks { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 8px; border-radius: var(--m-r-sm); border: 1px dashed color-mix(in srgb, #ff7a2f 55%, var(--m-line)); }
+.fl-runner-picks > small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; color: #ff9a5a; width: 100%; }
+.fl-rchip { display: inline-flex; gap: 6px; align-items: center; padding: 3px 4px 3px 9px; border-radius: 999px; background: color-mix(in srgb, #ff7a2f 14%, var(--m-surface)); border: 1px solid color-mix(in srgb, #ff7a2f 45%, transparent); font-size: 12px; font-weight: 700; animation: mCardIn .2s var(--m-ease); }
+.fl-rchip em { font-style: normal; font-family: var(--m-mono); font-size: 8.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--m-dim); }
+.fl-rchip button { width: 20px; height: 20px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, .35); color: var(--m-text); cursor: pointer; } .fl-rchip button:hover { background: var(--m-danger); color: #fff; } .fl-rchip button:focus-visible { outline: 2px solid var(--m-accent); }

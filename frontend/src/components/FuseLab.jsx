@@ -22,7 +22,7 @@ const apr = v => (v >= 1000 ? `${(v / 100).toFixed(0)}x` : `${Math.round(v || 0)
 // Scroll the PAGE to the preview (never scrollIntoView: it would scroll inside the clipped card).
 const scrollToMix = () => { const el = document.querySelector('[data-testid="fuse-lab"] .fl-mix'); if (el) window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 120), behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); };
 
-export function FuseLab({ chain = 'solana', call }) {
+export function FuseLab({ chain = 'solana', call, runnerPicks = [], onRunnerPicks, incoming, limits }) {
   const admin = Boolean(call); const MAX = admin ? 10 : 3;
   const [manual, setManual] = useState(false); const [addon, setAddon] = useState(false); const [wts, setWts] = useState({}); const [pub, setPub] = useState({ name: '', emoji: '⚛️', creatorBps: 1000 });
   const [lens, setLens] = useState('popular');
@@ -47,16 +47,20 @@ export function FuseLab({ chain = 'solana', call }) {
     fetch(apiUrl(`/api/reputation/fuses/discover?lens=${lens}&chain=${chain}`)).then(r => (r.ok ? r.json() : { pools: [] })).then(d => alive && setPools(d.pools || [])).catch(() => alive && setPools([]));
     return () => { alive = false; }; }, [lens, chain]);
 
-  const key = picked.map(p => `${p.pairAddress}:${manual ? wts[p.pairAddress] || 1 : ''}`).join(',');
+  const key = picked.map(p => `${p.pairAddress}:${manual ? wts[p.pairAddress] || 1 : ''}`).join(',') + '|' + runnerPicks.map(r => r.mint).join(',');
+  const legsN = picked.length + runnerPicks.length;
   useEffect(() => {
     setGoing(false);
-    if (picked.length < 2) { setPrev(null); setErr(''); return undefined; }
-    const body = JSON.stringify({ pools: picked.map(p => ({ chainId: p.chainId, pairAddress: p.pairAddress, symbol: p.symbol, weight: manual ? wts[p.pairAddress] || 1 : 1 })), sol: Number(sol) || 0, manual: admin && manual, runners: addon });
+    if (legsN < 2) { setPrev(null); setErr(''); return undefined; }
+    const body = JSON.stringify({ pools: picked.map(p => ({ chainId: p.chainId, pairAddress: p.pairAddress, symbol: p.symbol, weight: manual ? wts[p.pairAddress] || 1 : 1 })), sol: Number(sol) || 0, manual: admin && manual, runners: addon && !runnerPicks.length, runnerMints: runnerPicks.map(r => r.mint) });
     const run = () => (admin ? call('/fuses/preview', { method: 'POST', body })
       : fetch(apiUrl('/api/reputation/fuses/preview'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.detail || 'Preview failed'); return d; }));
     const t = setTimeout(() => run().then(d => { setPrev(d); setErr(''); }).catch(e => setErr(e.message)), 250);
     return () => clearTimeout(t);
   }, [key, sol, manual, addon]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Featured / Runners tabs hand the Lab a basket to load (pools here, runners into the picks).
+  useEffect(() => { if (!incoming?.n) return; const pools = incoming.legs.filter(l => !l.runner && l.role !== 'runner').slice(0, MAX);
+    setManual(false); setPicked(pools); if (incoming.sol) setSol(incoming.sol.toFixed(4)); scrollToMix(); }, [incoming?.n]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const shown = useMemo(() => { const s = q.trim().toLowerCase(); return (pools || []).filter(p => !s || `${p.symbol}/${p.quote} ${p.dex}`.toLowerCase().includes(s)); }, [pools, q]);
   const isOn = p => picked.some(x => x.pairAddress === p.pairAddress);
@@ -103,11 +107,13 @@ export function FuseLab({ chain = 'solana', call }) {
       </div>
       <aside className="fl-mix" aria-live="polite">
         <div className="fl-mix-head"><span className="m-label">YOUR FUSE · {picked.length}/{MAX}</span>{picked.length > 0 && <button type="button" className="m-btn fl-clear" onClick={() => setPicked([])}>Clear</button>}</div>
-        {picked.length < 2 ? <div className="fl-hint"><b>{picked.length ? 'Pick one more pool' : 'Tap pools on the left'}</b><small>The preview builds live as you pick.</small></div> : <>
+        {runnerPicks.length > 0 && <div className="fl-runner-picks" data-testid="fl-runner-picks"><small>🏃 RUNNERS {runnerPicks.length}/{admin ? 6 : 3}</small>{runnerPicks.map(r => <span key={r.mint} className="fl-rchip">{r.symbol || `${r.mint.slice(0, 4)}…`}<em>{r.lane}</em>
+          <button type="button" aria-label={`Remove ${r.symbol}`} onClick={() => onRunnerPicks?.(runnerPicks.filter(x => x.mint !== r.mint))}>×</button></span>)}</div>}
+        {legsN < 2 ? <div className="fl-hint"><b>{legsN ? 'Pick one more leg' : 'Tap pools on the left'}</b><small>{onRunnerPicks ? 'Up to 3 pools + 3 runners (Runners tab). ' : ''}The preview builds live as you pick.</small></div> : <>
           <label className="m-field fl-amt"><span>SOL in</span><div className="fl-amt-row"><input className="m-input m-num" inputMode="decimal" value={sol} onChange={e => setSol(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="SOL amount" />
             <div className="m-seg">{['0.5', '1', '5'].map(v => <button type="button" key={v} className={sol === v ? 'active' : ''} onClick={() => setSol(v)}>{v}</button>)}</div></div>
             {prev && <small className="m-dim">≈ {usd(prev.usd)} at {usd(prev.solUsd)}/SOL</small>}</label>
-          <label className="m-toggle fl-addon" data-tip="Bolts the 2 best Fuse Runners of this round onto your basket as a 20% slice (10% each). Runners are fresh Pump.fun coins — fast, gated, and risky."><input type="checkbox" checked={addon} onChange={e => setAddon(e.target.checked)} data-testid="fl-addon" /><span>🏃 +2 Runners add-on <small>20% slice</small></span></label>
+          {!onRunnerPicks && <label className="m-toggle fl-addon" data-tip="Bolts the 2 best Fuse Runners of this round onto your basket as a 20% slice (10% each). Runners are fresh Pump.fun coins — fast, gated, and risky."><input type="checkbox" checked={addon} onChange={e => setAddon(e.target.checked)} data-testid="fl-addon" /><span>🏃 +2 Runners add-on <small>20% slice</small></span></label>}
           {admin && <div className="fl-wmode"><div className="m-seg" role="radiogroup" aria-label="Weights"><button type="button" role="radio" aria-checked={!manual} className={!manual ? 'active' : ''} onClick={() => setManual(false)}>Auto weights</button><button type="button" role="radio" aria-checked={manual} className={manual ? 'active' : ''} onClick={() => setManual(true)}>Manual</button></div>
             {manual && picked.map(p => <label key={p.pairAddress} className="fl-slider"><span>{p.symbol}</span><input type="range" min="1" max="100" value={wts[p.pairAddress] || 1} onChange={e => setWts(w => ({ ...w, [p.pairAddress]: Number(e.target.value) }))} /><b className="m-num">{wts[p.pairAddress] || 1}</b></label>)}</div>}
           {err ? <div className="m-note bad">{err}</div> : !prev ? <div className="fl-row is-ghost" /> : <>
@@ -125,7 +131,8 @@ export function FuseLab({ chain = 'solana', call }) {
             {prev.impactWarn?.length > 0 && <div className="m-note warn"><b>SIZE GUARD</b><span>{prev.impactWarn.join(', ')}: your slice is over 1% of that pool — expect price impact. Lower the SOL or swap the pool.</span></div>}
             <details className="fl-why"><summary>Why these weights?</summary><p>Each pool scores <b>fee APR</b> (24h volume × 0.25% ÷ liquidity, capped 400%) × <b>depth</b> (log of liquidity). Shares are clamped to 10–70% so one pool never runs the fuse. Grade = depth + healthy turnover + calm 24h moves + forensics safety.</p>
               <ul>{prev.score.parts.map(p => <li key={p.part}><span>{p.part}</span><b className="m-num">{p.points}</b><small>{p.why}</small></li>)}</ul></details>
-            {!going ? <button type="button" className="m-btn primary m-go wide" disabled={!(Number(sol) > 0)} onClick={() => setGoing(true)} data-testid="fl-go">⚡ Fuse in {Number(sol) || 0} SOL · 1 click</button>
+            {limits && !limits.canOpen && <div className="m-note warn"><b>CARD LIMIT</b><span>You have {limits.open} open Fuse cards (max {limits.max}). Withdraw one in My cards{limits.max < 3 ? ` — or hold $${limits.feeFor3rd} of $FEE for a 3rd card` : ''}.</span></div>}
+            {!going ? <button type="button" className="m-btn primary m-go wide" disabled={!(Number(sol) > 0) || (limits && !limits.canOpen)} onClick={() => setGoing(true)} data-testid="fl-go">⚡ Fuse in {Number(sol) || 0} SOL · 1 click</button>
               : <FuseGo legs={prev.legs} onClose={() => setGoing(false)} />}
             {admin && <div className="fl-pub"><span className="m-label">PUBLISH AS A FUSE</span><div className="fl-pub-row"><input className="m-input fl-emoji" value={pub.emoji} maxLength={4} onChange={e => setPub(x => ({ ...x, emoji: e.target.value }))} aria-label="Emoji" />
               <input className="m-input" value={pub.name} maxLength={40} placeholder="Fuse name" onChange={e => setPub(x => ({ ...x, name: e.target.value }))} />
