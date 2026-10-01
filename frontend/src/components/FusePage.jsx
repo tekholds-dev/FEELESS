@@ -397,7 +397,7 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, addr, s
       {earn === r.id && <CardEarnings title={r.name || 'Your card'} taken={r.realizedUsd || 0} compounded={sumKind(r, 'topup')}
         events={[...(r.events || [])].reverse().map(e => ({ ...e, label: EARN_KIND[e.kind] || e.kind, to: e.kind === 'sell' ? ['cash'] : e.kind === 'topup' ? [e.symbol] : undefined, symbol: e.kind === 'topup' ? undefined : e.symbol }))}
         gainNow={Math.max(0, Math.min(r.pnlUsd || 0, (r.valueUsd || 0) - (r.realizedUsd || 0)))} onCollect={() => { setEarn(null); open(r, 'yield', { at: r.autoYield?.at || d.rules?.yieldDefault || 50, levels: d.rules?.yieldLevels || [25, 50, 100, 200] }); }} onClose={() => setEarn(null)}
-        autos={r.autos || []} legs={r.legs.filter(l => l.soldUsd == null).map(l => ({ ...l, frozen: (r.frozen || []).includes(l.pairAddress) }))} onFreeze={(l, on) => freeze(r, l, on)}
+        autos={r.autos || []} legs={r.legs.filter(l => l.soldUsd == null).map(l => ({ ...l, firstEntry: l.tokens ? l.usd / l.tokens : null, frozen: (r.frozen || []).includes(l.pairAddress) }))} onFreeze={(l, on) => freeze(r, l, on)}
         actions={[{ label: '＋ Top up', tip: 'Add SOL — equal split, by weight, or into one coin. One approval.', onClick: () => { setEarn(null); open(r, 'topup'); }, testid: `cw-topup-${r.id}` },
           { label: '💰 Take 50%', onClick: () => { setEarn(null); open(r, 'take', { pct: 50 }); } },
           { label: '⇄ Switch', disabled: r.nextSwitchAt > Date.now() / 1000, tip: 'One pool or coin per 24h', onClick: () => { setEarn(null); open(r, 'switch'); } },

@@ -21,3 +21,18 @@ test('Contract status never claims deployment and lists what is still blocked', 
   expect(el.textContent).toContain('LOCALNET ONLY · NOT AUDITED · NOT DEPLOYED');
   expect(el.querySelectorAll('.fops-steps li.ok').length).toBeGreaterThan(0); expect(el.textContent).toContain('swap adapters');
 });
+
+test('FeeCat tunes the engine in one click: best proven dial + stronger settings', async () => {
+  const { FeeCatTune, bestDial } = require('./FuseOpsPanels');
+  const dials = { safe: { rounds: 30, avgPct: -3.8, winRate: 40 }, balanced: { rounds: 30, avgPct: 1.3, winRate: 52 }, degen: { rounds: 30, avgPct: 18.3, winRate: 55 } };
+  expect(bestDial(dials)[0]).toBe('degen'); expect(bestDial({ degen: { rounds: 3, avgPct: 50 } })).toBe(null);
+  global.fetch = jest.fn(async () => ({ json: async () => ({ dials, engineDial: 'balanced' }) }));
+  const call = jest.fn(async (p, o) => (o ? {} : { suggestions: [{ key: 'minBuyShare', now: 50, to: 55, why: 'fewer dumps' }] }));
+  const el = document.createElement('div'); document.body.appendChild(el);
+  const { createRoot } = require('react-dom/client'); const { act } = require('react');
+  await act(async () => { createRoot(el).render(<FeeCatTune call={call} />); });
+  expect(el.textContent).toContain('degen'); expect(el.textContent).toContain('+18.3% avg');
+  await act(async () => { el.querySelector('[data-testid="feecat-tune-go"]').click(); });
+  const posts = call.mock.calls.filter(c => c[1]).map(c => JSON.parse(c[1].body));
+  expect(posts).toEqual([{ dial: 'degen' }, { cfg: { minBuyShare: 55 } }]);
+});

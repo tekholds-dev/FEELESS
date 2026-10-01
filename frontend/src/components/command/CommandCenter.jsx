@@ -8,7 +8,7 @@ import { FuseHQ } from '../FuseHQ';
 import { FuseDeck, VaultMath } from '../FuseDeck';
 import { RunnersPanel } from '../RunnersPanel';
 import { BundlePricing, EngineSuggest, RunnerSettings, CardRules, AutoYieldDefault, FusePayouts } from './FuseAdminSettings';
-import { ArenaOps, ContractStatus, EngineDial } from './FuseOpsPanels';
+import { ArenaOps, ContractStatus, EngineDial, FeeCatTune } from './FuseOpsPanels';
 import { PrimeControls } from '../ArenaPrime';
 import { QuestEngineAdmin } from './QuestEngineAdmin';
 import { LatencyPanel } from './LatencyPanel';
@@ -185,7 +185,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
       ['engine', '⚡ Engine', <><EngineDial call={call} /><EngineSuggest call={call} /><RunnerSettings call={call} /></>, 'Runner engine settings: gates, flow, bond boxes, lanes, battles, auto card. ⚡ shows anything weaker than recommended — one click applies it.', 'SYSTEM'],
       ['contract', '⛓ Contract', <ContractStatus />, 'FUSE Vault + FUSE Card programs: what\'s built, what\'s blocked, how to test. Localnet only — never deployed or funded without you.', 'SYSTEM'],
       ['vault', '🏦 Vault', <><VaultMath /><VaultDesigner call={call} /></>, 'Design only: a future on-chain vault (SOL in → shares, fees in SOL). Localnet v0.1 — never deployed or funded without you.', 'SYSTEM']]} />}{tab === 'badges' && <><QuestEngineAdmin call={call} /><AwardBadges call={call} initial={[...selected]} /></>}
-    {tab === 'feecat' && <FeeCatPanel call={call} />}
+    {tab === 'feecat' && <><FeeCatTune call={call} /><FeeCatPanel call={call} /></>}
     {tab === 'pools' && <PoolsPanel call={call} />}
     {tab === 'fees' && <><MoneyFlows /><FeesPanel call={call} /><FeeBook call={call} /></>}
     {tab === 'ads' && <AdsPanel call={call} />}

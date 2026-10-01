@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom';
 // 🪟 Card window: the same slide-in also carries the card's actions (＋ Top up · ⇄ Switch · ↩ Withdraw …), its coins with ❄ freeze
 // (a frozen coin is never touched by the engine — only you switch it) and every auto the engine fired in the last 24h.
 const $ = v => `$${Math.abs(v || 0).toFixed(2)}`;
+const px = v => (v >= 1 ? v.toFixed(2) : v >= 0.001 ? v.toFixed(5) : Number(v).toPrecision(3));
 const ago = t => { const s = Date.now() / 1000 - t; return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : s < 86400 ? `${Math.round(s / 3600)}h` : `${Math.round(s / 86400)}d`; };
 
 export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fees, gainNow, onCollect, onClose, paper, actions, legs, onFreeze, autos }) {
@@ -23,7 +24,7 @@ export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fe
         {gainNow > 0.01 ? `💸 Collect ${$(gainNow)} gain — one approval` : 'Nothing to collect yet (card is not up)'}</button>}
       {actions?.length > 0 && <div className="ce-acts" role="toolbar" aria-label="Card actions">{actions.map(a => <button key={a.label} type="button" className={`m-btn ${a.cls || ''}`} disabled={a.disabled} data-tip={a.tip} onClick={a.onClick} data-testid={a.testid}>{a.label}</button>)}</div>}
       {legs?.length > 0 && <section className="ce-legs"><span className="m-label">{onFreeze ? '❄ COINS · FREEZE = ENGINE HANDS OFF' : 'COINS'}</span>{legs.map(l => <div key={l.pairAddress} className={`ce-leg ${l.frozen ? 'is-frozen' : ''}`}>
-        <b>${l.symbol}</b><small className="m-dim">{l.role === 'runner' ? 'runner' : 'pool'}{l.stars ? ` · ${'★'.repeat(l.stars)}` : ''}</small><em className={`m-num ${(l.pnlPct || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{l.pnlPct == null ? '—' : `${l.pnlPct >= 0 ? '+' : ''}${Number(l.pnlPct).toFixed(1)}%`}</em>
+        <b>${l.symbol}</b><small className="m-dim">{l.role === 'anchor' ? '⚓ anchor' : l.role === 'runner' ? 'runner' : 'pool'}{l.stars ? ` · ${'★'.repeat(l.stars)}` : ''}{l.firstEntry ? ` · in @ $${px(l.firstEntry)}${l.at ? ` · ${ago(l.at)} ago` : ''}` : ''}</small><em className={`m-num ${(l.pnlPct || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{l.pnlPct == null ? '—' : `${l.pnlPct >= 0 ? '+' : ''}${Number(l.pnlPct).toFixed(1)}%`}</em>
         {onFreeze && <button type="button" className={`m-btn ce-frz ${l.frozen ? 'is-on' : ''}`} aria-pressed={!!l.frozen} onClick={() => onFreeze(l, !l.frozen)} data-testid={`freeze-${l.pairAddress}`}
           data-tip={l.frozen ? 'Frozen: auto-rotate / swap suggestions skip it. Tap to let the engine manage it again.' : 'Freeze: the engine never switches this coin — only you can.'}>{l.frozen ? '❄ Frozen' : '❄ Freeze'}</button>}</div>)}</section>}
       {autos && <section className="ce-autos"><span className="m-label">⚡ LAST 24H · AUTOS</span>{autos.length ? autos.map((a, i) => <a key={i} href={a.url} className="ce-auto" style={{ '--i': i }}><span>{a.text}</span><time className="m-dim">{ago(a.at)} ago</time></a>)

@@ -77,3 +77,32 @@ export function EngineDial({ call }) {
   return <section className="m-card fops" data-testid="engine-dial"><div className="m-row"><span className="m-label">🎚 ENGINE DIAL</span><small className="m-dim">one choice sets every gate + lane exit · fine-tune below makes it Custom</small></div>
     <RiskDial value={c.dial || 'custom'} onChange={pick} dials={c.dials} noProof testid="engine" /></section>;
 }
+
+// Cmd Ctr › Fee 🐱: FeeCat tunes the engine in ONE click — she reads the dial proof (which Safe/Balanced/Degen engine actually
+// paid over the last rounds) + the stronger-config finder, then applies both (the server audits every change).
+export const bestDial = dials => Object.entries(dials || {}).filter(([, p]) => p.rounds >= 8 && p.avgPct > 0)
+  .sort((a, b) => b[1].avgPct * (b[1].winRate || 1) - a[1].avgPct * (a[1].winRate || 1))[0] || null;
+export function FeeCatTune({ call }) {
+  const [s, setS] = useState(null); const [a, setA] = useState(null); const [busy, setBusy] = useState(false);
+  const load = () => Promise.all([call('/admin/runners/suggest').then(setS).catch(() => {}), fetch(apiUrl('/api/reputation/fuses/arena')).then(r => r.json()).then(setA).catch(() => {})]);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!s && !a) return <div className="fl-row is-ghost" />;
+  const best = bestDial(a?.dials); const sug = s?.suggestions || [];
+  const nothing = !sug.length && (!best || best[0] === a?.engineDial);
+  const tune = async () => {
+    setBusy(true);
+    try {
+      if (best && best[0] !== a?.engineDial) await call('/admin/runners/config', { method: 'POST', body: JSON.stringify({ dial: best[0] }) });
+      if (sug.length) await call('/admin/runners/config', { method: 'POST', body: JSON.stringify({ cfg: Object.fromEntries(sug.map(x => [x.key, x.to])) }) });
+      toast.success(`🐱 FeeCat tuned the engine${best ? ` · ${best[0]} dial (${best[1].avgPct >= 0 ? '+' : ''}${best[1].avgPct}% avg over ${best[1].rounds} rounds)` : ''}${sug.length ? ` · ${sug.length} settings` : ''}`);
+      window.dispatchEvent(new Event('feeless:runners')); load();
+    } catch (e) { toast.error(e.message); } finally { setBusy(false); }
+  };
+  return <section className="m-card m-live fops" data-testid="feecat-tune"><div className="m-row"><span className="m-label">🐱 FEECAT · ENGINE TUNE</span><small className="m-dim">she learns from the dial proof + every settled round · you click once</small></div>
+    <div className="fops-row">
+      <div className="fops-tile" data-tip="The engine dial with the best average round (≥8 rounds, avg > 0)"><small>BEST PROVEN DIAL</small><b className="m-num">{best ? best[0] : '—'}</b><em>{best ? `${best[1].avgPct >= 0 ? '+' : ''}${best[1].avgPct}% avg · ${best[1].winRate}% won · ${best[1].rounds} rounds` : 'not enough rounds yet'}</em></div>
+      <div className="fops-tile"><small>RUNNING NOW</small><b className="m-num">{a?.engineDial || 'custom'}</b><em>engine dial</em></div>
+      <div className="fops-tile" data-tip={sug.map(x => `${x.key}: ${x.now} → ${x.to} (${x.why})`).join('\n') || 'Nothing stronger found'}><small>STRONGER SETTINGS</small><b className="m-num">{sug.length}</b><em>{sug[0]?.why || 'engine is up to date'}</em></div>
+    </div>
+    <button type="button" className="m-btn primary m-go" disabled={busy || nothing} onClick={tune} data-testid="feecat-tune-go">{nothing ? '✓ Engine already at FeeCat\'s best' : busy ? 'Tuning…' : '🐱 Let FeeCat tune the engine'}</button></section>;
+}

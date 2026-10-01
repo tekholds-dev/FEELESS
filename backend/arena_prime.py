@@ -14,14 +14,41 @@ import math
 # Three top tiers. Every coin on a Prime card is rated 3–5★ (anything weaker never gets in). Each card holds a STABLE anchor
 # (a real major on Solana: SOL / JitoSOL / cbBTC …, never rotated, never stopped out) + deep pools + gated runners.
 TEMPLATES = {   # anchors / pools / runners per card + the dial it runs
-    'safe': {'label': '💎 Prime Diamond', 'tier': 'diamond', 'anchors': 2, 'pools': 1, 'runners': 1, 'tp': 30, 'sl': 15},
-    'balanced': {'label': '🥇 Prime Gold', 'tier': 'gold', 'anchors': 1, 'pools': 2, 'runners': 2, 'tp': 50, 'sl': 25},
-    'degen': {'label': '🔥 Prime Blaze', 'tier': 'blaze', 'anchors': 1, 'pools': 1, 'runners': 3, 'tp': 100, 'sl': 40},
+    # SOLID HOLDS first: majors (SOL / cbBTC / ETH / JitoSOL) carry the card; runners are a small, tightly stopped kicker.
+    'safe': {'label': '💎 Prime Diamond', 'tier': 'diamond', 'anchors': 3, 'pools': 1, 'runners': 0, 'tp': 30, 'sl': 12},
+    'balanced': {'label': '🥇 Prime Gold', 'tier': 'gold', 'anchors': 2, 'pools': 1, 'runners': 1, 'tp': 50, 'sl': 15},
+    'degen': {'label': '🔥 Prime Blaze', 'tier': 'blaze', 'anchors': 1, 'pools': 1, 'runners': 2, 'tp': 100, 'sl': 20},
 }
 MIN_STARS = 3
 HIT_PCT = 10.0      # a "good day" = the card is up ≥ +10% over 24h
-DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 6, 'rotateCount': 2, 'compound': True, 'paperFeeUsd': 0.10, 'floorPct': 20.0}
-CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (1, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 25)}
+DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.10, 'floorPct': 20.0}
+CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.25, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 25)}
+
+
+def exit_plan(gain_pct, mom=None):
+    """WHEN TO HODL vs SELL, from live momentum (chg1h, buyShare, vol accel = vol5m×12 vs vol1h):
+      • 🚀 ride  — strong (1h ≥ +10%, buys ≥ 55%, volume not fading): take out ONLY the original cost (house money) once the
+        coin has doubled, else just half the gain — the rest keeps running (this is how a 100×+ is held, not sold at +50%).
+      • 🏦 bank  — fading (1h < 0, buys < 45% or volume dying): sell 75% of the coin now.
+      • 💰 gain  — otherwise: sell just the gain, keep the cost basis riding.
+    Returns (mode, fraction_of_units_to_sell, why). No momentum data → 'gain'."""
+    m = mom or {}
+    g = max(0.0, _f(gain_pct))
+    if not m or g <= 0:
+        return 'gain', (g / (100 + g)) if g else 0.0, 'no live momentum — sold the gain'
+    ch, bs = _f(m.get('chg1h')), _f(m.get('buyShare'))
+    accel = (_f(m.get('vol5m')) * 12 / _f(m.get('vol1h'))) if _f(m.get('vol1h')) else 1.0
+    if ch >= 10 and bs >= 55 and accel >= 0.8:
+        frac = (100 / (100 + g)) if g >= 100 else (g / (100 + g)) / 2
+        return 'ride', frac, f"momentum strong (1h {ch:+.0f}%, {bs:.0f}% buys) — {'took out the original cost, house money rides' if g >= 100 else 'took half the gain, the rest rides'}"
+    if ch < 0 or bs < 45 or accel < 0.4:
+        return 'bank', 0.75, f"momentum fading (1h {ch:+.0f}%, {bs:.0f}% buys, volume ×{accel:.1f}) — banked 75%"
+    return 'gain', g / (100 + g), 'steady momentum — sold the gain, cost keeps riding'
+
+
+def fading(mom):
+    m = mom or {}
+    return bool(m) and (_f(m.get('chg1h')) < 0 and _f(m.get('buyShare')) < 50)
 
 
 def stars(c, role):
@@ -55,7 +82,7 @@ def clean_cfg(p):
     for k, (lo, hi) in CFG_RANGES.items():
         if k in (p or {}):
             out[k] = min(hi, max(lo, _f(p[k])))
-    out['rotateHours'], out['rotateCount'] = int(out['rotateHours']), int(out['rotateCount'])
+    out['rotateHours'], out['rotateCount'] = round(float(out['rotateHours']), 2), int(out['rotateCount'])
     for k in ('on', 'compound'):
         if k in (p or {}):
             out[k] = bool(p[k])
@@ -65,7 +92,7 @@ def clean_cfg(p):
 def _leg(c, usd, now, role):
     px = _f(c.get('price'))
     return {'mint': c['mint'], 'pairAddress': c['pairAddress'], 'symbol': c.get('symbol'), 'role': role, 'entry': px, 'units': usd / px if px > 0 else 0.0,
-            'costUsd': round(usd, 6), 'at': now, 'stars': c.get('stars') or stars(c, role)}
+            'costUsd': round(usd, 6), 'at': now, 'stars': c.get('stars') or stars(c, role), 'firstEntry': px}
 
 
 def _picks(t, pools, runners, anchors):
@@ -105,7 +132,7 @@ def value(card, prices):
     return round(v, 4)
 
 
-def tick(card, prices, pools, runners, cfg, now, anchors=()):
+def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None):
     """One automation pass. Returns the updated card (mutated copy) — all actions logged as events with reasons."""
     t = TEMPLATES[card['tpl']]
     c = {**card, 'legs': [dict(l) for l in card['legs']], 'events': list(card['events'])}
@@ -129,42 +156,48 @@ def tick(card, prices, pools, runners, cfg, now, anchors=()):
         if nc:
             c = nc
 
-    # 1) auto take-profit (sell just the gain) → compound into the other coins, or keep as cash
+    # 1) auto take-profit — HOW MUCH depends on momentum (exit_plan): ride / gain / bank → compound into the others or cash
+    mom = mom or {}
     for l in c['legs']:
         px = _f(prices.get(l['pairAddress']))
         if px <= 0 or l['entry'] <= 0:
             continue
         g = (px / l['entry'] - 1) * 100
         if g >= t['tp']:
-            gain_units = l['units'] * (1 - l['entry'] / px)          # sell back down to the cost basis
-            gain = gain_units * px
-            l['units'] -= gain_units; l['entry'] = px; c['feesUsd'] += fee
+            mode, frac, why = exit_plan(g, mom.get(l['pairAddress']))
+            sold = l['units'] * frac
+            gain = sold * px
+            l['units'] -= sold; l['entry'] = px; c['feesUsd'] += fee
             c['takenUsd'] += gain
             others = [o for o in c['legs'] if o is not l and _f(prices.get(o['pairAddress'])) > 0]
+            label = f"+{g:.0f}% ≥ +{t['tp']}% · {why}"
             if cfg['compound'] and others:
                 each = gain / len(others)
                 for o in others:
                     opx = _f(prices.get(o['pairAddress']))
                     o['units'] += each / opx; o['costUsd'] += each
                 c['compoundedUsd'] += gain; c['feesUsd'] += fee * len(others)
-                ev(kind='tp', symbol=l['symbol'], usd=round(gain, 4), why=f"+{g:.0f}% ≥ +{t['tp']}%", to=[o['symbol'] for o in others])
+                ev(kind='tp', symbol=l['symbol'], usd=round(gain, 4), why=label, mode=mode, to=[o['symbol'] for o in others])
             else:
                 c['cash'] += gain
-                ev(kind='tp', symbol=l['symbol'], usd=round(gain, 4), why=f"+{g:.0f}% ≥ +{t['tp']}%", to=['cash'])
+                ev(kind='tp', symbol=l['symbol'], usd=round(gain, 4), why=label, mode=mode, to=['cash'])
     # 2) auto stop-loss → replaced at once by the best gated candidate of the same role
     for i, l in enumerate(list(c['legs'])):
         px = _f(prices.get(l['pairAddress']))
-        if l.get('role') == 'anchor' or px <= 0 or l['entry'] <= 0 or (px / l['entry'] - 1) * 100 > -t['sl']:
+        if l.get('role') == 'anchor' or px <= 0 or l['entry'] <= 0:
+            continue
+        dd = (px / l['entry'] - 1) * 100
+        if dd > -t['sl'] and not (dd <= -t['sl'] / 2 and fading(mom.get(l['pairAddress']))):   # early cut: half the stop + fading
             continue
         out_usd = l['units'] * px
         nxt = best(l['role'])
         c['feesUsd'] += fee
         if nxt:
             c['legs'][c['legs'].index(l)] = _leg(nxt, out_usd, now, l['role']); c['feesUsd'] += fee
-            ev(kind='sl', symbol=l['symbol'], usd=round(out_usd, 4), why=f"{(px / l['entry'] - 1) * 100:.0f}% ≤ −{t['sl']}%", to=[nxt.get('symbol')])
+            ev(kind='sl', symbol=l['symbol'], usd=round(out_usd, 4), why=(f"{dd:.0f}% ≤ −{t['sl']}%" if dd <= -t['sl'] else f"{dd:.0f}% and fading (1h down, sellers lead) — cut early"), to=[nxt.get('symbol')])
         else:
             c['legs'].remove(l); c['cash'] += out_usd
-            ev(kind='sl', symbol=l['symbol'], usd=round(out_usd, 4), why=f"{(px / l['entry'] - 1) * 100:.0f}% ≤ −{t['sl']}%", to=['cash'])
+            ev(kind='sl', symbol=l['symbol'], usd=round(out_usd, 4), why=(f"{dd:.0f}% ≤ −{t['sl']}%" if dd <= -t['sl'] else f"{dd:.0f}% and fading (1h down, sellers lead) — cut early"), to=['cash'])
     # 3) auto-rotate every rotateHours: the rotateCount weakest coins out, the best candidates in
     if now - c['lastRotateAt'] >= cfg['rotateHours'] * 3600 and not c.get('flooredAt'):
         ranked = sorted((l for l in c['legs'] if l.get('role') != 'anchor'), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
@@ -215,7 +248,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=()):
 def summary(card, prices):
     v = value(card, prices)
     start = _f(card.get('startUsd')) or 1
-    legs = [{**{k: l[k] for k in ('mint', 'pairAddress', 'symbol', 'role', 'entry', 'units', 'costUsd')}, 'stars': l.get('stars') or 3, 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
+    legs = [{**{k: l[k] for k in ('mint', 'pairAddress', 'symbol', 'role', 'entry', 'units', 'costUsd')}, 'stars': l.get('stars') or 3,
+             'firstEntry': l.get('firstEntry') or l['entry'], 'at': l.get('at'), 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,
              'usd': round(l['units'] * (_f(prices.get(l['pairAddress'])) or l['entry']), 4)} for l in card['legs']]
     return {**{k: card[k] for k in ('id', 'tpl', 'label', 'at', 'lastRotateAt', 'compoundedUsd', 'takenUsd', 'feesUsd', 'startUsd')}, 'cash': round(card['cash'], 4),

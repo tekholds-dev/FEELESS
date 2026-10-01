@@ -4610,7 +4610,7 @@ async def _prime_candidates():
     live = await _runner_live()
     runners = [{'mint': r['mint'], 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'price': r.get('price'), 'score': r.get('score')} for r in live.get('passing') or [] if _fuse._f(r.get('price')) > 0]
     # Anchors: the real majors (SOL first, then JitoSOL / cbBTC / WBTC / ETH) at their deepest Solana pool — stable base of every card.
-    order = ['SOL', 'JitoSOL', 'cbBTC', 'WBTC', 'ETH']
+    order = ['SOL', 'cbBTC', 'ETH', 'JitoSOL', 'WBTC']
     maj = {str(r.get('symbol')): r for r in await _majors_rows()}
     anchors = [{'mint': r.get('baseAddress'), 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'price': r.get('priceUsd')} for k in order for r in [maj.get(k)] if r and _fuse._f(r.get('priceUsd')) > 0]
     return pools, runners, anchors
@@ -4624,9 +4624,12 @@ async def _prime_tick(now):
     d = _json_load(FUSE_HQ_PATH, {})
     cards = dict((d.get('prime') or {}).get('cards') or {})
     px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for c in cards.values() for l in c['legs']]) if cards else {}
+    # live momentum per pair (runner board: 1h move, buy share, 5m/1h volume) → exit_plan decides ride / gain / bank / cut early
+    live = _runner_live_cache.get('data') or {}
+    mom = {r['pairAddress']: {k: r.get(k) for k in ('chg1h', 'buyShare', 'vol5m', 'vol1h')} for r in (live.get('passing') or []) + (live.get('dropped') or []) if r.get('pairAddress')}
     for tid in _prime.TEMPLATES:
         cur = cards.get(tid)
-        cards[tid] = _prime.tick(cur, px, pools, runners, cfg, now, anchors) if cur else _prime.deal(tid, pools, runners, cfg, now, anchors)
+        cards[tid] = _prime.tick(cur, px, pools, runners, cfg, now, anchors, mom) if cur else _prime.deal(tid, pools, runners, cfg, now, anchors)
     cards = {k: v for k, v in cards.items() if v}
     async with _admin_lock:
         d = _json_load(FUSE_HQ_PATH, {}); d.setdefault('prime', {})['cards'] = cards; _json_save(FUSE_HQ_PATH, d)
@@ -4705,7 +4708,7 @@ async def _fuse_warm():
     if _fuse_warm_n['n'] % 12 == 1:   # ~5 min: refresh card holders' Fuse scores (feeds their trust score)
         holders = list({x['wallet'] for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or []})[:200]
         await asyncio.gather(*[_fuse_score(w, fresh=True) for w in holders], return_exceptions=True)
-    if _fuse_warm_n['n'] % 12 == 4:   # ~5 min: ⭐ Arena Prime cards run their full automation (paper)
+    if _fuse_warm_n['n'] % 2 == 0:    # ~50s: ⭐ Arena Prime cards run their full automation (paper) — stops can't wait 5 min
         await _prime_tick(time.time())
     await _runner_live()
     await _arena_auto_refresh(time.time())

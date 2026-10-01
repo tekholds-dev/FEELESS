@@ -17,44 +17,63 @@ def test_stars_and_only_3_star_coins_get_in():
     assert [l['mint'] for l in card['legs']] == ['sol', 'a', 'r2', 'r3'] and all(l['stars'] >= 3 for l in card['legs'])   # 2★ runner kept off
 
 
-def test_tiers_hold_an_anchor_plus_pools_and_runners_equal_dollars():
-    card = ap.deal('safe', [P('sol', 1), P('a', 2)], [R('r1', 0.1)], CFG, 0, SOL)            # SOL pool never doubles the SOL anchor
-    assert [(l['mint'], l['role']) for l in card['legs']] == [('sol', 'anchor'), ('jito', 'anchor'), ('a', 'pool'), ('r1', 'runner')]
-    assert all(abs(l['costUsd'] - 25) < 1e-9 for l in card['legs']) and ap.value(card, {}) == 100 and card['label'] == '💎 Prime Diamond'
+def test_top_tiers_are_solid_holds_majors_first():
+    maj = [C('sol', 1, 'SOL'), C('btc', 1, 'cbBTC'), C('eth', 1, 'ETH')]
+    d = ap.deal('safe', [P('sol', 1), P('pump', 2)], [R('r1', 0.1)], CFG, 0, maj)            # Diamond: 3 majors + PUMP, no runners
+    assert [(l['mint'], l['role']) for l in d['legs']] == [('sol', 'anchor'), ('btc', 'anchor'), ('eth', 'anchor'), ('pump', 'pool')]
+    assert all(abs(l['costUsd'] - 25) < 1e-9 for l in d['legs']) and d['label'] == '💎 Prime Diamond'
+    g = ap.deal('balanced', [P('pump', 2)], [R('r1', 0.1)], CFG, 0, maj)
+    assert [l['role'] for l in g['legs']] == ['anchor', 'anchor', 'pool', 'runner']
     assert {t['tier'] for t in ap.TEMPLATES.values()} == {'diamond', 'gold', 'blaze'}
-    assert all(3 <= t['anchors'] + t['pools'] + t['runners'] <= 5 for t in ap.TEMPLATES.values())
+    assert all(t['anchors'] >= 1 and 3 <= t['anchors'] + t['pools'] + t['runners'] <= 5 and t['sl'] <= 20 for t in ap.TEMPLATES.values())
+
+
+def test_exit_plan_rides_strong_momentum_and_banks_fading():
+    strong = {'chg1h': 40, 'buyShare': 65, 'vol5m': 1000, 'vol1h': 10000}
+    fade = {'chg1h': -8, 'buyShare': 40, 'vol5m': 100, 'vol1h': 10000}
+    mode, frac, _ = ap.exit_plan(300, strong)
+    assert mode == 'ride' and abs(frac - 0.25) < 1e-9          # 4× → sell 25% = the original cost; house money rides
+    assert ap.exit_plan(60, strong)[0] == 'ride' and ap.exit_plan(60, strong)[1] < 60 / 160
+    assert ap.exit_plan(60, fade)[:2] == ('bank', 0.75)
+    assert ap.exit_plan(60, {'chg1h': 3, 'buyShare': 52, 'vol5m': 800, 'vol1h': 10000})[0] == 'gain' and ap.exit_plan(60)[0] == 'gain'
 
 
 def test_auto_tp_compounds_into_the_others_and_pnl_excludes_fees():
-    card = ap.deal('balanced', [P('a', 1), P('b', 1)], [R('r1', 1), R('r2', 1)], CFG, 0, SOL[:1])     # 5 coins × $20
-    px = {'Psol': 1, 'Pa': 1.6, 'Pb': 1, 'Pr1': 1, 'Pr2': 1}                                         # a +60% ≥ +50% → take the gain
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], CFG, 0, SOL[:1])       # 4 coins × $25
+    px = {'Psol': 1, 'Pa': 1, 'Pr1': 2.2, 'Pr2': 1}                                         # r1 +120% ≥ +100% → no momentum → sell the gain
     out = ap.tick(card, px, [], [], CFG, 60, SOL)
-    a = next(l for l in out['legs'] if l['mint'] == 'a')
-    assert abs(a['units'] * 1.6 - 20) < 1e-6 and abs(out['compoundedUsd'] - 12) < 1e-6
+    r1 = next(l for l in out['legs'] if l['mint'] == 'r1')
+    assert abs(r1['units'] * 2.2 - 25) < 1e-6 and abs(out['compoundedUsd'] - 30) < 1e-6 and r1['firstEntry'] == 1
     tp = [e for e in out['events'] if e['kind'] == 'tp'][-1]
-    assert tp['to'] == ['SOL', 'B', 'R1', 'R2'] and ap.value(out, px) == 112 and ap.summary(out, px)['pnlPct'] == 12 and out['feesUsd'] > card['feesUsd']
+    assert tp['to'] == ['SOL', 'A', 'R2'] and tp['mode'] == 'gain' and ap.value(out, px) == 130 and out['feesUsd'] > card['feesUsd']
+    strong = {'Pr1': {'chg1h': 50, 'buyShare': 70, 'vol5m': 2000, 'vol1h': 12000}}
+    ride = ap.tick(card, {**px, 'Pr1': 4}, [], [], CFG, 60, SOL, strong)                   # 4× with momentum → only the cost comes out
+    r = next(l for l in ride['legs'] if l['mint'] == 'r1')
+    assert abs(r['units'] * 4 - 75) < 1e-6 and [e for e in ride['events'] if e['kind'] == 'tp'][-1]['mode'] == 'ride'
 
 
-def test_stop_loss_replaced_anchor_never_stopped_or_rotated():
-    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1), R('r3', 1)], CFG, 0, SOL)
-    px = {'Psol': 0.5, 'Pa': 1, 'Pr1': 0.5, 'Pr2': 1.1, 'Pr3': 0.9}                # r1 −50% ≤ −40% → out; SOL −50% stays (anchor)
+def test_stop_loss_replaced_early_cut_when_fading_anchor_never_stopped():
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], CFG, 0, SOL)
+    px = {'Psol': 0.9, 'Pa': 1, 'Pr1': 0.75, 'Pr2': 0.88}                                   # r1 −25% ≤ −20% → out; SOL −10% stays
     out = ap.tick(card, px, [], [R('r9', 1)], CFG, 60, SOL)
     mints = [l['mint'] for l in out['legs']]
-    assert 'r9' in mints and 'r1' not in mints and 'sol' in mints
-    out2 = ap.tick(out, {**px, 'Pr9': 1}, [P('x', 2)], [R('r8', 1), R('r7', 1)], CFG, 6 * 3600 + 61, SOL)
-    rot = [e for e in out2['events'] if e['kind'] == 'rotate']
-    assert len(rot) == 2 and 'SOL' not in [e['symbol'] for e in rot]
+    assert 'r9' in mints and 'r1' not in mints and 'sol' in mints and 'r2' in mints          # r2 −12% not fading → kept
+    fade = {'Pr2': {'chg1h': -9, 'buyShare': 38}}
+    cut = ap.tick(out, {**px, 'Pr9': 1}, [], [R('r8', 1)], CFG, 120, SOL, fade)             # −12% ≥ half the stop + fading → early cut
+    assert 'r2' not in [l['mint'] for l in cut['legs']] and 'cut early' in [e for e in cut['events'] if e['kind'] == 'sl'][-1]['why']
+    rot = ap.tick(cut, {**px, 'Pr9': 1, 'Pr8': 1}, [P('x', 2)], [R('r7', 1)], CFG, 3600 + 61, SOL)
+    assert all(e['symbol'] != 'SOL' for e in rot['events'] if e['kind'] == 'rotate')
 
 
 def test_floor_never_lets_a_card_sit_below_minus_25():
-    card = ap.deal('balanced', [P('a', 1), P('b', 1)], [R('r1', 1), R('r2', 1)], CFG, 0, SOL[:1])
-    px = {'Psol': 1, 'Pa': 0.75, 'Pb': 0.75, 'Pr1': 0.7, 'Pr2': 0.7}             # −22% ≤ −20% floor (a 5-min tick; only a gap could skip it)
+    card = ap.deal('balanced', [P('a', 1)], [R('r1', 1)], CFG, 0, SOL)                      # SOL, JitoSOL, A, R1
+    px = {'Psol': 0.78, 'Pjito': 0.78, 'Pa': 0.78, 'Pr1': 0.78}                              # every coin −22% → card −22% ≤ −20% floor
     out = ap.tick(card, px, [], [], CFG, 60, SOL)
-    assert out.get('flooredAt') == 60 and [l['role'] for l in out['legs']] == ['anchor'] and [e for e in out['events'] if e['kind'] == 'floor']
+    assert out.get('flooredAt') == 60 and {l['role'] for l in out['legs']} == {'anchor'} and [e for e in out['events'] if e['kind'] == 'floor']
     s = ap.summary(out, px)
     assert s['floored'] and s['pnlPct'] > -25
-    later = ap.tick(out, {'Psol': 1, 'Pc': 1, 'Pr3': 1}, [P('c', 1)], [R('r3', 1)], CFG, 60 + 86401, SOL)   # next day: re-dealt fresh
-    assert not later.get('flooredAt') and len(later['legs']) > 1 and later['runs'][-1]['pct'] < 0 and ap.record(later)['runs'][-1]['startUsd'] == 100
+    later = ap.tick(out, {'Psol': 1, 'Pjito': 1, 'Pc': 1, 'Pr3': 1}, [P('c', 1)], [R('r3', 1)], CFG, 60 + 86401, SOL)
+    assert not later.get('flooredAt') and len(later['legs']) > 2 and len(later['runs']) == 1 and later['runs'][0]['startUsd'] == 100
 
 
 def test_day_record_counts_good_days_honestly():
@@ -67,8 +86,8 @@ def test_day_record_counts_good_days_honestly():
 
 
 def test_cfg_ranges():
-    c = ap.clean_cfg({'rotateHours': 0.2, 'rotateCount': 9, 'sizeUsd': 5, 'compound': False, 'floorPct': 60})
-    assert c['rotateHours'] == 1 and c['rotateCount'] == 3 and c['sizeUsd'] == 10 and c['compound'] is False and c['floorPct'] == 25
+    c = ap.clean_cfg({'rotateHours': 0.1, 'rotateCount': 9, 'sizeUsd': 5, 'compound': False, 'floorPct': 60})
+    assert c['rotateHours'] == 0.25 and c['rotateCount'] == 3 and c['sizeUsd'] == 10 and c['compound'] is False and c['floorPct'] == 25
 
 
 def test_service_deals_ticks_and_admin_config(monkeypatch):
@@ -92,7 +111,7 @@ def test_cmd_ctr_replaces_one_coin_with_best_same_role():
     card = ap.deal('balanced', [P('a', 1), P('b', 1)], [R('r1', 1), R('r2', 1)], CFG, 0, SOL[:1])
     out = ap.replace_leg(card, 'Pr1', {'Pr1': 2}, [P('a', 1)], [R('r1', 1), R('r9', 1)], SOL, CFG, 10)
     mints = [l['mint'] for l in out['legs']]
-    assert 'r9' in mints and 'r1' not in mints and abs(next(l for l in out['legs'] if l['mint'] == 'r9')['costUsd'] - 40) < 1e-9
+    assert 'r9' in mints and 'r1' not in mints and abs(next(l for l in out['legs'] if l['mint'] == 'r9')['costUsd'] - card['legs'][-1]['units'] * 2) < 1e-6
     assert out['events'][-1]['why'] == 'replaced from Cmd Ctr'
     import pytest
     with pytest.raises(ValueError):
