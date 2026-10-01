@@ -11,6 +11,14 @@ import '../../styles/fusePage.css';
 const usd = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : v >= 10 ? `$${Math.round(v || 0)}` : `$${(v || 0).toFixed(2)}`);
 const sol = v => `${Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 3 })} SOL`;
 const EMPTY = { name: '', emoji: '🏦', tagline: '', mgmtBps: 100, perfBps: 1000, pools: [] };
+// 🏦 Prebuilt vaults: one tap fills the designer (real Solana pools looked up live, then you tweak + save). Pool fee APRs are
+// estimates; caps stop the vault owning more than cap% of any pool.
+export const VAULT_PRESETS = [
+  { id: 'stable', emoji: '🏛', name: 'Huge Stable', tier: 'ever', why: 'Deepest SOL / USDC, JitoSOL and BTC pools — calm fees, tiny swings', q: ['SOL USDC', 'JitoSOL', 'cbBTC'], mgmtBps: 50, perfBps: 1000, capPct: 1, rangePct: 10 },
+  { id: 'blue', emoji: '⚖', name: 'Blue-chip Blend', tier: 'gold', why: 'SOL, ETH and JUP — majors that trade all day', q: ['SOL USDC', 'WETH', 'JUP'], mgmtBps: 100, perfBps: 1000, capPct: 1.5, rangePct: 15 },
+  { id: 'pump', emoji: '🌊', name: 'Pump Economy', tier: 'blaze', why: 'PUMP, BONK and WIF — the meme economy\'s deepest pools', q: ['PUMP', 'BONK', 'WIF'], mgmtBps: 100, perfBps: 1500, capPct: 2, rangePct: 25 },
+  { id: 'degen', emoji: '🔥', name: 'Degen Yield', tier: 'next', why: 'The 3 highest-fee deep pools right now (live) — biggest yield, biggest swings', lens: 'yield', mgmtBps: 150, perfBps: 2000, capPct: 2, rangePct: 30 },
+];
 const APR_CAP = 400;
 const STEPS = [['① Deposit', 'A holder sends SOL and gets vault SHARES (their slice of everything inside).'],
   ['② Spread', 'The contract splits it over ≤3 Solana pools — weights follow each pool\'s fee APR + depth (10–70% each), never more than the cap % of a pool.'],
@@ -45,6 +53,18 @@ export function VaultDesigner({ call }) {
     setDraft(x => ({ ...x, name: x.name || `${c.label.replace(/^\S+\s/, '')} Vault`, emoji: '🏟', pools: [] }));
     got.forEach(add); toast.success(`${got.length} pools from ${c.label} loaded — set weights + caps, then save`);
   };
+  const loadPreset = async v => {
+    const pick = v.lens
+      ? ((await fetch(apiUrl(`/api/reputation/fuses/discover?lens=${v.lens}`)).then(r => r.json()).catch(() => ({}))).pools || []).filter(p => (p.liquidityUsd || 0) >= 200000).slice(0, 3)
+        .map(p => fetch(apiUrl(`/api/reputation/vaults/pools?q=${encodeURIComponent(p.baseAddress || p.pairAddress)}`)).then(r => r.json()).then(x => (x.pools || []).find(y => y.pairAddress === p.pairAddress) || (x.pools || [])[0]).catch(() => null))
+      : v.q.map(q => fetch(apiUrl(`/api/reputation/vaults/pools?q=${encodeURIComponent(q)}`)).then(r => r.json()).then(x => (x.pools || [])[0]).catch(() => null));
+    const got = (await Promise.all(pick)).filter(Boolean);
+    if (!got.length) { toast.error('Pools unavailable right now — try again in a minute.'); return; }
+    setDraft({ ...EMPTY, name: `${v.name} Vault`, emoji: v.emoji, tagline: v.why, mgmtBps: v.mgmtBps, perfBps: v.perfBps, pools: [] });
+    got.forEach(add);
+    setDraft(x => ({ ...x, pools: x.pools.map(p => ({ ...p, capPct: v.capPct, rangePct: p.kind === 'v3' ? v.rangePct : null })) }));
+    toast.success(`${v.emoji} ${v.name} loaded — ${got.length} pools · check the split below, then save`);
+  };
   const save = async body => { try { await call('/admin/vaults', { method: 'POST', body: JSON.stringify(body) }); toast.success('Vault saved'); setDraft(EMPTY); load(); } catch (e) { toast.error(e.message); } };
   // Draft money preview: weighted pool APR (capped like the engine) on the simulated deposit → yield and what each fee takes.
   const wsum = draft.pools.reduce((a, p) => a + (Number(p.weight) || 0), 0) || 1;
@@ -54,6 +74,9 @@ export function VaultDesigner({ call }) {
     <div className="m-note warn vd-status"><b>🏦 DESIGN · LOCALNET ONLY · NOT DEPLOYED</b><span>No money can go in yet. Fees would go to {d?.feeWallet ? <code>{d.feeWallet.slice(0, 4)}…{d.feeWallet.slice(-4)}</code> : 'the vault fee wallet (set it in Trading & fees)'}. Deploy = adapters → devnet → audit → your keys.</span></div>
     <ol className="vd-flow">{STEPS.map(([t, why], i) => <li key={t} style={{ '--i': i }} data-tip={why}><b>{t}</b><small>{why}</small></li>)}</ol>
 
+    <section className="vd-pre" aria-label="Prebuilt vaults">{VAULT_PRESETS.map((v, i) => <button key={v.id} type="button" className={`vd-pcard tier-${v.tier}`} style={{ '--i': i }} onClick={() => loadPreset(v)} data-testid={`vd-preset-${v.id}`}
+      data-tip={`${v.why}. Fees: ${v.mgmtBps / 100}%/yr + ${v.perfBps / 100}% of yield · cap ${v.capPct}% of each pool${v.rangePct ? ` · v3 range ±${v.rangePct}%` : ''}`}>
+      <i className="vd-pcrest">{v.emoji}</i><b>{v.name}</b><small>{v.why}</small><em>{v.mgmtBps / 100}%/yr · {v.perfBps / 100}% of yield</em><span className="vd-pgo">Load →</span></button>)}</section>
     <section className="m-card vd-sim-box"><div className="m-row"><span className="m-label">🧮 SIMULATE A DEPOSIT</span>
       <label className="vd-dep"><input className="m-input" inputMode="decimal" value={deposit} onChange={e => setDeposit(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="Deposit in SOL" /><span>SOL</span><em className="m-dim">{$(dep)}</em></label></div>
       {!(d?.vaults || []).length ? <p className="m-dim">No vault designed yet — build one below and its money math shows here.</p>

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { ShareGifButton } from './ShareGif';
 
 // 📜 Where the profit went: a slide-in window for ONE card — profit taken out (sits in the wallet as SOL), profit compounded back
 // in (and into which coins), fees paid (shown apart, never inside P&L) and every automation step with its reason.
@@ -12,9 +13,14 @@ const ago = t => { const s = Date.now() / 1000 - t; return s < 3600 ? `${Math.ma
 
 export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fees, gainNow, onCollect, onClose, paper, actions, legs, onFreeze, autos }) {
   useEffect(() => { const k = e => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
-  return createPortal(<div className="ce-shade" role="presentation" onClick={onClose} data-testid="card-earnings">
-    <aside className="ce" role="dialog" aria-modal="true" aria-label={`${title} earnings`} onClick={e => e.stopPropagation()}>
-      <header><span className="m-label">📜 WHERE THE PROFIT WENT{paper ? ' · PAPER' : ''}</span><h3>{title}</h3><button type="button" className="cx-x" onClick={onClose} aria-label="Close">×</button></header>
+  // centered pop-up over a blurred page; page animations pause while it's open so the blur costs nothing
+  useEffect(() => { document.body.classList.add('ce-open'); return () => document.body.classList.remove('ce-open'); }, []);
+  const share = { mascot: 'feecat', tone: (gainNow || taken) > 0 ? 'up' : 'down', kicker: `FEELESS · PROFIT TRAIL${paper ? ' · ARENA' : ''}`, title: String(title).slice(0, 34), big: $(taken + compounded),
+    lines: [`${$(taken)} taken out · ${$(compounded)} compounded`, ...events.slice(0, 2).map(e => `${e.label || e.kind}${e.symbol ? ` $${e.symbol}` : ''}${e.usd != null ? ` ${$(e.usd)}` : ''}`.slice(0, 62))], footer: 'feeless · fuse 🧬' };
+  return createPortal(<div className="ce-shade is-pop" role="presentation" onClick={onClose} data-testid="card-earnings">
+    <aside className="ce is-pop m-live" role="dialog" aria-modal="true" aria-label={`${title} earnings`} onClick={e => e.stopPropagation()}>
+      <header><span className="m-label">📜 WHERE THE PROFIT WENT{paper ? ' · PAPER' : ''}</span><h3>{title}</h3><button type="button" className="cx-x" onClick={onClose} aria-label="Close">×</button>
+        <ShareGifButton className="m-btn ce-share" label="🎞 Share" card={share} /></header>
       <div className="ce-sum">
         <div data-tip="Taken out by take-profits / collects — it's SOL in the wallet now"><small>TAKEN OUT</small><b className="m-num m-pos">{$(taken)}</b><em>{paper ? 'to cash' : 'in your wallet'}</em></div>
         <div data-tip="Gains rolled back into the card's coins"><small>COMPOUNDED</small><b className="m-num">{$(compounded)}</b><em>back into the card</em></div>

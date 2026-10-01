@@ -12,8 +12,42 @@ const PALETTES = {
   down: { base: '#1a0208', pools: ['255,64,100', '140,20,50'], fade: 'rgba(26,2,8,0)', flare: '255,190,205', spark: '255,150,170', kicker: '#ffb3c3', big: '#ff6b8b', brand: '#ff6b8b', frame: 'rgba(255,90,122,.6)', panel: 'rgba(24,4,10,.6)', text: '#f3dbe1', foot: '#c9929f' },
 };
 
+// 🎨 Designs (picked in the share preview). 'royal' = the original; each other design has its own colours + its own FX.
+export const DESIGNS = [['royal', '🟩 Royal'], ['nebula', '🌌 Nebula'], ['gold', '🪙 Gold'], ['ice', '💎 Ice'], ['blaze', '🔥 Blaze'], ['synth', '🌆 Synthwave']];
+const THEMES = {
+  nebula: { base: '#0c0418', pools: ['150,80,255', '40,200,255'], fade: 'rgba(12,4,24,0)', flare: '220,190,255', spark: '210,180,255', kicker: '#d6b8ff', big: '#c58bff', brand: '#b98cff', frame: 'rgba(170,110,255,.6)', panel: 'rgba(16,6,32,.58)', text: '#eadfff', foot: '#a690c9' },
+  gold: { base: '#140d02', pools: ['245,196,81', '168,114,10'], fade: 'rgba(20,13,2,0)', flare: '255,236,180', spark: '255,214,106', kicker: '#ffe39a', big: '#ffd56a', brand: '#f5c451', frame: 'rgba(245,196,81,.6)', panel: 'rgba(24,16,3,.6)', text: '#f7ecd2', foot: '#c9b07a' },
+  ice: { base: '#020d18', pools: ['106,215,255', '190,240,255'], fade: 'rgba(2,13,24,0)', flare: '230,250,255', spark: '220,246,255', kicker: '#bfefff', big: '#9fe3ff', brand: '#9fe3ff', frame: 'rgba(159,227,255,.6)', panel: 'rgba(3,16,28,.6)', text: '#e3f6ff', foot: '#8fb8c9' },
+  blaze: { base: '#180502', pools: ['255,122,47', '255,61,90'], fade: 'rgba(24,5,2,0)', flare: '255,214,170', spark: '255,177,92', kicker: '#ffc79a', big: '#ff9a4d', brand: '#ff7a2f', frame: 'rgba(255,122,47,.6)', panel: 'rgba(28,8,4,.6)', text: '#ffe6d6', foot: '#c99a80' },
+  synth: { base: '#0a0216', pools: ['255,60,190', '60,220,255'], fade: 'rgba(10,2,22,0)', flare: '255,200,240', spark: '120,240,255', kicker: '#ff9be0', big: '#ff5fd2', brand: '#3cdcff', frame: 'rgba(255,95,210,.6)', panel: 'rgba(14,4,30,.58)', text: '#f6e3ff', foot: '#a98fc4' },
+};
+
+// One signature effect per design (drawn under the panel; cheap canvas strokes, loop-safe in t).
+function designFx(g, theme, P, t, seed) {
+  const T = Math.PI * 2;
+  if (theme === 'nebula') {          // orbiting rings
+    g.lineWidth = 2;
+    for (let i = 0; i < 3; i++) { g.strokeStyle = `rgba(${P.pools[i % 2]},${0.35 - i * 0.08})`; g.beginPath(); g.ellipse(W * 0.72, H * 0.5, 170 + i * 46, 60 + i * 20, t * T + i, 0, T); g.stroke(); }
+  } else if (theme === 'gold') {     // coin rain
+    for (let i = 0; i < 18; i++) { const x = (seed[i] * W + i * 37) % W; const y = ((seed[i + 18] * H + t * H * (1 + seed[i] * 0.6)) % (H + 40)) - 20; const w = 9 * Math.abs(Math.cos((t * 3 + seed[i]) * T));
+      g.fillStyle = `rgba(${P.spark},.85)`; g.beginPath(); g.ellipse(x, y, Math.max(1.5, w), 9, 0, 0, T); g.fill(); }
+  } else if (theme === 'ice') {      // prism shards
+    for (let i = 0; i < 12; i++) { const cx = (seed[i] * W), cy = (seed[i + 12] * H); const a = 0.15 + 0.25 * Math.abs(Math.sin((t + seed[i]) * T)); const r = 14 + seed[i + 24] * 26;
+      g.fillStyle = `rgba(${P.flare},${a})`; g.beginPath(); g.moveTo(cx, cy - r); g.lineTo(cx + r * 0.5, cy); g.lineTo(cx, cy + r); g.lineTo(cx - r * 0.5, cy); g.closePath(); g.fill(); }
+  } else if (theme === 'blaze') {    // flame tongues along the bottom
+    for (let i = 0; i < 16; i++) { const x = i * (W / 15); const h = 50 + 40 * Math.abs(Math.sin((t * 2 + seed[i]) * T)); const gr = g.createLinearGradient(x, H, x, H - h);
+      gr.addColorStop(0, `rgba(${P.pools[1]},.7)`); gr.addColorStop(1, `rgba(${P.pools[0]},0)`); g.fillStyle = gr; g.beginPath(); g.moveTo(x - 26, H); g.quadraticCurveTo(x, H - h * 1.4, x + 26, H); g.fill(); }
+  } else if (theme === 'synth') {    // retro grid floor + sun
+    const hz = H * 0.62; const sun = g.createLinearGradient(0, hz - 120, 0, hz); sun.addColorStop(0, 'rgba(255,200,90,.55)'); sun.addColorStop(1, 'rgba(255,60,190,.35)');
+    g.fillStyle = sun; g.beginPath(); g.arc(W * 0.74, hz, 110, Math.PI, 0); g.fill();
+    g.strokeStyle = `rgba(${P.pools[1]},.45)`; g.lineWidth = 1.5;
+    for (let i = 0; i < 9; i++) { const y = hz + ((i + t) % 9) ** 2 * 2.6; g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+    for (let i = -8; i <= 8; i++) { g.beginPath(); g.moveTo(W / 2 + i * 22, hz); g.lineTo(W / 2 + i * 120, H); g.stroke(); }
+  }
+}
+
 function frame(g, card, logo, coin, t, seed) {
-  const P = PALETTES[card.tone === 'down' ? 'down' : 'up'];
+  const P = THEMES[card.theme] || PALETTES[card.tone === 'down' ? 'down' : 'up'];
   // Base with two orbiting light pools.
   g.fillStyle = P.base; g.fillRect(0, 0, W, H);
   for (const [cx, cy, r, c] of [[W * (0.25 + 0.15 * Math.cos(t * 2 * Math.PI)), H * 0.3, 380, P.pools[0]], [W * (0.8 - 0.12 * Math.sin(t * 2 * Math.PI)), H * 0.85, 330, P.pools[1]]]) {
@@ -24,6 +58,7 @@ function frame(g, card, logo, coin, t, seed) {
   fl.addColorStop(0, `rgba(${P.flare},0)`); fl.addColorStop(0.5, `rgba(${P.flare},.28)`); fl.addColorStop(1, `rgba(${P.flare},0)`); g.fillStyle = fl; g.fillRect(0, 0, W, H);
   // Sparks drifting upward.
   for (let i = 0; i < 46; i++) { const px = ((seed[i] * W) + t * 40 * (i % 3 + 1)) % W; const py = H - ((seed[i + 46] * H + t * H * (0.6 + seed[i] * 0.8)) % H); const a = 0.35 + 0.65 * Math.abs(Math.sin((t + seed[i]) * Math.PI * 2)); g.fillStyle = `rgba(${P.spark},${a})`; g.beginPath(); g.arc(px, py, 1 + seed[i + 20] * 2.2, 0, Math.PI * 2); g.fill(); }
+  if (THEMES[card.theme]) designFx(g, card.theme, P, t, seed);
   // Film grain: keeps gradients smooth in 256 colours (and makes the loop feel alive).
   const img = g.getImageData(0, 0, W, H); const d = img.data;
   for (let p = 0; p < d.length; p += 4) { const n = (Math.random() - 0.5) * 22; d[p] += n; d[p + 1] += n; d[p + 2] += n; }

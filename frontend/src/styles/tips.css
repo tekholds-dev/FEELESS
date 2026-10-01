@@ -29,3 +29,6 @@ body.fx-lite .cf-live.is-live { animation: none; } @media (prefers-reduced-motio
 body.theme-day .gd-sus, body.theme-day .gd-rules span { background: var(--m-surface); }
 @media (prefers-reduced-motion: reduce) { .gd-sus { animation: none; } }
 @media (max-width: 640px) { .gd-cols, .gd-rules { grid-template-columns: 1fr 1fr; } .gd-cols { grid-template-columns: 1fr; } }
+
+/* 🎨 Share GIF design picker (ShareGifButton preview) */
+.gif-designs { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 12px 0; } .gif-designs button { font-size: 11px; }
