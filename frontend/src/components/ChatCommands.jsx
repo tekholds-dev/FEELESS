@@ -9,6 +9,7 @@ export const COMMANDS = [
   { cmd: 'price', args: '$TICKER | CA', desc: 'Live price, MC, liquidity, 24h', tier: 0 },
   { cmd: 'chart', args: '$TICKER | CA', desc: 'Open the coin in a new tab', tier: 0 },
   { cmd: 'fee', args: '', desc: "Fee the Leader cat's live positions + PnL", tier: 0 },
+  { cmd: 'fuse', args: '[name]', desc: 'Share a live Fuse card — anyone can one-click in', tier: 0 },
   { cmd: 'top', args: '', desc: 'Top 5 trending on Solana right now', tier: 0 },
   { cmd: 'callers', args: '', desc: 'Call Ledger leaderboard (7d)', tier: 0 },
   { cmd: 'perks', args: '', desc: 'Your $FEE holder tier and what it unlocks', tier: 0 },
@@ -48,6 +49,12 @@ export async function runCommand(line, { room, wallet, tier }) {
   if (!c) return { card: { title: 'Unknown command', lines: [`Try: ${COMMANDS.map(x => `/${x.cmd}`).join(' ')}`] } };
   if (c.tier > (tier || 0)) return { card: { title: `🔒 /${c.cmd} is a ${TIER_NAME[c.tier]} perk`, lines: ['Hold more $FEE to unlock it — type /perks to see your tier.'] } };
   if (c.post) return { post: typeof c.post === 'function' ? c.post(rest) : c.post };
+  if (c.cmd === 'fuse') {
+    const { pickFuse } = await import('../lib/fuseFeed');
+    const list = (await (await fetch(apiUrl('/api/reputation/fuses'))).json()).fuses || [];
+    const f = pickFuse(list, rest); if (!f) throw new Error('No live Fuses yet.');
+    return { post: `${f.emoji || '⚛️'} ${f.name} ⚛️ fuse:${f.id}` };
+  }
   if (c.cmd === 'boost') { if (!rest.trim()) throw new Error('Write the message after /boost.'); return { post: rest.trim(), boost: true }; }
   if (c.cmd === 'me') { if (!wallet?.address) throw new Error('Connect a wallet first.'); window.open(`/terminal/profile/${wallet.address}`, '_blank', 'noopener'); return { card: { title: 'Opened your profile ↗', lines: [] } }; }
   if (c.cmd === 'chart') { const p = await findPair(rest); window.open(coinHref(p), '_blank', 'noopener'); return { card: { title: `Opened $${p.baseToken.symbol} ↗`, lines: [] } }; }

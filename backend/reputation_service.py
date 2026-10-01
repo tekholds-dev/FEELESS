@@ -2804,6 +2804,7 @@ class FuseEvolveIn(BaseModel):
     sol: float = Field(default=0.05, gt=0, le=1000)
     chain: str = 'solana'
     seed: int = 0
+    bloodline: bool = False
 
 
 @app.post('/api/reputation/admin/fuses/evolve')
@@ -2818,11 +2819,170 @@ async def fuses_evolve(request: Request, p: FuseEvolveIn):
             cands.setdefault(r['pairAddress'], r)
     metas = dict(list(cands.items())[:40])
     sol_usd = await _sol_usd_live()
+    seeds = _hq.bloodline_seeds(_json_load(FUSE_HQ_PATH, {}).get('bloodline') or [], set(metas), p.legs) if p.bloodline else []
     out = await asyncio.to_thread(_fuse.evolve, metas, p.legs, p.generations, p.population, p.style if p.style in _fuse.STYLES else 'yield',
-                                  p.sol, sol_usd, p.seed or int(time.time()))
+                                  p.sol, sol_usd, p.seed or int(time.time()), seeds)
+    out['seeded'] = len(seeds)
     out['champions'] = [{**c, 'legs': [{**{k: metas[pa].get(k) for k in ('symbol', 'quote', 'dex', 'logo', 'liquidityUsd', 'aprEst', 'change24h')},
                                         'chainId': p.chain, 'pairAddress': pa, 'weight': c['weights'][pa]} for pa in c['pools']]} for c in out['champions']]
     return {**out, 'solUsd': sol_usd, 'styles': list(_fuse.STYLES)}
+
+
+# ---- FUSE HQ (backend/fuse_hq.py): real Fuse P&L, paper arena, bloodlines, health, trader "Find my best 3" -------------
+import fuse_hq as _hq
+FUSE_HQ_PATH = DATA_DIR / 'fuse_hq.json'   # {'positions': [], 'arena': [], 'bloodline': []}
+_fuse_lite_cache: dict = {}
+
+
+class FusePositionIn(BaseModel):
+    address: str
+    session: str
+    name: str = Field(default='Lab fuse', max_length=40)
+    fuseId: str = ''
+    legs: list          # [{pairAddress, chainId, symbol, signature}]
+
+
+@app.post('/api/reputation/fuses/position')
+async def fuse_position(p: FusePositionIn):
+    """A one-click Fuse in landed: each leg counts only if its signature is one of YOUR confirmed FEELESS buys (cost and
+    tokens come from that trade record, never from the client)."""
+    me = _session_or_401(p.address, p.session)
+    mine = set(linked_of(me)) | {me}
+    trades = {x.get('tx'): x for w, rows in _json_load(FEELESS_TRADES_PATH, {}).items() if w in mine for x in rows or []}
+    legs = []
+    for leg in (p.legs or [])[:_fuse.MAX_LEGS]:
+        t = trades.get(str(leg.get('signature') or ''))
+        if t and t.get('side', 'buy') == 'buy' and _fuse._f(t.get('tokens')) > 0:
+            legs.append({'pairAddress': str(leg.get('pairAddress'))[:64], 'chainId': str(leg.get('chainId') or 'solana')[:16], 'symbol': str(leg.get('symbol') or '')[:16],
+                         'mint': t.get('token'), 'sig': t['tx'], 'usd': _fuse._f(t.get('usd')), 'tokens': _fuse._f(t.get('tokens'))})
+    if not legs:
+        raise HTTPException(400, 'None of those legs is a confirmed FEELESS buy from your wallet (yet).')
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {})
+        used = {leg['sig'] for pos in d.get('positions') or [] for leg in pos['legs']}
+        legs = [leg for leg in legs if leg['sig'] not in used]
+        if not legs:
+            return {'ok': True, 'counted': False}
+        d.setdefault('positions', []).append({'id': uuid.uuid4().hex[:10], 'wallet': me, 'name': p.name.strip() or 'Lab fuse', 'fuseId': p.fuseId[:16], 'at': time.time(), 'legs': legs})
+        _json_save(FUSE_HQ_PATH, d)
+    return {'ok': True, 'counted': True, 'legs': len(legs)}
+
+
+async def _hq_prices(legs):
+    pairs = await _fuse_pairs([{'chainId': leg.get('chainId', 'solana'), 'pairAddress': leg['pairAddress']} for leg in legs])
+    return {k: _fuse._f(v.get('priceUsd')) for k, v in pairs.items()}
+
+
+@app.get('/api/reputation/fuses/pnl/{address}')
+async def fuse_pnl(address: str):
+    mine = set(linked_of(primary_of(address))) | {primary_of(address), address}
+    pos = [x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if x['wallet'] in mine]
+    px = await _hq_prices([leg for x in pos for leg in x['legs']]) if pos else {}
+    rows = sorted((_hq.position_pnl(x, px) for x in pos), key=lambda r: -(r['at'] or 0))
+    return {**_hq.book(rows), 'rows': rows[:20]}
+
+
+@app.get('/api/reputation/admin/fuses/hq')
+async def fuse_hq_admin(request: Request):
+    """Cmd Ctr › Fuse HQ: everyone's Fuse P&L, the paper arena (settles at 24h), bloodlines, published-Fuse health."""
+    _require_admin(request)
+    d = _json_load(FUSE_HQ_PATH, {})
+    now = time.time()
+    pos, arena = d.get('positions') or [], d.get('arena') or []
+    px = await _hq_prices([leg for x in pos for leg in x['legs']] + [leg for e in arena if not e.get('close') for leg in e['legs']])
+    vals = [_hq.arena_value(e, px, now) for e in arena]
+    due = [v for v in vals if v['due']]
+    if due:   # settle at today's prices, once
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {})
+            for e in d.get('arena') or []:
+                if any(v['id'] == e['id'] for v in due) and not e.get('close'):
+                    e['close'] = {leg['pairAddress']: px.get(leg['pairAddress']) or leg['start'] for leg in e['legs']}; e['closedAt'] = now
+            _json_save(FUSE_HQ_PATH, d)
+        vals = [_hq.arena_value(e, px, now) for e in d.get('arena') or []]
+    rows = [_hq.position_pnl(x, px) for x in pos]
+    board = _hq.arena_board(vals)
+    return {'book': _hq.book(rows), 'rows': sorted(rows, key=lambda r: -r['pnlUsd'])[:50], 'arena': sorted(vals, key=lambda v: -v['at'])[:40],
+            'board': board, 'bestStyle': _hq.best_style(board), 'bloodline': d.get('bloodline') or [], 'minSettled': _hq.MIN_SETTLED}
+
+
+@app.post('/api/reputation/admin/fuses/hq')
+async def fuse_hq_admin_save(request: Request):
+    """Enter a champion in the paper arena, save / drop it from the bloodline."""
+    admin = _require_admin(request)
+    body = await request.json()
+    champ = body.get('champion') or {}
+    legs = [leg for leg in champ.get('legs') or [] if leg.get('pairAddress')][:_fuse.MAX_LEGS]
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {})
+        if body.get('action') == 'arena' and len(legs) >= 2:
+            e = _hq.arena_entry({**champ, 'legs': legs}, str(body.get('style') or 'yield')[:12], await _hq_prices(legs), time.time(), uuid.uuid4().hex[:10])
+            d['arena'] = ((d.get('arena') or []) + [e])[-200:]
+        elif body.get('action') == 'bloodline' and len(legs) >= 2:
+            pools = sorted(leg['pairAddress'] for leg in legs)
+            if not any(b['pools'] == pools for b in d.get('bloodline') or []):
+                d['bloodline'] = ((d.get('bloodline') or []) + [{'pools': pools, 'symbols': [leg.get('symbol') for leg in legs], 'fitness': champ.get('fitness'),
+                                                                 'style': body.get('style'), 'at': time.time()}])[-30:]
+        elif body.get('action') == 'unbloodline':
+            d['bloodline'] = [b for b in d.get('bloodline') or [] if b['pools'] != sorted(body.get('pools') or [])]
+        else:
+            raise HTTPException(400, 'arena | bloodline | unbloodline with a champion.')
+        _json_save(FUSE_HQ_PATH, d)
+        ad = _admin_load(); _audit(ad, admin, f"fuse-{body.get('action')}", ','.join(leg.get('symbol') or '' for leg in legs)[:120]); _admin_save(ad)
+    return {'ok': True}
+
+
+@app.get('/api/reputation/admin/fuses/health')
+async def fuse_health(request: Request):
+    """Each published Fuse re-scored on live numbers vs a fresh champion of the same size."""
+    _require_admin(request)
+    store = _json_load(FUSES_PATH, {'fuses': {}})
+    raw = await _fuse_discover_pairs('solana')
+    cands = {}
+    for lens in _fuse.LENSES:
+        for r in _fuse.discover(raw, lens, 'solana', now_ms=time.time() * 1000, limit=12):
+            cands.setdefault(r['pairAddress'], r)
+    out = []
+    for fid, f in store['fuses'].items():
+        pairs = await _fuse_pairs(f['legs'])
+        metas = {k: _fuse.leg_meta(v) for k, v in pairs.items()}
+        if len(metas) < 2:
+            out.append({'id': fid, 'name': f.get('name'), 'dead': True}); continue
+        mine = _fuse.fitness(list(metas), metas)['fitness']
+        champ = await asyncio.to_thread(_fuse.evolve, {**dict(list(cands.items())[:40]), **metas}, len(metas), 10, 24, 'yield', 0.05, 150.0, 11, [list(metas)])
+        out.append({'id': fid, 'name': f.get('name'), 'emoji': f.get('emoji'), **_hq.health(mine, champ['champions'][0]['fitness'] if champ['champions'] else 0),
+                    'suggest': champ['champions'][0]['pools'] if champ['champions'] else []})
+    return {'fuses': out}
+
+
+class FuseLiteIn(BaseModel):
+    budgetUsd: float = Field(default=10, ge=1, le=10000)
+
+
+@app.post('/api/reputation/fuses/best3')
+async def fuse_best3(p: FuseLiteIn):
+    """Traders' one button: the best 3-pool basket for this budget, bred with the strategy that has PROVEN itself in the
+    paper arena (else yield). Cached 2 min per budget bucket so it stays cheap."""
+    bucket = 5 if p.budgetUsd < 12 else 20 if p.budgetUsd < 60 else 100
+    hit = _fuse_lite_cache.get(bucket)
+    if hit and time.time() - hit[0] < 120:
+        return hit[1]
+    d = _json_load(FUSE_HQ_PATH, {})
+    style = _hq.best_style(_hq.arena_board([_hq.arena_value(e, {}, time.time()) for e in d.get('arena') or []]))
+    raw = await _fuse_discover_pairs('solana')
+    cands = {}
+    for lens in _fuse.LENSES:
+        for r in _fuse.discover(raw, lens, 'solana', now_ms=time.time() * 1000, limit=12):
+            cands.setdefault(r['pairAddress'], r)
+    metas = dict(list(cands.items())[:40])
+    sol_usd = await _sol_usd_live()
+    ev = await asyncio.to_thread(_fuse.evolve, metas, 3, 14, 28, style, bucket / sol_usd, sol_usd, int(time.time() // 120))
+    c = ev['champions'][0] if ev['champions'] else None
+    out = {'style': style, 'solUsd': sol_usd, 'proven': style != 'yield' or any(r['style'] == 'yield' and r['runs'] >= _hq.MIN_SETTLED for r in _hq.arena_board([_hq.arena_value(e, {}, time.time()) for e in d.get('arena') or []])),
+           'champion': c and {**c, 'legs': [{**{k: metas[pa].get(k) for k in ('symbol', 'quote', 'dex', 'logo', 'liquidityUsd', 'aprEst', 'change24h')},
+                                             'chainId': 'solana', 'pairAddress': pa, 'weight': c['weights'][pa]} for pa in c['pools']]}}
+    _fuse_lite_cache[bucket] = (time.time(), out)
+    return out
 
 
 class FuseBuy(BaseModel):

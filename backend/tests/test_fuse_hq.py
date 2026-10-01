@@ -1,0 +1,32 @@
+"""FUSE HQ: real position P&L, book rollup, paper arena settle + board, best style needs proof, bloodline seeds, health."""
+import fuse
+import fuse_hq as hq
+from test_fuse import _metas
+
+
+def test_position_pnl_and_book():
+    pos = {'id': 'x', 'wallet': 'W', 'fuseId': 'F1', 'name': 'Core', 'legs': [{'pairAddress': 'A', 'usd': 2, 'tokens': 100}, {'pairAddress': 'B', 'usd': 3, 'tokens': 10}]}
+    r = hq.position_pnl(pos, {'A': 0.03, 'B': 0})          # A doubled+, B unpriced → at cost
+    assert r['valueUsd'] == 6 and r['pnlUsd'] == 1 and r['legs'][1]['priced'] is False and r['pnlPct'] == 20
+    b = hq.book([r, hq.position_pnl({**pos, 'id': 'y', 'wallet': 'V'}, {'A': 0.01, 'B': 0.3})])
+    assert b['positions'] == 2 and b['winners'] == 1 and b['fuses'][0]['wallets'] == 2 and b['costUsd'] == 10
+
+
+def test_arena_settles_and_best_style_needs_three_winning_runs():
+    champ = {'fitness': 80, 'legs': [{'pairAddress': 'A', 'weight': 50}, {'pairAddress': 'B', 'weight': 50}]}
+    e = hq.arena_entry(champ, 'degen', {'A': 1, 'B': 2}, now=0, eid='e1')
+    live = hq.arena_value(e, {'A': 1.2, 'B': 2}, now=3600)
+    assert live['pnlPct'] == 10 and not live['due'] and hq.arena_value(e, {}, now=90000)['due']
+    settled = [hq.arena_value({**e, 'close': {'A': 1.2, 'B': 2}}, {}, 99999) for _ in range(2)]
+    assert hq.best_style(hq.arena_board(settled)) == 'yield'               # 2 runs isn't proof
+    settled.append(settled[0])
+    board = hq.arena_board(settled, sol_change_pct=3)
+    assert hq.best_style(board) == 'degen' and board[0]['beatsSol'] and board[0]['winRate'] == 100
+
+
+def test_bloodline_seeds_evolution_and_health_flags_beaten():
+    m = _metas()
+    assert hq.bloodline_seeds([{'pools': ['p1', 'p2', 'p3']}, {'pools': ['p1', 'gone', 'p2']}], set(m), 3) == [['p1', 'p2', 'p3']]
+    seeded = fuse.evolve(m, legs=3, generations=1, population=8, seeds=[['p7', 'p8', 'p9']], seed=1)
+    assert seeded['champions'][0]['fitness'] >= fuse.fitness(['p7', 'p8', 'p9'], m)['fitness']
+    assert hq.health(50, 60)['beaten'] and not hq.health(58, 60)['beaten']

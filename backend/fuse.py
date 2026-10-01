@@ -206,7 +206,7 @@ def fitness(genome, metas, style='yield', sol=0.05, sol_usd=150.0):
                                              'calm': round(calm, 1), 'impactLegs': impact, 'dupes': dupes, 'feeDragPct': round(drag, 2)}}
 
 
-def evolve(metas, legs=3, generations=12, population=24, style='yield', sol=0.05, sol_usd=150.0, seed=7):
+def evolve(metas, legs=3, generations=12, population=24, style='yield', sol=0.05, sol_usd=150.0, seed=7, seeds=()):
     """Genetic search over baskets of `legs` pools. Returns per-generation best/avg (the evolution chart), the top 3
     champions with their fitness breakdown, and a lineage line for the winner."""
     import random
@@ -222,7 +222,8 @@ def evolve(metas, legs=3, generations=12, population=24, style='yield', sol=0.05
         if k not in cache:
             cache[k] = fitness(list(k), metas, style, sol, sol_usd)
         return cache[k]['fitness']
-    pop = [rng.sample(pool, legs) for _ in range(population)]
+    pop = [list(g) for g in seeds if len(set(g)) == legs and all(p in metas for p in g)][:population // 2]   # bloodline
+    pop += [rng.sample(pool, legs) for _ in range(population - len(pop))]
     history, born = [], {}
     for gen in range(generations):
         pop = sorted({key(g): g for g in pop}.values(), key=lambda g: -fit(g))

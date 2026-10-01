@@ -104,3 +104,34 @@ body.fx-lite .fg-pulse { animation: none; }
 body.theme-day .fe-chart, body.theme-day .fe-champ { background: var(--m-surface-2); }
 body.fx-lite .fe-champ { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fe-champ { animation: none; } .fe-chart i { transition: none; } }
+/* Fuse P&L (trader strip + Cmd Ctr HQ) and "Find my best 3". */
+.fpn { display: grid; gap: 8px; padding: 12px 14px; }
+.fpn-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; } .fpn-head b { font-size: 18px; } .fpn-head b small { font-size: 12px; } .fpn-head > small { margin-left: auto; font-family: var(--m-mono); font-size: 10px; }
+.fpn-rows, .fhq-list { display: grid; gap: 4px; }
+.fpn-row { display: grid; grid-template-columns: minmax(80px, auto) 1fr auto; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 6px; background: var(--m-surface); border: 1px solid var(--m-line); font-size: 12px; transition: border-color .15s; }
+.fpn-row:hover { border-color: var(--m-line-hi); } .fpn-row small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--m-mono); font-size: 10px; }
+.fpn-row a { color: inherit; } .fpn-row a:hover { color: var(--m-accent); }
+.fl-best { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--m-accent) 45%, var(--m-line)); border-radius: var(--m-r); background: color-mix(in srgb, var(--m-accent) 7%, var(--m-surface)); }
+.fl-best > div { display: grid; gap: 2px; } .fl-best small { font-size: 11px; }
+.fhq { display: grid; gap: 12px; padding: 16px; margin-bottom: 16px; container-type: inline-size; }
+.fhq-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; } .fhq-head h4 { margin: 4px 0 0; font-size: 18px; }
+.fhq-total { display: grid; justify-items: end; } .fhq-total b { font-size: 24px; } .fhq-total small { font-family: var(--m-mono); font-size: 10px; }
+.fhq-body { display: grid; gap: 10px; animation: mCardIn .2s var(--m-ease); }
+.fhq-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.fhq-tile { display: grid; gap: 2px; padding: 10px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); background: var(--m-surface); text-transform: capitalize; }
+.fhq-tile b { font-size: 18px; } .fhq-tile small { font-family: var(--m-mono); font-size: 10px; text-transform: none; }
+.fhq-tile.is-best { border-color: var(--m-accent); box-shadow: inset 0 0 0 1px var(--m-accent); }
+.fhq-note { margin: 0; font-size: 12px; line-height: 1.5; }
+.fe-acts { display: flex; gap: 6px; } .fe-acts .m-btn:first-child { flex: 1; }
+.fe-blood { font-size: 12px; }
+/* Fuse chat card: hugs a 360px chat column. */
+.fcc { display: grid; gap: 8px; max-width: 340px; margin-top: 6px; padding: 10px 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--m-accent) 45%, var(--m-line)); background: var(--m-surface); box-shadow: 0 10px 26px -18px var(--m-accent); }
+.fcc-head { display: flex; align-items: center; gap: 8px; } .fcc-head b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .fcc-emoji { font-size: 18px; } .fcc-head .fl-grade { font-size: 16px; }
+.fcc-bar { height: 18px; } .fcc-bar span { font-size: 9px; }
+.fcc-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; } .fcc-kpis span { display: grid; } .fcc-kpis small { font-family: var(--m-mono); font-size: 8px; letter-spacing: .1em; color: var(--m-dim); } .fcc-kpis b { font-size: 12px; }
+.fcc-go { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; } .fcc-go .m-seg > button { padding: 6px 9px; font-size: 11px; }
+.fcc .fg { padding: 8px; } .fcc .fg-leg { grid-template-columns: auto auto 1fr; } .fcc .fg-leg em { grid-column: 1 / -1; }
+body.theme-day .fpn-row, body.theme-day .fhq-tile, body.theme-day .fcc { background: var(--m-surface-2); }
+@media (prefers-reduced-motion: reduce) { .fhq-body { animation: none; } }
+@container (max-width: 560px) { .fl-best { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .fl-best { grid-template-columns: 1fr; } }

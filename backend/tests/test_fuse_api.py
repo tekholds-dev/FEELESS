@@ -79,3 +79,27 @@ def test_admin_evolve_breeds_from_discovered_pools(monkeypatch):
     d = asyncio.run(rs.fuses_evolve(Req(), rs.FuseEvolveIn(style='degen', legs=3, generations=5, population=10, sol=0.05, seed=2)))
     c = d['champions'][0]
     assert len(d['history']) == 5 and len(c['legs']) == 3 and c['legs'][0]['symbol'].startswith('T') and d['pool'] == 8
+
+
+def test_fuse_hq_position_pnl_arena_bloodline_best3(monkeypatch):
+    px = {'P1': 4.0, 'P2': 0.01}
+    async def pairs(legs): return {leg['pairAddress']: {**PAIRS[leg['pairAddress']], 'priceUsd': str(px[leg['pairAddress']])} for leg in legs}
+    monkeypatch.setattr(rs, '_fuse_pairs', pairs); monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN')
+    monkeypatch.setattr(rs, '_session_or_401', lambda a, s: rs.primary_of(a))
+    me = rs.primary_of(W)
+    rs._json_save(rs.FEELESS_TRADES_PATH, {me: [{'tx': 'S1', 'side': 'buy', 'usd': 2.0, 'tokens': 1.0, 'token': 'M1'}]})
+    legs = [{'pairAddress': 'P1', 'symbol': 'SOL', 'signature': 'S1'}, {'pairAddress': 'P2', 'symbol': 'FEE', 'signature': 'FAKE'}]
+    assert asyncio.run(rs.fuse_position(rs.FusePositionIn(address=W, session='s', legs=legs)))['legs'] == 1     # fake sig dropped
+    assert asyncio.run(rs.fuse_position(rs.FusePositionIn(address=W, session='s', legs=legs)))['counted'] is False  # once only
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.fuse_position(rs.FusePositionIn(address=W, session='s', legs=[legs[1]])))
+    pnl = asyncio.run(rs.fuse_pnl(W))
+    assert pnl['costUsd'] == 2 and pnl['valueUsd'] == 4 and pnl['pnlPct'] == 100
+    champ = {'fitness': 70, 'legs': [{'pairAddress': 'P1', 'symbol': 'SOL', 'weight': 50}, {'pairAddress': 'P2', 'symbol': 'FEE', 'weight': 50}]}
+    asyncio.run(rs.fuse_hq_admin_save(Req({'action': 'arena', 'style': 'degen', 'champion': champ})))
+    asyncio.run(rs.fuse_hq_admin_save(Req({'action': 'bloodline', 'style': 'degen', 'champion': champ})))
+    d = rs._json_load(rs.FUSE_HQ_PATH, {}); d['arena'][0]['at'] -= 25 * 3600; rs._json_save(rs.FUSE_HQ_PATH, d)
+    px['P1'] = 8.0
+    hq = asyncio.run(rs.fuse_hq_admin(Req()))
+    assert hq['arena'][0]['settled'] and hq['arena'][0]['pnlPct'] == 50 and len(hq['bloodline']) == 1 and hq['book']['positions'] == 1
+    assert hq['board'][0]['style'] == 'degen' and hq['bestStyle'] == 'yield'      # one run isn't proof yet

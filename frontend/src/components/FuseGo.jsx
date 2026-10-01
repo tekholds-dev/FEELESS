@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { useWallet } from '../hooks/useWallet';
 import { fuseOrders, orderMatches } from '../lib/fuseGo';
+import { readChatSession } from '../lib/chatSession';
 
 // ⚡ One-click Fuse in. Quote + simulate every leg in parallel (refreshed every 10s while open), show the exact
 // review (coin, SOL in, est. out, fee), ONE wallet approval for all legs, then send + confirm each leg live.
@@ -15,7 +16,7 @@ const b64 = u8 => btoa(String.fromCharCode(...u8));
 const outOf = o => { const dec = o?.output_metadata?.decimals; const raw = o?.quote?.outAmount; return dec == null || raw == null ? null : Number(raw) / 10 ** dec; };
 const fmt = n => (n == null ? '—' : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n >= 1 ? n.toFixed(2) : n.toPrecision(3));
 
-export function FuseGo({ legs, onClose }) {
+export function FuseGo({ legs, onClose, fuse }) {
   const { wallet, provider, connect, switchTo } = useWallet() || {};
   const addr = wallet?.chain === 'solana' ? wallet.address : null;
   const [rows, setRows] = useState([]);       // {leg, target, request, order, err, state, sig, skip}
@@ -49,16 +50,24 @@ export function FuseGo({ legs, onClose }) {
       const signed = provider.signAllTransactions ? await provider.signAllTransactions(txs) : await txs.reduce(async (acc, tx) => [...await acc, await provider.signTransaction(tx)], Promise.resolve([]));
       if (!Array.isArray(signed) || signed.length !== txs.length) throw new Error('Wallet did not sign every swap — nothing was sent.');
       setPhase('sending');
+      const landed = [];
       const up = (id, patch) => setRows(list => list.map(x => (x.order?.order_id === id ? { ...x, ...patch } : x)));
       await Promise.all(ready.map(async (r, i) => {
         const id = r.order.order_id;
         try {
           let res = await api('/execute', { order_id: id, signed_transaction: b64(signed[i].serialize()) }); up(id, { state: res.state, sig: res.signature });
           for (let k = 0; k < 30 && res.signature && !['confirmed', 'failed'].includes(res.state); k++) { await new Promise(z => setTimeout(z, 2000)); try { res = await api(`/order/${id}`); up(id, { state: res.state }); } catch { /* keep polling */ } }
+          if (res.state === 'confirmed') landed.push({ pairAddress: r.leg.pairAddress, chainId: r.leg.chainId || 'solana', symbol: r.target.symbol, signature: res.signature });
           if (res.state === 'confirmed') window.dispatchEvent(new CustomEvent('feeless:trade-confirmed', { detail: { mint: r.target.mint, side: 'buy', signature: res.signature, usd: Number(r.order.quote?.inUsdValue) || 0, wallet: addr, tokens: outOf(r.order) } }));
         } catch (e) { up(id, { state: 'failed', err: e.message }); }
       }));
       setPhase('done');
+      // Fuse P&L: the server re-checks every signature is your confirmed FEELESS buy (retried while the fill is read).
+      const ses = landed.length && readChatSession(addr);
+      if (ses) [5000, 20000].forEach(ms => setTimeout(() => fetch(apiUrl('/api/reputation/fuses/position'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: addr, session: ses, name: fuse?.name || 'Lab fuse', fuseId: fuse?.id || '', legs: landed }) }).then(() => window.dispatchEvent(new Event('feeless:fuse-pnl'))).catch(() => {}), ms));
+      if (ses && fuse?.id) landed.forEach(l => [6000, 25000].forEach(ms => setTimeout(() => fetch(apiUrl(`/api/reputation/fuses/${fuse.id}/buy`), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: addr, session: ses, signature: l.signature }) }).catch(() => {}), ms)));   // creator's cut
     } catch (e) { toast.error(/reject|cancel/i.test(e.message) ? 'Cancelled in your wallet — nothing was sent.' : e.message); setPhase('review'); }
   };
 

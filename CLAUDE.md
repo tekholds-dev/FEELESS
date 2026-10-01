@@ -112,6 +112,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   budget ($5/$20/$100). Fitness = grade + APR + momentum + calm − size-impact − duplicate coin − fee drag (network fees on
   tiny buys). Elitism (best never drops), seeded, tested vs brute force. Champion → "Load into Lab" → one-click Fuse in.
   Ranking only: never claims profit, never trades by itself.
+- Fuse HQ (`backend/fuse_hq.py`, pure + tested; `FuseHQ.jsx` in Cmd Ctr, `FusePnl` on Trade › Fuse Lab):
+  real Fuse P&L (`POST /fuses/position` counts a leg only if its sig is YOUR confirmed FEELESS buy; cost/tokens from that
+  record), paper Arena (champion → $5 for 24h, settles once; style is *proven* after 3 settled runs with avg > 0),
+  Bloodline (saved champions seed gen 0), Health (published Fuse vs fresh champion → BEATEN ≥10%).
+  Traders get ONE button: `POST /fuses/best3` ($5/$20/$100) breeds with the arena's proven style (else yield), cached 2 min.
+- Chat: `/fuse [name]` posts `⚛️ fuse:<id>`; `FuseChatCard` (≤340px, shared `lib/fuseFeed.js` poll) → amount → FuseGo.
+- FeeCat Fuse: NOT built on purpose — only after a strategy beats holding SOL in the arena over weeks.
 - One-click Fuse in (`FuseGo` + `lib/fuseGo.js`): quote+simulate every leg in parallel (refresh 10s), review must match
   (`orderMatches`), ONE `signAllTransactions`, then `/execute` each leg. Same trading path as Quick trade — no new money path.
 - Built and paid out in Cmd Ctr › ⚛️ Fuse. System map: `docs/ARCHITECTURE.md`.

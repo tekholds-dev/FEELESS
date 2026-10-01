@@ -3,6 +3,7 @@ import { apiUrl } from '../lib/api';
 import { toast } from 'sonner';
 import { FuseGo } from './FuseGo';
 import { FuseEvolve } from './FuseEvolve';
+import { FusePnl } from './FuseHQ';
 import '../styles/fuseLab.css';
 
 // ⚛️ FUSE LAB: browse the chain's real pools, tick them, and see live how FEELESS auto-weighs them (fee APR × depth,
@@ -25,6 +26,13 @@ export function FuseLab({ chain = 'solana', call }) {
   const [prev, setPrev] = useState(null);
   const [err, setErr] = useState('');
   const [going, setGoing] = useState(false);
+  const [best, setBest] = useState({ budget: 20, busy: false, style: null });
+  const load = (legs, s) => { setManual(false); setPicked(legs); if (s) setSol(s.toFixed(4)); document.querySelector('[data-testid="fuse-lab"] .fl-mix')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+  const findBest = () => { setBest(b => ({ ...b, busy: true }));
+    fetch(apiUrl('/api/reputation/fuses/best3'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ budgetUsd: best.budget }) }).then(r => r.json())
+      .then(d => { if (!d.champion) throw new Error('No live pools right now.'); setBest(b => ({ ...b, busy: false, style: d.style, proven: d.proven }));
+        load(d.champion.legs, d.solUsd ? best.budget / d.solUsd : null); })
+      .catch(e => { setBest(b => ({ ...b, busy: false })); toast.error(e.message); }); };
 
   useEffect(() => { let alive = true; setPools(null);
     fetch(apiUrl(`/api/reputation/fuses/discover?lens=${lens}&chain=${chain}`)).then(r => (r.ok ? r.json() : { pools: [] })).then(d => alive && setPools(d.pools || [])).catch(() => alive && setPools([]));
@@ -52,7 +60,12 @@ export function FuseLab({ chain = 'solana', call }) {
       <span className="fl-badges">{admin && <span className="m-chip warn">CMD CTR · 6 POOLS</span>}<span className="m-chip ok fl-chain"><i />{chain.toUpperCase()}</span></span>
     </header>
     <ol className="fl-steps"><li><b>1</b><span>Pick pools</span></li><li><b>2</b><span>Auto-weigh<small>fee APR × depth · 10–70% each</small></span></li><li><b>3</b><span>One click in<small>one approval · a swap per pool</small></span></li></ol>
-    {admin && <FuseEvolve call={call} maxLegs={MAX} onLoad={(legs, s) => { setManual(false); setPicked(legs); if (s) setSol(s.toFixed(4)); document.querySelector('[data-testid="fuse-lab"] .fl-mix')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} />}
+    {admin ? <FuseEvolve call={call} maxLegs={MAX} onLoad={load} /> : <>
+      <FusePnl />
+      <div className="fl-best" data-testid="fl-best"><div><b>🧬 Find my best 3</b><small className="m-dim">{best.style ? `Bred with the ${best.style} strategy${best.proven ? ' — proven in our 24h arena' : ''}` : 'We breed hundreds of baskets from live pools and hand you the winner.'}</small></div>
+        <div className="m-seg">{[5, 20, 100].map(v => <button type="button" key={v} className={best.budget === v ? 'active' : ''} onClick={() => setBest(b => ({ ...b, budget: v }))}>${v}</button>)}</div>
+        <button type="button" className="m-btn primary m-go" disabled={best.busy} onClick={findBest} data-testid="fl-best-go">{best.busy ? 'Breeding…' : 'Find it'}</button></div>
+    </>}
     <div className="fl-body">
       <div className="fl-browse">
         <div className="fl-tools"><div className="m-seg" role="radiogroup" aria-label="Pool lens">{LENSES.map(([k, l]) => <button type="button" key={k} role="radio" aria-checked={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)}>{l}</button>)}</div>
