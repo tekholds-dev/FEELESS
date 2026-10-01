@@ -20,7 +20,7 @@ export function CardExplain({ prev, card, onClose }) {
         <ol className="cx-legs">{prev.legs.map((l, i) => <li key={l.pairAddress} style={{ '--i': i }}>
           <b>{l.runner ? '🏃 ' : '🏊 '}{l.symbol} · {Math.round(l.weight)}%</b>
           <span>{$(l.usd)} of your money ({l.sol} SOL). {l.runner ? `A pre-bond runner from the live board — exits: ${l.exits || 'its lane plan'}.` : `A live pool${l.dex ? ` on ${l.dex}` : ''} with ${$(l.liquidityUsd)} of depth.`}</span>
-          <em className={(l.change24h || 0) >= 0 ? 'm-pos' : 'm-neg'}>Last 24h: {pc(l.change24h)} → {(l.change24h || 0) >= 0 ? '+' : '−'}{$(Math.abs(l.usd * (l.change24h || 0) / 100))} on your slice</em>
+          {(() => { const mv = l.replayPct ?? l.change24h ?? 0; const h = l.replayH ?? 24; return <em className={mv >= 0 ? 'm-pos' : 'm-neg'}>{h ? `Last ${h >= 1 ? `${h}h` : '5m'}` : 'Too new to replay'}{h ? `: ${pc(mv)} → ${mv >= 0 ? '+' : '−'}${$(Math.abs(l.usd * mv / 100))} on your slice` : ''}{h && h < 24 ? ' (pool is younger than 24h)' : ''}</em>; })()}
         </li>)}</ol>
         <dl className="cx-sum">
           <dt>Grade {prev.score.grade}</dt><dd>{prev.score.parts.map(p => `${p.part} ${p.points}`).join(' · ')} — depth, healthy trading, calm prices, no rug flags.</dd>

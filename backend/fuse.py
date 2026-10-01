@@ -40,6 +40,19 @@ def clean_legs(legs):
     return out
 
 
+def replay_window(pair, now_ms=None):
+    """Honest "last 24h" for a pool: DexScreener's h24 on a pool YOUNGER than 24h is the move since launch (thousands of %),
+    so use the newest full window the pool has lived through: 24h → 6h → 1h → 5m. → (pct, hours)."""
+    import time as _t
+    pc = pair.get('priceChange') or {}
+    created = _f(pair.get('pairCreatedAt'))
+    age_h = ((now_ms or _t.time() * 1000) - created) / 3.6e6 if created else None
+    for key, hours in (('h24', 24), ('h6', 6), ('h1', 1), ('m5', 1 / 12)):
+        if age_h is None or age_h >= hours:
+            return _f(pc.get(key)), hours
+    return 0.0, 0
+
+
 def leg_meta(pair):
     """What a Fuse card shows per leg, from a DexScreener pair."""
     liq = _f((pair.get('liquidity') or {}).get('usd')); vol = _f((pair.get('volume') or {}).get('h24'))
@@ -49,7 +62,8 @@ def leg_meta(pair):
             'baseAddress': (pair.get('baseToken') or {}).get('address'), 'quoteAddress': (pair.get('quoteToken') or {}).get('address'),
             'priceUsd': _f(pair.get('priceUsd')), 'liquidityUsd': liq, 'volume24h': vol, 'change24h': _f((pair.get('priceChange') or {}).get('h24')),
             'aprEst': round(vol * DEX_FEE_EST / liq * 365 * 100, 1) if liq > 0 else 0.0, 'turnover': round(vol / liq, 2) if liq > 0 else 0.0,
-            'buyShare': round(buys / (buys + sells) * 100) if buys + sells else None, 'dex': pair.get('dexId'), 'url': pair.get('url')}
+            'buyShare': round(buys / (buys + sells) * 100) if buys + sells else None, 'dex': pair.get('dexId'), 'url': pair.get('url'),
+            **dict(zip(('replayPct', 'replayH'), replay_window(pair)))}
 
 
 def index(legs, base_prices, prices_now):
@@ -150,14 +164,14 @@ def preview(pools, metas, sol, sol_usd, weights):
             metas_ok.append({**m, 'weight': leg['weight']})
         s = parts.get(leg['pairAddress'], 0.0)
         liq = _f(m.get('liquidityUsd'))
-        out.append({**leg, **{k: m.get(k) for k in ('quote', 'liquidityUsd', 'volume24h', 'aprEst', 'change24h', 'dex', 'baseAddress', 'quoteAddress')}, 'sol': s, 'usd': round(s * px, 2),
+        out.append({**leg, **{k: m.get(k) for k in ('quote', 'liquidityUsd', 'volume24h', 'aprEst', 'change24h', 'replayPct', 'replayH', 'dex', 'baseAddress', 'quoteAddress')}, 'sol': s, 'usd': round(s * px, 2),
                     'dailyUsd': round(s * px * min(400.0, _f(m.get('aprEst'))) / 100 / 365, 4), 'missing': not m,
                     'sizePct': round(s * px / liq * 100, 3) if liq > 0 else None})
     usd_in = amt * px
     apr = sum(x['weight'] * min(400.0, _f(x['aprEst'])) for x in out if not x['missing']) / max(1e-9, sum(x['weight'] for x in out if not x['missing'])) if metas_ok else 0.0
     return {'sol': amt, 'usd': round(usd_in, 2), 'solUsd': px, 'legs': out, 'blendedAprPct': round(apr, 1),
             'dailyUsd': round(sum(x['dailyUsd'] for x in out), 4), 'score': score(metas_ok),
-            'backtest24hPct': round(sum(x['weight'] * _f(x['change24h']) for x in out if not x['missing']) / 100, 2),   # if fused 24h ago
+            'backtest24hPct': round(sum(x['weight'] * _f(x['replayPct'] if x.get('replayPct') is not None else x['change24h']) for x in out if not x['missing']) / 100, 2),   # honest window per pool
             'impactWarn': [x['symbol'] for x in out if (x['sizePct'] or 0) > IMPACT_WARN_PCT]}
 
 

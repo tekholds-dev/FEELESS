@@ -113,3 +113,12 @@ def test_big_cmd_ctr_fuse_weights_still_differ():
     m = _metas(10)
     w = fuse._weights_for(sorted(m), m)
     assert abs(sum(w.values()) - 1) < 1e-4 and max(w.values()) - min(w.values()) > 0.02 and min(w.values()) >= 0.05 - 1e-9
+
+
+def test_replay_window_never_uses_since_launch_moves():
+    now = 1_000_000_000_000
+    young = {'pairCreatedAt': now - 3 * 3.6e6, 'priceChange': {'h24': 348700, 'h6': 348700, 'h1': 12.5, 'm5': 2}}
+    assert fuse.replay_window(young, now) == (12.5, 1)                      # 3h old → last full hour, not "since launch"
+    assert fuse.replay_window({'pairCreatedAt': now - 30 * 3.6e6, 'priceChange': {'h24': -8}}, now) == (-8.0, 24)
+    assert fuse.replay_window({'priceChange': {'h24': 5}}, now) == (5.0, 24)                # unknown age → 24h
+    assert fuse.replay_window({'pairCreatedAt': now - 60000, 'priceChange': {'m5': 9}}, now) == (0.0, 0)   # 1 min old: nothing honest yet

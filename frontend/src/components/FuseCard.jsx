@@ -18,7 +18,7 @@ const usd = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1
 // minus the estimated network-fee drag. A replay of the last 24h, not a forecast.
 export function cardMath(c, budget = 20) {
   const total = c.legs.reduce((a, l) => a + (Number(l.weight) || 0), 0) || 1;
-  const legs = c.legs.map(l => { const usd = budget * (Number(l.weight) || 0) / total; const move = Number(l.change24h) || 0; return { ...l, usd, move, pnl: usd * move / 100 }; });
+  const legs = c.legs.map(l => { const usd = budget * (Number(l.weight) || 0) / total; const move = Number(l.replayPct ?? l.change24h) || 0; /* honest window: young pools use 6h / 1h, never since-launch */ return { ...l, usd, move, pnl: usd * move / 100 }; });
   const gross = legs.reduce((a, l) => a + l.pnl, 0); const fees = budget * (Number(c.parts?.feeDragPct) || 0) / 100;
   return { legs, gross, fees, net: gross - fees, end: budget + gross - fees };
 }

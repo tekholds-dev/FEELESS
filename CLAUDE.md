@@ -376,14 +376,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   level, collect/compound, rotation and max runners. `clean_plan({risk})` expands it SERVER-side (nothing free-typed); Lab
   CardPlan + My cards use `RiskDial`; tuning anything → `custom`. Engine dial (`runners.ENGINE_DIALS`, Cmd Ctr ⚡ Engine,
   `POST /admin/runners/config {dial}`). Proof: `runners.dial_proof` → `/fuses/arena.dials` → `DialBoard` (Arena + Cmd Ctr).
+- Replays use `fuse.replay_window` (leg `replayPct`/`replayH`): pools younger than 24h use 6h → 1h → 5m, never DexScreener's
+  since-launch h24. Bugs: same crash + page = one report ×count (`_bug_key`); `.hot-update.js` crashes are never filed.
 - STILL ONE-CLICK: every card action + alert is an approval until the owner confirms they work; only then do configs go auto.
 - Notices: after-notices `fuse-card` (opened / profit taken / withdrawn / switched in), coin signals `fuse-signal`
   (`_card_signal_tick`: bond run, snipers out, runner now failing a gate — coins on YOUR open cards) — all in the existing
   inbox Trading lens. NO P&L numbers in any notice text; P&L lives in Fuse › My cards and the profile only.
 
 ## NEXT SESSION — continue here (in this order)
-0. BUG: Lab "24H REPLAY $" / "IF FUSED 24H AGO" explodes for pools younger than 24h (DexScreener h24 = since launch, e.g.
-   3487x). Use h6/h1-scaled or cap per leg by pool age in `fuse.preview` + `cardMath`.
 1. Owner live test of cards + notices (before/after receipts, inbox), then flip configs to auto per dial proof.
 2. **One coin drawer sitewide**: clicking any coin anywhere opens ONE drawer reading the coin edge — chart, case file, signals,
    "＋ Add to card", Quick trade, runner/bond boxes. Replace the scattered per-surface popovers.
