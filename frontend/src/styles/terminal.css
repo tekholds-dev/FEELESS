@@ -2539,7 +2539,7 @@ body.theme-day small,body.theme-day .muted{color:var(--day-muted)!important}
 body.theme-day .terminal-header,body.theme-day .terminal-sidebar{border-color:rgba(15,36,25,.1)!important}
 
 /* ===== Dip/Rip meta trade tool ===== */
-.chart-side-stack,.eco-chart-side{display:grid;gap:10px;align-content:start}
+.chart-side-stack{display:grid;gap:10px;align-content:start}
 .dip-rip{display:grid;gap:8px;padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.2)}
 .dr-head{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
 .dr-row{display:flex;gap:6px}

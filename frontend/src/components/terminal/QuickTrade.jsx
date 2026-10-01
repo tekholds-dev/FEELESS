@@ -221,7 +221,7 @@ function QuickTradeInner({ pair }) {
     {side === 'buy' && shield && shield.level !== 'ok' && <ShieldNote shield={shield} ack={shieldAck} onAck={setShieldAck} />}
     {quoteError && !order && <small className="qt-note qt-error" role="status">{quoteError}</small>}
     {order && order.key === requestKey
-      ? <button type="button" className={`qt-go ${side}`} disabled={busy || shieldBlocks || impactStop} onClick={approve} data-testid="quick-trade-approve">{busy ? 'Waiting for wallet…' : `${side === 'buy' ? 'Buy' : 'Sell'} ${symbol} in ${wallet?.name || 'Phantom'}`}</button>
+      ? <button type="button" className={`qt-go ${side}${side === 'buy' ? ' m-go' : ''}`} disabled={busy || shieldBlocks || impactStop} onClick={approve} data-testid="quick-trade-approve">{busy ? 'Waiting for wallet…' : `${side === 'buy' ? 'Buy' : 'Sell'} ${symbol} in ${wallet?.name || 'Phantom'}`}</button>
       : <button type="button" className={`qt-go ${side}`} disabled={busy || routing} onClick={quote} data-testid="quick-trade-quote">{!wallet?.address ? <><Wallet size={14} />Connect wallet</> : wallet.chain !== 'solana' ? 'Switch wallet to Solana' : routing ? 'Routing…' : quoteError ? 'Retry quote' : `Get ${side === 'buy' ? 'buy' : 'sell'} quote`}</button>}
     <TradeTimeline t={tl} />
     {shareCard && result?.state === 'confirmed' && <ShareGifButton label="🎞 Share receipt GIF" card={shareCard} className="m-btn qt-share" />}

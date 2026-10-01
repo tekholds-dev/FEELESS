@@ -4,12 +4,9 @@ import { X, ArrowUpRight, Rocket, Radio, Compass, Sparkles, Cat, Infinity as Inf
 import { searchTokens } from '../lib/dexscreener';
 import EcosystemChat from './EcosystemChat';
 import NewStuffFeed from './NewStuffFeed';
-const PriceChart = React.lazy(() => import('./terminal/PriceChart').then(m => ({ default: m.PriceChart })));
-const QuickTrade = React.lazy(() => import('./terminal/QuickTrade').then(m => ({ default: m.QuickTrade })));
+// Same chart as the trenches: every tool, your P&L + entries, Quick trade, Dip/Rip, rug shield.
+const TrenchChart = React.lazy(() => import('./terminal/TrenchChart').then(m => ({ default: m.TrenchChart })));
 import { useMarket } from '../hooks/useMarket';
-import { ChartMetaButtons, useChartMarkers } from './terminal/ChartMeta';
-import { PriceAlertButton } from './terminal/PriceAlertButton';
-import { DipRipTool } from './terminal/DipRipTool';
 import { DegenWeather } from './terminal/DegenWeather';
 
 const ROOM_LAYOUT_KEY = 'feeless-room-layout';
@@ -47,11 +44,11 @@ export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose })
     const top = (roomTop?.pairs || []).find(p => p.pairAddress && p.chainId === roomChain);
     if (top) setChartPair(top);
   }, [roomTop]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [chartIv, setChartIv] = useState('1m');
   const [chartBig, setChartBig] = useState(false);
-  const [showFee, setShowFee] = useState(false);
-  const [showCalls, setShowCalls] = useState(false);
-  const markers = useChartMarkers(chartPair, { calls: showCalls, fee: showFee });
+  // Live pool data (price, mcap, volume) every 3s, same feed as the trench chart.
+  const { data: chartLive } = useMarket(chartPair ? `/pair/${chartPair.chainId}/${chartPair.pairAddress}` : null, 3000);
+  const livePool = chartLive?.pairs?.[0];
+  const liveChartPair = chartPair && livePool?.pairAddress === chartPair.pairAddress ? { ...chartPair, ...livePool } : chartPair;
   const [winPos, setWinPos] = useState(() => ({ x: Math.max(16, window.innerWidth * 0.18), y: 80 }));
   const drag = e => {
     if (!chartBig || e.target.closest('button,a')) return;
@@ -116,9 +113,9 @@ export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose })
         </div>
 
         <div className="eco-right-col custom-scroll">
-          {chartPair && <div className={`eco-chart ${chartBig ? 'is-big' : ''}`} data-testid="eco-room-chart" style={chartBig ? { left: winPos.x, top: winPos.y } : undefined}>
-            <div className="eco-chart-head" onPointerDown={drag} title={chartBig ? 'Drag to move · resize from the corner' : undefined}><b>${chartPair.baseToken?.symbol}</b><span>{chartPair.baseToken?.name}</span><ChartMetaButtons pair={chartPair} calls={showCalls} setCalls={setShowCalls} fee={showFee} setFee={setShowFee} count={{ calls: markers.filter(m => m.color === '#e9bd65').length, fee: markers.filter(m => m.text?.startsWith('Fee')).length }} /><PriceAlertButton pair={chartPair} /><div className="timeframes">{['1m', '5m', '15m', '1h', '4h', '1d'].map(t => <button key={t} type="button" className={chartIv === t ? 'active' : ''} onClick={() => setChartIv(t)}>{t.toUpperCase()}</button>)}</div><a href={`/terminal/chat?chain=${chartPair.chainId}&pair=${chartPair.pairAddress}&room=bulls`} target="_blank" rel="noreferrer">Profile ↗</a><button type="button" className="eco-chart-x" aria-label={chartBig ? 'Shrink chart' : 'Expand chart'} title={chartBig ? 'Shrink (Esc)' : 'Expand'} onClick={() => { setChartBig(b => !b); setTimeout(() => window.dispatchEvent(new Event('resize')), 60); }}>{chartBig ? '⤡' : '⤢'}</button><button type="button" className="eco-chart-x" aria-label="Close chart" onClick={() => { setChartPair(null); setChartBig(false); }}><X size={14} /></button></div>
-            <div className="eco-chart-body">{chartBig && <aside className="eco-chart-chat" data-testid="eco-chart-chat"><EcosystemChat key={chartPair.pairAddress} compact room={`coin-${chartPair.chainId}-${chartPair.pairAddress}-trenches`} ecosystem={{ id: `coin-${chartPair.pairAddress}`, name: `$${chartPair.baseToken?.symbol || ""}` }} /></aside>}<React.Suspense fallback={<div className="chart-message"><span className="loader" />Loading chart…</div>}><div className="chart-with-trade"><div className="chart-fullscreen-wrap"><PriceChart key={`${chartPair.pairAddress}-${chartIv}`} pair={chartPair} interval={chartIv} showVolume feeLive={showFee} markers={markers} /></div><div className="eco-chart-side"><QuickTrade pair={chartPair} /><DipRipTool pair={chartPair} /></div></div></React.Suspense></div>
+          {chartPair && <div className={`eco-chart m-live ${chartBig ? 'is-big' : ''}`} data-testid="eco-room-chart" style={chartBig ? { left: winPos.x, top: winPos.y } : undefined}>
+            <div className="eco-chart-head" onPointerDown={drag} title={chartBig ? 'Drag to move · resize from the corner' : undefined}><b>${chartPair.baseToken?.symbol}</b><span>{chartPair.baseToken?.name}</span><a href={`/terminal/chat?chain=${chartPair.chainId}&pair=${chartPair.pairAddress}&room=bulls`} target="_blank" rel="noreferrer">Profile ↗</a><button type="button" className="eco-chart-x" aria-label={chartBig ? 'Shrink chart' : 'Expand chart'} title={chartBig ? 'Shrink (Esc)' : 'Expand'} onClick={() => { setChartBig(b => !b); setTimeout(() => window.dispatchEvent(new Event('resize')), 60); }}>{chartBig ? '⤡' : '⤢'}</button><button type="button" className="eco-chart-x" aria-label="Close chart" onClick={() => { setChartPair(null); setChartBig(false); }}><X size={14} /></button></div>
+            <div className="eco-chart-body">{chartBig && <aside className="eco-chart-chat" data-testid="eco-chart-chat"><EcosystemChat key={chartPair.pairAddress} compact room={`coin-${chartPair.chainId}-${chartPair.pairAddress}-trenches`} ecosystem={{ id: `coin-${chartPair.pairAddress}`, name: `$${chartPair.baseToken?.symbol || ""}` }} /></aside>}<React.Suspense fallback={<div className="chart-message"><span className="loader" />Loading chart…</div>}><TrenchChart key={chartPair.pairAddress} pair={liveChartPair} className="eco-trench" /></React.Suspense></div>
           </div>}
           {(ecosystem?.chainId || 'solana') === 'solana' && <DegenWeather compact scope={['pump', 'bonk', 'raydium'].includes(ecosystem?.id) ? ecosystem.id : 'launchpads'} />}
           <div className="activity-pulse" data-testid="eco-activity-pulse">

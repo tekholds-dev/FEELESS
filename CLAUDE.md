@@ -12,7 +12,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 ## Before every push (all must pass)
 1. `cd frontend && CI=true yarn test --watchAll=false` → all green.
 2. `cd frontend && CI=false npx craco build` → builds.
-3. `PYTHONPATH=backend:. python -m pytest backend/tests -q` → all green (live-service tests may skip).
+3. `PYTHONPATH=backend:. .venv/bin/python -m pytest backend/tests -q` (plain `python` isn't on the owner's Mac) → all green (live-service tests may skip).
 4. New mechanic ⇒ new test (fake the network; never hit mainnet or move funds).
 5. UI change ⇒ open it (Playwright/Chromium is preinstalled) or say plainly that you didn't.
 
@@ -28,8 +28,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Numbers: compact (`$4.4M`, `+12.3%`, huge moves as `12.4x`) and always show the $ value next to SOL.
 - Day theme: every new surface gets a `body.theme-day` override.
 - Build new UI from the `m-*` presets in `frontend/src/styles/meta.css` (m-card, m-label, m-num, m-chip, m-seg, m-btn,
-  m-input, m-toggle, m-note, m-bars, m-kv). Add a preset there before writing one-off CSS. `styles/cssHygiene.test.js`
+  m-input, m-toggle, m-note, m-bars, m-kv). Big panels get `m-live` (drifting royal-green aurora + edge scan,
+  2 pseudo-layers, never on list rows); primary buy/go buttons get `m-go` (deep→neon gradient, lift on hover). Add a preset there before writing one-off CSS. `styles/cssHygiene.test.js`
   fails on dead class rules and on legacy sheets growing past their KB budget; lower budgets when you delete CSS.
+
+## One component per job
+- Every coin chart is `components/terminal/TrenchChart.jsx` (toolbar, P&L badge, your trades on candles, Quick trade,
+  Dip/Rip, rug shield). Trenches and the globe war room both use it; fix or extend it there, never fork a copy.
+- Swaps never auto-quote: the user picks coins + amount, then clicks Get quote (an open quote still refreshes every 10s).
 
 ## Speed (no lag)
 - No request waterfalls: run independent lookups with `asyncio.gather` / parallel fetches.

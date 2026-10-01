@@ -17,6 +17,10 @@ jest.mock('../hooks/useMarket', () => ({
 
 jest.mock('./EcosystemChat', () => () => <div data-testid="mock-ecosystem-chat" />);
 jest.mock('./NewStuffFeed', () => () => <div data-testid="mock-new-stuff-feed" />);
+// The war room charts with the same TrenchChart as the trenches; stub it and record the pair it gets.
+const mockTrench = jest.fn();
+jest.mock('./terminal/TrenchChart', () => ({ TrenchChart: props => { mockTrench(props); return <div data-testid="mock-trench-chart">{props.pair?.priceUsd}</div>; } }));
+jest.mock('./terminal/DegenWeather', () => ({ DegenWeather: () => null }));
 
 const ecosystem = {
   id: 'pump',
@@ -39,6 +43,7 @@ function mount() {
 
 beforeEach(() => {
   mockUseMarket.mockImplementation(path => {
+    if (!path) return { data: null };
     if (path.includes('/online')) return { data: { online: 0 } };
     if (path.includes('/community')) return { data: { messages: 0 } };
     return { data: { pairs: [] } };
@@ -87,5 +92,20 @@ test('expands and restores the network room window', () => {
   expect(world.querySelector('.eco-world-inner').classList.contains('is-expanded')).toBe(false);
   expect(toggle.textContent).toBe('Expand window');
 
+  act(() => root.unmount());
+});
+test('war room charts with the trench chart and feeds it the live pool price', async () => {
+  const top = { chainId: 'solana', pairAddress: 'Pool1', priceUsd: '0.001', baseToken: { symbol: 'WIF', name: 'dogwifhat' } };
+  mockUseMarket.mockImplementation(path => {
+    if (!path) return { data: null };
+    if (path.startsWith('/feed')) return { data: { pairs: [top] } };
+    if (path === '/pair/solana/Pool1') return { data: { pairs: [{ ...top, priceUsd: '0.002' }] } };
+    return { data: { online: 0, messages: 0, pairs: [] } };
+  });
+  const { container, root } = mount();
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(container.querySelector('[data-testid="eco-room-chart"]').className).toContain('m-live');
+  expect(container.querySelector('[data-testid="mock-trench-chart"]').textContent).toBe('0.002');
+  expect(mockTrench).toHaveBeenLastCalledWith(expect.objectContaining({ className: 'eco-trench' }));
   act(() => root.unmount());
 });

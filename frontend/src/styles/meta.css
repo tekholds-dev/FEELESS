@@ -433,3 +433,24 @@ body.theme-day .my-pnl{background:#ffffffee!important}
 .lr-meta{display:grid;gap:14px}
 .lr-head{display:grid;gap:10px}.lr-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
 .lr-cost{display:grid;gap:4px}.lr-cost>span{font-family:var(--m-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--m-mute)}
+
+/* Live royal-green card (m-live): a slow aurora drifts behind the content and a scan-light runs the top edge.
+   Two composited pseudo-layers per card, transform/opacity only — use on big panels, not on list rows. */
+.m-live { position: relative; isolation: isolate; overflow: hidden; border-color: color-mix(in srgb, var(--m-accent) 40%, transparent) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--m-accent) 10%, transparent) inset, 0 24px 60px -34px color-mix(in srgb, var(--m-accent) 60%, transparent); }
+.m-live::before { content: ''; position: absolute; inset: -35%; z-index: -1; pointer-events: none; will-change: transform;
+  background: radial-gradient(38% 32% at 28% 30%, rgba(25, 245, 143, .15), transparent 70%), radial-gradient(34% 30% at 72% 68%, rgba(0, 196, 120, .12), transparent 70%), radial-gradient(22% 22% at 58% 18%, rgba(140, 255, 205, .08), transparent 70%);
+  animation: mLiveDrift 16s ease-in-out infinite alternate; }
+.m-live::after { content: ''; position: absolute; top: 0; left: 0; width: 38%; height: 1px; pointer-events: none; will-change: transform, opacity;
+  background: linear-gradient(90deg, transparent, var(--m-accent), transparent); animation: mLiveScan 5.5s cubic-bezier(.45, 0, .55, 1) infinite; }
+@keyframes mLiveDrift { 0% { transform: translate3d(-6%, -4%, 0) rotate(0deg); } 100% { transform: translate3d(6%, 5%, 0) rotate(8deg); } }
+@keyframes mLiveScan { 0% { transform: translateX(-100%); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translateX(265%); opacity: 0; } }
+body.fx-lite .m-live::before, body.fx-lite .m-live::after { animation: none; } body.fx-lite .m-live::after { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .m-live::before, .m-live::after { animation: none !important; } .m-live::after { opacity: 0; } }
+body.theme-day .m-live::before { opacity: .55; }
+/* Royal-green action: deep→neon gradient, lift + glow on hover (was a flat mint slab). */
+.m-go { background: linear-gradient(135deg, #0bd97f, #19f58f 55%, #6bffc0) !important; color: var(--m-accent-ink) !important; box-shadow: 0 8px 24px -12px rgba(25, 245, 143, .8), 0 0 0 1px rgba(255, 255, 255, .12) inset; transition: transform .12s var(--m-ease), box-shadow .15s, filter .15s; }
+.m-go:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 12px 30px -10px rgba(25, 245, 143, .95), 0 0 0 1px rgba(255, 255, 255, .2) inset; }
+.m-go:active:not(:disabled) { transform: translateY(0) scale(.98); } .m-go:focus-visible { outline: 2px solid #b8ffe0; outline-offset: 2px; }
+body.theme-day .m-go { background: linear-gradient(135deg, #056b45, #07895a) !important; color: #fff !important; box-shadow: 0 8px 20px -12px rgba(7, 120, 79, .7); }
+.trench-chart { display: contents; }

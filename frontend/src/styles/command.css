@@ -192,16 +192,14 @@ body.theme-day .tape-row.buy b{color:#07784f!important}body.theme-day .tape-row.
 /* Room: inline chart + Chart layout (wide chart, slim chat) */
 .eco-layout-chart .eco-world-grid{grid-template-columns:minmax(260px,.55fr) minmax(0,1.9fr)}
 .eco-layout-chart .eco-idea-card,.eco-layout-chart .activity-pulse{display:none}
-.eco-chart{border:1px solid rgba(18,192,122,.35);border-radius:16px;background:#060d0a;overflow:hidden;margin-bottom:16px;animation:flr-in .3s ease}
-.eco-chart-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid #1c2a23}.eco-chart-head span{color:var(--muted);font-size:12px}.eco-chart-head .timeframes{margin-left:auto}.eco-chart-head a{font-size:12px;color:var(--mint)}
+.eco-chart{border:1px solid rgba(25,245,143,.38);border-radius:16px;background:#060d0a;overflow:hidden;margin-bottom:16px;animation:flr-in .3s ease}
+.eco-chart-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid #1c2a23}.eco-chart-head span{color:var(--muted);font-size:12px}.eco-chart-head>a{margin-left:auto}.eco-chart-head a{font-size:12px;color:var(--mint)}
 .eco-chart-x{border:1px solid var(--line);background:none;color:var(--muted);border-radius:8px;width:28px;height:28px;display:grid;place-items:center;cursor:pointer}
 .eco-chart .chart-with-trade{display:grid;grid-template-columns:minmax(0,1fr) 300px}@media (max-width:1000px){.eco-chart .chart-with-trade{grid-template-columns:1fr}}
 .eco-layout-chart .eco-chart .candle-canvas{height:clamp(380px,55vh,640px)!important}
-.new-stuff-item.is-pickable{cursor:pointer}.new-stuff-item.is-pickable:hover{border-color:rgba(18,192,122,.45)}.new-stuff-item.is-active{border-color:var(--mint);box-shadow:0 0 0 1px var(--mint) inset}
+.new-stuff-item.is-pickable{cursor:pointer}.new-stuff-item.is-pickable:hover{border-color:rgba(25,245,143,.5);transform:translateY(-1px)}.new-stuff-item.is-active{border-color:var(--mint);box-shadow:0 0 0 1px var(--mint) inset}
 .eco-tip{margin-left:8px;font-size:10px;color:var(--muted);letter-spacing:0;text-transform:none}
 body.theme-day .eco-chart{background:#fff;border-color:#9fd3b6}body.theme-day .eco-chart-head{border-color:var(--day-border)}
-.eco-chart.is-big{position:fixed;inset:12px;z-index:1200;margin:0;display:flex;flex-direction:column;box-shadow:0 30px 90px #000d}
-.eco-chart.is-big .chart-with-trade{flex:1;min-height:0}.eco-chart.is-big .candle-canvas{height:calc(100vh - 150px)!important}
 /* Room chart: floating, draggable, resizable window (not fullscreen) */
 .eco-chart.is-big{position:fixed!important;inset:auto!important;width:min(1100px,86vw);height:min(640px,72vh);min-width:420px;min-height:320px;max-width:96vw;max-height:92vh;resize:both;overflow:hidden;z-index:1200;display:flex;flex-direction:column;box-shadow:0 30px 90px #000d,0 0 0 1px rgba(18,192,122,.35)}
 .eco-chart.is-big .eco-chart-head{cursor:grab;user-select:none}.eco-chart.is-big .eco-chart-head:active{cursor:grabbing}
@@ -209,6 +207,7 @@ body.theme-day .eco-chart{background:#fff;border-color:#9fd3b6}body.theme-day .e
 .eco-chart.is-big .chart-fullscreen-wrap,.eco-chart.is-big .chart-area{height:100%;display:flex;flex-direction:column}
 .eco-chart.is-big .candle-canvas{flex:1;height:auto!important;min-height:200px}
 .eco-chart .candle-canvas{height:clamp(360px,48vh,560px)!important}
+.eco-chart .eco-trench{display:flex;flex-direction:column;gap:8px;padding:10px 12px}.eco-chart.is-big .eco-trench{flex:1;min-height:0}
 .eco-chart .chart-message{position:relative;inset:auto;min-height:280px}
 .creator-fees{display:grid;gap:6px;margin-top:8px;padding:10px;border-radius:10px;border:1px solid #19f58f33;background:#19f58f0a}
 .launch-explain{margin:10px 0 0;padding-left:20px;display:grid;gap:8px;font-size:13px;line-height:1.5}.launch-explain b{color:var(--mint)}

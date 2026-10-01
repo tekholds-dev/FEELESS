@@ -10,7 +10,7 @@ test('per-trade preview: what you earn and what the trader pays, in dollars', ()
   const cells = [...host.querySelectorAll('.tp-rows span')].map(s => s.textContent);
   expect(cells[0]).toContain('$1.50'); // 1 SOL = $100 → 1.5%
   expect(cells[0]).toContain('1.50%');
-  expect(cells[3]).toContain('$1.52'); // 1.50 + 0.02 tip + 0.0005 network
+  expect(host.querySelector('.tp-rows .total').textContent).toContain('$1.52'); // 1.50 + 0.02 tip + 0.0005 network
 });
 
 test('number box shows commas and the chip switches SOL ↔ USD on click', () => {
