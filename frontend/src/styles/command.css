@@ -171,7 +171,7 @@ body.theme-day .tape-row.buy b{color:#07784f!important}body.theme-day .tape-row.
 .eco-chart{border:1px solid rgba(25,245,143,.38);border-radius:16px;background:#060d0a;overflow:hidden;margin-bottom:16px;animation:flr-in .3s ease}
 .eco-chart-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid #1c2a23}.eco-chart-head span{color:var(--muted);font-size:12px}.eco-chart-head>a{margin-left:auto}.eco-chart-head a{font-size:12px;color:var(--mint)}
 .eco-chart-x{border:1px solid var(--line);background:none;color:var(--muted);border-radius:8px;width:28px;height:28px;display:grid;place-items:center;cursor:pointer}
-.eco-chart{container-type:inline-size}.eco-chart .chart-with-trade{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,300px)}@container (max-width:720px){.eco-chart .chart-with-trade{grid-template-columns:1fr}.eco-chart .chart-side-stack{max-height:none}}
+.eco-chart{container-type:inline-size}.eco-chart .chart-with-trade{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,300px)}@container (max-width:720px){.eco-chart .chart-with-trade{grid-template-columns:1fr}.eco-chart .chart-aside{height:300px}}
 .eco-layout-chart .eco-chart{--chart-h:clamp(340px,54vh,620px)}
 .new-stuff-item.is-pickable{cursor:pointer}.new-stuff-item.is-pickable:hover{border-color:rgba(25,245,143,.5);transform:translateY(-1px)}.new-stuff-item.is-active{border-color:var(--mint);box-shadow:0 0 0 1px var(--mint) inset}
 .eco-tip{margin-left:8px;font-size:10px;color:var(--muted);letter-spacing:0;text-transform:none}
@@ -179,14 +179,11 @@ body.theme-day .eco-chart{background:#fff;border-color:#9fd3b6}body.theme-day .e
 /* Room chart: floating, draggable, resizable window (not fullscreen) */
 .eco-chart.is-big{position:fixed!important;right:auto!important;bottom:auto!important;width:min(1100px,86vw);height:min(640px,72vh);min-width:420px;min-height:320px;max-width:96vw;max-height:92vh;resize:both;overflow:hidden;z-index:1200;display:flex;flex-direction:column;box-shadow:0 30px 90px #000d,0 0 0 1px rgba(18,192,122,.35)}
 .eco-chart.is-big .eco-chart-head{cursor:grab;user-select:none}.eco-chart.is-big .eco-chart-head:active{cursor:grabbing}
-.eco-chart.is-big .chart-with-trade{flex:1;min-height:0;height:100%}
-.eco-chart.is-big .chart-fullscreen-wrap,.eco-chart.is-big .chart-area{height:100%;display:flex;flex-direction:column}
-.eco-chart.is-big .candle-canvas{flex:1;height:auto!important;min-height:200px}
 /* Room chart: --chart-h per layout; trade stack scrolls */
 .eco-chart{--chart-h:clamp(300px,44vh,520px)}.eco-chart .candle-canvas{height:var(--chart-h)!important}
-.eco-chart .chart-with-trade{align-items:start;gap:10px}.eco-chart .chart-side-stack{max-height:calc(var(--chart-h) + 34px);overflow-y:auto;overscroll-behavior:contain;padding-right:2px}
-.eco-chart.is-big .chart-side-stack{max-height:100%}
-.eco-chart .eco-trench{display:flex;flex-direction:column;gap:8px;padding:10px 12px}.eco-chart.is-big .eco-trench{flex:1;min-height:0}
+.eco-chart .chart-with-trade{align-items:stretch;gap:10px}.eco-chart .chart-aside{min-width:0;height:calc(var(--chart-h) + 40px);display:flex;flex-direction:column}
+.eco-chart .chart-tools-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;align-items:start}
+.eco-chart .eco-trench{display:flex;flex-direction:column;gap:8px;padding:10px 12px}
 .eco-chart .chart-message{position:relative;inset:auto;min-height:280px}
 .creator-fees{display:grid;gap:6px;margin-top:8px;padding:10px;border-radius:10px;border:1px solid #19f58f33;background:#19f58f0a}
 .launch-explain{margin:10px 0 0;padding-left:20px;display:grid;gap:8px;font-size:13px;line-height:1.5}.launch-explain b{color:var(--mint)}

@@ -18,10 +18,26 @@ async function searchCoins(q, chainId) {
   const own = assets.filter(a => a.pair && ([a.id, a.label, a.pair.baseToken?.symbol, a.pair.baseToken?.name].some(v => officialTerms.has(String(v || '').toLowerCase()) || String(v || '').toLowerCase().includes(ql)))).map(a => ({ ...a.pair, info: a.pair.info || { imageUrl: a.logo }, _own: true }));
   const terms = [q, ...(ALIASES[ql] || [])].slice(0, 3);
   const lists = await Promise.all(terms.map(t => fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(t)}`).then(r => r.json()).then(d => d.pairs || []).catch(() => [])));
+  return rankSearch([...own, ...lists.flat()].filter(p => p._own || !chainId || p.chainId === chainId), q);
+}
+// Most trusted first: FEELESS assets, a pasted contract, exact $SYMBOL; within each tier, real depth beats hype —
+// liquidity (log), market cap, pool age and a verified profile; thin (<$5K liq) or <1h-old pools sink. One row per
+// token: its deepest pool.
+export function trustScore(p) {
+  const liq = Number(p.liquidity?.usd) || 0; const mc = Number(p.marketCap || p.fdv) || 0;
+  const ageH = p.pairCreatedAt ? (Date.now() - p.pairCreatedAt) / 3.6e6 : 0;
+  const profile = (p.info?.websites?.length ? 1 : 0) + (p.info?.socials?.length ? 1 : 0) + (p.info?.imageUrl ? 0.5 : 0);
+  return Math.log10(liq + 1) * 3 + Math.log10(mc + 1) + Math.min(ageH / 24, 30) / 10 + profile - (liq < 5000 ? 6 : 0) - (ageH < 1 ? 3 : 0);
+}
+export function rankSearch(pairs, q) {
+  const ql = String(q || '').trim().toLowerCase();
   const wanted = new Set([ql, ...(ALIASES[ql] || []).map(x => x.toLowerCase())]);
-  const score = p => { const sym = String(p.baseToken?.symbol || '').toLowerCase(); const name = String(p.baseToken?.name || '').toLowerCase(); return (p._own ? 1e15 : 0) + (wanted.has(sym) ? 1e12 : sym.startsWith(ql) ? 1e10 : name.includes(ql) ? 1e8 : 0) + (Number(p.liquidity?.usd) > 5000 ? Number(p.volume?.h24) || 0 : 0); };
-  const seen = new Set();
-  return [...own, ...lists.flat()].filter(p => p._own || !chainId || p.chainId === chainId).filter(p => { const k = `${p.chainId}:${p.baseToken?.address}`; if (!p.baseToken?.address || seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => score(b) - score(a)).slice(0, 8);
+  const tier = p => { const sym = String(p.baseToken?.symbol || '').toLowerCase(); const name = String(p.baseToken?.name || '').toLowerCase();
+    return p._own ? 5 : String(p.baseToken?.address || '').toLowerCase() === ql ? 4 : wanted.has(sym) ? 3 : sym.startsWith(ql) ? 2 : name.includes(ql) ? 1 : 0; };
+  const best = new Map();
+  pairs.forEach(p => { const k = `${p.chainId}:${p.baseToken?.address}`; if (!p.baseToken?.address) return; const cur = best.get(k);
+    if (!cur || (p._own && !cur._own) || (!cur._own && (Number(p.liquidity?.usd) || 0) > (Number(cur.liquidity?.usd) || 0))) best.set(k, p); });
+  return [...best.values()].sort((a, b) => tier(b) - tier(a) || trustScore(b) - trustScore(a)).slice(0, 8);
 }
 
 const ADDR = /^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$/;
