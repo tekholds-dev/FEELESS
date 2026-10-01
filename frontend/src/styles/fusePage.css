@@ -102,3 +102,19 @@ body.theme-day .ar-sky i { background: #0b8a55; } body.theme-day .fp-wchip { bac
 .vault-status { display: block; font-family: var(--m-mono); font-size: 11px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--m-line); animation: fpIn .2s var(--m-ease) backwards; }
 .vault-status.is-ok { color: var(--m-accent); border-color: color-mix(in srgb, var(--m-accent) 50%, transparent); } .vault-status.is-warn { color: var(--m-warn); border-color: var(--m-warn); } .vault-status.is-bad { color: var(--m-danger); border-color: var(--m-danger); }
 .lm-fuse { border-color: color-mix(in srgb, var(--m-accent) 50%, var(--m-line)) !important; } .lm-fuse b { color: var(--m-accent); }
+
+/* My cards: hold/swap mode + Fee-Back chip; profile held cards (MetaCard sm via zoom — never re-flowed). */
+.fp-mode { width: fit-content; max-width: 100%; } .fp-mode button { font-size: 10.5px; }
+.fp-fb { font-family: var(--m-mono); font-size: 10.5px; color: var(--m-dim); padding: 3px 8px; border-radius: 999px; border: 1px dashed var(--m-line); cursor: help; }
+.fp-fb.is-on { color: var(--m-accent); border-style: solid; border-color: color-mix(in srgb, var(--m-accent) 50%, transparent); }
+.fp-cell.is-arena { position: relative; } .fp-cell.is-arena::before { content: '🏟 ON ARENA'; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); z-index: 4; font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; padding: 2px 8px; border-radius: 999px; background: var(--rn-fire, #ff9a3c); color: #120800; }
+.fp-held-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; } .fp-held-head h3 { margin: 0; }
+.fp-held-row { display: flex; gap: 14px; overflow-x: auto; padding: 12px 4px 6px; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
+.fp-held-row::-webkit-scrollbar { height: 6px; } .fp-held-row::-webkit-scrollbar-thumb { background: var(--m-accent); border-radius: 6px; }
+.fp-held-card { flex: none; display: grid; gap: 6px; justify-items: center; zoom: .78; animation: fpIn .3s var(--m-ease) backwards; }
+body.fx-lite .fp-held-card { animation: none; } @media (prefers-reduced-motion: reduce) { .fp-held-card { animation: none; } }
+body.theme-day .fp-cell.is-arena::before { color: #fff; }
+
+/* Cmd Ctr › Card rules */
+.cr-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); margin: 10px 0; } .cr-grid small { color: var(--m-dim); font-size: 10px; }
+.cr-book { margin-top: 10px; } .ay-default.is-loading { opacity: .7; }

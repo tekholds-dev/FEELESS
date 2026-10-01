@@ -6,7 +6,7 @@ import { apiUrl } from '../lib/api';
 const ADMIN = [
   ['🔎', 'Scan', 'Live Solana pools, fakes dropped'],
   ['🧬', 'Breed', 'Baskets evolve over generations'],
-  ['🏟', 'Prove', '$5 paper run, settles at 24h'],
+  ['🏟', 'Prove', 'We run $5, settles at 24h'],
   ['📣', 'Publish', 'Traders see it + chat /fuse'],
   ['💰', 'Earn', 'Real P&L + your creator cut'],
 ];
@@ -30,7 +30,7 @@ export function FuseExplainer({ admin = false }) {
     </> : <>
       <p><b>A Fuse buys several coins at once.</b> Your SOL is split across the pools you picked; each one is a normal swap you approve in your wallet — all with one approval. You end up holding the coins, like any buy.</p>
       <p><b>The numbers are estimates from the last 24h.</b> "APR est." is the trading-fee rate those pools earn for liquidity providers — it shows how busy a pool is; it is not paid to you for holding. Prices can fall as easily as rise.</p>
-      <p><b>Where Fuses come from:</b> the FEELESS team breeds baskets from live pools, proves each strategy with 24h paper runs, then publishes the winners here and in chat. "Find my best 3" uses whichever strategy has actually proven itself. A FUSE Vault (deposit SOL, hold one share of many pools) is being built and audited first — it is not live.</p>
+      <p><b>Where Fuses come from:</b> the FEELESS team breeds baskets from live pools, proves each strategy with 24h $5 runs, then publishes the winners here and in chat. "Find my best 3" uses whichever strategy has actually proven itself. A FUSE Vault (deposit SOL, hold one share of many pools) is being built and audited first — it is not live.</p>
       <p><b>Tiny buys:</b> every swap pays a small network fee, so at $5 fewer pools keeps more of your money working. The Size guard warns if your slice would move a thin pool.</p>
     </>}</div>}
   </div>;

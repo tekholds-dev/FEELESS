@@ -396,9 +396,82 @@ def held_value(r):
     return max(0.0, _f(r.get('valueUsd')) - _f(r.get('realizedUsd')))
 
 
-def yield_due(r, y):
+def yield_due(r, y, exit_fee=0.0):
+    """Due when what you'd walk away with (held − estimated exit fees) ≥ base × (1 + at%). base = your confirmed buy
+    + its FEELESS fee (then the held value after each collect), so the trigger is net of fees both ways."""
     base = _f((y or {}).get('base'))
-    return bool(y) and not y.get('firedAt') and not y.get('rebase') and base > 0 and held_value(r) >= base * (1 + _f(y.get('at')) / 100)
+    return bool(y) and not y.get('firedAt') and not y.get('rebase') and base > 0 and held_value(r) - _f(exit_fee) >= base * (1 + _f(y.get('at')) / 100)
+
+
+# ---- Card rules (Cmd Ctr › Fuse › Card rules): auto-profit levels, swap mode, Arena top tier, Fuse Fee-Back -----------
+CARD_RULES = {'yieldLevels': [25, 50, 100, 200], 'yieldDefault': 50, 'netFeeUsdPerLeg': 0.01, 'swapDropPct': 25, 'topTierPct': 50,
+              'fbHolderPct': 20, 'fbHoldHours': 24, 'fbLoyaltyPct': 10, 'fbLoyaltyDays': 7, 'fbArenaPct': 10, 'fbCapPct': 50}
+RULE_RANGES = {'netFeeUsdPerLeg': (0, 1), 'swapDropPct': (5, 90), 'topTierPct': (5, 1000), 'fbHolderPct': (0, 100), 'fbHoldHours': (1, 720),
+               'fbLoyaltyPct': (0, 100), 'fbLoyaltyDays': (1, 90), 'fbArenaPct': (0, 100), 'fbCapPct': (0, 100)}
+
+
+def clean_rules(r):
+    r = r if isinstance(r, dict) else {}
+    out = {}
+    for k, (lo, hi) in RULE_RANGES.items():
+        try:
+            out[k] = round(max(lo, min(hi, float(r.get(k, CARD_RULES[k])))), 4)
+        except (TypeError, ValueError):
+            out[k] = CARD_RULES[k]
+    lv = []
+    for v in r.get('yieldLevels') or CARD_RULES['yieldLevels']:
+        try:
+            lv.append(clean_yield_at(v))
+        except (ValueError, TypeError):
+            continue
+    out['yieldLevels'] = sorted(set(lv))[:6] or CARD_RULES['yieldLevels']
+    d = _f(r.get('yieldDefault', CARD_RULES['yieldDefault']))
+    out['yieldDefault'] = min(out['yieldLevels'], key=lambda x: abs(x - d))
+    return out
+
+
+def exit_fee_usd(r, bundle, swap_bps, net_per_leg=0.01):
+    """Estimated fees to sell what's still held: FEELESS fee per leg (bundle price when 2+ legs go together, else the %)
+    + a network fee per leg."""
+    open_legs = [l for l in r.get('legs') or [] if l.get('soldUsd') is None and _f(l.get('heldUsd')) > 0]
+    fee = 0.0
+    for l in open_legs:
+        h = _f(l.get('heldUsd'))
+        bps = bundle_bps(h, bundle) if len(open_legs) >= 2 else None
+        fee += h * (bps if bps is not None else _f(swap_bps)) / 10000 + _f(net_per_leg)
+    return round(fee, 6)
+
+
+def swap_suggest(r, failing, passing, drop_pct):
+    """Swap mode: the ONE weakest leg that fails a runner gate now or is down ≥ drop_pct, and the best gated runner to
+    replace it (not already in the card). Hold mode never calls this. → {'out', 'in', 'why'} or None."""
+    have = {l.get('mint') for l in r.get('legs') or []} | {l.get('pairAddress') for l in r.get('legs') or []}
+    weak = []
+    for l in r.get('legs') or []:
+        if l.get('soldUsd') is not None:
+            continue
+        if l.get('mint') in failing:
+            weak.append((0, l, f"fails a gate: {(failing[l['mint']] or ['gate'])[0]}"))
+        elif _f(l.get('pnlPct')) <= -abs(_f(drop_pct)):
+            weak.append((1, l, f"down {_f(l.get('pnlPct')):.1f}% (swap at −{_f(drop_pct):g}%)"))
+    pick = next((p for p in sorted(passing, key=lambda p: -_f(p.get('score'))) if p.get('mint') not in have and p.get('pairAddress') not in have), None)
+    if not weak or not pick:
+        return None
+    _, leg, why = sorted(weak, key=lambda w: (w[0], _f(w[1].get('pnlPct'))))[0]
+    return {'out': {k: leg.get(k) for k in ('pairAddress', 'mint', 'symbol', 'heldUsd')}, 'in': {k: pick.get(k) for k in ('mint', 'symbol', 'pairAddress', 'logo', 'score')}, 'why': why}
+
+
+def card_feeback(fees_usd, held_s, on_arena, rules):
+    """Fuse Fee-Back: a share of the FEELESS fees you paid on a card comes back once you've held it fbHoldHours;
+    +fbLoyaltyPct after fbLoyaltyDays; +fbArenaPct while it burns hot/blazing on the Arena. Capped at fbCapPct."""
+    rl = clean_rules(rules)
+    h = max(0.0, _f(held_s)) / 3600
+    unlocked = h >= rl['fbHoldHours']
+    loyal = h >= rl['fbLoyaltyDays'] * 24
+    pct = 0.0 if not unlocked else min(rl['fbCapPct'], rl['fbHolderPct'] + (rl['fbLoyaltyPct'] if loyal else 0) + (rl['fbArenaPct'] if on_arena else 0))
+    nxt = (f"{rl['fbHolderPct']:g}% unlocks in {max(0.0, rl['fbHoldHours'] - h):.0f}h" if not unlocked
+           else f"+{rl['fbLoyaltyPct']:g}% at {rl['fbLoyaltyDays']:g}d held" if not loyal and rl['fbLoyaltyPct'] else '')
+    return {'feesUsd': round(_f(fees_usd), 6), 'pct': round(pct, 2), 'usd': round(_f(fees_usd) * pct / 100, 6), 'unlocked': unlocked, 'loyal': loyal, 'arena': bool(on_arena), 'next': nxt}
 
 
 def collect_pct(r, y):

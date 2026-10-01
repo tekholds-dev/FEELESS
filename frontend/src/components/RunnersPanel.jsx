@@ -10,10 +10,11 @@ import '../styles/runners.css';
 
 // 🏃 FUSE RUNNERS — coins come to it. Every launchpad coin the feed sees is gated (rugs out), scored, laned (scalp / runner
 // / hold) with a preset exit ladder; every 15 min a round keeps the best runners and adds newcomers; every round is
-// played on paper. The Fuse button only lights when the last 24h of rounds actually won. One shared /runners poll (20s).
+// run with $5 at live prices. The Fuse button only lights when the last 24h of rounds actually won. One shared /runners poll (20s).
 export const LANES = [['scalp', '🔥', 'SCALP', 'Pre-bond rush'], ['runner', '🏃', 'RUNNERS', '1–48h momentum'], ['hold', '💎', 'HOLD', 'Stayed 2+ rounds']];
 const pct = v => `${v >= 0 ? '+' : ''}${Math.abs(v) >= 1000 ? `${(1 + v / 100).toFixed(1)}x` : `${(v || 0).toFixed(1)}%`}`;
 const usd = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v || 0)}`);
+export const ago = at => { const m = Math.max(1, Math.round((Date.now() / 1000 - at) / 60)); return m < 60 ? `${m}m` : m < 2880 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
 const pairOf = r => ({ chainId: 'solana', baseToken: { address: r.mint, symbol: r.symbol }, info: { imageUrl: r.logo } });
 
 export function useRunners() {
@@ -37,7 +38,7 @@ export function ProofRing({ p, need }) {
   const deg = Math.max(0, Math.min(100, p.winRate)) * 3.6;
   return <div className={`rn-proof ${p.lights ? 'is-lit' : ''}`} data-tip={p.lights ? `Lit: last 24h of rounds averaged ${pct(p.avgPct)}, ${p.winRate}% won.` : `Proving: needs ${need} rounds, a positive average and ≥50% won before the button lights.`}>
     <div className="rn-ring" style={{ '--deg': `${deg}deg` }}><span><b className="m-num">{p.rounds ? pct(p.avgPct) : '—'}</b><small>{p.winRate}% won</small></span></div>
-    <div className="rn-proof-txt"><small>PAPER PROOF · 24H</small><b>{p.lights ? '🔥 LIT' : p.need ? `PROVING · ${p.need} more rounds` : 'NOT WINNING YET'}</b><em>{p.rounds} rounds · $1 → ${p.per1.toFixed(2)}</em></div>
+    <div className="rn-proof-txt"><small data-tip="We run $5 through every round at live prices with the lane exits">WE RUN $5 · 24H</small><b>{p.lights ? '🔥 LIT' : p.need ? `PROVING · ${p.need} more rounds` : 'NOT WINNING YET'}</b><em>{p.rounds} rounds · $1 → ${p.per1.toFixed(2)}</em></div>
   </div>;
 }
 
@@ -46,7 +47,7 @@ export function CoinRow({ r, live }) {
   return <div className={`rn-coin lane-${r.lane || 'runner'}`}>
     <span className="rn-logo"><TokenAvatar pair={pairOf(r)} size={30} /></span>
     <span className="rn-name"><b>{r.symbol ? `$${r.symbol}` : `${r.mint.slice(0, 4)}…`}</b><small>{r.stage === 'curve' ? <i className="rn-curve" data-tip={`${r.curve.toFixed(0)}% up the bonding curve — pre-bond`}><i style={{ transform: `scaleX(${Math.min(1, r.curve / 100)})` }} /></i> : <em className="rn-grad" data-tip="Graduated — has its own pool">GRAD</em>}
-      {r.streak > 1 && <em className="rn-streak" data-tip={`Stayed in the top for ${r.streak} rounds`}>🔁×{r.streak}</em>}</small></span>
+      {r.streak > 1 && <em className="rn-streak" data-tip={`Stayed in the top for ${r.streak} rounds`}>↻{r.streak}</em>}</small></span>
     <span className="rn-score" data-tip={(r.parts || []).map(p => `${p.part}: +${p.points} (${p.why})`).join('\n')}><i style={{ transform: `scaleX(${Math.min(1, (r.score || 0) / 100)})` }} /><b className="m-num">{Math.round(r.score || 0)}</b></span>
     <span className={`m-num rn-move ${move >= 0 ? 'm-pos' : 'm-neg'}`} data-tip={live ? 'Since this round picked it' : 'Last hour'}>{pct(move)}</span>
     <button type="button" className="rn-case" onClick={() => investigate(r.mint)} aria-label="Case file" data-tip="Open the coin's case file">🔎</button>
@@ -83,7 +84,7 @@ export function RunnersPanel({ call }) {
         <span className="m-label">RUNNER FUSE · THIS ROUND</span>
         <p className="m-dim">{picks.length} runners, equal weight. Each is bought by mint (pre-bond on the curve or from its new pool) in one wallet approval; its lane's exit plan goes on your 🎯 limits.</p>
         <div className="m-seg">{[1, 2, 5].map(v => <button type="button" key={v} className={budget === v ? 'active' : ''} onClick={() => setBudget(v)}>${v}</button>)}</div>
-        {call && !d.proof.lights && <label className="m-toggle rn-override" data-tip="Admin only: fuse before the paper proof is positive"><input type="checkbox" checked={override} onChange={e => setOverride(e.target.checked)} /><span>Fuse unproven (paper: {d.proof.rounds ? pct(d.proof.avgPct) : 'no rounds yet'})</span></label>}
+        {call && !d.proof.lights && <label className="m-toggle rn-override" data-tip="Admin only: fuse before the $5 run is positive"><input type="checkbox" checked={override} onChange={e => setOverride(e.target.checked)} /><span>Fuse unproven ($5 run: {d.proof.rounds ? pct(d.proof.avgPct) : 'no rounds yet'})</span></label>}
         {!go ? <button type="button" className={`m-btn primary m-go wide rn-go ${lit ? 'is-lit' : ''}`} disabled={!lit || !sol} onClick={() => setGo(true)} data-testid="rn-go">{lit ? `⚡ Fuse runners · $${budget}` : `🔒 Lights up when proven (${d.proof.need ? `${d.proof.need} rounds to go` : 'not winning yet'})`}</button>
           : <FuseGo legs={legs.map(l => ({ ...l, sol: Math.round(sol / legs.length * 1e6) / 1e6 }))} fuse={{ name: 'Runner Fuse' }} onClose={() => setGo(false)} />}
       </div>
@@ -94,9 +95,15 @@ export function RunnersPanel({ call }) {
           <ul className="rn-drop">{d.dropped.slice(0, 6).map(r => <li key={r.mint}><b>${r.symbol}</b><span>{r.gates.slice(0, 2).join(' · ')}</span></li>)}</ul></>}
         <button type="button" className="rn-drop-toggle" aria-expanded={showDrop} onClick={() => setShowDrop(s => !s)}>{showDrop ? 'Hide' : 'Show'} the {d.dropped.length} dropped (why)</button>
         {showDrop && <ul className="rn-drop">{d.dropped.map(r => <li key={r.mint}><b>${r.symbol}</b><span>{r.gates.slice(0, 2).join(' · ')}{r.gates.length > 2 ? ` +${r.gates.length - 2}` : ''}</span></li>)}</ul>}</div>
-      <div className="rn-hist"><header><b>🏟 Last rounds (paper)</b><small className="m-dim">equal $ · lane exits</small></header>
-        {d.history.length ? <div className="rn-bars">{d.history.map(h => <i key={h.id} className={h.pct >= 0 ? 'up' : 'down'} style={{ transform: `scaleY(${Math.min(1, Math.max(0.06, Math.abs(h.pct) / 60))})` }} data-tip={`${h.symbols.join(' · ')}: ${pct(h.pct)}`} />)}</div> : <p className="m-dim">The first rounds are being dealt.</p>}
-        <small className="m-dim">A replay on prices seen after each round, not a promise. Pre-bond coins can go to zero in minutes — the gates and exits are there to cut that, not to prevent it.</small></div>
+      <div className="rn-hist"><header><b>🏟 Last rounds · we run $5</b><small className="m-dim">equal $ · lane exits</small></header>
+        {d.history.length ? <ol className="rn-rounds" data-testid="rn-rounds">{d.history.map((h, i) => { const up = h.pct >= 0; const end = 5 * (1 + h.pct / 100);
+          return <li key={h.id} className={up ? 'up' : 'down'} style={{ '--i': i }}>
+            <span className="rn-r-when m-num">{ago(h.at)}</span>
+            <span className="rn-r-coins">{h.symbols.map(s => `$${s}`).join(' · ')}</span>
+            <i className="rn-r-bar"><i style={{ transform: `scaleX(${Math.min(1, Math.max(0.04, Math.abs(h.pct) / 60))})` }} /></i>
+            <b className={`m-num ${up ? 'm-pos' : 'm-neg'}`}>{pct(h.pct)}</b><small className="m-num">$5 → ${end.toFixed(2)}</small></li>; })}</ol>
+          : <p className="m-dim">The first rounds are being dealt.</p>}
+        <small className="m-dim">We run $5 through every round at live prices with its lane exits — a track record, not a promise. Pre-bond coins can go to zero in minutes; gates and exits cut that, they don't prevent it.</small></div>
     </div>
   </section>;
 }

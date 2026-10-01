@@ -38,6 +38,18 @@ export function CardPricing({ legs, admin }) {
     <span className="m-label">💲 CARD PRICING</span><b className="m-num">${fee.toFixed(fee < 1 ? 3 : 2)}</b><small>{legs.length} coins · ${pr.bundle.perLegUsd.toFixed(2)}/coin{usdIn ? ` · ${(fee / usdIn * 100).toFixed(2)}% of $${usdIn.toFixed(2)}` : ''}</small></div>;
 }
 
+// 🏃 Runners lens: This round (addable while still passing every gate) · Hot now (gated, busiest first) · Watching (failed a
+// gate — shown with the reason, never addable). One /runners/discover read (20s server cache).
+export function runnerSections(d) {
+  const byMint = Object.fromEntries((d.runners || []).map(x => [x.mint, x]));
+  const round = (d.round || []).map(p => ({ ...(byMint[p.mint] || {}), ...p, runner: true, section: 'round', chg1h: p.move, blocked: p.passing ? '' : (p.gates || [])[0] || 'fails a gate now' }));
+  const inRound = new Set(round.map(p => p.mint));
+  const hot = (d.runners || []).filter(x => !inRound.has(x.mint)).sort((a, b) => (b.vol1h || 0) - (a.vol1h || 0)).map(x => ({ ...x, runner: true, section: 'hot' }));
+  const watch = (d.watching || []).slice(0, 8).map(x => ({ ...x, runner: true, section: 'watch', blocked: (x.gates || [])[0] || 'fails a gate' }));
+  return [...round, ...hot, ...watch];
+}
+const SECTION = { round: ['🏟 This round', 'picked by the arena · live move since the round'], hot: ['🔥 Hot now', 'passing every gate · busiest first'], watch: ['👀 Watching', 'failed a gate — not addable'] };
+
 // Leg caps mirror the server (fuse_hq.legs_ok): traders 3 pools + 3 runners; Cmd Ctr 12 legs in any mix (6/6, 12 runners…).
 export const legCaps = admin => (admin ? { pools: 12, runners: 12, total: 12 } : { pools: 3, runners: 3, total: 6 });
 
@@ -66,7 +78,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
 
   useEffect(() => { let alive = true; setPools(null);
     const url = lens === 'runners' ? '/api/reputation/runners/discover' : `/api/reputation/fuses/discover?lens=${lens}&chain=${chain}`;
-    fetch(apiUrl(url)).then(r => (r.ok ? r.json() : {})).then(d => alive && setPools(lens === 'runners' ? (d.runners || []).map(x => ({ ...x, runner: true })) : d.pools || [])).catch(() => alive && setPools([]));
+    fetch(apiUrl(url)).then(r => (r.ok ? r.json() : {})).then(d => alive && setPools(lens === 'runners' ? runnerSections(d) : d.pools || [])).catch(() => alive && setPools([]));
     return () => { alive = false; }; }, [lens, chain]);
 
   const key = picked.map(p => `${p.pairAddress}:${manual ? wts[p.pairAddress] || 1 : ''}`).join(',') + '|' + runnerPicks.map(r => r.mint).join(',');
@@ -117,16 +129,18 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
         <div className="fl-list" role="listbox" aria-multiselectable="true" aria-label="Pools">
           {pools == null ? Array.from({ length: 6 }, (_, i) => <div key={i} className="fl-row is-ghost" />)
             : !shown.length ? <p className="m-dim fl-empty">{lens === 'runners' ? 'No runner passes every gate this minute — the scan refreshes every 20s.' : 'No live pools in this lens right now.'}</p>
-            : lens === 'runners' ? shown.map((p, i) => { const on = isOn(p); const full = isFull(p);
-              return <button type="button" role="option" aria-selected={on} key={p.mint} className={`fl-row fl-runrow ${on ? 'is-on' : ''}`} style={{ '--i': Math.min(i, 12) }} disabled={full} onClick={() => toggle(p)} data-testid={`fl-runner-${p.mint}`} title={full ? 'Card full' : undefined}>
+            : lens === 'runners' ? shown.map((p, i) => { if (!SECTION[p.section]) return null;   // the previous lens's rows for one render
+              const on = isOn(p); const full = isFull(p) || Boolean(p.blocked);
+              return <React.Fragment key={`${p.section}-${p.mint}`}>{(i === 0 || shown[i - 1].section !== p.section) && <div className={`fl-sec sec-${p.section}`} role="presentation"><b>{SECTION[p.section][0]}</b><small>{SECTION[p.section][1]}</small></div>}
+              <button type="button" role="option" aria-selected={on} className={`fl-row fl-runrow sec-${p.section} ${on ? 'is-on' : ''} ${p.blocked ? 'is-blocked' : ''}`} style={{ '--i': Math.min(i, 12) }} disabled={full} onClick={() => toggle(p)} data-testid={`fl-runner-${p.mint}`} data-tip={p.blocked || undefined} title={!p.blocked && full ? 'Card full' : undefined}>
                 <span className="fl-check" aria-hidden="true">{on ? '✓' : '+'}</span>
                 <span className="fl-logo"><TokenAvatar pair={{ chainId: 'solana', baseToken: { address: p.mint, symbol: p.symbol }, info: { imageUrl: p.logo } }} size={28} /></span>
-                <span className="fl-name"><b>🏃 {p.symbol}</b><em>{(p.sources || []).map(s => s.label).join(' · ') || `${p.lane || 'runner'} lane`}</em></span>
+                <span className="fl-name"><b>🏃 {p.symbol}</b><em>{p.blocked ? `✕ ${p.blocked}` : (p.sources || []).map(s => s.label).join(' · ') || `${p.lane || 'runner'} lane`}</em></span>
                 <span className="fl-cell"><small>SCORE</small><b className="m-num">{Math.round(p.score || 0)}</b></span>
-                <span className="fl-cell"><small>MCAP</small><b className="m-num">{usd(p.mcap)}</b></span>
-                <span className="fl-cell"><small>VOL 1H</small><b className="m-num">{usd(p.vol1h)}</b></span>
-                <span className="fl-cell"><small>1H</small><b className={`m-num ${(p.chg1h || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(p.chg1h || 0)}</b></span>
-              </button>; })
+                <span className="fl-cell"><small>MCAP</small><b className="m-num">{p.mcap ? usd(p.mcap) : '—'}</b></span>
+                <span className="fl-cell"><small>VOL 1H</small><b className="m-num">{p.vol1h ? usd(p.vol1h) : '—'}</b></span>
+                <span className="fl-cell"><small>{p.section === 'round' ? 'ROUND' : '1H'}</small><b className={`m-num ${p.chg1h == null ? 'm-dim' : p.chg1h >= 0 ? 'm-pos' : 'm-neg'}`}>{p.chg1h == null ? '—' : pct(p.chg1h)}</b></span>
+              </button></React.Fragment>; })
             : shown.map(p => { const on = isOn(p); const full = isFull(p);
               return <button type="button" role="option" aria-selected={on} key={p.pairAddress} className={`fl-row ${on ? 'is-on' : ''}`} disabled={full} onClick={() => toggle(p)} data-testid={`fl-pool-${p.pairAddress}`} title={full ? `Max ${MAX} pools` : undefined}>
                 <span className="fl-check" aria-hidden="true">{on ? '✓' : '+'}</span>

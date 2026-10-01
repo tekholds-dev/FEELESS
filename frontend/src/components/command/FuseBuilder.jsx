@@ -1,4 +1,4 @@
-import { AutoYieldDefault } from './FuseAdminSettings';
+import { AutoYieldDefault, CardRules } from './FuseAdminSettings';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../../lib/api';
@@ -21,7 +21,7 @@ export function FuseBuilder({ call }) {
   }, [q]);
   const add = p => setDraft(x => (x.legs.some(l => l.pairAddress === p.pairAddress) || x.legs.length >= (d?.maxLegs || 12) ? x : { ...x, legs: [...x.legs, { chainId: p.chainId, pairAddress: p.pairAddress, symbol: p.symbol, weight: 25, meta: p }] }));
   const save = async body => { try { await call('/admin/fuses', { method: 'POST', body: JSON.stringify(body) }); toast.success('Saved'); setDraft(EMPTY); load(); } catch (e) { toast.error(e.message); } };
-  return <div className="cc-block fz-builder" data-testid="fuse-builder"><AutoYieldDefault call={call} />
+  return <div className="cc-block fz-builder" data-testid="fuse-builder"><AutoYieldDefault call={call} /><CardRules call={call} />
     <div className="m-row"><h4>⚛️ Fuse builder</h4><span className="m-dim">Fuse popular pools into one basket. Buyers fuse in leg by leg (their wallet signs each swap); the creator earns a cut of the FEELESS fee.</span></div>
     <div className="fz-admin-list">{(d?.fuses || []).map(f => <div key={f.id} className={`qe-row ${f.enabled === false ? 'is-off' : ''}`}><span className="fz-emoji">{f.emoji}</span>
       <div><b>{f.name}</b> <span className="m-chip">{f.score.grade}</span> <small className="m-dim">index {f.index} · {usd(f.tvlUsd)} depth · {f.stats.buys} buys · {usd(f.stats.volumeUsd)} volume</small>

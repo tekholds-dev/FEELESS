@@ -14,7 +14,7 @@ test('lanes, proof gate: the Fuse button stays locked until the paper proof ligh
   global.fetch = jest.fn(async () => ({ json: async () => DATA({ rounds: 3, avgPct: 5, winRate: 67, lights: false, per1: 1.05, need: 5 }) }));
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<RunnersPanel />); }); await tick(20);
-  expect(el.textContent).toContain('SCALP'); expect(el.textContent).toContain('🔁×3'); expect(el.textContent).toContain('PROVING · 5 more rounds');
+  expect(el.textContent).toContain('SCALP'); expect(el.textContent).toContain('↻3'); expect(el.textContent).toContain('PROVING · 5 more rounds');
   expect(el.querySelector('[data-testid="rn-go"]').disabled).toBe(true); expect(el.querySelector('.rn-override')).toBeNull();   // no override for traders
 });
 

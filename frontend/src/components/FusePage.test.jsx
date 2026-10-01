@@ -51,8 +51,12 @@ test('Fuse 🧬: tabs, runners carry into the Lab, My cards shows every action',
   expect(host.querySelector('[data-testid="lab"]').textContent).toBe('picks:3');
   act(() => host.querySelector('[data-testid="fuse-tab-cards"]').click()); await tick(); await tick();
   ['take', 'yield', 'rebalance', 'switch', 'limits', 'withdraw'].forEach(k => expect(host.querySelector(`[data-testid="act-${k}-c1"]`)).not.toBeNull());
+  expect(host.querySelector('[data-testid="mode-hold-c1"]').getAttribute('aria-checked')).toBe('true');   // cards hold together by default
+  expect(host.querySelector('[data-testid="mode-swap-c1"]')).not.toBeNull();
   await act(async () => host.querySelector('[data-testid="act-yield-c1"]').click());
   expect(host.querySelector('[data-testid="act-panel-yield"]').textContent).toContain('33.3% of each leg');   // +50% → sell only the gain
+  expect(host.querySelector('[data-testid="yield-lvl-100"]')).not.toBeNull();                                      // Cmd Ctr levels, picked not typed
+  expect(host.querySelector('[data-testid="act-panel-yield"]').textContent).toContain('after exit fees');
   await act(async () => host.querySelector('[data-testid="act-withdraw-c1"]').click()); await tick();
   expect(host.querySelector('[data-testid="fusego"]').dataset.side).toBe('sell');
 });

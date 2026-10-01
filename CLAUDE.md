@@ -248,6 +248,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Bundle pricing (`fuse_hq.bundle_bps`, fee cfg `bundle`, Cmd Ctr › Fees › 6, `POST /admin/fees/bundle`, public `GET /fees/pricing`):
   a card bought all at once (FuseGo sends `bundle`=legs on /quote) pays a flat $/coin (default $0.10), ≤ maxPct of a leg; legs
   > maxLegUsd pay the normal %. Staff (Cmd Ctr) bundles pay 0 FEELESS fee. Live "⚛️ Fuse fees" tile (`GET /admin/fuses/fees`).
+- Card rules (`fuse_hq.CARD_RULES/clean_rules`, Cmd Ctr › Fuse › 🃏 Card rules, `GET|POST /admin/fuses/rules`, public `/fuses/rules`):
+  auto-profit LEVELS traders pick (no free typing), counted from the confirmed buy + its FEELESS fee and fired only when up
+  after exit fees (`exit_fee_usd`); per-card mode 🔒 hold / ⇄ swap (`POST /fuses/mode`; swap = `swap_suggest` → one alert per
+  weak leg with a pre-filled switch `?tab=cards&switch=<id>&out=&in=`); Arena: every open trader card shows until withdrawn,
+  ≥ topTierPct takes the top tier; Fuse Fee-Back (`card_feeback`: share of fees paid, unlocks after holding, + loyalty, + Arena,
+  capped; book + "Mark paid" in Cmd Ctr). Profile shows `FuseHeldCards` (held P&L) above receipts.
+- Copy: Runners/Arena say "we run $5" (never "paper"); a missing live price shows "—", never a fake 0%.
 - Pump Pulse sitewide: every `TokenAvatar` shows a pink `PulseDot` while the coin pulses (shared batched `lib/pumpPulse`).
 - Prebuilt rail budgets: $1 / $20 / $100 or a custom $ (debounced 250ms); server breeds for the nearest bucket, Fuse in
   uses the exact amount. Pools-per-fuse segment is Cmd Ctr only.

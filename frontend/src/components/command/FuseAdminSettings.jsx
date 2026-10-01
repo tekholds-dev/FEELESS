@@ -54,3 +54,31 @@ export function BundlePricing({ call, initial, swapBps = 0 }) {
     <small className="cc-empty">Bigger legs than the limit pay the normal %, so the flat price can't be used to dodge the fee on one big swap.</small>
     <button type="button" className="btn-primary" onClick={save} data-testid="bundle-save">Save bundle pricing</button></div>;
 }
+
+// Cmd Ctr › Fuse › Card rules: what traders can pick (auto-profit levels, counted after fees from their confirmed buy),
+// the swap-mode trigger, the Arena top tier, and Fuse Fee-Back (share of fees paid on a card, unlocked by holding it;
+// loyalty + Arena bonuses; cap). The book shows earned / paid / owed per wallet; "Paid" records a payout you sent.
+const RULE_LABELS = [['swapDropPct', 'Swap mode: alert when a leg is down', '%'], ['topTierPct', 'Arena top tier: card up at least', '+%'],
+  ['fbHolderPct', 'Fee-Back: share of fees paid', '%'], ['fbHoldHours', 'Unlocks after holding', 'h'], ['fbLoyaltyPct', 'Loyalty bonus', '+%'],
+  ['fbLoyaltyDays', 'Loyalty after', 'days'], ['fbArenaPct', 'Arena bonus (card hot/blazing)', '+%'], ['fbCapPct', 'Fee-Back cap', '%'], ['netFeeUsdPerLeg', 'Network fee estimate per leg', '$']];
+
+export function CardRules({ call }) {
+  const [d, setD] = useState(null); const [r, setR] = useState(null); const [lv, setLv] = useState('');
+  useEffect(() => { call('/admin/fuses/rules').then(x => { setD(x); setR(x.rules); setLv(x.rules.yieldLevels.join(', ')); }).catch(() => {}); }, [call]);
+  if (!r) return <div className="m-card ay-default is-loading" data-testid="card-rules"><span className="m-label">🃏 CARD RULES</span><span className="m-dim">Loading…</span></div>;
+  const save = async body => { try { const x = await call('/admin/fuses/rules', { method: 'POST', body: JSON.stringify(body) }); setD(d0 => ({ ...d0, ...x })); setR(x.rules); setLv(x.rules.yieldLevels.join(', ')); toast.success(body.wallet ? 'Payout recorded' : 'Card rules saved'); } catch (e) { toast.error(e.message); } };
+  const fb = d.feeback || { rows: [], owedUsd: 0, earnedUsd: 0 };
+  return <details className="m-card rn-settings card-rules" data-testid="card-rules"><summary><span className="m-label">🃏 CARD RULES · AUTO-PROFIT · SWAP · FEE-BACK</span><small className="m-dim">Fee-Back owed ${fb.owedUsd.toFixed(2)} of ${fb.earnedUsd.toFixed(2)} earned</small></summary>
+    <div className="cr-grid">
+      <label className="m-field"><span>Auto-profit levels traders pick (after fees)</span><input className="m-input m-num" value={lv} onChange={e => setLv(e.target.value)} placeholder="25, 50, 100, 200" data-testid="cr-levels" /></label>
+      <label className="m-field"><span>Default level</span><input className="m-input m-num" type="number" value={r.yieldDefault} onChange={e => setR({ ...r, yieldDefault: Number(e.target.value) })} /></label>
+      {RULE_LABELS.map(([k, l, u]) => <label key={k} className="m-field"><span>{l} <small>{u}</small></span><input className="m-input m-num" type="number" step="any" value={r[k]} onChange={e => setR({ ...r, [k]: Number(e.target.value) })} /></label>)}
+    </div>
+    <p className="m-note">A card holder gets back {r.fbHolderPct}% of the FEELESS fees they paid on a card after holding it {r.fbHoldHours}h, +{r.fbLoyaltyPct}% after {r.fbLoyaltyDays} days, +{r.fbArenaPct}% while it burns hot on the Arena (max {r.fbCapPct}%). Tracked from the fee ledger; you pay it out.</p>
+    <div className="fg-acts"><button type="button" className="m-btn primary m-go" onClick={() => save({ ...r, yieldLevels: lv.split(/[ ,]+/).map(Number).filter(Boolean) })} data-testid="cr-save">Save card rules</button>
+      <button type="button" className="m-btn" onClick={() => save(d.defaults)}>Reset</button></div>
+    {fb.rows.length > 0 && <table className="vd-table cr-book"><thead><tr><th>Wallet</th><th>Cards</th><th>Earned</th><th>Paid</th><th>Owed</th><th /></tr></thead><tbody>
+      {fb.rows.slice(0, 30).map(w => <tr key={w.wallet}><td><code>{w.wallet.slice(0, 4)}…{w.wallet.slice(-4)}</code></td><td>{w.cards}</td><td>${w.earnedUsd.toFixed(3)}</td><td>${w.paidUsd.toFixed(3)}</td><td className={w.owedUsd > 0 ? 'm-pos' : ''}>${w.owedUsd.toFixed(3)}</td>
+        <td>{w.owedUsd > 0 && <button type="button" className="m-btn" onClick={() => save({ wallet: w.wallet, paidUsd: w.owedUsd })}>Mark paid</button>}</td></tr>)}</tbody></table>}
+  </details>;
+}

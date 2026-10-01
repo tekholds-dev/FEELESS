@@ -260,11 +260,13 @@ def test_auto_collect_fires_once_then_rearms_after_collecting(monkeypatch):
     y = asyncio.run(rs.fuse_auto_yield(rs.FuseYieldIn(address=W, session='s', id='y1', at=50)))['autoYield']
     assert y['base'] == 100 and y['at'] == 50
     assert asyncio.run(rs._fuse_yield_tick(rs._json_load(rs.FUSE_HQ_PATH, {}), 10)) == 0
-    px['P1'] = 3.0                                                                                # held $150 = +50%
+    px['P1'] = 3.0                                                                                # held $150 = +50% before exit fees
+    assert asyncio.run(rs._fuse_yield_tick(rs._json_load(rs.FUSE_HQ_PATH, {}), 15)) == 0           # fees included → not yet
+    px['P1'] = 3.01                                                                               # $150.50 − $0.01 network ≥ $150
     assert asyncio.run(rs._fuse_yield_tick(rs._json_load(rs.FUSE_HQ_PATH, {}), 20)) == 1
     assert asyncio.run(rs._fuse_yield_tick(rs._json_load(rs.FUSE_HQ_PATH, {}), 30)) == 0           # once
     a, k = sent[0]
-    assert '💸' in a[2] and 'collect=y1' in k['url'] and 'pct=33.3' in k['url']
+    assert '💸' in a[2] and 'collect=y1' in k['url'] and 'pct=33.6' in k['url'] and 'after fees' in a[2]
     # the holder collects (partial close) → re-arms from the new held value, no repeat alert on the same gain
     d = rs._json_load(rs.FUSE_HQ_PATH, {})
     d['positions'][0]['autoYield'].update(firedAt=None, rebase=True)

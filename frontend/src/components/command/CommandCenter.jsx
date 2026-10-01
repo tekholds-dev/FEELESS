@@ -168,7 +168,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     {tab === 'fuse' && <FuseDeck call={call} panels={[
       ['runners', '🏃 Runners', <RunnersPanel call={call} />, 'Coins come to it: every Pump.fun coin gated, scored and laned (scalp / runner / hold) as it arrives; rounds every 15 min; lights only when paper-proven.'],
       ['lab', '🧬 Breed & fuse', <FuseLab call={call} />, 'Build mega cards: up to 12 legs (pools, runners or any mix), load a champion, preview it, one-click it with no FEELESS fee, publish it or stage it on the Arena.'],
-      ['hq', '💰 HQ · P&L', <FuseHQ call={call} />, 'Real money: every verified Fuse in, live. Arena = $5 paper runs that prove a strategy before you trust it.'],
+      ['hq', '💰 HQ · P&L', <FuseHQ call={call} />, 'Real money: every verified Fuse in, live. Arena = $5 runs that prove a strategy before you trust it.'],
       ['pub', '📣 Published', <FuseBuilder call={call} />, 'Fuses traders see on Trade and in chat (/fuse). Set the creator cut; self-buys and bots never earn it.'],
       ['vault', '🏦 Vault', <><VaultMath /><VaultDesigner call={call} /></>, 'Design only: a future on-chain vault (SOL in → shares, fees in SOL). Localnet v0.1 — never deployed or funded without you.']]} />}{tab === 'badges' && <><QuestEngineAdmin call={call} /><AwardBadges call={call} initial={[...selected]} /></>}
     {tab === 'feecat' && <FeeCatPanel call={call} />}
