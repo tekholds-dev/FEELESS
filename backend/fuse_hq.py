@@ -220,6 +220,7 @@ def guard_check(guard, pnl_pct):
 
 
 MIN_BUYERS = 2
+APR_CAP = 400.0          # same cap the engine uses: higher "APR" on DexScreener is usually wash volume
 
 
 def creator_board(rows, fuses, since=0):
@@ -237,3 +238,19 @@ def creator_board(rows, fuses, since=0):
             'pnlPct': round((c['valueUsd'] / c['costUsd'] - 1) * 100, 2) if c['costUsd'] else 0.0, 'winRate': round(c['wins'] / c['n'] * 100), 'ranked': len(c['buyers']) >= MIN_BUYERS}
            for c in by.values()]
     return sorted(out, key=lambda x: (not x['ranked'], -x['pnlPct'], -x['buyers']))
+
+
+def yield_math(metas, min_liq=100_000):
+    """Where $1/day can come from, on live pools (no promises):
+    - Vault (LP fees): deep pools' fee APR → $ per day per $1/$20/$100, and the APR it would take for +20c/+50c a day on $1.
+    - Fuse (price moves): what the same pools' 24h moves did to $1 — best, median, worst."""
+    deep = [m for m in metas.values() if _f(m.get('liquidityUsd')) >= min_liq]
+    aprs = sorted((min(APR_CAP, _f(m.get("aprEst"))) for m in deep), reverse=True)
+    top = aprs[:3]
+    apr = sum(top) / len(top) if top else 0.0
+    per_day = lambda usd: round(usd * apr / 100 / 365, 4)
+    moves = sorted(_f(m.get('change24h')) for m in deep)
+    med = moves[len(moves) // 2] if moves else 0.0
+    return {'pools': len(deep), 'vaultAprPct': round(apr, 1), 'vaultPerDay': {'1': per_day(1), '20': per_day(20), '100': per_day(100)},
+            'aprFor20c': 7300.0, 'aprFor50c': 18250.0,
+            'fuse1': {'best': round(1 + (moves[-1] if moves else 0) / 100, 3), 'median': round(1 + med / 100, 3), 'worst': round(1 + (moves[0] if moves else 0) / 100, 3)}}

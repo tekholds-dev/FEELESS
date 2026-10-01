@@ -5,9 +5,9 @@ import { FuseGo } from './FuseGo';
 import { FuseEvolve } from './FuseEvolve';
 import { FusePnl } from './FuseHQ';
 import { FuseRail } from './FuseRail';
-import { legPair } from './FuseCard';
+import { FuseCard, legPair } from './FuseCard';
 import { TokenAvatar } from './terminal/MarketPrimitives';
-import { FuseExplainer } from './FuseDeck';
+import { FuseExplainer, VaultMath } from './FuseDeck';
 import '../styles/fuseLab.css';
 
 // ⚛️ FUSE LAB: browse the chain's real pools, tick them, and see live how FEELESS auto-weighs them (fee APR × depth,
@@ -35,10 +35,12 @@ export function FuseLab({ chain = 'solana', call }) {
   const [going, setGoing] = useState(false);
   const [best, setBest] = useState({ budget: 20, busy: false, style: null });
   const load = (legs, s) => { setManual(false); setPicked(legs); if (s) setSol(s.toFixed(4)); scrollToMix(); };
-  const findBest = () => { setBest(b => ({ ...b, busy: true }));
-    fetch(apiUrl('/api/reputation/fuses/best3'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ budgetUsd: best.budget }) }).then(r => r.json())
-      .then(d => { if (!d.champion) throw new Error('No live pools right now.'); setBest(b => ({ ...b, busy: false, style: d.style, proven: d.proven }));
-        load(d.champion.legs, d.solUsd ? best.budget / d.solUsd : null); })
+  // Find it: the best basket for EACH budget ($5 / $20 / $100 — small budgets punish many pools, big ones thin pools), as cards.
+  const findBest = () => { setBest(b => ({ ...b, busy: true, cards: null }));
+    Promise.all([5, 20, 100].map(budgetUsd => fetch(apiUrl('/api/reputation/fuses/best3'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ budgetUsd }) })
+      .then(r => r.json()).then(d => (d.champion ? { ...d, budget: budgetUsd } : null)).catch(() => null)))
+      .then(list => { const cards = list.filter(Boolean); if (!cards.length) throw new Error('No live pools right now.');
+        setBest(b => ({ ...b, busy: false, cards, style: cards[0].style, proven: cards[0].proven })); })
       .catch(e => { setBest(b => ({ ...b, busy: false })); toast.error(e.message); }); };
 
   useEffect(() => { let alive = true; setPools(null);
@@ -67,11 +69,16 @@ export function FuseLab({ chain = 'solana', call }) {
       <span className="fl-badges">{admin && <span className="m-chip warn">CMD CTR · 10 POOLS</span>}<span className="m-chip ok fl-chain"><i />{chain.toUpperCase()}</span></span>
     </header>
     {!admin && <FuseExplainer />}
+    {!admin && <details className="fl-vm"><summary>Fuse vs Vault — where a dollar's return comes from (live)</summary><VaultMath /></details>}
     {admin ? <><FuseRail call={call} onUse={load} /><FuseEvolve call={call} maxLegs={MAX} onLoad={load} /></> : <>
       <FusePnl />
-      <div className="fl-best" data-testid="fl-best"><div><b>🧬 Find my best 3</b><small className="m-dim">{best.style ? `Bred with the ${best.style} strategy${best.proven ? ' — proven in our 24h arena' : ''}` : 'We breed hundreds of baskets from live pools and hand you the winner.'}</small></div>
-        <div className="m-seg">{[5, 20, 100].map(v => <button type="button" key={v} className={best.budget === v ? 'active' : ''} onClick={() => setBest(b => ({ ...b, budget: v }))}>${v}</button>)}</div>
-        <button type="button" className="m-btn primary m-go" disabled={best.busy} onClick={findBest} data-testid="fl-best-go">{best.busy ? 'Breeding…' : 'Find it'}</button></div>
+      <div className="fl-best" data-testid="fl-best"><div><b>🧬 Find my best 3</b><small className="m-dim">{best.style ? `Bred with the ${best.style} strategy${best.proven ? ' — proven in our 24h arena' : ''}` : 'We breed hundreds of baskets from live pools and deal you the winner for $5, $20 and $100.'}</small></div>
+        <button type="button" className="m-btn primary m-go" disabled={best.busy} onClick={findBest} data-testid="fl-best-go">{best.busy ? 'Breeding…' : best.cards ? 'Breed again' : 'Find it'}</button></div>
+      {(best.busy || best.cards) && <div className="frail-track fl-best-cards" data-testid="fl-best-cards">{best.busy ? [5, 20, 100].map(v => <div key={v} className="frail-ghost" />)
+        : best.cards.map((c, i) => <article key={c.budget} className="frail-item" style={{ animationDelay: `${i * 90}ms` }}>
+          <FuseCard c={{ ...c.champion, style: c.style }} style={c.style} rank={i} budget={c.budget} />
+          <div className="frail-meta"><b>${c.budget} basket</b><span className="m-dim">{c.style}{c.proven ? ' · arena-proven' : ''}</span></div>
+          <button type="button" className="m-btn primary m-go" onClick={() => load(c.champion.legs, c.solUsd ? c.budget / c.solUsd : null)} data-testid={`fl-best-use-${c.budget}`}>Use this · ${c.budget}</button></article>)}</div>}
       <FuseRail onUse={load} />
     </>}
     <div className="fl-body">
@@ -103,12 +110,15 @@ export function FuseLab({ chain = 'solana', call }) {
           {admin && <div className="fl-wmode"><div className="m-seg" role="radiogroup" aria-label="Weights"><button type="button" role="radio" aria-checked={!manual} className={!manual ? 'active' : ''} onClick={() => setManual(false)}>Auto weights</button><button type="button" role="radio" aria-checked={manual} className={manual ? 'active' : ''} onClick={() => setManual(true)}>Manual</button></div>
             {manual && picked.map(p => <label key={p.pairAddress} className="fl-slider"><span>{p.symbol}</span><input type="range" min="1" max="100" value={wts[p.pairAddress] || 1} onChange={e => setWts(w => ({ ...w, [p.pairAddress]: Number(e.target.value) }))} /><b className="m-num">{wts[p.pairAddress] || 1}</b></label>)}</div>}
           {err ? <div className="m-note bad">{err}</div> : !prev ? <div className="fl-row is-ghost" /> : <>
+            <div className="fl-preview-card" data-testid="fl-preview-card"><FuseCard c={{ pools: prev.legs.map(l => l.pairAddress), fitness: prev.score.points, bornGen: 0,
+              parts: { grade: prev.score.grade, aprScore: Math.round(Math.min(400, prev.blendedAprPct) / 4), momentum24h: prev.backtest24hPct, calm: '—', feeDragPct: prev.usd ? Math.min(100, (0.0001 * prev.legs.length * prev.solUsd) / prev.usd * 100) : 0, impactLegs: (prev.impactWarn || []).length },
+              legs: prev.legs }} style={manual ? 'steady' : 'yield'} rank={0} budget={Math.max(1, Math.round(prev.usd))} /><small className="m-dim">Live card of your picks · ⟲ for the money math</small></div>
             <div className="fl-bar">{prev.legs.map(l => <i key={l.pairAddress} style={{ flexGrow: l.weight }} title={`${l.symbol} ${l.weight}%`}><span>{l.symbol} {Math.round(l.weight)}%</span></i>)}</div>
-            <ul className="fl-legs">{prev.legs.map(l => <li key={l.pairAddress}><b>{l.symbol}</b><span className="m-num">{l.weight.toFixed(0)}%</span><span className="m-num">{l.sol} SOL</span><span className="m-num m-dim">{usd(l.usd)}</span><span className="m-num m-pos" title="Est. fee yield per day at this size">{usd(l.dailyUsd)}/d</span></li>)}</ul>
+            <ul className="fl-legs">{prev.legs.map(l => <li key={l.pairAddress}><b>{l.symbol}</b><span className="m-num">{l.weight.toFixed(0)}%</span><span className="m-num">{l.sol} SOL</span><span className="m-num m-dim">{usd(l.usd)}</span><span className={`m-num ${(l.change24h || 0) >= 0 ? 'm-pos' : 'm-neg'}`} data-tip="What this slice did over the last 24h (price move × your $)">{(l.change24h || 0) >= 0 ? '+' : '−'}${Math.abs(l.usd * (l.change24h || 0) / 100).toFixed(2)}</span></li>)}</ul>
             <div className="fl-kpis">
               <div className="m-stat"><small>GRADE</small><b className={`fl-grade g-${prev.score.grade}`} title={prev.score.parts.map(p => `${p.part}: ${p.why}`).join('\n')}>{prev.score.grade}</b></div>
-              <div className="m-stat"><small>BLENDED APR</small><b className="m-num m-pos">{apr(prev.blendedAprPct)}</b></div>
-              <div className="m-stat"><small>EST / DAY</small><b className="m-num">{usd(prev.dailyUsd)}</b></div>
+              <div className="m-stat" data-tip="Pools' trading-fee rate (how busy they are). Paid to liquidity providers, NOT to Fuse holders."><small>POOL APR</small><b className="m-num m-pos">{apr(prev.blendedAprPct)}</b></div>
+              <div className="m-stat" data-tip="Your SOL × the basket's last-24h move. A replay, not a promise."><small>24H REPLAY $</small><b className={`m-num ${prev.backtest24hPct >= 0 ? 'm-pos' : 'm-neg'}`}>{prev.backtest24hPct >= 0 ? '+' : '−'}${Math.abs(prev.usd * prev.backtest24hPct / 100).toFixed(2)}</b></div>
               <div className="m-stat" title="What this mix did over the last 24h"><small>IF FUSED 24H AGO</small><b className={`m-num ${prev.backtest24hPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(prev.backtest24hPct)}</b></div>
             </div>
             {prev.impactWarn?.length > 0 && <div className="m-note warn"><b>SIZE GUARD</b><span>{prev.impactWarn.join(', ')}: your slice is over 1% of that pool — expect price impact. Lower the SOL or swap the pool.</span></div>}

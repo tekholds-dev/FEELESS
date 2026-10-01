@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { apiUrl } from '../lib/api';
 
 // How Fuse works, in one strip. Admin = the full pipeline (breed → prove → publish → traders → P&L).
 // Trader = what you're buying, in plain words. Shared by Cmd Ctr and Trade › Fuse Lab.
@@ -68,4 +69,22 @@ export function FuseDeck({ panels, call }) {
       <div className="fdeck-body" key={cur[0]}>{cur[3] && <p className="fdeck-intro">{cur[3]}</p>}{cur[2]}</div>
     </div>
   </section>;
+}
+
+// Fuse vs Vault on LIVE pools: where a dollar's return can actually come from. Fuse = price moves (fast, both ways);
+// Vault = pool trading fees (slow, steady, needs the audited contract). Numbers from /fuses/yield-math (no promises).
+const c$ = v => (v >= 1 ? `$${v.toFixed(2)}` : `${(v * 100).toFixed(v < 0.01 ? 2 : 1)}¢`);
+export function VaultMath() {
+  const [y, setY] = useState(null);
+  useEffect(() => { let alive = true; fetch(apiUrl('/api/reputation/fuses/yield-math')).then(r => r.json()).then(d => alive && setY(d)).catch(() => {}); return () => { alive = false; }; }, []);
+  if (!y?.fuse1) return <div className="fl-row is-ghost" />;
+  const pct = v => `${v >= 1 ? '+' : '−'}${Math.abs((v - 1) * 100).toFixed(0)}%`;
+  return <div className="vmath" data-testid="vault-math">
+    <div className="vmath-col is-fuse"><span className="m-label">⚛️ FUSE · PRICE MOVES</span><p>$1 split into live pools rides their prices. Last 24h on {y.pools} deep pools:</p>
+      <dl><dt>Best pool</dt><dd className="m-pos">$1 → ${y.fuse1.best.toFixed(2)} <small>{pct(y.fuse1.best)}</small></dd><dt>Typical</dt><dd>$1 → ${y.fuse1.median.toFixed(2)}</dd><dt>Worst</dt><dd className="m-neg">$1 → ${y.fuse1.worst.toFixed(2)} <small>{pct(y.fuse1.worst)}</small></dd></dl>
+      <small className="m-dim">This is where +20¢…+50¢ on $1 in a day can happen — and where −30¢ happens too. The engine's job: pick baskets that lean to the good side (grade, depth, momentum) and the Arena proves whether it does.</small></div>
+    <div className="vmath-col is-vault"><span className="m-label">🏦 VAULT · POOL FEES</span><p>The Vault would hold real liquidity positions, so it EARNS the trading fees a Fuse never does. Best deep pools now ≈ <b>{y.vaultAprPct}% APR</b>:</p>
+      <dl><dt>$1</dt><dd>+{c$(y.vaultPerDay['1'])}/day</dd><dt>$20</dt><dd>+{c$(y.vaultPerDay['20'])}/day</dd><dt>$100</dt><dd>+{c$(y.vaultPerDay['100'])}/day</dd></dl>
+      <small className="m-dim">Fees alone can't make +20¢/day on $1 — that needs {y.aprFor20c.toLocaleString()}% APR, which only shows up in tiny pools for hours (and they bleed on price). What the Vault adds: one shared rebalance instead of 3 network fees per person, fee income on top of the price moves, and true auto take-profit / stop-loss (the contract can act; your wallet can't be signed for). Not live until audited.</small></div>
+  </div>;
 }

@@ -4,7 +4,7 @@ import { BotShield } from './BotShield';
 import { FuseCardMint } from '../nft/FuseCardMint';
 import { FuseLab } from '../FuseLab';
 import { FuseHQ } from '../FuseHQ';
-import { FuseDeck } from '../FuseDeck';
+import { FuseDeck, VaultMath } from '../FuseDeck';
 import { QuestEngineAdmin } from './QuestEngineAdmin';
 import { LatencyPanel } from './LatencyPanel';
 import { useWallet } from '../../hooks/useWallet';
@@ -167,7 +167,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
       ['lab', '🧬 Breed & fuse', <FuseLab call={call} />, 'Evolve baskets from live pools (up to 10), load a champion, preview it, one-click it with $1–$100, publish it.'],
       ['hq', '💰 HQ · P&L', <FuseHQ call={call} />, 'Real money: every verified Fuse in, live. Arena = $5 paper runs that prove a strategy before you trust it.'],
       ['pub', '📣 Published', <FuseBuilder call={call} />, 'Fuses traders see on Trade and in chat (/fuse). Set the creator cut; self-buys and bots never earn it.'],
-      ['vault', '🏦 Vault', <VaultDesigner call={call} />, 'Design only: a future on-chain vault (SOL in → shares, fees in SOL). Localnet v0.1 — never deployed or funded without you.']]} />}{tab === 'badges' && <><QuestEngineAdmin call={call} /><AwardBadges call={call} initial={[...selected]} /></>}
+      ['vault', '🏦 Vault', <><VaultMath /><VaultDesigner call={call} /></>, 'Design only: a future on-chain vault (SOL in → shares, fees in SOL). Localnet v0.1 — never deployed or funded without you.']]} />}{tab === 'badges' && <><QuestEngineAdmin call={call} /><AwardBadges call={call} initial={[...selected]} /></>}
     {tab === 'feecat' && <FeeCatPanel call={call} />}
     {tab === 'pools' && <PoolsPanel call={call} />}
     {tab === 'fees' && <><MoneyFlows /><FeesPanel call={call} /><FeeBook call={call} /></>}

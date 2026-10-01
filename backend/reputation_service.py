@@ -3204,6 +3204,12 @@ def _champ_view(c, metas, chain='solana'):
                            'chainId': chain, 'pairAddress': pa, 'weight': c['weights'][pa]} for pa in c['pools']]}
 
 
+@app.get('/api/reputation/fuses/yield-math')
+async def fuse_yield_math():
+    """Fuse vs Vault on live pools: what $1 earns from LP fees (Vault) vs what price moves did to $1 (Fuse)."""
+    return _hq.yield_math(await _fuse_candidates())
+
+
 _fuse_prebuilt_cache: dict = {}
 
 
@@ -3250,8 +3256,7 @@ async def fuse_best3(p: FuseLiteIn):
     ev = await asyncio.to_thread(_fuse.evolve, metas, 3, 14, 28, style, bucket / sol_usd, sol_usd, int(time.time() // 120))
     c = ev['champions'][0] if ev['champions'] else None
     out = {'style': style, 'solUsd': sol_usd, 'proven': style != 'yield' or any(r['style'] == 'yield' and r['runs'] >= _hq.MIN_SETTLED for r in _hq.arena_board([_hq.arena_value(e, {}, time.time()) for e in d.get('arena') or []])),
-           'champion': c and {**c, 'legs': [{**{k: metas[pa].get(k) for k in ('symbol', 'quote', 'dex', 'logo', 'liquidityUsd', 'aprEst', 'change24h')},
-                                             'chainId': 'solana', 'pairAddress': pa, 'weight': c['weights'][pa]} for pa in c['pools']]}}
+           'champion': c and _champ_view(c, metas)}
     _fuse_lite_cache[bucket] = (time.time(), out)
     return out
 

@@ -309,3 +309,17 @@ body.theme-day .fside-tabs { background: var(--m-surface-2); }
 .fg-flow { display: grid; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 11.5px; line-height: 1.5; color: var(--m-dim); }
 .fg-flow li { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; padding-left: 2px; border-left: 2px solid var(--m-line); padding: 2px 0 2px 8px; }
 .fg-flow b { color: var(--m-text); font-family: var(--m-mono); font-size: 11px; min-width: 18px; } .fg-flow em { font-style: normal; color: var(--m-text); }
+.fl-preview-card { display: grid; justify-items: center; gap: 4px; padding: 6px 0 2px; } .fl-preview-card small { font-size: 10px; }
+.fl-best-cards { padding-top: 10px; }
+/* Fuse vs Vault (live numbers). */
+.vmath { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.vmath-col { display: grid; gap: 6px; align-content: start; padding: 12px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: var(--m-surface); }
+.vmath-col.is-fuse { border-color: color-mix(in srgb, var(--m-accent) 45%, var(--m-line)); } .vmath-col.is-vault { border-color: color-mix(in srgb, var(--m-warn) 45%, var(--m-line)); }
+.vmath-col p { margin: 0; font-size: 12px; color: var(--m-dim); line-height: 1.5; } .vmath-col p b { color: var(--m-text); }
+.vmath-col dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-family: var(--m-mono); font-size: 12px; } .vmath-col dt { color: var(--m-dim); } .vmath-col dd { margin: 0; text-align: right; } .vmath-col dd small { opacity: .75; }
+.vmath-col > small { font-size: 11px; line-height: 1.5; }
+.fl-vm summary { cursor: pointer; font-family: var(--m-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--m-warn); padding: 4px 0; }
+.fl-vm summary:hover { text-decoration: underline; } .fl-vm summary:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; } .fl-vm[open] .vmath { margin-top: 8px; animation: mCardIn .2s var(--m-ease); }
+body.theme-day .vmath-col { background: var(--m-surface-2); }
+@container (max-width: 620px) { .vmath { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .vmath { grid-template-columns: 1fr; } }

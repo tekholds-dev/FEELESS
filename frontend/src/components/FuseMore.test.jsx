@@ -46,3 +46,10 @@ test('tooltip layer: one fixed bubble, not clipped by cards', async () => {
   const b = document.querySelector('.tip-layer');
   expect(b.textContent).toBe('Explains this'); expect(b.className).toContain('on'); expect(b.parentElement).toBe(document.body);
 });
+
+test('Fuse vs Vault shows live $1 numbers for both engines', async () => {
+  const { VaultMath } = require('./FuseDeck');
+  global.fetch = jest.fn(async () => ({ json: async () => ({ pools: 20, vaultAprPct: 146, vaultPerDay: { 1: 0.004, 20: 0.08, 100: 0.4 }, aprFor20c: 7300, aprFor50c: 18250, fuse1: { best: 1.4, median: 1.02, worst: 0.7 } }) }));
+  const el = await mount(<VaultMath />);
+  expect(el.textContent).toContain('$1 → $1.40'); expect(el.textContent).toContain('+0.40¢/day'); expect(el.textContent).toContain('7,300% APR');
+});

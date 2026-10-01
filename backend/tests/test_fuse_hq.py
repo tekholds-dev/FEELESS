@@ -93,3 +93,11 @@ def test_creator_season_ranks_by_buyers_real_pnl():
     b = hq.creator_board(rows, fz, since=5)
     assert b[0]['creator'] == 'C1' and b[0]['buyers'] == 2 and b[0]['pnlPct'] == 15.0 and b[0]['ranked']   # creator's own 5x ignored
     assert b[1]['creator'] == 'C2' and not b[1]['ranked']                                                  # one buyer can't rank
+
+
+def test_yield_math_is_honest():
+    m = {'a': {'liquidityUsd': 2e6, 'aprEst': 365, 'change24h': 40}, 'b': {'liquidityUsd': 5e5, 'aprEst': 73, 'change24h': -30},
+         'c': {'liquidityUsd': 1e6, 'aprEst': 0, 'change24h': 2}, 'tiny': {'liquidityUsd': 900, 'aprEst': 90000, 'change24h': 900}}
+    y = hq.yield_math(m)
+    assert y['pools'] == 3 and y['vaultAprPct'] == 146.0 and y['vaultPerDay']['1'] == 0.004       # tiny pool ignored
+    assert y['aprFor20c'] == 7300 and y['fuse1'] == {'best': 1.4, 'median': 1.02, 'worst': 0.7}
