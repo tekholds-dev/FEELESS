@@ -42,11 +42,11 @@ export function CardPricing({ legs, admin }) {
 
 // 🏃 Runners lens: This round (addable while still passing every gate) · Hot now (gated, busiest first) · Watching (failed a
 // gate — shown with the reason, never addable). One /runners/discover read (20s server cache).
-export function runnerSections(d) {
+export function runnerSections(d, admin = false) {   // Cmd Ctr sees every passing runner; traders the busiest 24
   const byMint = Object.fromEntries((d.runners || []).map(x => [x.mint, x]));
   const round = (d.round || []).map(p => ({ ...(byMint[p.mint] || {}), ...p, runner: true, section: 'round', chg1h: p.move, blocked: p.passing ? '' : (p.gates || [])[0] || 'fails a gate now' }));
   const inRound = new Set(round.map(p => p.mint));
-  const hot = (d.runners || []).filter(x => !inRound.has(x.mint)).sort((a, b) => (b.vol1h || 0) - (a.vol1h || 0)).map(x => ({ ...x, runner: true, section: 'hot' }));
+  const hot = (d.runners || []).filter(x => !inRound.has(x.mint)).sort((a, b) => (b.vol1h || 0) - (a.vol1h || 0)).slice(0, admin ? 80 : 24).map(x => ({ ...x, runner: true, section: 'hot' }));
   const watch = (d.watching || []).slice(0, 8).map(x => ({ ...x, runner: true, section: 'watch', blocked: (x.gates || [])[0] || 'fails a gate' }));
   return [...round, ...hot, ...watch];
 }
@@ -80,8 +80,8 @@ export function CardPlan({ legs, plan, setPlan }) {
       <b>{l.runner ? '🏃 ' : ''}{l.symbol}</b>
       <label data-tip="Take profit on this coin: alert + pre-filled sell when it's up this much since your buy">TP +<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.tp ?? ''} onChange={e => lim(l.pairAddress, 'tp', e.target.value)} data-testid={`plan-tp-${l.pairAddress}`} />%</label>
       <label data-tip="Stop-loss on this coin: alert + pre-filled sell when it's down this much">SL −<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.sl ?? ''} onChange={e => lim(l.pairAddress, 'sl', e.target.value)} />%</label></div>; })}</div>
-    <div className="fl-plan-row"><span>Auto-profit (after fees)</span>{seg('at', [[null, 'Off', 'No card-level auto-profit'], ...levels.map(v => [v, `+${v}%`, `Alert when the whole card is up +${v}% after fees, from your confirmed buy`])])}</div>
-    <div className="fl-plan-row"><span>On profit</span>{seg('onProfit', [['collect', '💸 Collect', 'Sell only the gain back to SOL — your base stays in'], ['compound', '♻ Compound', 'Keep it working: trim the winners, top up the rest of the card']])}</div>
+    <div className="fl-plan-row"><span>Profit trigger (after fees)</span>{seg('at', [[null, 'Off', 'No card-level auto-profit'], ...levels.map(v => [v, `+${v}%`, `Alert when the whole card is up +${v}% after fees, from your confirmed buy`])])}</div>
+    <div className="fl-plan-row"><span>On profit</span>{seg('onProfit', [['collect', '💸 Auto TP', 'At your level: a one-tap sell of just the gain back to SOL — your base stays in'], ['compound', '♻ Auto-compound', 'At your level: a one-tap roll of the gain back into the card (trim winners, top up the rest) — builds a compound streak']])}</div>
     <div className="fl-plan-row"><span>Card</span>{seg('mode', [['hold', '🔒 Hold together', 'The card stays as built'], ['swap', '⇄ Swap weak legs', `A coin that fails a gate or drops ${rules?.swapDropPct ?? 25}% gets a one-tap swap for the best gated runner`]])}</div>
   </details>;
 }
@@ -116,8 +116,8 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
 
   useEffect(() => { let alive = true; setPools(null);
     const url = lens === 'runners' ? '/api/reputation/runners/discover' : `/api/reputation/fuses/discover?lens=${lens}&chain=${chain}`;
-    fetch(apiUrl(url)).then(r => (r.ok ? r.json() : {})).then(d => alive && setPools(lens === 'runners' ? runnerSections(d) : d.pools || [])).catch(() => alive && setPools([]));
-    return () => { alive = false; }; }, [lens, chain]);
+    fetch(apiUrl(url)).then(r => (r.ok ? r.json() : {})).then(d => alive && setPools(lens === 'runners' ? runnerSections(d, admin) : d.pools || [])).catch(() => alive && setPools([]));
+    return () => { alive = false; }; }, [lens, chain, admin]);
 
   const key = picked.map(p => `${p.pairAddress}:${manual ? wts[p.pairAddress] || 1 : ''}`).join(',') + '|' + runnerPicks.map(r => r.mint).join(',');
   const legsN = picked.length + runnerPicks.length;

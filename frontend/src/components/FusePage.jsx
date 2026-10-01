@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { useWallet } from '../hooks/useWallet';
@@ -9,6 +9,8 @@ import { FuseSide } from './FuseSide';
 import { FuseGo } from './FuseGo';
 import { RunnersPanel, Countdown } from './RunnersPanel';
 import { FuseCard, LiveFuseCard } from './FuseCard';
+import { useLivePrices } from '../lib/livePrices';
+import { liveBook, liveStagePct } from '../lib/fuseLive';
 import '../styles/runners.css';
 import '../styles/fusePage.css';
 
@@ -40,7 +42,7 @@ export function FusePage() {
   const limits = useFuseLimits(addr);
   const go = t => { setTab(t); const u = new URL(window.location.href); u.searchParams.set('tab', t); window.history.replaceState(null, '', u); };
   return <section className="fuse-page" data-testid="fuse-page">
-    <header className="fp-head"><h1 className="fp-title">Fuse <span>🧬</span></h1><p className="m-dim">Fuse pools + fresh runners into one card. You sign every move; we show every fee.</p>
+    <header className="fp-head"><h1 className="fp-title"><span className="fp-zap" data-text="Fuse">Fuse<i className="fp-bolt" aria-hidden="true" /><i className="fp-bolt b2" aria-hidden="true" /></span> <span className="fp-dna" aria-hidden="true">🧬</span></h1><p className="m-dim">Fuse pools + fresh runners into one card. You sign every move; we show every fee.</p>
       <div className="m-seg fp-tabs" role="tablist" aria-label="Fuse">{FUSE_TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} data-testid={`fuse-tab-${k}`} onClick={() => go(k)}>{l}{k === 'runners' && runnerPicks.length ? ` · ${runnerPicks.length}` : ''}</button>)}</div></header>
     <div className="fp-body" key={tab}>
       {tab === 'lab' && <div className="fz-split-view fp-lab"><FuseLab runnerPicks={runnerPicks} onRunnerPicks={setRunnerPicks} incoming={incoming} limits={limits} />
@@ -67,13 +69,14 @@ export function togglePick(picks, r, max = MAX_RUNNERS) {
   if (picks.some(p => p.mint === r.mint)) return picks.filter(p => p.mint !== r.mint);
   return picks.length >= max ? picks : [...picks, r];
 }
-const SRC_ICON = { arena: '🏟', lit: '🔥', pump: '🚀', snipers: '🎯', creator: '📣' };
+const SRC_ICON = { bond: '🔔', arena: '🏟', lit: '🔥', pump: '🚀', snipers: '🎯', creator: '📣' };
 export const filterBySource = (rows, src) => (src === 'all' ? rows : rows.filter(r => r.sources.some(s => s.kind === src)));
 
 export function RunnerPicker({ picks, onPicks, onDone }) {
   const [d, setD] = useState(null); const [src, setSrc] = useState('all');
   useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/runners/discover')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
     load(); const t = setInterval(() => !document.hidden && load(), 20000); return () => { alive = false; clearInterval(t); }; }, []);
+  const live = useLivePrices((d?.runners || []).map(x => x.pairAddress));
   if (!d) return <div className="fp-disc is-loading" data-testid="runner-picker"><div className="fp-scan" /><span className="m-dim">Scanning launchpads, the arena, the radar and the callers…</span></div>;
   const rows = filterBySource(d.runners || [], src);
   return <section className="fp-disc" data-testid="runner-picker">
@@ -91,7 +94,7 @@ export function RunnerPicker({ picks, onPicks, onDone }) {
       return <article key={r.mint} className={`fp-runner ${on ? 'is-on' : ''} ${hot ? 'is-hot' : ''}`} style={{ '--i': Math.min(i, 14) }} data-testid={`runner-${r.mint}`}>
         {hot && <span className="fp-hotband">{r.sources.length} sources</span>}
         <div className="fp-rtop"><span className="fp-ava">{r.logo ? <img src={r.logo} alt="" loading="lazy" /> : '🏃'}</span><div><b>${r.symbol}</b><small>{r.lane || 'runner'} lane · score {Math.round(r.score || 0)}</small></div>
-          <span className={`m-num fp-move ${(r.chg1h || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(r.chg1h)}</span></div>
+          {(() => { const lv = live.get(r.pairAddress); const mv = lv ? lv.m5 : r.chg1h; return <span className={`m-num fp-move fl-tick ${(mv || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={`${(mv || 0).toFixed(1)}`} data-tip={lv ? `Live · 5m · $${lv.price}` : 'Last hour'}>{pc(mv)}<small>{lv ? '5m' : '1h'}</small></span>; })()}</div>
         <i className="fp-score"><i style={{ transform: `scaleX(${Math.min(1, (r.score || 0) / 100)})` }} /></i>
         <div className="fp-srcs">{r.sources.map(s => <span key={s.kind} className={`fp-chip src-${s.kind}`} data-tip={s.detail}>{SRC_ICON[s.kind]} {s.label.replace(/^\S+\s/, '')}</span>)}</div>
         <div className="m-row fp-rstats"><span>MC {m$(r.mcap)}</span><span>{Math.round(r.buyShare || 0)}% buys</span><span>{m$(r.vol1h)} 1h vol</span></div>
@@ -114,6 +117,21 @@ export function RunnerCardFull({ picks, onDone }) {
       <button type="button" className="m-btn primary m-go" onClick={onDone} data-testid="runners-to-lab">Fuse this card in the Lab →</button></div></div>;
 }
 
+const EcosystemChat = lazy(() => import('./EcosystemChat'));
+
+// Compound streak badge: ♻ Compounder ≥1 · ❄ Snowball ≥3 · 💎 Diamond loop ≥5 compounds, only while the card still wins.
+export function CompoundBadge({ s }) {
+  if (!s?.tier) return null;
+  return <span className={`streak-badge st-${s.tier}`} data-tip={`Rolled its gains back in ${s.compounds}× and still up — +${s.bonus} activity on the Arena`} data-testid={`compound-${s.tier}`}><i aria-hidden="true" />{s.label} ×{s.compounds}</span>;
+}
+
+// 💬 Card chat: every Arena card has its own thread (the normal chat, room fuse-card-<id>) — holders, copiers, watchers.
+export function CardChat({ c, onClose }) {
+  return <section className="m-card ar-chat" data-testid={`card-chat-${c.id}`}><header className="m-row"><span className="m-label">💬 {c.emoji} {c.name}</span><small className="m-dim">card chat · {c.kind === 'user' ? c.owner : c.kind}</small>
+    <button type="button" className="m-btn fl-clear" onClick={onClose} aria-label="Close card chat">×</button></header>
+    <Suspense fallback={<div className="fl-row is-ghost" />}><EcosystemChat compact room={c.chat} ecosystem={{ id: c.chat, name: c.name }} /></Suspense></section>;
+}
+
 // ---- Arena: the stage. Cmd Ctr mega cards + runner cards that lit after their rounds, each wrapped in effects driven by
 // its real activity (server fuse_hq.activity → hard-coded tier: calm / warm / hot / blazing). Then the Runners show
 // (RunnersPanel: proof ring, countdown, lanes, round card, live board, last rounds) and the strategies board.
@@ -122,6 +140,7 @@ export const stageTier = cards => (cards || []).reduce((top, c) => (['calm', 'wa
 
 export function ArenaBoard({ onPicks, onLoad }) {
   const [a, setA] = useState(null);
+  const [chat, setChat] = useState(null);
   useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/fuses/arena')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setA(x)).catch(() => {});
     load(); const t = setInterval(() => !document.hidden && load(), 30000); return () => { alive = false; clearInterval(t); }; }, []);
   const mega = a?.mega || [];
@@ -133,7 +152,8 @@ export function ArenaBoard({ onPicks, onLoad }) {
       <div className="ar-legend">{Object.keys(TIER_FX).map(k => <span key={k} className={`ar-chip t-${k}`}>{k}</span>)}</div></header>
     {!a ? <div className="ar-stage">{[0, 1, 2].map(i => <div key={i} className="frail-ghost" />)}</div>
       : !mega.length ? <p className="m-dim ar-none">No card on stage yet — a runner round that lights up lands here, and Cmd Ctr can stage its mega cards.</p>
-      : <div className="ar-stage" data-testid="arena-stage">{mega.map((c, i) => <MegaCard key={`${c.kind}-${c.id}`} c={c} i={i} onPicks={onPicks} onLoad={onLoad} />)}</div>}
+      : <div className="ar-stage" data-testid="arena-stage">{mega.map((c, i) => <MegaCard key={`${c.kind}-${c.id}`} c={c} i={i} onPicks={onPicks} onLoad={onLoad} chatOpen={chat?.id === c.id} onChat={() => setChat(x => (x?.id === c.id ? null : c))} />)}</div>}
+    {chat && <CardChat c={chat} onClose={() => setChat(null)} />}
     <FuseSeason />
     <RunnersPanel />
     {a && <div className="m-card"><span className="m-label">STRATEGIES · WE RUN $5 FOR 24H</span><p className="m-dim">{a.outlook?.note || (a.outlook?.style ? `${a.outlook.style}: ${pc(a.outlook.avgPct)} avg over ${a.outlook.runs} runs, ${a.outlook.winRate}% won.` : 'Not enough settled runs yet.')}</p>
@@ -165,6 +185,8 @@ export function FuseSeason() {
     <header className="fs-head"><div><span className="m-label">🏆 FUSE SEASON · WEEK OF {wk(s.week).toUpperCase()}</span><h3>Best cards opened this week.</h3>
       <small className="m-dim">Real P&L of verified buys · {s.cards} cards · top 3 crowned Monday 00:00 UTC with +{s.boostPct}% Fee-Back on the card</small></div>
       <div className="fs-clock"><small>ENDS IN</small><b className="m-num">{left(s.endsAt - now)}</b></div></header>
+    {(s.moves || []).length > 0 && <div className="fs-race" data-testid="season-race" aria-label="Season race">{s.moves.slice().reverse().slice(0, 8).map(m => <span key={`${m.id}-${m.at}`} className={`fs-move mv-${m.kind}`}>
+      {m.kind === 'up' ? '▲' : m.kind === 'down' ? '▼' : '✦'} {m.handle} <b>{m.name || 'card'}</b> {m.from ? `#${m.from} → ` : ''}#{m.to} <em className={(m.pnlPct || 0) >= 0 ? 'm-pos' : 'm-neg'}>{pc(m.pnlPct)}</em></span>)}</div>}
     {!s.board.length ? <p className="m-dim fs-none">No card opened this week yet — the first one you fuse lands on this board.</p>
       : <ol className="fs-board">{s.board.map((b, i) => <li key={b.id} className={`fs-row r-${b.rank <= 3 ? b.rank : 'n'}`} style={{ '--i': i }} data-testid={`season-${b.id}`}>
         <b className="fs-rank">{MEDAL[b.rank] || `#${b.rank}`}</b>
@@ -177,9 +199,11 @@ export function FuseSeason() {
   </section>;
 }
 
-export function MegaCard({ c, i, onPicks, onLoad }) {
+export function MegaCard({ c, i, onPicks, onLoad, onChat, chatOpen }) {
   const fx = TIER_FX[c.activity?.tier] || TIER_FX.calm;
-  const move = (c.index || 100) - 100;
+  const live = useLivePrices((c.legs || []).map(l => l.pairAddress));
+  const lp = liveStagePct(c, live);
+  const move = lp ?? (c.index || 100) - 100;
   const runners = c.kind === 'lit' || c.kind === 'round';
   const use = () => (runners ? onPicks?.(c.legs.slice(0, MAX_RUNNERS).map(l => ({ mint: l.baseAddress, symbol: l.symbol, logo: l.logo, pairAddress: l.pairAddress, lane: 'runner' })))
     : onLoad?.(c.legs, c.kind === 'user' ? { copyOf: c.id, owner: c.owner, copyPct: c.copyPct } : null));
@@ -190,9 +214,10 @@ export function MegaCard({ c, i, onPicks, onLoad }) {
     <div className="ar-embers" aria-hidden="true">{Array.from({ length: fx.embers }, (_, k) => <i key={k} style={{ '--i': k }} />)}</div>
     <div className="ar-meta"><b>{c.emoji} {c.name}</b>
       <span className="ar-act" data-tip="Activity: FEELESS buys + buyers (24h), $ flow through its coins, index move. Drives the effects."><small>ACT</small><i style={{ transform: `scaleX(${(c.activity?.score || 0) / 100})` }} /><em className="m-num">{c.activity?.score || 0}</em></span>
-      {(c.streak?.tier || c.copies > 0) && <span className="ar-badges">{c.streak?.tier && <StreakBadge s={c.streak} />}{c.copies > 0 && <span className="ar-copies" data-tip="Traders who fused this card too">⚡ {c.copies} {c.copies === 1 ? 'copy' : 'copies'}</span>}</span>}
-      <small className="m-dim">{c.kind === 'lit' ? '🔥 lit runner card' : c.kind === 'round' ? '⏳ this round · proving' : c.kind === 'user' ? `🃏 ${c.owner} · ${c.mode === 'swap' ? '⇄ swaps weak legs' : '🔒 holds together'}` : `⚛️ Cmd Ctr · ${c.legs.length} legs`} · <span className={move >= 0 ? 'm-pos' : 'm-neg'}>{pc(move)}</span>{c.buyers ? ` · ${c.buyers} buyers` : ''}</small>
-      <button type="button" className="m-btn primary m-go" onClick={use} data-testid={`mega-use-${c.id}`}>{runners ? 'Use runners →' : c.kind === 'user' ? '⚡ Fuse this too' : c.legs.length > 3 ? 'Load top 3 →' : 'Load →'}</button></div>
+      {(c.streak?.tier || c.compound?.tier || c.copies > 0) && <span className="ar-badges">{c.streak?.tier && <StreakBadge s={c.streak} />}{c.compound?.tier && <CompoundBadge s={c.compound} />}{c.copies > 0 && <span className="ar-copies" data-tip="Traders who fused this card too">⚡ {c.copies} {c.copies === 1 ? 'copy' : 'copies'}</span>}</span>}
+      <small className="m-dim">{c.kind === 'lit' ? '🔥 lit runner card' : c.kind === 'round' ? '⏳ this round · proving' : c.kind === 'user' ? `🃏 ${c.owner} · ${c.mode === 'swap' ? '⇄ swaps weak legs' : '🔒 holds together'}` : `⚛️ Cmd Ctr · ${c.legs.length} legs`} · <span className={`fl-tick ${move >= 0 ? 'm-pos' : 'm-neg'}`} key={move.toFixed(1)} data-tip={lp != null ? 'Live (10s prices)' : 'Last server update'}>{pc(move)}{lp != null && <i className="fl-livedot" />}</span>{c.buyers ? ` · ${c.buyers} buyers` : ''}</small>
+      <span className="ar-acts">{c.chat && <button type="button" className={`m-btn ${chatOpen ? 'primary' : ''}`} onClick={onChat} aria-pressed={chatOpen} data-tip="This card's chat" data-testid={`mega-chat-${c.id}`}>💬</button>}
+      <button type="button" className="m-btn primary m-go" onClick={use} data-testid={`mega-use-${c.id}`}>{runners ? 'Use runners →' : c.kind === 'user' ? '⚡ Fuse this too' : c.legs.length > 3 ? 'Load top 3 →' : 'Load →'}</button></span></div>
   </article>;
 }
 
@@ -230,15 +255,21 @@ export function MyCards({ addr }) {
   if (!addr) return <div className="m-card fp-empty"><b>Connect your Solana wallet to see your Fuse cards.</b></div>;
   if (!d) return <div className="m-card"><span className="loader" /> Loading your cards…</div>;
   const openRows = (d.rows || []).filter(r => !r.closed);
+  return <MyCardsBody d={d} openRows={openRows} act={act} setAct={setAct} open={open} setMode={setMode} addr={addr} ses={ses} refresh={refresh} />;
+}
+
+function MyCardsBody({ d, openRows, act, setAct, open, setMode, addr, ses, refresh }) {
+  const live = useLivePrices(openRows.flatMap(r => r.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress)));
+  const held = openRows.length ? liveBook(openRows, live) : { pnlUsd: d.held?.pnlUsd, pnlPct: d.held?.pnlPct, value: d.held?.valueUsd };
   return <section className="fp-cards" data-testid="my-cards">
-    <div className="m-row fp-book"><span className="m-label">CARDS YOU HOLD</span><b className={`m-num ${(d.held?.pnlUsd || 0) >= 0 ? 'm-pos' : 'm-neg'}`} data-testid="held-pnl">{m$(d.held?.pnlUsd)} <small>{pc(d.held?.pnlPct)}</small></b>
-      <small className="m-dim">{m$(d.held?.valueUsd)} now · {openRows.length} open · all-time {m$(d.pnlUsd)}</small>{d.feebackUsd > 0 && <span className="m-chip ok" data-tip="Fuse Fee-Back: your unlocked share of the fees you paid on cards">🎁 {m$(d.feebackUsd)} Fee-Back</span>}</div>
+    <div className="m-row fp-book"><span className="m-label">CARDS YOU HOLD</span><b className={`m-num fl-tick ${(held.pnlUsd || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={(held.pnlUsd || 0).toFixed(2)} data-testid="held-pnl">{m$(held.pnlUsd)} <small>{pc(held.pnlPct)}</small><i className="fl-livedot" /></b>
+      <small className="m-dim">{m$(held.value)} now · {openRows.length} open · all-time {m$(d.pnlUsd)}</small>{d.feebackUsd > 0 && <span className="m-chip ok" data-tip="Fuse Fee-Back: your unlocked share of the fees you paid on cards">🎁 {m$(d.feebackUsd)} Fee-Back</span>}</div>
     {!openRows.length && <div className="m-card fp-empty"><b>No open cards.</b><small className="m-dim">Build one in the Lab — 3 pools + up to 3 runners.</small></div>}
     <div className="fp-cgrid">{openRows.map(r => <div key={r.id} className={`fp-cell ${r.onArena ? 'is-arena' : ''}`}><LiveFuseCard r={r} aura={r.onArena ? 'fire' : ''} />
       <div className="m-seg fp-mode" role="radiogroup" aria-label="Card mode">{[['hold', '🔒 Hold together', 'The card stays as you built it'], ['swap', '⇄ Swap weak legs', `When a leg fails a gate or drops ${d.rules?.swapDropPct ?? 25}%, we alert you with the best gated runner pre-filled — one approval`]].map(([k, l, tip]) =>
         <button key={k} type="button" role="radio" aria-checked={(r.mode || 'hold') === k} className={(r.mode || 'hold') === k ? 'active' : ''} data-tip={tip} onClick={() => setMode(r, k)} data-testid={`mode-${k}-${r.id}`}>{l}</button>)}</div>
       {r.seasonWin && <span className={`fs-crown r-${r.seasonWin.rank}`} data-tip={`Fuse season · week of ${wk(r.seasonWin.week)} — +Fee-Back boost on this card`} data-testid={`crown-${r.id}`}>{MEDAL[r.seasonWin.rank]} #{r.seasonWin.rank} · week of {wk(r.seasonWin.week)}</span>}
-      {(r.streak?.tier || r.copies > 0) && <span className="ar-badges">{r.streak?.tier && <StreakBadge s={r.streak} />}{r.copies > 0 && <span className="ar-copies" data-tip="Traders who copied this card — you earn a share of their FEELESS fee">⚡ {r.copies} {r.copies === 1 ? 'copy' : 'copies'} · {m$(r.copyEarnedUsd)} earned</span>}</span>}
+      {(r.streak?.tier || r.compound?.tier || r.copies > 0) && <span className="ar-badges">{r.streak?.tier && <StreakBadge s={r.streak} />}{r.compound?.tier && <CompoundBadge s={r.compound} />}{r.copies > 0 && <span className="ar-copies" data-tip="Traders who copied this card — you earn a share of their FEELESS fee">⚡ {r.copies} {r.copies === 1 ? 'copy' : 'copies'} · {m$(r.copyEarnedUsd)} earned</span>}</span>}
       {r.feeback && <small className={`fp-fb ${r.feeback.unlocked ? 'is-on' : ''}`} data-tip={`Fee-Back: ${r.feeback.pct}% of the $${(r.feeback.feesUsd || 0).toFixed(2)} fees you paid on this card${r.feeback.arena ? ' (incl. Arena bonus)' : ''}`}>🎁 {r.feeback.unlocked ? `${m$(r.feeback.usd)} back · ${r.feeback.pct}%` : 'Fee-Back'}{r.feeback.next ? ` · ${r.feeback.next}` : ''}</small>}
       <div className="fp-acts" role="toolbar" aria-label={`${r.name} actions`}>
         <button type="button" className="m-btn" data-tip="Sell part of chosen legs back to SOL (25 / 50 / 100%)" onClick={() => open(r, 'take')} data-testid={`act-take-${r.id}`}>💰 Take profit</button>
@@ -320,15 +351,29 @@ function ActionPanel({ r, act, setAct, addr, ses, refresh }) {
     {sellO && buyO ? <FuseGo side="sell" orders={[sellO, buyO]} onLanded={record} onClose={close} /> : <small className="m-dim">Pick the leg to sell and the coin to buy — both happen in one approval (≈{solOut.toFixed(3)} SOL moves across).</small>}</div>;
 }
 
+// ---- Profile › ⚛️ Fuse score: real card P&L, season medals, copies, streaks, holding + reputation (every point cited).
+// The performance half also feeds back into the wallet's trust score (cached, −3…+6), so Fuse and rep move together.
+export function FuseScore({ address }) {
+  const [s, setS] = useState(null);
+  useEffect(() => { let alive = true; if (address) fetch(apiUrl(`/api/reputation/fuses/score/${address}`)).then(r => (r.ok ? r.json() : null)).then(x => alive && setS(x)).catch(() => {}); return () => { alive = false; }; }, [address]);
+  if (!s || !s.cards) return null;
+  const deg = Math.max(0, Math.min(100, s.score)) * 3.6;
+  return <section className="wp-card fsc" data-testid="fuse-score"><div className="fsc-ring" style={{ '--deg': `${deg}deg` }}><span><b className="m-num">{s.score}</b><small>FUSE</small></span></div>
+    <div className="fsc-body"><h3>⚛️ Fuse score</h3><small className="m-dim">{s.cards} card{s.cards === 1 ? '' : 's'} · performance {s.perf}/75 · reputation {s.rep}/25</small>
+      <ul>{s.parts.map(p => <li key={p.label}><span>{p.label}</span><b className={`m-num ${p.points >= 0 ? 'm-pos' : 'm-neg'}`}>{p.points >= 0 ? '+' : ''}{p.points}</b></li>)}</ul></div></section>;
+}
+
 // ---- Profile › Fuse cards: every card the wallet holds (live) + one total P&L for all of them -----------------------------
 export function FuseHeldCards({ address }) {
   const [d, setD] = useState(null);
   useEffect(() => { let alive = true; const load = () => address && fetch(apiUrl(`/api/reputation/fuses/pnl/${address}`)).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
     load(); const t = setInterval(() => !document.hidden && load(), 60000); return () => { alive = false; clearInterval(t); }; }, [address]);
   const held = (d?.rows || []).filter(r => !r.closed);
+  const live = useLivePrices(held.flatMap(r => r.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress)));
   if (!held.length) return null;
+  const bk = liveBook(held, live);
   return <section className="wp-card fp-held" data-testid="fuse-held"><div className="fp-held-head"><h3>🃏 Fuse cards</h3>
-    <b className={`m-num ${(d.held?.pnlUsd || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{m$(d.held?.pnlUsd)} <small>{pc(d.held?.pnlPct)}</small></b><small className="m-dim">{held.length} held · {m$(d.held?.valueUsd)} now</small></div>
+    <b className={`m-num fl-tick ${bk.pnlUsd >= 0 ? 'm-pos' : 'm-neg'}`} key={bk.pnlUsd.toFixed(2)}>{m$(bk.pnlUsd)} <small>{pc(bk.pnlPct)}</small><i className="fl-livedot" /></b><small className="m-dim">{held.length} held · {m$(bk.value)} now · live</small></div>
     <div className="fp-held-row">{held.slice(0, 6).map(r => <div key={r.id} className="fp-held-card"><LiveFuseCard r={r} aura={r.onArena ? 'fire' : ''} /><small className="m-dim">{r.mode === 'swap' ? '⇄ swaps weak legs' : '🔒 holds together'}{r.onArena ? ' · 🏟 on Arena' : ''}</small></div>)}</div></section>;
 }
 

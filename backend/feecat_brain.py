@@ -19,7 +19,7 @@ def _b(v, edges, labels):
     return labels[-1]
 
 
-def setup_features(p: dict, now: float, fresh: bool = False, gap: bool = False) -> dict:
+def setup_features(p: dict, now: float, fresh: bool = False, gap: bool = False, fuse: str = 'none') -> dict:
     num = lambda x, d=0.0: float(x) if isinstance(x, (int, float)) or (isinstance(x, str) and x.replace('.', '', 1).replace('-', '', 1).isdigit()) else d
     ch = p.get('priceChange') or {}
     tx = (p.get('txns') or {}).get('h1') or {}
@@ -35,6 +35,7 @@ def setup_features(p: dict, now: float, fresh: bool = False, gap: bool = False) 
         'mc': _b(mc, (250_000, 1_000_000, 5_000_000), ('<250K', '250K-1M', '1-5M', '5M+')),
         'lane': 'fresh' if fresh else 'core',
         'gap': 'fvg' if gap else 'no-fvg',
+        'fuse': fuse,   # Fuse edge tag — her memory learns whether Fuse-backed entries actually pay
     }
 
 
@@ -128,3 +129,25 @@ def discipline(exits: list, now: float, window: int = 10) -> dict:
     if n >= 5 and exp > 0 and wr >= 0.5:
         return {**out, 'sizeMult': 1.2, 'why': f'edge confirmed ({wr:.0%} wins, {exp:+.4f} SOL/trade) — slightly bigger'}
     return {**out, 'why': 'normal size'}
+
+
+FUSE_STEP, FUSE_MAX = 0.05, 1.2
+
+
+def fuse_edge(mint: str, disc: dict) -> dict:
+    """Fuse edge: what FEELESS's runner engine knows about a coin (from /runners/discover).
+    - FAILED a runner gate (the Watching list) → veto, the gate is the reason (rugs the gates already caught).
+    - Passes every gate and N independent sources like it (arena, lit card, pump scan, snipers out, creators' pick)
+      → conviction ×(1 + 0.05·N), max ×1.2. Her setup memory then learns if that tag pays (feature 'fuse').
+    - Unknown to the runner engine → no change."""
+    if not disc or not mint:
+        return {'veto': False, 'mult': 1.0, 'tag': 'none', 'why': ''}
+    watch = {x.get('mint'): x for x in disc.get('watching') or []}
+    if mint in watch:
+        return {'veto': True, 'mult': 0.0, 'tag': 'gate-fail', 'why': f"Fuse runner gate: {(watch[mint].get('gates') or ['failed a gate'])[0]}"}
+    r = next((x for x in disc.get('runners') or [] if x.get('mint') == mint), None)
+    if not r:
+        return {'veto': False, 'mult': 1.0, 'tag': 'none', 'why': ''}
+    n = len(r.get('sources') or [])
+    return {'veto': False, 'mult': round(min(FUSE_MAX, 1 + FUSE_STEP * n), 2), 'tag': 'fuse-2+' if n >= 2 else 'fuse-1',
+            'why': 'Fuse edge: ' + ', '.join(s.get('label', s.get('kind', '')) for s in r.get('sources') or [])}

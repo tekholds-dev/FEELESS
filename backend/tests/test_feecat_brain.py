@@ -12,7 +12,7 @@ PAIR = {'priceChange': {'h1': 22, 'm5': 2}, 'txns': {'h1': {'buys': 300, 'sells'
 
 def test_features_bucket_the_setup():
     f = fb.setup_features(PAIR, NOW, gap=True)
-    assert f == {'h1': '15-30%', 'flow': '2x+', 'depth': '10%+', 'age': '6-24h', 'm5': '1-3%', 'mc': '250K-1M', 'lane': 'core', 'gap': 'fvg'}
+    assert f == {'h1': '15-30%', 'flow': '2x+', 'depth': '10%+', 'age': '6-24h', 'm5': '1-3%', 'mc': '250K-1M', 'lane': 'core', 'gap': 'fvg', 'fuse': 'none'}
 
 
 def test_new_setups_trade_at_probation_size_and_luck_does_not_rewrite_the_playbook():
@@ -82,3 +82,18 @@ def test_nine_lives_cost_on_losses_regrow_on_wins_and_nap_at_zero():
     assert d['lives'] == 0 and d['pause'] and 'out of lives' in d['why']
     old = [ex(-0.01, 90000 + i) for i in range(9)]                     # losses older than 24h cost nothing
     assert b.discipline(old, now)['lives'] == 9
+
+
+def test_fuse_edge_vetoes_gate_failures_and_boosts_multi_source_runners():
+    import feecat_brain as fb
+    disc = {'watching': [{'mint': 'RUG', 'gates': ['top10 holds 61%']}],
+            'runners': [{'mint': 'HOT', 'sources': [{'kind': 'arena', 'label': '🏟 Arena pick'}, {'kind': 'pump', 'label': '🚀 Pump scan'}]},
+                        {'mint': 'ONE', 'sources': [{'kind': 'pump', 'label': '🚀 Pump scan'}]}]}
+    assert fb.fuse_edge('RUG', disc) == {'veto': True, 'mult': 0.0, 'tag': 'gate-fail', 'why': 'Fuse runner gate: top10 holds 61%'}
+    hot = fb.fuse_edge('HOT', disc)
+    assert hot['mult'] == 1.1 and hot['tag'] == 'fuse-2+' and 'Arena pick' in hot['why']
+    assert fb.fuse_edge('ONE', disc)['tag'] == 'fuse-1'
+    assert fb.fuse_edge('NEW', disc) == {'veto': False, 'mult': 1.0, 'tag': 'none', 'why': ''}
+    assert fb.fuse_edge('HOT', {}) == {'veto': False, 'mult': 1.0, 'tag': 'none', 'why': ''}         # Fuse down → no change
+    assert fb.fuse_edge('X', {'runners': [{'mint': 'X', 'sources': [{}] * 9}]})['mult'] == 1.2      # capped
+    assert fb.setup_features({}, 0, fuse='fuse-2+')['fuse'] == 'fuse-2+'

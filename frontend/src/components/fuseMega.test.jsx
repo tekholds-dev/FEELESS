@@ -110,3 +110,13 @@ test('a Fuse panel opened in a background tab still loads (only repeat polls pau
   expect(el.querySelector('[data-testid="fuse-season"]').className).not.toContain('is-loading');
   delete document.hidden;
 });
+
+test('profile ⚛️ Fuse score shows the ring and every cited part (incl. reputation)', async () => {
+  const React = require('react'); const { act } = React; const { createRoot } = require('react-dom/client');
+  const { FuseScore } = require('./FusePage');
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ score: 79, perf: 59, rep: 20, cards: 2, parts: [{ label: 'Season medals: 🥇', points: 15 }, { label: 'Reputation (trust 80/100)', points: 20 }] }) }));
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<FuseScore address="Aaaa1111111111111111111111111111111111111111" />); }); await act(async () => new Promise(r => setTimeout(r, 0)));
+  const s = el.querySelector('[data-testid="fuse-score"]');
+  expect(s.textContent).toContain('79'); expect(s.textContent).toContain('reputation 20/25'); expect(s.textContent).toContain('Reputation (trust 80/100)');
+});

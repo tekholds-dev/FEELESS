@@ -273,6 +273,20 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Runners lens rows are live (`liveRunner` + shared `useLivePrices`): price, mcap scaled by live price, round / 5m move, flash.
 - Day theme: card faces (`.mc-face`) are art and stay dark — the global day ink skips them (`:not(.mc-face *)`); selected
   `m-seg` buttons are deep green + white in day.
+- LIVE everywhere: `lib/fuseLive.js` (`liveRowPnl/liveBook/liveStagePct`) + shared `useLivePrices` — My cards header, profile
+  held cards, Arena stage %, runner tiles, Runners panel rows and Lab runner rows all move with 10s prices (`fl-tick` flash).
+- Season race (`fuse_hq.rank_moves`, background-only `_season_race`): rank-change ticker on the Arena; a card entering or
+  leaving the top 3 alerts its owner once. 💬 Card chat: every Arena card has room `fuse-card-<id>` (normal chat).
+- ♻ Compound streaks (`fuse_hq.compound_streak`: bursts of top-ups; Compounder/Snowball/Diamond while winning, +5 activity
+  each, max 15). Lab plan options read "💸 Auto TP" / "♻ Auto-compound".
+- ⚛️ Fuse score (`fuse_hq.fuse_score`, `GET /fuses/score/{addr}`, profile `FuseScore`): perf ≤75 (real P&L, medals, copies,
+  streaks, holding) + rep ≤25 (trust × 0.25); trust gets `trust_from_fuse(perf)` (−3…+6) from the CACHED score only (no loop);
+  holders' scores refresh in the warm loop every ~5 min. Bots score 0.
+- FeeCat Fuse edge (`feecat_brain.fuse_edge`): coins that failed a runner gate are skipped (gate = reason); coins N Fuse sources
+  like get ×(1+0.05N) ≤1.2, never while discipline is cutting size; setup memory learns the `fuse` tag.
+- 🔔 About to bond (`runners.near_bond`): pre-bond 85–99.9% curve, ≥55% buys, 5m green → +12 score + its own source.
+  Forensics scan the 28 busiest (background); Cmd Ctr sees every passing runner, traders the busiest 24.
+- Fuse tab look: deep purple `.fuse-page::before` sky, electric title (`fp-zap` + two `fp-bolt` strikes), 🧬 spins (`fp-dna`).
 - Copy: Runners/Arena say "we run $5" (never "paper"); a missing live price shows "—", never a fake 0%.
 - Pump Pulse sitewide: every `TokenAvatar` shows a pink `PulseDot` while the coin pulses (shared batched `lib/pumpPulse`).
 - Prebuilt rail budgets: $1 / $20 / $100 or a custom $ (debounced 250ms); server breeds for the nearest bucket, Fuse in

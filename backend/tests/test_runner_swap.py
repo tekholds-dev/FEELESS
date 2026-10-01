@@ -93,3 +93,12 @@ def test_lit_card_rebuilds_with_two_strong_and_comes_down_when_weak_wins():
     assert rn.rebuild_lit(down, paths, passing, {}, 300) == (down, None)
     healthy = {**card, 'picks': card['picks'][:2]}
     assert rn.rebuild_lit(healthy, paths, passing, {}, 200) == (healthy, None)
+
+
+def test_near_bond_runners_get_the_boost_and_their_own_source():
+    base = {'stage': 'curve', 'curve': 92, 'buyShare': 62, 'chg5m': 4, 'chg1h': 40, 'vol1h': 20000, 'mcap': 40000, 'snipersOut': False, 'quality': 50}
+    assert rn.near_bond(base) and not rn.near_bond({**base, 'curve': 70}) and not rn.near_bond({**base, 'chg5m': -1})
+    assert not rn.near_bond({**base, 'stage': 'graduated'}) and not rn.near_bond({**base, 'buyShare': 40})
+    pts, parts = rn.score(base); pts0, _ = rn.score({**base, 'chg5m': -0.1})
+    assert any(p['part'] == 'bond run' and p['points'] == rn.BOND_PTS for p in parts) and pts > pts0
+    assert rn.SOURCES['bond'] == '🔔 About to bond'

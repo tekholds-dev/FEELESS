@@ -1,7 +1,25 @@
 /* Fuse 🧬 page (FusePage.jsx) — own sheet so meta.css stays in budget; built from m-* tokens. */
 .fuse-page { display: grid; gap: 14px; }
-.fp-head { display: grid; gap: 6px; } .fp-title { margin: 0; font-family: 'Audiowide', var(--m-mono); font-size: 32px; letter-spacing: .04em; background: linear-gradient(90deg, #19f58f, #6bffc0 55%, #f5c451); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.fp-title span { color: initial; -webkit-text-fill-color: initial; }
+.fp-head { display: grid; gap: 6px; } .fp-title { margin: 0; font-family: 'Audiowide', var(--m-mono); font-size: 32px; letter-spacing: .04em; display: flex; align-items: center; gap: 10px; }
+/* ⚡ Electric title: gradient text + two lightning arcs that strike across it (transform/opacity only) + the 🧬 spins. */
+.fp-zap { position: relative; display: inline-block; background: linear-gradient(90deg, #19f58f, #b98cff 50%, #6fe7ff); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; filter: drop-shadow(0 0 10px #a46bff66); }
+.fp-zap::after { content: attr(data-text); position: absolute; inset: 0; color: #f3e9ff; -webkit-text-fill-color: #f3e9ff; opacity: 0; text-shadow: 0 0 8px #c08bff, 0 0 18px #7d3cff; animation: fpFlicker 3.4s steps(1) infinite; pointer-events: none; }
+.fp-bolt { position: absolute; left: -6%; top: 18%; width: 112%; height: 64%; pointer-events: none; opacity: 0; transform-origin: left center;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Cpath d='M0 20 L22 8 L38 26 L58 6 L74 30 L96 10 L112 28 L132 4 L150 24 L170 12 L200 22' fill='none' stroke='%23e9d8ff' stroke-width='2.4' stroke-linejoin='round'/%3E%3Cpath d='M0 20 L22 8 L38 26 L58 6 L74 30 L96 10 L112 28 L132 4 L150 24 L170 12 L200 22' fill='none' stroke='%239b5cff' stroke-width='7' stroke-opacity='.35'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  animation: fpStrike 3.4s ease-out infinite; }
+.fp-bolt.b2 { top: 30%; transform: scaleY(-1); animation-delay: 1.7s; animation-duration: 4.1s; }
+.fp-dna { display: inline-block; font-size: .9em; animation: fpSpin 3.2s linear infinite; filter: drop-shadow(0 0 8px #b98cff88); }
+@keyframes fpStrike { 0%, 62% { opacity: 0; transform: scaleX(.2); } 64% { opacity: 1; transform: scaleX(1); } 67% { opacity: .2; } 69% { opacity: .9; } 76%, 100% { opacity: 0; transform: scaleX(1); } }
+@keyframes fpFlicker { 0%, 62% { opacity: 0; } 64% { opacity: .85; } 67% { opacity: .1; } 69% { opacity: .6; } 76%, 100% { opacity: 0; } }
+@keyframes fpSpin { from { transform: rotateY(0); } to { transform: rotateY(360deg); } }
+/* The Fuse tab's own night sky: deep purple behind everything on the page. */
+.fuse-page { position: relative; isolation: isolate; }
+.fuse-page::before { content: ''; position: absolute; inset: -22px -24px -40px; z-index: -1; border-radius: 18px; pointer-events: none;
+  background: radial-gradient(120% 60% at 20% 0%, #3a1670 0%, transparent 60%), radial-gradient(90% 50% at 90% 30%, #251055 0%, transparent 65%), linear-gradient(180deg, #120821, #0a0614 70%); }
+body.theme-day .fuse-page::before { background: radial-gradient(120% 60% at 20% 0%, #e7dbff 0%, transparent 60%), linear-gradient(180deg, #f4efff, #eef6f1 80%); }
+body.theme-day .terminal-main .fuse-page span.fp-zap { color: transparent; filter: drop-shadow(0 0 6px #7d3cff44); } body.theme-day .fp-zap::after { color: #5a1fd1; -webkit-text-fill-color: #5a1fd1; text-shadow: 0 0 8px #b98cff; }
+body.fx-lite .fp-bolt, body.fx-lite .fp-zap::after, body.fx-lite .fp-dna { animation: none; opacity: 0; } body.fx-lite .fp-dna { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .fp-bolt, .fp-zap::after, .fp-dna { animation: none; } .fp-bolt { opacity: 0; } }
 .fp-tabs { width: fit-content; } .fp-body { animation: mCardIn .2s var(--m-ease) backwards; }
 .fp-lab { align-items: start; } .fp-right { display: grid; gap: 12px; align-content: start; }
 .fp-featured { display: grid; gap: 8px; } .fp-feat { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
@@ -25,7 +43,7 @@
 .fp-ava.sm { width: 26px; height: 26px; font-size: 12px; margin-left: -8px; border: 2px solid var(--m-bg, #050807); } .fp-ava.sm:first-child { margin-left: 0; }
 .fp-score { display: block; height: 4px; border-radius: 4px; background: var(--m-line); overflow: hidden; } .fp-score i { display: block; height: 100%; background: linear-gradient(90deg, #0b6b42, var(--m-accent)); transform-origin: left; transition: transform .5s var(--m-ease); }
 .fp-srcs { display: flex; flex-wrap: wrap; gap: 4px; } .fp-chip { font-size: 10.5px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--m-line); cursor: help; }
-.fp-chip.src-arena { border-color: var(--m-accent); } .fp-chip.src-lit { border-color: var(--rn-fire, #ff9a3c); } .fp-chip.src-snipers { border-color: var(--m-warn); } .fp-chip.src-creator { border-color: #8fb8ff; }
+.fp-chip.src-arena { border-color: var(--m-accent); } .fp-chip.src-bond { border-color: #c08bff; color: #d9bfff; } .fp-chip.src-lit { border-color: var(--rn-fire, #ff9a3c); } .fp-chip.src-snipers { border-color: var(--m-warn); } .fp-chip.src-creator { border-color: #8fb8ff; }
 .fp-rstats { gap: 10px; font-family: var(--m-mono); font-size: 11px; color: var(--m-dim); }
 .fp-dock { position: sticky; bottom: 10px; z-index: 2; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--m-accent); background: color-mix(in srgb, var(--m-surface) 94%, transparent); animation: fpIn .2s var(--m-ease) backwards; }
 .fp-dock span { font-family: var(--m-mono); font-size: 12px; }
@@ -157,3 +175,23 @@ body.theme-day .fs-row { background: #fff; } body.theme-day .fs-clock b, body.th
 .fp-leglims { display: grid; gap: 4px; } .fp-leglim { display: grid; grid-template-columns: minmax(60px, 1fr) 54px auto auto auto; gap: 8px; align-items: center; font-size: 12px; padding: 3px 0; border-bottom: 1px solid var(--m-line); }
 .fp-leglim label { display: inline-flex; gap: 3px; align-items: center; white-space: nowrap; font-family: var(--m-mono); font-size: 10.5px; color: var(--m-dim); } .fp-panel .fp-leglim input.m-input { width: 56px; flex: none; min-height: 26px; padding: 2px 6px; text-align: right; }
 .fp-leglim em { font-style: normal; font-family: var(--m-mono); font-size: 9.5px; color: var(--m-warn); } .fp-leglim.is-fired { opacity: .75; }
+
+/* Compound badges (share streak-badge), card chat drawer, Arena card actions, season race ticker, profile Fuse score ring. */
+.streak-badge.st-compounder { color: var(--m-accent); border-color: var(--m-accent); } .streak-badge.st-snowball { color: #9fe8ff; border-color: #9fe8ff; box-shadow: 0 0 14px -6px #9fe8ff; }
+.streak-badge.st-diamond { color: #c9b6ff; border-color: #c9b6ff; box-shadow: 0 0 18px -6px #c9b6ff; } .streak-badge.st-diamond > i { animation-duration: 1.6s; }
+.ar-acts { display: inline-flex; gap: 6px; align-items: center; } .ar-acts > .m-btn:first-child { min-width: 38px; padding: 0 10px; }
+.ar-chat { display: grid; gap: 8px; animation: fpIn .2s var(--m-ease) backwards; } .ar-chat > header { gap: 10px; } .ar-chat > header .m-btn { margin-left: auto; }
+.ar-chat .ecosystem-chat { max-height: 420px; }
+.fp-move small { margin-left: 3px; font-size: 9px; opacity: .7; }
+.fs-race { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; } .fs-race::-webkit-scrollbar { display: none; }
+.fs-move { flex: none; display: inline-flex; gap: 5px; align-items: baseline; font-family: var(--m-mono); font-size: 11px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--m-line); animation: fpIn .3s var(--m-ease) backwards; }
+.fs-move b { font-family: var(--m-font, inherit); font-weight: 600; } .fs-move em { font-style: normal; } .fs-move.mv-up { border-color: var(--m-accent); color: var(--m-accent); } .fs-move.mv-down { border-color: var(--m-danger); color: var(--m-danger); } .fs-move.mv-new { border-color: #ffd36b; color: #ffd36b; }
+.fsc { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: center; }
+.fsc-ring { width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--m-accent) var(--deg), var(--m-line) 0); animation: fpIn .4s var(--m-ease) backwards; }
+.fsc-ring > span { width: 76px; height: 76px; border-radius: 50%; display: grid; place-items: center; align-content: center; background: var(--m-surface); } .fsc-ring b { font-size: 24px; line-height: 1; } .fsc-ring small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .14em; color: var(--m-dim); }
+.fsc-body h3 { margin: 0; } .fsc-body ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 3px; } .fsc-body li { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; padding: 2px 0; border-bottom: 1px solid var(--m-line); }
+body.fx-lite .ar-chat, body.fx-lite .fs-move, body.fx-lite .fsc-ring { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ar-chat, .fs-move, .fsc-ring { animation: none; } }
+body.theme-day .fsc-ring > span { background: #fff; } body.theme-day .fs-move.mv-new { color: #9a6a00; border-color: #9a6a00; } body.theme-day .streak-badge.st-snowball { color: #1b6f9a; border-color: #1b6f9a; } body.theme-day .streak-badge.st-diamond { color: #6a4fc9; border-color: #6a4fc9; }
+@media (max-width: 520px) { .fsc { grid-template-columns: 1fr; justify-items: center; } }
+body.theme-day .fp-chip.src-bond { color: #5a1fd1; border-color: #5a1fd1; }

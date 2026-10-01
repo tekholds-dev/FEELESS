@@ -473,6 +473,71 @@ def swap_streak(r):
     return {'swaps': swaps, 'won': won, 'tier': hit[0] if hit else None, 'label': hit[1] if hit else None, 'bonus': min(15, swaps * 5) if hit else 0}
 
 
+COMPOUND_TIERS = ((5, 'diamond', '💎 Diamond loop'), (3, 'snowball', '❄ Snowball'), (1, 'compounder', '♻ Compounder'))
+COMPOUND_GAP = 600   # top-ups within 10 min are one compound
+
+
+def compound_streak(r):
+    """Compound streak: how many times a card rolled its gains back in (bursts of top-up events) and still wins.
+    ♻ Compounder ≥1 · ❄ Snowball ≥3 · 💎 Diamond loop ≥5. +5 Arena activity per compound (max 15)."""
+    ts = sorted(_f(e.get('at')) for e in r.get('events') or [] if e.get('kind') == 'topup')
+    n = sum(1 for i, x in enumerate(ts) if i == 0 or x - ts[i - 1] > COMPOUND_GAP)
+    won = _f(r.get('pnlPct')) > 0
+    hit = next(((k, lab) for c, k, lab in COMPOUND_TIERS if n >= c), None) if won else None
+    return {'compounds': n, 'won': won, 'tier': hit[0] if hit else None, 'label': hit[1] if hit else None, 'bonus': min(15, n * 5) if hit else 0}
+
+
+MEDAL_PTS = {1: 15, 2: 10, 3: 6}
+STREAK_PTS = {'survivor': 4, 'phoenix': 8, 'immortal': 12, 'compounder': 4, 'snowball': 8, 'diamond': 12}
+
+
+def fuse_score(rows, wins, copies, trust, bot=False):
+    """Fuse score 0–100 for a wallet, every point cited. perf (≤75) = real verified card P&L + season medals + copies
+    received + best streaks + cards held ≥24h; rep (≤25) = trust score × 0.25. Bots score 0. Trust reads `perf` only
+    (never the rep half), so the two never feed each other in a loop."""
+    if bot:
+        return {'score': 0, 'perf': 0, 'rep': 0, 'parts': [{'label': 'Bot shield: flagged — Fuse score withheld', 'points': 0}], 'cards': len(rows)}
+    parts = []
+    cost = sum(_f(r.get('costUsd')) for r in rows); val = sum(_f(r.get('valueUsd')) for r in rows)
+    if cost >= 5:
+        pct = (val / cost - 1) * 100
+        p = round(max(-15.0, min(30.0, pct * 0.6)), 1)
+        parts.append({'label': f"Real card P&L {pct:+.1f}% on ${cost:,.0f} (verified buys)", 'points': p})
+    med = sorted((w['rank'] for w in wins), key=int)
+    if med:
+        parts.append({'label': f"Season medals: {' '.join({1: '🥇', 2: '🥈', 3: '🥉'}[m] for m in med)}", 'points': min(25, sum(MEDAL_PTS[m] for m in med))})
+    if copies:
+        parts.append({'label': f"Copied {copies}× by other traders", 'points': min(15, 3 * copies)})
+    sw = max((STREAK_PTS.get((r.get('streak') or {}).get('tier'), 0) for r in rows), default=0)
+    cp = max((STREAK_PTS.get((r.get('compound') or {}).get('tier'), 0) for r in rows), default=0)
+    if sw or cp:
+        parts.append({'label': 'Best swap / compound streaks', 'points': min(15, sw + cp)})
+    held = sum(1 for r in rows if _f(r.get('heldS')) >= 86400)
+    if held:
+        parts.append({'label': f"{held} card(s) held 24h+", 'points': min(10, 2 * held)})
+    perf = round(max(0.0, min(75.0, sum(x['points'] for x in parts))), 1)
+    rep = round(max(0.0, min(25.0, _f(trust) * 0.25)), 1) if trust is not None else 0.0
+    if trust is not None:
+        parts.append({'label': f"Reputation (trust {round(_f(trust))}/100)", 'points': rep})
+    return {'score': round(min(100.0, perf + rep)), 'perf': perf, 'rep': rep, 'parts': parts, 'cards': len(rows)}
+
+
+def trust_from_fuse(perf, cards):
+    """The Fuse half that flows back into reputation: −3…+6 trust points, only with 2+ cards of evidence."""
+    return 0 if cards < 2 else int(max(-3, min(6, round((_f(perf) - 25) / 8))))
+
+
+def rank_moves(prev, board):
+    """Season race: cards whose rank changed since the last board ({id: rank} → board rows)."""
+    out = []
+    for b in board:
+        was = prev.get(b['id'])
+        if was != b['rank']:
+            out.append({'id': b['id'], 'name': b.get('name'), 'handle': b.get('handle'), 'from': was, 'to': b['rank'], 'pnlPct': b.get('pnlPct'),
+                        'kind': 'new' if was is None else 'up' if b['rank'] < was else 'down'})
+    return out
+
+
 def copy_cut(copier_fees_usd, rules):
     """Copy cards: the original card's owner earns copyPct of the FEELESS fees the copier paid (not an extra cost)."""
     return round(_f(copier_fees_usd) * clean_rules(rules)['copyPct'] / 100, 6)

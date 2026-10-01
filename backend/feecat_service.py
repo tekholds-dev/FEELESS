@@ -445,13 +445,22 @@ def _thesis(pos, live, R):
     return None, ok_to_add, vol_ratio
 
 
+async def _fuse_discover(http):
+    """The Fuse runner engine's view (gated runners + sources + coins that failed a gate). Served from its warm cache."""
+    try:
+        r = await http.get('http://127.0.0.1:5077/api/reputation/runners/discover', timeout=4)
+        return r.json() if r.status_code == 200 else {}
+    except Exception:
+        return {}
+
+
 async def run_engine(store, cats):
     now = time.time()
     async with httpx.AsyncClient(timeout=10) as http:
         held = sorted({p['pairAddress'] for c in cats for p in c['positions'] if p.get('pairAddress')}
                       | {e['pairAddress'] for c in cats for e in c.get('exits', []) if now - e['exitAt'] < 24 * 3600})
         prices = await _pair_prices(http, held) if held else {}
-        candidates = await _market_candidates(http)
+        candidates, fuse_view = await asyncio.gather(_market_candidates(http), _fuse_discover(http))
     ranked, rejections = [], {}
     for p in candidates:
         score, reason = _qualifies(p, now)
@@ -587,18 +596,28 @@ async def run_engine(store, cats):
             if gap:
                 conviction = round(conviction * 1.2, 2)
                 reason = f'{reason}; retesting a 5m fair value gap (${gap[0]:.6g}–${gap[1]:.6g})'
+            # Fuse edge: a coin the runner gates already failed is skipped; one several Fuse sources like gets a small boost.
+            fe = feecat_brain.fuse_edge((p.get('baseToken') or {}).get('address'), fuse_view)
+            if fe['veto']:
+                store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': fe['why'], 'at': now})
+                store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
+                continue
             # Setup memory: her own closed trades decide whether this kind of entry deserves more, less or no size.
-            setup = feecat_brain.setup_features(p, now, fresh=bool(p.get('_fresh')), gap=bool(gap))
+            setup = feecat_brain.setup_features(p, now, fresh=bool(p.get('_fresh')), gap=bool(gap), fuse=fe['tag'])
             brain = feecat_brain.setup_edge(setup, feecat_brain.edge_table(cat.get('setupMemory') or []))
             if brain['veto']:
                 store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': brain['why'], 'at': now})
                 store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
                 continue
+            disc_cut = disc['sizeMult'] < 1.0   # discipline only ever makes her trade LESS: no Fuse boost while it's cutting size
             if disc['sizeMult'] != 1.0:
                 conviction = round(conviction * disc['sizeMult'], 2)
             if brain['mult'] != 1.0:
                 conviction = round(conviction * brain['mult'], 2)
                 reason = f"{reason}; setup memory ×{brain['mult']} ({brain['why']})"
+            if fe['mult'] != 1.0 and not disc_cut:
+                conviction = round(conviction * fe['mult'], 2)
+                reason = f"{reason}; {fe['why']} ×{fe['mult']}"
             reason = f'{reason}; holders: {safe_why}; conviction {conviction}×'
             px = _num(p.get('priceNative'))
             planned = round(min(float(cat['risk']['maxPositionSol']), cat['balanceSol'] * 0.1 * conviction) * (R['freshSize'] if p.get('_fresh') else 1), 4)

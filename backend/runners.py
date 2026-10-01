@@ -103,6 +103,15 @@ def failed_gates(c, cfg=None):
     return [label for _, label, test in (gates(cfg) if cfg else GATES) if not test(c)]
 
 
+BOND_AT = (85.0, 100.0)    # the last stretch of the bonding curve
+BOND_PTS = 12.0
+
+
+def near_bond(c):
+    """Catch it right before it bonds: pre-bond, 85–99.9% up the curve, buyers in control (≥55%) and the 5m still green."""
+    return c.get('stage') == 'curve' and BOND_AT[0] <= _f(c.get('curve')) < BOND_AT[1] and _f(c.get('buyShare')) >= 55 and _f(c.get('chg5m')) > 0
+
+
 def score(c):
     """0–100 with the reason for every part (shown on the board)."""
     mom = max(0.0, min(30.0, c['chg1h'] / 10))                                   # +300%/h → 30
@@ -112,12 +121,14 @@ def score(c):
     curve = 10.0 if c['stage'] == 'curve' and 60 <= c['curve'] <= 95 else 5.0 if c['stage'] == 'graduated' else 0.0
     rep_pts = {'clean': 5.0, 'watch': -10.0}.get(c.get('creatorRep'), 0.0)       # reputation: clean creators earn, "watch" pays
     bonus = (8.0 if c['snipersOut'] else 0.0) + min(7.0, c['quality'] / 14) + rep_pts
-    pts = round(min(100.0, mom + acc + vel + flow + curve + bonus), 1)
+    bond = BOND_PTS if near_bond(c) else 0.0
+    pts = round(min(100.0, mom + acc + vel + flow + curve + bonus + bond), 1)
     return pts, [{'part': 'momentum', 'points': round(mom, 1), 'why': f"{c['chg1h']:+.0f}% in 1h"},
                  {'part': 'acceleration', 'points': round(acc, 1), 'why': f"{c['chg5m']:+.0f}% in 5m"},
                  {'part': 'velocity', 'points': round(vel, 1), 'why': f"1h volume = {c['vol1h'] / c['mcap'] if c['mcap'] else 0:.1f}× market cap"},
                  {'part': 'flow', 'points': round(flow, 1), 'why': f"{c['buyShare']}% buys" if c['buyShare'] is not None else 'no flow'},
                  {'part': 'stage', 'points': curve, 'why': f"{c['curve']:.0f}% up the curve" if c['stage'] == 'curve' else 'graduated (own pool)'},
+                 *([{'part': 'bond run', 'points': bond, 'why': f"{c['curve']:.0f}% up the curve, {c['buyShare']}% buys, 5m green — about to bond"}] if bond else []),
                  {'part': 'bonus', 'points': round(bonus, 1), 'why': ('snipers sold out · ' if c['snipersOut'] else '') + f"quality {c['quality']:.0f}" + (f" · creator {c.get('creatorRep')}" if c.get('creatorRep') else '')}]
 
 
@@ -297,7 +308,7 @@ def addon(legs, runners, slice_pct=20.0, n=2):
                     'weight': round(slice_pct / len(rs), 2), 'runner': True, 'lane': r.get('lane'), 'exits': EXITS[r.get('lane') or 'runner']['label']} for r in rs]
 
 
-SOURCES = {'arena': '🏟 Arena pick', 'lit': '🔥 Lit card', 'pump': '🚀 Pump scan', 'snipers': '🎯 Snipers out', 'creator': "📣 Creators' pick"}
+SOURCES = {'bond': '🔔 About to bond', 'arena': '🏟 Arena pick', 'lit': '🔥 Lit card', 'pump': '🚀 Pump scan', 'snipers': '🎯 Snipers out', 'creator': "📣 Creators' pick"}
 
 
 def discover(passing, tags, limit=40):

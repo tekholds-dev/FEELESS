@@ -7,6 +7,7 @@ jest.mock('../hooks/useWallet', () => ({ useWallet: () => ({ wallet: { chain: 's
 jest.mock('../lib/chatSession', () => ({ readChatSession: () => 'sess' }));
 jest.mock('./FuseLab', () => ({ FuseLab: p => <div data-testid="lab" data-copy={p.incoming?.copyOf ? `${p.incoming.copyOf}:${p.incoming.owner}` : ''}>picks:{p.runnerPicks.length}</div> }));
 jest.mock('./FuseSide', () => ({ FuseSide: () => null }));
+jest.mock('./EcosystemChat', () => ({ __esModule: true, default: ({ room }) => <div data-testid="chat-room">{room}</div> }));
 jest.mock('./FuseCard', () => ({ LiveFuseCard: ({ r }) => <div data-testid={`live-${r.id}`} />, FuseCard: ({ c, aura }) => <div className="fcd-mock" data-aura={aura} data-n={c.legs.length} /> }));
 jest.mock('./FuseGo', () => ({ FuseGo: p => <div data-testid="fusego" data-side={p.side} data-n={(p.orders || []).length} /> }));
 // eslint-disable-next-line import/first
@@ -22,11 +23,13 @@ const RUNNERS = { round: { picks: PICKS, swaps: [{ at: 5, out: { symbol: 'OLD' }
 const ARENA = { board: [{ style: 'yield', runs: 3, avgPct: 2, winRate: 66 }], outlook: { note: 'n' }, minSettled: 3, mega: [
   { kind: 'mega', id: 'M1', name: 'Mega', emoji: '⚛️', legs: PICKS.map(p => ({ pairAddress: `P${p.mint}`, symbol: p.symbol, weight: 25 })), index: 120, grade: 'A', buyers: 5, activity: { score: 90, tier: 'blazing' } },
   { kind: 'user', id: 'U1', name: 'Degen card', emoji: '🃏', owner: '@chad', legs: PICKS.slice(0, 3).map(p => ({ pairAddress: `P${p.mint}`, symbol: p.symbol, weight: 33 })), index: 140, grade: 'A', buyers: 1, mode: 'swap',
-    activity: { score: 70, tier: 'hot' }, streak: { swaps: 3, won: true, tier: 'phoenix', label: '🔥 Phoenix', bonus: 15 }, copies: 2, copyPct: 10 },
+    activity: { score: 70, tier: 'hot' }, streak: { swaps: 3, won: true, tier: 'phoenix', label: '🔥 Phoenix', bonus: 15 }, copies: 2, copyPct: 10,
+    compound: { compounds: 3, tier: 'snowball', label: '❄ Snowball', bonus: 15 }, chat: 'fuse-card-u1' },
   { kind: 'lit', id: 'L1', name: '$RUN1 · $RUN2', emoji: '🔥', legs: PICKS.slice(0, 2).map(p => ({ pairAddress: `P${p.mint}`, baseAddress: p.mint, symbol: p.symbol, weight: 50 })), index: 134.5, grade: 'A', buyers: 0, activity: { score: 30, tier: 'warm' } }] };
 const SEASON = { week: 1790553600, endsAt: 9e9, cards: 4, boostPct: 10, board: [
   { rank: 1, id: 'S1', name: 'Moon card', handle: '@chad', pnlPct: 88, streak: { swaps: 1, tier: 'survivor', label: '🛡 Survivor', bonus: 5 } },
   { rank: 2, id: 'S2', name: 'Deep', handle: '@ann', pnlPct: 12 }, { rank: 4, id: 'S4', name: 'Down bad', handle: '@x', pnlPct: -9 }],
+  moves: [{ id: 'S1', name: 'Moon card', handle: '@chad', from: 3, to: 1, kind: 'up', pnlPct: 88, at: 5 }],
   past: [{ week: 1789948800, top: [{ rank: 1, handle: '@og', pnlPct: 140, wallet: 'W' }] }] };
 const SRC = { arena: '🏟 Arena pick', lit: '🔥 Lit card', pump: '🚀 Pump scan', snipers: '🎯 Snipers out', creator: "📣 Creators' pick" };
 const DISCOVER = { runners: PICKS.map((p, i) => ({ ...p, sources: i ? [{ kind: 'pump', label: SRC.pump, detail: 'top score' }] : [{ kind: 'arena', label: SRC.arena, detail: 'round' }, { kind: 'pump', label: SRC.pump, detail: 'top' }] })),
@@ -126,4 +129,14 @@ test('Arena: the Fuse season board ranks this week with medals, a countdown and 
   expect(s.querySelector('[data-testid="season-S1"]').textContent).toContain('🥇');
   expect(s.querySelector('[data-testid="season-S4"]').textContent).toContain('#4');
   expect(s.textContent).toContain('PAST CHAMPIONS'); expect(s.textContent).toContain('@og');
+});
+
+test('Arena: compound badge, the season race ticker, and 💬 opens that card\'s own chat room', async () => {
+  window.history.replaceState(null, '', '/terminal/fuse?tab=arena');
+  const host = document.createElement('div'); document.body.appendChild(host);
+  await act(async () => { createRoot(host).render(<FusePage />); }); await tick(); await tick();
+  expect(host.querySelector('[data-testid="mega-U1"] [data-testid="compound-snowball"]').textContent).toContain('Snowball ×3');
+  expect(host.querySelector('[data-testid="season-race"]').textContent).toContain('▲ @chad Moon card #3 → #1');
+  await act(async () => host.querySelector('[data-testid="mega-chat-U1"]').click()); await tick();
+  expect(host.querySelector('[data-testid="card-chat-U1"] [data-testid="chat-room"]').textContent).toBe('fuse-card-u1');
 });

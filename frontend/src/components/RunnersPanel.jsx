@@ -6,6 +6,7 @@ import { FuseCard } from './FuseCard';
 import { FuseGo } from './FuseGo';
 import { TokenAvatar } from './terminal/MarketPrimitives';
 import { investigate } from './CaseFile';
+import { useLivePrices } from '../lib/livePrices';
 import '../styles/runners.css';
 
 // 🏃 FUSE RUNNERS — coins come to it. Every launchpad coin the feed sees is gated (rugs out), scored, laned (scalp / runner
@@ -42,20 +43,23 @@ export function ProofRing({ p, need }) {
   </div>;
 }
 
-export function CoinRow({ r, live }) {
-  const move = live && r.entry ? ((r.now || r.price) / r.entry - 1) * 100 : r.chg1h;
+export function CoinRow({ r, live, px }) {
+  // px = the shared 10s live price (lib/livePrices) when the poller has this pool; else the server's last read.
+  const now = px?.price || r.now || r.price;
+  const move = live && r.entry ? (now / r.entry - 1) * 100 : px ? px.h1 : r.chg1h;
   return <div className={`rn-coin lane-${r.lane || 'runner'}`}>
     <span className="rn-logo"><TokenAvatar pair={pairOf(r)} size={30} /></span>
     <span className="rn-name"><b>{r.symbol ? `$${r.symbol}` : `${r.mint.slice(0, 4)}…`}</b><small>{r.stage === 'curve' ? <i className="rn-curve" data-tip={`${r.curve.toFixed(0)}% up the bonding curve — pre-bond`}><i style={{ transform: `scaleX(${Math.min(1, r.curve / 100)})` }} /></i> : <em className="rn-grad" data-tip="Graduated — has its own pool">GRAD</em>}
       {r.streak > 1 && <em className="rn-streak" data-tip={`Stayed in the top for ${r.streak} rounds`}>↻{r.streak}</em>}</small></span>
     <span className="rn-score" data-tip={(r.parts || []).map(p => `${p.part}: +${p.points} (${p.why})`).join('\n')}><i style={{ transform: `scaleX(${Math.min(1, (r.score || 0) / 100)})` }} /><b className="m-num">{Math.round(r.score || 0)}</b></span>
-    <span className={`m-num rn-move ${move >= 0 ? 'm-pos' : 'm-neg'}`} data-tip={live ? 'Since this round picked it' : 'Last hour'}>{pct(move)}</span>
+    <span className={`m-num rn-move fl-tick ${(move || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={(move || 0).toFixed(1)} data-tip={live ? 'Since this round picked it (live)' : 'Last hour (live)'}>{pct(move)}</span>
     <button type="button" className="rn-case" onClick={() => investigate(r.mint)} aria-label="Case file" data-tip="Open the coin's case file">🔎</button>
   </div>;
 }
 
 export function RunnersPanel({ call }) {
   const d = useRunners();
+  const lp = useLivePrices([...(d?.round?.picks || []), ...(d?.live || []).slice(0, call ? 60 : 12)].map(x => x.pairAddress));
   const [budget, setBudget] = useState(5); const [go, setGo] = useState(false); const [override, setOverride] = useState(false); const [showDrop, setShowDrop] = useState(false);
   const picks = useMemo(() => d?.round?.picks || [], [d]);
   const legs = useMemo(() => picks.map(p => ({ chainId: 'solana', pairAddress: p.pairAddress, symbol: p.symbol || `${p.mint.slice(0, 4)}…`, baseAddress: p.mint, logo: p.logo, weight: 100 / picks.length, change24h: p.chg1h, liquidityUsd: p.liq })), [picks]);
@@ -74,7 +78,7 @@ export function RunnersPanel({ call }) {
       <li key={l} style={{ animationDelay: `${k * 60}ms` }} data-tip={l === 'Passed gates' ? d.gates.join(' · ') : undefined}><b>{i}</b><span><em className="m-num">{n}</em><small>{l}</small></span></li>)}</ol>
     <div className="rn-lanes">{LANES.map(([k, ic, name, sub]) => { const rows = picks.filter(p => p.lane === k); return <div key={k} className={`rn-lane lane-${k}`}>
       <header><b>{ic} {name}</b><small>{sub}</small><em data-tip="Preset exits — alerts you at each step for a one-tap sell">{d.exits[k]}</em></header>
-      {rows.length ? rows.map(r => <CoinRow key={r.mint} r={r} live />) : <p className="m-dim rn-empty">{k === 'hold' ? 'A runner lands here after 2 rounds in the top.' : 'Nothing in this lane this round.'}</p>}
+      {rows.length ? rows.map(r => <CoinRow key={r.mint} r={r} live px={lp.get(r.pairAddress)} />) : <p className="m-dim rn-empty">{k === 'hold' ? 'A runner lands here after 2 rounds in the top.' : 'Nothing in this lane this round.'}</p>}
     </div>; })}</div>
     {(d.round?.swaps || []).length > 0 && <div className="rn-swaps" data-testid="rn-swaps">{d.round.swaps.slice(-3).reverse().map(s => <span key={s.at}>🔁 auto-swapped <b>${s.out.symbol}</b> → <b>${s.in.symbol}</b><small>{s.why[0]}</small></span>)}</div>}
     {picks.length > 0 && <div className={`rn-fuse ${d.proof.lights ? 'is-lit' : ''}`} key={d.round?.id}>
@@ -90,7 +94,7 @@ export function RunnersPanel({ call }) {
       </div>
     </div>}
     <div className="rn-cols">
-      <div className="rn-board"><header><b>📡 Live board</b><small className="m-dim">{d.live.length} passing every gate · best first</small></header>{d.live.slice(0, 12).map(r => <CoinRow key={r.mint} r={r} />)}
+      <div className="rn-board"><header><b>📡 Live board</b><small className="m-dim">{d.live.length} passing every gate · best first</small></header>{d.live.slice(0, call ? 60 : 12).map(r => <CoinRow key={r.mint} r={r} px={lp.get(r.pairAddress)} />)}
         {!d.live.length && <><p className="m-dim rn-empty">Nothing passes every gate this minute — watching the busiest arrivals:</p>
           <ul className="rn-drop">{d.dropped.slice(0, 6).map(r => <li key={r.mint}><b>${r.symbol}</b><span>{r.gates.slice(0, 2).join(' · ')}</span></li>)}</ul></>}
         <button type="button" className="rn-drop-toggle" aria-expanded={showDrop} onClick={() => setShowDrop(s => !s)}>{showDrop ? 'Hide' : 'Show'} the {d.dropped.length} dropped (why)</button>

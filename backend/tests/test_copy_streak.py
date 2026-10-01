@@ -115,3 +115,35 @@ def test_background_warm_rebuilds_while_viewers_read_the_last_copy(rs, monkeypat
         return await rs.runners_discover()
     out = asyncio.run(warm())                                                                      # warmer task: forced rebuild
     assert 'runners' in out and calls == [1] and rs._FUSE_FORCE.get() is False                    # the flag never leaks
+
+
+def test_compound_streak_counts_topup_bursts_only_while_winning():
+    ev = [{'kind': 'topup', 'at': 0}, {'kind': 'topup', 'at': 60}, {'kind': 'topup', 'at': 4000}, {'kind': 'topup', 'at': 9000}, {'kind': 'buy', 'at': 1}]
+    s = hq.compound_streak({'events': ev, 'pnlPct': 4})
+    assert s['compounds'] == 3 and s['tier'] == 'snowball' and s['bonus'] == 15
+    assert hq.compound_streak({'events': ev, 'pnlPct': -1})['tier'] is None
+
+
+def test_fuse_score_cites_every_point_and_ties_to_rep_without_a_loop():
+    rows = [{'costUsd': 10, 'valueUsd': 14, 'heldS': 90000, 'streak': {'tier': 'phoenix'}, 'compound': {'tier': 'compounder'}}]
+    s = hq.fuse_score(rows, [{'rank': 1}], copies=2, trust=80)
+    assert s['perf'] == 24 + 15 + 6 + 12 + 2 and s['rep'] == 20 and s['score'] == 79 and len(s['parts']) == 6
+    assert hq.fuse_score(rows, [], 0, 80, bot=True)['score'] == 0
+    assert hq.trust_from_fuse(59, 3) == 4 and hq.trust_from_fuse(59, 1) == 0 and hq.trust_from_fuse(0, 5) == -3
+
+
+def test_season_race_moves():
+    prev = {'a': 1, 'b': 2}
+    board = [{'id': 'b', 'rank': 1}, {'id': 'a', 'rank': 2}, {'id': 'c', 'rank': 3}]
+    assert [(m['id'], m['kind']) for m in hq.rank_moves(prev, board)] == [('b', 'up'), ('a', 'down'), ('c', 'new')]
+
+
+def test_fuse_score_feeds_trust_from_cache(rs, monkeypatch):
+    async def shield(a): return {'verdict': 'clean'}
+    monkeypatch.setattr(rs, '_shield_of', shield)
+    now = time.time()
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': f'c{i}', 'wallet': A, 'at': now - 2 * 86400, 'legs': [{'pairAddress': 'P1', 'usd': 10, 'tokens': 5}]} for i in range(2)]})
+    s = asyncio.run(rs._fuse_score(A, fresh=True))                                                 # $30 vs $20 = +50%
+    assert s['cards'] == 2 and s['perf'] >= 30
+    parts = asyncio.run(rs.trust_score(A))['parts']
+    assert any(p['label'].startswith('Fuse score') and p['points'] > 0 for p in parts)

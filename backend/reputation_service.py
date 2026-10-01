@@ -3434,7 +3434,7 @@ async def fuse_pnl(address: str):
     for c in allpos:
         if c.get('copyOf'):
             k = copies.setdefault(c['copyOf'], {'n': 0, 'usd': 0.0}); k['n'] += 1; k['usd'] = round(k['usd'] + _hq.copy_cut(_card_fees(c, by), rules), 6)
-    rows = [{**r, 'drift': _hq.drift(r), 'exitFeeUsd': 0.0 if r['closed'] else _exit_fee(r), 'streak': _hq.swap_streak(r),
+    rows = [{**r, 'drift': _hq.drift(r), 'exitFeeUsd': 0.0 if r['closed'] else _exit_fee(r), 'streak': _hq.swap_streak(r), 'compound': _hq.compound_streak(r),
              'copies': (copies.get(r['id']) or {}).get('n', 0), 'copyEarnedUsd': (copies.get(r['id']) or {}).get('usd', 0.0)} for r in rows]
     held = [r for r in rows if not r['closed']]
     return {**_hq.book(rows), 'rows': rows[:20], 'rules': {k: rules[k] for k in ('yieldLevels', 'yieldDefault', 'swapDropPct')},
@@ -3551,6 +3551,34 @@ async def _fuse_season_tick(now):
     return top
 
 
+_season_moves: dict = {'week': 0, 'prev': {}, 'list': []}
+
+
+def _season_race(week, board, now):
+    """Rank changes since the last background build → the Arena race ticker; a card entering or leaving the top 3 alerts
+    its owner once (per card, week and direction)."""
+    if _season_moves['week'] != week:
+        _season_moves.update(week=week, prev={}, list=[])
+    prev = _season_moves['prev']
+    moves = _hq.rank_moves(prev, board) if prev else []
+    _season_moves['list'] = (_season_moves['list'] + [{**m, 'at': now} for m in moves])[-30:]
+    now_rank = {b['id']: b['rank'] for b in board}
+    for b in board:
+        was = prev.get(b['id']) if prev else None
+        if prev and b['rank'] <= 3 and (was is None or was > 3):
+            notify(b['wallet'], 'fuse-guard', f"🏆 Your card {b.get('name') or ''} just entered the Fuse season top 3 (#{b['rank']}, {b['pnlPct']:+.1f}%). Hold it to Monday 00:00 UTC.",
+                   url='/terminal/fuse?tab=arena', once=f"top3-in-{week}-{b['id']}", meta={'claim': f"#{b['rank']} by real P&L this week", 'source': 'Fuse season'})
+    if prev:
+        for cid, was in prev.items():
+            if was <= 3 and now_rank.get(cid, 99) > 3:
+                own = next((b for b in board if b['id'] == cid), None)
+                pos = own or next((x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if x['id'] == cid), None)
+                if pos:
+                    notify(pos['wallet'], 'fuse-guard', f"⚠ Your card dropped out of the Fuse season top 3 (now #{now_rank.get(cid, '10+')}). There's still time before Monday 00:00 UTC.",
+                           url='/terminal/fuse?tab=arena', once=f"top3-out-{week}-{cid}-{int(now // 3600)}", meta={'claim': 'Rank fell below #3', 'source': 'Fuse season'})
+    _season_moves['prev'] = now_rank
+
+
 @app.get('/api/reputation/fuses/season')
 async def fuse_season():
     """This week's live Fuse season board (top 10) + the last 4 crowned weeks. 60s cache, warmed in the background."""
@@ -3560,10 +3588,48 @@ async def fuse_season():
     start = _hq.season_start(now)
     rows, bots = await _season_rows(start, start + _hq.WEEK)
     board = [{**b, 'handle': handle_of(b['wallet']) or f"{b['wallet'][:4]}…{b['wallet'][-4:]}"} for b in _hq.season_board(rows, start, start + _hq.WEEK, bots)[:10]]
-    data = {'week': start, 'endsAt': start + _hq.WEEK, 'cards': len(rows), 'board': board, 'boostPct': _card_rules()['seasonBoostPct'],
+    if _FUSE_FORCE.get():   # background only: the race ticker + top-3 alerts (viewers never trigger them)
+        _season_race(start, board, now)
+    data = {'week': start, 'endsAt': start + _hq.WEEK, 'cards': len(rows), 'board': board, 'boostPct': _card_rules()['seasonBoostPct'], 'moves': list(_season_moves['list'])[-12:],
             'past': list(reversed((_json_load(FUSE_HQ_PATH, {}).get('seasons') or [])[-4:])), 'at': now}
     _fuse_season_cache.update(at=now, data=data)
     return data
+
+
+_fuse_score_cache: dict = {}
+
+
+async def _fuse_score(address, fresh=False):
+    """⚛️ Fuse score for a wallet (2 min cache): real card P&L, medals, copies, streaks, holding + reputation."""
+    a = primary_of(address)
+    hit = _fuse_score_cache.get(a)
+    if hit and not fresh and time.time() - hit[0] < 120:
+        return hit[1]
+    mine = set(linked_of(a)) | {a}
+    allp = _json_load(FUSE_HQ_PATH, {}).get('positions') or []
+    pos = [x for x in allp if x['wallet'] in mine]
+    px = await _hq_prices([leg for x in pos for leg in x['legs'] if leg.get('soldUsd') is None]) if pos else {}
+    now = time.time()
+    rows = []
+    for x in pos:
+        rr = _hq.position_pnl(x, px)
+        rows.append({**rr, 'streak': _hq.swap_streak({**rr, 'events': x.get('events')}), 'compound': _hq.compound_streak({**rr, 'events': x.get('events')}),
+                     'heldS': (x.get('closedAt') or now) - _fuse._f(x.get('at'))})
+    ids = {x['id'] for x in pos}
+    wins = [w for cid, w in _season_wins().items() if cid in ids]
+    copies = sum(1 for c in allp if c.get('copyOwner') in mine)
+    tr = (_trust_cache.get(a) or (0, {}))[1].get('score')
+    sh = await _shield_of(a)
+    out = {'address': a, **_hq.fuse_score(rows, wins, copies, tr, bot=sh.get('verdict') == 'bot')}
+    _fuse_score_cache[a] = (time.time(), out)
+    return out
+
+
+@app.get('/api/reputation/fuses/score/{address}')
+async def fuse_score_get(address: str):
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address):
+        raise HTTPException(400, 'Bad address.')
+    return await _fuse_score(address)
 
 
 async def _fuse_autopilot_tick(now=None):
@@ -3659,7 +3725,9 @@ async def _arena_mega(rd, cfg, now):
             continue
         day = [b for b in store.get('buys', []) if b['fuse'] == v['id'] and now - _fuse._f(b.get('at')) < 86400]
         act = _hq.activity(len(day), len({b['wallet'] for b in day}), v['volume24h'], (v['index'] or 100) - 100)
-        out.append({'kind': 'mega', 'id': v['id'], 'name': v['name'], 'emoji': v['emoji'], 'aura': v.get('aura') or '', 'legs': v['legs'],
+        base = (store['fuses'].get(v['id']) or {}).get('basePrices') or {}
+        out.append({'kind': 'mega', 'id': v['id'], 'name': v['name'], 'emoji': v['emoji'], 'aura': v.get('aura') or '', 'chat': f"fuse-card-{str(v['id']).lower()}",
+                    'legs': [{**l, 'base': base.get(l['pairAddress'])} for l in v['legs']],
                     'index': v['index'], 'grade': (v['score'] or {}).get('grade'), 'buyers': v['trust']['buyers'], 'activity': act})
     live = {r['mint']: r for r in (await _runner_live())['passing']}
     for c in [c for c in reversed(rd.get('litCards') or []) if not c.get('downAt')][:6]:
@@ -3667,7 +3735,7 @@ async def _arena_mega(rd, cfg, now):
         flow = sum(_fuse._f(live.get(p['mint'], {}).get('vol1h')) * 24 for p in c['picks'])
         out.append({'kind': 'lit', 'id': c['id'], 'name': ' · '.join(f"${p.get('symbol')}" for p in c['picks'][:4]), 'emoji': '🔥', 'aura': '',
                     'legs': [{'pairAddress': p.get('pairAddress') or p['mint'], 'symbol': p.get('symbol'), 'baseAddress': p['mint'], 'logo': p.get('logo'),
-                              'weight': round(100 / max(1, len(c['picks'])), 2)} for p in c['picks']],
+                              'weight': round(100 / max(1, len(c['picks'])), 2), 'entry': p.get('entry')} for p in c['picks']], 'chat': f"fuse-card-{c['id']}",
                     'index': round(100 + pct, 2), 'grade': 'A' if pct > 0 else 'C', 'buyers': 0, 'at': c['at'], 'proof': c.get('proof'),
                     'streak': _hq.swap_streak({'events': [{'kind': 'buy'}] * len(c.get('swaps') or []), 'pnlPct': pct}), 'swaps': (c.get('swaps') or [])[-3:],
                     'activity': _hq.activity(0, 0, flow, pct)})
@@ -3683,14 +3751,17 @@ async def _arena_mega(rd, cfg, now):
             if rr['closed']:
                 continue
             stk = _hq.swap_streak({**rr, 'events': x.get('events')})
+            cmp_ = _hq.compound_streak({**rr, 'events': x.get('events')})
             ncopy = sum(1 for c in hq_all if c.get('copyOf') == x['id'])
             act = _hq.activity(len(rr['legs']) + ncopy, 1 + ncopy, rr['valueUsd'] * 24, rr['pnlPct'])
-            act = {**act, 'score': min(100, act['score'] + stk['bonus'])}
+            act = {**act, 'score': min(100, act['score'] + stk['bonus'] + cmp_['bonus'])}
             act['tier'] = next(tn for cut, tn in _hq.ACTIVITY_TIERS if act['score'] >= cut)
             if rr['pnlPct'] >= top:
                 act = {'score': max(act['score'], 90), 'tier': 'blazing'}
             out.append({'kind': 'user', 'id': x['id'], 'name': x.get('name') or 'Fuse card', 'emoji': '🃏', 'aura': '', 'owner': handle_of(x['wallet']) or f"{x['wallet'][:4]}…{x['wallet'][-4:]}",
-                        'legs': [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': round(_fuse._f(l.get('usd')) / max(1e-9, rr['costUsd']) * 100, 2)} for l in rr['legs']],
+                        'legs': [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': round(_fuse._f(l.get('usd')) / max(1e-9, rr['costUsd']) * 100, 2),
+                                  'usd': l.get('usd'), 'tokens': l.get('tokens'), 'realizedUsd': l.get('realizedUsd'), 'soldUsd': l.get('soldUsd'), 'heldUsd': l.get('heldUsd')} for l in rr['legs']],
+                        'costUsd': rr['costUsd'], 'compound': cmp_, 'chat': f"fuse-card-{x['id']}",
                         'index': round(100 + rr['pnlPct'], 2), 'grade': 'A' if rr['pnlPct'] >= top else 'B' if rr['pnlPct'] >= 0 else 'C', 'buyers': 1, 'mode': x.get('mode') or 'hold',
                         'pnlPct': rr['pnlPct'], 'at': x.get('at'), 'activity': act, 'streak': stk, 'copies': ncopy, 'copyPct': _card_rules()['copyPct']})
     rnd = (rd.get('rounds') or [None])[-1]
@@ -3700,7 +3771,7 @@ async def _arena_mega(rd, cfg, now):
         mv = round(sum(moves) / len(moves), 2) if moves else 0.0
         out.append({'kind': 'round', 'id': str(rnd.get('id')), 'name': ' · '.join(f"${p.get('symbol')}" for p in ps[:4]), 'emoji': '⏳', 'aura': '',
                     'legs': [{'pairAddress': p.get('pairAddress') or p['mint'], 'symbol': p.get('symbol'), 'baseAddress': p['mint'], 'logo': p.get('logo'),
-                              'weight': round(100 / len(ps), 2)} for p in ps],
+                              'weight': round(100 / len(ps), 2), 'entry': p.get('entry')} for p in ps], 'chat': f"fuse-card-{rnd.get('id')}",
                     'index': round(100 + mv, 2), 'grade': 'B', 'buyers': 0, 'at': rnd.get('at'),
                     'activity': _hq.activity(0, 0, sum(_fuse._f(live.get(p['mint'], {}).get('vol1h')) * 24 for p in ps), mv)})
     out.sort(key=lambda x: -x['activity']['score'])
@@ -3871,7 +3942,7 @@ async def _runner_live():
         m = (p.get('baseToken') or {}).get('address')
         if m and m not in seen and (now_ms - _fuse._f(p.get('pairCreatedAt'))) <= _rn.MAX_AGE_H * 3.6e6:
             seen.add(m); pairs.append(p)
-    busiest = sorted(pairs, key=lambda p: -_fuse._f((p.get('volume') or {}).get('h1')))[:16]
+    busiest = sorted(pairs, key=lambda p: -_fuse._f((p.get('volume') or {}).get('h1')))[:28]   # warmed in the background; more to pick from
     # Never block the board on scans: wait ≤6s, the rest keep running and land in the cache for the next refresh.
     tasks = {(p.get('baseToken') or {}).get('address'): asyncio.ensure_future(_runner_intel((p.get('baseToken') or {}).get('address'))) for p in busiest}
     if tasks:
@@ -3986,8 +4057,15 @@ async def _fuse_warm_loop():
         await asyncio.sleep(25)
 
 
+_fuse_warm_n = {'n': 0}
+
+
 async def _fuse_warm():
     _FUSE_FORCE.set(True)          # task-local: viewers never see it, they keep reading the previous copy
+    _fuse_warm_n['n'] += 1
+    if _fuse_warm_n['n'] % 12 == 1:   # ~5 min: refresh card holders' Fuse scores (feeds their trust score)
+        holders = list({x['wallet'] for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or []})[:200]
+        await asyncio.gather(*[_fuse_score(w, fresh=True) for w in holders], return_exceptions=True)
     await _runner_live()
     await asyncio.gather(runners_discover(), fuse_arena_public(), fuse_season(), _sol_usd_live(), return_exceptions=True)
 
@@ -4024,6 +4102,8 @@ async def runners_discover():
                 tag(p['mint'], 'lit', f"lit card {res:+.1f}% since lit")
     for r in live['passing']:   # every coin passing every gate is a pump-scan find (never a dead tab while anything passes)
         tag(r['mint'], 'pump', f"passes every gate · score {round(_fuse._f(r.get('score')))}")
+        if _rn.near_bond(r):
+            tag(r['mint'], 'bond', f"{_fuse._f(r.get('curve')):.0f}% up the curve, {r.get('buyShare')}% buys — about to bond")
     for e in _radar['events']:
         if e.get('kind') == 'snipers-out' and now - (e.get('at') or 0) < 6 * 3600:
             tag(e.get('mint'), 'snipers', 'every flagged sniper sold')
@@ -4036,7 +4116,7 @@ async def runners_discover():
             for leg in f.get('legs') or []:
                 if leg.get('role') == 'runner':
                     tag(leg.get('baseAddress') or leg.get('mint'), 'creator', f"in the {f.get('name')} Fuse")
-    rows = _rn.discover(live['passing'], tags)
+    rows = _rn.discover(live['passing'], tags, limit=80)
     data = {'runners': rows, 'counts': {k: sum(1 for r in rows if any(s['kind'] == k for s in r['sources'])) for k in _rn.SOURCES},
             'sources': _rn.SOURCES, 'nextRoundAt': (rnd['at'] + _rn.ROUND_SECONDS) if rnd else now, 'gates': [g[1] for g in _rn.gates(cfg)],
             'swaps': ((rnd or {}).get('swaps') or [])[-5:], 'at': now, 'seen': live['seen'],
@@ -4067,7 +4147,7 @@ async def runners_board():
         hist.append({'id': r['id'], 'at': r['at'], 'symbols': [p.get('symbol') for p in r['picks']], 'pct': round((sum(mults) / len(mults) - 1) * 100, 2) if mults else 0.0})
     cur = {p['mint']: p for p in live['passing']}
     picks = [{**p, 'now': cur.get(p['mint'], {}).get('price') or p['price'], 'exits': ex[p['lane']]['label']} for p in (rnd or {}).get('picks', [])]
-    return {'live': live['passing'][:24], 'dropped': live['dropped'][:15], 'seen': live['seen'], 'round': rnd and {**rnd, 'picks': picks},
+    return {'live': live['passing'][:60], 'dropped': live['dropped'][:30], 'seen': live['seen'], 'round': rnd and {**rnd, 'picks': picks},
             'nextRoundAt': (rnd['at'] + _rn.ROUND_SECONDS) if rnd else now, 'history': hist, 'proof': _rn.proof(d['rounds'], d['paths'], now, cfg=cfg),
             'exits': {k: v['label'] for k, v in ex.items()}, 'gates': [g[1] for g in _rn.gates(cfg)], 'lightMinRounds': cfg['lightRounds'], 'solUsd': sol_usd,
             'litCards': [{**c, 'pct': _rn.card_result(c, d['paths'], now, cfg)} for c in reversed((d.get('litCards') or [])[-12:])]}
@@ -7840,6 +7920,10 @@ async def trust_score(address: str):
     fz = _fuse_rep(a)
     if fz:
         score += fz['points']; evidence += 1; parts.append(fz)
+    fsc = (_fuse_score_cache.get(a) or (0, None))[1]   # cached only: trust never waits on (or loops through) the Fuse score
+    if fsc and _hq.trust_from_fuse(fsc['perf'], fsc['cards']):
+        pts = _hq.trust_from_fuse(fsc['perf'], fsc['cards'])
+        score += pts; evidence += 1; parts.append({'label': f"Fuse score {fsc['score']} — verified card P&L, medals, copies, streaks", 'points': pts})
     if is_verified(a):
         score += 10; evidence += 1; parts.append({'label': 'Verified by FEELESS', 'points': 10})
     if is_muted(a):
