@@ -115,3 +115,11 @@ def test_first_earners_get_numbered_editions(monkeypatch, tmp_path):
     assert a['editions']['q-recruit'] == 1 and b['editions']['q-recruit'] == 2 and a['editionCap'] == 100
     rs._quest_cache.clear()
     assert asyncio.run(rs.quest_board(A))['editions']['q-recruit'] == 1   # numbers never change
+
+
+def test_fee_totals_always_match_the_ledger(tmp_path):
+    led = {'A' * 43: [{'sig': 's1', 'feeUsd': 0.1345, 'inUsd': 1.2, 'feeSol': 0.001, 't': 1}, {'sig': 's2', 'feeUsd': 0.1312, 'inUsd': 1.18, 'feeSol': 0.001, 't': 2}]}
+    rs._json_save(rs.FEE_LEDGER_PATH, led)
+    rs._json_save(rs.FEE_TOTALS_PATH, {'A' * 43: {'feeUsd': 0.1312, 'trades': 1}, 'ghost': {'feeUsd': 50, 'trades': 22}})
+    tot = rs._fee_totals_heal()
+    assert set(tot) == {'A' * 43} and tot['A' * 43]['trades'] == 2 and round(tot['A' * 43]['feeUsd'], 4) == 0.2657

@@ -23,3 +23,30 @@ def api_client() -> requests.Session:
     session = requests.Session()
     session.headers.update({"Content-Type": "application/json"})
     return session
+
+
+# ---- Real data is never touched by tests ---------------------------------------------------------------------------
+# Every module-level Path that points into backend/data (fee ledger, totals, points, trades, profiles, …) is redirected
+# to a fresh temp folder for each test. A test once wrote a fake $100 trade into the real fee ledger on every run,
+# inflating Command Center fees; this makes that impossible for any test, present or future.
+import sys as _sys
+
+_REAL_DATA = (Path(__file__).resolve().parents[1] / 'data').resolve()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_real_data(monkeypatch, tmp_path):
+    sandbox = tmp_path / 'data'
+    sandbox.mkdir(exist_ok=True)
+    for mod in list(_sys.modules.values()):
+        f = getattr(mod, '__file__', None) or ''
+        if not f.startswith(str(_REAL_DATA.parent)) or '/tests/' in f:
+            continue
+        for name, val in list(vars(mod).items()):
+            if isinstance(val, Path):
+                try:
+                    rel = val.resolve().relative_to(_REAL_DATA)
+                except ValueError:
+                    continue
+                monkeypatch.setattr(mod, name, sandbox / rel, raising=False)
+    yield

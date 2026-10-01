@@ -8675,16 +8675,26 @@ FEELESS_TRADES_PATH = DATA_DIR / 'feeless_trades.json'   # {wallet: [confirmed F
 FEEBACK_PAID_PATH = DATA_DIR / 'feeback_paid.json'     # {account: usd already paid back}
 
 
+def _fee_totals_heal():
+    """Lifetime totals must match the fee ledger (the source of truth) to the trade: rebuilt whenever the trade counts
+    differ or the file is missing. Totals only exist to make the fee book fast; they never get to disagree."""
+    led = _json_load(FEE_LEDGER_PATH, {})
+    tot = _json_load(FEE_TOTALS_PATH, {}) if FEE_TOTALS_PATH.exists() else None
+    if tot is not None and {k: len(v or []) for k, v in led.items() if v} == {k: int(v.get('trades') or 0) for k, v in tot.items()}:
+        return tot
+    fresh = {}
+    for who, rows_ in led.items():
+        for r in rows_ or []:
+            fee_report.add_total(fresh, who, r)
+    _json_save(FEE_TOTALS_PATH, fresh)
+    return fresh
+
+
 @app.get('/api/reputation/admin/fee-book')
 async def admin_fee_book(request: Request, format: str = ''):
     """Every account's lifetime FEELESS fees, FeeBack earned, paid and still owed (CSV with ?format=csv)."""
     _require_admin(request)
-    if not FEE_TOTALS_PATH.exists():   # first run: rebuild lifetime totals from the ledger history
-        tot = {}
-        for who, rows_ in _json_load(FEE_LEDGER_PATH, {}).items():
-            for r in rows_:
-                fee_report.add_total(tot, who, r)
-        _json_save(FEE_TOTALS_PATH, tot)
+    _fee_totals_heal()
     rows = fee_report.fee_book(_json_load(FEE_TOTALS_PATH, {}), _json_load(FEEBACK_PAID_PATH, {}))
     if format == 'csv':
         from fastapi.responses import Response
