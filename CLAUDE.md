@@ -98,7 +98,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   color, Fee Reserve room and top perk tier unlock automatically. Never hand-roll `in _admin_wallets()` checks.
 - `test_no_undefined_names.py` (pyflakes) fails the suite on any undefined name — when deleting code "up to the next
   def", re-read what sat between (a dropped constant once crashed Pump Pulse 65× before anyone noticed).
-- Tests NEVER touch real data: `tests/conftest.py` sandboxes every backend `Path` under `backend/data` per test. (A test
+- Tests NEVER touch real data: `tests/conftest.py` sandboxes every backend `Path` under `backend/data` per test — including modules first imported inside a test (meta-path hook; a lazy `importorskip` once overwrote runners.json). (A test
   once wrote 22 fake $2 fees into the real fee ledger.) Fee totals self-heal from the ledger (`_fee_totals_heal`).
 - Auto fx-lite is temporary (`auto@<ms>`, 6h, off after 3 smooth minutes); user-chosen lite stays. Tilt is cheap and
   stays on in lite.
