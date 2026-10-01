@@ -63,4 +63,33 @@ Selling / re-buying in-program needs swap adapters + price checks — next, then
 ```bash
 cargo test -p fuse_card --lib            # hard-coded rules + keeper fence
 anchor build -p fuse_card                # target/deploy/fuse_card.so + IDL
+solana-test-validator --reset --quiet &  # then:
+anchor test --skip-local-validator --provider.cluster localnet   # tests/fuse_card.ts (5) + tests/fuse_vault.ts (5)
 ```
+
+`tests/fuse_card.ts` (hand-built SPL Token instructions, no extra deps) proves: config admin-only; trader caps 3+3, no duplicate
+coins, bad profit level refused, Cmd Ctr 12 legs (13 refused); deposit/withdraw only through the card PDA's own token account and
+only back to the owner's account (wrong mint / someone else's account / over-withdraw refused); keeper refused when auto is off,
+when it isn't the configured keeper, when sending anywhere but the owner, with a bad reason, and while paused — while the owner
+can still withdraw; auto-compound works as a standing order; only an empty card closes and every token comes home.
+
+## Next: on-chain selling (DESIGN — not built, audit before any deploy)
+
+Goal: auto TP / SL / profit / compound **sell inside the program** instead of only returning coins.
+
+1. **Card cash vaults.** Each card gets a wSOL (and optional USDC) token account owned by the card PDA. Sells land there; the
+   owner withdraws them like any leg (same owner-only destination rule).
+2. **One whitelisted router.** `keeper_sell(idx, amount, min_out, route_ix_data)` CPIs **only** into Jupiter v6
+   (hard-coded program id) with the card PDA as the swap authority. Input = the leg's card vault (mint = leg.mint),
+   output = the card's wSOL vault. Any other program id, input or output account → reject.
+3. **Price checks (memecoins have no oracle).** Before the CPI the program reads the leg's pool state directly
+   (PumpSwap / Raydium CPMM reserves; Pump.fun curve state for pre-bond) and computes the expected out for `amount`;
+   require `min_out ≥ expected × (1 − 1%)`. After the CPI, require the wSOL vault grew by **≥ min_out** (balance diff, not the
+   route's word). Majors (SOL/USDC legs) may use a Pyth price as a second check.
+4. **Triggers on-chain.** `deposit_leg` stores the entry price (pool price at deposit). `keeper_sell` re-derives the
+   current pool price and only proceeds if the owner's rule holds: TP (`price ≥ entry × (1 + tp_bps)`), SL, card profit level,
+   or compound — and only with the owner's toggle on. Amount ≤ held; a TP ladder sells only its slice.
+5. **Compound** = sell the gain to wSOL, then `keeper_buy` the other legs by the card's stored weights through the same
+   router + checks (min_out from pool reserves). Still owner-toggled; still owner-withdrawable at any time.
+6. Then: devnet run against real PumpSwap / Raydium pools → external audit → deploy with the owner's keys + multisig upgrade
+   authority. Until then the website keeps one-tap alerts (FEELESS never signs for users).

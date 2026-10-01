@@ -51,7 +51,7 @@ const PROGRAMS = [
     [['Custody, shares, fees, admin, pause', true], ['NAV = SOL held (no value reporting)', true], ['Pool adapters (Raydium / Orca / Meteora)', false], ['Rebalance crank', false]],
     'cargo test -p fuse_vault --lib && anchor test --skip-local-validator'],
   ['fuse_card', 'FUSE Card', 'One account per card, coins held by the card. Rules hard-coded (3+3 / 12 admin, profit levels, TP/SL ranges).',
-    [['Owner-only toggles + withdraw any time', true], ['Keeper returns coins ONLY to the owner, only when auto is on', true], ['Localnet transaction test', false], ['On-chain sell: swap adapters + price checks', false]],
+    [['Owner-only toggles + withdraw any time', true], ['Keeper returns coins ONLY to the owner, only when auto is on', true], ['Localnet transaction test (5 passing)', true], ['On-chain sell: swap adapters + price checks', false]],
     'cargo test -p fuse_card --lib && anchor test --skip-local-validator'],
 ];
 export function ContractStatus() {
