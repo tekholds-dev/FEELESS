@@ -68,3 +68,4 @@ body.fx-lite .rn-hero::before, body.fx-lite .rn-proof.is-lit .rn-ring, body.fx-l
 @media (prefers-reduced-motion: reduce) { .rn-hero::before, .rn-ring, .rn-pipe li, .rn-coin, .rn-fuse, .rn-swaps span, .rn-rounds li, .rn-r-bar > i { animation: none !important; } }
 @container (max-width: 900px) { .rn-hero { grid-template-columns: 1fr auto; } .rn-clock { grid-column: 1 / -1; justify-items: start; } .rn-lanes { grid-template-columns: 1fr; } .rn-cols { grid-template-columns: 1fr; } .rn-fuse { grid-template-columns: 1fr; justify-items: center; } }
 @container (max-width: 520px) { .rn-hero { grid-template-columns: 1fr; } .rn-pipe { grid-template-columns: repeat(2, 1fr); } .rn-pipe li::after { display: none; } }
+.rn-widen { margin-left: auto; font-size: 10px; cursor: help; }

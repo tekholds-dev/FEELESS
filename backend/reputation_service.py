@@ -4433,6 +4433,9 @@ async def _runner_intel(mint):
             return None
 
 
+_runner_widen = {'level': 0, 'at': 0.0, 'log': []}
+
+
 async def _runner_live():
     """Every launchpad coin the feed sees right now (trending + new, pre-bond + graduated), forensics for the busiest,
     gated + scored. 30s cache — the board is shared by every viewer."""
@@ -4481,7 +4484,18 @@ async def _runner_live():
         hist = _runner_track(m, time.time(), _fuse._f(p.get('curveProgress')), (it or {}).get('top10Pct'), (it or {}).get('devHoldingPct'))
         cands.append(_rn.candidate(p, it, flagged, p.get('pairAddress') in out_pairs or m in out_pairs, now_ms, mayhem=m in _mayhem_mints, creator_rep=crep,
                                    hist=hist, smart=smart.get(m, 0)))
-    data = {**_rn.board(cands, _runner_cfg()), 'seen': len(cands), 'at': time.time()}
+    # 🔧 auto-widen: a dead board (fewer than 3 passing) loosens the SOFT gates a step (max 3, hard floors); a full board
+    # (8+) steps back toward the configured engine. At most one step per 2 minutes; every step is logged with what moved.
+    base = _runner_cfg(); wz = _runner_widen
+    eff = _rn.widen(base, wz['level'])
+    data = {**_rn.board(cands, eff), 'seen': len(cands), 'at': time.time()}
+    if time.time() - wz['at'] >= 120:
+        nxt = _rn.widen_level(wz['level'], len(data['passing']))
+        if nxt != wz['level']:
+            wz.update(level=nxt, at=time.time()); wz['log'] = (wz['log'] + [{'at': time.time(), 'level': nxt, 'passing': len(data['passing'])}])[-20:]
+            eff = _rn.widen(base, nxt)
+            data = {**_rn.board(cands, eff), 'seen': len(cands), 'at': time.time()}
+    data['widen'] = {'level': wz['level'], 'max': _rn.WIDEN_MAX, 'moved': {k: [base.get(k), eff.get(k)] for k in _rn.WIDEN_STEPS if base.get(k) != eff.get(k)}}
     _runner_live_cache.update(at=time.time(), data=data)
     return data
 
@@ -4831,7 +4845,7 @@ async def runners_board():
         hist.append({'id': r['id'], 'at': r['at'], 'symbols': [p.get('symbol') for p in r['picks']], 'pct': round((sum(mults) / len(mults) - 1) * 100, 2) if mults else 0.0})
     cur = {p['mint']: p for p in live['passing']}
     picks = [{**p, 'now': cur.get(p['mint'], {}).get('price') or p['price'], 'exits': ex[p['lane']]['label']} for p in (rnd or {}).get('picks', [])]
-    return {'live': live['passing'][:60], 'dropped': live['dropped'][:30], 'seen': live['seen'], 'round': rnd and {**rnd, 'picks': picks},
+    return {'live': live['passing'][:60], 'dropped': live['dropped'][:30], 'seen': live['seen'], 'widen': live.get('widen'), 'round': rnd and {**rnd, 'picks': picks},
             'nextRoundAt': (rnd['at'] + _rn.ROUND_SECONDS) if rnd else now, 'history': hist, 'proof': _rn.proof(d['rounds'], d['paths'], now, cfg=cfg),
             'exits': {k: v['label'] for k, v in ex.items()}, 'gates': [g[1] for g in _rn.gates(cfg)], 'lightMinRounds': cfg['lightRounds'], 'solUsd': sol_usd,
             'litCards': [{**c, 'pct': _rn.card_result(c, d['paths'], now, cfg)} for c in reversed((d.get('litCards') or [])[-12:])],

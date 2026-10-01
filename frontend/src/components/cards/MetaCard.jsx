@@ -36,7 +36,7 @@ function Crest({ card, id }) {
     {r >= 3 && Array.from({ length: r >= 4 ? 12 : 8 }, (_, i) => { const a = ((360 / (r >= 4 ? 12 : 8)) * i) * Math.PI / 180; return <line key={i} x1={50 + 33 * Math.cos(a)} y1={50 + 33 * Math.sin(a)} x2={50 + 36 * Math.cos(a)} y2={50 + 36 * Math.sin(a)} stroke="var(--a)" strokeWidth="1.4" />; })}
     <circle cx="50" cy="50" r="30" fill="#020805" stroke="var(--a)" strokeOpacity=".5" />
     {art ? <image key={art} href={src(art)} x="21" y="21" width="58" height="58" preserveAspectRatio="xMidYMid slice" clipPath={`url(#${id}c)`} onError={() => setTry({ key: artKey, n: n + 1 })} />
-      : <text x="50" y="61" textAnchor="middle" fontSize="30">{card.glyph || '✦'}</text>}
+      : <text x="50" y={card.fallbackGlyph ? 56 : 61} textAnchor="middle" fontSize={card.fallbackGlyph ? (card.fallbackGlyph.length > 2 ? 15 : 22) : 30} fontWeight="800" fill="currentColor">{card.fallbackGlyph || card.glyph || '✦'}</text>}
   </svg>;
 }
 

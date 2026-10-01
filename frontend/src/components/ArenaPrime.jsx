@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
-import { LiveFuseCard } from './FuseCard';
+import { LiveFuseCard, revalue } from './FuseCard';
+import { useLivePrices } from '../lib/livePrices';
 import { Countdown } from './RunnersPanel';
 import { CardEarnings } from './CardEarnings';
 
@@ -15,6 +16,7 @@ const TIER = { diamond: { aura: 'frost', name: 'DIAMOND' }, gold: { aura: 'gold'
 // Cmd Ctr ⚡ meta config: the settings the Arena proof backs today (hourly rotation of 1 coin, −15% floor, compound on, park & rebuy).
 export const PRIME_META = { rotateHours: 1, rotateCount: 1, floorPct: 15, compound: true, slMode: 'park' };
 export const primeRow = c => ({ id: c.id, name: c.label, closed: false, costUsd: c.startUsd, valueUsd: c.valueUsd, realizedUsd: c.takenUsd || 0,
+  baseUsd: c.startUsd, extraUsd: (c.cash || 0) + (c.parked || []).reduce((a, p) => a + (p.usd || 0), 0),
   pnlUsd: c.valueUsd - c.startUsd, pnlPct: c.pnlPct,
   legs: c.legs.map(l => ({ pairAddress: l.pairAddress, symbol: l.symbol, role: l.role, mint: l.mint, usd: l.costUsd, tokens: l.units, valueUsd: l.usd,
     pnlUsd: l.usd - l.costUsd, pnlPct: l.costUsd ? (l.usd / l.costUsd - 1) * 100 : 0, priced: true, priceNow: l.now, stars: l.stars })) });
@@ -30,12 +32,14 @@ export function usePrime(ms = 60000) {
 export function ArenaPrime({ onLoad }) {
   const d = usePrime();
   const [open, setOpen] = useState(null);
+  // REAL-TIME %: every card re-valued with the shared 10s live prices (server numbers back it every 60s)
+  const live = useLivePrices((d?.cards || []).flatMap(c => c.legs.map(l => l.pairAddress)));
   if (!d?.cards?.length) return null;
   return <section className="prime" data-testid="arena-prime">
     <header className="prime-head m-card m-live"><span className="m-label">⭐ ARENA PRIME · FULLY AUTO · WE RUN ${d.cfg.sizeUsd} EACH</span>
       <h3>Top-tier cards. Every automation on.</h3>
       <p className="m-dim">Only 3–5★ coins: a stable major anchor (SOL / JitoSOL / cbBTC — never rotated) + deep pools + gated runners. Auto TP / SL per coin · {d.cfg.compound ? 'gains auto-compound into the other coins' : 'gains kept as cash'} · the {d.cfg.rotateCount} weakest rotate every {d.cfg.rotateHours}h · 🛡 card floor at −{d.cfg.floorPct}% (everything into the anchor). Paper money, real prices. Fees tracked apart, never in P&L.</p></header>
-    <div className="prime-row">{d.cards.map(c => { const t = TIER[c.tier] || TIER.gold; return <article key={c.id} className={`prime-card t-${c.tpl} tier-${c.tier || 'gold'} ${c.pnlPct >= 10 ? 'is-hot' : ''}`} data-testid={`prime-${c.tpl}`}>
+    <div className="prime-row">{d.cards.map(c0 => { const rv = revalue(primeRow(c0), live); const c = { ...c0, pnlPct: rv.pnlPct, valueUsd: rv.valueUsd }; const t = TIER[c.tier] || TIER.gold; return <article key={c.id} className={`prime-card t-${c.tpl} tier-${c.tier || 'gold'} ${c.pnlPct >= 10 ? 'is-hot' : ''}`} data-testid={`prime-${c.tpl}`}>
       <span className="prime-tier" aria-hidden="true"><i className="pt-ring" /><i className="pt-sweep" />{Array.from({ length: 6 }, (_, i) => <i key={i} className="pt-spark" style={{ '--i': i }} />)}</span>
       <b className="prime-badge">{t.name}</b>{c.why && <small className="prime-why">{c.why}</small>}
       <LiveFuseCard r={primeRow(c)} aura={t.aura} />

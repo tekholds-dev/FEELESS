@@ -94,7 +94,8 @@ export function RunnersPanel({ call }) {
       </div>
     </div>}
     <div className="rn-cols">
-      <div className="rn-board"><header><b>📡 Live board</b><small className="m-dim">{d.live.length} passing every gate · best first</small></header>{d.live.slice(0, call ? 60 : 12).map(r => <CoinRow key={r.mint} r={r} px={lp.get(r.pairAddress)} />)}
+      <div className="rn-board"><header><b>📡 Live board</b><small className="m-dim">{d.live.length} passing every gate · best first</small>{d.widen?.level > 0 && <span className="m-chip warn rn-widen" data-testid="rn-widen"
+        data-tip={`The board was dead, so the engine loosened only its SOFT gates (never holders-scan, insiders, dev, creator or spikes): ${Object.entries(d.widen.moved || {}).map(([k, [a, b]]) => `${k} ${a} → ${b}`).join(' · ')}. It steps back once 8+ coins pass.`}>🔧 Scope widened {d.widen.level}/{d.widen.max}</span>}</header>{d.live.slice(0, call ? 60 : 12).map(r => <CoinRow key={r.mint} r={r} px={lp.get(r.pairAddress)} />)}
         {!d.live.length && <><p className="m-dim rn-empty">Nothing passes every gate this minute — watching the busiest arrivals:</p>
           <ul className="rn-drop">{d.dropped.slice(0, 6).map(r => <li key={r.mint}><b>${r.symbol}</b><span>{r.gates.slice(0, 2).join(' · ')}</span></li>)}</ul></>}
         <button type="button" className="rn-drop-toggle" aria-expanded={showDrop} onClick={() => setShowDrop(s => !s)}>{showDrop ? 'Hide' : 'Show'} the {d.dropped.length} dropped (why)</button>

@@ -95,6 +95,34 @@ def clean_cfg(p):
     return out
 
 
+# 🔧 Auto-widen: when NOTHING passes, the engine loosens ONLY the soft gates one step at a time, never past these floors.
+# Safety gates (pre-bond, mayhem, age, holder scan, insiders/bundles, top-10 spike, dev sold / dev %, creator flag / rep)
+# are never touched. Each level = one step per soft gate; level 0 = the configured engine.
+WIDEN_STEPS = {'maxTop10': (5, 35), 'minMcap': (-2000, 5000), 'minVol1h': (-2000, 3000),
+               'minBuyShare': (-4, 45), 'maxBuyShare': (3, 88), 'minTrades1h': (-20, 40)}
+WIDEN_MAX = 3
+
+
+def widen(cfg, level):
+    """The configured cfg with every soft gate moved `level` steps toward its floor (clamped). Pure."""
+    c = clean_cfg(cfg)
+    lv = max(0, min(WIDEN_MAX, int(level or 0)))
+    for k, (step, floor) in WIDEN_STEPS.items():
+        if k in c and lv:
+            v = c[k] + step * lv
+            c[k] = min(v, floor) if step > 0 else max(v, floor)
+    return c
+
+
+def widen_level(level, passing, min_pass=3, fill=8):
+    """Next widen level from how many passed: under min_pass → one step wider; ≥ fill → one step back toward the config."""
+    if passing < min_pass:
+        return min(WIDEN_MAX, level + 1)
+    if passing >= fill:
+        return max(0, level - 1)
+    return level
+
+
 def gates(cfg=None):
     g = clean_cfg(cfg)
     return (   # key, label, test — ALL must pass (unknown forensics fail closed)

@@ -176,3 +176,13 @@ def test_fresh_grads_fill_the_board_only_when_every_other_gate_passes():
             {'mint': 'X', 'stage': 'graduated', 'gates': ['Pre-bond (still on the curve)', 'Top 10 under 25%']},
             {'mint': 'C', 'stage': 'curve', 'gates': ['Top 10 under 25%']}]
     assert [r['mint'] for r in rn.fresh_grads(rows)] == ['G'] and 'grad' in rn.SOURCES
+
+
+def test_dead_board_widens_soft_gates_only_within_floors():
+    base = rn.clean_cfg({'maxTop10': 25, 'minMcap': 12000, 'minVol1h': 10000, 'maxInsiders': 10, 'maxDev': 5})
+    w3 = rn.widen(base, 3)
+    assert w3['maxTop10'] == 35 and w3['minMcap'] == 6000 and w3['minVol1h'] == 4000          # soft gates loosened, clamped
+    assert w3['maxInsiders'] == 10 and w3['maxDev'] == 5                                        # safety gates never move
+    assert rn.widen(base, 9) == w3 and rn.widen(rn.clean_cfg({'minMcap': 8000}), 3)['minMcap'] == 5000   # max 3 steps, never past the floor
+    assert rn.widen(base, 0) == base
+    assert rn.widen_level(0, 0) == 1 and rn.widen_level(3, 0) == 3 and rn.widen_level(2, 9) == 1 and rn.widen_level(1, 5) == 1

@@ -105,8 +105,8 @@
 
 /* Calm modes: freeze every aura, keep its static glow. */
 body.fx-lite .mca, body.fx-lite .mca *, body.fx-lite .mca::before, body.fx-lite .mca::after { animation: none !important; }
-body.fx-lite .mca i { opacity: .5; }
-@media (prefers-reduced-motion: reduce) { .mca, .mca *, .mca::before, .mca::after { animation: none !important; } .mca i { opacity: .45; } }
+body.fx-lite .mca i { opacity: 0; }   /* frozen particles read as stuck dots — hide them, keep the glow */
+@media (prefers-reduced-motion: reduce) { .mca, .mca *, .mca::before, .mca::after { animation: none !important; } .mca i { opacity: 0; } }
 
 /* Aura picker (Card Studio / quest badges / Fuse cards). */
 .aura-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px; }

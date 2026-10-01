@@ -58,14 +58,19 @@ export function FuseCard({ c, style = 'yield', rank = 0, budget = 20, aura = '',
 
 // Recompute an owned card's value from live prices (same rules as the server's position_pnl).
 export function revalue(r, live) {
-  let cost = 0; let value = 0;
+  let cost = 0; let value = 0; let anyLive = false;
   const legs = r.legs.map(l => {
     const px = live?.get?.(l.pairAddress)?.price;
     if (l.soldUsd != null || !(px > 0)) { cost += l.usd || 0; value += l.valueUsd || 0; return l; }
+    anyLive = true;
     const held = (l.tokens || 0) * px; const v = held + (l.realizedUsd || 0); const c = l.usd || 0;
     cost += c; value += v;
     return { ...l, priceNow: px, heldUsd: held, valueUsd: v, pnlUsd: v - c, pnlPct: c ? (v / c - 1) * 100 : 0, priced: true };
   });
+  // Cards that compound / take profit inside (Prime) measure against what they STARTED with (baseUsd), plus cash + parked SOL
+  // (extraUsd) — per-leg cost re-bases on every TP, so leg cost would read ~0% forever.
+  if (r.baseUsd > 0 && !anyLive) return r;   // no live price yet: keep the server's numbers
+  if (r.baseUsd > 0) { const v = value + (r.extraUsd || 0); return { ...r, legs, valueUsd: v, costUsd: r.baseUsd, pnlUsd: v - r.baseUsd, pnlPct: (v / r.baseUsd - 1) * 100 }; }
   return { ...r, legs, valueUsd: value, pnlUsd: value - cost, pnlPct: cost ? (value / cost - 1) * 100 : 0 };
 }
 
@@ -82,7 +87,7 @@ export function LiveFuseCard({ r: r0, aura = '' }) {
   const card = { key: r.id, kind: 'fuse', title: legs.slice(0, 3).map(l => l.symbol).join(' · ') + (legs.length > 3 ? ` +${legs.length - 3}` : ''),
     subtitle: `${r.name || 'MY FUSE'} · ${up ? '+' : ''}${r.pnlPct.toFixed(1)}%`, rarity: RARITY[g], design: up ? 'aurora' : 'ember', accent: up ? '#19f58f' : '#ff8fa3', accent2: '#f5c451',
     glyph: g, motion: up && !r.closed ? 'alive' : 'still', holders: legs.length, edition: r.closed ? 'CLOSED' : 'LIVE', aura,
-    art: tokenImageUrls(legPair(legs[0] || {})) };
+    art: tokenImageUrls(legPair(legs[0] || {})), fallbackGlyph: String(legs[0]?.symbol || '✦').slice(0, 4) };
   const back = <div className="fcd-back fcd-live">
     <div className="mc-top"><span>{r.closed ? 'WITHDRAWN' : 'LIVE · YOUR MONEY'}</span><span>{m$(r.valueUsd)}</span></div>
     <ul>{legs.map(l => <li key={l.pairAddress + (l.sig || '')} className={l.soldUsd != null ? 'is-out' : ''}><b>{l.role === 'runner' ? '🏃 ' : ''}{l.symbol}</b><span>in {m$(l.usd)} → {m$(l.valueUsd)}{l.priceNow ? <i className="fcd-px"> · ● ${fmtPx(l.priceNow)}</i> : null}</span>
