@@ -444,3 +444,6 @@ body.theme-day .cx { background: var(--m-surface-2); } body.theme-day .cx-legs l
 .dboard-tile.is-best { border-color: var(--m-accent); box-shadow: 0 10px 26px -16px var(--m-accent); }
 .dboard-lit { position: absolute; top: 8px; right: 10px; font-family: var(--m-mono); font-size: 9px; letter-spacing: .1em; color: #ff9a5a; }
 body.theme-day .dboard-tile { background: var(--m-surface-2); }
+.fl-real, .fl-fake { font-style: normal; margin-left: 6px; padding: 0 5px; border-radius: 4px; font-family: var(--m-mono); font-size: 8.5px; letter-spacing: .08em; vertical-align: middle; }
+.fl-real { background: color-mix(in srgb, var(--m-accent) 18%, transparent); color: var(--m-accent); border: 1px solid color-mix(in srgb, var(--m-accent) 50%, transparent); }
+.fl-fake { background: color-mix(in srgb, var(--m-danger) 15%, transparent); color: var(--m-danger); border: 1px solid color-mix(in srgb, var(--m-danger) 50%, transparent); }

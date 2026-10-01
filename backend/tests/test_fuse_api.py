@@ -323,3 +323,19 @@ def test_same_crash_on_same_page_is_one_report_with_a_count():
         rs._bug_ip_hits.clear(); asyncio.run(rs.report_bug(Q(), rs.BugReport(text=t, page=page)))
     bugs = rs._json_load(rs.BUGS_PATH, {})['bugs']
     assert len(bugs) == 2 and bugs[0]['count'] == 2 and bugs[0].get('lastAt')
+
+
+def test_search_btc_finds_the_real_btc_first(monkeypatch):
+    real = rs._fuse.majors_pools({'cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij': [{'chainId': 'solana', 'pairAddress': 'REAL', 'baseToken': {'address': 'cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij', 'symbol': 'cbBTC'}, 'liquidity': {'usd': 5e6}, 'volume': {'h24': 9e6}}]})
+    async def majors(): return real
+    class H:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, url, params=None):
+            class R:
+                def json(self): return {'pairs': [{'chainId': 'solana', 'pairAddress': 'FAKE', 'baseToken': {'address': 'Pump1', 'symbol': 'BTC'}, 'liquidity': {'usd': 8e6}, 'volume': {'h24': 9e6}}]}
+            return R()
+    monkeypatch.setattr(rs.httpx, 'AsyncClient', H); monkeypatch.setattr(rs, '_majors_rows', majors)
+    out = asyncio.run(rs.fuses_search(q='btc'))['pools']
+    assert [p['pairAddress'] for p in out] == ['REAL', 'FAKE'] and out[0]['real'] and out[1]['impostor']

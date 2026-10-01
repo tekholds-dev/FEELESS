@@ -2729,8 +2729,12 @@ async def fuses_search(q: str = Query(..., min_length=2, max_length=60)):
             pairs = ((await http.get('https://api.dexscreener.com/latest/dex/search', params={'q': q})).json() or {}).get('pairs') or []
         except Exception:
             pairs = []
-    pairs = _fuse.real_pools(pairs)[:15]
-    return {'pools': [{'chainId': p.get('chainId'), 'pairAddress': p.get('pairAddress'), **_fuse.leg_meta(p)} for p in pairs]}
+    rows = [{'chainId': p.get('chainId'), 'pairAddress': p.get('pairAddress'), **_fuse.leg_meta(p)} for p in _fuse.real_pools(pairs)[:20] if p.get('chainId') == 'solana']
+    qu = q.strip().upper().lstrip('$')
+    if qu in _fuse.MAJOR_ALIASES or any(qu == v[0].upper() for v in _fuse.MAJORS.values()):   # 'BTC' → the real ones, always
+        have = {r['pairAddress'] for r in rows}
+        rows += [r for r in await _majors_rows() if r['pairAddress'] not in have]
+    return {'pools': _fuse.mark_real(rows, qu)[:15]}
 
 
 _fuse_discover_cache = {}
@@ -2764,8 +2768,28 @@ async def _fuse_discover_pairs(chain):
 @app.get('/api/reputation/fuses/discover')
 async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solana')):
     """Fuse Lab: browse real pools on the chain you're on, by lens (popular / yield / deep / new)."""
+    if lens == 'majors':   # 🪙 the REAL SOL / BTC / ETH / … on Solana (hard-coded mints), deepest pool each
+        return {'lens': 'majors', 'chain': 'solana', 'pools': await _majors_rows()}
     lens = lens if lens in _fuse.LENSES else 'popular'
     return {'lens': lens, 'chain': chain, 'pools': _fuse.discover(await _fuse_discover_pairs(chain), lens, chain, now_ms=time.time() * 1000)}
+
+
+_majors_cache: dict = {'at': 0.0, 'rows': []}
+
+
+async def _majors_rows():
+    if _majors_cache['rows'] and time.time() - _majors_cache['at'] < 120:
+        return _majors_cache['rows']
+    by = {}
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            for p in (await http.get(f"https://api.dexscreener.com/tokens/v1/solana/{','.join(_fuse.MAJORS)}")).json() or []:
+                by.setdefault((p.get('baseToken') or {}).get('address'), []).append(p)
+    except Exception:
+        return _majors_cache['rows']
+    rows = _fuse.majors_pools(by)
+    _majors_cache.update(at=time.time(), rows=rows)
+    return rows
 
 
 class FusePreview(BaseModel):

@@ -265,3 +265,47 @@ def evolve(metas, legs=3, generations=12, population=24, style='yield', sol=0.05
     champs = [{'pools': list(key(g)), 'bornGen': born.get(key(g), generations - 1), **cache[key(g)],
                'weights': {k: round(v * 100, 1) for k, v in _weights_for(list(key(g)), metas).items()}} for g in final]
     return {'history': history, 'champions': champs, 'pool': len(pool), 'style': style, 'legs': legs, 'evaluated': len(cache)}
+
+
+# ---- Real majors on Solana: the ONLY mints Fuse treats as SOL / BTC / ETH / … (lookalike tickers are flagged, never trusted) ----
+MAJORS = {   # mint → (symbol, name)
+    'So11111111111111111111111111111111111111112': ('SOL', 'Solana (wrapped SOL)'),
+    'cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij': ('cbBTC', 'Coinbase Wrapped BTC'),
+    '3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh': ('WBTC', 'Wrapped BTC (Wormhole)'),
+    '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs': ('ETH', 'Ether (Wormhole)'),
+    'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': ('USDC', 'USD Coin'),
+    'J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn': ('JitoSOL', 'Jito staked SOL'),
+    'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN': ('JUP', 'Jupiter'),
+    'jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL': ('JTO', 'Jito'),
+    'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3': ('PYTH', 'Pyth Network'),
+    '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': ('RAY', 'Raydium'),
+    'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': ('BONK', 'Bonk'),
+    'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm': ('WIF', 'dogwifhat'),
+}
+MAJOR_ALIASES = {'BTC': {'cbBTC', 'WBTC'}, 'BITCOIN': {'cbBTC', 'WBTC'}, 'ETH': {'ETH'}, 'ETHEREUM': {'ETH'}, 'WETH': {'ETH'}, 'SOL': {'SOL', 'JitoSOL'}, 'SOLANA': {'SOL'}}
+
+
+def mark_real(rows, q=''):
+    """Search safety: rows whose coin IS a listed major get `real`; rows that only LOOK like one (same/alias ticker, other mint)
+    get `impostor`. Real first, impostors last — so 'BTC' always finds the real BTC on Solana, never a pump copy."""
+    names = {v[0].upper() for v in MAJORS.values()} | set(MAJOR_ALIASES)
+    out = []
+    for r in rows:
+        base = r.get('baseAddress'); sym = str(r.get('symbol') or '').upper()
+        real = base in MAJORS
+        out.append({**r, 'real': real, 'impostor': (not real) and (sym in names or sym.lstrip('$W') in names)})
+    want = {s.upper() for s in MAJOR_ALIASES.get(str(q).upper(), {str(q).upper()})}
+    return sorted(out, key=lambda r: (not r['real'], r['impostor'], str(r.get('symbol') or '').upper() not in want, -_f(r.get('liquidityUsd'))))
+
+
+def majors_pools(pairs_by_mint):
+    """One row per real major: its deepest Solana pool (pairs_by_mint = {mint: [dexscreener pairs]})."""
+    rows = []
+    for m, (sym, name) in MAJORS.items():
+        ps = [p for p in pairs_by_mint.get(m) or [] if p.get('chainId') == 'solana' and (p.get('baseToken') or {}).get('address') == m]
+        if not ps:
+            continue
+        p = max(ps, key=lambda x: _f((x.get('liquidity') or {}).get('usd')))
+        rows.append({'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'createdAt': p.get('pairCreatedAt'), 'logo': (p.get('info') or {}).get('imageUrl'),
+                     **leg_meta(p), 'name': name, 'real': True, 'impostor': False})
+    return rows

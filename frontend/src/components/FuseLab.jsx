@@ -19,7 +19,7 @@ import '../styles/fuseLab.css';
 // 10–70% each) and where one SOL amount goes. Traders fuse up to 3 pools; Cmd Ctr (pass `call`) up to 6 with manual
 // weights + publish-as-Fuse. Preview is read-only; Fuse in = one wallet approval for one normal swap per pool (FuseGo).
 // Caps are enforced server-side (fuse.USER_MAX_LEGS / MAX_LEGS).
-const LENSES = [['popular', 'Popular'], ['yield', 'Top yield'], ['deep', 'Deepest'], ['runners', '🏃 Runners'], ['new', 'New 72h']];
+const LENSES = [['popular', 'Popular'], ['majors', '🪙 Majors'], ['yield', 'Top yield'], ['deep', 'Deepest'], ['runners', '🏃 Runners'], ['new', 'New 72h']];
 const usd = v => (v >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${(v || 0).toFixed(v < 10 ? 2 : 0)}`);
 const pct = v => (Math.abs(v) >= 1000 ? `${(1 + v / 100).toFixed(1)}x` : `${v >= 0 ? "+" : ""}${(v || 0).toFixed(1)}%`);
 const apr = v => (v >= 1000 ? `${(v / 100).toFixed(0)}x` : `${Math.round(v || 0)}%`);
@@ -160,7 +160,14 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
     setManual(false); setPicked(pools); if (incoming.sol) setSol(incoming.sol.toFixed(4)); scrollToMix(); }, [incoming?.n]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const live = useLivePrices(lens === 'runners' ? (pools || []).filter(p => p.runner && !p.blocked).map(p => p.pairAddress) : []);
-  const shown = useMemo(() => { const s = q.trim().toLowerCase(); return (pools || []).filter(p => !s || `${p.symbol}/${p.quote || ''} ${p.dex || ''}`.toLowerCase().includes(s)); }, [pools, q]);
+  // Search: 2+ letters asks the server (every Solana pool, the REAL majors first, lookalike tickers flagged) — debounced 300ms.
+  const [found, setFound] = useState(null);
+  useEffect(() => {
+    const s = q.trim(); if (s.length < 2 || lens === 'runners') { setFound(null); return undefined; }
+    let alive = true; const t = setTimeout(() => fetch(apiUrl(`/api/reputation/fuses/search?q=${encodeURIComponent(s)}`)).then(r => r.json()).then(d => alive && setFound((d.pools || []).map(p => ({ ...p, chainId: 'solana' })))).catch(() => alive && setFound([])), 300);
+    return () => { alive = false; clearTimeout(t); };
+  }, [q, lens]);
+  const shown = useMemo(() => { if (found) return found; const s = q.trim().toLowerCase(); return (pools || []).filter(p => !s || `${p.symbol}/${p.quote || ''} ${p.dex || ''}`.toLowerCase().includes(s)); }, [pools, q, found]);
   const isOn = p => (p.runner ? runnerPicks.some(x => x.mint === p.mint) : picked.some(x => x.pairAddress === p.pairAddress));
   const isFull = p => !isOn(p) && (legsN >= caps.total || (p.runner ? runnerPicks.length >= caps.runners : picked.length >= MAX));
   const toggle = p => { if (p.runner) { onRunnerPicks(isOn(p) ? runnerPicks.filter(x => x.mint !== p.mint) : isFull(p) ? runnerPicks : [...runnerPicks, p]); return; }
@@ -188,7 +195,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
     <div className="fl-body">
       <div className="fl-browse">
         <div className="fl-tools"><div className="m-seg" role="radiogroup" aria-label="Pool lens">{LENSES.map(([k, l]) => <button type="button" key={k} role="radio" aria-checked={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)}>{l}</button>)}</div>
-          <input className="m-input fl-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Filter $SYMBOL or DEX" aria-label="Filter pools" /></div>
+          <input className="m-input fl-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Search any coin — SOL, BTC, ETH, $TICKER, CA" aria-label="Search pools" data-testid="fl-search" /></div>
         {legsN >= caps.total && <small className="fl-full">All {caps.total} slots used — untick a leg to swap it.</small>}
         <div className="fl-list" role="listbox" aria-multiselectable="true" aria-label="Pools">
           {pools == null ? Array.from({ length: 6 }, (_, i) => <div key={i} className="fl-row is-ghost" />)
@@ -209,7 +216,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
               return <button type="button" role="option" aria-selected={on} key={p.pairAddress} className={`fl-row ${on ? 'is-on' : ''}`} disabled={full} onClick={() => toggle(p)} data-testid={`fl-pool-${p.pairAddress}`} title={full ? `Max ${MAX} pools` : undefined}>
                 <span className="fl-check" aria-hidden="true">{on ? '✓' : '+'}</span>
                 <span className="fl-logo"><TokenAvatar pair={legPair(p)} size={28} /></span>
-                <span className="fl-name"><b>{p.symbol}<small>/{p.quote}</small></b><em>{p.dex}</em></span>
+                <span className="fl-name"><b>{p.symbol}<small>/{p.quote}</small>{p.real && <i className="fl-real" data-tip={`${p.name || p.symbol}: the real coin on Solana (verified mint)`}>✓ REAL</i>}{p.impostor && <i className="fl-fake" data-tip="Looks like a major but it is NOT the real coin — a copy with the same ticker">⚠ lookalike</i>}</b><em>{p.name || p.dex}</em></span>
                 <span className="fl-cell"><small>LIQ</small><b className="m-num">{usd(p.liquidityUsd)}</b></span>
                 <span className="fl-cell"><small>VOL 24H</small><b className="m-num">{usd(p.volume24h)}</b></span>
                 <span className="fl-cell"><small>APR EST</small><b className="m-num m-pos">{apr(p.aprEst)}</b></span>

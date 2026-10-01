@@ -122,3 +122,17 @@ def test_replay_window_never_uses_since_launch_moves():
     assert fuse.replay_window({'pairCreatedAt': now - 30 * 3.6e6, 'priceChange': {'h24': -8}}, now) == (-8.0, 24)
     assert fuse.replay_window({'priceChange': {'h24': 5}}, now) == (5.0, 24)                # unknown age → 24h
     assert fuse.replay_window({'pairCreatedAt': now - 60000, 'priceChange': {'m5': 9}}, now) == (0.0, 0)   # 1 min old: nothing honest yet
+
+
+def test_real_majors_first_impostors_flagged():
+    rows = [{'symbol': 'BTC', 'baseAddress': 'PumpFakeBTC', 'liquidityUsd': 9e6},
+            {'symbol': 'cbBTC', 'baseAddress': 'cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij', 'liquidityUsd': 2e6},
+            {'symbol': 'WBTC', 'baseAddress': '3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh', 'liquidityUsd': 5e5},
+            {'symbol': 'MOON', 'baseAddress': 'X', 'liquidityUsd': 1e7}]
+    out = fuse.mark_real(rows, 'btc')
+    assert [r['symbol'] for r in out] == ['cbBTC', 'WBTC', 'MOON', 'BTC'] and out[-1]['impostor'] and out[0]['real']
+    M = 'So11111111111111111111111111111111111111112'
+    pools = fuse.majors_pools({M: [{'chainId': 'solana', 'pairAddress': 'small', 'baseToken': {'address': M, 'symbol': 'SOL'}, 'liquidity': {'usd': 1e5}, 'volume': {'h24': 1}},
+                                  {'chainId': 'solana', 'pairAddress': 'deep', 'baseToken': {'address': M, 'symbol': 'SOL'}, 'liquidity': {'usd': 9e7}, 'volume': {'h24': 1}},
+                                  {'chainId': 'base', 'pairAddress': 'evm', 'baseToken': {'address': M}, 'liquidity': {'usd': 1e9}}]})
+    assert [p['pairAddress'] for p in pools] == ['deep'] and pools[0]['real'] and pools[0]['name'].startswith('Solana')
