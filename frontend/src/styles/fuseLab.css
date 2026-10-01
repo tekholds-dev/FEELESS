@@ -328,3 +328,4 @@ body.theme-day .vmath-col { background: var(--m-surface-2); }
 .fcm-aura { width: 190px; } .fcm-aura summary { cursor: pointer; font-family: var(--m-mono); font-size: 10px; letter-spacing: .08em; color: var(--m-warn); text-transform: uppercase; }
 .fcm-aura summary:hover { text-decoration: underline; } .fcm-aura[open] .aura-pick { margin-top: 6px; grid-template-columns: repeat(3, 1fr); }
 .qe-aura-row { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; padding: 16px 8px; }
+.fcd-live li.is-out { opacity: .55; } .fcd-live li span { font-family: var(--m-mono); }

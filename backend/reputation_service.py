@@ -3208,6 +3208,24 @@ async def _fuse_autopilot_start():
         asyncio.create_task(_fuse_autopilot_loop())
 
 
+@app.get('/api/reputation/fuses/arena')
+async def fuse_arena_public():
+    """Fuse 🧬 › Arena for everyone: strategies' settled paper runs, the honest outlook, and the Runners proof — no admin data."""
+    d = _json_load(FUSE_HQ_PATH, {})
+    now = time.time()
+    vals = [_hq.arena_value(e, {}, now) for e in d.get('arena') or []]
+    board = _hq.arena_board(vals)
+    rd = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
+    cfg = _runner_cfg()
+    rounds = []
+    for r in rd['rounds'][-24:]:
+        mults = [_rn.play_exits(p['lane'], p['entry'], [x for t, x in rd['paths'].get(p['mint'], []) if t > r['at']], cfg) for p in r['picks']]
+        if mults:
+            rounds.append({'at': r['at'], 'symbols': [p.get('symbol') for p in r['picks']], 'pct': round((sum(mults) / len(mults) - 1) * 100, 2)})
+    return {'board': board, 'outlook': _hq.outlook(board), 'bestStyle': _hq.best_style(board), 'runs': [v for v in sorted(vals, key=lambda v: -v['at']) if v['settled']][:12],
+            'runners': {'proof': _rn.proof(rd['rounds'], rd['paths'], now, cfg=cfg), 'rounds': rounds}, 'minSettled': _hq.MIN_SETTLED}
+
+
 @app.get('/api/reputation/admin/fuses/hq')
 async def fuse_hq_admin(request: Request):
     """Cmd Ctr › Fuse HQ: everyone's Fuse P&L, the paper arena (settles at 24h), bloodlines, published-Fuse health."""
@@ -3324,6 +3342,7 @@ async def fuses_prebuilt(request: Request, legs: int = Query(3, ge=2, le=10), bu
 import runners as _rn
 RUNNERS_PATH = DATA_DIR / 'runners.json'      # {'rounds': [...], 'paths': {mint: [[t, price], ...]}}
 _runner_live_cache = {'at': 0.0, 'data': None}
+_mayhem_mints: set = set()
 
 
 def _runner_cfg():
@@ -3353,7 +3372,14 @@ async def _runner_live():
                 return (await http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': kind, 'chain': 'solana', 'page': 1, 'scope': 'launchpads'})).json().get('pairs') or []
             except Exception:
                 return []
-        got = await asyncio.gather(feed('trending'), feed('new'))
+
+        async def pulse():   # the live launch stream is the only place mayhem-mode is flagged: remember every one seen
+            try:
+                return (await http.get('http://127.0.0.1:5001/api/pump/pulse', params={'limit': 100})).json().get('launches') or []
+            except Exception:
+                return []
+        got, launches = await asyncio.gather(asyncio.gather(feed('trending'), feed('new')), pulse())
+    _mayhem_mints.update(x['mint'] for x in launches if x.get('mayhem') and x.get('mint'))
     now_ms = time.time() * 1000
     seen, pairs = set(), []
     for p in [x for rows in got for x in rows]:
@@ -3373,7 +3399,13 @@ async def _runner_live():
         m = (p.get('baseToken') or {}).get('address'); it = intel.get(m) or (_intel_cache.get(m) or (0, None))[1]
         creator = (it or {}).get('creator')
         flagged = bool(creator and (_is_blocked(blocks.get(creator)) or (_shield_cache.get(creator, (0, {}))[1] or {}).get('verdict') == 'bot'))
-        cands.append(_rn.candidate(p, it, flagged, p.get('pairAddress') in out_pairs or m in out_pairs, now_ms))
+        crep = None
+        if creator:
+            try:
+                crep = _quick_rep(creator).get('level')
+            except Exception:
+                crep = None
+        cands.append(_rn.candidate(p, it, flagged, p.get('pairAddress') in out_pairs or m in out_pairs, now_ms, mayhem=m in _mayhem_mints, creator_rep=crep))
     data = {**_rn.board(cands, _runner_cfg()), 'seen': len(cands), 'at': time.time()}
     _runner_live_cache.update(at=time.time(), data=data)
     return data

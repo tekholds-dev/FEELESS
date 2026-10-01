@@ -1,5 +1,8 @@
 """FUSE RUNNERS engine: hard gates fail closed, scoring cites reasons, lanes, carry-over rounds, exit ladders, proof, add-on."""
+import pytest
 import runners as rn
+
+rs = pytest.importorskip("reputation_service")
 
 NOW = 1_800_000_000_000
 
@@ -25,7 +28,7 @@ def test_gates_fail_closed_and_flag_reasons():
 
 def test_score_lanes_and_board():
     hot = rn.candidate(pair('hot', chg1h=300, chg5m=30, curve=85), CLEAN, snipers_out=True, now_ms=NOW)
-    meh = rn.candidate(pair('meh', chg1h=10, chg5m=0, graduated=True), CLEAN, now_ms=NOW)
+    meh = rn.candidate(pair('meh', chg1h=10, chg5m=0, curve=20), CLEAN, now_ms=NOW)
     b = rn.board([meh, hot, rn.candidate(pair('bad'), {**CLEAN, 'top10Pct': 80}, now_ms=NOW)])
     assert [r['mint'] for r in b['passing']] == ['hot', 'meh'] and b['dropped'][0]['mint'] == 'bad'
     assert all(p['why'] for p in b['passing'][0]['parts'])
@@ -73,7 +76,6 @@ def test_service_board_rounds_proof_and_addon(monkeypatch):
     import asyncio
     import time as _t
     import pytest
-    rs = pytest.importorskip('reputation_service')
     now_ms = _t.time() * 1000
     feed = [pair(m, chg1h=c, price=1.0) for m, c in (('aaa', 300), ('bbb', 200), ('ccc', 150))] + [pair('rug', chg1h=999)]
     for p in feed:
@@ -120,7 +122,6 @@ def test_card_preview_with_picked_runners(monkeypatch):
     import asyncio
     import time as _t
     import pytest
-    rs = pytest.importorskip('reputation_service')
     live = {'passing': [{**rn.candidate(pair(m, price=1.0), CLEAN, now_ms=NOW), 'score': 80, 'lane': 'runner'} for m in ('r1', 'r2', 'r3', 'r4')], 'dropped': [], 'seen': 4}
     async def fake_live(): return live
     async def pairs(legs): return {l['pairAddress']: {'pairAddress': l['pairAddress'], 'priceUsd': '1', 'liquidity': {'usd': 9e5}, 'volume': {'h24': 5e5}, 'priceChange': {'h24': 3},
@@ -136,3 +137,12 @@ def test_card_preview_with_picked_runners(monkeypatch):
     with pytest.raises(rs.HTTPException):
         asyncio.run(rs.fuses_preview(rs.FusePreview(pools=pools, sol=1, runnerMints=['gone'])))
     assert len(asyncio.run(rs.fuses_preview(rs.FusePreview(pools=pools, sol=1, runnerMints=['r1', 'r2', 'r3', 'r4'])))['legs']) == 6   # traders: 3 runners max
+
+
+def test_prebond_only_no_mayhem_and_creator_rep():
+    assert 'Pre-bond (still on the curve)' in rn.failed_gates(rn.candidate(pair('g', graduated=True), CLEAN, now_ms=NOW))
+    assert 'Not a mayhem-mode coin' in rn.failed_gates(rn.candidate(pair('m'), CLEAN, now_ms=NOW, mayhem=True))
+    assert 'Creator reputation not suspect / high-risk' in rn.failed_gates(rn.candidate(pair('s'), CLEAN, now_ms=NOW, creator_rep='suspect'))
+    clean = rn.score(rn.candidate(pair('c'), CLEAN, now_ms=NOW, creator_rep='clean'))[0]
+    watch = rn.score(rn.candidate(pair('c'), CLEAN, now_ms=NOW, creator_rep='watch'))[0]
+    assert clean - watch == 15 and rn.failed_gates(rn.candidate(pair('c'), CLEAN, now_ms=NOW, creator_rep='watch')) == []

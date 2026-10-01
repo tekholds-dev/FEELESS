@@ -43,3 +43,29 @@ export function FuseCard({ c, style = 'yield', rank = 0, budget = 20, aura = '' 
     <button type="button" className="fcd-flip" aria-label={flipped ? 'Show front' : 'Show details'} onClick={() => setFlipped(f => !f)} data-testid={`fuse-card-flip-${rank}`}>⟲</button>
   </div>;
 }
+
+// An OWNED Fuse card (a real position from /fuses/pnl): front = the same card, back = live money per leg — what you put in,
+// what you still hold at today's price, what you've already taken out, and the P&L. Never preview numbers.
+const m$ = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0).toFixed(2)}`;
+export function LiveFuseCard({ r, aura = '' }) {
+  const [flipped, setFlipped] = useState(false);
+  const legs = [...r.legs].sort((a, b) => (b.usd || 0) - (a.usd || 0));
+  const up = r.pnlUsd >= 0;
+  const g = r.closed ? 'C' : r.pnlPct >= 25 ? 'A' : r.pnlPct >= 0 ? 'B' : r.pnlPct >= -15 ? 'C' : 'D';
+  const card = { key: r.id, kind: 'fuse', title: legs.slice(0, 3).map(l => l.symbol).join(' · ') + (legs.length > 3 ? ` +${legs.length - 3}` : ''),
+    subtitle: `${r.name || 'MY FUSE'} · ${up ? '+' : ''}${r.pnlPct.toFixed(1)}%`, rarity: RARITY[g], design: up ? 'aurora' : 'ember', accent: up ? '#19f58f' : '#ff8fa3', accent2: '#f5c451',
+    glyph: g, motion: up && !r.closed ? 'alive' : 'still', holders: legs.length, edition: r.closed ? 'CLOSED' : 'LIVE', aura,
+    art: tokenImageUrls(legPair(legs[0] || {})) };
+  const back = <div className="fcd-back fcd-live">
+    <div className="mc-top"><span>{r.closed ? 'WITHDRAWN' : 'LIVE · YOUR MONEY'}</span><span>{m$(r.valueUsd)}</span></div>
+    <ul>{legs.map(l => <li key={l.pairAddress + (l.sig || '')} className={l.soldUsd != null ? 'is-out' : ''}><b>{l.role === 'runner' ? '🏃 ' : ''}{l.symbol}</b><span>in {m$(l.usd)} → {m$(l.valueUsd)}</span>
+      <em className={l.pnlUsd >= 0 ? 'up' : 'down'}>{l.pnlPct >= 0 ? '+' : ''}{l.pnlPct.toFixed(1)}% {m$(l.pnlUsd)}{l.soldUsd != null ? ' · sold' : (l.realizedUsd || 0) > 0 ? ` · took ${m$(l.realizedUsd)}` : ''}{!l.priced && l.soldUsd == null ? ' · no price' : ''}</em></li>)}</ul>
+    <dl><dt>Put in</dt><dd>{m$(r.costUsd)}</dd><dt>Taken out</dt><dd className="up">{m$(r.realizedUsd || 0)}</dd><dt>Still held</dt><dd>{m$(r.valueUsd - (r.realizedUsd || 0))}</dd>
+      <dt>P&L</dt><dd className={up ? 'up' : 'down'}><b>{m$(r.pnlUsd)} ({up ? '+' : ''}{r.pnlPct.toFixed(1)}%)</b></dd></dl>
+    <small className="fcd-note">Live prices · exact fills from chain · updates every 30s.</small>
+  </div>;
+  return <div className="fcd" data-testid={`live-card-${r.id}`}>
+    <MetaCard card={card} size="md" interactive flipped={flipped} onFlip={setFlipped} back={back} className="fcd-card" />
+    <button type="button" className="fcd-flip" aria-label={flipped ? 'Show front' : 'Show live money'} onClick={() => setFlipped(f => !f)} data-testid={`live-card-flip-${r.id}`}>⟲</button>
+  </div>;
+}

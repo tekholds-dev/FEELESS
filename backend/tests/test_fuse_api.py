@@ -225,3 +225,10 @@ def test_auras_validated_for_fuses_badges_and_cards(monkeypatch):
     assert len(badge_cards.AURAS) == 15 and badge_cards.clean_edit({'aura': 'matrix'})['aura'] == 'matrix' and 'aura' not in badge_cards.clean_edit({'aura': 'nope'})
     with pytest.raises(rs.HTTPException):
         asyncio.run(rs.admin_quests_save(Req({'badges': {'q-test': {'aura': 'bogus'}}})))
+
+
+def test_public_arena_has_no_admin_data():
+    rs._json_save(rs.FUSE_HQ_PATH, {'arena': [{'id': 'e', 'style': 'yield', 'at': 1, 'usd': 5, 'legs': [{'pairAddress': 'A', 'weight': 100, 'start': 1}], 'close': {'A': 1.2}}],
+                                    'positions': [{'id': 'secret', 'wallet': 'W', 'legs': []}], 'bloodline': [{'pools': ['A']}]})
+    d = asyncio.run(rs.fuse_arena_public())
+    assert d['board'][0]['avgPct'] == 20 and d['runs'][0]['settled'] and 'positions' not in d and 'bloodline' not in d and 'proof' in d['runners']

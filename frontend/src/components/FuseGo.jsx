@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { useWallet } from '../hooks/useWallet';
-import { fuseOrders, orderMatches } from '../lib/fuseGo';
+import { fuseOrders, orderMatches, SOL_MINT } from '../lib/fuseGo';
 import { readChatSession } from '../lib/chatSession';
 import { impactPercent } from '../lib/impactGuard';
 
@@ -28,7 +28,7 @@ export function quoteLine(r) {
 }
 const fmt = n => (n == null ? '—' : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n >= 1 ? n.toFixed(2) : n.toPrecision(3));
 
-export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position }) {
+export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, onLanded }) {
   const sell = side === 'sell';
   const { wallet, provider, connect, switchTo } = useWallet() || {};
   const addr = wallet?.chain === 'solana' ? wallet.address : null;
@@ -71,7 +71,8 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position }) 
         try {
           let res = await api('/execute', { order_id: id, signed_transaction: b64(signed[i].serialize()) }); up(id, { state: res.state, sig: res.signature });
           for (let k = 0; k < 30 && res.signature && !['confirmed', 'failed'].includes(res.state); k++) { await new Promise(z => setTimeout(z, 2000)); try { res = await api(`/order/${id}`); up(id, { state: res.state }); } catch { /* keep polling */ } }
-          if (res.state === 'confirmed') landed.push({ pairAddress: r.leg.pairAddress, chainId: r.leg.chainId || 'solana', symbol: r.target.symbol, signature: res.signature });
+          if (res.state === 'confirmed') landed.push({ pairAddress: r.leg.pairAddress, chainId: r.leg.chainId || 'solana', symbol: r.target.symbol, signature: res.signature,
+            side: r.request.output_mint === SOL_MINT ? 'sell' : 'buy', role: r.leg.role || (r.leg.runner ? 'runner' : 'pool') });
           if (res.state === 'confirmed') window.dispatchEvent(new CustomEvent('feeless:trade-confirmed', { detail: { mint: r.target.mint, side, signature: res.signature, usd: Number(r.order.quote?.inUsdValue) || 0, wallet: addr, tokens: outOf(r.order) } }));
         } catch (e) { up(id, { state: 'failed', err: e.message }); }
       }));
@@ -82,6 +83,7 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position }) 
         body: JSON.stringify({ address: addr, legs: quoted }) }).then(r => r.json()).then(d => d?.legs && setRcpt(d)).catch(() => {}), ms));
       // Fuse P&L: the server re-checks every signature is your confirmed FEELESS buy (retried while the fill is read).
       const ses = landed.length && readChatSession(addr);
+      if (onLanded) { if (ses) onLanded(landed, ses, addr); return; }   // caller records (card switch / take-profit)
       if (ses && sell && position) [5000, 20000].forEach(ms => setTimeout(() => fetch(apiUrl('/api/reputation/fuses/position/close'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: addr, session: ses, id: position, signatures: landed.map(l => l.signature) }) }).then(() => window.dispatchEvent(new Event('feeless:fuse-pnl'))).catch(() => {}), ms));
       if (ses && !sell) [5000, 20000].forEach(ms => setTimeout(() => fetch(apiUrl('/api/reputation/fuses/position'), { method: 'POST', headers: { 'Content-Type': 'application/json' },

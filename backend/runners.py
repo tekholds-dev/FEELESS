@@ -4,9 +4,10 @@ Coins come to it: every Pump.fun coin the launchpad feed sees (pre-bond on the c
 the moment it shows up. Nothing here predicts price; it applies hard safety gates, ranks momentum + real flow, assigns a
 lane with a preset exit plan, carries the best runners into the next round, and proves itself on paper.
 
+PRE-BOND ONLY (still on the Pump.fun curve, never mayhem-mode), creator reputation gated.
 Lanes (each with its own exits):
-  scalp   pre-bond coins racing up the curve (50–98% to graduation): sell ALL into the +50% rush, stop −25%.
-  runner  1–48h coins with momentum + real flow: sell ⅓ at +50%, ⅓ at +100%, trail the last ⅓ by 25 pts, stop −30%.
+  scalp   50%+ up the curve, racing to graduate: sell ALL into the +50% rush, stop −25%.
+  runner  earlier on the curve with momentum + real flow: ⅓ at +50%, ⅓ at +100%, trail the last ⅓ by 25 pts, stop −30%.
   hold    runners that stayed in the top for 2+ rounds and still score ≥ 70: trail 30 pts, stop −35%.
 Proof: each round is played on paper against the prices seen in later rounds; the Fuse button only lights up when the
 last 24h of rounds have a positive average AND at least half of them won.
@@ -32,7 +33,7 @@ def _f(v):
         return 0.0
 
 
-def candidate(pair, intel=None, creator_flagged=False, snipers_out=False, now_ms=0):
+def candidate(pair, intel=None, creator_flagged=False, snipers_out=False, now_ms=0, mayhem=False, creator_rep=None):
     """A launchpad pair (+ cached forensics) → the flat record the engine reads."""
     intel = intel or {}
     tx = (pair.get('txns') or {}).get('h1') or {}
@@ -48,7 +49,8 @@ def candidate(pair, intel=None, creator_flagged=False, snipers_out=False, now_ms
             'txns1h': int(buys + sells), 'buyShare': round(buys / (buys + sells) * 100, 1) if buys + sells else None,
             'quality': _f((pair.get('quality') or {}).get('score')),
             'top10': intel.get('top10Pct'), 'insiders': intel.get('insidersHoldingPct'), 'dev': intel.get('devHoldingPct'),
-            'bundled': len(intel.get('bundledWallets') or []), 'scanned': bool(intel), 'creatorFlagged': bool(creator_flagged), 'snipersOut': bool(snipers_out)}
+            'bundled': len(intel.get('bundledWallets') or []), 'scanned': bool(intel), 'creatorFlagged': bool(creator_flagged), 'snipersOut': bool(snipers_out),
+            'mayhem': bool(mayhem or pair.get('mayhem') or pair.get('is_mayhem_mode')), 'creatorRep': creator_rep}
 
 
 # Cmd Ctr › Runners settings. Every key is range-checked by clean_cfg(); defaults = the tested engine.
@@ -71,6 +73,8 @@ def clean_cfg(p):
 def gates(cfg=None):
     g = clean_cfg(cfg)
     return (   # key, label, test — ALL must pass (unknown forensics fail closed)
+        ('prebond', 'Pre-bond (still on the curve)', lambda c: c['stage'] == 'curve'),
+        ('mayhem', 'Not a mayhem-mode coin', lambda c: not c.get('mayhem')),
         ('age', 'Under 48h old', lambda c: c['ageH'] is not None and 0 <= c['ageH'] <= MAX_AGE_H),
         ('size', f"Market cap ≥ ${g['minMcap'] / 1000:g}K", lambda c: c['mcap'] >= g['minMcap']),
         ('volume', f"1h volume ≥ ${g['minVol1h'] / 1000:g}K", lambda c: c['vol1h'] >= g['minVol1h']),
@@ -80,6 +84,7 @@ def gates(cfg=None):
         ('insiders', f"Snipers/bundlers under {g['maxInsiders']}%", lambda c: (c['insiders'] or 0) < g['maxInsiders'] and c['bundled'] < 3),
         ('dev', f"Dev holds under {g['maxDev']}%", lambda c: (c['dev'] or 0) < g['maxDev']),
         ('creator', 'Creator not flagged (Bot shield / blocklist)', lambda c: not c['creatorFlagged']),
+        ('rep', 'Creator reputation not suspect / high-risk', lambda c: c.get('creatorRep') not in ('suspect', 'high')),
     )
 
 
@@ -105,22 +110,23 @@ def score(c):
     vel = max(0.0, min(20.0, (c['vol1h'] / c['mcap'] * 10) if c['mcap'] else 0))  # turnover 2×/h → 20
     flow = max(0.0, 10 - abs((c['buyShare'] or 0) - 60) / 2)                     # sweet spot ~60% buys
     curve = 10.0 if c['stage'] == 'curve' and 60 <= c['curve'] <= 95 else 5.0 if c['stage'] == 'graduated' else 0.0
-    bonus = (8.0 if c['snipersOut'] else 0.0) + min(7.0, c['quality'] / 14)
+    rep_pts = {'clean': 5.0, 'watch': -10.0}.get(c.get('creatorRep'), 0.0)       # reputation: clean creators earn, "watch" pays
+    bonus = (8.0 if c['snipersOut'] else 0.0) + min(7.0, c['quality'] / 14) + rep_pts
     pts = round(min(100.0, mom + acc + vel + flow + curve + bonus), 1)
     return pts, [{'part': 'momentum', 'points': round(mom, 1), 'why': f"{c['chg1h']:+.0f}% in 1h"},
                  {'part': 'acceleration', 'points': round(acc, 1), 'why': f"{c['chg5m']:+.0f}% in 5m"},
                  {'part': 'velocity', 'points': round(vel, 1), 'why': f"1h volume = {c['vol1h'] / c['mcap'] if c['mcap'] else 0:.1f}× market cap"},
                  {'part': 'flow', 'points': round(flow, 1), 'why': f"{c['buyShare']}% buys" if c['buyShare'] is not None else 'no flow'},
                  {'part': 'stage', 'points': curve, 'why': f"{c['curve']:.0f}% up the curve" if c['stage'] == 'curve' else 'graduated (own pool)'},
-                 {'part': 'bonus', 'points': round(bonus, 1), 'why': ('snipers sold out · ' if c['snipersOut'] else '') + f"quality {c['quality']:.0f}"}]
+                 {'part': 'bonus', 'points': round(bonus, 1), 'why': ('snipers sold out · ' if c['snipersOut'] else '') + f"quality {c['quality']:.0f}" + (f" · creator {c.get('creatorRep')}" if c.get('creatorRep') else '')}]
 
 
 def lane_of(c, streak=0, pts=0):
     if streak >= 2 and pts >= 70:
         return 'hold'
-    if c['stage'] == 'curve' and 50 <= c['curve'] <= 98:
+    if c['curve'] >= 50:          # pre-bond and racing toward graduation: sell into the rush
         return 'scalp'
-    return 'runner'
+    return 'runner'               # earlier on the curve with momentum: ladder out
 
 
 def board(cands, cfg=None):
