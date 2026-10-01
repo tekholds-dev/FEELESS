@@ -5,6 +5,7 @@ import { FuseCard } from './FuseCard';
 import { FuseGo } from './FuseGo';
 import { TokenAvatar } from './terminal/MarketPrimitives';
 import { investigate } from './CaseFile';
+import { openCoin } from './CoinDrawer';
 import { useLivePrices } from '../lib/livePrices';
 import '../styles/runners.css';
 
@@ -48,7 +49,7 @@ export function CoinRow({ r, live, px }) {
   const move = live && r.entry ? (now / r.entry - 1) * 100 : px ? px.h1 : r.chg1h;
   return <div className={`rn-coin lane-${r.lane || 'runner'}`}>
     <span className="rn-logo"><TokenAvatar pair={pairOf(r)} size={30} /></span>
-    <span className="rn-name"><b>{r.symbol ? `$${r.symbol}` : `${r.mint.slice(0, 4)}…`}</b><small>{r.stage === 'curve' ? <i className="rn-curve" data-tip={`${r.curve.toFixed(0)}% up the bonding curve — pre-bond`}><i style={{ transform: `scaleX(${Math.min(1, r.curve / 100)})` }} /></i> : <em className="rn-grad" data-tip="Graduated — has its own pool">GRAD</em>}
+    <span className="rn-name"><b><button type="button" className="rn-open" onClick={() => openCoin({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol, logo: r.logo, runner: true })} data-tip="Open this coin: signals, bond boxes, chart, case file, ＋ Add to card">{r.symbol ? `$${r.symbol}` : `${r.mint.slice(0, 4)}…`}</button></b><small>{r.stage === 'curve' ? <i className="rn-curve" data-tip={`${r.curve.toFixed(0)}% up the bonding curve — pre-bond`}><i style={{ transform: `scaleX(${Math.min(1, r.curve / 100)})` }} /></i> : <em className="rn-grad" data-tip="Graduated — has its own pool">GRAD</em>}
       {r.streak > 1 && <em className="rn-streak" data-tip={`Stayed in the top for ${r.streak} rounds`}>↻{r.streak}</em>}</small></span>
     <span className="rn-score" data-tip={(r.parts || []).map(p => `${p.part}: +${p.points} (${p.why})`).join('\n')}><i style={{ transform: `scaleX(${Math.min(1, (r.score || 0) / 100)})` }} /><b className="m-num">{Math.round(r.score || 0)}</b></span>
     <span className={`m-num rn-move fl-tick ${(move || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={(move || 0).toFixed(1)} data-tip={live ? 'Since this round picked it (live)' : 'Last hour (live)'}>{pct(move)}</span>

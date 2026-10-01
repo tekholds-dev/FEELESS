@@ -150,6 +150,17 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
     const t = setTimeout(() => run().then(d => { setPrev(d); setErr(''); }).catch(e => setErr(e.message)), 250);
     return () => clearTimeout(t);
   }, [key, sol, manual, addon]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ＋ Add to card (coin drawer, anywhere): a runner joins the runner picks, anything else joins the pools — within the caps.
+  useEffect(() => {
+    const add = c => { if (!c?.pairAddress) return;
+      if (c.runner && onRunnerPicks) onRunnerPicks(rp => (rp.some(x => x.mint === c.mint) || rp.length >= (admin ? 6 : 3) ? rp : [...rp, { mint: c.mint, symbol: c.symbol, pairAddress: c.pairAddress, lane: c.lane || 'runner' }]));
+      else setPicked(pk => (pk.some(x => x.pairAddress === c.pairAddress) || pk.length >= MAX ? pk : [...pk, { chainId: 'solana', pairAddress: c.pairAddress, symbol: c.symbol, baseAddress: c.mint }]));
+      toast.success(`$${c.symbol || 'coin'} added to your card`); };
+    const on = e => add(e.detail); window.addEventListener('feeless:add-to-card', on);
+    const q = new URLSearchParams(window.location.search);
+    if (q.get('add')) add({ pairAddress: q.get('add'), mint: q.get('mint'), symbol: q.get('sym'), runner: q.get('runner') === '1' });
+    return () => window.removeEventListener('feeless:add-to-card', on);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Featured / Runners tabs hand the Lab a basket to load (pools here, runners into the picks).
   const [copy, setCopy] = useState(null);   // ⚡ copying another trader's card: {id, owner, pct}
   const [plan, setPlan] = useState({ risk: 'balanced', at: 50, onProfit: 'collect', mode: 'hold', legs: {} });

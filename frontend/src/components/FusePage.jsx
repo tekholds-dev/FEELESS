@@ -4,6 +4,7 @@ import { ShareGifButton } from './ShareGif';
 import { RiskDial, DialBoard } from './RiskDial';
 import { ArenaPrime } from './ArenaPrime';
 import { CardEarnings } from './CardEarnings';
+import { openCoin } from './CoinDrawer';
 import { RISK_DIALS } from '../lib/riskDial';
 import { apiUrl } from '../lib/api';
 import { useWallet } from '../hooks/useWallet';
@@ -393,7 +394,7 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, addr, s
         <button type="button" className={`m-btn ${r.drift >= 5 ? 'is-warn' : ''}`} data-tip={`Back to the weights you bought (drift ${Math.round(r.drift || 0)} pts) — one approval`} onClick={() => open(r, 'rebalance')} data-testid={`act-rebalance-${r.id}`}>⚖ Rebalance</button>
         <button type="button" className={`m-btn ${r.guard && !r.guard.firedAt ? 'is-armed' : ''}`} data-tip="Take-profit / stop-loss / trailing on the whole card" onClick={() => open(r, 'limits', { tp: r.guard?.tp || 50, sl: r.guard?.sl || 20, trail: r.guard?.trail || '', legs: Object.fromEntries(Object.entries(r.legGuard || {}).map(([pa, g]) => [pa, { tp: g.tp ?? '', sl: g.sl ?? '' }])), onProfit: r.onProfit || 'collect' })} data-testid={`act-limits-${r.id}`}>🎯 Limits</button>
         <button type="button" className="m-btn" data-tip="Replay this card's last 24h" onClick={() => open(r, 'replay')} data-testid={`act-replay-${r.id}`}>▶ Replay</button>
-        <span className="fp-legcharts" aria-label="Open each coin's chart (your trades marked)">{r.legs.filter(l => l.soldUsd == null).map(l => <button key={l.pairAddress} type="button" className="m-btn" data-tip={`${l.symbol}: open its chart — your confirmed buy is marked on the candles`} onClick={() => openWarRoom({ chainId: 'solana', pairAddress: l.pairAddress, baseToken: { address: l.mint, symbol: l.symbol } })} data-testid={`chart-${l.pairAddress}`}>📈 {l.symbol}</button>)}</span>
+        <span className="fp-legcharts" aria-label="Open each coin's chart (your trades marked)">{r.legs.filter(l => l.soldUsd == null).map(l => <button key={l.pairAddress} type="button" className="m-btn" data-tip={`${l.symbol}: open its chart — your confirmed buy is marked on the candles`} onClick={() => openCoin({ mint: l.mint, pairAddress: l.pairAddress, symbol: l.symbol, runner: l.role === 'runner' })} data-testid={`chart-${l.pairAddress}`}>📈 {l.symbol}</button>)}</span>
       </div></details>
       {act?.id === r.id && <ActionPanel r={r} act={act} setAct={setAct} addr={addr} ses={ses} refresh={refresh} />}
     </div>)}</div>

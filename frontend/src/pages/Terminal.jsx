@@ -3,6 +3,7 @@ import { CaseFileModal } from '../components/CaseFile';
 import { PanelBoundary } from '../components/PanelBoundary';
 import { CoinAura } from '../components/CoinAura';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { CoinDrawerHost } from '../components/CoinDrawer';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowUpRight, ArrowLeft, ArrowRight, Flame, RefreshCw, SlidersHorizontal, Activity } from 'lucide-react';
 import WalletModal from '../components/WalletModal';
@@ -185,7 +186,7 @@ export default function Terminal() {
   const toggleWide = () => setWide(w => { const n = !w; try { localStorage.setItem('feeless-chart-wide', n ? '1' : '0'); } catch { /* private mode */ } setTimeout(() => window.dispatchEvent(new Event('resize')), 60); return n; });
   const focusKey = selected ? `token-${selected.chainId}-${selected.pairAddress}` : 'fee';
   const focus = <div key={focusKey} className="focus-flip">{selected ? <TokenFocus pair={selected} has={has} toggle={toggle} defaultInterval={chartInterval} onExpand={toggleWide} expanded={wide} /> : page === 'trade' && fee?.pair ? <TokenFocus pair={fee.pair} has={has} toggle={toggle} defaultInterval={chartInterval} /> : <FeeHeartbeat asset={fee} assets={feeAssets} loading={assets.loading} />}</div>;
-  return <div className={`terminal-app command-terminal ${compact ? 'compact-rows' : ''} ${reducedMotion ? 'reduced-motion' : ''} text-scale-${fontScale}`} style={{ '--context-accent': ecosystem.color }}><WarRoomHost /><MouseGlow /><AmbientFlakes /><div className="theme-flip-wipe" aria-hidden="true" /><TerminalHeader onWallet={() => setWalletOpen(true)} onProfile={() => setProfileOpen(true)} onMenu={() => setMenuOpen(v => !v)} query={query} /><MarketTicker /><ContextBar /><SeasonBanner />
+  return <div className={`terminal-app command-terminal ${compact ? 'compact-rows' : ''} ${reducedMotion ? 'reduced-motion' : ''} text-scale-${fontScale}`} style={{ '--context-accent': ecosystem.color }}><CoinDrawerHost /><WarRoomHost /><MouseGlow /><AmbientFlakes /><div className="theme-flip-wipe" aria-hidden="true" /><TerminalHeader onWallet={() => setWalletOpen(true)} onProfile={() => setProfileOpen(true)} onMenu={() => setMenuOpen(v => !v)} query={query} /><MarketTicker /><ContextBar /><SeasonBanner />
     <CaseFileModal /><div className="terminal-body"><TerminalSidebar open={menuOpen} onClose={() => setMenuOpen(false)} savedCount={watchlist.length} /><main className={`terminal-main page-${(page.split("/")[0] || "home").replace(/[^a-z]/g, "")}`} data-testid={`terminal-page-${page || 'home'}`}><PanelBoundary name="This page" resetKey={`${page}${window.location.search}`}>
       <div className="workspace-topline"><span><i className="live-dot" /> FEELESS OS / <b data-testid="workspace-context-label">{ecosystem.name.toUpperCase()} {ecosystem.isLaunchpad ? 'WAR ROOM' : 'INTELLIGENCE'}</b><span className="workspace-mode">{page || '$FEE COMMAND'}</span></span><Link to={`/?node=${ecosystem.id}`} data-testid="workspace-globe-link">Globe view<ArrowUpRight size={12} /></Link></div>
        <div className="context-transition" key={ecosystem.id}>
