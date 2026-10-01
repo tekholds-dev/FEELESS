@@ -39,4 +39,20 @@ pub enum ErrorCode {
     BadReason,
     #[msg("Math overflow")]
     Overflow,
+    #[msg("Stop mode must be payout (0), park (1) or hold (2)")]
+    BadSlMode,
+    #[msg("Only the configured swap program may be used")]
+    BadSwapProgram,
+    #[msg("Pool does not match this leg / quote coin")]
+    BadPool,
+    #[msg("The price trigger is not hit on-chain")]
+    NotTriggered,
+    #[msg("min_out is looser than the pool price minus the allowed slippage")]
+    SlippageTooLoose,
+    #[msg("The swap paid less than min_out")]
+    ShortFill,
+    #[msg("Not enough parked / cash quote")]
+    InsufficientQuote,
+    #[msg("Slippage cap is at most 3%")]
+    BadSlippage,
 }

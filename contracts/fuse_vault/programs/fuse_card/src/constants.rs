@@ -29,6 +29,20 @@ pub const REASON_SL: u8 = 2;
 pub const REASON_PROFIT: u8 = 3;
 /// Auto-compound: the gain goes back to the owner's wallet too (re-buying is the owner's one-tap, never the keeper's).
 pub const REASON_COMPOUND: u8 = 4;
+/// v0.2: buy a PARKED leg back (price back at entry) — only in park mode.
+pub const REASON_REBUY: u8 = 5;
+
+/// What a stop-loss does (owner's choice, `Toggles.sl_mode`): sell + pay the SOL to the owner's wallet · sell + PARK the SOL
+/// in the card (bought back when price returns to entry) · HOLD (the keeper may never sell on a stop).
+pub const SL_PAYOUT: u8 = 0;
+pub const SL_PARK: u8 = 1;
+pub const SL_HOLD: u8 = 2;
+/// Hard cap on the slippage the keeper may accept vs the pool's own expected output (Cmd Ctr can set ≤ this).
+pub const MAX_SLIPPAGE_BPS: u16 = 300;
+/// Swap fee the price check assumes (the mock AMM / Raydium CPMM standard tier).
+pub const AMM_FEE_BPS: u64 = 30;
+/// Leg index meaning "the card's cash" (compound proceeds) in withdraw_quote.
+pub const CASH_IDX: u8 = 255;
 
 pub const TOKEN_PROGRAM: Pubkey = pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 pub const TOKEN_2022_PROGRAM: Pubkey = pubkey!("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");

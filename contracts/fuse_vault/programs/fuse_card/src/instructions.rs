@@ -24,26 +24,26 @@ pub struct KeeperReturned {
 }
 
 // ---- token helpers (SPL Token / Token-2022 account layout: mint 0..32, owner 32..64, amount 64..72; mint decimals @44) ----
-fn token_program_ok(p: &AccountInfo) -> Result<()> {
+pub(crate) fn token_program_ok(p: &AccountInfo) -> Result<()> {
     require!(p.key() == TOKEN_PROGRAM || p.key() == TOKEN_2022_PROGRAM, ErrorCode::BadTokenProgram);
     Ok(())
 }
 
-fn token_account(ai: &AccountInfo, token_program: &AccountInfo) -> Result<(Pubkey, Pubkey)> {
+pub(crate) fn token_account(ai: &AccountInfo, token_program: &AccountInfo) -> Result<(Pubkey, Pubkey)> {
     require!(ai.owner == token_program.key, ErrorCode::BadTokenProgram);
     let d = ai.try_borrow_data()?;
     require!(d.len() >= 72, ErrorCode::BadCardVault);
     Ok((Pubkey::try_from(&d[0..32]).unwrap(), Pubkey::try_from(&d[32..64]).unwrap()))
 }
 
-fn decimals(mint: &AccountInfo, token_program: &AccountInfo) -> Result<u8> {
+pub(crate) fn decimals(mint: &AccountInfo, token_program: &AccountInfo) -> Result<u8> {
     require!(mint.owner == token_program.key, ErrorCode::BadTokenProgram);
     let d = mint.try_borrow_data()?;
     require!(d.len() > 44, ErrorCode::WrongMint);
     Ok(d[44])
 }
 
-fn transfer_checked<'info>(token_program: &AccountInfo<'info>, from: &AccountInfo<'info>, mint: &AccountInfo<'info>, to: &AccountInfo<'info>,
+pub(crate) fn transfer_checked<'info>(token_program: &AccountInfo<'info>, from: &AccountInfo<'info>, mint: &AccountInfo<'info>, to: &AccountInfo<'info>,
                            authority: &AccountInfo<'info>, amount: u64, seeds: Option<&[&[u8]]>) -> Result<()> {
     let mut data = vec![12u8];
     data.extend_from_slice(&amount.to_le_bytes());
@@ -58,13 +58,13 @@ fn transfer_checked<'info>(token_program: &AccountInfo<'info>, from: &AccountInf
     Ok(())
 }
 
-fn leg_of(card: &Card, idx: u8) -> Result<usize> {
+pub(crate) fn leg_of(card: &Card, idx: u8) -> Result<usize> {
     require!((idx as usize) < card.leg_count as usize, ErrorCode::BadLeg);
     Ok(idx as usize)
 }
 
 /// The card's own token account for this leg (owned by the card PDA, right mint) and the right mint account.
-fn check_vault(card_key: &Pubkey, leg: &Leg, vault: &AccountInfo, mint: &AccountInfo, tp: &AccountInfo) -> Result<()> {
+pub(crate) fn check_vault(card_key: &Pubkey, leg: &Leg, vault: &AccountInfo, mint: &AccountInfo, tp: &AccountInfo) -> Result<()> {
     token_program_ok(tp)?;
     require!(mint.key() == leg.mint, ErrorCode::WrongMint);
     let (m, owner) = token_account(vault, tp)?;
@@ -73,7 +73,7 @@ fn check_vault(card_key: &Pubkey, leg: &Leg, vault: &AccountInfo, mint: &Account
 }
 
 /// Every exit goes to the card OWNER's own token account for that coin — nowhere else.
-fn check_owner_dest(card: &Card, leg: &Leg, dest: &AccountInfo, tp: &AccountInfo) -> Result<()> {
+pub(crate) fn check_owner_dest(card: &Card, leg: &Leg, dest: &AccountInfo, tp: &AccountInfo) -> Result<()> {
     let (m, owner) = token_account(dest, tp)?;
     require!(m == leg.mint, ErrorCode::WrongMint);
     require!(owner == card.owner, ErrorCode::NotOwnerAccount);
@@ -90,12 +90,15 @@ pub struct InitConfig<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn init_config(ctx: Context<InitConfig>, keeper: Pubkey) -> Result<()> {
+pub fn init_config(ctx: Context<InitConfig>, keeper: Pubkey, swap_program: Pubkey, max_slippage_bps: u16) -> Result<()> {
+    require!(max_slippage_bps <= MAX_SLIPPAGE_BPS, ErrorCode::BadSlippage);
     let c = &mut ctx.accounts.config;
     c.admin = ctx.accounts.admin.key();
     c.keeper = keeper;
     c.paused = false;
     c.bump = ctx.bumps.config;
+    c.swap_program = swap_program;
+    c.max_slippage_bps = max_slippage_bps;
     Ok(())
 }
 
@@ -106,10 +109,13 @@ pub struct SetConfig<'info> {
     pub config: Account<'info, Config>,
 }
 
-pub fn set_config(ctx: Context<SetConfig>, keeper: Pubkey, paused: bool) -> Result<()> {
+pub fn set_config(ctx: Context<SetConfig>, keeper: Pubkey, paused: bool, swap_program: Pubkey, max_slippage_bps: u16) -> Result<()> {
+    require!(max_slippage_bps <= MAX_SLIPPAGE_BPS, ErrorCode::BadSlippage);
     let c = &mut ctx.accounts.config;
     c.keeper = keeper;
     c.paused = paused;
+    c.swap_program = swap_program;
+    c.max_slippage_bps = max_slippage_bps;
     Ok(())
 }
 
@@ -126,7 +132,7 @@ pub struct OpenCard<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn open_card(ctx: Context<OpenCard>, card_id: u64, legs: Vec<LegIn>, toggles: Toggles) -> Result<()> {
+pub fn open_card(ctx: Context<OpenCard>, card_id: u64, legs: Vec<LegIn>, toggles: Toggles, quote_mint: Pubkey) -> Result<()> {
     let admin = ctx.accounts.owner.key() == ctx.accounts.config.admin;   // Cmd Ctr cards: up to 12 legs, any mix
     let spec: Vec<rules::LegSpec> = legs.iter().map(|l| rules::LegSpec { mint: l.mint.to_bytes(), kind: l.kind, tp_bps: l.tp_bps, sl_bps: l.sl_bps }).collect();
     rules::check_legs(&spec, admin).map_err(|e| error!(e))?;
@@ -138,11 +144,13 @@ pub fn open_card(ctx: Context<OpenCard>, card_id: u64, legs: Vec<LegIn>, toggles
     c.admin_card = admin;
     c.legs = [Leg::default(); MAX_LEGS];
     for (i, l) in legs.iter().enumerate() {
-        c.legs[i] = Leg { mint: l.mint, kind: l.kind, tp_bps: l.tp_bps, sl_bps: l.sl_bps, held: 0 };
+        c.legs[i] = Leg { mint: l.mint, kind: l.kind, tp_bps: l.tp_bps, sl_bps: l.sl_bps, ..Default::default() };
     }
     c.leg_count = legs.len() as u8;
     c.toggles = toggles;
     c.opened_ts = Clock::get()?.unix_timestamp;
+    c.quote_mint = quote_mint;
+    c.cash = 0;
     Ok(())
 }
 
@@ -185,8 +193,9 @@ pub struct MoveLeg<'info> {
     pub token_program: UncheckedAccount<'info>,
 }
 
-/// Put a leg's coins into the card (after the wallet-signed buy landed in the owner's wallet).
-pub fn deposit_leg(ctx: Context<MoveLeg>, idx: u8, amount: u64) -> Result<()> {
+/// Put a leg's coins into the card (after the wallet-signed buy landed in the owner's wallet). `cost_quote` = what the
+/// owner paid for them (quote atoms) — the entry every on-chain trigger compares against. Signed by the owner only.
+pub fn deposit_leg(ctx: Context<MoveLeg>, idx: u8, amount: u64, cost_quote: u64) -> Result<()> {
     let card_key = ctx.accounts.card.key();
     let i = leg_of(&ctx.accounts.card, idx)?;
     let leg = ctx.accounts.card.legs[i];
@@ -196,6 +205,8 @@ pub fn deposit_leg(ctx: Context<MoveLeg>, idx: u8, amount: u64) -> Result<()> {
     transfer_checked(&a.token_program, &a.owner_token, &a.mint, &a.card_vault, &a.owner, amount, None)?;
     let leg = &mut ctx.accounts.card.legs[i];
     leg.held = leg.held.checked_add(amount).ok_or(ErrorCode::Overflow)?;
+    leg.entry_coin = leg.entry_coin.checked_add(amount).ok_or(ErrorCode::Overflow)?;
+    leg.entry_quote = leg.entry_quote.checked_add(cost_quote).ok_or(ErrorCode::Overflow)?;
     Ok(())
 }
 
@@ -266,6 +277,6 @@ pub struct CloseCard<'info> {
 /// Close an EMPTY card (every leg withdrawn); its rent goes back to the owner.
 pub fn close_card(ctx: Context<CloseCard>) -> Result<()> {
     let c = &ctx.accounts.card;
-    require!(c.legs[..c.leg_count as usize].iter().all(|l| l.held == 0), ErrorCode::NotEmpty);
+    require!(c.legs[..c.leg_count as usize].iter().all(|l| l.held == 0 && l.parked == 0) && c.cash == 0, ErrorCode::NotEmpty);
     Ok(())
 }

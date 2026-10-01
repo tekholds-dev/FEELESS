@@ -8,6 +8,7 @@ skip-lint = false
 [programs.localnet]
 fuse_vault = "yFFn2Z5Rc1vRYQWNQabtc3qLgnKwscx7rzPv4EL4rzb"
 fuse_card = "GKE9e3M8shuD2nwTwchgP4BH22fiN6hyQrp4qwhkurpa"
+mock_amm = "HvN8e8WZQ3vsLfAcqn83zvhRRnYdf2bHiyRcFDwtq7Wp"
 
 [provider]
 cluster = "localnet"

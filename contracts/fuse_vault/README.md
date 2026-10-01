@@ -93,3 +93,24 @@ Goal: auto TP / SL / profit / compound **sell inside the program** instead of on
    router + checks (min_out from pool reserves). Still owner-toggled; still owner-withdrawable at any time.
 6. Then: devnet run against real PumpSwap / Raydium pools → external audit → deploy with the owner's keys + multisig upgrade
    authority. Until then the website keeps one-tap alerts (FEELESS never signs for users).
+
+
+## FUSE Card v0.2 — keeper trades (LOCALNET ONLY · not audited · not deployed)
+What a card owner signs once (open_card + toggles): per-coin TP / SL, auto on/off, auto-compound, and the stop mode
+(`sl_mode`: 0 pay out · 1 park & rebuy at entry · 2 hold). After that the keeper runs it — no click per trade — inside these fences:
+1. Only the configured keeper key, never while paused, only automations the owner switched on (`rules::keeper_allowed`).
+2. Only through `config.swap_program` (one whitelisted program) and only the pool whose mints = the leg's coin + the card's quote.
+3. The TRIGGER is checked on-chain from that pool's reserves vs the owner's own entry (`hit_up` / `hit_down` / `back_at_entry`).
+4. `min_out` ≥ pool's expected output − slippage (config ≤ 3% hard cap) and the card's balance must really grow by ≥ min_out.
+5. Proceeds go to the owner's own wallet (TP / profit / payout stops), stay parked on the leg (park mode) or stay as card cash
+   that may only be bought back into coins ALREADY on the card (compound). The owner can always withdraw coins, parked SOL, cash.
+
+Tests: `cargo test -p fuse_card --lib` (6) · `solana-test-validator --reset` then `anchor test --skip-local-validator
+--provider.cluster localnet` (14: card 5 + keeper trading 4 against `programs/mock_amm` + vault 5).
+
+### Before any real money (owner + auditor)
+- **Adapter**: replace `mock_amm` with an audited adapter per venue (Raydium CPMM first: same constant-product math). Pin its
+  program id in config; each adapter must expose the same pool layout (mints + vaults) the price check reads.
+- **Price manipulation**: spot reserves can be pushed inside one transaction. Mainnet needs a TWAP / oracle bound (e.g. the pool's
+  observation account or Pyth for majors) next to the spot check, and the keeper key in an HSM.
+- Devnet run with real pools → external audit → owner deploys with a multisig upgrade authority and small per-card caps.
