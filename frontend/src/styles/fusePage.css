@@ -1,0 +1,30 @@
+/* Fuse 🧬 page (FusePage.jsx) — own sheet so meta.css stays in budget; built from m-* tokens. */
+.fuse-page { display: grid; gap: 14px; }
+.fp-head { display: grid; gap: 6px; } .fp-title { margin: 0; font-family: 'Audiowide', var(--m-mono); font-size: 32px; letter-spacing: .04em; background: linear-gradient(90deg, #19f58f, #6bffc0 55%, #f5c451); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.fp-title span { color: initial; -webkit-text-fill-color: initial; }
+.fp-tabs { width: fit-content; } .fp-body { animation: mCardIn .2s var(--m-ease) backwards; }
+.fp-lab { align-items: start; } .fp-right { display: grid; gap: 12px; align-content: start; }
+.fp-featured { display: grid; gap: 8px; } .fp-feat { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+.fp-feat > div { display: grid; min-width: 0; } .fp-feat small { color: var(--m-dim); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fp-runners { display: grid; gap: 10px; } .fp-rgrid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.fp-runner { display: grid; gap: 8px; transition: border-color .15s, transform .12s var(--m-ease); } .fp-runner:hover { border-color: var(--m-accent); transform: translateY(-2px); }
+.fp-runner.is-on { border-color: var(--m-accent); box-shadow: 0 0 0 1px var(--m-accent) inset, 0 0 24px -12px var(--m-accent); }
+.fp-rtop { display: flex; gap: 10px; align-items: center; } .fp-rtop img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; } .fp-rtop > div { display: grid; } .fp-rtop small { color: var(--m-dim); font-size: 11px; }
+.fp-rstats { gap: 10px; font-family: var(--m-mono); font-size: 11px; }
+.fp-arena { display: grid; gap: 12px; } .fp-bars { display: flex; gap: 3px; align-items: center; height: 70px; margin-top: 8px; }
+.fp-bars i { flex: 1; height: 100%; border-radius: 3px; transform-origin: center; background: var(--m-accent); } .fp-bars i.down { background: var(--m-danger); }
+.fp-cards { display: grid; gap: 12px; } .fp-book { gap: 12px; } .fp-cgrid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.fp-cell { display: grid; gap: 8px; justify-items: center; align-content: start; }
+.fp-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; } .fp-acts .m-btn { min-height: 30px; padding: 0 10px; font-size: 11px; }
+.fp-acts .m-btn.is-armed { border-color: var(--m-accent); color: var(--m-accent); } .fp-acts .m-btn.is-warn { border-color: var(--m-warn); color: var(--m-warn); }
+.fp-panel { width: 100%; display: grid; gap: 8px; animation: mCardIn .18s var(--m-ease) backwards; } .fp-moves { margin: 0; padding-left: 18px; font-size: 12px; color: var(--m-dim); }
+.fp-empty { display: grid; gap: 4px; } .fp-receipts ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; } .fp-receipts li { display: grid; gap: 2px; }
+.fp-banner { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; margin-bottom: 12px; border-radius: var(--m-r); border: 1px solid color-mix(in srgb, var(--m-accent) 40%, var(--m-line)); background: var(--m-surface); color: var(--m-text); text-decoration: none; transition: border-color .15s, transform .1s; }
+.fp-banner:hover { border-color: var(--m-accent); } .fp-banner:active { transform: scale(.99); } .fp-banner:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.fp-banner b { font-family: 'Audiowide', var(--m-mono); }
+.nav-fuse span, .nav-fuse { font-family: 'Audiowide', var(--m-mono); letter-spacing: .03em; }
+body.theme-day .fp-runner, body.theme-day .fp-banner { background: #fff; }
+@media (prefers-reduced-motion: reduce) { .fp-body, .fp-panel { animation: none; } }
+@media (max-width: 640px) { .fp-title { font-size: 26px; } .fp-cgrid { grid-template-columns: 1fr; } }
+.rn-settings summary { cursor: pointer; list-style: none; } .rn-settings summary::-webkit-details-marker { display: none; } .rn-settings[open] summary { margin-bottom: 10px; }
+.ay-default { gap: 12px; margin-bottom: 10px; align-items: center; }

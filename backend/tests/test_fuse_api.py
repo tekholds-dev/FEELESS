@@ -244,3 +244,33 @@ def test_auto_rebalance_alert(monkeypatch):
     assert asyncio.run(rs.fuse_guard(rs.FuseGuardIn(address=W, session='s', id='r1', rebalance=10)))['autoRebalance']['tol'] == 10
     asyncio.run(rs._fuse_guard_tick()); asyncio.run(rs._fuse_guard_tick())                 # drift 25 pts → once
     assert len(sent) == 1 and 'rebalance=r1' in sent[0][1]['url']
+
+
+def test_auto_collect_fires_once_then_rearms_after_collecting(monkeypatch):
+    px = {'P1': 2.0}
+    async def prices(legs): return {leg['pairAddress']: px['P1'] for leg in legs}
+    sent = []
+    monkeypatch.setattr(rs, '_hq_prices', prices); monkeypatch.setattr(rs, '_session_or_401', lambda a, s: rs.primary_of(a))
+    monkeypatch.setattr(rs, 'notify', lambda *a, **k: sent.append((a, k)))
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN')
+    me = rs.primary_of(W)
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'y1', 'wallet': me, 'name': 'Core', 'at': 1, 'legs': [{'pairAddress': 'P1', 'mint': 'M', 'usd': 100, 'tokens': 50}]}]})
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.fuse_auto_yield(rs.FuseYieldIn(address=W, session='s', id='y1', at=5)))      # below +10%
+    y = asyncio.run(rs.fuse_auto_yield(rs.FuseYieldIn(address=W, session='s', id='y1', at=50)))['autoYield']
+    assert y['base'] == 100 and y['at'] == 50
+    assert asyncio.run(rs._fuse_yield_tick(rs._json_load(rs.FUSE_HQ_PATH, {}), 10)) == 0
+    px['P1'] = 3.0                                                                                # held $150 = +50%
+    assert asyncio.run(rs._fuse_yield_tick(rs._json_load(rs.FUSE_HQ_PATH, {}), 20)) == 1
+    assert asyncio.run(rs._fuse_yield_tick(rs._json_load(rs.FUSE_HQ_PATH, {}), 30)) == 0           # once
+    a, k = sent[0]
+    assert '💸' in a[2] and 'collect=y1' in k['url'] and 'pct=33.3' in k['url']
+    # the holder collects (partial close) → re-arms from the new held value, no repeat alert on the same gain
+    d = rs._json_load(rs.FUSE_HQ_PATH, {})
+    d['positions'][0]['autoYield'].update(firedAt=None, rebase=True)
+    d['positions'][0]['legs'][0].update(tokens=33.33, realizedUsd=50)
+    rs._json_save(rs.FUSE_HQ_PATH, d)
+    assert asyncio.run(rs._fuse_yield_tick(rs._json_load(rs.FUSE_HQ_PATH, {}), 40)) == 0
+    assert round(rs._json_load(rs.FUSE_HQ_PATH, {})['positions'][0]['autoYield']['base']) == 100
+    # Cmd Ctr default arms new cards
+    assert asyncio.run(rs.admin_auto_yield_set(Req({'on': True, 'at': 75}))) == {'on': True, 'at': 75.0}

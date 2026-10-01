@@ -314,3 +314,33 @@ def drift(row):
     if cost <= 0 or held <= 0 or len(open_) < 2:
         return 0.0
     return round(max(abs(_f(l.get('heldUsd')) / held - _f(l.get('usd')) / cost) * 100 for l in open_), 2)
+
+
+# ---- Auto-collect (💸 collect profit at +X%) ---------------------------------------------------------------------
+# Non-custodial: FEELESS never signs for a holder. "Auto" = an armed rule: when the card's HELD value reaches
+# base × (1 + at%), the holder gets ONE alert with a pre-filled "Collect profit" that sells only the gain (their base
+# stays in the card). After they collect, the rule re-arms from the new held value, so it never re-fires on the same gain.
+YIELD_DEFAULT_AT = 50.0
+
+
+def clean_yield_at(v):
+    x = _f(v)
+    if not 10 <= x <= 1000:
+        raise ValueError('Collect-profit trigger must be between +10% and +1000%.')
+    return round(x, 1)
+
+
+def held_value(r):
+    """What is still in the card now: total value minus what was already taken out."""
+    return max(0.0, _f(r.get('valueUsd')) - _f(r.get('realizedUsd')))
+
+
+def yield_due(r, y):
+    base = _f((y or {}).get('base'))
+    return bool(y) and not y.get('firedAt') and not y.get('rebase') and base > 0 and held_value(r) >= base * (1 + _f(y.get('at')) / 100)
+
+
+def collect_pct(r, y):
+    """% of each leg to sell so only the gain comes out (e.g. +50% → sell 33.3%, the base stays in)."""
+    held, base = held_value(r), _f((y or {}).get('base'))
+    return round(min(100.0, max(0.0, (held - base) / held * 100)), 1) if held > 0 and held > base else 0.0

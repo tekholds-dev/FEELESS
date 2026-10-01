@@ -2900,7 +2900,11 @@ async def fuse_position(p: FusePositionIn):
         legs = [leg for leg in legs if leg['sig'] not in used]
         if not legs:
             return {'ok': True, 'counted': False}
-        d.setdefault('positions', []).append({'id': uuid.uuid4().hex[:10], 'wallet': me, 'name': p.name.strip() or 'Lab fuse', 'fuseId': p.fuseId[:16], 'at': time.time(), 'legs': legs})
+        pos = {'id': uuid.uuid4().hex[:10], 'wallet': me, 'name': p.name.strip() or 'Lab fuse', 'fuseId': p.fuseId[:16], 'at': time.time(), 'legs': legs}
+        dflt = d.get('autoYieldDefault') or {}
+        if dflt.get('on'):   # Cmd Ctr default: new cards arm 💸 collect-profit at +at% of what was put in
+            pos['autoYield'] = {'at': float(dflt.get('at') or _hq.YIELD_DEFAULT_AT), 'base': round(sum(_fuse._f(x.get('usd')) for x in legs), 6), 'armedAt': time.time(), 'firedAt': None}
+        d.setdefault('positions', []).append(pos)
         _json_save(FUSE_HQ_PATH, d)
     return {'ok': True, 'counted': True, 'legs': len(legs)}
 
@@ -2942,6 +2946,8 @@ async def fuse_position_close(p: FuseCloseIn):
         pos, n = _hq.close_legs(pos, [t for t in sells if t['tx'] not in used], now=time.time())
         if n and all(leg.get('soldUsd') is not None for leg in pos['legs']):
             pos['closedAt'] = time.time()
+        if n and pos.get('autoYield') and not pos.get('closedAt'):   # collected → re-arm from the new held value (next tick)
+            pos['autoYield'].update(firedAt=None, rebase=True)
         _json_save(FUSE_HQ_PATH, d)
     return {'ok': True, 'closedLegs': n}
 
@@ -2985,6 +2991,95 @@ async def fuse_guard(p: FuseGuardIn):
     return {'ok': True, 'guard': pos.get('guard')}
 
 
+async def _fuse_yield_tick(d, now):
+    """💸 Auto-collect: re-arm cards that just collected (base = held now); alert once when held ≥ base × (1 + at%) with a
+    pre-filled Collect-profit link (sells only the gain). The holder's wallet still approves — FEELESS never signs."""
+    ys = [x for x in d.get('positions') or [] if x.get('autoYield') and not x.get('closedAt') and not x['autoYield'].get('firedAt')]
+    if not ys:
+        return 0
+    px = await _hq_prices([leg for x in ys for leg in x['legs']])
+    upd, fired = {}, []
+    for x in ys:
+        r = _hq.position_pnl(x, px)
+        y = x['autoYield']
+        if y.get('rebase'):
+            upd[x['id']] = {'base': round(_hq.held_value(r), 6), 'rebase': False}
+        elif _hq.yield_due(r, y):
+            pct = _hq.collect_pct(r, y)
+            upd[x['id']] = {'firedAt': now}
+            fired.append((x, r, pct))
+    if upd:
+        async with _admin_lock:
+            d2 = _json_load(FUSE_HQ_PATH, {})
+            for x in d2.get('positions') or []:
+                if x['id'] in upd and x.get('autoYield'):
+                    x['autoYield'].update(upd[x['id']])
+            _json_save(FUSE_HQ_PATH, d2)
+    for x, r, pct in fired:
+        gain = _hq.held_value(r) - x['autoYield']['base']
+        notify(x['wallet'], 'fuse-guard', f"💸 {x.get('name') or 'Your Fuse card'} is up +{x['autoYield']['at']:.0f}% — collect ${gain:,.2f} profit (sells {pct:.0f}% of each leg, your base stays in). One approval.",
+               url=f"/terminal/fuse?tab=cards&collect={x['id']}&pct={pct}", once=f"yield-{x['id']}-{x['autoYield'].get('armedAt')}-{int(x['autoYield']['base'] * 100)}",
+               meta={'claim': f"Held value up {x['autoYield']['at']:.0f}% on your base", 'source': 'Fuse P&L (live prices)'})
+    return len(fired)
+
+
+class FuseYieldIn(BaseModel):
+    address: str
+    session: str
+    id: str
+    at: float = 0
+    off: bool = False
+
+
+@app.post('/api/reputation/fuses/auto-yield')
+async def fuse_auto_yield(p: FuseYieldIn):
+    """Arm / disarm 💸 auto-collect on YOUR card: alert + pre-filled Collect profit when held value is up `at`%."""
+    me = _session_or_401(p.address, p.session)
+    mine = set(linked_of(me)) | {me}
+    if not p.off:
+        try:
+            at = _hq.clean_yield_at(p.at or _hq.YIELD_DEFAULT_AT)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+    d = _json_load(FUSE_HQ_PATH, {})
+    pos = next((x for x in d.get('positions') or [] if x['id'] == p.id and x['wallet'] in mine and not x.get('closedAt')), None)
+    if not pos:
+        raise HTTPException(404, 'No such open Fuse card for this wallet.')
+    base = 0.0 if p.off else round(_hq.held_value(_hq.position_pnl(pos, await _hq_prices(pos['legs']))), 6)
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {})
+        pos = next(x for x in d['positions'] if x['id'] == p.id)
+        if p.off:
+            pos.pop('autoYield', None)
+        else:
+            pos['autoYield'] = {'at': at, 'base': base, 'armedAt': time.time(), 'firedAt': None}
+        _json_save(FUSE_HQ_PATH, d)
+    return {'ok': True, 'autoYield': pos.get('autoYield')}
+
+
+@app.get('/api/reputation/admin/fuses/auto-yield')
+async def admin_auto_yield_get(request: Request):
+    _require_admin(request)
+    return _json_load(FUSE_HQ_PATH, {}).get('autoYieldDefault') or {'on': False, 'at': _hq.YIELD_DEFAULT_AT}
+
+
+@app.post('/api/reputation/admin/fuses/auto-yield')
+async def admin_auto_yield_set(request: Request):
+    """Cmd Ctr default for NEW Fuse cards (users can still turn it off per card)."""
+    admin = _require_admin(request)
+    body = await request.json()
+    try:
+        at = _hq.clean_yield_at(body.get('at') or _hq.YIELD_DEFAULT_AT)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {})
+        d['autoYieldDefault'] = {'on': bool(body.get('on')), 'at': at}
+        _json_save(FUSE_HQ_PATH, d)
+        ad = _admin_load(); _audit(ad, admin, 'fuse-auto-yield', json.dumps(d['autoYieldDefault'])); _admin_save(ad)
+    return d['autoYieldDefault']
+
+
 async def _fuse_guard_tick():
     """Every minute: value open, guarded positions; when a limit hits, alert the holder once (inbox + phone) with a
     one-tap Unfuse link. FEELESS never signs for you — the exit is still your wallet's approval."""
@@ -3009,6 +3104,8 @@ async def _fuse_guard_tick():
                         x['autoRebalance']['lastAt'] = now
                 _json_save(FUSE_HQ_PATH, d2)
         d = _json_load(FUSE_HQ_PATH, {})
+    await _fuse_yield_tick(d, now)
+    d = _json_load(FUSE_HQ_PATH, {})
     live = [x for x in d.get('positions') or [] if x.get('guard') and not x['guard'].get('firedAt') and not x.get('closedAt')]
     if not live:
         return 0
@@ -3115,7 +3212,7 @@ async def fuse_pnl(address: str):
     mine = set(linked_of(primary_of(address))) | {primary_of(address), address}
     pos = [x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if x['wallet'] in mine]
     px = await _hq_prices([leg for x in pos for leg in x['legs']]) if pos else {}
-    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance')} for x in pos), key=lambda r: -(r['at'] or 0))
+    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield')} for x in pos), key=lambda r: -(r['at'] or 0))
     rows = [{**r, 'drift': _hq.drift(r)} for r in rows]
     return {**_hq.book(rows), 'rows': rows[:20]}
 
