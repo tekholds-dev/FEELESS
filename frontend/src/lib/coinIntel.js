@@ -1,15 +1,11 @@
 import { useEffect, useState } from 'react';
-import { apiUrl } from './api';
+import { fetchEdgeIntel } from './coinEdge';
 
 // Launch forensics for a coin (creator, snipers, bundled wallets, top holders): one request per coin per minute,
 // shared by every tape row / card that asks.
-const cache = new Map();
+// Forensics come through the coin edge (one record per coin, cached server-side); `intel=1` runs the scan if needed.
 export function fetchIntel(chain, mint) {
-  const k = `${chain}:${mint}`; const hit = cache.get(k);
-  if (hit && Date.now() - hit.at < 60000) return hit.p;
-  const p = fetch(apiUrl(`/api/reputation/intel/${chain}/${mint}`)).then(r => (r.ok ? r.json() : null)).catch(() => null);
-  cache.set(k, { at: Date.now(), p });
-  return p;
+  return chain === 'solana' && mint ? fetchEdgeIntel(mint) : Promise.resolve(null);
 }
 
 // wallet -> [{ id, label, tone, why }] for the tape: who this trader is on this coin.

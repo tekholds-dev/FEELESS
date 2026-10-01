@@ -18,7 +18,7 @@ import { BoltLegend, BoltSignal } from '../terminal/BoltSignal';
 import { MiniChart } from '../terminal/MiniChart';
 import { openWarRoom } from '../WarRoomHost';
 import { heatScore } from '../../lib/heat';
-import { useSnipersOut, snipersOutFor } from '../../lib/snipersOut';
+import { useSnipersOutList, snipersOutFor } from '../../lib/snipersOut';
 
 export const RadarView = ({ pairs, onSelect, kind = 'pump' }) => {
   useClock(10000); const { ecosystem } = useWorkspace();
@@ -86,7 +86,7 @@ export const PumpRadarView = ({ newFeed, trendingFeed, onSelect }) => {
   const [failedNewLogos, setFailedNewLogos] = useState(() => new Set());
   const [callCounts, setCallCounts] = useState({});
   const now = useClock(1000);
-  useSnipersOut(null);   // keeps the shared snipers-out poll alive for the filter below
+  useSnipersOutList();   // keeps the radar list poll alive for the filter below
   useEffect(() => {
     let alive = true;
     const load = () => fetch(apiUrl('/api/reputation/calls/recent?limit=100')).then(r => r.ok ? r.json() : { calls: [] }).then(d => {

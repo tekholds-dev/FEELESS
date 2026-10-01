@@ -3258,6 +3258,57 @@ async def _crowd_build():
     return data
 
 
+# ---- COIN EDGE (backend/coin_edge.py): ONE record per coin for every surface — read from caches that already exist -------
+import coin_edge as _edge
+_edge_cache: dict = {}   # mint -> (at, record)
+_edge_pulse: dict = {}   # mint -> (at, pulse)
+
+
+async def _edge_pulses(mints):
+    """5m pulse for many coins in ONE call to the market service (15s per coin)."""
+    now = time.time()
+    need = [m for m in mints if now - _edge_pulse.get(m, (0, None))[0] > 15]
+    if need:
+        try:
+            async with httpx.AsyncClient(timeout=6) as http:
+                coins = (await http.get('http://127.0.0.1:5001/api/market/pulse', params={'mints': ','.join(need[:60])})).json().get('coins') or {}
+        except Exception:
+            coins = {}
+        for m in need:
+            _edge_pulse[m] = (now, coins.get(m))
+    return {m: _edge_pulse.get(m, (0, None))[1] for m in mints}
+
+
+@app.get('/api/reputation/edge')
+async def coin_edge(mints: str = Query('', max_length=3000), intel: bool = False):
+    """Coin edge for up to 60 coins: pulse, snipers out, verification, forensics, runner gates + bond boxes, Fuse sources, elite
+    flow — 15s cache per coin, nothing slow on the request path. intel=1 (≤3 coins) also runs the holder scan if it isn't cached
+    (the trade tape's wallet tags need it)."""
+    ms = [m for m in dict.fromkeys(x.strip() for x in mints.split(',')) if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', m)][:60]
+    now = time.time()
+    out = {m: _edge_cache[m][1] for m in ms if now - _edge_cache.get(m, (0, None))[0] < 15 and not (intel and not _edge_cache[m][1].get('intel'))}
+    todo = [m for m in ms if m not in out]
+    if todo:
+        if intel and len(todo) <= 3:
+            await asyncio.gather(*[_runner_intel(m) for m in todo], return_exceptions=True)
+        pulses = await _edge_pulses(todo)
+        ver = (await verify_batch(','.join(todo)))['verify']
+        snip = {}
+        for e in _radar['events']:
+            if e['kind'] == 'snipers-out' and now - e['at'] < 6 * 3600:
+                snip.setdefault(e.get('mint') or e['pair'], e)
+        live = _runner_live_cache.get('data') or {}
+        runner = {r['mint']: r for r in (live.get('dropped') or []) + (live.get('passing') or [])}
+        disc = {r['mint']: r.get('sources') or [] for r in ((_runner_disc_cache.get('data') or {}).get('runners') or [])}
+        flow = ((_crowd_cache.get('data') or {}).get('flow')) or {}
+        for m in todo:
+            rec = _edge.compose(m, pulses.get(m), snip.get(m), ver.get(m), (_intel_cache.get(m) or (0, None))[1], runner.get(m), disc.get(m), flow.get(m))
+            _edge_cache[m] = (now, rec); out[m] = rec
+        if len(_edge_cache) > 5000:
+            _edge_cache.clear()
+    return {'edge': out, 'at': now}
+
+
 @app.get('/api/reputation/crowd/elite-flow')
 async def crowd_elite_flow():
     """Coins FEELESS's proven traders bought in the last 6h (counts only — no wallets exposed). Rebuilt every ~10 min."""

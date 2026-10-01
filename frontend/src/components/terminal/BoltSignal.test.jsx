@@ -10,7 +10,7 @@ const pulse = (overrides = {}) => ({ pulse: true, level: 2, m5Change: 8.4, buys:
 const pair = mint => ({ chainId: 'solana', pairAddress: `pool-${mint}`, baseToken: { address: mint, symbol: 'CAT' } });
 
 async function render(ui, coins) {
-  global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({ coins }) }));
+  global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({ edge: Object.fromEntries(Object.entries(coins).map(([m, p]) => [m, { pulse: p }])) }) }));
   const host = document.createElement('div');
   document.body.appendChild(host);
   const root = createRoot(host);

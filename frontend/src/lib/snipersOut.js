@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiUrl } from './api';
+import { useCoinEdge } from './coinEdge';
 
 // Snipers-out hub: one shared /radar poll for every coin card on screen. A coin is tagged for
 // WINDOW_MS after all of its flagged snipers/bundlers sold out (server: token intel forensics).
@@ -23,7 +24,8 @@ async function refresh() {
   } catch { /* keep the last known state */ }
 }
 
-export function useSnipersOut(pair) {
+// The Snipers-out LIST view (every coin on the radar, not just coins on screen) keeps this radar poll alive.
+export function useSnipersOutList() {
   const [, setTick] = useState(0);
   useEffect(() => {
     const listener = () => setTick(t => t + 1);
@@ -34,8 +36,12 @@ export function useSnipersOut(pair) {
       if (!listeners.size && timer) { clearInterval(timer); timer = null; }
     };
   }, []);
-  if (pair?.chainId !== 'solana') return null;
-  return out.get(pair?.baseToken?.address) || out.get(pair?.pairAddress) || null;
+}
+
+// One coin's snipers-out flag: read from the shared coin edge poller (lib/coinEdge.js).
+export function useSnipersOut(pair) {
+  const e = useCoinEdge(pair?.chainId === 'solana' ? pair?.baseToken?.address : null);
+  return e?.snipersOut || (pair?.chainId === 'solana' ? out.get(pair?.baseToken?.address) || out.get(pair?.pairAddress) : null) || null;
 }
 
 // Read the shared snipers-out state without subscribing (a component that renders lists calls useSnipersOut once to
