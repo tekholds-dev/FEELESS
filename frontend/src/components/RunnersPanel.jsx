@@ -11,12 +11,12 @@ import '../styles/runners.css';
 // 🏃 FUSE RUNNERS — coins come to it. Every launchpad coin the feed sees is gated (rugs out), scored, laned (scalp / runner
 // / hold) with a preset exit ladder; every 15 min a round keeps the best runners and adds newcomers; every round is
 // played on paper. The Fuse button only lights when the last 24h of rounds actually won. One shared /runners poll (20s).
-const LANES = [['scalp', '🔥', 'SCALP', 'Pre-bond rush'], ['runner', '🏃', 'RUNNERS', '1–48h momentum'], ['hold', '💎', 'HOLD', 'Stayed 2+ rounds']];
+export const LANES = [['scalp', '🔥', 'SCALP', 'Pre-bond rush'], ['runner', '🏃', 'RUNNERS', '1–48h momentum'], ['hold', '💎', 'HOLD', 'Stayed 2+ rounds']];
 const pct = v => `${v >= 0 ? '+' : ''}${Math.abs(v) >= 1000 ? `${(1 + v / 100).toFixed(1)}x` : `${(v || 0).toFixed(1)}%`}`;
 const usd = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v || 0)}`);
 const pairOf = r => ({ chainId: 'solana', baseToken: { address: r.mint, symbol: r.symbol }, info: { imageUrl: r.logo } });
 
-function useRunners() {
+export function useRunners() {
   const [d, setD] = useState(null);
   useEffect(() => {
     let alive = true; const load = () => !document.hidden && fetch(apiUrl('/api/reputation/runners')).then(r => r.json()).then(x => alive && x?.live && setD(x)).catch(() => {});
@@ -26,14 +26,14 @@ function useRunners() {
   return d;
 }
 
-function Countdown({ at }) {
+export function Countdown({ at }) {
   const [now, setNow] = useState(Date.now() / 1000);
   useEffect(() => { const t = setInterval(() => setNow(Date.now() / 1000), 1000); return () => clearInterval(t); }, []);
   const s = Math.max(0, Math.round(at - now));
   return <b className="m-num">{String(Math.floor(s / 60)).padStart(2, '0')}:{String(s % 60).padStart(2, '0')}</b>;
 }
 
-function ProofRing({ p, need }) {
+export function ProofRing({ p, need }) {
   const deg = Math.max(0, Math.min(100, p.winRate)) * 3.6;
   return <div className={`rn-proof ${p.lights ? 'is-lit' : ''}`} data-tip={p.lights ? `Lit: last 24h of rounds averaged ${pct(p.avgPct)}, ${p.winRate}% won.` : `Proving: needs ${need} rounds, a positive average and ≥50% won before the button lights.`}>
     <div className="rn-ring" style={{ '--deg': `${deg}deg` }}><span><b className="m-num">{p.rounds ? pct(p.avgPct) : '—'}</b><small>{p.winRate}% won</small></span></div>
@@ -41,7 +41,7 @@ function ProofRing({ p, need }) {
   </div>;
 }
 
-function CoinRow({ r, live }) {
+export function CoinRow({ r, live }) {
   const move = live && r.entry ? ((r.now || r.price) / r.entry - 1) * 100 : r.chg1h;
   return <div className={`rn-coin lane-${r.lane || 'runner'}`}>
     <span className="rn-logo"><TokenAvatar pair={pairOf(r)} size={30} /></span>

@@ -37,6 +37,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   2 pseudo-layers, never on list rows); primary buy/go buttons get `m-go` (deep→neon gradient, lift on hover). Add a preset there before writing one-off CSS. `styles/cssHygiene.test.js`
   fails on dead class rules and on legacy sheets growing past their KB budget; lower budgets when you delete CSS.
 
+## CSS map (where styles live — keep it organized)
+- `meta.css` = m-* presets only (budget-capped). `terminal.css` = legacy terminal (append scoped blocks only when no sheet fits).
+- Feature sheets, imported by their component, built from m-* tokens: `fuseLab.css` (Lab, FuseRail `frail-*`, FuseEvolve `fe-*`),
+  `fusePage.css` (Fuse 🧬 page `fp-*`: discovery tiles, Arena round card/lit list, My cards, banner), `runners.css` (`rn-*`
+  hero/ring/countdown/lanes/CoinRow, fire accent `--rn-fire`), `auras.css`, `command.css` (Cmd Ctr).
+- Each sheet ends with its own `body.fx-lite`, `prefers-reduced-motion` and `body.theme-day` blocks + a 640px media query.
+- Motion: one keyframe set per sheet (`fp*`, `rn*`, `fcd*`), transform/opacity only, list stagger via `--i` × 45–60ms.
+- Delete a class from JSX ⇒ delete its rule (cssHygiene fails on dead rules).
+
 ## One component per job
 - Every coin chart is `components/terminal/TrenchChart.jsx` (toolbar, P&L badge, your trades on candles, Quick trade,
   Dip/Rip, rug shield). Trenches and the globe war room both use it; fix or extend it there, never fork a copy.
@@ -221,6 +230,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 💸 Auto-collect (`fuse_hq.yield_due/collect_pct`, `POST /fuses/auto-yield`, admin `GET|POST /admin/fuses/auto-yield`): when a
   card's HELD value ≥ base × (1 + at%) [default 50, 10–1000] → ONE alert with a pre-filled Collect profit that sells only the
   gain; a partial close re-arms from the new held value. NON-CUSTODIAL: it never sells by itself — the holder approves.
+
+- Runners tab = live discovery (`RunnerPicker` ← `GET /runners/discover`, 20s cache): gated coins only, tagged by source
+  (`runners.SOURCES`: 🏟 arena pick · 🔥 lit card · 🚀 pump scan top 8 · 🎯 snipers out 6h · 📣 creators' pick = sharp callers
+  ≥3 calls & ≥50% hit, or runner legs of published Fuses). Sorted by source count; 2+ sources glow. Filter chips, ≤3 to card.
+- Arena tab (`ArenaBoard`) reuses RunnersPanel's `ProofRing`/`Countdown`/`CoinRow`/`LANES`: round card lights (`is-lit`) when
+  `proof.lights`; each newly dealt round under lit proof is saved (`runners.lit_card`, ≤30, 72h price watch) → lit-cards list
+  with `card_result` % since lit + "Use". Mid-round, ONE failing pick per tick is auto-swapped (`runners.swap_failing`) for
+  the best passing runner; swaps are listed with the failed gate and counted honestly in `proof` (swapped-out mult kept).
+- Prebuilt rail budgets: $1 / $20 / $100 or a custom $ (debounced 250ms); server breeds for the nearest bucket, Fuse in
+  uses the exact amount. Pools-per-fuse segment is Cmd Ctr only.
 
 ## Coin verification + coin badges
 - `backend/verify.py`: coins EARN and LOSE the check and coin badges (`COIN_BADGES`) the same way — recomputed each run

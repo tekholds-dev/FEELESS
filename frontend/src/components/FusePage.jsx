@@ -8,6 +8,8 @@ import { FuseLab } from './FuseLab';
 import { FuseSide } from './FuseSide';
 import { FuseGo } from './FuseGo';
 import { LiveFuseCard } from './FuseCard';
+import { useRunners, Countdown, ProofRing, CoinRow, LANES } from './RunnersPanel';
+import '../styles/runners.css';
 import '../styles/fusePage.css';
 
 // Fuse 🧬 — the whole Fuse product in one tab: Lab (build + featured) · Runners (pick ≤3 fresh coins) · Arena (proof)
@@ -44,7 +46,7 @@ export function FusePage() {
       {tab === 'lab' && <div className="fz-split-view fp-lab"><FuseLab runnerPicks={runnerPicks} onRunnerPicks={setRunnerPicks} incoming={incoming} limits={limits} />
         <aside className="fp-right"><FeaturedFuses onLoad={f => setIncoming({ legs: f.legs, sol: 0, n: Date.now() })} /><FuseSide /></aside></div>}
       {tab === 'runners' && <RunnerPicker picks={runnerPicks} onPicks={setRunnerPicks} onDone={() => go('lab')} />}
-      {tab === 'arena' && <ArenaBoard />}
+      {tab === 'arena' && <ArenaBoard onPicks={list => { setRunnerPicks(list); go('lab'); }} />}
       {tab === 'cards' && <MyCards addr={addr} />}
     </div>
   </section>;
@@ -60,43 +62,71 @@ export function FeaturedFuses({ onLoad }) {
       <button type="button" className="m-btn" onClick={() => onLoad(f)} data-testid={`feat-load-${f.id}`}>Load</button></div>)}</section>;
 }
 
-// ---- Runners (users): pick ≤3 for your next card ---------------------------------------------------------------------
+// ---- Runners (users): live discovery — gated runners every source likes, pick ≤3 ----------------------------------------
 export function togglePick(picks, r, max = MAX_RUNNERS) {
   if (picks.some(p => p.mint === r.mint)) return picks.filter(p => p.mint !== r.mint);
   return picks.length >= max ? picks : [...picks, r];
 }
+const SRC_ICON = { arena: '🏟', lit: '🔥', pump: '🚀', snipers: '🎯', creator: '📣' };
+export const filterBySource = (rows, src) => (src === 'all' ? rows : rows.filter(r => r.sources.some(s => s.kind === src)));
 
 export function RunnerPicker({ picks, onPicks, onDone }) {
-  const [d, setD] = useState(null);
-  useEffect(() => { let alive = true; const load = () => !document.hidden && fetch(apiUrl('/api/reputation/runners')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
-    load(); const t = setInterval(load, 30000); return () => { alive = false; clearInterval(t); }; }, []);
-  if (!d) return <div className="m-card"><span className="loader" /> Scanning launchpads…</div>;
-  const seen = new Set(); const all = [...(d.round?.picks || []), ...(d.live || [])].filter(r => r.mint && !seen.has(r.mint) && seen.add(r.mint));
-  return <section className="fp-runners" data-testid="runner-picker">
-    <div className="m-row"><span className="m-label">🏃 THIS ROUND'S RUNNERS</span><small className="m-dim">gated: top-10 &lt;30%, insiders/bundles low, dev &lt;10%, creator clean, real flow · {picks.length}/{MAX_RUNNERS} on your card</small>
-      {picks.length > 0 && <button type="button" className="m-btn primary m-go" onClick={onDone} data-testid="runners-to-lab">Build card with {picks.length} →</button>}</div>
-    {!all.length && <p className="m-dim">No coin passes every gate right now — that's the gates working. Next scan soon.</p>}
-    <div className="fp-rgrid">{all.map(r => { const on = picks.some(p => p.mint === r.mint); const full = !on && picks.length >= MAX_RUNNERS;
-      return <article key={r.mint} className={`m-card fp-runner ${on ? 'is-on' : ''}`} data-testid={`runner-${r.mint}`}>
-        <div className="fp-rtop">{r.logo ? <img src={r.logo} alt="" loading="lazy" /> : <span className="fz-emoji">🏃</span>}<div><b>${r.symbol}</b><small>{r.lane} · score {r.score}{r.streak > 1 ? ` · ${r.streak} rounds` : ''}</small></div></div>
-        <div className="m-row fp-rstats"><span>MC {m$(r.mcap)}</span><span className={r.chg1h >= 0 ? 'm-pos' : 'm-neg'}>{pc(r.chg1h)} 1h</span><span>{Math.round(r.buyShare || 0)}% buys</span></div>
+  const [d, setD] = useState(null); const [src, setSrc] = useState('all');
+  useEffect(() => { let alive = true; const load = () => !document.hidden && fetch(apiUrl('/api/reputation/runners/discover')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
+    load(); const t = setInterval(load, 20000); return () => { alive = false; clearInterval(t); }; }, []);
+  if (!d) return <div className="fp-disc is-loading" data-testid="runner-picker"><div className="fp-scan" /><span className="m-dim">Scanning launchpads, the arena, the radar and the callers…</span></div>;
+  const rows = filterBySource(d.runners || [], src);
+  return <section className="fp-disc" data-testid="runner-picker">
+    <header className="fp-disc-head m-card m-live"><div><span className="m-label">🏃 RUNNER DISCOVERY · LIVE</span><h2>Good runners, found for you.</h2>
+      <p className="m-dim">Every coin here passed every gate right now ({d.gates.slice(0, 3).join(' · ')}…). The more sources that like it, the higher it sits.</p></div>
+      <div className="rn-clock"><small>NEXT ROUND</small><Countdown at={d.nextRoundAt} /></div></header>
+    <div className="m-seg fp-src" role="tablist" aria-label="Source">{[['all', '✨ All', (d.runners || []).length], ...Object.entries(d.sources).map(([k, l]) => [k, l, d.counts[k] || 0])].map(([k, l, n]) =>
+      <button key={k} type="button" role="tab" aria-selected={src === k} className={src === k ? 'active' : ''} onClick={() => setSrc(k)} data-testid={`src-${k}`}>{l} <em>{n}</em></button>)}</div>
+    {(d.swaps || []).length > 0 && <div className="fp-swaps" aria-label="Auto-swaps">{d.swaps.slice().reverse().map(s => <span key={s.at} className="fp-swap">🔁 ${s.out.symbol} → ${s.in.symbol} <small>{s.why[0]}</small></span>)}</div>}
+    {!rows.length && <p className="m-dim fp-none">Nothing from this source passes every gate right now — that's the gates working. Next scan in seconds.</p>}
+    <div className="fp-rgrid">{rows.map((r, i) => { const on = picks.some(p => p.mint === r.mint); const full = !on && picks.length >= MAX_RUNNERS; const hot = r.sources.length >= 2;
+      return <article key={r.mint} className={`fp-runner ${on ? 'is-on' : ''} ${hot ? 'is-hot' : ''}`} style={{ '--i': Math.min(i, 14) }} data-testid={`runner-${r.mint}`}>
+        {hot && <span className="fp-hotband">{r.sources.length} sources</span>}
+        <div className="fp-rtop"><span className="fp-ava">{r.logo ? <img src={r.logo} alt="" loading="lazy" /> : '🏃'}</span><div><b>${r.symbol}</b><small>{r.lane || 'runner'} lane · score {Math.round(r.score || 0)}</small></div>
+          <span className={`m-num fp-move ${(r.chg1h || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(r.chg1h)}</span></div>
+        <i className="fp-score"><i style={{ transform: `scaleX(${Math.min(1, (r.score || 0) / 100)})` }} /></i>
+        <div className="fp-srcs">{r.sources.map(s => <span key={s.kind} className={`fp-chip src-${s.kind}`} data-tip={s.detail}>{SRC_ICON[s.kind]} {s.label.replace(/^\S+\s/, '')}</span>)}</div>
+        <div className="m-row fp-rstats"><span>MC {m$(r.mcap)}</span><span>{Math.round(r.buyShare || 0)}% buys</span><span>{m$(r.vol1h)} 1h vol</span></div>
         <button type="button" className={`m-btn wide ${on ? 'primary' : ''}`} disabled={full} onClick={() => onPicks(togglePick(picks, r))} data-testid={`runner-add-${r.mint}`}>{on ? '✓ On your card' : full ? 'Card full (3)' : '+ Add to card'}</button>
       </article>; })}</div>
+    {picks.length > 0 && <div className="fp-dock" data-testid="fp-dock"><span>{picks.map(p => `$${p.symbol}`).join(' · ')}</span><button type="button" className="m-btn primary m-go" onClick={onDone} data-testid="runners-to-lab">Build card with {picks.length} →</button></div>}
   </section>;
 }
 
-// ---- Arena (users): the proof board --------------------------------------------------------------------------------
-export function ArenaBoard() {
-  const [d, setD] = useState(null);
-  useEffect(() => { let alive = true; fetch(apiUrl('/api/reputation/fuses/arena')).then(r => (r.ok ? r.json() : null)).then(x => alive && setD(x)).catch(() => {}); return () => { alive = false; }; }, []);
-  if (!d) return <div className="m-card"><span className="loader" /> Loading the arena…</div>;
-  const rp = d.runners?.proof || {};
+// ---- Arena: the runners' live show — proof ring, countdown, the round card that lights up, lit cards, swaps, strategies ----
+export function ArenaBoard({ onPicks }) {
+  const d = useRunners();
+  const [a, setA] = useState(null);
+  useEffect(() => { let alive = true; fetch(apiUrl('/api/reputation/fuses/arena')).then(r => (r.ok ? r.json() : null)).then(x => alive && setA(x)).catch(() => {}); return () => { alive = false; }; }, []);
+  if (!d) return <div className="fp-disc is-loading" data-testid="fuse-arena"><div className="fp-scan" /><span className="m-dim">Loading the arena…</span></div>;
+  const picks = d.round?.picks || []; const lit = d.proof?.lights;
+  const use = list => onPicks?.(list.slice(0, MAX_RUNNERS).map(p => ({ ...p })));
   return <section className="fp-arena" data-testid="fuse-arena">
-    <div className="m-card"><span className="m-label">OUTLOOK · FROM PAPER RUNS ONLY, NEVER A PROMISE</span><p>{typeof d.outlook === 'string' ? d.outlook : d.outlook?.text || 'Not enough settled runs yet.'}</p></div>
-    <div className="m-card"><span className="m-label">STRATEGIES · $5 PAPER FOR 24H</span><table className="vd-table"><thead><tr><th>Strategy</th><th>Runs</th><th>Avg</th><th>Won</th><th /></tr></thead><tbody>
-      {(d.board || []).map(b => <tr key={b.style}><td><b>{b.style}</b>{d.bestStyle === b.style ? ' 👑' : ''}</td><td>{b.n ?? b.runs ?? 0}</td><td className={(b.avgPct || 0) >= 0 ? 'm-pos' : 'm-neg'}>{pc(b.avgPct || 0)}</td><td>{Math.round(b.winRate ?? 0)}%</td><td>{b.proven ? <span className="m-chip ok">proven</span> : <span className="m-chip">needs {d.minSettled}+</span>}</td></tr>)}</tbody></table></div>
-    <div className="m-card"><span className="m-label">🏃 RUNNERS PROOF · LAST 24 ROUNDS</span><div className="m-row"><span>{rp.rounds ?? 0} rounds</span><span className={(rp.avgPct || 0) >= 0 ? 'm-pos' : 'm-neg'}>avg {pc(rp.avgPct || 0)}</span><span>{Math.round(rp.winRate ?? 0)}% won</span>{rp.lit ? <span className="m-chip ok">lit</span> : <span className="m-chip warn">not proven yet</span>}</div>
-      <div className="fp-bars" aria-label="Round results">{(d.runners?.rounds || []).map(r => <i key={r.at} className={r.pct >= 0 ? 'up' : 'down'} style={{ transform: `scaleY(${Math.min(1, Math.abs(r.pct) / 100) || 0.04})` }} title={`${r.symbols.join(' · ')} ${pc(r.pct)}`} />)}</div></div>
+    <header className="rn-hero"><div className="rn-title"><span className="m-label">🏟 RUNNERS ARENA · LIVE</span><h3>Every round, played on paper.</h3>
+      <p>A round deals the best gated runners every 15 min. When the last 24h of rounds win, the round card <b>lights up</b> and joins the lit-cards list. A runner that starts failing a gate is auto-swapped for the next best.</p></div>
+      <ProofRing p={d.proof} need={d.lightMinRounds} /><div className="rn-clock"><small>NEXT ROUND</small><Countdown at={d.nextRoundAt} /></div></header>
+    <div className={`fp-roundcard m-card ${lit ? 'is-lit' : ''}`} data-testid="round-card">
+      <div className="m-row"><span className="m-label">{lit ? '🔥 THIS ROUND · LIT' : '⏳ THIS ROUND · PROVING'}</span><small className="m-dim">{picks.length} runners · equal weight · lane exits</small>
+        {picks.length > 0 && <button type="button" className="m-btn primary m-go" onClick={() => use(picks)} data-testid="arena-use-round">Use in my card →</button>}</div>
+      <div className="rn-lanes">{LANES.map(([k, ic, name]) => { const rows = picks.filter(p => p.lane === k); return <div key={k} className={`rn-lane lane-${k}`}><header><b>{ic} {name}</b><em>{d.exits[k]}</em></header>
+        {rows.length ? rows.map(r => <CoinRow key={r.mint} r={r} live />) : <p className="m-dim rn-empty">—</p>}</div>; })}</div>
+      {(d.round?.swaps || []).length > 0 && <div className="fp-swaps">{d.round.swaps.slice(-3).reverse().map(s => <span key={s.at} className="fp-swap">🔁 auto-swapped ${s.out.symbol} → ${s.in.symbol} <small>{s.why[0]}</small></span>)}</div>}
+    </div>
+    <div className="m-card"><span className="m-label">🔥 LIT CARDS · TRACKED 72H</span>
+      {!(d.litCards || []).length ? <p className="m-dim">No round has lit yet. The first lit round lands here with its live paper result.</p>
+        : <div className="fp-litlist">{d.litCards.map((c, i) => <div key={c.id} className="fp-lit" style={{ '--i': i }}><span className="fp-litglow" aria-hidden="true" />
+          <div className="fp-litcoins">{c.picks.slice(0, 5).map(p => <span key={p.mint} className="fp-ava sm" title={p.symbol}>{p.logo ? <img src={p.logo} alt="" loading="lazy" /> : '🏃'}</span>)}</div>
+          <div><b>{c.picks.map(p => `$${p.symbol}`).join(' · ')}</b><small className="m-dim">lit {new Date(c.at * 1000).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · proof {pc(c.proof?.avgPct)} / {c.proof?.winRate}% won</small></div>
+          <b className={`m-num ${c.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(c.pct)}</b><button type="button" className="m-btn" onClick={() => use(c.picks)}>Use</button></div>)}</div>}</div>
+    {a && <div className="m-card"><span className="m-label">STRATEGIES · $5 PAPER FOR 24H</span><p className="m-dim">{a.outlook?.note || (a.outlook?.style ? `${a.outlook.style}: ${pc(a.outlook.avgPct)} avg over ${a.outlook.runs} runs, ${a.outlook.winRate}% won.` : 'Not enough settled runs yet.')}</p>
+      <table className="vd-table"><thead><tr><th>Strategy</th><th>Runs</th><th>Avg</th><th>Won</th><th /></tr></thead><tbody>
+      {(a.board || []).map(b => <tr key={b.style}><td><b>{b.style}</b>{a.bestStyle === b.style ? ' 👑' : ''}</td><td>{b.runs}</td><td className={(b.avgPct || 0) >= 0 ? 'm-pos' : 'm-neg'}>{pc(b.avgPct || 0)}</td><td>{Math.round(b.winRate ?? 0)}%</td><td>{b.runs >= a.minSettled && b.avgPct > 0 ? <span className="m-chip ok">proven</span> : <span className="m-chip">needs {a.minSettled}+</span>}</td></tr>)}</tbody></table></div>}
+    <small className="m-dim">Paper replays on prices seen after each round — never a promise. Fresh coins can go to zero in minutes; gates and exits cut that, they don't prevent it.</small>
   </section>;
 }
 

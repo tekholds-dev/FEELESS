@@ -3449,7 +3449,8 @@ async def fuses_prebuilt(request: Request, legs: int = Query(3, ge=2, le=10), bu
     """Discover rail: the best basket for EACH strategy right now (bred from live pools), with that strategy's arena record.
     Traders get 3-pool baskets; Cmd Ctr may ask for up to 10. Cached 5 min per size."""
     legs = legs if _is_admin_req(request) else min(legs, _fuse.USER_MAX_LEGS)
-    key = (legs, 5 if budget < 12 else 20 if budget < 60 else 100)
+    # Breeding buckets (fee drag + size guard depend on size): $1 · $5 · $20 · $100. The buyer's exact amount is used at Fuse in.
+    key = (legs, 1 if budget < 3 else 5 if budget < 12 else 20 if budget < 60 else 100)
     hit = _fuse_prebuilt_cache.get(key)
     if hit and time.time() - hit[0] < 300:
         return hit[1]
@@ -3561,7 +3562,8 @@ async def _runner_tick(now=None, force=False):
     live = await _runner_live()
     d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
     recent = [r for r in d['rounds'] if now - r['at'] <= 24 * 3600]
-    watch = {p['mint'] for r in recent for p in r['picks']}
+    lit_recent = [c for c in d.get('litCards') or [] if now - c['at'] <= 72 * 3600]   # lit cards are tracked for 72h
+    watch = {p['mint'] for r in recent for p in r['picks']} | {p['mint'] for c in lit_recent for p in c['picks']}
     px = {r['mint']: r['price'] for r in live['passing'] + live['dropped'] if r.get('price')}
     missing = [m for m in watch if m not in px]
     if missing:
@@ -3571,10 +3573,19 @@ async def _runner_tick(now=None, force=False):
         for m in watch:
             if px.get(m):
                 d['paths'].setdefault(m, []).append([now, px[m]])
-        d['paths'] = {m: pts[-400:] for m, pts in d['paths'].items() if m in watch or pts and now - pts[-1][0] < 26 * 3600}
+        d['paths'] = {m: pts[-900:] for m, pts in d['paths'].items() if m in watch or pts and now - pts[-1][0] < 26 * 3600}
         last = d['rounds'][-1] if d['rounds'] else None
+        cfg = _runner_cfg()
         if force or not last or now - last['at'] >= _rn.ROUND_SECONDS:
-            d['rounds'] = (d['rounds'] + [_rn.next_round(last, live['passing'], now, size=_runner_cfg()['roundSize'], rid=uuid.uuid4().hex[:8])])[-200:]
+            new = _rn.next_round(last, live['passing'], now, size=cfg['roundSize'], rid=uuid.uuid4().hex[:8])
+            pf = _rn.proof(d['rounds'], d['paths'], now, cfg=cfg)
+            d['rounds'] = (d['rounds'] + [new])[-200:]
+            if pf['lights'] and new['picks']:   # dealt while lit → it joins the lit-cards list
+                d['litCards'] = ((d.get('litCards') or []) + [_rn.lit_card(new, pf)])[-30:]
+        elif last:
+            # Auto-swap: one pick that now FAILS a gate is replaced by the best passing runner (closed on paper, reason kept)
+            failing = {x['mint']: x.get('gates') or ['failed a gate'] for x in live['dropped']}
+            d['rounds'][-1], _swap = _rn.swap_failing(last, live['passing'], failing, d['paths'], now, cfg)
         _json_save(RUNNERS_PATH, d)
     return d['rounds'][-1] if d['rounds'] else None
 
@@ -3595,6 +3606,51 @@ async def _runner_start():
         asyncio.create_task(_runner_loop())
 
 
+_runner_disc_cache = {'at': 0.0, 'data': None}
+
+
+@app.get('/api/reputation/runners/discover')
+async def runners_discover():
+    """Fuse 🧬 › Runners: one gated list of good runners, tagged by every source that independently likes them —
+    arena round, lit cards, pump scan, snipers-out radar, creators' picks (proven callers + published Fuses). 20s cache."""
+    now = time.time()
+    if _runner_disc_cache['data'] and now - _runner_disc_cache['at'] < 20:
+        return _runner_disc_cache['data']
+    live, board = await asyncio.gather(_runner_live(), caller_board(days=30))
+    d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
+    cfg = _runner_cfg()
+    tags: dict = {}
+    tag = lambda m, k, v: m and tags.setdefault(m, {}).setdefault(k, v)
+    rnd = d['rounds'][-1] if d['rounds'] else None
+    for p in (rnd or {}).get('picks') or []:
+        tag(p['mint'], 'arena', f"{p.get('lane', 'runner')} lane · round {str((rnd or {}).get('id', ''))[:4]}")
+    for c in d.get('litCards') or []:
+        if now - c['at'] <= 72 * 3600:
+            res = _rn.card_result(c, d['paths'], now, cfg)
+            for p in c['picks']:
+                tag(p['mint'], 'lit', f"lit card {res:+.1f}% since lit")
+    for r in sorted(live['passing'], key=lambda r: -_fuse._f(r.get('score')))[:8]:
+        tag(r['mint'], 'pump', f"scan score {round(_fuse._f(r.get('score')))}")
+    for e in _radar['events']:
+        if e.get('kind') == 'snipers-out' and now - (e.get('at') or 0) < 6 * 3600:
+            tag(e.get('mint'), 'snipers', 'every flagged sniper sold')
+    sharp = {r.get('callerAddress'): r for r in board['rows'] if r.get('calls', 0) >= 3 and r.get('hitRate', 0) >= 0.5}
+    for c in (_json_load(CALLS_PATH, {}).get('calls') or {}).values():
+        if c.get('callerAddress') in sharp and now - (c.get('at') or 0) < 48 * 3600:
+            tag(c.get('mint'), 'creator', f"called by {c.get('caller') or 'a sharp caller'} ({round(sharp[c['callerAddress']]['hitRate'] * 100)}% hit)")
+    for f in (_json_load(FUSES_PATH, {'fuses': {}}).get('fuses') or {}).values():
+        if f.get('enabled', True):
+            for leg in f.get('legs') or []:
+                if leg.get('role') == 'runner':
+                    tag(leg.get('baseAddress') or leg.get('mint'), 'creator', f"in the {f.get('name')} Fuse")
+    rows = _rn.discover(live['passing'], tags)
+    data = {'runners': rows, 'counts': {k: sum(1 for r in rows if any(s['kind'] == k for s in r['sources'])) for k in _rn.SOURCES},
+            'sources': _rn.SOURCES, 'nextRoundAt': (rnd['at'] + _rn.ROUND_SECONDS) if rnd else now, 'gates': [g[1] for g in _rn.gates(cfg)],
+            'swaps': ((rnd or {}).get('swaps') or [])[-5:], 'at': now}
+    _runner_disc_cache.update(at=now, data=data)
+    return data
+
+
 @app.get('/api/reputation/runners')
 async def runners_board():
     """FUSE RUNNERS: live board (every arriving coin gated + scored), the current round by lane, recent rounds' paper
@@ -3612,7 +3668,8 @@ async def runners_board():
     picks = [{**p, 'now': cur.get(p['mint'], {}).get('price') or p['price'], 'exits': ex[p['lane']]['label']} for p in (rnd or {}).get('picks', [])]
     return {'live': live['passing'][:24], 'dropped': live['dropped'][:15], 'seen': live['seen'], 'round': rnd and {**rnd, 'picks': picks},
             'nextRoundAt': (rnd['at'] + _rn.ROUND_SECONDS) if rnd else now, 'history': hist, 'proof': _rn.proof(d['rounds'], d['paths'], now, cfg=cfg),
-            'exits': {k: v['label'] for k, v in ex.items()}, 'gates': [g[1] for g in _rn.gates(cfg)], 'lightMinRounds': cfg['lightRounds'], 'solUsd': sol_usd}
+            'exits': {k: v['label'] for k, v in ex.items()}, 'gates': [g[1] for g in _rn.gates(cfg)], 'lightMinRounds': cfg['lightRounds'], 'solUsd': sol_usd,
+            'litCards': [{**c, 'pct': _rn.card_result(c, d['paths'], now, cfg)} for c in reversed((d.get('litCards') or [])[-12:])]}
 
 
 @app.get('/api/reputation/admin/runners/config')
@@ -4114,7 +4171,7 @@ async def quest_event(payload: QuestEvent):
     return {'ok': True, 'counted': counted}
 
 
-_board_cache: dict = {}
+_quest_board_cache: dict = {}
 
 
 @app.get('/api/reputation/quests-leaderboard')
@@ -4123,8 +4180,8 @@ async def quest_leaderboard():
     season = _quest_season()
     if season.get('paused') or not season.get('start'):
         return {'season': season, 'rows': [], 'paused': True}
-    if _board_cache.get('at', 0) > time.time() - 600:
-        return _board_cache['data']
+    if _quest_board_cache.get('at', 0) > time.time() - 600:
+        return _quest_board_cache['data']
     wallets = set(_json_load(FEELESS_TRADES_PATH, {})) | set(_pts()) | set(_json_load(QUEST_STATE_PATH, {}))
     rows = []
     for w in list(wallets)[:2000]:
@@ -4138,7 +4195,7 @@ async def quest_leaderboard():
                          'xp': s['season']['score'], 'level': s['level']['name'], 'badges': s['earned']})
     rows.sort(key=lambda r: -r['xp'])
     data = {'season': season, 'rows': rows[:50], 'paused': False}
-    _board_cache.update(at=time.time(), data=data)
+    _quest_board_cache.update(at=time.time(), data=data)
     return data
 
 
@@ -4160,7 +4217,7 @@ async def admin_quest_season(request: Request):
         if body.get('awardWeek'):
             if s.get('paused') or not s.get('start'):
                 raise HTTPException(400, 'Season is paused — unpause it (at launch) before awarding weeks.')
-            _board_cache.clear()
+            _quest_board_cache.clear()
             top = (await quest_leaderboard())['rows'][:3]
             week = int((time.time() - float(s['start'])) // (7 * 86400)) + 1
             col = _json_load(COLLECTION_PATH, {})
@@ -4174,7 +4231,7 @@ async def admin_quest_season(request: Request):
             _json_save(COLLECTION_PATH, col)
         _json_save(QUESTS_PATH, d)
         ad = _admin_load(); _audit(ad, admin, 'quest-season', json.dumps({k: s.get(k) for k in ('name', 'paused')} | {'awarded': len(awarded)})[:160]); _admin_save(ad)
-    _quest_cache.clear(); _board_cache.clear()
+    _quest_cache.clear(); _quest_board_cache.clear()
     return {'ok': True, 'season': s, 'awarded': awarded}
 
 

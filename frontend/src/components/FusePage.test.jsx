@@ -10,16 +10,22 @@ jest.mock('./FuseSide', () => ({ FuseSide: () => null }));
 jest.mock('./FuseCard', () => ({ LiveFuseCard: ({ r }) => <div data-testid={`live-${r.id}`} /> }));
 jest.mock('./FuseGo', () => ({ FuseGo: p => <div data-testid="fusego" data-side={p.side} data-n={(p.orders || []).length} /> }));
 // eslint-disable-next-line import/first
-import { FusePage, togglePick, collectSplit } from './FusePage';
+import { FusePage, togglePick, collectSplit, filterBySource } from './FusePage';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const tick = () => act(async () => { await new Promise(r => setTimeout(r, 0)); });
 const ROW = { id: 'c1', name: 'Core', closed: false, legs: [{ pairAddress: 'P1', symbol: 'AAA', mint: 'M1', tokens: 10, usd: 50, heldUsd: 75, priceNow: 7.5 }, { pairAddress: 'P2', symbol: 'BBB', mint: 'M2', tokens: 5, usd: 50, heldUsd: 75, priceNow: 15 }], drift: 0 };
-const RUNNERS = { round: { picks: [1, 2, 3, 4].map(i => ({ mint: `R${i}`, symbol: `RUN${i}`, lane: 'runner', score: 80, mcap: 50000, chg1h: 12, buyShare: 60 })) }, live: [] };
+const PICKS = [1, 2, 3, 4].map(i => ({ mint: `R${i}`, symbol: `RUN${i}`, lane: 'runner', score: 80, mcap: 50000, chg1h: 12, buyShare: 60 }));
+const RUNNERS = { round: { picks: PICKS, swaps: [{ at: 5, out: { symbol: 'OLD' }, in: { symbol: 'RUN1' }, why: ['top10 41% > 30%'] }] }, live: [{}], proof: { lights: true, rounds: 9, avgPct: 12, winRate: 60, per1: 1.12 },
+  lightMinRounds: 8, exits: { scalp: 'x', runner: 'y', hold: 'z' }, nextRoundAt: 9e9,
+  litCards: [{ id: 'L1', at: 1700000000, picks: PICKS.slice(0, 2), proof: { avgPct: 12, winRate: 60 }, pct: 34.5 }] };
+const SRC = { arena: '🏟 Arena pick', lit: '🔥 Lit card', pump: '🚀 Pump scan', snipers: '🎯 Snipers out', creator: "📣 Creators' pick" };
+const DISCOVER = { runners: PICKS.map((p, i) => ({ ...p, sources: i ? [{ kind: 'pump', label: SRC.pump, detail: 'top score' }] : [{ kind: 'arena', label: SRC.arena, detail: 'round' }, { kind: 'pump', label: SRC.pump, detail: 'top' }] })),
+  counts: { arena: 1, pump: 4 }, sources: SRC, nextRoundAt: 9e9, gates: ['a', 'b', 'c'], swaps: RUNNERS.round.swaps };
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/terminal/fuse');
-  global.fetch = jest.fn(async url => ({ ok: true, json: async () => (String(url).includes('/runners') ? RUNNERS : String(url).includes('/fuses/pnl') ? { pnlUsd: 50, pnlPct: 50, valueUsd: 150, rows: [ROW] }
+  global.fetch = jest.fn(async url => ({ ok: true, json: async () => (String(url).includes('/runners/discover') ? DISCOVER : String(url).includes('/runners') ? RUNNERS : String(url).includes('/fuses/arena') ? { board: [{ style: 'yield', runs: 3, avgPct: 2, winRate: 66 }], outlook: { note: 'n' }, minSettled: 3 } : String(url).includes('/fuses/pnl') ? { pnlUsd: 50, pnlPct: 50, valueUsd: 150, rows: [ROW] }
     : String(url).includes('/balance/') ? { raw: '10000000000', decimals: 9 } : String(url).includes('/limits/') ? { open: 1, max: 2, canOpen: true } : { fuses: [] }) }));
 });
 
@@ -56,4 +62,28 @@ test('alert link ?collect=<id>&pct= opens a pre-filled Collect profit', async ()
   expect(panel).not.toBeNull();
   expect(panel.textContent).toContain('33.3%');
   expect(host.querySelector('[data-testid="fusego"]').dataset.n).toBe('2');                    // both legs, sell 33.3% each
+});
+
+test('discovery filters by source; multi-source runners glow', async () => {
+  expect(filterBySource(DISCOVER.runners, 'arena').map(r => r.mint)).toEqual(['R1']);
+  expect(filterBySource(DISCOVER.runners, 'all')).toHaveLength(4);
+  window.history.replaceState(null, '', '/terminal/fuse?tab=runners');
+  const host = document.createElement('div'); document.body.appendChild(host);
+  await act(async () => { createRoot(host).render(<FusePage />); }); await tick();
+  expect(host.querySelector('[data-testid="runner-R1"]').className).toContain('is-hot');
+  expect(host.querySelector('[data-testid="runner-R2"]').className).not.toContain('is-hot');
+  expect(host.textContent).toContain('$OLD → $RUN1');                                          // auto-swap ticker
+  act(() => host.querySelector('[data-testid="src-arena"]').click());
+  expect(host.querySelector('[data-testid="runner-R2"]')).toBeNull();
+});
+
+test('Arena: round card lights up, lit cards list, Use loads the round into the Lab', async () => {
+  window.history.replaceState(null, '', '/terminal/fuse?tab=arena');
+  const host = document.createElement('div'); document.body.appendChild(host);
+  await act(async () => { createRoot(host).render(<FusePage />); }); await tick(); await tick();
+  expect(host.querySelector('[data-testid="round-card"]').className).toContain('is-lit');
+  expect(host.textContent).toContain('+34.5%');
+  expect(host.textContent).toContain('auto-swapped $OLD → $RUN1');
+  act(() => host.querySelector('[data-testid="arena-use-round"]').click()); await tick();
+  expect(host.querySelector('[data-testid="lab"]').textContent).toBe('picks:3');
 });

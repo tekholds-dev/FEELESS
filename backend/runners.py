@@ -165,6 +165,38 @@ def next_round(prev, passing, now, size=ROUND_SIZE, rid=''):
     return {'id': rid, 'at': now, 'picks': picks, 'out': [{'mint': p['mint'], 'symbol': p.get('symbol')} for p in out]}
 
 
+def swap_failing(rnd, passing, failing, paths, now, cfg=None):
+    """Keep a round clean: at most ONE pick that now FAILS a gate (it's in `failing` = {mint: [reasons]}) is swapped for the
+    best passing runner not already in the round. The swapped-out pick is closed on paper at that moment (its result
+    stays in the proof); the new one enters at today's price. Returns (round, swap or None)."""
+    picks = list(rnd.get('picks') or [])
+    bad = next((p for p in picks if p['mint'] in failing), None)
+    inr = {p['mint'] for p in picks}
+    sub = next((x for x in passing if x['mint'] not in inr and _f(x.get('price')) > 0), None)
+    if not bad or not sub:
+        return rnd, None
+    since = bad.get('swappedIn') or rnd['at']
+    path = [px for t, px in paths.get(bad['mint'], []) if since < t <= now]
+    mult = play_exits(bad.get('lane', 'runner'), bad['entry'], path, cfg) if path else 1.0
+    new = {**sub, 'streak': 1, 'entry': sub['price'], 'enteredAt': now, 'swappedIn': now, 'lane': lane_of(sub, 1, sub['score'])}
+    swap = {'at': now, 'out': {'mint': bad['mint'], 'symbol': bad.get('symbol')}, 'in': {'mint': sub['mint'], 'symbol': sub.get('symbol')},
+            'why': list(failing[bad['mint']])[:3], 'mult': mult}
+    picks[picks.index(bad)] = new
+    return {**rnd, 'picks': picks, 'swaps': (rnd.get('swaps') or []) + [swap]}, swap
+
+
+def lit_card(rnd, proof_now):
+    """Snapshot of a round dealt while the proof was lit — it joins the lit-cards list and is tracked on paper from then."""
+    return {'id': rnd['id'], 'at': rnd['at'], 'proof': {k: proof_now.get(k) for k in ('rounds', 'avgPct', 'winRate')},
+            'picks': [{k: p.get(k) for k in ('mint', 'symbol', 'lane', 'entry', 'logo', 'pairAddress')} for p in rnd['picks']]}
+
+
+def card_result(card, paths, now, cfg=None):
+    """Paper result of a lit card since it lit: equal $ per runner, each with its lane exits."""
+    mults = [play_exits(p['lane'], p['entry'], [px for t, px in paths.get(p['mint'], []) if card['at'] < t <= now], cfg) for p in card['picks'] if p.get('entry')]
+    return round((sum(mults) / len(mults) - 1) * 100, 2) if mults else 0.0
+
+
 def play_exits(lane, entry, path, cfg=None):
     """Paper-play a lane's exit plan on the prices seen after entry → realized multiple (1.0 = flat).
     Ladder rungs sell their slice when hit; trail sells the rest when it falls `trail` pts below the peak gain;
@@ -194,9 +226,11 @@ def proof(rounds, paths, now, window=24 * 3600, cfg=None):
             continue
         mults = []
         for p in r['picks']:
-            path = [px for t, px in paths.get(p['mint'], []) if t > r['at']]
+            since = p.get('swappedIn') or r['at']   # a swapped-in runner only counts from when it joined
+            path = [px for t, px in paths.get(p['mint'], []) if t > since]
             if path:
                 mults.append(play_exits(p['lane'], p['entry'], path, cfg))
+        mults += [s['mult'] for s in r.get('swaps') or [] if s.get('mult')]   # swapped-out runners: closed at the swap
         if mults:
             rows.append(sum(mults) / len(mults))
     n = len(rows)
@@ -218,3 +252,19 @@ def addon(legs, runners, slice_pct=20.0, n=2):
     base = [{**l, 'weight': round(_f(l.get('weight')) / total * (100 - slice_pct), 2)} for l in legs]
     return base + [{'chainId': 'solana', 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'baseAddress': r.get('mint'), 'logo': r.get('logo'),
                     'weight': round(slice_pct / len(rs), 2), 'runner': True, 'lane': r.get('lane'), 'exits': EXITS[r.get('lane') or 'runner']['label']} for r in rs]
+
+
+SOURCES = {'arena': '🏟 Arena pick', 'lit': '🔥 Lit card', 'pump': '🚀 Pump scan', 'snipers': '🎯 Snipers out', 'creator': "📣 Creators' pick"}
+
+
+def discover(passing, tags, limit=40):
+    """Runner discovery: only coins that PASS every gate right now (fail closed — a popular coin that fails a gate is not
+    shown). tags = {mint: {source: detail}} from the arena round, lit cards, the pump scan, snipers-out radar and creators'
+    picks. More independent sources = higher; then score."""
+    out = []
+    for r in passing:
+        t = tags.get(r['mint']) or {}
+        if not t:
+            continue
+        out.append({**r, 'sources': [{'kind': k, 'label': SOURCES[k], 'detail': v} for k, v in t.items() if k in SOURCES]})
+    return sorted(out, key=lambda r: (-len(r['sources']), -_f(r.get('score'))))[:limit]

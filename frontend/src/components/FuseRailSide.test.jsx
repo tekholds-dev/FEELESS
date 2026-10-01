@@ -21,6 +21,23 @@ test('prebuilt rail: one flip card per strategy, Use loads it with the budget in
   expect(global.fetch.mock.calls[0][0]).toContain('/fuses/prebuilt?legs=3');
 });
 
+test('prebuilt budgets: $1 / $20 / $100 or a custom $ (debounced) — Use carries the exact amount', async () => {
+  global.fetch = jest.fn(async () => ({ json: async () => ({ cards: [card('yield')], solUsd: 200 }) }));
+  const onUse = jest.fn();
+  const el = await mount(<FuseRail onUse={onUse} />);
+  const seg = el.querySelector('[data-testid="frail-budget"]');
+  expect([...seg.querySelectorAll('button')].map(b => b.textContent)).toEqual(['$1', '$20', '$100']);
+  await act(async () => { seg.querySelectorAll('button')[2].click(); }); await tick(300);
+  expect(global.fetch.mock.calls.some(c => String(c[0]).includes('budget=100'))).toBe(true);
+  await act(async () => { el.querySelector('[data-testid="frail-use-yield"]').click(); });
+  expect(onUse.mock.calls[0][1]).toBeCloseTo(0.5);
+  const input = el.querySelector('[data-testid="frail-custom"]');
+  const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+  await act(async () => { set.call(input, '7'); input.dispatchEvent(new Event('input', { bubbles: true })); }); await tick(300);
+  expect(global.fetch.mock.calls.some(c => String(c[0]).includes('budget=7'))).toBe(true);
+  expect(el.querySelector('[data-testid="frail-use-yield"]').textContent).toContain('$7');
+});
+
 test('fuse side: chat is the one fuse-lab room; Holders slides in with live P&L', async () => {
   global.fetch = jest.fn(async () => ({ json: async () => ({ total: 1, holders: [{ address: 'A'.repeat(43), handle: 'degen', fuses: 2, names: ['Core'], pnlPct: 12.5 }] }) }));
   const el = await mount(<FuseSide />);

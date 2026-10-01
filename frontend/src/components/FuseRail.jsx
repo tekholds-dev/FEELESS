@@ -10,22 +10,27 @@ const TIP = { yield: 'Weights fee APR most: busy pools relative to their depth.'
 export function FuseRail({ call, onUse }) {
   const admin = Boolean(call);
   const [legs, setLegs] = useState(3); const [budget, setBudget] = useState(20); const [d, setD] = useState(null); const [err, setErr] = useState('');
+  const [custom, setCustom] = useState('');   // any $ amount; breeding uses the nearest bucket, Fuse in uses this exact amount
+  const amount = Number(custom) > 0 ? Number(custom) : budget;
+  const [asked, setAsked] = useState(amount);   // typing is debounced (250ms) before it re-breeds
+  useEffect(() => { const t = setTimeout(() => setAsked(amount), 250); return () => clearTimeout(t); }, [amount]);
   useEffect(() => {
     let alive = true; setD(null); setErr('');
-    const path = `/fuses/prebuilt?legs=${legs}&budget=${budget}`;
+    const path = `/fuses/prebuilt?legs=${legs}&budget=${asked}`;
     (admin ? call(path) : fetch(apiUrl(`/api/reputation${path}`)).then(r => r.json())).then(x => alive && setD(x)).catch(e => alive && setErr(e.message));
     return () => { alive = false; };
-  }, [legs, budget, admin]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [legs, asked, admin]); // eslint-disable-line react-hooks/exhaustive-deps
   return <section className="frail" data-testid="fuse-rail">
     <header className="frail-head"><div><span className="m-label">🃏 PREBUILT FUSES · LIVE</span><small className="m-dim">Best basket per strategy, bred from live pools in the last 5 min. Drag to tilt · ⟲ to flip.</small></div>
-      {admin && <div className="frail-ctl"><div className="m-seg" aria-label="Pools per fuse">{[3, 5, 8, 10].map(n => <button type="button" key={n} className={legs === n ? 'active' : ''} onClick={() => setLegs(n)} data-tip={`${n} pools per basket`}>{n}P</button>)}</div>
-        <div className="m-seg" aria-label="Budget">{[5, 20, 100].map(n => <button type="button" key={n} className={budget === n ? 'active' : ''} onClick={() => setBudget(n)} data-tip="Budget changes the fee-drag + size-guard penalties">${n}</button>)}</div></div>}
+      <div className="frail-ctl"><div className="m-seg" aria-label="Card size" data-testid="frail-budget">{[1, 20, 100].map(n => <button type="button" key={n} className={!custom && budget === n ? 'active' : ''} onClick={() => { setBudget(n); setCustom(''); }} data-tip={`Breed $${n} cards — fee drag + size guard are scored for that size`}>${n}</button>)}</div>
+        <label className="frail-custom" data-tip="Any amount. Cards are bred for the nearest size; Fuse in uses exactly this."><span>$</span><input className="m-input m-num" inputMode="decimal" placeholder="custom" value={custom} onChange={e => setCustom(e.target.value.replace(/[^0-9.]/g, ''))} data-testid="frail-custom" /></label>
+      {admin && <div className="frail-admin"><div className="m-seg" aria-label="Pools per fuse">{[3, 5, 8, 10].map(n => <button type="button" key={n} className={legs === n ? 'active' : ''} onClick={() => setLegs(n)} data-tip={`${n} pools per basket`}>{n}P</button>)}</div></div>}</div>
     </header>
     <div className="frail-track">{err ? <p className="m-dim">{err}</p> : !d ? Array.from({ length: 4 }, (_, i) => <div key={i} className="frail-ghost" />)
       : (d.cards || []).map((c, i) => <article key={c.style} className="frail-item" style={{ animationDelay: `${i * 80}ms` }}>
-        <FuseCard c={c} style={c.style} rank={i} budget={d.budgetUsd} />
+        <FuseCard c={c} style={c.style} rank={i} budget={amount} />
         <div className="frail-meta" data-tip={TIP[c.style]}><b>{c.style}</b>{c.arena ? <span className={c.arena.avgPct >= 0 ? 'm-pos' : 'm-neg'}>arena {c.arena.avgPct >= 0 ? '+' : ''}{c.arena.avgPct}% · {c.arena.runs} runs</span> : <span className="m-dim">not yet in arena</span>}</div>
-        <button type="button" className="m-btn primary m-go" onClick={() => onUse?.(c.legs, d.solUsd ? d.budgetUsd / d.solUsd : null)} data-testid={`frail-use-${c.style}`}>Use this · ${d.budgetUsd}</button>
+        <button type="button" className="m-btn primary m-go" onClick={() => onUse?.(c.legs, d.solUsd ? amount / d.solUsd : null)} data-testid={`frail-use-${c.style}`}>Use this · ${amount}</button>
       </article>)}</div>
   </section>;
 }
