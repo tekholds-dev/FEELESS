@@ -383,9 +383,33 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`_card_signal_tick`: bond run, snipers out, runner now failing a gate — coins on YOUR open cards) — all in the existing
   inbox Trading lens. NO P&L numbers in any notice text; P&L lives in Fuse › My cards and the profile only.
 
+## Checkpoints (shipped, keep true — update this list only with STRONGER checkpoints, never weaker)
+- 🛡 Guard (`backend/guard.py`, tested): write floods → 429 breather; Cmd Ctr sign-in brute force → that IP's admin cools 15 min;
+  suspects + evidence wait in Cmd Ctr › Security (`GuardPanel`) — NO auto-blocks, every block/lift is an audited admin approval.
+  XFF only behind our proxy (`FEELESS_TRUST_PROXY=1`, rightmost hop). Internal/private IPs never limited.
+- 🔐 Roles are SCOPED (`ROLE_SCOPES` in `_require_admin` → `_role_gate`): moderator/marketing reach only their sections (tabs
+  filtered client-side too); every grant needs the creator's fresh signature (`grant_message`, 10 min). Owner-only money =
+  `_require_owner`. Every `/admin/` route must call one of them (audit script: grep routes without `_require_`).
+- 🪙 Coin drawer (`openCoin()`, one `CoinDrawerHost`), 🪪 trader chip (`TraderChip` ← `/fuses/ids`, cache-only batched poller).
+- 🪟 Card window (`CardEarnings` with actions/legs/autos): last-24h autos = the holder's inbox alerts for that card
+  (`fuse_hq.card_autos`), ❄ freeze per coin (`POST /fuses/freeze`; `swap_suggest` skips frozen), ＋ Top up (`topupOrders`:
+  equal / weight / one coin → normal buys merged via `/fuses/position/switch`). Still one-tap — FEELESS never signs.
+- ⭐ Prime tiers (`arena_prime.py`): 💎 Diamond / 🥇 Gold / 🔥 Blaze, 3★+ coins only (`stars`), major anchor never rotated or
+  stopped, card floor −20% (cfg `floorPct` ≤25) → anchor, re-deal next day as a NEW run (past runs on the record), honest
+  record (good days ≥ +10% of last 10, worst %). "8/10 days up 10%" is a TARGET the Arena proves, never a promise.
+- Vault designer + Card rules: every number has a $ example; Vault math uses the replay window and drops ±95% outliers.
+- Runners: pre-bond lives on volume (log $1h volume part; thin pre-bond curve gets half points).
+- Style understanding: Cmd Ctr panels = numbered steps or grouped cards, plain-words header line, `data-tip` on every field,
+  a live "$ example" under each input, money in SOL AND $. Tier FX = own layers (`pt-*`), transform/opacity, off in fx-lite.
+
 ## NEXT SESSION — continue here (in this order)
-1. Owner live test of cards + notices (before/after receipts, inbox), then flip configs to auto per dial proof.
-2. **One coin drawer sitewide**: clicking any coin anywhere opens ONE drawer reading the coin edge — chart, case file, signals,
-   "＋ Add to card", Quick trade, runner/bond boxes. Replace the scattered per-surface popovers.
-3. Radar signals for bond runs / coin TP-SL hits / battle wins (from `edge.signals`), "＋ Add to card" next to Quick trade.
-4. Browser-verify Cmd Ctr › Fuse (needs an admin session): grouped rail, Arena ops, Contract status, Engine apply.
+1. Prime: rotate weak coins at SL OR every 1h (cfg `rotateHours` min 1 → default 1), and ⏸ PAUSE a coin (user + Cmd Ctr):
+   below its SL → sold to SOL and parked; re-bought only when price is back above the SL WITH volume (1h vol ≥ entry-time vol,
+   buys ≥55%). Pure + tested in `arena_prime.py`, then the same "pause" as a one-tap alert on real cards (never auto-signs).
+2. Prime runners: live check showed 0 runner legs (no 3★ runner passing) — confirm the runner board feeds `_prime_candidates`
+   and that runners ≥60 score exist; otherwise fill runner slots with the next 3★ pool and label it.
+3. One-of-a-kind tier animations per Prime card (Diamond prism shards, Gold coin rain, Blaze flame crown) — FX layers only.
+4. FeeCat in Cmd Ctr: auto-tune engine settings after analysis (proposes a cfg from `suggest_cfg` + dial proof; admin Apply,
+   or auto-apply only inside hard bounds, every change audited).
+5. Owner live test of one-click cards + notices → then flip configs to auto per dial proof.
+6. Browser-verify: Cmd Ctr › Security Guard, Access (signed grant), Vault, Card rules, Prime tiers, card window, chat ⚙.
