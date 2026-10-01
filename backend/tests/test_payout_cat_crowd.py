@@ -83,3 +83,31 @@ def test_crowd_feed_exposes_counts_not_wallets(rs, monkeypatch):
     monkeypatch.setattr(rs, '_token_prices', prices)
     out = asyncio.run(rs._crowd_build())
     assert out['elites'] == 1 and out['flow'] == {'HOT': {'n': 1, 'usd': 25.0}} and A not in str(out)
+
+
+def test_runner_history_feeds_curve_speed_top10_spikes_and_dev_sells(rs):
+    rs._runner_hist.clear()
+    t0 = 1_000_000
+    rs._runner_track('M', t0, 70, 10, 4)
+    rs._runner_track('M', t0 + 9 * 60, 76, 11, 4)
+    h = rs._runner_track('M', t0 + 10 * 60, 81, 23, 2)
+    assert h == {'curveSpeed': 11.0, 'top10Jump': 12.0, 'devSold': True}
+    assert rs._runner_track('N', t0, 50, None, None) == {'curveSpeed': None, 'top10Jump': 0.0, 'devSold': False}
+
+
+def test_smart_buyers_count_trusted_or_elite_wallets_only(rs, monkeypatch):
+    now = time.time()
+    rs._json_save(rs.FEELESS_TRADES_PATH, {A: [{'side': 'buy', 'token': 'X', 'ts': now - 60}], B: [{'side': 'buy', 'token': 'X', 'ts': now - 60}],
+                                           'Nobody': [{'side': 'buy', 'token': 'X', 'ts': now - 60}], 'Old': [{'side': 'buy', 'token': 'X', 'ts': now - 7200}]})
+    monkeypatch.setitem(rs._trust_cache, A, (now, {'score': 80})); monkeypatch.setitem(rs._crowd_cache, 'elites_set', {B, 'Old'})
+    assert rs._smart_buyers(now) == {'X': 2}
+
+
+def test_stronger_engine_suggestions_endpoint_and_one_nudge(rs, monkeypatch):
+    sent = []
+    monkeypatch.setattr(rs, 'notify', lambda *a, **k: sent.append((a, k))); monkeypatch.setattr(rs, '_admin_wallets', lambda: ['ADM'])
+    rs._json_save(rs.RUNNERS_PATH, {'rounds': [], 'paths': {}})
+    out = asyncio.run(rs.admin_runner_suggest(None))
+    assert {s['key'] for s in out['suggestions']} >= {'minMcap', 'maxTop10'} and out['weights'] == {}
+    rs._engine_nudge(time.time())
+    assert sent and sent[0][1]['once'].startswith('engine-') and 'Cmd Ctr › Fuse › Engine' in sent[0][0][2]

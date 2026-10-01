@@ -96,24 +96,68 @@ def test_lit_card_rebuilds_with_two_strong_and_comes_down_when_weak_wins():
 
 
 def test_bond_run_needs_every_box_and_cmd_ctr_tunes_them():
-    base = {'stage': 'curve', 'curve': 93, 'buyShare': 64, 'chg5m': 4, 'chg1h': 40, 'vol1h': 20000, 'mcap': 40000, 'snipersOut': True, 'quality': 50, 'creatorRep': 'clean', 'top10': 25}
-    assert rn.near_bond(base) and [x['id'] for x in rn.bond_check(base)] == ['curve', 'buys', 'green', 'vol', 'holders', 'creator']
-    for k, v in (('curve', 88), ('buyShare', 58), ('chg5m', -1), ('vol1h', 9000), ('creatorRep', None)):
+    base = {'stage': 'curve', 'curve': 93, 'buyShare': 64, 'chg5m': 4, 'chg1h': 40, 'vol1h': 20000, 'mcap': 40000, 'snipersOut': True, 'quality': 50,
+            'creatorRep': 'clean', 'top10': 25, 'curveSpeed': 10, 'buysAccel': 1.5}
+    assert rn.near_bond(base) and rn.bond_tier(base) == 'run'
+    assert [x['id'] for x in rn.bond_check(base)] == ['curve', 'buys', 'green', 'vol', 'holders', 'creator', 'speed', 'accel']
+    for k, v in (('buyShare', 58), ('chg5m', -1), ('vol1h', 9000), ('creatorRep', None), ('curveSpeed', 3), ('curveSpeed', None), ('buysAccel', 1.0)):
         assert not rn.near_bond({**base, k: v}), k                                              # stiff: one miss = no boost
     assert not rn.near_bond({**base, 'snipersOut': False}) and rn.near_bond({**base, 'snipersOut': False, 'top10': 12})
-    assert rn.near_bond({**base, 'curve': 85}, {'bondCurve': 80}) and rn.bond_check({**base, 'stage': 'graduated'}) == []
+    assert rn.bond_check({**base, 'stage': 'graduated'}) == [] and rn.bond_check({**base, 'curve': 60}) == []
     pts, parts = rn.score(base); pts0, _ = rn.score({**base, 'chg5m': -0.1})
     assert any(p['part'] == 'bond run' and p['points'] == 15 for p in parts) and pts > pts0
     full = {**base, 'mint': 'M', 'symbol': 'M', 'liq': 5000, 'scanned': True, 'insiders': 0, 'dev': 0, 'bundled': 0, 'ageH': 1, 'txns1h': 200,
             'mayhem': False, 'creatorFlagged': False, 'chg24h': 40, 'price': 1, 'vol5m': 1000}
     row = (rn.board([full])['passing'] or rn.board([full])['dropped'])[0]
-    assert len(row['bond']) == 6 and all(x['ok'] for x in row['bond'])                           # the board carries the checklist
+    assert len(row['bond']) == 8 and row['bondTier'] == 'run' and rn.lane_of(row) == 'bond'
     assert rn.SOURCES['bond'] == '🔔 About to bond'
+
+
+def test_bond_watch_at_75_is_rep_confirmed():
+    w = {'stage': 'curve', 'curve': 80, 'buyShare': 64, 'chg5m': 4, 'vol1h': 20000, 'snipersOut': True, 'creatorRep': 'clean', 'curveSpeed': 10, 'buysAccel': 1.5,
+         'smartBuyers': 3, 'flaggedFunders': 0, 'devSold': False}
+    assert rn.bond_tier(w) == 'watch' and not rn.near_bond(w) and len(rn.bond_check(w)) == 11
+    for k, v in (('smartBuyers', 2), ('flaggedFunders', 1), ('devSold', True)):
+        assert rn.bond_tier({**w, k: v}) is None, k                                              # the rep confirmation is required
+    pts, parts = rn.score({**w, 'chg1h': 0, 'mcap': 1, 'quality': 0})
+    assert any(p['part'] == 'bond watch' and p['points'] == 7.5 for p in parts)
+    assert rn.bond_tier({**w, 'curve': 74}) is None and rn.bond_tier({**w, 'curve': 74}, {'bondWatchCurve': 70}) == 'watch'
+
+
+def test_kill_switch_gates_and_tunable_flow():
+    c = {'stage': 'curve', 'mayhem': False, 'ageH': 1, 'mcap': 50000, 'vol1h': 20000, 'buyShare': 60, 'txns1h': 100, 'scanned': True, 'top10': 10,
+         'insiders': 1, 'bundled': 0, 'dev': 1, 'creatorFlagged': False, 'creatorRep': 'clean', 'top10Jump': 2, 'devSold': False}
+    assert rn.failed_gates(c) == []
+    assert any('top-10 spike' in g for g in rn.failed_gates({**c, 'top10Jump': 12}))
+    assert "Dev hasn't sold" in rn.failed_gates({**c, 'devSold': True})
+    assert rn.failed_gates({**c, 'bundled': 2}) == [] and rn.failed_gates({**c, 'bundled': 2}, {'maxBundled': 1})
+    assert rn.failed_gates({**c, 'buyShare': 50}, {'minBuyShare': 52})
+
+
+def test_stronger_engine_suggestions_only_where_weaker():
+    s = {x['key']: x for x in rn.suggest_cfg({})}
+    assert s['minMcap']['to'] == 12000 and s['maxTop10']['to'] == 25 and s['roundSize']['to'] == 4 and s['maxDev']['why']
+    assert rn.suggest_cfg({k: v[0] for k, v in rn.RECOMMENDED.items()}) == []
+    assert 'maxTop10' not in {x['key'] for x in rn.suggest_cfg({'maxTop10': 20})}                 # already stricter: leave it
+
+
+def test_lanes_self_tune_from_their_own_results():
+    now = 10 * 86400
+    rounds = [{'at': now - d * 86400 - 60, 'picks': [{'mint': f'L{d}', 'lane': 'scalp', 'entry': 1.0}, {'mint': f'W{d}', 'lane': 'runner', 'entry': 1.0}]} for d in range(3)]
+    paths = {**{f'L{d}': [[now - d * 86400, 0.7]] for d in range(3)}, **{f'W{d}': [[now - d * 86400, 1.2]] for d in range(3)}}
+    pr = rn.lane_proofs(rounds, paths, now)
+    assert pr['scalp']['losingDays'] == 3 and pr['runner']['losingDays'] == 0 and pr['runner']['n'] == 3
+    w = rn.lane_weights(pr)
+    assert w['scalp'] == 0.5 and w['runner'] == 1.0                                               # <10 picks: not "best proven" yet
+    assert rn.lane_weights({'runner': {'n': 12, 'avgPct': 5, 'winRate': 60, 'losingDays': 0}})['runner'] == 1.25
+    ranked = rn.next_round(None, [pick('A', score=80), {**pick('B', score=60), 'stage': 'graduated'}], now, size=1, weights={'runner': 1.0, 'scalp': 0.5})
+    assert ranked['picks'][0]['mint'] == 'A'
+
 
 
 def test_arena_build_takes_best_coins_and_pools_with_honest_entries():
     passing = [pick('A', price=1.0, score=70), pick('B', price=2.0, score=90), {**pick('C', price=3.0, score=50), 'stage': 'curve', 'curve': 95, 'buyShare': 70, 'chg5m': 3,
-               'vol1h': 50000, 'snipersOut': True, 'creatorRep': 'clean'}, pick('D', price=1.0, score=40), pick('E', price=1.0, score=30)]
+               'vol1h': 50000, 'snipersOut': True, 'creatorRep': 'clean', 'curveSpeed': 12, 'buysAccel': 2}, pick('D', price=1.0, score=40), pick('E', price=1.0, score=30)]
     pools = [{'pairAddress': f'pool{i}', 'symbol': f'P{i}', 'priceUsd': 1.0 + i, 'liquidityUsd': 500000, 'aprEst': 50 * i, 'change24h': 2} for i in range(5)]
     pools.append({'pairAddress': 'thin', 'priceUsd': 1, 'liquidityUsd': 5000, 'aprEst': 999, 'change24h': 5})
     passing = [{**x, 'pairAddress': f"pa{x['mint']}"} for x in passing]

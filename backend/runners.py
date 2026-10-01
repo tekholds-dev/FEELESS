@@ -18,6 +18,7 @@ ROUND_SECONDS = 15 * 60
 ROUND_SIZE = 5
 MAX_AGE_H = 48
 EXITS = {
+    'bond': {'ladder': [(30.0, 0.5)], 'trail': 20.0, 'stop': -15.0, 'label': '½ at +30% (the bond pop) · trail 20 · stop −15%'},
     'scalp': {'ladder': [(50.0, 1.0)], 'trail': None, 'stop': -25.0, 'label': 'Sell all at +50% · stop −25%'},
     'runner': {'ladder': [(50.0, 1 / 3), (100.0, 1 / 3)], 'trail': 25.0, 'stop': -30.0, 'label': '⅓ at +50% · ⅓ at +100% · trail 25 · stop −30%'},
     'hold': {'ladder': [], 'trail': 30.0, 'stop': -35.0, 'label': 'Trail 30 pts · stop −35%'},
@@ -33,7 +34,7 @@ def _f(v):
         return 0.0
 
 
-def candidate(pair, intel=None, creator_flagged=False, snipers_out=False, now_ms=0, mayhem=False, creator_rep=None):
+def candidate(pair, intel=None, creator_flagged=False, snipers_out=False, now_ms=0, mayhem=False, creator_rep=None, hist=None, smart=0):
     """A launchpad pair (+ cached forensics) → the flat record the engine reads."""
     intel = intel or {}
     tx = (pair.get('txns') or {}).get('h1') or {}
@@ -50,7 +51,11 @@ def candidate(pair, intel=None, creator_flagged=False, snipers_out=False, now_ms
             'quality': _f((pair.get('quality') or {}).get('score')),
             'top10': intel.get('top10Pct'), 'insiders': intel.get('insidersHoldingPct'), 'dev': intel.get('devHoldingPct'),
             'bundled': len(intel.get('bundledWallets') or []), 'scanned': bool(intel), 'creatorFlagged': bool(creator_flagged), 'snipersOut': bool(snipers_out),
-            'mayhem': bool(mayhem or pair.get('mayhem') or pair.get('is_mayhem_mode')), 'creatorRep': creator_rep}
+            'mayhem': bool(mayhem or pair.get('mayhem') or pair.get('is_mayhem_mode')), 'creatorRep': creator_rep,
+            # New checks (service keeps ~20 min of history per coin): curve speed, buyer acceleration, kill-switch signals
+            'buysAccel': round(_f(((pair.get('txns') or {}).get('m5') or {}).get('buys')) / max(1.0, buys / 12), 2) if buys else 0.0,
+            'curveSpeed': (hist or {}).get('curveSpeed'), 'top10Jump': (hist or {}).get('top10Jump'), 'devSold': bool((hist or {}).get('devSold')),
+            'flaggedFunders': len(intel.get('flaggedFunders') or []), 'smartBuyers': int(smart or 0)}
 
 
 # Cmd Ctr › Runners settings. Every key is range-checked by clean_cfg(); defaults = the tested engine.
@@ -59,12 +64,26 @@ DEFAULT_CFG = {'roundSize': 5, 'minMcap': 8000, 'minVol1h': 5000, 'maxTop10': 30
                # 🔔 Bond run (right before graduation): every box must tick — stiff on purpose, fun to watch fill up
                'bondCurve': 90, 'bondBuys': 60, 'bondVol1h': 10000, 'bondTop10': 20, 'bondPts': 15,
                # ⚔ Arena: the auto-built card each round (coins + pools) and how long a battle lasts
-               'autoCoins': 4, 'autoPools': 3, 'battleMins': 60}
+               'autoCoins': 4, 'autoPools': 3, 'battleMins': 60,
+               # flow + bundles (were hard-coded) and the new checks
+               'minBuyShare': 40, 'maxBuyShare': 85, 'minTrades1h': 50, 'maxBundled': 2, 'maxTop10Jump': 10,
+               'bondWatchCurve': 75, 'bondSpeed10m': 8, 'smartMin': 3}
+
+# ⚡ Stronger engine: what Cmd Ctr is offered (one click) when its live config is weaker. Each with the reason.
+RECOMMENDED = {'minMcap': (12000, 'Under $12K is mostly bots'), 'minVol1h': (10000, 'Real two-sided flow starts here'),
+               'maxTop10': (25, 'Rugs cluster above 25% top-10'), 'maxInsiders': (10, 'Snipers/bundlers dump together'),
+               'maxDev': (5, 'A dev holding 5%+ can end it in one sell'), 'maxBundled': (1, 'Bundles exit together'),
+               'minBuyShare': (52, 'Buyers in control'), 'maxBuyShare': (80, '85% buys is usually wash or bots'),
+               'minTrades1h': (80, 'Enough real trades to trust the flow'), 'bondVol1h': (15000, 'Bond runs need real volume'),
+               'roundSize': (4, 'Fewer, better picks'), 'lightRounds': (12, 'Prove it over ~3h, not 2h')}
+STRONGER_IS_LOWER = {'maxTop10', 'maxInsiders', 'maxDev', 'maxBundled', 'maxBuyShare', 'roundSize'}
 CFG_RANGES = {'roundSize': (2, 10), 'minMcap': (1000, 1_000_000), 'minVol1h': (500, 1_000_000), 'maxTop10': (10, 60), 'maxInsiders': (2, 40), 'maxDev': (1, 30),
               'scalpTp': (10, 300), 'scalpStop': (5, 80), 'runnerTp1': (10, 300), 'runnerTp2': (20, 1000), 'runnerTrail': (5, 80), 'runnerStop': (5, 80),
               'holdTrail': (5, 80), 'holdStop': (5, 80), 'lightRounds': (3, 48),
               'bondCurve': (70, 99), 'bondBuys': (50, 90), 'bondVol1h': (1000, 1_000_000), 'bondTop10': (5, 40), 'bondPts': (0, 30),
-              'autoCoins': (2, 6), 'autoPools': (1, 5), 'battleMins': (15, 240)}
+              'autoCoins': (2, 6), 'autoPools': (1, 5), 'battleMins': (15, 240),
+              'minBuyShare': (30, 70), 'maxBuyShare': (60, 95), 'minTrades1h': (10, 500), 'maxBundled': (0, 5), 'maxTop10Jump': (3, 40),
+              'bondWatchCurve': (50, 89), 'bondSpeed10m': (1, 40), 'smartMin': (1, 10)}
 
 
 def clean_cfg(p):
@@ -84,10 +103,14 @@ def gates(cfg=None):
         ('age', 'Under 48h old', lambda c: c['ageH'] is not None and 0 <= c['ageH'] <= MAX_AGE_H),
         ('size', f"Market cap ≥ ${g['minMcap'] / 1000:g}K", lambda c: c['mcap'] >= g['minMcap']),
         ('volume', f"1h volume ≥ ${g['minVol1h'] / 1000:g}K", lambda c: c['vol1h'] >= g['minVol1h']),
-        ('flow', 'Two-sided flow (40–85% buys, 50+ trades/h)', lambda c: c['buyShare'] is not None and 40 <= c['buyShare'] <= 85 and c['txns1h'] >= 50),
+        ('flow', f"Two-sided flow ({g['minBuyShare']}–{g['maxBuyShare']}% buys, {g['minTrades1h']}+ trades/h)",
+         lambda c: c['buyShare'] is not None and g['minBuyShare'] <= c['buyShare'] <= g['maxBuyShare'] and c['txns1h'] >= g['minTrades1h']),
         ('scan', 'Holder scan done', lambda c: c['scanned']),
         ('top10', f"Top 10 under {g['maxTop10']}%", lambda c: c['top10'] is not None and c['top10'] < g['maxTop10']),
-        ('insiders', f"Snipers/bundlers under {g['maxInsiders']}%", lambda c: (c['insiders'] or 0) < g['maxInsiders'] and c['bundled'] < 3),
+        ('insiders', f"Snipers/bundlers under {g['maxInsiders']}% · ≤{g['maxBundled']} bundled", lambda c: (c['insiders'] or 0) < g['maxInsiders'] and c['bundled'] <= g['maxBundled']),
+        # ⛔ kill switch: these flip a coin to failing at once → it's auto-swapped out of rounds and lit cards
+        ('spike', f"No top-10 spike (+{g['maxTop10Jump']} pts in 5m)", lambda c: (c.get('top10Jump') or 0) < g['maxTop10Jump']),
+        ('devsold', "Dev hasn't sold", lambda c: not c.get('devSold')),
         ('dev', f"Dev holds under {g['maxDev']}%", lambda c: (c['dev'] or 0) < g['maxDev']),
         ('creator', 'Creator not flagged (Bot shield / blocklist)', lambda c: not c['creatorFlagged']),
         ('rep', 'Creator reputation not suspect / high-risk', lambda c: c.get('creatorRep') not in ('suspect', 'high')),
@@ -102,7 +125,8 @@ def exits(cfg=None):
     return {'scalp': {'ladder': [(float(g['scalpTp']), 1.0)], 'trail': None, 'stop': -float(g['scalpStop']), 'label': f"Sell all at +{g['scalpTp']}% · stop −{g['scalpStop']}%"},
             'runner': {'ladder': [(float(g['runnerTp1']), 1 / 3), (float(g['runnerTp2']), 1 / 3)], 'trail': float(g['runnerTrail']), 'stop': -float(g['runnerStop']),
                        'label': f"⅓ at +{g['runnerTp1']}% · ⅓ at +{g['runnerTp2']}% · trail {g['runnerTrail']} · stop −{g['runnerStop']}%"},
-            'hold': {'ladder': [], 'trail': float(g['holdTrail']), 'stop': -float(g['holdStop']), 'label': f"Trail {g['holdTrail']} pts · stop −{g['holdStop']}%"}}
+            'hold': {'ladder': [], 'trail': float(g['holdTrail']), 'stop': -float(g['holdStop']), 'label': f"Trail {g['holdTrail']} pts · stop −{g['holdStop']}%"},
+            'bond': EXITS['bond']}
 
 
 def failed_gates(c, cfg=None):
@@ -110,23 +134,41 @@ def failed_gates(c, cfg=None):
 
 
 def bond_check(c, cfg=None):
-    """🔔 Bond run checklist (pre-bond coins only): the last stretch of the curve with real, clean demand. Every box must
-    tick for the boost; the UI shows which ones are lit so traders watch it 'charge up'. Cmd Ctr tunes every threshold."""
-    k = {**DEFAULT_CFG, **(cfg or {})}
-    if c.get('stage') != 'curve':
+    """🔔 Bond checklist for a pre-bond coin. Two tiers, every box must tick:
+    🔔 Bond run (≥ bondCurve, default 90%): curve, buys, 5m green, volume, holders, clean creator, curve SPEED, buyers ACCELERATING.
+    👀 Bond watch (bondWatchCurve–bondCurve, default 75–89%): the same + REP-CONFIRMED — smart FEELESS buyers (trust ≥ 75 / elite),
+       no flagged funder clusters, dev hasn't sold. Earlier entry pays more, so it has to prove more."""
+    k = clean_cfg(cfg)
+    cur = _f(c.get('curve'))
+    if c.get('stage') != 'curve' or cur < k['bondWatchCurve'] or cur >= 100:
         return []
-    return [{'id': 'curve', 'label': f"⚡ {k['bondCurve']:g}%+ up the curve", 'ok': k['bondCurve'] <= _f(c.get('curve')) < 100},
-            {'id': 'buys', 'label': f"🟢 {k['bondBuys']:g}%+ buys", 'ok': _f(c.get('buyShare')) >= k['bondBuys']},
-            {'id': 'green', 'label': '📈 5m green', 'ok': _f(c.get('chg5m')) > 0},
-            {'id': 'vol', 'label': f"🌊 ${k['bondVol1h'] / 1000:g}K+ 1h volume", 'ok': _f(c.get('vol1h')) >= k['bondVol1h']},
-            {'id': 'holders', 'label': f"🎯 snipers out or top-10 < {k['bondTop10']:g}%", 'ok': bool(c.get('snipersOut')) or (c.get('top10') is not None and _f(c.get('top10')) < k['bondTop10'])},
-            {'id': 'creator', 'label': '🧼 clean creator', 'ok': c.get('creatorRep') == 'clean'}]
+    run = cur >= k['bondCurve']
+    checks = [{'id': 'curve', 'label': f"⚡ {k['bondCurve'] if run else k['bondWatchCurve']}%+ up the curve", 'ok': True},
+              {'id': 'buys', 'label': f"🟢 {k['bondBuys']}%+ buys", 'ok': _f(c.get('buyShare')) >= k['bondBuys']},
+              {'id': 'green', 'label': '📈 5m green', 'ok': _f(c.get('chg5m')) > 0},
+              {'id': 'vol', 'label': f"🌊 ${k['bondVol1h'] / 1000:g}K+ 1h volume", 'ok': _f(c.get('vol1h')) >= k['bondVol1h']},
+              {'id': 'holders', 'label': f"🎯 snipers out or top-10 < {k['bondTop10']}%", 'ok': bool(c.get('snipersOut')) or (c.get('top10') is not None and _f(c.get('top10')) < k['bondTop10'])},
+              {'id': 'creator', 'label': '🧼 clean creator', 'ok': c.get('creatorRep') == 'clean'},
+              {'id': 'speed', 'label': f"🏎 curve +{k['bondSpeed10m']} pts in 10m", 'ok': c.get('curveSpeed') is not None and _f(c.get('curveSpeed')) >= k['bondSpeed10m']},
+              {'id': 'accel', 'label': '🔥 buyers accelerating (5m vs 1h pace)', 'ok': _f(c.get('buysAccel')) >= 1.2}]
+    if not run:
+        checks += [{'id': 'smart', 'label': f"🧠 {k['smartMin']}+ smart FEELESS buyers", 'ok': int(c.get('smartBuyers') or 0) >= k['smartMin']},
+                   {'id': 'funders', 'label': '🕸 no flagged funder clusters', 'ok': int(c.get('flaggedFunders') or 0) == 0},
+                   {'id': 'devhold', 'label': "🔒 dev hasn't sold", 'ok': not c.get('devSold')}]
+    return checks
+
+
+def bond_tier(c, cfg=None):
+    """'run' | 'watch' | None — only when EVERY box of that tier ticks."""
+    ch = bond_check(c, cfg)
+    if not ch or not all(x['ok'] for x in ch):
+        return None
+    return 'run' if _f(c.get('curve')) >= clean_cfg(cfg)['bondCurve'] else 'watch'
 
 
 def near_bond(c, cfg=None):
-    """Right before it bonds: every bond-run box ticks."""
-    ch = bond_check(c, cfg)
-    return bool(ch) and all(x['ok'] for x in ch)
+    """Right before it bonds: every 🔔 Bond run box ticks."""
+    return bond_tier(c, cfg) == 'run'
 
 
 BOND_PTS = DEFAULT_CFG['bondPts']
@@ -141,18 +183,21 @@ def score(c, cfg=None):
     curve = 10.0 if c['stage'] == 'curve' and 60 <= c['curve'] <= 95 else 5.0 if c['stage'] == 'graduated' else 0.0
     rep_pts = {'clean': 5.0, 'watch': -10.0}.get(c.get('creatorRep'), 0.0)       # reputation: clean creators earn, "watch" pays
     bonus = (8.0 if c['snipersOut'] else 0.0) + min(7.0, c['quality'] / 14) + rep_pts
-    bond = float({**DEFAULT_CFG, **(cfg or {})}['bondPts']) if near_bond(c, cfg) else 0.0
+    tier = bond_tier(c, cfg)
+    bond = float(clean_cfg(cfg)['bondPts']) * (1.0 if tier == 'run' else 0.5 if tier == 'watch' else 0.0)
     pts = round(min(100.0, mom + acc + vel + flow + curve + bonus + bond), 1)
     return pts, [{'part': 'momentum', 'points': round(mom, 1), 'why': f"{c['chg1h']:+.0f}% in 1h"},
                  {'part': 'acceleration', 'points': round(acc, 1), 'why': f"{c['chg5m']:+.0f}% in 5m"},
                  {'part': 'velocity', 'points': round(vel, 1), 'why': f"1h volume = {c['vol1h'] / c['mcap'] if c['mcap'] else 0:.1f}× market cap"},
                  {'part': 'flow', 'points': round(flow, 1), 'why': f"{c['buyShare']}% buys" if c['buyShare'] is not None else 'no flow'},
                  {'part': 'stage', 'points': curve, 'why': f"{c['curve']:.0f}% up the curve" if c['stage'] == 'curve' else 'graduated (own pool)'},
-                 *([{'part': 'bond run', 'points': bond, 'why': f"{c['curve']:.0f}% up the curve, {c['buyShare']}% buys, every bond box ticked — about to bond"}] if bond else []),
+                 *([{'part': 'bond run' if tier == 'run' else 'bond watch', 'points': bond, 'why': f"{c['curve']:.0f}% up the curve, every {'bond run' if tier == 'run' else 'rep-confirmed bond watch'} box ticked"}] if bond else []),
                  {'part': 'bonus', 'points': round(bonus, 1), 'why': ('snipers sold out · ' if c['snipersOut'] else '') + f"quality {c['quality']:.0f}" + (f" · creator {c.get('creatorRep')}" if c.get('creatorRep') else '')}]
 
 
 def lane_of(c, streak=0, pts=0):
+    if c.get('bondTier'):         # 🔔/👀 right before bonding: take half at the pop, trail the rest
+        return 'bond'
     if streak >= 2 and pts >= 70:
         return 'hold'
     if c['curve'] >= 50:          # pre-bond and racing toward graduation: sell into the rush
@@ -169,15 +214,18 @@ def board(cands, cfg=None):
             continue
         bad = [label for _, label, test in gs if not test(c)]
         pts, parts = score(c, cfg)
-        row = {**c, 'score': pts, 'parts': parts, 'gates': bad, 'bond': bond_check(c, cfg)}
+        row = {**c, 'score': pts, 'parts': parts, 'gates': bad, 'bond': bond_check(c, cfg), 'bondTier': bond_tier(c, cfg)}
         (dropped if bad else passing).append(row)
     passing.sort(key=lambda r: -r['score'])
     return {'passing': passing, 'dropped': sorted(dropped, key=lambda r: -r['score'])[:30]}
 
 
-def next_round(prev, passing, now, size=ROUND_SIZE, rid=''):
+def next_round(prev, passing, now, size=ROUND_SIZE, rid='', weights=None):
     """Best runners STAY for another round (streak + 1, may graduate to the hold lane); the rest of the slots go to the
-    best newcomers. prev = last round or None."""
+    best newcomers. prev = last round or None. `weights` = self-tuned lane weights: newcomers are ranked by score × the
+    weight of the lane they'd join (a lane that keeps losing gets fewer seats)."""
+    if weights:
+        passing = sorted(passing, key=lambda r: -_f(r.get('score')) * _f(weights.get(lane_of(r, 1, r.get('score')), 1.0)))
     by = {r['mint']: r for r in passing}
     keep_cut = passing[min(len(passing), size * 2) - 1]['score'] if passing else 0   # stays if still in the top 2×size
     picks = []
@@ -328,7 +376,7 @@ def addon(legs, runners, slice_pct=20.0, n=2):
                     'weight': round(slice_pct / len(rs), 2), 'runner': True, 'lane': r.get('lane'), 'exits': EXITS[r.get('lane') or 'runner']['label']} for r in rs]
 
 
-SOURCES = {'bond': '🔔 About to bond', 'arena': '🏟 Arena pick', 'lit': '🔥 Lit card', 'pump': '🚀 Pump scan', 'snipers': '🎯 Snipers out', 'creator': "📣 Creators' pick"}
+SOURCES = {'bond': '🔔 About to bond', 'watch': '👀 Bond watch', 'arena': '🏟 Arena pick', 'lit': '🔥 Lit card', 'pump': '🚀 Pump scan', 'snipers': '🎯 Snipers out', 'creator': "📣 Creators' pick"}
 
 
 def discover(passing, tags, limit=40):
@@ -373,3 +421,61 @@ def settle_battle(a_start, a_now, b_start, b_now):
     """The card whose % moved more since the bell wins; a dead heat (< 0.05 pts) is a draw."""
     da, db = _f(a_now) - _f(a_start), _f(b_now) - _f(b_start)
     return 'draw' if abs(da - db) < 0.05 else 'a' if da > db else 'b'
+
+
+
+def suggest_cfg(cfg):
+    """⚡ Stronger engine: every setting where the live config is weaker than RECOMMENDED, with the reason. Cmd Ctr is asked to
+    click to apply — nothing changes by itself."""
+    cur = clean_cfg(cfg)
+    out = []
+    for k, (to, why) in RECOMMENDED.items():
+        now = cur[k]
+        weaker = now > to if k in STRONGER_IS_LOWER else now < to
+        if weaker:
+            out.append({'key': k, 'now': now, 'to': to, 'why': why})
+    return out
+
+
+LANE_DAYS = 3
+
+
+def lane_proofs(rounds, paths, now, cfg=None, days=LANE_DAYS):
+    """Self-tuning lanes: each lane's $5 run over the last `days` days (every pick played with its lane's exits), and how
+    many of those days IN A ROW (most recent first) it lost."""
+    out = {}
+    for r in rounds:
+        if now - r['at'] > days * 86400:
+            continue
+        day = int((now - r['at']) // 86400)
+        for p in r.get('picks') or []:
+            since = p.get('swappedIn') or r['at']
+            path = [px for t, px in paths.get(p['mint'], []) if t > since]
+            if not path or not _f(p.get('entry')):
+                continue
+            m = play_exits(p.get('lane') or 'runner', p['entry'], path, cfg)
+            a = out.setdefault(p.get('lane') or 'runner', {'n': 0, 'sum': 0.0, 'wins': 0, 'days': {}})
+            a['n'] += 1; a['sum'] += m; a['wins'] += m > 1
+            d = a['days'].setdefault(day, [0.0, 0]); d[0] += m; d[1] += 1
+    res = {}
+    for lane, a in out.items():
+        streak = 0
+        for day in range(days):
+            if day not in a['days']:
+                break
+            s, n = a['days'][day]
+            if s / n < 1:
+                streak += 1
+            else:
+                break
+        res[lane] = {'n': a['n'], 'avgPct': round((a['sum'] / a['n'] - 1) * 100, 2), 'winRate': round(a['wins'] / a['n'] * 100), 'losingDays': streak}
+    return res
+
+
+def lane_weights(proofs):
+    """Lane seats: a lane that lost 3 days running gets half weight; the best proven lane (≥10 picks, average > 0) gets 1.25×."""
+    w = {lane: 0.5 if pr['losingDays'] >= LANE_DAYS else 1.0 for lane, pr in proofs.items()}
+    good = [(l, pr) for l, pr in proofs.items() if pr['n'] >= 10 and pr['avgPct'] > 0 and w[l] == 1.0]
+    if good:
+        w[max(good, key=lambda x: x[1]['avgPct'])[0]] = 1.25
+    return w

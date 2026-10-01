@@ -3254,7 +3254,7 @@ async def _crowd_build():
     el = _crowd.elites(skills, exclude=set(_protected_wallets()))
     data = {'elites': len(el), 'scored': sum(1 for s in skills.values() if s['n']), 'flow': _crowd.elite_flow(trades, el, now), 'at': now,
             'rule': f"elite = ≥{_crowd.ELITE_N} verified buys scored after 24h, ≥{_crowd.ELITE_WR:g}% won ≥ +{_crowd.WIN_PCT:g}%, avg ≥ +{_crowd.ELITE_AVG:g}%"}
-    _crowd_cache.update(at=now, data=data)
+    _crowd_cache.update(at=now, data=data, elites_set=el)   # the set stays server-side; the API returns counts only
     return data
 
 
@@ -4225,6 +4225,7 @@ async def _runner_live():
     blocks = _block_load()['wallets']
     out_pairs = {e['pair'] for e in _radar['events'] if e['kind'] == 'snipers-out'}
     cands = []
+    smart = _smart_buyers(time.time())
     for p in pairs:
         m = (p.get('baseToken') or {}).get('address'); it = intel.get(m) or (_intel_cache.get(m) or (0, None))[1]
         creator = (it or {}).get('creator')
@@ -4235,10 +4236,48 @@ async def _runner_live():
                 crep = _quick_rep(creator).get('level')
             except Exception:
                 crep = None
-        cands.append(_rn.candidate(p, it, flagged, p.get('pairAddress') in out_pairs or m in out_pairs, now_ms, mayhem=m in _mayhem_mints, creator_rep=crep))
+        hist = _runner_track(m, time.time(), _fuse._f(p.get('curveProgress')), (it or {}).get('top10Pct'), (it or {}).get('devHoldingPct'))
+        cands.append(_rn.candidate(p, it, flagged, p.get('pairAddress') in out_pairs or m in out_pairs, now_ms, mayhem=m in _mayhem_mints, creator_rep=crep,
+                                   hist=hist, smart=smart.get(m, 0)))
     data = {**_rn.board(cands, _runner_cfg()), 'seen': len(cands), 'at': time.time()}
     _runner_live_cache.update(at=time.time(), data=data)
     return data
+
+
+_runner_hist: dict = {}   # mint → [(t, curve, top10, dev)] over the last ~20 min (new checks + kill switch)
+
+
+def _runner_track(mint, now, curve, top10, dev):
+    """Remember this coin's curve / top-10 / dev % and derive: curve speed (pts gained over ~10 min), top-10 jump over 5 min,
+    and whether the dev sold (dev % fell ≥1 pt from its recent high)."""
+    if not mint:
+        return {}
+    h = [x for x in _runner_hist.get(mint, []) if now - x[0] <= 20 * 60] + [(now, curve, top10, dev)]
+    _runner_hist[mint] = h[-60:]
+    old = [x for x in h if now - x[0] >= 8 * 60]
+    speed = round(curve - old[-1][1], 2) if old and curve else None
+    t5 = [x[2] for x in h if now - x[0] <= 5 * 60 and x[2] is not None]
+    jump = round(t5[-1] - min(t5), 2) if len(t5) >= 2 else 0.0
+    devs = [x[3] for x in h if x[3] is not None]
+    sold = bool(devs) and max(devs) > 0.5 and devs[-1] < max(devs) - 1
+    if len(_runner_hist) > 3000:
+        for k in [k for k, v in _runner_hist.items() if now - v[-1][0] > 20 * 60]:
+            _runner_hist.pop(k, None)
+    return {'curveSpeed': speed, 'top10Jump': jump, 'devSold': sold}
+
+
+def _smart_buyers(now, window=30 * 60):
+    """Smart FEELESS buyers per coin in the last 30 min: wallets with cached trust ≥ 75 or on the elite list (verified buys only)."""
+    elites = _crowd_cache.get('elites_set') or set()
+    out: dict = {}
+    for w, rows in _json_load(FEELESS_TRADES_PATH, {}).items():
+        smart = w in elites or _fuse._f(((_trust_cache.get(w) or (0, {}))[1] or {}).get('score')) >= 75
+        if not smart:
+            continue
+        for x in rows or []:
+            if x.get('side', 'buy') == 'buy' and now - _fuse._f(x.get('ts')) <= window and x.get('token'):
+                out.setdefault(x['token'], set()).add(w)
+    return {m: len(ws) for m, ws in out.items()}
 
 
 async def _token_prices(mints):
@@ -4281,7 +4320,8 @@ async def _runner_tick(now=None, force=False):
         last = d['rounds'][-1] if d['rounds'] else None
         cfg = _runner_cfg()
         if force or not last or now - last['at'] >= _rn.ROUND_SECONDS:
-            new = _rn.next_round(last, live['passing'], now, size=cfg['roundSize'], rid=uuid.uuid4().hex[:8])
+            weights = _rn.lane_weights(_rn.lane_proofs(d['rounds'], d['paths'], now, cfg))   # self-tuning lanes
+            new = _rn.next_round(last, live['passing'], now, size=cfg['roundSize'], rid=uuid.uuid4().hex[:8], weights=weights)
             pf = _rn.proof(d['rounds'], d['paths'], now, cfg=cfg)
             d['rounds'] = (d['rounds'] + [new])[-200:]
             if pf['lights'] and new['picks']:   # dealt while lit → it joins the lit-cards list
@@ -4339,6 +4379,8 @@ async def _fuse_warm():
     _fuse_warm_n['n'] += 1
     if _fuse_warm_n['n'] % 24 == 2:   # ~10 min: who the elite traders are + what they bought (FeeCat learns from it)
         await _crowd_build()
+    if _fuse_warm_n['n'] % 144 == 3:  # ~1h: nudge Cmd Ctr if a stronger engine config is waiting
+        _engine_nudge(time.time())
     if _fuse_warm_n['n'] % 12 == 1:   # ~5 min: refresh card holders' Fuse scores (feeds their trust score)
         holders = list({x['wallet'] for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or []})[:200]
         await asyncio.gather(*[_fuse_score(w, fresh=True) for w in holders], return_exceptions=True)
@@ -4356,6 +4398,27 @@ def _round_move(p, live):
     now_px = _fuse._f(({x['mint']: x for x in live['passing'] + live['dropped']}.get(p['mint']) or {}).get('price'))
     entry = _fuse._f(p.get('entry'))
     return round((now_px / entry - 1) * 100, 2) if now_px > 0 and entry > 0 else None
+
+
+@app.get('/api/reputation/admin/runners/suggest')
+async def admin_runner_suggest(request: Request):
+    """⚡ Stronger engine found? Every setting where the live config is weaker than the recommended one (with why), plus each
+    lane's self-tuning record. Apply = POST /admin/runners/config with the merged values (one click in Cmd Ctr)."""
+    _require_admin(request)
+    d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
+    cfg = _runner_cfg(); pr = _rn.lane_proofs(d['rounds'], d['paths'], time.time(), cfg)
+    return {'suggestions': _rn.suggest_cfg(cfg), 'lanes': pr, 'weights': _rn.lane_weights(pr), 'cfg': cfg}
+
+
+def _engine_nudge(now):
+    """Once per new set of suggestions: tell Cmd Ctr a stronger engine config is waiting (they click to apply)."""
+    s = _rn.suggest_cfg(_runner_cfg())
+    if s:
+        key = ','.join(f"{x['key']}:{x['to']}" for x in s)
+        for adm in _admin_wallets():
+            notify(adm, 'shield', f"⚡ Stronger Fuse engine config found ({len(s)} settings) — review and apply in Cmd Ctr › Fuse › Engine.",
+                   url='/terminal/command?tab=fuse', once=f"engine-{hashlib.sha1(key.encode()).hexdigest()[:12]}", meta={'claim': s[0]['why'], 'source': 'runners.RECOMMENDED'})
+    return s
 
 
 @app.get('/api/reputation/runners/discover')
@@ -4380,6 +4443,8 @@ async def runners_discover():
                 tag(p['mint'], 'lit', f"lit card {res:+.1f}% since lit")
     for r in live['passing']:   # every coin passing every gate is a pump-scan find (never a dead tab while anything passes)
         tag(r['mint'], 'pump', f"passes every gate · score {round(_fuse._f(r.get('score')))}")
+        if r.get('bondTier') == 'watch':
+            tag(r['mint'], 'watch', f"{_fuse._f(r.get('curve')):.0f}% up the curve, rep-confirmed — {r.get('smartBuyers')} smart buyers")
         if _rn.near_bond(r, cfg):
             tag(r['mint'], 'bond', f"{_fuse._f(r.get('curve')):.0f}% up the curve, {r.get('buyShare')}% buys — about to bond")
     for e in _radar['events']:
@@ -4428,7 +4493,8 @@ async def runners_board():
     return {'live': live['passing'][:60], 'dropped': live['dropped'][:30], 'seen': live['seen'], 'round': rnd and {**rnd, 'picks': picks},
             'nextRoundAt': (rnd['at'] + _rn.ROUND_SECONDS) if rnd else now, 'history': hist, 'proof': _rn.proof(d['rounds'], d['paths'], now, cfg=cfg),
             'exits': {k: v['label'] for k, v in ex.items()}, 'gates': [g[1] for g in _rn.gates(cfg)], 'lightMinRounds': cfg['lightRounds'], 'solUsd': sol_usd,
-            'litCards': [{**c, 'pct': _rn.card_result(c, d['paths'], now, cfg)} for c in reversed((d.get('litCards') or [])[-12:])]}
+            'litCards': [{**c, 'pct': _rn.card_result(c, d['paths'], now, cfg)} for c in reversed((d.get('litCards') or [])[-12:])],
+            'lanes': (lp := _rn.lane_proofs(d['rounds'], d['paths'], now, cfg)), 'laneWeights': _rn.lane_weights(lp)}
 
 
 @app.get('/api/reputation/admin/runners/config')
