@@ -11,13 +11,24 @@ export function parse(url) {
   return null;
 }
 
+// Just paste a link: the title comes from the provider's public oEmbed (no key), else a readable fallback.
+export async function songTitle(url) {
+  const src = parse(url); if (!src) return null;
+  try {
+    const r = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url.trim())}`);
+    const d = r.ok ? await r.json() : null;
+    if (d?.title) return String(d.title).slice(0, 60);
+  } catch { /* offline / blocked: fall back */ }
+  return { youtube: 'YouTube track', spotify: 'Spotify track', soundcloud: 'SoundCloud track' }[src.kind];
+}
+
 const cmd = (c, extra = {}) => window.dispatchEvent(new CustomEvent('feeless:music-cmd', { detail: { cmd: c, ...extra } }));
 
 // Profile playlist: the Fee mini player is the one engine (it keeps playing while you browse). This view
 // sends it the playlist + commands and mirrors its live state, so play / pause / skip always match.
 export function ProfileMusic({ songs = [], edit, onChange }) {
   const [live, setLive] = useState({ playing: false, url: null, mode: 'all' });
-  const [url, setUrl] = useState(''); const [title, setTitle] = useState('');
+  const [url, setUrl] = useState('');
   useEffect(() => {
     const onState = e => setLive(e.detail || {});
     window.addEventListener('feeless:music-state', onState);
@@ -31,7 +42,7 @@ export function ProfileMusic({ songs = [], edit, onChange }) {
   const toggle = () => (ours ? cmd('toggle') : start(0));
   const skip = d => (ours ? cmd(d > 0 ? 'next' : 'prev') : start(d > 0 ? Math.min(1, songs.length - 1) : 0));
   const move = (k, d) => { const j = k + d; if (j < 0 || j >= songs.length) return; const n = [...songs]; [n[k], n[j]] = [n[j], n[k]]; onChange?.(n); };
-  const add = () => { if (!parse(url)) return; onChange?.([...songs, { url: url.trim(), title: title.trim() || 'Untitled' }].slice(0, 15)); setUrl(''); setTitle(''); };
+  const add = async () => { if (!parse(url)) return; const u = url.trim(); setUrl(''); onChange?.([...songs, { url: u, title: await songTitle(u) }].slice(0, 15)); };
   const MODES = [['all', Repeat, 'Repeat all'], ['one', Repeat1, 'Repeat one'], ['shuffle', Shuffle, 'Shuffle']];
   if (!songs.length && !edit) return null;
   return <section className="wp-card wp-music" data-testid="profile-music">
@@ -49,7 +60,7 @@ export function ProfileMusic({ songs = [], edit, onChange }) {
         {edit && <span className="pm-edit"><button type="button" onClick={() => move(k, -1)} disabled={!k} aria-label="Move up"><ChevronUp size={12} /></button><button type="button" onClick={() => move(k, 1)} disabled={k === songs.length - 1} aria-label="Move down"><ChevronDown size={12} /></button><button type="button" className="pm-del" onClick={() => onChange?.(songs.filter((_, j) => j !== k))} aria-label="Remove"><Trash2 size={12} /></button></span>}
       </li>)}</ol>
     </div>}
-    {edit && <div className="pm-add"><input placeholder="YouTube, Spotify or SoundCloud link" value={url} onChange={e => setUrl(e.target.value)} /><input placeholder="Title" maxLength={60} value={title} onChange={e => setTitle(e.target.value)} /><button type="button" className="btn-outline" disabled={!parse(url) || songs.length >= 15} onClick={add}><Plus size={13} />Add song</button></div>}
+    {edit && <div className="pm-add"><input placeholder="YouTube, Spotify or SoundCloud link" value={url} onChange={e => setUrl(e.target.value)} /><button type="button" className="btn-outline" disabled={!parse(url) || songs.length >= 15} onClick={add}><Plus size={13} />Add song</button></div>}
     {!songs.length && edit && <p className="wp-bio">Add up to 15 songs. Visitors play, skip, shuffle and repeat, and it keeps playing while they browse.</p>}
   </section>;
 }

@@ -3,9 +3,14 @@ import { useLocation } from 'react-router-dom';
 import { Music2, MessageCircle, X, Plus, Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1 } from 'lucide-react';
 import { FeeCatMark } from './FeeCatMark';
 import EcosystemChat from './EcosystemChat';
-import { parse } from './command/ProfileMusic';
+import { parse, songTitle } from './command/ProfileMusic';
 
 const PLAYLIST_KEY = 'feeless:site-playlist';
+export function firstLoadToday(now = new Date()) {
+  const day = now.toISOString().slice(0, 10);
+  try { if (localStorage.getItem('feeless:music-day') === day) return false; localStorage.setItem('feeless:music-day', day); } catch { /* private mode */ }
+  return true;
+}
 const readList = () => { try { return JSON.parse(localStorage.getItem(PLAYLIST_KEY) || '[]'); } catch { return []; } };
 
 // Small always-on-top FeeCat button: pick a chat room to lurk in, or a song to ride the charts to.
@@ -22,7 +27,10 @@ export function FeeCatWidget() {
   // Keeps playing across reloads and full-page links: song, play state and when it started live in localStorage.
   const saved = (() => { try { return JSON.parse(localStorage.getItem('feeless:music-now') || 'null'); } catch { return null; } })();
   const [i, setI] = useState(() => (saved && saved.i < readList().length ? saved.i : 0));
-  const [playing, setPlaying] = useState(() => Boolean(saved?.playing && readList().length));
+  // Data saver: the last song is always restored, but it only starts streaming by itself on the first load of the day.
+  const [playing, setPlaying] = useState(() => Boolean(saved?.playing && readList().length && firstLoadToday()));
+  const [showVideo, setShowVideo] = useState(() => { try { return localStorage.getItem('feeless:music-video') !== 'off'; } catch { return true; } });
+  useEffect(() => { try { localStorage.setItem('feeless:music-video', showVideo ? 'on' : 'off'); } catch { /* private mode */ } }, [showVideo]);
   const startedAt = useRef(saved?.playing ? saved.startedAt || Date.now() : Date.now());
   const [url, setUrl] = useState('');
   // repeat: 'all' loops the list, 'one' repeats the song, 'shuffle' picks a random next song.
@@ -87,7 +95,8 @@ export function FeeCatWidget() {
   }, [coinPair]);
   useEffect(() => { if (!rooms.some(([id]) => id === room)) setRoom(rooms[0][0]); }, [rooms]); // eslint-disable-line react-hooks/exhaustive-deps
   const song = songs[i]; const src = song && parse(song.url);
-  const add = () => { if (!parse(url)) return; setSongs(s => [...s, { url: url.trim() }].slice(0, 20)); setUrl(''); };
+  const add = async () => { if (!parse(url)) return; const u = url.trim(); setUrl(''); const title = await songTitle(u); setSongs(s => [...s, { url: u, title }].slice(0, 20)); };
+  const remove = k => { setSongs(s => s.filter((_, j) => j !== k)); if (k < i) setI(x => x - 1); else if (k === i) { setPlaying(false); setI(x => Math.max(0, Math.min(x, songs.length - 2))); } };
   const go = d => { if (!songs.length) return; if (d > 0) { next(false); return; } setI(x => (x + d + songs.length) % songs.length); setPlaying(true); };
   const MODES = [['all', Repeat, 'Repeat all'], ['one', Repeat1, 'Repeat one'], ['shuffle', Shuffle, 'Shuffle']];
 
@@ -112,13 +121,14 @@ export function FeeCatWidget() {
             <button type="button" className="feecat-play" onClick={() => setPlaying(p => !p)} aria-label={playing ? 'Pause' : 'Play'}>{playing ? <Pause size={16} /> : <Play size={16} />}</button>
             <button type="button" onClick={() => go(1)} aria-label="Next"><SkipForward size={14} /></button>
             {MODES.map(([m, Icon, label]) => <button key={m} type="button" className={mode === m ? 'on' : ''} onClick={() => setMode(m)} aria-label={label} title={label}><Icon size={13} /></button>)}
+            <button type="button" className={showVideo ? 'on' : ''} onClick={() => setShowVideo(v => !v)} aria-pressed={showVideo} title={showVideo ? 'Hide video (keeps playing)' : 'Show video'} data-testid="music-video-toggle">📺</button>
           </div>
-          <ol className="feecat-queue">{songs.map((sg, k) => <li key={`${sg.url}-${k}`}><button type="button" className={k === i ? 'on' : ''} onClick={() => { setI(k); setPlaying(true); }}>{k === i && playing ? <i className="eq"><b /><b /><b /></i> : <span>{k + 1}</span>}{sg.title || sg.url}</button></li>)}</ol>
+          <ol className="feecat-queue">{songs.map((sg, k) => <li key={`${sg.url}-${k}`}><button type="button" className={k === i ? 'on' : ''} onClick={() => { setI(k); setPlaying(true); }}>{k === i && playing ? <i className="eq"><b /><b /><b /></i> : <span>{k + 1}</span>}{sg.title || sg.url}</button><button type="button" className="feecat-x" aria-label={`Remove ${sg.title || 'song'}`} data-testid={`music-remove-${k}`} onClick={() => remove(k)}><X size={12} /></button></li>)}</ol>
         </> : <p className="feecat-empty">No songs yet — paste a YouTube, Spotify or SoundCloud link below.</p>}
         <div className="feecat-add"><input placeholder="Paste a song link…" value={url} onChange={e => setUrl(e.target.value)} /><button type="button" disabled={!parse(url)} onClick={add}><Plus size={13} /></button></div>
       </div>}
     </div>}
-    {playing && src && <iframe ref={frame} key={`${i}-${nonce}-${kick}-${src.src}`} onLoad={() => setTimeout(hookEnd, 600)} className={`feecat-frame pm-${src.kind} ${open && tab === 'music' ? '' : 'is-background'}`} src={withStart(src, Math.floor((Date.now() - startedAt.current) / 1000))} title="now playing" allow="autoplay; encrypted-media" />}
+    {playing && src && <iframe ref={frame} key={`${i}-${nonce}-${kick}-${src.src}`} onLoad={() => setTimeout(hookEnd, 600)} className={`feecat-frame pm-${src.kind} ${open && tab === 'music' && showVideo ? '' : 'is-background'}`} src={withStart(src, Math.floor((Date.now() - startedAt.current) / 1000))} title="now playing" allow="autoplay; encrypted-media" />}
     <button type="button" className={`feecat-fab ${open ? 'on' : ''}`} onClick={() => setOpen(o => !o)} data-testid="feecat-fab" aria-label="FeeCat">
       <FeeCatMark size={32} variant={playing ? 'gold' : 'mint'} /> {playing && <i className="feecat-note">♪</i>}
     </button>

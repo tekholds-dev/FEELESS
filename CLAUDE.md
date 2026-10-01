@@ -68,6 +68,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - One component per job, reused everywhere (TrenchChart, TradeTape, HeldChip, ChatFx, IntelligenceCard).
 - Every surface: works at 360px wide inside a chat, in every war room layout, day + night, fx-lite, reduced motion.
 - Chats: per-room animated background (`ChatFx`, picked in ⚙, stored as `themes[room]`) always with the FEE mark.
+  Tiers by $FEE held (`/api/reputation/perks` feeUsd): free = Live mood, FEE glow, FEE rain, Plain; $5+ = 4 more; $100+ = 5 more.
+  Live mood (`lib/coinMood.js`) is one shared 30s poll per coin: pump / dump / snipers-cleared / calm, soft colours only.
+  Bubbles hug the text with a near-opaque fill (never backdrop-filter over the animated layer).
+- Chat ⚙ › badges: `POST /api/reputation/profile/featured-badges` changes only featuredBadges (earned, chat-limit capped).
+- Radar = Watchlist + Signal alerts (`RadarPage`); `/terminal/alerts` and `?view=signals` open the Signals side.
+- Music: link-only adds (title via noembed), last song restored on refresh but autoplays only on the day's first load,
+  queue items removable, 📺 toggles the video (audio keeps playing).
+- Trade tape: Helius first; when it fails (quota) the candles service parses swaps from Solana RPC (Alchemy). Rows need a
+  real SOL/USD leg (dust spam dropped). Tags from `/api/reputation/intel` via `lib/coinIntel.js` (one fetch/coin/min).
 
 ## Money rules (trading)
 - Engine: Jupiter Swap API primary (FEELESS fee into our SOL/USDC token accounts, capped priority,

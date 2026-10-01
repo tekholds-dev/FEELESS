@@ -1,3 +1,4 @@
+import { ChatBadgePicker } from './ChatBadgePicker';
 import { ChatFx, CHAT_THEMES, chatTheme, canUse, useFeeUsd } from './ChatFx';
 import { PanelBoundary } from './PanelBoundary';
 import { useDraft } from '../lib/useDraft';
@@ -261,6 +262,7 @@ function EcosystemChatInner({ ecosystem, room: roomProp, compact = false, onConn
       {!loading && !messages.length && !pump?.visible?.length && <div className="chat-empty" data-testid={`chat-empty-${room}`}><MessageCircle size={28} /><strong>The next alpha starts here.</strong><span>No messages in this channel yet.</span></div>}
       {prefsOpen && <div className="chat-prefs" data-testid="chat-prefs">
         <label><span>Badges per name <b>{shownBadges}</b> <small>(Command Center max {badgeCap})</small></span><input type="range" min="0" max={badgeCap} value={shownBadges} onChange={e => setPrefs({ maxBadges: Number(e.target.value) })} /></label>
+        <ChatBadgePicker wallet={wallet} signMessage={signMessage} featured={fx[wallet?.address]?.featuredBadges || []} limit={badgeCap} />
         <div className="chat-theme-pick"><span>Room background</span><div className="m-seg" role="radiogroup" aria-label="Room background">{CHAT_THEMES.map(([id, label, usd]) => <button key={id} type="button" role="radio" aria-checked={chatTheme(prefs, room, feeUsd) === id} disabled={!canUse(id, feeUsd)} title={canUse(id, feeUsd) ? label : `Hold $${usd}+ of $FEE to unlock`} data-testid={`chat-theme-${id}`} onClick={() => setPrefs({ themes: { ...(prefs.themes || {}), [room]: id } })}>{canUse(id, feeUsd) ? label : `🔒 ${label} · $${usd}`}</button>)}</div></div>
         <label className="chk"><input type="checkbox" checked={prefs.showRep} onChange={e => setPrefs({ showRep: e.target.checked })} />Show rep marks</label>
         <label className="chk"><input type="checkbox" checked={prefs.showFee} onChange={e => setPrefs({ showFee: e.target.checked })} />Show Fee 🐱 posts</label>

@@ -1936,6 +1936,27 @@ def _verify_solana(address: str, message: str, signature_b64: str) -> bool:
     return False
 
 
+class FeaturedBadgesIn(BaseModel):
+    address: str
+    session: str
+    badges: list = []
+
+
+@app.post('/api/reputation/profile/featured-badges')
+async def set_featured_badges(payload: FeaturedBadgesIn):
+    """Pick which earned badges show next to your name in chat (only this field changes; chat session signs it)."""
+    owner = _session_or_401(payload.address, payload.session)
+    ids = list(dict.fromkeys(str(b) for b in payload.badges if _re.match(r'^[a-z0-9-]{2,40}$', str(b))))
+    earned = {b['id'] for b in (await wallet_badges(owner))['badges']}
+    picked = [b for b in ids if b in earned][:_badge_limits()['chat']]
+    async with _profile_lock:
+        d = _profiles_load()
+        prof = d['profiles'].setdefault(owner, {})
+        prof['featuredBadges'] = picked
+        tmp = PROFILE_PATH.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(PROFILE_PATH)
+    return {'featuredBadges': picked}
+
+
 @app.post('/api/reputation/profile')
 async def save_profile(payload: ProfileSave):
     if payload.session:
