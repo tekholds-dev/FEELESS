@@ -339,3 +339,22 @@ def test_search_btc_finds_the_real_btc_first(monkeypatch):
     monkeypatch.setattr(rs.httpx, 'AsyncClient', H); monkeypatch.setattr(rs, '_majors_rows', majors)
     out = asyncio.run(rs.fuses_search(q='btc'))['pools']
     assert [p['pairAddress'] for p in out] == ['REAL', 'FAKE'] and out[0]['real'] and out[1]['impostor']
+
+
+def test_trader_ids_cache_only_and_warm(monkeypatch):
+    A = 'Aaaa1111111111111111111111111111111111111111'; B = 'Bbbb1111111111111111111111111111111111111111'
+    rs._fuse_score_cache.clear(); rs._ids_warming.clear()
+    rs._fuse_score_cache[rs.primary_of(A)] = (time.time(), {'score': 64, 'trader': {'medals': {'1': 1}, 'battles': {'w': 3, 'l': 1, 'd': 0}, 'catWins': 1, 'held': 2}})
+    warmed = []
+
+    async def fake_score(a, fresh=False):
+        warmed.append(a)
+    monkeypatch.setattr(rs, '_fuse_score', fake_score)
+
+    async def run():
+        out = await rs.fuse_ids(f'{A},{B},nope,{A}')
+        await asyncio.sleep(0)
+        return out
+    out = asyncio.run(run())['ids']
+    assert out == {A: {'score': 64, 'medals': {'1': 1}, 'battles': {'w': 3, 'l': 1, 'd': 0}, 'catWins': 1, 'held': 2}}   # B not cached → not waited on
+    assert warmed == [B]

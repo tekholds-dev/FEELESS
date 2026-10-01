@@ -3942,6 +3942,34 @@ async def fuse_score_get(address: str):
     return await _fuse_score(address)
 
 
+
+_ids_warming: set = set()
+
+
+@app.get('/api/reputation/fuses/ids')
+async def fuse_ids(addrs: str = ''):
+    """🪪 Trader chips (Arena, season board, chat): ⚛️ score + medals + battle W/L for up to 40 wallets, from the CACHE only so
+    the chip never waits. Missing wallets warm in the background and show on the next poll."""
+    want = [x for x in dict.fromkeys(addrs.split(',')) if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', x)][:40]
+    out, cold = {}, []
+    for w in want:
+        hit = _fuse_score_cache.get(primary_of(w))
+        if hit and time.time() - hit[0] < 900:
+            v = hit[1]; t = v.get('trader') or {}
+            out[w] = {'score': v.get('score'), 'medals': t.get('medals'), 'battles': t.get('battles'), 'catWins': t.get('catWins'), 'held': t.get('held')}
+        elif w not in _ids_warming:
+            cold.append(w)
+    if cold:
+        _ids_warming.update(cold)
+
+        async def warm():
+            try:
+                await asyncio.gather(*[_fuse_score(w) for w in cold], return_exceptions=True)
+            finally:
+                _ids_warming.difference_update(cold)
+        asyncio.create_task(warm())
+    return {'ids': out}
+
 async def _fuse_autopilot_tick(now=None):
     """Hourly: settle due arena runs, then enter each strategy's current champion ($5 paper, 3 pools) once per hour —
     the arena proves strategies on its own. Then alert Cmd Ctr about wallets newly flagged as bots."""

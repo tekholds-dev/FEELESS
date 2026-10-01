@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { TraderChip } from './TraderChip';
 import { toast } from 'sonner';
 import { ShareGifButton } from './ShareGif';
 import { RiskDial, DialBoard } from './RiskDial';
@@ -272,7 +273,7 @@ export function FuseSeason() {
     {!s.board.length ? <p className="m-dim fs-none">No card opened this week yet — the first one you fuse lands on this board.</p>
       : <ol className="fs-board">{s.board.map((b, i) => <li key={b.id} className={`fs-row r-${b.rank <= 3 ? b.rank : 'n'}`} style={{ '--i': i }} data-testid={`season-${b.id}`}>
         <b className="fs-rank">{MEDAL[b.rank] || `#${b.rank}`}</b>
-        <span className="fs-who"><b>{b.name || 'Fuse card'}{b.beatsCat && <em className="fs-beat" data-tip="Up more than FeeCat's average trade this week">🐱 beat</em>}</b><small>{b.handle}{b.closed ? ' · closed' : ''}</small></span>
+        <span className="fs-who"><b>{b.name || 'Fuse card'}{b.beatsCat && <em className="fs-beat" data-tip="Up more than FeeCat's average trade this week">🐱 beat</em>}</b><small>{b.handle}{b.closed ? ' · closed' : ''} <TraderChip address={b.wallet} compact /></small></span>
         {b.streak?.tier ? <StreakBadge s={b.streak} /> : <span />}
         <i className="fs-bar"><i className={b.pnlPct >= 0 ? 'up' : 'down'} style={{ transform: `scaleX(${Math.max(0.03, Math.abs(b.pnlPct || 0) / top)})` }} /></i>
         <b className={`m-num ${b.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(b.pnlPct)}</b></li>)}</ol>}
