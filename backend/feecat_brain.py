@@ -82,8 +82,13 @@ def playbook(table: dict, top: int = 5) -> dict:
     return {'best': [fmt(r) for r in rows[:top] if r[1]['edge'] > 0], 'worst': [fmt(r) for r in rows[::-1][:top] if r[1]['edge'] < 0]}
 
 
+LIVES = 9
+
+
 def discipline(exits: list, now: float, window: int = 10) -> dict:
     """Trader's discipline from her own recent closed trades (the part that keeps a bad day from becoming a bad week):
+      - 9 lives: each losing exit in the last 24h costs a life, each winning one gives one back (max 9);
+        at 0 lives she naps — no new entries until a loss rolls off (exits still run)
       - 5 losses in a row → stop trading 3h (tilt guard)
       - cold market (8+ recent trades, win rate < 25%, net red) → sit out 2h
       - 3 losses in a row → half size; negative expectancy → 0.7× size; proven edge (expectancy > 0, win rate ≥ 50%) → 1.2×
@@ -102,7 +107,12 @@ def discipline(exits: list, now: float, window: int = 10) -> dict:
     exp = net / n if n else 0.0
     wr = wins / n if n else 0.0
     last = max((e.get('exitAt') or 0 for e in done), default=0)
-    out = {'streak': streak, 'trades': n, 'winRate': round(wr * 100), 'expectancySol': round(exp, 5), 'netSol': round(net, 5), 'pause': False, 'sizeMult': 1.0}
+    day = [e for e in done if now - (e.get('exitAt') or 0) < 86400]
+    lives = max(0, min(LIVES, LIVES - sum(1 for e in day if e['pnlSol'] < 0) + sum(1 for e in day if e['pnlSol'] > 0)))
+    out = {'streak': streak, 'trades': n, 'winRate': round(wr * 100), 'expectancySol': round(exp, 5), 'netSol': round(net, 5), 'pause': False, 'sizeMult': 1.0,
+           'lives': lives, 'maxLives': LIVES}
+    if lives == 0:
+        return {**out, 'pause': True, 'sizeMult': 0.0, 'why': 'out of lives (9 losses in 24h) — napping until one rolls off'}
     if streak >= 5 and now - last < 3 * 3600:
         return {**out, 'pause': True, 'sizeMult': 0.0, 'why': f'{streak} losses in a row — stepping away for 3h instead of revenge trading'}
     if n >= 8 and wr < 0.25 and net < 0 and now - last < 2 * 3600:

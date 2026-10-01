@@ -84,6 +84,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   color, Fee Reserve room and top perk tier unlock automatically. Never hand-roll `in _admin_wallets()` checks.
 - `test_no_undefined_names.py` (pyflakes) fails the suite on any undefined name — when deleting code "up to the next
   def", re-read what sat between (a dropped constant once crashed Pump Pulse 65× before anyone noticed).
+- Tests NEVER touch real data: `tests/conftest.py` sandboxes every backend `Path` under `backend/data` per test. (A test
+  once wrote 22 fake $2 fees into the real fee ledger.) Fee totals self-heal from the ledger (`_fee_totals_heal`).
+- Auto fx-lite is temporary (`auto@<ms>`, 6h, off after 3 smooth minutes); user-chosen lite stays. Tilt is cheap and
+  stays on in lite.
+- FeeCat: `feecat_brain.discipline` = 9 lives (loss −1, win +1 in 24h, 0 = nap) + tilt/cold pauses + expectancy sizing.
+  It may only ever make her trade LESS. `/api/cats/{id}/profile` returns it live; FeeCat HQ strip shows it.
+- `openWarRoom(pair)` opens any coin's war room in the terminal (one lazy `WarRoomHost`).
 - Uploads: no sign-in needed, so 20/hour per IP; GIFs skip the canvas crop (keeps animation), 6 MB cap; stills 2 MB.
 
 ## Badges + quest engine

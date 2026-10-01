@@ -68,3 +68,17 @@ def test_v3_rules_cut_losers_fast_and_never_average_down():
     R = fs.RULES
     assert R['hardStop'] >= -20 and R['add1Fraction'] == 0 and R['add2Fraction'] == 0 and R['pyramidAt'] > 0
     assert R['takeProfit1'] > abs(R['hardStop']) and R['timeStopHours'] <= 3   # winners bigger than losers, dead trades cut
+
+
+def test_nine_lives_cost_on_losses_regrow_on_wins_and_nap_at_zero():
+    import feecat_brain as b
+    now = 1_800_000_000
+    ex = lambda pnl, ago: {'pnlSol': pnl, 'exitAt': now - ago}
+    # spaced out so the 5-in-a-row tilt guard is not what pauses her
+    mixed = [ex(-0.01, 80000), ex(-0.01, 70000), ex(0.02, 60000), ex(-0.01, 50000)]
+    assert b.discipline(mixed, now)['lives'] == 7 and not b.discipline(mixed, now)['pause']
+    nine = [ex(-0.01, 80000 - i * 5000) if i % 4 else ex(-0.01, 80000 - i * 5000) for i in range(9)]
+    d = b.discipline([*nine[:4], ex(0.0, 59000), *nine[4:]], now)   # a flat trade breaks the losing streak, not the lives
+    assert d['lives'] == 0 and d['pause'] and 'out of lives' in d['why']
+    old = [ex(-0.01, 90000 + i) for i in range(9)]                     # losses older than 24h cost nothing
+    assert b.discipline(old, now)['lives'] == 9

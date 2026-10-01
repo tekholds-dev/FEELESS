@@ -972,6 +972,8 @@ async def cat_profile(cat_id: str):
                                         'volumeSol', 'wins', 'losses', 'winRate', 'positions', 'pnlHistory', 'status', 'lastTick')},
         'stats': {'trades': closed, 'best': max(pnls) if pnls else None, 'worst': min(pnls) if pnls else None,
                   'roiPct': round((cat.get('balanceSol', 0) + sum(p.get('costSol', 0) for p in cat.get('positions', [])) - cat.get('startingBalanceSol', 0)) / max(cat.get('startingBalanceSol', 1), 1e-9) * 100, 2)},
+        # Live discipline: 9 lives, size mode and why — computed now, the same rule the trading loop enforces.
+        'discipline': feecat_brain.discipline(cat.get('exits', []), time.time()),
         'trades': trades[:80],
         'exits': list(reversed(cat.get('exits', [])))[:30],
         'learning': {'params': {**{k: RULES[k] for k in LEARN_BOUNDS}, **{k: v for k, v in (learn.get('params') or {}).items() if k in LEARN_BOUNDS}}, 'defaults': {k: RULES[k] for k in LEARN_BOUNDS},

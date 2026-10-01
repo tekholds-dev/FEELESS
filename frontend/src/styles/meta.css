@@ -607,3 +607,8 @@ body.fx-lite .pump-particles, body.fx-lite .pump-hub .pump-radar-card { animatio
 .minted-timeline ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; max-height: 320px; overflow: auto; scrollbar-width: thin; }
 .minted-timeline li { display: flex; gap: 10px; align-items: center; } .minted-timeline li span { display: grid; } .minted-timeline small { color: var(--m-dim); font-size: 11px; }
 .mt-glyph { width: 56px; text-align: center; font-size: 24px; }
+/* FeeCat HQ */
+.feecat-hq { display: grid; gap: 10px; margin-bottom: 14px; } .fhq-top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; } .fhq-why { font-size: 14px; }
+.fhq-lives { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; } .fhq-lives i { font-style: normal; font-size: 18px; opacity: .2; transition: opacity .3s, transform .3s var(--m-ease); }
+.fhq-lives i.on { opacity: 1; } .fhq-lives small { margin-left: 8px; color: var(--m-dim); font-size: 11px; }
+.fhq-kpis { gap: 18px; } .feecat-banner.is-compact { min-height: 0; max-height: 260px; }
