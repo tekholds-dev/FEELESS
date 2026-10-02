@@ -70,3 +70,9 @@ def test_user_round_cycle_adaptive_swaps_into_majors_when_losing():
     assert hq.clean_plan({'cycle': 'adaptive'}, None, [])['cycle'] == 'adaptive' and hq.clean_plan({'cycle': 'x'}, None, [])['cycle'] == 'steady'
     assert hq.cycle_pick({'cycle': 'adaptive'}, -3) == 'majors' and hq.cycle_pick({'cycle': 'adaptive'}, 4) == 'runners'
     assert hq.cycle_pick({'cycle': 'steady'}, -9) == 'runners'
+
+
+def test_user_cycles_classic_safe_press_pick_the_round_pool():
+    assert hq.clean_plan({'cycle': 'classic'}, None, [])['cycle'] == 'classic' and hq.clean_plan({'cycle': 'press'}, None, [])['cycle'] == 'press'
+    assert hq.cycle_pick({'cycle': 'classic', 'roundsUsed': 0}, 5) == 'majors' and hq.cycle_pick({'cycle': 'classic', 'roundsUsed': 1}, 5) == 'runners'
+    assert hq.cycle_pick({'cycle': 'press', 'roundsUsed': 0}, -9) == 'runners' and hq.cycle_pick({'cycle': 'safe', 'roundsUsed': 0}, 9) == 'majors'

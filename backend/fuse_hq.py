@@ -742,12 +742,26 @@ def coin_sl_mode(pos, pa):
     m = (pos.get('coinModes') or {}).get(pa)
     return m if m in SL_MODES else (pos.get('slMode') if pos.get('slMode') in SL_MODES else 'sell')
 SL_MODES = ('sell', 'park', 'hold')
-CARD_CYCLES = ('steady', 'adaptive')   # 🔄 user round cycle: steady = swap in the best runner · adaptive = losing card → a major, winning → a runner
+CARD_CYCLES = ('steady', 'classic', 'adaptive', 'safe', 'press')   # 🔄 round cycle (same names as the tier cards)
+# steady = always the best runner · classic = anchor → degen → anchor → mixed · adaptive = losing → a major, winning → a runner ·
+# safe = anchor ⇄ mixed · press = degen ⇄ mixed. anchor round → swap into a major · degen → a runner · mixed → alternates.
+_CYCLE_SEQ = {'classic': ('anchor', 'degen', 'anchor', 'mixed'), 'safe': ('anchor', 'mixed'), 'press': ('degen', 'mixed')}
+
+
+def cycle_phase(pos, pnl_pct):
+    c = pos.get('cycle') or 'steady'
+    if c == 'adaptive':
+        return 'anchor' if _f(pnl_pct) < 0 else 'degen' if _f(pnl_pct) >= 5 else 'mixed'
+    seq = _CYCLE_SEQ.get(c)
+    return seq[int(pos.get('roundsUsed') or 0) % len(seq)] if seq else 'degen'
 
 
 def cycle_pick(pos, pnl_pct):
-    """Which pool an adaptive card's next swap draws from: 'majors' after a losing stretch (protect), else 'runners'."""
-    return 'majors' if pos.get('cycle') == 'adaptive' and _f(pnl_pct) < 0 else 'runners'
+    """Which pool the card's next swap draws from this round: 'majors' (anchor round) or 'runners' (degen); mixed alternates."""
+    ph = cycle_phase(pos, pnl_pct)
+    if ph == 'mixed':
+        return 'majors' if int(pos.get('roundsUsed') or 0) % 2 else 'runners'
+    return 'majors' if ph == 'anchor' else 'runners'
 
 
 def _extras(plan):

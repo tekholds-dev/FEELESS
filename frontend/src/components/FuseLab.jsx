@@ -106,7 +106,10 @@ function CoinExtras({ pa, sym, plan, setPlan }) {
 }
 
 // 🧬 a card DNA → Lab plan fields (cycle, compound style, profit split, reshuffle clock, stop mode)
-export const dnaPlan = d => ({ cycle: d.cycle === 'adaptive' ? 'adaptive' : 'steady', compoundStyle: d.compound, payoutPct: d.payoutPct, onProfit: d.payoutPct > 0 ? 'collect' : 'compound',
+export const CYCLE_OPTS = [['steady', '➡ Steady', 'Every reshuffle swaps a weak coin for the best gated runner'],
+  ['classic', '⚓→🔥 Classic', 'Rounds go anchor (into majors) → degen (runners) → anchor → mixed'], ['adaptive', '🧠 Adaptive', 'Losing → swaps into a major (protect) · +5% → a runner (press) · flat → mixed'],
+  ['safe', '⚓⇄⚖ Safe', 'Anchor round ⇄ mixed round'], ['press', '🔥⇄⚖ Press', 'Degen round ⇄ mixed round']];
+export const dnaPlan = d => ({ cycle: ['classic', 'adaptive', 'safe', 'press'].includes(d.cycle) ? d.cycle : 'steady', compoundStyle: d.compound, payoutPct: d.payoutPct, onProfit: d.payoutPct > 0 ? 'collect' : 'compound',
   rotateHours: d.clock, slMode: d.stop, ...(d.cycle && d.cycle !== 'off' ? { mode: 'swap' } : {}) });
 
 export function CardPlan({ legs, plan, setPlan }) {
@@ -142,7 +145,7 @@ export function CardPlan({ legs, plan, setPlan }) {
     <div className="fl-plan-row"><span>Compound</span>{seg('compoundStyle', [['smart', '🧲 Smart', 'The rest goes to your strongest coins (momentum-weighted), never into fading ones'], ['even', '⚖ Even', 'Split evenly across the other coins'], ['off', '✋ Off', 'The rest waits as SOL in the card']])}</div>
     <div className="fl-plan-row"><span>Card</span>{seg('mode', [['hold', '🔒 Hold · switch by hand', 'The card stays as built. One switch per 24h, your pick.'], ['swap', '🤖 Auto-rotate', `On your reshuffle clock a coin that fails a gate or drops ${rules?.swapDropPct ?? 25}% gets a pre-filled swap for the best gated runner — one approval`]])}</div>
     <div className="fl-plan-row"><span>Reshuffle every</span>{seg('rotateHours', [[5 / 60, '5m', 'A weak coin may be swapped every 5 minutes'], [0.25, '15m', 'Every 15 minutes'], [1, '1h', 'Every hour'], [12, '12h', 'Twice a day'], [24, '24h', 'Once a day']])}</div>
-    <div className="fl-plan-row"><span>Round cycle</span>{seg('cycle', [['steady', '➡ Steady', 'Every reshuffle swaps a weak coin for the best gated runner'], ['adaptive', '🧠 Adaptive', 'Losing card → the weak coin swaps into a major (protect) · winning card → a fresh runner (press)']])}</div>
+    <div className="fl-plan-row"><span>Round cycle</span>{seg('cycle', CYCLE_OPTS)}</div>
     <div className="fl-plan-row"><span>At a coin stop</span>{seg('slMode', [['sell', '✂ Sell', 'One-tap sell to SOL'], ['park', '🅿 Park', 'Sell to SOL, then a one-tap buy-back when it is back at entry with buyers'], ['hold', '❄ Hold', 'No stop alerts']])}</div>
     </details>
   </details>;
