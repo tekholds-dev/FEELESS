@@ -778,3 +778,6 @@ body.fx-lite .bf-floor, body.fx-lite .bf-beam, body.fx-lite .bf-c-embers, body.f
 @media (prefers-reduced-motion: reduce) { .bf-floor, .bf-beam, .bf-c-embers { display: none; } .bf-c-aura, .bf-corner.is-hit .bf-c-card, .bf-arena .bf-pair.is-spot { animation: none; } .bf-corner { transition: none; } }
 body.theme-day .bf-arena { background: radial-gradient(80% 60% at 50% 0%, #e7dbff 0%, transparent 70%), #f7f4ff; } body.theme-day .bf-tabs button { background: #fff; }
 @media (max-width: 760px) { .bf-arena .bf-pair { grid-template-columns: 1fr 1fr; } .bf-mid { grid-column: 1 / -1; order: 3; } .bf-c-card .fcd { zoom: .48; } .bf-c-pct { font-size: 17px; } }
+.ce-spec { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--m-accent) 35%, var(--m-line)); background: var(--m-bg); }
+.ce-spec dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; margin: 0; font-size: 12px; } .ce-spec dt { color: var(--m-dim); } .ce-spec dd { margin: 0; }
+.ce-spec small { font-size: 10.5px; } body.theme-day .ce-spec { background: #fff; }

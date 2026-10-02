@@ -440,6 +440,18 @@ const balancesOf = async (addr, legs) => Object.fromEntries(await Promise.all(le
 const solPrice = () => fetch(`https://lite-api.jup.ag/price/v3?ids=${SOL_MINT}`).then(r => r.json()).then(d => Number(d?.[SOL_MINT]?.usdPrice) || 0).catch(() => 0);
 export const collectSplit = (pct, legs) => (legs || []).filter(l => l.soldUsd == null).map(l => ({ ...l, pct }));
 
+// 🤖 What this card's settings ask for — exactly what the FUSE Card program will run on its own once you sign (docs/GO_LIVE.md).
+// Today every step is a one-tap alert you approve; nothing sells by itself yet.
+export function AutoSpec({ r }) {
+  const clk = h => (h >= 1 ? `${h}h` : `${Math.round(h * 60)}m`);
+  const rows = [['🔄 Cycle', r.cycle === 'adaptive' ? '🧠 adaptive — losing → majors, winning → runners' : '➡ steady'], ['⟳ Reshuffle', `every ${clk(r.rotateHours || 24)}${r.mode === 'swap' ? ' · auto-rotate on' : ' · hold (you switch)'}`],
+    ['💸 Profit split', `${r.payoutPct ?? 100}% to your wallet · ${100 - (r.payoutPct ?? 100)}% compounds (${r.compoundStyle || 'smart'})`], ['🛑 At a stop', ({ sell: '✂ sell', park: '🅿 park & buy back', hold: '❄ hold' })[r.slMode || 'sell']],
+    ['🎯 Coin limits', `${Object.keys(r.legGuard || {}).length} coins with their own TP / SL`], ['❄ Frozen', `${(r.frozen || []).length} coin${(r.frozen || []).length === 1 ? '' : 's'} the engine never touches`]];
+  return <section className="ce-spec" data-testid={`spec-${r.id}`}><span className="m-label">🤖 AUTO SPEC · WHAT THE CARD WILL DO</span>
+    <dl>{rows.map(([k, v]) => <React.Fragment key={k}><dt>{k}</dt><dd>{v}</dd></React.Fragment>)}</dl>
+    <small className="m-dim">Today: one-tap alerts you approve. With the FUSE Card contract (after audit + your signature) these run on their own and payouts land in your wallet without a click.</small></section>;
+}
+
 const ROTATE_PICKS = [[5 / 60, '5m'], [0.25, '15m'], [1, '1h'], [12, '12h'], [24, '24h']];   // ⇄ card clock (server: fuse_hq.ROTATE_OPTIONS)
 const COIN_MODE = { sell: '✂ sell', park: '🅿 park', hold: '❄ hold' };
 export function MyCards({ addr }) {
@@ -454,8 +466,8 @@ export function MyCards({ addr }) {
   const setRisk = async (r, risk) => { const s = ses(); if (!s || r.risk === risk) return;
     try { await post('/api/reputation/fuses/plan', { address: addr, session: s, id: r.id, plan: { risk } }); toast.success(`${RISK_DIALS[risk].label}: ${RISK_DIALS[risk].why}`); load(); } catch (e) { toast.error(e.message); } };
   const setAdv = async (r, patch) => { const s = ses(); if (!s) return;
-    const plan = { mode: r.mode || 'hold', onProfit: r.onProfit || 'collect', at: r.autoYield?.at, legs: Object.fromEntries(Object.entries(r.legGuard || {}).map(([pa, g]) => [pa, { tp: g.tp, sl: g.sl }])), rotateHours: r.rotateHours || 24, slMode: r.slMode || 'sell', cycle: r.cycle || 'steady', ...patch };
-    try { await post('/api/reputation/fuses/plan', { address: addr, session: s, id: r.id, plan }); toast.success(patch.cycle ? `Round cycle: ${patch.cycle}` : patch.rotateHours ? `Rotation every ${(ROTATE_PICKS.find(([h]) => Math.abs(h - patch.rotateHours) < 0.005) || [0, `${patch.rotateHours}h`])[1]}` : `On a coin stop: ${patch.slMode}`); load(); } catch (e) { toast.error(e.message); } };
+    const plan = { mode: r.mode || 'hold', onProfit: r.onProfit || 'collect', at: r.autoYield?.at, legs: Object.fromEntries(Object.entries(r.legGuard || {}).map(([pa, g]) => [pa, { tp: g.tp, sl: g.sl }])), rotateHours: r.rotateHours || 24, slMode: r.slMode || 'sell', cycle: r.cycle || 'steady', payoutPct: r.payoutPct ?? 100, compoundStyle: r.compoundStyle || 'smart', ...patch };
+    try { await post('/api/reputation/fuses/plan', { address: addr, session: s, id: r.id, plan }); toast.success(patch.payoutPct != null ? `Profit split: ${patch.payoutPct}% to your wallet` : patch.compoundStyle ? `Compound: ${patch.compoundStyle}` : patch.cycle ? `Round cycle: ${patch.cycle}` : patch.rotateHours ? `Rotation every ${(ROTATE_PICKS.find(([h]) => Math.abs(h - patch.rotateHours) < 0.005) || [0, `${patch.rotateHours}h`])[1]}` : `On a coin stop: ${patch.slMode}`); load(); } catch (e) { toast.error(e.message); } };
   const setMode = async (r, mode) => { const s = ses(); if (!s || (r.mode || 'hold') === mode) return;
     try { await post('/api/reputation/fuses/mode', { address: addr, session: s, id: r.id, mode }); toast.success(mode === 'swap' ? 'Swap mode: weak legs get a one-tap swap alert' : 'Hold mode: the card stays together'); load(); } catch (e) { toast.error(e.message); } };
   const open = useCallback(async (r, kind, extra = {}) => {
@@ -517,7 +529,7 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, setAdv,
       {earn === r.id && <CardEarnings title={r.name || 'Your card'} taken={r.realizedUsd || 0} compounded={sumKind(r, 'topup')}
         events={[...(r.events || [])].reverse().map(e => ({ ...e, label: EARN_KIND[e.kind] || e.kind, to: e.kind === 'sell' ? ['cash'] : e.kind === 'topup' ? [e.symbol] : undefined, symbol: e.kind === 'topup' ? undefined : e.symbol }))}
         gainNow={Math.max(0, Math.min(r.pnlUsd || 0, (r.valueUsd || 0) - (r.realizedUsd || 0)))} onCollect={() => { setEarn(null); open(r, 'yield', { at: r.autoYield?.at || d.rules?.yieldDefault || 50, levels: d.rules?.yieldLevels || [25, 50, 100, 200] }); }} onClose={() => setEarn(null)}
-        autos={r.autos || []} extra={<CardRounds card={r} onChange={() => refresh()} />} legs={r.legs.filter(l => l.soldUsd == null).map(l => ({ ...l, firstEntry: l.tokens ? l.usd / l.tokens : null, frozen: (r.frozen || []).includes(l.pairAddress), mode: (r.coinModes || {})[l.pairAddress] || 'card', tp: (r.legGuard || {})[l.pairAddress]?.tp, sl: (r.legGuard || {})[l.pairAddress]?.sl, rot: (r.coinRotate || {})[l.pairAddress] || 0 }))} onFreeze={(l, on) => freeze(r, l, on)}
+        autos={r.autos || []} extra={<><AutoSpec r={r} /><CardRounds card={r} onChange={() => refresh()} /></>} legs={r.legs.filter(l => l.soldUsd == null).map(l => ({ ...l, firstEntry: l.tokens ? l.usd / l.tokens : null, frozen: (r.frozen || []).includes(l.pairAddress), mode: (r.coinModes || {})[l.pairAddress] || 'card', tp: (r.legGuard || {})[l.pairAddress]?.tp, sl: (r.legGuard || {})[l.pairAddress]?.sl, rot: (r.coinRotate || {})[l.pairAddress] || 0 }))} onFreeze={(l, on) => freeze(r, l, on)}
         onMode={(l, m) => coinMode(r, l, m)} cardMode={r.slMode || 'sell'} onCoinCfg={(l, patch) => coinCfg(r, l, patch)}
         actions={[{ label: '＋ Top up', tip: 'Add SOL — equal split, by weight, or into one coin. One approval.', onClick: () => { setEarn(null); open(r, 'topup'); }, testid: `cw-topup-${r.id}` },
           { label: '💰 Take 50%', onClick: () => { setEarn(null); open(r, 'take', { pct: 50 }); } },
@@ -529,6 +541,9 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, setAdv,
         <div className="fp-adv" data-testid={`adv-${r.id}`}><span className="m-label" data-tip="Your card's own clock: how often you may switch a coin">⇄ ROTATE EVERY</span>
           <div className="m-seg">{ROTATE_PICKS.map(([h, l]) => <button key={l} type="button" className={Math.abs((r.rotateHours || 24) - h) < 0.005 ? 'active' : ''} onClick={() => setAdv(r, { rotateHours: h })} data-testid={`rot-${l}-${r.id}`}>{l}</button>)}</div>
           <span className="m-label" data-tip="Sell = the stop alert sells it · 🅿 Park = sell to SOL, then a one-tap buy-back alert when it's back at entry with buyers · ❄ Hold = no stop alerts">ON A COIN STOP</span>
+          <span className="m-label" data-tip="Share of each profit take paid to your wallet — the rest compounds">💸 PROFIT SPLIT</span>
+          <div className="m-seg">{[0, 25, 50, 75, 100].map(v => <button key={v} type="button" className={(r.payoutPct ?? 100) === v ? 'active' : ''} onClick={() => setAdv(r, { payoutPct: v, onProfit: v > 0 ? 'collect' : 'compound' })} data-testid={`pay-${v}-${r.id}`}>{v}%</button>)}</div>
+          <div className="m-seg">{[['smart', '🧲 Smart'], ['even', '⚖ Even'], ['off', '✋ Off']].map(([k, l]) => <button key={k} type="button" className={(r.compoundStyle || 'smart') === k ? 'active' : ''} onClick={() => setAdv(r, { compoundStyle: k })} data-testid={`cmp-${k}-${r.id}`}>{l}</button>)}</div>
           <span className="m-label" data-tip="Adaptive: a losing card's weak coin swaps into a major, a winning card's into a fresh runner">🔄 ROUND CYCLE</span>
           <div className="m-seg">{[['steady', '➡ Steady'], ['adaptive', '🧠 Adaptive']].map(([k, l]) => <button key={k} type="button" className={(r.cycle || 'steady') === k ? 'active' : ''} onClick={() => setAdv(r, { cycle: k })} data-testid={`cyc-${k}-${r.id}`}>{l}</button>)}</div>
           <div className="m-seg">{[['sell', 'Sell'], ['park', '🅿 Park & buy back'], ['hold', '❄ Hold']].map(([k, l]) => <button key={k} type="button" className={(r.slMode || 'sell') === k ? 'active' : ''} onClick={() => setAdv(r, { slMode: k })} data-testid={`sl-${k}-${r.id}`}>{l}</button>)}</div></div>

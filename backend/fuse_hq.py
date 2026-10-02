@@ -747,7 +747,10 @@ def cycle_pick(pos, pnl_pct):
 def _extras(plan):
     """Per-card advanced options (owner + Cmd Ctr): rotation interval and what a coin stop does
     (sell · park = sell to SOL, then a one-tap buy-back alert when price is back at entry with buyers · hold = no stop alert)."""
-    return {'rotateHours': rotate_hours(plan.get('rotateHours')), 'cycle': plan.get('cycle') if plan.get('cycle') in CARD_CYCLES else 'steady', 'slMode': plan.get('slMode') if plan.get('slMode') in SL_MODES else 'sell'}
+    pay = plan.get('payoutPct')
+    pay = int(pay) if pay in (0, 25, 50, 75, 100) else (0 if plan.get('onProfit') == 'compound' else 100)
+    return {'rotateHours': rotate_hours(plan.get('rotateHours')), 'cycle': plan.get('cycle') if plan.get('cycle') in CARD_CYCLES else 'steady',
+            'payoutPct': pay, 'compoundStyle': plan.get('compoundStyle') if plan.get('compoundStyle') in ('smart', 'even', 'off') else 'smart', 'slMode': plan.get('slMode') if plan.get('slMode') in SL_MODES else 'sell'}
 
 
 def next_switch_at(pos, staff=False):

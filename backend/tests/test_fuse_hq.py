@@ -171,8 +171,8 @@ def test_card_rotation_interval_and_park_buyback():
     pos = {'lastSwitchAt': 1000, 'plan': {'rotateHours': 6}}
     assert hq.next_switch_at(pos) == 1000 + 6 * 3600
     assert hq.next_switch_at({'lastSwitchAt': 1000, 'plan': {'rotateHours': 99}}) == 1000 + 24 * 3600   # not an option → 24h
-    assert hq._extras({'slMode': 'park', 'rotateHours': 1}) == {'rotateHours': 1, 'cycle': 'steady', 'slMode': 'park'}
-    assert hq._extras({}) == {'rotateHours': 24, 'cycle': 'steady', 'slMode': 'sell'}
+    assert hq._extras({'slMode': 'park', 'rotateHours': 1}) == {'rotateHours': 1, 'cycle': 'steady', 'payoutPct': 100, 'compoundStyle': 'smart', 'slMode': 'park'}
+    assert hq._extras({}) == {'rotateHours': 24, 'cycle': 'steady', 'payoutPct': 100, 'compoundStyle': 'smart', 'slMode': 'sell'}
     assert hq.buyback_due({'entry': 1.0}, 1.02, {'buyShare': 60, 'chg1h': 3}) and not hq.buyback_due({'entry': 1.0}, 0.9, {'buyShare': 60})
     assert not hq.buyback_due({'entry': 1.0}, 1.1, {'buyShare': 40, 'chg1h': -2})
 

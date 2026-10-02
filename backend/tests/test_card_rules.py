@@ -97,7 +97,7 @@ def test_round_move_is_none_when_the_feed_lost_the_coin(rs):
 
 def test_card_plan_is_validated_and_leg_limits_fire_once(rs, monkeypatch):
     plan = hq.clean_plan({'at': 50, 'mode': 'swap', 'onProfit': 'compound', 'legs': {'P1': {'tp': 100, 'sl': 30}, 'NOPE': {'tp': 50}}}, {}, ['P1', 'P2'])
-    assert plan == {'risk': 'custom', 'at': 50.0, 'mode': 'swap', 'onProfit': 'compound', 'legs': {'P1': {'tp': 100.0, 'sl': 30.0}}, 'rotateHours': 24, 'cycle': 'steady', 'slMode': 'sell', 'frozen': [], 'coinRotate': {}, 'coinModes': {}}
+    assert plan == {'risk': 'custom', 'at': 50.0, 'mode': 'swap', 'onProfit': 'compound', 'legs': {'P1': {'tp': 100.0, 'sl': 30.0}}, 'rotateHours': 24, 'cycle': 'steady', 'payoutPct': 0, 'compoundStyle': 'smart', 'slMode': 'sell', 'frozen': [], 'coinRotate': {}, 'coinModes': {}}
     with pytest.raises(ValueError):
         hq.clean_plan({'at': 75}, {}, [])
     with pytest.raises(ValueError):

@@ -96,8 +96,8 @@ test('card plan: runners start with lane exits, empty limits are dropped, plan r
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<Host />); }); await act(async () => new Promise(r => setTimeout(r, 0)));
   expect(el.querySelector('[data-testid="plan-tp-R"]').value).toBe('50');
-  await act(async () => { el.querySelector('[data-testid="plan-at-100"]').click(); el.querySelector('[data-testid="plan-onProfit-compound"]').click(); });
-  expect(plan.at).toBe(100); expect(plan.onProfit).toBe('compound');
+  await act(async () => { el.querySelector('[data-testid="plan-at-100"]').click(); el.querySelector('[data-testid="plan-pay-0"]').click(); });
+  expect(plan.at).toBe(100); expect(plan.onProfit).toBe('compound'); expect(plan.payoutPct).toBe(0);   // 0% out = all compounds
 });
 
 test('a Fuse panel opened in a background tab still loads (only repeat polls pause while hidden)', async () => {
