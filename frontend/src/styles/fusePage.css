@@ -553,3 +553,4 @@ body.fx-lite .vd-pcard { animation: none; }
 .pg-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; font-size: 12px; } .pg-row i { font: 9.5px var(--m-mono); font-style: normal; text-transform: uppercase; color: var(--m-accent); } .pg-row small { color: var(--m-dim); } .pg-row em { margin-left: auto; font-style: normal; }
 body.theme-day .pg-tile { background: var(--m-surface); }
 @media (max-width: 640px) { .pg-tiles { grid-template-columns: 1fr 1fr; } .pg-cols { grid-template-columns: 1fr; } }
+.fc-brain{display:grid;gap:6px;padding:10px;border:1px dashed var(--m-line);border-radius:12px}.fc-moved{display:flex;flex-wrap:wrap;gap:4px}.fc-log{margin:0;padding:0;list-style:none;display:grid;gap:3px;font-size:11.5px}

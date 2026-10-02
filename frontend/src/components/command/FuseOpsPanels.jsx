@@ -129,6 +129,7 @@ export function FeeCatTune({ call }) {
       <div className="fops-tile"><small>RUNNING NOW</small><b className="m-num">{a?.engineDial || 'custom'}</b><em>engine dial</em></div>
       <div className="fops-tile" data-tip={sug.map(x => `${x.key}: ${x.now} → ${x.to} (${x.why})`).join('\n') || 'Nothing stronger found'}><small>STRONGER SETTINGS</small><b className="m-num">{sug.length}</b><em>{sug[0]?.why || 'engine is up to date'}</em></div>
     </div>
+    <FeeCatBrain />
     <button type="button" className="m-btn primary m-go" disabled={busy || nothing} onClick={tune} data-testid="feecat-tune-go">{nothing ? '✓ Engine already at FeeCat\'s best' : busy ? 'Tuning…' : '🐱 Let FeeCat tune the engine'}</button></section>;
 }
 
@@ -155,4 +156,18 @@ export function EnginePlayground({ call }) {
     {p.board.length > 0 && <div className="pg-box"><header><b>🏟 Strategies</b><small>$5 paper runs, settled after 24h</small></header>{p.board.map(r => <div key={r.style} className="pg-row"><b>{r.style}</b><small>{r.runs} runs · {r.winRate}% won</small><em className={r.avgPct >= 0 ? 'm-pos' : 'm-neg'}>{fmt(r.avgPct)}</em></div>)}</div>}
     {p.autoLog.length > 0 && <div className="pg-box"><header><b>🔧 Engine changes</b><small>auto + manual, newest first</small></header>{p.autoLog.map((a, i) => <div key={i} className="pg-row"><small>{new Date(a.at * 1000).toLocaleString()}</small><b>{a.admin === 'engine-auto' ? '🤖 auto' : '👤'}</b><small>{String(a.detail).slice(0, 110)}</small></div>)}</div>}
   </section>;
+}
+
+
+// 🐱 FeeCat's OWN auto-strength (feecat_service: entry tuning + exit learning), live — she tightens on bad days, eases in a
+// drought, and loosens exits she cut too early. Read-only: she may only ever make herself trade LESS.
+const MODE = { warming: '🌡 warming up', tightening: '🔒 tightening', holding: '⏸ holding', 'drought-relax': '🌊 easing (drought)', normal: '✓ steady' };
+export function FeeCatBrain() {
+  const [b, setB] = useState(null);
+  useEffect(() => { fetch(apiUrl('/api/cats/brain')).then(r => r.json()).then(setB).catch(() => {}); }, []);
+  if (!b) return null;
+  const moved = Object.entries(b.entry || {}).filter(([, v]) => v.now !== v.default);
+  return <div className="fc-brain" data-testid="feecat-brain"><div className="m-row"><b>🐱 Her own auto-strength</b><span className="m-chip">{MODE[b.mode] || b.mode}</span><small className="m-dim">{b.good} good exits · {b.missed} cut early</small></div>
+    {moved.length > 0 && <div className="fc-moved">{moved.map(([k, v]) => <span key={k} className="m-chip" data-tip={`default ${v.default}`}>{k} {v.default} → <b>{v.now}</b></span>)}</div>}
+    {b.log?.length > 0 && <ul className="fc-log">{b.log.slice(0, 4).map((l, i) => <li key={i}><small className="m-dim">{new Date(l.at * 1000).toLocaleString()}</small> {l.symbol ? `$${l.symbol} · ` : ''}{l.note}</li>)}</ul>}</div>;
 }

@@ -877,6 +877,20 @@ async def list_cats(ownerId: str):
     return {'cats': cats}
 
 
+@app.get('/api/cats/brain')
+def cats_brain():
+    """🐱 FeeCat's own auto-strength, live: entry mode (warming / tightening / holding / drought-relax), the entry rules she's
+    running vs defaults, the exit params she learned, and her last notes. Read-only."""
+    store = _load()
+    cat = (store.get('cats') or {}).get(LEADER_ID) or {}
+    L = cat.get('learn') or {}
+    entry = L.get('entry') or {}
+    return {'mode': L.get('mode') or 'warming', 'tunedAt': L.get('tunedAt'),
+            'entry': {k: {'now': entry.get(k, RULES[k]), 'default': RULES[k]} for k in ENTRY_BOUNDS},
+            'exits': {k: {'now': v, 'default': RULES.get(k)} for k, v in (L.get('params') or {}).items()},
+            'log': (L.get('log') or [])[:10], 'good': L.get('good', 0), 'missed': L.get('missed', 0)}
+
+
 @app.get('/api/cats/leader')
 async def leader():
     store = _load()
