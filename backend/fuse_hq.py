@@ -793,7 +793,7 @@ def feecat_weekly(dial, tuned, beat, cat_pct):
     return f"🐱 FeeCat's week: engine on the {dial or 'custom'} dial{t} · {her} · {you}."
 
 
-def playground_ready(board, dials_by_window, prime, min_settled=None):
+def playground_ready(board, dials_by_window, prime, min_settled=None, battle_rows=()):
     """🧪 Engine playground — what's PROVEN and ready for the Arena stage:
       • strategies with ≥ MIN_SETTLED settled $5 runs and avg > 0,
       • engine dials that win in ≥ 2 proof windows (avg > 0, ≥ 8 rounds),
@@ -815,6 +815,8 @@ def playground_ready(board, dials_by_window, prime, min_settled=None):
     for c in prime or []:
         ok = _f(c.get('pnlPct')) >= 10 and _f(c.get('lowPct')) > -15
         (ready if ok else proving).append({'kind': 'tier card', 'name': c.get('label'), 'why': f"{_f(c.get('pnlPct')):+.1f}% · worst {_f(c.get('lowPct')):.1f}%" + ('' if ok else ' · needs +10% with worst above −15%')})
+    for ok, row in battle_rows or ():   # ⚔ playground battle records (pg_battle.ready_rows)
+        (ready if ok else proving).append(row)
     return {'ready': ready, 'proving': proving}
 
 

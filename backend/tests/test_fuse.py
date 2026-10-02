@@ -145,3 +145,12 @@ def test_new_majors_lens_keeps_young_big_coins_with_real_volume():
                                                 'marketCap': mc, 'volume': {'h24': vol}, 'liquidity': {'usd': liq}, 'pairCreatedAt': now - age_d * 8.64e7, 'priceChange': {'h24': ch}, 'priceUsd': '1'}
     rows = f.risers([P('PAID', 3e6, 2e6, 4e5, 3), P('OLD', 3e6, 2e6, 4e5, 60), P('TINY', 2e5, 2e6, 4e5, 1), P('DEAD', 3e6, 1e4, 4e5, 2), P('HOOK', 6e6, 4e6, 4e5, 3)], now)
     assert [r['symbol'] for r in rows] == ['HOOK', 'PAID']
+
+
+def test_new_majors_carry_pumps_top_15():
+    import fuse as fz
+    mk = lambda i, dex='pumpswap', mc=1e6, liq=2e5, vol=None: {'chainId': 'solana', 'dexId': dex, 'pairAddress': f'PP{i}', 'baseToken': {'address': f'M{i}pump', 'symbol': f'P{i}'},
+        'quoteToken': {'symbol': 'SOL'}, 'marketCap': mc, 'liquidity': {'usd': liq}, 'volume': {'h24': vol if vol is not None else 1e5 * (i + 1)}, 'txns': {'h24': {'buys': 10, 'sells': 5}}}
+    rows = fz.pump_majors([mk(i) for i in range(20)] + [mk(99, dex='pumpfun'), mk(98, mc=1e4)], have={'M19pump'})
+    assert len(rows) == 15 and rows[0]['symbol'] == 'P18' and all(r['pump'] for r in rows)       # top 15 by volume, listed coin skipped
+    assert not any(r['symbol'] in ('P99', 'P98') for r in rows)                                    # pre-bond curve + tiny mcap out

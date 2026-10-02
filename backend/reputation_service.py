@@ -2781,7 +2781,15 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
     if lens == 'majors':   # 🪙 the REAL SOL / BTC / ETH / … on Solana (hard-coded mints), deepest pool each
         return {'lens': 'majors', 'chain': 'solana', 'pools': await _majors_rows()}
     if lens == 'risers':   # 🚀 new majors: young coins that arrived big with real volume
-        return {'lens': 'risers', 'chain': 'solana', 'pools': _fuse.risers(await _fuse_discover_pairs('solana'), time.time() * 1000)}
+        base_ = await _fuse_discover_pairs('solana')
+        rs_ = _fuse.risers(base_, time.time() * 1000)
+        try:   # 🟢 + Pump's top 15 graduated coins (trending pump board), never duplicated
+            async with httpx.AsyncClient(timeout=8) as http:
+                pump_ = (await http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': 'trending', 'chain': 'solana', 'page': 1, 'scope': 'pump'})).json().get('pairs') or []
+        except Exception:
+            pump_ = []
+        have_ = {(r.get('baseToken') or {}).get('address') or r.get('baseAddress') for r in rs_}
+        return {'lens': 'risers', 'chain': 'solana', 'pools': rs_ + _fuse.pump_majors(pump_ + base_, have_)}
     lens = lens if lens in _fuse.LENSES else 'popular'
     return {'lens': lens, 'chain': chain, 'pools': _fuse.discover(await _fuse_discover_pairs(chain), lens, chain, now_ms=time.time() * 1000)}
 
@@ -4267,7 +4275,7 @@ async def fuse_arena_public():
     mega = await _arena_mega(rd, cfg, now)
     return {'board': board, 'outlook': _hq.outlook(board), 'bestStyle': _hq.best_style(board), 'runs': [v for v in sorted(vals, key=lambda v: -v['at']) if v['settled']][:12],
             'runners': {'proof': _rn.proof(rd['rounds'], rd['paths'], now, cfg=cfg), 'rounds': rounds}, 'minSettled': _hq.MIN_SETTLED,
-            'mega': [c for c in mega if not c.get('bench')], 'bench': [c for c in mega if c.get('bench')],
+            'mega': [c for c in mega if not c.get('bench') and not c.get('fighterOnly')], 'bench': [c for c in mega if c.get('bench')], 'fighters': [c for c in mega if c.get('fighterOnly')],
             'battles': _battle_view(mega, now),
             # 🎚 auto paper cards per Risk dial: every round also played with each dial's TP/SL — proves a dial BEFORE it goes auto live
             'dials': {k: {**v, 'label': _hq.RISK_DIALS[k]['label'], 'why': _hq.RISK_DIALS[k]['why']} for k, v in _rn.dial_proof(rd['rounds'], rd['paths'], now, _hq.RISK_DIALS).items()},
@@ -4327,8 +4335,13 @@ def _battle_view(mega, now):
         board.append({'key': k, 'name': c.get('name') or 'Card', 'emoji': c.get('emoji'), 'dial': c.get('dial'), 'w': r.get('w', 0), 'l': r.get('l', 0),
                       'pct': round((c.get('index') or 100) - 100, 2), 'status': 'winners' if r.get('l', 0) == 0 else 'losers' if r.get('l', 0) == 1 else 'out'})
     board.sort(key=lambda x: ({'winners': 0, 'losers': 1, 'out': 2}[x['status']], -x['w'], -x['pct']))
+    fighting = {p_[s_]['key'] for p_ in pairs for s_ in ('a', 'b')}
+    calls = list((br.get('picks') or {}).values())
+    for x in board:
+        x['calls'] = calls.count(x['key'])
+    up_next = [x for x in board if x['status'] != 'out' and x['key'] not in fighting][:3]
     return {'pairs': pairs, 'endsAt': b.get('endsAt'), 'log': (_json_load(FUSE_HQ_PATH, {}).get('battleLog') or [])[-8:][::-1],
-            'bracket': {'board': board, 'season': br.get('season') or 1, 'champions': list(reversed(br.get('champions') or []))[:5]}, 'max': _rn.BATTLE_MAX}
+            'bracket': {'board': board, 'season': br.get('season') or 1, 'champions': list(reversed(br.get('champions') or []))[:5], 'upNext': up_next, 'calls': len(calls)}, 'max': _rn.BATTLE_MAX}
 
 
 @app.get('/api/reputation/fuses/battles/{address}')
@@ -4343,6 +4356,28 @@ async def fuse_my_battles(address: str):
             if r.get('aKey') in keys or r.get('bKey') in keys][:20]
     rec = {'w': sum(1 for r in past if r['won']), 'l': sum(1 for r in past if not r['won'] and not r.get('draw')), 'd': sum(1 for r in past if r.get('draw'))}
     return {'live': live, 'past': past, 'record': rec, 'endsAt': view.get('endsAt'), 'cards': len(keys)}
+
+
+class BracketPick(BaseModel):
+    address: str
+    session: str
+    key: str = Field(..., max_length=120)
+
+
+@app.post('/api/reputation/fuses/bracket/pick')
+async def bracket_pick(p: BracketPick):
+    """🔮 Call the bracket champion — free, one call per wallet per bracket, locked once made. Right = season XP + inbox."""
+    me = _session_or_401(p.address, p.session)
+    keys = {f"{c['kind']}:{c['id']}" for c in _rn.unique_cards(_arena_mega_cache.get('data') or [])}
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); br = d.setdefault('bracket', {})
+        if p.key not in keys or int(((br.get('cards') or {}).get(p.key) or {}).get('l') or 0) >= 2:
+            raise HTTPException(400, 'That card is not standing in this bracket.')
+        picks = br.setdefault('picks', {})
+        if me in picks:
+            raise HTTPException(409, 'You already called this bracket.')
+        picks[me] = p.key; _json_save(FUSE_HQ_PATH, d)
+    return {'ok': True, 'key': p.key, 'season': br.get('season') or 1}
 
 
 class BattleBack(BaseModel):
@@ -4420,7 +4455,13 @@ async def _battle_tick(now):
     if champ is not None:
         cm = next((c for c in mega if f"{c['kind']}:{c['id']}" == champ), None)
         if cm:
-            champs = (champs + [{'at': now, 'key': champ, 'name': cm['name'], 'emoji': cm.get('emoji'), 'w': (bracket.get(champ) or {}).get('w', 0), 'season': season_n}])[-12:]
+            champs = (champs + [{'at': now, 'key': champ, 'name': cm['name'], 'emoji': cm.get('emoji'), 'w': (bracket.get(champ) or {}).get('w', 0), 'season': season_n,
+                                 'legs': [{k_: l.get(k_) for k_ in ('pairAddress', 'symbol', 'baseAddress', 'weight', 'runner')} for l in cm.get('legs') or []][:12]}])[-12:]
+            for w_, k_ in ((d.get('bracket') or {}).get('picks') or {}).items():   # 🔮 called the champion → XP event + inbox
+                if k_ == champ:
+                    d.setdefault('bracketWins', {})[w_] = ((d.get('bracketWins') or {}).get(w_) or [])[-49:] + [now]
+                    notify(w_, 'fuse-card', f"🔮 You called it — {cm['name']} won Arena bracket #{season_n}. Season XP added.", url='/terminal/fuse?tab=arena',
+                           once=f"bracketpick-{season_n}-{w_}", meta={'claim': 'Your bracket call was the champion', 'source': 'Arena battles'})
             _fuse_chat('fuse-lab', f"👑 Bracket #{season_n} champion: {cm.get('emoji') or ''} {cm['name']} — last card standing. A new bracket starts now.", f"bracket-{season_n}")
             if champ.startswith('user:') and champ[5:] in owners:
                 notify(owners[champ[5:]], 'fuse-card', f"👑 Your card won Arena bracket #{season_n} — last one standing.", url='/terminal/fuse?tab=arena', once=f"champ-{season_n}-{champ}",
@@ -4435,7 +4476,9 @@ async def _battle_tick(now):
         d2 = _json_load(FUSE_HQ_PATH, {})
         d2['battles'] = {'at': now, 'endsAt': now + mins * 60, 'pairs': pairs}
         d2['battleLog'] = ((d2.get('battleLog') or []) + results)[-40:]
-        d2['bracket'] = {'cards': bracket, 'champions': champs, 'season': season_n}
+        d2['bracket'] = {'cards': bracket, 'champions': champs, 'season': season_n,
+                         'picks': {} if champ is not None else ((d2.get('bracket') or {}).get('picks') or {})}
+        d2['bracketWins'] = {**(d2.get('bracketWins') or {}), **(d.get('bracketWins') or {})}
         d2['battleRecord'] = d.get('battleRecord') or {}
         d2['backRecord'] = d.get('backRecord') or {}
         d2['backWins'] = {**(d2.get('backWins') or {}), **(d.get('backWins') or {})}
@@ -4570,8 +4613,31 @@ async def _arena_mega(rd, cfg, now):
                     'cfg': sc.get('cfg') or _rn.card_cfg(dial, sc), 'grade': 'A' if pct_ > 0 else 'B', 'buyers': 0, 'at': sc['at'], 'chat': f"fuse-card-{sc['id']}", 'pnlPct': pct_,
                     'tagline': f"engine card · TP +{sc['tp']}% / stop −{sc['sl']}%",
                     'activity': _hq.activity(len(sc['legs']), 0, 0, pct_)})
+    # 🏆 the engine's top battle winner is the ONE engine card that reaches the Arena by itself (Cmd Ctr 🎨 picks the rest)
+    pgb = rd.get('pgBattle') or {}
+    champ_id = _pgb.champion(pgb.get('record'), pgb.get('cards'))
+    if champ_id and not any(x.get('src') == champ_id for x in out):
+        cc = pgb['cards'][champ_id]; r_ = pgb['record'][champ_id]
+        cpx = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in cc['legs']])
+        mv_ = [(_fuse._f(cpx.get(l['pairAddress'])) / l['entry'] - 1) * 100 for l in cc['legs'] if _fuse._f(cpx.get(l['pairAddress'])) > 0 and _fuse._f(l.get('entry')) > 0]
+        pct_ = round(sum(mv_) / len(mv_), 2) if mv_ else 0.0
+        nm_ = cc.get('name') or 'Engine champ'
+        out.append({'kind': 'engine', 'bench': True, 'engineChamp': True, 'id': champ_id, 'src': champ_id, 'name': nm_.split(' ', 1)[-1], 'emoji': nm_.split(' ', 1)[0] if ' ' in nm_ else '🏆',
+                    'legs': [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': round(100 / max(1, len(cc['legs'])), 2), 'runner': l.get('role') == 'runner', 'entry': l.get('entry')} for l in cc['legs']],
+                    'index': round(100 + pct_, 2), 'grade': 'A' if pct_ > 0 else 'B', 'buyers': 0, 'at': cc.get('at'), 'chat': f"fuse-card-{champ_id}", 'pnlPct': pct_, 'dial': cc.get('dial'),
+                    'cfg': {'tp': int(_fuse._f(cc.get('tp'))), 'sl': int(_fuse._f(cc.get('sl'))), 'rotateHours': 1, 'slMode': 'sell'},
+                    'tagline': f"engine champion · {r_.get('w', 0)}–{r_.get('l', 0)} in playground battles", 'activity': _hq.activity(len(cc['legs']), 0, 0, pct_)})
+    # ⭐ top-tier cards fight in the bracket too (fighters only — they already have their own section at the top of the Arena)
+    tier_dial = {'diamond': 'safe', 'ever': 'safe', 'gold': 'balanced', 'blaze': 'degen', 'next': 'degen'}
+    pcfg = _prime_cfg()
+    for pc_ in await _prime_view():
+        out.append({'kind': 'prime', 'fighterOnly': True, 'id': pc_['tpl'], 'name': pc_['label'].split(' ', 1)[-1], 'emoji': pc_['label'].split(' ', 1)[0],
+                    'legs': [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': round(_fuse._f(l.get('usd')) / max(1e-9, pc_['valueUsd']) * 100, 2), 'runner': l.get('role') == 'runner'} for l in pc_['legs']],
+                    'index': round(100 + _fuse._f(pc_.get('pnlPct')), 2), 'grade': 'A' if _fuse._f(pc_.get('pnlPct')) > 0 else 'B', 'buyers': 0, 'at': pc_.get('at'), 'chat': f"fuse-card-prime-{pc_['tpl']}",
+                    'dial': tier_dial.get(pc_.get('tier')), 'cfg': {'tp': pc_.get('tp'), 'sl': pc_.get('sl'), 'rotateHours': pcfg.get('rotateHours'), 'slMode': {'replace': 'sell'}.get(pcfg.get('slMode'), pcfg.get('slMode')), 'cycle': pc_.get('cycleMode')},
+                    'tagline': f"top-tier card · {pc_.get('rounds', 0)} rounds", 'activity': _hq.activity(len(pc_['legs']), 0, 0, _fuse._f(pc_.get('pnlPct')))})
     rnd = (rd.get('rounds') or [None])[-1]
-    if not out and rnd and rnd.get('picks'):   # never an empty stage: the live round stands in as a proving card
+    if not [x for x in out if not x.get('fighterOnly')] and rnd and rnd.get('picks'):   # never an empty stage: the live round stands in as a proving card
         ps = rnd['picks']
         moves = [((_fuse._f(live.get(p['mint'], {}).get('price')) or p['entry']) / p['entry'] - 1) * 100 for p in ps if _fuse._f(p.get('entry')) > 0]
         mv = round(sum(moves) / len(moves), 2) if moves else 0.0
@@ -5279,6 +5345,16 @@ async def runners_discover():
             for leg in f.get('legs') or []:
                 if leg.get('role') == 'runner':
                     tag(leg.get('baseAddress') or leg.get('mint'), 'creator', f"in the {f.get('name')} Fuse")
+    for c in _arena_mega_cache.get('data') or []:   # 🏟 runner coins on the cards fighting in the Arena right now (stage, tiers, picks)
+        for leg in c.get('legs') or []:
+            if leg.get('runner') or c.get('kind') in ('lit', 'round'):
+                tag(leg.get('baseAddress') or leg.get('mint'), 'arena', f"on {c.get('emoji') or ''} {c.get('name') or 'an Arena card'}".strip())
+    passing_mints = {r['mint'] for r in live['passing']}
+    for f in (_json_load(FUSES_PATH, {'fuses': {}}).get('fuses') or {}).values():   # 📣 any passing coin inside a published Cmd Ctr Fuse
+        for leg in f.get('legs') or []:
+            m_ = leg.get('baseAddress') or leg.get('mint')
+            if f.get('enabled', True) and m_ in passing_mints:
+                tag(m_, 'creator', f"in the {f.get('name')} Fuse")
     grads = _rn.fresh_grads(live['dropped'])
     for r in grads:
         tag(r['mint'], 'grad', f"graduated, passes every other gate · score {round(_fuse._f(r.get('score')))}")
@@ -5355,7 +5431,7 @@ async def fuse_playground(request: Request):
             'scenarios': (scen := _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS)),
             'scenarioCards': await _pg_scenario_cards(rd, scen, now),
             'pgBattle': _pg_battle_view(rd),
-            **_hq.playground_ready(board, dials, prime)}
+            **_hq.playground_ready(board, dials, prime, battle_rows=_pgb.ready_rows((rd.get('pgBattle') or {}).get('record'), {k: c.get('name') for k, c in ((rd.get('pgBattle') or {}).get('cards') or {}).items()}))}
 
 async def _pg_scenario_cards(rd, scen=None, now=None, losers_ok=False):
     """The playground's best scenario cards (this round's gated runners + SOL anchor), versioned and tagged with where they're listed."""
@@ -5815,7 +5891,8 @@ def _fuse_quest_stats(mine):
             'events': {'fuse_card': [_fuse._f(x.get('at')) for x in pos], 'battle_win': wins, 'feecat_beat': beats, 'season_medal': medals,
                        # ⚔ backing feeds the season too: every back + every winning back is XP (daily + weekly quests) → rank
                        'battle_back': [t for w in mine for t in ((d.get('backLog') or {}).get(w) or [])],
-                       'back_win': [t for w in mine for t in ((d.get('backWins') or {}).get(w) or [])]}}
+                       'back_win': [t for w in mine for t in ((d.get('backWins') or {}).get(w) or [])],
+                       'bracket_win': [t for w in mine for t in ((d.get('bracketWins') or {}).get(w) or [])]}}
 
 
 async def _quest_raw(me, board=None):

@@ -119,3 +119,21 @@ def settle(pairs, pcts, record, now):
             losers.add(b if w == 'a' else a)
         results.append({'at': now, 'a': a, 'b': b, 'aPct': pcts[a], 'bPct': pcts[b], 'winner': {'a': a, 'b': b}.get(w), 'draw': w == 'draw'})
     return results, rec, losers
+
+
+def champion(record, cards, min_w=2):
+    """🏆 The engine's top battle winner (≥ min_w wins, more wins than losses, best W−L then wins) — the ONLY engine card that
+    goes to the public Arena on its own (Cmd Ctr can still 🎨 pick others). Returns the card id or None."""
+    ok = [(k, r) for k, r in (record or {}).items() if k in (cards or {}) and int(r.get('w') or 0) >= min_w and int(r.get('w') or 0) > int(r.get('l') or 0)]
+    return max(ok, key=lambda kr: (kr[1]['w'] - kr[1]['l'], kr[1]['w']))[0] if ok else None
+
+
+def ready_rows(record, names, min_w=3):
+    """Playground battle records for the engine's Ready list: ≥ min_w wins and at least 2 wins per loss."""
+    out = []
+    for k, r in (record or {}).items():
+        w, l = int(r.get('w') or 0), int(r.get('l') or 0)
+        ok = w >= min_w and w >= 2 * l
+        out.append((ok, {'kind': 'battle card', 'name': (names or {}).get(k) or k, 'id': k,
+                         'why': f"{w}–{l} in playground battles" + ('' if ok else f" · needs {max(0, min_w - w)} more wins at 2:1")}))
+    return out

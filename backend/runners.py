@@ -758,7 +758,7 @@ def tag_versions(cards, versions, listed):
     return out
 
 
-BATTLE_MAX = 3   # at most 3 Arena battles at once
+BATTLE_MAX = 2   # 2 Arena battles at once (4 cards going PvP) — the rest wait in the 'up next' queue
 
 
 def card_sig(c):

@@ -714,3 +714,22 @@ body.theme-day .bf-prow { background: #fff; } body.theme-day .bf-champ { backgro
 @media (max-width: 640px) { .bf-prow { grid-template-columns: 26px minmax(0, 1fr) auto auto; } .bf-prow .bf-pbar, .bf-prow .bf-pips { display: none; } .bf-fighter { font-size: 22px; } }
 .pg-listed.is-pick { color: #c08bff; border-color: #c08bff88; } .pg-pick.is-on { background: #c08bff; color: #12061f; border-color: #c08bff; }
 body.theme-day .pg-pick.is-on { background: #6b2fd1; color: #fff; }
+/* ⚙ card config window + ⏭ up next + 🔮 calls + 👑 buy the champion */
+.ce.cc-cfg { width: min(520px, 94vw); } .ce.cc-cfg h3 { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cc-cfg-chips { display: flex; flex-wrap: wrap; gap: 6px; } .cc-cfg-chips i { font: 600 11px var(--m-mono); font-style: normal; padding: 3px 9px; border-radius: 8px; border: 1px solid var(--m-line); background: var(--m-bg); }
+.cc-cfg-legs { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cc-cfg-legs li { display: grid; grid-template-columns: minmax(90px, auto) minmax(0, 1fr) 44px; gap: 10px; align-items: center; animation: fpIn .25s var(--m-ease) backwards; animation-delay: calc(var(--i, 0) * 40ms); }
+.cc-cfg-w { height: 6px; border-radius: 6px; background: var(--m-line); overflow: hidden; } .cc-cfg-w > i { display: block; height: 100%; background: linear-gradient(90deg, #6b3cc9, var(--m-accent)); transform-origin: left; }
+.cc-cfg-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+button.bf-fighter { border: 0; background: none; padding: 0; cursor: pointer; } button.bf-fighter:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 3px; border-radius: 8px; }
+.bf-next { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.bf-nextcard { display: inline-flex; gap: 6px; align-items: center; padding: 5px 10px; border-radius: 12px; border: 1px dashed var(--m-line-hi); background: var(--m-bg); color: var(--m-text); font: inherit; font-size: 12px; cursor: pointer;
+  animation: fpIn .3s var(--m-ease) backwards; animation-delay: calc(var(--i, 0) * 60ms); transition: transform .15s, border-color .15s; }
+.bf-nextcard:hover { transform: translateY(-2px); border-color: var(--m-accent); } .bf-nextcard em { font-style: normal; font: 600 10px var(--m-mono); color: var(--m-dim); }
+.bf-prow { grid-template-columns: 30px minmax(0, 1.2fr) minmax(60px, 1fr) auto auto auto auto; }
+.bf-pacts { display: flex; gap: 4px; } .bf-pacts .m-btn { padding: 2px 8px; font-size: 11px; } .bf-call.is-on { background: #c08bff; color: #12061f; border-color: #c08bff; }
+.bf-champ { display: inline-flex; gap: 6px; align-items: center; } .bf-champ.is-reign { border-color: #f5c451; box-shadow: 0 0 18px -6px #f5c451; }
+.bf-buychamp { padding: 3px 10px; font-size: 11px; }
+body.fx-lite .bf-nextcard, body.fx-lite .cc-cfg-legs li { animation: none; } @media (prefers-reduced-motion: reduce) { .bf-nextcard, .cc-cfg-legs li { animation: none; } }
+body.theme-day .bf-nextcard, body.theme-day .cc-cfg-chips i { background: #fff; } body.theme-day .bf-call.is-on { background: #6b2fd1; color: #fff; }
+@media (max-width: 640px) { .bf-prow { grid-template-columns: 26px minmax(0, 1fr) auto auto; } .bf-prow .bf-br { display: none; } }

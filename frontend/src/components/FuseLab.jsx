@@ -216,6 +216,10 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
   useEffect(() => { if (prev?.legs) setPlan(p => ({ ...p, legs: { ...defaultLegLimits(prev.legs), ...Object.fromEntries(Object.entries(p.legs).filter(([pa]) => legKey.includes(pa))) } })); }, [legKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!incoming?.n) return; const pools = incoming.legs.filter(l => !l.runner && l.role !== 'runner').slice(0, MAX);
     setCopy(incoming.copyOf ? { id: incoming.copyOf, owner: incoming.owner, pct: incoming.copyPct } : null);
+    if (incoming.cfg) { const c = incoming.cfg;   // ⚙ "Copy to Fuse Lab" from any Arena card: its configs come along (still editable)
+      setPlan(p => ({ ...p, risk: 'custom', ...(c.rotateHours ? { rotateHours: c.rotateHours } : {}), ...(['sell', 'park', 'hold'].includes(c.slMode) ? { slMode: c.slMode } : {}),
+        ...(c.cycle === 'adaptive' ? { cycle: 'adaptive', mode: 'swap' } : {}),
+        legs: Object.fromEntries((incoming.legs || []).filter(l => l.runner).map(l => [l.pairAddress, { tp: c.tp ? String(c.tp) : '', sl: c.sl ? String(c.sl) : '' }])) })); }
     setBacking(incoming.backKey ? { key: incoming.backKey, name: incoming.backName } : null);
     setManual(false); setPicked(pools); if (incoming.sol) setSol(incoming.sol.toFixed(4)); scrollToMix(); }, [incoming?.n]); // eslint-disable-line react-hooks/exhaustive-deps
 

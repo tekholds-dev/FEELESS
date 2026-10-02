@@ -326,5 +326,22 @@ def risers(pairs, now_ms, max_age_d=14, min_mcap=800_000, max_mcap=50_000_000, m
         if k not in best or liq > _f((best[k].get('liquidity') or {}).get('usd')):
             best[k] = p
     score = lambda p: _f((p.get('volume') or {}).get('h24')) * (1 + max(0.0, _f((p.get('priceChange') or {}).get('h24'))) / 100)
-    return [{'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'createdAt': p.get('pairCreatedAt'), 'mcap': _f(p.get('marketCap') or p.get('fdv')), **leg_meta(p)}
-            for p in sorted(best.values(), key=score, reverse=True)[:limit]]
+    out = [{'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'createdAt': p.get('pairCreatedAt'), 'mcap': _f(p.get('marketCap') or p.get('fdv')), **leg_meta(p)}
+           for p in sorted(best.values(), key=score, reverse=True)[:limit]]
+    return out
+
+
+def pump_majors(pairs, have=(), top=15, min_mcap=300_000, min_liq=50_000):
+    """🟢 Pump's biggest: graduated Pump.fun coins (PumpSwap / '…pump' mints) with real depth, top `top` by 24h volume — so the
+    New majors lens always carries the pump leaders too. One row per coin, skips coins already listed (`have`)."""
+    best = {}
+    for p in real_pools(pairs):
+        b = (p.get('baseToken') or {}).get('address') or ''
+        if p.get('chainId') != 'solana' or not (p.get('dexId') in ('pumpswap', 'pumpfun-amm') or b.endswith('pump')) or b in set(have):
+            continue
+        if _f(p.get('marketCap') or p.get('fdv')) < min_mcap or _f((p.get('liquidity') or {}).get('usd')) < min_liq or p.get('dexId') == 'pumpfun':
+            continue
+        if b not in best or _f((p.get('liquidity') or {}).get('usd')) > _f((best[b].get('liquidity') or {}).get('usd')):
+            best[b] = p
+    rows = sorted(best.values(), key=lambda p: -_f((p.get('volume') or {}).get('h24')))[:top]
+    return [{'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'createdAt': p.get('pairCreatedAt'), 'mcap': _f(p.get('marketCap') or p.get('fdv')), 'pump': True, **leg_meta(p)} for p in rows]

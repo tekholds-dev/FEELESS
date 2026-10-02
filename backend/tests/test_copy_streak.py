@@ -289,3 +289,20 @@ def test_bracket_crowns_the_last_card_standing_and_restarts(rs, monkeypatch):
     assert br['champions'][-1]['key'] == 'user:x' and br['season'] == 4 and br['cards'] == {}
     v = rs._battle_view(rs._arena_mega_cache['data'], now)
     assert v['bracket']['champions'][0]['name'] == 'X' and {b['status'] for b in v['bracket']['board']} == {'winners'}
+
+
+def test_bracket_call_once_and_the_right_call_earns_xp(rs, monkeypatch):
+    now = time.time()
+    sent = []; monkeypatch.setattr(rs, 'notify', lambda *a, **k: sent.append(a)); monkeypatch.setattr(rs, '_fuse_chat', lambda *a, **k: None)
+    rs._arena_mega_cache.update(at=now, data=[{'kind': 'user', 'id': 'x', 'name': 'X', 'index': 110, 'activity': {'score': 80}, 'legs': [{'pairAddress': 'PX'}]},
+                                              {'kind': 'lit', 'id': 'y', 'name': 'Y', 'index': 104, 'activity': {'score': 60}, 'legs': [{'pairAddress': 'PY'}]}])
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [], 'bracket': {'cards': {'lit:y': {'w': 1, 'l': 1}}, 'season': 2},
+                                    'battles': {'endsAt': now - 1, 'pairs': [{'a': {'key': 'user:x', 'name': 'X', 'start': 2.0}, 'b': {'key': 'lit:y', 'name': 'Y', 'start': 1.0}}]}})
+    assert asyncio.run(rs.bracket_pick(rs.BracketPick(address=A, session='s', key='user:x')))['ok']
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.bracket_pick(rs.BracketPick(address=A, session='s', key='lit:y')))          # one call per bracket
+    asyncio.run(rs._battle_tick(now))                                                             # X crowned
+    d = rs._json_load(rs.FUSE_HQ_PATH, {})
+    assert len(d['bracketWins'][A]) == 1 and d['bracket']['picks'] == {} and d['bracket']['champions'][-1]['legs'][0]['pairAddress'] == 'PX'
+    assert any('You called it' in a[2] for a in sent)
+    assert len(rs._fuse_quest_stats({A})['events']['bracket_win']) == 1

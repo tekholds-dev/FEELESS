@@ -68,3 +68,11 @@ def test_creator_pick_puts_only_picked_runner_ups_on_the_arena(monkeypatch):
     assert out['creatorPicks'] == ['tp200_sl40'] and [x['src'] for x in st] == ['tp200_sl40']      # picked (even a loser) — never the auto top-N
     asyncio.run(rs.scenario_pick(Req(), {'id': 'tp200_sl40', 'on': False}))
     assert rs._json_load(rs.RUNNERS_PATH, {})['scenarioStage'] == []
+
+
+def test_engine_champion_and_ready_rows():
+    rec = {'a': {'w': 3, 'l': 1}, 'b': {'w': 4, 'l': 3}, 'c': {'w': 1, 'l': 0}, 'gone': {'w': 9, 'l': 0}}
+    assert pb.champion(rec, {'a': {}, 'b': {}, 'c': {}}) == 'a'            # best W−L among cards still fighting, ≥2 wins
+    assert pb.champion({'c': {'w': 1, 'l': 0}}, {'c': {}}) is None
+    rows = dict((r['id'], ok) for ok, r in pb.ready_rows(rec, {'a': 'Moon'}))
+    assert rows['a'] is True and rows['gone'] is True and rows['b'] is False and rows['c'] is False

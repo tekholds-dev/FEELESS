@@ -221,3 +221,26 @@ test('battlefield: bracket lanes, fighter HP, power board with W/L pips and the 
   const power = host.querySelector('[data-testid="bf-power"]');
   expect(power.querySelectorAll('.bf-pips i.w').length).toBe(3); expect(power.textContent).toContain('✕ out');
 });
+
+test('battlefield: up next queue, 🔮 call the champ, 👑 buy the champion, ⚙ config copies coins + configs to the Lab', async () => {
+  const { Battlefield } = require('./FusePage');
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ ok: true }) }));
+  const loads = [];
+  const card = { kind: 'mega', id: 'a', name: 'Alpha', emoji: '🚀', dial: 'degen', cfg: { tp: 200, sl: 40, rotateHours: 0.25, slMode: 'park', cycle: 'adaptive' },
+    legs: [{ pairAddress: 'P1', symbol: 'AAA', weight: 65, runner: true }, { pairAddress: 'S', symbol: 'SOL', weight: 35 }] };
+  const b = { endsAt: Date.now() / 1000 + 300, log: [], pairs: [{ a: { key: 'mega:a', name: 'Alpha', emoji: '🚀', now: 1 }, b: { key: 'mega:b', name: 'Beta', emoji: '🦍', now: 0 } }],
+    bracket: { season: 1, upNext: [{ key: 'mega:c', name: 'Gamma', emoji: '🔥', w: 0, l: 0, status: 'winners' }],
+      champions: [{ at: 1, season: 0, name: 'King', emoji: '👑', w: 3, legs: [{ pairAddress: 'K1', symbol: 'K' }] }],
+      board: [{ key: 'mega:a', name: 'Alpha', emoji: '🚀', w: 1, l: 0, pct: 1, status: 'winners', calls: 2 }] } };
+  const host = document.createElement('div'); document.body.appendChild(host);
+  await act(async () => { createRoot(host).render(<Battlefield b={b} cards={[card]} onLoad={(legs, from) => loads.push([legs, from])} />); });
+  expect(host.querySelector('[data-testid="bf-upnext"]').textContent).toContain('Gamma');
+  await act(async () => { host.querySelector('[data-testid="call-0"]').click(); }); await tick();
+  expect(host.querySelector('[data-testid="call-0"]').textContent).toContain('3');
+  act(() => host.querySelector('[data-testid="buy-champ"]').click());
+  expect(loads[0][0][0].pairAddress).toBe('K1');
+  act(() => host.querySelector('[data-testid="bf-cfg-a-0"]').click());
+  expect(document.querySelector('[data-testid="card-config"]').textContent).toContain('TP +200%');
+  act(() => document.querySelector('[data-testid="cfg-copy"]').click());
+  expect(loads[1][1].cfg).toMatchObject({ tp: 200, slMode: 'park', cycle: 'adaptive', rotateHours: 0.25 });
+});
