@@ -59,7 +59,7 @@ const PROGRAMS = [
     [['Owner-only toggles + withdraw any time', true], ['Keeper returns coins ONLY to the owner, only when auto is on', true],
       ['v0.2 keeper SELLS / BUYS: on-chain trigger from pool reserves, whitelisted swap program, capped slippage, balance check', true],
       ['Stop modes: pay out · park & rebuy at entry · hold; compound only into coins on the card', true], ['Localnet tests: 14 passing (mock AMM)', true],
-      ['Audited venue adapter (Raydium CPMM) + TWAP / oracle bound', false], ['Devnet run → external audit → owner deploy (multisig)', false]],
+      ['Audited venue adapter (Raydium CPMM) + TWAP / oracle bound', false], ['Devnet run → external audit → owner deploy (upgrade authority = Fuse Circle wallet)', false]],
     'cargo test -p fuse_card --lib && anchor test --skip-local-validator'],
 ];
 // ⛓ Go-live checklist: every gate between localnet and real money, recorded by the owner with proof. READY only when all pass.
@@ -67,7 +67,7 @@ const GOLIVE = [['adapter', '1 · Real exchange adapter', 'Raydium CPMM adapter 
   ['twap', '2 · Time-averaged price check', 'TWAP / oracle bound next to the spot check — spot reserves can be pushed inside one transaction.', 'PR / commit link'],
   ['devnet', '3 · Devnet run', 'Full card life on devnet with real pools: open, deposit, TP sell, park + rebuy, withdraw, close.', 'devnet tx / explorer link'],
   ['audit', '4 · External audit', 'An independent auditor reviews fuse_card + the adapter; every finding fixed or accepted in writing.', 'audit report link'],
-  ['multisig', '5 · Multisig + caps', 'Upgrade authority on a multisig, small per-card caps for launch, keeper key in an HSM.', 'multisig address']];
+  ['multisig', '5 · Fuse Circle authority + caps', 'Upgrade authority on a separate Fuse Circle wallet (no Squads), small per-card caps for launch, keeper key never on the web server.', 'Circle wallet address']];
 export function GoLiveChecklist({ call }) {
   const [g, setG] = useState(null); const [proof, setProof] = useState({});
   useEffect(() => { call?.('/admin/contract/golive').then(setG).catch(() => {}); }, [call]);
@@ -85,7 +85,7 @@ export function GoLiveChecklist({ call }) {
 
 export function ContractStatus({ call }) {
   return <section className="m-card fops" data-testid="contract-status"><GoLiveChecklist call={call} />
-    <div className="m-note warn"><b>LOCALNET ONLY · NOT AUDITED · NOT DEPLOYED</b><span>Nothing here can hold real money. Order of work: adapters → devnet run → external audit → deploy with the owner's keys + a multisig upgrade authority.</span></div>
+    <div className="m-note warn"><b>LOCALNET ONLY · NOT AUDITED · NOT DEPLOYED</b><span>Nothing here can hold real money. Order of work: adapters → devnet run → external audit → deploy with the owner's keys + a Fuse Circle wallet as upgrade authority.</span></div>
     <div className="fops-cols">{PROGRAMS.map(([id, name, what, steps, cmd]) => <div key={id} className="fops-box"><header><b>⛓ {name}</b><code>contracts/fuse_vault/programs/{id}</code></header>
       <p className="m-dim fops-what">{what}</p>
       <ul className="fops-steps">{steps.map(([t, ok]) => <li key={t} className={ok ? 'ok' : ''}><i>{ok ? '✓' : '⏳'}</i>{t}</li>)}</ul>

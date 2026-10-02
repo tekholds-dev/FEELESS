@@ -8,6 +8,8 @@ import { FuseHQ } from '../FuseHQ';
 import { FuseDeck, VaultMath } from '../FuseDeck';
 import { RunnersPanel } from '../RunnersPanel';
 import { BundlePricing, RoundsPricing, EngineSuggest, RunnerSettings, CardRules, AutoYieldDefault, FusePayouts } from './FuseAdminSettings';
+import { FuseWallet } from './FuseWallet';
+import { FuseFees } from './FuseFees';
 import { ArenaOps, ContractStatus, EngineDial, FeeCatTune, EnginePlayground } from './FuseOpsPanels';
 import { PrimeControls } from '../ArenaPrime';
 import { QuestEngineAdmin } from './QuestEngineAdmin';
@@ -180,6 +182,8 @@ export function CommandCenter({ address, signMessage, onClose }) {
       ['lab', '🧬 Breed & fuse', <FuseLab call={call} />, 'Build mega cards: up to 12 legs (pools, runners or any mix), load a champion, preview it, one-click it with no FEELESS fee, publish it or stage it on the Arena.', 'BUILD'],
       ['pub', '🧪 Engine playground', <EnginePlayground call={call} />, 'Fuses traders see on Trade and in chat (/fuse). Set the creator cut; self-buys and bots never earn it.', 'BUILD'],
       ['hq', '💰 HQ · P&L', <FuseHQ call={call} />, 'Real money: every verified Fuse in, live. Arena = $5 runs that prove a strategy before you trust it.', 'MONEY'],
+      ['wallet', '👛 Fuse wallet', <FuseWallet call={call} />, 'Real money for the tier cards: your Fuse Circle wallet, its funds, hard limits, top-ups (each one starts a new run), dry runs with real quotes and the full audit trail.', 'MONEY'],
+      ['fees', '💲 Fees', <FuseFees call={call} />, 'Every Fuse fee in one place: per-coin first buy, card swaps / sells, round packs — a live $ receipt and every fee paid, clickable down to its transaction.', 'MONEY'],
       ['payouts', '💸 Payouts', <FusePayouts call={call} />, 'Weekly Fee-Back / copy / creator payouts: plan frozen at today\'s SOL price, ONE approval from the fee wallet, credited only from verified transfers.', 'MONEY'],
       ['rules', '🃏 Card rules', <><CardRules call={call} /><AutoYieldDefault call={call} /></>, 'What traders can pick: auto-profit levels, hold/swap, Arena tiers, Fee-Back + copy cuts, and the default 💸 auto-collect.', 'MONEY'],
       ['engine', '⚡ Engine', <><EngineDial call={call} /><EngineSuggest call={call} /><details className="m-card adv-cfg"><summary>⚛️ Fuse builder (manual basket: name, tagline, creator cut, any pools)</summary><FuseBuilder call={call} /></details><details className="m-card adv-cfg"><summary>⚙ Advanced engine config (FeeCat tune keeps these at the sweet spot)</summary><RunnerSettings call={call} /></details></>, 'Runner engine settings: gates, flow, bond boxes, lanes, battles, auto card. ⚡ shows anything weaker than recommended — one click applies it.', 'SYSTEM'],

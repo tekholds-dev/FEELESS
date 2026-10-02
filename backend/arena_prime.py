@@ -54,7 +54,8 @@ def next_phase(mode, rounds, last_pct):
     return seq[int(rounds or 0) % len(seq)]
 HIT_PCT = 10.0      # a "good day" = the card is up ≥ +10% over 24h
 DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.10, 'floorPct': 20.0, 'slMode': 'replace',
-               'cycles': dict(DEFAULT_CYCLES), 'trail': True, 'payouts': dict(DEFAULT_PAYOUTS), 'compoundStyle': 'smart'}
+               'cycles': dict(DEFAULT_CYCLES), 'trail': True, 'payouts': dict(DEFAULT_PAYOUTS), 'compoundStyle': 'smart', 'roundsPerRun': 0}
+RUN_ROUNDS = (0, 5, 10, 20, 50)   # rounds per run (0 = one endless run): when a run's rounds are done it closes on the record, the next starts
 SL_MODES = ('replace', 'park', 'hold')   # on a stop: auto-replace · sell + park the slot (rebuy at entry with momentum) · hold
 CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.08, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 25)}
 
@@ -133,19 +134,24 @@ def clean_cfg(p):
     pay = (p or {}).get('payouts') if isinstance((p or {}).get('payouts'), dict) else {}
     out['payouts'] = {t: (int(pay[t]) if pay.get(t) in _dna.PAYOUTS else DEFAULT_PAYOUTS[t]) for t in DEFAULT_PAYOUTS}
     out['compoundStyle'] = (p or {}).get('compoundStyle') if (p or {}).get('compoundStyle') in ('smart', 'even') else 'smart'
+    out['roundsPerRun'] = int(_f((p or {}).get('roundsPerRun'))) if int(_f((p or {}).get('roundsPerRun'))) in RUN_ROUNDS else 0
     return out
 
 
 # 🎯 TRUE FILLS (paper = exactly what a real wallet would get): constant-product price impact against the pool's quote-side
 # reserve (≈ half its liquidity). Buy $u → average fill = mid × (1 + u/R); sell $v of coins → you receive v / (1 + v/R).
 # The pool / FEELESS fee is a separate line (feesUsd), never inside P&L; impact IS the price you got, so it is in the fill.
+IMPACT_MULT = 1.0   # 🎯 learned from REAL Fuse-wallet fills (fuse_wallet.calibrate): >1 = real impact was worse than the model
+BELL_SEC = 10       # 🔔 every round opens with a 10s countdown on screen; the engine wakes exactly when the round is due
+
+
 def buy_px(px, usd, liq):
-    r = _f(liq) / 2
+    r = _f(liq) / 2 / max(0.1, IMPACT_MULT)
     return px * (1 + _f(usd) / r) if px > 0 and r > 0 else px
 
 
 def sell_usd(units, px, liq):
-    v = _f(units) * _f(px); r = _f(liq) / 2
+    v = _f(units) * _f(px); r = _f(liq) / 2 / max(0.1, IMPACT_MULT)
     return v / (1 + v / r) if r > 0 else v
 
 
@@ -324,6 +330,11 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         c['rounds'] = int(c.get('rounds') or 0) + 1
         c['lastRoundPct'] = round((v_now / (_f(c.get('roundStartUsd')) or _f(c['startUsd']) or 1) - 1) * 100, 2)
         c['roundStartUsd'] = round(v_now, 4); c['roundCrowned'] = False
+        n_run = int(cfg.get('roundsPerRun') or 0)
+        if n_run and c['rounds'] % n_run == 0:   # this run's rounds are done → it closes on the record, the next run starts from here
+            c['runs'] = (list(c.get('runs') or []) + [{'at': now, 'startUsd': c['startUsd'], 'endUsd': round(v_now, 4), 'pct': round((v_now / (_f(c['startUsd']) or 1) - 1) * 100, 2), 'rounds': n_run}])[-10:]
+            c['startUsd'], c['dayStartUsd'], c['lowPct'] = round(v_now, 4), round(v_now, 4), 0.0
+            ev(kind='run', usd=round(v_now, 4), why=f'{n_run} rounds done — run closed on the record, a new run starts at ${v_now:.2f}')
     # 3b) 🔄 phase cycle: a cycling tier re-deals into the next phase shape every round (same run, P&L continues)
     phase = next_phase((cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl'], 'off'), c.get('rounds'), c.get('lastRoundPct'))
     if phase and c['lastRotateAt'] == now and not c.get('flooredAt'):
@@ -365,9 +376,11 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     return c
 
 
-def summary(card, prices):
+def summary(card, prices, cfg=None):
     v = value(card, prices)
     start = _f(card.get('startUsd')) or 1
+    rot = _f((cfg or {}).get('rotateHours')) or DEFAULT_CFG['rotateHours']
+    paid = round(_f(card.get('walletUsd')), 4)
     legs = [{**{k: l[k] for k in ('mint', 'pairAddress', 'symbol', 'role', 'entry', 'units', 'costUsd')}, 'stars': l.get('stars') or 3,
              'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'),
              'firstEntry': l.get('firstEntry') or l['entry'], 'at': l.get('at'), 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
@@ -379,6 +392,10 @@ def summary(card, prices):
             'valueUsd': v, 'pnlPct': round((v / start - 1) * 100, 2), 'legs': legs, 'events': card['events'][-12:][::-1],
             'tp': TEMPLATES[card['tpl']]['tp'], 'sl': TEMPLATES[card['tpl']]['sl'], 'tier': TEMPLATES[card['tpl']]['tier'], 'why': TEMPLATES[card['tpl']].get('why'),
             'parked': list((card.get('parked') or {}).values()),
+            # 🧮 the money in plain words: PUT IN → NOW = STILL IN THE CARD + PAID OUT; P&L = NOW − PUT IN (fees apart)
+            'math': {'putIn': round(start, 4), 'heldUsd': round(v - paid, 4), 'paidOutUsd': paid, 'nowUsd': v, 'pnlUsd': round(v - start, 4),
+                     'compoundedUsd': round(_f(card.get('compoundedUsd')), 4), 'feesUsd': round(_f(card.get('feesUsd')), 4)},
+            'nextRoundAt': round(_f(card.get('lastRotateAt')) + rot * 3600, 1), 'bellSec': BELL_SEC, 'real': bool(card.get('real')), 'realSince': card.get('realSince'),
             **record(card)}
 
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { CardCosts } from './FuseMoney';
 import { apiUrl } from '../lib/api';
 import { toast } from 'sonner';
 import { FuseGo } from './FuseGo';
@@ -272,7 +273,8 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
       <FuseRail onUse={load} />
     </>}
     <div className={`fl-body ${prev ? 'has-plan' : ''}`}>
-      {prev && <aside className="fl-plancol" data-testid="plan-col"><CardPlan legs={prev.legs} plan={plan} setPlan={setPlan} /></aside>}
+      {prev && <aside className="fl-plancol" data-testid="plan-col"><CardPlan legs={prev.legs} plan={plan} setPlan={setPlan} />
+        <CardCosts coins={prev.legs.length} amount={prev.usd} staff={admin} rounds={10} autoFees={plan.autoFees} onAutoFees={v => setPlan(p => ({ ...p, autoFees: v }))} /></aside>}
       <div className="fl-browse">
         <div className="fl-tools"><div className="m-seg" role="radiogroup" aria-label="Pool lens">{LENSES.map(([k, l]) => <button type="button" key={k} role="radio" aria-checked={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)}>{l}</button>)}</div>
           <input className="m-input fl-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Search any coin — SOL, BTC, ETH, $TICKER, CA" aria-label="Search pools" data-testid="fl-search" /></div>

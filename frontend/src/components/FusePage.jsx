@@ -6,6 +6,7 @@ import { ShareGifButton } from './ShareGif';
 import { RiskDial, DialBoard } from './RiskDial';
 import { ArenaPrime } from './ArenaPrime';
 import { CardEarnings } from './CardEarnings';
+import { CardShowcase, PaperAudit, TrailSummary, CoinTable, usd as fmt$ } from './FuseMoney';
 import { CardRounds } from './CardRounds';
 import { openCoin } from './CoinDrawer';
 import { RISK_DIALS } from '../lib/riskDial';
@@ -312,7 +313,7 @@ export function Battlefield({ b, cards = [], onLoad }) {
     onLoad(c.legs, { backKey: side.key, backName: side.name }); };
   useEffect(() => { const t = setInterval(() => setNow(Date.now() / 1000), 1000); return () => clearInterval(t); }, []);
   const br = b.bracket || { board: [], champions: [], season: 1 };
-  const [cfgKey, setCfgKey] = useState(null); const [called, setCalled] = useState(null);
+  const [cfgKey, setCfgKey] = useState(null); const [called, setCalled] = useState(null); const [audit, setAudit] = useState(null);
   const cardOf = key => cards.find(x => `${x.kind}:${x.id}` === key);
   // 🔮 call the bracket champion: free, one call per bracket — right = season XP
   const callIt = async key => { const addr = wallet?.address; const s = addr && readChatSession(addr);
@@ -343,14 +344,19 @@ export function Battlefield({ b, cards = [], onLoad }) {
           <b>{x.name}</b>{st && <em className={`bf-br br-${st.status}`}>{st.status === 'winners' ? '🏆' : st.status === 'losers' ? '💀' : '✕'} {st.w}–{st.l}</em>}</span>
         <span className="bf-hp" data-tip={`HP ${Math.round(h)} — drops while the other card is ahead`}><i style={{ transform: `scaleX(${h / 100})` }} /><small>HP {Math.round(h)}</small></span>
         <em className={`bf-c-pct m-num fl-tick ${x.now >= 0 ? 'm-pos' : 'm-neg'}`} key={x.now}>{pc(x.now)}</em>
+        {x.paper && <span className="bf-paper" data-tip="This battle's paper book: $100 dealt at true fills (pool impact both ways) → what selling it all would pay now. Fees apart.">📄 {fmt$(x.paper.startUsd)} → {fmt$(x.paper.valueUsd)}</span>}
         <span className="bf-btns"><button type="button" className={`m-btn bf-back ${mine === x.key ? 'is-on' : ''}`} disabled={!!mine} onClick={() => back(x.key)} data-tip="Free · points only" data-testid={`back-${k}-${i}`}>{mine === x.key ? '✓ Backed' : '⚔ Back'} · {(x.backers || 0) + (mine === x.key ? 1 : 0)}</button>
-        <button type="button" className="m-btn bf-buy" onClick={() => buyBack(x)} data-tip="Buy this card (you own it) — counts on the 💰 bar" data-testid={`buyback-${k}-${i}`}>💰 Buy & back</button></span></div></div>; };
+        <button type="button" className="m-btn bf-buy" onClick={() => buyBack(x)} data-tip="Buy this card (you own it) — counts on the 💰 bar" data-testid={`buyback-${k}-${i}`}>💰 Buy & back</button>
+        <button type="button" className="m-btn bf-audit" onClick={() => setAudit(x)} data-tip="Paper audit: every coin's true-fill entry → now, $ in → $ now, fees apart, past books" data-testid={`audit-${k}-${i}`}>📜 Audit</button></span></div></div>; };
   return <section className="m-card m-live bf" data-testid="battlefield"><header className="m-row"><span className="m-label">⚔ BATTLEFIELD · BRACKET #{br.season}</span>
     <small className="m-dim">bigger move since the bell wins · 2 losses = out · last card standing is crowned</small>
     <b className={`bf-bell m-num ${secs < 60 ? 'is-soon' : ''}`} key={secs < 60 ? secs : 'x'}>🔔 {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</b></header>
     {br.champions?.length > 0 && <div className="bf-champs" data-testid="bf-champs">{br.champions.map((c, j) => <span key={c.at} className={`bf-champ ${j === 0 ? 'is-reign' : ''}`}><b>👑</b> #{c.season} {c.emoji} {c.name} <em>{c.w}W</em>
       {j === 0 && c.legs?.length > 0 && onLoad && <button type="button" className="m-btn primary m-go bf-buychamp" onClick={() => onLoad(c.legs, c.key?.startsWith('user:') ? { copyOf: c.key.slice(5), owner: c.name, champ: true, copyPct: (cardOf(c.key)?.copyPct || 10) * 2 } : { backName: c.name })}
         data-tip={c.key?.startsWith('user:') ? "Copy the champion — its owner earns the champion's share (double copy cut) of your FEELESS fee, not extra cost to you" : 'Load the champion into your Lab'} data-testid="buy-champ">👑 Buy the champion</button>}</span>)}</div>}
+    <CardShowcase cards={(br.board || []).filter(x => x.status !== 'out').slice(0, 3).map(x => ({ key: x.key, name: `${x.emoji || '🃏'} ${x.name}`, pct: x.pct, badge: x.status === 'winners' ? `🏆 ${x.w}–${x.l}` : `💀 ${x.w}–${x.l}`,
+      sub: `${x.calls || 0} calls${x.comebacks ? ` · 🔥×${x.comebacks}` : ''}`, tone: { safe: 'diamond', balanced: 'gold', degen: 'blaze' }[cardOf(x.key)?.dial] || (x.status === 'winners' ? 'ever' : 'next') }))} onOpen={c => setCfgKey(c.key)} />
+    {audit && <PaperAudit k={audit.key} name={audit.name} onClose={() => setAudit(null)} />}
     {cfgCard && <CardConfig c={cfgCard} onClose={() => setCfgKey(null)} onLoad={onLoad} onBack={b.pairs.some(p => [p.a.key, p.b.key].includes(cfgKey)) && !mine ? () => back(cfgKey) : null}
       onBuyBack={b.pairs.some(p => [p.a.key, p.b.key].includes(cfgKey)) ? () => buyBack({ key: cfgKey, name: cfgCard.name }) : null} />}
     <div className="bf-arena" onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} onFocus={() => setHold(true)} onBlur={() => setHold(false)} data-testid="bf-arena">
@@ -470,8 +476,8 @@ export function MyCards({ addr }) {
   const setRisk = async (r, risk) => { const s = ses(); if (!s || r.risk === risk) return;
     try { await post('/api/reputation/fuses/plan', { address: addr, session: s, id: r.id, plan: { risk } }); toast.success(`${RISK_DIALS[risk].label}: ${RISK_DIALS[risk].why}`); load(); } catch (e) { toast.error(e.message); } };
   const setAdv = async (r, patch) => { const s = ses(); if (!s) return;
-    const plan = { mode: r.mode || 'hold', onProfit: r.onProfit || 'collect', at: r.autoYield?.at, legs: Object.fromEntries(Object.entries(r.legGuard || {}).map(([pa, g]) => [pa, { tp: g.tp, sl: g.sl }])), rotateHours: r.rotateHours || 24, slMode: r.slMode || 'sell', cycle: r.cycle || 'steady', payoutPct: r.payoutPct ?? 100, compoundStyle: r.compoundStyle || 'smart', ...patch };
-    try { await post('/api/reputation/fuses/plan', { address: addr, session: s, id: r.id, plan }); toast.success(patch.payoutPct != null ? `Profit split: ${patch.payoutPct}% to your wallet` : patch.compoundStyle ? `Compound: ${patch.compoundStyle}` : patch.cycle ? `Round cycle: ${patch.cycle}` : patch.rotateHours ? `Rotation every ${(ROTATE_PICKS.find(([h]) => Math.abs(h - patch.rotateHours) < 0.005) || [0, `${patch.rotateHours}h`])[1]}` : `On a coin stop: ${patch.slMode}`); load(); } catch (e) { toast.error(e.message); } };
+    const plan = { mode: r.mode || 'hold', onProfit: r.onProfit || 'collect', at: r.autoYield?.at, legs: Object.fromEntries(Object.entries(r.legGuard || {}).map(([pa, g]) => [pa, { tp: g.tp, sl: g.sl }])), rotateHours: r.rotateHours || 24, slMode: r.slMode || 'sell', cycle: r.cycle || 'steady', payoutPct: r.payoutPct ?? 100, compoundStyle: r.compoundStyle || 'smart', autoFees: r.autoFees !== false, ...patch };
+    try { await post('/api/reputation/fuses/plan', { address: addr, session: s, id: r.id, plan }); toast.success(patch.autoFees != null ? (patch.autoFees ? '💸 The card pays its round packs from profit' : 'You pay round packs yourself') : patch.payoutPct != null ? `Profit split: ${patch.payoutPct}% to your wallet` : patch.compoundStyle ? `Compound: ${patch.compoundStyle}` : patch.cycle ? `Round cycle: ${patch.cycle}` : patch.rotateHours ? `Rotation every ${(ROTATE_PICKS.find(([h]) => Math.abs(h - patch.rotateHours) < 0.005) || [0, `${patch.rotateHours}h`])[1]}` : `On a coin stop: ${patch.slMode}`); load(); } catch (e) { toast.error(e.message); } };
   const setMode = async (r, mode) => { const s = ses(); if (!s || (r.mode || 'hold') === mode) return;
     try { await post('/api/reputation/fuses/mode', { address: addr, session: s, id: r.id, mode }); toast.success(mode === 'swap' ? 'Swap mode: weak legs get a one-tap swap alert' : 'Hold mode: the card stays together'); load(); } catch (e) { toast.error(e.message); } };
   const open = useCallback(async (r, kind, extra = {}) => {
@@ -519,6 +525,8 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, setAdv,
       <small className="m-dim">{m$(held.value)} now · {openRows.length} open · all-time {m$(d.pnlUsd)}</small>{d.feebackUsd > 0 && <span className="m-chip ok" data-tip="Fuse Fee-Back: your unlocked share of the fees you paid on cards">🎁 {m$(d.feebackUsd)} Fee-Back</span>}</div>
     {!openRows.length && <div className="m-card fp-empty"><b>No open cards.</b><small className="m-dim">Build one in the Lab — 3 pools + up to 3 runners.</small></div>}
     <div className="fp-cgrid">{openRows.map(r => <div key={r.id} className={`fp-cell ${r.onArena ? 'is-arena' : ''}`}><LiveFuseCard r={r} aura={r.onArena ? 'fire' : ''} />
+      <CoinTable legs={r.legs.filter(l => l.soldUsd == null).map(l => { const px = live.get?.(l.pairAddress)?.price || l.priceNow; const nowUsd = px && l.tokens ? l.tokens * px + (l.realizedUsd || 0) : (l.valueUsd || 0);
+        return { pairAddress: l.pairAddress, symbol: l.symbol, role: l.role, entryPx: l.tokens ? l.usd / l.tokens : null, nowPx: px, inUsd: l.usd || 0, nowUsd, pct: l.usd ? (nowUsd / l.usd - 1) * 100 : 0 }; })} />
       <div className="fp-risk"><RiskDial value={r.risk || 'custom'} onChange={id => setRisk(r, id)} testid={`card-risk-${r.id}`} /></div>
       {r.beatCat?.length > 0 && <span className="fs-crown r-cat" data-tip="Weeks this card beat FeeCat's average trade" data-testid={`beatcat-${r.id}`}>🐱 Beat FeeCat ×{r.beatCat.length}</span>}
       {r.seasonWin && <span className={`fs-crown r-${r.seasonWin.rank}`} data-tip={`Fuse season · week of ${wk(r.seasonWin.week)} — +Fee-Back boost on this card`} data-testid={`crown-${r.id}`}>{MEDAL[r.seasonWin.rank]} #{r.seasonWin.rank} · week of {wk(r.seasonWin.week)}</span>}
@@ -534,7 +542,7 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, setAdv,
         book={{ putIn: r.costUsd || 0, held: Math.max(0, (r.valueUsd || 0) - (r.realizedUsd || 0)), taken: r.realizedUsd || 0, fees: r.feesPaidUsd, rounds: r.roundsUsed, roundsPaid: r.roundsPaidUsd, owed: r.roundsOwedUsd }}
         events={[...(r.events || [])].reverse().map(e => ({ ...e, label: EARN_KIND[e.kind] || e.kind, to: e.kind === 'sell' ? ['cash'] : e.kind === 'topup' ? [e.symbol] : undefined, symbol: e.kind === 'topup' ? undefined : e.symbol }))}
         gainNow={Math.max(0, Math.min(r.pnlUsd || 0, (r.valueUsd || 0) - (r.realizedUsd || 0)))} onCollect={() => { setEarn(null); open(r, 'yield', { at: r.autoYield?.at || d.rules?.yieldDefault || 50, levels: d.rules?.yieldLevels || [25, 50, 100, 200] }); }} onClose={() => setEarn(null)}
-        autos={r.autos || []} extra={<><AutoSpec r={r} /><CardRounds card={r} onChange={() => refresh()} /></>} legs={r.legs.filter(l => l.soldUsd == null).map(l => ({ ...l, firstEntry: l.tokens ? l.usd / l.tokens : null, frozen: (r.frozen || []).includes(l.pairAddress), mode: (r.coinModes || {})[l.pairAddress] || 'card', tp: (r.legGuard || {})[l.pairAddress]?.tp, sl: (r.legGuard || {})[l.pairAddress]?.sl, rot: (r.coinRotate || {})[l.pairAddress] || 0 }))} onFreeze={(l, on) => freeze(r, l, on)}
+        autos={r.autos || []} extra={<><TrailSummary events={(r.events || []).map(e => ({ ...e, kind: e.kind === 'sell' ? 'tp' : e.kind === 'buy' ? 'rotate' : e.kind }))} legs={r.legs.filter(l => l.soldUsd == null)} /><AutoSpec r={r} /><CardRounds card={r} onChange={() => refresh()} /></>} legs={r.legs.filter(l => l.soldUsd == null).map(l => ({ ...l, firstEntry: l.tokens ? l.usd / l.tokens : null, frozen: (r.frozen || []).includes(l.pairAddress), mode: (r.coinModes || {})[l.pairAddress] || 'card', tp: (r.legGuard || {})[l.pairAddress]?.tp, sl: (r.legGuard || {})[l.pairAddress]?.sl, rot: (r.coinRotate || {})[l.pairAddress] || 0 }))} onFreeze={(l, on) => freeze(r, l, on)}
         onMode={(l, m) => coinMode(r, l, m)} cardMode={r.slMode || 'sell'} onCoinCfg={(l, patch) => coinCfg(r, l, patch)}
         actions={[{ label: '＋ Top up', tip: 'Add SOL — equal split, by weight, or into one coin. One approval.', onClick: () => { setEarn(null); open(r, 'topup'); }, testid: `cw-topup-${r.id}` },
           { label: '💰 Take 50%', onClick: () => { setEarn(null); open(r, 'take', { pct: 50 }); } },
@@ -551,7 +559,9 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, setAdv,
           <div className="m-seg">{[['smart', '🧲 Smart'], ['even', '⚖ Even'], ['off', '✋ Off']].map(([k, l]) => <button key={k} type="button" className={(r.compoundStyle || 'smart') === k ? 'active' : ''} onClick={() => setAdv(r, { compoundStyle: k })} data-testid={`cmp-${k}-${r.id}`}>{l}</button>)}</div>
           <span className="m-label" data-tip="Adaptive: a losing card's weak coin swaps into a major, a winning card's into a fresh runner">🔄 ROUND CYCLE</span>
           <div className="m-seg">{[['steady', '➡ Steady'], ['classic', '⚓→🔥 Classic'], ['adaptive', '🧠 Adaptive'], ['safe', '⚓⇄⚖ Safe'], ['press', '🔥⇄⚖ Press']].map(([k, l]) => <button key={k} type="button" className={(r.cycle || 'steady') === k ? 'active' : ''} onClick={() => setAdv(r, { cycle: k })} data-testid={`cyc-${k}-${r.id}`}>{l}</button>)}</div>
-          <div className="m-seg">{[['sell', 'Sell'], ['park', '🅿 Park & buy back'], ['hold', '❄ Hold']].map(([k, l]) => <button key={k} type="button" className={(r.slMode || 'sell') === k ? 'active' : ''} onClick={() => setAdv(r, { slMode: k })} data-testid={`sl-${k}-${r.id}`}>{l}</button>)}</div></div>
+          <div className="m-seg">{[['sell', 'Sell'], ['park', '🅿 Park & buy back'], ['hold', '❄ Hold']].map(([k, l]) => <button key={k} type="button" className={(r.slMode || 'sell') === k ? 'active' : ''} onClick={() => setAdv(r, { slMode: k })} data-testid={`sl-${k}-${r.id}`}>{l}</button>)}</div>
+          <span className="m-label" data-tip="When the card's 5 rounds run out and it's up more than the pack price, it pays +5 rounds from its profit (owed until the next take). Never while it's flat or down. Swap fees always come out of the swap itself.">💸 FEES</span>
+          <div className="m-seg">{[[true, '💸 Card pays from profit'], [false, '✋ I pay']].map(([k, l]) => <button key={l} type="button" className={(r.autoFees !== false) === k ? 'active' : ''} onClick={() => setAdv(r, { autoFees: k })} data-testid={`fees-${k ? 'card' : 'me'}-${r.id}`}>{l}</button>)}</div></div>
         <div className="fp-acts" role="toolbar" aria-label={`${r.name} more actions`}>
         <button type="button" className={`m-btn ${r.autoYield ? 'is-armed' : ''}`} data-tip="Auto-collect: alert + pre-filled Collect profit when the card is up +X% (sells only the gain). You approve once." onClick={() => open(r, 'yield', { at: r.autoYield?.at || d.rules?.yieldDefault || 50, levels: d.rules?.yieldLevels || [25, 50, 100, 200] })} data-testid={`act-yield-${r.id}`}>💸 {r.autoYield ? `Auto +${Math.round(r.autoYield.at)}%` : 'Auto-collect'}</button>
         <button type="button" className={`m-btn ${r.drift >= 5 ? 'is-warn' : ''}`} data-tip={`Back to the weights you bought (drift ${Math.round(r.drift || 0)} pts) — one approval`} onClick={() => open(r, 'rebalance')} data-testid={`act-rebalance-${r.id}`}>⚖ Rebalance</button>

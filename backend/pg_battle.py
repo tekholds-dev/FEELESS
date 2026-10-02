@@ -171,3 +171,42 @@ def cycle_rebalance(card, dna, last_pct, prices, liqs):
             p_ = px(l)
             legs.append({**l, 'entry': p_, 'units': usd / ap.buy_px(p_, usd, liqs.get(l['pairAddress'])) if p_ > 0 else 0, 'usd': round(usd, 4)})
     return {**card, 'legs': legs, 'cash': 0.0, 'phase': phase, 'rounds': int(card.get('rounds') or 0) + 1}
+
+
+# 📜 ARENA PAPER BOOKS: every card that steps into a public Arena battle gets $100 of paper dealt with TRUE fills (price impact
+# against each pool, calibrated from real Fuse-wallet fills) and the trader's real per-coin fee booked APART (never in P&L).
+# The book is marked live; battles settle on it; the whole thing is the card's audit trail (entries, marks, result).
+def paper_book(key, card, prices, liqs, now, size=100.0, fee_per_coin=0.0):
+    legs = [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'mint': l.get('baseAddress') or l.get('mint'), 'weight': _f(l.get('weight')) or 1.0,
+             'role': 'runner' if l.get('runner') else (l.get('role') or 'pool')} for l in card.get('legs') or [] if l.get('pairAddress')]
+    b = deal({'id': key, 'name': card.get('name'), 'legs': legs}, prices, liqs, now, size)
+    if not b['legs']:
+        return None
+    fills = [{'symbol': l['symbol'], 'mid': l['entry'], 'px': round(l['usd'] / l['units'], 12) if l['units'] else 0, 'usd': l['usd'],
+              'impactPct': round((l['usd'] / l['units'] / l['entry'] - 1) * 100, 3) if l['units'] and l['entry'] else 0} for l in b['legs']]
+    for l in b['legs']:   # entry = the price the paper really paid (impact included), like a wallet's fill
+        l['mid'], l['entry'] = l['entry'], l['usd'] / l['units'] if l['units'] else l['entry']
+    fees = round(fee_per_coin * len(b['legs']), 4)
+    return {**b, 'key': key, 'feesUsd': fees, 'valueUsd': round(value(b, prices, liqs), 4), 'hiPct': 0.0, 'loPct': 0.0,
+            'events': [{'at': now, 'kind': 'deal', 'usd': size, 'why': f"${size:g} paper · {len(b['legs'])} coins at true fills · fees ${fees:.2f} apart", 'fills': fills}]}
+
+
+def paper_mark(b, prices, liqs, now):
+    """Mark a paper book at live prices (what selling everything would really pay). Keeps the high / low % of the battle."""
+    v = value(b, prices, liqs)
+    pct = round((v / (_f(b.get('startUsd')) or 1) - 1) * 100, 2)
+    return {**b, 'valueUsd': round(v, 4), 'pct': pct, 'hiPct': max(_f(b.get('hiPct')), pct), 'loPct': min(_f(b.get('loPct')), pct), 'markedAt': now}
+
+
+def paper_view(b, prices, liqs):
+    """Audit rows for one paper book: per coin entry (true fill) → now, $ in → $ now, % — plus totals with fees apart."""
+    rows = []
+    for l in b.get('legs') or []:
+        px = _f(prices.get(l['pairAddress'])) or l['entry']
+        now_usd = ap.sell_usd(l['units'], px, liqs.get(l['pairAddress']))
+        rows.append({'symbol': l.get('symbol'), 'pairAddress': l['pairAddress'], 'entry': l['entry'], 'mid': l.get('mid'), 'now': px, 'inUsd': l['usd'],
+                     'nowUsd': round(now_usd, 4), 'pct': round((now_usd / l['usd'] - 1) * 100, 2) if l['usd'] else 0.0})
+    v = value(b, prices, liqs)
+    return {'key': b.get('key'), 'name': b.get('name'), 'startUsd': b.get('startUsd'), 'valueUsd': round(v, 4), 'pnlUsd': round(v - _f(b.get('startUsd')), 4),
+            'pct': round((v / (_f(b.get('startUsd')) or 1) - 1) * 100, 2), 'feesUsd': b.get('feesUsd'), 'hiPct': b.get('hiPct'), 'loPct': b.get('loPct'),
+            'at': b.get('at'), 'legs': rows, 'events': b.get('events') or [], 'result': b.get('result')}

@@ -14,6 +14,7 @@ import { COIN_MAKERS, DEXES } from '../../lib/venues';
 import { CopyBtn } from '../CopyBtn';
 import { MintedTimeline } from '../MintedTimeline';
 import { FuseReceipts, FuseHeldCards, FuseScore, TraderCard, MyBattles, FusePopup } from '../FusePage';
+import { PrimeShowcase } from '../ArenaPrime';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -234,7 +235,7 @@ export function WalletProfilePage({ address }) {
         <OnchainStrip address={address} />
       </div>
       {fuseOpen && <FusePopup onClose={() => setFuseOpen(false)} />}
-      <TraderCard address={address} /><MyBattles address={address} /><div className="xp-badges"><BadgeArtifacts address={address} featured={p.featuredBadges} /></div><MintedTimeline address={address} /><FuseScore address={address} /><FuseHeldCards address={address} /><FuseReceipts address={address} />
+      <TraderCard address={address} /><MyBattles address={address} /><div className="xp-badges"><BadgeArtifacts address={address} featured={p.featuredBadges} /></div><MintedTimeline address={address} /><FuseScore address={address} /><FuseHeldCards address={address} /><PrimeShowcase /><FuseReceipts address={address} />
     </header>
     <div className="wp-quickrow">{mine && <AlphaRoomsCard />}<FeedBar onOpen={() => { setFlipped(true); setActTab('feed'); }} /></div>
     <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />

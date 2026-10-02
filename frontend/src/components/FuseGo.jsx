@@ -42,9 +42,10 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
   const quoteAll = async () => {
     const plan = orders || fuseOrders(legs, addr); const my = ++seq.current;
     const bundle = plan.filter(o => !o.skip).length;   // a card bought all at once → bundle pricing (flat $ per coin) server-side
+    // card: 1 = Fuse card pricing on every leg (flat $/coin; HQ + creator wallets pay no FEELESS fee, only network)
     const got = await Promise.all(plan.map(async o => {
       if (o.skip) return o;
-      try { const order = await api('/quote', bundle >= 2 ? { ...o.request, bundle } : o.request); await api('/simulate', { order_id: order.order_id }); return orderMatches(o, order) ? { ...o, order } : { ...o, err: 'Quote did not match — refreshing' }; }
+      try { const order = await api('/quote', bundle >= 2 ? { ...o.request, bundle, card: 1 } : { ...o.request, card: 1 }); await api('/simulate', { order_id: order.order_id }); return orderMatches(o, order) ? { ...o, order } : { ...o, err: 'Quote did not match — refreshing' }; }
       catch (e) { return { ...o, err: e.message }; }
     }));
     if (my === seq.current) { setRows(got); setPhase(p => (p === 'quote' ? 'review' : p)); }

@@ -16,7 +16,7 @@ def test_bundle_bps_flat_per_coin_capped_and_bounded():
     assert hq.bundle_bps(0.5, b) == 500          # 10c on 50c would be 20% → capped at 5%
     assert hq.bundle_bps(80, b) is None          # big legs pay the normal % (no flat-fee loophole)
     assert hq.bundle_bps(0, b) is None and hq.bundle_bps(20, {**b, 'on': False}) is None
-    assert hq.clean_bundle({'perLegUsd': 99, 'maxPct': 'x'}) == {'on': True, 'perLegUsd': 5.0, 'maxPct': 5.0, 'maxLegUsd': 50.0}
+    assert hq.clean_bundle({'perLegUsd': 99, 'maxPct': 'x'}) == {'on': True, 'perLegUsd': 5.0, 'maxPct': 5.0, 'maxLegUsd': 50.0, 'swapUsd': 0.1}
 
 
 def test_leg_mix_traders_3_plus_3_cmd_ctr_12_any_mix():
@@ -121,3 +121,11 @@ def test_empty_stage_shows_the_live_round_as_a_proving_card(rs, monkeypatch):
     rs._json_save(rs.RUNNERS_PATH, {'rounds': [{'id': 'r9', 'at': now, 'picks': [{'mint': 'A', 'symbol': 'A', 'entry': 1.0, 'lane': 'runner'}]}], 'paths': {}})
     [c] = asyncio.run(rs.fuse_arena_public())['mega']
     assert c['kind'] == 'round' and c['index'] == 120.0 and c['activity']['score'] > 0
+
+
+def test_card_swap_legs_pay_flat_and_staff_card_actions_pay_nothing(rs, monkeypatch):
+    swap = asyncio.run(rs.effective_fee('Wa11et', rs.WSOL_MINT, MEME, 0, 0.1, card=1))   # a card's switch-in leg (0.1 SOL = $20)
+    assert swap['bps'] == 50 and any('Card swap' in n for n in swap['notes'])   # $0.10 of $20
+    monkeypatch.setattr(rs, '_is_staff', lambda a: a == 'Staff1')
+    staff = asyncio.run(rs.effective_fee('Staff1', rs.WSOL_MINT, MEME, 0, 0.1, card=1))
+    assert staff['bps'] == 0 and 'FEELESS card' in staff['notes'][0]

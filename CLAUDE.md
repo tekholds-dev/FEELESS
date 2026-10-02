@@ -529,7 +529,31 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Runners: young graduates (<48h) pass the stage gate, 2 feed pages, 40 busiest scanned. Battle arena = one box, spotlight per fight.
 - Fuse font token `--fz-font` (Bungee). Jest runs `--maxWorkers=50%` (load flakes). Profit trail 'book' (put in → held + taken = total).
 
+- 👛 Fuse wallet (`backend/fuse_wallet.py`, pure + tested; HQ › Fuse › 👛 `FuseWallet`, owner only): a Circle SOL wallet funds the TIER cards
+  with real money. `orders` = paper target − real `book` (sells first, buys sized by the card's real SOL, ≤ maxSwapUsd, SOL anchor = native);
+  `check` (armed · not paused · per-swap · daily cap · max impact); `fill_from_meta` = the tx's balance changes ARE the fill; `sync_card` shows
+  true units/entries/fees; top-up RESETS the card as a new run (`topup_card`, old run kept); ↩ defund sells back to SOL → paper. Every order /
+  top-up / defund → `fuse_wallet.json` ledger (public last 12 with tx on the card = `realBook`). 🔒 SIGNING IS NOT ENABLED (`_fw_signer_ready()`
+  = False; arming + top-ups refuse): adding Circle transaction signing needs the owner's explicit go-ahead (GO_LIVE A·2). Dry run =
+  real Jupiter quotes, never signs. `calibrate(ledger)` → `arena_prime.IMPACT_MULT` + paper fee: paper learns from real fills.
+- 🧮 Card money = ONE equation everywhere (`FuseMoney.MoneyMath`): PUT IN → IN CARD + PAID OUT = NOW; profit = NOW − PUT IN; fees apart.
+  Tier cards: paid out = `walletUsd`, NEVER `takenUsd` (gross TPs mostly compounded back in — counting them double-counts). `summary.math`.
+- 🔔 Rounds: every tier round opens with a 10s countdown (`RoundBell`, `nextRoundAt`, `BELL_SEC`); `_prime_bell_loop` wakes exactly when due
+  (`_prime_tick_lock` — never two ticks at once); HQ `roundsPerRun` (∞/5/10/20/50) closes runs on the record.
+- 📜 Arena paper books (`pg_battle.paper_book/paper_mark/paper_view`): every fighter gets $100 at TRUE fills (+ per-coin fee apart) when a
+  battle starts (late fighters get one at once); battles SETTLE on the books; `GET /fuses/paper?key=` = live book + finished `paperLog`;
+  📜 Audit on every battle corner; 🃏 `CardShowcase` (3-card 3D shuffle) above the battle.
+- 💲 Fees: FuseGo sends `card: 1` on EVERY quote → staff (HQ/creator) pay 0 FEELESS fee on any card action; users pay `bundle.perLegUsd` per coin
+  at first buy and `bundle.swapUsd` (default $0.10) per coin on card swaps/sells (`card_swap_bps`, capped maxPct). `autoFees` (default on):
+  out of rounds + up more than the pack → the card pays +5 from profit (`auto_rounds`, owed till the next take). `fee_plan` → Lab `CardCosts`
+  receipt before buying; HQ › Fuse › 💲 Fees = knobs + $ example + every fee paid (`fee_list`, clickable → tx).
+- My cards: `CoinTable` (entry → now, $ in → now, %), `TrailSummary` (✅ did good · 🪙 stays · ✂ cut). Profile: `PrimeShowcase` (tier cards).
+- ⚠ `.m-num` is a 22px display preset — inside dense rows give it `font-size: inherit` (fuseMoney.css does for its rows).
+
 ## NEXT SESSION — continue here (in this order)
+00000. OWNER DECISION: enable Circle transaction signing for the Fuse wallet keeper (GO_LIVE A·2). Then: arm, fund ONE tier with $20,
+   watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10
+   rounds) — recommend $0.10/coin · 5% cap · $0.10 per swap.
 0000. Owner live test: per-coin ⚙ (card window + Lab), rounds pay/compound, buy & back, Edit in Breed → publish, playground battles,
    profile ⚡ Fuse pop-up. Then flip proven configs to auto.
 000. Owner asks open: HQ › Fuse FULL layout redo (fit every panel; grouped rail is there, needs a real dashboard layout);

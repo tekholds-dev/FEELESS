@@ -4,6 +4,7 @@ import '../styles/fuseLab.css';
 import { tokenImageUrls } from './terminal/MarketPrimitives';
 import { legTarget } from '../lib/fuseGo';
 import { useLivePrices } from '../lib/livePrices';
+import { MoneyMath } from './FuseMoney';
 
 // A Fuse champion as a collectible card: drag to tilt, ⟲ to flip. Front = grade crest + the fused pools;
 // back = every number behind its score. Grade sets rarity, strategy sets the design.
@@ -80,7 +81,7 @@ export function revalue(r, live) {
 // An OWNED Fuse card (a real position from /fuses/pnl): front = the same card, back = live money per leg — what you put in,
 // what you still hold at today's price, what you've already taken out, and the P&L. Never preview numbers.
 const m$ = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0).toFixed(2)}`;
-export function LiveFuseCard({ r: r0, aura = '', look = null }) {
+export function LiveFuseCard({ r: r0, aura = '', look = null, label = null }) {
   const [flipped, setFlipped] = useState(false);
   const live = useLivePrices(r0.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress));
   const r = revalue(r0, live);   // every 10s: held tokens × the live price (server P&L every 30s backs it)
@@ -91,13 +92,16 @@ export function LiveFuseCard({ r: r0, aura = '', look = null }) {
     subtitle: `${r.name || 'MY FUSE'} · ${up ? '+' : ''}${r.pnlPct.toFixed(1)}%`, rarity: RARITY[g], design: up ? 'aurora' : 'ember', accent: up ? '#19f58f' : '#ff8fa3', accent2: '#f5c451', ...(look || {}),
     glyph: g, motion: up && !r.closed ? 'alive' : 'still', holders: legs.length, edition: r.closed ? 'CLOSED' : 'LIVE', aura,
     art: tokenImageUrls(legPair(legs[0] || {})), fallbackGlyph: String(legs[0]?.symbol || '✦').slice(0, 4) };
+  // 🧮 the money as ONE equation: PUT IN → IN CARD + PAID OUT = NOW (paid out = profit that left the card, never the gross takes)
+  const paid = r.realizedUsd || 0;
   const back = <div className="fcd-back fcd-live">
-    <div className="mc-top"><span>{r.closed ? 'WITHDRAWN' : 'LIVE · YOUR MONEY'}</span><span>{m$(r.valueUsd)}</span></div>
-    <ul>{legs.map(l => <li key={l.pairAddress + (l.sig || '')} className={l.soldUsd != null ? 'is-out' : ''}><b>{l.role === 'runner' ? '🏃 ' : ''}{l.symbol}</b><span>in {m$(l.usd)} → {m$(l.valueUsd)}{l.priceNow ? <i className="fcd-px"> · ● ${fmtPx(l.priceNow)}</i> : null}</span>
-      <em className={l.pnlUsd >= 0 ? 'up' : 'down'}>{l.pnlPct >= 0 ? '+' : ''}{l.pnlPct.toFixed(1)}% {m$(l.pnlUsd)}{l.soldUsd != null ? ' · sold' : (l.realizedUsd || 0) > 0 ? ` · took ${m$(l.realizedUsd)}` : ''}{!l.priced && l.soldUsd == null ? ' · no price' : ''}</em></li>)}</ul>
-    <dl><dt>Put in</dt><dd>{m$(r.costUsd)}</dd><dt>Taken out</dt><dd className="up">{m$(r.realizedUsd || 0)}</dd><dt>Still held</dt><dd>{m$(r.valueUsd - (r.realizedUsd || 0))}</dd>
-      <dt>P&L</dt><dd className={up ? 'up' : 'down'}><b>{m$(r.pnlUsd)} ({up ? '+' : ''}{r.pnlPct.toFixed(1)}%)</b></dd></dl>
-    <small className="fcd-note">● Live prices every 10s · exact fills from chain.</small>
+    <div className="mc-top"><span>{r.closed ? 'WITHDRAWN' : label || 'LIVE · YOUR MONEY'}</span><span>{m$(r.valueUsd)}</span></div>
+    <ul className="fcd-legs">{legs.map(l => <li key={l.pairAddress + (l.sig || '')} className={`fcd-leg ${l.soldUsd != null ? 'is-out' : ''}`}
+      data-tip={`${l.symbol}: in ${m$(l.usd)} → now ${m$(l.valueUsd)}${l.priceNow ? ` · price $${fmtPx(l.priceNow)}` : ''}${l.soldUsd != null ? ' · sold' : (l.realizedUsd || 0) > 0 ? ` · took ${m$(l.realizedUsd)}` : ''}${!l.priced && l.soldUsd == null ? ' · no live price' : ''}`}>
+      <b>{l.role === 'runner' ? '🏃 ' : l.role === 'anchor' ? '⚓ ' : ''}{l.symbol}</b><span>{m$(l.usd)} → {m$(l.valueUsd)}</span>
+      <em className={l.pnlPct >= 0 ? 'up' : 'down'}>{l.soldUsd != null ? 'sold' : `${l.pnlPct >= 0 ? '+' : ''}${l.pnlPct.toFixed(1)}%`}</em></li>)}</ul>
+    <MoneyMath putIn={r.costUsd} held={r.valueUsd - paid} paidOut={paid} compact />
+    <small className="fcd-note">● Live prices every 10s · {label && label.includes('PAPER') ? 'paper at true fills' : 'exact fills from chain'} · fees apart.</small>
   </div>;
   return <div className="fcd" data-testid={`live-card-${r.id}`}>
     <MetaCard card={card} size="md" interactive flipped={flipped} onFlip={setFlipped} back={back} className="fcd-card" />

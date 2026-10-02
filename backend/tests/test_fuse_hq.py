@@ -171,8 +171,8 @@ def test_card_rotation_interval_and_park_buyback():
     pos = {'lastSwitchAt': 1000, 'plan': {'rotateHours': 6}}
     assert hq.next_switch_at(pos) == 1000 + 6 * 3600
     assert hq.next_switch_at({'lastSwitchAt': 1000, 'plan': {'rotateHours': 99}}) == 1000 + 24 * 3600   # not an option → 24h
-    assert hq._extras({'slMode': 'park', 'rotateHours': 1}) == {'rotateHours': 1, 'cycle': 'steady', 'payoutPct': 100, 'compoundStyle': 'smart', 'slMode': 'park'}
-    assert hq._extras({}) == {'rotateHours': 24, 'cycle': 'steady', 'payoutPct': 100, 'compoundStyle': 'smart', 'slMode': 'sell'}
+    assert hq._extras({'slMode': 'park', 'rotateHours': 1}) == {'rotateHours': 1, 'cycle': 'steady', 'payoutPct': 100, 'compoundStyle': 'smart', 'slMode': 'park', 'autoFees': True}
+    assert hq._extras({}) == {'rotateHours': 24, 'cycle': 'steady', 'payoutPct': 100, 'compoundStyle': 'smart', 'slMode': 'sell', 'autoFees': True}
     assert hq.buyback_due({'entry': 1.0}, 1.02, {'buyShare': 60, 'chg1h': 3}) and not hq.buyback_due({'entry': 1.0}, 0.9, {'buyShare': 60})
     assert not hq.buyback_due({'entry': 1.0}, 1.1, {'buyShare': 40, 'chg1h': -2})
 
@@ -185,3 +185,37 @@ def test_playground_lists_what_is_ready_for_the_arena():
     ready = {(r['kind'], r['name']) for r in out['ready']}
     assert ready == {('strategy', 'degen'), ('dial', 'degen'), ('tier card', 'Gold')}
     assert any(p['name'] == 'steady' and 'needs 2 more' in p['why'] for p in out['proving'])
+
+
+def test_card_swap_fee_is_flat_per_coin_and_capped():
+    b = {'swapUsd': 0.10, 'maxPct': 5, 'maxLegUsd': 50}
+    assert hq.card_swap_bps(10, b) == 100            # $0.10 of $10 = 1%
+    assert hq.card_swap_bps(1, b) == 500              # capped at 5%
+    assert hq.card_swap_bps(500, b) is None           # big legs pay the normal %
+    assert hq.clean_bundle({})['swapUsd'] == 0.10
+
+
+def test_fee_plan_reads_like_a_receipt():
+    p = hq.fee_plan({'perLegUsd': 0.10, 'swapUsd': 0.10, 'maxPct': 5, 'maxLegUsd': 50}, {'per5Usd': 0.25}, 3, 30, rounds=10)
+    assert p['buyUsd'] == 0.3 and p['swapUsd'] == 0.2 and p['packs'] == 1 and p['roundsUsd'] == 0.25
+    assert p['swapsUsd'] == 2.0 and p['totalUsd'] == 2.55 and p['pct'] == 8.5
+    assert hq.fee_plan({}, {}, 3, 30, rounds=5)['packs'] == 0   # the first 5 rounds are included
+
+
+def test_card_pays_its_round_pack_only_from_profit():
+    pos = {'autoFees': True, 'roundsLeft': 0}
+    assert hq.auto_rounds(dict(pos), {'per5Usd': 0.25}, 0.1) is False          # not up enough
+    assert hq.auto_rounds({**pos, 'autoFees': False}, {'per5Usd': 0.25}, 9) is False
+    p2 = dict(pos)
+    assert hq.auto_rounds(p2, {'per5Usd': 0.25}, 9) is True and p2['roundsLeft'] == 5 and p2['roundsOwedUsd'] == 0.25 and p2['roundBuys'][-1]['auto']
+    assert hq.auto_rounds({**p2, 'roundsLeft': 0}, {'per5Usd': 0.25}, 9) is False   # one owed pack at a time
+
+
+def test_fee_list_types_every_card_fee_and_totals():
+    pos = [{'id': 'c1', 'name': 'Ape', 'wallet': 'W', 'at': 1000, 'legs': [{'symbol': 'A', 'sig': 's1', 'sellSigs': ['s3']}, {'symbol': 'B', 'sig': 's2'}],
+            'roundBuys': [{'at': 5000, 'mode': 'compound', 'usd': 0.25, 'auto': True}]}]
+    led = [{'sig': 's1', 't': 1001, 'inUsd': 10, 'feeUsd': 0.1}, {'sig': 's2', 't': 3000, 'inUsd': 10, 'feeUsd': 0.1}, {'sig': 's3', 't': 4000, 'inUsd': 12, 'feeUsd': 0.1}]
+    f = hq.fee_list(pos, led)
+    assert [r['kind'] for r in f['rows']] == ['rounds', 'sell', 'swap', 'buy']
+    assert f['totals']['buy'] == {'n': 1, 'usd': 0.1} and f['totals']['rounds']['usd'] == 0.25 and f['rows'][0]['auto']
+    assert f['allUsd'] == 0.55 and f['tradedUsd'] == 32 and f['avgPct'] == round(0.3 / 32 * 100, 3) and f['cards'] == 1

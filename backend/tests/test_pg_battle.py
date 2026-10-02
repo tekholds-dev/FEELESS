@@ -149,3 +149,18 @@ def test_dna_cycle_reshapes_a_winning_card_each_bell():
     assert pb.value(a, px, LIQ) < pb.value(c, px, LIQ)                                        # re-entry pays real impact
     off = pb.cycle_rebalance(c, {'cycle': 'off'}, 9.0, px, LIQ)
     assert off['legs'] == c['legs'] and off['rounds'] == 1
+
+
+def test_arena_paper_book_deals_true_fills_marks_and_audits():
+    card = {'name': 'Ape', 'legs': [{'pairAddress': 'A', 'symbol': 'A', 'baseAddress': 'mA', 'weight': 50, 'runner': True}, {'pairAddress': 'B', 'symbol': 'B', 'weight': 50}]}
+    px, lq = {'A': 1.0, 'B': 2.0}, {'A': 10000, 'B': 1e9}
+    b = pb.paper_book('user:1', card, px, lq, 100, size=100, fee_per_coin=0.1)
+    assert b['feesUsd'] == 0.2 and len(b['legs']) == 2 and b['events'][0]['kind'] == 'deal'
+    a = next(l for l in b['legs'] if l['pairAddress'] == 'A')
+    assert a['entry'] > a['mid'] == 1.0                        # thin pool → paid above mid (true fill)
+    assert b['valueUsd'] < 100                                 # selling right away costs the impact both ways
+    m = pb.paper_mark(b, {'A': 1.5, 'B': 2.0}, lq, 200)
+    assert m['pct'] > 0 and m['hiPct'] == m['pct'] and m['loPct'] <= 0
+    v = pb.paper_view(m, {'A': 1.5, 'B': 2.0}, lq)
+    assert v['legs'][0]['entry'] == a['entry'] and v['pnlUsd'] == round(v['valueUsd'] - 100, 4) and v['feesUsd'] == 0.2
+    assert pb.paper_book('k', {'legs': []}, px, lq, 1) is None

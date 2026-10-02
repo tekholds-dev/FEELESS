@@ -215,8 +215,8 @@ def legs_ok(pools, runners, admin=False):
     return pools <= CARD_POOLS and runners <= CARD_RUNNERS
 
 
-BUNDLE_DEFAULTS = {'on': True, 'perLegUsd': 0.10, 'maxPct': 5.0, 'maxLegUsd': 50.0}
-BUNDLE_RANGES = {'perLegUsd': (0.0, 5.0), 'maxPct': (0.1, 20.0), 'maxLegUsd': (1.0, 10000.0)}
+BUNDLE_DEFAULTS = {'on': True, 'perLegUsd': 0.10, 'maxPct': 5.0, 'maxLegUsd': 50.0, 'swapUsd': 0.10}
+BUNDLE_RANGES = {'perLegUsd': (0.0, 5.0), 'maxPct': (0.1, 20.0), 'maxLegUsd': (1.0, 10000.0), 'swapUsd': (0.0, 5.0)}
 
 
 def clean_bundle(b):
@@ -238,6 +238,75 @@ def bundle_bps(leg_usd, b):
     if not b['on'] or leg_usd <= 0 or leg_usd > b['maxLegUsd']:
         return None
     return int(min(round(b['perLegUsd'] / leg_usd * 10000), round(b['maxPct'] * 100)))
+
+
+def card_swap_bps(leg_usd, b):
+    """A card's swap / sell / switch leg (rotation, collect, withdraw — one coin at a time): a flat `swapUsd` per coin (default
+    $0.10) instead of a %, never more than maxPct of the leg. Big legs (> maxLegUsd) or unknown size pay the normal % → None."""
+    b = clean_bundle(b)
+    leg_usd = _f(leg_usd)
+    if not b['on'] or leg_usd <= 0 or leg_usd > b['maxLegUsd']:
+        return None
+    return int(min(round(b['swapUsd'] / leg_usd * 10000), round(b['maxPct'] * 100)))
+
+
+def fee_plan(b, rounds_cfg, coins, usd, rounds=5, swaps_per_round=1):
+    """💲 What a card costs a trader, in $ (the Lab + HQ fee layout show it live): first buy = per-coin fee × coins (each capped
+    at maxPct of its slice), then every auto round pays the swap fee per coin it swaps, +5 rounds = the round pack. Staff pay 0."""
+    b, rc = clean_bundle(b), clean_rounds_cfg(rounds_cfg)
+    coins = max(1, int(_f(coins) or 1)); usd = max(0.0, _f(usd)); slice_ = usd / coins if coins else 0
+    cap = lambda flat: min(flat, slice_ * b['maxPct'] / 100) if slice_ else flat
+    buy = round(coins * cap(b['perLegUsd']), 4)
+    swap = round(cap(b['swapUsd']) * 2, 4)   # one swap = sell the old coin + buy the new one
+    packs = max(0, -(-max(0, int(rounds) - ROUNDS_DEFAULT) // ROUNDS_STEP))
+    rounds_usd = round(packs * rc['per5Usd'], 4)
+    swaps = round(swap * swaps_per_round * int(rounds), 4)
+    total = round(buy + rounds_usd + swaps, 4)
+    return {'buyUsd': buy, 'perCoinUsd': b['perLegUsd'], 'swapUsd': swap, 'roundsUsd': rounds_usd, 'packs': packs, 'per5Usd': rc['per5Usd'],
+            'swapsUsd': swaps, 'totalUsd': total, 'pct': round(total / usd * 100, 2) if usd else 0.0, 'rounds': int(rounds), 'free': ROUNDS_DEFAULT}
+
+
+def auto_rounds(pos, cfg, pnl_usd):
+    """💸 Card pays its own fees (`autoFees` on): out of rounds AND up more than the pack price → +5 rounds charged to the card's
+    compound (owed, settled at the next profit take). Never while the card is flat / down, never with a pack already owed."""
+    rc = clean_rounds_cfg(cfg)
+    if not pos.get('autoFees') or rounds_left(pos) > 0 or not rc['compoundPay'] or _f(pos.get('roundsOwedUsd')) > 0 or _f(pnl_usd) <= rc['per5Usd']:
+        return False
+    extend_rounds(pos, 'compound', rc)
+    pos['roundBuys'][-1]['auto'] = True
+    return True
+
+
+FEE_KINDS = ('buy', 'swap', 'sell', 'rounds')
+
+
+def fee_list(positions, ledger_rows, limit=300):
+    """💲 Every fee a Fuse card paid, one row each (HQ fee layout, clickable): 🃏 buy = coins bought when the card opened,
+    ⇄ swap = coins switched in later, ✂ sell = take-profits / withdraws, 🔁 rounds = round packs paid. Fee $ from the ledger."""
+    by_sig = {r.get('sig'): r for r in ledger_rows or [] if r.get('sig')}
+    rows = []
+    for pos in positions or []:
+        t0 = _f(pos.get('at'))
+        base = {'card': pos.get('id'), 'cardName': pos.get('name') or 'Fuse card', 'wallet': pos.get('wallet')}
+        for leg in pos.get('legs') or []:
+            r = by_sig.get(leg.get('sig'))
+            if r:
+                rows.append({**base, 'kind': 'swap' if _f(r.get('t')) - t0 > 120 else 'buy', 'symbol': leg.get('symbol'), 'at': _f(r.get('t')),
+                             'tradeUsd': _f(r.get('inUsd')), 'feeUsd': _f(r.get('feeUsd')), 'sig': leg.get('sig')})
+            for sg in leg.get('sellSigs') or ([leg['sellSig']] if leg.get('sellSig') else []):
+                r = by_sig.get(sg)
+                if r:
+                    rows.append({**base, 'kind': 'sell', 'symbol': leg.get('symbol'), 'at': _f(r.get('t')), 'tradeUsd': _f(r.get('inUsd')), 'feeUsd': _f(r.get('feeUsd')), 'sig': sg})
+        for rb in pos.get('roundBuys') or []:
+            if _f(rb.get('usd')) > 0:
+                rows.append({**base, 'kind': 'rounds', 'symbol': None, 'at': _f(rb.get('at')), 'tradeUsd': 0.0, 'feeUsd': _f(rb.get('usd')), 'sig': rb.get('sig') or None,
+                             'mode': rb.get('mode'), 'auto': bool(rb.get('auto'))})
+    rows.sort(key=lambda r: -r['at'])
+    tot = {k: {'n': sum(1 for r in rows if r['kind'] == k), 'usd': round(sum(r['feeUsd'] for r in rows if r['kind'] == k), 4)} for k in FEE_KINDS}
+    traded = sum(r['tradeUsd'] for r in rows)
+    return {'rows': rows[:limit], 'totals': tot, 'allUsd': round(sum(r['feeUsd'] for r in rows), 4), 'tradedUsd': round(traded, 2),
+            'avgPct': round(sum(r['feeUsd'] for r in rows if r['kind'] != 'rounds') / traded * 100, 3) if traded else 0.0,
+            'cards': len({r['card'] for r in rows})}
 
 
 def fuse_fees(positions, ledger_rows, now):
@@ -770,7 +839,8 @@ def _extras(plan):
     pay = plan.get('payoutPct')
     pay = int(pay) if pay in (0, 25, 50, 75, 100) else (0 if plan.get('onProfit') == 'compound' else 100)
     return {'rotateHours': rotate_hours(plan.get('rotateHours')), 'cycle': plan.get('cycle') if plan.get('cycle') in CARD_CYCLES else 'steady',
-            'payoutPct': pay, 'compoundStyle': plan.get('compoundStyle') if plan.get('compoundStyle') in ('smart', 'even', 'off') else 'smart', 'slMode': plan.get('slMode') if plan.get('slMode') in SL_MODES else 'sell'}
+            'payoutPct': pay, 'compoundStyle': plan.get('compoundStyle') if plan.get('compoundStyle') in ('smart', 'even', 'off') else 'smart', 'slMode': plan.get('slMode') if plan.get('slMode') in SL_MODES else 'sell',
+            'autoFees': bool(plan.get('autoFees', True))}
 
 
 def next_switch_at(pos, staff=False):

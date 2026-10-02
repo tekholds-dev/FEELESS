@@ -254,3 +254,23 @@ def test_rug_shield_sells_a_coin_whose_liquidity_was_pulled():
     assert [l for l in card['legs'] if l['mint'] == 'r1'][0]['liq'] == 100_000
     out = ap.tick(card, {'Psol': 1, 'Pa': 1, 'Pr1': 0.9, 'Pr2': 1}, [], [], CFG, 30, SOL, None, {'Pr1': 40_000})
     assert 'r1' not in [l['mint'] for l in out['legs']] and any(e['kind'] == 'rug' and 'pulled' in e['why'] for e in out['events'])
+
+
+def test_rounds_per_run_close_the_run_and_math_reads_plainly():
+    cfg = ap.clean_cfg({'roundsPerRun': 5})
+    assert cfg['roundsPerRun'] == 5 and ap.clean_cfg({'roundsPerRun': 7})['roundsPerRun'] == 0
+    card = {'id': 'prime-safe', 'tpl': 'safe', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 40.0,
+            'takenUsd': 300.0, 'walletUsd': 25.0, 'startUsd': 100.0, 'events': [], 'legs': [{'mint': 'M', 'pairAddress': 'P', 'symbol': 'M', 'role': 'runner', 'entry': 1.0, 'units': 150.0, 'costUsd': 150.0}]}
+    s = ap.summary(card, {'P': 1.0}, {'rotateHours': 1})
+    m = s['math']
+    assert m['nowUsd'] == 175 and m['heldUsd'] == 150 and m['paidOutUsd'] == 25 and m['pnlUsd'] == 75   # gross takes never double-count
+    assert s['nextRoundAt'] == 3600 and s['bellSec'] == 10 and s['real'] is False
+
+
+def test_impact_mult_from_real_fills_makes_paper_fills_worse():
+    try:
+        base = ap.buy_px(1.0, 100, 10000)
+        ap.IMPACT_MULT = 2.0
+        assert ap.buy_px(1.0, 100, 10000) > base and ap.sell_usd(100, 1.0, 10000) < 100 / (1 + 100 / 5000) + 1e-9
+    finally:
+        ap.IMPACT_MULT = 1.0

@@ -51,7 +51,8 @@ export function BundlePricing({ call, initial, swapBps = 0 }) {
     <div className="cc-mini-grid">
       <label>$ per coin / pool<input type="number" step="0.01" min="0" max="5" value={b.perLegUsd} onChange={e => set('perLegUsd', Number(e.target.value))} data-testid="bundle-per-leg" /></label>
       <label>Never more than (% of a leg)<input type="number" step="0.1" min="0.1" max="20" value={b.maxPct} onChange={e => set('maxPct', Number(e.target.value))} /></label>
-      <label>Flat price for legs up to ($)<input type="number" min="1" max="10000" value={b.maxLegUsd} onChange={e => set('maxLegUsd', Number(e.target.value))} /></label></div>
+      <label>Flat price for legs up to ($)<input type="number" min="1" max="10000" value={b.maxLegUsd} onChange={e => set('maxLegUsd', Number(e.target.value))} /></label>
+      <label data-tip="Every later card swap / sell / switch (rotation, collect, withdraw) pays this per coin instead of a %">$ per card swap / sell (per coin)<input type="number" step="0.01" min="0" max="5" value={b.swapUsd ?? 0.1} onChange={e => set('swapUsd', Number(e.target.value))} data-testid="bundle-swap-usd" /></label></div>
     <ul className="bundle-ex">{[[1, 3], [20, 3], [100, 6]].map(([usd, n]) => { const leg = usd / n; const fee = bundleExample(b, leg, swapBps) * n;
       return <li key={usd}><b>${usd} card · {n} coins</b><span className="m-num">${fee.toFixed(3)} total</span><small>{((fee / usd) * 100).toFixed(2)}%</small></li>; })}
       <li className="is-free"><b>HQ card · 12 coins</b><span className="m-num">$0 FEELESS</span><small>network + partner fees only</small></li></ul>
