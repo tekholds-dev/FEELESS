@@ -102,7 +102,7 @@ export function CardPlan({ legs, plan, setPlan }) {
   return <details className="fl-plan" open data-testid="card-plan"><summary><span className="m-label">🎯 CARD PLAN</span><small className="m-dim">one dial sets it all · alerts with one-tap actions, you approve</small></summary>
     <div className="fl-plan-row fl-risk"><span>🎚 Risk</span><RiskDial value={plan.risk || 'custom'} onChange={id => setPlan(applyRisk(legs, id))} /></div>
     {maxR != null && runners > maxR && <div className="m-note warn"><b>{RISK_DIALS[plan.risk].label} = {maxR} runner{maxR === 1 ? '' : 's'} max</b><span>You picked {runners}. Remove {runners - maxR} or pick a bolder dial.</span></div>}
-    <details className="fl-plan-tune"><summary>✎ Customize (TP/SL per coin · profit trigger · collect or compound · hold or rotate)</summary>
+    <details className="fl-plan-tune" open><summary>✎ Customize (TP/SL per coin · profit trigger · collect or compound · hold or rotate)</summary>
     <div className="fl-plan-row"><span>Auto-set TP / SL</span><div className="m-seg" role="group">{PLAN_PRESETS.map(([id, l, , , tip]) => <button key={id} type="button" data-tip={tip} onClick={() => setPlan(p => ({ ...p, risk: 'custom', legs: applyPreset(legs, id) }))} data-testid={`plan-preset-${id}`}>{l}</button>)}
       <button type="button" data-tip="Clear every coin's limits" onClick={() => setPlan(p => ({ ...p, risk: 'custom', legs: {} }))}>Off</button></div></div>
     <details className="fl-plan-list" data-testid="plan-list"><summary>Per-coin TP / SL · {legs.length} coins · {Object.values(plan.legs).filter(v => Number(v.tp) || Number(v.sl)).length} set <span aria-hidden="true">▾</span></summary>
@@ -112,7 +112,9 @@ export function CardPlan({ legs, plan, setPlan }) {
       <label data-tip="Stop-loss on this coin: alert + pre-filled sell when it's down this much">SL −<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.sl ?? ''} onChange={e => lim(l.pairAddress, 'sl', e.target.value)} />%</label></div>; })}</div></details>
     <div className="fl-plan-row"><span>Profit trigger (price move)</span>{seg('at', [[null, 'Off', 'No card-level auto-profit'], ...levels.map(v => [v, `+${v}%`, `Alert when the whole card is up +${v}% from your confirmed buy (fees never mixed into card P&L)`])])}</div>
     <div className="fl-plan-row"><span>On profit</span>{seg('onProfit', [['collect', '💸 Auto TP', 'At your level: a one-tap sell of just the gain back to SOL — your base stays in'], ['compound', '♻ Auto-compound', 'At your level: a one-tap roll of the gain back into the card (trim winners, top up the rest) — builds a compound streak']])}</div>
-    <div className="fl-plan-row"><span>Card</span>{seg('mode', [['hold', '🔒 Hold · switch by hand', 'The card stays as built. One switch per 24h, your pick.'], ['swap', '🤖 Auto-rotate daily', `Once a day a coin that fails a gate or drops ${rules?.swapDropPct ?? 25}% gets a pre-filled swap for the best gated runner — one approval`]])}</div>
+    <div className="fl-plan-row"><span>Card</span>{seg('mode', [['hold', '🔒 Hold · switch by hand', 'The card stays as built. One switch per 24h, your pick.'], ['swap', '🤖 Auto-rotate', `On your reshuffle clock a coin that fails a gate or drops ${rules?.swapDropPct ?? 25}% gets a pre-filled swap for the best gated runner — one approval`]])}</div>
+    <div className="fl-plan-row"><span>Reshuffle every</span>{seg('rotateHours', [[5 / 60, '5m', 'A weak coin may be swapped every 5 minutes'], [0.25, '15m', 'Every 15 minutes'], [1, '1h', 'Every hour'], [12, '12h', 'Twice a day'], [24, '24h', 'Once a day']])}</div>
+    <div className="fl-plan-row"><span>At a coin stop</span>{seg('slMode', [['sell', '✂ Sell', 'One-tap sell to SOL'], ['park', '🅿 Park', 'Sell to SOL, then a one-tap buy-back when it is back at entry with buyers'], ['hold', '❄ Hold', 'No stop alerts']])}</div>
     </details>
   </details>;
 }
@@ -192,7 +194,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
   const [copy, setCopy] = useState(null);   // ⚡ copying another trader's card: {id, owner, pct}
   const [backing, setBacking] = useState(null);
   const needRunner = !admin && !(runnerPicks || []).length;   // every trader card carries 1–3 runners (Cmd Ctr cards: any mix)   // 💰 buying a battle card to back it: {key, name}
-  const [plan, setPlan] = useState({ risk: 'balanced', at: 50, onProfit: 'collect', mode: 'hold', legs: {} });
+  const [plan, setPlan] = useState({ risk: 'balanced', at: 50, onProfit: 'collect', mode: 'hold', rotateHours: 24, slMode: 'sell', legs: {} });
   const legKey = (prev?.legs || []).map(l => l.pairAddress).join(',');
   useEffect(() => { if (prev?.legs) setPlan(p => ({ ...p, legs: { ...defaultLegLimits(prev.legs), ...Object.fromEntries(Object.entries(p.legs).filter(([pa]) => legKey.includes(pa))) } })); }, [legKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!incoming?.n) return; const pools = incoming.legs.filter(l => !l.runner && l.role !== 'runner').slice(0, MAX);
