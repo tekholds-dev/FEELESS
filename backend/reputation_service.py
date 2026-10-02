@@ -2958,7 +2958,8 @@ async def fuse_position(p: FusePositionIn):
         except ValueError:
             plan = None   # a bad plan never blocks recording a real buy
         if plan:
-            pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'), rotateHours=plan.get('rotateHours', 24), slMode=plan.get('slMode', 'sell'))
+            pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'), rotateHours=plan.get('rotateHours', 24), slMode=plan.get('slMode', 'sell'),
+                       frozen=plan.get('frozen') or [], coinRotate=plan.get('coinRotate') or {}, coinModes=plan.get('coinModes') or {})
             if plan['legs']:
                 pos['legGuard'] = {pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()}
             if plan['at']:
@@ -3273,7 +3274,8 @@ async def fuse_plan(p: FusePlanIn):
                                   [leg['pairAddress'] for leg in pos['legs'] if leg.get('soldUsd') is None], [leg['pairAddress'] for leg in pos['legs'] if leg.get('role') == 'runner'])
         except ValueError as e:
             raise HTTPException(400, str(e))
-        pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'), rotateHours=plan.get('rotateHours', 24), slMode=plan.get('slMode', 'sell'), legGuard={pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()})
+        pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'), rotateHours=plan.get('rotateHours', 24), slMode=plan.get('slMode', 'sell'), legGuard={pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()},
+                   **({k: plan[k] for k in ('frozen', 'coinRotate', 'coinModes')} if (p.plan or {}).get('coins') else {}))
         if plan.get('risk') in _hq.RISK_DIALS and plan.get('at'):   # the dial also re-arms the card's profit level
             pos['autoYield'] = {'at': plan['at'], 'base': round(sum(_fuse._f(x.get('heldUsd') or x.get('usd')) for x in pos['legs'] if x.get('soldUsd') is None), 6), 'armedAt': time.time(), 'firedAt': None, 'rebase': True}
         _json_save(FUSE_HQ_PATH, d)

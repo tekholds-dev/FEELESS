@@ -90,6 +90,21 @@ export const applyPreset = (legs, id) => { const p = PLAN_PRESETS.find(x => x[0]
   return Object.fromEntries(legs.map(l => [l.pairAddress, id === 'lanes' ? (l.runner ? { tp: 50, sl: 30 } : { tp: 30, sl: 15 }) : { tp: p[2], sl: p[3] }])); };
 export const defaultLegLimits = legs => Object.fromEntries(legs.filter(l => l.runner).map(l => [l.pairAddress, { tp: 50, sl: 30 }]));
 
+// Per-coin build-time configs (server: fuse_hq.coin_extras): ❄ freeze (engine hands off) · ⇄ own replace clock · own stop mode.
+const COIN_CLOCK = [[0, 'card'], [5 / 60, '5m'], [0.25, '15m'], [1, '1h'], [12, '12h']];
+const COIN_STOP = [['', 'card'], ['sell', '✂'], ['park', '🅿'], ['hold', '❄']];
+function CoinExtras({ pa, sym, plan, setPlan }) {
+  const c = (plan.coins || {})[pa] || {};
+  const set = patch => setPlan(p => ({ ...p, coins: { ...(p.coins || {}), [pa]: { ...((p.coins || {})[pa] || {}), ...patch } } }));
+  return <span className="fl-coinx" data-testid={`coinx-${pa}`}>
+    <button type="button" className={`m-btn fl-frz ${c.frozen ? 'is-on' : ''}`} aria-pressed={!!c.frozen} onClick={() => set({ frozen: !c.frozen })} data-tip={`Freeze $${sym}: the engine never swaps it — only you can`} data-testid={`coinx-frz-${pa}`}>❄</button>
+    <span className="m-seg" role="group" aria-label={`$${sym} replace clock`} data-tip="⇄ Replace this coin at most every … (card = the card's reshuffle clock)">{COIN_CLOCK.map(([h, t]) =>
+      <button key={t} type="button" className={Math.abs((c.rotateHours || 0) - h) < 0.005 ? 'active' : ''} onClick={() => set({ rotateHours: h })} data-testid={`coinx-rot-${t}-${pa}`}>{t}</button>)}</span>
+    <span className="m-seg" role="group" aria-label={`$${sym} at its stop`} data-tip="At this coin's stop: card setting, ✂ sell, 🅿 park & buy back, ❄ hold">{COIN_STOP.map(([m, t]) =>
+      <button key={t} type="button" className={(c.slMode || '') === m ? 'active' : ''} onClick={() => set({ slMode: m })} data-testid={`coinx-sl-${m || 'card'}-${pa}`}>{t}</button>)}</span>
+  </span>;
+}
+
 export function CardPlan({ legs, plan, setPlan }) {
   const rules = useCardRules();
   const levels = rules?.yieldLevels || [25, 50, 100, 200];
@@ -105,11 +120,12 @@ export function CardPlan({ legs, plan, setPlan }) {
     <details className="fl-plan-tune" open><summary>✎ Customize (TP/SL per coin · profit trigger · collect or compound · hold or rotate)</summary>
     <div className="fl-plan-row"><span>Auto-set TP / SL</span><div className="m-seg" role="group">{PLAN_PRESETS.map(([id, l, , , tip]) => <button key={id} type="button" data-tip={tip} onClick={() => setPlan(p => ({ ...p, risk: 'custom', legs: applyPreset(legs, id) }))} data-testid={`plan-preset-${id}`}>{l}</button>)}
       <button type="button" data-tip="Clear every coin's limits" onClick={() => setPlan(p => ({ ...p, risk: 'custom', legs: {} }))}>Off</button></div></div>
-    <details className="fl-plan-list" data-testid="plan-list"><summary>Per-coin TP / SL · {legs.length} coins · {Object.values(plan.legs).filter(v => Number(v.tp) || Number(v.sl)).length} set <span aria-hidden="true">▾</span></summary>
+    <details className="fl-plan-list" open data-testid="plan-list"><summary>Per-coin TP / SL · {legs.length} coins · {Object.values(plan.legs).filter(v => Number(v.tp) || Number(v.sl)).length} set <span aria-hidden="true">▾</span></summary>
     <div className="fl-plan-legs">{legs.map(l => { const v = plan.legs[l.pairAddress] || {}; return <div key={l.pairAddress} className={`fl-plan-leg ${l.runner ? 'is-runner' : ''}`}>
       <b>{l.runner ? '🏃 ' : ''}{l.symbol}</b>
       <label data-tip="Take profit on this coin: alert + pre-filled sell when it's up this much since your buy">TP +<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.tp ?? ''} onChange={e => lim(l.pairAddress, 'tp', e.target.value)} data-testid={`plan-tp-${l.pairAddress}`} />%</label>
-      <label data-tip="Stop-loss on this coin: alert + pre-filled sell when it's down this much">SL −<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.sl ?? ''} onChange={e => lim(l.pairAddress, 'sl', e.target.value)} />%</label></div>; })}</div></details>
+      <label data-tip="Stop-loss on this coin: alert + pre-filled sell when it's down this much">SL −<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.sl ?? ''} onChange={e => lim(l.pairAddress, 'sl', e.target.value)} />%</label>
+      <CoinExtras pa={l.pairAddress} sym={l.symbol} plan={plan} setPlan={setPlan} /></div>; })}</div></details>
     <div className="fl-plan-row"><span>Profit trigger (price move)</span>{seg('at', [[null, 'Off', 'No card-level auto-profit'], ...levels.map(v => [v, `+${v}%`, `Alert when the whole card is up +${v}% from your confirmed buy (fees never mixed into card P&L)`])])}</div>
     <div className="fl-plan-row"><span>On profit</span>{seg('onProfit', [['collect', '💸 Auto TP', 'At your level: a one-tap sell of just the gain back to SOL — your base stays in'], ['compound', '♻ Auto-compound', 'At your level: a one-tap roll of the gain back into the card (trim winners, top up the rest) — builds a compound streak']])}</div>
     <div className="fl-plan-row"><span>Card</span>{seg('mode', [['hold', '🔒 Hold · switch by hand', 'The card stays as built. One switch per 24h, your pick.'], ['swap', '🤖 Auto-rotate', `On your reshuffle clock a coin that fails a gate or drops ${rules?.swapDropPct ?? 25}% gets a pre-filled swap for the best gated runner — one approval`]])}</div>
@@ -235,7 +251,8 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
           <button type="button" className="m-btn primary m-go" onClick={() => load(c.champion.legs, c.solUsd ? c.budget / c.solUsd : null)} data-testid={`fl-best-use-${c.budget}`}>Use this · ${c.budget}</button></article>)}</div>}
       <FuseRail onUse={load} />
     </>}
-    <div className="fl-body">
+    <div className={`fl-body ${prev ? 'has-plan' : ''}`}>
+      {prev && <aside className="fl-plancol" data-testid="plan-col"><CardPlan legs={prev.legs} plan={plan} setPlan={setPlan} /></aside>}
       <div className="fl-browse">
         <div className="fl-tools"><div className="m-seg" role="radiogroup" aria-label="Pool lens">{LENSES.map(([k, l]) => <button type="button" key={k} role="radio" aria-checked={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)}>{l}</button>)}</div>
           <input className="m-input fl-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Search any coin — SOL, BTC, ETH, $TICKER, CA" aria-label="Search pools" data-testid="fl-search" /></div>
@@ -298,7 +315,6 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
             {prev.impactWarn?.length > 0 && <div className="m-note warn"><b>SIZE GUARD</b><span>{prev.impactWarn.join(', ')}: your slice is over 1% of that pool — expect price impact. Lower the SOL or swap the pool.</span></div>}
             <details className="fl-why"><summary>Why these weights?</summary><p>Each pool scores <b>fee APR</b> (24h volume × 0.25% ÷ liquidity, capped 400%) × <b>depth</b> (log of liquidity). Shares are clamped to 10–70% so one pool never runs the fuse. Grade = depth + healthy turnover + calm 24h moves + forensics safety.</p>
               <ul>{prev.score.parts.map(p => <li key={p.part}><span>{p.part}</span><b className="m-num">{p.points}</b><small>{p.why}</small></li>)}</ul></details>
-            {prev && <CardPlan legs={prev.legs} plan={plan} setPlan={setPlan} />}
             {prev && <CardPricing legs={prev.legs} admin={admin} />}
             {limits && !limits.canOpen && <div className="m-note warn"><b>CARD LIMIT</b><span>You have {limits.open} open Fuse cards (max {limits.max}). Withdraw one in My cards{limits.max < 3 ? ` — or hold $${limits.feeFor3rd} of $FEE for a 3rd card` : ''}.</span></div>}
             {!going ? <button type="button" className="m-btn primary m-go wide" disabled={!(Number(sol) > 0) || (limits && !limits.canOpen) || needRunner} onClick={() => setGoing(true)} data-testid="fl-go">{needRunner ? '🏃 Pick 1–3 runners first' : `⚡ Fuse in ${Number(sol) || 0} SOL · 1 click`}</button>

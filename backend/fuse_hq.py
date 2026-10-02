@@ -614,7 +614,7 @@ def clean_plan(plan, rules, pair_addresses, runner_pairs=()):
         rp = risk_plan(plan['risk'], [{'pairAddress': pa, 'runner': pa in set(runner_pairs)} for pa in pair_addresses])
         lvl = clean_rules(rules)['yieldLevels']
         rp['at'] = rp['at'] if rp['at'] in lvl else min(lvl, key=lambda v: abs(v - rp['at']))
-        return {**{k: rp[k] for k in ('risk', 'at', 'mode', 'onProfit', 'legs')}, **_extras(plan)}
+        return {**{k: rp[k] for k in ('risk', 'at', 'mode', 'onProfit', 'legs')}, **_extras(plan), **coin_extras(plan, pair_addresses)}
     rl = clean_rules(rules)
     at = plan.get('at')
     try:
@@ -634,7 +634,25 @@ def clean_plan(plan, rules, pair_addresses, runner_pairs=()):
             raise ValueError(f'Coin stop-loss must be −{LEG_SL[0]:g}% to −{LEG_SL[1]:g}%.')
         if tp or sl:
             legs[pa] = {'tp': tp, 'sl': sl}
-    return {'risk': 'custom', 'at': at, 'mode': 'swap' if plan.get('mode') == 'swap' else 'hold', 'onProfit': 'compound' if plan.get('onProfit') == 'compound' else 'collect', 'legs': legs, **_extras(plan)}
+    return {'risk': 'custom', 'at': at, 'mode': 'swap' if plan.get('mode') == 'swap' else 'hold', 'onProfit': 'compound' if plan.get('onProfit') == 'compound' else 'collect', 'legs': legs, **_extras(plan), **coin_extras(plan, pair_addresses)}
+
+
+def coin_extras(plan, pair_addresses):
+    """Per-coin build-time configs from the Lab (`plan.coins = {pairAddress: {frozen, rotateHours, slMode}}`), only for coins on
+    the card: ❄ frozen list, ⇄ own replace clock (`rotate_hours` options), own stop mode (sell / park / hold)."""
+    coins = plan.get('coins') if isinstance(plan.get('coins'), dict) else {}
+    ok = set(pair_addresses)
+    fz, rot, modes = [], {}, {}
+    for pa, c in coins.items():
+        if pa not in ok or not isinstance(c, dict):
+            continue
+        if c.get('frozen'):
+            fz.append(pa)
+        if _f(c.get('rotateHours')) > 0:
+            rot[pa] = rotate_hours(c['rotateHours'])
+        if c.get('slMode') in SL_MODES:
+            modes[pa] = c['slMode']
+    return {'frozen': fz, 'coinRotate': rot, 'coinModes': modes}
 
 
 def leg_limit_hits(r, leg_guard):

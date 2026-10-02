@@ -58,3 +58,9 @@ def test_backer_season_board_and_prize_split():
     pz = hq.backer_prizes(b, 100)
     assert [(p['wallet'], p['usd']) for p in pz] == [('B', 50.0), ('A', 30.0)]                        # zero-win backers get nothing
     assert hq.backer_prizes(b, 0) == []                                                              # pool off
+
+
+def test_lab_per_coin_configs_are_cleaned_at_build_time():
+    plan = hq.clean_plan({'mode': 'swap', 'coins': {'P1': {'frozen': True, 'rotateHours': 0.25, 'slMode': 'park'}, 'P2': {'slMode': 'nope', 'rotateHours': 3}, 'ZZ': {'frozen': True}}},
+                         None, ['P1', 'P2'])
+    assert plan['frozen'] == ['P1'] and plan['coinRotate'] == {'P1': 0.25, 'P2': 24} and plan['coinModes'] == {'P1': 'park'}
