@@ -4486,7 +4486,7 @@ async def _arena_mega(rd, cfg, now):
         own = f"{sc['emoji']} {sc['name']}" if sc.get('dial') and sc.get('emoji') else None
         nm_ = own if own and own not in bench_names else _rn.card_name(dial, sc['id'], bench_names)   # never two runners-up with one name
         bench_names.add(nm_)
-        out.append({'kind': 'scenario', 'bench': True, 'id': sc['id'], 'src': sc.get('src'), 'name': nm_.split(' ', 1)[-1], 'emoji': nm_.split(' ', 1)[0], 'aura': '', 'legs': sc['legs'], 'index': round(100 + pct_, 2), 'dial': dial,
+        out.append({'kind': 'scenario', 'bench': True, 'id': sc['id'], 'src': sc.get('src'), 'version': sc.get('version'), 'name': nm_.split(' ', 1)[-1], 'emoji': nm_.split(' ', 1)[0], 'aura': '', 'legs': sc['legs'], 'index': round(100 + pct_, 2), 'dial': dial,
                     'cfg': sc.get('cfg') or _rn.card_cfg(dial, sc), 'grade': 'A' if pct_ > 0 else 'B', 'buyers': 0, 'at': sc['at'], 'chat': f"fuse-card-{sc['id']}", 'pnlPct': pct_,
                     'tagline': f"engine card · TP +{sc['tp']}% / stop −{sc['sl']}%",
                     'activity': _hq.activity(len(sc['legs']), 0, 0, pct_)})
@@ -5083,7 +5083,11 @@ async def _scenario_stage(rd, now):
               'legs': [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': l['weight'], 'runner': l['role'] == 'runner', 'entry': _fuse._f(px.get(l['pairAddress']))}
                        for l in c['legs'] if _fuse._f(px.get(l['pairAddress'])) > 0]} for c in cards]
     async with _admin_lock:
-        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['scenarioStage'] = stage; d['scenarioStageRound'] = rnd.get('id'); _json_save(RUNNERS_PATH, d)
+        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
+        vers = d.setdefault('scenarioVersions', {})
+        for st in stage:   # each new deal of the same scenario = its next version (v.01, v.02 …)
+            vers[st['src']] = int(vers.get(st['src']) or 0) + 1; st['version'] = vers[st['src']]
+        d['scenarioStage'] = stage; d['scenarioStageRound'] = rnd.get('id'); _json_save(RUNNERS_PATH, d)
     _arena_mega_cache.update(at=0.0, data=None)
     return len(stage)
 
@@ -5239,8 +5243,11 @@ async def fuse_playground(request: Request):
             'autoLog': auto, 'engineDial': rd.get('cfgDial') or 'custom', 'autoTune': rd.get('autoTune') is not False,
             'gateRegret': _rn.gate_regret(rd.get('dropLog') or [], await _hq_prices([{'chainId': 'solana', 'pairAddress': e['pairAddress']} for e in (rd.get('dropLog') or [])[-120:] if e.get('pairAddress')]), now),
             'scenarios': (scen := _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS)),
-            'scenarioCards': _rn.scenario_cards(scen, ((rd.get('rounds') or [{}])[-1] or {}).get('picks'),
+            'scenarioCards': _rn.tag_versions(_rn.scenario_cards(scen, ((rd.get('rounds') or [{}])[-1] or {}).get('picks'),
                                                 next(({'chainId': 'solana', 'pairAddress': m['pairAddress'], 'symbol': 'SOL', 'mint': m.get('baseAddress')} for m in await _majors_rows() if m.get('symbol') == 'SOL'), None)),
+                                              rd.get('scenarioVersions') or {},
+                                              {**{x.get('src'): 'bench' for x in rd.get('scenarioStage') or []},
+                                               **{f.get('fromScenario'): 'stage' for f in (_json_load(FUSES_PATH, {'fuses': {}}).get('fuses') or {}).values() if f.get('arena') and f.get('fromScenario')}}),
             **_hq.playground_ready(board, dials, prime)}
 
 @app.get('/api/reputation/admin/runners/config')

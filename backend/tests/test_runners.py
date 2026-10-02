@@ -259,3 +259,10 @@ def test_new_runners_tight_launch_filter():
     got = rn.new_runners(rows)
     assert [r['mint'] for r in got] == ['A', 'F'] and '🧼 clean creator' in got[0]['why']          # clean creators first
     assert rn._socials({'info': {'websites': [{'url': 'x'}], 'socials': [{'type': 'twitter'}]}}) == {'site': True, 'x': True, 'tg': False}
+
+
+def test_playground_versions_and_where_listed():
+    cards = [{'id': 'tp200_sl40', 'name': '🚀 Moon Mission', 'label': 'TP +200% · stop −40%', 'window': '24h', 'dial': 'degen', 'rounds': 69}, {'id': 'safe_6h', 'label': 'safe', 'window': '6h'}]
+    got = rn.tag_versions(cards, {'tp200_sl40': 3}, {'tp200_sl40': 'stage'})
+    assert got[0]['vName'] == '🚀 Moon Mission v.03' and got[0]['listed'] == 'stage' and 'TP +200%' in got[0]['combo']
+    assert got[1]['version'] == 1 and got[1]['listed'] is None

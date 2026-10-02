@@ -746,6 +746,18 @@ def card_cfg(dial, sc):
     return {'tp': int(_f(sc.get('tp'))), 'sl': int(_f(sc.get('sl'))), 'window': sc.get('window'), **DIAL_CFG.get(dial, DIAL_CFG['balanced'])}
 
 
+def tag_versions(cards, versions, listed):
+    """Playground cards from the same scenario are one bloodline: v.01, v.02 … (bumped each round it's dealt). Each card gets
+    `vName`, its scenario `combo` (hover) and where it's listed on the Fuse terminal: 'stage' (published) / 'bench' / None."""
+    out = []
+    for c in cards or []:
+        v = max(1, int((versions or {}).get(c['id']) or 1))
+        out.append({**c, 'version': v, 'vName': f"{c.get('name') or c.get('label')} v.{v:02d}",
+                    'combo': f"{c.get('label')} · proof {c.get('window')} · {c.get('dial') or '—'} dial · {c.get('rounds') or 0} rounds",
+                    'listed': (listed or {}).get(c['id'])})
+    return out
+
+
 def battle_seats(stage, bench, battles=2):
     """⚔ Who fights: stage cards first (hottest), runners-up from the bench fill empty seats — max `battles` fights
     (4 cards → 2 battles, both visible). Pure."""

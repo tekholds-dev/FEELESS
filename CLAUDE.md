@@ -477,7 +477,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - FeeCat page v2 (`styles/feecatPage.css`, `.fc-v2`): readable sizes, solid-fill tabs, live KPI tiles, rejection bars, her brain strip.
   Her P&L label = price moves, fees apart (money rule). Chat bond-run token cards carry the coin (no "Unavailable" block).
 
+- ⇄ Card clock: `fuse_hq.ROTATE_OPTIONS` 5m/15m/1h/6h/12h/24h (`rotate_hours` snaps client floats); swap alerts + rounds use each card's
+  own window. Per-coin stop mode `coinModes` (`POST /fuses/coin-mode`, `coin_sl_mode` beats the card's slMode) + ❄ freeze in the card
+  window. Cmd Ctr tier cards: per-coin ❄ freeze + own stop mode (`arena_prime.set_leg`, admin prime `{leg}`), frozen = never rotated/stopped.
+- 🧪 Playground versions: same scenario = one bloodline, v.01/v.02… (`scenarioVersions`, `runners.tag_versions`); hover = scenario combo +
+  where it's listed (🏟 stage / 🥈 bench / not listed); Arena bench cards show the same v.0x.
+- Logos: `tokenImageUrls` has `KNOWN_LOGOS` (SOL, $FEE) first; every picker uses `TokenAvatar` (full fallback chain), never a bare letter.
+
 ## NEXT SESSION — continue here (in this order)
+0000. Backer season prizes (weekly top backers → share of Fuse fees via the Fee-Back payout book); FeeCat fresh lane + clean-creator boost;
+   Cmd Ctr › Fuse full dashboard layout.
 000. Owner asks open: Cmd Ctr › Fuse FULL layout redo (fit every panel; grouped rail is there, needs a real dashboard layout);
    FeeCat fresh-launch lane + clean-creator boost (site + X already required); card buy = ONE approval for every coin (FuseGo) but the
    receipt/notice should read as ONE card buy, not "5 coins"; one combined on-chain card contract = fuse_card program (localnet, audit first).

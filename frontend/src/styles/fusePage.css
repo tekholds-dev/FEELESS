@@ -637,3 +637,7 @@ body.theme-day .ce-rounds { background: #fff; } body.theme-day .ce-rdots i.is-us
 .prime-leg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 10px; border: 1px solid var(--m-line); }
 .prime-leg.is-frozen { border-color: #7fd4ff88; } .prime-leg .m-btn.is-on { background: #7fd4ff; color: #04121c; border-color: #7fd4ff; }
 body.theme-day .prime-leg .m-btn.is-on { background: #1d6fa0; color: #fff; }
+.pg-listed { font: 700 8.5px/1.6 var(--m-mono); font-style: normal; letter-spacing: .1em; padding: 0 6px; border-radius: 999px; border: 1px solid var(--m-line); color: var(--m-dim); }
+.pg-listed.is-stage { color: #04140c; background: var(--m-accent); border-color: var(--m-accent); } .pg-listed.is-bench { color: #f5c451; border-color: #f5c45188; }
+.ar-ver { font: 600 10px var(--m-mono); color: var(--m-dim); }
+body.theme-day .pg-listed.is-bench { color: #8a6200; }
