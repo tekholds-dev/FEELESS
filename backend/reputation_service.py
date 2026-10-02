@@ -2724,14 +2724,22 @@ async def fuses_list():
 
 
 @app.get('/api/reputation/fuses/search')
-async def fuses_search(q: str = Query(..., min_length=2, max_length=60)):
-    """Pool picker for the Fuse builder: live pools with the meta a builder needs (depth, volume, APR est., turnover)."""
+async def fuses_search(request: Request, q: str = Query(..., min_length=2, max_length=60)):
+    """Pool picker for the Fuse builder: live pools with the meta a builder needs (depth, volume, APR est., turnover).
+    A pasted CA does a direct token lookup (search can miss fresh coins). Cmd Ctr sees EVERY pool (thin ones flagged, not hidden)."""
+    is_ca = bool(_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', q.strip()))
     async with httpx.AsyncClient(timeout=8) as http:
         try:
-            pairs = ((await http.get('https://api.dexscreener.com/latest/dex/search', params={'q': q})).json() or {}).get('pairs') or []
+            url = f'https://api.dexscreener.com/tokens/v1/solana/{q.strip()}' if is_ca else 'https://api.dexscreener.com/latest/dex/search'
+            got = (await http.get(url, params=None if is_ca else {'q': q})).json()
+            pairs = got if isinstance(got, list) else (got or {}).get('pairs') or []
         except Exception:
             pairs = []
-    rows = [{'chainId': p.get('chainId'), 'pairAddress': p.get('pairAddress'), **_fuse.leg_meta(p)} for p in _fuse.real_pools(pairs)[:20] if p.get('chainId') == 'solana']
+    admin = _is_admin_req(request)
+    real = {p.get('pairAddress') for p in _fuse.real_pools(pairs)}
+    src = pairs if admin else [p for p in pairs if p.get('pairAddress') in real]
+    rows = [{'chainId': p.get('chainId'), 'pairAddress': p.get('pairAddress'), **_fuse.leg_meta(p), **({'thin': True} if p.get('pairAddress') not in real else {})}
+            for p in src[:20] if p.get('chainId') == 'solana']
     qu = q.strip().upper().lstrip('$')
     if qu in _fuse.MAJOR_ALIASES or any(qu == v[0].upper() for v in _fuse.MAJORS.values()):   # 'BTC' → the real ones, always
         have = {r['pairAddress'] for r in rows}

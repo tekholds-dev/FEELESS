@@ -193,9 +193,9 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
   const [found, setFound] = useState(null);
   useEffect(() => {
     const s = q.trim(); if (s.length < 2 || lens === 'runners') { setFound(null); return undefined; }
-    let alive = true; const t = setTimeout(() => fetch(apiUrl(`/api/reputation/fuses/search?q=${encodeURIComponent(s)}`)).then(r => r.json()).then(d => alive && setFound((d.pools || []).map(p => ({ ...p, chainId: 'solana' })))).catch(() => alive && setFound([])), 300);
+    let alive = true; const t = setTimeout(() => (admin && call ? call(`/fuses/search?q=${encodeURIComponent(s)}`) : fetch(apiUrl(`/api/reputation/fuses/search?q=${encodeURIComponent(s)}`)).then(r => r.json())).then(d => alive && setFound((d.pools || []).map(p => ({ ...p, chainId: 'solana' })))).catch(() => alive && setFound([])), 300);
     return () => { alive = false; clearTimeout(t); };
-  }, [q, lens]);
+  }, [q, lens]); // eslint-disable-line react-hooks/exhaustive-deps
   const shown = useMemo(() => { if (found) return found; const s = q.trim().toLowerCase(); return (pools || []).filter(p => !s || `${p.symbol}/${p.quote || ''} ${p.dex || ''}`.toLowerCase().includes(s)); }, [pools, q, found]);
   const isOn = p => (p.runner ? runnerPicks.some(x => x.mint === p.mint) : picked.some(x => x.pairAddress === p.pairAddress));
   const isFull = p => !isOn(p) && (legsN >= caps.total || (p.runner ? runnerPicks.length >= caps.runners : picked.length >= MAX));

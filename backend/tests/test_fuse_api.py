@@ -337,7 +337,10 @@ def test_search_btc_finds_the_real_btc_first(monkeypatch):
                 def json(self): return {'pairs': [{'chainId': 'solana', 'pairAddress': 'FAKE', 'baseToken': {'address': 'Pump1', 'symbol': 'BTC'}, 'liquidity': {'usd': 8e6}, 'volume': {'h24': 9e6}}]}
             return R()
     monkeypatch.setattr(rs.httpx, 'AsyncClient', H); monkeypatch.setattr(rs, '_majors_rows', majors)
-    out = asyncio.run(rs.fuses_search(q='btc'))['pools']
+    class _Q:
+        headers = {}
+        client = None
+    out = asyncio.run(rs.fuses_search(_Q(), q='btc'))['pools']
     assert [p['pairAddress'] for p in out] == ['REAL', 'FAKE'] and out[0]['real'] and out[1]['impostor']
 
 
