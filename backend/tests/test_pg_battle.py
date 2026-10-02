@@ -113,3 +113,20 @@ def test_service_battles_learn_dna(monkeypatch):
 def dn_sig(d):
     import card_dna
     return card_dna.sig(d)
+
+
+def test_engine_doctor_applies_the_winning_pick_filter(monkeypatch):
+    import asyncio
+    import time as _t
+    import pytest
+    rs = pytest.importorskip('reputation_service')
+    async def nothing(*a, **k): return None
+    monkeypatch.setattr(rs, '_scenario_stage', nothing); monkeypatch.setattr(rs, 'notify', lambda *a, **k: None)
+    now = _t.time()
+    rounds = [{'id': f'r{i}', 'at': now - 3600 + i, 'picks': [{'mint': f'w{i}', 'entry': 1.0, 'lane': 'runner', 'score': 80, 'chg5m': 3},
+                                                              {'mint': f'l{i}', 'entry': 1.0, 'lane': 'runner', 'score': 40, 'chg5m': -2}]} for i in range(8)]
+    paths = {**{f'w{i}': [(now - 1000, 1.6), (now - 900, 2.1)] for i in range(8)}, **{f'l{i}': [(now - 1000, 0.6)] for i in range(8)}}
+    rs._json_save(rs.RUNNERS_PATH, {'rounds': rounds, 'paths': paths})
+    asyncio.run(rs._engine_auto(now))
+    d = rs._json_load(rs.RUNNERS_PATH, {})
+    assert d['pickFilter'] in ('score70', 'green5m') and d['sitOut'] is False and 'every pick' in d['doctorWhy']

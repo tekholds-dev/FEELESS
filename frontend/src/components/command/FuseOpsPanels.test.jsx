@@ -65,3 +65,16 @@ test('playground battles: live pairs with swaps + records, controls post to Cmd 
   await act(async () => { el.querySelector('.pgb-res .m-btn').click(); });
   expect(pub).toHaveBeenCalledWith('s1');
 });
+
+test('engine doctor: filters ranked, the applied one highlighted, tap to override', async () => {
+  const { EngineDoctor } = require('./FuseOpsPanels');
+  const p = { doctor: { filter: 'score70', sitOut: false, why: 'Score ≥ 70: +12%' }, filters: {
+    '24h': { _all: { avgPct: -8, picks: 40 }, score70: { label: '🏅 Score ≥ 70', avgPct: 12, picks: 10, winRate: 60, ready: true }, grad: { label: '🎓 Graduated only', avgPct: -20, picks: 9, winRate: 20, ready: true } },
+    '72h': { score70: { avgPct: 6 }, grad: { avgPct: -15 } } } };
+  const posts = []; const call = jest.fn(async (url, o) => { posts.push(JSON.parse(o.body)); return { filter: '', sitOut: false }; });
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<EngineDoctor p={p} call={call} />); });
+  expect(el.textContent).toContain('Applying 🏅 Score ≥ 70'); expect(el.querySelector('[data-testid="pg-filter-score70"]').className).toContain('is-on');
+  await act(async () => { el.querySelector('[data-testid="pg-filter-grad"]').click(); });
+  expect(posts[0]).toEqual({ filter: 'grad', sitOut: false });
+});

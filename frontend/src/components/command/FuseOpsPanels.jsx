@@ -179,6 +179,28 @@ export function PlaygroundBattles({ call, onPublish }) {
   </section>;
 }
 
+// 🩺 Engine doctor: which PICKS win (filters replayed on every past pick's entry snapshot, lane exits, real prices). Positive in 24h
+// AND 72h and ahead of "take every pick" → the engine applies that filter to the next rounds by itself (audited). Nothing wins →
+// it sits out runners (Arena Pick goes pools-only) until something proves itself. Cmd Ctr can override.
+export function EngineDoctor({ p, call, onChange }) {
+  const f = p.filters || {}; const d = p.doctor || {};
+  const rows = Object.entries(f['24h'] || {}).filter(([k]) => k !== '_all').map(([k, v]) => ({ k, ...v, v72: (f['72h'] || {})[k] || {} }))
+    .sort((a, b) => (b.avgPct ?? -999) - (a.avgPct ?? -999));
+  const all = (f['24h'] || {})._all || {};
+  const set = body => call('/admin/runners/pick-filter', { method: 'POST', body: JSON.stringify(body) }).then(r => { onChange?.({ ...d, ...r, why: 'set from Cmd Ctr' }); toast.success('Engine pick filter set'); }).catch(e => toast.error(e.message));
+  const pc_ = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`);
+  return <div className={`pg-box pg-doctor ${d.sitOut ? 'is-sitout' : d.filter ? 'is-on' : ''}`} data-testid="engine-doctor">
+    <header><b>🩺 Engine doctor · which picks win</b><small>every past pick replayed by its entry snapshot · positive in 24h + 72h → applied by itself</small></header>
+    <div className="pg-doc-now">{d.sitOut ? <b>🪑 Sitting out runners — nothing wins in 24h + 72h yet (the Arena Pick goes pools-only)</b>
+      : d.filter ? <b>✅ Applying {(rows.find(r => r.k === d.filter) || {}).label || d.filter}</b> : <b>⏳ No filter yet — taking every gated pick</b>}
+      <small className="m-dim">{d.why || 'Checks every runner round (~15 min).'} · every pick now: {pc_(all.avgPct)} over {all.picks || 0}</small>
+      {(d.filter || d.sitOut) && <button type="button" className="m-btn" onClick={() => set({ filter: '', sitOut: false })}>Clear</button>}</div>
+    <div className="pg-filters">{rows.map((r, i) => <button key={r.k} type="button" className={`pg-filter ${d.filter === r.k ? 'is-on' : ''} ${(r.avgPct || 0) > 0 && (r.v72.avgPct || 0) > 0 ? 'up' : (r.avgPct || 0) < 0 ? 'down' : ''}`} style={{ '--i': i }}
+      onClick={() => set({ filter: d.filter === r.k ? '' : r.k, sitOut: false })} disabled={!r.ready} data-tip={r.ready ? `Tap to apply (Cmd Ctr override). ${r.winRate}% of ${r.picks} picks won.` : `Needs ${6 - (r.picks || 0)} more picks`} data-testid={`pg-filter-${r.k}`}>
+      <small>{r.label}</small><b className={`m-num ${(r.avgPct || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{pc_(r.avgPct)}</b><em>72h {pc_(r.v72.avgPct)} · {r.picks || 0} picks</em></button>)}</div>
+  </div>;
+}
+
 export function EnginePlayground({ call }) {
   const [p, setP] = useState(null); const [pick, setPick] = useState(null);
   useEffect(() => { let alive = true; const load = () => call('/admin/fuses/playground').then(x => alive && setP(x)).catch(() => {});
@@ -208,6 +230,7 @@ export function EnginePlayground({ call }) {
       <div className="pg-box is-ready"><header><b>✅ Ready for the Arena</b><small>{p.ready.length}</small></header>{p.ready.length ? p.ready.map((r, i) => <div key={i} className="pg-row"><i>{r.kind}</i><b>{r.name}</b><small>{r.why}</small></div>) : <p className="m-dim">Nothing proven yet — the engines keep testing.</p>}</div>
       <div className="pg-box"><header><b>⏳ Still proving</b><small>{p.proving.length}</small></header>{p.proving.slice(0, 10).map((r, i) => <div key={i} className="pg-row"><i>{r.kind}</i><b>{r.name}</b><small>{r.why}</small></div>)}</div>
     </div>
+    <EngineDoctor p={p} call={call} onChange={doc => setP(x => ({ ...x, doctor: doc }))} />
     <PlaygroundBattles call={call} onPublish={id => { const sc = (p.scenarioCards || []).find(x => x.id === id); if (sc) publishScenario(sc); }} />
     {p.scenarioCards?.length > 0 && <div className="pg-box is-ready"><header><b>🏆 Best scenarios → cards</b><small>this round's gated runners + a SOL anchor, played with each winning exit plan · auto-updated every round</small></header>
       <div className="pg-cards">{p.scenarioCards.map((sc, i) => <article key={sc.id} className={`pg-card ${sc.dial ? `d-${sc.dial}` : ''}`} style={{ '--i': i }} data-testid={`pg-card-${sc.id}`}>
@@ -226,7 +249,7 @@ export function EnginePlayground({ call }) {
         <button type="button" className="m-btn primary m-go" onClick={() => publishScenario(sc)} data-testid={`pg-pub-${sc.id}`}>⭐ Publish</button></span></article>)}</div></div>}
     {p.scenarios?.length > 0 && <div className="pg-box"><header><b>🃏 Engine-cycled scenarios · {p.scenarios.length}</b><small>every runner round replayed under each exit plan · tap a card</small></header>
       <div className="pg-scen">{p.scenarios.map((sc, i) => <button key={sc.id} type="button" className={`pg-sc ${pick === sc.id ? 'is-on' : ''} ${sc.avgPct > 0 ? 'up' : sc.avgPct < 0 ? 'down' : ''}`} style={{ '--i': Math.min(i, 20) }} onClick={() => setPick(pick === sc.id ? null : sc.id)} data-testid={`pg-sc-${sc.id}`}>
-        <small>{i === 0 && sc.rounds ? '👑 BEST · ' : ''}{sc.kind === 'dial' ? 'DIAL' : 'EXITS'} · {sc.window}</small><b>{sc.label}</b>
+        <small>{i === 0 && sc.rounds ? '👑 BEST · ' : ''}{sc.kind === 'dial' ? 'DIAL' : sc.kind === 'filter' ? 'PICK FILTER' : 'EXITS'} · {sc.window}</small><b>{sc.label}</b>
         <em className={`m-num ${sc.avgPct >= 0 ? 'm-pos' : 'm-neg'}`}>{sc.rounds ? fmt(sc.avgPct) : '—'}</em>
         {pick === sc.id && <span className="pg-sc-more">{sc.rounds || 0} rounds · {sc.winRate || 0}% won · $1 → ${Number(sc.per1 || 1).toFixed(2)}<br />take-profit +{sc.tp}% · stop −{sc.sl}% on every pick of every round, real prices after the round.</span>}</button>)}</div></div>}
     <div className="pg-box"><header><b>🎚 Dials across windows</b><small>same dial must win ≥ 2 windows before auto-strength switches</small></header>

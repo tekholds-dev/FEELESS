@@ -288,3 +288,18 @@ def test_bracket_unique_cards_winners_losers_and_champion():
     assert rn.bracket_done(cards, br) is None                                               # a 2-0, x 1-1, b 1-1 still standing
     br = rn.bracket_update(br, [{'aKey': 'mega:x', 'bKey': 'mega:b', 'winnerKey': 'mega:x'}, {'aKey': 'mega:a', 'bKey': 'mega:x', 'winnerKey': 'mega:a'}])
     assert rn.bracket_done(cards, br) == 'mega:a'                                           # last one standing = champion
+
+
+def test_pick_filters_and_the_doctor():
+    now = 10_000
+    rounds = [{'at': 1000 + i, 'picks': [{'mint': f'w{i}', 'entry': 1.0, 'lane': 'runner', 'score': 80, 'chg5m': 3},
+                                         {'mint': f'l{i}', 'entry': 1.0, 'lane': 'runner', 'score': 40, 'chg5m': -2}]} for i in range(8)]
+    paths = {**{f'w{i}': [(2000, 1.6), (2100, 2.1)] for i in range(8)}, **{f'l{i}': [(2000, 0.6)] for i in range(8)}}
+    f = rn.filter_proof(rounds, paths, now)
+    assert f['score70']['avgPct'] > 0 and f['green5m']['picks'] == 8 and f['_all']['picks'] == 16
+    d = rn.doctor(f, f)
+    assert d['filter'] in ('score70', 'green5m') and not d['sitOut']
+    losing = {k: {**v, 'avgPct': -5, 'ready': True} for k, v in f.items()}
+    assert rn.doctor(losing, losing)['sitOut'] is True
+    rows = [{'mint': 'a', 'score': 90}, {'mint': 'b', 'score': 50}, {'mint': 'c', 'score': 75}]
+    assert [r['mint'] for r in rn.apply_filter(rows, 'score70', 2)] == ['a', 'c', 'b'] and rn.apply_filter(rows, 'score70', 3) == rows

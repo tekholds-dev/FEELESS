@@ -4523,7 +4523,11 @@ async def _arena_auto_refresh(now):
     if not last or ((rd.get('autoCard') or {}).get('at') or 0) >= last['at']:
         return None
     live, pools = await asyncio.gather(_runner_live(), _fuse_candidates())
-    card = _rn.auto_card(live['passing'], list(pools.values()), now, _runner_cfg())
+    rd_ = _json_load(RUNNERS_PATH, {})
+    cfg_ = _runner_cfg()
+    if rd_.get('sitOut'):   # 🩺 nothing wins → the Arena Pick sits out runners (pools only) until a filter proves itself
+        cfg_ = {**cfg_, 'autoCoins': 0}
+    card = _rn.auto_card(_rn.apply_filter(live['passing'], rd_.get('pickFilter'), cfg_.get('autoCoins') or 0), list(pools.values()), now, cfg_)
     if card:
         async with _admin_lock:
             rd = _json_load(RUNNERS_PATH, {'rounds': []}); rd['autoCard'] = card; _json_save(RUNNERS_PATH, rd)
@@ -5051,7 +5055,8 @@ async def _runner_tick(now=None, force=False):
         cfg = _runner_cfg()
         if force or not last or now - last['at'] >= _rn.ROUND_SECONDS:
             weights = _rn.lane_weights(_rn.lane_proofs(d['rounds'], d['paths'], now, cfg))   # self-tuning lanes
-            new = _rn.next_round(last, live['passing'], now, size=cfg['roundSize'], rid=uuid.uuid4().hex[:8], weights=weights)
+            pool_ = _rn.apply_filter(live['passing'], d.get('pickFilter'), cfg['roundSize'])   # 🩺 the doctor's pick filter first
+            new = _rn.next_round(last, pool_, now, size=cfg['roundSize'], rid=uuid.uuid4().hex[:8], weights=weights)
             pf = _rn.proof(d['rounds'], d['paths'], now, cfg=cfg)
             d['rounds'] = (d['rounds'] + [new])[-200:]
             if pf['lights'] and new['picks']:   # dealt while lit → it joins the lit-cards list
@@ -5332,6 +5337,20 @@ async def _engine_auto(now):
     switch to it and log it (audit + admin inbox). Off when Cmd Ctr turned auto-tune off (RUNNERS_PATH.autoTune = False)."""
     rd = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
     await _scenario_stage(rd, now)
+    if rd.get('autoTune') is not False and rd.get('rounds'):   # 🩺 doctor: learn which picks win, apply that filter or sit out
+        cfg_d = _rn.clean_cfg(rd.get('cfg') or {})
+        f24 = _rn.filter_proof(rd['rounds'], rd.get('paths') or {}, now, cfg_d, 24 * 3600)
+        f72 = _rn.filter_proof(rd['rounds'], rd.get('paths') or {}, now, cfg_d, 72 * 3600)
+        doc = _rn.doctor(f24, f72)
+        if doc['filter'] != rd.get('pickFilter') or doc['sitOut'] != bool(rd.get('sitOut')):
+            async with _admin_lock:
+                d_ = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d_['pickFilter'] = doc['filter']; d_['sitOut'] = doc['sitOut']; d_['doctorWhy'] = doc['why']; d_['doctorAt'] = now
+                _json_save(RUNNERS_PATH, d_)
+                ad = _admin_load(); _audit(ad, 'engine-auto', 'runners-config', f"🩺 doctor: filter {doc['filter'] or 'none'} · sit out {doc['sitOut']} — {doc['why']}"[:200]); _admin_save(ad)
+            for w in _admin_wallets():
+                notify(w, 'admin', f"🩺 Fuse engine doctor: {('pick filter → ' + _rn.PICK_FILTERS[doc['filter']][0]) if doc['filter'] else ('sitting out runners' if doc['sitOut'] else 'filter cleared')} — {doc['why']}",
+                       url='/terminal/command?tab=fuse', once=f"doctor-{doc['filter']}-{doc['sitOut']}-{int(now // 3600)}", meta={'claim': doc['why'], 'source': 'Runner rounds (paper, real prices)'})
+            rd = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
     if rd.get('autoTune') is False or not rd.get('rounds'):
         return None
     # 💡 scenario winner → runner exits (same TP×SL combo best in 24h AND 72h, ahead of the current exits) — audited
@@ -5489,6 +5508,9 @@ async def fuse_playground(request: Request):
             'gateRegret': _rn.gate_regret(rd.get('dropLog') or [], await _hq_prices([{'chainId': 'solana', 'pairAddress': e['pairAddress']} for e in (rd.get('dropLog') or [])[-120:] if e.get('pairAddress')]), now),
             'scenarios': (scen := _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS)),
             'scenarioCards': await _pg_scenario_cards(rd, scen, now),
+            'filters': {'24h': _rn.filter_proof(rd.get('rounds') or [], rd.get('paths') or {}, now, _rn.clean_cfg(rd.get('cfg') or {}), 24 * 3600),
+                        '72h': _rn.filter_proof(rd.get('rounds') or [], rd.get('paths') or {}, now, _rn.clean_cfg(rd.get('cfg') or {}), 72 * 3600)},
+            'doctor': {'filter': rd.get('pickFilter'), 'sitOut': bool(rd.get('sitOut')), 'why': rd.get('doctorWhy'), 'at': rd.get('doctorAt')},
             'pgBattle': _pg_battle_view(rd),
             **_hq.playground_ready(board, dials, prime, battle_rows=_pgb.ready_rows((rd.get('pgBattle') or {}).get('record'), {k: c.get('name') for k, c in ((rd.get('pgBattle') or {}).get('cards') or {}).items()}))}
 
@@ -5582,6 +5604,22 @@ async def fuse_brain():
     br = (_json_load(RUNNERS_PATH, {}).get('pgBattle') or {}).get('brain') or {}
     best = _dna.best(br)
     return {**best, 'label': _dna.label(best['dna']), 'fights': sum(v['n'] for vals in br.values() for v in vals.values()) // 5 if br else 0}
+
+
+@app.post('/api/reputation/admin/runners/pick-filter')
+async def runners_pick_filter(request: Request, body: dict):
+    """Cmd Ctr overrides the doctor: set a pick filter ('' = none) and/or sit out. Audited; the doctor may change it next round."""
+    admin = _require_admin(request)
+    fid = body.get('filter') or None
+    if fid and fid not in _rn.PICK_FILTERS:
+        raise HTTPException(400, 'Unknown pick filter.')
+    async with _admin_lock:
+        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['pickFilter'] = fid
+        if 'sitOut' in body:
+            d['sitOut'] = bool(body['sitOut'])
+        d['doctorWhy'] = 'set from Cmd Ctr'; d['doctorAt'] = time.time(); _json_save(RUNNERS_PATH, d)
+        ad = _admin_load(); _audit(ad, admin, 'runners-config', f"pick filter {fid or 'none'} · sit out {d.get('sitOut')}"); _admin_save(ad)
+    return {'filter': fid, 'sitOut': bool(_json_load(RUNNERS_PATH, {}).get('sitOut'))}
 
 
 @app.get('/api/reputation/admin/fuses/pg-battles')

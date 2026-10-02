@@ -662,6 +662,10 @@ def scenarios(rounds, paths, now, dials):
     for w, sec in PROOF_WINDOWS.items():
         for did, p in dial_proof(rounds, paths, now, dials, window=sec).items():
             out.append({'id': f'{did}_{w}', 'kind': 'dial', 'label': f'{did} dial · {w}', 'window': w, 'tp': dials[did]['runner'][0], 'sl': dials[did]['runner'][1], **p})
+    for fid, v in filter_proof(rounds, paths, now).items():   # 🔬 pick-filter scenarios: WHICH picks to take (the doctor's view)
+        if fid != '_all' and v.get('ready') and v.get('avgPct') is not None:
+            out.append({'id': f'f_{fid}', 'kind': 'filter', 'filter': fid, 'label': v['label'], 'window': '24h', 'tp': 100, 'sl': 30,
+                        'rounds': v['picks'], 'avgPct': v['avgPct'], 'winRate': v['winRate'], 'per1': round(1 + v['avgPct'] / 100, 2)})
     return sorted(out, key=lambda s: (not (s.get('rounds') or 0), -(s.get('avgPct') or 0)))
 
 
@@ -700,6 +704,10 @@ def scenario_cards(scen, picks, anchor=None, top=3, losers_ok=False):
     if not runners:
         return out
     for sc in [s for s in scen or [] if (s.get('rounds') or 0) > 0 and (losers_ok or (s.get('avgPct') or 0) > 0)][:top]:   # battles may field losers (experiments)
+        runners = [p for p in picks or [] if p.get('pairAddress')][:3]
+        if sc.get('kind') == 'filter':   # a filter card only takes this round's picks that match its rule
+            test = (PICK_FILTERS.get(sc.get('filter')) or (None, lambda p: True))[1]
+            runners = [p for p in runners if test(p)] or runners[:1]
         legs = ([{**anchor, 'role': 'anchor', 'weight': 35}] if anchor else [])
         each = round((100 - (35 if anchor else 0)) / len(runners), 2)
         legs += [{'chainId': 'solana', 'pairAddress': p['pairAddress'], 'mint': p.get('mint'), 'symbol': p.get('symbol'), 'logo': p.get('logo'),
@@ -854,3 +862,72 @@ def gate_regret(log, prices, now, min_age=6 * 3600, ran=3.0):
         if px / e['price'] >= ran:
             g['ran'] += 1; g['examples'] = (g['examples'] + [f"${e.get('symbol')} {px / e['price']:.1f}×"])[-3:]
     return sorted(({**g, 'rate': round(g['ran'] / g['stopped'] * 100, 1)} for g in by.values()), key=lambda g: -g['rate'])
+
+
+# 🔬 PICK FILTERS — the engine learns WHICH picks win, not only which exits. Every past pick kept its entry snapshot (score, flow,
+# stage, socials, holders…); each filter replays only the picks that match it, with their lane exits, on the prices seen after.
+PICK_FILTERS = {
+    'score70': ('🏅 Score ≥ 70', lambda p: _f(p.get('score')) >= 70),
+    'green5m': ('🟢 5m green at entry', lambda p: _f(p.get('chg5m')) > 0),
+    'buyers60': ('🛒 Buyers ≥ 60%', lambda p: _f(p.get('buyShare')) >= 60),
+    'accel': ('⚡ Buyers accelerating', lambda p: _f(p.get('buysAccel')) >= 1.5),
+    'grad': ('🎓 Graduated only', lambda p: p.get('stage') == 'graduated'),
+    'curve': ('📈 Pre-bond only', lambda p: p.get('stage') == 'curve'),
+    'clean': ('🧼 Clean creator', lambda p: p.get('creatorRep') == 'clean'),
+    'socials': ('🌐 Site + X', lambda p: bool(p.get('site') and p.get('x'))),
+    'deep': ('🌊 Liquidity ≥ $30K', lambda p: _f(p.get('liq')) >= 30_000),
+    'small': ('🐣 Mcap < $100K', lambda p: 0 < _f(p.get('mcap')) < 100_000),
+    'big': ('🐋 Mcap ≥ $300K', lambda p: _f(p.get('mcap')) >= 300_000),
+    'tight': ('🔒 Top-10 < 20%', lambda p: p.get('top10') is not None and _f(p.get('top10')) < 20),
+    'snipers': ('🎯 Snipers out', lambda p: bool(p.get('snipersOut'))),
+    'cool': ('🧊 Not chased (1h < +50%)', lambda p: _f(p.get('chg1h')) < 50),
+}
+
+
+def filter_proof(rounds, paths, now, cfg=None, window=24 * 3600, min_picks=6):
+    """{filter: {label, picks, avgPct, winRate}} — every matching pick in the window played with its lane exits (equal $ each)."""
+    out = {}
+    base = []
+    for fid, (label, test) in PICK_FILTERS.items():
+        mults = []
+        for r in rounds or []:
+            if now - _f(r.get('at')) > window:
+                continue
+            for p in r.get('picks') or []:
+                path = [px for t, px in (paths or {}).get(p['mint'], []) if t > r['at']]
+                if not path or _f(p.get('entry')) <= 0:
+                    continue
+                m = play_exits(p.get('lane') or 'runner', p['entry'], path, cfg)
+                if fid == 'score70':
+                    base.append(m)
+                if test(p):
+                    mults.append(m)
+        n = len(mults)
+        out[fid] = {'label': label, 'picks': n, 'avgPct': round((sum(mults) / n - 1) * 100, 2) if n else None,
+                    'winRate': round(sum(1 for m in mults if m > 1) / n * 100) if n else None, 'ready': n >= min_picks}
+    allm = base
+    out['_all'] = {'label': 'All picks', 'picks': len(allm), 'avgPct': round((sum(allm) / len(allm) - 1) * 100, 2) if allm else None}
+    return out
+
+
+def doctor(f24, f72, min_edge=3.0):
+    """🩺 Engine doctor: the pick filter that is POSITIVE in both 24h and 72h (enough picks) and beats taking every pick by
+    ≥ min_edge pts → apply it. Nothing positive anywhere → 'sit out' (runners stay paper, cards lean on pools / majors).
+    Returns {'filter': id|None, 'sitOut': bool, 'why': str}."""
+    all24 = _f((f24.get('_all') or {}).get('avgPct'))
+    good = [(fid, v, f72.get(fid) or {}) for fid, v in f24.items() if fid != '_all' and v.get('ready') and (f72.get(fid) or {}).get('ready')
+            and _f(v['avgPct']) > 0 and _f((f72.get(fid) or {}).get('avgPct')) > 0 and _f(v['avgPct']) - all24 >= min_edge]
+    if good:
+        fid, v, v72 = max(good, key=lambda g: _f(g[1]['avgPct']) + _f(g[2]['avgPct']))
+        return {'filter': fid, 'sitOut': False, 'why': f"{v['label']}: {v['avgPct']:+.1f}% (24h, {v['picks']} picks) · {v72['avgPct']:+.1f}% (72h) vs every pick {all24:+.1f}%"}
+    any_pos = any(_f(v.get('avgPct')) > 0 and v.get('ready') for fid, v in f24.items() if fid != '_all') or all24 > 0
+    return {'filter': None, 'sitOut': not any_pos, 'why': 'nothing wins yet in 24h + 72h — sitting out runners (sitting out is a position)' if not any_pos else 'no filter beats every pick by enough yet'}
+
+
+def apply_filter(passing, fid, size):
+    """Prefer picks that match the doctor's filter; fall back to everything when too few match (never an empty round)."""
+    test = (PICK_FILTERS.get(fid) or (None, None))[1]
+    if not test:
+        return passing
+    hit = [r for r in passing or [] if test(r)]
+    return hit + [r for r in passing or [] if r not in hit] if len(hit) >= max(1, size) else passing
