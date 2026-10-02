@@ -70,6 +70,7 @@ jest.mock('../components/terminal/TerminalShell', () => {
     TerminalSidebar: Placeholder,
     MarketTicker: Placeholder,
     TerminalFooter: Placeholder,
+    HubTabs: () => null,
   };
 });
 

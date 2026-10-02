@@ -32,3 +32,10 @@ body.theme-day .gd-sus, body.theme-day .gd-rules span { background: var(--m-surf
 
 /* 🎨 Share GIF design picker (ShareGifButton preview) */
 .gif-designs { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 12px 0; } .gif-designs button { font-size: 11px; }
+.hub-tabs { display: inline-flex; flex-wrap: wrap; margin: 0 0 14px; } .hub-tabs a { text-decoration: none; }
+.mission-meter { display: flex; gap: 4px; margin-top: 14px; max-width: 720px; }
+.mission-meter span { display: grid; gap: 1px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--m-line); min-width: 70px; transform-origin: left; animation: mCardIn .3s var(--m-ease) both; }
+.mission-meter small { font: 9px var(--m-mono); letter-spacing: .12em; color: var(--m-dim); }
+.mm-live { background: color-mix(in srgb, #19f58f 22%, transparent); border-color: #19f58f !important; } .mm-testing { background: color-mix(in srgb, #6ad7ff 18%, transparent); }
+.mm-building { background: color-mix(in srgb, #f5c451 16%, transparent); } .mm-planned { background: color-mix(in srgb, #b388ff 14%, transparent); }
+@media (prefers-reduced-motion: reduce) { .mission-meter span { animation: none; } }

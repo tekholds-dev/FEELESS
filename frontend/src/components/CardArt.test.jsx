@@ -27,3 +27,10 @@ test('card pricing math reads per coin: flat $/coin, capped % on small coins, no
   expect(legFee(10, pr).fee).toBe(0.5); expect(legFee(100, pr).fee).toBe(1);               // flat · 1% over $50
   expect(cardFee([{ usd: 0.39 }, { usd: 0.39 }, { usd: 0.39 }], pr)).toBeCloseTo(0.234);   // the screenshot: 3 × $0.078
 });
+
+test('sidebar hubs: every merged page maps to exactly one sidebar entry', () => {
+  const { HUBS, hubOf } = require('../lib/hubs');
+  expect(hubOf('badges')).toBe('leaderboard'); expect(hubOf('roadmap')).toBe('whitepaper'); expect(hubOf('feeback')).toBe('fee'); expect(hubOf('launch')).toBe('pump');
+  expect(hubOf('fuse')).toBe(null);
+  const all = Object.values(HUBS).flat().map(([p]) => p); expect(new Set(all).size).toBe(all.length);
+});

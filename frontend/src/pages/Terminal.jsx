@@ -12,7 +12,7 @@ import { useMarket } from '../hooks/useMarket';
 import { coinIdentity, hasProviderImage, isExactPair, isNewPoolDeal, isSupportedPairChain, MARKET_RETENTION_DAYS, NEW_POOL_DEAL_PERCENT, normalizeRoomPerspective } from '../lib/dexscreener';
 import { useWorkspace } from '../hooks/useWorkspace';
 import { normalizeAutoRefresh, normalizeChartInterval, normalizeCompact, normalizeFontScale, normalizeReducedMotion, useLocalSettings, usePriceAlerts, AlertsPage } from '../components/terminal/LocalTools';
-import { TerminalHeader, TerminalSidebar, MarketTicker, TerminalFooter } from '../components/terminal/TerminalShell';
+import { TerminalHeader, TerminalSidebar, MarketTicker, TerminalFooter, HubTabs } from '../components/terminal/TerminalShell';
 import { DataStatus, MarketAvailabilityNotice, MarketError } from '../components/terminal/MarketPrimitives';
 import { ChatRoom, TrenchesView } from '../components/terminal/CommunityRail';
 import { TokenFocus } from '../components/terminal/TokenFocus';
@@ -221,6 +221,7 @@ export default function Terminal() {
       {page === 'reputation' && <ReputationCenter />}
       {!page.startsWith('profile/') && page !== 'legal' && <AdBanner placement="banner" />}
       <Shortcuts />
+      <HubTabs page={page} />
       {page === 'legal' && <LegalPage />}
       {page.startsWith('coin/') && <CoinProfile key={page} chain={page.split('/')[1]} pairAddress={page.split('/')[2]} />}
       {page.startsWith('profile/') && <WalletProfilePage key={page} address={page.split('/')[1]} />}
