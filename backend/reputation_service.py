@@ -4608,6 +4608,55 @@ async def _runner_intel(mint):
 _runner_widen = {'level': 0, 'at': 0.0, 'log': []}
 
 
+import meme_terms as _mt
+MEME_PATH = DATA_DIR / 'meme_terms.json'
+
+
+async def _meme_tick(now):
+    """📖 Feed the meme-term learner: names + tickers of today's launchpad coins (trending + new + the live launch stream)
+    and the last hour of FEELESS chat. Counts only — nothing here trades."""
+    samples = []
+    async with httpx.AsyncClient(timeout=10) as http:
+        async def get(url, params, key):
+            try:
+                return (await http.get(url, params=params)).json().get(key) or []
+            except Exception:
+                return []
+        tr, nw, pl = await asyncio.gather(get('http://127.0.0.1:5001/api/market/feed', {'kind': 'trending', 'chain': 'solana', 'page': 1, 'scope': 'launchpads'}, 'pairs'),
+                                          get('http://127.0.0.1:5001/api/market/feed', {'kind': 'new', 'chain': 'solana', 'page': 1, 'scope': 'launchpads'}, 'pairs'),
+                                          get('http://127.0.0.1:5001/api/pump/pulse', {'limit': 100}, 'launches'))
+    for x in tr + nw:
+        b = x.get('baseToken') or {}
+        if b.get('address'):
+            samples.append((f"{b.get('name') or ''} {b.get('symbol') or ''}", 'coin', b['address']))
+    for x in pl:
+        if x.get('mint'):
+            samples.append((f"{x.get('name') or ''} {x.get('symbol') or ''}", 'coin', x['mint']))
+    chat = _json_load(CHAT_PATH, {})
+    rooms = chat.get('rooms', chat) if isinstance(chat, dict) else {}
+    for room, msgs in rooms.items():
+        for m in (msgs if isinstance(msgs, list) else [])[-200:]:
+            ts = (m.get('ts', 0) / (1000 if m.get('ts', 0) > 1e12 else 1)) if isinstance(m, dict) else 0
+            if ts and now - ts < 3600 and m.get('text'):
+                samples.append((str(m['text'])[:280], 'chat', str(m.get('id') or f"{room}-{ts}")))
+    async with _admin_lock:
+        st = _mt.learn(_json_load(MEME_PATH, {}), samples, now)
+        _json_save(MEME_PATH, st)
+    return len(samples)
+
+
+@app.get('/api/reputation/meme-terms')
+async def meme_terms(term: str = ''):
+    """📖 Today's trench language: new / spiking terms with meaning (known slang) or what the engine learned (ticker wave /
+    chat slang), plus how many terms it knows. ?term= explains one word."""
+    st = _json_load(MEME_PATH, {})
+    if term:
+        return _mt.explain(st, term[:24])
+    now = time.time()
+    return {'terms': _mt.trending(st, now), 'learned': len(st.get('firstSeen') or {}), 'glossary': len(_mt.GLOSSARY),
+            'today': sum(((st.get('days') or {}).get(str(_mt.day_of(now))) or {}).values()), 'at': now}
+
+
 async def _runner_live():
     """Every launchpad coin the feed sees right now (trending + new, pre-bond + graduated), forensics for the busiest,
     gated + scored. 30s cache — the board is shared by every viewer."""
@@ -4933,6 +4982,8 @@ async def _fuse_warm():
     if _fuse_warm_n['n'] % 12 == 1:   # ~5 min: refresh card holders' Fuse scores (feeds their trust score)
         holders = list({x['wallet'] for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or []})[:200]
         await asyncio.gather(*[_fuse_score(w, fresh=True) for w in holders], return_exceptions=True)
+    if _fuse_warm_n['n'] % 12 == 7:   # ~5 min: 📖 the rep engine learns today's meme terms (new launches + chat)
+        await _meme_tick(time.time())
     if _fuse_warm_n['n'] % 2 == 0:    # ~50s: ⭐ Arena Prime cards run their full automation (paper) — stops can't wait 5 min
         await _prime_tick(time.time())
     await _runner_live()

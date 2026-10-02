@@ -1,0 +1,86 @@
+/* Reputation page v2 (RepTools + RepStanding + 📖 MemeTerms) — built from m-* tokens. Keyframes: rp*. */
+.rep-v2-tools { position: relative; overflow: hidden; }
+.rep-v2-tools > :not(.rt-radar) { position: relative; z-index: 1; }
+.rt-radar { position: absolute; right: -90px; top: -90px; width: 260px; height: 260px; border-radius: 50%; border: 1px solid #19f58f22; pointer-events: none;
+  background: conic-gradient(from 0deg, #19f58f33, transparent 22%); animation: rpSweep 6s linear infinite; }
+.rep-v2-tools .bdg-seg button { transition: background .15s, color .15s, transform .15s; } .rep-v2-tools .bdg-seg button:hover { transform: translateY(-1px); }
+.rep-v2-tools .bdg-seg button:active { transform: scale(.97); } .rep-v2-tools .bdg-seg button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+
+/* Standing tiles = mini cards: deal-in flip, holo sheen on hover, per-category glyph, breathing glow when good */
+.rep-v2 .rep-cat { position: relative; overflow: hidden; transform-origin: top center; animation: rpDeal .5s var(--m-ease, cubic-bezier(.2, .8, .2, 1)) backwards; animation-delay: calc(var(--i, 0) * 60ms);
+  transition: transform .18s, border-color .18s; }
+.rep-v2 .rep-cat:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--m-accent) 45%, transparent); }
+.rep-v2 .rep-cat > :not(.rep-sheen) { position: relative; z-index: 1; }
+.rep-sheen { position: absolute; inset: 0; background: linear-gradient(110deg, transparent 35%, #ffffff14 50%, transparent 65%); transform: translateX(-120%); pointer-events: none; }
+.rep-v2 .rep-cat:hover .rep-sheen { animation: rpSheen .9s ease-out; }
+.rep-glyph { position: absolute !important; right: 8px; top: 6px; font-style: normal; font-size: 16px; opacity: .55; animation: rpBob 3.2s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -400ms); }
+.rep-v2 .rep-cat.good::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: 0 0 22px -6px var(--m-accent) inset; opacity: 0; animation: rpBreathe 3.6s ease-in-out infinite; pointer-events: none; }
+.rep-v2 .rep-cat.bad::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: #ff8fa3; opacity: .7; animation: rpScan 2.8s linear infinite; pointer-events: none; }
+.rep-v2 .rep-bar > i { transform-origin: left; animation: rpFill .9s var(--m-ease, ease-out) backwards; animation-delay: calc(var(--i, 0) * 60ms + .2s); }
+.rep-v2 .rep-dark-row { animation: rpRow .3s ease-out backwards; animation-delay: calc(var(--i, 0) * 45ms); transition: transform .15s, background .15s; }
+.rep-v2 .rep-dark-row:hover { transform: translateX(3px); }
+.rep-v2 .rep-dark nav button { transition: background .15s, border-color .15s, transform .15s; } .rep-v2 .rep-dark nav button:hover { transform: translateY(-1px); }
+.rep-v2 .rep-dark nav button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+
+/* 📖 Trench dictionary: term cards flip (tap / focus), each kind its own animation */
+.rep-memes { display: grid; gap: 12px; margin-bottom: 16px; position: relative; overflow: hidden; }
+.rep-memes > header { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; position: relative; z-index: 1; }
+.rep-memes h3 { margin: 4px 0 2px; font-size: 18px; } .rep-memes header small { display: block; max-width: 640px; font-size: 11.5px; line-height: 1.4; }
+.rep-memes-kpi { display: grid; justify-items: end; } .rep-memes-kpi b { font-size: 26px; color: var(--m-accent); } .rep-memes-kpi small { font: 9.5px var(--m-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--m-dim); }
+.rep-memes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; position: relative; z-index: 1; }
+.rep-term { position: relative; min-height: 112px; padding: 0; border-radius: 14px; border: 1px solid var(--m-line); background: var(--m-surface); color: inherit; text-align: left; cursor: pointer; overflow: hidden;
+  perspective: 600px; animation: rpDeal .45s var(--m-ease, ease-out) backwards; animation-delay: calc(var(--i, 0) * 50ms); transition: border-color .15s, transform .15s; --k: var(--m-accent); }
+.rep-term:hover { transform: translateY(-3px); border-color: var(--k); } .rep-term:active { transform: scale(.98); } .rep-term:focus-visible { outline: 2px solid var(--k); outline-offset: 2px; }
+.rep-term.is-ghost { cursor: default; animation: rpGhost 1.2s ease-in-out infinite alternate; }
+.rt-face, .rt-back { position: absolute; inset: 0; display: grid; align-content: space-between; gap: 4px; padding: 10px 12px; backface-visibility: hidden; transition: transform .45s var(--m-ease, ease), opacity .3s; z-index: 1; }
+.rt-back { transform: rotateY(180deg); opacity: 0; align-content: start; font-size: 12px; line-height: 1.35; }
+.rep-term.is-open .rt-face { transform: rotateY(-180deg); opacity: 0; } .rep-term.is-open .rt-back { transform: none; opacity: 1; }
+.rt-face small, .rt-back small { font: 700 9px var(--m-mono); letter-spacing: .12em; color: var(--k); display: flex; gap: 6px; align-items: center; }
+.rt-face b { font: 700 20px var(--m-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .rt-face .m-num { font-size: 11px; color: var(--m-dim); }
+.rt-back code { font-size: 10px; color: var(--m-dim); }
+.rt-new { font-style: normal; padding: 0 5px; border-radius: 999px; background: var(--k); color: #04140c; animation: rpPulse 1.4s ease-in-out infinite; }
+.rt-fx { position: absolute; inset: 0; pointer-events: none; z-index: 0; } .rt-fx i { position: absolute; }
+.k-wave { --k: #6ad7ff; } .k-chat { --k: #c08bff; } .k-risk { --k: #ff8fa3; } .k-hype { --k: #f5c451; } .k-slang { --k: var(--m-accent); } .k-meta { --k: #19f5d0; }
+/* 🌊 wave: rolling swells along the bottom */
+.k-wave .rt-fx i { left: -40%; bottom: -14px; width: 180%; height: 30px; border-radius: 50%; background: #6ad7ff1f; animation: rpSwell 4s ease-in-out infinite; animation-delay: calc(var(--n, 0) * -1.3s); }
+.k-wave .rt-fx i:nth-child(2) { --n: 1; bottom: -20px; } .k-wave .rt-fx i:nth-child(3) { --n: 2; bottom: -26px; }
+/* 💬 chat: bubbles drifting up */
+.k-chat .rt-fx i { width: 8px; height: 8px; border-radius: 50%; border: 1px solid #c08bff88; bottom: -10px; left: calc(20% + var(--n, 0) * 28%); animation: rpBubble 3.4s ease-in infinite; animation-delay: calc(var(--n, 0) * .9s); }
+.k-chat .rt-fx i:nth-child(2) { --n: 1; } .k-chat .rt-fx i:nth-child(3) { --n: 2; }
+/* ⚠ risk: red alarm flicker strip */
+.k-risk .rt-fx i { left: 0; right: 0; top: 0; height: 3px; background: #ff8fa3; opacity: 0; animation: rpAlarm 2.2s steps(2) infinite; }
+.k-risk .rt-fx i:nth-child(n+2) { display: none; }
+/* 🚀 hype: sparks shooting up */
+.k-hype .rt-fx i { width: 2px; height: 14px; border-radius: 2px; background: linear-gradient(#f5c451, transparent); bottom: 0; left: calc(25% + var(--n, 0) * 25%); opacity: 0; animation: rpSpark 1.8s ease-out infinite; animation-delay: calc(var(--n, 0) * .5s); }
+.k-hype .rt-fx i:nth-child(2) { --n: 1; } .k-hype .rt-fx i:nth-child(3) { --n: 2; }
+/* 🗣 slang + 🧠 meta: soft orbiting glow */
+.k-slang .rt-fx i, .k-meta .rt-fx i { width: 60px; height: 60px; border-radius: 50%; right: -20px; top: -20px; background: radial-gradient(closest-side, color-mix(in srgb, var(--k) 30%, transparent), transparent); animation: rpDrift 5s ease-in-out infinite alternate; }
+.k-slang .rt-fx i:nth-child(n+2), .k-meta .rt-fx i:nth-child(n+2) { display: none; }
+
+@keyframes rpSweep { to { transform: rotate(360deg); } }
+@keyframes rpDeal { from { opacity: 0; transform: translateY(10px) rotateX(55deg); } }
+@keyframes rpSheen { to { transform: translateX(120%); } }
+@keyframes rpBob { 50% { transform: translateY(-3px); } }
+@keyframes rpBreathe { 50% { opacity: 1; } }
+@keyframes rpScan { from { transform: translateY(0); } to { transform: translateY(110px); } }
+@keyframes rpFill { from { transform: scaleX(0); } }
+@keyframes rpRow { from { opacity: 0; transform: translateX(-8px); } }
+@keyframes rpGhost { from { opacity: .35; } to { opacity: .7; } }
+@keyframes rpPulse { 50% { opacity: .55; } }
+@keyframes rpSwell { 50% { transform: translateX(14%); } }
+@keyframes rpBubble { 0% { opacity: 0; transform: translateY(0); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-120px); } }
+@keyframes rpAlarm { 50% { opacity: .9; } }
+@keyframes rpSpark { 0% { opacity: 0; transform: translateY(0); } 25% { opacity: 1; } 100% { opacity: 0; transform: translateY(-100px); } }
+@keyframes rpDrift { to { transform: translate(-50px, 40px); } }
+
+body.fx-lite .rt-radar, body.fx-lite .rt-fx, body.fx-lite .rep-glyph, body.fx-lite .rep-v2 .rep-cat::after { display: none; }
+body.fx-lite .rep-v2 .rep-cat, body.fx-lite .rep-term, body.fx-lite .rep-v2 .rep-dark-row, body.fx-lite .rep-v2 .rep-bar > i, body.fx-lite .rt-new { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .rt-radar, .rt-fx, .rep-v2 .rep-cat::after { display: none; }
+  .rep-v2 .rep-cat, .rep-term, .rep-v2 .rep-dark-row, .rep-v2 .rep-bar > i, .rt-new, .rep-glyph, .rep-sheen { animation: none !important; }
+  .rt-face, .rt-back { transition: none; }
+}
+body.theme-day .rep-term { background: #fff; border-color: #d8e2dc; } body.theme-day .rt-face .m-num, body.theme-day .rt-back code { color: #4b5a52; }
+body.theme-day .k-wave { --k: #0a6f9c; } body.theme-day .k-chat { --k: #6b2fd1; } body.theme-day .k-risk { --k: #c0123f; } body.theme-day .k-hype { --k: #8a6200; } body.theme-day .k-slang, body.theme-day .k-meta { --k: #0b7a4a; }
+body.theme-day .rt-radar { border-color: #0b7a4a22; background: conic-gradient(from 0deg, #0b7a4a22, transparent 22%); }
+@media (max-width: 640px) { .rep-memes-grid { grid-template-columns: 1fr 1fr; } .rt-face b { font-size: 16px; } .rt-radar { width: 180px; height: 180px; } }
