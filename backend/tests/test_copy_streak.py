@@ -265,3 +265,13 @@ def test_rounds_compound_pays_then_paying_needs_a_signature(rs):
         asyncio.run(rs.fuse_rounds(rs.RoundsIn(address=A, session='s', id='c1', mode='pay')))          # no payment signature
     with pytest.raises(rs.HTTPException):
         asyncio.run(rs.fuse_rounds(rs.RoundsIn(address=B, session='s', id='c1', mode='compound')))     # not your card
+
+
+def test_my_battles_lists_live_and_past_for_my_cards_only(rs):
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'c1', 'wallet': A, 'name': 'Mine', 'at': 1, 'legs': []}],
+        'battles': {'endsAt': 9e12, 'pairs': [{'a': {'key': 'user:c1', 'name': 'Mine', 'start': 0}, 'b': {'key': 'auto:9', 'name': 'Arena Pick', 'start': 0}}]},
+        'battleLog': [{'at': 1, 'a': 'Mine', 'b': 'X', 'aKey': 'user:c1', 'bKey': 'auto:1', 'winnerKey': 'user:c1', 'aMove': 2, 'bMove': 1},
+                      {'at': 2, 'a': 'Z', 'b': 'Y', 'aKey': 'auto:2', 'bKey': 'auto:3', 'winnerKey': 'auto:2'}]})
+    r = asyncio.run(rs.fuse_my_battles(A))
+    assert len(r['live']) == 1 and r['live'][0]['mine'] == 'a' and len(r['past']) == 1 and r['record']['w'] == 1
+    assert asyncio.run(rs.fuse_my_battles(B))['live'] == []

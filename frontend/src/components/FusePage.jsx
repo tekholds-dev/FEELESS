@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { TraderChip } from './TraderChip';
 import { toast } from 'sonner';
 import { ShareGifButton } from './ShareGif';
@@ -601,6 +602,34 @@ export function FuseReceipts({ address }) {
 
 // ---- Profile top › 🃏 Trader card: the wallet's Fuse record in one strip — score, season medals, battle W/L/D, FeeCat wins,
 // held cards P&L — plus a Share GIF and a Post-to-X link. Every number comes from /fuses/score (FEELESS's own records).
+// ⚔ Profile: this wallet's cards in Arena battles — live (their side highlighted, tug bar) + recent results + record.
+export function MyBattles({ address }) {
+  const [d, setD] = useState(null);
+  useEffect(() => { let alive = true; const load = () => address && fetch(apiUrl(`/api/reputation/fuses/battles/${address}`)).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
+    load(); const t = setInterval(() => !document.hidden && load(), 30000); return () => { alive = false; clearInterval(t); }; }, [address]);
+  if (!d || (!d.live.length && !d.past.length)) return null;
+  return <section className="wp-card fp-mybattles" data-testid="my-battles"><header className="m-row"><span className="m-label">⚔ MY CARD BATTLES</span>
+    <small className="m-dim">{d.record.w}W {d.record.l}L {d.record.d}D · bigger move since the bell wins</small><a className="m-btn" href="/terminal/fuse?tab=arena">Arena →</a></header>
+    {d.live.map((p, i) => { const me = p[p.mine]; const them = p[p.mine === 'a' ? 'b' : 'a']; const lead = (me.now || 0) - (them.now || 0);
+      return <div key={me.key + them.key} className={`fp-mb-live ${lead > 0.05 ? 'is-up' : lead < -0.05 ? 'is-down' : ''}`} style={{ '--i': i }} data-testid={`mb-live-${i}`}>
+        <b>{me.emoji || '🃏'} {me.name}</b><em className={`m-num fl-tick ${(me.now || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={me.now}>{pc(me.now)}</em><span className="bf-vs">VS</span>
+        <em className={`m-num ${(them.now || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(them.now)}</em><b>{them.emoji} {them.name}</b>
+        <i className="bf-tug"><i style={{ transform: `scaleX(${Math.max(0.08, Math.min(0.92, 0.5 + lead / 20))})` }} /></i></div>; })}
+    {d.past.length > 0 && <div className="bf-log">{d.past.slice(0, 8).map(r => <small key={r.at + r.a} className={r.won ? 'is-won' : r.draw ? '' : 'is-lost'}>{r.draw ? '🤝' : r.won ? '🏆' : '✕'} {r.mine === 'a' ? r.a : r.b} vs {r.mine === 'a' ? r.b : r.a} <em>{pc(r.mine === 'a' ? r.aMove : r.bMove)} vs {pc(r.mine === 'a' ? r.bMove : r.aMove)}</em></small>)}</div>}
+  </section>;
+}
+
+// ⚡ Fuse from anywhere (profile / activity): the trader Lab in a centered pop-up over a blurred page. Esc / outside closes.
+export function FusePopup({ onClose }) {
+  const [picks, setPicks] = useState([]);
+  useEffect(() => { const k = e => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); document.body.classList.add('ce-open');
+    return () => { window.removeEventListener('keydown', k); document.body.classList.remove('ce-open'); }; }, [onClose]);
+  return createPortal(<div className="ce-shade is-pop" role="presentation" onClick={onClose} data-testid="fuse-popup">
+    <aside className="ce is-pop m-live fp-popup" role="dialog" aria-modal="true" aria-label="Fuse a card" onClick={e => e.stopPropagation()}>
+      <header><span className="m-label">⚡ FUSE A CARD</span><h3>Pick pools + 1–3 runners, one approval.</h3><button type="button" className="cx-x" onClick={onClose} aria-label="Close">×</button></header>
+      <FuseLab runnerPicks={picks} onRunnerPicks={setPicks} /></aside></div>, document.body);
+}
+
 export function TraderCard({ address }) {
   const [s, setS] = useState(null);
   useEffect(() => { let alive = true; if (address) fetch(apiUrl(`/api/reputation/fuses/score/${address}`)).then(r => (r.ok ? r.json() : null)).then(x => alive && setS(x)).catch(() => {}); return () => { alive = false; }; }, [address]);

@@ -13,7 +13,7 @@ import { CardVault } from '../cards/CardVault';
 import { COIN_MAKERS, DEXES } from '../../lib/venues';
 import { CopyBtn } from '../CopyBtn';
 import { MintedTimeline } from '../MintedTimeline';
-import { FuseReceipts, FuseHeldCards, FuseScore, TraderCard } from '../FusePage';
+import { FuseReceipts, FuseHeldCards, FuseScore, TraderCard, MyBattles, FusePopup } from '../FusePage';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -167,6 +167,7 @@ export function WalletProfilePage({ address }) {
   const [myIds, setMyIds] = useState([]);
   useEffect(() => { if (!wallet?.address) { setMyIds([]); return; } fetch(apiUrl(`/api/reputation/identity/${wallet.address}`)).then(r => r.json()).then(d => setMyIds(d.linked || [])).catch(() => setMyIds([])); }, [wallet?.address]);
   const mine = wallet?.address === address || myIds.includes(address);
+  const [fuseOpen, setFuseOpen] = useState(false);
   useEffect(() => { if (!mine) { setPoolPerk(false); return; } fetch(apiUrl(`/api/reputation/theme/${address}`)).then(r => r.json()).then(d => setPoolPerk(!!d.poolBuilder)).catch(() => {}); }, [mine, address]);
   useEffect(() => { if (autoEdit && mine && data) { setAutoEdit(false); startEdit(); } }, [autoEdit, mine, data]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (flipped && !actTab) setActTab(mine ? 'swap' : 'holdings'); if (actTab === 'swap' && !mine) setActTab('holdings'); }, [flipped, mine, actTab]);
@@ -232,7 +233,9 @@ export function WalletProfilePage({ address }) {
         <SocialStrip address={address} mine={mine} />
         <OnchainStrip address={address} />
       </div>
-      <TraderCard address={address} /><div className="xp-badges"><BadgeArtifacts address={address} featured={p.featuredBadges} /></div><MintedTimeline address={address} /><FuseScore address={address} /><FuseHeldCards address={address} /><FuseReceipts address={address} />
+      {mine && <button type="button" className="m-btn primary m-go wp-fuse-go" onClick={() => setFuseOpen(true)} data-testid="profile-fuse">⚡ Fuse a card</button>}
+      {fuseOpen && <FusePopup onClose={() => setFuseOpen(false)} />}
+      <TraderCard address={address} /><MyBattles address={address} /><div className="xp-badges"><BadgeArtifacts address={address} featured={p.featuredBadges} /></div><MintedTimeline address={address} /><FuseScore address={address} /><FuseHeldCards address={address} /><FuseReceipts address={address} />
     </header>
     <div className="wp-quickrow">{mine && <AlphaRoomsCard />}<FeedBar onOpen={() => { setFlipped(true); setActTab('feed'); }} /></div>
     <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />

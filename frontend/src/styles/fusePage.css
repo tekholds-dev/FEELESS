@@ -662,3 +662,14 @@ body.fx-lite .fs-backer { animation: none; } @media (prefers-reduced-motion: red
 .pgb-res em { font-style: normal; color: var(--m-dim); } .pgb-res .m-btn { padding: 1px 7px; }
 body.fx-lite .pgb-swaps i { animation: none; } @media (prefers-reduced-motion: reduce) { .pgb-swaps i { animation: none; } }
 body.theme-day .pgb-res { background: #fff; }
+/* ⚔ profile: my card battles + ⚡ Fuse pop-up */
+.fp-mybattles { display: grid; gap: 8px; } .fp-mybattles > header { gap: 10px; flex-wrap: wrap; }
+.fp-mb-live { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto minmax(0, 1fr); gap: 8px; align-items: center; padding: 8px 10px 12px; border-radius: 12px; border: 1px solid var(--m-line); background: var(--m-bg); animation: fpIn .3s var(--m-ease) backwards; animation-delay: calc(var(--i, 0) * 60ms); }
+.fp-mb-live > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; } .fp-mb-live > b:last-of-type { text-align: right; }
+.fp-mb-live.is-up { border-color: color-mix(in srgb, var(--m-accent) 55%, transparent); } .fp-mb-live.is-down { border-color: #ff8fa366; }
+.fp-mybattles .bf-log small.is-won { border-color: color-mix(in srgb, var(--m-accent) 50%, transparent); } .fp-mybattles .bf-log small.is-lost { opacity: .75; }
+.wp-fuse-go { justify-self: start; }
+.ce.fp-popup { width: min(980px, 96vw); max-height: 90vh; overflow: auto; scrollbar-width: thin; }
+body.fx-lite .fp-mb-live { animation: none; } @media (prefers-reduced-motion: reduce) { .fp-mb-live { animation: none; } }
+body.theme-day .fp-mb-live { background: #fff; }
+@media (max-width: 640px) { .fp-mb-live { grid-template-columns: 1fr auto; } .fp-mb-live .bf-vs { display: none; } }

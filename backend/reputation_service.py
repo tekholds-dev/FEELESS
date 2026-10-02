@@ -4316,6 +4316,20 @@ def _battle_view(mega, now):
     return {'pairs': pairs, 'endsAt': b.get('endsAt'), 'log': (_json_load(FUSE_HQ_PATH, {}).get('battleLog') or [])[-8:][::-1]}
 
 
+@app.get('/api/reputation/fuses/battles/{address}')
+async def fuse_my_battles(address: str):
+    """⚔ A wallet's cards in Arena battles: the live ones (with both sides' move since the bell) + the last results."""
+    me = primary_of(address); mine = set(linked_of(me)) | {me}
+    d = _json_load(FUSE_HQ_PATH, {})
+    keys = {f"user:{x['id']}": x.get('name') or 'Fuse card' for x in d.get('positions') or [] if x['wallet'] in mine}
+    view = _battle_view(_arena_mega_cache.get('data') or [], time.time())
+    live = [{**p_, 'mine': 'a' if p_['a']['key'] in keys else 'b'} for p_ in view['pairs'] if p_['a']['key'] in keys or p_['b']['key'] in keys]
+    past = [{**r, 'mine': 'a' if r.get('aKey') in keys else 'b', 'won': r.get('winnerKey') in keys} for r in reversed(d.get('battleLog') or [])
+            if r.get('aKey') in keys or r.get('bKey') in keys][:20]
+    rec = {'w': sum(1 for r in past if r['won']), 'l': sum(1 for r in past if not r['won'] and not r.get('draw')), 'd': sum(1 for r in past if r.get('draw'))}
+    return {'live': live, 'past': past, 'record': rec, 'endsAt': view.get('endsAt'), 'cards': len(keys)}
+
+
 class BattleBack(BaseModel):
     address: str
     session: str
@@ -4357,7 +4371,7 @@ async def _battle_tick(now):
             continue
         w = _rn.settle_battle(a['start'], pct[a['key']], bb['start'], pct[bb['key']])
         results.append({'at': now, 'a': a['name'], 'b': bb['name'], 'winner': {'a': a['name'], 'b': bb['name']}.get(w), 'draw': w == 'draw',
-                        'winnerKey': {'a': a['key'], 'b': bb['key']}.get(w),
+                        'winnerKey': {'a': a['key'], 'b': bb['key']}.get(w), 'aKey': a['key'], 'bKey': bb['key'],
                         'aMove': round(pct[a['key']] - a['start'], 2), 'bMove': round(pct[bb['key']] - bb['start'], 2)})
         for side, key in (('a', a['key']), ('b', bb['key'])):
             r_ = d.setdefault('battleRecord', {}).setdefault(key, {'w': 0, 'l': 0, 'd': 0})

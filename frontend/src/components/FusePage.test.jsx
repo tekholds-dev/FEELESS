@@ -189,3 +189,18 @@ test('Arena: runner-up engine cards wear their dial + configs, battles show free
   act(() => host.querySelector('[data-testid="buyback-a-0"]').click()); await tick();
   expect(host.querySelector('[data-testid="lab"]').dataset.back).toBe('user:U1');
 });
+
+test('profile: my card battles (live + results) and the ⚡ Fuse pop-up opens the Lab, Esc closes', async () => {
+  const { MyBattles, FusePopup } = require('./FusePage');
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ cards: 1, record: { w: 1, l: 0, d: 0 }, endsAt: 9e9,
+    live: [{ mine: 'a', a: { key: 'user:c1', name: 'Mine', emoji: '🃏', now: 2.5 }, b: { key: 'auto:1', name: 'Arena Pick', emoji: '⚔', now: -1 } }],
+    past: [{ at: 1, a: 'Mine', b: 'X', mine: 'a', won: true, aMove: 3, bMove: 1 }] }) }));
+  const host = document.createElement('div'); document.body.appendChild(host);
+  await act(async () => { createRoot(host).render(<MyBattles address="MeWa11et" />); }); await tick();
+  expect(host.querySelector('[data-testid="mb-live-0"]').className).toContain('is-up'); expect(host.textContent).toContain('🏆 Mine vs X');
+  const close = jest.fn(); const h2 = document.createElement('div'); document.body.appendChild(h2);
+  await act(async () => { createRoot(h2).render(<FusePopup onClose={close} />); });
+  expect(document.querySelector('[data-testid="fuse-popup"] [data-testid="lab"]')).not.toBeNull();
+  act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
+  expect(close).toHaveBeenCalled();
+});
