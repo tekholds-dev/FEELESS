@@ -149,10 +149,26 @@ app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=[o.strip() for o in (os.environ.get('ALLOWED_ORIGINS') or '*').split(',') if o.strip()],   # set ALLOWED_ORIGINS=https://your.domain before launch
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 🛡 Same request guard as the reputation service (backend/guard.py): write floods get a 429 breather per IP; reads and our
+# own services are never limited; nobody is blocked automatically.
+import guard as _guard
+_guard_state = _guard.new_state()
+
+
+@app.middleware('http')
+async def _guard_mw(request, call_next):
+    from fastapi.responses import JSONResponse
+    ip = _guard.client_ip(request.headers, request.client.host if request.client else '', os.environ.get('FEELESS_TRUST_PROXY') == '1')
+    stop = _guard.check(_guard_state, ip, request.method, request.url.path)
+    if stop:
+        return JSONResponse({'detail': stop[1]}, status_code=stop[0])
+    return await call_next(request)
+
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)

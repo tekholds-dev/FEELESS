@@ -390,6 +390,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🛡 Guard (`backend/guard.py`, tested): write floods → 429 breather; Cmd Ctr sign-in brute force → that IP's admin cools 15 min;
   suspects + evidence wait in Cmd Ctr › Security (`GuardPanel`) — NO auto-blocks, every block/lift is an audited admin approval.
   XFF only behind our proxy (`FEELESS_TRUST_PROXY=1`, rightmost hop). Internal/private IPs never limited.
+- Guard also runs on `server.py` (5001, trading); every service's CORS reads `ALLOWED_ORIGINS` — SET IT to the real domain
+  before launch (default '*' is flagged in Cmd Ctr › Security). Settings › Reduce motion stops every animation (tips.css).
+  Day theme: `.m-pos/.m-neg/.up/.down` deep green/red outside card faces. Chat hides calls on dead/rugged coins (`deadCall`).
 - 🔐 Roles are SCOPED (`ROLE_SCOPES` in `_require_admin` → `_role_gate`): moderator/marketing reach only their sections (tabs
   filtered client-side too); every grant needs the creator's fresh signature (`grant_message`, 10 min). Owner-only money =
   `_require_owner`. Every `/admin/` route must call one of them (audit script: grep routes without `_require_`).
