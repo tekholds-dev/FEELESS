@@ -381,7 +381,7 @@ def _close(store, cat, pos, price_native, why, fraction=1.0, market_cap=None):
     cat.setdefault('pnlHistory', []).append({'value': cat['realizedPnlSol'], 't': time.time()})
     cat['pnlHistory'] = cat['pnlHistory'][-60:]
     closed = cat.get('wins', 0) + cat.get('losses', 0)
-    cat['winRate'] = round(cat['wins'] / closed * 100) if closed else None
+    cat['winRate'] = round(cat.get('wins', 0) / closed * 100) if closed else None
     change = (price_native / pos['entryPriceNative'] - 1) * 100
     part = f'{int(fraction * 100)}% of ' if fraction < 1 else ''
     _log_event(store, cat, 'SELL', f"Sold {part}{pos['symbol']} at {change:+.1f}% — {why}. P&L {pnl:+.4f} SOL on the price move (fees apart, paper, live price).", pnl, pos.get('pairAddress'), price_native, market_cap, pos.get('entryMarketCapUsd'))
