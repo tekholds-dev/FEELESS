@@ -49,7 +49,7 @@ test('engine playground: scenario counts, ready-for-Arena list with evidence, di
   expect(el.textContent).toContain('needs 2 more runs'); expect(el.textContent).toContain('+2.3% · 60r');
 });
 
-test('playground battles: live pairs with swaps + records, controls post to Cmd Ctr, winners publishable', async () => {
+test('playground battles: live pairs with swaps + records, controls post to HQ, winners publishable', async () => {
   const { PlaygroundBattles } = require('./FuseOpsPanels');
   const side = (id, name, pct) => ({ id, name, pct, legs: [{ symbol: 'SOL', role: 'anchor' }, { symbol: 'A', role: 'runner' }], swaps: [{ why: 'dead', out: 'OLD', in: 'A' }], record: { w: 2, l: 1, d: 0 } });
   const view = { cfg: { on: true, roundMins: 5, cards: 2, swapOnTp: true, swapOnSl: true, swapDead: true, deadMins: 10 }, endsAt: Date.now() / 1000 + 120,

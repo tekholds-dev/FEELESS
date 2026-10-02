@@ -95,7 +95,7 @@ def new_runners(rows, cfg=None, limit=12):
     return sorted(out, key=lambda r: (r.get('creatorRep') != 'clean', -_f(r.get('vol1h'))))[:limit]
 
 
-# Cmd Ctr › Runners settings. Every key is range-checked by clean_cfg(); defaults = the tested engine.
+# HQ › Runners settings. Every key is range-checked by clean_cfg(); defaults = the tested engine.
 DEFAULT_CFG = {'roundSize': 5, 'minMcap': 8000, 'minVol1h': 5000, 'maxTop10': 30, 'maxInsiders': 15, 'maxDev': 10,
                'scalpTp': 50, 'scalpStop': 25, 'runnerTp1': 50, 'runnerTp2': 100, 'runnerTrail': 25, 'runnerStop': 30, 'holdTrail': 30, 'holdStop': 35, 'lightRounds': 8,
                # 🔔 Bond run (right before graduation): every box must tick — stiff on purpose, fun to watch fill up
@@ -106,7 +106,7 @@ DEFAULT_CFG = {'roundSize': 5, 'minMcap': 8000, 'minVol1h': 5000, 'maxTop10': 30
                'minBuyShare': 40, 'maxBuyShare': 85, 'minTrades1h': 50, 'maxBundled': 2, 'maxTop10Jump': 10,
                'bondWatchCurve': 75, 'bondSpeed10m': 8, 'smartMin': 3}
 
-# ⚡ Stronger engine: what Cmd Ctr is offered (one click) when its live config is weaker. Each with the reason.
+# ⚡ Stronger engine: what HQ is offered (one click) when its live config is weaker. Each with the reason.
 RECOMMENDED = {'minMcap': (12000, 'Under $12K is mostly bots'), 'minVol1h': (10000, 'Real two-sided flow starts here'),
                'maxTop10': (25, 'Rugs cluster above 25% top-10'), 'maxInsiders': (10, 'Snipers/bundlers dump together'),
                'maxDev': (5, 'A dev holding 5%+ can end it in one sell'), 'maxBundled': (1, 'Bundles exit together'),
@@ -504,7 +504,7 @@ def settle_battle(a_start, a_now, b_start, b_now):
 
 
 def suggest_cfg(cfg):
-    """⚡ Stronger engine: every setting where the live config is weaker than RECOMMENDED, with the reason. Cmd Ctr is asked to
+    """⚡ Stronger engine: every setting where the live config is weaker than RECOMMENDED, with the reason. HQ is asked to
     click to apply — nothing changes by itself."""
     cur = clean_cfg(cfg)
     out = []
@@ -560,7 +560,7 @@ def lane_weights(proofs):
     return w
 
 
-# ---- 🎚 Engine dial (Cmd Ctr): one choice sets the runner engine (gates + lanes), on top of the tested defaults ----------
+# ---- 🎚 Engine dial (HQ): one choice sets the runner engine (gates + lanes), on top of the tested defaults ----------
 ENGINE_DIALS = {
     'safe': {'label': '🛡 Safe', 'cfg': {'minMcap': 15000, 'minVol1h': 12000, 'maxTop10': 22, 'maxInsiders': 8, 'maxDev': 4, 'maxBundled': 1, 'roundSize': 3,
                                         'scalpTp': 35, 'scalpStop': 15, 'runnerTp1': 35, 'runnerTp2': 80, 'runnerTrail': 15, 'runnerStop': 20, 'lightRounds': 16},
@@ -573,7 +573,7 @@ ENGINE_DIALS = {
 
 
 def engine_dial(dial, cfg=None):
-    """Cmd Ctr dial → a full engine cfg (clean_cfg-validated). Unknown dial → ValueError."""
+    """HQ dial → a full engine cfg (clean_cfg-validated). Unknown dial → ValueError."""
     if dial not in ENGINE_DIALS:
         raise ValueError('Pick Safe, Balanced or Degen.')
     return {**clean_cfg({**(cfg or {}), **ENGINE_DIALS[dial]['cfg']}), 'dial': dial}

@@ -14,7 +14,7 @@ Mechanics
 - rebalance(): moves that bring positions back to target when drift > threshold; v3 positions that drift out of
   their price range are flagged to recenter.
 - fees(): management fee (yearly bps, accrued by time) + performance fee (bps of gains above the high-water mark),
-  paid in SOL to the FEELESS fee wallet set in Command Center › Trading & fees.
+  paid in SOL to the FEELESS fee wallet set in HQ › Trading & fees.
 - withdraw(): shares → SOL at NAV, taken from the buffer first, then pro-rata from positions.
 """
 import math
@@ -162,7 +162,7 @@ def fees(nav_sol, total_shares, hwm_per_share, mgmt_bps, perf_bps, seconds):
 
 
 def simulate(pools, meta, sol_usd, deposit_sol, mgmt_bps, perf_bps):
-    """Command Center simulator: where a deposit goes, what spills to the buffer, vault capacity, blended APR, and the
+    """HQ simulator: where a deposit goes, what spills to the buffer, vault capacity, blended APR, and the
     yearly FEELESS fee at that size (management + performance on the blended APR)."""
     w = auto_weights(pools, meta)
     room = caps_sol(pools, meta, {}, sol_usd)

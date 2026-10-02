@@ -42,7 +42,7 @@ class AppErrorBoundary extends React.Component {
     console.error('FEELESS crash:', error, info?.componentStack);
     try { sessionStorage.setItem('feeless:last-crash', JSON.stringify({ at: Date.now(), path: window.location.pathname, message: String(error?.message || error), stack: String(info?.componentStack || '').slice(0, 1500) })); } catch { /* ignore */ }
     this.setState({ stack: info?.componentStack || '' });
-    // Auto crash report → Command Center > Bugs, with the real error and the component that threw. Dev hot-reload crashes
+    // Auto crash report → HQ > Bugs, with the real error and the component that threw. Dev hot-reload crashes
     // (half-applied edits, `.hot-update.js` frames) are not real bugs and are never filed.
     try {
       if (/\.hot-update\.js/.test(String(info?.componentStack || '') + String(error?.stack || ''))) return;
@@ -93,7 +93,7 @@ export default App;
 
 function HolderThemeMount() { useHolderTheme(); return null; }
 
-// One fire-and-forget beacon per route change: powers the command center's Traffic tab.
+// One fire-and-forget beacon per route change: powers the HQ's Traffic tab.
 function PageViews() {
   const loc = _useLoc();
   // Pages rewrite their own query string while loading, so count one view per page (and per coin),

@@ -1,4 +1,4 @@
-"""🛡 Guard: floods get a breather (never a block), Cmd Ctr brute force cools down, blocks ONLY by admin approval,
+"""🛡 Guard: floods get a breather (never a block), HQ brute force cools down, blocks ONLY by admin approval,
 internal services never limited, X-Forwarded-For only trusted from our proxy (rightmost hop)."""
 import asyncio
 
@@ -101,7 +101,7 @@ def test_roles_scoped_and_grants_need_owner_signature(monkeypatch):
 
 
 def test_command_center_sign_in_with_a_real_wallet_signature(monkeypatch):
-    """The real Ed25519 path (no stubs): the admin wallet signs `FEELESS command center\\naddress:…\\nts:…`."""
+    """The real Ed25519 path (no stubs): the admin wallet signs `FEELESS HQ\\naddress:…\\nts:…`."""
     rs = pytest.importorskip('reputation_service')
     nacl = pytest.importorskip('nacl.signing')
     import base58
@@ -117,7 +117,7 @@ def test_command_center_sign_in_with_a_real_wallet_signature(monkeypatch):
 
     class R:
         def __init__(self, a, ts, sig): self.headers = {'x-admin-address': a, 'x-admin-ts': str(ts), 'x-admin-sig': sig}; self.url = U(); self.method = 'GET'
-    sign = lambda k, a, ts: base64.b64encode(k.sign(f'FEELESS command center\naddress:{a}\nts:{ts}'.encode()).signature).decode()
+    sign = lambda k, a, ts: base64.b64encode(k.sign(f'FEELESS HQ\naddress:{a}\nts:{ts}'.encode()).signature).decode()
     ts = int(_t.time())
     assert rs._require_admin(R(addr, ts, sign(sk, addr, ts))) == addr                      # ✓ the admin wallet gets in
     for req, code in ((R(addr, ts, sign(other, addr, ts)), 401),                            # someone else's signature

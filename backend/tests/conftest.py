@@ -28,7 +28,7 @@ def api_client() -> requests.Session:
 # ---- Real data is never touched by tests ---------------------------------------------------------------------------
 # Every module-level Path that points into backend/data (fee ledger, totals, points, trades, profiles, …) is redirected
 # to a fresh temp folder for each test. A test once wrote a fake $100 trade into the real fee ledger on every run,
-# inflating Command Center fees; this makes that impossible for any test, present or future.
+# inflating HQ fees; this makes that impossible for any test, present or future.
 import sys as _sys
 
 _REAL_DATA = (Path(__file__).resolve().parents[1] / 'data').resolve()

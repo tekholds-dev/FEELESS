@@ -2,7 +2,7 @@
 
 Pure functions, no I/O. Every metric is computed from data FEELESS already records (verified trades, chat, calls,
 invites, follows, points, check-ins, $FEE held), so a badge can never be claimed without the activity behind it.
-Admins edit any badge (name, tier, tasks, targets, on/off) and grant/revoke by hand in the Command Center;
+Admins edit any badge (name, tier, tasks, targets, on/off) and grant/revoke by hand in the HQ;
 those edits are `overrides` merged over DEFAULTS here.
 """
 import math
@@ -136,7 +136,7 @@ WEEKLY = [('checkins', 'Check in 5 days', 'signin', 5, 60), ('trades', '10 trade
 
 
 def merge(defaults, overrides):
-    """Admin edits (Command Center) over the defaults. Unknown ids in overrides are admin-made badges."""
+    """Admin edits (HQ) over the defaults. Unknown ids in overrides are admin-made badges."""
     ov = (overrides or {}).get('badges') or {}
     out = []
     for d in defaults:

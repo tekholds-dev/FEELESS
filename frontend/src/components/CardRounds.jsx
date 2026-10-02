@@ -6,7 +6,7 @@ import { readChatSession } from '../lib/chatSession';
 import { getSolPrice } from '../lib/solPrice';
 
 // 🔁 Card rounds: every card runs 5 auto rounds (rotation / buy-back alerts). +5 = pay now (one SOL transfer YOU sign to the
-// fee wallet, checked on-chain) or — when Cmd Ctr allows it — let the card's compound pay (owed until the next profit take).
+// fee wallet, checked on-chain) or — when HQ allows it — let the card's compound pay (owed until the next profit take).
 let pricing = null;
 const loadPricing = () => (pricing ||= fetch(apiUrl('/api/reputation/fees/pricing')).then(r => (r.ok ? r.json() : {})).catch(() => ({}))).then(p => p?.rounds || null);
 const post = (path, body) => fetch(apiUrl(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })

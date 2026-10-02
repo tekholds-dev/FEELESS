@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { investigate } from '../CaseFile';
 import '../../styles/fuseLab.css';
 
-// Cmd Ctr › Safety › 🛡 Bot shield: every known wallet through every bot engine. Flags feed reputation (bot −40 / watch −15),
+// HQ › Safety › 🛡 Bot shield: every known wallet through every bot engine. Flags feed reputation (bot −40 / watch −15),
 // stop daily rewards, and zero Fuse creator cuts. Every flag cites its evidence; Clear / Confirm here always wins.
 const ENGINE = { reward_farmer: '🎁 Reward farmer', clockwork: '⏱ Clockwork', batch_cluster: '🧩 Batch cluster', wash_trader: '🔁 Wash trader',
   dust_farmer: '🧂 Dust farmer', chat_spam: '📢 Chat spam', referral_farm: '👥 Referral farm', fuse_self_deal: '⚛️ Fuse self-deal' };

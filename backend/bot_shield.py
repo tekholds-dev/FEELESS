@@ -105,7 +105,7 @@ ENGINES = (reward_farmer, clockwork, batch_cluster, wash_trader, dust_farmer, ch
 
 
 def scan(f, protected=False, manual=None):
-    """All engines → {verdict, score, hits}. manual = 'cleared' | 'bot' (Cmd Ctr decision) always wins."""
+    """All engines → {verdict, score, hits}. manual = 'cleared' | 'bot' (HQ decision) always wins."""
     if protected:
         return {'verdict': 'clean', 'score': 0, 'hits': [], 'why': 'FEELESS wallet'}
     hits = [h for h in (eng(f) for eng in ENGINES) if h]
@@ -113,9 +113,9 @@ def scan(f, protected=False, manual=None):
     score = min(100, top + 10 * sum(1 for h in hits if h['score'] >= WATCH and h['score'] != top))
     verdict = 'bot' if score >= BOT else 'watch' if score >= WATCH else 'clean'
     if manual == 'cleared':
-        verdict, why = 'clean', 'Cleared in Cmd Ctr'
+        verdict, why = 'clean', 'Cleared in HQ'
     elif manual == 'bot':
-        verdict, why = 'bot', 'Confirmed bot in Cmd Ctr'
+        verdict, why = 'bot', 'Confirmed bot in HQ'
     else:
         why = hits[0]['evidence'][0]['claim'] if hits else 'No bot pattern'
     return {'verdict': verdict, 'score': score, 'hits': sorted(hits, key=lambda h: -h['score']), 'why': why}

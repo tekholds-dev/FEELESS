@@ -205,7 +205,7 @@ def test_confirmed_trade_reports_season_points_exactly_once(engine):
 
 
 def test_fee_selftest_probe_skips_balance_only_with_the_internal_key(engine, monkeypatch):
-    """The Cmd Ctr fee self-test quotes as the fee wallet (which holds none of the test coins). A probe with the
+    """The HQ fee self-test quotes as the fee wallet (which holds none of the test coins). A probe with the
     internal key skips the balance check; without the key the check still applies."""
     client, state, _ = engine
     state['tokens'] = 0

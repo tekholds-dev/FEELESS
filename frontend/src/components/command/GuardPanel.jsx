@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import '../../styles/tips.css';
 
-// Cmd Ctr › Security › 🛡 Guard: floods get a breather and Cmd Ctr brute force cools down AUTOMATICALLY — but nobody is
+// HQ › Security › 🛡 Guard: floods get a breather and HQ brute force cools down AUTOMATICALLY — but nobody is
 // blocked by a machine. Suspects wait here with their evidence; a block (or lifting one) is your approval, audited.
 const ago = t => { const s = Math.max(0, Date.now() / 1000 - t); return s < 90 ? `${Math.round(s)}s` : s < 5400 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
 
@@ -24,7 +24,7 @@ export function GuardPanel({ call }) {
     <div className="m-row"><span className="m-label">🛡 GUARD · BRUTE PROTECTION · NO AUTO-BLOCKS</span><small className="m-dim">every block is your approval</small></div>
     <div className="gd-rules">
       <span data-tip="Writes per IP per minute before a short breather (reads never limited)"><small>WRITES / MIN</small><b className="m-num">{r.writesPerMin}</b></span>
-      <span data-tip={`${r.adminFails} failed Cmd Ctr signatures in ${r.adminWindowMin} min → that IP's admin requests cool down`}><small>SIGN-IN FAILS</small><b className="m-num">{r.adminFails}/{r.adminWindowMin}m</b></span>
+      <span data-tip={`${r.adminFails} failed HQ signatures in ${r.adminWindowMin} min → that IP's admin requests cool down`}><small>SIGN-IN FAILS</small><b className="m-num">{r.adminFails}/{r.adminWindowMin}m</b></span>
       <span data-tip="How long a brute-forcing IP waits — trading and chat still work for it"><small>COOL-DOWN</small><b className="m-num">{r.adminCoolMin}m</b></span>
       <span><small>COOLING NOW</small><b className={`m-num ${g.cooling.length ? 'm-neg' : ''}`}>{g.cooling.length}</b></span>
     </div>

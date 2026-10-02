@@ -81,7 +81,7 @@ def dev_buy_ok(tab: dict, sol: float) -> bool:
     return sol <= 0 or (tab['devBuy'] and sol <= tab['maxDevBuySol'])
 
 
-# ---- Launch costs (Cmd Ctr › Launch › Costs): what the platform adds on top of the chain's own rent ----------
+# ---- Launch costs (HQ › Launch › Costs): what the platform adds on top of the chain's own rent ----------
 COSTS_DEFAULT = {'pumpSlippagePct': 1.0, 'pumpPriorityFeeSol': 0.0001, 'feelessPriorityFeeSol': 0.0001}
 COSTS_BOUNDS = {'pumpSlippagePct': (0.5, 25.0), 'pumpPriorityFeeSol': (0.0, 0.01), 'feelessPriorityFeeSol': (0.0, 0.01)}
 

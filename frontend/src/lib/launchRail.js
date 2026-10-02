@@ -162,7 +162,7 @@ export async function launchCoin({ provider, creator, config, name, symbol, uri,
   const tx = firstBuySol > 0
     ? await client.creator.createPoolWithFirstBuy({ createPoolParam, firstBuyParam: { buyer: payer, buyAmount: new BN(Math.round(firstBuySol * 10 ** quoteDecimals)), minimumAmountOut: new BN(1), referralTokenAccount: null } })
     : await client.creator.createPool(createPoolParam);
-  if (Array.isArray(tx?.instructions)) tx.instructions.unshift(...priorityIxs(web3, priorityFeeSol));   // Cmd Ctr › Launch › Costs
+  if (Array.isArray(tx?.instructions)) tx.instructions.unshift(...priorityIxs(web3, priorityFeeSol));   // HQ › Launch › Costs
   const signature = await signSend(web3, connection, provider, tx, payer, [mint], onStatus);
   keepReceipt(signature, creator, 'launch');
   return { mint: mint.publicKey.toBase58(), signature };

@@ -89,7 +89,7 @@ body.fx-lite .m-pop { animation: none; }
 .fee-report .fr-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-top: 8px; border-top: 1px dashed var(--m-line); }
 .fee-report .m-chip { text-transform: none; letter-spacing: .02em; white-space: normal; line-height: 1.35; border-radius: 8px; }
 
-/* Command Center launcher */
+/* HQ launcher */
 .cmd-launch .cl-id { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: center; }
 .cl-drop { position: relative; display: grid; place-items: center; width: 110px; aspect-ratio: 1; border: 1px dashed var(--m-line-hi); border-radius: 50%; background: var(--m-bg); color: var(--m-mute); font-size: 11px; text-align: center; cursor: pointer; overflow: hidden; transition: border-color .15s, transform .1s; }
 .cl-drop.wide { width: 100%; max-width: 540px; aspect-ratio: 3 / 1; border-radius: var(--m-r); }
@@ -129,7 +129,7 @@ img.wallet-icon { border-radius: 8px; object-fit: contain; background: var(--m-s
 .m-note.row > span { display: grid; gap: 2px; min-width: 0; }
 .m-note.row > span > b { font-family: var(--m-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--m-accent); }
 
-/* Money pulse preflight dropdown (Cmd Ctr header) */
+/* Money pulse preflight dropdown (HQ header) */
 .tr-pulse { position: relative; }
 .tr-pulse .tr-ready.ok b { color: var(--m-accent); } .tr-pulse .tr-ready.bad b { color: var(--m-danger); }
 .pulse-panel { position: absolute; right: 0; top: calc(100% + 8px); z-index: 40; width: min(420px, calc(100vw - 32px)); display: grid; gap: 10px; box-shadow: 0 18px 40px rgba(0, 0, 0, .45); }
@@ -145,7 +145,7 @@ img.wallet-icon { border-radius: 8px; object-fit: contain; background: var(--m-s
 .pulse-panel button.m-note:hover { border-color: var(--m-accent); } .pulse-panel button.m-note:active { transform: scale(.99); }
 .pulse-panel button.m-note:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
 
-/* Circle mini command center (move funds) */
+/* Circle mini HQ (move funds) */
 .circle-move { display: grid; gap: 10px; margin-top: 8px; }
 .cm-dests { display: grid; gap: 8px; max-height: 240px; }
 .cm-group { display: grid; gap: 4px; } .cm-group small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--m-mute); }
@@ -216,7 +216,7 @@ body.fx-lite .mc-sheen { display: none; }
 /* day theme: cards stay dark collectibles (like a real card), only their shadow softens */
 body.theme-day .mc-face { box-shadow: 0 12px 28px rgba(10, 40, 25, .28), inset 0 0 0 1px rgba(255, 255, 255, .04); }
 
-/* Card studio (Cmd Ctr) + card vault (profile) */
+/* Card studio (HQ) + card vault (profile) */
 .card-studio { display: grid; gap: 12px; }
 .cs-bar { justify-content: space-between; }
 .cs-body { display: grid; gap: 14px; }
@@ -430,7 +430,7 @@ body.theme-day .my-pnl{background:#ffffffee!important}
 @keyframes ub-in{from{opacity:0;transform:translate(-50%,-6px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (prefers-reduced-motion: reduce){.update-banner{animation:none}}
 .update-banner code{font-family:var(--m-mono);color:var(--m-text)}
-/* Cmd Ctr › Launch desk: status header + sections */
+/* HQ › Launch desk: status header + sections */
 .lr-meta{display:grid;gap:14px}
 .lr-head{display:grid;gap:10px}.lr-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
 .lr-cost{display:grid;gap:4px}.lr-cost>span{font-family:var(--m-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--m-mute)}

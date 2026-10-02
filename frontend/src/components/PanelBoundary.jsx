@@ -1,7 +1,7 @@
 import React from 'react';
 
 // One broken widget must never take the page down: it shows a small retry card instead, and the crash is
-// reported to Command Center > Bugs with the component that threw. Wrap any self-contained panel in this.
+// reported to HQ > Bugs with the component that threw. Wrap any self-contained panel in this.
 export class PanelBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null, tries: 0 }; }
 

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../lib/api';
 
 // How Fuse works, in one strip. Admin = the full pipeline (breed → prove → publish → traders → P&L).
-// Trader = what you're buying, in plain words. Shared by Cmd Ctr and Trade › Fuse Lab.
+// Trader = what you're buying, in plain words. Shared by HQ and Trade › Fuse Lab.
 const ADMIN = [
   ['🔎', 'Scan', 'Live Solana pools, fakes dropped'],
   ['🧬', 'Breed', 'Baskets evolve over generations'],
@@ -36,7 +36,7 @@ export function FuseExplainer({ admin = false }) {
   </div>;
 }
 
-// Cmd Ctr › Fuse: live KPI ribbon, a left rail (each stop says what it is), one panel at a time. Tab remembered per viewer.
+// HQ › Fuse: live KPI ribbon, a left rail (each stop says what it is), one panel at a time. Tab remembered per viewer.
 // panels: [key, label, node, blurb, group] — consecutive panels with the same group sit under one rail heading. call = admin fetch (ribbon reads /admin/fuses/hq once a minute).
 const KEY = 'feeless-fuse-deck';
 const money = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0).toFixed(2)}`;

@@ -52,7 +52,7 @@ body.fx-lite .fl-row { animation: none; }
 @container (max-width: 820px) { .fl-body { grid-template-columns: 1fr; } .fl-mix { position: static; } }
 @media (max-width: 560px) { .fl { padding: 12px; } }
 .fl-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-/* Cmd Ctr extras: weight mode, manual sliders, publish. */
+/* HQ extras: weight mode, manual sliders, publish. */
 .fl-wmode { display: grid; gap: 6px; }
 .fl-slider { display: grid; grid-template-columns: 70px 1fr 34px; gap: 8px; align-items: center; font-size: 12px; }
 .fl-slider input { accent-color: var(--m-accent); cursor: pointer; } .fl-slider input:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
@@ -76,7 +76,7 @@ body.fx-lite .fl-row { animation: none; }
 body.theme-day .fg { background: var(--m-surface-2); }
 body.fx-lite .fg-pulse { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fg, .fg-leg, .fg-pulse, .trade-tab-body { animation: none; } }
-/* 🧬 Fuse Evolution (Cmd Ctr). */
+/* 🧬 Fuse Evolution (HQ). */
 .fe { display: grid; gap: 12px; padding: 14px; border-color: color-mix(in srgb, var(--m-warn) 40%, var(--m-line)); }
 .fe-head h4 { margin: 4px 0 2px; font-size: 18px; } .fe-head p { margin: 0; font-size: 12px; }
 .fe-genes { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
@@ -94,7 +94,7 @@ body.fx-lite .fg-pulse { animation: none; }
 body.theme-day .fe-chart, body.theme-day .fe-champ { background: var(--m-surface-2); }
 body.fx-lite .fe-champ { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fe-champ { animation: none; } .fe-chart i { transition: none; } }
-/* Fuse P&L (trader strip + Cmd Ctr HQ) and "Find my best 3". */
+/* Fuse P&L (trader strip + HQ HQ) and "Find my best 3". */
 .fpn { display: grid; gap: 8px; padding: 12px 14px; }
 .fpn-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; } .fpn-head b { font-size: 18px; } .fpn-head b small { font-size: 12px; } .fpn-head > small { margin-left: auto; font-family: var(--m-mono); font-size: 10px; }
 .fpn-rows, .fhq-list { display: grid; gap: 4px; }
@@ -149,7 +149,7 @@ body.theme-day .fpn-row, body.theme-day .fhq-tile, body.theme-day .fcc { backgro
 .fx-more:hover { text-decoration: underline; } .fx-more:active { opacity: .7; } .fx-more:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
 .fx-body { display: grid; gap: 6px; padding: 10px 12px; border-left: 2px solid var(--m-accent); background: color-mix(in srgb, var(--m-accent) 5%, transparent); border-radius: 0 var(--m-r-sm) var(--m-r-sm) 0; font-size: 12.5px; line-height: 1.55; animation: mCardIn .2s var(--m-ease); }
 .fx-body p { margin: 0; color: var(--m-dim); } .fx-body b { color: var(--m-text); }
-/* Cmd Ctr deck: matches cc-block (near-black, mono caps, green hairline glow). */
+/* HQ deck: matches cc-block (near-black, mono caps, green hairline glow). */
 .fdeck { display: grid; gap: 14px; padding: 16px; border: 1px solid var(--cc-line, var(--m-line)); border-radius: 14px; background: linear-gradient(rgba(22, 214, 127, .03) 1px, transparent 1px) 0 0 / 100% 18px, #050a07; box-shadow: var(--cc-glow, none); }
 .fdeck-head { display: grid; gap: 10px; } .fdeck-head h3 { margin: 4px 0 0; font-size: 22px; }
 .fdeck-body { display: grid; gap: 14px; animation: mCardIn .22s var(--m-ease); }
@@ -194,7 +194,7 @@ body.fx-lite .fl-bar::after, body.fx-lite .fl-row::after, body.fx-lite .fx-flow 
 .fdeck-intro { margin: 0; padding: 8px 12px; border-left: 2px solid var(--m-accent); background: color-mix(in srgb, var(--m-accent) 5%, transparent); border-radius: 0 8px 8px 0; font-size: 12.5px; color: var(--m-dim); }
 body.theme-day .fdeck-kpi, body.theme-day .fdeck-rail button:not(.active) { background: var(--m-surface); }
 @media (max-width: 900px) { .fdeck-main { grid-template-columns: 1fr; } .fdeck-rail { position: static; display: flex; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; } .fdeck-rail button { flex: 0 0 180px; } }
-/* 🛡 Bot shield (Cmd Ctr › Safety). */
+/* 🛡 Bot shield (HQ › Safety). */
 .bsh { display: grid; gap: 12px; padding: 16px; }
 .bsh-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; } .bsh-head h3 { margin: 4px 0 2px; } .bsh-head p { margin: 0; font-size: 12px; max-width: 640px; }
 .bsh-counts { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; } .bsh-counts small { font-family: var(--m-mono); font-size: 10px; }

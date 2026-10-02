@@ -50,4 +50,4 @@ def test_service_gates_rewards_case_and_fuse_cut(monkeypatch):
     if t and t.get('parts'):
         assert any('Bot shield' in p['label'] for p in t['parts'])
     rs._json_save(rs.SHIELD_PATH, {'manual': {rs.primary_of(farm): 'cleared'}}); rs._shield_cache.clear()
-    assert asyncio.run(rs._shield_of(farm))['verdict'] == 'clean'                       # Cmd Ctr decision wins
+    assert asyncio.run(rs._shield_of(farm))['verdict'] == 'clean'                       # HQ decision wins

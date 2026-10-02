@@ -4,7 +4,7 @@ import { InvestigatePanel, investigate } from '../CaseFile';
 import { shortAddress } from '../../lib/dexscreener';
 import { errorText } from '../../lib/api';
 
-// Cmd Ctr › Investigate: the reputation department. A living database of ruggers, dumpers, snipers, bundlers and
+// HQ › Investigate: the reputation department. A living database of ruggers, dumpers, snipers, bundlers and
 // the wallets that fund them, grouped into crews, with each actor's likely next move. FeeCat, the rug shield and
 // the radar read the same database, so every catch here sharpens the platform's tools.
 const ROLE = { rugger: ['🧨', 'bad'], dumper: ['📉', 'bad'], funder: ['🏦', 'warn'], bundler: ['📦', 'warn'], sniper: ['🎯', ''] };

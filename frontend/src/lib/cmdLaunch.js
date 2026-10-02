@@ -1,4 +1,4 @@
-// Command Center launcher helpers (pure): which terms a coin launches under, the receipt links, and form checks.
+// HQ launcher helpers (pure): which terms a coin launches under, the receipt links, and form checks.
 const unit = p => (p?.quote === 'USDC' ? 'USDC' : 'SOL');
 
 export function launchTerms(kind, cfg) {

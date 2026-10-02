@@ -3,7 +3,7 @@ import { apiUrl } from '../lib/api';
 import { FuseCard } from './FuseCard';
 
 // Discover rail: one prebuilt Fuse per strategy, bred from live pools right now (server caches 5 min). Swipe / scroll,
-// drag a card to tilt, ⟲ to flip for why it won, "Use" loads it into the Lab (then ⚡ one-click). Cmd Ctr picks the size.
+// drag a card to tilt, ⟲ to flip for why it won, "Use" loads it into the Lab (then ⚡ one-click). HQ picks the size.
 const TIP = { yield: 'Weights fee APR most: busy pools relative to their depth.', momentum: 'Leans on what moved up in the last 24h.',
   steady: 'Grade + calm prices first: deep pools, small swings.', degen: 'High APR + momentum, little care for calm. Biggest swings.' };
 

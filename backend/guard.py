@@ -3,17 +3,17 @@
 Rules (pure, tested; the service feeds it requests):
   • Every POST/PUT/DELETE is counted per IP in a sliding minute. Over `WRITE_PER_MIN` → that request gets 429 (a short
     breather, the same for everyone). Reads are never limited here (pages must never break for a real trader).
-  • Admin (Cmd Ctr) sign-in failures (401/403 on /admin/) are counted per IP. `ADMIN_FAILS` in 10 min → admin requests
+  • Admin (HQ) sign-in failures (401/403 on /admin/) are counted per IP. `ADMIN_FAILS` in 10 min → admin requests
     from that IP cool down for `ADMIN_COOL` seconds (brute protection) — normal trading still works.
   • Anything that trips a rule becomes a SUSPECT with cited evidence. Nobody is ever blocked automatically: a block only
-    exists after an admin approves it in Cmd Ctr › Security (and an admin can lift it). Approved blocks get 403 on writes.
+    exists after an admin approves it in HQ › Security (and an admin can lift it). Approved blocks get 403 on writes.
   • Local / private addresses (the services talking to each other) are never limited or flagged.
 """
 import ipaddress
 import time
 
 WRITE_PER_MIN = 90          # writes per IP per minute before a breather
-ADMIN_FAILS = 8             # failed Cmd Ctr signatures per IP in ADMIN_WINDOW → cool down
+ADMIN_FAILS = 8             # failed HQ signatures per IP in ADMIN_WINDOW → cool down
 ADMIN_WINDOW = 600
 ADMIN_COOL = 900
 SUSPECT_FLOODS = 3          # breathers in 10 min → suspect (for review, not a block)
@@ -69,7 +69,7 @@ def check(s, ip, method, path, now=None):
     if b and method != 'GET':
         return 403, 'This address was blocked by FEELESS staff. Contact support if this is a mistake.'
     if '/admin/' in path and s['cool'].get(ip, 0) > now:
-        return 429, f"Too many failed Command Center sign-ins — try again in {int((s['cool'][ip] - now) // 60) + 1} min."
+        return 429, f"Too many failed HQ sign-ins — try again in {int((s['cool'][ip] - now) // 60) + 1} min."
     if method in ('POST', 'PUT', 'PATCH', 'DELETE'):
         w = _trim(s['writes'].get(ip, []), now, 60)
         if len(w) >= WRITE_PER_MIN:
@@ -83,7 +83,7 @@ def check(s, ip, method, path, now=None):
 
 
 def after(s, ip, method, path, status, now=None):
-    """After a request: counts failed Cmd Ctr sign-ins (brute force)."""
+    """After a request: counts failed HQ sign-ins (brute force)."""
     now = now or time.time()
     if is_internal(ip) or '/admin/' not in path or status not in (401, 403):
         return
@@ -92,7 +92,7 @@ def after(s, ip, method, path, status, now=None):
     if len(f) >= ADMIN_FAILS:
         s['cool'][ip] = now + ADMIN_COOL
         s['fails'][ip] = []
-        _flag(s, ip, now, 'admin-brute', f'{len(f)} failed Command Center signatures in {ADMIN_WINDOW // 60} min')
+        _flag(s, ip, now, 'admin-brute', f'{len(f)} failed HQ signatures in {ADMIN_WINDOW // 60} min')
 
 
 def decide(s, ip, action, admin, now=None, note=''):

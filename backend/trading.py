@@ -750,7 +750,7 @@ class TradingService:
         @router.post('/quote')
         async def quote(body: QuoteIn, request: Request):
             self.require_configured()
-            # The Command Center fee self-test quotes as the fee wallet, which doesn't hold the coins it tests with.
+            # The HQ fee self-test quotes as the fee wallet, which doesn't hold the coins it tests with.
             # Only a caller holding the internal key may skip the balance check; nothing is ever signed or sent.
             probe = False
             if body.probe:
@@ -915,7 +915,7 @@ class TradingService:
 
         @router.get('/internal/earnings')
         async def earnings(request: Request):
-            # Internal only: the Command Center reads this through the reputation service (admin-signed).
+            # Internal only: the HQ reads this through the reputation service (admin-signed).
             key = (Path(__file__).parent / 'data' / 'internal.key').read_text().strip()
             if request.headers.get('x-feeless-internal') != key:
                 raise HTTPException(403, 'Internal only.')

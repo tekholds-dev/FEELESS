@@ -8,7 +8,7 @@ const { CircleMove } = require('./CircleWallets');
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const setVal = (el, v) => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); };
 
-test('Circle moves only to same-network Command Center wallets, after the typed last 4', async () => {
+test('Circle moves only to same-network HQ wallets, after the typed last 4', async () => {
   const w = { id: 'cw', name: 'Ops', blockchain: 'SOL', address: 'Self1111111111111111111111111111111111111111', balances: [{ tokenId: 'sol', symbol: 'SOL', amount: '2' }] };
   const dests = [{ address: 'Resv111111111111111111111111111111111111WXYZ', label: 'Season reserve · S1', kind: 'reserve' },
     { address: '0x000000000000000000000000000000000000dEaD', label: 'EVM route', kind: 'route' }, { address: w.address, label: 'itself', kind: 'circle' }];

@@ -9,11 +9,11 @@ body.theme-day .tip-layer { background: #ffffff; color: #0f2419; }
 @keyframes cfLive { from { opacity: .6; } to { opacity: 1; } }
 body.fx-lite .cf-live.is-live { animation: none; } @media (prefers-reduced-motion: reduce) { .cf-live.is-live { animation: none; } }
 
-/* Cmd Ctr › Bugs: merged repeat count + fix note */
+/* HQ › Bugs: merged repeat count + fix note */
 .cc-bug-count { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--m-danger, #ff8fa3); color: #1a0006; font: 700 10px 'JetBrains Mono', monospace; }
 .cc-bug-fix { display: block; margin-top: 3px; color: var(--m-accent, #19f58f); font-size: 11px; }
 
-/* 🛡 Guard (Cmd Ctr › Security) */
+/* 🛡 Guard (HQ › Security) */
 .gd { display: grid; gap: 12px; margin-bottom: 14px; }
 .gd-rules { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .gd-rules span { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--m-line); border-radius: 10px; background: var(--m-bg); transition: border-color .15s; }

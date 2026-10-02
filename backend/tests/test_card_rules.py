@@ -1,4 +1,4 @@
-"""Card rules: auto-profit levels set by Cmd Ctr (net of fees, entry = confirmed buy + its fee), hold/swap mode per card,
+"""Card rules: auto-profit levels set by HQ (net of fees, entry = confirmed buy + its fee), hold/swap mode per card,
 Fuse Fee-Back (unlock, loyalty, Arena bonus, cap), held-cards P&L and traders' cards on the Arena until withdrawn."""
 import asyncio
 import time

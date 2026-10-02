@@ -4,7 +4,7 @@ import { apiUrl } from '../../lib/api';
 import { useSolPrice } from '../../lib/solPrice';
 import '../../styles/fusePage.css';
 
-// Command Center › ⚛️ Fuse › 🏦 FUSE Vault designer. One vault = up to 3 SOLANA yield pools (v2 constant-product / v3
+// HQ › ⚛️ Fuse › 🏦 FUSE Vault designer. One vault = up to 3 SOLANA yield pools (v2 constant-product / v3
 // concentrated) in one contract: SOL in → shares → spread by auto-scaled weights, capped per pool, fees to the vault fee
 // wallet (Trading & fees). Status stays DESIGN until the on-chain program is audited and deployed — nothing here moves funds.
 // Every number is shown in SOL AND $ (live SOL price) so the money is readable at a glance.

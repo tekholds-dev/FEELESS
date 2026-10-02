@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
 
-// Cmd Ctr › Fuse admin settings. RunnerSettings: every gate / lane exit / light-up rule, range-checked by the server
+// HQ › Fuse admin settings. RunnerSettings: every gate / lane exit / light-up rule, range-checked by the server
 // (runners.CFG_RANGES); "Reset" = defaults. AutoYieldDefault: arm 💸 auto-collect on NEW cards (users can turn it off).
 const LABELS = {
   roundSize: ['Runners per round', ''], minMcap: ['Min market cap', '$'], minVol1h: ['Min 1h volume', '$'], maxTop10: ['Max top-10 hold', '%'],
@@ -38,7 +38,7 @@ export function AutoYieldDefault({ call }) {
 }
 
 // Core › Fees › Card bundle pricing: cards bought all at once (Fuse / runners) pay a flat $ per coin instead of the %,
-// never more than maxPct of a leg; legs above maxLegUsd pay the normal %. Cmd Ctr cards pay no FEELESS fee.
+// never more than maxPct of a leg; legs above maxLegUsd pay the normal %. HQ cards pay no FEELESS fee.
 export const bundleExample = (b, legUsd, swapBps) => (!b.on || legUsd > b.maxLegUsd ? legUsd * swapBps / 10000 : Math.min(b.perLegUsd, legUsd * b.maxPct / 100));
 
 export function BundlePricing({ call, initial, swapBps = 0 }) {
@@ -54,7 +54,7 @@ export function BundlePricing({ call, initial, swapBps = 0 }) {
       <label>Flat price for legs up to ($)<input type="number" min="1" max="10000" value={b.maxLegUsd} onChange={e => set('maxLegUsd', Number(e.target.value))} /></label></div>
     <ul className="bundle-ex">{[[1, 3], [20, 3], [100, 6]].map(([usd, n]) => { const leg = usd / n; const fee = bundleExample(b, leg, swapBps) * n;
       return <li key={usd}><b>${usd} card · {n} coins</b><span className="m-num">${fee.toFixed(3)} total</span><small>{((fee / usd) * 100).toFixed(2)}%</small></li>; })}
-      <li className="is-free"><b>Cmd Ctr card · 12 coins</b><span className="m-num">$0 FEELESS</span><small>network + partner fees only</small></li></ul>
+      <li className="is-free"><b>HQ card · 12 coins</b><span className="m-num">$0 FEELESS</span><small>network + partner fees only</small></li></ul>
     <small className="cc-empty">Bigger legs than the limit pay the normal %, so the flat price can't be used to dodge the fee on one big swap.</small>
     <button type="button" className="btn-primary" onClick={save} data-testid="bundle-save">Save bundle pricing</button></div>;
 }
@@ -73,7 +73,7 @@ export function RoundsPricing({ call, initial }) {
     <button type="button" className="btn-primary" onClick={save} data-testid="rounds-save">Save card rounds</button></div>;
 }
 
-// Cmd Ctr › Fuse › Card rules: what traders can pick (auto-profit levels, counted after fees from their confirmed buy),
+// HQ › Fuse › Card rules: what traders can pick (auto-profit levels, counted after fees from their confirmed buy),
 // the swap-mode trigger, the Arena top tier, and Fuse Fee-Back (share of fees paid on a card, unlocked by holding it;
 // loyalty + Arena bonuses; cap). The book shows earned / paid / owed per wallet; "Paid" records a payout you sent.
 // Card rules, in plain words: every number explained with a $ example on a $100 card that paid $1.00 of FEELESS fees.
@@ -155,7 +155,7 @@ export function FusePayouts({ call }) {
 }
 
 // ⚡ Stronger engine found: the server compares the live runner config with the recommended one (runners.RECOMMENDED) and
-// lists every weaker setting with its reason + each lane's self-tuning record. Nothing changes until Cmd Ctr clicks Apply.
+// lists every weaker setting with its reason + each lane's self-tuning record. Nothing changes until HQ clicks Apply.
 export function EngineSuggest({ call }) {
   const [d, setD] = useState(null);
   const load = () => call('/admin/runners/suggest').then(setD).catch(() => {});

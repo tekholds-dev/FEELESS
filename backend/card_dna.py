@@ -1,4 +1,4 @@
-"""🧬 Card DNA — every card (Arena, engine, Cmd Ctr, user) carries its OWN automation config, so no two cards play alike.
+"""🧬 Card DNA — every card (Arena, engine, HQ, user) carries its OWN automation config, so no two cards play alike.
 Pure, tested. The same fields are what the FUSE Card program will execute once the owner signs (see docs/GO_LIVE.md):
 
   cycle     off · classic (anchor→degen→anchor→mixed) · adaptive (losing → majors, winning → runners) · safe · press

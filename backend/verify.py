@@ -2,7 +2,7 @@
 
 A coin earns it; nobody buys it. Hard gates must all pass (any fail = no check, whatever the score), then
 scored checks must reach VERIFY_MIN. Every check says what was measured and where it came from, the same way
-case files cite evidence. Command Center can grant a gold check (official / reviewed) or revoke one; a revoke
+case files cite evidence. HQ can grant a gold check (official / reviewed) or revoke one; a revoke
 always wins. Pure functions only: the service gathers the facts.
 """
 

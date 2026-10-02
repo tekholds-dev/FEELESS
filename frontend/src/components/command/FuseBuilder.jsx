@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../../lib/api';
 
-// Command Center › Fuse builder: search live pools (with their meta), weight them, name the Fuse, set the creator's cut
+// HQ › Fuse builder: search live pools (with their meta), weight them, name the Fuse, set the creator's cut
 // of FEELESS fees on its buys, and track volume / earned / owed per Fuse. Every save is signed and audit-logged.
 const usd = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${(v || 0).toFixed(2)}`);
 const EMPTY = { name: '', emoji: '⚛️', tagline: '', creatorBps: 1000, legs: [] };

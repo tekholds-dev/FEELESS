@@ -876,7 +876,7 @@ _upload_ip: dict = {}
 @app.post('/api/reputation/uploads')
 async def upload_image(payload: UploadPayload, request: Request):
     """Images for profiles, launches and seasons. Everyone: 2 MB (animated GIFs: 6 MB). A signed-in creator/admin
-    (command center session) may upload big GIFs/art up to 25 MB."""
+    (HQ session) may upload big GIFs/art up to 25 MB."""
     import base64
     import re
     m = re.match(r'^data:(image/(?:png|jpeg|webp|gif));base64,([A-Za-z0-9+/=]+)$', payload.dataUrl or '')
@@ -2726,7 +2726,7 @@ async def fuses_list():
 @app.get('/api/reputation/fuses/search')
 async def fuses_search(request: Request, q: str = Query(..., min_length=2, max_length=60)):
     """Pool picker for the Fuse builder: live pools with the meta a builder needs (depth, volume, APR est., turnover).
-    A pasted CA does a direct token lookup (search can miss fresh coins). Cmd Ctr sees EVERY pool (thin ones flagged, not hidden)."""
+    A pasted CA does a direct token lookup (search can miss fresh coins). HQ sees EVERY pool (thin ones flagged, not hidden)."""
     is_ca = bool(_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', q.strip()))
     async with httpx.AsyncClient(timeout=8) as http:
         try:
@@ -2815,9 +2815,9 @@ async def _majors_rows():
 class FusePreview(BaseModel):
     pools: list
     sol: float = 1.0
-    manual: bool = False     # Cmd Ctr only: use the pools' own weights instead of auto
+    manual: bool = False     # HQ only: use the pools' own weights instead of auto
     runners: bool = False    # Runner add-on: bolt the top 2 runners on as a small slice
-    runnerMints: list = []   # Fuse card: the runners YOU picked (≤3 traders / ≤6 Cmd Ctr), each from the live board
+    runnerMints: list = []   # Fuse card: the runners YOU picked (≤3 traders / ≤6 HQ), each from the live board
     runnerSlice: float = 20.0
 
 
@@ -2832,7 +2832,7 @@ def _is_admin_req(request):
 @app.post('/api/reputation/fuses/preview')
 async def fuses_preview(payload: FusePreview, request: Request = None):
     """Fuse Lab preview: auto-weights (fee APR × depth, 10–70% per pool) and where `sol` SOL would go. Read-only — moves nothing.
-    Traders fuse up to 3 pools; Cmd Ctr up to 6 and may set manual weights."""
+    Traders fuse up to 3 pools; HQ up to 6 and may set manual weights."""
     admin = request is not None and _is_admin_req(request)
     cap = _fuse.legs_cap(admin)
     if len(payload.pools or []) > cap:
@@ -2902,7 +2902,7 @@ class FuseEvolveIn(BaseModel):
 
 @app.post('/api/reputation/admin/fuses/evolve')
 async def fuses_evolve(request: Request, p: FuseEvolveIn):
-    """🧬 Cmd Ctr: breed Fuse baskets from the chain's live pools (best 40 across popular/yield/deep/new) over generations.
+    """🧬 HQ: breed Fuse baskets from the chain's live pools (best 40 across popular/yield/deep/new) over generations.
     Read-only ranking — the champion is loaded into the Lab, where Fuse in still needs your wallet."""
     _require_admin(request)
     raw = await _fuse_discover_pairs(p.chain)
@@ -2980,7 +2980,7 @@ async def fuse_position(p: FusePositionIn):
             if p.champ and reign == f"user:{src['id']}":   # 👑 champion's share: double copy cut for the reigning champion's owner
                 pos['champCopy'] = True
         dflt = d.get('autoYieldDefault') or {}
-        if dflt.get('on'):   # Cmd Ctr default: new cards arm 💸 collect-profit at +at% of what was put in
+        if dflt.get('on'):   # HQ default: new cards arm 💸 collect-profit at +at% of what was put in
             pos['autoYield'] = {'at': float(dflt.get('at') or _hq.YIELD_DEFAULT_AT), 'base': round(sum(_fuse._f(x.get('usd')) for x in legs), 6), 'armedAt': time.time(), 'firedAt': None}
         d.setdefault('positions', []).append(pos)
         bt = d.get('battles') or {}
@@ -3467,7 +3467,7 @@ async def crowd_elite_flow():
 
 @app.get('/api/reputation/fuses/rules')
 async def fuse_rules_public():
-    """What traders can pick (auto-profit levels) and the Fee-Back / swap / Arena rules Cmd Ctr set."""
+    """What traders can pick (auto-profit levels) and the Fee-Back / swap / Arena rules HQ set."""
     return _card_rules()
 
 
@@ -3479,7 +3479,7 @@ async def admin_fuse_rules_get(request: Request):
 
 @app.post('/api/reputation/admin/fuses/rules')
 async def admin_fuse_rules_set(request: Request):
-    """Cmd Ctr › Fuse › Card rules: auto-profit levels, swap trigger, Arena top tier, Fee-Back shares. 'paidUsd' + 'wallet'
+    """HQ › Fuse › Card rules: auto-profit levels, swap trigger, Arena top tier, Fee-Back shares. 'paidUsd' + 'wallet'
     records a Fee-Back payout."""
     admin = _require_admin(request)
     body = await request.json()
@@ -3562,7 +3562,7 @@ async def admin_auto_yield_get(request: Request):
 
 @app.post('/api/reputation/admin/fuses/auto-yield')
 async def admin_auto_yield_set(request: Request):
-    """Cmd Ctr default for NEW Fuse cards (users can still turn it off per card)."""
+    """HQ default for NEW Fuse cards (users can still turn it off per card)."""
     admin = _require_admin(request)
     body = await request.json()
     try:
@@ -3958,7 +3958,7 @@ async def _fuse_season_tick(now):
         if top:
             d.setdefault('seasons', []).append({'week': prev, 'n': len(rows), 'top': [{**t_, 'handle': handle_of(t_['wallet'])} for t_ in top]})
         _json_save(FUSE_HQ_PATH, d)
-    # ⚔ backer season: last week's top 3 backers split the Cmd Ctr prize pool (owed in the Fee-Back book → weekly payout)
+    # ⚔ backer season: last week's top 3 backers split the HQ prize pool (owed in the Fee-Back book → weekly payout)
     dd = _json_load(FUSE_HQ_PATH, {})
     prizes = _hq.backer_prizes(_hq.backer_board(dd.get('backLog'), dd.get('backWins'), prev, start, set(_protected_wallets()) | bots), _card_rules().get('backerPoolUsd', 0))
     if prizes:
@@ -3989,11 +3989,11 @@ async def _fuse_season_tick(now):
     beat_wallets = {owners[c]['wallet'] for c in beat if c in owners}
     for w in {r['wallet'] for r in rows if r.get('wallet')}:
         notify(w, 'fuse-card', _hq.feecat_weekly(dial, tuned, w in beat_wallets, cat_pct), url='/terminal/fuse?tab=arena', once=f"feecat-week-{prev}",
-               meta={'claim': "FeeCat's sim book + engine changes that week", 'source': 'Fuse season + Cmd Ctr audit log'})
+               meta={'claim': "FeeCat's sim book + engine changes that week", 'source': 'Fuse season + HQ audit log'})
     plan = _hq.payout_plan((await _feeback_book())['rows'], await _sol_usd_live(), exclude=_protected_wallets())
     if plan['totalUsd'] >= 1:
         for adm in _admin_wallets():
-            notify(adm, 'shield', f"💸 Weekly Fuse payout ready: ${plan['totalUsd']:,.2f} to {len(plan['rows'])} wallets (Fee-Back + copy cuts). Cmd Ctr › Fuse › Card rules › Pay.",
+            notify(adm, 'shield', f"💸 Weekly Fuse payout ready: ${plan['totalUsd']:,.2f} to {len(plan['rows'])} wallets (Fee-Back + copy cuts). HQ › Fuse › Card rules › Pay.",
                    url='/terminal/command?tab=fuse', once=f"fuse-payout-{prev}", meta={'claim': 'Owed from the fee ledger', 'source': 'Fuse Fee-Back book'})
     medal = {1: '🥇', 2: '🥈', 3: '🥉'}
     if top:
@@ -4196,7 +4196,7 @@ async def fuse_ids(addrs: str = ''):
 
 async def _fuse_autopilot_tick(now=None):
     """Hourly: settle due arena runs, then enter each strategy's current champion ($5 paper, 3 pools) once per hour —
-    the arena proves strategies on its own. Then alert Cmd Ctr about wallets newly flagged as bots."""
+    the arena proves strategies on its own. Then alert HQ about wallets newly flagged as bots."""
     now = now or time.time()
     await _fuse_season_tick(now)
     await _arena_settle(now=now)
@@ -4218,7 +4218,7 @@ async def _fuse_autopilot_tick(now=None):
 
 
 async def _shield_alerts():
-    """Bot shield → Cmd Ctr inbox: each wallet newly judged 'bot' is reported once to every admin wallet (cited)."""
+    """Bot shield → HQ inbox: each wallet newly judged 'bot' is reported once to every admin wallet (cited)."""
     rows = _shield_scan_all()
     d = _json_load(SHIELD_PATH, {})
     told = set(d.get('alerted') or [])
@@ -4567,7 +4567,7 @@ async def _feecat_card():
 
 
 async def _arena_mega(rd, cfg, now):
-    """Cards on the Arena stage: Cmd Ctr mega cards (published Fuses flagged `arena`) + runner cards that lit after their
+    """Cards on the Arena stage: HQ mega cards (published Fuses flagged `arena`) + runner cards that lit after their
     rounds. Each carries its live activity (fuse_hq.activity → hard-coded effect tier). 30s cache, parallel lookups."""
     if _arena_mega_cache['data'] is not None and now - _arena_mega_cache['at'] < 40 and not _FUSE_FORCE.get():
         return _arena_mega_cache['data']
@@ -4635,7 +4635,7 @@ async def _arena_mega(rd, cfg, now):
                     'activity': _hq.activity(len(ac['legs']), 0, sum(_fuse._f(l.get('vol1h')) for l in ac['legs']) * 24, pct)})
     published = {f.get('fromScenario') for f in (store.get('fuses') or {}).values() if f.get('arena') and f.get('fromScenario')}
     bench_names = set()
-    for sc in rd.get('scenarioStage') or []:   # 🥈 runners-up: engine scenario cards waiting for Cmd Ctr's audit (published ones show as mega)
+    for sc in rd.get('scenarioStage') or []:   # 🥈 runners-up: engine scenario cards waiting for HQ's audit (published ones show as mega)
         if sc.get('src') in published:
             continue
         spx = await _hq_prices([l for l in sc['legs']])
@@ -4649,7 +4649,7 @@ async def _arena_mega(rd, cfg, now):
                     'cfg': sc.get('cfg') or _rn.card_cfg(dial, sc), 'grade': 'A' if pct_ > 0 else 'B', 'buyers': 0, 'at': sc['at'], 'chat': f"fuse-card-{sc['id']}", 'pnlPct': pct_,
                     'tagline': f"engine card · TP +{sc['tp']}% / stop −{sc['sl']}%",
                     'activity': _hq.activity(len(sc['legs']), 0, 0, pct_)})
-    # 🏆 the engine's top battle winner is the ONE engine card that reaches the Arena by itself (Cmd Ctr 🎨 picks the rest)
+    # 🏆 the engine's top battle winner is the ONE engine card that reaches the Arena by itself (HQ 🎨 picks the rest)
     pgb = rd.get('pgBattle') or {}
     champ_id = _pgb.champion(pgb.get('record'), pgb.get('cards'))
     if champ_id and not any(x.get('src') == champ_id for x in out):
@@ -4719,7 +4719,7 @@ async def _card_dna_tag(cards, rd):
 
 @app.get('/api/reputation/admin/fuses/hq')
 async def fuse_hq_admin(request: Request):
-    """Cmd Ctr › Fuse HQ: everyone's Fuse P&L, the paper arena (settles at 24h), bloodlines, published-Fuse health."""
+    """HQ › Fuse HQ: everyone's Fuse P&L, the paper arena (settles at 24h), bloodlines, published-Fuse health."""
     _require_admin(request)
     d = _json_load(FUSE_HQ_PATH, {})
     now = time.time()
@@ -4813,7 +4813,7 @@ _fuse_prebuilt_cache: dict = {}
 @app.get('/api/reputation/fuses/prebuilt')
 async def fuses_prebuilt(request: Request, legs: int = Query(3, ge=2, le=12), budget: float = Query(20, ge=1, le=10000)):
     """Discover rail: the best basket for EACH strategy right now (bred from live pools), with that strategy's arena record.
-    Traders get 3-pool baskets; Cmd Ctr may ask for up to 12. Cached 5 min per size."""
+    Traders get 3-pool baskets; HQ may ask for up to 12. Cached 5 min per size."""
     legs = legs if _is_admin_req(request) else min(legs, _fuse.USER_MAX_LEGS)
     # Breeding buckets (fee drag + size guard depend on size): $1 · $5 · $20 · $100. The buyer's exact amount is used at Fuse in.
     key = (legs, 1 if budget < 3 else 5 if budget < 12 else 20 if budget < 60 else 100)
@@ -5182,7 +5182,7 @@ async def fuse_prime():
 
 @app.post('/api/reputation/admin/arena/prime')
 async def fuse_prime_admin(request: Request):
-    """Cmd Ctr › Arena: turn Prime on/off, set size, rotation (hours / coins), compound; reset deals 3 fresh cards."""
+    """HQ › Arena: turn Prime on/off, set size, rotation (hours / coins), compound; reset deals 3 fresh cards."""
     admin = _require_admin(request)
     body = await request.json()
     async with _admin_lock:
@@ -5246,14 +5246,14 @@ async def _fuse_warm():
         await _crowd_build()
     if _fuse_warm_n['n'] % 36 == 5:   # ~15 min (one runner round): auto-strength picks the proven-best engine dial
         await _engine_auto(time.time())
-    if _fuse_warm_n['n'] % 144 == 3:  # ~1h: nudge Cmd Ctr if a stronger engine config is waiting
+    if _fuse_warm_n['n'] % 144 == 3:  # ~1h: nudge HQ if a stronger engine config is waiting
         _engine_nudge(time.time())
     if _fuse_warm_n['n'] % 12 == 1:   # ~5 min: refresh card holders' Fuse scores (feeds their trust score)
         holders = list({x['wallet'] for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or []})[:200]
         await asyncio.gather(*[_fuse_score(w, fresh=True) for w in holders], return_exceptions=True)
     if _fuse_warm_n['n'] % 12 == 7:   # ~5 min: 📖 the rep engine learns today's meme terms (new launches + chat)
         await _meme_tick(time.time())
-    if _fuse_warm_n['n'] % 2 == 1:    # ~50s: ⚔ engine playground battles (paper, Cmd Ctr only)
+    if _fuse_warm_n['n'] % 2 == 1:    # ~50s: ⚔ engine playground battles (paper, HQ only)
         try:
             await _pg_battle_tick(time.time())
         except Exception as e:
@@ -5280,7 +5280,7 @@ def _round_move(p, live):
 @app.get('/api/reputation/admin/runners/suggest')
 async def admin_runner_suggest(request: Request):
     """⚡ Stronger engine found? Every setting where the live config is weaker than the recommended one (with why), plus each
-    lane's self-tuning record. Apply = POST /admin/runners/config with the merged values (one click in Cmd Ctr)."""
+    lane's self-tuning record. Apply = POST /admin/runners/config with the merged values (one click in HQ)."""
     _require_admin(request)
     d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
     cfg = _runner_cfg(); pr = _rn.lane_proofs(d['rounds'], d['paths'], time.time(), cfg)
@@ -5288,7 +5288,7 @@ async def admin_runner_suggest(request: Request):
 
 
 async def _scenario_stage(rd, now):
-    """Once per runner round (or when Cmd Ctr changes its picks): the scenario cards Cmd Ctr PICKED in the engine playground
+    """Once per runner round (or when HQ changes its picks): the scenario cards HQ PICKED in the engine playground
     (🎨 Creator's pick) are dealt onto the Arena at today's prices with this round's runners + SOL anchor. Runner-ups stay in
     the engine until picked; picked cards fill empty battle seats; ⭐ Publish puts one on the stage for good."""
     rnd = (rd.get('rounds') or [None])[-1]
@@ -5320,7 +5320,7 @@ async def _scenario_stage(rd, now):
 
 @app.post('/api/reputation/admin/fuses/scenario-pick')
 async def scenario_pick(request: Request, body: dict):
-    """🎨 Creator's pick: Cmd Ctr puts an engine runner-up on the Arena (or takes it off). Dealt right away. Audited."""
+    """🎨 Creator's pick: HQ puts an engine runner-up on the Arena (or takes it off). Dealt right away. Audited."""
     admin = _require_admin(request)
     sid = str(body.get('id') or '')[:40]
     if not sid:
@@ -5336,7 +5336,7 @@ async def scenario_pick(request: Request, body: dict):
 
 async def _engine_auto(now):
     """🔧 Auto-strength, once per runner round: if another engine dial is PROVEN better (runners.auto_pick on the dial proof),
-    switch to it and log it (audit + admin inbox). Off when Cmd Ctr turned auto-tune off (RUNNERS_PATH.autoTune = False)."""
+    switch to it and log it (audit + admin inbox). Off when HQ turned auto-tune off (RUNNERS_PATH.autoTune = False)."""
     rd = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
     await _scenario_stage(rd, now)
     if rd.get('autoTune') is not False and rd.get('rounds'):   # 🩺 doctor: learn which picks win, apply that filter or sit out
@@ -5372,17 +5372,17 @@ async def _engine_auto(now):
         d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['cfg'] = _rn.engine_dial(dial, d.get('cfg') or {}); d['cfgDial'] = dial; _json_save(RUNNERS_PATH, d)
     ad = _admin_load(); _audit(ad, 'engine-auto', 'runners-config', f'auto-strength → {dial}: {why}'); _admin_save(ad)
     for adm in _admin_wallets():
-        notify(adm, 'shield', f"🔧 Engine auto-strength: switched to the {dial} dial — {why}. Turn off in Cmd Ctr › Fuse › Engine.", url='/terminal/command?tab=fuse', once=f"engine-auto-{dial}-{int(now // 3600)}")
+        notify(adm, 'shield', f"🔧 Engine auto-strength: switched to the {dial} dial — {why}. Turn off in HQ › Fuse › Engine.", url='/terminal/command?tab=fuse', once=f"engine-auto-{dial}-{int(now // 3600)}")
     return dial
 
 
 def _engine_nudge(now):
-    """Once per new set of suggestions: tell Cmd Ctr a stronger engine config is waiting (they click to apply)."""
+    """Once per new set of suggestions: tell HQ a stronger engine config is waiting (they click to apply)."""
     s = _rn.suggest_cfg(_runner_cfg())
     if s:
         key = ','.join(f"{x['key']}:{x['to']}" for x in s)
         for adm in _admin_wallets():
-            notify(adm, 'shield', f"⚡ Stronger Fuse engine config found ({len(s)} settings) — review and apply in Cmd Ctr › Fuse › Engine.",
+            notify(adm, 'shield', f"⚡ Stronger Fuse engine config found ({len(s)} settings) — review and apply in HQ › Fuse › Engine.",
                    url='/terminal/command?tab=fuse', once=f"engine-{hashlib.sha1(key.encode()).hexdigest()[:12]}", meta={'claim': s[0]['why'], 'source': 'runners.RECOMMENDED'})
     return s
 
@@ -5430,7 +5430,7 @@ async def runners_discover():
             if leg.get('runner') or c.get('kind') in ('lit', 'round'):
                 tag(leg.get('baseAddress') or leg.get('mint'), 'arena', f"on {c.get('emoji') or ''} {c.get('name') or 'an Arena card'}".strip())
     passing_mints = {r['mint'] for r in live['passing']}
-    for f in (_json_load(FUSES_PATH, {'fuses': {}}).get('fuses') or {}).values():   # 📣 any passing coin inside a published Cmd Ctr Fuse
+    for f in (_json_load(FUSES_PATH, {'fuses': {}}).get('fuses') or {}).values():   # 📣 any passing coin inside a published HQ Fuse
         for leg in f.get('legs') or []:
             m_ = leg.get('baseAddress') or leg.get('mint')
             if f.get('enabled', True) and m_ in passing_mints:
@@ -5537,7 +5537,7 @@ def _pg_battle_view(rd):
 
 
 async def _pg_battle_tick(now):
-    """⚔ Engine playground battles (paper, Cmd Ctr only): deal the best scenario cards, swap TP / stop / dead coins mid-round,
+    """⚔ Engine playground battles (paper, HQ only): deal the best scenario cards, swap TP / stop / dead coins mid-round,
     settle at the bell (bigger % wins), winners keep their coins, losers re-bred from this round's picks."""
     rd = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
     b = rd.get('pgBattle') or {}
@@ -5610,7 +5610,7 @@ async def fuse_brain():
 
 @app.post('/api/reputation/admin/runners/pick-filter')
 async def runners_pick_filter(request: Request, body: dict):
-    """Cmd Ctr overrides the doctor: set a pick filter ('' = none) and/or sit out. Audited; the doctor may change it next round."""
+    """HQ overrides the doctor: set a pick filter ('' = none) and/or sit out. Audited; the doctor may change it next round."""
     admin = _require_admin(request)
     fid = body.get('filter') or None
     if fid and fid not in _rn.PICK_FILTERS:
@@ -5619,7 +5619,7 @@ async def runners_pick_filter(request: Request, body: dict):
         d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['pickFilter'] = fid
         if 'sitOut' in body:
             d['sitOut'] = bool(body['sitOut'])
-        d['doctorWhy'] = 'set from Cmd Ctr'; d['doctorAt'] = time.time(); _json_save(RUNNERS_PATH, d)
+        d['doctorWhy'] = 'set from HQ'; d['doctorAt'] = time.time(); _json_save(RUNNERS_PATH, d)
         ad = _admin_load(); _audit(ad, admin, 'runners-config', f"pick filter {fid or 'none'} · sit out {d.get('sitOut')}"); _admin_save(ad)
     return {'filter': fid, 'sitOut': bool(_json_load(RUNNERS_PATH, {}).get('sitOut'))}
 
@@ -5632,7 +5632,7 @@ async def pg_battles_get(request: Request):
 
 @app.post('/api/reputation/admin/fuses/pg-battles')
 async def pg_battles_set(request: Request, body: dict):
-    """Cmd Ctr controls for playground battles: on/off, round length (5/15/30/60 min), cards (2/4/6), $ size, swap rules, or
+    """HQ controls for playground battles: on/off, round length (5/15/30/60 min), cards (2/4/6), $ size, swap rules, or
     `reset` (fresh cards + records). Audited."""
     admin = _require_admin(request)
     async with _admin_lock:
@@ -5657,7 +5657,7 @@ async def runners_cfg_get(request: Request):
 
 @app.post('/api/reputation/admin/runners/config')
 async def runners_cfg_set(request: Request):
-    """Cmd Ctr › Runners settings: gates, round size, each lane's exits, rounds needed to light up. Range-checked; reset = defaults."""
+    """HQ › Runners settings: gates, round size, each lane's exits, rounds needed to light up. Range-checked; reset = defaults."""
     admin = _require_admin(request)
     body = await request.json()
     if body.get('dial'):   # 🎚 Engine dial: Safe / Balanced / Degen sets gates + lanes together
@@ -5893,7 +5893,7 @@ async def admin_fuses_save(request: Request):
                                    'creator': body.get('creator') or prev.get('creator') or admin, 'creatorBps': max(0, min(_fuse.MAX_CREATOR_BPS, int(body.get('creatorBps') or 0))),
                                    'enabled': bool(body.get('enabled', True)), 'basePrices': base, 'createdAt': prev.get('createdAt') or time.time(),
                                    'featured': bool(body.get('featured', prev.get('featured', False))), 'aura': prev.get('aura', ''),
-                                   'arena': bool(body.get('arena', prev.get('arena', not prev))),   # a NEW Cmd Ctr card goes on the Arena by default
+                                   'arena': bool(body.get('arena', prev.get('arena', not prev))),   # a NEW HQ card goes on the Arena by default
                                    **_card_look(body, prev)}
             _arena_mega_cache.update(at=0.0, data=None)
         _json_save(FUSES_PATH, store)
@@ -6359,7 +6359,7 @@ async def wallet_badges(address: str):
     except Exception:
         pass
     if address in _admin_wallets():
-        badges.insert(0, {'id': 'feeless-hq', 'label': 'FEELESS HQ', 'icon': '👑', 'tone': 'gold', 'why': 'Created $FEE — runs the FEELESS command center'})
+        badges.insert(0, {'id': 'feeless-hq', 'label': 'FEELESS HQ', 'icon': '👑', 'tone': 'gold', 'why': 'Created $FEE — runs the FEELESS HQ'})
     # Season cards count as badges too (best rarity first), so chat + profiles show them.
     rank = {'mythic': 5, 'legendary': 4, 'epic': 3, 'rare': 2, 'common': 1}
     seasonal = sorted((it for it in _json_load(COLLECTION_PATH, {}).get(primary_of(address), []) if it.get('kind') in ('season', 'weekly')),
@@ -6368,7 +6368,7 @@ async def wallet_badges(address: str):
         key = f"season:{it['season']}" if it['kind'] == 'season' else f"week:{it['season']}:w{it.get('week')}"
         badges.append({'id': key.replace(':', '-'), 'card': key, 'label': it.get('name') or 'Season card', 'icon': it.get('glyph') or '🏅',
                        'tone': 'gold' if rank.get(it.get('rarity'), 0) >= 3 else 'mint', 'rarity': it.get('rarity'), 'why': it.get('how') or 'Season card'})
-    # Card edits (Cmd Ctr › Badges › Cards) change the name + glyph everywhere, chat included.
+    # Card edits (HQ › Badges › Cards) change the name + glyph everywhere, chat included.
     edits = _json_load(CARDS_PATH, {})
     for b in badges:
         e = edits.get(b.get('card') or f"badge:{b['id']}") or {}
@@ -6398,7 +6398,7 @@ async def health():
     }
 
 
-# ---- FEELESS Command Center: creator-wallet admin tools ------------------------------
+# ---- FEELESS HQ: creator-wallet admin tools ------------------------------
 # $FEE's creator wallet (fee payer of the mint's first transaction on-chain) is the default
 # admin; FEELESS_ADMIN_WALLETS in backend/.env (comma separated) overrides it.
 FEE_CREATOR_WALLET = 'ANwSewb5AaKv4DarsDQ4NSEQ9APNtTGVxygPzn9u5K8P'
@@ -6516,25 +6516,25 @@ async def _record_status(request: Request, call_next):
 
 
 def _require_admin(request: Request) -> str:
-    """Session proof: the admin wallet signs `FEELESS command center\\naddress:{a}\\nts:{ts}` (valid 1h)."""
+    """Session proof: the admin wallet signs `FEELESS HQ\\naddress:{a}\\nts:{ts}` (valid 1h)."""
     addr = request.headers.get('x-admin-address', '')
     ts = request.headers.get('x-admin-ts', '')
     sig = request.headers.get('x-admin-sig', '')
     if addr not in _admin_wallets():
-        raise HTTPException(403, 'This wallet is not a FEELESS command center wallet.')
+        raise HTTPException(403, 'This wallet is not a FEELESS HQ wallet.')
     try:
         ts_i = int(ts)
     except ValueError:
-        raise HTTPException(401, 'Missing command center signature.')
+        raise HTTPException(401, 'Missing HQ signature.')
     if abs(time.time() - ts_i) > 86400:
-        raise HTTPException(401, 'Command center session expired — sign in again.')
-    if not _verify_wallet(addr, f'FEELESS command center\naddress:{addr}\nts:{ts_i}', sig):
-        raise HTTPException(401, 'Command center signature does not match.')
+        raise HTTPException(401, 'HQ session expired — sign in again.')
+    if not _verify_wallet(addr, f'FEELESS HQ\naddress:{addr}\nts:{ts_i}', sig):
+        raise HTTPException(401, 'HQ signature does not match.')
     _role_gate(addr, request)
     return addr
 
 
-# Granted roles are SCOPED (hard-coded): a moderator / marketing wallet only reaches its own Cmd Ctr sections; 'admin'
+# Granted roles are SCOPED (hard-coded): a moderator / marketing wallet only reaches its own HQ sections; 'admin'
 # grants reach everything except owner-only money (Circle, referrals, NFTs… via _require_owner). Owners reach everything.
 ROLE_SCOPES = {
     'moderator': {'moderate', 'bugs', 'shield', 'chat-guard', 'chat-feed', 'verify', 'coin-verify', 'intel-desk', 'latency', 'perf'},
@@ -6765,7 +6765,7 @@ async def admin_airdrop_status(request: Request, drop_id: str, payload: AirdropS
             raise HTTPException(400, 'That transaction failed on-chain.')
         signers = [k['pubkey'] for k in tx['transaction']['message']['accountKeys'] if k.get('signer')]
         if admin not in signers:
-            raise HTTPException(400, 'That transaction was not signed by your command center wallet.')
+            raise HTTPException(400, 'That transaction was not signed by your HQ wallet.')
         verified = {'sig': payload.txSig, 'slot': tx.get('slot'), 'blockTime': tx.get('blockTime')}
     async with _admin_lock:
         d = _admin_load()
@@ -6925,7 +6925,7 @@ async def admin_guard_decide(payload: GuardDecision, request: Request):
     return _guard.view(_guard_s())
 
 
-# ⛓ Contract go-live checklist (Cmd Ctr › Fuse › Contract): the owner records each real-money gate; READY only when all pass.
+# ⛓ Contract go-live checklist (HQ › Fuse › Contract): the owner records each real-money gate; READY only when all pass.
 GOLIVE_STEPS = ('adapter', 'twap', 'devnet', 'audit', 'multisig')
 
 
@@ -7443,7 +7443,7 @@ async def _leg_usd(input_mint, amount):
 async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = '', bundle: int = 0, amount: float = 0):
     """The fee for one trade plus how each engine collects it.
     bps: Swap API fee (paid to feeAccount). ultraBps / referralAccount: the Ultra fallback's fee.
-    bundle ≥ 2 = one leg of a Fuse / runner card bought all at once → bundle pricing (flat $ per coin); Cmd Ctr (staff)
+    bundle ≥ 2 = one leg of a Fuse / runner card bought all at once → bundle pricing (flat $ per coin); HQ (staff)
     pays no FEELESS fee on bundles — only the network / partner fees."""
     cfg = _fee_cfg()
     eng = _engine_cfg(cfg)
@@ -7579,7 +7579,7 @@ class FeeCfg(BaseModel):
 
 @app.get('/api/reputation/admin/fuses/fees')
 async def admin_fuse_fees(request: Request):
-    """Cmd Ctr › Fees: live $ from people fusing (Fuse card legs matched to the fee ledger by signature)."""
+    """HQ › Fees: live $ from people fusing (Fuse card legs matched to the fee ledger by signature)."""
     _require_admin(request)
     rows = [r for v in _json_load(FEE_LEDGER_PATH, {}).values() for r in (v or [])]
     return _hq.fuse_fees(_json_load(FUSE_HQ_PATH, {}).get('positions') or [], rows, time.time())
@@ -7985,7 +7985,7 @@ def _ts_num(v):
 
 
 async def _shield_of(address):
-    """One wallet's Bot shield verdict (cached 5 min). FEELESS wallets are never flagged; Cmd Ctr decisions win."""
+    """One wallet's Bot shield verdict (cached 5 min). FEELESS wallets are never flagged; HQ decisions win."""
     a = primary_of(address)
     hit = _shield_cache.get(a)
     if hit and time.time() - hit[0] < 300:
@@ -8012,7 +8012,7 @@ def _fuse_rep(a):
 
 
 def _shield_scan_all():
-    """Every known wallet through every engine, data loaded once (Cmd Ctr list + hourly alerts)."""
+    """Every known wallet through every engine, data loaded once (HQ list + hourly alerts)."""
     qs = _json_load(QUEST_STATE_PATH, {})
     trades_all = _json_load(FEELESS_TRADES_PATH, {})
     chat_all = [m for ms in _chat_load()['rooms'].values() for m in ms if isinstance(m, dict) and not m.get('system')]
@@ -8031,7 +8031,7 @@ def _shield_scan_all():
 
 @app.get('/api/reputation/admin/shield')
 async def shield_admin(request: Request, verdict: str = Query('flagged')):
-    """Cmd Ctr › Security › Bot shield: scan every known wallet with every engine."""
+    """HQ › Security › Bot shield: scan every known wallet with every engine."""
     _require_admin(request)
     rows = _shield_scan_all()
     counts = {k: sum(1 for r in rows if r['verdict'] == k) for k in ('bot', 'watch', 'clean')}
@@ -8557,7 +8557,7 @@ async def admin_ad_delete(request: Request, ad_id: str):
     return {'ok': True}
 
 
-# ---- Command Center: pulse, moderation, broadcast, treasury ---------------------------------
+# ---- HQ: pulse, moderation, broadcast, treasury ---------------------------------
 MUTES_PATH = DATA_DIR / 'mutes.json'
 
 
@@ -9391,7 +9391,7 @@ async def helius_webhook(request: Request):
     return {'ok': True, 'ingested': n}
 
 
-# ---- Auto-managed Helius webhook: follows the public domain set in the Command Center ---------
+# ---- Auto-managed Helius webhook: follows the public domain set in the HQ ---------
 def _helius_key():
     """HELIUS_API_KEY, else the api-key in HELIUS_RPC_URL, else in SOLANA_RPC_URL (which may point at another RPC)."""
     import re as _re2
@@ -9779,7 +9779,7 @@ async def edge_memory(chain: str):
     return {'chain': chain, 'resolved': len(rows), 'pending': sum(1 for o in d['open'].values() if o['chain'] == chain), 'grades': grades}
 
 
-# ---- Command center: the numbers side --------------------------------------------------------
+# ---- HQ: the numbers side --------------------------------------------------------
 # One call for everything an owner watches: $FEE market, holder base, treasury, swap flow through
 # FEELESS (from stored on-chain receipts), and the scanner's output. A snapshot is kept per day,
 # so growth lines build themselves from the first time the owner opens this.
@@ -10580,7 +10580,7 @@ async def admin_seasons(request: Request):
 
 
 # ================================================================================================
-# COMMAND CENTER ROLES + IDEAS
+# HQ ROLES + IDEAS
 # ================================================================================================
 ROLES_PATH = DATA_DIR / 'roles.json'
 ROLE_NAMES = ('admin', 'moderator', 'marketing')
@@ -10603,7 +10603,7 @@ class RolePayload(BaseModel):
 
 
 def grant_message(address, role, ts):
-    return f'FEELESS grant command center access\nwallet:{address}\nrole:{role}\nts:{int(ts)}'
+    return f'FEELESS grant HQ access\nwallet:{address}\nrole:{role}\nts:{int(ts)}'
 
 
 @app.get('/api/reputation/admin/roles')
@@ -10617,10 +10617,10 @@ async def admin_roles(request: Request):
 async def admin_role_grant(request: Request, p: RolePayload):
     me = _require_admin(request)
     if me not in _owner_wallets():
-        raise HTTPException(403, 'Only the FEELESS owner wallet can grant command center access.')
+        raise HTTPException(403, 'Only the FEELESS owner wallet can grant HQ access.')
     if p.role not in ROLE_NAMES or not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.address) or _re.match(r'^0x[0-9a-fA-F]{40}$', p.address)):
         raise HTTPException(400, 'Valid wallet + role (admin, moderator, marketing) required.')
-    # The creator signs THIS grant (wallet, role, time) — a leaked Cmd Ctr session alone can never hand out access.
+    # The creator signs THIS grant (wallet, role, time) — a leaked HQ session alone can never hand out access.
     if abs(time.time() - p.ts) > 600 or not _verify_wallet(me, grant_message(p.address, p.role, p.ts), p.sig):
         raise HTTPException(401, 'Sign the grant with the owner wallet (signature missing, expired or wrong).')
     d = _json_load(ROLES_PATH, {'grants': {}})
@@ -11175,12 +11175,12 @@ async def local_update_log(request: Request):
         return {'log': ''}
 
 
-# ---- Setup checklist for the command center: which keys/URLs are configured (never the values) ----
+# ---- Setup checklist for the HQ: which keys/URLs are configured (never the values) ----
 SETUP_KEYS = [
     ('SOLANA_RPC_URL', 'Solana RPC (Helius)', 'Chain reads, forensics, trades feed', True),
     ('ALCHEMY_API_KEY', 'Alchemy', 'EVM + Solana RPC, price history, gas checks', True),
     ('JUPITER_API_KEY', 'Jupiter', 'Solana swaps, token search, $FEE pricing', True),
-    ('FEELESS_ADMIN_WALLETS', 'Owner wallets', 'Who can open the command center (defaults to creator wallet)', False),
+    ('FEELESS_ADMIN_WALLETS', 'Owner wallets', 'Who can open the HQ (defaults to creator wallet)', False),
     ('ALLOWED_ORIGINS', 'Site domain', 'Lock APIs to your domain before launch', False),
     ('HELIUS_WEBHOOK_SECRET', 'Helius webhook secret', 'Instant whale / dev-sell events', False),
     ('BASE_RPC_URL', 'Base RPC', 'Dedicated Base endpoint for pool reads', False),
@@ -11268,7 +11268,7 @@ async def rug_report(days: int = Query(7, ge=1, le=30)):
 
 # ---- FEELESS launch rail (Meteora Dynamic Bonding Curve) -------------------------------------
 # The owner creates ONE on-chain DBC config (curve, fees, fee claimer, graduation) from their own
-# wallet in the command center. Every FEELESS launch then creates its pool on that config, signed by
+# wallet in the HQ. Every FEELESS launch then creates its pool on that config, signed by
 # the creator's wallet. The server stores only public addresses and never signs anything.
 LAUNCH_RAIL_PATH = DATA_DIR / 'launch_rail.json'
 TOKEN_META_DIR = DATA_DIR / 'token_meta'
@@ -11527,7 +11527,7 @@ async def pump_create_tx(p: PumpCreateIn):
     img = (UPLOAD_DIR / m.group(1)).read_bytes()
     mime = {'png': 'image/png', 'jpg': 'image/jpeg', 'webp': 'image/webp', 'gif': 'image/gif'}[m.group(2)]
     form = launch_meta.pump_form(p.name, p.symbol, p.description, p.website, p.twitter, p.telegram)
-    costs = launch_meta.clean_costs(_json_load(LAUNCH_RAIL_PATH, {}).get('costs'))   # Cmd Ctr › Launch › Costs
+    costs = launch_meta.clean_costs(_json_load(LAUNCH_RAIL_PATH, {}).get('costs'))   # HQ › Launch › Costs
     async with httpx.AsyncClient(timeout=30, headers={'User-Agent': 'Mozilla/5.0'}) as http:
         r = await http.post('https://pump.fun/api/ipfs', data=form, files={'file': (m.group(1), img, mime)})
         if r.status_code != 200:
@@ -11625,7 +11625,7 @@ class PoolRegIn(BaseModel):
 
 @app.post('/api/reputation/admin/pools/register')
 async def pools_register(request: Request, p: PoolRegIn):
-    """Record a pool created from the command center. Verified on-chain: succeeded, signed by this admin."""
+    """Record a pool created from the HQ. Verified on-chain: succeeded, signed by this admin."""
     admin = _require_admin(request)
     async with httpx.AsyncClient(timeout=20) as http:
         tx = await _rpc(http, 'getTransaction', [p.signature, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}])
@@ -11707,7 +11707,7 @@ async def token_logo(mint: str):
     hit = next(LOGO_DIR.glob(f'{mint}.*'), None)
     headers = {'Cache-Control': 'public, max-age=604800, immutable'}
     over = _json_load(LOGO_OVERRIDE_PATH, {}).get(mint)
-    if over and (UPLOAD_DIR / over.rsplit('/', 1)[-1]).exists():   # owner-set logo (Cmd Ctr) always wins
+    if over and (UPLOAD_DIR / over.rsplit('/', 1)[-1]).exists():   # owner-set logo (HQ) always wins
         return FileResponse(UPLOAD_DIR / over.rsplit('/', 1)[-1], headers={'Cache-Control': 'public, max-age=300'})
     if hit:
         return FileResponse(hit, headers=headers)
@@ -11769,7 +11769,7 @@ async def token_logo(mint: str):
         return Response(body, media_type=ct, headers=headers)
 
 
-# ---- Command center: chart & data-provider latency --------------------------------------------------
+# ---- HQ: chart & data-provider latency --------------------------------------------------
 LATENCY_PROBES = [
     # (name, role in the chart pipeline, env var that controls/replaces it, url builder)
     ('Jupiter chart data', 'Chart history #1 (Solana)', '—', lambda: f"https://datapi.jup.ag/v2/charts/So11111111111111111111111111111111111111112?interval=1_MINUTE&to={int(time.time()*1000)}&candles=2&type=price&quote=usd"),
@@ -11836,7 +11836,7 @@ async def _start_latency_alarm():
     asyncio.create_task(_latency_alarm())
 
 
-# ---- Command center: marketing — 3-day top movers + top/bottom reputations, ready to post -------------
+# ---- HQ: marketing — 3-day top movers + top/bottom reputations, ready to post -------------
 MARKETING_PATH = DATA_DIR / 'marketing.json'
 _movers_cache = {'at': 0, 'rows': []}
 
@@ -12356,7 +12356,7 @@ async def badge_pools_public(address: str = ''):
                        'earns': [k.split(':', 1)[1] for k in pl['pool'].get('weights', {})], 'me': reserve_pool.wallet_share(pl, a) if a else None} for pl in hit[1]]}
 
 
-# ---- Lag catcher: browsers report API latency / long tasks / FPS once a minute; Command Center sees the fix ----
+# ---- Lag catcher: browsers report API latency / long tasks / FPS once a minute; HQ sees the fix ----
 PERF_CFG_PATH = DATA_DIR / 'perf_config.json'
 _perf_samples = collections.deque(maxlen=4000)
 
@@ -12762,7 +12762,7 @@ _pulse_cache: dict = {}
 
 @app.get('/api/reputation/admin/money-pulse')
 async def admin_money_pulse(request: Request, fresh: int = 0):
-    """ONE snapshot for every Command Center money card: fee accounts, admin, season reserves, badge pools and Circle
+    """ONE snapshot for every HQ money card: fee accounts, admin, season reserves, badge pools and Circle
     wallets (one batched chain read + Circle in parallel), their payout plans, a preflight of everything trading
     depends on, and nudges. Owners also get Circle (and calling it keeps the Circle service alive)."""
     me = _require_admin(request)
@@ -12982,7 +12982,7 @@ async def _verify_fill(mint):
 @app.get('/api/reputation/verify/batch')
 async def verify_batch(mints: str = Query('', max_length=4000)):
     """Checks for logos on screen: answers from cache instantly, verifies missing coins in the background
-    (a few at a time), and always reflects Command Center grants/revokes immediately."""
+    (a few at a time), and always reflects HQ grants/revokes immediately."""
     store = _verify_store()['mints']
     out = {}
     for m in [x.strip() for x in mints.split(',') if x.strip()][:60]:
@@ -13483,7 +13483,7 @@ async def circle_wallet_meta(request: Request, wid: str, p: CircleMetaIn):
     try:
         await _circle('POST', '/wallets/rename', {'id': wid, 'name': p.name})
     except HTTPException:
-        pass  # Circle rename is best effort; the FEELESS label below is what the Command Center shows
+        pass  # Circle rename is best effort; the FEELESS label below is what the HQ shows
     d = _json_load(CIRCLE_META_PATH, {})
     d[wid] = {'name': p.name, 'description': p.description, 'at': time.time()}
     _json_save(CIRCLE_META_PATH, d)
@@ -13512,7 +13512,7 @@ async def _circle_destinations(circle_wallets=None) -> list:
 
 @app.get('/api/reputation/admin/circle/destinations')
 async def circle_destinations(request: Request):
-    """Where a Circle wallet may send: Command Center wallets + ones the owner saved."""
+    """Where a Circle wallet may send: HQ wallets + ones the owner saved."""
     _require_owner(request)
     return {'destinations': await _circle_destinations()}
 

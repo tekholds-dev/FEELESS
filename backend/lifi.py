@@ -1,7 +1,7 @@
 """LI.FI proxy: every EVM swap, bridge and gas route goes through here.
 
 - The API key (LIFI_API_KEY) and integrator (LIFI_INTEGRATOR) stay on the server; the browser never sees them.
-- The FEELESS fee (Command Center -> Fees & Pricing, lifiFeeBps) is added here. If LI.FI refuses the fee
+- The FEELESS fee (HQ -> Fees & Pricing, lifiFeeBps) is added here. If LI.FI refuses the fee
   (integrator not activated yet), the quote is retried without it so trading never breaks.
 - Safety check on every quote: the transaction and the token approval must target LI.FI's own contracts,
   on the chain that was asked for, from the wallet that asked. Anything else is refused before it reaches a wallet.
@@ -28,7 +28,7 @@ def _headers():
 
 
 async def _fee_bps():
-    """Command Center setting (reputation service); 0 when unset or unreachable."""
+    """HQ setting (reputation service); 0 when unset or unreachable."""
     hit = _cache.get('fee')
     if hit and time.time() - hit[0] < 60:
         return hit[1]

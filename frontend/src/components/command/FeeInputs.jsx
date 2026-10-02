@@ -69,7 +69,7 @@ export function LiveMoney({ call, solUsd }) {
         <span><small>Last hour</small><b>{usd(t?.hour)}</b></span>
         <span><small>Last 24h</small><b>{usd(t?.day)}</b></span>
         <span><small>7 days</small><b>{usd(t?.week)}</b><em>{t ? `${t.trades} trades · ${usd(t.volumeUsd)} volume` : 'trade stats offline'}</em></span>
-        <span className="lm-fuse" data-testid="lm-fuse" data-tip="FEELESS fees from Fuse card legs (bundle pricing). Cmd Ctr cards pay none — only network / partner fees."><small>⚛️ Fuse fees · 24h</small><b>{usd(fz?.day)}</b><em>{fz ? `1h ${usd(fz.hour)} · 7d ${usd(fz.week)} · ${fz.cards} cards / ${fz.legs} legs` : 'reading…'}</em></span>
+        <span className="lm-fuse" data-testid="lm-fuse" data-tip="FEELESS fees from Fuse card legs (bundle pricing). HQ cards pay none — only network / partner fees."><small>⚛️ Fuse fees · 24h</small><b>{usd(fz?.day)}</b><em>{fz ? `1h ${usd(fz.hour)} · 7d ${usd(fz.week)} · ${fz.cards} cards / ${fz.legs} legs` : 'reading…'}</em></span>
       </div>
       {t?.coins?.length > 0 && <div className="lm-coins"><small>Top coins by fees (7d)</small>{t.coins.slice(0, 6).map(c => <div key={c.mint}><b>${c.symbol || c.mint.slice(0, 4)}</b><span>{c.trades} trades</span><em>{usd(c.feesUsd)}</em></div>)}</div>}
       <small className="cc-empty">Balances are read on-chain. Per-window fees are from confirmed trades (trade value × fee).</small></>}

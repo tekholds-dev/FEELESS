@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-// One owner-side poller for every Command Center money card (reserve, pools, Circle, treasury, preflight).
+// One owner-side poller for every HQ money card (reserve, pools, Circle, treasury, preflight).
 // One request a minute, paused while the tab is hidden, shared by every card that subscribes.
 const EVERY = 60_000;
 let state = { data: null, error: '', at: 0 };
@@ -33,7 +33,7 @@ function stop() {
 }
 function onVisible() { if (!document.hidden && Date.now() - state.at > EVERY) refreshPulse(); }
 
-// `call` is the Command Center's admin-signed fetch. Pass null for read-only subscribers.
+// `call` is the HQ's admin-signed fetch. Pass null for read-only subscribers.
 export function useMoneyPulse(call) {
   const [s, setS] = useState(state);
   useEffect(() => {

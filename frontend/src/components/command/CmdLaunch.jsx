@@ -9,7 +9,7 @@ import { launchTerms, receiptLinks, coinErrors, socialLink } from '../../lib/cmd
 import { CopyBtn } from '../CopyBtn';
 import { moneyConfirmed } from '../../lib/moneyConfirm';
 
-// Command Center launcher: pick the rail (house / FEELESS / pump.fun), pick the config for THIS coin, fill the coin,
+// HQ launcher: pick the rail (house / FEELESS / pump.fun), pick the config for THIS coin, fill the coin,
 // review every term, sign once, get the full receipt (CA, links, tx, metadata) right after.
 // Plain words for each rail: where the coin lives and what happens after you sign.
 const RAILS = [

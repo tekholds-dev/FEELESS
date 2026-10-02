@@ -1914,7 +1914,7 @@ body.reduced-motion-setting .live-gradient-text{animation:none}
 body.theme-day :is(.trend-sorts,.trend-tfs){border-color:var(--day-border);background:#fff8}
 body.theme-day :is(.trend-sorts,.trend-tfs) button.active{color:#073d2a}
 body.theme-day .trend-refresh{border-color:#07784f;color:#07784f}
-/* ===== Command Center ===== */
+/* ===== HQ ===== */
 .cc-launch{padding:8px 14px;border-radius:10px;border:1px solid #f5c542;background:linear-gradient(135deg,rgba(245,197,66,.22),rgba(18,192,122,.14));color:#ffe08a;font-weight:800;cursor:pointer;box-shadow:0 0 18px rgba(245,197,66,.25);animation:cc-pulse 2.6s ease-in-out infinite}
 @keyframes cc-pulse{50%{box-shadow:0 0 30px rgba(245,197,66,.45)}}
 .cc-shell{display:grid;gap:14px;padding:18px;border-radius:18px;border:1px solid rgba(245,197,66,.3);background:radial-gradient(80% 60% at 0 0,rgba(245,197,66,.08),transparent 60%),radial-gradient(70% 60% at 100% 100%,rgba(18,192,122,.08),transparent 60%),rgba(4,12,9,.85);min-height:70vh}
@@ -2597,7 +2597,7 @@ body.reduced-motion-setting .globe-star{animation:none}
 body.theme-day .globe-feed li{color:#0a1f14}
 
 .feeless-cat-art{display:inline-grid;place-items:center}.feeless-cat-art>svg{width:100%;height:100%}
-/* Command center: numbers */
+/* HQ: numbers */
 .nm{display:grid;gap:14px}.nm-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.nm-head small{color:var(--muted);font-size:11px}
 .nm-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
 .nm-tile{padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:linear-gradient(160deg,rgba(255,255,255,.04),rgba(255,255,255,.01));display:grid;gap:4px;min-width:0}
@@ -3153,7 +3153,7 @@ body.theme-day .crop-card{background:#fff;border-color:#cfe3d8}
 .rail-terms h4{margin:0 0 8px;font-size:12px;letter-spacing:.6px;color:var(--mint)}
 .rail-terms ul{margin:0;padding-left:18px;display:grid;gap:4px;font-size:12.5px;color:#cfe3d6}
 .rail-terms p{margin:8px 0 0;font-size:11.5px;color:#8eae99}
-/* Command center forms: real fields, not flat grey bars */
+/* HQ forms: real fields, not flat grey bars */
 .rail-form input:not([type=checkbox]){width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--field-border,#ffffff1f);background:var(--field-bg,#0b1512);color:inherit;font:500 14px 'JetBrains Mono',monospace;outline:0;transition:border-color .15s,box-shadow .15s}
 .rail-form input:not([type=checkbox]):focus{border-color:var(--mint);box-shadow:0 0 0 3px #19f58f1f}
 .rail-form input::placeholder{color:#5f7a6a}
@@ -3447,7 +3447,7 @@ body.theme-day .explain-tip{background:#fff;color:#173b2b;border-color:#07784f44
 .pump-pulse-banner span{display:inline-flex;align-items:baseline;gap:4px;font-weight:700}.pump-pulse-banner small{font-weight:500;font-size:10px;color:var(--muted);text-transform:uppercase}
 .pump-pulse-banner.pulse-3{border-color:#ff7ad9;box-shadow:0 0 18px #ff7ad933}
 
-/* ---- FeeCat Command Center: plain-language mechanics ---- */
+/* ---- FeeCat HQ: plain-language mechanics ---- */
 .fee-howto{margin:6px 0 0;padding-left:20px;display:grid;gap:7px;font-size:12.5px;line-height:1.55;color:var(--text,#e8f3ec)}.fee-howto b{color:var(--mint)}.fee-howto i{font-style:normal;text-decoration:underline;text-decoration-color:#19f58f66}
 .fee-rule-help{display:block;font-size:10.5px;line-height:1.4;color:var(--muted);margin:-2px 0 2px}
 body.theme-day .fee-howto{color:#10231a}
@@ -3653,7 +3653,7 @@ body.theme-day [data-testid="swap-review-dialog"]{background:#fff!important}
 .cc-seg{display:flex;border:1px solid rgba(22,214,127,.25);border-radius:9px;overflow:hidden;margin-bottom:10px}.cc-seg button{flex:1;padding:8px 10px;font-size:12px;border:0;background:transparent;color:#9fc3ad;cursor:pointer}.cc-seg button.active{background:#19f58f;color:#02140c;font-weight:700}
 .cc-check{display:flex!important;gap:8px;align-items:flex-start;font-size:12px;line-height:1.5;margin-bottom:10px}.cc-check input{width:auto!important;margin-top:3px}
 .fee-pnl-usd{margin-left:6px;font-size:.9em;opacity:.9}
-/* ===== Command Center: degen-tech shell ===== */
+/* ===== HQ: degen-tech shell ===== */
 .cc-shell{--cc-line:rgba(22,214,127,.18);--cc-glow:0 0 0 1px rgba(22,214,127,.08),0 10px 40px rgba(0,0,0,.45)}
 .cc-tabs{display:flex;flex-wrap:wrap;gap:14px;padding:12px;border:1px solid var(--cc-line);border-radius:14px;background:linear-gradient(rgba(22,214,127,.03) 1px,transparent 1px) 0 0/100% 18px,#040806}
 .cc-tab-group{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
@@ -3774,7 +3774,7 @@ body.profile-bg .wallet-profile-page{background:transparent!important}body.profi
 .fee-table th:first-child,.fee-table td:first-child{text-align:left}.fee-table td{padding:7px 8px;text-align:right;color:#eafff3;border-bottom:1px solid rgba(255,255,255,.04)}
 .fee-table td:nth-child(2){color:#19f58f;font-weight:700}.fee-table tr:hover td{background:rgba(22,214,127,.04)}
 body.theme-day .fee-table td{color:#0a1f14}
-/* Command Center: roomier */
+/* HQ: roomier */
 .cc-shell{padding:22px!important}.cc-studio-grid{gap:18px!important}.cc-block{padding:20px!important}.cc-panel{display:grid;gap:18px}
 /* ===== Case files (investigation engine) ===== */
 .cf-overlay{position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);display:grid;place-items:center;padding:16px;animation:np-open .18s ease-out}
@@ -3914,7 +3914,7 @@ body.theme-day .cf-vitals span{background:#fff}body.theme-day .cf-vitals b{color
 .panel-crash{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:14px 16px;border:1px dashed rgba(245,197,66,.45);border-radius:12px;background:rgba(245,197,66,.05);font-size:12.5px;color:#e8d9b0;margin:8px 0}
 .panel-crash b{color:var(--gold)}.panel-crash button{margin-left:auto;border:1px solid rgba(22,214,127,.4);background:transparent;color:#19f58f;border-radius:8px;padding:5px 12px;font:700 11px 'JetBrains Mono',monospace;cursor:pointer}.panel-crash button:hover{background:#19f58f;color:#02140c}
 
-/* ── Badge engine (Command Center › Badges) ───────────────────────────── */
+/* ── Badge engine (HQ › Badges) ───────────────────────────── */
 .cc-panel.cc-award.cc-badges-meta { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: start; }
 .cc-badges-meta > .bdg-seg { align-self: start; }
 .bdg-hero { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; padding: 18px 20px; border-radius: 14px; border: 1px solid rgba(22,214,127,.22);
@@ -4111,7 +4111,7 @@ body.theme-day .fee-ecg path{stroke:#00a36b}
 .ring-demo:not(:hover):not(.active){animation:none!important}
 .wp-avatar[class*="ring-"]:not(.xp-avatar .wp-avatar),.ptier-2 .wp-avatar:not(.xp-avatar .wp-avatar),.ptier-3 .wp-avatar:not(.xp-avatar .wp-avatar){animation:none!important}
 @media (prefers-reduced-motion:reduce){.heartbeat-mark::before{animation:none!important}}
-/* Lite effects (auto when a device lags, or forced site-wide from Command Center › Lag catcher) */
+/* Lite effects (auto when a device lags, or forced site-wide from HQ › Lag catcher) */
 body.fx-lite .profile-backdrop::before,body.fx-lite .profile-backdrop::after,body.fx-lite .ambient-flakes,body.fx-lite .mouse-glow,body.fx-lite .ambient-orbit,body.fx-lite .ambient-scanline{display:none!important}
 body.fx-lite .fee-ecg path,body.fx-lite .heartbeat-mark,body.fx-lite .heartbeat-mark::before,body.fx-lite .heartbeat-mark::after,body.fx-lite .network-orbit,body.fx-lite .wp-avatar,body.fx-lite .live-gradient-text{animation:none!important}
 body.fx-lite *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
@@ -4296,7 +4296,7 @@ body.theme-day .vr-head{background:#f4fbf7;border-color:#00875c26}body.theme-day
 .cp-chip.warn{border-color:#f5c54240;color:var(--gold,#f5c542)}.cp-chip.bad{border-color:#ff8fa355;color:#ff8fa3;background:#ff8fa30d}.cp-chip.dim{color:#ffffff90}
 .coin-passport>em{margin-left:auto;font:600 10.5px 'JetBrains Mono',monospace;font-style:normal;color:#19f58f}
 body.theme-day .coin-passport{background:#f7fcf9;border-color:#00875c33}body.theme-day .cp-chip{background:#fff;color:#0b1f16b0;border-color:#0b1f1620}
-/* Treasury pulse (Cmd Ctr header) */
+/* Treasury pulse (HQ header) */
 .cc-head{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
 .tr-pulse{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
 .tr-pulse button{display:grid;gap:1px;justify-items:start;padding:6px 12px;border-radius:10px;border:1px solid #19f58f26;background:#030a07;color:#e8fff5;cursor:pointer;transition:border-color .15s,background .15s,transform .1s}
@@ -4306,7 +4306,7 @@ body.theme-day .coin-passport{background:#f7fcf9;border-color:#00875c33}body.the
 .tr-pulse button.hot{border-color:#f5c54266;box-shadow:0 0 0 1px #f5c54222,0 0 18px #f5c5421a}
 body.theme-day .tr-pulse button{background:#f4fbf7;color:#0b1f16;border-color:#00875c33}
 .np-watch{display:grid!important;grid-template-columns:auto 1fr auto auto;align-items:center;gap:8px}.np-watch>a:first-of-type{color:inherit;text-decoration:none;min-width:0}.np-watch>a:first-of-type:hover p{text-decoration:underline}
-/* Command Center: roomy, clear tabs */
+/* HQ: roomy, clear tabs */
 .cc-shell{--cc-gap:16px}
 .cc-shell>.cc-panel,.cc-shell>section{margin-top:var(--cc-gap)}
 .cc-shell .cc-panel{gap:var(--cc-gap)!important}
@@ -4327,7 +4327,7 @@ body.theme-day .tr-pulse button{background:#f4fbf7;color:#0b1f16;border-color:#0
 body.theme-day .cc-tab-group{background:#f1fbf6;border-color:#00875c26}body.theme-day .cc-tab-hero{background:#f4fbf7;border-color:#00875c33}
 body.theme-day .cc-tab-hero p{color:#0b1f16b0}body.theme-day .cc-tab-does span{color:#0b3d2c;border-color:#00875c40}
 body.theme-day .cc-tab-group button.active{background:#00c07c!important;color:#fff!important}
-/* Fee's brain (Cmd Ctr) */
+/* Fee's brain (HQ) */
 .fee-brain{display:grid;gap:12px}
 .fb-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
 .fb-kpis span{display:grid;gap:3px;padding:12px 14px;border-radius:12px;border:1px solid #19f58f26;background:#030a07}

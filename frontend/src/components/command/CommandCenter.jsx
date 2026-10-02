@@ -77,7 +77,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
   const call = useCallback(async (path, opts = {}) => {
     const res = await fetch(apiUrl(`/api/reputation${path}`), { ...opts, headers: { 'Content-Type': 'application/json', 'x-admin-address': address, 'x-admin-ts': String(session?.ts || ''), 'x-admin-sig': session?.sig || '', ...(opts.headers || {}) } });
     const body = await res.json().catch(() => ({}));
-    if (res.status === 401) { localStorage.removeItem(SESSION_KEY); setSession(null); toast.error(body.detail ? errorText(body, 401) : 'Command center session ended — sign in again.'); }
+    if (res.status === 401) { localStorage.removeItem(SESSION_KEY); setSession(null); toast.error(body.detail ? errorText(body, 401) : 'HQ session ended — sign in again.'); }
     if (!res.ok) throw new Error(errorText(body, res.status));
     return body;
   }, [address, session]);
@@ -86,7 +86,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
     setBusy(true);
     try {
       const ts = Math.floor(Date.now() / 1000);
-      const sig = await signMessage(`FEELESS command center\naddress:${address}\nts:${ts}`);
+      const sig = await signMessage(`FEELESS HQ\naddress:${address}\nts:${ts}`);
       const s = { address, ts, sig };
       // Check the signature before opening the panels, so a bad signature shows its reason instead of looping back here.
       const res = await fetch(apiUrl('/api/reputation/admin/security'), { headers: { 'x-admin-address': address, 'x-admin-ts': String(ts), 'x-admin-sig': sig } });
@@ -109,9 +109,9 @@ export function CommandCenter({ address, signMessage, onClose }) {
   const toggle = a => setSelected(s => { const n = new Set(s); n.has(a) ? n.delete(a) : n.add(a); return n; });
 
   if (!session) return <div className="cc-shell" data-testid="command-center"><div className="cc-gate">
-    <div className="cc-crown">👑</div><h2 className="trenches-font live-gradient-text">FEELESS Command Center</h2>
+    <div className="cc-crown">👑</div><h2 className="trenches-font live-gradient-text">FEELESS HQ</h2>
     <p>This wallet created $FEE. Sign once (free, no transaction) to open holders, airdrops, badges and the security monitor for the next 24 hours.</p>
-    <div className="cc-gate-actions"><button type="button" className="btn-primary" disabled={busy} onClick={signIn}><ShieldCheck size={15} />{busy ? 'Check your wallet…' : 'Sign in to Command Center'}</button><button type="button" className="btn-outline" onClick={onClose}>Back to profile</button></div>
+    <div className="cc-gate-actions"><button type="button" className="btn-primary" disabled={busy} onClick={signIn}><ShieldCheck size={15} />{busy ? 'Check your wallet…' : 'Sign in to HQ'}</button><button type="button" className="btn-outline" onClick={onClose}>Back to profile</button></div>
   </div></div>;
 
   // Grouped so the money + infra controls are always first; every tab id appears exactly once.
@@ -122,9 +122,9 @@ export function CommandCenter({ address, signMessage, onClose }) {
   const allowed = id => !ROLE_TABS[role] || ROLE_TABS[role].includes(id);
   const TABS = [['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['shield', '🛡 Bot shield', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fuse', '⚛️ Fuse', Award], ['nfts', 'NFTs', Gift], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="command-center">
-    <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">Command Center</h2><small>{role && role !== 'owner' ? `🔑 ${role}` : '👑'} {shortAddress(address)} · session signed · live</small></div><TreasuryPulse call={call} onOpen={openTab} />
+    <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">HQ</h2><small>{role && role !== 'owner' ? `🔑 ${role}` : '👑'} {shortAddress(address)} · session signed · live</small></div><TreasuryPulse call={call} onOpen={openTab} />
       <nav className="cc-tabs" data-testid="cc-nav">{TAB_GROUPS.map(([group, ids]) => <div key={group} className="cc-tab-group"><small>{group}</small>{ids.filter(allowed).map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</div>)}</nav>
-      <button type="button" className="cc-close" onClick={onClose} aria-label="Close command center"><X size={16} /></button></header>
+      <button type="button" className="cc-close" onClick={onClose} aria-label="Close HQ"><X size={16} /></button></header>
     {TAB_INFO[tab] && <div className="cc-tab-hero" key={tab} data-testid="cc-tab-hero"><div><small>{TAB_GROUPS.find(g => g[1].includes(tab))?.[0]?.toUpperCase()}</small><h3>{TAB_INFO[tab][0]}</h3><p>{TAB_INFO[tab][1]}</p></div>{TAB_INFO[tab][2].length > 0 && <div className="cc-tab-does">{TAB_INFO[tab][2].map(x => <span key={x}>{x}</span>)}</div>}</div>}
 
     {tab === 'launch' && <LaunchRailAdmin call={call} isOwner={isOwner} />}
@@ -287,7 +287,7 @@ function AwardBadges({ call, initial }) {
     <div className="bdg-seg" role="tablist">{[['cards', '🃏 Cards'], ['award', '🎖️ Award'], ['ledger', '📜 Ledger'], ['caps', '⚙ Caps']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'active' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
     {view === 'cards' && <CardStudio call={call} />}
     {view === 'caps' && <>
-    <div className="cc-block"><h4>Badge mechanics</h4><p className="cc-note">Awards are earned inventory. The profile and chat caps only control how many a user may display; they do not delete awards. Only Command Center can issue or revoke them.</p><div className="cc-studio-grid"><label>Profile display cap<input type="number" min="0" max="12" value={limits.profile} onChange={e => setLimits(x => ({ ...x, profile: e.target.value }))} /></label><label>Chat display cap<input type="number" min="0" max="12" value={limits.chat} onChange={e => setLimits(x => ({ ...x, chat: e.target.value }))} /></label></div><button type="button" className="btn-primary" onClick={saveLimits}>Save display caps</button></div>
+    <div className="cc-block"><h4>Badge mechanics</h4><p className="cc-note">Awards are earned inventory. The profile and chat caps only control how many a user may display; they do not delete awards. Only HQ can issue or revoke them.</p><div className="cc-studio-grid"><label>Profile display cap<input type="number" min="0" max="12" value={limits.profile} onChange={e => setLimits(x => ({ ...x, profile: e.target.value }))} /></label><label>Chat display cap<input type="number" min="0" max="12" value={limits.chat} onChange={e => setLimits(x => ({ ...x, chat: e.target.value }))} /></label></div><button type="button" className="btn-primary" onClick={saveLimits}>Save display caps</button></div>
     </>}
     {view === 'award' && <div className="bdg-award">
     <div className="cc-award-preview"><span className={`badge-pill tone-${tone}`}>{icon} {label || 'Badge name'}</span><small>{why || 'Why they earned it'}</small></div>
@@ -427,7 +427,7 @@ function FeesPanel({ call }) {
       <li><b>Only exemption:</b> buying $FEE, FEECAT or rFEE with SOL, USDC or USDT is 0%. Selling them pays the fee.</li>
       <li><b>Coin → coin</b> trades have no SOL/USDC side to pay from, so they are refused: traders route coin → SOL → coin.</li>
       <li><b>Holder tiers and promos</b> lower the fee (max 90% off). They never make a trade free.</li>
-      <li><b>Cards bought all at once</b> (Fuse / runners) pay the bundle price per coin (section 6). Cmd Ctr cards pay no FEELESS fee.</li>
+      <li><b>Cards bought all at once</b> (Fuse / runners) pay the bundle price per coin (section 6). HQ cards pay no FEELESS fee.</li>
       <li><b>EVM swaps, bridges and gas</b> pay the LI.FI fee below.</li></ul></div>
 
     <div className="cc-studio-grid">
@@ -773,17 +773,17 @@ function SeasonsAdmin({ call }) {
   </section>;
 }
 
-// Command center access: only the owner wallet can grant or revoke.
+// HQ access: only the owner wallet can grant or revoke.
 function AccessAdmin({ call, signMessage, address }) {
   const [d, setD] = useState(null); const [f, setF] = useState({ address: '', role: 'moderator' });
   const load = () => call('/admin/roles').then(setD).catch(e => toast.error(e.message));
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  // The owner signs each grant (wallet + role + time) — a Cmd Ctr session alone can't hand out access.
-  const grant = async e => { e.preventDefault(); try { const ts = Math.floor(Date.now() / 1000); const sig = await signMessage(`FEELESS grant command center access\nwallet:${f.address}\nrole:${f.role}\nts:${ts}`);
+  // The owner signs each grant (wallet + role + time) — a HQ session alone can't hand out access.
+  const grant = async e => { e.preventDefault(); try { const ts = Math.floor(Date.now() / 1000); const sig = await signMessage(`FEELESS grant HQ access\nwallet:${f.address}\nrole:${f.role}\nts:${ts}`);
     await call('/admin/roles', { method: 'POST', body: JSON.stringify({ ...f, ts, sig }) }); toast.success('Access granted.'); setF({ address: '', role: 'moderator' }); load(); } catch (err) { toast.error(err.message); } };
   const revoke = async a => { try { await call(`/admin/roles/${a}`, { method: 'DELETE' }); load(); } catch (err) { toast.error(err.message); } };
   if (!d) return <p className="wp-bio">Loading access…</p>;
-  return <section className="cc-card"><h3>Command center access</h3><p className="wp-bio">Owner: {d.owners.map(shortAddress).join(', ')}. {d.youAreOwner ? 'You can grant and revoke.' : 'Only the owner can change access.'}</p>
+  return <section className="cc-card"><h3>HQ access</h3><p className="wp-bio">Owner: {d.owners.map(shortAddress).join(', ')}. {d.youAreOwner ? 'You can grant and revoke.' : 'Only the owner can change access.'}</p>
     {d.youAreOwner && <form className="cc-kol-form" onSubmit={grant}><input required placeholder="Wallet address" value={f.address} onChange={e => setF({ ...f, address: e.target.value.trim() })} /><select value={f.role} onChange={e => setF({ ...f, role: e.target.value })}>{d.roles.map(r => <option key={r}>{r}</option>)}</select><button className="btn-primary" type="submit">Grant</button></form>}
     <div className="cc-kol-list">{Object.entries(d.grants).map(([a, g]) => <div key={a}><b>{shortAddress(a)}</b><small>{g.role}</small><span>since {new Date(g.at * 1000).toLocaleDateString()}</span>{d.youAreOwner && <button type="button" className="btn-outline" onClick={() => revoke(a)}>Revoke</button>}</div>)}{!Object.keys(d.grants).length && <p className="wp-bio">No one else has access yet.</p>}</div>
   </section>;

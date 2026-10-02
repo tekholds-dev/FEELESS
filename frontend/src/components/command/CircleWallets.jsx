@@ -41,7 +41,7 @@ export function CircleWallets({ call }) {
   </div>;
 }
 
-// One Circle wallet: rename + describe it, and open its mini command center to move funds.
+// One Circle wallet: rename + describe it, and open its mini HQ to move funds.
 function CircleRow({ w, meta, call, onSaved, dests }) {
   const [mode, setMode] = useState('');
   const [m, setM] = useState({ name: meta?.name || w.name || '', description: meta?.description || '' });
@@ -57,7 +57,7 @@ function CircleRow({ w, meta, call, onSaved, dests }) {
   </div>;
 }
 
-// Mini command center for one Circle wallet: moves funds ONLY to Command Center wallets or wallets you saved
+// Mini HQ for one Circle wallet: moves funds ONLY to HQ wallets or wallets you saved
 // (the server enforces the same list). Pick coin → destination → amount → type the last 4 → Circle signs.
 export function CircleMove({ w, call, dests, onDone }) {
   const bals = (w.balances || []).filter(b => Number(b.amount) > 0);
@@ -88,11 +88,11 @@ export function CircleMove({ w, call, dests, onDone }) {
   const groups = ['owner', 'admin', 'fees', 'reserve', 'pool', 'route', 'circle', 'saved'];
   const GROUP = { owner: '👑 Owner', admin: '🛡 Admin', fees: '💸 Fees', reserve: '🏆 Reserve', pool: '🎖 Pool', route: '🏦 Treasury', circle: '◎ Circle', saved: '📌 Saved' };
   return <div className="m-card is-hot m-pop circle-move" data-testid="circle-move">
-    <div className="m-label">MOVE FROM {String(w.name || 'CIRCLE').toUpperCase()} <em>Command Center wallets + saved only</em></div>
+    <div className="m-label">MOVE FROM {String(w.name || 'CIRCLE').toUpperCase()} <em>HQ wallets + saved only</em></div>
     <div className="m-row"><span className="m-dim">Coin</span><div className="m-seg">{bals.map(b => <button key={b.tokenId} type="button" className={tokenId === b.tokenId ? 'active' : ''} onClick={() => setTokenId(b.tokenId)}>{b.symbol} · {Number(b.amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}</button>)}</div></div>
     <div className="cm-dests m-scroll" role="listbox" aria-label="Destination">{groups.map(g => options.filter(d => d.kind === g)).filter(x => x.length).map(ds => <div key={ds[0].kind} className="cm-group"><small>{GROUP[ds[0].kind]}</small>
       {ds.map(d => <button key={d.address} type="button" role="option" aria-selected={to === d.address} className={to === d.address ? 'active' : ''} onClick={() => { setTo(d.address); setConfirm(''); }}><b>{d.label}</b><code>{d.address.slice(0, 4)}…{d.address.slice(-4)}</code></button>)}</div>)}
-      {!options.length && <p className="m-dim">No Command Center wallets on this network yet. Save one below.</p>}</div>
+      {!options.length && <p className="m-dim">No HQ wallets on this network yet. Save one below.</p>}</div>
     {add ? <div className="m-row"><input className="m-input" style={{ flex: 2 }} placeholder="Wallet address" value={add.address} onChange={e => setAdd(a => ({ ...a, address: e.target.value.trim() }))} /><input className="m-input" style={{ flex: 1 }} placeholder="Label (e.g. Cold wallet)" maxLength={40} value={add.label} onChange={e => setAdd(a => ({ ...a, label: e.target.value }))} /><button type="button" className="m-btn primary" disabled={add.address.length < 32} onClick={saveDest}>Save</button><button type="button" className="m-btn" onClick={() => setAdd(null)}>Cancel</button></div>
       : <button type="button" className="m-btn" onClick={() => setAdd({ address: '', label: '' })}>+ Save another wallet</button>}
     {to && <div className="m-stack">

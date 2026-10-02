@@ -25,7 +25,7 @@ def test_extend_by_paying_or_letting_compound_pay():
     hq.settle_owed(p, 0.5)
     assert p['roundsOwedUsd'] == 0
     with pytest.raises(ValueError):
-        hq.extend_rounds({}, 'compound', {'per5Usd': 0.5, 'compoundPay': False})   # Cmd Ctr switched it off
+        hq.extend_rounds({}, 'compound', {'per5Usd': 0.5, 'compoundPay': False})   # HQ switched it off
     assert hq.clean_rounds_cfg({'per5Usd': 999})['per5Usd'] == 50
 
 

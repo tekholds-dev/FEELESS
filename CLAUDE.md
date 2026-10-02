@@ -40,8 +40,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 ## CSS map (where styles live — keep it organized)
 - `meta.css` = m-* presets only (budget-capped). `terminal.css` = legacy terminal (append scoped blocks only when no sheet fits).
 - Feature sheets, imported by their component, built from m-* tokens: `fuseLab.css` (Lab, FuseRail `frail-*`, FuseEvolve `fe-*`),
-  `fusePage.css` (Fuse 🧬 page `fp-*`, Arena stage `ar-*`, Cmd Ctr bundle/vault/fuse-fee bits), `pulseBolt.css` (PulseDot), `runners.css` (`rn-*`
-  hero/ring/countdown/lanes/CoinRow, fire accent `--rn-fire`), `auras.css`, `command.css` (Cmd Ctr).
+  `fusePage.css` (Fuse 🧬 page `fp-*`, Arena stage `ar-*`, HQ bundle/vault/fuse-fee bits), `pulseBolt.css` (PulseDot), `runners.css` (`rn-*`
+  hero/ring/countdown/lanes/CoinRow, fire accent `--rn-fire`), `auras.css`, `command.css` (HQ).
 - Each sheet ends with its own `body.fx-lite`, `prefers-reduced-motion` and `body.theme-day` blocks + a 640px media query.
 - Motion: one keyframe set per sheet (`fp*`, `rn*`, `fcd*`), transform/opacity only, list stagger via `--i` × 45–60ms.
 - Delete a class from JSX ⇒ delete its rule (cssHygiene fails on dead rules).
@@ -64,7 +64,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - One pooled `httpx.AsyncClient` per service for outbound calls.
 - Animate only transform/opacity. Never animate a custom property (`--ang` repaints every frame), never
   `backdrop-filter` over animated layers, no `filter: blur()` on moving layers. Heavy FX must die under `body.fx-lite`.
-- Lag catcher (Cmd Ctr › Lag catcher) is the source of truth: fix its list before adding features. Full list: `docs/REQUIREMENTS.md`.
+- Lag catcher (HQ › Lag catcher) is the source of truth: fix its list before adding features. Full list: `docs/REQUIREMENTS.md`.
 
 ## Data sources
 - **NO GeckoTerminal, sitewide, ever** (backend or frontend). `backend/tests/test_no_geckoterminal.py` enforces it.
@@ -112,28 +112,28 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   launch; A–F score with reasons; pool picker drops parked/fake pools (no volume or liquidity > 2,000× volume).
 - Fuse in = one normal wallet-signed swap per leg (no new money path). A Fuse buy counts only if the signature is the
   buyer's confirmed FEELESS trade; the creator's cut (≤50% of that FEELESS fee) is tracked earned/paid/owed.
-- Fuse Lab (`FuseLab.jsx`) starts in Cmd Ctr › Fuse (`<FuseLab call>`: 6 pools, auto|manual weights, publish as a Fuse) and
+- Fuse Lab (`FuseLab.jsx`) starts in HQ › Fuse (`<FuseLab call>`: 6 pools, auto|manual weights, publish as a Fuse) and
   reaches traders as Trade › ⚛️ Fuse Lab tab (`TradeTabs`, `?tab=fuse`; 3 pools). Caps are HARDCODED server-side
   (`fuse.USER_MAX_LEGS`=3 / `MAX_LEGS`=6). Pools: `/fuses/discover` (popular/yield/deep/new); preview: `POST /fuses/preview`
   (`fuse.preview`: split, $/day, blended APR, grade, 24h backtest, size guard >1% of pool liquidity).
-- 🧬 Fuse Evolution (Cmd Ctr, `FuseEvolve` → `POST /admin/fuses/evolve` → `fuse.evolve`): genetic search over baskets of
+- 🧬 Fuse Evolution (HQ, `FuseEvolve` → `POST /admin/fuses/evolve` → `fuse.evolve`): genetic search over baskets of
   the chain's best ~40 live pools. Genes = strategy (`fuse.STYLES` yield/momentum/steady/degen), pools 2–6, generations,
   budget ($5/$20/$100). Fitness = grade + APR + momentum + calm − size-impact − duplicate coin − fee drag (network fees on
   tiny buys). Elitism (best never drops), seeded, tested vs brute force. Champion → "Load into Lab" → one-click Fuse in.
   Ranking only: never claims profit, never trades by itself.
-- Fuse HQ (`backend/fuse_hq.py`, pure + tested; `FuseHQ.jsx` in Cmd Ctr, `FusePnl` on Trade › Fuse Lab):
+- Fuse HQ (`backend/fuse_hq.py`, pure + tested; `FuseHQ.jsx` in HQ, `FusePnl` on Trade › Fuse Lab):
   real Fuse P&L (`POST /fuses/position` counts a leg only if its sig is YOUR confirmed FEELESS buy; cost/tokens from that
   record), paper Arena (champion → $5 for 24h, settles once; style is *proven* after 3 settled runs with avg > 0),
   Bloodline (saved champions seed gen 0), Health (published Fuse vs fresh champion → BEATEN ≥10%).
   Traders get ONE button: `POST /fuses/best3` ($5/$20/$100) breeds with the arena's proven style (else yield), cached 2 min.
 - Chat: `/fuse [name]` posts `⚛️ fuse:<id>`; `FuseChatCard` (≤340px, shared `lib/fuseFeed.js` poll) → amount → FuseGo.
-- Cmd Ctr › Fuse = `FuseDeck`: KPI ribbon (real P&L, 24h outlook from the ARENA only — `fuse_hq.outlook`, never a
+- HQ › Fuse = `FuseDeck`: KPI ribbon (real P&L, 24h outlook from the ARENA only — `fuse_hq.outlook`, never a
   promised return), left rail (Breed & fuse | HQ · P&L | Published | Vault, each with a one-line explainer), one panel at a
   time). Admin fuses up to 10 pools (`fuse.MAX_LEGS`; `fuse.min_share` keeps big-fuse weights distinct). Champions render
   as `FuseCard` (MetaCard: drag tilt + ⟲ flip, back = why it won) with the admin `FuseExplainer` pipeline; traders get the plain-words `FuseExplainer` (APR est. = LP fee rate, not
   paid to holders; fee drag on tiny buys). Explain every money mechanic on the surface that uses it.
 - Prebuilt rail (`FuseRail`, `GET /fuses/prebuilt`): best basket per strategy bred from `_fuse_candidates()` (5 min cache),
-  flip cards + arena record + "Use this"; traders 3 pools, Cmd Ctr 3/5/8/10. Shown in BOTH the trader Lab and Cmd Ctr Lab.
+  flip cards + arena record + "Use this"; traders 3 pools, HQ 3/5/8/10. Shown in BOTH the trader Lab and HQ Lab.
 - Fuse chat: ONE room `fuse-lab` (`FuseSide`, beside the Lab; stacks under 980px via container query) ⇄ Holders board
   (`GET /fuses/holders`, verified positions, P&L %), transform slide between panes.
 - Receipt: `FuseGo` shows BEFORE (per leg pay/get/FEELESS fee/network/impact, total cost %) and AFTER (`POST /fuses/receipt`
@@ -146,7 +146,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Basket limits (`fuse_hq.clean_guard/guard_check`, `POST /fuses/guard`, 60s `_fuse_guard_tick`): TP / SL / trailing on a
   position; free to set, fees only on the actual Unfuse; fires once → inbox + phone with `?unfuse=<id>` (opens the exit).
   FEELESS never signs for the user.
-- Fuse cards NFT (Cmd Ctr › NFTs, `FuseCardMint`): Metaplex Core collection once, 1/1 card per published Fuse
+- Fuse cards NFT (HQ › NFTs, `FuseCardMint`): Metaplex Core collection once, 1/1 card per published Fuse
   (`/fuse-card/{fid}.json|svg`, `fuse_hq.card_meta/card_svg`); creator cut is paid to the card's on-chain holder
   (`_fuse_pay_to` via DAS getAsset, 5 min cache).
 - Creator season (Trade › Fuse side panel › 🏅 Creators, `GET /fuses/creators`, `fuse_hq.creator_board`): weekly, ranked by
@@ -158,7 +158,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - FeeCat Fuse: NOT built on purpose — only after a strategy beats holding SOL in the arena over weeks.
 - One-click Fuse in (`FuseGo` + `lib/fuseGo.js`): quote+simulate every leg in parallel (refresh 10s), review must match
   (`orderMatches`), ONE `signAllTransactions`, then `/execute` each leg. Same trading path as Quick trade — no new money path.
-- Built and paid out in Cmd Ctr › ⚛️ Fuse. System map: `docs/ARCHITECTURE.md`.
+- Built and paid out in HQ › ⚛️ Fuse. System map: `docs/ARCHITECTURE.md`.
 - FUSE Vault (one contract, ≤3 v2/v3 pools, SOL in → shares, fees in SOL to Trading & fees › Vault fee wallet):
   engine `backend/fuse_vault.py` (spec, tested) ⇄ program `contracts/fuse_vault` (Anchor; math.rs mirrors it —
   change both together). v0.1 = custody/shares/fees/admin on LOCALNET ONLY; pool adapters + audit before any
@@ -172,12 +172,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   invites, follows, points, check-ins, $FEE held) — nothing self-reported. Daily + weekly quests reset 00:00 UTC / Monday.
 - Endpoints: `GET /api/reputation/quests/{address}` (60s cache; rarity 10 min), `POST /quests/checkin` (chat session),
   admin `GET|POST /admin/quests` (edit name/tier/tasks/on-off, add badges, validated) and `POST /admin/quests/grant`.
-- Earned quest badges join `wallet_badges` (chat chips + profiles) with their art. Cmd Ctr › Badges › Quest engine edits all.
+- Earned quest badges join `wallet_badges` (chat chips + profiles) with their art. HQ › Badges › Quest engine edits all.
 - Tool quests: case files opened + war room trades via `POST /quests/event` (war room trade must be one of your verified
   FEELESS trades; case files once per wallet per day, ≤30/day); alerts counted from your push watchlist.
-- Perks (`quests.PERKS`, editable per badge in Cmd Ctr): fee discount (best of tier/promo/badge, read from cache so quotes
+- Perks (`quests.PERKS`, editable per badge in HQ): fee discount (best of tier/promo/badge, read from cache so quotes
   never wait, noted on the quote) and chat backgrounds. Only add perk kinds that something actually honours.
-- Season: `QUESTS_PATH.season`, PAUSED until launch (no leaderboard, no trophies). Unpause in Cmd Ctr › Badges on launch
+- Season: `QUESTS_PATH.season`, PAUSED until launch (no leaderboard, no trophies). Unpause in HQ › Badges on launch
   day; "Award week's top 3" writes `kind: 'quest'` trophies once per week.
 - Coin logos sitewide = `tokenImageUrls(pair)` (DexScreener image → DS CDN → FEELESS `/token-logo` cache) via `TokenAvatar`;
   MetaCard `card.art` may be that array (crest falls through on error, then the glyph). Fuse cards show the top-weighted coin.
@@ -220,7 +220,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Service: `_runner_live()` (30s cache, scans ≤16 busiest with ≤6s wait — never block the board), `_runner_tick()` every
   5 min (price paths) / 15 min (round). `GET /runners`, admin `POST /admin/runners/round`. Never call it "unbeatable".
 - Runner add-on: `FusePreview.runners=true` bolts the round's top 2 runners on as a 20% slice (`runners.addon`).
-- UI: `RunnersPanel` (Cmd Ctr › Fuse › 🏃 Runners first; also Trade › 🏃 Runners tab; admin-only "fuse unproven" override),
+- UI: `RunnersPanel` (HQ › Fuse › 🏃 Runners first; also Trade › 🏃 Runners tab; admin-only "fuse unproven" override),
   `styles/runners.css` (fire accent `--rn-fire`). Lab toggle "🏃 +2 Runners add-on".
 
 ## Fuse 🧬 page (BUILT)
@@ -229,7 +229,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   "Fuse 🧬 →" banner instead of the old Fuse/Runners tabs.
 - My cards = `LiveFuseCard` + actions: 💰 take profit (legs + 25/33/50/100%) · 💸 auto-collect · ⚖ rebalance (+ auto-rebalance
   alerts) · ⇄ switch (sell a leg + buy a mint, one approval) · 🎯 limits · ↩ withdraw. Alert links: `?tab=cards&collect=<id>&pct=`,
-  `&rebalance=<id>`, `&unfuse=<id>`. Profile shows `FuseReceipts`. Cmd Ctr: ⭐ Feature in Lab, ⚙ Runner settings, 💸 default.
+  `&rebalance=<id>`, `&unfuse=<id>`. Profile shows `FuseReceipts`. HQ: ⭐ Feature in Lab, ⚙ Runner settings, 💸 default.
 - 💸 Auto-collect (`fuse_hq.yield_due/collect_pct`, `POST /fuses/auto-yield`, admin `GET|POST /admin/fuses/auto-yield`): when a
   card's HELD value ≥ base × (1 + at%) [default 50, 10–1000] → ONE alert with a pre-filled Collect profit that sells only the
   gain; a partial close re-arms from the new held value. NON-CUSTODIAL: it never sells by itself — the holder approves.
@@ -241,22 +241,22 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `proof.lights`; each newly dealt round under lit proof is saved (`runners.lit_card`, ≤30, 72h price watch) → lit-cards list
   with `card_result` % since lit + "Use". Mid-round, ONE failing pick per tick is auto-swapped (`runners.swap_failing`) for
   the best passing runner; swaps are listed with the failed gate and counted honestly in `proof` (swapped-out mult kept).
-- Arena tab (`ArenaBoard`) = STAGE first: `GET /fuses/arena` → `mega` = Cmd Ctr cards flagged 🏟 Show on Arena (FuseBuilder,
+- Arena tab (`ArenaBoard`) = STAGE first: `GET /fuses/arena` → `mega` = HQ cards flagged 🏟 Show on Arena (FuseBuilder,
   `arena: true`) + runner cards that lit after their rounds (+ the live round as a "proving" card when the stage is empty).
   Each card's `activity` (`fuse_hq.activity`: 24h FEELESS buys, buyers, $ flow, index move → calm/warm/hot/blazing) drives
   HARD-CODED effects (`TIER_FX`: aura + ember count, heat glow, shock ring, page-wide `.ar-sky`); `MegaCard` = FuseCard (tilt/flip).
   Lit/round → runner picks; mega → Lab (users get the top 3). Then `<RunnersPanel />` (old look) + strategies.
 - Runners tab: a full card (3 picks) renders as a prebuilt FuseCard (`RunnerCardFull`) → Lab. Lab has a 🏃 Runners lens.
-- Leg caps (`fuse_hq.legs_ok`, `legCaps`): traders 3 pools + 3 runners; Cmd Ctr 12 legs any mix (6/6, 12 runners).
-- Bundle pricing (`fuse_hq.bundle_bps`, fee cfg `bundle`, Cmd Ctr › Fees › 6, `POST /admin/fees/bundle`, public `GET /fees/pricing`):
+- Leg caps (`fuse_hq.legs_ok`, `legCaps`): traders 3 pools + 3 runners; HQ 12 legs any mix (6/6, 12 runners).
+- Bundle pricing (`fuse_hq.bundle_bps`, fee cfg `bundle`, HQ › Fees › 6, `POST /admin/fees/bundle`, public `GET /fees/pricing`):
   a card bought all at once (FuseGo sends `bundle`=legs on /quote) pays a flat $/coin (default $0.10), ≤ maxPct of a leg; legs
-  > maxLegUsd pay the normal %. Staff (Cmd Ctr) bundles pay 0 FEELESS fee. Live "⚛️ Fuse fees" tile (`GET /admin/fuses/fees`).
-- Card rules (`fuse_hq.CARD_RULES/clean_rules`, Cmd Ctr › Fuse › 🃏 Card rules, `GET|POST /admin/fuses/rules`, public `/fuses/rules`):
+  > maxLegUsd pay the normal %. Staff (HQ) bundles pay 0 FEELESS fee. Live "⚛️ Fuse fees" tile (`GET /admin/fuses/fees`).
+- Card rules (`fuse_hq.CARD_RULES/clean_rules`, HQ › Fuse › 🃏 Card rules, `GET|POST /admin/fuses/rules`, public `/fuses/rules`):
   auto-profit LEVELS traders pick (no free typing), counted from the confirmed buy + its FEELESS fee and fired only when up
   after exit fees (`exit_fee_usd`); per-card mode 🔒 hold / ⇄ swap (`POST /fuses/mode`; swap = `swap_suggest` → one alert per
   weak leg with a pre-filled switch `?tab=cards&switch=<id>&out=&in=`); Arena: every open trader card shows until withdrawn,
   ≥ topTierPct takes the top tier; Fuse Fee-Back (`card_feeback`: share of fees paid, unlocks after holding, + loyalty, + Arena,
-  capped; book + "Mark paid" in Cmd Ctr). Profile shows `FuseHeldCards` (held P&L) above receipts.
+  capped; book + "Mark paid" in HQ). Profile shows `FuseHeldCards` (held P&L) above receipts.
 - ⚡ Copy cards: Arena trader cards → "Fuse this too" loads the Lab with `incoming.copyOf` (banner `fl-copy`); FuseGo sends
   `copyOf` on `/fuses/position`; the original owner (never self/linked) earns `copyPct` (card rules, ≤50%) of the copier's
   FEELESS fee (`fuse_hq.copy_cut`, in the Fee-Back book as `copyUsd`). Cards show copies + $ earned.
@@ -300,7 +300,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `maxTop10Jump`, dev sold) from `_runner_track` history, curve speed + buyer acceleration, 👀 Bond watch 75–89% (rep-confirmed:
   `smartMin` smart FEELESS buyers via `_smart_buyers`, no flagged funders, dev not sold; half boost) + 🔔 Bond run ≥90% (8 boxes),
   `bond` lane exits. Self-tuning lanes (`runners.lane_proofs/lane_weights` → `next_round(weights=)`). ⚡ `runners.RECOMMENDED` +
-  `suggest_cfg` → `GET /admin/runners/suggest`, Cmd Ctr `EngineSuggest` (Apply = merged cfg), hourly admin nudge.
+  `suggest_cfg` → `GET /admin/runners/suggest`, HQ `EngineSuggest` (Apply = merged cfg), hourly admin nudge.
 - Chat: `_fuse_chat` (once per key) posts battle results, bond runs (coin room + `fuse-lab`), FeeCat's book, season crowns.
 - ONE season: Fuse feeds the quest engine (`quests` metrics `fuse_cards/fuse_survivors/battle_wins/feecat_beats/season_medals`,
   5 Fuse badges with art from `scripts/gen_fuse_badges.py`, weekly `fuse`/`battle` quests, events → season XP). 45 badges total.
@@ -310,8 +310,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   only when the owner switched auto on (TP / SL / profit / compound — a standing order, no click each time). Selling on-chain
   needs swap adapters + price checks (next, behind an audit). `cargo test -p fuse_card --lib`.
 - Fuse tab FX (`FuseFx`): synthwave grid floor, lightning strikes, rising sparks — transform/opacity only, off in fx-lite.
-  Forensics scan the 28 busiest (background); Cmd Ctr sees every passing runner, traders the busiest 24.
-- 💸 Weekly Fuse payout (Cmd Ctr › Fuse › `FusePayouts`, `GET /admin/fuses/payouts/plan` → `lib/batchSend` ONE approval from the
+  Forensics scan the 28 busiest (background); HQ sees every passing runner, traders the busiest 24.
+- 💸 Weekly Fuse payout (HQ › Fuse › `FusePayouts`, `GET /admin/fuses/payouts/plan` → `lib/batchSend` ONE approval from the
   fee wallet → `POST /admin/fuses/payouts/paid`): plan frozen at today's SOL price (`fuse_hq.payout_plan`, dust < $0.05 waits,
   FEELESS + bot wallets never paid); the server credits only system transfers whose SOURCE signed the tx, × plan price, ≤ owed
   (`credit_paid`), refuses reused/failed/unrelated txs, notifies each paid wallet. Admin inbox gets "payout ready" on Mondays.
@@ -329,7 +329,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Copy: Runners/Arena say "we run $5" (never "paper"); a missing live price shows "—", never a fake 0%.
 - Pump Pulse sitewide: every `TokenAvatar` shows a pink `PulseDot` while the coin pulses (shared batched `lib/pumpPulse`).
 - Prebuilt rail budgets: $1 / $20 / $100 or a custom $ (debounced 250ms); server breeds for the nearest bucket, Fuse in
-  uses the exact amount. Pools-per-fuse segment is Cmd Ctr only.
+  uses the exact amount. Pools-per-fuse segment is HQ only.
 
 ## Coin verification + coin badges
 - `backend/verify.py`: coins EARN and LOSE the check and coin badges (`COIN_BADGES`) the same way — recomputed each run
@@ -341,7 +341,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   chat_spam, referral_farm, fuse_self_deal — each with cited evidence. verdict bot ≥75 / watch ≥45. `_shield_of(addr)` (5 min
   cache). Ties: trust score (bot −40, watch −15), wallet case evidence, check-in rewards refused for bots, Fuse creator cut
   = 0 for self-buys and bots, Fuse creators gain rep per outside buyer (`_fuse_rep`). Check-ins store `checkinAt` timestamps.
-- Cmd Ctr › Safety › 🛡 Bot shield (`BotShield.jsx`): scan all, per-engine counts, evidence, Clear / Confirm / Back to auto
+- HQ › Safety › 🛡 Bot shield (`BotShield.jsx`): scan all, per-engine counts, evidence, Clear / Confirm / Back to auto
   (manual always wins; FEELESS wallets never flagged). New farming pattern ⇒ new engine + test, never a hand-rolled check.
 
 ## Reputation / investigation
@@ -356,10 +356,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Backend services (restart all after backend changes: `bash scripts/start-backend.sh`):
   `server` 5001 (market + trading), `reputation_service` 5077 (social, fees, admin), `feecat_service` 5088, `candles_service` 5099.
 - Frontend: CRA + craco on 51367. Styles mostly in `frontend/src/styles/terminal.css` (append scoped blocks).
-- Command Center settings that matter at scale (keys, engine, fees) must be visible in its **Core** group.
+- HQ settings that matter at scale (keys, engine, fees) must be visible in its **Core** group.
 
 ## Shipped from the last plan (keep these rules)
-- Cmd Ctr › Fuse rail is GROUPED (`FuseDeck` panels = [key, label, node, blurb, group]): LIVE (🏃 Runners, ⚔ Arena ops) ·
+- HQ › Fuse rail is GROUPED (`FuseDeck` panels = [key, label, node, blurb, group]): LIVE (🏃 Runners, ⚔ Arena ops) ·
   BUILD (🧬 Breed & fuse, 📣 Published) · MONEY (💰 HQ, 💸 Payouts, 🃏 Card rules) · SYSTEM (⚡ Engine, ⛓ Contract, 🏦 Vault).
   Settings are mounted ONCE, in their own panel (`FuseAdminSettings` → Engine / Card rules / Payouts); `FuseOpsPanels` =
   `ArenaOps` (stage mix, battles + bell, log, season vs FeeCat) + `ContractStatus` (static, never claims deployment).
@@ -377,8 +377,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 
 - 🎚 Risk dial (`fuse_hq.RISK_DIALS` ⇄ `lib/riskDial.js`, change both): Safe / Balanced / Degen sets every coin's TP/SL, profit
   level, collect/compound, rotation and max runners. `clean_plan({risk})` expands it SERVER-side (nothing free-typed); Lab
-  CardPlan + My cards use `RiskDial`; tuning anything → `custom`. Engine dial (`runners.ENGINE_DIALS`, Cmd Ctr ⚡ Engine,
-  `POST /admin/runners/config {dial}`). Proof: `runners.dial_proof` → `/fuses/arena.dials` → `DialBoard` (Arena + Cmd Ctr).
+  CardPlan + My cards use `RiskDial`; tuning anything → `custom`. Engine dial (`runners.ENGINE_DIALS`, HQ ⚡ Engine,
+  `POST /admin/runners/config {dial}`). Proof: `runners.dial_proof` → `/fuses/arena.dials` → `DialBoard` (Arena + HQ).
 - Replays use `fuse.replay_window` (leg `replayPct`/`replayH`): pools younger than 24h use 6h → 1h → 5m, never DexScreener's
   since-launch h24. Bugs: same crash + page = one report ×count (`_bug_key`); `.hot-update.js` crashes are never filed.
 - STILL ONE-CLICK: every card action + alert is an approval until the owner confirms they work; only then do configs go auto.
@@ -387,13 +387,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   inbox Trading lens. NO P&L numbers in any notice text; P&L lives in Fuse › My cards and the profile only.
 
 ## Checkpoints (shipped, keep true — update this list only with STRONGER checkpoints, never weaker)
-- 🛡 Guard (`backend/guard.py`, tested): write floods → 429 breather; Cmd Ctr sign-in brute force → that IP's admin cools 15 min;
-  suspects + evidence wait in Cmd Ctr › Security (`GuardPanel`) — NO auto-blocks, every block/lift is an audited admin approval.
+- 🛡 Guard (`backend/guard.py`, tested): write floods → 429 breather; HQ sign-in brute force → that IP's admin cools 15 min;
+  suspects + evidence wait in HQ › Security (`GuardPanel`) — NO auto-blocks, every block/lift is an audited admin approval.
   XFF only behind our proxy (`FEELESS_TRUST_PROXY=1`, rightmost hop). Internal/private IPs never limited.
 - Lab preview: a picked runner that just failed a gate is SKIPPED + unticked with its reason (`droppedRunners`), never an
   error wall; fresh grads are addable. Quick trade shows ≈ $ under You get / Min received.
 - Guard also runs on `server.py` (5001, trading); every service's CORS reads `ALLOWED_ORIGINS` — SET IT to the real domain
-  before launch (default '*' is flagged in Cmd Ctr › Security). Settings › Reduce motion stops every animation (tips.css).
+  before launch (default '*' is flagged in HQ › Security). Settings › Reduce motion stops every animation (tips.css).
   Day theme: `.m-pos/.m-neg/.up/.down` deep green/red outside card faces. Chat hides calls on dead/rugged coins (`deadCall`).
 - 🔐 Roles are SCOPED (`ROLE_SCOPES` in `_require_admin` → `_role_gate`): moderator/marketing reach only their sections (tabs
   filtered client-side too); every grant needs the creator's fresh signature (`grant_message`, 10 min). Owner-only money =
@@ -408,12 +408,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ⭐ Prime = SOLID HOLDS: Diamond 3 majors + PUMP (no runners) · Gold 2 majors + pool + 1 runner · Blaze 1 major + pool + 2
   runners; stops 12/15/20%. `exit_plan` (live momentum): 🚀 ride = only the cost comes out once 2×, house money rides ·
   🏦 bank 75% when fading · 💰 gain otherwise; early cut at half the stop when fading. Tick ~50s, rotation 15 min–48 h (seg +
-  typed minutes in Cmd Ctr). Every coin keeps `firstEntry` + `at` → card window shows entry + a per-coin rundown.
+  typed minutes in HQ). Every coin keeps `firstEntry` + `at` → card window shows entry + a per-coin rundown.
 - ⭐ Prime = 5 tiers (`arena_prime.TEMPLATES`, each with a `why`): 💎 Diamond young coins → 10× (1 major + 3 young, TP 900,
   SL 35) · 🥇 Gold · 🔥 Blaze · ⚡ Next Level (4 runners, TP 300) · ♾ Everlasting (4 majors + PUMP, sl 0 = never stopped).
   "Young" = pre-bond passing + `runners.fresh_grads` (graduated <48h, failing ONLY pre-bond) — also a 🎓 source on the Runners
-  board so it never sits empty. ONE clock: `rotateHours` (Cmd Ctr › Rotate every, seg or typed minutes) rotates weak coins AND re-deals floored cards; replacements are ARENA-backed first (`arena` flag from `_prime_candidates`: round picks, lit cards, stage/battle card coins), then other 3★+. Stop modes cfg `slMode`: ⇄ replace · 🅿 park (sell to SOL, keep the slot in `parked`, rebuy at
-  the stop-out entry when not fading) · ❄ hold. Cmd Ctr › Arena: FeeCatTune + `PRIME_META` one-click meta config.
+  board so it never sits empty. ONE clock: `rotateHours` (HQ › Rotate every, seg or typed minutes) rotates weak coins AND re-deals floored cards; replacements are ARENA-backed first (`arena` flag from `_prime_candidates`: round picks, lit cards, stage/battle card coins), then other 3★+. Stop modes cfg `slMode`: ⇄ replace · 🅿 park (sell to SOL, keep the slot in `parked`, rebuy at
+  the stop-out entry when not fading) · ❄ hold. HQ › Arena: FeeCatTune + `PRIME_META` one-click meta config.
 - Holder scans: an incomplete scan (no top-10) retries after 60s; launchpad supply = 1B when RPC blanks (`scanned` needs top10).
 - Vault ← Arena: VaultDesigner "Start from an Arena card" loads a Prime card's majors + pools (never runners) as vault pools.
 - Profile receipts = dropdown per withdrawn card (`FuseReceipts`): legs + tx links, moves timeline, fees apart (FEELESS from
@@ -429,7 +429,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Card pricing reads PER COIN (`legFee`): flat $/coin · `maxPct` cap on small coins · normal % over `maxLegUsd`; >5% total
   warns with the coin size where the flat fee starts. Prime tiers are distinct MetaCard builds (`TIER.look`: design + rarity +
   colours), and lite mode keeps a static tier ring. 🐱 FeeCat weekly note (`fuse_hq.feecat_weekly`, Monday, once per holder,
-  no holder P&L). Tests: real Ed25519 Cmd Ctr sign-in (`test_guard`), BEFORE/AFTER receipts for buy + sell (`FuseGoFlows`).
+  no holder P&L). Tests: real Ed25519 HQ sign-in (`test_guard`), BEFORE/AFTER receipts for buy + sell (`FuseGoFlows`).
   Test venv = `.venv` (has pynacl + base58 now); live services run `backend/.venv`.
 - Lite mode (auto via Lag catcher) hides tier/aura FX — when the owner says "no design", check fx-lite first.
 - Sidebar = 12 entries (`lib/hubs.js` HUBS + `HubTabs` at the page top): Pump radar|Launchpads · $FEE|Fee-Back ·
@@ -438,8 +438,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   whitepaper v1.2 (`test_whitepaper` imports + renders the PDF — an apostrophe inside a '…' chapter once broke it).
 - ⭐ Showcase: any bred champion → published Fuse with `arena: true` in one click (Published keeps 🏟 on/off).
 - 🔧 Engine AUTO-STRENGTH (`runners.auto_pick` → `_engine_auto`, every ~15 min round): switches to the PROVEN better dial
-  (≥8 rounds, avg>0, ≥2 pts ahead), audited + admin inbox; toggle `RUNNERS_PATH.autoTune` (Cmd Ctr › Engine). Advanced runner
-  settings sit behind ⚙. Lab lens 🚀 New majors (`fuse.risers`: ≤14d, $800K–$50M, vol ≥$300K, liq ≥$100K). Cmd Ctr
+  (≥8 rounds, avg>0, ≥2 pts ahead), audited + admin inbox; toggle `RUNNERS_PATH.autoTune` (HQ › Engine). Advanced runner
+  settings sit behind ⚙. Lab lens 🚀 New majors (`fuse.risers`: ≤14d, $800K–$50M, vol ≥$300K, liq ≥$100K). HQ
   'Published' is now 🧪 Engine playground. Prime rotation 5m/15m/30m/1h; Prime coins open their chart.
 - 🧪 Engine playground (`GET /admin/fuses/playground`, `EnginePlayground`): counts, READY-for-Arena (`fuse_hq.playground_ready`),
   21 engine-cycled scenario cards (`runners.scenarios`: 12 TP×SL exit combos + 3 dials × 6h/24h/72h), dial table, change log.
@@ -453,23 +453,23 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   cards dealt onto the Arena stage (`_scenario_stage`, kind `scenario`) → battles always have ≥2; best scenarios → publishable cards.
 - 🔄 Top-tier phase cycle (Blaze + Next Level, `CYCLE` anchor→degen→anchor→mixed), one run. ⚔ Back a battle side (points only,
   `POST /fuses/battle/back`, `backRecord`), clash/tug animation.
-- 🐱 FeeCat engine tune (Cmd Ctr › Fee 🐱 AND › Fuse › Arena, `FeeCatTune`): best proven dial (`bestDial`: ≥8 rounds, avg > 0) + stronger
+- 🐱 FeeCat engine tune (HQ › Fee 🐱 AND › Fuse › Arena, `FeeCatTune`): best proven dial (`bestDial`: ≥8 rounds, avg > 0) + stronger
   settings applied in ONE click (server audits). Whitepaper v1.1 (`backend/whitepaper.py`, served to web + PDF) covers
   FUSE cards, Runners/Arena/Prime, automation + contract, bot shield, guard/roles — keep it short, update per feature.
 - Vault designer + Card rules: every number has a $ example; Vault math uses the replay window and drops ±95% outliers.
 - Runners: pre-bond lives on volume (log $1h volume part; thin pre-bond curve gets half points).
-- Style understanding: Cmd Ctr panels = numbered steps or grouped cards, plain-words header line, `data-tip` on every field,
+- Style understanding: HQ panels = numbered steps or grouped cards, plain-words header line, `data-tip` on every field,
   a live "$ example" under each input, money in SOL AND $. Tier FX = own layers (`pt-*`), transform/opacity, off in fx-lite.
 
 - 🃏 Arena cards: engine scenario cards get simple degen names (1–2 emojis, `runners.CARD_NAMES`, unique per round via `card_name(.., used)`)
   + a dial look (`dial_of`: safe/balanced/degen → `d-*` FX layer + config chips TP/SL/⟳/stop mode, `card_cfg`). They go to the 🥈 RUNNERS-UP
-  bench (`bench: True`, `/fuses/arena.bench`), never the stage; Cmd Ctr audits + publishes (`dial`/`cfg`/`fromScenario` on the Fuse) → stage.
+  bench (`bench: True`, `/fuses/arena.bench`), never the stage; HQ audits + publishes (`dial`/`cfg`/`fromScenario` on the Fuse) → stage.
   `runners.battle_seats`: stage first, bench fills empty seats, MAX 2 battles (4 cards). Playground best scenarios render as real FuseCards.
 - ⚔ Battle bars on TOP: 💰 BUY BACKS a/b (+$) = buying the card (`FusePositionIn.back` → `battles.paid`, never mixes with free backs) and
   ⚔ BACKS a/b (free). Backing is season XP: quests DAILY `battle_back`, WEEKLY 3× `back_win` (`backLog`/`backWins` → `_fuse_quest_stats`).
 - 🔁 Card rounds (`fuse_hq.ROUNDS_*`, `POST /fuses/rounds`): 5 auto rounds per card (rotation / buy-back alert window = 1); +5 = pay
   (SOL transfer the holder signs to the fee-wallet owner, `paid_lamports` on-chain, sig never reused) or compound pays (owed until the next
-  profit take, one pack at a time). Cmd Ctr › Fees › 7 (`/admin/fees/rounds`, owner only). Main fee save keeps `bundle` + `rounds`.
+  profit take, one pack at a time). HQ › Fees › 7 (`/admin/fees/rounds`, owner only). Main fee save keeps `bundle` + `rounds`.
 - 📖 Meme terms (`backend/meme_terms.py`, `_meme_tick` ~5 min, `GET /meme-terms`): learns new words daily from launches + chat (known
   slang explained; unknown = 🌊 ticker wave or 💬 chat slang). Rep page v2 (`styles/repPage.css`, `.rep-v2`) + trench dictionary cards.
 - ⚠️ NEW runners (`runners.new_runners`, `/runners/discover.newRunners`): ≤3h old, site + X at launch, creator not suspect (clean first),
@@ -479,7 +479,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 
 - ⇄ Card clock: `fuse_hq.ROTATE_OPTIONS` 5m/15m/1h/6h/12h/24h (`rotate_hours` snaps client floats); swap alerts + rounds use each card's
   own window. Per-coin stop mode `coinModes` (`POST /fuses/coin-mode`, `coin_sl_mode` beats the card's slMode) + ❄ freeze in the card
-  window. Cmd Ctr tier cards: per-coin ❄ freeze + own stop mode (`arena_prime.set_leg`, admin prime `{leg}`), frozen = never rotated/stopped.
+  window. HQ tier cards: per-coin ❄ freeze + own stop mode (`arena_prime.set_leg`, admin prime `{leg}`), frozen = never rotated/stopped.
 - 🧪 Playground versions: same scenario = one bloodline, v.01/v.02… (`scenarioVersions`, `runners.tag_versions`); hover = scenario combo +
   where it's listed (🏟 stage / 🥈 bench / not listed); Arena bench cards show the same v.0x.
 - Logos: `tokenImageUrls` has `KNOWN_LOGOS` (SOL, $FEE) first; every picker uses `TokenAvatar` (full fallback chain), never a bare letter.
@@ -490,9 +490,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ⚔ Backer season (`fuse_hq.backer_board/backer_prizes`): ≥3 backs to rank, most winning backs; Card rules `backerPoolUsd` (0 = off) split
   50/30/20 at the weekly tick → `backerPrizes` → owed in the Fee-Back book (paid with weekly payouts). Season board shows TOP BACKERS.
 - 🐱 FeeCat fresh lane reads creator rep (`creator_adjust` via `/edge` runner.creatorRep): clean ×1.25 + cited, suspect/high → out.
-- Cmd Ctr › Fuse deck v2: 🗺 Overview first (grouped live tiles → panel), compact rail (blurbs on hover).
+- HQ › Fuse deck v2: 🗺 Overview first (grouped live tiles → panel), compact rail (blurbs on hover).
 
-- ⚔ Playground battles (`backend/pg_battle.py`, `_pg_battle_tick` ~50s, `GET|POST /admin/fuses/pg-battles`, `PlaygroundBattles`): Cmd Ctr
+- ⚔ Playground battles (`backend/pg_battle.py`, `_pg_battle_tick` ~50s, `GET|POST /admin/fuses/pg-battles`, `PlaygroundBattles`): HQ
   ONLY, separate from the Arena. Best scenario cards fight paper rounds (5/15/30/60m) with real fills; TP / stop / dead (no 5m trades
   or volume for deadMins) coins swap for the best gated runner; bell → winners keep coins, losers re-bred; records; ⭐ publish winner.
 - Profile: `MyBattles` (`GET /fuses/battles/{addr}`, battleLog keeps aKey/bKey) + "⚡ Fuse a card" `FusePopup` (Lab in a blurred pop-up).
@@ -502,12 +502,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 
 - 🔄 Round cycles: tier cards per-tier `cycles` (`arena_prime.CYCLE_MODES` off/classic/adaptive/safe/press, `next_phase`), 🔒 `trail`
   (a +50% run is sold before it's back under +5%), floored re-deal resets `roundStartUsd`. User cards `cycle` steady/adaptive
-  (`fuse_hq.cycle_pick`: losing card → swap into a major). Lab + My cards + Cmd Ctr Prime controls.
+  (`fuse_hq.cycle_pick`: losing card → swap into a major). Lab + My cards + HQ Prime controls.
 - 🏟 Arena flow: ⭐ tiers → ⚔ battlefield → 🏆 season → 🏟 cards that made it → 🎨 creator's pick → rest. Bracket (`runners.bracket_pairs/
   bracket_update/bracket_done`, `BATTLE_MAX`=3, `unique_cards`): winners vs winners, losers vs losers, 2 losses out, last standing crowned
   (`bracket.champions`), new bracket. Battlefield = fighters + HP bars + power board + champions. Arena Pick has a stable id `arena-pick`.
 - 🎨 Creator's pick (`POST /admin/fuses/scenario-pick`, `creatorPicks`): runner-ups stay in the engine; only picked ones are dealt to
-  the Arena. New Cmd Ctr Fuses default `arena: true`; staged cards newest first.
+  the Arena. New HQ Fuses default `arena: true`; staged cards newest first.
 
 - ⚔ Bracket pool = stage cards + ⭐ tier cards (`fighterOnly`, own section on top) + 🏆 the engine's top playground battle winner
   (`pg_battle.champion`: ≥2 wins, W>L — the only engine card that reaches the Arena by itself) + 🎨 creator's picks. `BATTLE_MAX` = 2
@@ -520,17 +520,17 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 ## NEXT SESSION — continue here (in this order)
 0000. Owner live test: per-coin ⚙ (card window + Lab), rounds pay/compound, buy & back, Edit in Breed → publish, playground battles,
    profile ⚡ Fuse pop-up. Then flip proven configs to auto.
-000. Owner asks open: Cmd Ctr › Fuse FULL layout redo (fit every panel; grouped rail is there, needs a real dashboard layout);
+000. Owner asks open: HQ › Fuse FULL layout redo (fit every panel; grouped rail is there, needs a real dashboard layout);
    FeeCat fresh-launch lane + clean-creator boost (site + X already required); card buy = ONE approval for every coin (FuseGo) but the
    receipt/notice should read as ONE card buy, not "5 coins"; one combined on-chain card contract = fuse_card program (localnet, audit first).
 00. Owner asks still open: FeeCat terminal tabs UI redo (meta layout); FeeCat's OWN auto-strength (like `_engine_auto`);
    Engine playground: buy / publish / buy+publish with an amount + fee % for creator picks; Prime 'round count' that pushes the
    round's best card to the Arena stage; 2–3 live number animations on every % sitewide (`fl-tick` keyed by value);
    hosted background workers before deploy (engines already run in-process loops — move to an always-on host).
-0. Cmd Ctr › Fee 🐱: FeeCat builds + learns Fuse — she breeds her own card from `crowd` elite flow + runner/Prime proof,
+0. HQ › Fee 🐱: FeeCat builds + learns Fuse — she breeds her own card from `crowd` elite flow + runner/Prime proof,
    shows what she learned (setup memory tags `fuse`/`crowd`, dial proof) and proposes engine tweaks (admin Apply, audited).
    Prime ⇄ coin / 🃏 re-deal per tier already live (`arena_prime.replace_leg`, `POST /admin/arena/prime {replace|redeal}`).
-0a. 🚦 Cmd Ctr › Fuse › Contract has the REAL-MONEY GO-LIVE checklist (`GOLIVE_STEPS` adapter · twap · devnet · audit ·
+0a. 🚦 HQ › Fuse › Contract has the REAL-MONEY GO-LIVE checklist (`GOLIVE_STEPS` adapter · twap · devnet · audit ·
    multisig; owner-only, proof required for devnet/audit/multisig, audited; READY only when all pass). Build next: the
    Raydium CPMM adapter + TWAP bound, then the devnet run.
    FUSE Card v0.2 BUILT (localnet, 14 tests): keeper_sell / keeper_buy / withdraw_quote, on-chain triggers from pool reserves,
@@ -545,13 +545,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
    possible NON-CUSTODIALLY via the FUSE Card program (keeper returns to owner, owner toggles) + swap adapters + price checks,
    devnet run, external audit, owner deploy. Until then: one-tap alerts. Never hold user keys / never auto-sign server-side.
    Receipts: withdrawn cards → profile receipts as a shareable dropdown (swaps + history), per-card entries already tracked.
-1. Prime: ⏸ PAUSE a coin (user + Cmd Ctr):
+1. Prime: ⏸ PAUSE a coin (user + HQ):
    below its SL → sold to SOL and parked; re-bought only when price is back above the SL WITH volume (1h vol ≥ entry-time vol,
    buys ≥55%). Pure + tested in `arena_prime.py`, then the same "pause" as a one-tap alert on real cards (never auto-signs).
 2. Prime runners: live check showed 0 runner legs (no 3★ runner passing) — confirm the runner board feeds `_prime_candidates`
    and that runners ≥60 score exist; otherwise fill runner slots with the next 3★ pool and label it.
 3. One-of-a-kind tier animations per Prime card (Diamond prism shards, Gold coin rain, Blaze flame crown) — FX layers only.
-4. FeeCat in Cmd Ctr: auto-tune engine settings after analysis (proposes a cfg from `suggest_cfg` + dial proof; admin Apply,
+4. FeeCat in HQ: auto-tune engine settings after analysis (proposes a cfg from `suggest_cfg` + dial proof; admin Apply,
    or auto-apply only inside hard bounds, every change audited).
 5. Owner live test of one-click cards + notices → then flip configs to auto per dial proof.
-6. Browser-verify: Cmd Ctr › Security Guard, Access (signed grant), Vault, Card rules, Prime tiers, card window, chat ⚙.
+6. Browser-verify: HQ › Security Guard, Access (signed grant), Vault, Card rules, Prime tiers, card window, chat ⚙.

@@ -69,7 +69,7 @@ test('Fuse 🧬: tabs, runners carry into the Lab, My cards shows every action',
   expect(host.querySelector('[data-testid="mode-swap-c1"]')).not.toBeNull();
   await act(async () => host.querySelector('[data-testid="act-yield-c1"]').click());
   expect(host.querySelector('[data-testid="act-panel-yield"]').textContent).toContain('33.3% of each leg');   // +50% → sell only the gain
-  expect(host.querySelector('[data-testid="yield-lvl-100"]')).not.toBeNull();                                      // Cmd Ctr levels, picked not typed
+  expect(host.querySelector('[data-testid="yield-lvl-100"]')).not.toBeNull();                                      // HQ levels, picked not typed
   expect(host.querySelector('[data-testid="act-panel-yield"]').textContent).toContain('price move only — card P&L never mixes in fees');
   await act(async () => host.querySelector('[data-testid="act-limits-c1"]').click()); await tick();
   expect(host.querySelector('[data-testid="leglim-tp-P1"]')).not.toBeNull();                   // per-coin TP / SL on the card

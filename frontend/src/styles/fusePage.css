@@ -134,7 +134,7 @@ body.fx-lite .ar-sky, body.fx-lite .ar-embers, body.fx-lite .ar-ring { display: 
 body.theme-day .ar-sky i { background: #0b8a55; } body.theme-day .fp-wchip { background: #fff; }
 @media (max-width: 640px) { .fp-full { grid-template-columns: 1fr; justify-items: center; } .ar-stage { grid-template-columns: 1fr; } }
 
-/* Cmd Ctr › Fees: card bundle pricing + vault wallet status + Fuse fees tile. */
+/* HQ › Fees: card bundle pricing + vault wallet status + Fuse fees tile. */
 .bundle-ex { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; } .bundle-ex li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; font-size: 12px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--m-line); }
 .bundle-ex li.is-free { border-color: var(--m-warn); } .bundle-ex small { color: var(--m-dim); }
 .vault-status { display: block; font-family: var(--m-mono); font-size: 11px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--m-line); animation: fpIn .2s var(--m-ease) backwards; }
@@ -153,7 +153,7 @@ body.theme-day .ar-sky i { background: #0b8a55; } body.theme-day .fp-wchip { bac
 body.fx-lite .fp-held-card { animation: none; } @media (prefers-reduced-motion: reduce) { .fp-held-card { animation: none; } }
 body.theme-day .fp-cell.is-arena::before { color: #fff; }
 
-/* Cmd Ctr › Card rules */
+/* HQ › Card rules */
 .cr-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); margin: 10px 0; } .cr-grid small { color: var(--m-dim); font-size: 10px; }
 .cr-book { margin-top: 10px; } .ay-default.is-loading { opacity: .7; }
 
@@ -233,7 +233,7 @@ body.fx-lite .rp-reveal, body.fx-lite .rp-mark, body.fx-lite .rp { animation: no
 @media (prefers-reduced-motion: reduce) { .rp-reveal, .rp-mark, .rp { animation: none; opacity: 1; } }
 body.theme-day .rp-chart { background: #fff; } body.theme-day .rp-mark line, body.theme-day .rp-mark circle { stroke: #9a6a00; fill: #9a6a00; }
 
-/* Cmd Ctr › 💸 weekly Fuse payout */
+/* HQ › 💸 weekly Fuse payout */
 .fpay { display: grid; gap: 8px; margin-bottom: 10px; } .fpay > .m-row { gap: 10px; flex-wrap: wrap; } .fpay > .m-row .m-btn { margin-left: auto; }
 .fpay-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; max-height: 260px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
 .fpay-rows::-webkit-scrollbar { width: 6px; } .fpay-rows::-webkit-scrollbar-thumb { background: var(--m-accent); border-radius: 6px; }
@@ -288,14 +288,14 @@ body.theme-day .bf-pair { background: #fff; } body.theme-day .ar-wl { color: #5a
 body.fx-lite .bond-meter i { animation: none; } @media (prefers-reduced-motion: reduce) { .bond-meter i { animation: none; } }
 .fp-legcharts { display: inline-flex; gap: 4px; flex-wrap: wrap; } .fp-legcharts .m-btn { min-height: 28px; padding: 0 8px; font-size: 10.5px; }
 
-/* Cmd Ctr › ⚡ Engine suggestions + self-tuned lane chips */
+/* HQ › ⚡ Engine suggestions + self-tuned lane chips */
 .eng-sug { display: grid; gap: 8px; margin-bottom: 10px; } .eng-sug > .m-row { gap: 10px; flex-wrap: wrap; } .eng-sug > .m-row .m-btn { margin-left: auto; }
 .eng-sug.is-on { border-color: var(--m-warn); animation: fpIn .25s var(--m-ease) backwards; }
 .eng-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; } .eng-list li { display: grid; grid-template-columns: 130px 110px 1fr; gap: 10px; font-size: 12px; align-items: baseline; }
 .eng-lanes { display: flex; gap: 6px; flex-wrap: wrap; }
 body.fx-lite .eng-sug.is-on { animation: none; }
 
-/* Cmd Ctr › Fuse › ⚔ Arena ops + ⛓ Contract status (FuseOpsPanels). */
+/* HQ › Fuse › ⚔ Arena ops + ⛓ Contract status (FuseOpsPanels). */
 .fops { display: grid; gap: 12px; padding: 14px; }
 .fops-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
 .fops-tile { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--m-line); background: var(--m-surface); transition: border-color .15s, transform .15s; }
@@ -394,7 +394,7 @@ body.theme-day .cd-sig li { background: var(--m-surface); }
 body.theme-day .tchip { background: var(--m-surface); }
 @media (prefers-reduced-motion: reduce) { .tchip { transition: none; } }
 
-/* 🏦 Vault designer (Cmd Ctr › Fuse › Vault): flow strip, $ simulator, numbered builder. */
+/* 🏦 Vault designer (HQ › Fuse › Vault): flow strip, $ simulator, numbered builder. */
 .vd { display: grid; gap: 12px; } .vd-status code { font-family: var(--m-mono); }
 .vd-flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; counter-reset: none; }
 .vd-flow li { display: grid; gap: 4px; padding: 10px; border: 1px solid var(--m-line); border-radius: 12px; background: var(--m-bg); position: relative;
@@ -425,7 +425,7 @@ body.fx-lite .vd-flow li { animation: none; }
 @media (prefers-reduced-motion: reduce) { .vd-flow li { animation: none; } .vd-bar i { transition: none; } }
 @media (max-width: 640px) { .vd-flow, .vd-kpis { grid-template-columns: 1fr 1fr; } .vd-flow li::after { display: none; } .vd-pool { grid-template-columns: 1fr auto; } }
 
-/* 🃏 Card rules (Cmd Ctr › Fuse › Card rules): grouped, every number with its $ example. */
+/* 🃏 Card rules (HQ › Fuse › Card rules): grouped, every number with its $ example. */
 .card-rules { display: grid; gap: 12px; }
 .cr-owed { margin-left: auto; display: grid; justify-items: end; gap: 1px; } .cr-owed small, .cr-owed em { font: 9.5px var(--m-mono); color: var(--m-dim); font-style: normal; letter-spacing: .06em; }
 .cr-group { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--m-line); border-radius: 12px; animation: mCardIn .2s var(--m-ease) backwards; }
@@ -652,7 +652,7 @@ body.theme-day .pg-listed.is-bench { color: #8a6200; }
 .fs-backer { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid #c08bff55; animation: fpIn .3s var(--m-ease) backwards; animation-delay: calc(var(--i, 0) * 50ms); }
 .fs-backer i { font-style: normal; color: var(--m-dim); font-size: 10.5px; }
 body.fx-lite .fs-backer { animation: none; } @media (prefers-reduced-motion: reduce) { .fs-backer { animation: none; } }
-/* ⚔ playground battles (Cmd Ctr) — reuses the bf-* battlefield pieces */
+/* ⚔ playground battles (HQ) — reuses the bf-* battlefield pieces */
 .pgb { position: relative; overflow: hidden; } .pgb > * { position: relative; z-index: 1; }
 .pgb-ctl { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; } .pgb-ctl .m-seg button { padding: 3px 9px; font-size: 11px; }
 .pgb-swaps { display: flex; flex-wrap: wrap; gap: 4px; } .pgb-swaps i { font: 600 10px var(--m-mono); font-style: normal; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--m-line); animation: fpIn .3s var(--m-ease) both; }

@@ -6,7 +6,7 @@ import { FuseGo } from './FuseGo';
 import { unfuseOrders } from '../lib/fuseGo';
 import { readChatSession } from '../lib/chatSession';
 
-// Fuse money side. FusePnl = a trader's own fuses (Trade › Fuse Lab). FuseHQ = Cmd Ctr: everyone's P&L, the paper
+// Fuse money side. FusePnl = a trader's own fuses (Trade › Fuse Lab). FuseHQ = HQ: everyone's P&L, the paper
 // arena (champions run a pretend $5 for 24h — the proof a strategy works), bloodlines, published-Fuse health.
 const money = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0) >= 1e3 ? `${(Math.abs(v) / 1e3).toFixed(1)}K` : Math.abs(v || 0).toFixed(2)}`;
 const pct = v => `${v >= 0 ? '+' : ''}${Math.abs(v) >= 1000 ? `${(1 + v / 100).toFixed(1)}x` : `${(v || 0).toFixed(1)}%`}`;

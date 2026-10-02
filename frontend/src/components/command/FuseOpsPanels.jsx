@@ -8,10 +8,10 @@ import { FuseCard } from '../FuseCard';
 const PG_STYLE = { safe: 'steady', balanced: 'yield', degen: 'degen' };
 const PG_SL = { sell: '✂ sell', park: '🅿 park', hold: '❄ hold' };
 
-// Cmd Ctr › Fuse › ⚔ Arena ops: the live battlefield (pairs, move since the bell, time left), the last results, what's
+// HQ › Fuse › ⚔ Arena ops: the live battlefield (pairs, move since the bell, time left), the last results, what's
 // on the stage (by kind) and this week's season board. Read-only views of the public Arena + Season data (60s).
 const pct = v => `${v >= 0 ? '+' : ''}${Number(v || 0).toFixed(1)}%`;
-const KIND = { scenario: '🧪 Engine', auto: '🤖 Auto card', mega: '⚛️ Cmd Ctr', user: '👤 Trader', lit: '🔥 Lit runners', round: '⏳ Proving', feecat: '🐱 FeeCat' };
+const KIND = { scenario: '🧪 Engine', auto: '🤖 Auto card', mega: '⚛️ HQ', user: '👤 Trader', lit: '🔥 Lit runners', round: '⏳ Proving', feecat: '🐱 FeeCat' };
 
 function useJson(path, ms = 60000) {
   const [d, setD] = useState(null);
@@ -50,7 +50,7 @@ export function ArenaOps() {
   </section>;
 }
 
-// Cmd Ctr › Fuse › ⛓ Contract status: what is on-chain-ready and what is not. Static by design — nothing here deploys.
+// HQ › Fuse › ⛓ Contract status: what is on-chain-ready and what is not. Static by design — nothing here deploys.
 const PROGRAMS = [
   ['fuse_vault', 'FUSE Vault', 'SOL in → shares at NAV, mgmt + performance fees to the vault fee wallet, pause never blocks exits.',
     [['Custody, shares, fees, admin, pause', true], ['NAV = SOL held (no value reporting)', true], ['Pool adapters (Raydium / Orca / Meteora)', false], ['Rebalance crank', false]],
@@ -93,7 +93,7 @@ export function ContractStatus({ call }) {
   </section>;
 }
 
-// Cmd Ctr › ⚡ Engine: ONE dial sets the runner engine (gates + lanes) — Safe / Balanced (recommended) / Degen. Fine-tune below.
+// HQ › ⚡ Engine: ONE dial sets the runner engine (gates + lanes) — Safe / Balanced (recommended) / Degen. Fine-tune below.
 export function EngineDial({ call }) {
   const [c, setC] = useState(null);
   const load = () => call('/admin/runners/config').then(setC).catch(() => {});
@@ -106,7 +106,7 @@ export function EngineDial({ call }) {
     <label className="m-toggle" data-tip="Every runner round the engine switches to the dial with the PROVEN better record (8+ rounds, avg > 0, ≥2 pts ahead). Logged in the audit log + your inbox."><input type="checkbox" checked={c.autoTune !== false} onChange={e => call('/admin/runners/autotune', { method: 'POST', body: JSON.stringify({ on: e.target.checked }) }).then(r => setC(x => ({ ...x, autoTune: r.autoTune }))).catch(err => toast.error(err.message))} data-testid="engine-autotune" /><span>🔧 Auto-strength every round</span></label></section>;
 }
 
-// Cmd Ctr › Fee 🐱: FeeCat tunes the engine in ONE click — she reads the dial proof (which Safe/Balanced/Degen engine actually
+// HQ › Fee 🐱: FeeCat tunes the engine in ONE click — she reads the dial proof (which Safe/Balanced/Degen engine actually
 // paid over the last rounds) + the stronger-config finder, then applies both (the server audits every change).
 export const bestDial = dials => Object.entries(dials || {}).filter(([, p]) => p.rounds >= 8 && p.avgPct > 0)
   .sort((a, b) => b[1].avgPct * (b[1].winRate || 1) - a[1].avgPct * (a[1].winRate || 1))[0] || null;
@@ -138,7 +138,7 @@ export function FeeCatTune({ call }) {
 
 // 🧪 Engine playground overview: every scenario the engines run (strategy runs, bloodline, dial proofs per window, top-tier
 // cards, runner rounds, lit cards), the auto-tune log, and the READY-for-Arena list with the evidence for each.
-// ⚔ Engine playground battles — Cmd Ctr only, SEPARATE from the public Arena battles. The best scenario cards fight on short
+// ⚔ Engine playground battles — HQ only, SEPARATE from the public Arena battles. The best scenario cards fight on short
 // paper rounds (fills like a real wallet); TP / stop / dead coins swap mid-round; winners keep coins, losers are re-bred.
 const pgPc = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(2)}%`);
 const PG_WHY = { tp: '🎯 TP', sl: '🛑 stop', dead: '💀 dead', rug: '🚨 rug' };
@@ -152,7 +152,7 @@ export function PlaygroundBattles({ call, onPublish }) {
   const c = b.cfg; const leftS = Math.max(0, Math.round((b.endsAt || now) - now));
   const seg = (k, opts, fmt) => <span className="m-seg" role="group">{opts.map(v => <button key={String(v)} type="button" className={c[k] === v ? 'active' : ''} onClick={() => set({ cfg: { [k]: v } })} data-testid={`pgb-${k}-${v}`}>{fmt(v)}</button>)}</span>;
   return <section className="pg-box pgb m-live" data-testid="pg-battles">
-    <header><b>⚔ Playground battles</b><small>Cmd Ctr only · paper, real fills · separate from the Arena · next bell <b className="m-num" key={leftS}>{Math.floor(leftS / 60)}:{String(leftS % 60).padStart(2, '0')}</b></small></header>
+    <header><b>⚔ Playground battles</b><small>HQ only · paper, real fills · separate from the Arena · next bell <b className="m-num" key={leftS}>{Math.floor(leftS / 60)}:{String(leftS % 60).padStart(2, '0')}</b></small></header>
     <div className="pgb-ctl">
       <label className="m-toggle"><input type="checkbox" checked={c.on} onChange={e => set({ cfg: { on: e.target.checked } })} data-testid="pgb-on" />On</label>
       <span data-tip="Round length — the bell rings and the bigger % since the last bell wins">⏱</span>{seg('roundMins', [5, 15, 30, 60], v => `${v}m`)}
@@ -181,13 +181,13 @@ export function PlaygroundBattles({ call, onPublish }) {
 
 // 🩺 Engine doctor: which PICKS win (filters replayed on every past pick's entry snapshot, lane exits, real prices). Positive in 24h
 // AND 72h and ahead of "take every pick" → the engine applies that filter to the next rounds by itself (audited). Nothing wins →
-// it sits out runners (Arena Pick goes pools-only) until something proves itself. Cmd Ctr can override.
+// it sits out runners (Arena Pick goes pools-only) until something proves itself. HQ can override.
 export function EngineDoctor({ p, call, onChange }) {
   const f = p.filters || {}; const d = p.doctor || {};
   const rows = Object.entries(f['24h'] || {}).filter(([k]) => k !== '_all').map(([k, v]) => ({ k, ...v, v72: (f['72h'] || {})[k] || {} }))
     .sort((a, b) => (b.avgPct ?? -999) - (a.avgPct ?? -999));
   const all = (f['24h'] || {})._all || {};
-  const set = body => call('/admin/runners/pick-filter', { method: 'POST', body: JSON.stringify(body) }).then(r => { onChange?.({ ...d, ...r, why: 'set from Cmd Ctr' }); toast.success('Engine pick filter set'); }).catch(e => toast.error(e.message));
+  const set = body => call('/admin/runners/pick-filter', { method: 'POST', body: JSON.stringify(body) }).then(r => { onChange?.({ ...d, ...r, why: 'set from HQ' }); toast.success('Engine pick filter set'); }).catch(e => toast.error(e.message));
   const pc_ = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`);
   return <div className={`pg-box pg-doctor ${d.sitOut ? 'is-sitout' : d.filter ? 'is-on' : ''}`} data-testid="engine-doctor">
     <header><b>🩺 Engine doctor · which picks win</b><small>every past pick replayed by its entry snapshot · positive in 24h + 72h → applied by itself</small></header>
@@ -196,7 +196,7 @@ export function EngineDoctor({ p, call, onChange }) {
       <small className="m-dim">{d.why || 'Checks every runner round (~15 min).'} · every pick now: {pc_(all.avgPct)} over {all.picks || 0}</small>
       {(d.filter || d.sitOut) && <button type="button" className="m-btn" onClick={() => set({ filter: '', sitOut: false })}>Clear</button>}</div>
     <div className="pg-filters">{rows.map((r, i) => <button key={r.k} type="button" className={`pg-filter ${d.filter === r.k ? 'is-on' : ''} ${(r.avgPct || 0) > 0 && (r.v72.avgPct || 0) > 0 ? 'up' : (r.avgPct || 0) < 0 ? 'down' : ''}`} style={{ '--i': i }}
-      onClick={() => set({ filter: d.filter === r.k ? '' : r.k, sitOut: false })} disabled={!r.ready} data-tip={r.ready ? `Tap to apply (Cmd Ctr override). ${r.winRate}% of ${r.picks} picks won.` : `Needs ${6 - (r.picks || 0)} more picks`} data-testid={`pg-filter-${r.k}`}>
+      onClick={() => set({ filter: d.filter === r.k ? '' : r.k, sitOut: false })} disabled={!r.ready} data-tip={r.ready ? `Tap to apply (HQ override). ${r.winRate}% of ${r.picks} picks won.` : `Needs ${6 - (r.picks || 0)} more picks`} data-testid={`pg-filter-${r.k}`}>
       <small>{r.label}</small><b className={`m-num ${(r.avgPct || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{pc_(r.avgPct)}</b><em>72h {pc_(r.v72.avgPct)} · {r.picks || 0} picks</em></button>)}</div>
   </div>;
 }
@@ -206,7 +206,7 @@ export function EnginePlayground({ call }) {
   useEffect(() => { let alive = true; const load = () => call('/admin/fuses/playground').then(x => alive && setP(x)).catch(() => {});
     load(); const t = setInterval(() => !document.hidden && load(), 60000); return () => { alive = false; clearInterval(t); }; }, [call]);
   if (!p) return <div className="fl-row is-ghost" />;
-  // ⭐ a winning scenario card → a published Cmd Ctr Fuse staged on the Arena (its exits in the tagline; edit in this panel below)
+  // ⭐ a winning scenario card → a published HQ Fuse staged on the Arena (its exits in the tagline; edit in this panel below)
   const publishScenario = sc => call('/admin/fuses', { method: 'POST', body: JSON.stringify({ name: (sc.name || '').split(' ').slice(1).join(' ') || `${sc.label} · ${sc.window}`.slice(0, 40), emoji: (sc.name || '🧪').split(' ')[0], creatorBps: 0, enabled: true, arena: true,
     dial: sc.dial || '', cfg: sc.cfg || null, fromScenario: sc.id,
     tagline: `Engine scenario: TP +${sc.tp}% / stop −${sc.sl}% · avg ${sc.avgPct >= 0 ? '+' : ''}${sc.avgPct}% over ${sc.rounds} rounds`, legs: sc.legs.map(l => ({ chainId: 'solana', pairAddress: l.pairAddress, weight: l.weight })) }) })

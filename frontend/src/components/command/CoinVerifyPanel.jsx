@@ -5,7 +5,7 @@ import { shortAddress } from '../../lib/dexscreener';
 import { clearVerified } from '../../lib/verifyBatch';
 import { VerifyReport } from '../VerifyReport';
 
-// Command Center › Verify: run the checks on any coin, grant the gold check, or revoke one (revoke always wins).
+// HQ › Verify: run the checks on any coin, grant the gold check, or revoke one (revoke always wins).
 export function CoinVerifyPanel({ call }) {
   const [d, setD] = useState({ manual: [], requests: [], auto: [] });
   const [mint, setMint] = useState('');

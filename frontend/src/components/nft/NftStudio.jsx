@@ -4,7 +4,7 @@ import { useWallet } from '../../hooks/useWallet';
 import { apiUrl, errorText } from '../../lib/api';
 import { MetaCard } from '../cards/MetaCard';
 
-// Cmd Ctr › NFTs: turn any FEELESS card into an NFT collection on Solana and drop it to wallets.
+// HQ › NFTs: turn any FEELESS card into an NFT collection on Solana and drop it to wallets.
 //   Metaplex Core — on-chain, your wallet signs (no key)      Crossmint — API minting (CROSSMINT_API_KEY)
 //   Underdog — compressed NFTs via API (UNDERDOG_API_KEY)    Magic Eden / Tensor index Core collections on their own.
 const PLATFORMS = [

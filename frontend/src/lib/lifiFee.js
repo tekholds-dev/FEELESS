@@ -1,6 +1,6 @@
 import { apiUrl } from './api';
 
-// FEELESS fee on LI.FI (EVM swaps + bridges). Configured in Command Center → Fees; LI.FI pays it to the
+// FEELESS fee on LI.FI (EVM swaps + bridges). Configured in HQ → Fees; LI.FI pays it to the
 // integrator's fee wallet registered at portal.li.fi. Off when not configured.
 let cached = null;
 export async function lifiFeeConfig() {

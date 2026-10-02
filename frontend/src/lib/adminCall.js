@@ -6,7 +6,7 @@ import { apiUrl } from './api';
 const SESSION_KEY = 'feeless:cc-session';
 const read = addr => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.address === addr && Date.now() / 1000 - s.ts < 3500 ? s : null; } catch { return null; } };
 
-// Admin calls from anywhere on the site, sharing the command center's signed session (1h).
+// Admin calls from anywhere on the site, sharing the HQ's signed session (1h).
 // isAdmin only shows/hides controls — the server re-verifies the signature on every admin request.
 export function useAdmin() {
   const { wallet, signMessage } = useWallet() || {};
@@ -20,7 +20,7 @@ export function useAdmin() {
     let s = read(address);
     if (!s) {
       const ts = Math.floor(Date.now() / 1000);
-      const sig = await signMessage(`FEELESS command center\naddress:${address}\nts:${ts}`);
+      const sig = await signMessage(`FEELESS HQ\naddress:${address}\nts:${ts}`);
       s = { address, ts, sig }; localStorage.setItem(SESSION_KEY, JSON.stringify(s));
     }
     const res = await fetch(apiUrl(`/api/reputation${path}`), { ...opts, headers: { 'Content-Type': 'application/json', 'x-admin-address': address, 'x-admin-ts': String(s.ts), 'x-admin-sig': s.sig } });

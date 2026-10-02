@@ -8,7 +8,7 @@ Every change has to meet all of these before it ships:
    - Build: `CI=false npx craco build`
    - Backend tests: `PYTHONPATH=backend:. python -m pytest backend/tests -q`
    - Page scan: every page renders, with no panel or page crashes.
-2. **Speed budget.** A page should stay at 55fps or better on a mid laptop, and no API route should have a p95 above 1.2s. **Command Center › Lag catcher** reports both from real browsers. Anything on its fix list gets fixed before new features.
+2. **Speed budget.** A page should stay at 55fps or better on a mid laptop, and no API route should have a p95 above 1.2s. **HQ › Lag catcher** reports both from real browsers. Anything on its fix list gets fixed before new features.
 3. **Animation rules.**
    - Animate only `transform` and `opacity`.
    - Never animate a CSS custom property such as `--ang`, because it repaints every frame.
@@ -30,13 +30,13 @@ Every change has to meet all of these before it ships:
 ## To go live: what the owner must do
 | Step | Where | Status check |
 |---|---|---|
-| Helius RPC key → `SOLANA_RPC_URL` | `backend/.env` | Cmd Ctr › Launch & setup › Hook-up steps |
+| Helius RPC key → `SOLANA_RPC_URL` | `backend/.env` | HQ › Launch & setup › Hook-up steps |
 | `JUPITER_API_KEY` | `backend/.env` | same |
 | `PUBLIC_SITE_URL` (coin metadata host) | `backend/.env` | same |
 | `FEELESS_ADMIN_WALLETS` (hardware or multisig) | `backend/.env` | same |
-| Fee accounts (SOL + USDC) for the trade fee | Cmd Ctr › Trading & fees | Self-test goes green |
-| Treasury route / fee claimer (Squads multisig) | Cmd Ctr › Treasury | Hook-up steps |
-| **Launch config**: pick a preset, check the readiness box, sign once (about 0.01 SOL) | Cmd Ctr › Launch & setup | Box reads "✓ Valid on Meteora" with no ⚠ warnings |
+| Fee accounts (SOL + USDC) for the trade fee | HQ › Trading & fees | Self-test goes green |
+| Treasury route / fee claimer (Squads multisig) | HQ › Treasury | Hook-up steps |
+| **Launch config**: pick a preset, check the readiness box, sign once (about 0.01 SOL) | HQ › Launch & setup | Box reads "✓ Valid on Meteora" with no ⚠ warnings |
 | `ALLOWED_ORIGINS=https://your-domain` | `backend/.env` | Hook-up steps |
 | Restart the backend after `.env` edits | `bash scripts/start-backend.sh` | |
 
@@ -73,11 +73,11 @@ Meteora's own validator checks the curve before you can sign. The warnings flag 
   - DexScreener boosts are the first source.
   - Small chains (Cronos, zkSync, Zora…) are topped up from GeckoTerminal trending/new pools, so no network loads empty.
   - Chain logos come from DexScreener, which carries the current CRO mark.
-- **Treasury.** Cmd Ctr › Treasury shows every wallet holding FEELESS money: the fee accounts (wSOL / USDC), the admin wallet, season reserves and badge pools.
+- **Treasury.** HQ › Treasury shows every wallet holding FEELESS money: the fee accounts (wSOL / USDC), the admin wallet, season reserves and badge pools.
   - **Split now** sends fees to the split-plan destinations. You sign from the wallet that owns the fee account.
   - The server re-reads each transaction on-chain and records only what actually moved.
   - Nothing splits automatically, because that would need a server-held key.
-- **What's launchable** (Cmd Ctr › Launch & setup):
+- **What's launchable** (HQ › Launch & setup):
   - **Launch config:** a one-time on-chain template.
   - **FEELESS coins:** launched on the Launch page. The config's terms apply and the page's planning fields lock.
   - **Pump.fun coins:** launched from the same page.
@@ -86,11 +86,11 @@ Meteora's own validator checks the curve before you can sign. The warnings flag 
 - **Coin verification.** A coin earns a green ✓ on its logo, site-wide, by passing all 5 safety gates and scoring 75+ out of 100 on 10 cited checks:
   - **Gates:** mint and freeze authority revoked, creator not flagged, 24h+ of trading, $25K+ liquidity.
   - **Checks:** locked LP, holder spread, insider share, dev bag, socials, real volume, two-sided flow, 72h+ age.
-  - Official or reviewed coins get a gold ✦ granted in Cmd Ctr › Verify coins. A revoke always wins.
+  - Official or reviewed coins get a gold ✦ granted in HQ › Verify coins. A revoke always wins.
   - Checks re-run every 6h. Case files and the coin passport show the same report.
 - **Fee's setup memory.** Fee files every closed trade under its setup buckets (1h move, flow, depth, age, 5m heat, market-cap band, lane, fair value gap).
   - Setups with a proven edge size her up, to at most 1.5×. Setups that keep losing size her down, or veto the entry outright after 6+ trades at ≤20% wins and −8% or worse on average.
-  - Cmd Ctr › Fee 🐱 shows her playbook, her vetoes and her exit tuning.
+  - HQ › Fee 🐱 shows her playbook, her vetoes and her exit tuning.
 - **Lag catcher.** Browsers report API latency, long tasks and FPS once a minute. A device that lags switches itself to lite effects. The owner can force lite effects site-wide.
 
 ## Open items (not built yet)

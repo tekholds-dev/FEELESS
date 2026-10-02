@@ -6,7 +6,7 @@ import { perkText } from '../QuestBoard';
 import { AuraPicker } from '../cards/MetaCard';
 import { QuestBadgeCard } from '../QuestBadgeCard';
 
-// Command Center › Badges › Quest engine: every badge editable (name, tier, on/off, tasks + targets), live holder
+// HQ › Badges › Quest engine: every badge editable (name, tier, on/off, tasks + targets), live holder
 // counts, and grant / revoke for any wallet. Saves go through the signed admin session; bad task lists are refused.
 export function QuestEngineAdmin({ call }) {
   const [d, setD] = useState(null);

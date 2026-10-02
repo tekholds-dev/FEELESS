@@ -34,7 +34,7 @@ PHASES = {'anchor': {'anchors': 2, 'pools': 0, 'runners': 0, 'why': 'anchor roun
           'mixed': {'anchors': 2, 'pools': 0, 'runners': 2, 'why': 'mixed round — half majors, half fresh runners'}}
 CYCLE = ('anchor', 'degen', 'anchor', 'mixed')
 CYCLE_TIERS = ('degen', 'next')
-# 🔄 Round cycles per tier (Cmd Ctr picks): off = keep the tier's own shape · classic = anchor→degen→anchor→mixed ·
+# 🔄 Round cycles per tier (HQ picks): off = keep the tier's own shape · classic = anchor→degen→anchor→mixed ·
 # adaptive = a LOSING round rests in majors, a winning one (≥ +5%) presses with runners, flat = mixed · safe = anchor⇄mixed ·
 # press = degen⇄mixed. Every phase change is the same run (P&L continues).
 CYCLE_MODES = {'off': None, 'classic': CYCLE, 'adaptive': 'adaptive', 'safe': ('anchor', 'mixed'), 'press': ('degen', 'mixed')}
@@ -275,7 +275,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     c['parked'] = dict(c.get('parked') or {})
     for l in list(c['legs']):
         px = _f(prices.get(l['pairAddress']))
-        lmode = l.get('slMode') if l.get('slMode') in SL_MODES else mode   # ❄/✂/🅿 per coin (Cmd Ctr) beats the card's mode
+        lmode = l.get('slMode') if l.get('slMode') in SL_MODES else mode   # ❄/✂/🅿 per coin (HQ) beats the card's mode
         if l.get('role') == 'anchor' or not t['sl'] or lmode == 'hold' or l.get('frozen') or px <= 0 or l['entry'] <= 0:
             continue
         dd = (px / l['entry'] - 1) * 100
@@ -390,7 +390,7 @@ def record(card):
 
 
 def set_leg(card, pair, frozen=None, sl_mode=None):
-    """Cmd Ctr per-coin config on a tier card: ❄ frozen (engine never rotates or stops it — the floor still protects the card)
+    """HQ per-coin config on a tier card: ❄ frozen (engine never rotates or stops it — the floor still protects the card)
     and its own stop mode (replace / park / hold, or '' = follow the card). Pure; ValueError if the coin isn't on the card."""
     c = {**card, 'legs': [dict(l) for l in card.get('legs') or []]}
     leg = next((l for l in c['legs'] if l['pairAddress'] == pair), None)
@@ -406,7 +406,7 @@ def set_leg(card, pair, frozen=None, sl_mode=None):
 
 
 def replace_leg(card, pair, prices, pools, runners, anchors, cfg, now):
-    """Cmd Ctr ⇄: swap ONE coin on a Prime card for the best 3★+ candidate of the same role not already on it (same $)."""
+    """HQ ⇄: swap ONE coin on a Prime card for the best 3★+ candidate of the same role not already on it (same $)."""
     c = {**card, 'legs': [dict(l) for l in card['legs']], 'events': list(card['events'])}
     l = next((x for x in c['legs'] if x['pairAddress'] == pair), None)
     if not l:

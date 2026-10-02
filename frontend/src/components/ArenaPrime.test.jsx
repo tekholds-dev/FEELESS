@@ -39,7 +39,7 @@ test('collect is one tap and disabled when the card is not up', async () => {
   await act(async () => { [...document.querySelectorAll('[data-testid="card-earnings"]')].pop().click(); }); expect(onClose).toHaveBeenCalled();
 });
 
-test('Cmd Ctr: ⇄ replaces one coin on a Prime card, 🃏 re-deals one tier', async () => {
+test('HQ: ⇄ replaces one coin on a Prime card, 🃏 re-deals one tier', async () => {
   const { PrimeControls } = require('./ArenaPrime');
   global.fetch = jest.fn(async () => ({ json: async () => ({ cards: [CARD], cfg: { sizeUsd: 100, rotateHours: 6, rotateCount: 2, compound: true, floorPct: 20, on: true } }) }));
   const call = jest.fn(async () => ({ cfg: {} }));
@@ -50,7 +50,7 @@ test('Cmd Ctr: ⇄ replaces one coin on a Prime card, 🃏 re-deals one tier', a
   expect(JSON.parse(call.mock.calls.at(-1)[1].body)).toEqual({ redeal: 'degen' });
 });
 
-test('Cmd Ctr: rotate every — typed minutes save as hours (15 min floor)', async () => {
+test('HQ: rotate every — typed minutes save as hours (15 min floor)', async () => {
   const { PrimeControls } = require('./ArenaPrime');
   global.fetch = jest.fn(async () => ({ json: async () => ({ cards: [CARD], cfg: { sizeUsd: 100, rotateHours: 1, rotateCount: 1, compound: true, floorPct: 20, on: true } }) }));
   const call = jest.fn(async (p, o) => ({ cfg: { sizeUsd: 100, rotateHours: JSON.parse(o.body).cfg.rotateHours ?? 1, rotateCount: 1, compound: true, floorPct: 20, on: true } }));

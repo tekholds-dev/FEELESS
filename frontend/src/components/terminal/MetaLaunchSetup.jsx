@@ -391,7 +391,7 @@ export default function MetaLaunchSetup({ initialValues }) {
   const [houseId, setHouseId] = useState('');
   const house = isAdmin ? (rail?.house || []).find(h => h.config === houseId) : null;
   const railActive = house ? { ...rail, ...house, ready: true } : rail;
-  // Owner's Launch tab rules (Cmd Ctr › Launch): which rails, banner, first-buy cap. Admins always see everything.
+  // Owner's Launch tab rules (HQ › Launch): which rails, banner, first-buy cap. Admins always see everything.
   const tabRule = !isAdmin && rail?.tab ? rail.tab : null;
   const [form, setForm] = useState({ ...DEFAULT_META_LAUNCH_FORM, ...initialValues });
   const [errors, setErrors] = useState({});

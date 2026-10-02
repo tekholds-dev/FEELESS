@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { errorText } from '../../lib/api';
 import { liteMode, setLite } from '../../lib/perfWatch';
 
-// Command Center › Lag catcher: what real visitors feel (slow routes, janky pages, fps) + the fix for each.
+// HQ › Lag catcher: what real visitors feel (slow routes, janky pages, fps) + the fix for each.
 export function LagCatcher({ call }) {
   const [hours, setHours] = useState(1);
   const [d, setD] = useState(null);

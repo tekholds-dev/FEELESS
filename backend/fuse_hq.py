@@ -1,7 +1,7 @@
 """FUSE HQ: the money side of fusing. Pure functions (no I/O) — the service gathers prices and records.
 
 - position_pnl(): a real Fuse-in (verified FEELESS trades, one per leg) valued at live prices → $ and % P&L per leg.
-- book(): many positions → totals, winners/losers, per-Fuse rollup (Cmd Ctr P&L tab).
+- book(): many positions → totals, winners/losers, per-Fuse rollup (HQ P&L tab).
 - arena_*: paper $5 runs for evolution champions, settled after 24h — the evidence a strategy works before real money.
 - best_style(): the strategy with the best settled arena record (what "Find my best 3" uses for traders).
 - health(): a published Fuse vs the latest champion — flags when it has been beaten.
@@ -203,13 +203,13 @@ def add_legs(pos, buys, metas, now=0, max_pools=3, max_runners=3):
 
 
 CARD_POOLS, CARD_RUNNERS = 3, 3
-ADMIN_POOLS, ADMIN_RUNNERS = 12, 12   # Cmd Ctr: any mix up to ADMIN_LEGS in total (6 pools + 6 runners, or 12 runners)
+ADMIN_POOLS, ADMIN_RUNNERS = 12, 12   # HQ: any mix up to ADMIN_LEGS in total (6 pools + 6 runners, or 12 runners)
 ADMIN_LEGS = 12
 FEE_FOR_3RD_CARD = 200.0
 
 
 def legs_ok(pools, runners, admin=False):
-    """A card's leg mix: traders 3 pools + 3 runners; Cmd Ctr up to 12 legs in any mix."""
+    """A card's leg mix: traders 3 pools + 3 runners; HQ up to 12 legs in any mix."""
     if admin:
         return pools <= ADMIN_POOLS and runners <= ADMIN_RUNNERS and pools + runners <= ADMIN_LEGS
     return pools <= CARD_POOLS and runners <= CARD_RUNNERS
@@ -411,7 +411,7 @@ def yield_due(r, y, exit_fee=0.0):
     return bool(y) and not y.get('firedAt') and not y.get('rebase') and base > 0 and held_value(r) - _f(exit_fee) >= base * (1 + _f(y.get('at')) / 100)
 
 
-# ---- Card rules (Cmd Ctr › Fuse › Card rules): auto-profit levels, swap mode, Arena top tier, Fuse Fee-Back -----------
+# ---- Card rules (HQ › Fuse › Card rules): auto-profit levels, swap mode, Arena top tier, Fuse Fee-Back -----------
 CARD_RULES = {'yieldLevels': [25, 50, 100, 200], 'yieldDefault': 50, 'netFeeUsdPerLeg': 0.01, 'swapDropPct': 25, 'topTierPct': 50,
               'fbHolderPct': 20, 'fbHoldHours': 24, 'fbLoyaltyPct': 10, 'fbLoyaltyDays': 7, 'fbArenaPct': 10, 'fbCapPct': 50, 'copyPct': 10, 'seasonBoostPct': 10, 'backerPoolUsd': 0}
 RULE_RANGES = {'backerPoolUsd': (0, 1000), 'netFeeUsdPerLeg': (0, 1), 'swapDropPct': (5, 90), 'topTierPct': (5, 1000), 'fbHolderPct': (0, 100), 'fbHoldHours': (1, 720),
@@ -751,7 +751,7 @@ def cycle_pick(pos, pnl_pct):
 
 
 def _extras(plan):
-    """Per-card advanced options (owner + Cmd Ctr): rotation interval and what a coin stop does
+    """Per-card advanced options (owner + HQ): rotation interval and what a coin stop does
     (sell · park = sell to SOL, then a one-tap buy-back alert when price is back at entry with buyers · hold = no stop alert)."""
     pay = plan.get('payoutPct')
     pay = int(pay) if pay in (0, 25, 50, 75, 100) else (0 if plan.get('onProfit') == 'compound' else 100)
@@ -830,7 +830,7 @@ def playground_ready(board, dials_by_window, prime, min_settled=None, battle_row
 
 
 # 🔁 Card rounds: every real card runs ROUNDS_DEFAULT auto rounds (each = one rotation or buy-back alert window). +ROUNDS_STEP
-# more cost `per5Usd` (Cmd Ctr › Fees): paid now as a SOL transfer to the fee wallet, or — when Cmd Ctr allows it — the card's
+# more cost `per5Usd` (HQ › Fees): paid now as a SOL transfer to the fee wallet, or — when HQ allows it — the card's
 # compound pays: rounds start now, the price is owed by the card and settled with its next profit take. Staff cards: unlimited.
 ROUNDS_DEFAULT = 5
 ROUNDS_STEP = 5
@@ -861,7 +861,7 @@ def use_round(pos, key):
 
 
 def extend_rounds(pos, mode, cfg, paid_usd=0.0, now=0.0, sig=''):
-    """+ROUNDS_STEP rounds. 'pay' needs paid_usd ≥ 97% of the price (SOL price drift); 'compound' needs Cmd Ctr's OK and
+    """+ROUNDS_STEP rounds. 'pay' needs paid_usd ≥ 97% of the price (SOL price drift); 'compound' needs HQ's OK and
     nothing already owed (one owed step at a time). Free (price 0) always works. ValueError says why not."""
     cfg = clean_rounds_cfg(cfg)
     price = cfg['per5Usd']
@@ -907,7 +907,7 @@ def paid_lamports(tx, payer, to):
 
 
 # ⚔ Backer season: free backs earn XP all week; the top 3 backers of the week (most winning backs, ≥3 backs) split the
-# `backerPoolUsd` prize (Cmd Ctr › Card rules, 0 = off) 50 / 30 / 20 — paid with the weekly Fee-Back payout (owed in the book).
+# `backerPoolUsd` prize (HQ › Card rules, 0 = off) 50 / 30 / 20 — paid with the weekly Fee-Back payout (owed in the book).
 BACKER_SPLIT = (0.5, 0.3, 0.2)
 BACKER_MIN_BACKS = 3
 

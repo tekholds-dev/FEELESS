@@ -1,4 +1,4 @@
-"""Bundle pricing (flat $ per coin for cards bought all at once; Cmd Ctr free), 12-leg Cmd Ctr cards, Arena activity tiers,
+"""Bundle pricing (flat $ per coin for cards bought all at once; HQ free), 12-leg HQ cards, Arena activity tiers,
 and a Runners tab that is never dead (every passing coin + watch-only failures)."""
 import asyncio
 import time

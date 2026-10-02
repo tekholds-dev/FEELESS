@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { FuseCard } from './FuseCard';
 
-// 🧬 Cmd Ctr › Fuse Evolution: pick a strategy + budget, the server breeds baskets of live pools over generations
+// 🧬 HQ › Fuse Evolution: pick a strategy + budget, the server breeds baskets of live pools over generations
 // (keep the elite, crossover, mutate — backend fuse.evolve) and returns 3 champions with every fitness part shown.
 // "Load" drops a champion into the Lab above, where ⚡ Fuse in is still one wallet approval.
 const STYLES = [['yield', '💧 Yield hunter'], ['momentum', '🚀 Momentum'], ['steady', '🛡 Steady'], ['degen', '🎲 Degen']];
@@ -67,7 +67,7 @@ export function FuseEvolve({ call, onLoad, maxLegs = 10 }) {
         <div className="fe-acts"><button type="button" className={`m-btn ${i === 0 ? 'primary' : ''}`} onClick={() => onLoad?.(c.legs, sol)} data-testid={`fe-load-${i}`}>Load into Lab →</button>
           <button type="button" className="m-btn" title="Paper $5 for 24h at real prices" onClick={() => act('arena', c)} data-testid={`fe-arena-${i}`}>🏟</button>
           <button type="button" className="m-btn" title="Save to bloodline" onClick={() => act('bloodline', c)}>🧬</button>
-          <button type="button" className="m-btn" data-tip="Publish this champion as a Cmd Ctr Fuse AND stage it on the public Arena (its effects grow with real buys). Edit or unstage it in 📣 Published." onClick={() => showcase(c, i)} data-testid={`fe-showcase-${i}`}>⭐ Showcase</button>
+          <button type="button" className="m-btn" data-tip="Publish this champion as a HQ Fuse AND stage it on the public Arena (its effects grow with real buys). Edit or unstage it in 📣 Published." onClick={() => showcase(c, i)} data-testid={`fe-showcase-${i}`}>⭐ Showcase</button>
           <button type="button" className="m-btn primary" data-tip="Publish to the Arena AND load it into the Lab with your SOL amount — you approve the buy" onClick={() => showcase(c, i, true)} data-testid={`fe-buypub-${i}`}>⚡ Buy + publish</button></div>
       </article>)}</div>}
       {done && d.champions[0]?.parts.feeDragPct > 5 && <div className="m-note warn"><b>FEE DRAG</b><span>At ${budget}, network fees eat {d.champions[0].parts.feeDragPct}% of the buy. Fewer pools or a bigger budget keeps more of it working.</span></div>}

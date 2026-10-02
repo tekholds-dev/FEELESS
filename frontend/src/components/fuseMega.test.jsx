@@ -5,7 +5,7 @@ import { TIER_FX, stageTier, runnerLegs } from './FusePage';
 
 jest.mock('react-router-dom', () => ({ Link: ({ children, ...p }) => <a {...p}>{children}</a>, useNavigate: () => jest.fn(), useLocation: () => ({ pathname: '/' }) }), { virtual: true });
 
-test('leg caps: traders 3 pools + 3 runners, Cmd Ctr 12 legs any mix', () => {
+test('leg caps: traders 3 pools + 3 runners, HQ 12 legs any mix', () => {
   expect(legCaps(false)).toEqual({ pools: 3, runners: 3, total: 6 });
   expect(legCaps(true)).toEqual({ pools: 12, runners: 12, total: 12 });
 });
@@ -151,7 +151,7 @@ test('auto-set TP/SL presets fill every coin (runners by lane), and the bond met
   act(() => { createRoot(el).render(<BondMeter checks={[{ id: 'a', label: 'x', ok: true }]} />); });
 });
 
-test('Cmd Ctr engine: stronger config listed with reasons, one click applies the merged values', async () => {
+test('HQ engine: stronger config listed with reasons, one click applies the merged values', async () => {
   const React = require('react'); const { act } = React; const { createRoot } = require('react-dom/client');
   const { EngineSuggest } = require('./command/FuseAdminSettings');
   const call = jest.fn(async (path) => (path === '/admin/runners/suggest' ? { cfg: { minMcap: 8000, roundSize: 5 }, suggestions: [{ key: 'minMcap', now: 8000, to: 12000, why: 'bots' }],

@@ -276,7 +276,7 @@ def test_auto_collect_fires_once_then_rearms_after_collecting(monkeypatch):
     rs._json_save(rs.FUSE_HQ_PATH, d)
     assert asyncio.run(rs._fuse_yield_tick(rs._json_load(rs.FUSE_HQ_PATH, {}), 40)) == 0
     assert round(rs._json_load(rs.FUSE_HQ_PATH, {})['positions'][0]['autoYield']['base']) == 100
-    # Cmd Ctr default arms new cards
+    # HQ default arms new cards
     assert asyncio.run(rs.admin_auto_yield_set(Req({'on': True, 'at': 75}))) == {'on': True, 'at': 75.0}
 
 

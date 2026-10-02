@@ -1,4 +1,4 @@
-// One clear line per Command Center tab: what it is, what you do there. Rendered as the tab's header.
+// One clear line per HQ tab: what it is, what you do there. Rendered as the tab's header.
 export const TAB_INFO = {
   launch: ['Launch & setup', 'Hook up keys, then sign the one-time launch config. Everything launchable is mapped here.', ['Launch map', 'Presets', 'Readiness check']],
   fees: ['Trading & fees', 'The FEELESS fee on every trade: rate, engine, fee accounts and live earnings.', ['Fee %', 'Engine', 'Fee accounts']],
@@ -26,6 +26,6 @@ export const TAB_INFO = {
   verify: ['Verify coins', 'Run the verification checks, grant the gold check or revoke one.', ['Run checks', 'Grant', 'Revoke']],
   overview: ['Security', 'Platform health, keys and risks at a glance.', []],
   mod: ['Moderation', 'Reports, mutes and the blocklist.', []],
-  access: ['Access', 'Who can open this Command Center.', []],
+  access: ['Access', 'Who can open this HQ.', []],
   bugs: ['Bugs', 'Crash reports and bug tickets, newest first.', []],
 };

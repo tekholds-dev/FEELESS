@@ -16,7 +16,7 @@ import { RISK_DIALS, applyRisk } from '../lib/riskDial';
 import '../styles/fuseLab.css';
 
 // ⚛️ FUSE LAB: browse the chain's real pools, tick them, and see live how FEELESS auto-weighs them (fee APR × depth,
-// 10–70% each) and where one SOL amount goes. Traders fuse up to 3 pools; Cmd Ctr (pass `call`) up to 6 with manual
+// 10–70% each) and where one SOL amount goes. Traders fuse up to 3 pools; HQ (pass `call`) up to 6 with manual
 // weights + publish-as-Fuse. Preview is read-only; Fuse in = one wallet approval for one normal swap per pool (FuseGo).
 // Caps are enforced server-side (fuse.USER_MAX_LEGS / MAX_LEGS).
 const LENSES = [['popular', 'Popular'], ['majors', '🪙 Majors'], ['risers', '🚀 New majors'], ['yield', 'Top yield'], ['deep', 'Deepest'], ['runners', '🏃 Runners'], ['new', 'New 72h']];
@@ -28,10 +28,10 @@ const apr = v => (v >= 1000 ? `${(v / 100).toFixed(0)}x` : `${Math.round(v || 0)
 const scrollToMix = () => { const el = document.querySelector('[data-testid="fuse-lab"] .fl-mix'); if (el) window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 120), behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); };
 
 // Card pricing (public /fees/pricing, fetched once per page): a card bought all at once pays a flat $ per coin, never more
-// than maxPct of a leg; legs above maxLegUsd pay the normal %. Cmd Ctr cards: no FEELESS fee.
+// than maxPct of a leg; legs above maxLegUsd pay the normal %. HQ cards: no FEELESS fee.
 let pricingP = null;
 // One coin's FEELESS fee and WHY (shown line by line so the math reads): flat $/coin · capped at maxPct on small coins ·
-// normal % above maxLegUsd. Same rule as the server (fuse_hq.bundle_bps) and Cmd Ctr's bundleExample.
+// normal % above maxLegUsd. Same rule as the server (fuse_hq.bundle_bps) and HQ's bundleExample.
 export const legFee = (u, pr) => { const b = pr.bundle;
   if (!b.on || u > b.maxLegUsd) return { fee: u * pr.swapBps / 10000, why: `${(pr.swapBps / 100).toFixed(2)}% (coin over $${b.maxLegUsd})` };
   const cap = u * b.maxPct / 100;
@@ -41,7 +41,7 @@ export function CardPricing({ legs, admin }) {
   const [pr, setPr] = useState(null);
   useEffect(() => { let alive = true; pricingP = pricingP || fetch(apiUrl('/api/reputation/fees/pricing')).then(r => r.json()).catch(() => { pricingP = null; return null; });
     pricingP.then(d => alive && d?.bundle && setPr(d)); return () => { alive = false; }; }, []);
-  if (admin) return <div className="fl-price is-free" data-testid="card-pricing"><span className="m-label">💲 CMD CTR CARD</span><b>$0 FEELESS fee</b><small>network + partner (Jupiter / pool) fees only</small></div>;
+  if (admin) return <div className="fl-price is-free" data-testid="card-pricing"><span className="m-label">💲 HQ CARD</span><b>$0 FEELESS fee</b><small>network + partner (Jupiter / pool) fees only</small></div>;
   if (!pr) return null;
   const rows = legs.map(l => ({ sym: l.symbol, u: Number(l.usd) || 0, ...legFee(Number(l.usd) || 0, pr) }));
   const fee = rows.reduce((a, r) => a + r.fee, 0); const usdIn = rows.reduce((a, r) => a + r.u, 0); const pct = usdIn ? fee / usdIn * 100 : 0;
@@ -55,7 +55,7 @@ export function CardPricing({ legs, admin }) {
 
 // 🏃 Runners lens: This round (addable while still passing every gate) · Hot now (gated, busiest first) · Watching (failed a
 // gate — shown with the reason, never addable). One /runners/discover read (20s server cache).
-export function runnerSections(d, admin = false) {   // Cmd Ctr sees every passing runner; traders the busiest 24
+export function runnerSections(d, admin = false) {   // HQ sees every passing runner; traders the busiest 24
   const byMint = Object.fromEntries((d.runners || []).map(x => [x.mint, x]));
   const round = (d.round || []).map(p => ({ ...(byMint[p.mint] || {}), ...p, runner: true, section: 'round', chg1h: p.move, blocked: p.passing ? '' : (p.gates || [])[0] || 'fails a gate now' }));
   const inRound = new Set(round.map(p => p.mint));
@@ -77,7 +77,7 @@ export function liveRunner(p, lp) {
 }
 
 // 🎯 Card plan (set before Fuse in; lands on the card once the buy is verified): per-coin TP / SL, auto-profit level
-// (Cmd Ctr levels, after fees), on profit 💸 collect or ♻ compound, 🔒 hold or ⇄ swap. Every trigger = an alert with
+// (HQ levels, after fees), on profit 💸 collect or ♻ compound, 🔒 hold or ⇄ swap. Every trigger = an alert with
 // a pre-filled one-approval action. Runners start with their lane's exits.
 let rulesP = null;
 export const useCardRules = () => { const [r, setR] = useState(null);
@@ -147,12 +147,12 @@ export function CardPlan({ legs, plan, setPlan }) {
 
 export const planBody = plan => ({ ...plan, legs: Object.fromEntries(Object.entries(plan.legs).map(([pa, v]) => [pa, { tp: Number(v.tp) || null, sl: Number(v.sl) || null }]).filter(([, v]) => v.tp || v.sl)) });
 
-// Leg caps mirror the server (fuse_hq.legs_ok): traders 3 pools + 3 runners; Cmd Ctr 12 legs in any mix (6/6, 12 runners…).
+// Leg caps mirror the server (fuse_hq.legs_ok): traders 3 pools + 3 runners; HQ 12 legs in any mix (6/6, 12 runners…).
 export const legCaps = admin => (admin ? { pools: 12, runners: 12, total: 12 } : { pools: 3, runners: 3, total: 6 });
 
 export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunnerPicks: setPicksIn, incoming, limits }) {
   const admin = Boolean(call); const caps = legCaps(admin); const MAX = caps.pools;
-  const [ownRuns, setOwnRuns] = useState([]);   // Cmd Ctr Lab keeps its own runner picks; the Fuse page passes them in
+  const [ownRuns, setOwnRuns] = useState([]);   // HQ Lab keeps its own runner picks; the Fuse page passes them in
   const runnerPicks = setPicksIn ? picksIn || [] : ownRuns; const onRunnerPicks = setPicksIn || setOwnRuns;
   const [manual, setManual] = useState(false); const [addon, setAddon] = useState(false); const [wts, setWts] = useState({}); const [pub, setPub] = useState({ name: '', emoji: '⚛️', creatorBps: 1000, arena: true });
   const [lens, setLens] = useState('popular');
@@ -205,7 +205,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
       else setPicked(pk => (pk.some(x => x.pairAddress === c.pairAddress) || pk.length >= MAX ? pk : [...pk, { chainId: 'solana', pairAddress: c.pairAddress, symbol: c.symbol, baseAddress: c.mint }]));
       toast.success(`$${c.symbol || 'coin'} added to your card`); };
     const on = e => add(e.detail); window.addEventListener('feeless:add-to-card', on);
-    // 🧪 Cmd Ctr › Engine playground "✏️ Edit in Breed": a scenario card lands here with its name + configs — add / drop coins, rename, publish
+    // 🧪 HQ › Engine playground "✏️ Edit in Breed": a scenario card lands here with its name + configs — add / drop coins, rename, publish
     const load = e => { const c = e.detail || {}; if (!admin || !c.legs) return;
       setPicked(c.legs.filter(l => l.role !== 'runner').map(l => ({ chainId: 'solana', pairAddress: l.pairAddress, symbol: l.symbol, baseAddress: l.mint || l.baseAddress })).slice(0, MAX));
       if (onRunnerPicks) onRunnerPicks(c.legs.filter(l => l.role === 'runner').map(l => ({ mint: l.mint, symbol: l.symbol, pairAddress: l.pairAddress, lane: 'runner' })).slice(0, 6));
@@ -219,7 +219,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
   // Featured / Runners tabs hand the Lab a basket to load (pools here, runners into the picks).
   const [copy, setCopy] = useState(null);   // ⚡ copying another trader's card: {id, owner, pct}
   const [backing, setBacking] = useState(null);
-  const needRunner = !admin && !(runnerPicks || []).length;   // every trader card carries 1–3 runners (Cmd Ctr cards: any mix)   // 💰 buying a battle card to back it: {key, name}
+  const needRunner = !admin && !(runnerPicks || []).length;   // every trader card carries 1–3 runners (HQ cards: any mix)   // 💰 buying a battle card to back it: {key, name}
   const [plan, setPlan] = useState({ risk: 'balanced', at: 50, onProfit: 'collect', mode: 'hold', rotateHours: 24, slMode: 'sell', cycle: 'steady', payoutPct: 50, compoundStyle: 'smart', legs: {} });
   const legKey = (prev?.legs || []).map(l => l.pairAddress).join(',');
   useEffect(() => { if (prev?.legs) setPlan(p => ({ ...p, legs: { ...defaultLegLimits(prev.legs), ...Object.fromEntries(Object.entries(p.legs).filter(([pa]) => legKey.includes(pa))) } })); }, [legKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -249,8 +249,8 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
   return <section className={`m-card m-live fl ${admin ? 'is-admin' : ''}`} data-testid="fuse-lab">
     <header className="fl-head">
       <div><span className="m-label">⚛️ FUSE LAB</span><h3>{admin ? 'Design a mega card.' : 'Many pools. One buy.'}</h3>
-        <p className="m-dim">{admin ? 'Up to 12 legs — pools, runners or any mix (6/6, 12 runners) — auto or your own weights, 24h backtest, size guard. No FEELESS fee on Cmd Ctr cards; publish it or stage it on the Arena.' : `Pick 2–${MAX} live pools. FEELESS weighs them and shows exactly where your SOL goes. One approval buys them all.`}</p></div>
-      <span className="fl-badges">{admin && <span className="m-chip warn">CMD CTR · 12 LEGS</span>}<span className="m-chip ok fl-chain"><i />{chain.toUpperCase()}</span></span>
+        <p className="m-dim">{admin ? 'Up to 12 legs — pools, runners or any mix (6/6, 12 runners) — auto or your own weights, 24h backtest, size guard. No FEELESS fee on HQ cards; publish it or stage it on the Arena.' : `Pick 2–${MAX} live pools. FEELESS weighs them and shows exactly where your SOL goes. One approval buys them all.`}</p></div>
+      <span className="fl-badges">{admin && <span className="m-chip warn">HQ · 12 LEGS</span>}<span className="m-chip ok fl-chain"><i />{chain.toUpperCase()}</span></span>
     </header>
     {!admin && <FuseExplainer />}
     {!admin && <details className="fl-vm"><summary>Fuse vs Vault — where a dollar's return comes from (live)</summary><VaultMath /></details>}

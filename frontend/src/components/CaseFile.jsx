@@ -150,7 +150,7 @@ export function CaseFileModal() {
   </div>;
 }
 
-// Command Center tab: search any wallet or coin.
+// HQ tab: search any wallet or coin.
 export function InvestigatePanel() {
   const [q, setQ] = useState('');
   const [address, setAddress] = useState('');

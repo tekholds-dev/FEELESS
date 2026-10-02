@@ -28,7 +28,7 @@ def test_meta_and_send_guards(monkeypatch, tmp_path):
     monkeypatch.setattr(rs, 'CIRCLE_DEST_PATH', tmp_path / 'd.json')
     monkeypatch.setattr(rs, '_seasons', lambda: {'seasons': []}); monkeypatch.setattr(rs, '_pools', lambda: {'pools': []})
     monkeypatch.setattr(rs, 'ROUTES_PATH', tmp_path / 'r.json'); monkeypatch.setattr(rs, '_owner_wallets', lambda: {'Owner'}); monkeypatch.setattr(rs, '_admin_wallets', lambda: {'Owner'})
-    with pytest.raises(rs.HTTPException) as unknown:   # not a Command Center wallet and not saved → refused
+    with pytest.raises(rs.HTTPException) as unknown:   # not a HQ wallet and not saved → refused
         asyncio.run(rs.circle_transfer(None, rs.CircleSendIn(walletId='w1', tokenId='t1', to=TO, amount='2.5', confirm='WXYZ')))
     assert unknown.value.status_code == 403
     asyncio.run(rs.circle_destination_save(None, rs.CircleDestIn(address=TO, label='Cold wallet')))

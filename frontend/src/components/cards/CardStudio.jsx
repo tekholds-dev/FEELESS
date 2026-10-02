@@ -4,7 +4,7 @@ import { apiUrl, errorText } from '../../lib/api';
 import { CROP, uploadCropped } from '../../lib/cropImage';
 import { MetaCard, CARD_DESIGNS, AuraPicker } from './MetaCard';
 
-// Cmd Ctr › Badges › Cards: every badge + season drop as a card. Pick one → edit front and back live
+// HQ › Badges › Cards: every badge + season drop as a card. Pick one → edit front and back live
 // (drag the preview to turn it, click to flip). Money rules stay in Reserve pool / Badge pools.
 const KINDS = [['all', 'All'], ['badge', 'Badges'], ['season', 'Season'], ['weekly', 'Weekly drops']];
 const RARITIES = ['common', 'rare', 'epic', 'legendary', 'mythic'];

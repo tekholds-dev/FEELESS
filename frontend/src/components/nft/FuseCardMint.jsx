@@ -4,7 +4,7 @@ import { useWallet } from '../../hooks/useWallet';
 import { FuseCard } from '../FuseCard';
 import { AuraPicker } from '../cards/MetaCard';
 
-// Cmd Ctr › NFTs › ⚛️ Fuse cards: each published Fuse can be minted ONCE as a 1/1 Metaplex Core card. Whoever holds the card
+// HQ › NFTs › ⚛️ Fuse cards: each published Fuse can be minted ONCE as a 1/1 Metaplex Core card. Whoever holds the card
 // (read on-chain at payout time) is paid that Fuse's creator cut — sell or gift the card and the income follows it.
 const STEPS = [
   ['1', 'Create the collection', 'Once. Your owner wallet signs (~0.003 SOL rent). Holds every Fuse card.'],

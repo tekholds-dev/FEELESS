@@ -41,7 +41,7 @@ function ImageDrop({ label, value, onChange, wide, shape }) {
   </button>;
 }
 
-// One editor for the Seasons tab and the command center. Saves through the signed admin session.
+// One editor for the Seasons tab and the HQ. Saves through the signed admin session.
 export function SeasonEditor({ season, call, onDone }) {
   const day = t => new Date(t * 1000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   const [f, setF] = useState({ ...season, start: day(season.start), end: day(season.end), bannerUrl: season.bannerUrl || '', badgeUrl: season.badgeUrl || '', bgFx: season.bgFx || 'none', accent2: season.accent2 || '#ff2bd6', reserveWallet: season.reserveWallet || '', badgeRewardPct: season.badgeRewardPct || 0 });

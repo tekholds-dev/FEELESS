@@ -18,9 +18,9 @@ If you add a feature, plug it into the row that already owns that data — never
 |---|---|---|
 | `investigate.py` | reputation score, every point cited | case files, rug shield, radar, alerts |
 | `quests.py` | 40 badges, tasks, daily/weekly quests, XP/levels, perks, season score | `/quests/*`, `wallet_badges`, fee perk on quotes |
-| `fuse.py` | Fuse legs, index, A–F score, split, creator cut, real-pool filter | `/fuses*`, Cmd Ctr Fuse builder |
-| `fuse_vault.py` ⇄ `contracts/fuse_vault` | vault shares at NAV, auto-weights, caps, rebalance, mgmt/perf fees | `/vaults*`, Cmd Ctr vault designer, on-chain program (localnet v0.1, NAV = SOL held; adapters deferred) |
-| `fee_report.py` | per-wallet fees / FeeBack; totals rebuilt from the ledger (`_fee_totals_heal`) | fee report, Cmd Ctr fee book |
+| `fuse.py` | Fuse legs, index, A–F score, split, creator cut, real-pool filter | `/fuses*`, HQ Fuse builder |
+| `fuse_vault.py` ⇄ `contracts/fuse_vault` | vault shares at NAV, auto-weights, caps, rebalance, mgmt/perf fees | `/vaults*`, HQ vault designer, on-chain program (localnet v0.1, NAV = SOL held; adapters deferred) |
+| `fee_report.py` | per-wallet fees / FeeBack; totals rebuilt from the ledger (`_fee_totals_heal`) | fee report, HQ fee book |
 | `feecat_brain.py` | setup memory, edge, discipline | FeeCat loop + HQ strip |
 | `candles_service._sanitize/_fill_gaps` | valid, gap-free, continuous candles | every chart |
 

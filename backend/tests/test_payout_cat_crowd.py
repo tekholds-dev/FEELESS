@@ -110,7 +110,7 @@ def test_stronger_engine_suggestions_endpoint_and_one_nudge(rs, monkeypatch):
     out = asyncio.run(rs.admin_runner_suggest(None))
     assert {s['key'] for s in out['suggestions']} >= {'minMcap', 'maxTop10'} and out['weights'] == {}
     rs._engine_nudge(time.time())
-    assert sent and sent[0][1]['once'].startswith('engine-') and 'Cmd Ctr › Fuse › Engine' in sent[0][0][2]
+    assert sent and sent[0][1]['once'].startswith('engine-') and 'HQ › Fuse › Engine' in sent[0][0][2]
 
 
 def test_fuse_moments_post_to_chat_once(rs, monkeypatch):

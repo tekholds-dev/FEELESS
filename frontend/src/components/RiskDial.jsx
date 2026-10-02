@@ -3,7 +3,7 @@ import { RISK_DIALS, useDialProof } from '../lib/riskDial';
 import '../styles/fuseLab.css';
 
 // 🎚 One dial instead of ten settings. Each option shows how that dial did on the Arena's auto paper cards (24h) so you pick
-// with evidence. `value` 'custom' = hand-tuned. Used in the Lab card plan, My cards and (engine variant) Cmd Ctr.
+// with evidence. `value` 'custom' = hand-tuned. Used in the Lab card plan, My cards and (engine variant) HQ.
 const pc = v => `${v >= 0 ? '+' : ''}${(v || 0).toFixed(1)}%`;
 
 export function RiskDial({ value, onChange, dials = RISK_DIALS, proofs, testid = 'risk', noProof = false }) {
@@ -18,7 +18,7 @@ export function RiskDial({ value, onChange, dials = RISK_DIALS, proofs, testid =
 }
 
 // 🏟 Which dial is winning: the Arena's auto paper cards — every round played with each dial's TP/SL. Before configs go auto
-// live, this is the evidence. Used on the Arena tab and in Cmd Ctr › ⚔ Arena.
+// live, this is the evidence. Used on the Arena tab and in HQ › ⚔ Arena.
 export function DialBoard({ dials }) {
   if (!dials) return null;
   const best = Object.entries(dials).filter(([, p]) => p.rounds).sort((a, b) => b[1].avgPct - a[1].avgPct)[0]?.[0];

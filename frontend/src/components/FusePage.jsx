@@ -90,7 +90,7 @@ export function FusePage() {
   </section>;
 }
 
-// ---- Lab › Featured (Cmd Ctr marks Fuses "Featured in Fuse Lab") ----------------------------------------------------
+// ---- Lab › Featured (HQ marks Fuses "Featured in Fuse Lab") ----------------------------------------------------
 export function FeaturedFuses({ onLoad }) {
   const [list, setList] = useState(null);
   useEffect(() => { let alive = true; fetch(apiUrl('/api/reputation/fuses')).then(r => (r.ok ? r.json() : null)).then(d => alive && setList((d?.fuses || []).filter(f => f.featured))).catch(() => alive && setList([])); return () => { alive = false; }; }, []);
@@ -207,14 +207,14 @@ export function CardReplay({ c, onClose }) {
   </section>;
 }
 
-// 🔔 Bond run meter: the 6 boxes a pre-bond coin must tick (Cmd Ctr tunes them) — they light up one by one as it charges.
+// 🔔 Bond run meter: the 6 boxes a pre-bond coin must tick (HQ tunes them) — they light up one by one as it charges.
 export function BondMeter({ checks }) {
   const n = checks.filter(c => c.ok).length; const full = n === checks.length;
   return <div className={`bond-meter ${full ? 'is-full' : ''}`} data-testid="bond-meter" data-tip={checks.map(c => `${c.ok ? '✓' : '·'} ${c.label}`).join('\n')}>
     <small>{full ? '🔔 BOND RUN' : `bond ${n}/${checks.length}`}</small>{checks.map((c, i) => <i key={c.id} className={c.ok ? 'on' : ''} style={{ '--i': i }} />)}</div>;
 }
 
-// ---- Arena: the stage. Cmd Ctr mega cards + runner cards that lit after their rounds, each wrapped in effects driven by
+// ---- Arena: the stage. HQ mega cards + runner cards that lit after their rounds, each wrapped in effects driven by
 // its real activity (server fuse_hq.activity → hard-coded tier: calm / warm / hot / blazing). Then the Runners show
 // (RunnersPanel: proof ring, countdown, lanes, round card, live board, last rounds) and the strategies board.
 export const TIER_FX = { calm: { aura: 'aurora', embers: 3 }, warm: { aura: 'sparkle', embers: 6 }, hot: { aura: 'fire', embers: 10 }, blazing: { aura: 'lightning', embers: 16 } };

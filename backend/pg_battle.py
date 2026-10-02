@@ -1,4 +1,4 @@
-"""⚔ Engine playground battles (Cmd Ctr only — separate from the public Arena battles). Pure, tested.
+"""⚔ Engine playground battles (HQ only — separate from the public Arena battles). Pure, tested.
 
 The playground's best scenario cards fight each other on short rounds (default 5 min) with a paper $ size that fills like a
 real wallet would (constant-product impact, `arena_prime.buy_px/sell_usd`). Mid-round every runner coin is watched:
@@ -132,7 +132,7 @@ def settle(pairs, pcts, record, now):
 
 def champion(record, cards, min_w=2):
     """🏆 The engine's top battle winner (≥ min_w wins, more wins than losses, best W−L then wins) — the ONLY engine card that
-    goes to the public Arena on its own (Cmd Ctr can still 🎨 pick others). Returns the card id or None."""
+    goes to the public Arena on its own (HQ can still 🎨 pick others). Returns the card id or None."""
     ok = [(k, r) for k, r in (record or {}).items() if k in (cards or {}) and int(r.get('w') or 0) >= min_w and int(r.get('w') or 0) > int(r.get('l') or 0)]
     return max(ok, key=lambda kr: (kr[1]['w'] - kr[1]['l'], kr[1]['w']))[0] if ok else None
 

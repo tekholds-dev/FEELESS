@@ -1,5 +1,5 @@
 """Lag catcher: aggregate what real browsers report (API latency, long tasks, FPS) and name the fix.
-Pure functions; the service stores the samples and serves the summary to Command Center."""
+Pure functions; the service stores the samples and serves the summary to HQ."""
 import re
 
 _ID = re.compile(r'/(?:[1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40}|\d+)(?=/|$)')

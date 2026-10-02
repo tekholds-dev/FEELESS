@@ -25,7 +25,7 @@ const TIER = {
   next: { aura: 'lightning', name: 'NEXT LEVEL', look: { design: 'glitch', rarity: 'mythic', accent: '#c58bff', accent2: '#3cdcff' } },
   ever: { aura: 'aurora', name: 'EVERLASTING', look: { design: 'circuit', rarity: 'legendary', accent: '#19f58f', accent2: '#6ad7ff' } },
 };
-// Cmd Ctr ⚡ meta config: the settings the Arena proof backs today (hourly rotation of 1 coin, −15% floor, compound on, park & rebuy).
+// HQ ⚡ meta config: the settings the Arena proof backs today (hourly rotation of 1 coin, −15% floor, compound on, park & rebuy).
 export const PRIME_META = { rotateHours: 1, rotateCount: 1, floorPct: 15, compound: true, slMode: 'park' };
 export const primeRow = c => ({ id: c.id, name: c.label, closed: false, costUsd: c.startUsd, valueUsd: c.valueUsd, realizedUsd: c.takenUsd || 0,
   baseUsd: c.startUsd, extraUsd: (c.cash || 0) + (c.parked || []).reduce((a, p) => a + (p.usd || 0), 0),
@@ -80,7 +80,7 @@ export function ArenaPrime({ onLoad }) {
   </section>;
 }
 
-// Cmd Ctr › ⚔ Arena: Prime controls — on/off, size, rotation (hours + coins), compound, deal fresh cards.
+// HQ › ⚔ Arena: Prime controls — on/off, size, rotation (hours + coins), compound, deal fresh cards.
 export function PrimeControls({ call }) {
   const d = usePrime(30000);
   const [cfg, setCfg] = useState(null);
@@ -90,7 +90,7 @@ export function PrimeControls({ call }) {
   if (!cfg) return null;
   const save = (patch, reset = false) => call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ cfg: patch, reset }) })
     .then(r => { setCfg(r.cfg); toast.success(reset ? 'Fresh Prime cards dealt' : 'Prime config saved'); }).catch(e => toast.error(e.message));
-  // Cmd Ctr ⇄ one coin / 🃏 one tier — paper cards only, audited server-side.
+  // HQ ⇄ one coin / 🃏 one tier — paper cards only, audited server-side.
   const act = (body, msg) => call('/admin/arena/prime', { method: 'POST', body: JSON.stringify(body) }).then(() => { toast.success(msg); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message));
   const seg = (k, vals, fmt) => <div className="m-seg">{vals.map(v => <button key={v} type="button" className={cfg[k] === v ? 'active' : ''} onClick={() => save({ [k]: v })}>{fmt(v)}</button>)}</div>;
   const cyc = cfg.cycles || {};

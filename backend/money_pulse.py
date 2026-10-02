@@ -1,7 +1,7 @@
 """Money pulse: one owner-side snapshot of every FEELESS wallet + a preflight of everything money depends on.
 
 Pure functions. The service does ONE batched chain read (getMultipleAccounts) and the Circle listing in parallel,
-then every Command Center card (reserve, pools, Circle, treasury) reads from this snapshot.
+then every HQ card (reserve, pools, Circle, treasury) reads from this snapshot.
 """
 
 def parse_accounts(addrs: list, values: list) -> dict:
@@ -28,9 +28,9 @@ def preflight(env: dict, cfg: dict, fee_accounts: list, trading: dict, ledger_la
         ('rpc', 'Solana RPC key set', bool(env.get('SOLANA_RPC_URL')), 'Add SOLANA_RPC_URL (Helius) to backend/.env and restart.'),
         ('jup', 'Jupiter API key set', bool(env.get('JUPITER_API_KEY')), 'Add JUPITER_API_KEY to backend/.env and restart.'),
         ('trading', 'Swap engine online', bool(trading.get('configured')), 'Start the backend: bash scripts/start-backend.sh'),
-        ('feeSol', 'SOL fee account live', bool((fa.get('wSOL') or {}).get('ok')), 'Cmd Ctr › Trading & fees › create fee accounts.'),
-        ('feeUsdc', 'USDC fee account live', bool((fa.get('USDC') or {}).get('ok')), 'Cmd Ctr › Trading & fees › create fee accounts.'),
-        ('fee', 'Trade fee above 0%', int(cfg.get('platformFeeBps') or 0) > 0, 'Cmd Ctr › Trading & fees › set the fee.'),
+        ('feeSol', 'SOL fee account live', bool((fa.get('wSOL') or {}).get('ok')), 'HQ › Trading & fees › create fee accounts.'),
+        ('feeUsdc', 'USDC fee account live', bool((fa.get('USDC') or {}).get('ok')), 'HQ › Trading & fees › create fee accounts.'),
+        ('fee', 'Trade fee above 0%', int(cfg.get('platformFeeBps') or 0) > 0, 'HQ › Trading & fees › set the fee.'),
         ('engine', 'Engine: Jupiter Swap API' + (' (Ultra fallback on)' if cfg.get('ultraFallback') else ''), engine == 'swap', 'Swap API puts the fee in your own accounts. Switch in Trading & fees.'),
         ('internal', 'Fee ledger linked to trading', bool(env.get('_internal_key')), 'Restart the backend so both services share data/internal.key.'),
     ]
@@ -69,7 +69,7 @@ def _ago(s: float) -> str:
 
 
 def known_destinations(owners, admins, fee_owners, reserves, pools, routes, circle_wallets, saved) -> list:
-    """Every wallet a Circle wallet may send to: Command Center wallets + ones the owner saved by hand.
+    """Every wallet a Circle wallet may send to: HQ wallets + ones the owner saved by hand.
     [{address, label, kind}] deduplicated, first label wins."""
     out, seen = [], set()
 
