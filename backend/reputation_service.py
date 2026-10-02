@@ -4065,7 +4065,7 @@ async def fuse_replay(kind: str, cid: str):
         legs = [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'entry': (f.get('basePrices') or {}).get(l['pairAddress']), 'at': f.get('createdAt')} for l in f['legs']]
     elif kind == 'auto':
         ac = _json_load(RUNNERS_PATH, {}).get('autoCard') or {}
-        if ac.get('id') != cid:
+        if cid not in (ac.get('id'), 'arena-pick'):
             raise HTTPException(404, 'No such card.')
         legs = [{k: l.get(k) for k in ('pairAddress', 'symbol', 'entry')} | {'at': ac['at']} for l in ac['legs']]
         marks = [{'at': ac['at'], 'kind': 'open', 'label': 'arena dealt it'}]
@@ -4550,7 +4550,7 @@ async def _arena_mega(rd, cfg, now):
         moves = [apx[l['pairAddress']] / l['entry'] for l in ac['legs'] if _fuse._f(apx.get(l['pairAddress'])) > 0 and _fuse._f(l.get('entry')) > 0]
         pct = round((sum(moves) / len(moves) - 1) * 100, 2) if moves else 0.0
         coins = sum(1 for l in ac['legs'] if l.get('runner'))
-        out.append({'kind': 'auto', 'id': ac['id'], 'name': 'Arena Pick', 'emoji': '⚔', 'aura': '', 'dial': 'degen' if coins >= 3 else 'balanced',
+        out.append({'kind': 'auto', 'id': 'arena-pick', 'name': 'Arena Pick',   # stable id: its bracket record + chat survive each round's re-deal 'emoji': '⚔', 'aura': '', 'dial': 'degen' if coins >= 3 else 'balanced',
                     'tagline': f"{coins} coins + {len(ac['legs']) - coins} pools",
                     'legs': ac['legs'], 'index': round(100 + pct, 2), 'grade': 'A' if pct > 0 else 'B', 'buyers': 0, 'at': ac['at'], 'chat': f"fuse-card-{ac['id']}",
                     'activity': _hq.activity(len(ac['legs']), 0, sum(_fuse._f(l.get('vol1h')) for l in ac['legs']) * 24, pct)})

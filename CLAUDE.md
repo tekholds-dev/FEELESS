@@ -500,6 +500,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `plan.coins` → `fuse_hq.coin_extras` → card `frozen` / `coinRotate` / `coinModes`. FeeCat Cat detail v2 (`.fc-v2` chart/controls).
 - Card-open notice reads as ONE card buy ("Card bought in one approval: name — $A, $B …").
 
+- 🔄 Round cycles: tier cards per-tier `cycles` (`arena_prime.CYCLE_MODES` off/classic/adaptive/safe/press, `next_phase`), 🔒 `trail`
+  (a +50% run is sold before it's back under +5%), floored re-deal resets `roundStartUsd`. User cards `cycle` steady/adaptive
+  (`fuse_hq.cycle_pick`: losing card → swap into a major). Lab + My cards + Cmd Ctr Prime controls.
+- 🏟 Arena flow: ⭐ tiers → ⚔ battlefield → 🏆 season → 🏟 cards that made it → 🎨 creator's pick → rest. Bracket (`runners.bracket_pairs/
+  bracket_update/bracket_done`, `BATTLE_MAX`=3, `unique_cards`): winners vs winners, losers vs losers, 2 losses out, last standing crowned
+  (`bracket.champions`), new bracket. Battlefield = fighters + HP bars + power board + champions. Arena Pick has a stable id `arena-pick`.
+- 🎨 Creator's pick (`POST /admin/fuses/scenario-pick`, `creatorPicks`): runner-ups stay in the engine; only picked ones are dealt to
+  the Arena. New Cmd Ctr Fuses default `arena: true`; staged cards newest first.
+
 ## NEXT SESSION — continue here (in this order)
 0000. Owner live test: per-coin ⚙ (card window + Lab), rounds pay/compound, buy & back, Edit in Breed → publish, playground battles,
    profile ⚡ Fuse pop-up. Then flip proven configs to auto.
