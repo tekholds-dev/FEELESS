@@ -4183,8 +4183,31 @@ def _battle_view(mega, now):
     """⚔ Live battlefield: each pair with both cards' move since the bell (live from the stage), time left, recent results."""
     b = _json_load(FUSE_HQ_PATH, {}).get('battles') or {}
     pct = {f"{c['kind']}:{c['id']}": (c['index'] or 100) - 100 for c in mega}
-    pairs = [{side: {**x[side], 'now': round(pct.get(x[side]['key'], x[side]['start']) - x[side]['start'], 2)} for side in ('a', 'b')} for x in b.get('pairs') or []]
+    backs = list((b.get('backs') or {}).values())
+    pairs = [{side: {**x[side], 'now': round(pct.get(x[side]['key'], x[side]['start']) - x[side]['start'], 2), 'backers': backs.count(x[side]['key'])} for side in ('a', 'b')} for x in b.get('pairs') or []]
     return {'pairs': pairs, 'endsAt': b.get('endsAt'), 'log': (_json_load(FUSE_HQ_PATH, {}).get('battleLog') or [])[-8:][::-1]}
+
+
+class BattleBack(BaseModel):
+    address: str
+    session: str
+    key: str = Field(..., max_length=120)
+
+
+@app.post('/api/reputation/fuses/battle/back')
+async def battle_back(p: BattleBack):
+    """⚔ Back a side in the live battle — free, points only (no money). One pick per wallet per battle, locked once made."""
+    me = _session_or_401(p.address, p.session)
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); b = d.get('battles') or {}
+        if not any(p.key in (x['a']['key'], x['b']['key']) for x in b.get('pairs') or []):
+            raise HTTPException(400, 'That card is not in the current battle.')
+        backs = b.setdefault('backs', {})
+        if me in backs:
+            raise HTTPException(409, 'You already backed a side this battle.')
+        backs[me] = p.key; d['battles'] = b; _json_save(FUSE_HQ_PATH, d)
+    rec = (_json_load(FUSE_HQ_PATH, {}).get('backRecord') or {}).get(me) or {'w': 0, 'l': 0}
+    return {'ok': True, 'key': p.key, 'record': rec}
 
 
 async def _battle_tick(now):
@@ -4212,6 +4235,18 @@ async def _battle_tick(now):
             if w == side and key.startswith('user:') and key[5:] in owners:
                 notify(owners[key[5:]], 'fuse-guard', f"⚔ Your card won its Arena battle vs {(bb if side == 'a' else a)['name']}.", url='/terminal/fuse?tab=arena',
                        once=f"battle-{now:.0f}-{key}", meta={'claim': 'Bigger move since the bell', 'source': 'Arena battles'})
+    # backers: a pick on the winning card is a ✓ on the wallet's backing record (+ inbox); a draw counts for nobody
+    won = {x['winnerKey'] for x in results if x.get('winnerKey')}; fought = {k for x in b.get('pairs') or [] for k in (x['a']['key'], x['b']['key'])}
+    for w_, key in (b.get('backs') or {}).items():
+        if key not in fought or key not in pct:
+            continue
+        rr_ = d.setdefault('backRecord', {}).setdefault(w_, {'w': 0, 'l': 0})
+        if key in won:
+            rr_['w'] += 1
+            notify(w_, 'fuse-card', f"⚔ You backed the winner — your backing record is {rr_['w']}–{rr_['l']}.", url='/terminal/fuse?tab=arena', once=f"back-{int(now)}-{w_}",
+                   meta={'claim': 'Bigger move since the bell', 'source': 'Arena battles'})
+        elif not any(x.get('draw') and key in (x.get('aKey'), x.get('bKey')) for x in results):
+            rr_['l'] += 1
     mins = _runner_cfg()['battleMins']
     pairs = [{'a': {'key': f"{x['kind']}:{x['id']}", 'name': x['name'], 'emoji': x.get('emoji'), 'start': pct.get(f"{x['kind']}:{x['id']}", 0.0)},
               'b': {'key': f"{y['kind']}:{y['id']}", 'name': y['name'], 'emoji': y.get('emoji'), 'start': pct.get(f"{y['kind']}:{y['id']}", 0.0)}} for x, y in _rn.pair_battles(mega)]
@@ -4223,6 +4258,7 @@ async def _battle_tick(now):
         d2['battles'] = {'at': now, 'endsAt': now + mins * 60, 'pairs': pairs}
         d2['battleLog'] = ((d2.get('battleLog') or []) + results)[-40:]
         d2['battleRecord'] = d.get('battleRecord') or {}
+        d2['backRecord'] = d.get('backRecord') or {}
         _json_save(FUSE_HQ_PATH, d2)
     return results
 

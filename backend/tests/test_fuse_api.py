@@ -407,3 +407,18 @@ def test_park_buyback_alerts_once_when_back_at_entry(monkeypatch):
     assert asyncio.run(rs._fuse_buyback_tick(rs._json_load(rs.FUSE_HQ_PATH, {}), 100)) == 1
     assert 'topup=pk1&pair=PA' in sent[0][1]['url']
     assert asyncio.run(rs._fuse_buyback_tick(rs._json_load(rs.FUSE_HQ_PATH, {}), 200)) == 0       # once
+
+
+def test_back_a_battle_side_once_and_winners_get_a_record(monkeypatch):
+    monkeypatch.setattr(rs, '_session_or_401', lambda a, s: rs.primary_of(a))
+    sent = []; monkeypatch.setattr(rs, 'notify', lambda *a, **k: sent.append((a, k)))
+    me = rs.primary_of(W)
+    rs._json_save(rs.FUSE_HQ_PATH, {'battles': {'endsAt': 0, 'pairs': [{'a': {'key': 'auto:1', 'name': 'A', 'start': 0}, 'b': {'key': 'scenario:2', 'name': 'B', 'start': 0}}]}})
+    assert asyncio.run(rs.battle_back(rs.BattleBack(address=W, session='s', key='auto:1')))['ok']
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.battle_back(rs.BattleBack(address=W, session='s', key='scenario:2')))             # one pick per battle
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.battle_back(rs.BattleBack(address=W, session='s', key='nope')))
+    monkeypatch.setitem(rs._arena_mega_cache, 'data', [{'kind': 'auto', 'id': '1', 'name': 'A', 'index': 108}, {'kind': 'scenario', 'id': '2', 'name': 'B', 'index': 101}])
+    asyncio.run(rs._battle_tick(10))
+    assert rs._json_load(rs.FUSE_HQ_PATH, {})['backRecord'][me] == {'w': 1, 'l': 0} and any('backed the winner' in a[2] for a, _ in sent)

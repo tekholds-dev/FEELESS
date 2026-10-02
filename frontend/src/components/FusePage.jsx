@@ -290,14 +290,21 @@ export function FuseSeason() {
 // ⚔ Battlefield: stage cards fight in pairs (hot vs hot) — bigger move since the bell wins. Tug-of-war bar = who's ahead.
 export function Battlefield({ b }) {
   const [now, setNow] = useState(Date.now() / 1000);
+  const { wallet } = useWallet() || {}; const [mine, setMine] = useState(null);
+  // ⚔ back a side: free, points only — one pick per battle, a win goes on your backing record
+  const back = async key => { const addr = wallet?.address; const s = addr && readChatSession(addr);
+    if (!s) { toast.error('Connect your wallet + open chat once to sign in first.'); return; }
+    try { const r = await post('/api/reputation/fuses/battle/back', { address: addr, session: s, key }); setMine(key); toast.success(`⚔ Backed — your record ${r.record.w}–${r.record.l}`); } catch (e) { toast.error(e.message); } };
   useEffect(() => { const t = setInterval(() => setNow(Date.now() / 1000), 15000); return () => clearInterval(t); }, []);
   return <section className="m-card m-live bf" data-testid="battlefield"><header className="m-row"><span className="m-label">⚔ BATTLEFIELD · LIVE</span>
     <small className="m-dim">bigger move since the bell wins · next bell in {left((b.endsAt || now) - now)}</small></header>
     <div className="bf-pairs">{b.pairs.map((p, i) => { const d = p.a.now - p.b.now; const share = Math.max(0.08, Math.min(0.92, 0.5 + d / 20));
       return <div key={p.a.key + p.b.key} className={`bf-pair ${d > 0.05 ? 'a-lead' : d < -0.05 ? 'b-lead' : 'even'}`} style={{ '--i': i }} data-testid={`battle-${i}`}>
-        <span className="bf-side a"><b>{p.a.emoji} {p.a.name}</b><em className={`m-num fl-tick ${p.a.now >= 0 ? 'm-pos' : 'm-neg'}`} key={p.a.now}>{pc(p.a.now)}</em></span>
-        <span className="bf-vs" aria-hidden="true">VS</span>
-        <span className="bf-side b"><b>{p.b.emoji} {p.b.name}</b><em className={`m-num fl-tick ${p.b.now >= 0 ? 'm-pos' : 'm-neg'}`} key={p.b.now}>{pc(p.b.now)}</em></span>
+        <span className="bf-side a"><b>{p.a.emoji} {p.a.name}</b><em className={`m-num fl-tick ${p.a.now >= 0 ? 'm-pos' : 'm-neg'}`} key={p.a.now}>{pc(p.a.now)}</em>
+          <button type="button" className={`m-btn bf-back ${mine === p.a.key ? 'is-on' : ''}`} disabled={!!mine} onClick={() => back(p.a.key)} data-testid={`back-a-${i}`}>{mine === p.a.key ? '✓ Backed' : '⚔ Back'} · {(p.a.backers || 0) + (mine === p.a.key ? 1 : 0)}</button></span>
+        <span className="bf-vs" aria-hidden="true"><i className="bf-clash" />VS</span>
+        <span className="bf-side b"><b>{p.b.emoji} {p.b.name}</b><em className={`m-num fl-tick ${p.b.now >= 0 ? 'm-pos' : 'm-neg'}`} key={p.b.now}>{pc(p.b.now)}</em>
+          <button type="button" className={`m-btn bf-back ${mine === p.b.key ? 'is-on' : ''}`} disabled={!!mine} onClick={() => back(p.b.key)} data-testid={`back-b-${i}`}>{mine === p.b.key ? '✓ Backed' : '⚔ Back'} · {(p.b.backers || 0) + (mine === p.b.key ? 1 : 0)}</button></span>
         <i className="bf-tug"><i style={{ transform: `scaleX(${share})` }} /></i></div>; })}</div>
     {b.log?.length > 0 && <div className="bf-log">{b.log.slice(0, 6).map(l => <small key={l.at + l.a}>{l.draw ? `🤝 ${l.a} = ${l.b}` : `🏆 ${l.winner} beat ${l.winner === l.a ? l.b : l.a}`} <em>{pc(l.aMove)} vs {pc(l.bMove)}</em></small>)}</div>}
   </section>;

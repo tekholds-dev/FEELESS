@@ -579,3 +579,10 @@ body.theme-day .pg-sc { background: var(--m-surface); } body.fx-lite .pg-sc { an
 .pg-legs { display: flex; flex-wrap: wrap; gap: 4px; } .pg-legs i { font-style: normal; font-size: 11px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--m-line); } .pg-legs i.is-anchor { border-color: #9fe3ff; color: #9fe3ff; }
 body.fx-lite .pg-card { animation: none; }
 .prime-phase{font:700 9.5px var(--m-mono);letter-spacing:.1em;color:#c58bff;padding:2px 8px;border:1px dashed #c58bff;border-radius:999px}
+/* ⚔ battle FX: clash pulse at the VS, tug bar eases toward the leader, back buttons */
+.bf-vs { position: relative; } .bf-clash { position: absolute; inset: -10px; border-radius: 50%; border: 2px solid var(--m-accent); opacity: 0; animation: bfClash 1.8s ease-out infinite; pointer-events: none; }
+@keyframes bfClash { 0% { transform: scale(.4); opacity: .9; } 100% { transform: scale(1.8); opacity: 0; } }
+.bf-tug i { transition: transform .8s var(--m-ease); }
+.bf-back { margin-top: 4px; padding: 3px 9px; font-size: 11px; } .bf-back.is-on { background: var(--m-accent); color: #04140c; border-color: var(--m-accent); }
+body.fx-lite .bf-clash { display: none; }
+@media (prefers-reduced-motion: reduce) { .bf-clash { animation: none; } .bf-tug i { transition: none; } }
