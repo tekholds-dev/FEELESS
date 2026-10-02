@@ -50,3 +50,4 @@ body.theme-day .m-neg:not(.mc-face *), body.theme-day .down:not(.mc-face *) { co
 body.theme-day .primary-action small { color: inherit; opacity: .78; }   /* the sub-label sat dark-on-dark */
 .qt-usd { display: block; font: 500 11px var(--m-mono, monospace); font-style: normal; color: var(--m-dim, #8fbfa8); text-align: right; }
 .m-num { font-variant-numeric: tabular-nums; }
+.fc-tabs{display:inline-flex;margin:0 0 14px}

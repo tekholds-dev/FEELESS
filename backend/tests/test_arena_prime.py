@@ -148,9 +148,9 @@ def test_floored_card_redeals_on_the_rotation_clock_from_arena_coins_first():
     out = ap.tick(card, {'Psol': 0.78, 'Pjito': 0.78, 'Pa': 0.78, 'Pr1': 0.78}, [], [], cfg, 60, SOL)
     assert out.get('flooredAt') == 60
     pools = [P('c', 1), {**P('arena', 1), 'arena': True}]
-    early = ap.tick(out, {'Psol': 1, 'Pjito': 1, 'Pc': 1, 'Parena': 1}, pools, [], cfg, 60 + 1800, SOL)
-    assert early.get('flooredAt')                                                          # 30 min: waits for the rotation clock
-    later = ap.tick(out, {'Psol': 1, 'Pjito': 1, 'Pc': 1, 'Parena': 1}, pools, [], cfg, 60 + 3601, SOL)
+    same = ap.tick(out, {'Psol': 1, 'Pjito': 1, 'Pc': 1, 'Parena': 1}, pools, [], cfg, 60 + 30, SOL)
+    assert same.get('flooredAt')                                                           # same minute: still floored
+    later = ap.tick(out, {'Psol': 1, 'Pjito': 1, 'Pc': 1, 'Parena': 1}, pools, [], cfg, 60 + 61, SOL)
     assert not later.get('flooredAt') and later['runs'] and 'arena' in [l['mint'] for l in later['legs']]   # arena coin first
     assert [c['mint'] for c in ap.rated([P('x', 1), {**R('y', 1, 61), 'arena': True}, R('z', 1, 95)], 'runner')] == ['y', 'z']
 

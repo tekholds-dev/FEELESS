@@ -559,3 +559,8 @@ body.theme-day .pg-tile { background: var(--m-surface); }
 .prime-round small { font: 8.5px var(--m-mono); letter-spacing: .1em; color: var(--m-dim); } .prime-round b { font-size: 16px; }
 .prime-crown { font: 800 10px var(--m-mono); letter-spacing: .12em; color: #ffd56a; padding: 2px 8px; border-radius: 999px; border: 1px solid #ffd56a; animation: mCardIn .3s var(--m-ease); }
 body.theme-day .prime-round span { background: var(--m-surface); }
+/* top-tier coin rows: nothing clips — name truncates, role stays one line, % sized to fit */
+.prime-legs li { grid-template-columns: minmax(0, auto) auto minmax(0, 1fr) auto; }
+.prime-legs li b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 9ch; }
+.prime-legs small, .prime-legs i { white-space: nowrap; }
+.prime-legs em { font-size: 14px !important; font-style: normal !important; white-space: nowrap; justify-self: end; }

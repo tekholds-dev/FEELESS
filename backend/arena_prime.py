@@ -157,7 +157,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None):
     c.setdefault('dayAt', c['at']); c.setdefault('dayStartUsd', c['startUsd']); c.setdefault('days', []); c.setdefault('lowPct', 0.0)
 
     # 0) a floored card sits in its anchor (cash-like) until the next day, then is re-dealt fresh at its current value
-    if c.get('flooredAt') and now - c['flooredAt'] >= cfg['rotateHours'] * 3600:   # re-deal = the rotation clock (Cmd Ctr › Rotate every)
+    if c.get('flooredAt') and now - c['flooredAt'] >= 60:   # floored → re-dealt with fresh 3★+ coins on the very next tick (a new run)
         v0 = value(c, prices)
         keep = {k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}
         # a NEW run starts at today's value (its own −floor); the ended run is kept on the record, never hidden
