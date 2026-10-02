@@ -342,7 +342,7 @@ body.theme-day .vmath-col { background: var(--m-surface-2); }
 
 /* Lab: 🏃 Runners lens — sections (This round / Hot now / Watching), rows stagger in, blocked rows dim with the reason; card pricing strip */
 .fl-sec { display: flex; gap: 8px; align-items: baseline; padding: 10px 4px 4px; font-family: var(--m-mono); } .fl-sec b { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
-.fl-sec small { font-size: 10px; color: var(--m-dim); } .fl-sec.sec-round b { color: var(--m-accent); } .fl-sec.sec-hot b { color: var(--rn-fire, #ff9a3c); } .fl-sec.sec-watch b { color: var(--m-warn); }
+.fl-sec small { font-size: 10px; color: var(--m-dim); } .fl-sec.sec-round b { color: var(--m-accent); } .fl-sec.sec-hot b { color: var(--rn-fire, #ff9a3c); } .fl-sec.sec-watch b { color: var(--m-warn); } .fl-sec.sec-new b { color: #f5c451; } .fl-runrow.sec-new { border-left: 2px dashed #f5c451; }
 .fl-runrow.sec-hot { border-left: 2px solid var(--rn-fire, #ff9a3c); } .fl-runrow.sec-round { border-left: 2px solid var(--m-accent); }
 .fl-runrow.is-blocked { opacity: .55; cursor: help; } .fl-runrow.is-blocked em { color: var(--m-warn); }
 .fl-runrow { animation: flRunIn .3s var(--m-ease) backwards; animation-delay: calc(var(--i, 0) * 40ms); }

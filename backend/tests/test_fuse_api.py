@@ -422,3 +422,5 @@ def test_back_a_battle_side_once_and_winners_get_a_record(monkeypatch):
     monkeypatch.setitem(rs._arena_mega_cache, 'data', [{'kind': 'auto', 'id': '1', 'name': 'A', 'index': 108}, {'kind': 'scenario', 'id': '2', 'name': 'B', 'index': 101}])
     asyncio.run(rs._battle_tick(10))
     assert rs._json_load(rs.FUSE_HQ_PATH, {})['backRecord'][me] == {'w': 1, 'l': 0} and any('backed the winner' in a[2] for a, _ in sent)
+    ev = rs._fuse_quest_stats({me})['events']
+    assert len(ev['battle_back']) == 1 and len(ev['back_win']) == 1                                     # backing = season XP

@@ -55,7 +55,44 @@ def candidate(pair, intel=None, creator_flagged=False, snipers_out=False, now_ms
             # New checks (service keeps ~20 min of history per coin): curve speed, buyer acceleration, kill-switch signals
             'buysAccel': round(_f(((pair.get('txns') or {}).get('m5') or {}).get('buys')) / max(1.0, buys / 12), 2) if buys else 0.0,
             'curveSpeed': (hist or {}).get('curveSpeed'), 'top10Jump': (hist or {}).get('top10Jump'), 'devSold': bool((hist or {}).get('devSold')),
-            'flaggedFunders': len(intel.get('flaggedFunders') or []), 'smartBuyers': int(smart or 0)}
+            'flaggedFunders': len(intel.get('flaggedFunders') or []), 'smartBuyers': int(smart or 0),
+            **_socials(pair)}
+
+
+def _socials(pair):
+    """Website / X / Telegram set at launch (DexScreener info.* or the launchpad's own fields)."""
+    info = pair.get('info') or {}
+    kinds = {str(x.get('type') or '').lower() for x in info.get('socials') or [] if isinstance(x, dict)}
+    site = bool(info.get('websites') or pair.get('website'))
+    x = bool('twitter' in kinds or 'x' in kinds or pair.get('twitter'))
+    tg = bool('telegram' in kinds or pair.get('telegram'))
+    return {'site': site, 'x': x, 'tg': tg}
+
+
+# ⚠️ NEW runners: a TIGHT filter for coins only minutes/hours old — website + X set at launch, clean creator first, tight holders.
+NEW_RUNNER = {'maxAgeH': 3.0, 'minBuyShare': 55.0, 'maxTop10': 25.0, 'maxDev': 5.0, 'maxBundled': 1, 'minVol1h': 3000.0}
+
+
+def new_runners(rows, cfg=None, limit=12):
+    """Young coins that pass the tight launch checks (all scanned): website AND X at launch, creator not suspect/high (clean
+    sorts first), top-10 ≤25%, dev ≤5%, ≤1 bundle, buys ≥55%, 1h vol ≥ $3K. Each carries its reasons. Riskier than runners."""
+    c = {**NEW_RUNNER, **(cfg or {})}
+    out = []
+    for r in rows or []:
+        age = r.get('ageH')
+        if age is None or age > c['maxAgeH'] or not r.get('scanned') or not (r.get('site') and r.get('x')):
+            continue
+        if r.get('creatorFlagged') or r.get('creatorRep') in ('suspect', 'high') or r.get('devSold') or r.get('mayhem'):
+            continue
+        if _f(r.get('top10')) > c['maxTop10'] or _f(r.get('dev')) > c['maxDev'] or int(r.get('bundled') or 0) > c['maxBundled']:
+            continue
+        if _f(r.get('buyShare')) < c['minBuyShare'] or _f(r.get('vol1h')) < c['minVol1h']:
+            continue
+        why = [f"{int(age * 60)}m old", 'site + X at launch' + (' + TG' if r.get('tg') else ''), f"top10 {_f(r.get('top10')):.0f}%", f"{_f(r.get('buyShare')):.0f}% buys"]
+        if r.get('creatorRep') == 'clean':
+            why.insert(1, '🧼 clean creator')
+        out.append({**r, 'newRunner': True, 'why': why})
+    return sorted(out, key=lambda r: (r.get('creatorRep') != 'clean', -_f(r.get('vol1h'))))[:limit]
 
 
 # Cmd Ctr › Runners settings. Every key is range-checked by clean_cfg(); defaults = the tested engine.

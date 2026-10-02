@@ -250,3 +250,12 @@ def test_card_names_dials_and_battle_seats():
     seats = rn.battle_seats([st(f's{i}', i) for i in range(5)], [st('b1', 99)])
     assert len(seats) == 2 and all(c['id'].startswith('s') for p in seats for c in p)  # a full stage never seats the bench
     assert rn.battle_seats([], [st('b1', 1)]) == []
+
+
+def test_new_runners_tight_launch_filter():
+    ok = {'mint': 'A', 'ageH': 0.5, 'scanned': True, 'site': True, 'x': True, 'top10': 18, 'dev': 2, 'bundled': 0, 'buyShare': 64, 'vol1h': 9000, 'creatorRep': 'clean'}
+    rows = [ok, {**ok, 'mint': 'B', 'x': False}, {**ok, 'mint': 'C', 'ageH': 5}, {**ok, 'mint': 'D', 'creatorRep': 'suspect'}, {**ok, 'mint': 'E', 'top10': 40},
+            {**ok, 'mint': 'F', 'creatorRep': None, 'vol1h': 20000}]
+    got = rn.new_runners(rows)
+    assert [r['mint'] for r in got] == ['A', 'F'] and '🧼 clean creator' in got[0]['why']          # clean creators first
+    assert rn._socials({'info': {'websites': [{'url': 'x'}], 'socials': [{'type': 'twitter'}]}}) == {'site': True, 'x': True, 'tg': False}

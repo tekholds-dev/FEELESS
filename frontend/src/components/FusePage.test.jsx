@@ -185,7 +185,7 @@ test('Arena: runner-up engine cards wear their dial + configs, battles show free
   expect(bench.textContent).toContain('🚀 Moon Mission'); expect(bench.querySelector('[data-testid="cfg-scen-1"]').textContent).toContain('TP +200%');
   expect(host.querySelector('[data-testid="arena-stage"] [data-testid="mega-scen-1"]')).toBeNull();     // runners-up never sit on the stage
   const bars = host.querySelector('[data-testid="bars-0"]');
-  expect(bars.textContent).toContain('FREE BACKS'); expect(bars.textContent).toContain('$40');
+  expect(bars.textContent).toContain('BUY BACKS 2/0'); expect(bars.textContent).toContain('BACKS 3/1'); expect(bars.textContent).toContain('$40');
   act(() => host.querySelector('[data-testid="buyback-a-0"]').click()); await tick();
   expect(host.querySelector('[data-testid="lab"]').dataset.back).toBe('user:U1');
 });

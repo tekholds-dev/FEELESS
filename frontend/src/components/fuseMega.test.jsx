@@ -162,3 +162,10 @@ test('Cmd Ctr engine: stronger config listed with reasons, one click applies the
   await act(async () => { el.querySelector('[data-testid="engine-apply"]').click(); });
   expect(call).toHaveBeenCalledWith('/admin/runners/config', { method: 'POST', body: JSON.stringify({ cfg: { minMcap: 12000, roundSize: 5 } }) });
 });
+
+test('lab runners lens: ⚠️ NEW runners sit right after the round (never duplicated)', () => {
+  const { runnerSections } = require('./FuseLab');
+  const rows = runnerSections({ round: [{ mint: 'A', passing: true }], runners: [{ mint: 'B', vol1h: 5 }], newRunners: [{ mint: 'N', why: ['12m old'] }, { mint: 'B' }] });
+  expect(rows.map(r => [r.mint, r.section])).toEqual([['A', 'round'], ['N', 'new'], ['B', 'hot']]);
+  expect(rows[1].isNew).toBe(true);
+});

@@ -309,6 +309,9 @@ export function Battlefield({ b, cards = [], onLoad }) {
     <small className="m-dim">bigger move since the bell wins · next bell in {left((b.endsAt || now) - now)}</small></header>
     <div className="bf-pairs">{b.pairs.map((p, i) => { const d = p.a.now - p.b.now; const share = Math.max(0.08, Math.min(0.92, 0.5 + d / 20));
       return <div key={p.a.key + p.b.key} className={`bf-pair ${d > 0.05 ? 'a-lead' : d < -0.05 ? 'b-lead' : 'even'}`} style={{ '--i': i }} data-testid={`battle-${i}`}>
+        <div className="bf-bars" data-testid={`bars-${i}`}>
+          <span className="bf-bar is-paid" data-tip="Wallets that BOUGHT a side's card to back it (real buys, you own the card)"><small>{p.a.paidN || 0}</small><i><i style={{ transform: `scaleX(${tugShare(p.a.paidUsd || 0, p.b.paidUsd || 0)})` }} /></i><small>{p.b.paidN || 0}</small><em>💰 BUY BACKS {p.a.paidN || 0}/{p.b.paidN || 0} · ${Math.round(p.a.paidUsd || 0)}/${Math.round(p.b.paidUsd || 0)}</em></span>
+          <span className="bf-bar is-free" data-tip="Free backs · +15 XP to back, winners count toward weekly quests → season rank"><small>{p.a.backers || 0}</small><i><i style={{ transform: `scaleX(${tugShare(p.a.backers || 0, p.b.backers || 0)})` }} /></i><small>{p.b.backers || 0}</small><em>⚔ BACKS {p.a.backers || 0}/{p.b.backers || 0} · +XP</em></span></div>
         <span className="bf-side a"><b>{p.a.emoji} {p.a.name}</b><em className={`m-num fl-tick ${p.a.now >= 0 ? 'm-pos' : 'm-neg'}`} key={p.a.now}>{pc(p.a.now)}</em>
           <span className="bf-btns"><button type="button" className={`m-btn bf-back ${mine === p.a.key ? 'is-on' : ''}`} disabled={!!mine} onClick={() => back(p.a.key)} data-tip="Free · points only" data-testid={`back-a-${i}`}>{mine === p.a.key ? '✓ Backed' : '⚔ Back'} · {(p.a.backers || 0) + (mine === p.a.key ? 1 : 0)}</button>
           <button type="button" className="m-btn bf-buy" onClick={() => buyBack(p.a)} data-tip="Buy this card (you own it) — counts on the 💰 bar" data-testid={`buyback-a-${i}`}>💰 Buy & back</button></span></span>
@@ -316,10 +319,7 @@ export function Battlefield({ b, cards = [], onLoad }) {
         <span className="bf-side b"><b>{p.b.emoji} {p.b.name}</b><em className={`m-num fl-tick ${p.b.now >= 0 ? 'm-pos' : 'm-neg'}`} key={p.b.now}>{pc(p.b.now)}</em>
           <span className="bf-btns"><button type="button" className={`m-btn bf-back ${mine === p.b.key ? 'is-on' : ''}`} disabled={!!mine} onClick={() => back(p.b.key)} data-tip="Free · points only" data-testid={`back-b-${i}`}>{mine === p.b.key ? '✓ Backed' : '⚔ Back'} · {(p.b.backers || 0) + (mine === p.b.key ? 1 : 0)}</button>
           <button type="button" className="m-btn bf-buy" onClick={() => buyBack(p.b)} data-tip="Buy this card (you own it) — counts on the 💰 bar" data-testid={`buyback-b-${i}`}>💰 Buy & back</button></span></span>
-        <i className="bf-tug"><i style={{ transform: `scaleX(${share})` }} /></i>
-        <div className="bf-bars" data-testid={`bars-${i}`}>
-          <span className="bf-bar is-free"><small>⚔ {p.a.backers || 0}</small><i><i style={{ transform: `scaleX(${tugShare(p.a.backers || 0, p.b.backers || 0)})` }} /></i><small>{p.b.backers || 0}</small><em>FREE BACKS</em></span>
-          <span className="bf-bar is-paid"><small>${Math.round(p.a.paidUsd || 0)}</small><i><i style={{ transform: `scaleX(${tugShare(p.a.paidUsd || 0, p.b.paidUsd || 0)})` }} /></i><small>${Math.round(p.b.paidUsd || 0)}</small><em>💰 BOUGHT</em></span></div></div>; })}</div>
+        <i className="bf-tug"><i style={{ transform: `scaleX(${share})` }} /></i></div>; })}</div>
     {b.log?.length > 0 && <div className="bf-log">{b.log.slice(0, 6).map(l => <small key={l.at + l.a}>{l.draw ? `🤝 ${l.a} = ${l.b}` : `🏆 ${l.winner} beat ${l.winner === l.a ? l.b : l.a}`} <em>{pc(l.aMove)} vs {pc(l.bMove)}</em></small>)}</div>}
   </section>;
 }

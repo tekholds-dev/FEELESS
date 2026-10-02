@@ -4225,7 +4225,9 @@ def _fuse_chat_tick(now):
     for r in live.get('passing') or []:
         if r.get('bondTier') == 'run' and r.get('pairAddress'):
             txt = f"🔔 BOND RUN: ${r.get('symbol')} ticked every box at {_fuse._f(r.get('curve')):.0f}% up the curve — {r.get('buyShare')}% buys, curve +{_fuse._f(r.get('curveSpeed')):.0f} pts in 10m. Gated, not a promise."
-            tok = [{'chainId': 'solana', 'pairAddress': r['pairAddress']}]
+            tok = [{'chainId': 'solana', 'pairAddress': r['pairAddress'], 'baseToken': {'address': r['mint'], 'symbol': r.get('symbol'), 'name': r.get('name') or r.get('symbol')},
+                    'priceUsd': r.get('price'), 'marketCap': r.get('mcap'), 'volume': {'h1': r.get('vol1h')}, 'info': {'imageUrl': r.get('logo')},
+                    'signals': {'score_label': f"🔔 Bond run · score {round(_fuse._f(r.get('score')))}", 'score_reasons': [f"{_fuse._f(r.get('curve')):.0f}% up the curve", f"{r.get('buyShare')}% buys", 'gated by Fuse runners']}}]
             _fuse_chat(f"coin-solana-{r['pairAddress']}-trenches", txt, f"bond-{r['mint']}-{int(now // 21600)}", tok)
             _fuse_chat('fuse-lab', txt, f"bond-lab-{r['mint']}-{int(now // 21600)}", tok)
     fc = next((c for c in _arena_mega_cache.get('data') or [] if c.get('kind') == 'feecat'), None)
@@ -4263,7 +4265,9 @@ async def battle_back(p: BattleBack):
         backs = b.setdefault('backs', {})
         if me in backs:
             raise HTTPException(409, 'You already backed a side this battle.')
-        backs[me] = p.key; d['battles'] = b; _json_save(FUSE_HQ_PATH, d)
+        backs[me] = p.key; d['battles'] = b
+        d.setdefault('backLog', {})[me] = ((d.get('backLog') or {}).get(me) or [])[-199:] + [time.time()]
+        _json_save(FUSE_HQ_PATH, d)
     rec = (_json_load(FUSE_HQ_PATH, {}).get('backRecord') or {}).get(me) or {'w': 0, 'l': 0}
     return {'ok': True, 'key': p.key, 'record': rec}
 
@@ -4301,6 +4305,7 @@ async def _battle_tick(now):
         rr_ = d.setdefault('backRecord', {}).setdefault(w_, {'w': 0, 'l': 0})
         if key in won:
             rr_['w'] += 1
+            d.setdefault('backWins', {})[w_] = ((d.get('backWins') or {}).get(w_) or [])[-199:] + [now]
             notify(w_, 'fuse-card', f"⚔ You backed the winner — your backing record is {rr_['w']}–{rr_['l']}.", url='/terminal/fuse?tab=arena', once=f"back-{int(now)}-{w_}",
                    meta={'claim': 'Bigger move since the bell', 'source': 'Arena battles'})
         elif not any(x.get('draw') and key in (x.get('aKey'), x.get('bKey')) for x in results):
@@ -4321,6 +4326,7 @@ async def _battle_tick(now):
         d2['battleLog'] = ((d2.get('battleLog') or []) + results)[-40:]
         d2['battleRecord'] = d.get('battleRecord') or {}
         d2['backRecord'] = d.get('backRecord') or {}
+        d2['backWins'] = {**(d2.get('backWins') or {}), **(d.get('backWins') or {})}
         _json_save(FUSE_HQ_PATH, d2)
     return results
 
@@ -5125,6 +5131,9 @@ async def runners_discover():
                        'move': _round_move(p, live),
                        'gates': next((x.get('gates') for x in live['dropped'] if x['mint'] == p['mint']), None) or ([] if p['mint'] in {x['mint'] for x in live['passing']} else ['left the live feed'])}
                       for p in (rnd or {}).get('picks') or []],
+            # ⚠️ NEW runners: minutes-old coins through the tight launch filter (site + X, clean creator first) — riskier lane
+            'newRunners': [{k: x.get(k) for k in ('mint', 'symbol', 'logo', 'pairAddress', 'mcap', 'vol1h', 'chg1h', 'buyShare', 'ageH', 'score', 'creatorRep', 'why', 'price')}
+                           for x in _rn.new_runners(live['passing'] + [x for x in live['dropped'] if (x.get('gates') or [''])[0].startswith(('mcap', 'vol'))])],
             # Watch-only: the busiest coins that FAILED a gate, with the reason — shown so the tab is never dead, never addable.
             'watching': [{k: x.get(k) for k in ('mint', 'symbol', 'logo', 'mcap', 'vol1h', 'chg1h', 'buyShare', 'gates')}
                          for x in sorted(live['dropped'], key=lambda x: -_fuse._f(x.get('vol1h')))[:12]]}
@@ -5554,7 +5563,10 @@ def _fuse_quest_stats(mine):
     beats = [w['week'] + _hq.WEEK for w in d.get('catChallenge') or [] for cid in w.get('ids') or [] if cid in ids]
     medals = [s['week'] + _hq.WEEK for s in d.get('seasons') or [] for t_ in s.get('top') or [] if t_['id'] in ids]
     return {'counts': {'fuse_cards': len(pos), 'fuse_survivors': len(surv), 'battle_wins': len(wins), 'feecat_beats': len(beats), 'season_medals': len(medals)},
-            'events': {'fuse_card': [_fuse._f(x.get('at')) for x in pos], 'battle_win': wins, 'feecat_beat': beats, 'season_medal': medals}}
+            'events': {'fuse_card': [_fuse._f(x.get('at')) for x in pos], 'battle_win': wins, 'feecat_beat': beats, 'season_medal': medals,
+                       # ⚔ backing feeds the season too: every back + every winning back is XP (daily + weekly quests) → rank
+                       'battle_back': [t for w in mine for t in ((d.get('backLog') or {}).get(w) or [])],
+                       'back_win': [t for w in mine for t in ((d.get('backWins') or {}).get(w) or [])]}}
 
 
 async def _quest_raw(me, board=None):

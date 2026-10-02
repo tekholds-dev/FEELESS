@@ -4,6 +4,9 @@ import { Countdown } from '../RunnersPanel';
 import '../../styles/fusePage.css';
 import { toast } from 'sonner';
 import { RiskDial, DialBoard } from '../RiskDial';
+import { FuseCard } from '../FuseCard';
+const PG_STYLE = { safe: 'steady', balanced: 'yield', degen: 'degen' };
+const PG_SL = { sell: '✂ sell', park: '🅿 park', hold: '❄ hold' };
 
 // Cmd Ctr › Fuse › ⚔ Arena ops: the live battlefield (pairs, move since the bell, time left), the last results, what's
 // on the stage (by kind) and this week's season board. Read-only views of the public Arena + Season data (60s).
@@ -156,7 +159,11 @@ export function EnginePlayground({ call }) {
       <div className="pg-box"><header><b>⏳ Still proving</b><small>{p.proving.length}</small></header>{p.proving.slice(0, 10).map((r, i) => <div key={i} className="pg-row"><i>{r.kind}</i><b>{r.name}</b><small>{r.why}</small></div>)}</div>
     </div>
     {p.scenarioCards?.length > 0 && <div className="pg-box is-ready"><header><b>🏆 Best scenarios → cards</b><small>this round's gated runners + a SOL anchor, played with each winning exit plan · auto-updated every round</small></header>
-      <div className="pg-cards">{p.scenarioCards.map((sc, i) => <article key={sc.id} className="pg-card" style={{ '--i': i }} data-testid={`pg-card-${sc.id}`}>
+      <div className="pg-cards">{p.scenarioCards.map((sc, i) => <article key={sc.id} className={`pg-card ${sc.dial ? `d-${sc.dial}` : ''}`} style={{ '--i': i }} data-testid={`pg-card-${sc.id}`}>
+        <span className="pg-fcard"><FuseCard c={{ pools: sc.legs.map(l => l.pairAddress), fitness: Math.round(sc.avgPct || 0), bornGen: sc.rounds || 0, legs: sc.legs,
+          parts: { grade: (sc.avgPct || 0) >= 15 ? 'A' : (sc.avgPct || 0) > 0 ? 'B' : 'C', aprScore: 0, momentum24h: sc.avgPct || 0, calm: '—', feeDragPct: 0, impactLegs: 0 } }}
+          style={PG_STYLE[sc.dial] || 'momentum'} rank={i} budget={20} /></span>
+        {sc.cfg && <span className="ar-cfg" data-testid={`pg-cfg-${sc.id}`}><i>TP +{sc.cfg.tp}%</i><i>SL −{sc.cfg.sl}%</i><i>⟳ {sc.cfg.rotateHours >= 1 ? `${sc.cfg.rotateHours}h` : `${Math.round(sc.cfg.rotateHours * 60)}m`}</i><i>{PG_SL[sc.cfg.slMode] || sc.cfg.slMode}</i><i>proof {sc.cfg.window}</i></span>}
         <b className="pg-name">{i === 0 ? '👑 ' : ''}{sc.name || sc.label}{sc.dial && <em className={`pg-dial dl-${sc.dial}`}>{sc.dial}</em>}</b><small>{sc.label} · {sc.window}{sc.cfg ? ` · ⟳ ${sc.cfg.rotateHours}h · ${sc.cfg.slMode}` : ''}</small>
         <b className="m-num m-pos">{fmt(sc.avgPct)} <em>avg / round</em></b>
         <span className="pg-legs">{sc.legs.map(l => <i key={l.pairAddress} className={l.role === 'anchor' ? 'is-anchor' : ''}>{l.role === 'anchor' ? '⚓' : '🏃'} ${l.symbol} {Math.round(l.weight)}%</i>)}</span>
