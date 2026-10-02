@@ -578,3 +578,4 @@ body.theme-day .pg-sc { background: var(--m-surface); } body.fx-lite .pg-sc { an
 .pg-card > small:first-child { font: 9.5px var(--m-mono); letter-spacing: .08em; color: var(--m-dim); } .pg-card b { font-size: 22px; } .pg-card b em { font: 10px var(--m-mono); font-style: normal; color: var(--m-dim); }
 .pg-legs { display: flex; flex-wrap: wrap; gap: 4px; } .pg-legs i { font-style: normal; font-size: 11px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--m-line); } .pg-legs i.is-anchor { border-color: #9fe3ff; color: #9fe3ff; }
 body.fx-lite .pg-card { animation: none; }
+.prime-phase{font:700 9.5px var(--m-mono);letter-spacing:.1em;color:#c58bff;padding:2px 8px;border:1px dashed #c58bff;border-radius:999px}

@@ -27,6 +27,13 @@ TEMPLATES = {   # anchors / pools / runners per card + the dial it runs
              'why': 'SOL / BTC / ETH / JitoSOL + PUMP — never stopped, only rotated if a pool weakens'},
 }
 MIN_STARS = 3
+# 🔄 Phase cycle (Blaze + Next Level): each round re-deals the card into the next shape — rest in majors, strike with runners,
+# rest again, then a half-and-half round. Same run (P&L continues); every phase change is an event with its reason.
+PHASES = {'anchor': {'anchors': 2, 'pools': 0, 'runners': 0, 'why': 'anchor round — resting in majors'},
+          'degen': {'anchors': 1, 'pools': 0, 'runners': 3, 'why': 'degen round — runners strike'},
+          'mixed': {'anchors': 2, 'pools': 0, 'runners': 2, 'why': 'mixed round — half majors, half fresh runners'}}
+CYCLE = ('anchor', 'degen', 'anchor', 'mixed')
+CYCLE_TIERS = ('degen', 'next')
 HIT_PCT = 10.0      # a "good day" = the card is up ≥ +10% over 24h
 DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.10, 'floorPct': 20.0, 'slMode': 'replace'}
 SL_MODES = ('replace', 'park', 'hold')   # on a stop: auto-replace · sell + park the slot (rebuy at entry with momentum) · hold
@@ -119,10 +126,10 @@ def _picks(t, pools, runners, anchors):
     return out
 
 
-def deal(tid, pools, runners, cfg, now, anchors=(), usd=None, keep=None):
+def deal(tid, pools, runners, cfg, now, anchors=(), usd=None, keep=None, shape=None):
     """A fresh Prime card from the best 3★+ candidates (gated + ranked by the caller). Equal $ per coin. `keep` re-deals an
     existing card (after its floor) while keeping its start, events and record — P&L stays honest across re-deals."""
-    t = TEMPLATES[tid]
+    t = {**TEMPLATES[tid], **(PHASES.get(shape) or {})}
     picks = _picks(t, pools, runners, anchors)
     if not picks:
         return None
@@ -134,7 +141,9 @@ def deal(tid, pools, runners, cfg, now, anchors=(), usd=None, keep=None):
     c.update(lastRotateAt=now, legs=[_leg(x, each, now, r) for x, r in picks], cash=0.0, flooredAt=None)
     c['startUsd'] = (keep or {}).get('startUsd', cfg['sizeUsd'])
     c['feesUsd'] = round(_f(c['feesUsd']) + cfg['paperFeeUsd'] * len(picks), 4)
-    c['events'] = list(c['events']) + [{'kind': 'deal', 'at': now, 'n': len(picks), 'why': 're-dealt after the floor' if keep else 'fresh card'}]
+    c['events'] = list(c['events']) + [{'kind': 'phase' if shape else 'deal', 'at': now, 'n': len(picks), 'why': PHASES[shape]['why'] if shape else ('re-dealt after the floor' if keep else 'fresh card')}]
+    if shape:
+        c['phase'] = shape
     return c
 
 
@@ -245,6 +254,13 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None):
         c['rounds'] = int(c.get('rounds') or 0) + 1
         c['lastRoundPct'] = round((v_now / (_f(c.get('roundStartUsd')) or _f(c['startUsd']) or 1) - 1) * 100, 2)
         c['roundStartUsd'] = round(v_now, 4); c['roundCrowned'] = False
+    # 3b) 🔄 phase cycle: a cycling tier re-deals into the next phase shape every round (same run, P&L continues)
+    if card['tpl'] in CYCLE_TIERS and c['lastRotateAt'] == now and not c.get('flooredAt'):
+        phase = CYCLE[int(c.get('rounds') or 0) % len(CYCLE)]
+        nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=value(c, prices), keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
+        if nc:
+            nc['feesUsd'] = round(_f(nc['feesUsd']) + fee * len(c['legs']), 4)   # selling the old shape
+            c = nc
     # 4) idle cash goes back to work when compounding
     if cfg['compound'] and c['cash'] > 0.01 and c['legs']:
         each = c['cash'] / len(c['legs'])
@@ -287,7 +303,7 @@ def summary(card, prices):
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,
              'usd': round(l['units'] * (_f(prices.get(l['pairAddress'])) or l['entry']), 4)} for l in card['legs']]
     return {**{k: card[k] for k in ('id', 'tpl', 'label', 'at', 'lastRotateAt', 'compoundedUsd', 'takenUsd', 'feesUsd', 'startUsd')}, 'cash': round(card['cash'], 4),
-            'flooredAt': card.get('flooredAt'), 'rounds': int(card.get('rounds') or 0), 'lastRoundPct': card.get('lastRoundPct'),
+            'flooredAt': card.get('flooredAt'), 'phase': card.get('phase'), 'cycle': list(CYCLE) if card['tpl'] in CYCLE_TIERS else None, 'rounds': int(card.get('rounds') or 0), 'lastRoundPct': card.get('lastRoundPct'),
             'roundPct': round((v / (_f(card.get('roundStartUsd')) or start) - 1) * 100, 2), 'roundWins': int(card.get('roundWins') or 0),
             'valueUsd': v, 'pnlPct': round((v / start - 1) * 100, 2), 'legs': legs, 'events': card['events'][-12:][::-1],
             'tp': TEMPLATES[card['tpl']]['tp'], 'sl': TEMPLATES[card['tpl']]['sl'], 'tier': TEMPLATES[card['tpl']]['tier'], 'why': TEMPLATES[card['tpl']].get('why'),

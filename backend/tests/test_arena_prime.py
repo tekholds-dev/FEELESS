@@ -179,3 +179,19 @@ def test_rounds_count_and_the_best_card_of_each_round_is_crowned():
     cards = {'balanced': a2, 'degen': b2}
     assert ap.crown_round(cards) == a2['id'] and cards['balanced']['roundWins'] == 1
     assert ap.crown_round(cards) is None                                                   # crowned once per round
+
+
+def test_cycling_tiers_move_through_anchor_degen_anchor_mixed_rounds():
+    cfg = ap.clean_cfg({'rotateHours': 1})
+    maj = [C('sol', 1, 'SOL'), C('btc', 1, 'cbBTC')]
+    runners = [R('r1', 1), R('r2', 1), R('r3', 1)]
+    flat = {'Psol': 1, 'Pbtc': 1, 'Pa': 1, 'Pr1': 1, 'Pr2': 1, 'Pr3': 1}
+    c = ap.deal('next', [P('a', 1)], runners, cfg, 0, maj)
+    seen = []
+    for i in range(1, 5):
+        c = ap.tick(c, flat, [P('a', 1)], runners, cfg, i * 3601, maj)
+        seen.append((c.get('phase'), sorted({l['role'] for l in c['legs']})))
+    assert [p for p, _ in seen] == ['degen', 'anchor', 'mixed', 'anchor']
+    assert seen[1][1] == ['anchor'] and 'runner' in seen[0][1]
+    assert c['startUsd'] == 100 and not c.get('runs')                                        # one continuous run
+    assert ap.deal('balanced', [P('a', 1)], runners, cfg, 0, maj).get('phase') is None      # non-cycling tiers unchanged
