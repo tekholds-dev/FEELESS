@@ -586,3 +586,38 @@ body.fx-lite .pg-card { animation: none; }
 .bf-back { margin-top: 4px; padding: 3px 9px; font-size: 11px; } .bf-back.is-on { background: var(--m-accent); color: #04140c; border-color: var(--m-accent); }
 body.fx-lite .bf-clash { display: none; }
 @media (prefers-reduced-motion: reduce) { .bf-clash { animation: none; } .bf-tug i { transition: none; } }
+
+/* 🃏 Card dials (safe / balanced / degen): each dial its own one-of-a-kind FX layer + chips; bench = runners-up row */
+.ar-dialfx { position: absolute; inset: 0 0 auto; height: 360px; pointer-events: none; z-index: 0; }
+.ar-dialfx i { position: absolute; left: 50%; top: 46%; }
+.d-safe .ar-dialfx i { width: 230px; height: 230px; margin: -115px 0 0 -115px; border: 1px solid #6ad7ff; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); opacity: 0; animation: arShield 4.2s ease-out infinite; animation-delay: calc(var(--k, 0) * 1.4s); }
+.d-safe .ar-dialfx i:nth-child(2) { --k: 1; } .d-safe .ar-dialfx i:nth-child(3) { --k: 2; }
+.d-balanced .ar-dialfx i { width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #f5c451; box-shadow: 0 0 12px #f5c451; animation: arOrbit 5s linear infinite; animation-delay: calc(var(--k, 0) * -1.66s); }
+.d-balanced .ar-dialfx i:nth-child(2) { --k: 1; background: var(--m-accent); box-shadow: 0 0 12px var(--m-accent); } .d-balanced .ar-dialfx i:nth-child(3) { --k: 2; }
+.d-degen .ar-dialfx i { top: auto; bottom: 30px; width: 34px; height: 60px; margin-left: calc(-17px + (var(--k, 0) - 1) * 70px); border-radius: 50% 50% 20% 20%; background: radial-gradient(60% 70% at 50% 80%, #ffd36b, #ff5ad1 55%, transparent 72%); opacity: 0; animation: arFlame 1.6s ease-in infinite; animation-delay: calc(var(--k, 0) * .45s); }
+.d-degen .ar-dialfx i:nth-child(2) { --k: 1; } .d-degen .ar-dialfx i:nth-child(3) { --k: 2; }
+.d-degen:hover .fcd { animation: arJolt .35s ease-in-out 2; }
+@keyframes arShield { 0% { opacity: 0; transform: scale(.82); } 30% { opacity: .55; } 100% { opacity: 0; transform: scale(1.18); } }
+@keyframes arOrbit { from { transform: rotate(0deg) translateX(150px) rotate(0deg); } to { transform: rotate(360deg) translateX(150px) rotate(-360deg); } }
+@keyframes arFlame { 0% { opacity: 0; transform: translateY(0) scale(.6); } 35% { opacity: .9; } 100% { opacity: 0; transform: translateY(-190px) scale(1.15); } }
+@keyframes arJolt { 25% { transform: translateX(-2px) rotate(-.6deg); } 75% { transform: translateX(2px) rotate(.6deg); } }
+.ar-card > :not(.ar-dialfx):not(.ar-heat):not(.ar-ring):not(.ar-embers) { position: relative; z-index: 1; }
+.ar-dial { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font: 700 9.5px/1.6 var(--m-mono); letter-spacing: .08em; vertical-align: middle; border: 1px solid; }
+.dl-safe { color: #6ad7ff; border-color: #6ad7ff66; } .dl-balanced { color: #f5c451; border-color: #f5c45166; } .dl-degen { color: #ff5ad1; border-color: #ff5ad166; }
+.ar-cfg { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; } .ar-cfg i { font: 600 10px/1.7 var(--m-mono); font-style: normal; padding: 0 7px; border-radius: 6px; background: var(--m-surface-2); border: 1px solid var(--m-line); transition: border-color .15s, transform .15s; }
+.ar-cfg i:hover { border-color: var(--m-accent); transform: translateY(-1px); }
+.ar-bench { display: grid; gap: 6px; padding: 12px; border-radius: 16px; border: 1px dashed var(--m-line-hi); }
+.ar-bench > header { gap: 10px; flex-wrap: wrap; } .ar-stage.is-bench { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 22px 14px; padding-top: 14px; }
+.ar-card.is-bench .fcd { zoom: .8; } .ar-card.is-bench .ar-dialfx { transform: scale(.8); transform-origin: top center; }
+.bf-btns { display: flex; gap: 6px; flex-wrap: wrap; } .bf-side.b .bf-btns { justify-content: flex-end; }
+.bf-buy { margin-top: 4px; padding: 3px 9px; font-size: 11px; border-color: #f5c45188; color: #f5c451; } .bf-buy:hover { background: #f5c451; color: #1a1204; } .bf-buy:active { transform: scale(.96); }
+.bf-bars { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; margin-top: 4px; }
+.bf-bar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 6px; align-items: center; font: 600 10.5px var(--m-mono); }
+.bf-bar em { grid-column: 1 / -1; grid-row: 1; justify-self: center; font-style: normal; font-size: 9px; letter-spacing: .12em; color: var(--m-dim); }
+.bf-bar > i { height: 5px; border-radius: 5px; overflow: hidden; background: #ff8fa366; } .bf-bar > i > i { display: block; height: 100%; transform-origin: left; transition: transform .8s var(--m-ease); }
+.bf-bar.is-free > i > i { background: linear-gradient(90deg, #6b3cc9, #c08bff); } .bf-bar.is-paid > i > i { background: linear-gradient(90deg, #a87412, #f5c451); }
+body.fx-lite .ar-dialfx { display: none; } body.fx-lite .d-degen:hover .fcd { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ar-dialfx { display: none; } .d-degen:hover .fcd { animation: none; } .bf-bar > i > i { transition: none; } }
+body.theme-day .ar-cfg i { background: #fff; } body.theme-day .dl-safe { color: #0a6f9c; } body.theme-day .dl-balanced { color: #8a6200; } body.theme-day .dl-degen { color: #b0127f; } body.theme-day .bf-buy { color: #8a6200; }
+@media (max-width: 640px) { .bf-bars { grid-template-columns: 1fr; } .ar-stage.is-bench { grid-template-columns: 1fr 1fr; } }
+.pg-card b.pg-name { font-size: 15px; display: flex; gap: 6px; align-items: center; } .pg-dial { font: 700 9px/1.6 var(--m-mono); font-style: normal; text-transform: uppercase; letter-spacing: .1em; padding: 0 6px; border-radius: 999px; border: 1px solid; }

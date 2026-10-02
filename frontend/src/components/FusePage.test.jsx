@@ -5,7 +5,7 @@ import { createRoot } from 'react-dom/client';
 jest.mock('react-router-dom', () => ({ Link: ({ children, ...p }) => <a {...p}>{children}</a>, useNavigate: () => jest.fn() }), { virtual: true });
 jest.mock('../hooks/useWallet', () => ({ useWallet: () => ({ wallet: { chain: 'solana', address: 'MeWa11et' } }) }));
 jest.mock('../lib/chatSession', () => ({ readChatSession: () => 'sess' }));
-jest.mock('./FuseLab', () => ({ FuseLab: p => <div data-testid="lab" data-copy={p.incoming?.copyOf ? `${p.incoming.copyOf}:${p.incoming.owner}` : ''}>picks:{p.runnerPicks.length}</div> }));
+jest.mock('./FuseLab', () => ({ FuseLab: p => <div data-testid="lab" data-copy={p.incoming?.copyOf ? `${p.incoming.copyOf}:${p.incoming.owner}` : ''} data-back={p.incoming?.backKey || ''}>picks:{p.runnerPicks.length}</div> }));
 jest.mock('./FuseSide', () => ({ FuseSide: () => null }));
 jest.mock('./EcosystemChat', () => ({ __esModule: true, default: ({ room }) => <div data-testid="chat-room">{room}</div> }));
 jest.mock('./FuseCard', () => ({ LiveFuseCard: ({ r }) => <div data-testid={`live-${r.id}`} />, FuseCard: ({ c, aura }) => <div className="fcd-mock" data-aura={aura} data-n={c.legs.length} /> }));
@@ -20,9 +20,10 @@ const PICKS = [1, 2, 3, 4].map(i => ({ mint: `R${i}`, symbol: `RUN${i}`, lane: '
 const RUNNERS = { round: { picks: PICKS, swaps: [{ at: 5, out: { symbol: 'OLD' }, in: { symbol: 'RUN1' }, why: ['top10 41% > 30%'] }] }, live: [{ mint: 'LV1', symbol: 'LIVE', score: 70, stage: 'graduated' }], proof: { lights: true, rounds: 9, avgPct: 12, winRate: 60, per1: 1.12 },
   lightMinRounds: 8, exits: { scalp: 'x', runner: 'y', hold: 'z' }, nextRoundAt: 9e9, dropped: [], history: [], seen: 4, gates: ['g'], solUsd: 200,
   litCards: [{ id: 'L1', at: 1700000000, picks: PICKS.slice(0, 2), proof: { avgPct: 12, winRate: 60 }, pct: 34.5 }] };
-const BATTLES = { endsAt: 9e9, pairs: [{ a: { key: 'user:U1', name: 'Degen card', emoji: '🃏', start: 0, now: 6.2 }, b: { key: 'lit:L1', name: 'Lit', emoji: '🔥', start: 0, now: -1.4 } }],
+const BATTLES = { endsAt: 9e9, pairs: [{ a: { key: 'user:U1', name: 'Degen card', emoji: '🃏', start: 0, now: 6.2, backers: 3, paidUsd: 40, paidN: 2 }, b: { key: 'lit:L1', name: 'Lit', emoji: '🔥', start: 0, now: -1.4, backers: 1, paidUsd: 0 } }],
   log: [{ at: 1, a: 'X', b: 'Y', winner: 'X', aMove: 3, bMove: 1 }] };
-const ARENA = { battles: BATTLES, board: [{ style: 'yield', runs: 3, avgPct: 2, winRate: 66 }], outlook: { note: 'n' }, minSettled: 3, mega: [
+const ARENA = { battles: BATTLES, bench: [{ kind: 'scenario', bench: true, id: 'scen-1', name: 'Moon Mission', emoji: '🚀', dial: 'degen', cfg: { tp: 200, sl: 40, rotateHours: 1, slMode: 'sell' },
+  legs: [{ pairAddress: 'PS', symbol: 'SOL', weight: 35 }, { pairAddress: 'PR', symbol: 'R', weight: 65, runner: true }], index: 104, activity: { score: 31, tier: 'calm' }, chat: 'fuse-card-scen-1' }], board: [{ style: 'yield', runs: 3, avgPct: 2, winRate: 66 }], outlook: { note: 'n' }, minSettled: 3, mega: [
   { kind: 'mega', id: 'M1', name: 'Mega', emoji: '⚛️', legs: PICKS.map(p => ({ pairAddress: `P${p.mint}`, symbol: p.symbol, weight: 25 })), index: 120, grade: 'A', buyers: 5, activity: { score: 90, tier: 'blazing' } },
   { kind: 'user', id: 'U1', name: 'Degen card', emoji: '🃏', owner: '@chad', legs: PICKS.slice(0, 3).map(p => ({ pairAddress: `P${p.mint}`, symbol: p.symbol, weight: 33 })), index: 140, grade: 'A', buyers: 1, mode: 'swap',
     activity: { score: 70, tier: 'hot' }, streak: { swaps: 3, won: true, tier: 'phoenix', label: '🔥 Phoenix', bonus: 15 }, copies: 2, copyPct: 10,
@@ -172,4 +173,19 @@ test('Arena battlefield: pairs fight live (tug-of-war leans to the leader), resu
   expect(p.className).toContain('a-lead'); expect(p.textContent).toContain('VS'); expect(p.textContent).toContain('+6.2%');
   expect(host.querySelector('[data-testid="battlefield"]').textContent).toContain('🏆 X beat Y');
   expect(host.querySelector('[data-testid="fp-tabtip"]').textContent).toContain('battlefield');
+});
+
+
+test('Arena: runner-up engine cards wear their dial + configs, battles show free vs bought bars, 💰 Buy & back hands the Lab the battle key', async () => {
+  window.history.replaceState(null, '', '/terminal/fuse?tab=arena');
+  const host = document.createElement('div'); document.body.appendChild(host);
+  await act(async () => { createRoot(host).render(<FusePage />); }); await tick(); await tick();
+  const bench = host.querySelector('[data-testid="arena-bench"]');
+  expect(bench.querySelector('[data-testid="mega-scen-1"]').className).toContain('d-degen');
+  expect(bench.textContent).toContain('🚀 Moon Mission'); expect(bench.querySelector('[data-testid="cfg-scen-1"]').textContent).toContain('TP +200%');
+  expect(host.querySelector('[data-testid="arena-stage"] [data-testid="mega-scen-1"]')).toBeNull();     // runners-up never sit on the stage
+  const bars = host.querySelector('[data-testid="bars-0"]');
+  expect(bars.textContent).toContain('FREE BACKS'); expect(bars.textContent).toContain('$40');
+  act(() => host.querySelector('[data-testid="buyback-a-0"]').click()); await tick();
+  expect(host.querySelector('[data-testid="lab"]').dataset.back).toBe('user:U1');
 });

@@ -2708,7 +2708,7 @@ async def _fuse_view(fid, f, store):
     now_px = {leg['pairAddress']: leg.get('priceUsd') for leg in metas}
     buys = [b for b in store.get('buys', []) if b['fuse'] == fid]
     earned = round(sum(b['creatorUsd'] for b in buys), 6); paid = round(float((store.get('paid') or {}).get(fid, 0)), 6)
-    return {'id': fid, **{k: f.get(k) for k in ('name', 'emoji', 'tagline', 'creator', 'creatorBps', 'createdAt', 'enabled', 'aura', 'featured', 'arena')}, 'legs': legs,
+    return {'id': fid, **{k: f.get(k) for k in ('name', 'emoji', 'tagline', 'creator', 'creatorBps', 'createdAt', 'enabled', 'aura', 'featured', 'arena', 'dial', 'cfg', 'fromScenario')}, 'legs': legs,
             'index': _fuse.index(f['legs'], f.get('basePrices') or {}, now_px), 'score': _fuse.score(metas, sum(1 for leg in f['legs'] if pairs.get(leg['pairAddress']) and _fuse_risky(pairs[leg['pairAddress']]))),
             'tvlUsd': round(sum(m['liquidityUsd'] for m in metas)), 'volume24h': round(sum(m['volume24h'] for m in metas)),
             'aprEst': round(sum(m['aprEst'] * m['weight'] for m in metas) / max(1, sum(m['weight'] for m in metas)), 1),
@@ -2925,6 +2925,7 @@ class FusePositionIn(BaseModel):
     name: str = Field(default='Lab fuse', max_length=40)
     fuseId: str = ''
     copyOf: str = Field(default='', max_length=16)   # ⚡ copied from another trader's open card (its owner earns copyPct of your fee)
+    back: str = Field(default='', max_length=120)    # 💰 bought to back a battle side ('kind:id'): counts on the paid bar, never the free one
     plan: dict = {}     # 🎯 card plan from the Lab: {at, mode, onProfit, legs: {pairAddress: {tp, sl}}}
     legs: list          # [{pairAddress, chainId, symbol, signature}]
 
@@ -2969,6 +2970,10 @@ async def fuse_position(p: FusePositionIn):
         if dflt.get('on'):   # Cmd Ctr default: new cards arm 💸 collect-profit at +at% of what was put in
             pos['autoYield'] = {'at': float(dflt.get('at') or _hq.YIELD_DEFAULT_AT), 'base': round(sum(_fuse._f(x.get('usd')) for x in legs), 6), 'armedAt': time.time(), 'firedAt': None}
         d.setdefault('positions', []).append(pos)
+        bt = d.get('battles') or {}
+        if p.back and any(p.back in (x['a']['key'], x['b']['key']) for x in bt.get('pairs') or []):
+            bt.setdefault('paid', {})[pos['id']] = {'key': p.back, 'wallet': me, 'usd': round(sum(_fuse._f(x.get('usd')) for x in legs), 2)}
+            pos['backKey'] = p.back
         _json_save(FUSE_HQ_PATH, d)
     # AFTER notice (inbox + phone): the card is recorded. Never P&L here — numbers live in Fuse › My cards / the profile.
     notify(me, 'fuse-card', f"🧬 Card opened: {len(legs)} coin{'s' if len(legs) != 1 else ''} ({', '.join('$' + (leg.get('symbol') or '?') for leg in legs[:4])}){' · ' + _hq.RISK_DIALS[pos['risk']]['label'] if pos.get('risk') in _hq.RISK_DIALS else ''}. Receipt + live P&L in My cards.",
@@ -4122,6 +4127,19 @@ async def _fuse_autopilot_start():
         asyncio.create_task(_fuse_autopilot_loop())
 
 
+def _card_look(body, prev):
+    """A published card's look + configs (engine scenario cards): dial safe|balanced|degen, TP/SL/rotate/stop-mode chips."""
+    dial = body.get('dial', prev.get('dial', ''))
+    cfg = body.get('cfg') if isinstance(body.get('cfg'), dict) else prev.get('cfg')
+    out = {'dial': dial if dial in _rn.CARD_NAMES else ''}
+    if cfg:
+        out['cfg'] = {'tp': max(0, min(5000, int(_fuse._f(cfg.get('tp'))))), 'sl': max(0, min(95, int(_fuse._f(cfg.get('sl'))))), 'window': str(cfg.get('window') or '')[:6],
+                      'rotateHours': max(0.08, min(48, _fuse._f(cfg.get('rotateHours')) or 24)), 'slMode': cfg.get('slMode') if cfg.get('slMode') in ('sell', 'park', 'hold') else 'sell'}
+    if body.get('fromScenario') or prev.get('fromScenario'):
+        out['fromScenario'] = str(body.get('fromScenario') or prev.get('fromScenario'))[:40]
+    return out
+
+
 @app.get('/api/reputation/fuses/arena')
 async def fuse_arena_public():
     """Fuse 🧬 › Arena for everyone: strategies' settled paper runs, the honest outlook, and the Runners proof — no admin data."""
@@ -4136,9 +4154,11 @@ async def fuse_arena_public():
         mults = [_rn.play_exits(p['lane'], p['entry'], [x for t, x in rd['paths'].get(p['mint'], []) if t > r['at']], cfg) for p in r['picks']]
         if mults:
             rounds.append({'at': r['at'], 'symbols': [p.get('symbol') for p in r['picks']], 'pct': round((sum(mults) / len(mults) - 1) * 100, 2)})
+    mega = await _arena_mega(rd, cfg, now)
     return {'board': board, 'outlook': _hq.outlook(board), 'bestStyle': _hq.best_style(board), 'runs': [v for v in sorted(vals, key=lambda v: -v['at']) if v['settled']][:12],
             'runners': {'proof': _rn.proof(rd['rounds'], rd['paths'], now, cfg=cfg), 'rounds': rounds}, 'minSettled': _hq.MIN_SETTLED,
-            'mega': (mega := await _arena_mega(rd, cfg, now)), 'battles': _battle_view(mega, now),
+            'mega': [c for c in mega if not c.get('bench')], 'bench': [c for c in mega if c.get('bench')],
+            'battles': _battle_view(mega, now),
             # 🎚 auto paper cards per Risk dial: every round also played with each dial's TP/SL — proves a dial BEFORE it goes auto live
             'dials': {k: {**v, 'label': _hq.RISK_DIALS[k]['label'], 'why': _hq.RISK_DIALS[k]['why']} for k, v in _rn.dial_proof(rd['rounds'], rd['paths'], now, _hq.RISK_DIALS).items()},
             'engineDial': rd.get('cfgDial') or 'custom'}
@@ -4183,8 +4203,10 @@ def _battle_view(mega, now):
     """⚔ Live battlefield: each pair with both cards' move since the bell (live from the stage), time left, recent results."""
     b = _json_load(FUSE_HQ_PATH, {}).get('battles') or {}
     pct = {f"{c['kind']}:{c['id']}": (c['index'] or 100) - 100 for c in mega}
-    backs = list((b.get('backs') or {}).values())
-    pairs = [{side: {**x[side], 'now': round(pct.get(x[side]['key'], x[side]['start']) - x[side]['start'], 2), 'backers': backs.count(x[side]['key'])} for side in ('a', 'b')} for x in b.get('pairs') or []]
+    backs = list((b.get('backs') or {}).values()); paid = list((b.get('paid') or {}).values())
+    pairs = [{side: {**x[side], 'now': round(pct.get(x[side]['key'], x[side]['start']) - x[side]['start'], 2), 'backers': backs.count(x[side]['key']),
+                     'paidN': sum(1 for q in paid if q['key'] == x[side]['key']), 'paidUsd': round(sum(q['usd'] for q in paid if q['key'] == x[side]['key']), 2)} for side in ('a', 'b')}
+             for x in b.get('pairs') or []]
     return {'pairs': pairs, 'endsAt': b.get('endsAt'), 'log': (_json_load(FUSE_HQ_PATH, {}).get('battleLog') or [])[-8:][::-1]}
 
 
@@ -4247,9 +4269,13 @@ async def _battle_tick(now):
                    meta={'claim': 'Bigger move since the bell', 'source': 'Arena battles'})
         elif not any(x.get('draw') and key in (x.get('aKey'), x.get('bKey')) for x in results):
             rr_['l'] += 1
+    for pid, q in (b.get('paid') or {}).items():   # 💰 bought-to-back: the buyer owns the card — tell them it won (no P&L in notices)
+        if q['key'] in won:
+            notify(q['wallet'], 'fuse-card', '💰 The card you bought to back won its battle.', url=f"/terminal/fuse?tab=cards&card={pid}", once=f"paidback-{int(now)}-{pid}",
+                   meta={'claim': 'Bigger move since the bell', 'source': 'Arena battles'})
     mins = _runner_cfg()['battleMins']
     pairs = [{'a': {'key': f"{x['kind']}:{x['id']}", 'name': x['name'], 'emoji': x.get('emoji'), 'start': pct.get(f"{x['kind']}:{x['id']}", 0.0)},
-              'b': {'key': f"{y['kind']}:{y['id']}", 'name': y['name'], 'emoji': y.get('emoji'), 'start': pct.get(f"{y['kind']}:{y['id']}", 0.0)}} for x, y in _rn.pair_battles(mega)]
+              'b': {'key': f"{y['kind']}:{y['id']}", 'name': y['name'], 'emoji': y.get('emoji'), 'start': pct.get(f"{y['kind']}:{y['id']}", 0.0)}} for x, y in _rn.battle_seats([c for c in mega if not c.get('bench')], [c for c in mega if c.get('bench')])]
     if results:
         _fuse_chat('fuse-lab', '⚔ Battle results: ' + ' · '.join(f"{'🤝 ' + x['a'] + ' = ' + x['b'] if x['draw'] else '🏆 ' + x['winner'] + ' beat ' + (x['b'] if x['winner'] == x['a'] else x['a'])} ({x['aMove']:+.1f}% vs {x['bMove']:+.1f}%)" for x in results[:4]),
                    f"battles-{int(now)}")
@@ -4323,6 +4349,7 @@ async def _arena_mega(rd, cfg, now):
         act = _hq.activity(len(day), len({b['wallet'] for b in day}), v['volume24h'], (v['index'] or 100) - 100)
         base = (store['fuses'].get(v['id']) or {}).get('basePrices') or {}
         out.append({'kind': 'mega', 'id': v['id'], 'name': v['name'], 'emoji': v['emoji'], 'aura': v.get('aura') or '', 'chat': f"fuse-card-{str(v['id']).lower()}",
+                    'dial': v.get('dial') or '', 'cfg': v.get('cfg') or None, 'tagline': v.get('tagline') or '',
                     'legs': [{**l, 'base': base.get(l['pairAddress'])} for l in v['legs']],
                     'index': v['index'], 'grade': (v['score'] or {}).get('grade'), 'buyers': v['trust']['buyers'], 'activity': act})
     live = {r['mint']: r for r in (await _runner_live())['passing']}
@@ -4369,16 +4396,22 @@ async def _arena_mega(rd, cfg, now):
         moves = [apx[l['pairAddress']] / l['entry'] for l in ac['legs'] if _fuse._f(apx.get(l['pairAddress'])) > 0 and _fuse._f(l.get('entry')) > 0]
         pct = round((sum(moves) / len(moves) - 1) * 100, 2) if moves else 0.0
         coins = sum(1 for l in ac['legs'] if l.get('runner'))
-        out.append({'kind': 'auto', 'id': ac['id'], 'name': f"Arena build · {coins} coins + {len(ac['legs']) - coins} pools", 'emoji': '⚔', 'aura': '',
+        out.append({'kind': 'auto', 'id': ac['id'], 'name': 'Arena Pick', 'emoji': '⚔', 'aura': '', 'dial': 'degen' if coins >= 3 else 'balanced',
+                    'tagline': f"{coins} coins + {len(ac['legs']) - coins} pools",
                     'legs': ac['legs'], 'index': round(100 + pct, 2), 'grade': 'A' if pct > 0 else 'B', 'buyers': 0, 'at': ac['at'], 'chat': f"fuse-card-{ac['id']}",
                     'activity': _hq.activity(len(ac['legs']), 0, sum(_fuse._f(l.get('vol1h')) for l in ac['legs']) * 24, pct)})
-    for sc in rd.get('scenarioStage') or []:   # 🧪 the engine's top-2 scenario cards fight on the stage (≥2 → battles always run)
+    published = {f.get('fromScenario') for f in (store.get('fuses') or {}).values() if f.get('arena') and f.get('fromScenario')}
+    for sc in rd.get('scenarioStage') or []:   # 🥈 runners-up: engine scenario cards waiting for Cmd Ctr's audit (published ones show as mega)
+        if sc.get('src') in published:
+            continue
         spx = await _hq_prices([l for l in sc['legs']])
         mv_ = [spx[l['pairAddress']] / l['entry'] for l in sc['legs'] if _fuse._f(spx.get(l['pairAddress'])) > 0 and _fuse._f(l.get('entry')) > 0]
         pct_ = round((sum(m * _fuse._f(l['weight']) for m, l in zip(mv_, sc['legs'])) / max(1e-9, sum(_fuse._f(l['weight']) for l in sc['legs'][:len(mv_)])) - 1) * 100, 2) if mv_ else 0.0
-        out.append({'kind': 'scenario', 'id': sc['id'], 'name': sc['name'], 'emoji': '🧪', 'aura': '', 'legs': sc['legs'], 'index': round(100 + pct_, 2),
-                    'grade': 'A' if pct_ > 0 else 'B', 'buyers': 0, 'at': sc['at'], 'chat': f"fuse-card-{sc['id']}", 'pnlPct': pct_,
-                    'tagline': f"Engine scenario · TP +{sc['tp']}% / stop −{sc['sl']}%",
+        dial = sc.get('dial') or _rn.dial_of(sc['tp'], sc['sl'])
+        out.append({'kind': 'scenario', 'bench': True, 'id': sc['id'], 'src': sc.get('src'), 'name': sc['name'] if sc.get('dial') else _rn.card_name(dial, sc['id']).split(' ', 1)[-1],
+                    'emoji': sc.get('emoji') or _rn.card_name(dial, sc['id']).split(' ', 1)[0], 'aura': '', 'legs': sc['legs'], 'index': round(100 + pct_, 2), 'dial': dial,
+                    'cfg': sc.get('cfg') or _rn.card_cfg(dial, sc), 'grade': 'A' if pct_ > 0 else 'B', 'buyers': 0, 'at': sc['at'], 'chat': f"fuse-card-{sc['id']}", 'pnlPct': pct_,
+                    'tagline': f"engine card · TP +{sc['tp']}% / stop −{sc['sl']}%",
                     'activity': _hq.activity(len(sc['legs']), 0, 0, pct_)})
     rnd = (rd.get('rounds') or [None])[-1]
     if not out and rnd and rnd.get('picks'):   # never an empty stage: the live round stands in as a proving card
@@ -4894,18 +4927,20 @@ async def admin_runner_suggest(request: Request):
 
 
 async def _scenario_stage(rd, now):
-    """Once per runner round: the top-2 scenario cards (this round's runners + SOL anchor, each winning exit plan) are dealt onto
-    the Arena stage at today's prices — so at least two engine cards always battle."""
+    """Once per runner round: the top-4 scenario cards (this round's runners + SOL anchor, each winning exit plan) are dealt onto
+    the Arena BENCH (runners-up) at today's prices. Cmd Ctr audits + publishes the ones it likes onto the stage; until then
+    runners-up only fill empty battle seats (4 cards → 2 battles)."""
     rnd = (rd.get('rounds') or [None])[-1]
     if not rnd or not rnd.get('picks') or (rd.get('scenarioStageRound') == rnd.get('id')):
         return None
     scen = _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS)
     anchor = next(({'chainId': 'solana', 'pairAddress': m['pairAddress'], 'symbol': 'SOL', 'mint': m.get('baseAddress')} for m in await _majors_rows() if m.get('symbol') == 'SOL'), None)
-    cards = _rn.scenario_cards(scen, rnd['picks'], anchor, top=2)
+    cards = _rn.scenario_cards(scen, rnd['picks'], anchor, top=4)
     if not cards:
         return None
     px = await _hq_prices([l for c in cards for l in c['legs']])
-    stage = [{'id': f"scen-{c['id']}-{str(rnd['id'])[:6]}", 'name': f"🧪 {c['label']}", 'at': now, 'tp': c['tp'], 'sl': c['sl'],
+    stage = [{'id': f"scen-{c['id']}-{str(rnd['id'])[:6]}", 'src': c['id'], 'emoji': c['name'].split(' ', 1)[0], 'name': c['name'].split(' ', 1)[-1], 'at': now, 'tp': c['tp'], 'sl': c['sl'],
+              'dial': c['dial'], 'cfg': c['cfg'], 'label': c['label'],
               'legs': [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': l['weight'], 'runner': l['role'] == 'runner', 'entry': _fuse._f(px.get(l['pairAddress']))}
                        for l in c['legs'] if _fuse._f(px.get(l['pairAddress'])) > 0]} for c in cards]
     async with _admin_lock:
@@ -5311,7 +5346,8 @@ async def admin_fuses_save(request: Request):
                                    'creator': body.get('creator') or prev.get('creator') or admin, 'creatorBps': max(0, min(_fuse.MAX_CREATOR_BPS, int(body.get('creatorBps') or 0))),
                                    'enabled': bool(body.get('enabled', True)), 'basePrices': base, 'createdAt': prev.get('createdAt') or time.time(),
                                    'featured': bool(body.get('featured', prev.get('featured', False))), 'aura': prev.get('aura', ''),
-                                   'arena': bool(body.get('arena', prev.get('arena', False)))}
+                                   'arena': bool(body.get('arena', prev.get('arena', False))),
+                                   **_card_look(body, prev)}
             _arena_mega_cache.update(at=0.0, data=None)
         _json_save(FUSES_PATH, store)
         ad = _admin_load(); _audit(ad, admin, 'fuse', json.dumps({'id': fid, **{k: body.get(k) for k in ('name', 'delete', 'paidUsd') if k in body}})[:160]); _admin_save(ad)

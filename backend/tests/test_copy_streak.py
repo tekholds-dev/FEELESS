@@ -243,3 +243,15 @@ def test_trader_record_medals_battles_cat_wins(rs, monkeypatch):
     t = asyncio.run(rs._fuse_score(A, fresh=True))['trader']
     assert t['medals'] == {'1': 1, '2': 0, '3': 0} and t['battles'] == {'w': 4, 'l': 1, 'd': 2} and t['catWins'] == 1
     assert t['held'] == 1 and t['closed'] == 1 and t['bestPct'] >= 40
+
+
+def test_buying_a_card_to_back_counts_on_the_paid_bar_only(rs):
+    rs._json_save(rs.FUSE_HQ_PATH, {'battles': {'endsAt': 9e12, 'pairs': [{'a': {'key': 'auto:1', 'name': 'A', 'start': 0}, 'b': {'key': 'mega:2', 'name': 'B', 'start': 0}}],
+                                                'backs': {A: 'mega:2'}}})
+    rs._json_save(rs.FEELESS_TRADES_PATH, {B: [{'tx': 'SB', 'side': 'buy', 'usd': 20.0, 'tokens': 10.0, 'token': 'M1'}]})
+    asyncio.run(rs.fuse_position(rs.FusePositionIn(address=B, session='s', back='auto:1', legs=[{'pairAddress': 'P1', 'symbol': 'X', 'signature': 'SB'}])))
+    d = rs._json_load(rs.FUSE_HQ_PATH, {})
+    assert list(d['battles']['paid'].values())[0]['key'] == 'auto:1' and d['positions'][0]['backKey'] == 'auto:1'
+    v = rs._battle_view([{'kind': 'auto', 'id': '1', 'index': 100}, {'kind': 'mega', 'id': '2', 'index': 100}], 0)['pairs'][0]
+    assert v['a']['paidN'] == 1 and v['a']['paidUsd'] > 0 and v['a']['backers'] == 0     # paid never touches the free bar
+    assert v['b']['backers'] == 1 and v['b']['paidN'] == 0

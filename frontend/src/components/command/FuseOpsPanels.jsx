@@ -141,9 +141,10 @@ export function EnginePlayground({ call }) {
     load(); const t = setInterval(() => !document.hidden && load(), 60000); return () => { alive = false; clearInterval(t); }; }, [call]);
   if (!p) return <div className="fl-row is-ghost" />;
   // ⭐ a winning scenario card → a published Cmd Ctr Fuse staged on the Arena (its exits in the tagline; edit in this panel below)
-  const publishScenario = sc => call('/admin/fuses', { method: 'POST', body: JSON.stringify({ name: `${sc.label} · ${sc.window}`.slice(0, 40), emoji: '🧪', creatorBps: 0, enabled: true, arena: true,
+  const publishScenario = sc => call('/admin/fuses', { method: 'POST', body: JSON.stringify({ name: (sc.name || '').split(' ').slice(1).join(' ') || `${sc.label} · ${sc.window}`.slice(0, 40), emoji: (sc.name || '🧪').split(' ')[0], creatorBps: 0, enabled: true, arena: true,
+    dial: sc.dial || '', cfg: sc.cfg || null, fromScenario: sc.id,
     tagline: `Engine scenario: TP +${sc.tp}% / stop −${sc.sl}% · avg ${sc.avgPct >= 0 ? '+' : ''}${sc.avgPct}% over ${sc.rounds} rounds`, legs: sc.legs.map(l => ({ chainId: 'solana', pairAddress: l.pairAddress, weight: l.weight })) }) })
-    .then(() => toast.success(`⭐ ${sc.label} published to the Arena`)).catch(e => toast.error(e.message));
+    .then(() => toast.success(`⭐ ${sc.name || sc.label} published to the Arena stage`)).catch(e => toast.error(e.message));
   const c = p.counts; const fmt = v => `${v >= 0 ? '+' : ''}${Number(v || 0).toFixed(1)}%`;
   const tiles = [['🏟 Strategy runs', c.arenaRuns, `${c.settled} settled · ${c.open} live`], ['🧬 Bloodline', c.bloodline, 'saved champions seed new breeds'],
     ['🎚 Dial scenarios', c.dialScenarios, 'rounds × dials × 6h/24h/72h'], ['🏃 Runner rounds', c.runnerRounds, `${c.litCards} lit cards`], ['⭐ Tier cards', c.tierCards, 'fully auto, paper'], ['📣 Published', c.published, 'on Trade + Arena when staged']];
@@ -156,7 +157,7 @@ export function EnginePlayground({ call }) {
     </div>
     {p.scenarioCards?.length > 0 && <div className="pg-box is-ready"><header><b>🏆 Best scenarios → cards</b><small>this round's gated runners + a SOL anchor, played with each winning exit plan · auto-updated every round</small></header>
       <div className="pg-cards">{p.scenarioCards.map((sc, i) => <article key={sc.id} className="pg-card" style={{ '--i': i }} data-testid={`pg-card-${sc.id}`}>
-        <small>{i === 0 ? '👑 ' : ''}{sc.label} · {sc.window}</small>
+        <b className="pg-name">{i === 0 ? '👑 ' : ''}{sc.name || sc.label}{sc.dial && <em className={`pg-dial dl-${sc.dial}`}>{sc.dial}</em>}</b><small>{sc.label} · {sc.window}{sc.cfg ? ` · ⟳ ${sc.cfg.rotateHours}h · ${sc.cfg.slMode}` : ''}</small>
         <b className="m-num m-pos">{fmt(sc.avgPct)} <em>avg / round</em></b>
         <span className="pg-legs">{sc.legs.map(l => <i key={l.pairAddress} className={l.role === 'anchor' ? 'is-anchor' : ''}>{l.role === 'anchor' ? '⚓' : '🏃'} ${l.symbol} {Math.round(l.weight)}%</i>)}</span>
         <small className="m-dim">TP +{sc.tp}% · stop −{sc.sl}% per runner · {sc.rounds} rounds · {sc.winRate}% won · $1 → ${Number(sc.per1 || 1).toFixed(2)}</small>

@@ -667,9 +667,46 @@ def scenario_cards(scen, picks, anchor=None, top=3):
         each = round((100 - (35 if anchor else 0)) / len(runners), 2)
         legs += [{'chainId': 'solana', 'pairAddress': p['pairAddress'], 'mint': p.get('mint'), 'symbol': p.get('symbol'), 'logo': p.get('logo'),
                   'role': 'runner', 'weight': each, 'tp': sc['tp'], 'sl': sc['sl']} for p in runners]
+        dial = dial_of(sc['tp'], sc['sl'], sc['id'].split('_')[0] if sc.get('kind') == 'dial' else None)
         out.append({'id': sc['id'], 'label': sc['label'], 'window': sc['window'], 'tp': sc['tp'], 'sl': sc['sl'], 'avgPct': sc['avgPct'],
-                    'winRate': sc.get('winRate'), 'rounds': sc['rounds'], 'per1': sc.get('per1'), 'legs': legs})
+                    'winRate': sc.get('winRate'), 'rounds': sc['rounds'], 'per1': sc.get('per1'), 'legs': legs,
+                    'dial': dial, 'name': card_name(dial, sc['id']), 'cfg': card_cfg(dial, sc)})
     return out
+
+
+# 🃏 Card names: simple, degen, 1–2 emojis — picked by the card's dial (safe / balanced / degen), stable per scenario id.
+CARD_NAMES = {
+    'safe': ['🛡 Comfy Bag', '🧊 Cold Hands', '🏦 Bag Secured', '🐢 Slow Cook', '⚓ Anchor Gang', '🧘 Zen Hold'],
+    'balanced': ['⚖️ Mid Curve', '🎯 Sniper Mode', '🧠 Big Brain', '🌊 Wave Rider', '🥷 Silent Ape', '🦊 Sly Fox'],
+    'degen': ['🚀 Moon Mission', '🔥 Full Send', '🦍 Ape Season', '💎🙌 Diamond Hands', '🎰 Casino Night', '⚡ Send It'],
+}
+DIAL_CFG = {'safe': {'rotateHours': 24, 'slMode': 'park'}, 'balanced': {'rotateHours': 6, 'slMode': 'sell'}, 'degen': {'rotateHours': 1, 'slMode': 'sell'}}
+
+
+def dial_of(tp, sl, dial=None):
+    """Which look a card wears: a dial scenario keeps its dial; exits cards: big TP or wide stop = degen, tight = safe."""
+    if dial in CARD_NAMES:
+        return dial
+    tp, sl = _f(tp), _f(sl)
+    return 'degen' if tp >= 200 or sl >= 35 else 'safe' if tp <= 50 and sl <= 20 else 'balanced'
+
+
+def card_name(dial, seed):
+    names = CARD_NAMES.get(dial) or CARD_NAMES['balanced']
+    return names[sum(ord(ch) for ch in str(seed)) % len(names)]
+
+
+def card_cfg(dial, sc):
+    """The configs a card plays with (shown as chips): TP / stop per runner, rotate clock, stop mode, proof window."""
+    return {'tp': int(_f(sc.get('tp'))), 'sl': int(_f(sc.get('sl'))), 'window': sc.get('window'), **DIAL_CFG.get(dial, DIAL_CFG['balanced'])}
+
+
+def battle_seats(stage, bench, battles=2):
+    """⚔ Who fights: stage cards first (hottest), runners-up from the bench fill empty seats — max `battles` fights
+    (4 cards → 2 battles, both visible). Pure."""
+    s = sorted(stage or [], key=lambda c: -_f((c.get('activity') or {}).get('score')))[:battles * 2]
+    s += sorted(bench or [], key=lambda c: -_f((c.get('activity') or {}).get('score')))[:max(0, battles * 2 - len(s))]
+    return pair_battles(s)
 
 
 def log_drops(log, dropped, now, cap=400):

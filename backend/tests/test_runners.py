@@ -227,6 +227,7 @@ def test_best_scenarios_become_cards_from_this_rounds_picks():
     cards = rn.scenario_cards(scen, picks, {'chainId': 'solana', 'pairAddress': 'SOLP', 'symbol': 'SOL'})
     assert [c['id'] for c in cards] == ['degen_6h', 'tp200_sl15']                                # losing scenarios never become cards
     assert [(l['symbol'], l['weight']) for l in cards[0]['legs']] == [('SOL', 35), ('A', 32.5), ('B', 32.5)] and cards[1]['legs'][1]['tp'] == 200
+    assert cards[0]['dial'] == 'degen' and cards[0]['name'] in rn.CARD_NAMES['degen'] and cards[0]['cfg']['rotateHours'] == 1   # simple degen names + configs
     assert rn.scenario_cards(scen, []) == []
 
 
@@ -237,3 +238,15 @@ def test_gate_regret_finds_gates_that_stop_winners():
     assert [e['mint'] for e in log] == ['A', 'B'] and rn.log_drops(log, [{'mint': 'A', 'stage': 'curve', 'gates': ['x'], 'price': 2}], 100) == log
     out = rn.gate_regret(log, {'PA': 4.0, 'PB': 0.5}, 7 * 3600)
     assert out[0]['gate'] == 'Top 10 under 25%' and out[0]['stopped'] == 2 and out[0]['ran'] == 1 and out[0]['rate'] == 50.0
+
+
+def test_card_names_dials_and_battle_seats():
+    assert rn.dial_of(200, 15) == 'degen' and rn.dial_of(30, 15) == 'safe' and rn.dial_of(100, 25) == 'balanced' and rn.dial_of(30, 15, 'degen') == 'degen'
+    n = rn.card_name('degen', 'tp200_sl40')
+    assert n == rn.card_name('degen', 'tp200_sl40') and n in rn.CARD_NAMES['degen'] and 1 <= len(n.split(' ')[0]) <= 4
+    st = lambda k, s: {'id': k, 'activity': {'score': s}}
+    seats = rn.battle_seats([st('s1', 50)], [st('b1', 10), st('b2', 30), st('b3', 20), st('b4', 5)])
+    assert len(seats) == 2 and 'b4' not in {c['id'] for p in seats for c in p}      # 4 cards → 2 battles, best runners-up fill seats
+    seats = rn.battle_seats([st(f's{i}', i) for i in range(5)], [st('b1', 99)])
+    assert len(seats) == 2 and all(c['id'].startswith('s') for p in seats for c in p)  # a full stage never seats the bench
+    assert rn.battle_seats([], [st('b1', 1)]) == []
