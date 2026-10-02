@@ -9,7 +9,7 @@ jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }))
 
 const mockWallet = { address: 'Other1111111111111111111111111111111111111' };
 const mockSend = jest.fn(async () => ['sig1']);
-const { ReservePool } = require('./CommandCenter');
+const { ReservePool } = require('./HqDeck');
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const RES = 'Res11111111111111111111111111111111111111111';
 

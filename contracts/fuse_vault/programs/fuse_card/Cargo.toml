@@ -18,6 +18,8 @@ idl-build = ["anchor-lang/idl-build"]
 anchor-debug = []
 custom-heap = []
 custom-panic = []
+# LOCALNET TESTS ONLY: a 45s TWAP window so the Raydium integration test doesn't wait 5 minutes. Never on a deployed build.
+fast-twap = []
 
 [dependencies]
 anchor-lang = { version = "1.2.0", features = ["init-if-needed"] }

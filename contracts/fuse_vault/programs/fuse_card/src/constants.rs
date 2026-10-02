@@ -7,7 +7,7 @@ pub const CONFIG_SEED: &[u8] = b"config";
 #[constant]
 pub const CARD_SEED: &[u8] = b"card";
 
-/// Cmd Ctr (config admin) cards: up to 12 legs in any mix of pools + runners.
+/// HQ (config admin) cards: up to 12 legs in any mix of pools + runners.
 pub const MAX_LEGS: usize = 12;
 /// Trader cards: up to 3 pools + 3 runners (fuse_hq.CARD_POOLS / CARD_RUNNERS).
 pub const USER_MAX_POOLS: u8 = 3;
@@ -37,7 +37,7 @@ pub const REASON_REBUY: u8 = 5;
 pub const SL_PAYOUT: u8 = 0;
 pub const SL_PARK: u8 = 1;
 pub const SL_HOLD: u8 = 2;
-/// Hard cap on the slippage the keeper may accept vs the pool's own expected output (Cmd Ctr can set ≤ this).
+/// Hard cap on the slippage the keeper may accept vs the pool's own expected output (HQ can set ≤ this).
 pub const MAX_SLIPPAGE_BPS: u16 = 300;
 /// Swap fee the price check assumes (the mock AMM / Raydium CPMM standard tier).
 pub const AMM_FEE_BPS: u64 = 30;

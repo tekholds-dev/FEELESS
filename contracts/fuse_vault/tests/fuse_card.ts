@@ -70,13 +70,14 @@ describe("fuse_card v0.1", () => {
   });
 
   it("config: admin + keeper, only the admin can change it", async () => {
-    await program.methods.initConfig(keeper.publicKey, amm.programId, 100).accounts({ admin: admin.publicKey } as any).rpc();
+    if (await conn.getAccountInfo(config)) await program.methods.setConfig(keeper.publicKey, false, amm.programId, 100).accounts({ admin: admin.publicKey, config } as any).rpc();   // the Raydium suite may have run first
+    else await program.methods.initConfig(keeper.publicKey, amm.programId, 100).accounts({ admin: admin.publicKey } as any).rpc();
     const c = await program.account.config.fetch(config);
     assert.ok(c.admin.equals(admin.publicKey)); assert.ok(c.keeper.equals(keeper.publicKey)); assert.equal(c.paused, false);
     await fails(program.methods.setConfig(mallory.publicKey, false, amm.programId, 100).accounts({ admin: mallory.publicKey, config } as any).signers([mallory]).rpc(), "Error");
   });
 
-  it("caps are hard-coded: traders 3 pools + 3 runners, no duplicates; Cmd Ctr up to 12 in any mix", async () => {
+  it("caps are hard-coded: traders 3 pools + 3 runners, no duplicates; HQ up to 12 in any mix", async () => {
     const tooMany = [leg(mints[0], 0), leg(mints[1], 0), leg(mints[2], 0), leg(mints[3], 0)];
     await fails(program.methods.openCard(new BN(9), tooMany, off, QUOTE).accounts({ owner: alice.publicKey } as any).signers([alice]).rpc(), "TooManyLegs");
     await fails(program.methods.openCard(new BN(9), [leg(mints[0], 0), leg(mints[0], 1)], off, QUOTE).accounts({ owner: alice.publicKey } as any).signers([alice]).rpc(), "DuplicateLeg");

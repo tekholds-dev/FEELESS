@@ -31,7 +31,7 @@ import { BadgeJourney } from './BadgeJourney';
 import { ReceiptsCard } from './ReceiptsCard';
 import { ReportBug } from '../ReportBug';
 // HQ is its own lazy chunk: downloaded ONLY after the server confirms this wallet is the creator / an admin-granted wallet.
-const CommandCenter = lazy(() => import('./CommandCenter').then(m => ({ default: m.CommandCenter })));
+const HqDeck = lazy(() => import('./HqDeck').then(m => ({ default: m.HqDeck })));
 import { InviteCard } from '../InviteCard';
 import { AdBanner } from '../AdBanner';
 import { ProfileMusic } from './ProfileMusic';
@@ -216,7 +216,7 @@ export function WalletProfilePage({ address }) {
   const caller = data?.caller;
   const [friend, setFriend] = useState('');
   const wide = useWide();
-  if (ccOpen && isAdmin) return <Suspense fallback={<div className="m-card"><span className="loader" /> Opening HQ…</div>}><CommandCenter address={address} signMessage={signMessage} onClose={() => setCcOpen(false)} /></Suspense>;
+  if (ccOpen && isAdmin) return <Suspense fallback={<div className="m-card"><span className="loader" /> Opening HQ…</div>}><HqDeck address={address} signMessage={signMessage} onClose={() => setCcOpen(false)} /></Suspense>;
   return <><div className={`profile-backdrop pbg-${backdrop}`} aria-hidden="true" data-testid="profile-backdrop" /><div className={`wp-stage ${wide ? 'has-rails' : ''}`}>{wide && <IntelRail address={address} />}<div className={`wallet-profile-page theme-${p.theme || 'grid'} ptier-${tier}`} style={{ '--wp-accent': accent }} data-testid="wallet-profile-page">
     <header className="xp-card" data-testid="profile-header">
       <div className={`xp-cover ${p.bannerUrl ? 'has-img' : ''}`}>
@@ -230,7 +230,7 @@ export function WalletProfilePage({ address }) {
           <div className="xp-sub">{edit ? <input className="wp-handle-input" maxLength={21} placeholder="@handle (3–20: a-z 0-9 _)" value={draft.handle ? `@${draft.handle}` : ''} onChange={e => set('handle', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))} /> : <span className="wp-handle">@{p.handle || address.slice(0, 6).toLowerCase()}</span>}<span className="xp-dot">·</span><code>{shortAddress(address)}</code><CopyBtn value={address} /></div>
           {edit ? <input className="wp-mood-input" maxLength={40} placeholder="Mood / status (e.g. 🔥 hunting 10×s)" value={draft.mood} onChange={e => set('mood', e.target.value)} /> : p.mood && <p className="wp-mood">{p.mood}</p>}
         </div>
-        <div className="xp-actions"><ProfileDM peer={address} mine={mine} initialOpen={new URLSearchParams(window.location.search).get('dm') === '1'} /><button type="button" className="btn-outline xp-case" data-testid="open-case-file" onClick={() => investigate(address)}>🔎 Case file</button><button type="button" className="btn-outline wp-flip-btn" data-testid="profile-flip" onClick={() => setFlipped(f => !f)}>{flipped ? '↺ Profile' : '↻ Activity'}</button>{mine && <button type="button" className="wp-fuse-go" onClick={() => setFuseOpen(true)} data-tip="Build a Fuse card right here — one approval" data-testid="profile-fuse"><span className="fz-font">⚡ FUSE</span> a card</button>}{isAdmin && <button type="button" className="cc-launch" data-testid="open-command-center" onClick={() => setCcOpen(true)}>👑 HQ</button>}{mine ? (edit ? <><button type="button" className="btn-primary" disabled={saving} onClick={save}><Save size={14} />{saving ? 'Saving…' : 'Save'}</button><button type="button" className="btn-outline" onClick={() => setEdit(false)}><X size={14} />Cancel</button></> : <button type="button" className="btn-outline" onClick={startEdit}><Pencil size={14} />Edit profile</button>) : !wallet?.address && <button type="button" className="btn-outline" onClick={() => connect?.('solana')}>Connect to edit yours</button>}</div>
+        <div className="xp-actions"><ProfileDM peer={address} mine={mine} initialOpen={new URLSearchParams(window.location.search).get('dm') === '1'} /><button type="button" className="btn-outline xp-case" data-testid="open-case-file" onClick={() => investigate(address)}>🔎 Case file</button><button type="button" className="btn-outline wp-flip-btn" data-testid="profile-flip" onClick={() => setFlipped(f => !f)}>{flipped ? '↺ Profile' : '↻ Activity'}</button>{mine && <button type="button" className="wp-fuse-go" onClick={() => setFuseOpen(true)} data-tip="Build a Fuse card right here — one approval" data-testid="profile-fuse"><span className="fz-font">⚡ FUSE</span> a card</button>}{isAdmin && <button type="button" className="cc-launch" data-testid="open-hq" onClick={() => setCcOpen(true)}>👑 HQ</button>}{mine ? (edit ? <><button type="button" className="btn-primary" disabled={saving} onClick={save}><Save size={14} />{saving ? 'Saving…' : 'Save'}</button><button type="button" className="btn-outline" onClick={() => setEdit(false)}><X size={14} />Cancel</button></> : <button type="button" className="btn-outline" onClick={startEdit}><Pencil size={14} />Edit profile</button>) : !wallet?.address && <button type="button" className="btn-outline" onClick={() => connect?.('solana')}>Connect to edit yours</button>}</div>
       </div>
       <div className="xp-meta">
         <SocialStrip address={address} mine={mine} />

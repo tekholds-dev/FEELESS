@@ -2,7 +2,7 @@
 
 One contract, up to **3 yield pools** (v2 constant-product and/or v3 concentrated liquidity). Users deposit SOL and get
 vault shares; the vault spreads SOL across the pools by auto-scaled weights with per-pool caps; management +
-performance fees are paid **in SOL to the FEELESS vault fee wallet** (Command Center › Trading & fees).
+performance fees are paid **in SOL to the FEELESS vault fee wallet** (HQ › Trading & fees).
 
 The math is specified and tested first in `backend/fuse_vault.py` (Python) and mirrored in `programs/fuse_vault/src/math.rs`.
 Change both together.
@@ -36,7 +36,7 @@ anchor test --skip-local-validator --provider.cluster localnet
 
 1. Pool adapters + valuation, then a devnet run with real pool programs.
 2. External audit.
-3. Deploy with the owner's keys; set the upgrade authority to a multisig; set the vault fee wallet in Command Center.
+3. Deploy with the owner's keys; set the upgrade authority to a multisig; set the vault fee wallet in HQ.
 
 
 # FUSE Card (`programs/fuse_card`) — v0.1, localnet only
@@ -47,7 +47,7 @@ card PDA. Rules are hard-coded in `constants.rs` (mirror `backend/fuse_hq.py` / 
 | Rule | Value |
 |---|---|
 | Trader card | ≤ 3 pools + ≤ 3 runners |
-| Cmd Ctr card (config admin) | ≤ 12 legs, any mix |
+| HQ card (config admin) | ≤ 12 legs, any mix |
 | Auto-profit levels | +25 / +50 / +100 / +200 % (or off) |
 | Per-coin TP / SL | +5…+1000 % / −5…−95 % (or off) |
 
@@ -68,7 +68,7 @@ anchor test --skip-local-validator --provider.cluster localnet   # tests/fuse_ca
 ```
 
 `tests/fuse_card.ts` (hand-built SPL Token instructions, no extra deps) proves: config admin-only; trader caps 3+3, no duplicate
-coins, bad profit level refused, Cmd Ctr 12 legs (13 refused); deposit/withdraw only through the card PDA's own token account and
+coins, bad profit level refused, HQ 12 legs (13 refused); deposit/withdraw only through the card PDA's own token account and
 only back to the owner's account (wrong mint / someone else's account / over-withdraw refused); keeper refused when auto is off,
 when it isn't the configured keeper, when sending anywhere but the owner, with a bad reason, and while paused — while the owner
 can still withdraw; auto-compound works as a standing order; only an empty card closes and every token comes home.
@@ -114,3 +114,29 @@ Tests: `cargo test -p fuse_card --lib` (6) · `solana-test-validator --reset` th
 - **Price manipulation**: spot reserves can be pushed inside one transaction. Mainnet needs a TWAP / oracle bound (e.g. the pool's
   observation account or Pyth for majors) next to the spot check, and the keeper key in an HSM.
 - Devnet run with real pools → external audit → owner deploys with a multisig upgrade authority and small per-card caps.
+
+## v0.3 — real venue: Raydium CP-Swap adapter (LOCALNET-TESTED, not audited, not deployed)
+
+`programs/fuse_card/src/raydium.rs` + instructions `keeper_sell_cpmm` / `keeper_buy_cpmm`:
+- swaps through Raydium CP-Swap `swap_base_input` signed by the card PDA; `config.swap_program` = the Raydium CPMM id
+  (mainnet `CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C`, devnet `DRaycpLY18LhpbydsBWbVJtxpNv9oXPgjRSfpF2bWpYb`);
+- pool, AMM config and observation accounts must be owned by Raydium and match the pool; reserves = vault − protocol/fund/creator fees;
+- **price bound = Raydium's own on-chain TWAP** (observation ring, ≥300s): spot must be within ±10% of it and the TP / SL / re-buy
+  trigger reads the TWAP, so a one-block pool push can't fire anything. TWAP error ≤ 15s / window (Raydium accumulates in place < 15s);
+- min_out ≥ expected output with the pool's REAL fee tier (trade + creator fee, rounded up) − the capped slippage; balance-diff check;
+- Token-2022 coins are refused in v0.3.
+
+Rust unit tests (10): `cargo test -p fuse_card --lib` (incl. a replay of Raydium's observation updates for busy and sparse pools).
+
+### Raydium integration test (real Raydium program on a local validator)
+```
+git clone --depth 1 https://github.com/raydium-io/raydium-cp-swap /tmp/raydium-cp-swap
+cd /tmp/raydium-cp-swap && CPSWAP_LOCALNET_ADMIN=$(solana-keygen pubkey ~/.config/solana/id.json) cargo build-sbf --manifest-path programs/cp-swap/Cargo.toml --features localnet
+cd <repo>/contracts/fuse_vault && anchor build -p fuse_card -- --features fast-twap      # 45s TWAP window, TEST BUILD ONLY
+solana-test-validator --reset --bpf-program CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C /tmp/raydium-cp-swap/target/deploy/raydium_cp_swap.so \
+  --clone DNXgeM9EiiaAbaWvwjHj9fQQLAX5ZsfHyvmYUNRAdNC8 --url https://api.mainnet-beta.solana.com
+anchor test --skip-local-validator --skip-build --provider.cluster localnet
+```
+`tests/fuse_card_raydium.ts` (4): no TWAP history → refused · a one-block +55% pump → refused · after the price held, the TP sells
+through Raydium and pays the owner ≥ min_out · wrong program / vault / oracle / payout account → refused.
+**Never deploy a `fast-twap` build.** A deploy build is plain `anchor build -p fuse_card`.

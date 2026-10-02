@@ -80,7 +80,7 @@ pub(crate) fn check_owner_dest(card: &Card, leg: &Leg, dest: &AccountInfo, tp: &
     Ok(())
 }
 
-// ---- config (Cmd Ctr) ----------------------------------------------------------------------------------------------
+// ---- config (HQ) ----------------------------------------------------------------------------------------------
 #[derive(Accounts)]
 pub struct InitConfig<'info> {
     #[account(mut)]
@@ -133,7 +133,7 @@ pub struct OpenCard<'info> {
 }
 
 pub fn open_card(ctx: Context<OpenCard>, card_id: u64, legs: Vec<LegIn>, toggles: Toggles, quote_mint: Pubkey) -> Result<()> {
-    let admin = ctx.accounts.owner.key() == ctx.accounts.config.admin;   // Cmd Ctr cards: up to 12 legs, any mix
+    let admin = ctx.accounts.owner.key() == ctx.accounts.config.admin;   // HQ cards: up to 12 legs, any mix
     let spec: Vec<rules::LegSpec> = legs.iter().map(|l| rules::LegSpec { mint: l.mint.to_bytes(), kind: l.kind, tp_bps: l.tp_bps, sl_bps: l.sl_bps }).collect();
     rules::check_legs(&spec, admin).map_err(|e| error!(e))?;
     rules::check_toggles(&toggles).map_err(|e| error!(e))?;

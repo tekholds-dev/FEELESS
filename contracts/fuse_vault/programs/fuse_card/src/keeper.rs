@@ -131,23 +131,7 @@ pub fn keeper_sell<'info>(ctx: Context<'info, KeeperSwap<'info>>, idx: u8, amoun
     swap_cpi(a, amount, min_out, true)?;
     let got = amount_of(&ctx.accounts.card_quote)?.checked_sub(before).ok_or(ErrorCode::ShortFill)?;
     require!(got >= min_out, ErrorCode::ShortFill);
-    // the leg shrinks; its entry shrinks pro-rata (the remaining coins keep the same entry price)
-    let cut = (leg.entry_quote as u128 * amount as u128 / leg.held.max(1) as u128) as u64;
-    {
-        let c = &mut ctx.accounts.card;
-        let l = &mut c.legs[i];
-        l.held -= amount;
-        l.entry_quote = l.entry_quote.saturating_sub(cut);
-        l.entry_coin = l.entry_coin.saturating_sub(amount);
-        if reason == REASON_SL && t.sl_mode == SL_PARK {
-            l.parked = l.parked.checked_add(got).ok_or(ErrorCode::Overflow)?;
-            l.entry_quote = l.entry_quote.saturating_add(cut);     // keep the stop-out entry: buy back only at this price
-            l.entry_coin = l.entry_coin.saturating_add(amount);
-        } else if reason == REASON_COMPOUND {
-            c.cash = c.cash.checked_add(got).ok_or(ErrorCode::Overflow)?;
-        }
-    }
-    let pay_out = !(reason == REASON_SL && t.sl_mode == SL_PARK) && reason != REASON_COMPOUND;
+    let pay_out = book_sell(&mut ctx.accounts.card, i, amount, got, reason)?;
     if pay_out {   // TP / profit / stop (payout mode): the SOL goes to the OWNER's wallet
         let a = &ctx.accounts;
         let (owner, id, bump) = (a.card.owner, a.card.card_id.to_le_bytes(), a.card.bump);
@@ -184,11 +168,39 @@ pub fn keeper_buy<'info>(ctx: Context<'info, KeeperSwap<'info>>, idx: u8, amount
     swap_cpi(a, amount_in, min_out, false)?;
     let got = amount_of(&ctx.accounts.card_coin)?.checked_sub(before).ok_or(ErrorCode::ShortFill)?;
     require!(got >= min_out, ErrorCode::ShortFill);
-    let c = &mut ctx.accounts.card;
+    book_buy(&mut ctx.accounts.card, i, amount_in, got, reason)?;
+    let c = &ctx.accounts.card;
+    emit!(KeeperTraded { card: c.key(), leg: idx, sell: false, amount_in, amount_out: got, reason });
+    Ok(())
+}
+
+/// Sell bookkeeping shared by every venue: the leg shrinks with its entry pro-rata; a park-mode stop parks the SOL on the leg (keeps
+/// the stop-out entry), a compound sell keeps it as card cash. Returns true when the SOL must be paid to the OWNER's wallet.
+pub fn book_sell(c: &mut Account<Card>, i: usize, amount: u64, got: u64, reason: u8) -> Result<bool> {
+    let t = c.toggles;
+    let l = &mut c.legs[i];
+    let cut = (l.entry_quote as u128 * amount as u128 / l.held.max(1) as u128) as u64;
+    l.held -= amount;
+    l.entry_quote = l.entry_quote.saturating_sub(cut);
+    l.entry_coin = l.entry_coin.saturating_sub(amount);
+    let park = reason == REASON_SL && t.sl_mode == SL_PARK;
+    if park {
+        l.parked = l.parked.checked_add(got).ok_or(ErrorCode::Overflow)?;
+        l.entry_quote = l.entry_quote.saturating_add(cut);     // keep the stop-out entry: buy back only at this price
+        l.entry_coin = l.entry_coin.saturating_add(amount);
+    } else if reason == REASON_COMPOUND {
+        c.cash = c.cash.checked_add(got).ok_or(ErrorCode::Overflow)?;
+    }
+    Ok(!park && reason != REASON_COMPOUND)
+}
+
+/// Buy bookkeeping shared by every venue: a re-buy spends the leg's parked SOL (entry already = the stop-out price); a compound
+/// buy spends card cash and raises the leg's entry by what it paid.
+pub fn book_buy(c: &mut Account<Card>, i: usize, amount_in: u64, got: u64, reason: u8) -> Result<()> {
     if reason == REASON_REBUY {
         let l = &mut c.legs[i];
         l.parked -= amount_in;
-        l.held = l.held.checked_add(got).ok_or(ErrorCode::Overflow)?;   // entry already holds the stop-out price for these coins
+        l.held = l.held.checked_add(got).ok_or(ErrorCode::Overflow)?;
     } else {
         c.cash -= amount_in;
         let l = &mut c.legs[i];
@@ -196,7 +208,6 @@ pub fn keeper_buy<'info>(ctx: Context<'info, KeeperSwap<'info>>, idx: u8, amount
         l.entry_coin = l.entry_coin.checked_add(got).ok_or(ErrorCode::Overflow)?;
         l.entry_quote = l.entry_quote.checked_add(amount_in).ok_or(ErrorCode::Overflow)?;
     }
-    emit!(KeeperTraded { card: c.key(), leg: idx, sell: false, amount_in, amount_out: got, reason });
     Ok(())
 }
 

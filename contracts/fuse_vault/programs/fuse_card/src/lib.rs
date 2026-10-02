@@ -1,6 +1,6 @@
 //! FUSE Card — one on-chain account per Fuse card. v0.1 (LOCALNET ONLY, not audited, not deployed):
 //! custody of each leg's coins in card-owned token accounts, the card rules HARD-CODED (3 pools + 3 runners for traders,
-//! 12 any mix for Cmd Ctr, profit levels, TP / SL ranges), owner-only toggles (auto TP, auto-compound, hold / swap,
+//! 12 any mix for HQ, profit levels, TP / SL ranges), owner-only toggles (auto TP, auto-compound, hold / swap,
 //! per-coin TP / SL), owner can always withdraw, and a keeper that can ONLY return coins to the owner when the owner
 //! turned automation on. v0.2: the keeper SELLS / BUYS through ONE whitelisted swap program, only when the owner's trigger
 //! is hit on-chain (pool reserves vs the owner's entry), with min_out bounded by the pool price − capped slippage and a
@@ -10,6 +10,7 @@ pub mod constants;
 pub mod error;
 pub mod instructions;
 pub mod keeper;
+pub mod raydium;
 pub mod rules;
 pub mod state;
 
@@ -18,6 +19,7 @@ use anchor_lang::prelude::*;
 pub use constants::*;
 pub use instructions::*;
 pub use keeper::*;
+pub use raydium::*;
 pub use state::*;
 
 declare_id!("GKE9e3M8shuD2nwTwchgP4BH22fiN6hyQrp4qwhkurpa");
@@ -70,6 +72,16 @@ pub mod fuse_card {
     /// v0.2 keeper: BUY back a parked leg (price back at entry) or compound card cash into a leg already on the card.
     pub fn keeper_buy<'info>(ctx: Context<'info, KeeperSwap<'info>>, idx: u8, amount_in: u64, min_out: u64, reason: u8) -> Result<()> {
         keeper::keeper_buy(ctx, idx, amount_in, min_out, reason)
+    }
+
+    /// v0.3 keeper on Raydium CP-Swap: SELL a leg — trigger read from Raydium's TWAP, spot must sit near it, real fee tier.
+    pub fn keeper_sell_cpmm<'info>(ctx: Context<'info, KeeperCpmm<'info>>, idx: u8, amount: u64, min_out: u64, reason: u8) -> Result<()> {
+        raydium::keeper_sell_cpmm(ctx, idx, amount, min_out, reason)
+    }
+
+    /// v0.3 keeper on Raydium CP-Swap: buy back a parked leg / compound card cash into a coin already on the card.
+    pub fn keeper_buy_cpmm<'info>(ctx: Context<'info, KeeperCpmm<'info>>, idx: u8, amount_in: u64, min_out: u64, reason: u8) -> Result<()> {
+        raydium::keeper_buy_cpmm(ctx, idx, amount_in, min_out, reason)
     }
 
     /// The owner can always take parked SOL (idx) or compound cash (idx 255) back to their wallet.

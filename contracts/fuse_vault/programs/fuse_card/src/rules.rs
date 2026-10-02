@@ -65,7 +65,7 @@ pub fn back_at_entry(res_coin: u64, res_quote: u64, entry_quote: u64, entry_coin
     entry_coin > 0 && s >= e
 }
 
-/// Leg mix: traders 3 pools + 3 runners; Cmd Ctr (admin) up to 12 in any mix; never the same coin twice.
+/// Leg mix: traders 3 pools + 3 runners; HQ (admin) up to 12 in any mix; never the same coin twice.
 pub fn check_legs(legs: &[LegSpec], admin: bool) -> Result<(), ErrorCode> {
     if legs.is_empty() || legs.len() > MAX_LEGS {
         return Err(ErrorCode::BadLegCount);

@@ -54,8 +54,13 @@ export function FuseWallet({ call }) {
         <span className="m-row"><button type="button" className="m-btn primary m-go" disabled={!d.signer || !cfg?.armed} onClick={() => topup(tpl)} data-testid={`fw-topup-${tpl}`}>💵 {b ? 'Top up' : 'Fund'}</button>
           {b && <><button type="button" className="m-btn" onClick={() => cardAct(tpl, b.halt ? 'resume' : 'halt')}>{b.halt ? '▶' : '⏸'}</button><button type="button" className="m-btn danger" onClick={() => cardAct(tpl, 'defund')} data-tip="Sell every coin back to SOL; the card returns to paper">↩</button></>}</span></div>; })}</div></div>
     {dry && <div className="ff-detail" data-testid="fw-dryrun"><b>🔍 Dry run · {d.tiers[dry.tpl]} · {usd(dry.usd)}</b>{dry.busy ? <small className="m-dim">quoting…</small> : <>
+      {dry.card && <><span data-testid="fw-dry-status">📄 Paper now: {usd(dry.card.paperUsd)} ({dry.card.paperPct >= 0 ? '+' : ''}{dry.card.paperPct}%) · round {dry.card.rounds + 1}{dry.card.phase ? ` · ${dry.card.phase} phase` : ''}</span>
+        <div className="ctab" role="table"><div className="ctab-row is-head" role="row"><span>COIN</span><span>WEIGHT</span><span>YOUR $</span><span>SINCE ENTRY</span></div>
+          {dry.card.coins.map(c => <div key={c.pairAddress} className="ctab-row" role="row"><b>{c.role === 'anchor' ? '⚓ ' : c.role === 'runner' ? '🏃 ' : ''}${c.symbol}{c.frozen ? ' ❄' : ''}</b><span className="m-num">{c.weightPct}%</span>
+            <span className="m-num">{usd(c.usd)}</span><em className={`m-num ${c.pricePct >= 0 ? 'm-pos' : 'm-neg'}`}>{c.pricePct >= 0 ? '+' : ''}{c.pricePct}%</em></div>)}</div>
+        <small className="m-dim">{dry.note}</small></>}
       {(dry.orders || []).map((o, i) => <span key={i}>{o.side === 'buy' ? '🟢 buy' : '🔴 sell'} ${o.symbol} · {usd(o.usd)}{o.err ? ` · ⚠ ${o.err}` : ` · impact ${o.impactPct}% · via ${(o.route || []).join(' → ') || 'Jupiter'}`}</span>)}
-      {!dry.orders?.length && <small className="m-dim">Nothing to buy — the card's coins are SOL only.</small>}<small className="m-dim">network ≈ {usd(dry.networkUsdEst)} · FEELESS fee $0 (HQ cards)</small></>}</div>}
+      {!dry.orders?.length && <small className="m-dim">No swaps needed — this card is SOL right now (its SOL slice stays SOL).</small>}<small className="m-dim">network ≈ {usd(dry.networkUsdEst)} · FEELESS fee $0 (HQ cards)</small></>}</div>}
     <div><span className="m-label">4 · AUDIT TRAIL · {d.ledger?.length || 0} ROWS · BOUGHT {usd(d.totals?.bought)} · SOLD {usd(d.totals?.sold)} · TOP-UPS {usd(d.totals?.topups)}</span>
       <div className="fw-table" role="table" data-testid="fw-ledger"><div className="fw-row is-head" role="row"><span>WHEN</span><span>CARD</span><span>WHAT</span><span>$</span><span>FILL</span><span>FEE</span><span>TX</span></div>
         {(d.ledger || []).map((o, i) => <div key={i} className="fw-row" role="row"><span className="m-dim">{new Date(o.at * 1000).toLocaleTimeString()}</span><span>{o.card}</span>

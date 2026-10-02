@@ -560,8 +560,17 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🔒 HQ ships as its OWN lazy chunk (loaded only after `/admin/whoami` says yes); `ReportBug` lives outside HQ. `test_admin_routes_guarded`
   fails on any `/admin` route without a gate (only the two yes/no checks are public, bool only).
 
+- ⛓ FUSE Card v0.3 = REAL venue (`programs/fuse_card/src/raydium.rs`, `keeper_sell_cpmm` / `keeper_buy_cpmm`): Raydium CP-Swap CPI signed by
+  the card PDA; pool/config/observation owned by Raydium + matched; reserves minus owed fees; Raydium's OWN TWAP (≥300s, spot ±10%, triggers
+  read the TWAP; error ≤15s/window); real fee tier (trade + creator, rounded up). Shared bookkeeping `book_sell` / `book_buy` (both venues).
+  Tests: 10 Rust unit (`cargo test -p fuse_card --lib`) + 4 against the REAL Raydium program on localnet (`tests/fuse_card_raydium.ts`,
+  README v0.3) + the 14 older. `fast-twap` feature = TEST BUILD ONLY (45s window) — never deploy it. Devnet: `scripts/devnet-deploy.sh`
+  (needs ~3 devnet SOL). `backend/tests/test_contract_pins.py` checks the Raydium discriminator pin.
+- HQ component = `components/command/HqDeck.jsx` (export `HqDeck`); testids `open-hq` / `hq-shell`. The built bundle must contain zero
+  "command center" / "cmd ctr" strings (check `grep -rli` on build/static/js before shipping).
+
 ## NEXT SESSION — continue here (in this order)
-00000. Owner live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
+00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10
    rounds) — recommend $0.10/coin · 5% cap · $0.10 per swap.
 0000. Owner live test: per-coin ⚙ (card window + Lab), rounds pay/compound, buy & back, Edit in Breed → publish, playground battles,

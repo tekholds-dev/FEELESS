@@ -63,7 +63,8 @@ test('trail summary + coin table say what did good, what stays, entry → now', 
 test('HQ Fuse wallet: locked until signing is enabled, tiers, dry run, audit trail', async () => {
   const calls = [];
   const call = jest.fn(async (url, o) => { calls.push([url, o?.body]);
-    if (url === '/admin/fuse-wallet/preview') return { orders: [{ side: 'buy', symbol: 'WIF', usd: 10, impactPct: 0.4, route: ['Raydium'] }], networkUsdEst: 0.02 };
+    if (url === '/admin/fuse-wallet/preview') return { orders: [{ side: 'buy', symbol: 'WIF', usd: 10, impactPct: 0.4, route: ['Raydium'] }], networkUsdEst: 0.02, note: 'same coins',
+      card: { paperUsd: 104, paperPct: 4, rounds: 3, phase: 'degen', coins: [{ symbol: 'SOL', role: 'anchor', pairAddress: 'p1', weightPct: 50, usd: 10, pricePct: 1.2 }, { symbol: 'WIF', role: 'runner', pairAddress: 'p2', weightPct: 50, usd: 10, pricePct: -3 }] } };
     return { cfg: { walletId: 'w1', address: 'ADDR1234', armed: false, paused: false, maxCardUsd: 100 }, signer: false, wallets: [{ id: 'w1', address: 'ADDR1234', name: 'Fuse', blockchain: 'SOL' }],
       balances: { sol: 2, tokens: {} }, solUsd: 150, freeSol: 1.97, missing: [], books: {}, tiers: { safe: '💎 Prime Diamond' }, calibration: { impactMult: 1, n: 0 }, totals: { swaps: 0 },
       ledger: [{ at: 1, card: 'safe', side: 'topup', usd: 20, status: 'done' }] }; });
@@ -74,6 +75,7 @@ test('HQ Fuse wallet: locked until signing is enabled, tiers, dry run, audit tra
   expect(h.textContent).toContain('$300.00');   // 2 SOL × $150
   act(() => h.querySelector('[data-testid="fw-dry-safe"]').click()); await tick();
   expect(h.querySelector('[data-testid="fw-dryrun"]').textContent).toContain('$WIF');
+  expect(h.querySelector('[data-testid="fw-dry-status"]').textContent).toContain('round 4');
   expect(h.querySelector('[data-testid="fw-ledger"]').textContent).toContain('topup');
 });
 

@@ -1,6 +1,6 @@
 import { legCaps, cardFee } from './FuseLab';
 import { bundleExample } from './command/FuseAdminSettings';
-import { vaultStatus } from './command/CommandCenter';
+import { vaultStatus } from './command/HqDeck';
 import { TIER_FX, stageTier, runnerLegs } from './FusePage';
 
 jest.mock('react-router-dom', () => ({ Link: ({ children, ...p }) => <a {...p}>{children}</a>, useNavigate: () => jest.fn(), useLocation: () => ({ pathname: '/' }) }), { virtual: true });

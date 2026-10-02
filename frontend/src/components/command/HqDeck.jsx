@@ -57,7 +57,7 @@ const sortBugs = list => [...list].sort((a, b) => ((SEVERITY[a.kind]?.[0] ?? 1) 
   || ((['fixed', 'wontfix'].includes(a.status) ? 1 : 0) - (['fixed', 'wontfix'].includes(b.status) ? 1 : 0)) || (b.at - a.at));
 
 const ROLE_TABS_FIRST = { moderator: 'mod', marketing: 'marketing' };
-export function CommandCenter({ address, signMessage, onClose }) {
+export function HqDeck({ address, signMessage, onClose }) {
   const [session, setSession] = useState(() => readSession(address));
   const [tab, setTab] = useState('numbers');
   const [moneyView, setMoneyView] = useState('treasury');
@@ -110,7 +110,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
   const visible = useMemo(() => (holders?.rows || []).filter(r => !(hidePools && r.likelyPool)), [holders, hidePools]);
   const toggle = a => setSelected(s => { const n = new Set(s); n.has(a) ? n.delete(a) : n.add(a); return n; });
 
-  if (!session) return <div className="cc-shell" data-testid="command-center"><div className="cc-gate">
+  if (!session) return <div className="cc-shell" data-testid="hq-shell"><div className="cc-gate">
     <div className="cc-crown">👑</div><h2 className="trenches-font live-gradient-text">FEELESS HQ</h2>
     <p>This wallet created $FEE. Sign once (free, no transaction) to open holders, airdrops, badges and the security monitor for the next 24 hours.</p>
     <div className="cc-gate-actions"><button type="button" className="btn-primary" disabled={busy} onClick={signIn}><ShieldCheck size={15} />{busy ? 'Check your wallet…' : 'Sign in to HQ'}</button><button type="button" className="btn-outline" onClick={onClose}>Back to profile</button></div>
@@ -123,7 +123,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
   const ROLE_TABS = { moderator: ['investigate', 'shield', 'verify', 'overview', 'mod', 'bugs', 'latency'], marketing: ['marketing', 'broadcast', 'kols', 'ads', 'ideas', 'traffic', 'numbers'] };
   const allowed = id => !ROLE_TABS[role] || ROLE_TABS[role].includes(id);
   const TABS = [['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['shield', '🛡 Bot shield', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fuse', '⚛️ Fuse', Award], ['nfts', 'NFTs', Gift], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
-  return <div className="cc-shell" data-testid="command-center">
+  return <div className="cc-shell" data-testid="hq-shell">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">HQ</h2><small>{role && role !== 'owner' ? `🔑 ${role}` : '👑'} {shortAddress(address)} · session signed · live</small></div><TreasuryPulse call={call} onOpen={openTab} />
       <nav className="cc-tabs" data-testid="cc-nav">{TAB_GROUPS.map(([group, ids]) => <div key={group} className="cc-tab-group"><small>{group}</small>{ids.filter(allowed).map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</div>)}</nav>
       <button type="button" className="cc-close" onClick={onClose} aria-label="Close HQ"><X size={16} /></button></header>

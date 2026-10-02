@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 use crate::constants::MAX_LEGS;
 
-/// Program-wide config: who the admin (Cmd Ctr) and the keeper are, and the keeper pause switch.
+/// Program-wide config: who the admin (HQ) and the keeper are, and the keeper pause switch.
 #[account]
 #[derive(InitSpace)]
 pub struct Config {
