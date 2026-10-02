@@ -8,7 +8,7 @@ import { RiskDial, DialBoard } from '../RiskDial';
 // Cmd Ctr › Fuse › ⚔ Arena ops: the live battlefield (pairs, move since the bell, time left), the last results, what's
 // on the stage (by kind) and this week's season board. Read-only views of the public Arena + Season data (60s).
 const pct = v => `${v >= 0 ? '+' : ''}${Number(v || 0).toFixed(1)}%`;
-const KIND = { auto: '🤖 Auto card', mega: '⚛️ Cmd Ctr', user: '👤 Trader', lit: '🔥 Lit runners', round: '⏳ Proving', feecat: '🐱 FeeCat' };
+const KIND = { scenario: '🧪 Engine', auto: '🤖 Auto card', mega: '⚛️ Cmd Ctr', user: '👤 Trader', lit: '🔥 Lit runners', round: '⏳ Proving', feecat: '🐱 FeeCat' };
 
 function useJson(path, ms = 60000) {
   const [d, setD] = useState(null);

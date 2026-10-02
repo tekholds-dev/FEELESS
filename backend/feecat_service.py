@@ -343,6 +343,10 @@ def _post_as_fee(pair_address, text, register_call=False):
 
 def _close(store, cat, pos, price_native, why, fraction=1.0, market_cap=None):
     gross = pos['notionalSol'] * fraction * (price_native / pos['entryPriceNative'])
+    # 🎯 TRUE FILL on the sell: price impact against the pool (entry liquidity, SOL→$ at entry) — what a wallet would receive
+    r_usd = _num(pos.get('entryLiq')) / 2; su = _num(pos.get('solUsdAtEntry'))
+    if r_usd > 0 and su > 0:
+        gross = gross / (1 + gross * su / r_usd)
     proceeds = gross * (1 - FEE_PER_SIDE)
     # 🔒 Same rule as real cards: P&L = the price move on the money that reached the pool (fees apart). The balance still
     # receives `proceeds` (real money after the sell fee); both sides' fees are tracked in `feesSol`, never inside P&L.
@@ -647,6 +651,11 @@ async def run_engine(store, cats):
                 continue
             cat['balanceSol'] = round(cat['balanceSol'] - size, 6)
             cat['volumeSol'] = round(cat.get('volumeSol', 0) + size, 6)
+            # 🎯 TRUE FILL: her buy pays price impact against the pool's quote-side reserve (≈ half its liquidity), like a wallet
+            sol_usd = _num(p.get('priceUsd')) / px if px > 0 else 0
+            r_usd = _num((p.get('liquidity') or {}).get('usd')) / 2
+            mid = px
+            px = px * (1 + size * sol_usd / r_usd) if r_usd > 0 and sol_usd > 0 else px
             cat['positions'].append({
                 'mint': (p.get('baseToken') or {}).get('address'), 'pairAddress': pa, 'symbol': sym, 'provider': 'DexScreener',
                 'url': p.get('url'), 'costSol': size, 'notionalSol': round(size * (1 - FEE_PER_SIDE), 6),
@@ -655,7 +664,7 @@ async def run_engine(store, cats):
                 'entryLiq': _num((p.get('liquidity') or {}).get('usd')), 'conviction': conviction,
                 'entryMarketCapUsd': _num(p.get('marketCap') or p.get('fdv')),
                 'entryVolH1': _num((p.get('volume') or {}).get('h1')), 'plannedSol': planned,
-                'firstEntryPriceNative': px, 'adds': 0, 'profitTaken': 0, 'peakPx': px, 'setup': setup,
+                'firstEntryPriceNative': px, 'adds': 0, 'profitTaken': 0, 'peakPx': px, 'setup': setup, 'midAtEntry': mid, 'solUsdAtEntry': sol_usd,
             })
             _log_event(store, cat, 'BUY', f"Bought {size} SOL of {sym} at live price — {reason} (paper).", None, pa, px, _num(p.get('marketCap') or p.get('fdv')))
             if cat.get('isLeader'):

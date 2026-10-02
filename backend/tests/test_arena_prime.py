@@ -66,13 +66,13 @@ def test_auto_tp_compounds_into_the_others_and_pnl_excludes_fees():
     px = {'Psol': 1, 'Pa': 1, 'Pr1': 2.2, 'Pr2': 1}                                         # r1 +120% ≥ +100% → no momentum → sell the gain
     out = ap.tick(card, px, [], [], CFG, 60, SOL)
     r1 = next(l for l in out['legs'] if l['mint'] == 'r1')
-    assert abs(r1['units'] * 2.2 - 25) < 1e-6 and abs(out['compoundedUsd'] - 30) < 1e-6 and r1['firstEntry'] == 1
+    assert abs(r1['units'] * 2.2 - 25) < 0.05 and abs(out['compoundedUsd'] - 30) < 0.05 and r1['firstEntry'] == 1
     tp = [e for e in out['events'] if e['kind'] == 'tp'][-1]
-    assert tp['to'] == ['SOL', 'A', 'R2'] and tp['mode'] == 'gain' and ap.value(out, px) == 130 and out['feesUsd'] > card['feesUsd']
+    assert tp['to'] == ['SOL', 'A', 'R2'] and tp['mode'] == 'gain' and abs(ap.value(out, px) - 130) < 0.05 and out['feesUsd'] > card['feesUsd']
     strong = {'Pr1': {'chg1h': 50, 'buyShare': 70, 'vol5m': 2000, 'vol1h': 12000}}
     ride = ap.tick(card, {**px, 'Pr1': 4}, [], [], CFG, 60, SOL, strong)                   # 4× with momentum → only the cost comes out
     r = next(l for l in ride['legs'] if l['mint'] == 'r1')
-    assert abs(r['units'] * 4 - 75) < 1e-6 and [e for e in ride['events'] if e['kind'] == 'tp'][-1]['mode'] == 'ride'
+    assert abs(r['units'] * 4 - 75) < 0.1 and [e for e in ride['events'] if e['kind'] == 'tp'][-1]['mode'] == 'ride'
 
 
 def test_stop_loss_replaced_early_cut_when_fading_anchor_never_stopped():
@@ -124,7 +124,7 @@ def test_service_deals_ticks_and_admin_config(monkeypatch):
     rs._json_save(rs.FUSE_HQ_PATH, {})
     assert asyncio.run(rs._prime_tick(1000)) == 5
     v = asyncio.run(rs.fuse_prime())
-    assert {'gold', 'blaze', 'ever'} <= {c['tier'] for c in v['cards']} and all(c['valueUsd'] == 100 for c in v['cards'])
+    assert {'gold', 'blaze', 'ever'} <= {c['tier'] for c in v['cards']} and all(99 < c['valueUsd'] <= 100 for c in v['cards'])   # true fills: a fresh card paid real impact
     class Rq:
         async def json(self): return {'cfg': {'rotateHours': 3, 'on': False}}
     out = asyncio.run(rs.fuse_prime_admin(Rq()))
@@ -195,3 +195,12 @@ def test_cycling_tiers_move_through_anchor_degen_anchor_mixed_rounds():
     assert seen[1][1] == ['anchor'] and 'runner' in seen[0][1]
     assert c['startUsd'] == 100 and not c.get('runs')                                        # one continuous run
     assert ap.deal('balanced', [P('a', 1)], runners, cfg, 0, maj).get('phase') is None      # non-cycling tiers unchanged
+
+
+def test_paper_fills_are_true_fills_with_price_impact():
+    assert ap.buy_px(1.0, 1000, 200_000) == 1.0 * (1 + 1000 / 100_000)                   # $1K into a $200K pool → 1% worse
+    assert abs(ap.sell_usd(1000, 1.0, 200_000) - 1000 / 1.01) < 1e-9
+    assert ap.buy_px(1.0, 1000, 0) == 1.0                                                  # unknown depth → no fake impact
+    thin = C('t', 1.0, liquidityUsd=20_000, volume24h=50_000)
+    leg = ap._leg(thin, 50, 0, 'pool')
+    assert leg['entry'] > 1.0 and leg['units'] < 50 and leg['midAtEntry'] == 1.0          # a $50 buy in a $20K pool fills above mid

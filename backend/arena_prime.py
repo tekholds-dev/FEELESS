@@ -107,10 +107,25 @@ def clean_cfg(p):
     return out
 
 
+# 🎯 TRUE FILLS (paper = exactly what a real wallet would get): constant-product price impact against the pool's quote-side
+# reserve (≈ half its liquidity). Buy $u → average fill = mid × (1 + u/R); sell $v of coins → you receive v / (1 + v/R).
+# The pool / FEELESS fee is a separate line (feesUsd), never inside P&L; impact IS the price you got, so it is in the fill.
+def buy_px(px, usd, liq):
+    r = _f(liq) / 2
+    return px * (1 + _f(usd) / r) if px > 0 and r > 0 else px
+
+
+def sell_usd(units, px, liq):
+    v = _f(units) * _f(px); r = _f(liq) / 2
+    return v / (1 + v / r) if r > 0 else v
+
+
 def _leg(c, usd, now, role):
-    px = _f(c.get('price'))
+    mid = _f(c.get('price'))
+    liq = _f(c.get('liquidityUsd') or c.get('liq'))
+    px = buy_px(mid, usd, liq)
     return {'mint': c['mint'], 'pairAddress': c['pairAddress'], 'symbol': c.get('symbol'), 'role': role, 'entry': px, 'units': usd / px if px > 0 else 0.0,
-            'costUsd': round(usd, 6), 'at': now, 'stars': c.get('stars') or stars(c, role), 'firstEntry': px}
+            'costUsd': round(usd, 6), 'at': now, 'stars': c.get('stars') or stars(c, role), 'firstEntry': px, 'liq': liq, 'midAtEntry': mid}
 
 
 def _picks(t, pools, runners, anchors):
@@ -152,8 +167,10 @@ def value(card, prices):
     return round(v, 4)
 
 
-def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None):
-    """One automation pass. Returns the updated card (mutated copy) — all actions logged as events with reasons."""
+def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None):
+    """One automation pass. Returns the updated card (mutated copy) — all actions logged as events with reasons.
+    liqs = {pair: pool liquidity $} for TRUE fills (price impact on every paper buy / sell)."""
+    liqs = liqs or {}
     t = TEMPLATES[card['tpl']]
     c = {**card, 'legs': [dict(l) for l in card['legs']], 'events': list(card['events'])}
     have = lambda: {l['mint'] for l in c['legs']}
@@ -186,7 +203,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None):
         if g >= t['tp']:
             mode, frac, why = exit_plan(g, mom.get(l['pairAddress']))
             sold = l['units'] * frac
-            gain = sold * px
+            gain = sell_usd(sold, px, liqs.get(l['pairAddress']) or l.get('liq'))   # what the pool really pays
             l['units'] -= sold; l['entry'] = px; c['feesUsd'] += fee
             c['takenUsd'] += gain
             others = [o for o in c['legs'] if o is not l and _f(prices.get(o['pairAddress'])) > 0]
@@ -194,7 +211,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None):
             if cfg['compound'] and others:
                 each = gain / len(others)
                 for o in others:
-                    opx = _f(prices.get(o['pairAddress']))
+                    opx = buy_px(_f(prices.get(o['pairAddress'])), each, liqs.get(o['pairAddress']) or o.get('liq'))
                     o['units'] += each / opx; o['costUsd'] += each
                 c['compoundedUsd'] += gain; c['feesUsd'] += fee * len(others)
                 ev(kind='tp', symbol=l['symbol'], usd=round(gain, 4), why=label, mode=mode, to=[o['symbol'] for o in others])
@@ -214,7 +231,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None):
         dd = (px / l['entry'] - 1) * 100
         if dd > -t['sl'] and not (dd <= -t['sl'] / 2 and fading(mom.get(l['pairAddress']))):   # early cut: half the stop + fading
             continue
-        out_usd = l['units'] * px
+        out_usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
         why = f"{dd:.0f}% ≤ −{t['sl']}%" if dd <= -t['sl'] else f"{dd:.0f}% and fading (1h down, sellers lead) — cut early"
         c['feesUsd'] += fee
         nxt = best(l['role']) if mode == 'replace' else None
@@ -245,7 +262,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None):
             if not nxt:
                 continue
             px = _f(prices.get(l['pairAddress'])) or l['entry']
-            usd = l['units'] * px
+            usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
             c['legs'][c['legs'].index(l)] = _leg(nxt, usd, now, l['role']); c['feesUsd'] += 2 * fee; swapped += 1
             ev(kind='rotate', symbol=l['symbol'], usd=round(usd, 4), why=f"weakest after {cfg['rotateHours']}h", to=[nxt.get('symbol')])
         c['lastRotateAt'] = now
@@ -265,7 +282,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None):
     if cfg['compound'] and c['cash'] > 0.01 and c['legs']:
         each = c['cash'] / len(c['legs'])
         for l in c['legs']:
-            px = _f(prices.get(l['pairAddress'])) or l['entry']
+            px = buy_px(_f(prices.get(l['pairAddress'])) or l['entry'], each, liqs.get(l['pairAddress']) or l.get('liq'))
             l['units'] += each / px; l['costUsd'] += each
         c['compoundedUsd'] += c['cash']; ev(kind='compound', usd=round(c['cash'], 4), why='idle cash back into the card', to=[l['symbol'] for l in c['legs']]); c['cash'] = 0.0
     # 5) 🛡 FLOOR: the card is never allowed to sit below −floorPct (default −20%, so −25% is never reached short of a gap):
@@ -275,7 +292,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None):
     if pct <= -cfg['floorPct'] and not c.get('flooredAt'):
         anc = [l for l in c['legs'] if l.get('role') == 'anchor' and _f(prices.get(l['pairAddress'])) > 0]
         out = [l for l in c['legs'] if l.get('role') != 'anchor']
-        usd = sum(l['units'] * (_f(prices.get(l['pairAddress'])) or l['entry']) for l in out)
+        usd = sum(sell_usd(l['units'], _f(prices.get(l['pairAddress'])) or l['entry'], liqs.get(l['pairAddress']) or l.get('liq')) for l in out)
         c['feesUsd'] += fee * len(out)
         if anc:
             for a in anc:

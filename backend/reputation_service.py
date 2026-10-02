@@ -4336,6 +4336,14 @@ async def _arena_mega(rd, cfg, now):
         out.append({'kind': 'auto', 'id': ac['id'], 'name': f"Arena build · {coins} coins + {len(ac['legs']) - coins} pools", 'emoji': '⚔', 'aura': '',
                     'legs': ac['legs'], 'index': round(100 + pct, 2), 'grade': 'A' if pct > 0 else 'B', 'buyers': 0, 'at': ac['at'], 'chat': f"fuse-card-{ac['id']}",
                     'activity': _hq.activity(len(ac['legs']), 0, sum(_fuse._f(l.get('vol1h')) for l in ac['legs']) * 24, pct)})
+    for sc in rd.get('scenarioStage') or []:   # 🧪 the engine's top-2 scenario cards fight on the stage (≥2 → battles always run)
+        spx = await _hq_prices([l for l in sc['legs']])
+        mv_ = [spx[l['pairAddress']] / l['entry'] for l in sc['legs'] if _fuse._f(spx.get(l['pairAddress'])) > 0 and _fuse._f(l.get('entry')) > 0]
+        pct_ = round((sum(m * _fuse._f(l['weight']) for m, l in zip(mv_, sc['legs'])) / max(1e-9, sum(_fuse._f(l['weight']) for l in sc['legs'][:len(mv_)])) - 1) * 100, 2) if mv_ else 0.0
+        out.append({'kind': 'scenario', 'id': sc['id'], 'name': sc['name'], 'emoji': '🧪', 'aura': '', 'legs': sc['legs'], 'index': round(100 + pct_, 2),
+                    'grade': 'A' if pct_ > 0 else 'B', 'buyers': 0, 'at': sc['at'], 'chat': f"fuse-card-{sc['id']}", 'pnlPct': pct_,
+                    'tagline': f"Engine scenario · TP +{sc['tp']}% / stop −{sc['sl']}%",
+                    'activity': _hq.activity(len(sc['legs']), 0, 0, pct_)})
     rnd = (rd.get('rounds') or [None])[-1]
     if not out and rnd and rnd.get('picks'):   # never an empty stage: the live round stands in as a proving card
         ps = rnd['picks']
@@ -4728,7 +4736,8 @@ async def _prime_tick(now):
     mom = {**pair_mom, **{r['pairAddress']: {k: r.get(k) for k in ('chg1h', 'buyShare', 'vol5m', 'vol1h')} for r in (live.get('passing') or []) + (live.get('dropped') or []) if r.get('pairAddress')}}
     for tid in _prime.TEMPLATES:
         cur = cards.get(tid)
-        cards[tid] = _prime.tick(cur, px, pools, runners, cfg, now, anchors, mom) if cur else _prime.deal(tid, pools, runners, cfg, now, anchors)
+        liqs = {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()}
+        cards[tid] = _prime.tick(cur, px, pools, runners, cfg, now, anchors, mom, liqs) if cur else _prime.deal(tid, pools, runners, cfg, now, anchors)
     cards = {k: v for k, v in cards.items() if v}
     win = _prime.crown_round(cards)
     async with _admin_lock:
@@ -4842,10 +4851,32 @@ async def admin_runner_suggest(request: Request):
     return {'suggestions': _rn.suggest_cfg(cfg), 'lanes': pr, 'weights': _rn.lane_weights(pr), 'cfg': cfg}
 
 
+async def _scenario_stage(rd, now):
+    """Once per runner round: the top-2 scenario cards (this round's runners + SOL anchor, each winning exit plan) are dealt onto
+    the Arena stage at today's prices — so at least two engine cards always battle."""
+    rnd = (rd.get('rounds') or [None])[-1]
+    if not rnd or not rnd.get('picks') or (rd.get('scenarioStageRound') == rnd.get('id')):
+        return None
+    scen = _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS)
+    anchor = next(({'chainId': 'solana', 'pairAddress': m['pairAddress'], 'symbol': 'SOL', 'mint': m.get('baseAddress')} for m in await _majors_rows() if m.get('symbol') == 'SOL'), None)
+    cards = _rn.scenario_cards(scen, rnd['picks'], anchor, top=2)
+    if not cards:
+        return None
+    px = await _hq_prices([l for c in cards for l in c['legs']])
+    stage = [{'id': f"scen-{c['id']}-{str(rnd['id'])[:6]}", 'name': f"🧪 {c['label']}", 'at': now, 'tp': c['tp'], 'sl': c['sl'],
+              'legs': [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': l['weight'], 'runner': l['role'] == 'runner', 'entry': _fuse._f(px.get(l['pairAddress']))}
+                       for l in c['legs'] if _fuse._f(px.get(l['pairAddress'])) > 0]} for c in cards]
+    async with _admin_lock:
+        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['scenarioStage'] = stage; d['scenarioStageRound'] = rnd.get('id'); _json_save(RUNNERS_PATH, d)
+    _arena_mega_cache.update(at=0.0, data=None)
+    return len(stage)
+
+
 async def _engine_auto(now):
     """🔧 Auto-strength, once per runner round: if another engine dial is PROVEN better (runners.auto_pick on the dial proof),
     switch to it and log it (audit + admin inbox). Off when Cmd Ctr turned auto-tune off (RUNNERS_PATH.autoTune = False)."""
     rd = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
+    await _scenario_stage(rd, now)
     if rd.get('autoTune') is False or not rd.get('rounds'):
         return None
     # 💡 scenario winner → runner exits (same TP×SL combo best in 24h AND 72h, ahead of the current exits) — audited

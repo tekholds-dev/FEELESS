@@ -119,3 +119,14 @@ def test_feecat_pnl_is_the_price_move_fees_apart(monkeypatch):
     assert abs(cat['realizedPnlSol'] - 0.99 * 0.5) < 1e-6                                     # P&L = the move on pool money
     assert abs(cat['feesSol'] - (0.01 + 0.99 * 1.5 * fs.FEE_PER_SIDE)) < 1e-6                # both sides' fees, apart
     assert abs(cat['balanceSol'] - 0.99 * 1.5 * (1 - fs.FEE_PER_SIDE)) < 1e-6                # balance = real money after fees
+
+
+def test_feecat_sell_is_a_true_fill_with_price_impact(monkeypatch):
+    import pytest
+    fs = pytest.importorskip('feecat_service')
+    monkeypatch.setattr(fs, '_log_event', lambda *a, **k: None); monkeypatch.setattr(fs, '_post_as_fee', lambda *a, **k: None)
+    cat = {'balanceSol': 0.0, 'positions': []}
+    pos = {'pairAddress': 'P', 'symbol': 'X', 'costSol': 1.0, 'notionalSol': 0.99, 'entryPriceNative': 1.0, 'openedAt': 0, 'entryLiq': 20_000, 'solUsdAtEntry': 100}
+    fs._close({}, cat, pos, 1.0, 'flat')                                                     # flat price: impact alone costs money
+    expect = 0.99 / (1 + 0.99 * 100 / 10_000)
+    assert abs(cat['realizedPnlSol'] - (expect - 0.99)) < 1e-6 and cat['realizedPnlSol'] < 0
