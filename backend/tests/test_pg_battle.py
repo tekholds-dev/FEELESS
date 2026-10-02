@@ -136,3 +136,16 @@ def test_battle_rug_shield_swaps_a_drained_coin():
     c = pb.deal(SC, {'SOLP': 150, 'R1': 0.01}, LIQ, 0, 100)
     out = pb.tick(c, {'SOLP': 150, 'R1': 0.01, 'N1': 1.0}, {**LIQ, 'R1': 50_000}, {}, [{'pairAddress': 'N1', 'symbol': 'NEW', 'price': 1.0}], pb.clean_cfg({}), 60)
     assert out['swaps'][-1]['why'] == 'rug' and out['legs'][1]['symbol'] == 'NEW'
+
+
+def test_dna_cycle_reshapes_a_winning_card_each_bell():
+    c = pb.deal(SC, {'SOLP': 150, 'R1': 0.01}, LIQ, 0, 100)
+    px = {'SOLP': 150, 'R1': 0.01}
+    anchor_share = lambda card: sum(l['units'] * px[l['pairAddress']] for l in card['legs'] if l['role'] == 'anchor') / pb.value(card, px, LIQ)
+    a = pb.cycle_rebalance(c, {'cycle': 'adaptive'}, -3.0, px, LIQ)                           # lost → rest in majors
+    assert a['phase'] == 'anchor' and 0.65 < anchor_share(a) < 0.75
+    d = pb.cycle_rebalance(c, {'cycle': 'adaptive'}, 9.0, px, LIQ)                            # won big → press with runners
+    assert d['phase'] == 'degen' and anchor_share(d) < 0.2
+    assert pb.value(a, px, LIQ) < pb.value(c, px, LIQ)                                        # re-entry pays real impact
+    off = pb.cycle_rebalance(c, {'cycle': 'off'}, 9.0, px, LIQ)
+    assert off['legs'] == c['legs'] and off['rounds'] == 1

@@ -5528,7 +5528,7 @@ async def _pg_scenario_cards(rd, scen=None, now=None, losers_ok=False):
 def _pg_battle_view(rd):
     b = rd.get('pgBattle') or {}
     cards = b.get('cards') or {}
-    view = lambda k: {**{x: (cards.get(k) or {}).get(x) for x in ('id', 'name', 'dial', 'tp', 'sl', 'swaps')}, 'pct': (b.get('pcts') or {}).get(k),
+    view = lambda k: {**{x: (cards.get(k) or {}).get(x) for x in ('id', 'name', 'dial', 'tp', 'sl', 'swaps', 'phase', 'rounds')}, 'pct': (b.get('pcts') or {}).get(k),
                       'dna': (b.get('dna') or {}).get(k), 'dnaLabel': _dna.label((b.get('dna') or {}).get(k)) if (b.get('dna') or {}).get(k) else None,
                       'legs': [{x: l.get(x) for x in ('symbol', 'role', 'pairAddress')} for l in (cards.get(k) or {}).get('legs') or []], 'record': (b.get('record') or {}).get(k)}
     return {'cfg': _pgb.clean_cfg(b.get('cfg')), 'endsAt': b.get('endsAt'), 'pairs': [{'a': view(p['a']), 'b': view(p['b'])} for p in b.get('pairs') or []],
@@ -5583,7 +5583,8 @@ async def _pg_battle_tick(now):
                     dna[k] = best_; exploited = True
                 else:
                     dna.pop(k, None)
-            else:             # winner keeps its coins; the next round counts from here
+            else:             # winner keeps its coins, re-shaped by its DNA cycle (true fills); the next round counts from here
+                cards[k] = _pgb.cycle_rebalance(cards[k], dna.get(k), pcts.get(k), prices, liqs)
                 cards[k] = {**cards[k], 'roundUsd': _pgb.value(cards[k], prices, liqs)}
         dna = _dna.assign([{'id': k, 'dial': scs[k].get('dial')} for k in want], known=dna)
         b = {**b, 'record': record, 'pairs': _pgb.pair_up(want), 'endsAt': now + cfg['roundMins'] * 60,
@@ -5598,6 +5599,19 @@ async def _pg_battle_tick(now):
     async with _admin_lock:
         d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['pgBattle'] = b; _json_save(RUNNERS_PATH, d)
     return len(results)
+
+
+@app.get('/api/reputation/fuses/dna/unique')
+async def fuse_dna_unique(dial: str = '', seed: str = ''):
+    """🎲 A card DNA nobody on FEELESS holds right now (every Arena card + every open trader card) — so a new card plays its own way."""
+    taken = dict((_json_load(FUSE_HQ_PATH, {}).get('cardDna') or {}))
+    for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or []:
+        if not x.get('closedAt'):
+            taken[f"user:{x['id']}"] = _dna.clean({'cycle': 'adaptive' if x.get('cycle') == 'adaptive' else 'off', 'compound': x.get('compoundStyle') or 'smart',
+                                                   'payoutPct': x.get('payoutPct', 100), 'clock': x.get('rotateHours') or 24, 'stop': x.get('slMode') or 'sell'})
+    new_id = f"new:{seed or uuid.uuid4().hex[:8]}"
+    d = _dna.assign([*({'id': k} for k in taken), {'id': new_id, 'dial': dial if dial in ('safe', 'balanced', 'degen') else None}], known=taken)[new_id]
+    return {'dna': d, 'label': _dna.label(d)}
 
 
 @app.get('/api/reputation/fuses/brain')

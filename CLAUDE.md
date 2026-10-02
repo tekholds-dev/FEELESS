@@ -517,6 +517,18 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Runners source chips: empty ones hidden; 🏟 arena = runner coins on fighting cards; 📣 creators = passing coins in published Fuses.
   🚀 New majors = risers + `fuse.pump_majors` (Pump's top 15 graduated coins by volume).
 
+- 🔒 HQ is SECRET: never write 'Cmd Ctr' / 'Command Center' anywhere (code, comments, docs, user text) — it's "HQ"; user-facing text
+  says FEELESS. Production builds ship NO source maps (`frontend/.env.production` GENERATE_SOURCEMAP=false). Sign-in message = `FEELESS HQ`.
+- 🧬 Card DNA (`backend/card_dna.py`): cycle · compound (smart/even/off) · payoutPct · clock · stop · trail on EVERY card; `assign` keeps
+  each live card unique; tier cards per-tier `cycles`/`payouts`/`compoundStyle` (payout → `walletUsd`, counted in value); users: plan
+  `payoutPct` + `compoundStyle` (+ 🎲 `GET /fuses/dna/unique`, 🧠 `GET /fuses/brain`); 🤖 `AutoSpec` = what the contract will run.
+- 🧠 Engine brain: playground battle cards play their DNA (payout on TPs, compound off, hold stops, `cycle_rebalance` per bell with true
+  fills), every bell scores traits (`dna.learn` → `brain`), a loser is re-bred with the winning DNA. 🩺 Doctor (`runners.filter_proof/
+  doctor/apply_filter`, 14 `PICK_FILTERS` on each pick's entry snapshot): positive in 24h+72h → applied to rounds; nothing wins → sit out.
+- 🚨 Rug shield (`arena_prime.RUG_LIQ`): liquidity ≤ half of entry → sold / swapped at once. 🔥 Comebacks + 👑 champion's share (2× copy cut).
+- Runners: young graduates (<48h) pass the stage gate, 2 feed pages, 40 busiest scanned. Battle arena = one box, spotlight per fight.
+- Fuse font token `--fz-font` (Bungee). Jest runs `--maxWorkers=50%` (load flakes). Profit trail 'book' (put in → held + taken = total).
+
 ## NEXT SESSION — continue here (in this order)
 0000. Owner live test: per-coin ⚙ (card window + Lab), rounds pay/compound, buy & back, Edit in Breed → publish, playground battles,
    profile ⚡ Fuse pop-up. Then flip proven configs to auto.

@@ -25,3 +25,13 @@ def test_profit_split_and_smart_compound_skip_fading_coins():
                             {'A': {'chg1h': 20, 'buyShare': 70}, 'B': {'chg1h': -5, 'buyShare': 40}, 'C': {'chg1h': 0, 'buyShare': 50}})
     assert 'B' not in w and w['A'] > w['C'] and abs(sum(w.values()) - 1) < 1e-9
     assert dn.label(dn.clean({'cycle': 'adaptive', 'clock': 0.25})).startswith('🧠 adaptive')
+
+
+def test_unique_dna_endpoint_never_repeats_a_live_card(monkeypatch):
+    import asyncio
+    import pytest
+    rs = pytest.importorskip('reputation_service')
+    held = dn.clean({'cycle': 'adaptive', 'compound': 'smart', 'payoutPct': 50, 'clock': 1, 'stop': 'sell'})
+    rs._json_save(rs.FUSE_HQ_PATH, {'cardDna': {'mega:a': held}, 'positions': []})
+    got = [asyncio.run(rs.fuse_dna_unique('degen', f's{i}'))['dna'] for i in range(5)]
+    assert all(dn.sig(g) != dn.sig(held) for g in got) and got[0]['clock'] <= 1

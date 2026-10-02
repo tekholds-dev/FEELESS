@@ -146,3 +146,28 @@ def ready_rows(record, names, min_w=3):
         out.append((ok, {'kind': 'battle card', 'name': (names or {}).get(k) or k, 'id': k,
                          'why': f"{w}–{l} in playground battles" + ('' if ok else f" · needs {max(0, min_w - w)} more wins at 2:1")}))
     return out
+
+
+PHASE_ANCHOR = {'anchor': 0.7, 'mixed': 0.5, 'degen': 0.15}   # share of the card held in the anchor (majors) per phase
+
+
+def cycle_rebalance(card, dna, last_pct, prices, liqs):
+    """🔄 The card's DNA cycle plays out at every bell: the next phase (arena_prime.next_phase — classic / adaptive / safe / press)
+    sets how much sits in the anchor vs the runners; everything is re-entered at live prices with true fills (impact both ways).
+    No anchor or cycle 'off' → unchanged."""
+    d = _dna.clean(dna or {})
+    phase = ap.next_phase(d['cycle'], card.get('rounds'), last_pct)
+    anchors = [l for l in card['legs'] if l.get('role') == 'anchor']
+    runners_ = [l for l in card['legs'] if l.get('role') != 'anchor']
+    if not phase or not anchors or not runners_:
+        return {**card, 'rounds': int(card.get('rounds') or 0) + 1}
+    px = lambda l: _f(prices.get(l['pairAddress'])) or l['entry']
+    total = sum(ap.sell_usd(l['units'], px(l), liqs.get(l['pairAddress'])) for l in card['legs']) + _f(card.get('cash'))
+    share = PHASE_ANCHOR[phase]
+    legs = []
+    for grp, part in ((anchors, share), (runners_, 1 - share)):
+        for l in grp:
+            usd = total * part / len(grp)
+            p_ = px(l)
+            legs.append({**l, 'entry': p_, 'units': usd / ap.buy_px(p_, usd, liqs.get(l['pairAddress'])) if p_ > 0 else 0, 'usd': round(usd, 4)})
+    return {**card, 'legs': legs, 'cash': 0.0, 'phase': phase, 'rounds': int(card.get('rounds') or 0) + 1}
