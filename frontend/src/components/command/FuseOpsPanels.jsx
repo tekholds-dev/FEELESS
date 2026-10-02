@@ -138,6 +138,44 @@ export function FeeCatTune({ call }) {
 
 // 🧪 Engine playground overview: every scenario the engines run (strategy runs, bloodline, dial proofs per window, top-tier
 // cards, runner rounds, lit cards), the auto-tune log, and the READY-for-Arena list with the evidence for each.
+// ⚔ Engine playground battles — Cmd Ctr only, SEPARATE from the public Arena battles. The best scenario cards fight on short
+// paper rounds (fills like a real wallet); TP / stop / dead coins swap mid-round; winners keep coins, losers are re-bred.
+const pgPc = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(2)}%`);
+const PG_WHY = { tp: '🎯 TP', sl: '🛑 stop', dead: '💀 dead' };
+export function PlaygroundBattles({ call, onPublish }) {
+  const [b, setB] = useState(null); const [now, setNow] = useState(Date.now() / 1000);
+  useEffect(() => { let alive = true; const load = () => call('/admin/fuses/pg-battles').then(x => alive && setB(x)).catch(() => {});
+    load(); const t = setInterval(() => !document.hidden && load(), 20000); const c = setInterval(() => setNow(Date.now() / 1000), 1000);
+    return () => { alive = false; clearInterval(t); clearInterval(c); }; }, [call]);
+  const set = body => call('/admin/fuses/pg-battles', { method: 'POST', body: JSON.stringify(body) }).then(setB).catch(e => toast.error(e.message));
+  if (!b?.cfg) return <div className="pg-box is-ghost" />;
+  const c = b.cfg; const leftS = Math.max(0, Math.round((b.endsAt || now) - now));
+  const seg = (k, opts, fmt) => <span className="m-seg" role="group">{opts.map(v => <button key={String(v)} type="button" className={c[k] === v ? 'active' : ''} onClick={() => set({ cfg: { [k]: v } })} data-testid={`pgb-${k}-${v}`}>{fmt(v)}</button>)}</span>;
+  return <section className="pg-box pgb m-live" data-testid="pg-battles">
+    <header><b>⚔ Playground battles</b><small>Cmd Ctr only · paper, real fills · separate from the Arena · next bell <b className="m-num" key={leftS}>{Math.floor(leftS / 60)}:{String(leftS % 60).padStart(2, '0')}</b></small></header>
+    <div className="pgb-ctl">
+      <label className="m-toggle"><input type="checkbox" checked={c.on} onChange={e => set({ cfg: { on: e.target.checked } })} data-testid="pgb-on" />On</label>
+      <span data-tip="Round length — the bell rings and the bigger % since the last bell wins">⏱</span>{seg('roundMins', [5, 15, 30, 60], v => `${v}m`)}
+      <span data-tip="How many of the best scenario cards fight (2 = one battle, 4 = two, 6 = three)">🃏</span>{seg('cards', [2, 4, 6], v => `${v}`)}
+      {[['swapOnTp', '🎯 swap on TP'], ['swapOnSl', '🛑 swap on stop'], ['swapDead', '💀 swap dead']].map(([k, l]) => <label key={k} className="m-toggle" data-tip={k === 'swapDead' ? `No 5m trades or volume for ${c.deadMins} min → swapped for the best gated runner` : 'Swapped for the best gated runner not on the card'}><input type="checkbox" checked={c[k]} onChange={e => set({ cfg: { [k]: e.target.checked } })} />{l}</label>)}
+      <button type="button" className="m-btn" onClick={() => set({ bell: true })} data-testid="pgb-bell" data-tip="Settle this round now">🔔 Ring bell</button>
+      <button type="button" className="m-btn" onClick={() => window.confirm('Reset playground battles (fresh cards + records)?') && set({ reset: true })}>♻ Reset</button>
+    </div>
+    {!b.pairs.length ? <p className="m-dim">{c.on ? 'Dealing the first cards…' : 'Battles are off.'}</p>
+      : <div className="bf-pairs">{b.pairs.map((p, i) => { const d = (p.a.pct || 0) - (p.b.pct || 0); const share = Math.max(0.08, Math.min(0.92, 0.5 + d / 20));
+        const side = (x, k) => <span className={`bf-side ${k}`}><b>{x.name}</b>
+          <em className={`m-num fl-tick ${(x.pct || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={x.pct}>{pgPc(x.pct)}</em>
+          <small className="m-dim">{x.legs.map(l => `${l.role === 'anchor' ? '⚓' : '🏃'}$${l.symbol}`).join(' ')}{x.record ? ` · ${x.record.w}–${x.record.l}${x.record.d ? `–${x.record.d}` : ''}` : ''}</small>
+          {x.swaps?.length > 0 && <span className="pgb-swaps">{x.swaps.slice(-3).map((w, j) => <i key={j} className={`w-${w.why}`}>{PG_WHY[w.why]} ${w.out}→${w.in}</i>)}</span>}</span>;
+        return <div key={p.a.id + p.b.id} className={`bf-pair ${d > 0.05 ? 'a-lead' : d < -0.05 ? 'b-lead' : 'even'}`} style={{ '--i': i }} data-testid={`pgb-pair-${i}`}>
+          {side(p.a, 'a')}<span className="bf-vs" aria-hidden="true"><i className="bf-clash" />VS</span>{side(p.b, 'b')}
+          <i className="bf-tug"><i style={{ transform: `scaleX(${share})` }} /></i></div>; })}</div>}
+    {b.log.length > 0 && <div className="pgb-log">{b.log.slice(0, 6).map(l => <span key={l.at + l.a} className="pgb-res">
+      {l.draw ? `🤝 ${l.aName} = ${l.bName}` : `🏆 ${l.winner === l.a ? l.aName : l.bName} beat ${l.winner === l.a ? l.bName : l.aName}`} <em>{pgPc(l.aPct)} vs {pgPc(l.bPct)}</em>
+      {!l.draw && onPublish && <button type="button" className="m-btn" onClick={() => onPublish(l.winner)} data-tip="Publish the winner to the Arena stage">⭐</button>}</span>)}</div>}
+  </section>;
+}
+
 export function EnginePlayground({ call }) {
   const [p, setP] = useState(null); const [pick, setPick] = useState(null);
   useEffect(() => { let alive = true; const load = () => call('/admin/fuses/playground').then(x => alive && setP(x)).catch(() => {});
@@ -162,6 +200,7 @@ export function EnginePlayground({ call }) {
       <div className="pg-box is-ready"><header><b>✅ Ready for the Arena</b><small>{p.ready.length}</small></header>{p.ready.length ? p.ready.map((r, i) => <div key={i} className="pg-row"><i>{r.kind}</i><b>{r.name}</b><small>{r.why}</small></div>) : <p className="m-dim">Nothing proven yet — the engines keep testing.</p>}</div>
       <div className="pg-box"><header><b>⏳ Still proving</b><small>{p.proving.length}</small></header>{p.proving.slice(0, 10).map((r, i) => <div key={i} className="pg-row"><i>{r.kind}</i><b>{r.name}</b><small>{r.why}</small></div>)}</div>
     </div>
+    <PlaygroundBattles call={call} onPublish={id => { const sc = (p.scenarioCards || []).find(x => x.id === id); if (sc) publishScenario(sc); }} />
     {p.scenarioCards?.length > 0 && <div className="pg-box is-ready"><header><b>🏆 Best scenarios → cards</b><small>this round's gated runners + a SOL anchor, played with each winning exit plan · auto-updated every round</small></header>
       <div className="pg-cards">{p.scenarioCards.map((sc, i) => <article key={sc.id} className={`pg-card ${sc.dial ? `d-${sc.dial}` : ''}`} style={{ '--i': i }} data-testid={`pg-card-${sc.id}`}>
         <span className="pg-fcard"><FuseCard c={{ pools: sc.legs.map(l => l.pairAddress), fitness: Math.round(sc.avgPct || 0), bornGen: sc.rounds || 0, legs: sc.legs,

@@ -1,0 +1,121 @@
+"""⚔ Engine playground battles (Cmd Ctr only — separate from the public Arena battles). Pure, tested.
+
+The playground's best scenario cards fight each other on short rounds (default 5 min) with a paper $ size that fills like a
+real wallet would (constant-product impact, `arena_prime.buy_px/sell_usd`). Mid-round every runner coin is watched:
+  • hits the card's take-profit → sold and swapped for the best gated runner not on the card (`tp`)
+  • hits the card's stop → swapped (`sl`)
+  • goes DEAD (no 5m trades / volume for `deadMins`) → swapped (`dead`)
+At the bell the bigger % since the bell wins (`runners.settle_battle`). Winners keep their coins (their config proved
+itself); losers are re-bred from this round's picks with the same scenario. Records per scenario feed "ready for Arena".
+Nothing here touches real money.
+"""
+import arena_prime as ap
+import runners as rn
+
+_f = rn._f
+DEFAULT_CFG = {'on': True, 'roundMins': 5, 'cards': 4, 'sizeUsd': 100.0, 'swapOnTp': True, 'swapOnSl': True, 'swapDead': True, 'deadMins': 10}
+ROUND_OPTIONS = (5, 15, 30, 60)
+CARD_OPTIONS = (2, 4, 6)
+
+
+def clean_cfg(c):
+    c = c if isinstance(c, dict) else {}
+    out = dict(DEFAULT_CFG)
+    for k in ('on', 'swapOnTp', 'swapOnSl', 'swapDead'):
+        if k in c:
+            out[k] = bool(c[k])
+    if _f(c.get('roundMins')) in ROUND_OPTIONS:
+        out['roundMins'] = int(_f(c['roundMins']))
+    if _f(c.get('cards')) in CARD_OPTIONS:
+        out['cards'] = int(_f(c['cards']))
+    if c.get('sizeUsd') is not None:
+        out['sizeUsd'] = round(max(10.0, min(10000.0, _f(c['sizeUsd']))), 2)
+    if c.get('deadMins') is not None:
+        out['deadMins'] = int(max(3, min(60, _f(c['deadMins']))))
+    return out
+
+
+def _buy(pa, usd, prices, liqs):
+    px = _f(prices.get(pa))
+    if px <= 0 or usd <= 0:
+        return None
+    return usd / ap.buy_px(px, usd, liqs.get(pa))
+
+
+def deal(sc, prices, liqs, now, size):
+    """A scenario card → a paper battle card with real-fill units for every coin that has a live price."""
+    legs = [l for l in sc.get('legs') or [] if _f(prices.get(l['pairAddress'])) > 0]
+    tot = sum(_f(l.get('weight')) for l in legs) or 1
+    out = []
+    for l in legs:
+        usd = size * _f(l.get('weight')) / tot
+        units = _buy(l['pairAddress'], usd, prices, liqs)
+        if units:
+            out.append({'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'mint': l.get('mint'), 'role': l.get('role') or 'runner',
+                        'entry': _f(prices[l['pairAddress']]), 'units': units, 'usd': round(usd, 4), 'at': now})
+    return {'id': sc['id'], 'name': sc.get('vName') or sc.get('name') or sc.get('label'), 'dial': sc.get('dial'), 'tp': _f(sc.get('tp')), 'sl': _f(sc.get('sl')),
+            'legs': out, 'cash': 0.0, 'startUsd': size, 'roundUsd': size, 'swaps': [], 'at': now}
+
+
+def value(card, prices, liqs):
+    return sum(ap.sell_usd(l['units'], _f(prices.get(l['pairAddress'])) or l['entry'], liqs.get(l['pairAddress'])) for l in card['legs']) + _f(card.get('cash'))
+
+
+def round_pct(card, prices, liqs):
+    base = _f(card.get('roundUsd')) or _f(card.get('startUsd')) or 1
+    return round((value(card, prices, liqs) / base - 1) * 100, 2)
+
+
+def tick(card, prices, liqs, quiet, candidates, cfg, now):
+    """Mid-round: swap runner coins that hit TP / stop or went dead for the best gated runner not on the card."""
+    c = {**card, 'legs': [dict(l) for l in card['legs']], 'swaps': list(card.get('swaps') or [])}
+    on_card = {l['pairAddress'] for l in c['legs']}
+    pool = [r for r in candidates or [] if r.get('pairAddress') and r['pairAddress'] not in on_card and _f(prices.get(r['pairAddress']) or r.get('price')) > 0]
+    for l in list(c['legs']):
+        if l.get('role') == 'anchor':
+            continue
+        px = _f(prices.get(l['pairAddress']))
+        if px <= 0:
+            continue
+        move = (px / l['entry'] - 1) * 100 if l['entry'] else 0
+        if quiet.get(l['pairAddress']):
+            l.setdefault('quietSince', now)
+        else:
+            l.pop('quietSince', None)
+        why = ('tp' if cfg['swapOnTp'] and c['tp'] and move >= c['tp'] else
+               'sl' if cfg['swapOnSl'] and c['sl'] and move <= -c['sl'] else
+               'dead' if cfg['swapDead'] and l.get('quietSince') and now - l['quietSince'] >= cfg['deadMins'] * 60 else None)
+        if not why or not pool:
+            continue
+        nxt = pool.pop(0)
+        usd = ap.sell_usd(l['units'], px, liqs.get(l['pairAddress']))
+        npx = _f(prices.get(nxt['pairAddress']) or nxt.get('price'))
+        nliq = liqs.get(nxt['pairAddress']) or nxt.get('liq')
+        units = usd / ap.buy_px(npx, usd, nliq)
+        c['legs'][c['legs'].index(l)] = {'pairAddress': nxt['pairAddress'], 'symbol': nxt.get('symbol'), 'mint': nxt.get('mint'), 'role': 'runner',
+                                         'entry': npx, 'units': units, 'usd': round(usd, 4), 'at': now}
+        c['swaps'] = (c['swaps'] + [{'at': now, 'why': why, 'out': l.get('symbol'), 'in': nxt.get('symbol'), 'move': round(move, 1)}])[-12:]
+    return c
+
+
+def pair_up(ids):
+    """1 v 2, 3 v 4 … in the order given (best scenario first) — the odd one out sits."""
+    return [{'a': ids[i], 'b': ids[i + 1]} for i in range(0, len(ids) - 1, 2)]
+
+
+def settle(pairs, pcts, record, now):
+    """Bell: bigger % since the bell wins; W/L/D per scenario id. Returns (results, record, losers)."""
+    rec = {k: dict(v) for k, v in (record or {}).items()}
+    results, losers = [], set()
+    for p in pairs or []:
+        a, b = p['a'], p['b']
+        if a not in pcts or b not in pcts:
+            continue
+        w = rn.settle_battle(0, pcts[a], 0, pcts[b])
+        for side, key in (('a', a), ('b', b)):
+            r = rec.setdefault(key, {'w': 0, 'l': 0, 'd': 0})
+            r['d' if w == 'draw' else 'w' if w == side else 'l'] += 1
+        if w != 'draw':
+            losers.add(b if w == 'a' else a)
+        results.append({'at': now, 'a': a, 'b': b, 'aPct': pcts[a], 'bPct': pcts[b], 'winner': {'a': a, 'b': b}.get(w), 'draw': w == 'draw'})
+    return results, rec, losers

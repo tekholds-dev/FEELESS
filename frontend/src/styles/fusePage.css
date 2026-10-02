@@ -652,3 +652,13 @@ body.theme-day .pg-listed.is-bench { color: #8a6200; }
 .fs-backer { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid #c08bff55; animation: fpIn .3s var(--m-ease) backwards; animation-delay: calc(var(--i, 0) * 50ms); }
 .fs-backer i { font-style: normal; color: var(--m-dim); font-size: 10.5px; }
 body.fx-lite .fs-backer { animation: none; } @media (prefers-reduced-motion: reduce) { .fs-backer { animation: none; } }
+/* ⚔ playground battles (Cmd Ctr) — reuses the bf-* battlefield pieces */
+.pgb { position: relative; overflow: hidden; } .pgb > * { position: relative; z-index: 1; }
+.pgb-ctl { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; } .pgb-ctl .m-seg button { padding: 3px 9px; font-size: 11px; }
+.pgb-swaps { display: flex; flex-wrap: wrap; gap: 4px; } .pgb-swaps i { font: 600 10px var(--m-mono); font-style: normal; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--m-line); animation: fpIn .3s var(--m-ease) both; }
+.pgb-swaps .w-tp { color: var(--m-accent); border-color: color-mix(in srgb, var(--m-accent) 50%, transparent); } .pgb-swaps .w-sl { color: #ff8fa3; } .pgb-swaps .w-dead { color: var(--m-dim); }
+.bf-side.b .pgb-swaps { justify-content: flex-end; }
+.pgb-log { display: flex; flex-wrap: wrap; gap: 6px; } .pgb-res { display: inline-flex; gap: 6px; align-items: center; font-size: 11.5px; padding: 3px 4px 3px 10px; border-radius: 999px; border: 1px solid var(--m-line); }
+.pgb-res em { font-style: normal; color: var(--m-dim); } .pgb-res .m-btn { padding: 1px 7px; }
+body.fx-lite .pgb-swaps i { animation: none; } @media (prefers-reduced-motion: reduce) { .pgb-swaps i { animation: none; } }
+body.theme-day .pgb-res { background: #fff; }

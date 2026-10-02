@@ -48,3 +48,20 @@ test('engine playground: scenario counts, ready-for-Arena list with evidence, di
   expect(el.textContent).toContain('540'); expect(el.textContent).toContain('Ready for the Arena'); expect(el.textContent).toContain('6h +3.0%');
   expect(el.textContent).toContain('needs 2 more runs'); expect(el.textContent).toContain('+2.3% · 60r');
 });
+
+test('playground battles: live pairs with swaps + records, controls post to Cmd Ctr, winners publishable', async () => {
+  const { PlaygroundBattles } = require('./FuseOpsPanels');
+  const side = (id, name, pct) => ({ id, name, pct, legs: [{ symbol: 'SOL', role: 'anchor' }, { symbol: 'A', role: 'runner' }], swaps: [{ why: 'dead', out: 'OLD', in: 'A' }], record: { w: 2, l: 1, d: 0 } });
+  const view = { cfg: { on: true, roundMins: 5, cards: 2, swapOnTp: true, swapOnSl: true, swapDead: true, deadMins: 10 }, endsAt: Date.now() / 1000 + 120,
+    pairs: [{ a: side('s1', '🚀 Moon v.03', 3.2), b: side('s2', '🦍 Ape v.01', -1.1) }], log: [{ at: 1, a: 's1', b: 's2', aName: '🚀 Moon v.03', bName: '🦍 Ape v.01', winner: 's1', aPct: 2, bPct: -1 }] };
+  const posts = []; const call = jest.fn(async (url, o) => { if (o) posts.push(JSON.parse(o.body)); return view; });
+  const pub = jest.fn();
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<PlaygroundBattles call={call} onPublish={pub} />); });
+  const pair = el.querySelector('[data-testid="pgb-pair-0"]');
+  expect(pair.className).toContain('a-lead'); expect(pair.textContent).toContain('+3.20%'); expect(pair.textContent).toContain('💀 dead $OLD→$A'); expect(pair.textContent).toContain('2–1');
+  await act(async () => { el.querySelector('[data-testid="pgb-roundMins-15"]').click(); });
+  expect(posts[0]).toEqual({ cfg: { roundMins: 15 } });
+  await act(async () => { el.querySelector('.pgb-res .m-btn').click(); });
+  expect(pub).toHaveBeenCalledWith('s1');
+});

@@ -4686,6 +4686,7 @@ _runner_widen = {'level': 0, 'at': 0.0, 'log': []}
 
 
 import meme_terms as _mt
+import pg_battle as _pgb
 MEME_PATH = DATA_DIR / 'meme_terms.json'
 
 
@@ -5072,6 +5073,11 @@ async def _fuse_warm():
         await asyncio.gather(*[_fuse_score(w, fresh=True) for w in holders], return_exceptions=True)
     if _fuse_warm_n['n'] % 12 == 7:   # ~5 min: 📖 the rep engine learns today's meme terms (new launches + chat)
         await _meme_tick(time.time())
+    if _fuse_warm_n['n'] % 2 == 1:    # ~50s: ⚔ engine playground battles (paper, Cmd Ctr only)
+        try:
+            await _pg_battle_tick(time.time())
+        except Exception as e:
+            print(f'[pg-battle] {e}')
     if _fuse_warm_n['n'] % 2 == 0:    # ~50s: ⭐ Arena Prime cards run their full automation (paper) — stops can't wait 5 min
         await _prime_tick(time.time())
     await _runner_live()
@@ -5279,12 +5285,98 @@ async def fuse_playground(request: Request):
             'autoLog': auto, 'engineDial': rd.get('cfgDial') or 'custom', 'autoTune': rd.get('autoTune') is not False,
             'gateRegret': _rn.gate_regret(rd.get('dropLog') or [], await _hq_prices([{'chainId': 'solana', 'pairAddress': e['pairAddress']} for e in (rd.get('dropLog') or [])[-120:] if e.get('pairAddress')]), now),
             'scenarios': (scen := _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS)),
-            'scenarioCards': _rn.tag_versions(_rn.scenario_cards(scen, ((rd.get('rounds') or [{}])[-1] or {}).get('picks'),
-                                                next(({'chainId': 'solana', 'pairAddress': m['pairAddress'], 'symbol': 'SOL', 'mint': m.get('baseAddress')} for m in await _majors_rows() if m.get('symbol') == 'SOL'), None)),
-                                              rd.get('scenarioVersions') or {},
-                                              {**{x.get('src'): 'bench' for x in rd.get('scenarioStage') or []},
-                                               **{f.get('fromScenario'): 'stage' for f in (_json_load(FUSES_PATH, {'fuses': {}}).get('fuses') or {}).values() if f.get('arena') and f.get('fromScenario')}}),
+            'scenarioCards': await _pg_scenario_cards(rd, scen, now),
+            'pgBattle': _pg_battle_view(rd),
             **_hq.playground_ready(board, dials, prime)}
+
+async def _pg_scenario_cards(rd, scen=None, now=None):
+    """The playground's best scenario cards (this round's gated runners + SOL anchor), versioned and tagged with where they're listed."""
+    scen = scen if scen is not None else _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now or time.time(), _hq.RISK_DIALS)
+    anchor = next(({'chainId': 'solana', 'pairAddress': m['pairAddress'], 'symbol': 'SOL', 'mint': m.get('baseAddress')} for m in await _majors_rows() if m.get('symbol') == 'SOL'), None)
+    listed = {**{x.get('src'): 'bench' for x in rd.get('scenarioStage') or []},
+              **{f.get('fromScenario'): 'stage' for f in (_json_load(FUSES_PATH, {'fuses': {}}).get('fuses') or {}).values() if f.get('arena') and f.get('fromScenario')}}
+    return _rn.tag_versions(_rn.scenario_cards(scen, ((rd.get('rounds') or [{}])[-1] or {}).get('picks'), anchor, top=6), rd.get('scenarioVersions') or {}, listed)
+
+
+def _pg_battle_view(rd):
+    b = rd.get('pgBattle') or {}
+    cards = b.get('cards') or {}
+    view = lambda k: {**{x: (cards.get(k) or {}).get(x) for x in ('id', 'name', 'dial', 'tp', 'sl', 'swaps')}, 'pct': (b.get('pcts') or {}).get(k),
+                      'legs': [{x: l.get(x) for x in ('symbol', 'role', 'pairAddress')} for l in (cards.get(k) or {}).get('legs') or []], 'record': (b.get('record') or {}).get(k)}
+    return {'cfg': _pgb.clean_cfg(b.get('cfg')), 'endsAt': b.get('endsAt'), 'pairs': [{'a': view(p['a']), 'b': view(p['b'])} for p in b.get('pairs') or []],
+            'log': (b.get('log') or [])[-12:][::-1], 'record': b.get('record') or {}, 'names': {k: c.get('name') for k, c in cards.items()}}
+
+
+async def _pg_battle_tick(now):
+    """⚔ Engine playground battles (paper, Cmd Ctr only): deal the best scenario cards, swap TP / stop / dead coins mid-round,
+    settle at the bell (bigger % wins), winners keep their coins, losers re-bred from this round's picks."""
+    rd = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
+    b = rd.get('pgBattle') or {}
+    cfg = _pgb.clean_cfg(b.get('cfg'))
+    if not cfg['on']:
+        return None
+    scs = {c['id']: c for c in await _pg_scenario_cards(rd, None, now)}
+    if len(scs) < 2:
+        return None
+    cards = dict(b.get('cards') or {})
+    want = list(scs)[:cfg['cards']]
+    legs = [{'chainId': 'solana', 'pairAddress': l['pairAddress']} for k in want for l in (cards.get(k) or scs[k])['legs']]
+    live = await _runner_live()
+    cand = [r for r in live.get('passing') or [] if r.get('pairAddress')]
+    pairs_ = await _fuse_pairs(legs + [{'chainId': 'solana', 'pairAddress': r['pairAddress']} for r in cand[:12]])
+    prices = {k: _fuse._f(v.get('priceUsd')) for k, v in pairs_.items()}
+    liqs = {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()}
+    quiet = {k: not (_fuse._f(((v.get('txns') or {}).get('m5') or {}).get('buys')) + _fuse._f(((v.get('txns') or {}).get('m5') or {}).get('sells'))) and not _fuse._f((v.get('volume') or {}).get('m5'))
+             for k, v in pairs_.items()}
+    cand = [{'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'mint': r.get('mint'), 'price': prices.get(r['pairAddress']) or r.get('price'), 'liq': liqs.get(r['pairAddress'])} for r in cand]
+    for k in want:   # deal any missing card
+        if k not in cards or not cards[k].get('legs'):
+            cards[k] = _pgb.deal(scs[k], prices, liqs, now, cfg['sizeUsd'])
+    results = []
+    if now >= _fuse._f(b.get('endsAt')):
+        pcts = {k: _pgb.round_pct(cards[k], prices, liqs) for k in cards if k in want}
+        results, record, losers = _pgb.settle(b.get('pairs'), pcts, b.get('record'), now)
+        for k in want:
+            if k in losers:   # 🧬 re-bred: same scenario, this round's picks, fresh $
+                cards[k] = _pgb.deal(scs[k], prices, liqs, now, cfg['sizeUsd'])
+            else:             # winner keeps its coins; the next round counts from here
+                cards[k] = {**cards[k], 'roundUsd': _pgb.value(cards[k], prices, liqs)}
+        b = {**b, 'record': record, 'pairs': _pgb.pair_up(want), 'endsAt': now + cfg['roundMins'] * 60,
+             'log': ((b.get('log') or []) + [{**r_, 'aName': cards.get(r_['a'], {}).get('name'), 'bName': cards.get(r_['b'], {}).get('name')} for r_ in results])[-40:]}
+    else:
+        for k in want:
+            cards[k] = _pgb.tick(cards[k], prices, liqs, quiet, cand, cfg, now)
+    b['cards'] = {k: cards[k] for k in want}
+    b['pcts'] = {k: _pgb.round_pct(cards[k], prices, liqs) for k in want}
+    b['cfg'] = cfg
+    async with _admin_lock:
+        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['pgBattle'] = b; _json_save(RUNNERS_PATH, d)
+    return len(results)
+
+
+@app.get('/api/reputation/admin/fuses/pg-battles')
+async def pg_battles_get(request: Request):
+    _require_admin(request)
+    return _pg_battle_view(_json_load(RUNNERS_PATH, {}))
+
+
+@app.post('/api/reputation/admin/fuses/pg-battles')
+async def pg_battles_set(request: Request, body: dict):
+    """Cmd Ctr controls for playground battles: on/off, round length (5/15/30/60 min), cards (2/4/6), $ size, swap rules, or
+    `reset` (fresh cards + records). Audited."""
+    admin = _require_admin(request)
+    async with _admin_lock:
+        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); b = d.get('pgBattle') or {}
+        b['cfg'] = _pgb.clean_cfg({**(b.get('cfg') or {}), **(body.get('cfg') or {})})
+        if body.get('reset'):
+            b = {'cfg': b['cfg']}
+        elif body.get('bell'):
+            b['endsAt'] = 0
+        d['pgBattle'] = b; _json_save(RUNNERS_PATH, d)
+        ad = _admin_load(); _audit(ad, admin, 'pg-battles', json.dumps({**b['cfg'], 'reset': bool(body.get('reset')), 'bell': bool(body.get('bell'))})[:160]); _admin_save(ad)
+    await _pg_battle_tick(time.time())
+    return _pg_battle_view(_json_load(RUNNERS_PATH, {}))
+
 
 @app.get('/api/reputation/admin/runners/config')
 async def runners_cfg_get(request: Request):
