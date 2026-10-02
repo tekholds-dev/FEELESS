@@ -18,11 +18,12 @@ const SOL = 'So11111111111111111111111111111111111111112';
 
 export function FuseEvolve({ call, onLoad, maxLegs = 10 }) {
   // ⭐ Showcase: a champion → published Fuse with arena on (the Arena stage reads published Fuses flagged `arena`).
-  const showcase = async (c, i) => {
+  const [cut, setCut] = useState(25);   // creator cut (% of the FEELESS fee on buys of a published card), ≤ 50
+  const showcase = async (c, i, buy = false) => {
     const name = `${(STYLES.find(x => x[0] === (d?.style || style)) || [, 'Champion'])[1].replace(/^\S+\s/, '')} #${i + 1} · ${new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
-    try { await call('/admin/fuses', { method: 'POST', body: JSON.stringify({ name, emoji: '🧬', tagline: `Bred over ${d?.history?.length || 0} generations`, creatorBps: 0, enabled: true, arena: true,
+    try { await call('/admin/fuses', { method: 'POST', body: JSON.stringify({ name, emoji: '🧬', tagline: `Bred over ${d?.history?.length || 0} generations`, creatorBps: Math.round(Math.min(50, Math.max(0, cut)) * 100), enabled: true, arena: true,
       legs: c.legs.map(l => ({ chainId: l.chainId || 'solana', pairAddress: l.pairAddress, weight: l.weight })) }) });
-      toast.success(`⭐ ${name} is live on the Arena`); } catch (e) { toast.error(e.message); }
+      toast.success(`⭐ ${name} is live on the Arena${buy ? ' — loaded into the Lab to buy' : ''}`); if (buy) onLoad?.(c.legs, sol); } catch (e) { toast.error(e.message); }
   };
   const [style, setStyle] = useState('yield'); const [legs, setLegs] = useState(3); const [gens, setGens] = useState(16); const [budget, setBudget] = useState(5);
   const [solUsd, setSolUsd] = useState(null); const [d, setD] = useState(null); const [shown, setShown] = useState(0); const [busy, setBusy] = useState(false); const [blood, setBlood] = useState(false);
@@ -60,12 +61,14 @@ export function FuseEvolve({ call, onLoad, maxLegs = 10 }) {
     {d && <>
       <div className="fe-chart" aria-label="Best fitness per generation" data-tip="Each bar = the best basket's score in that generation. It never drops (the best always survives).">{d.history.map((h, i) => <i key={h.gen} className={i < shown ? 'on' : ''} style={{ transform: `scaleY(${i < shown ? Math.max(0.04, h.best / top) : 0.02})` }} title={`Gen ${h.gen}: best ${h.best} · avg ${h.avg}`} />)}</div>
       <div className="fe-meta m-dim"><span>{d.pool} live pools in the gene pool</span><span>{d.evaluated} baskets tested</span><span>gen {Math.min(shown, d.history.length)}/{d.history.length}</span>{d.seeded > 0 && <span>🧬 {d.seeded} bloodline seeds</span>}</div>
+      {done && <label className="fe-cut" data-tip="When traders buy a card you published, this % of the FEELESS fee goes to the creator (max 50%)"><span>Publish creator cut</span><input className="m-input m-num" type="number" min="0" max="50" value={cut} onChange={e => setCut(Number(e.target.value))} data-testid="fe-cut" /><span>% of fee</span></label>}
       {done && <div className="fe-champs">{d.champions.map((c, i) => <article key={c.pools.join()} className={`fe-champ ${i === 0 ? 'is-top' : ''}`} style={{ animationDelay: `${i * 70}ms` }}>
         <FuseCard c={c} style={d.style || style} rank={i} budget={budget} />
         <div className="fe-acts"><button type="button" className={`m-btn ${i === 0 ? 'primary' : ''}`} onClick={() => onLoad?.(c.legs, sol)} data-testid={`fe-load-${i}`}>Load into Lab →</button>
           <button type="button" className="m-btn" title="Paper $5 for 24h at real prices" onClick={() => act('arena', c)} data-testid={`fe-arena-${i}`}>🏟</button>
           <button type="button" className="m-btn" title="Save to bloodline" onClick={() => act('bloodline', c)}>🧬</button>
-          <button type="button" className="m-btn" data-tip="Publish this champion as a Cmd Ctr Fuse AND stage it on the public Arena (its effects grow with real buys). Edit or unstage it in 📣 Published." onClick={() => showcase(c, i)} data-testid={`fe-showcase-${i}`}>⭐ Showcase</button></div>
+          <button type="button" className="m-btn" data-tip="Publish this champion as a Cmd Ctr Fuse AND stage it on the public Arena (its effects grow with real buys). Edit or unstage it in 📣 Published." onClick={() => showcase(c, i)} data-testid={`fe-showcase-${i}`}>⭐ Showcase</button>
+          <button type="button" className="m-btn primary" data-tip="Publish to the Arena AND load it into the Lab with your SOL amount — you approve the buy" onClick={() => showcase(c, i, true)} data-testid={`fe-buypub-${i}`}>⚡ Buy + publish</button></div>
       </article>)}</div>}
       {done && d.champions[0]?.parts.feeDragPct > 5 && <div className="m-note warn"><b>FEE DRAG</b><span>At ${budget}, network fees eat {d.champions[0].parts.feeDragPct}% of the buy. Fewer pools or a bigger budget keeps more of it working.</span></div>}
       {done && <small className="m-dim">Ranks baskets on live numbers (grade, fee APR, 24h move, depth). Not a promise of profit — memes move fast.</small>}
