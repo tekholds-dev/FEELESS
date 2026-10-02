@@ -177,9 +177,16 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
       else setPicked(pk => (pk.some(x => x.pairAddress === c.pairAddress) || pk.length >= MAX ? pk : [...pk, { chainId: 'solana', pairAddress: c.pairAddress, symbol: c.symbol, baseAddress: c.mint }]));
       toast.success(`$${c.symbol || 'coin'} added to your card`); };
     const on = e => add(e.detail); window.addEventListener('feeless:add-to-card', on);
+    // 🧪 Cmd Ctr › Engine playground "✏️ Edit in Breed": a scenario card lands here with its name + configs — add / drop coins, rename, publish
+    const load = e => { const c = e.detail || {}; if (!admin || !c.legs) return;
+      setPicked(c.legs.filter(l => l.role !== 'runner').map(l => ({ chainId: 'solana', pairAddress: l.pairAddress, symbol: l.symbol, baseAddress: l.mint || l.baseAddress })).slice(0, MAX));
+      if (onRunnerPicks) onRunnerPicks(c.legs.filter(l => l.role === 'runner').map(l => ({ mint: l.mint, symbol: l.symbol, pairAddress: l.pairAddress, lane: 'runner' })).slice(0, 6));
+      setPub(x => ({ ...x, name: c.name || '', emoji: c.emoji || x.emoji, tagline: c.tagline || '', dial: c.dial || '', cfg: c.cfg || null, fromScenario: c.fromScenario || '', arena: true }));
+      toast.success(`✏️ ${c.name || 'Card'} loaded — tweak coins, then Publish`); scrollToMix(); };
+    window.addEventListener('feeless:lab-load', load);
     const q = new URLSearchParams(window.location.search);
     if (q.get('add')) add({ pairAddress: q.get('add'), mint: q.get('mint'), symbol: q.get('sym'), runner: q.get('runner') === '1' });
-    return () => window.removeEventListener('feeless:add-to-card', on);
+    return () => { window.removeEventListener('feeless:add-to-card', on); window.removeEventListener('feeless:lab-load', load); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Featured / Runners tabs hand the Lab a basket to load (pools here, runners into the picks).
   const [copy, setCopy] = useState(null);   // ⚡ copying another trader's card: {id, owner, pct}

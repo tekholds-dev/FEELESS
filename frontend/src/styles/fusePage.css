@@ -641,3 +641,10 @@ body.theme-day .prime-leg .m-btn.is-on { background: #1d6fa0; color: #fff; }
 .pg-listed.is-stage { color: #04140c; background: var(--m-accent); border-color: var(--m-accent); } .pg-listed.is-bench { color: #f5c451; border-color: #f5c45188; }
 .ar-ver { font: 600 10px var(--m-mono); color: var(--m-dim); }
 body.theme-day .pg-listed.is-bench { color: #8a6200; }
+.pg-card b.pg-name { flex-wrap: wrap; row-gap: 5px; line-height: 1.2; font-size: 16px; } .pg-card b.pg-name em { white-space: nowrap; flex: 0 0 auto; }
+.pg-acts { display: grid; grid-template-columns: auto 1fr; gap: 6px; } .pg-acts .m-btn { white-space: nowrap; }
+.ce-gear { padding: 3px 8px; font-size: 11px; } .ce-gear.is-on { background: var(--m-accent); color: #04140c; border-color: var(--m-accent); }
+.ce-ccfg { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: end; padding: 6px 0 2px; animation: fpIn .18s var(--m-ease) both; }
+.ce-ccfg label { display: grid; gap: 2px; font: 600 9.5px var(--m-mono); letter-spacing: .08em; color: var(--m-dim); } .ce-ccfg .m-input { width: 76px; padding: 4px 8px; }
+.ce-ccfg .m-seg button { padding: 3px 7px; font-size: 10.5px; }
+@media (prefers-reduced-motion: reduce) { .ce-ccfg { animation: none; } } body.fx-lite .ce-ccfg { animation: none; }

@@ -50,6 +50,8 @@ export function FuseDeck({ panels, call }) {
     load(); const t = setInterval(() => !document.hidden && load(), 60000); window.addEventListener('feeless:fuse-hq', load);
     return () => { clearInterval(t); window.removeEventListener('feeless:fuse-hq', load); };
   }, [call]);
+  useEffect(() => { const on = e => { if (panels.some(p => p[0] === e.detail?.panel)) setTab(e.detail.panel); }; window.addEventListener('feeless:fuse-deck-go', on);
+    return () => window.removeEventListener('feeless:fuse-deck-go', on); }, [panels]);
   const cur = panels.find(p => p[0] === tab) || panels[0];
   const go = k => { setTab(k); try { localStorage.setItem(KEY, k); } catch { /* private mode */ } };
   const o = hq?.outlook; const b = hq?.book;

@@ -3144,7 +3144,7 @@ async def _fuse_swap_tick(d, now):
     failing = {x['mint']: x.get('gates') or ['failed a gate'] for x in live['dropped']}
     rules = _card_rules(); n = 0
     for x in sw:
-        s = _hq.swap_suggest(_hq.position_pnl(x, px), failing, live['passing'], rules['swapDropPct'], set(x.get('frozen') or []))
+        s = _hq.swap_suggest(_hq.position_pnl(x, px), failing, live['passing'], rules['swapDropPct'], set(x.get('frozen') or []) | _hq.coins_not_due(x, now))
         if not s:
             continue
         n += 1
@@ -3729,7 +3729,10 @@ class CoinModeIn(BaseModel):
     session: str
     id: str
     pairAddress: str = Field(..., max_length=64)
-    slMode: str = Field(..., max_length=8)   # sell | park | hold | card (= follow the card)
+    slMode: str = Field(default='', max_length=8)   # sell | park | hold | card (= follow the card) · '' = leave as is
+    tp: float | None = None                          # this coin's take-profit % (alert, one-tap) · 0 = off
+    sl: float | None = None                          # this coin's stop % · 0 = off
+    rotateHours: float | None = None                 # ⇄ replace this coin at most every … (5m–24h) · 0 = follow the card
 
 
 @app.post('/api/reputation/fuses/coin-mode')
@@ -3738,7 +3741,7 @@ async def fuse_coin_mode(p: CoinModeIn):
     or 'card' to follow the card's setting. Pairs with ❄ freeze (engine hands off the coin)."""
     me = _session_or_401(p.address, p.session)
     mine = set(linked_of(me)) | {me}
-    if p.slMode not in (*_hq.SL_MODES, 'card'):
+    if p.slMode and p.slMode not in (*_hq.SL_MODES, 'card'):
         raise HTTPException(400, 'slMode must be sell, park, hold or card.')
     async with _admin_lock:
         d = _json_load(FUSE_HQ_PATH, {})
@@ -3747,12 +3750,27 @@ async def fuse_coin_mode(p: CoinModeIn):
             raise HTTPException(404, 'No open Fuse card with that id for this wallet.')
         if not any(leg['pairAddress'] == p.pairAddress and leg.get('soldUsd') is None for leg in pos['legs']):
             raise HTTPException(400, 'That coin is not open on this card.')
-        cm = {k: v for k, v in (pos.get('coinModes') or {}).items() if k != p.pairAddress}
-        if p.slMode != 'card':
-            cm[p.pairAddress] = p.slMode
+        cm = dict(pos.get('coinModes') or {})
+        if p.slMode:
+            cm.pop(p.pairAddress, None)
+            if p.slMode != 'card':
+                cm[p.pairAddress] = p.slMode
         pos['coinModes'] = cm
+        if p.tp is not None or p.sl is not None:   # 🎯 this coin's own TP / SL (alerts once, one-tap sell)
+            g = {**(pos.get('legGuard') or {}).get(p.pairAddress, {})}
+            if p.tp is not None:
+                g['tp'] = max(0.0, min(5000.0, float(p.tp)))
+            if p.sl is not None:
+                g['sl'] = max(0.0, min(95.0, float(p.sl)))
+            g['firedAt'] = None
+            pos.setdefault('legGuard', {})[p.pairAddress] = g
+        if p.rotateHours is not None:
+            cr = {k: v for k, v in (pos.get('coinRotate') or {}).items() if k != p.pairAddress}
+            if p.rotateHours:
+                cr[p.pairAddress] = _hq.rotate_hours(p.rotateHours)
+            pos['coinRotate'] = cr
         _json_save(FUSE_HQ_PATH, d)
-    return {'ok': True, 'coinModes': cm}
+    return {'ok': True, 'coinModes': cm, 'legGuard': (pos.get('legGuard') or {}).get(p.pairAddress), 'coinRotate': pos.get('coinRotate') or {}}
 
 
 @app.get('/api/reputation/fuses/limits/{address}')
@@ -3797,7 +3815,7 @@ async def fuse_pnl(address: str):
     by, rules, now = _ledger_by_sig(), _card_rules(), time.time()
     hot = {c['id'] for c in (_arena_mega_cache.get('data') or []) if c.get('kind') == 'user' and c['activity']['tier'] in ('hot', 'blazing')}
     wins = _season_wins()
-    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold', 'nextSwitchAt': _hq.next_switch_at(x), 'rotateHours': x.get('rotateHours') or 24, 'slMode': x.get('slMode') or 'sell', 'coinModes': x.get('coinModes') or {},
+    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold', 'nextSwitchAt': _hq.next_switch_at(x), 'rotateHours': x.get('rotateHours') or 24, 'slMode': x.get('slMode') or 'sell', 'coinModes': x.get('coinModes') or {}, 'coinRotate': x.get('coinRotate') or {},
                   'roundsLeft': _hq.rounds_left(x, _is_staff(x['wallet'])), 'roundsUsed': x.get('roundsUsed') or 0, 'roundsOwedUsd': x.get('roundsOwedUsd') or 0, 'parked': x.get('parked') or {}, 'risk': x.get('risk') or 'custom',
                     'onProfit': x.get('onProfit') or 'collect', 'legGuard': x.get('legGuard') or {},
                     'feeback': _hq.card_feeback(_card_fees(x, by), (x.get('closedAt') or now) - _fuse._f(x.get('at')), x['id'] in hot, rules, x['id'] in wins), 'onArena': x['id'] in hot,

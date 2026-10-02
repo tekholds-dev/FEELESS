@@ -42,3 +42,9 @@ def test_rotation_options_and_per_coin_stop_mode():
     assert hq.next_switch_at({'lastSwitchAt': 1000, 'rotateHours': 0.0833333}) == 1000 + 300                 # every 5 minutes
     pos = {'slMode': 'sell', 'coinModes': {'P2': 'park', 'P3': 'bad'}}
     assert hq.coin_sl_mode(pos, 'P1') == 'sell' and hq.coin_sl_mode(pos, 'P2') == 'park' and hq.coin_sl_mode(pos, 'P3') == 'sell'
+
+
+def test_coin_replace_clock():
+    pos = {'at': 0, 'legs': [{'pairAddress': 'P1'}, {'pairAddress': 'P2', 'at': 1000}], 'coinRotate': {'P1': 1, 'P2': 0.25}}
+    assert hq.coins_not_due(pos, 1500) == {'P1', 'P2'}
+    assert hq.coins_not_due(pos, 1000 + 901) == {'P1'} and hq.coins_not_due(pos, 3601 + 1000) == set()

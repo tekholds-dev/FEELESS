@@ -410,6 +410,8 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, setAdv,
   // per-coin stop mode: follow the card, or this coin sells / parks / holds on its own
   const coinMode = async (r, l, m) => { const s = ses(); if (!s) return;
     try { await post('/api/reputation/fuses/coin-mode', { address: addr, session: s, id: r.id, pairAddress: l.pairAddress, slMode: m }); toast.success(m === 'card' ? `$${l.symbol} follows the card` : `$${l.symbol} at its stop: ${COIN_MODE[m]}`); refresh(); } catch (e) { toast.error(e.message); } };
+  const coinCfg = async (r, l, patch) => { const s = ses(); if (!s) return;
+    try { await post('/api/reputation/fuses/coin-mode', { address: addr, session: s, id: r.id, pairAddress: l.pairAddress, ...patch }); toast.success(`$${l.symbol} ${patch.tp != null ? `TP +${patch.tp}%` : patch.sl != null ? `SL −${patch.sl}%` : patch.rotateHours ? 'own replace clock set' : 'follows the card clock'}`); refresh(); } catch (e) { toast.error(e.message); } };
   const live = useLivePrices(openRows.flatMap(r => r.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress)));
   const held = openRows.length ? liveBook(openRows, live) : { pnlUsd: d.held?.pnlUsd, pnlPct: d.held?.pnlPct, value: d.held?.valueUsd };
   return <section className="fp-cards" data-testid="my-cards">
@@ -431,8 +433,8 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, setAdv,
       {earn === r.id && <CardEarnings title={r.name || 'Your card'} taken={r.realizedUsd || 0} compounded={sumKind(r, 'topup')}
         events={[...(r.events || [])].reverse().map(e => ({ ...e, label: EARN_KIND[e.kind] || e.kind, to: e.kind === 'sell' ? ['cash'] : e.kind === 'topup' ? [e.symbol] : undefined, symbol: e.kind === 'topup' ? undefined : e.symbol }))}
         gainNow={Math.max(0, Math.min(r.pnlUsd || 0, (r.valueUsd || 0) - (r.realizedUsd || 0)))} onCollect={() => { setEarn(null); open(r, 'yield', { at: r.autoYield?.at || d.rules?.yieldDefault || 50, levels: d.rules?.yieldLevels || [25, 50, 100, 200] }); }} onClose={() => setEarn(null)}
-        autos={r.autos || []} extra={<CardRounds card={r} onChange={() => refresh()} />} legs={r.legs.filter(l => l.soldUsd == null).map(l => ({ ...l, firstEntry: l.tokens ? l.usd / l.tokens : null, frozen: (r.frozen || []).includes(l.pairAddress), mode: (r.coinModes || {})[l.pairAddress] || 'card' }))} onFreeze={(l, on) => freeze(r, l, on)}
-        onMode={(l, m) => coinMode(r, l, m)} cardMode={r.slMode || 'sell'}
+        autos={r.autos || []} extra={<CardRounds card={r} onChange={() => refresh()} />} legs={r.legs.filter(l => l.soldUsd == null).map(l => ({ ...l, firstEntry: l.tokens ? l.usd / l.tokens : null, frozen: (r.frozen || []).includes(l.pairAddress), mode: (r.coinModes || {})[l.pairAddress] || 'card', tp: (r.legGuard || {})[l.pairAddress]?.tp, sl: (r.legGuard || {})[l.pairAddress]?.sl, rot: (r.coinRotate || {})[l.pairAddress] || 0 }))} onFreeze={(l, on) => freeze(r, l, on)}
+        onMode={(l, m) => coinMode(r, l, m)} cardMode={r.slMode || 'sell'} onCoinCfg={(l, patch) => coinCfg(r, l, patch)}
         actions={[{ label: '＋ Top up', tip: 'Add SOL — equal split, by weight, or into one coin. One approval.', onClick: () => { setEarn(null); open(r, 'topup'); }, testid: `cw-topup-${r.id}` },
           { label: '💰 Take 50%', onClick: () => { setEarn(null); open(r, 'take', { pct: 50 }); } },
           { label: '⇄ Switch', disabled: r.nextSwitchAt > Date.now() / 1000, tip: 'One pool or coin per 24h', onClick: () => { setEarn(null); open(r, 'switch'); } },

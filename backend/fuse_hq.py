@@ -707,6 +707,12 @@ def rotate_hours(v, default=24):
     return next((o for o in ROTATE_OPTIONS if abs(o - v) < 0.005), default)
 
 
+def coins_not_due(pos, now):
+    """Coins with their own ⇄ replace clock that isn't up yet (counted from the coin's buy / last switch-in) — the engine skips them."""
+    since = {l['pairAddress']: _f(l.get('at')) or _f(pos.get('at')) for l in pos.get('legs') or []}
+    return {pa for pa, h in (pos.get('coinRotate') or {}).items() if now - since.get(pa, 0) < rotate_hours(h) * 3600}
+
+
 def coin_sl_mode(pos, pa):
     """What a coin's stop does on this card: the coin's own pick (`coinModes`) beats the card's `slMode`."""
     m = (pos.get('coinModes') or {}).get(pa)

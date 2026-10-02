@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ShareGifButton } from './ShareGif';
 
@@ -11,7 +11,8 @@ const $ = v => `$${Math.abs(v || 0).toFixed(2)}`;
 const px = v => (v >= 1 ? v.toFixed(2) : v >= 0.001 ? v.toFixed(5) : Number(v).toPrecision(3));
 const ago = t => { const s = Date.now() / 1000 - t; return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : s < 86400 ? `${Math.round(s / 3600)}h` : `${Math.round(s / 86400)}d`; };
 
-export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fees, gainNow, onCollect, onClose, paper, actions, legs, onFreeze, autos, extra, onMode, cardMode }) {
+export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fees, gainNow, onCollect, onClose, paper, actions, legs, onFreeze, autos, extra, onMode, cardMode, onCoinCfg }) {
+  const [cfgOpen, setCfgOpen] = useState(null);
   useEffect(() => { const k = e => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   // centered pop-up over a blurred page; page animations pause while it's open so the blur costs nothing
   useEffect(() => { document.body.classList.add('ce-open'); return () => document.body.classList.remove('ce-open'); }, []);
@@ -35,7 +36,13 @@ export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fe
         {onFreeze && <button type="button" className={`m-btn ce-frz ${l.frozen ? 'is-on' : ''}`} aria-pressed={!!l.frozen} onClick={() => onFreeze(l, !l.frozen)} data-testid={`freeze-${l.pairAddress}`}
           data-tip={l.frozen ? 'Frozen: auto-rotate / swap suggestions skip it. Tap to let the engine manage it again.' : 'Freeze: the engine never switches this coin — only you can.'}>{l.frozen ? '❄ Frozen' : '❄ Freeze'}</button>}
         {onMode && <span className="m-seg ce-mode" role="group" aria-label={`At $${l.symbol}'s stop`} data-tip="At this coin's stop: follow the card, sell, park (sell to SOL + one-tap buy-back) or hold">{[['card', `card · ${cardMode || 'sell'}`], ['sell', '✂'], ['park', '🅿'], ['hold', '❄']].map(([k, t]) =>
-          <button key={k} type="button" className={(l.mode || 'card') === k ? 'active' : ''} onClick={() => onMode(l, k)} aria-pressed={(l.mode || 'card') === k} data-testid={`cmode-${k}-${l.pairAddress}`}>{t}</button>)}</span>}</div>)}</section>}
+          <button key={k} type="button" className={(l.mode || 'card') === k ? 'active' : ''} onClick={() => onMode(l, k)} aria-pressed={(l.mode || 'card') === k} data-testid={`cmode-${k}-${l.pairAddress}`}>{t}</button>)}</span>}
+        {onCoinCfg && <button type="button" className={`m-btn ce-gear ${cfgOpen === l.pairAddress ? 'is-on' : ''}`} aria-expanded={cfgOpen === l.pairAddress} onClick={() => setCfgOpen(o => (o === l.pairAddress ? null : l.pairAddress))} data-tip="This coin's own take-profit, stop and replace clock" data-testid={`ccfg-${l.pairAddress}`}>⚙</button>}
+        {onCoinCfg && cfgOpen === l.pairAddress && <div className="ce-ccfg" data-testid={`ccfg-box-${l.pairAddress}`}>
+          <label data-tip="Alert once at this gain, with the sell pre-filled (0 = off)">TP +%<input className="m-input m-num" type="number" min="0" max="5000" defaultValue={l.tp ?? ''} onBlur={e => e.target.value !== '' && onCoinCfg(l, { tp: Number(e.target.value) })} data-testid={`ccfg-tp-${l.pairAddress}`} /></label>
+          <label data-tip="Alert once at this loss — what happens follows the stop mode (0 = off)">SL −%<input className="m-input m-num" type="number" min="0" max="95" defaultValue={l.sl ?? ''} onBlur={e => e.target.value !== '' && onCoinCfg(l, { sl: Number(e.target.value) })} data-testid={`ccfg-sl-${l.pairAddress}`} /></label>
+          <span className="m-seg" role="group" aria-label="Replace this coin at most every" data-tip="⇄ The engine may suggest replacing this coin at most this often (card = the card's clock)">{[[0, 'card'], [5 / 60, '5m'], [0.25, '15m'], [1, '1h'], [12, '12h']].map(([h, t]) =>
+            <button key={t} type="button" className={Math.abs((l.rot || 0) - h) < 0.005 ? 'active' : ''} onClick={() => onCoinCfg(l, { rotateHours: h })} data-testid={`ccfg-rot-${t}-${l.pairAddress}`}>⇄ {t}</button>)}</span></div>}</div>)}</section>}
       {autos && <section className="ce-autos"><span className="m-label">⚡ LAST 24H · AUTOS</span>{autos.length ? autos.map((a, i) => <a key={i} href={a.url} className="ce-auto" style={{ '--i': i }}><span>{a.text}</span><time className="m-dim">{ago(a.at)} ago</time></a>)
         : <small className="m-dim">No autos fired in the last 24h — your levels haven't been hit.</small>}</section>}
       <ol className="ce-tl">{events.length ? events.map((e, i) => <li key={i} className={`k-${e.kind}`} style={{ '--i': i }}>

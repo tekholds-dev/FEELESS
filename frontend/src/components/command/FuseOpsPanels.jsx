@@ -148,6 +148,10 @@ export function EnginePlayground({ call }) {
     dial: sc.dial || '', cfg: sc.cfg || null, fromScenario: sc.id,
     tagline: `Engine scenario: TP +${sc.tp}% / stop −${sc.sl}% · avg ${sc.avgPct >= 0 ? '+' : ''}${sc.avgPct}% over ${sc.rounds} rounds`, legs: sc.legs.map(l => ({ chainId: 'solana', pairAddress: l.pairAddress, weight: l.weight })) }) })
     .then(() => toast.success(`⭐ ${sc.name || sc.label} published to the Arena stage`)).catch(e => toast.error(e.message));
+  // ✏️ send a scenario card to Breed & fuse first (FuseDeck switches panel, the Lab loads coins + name + configs)
+  const editInBreed = sc => { window.dispatchEvent(new CustomEvent('feeless:fuse-deck-go', { detail: { panel: 'lab' } }));
+    setTimeout(() => window.dispatchEvent(new CustomEvent('feeless:lab-load', { detail: { legs: sc.legs, name: `${(sc.name || '').split(' ').slice(1).join(' ') || sc.label} v.${String(sc.version || 1).padStart(2, '0')}`.slice(0, 40),
+      emoji: (sc.name || '🧪').split(' ')[0], tagline: `Engine scenario: TP +${sc.tp}% / stop −${sc.sl}%`, dial: sc.dial, cfg: sc.cfg, fromScenario: sc.id } })), 120); };
   const c = p.counts; const fmt = v => `${v >= 0 ? '+' : ''}${Number(v || 0).toFixed(1)}%`;
   const tiles = [['🏟 Strategy runs', c.arenaRuns, `${c.settled} settled · ${c.open} live`], ['🧬 Bloodline', c.bloodline, 'saved champions seed new breeds'],
     ['🎚 Dial scenarios', c.dialScenarios, 'rounds × dials × 6h/24h/72h'], ['🏃 Runner rounds', c.runnerRounds, `${c.litCards} lit cards`], ['⭐ Tier cards', c.tierCards, 'fully auto, paper'], ['📣 Published', c.published, 'on Trade + Arena when staged']];
@@ -169,7 +173,8 @@ export function EnginePlayground({ call }) {
         <b className="m-num m-pos">{fmt(sc.avgPct)} <em>avg / round</em></b>
         <span className="pg-legs">{sc.legs.map(l => <i key={l.pairAddress} className={l.role === 'anchor' ? 'is-anchor' : ''}>{l.role === 'anchor' ? '⚓' : '🏃'} ${l.symbol} {Math.round(l.weight)}%</i>)}</span>
         <small className="m-dim">TP +{sc.tp}% · stop −{sc.sl}% per runner · {sc.rounds} rounds · {sc.winRate}% won · $1 → ${Number(sc.per1 || 1).toFixed(2)}</small>
-        <button type="button" className="m-btn primary m-go" onClick={() => publishScenario(sc)} data-testid={`pg-pub-${sc.id}`}>⭐ Publish to Arena</button></article>)}</div></div>}
+        <span className="pg-acts"><button type="button" className="m-btn" onClick={() => editInBreed(sc)} data-tip="Open it in 🧬 Breed & fuse: rename, add / drop coins or pools, then publish" data-testid={`pg-edit-${sc.id}`}>✏️ Edit in Breed</button>
+        <button type="button" className="m-btn primary m-go" onClick={() => publishScenario(sc)} data-testid={`pg-pub-${sc.id}`}>⭐ Publish</button></span></article>)}</div></div>}
     {p.scenarios?.length > 0 && <div className="pg-box"><header><b>🃏 Engine-cycled scenarios · {p.scenarios.length}</b><small>every runner round replayed under each exit plan · tap a card</small></header>
       <div className="pg-scen">{p.scenarios.map((sc, i) => <button key={sc.id} type="button" className={`pg-sc ${pick === sc.id ? 'is-on' : ''} ${sc.avgPct > 0 ? 'up' : sc.avgPct < 0 ? 'down' : ''}`} style={{ '--i': Math.min(i, 20) }} onClick={() => setPick(pick === sc.id ? null : sc.id)} data-testid={`pg-sc-${sc.id}`}>
         <small>{i === 0 && sc.rounds ? '👑 BEST · ' : ''}{sc.kind === 'dial' ? 'DIAL' : 'EXITS'} · {sc.window}</small><b>{sc.label}</b>
