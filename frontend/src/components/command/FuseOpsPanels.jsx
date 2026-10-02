@@ -170,6 +170,8 @@ export function EnginePlayground({ call }) {
       <table className="vd-table"><thead><tr><th>Dial</th>{Object.keys(p.dials).map(w => <th key={w}>{w}</th>)}</tr></thead><tbody>{Object.keys(Object.values(p.dials)[0] || {}).map(d => <tr key={d}><td>{d}</td>
         {Object.keys(p.dials).map(w => { const v = p.dials[w][d] || {}; return <td key={w} className={v.avgPct > 0 ? 'm-pos' : v.avgPct < 0 ? 'm-neg' : ''}>{v.rounds ? `${fmt(v.avgPct)} · ${v.rounds}r` : '—'}</td>; })}</tr>)}</tbody></table></div>
     {p.board.length > 0 && <div className="pg-box"><header><b>🏟 Strategies</b><small>$5 paper runs, settled after 24h</small></header>{p.board.map(r => <div key={r.style} className="pg-row"><b>{r.style}</b><small>{r.runs} runs · {r.winRate}% won</small><em className={r.avgPct >= 0 ? 'm-pos' : 'm-neg'}>{fmt(r.avgPct)}</em></div>)}</div>}
+    {p.gateRegret?.length > 0 && <div className="pg-box"><header><b>💡 Gate regret</b><small>coins a gate stopped that later ran 3×+ — a high rate means that ONE gate may be too strict</small></header>
+      {p.gateRegret.slice(0, 6).map(g => <div key={g.gate} className="pg-row"><b>{g.gate}</b><small>{g.ran} of {g.stopped} ran 3×+{g.examples?.length ? ` · ${g.examples.join(', ')}` : ''}</small><em className={g.rate >= 20 ? 'm-neg' : 'm-dim'}>{g.rate}%</em></div>)}</div>}
     {p.autoLog.length > 0 && <div className="pg-box"><header><b>🔧 Engine changes</b><small>auto + manual, newest first</small></header>{p.autoLog.map((a, i) => <div key={i} className="pg-row"><small>{new Date(a.at * 1000).toLocaleString()}</small><b>{a.admin === 'engine-auto' ? '🤖 auto' : '👤'}</b><small>{String(a.detail).slice(0, 110)}</small></div>)}</div>}
   </section>;
 }

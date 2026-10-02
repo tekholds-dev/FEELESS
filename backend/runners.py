@@ -670,3 +670,33 @@ def scenario_cards(scen, picks, anchor=None, top=3):
         out.append({'id': sc['id'], 'label': sc['label'], 'window': sc['window'], 'tp': sc['tp'], 'sl': sc['sl'], 'avgPct': sc['avgPct'],
                     'winRate': sc.get('winRate'), 'rounds': sc['rounds'], 'per1': sc.get('per1'), 'legs': legs})
     return out
+
+
+def log_drops(log, dropped, now, cap=400):
+    """Remember each rejected PRE-BOND coin once a day with the gate that stopped it + its price then (for gate_regret)."""
+    seen = {(e['mint'], int(e['at'] // 86400)) for e in log or []}
+    out = list(log or [])
+    for r in dropped or []:
+        if r.get('stage') != 'curve' or not r.get('gates') or not _f(r.get('price')):
+            continue
+        k = (r['mint'], int(now // 86400))
+        if k not in seen:
+            out.append({'mint': r['mint'], 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'gate': r['gates'][0], 'price': _f(r['price']), 'at': now}); seen.add(k)
+    return out[-cap:]
+
+
+def gate_regret(log, prices, now, min_age=6 * 3600, ran=3.0):
+    """💡 Which gates block winners: of the coins a gate stopped (≥ min_age ago), how many later ran ≥ `ran`×. A gate that
+    keeps stopping 3× coins is a candidate to loosen — only that gate, never the safety gates as a group."""
+    by = {}
+    for e in log or []:
+        if now - e['at'] < min_age:
+            continue
+        px = _f((prices or {}).get(e.get('pairAddress')))
+        if px <= 0:
+            continue
+        g = by.setdefault(e['gate'], {'gate': e['gate'], 'stopped': 0, 'ran': 0, 'examples': []})
+        g['stopped'] += 1
+        if px / e['price'] >= ran:
+            g['ran'] += 1; g['examples'] = (g['examples'] + [f"${e.get('symbol')} {px / e['price']:.1f}×"])[-3:]
+    return sorted(({**g, 'rate': round(g['ran'] / g['stopped'] * 100, 1)} for g in by.values()), key=lambda g: -g['rate'])

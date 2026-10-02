@@ -4598,6 +4598,12 @@ async def _runner_live():
             wz.update(level=nxt, at=time.time()); wz['log'] = (wz['log'] + [{'at': time.time(), 'level': nxt, 'passing': len(data['passing'])}])[-20:]
             eff = _rn.widen(base, nxt)
             data = {**_rn.board(cands, eff), 'seen': len(cands), 'at': time.time()}
+    if int(time.time()) % 300 < 40:   # ~every 5 min: remember rejected pre-bond coins for gate regret (cheap, capped)
+        try:
+            async with _admin_lock:
+                rd_ = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); rd_['dropLog'] = _rn.log_drops(rd_.get('dropLog'), data['dropped'], time.time()); _json_save(RUNNERS_PATH, rd_)
+        except Exception:
+            pass
     data['widen'] = {'level': wz['level'], 'max': _rn.WIDEN_MAX, 'moved': {k: [base.get(k), eff.get(k)] for k in _rn.WIDEN_STEPS if base.get(k) != eff.get(k)}}
     _runner_live_cache.update(at=time.time(), data=data)
     return data
@@ -5054,6 +5060,7 @@ async def fuse_playground(request: Request):
                        'published': len(_json_load(FUSES_PATH, {'fuses': {}})['fuses'])},
             'board': board, 'dials': dials, 'bloodline': (d.get('bloodline') or [])[-12:][::-1], 'prime': [{k: c.get(k) for k in ('label', 'tier', 'pnlPct', 'lowPct', 'goodDays', 'loggedDays')} for c in prime],
             'autoLog': auto, 'engineDial': rd.get('cfgDial') or 'custom', 'autoTune': rd.get('autoTune') is not False,
+            'gateRegret': _rn.gate_regret(rd.get('dropLog') or [], await _hq_prices([{'chainId': 'solana', 'pairAddress': e['pairAddress']} for e in (rd.get('dropLog') or [])[-120:] if e.get('pairAddress')]), now),
             'scenarios': (scen := _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS)),
             'scenarioCards': _rn.scenario_cards(scen, ((rd.get('rounds') or [{}])[-1] or {}).get('picks'),
                                                 next(({'chainId': 'solana', 'pairAddress': m['pairAddress'], 'symbol': 'SOL', 'mint': m.get('baseAddress')} for m in await _majors_rows() if m.get('symbol') == 'SOL'), None)),

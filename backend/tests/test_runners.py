@@ -228,3 +228,12 @@ def test_best_scenarios_become_cards_from_this_rounds_picks():
     assert [c['id'] for c in cards] == ['degen_6h', 'tp200_sl15']                                # losing scenarios never become cards
     assert [(l['symbol'], l['weight']) for l in cards[0]['legs']] == [('SOL', 35), ('A', 32.5), ('B', 32.5)] and cards[1]['legs'][1]['tp'] == 200
     assert rn.scenario_cards(scen, []) == []
+
+
+def test_gate_regret_finds_gates_that_stop_winners():
+    log = rn.log_drops([], [{'mint': 'A', 'pairAddress': 'PA', 'symbol': 'A', 'stage': 'curve', 'gates': ['Top 10 under 25%'], 'price': 1.0},
+                            {'mint': 'B', 'pairAddress': 'PB', 'symbol': 'B', 'stage': 'curve', 'gates': ['Top 10 under 25%'], 'price': 1.0},
+                            {'mint': 'C', 'pairAddress': 'PC', 'symbol': 'C', 'stage': 'graduated', 'gates': ['Pre-bond'], 'price': 1.0}], 0)
+    assert [e['mint'] for e in log] == ['A', 'B'] and rn.log_drops(log, [{'mint': 'A', 'stage': 'curve', 'gates': ['x'], 'price': 2}], 100) == log
+    out = rn.gate_regret(log, {'PA': 4.0, 'PB': 0.5}, 7 * 3600)
+    assert out[0]['gate'] == 'Top 10 under 25%' and out[0]['stopped'] == 2 and out[0]['ran'] == 1 and out[0]['rate'] == 50.0
