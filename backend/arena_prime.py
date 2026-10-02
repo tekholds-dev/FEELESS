@@ -30,7 +30,7 @@ MIN_STARS = 3
 HIT_PCT = 10.0      # a "good day" = the card is up ≥ +10% over 24h
 DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.10, 'floorPct': 20.0, 'slMode': 'replace'}
 SL_MODES = ('replace', 'park', 'hold')   # on a stop: auto-replace · sell + park the slot (rebuy at entry with momentum) · hold
-CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.25, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 25)}
+CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.08, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 25)}
 
 
 def exit_plan(gain_pct, mom=None):

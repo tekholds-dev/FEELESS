@@ -541,3 +541,4 @@ body.fx-lite .vd-pcard { animation: none; }
 .golive-list li { display: grid; grid-template-columns: 1fr minmax(160px, 240px) auto; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--m-line); border-radius: 10px; }
 .golive-list li.ok { border-color: color-mix(in srgb, var(--m-accent) 60%, var(--m-line)); } .golive-list li div { display: grid; gap: 2px; } .golive-list small { font-size: 11px; }
 @media (max-width: 640px) { .golive-list li { grid-template-columns: 1fr; } }
+.pl-open{cursor:pointer}.pl-open:hover{color:var(--m-accent);text-decoration:underline} .adv-cfg>summary{cursor:pointer;font:600 12px var(--m-mono)}

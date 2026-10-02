@@ -109,8 +109,8 @@ def test_day_record_counts_good_days_honestly():
 
 
 def test_cfg_ranges():
-    c = ap.clean_cfg({'rotateHours': 0.1, 'rotateCount': 9, 'sizeUsd': 5, 'compound': False, 'floorPct': 60})
-    assert c['rotateHours'] == 0.25 and c['rotateCount'] == 3 and c['sizeUsd'] == 10 and c['compound'] is False and c['floorPct'] == 25
+    c = ap.clean_cfg({'rotateHours': 0.01, 'rotateCount': 9, 'sizeUsd': 5, 'compound': False, 'floorPct': 60})
+    assert c['rotateHours'] == 0.08 and c['rotateCount'] == 3 and c['sizeUsd'] == 10 and c['compound'] is False and c['floorPct'] == 25
 
 
 def test_service_deals_ticks_and_admin_config(monkeypatch):
