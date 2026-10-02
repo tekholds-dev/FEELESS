@@ -1,3 +1,4 @@
+import pytest
 """Fee's setup memory: learns which setups win, sizes up/down, vetoes proven losers, never overreacts to luck."""
 import sys
 import time
@@ -130,3 +131,11 @@ def test_feecat_sell_is_a_true_fill_with_price_impact(monkeypatch):
     fs._close({}, cat, pos, 1.0, 'flat')                                                     # flat price: impact alone costs money
     expect = 0.99 / (1 + 0.99 * 100 / 10_000)
     assert abs(cat['realizedPnlSol'] - (expect - 0.99)) < 1e-6 and cat['realizedPnlSol'] < 0
+
+
+def test_fresh_launch_creator_rep_boosts_clean_and_drops_suspect():
+    fs = pytest.importorskip('feecat_service')
+    p = lambda m, fresh=True: {'baseToken': {'address': m}, '_fresh': fresh}
+    rej = {}
+    out = fs.creator_adjust([(1.0, 'a', p('C')), (1.0, 'b', p('S')), (1.0, 'c', p('U')), (1.0, 'd', p('S', False))], {'C': 'clean', 'S': 'suspect'}, rej)
+    assert [(round(s, 2), r) for s, r, _ in out] == [(1.25, 'a · 🧼 clean creator'), (1.0, 'c'), (1.0, 'd')] and rej == {'creator rep': 1}

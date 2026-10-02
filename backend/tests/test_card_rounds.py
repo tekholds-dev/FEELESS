@@ -48,3 +48,13 @@ def test_coin_replace_clock():
     pos = {'at': 0, 'legs': [{'pairAddress': 'P1'}, {'pairAddress': 'P2', 'at': 1000}], 'coinRotate': {'P1': 1, 'P2': 0.25}}
     assert hq.coins_not_due(pos, 1500) == {'P1', 'P2'}
     assert hq.coins_not_due(pos, 1000 + 901) == {'P1'} and hq.coins_not_due(pos, 3601 + 1000) == set()
+
+
+def test_backer_season_board_and_prize_split():
+    log = {'A': [1, 2, 3, 4], 'B': [1, 2, 3], 'C': [1], 'D': [1, 2, 3]}
+    wins = {'A': [2], 'B': [1, 2, 3], 'D': []}
+    b = hq.backer_board(log, wins, 0, 10, exclude={'X'})
+    assert [r['wallet'] for r in b] == ['B', 'A', 'D'] and 'C' not in {r['wallet'] for r in b}     # ≥3 backs to rank
+    pz = hq.backer_prizes(b, 100)
+    assert [(p['wallet'], p['usd']) for p in pz] == [('B', 50.0), ('A', 30.0)]                        # zero-win backers get nothing
+    assert hq.backer_prizes(b, 0) == []                                                              # pool off

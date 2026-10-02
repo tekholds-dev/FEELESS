@@ -82,7 +82,8 @@ const RULE_GROUPS = [
   ['⇄ SWAP MODE', 'Cards set to ⇄ swap get ONE alert to switch a weak coin. Nothing sells by itself.', [
     ['swapDropPct', 'Alert when a coin is down', '%', r => `A $20 coin slice → alert at ${m$(20 * (1 - r.swapDropPct / 100))}`]]],
   ['🏟 ARENA', 'Which trader cards get the top-tier glow on the Arena.', [
-    ['topTierPct', 'Top tier when the card is up', '+%', r => `$100 card → top tier at ${m$(100 * (1 + r.topTierPct / 100))}`]]],
+    ['topTierPct', 'Top tier when the card is up', '+%', r => `$100 card → top tier at ${m$(100 * (1 + r.topTierPct / 100))}`],
+    ['backerPoolUsd', 'Weekly top-backers prize', '$', r => (r.backerPoolUsd > 0 ? `#1 ${m$(r.backerPoolUsd * 0.5)} · #2 ${m$(r.backerPoolUsd * 0.3)} · #3 ${m$(r.backerPoolUsd * 0.2)} — paid with Fee-Back` : 'Off — backs still earn season XP')]]],
   ['🎁 FEE-BACK', 'Holders earn back part of the FEELESS fees they paid on a card. You pay it out weekly (💸 Payouts).', [
     ['fbHolderPct', 'Base share back', '%', r => `$1.00 fees → ${m$(r.fbHolderPct / 100)} back`],
     ['fbHoldHours', 'Unlocks after holding', 'h', r => `Sold before ${r.fbHoldHours}h → $0 back`],

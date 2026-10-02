@@ -287,6 +287,10 @@ export function FuseSeason() {
         {b.streak?.tier ? <StreakBadge s={b.streak} /> : <span />}
         <i className="fs-bar"><i className={b.pnlPct >= 0 ? 'up' : 'down'} style={{ transform: `scaleX(${Math.max(0.03, Math.abs(b.pnlPct || 0) / top)})` }} /></i>
         <b className={`m-num ${b.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(b.pnlPct)}</b></li>)}</ol>}
+    {s.backers && <div className="fs-backers" data-testid="season-backers"><small className="m-label">⚔ TOP BACKERS · THIS WEEK</small>
+      <em className="m-dim">{s.backers.poolUsd > 0 ? `top 3 split $${s.backers.poolUsd} (50/30/20) · paid with Fee-Back` : 'backs earn season XP'} · {s.backers.minBacks}+ backs to rank</em>
+      {s.backers.board.length ? s.backers.board.map((r, i) => <span key={r.wallet} className="fs-backer" style={{ '--i': i }}><b>{MEDAL[r.rank] || `#${r.rank}`}</b> {r.handle} <i className="m-num">{r.wins}/{r.backs} won</i></span>)
+        : <span className="m-dim">No ranked backers yet — back a side in the battlefield above.</span>}</div>}
     {s.past?.length > 0 && <div className="fs-past"><small className="m-label">PAST CHAMPIONS</small>{s.past.map(w => <span key={w.week} className="fs-champ" data-tip={w.top.map(t => `${MEDAL[t.rank]} ${t.handle || ''} ${t.name || ''} ${pc(t.pnlPct)}`).join('\n')}>
       <small>{wk(w.week)}</small>{MEDAL[1]} {w.top[0]?.handle || `${(w.top[0]?.wallet || '').slice(0, 4)}…`} <b className="m-pos">{pc(w.top[0]?.pnlPct)}</b></span>)}</div>}
   </section>;

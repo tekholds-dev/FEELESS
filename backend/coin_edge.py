@@ -14,7 +14,7 @@ def compose(mint, pulse=None, sniper=None, verify=None, intel=None, runner=None,
         intel_out['topHolders'] = intel_out['topHolders'][:10]
     run = None
     if runner:
-        run = {k: runner.get(k) for k in ('score', 'lane', 'gates', 'bondTier', 'stage', 'curve')}
+        run = {k: runner.get(k) for k in ('score', 'lane', 'gates', 'bondTier', 'stage', 'curve', 'creatorRep')}
         run['passing'] = not runner.get('gates')
         run['bond'] = [{'label': b.get('label'), 'ok': bool(b.get('ok'))} for b in runner.get('bond') or []] or None
     sig = []

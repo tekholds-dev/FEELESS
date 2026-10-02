@@ -3492,6 +3492,9 @@ async def _feeback_book():
             o = out.setdefault(x['copyOwner'], {'wallet': x['copyOwner'], 'earnedUsd': 0.0, 'cards': 0, 'copyUsd': 0.0})
             cut = _hq.copy_cut(_card_fees(x, by), rules)
             o['earnedUsd'] = round(o['earnedUsd'] + cut, 6); o['copyUsd'] = round(o['copyUsd'] + cut, 6)
+    for pz in d.get('backerPrizes') or []:   # ⚔ weekly top backers' prize share
+        o = out.setdefault(pz['wallet'], {'wallet': pz['wallet'], 'earnedUsd': 0.0, 'cards': 0, 'copyUsd': 0.0})
+        o['earnedUsd'] = round(o['earnedUsd'] + _fuse._f(pz['usd']), 6); o['backerUsd'] = round(_fuse._f(o.get('backerUsd')) + _fuse._f(pz['usd']), 6)
     paid = d.get('feebackPaid') or {}
     rows = [{**a, 'paidUsd': _fuse._f(paid.get(w)), 'owedUsd': round(max(0.0, a['earnedUsd'] - _fuse._f(paid.get(w))), 6)} for w, a in out.items()]
     return {'rows': sorted(rows, key=lambda a: -a['owedUsd'])[:200], 'owedUsd': round(sum(a['owedUsd'] for a in rows), 6), 'earnedUsd': round(sum(a['earnedUsd'] for a in rows), 6)}
@@ -3935,6 +3938,17 @@ async def _fuse_season_tick(now):
         if top:
             d.setdefault('seasons', []).append({'week': prev, 'n': len(rows), 'top': [{**t_, 'handle': handle_of(t_['wallet'])} for t_ in top]})
         _json_save(FUSE_HQ_PATH, d)
+    # ⚔ backer season: last week's top 3 backers split the Cmd Ctr prize pool (owed in the Fee-Back book → weekly payout)
+    dd = _json_load(FUSE_HQ_PATH, {})
+    prizes = _hq.backer_prizes(_hq.backer_board(dd.get('backLog'), dd.get('backWins'), prev, start, set(_protected_wallets()) | bots), _card_rules().get('backerPoolUsd', 0))
+    if prizes:
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {})
+            d['backerPrizes'] = (d.get('backerPrizes') or []) + [{**pz, 'week': prev} for pz in prizes]
+            _json_save(FUSE_HQ_PATH, d)
+        for pz in prizes:
+            notify(pz['wallet'], 'fuse-card', f"⚔ Top backer #{pz['rank']} last week — ${pz['usd']:.2f} prize, paid with the weekly Fee-Back.", url='/terminal/fuse?tab=arena',
+                   once=f"backer-{prev}-{pz['wallet']}", meta={'claim': 'Most winning battle backs that week', 'source': 'Arena battles'})
     # 🐱 FeeCat challenge: every card opened last week that beat her average trade that week
     cat = await _feecat_raw()
     cat_pct = _hq.feecat_week_pct((cat or {}).get('exits'), (cat or {}).get('positions'), prev, start) if cat else None
@@ -4077,8 +4091,12 @@ async def fuse_season():
     if _FUSE_FORCE.get():   # background only: the race ticker + top-3 alerts (viewers never trigger them)
         _season_race(start, board, now)
     season = {**QUEST_SEASON_DEFAULT, **(_json_load(QUESTS_PATH, {}).get('season') or {})}
+    hq_ = _json_load(FUSE_HQ_PATH, {})
     data = {'week': start, 'endsAt': start + _hq.WEEK, 'cards': len(rows), 'board': board, 'seasonName': season.get('name'), 'feecat': {'pct': cat_pct, 'winPts': _hq.CAT_WIN_PTS}, 'boostPct': _card_rules()['seasonBoostPct'], 'moves': list(_season_moves['list'])[-12:],
-            'past': list(reversed((_json_load(FUSE_HQ_PATH, {}).get('seasons') or [])[-4:])), 'at': now}
+            'past': list(reversed((_json_load(FUSE_HQ_PATH, {}).get('seasons') or [])[-4:])), 'at': now,
+            'backers': {'board': [{**r, 'handle': handle_of(r['wallet']) or f"{r['wallet'][:4]}…{r['wallet'][-4:]}"} for r in _hq.backer_board(
+                hq_.get('backLog'), hq_.get('backWins'), start, start + _hq.WEEK, _protected_wallets())[:5]],
+                        'poolUsd': _card_rules().get('backerPoolUsd', 0), 'split': list(_hq.BACKER_SPLIT), 'minBacks': _hq.BACKER_MIN_BACKS}}
     _fuse_season_cache.update(at=now, data=data)
     return data
 

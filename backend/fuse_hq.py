@@ -413,8 +413,8 @@ def yield_due(r, y, exit_fee=0.0):
 
 # ---- Card rules (Cmd Ctr › Fuse › Card rules): auto-profit levels, swap mode, Arena top tier, Fuse Fee-Back -----------
 CARD_RULES = {'yieldLevels': [25, 50, 100, 200], 'yieldDefault': 50, 'netFeeUsdPerLeg': 0.01, 'swapDropPct': 25, 'topTierPct': 50,
-              'fbHolderPct': 20, 'fbHoldHours': 24, 'fbLoyaltyPct': 10, 'fbLoyaltyDays': 7, 'fbArenaPct': 10, 'fbCapPct': 50, 'copyPct': 10, 'seasonBoostPct': 10}
-RULE_RANGES = {'netFeeUsdPerLeg': (0, 1), 'swapDropPct': (5, 90), 'topTierPct': (5, 1000), 'fbHolderPct': (0, 100), 'fbHoldHours': (1, 720),
+              'fbHolderPct': 20, 'fbHoldHours': 24, 'fbLoyaltyPct': 10, 'fbLoyaltyDays': 7, 'fbArenaPct': 10, 'fbCapPct': 50, 'copyPct': 10, 'seasonBoostPct': 10, 'backerPoolUsd': 0}
+RULE_RANGES = {'backerPoolUsd': (0, 1000), 'netFeeUsdPerLeg': (0, 1), 'swapDropPct': (5, 90), 'topTierPct': (5, 1000), 'fbHolderPct': (0, 100), 'fbHoldHours': (1, 720),
                'fbLoyaltyPct': (0, 100), 'fbLoyaltyDays': (1, 90), 'fbArenaPct': (0, 100), 'fbCapPct': (0, 100), 'copyPct': (0, 50), 'seasonBoostPct': (0, 100)}
 
 
@@ -869,3 +869,27 @@ def paid_lamports(tx, payer, to):
     i = names.index(to)
     pre, post = meta.get('preBalances') or [], meta.get('postBalances') or []
     return max(0, int(post[i] - pre[i])) if i < len(pre) and i < len(post) else 0
+
+
+# ⚔ Backer season: free backs earn XP all week; the top 3 backers of the week (most winning backs, ≥3 backs) split the
+# `backerPoolUsd` prize (Cmd Ctr › Card rules, 0 = off) 50 / 30 / 20 — paid with the weekly Fee-Back payout (owed in the book).
+BACKER_SPLIT = (0.5, 0.3, 0.2)
+BACKER_MIN_BACKS = 3
+
+
+def backer_board(back_log, back_wins, since, until, exclude=()):
+    rows = []
+    for w, ts in (back_log or {}).items():
+        if w in set(exclude):
+            continue
+        n = sum(1 for t in ts or [] if since <= _f(t) < until)
+        if n < BACKER_MIN_BACKS:
+            continue
+        won = sum(1 for t in (back_wins or {}).get(w) or [] if since <= _f(t) < until)
+        rows.append({'wallet': w, 'backs': n, 'wins': won, 'hit': round(won / n * 100) if n else 0})
+    rows.sort(key=lambda r: (-r['wins'], -r['hit'], -r['backs']))
+    return [{**r, 'rank': i + 1} for i, r in enumerate(rows)]
+
+
+def backer_prizes(board, pool_usd):
+    return [{'wallet': r['wallet'], 'rank': r['rank'], 'usd': round(_f(pool_usd) * BACKER_SPLIT[i], 4)} for i, r in enumerate((board or [])[:3]) if _f(pool_usd) > 0 and r['wins'] > 0]

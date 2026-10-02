@@ -40,8 +40,11 @@ export function FuseExplainer({ admin = false }) {
 // panels: [key, label, node, blurb, group] — consecutive panels with the same group sit under one rail heading. call = admin fetch (ribbon reads /admin/fuses/hq once a minute).
 const KEY = 'feeless-fuse-deck';
 const money = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0).toFixed(2)}`;
+// Overview tiles: one live number per panel where FEELESS has it (from the deck's own HQ poll — no extra requests)
+const TILE_STAT = { hq: h => (h ? money(h.book.pnlUsd) : null), pub: h => (h ? `${h.published} published` : null), lab: h => (h ? `${h.bloodline.length} in bloodline` : null),
+  arena: h => (h?.outlook?.style ? `$1 → $${h.outlook.per1.toFixed(2)}` : null) };
 export function FuseDeck({ panels, call }) {
-  const read = () => { try { return localStorage.getItem(KEY) || panels[0][0]; } catch { return panels[0][0]; } };
+  const read = () => { try { return localStorage.getItem(KEY) || 'map'; } catch { return 'map'; } };
   const [tab, setTab] = useState(read);
   const [hq, setHq] = useState(null);
   useEffect(() => {
@@ -52,6 +55,7 @@ export function FuseDeck({ panels, call }) {
   }, [call]);
   useEffect(() => { const on = e => { if (panels.some(p => p[0] === e.detail?.panel)) setTab(e.detail.panel); }; window.addEventListener('feeless:fuse-deck-go', on);
     return () => window.removeEventListener('feeless:fuse-deck-go', on); }, [panels]);
+  const isMap = tab === 'map' || !panels.some(p => p[0] === tab);
   const cur = panels.find(p => p[0] === tab) || panels[0];
   const go = k => { setTab(k); try { localStorage.setItem(KEY, k); } catch { /* private mode */ } };
   const o = hq?.outlook; const b = hq?.book;
@@ -66,11 +70,16 @@ export function FuseDeck({ panels, call }) {
       <div className="fdeck-kpi"><small>SHIELD</small><b className="m-num">{hq.blockedCuts}</b><em>self/bot cuts blocked</em></div>
     </div>}
     <div className="fdeck-main">
-      <nav className="fdeck-rail" role="tablist" aria-label="Fuse deck">{panels.map(([k, l, , blurb, group], i) => <React.Fragment key={k}>
+      <nav className="fdeck-rail is-v2" role="tablist" aria-label="Fuse deck">
+        <button type="button" role="tab" aria-selected={isMap} className={isMap ? 'active' : ''} onClick={() => go('map')} data-testid="fdeck-map"><b>🗺 Overview</b></button>
+        {panels.map(([k, l, , blurb, group], i) => <React.Fragment key={k}>
         {group && group !== panels[i - 1]?.[4] && <span className="fdeck-group">{group}</span>}
-        <button type="button" role="tab" aria-selected={cur[0] === k} className={cur[0] === k ? 'active' : ''} onClick={() => go(k)} data-testid={`fdeck-${k}`}>
-        <b>{l}</b>{blurb && <small>{blurb}</small>}</button></React.Fragment>)}</nav>
-      <div className="fdeck-body" key={cur[0]}>{cur[3] && <p className="fdeck-intro">{cur[3]}</p>}{cur[2]}</div>
+        <button type="button" role="tab" aria-selected={!isMap && cur[0] === k} className={!isMap && cur[0] === k ? 'active' : ''} onClick={() => go(k)} data-testid={`fdeck-${k}`} data-tip={blurb}>
+        <b>{l}</b></button></React.Fragment>)}</nav>
+      {isMap ? <div className="fdeck-body fdeck-map" key="map" data-testid="fdeck-overview">{[...new Set(panels.map(p => p[4]))].map(g => <section key={g || 'x'} className="fdeck-mapgroup"><span className="fdeck-group">{g}</span>
+          <div className="fdeck-tiles">{panels.filter(p => p[4] === g).map(([k, l, , blurb], i) => <button key={k} type="button" className="fdeck-tile" style={{ '--i': i }} onClick={() => go(k)} data-testid={`fdeck-tile-${k}`}>
+            <b>{l}</b>{TILE_STAT[k]?.(hq) != null && <em className="m-num">{TILE_STAT[k](hq)}</em>}<small>{blurb}</small><i aria-hidden="true">→</i></button>)}</div></section>)}</div>
+        : <div className="fdeck-body" key={cur[0]}>{cur[3] && <p className="fdeck-intro">{cur[3]}</p>}{cur[2]}</div>}
     </div>
   </section>;
 }

@@ -8,6 +8,8 @@ test('deck shows one panel at a time and remembers the tab; explainer opens', as
   const el = document.createElement('div'); document.body.appendChild(el);
   const root = createRoot(el);
   await act(async () => { root.render(<FuseDeck panels={[['lab', 'Lab', <p key="a">LAB</p>], ['hq', 'HQ', <p key="b">HQ PANEL</p>]]} />); });
+  expect(el.querySelector('[data-testid="fdeck-overview"]')).not.toBeNull(); expect(el.textContent).not.toContain('HQ PANEL');   // 🗺 Overview first
+  await act(async () => { el.querySelector('[data-testid="fdeck-tile-lab"]').click(); });
   expect(el.textContent).toContain('LAB'); expect(el.textContent).not.toContain('HQ PANEL');
   await act(async () => { el.querySelector('[data-testid="fdeck-hq"]').click(); });
   expect(el.textContent).toContain('HQ PANEL'); expect(localStorage.getItem('feeless-fuse-deck')).toBe('hq');

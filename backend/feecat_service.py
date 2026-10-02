@@ -472,6 +472,33 @@ async def _fuse_discover(http):
         return {}
 
 
+def creator_adjust(ranked, reps, rejections):
+    """Fresh launches lean on WHO made them: a clean creator (rep engine) is a better chance → score ×1.25 + cited; a suspect /
+    high-risk creator → out. Unknown creators keep their score. Only ever filters or re-ranks, never adds an entry."""
+    out = []
+    for score, reason, p in ranked:
+        rep = reps.get((p.get('baseToken') or {}).get('address')) if p.get('_fresh') else None
+        if rep in ('suspect', 'high'):
+            rejections['creator rep'] = rejections.get('creator rep', 0) + 1
+            continue
+        out.append((score * 1.25, f"{reason} · 🧼 clean creator", p) if rep == 'clean' else (score, reason, p))
+    return out
+
+
+async def _creator_check(ranked, rejections):
+    mints = [(p.get('baseToken') or {}).get('address') for _, _, p in ranked if p.get('_fresh')][:10]
+    if not mints:
+        return ranked
+    try:
+        async with httpx.AsyncClient(timeout=5) as http:
+            recs = (await http.get('http://127.0.0.1:5077/api/reputation/edge', params={'mints': ','.join(m for m in mints if m)})).json()
+        recs = recs.get('edge', recs) if isinstance(recs, dict) else {}
+        reps = {m: ((r or {}).get('runner') or {}).get('creatorRep') for m, r in recs.items() if isinstance(r, dict)}
+    except Exception:
+        reps = {}
+    return creator_adjust(ranked, reps, rejections)
+
+
 async def run_engine(store, cats):
     now = time.time()
     async with httpx.AsyncClient(timeout=10) as http:
@@ -491,6 +518,7 @@ async def run_engine(store, cats):
             ranked.append((score, reason, p))
         else:
             rejections[reason] = rejections.get(reason, 0) + 1
+    ranked = await _creator_check(ranked, rejections)
     store['scan'] = {'at': now, 'scanned': len(candidates), 'passed': len(ranked), 'rejections': rejections,
                      'top': [{'symbol': (p.get('baseToken') or {}).get('symbol'), 'reason': r, 'url': p.get('url')} for _, r, p in ranked[:5]]}
     ranked.sort(key=lambda x: -x[0])

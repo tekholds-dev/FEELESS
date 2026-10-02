@@ -484,9 +484,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   where it's listed (🏟 stage / 🥈 bench / not listed); Arena bench cards show the same v.0x.
 - Logos: `tokenImageUrls` has `KNOWN_LOGOS` (SOL, $FEE) first; every picker uses `TokenAvatar` (full fallback chain), never a bare letter.
 
+- ⚙ Per-coin user configs (card window ⚙): own TP / SL (`legGuard`) + replace clock (`coinRotate`, `fuse_hq.coins_not_due` → swap tick
+  skips) via `POST /fuses/coin-mode` (also stop mode). ✏️ Playground "Edit in Breed" (`feeless:fuse-deck-go` + `feeless:lab-load`) →
+  Lab loads coins + name + dial/configs, publish carries them. Fuse builder lives in ⚡ Engine (collapsed).
+- ⚔ Backer season (`fuse_hq.backer_board/backer_prizes`): ≥3 backs to rank, most winning backs; Card rules `backerPoolUsd` (0 = off) split
+  50/30/20 at the weekly tick → `backerPrizes` → owed in the Fee-Back book (paid with weekly payouts). Season board shows TOP BACKERS.
+- 🐱 FeeCat fresh lane reads creator rep (`creator_adjust` via `/edge` runner.creatorRep): clean ×1.25 + cited, suspect/high → out.
+- Cmd Ctr › Fuse deck v2: 🗺 Overview first (grouped live tiles → panel), compact rail (blurbs on hover).
+
 ## NEXT SESSION — continue here (in this order)
-0000. Backer season prizes (weekly top backers → share of Fuse fees via the Fee-Back payout book); FeeCat fresh lane + clean-creator boost;
-   Cmd Ctr › Fuse full dashboard layout.
+0000. Owner live test: per-coin ⚙, rounds pay/compound, buy & back, Edit in Breed → publish.
 000. Owner asks open: Cmd Ctr › Fuse FULL layout redo (fit every panel; grouped rail is there, needs a real dashboard layout);
    FeeCat fresh-launch lane + clean-creator boost (site + X already required); card buy = ONE approval for every coin (FuseGo) but the
    receipt/notice should read as ONE card buy, not "5 coins"; one combined on-chain card contract = fuse_card program (localnet, audit first).
