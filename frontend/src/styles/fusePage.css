@@ -554,3 +554,8 @@ body.fx-lite .vd-pcard { animation: none; }
 body.theme-day .pg-tile { background: var(--m-surface); }
 @media (max-width: 640px) { .pg-tiles { grid-template-columns: 1fr 1fr; } .pg-cols { grid-template-columns: 1fr; } }
 .fc-brain{display:grid;gap:6px;padding:10px;border:1px dashed var(--m-line);border-radius:12px}.fc-moved{display:flex;flex-wrap:wrap;gap:4px}.fc-log{margin:0;padding:0;list-style:none;display:grid;gap:3px;font-size:11.5px}
+.prime-round { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 100%; }
+.prime-round span { display: grid; justify-items: center; gap: 1px; padding: 6px; border-radius: 8px; border: 1px solid var(--m-line); }
+.prime-round small { font: 8.5px var(--m-mono); letter-spacing: .1em; color: var(--m-dim); } .prime-round b { font-size: 16px; }
+.prime-crown { font: 800 10px var(--m-mono); letter-spacing: .12em; color: #ffd56a; padding: 2px 8px; border-radius: 999px; border: 1px solid #ffd56a; animation: mCardIn .3s var(--m-ease); }
+body.theme-day .prime-round span { background: var(--m-surface); }

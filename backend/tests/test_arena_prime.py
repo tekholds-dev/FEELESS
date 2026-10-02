@@ -168,3 +168,14 @@ def test_service_tags_arena_coins_for_rotation(monkeypatch):
     pools, runners, _ = asyncio.run(rs._prime_candidates())
     assert {p['mint']: p.get('arena', False) for p in pools} == {'A': False, 'B': True}            # B is on a stage card
     assert [r['mint'] for r in ap.rated(runners, 'runner')] == ['R1', 'R2']                     # round pick before a higher score
+
+
+def test_rounds_count_and_the_best_card_of_each_round_is_crowned():
+    cfg = ap.clean_cfg({'rotateHours': 1})
+    a = ap.deal('balanced', [P('a', 1)], [R('r1', 1)], cfg, 0, SOL); b = ap.deal('degen', [P('a', 1)], [R('r1', 1)], cfg, 0, SOL)
+    up = {'Psol': 1.1, 'Pjito': 1.1, 'Pa': 1.1, 'Pr1': 1.1}; flat = {'Psol': 1, 'Pjito': 1, 'Pa': 1, 'Pr1': 1}
+    a2 = ap.tick(a, up, [], [], cfg, 3601, SOL); b2 = ap.tick(b, flat, [], [], cfg, 3601, SOL)
+    assert a2['rounds'] == 1 and a2['lastRoundPct'] > b2['lastRoundPct']
+    cards = {'balanced': a2, 'degen': b2}
+    assert ap.crown_round(cards) == a2['id'] and cards['balanced']['roundWins'] == 1
+    assert ap.crown_round(cards) is None                                                   # crowned once per round

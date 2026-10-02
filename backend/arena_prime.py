@@ -240,6 +240,11 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None):
             c['legs'][c['legs'].index(l)] = _leg(nxt, usd, now, l['role']); c['feesUsd'] += 2 * fee; swapped += 1
             ev(kind='rotate', symbol=l['symbol'], usd=round(usd, 4), why=f"weakest after {cfg['rotateHours']}h", to=[nxt.get('symbol')])
         c['lastRotateAt'] = now
+        # one ROUND per rotation: log this round's move, start the next one from today's value
+        v_now = value(c, prices)
+        c['rounds'] = int(c.get('rounds') or 0) + 1
+        c['lastRoundPct'] = round((v_now / (_f(c.get('roundStartUsd')) or _f(c['startUsd']) or 1) - 1) * 100, 2)
+        c['roundStartUsd'] = round(v_now, 4); c['roundCrowned'] = False
     # 4) idle cash goes back to work when compounding
     if cfg['compound'] and c['cash'] > 0.01 and c['legs']:
         each = c['cash'] / len(c['legs'])
@@ -282,7 +287,8 @@ def summary(card, prices):
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,
              'usd': round(l['units'] * (_f(prices.get(l['pairAddress'])) or l['entry']), 4)} for l in card['legs']]
     return {**{k: card[k] for k in ('id', 'tpl', 'label', 'at', 'lastRotateAt', 'compoundedUsd', 'takenUsd', 'feesUsd', 'startUsd')}, 'cash': round(card['cash'], 4),
-            'flooredAt': card.get('flooredAt'),
+            'flooredAt': card.get('flooredAt'), 'rounds': int(card.get('rounds') or 0), 'lastRoundPct': card.get('lastRoundPct'),
+            'roundPct': round((v / (_f(card.get('roundStartUsd')) or start) - 1) * 100, 2), 'roundWins': int(card.get('roundWins') or 0),
             'valueUsd': v, 'pnlPct': round((v / start - 1) * 100, 2), 'legs': legs, 'events': card['events'][-12:][::-1],
             'tp': TEMPLATES[card['tpl']]['tp'], 'sl': TEMPLATES[card['tpl']]['sl'], 'tier': TEMPLATES[card['tpl']]['tier'], 'why': TEMPLATES[card['tpl']].get('why'),
             'parked': list((card.get('parked') or {}).values()),
@@ -312,3 +318,17 @@ def replace_leg(card, pair, prices, pools, runners, anchors, cfg, now):
     c['feesUsd'] = round(_f(c['feesUsd']) + 2 * cfg['paperFeeUsd'], 4)
     c['events'].append({'at': now, 'kind': 'rotate', 'symbol': l['symbol'], 'usd': round(usd, 4), 'why': 'replaced from Cmd Ctr', 'to': [nxt.get('symbol')]})
     return c
+
+
+def crown_round(cards):
+    """🏆 The finished round's best card (highest lastRoundPct, must be > 0) gets a round win. Mutates + returns the winner id."""
+    done = [c for c in cards.values() if c.get('lastRoundPct') is not None and not c.get('roundCrowned')]
+    if not done:
+        return None
+    best = max(done, key=lambda c: c['lastRoundPct'])
+    for c in done:
+        c['roundCrowned'] = True
+    if best['lastRoundPct'] > 0:
+        best['roundWins'] = int(best.get('roundWins') or 0) + 1
+        return best['id']
+    return None

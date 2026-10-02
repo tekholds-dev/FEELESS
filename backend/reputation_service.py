@@ -4730,8 +4730,12 @@ async def _prime_tick(now):
         cur = cards.get(tid)
         cards[tid] = _prime.tick(cur, px, pools, runners, cfg, now, anchors, mom) if cur else _prime.deal(tid, pools, runners, cfg, now, anchors)
     cards = {k: v for k, v in cards.items() if v}
+    win = _prime.crown_round(cards)
     async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); d.setdefault('prime', {})['cards'] = cards; _json_save(FUSE_HQ_PATH, d)
+        d = _json_load(FUSE_HQ_PATH, {}); d.setdefault('prime', {})['cards'] = cards
+        if win:
+            d['prime']['roundWinner'] = {'id': win, 'at': now}
+        _json_save(FUSE_HQ_PATH, d)
     return len(cards)
 
 
@@ -4746,7 +4750,7 @@ async def _prime_view():
 @app.get('/api/reputation/fuses/prime')
 async def fuse_prime():
     """⭐ Arena Prime cards (paper, fully auto) with every automation event + the config they run."""
-    return {'cards': await _prime_view(), 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES}
+    return {'cards': await _prime_view(), 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner')}
 
 
 @app.post('/api/reputation/admin/arena/prime')
