@@ -59,8 +59,29 @@ const PROGRAMS = [
       ['Audited venue adapter (Raydium CPMM) + TWAP / oracle bound', false], ['Devnet run → external audit → owner deploy (multisig)', false]],
     'cargo test -p fuse_card --lib && anchor test --skip-local-validator'],
 ];
-export function ContractStatus() {
-  return <section className="m-card fops" data-testid="contract-status">
+// ⛓ Go-live checklist: every gate between localnet and real money, recorded by the owner with proof. READY only when all pass.
+const GOLIVE = [['adapter', '1 · Real exchange adapter', 'Raydium CPMM adapter replaces the mock exchange (same constant-product math), wired as config.swap_program.', 'PR / commit link'],
+  ['twap', '2 · Time-averaged price check', 'TWAP / oracle bound next to the spot check — spot reserves can be pushed inside one transaction.', 'PR / commit link'],
+  ['devnet', '3 · Devnet run', 'Full card life on devnet with real pools: open, deposit, TP sell, park + rebuy, withdraw, close.', 'devnet tx / explorer link'],
+  ['audit', '4 · External audit', 'An independent auditor reviews fuse_card + the adapter; every finding fixed or accepted in writing.', 'audit report link'],
+  ['multisig', '5 · Multisig + caps', 'Upgrade authority on a multisig, small per-card caps for launch, keeper key in an HSM.', 'multisig address']];
+export function GoLiveChecklist({ call }) {
+  const [g, setG] = useState(null); const [proof, setProof] = useState({});
+  useEffect(() => { call?.('/admin/contract/golive').then(setG).catch(() => {}); }, [call]);
+  if (!call || !g) return null;
+  const set = (step, done) => call('/admin/contract/golive', { method: 'POST', body: JSON.stringify({ step, done, proof: proof[step] ?? g.steps[step]?.proof ?? '' }) })
+    .then(x => { setG(x); toast.success(done ? 'Gate marked passed' : 'Gate reopened'); }).catch(e => toast.error(e.message));
+  return <section className={`m-card fops golive ${g.ready ? 'is-ready' : ''}`} data-testid="golive"><div className="m-row"><span className="m-label">🚦 REAL-MONEY GO-LIVE</span>
+    <b className={g.ready ? 'm-pos' : 'm-neg'} data-testid="golive-verdict">{g.ready ? '✓ READY for a capped mainnet launch' : `NOT READY · ${GOLIVE.filter(([k]) => !g.steps[k]?.done).length} gates open`}</b></div>
+    <ol className="golive-list">{GOLIVE.map(([k, t, why, ph]) => { const st = g.steps[k] || {}; return <li key={k} className={st.done ? 'ok' : ''}>
+      <div><b>{st.done ? '✓' : '⏳'} {t}</b><small className="m-dim">{why}</small></div>
+      <input className="m-input" placeholder={ph} value={proof[k] ?? st.proof ?? ''} onChange={e => setProof(p => ({ ...p, [k]: e.target.value }))} aria-label={`${t} proof`} />
+      <button type="button" className={`m-btn ${st.done ? '' : 'primary'}`} onClick={() => set(k, !st.done)} data-testid={`golive-${k}`}>{st.done ? 'Reopen' : 'Mark passed'}</button></li>; })}</ol>
+    <small className="m-dim">Only the creator wallet can mark a gate passed (audited). Workaround until then: real-money tests run through normal one-click Fuse cards — your wallet signs every trade.</small></section>;
+}
+
+export function ContractStatus({ call }) {
+  return <section className="m-card fops" data-testid="contract-status"><GoLiveChecklist call={call} />
     <div className="m-note warn"><b>LOCALNET ONLY · NOT AUDITED · NOT DEPLOYED</b><span>Nothing here can hold real money. Order of work: adapters → devnet run → external audit → deploy with the owner's keys + a multisig upgrade authority.</span></div>
     <div className="fops-cols">{PROGRAMS.map(([id, name, what, steps, cmd]) => <div key={id} className="fops-box"><header><b>⛓ {name}</b><code>contracts/fuse_vault/programs/{id}</code></header>
       <p className="m-dim fops-what">{what}</p>

@@ -6144,6 +6144,34 @@ async def admin_guard_decide(payload: GuardDecision, request: Request):
         d = _admin_load(); _audit(d, admin, f'guard-{payload.action}', payload.ip.strip()); _admin_save(d)
     return _guard.view(_guard_s())
 
+
+# ⛓ Contract go-live checklist (Cmd Ctr › Fuse › Contract): the owner records each real-money gate; READY only when all pass.
+GOLIVE_STEPS = ('adapter', 'twap', 'devnet', 'audit', 'multisig')
+
+
+@app.get('/api/reputation/admin/contract/golive')
+async def contract_golive(request: Request):
+    _require_admin(request)
+    g = _admin_load().get('golive') or {}
+    return {'steps': {k: g.get(k) or {} for k in GOLIVE_STEPS}, 'ready': all((g.get(k) or {}).get('done') for k in GOLIVE_STEPS)}
+
+
+@app.post('/api/reputation/admin/contract/golive')
+async def contract_golive_set(request: Request):
+    admin = _require_owner(request)   # only the creator wallet can mark a real-money gate passed
+    body = await request.json()
+    step = str(body.get('step') or '')
+    if step not in GOLIVE_STEPS:
+        raise HTTPException(400, 'Unknown step.')
+    proof = str(body.get('proof') or '')[:200]
+    done = bool(body.get('done'))
+    if done and step in ('devnet', 'audit', 'multisig') and not proof:
+        raise HTTPException(400, 'Add the proof (tx / report link / multisig address) before marking this passed.')
+    async with _admin_lock:
+        d = _admin_load(); d.setdefault('golive', {})[step] = {'done': done, 'proof': proof, 'at': time.time(), 'by': admin}
+        _audit(d, admin, 'contract-golive', f'{step} → {"passed" if done else "open"} {proof[:60]}'); _admin_save(d)
+    return await contract_golive(request)
+
 BADGE_CATALOG = [
     {'id': 'fee-holder', 'label': '$FEE Holder', 'icon': '🌿', 'tone': 'mint', 'tier': 1, 'how': 'Hold at least $1 of $FEE in your wallet.'},
     {'id': 'feecat-holder', 'label': 'FEECAT Holder', 'icon': '🐱', 'tone': 'mint', 'tier': 1, 'how': 'Hold at least $1 of FEECAT.'},

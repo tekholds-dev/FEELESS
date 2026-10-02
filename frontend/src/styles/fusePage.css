@@ -536,3 +536,8 @@ body.theme-day .vd-pcard { background: var(--m-surface); }
 body.fx-lite .vd-pcard { animation: none; }
 @media (prefers-reduced-motion: reduce) { .vd-pcard { animation: none; transition: none; } }
 @media (max-width: 640px) { .vd-pre { grid-template-columns: 1fr 1fr; } }
+.golive { display: grid; gap: 8px; } .golive.is-ready { border-color: var(--m-accent); }
+.golive-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.golive-list li { display: grid; grid-template-columns: 1fr minmax(160px, 240px) auto; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--m-line); border-radius: 10px; }
+.golive-list li.ok { border-color: color-mix(in srgb, var(--m-accent) 60%, var(--m-line)); } .golive-list li div { display: grid; gap: 2px; } .golive-list small { font-size: 11px; }
+@media (max-width: 640px) { .golive-list li { grid-template-columns: 1fr; } }

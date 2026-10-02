@@ -127,3 +127,19 @@ def test_command_center_sign_in_with_a_real_wallet_signature(monkeypatch):
         with pytest.raises(rs.HTTPException) as e:
             rs._require_admin(req)
         assert e.value.status_code == code
+
+
+def test_contract_golive_checklist_needs_owner_and_proof(monkeypatch):
+    import asyncio
+    rs = pytest.importorskip('reputation_service')
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'OWNER'); monkeypatch.setattr(rs, '_require_owner', lambda r: 'OWNER')
+
+    class Rq:
+        def __init__(self, b): self.b = b
+        async def json(self): return self.b
+    assert asyncio.run(rs.contract_golive(None))['ready'] is False
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.contract_golive_set(Rq({'step': 'audit', 'done': True})))            # no proof → refused
+    for st in rs.GOLIVE_STEPS:
+        out = asyncio.run(rs.contract_golive_set(Rq({'step': st, 'done': True, 'proof': f'https://proof/{st}'})))
+    assert out['ready'] is True and rs._admin_load()['audit'][-1]['action'] == 'contract-golive'

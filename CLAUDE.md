@@ -390,6 +390,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🛡 Guard (`backend/guard.py`, tested): write floods → 429 breather; Cmd Ctr sign-in brute force → that IP's admin cools 15 min;
   suspects + evidence wait in Cmd Ctr › Security (`GuardPanel`) — NO auto-blocks, every block/lift is an audited admin approval.
   XFF only behind our proxy (`FEELESS_TRUST_PROXY=1`, rightmost hop). Internal/private IPs never limited.
+- Lab preview: a picked runner that just failed a gate is SKIPPED + unticked with its reason (`droppedRunners`), never an
+  error wall; fresh grads are addable. Quick trade shows ≈ $ under You get / Min received.
 - Guard also runs on `server.py` (5001, trading); every service's CORS reads `ALLOWED_ORIGINS` — SET IT to the real domain
   before launch (default '*' is flagged in Cmd Ctr › Security). Settings › Reduce motion stops every animation (tips.css).
   Day theme: `.m-pos/.m-neg/.up/.down` deep green/red outside card faces. Chat hides calls on dead/rugged coins (`deadCall`).
@@ -447,7 +449,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 0. Cmd Ctr › Fee 🐱: FeeCat builds + learns Fuse — she breeds her own card from `crowd` elite flow + runner/Prime proof,
    shows what she learned (setup memory tags `fuse`/`crowd`, dial proof) and proposes engine tweaks (admin Apply, audited).
    Prime ⇄ coin / 🃏 re-deal per tier already live (`arena_prime.replace_leg`, `POST /admin/arena/prime {replace|redeal}`).
-0a. FUSE Card v0.2 BUILT (localnet, 14 tests): keeper_sell / keeper_buy / withdraw_quote, on-chain triggers from pool reserves,
+0a. 🚦 Cmd Ctr › Fuse › Contract has the REAL-MONEY GO-LIVE checklist (`GOLIVE_STEPS` adapter · twap · devnet · audit ·
+   multisig; owner-only, proof required for devnet/audit/multisig, audited; READY only when all pass). Build next: the
+   Raydium CPMM adapter + TWAP bound, then the devnet run.
+   FUSE Card v0.2 BUILT (localnet, 14 tests): keeper_sell / keeper_buy / withdraw_quote, on-chain triggers from pool reserves,
    whitelisted `swap_program`, ≤3% slippage cap + balance diff, sl_mode payout/park/hold, compound cash only into card coins,
    `programs/mock_amm` (TEST ONLY). NEXT: Raydium CPMM adapter + TWAP/oracle bound → devnet → audit → owner deploy.
    (old plan:) (1) swap adapter = Jupiter CPI from the card PDA with
