@@ -139,3 +139,15 @@ def test_cmd_ctr_replaces_one_coin_with_best_same_role():
     import pytest
     with pytest.raises(ValueError):
         ap.replace_leg(card, 'Pnope', {}, [], [], [], CFG, 10)
+
+
+def test_floored_card_redeals_after_the_cmd_ctr_delay():
+    cfg = ap.clean_cfg({'redealHours': 1})
+    card = ap.deal('balanced', [P('a', 1)], [R('r1', 1)], cfg, 0, SOL)
+    out = ap.tick(card, {'Psol': 0.78, 'Pjito': 0.78, 'Pa': 0.78, 'Pr1': 0.78}, [], [], cfg, 60, SOL)
+    assert out.get('flooredAt') == 60
+    early = ap.tick(out, {'Psol': 1, 'Pjito': 1, 'Pc': 1}, [P('c', 1)], [], cfg, 60 + 1800, SOL)
+    assert early.get('flooredAt')                                                         # 30 min: still waiting
+    later = ap.tick(out, {'Psol': 1, 'Pjito': 1, 'Pc': 1}, [P('c', 1)], [], cfg, 60 + 3601, SOL)
+    assert not later.get('flooredAt') and later['runs']                                   # 1h: re-dealt as a new run
+    assert ap.clean_cfg({'redealHours': 500})['redealHours'] == 72

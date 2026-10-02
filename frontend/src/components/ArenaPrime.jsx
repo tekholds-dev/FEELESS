@@ -21,7 +21,7 @@ const TIER = {
   ever: { aura: 'aurora', name: 'EVERLASTING', look: { design: 'circuit', rarity: 'legendary', accent: '#19f58f', accent2: '#6ad7ff' } },
 };
 // Cmd Ctr ⚡ meta config: the settings the Arena proof backs today (hourly rotation of 1 coin, −15% floor, compound on, park & rebuy).
-export const PRIME_META = { rotateHours: 1, rotateCount: 1, floorPct: 15, compound: true, slMode: 'park' };
+export const PRIME_META = { rotateHours: 1, rotateCount: 1, floorPct: 15, compound: true, slMode: 'park', redealHours: 6 };
 export const primeRow = c => ({ id: c.id, name: c.label, closed: false, costUsd: c.startUsd, valueUsd: c.valueUsd, realizedUsd: c.takenUsd || 0,
   baseUsd: c.startUsd, extraUsd: (c.cash || 0) + (c.parked || []).reduce((a, p) => a + (p.usd || 0), 0),
   pnlUsd: c.valueUsd - c.startUsd, pnlPct: c.pnlPct,
@@ -59,7 +59,7 @@ export function ArenaPrime({ onLoad }) {
         {c.floored && <span className="prime-floored" data-tip="Floored: holding the anchor until tomorrow's fresh deal">🛡 FLOORED</span>}</div>
       <div className="prime-stats"><span data-tip="Value now vs the start, fees not included"><small>P&L</small><b className={`m-num ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{c.pnlPct >= 0 ? '+' : ''}{c.pnlPct.toFixed(1)}%</b></span>
         <span data-tip="Gains from auto take-profits rolled back into the card"><small>COMPOUNDED</small><b className="m-num">${c.compoundedUsd.toFixed(2)}</b></span>
-        {c.floored ? <span data-tip="Floored: everything sits in the anchor; the card is re-dealt fresh 24h after the floor hit"><small>ROTATION</small><b className="m-num">re-deal 24h</b></span>
+        {c.floored ? <span data-tip={`Floored: everything sits in the anchor; re-dealt ${d.cfg.redealHours ?? 24}h after the floor hit (Cmd Ctr › Arena › Re-deal after)`}><small>ROTATION</small><b className="m-num">re-deal {d.cfg.redealHours ?? 24}h</b></span>
         : <span data-tip="Next auto-rotation of the weakest coins"><small>ROTATES IN</small><b className="m-num"><Countdown at={c.lastRotateAt + d.cfg.rotateHours * 3600} /></b></span>}</div>
       <div className="prime-acts"><button type="button" className="m-btn" onClick={() => setOpen(open === c.id ? null : c.id)} data-testid={`prime-earn-${c.tpl}`}>🪟 Open card · profit trail</button>
         <button type="button" className="m-btn primary m-go" onClick={() => { onLoad?.(c.legs.map(l => ({ chainId: 'solana', pairAddress: l.pairAddress, symbol: l.symbol, baseAddress: l.mint, runner: l.role === 'runner', role: l.role }))); toast.success(`${c.label} loaded into the Lab — you approve the buy`); }} data-testid={`prime-buy-${c.tpl}`}>⚡ Buy now</button></div>
@@ -88,7 +88,8 @@ export function PrimeControls({ call }) {
       <label className="prime-min" data-tip="Any interval: 15 min – 48 h. The weakest non-anchor coins rotate out on this clock."><input className="m-input m-num" inputMode="numeric" value={mins} onChange={e => setMins(e.target.value.replace(/[^0-9]/g, ''))}
         onBlur={() => Number(mins) >= 15 && Number(mins) !== Math.round(cfg.rotateHours * 60) && save({ rotateHours: Math.min(48, Number(mins) / 60) })} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} data-testid="prime-rotate-min" /><span>min</span></label>{null}
       <span>Coins per rotation</span>{seg('rotateCount', [1, 2, 3], v => `${v}`)}
-      <span data-tip="Card-level floor: at this loss every pool + runner moves into the anchor (re-dealt next day as a new run)">Floor</span>{seg('floorPct', [10, 15, 20, 25], v => `−${v}%`)}
+      <span data-tip="Card-level floor: at this loss every pool + runner moves into the anchor, then the card is re-dealt as a new run">Floor</span>{seg('floorPct', [10, 15, 20, 25], v => `−${v}%`)}
+      <span data-tip="How long a floored card waits in its anchor before it's re-dealt with fresh 3★+ coins (each re-deal starts a new run; past runs stay on its record)">Re-deal after</span>{seg('redealHours', [1, 6, 24], v => `${v}h`)}
       <label className="m-toggle"><input type="checkbox" checked={cfg.compound} onChange={e => save({ compound: e.target.checked })} /><span>Auto-compound gains</span></label>
       <span data-tip="What a stop does: ⇄ swap the coin for the best gated one · 🅿 sell to SOL, keep the slot, buy back at entry with momentum · ❄ never sell on a stop (the floor still protects)">On stop</span>{seg('slMode', ['replace', 'park', 'hold'], v => ({ replace: '⇄ Replace', park: '🅿 Park & rebuy', hold: '❄ Hold' }[v]))}</div>
     <div className="m-row"><button type="button" className="m-btn primary m-go" onClick={() => save(PRIME_META)} data-testid="prime-meta" data-tip="Hourly rotation of 1 coin · −15% floor · compound on · park & rebuy on stops">⚡ Apply meta config</button>

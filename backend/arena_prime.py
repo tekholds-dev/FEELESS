@@ -28,9 +28,9 @@ TEMPLATES = {   # anchors / pools / runners per card + the dial it runs
 }
 MIN_STARS = 3
 HIT_PCT = 10.0      # a "good day" = the card is up ≥ +10% over 24h
-DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.10, 'floorPct': 20.0, 'slMode': 'replace'}
+DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.10, 'floorPct': 20.0, 'slMode': 'replace', 'redealHours': 24.0}
 SL_MODES = ('replace', 'park', 'hold')   # on a stop: auto-replace · sell + park the slot (rebuy at entry with momentum) · hold
-CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.25, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 25)}
+CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.25, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 25), 'redealHours': (0.25, 72)}
 
 
 def exit_plan(gain_pct, mom=None):
@@ -156,7 +156,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None):
     c.setdefault('dayAt', c['at']); c.setdefault('dayStartUsd', c['startUsd']); c.setdefault('days', []); c.setdefault('lowPct', 0.0)
 
     # 0) a floored card sits in its anchor (cash-like) until the next day, then is re-dealt fresh at its current value
-    if c.get('flooredAt') and now - c['flooredAt'] >= 86400:
+    if c.get('flooredAt') and now - c['flooredAt'] >= cfg.get('redealHours', 24) * 3600:   # Cmd Ctr › Arena › Re-deal after
         v0 = value(c, prices)
         keep = {k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}
         # a NEW run starts at today's value (its own −floor); the ended run is kept on the record, never hidden
