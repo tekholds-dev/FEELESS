@@ -498,6 +498,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
    on 5-min rounds (`battle_seats` style, paper = real fills), winner's config kept / loser re-bred; auto-swap a coin on TP or when it
    goes dead (no txns / volume for N min). (c) FeeCat pages full rundown (Cat detail: P/L trace, owner controls, withdraw, access —
    `FeeCatsPlatform` CatDetail) to the `.fc-v2` meta look.
+   (d) Lab: Card plan as a BIG side card left of the coin list (all configs in one view: risk, reshuffle, stop mode, per-coin TP/SL).
    Then: owner live test of per-coin ⚙, rounds pay/compound, buy & back, Edit in Breed → publish.
 000. Owner asks open: Cmd Ctr › Fuse FULL layout redo (fit every panel; grouped rail is there, needs a real dashboard layout);
    FeeCat fresh-launch lane + clean-creator boost (site + X already required); card buy = ONE approval for every coin (FuseGo) but the
