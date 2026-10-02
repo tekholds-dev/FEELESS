@@ -43,3 +43,8 @@ body.theme-day .gd-sus, body.theme-day .gd-rules span { background: var(--m-surf
 /* ⚙ Settings › Reduce motion = EVERY animation on the site stops (newer FX sheets only listened to the OS setting). */
 body.reduced-motion-setting *, body.reduced-motion-setting *::before, body.reduced-motion-setting *::after {
   animation-duration: .001ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+
+/* ☀ Day theme: neon up/down numbers are unreadable on light surfaces — deep green / deep red sitewide (card faces stay art). */
+body.theme-day .m-pos:not(.mc-face *), body.theme-day .up:not(.mc-face *) { color: #0a7d4b; }
+body.theme-day .m-neg:not(.mc-face *), body.theme-day .down:not(.mc-face *) { color: #c0304d; }
+body.theme-day .primary-action small { color: inherit; opacity: .78; }   /* the sub-label sat dark-on-dark */
