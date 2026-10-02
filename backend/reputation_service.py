@@ -3148,10 +3148,11 @@ async def _fuse_swap_tick(d, now):
         if not s:
             continue
         n += 1
-        await _spend_round(x, f"swap-{int(now // _hq.ROTATE_EVERY)}")
+        win = int(now // (_hq.rotate_hours(x.get('rotateHours')) * 3600))   # the card's own clock (5m … 24h)
+        await _spend_round(x, f"swap-{win}")
         notify(x['wallet'], 'fuse-guard', f"⇄ {x.get('name') or 'Your Fuse card'}: ${s['out']['symbol']} {s['why']} — swap it for ${s['in']['symbol']} (gated runner, score {round(_fuse._f(s['in'].get('score')))}). One approval.",
                url=f"/terminal/fuse?tab=cards&switch={x['id']}&out={s['out']['pairAddress']}&in={s['in']['mint']}&sym={s['in']['symbol']}&pair={s['in'].get('pairAddress') or ''}",
-               once=f"swap-{x['id']}-{int(now // _hq.ROTATE_EVERY)}", meta={'claim': s['why'], 'source': 'Runner gates + Fuse P&L (live prices)'})
+               once=f"swap-{x['id']}-{win}", meta={'claim': s['why'], 'source': 'Runner gates + Fuse P&L (live prices)'})
     return n
 
 
@@ -3225,7 +3226,7 @@ async def _fuse_leg_tick(d, now):
     fired = []
     for x in lg:
         for leg, kind, pct in _hq.leg_limit_hits(_hq.position_pnl(x, px), x['legGuard']):
-            if kind == 'sl' and x.get('slMode') == 'hold':   # ❄ hold: the owner chose no stop alerts on this card
+            if kind == 'sl' and _hq.coin_sl_mode(x, leg['pairAddress']) == 'hold':   # ❄ hold: no stop alerts (card or this coin)
                 continue
             fired.append((x, leg, kind, pct))
     if not fired:
@@ -3233,7 +3234,7 @@ async def _fuse_leg_tick(d, now):
     async with _admin_lock:
         d2 = _json_load(FUSE_HQ_PATH, {})
         ids = {(x['id'], leg['pairAddress']) for x, leg, _, _ in fired}
-        parks = {(x['id'], leg['pairAddress']): leg for x, leg, kind, _ in fired if kind == 'sl' and x.get('slMode') == 'park'}
+        parks = {(x['id'], leg['pairAddress']): leg for x, leg, kind, _ in fired if kind == 'sl' and _hq.coin_sl_mode(x, leg['pairAddress']) == 'park'}
         for x in d2.get('positions') or []:
             for pa, g in (x.get('legGuard') or {}).items():
                 if (x['id'], pa) in ids:
@@ -3723,6 +3724,37 @@ async def fuse_freeze(p: FuseFreezeIn):
         _json_save(FUSE_HQ_PATH, d)
     return {'ok': True, 'frozen': fz}
 
+class CoinModeIn(BaseModel):
+    address: str
+    session: str
+    id: str
+    pairAddress: str = Field(..., max_length=64)
+    slMode: str = Field(..., max_length=8)   # sell | park | hold | card (= follow the card)
+
+
+@app.post('/api/reputation/fuses/coin-mode')
+async def fuse_coin_mode(p: CoinModeIn):
+    """Per-coin stop mode on YOUR card: ✂ sell · 🅿 park (sell to SOL, one-tap buy-back when it's back with buyers) · ❄ hold —
+    or 'card' to follow the card's setting. Pairs with ❄ freeze (engine hands off the coin)."""
+    me = _session_or_401(p.address, p.session)
+    mine = set(linked_of(me)) | {me}
+    if p.slMode not in (*_hq.SL_MODES, 'card'):
+        raise HTTPException(400, 'slMode must be sell, park, hold or card.')
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {})
+        pos = next((x for x in d.get('positions') or [] if x['id'] == p.id and x['wallet'] in mine and not x.get('closedAt')), None)
+        if not pos:
+            raise HTTPException(404, 'No open Fuse card with that id for this wallet.')
+        if not any(leg['pairAddress'] == p.pairAddress and leg.get('soldUsd') is None for leg in pos['legs']):
+            raise HTTPException(400, 'That coin is not open on this card.')
+        cm = {k: v for k, v in (pos.get('coinModes') or {}).items() if k != p.pairAddress}
+        if p.slMode != 'card':
+            cm[p.pairAddress] = p.slMode
+        pos['coinModes'] = cm
+        _json_save(FUSE_HQ_PATH, d)
+    return {'ok': True, 'coinModes': cm}
+
+
 @app.get('/api/reputation/fuses/limits/{address}')
 async def fuse_limits(address: str):
     """How many Fuse cards this wallet may hold open: 2, or 3 with ≥ $200 of $FEE. Each card: 3 pools + 3 runners."""
@@ -3765,7 +3797,7 @@ async def fuse_pnl(address: str):
     by, rules, now = _ledger_by_sig(), _card_rules(), time.time()
     hot = {c['id'] for c in (_arena_mega_cache.get('data') or []) if c.get('kind') == 'user' and c['activity']['tier'] in ('hot', 'blazing')}
     wins = _season_wins()
-    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold', 'nextSwitchAt': _hq.next_switch_at(x), 'rotateHours': x.get('rotateHours') or 24, 'slMode': x.get('slMode') or 'sell',
+    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold', 'nextSwitchAt': _hq.next_switch_at(x), 'rotateHours': x.get('rotateHours') or 24, 'slMode': x.get('slMode') or 'sell', 'coinModes': x.get('coinModes') or {},
                   'roundsLeft': _hq.rounds_left(x, _is_staff(x['wallet'])), 'roundsUsed': x.get('roundsUsed') or 0, 'roundsOwedUsd': x.get('roundsOwedUsd') or 0, 'parked': x.get('parked') or {}, 'risk': x.get('risk') or 'custom',
                     'onProfit': x.get('onProfit') or 'collect', 'legGuard': x.get('legGuard') or {},
                     'feeback': _hq.card_feeback(_card_fees(x, by), (x.get('closedAt') or now) - _fuse._f(x.get('at')), x['id'] in hot, rules, x['id'] in wins), 'onArena': x['id'] in hot,
@@ -4958,7 +4990,18 @@ async def fuse_prime_admin(request: Request):
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)
-    ad = _admin_load(); _audit(ad, admin, 'arena-prime', json.dumps(pr['cfg'])[:160] + (' reset' if body.get('reset') else '')); _admin_save(ad)
+    lg = body.get('leg') or {}
+    if lg.get('tpl') in _prime.TEMPLATES and lg.get('pairAddress'):   # ❄ freeze / own stop mode for one coin on one tier card
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
+            if not cards.get(lg['tpl']):
+                raise HTTPException(404, 'No card for that tier yet.')
+            try:
+                cards[lg['tpl']] = _prime.set_leg(cards[lg['tpl']], lg['pairAddress'], lg.get('frozen'), lg.get('slMode'))
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            _json_save(FUSE_HQ_PATH, d)
+    ad = _admin_load(); _audit(ad, admin, 'arena-prime', json.dumps(pr['cfg'])[:120] + (' reset' if body.get('reset') else '') + (f" leg {json.dumps(lg)[:60]}" if lg else '')); _admin_save(ad)
     if body.get('reset') or body.get('redeal'):
         await _prime_tick(time.time())
     return {'cfg': pr['cfg'], 'cards': await _prime_view()}

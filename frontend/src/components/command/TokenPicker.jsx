@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { ChevronDown, Lock, Search } from 'lucide-react';
+import { TokenAvatar } from '../terminal/MarketPrimitives';
 
 // Swap desk executes on Solana only; other networks are shown but locked so nobody picks a
 // token the router can't actually fill. EVM trades live in the Trade Desk (LI.FI).
@@ -33,7 +34,8 @@ export function TokenPicker({ label, value, options, onChange, onPickRemote, onN
     return () => { alive = false; clearTimeout(t); };
   }, [q, open, onPickRemote]);
   const money = v => (v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v)}`);
-  const avatar = o => (o?.icon ? <img className="tkp-av" src={o.icon} alt="" /> : <span className="tkp-av">{o?.symbol?.slice(0, 1)}</span>);
+  // logo chain: the option's icon → FEELESS logo cache → DexScreener CDN → coin glyph (TokenAvatar); never a bare letter
+  const avatar = o => <span className="tkp-av"><TokenAvatar pair={{ chainId: o?.chainId || 'solana', baseToken: { address: o?.mint, symbol: o?.symbol }, info: { imageUrl: o?.icon || null } }} size={22} /></span>;
   const live = NETWORKS.find(n => n[0] === net)?.[2];
   const needle = q.trim().toLowerCase();
   const rows = live ? options.filter(o => (o.chain || 'solana') === 'solana' && (!needle || `${o.symbol} ${o.name} ${o.mint}`.toLowerCase().includes(needle))) : [];

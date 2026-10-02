@@ -695,22 +695,36 @@ def collect_pct(r, y):
 ROTATE_EVERY = 24 * 3600   # a trader card may switch ONE pool/coin per 24h (top-ups / rebalances don't count); staff exempt
 
 
-ROTATE_OPTIONS = (1, 6, 12, 24)   # hours a card may pick between switch-ins (owner's choice per card; default 24)
+ROTATE_OPTIONS = (5 / 60, 0.25, 1, 6, 12, 24)   # hours between switch-ins: 5m · 15m · 1h · 6h · 12h · 24h (owner's pick per card; default 24)
+
+
+def rotate_hours(v, default=24):
+    """Snap a picked interval to one of ROTATE_OPTIONS (floats from the client: 0.0833 = 5 min); anything else → default."""
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return default
+    return next((o for o in ROTATE_OPTIONS if abs(o - v) < 0.005), default)
+
+
+def coin_sl_mode(pos, pa):
+    """What a coin's stop does on this card: the coin's own pick (`coinModes`) beats the card's `slMode`."""
+    m = (pos.get('coinModes') or {}).get(pa)
+    return m if m in SL_MODES else (pos.get('slMode') if pos.get('slMode') in SL_MODES else 'sell')
 SL_MODES = ('sell', 'park', 'hold')
 
 
 def _extras(plan):
     """Per-card advanced options (owner + Cmd Ctr): rotation interval and what a coin stop does
     (sell · park = sell to SOL, then a one-tap buy-back alert when price is back at entry with buyers · hold = no stop alert)."""
-    rh = plan.get('rotateHours')
-    return {'rotateHours': rh if rh in ROTATE_OPTIONS else 24, 'slMode': plan.get('slMode') if plan.get('slMode') in SL_MODES else 'sell'}
+    return {'rotateHours': rotate_hours(plan.get('rotateHours')), 'slMode': plan.get('slMode') if plan.get('slMode') in SL_MODES else 'sell'}
 
 
 def next_switch_at(pos, staff=False):
     """When this card may switch again (0 = now): one switch-in per the card's own rotation interval (1/6/12/24h, default 24)."""
     last = _f(pos.get('lastSwitchAt'))
     hrs = ((pos.get('plan') or {}).get('rotateHours')) or pos.get('rotateHours') or 24
-    return 0.0 if staff or not last else last + (hrs if hrs in ROTATE_OPTIONS else 24) * 3600
+    return 0.0 if staff or not last else last + rotate_hours(hrs) * 3600
 
 
 def buyback_due(parked, price, mom=None):

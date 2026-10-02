@@ -35,3 +35,10 @@ def test_paid_lamports_needs_the_payer_signature_and_a_landed_transfer():
     assert hq.paid_lamports(tx, 'ME', 'FEE') == 1_000_000_000
     assert hq.paid_lamports(tx, 'OTHER', 'FEE') == 0
     assert hq.paid_lamports({**tx, 'meta': {**tx['meta'], 'err': {'x': 1}}}, 'ME', 'FEE') == 0
+
+
+def test_rotation_options_and_per_coin_stop_mode():
+    assert hq.rotate_hours(5 / 60) == 5 / 60 and hq.rotate_hours(0.25) == 0.25 and hq.rotate_hours(12) == 12 and hq.rotate_hours(3) == 24
+    assert hq.next_switch_at({'lastSwitchAt': 1000, 'rotateHours': 0.0833333}) == 1000 + 300                 # every 5 minutes
+    pos = {'slMode': 'sell', 'coinModes': {'P2': 'park', 'P3': 'bad'}}
+    assert hq.coin_sl_mode(pos, 'P1') == 'sell' and hq.coin_sl_mode(pos, 'P2') == 'park' and hq.coin_sl_mode(pos, 'P3') == 'sell'

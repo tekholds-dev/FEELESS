@@ -10,6 +10,8 @@ import { CardEarnings } from './CardEarnings';
 // ⭐ ARENA PRIME: FEELESS's own top-tier cards, FULLY AUTO on paper — auto TP/SL, auto-compound, 2 coins rotate every 6h. Different
 // from creator picks: these are the public proof the automation works before any trader's config goes auto. "Buy now" loads the
 // card into the Lab (traders: up to 3 pools + 3 runners; you approve one wallet transaction).
+const LEG_MODES = ['', 'replace', 'park', 'hold'];   // '' = follow the card
+const LEG_WORD = { '': '🃏 card', replace: '⇄ replace', park: '🅿 park', hold: '❄ hold' };
 const KIND = { tp: '💰 Auto TP', sl: '🛑 Auto stop', rotate: '⇄ Rotate', compound: '♻ Compound', deal: '🃏 Dealt', floor: '🛡 Floor', park: '🅿 Parked', rebuy: '↩ Bought back', phase: '🔄 Phase' };
 // Tier FX: 💎 Diamond = frost aura + prism ring + glints · 🥇 Gold = gold dust + shine sweep · 🔥 Blaze = fire + embers.
 // They burn brighter (is-hot) when the card is up ≥ +10%. Transform/opacity only; frozen under fx-lite / reduced motion.
@@ -100,7 +102,11 @@ export function PrimeControls({ call }) {
     <div className="m-row"><button type="button" className="m-btn primary m-go" onClick={() => save(PRIME_META)} data-testid="prime-meta" data-tip="Hourly rotation of 1 coin · −15% floor · compound on · park & rebuy on stops">⚡ Apply meta config</button>
       <small className="m-dim">the config the Arena proof backs right now — tweak anything after</small></div>
     <div className="prime-edit">{(d?.cards || []).map(c => <div key={c.id} className="m-row"><b>{c.label}</b>
-      {c.legs.map(l => <button key={l.pairAddress} type="button" className="m-btn" data-tip={`Replace $${l.symbol} with the best 3★+ ${l.role} not on the card (same $)`} onClick={() => act({ replace: { tpl: c.tpl, pairAddress: l.pairAddress } }, `$${l.symbol} replaced`)} data-testid={`prime-swap-${c.tpl}-${l.pairAddress}`}>⇄ ${l.symbol}</button>)}
+      {c.legs.map(l => { const next = LEG_MODES[(LEG_MODES.indexOf(l.slMode || '') + 1) % LEG_MODES.length];
+        return <span key={l.pairAddress} className={`prime-leg ${l.frozen ? 'is-frozen' : ''}`}>
+        <button type="button" className="m-btn" disabled={l.frozen} data-tip={`Replace $${l.symbol} with the best 3★+ ${l.role} not on the card (same $)`} onClick={() => act({ replace: { tpl: c.tpl, pairAddress: l.pairAddress } }, `$${l.symbol} replaced`)} data-testid={`prime-swap-${c.tpl}-${l.pairAddress}`}>⇄ ${l.symbol}</button>
+        <button type="button" className={`m-btn ${l.frozen ? 'is-on' : ''}`} aria-pressed={l.frozen} data-tip={l.frozen ? 'Frozen: never rotated or stopped (the floor still protects). Tap to unfreeze.' : 'Freeze: the engine never rotates or stops this coin'} onClick={() => act({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, frozen: !l.frozen } }, l.frozen ? `$${l.symbol} back under the engine` : `❄ $${l.symbol} frozen`)} data-testid={`prime-frz-${c.tpl}-${l.pairAddress}`}>❄</button>
+        <button type="button" className="m-btn" data-tip={`At this coin's stop: ${LEG_WORD[l.slMode || '']} — tap for ${LEG_WORD[next]}`} onClick={() => act({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, slMode: next } }, `$${l.symbol} stop: ${LEG_WORD[next]}`)} data-testid={`prime-mode-${c.tpl}-${l.pairAddress}`}>{LEG_WORD[l.slMode || ''].split(' ')[0]}</button></span>; })}
       <button type="button" className="m-btn" onClick={() => act({ redeal: c.tpl }, `${c.label} re-dealt`)} data-testid={`prime-redeal-${c.tpl}`}>🃏 Re-deal</button></div>)}</div>
     <div className="m-row"><button type="button" className="m-btn" onClick={() => save({}, true)} data-testid="prime-reset">🃏 Deal fresh Prime cards</button>
       <small className="m-dim">{(d?.cards || []).map(c => `${c.label} ${c.pnlPct >= 0 ? '+' : ''}${c.pnlPct.toFixed(1)}%`).join(' · ') || 'dealing…'}</small></div></section>;

@@ -226,7 +226,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     c['parked'] = dict(c.get('parked') or {})
     for l in list(c['legs']):
         px = _f(prices.get(l['pairAddress']))
-        if l.get('role') == 'anchor' or not t['sl'] or mode == 'hold' or px <= 0 or l['entry'] <= 0:
+        lmode = l.get('slMode') if l.get('slMode') in SL_MODES else mode   # ❄/✂/🅿 per coin (Cmd Ctr) beats the card's mode
+        if l.get('role') == 'anchor' or not t['sl'] or lmode == 'hold' or l.get('frozen') or px <= 0 or l['entry'] <= 0:
             continue
         dd = (px / l['entry'] - 1) * 100
         if dd > -t['sl'] and not (dd <= -t['sl'] / 2 and fading(mom.get(l['pairAddress']))):   # early cut: half the stop + fading
@@ -234,11 +235,11 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         out_usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
         why = f"{dd:.0f}% ≤ −{t['sl']}%" if dd <= -t['sl'] else f"{dd:.0f}% and fading (1h down, sellers lead) — cut early"
         c['feesUsd'] += fee
-        nxt = best(l['role']) if mode == 'replace' else None
+        nxt = best(l['role']) if lmode == 'replace' else None
         if nxt:
             c['legs'][c['legs'].index(l)] = _leg(nxt, out_usd, now, l['role']); c['feesUsd'] += fee
             ev(kind='sl', symbol=l['symbol'], usd=round(out_usd, 4), why=why, to=[nxt.get('symbol')])
-        elif mode == 'park':
+        elif lmode == 'park':
             c['legs'].remove(l)
             c['parked'][l['pairAddress']] = {**{k: l.get(k) for k in ('mint', 'pairAddress', 'symbol', 'role', 'stars', 'firstEntry')}, 'usd': round(out_usd, 6),
                                              'backAt': l['entry'], 'at': now, 'price': px}
@@ -255,7 +256,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             ev(kind='rebuy', symbol=pk['symbol'], usd=round(pk['usd'], 4), why='back at its entry with momentum — bought back', to=[pk['symbol']])
     # 3) auto-rotate every rotateHours: the rotateCount weakest coins out, the best candidates in
     if now - c['lastRotateAt'] >= cfg['rotateHours'] * 3600 and not c.get('flooredAt'):
-        ranked = sorted((l for l in c['legs'] if l.get('role') != 'anchor' and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
+        ranked = sorted((l for l in c['legs'] if l.get('role') != 'anchor' and not l.get('frozen') and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
         swapped = 0
         for l in ranked[:cfg['rotateCount']]:
             nxt = best(l['role'])
@@ -316,6 +317,7 @@ def summary(card, prices):
     v = value(card, prices)
     start = _f(card.get('startUsd')) or 1
     legs = [{**{k: l[k] for k in ('mint', 'pairAddress', 'symbol', 'role', 'entry', 'units', 'costUsd')}, 'stars': l.get('stars') or 3,
+             'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'),
              'firstEntry': l.get('firstEntry') or l['entry'], 'at': l.get('at'), 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,
              'usd': round(l['units'] * (_f(prices.get(l['pairAddress'])) or l['entry']), 4)} for l in card['legs']]
@@ -333,6 +335,22 @@ def record(card):
     days = (card.get('days') or [])[-10:]
     return {'days': days, 'goodDays': sum(1 for d in days if _f(d.get('pct')) >= HIT_PCT), 'loggedDays': len(days),
             'lowPct': _f(card.get('lowPct')), 'floored': bool(card.get('flooredAt')), 'runs': (card.get('runs') or [])[-5:]}
+
+
+def set_leg(card, pair, frozen=None, sl_mode=None):
+    """Cmd Ctr per-coin config on a tier card: ❄ frozen (engine never rotates or stops it — the floor still protects the card)
+    and its own stop mode (replace / park / hold, or '' = follow the card). Pure; ValueError if the coin isn't on the card."""
+    c = {**card, 'legs': [dict(l) for l in card.get('legs') or []]}
+    leg = next((l for l in c['legs'] if l['pairAddress'] == pair), None)
+    if not leg:
+        raise ValueError('That coin is not on this card.')
+    if frozen is not None:
+        leg['frozen'] = bool(frozen)
+    if sl_mode is not None:
+        if sl_mode and sl_mode not in SL_MODES:
+            raise ValueError('stop mode must be replace, park or hold')
+        leg['slMode'] = sl_mode or None
+    return c
 
 
 def replace_leg(card, pair, prices, pools, runners, anchors, cfg, now):

@@ -1,3 +1,4 @@
+import pytest
 """Arena Prime: 3 top-tier paper cards, fully auto — 3★+ coins only, a stable major anchor (never rotated / stopped), auto TP
 compounds into the other coins, SL replaced at once, 2 weakest rotate every 6h, a −20% card FLOOR (never −25%), an honest
 day record (good day = +10%), fees tracked apart (never in P&L), every action logged with its reason."""
@@ -204,3 +205,12 @@ def test_paper_fills_are_true_fills_with_price_impact():
     thin = C('t', 1.0, liquidityUsd=20_000, volume24h=50_000)
     leg = ap._leg(thin, 50, 0, 'pool')
     assert leg['entry'] > 1.0 and leg['units'] < 50 and leg['midAtEntry'] == 1.0          # a $50 buy in a $20K pool fills above mid
+
+
+def test_cmd_ctr_freezes_a_coin_and_sets_its_own_stop_mode():
+    card = {'legs': [{'pairAddress': 'P1', 'symbol': 'A', 'role': 'runner'}]}
+    c = ap.set_leg(card, 'P1', frozen=True, sl_mode='park')
+    assert c['legs'][0]['frozen'] and c['legs'][0]['slMode'] == 'park' and not card['legs'][0].get('frozen')   # pure
+    assert ap.set_leg(c, 'P1', sl_mode='')['legs'][0]['slMode'] is None
+    with pytest.raises(ValueError):
+        ap.set_leg(card, 'NOPE', frozen=True)
