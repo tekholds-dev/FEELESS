@@ -167,7 +167,9 @@ export function PlaygroundBattles({ call, onPublish }) {
           <em className={`m-num fl-tick ${(x.pct || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={x.pct}>{pgPc(x.pct)}</em>
           <small className="m-dim">{x.legs.map(l => `${l.role === 'anchor' ? '⚓' : '🏃'}$${l.symbol}`).join(' ')}{x.record ? ` · ${x.record.w}–${x.record.l}${x.record.d ? `–${x.record.d}` : ''}` : ''}</small>
           {x.dnaLabel && <small className="pgb-dna">🧬 {x.dnaLabel}{x.phase ? ` · now ${x.phase === 'anchor' ? '⚓ anchor' : x.phase === 'degen' ? '🔥 degen' : '⚖ mixed'} phase` : ''}</small>}
-          {x.swaps?.length > 0 && <span className="pgb-swaps">{x.swaps.slice(-3).map((w, j) => <i key={j} className={`w-${w.why}`}>{PG_WHY[w.why]} ${w.out}→${w.in}</i>)}</span>}</span>;
+          {x.swaps?.length > 0 && <span className="pgb-swaps">{x.swaps.slice(-3).map((w, j) => <i key={j} className={`w-${w.why}`}>{PG_WHY[w.why]} ${w.out}→${w.in}</i>)}</span>}
+          <button type="button" className={`m-btn ${(b.locked || []).includes(x.id) ? 'is-on' : ''}`} aria-pressed={(b.locked || []).includes(x.id)} onClick={() => set({ lock: x.id, on: !(b.locked || []).includes(x.id) })}
+            data-tip="Lock this card's configs: its coins + DNA survive a loss and the brain never re-breeds it" data-testid={`pgb-lock-${x.id}`}>{(b.locked || []).includes(x.id) ? '🔒 Locked' : '🔓 Lock'}</button></span>;
         return <div key={p.a.id + p.b.id} className={`bf-pair ${d > 0.05 ? 'a-lead' : d < -0.05 ? 'b-lead' : 'even'}`} style={{ '--i': i }} data-testid={`pgb-pair-${i}`}>
           {side(p.a, 'a')}<span className="bf-vs" aria-hidden="true"><i className="bf-clash" />VS</span>{side(p.b, 'b')}
           <i className="bf-tug"><i style={{ transform: `scaleX(${share})` }} /></i></div>; })}</div>}

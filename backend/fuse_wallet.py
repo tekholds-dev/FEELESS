@@ -262,21 +262,47 @@ def totals(ledger, card=None):
 
 
 def topup_card(card, usd, prices, now, first=False):
-    """A top-up RESETS the card as a new run: the old run is kept on the record; the new $ is spread over the card's coins by
-    their current weight (first funding = the whole card starts fresh from this $)."""
-    c = {**card, 'legs': [dict(l) for l in card.get('legs') or []], 'events': list(card.get('events') or [])}
-    val = sum(_f(l.get('units')) * (_f(prices.get(l['pairAddress'])) or _f(l.get('entry'))) for l in c['legs']) + _f(c.get('cash'))
-    if not first and val > 0:
-        for l in c['legs']:
-            px = _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
-            share = _f(l.get('units')) * px / val
-            if px > 0:
-                l['units'] = _f(l['units']) + usd * share / px; l['costUsd'] = _f(l.get('costUsd')) + usd * share
-    start = round((0 if first else val + _f(c.get('walletUsd'))) + usd, 4)
-    c['runs'] = (list(c.get('runs') or []) + ([{'at': now, 'startUsd': c.get('startUsd'), 'endUsd': round(val + _f(c.get('walletUsd')), 4),
-                                                'pct': round(((val + _f(c.get('walletUsd'))) / (_f(c.get('startUsd')) or 1) - 1) * 100, 2), 'paper': not card.get('real')}]))[-10:]
+    """💵 Real money joins the SAME card. First funding: every coin, the cycle phase, the clock and the config stay exactly as
+    they are on paper — the card is scaled to the funded $ and its time / P&L start over (the paper run is kept on the record).
+    A later top-up: the new $ is spread over the coins by their current weight and a new run starts at the new total."""
+    c = {**card, 'legs': [dict(l) for l in card.get('legs') or []], 'events': list(card.get('events') or []), 'parked': {k: dict(v) for k, v in (card.get('parked') or {}).items()}}
+    px = lambda l: _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
+    coins = sum(_f(l.get('units')) * px(l) for l in c['legs'])
+    held = coins + _f(c.get('cash')) + sum(_f(p.get('usd')) for p in c['parked'].values())
+    total_before = held + _f(c.get('walletUsd'))
+    c['runs'] = (list(c.get('runs') or []) + [{'at': now, 'startUsd': c.get('startUsd'), 'endUsd': round(total_before, 4),
+                                                 'pct': round((total_before / (_f(c.get('startUsd')) or 1) - 1) * 100, 2), 'paper': not card.get('real')}])[-10:]
     if first:
-        c.update(walletUsd=0.0, takenUsd=0.0, compoundedUsd=0.0, feesUsd=0.0, rounds=0, roundWins=0, days=[], lowPct=0.0)
-    c.update(startUsd=start, roundStartUsd=start, dayStartUsd=start, dayAt=now, real=True, realSince=c.get('realSince') if not first else now)
-    c['events'].append({'at': now, 'kind': 'topup', 'usd': round(usd, 4), 'why': ('💵 funded with real money — new run' if first else f'💵 topped up +${usd:.2f} — new run'), 'to': ['card']})
+        k = usd / held if held > 0 else 0.0
+        for l in c['legs']:
+            l['units'] = _f(l.get('units')) * k; l['costUsd'] = round(_f(l.get('units')) * px(l), 6); l['entry'] = px(l); l['firstEntry'] = px(l); l['at'] = now; l.pop('peak', None)
+        c['cash'] = round(_f(c.get('cash')) * k, 6)
+        for p in c['parked'].values():
+            p['usd'] = round(_f(p.get('usd')) * k, 6)
+        c.update(walletUsd=0.0, takenUsd=0.0, compoundedUsd=0.0, feesUsd=0.0, rounds=0, roundWins=0, days=[], lowPct=0.0, realSince=now, lastRoundPct=None)
+        start = round(usd, 4)
+    else:
+        if coins > 0:
+            for l in c['legs']:
+                share = _f(l.get('units')) * px(l) / coins
+                if px(l) > 0:
+                    l['units'] = _f(l['units']) + usd * share / px(l); l['costUsd'] = _f(l.get('costUsd')) + usd * share
+        else:
+            c['cash'] = _f(c.get('cash')) + usd
+        start = round(total_before + usd, 4)
+    c.update(startUsd=start, roundStartUsd=start, dayStartUsd=start, dayAt=now, real=True)
+    c['events'].append({'at': now, 'kind': 'topup', 'usd': round(usd, 4), 'why': ('💵 funded with real money — same coins, same mechanics, time + P&L start over' if first else f'💵 topped up +${usd:.2f} — new run'), 'to': ['card']})
     return c
+
+
+def paper_status(card, prices, usd):
+    """🔍 What funding $usd would make of the card RIGHT NOW: its paper status + every coin's slice at that amount."""
+    px = lambda l: _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
+    vals = [(l, _f(l.get('units')) * px(l)) for l in card.get('legs') or []]
+    held = sum(v for _, v in vals) + _f(card.get('cash'))
+    v_all = held + _f(card.get('walletUsd')) + sum(_f(p.get('usd')) for p in (card.get('parked') or {}).values())
+    return {'label': card.get('label'), 'phase': card.get('phase'), 'rounds': int(card.get('rounds') or 0), 'paperUsd': round(v_all, 4),
+            'paperPct': round((v_all / (_f(card.get('startUsd')) or 1) - 1) * 100, 2), 'cashPct': round(_f(card.get('cash')) / held * 100, 2) if held else 0.0,
+            'coins': [{'symbol': l.get('symbol'), 'role': l.get('role'), 'pairAddress': l['pairAddress'], 'weightPct': round(v / held * 100, 2) if held else 0.0,
+                       'usd': round(usd * v / held, 4) if held else 0.0, 'pricePct': round((px(l) / _f(l.get('entry')) - 1) * 100, 2) if _f(l.get('entry')) else 0.0,
+                       'frozen': bool(l.get('frozen'))} for l, v in vals]}

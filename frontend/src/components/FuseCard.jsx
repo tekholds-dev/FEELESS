@@ -67,7 +67,9 @@ export function revalue(r, live) {
     const px = live?.get?.(l.pairAddress)?.price;
     if (l.soldUsd != null || !(px > 0)) { cost += l.usd || 0; value += l.valueUsd || 0; return l; }
     anyLive = true;
-    const held = (l.tokens || 0) * px; const v = held + (l.realizedUsd || 0); const c = l.usd || 0;
+    // a leg that knows its pool (tier cards) is valued at what SELLING it would pay — a big bag in a thin pool is worth less than mid
+    const mid = (l.tokens || 0) * px; const lq = l.liq === undefined ? 0 : l.liq > 0 ? l.liq : 20000;   // tier legs: unknown depth = thin (server UNKNOWN_LIQ)
+    const held = lq > 0 ? mid / (1 + mid / (lq / 2)) : mid; const v = held + (l.realizedUsd || 0); const c = l.usd || 0;
     cost += c; value += v;
     return { ...l, priceNow: px, heldUsd: held, valueUsd: v, pnlUsd: v - c, pnlPct: c ? (v / c - 1) * 100 : 0, priced: true };
   });

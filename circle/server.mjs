@@ -66,6 +66,14 @@ const routes = {
       fee: { type: 'level', config: { feeLevel: 'MEDIUM' } }, idempotencyKey: String(body.idempotencyKey || crypto.randomUUID()) });
     return { id: r.data?.id, state: r.data?.state };
   },
+  // Owner-approved: sign (never send) one Solana transaction for the Fuse wallet keeper. The FEELESS backend builds it from a
+  // Jupiter quote, checks the owner's hard limits first, only for the Fuse wallet id, and broadcasts it itself.
+  'POST /sign': async body => {
+    const { sdk, error } = client(); if (error) throw new Error(error);
+    if (!body.walletId || !body.rawTransaction) throw new Error('walletId and rawTransaction are required.');
+    const r = await sdk.signTransaction({ walletId: String(body.walletId), rawTransaction: String(body.rawTransaction), memo: String(body.memo || 'FEELESS Fuse card').slice(0, 80) });
+    return { signedTransaction: r.data?.signedTransaction, signature: r.data?.signature, txHash: r.data?.txHash };
+  },
 };
 
 http.createServer(async (req, res) => {

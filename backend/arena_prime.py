@@ -145,14 +145,20 @@ IMPACT_MULT = 1.0   # 🎯 learned from REAL Fuse-wallet fills (fuse_wallet.cali
 BELL_SEC = 10       # 🔔 every round opens with a 10s countdown on screen; the engine wakes exactly when the round is due
 
 
+UNKNOWN_LIQ = 20_000.0   # no liquidity reading (fresh / curve coins) = treat the pool as THIN, never infinitely deep
+
+
+def _r(liq):
+    return (_f(liq) if _f(liq) > 0 else UNKNOWN_LIQ) / 2 / max(0.1, IMPACT_MULT)
+
+
 def buy_px(px, usd, liq):
-    r = _f(liq) / 2 / max(0.1, IMPACT_MULT)
-    return px * (1 + _f(usd) / r) if px > 0 and r > 0 else px
+    return px * (1 + _f(usd) / _r(liq)) if px > 0 else px
 
 
 def sell_usd(units, px, liq):
-    v = _f(units) * _f(px); r = _f(liq) / 2 / max(0.1, IMPACT_MULT)
-    return v / (1 + v / r) if r > 0 else v
+    v = _f(units) * _f(px)
+    return v / (1 + v / _r(liq))
 
 
 def _leg(c, usd, now, role):
@@ -197,9 +203,14 @@ def deal(tid, pools, runners, cfg, now, anchors=(), usd=None, keep=None, shape=N
     return c
 
 
-def value(card, prices):
-    # what the card is worth to its owner: coins + cash + parked SOL + what it already paid out to the wallet (never hidden)
-    v = sum(l['units'] * (_f(prices.get(l['pairAddress'])) or l['entry']) for l in card['legs']) + card['cash'] + sum(_f(p['usd']) for p in (card.get('parked') or {}).values()) + _f(card.get('walletUsd'))
+def value(card, prices, liqs=None):
+    """What the card is worth to its owner: coins at what SELLING them would really pay (pool impact — a $100K bag in a $30K pool is
+    not worth $100K) + cash + parked SOL + what it already paid out to the wallet (never hidden). No liquidity known = mid price."""
+    liqs = liqs or {}
+    def coin(l):
+        px = _f(prices.get(l['pairAddress'])) or l['entry']
+        return sell_usd(l['units'], px, _f(liqs.get(l['pairAddress'])) or _f(l.get('liqNow')) or _f(l.get('liq')))
+    v = sum(coin(l) for l in card['legs']) + card['cash'] + sum(_f(p['usd']) for p in (card.get('parked') or {}).values()) + _f(card.get('walletUsd'))
     return round(v, 4)
 
 
@@ -220,7 +231,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
 
     # 0) a floored card sits in its anchor (cash-like) until the next day, then is re-dealt fresh at its current value
     if c.get('flooredAt') and now - c['flooredAt'] >= 60:   # floored → re-dealt with fresh 3★+ coins on the very next tick (a new run)
-        v0 = value(c, prices)
+        v0 = value(c, prices, liqs)
         keep = {k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}
         # a NEW run starts at today's value (its own −floor); the ended run is kept on the record, never hidden
         keep['runs'] = (list(c.get('runs') or []) + [{'at': now, 'startUsd': c['startUsd'], 'endUsd': round(v0, 4), 'pct': round((v0 / (_f(c['startUsd']) or 1) - 1) * 100, 2)}])[-10:]
@@ -326,7 +337,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             ev(kind='rotate', symbol=l['symbol'], usd=round(usd, 4), why=f"weakest after {cfg['rotateHours']}h", to=[nxt.get('symbol')])
         c['lastRotateAt'] = now
         # one ROUND per rotation: log this round's move, start the next one from today's value
-        v_now = value(c, prices)
+        v_now = value(c, prices, liqs)
         c['rounds'] = int(c.get('rounds') or 0) + 1
         c['lastRoundPct'] = round((v_now / (_f(c.get('roundStartUsd')) or _f(c['startUsd']) or 1) - 1) * 100, 2)
         c['roundStartUsd'] = round(v_now, 4); c['roundCrowned'] = False
@@ -338,7 +349,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # 3b) 🔄 phase cycle: a cycling tier re-deals into the next phase shape every round (same run, P&L continues)
     phase = next_phase((cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl'], 'off'), c.get('rounds'), c.get('lastRoundPct'))
     if phase and c['lastRotateAt'] == now and not c.get('flooredAt'):
-        nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=value(c, prices), keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
+        nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=value(c, prices, liqs), keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
         if nc:
             nc['feesUsd'] = round(_f(nc['feesUsd']) + fee * len(c['legs']), 4)   # selling the old shape
             c = nc
@@ -351,7 +362,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         c['compoundedUsd'] += c['cash']; ev(kind='compound', usd=round(c['cash'], 4), why='idle cash back into the card', to=[l['symbol'] for l in c['legs']]); c['cash'] = 0.0
     # 5) 🛡 FLOOR: the card is never allowed to sit below −floorPct (default −20%, so −25% is never reached short of a gap):
     #    every pool / runner is sold into the anchor (or cash) at once; the card re-deals fresh the next day.
-    v = value(c, prices); start = _f(c['startUsd']) or 1
+    v = value(c, prices, liqs); start = _f(c['startUsd']) or 1
     pct = (v / start - 1) * 100
     if pct <= -cfg['floorPct'] and not c.get('flooredAt'):
         anc = [l for l in c['legs'] if l.get('role') == 'anchor' and _f(prices.get(l['pairAddress'])) > 0]
@@ -371,6 +382,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     if now - c['dayAt'] >= 86400:
         c['days'] = (c['days'] + [{'at': now, 'pct': round((v / (_f(c['dayStartUsd']) or 1) - 1) * 100, 2)}])[-30:]
         c['dayAt'], c['dayStartUsd'] = now, round(v, 4)
+    for l in c['legs']:
+        if _f(liqs.get(l['pairAddress'])) > 0:
+            l['liqNow'] = _f(liqs[l['pairAddress']])
     c['feesUsd'] = round(c['feesUsd'], 4)
     c['events'] = c['events'][-60:]
     return c
@@ -385,7 +399,8 @@ def summary(card, prices, cfg=None):
              'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'),
              'firstEntry': l.get('firstEntry') or l['entry'], 'at': l.get('at'), 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,
-             'usd': round(l['units'] * (_f(prices.get(l['pairAddress'])) or l['entry']), 4)} for l in card['legs']]
+             'liq': _f(l.get('liqNow')) or _f(l.get('liq')),
+             'usd': round(value({'legs': [l], 'cash': 0.0}, prices), 4)} for l in card['legs']]
     return {**{k: card[k] for k in ('id', 'tpl', 'label', 'at', 'lastRotateAt', 'compoundedUsd', 'takenUsd', 'feesUsd', 'startUsd')}, 'cash': round(card['cash'], 4), 'walletUsd': round(_f(card.get('walletUsd')), 4),
             'flooredAt': card.get('flooredAt'), 'phase': card.get('phase'), 'cycle': list(CYCLE) if card['tpl'] in CYCLE_TIERS else None, 'rounds': int(card.get('rounds') or 0), 'lastRoundPct': card.get('lastRoundPct'),
             'roundPct': round((v / (_f(card.get('roundStartUsd')) or start) - 1) * 100, 2), 'roundWins': int(card.get('roundWins') or 0),

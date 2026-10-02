@@ -1989,7 +1989,7 @@ body.theme-day .cc-th{background:#f1f8f4}body.theme-day .cc-tabs button.active{c
 body.theme-day .fee-live-read{background:rgba(255,255,255,.92);border-color:#d7b25a}body.theme-day .fee-live-read ul{color:#173b2b}
 @media (max-width:600px){.fee-live-read{width:calc(100% - 20px)}.fee-live-read ul{display:none}}
 .cc-presets{display:flex;flex-wrap:wrap;gap:6px}.cc-presets button{padding:8px 12px;border-radius:999px;border:1px solid rgba(245,197,66,.4);background:linear-gradient(135deg,rgba(245,197,66,.1),rgba(18,192,122,.06));color:inherit;cursor:pointer;font-size:12.5px}.cc-presets button:hover{border-color:#f5c542;transform:translateY(-1px)}
-.cc-studio-grid{display:grid;grid-template-columns:minmax(220px,1fr) minmax(240px,1fr) minmax(280px,1.3fr);gap:12px}@media (max-width:980px){.cc-studio-grid{grid-template-columns:1fr}}
+.cc-studio-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:12px}.cc-studio-grid>*{min-width:0;overflow-x:auto}
 .cc-studio .cc-block label{display:grid;gap:4px;font-size:11.5px;color:var(--muted)}.cc-studio .cc-block label.cc-check{display:flex}
 .cc-studio .cc-block :is(input:not([type=checkbox]),select){min-height:32px;border-radius:8px;border:1px solid var(--line);background:#ffffff08;color:var(--text,#eafff3);padding:0 10px}
 .cc-modes{display:grid;gap:5px}.cc-modes button{text-align:left;padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:none;color:inherit;cursor:pointer;display:grid}.cc-modes button small{color:var(--muted);font-size:10.5px}.cc-modes button.active{border-color:var(--mint);background:rgba(18,192,122,.08)}

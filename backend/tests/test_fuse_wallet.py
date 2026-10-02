@@ -115,5 +115,14 @@ def test_totals_and_topup_resets_a_new_run():
     c = card([leg('M', 'pm', 10, 1.0)], startUsd=10, real=True)
     up = fw.topup_card(c, 10, {'pm': 2.0}, 100)
     assert up['startUsd'] == 30 and up['legs'][0]['units'] == 15 and up['runs'][-1]['pct'] == 100.0 and up['events'][-1]['kind'] == 'topup'
-    first = fw.topup_card(card([leg('M', 'pm', 50, 1.0)], takenUsd=9), 50, {'pm': 1.0}, 100, first=True)
-    assert first['startUsd'] == 50 and first['takenUsd'] == 0 and first['real'] and first['runs'][-1]['paper']
+    first = fw.topup_card(card([leg('M', 'pm', 50, 1.0), leg('N', 'pn', 25, 2.0)], takenUsd=9, rounds=40, phase='degen', lastRotateAt=7), 20, {'pm': 1.0, 'pn': 2.0}, 100, first=True)
+    assert [l['mint'] for l in first['legs']] == ['M', 'N'] and first['phase'] == 'degen' and first['lastRotateAt'] == 7   # same coins + mechanics
+    assert abs(sum(l['units'] * {'pm': 1, 'pn': 2}[l['pairAddress']] for l in first['legs']) - 20) < 1e-9                  # scaled to the $
+    assert first['startUsd'] == 20 and first['takenUsd'] == 0 and first['rounds'] == 0 and first['real'] and first['runs'][-1]['paper']   # time + P&L restart
+
+
+def test_paper_status_shows_each_coin_at_the_funded_amount():
+    st = fw.paper_status(card([leg('M', 'pm', 30, 1.0), leg('N', 'pn', 10, 1.0)], cash=10, walletUsd=5, startUsd=40), {'pm': 1.5, 'pn': 1.0}, 100)
+    assert st['paperUsd'] == 70 and st['paperPct'] == 75.0
+    m = st['coins'][0]
+    assert m['weightPct'] == round(45 / 65 * 100, 2) and m['usd'] == round(100 * 45 / 65, 4) and m['pricePct'] == 50.0

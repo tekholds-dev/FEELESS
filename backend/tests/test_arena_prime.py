@@ -4,6 +4,13 @@ compounds into the other coins, SL replaced at once, 2 weakest rotate every 6h, 
 day record (good day = +10%), fees tracked apart (never in P&L), every action logged with its reason."""
 import arena_prime as ap
 
+
+@pytest.fixture(autouse=True)
+def _deep_unknown_pools(request, monkeypatch):
+    """Older tests feed no liquidity and expect mid-price maths; the thin-pool default has its own tests."""
+    if not any(k in request.node.name for k in ('true_fills', 'really_pay')):
+        monkeypatch.setattr(ap, 'UNKNOWN_LIQ', 1e18)
+
 C = lambda m, px, sym=None, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': sym or m.upper(), 'price': px, **k}
 P = lambda m, px: C(m, px, liquidityUsd=2e6, volume24h=2e6)             # 5★ pool
 R = lambda m, px, sc=90: C(m, px, score=sc)                                 # 5★ runner by default
@@ -202,7 +209,7 @@ def test_cycling_tiers_move_through_anchor_degen_anchor_mixed_rounds():
 def test_paper_fills_are_true_fills_with_price_impact():
     assert ap.buy_px(1.0, 1000, 200_000) == 1.0 * (1 + 1000 / 100_000)                   # $1K into a $200K pool → 1% worse
     assert abs(ap.sell_usd(1000, 1.0, 200_000) - 1000 / 1.01) < 1e-9
-    assert ap.buy_px(1.0, 1000, 0) == 1.0                                                  # unknown depth → no fake impact
+    assert ap.buy_px(1.0, 1000, 0) == 1.0 + 1000 / (ap.UNKNOWN_LIQ / 2)                   # unknown depth = a THIN pool (never infinitely deep)
     thin = C('t', 1.0, liquidityUsd=20_000, volume24h=50_000)
     leg = ap._leg(thin, 50, 0, 'pool')
     assert leg['entry'] > 1.0 and leg['units'] < 50 and leg['midAtEntry'] == 1.0          # a $50 buy in a $20K pool fills above mid
@@ -274,3 +281,10 @@ def test_impact_mult_from_real_fills_makes_paper_fills_worse():
         assert ap.buy_px(1.0, 100, 10000) > base and ap.sell_usd(100, 1.0, 10000) < 100 / (1 + 100 / 5000) + 1e-9
     finally:
         ap.IMPACT_MULT = 1.0
+
+
+def test_card_value_is_what_selling_would_really_pay():
+    card = {'legs': [{'pairAddress': 'P', 'units': 100000.0, 'entry': 1.0}], 'cash': 0.0}
+    assert ap.value(card, {'P': 1.0}) == round(100000 / (1 + 100000 / (ap.UNKNOWN_LIQ / 2)), 4)   # no liquidity known → treated as thin
+    v = ap.value(card, {'P': 1.0}, {'P': 36000})                        # $100K bag in a $36K pool
+    assert v < 16000 and v == round(100000 / (1 + 100000 / 18000), 4)

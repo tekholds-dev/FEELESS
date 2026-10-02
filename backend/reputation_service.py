@@ -5256,10 +5256,12 @@ async def _prime_tick_inner(now):
     # live momentum per pair (runner board: 1h move, buy share, 5m/1h volume) → exit_plan decides ride / gain / bank / cut early
     live = _runner_live_cache.get('data') or {}
     mom = {**pair_mom, **{r['pairAddress']: {k: r.get(k) for k in ('chg1h', 'buyShare', 'vol5m', 'vol1h')} for r in (live.get('passing') or []) + (live.get('dropped') or []) if r.get('pairAddress')}}
+    locks = (d.get('prime') or {}).get('locks') or {}
     for tid in _prime.TEMPLATES:
         cur = cards.get(tid)
         liqs = {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()}
-        cards[tid] = _prime.tick(cur, px, pools, runners, cfg, now, anchors, mom, liqs) if cur else _prime.deal(tid, pools, runners, cfg, now, anchors)
+        cfg_t = {**_prime.clean_cfg(locks[tid]), 'paperFeeUsd': cfg['paperFeeUsd']} if tid in locks else cfg   # 🔒 a locked tier runs its own frozen config
+        cards[tid] = _prime.tick(cur, px, pools, runners, cfg_t, now, anchors, mom, liqs) if cur else _prime.deal(tid, pools, runners, cfg_t, now, anchors)
     cards = {k: v for k, v in cards.items() if v}
     win = _prime.crown_round(cards)
     async with _admin_lock:
@@ -5287,7 +5289,7 @@ async def _prime_view():
 @app.get('/api/reputation/fuses/prime')
 async def fuse_prime():
     """⭐ Arena Prime cards (paper, fully auto) with every automation event + the config they run."""
-    return {'cards': await _prime_view(), 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner')}
+    return {'cards': await _prime_view(), 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner')}
 
 
 @app.post('/api/reputation/admin/arena/prime')
@@ -5298,6 +5300,13 @@ async def fuse_prime_admin(request: Request):
     async with _admin_lock:
         d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
         pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), **(body.get('cfg') or {})})
+        if body.get('lock') in _prime.TEMPLATES:   # 🔒 lock a tier's FULL config as it is now (engine, tunes and meta config never change it)
+            locks = dict(pr.get('locks') or {})
+            if body.get('on', True):
+                locks[body['lock']] = {**_prime.clean_cfg(pr['cfg']), 'lockedAt': time.time()}
+            else:
+                locks.pop(body['lock'], None)
+            pr['locks'] = locks
         if body.get('reset'):
             pr['cards'] = {}
         if body.get('redeal') in _prime.TEMPLATES:          # one tier fresh
@@ -5351,10 +5360,30 @@ def _fw_cfg():
     return _fw.clean_cfg(_fw_load().get('cfg') or {})
 
 
+_fw_signer = {'ok': False, 'at': 0.0}
+
+
 def _fw_signer_ready():
-    """The keeper may only sign once the owner has enabled Circle transaction signing for the Fuse wallet (not built in this
-    release — see docs/GO_LIVE.md step 2). Until then everything runs as real Jupiter QUOTES (dry run), never a send."""
-    return False
+    """Owner-approved Circle signing (sidecar POST /sign) is live when the Circle service is configured (cached ≤60s)."""
+    return bool(_fw_signer['ok'])
+
+
+async def _fw_signer_check():
+    if time.time() - _fw_signer['at'] < 60:
+        return _fw_signer['ok']
+    try:
+        st = await _circle('GET', '/status')
+        _fw_signer.update(ok=bool(st.get('configured')), at=time.time())
+    except Exception:
+        _fw_signer.update(ok=False, at=time.time())
+    return _fw_signer['ok']
+
+
+async def _fw_sign(cfg, raw_b64, memo):
+    """Circle signs ONE keeper transaction — only ever for the picked Fuse wallet id. Never sends."""
+    if not cfg.get('walletId') or not raw_b64:
+        raise HTTPException(400, 'No Fuse wallet / transaction to sign.')
+    return await _circle('POST', '/sign', {'walletId': cfg['walletId'], 'rawTransaction': raw_b64, 'memo': memo[:80]})
 
 
 async def _fw_balances(addr):
@@ -5395,8 +5424,8 @@ def _fw_record(d, row):
 
 
 async def _fw_execute(tid, order, book, cfg, sol_px, liq):
-    """One keeper order: a REAL Jupiter quote checked against the owner's caps, written to the audit ledger. This release never
-    signs or sends (signing is the owner's step — docs/GO_LIVE.md); `fill_from_meta` / `apply_fill` book the fill once it does."""
+    """One keeper order: real Jupiter quote → the owner's hard limits → Circle signs (Fuse wallet only) → we broadcast → the confirmed
+    tx's balance changes ARE the fill. Every outcome goes to the audit ledger; fills + failures reach the owner's inbox."""
     now = time.time()
     row = {**order, 'liq': liq, 'status': 'quoted'}
     try:
@@ -5409,15 +5438,76 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
         return book
     async with _fw_lock:
         ok, why = _fw.check(order, cfg, _fw_load().get('ledger'), now, row['impactPct'])
-    row.update(status='skipped' if not ok else 'dry', err=why or 'signing not enabled — quoted only')
+    if not ok or not _fw_signer_ready():
+        row.update(status='skipped' if not ok else 'dry', err=why or 'signing not available — quoted only')
+        async with _fw_lock:
+            d = _fw_load(); _fw_record(d, row); _json_save(FUSE_WALLET_PATH, d)
+        return book
+    try:
+        swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
+                                                            'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': 200000, 'priorityLevel': 'high'}}})
+        signed = await _fw_sign(cfg, swap.get('swapTransaction'), f"FEELESS {tid} {order['side']} {order.get('symbol')}")
+    except HTTPException as e:
+        row.update(status='failed', err=f'build/sign: {str(e.detail)[:120]}')
+        async with _fw_lock:
+            d = _fw_load(); _fw_record(d, row); _json_save(FUSE_WALLET_PATH, d)
+        _fw_notify(row)
+        return book
+    sig = signed.get('signature') or signed.get('txHash')
+    book = {**book, 'pending': {**row, 'sig': sig, 'status': 'sent', 'sentAt': now}}
+    async with _fw_lock:   # pending is saved BEFORE the send: a crash mid-flight can never double-buy
+        d = _fw_load(); d['books'][tid] = book; _json_save(FUSE_WALLET_PATH, d)
+    try:
+        async with httpx.AsyncClient(timeout=15) as http:
+            await _rpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
+    except Exception as e:
+        print('fuse wallet send:', e)
+    return await _fw_resolve(tid, book, cfg, sol_px, wait=40)
+
+
+def _fw_notify(row):
+    """Every real fill / failure on a tier card → the owner wallets' inbox (audit trail link). No P&L in the text."""
+    word = {'filled': '✅', 'failed': '⚠'}.get(row.get('status'), 'ℹ')
+    for w in _owner_wallets():
+        notify(w, 'fuse-card', f"{word} Fuse wallet · {row.get('card')}: {row.get('side')} ${row.get('symbol') or ''} {row.get('status')}{(' — ' + row['err']) if row.get('err') else ''}",
+               url='/terminal/hq?tab=fuse', push=False, once=f"fw-{row.get('id')}-{row.get('status')}", meta={'claim': 'Keeper order', 'source': 'Fuse wallet audit trail'})
+
+
+async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
+    """Settle a sent order from the chain: confirmed → the tx's balance changes ARE the fill; failed / expired → logged, nothing booked."""
+    p = book.get('pending')
+    if not p:
+        return book
+    tx = None
+    async with httpx.AsyncClient(timeout=15) as http:
+        for _ in range(max(1, int(wait / 2))):
+            try:
+                tx = await _rpc(http, 'getTransaction', [p['sig'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+            except Exception:
+                tx = None
+            if tx or wait <= 0:
+                break
+            await asyncio.sleep(2)
+    if not tx and time.time() - _fuse._f(p.get('sentAt')) < 120:
+        return book   # still in flight: the card waits (never double-buys)
+    fill = _fw.fill_from_meta(tx, cfg['address'], p['mint']) if tx else None
+    row = {k: v for k, v in p.items() if k != 'sentAt'}
+    if fill:
+        book, f = _fw.apply_fill(book, p, fill, sol_px)
+        row.update(status='filled', px=f['px'], units=f['units'], usd=f['usd'] or row['usd'], feeSol=fill['feeSol'], feeUsd=round(fill['feeSol'] * sol_px, 6))
+    else:
+        row.update(status='failed', err='not confirmed in 2 min' if not tx else 'tx failed on-chain')
+    book = {**book, 'pending': None}
     async with _fw_lock:
-        d = _fw_load(); _fw_record(d, row); _json_save(FUSE_WALLET_PATH, d)
+        d = _fw_load(); d['books'][tid] = book; _fw_record(d, row); _json_save(FUSE_WALLET_PATH, d)
+    _fw_notify(row)
     return book
 
 
 async def _fw_tick(now):
     """After every tier tick: each funded card's REAL book is moved to what the engine says it holds (sells, then buys), then the
     card shows its true coins, entries and fees. Paused / unarmed / missing-coin cards wait. Paper learns from the fills."""
+    await _fw_signer_check()
     d = _fw_load()
     cal = _fw.calibrate(d.get('ledger'))
     _prime.IMPACT_MULT = cal['impactMult']
@@ -5436,7 +5526,9 @@ async def _fw_tick(now):
         if not card or book.get('halt'):
             continue
         if book.get('pending'):
-            continue
+            book = await _fw_resolve(tid, book, cfg, sol_px)
+            if book.get('pending'):
+                continue
         book = _fw.bank(book, card.get('walletUsd'), sol_px)
         want = {**card, 'legs': []} if book.get('defund') else card
         for side in ('sell', 'buy'):
@@ -5475,6 +5567,7 @@ def _fw_public(tid):
 async def fuse_wallet_view(request: Request):
     """HQ › Fuse › 👛 Fuse wallet: the wallet's funds, each funded tier card's real book, caps, calibration and the audit trail."""
     _require_owner(request)
+    await _fw_signer_check()
     d = _fw_load(); cfg = _fw.clean_cfg(d.get('cfg') or {})
     wallets, bal, err = [], None, None
     try:
@@ -5506,7 +5599,7 @@ async def fuse_wallet_cfg(request: Request):
         d = _fw_load()
         cfg = _fw.clean_cfg({**(d.get('cfg') or {}), **{k: v for k, v in body.items() if k in _fw.DEFAULT_CFG}})
         if cfg['armed'] and (not cfg['address'] or not _fw_signer_ready()):
-            raise HTTPException(400, 'Pick the Fuse wallet and enable signing (docs/GO_LIVE.md step 2) before arming real money.')
+            raise HTTPException(400, 'Pick the Fuse wallet first (and the Circle service must be running) before arming real money.')
         d['cfg'] = cfg; _json_save(FUSE_WALLET_PATH, d)
     ad = _admin_load(); _audit(ad, me, 'fuse-wallet-cfg', json.dumps({k: cfg[k] for k in cfg if k != 'walletId'})[:160]); _admin_save(ad)
     return {'cfg': cfg}
@@ -5525,7 +5618,8 @@ async def fuse_wallet_preview(request: Request):
     px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in card['legs']])
     scale = usd / (_prime.value({**card, 'walletUsd': 0, 'parked': {}}, px) or 1)
     want = {**card, 'legs': [{**l, 'units': l['units'] * scale} for l in card['legs']]}
-    cfg = {**_fw_cfg(), 'maxSwapUsd': 10000}
+    cfg = {**_fw_cfg(), 'maxSwapUsd': 10000, 'minOrderUsd': 0.25}
+    status = _fw.paper_status(card, px, usd)
     rows = []
     for o in _fw.orders(tid, want, _fw.new_book(usd, sol_px, time.time()), px, sol_px, cfg, time.time()):
         try:
@@ -5534,7 +5628,8 @@ async def fuse_wallet_preview(request: Request):
             rows.append({**o, 'impactPct': round(_fuse._f(q.get('priceImpactPct')) * 100, 3), 'outAmount': out, 'route': [r.get('swapInfo', {}).get('label') for r in q.get('routePlan') or []][:3]})
         except HTTPException as e:
             rows.append({**o, 'err': str(e.detail)[:120]})
-    return {'orders': rows, 'solUsd': sol_px, 'networkUsdEst': round(len(rows) * 0.00008 * sol_px, 4)}
+    return {'orders': rows, 'card': status, 'solUsd': sol_px, 'networkUsdEst': round(len(rows) * 0.00008 * sol_px, 4),
+            'note': 'Fund continues THIS card with real money: same coins, same phase, same clock and config — only the $ and the start time change.'}
 
 
 @app.post('/api/reputation/admin/fuse-wallet/topup')
@@ -5561,12 +5656,10 @@ async def fuse_wallet_topup(request: Request):
         cur = _fw.book_value(d['books'][tid], px, sol_px) if not first else 0
         if cur + usd > cfg['maxCardUsd']:
             raise HTTPException(400, f"Over the ${cfg['maxCardUsd']:g} per-card cap (card holds ${cur:.2f}).")
-        if first:
-            pools, runners, anchors = await _prime_candidates()
-            fresh = _prime.deal(tid, pools, runners, _prime_cfg(), now, anchors, usd=usd, keep={k: card[k] for k in ('runs', 'events', 'days') if card and k in card})
-            if not fresh:
-                raise HTTPException(503, 'No 3★+ coins to deal right now — try again in a minute.')
-            new = _fw.topup_card(fresh, usd, px, now, first=True)
+        if first:   # the SAME card goes real: same coins, phase, clock and config — scaled to the $, time + P&L start over
+            if not card or not card.get('legs'):
+                raise HTTPException(503, 'That tier has no card dealt yet — try again in a minute.')
+            new = _fw.topup_card(card, usd, px, now, first=True)
             d['books'][tid] = _fw.new_book(usd, sol_px, now)
         else:
             new = _fw.topup_card(card, usd, px, now)
@@ -5903,7 +5996,7 @@ def _pg_battle_view(rd):
     view = lambda k: {**{x: (cards.get(k) or {}).get(x) for x in ('id', 'name', 'dial', 'tp', 'sl', 'swaps', 'phase', 'rounds')}, 'pct': (b.get('pcts') or {}).get(k),
                       'dna': (b.get('dna') or {}).get(k), 'dnaLabel': _dna.label((b.get('dna') or {}).get(k)) if (b.get('dna') or {}).get(k) else None,
                       'legs': [{x: l.get(x) for x in ('symbol', 'role', 'pairAddress')} for l in (cards.get(k) or {}).get('legs') or []], 'record': (b.get('record') or {}).get(k)}
-    return {'cfg': _pgb.clean_cfg(b.get('cfg')), 'endsAt': b.get('endsAt'), 'pairs': [{'a': view(p['a']), 'b': view(p['b'])} for p in b.get('pairs') or []],
+    return {'cfg': _pgb.clean_cfg(b.get('cfg')), 'locked': b.get('locked') or [], 'endsAt': b.get('endsAt'), 'pairs': [{'a': view(p['a']), 'b': view(p['b'])} for p in b.get('pairs') or []],
             'log': (b.get('log') or [])[-12:][::-1], 'record': b.get('record') or {}, 'names': {k: c.get('name') for k, c in cards.items()},
             'brain': {**_dna.best(b.get('brain') or {}), 'label': _dna.label(_dna.best(b.get('brain') or {})['dna']), 'scores': b.get('brain') or {}}}
 
@@ -5948,8 +6041,9 @@ async def _pg_battle_tick(now):
                 cur_ = brain.setdefault(t_, {}).setdefault(v_, {'w': 0, 'n': 0}); cur_['w'] += st_['w']; cur_['n'] += st_['n']
         b['brain'] = brain
         best_ = _dna.best(brain)['dna']; exploited = False
+        locked = set(b.get('locked') or [])   # 🔒 HQ-locked cards keep their coins + DNA even after a loss
         for k in want:
-            if k in losers:   # 🧬 re-bred: same scenario, this round's picks, fresh $
+            if k in losers and k not in locked:   # 🧬 re-bred: same scenario, this round's picks, fresh $
                 cards[k] = _pgb.deal(scs[k], prices, liqs, now, cfg['sizeUsd'])
                 if not exploited and _dna.sig(best_) not in {_dna.sig(v) for kk, v in dna.items() if kk != k}:
                     dna[k] = best_; exploited = True
@@ -6024,8 +6118,12 @@ async def pg_battles_set(request: Request, body: dict):
     async with _admin_lock:
         d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); b = d.get('pgBattle') or {}
         b['cfg'] = _pgb.clean_cfg({**(b.get('cfg') or {}), **(body.get('cfg') or {})})
+        if body.get('lock'):   # 🔒 lock / unlock one playground card's configs (coins + DNA survive a loss, the brain never re-breeds it)
+            lk = set(b.get('locked') or [])
+            (lk.add if body.get('on', True) else lk.discard)(str(body['lock'])[:60])
+            b['locked'] = sorted(lk)
         if body.get('reset'):
-            b = {'cfg': b['cfg']}
+            b = {'cfg': b['cfg'], 'locked': b.get('locked') or []}
         elif body.get('bell'):
             b['endsAt'] = 0
         d['pgBattle'] = b; _json_save(RUNNERS_PATH, d)
@@ -6954,8 +7052,7 @@ def _audit(d, admin, action, detail):
 
 @app.get('/api/reputation/admin/whoami')
 async def admin_whoami(address: str = ''):
-    return {'isAdmin': address in _admin_wallets(),
-            'source': 'env' if os.environ.get('FEELESS_ADMIN_WALLETS') else 'fee-creator-onchain'}
+    return {'isAdmin': address in _admin_wallets()}   # yes/no only — every HQ action still needs a signed admin session
 
 
 async def _token_holders(mint: str):

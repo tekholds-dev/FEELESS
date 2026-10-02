@@ -32,7 +32,7 @@ export const primeRow = c => ({ id: c.id, name: c.label, closed: false, costUsd:
   baseUsd: c.startUsd, extraUsd: (c.cash || 0) + (c.parked || []).reduce((a, p) => a + (p.usd || 0), 0),
   pnlUsd: c.valueUsd - c.startUsd, pnlPct: c.pnlPct,
   legs: c.legs.map(l => ({ pairAddress: l.pairAddress, symbol: l.symbol, role: l.role, mint: l.mint, usd: l.costUsd, tokens: l.units, valueUsd: l.usd,
-    pnlUsd: l.usd - l.costUsd, pnlPct: l.costUsd ? (l.usd / l.costUsd - 1) * 100 : 0, priced: true, priceNow: l.now, stars: l.stars })) });
+    pnlUsd: l.usd - l.costUsd, pnlPct: l.costUsd ? (l.usd / l.costUsd - 1) * 100 : 0, priced: true, priceNow: l.now, stars: l.stars, liq: l.liq })) });
 
 export function usePrime(ms = 60000) {
   const [d, setD] = useState(null);
@@ -125,7 +125,9 @@ export function PrimeControls({ call }) {
         <button type="button" className="m-btn" disabled={l.frozen} data-tip={`Replace $${l.symbol} with the best 3★+ ${l.role} not on the card (same $)`} onClick={() => act({ replace: { tpl: c.tpl, pairAddress: l.pairAddress } }, `$${l.symbol} replaced`)} data-testid={`prime-swap-${c.tpl}-${l.pairAddress}`}>⇄ ${l.symbol}</button>
         <button type="button" className={`m-btn ${l.frozen ? 'is-on' : ''}`} aria-pressed={l.frozen} data-tip={l.frozen ? 'Frozen: never rotated or stopped (the floor still protects). Tap to unfreeze.' : 'Freeze: the engine never rotates or stops this coin'} onClick={() => act({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, frozen: !l.frozen } }, l.frozen ? `$${l.symbol} back under the engine` : `❄ $${l.symbol} frozen`)} data-testid={`prime-frz-${c.tpl}-${l.pairAddress}`}>❄</button>
         <button type="button" className="m-btn" data-tip={`At this coin's stop: ${LEG_WORD[l.slMode || '']} — tap for ${LEG_WORD[next]}`} onClick={() => act({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, slMode: next } }, `$${l.symbol} stop: ${LEG_WORD[next]}`)} data-testid={`prime-mode-${c.tpl}-${l.pairAddress}`}>{LEG_WORD[l.slMode || ''].split(' ')[0]}</button></span>; })}
-      <button type="button" className="m-btn" onClick={() => act({ redeal: c.tpl }, `${c.label} re-dealt`)} data-testid={`prime-redeal-${c.tpl}`}>🃏 Re-deal</button></div>)}</div>
+      <button type="button" className="m-btn" onClick={() => act({ redeal: c.tpl }, `${c.label} re-dealt`)} data-testid={`prime-redeal-${c.tpl}`}>🃏 Re-deal</button>
+      <button type="button" className={`m-btn ${d?.locks?.[c.tpl] ? 'is-on' : ''}`} aria-pressed={!!d?.locks?.[c.tpl]} onClick={() => act({ lock: c.tpl, on: !d?.locks?.[c.tpl] }, d?.locks?.[c.tpl] ? `${c.label} follows the shared config again` : `🔒 ${c.label} config locked as it is now`)}
+        data-tip="Lock this tier's FULL config as it is now (clock, cycle, payout, stops, floor…) — tunes, meta config and the engine never change it" data-testid={`prime-lock-${c.tpl}`}>{d?.locks?.[c.tpl] ? '🔒 Locked' : '🔓 Lock config'}</button></div>)}</div>
     <div className="m-row"><button type="button" className="m-btn" onClick={() => save({}, true)} data-testid="prime-reset">🃏 Deal fresh Prime cards</button>
       <small className="m-dim">{(d?.cards || []).map(c => `${c.label} ${c.pnlPct >= 0 ? '+' : ''}${c.pnlPct.toFixed(1)}%`).join(' · ') || 'dealing…'}</small></div></section>;
 }

@@ -550,8 +550,18 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - My cards: `CoinTable` (entry → now, $ in → now, %), `TrailSummary` (✅ did good · 🪙 stays · ✂ cut). Profile: `PrimeShowcase` (tier cards).
 - ⚠ `.m-num` is a 22px display preset — inside dense rows give it `font-size: inherit` (fuseMoney.css does for its rows).
 
+- 👛 Keeper signing is ON (owner approved): Circle sidecar `POST /sign` (sign only, never send) used by `_fw_sign` for the picked Fuse wallet
+  id; pending saved BEFORE broadcast (no double-buys), `_fw_resolve` books the confirmed tx; every fill / failure → owner inbox (`_fw_notify`).
+  First funding keeps the SAME card (coins, phase, clock, config), scaled to the $; time + P&L restart (`topup_card(first=True)`). Dry run
+  shows `paper_status` (coins, weight, $ each at that amount) + real quotes. 🔒 Config locks: tier `prime.locks` (frozen full cfg per tier) +
+  playground `pgBattle.locked` (coins + DNA survive a loss).
+- 🎯 Card value = what SELLING pays (`arena_prime.value(.., liqs)`, leg `liqNow`); unknown liquidity = THIN (`UNKNOWN_LIQ` $20K, mirrored in
+  `revalue`), never infinitely deep — that bug once showed $29 → $389K. The inflated runs are archived in `prime.archive`.
+- 🔒 HQ ships as its OWN lazy chunk (loaded only after `/admin/whoami` says yes); `ReportBug` lives outside HQ. `test_admin_routes_guarded`
+  fails on any `/admin` route without a gate (only the two yes/no checks are public, bool only).
+
 ## NEXT SESSION — continue here (in this order)
-00000. OWNER DECISION: enable Circle transaction signing for the Fuse wallet keeper (GO_LIVE A·2). Then: arm, fund ONE tier with $20,
+00000. Owner live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10
    rounds) — recommend $0.10/coin · 5% cap · $0.10 per swap.
 0000. Owner live test: per-coin ⚙ (card window + Lab), rounds pay/compound, buy & back, Edit in Breed → publish, playground battles,

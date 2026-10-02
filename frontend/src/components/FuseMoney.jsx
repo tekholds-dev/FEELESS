@@ -74,7 +74,7 @@ export function CardShowcase({ cards = [], onOpen }) {
     const t = setInterval(() => setFront(f => (f + 1) % n), 3800); return () => clearInterval(t); }, [n, hold]);
   if (n < 2) return null;
   return <section className="sc3" onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} data-testid="card-showcase" aria-label="Top cards">
-    <span className="m-label sc3-k">🃏 TOP 3 · LIVE SHUFFLE</span>
+    <span className="m-label sc3-k">🏆 TOP 3 WINNERS · LIVE SHUFFLE</span>
     <div className="sc3-ring" style={{ '--n': n }}>{cards.slice(0, n).map((c, i) => { const pos = (i - front + n) % n;
       return <button key={c.key} type="button" className={`sc3-card p-${pos} t-${c.tone || 'gold'}`} onClick={() => (pos === 0 ? onOpen?.(c) : setFront(i))} aria-label={`${c.name} ${pct(c.pct)}`} data-testid={`sc3-${i}`}>
         <span className="sc3-shine" aria-hidden="true" /><small>{c.badge}</small><b>{c.name}</b>

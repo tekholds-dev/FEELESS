@@ -15,7 +15,7 @@ import { CopyBtn } from '../CopyBtn';
 import { MintedTimeline } from '../MintedTimeline';
 import { FuseReceipts, FuseHeldCards, FuseScore, TraderCard, MyBattles, FusePopup } from '../FusePage';
 import { PrimeShowcase } from '../ArenaPrime';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Globe, Send, Pencil, Save, X, Plus, Image as ImageIcon, Trophy, ShieldCheck } from 'lucide-react';
@@ -29,7 +29,9 @@ import { BadgeArtifacts, useBadges } from '../terminal/Badges';
 import EcosystemChat from '../EcosystemChat';
 import { BadgeJourney } from './BadgeJourney';
 import { ReceiptsCard } from './ReceiptsCard';
-import { CommandCenter, ReportBug } from './CommandCenter';
+import { ReportBug } from '../ReportBug';
+// HQ is its own lazy chunk: downloaded ONLY after the server confirms this wallet is the creator / an admin-granted wallet.
+const CommandCenter = lazy(() => import('./CommandCenter').then(m => ({ default: m.CommandCenter })));
 import { InviteCard } from '../InviteCard';
 import { AdBanner } from '../AdBanner';
 import { ProfileMusic } from './ProfileMusic';
@@ -214,7 +216,7 @@ export function WalletProfilePage({ address }) {
   const caller = data?.caller;
   const [friend, setFriend] = useState('');
   const wide = useWide();
-  if (ccOpen && isAdmin) return <CommandCenter address={address} signMessage={signMessage} onClose={() => setCcOpen(false)} />;
+  if (ccOpen && isAdmin) return <Suspense fallback={<div className="m-card"><span className="loader" /> Opening HQ…</div>}><CommandCenter address={address} signMessage={signMessage} onClose={() => setCcOpen(false)} /></Suspense>;
   return <><div className={`profile-backdrop pbg-${backdrop}`} aria-hidden="true" data-testid="profile-backdrop" /><div className={`wp-stage ${wide ? 'has-rails' : ''}`}>{wide && <IntelRail address={address} />}<div className={`wallet-profile-page theme-${p.theme || 'grid'} ptier-${tier}`} style={{ '--wp-accent': accent }} data-testid="wallet-profile-page">
     <header className="xp-card" data-testid="profile-header">
       <div className={`xp-cover ${p.bannerUrl ? 'has-img' : ''}`}>
