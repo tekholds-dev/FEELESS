@@ -4443,6 +4443,7 @@ async def _arena_mega(rd, cfg, now):
                     'legs': ac['legs'], 'index': round(100 + pct, 2), 'grade': 'A' if pct > 0 else 'B', 'buyers': 0, 'at': ac['at'], 'chat': f"fuse-card-{ac['id']}",
                     'activity': _hq.activity(len(ac['legs']), 0, sum(_fuse._f(l.get('vol1h')) for l in ac['legs']) * 24, pct)})
     published = {f.get('fromScenario') for f in (store.get('fuses') or {}).values() if f.get('arena') and f.get('fromScenario')}
+    bench_names = set()
     for sc in rd.get('scenarioStage') or []:   # 🥈 runners-up: engine scenario cards waiting for Cmd Ctr's audit (published ones show as mega)
         if sc.get('src') in published:
             continue
@@ -4450,8 +4451,10 @@ async def _arena_mega(rd, cfg, now):
         mv_ = [spx[l['pairAddress']] / l['entry'] for l in sc['legs'] if _fuse._f(spx.get(l['pairAddress'])) > 0 and _fuse._f(l.get('entry')) > 0]
         pct_ = round((sum(m * _fuse._f(l['weight']) for m, l in zip(mv_, sc['legs'])) / max(1e-9, sum(_fuse._f(l['weight']) for l in sc['legs'][:len(mv_)])) - 1) * 100, 2) if mv_ else 0.0
         dial = sc.get('dial') or _rn.dial_of(sc['tp'], sc['sl'])
-        out.append({'kind': 'scenario', 'bench': True, 'id': sc['id'], 'src': sc.get('src'), 'name': sc['name'] if sc.get('dial') else _rn.card_name(dial, sc['id']).split(' ', 1)[-1],
-                    'emoji': sc.get('emoji') or _rn.card_name(dial, sc['id']).split(' ', 1)[0], 'aura': '', 'legs': sc['legs'], 'index': round(100 + pct_, 2), 'dial': dial,
+        own = f"{sc['emoji']} {sc['name']}" if sc.get('dial') and sc.get('emoji') else None
+        nm_ = own if own and own not in bench_names else _rn.card_name(dial, sc['id'], bench_names)   # never two runners-up with one name
+        bench_names.add(nm_)
+        out.append({'kind': 'scenario', 'bench': True, 'id': sc['id'], 'src': sc.get('src'), 'name': nm_.split(' ', 1)[-1], 'emoji': nm_.split(' ', 1)[0], 'aura': '', 'legs': sc['legs'], 'index': round(100 + pct_, 2), 'dial': dial,
                     'cfg': sc.get('cfg') or _rn.card_cfg(dial, sc), 'grade': 'A' if pct_ > 0 else 'B', 'buyers': 0, 'at': sc['at'], 'chat': f"fuse-card-{sc['id']}", 'pnlPct': pct_,
                     'tagline': f"engine card · TP +{sc['tp']}% / stop −{sc['sl']}%",
                     'activity': _hq.activity(len(sc['legs']), 0, 0, pct_)})

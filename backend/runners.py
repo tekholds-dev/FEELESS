@@ -695,7 +695,7 @@ def scenario_grid(rounds, paths, now, window):
 def scenario_cards(scen, picks, anchor=None, top=3):
     """🃏 The best scenarios become REAL cards: this round's gated runner picks (≤3) + a SOL anchor (35%), with that scenario's
     TP / SL on every runner. Only scenarios with rounds and avg > 0 qualify. Pure."""
-    out = []
+    out, used = [], set()
     runners = [p for p in picks or [] if p.get('pairAddress')][:3]
     if not runners:
         return out
@@ -707,7 +707,7 @@ def scenario_cards(scen, picks, anchor=None, top=3):
         dial = dial_of(sc['tp'], sc['sl'], sc['id'].split('_')[0] if sc.get('kind') == 'dial' else None)
         out.append({'id': sc['id'], 'label': sc['label'], 'window': sc['window'], 'tp': sc['tp'], 'sl': sc['sl'], 'avgPct': sc['avgPct'],
                     'winRate': sc.get('winRate'), 'rounds': sc['rounds'], 'per1': sc.get('per1'), 'legs': legs,
-                    'dial': dial, 'name': card_name(dial, sc['id']), 'cfg': card_cfg(dial, sc)})
+                    'dial': dial, 'name': card_name(dial, sc['id'], used), 'cfg': card_cfg(dial, sc)})
     return out
 
 
@@ -728,9 +728,17 @@ def dial_of(tp, sl, dial=None):
     return 'degen' if tp >= 200 or sl >= 35 else 'safe' if tp <= 50 and sl <= 20 else 'balanced'
 
 
-def card_name(dial, seed):
+def card_name(dial, seed, used=None):
+    """Stable per seed; skips names already `used` this round so two cards never share one."""
     names = CARD_NAMES.get(dial) or CARD_NAMES['balanced']
-    return names[sum(ord(ch) for ch in str(seed)) % len(names)]
+    i = sum(ord(ch) for ch in str(seed)) % len(names)
+    for k in range(len(names)):
+        n = names[(i + k) % len(names)]
+        if not used or n not in used:
+            if used is not None:
+                used.add(n)
+            return n
+    return names[i]
 
 
 def card_cfg(dial, sc):
