@@ -99,7 +99,8 @@ export function EngineDial({ call }) {
   const pick = dial => call('/admin/runners/config', { method: 'POST', body: JSON.stringify({ dial }) })
     .then(r => { toast.success(`Engine: ${c.dials[dial].label} — ${c.dials[dial].why}`); setC(x => ({ ...x, dial: r.dial, cfg: r.cfg })); window.dispatchEvent(new Event('feeless:runners')); }).catch(e => toast.error(e.message));
   return <section className="m-card fops" data-testid="engine-dial"><div className="m-row"><span className="m-label">🎚 ENGINE DIAL</span><small className="m-dim">one choice sets every gate + lane exit · fine-tune below makes it Custom</small></div>
-    <RiskDial value={c.dial || 'custom'} onChange={pick} dials={c.dials} noProof testid="engine" /></section>;
+    <RiskDial value={c.dial || 'custom'} onChange={pick} dials={c.dials} noProof testid="engine" />
+    <label className="m-toggle" data-tip="Every runner round the engine switches to the dial with the PROVEN better record (8+ rounds, avg > 0, ≥2 pts ahead). Logged in the audit log + your inbox."><input type="checkbox" checked={c.autoTune !== false} onChange={e => call('/admin/runners/autotune', { method: 'POST', body: JSON.stringify({ on: e.target.checked }) }).then(r => setC(x => ({ ...x, autoTune: r.autoTune }))).catch(err => toast.error(err.message))} data-testid="engine-autotune" /><span>🔧 Auto-strength every round</span></label></section>;
 }
 
 // Cmd Ctr › Fee 🐱: FeeCat tunes the engine in ONE click — she reads the dial proof (which Safe/Balanced/Degen engine actually

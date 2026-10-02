@@ -19,7 +19,7 @@ import '../styles/fuseLab.css';
 // 10–70% each) and where one SOL amount goes. Traders fuse up to 3 pools; Cmd Ctr (pass `call`) up to 6 with manual
 // weights + publish-as-Fuse. Preview is read-only; Fuse in = one wallet approval for one normal swap per pool (FuseGo).
 // Caps are enforced server-side (fuse.USER_MAX_LEGS / MAX_LEGS).
-const LENSES = [['popular', 'Popular'], ['majors', '🪙 Majors'], ['yield', 'Top yield'], ['deep', 'Deepest'], ['runners', '🏃 Runners'], ['new', 'New 72h']];
+const LENSES = [['popular', 'Popular'], ['majors', '🪙 Majors'], ['risers', '🚀 New majors'], ['yield', 'Top yield'], ['deep', 'Deepest'], ['runners', '🏃 Runners'], ['new', 'New 72h']];
 const usd = v => (v >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${(v || 0).toFixed(v < 10 ? 2 : 0)}`);
 const pct = v => (Math.abs(v) >= 1000 ? `${(1 + v / 100).toFixed(1)}x` : `${v >= 0 ? "+" : ""}${(v || 0).toFixed(1)}%`);
 const apr = v => (v >= 1000 ? `${(v / 100).toFixed(0)}x` : `${Math.round(v || 0)}%`);

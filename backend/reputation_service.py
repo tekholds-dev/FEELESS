@@ -2772,6 +2772,8 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
     """Fuse Lab: browse real pools on the chain you're on, by lens (popular / yield / deep / new)."""
     if lens == 'majors':   # 🪙 the REAL SOL / BTC / ETH / … on Solana (hard-coded mints), deepest pool each
         return {'lens': 'majors', 'chain': 'solana', 'pools': await _majors_rows()}
+    if lens == 'risers':   # 🚀 new majors: young coins that arrived big with real volume
+        return {'lens': 'risers', 'chain': 'solana', 'pools': _fuse.risers(await _fuse_discover_pairs('solana'), time.time() * 1000)}
     lens = lens if lens in _fuse.LENSES else 'popular'
     return {'lens': lens, 'chain': chain, 'pools': _fuse.discover(await _fuse_discover_pairs(chain), lens, chain, now_ms=time.time() * 1000)}
 
@@ -4749,6 +4751,8 @@ async def _fuse_warm():
     _fuse_warm_n['n'] += 1
     if _fuse_warm_n['n'] % 24 == 2:   # ~10 min: who the elite traders are + what they bought (FeeCat learns from it)
         await _crowd_build()
+    if _fuse_warm_n['n'] % 36 == 5:   # ~15 min (one runner round): auto-strength picks the proven-best engine dial
+        await _engine_auto(time.time())
     if _fuse_warm_n['n'] % 144 == 3:  # ~1h: nudge Cmd Ctr if a stronger engine config is waiting
         _engine_nudge(time.time())
     if _fuse_warm_n['n'] % 12 == 1:   # ~5 min: refresh card holders' Fuse scores (feeds their trust score)
@@ -4781,6 +4785,24 @@ async def admin_runner_suggest(request: Request):
     d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
     cfg = _runner_cfg(); pr = _rn.lane_proofs(d['rounds'], d['paths'], time.time(), cfg)
     return {'suggestions': _rn.suggest_cfg(cfg), 'lanes': pr, 'weights': _rn.lane_weights(pr), 'cfg': cfg}
+
+
+async def _engine_auto(now):
+    """🔧 Auto-strength, once per runner round: if another engine dial is PROVEN better (runners.auto_pick on the dial proof),
+    switch to it and log it (audit + admin inbox). Off when Cmd Ctr turned auto-tune off (RUNNERS_PATH.autoTune = False)."""
+    rd = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
+    if rd.get('autoTune') is False or not rd.get('rounds'):
+        return None
+    proof = _rn.dial_proof(rd['rounds'], rd['paths'], now, _hq.RISK_DIALS)
+    dial, why = _rn.auto_pick(proof, rd.get('cfgDial'))
+    if not dial or dial not in _rn.ENGINE_DIALS:
+        return None
+    async with _admin_lock:
+        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['cfg'] = _rn.engine_dial(dial, d.get('cfg') or {}); d['cfgDial'] = dial; _json_save(RUNNERS_PATH, d)
+    ad = _admin_load(); _audit(ad, 'engine-auto', 'runners-config', f'auto-strength → {dial}: {why}'); _admin_save(ad)
+    for adm in _admin_wallets():
+        notify(adm, 'shield', f"🔧 Engine auto-strength: switched to the {dial} dial — {why}. Turn off in Cmd Ctr › Fuse › Engine.", url='/terminal/command?tab=fuse', once=f"engine-auto-{dial}-{int(now // 3600)}")
+    return dial
 
 
 def _engine_nudge(now):
@@ -4873,11 +4895,20 @@ async def runners_board():
             'lanes': (lp := _rn.lane_proofs(d['rounds'], d['paths'], now, cfg)), 'laneWeights': _rn.lane_weights(lp)}
 
 
+@app.post('/api/reputation/admin/runners/autotune')
+async def runners_autotune(request: Request):
+    admin = _require_admin(request); on = bool((await request.json()).get('on'))
+    async with _admin_lock:
+        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['autoTune'] = on; _json_save(RUNNERS_PATH, d)
+    ad = _admin_load(); _audit(ad, admin, 'runners-autotune', 'on' if on else 'off'); _admin_save(ad)
+    return {'autoTune': on}
+
+
 @app.get('/api/reputation/admin/runners/config')
 async def runners_cfg_get(request: Request):
     _require_admin(request)
     return {'cfg': _runner_cfg(), 'defaults': _rn.DEFAULT_CFG, 'ranges': _rn.CFG_RANGES, 'dial': _json_load(RUNNERS_PATH, {}).get('cfgDial') or 'custom',
-            'dials': {k: {'label': v['label'], 'why': v['why']} for k, v in _rn.ENGINE_DIALS.items()}}
+            'dials': {k: {'label': v['label'], 'why': v['why']} for k, v in _rn.ENGINE_DIALS.items()}, 'autoTune': _json_load(RUNNERS_PATH, {}).get('autoTune') is not False}
 
 
 @app.post('/api/reputation/admin/runners/config')

@@ -309,3 +309,22 @@ def majors_pools(pairs_by_mint):
         rows.append({'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'createdAt': p.get('pairCreatedAt'), 'logo': (p.get('info') or {}).get('imageUrl'),
                      **leg_meta(p), 'name': name, 'real': True, 'impostor': False})
     return rows
+
+
+def risers(pairs, now_ms, max_age_d=14, min_mcap=800_000, max_mcap=50_000_000, min_vol=300_000, min_liq=100_000, limit=24):
+    """🚀 New majors: coins that ARRIVED big — young (≤14d), $800K–$50M mcap, real volume + depth (PAID / HOOKED style).
+    One row per coin (deepest pool), ranked by 24h volume × (1 + positive 24h move)."""
+    best = {}
+    for p in real_pools(pairs):
+        if p.get('chainId') != 'solana':
+            continue
+        mc = _f(p.get('marketCap') or p.get('fdv')); vol = _f((p.get('volume') or {}).get('h24')); liq = _f((p.get('liquidity') or {}).get('usd'))
+        age_d = (now_ms - _f(p.get('pairCreatedAt'))) / 8.64e7 if p.get('pairCreatedAt') else 999
+        if not (min_mcap <= mc <= max_mcap and vol >= min_vol and liq >= min_liq and age_d <= max_age_d):
+            continue
+        k = (p.get('baseToken') or {}).get('address')
+        if k not in best or liq > _f((best[k].get('liquidity') or {}).get('usd')):
+            best[k] = p
+    score = lambda p: _f((p.get('volume') or {}).get('h24')) * (1 + max(0.0, _f((p.get('priceChange') or {}).get('h24'))) / 100)
+    return [{'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'createdAt': p.get('pairCreatedAt'), 'mcap': _f(p.get('marketCap') or p.get('fdv')), **leg_meta(p)}
+            for p in sorted(best.values(), key=score, reverse=True)[:limit]]

@@ -574,3 +574,16 @@ def _dial_play(entry, path, tp, sl):
         if g <= -sl:
             return round(px / entry, 4)
     return round(path[-1] / entry, 4)
+
+
+def auto_pick(proof, current, min_rounds=8, margin=2.0):
+    """🔧 Auto-strength: the engine dial to run next. Switch only to a dial PROVEN better (≥ min_rounds, avg > 0, ahead of the
+    current dial by ≥ margin pts of avg round). Never switches on noise; returns (dial, why) or (None, None)."""
+    cur = (proof or {}).get(current) or {}
+    ok = [(d, p) for d, p in (proof or {}).items() if p.get('rounds', 0) >= min_rounds and p.get('avgPct', 0) > 0]
+    if not ok:
+        return None, None
+    d, p = max(ok, key=lambda x: x[1]['avgPct'])
+    if d == current or p['avgPct'] - (cur.get('avgPct') or 0) < margin:
+        return None, None
+    return d, f"{d} dial avg {p['avgPct']:+.1f}% over {p['rounds']} rounds vs {current or 'custom'} {cur.get('avgPct', 0):+.1f}%"

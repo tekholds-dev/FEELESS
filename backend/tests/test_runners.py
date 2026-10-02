@@ -186,3 +186,12 @@ def test_dead_board_widens_soft_gates_only_within_floors():
     assert rn.widen(base, 9) == w3 and rn.widen(rn.clean_cfg({'minMcap': 8000}), 3)['minMcap'] == 5000   # max 3 steps, never past the floor
     assert rn.widen(base, 0) == base
     assert rn.widen_level(0, 0) == 1 and rn.widen_level(3, 0) == 3 and rn.widen_level(2, 9) == 1 and rn.widen_level(1, 5) == 1
+
+
+def test_engine_auto_pick_switches_only_on_proven_edge():
+    proof = {'safe': {'rounds': 60, 'avgPct': -10.7}, 'balanced': {'rounds': 60, 'avgPct': -8.3}, 'degen': {'rounds': 60, 'avgPct': 2.3}}
+    d, why = rn.auto_pick(proof, 'balanced')
+    assert d == 'degen' and 'over 60 rounds' in why
+    assert rn.auto_pick(proof, 'degen') == (None, None)                                   # already on the best
+    assert rn.auto_pick({'degen': {'rounds': 3, 'avgPct': 9}}, 'safe') == (None, None)    # not enough rounds
+    assert rn.auto_pick({'degen': {'rounds': 30, 'avgPct': 1.0}, 'safe': {'rounds': 30, 'avgPct': 0.5}}, 'safe') == (None, None)   # under margin

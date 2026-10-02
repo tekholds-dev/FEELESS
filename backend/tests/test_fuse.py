@@ -136,3 +136,12 @@ def test_real_majors_first_impostors_flagged():
                                   {'chainId': 'solana', 'pairAddress': 'deep', 'baseToken': {'address': M, 'symbol': 'SOL'}, 'liquidity': {'usd': 9e7}, 'volume': {'h24': 1}},
                                   {'chainId': 'base', 'pairAddress': 'evm', 'baseToken': {'address': M}, 'liquidity': {'usd': 1e9}}]})
     assert [p['pairAddress'] for p in pools] == ['deep'] and pools[0]['real'] and pools[0]['name'].startswith('Solana')
+
+
+def test_new_majors_lens_keeps_young_big_coins_with_real_volume():
+    import fuse as f
+    now = 1e12
+    P = lambda a, mc, vol, liq, age_d, ch=10: {'chainId': 'solana', 'pairAddress': 'P' + a, 'baseToken': {'address': a, 'symbol': a}, 'quoteToken': {'symbol': 'SOL'},
+                                                'marketCap': mc, 'volume': {'h24': vol}, 'liquidity': {'usd': liq}, 'pairCreatedAt': now - age_d * 8.64e7, 'priceChange': {'h24': ch}, 'priceUsd': '1'}
+    rows = f.risers([P('PAID', 3e6, 2e6, 4e5, 3), P('OLD', 3e6, 2e6, 4e5, 60), P('TINY', 2e5, 2e6, 4e5, 1), P('DEAD', 3e6, 1e4, 4e5, 2), P('HOOK', 6e6, 4e6, 4e5, 3)], now)
+    assert [r['symbol'] for r in rows] == ['HOOK', 'PAID']
