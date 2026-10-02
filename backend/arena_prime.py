@@ -40,6 +40,7 @@ CYCLE_TIERS = ('degen', 'next')
 CYCLE_MODES = {'off': None, 'classic': CYCLE, 'adaptive': 'adaptive', 'safe': ('anchor', 'mixed'), 'press': ('degen', 'mixed')}
 DEFAULT_CYCLES = {'safe': 'safe', 'balanced': 'adaptive', 'degen': 'classic', 'next': 'press', 'ever': 'off'}   # every tier cycles its own way
 DEFAULT_PAYOUTS = {'safe': 25, 'balanced': 50, 'degen': 0, 'next': 25, 'ever': 75}   # % of every profit take paid straight to the wallet
+RUG_LIQ = 0.5   # 🚨 rug shield: pool liquidity at ≤ 50% of entry = pulled → sell at once
 TRAIL_AT, TRAIL_KEEP = 50.0, 5.0   # 🔒 a coin that ran ≥ +50% is sold before it gives it all back (≤ +5% left) — winners never turn into losers
 
 
@@ -222,6 +223,16 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         if nc:
             c = nc
 
+    # 0b) 🚨 RUG SHIELD (real-world add-on): a coin whose pool liquidity fell to ≤ half of what it had at entry is sold at once to
+    #     cash — before the stop, the trail or the floor. Anchors (majors) are exempt; frozen coins too (the owner's call).
+    for l in list(c['legs']):
+        lq, lq0 = _f(liqs.get(l['pairAddress'])), _f(l.get('liq'))
+        if l.get('role') == 'anchor' or l.get('frozen') or lq <= 0 or lq0 <= 0 or lq > lq0 * RUG_LIQ:
+            continue
+        px = _f(prices.get(l['pairAddress'])) or l['entry']
+        usd = sell_usd(l['units'], px, lq)
+        c['legs'].remove(l); c['cash'] += usd; c['feesUsd'] += fee
+        ev(kind='rug', symbol=l['symbol'], usd=round(usd, 4), why=f"liquidity ${lq0 / 1000:.0f}K → ${lq / 1000:.0f}K (−{(1 - lq / lq0) * 100:.0f}%) — pulled, sold at once", to=['cash'])
     # 1) auto take-profit — HOW MUCH depends on momentum (exit_plan): ride / gain / bank → compound into the others or cash
     mom = mom or {}
     for l in c['legs']:

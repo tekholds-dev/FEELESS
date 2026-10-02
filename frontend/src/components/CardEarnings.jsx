@@ -11,7 +11,7 @@ const $ = v => `$${Math.abs(v || 0).toFixed(2)}`;
 const px = v => (v >= 1 ? v.toFixed(2) : v >= 0.001 ? v.toFixed(5) : Number(v).toPrecision(3));
 const ago = t => { const s = Date.now() / 1000 - t; return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : s < 86400 ? `${Math.round(s / 3600)}h` : `${Math.round(s / 86400)}d`; };
 
-export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fees, gainNow, onCollect, onClose, paper, actions, legs, onFreeze, autos, extra, onMode, cardMode, onCoinCfg }) {
+export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fees, gainNow, onCollect, onClose, paper, actions, legs, onFreeze, autos, extra, onMode, cardMode, onCoinCfg, book }) {
   const [cfgOpen, setCfgOpen] = useState(null);
   useEffect(() => { const k = e => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   // centered pop-up over a blurred page; page animations pause while it's open so the blur costs nothing
@@ -22,6 +22,15 @@ export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fe
     <aside className="ce is-pop m-live" role="dialog" aria-modal="true" aria-label={`${title} earnings`} onClick={e => e.stopPropagation()}>
       <header><span className="m-label">📜 WHERE THE PROFIT WENT{paper ? ' · PAPER' : ''}</span><h3>{title}</h3><button type="button" className="cx-x" onClick={onClose} aria-label="Close">×</button>
         <ShareGifButton className="m-btn ce-share" label="🎞 Share" card={share} /></header>
+      {book && <section className="ce-book" data-testid="ce-book"><span className="m-label">💼 THE BOOK · WHERE EVERY $ IS</span>
+        <div className="ce-book-eq">
+          <span data-tip="What went into the card (money that reached the pools — fees apart)"><small>PUT IN</small><b className="m-num">{$(book.putIn)}</b></span><i>→</i>
+          <span data-tip="Coins still in the card at live prices"><small>STILL HELD</small><b className="m-num fl-tick" key={Math.round(book.held * 100)}>{$(book.held)}</b></span><i>+</i>
+          <span data-tip={paper ? "Paid out to the owner's wallet" : 'Taken out to your wallet'}><small>TAKEN OUT</small><b className="m-num m-pos">{$(book.taken)}</b></span><i>=</i>
+          <span><small>TOTAL</small><b className="m-num">{$(book.held + book.taken)}</b></span></div>
+        <div className="ce-book-pnl"><b className={`m-num ${book.held + book.taken - book.putIn >= 0 ? 'm-pos' : 'm-neg'}`}>{book.held + book.taken - book.putIn >= 0 ? '+' : '−'}{$(Math.abs(book.held + book.taken - book.putIn))}
+          <em> ({book.putIn ? `${((book.held + book.taken) / book.putIn - 1) * 100 >= 0 ? '+' : ''}${(((book.held + book.taken) / book.putIn - 1) * 100).toFixed(1)}%` : '—'})</em></b>
+          <small className="m-dim">total profit · price moves only{book.fees != null ? ` · fees already paid ${$(book.fees)}${book.rounds ? ` over ${book.rounds} rounds` : ''}${book.roundsPaid ? ` · round packs ${$(book.roundsPaid)}` : ''}` : ''}{book.owed ? ` · ${$(book.owed)} owed (compound pays)` : ''}</small></div></section>}
       <div className="ce-sum">
         <div data-tip="Taken out by take-profits / collects — it's SOL in the wallet now"><small>TAKEN OUT</small><b className="m-num m-pos">{$(taken)}</b><em>{paper ? "to the owner's wallet" : 'in your wallet'}</em></div>
         <div data-tip="Gains rolled back into the card's coins"><small>COMPOUNDED</small><b className="m-num">{$(compounded)}</b><em>back into the card</em></div>

@@ -247,3 +247,10 @@ def test_tier_dna_payout_goes_to_the_wallet_and_smart_compound_skips_fading_coin
     tp = [e for e in out['events'] if e['kind'] == 'tp'][-1]
     assert 'A' not in tp['to'] and 'smart compound' in tp['why']                                  # fading pool gets nothing
     assert abs(ap.value(out, px) - (ap.value(card, px) - 0)) < 5                                  # paid-out $ still counts for the owner
+
+
+def test_rug_shield_sells_a_coin_whose_liquidity_was_pulled():
+    card = ap.deal('degen', [P('a', 1)], [{**R('r1', 1), 'liquidityUsd': 100_000}, R('r2', 1)], CFG, 0, SOL[:1])
+    assert [l for l in card['legs'] if l['mint'] == 'r1'][0]['liq'] == 100_000
+    out = ap.tick(card, {'Psol': 1, 'Pa': 1, 'Pr1': 0.9, 'Pr2': 1}, [], [], CFG, 30, SOL, None, {'Pr1': 40_000})
+    assert 'r1' not in [l['mint'] for l in out['legs']] and any(e['kind'] == 'rug' and 'pulled' in e['why'] for e in out['events'])

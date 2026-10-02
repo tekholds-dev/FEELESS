@@ -53,7 +53,7 @@ def deal(sc, prices, liqs, now, size):
         units = _buy(l['pairAddress'], usd, prices, liqs)
         if units:
             out.append({'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'mint': l.get('mint'), 'role': l.get('role') or 'runner',
-                        'entry': _f(prices[l['pairAddress']]), 'units': units, 'usd': round(usd, 4), 'at': now})
+                        'entry': _f(prices[l['pairAddress']]), 'units': units, 'usd': round(usd, 4), 'at': now, 'liq': _f(liqs.get(l['pairAddress']))})
     return {'id': sc['id'], 'name': sc.get('vName') or sc.get('name') or sc.get('label'), 'dial': sc.get('dial'), 'tp': _f(sc.get('tp')), 'sl': _f(sc.get('sl')),
             'legs': out, 'cash': 0.0, 'startUsd': size, 'roundUsd': size, 'swaps': [], 'at': now}
 
@@ -84,7 +84,9 @@ def tick(card, prices, liqs, quiet, candidates, cfg, now, dna=None):
             l.setdefault('quietSince', now)
         else:
             l.pop('quietSince', None)
-        why = ('tp' if cfg['swapOnTp'] and c['tp'] and move >= c['tp'] else
+        lq, lq0 = _f(liqs.get(l['pairAddress'])), _f(l.get('liq'))
+        why = ('rug' if lq0 > 0 and 0 < lq <= lq0 * ap.RUG_LIQ else   # 🚨 rug shield: liquidity pulled → swap out at once
+               'tp' if cfg['swapOnTp'] and c['tp'] and move >= c['tp'] else
                'sl' if cfg['swapOnSl'] and c['sl'] and move <= -c['sl'] and d['stop'] != 'hold' else
                'dead' if cfg['swapDead'] and l.get('quietSince') and now - l['quietSince'] >= cfg['deadMins'] * 60 else None)
         if not why or not pool:
@@ -100,7 +102,7 @@ def tick(card, prices, liqs, quiet, candidates, cfg, now, dna=None):
         nliq = liqs.get(nxt['pairAddress']) or nxt.get('liq')
         units = usd / ap.buy_px(npx, usd, nliq)
         c['legs'][c['legs'].index(l)] = {'pairAddress': nxt['pairAddress'], 'symbol': nxt.get('symbol'), 'mint': nxt.get('mint'), 'role': 'runner',
-                                         'entry': npx, 'units': units, 'usd': round(usd, 4), 'at': now}
+                                         'entry': npx, 'units': units, 'usd': round(usd, 4), 'at': now, 'liq': _f(nliq)}
         c['swaps'] = (c['swaps'] + [{'at': now, 'why': why, 'out': l.get('symbol'), 'in': nxt.get('symbol'), 'move': round(move, 1)}])[-12:]
     return c
 

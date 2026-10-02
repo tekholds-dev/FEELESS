@@ -141,7 +141,7 @@ export function FeeCatTune({ call }) {
 // ⚔ Engine playground battles — Cmd Ctr only, SEPARATE from the public Arena battles. The best scenario cards fight on short
 // paper rounds (fills like a real wallet); TP / stop / dead coins swap mid-round; winners keep coins, losers are re-bred.
 const pgPc = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(2)}%`);
-const PG_WHY = { tp: '🎯 TP', sl: '🛑 stop', dead: '💀 dead' };
+const PG_WHY = { tp: '🎯 TP', sl: '🛑 stop', dead: '💀 dead', rug: '🚨 rug' };
 export function PlaygroundBattles({ call, onPublish }) {
   const [b, setB] = useState(null); const [now, setNow] = useState(Date.now() / 1000);
   useEffect(() => { let alive = true; const load = () => call('/admin/fuses/pg-battles').then(x => alive && setB(x)).catch(() => {});

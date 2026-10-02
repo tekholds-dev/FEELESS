@@ -130,3 +130,9 @@ def test_engine_doctor_applies_the_winning_pick_filter(monkeypatch):
     asyncio.run(rs._engine_auto(now))
     d = rs._json_load(rs.RUNNERS_PATH, {})
     assert d['pickFilter'] in ('score70', 'green5m') and d['sitOut'] is False and 'every pick' in d['doctorWhy']
+
+
+def test_battle_rug_shield_swaps_a_drained_coin():
+    c = pb.deal(SC, {'SOLP': 150, 'R1': 0.01}, LIQ, 0, 100)
+    out = pb.tick(c, {'SOLP': 150, 'R1': 0.01, 'N1': 1.0}, {**LIQ, 'R1': 50_000}, {}, [{'pairAddress': 'N1', 'symbol': 'NEW', 'price': 1.0}], pb.clean_cfg({}), 60)
+    assert out['swaps'][-1]['why'] == 'rug' and out['legs'][1]['symbol'] == 'NEW'
