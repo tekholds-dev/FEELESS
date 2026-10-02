@@ -266,3 +266,9 @@ def test_playground_versions_and_where_listed():
     got = rn.tag_versions(cards, {'tp200_sl40': 3}, {'tp200_sl40': 'stage'})
     assert got[0]['vName'] == '🚀 Moon Mission v.03' and got[0]['listed'] == 'stage' and 'TP +200%' in got[0]['combo']
     assert got[1]['version'] == 1 and got[1]['listed'] is None
+
+
+def test_battles_may_field_losing_scenarios_but_best_cards_never_do():
+    scen = [{'id': 'a', 'label': 'A', 'window': '24h', 'tp': 100, 'sl': 40, 'rounds': 9, 'avgPct': -3}]
+    picks = [{'pairAddress': 'P1', 'symbol': 'X'}]
+    assert rn.scenario_cards(scen, picks) == [] and len(rn.scenario_cards(scen, picks, losers_ok=True)) == 1

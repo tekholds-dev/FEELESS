@@ -36,7 +36,7 @@ def test_service_round_deals_settles_and_rebreeds(monkeypatch):
     import pytest
     rs = pytest.importorskip('reputation_service')
     sc = lambda i, sym: {'id': f's{i}', 'vName': f'Card {i}', 'tp': 200, 'sl': 40, 'legs': [{'pairAddress': f'P{i}', 'symbol': sym, 'role': 'runner', 'weight': 100}]}
-    async def cards(rd, scen=None, now=None): return [sc(1, 'A'), sc(2, 'B')]
+    async def cards(rd, scen=None, now=None, losers_ok=False): return [sc(1, 'A'), sc(2, 'B')]
     async def live(): return {'passing': [], 'dropped': []}
     px = {'P1': 1.0, 'P2': 1.0}
     async def pairs(legs): return {k: {'priceUsd': v, 'liquidity': {'usd': 1e6}, 'txns': {'m5': {'buys': 5, 'sells': 3}}, 'volume': {'m5': 100}} for k, v in px.items()}

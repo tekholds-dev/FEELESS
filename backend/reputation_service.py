@@ -5305,13 +5305,13 @@ async def fuse_playground(request: Request):
             'pgBattle': _pg_battle_view(rd),
             **_hq.playground_ready(board, dials, prime)}
 
-async def _pg_scenario_cards(rd, scen=None, now=None):
+async def _pg_scenario_cards(rd, scen=None, now=None, losers_ok=False):
     """The playground's best scenario cards (this round's gated runners + SOL anchor), versioned and tagged with where they're listed."""
     scen = scen if scen is not None else _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now or time.time(), _hq.RISK_DIALS)
     anchor = next(({'chainId': 'solana', 'pairAddress': m['pairAddress'], 'symbol': 'SOL', 'mint': m.get('baseAddress')} for m in await _majors_rows() if m.get('symbol') == 'SOL'), None)
     listed = {**{x.get('src'): 'bench' for x in rd.get('scenarioStage') or []},
               **{f.get('fromScenario'): 'stage' for f in (_json_load(FUSES_PATH, {'fuses': {}}).get('fuses') or {}).values() if f.get('arena') and f.get('fromScenario')}}
-    return _rn.tag_versions(_rn.scenario_cards(scen, ((rd.get('rounds') or [{}])[-1] or {}).get('picks'), anchor, top=6), rd.get('scenarioVersions') or {}, listed)
+    return _rn.tag_versions(_rn.scenario_cards(scen, ((rd.get('rounds') or [{}])[-1] or {}).get('picks'), anchor, top=6, losers_ok=losers_ok), rd.get('scenarioVersions') or {}, listed)
 
 
 def _pg_battle_view(rd):
@@ -5331,7 +5331,7 @@ async def _pg_battle_tick(now):
     cfg = _pgb.clean_cfg(b.get('cfg'))
     if not cfg['on']:
         return None
-    scs = {c['id']: c for c in await _pg_scenario_cards(rd, None, now)}
+    scs = {c['id']: c for c in await _pg_scenario_cards(rd, None, now, losers_ok=True)}   # battles field the top-ranked scenarios even when negative
     if len(scs) < 2:
         return None
     cards = dict(b.get('cards') or {})
