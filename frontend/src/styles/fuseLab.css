@@ -345,11 +345,12 @@ body.theme-day .vmath-col { background: var(--m-surface-2); }
 .fl-sec small { font-size: 10px; color: var(--m-dim); } .fl-sec.sec-round b { color: var(--m-accent); } .fl-sec.sec-hot b { color: var(--rn-fire, #ff9a3c); } .fl-sec.sec-watch b { color: var(--m-warn); } .fl-sec.sec-new b { color: #f5c451; } .fl-runrow.sec-new { border-left: 2px dashed #f5c451; }
 .fl-runrow.sec-hot { border-left: 2px solid var(--rn-fire, #ff9a3c); } .fl-runrow.sec-round { border-left: 2px solid var(--m-accent); }
 .fl-runrow.is-blocked { opacity: .55; cursor: help; } .fl-runrow.is-blocked em { color: var(--m-warn); }
-.fl-runrow { animation: flRunIn .3s var(--m-ease) backwards; animation-delay: calc(var(--i, 0) * 40ms); }
+.fl-runrow { animation: flRunSlide .3s var(--m-ease) backwards; animation-delay: calc(var(--i, 0) * 40ms); }   /* slide only: a paused animation (card window open, hidden tab) never leaves a row invisible */
 .fl-runrow .fl-name em { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
 .fl-price { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 8px 12px; border-radius: 10px; border: 1px dashed color-mix(in srgb, var(--m-accent) 45%, var(--m-line)); }
 .fl-price b { font-size: 15px; color: var(--m-accent); } .fl-price small { color: var(--m-dim); font-size: 11px; } .fl-price.is-free { border-style: solid; border-color: var(--m-warn); } .fl-price.is-free b { color: var(--m-warn); }
 @keyframes flRunIn { from { opacity: 0; transform: translateX(-8px); } }
+@keyframes flRunSlide { from { transform: translateX(-8px); } }
 body.fx-lite .fl-runrow { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fl-runrow { animation: none; } }
 body.theme-day .fl-price { background: #fff; }
