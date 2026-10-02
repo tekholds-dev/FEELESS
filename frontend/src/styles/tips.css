@@ -39,3 +39,7 @@ body.theme-day .gd-sus, body.theme-day .gd-rules span { background: var(--m-surf
 .mm-live { background: color-mix(in srgb, #19f58f 22%, transparent); border-color: #19f58f !important; } .mm-testing { background: color-mix(in srgb, #6ad7ff 18%, transparent); }
 .mm-building { background: color-mix(in srgb, #f5c451 16%, transparent); } .mm-planned { background: color-mix(in srgb, #b388ff 14%, transparent); }
 @media (prefers-reduced-motion: reduce) { .mission-meter span { animation: none; } }
+
+/* ⚙ Settings › Reduce motion = EVERY animation on the site stops (newer FX sheets only listened to the OS setting). */
+body.reduced-motion-setting *, body.reduced-motion-setting *::before, body.reduced-motion-setting *::after {
+  animation-duration: .001ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }

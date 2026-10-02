@@ -28,3 +28,19 @@ export function keepMessage(m, filter, me) {
   if (filter === 'trusted') return (m.tier || 0) >= 1 || !!m.system;
   return true;
 }
+
+
+// A call whose coins are ALL dead (no live market / price) or rugged (≤ 0.1× since it was posted, i.e. −90% or worse) is
+// hidden from the room — dead tickers are noise. Plain messages and any call with one live coin stay.
+export function deadCall(m, calls) {
+  const toks = m?.tokens || [];
+  if (!toks.length) return false;
+  const perf = new Map((calls || []).map(c => [c.pairAddress, c]));
+  return toks.every(t => {
+    const pa = t.pair?.pairAddress || t.pairAddress;
+    const c = pa && perf.get(pa);
+    if (c && Number(c.x) > 0 && Number(c.x) <= 0.1) return true;                         // rugged since posted
+    const moved = c && Number(c.x) > 0.1 && (Number(c.x) !== 1 || Number(c.peakX) > 1);           // a flat 1.00× = never priced
+    return !t.pair && !(Number(t.priceUsd) > 0) && !moved;                                          // no market, no price
+  });
+}
