@@ -4616,7 +4616,8 @@ async def _arena_mega(rd, cfg, now):
                 act = {'score': max(act['score'], 90), 'tier': 'blazing'}
             out.append({'kind': 'user', 'id': x['id'], 'name': x.get('name') or 'Fuse card', 'emoji': '🃏', 'aura': '', 'owner': handle_of(x['wallet']) or f"{x['wallet'][:4]}…{x['wallet'][-4:]}",
                         'legs': [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': round(_fuse._f(l.get('usd')) / max(1e-9, rr['costUsd']) * 100, 2),
-                                  'usd': l.get('usd'), 'tokens': l.get('tokens'), 'realizedUsd': l.get('realizedUsd'), 'soldUsd': l.get('soldUsd'), 'heldUsd': l.get('heldUsd')} for l in rr['legs']],
+                                  'usd': l.get('usd'), 'tokens': l.get('tokens'), 'realizedUsd': l.get('realizedUsd'), 'soldUsd': l.get('soldUsd'), 'heldUsd': l.get('heldUsd'),
+                                  'entry': (_fuse._f(l.get('usd')) / _fuse._f(l.get('tokens'))) if _fuse._f(l.get('tokens')) > 0 else None} for l in rr['legs']],   # true entry from the confirmed buy
                         'costUsd': rr['costUsd'], 'compound': cmp_, 'chat': f"fuse-card-{x['id']}",
                         'index': round(100 + rr['pnlPct'], 2), 'grade': 'A' if rr['pnlPct'] >= top else 'B' if rr['pnlPct'] >= 0 else 'C', 'buyers': 1, 'mode': x.get('mode') or 'hold',
                         'pnlPct': rr['pnlPct'], 'at': x.get('at'), 'activity': act, 'streak': stk, 'copies': ncopy, 'copyPct': _card_rules()['copyPct']})
@@ -4668,7 +4669,7 @@ async def _arena_mega(rd, cfg, now):
     pcfg = _prime_cfg()
     for pc_ in await _prime_view():
         out.append({'kind': 'prime', 'fighterOnly': True, 'id': pc_['tpl'], 'name': pc_['label'].split(' ', 1)[-1], 'emoji': pc_['label'].split(' ', 1)[0],
-                    'legs': [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': round(_fuse._f(l.get('usd')) / max(1e-9, pc_['valueUsd']) * 100, 2), 'runner': l.get('role') == 'runner'} for l in pc_['legs']],
+                    'legs': [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': round(_fuse._f(l.get('usd')) / max(1e-9, pc_['valueUsd']) * 100, 2), 'runner': l.get('role') == 'runner', 'entry': l.get('entry')} for l in pc_['legs']],
                     'index': round(100 + _fuse._f(pc_.get('pnlPct')), 2), 'grade': 'A' if _fuse._f(pc_.get('pnlPct')) > 0 else 'B', 'buyers': 0, 'at': pc_.get('at'), 'chat': f"fuse-card-prime-{pc_['tpl']}",
                     'dial': tier_dial.get(pc_.get('tier')), 'cfg': {'tp': pc_.get('tp'), 'sl': pc_.get('sl'), 'rotateHours': pcfg.get('rotateHours'), 'slMode': {'replace': 'sell'}.get(pcfg.get('slMode'), pcfg.get('slMode')), 'cycle': pc_.get('cycleMode')},
                     'tagline': f"top-tier card · {pc_.get('rounds', 0)} rounds", 'activity': _hq.activity(len(pc_['legs']), 0, 0, _fuse._f(pc_.get('pnlPct')))})

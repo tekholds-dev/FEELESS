@@ -41,14 +41,17 @@ export function FuseCard({ c, style = 'yield', rank = 0, budget = 20, aura = '',
     subtitle: `${['🥇', '🥈', '🥉'][rank] || ''} ${style.toUpperCase()} · FIT ${c.fitness}`, rarity: RARITY[p.grade] || 'rare', design: DESIGN[style] || 'holo',
     accent: a, accent2: b, glyph: p.grade || '✦', art: tokenImageUrls(legPair([...c.legs].sort((x, y) => (y.weight || 0) - (x.weight || 0))[0] || {})), motion: rank === 0 ? 'alive' : 'still', aura, holders: c.legs.length, edition: `GEN ${String(c.bornGen ?? 0).padStart(2, '0')}` };
   const live = useLivePrices(c.legs.map(l => l.pairAddress));
-  const m = cardMath(c, budget);
+  // live truth: a leg with a real entry shows its move SINCE ENTRY at the live price (else the honest 24h replay)
+  const legsLive = c.legs.map(l => { const lp_ = live.get(l.pairAddress)?.price; return lp_ > 0 && Number(l.entry) > 0 ? { ...l, replayPct: (lp_ / Number(l.entry) - 1) * 100, sinceEntry: true } : l; });
+  const isLive = legsLive.some(l => l.sinceEntry);
+  const m = cardMath({ ...c, legs: legsLive }, budget);
   const lp = pa => live.get(pa);
   const back = <div className="fcd-back">
-    <div className="mc-top"><span>${budget} IN · LAST 24H</span><span>{p.grade}</span></div>
+    <div className="mc-top"><span>${budget} IN · {isLive ? 'SINCE ENTRY · LIVE' : 'LAST 24H'}</span><span>{p.grade}</span></div>
     <ul>{m.legs.map(l => <li key={l.pairAddress}><b>{l.symbol || (l.baseAddress ? `${l.baseAddress.slice(0, 4)}…` : '—')}</b><span>{Math.round(l.weight)}% · ${l.usd.toFixed(2)}</span><em className={l.pnl >= 0 ? 'up' : 'down'}>{l.move >= 0 ? '+' : ''}{l.move.toFixed(1)}% {sgn(l.pnl)}{lp(l.pairAddress) ? <i className={`fcd-px ${lp(l.pairAddress).m5 >= 0 ? 'up' : 'down'}`}> · ● ${fmtPx(lp(l.pairAddress).price)} {lp(l.pairAddress).m5 >= 0 ? '+' : ''}{lp(l.pairAddress).m5.toFixed(1)}% 5m</i> : null}</em></li>)}</ul>
     <dl><dt>Moves</dt><dd className={m.gross >= 0 ? 'up' : 'down'}>{sgn(m.gross)}</dd><dt>Fee drag</dt><dd className="down">−${m.fees.toFixed(2)}</dd>
       <dt>${budget} → </dt><dd className={m.net >= 0 ? 'up' : 'down'}><b>${m.end.toFixed(2)}</b></dd><dt>Calm · APR</dt><dd>{p.calm} · {p.aprScore}</dd></dl>
-    <small className="fcd-note">Replay of the last 24h, not a promise. APR = pool fee rate (busy-ness), not paid to holders.</small>
+    <small className="fcd-note">{isLive ? 'Live: each coin from its real entry at today\'s price (10s), true fills.' : 'Replay of the last 24h, not a promise.'} APR = pool fee rate (busy-ness), not paid to holders.</small>
   </div>;
   return <div className="fcd" data-testid={`fuse-card-${rank}`} onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} onFocus={() => setHold(true)} onBlur={() => setHold(false)}>
     <MetaCard card={card} size="md" interactive flipped={flipped} onFlip={setFlipped} back={back} className="fcd-card" />
