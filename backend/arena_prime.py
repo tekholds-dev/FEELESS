@@ -419,7 +419,7 @@ def replace_leg(card, pair, prices, pools, runners, anchors, cfg, now):
     usd = l['units'] * (_f(prices.get(pair)) or l['entry'])
     c['legs'][c['legs'].index(l)] = _leg(nxt, usd, now, l['role'])
     c['feesUsd'] = round(_f(c['feesUsd']) + 2 * cfg['paperFeeUsd'], 4)
-    c['events'].append({'at': now, 'kind': 'rotate', 'symbol': l['symbol'], 'usd': round(usd, 4), 'why': 'replaced from Cmd Ctr', 'to': [nxt.get('symbol')]})
+    c['events'].append({'at': now, 'kind': 'rotate', 'symbol': l['symbol'], 'usd': round(usd, 4), 'why': 'replaced by FEELESS', 'to': [nxt.get('symbol')]})
     return c
 
 

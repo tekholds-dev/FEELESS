@@ -55,7 +55,7 @@ def test_bundle_leg_pays_flat_and_cmd_ctr_pays_nothing(rs, monkeypatch):
     assert normal['bps'] == 100 and leg['bps'] == 50 and any('Bundle pricing' in n for n in leg['notes'])
     monkeypatch.setattr(rs, '_is_staff', lambda a: a == 'Staff1')
     staff = asyncio.run(rs.effective_fee('Staff1', rs.WSOL_MINT, MEME, 3, 0.1))
-    assert staff['bps'] == 0 and 'Cmd Ctr' in staff['notes'][0]
+    assert staff['bps'] == 0 and 'FEELESS card' in staff['notes'][0]
     assert asyncio.run(rs.effective_fee('Staff1', rs.WSOL_MINT, MEME, 0, 0.1))['bps'] == 100   # single swaps still pay
 
 

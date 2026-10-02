@@ -39,7 +39,7 @@ export function CardRounds({ card, onChange }) {
   const total = Math.max(5, left + used);
   return <section className={`ce-rounds ${left === 0 && !unlimited ? 'is-out' : ''}`} data-testid={`rounds-${card.id}`}>
     <span className="m-label">🔁 AUTO ROUNDS</span>
-    {unlimited ? <small className="m-dim">Cmd Ctr card · unlimited rounds</small> : <>
+    {unlimited ? <small className="m-dim">FEELESS card · unlimited rounds</small> : <>
       <span className="ce-rdots" aria-label={`${left} of ${total} rounds left`}>{Array.from({ length: Math.min(total, 20) }, (_, i) => <i key={i} className={i < used ? 'is-used' : ''} style={{ '--i': i }} />)}</span>
       <b className="m-num fl-tick" key={left}>{left} left</b>
       <small className="m-dim">Each rotation or buy-back alert uses 1 round. +{cfg.step} for ${cfg.per5Usd.toFixed(2)}{cfg.compoundPay ? ', or let the card\'s compound pay it (owed until your next profit take)' : ''}.</small>

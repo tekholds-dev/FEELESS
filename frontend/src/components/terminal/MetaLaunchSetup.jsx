@@ -451,7 +451,7 @@ export default function MetaLaunchSetup({ initialValues }) {
     else goStep(Math.min(...keys.map(stepOf)));
   };
   const unavailableReason = !readiness.providerReady
-    ? (form.providerId === 'feeless' ? 'The FEELESS launch config has not been created yet (owner: Command Center → Launch & setup). Pump.fun works now.' : 'This launchpad is not connected yet — pick FEELESS native or Pump.fun.')
+    ? (form.providerId === 'feeless' ? 'The FEELESS launch config has not been created yet (not set up yet). Pump.fun works now.' : 'This launchpad is not connected yet — pick FEELESS native or Pump.fun.')
     : !readiness.rpcReady
       ? 'A Solana RPC endpoint is not configured.'
       : wallet?.chain && wallet.chain !== 'solana'

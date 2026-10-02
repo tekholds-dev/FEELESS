@@ -2842,7 +2842,7 @@ async def fuses_preview(payload: FusePreview, request: Request = None):
     if len(pools) + n_run < 2:
         raise HTTPException(400, 'Pick at least 2 legs (pools and/or runners).')
     if not _hq.legs_ok(len(pools), n_run, admin):
-        raise HTTPException(400, f'Cmd Ctr cards hold up to {_hq.ADMIN_LEGS} legs (pools + runners).' if admin else
+        raise HTTPException(400, f'FEELESS cards hold up to {_hq.ADMIN_LEGS} legs (pools + runners).' if admin else
                             f'A card holds up to {_hq.CARD_POOLS} pools + {_hq.CARD_RUNNERS} runners.')
     pairs, sol_usd = await asyncio.gather(_fuse_pairs(pools) if pools else asyncio.sleep(0, {}), _sol_usd_live())
     metas = {k: _fuse.leg_meta(v) for k, v in pairs.items()}
@@ -7476,7 +7476,7 @@ async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''
         notes.append(f'{disc:.0f}% holder discount (tier {tier})')
     if bundle >= 2:
         if wallet and _is_staff(wallet):
-            return none('Cmd Ctr card: no FEELESS fee — only network / partner fees.')
+            return none('FEELESS card: no FEELESS fee — only network / partner fees.')
         bcfg = _hq.clean_bundle(cfg.get('bundle'))
         flat = _hq.bundle_bps(await _leg_usd(input_mint, amount), bcfg)
         if flat is not None:
@@ -13560,7 +13560,7 @@ async def circle_transfer(request: Request, p: CircleSendIn):
         raise HTTPException(400, 'Type the last 4 characters of the destination to confirm.')
     dest = {x['address'] for x in await _circle_destinations()}
     if p.to not in dest:
-        raise HTTPException(403, 'Circle wallets only send to Command Center wallets or wallets you saved. Save this address first.')
+        raise HTTPException(403, 'Circle wallets only send to FEELESS wallets or wallets you saved. Save this address first.')
     if not _re.match(r'^\d+(\.\d+)?$', p.amount) or float(p.amount) <= 0:
         raise HTTPException(400, 'Amount must be a positive number.')
     out = await _circle('POST', '/transfer', {'walletId': p.walletId, 'tokenId': p.tokenId, 'to': p.to, 'amount': p.amount, 'idempotencyKey': str(uuid.uuid4())})
