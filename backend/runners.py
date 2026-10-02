@@ -608,3 +608,21 @@ def auto_pick_multi(proofs, current, margin=2.0):
     if len(picks) >= 2 and len(set(winners)) == 1:
         return picks[0], ' · '.join(whys)
     return None, None
+
+
+SCENARIO_TP = (30, 50, 100, 200)
+SCENARIO_SL = (15, 25, 40)
+
+
+def scenarios(rounds, paths, now, dials):
+    """🧪 Engine-cycled scenario cards: every runner round replayed under 12 TP × SL exit combos (24h) + each dial over 6h / 24h /
+    72h — 21 cards, best first, each with its rounds, average, win rate and $1 → result. Real prices, no money."""
+    out = []
+    grid = {f'tp{tp}_sl{sl}': {'runner': (tp, sl)} for tp in SCENARIO_TP for sl in SCENARIO_SL}
+    for sid, p in dial_proof(rounds, paths, now, grid).items():
+        tp, sl = grid[sid]['runner']
+        out.append({'id': sid, 'kind': 'exits', 'label': f'TP +{tp}% · stop −{sl}%', 'window': '24h', 'tp': tp, 'sl': sl, **p})
+    for w, sec in PROOF_WINDOWS.items():
+        for did, p in dial_proof(rounds, paths, now, dials, window=sec).items():
+            out.append({'id': f'{did}_{w}', 'kind': 'dial', 'label': f'{did} dial · {w}', 'window': w, 'tp': dials[did]['runner'][0], 'sl': dials[did]['runner'][1], **p})
+    return sorted(out, key=lambda s: (not (s.get('rounds') or 0), -(s.get('avgPct') or 0)))

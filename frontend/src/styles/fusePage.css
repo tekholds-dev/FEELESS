@@ -564,3 +564,11 @@ body.theme-day .prime-round span { background: var(--m-surface); }
 .prime-legs li b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 9ch; }
 .prime-legs small, .prime-legs i { white-space: nowrap; }
 .prime-legs em { font-size: 14px !important; font-style: normal !important; white-space: nowrap; justify-self: end; }
+.pg-scen { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.pg-sc { display: grid; gap: 3px; text-align: left; padding: 10px; border-radius: 12px; border: 1px solid var(--m-line); background: var(--m-bg); color: inherit; font: inherit; cursor: pointer;
+  transition: transform .15s var(--m-ease), border-color .15s; animation: mCardIn .25s var(--m-ease) calc(var(--i, 0) * 40ms) backwards; }
+.pg-sc:hover { transform: translateY(-2px); border-color: var(--m-accent); } .pg-sc:focus-visible { outline: 2px solid var(--m-accent); } .pg-sc.is-on { border-color: var(--m-accent); box-shadow: 0 0 0 1px var(--m-accent); }
+.pg-sc.up { border-left: 3px solid var(--m-accent); } .pg-sc.down { border-left: 3px solid var(--m-danger); }
+.pg-sc small { font: 9px var(--m-mono); letter-spacing: .08em; color: var(--m-dim); } .pg-sc b { font-size: 12.5px; } .pg-sc em { font-style: normal; font-size: 18px; }
+.pg-sc-more { font-size: 11px; color: var(--m-dim); line-height: 1.35; }
+body.theme-day .pg-sc { background: var(--m-surface); } body.fx-lite .pg-sc { animation: none; }

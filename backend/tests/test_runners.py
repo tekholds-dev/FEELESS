@@ -203,3 +203,9 @@ def test_auto_strength_needs_agreement_across_windows():
     assert rn.auto_pick_multi({'6h': good, '24h': good, '72h': good}, 'balanced')[0] == 'degen'
     assert rn.auto_pick_multi({'6h': good, '24h': good, '72h': bad}, 'balanced') == (None, None)       # 72h disagrees → stay
     assert rn.auto_pick_multi({'6h': good}, 'balanced') == (None, None)                                # one window is never enough
+
+
+def test_engine_scenarios_cycle_21_cards_best_first():
+    dials = {'safe': {'runner': (30, 15)}, 'balanced': {'runner': (50, 30)}, 'degen': {'runner': (100, 40)}}
+    out = rn.scenarios([], {}, 1000, dials)
+    assert len(out) == 12 + 9 and {s['kind'] for s in out} == {'exits', 'dial'} and all('label' in s for s in out)

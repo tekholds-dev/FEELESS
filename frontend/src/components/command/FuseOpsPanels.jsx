@@ -136,7 +136,7 @@ export function FeeCatTune({ call }) {
 // 🧪 Engine playground overview: every scenario the engines run (strategy runs, bloodline, dial proofs per window, top-tier
 // cards, runner rounds, lit cards), the auto-tune log, and the READY-for-Arena list with the evidence for each.
 export function EnginePlayground({ call }) {
-  const [p, setP] = useState(null);
+  const [p, setP] = useState(null); const [pick, setPick] = useState(null);
   useEffect(() => { let alive = true; const load = () => call('/admin/fuses/playground').then(x => alive && setP(x)).catch(() => {});
     load(); const t = setInterval(() => !document.hidden && load(), 60000); return () => { alive = false; clearInterval(t); }; }, [call]);
   if (!p) return <div className="fl-row is-ghost" />;
@@ -150,6 +150,11 @@ export function EnginePlayground({ call }) {
       <div className="pg-box is-ready"><header><b>✅ Ready for the Arena</b><small>{p.ready.length}</small></header>{p.ready.length ? p.ready.map((r, i) => <div key={i} className="pg-row"><i>{r.kind}</i><b>{r.name}</b><small>{r.why}</small></div>) : <p className="m-dim">Nothing proven yet — the engines keep testing.</p>}</div>
       <div className="pg-box"><header><b>⏳ Still proving</b><small>{p.proving.length}</small></header>{p.proving.slice(0, 10).map((r, i) => <div key={i} className="pg-row"><i>{r.kind}</i><b>{r.name}</b><small>{r.why}</small></div>)}</div>
     </div>
+    {p.scenarios?.length > 0 && <div className="pg-box"><header><b>🃏 Engine-cycled scenarios · {p.scenarios.length}</b><small>every runner round replayed under each exit plan · tap a card</small></header>
+      <div className="pg-scen">{p.scenarios.map((sc, i) => <button key={sc.id} type="button" className={`pg-sc ${pick === sc.id ? 'is-on' : ''} ${sc.avgPct > 0 ? 'up' : sc.avgPct < 0 ? 'down' : ''}`} style={{ '--i': Math.min(i, 20) }} onClick={() => setPick(pick === sc.id ? null : sc.id)} data-testid={`pg-sc-${sc.id}`}>
+        <small>{i === 0 && sc.rounds ? '👑 BEST · ' : ''}{sc.kind === 'dial' ? 'DIAL' : 'EXITS'} · {sc.window}</small><b>{sc.label}</b>
+        <em className={`m-num ${sc.avgPct >= 0 ? 'm-pos' : 'm-neg'}`}>{sc.rounds ? fmt(sc.avgPct) : '—'}</em>
+        {pick === sc.id && <span className="pg-sc-more">{sc.rounds || 0} rounds · {sc.winRate || 0}% won · $1 → ${Number(sc.per1 || 1).toFixed(2)}<br />take-profit +{sc.tp}% · stop −{sc.sl}% on every pick of every round, real prices after the round.</span>}</button>)}</div></div>}
     <div className="pg-box"><header><b>🎚 Dials across windows</b><small>same dial must win ≥ 2 windows before auto-strength switches</small></header>
       <table className="vd-table"><thead><tr><th>Dial</th>{Object.keys(p.dials).map(w => <th key={w}>{w}</th>)}</tr></thead><tbody>{Object.keys(Object.values(p.dials)[0] || {}).map(d => <tr key={d}><td>{d}</td>
         {Object.keys(p.dials).map(w => { const v = p.dials[w][d] || {}; return <td key={w} className={v.avgPct > 0 ? 'm-pos' : v.avgPct < 0 ? 'm-neg' : ''}>{v.rounds ? `${fmt(v.avgPct)} · ${v.rounds}r` : '—'}</td>; })}</tr>)}</tbody></table></div>
