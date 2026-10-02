@@ -20,7 +20,7 @@ test('pick two pools → live auto-weighted preview of where the SOL goes', asyn
   await act(async () => { q('fl-pool-B').click(); });
   await tick(300);
   expect(el.textContent).toContain('0.6 SOL');
-  expect(q('fl-go').textContent).toContain('Fuse in 1 SOL');
+  expect(q('fl-go').textContent).toContain('Pick 1–3 runners first'); expect(q('fl-go').disabled).toBe(true);   // trader cards need 1–3 runners
   const body = JSON.parse(global.fetch.mock.calls.find(c => String(c[0]).includes('/preview'))[1].body);
   expect(body.pools.map(p => p.pairAddress)).toEqual(['A', 'B']);
 });
