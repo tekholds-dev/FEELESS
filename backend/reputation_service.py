@@ -4671,10 +4671,17 @@ async def _prime_tick(now):
     pools, runners, anchors = await _prime_candidates()
     d = _json_load(FUSE_HQ_PATH, {})
     cards = dict((d.get('prime') or {}).get('cards') or {})
-    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': pa} for c in cards.values() for pa in [l['pairAddress'] for l in c['legs']] + list((c.get('parked') or {}).keys())]) if cards else {}
+    # one pair fetch → live price AND momentum for EVERY coin on the cards (majors + pools too, not only runner-board coins)
+    pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pa} for c in cards.values() for pa in [l['pairAddress'] for l in c['legs']] + list((c.get('parked') or {}).keys())]) if cards else {}
+    px = {k: _fuse._f(v.get('priceUsd')) for k, v in pairs_.items()}
+    def _mom(p):
+        tx = (p.get('txns') or {}).get('h1') or {}; b, s_ = _fuse._f(tx.get('buys')), _fuse._f(tx.get('sells'))
+        return {'chg1h': _fuse._f((p.get('priceChange') or {}).get('h1')), 'buyShare': round(b / (b + s_) * 100, 1) if b + s_ else None,
+                'vol5m': _fuse._f((p.get('volume') or {}).get('m5')), 'vol1h': _fuse._f((p.get('volume') or {}).get('h1'))}
+    pair_mom = {k: _mom(v) for k, v in pairs_.items()}
     # live momentum per pair (runner board: 1h move, buy share, 5m/1h volume) → exit_plan decides ride / gain / bank / cut early
     live = _runner_live_cache.get('data') or {}
-    mom = {r['pairAddress']: {k: r.get(k) for k in ('chg1h', 'buyShare', 'vol5m', 'vol1h')} for r in (live.get('passing') or []) + (live.get('dropped') or []) if r.get('pairAddress')}
+    mom = {**pair_mom, **{r['pairAddress']: {k: r.get(k) for k in ('chg1h', 'buyShare', 'vol5m', 'vol1h')} for r in (live.get('passing') or []) + (live.get('dropped') or []) if r.get('pairAddress')}}
     for tid in _prime.TEMPLATES:
         cur = cards.get(tid)
         cards[tid] = _prime.tick(cur, px, pools, runners, cfg, now, anchors, mom) if cur else _prime.deal(tid, pools, runners, cfg, now, anchors)
@@ -4793,8 +4800,8 @@ async def _engine_auto(now):
     rd = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
     if rd.get('autoTune') is False or not rd.get('rounds'):
         return None
-    proof = _rn.dial_proof(rd['rounds'], rd['paths'], now, _hq.RISK_DIALS)
-    dial, why = _rn.auto_pick(proof, rd.get('cfgDial'))
+    proofs = {w: _rn.dial_proof(rd['rounds'], rd['paths'], now, _hq.RISK_DIALS, window=sec) for w, sec in _rn.PROOF_WINDOWS.items()}
+    dial, why = _rn.auto_pick_multi(proofs, rd.get('cfgDial'))
     if not dial or dial not in _rn.ENGINE_DIALS:
         return None
     async with _admin_lock:

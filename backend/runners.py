@@ -587,3 +587,24 @@ def auto_pick(proof, current, min_rounds=8, margin=2.0):
     if d == current or p['avgPct'] - (cur.get('avgPct') or 0) < margin:
         return None, None
     return d, f"{d} dial avg {p['avgPct']:+.1f}% over {p['rounds']} rounds vs {current or 'custom'} {cur.get('avgPct', 0):+.1f}%"
+
+
+PROOF_WINDOWS = {'6h': 6 * 3600, '24h': 24 * 3600, '72h': 72 * 3600}
+
+
+def auto_pick_multi(proofs, current, margin=2.0):
+    """Robust auto-strength: the engine tests every dial over SEVERAL windows (6h · 24h · 72h). Switch only when the SAME
+    dial wins (proven: rounds ≥ 4/8/16, avg > 0, ≥ margin ahead of the current) in every window that has enough rounds —
+    and at least two windows agree. Noise in one window never flips the engine."""
+    need = {'6h': 4, '24h': 8, '72h': 16}
+    winners, whys = [], []
+    for w, proof in (proofs or {}).items():
+        d, why = auto_pick(proof, current, min_rounds=need.get(w, 8), margin=margin)
+        if d:
+            winners.append(d); whys.append(f'{w}: {why}')
+        elif any(p.get('rounds', 0) >= need.get(w, 8) for p in (proof or {}).values()):
+            winners.append(None)   # a window with enough data that does NOT agree vetoes the switch
+    picks = [d for d in winners if d]
+    if len(picks) >= 2 and len(set(winners)) == 1:
+        return picks[0], ' · '.join(whys)
+    return None, None

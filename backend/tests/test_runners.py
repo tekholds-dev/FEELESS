@@ -195,3 +195,11 @@ def test_engine_auto_pick_switches_only_on_proven_edge():
     assert rn.auto_pick(proof, 'degen') == (None, None)                                   # already on the best
     assert rn.auto_pick({'degen': {'rounds': 3, 'avgPct': 9}}, 'safe') == (None, None)    # not enough rounds
     assert rn.auto_pick({'degen': {'rounds': 30, 'avgPct': 1.0}, 'safe': {'rounds': 30, 'avgPct': 0.5}}, 'safe') == (None, None)   # under margin
+
+
+def test_auto_strength_needs_agreement_across_windows():
+    good = {'degen': {'rounds': 40, 'avgPct': 3}, 'balanced': {'rounds': 40, 'avgPct': -2}}
+    bad = {'degen': {'rounds': 40, 'avgPct': -1}, 'balanced': {'rounds': 40, 'avgPct': 0.5}}
+    assert rn.auto_pick_multi({'6h': good, '24h': good, '72h': good}, 'balanced')[0] == 'degen'
+    assert rn.auto_pick_multi({'6h': good, '24h': good, '72h': bad}, 'balanced') == (None, None)       # 72h disagrees → stay
+    assert rn.auto_pick_multi({'6h': good}, 'balanced') == (None, None)                                # one window is never enough

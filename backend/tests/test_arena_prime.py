@@ -119,7 +119,8 @@ def test_service_deals_ticks_and_admin_config(monkeypatch):
     rs = pytest.importorskip('reputation_service')
     async def cands(): return ([P('a', 1), P('b', 1), P('c', 1)], [R('r1', 1), R('r2', 1), R('r3', 1)], SOL)
     async def prices(legs): return {l['pairAddress']: 1.0 for l in legs}
-    monkeypatch.setattr(rs, '_prime_candidates', cands); monkeypatch.setattr(rs, '_hq_prices', prices); monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN')
+    async def pairs(legs): return {l['pairAddress']: {'priceUsd': '1.0', 'priceChange': {'h1': 0}, 'txns': {'h1': {'buys': 5, 'sells': 5}}, 'volume': {'m5': 1, 'h1': 12}} for l in legs}
+    monkeypatch.setattr(rs, '_prime_candidates', cands); monkeypatch.setattr(rs, '_hq_prices', prices); monkeypatch.setattr(rs, '_fuse_pairs', pairs); monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN')
     rs._json_save(rs.FUSE_HQ_PATH, {})
     assert asyncio.run(rs._prime_tick(1000)) == 5
     v = asyncio.run(rs.fuse_prime())
