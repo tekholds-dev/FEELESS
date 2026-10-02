@@ -1,6 +1,6 @@
 /* Fuse 🧬 page (FusePage.jsx) — own sheet so meta.css stays in budget; built from m-* tokens. */
 .fuse-page { display: grid; gap: 14px; }
-.fp-head { display: grid; gap: 6px; } .fp-title { margin: 0; font-family: 'Audiowide', var(--m-mono); font-size: 32px; letter-spacing: .04em; display: flex; align-items: center; gap: 10px; }
+.fp-head { display: grid; gap: 6px; } .fp-title { margin: 0; font-family: var(--fz-font); font-size: 32px; letter-spacing: .04em; display: flex; align-items: center; gap: 10px; }
 /* ⚡ Electric title: gradient text + two lightning arcs that strike across it (transform/opacity only) + the 🧬 spins. */
 .fp-zap { position: relative; display: inline-block; background: linear-gradient(90deg, #19f58f, #b98cff 50%, #6fe7ff); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; filter: drop-shadow(0 0 10px #a46bff66); }
 .fp-zap::after { content: attr(data-text); position: absolute; inset: 0; color: #f3e9ff; -webkit-text-fill-color: #f3e9ff; opacity: 0; text-shadow: 0 0 8px #c08bff, 0 0 18px #7d3cff; animation: fpFlicker 3.4s steps(1) infinite; pointer-events: none; }
@@ -47,7 +47,7 @@ body.fx-lite .fp-bolt, body.fx-lite .fp-zap::after { animation: none; opacity: 0
 /* Runner discovery (Runners tab) — staggered tiles, multi-source glow, scan line while loading. transform/opacity only. */
 .fp-disc { display: grid; gap: 12px; } .fp-disc.is-loading { position: relative; min-height: 140px; place-items: center; overflow: hidden; border-radius: var(--m-r); border: 1px solid var(--m-line); background: var(--m-surface); }
 .fp-scan { position: absolute; inset: 0 auto 0 0; width: 30%; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--m-accent) 18%, transparent), transparent); animation: fpScan 1.4s linear infinite; }
-.fp-disc-head { display: flex; gap: 14px; justify-content: space-between; align-items: center; } .fp-disc-head h2 { margin: 4px 0; font-family: 'Audiowide', var(--m-mono); font-size: 20px; } .fp-disc-head p { margin: 0; font-size: 12px; }
+.fp-disc-head { display: flex; gap: 14px; justify-content: space-between; align-items: center; } .fp-disc-head h2 { margin: 4px 0; font-family: var(--fz-font); font-size: 20px; } .fp-disc-head p { margin: 0; font-size: 12px; }
 .fp-src { flex-wrap: wrap; width: fit-content; max-width: 100%; } .fp-src em { font-style: normal; font-family: var(--m-mono); font-size: 10px; opacity: .7; margin-left: 4px; }
 .fp-swaps { display: flex; gap: 6px; flex-wrap: wrap; } .fp-swap { font-family: var(--m-mono); font-size: 11px; padding: 4px 8px; border-radius: 999px; border: 1px dashed color-mix(in srgb, var(--m-warn) 60%, transparent); animation: fpIn .3s var(--m-ease) backwards; }
 .fp-swap small { color: var(--m-dim); margin-left: 4px; } .fp-none { margin: 0; }
@@ -80,8 +80,8 @@ body.fx-lite .fp-runner, body.fx-lite .fp-swap, body.fx-lite .fp-dock, body.fx-l
 .fp-empty { display: grid; gap: 4px; }
 .fp-banner { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; margin-bottom: 12px; border-radius: var(--m-r); border: 1px solid color-mix(in srgb, var(--m-accent) 40%, var(--m-line)); background: var(--m-surface); color: var(--m-text); text-decoration: none; transition: border-color .15s, transform .1s; }
 .fp-banner:hover { border-color: var(--m-accent); } .fp-banner:active { transform: scale(.99); } .fp-banner:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
-.fp-banner b { font-family: 'Audiowide', var(--m-mono); }
-.nav-fuse span, .nav-fuse { font-family: 'Audiowide', var(--m-mono); letter-spacing: .03em; }
+.fp-banner b { font-family: var(--fz-font); }
+.nav-fuse span, .nav-fuse { font-family: var(--fz-font); letter-spacing: .03em; }
 body.theme-day .fp-runner, body.theme-day .fp-banner, body.theme-day .fp-dock, body.theme-day .fp-disc.is-loading { background: #fff; } body.theme-day .fp-hotband { color: #fff; } body.theme-day .fp-ava.sm { border-color: #fff; }
 @media (prefers-reduced-motion: reduce) { .fp-body, .fp-panel, .fp-runner, .fp-swap, .fp-dock, .fp-runner.is-hot::after, .fp-scan { animation: none; } }
 @media (max-width: 640px) { .fp-title { font-size: 26px; } .fp-cgrid, .fp-rgrid { grid-template-columns: 1fr; } .fp-disc-head { flex-direction: column; align-items: flex-start; } }
@@ -90,7 +90,7 @@ body.theme-day .fp-runner, body.theme-day .fp-banner, body.theme-day .fp-dock, b
 
 /* Full runner card (Runners tab): the picks shown as a prebuilt FuseCard. */
 .fp-full { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center; animation: fpIn .3s var(--m-ease) backwards; }
-.fp-full-side { display: grid; gap: 8px; } .fp-full-side h3 { margin: 0; font-family: 'Audiowide', var(--m-mono); font-size: 18px; } .fp-full-side p { margin: 0; font-size: 12.5px; } .fp-full-side .m-btn { justify-self: start; }
+.fp-full-side { display: grid; gap: 8px; } .fp-full-side h3 { margin: 0; font-family: var(--fz-font); font-size: 18px; } .fp-full-side p { margin: 0; font-size: 12.5px; } .fp-full-side .m-btn { justify-self: start; }
 /* Watching strip: busiest coins that FAILED a gate (never addable) so the tab is never dead. */
 .fp-watch { display: grid; gap: 8px; } .fp-watch-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
 .fp-watch-row::-webkit-scrollbar { height: 6px; } .fp-watch-row::-webkit-scrollbar-thumb { background: var(--m-accent); border-radius: 6px; }
@@ -104,7 +104,7 @@ body.theme-day .fp-runner, body.theme-day .fp-banner, body.theme-day .fp-dock, b
 .ar-sky i { position: absolute; bottom: -10px; left: calc(var(--i) * 5.3% + 2%); width: 4px; height: 4px; border-radius: 50%; background: var(--m-accent); opacity: 0;
   animation: arRise calc(9s + var(--i) * .37s) linear calc(var(--i) * -.9s) infinite; }
 .ar-tier-hot .ar-sky i, .ar-tier-blazing .ar-sky i { background: var(--rn-fire, #ff9a3c); }
-.ar-head { display: grid; gap: 6px; } .ar-head h2 { margin: 0; font-family: 'Audiowide', var(--m-mono); font-size: 22px; } .ar-head p { margin: 0; font-size: 12.5px; }
+.ar-head { display: grid; gap: 6px; } .ar-head h2 { margin: 0; font-family: var(--fz-font); font-size: 22px; } .ar-head p { margin: 0; font-size: 12.5px; }
 .ar-legend { display: flex; gap: 6px; flex-wrap: wrap; } .ar-chip { font-family: var(--m-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--m-line); }
 .ar-chip.t-warm { border-color: var(--m-accent); } .ar-chip.t-hot { border-color: var(--rn-fire, #ff9a3c); } .ar-chip.t-blazing { border-color: #ffd36b; color: #ffd36b; }
 .ar-none { margin: 0; }
@@ -170,7 +170,7 @@ body.fx-lite .streak-badge, body.fx-lite .streak-badge > i { animation: none; }
 body.theme-day .streak-badge.st-survivor { color: #1b6f9a; border-color: #1b6f9a; } body.theme-day .streak-badge.st-immortal { color: #9a6a00; border-color: #9a6a00; }
 
 /* 🏆 Fuse season board: rows stagger in, bars grow, top 3 shimmer gold / silver / bronze; winner crown on cards. */
-.fs { display: grid; gap: 10px; } .fs-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; } .fs-head h3 { margin: 4px 0 2px; font-family: 'Audiowide', var(--m-mono); font-size: 18px; }
+.fs { display: grid; gap: 10px; } .fs-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; } .fs-head h3 { margin: 4px 0 2px; font-family: var(--fz-font); font-size: 18px; }
 .fs-clock { display: grid; justify-items: end; gap: 2px; } .fs-clock small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .14em; color: var(--m-dim); } .fs-clock b { font-size: 20px; color: #ffd36b; }
 .fs-ghost { height: 120px; border-radius: 10px; background: var(--m-surface); animation: mGhost 1.2s ease-in-out infinite alternate; } .fs-none { margin: 0; }
 .fs-board { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -272,7 +272,7 @@ body.fx-lite .fz-fx { display: none; } @media (prefers-reduced-motion: reduce) {
 .bf-pair { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: center; padding: 10px 12px 14px; border-radius: 12px; border: 1px solid var(--m-line); background: var(--m-bg); animation: fpIn .3s var(--m-ease) backwards; animation-delay: calc(var(--i, 0) * 70ms); }
 .bf-side { display: grid; gap: 2px; min-width: 0; } .bf-side b { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .bf-side.b { text-align: right; }
 .bf-side em { font-style: normal; font-size: 14px; } .bf-pair.a-lead .bf-side.a b, .bf-pair.b-lead .bf-side.b b { color: var(--m-accent); }
-.bf-vs { font-family: 'Audiowide', var(--m-mono); font-size: 16px; color: #c08bff; text-shadow: 0 0 12px #9b5cff; animation: bfVs 1.6s ease-in-out infinite; }
+.bf-vs { font-family: var(--fz-font); font-size: 16px; color: #c08bff; text-shadow: 0 0 12px #9b5cff; animation: bfVs 1.6s ease-in-out infinite; }
 @keyframes bfVs { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
 .bf-tug { position: absolute; left: 12px; right: 12px; bottom: 5px; height: 4px; border-radius: 4px; background: var(--m-danger); overflow: hidden; }
 .bf-tug > i { display: block; height: 100%; background: linear-gradient(90deg, #0b6b42, var(--m-accent)); transform-origin: left; transition: transform .8s var(--m-ease); }
@@ -668,7 +668,9 @@ body.theme-day .pgb-res { background: #fff; }
 .fp-mb-live > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; } .fp-mb-live > b:last-of-type { text-align: right; }
 .fp-mb-live.is-up { border-color: color-mix(in srgb, var(--m-accent) 55%, transparent); } .fp-mb-live.is-down { border-color: #ff8fa366; }
 .fp-mybattles .bf-log small.is-won { border-color: color-mix(in srgb, var(--m-accent) 50%, transparent); } .fp-mybattles .bf-log small.is-lost { opacity: .75; }
-.wp-fuse-go { justify-self: start; }
+.wp-fuse-go { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 999px; border: 1px solid #c08bff; font: 700 14px var(--m-font, inherit); cursor: pointer; color: #fff;
+  background: linear-gradient(120deg, #4a1d8f, #9b5cff 55%, #19f58f); background-size: 200% 100%; box-shadow: 0 10px 26px -14px #9b5cff; transition: transform .15s, background-position .4s; }
+.wp-fuse-go:hover { transform: translateY(-2px); background-position: 100% 0; } .wp-fuse-go:active { transform: scale(.97); } .wp-fuse-go:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 3px; }
 .ce.fp-popup { width: min(980px, 96vw); max-height: 90vh; overflow: auto; scrollbar-width: thin; }
 body.fx-lite .fp-mb-live { animation: none; } @media (prefers-reduced-motion: reduce) { .fp-mb-live { animation: none; } }
 body.theme-day .fp-mb-live { background: #fff; }
@@ -798,3 +800,9 @@ body.theme-day .ar-dna, body.theme-day .pgb-dna, body.theme-day .pgb-brain b, bo
 .pg-filter.is-on .m-num, .pg-filter.is-on em { color: #04140c; } .pg-filter small { font-size: 11px; } .pg-filter b { font-size: 16px; } .pg-filter em { font: 600 9.5px var(--m-mono); font-style: normal; color: var(--m-dim); }
 body.fx-lite .pg-filter { animation: none; } @media (prefers-reduced-motion: reduce) { .pg-filter { animation: none; } }
 body.theme-day .pg-filter { background: #fff; }
+/* 🔤 Fuse font: chunky degen display face for every Fuse heading, card name and the nav — one token */
+:root { --fz-font: 'Bungee', 'Audiowide', var(--m-mono); }
+.fz-font, .fuse-page .ar-head h2, .fuse-page .fs-head h3, .fuse-page .rn-hero h2, .bf-c-name b, .fuse-page .ar-meta > b, .fdeck-head h3, .bf > header .m-label { font-family: var(--fz-font); letter-spacing: .02em; }
+.fuse-page .ar-head h2 { font-size: 30px; } .bf-c-name b { font-size: 15px; } .fuse-page .ar-meta > b { font-size: 14px; }
+.bf-c-card[role="button"] { cursor: zoom-in; transition: transform .2s var(--m-ease); } .bf-c-card[role="button"]:hover { transform: translateY(-4px) scale(1.02); }
+.bf-c-card[role="button"]:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 4px; border-radius: 14px; }

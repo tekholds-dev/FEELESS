@@ -334,7 +334,8 @@ export function Battlefield({ b, cards = [], onLoad }) {
     const tier = c?.activity?.tier || 'calm'; const fx = TIER_FX[tier] || TIER_FX.calm; const lead = (x.now || 0) - (o.now || 0);
     return <div className={`bf-corner ${k} t-${tier} ${lead > 0.05 ? 'is-lead' : lead < -0.05 ? 'is-hit' : ''} ${h < 40 ? 'is-hurt' : ''}`}>
       <span className="bf-c-aura" aria-hidden="true" /><div className="bf-c-embers" aria-hidden="true">{Array.from({ length: fx.embers }, (_, e) => <i key={e} style={{ '--i': e }} />)}</div>
-      <div className="bf-c-card">{c?.legs?.length ? <FuseCard c={{ pools: c.legs.map(l => l.pairAddress), fitness: c.activity?.score || 0, bornGen: c.legs.length, legs: c.legs,
+      <div className="bf-c-card" role="button" tabIndex={0} onClick={e => { if (!e.target.closest('.fcd-flip')) setCfgKey(x.key); }} onKeyDown={e => e.key === 'Enter' && setCfgKey(x.key)}
+        data-tip="Tap to expand: configs, DNA, coins — copy it to your Lab" data-testid={`bf-card-${k}-${i}`}>{c?.legs?.length ? <FuseCard c={{ pools: c.legs.map(l => l.pairAddress), fitness: c.activity?.score || 0, bornGen: c.legs.length, legs: c.legs,
           parts: { grade: c.grade || 'B', aprScore: 0, momentum24h: x.now || 0, calm: '—', feeDragPct: 0, impactLegs: 0 } }} style={DIAL_STYLE[c.dial] || 'momentum'} rank={i * 2 + (k === 'a' ? 0 : 1)} budget={20} aura={c.aura || fx.aura} />
         : <span className="bf-c-ghost">{x.emoji || '🃏'}</span>}</div>
       <div className="bf-c-meta">

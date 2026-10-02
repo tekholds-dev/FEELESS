@@ -10,7 +10,7 @@ jest.mock('sonner', () => ({ toast: { error: jest.fn(), success: jest.fn() } }))
 jest.mock('../hooks/useWallet', () => ({ useWallet: () => ({ wallet: { chain: 'solana', address: 'W' }, provider: {} }) }));
 jest.mock('../lib/chatSession', () => ({ readChatSession: () => 'SES' }));
 jest.mock('./EcosystemChat', () => ({ __esModule: true, default: () => <div /> }));
-const tick = ms => act(() => new Promise(r => setTimeout(r, ms)));
+const tick = async ms => { for (let i = 0; i < 12; i++) await act(() => new Promise(r => setTimeout(r, Math.max(10, ms / 2)))); };   // settle loop (fixed waits flaked under full-suite load)
 const mount = async node => { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(node); }); await tick(20); return el; };
 const ROW = { id: 'p1', name: 'Core', at: Date.now() / 1000, pnlUsd: 1, pnlPct: 10, legs: [{ symbol: 'A', mint: 'MA', tokens: 1 }] };
 
@@ -83,7 +83,7 @@ test('profile receipts: one dropdown per withdrawn card — legs + tx, moves, fe
   const { createRoot } = require('react-dom/client'); const { act } = require('react');
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<FuseReceipts address="Aaaa1111111111111111111111111111111111111111" />); });
-  await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+  await tick(20);
   const r = el.querySelector('[data-testid="receipt-c1"]');
   expect(r.textContent).toContain('$0.30 FEELESS'); expect(r.textContent).toContain('🔴 Sold'); expect(r.querySelector('a[href*="solscan.io/tx/SIG1"]')).toBeTruthy();
   expect(r.querySelector('a[href*="twitter.com/intent"]')).toBeTruthy();
