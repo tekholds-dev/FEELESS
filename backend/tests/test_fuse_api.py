@@ -394,3 +394,16 @@ def test_every_badge_icon_is_unique():
     for bid, icon in re.findall(r"'id': '([\w-]+)', 'label': '[^']*', 'icon': '([^']*)'", s):
         icons[icon].add(bid)
     assert not {k: v for k, v in icons.items() if len(v) > 1}
+
+
+def test_park_buyback_alerts_once_when_back_at_entry(monkeypatch):
+    sent = []
+    monkeypatch.setattr(rs, 'notify', lambda *a, **k: sent.append((a, k)))
+    me = rs.primary_of(W)
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'pk1', 'wallet': me, 'at': 1, 'slMode': 'park', 'legs': [
+        {'pairAddress': 'PA', 'mint': 'MA', 'symbol': 'A', 'usd': 10, 'tokens': 10, 'soldUsd': 7}], 'parked': {'PA': {'entry': 1.0, 'symbol': 'A', 'at': 5}}}]})
+    async def pairs(legs): return {'PA': {'priceUsd': '1.05', 'txns': {'h1': {'buys': 70, 'sells': 30}}, 'priceChange': {'h1': 4}}}
+    monkeypatch.setattr(rs, '_fuse_pairs', pairs)
+    assert asyncio.run(rs._fuse_buyback_tick(rs._json_load(rs.FUSE_HQ_PATH, {}), 100)) == 1
+    assert 'topup=pk1&pair=PA' in sent[0][1]['url']
+    assert asyncio.run(rs._fuse_buyback_tick(rs._json_load(rs.FUSE_HQ_PATH, {}), 200)) == 0       # once

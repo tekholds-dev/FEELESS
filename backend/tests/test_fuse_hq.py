@@ -165,3 +165,13 @@ def test_feecat_weekly_note_has_no_holder_pnl():
     assert 'degen dial' in t and '2 engine settings tuned' in t and '+4.2%' in t and 'beat her' in t
     t2 = hq.feecat_weekly(None, 0, False, None)
     assert 'custom dial' in t2 and 'tuned' not in t2 and 'no trades' in t2 and 'she beat your cards' in t2
+
+
+def test_card_rotation_interval_and_park_buyback():
+    pos = {'lastSwitchAt': 1000, 'plan': {'rotateHours': 6}}
+    assert hq.next_switch_at(pos) == 1000 + 6 * 3600
+    assert hq.next_switch_at({'lastSwitchAt': 1000, 'plan': {'rotateHours': 99}}) == 1000 + 24 * 3600   # not an option → 24h
+    assert hq._extras({'slMode': 'park', 'rotateHours': 1}) == {'rotateHours': 1, 'slMode': 'park'}
+    assert hq._extras({}) == {'rotateHours': 24, 'slMode': 'sell'}
+    assert hq.buyback_due({'entry': 1.0}, 1.02, {'buyShare': 60, 'chg1h': 3}) and not hq.buyback_due({'entry': 1.0}, 0.9, {'buyShare': 60})
+    assert not hq.buyback_due({'entry': 1.0}, 1.1, {'buyShare': 40, 'chg1h': -2})

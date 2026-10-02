@@ -342,6 +342,9 @@ export function MyCards({ addr }) {
   // 🎚 One dial re-plans the whole card (server expands the id: every coin's TP/SL, profit level, collect/compound, rotation).
   const setRisk = async (r, risk) => { const s = ses(); if (!s || r.risk === risk) return;
     try { await post('/api/reputation/fuses/plan', { address: addr, session: s, id: r.id, plan: { risk } }); toast.success(`${RISK_DIALS[risk].label}: ${RISK_DIALS[risk].why}`); load(); } catch (e) { toast.error(e.message); } };
+  const setAdv = async (r, patch) => { const s = ses(); if (!s) return;
+    const plan = { mode: r.mode || 'hold', onProfit: r.onProfit || 'collect', at: r.autoYield?.at, legs: Object.fromEntries(Object.entries(r.legGuard || {}).map(([pa, g]) => [pa, { tp: g.tp, sl: g.sl }])), rotateHours: r.rotateHours || 24, slMode: r.slMode || 'sell', ...patch };
+    try { await post('/api/reputation/fuses/plan', { address: addr, session: s, id: r.id, plan }); toast.success(patch.rotateHours ? `Rotation every ${patch.rotateHours}h` : `On a coin stop: ${patch.slMode}`); load(); } catch (e) { toast.error(e.message); } };
   const setMode = async (r, mode) => { const s = ses(); if (!s || (r.mode || 'hold') === mode) return;
     try { await post('/api/reputation/fuses/mode', { address: addr, session: s, id: r.id, mode }); toast.success(mode === 'swap' ? 'Swap mode: weak legs get a one-tap swap alert' : 'Hold mode: the card stays together'); load(); } catch (e) { toast.error(e.message); } };
   const open = useCallback(async (r, kind, extra = {}) => {
@@ -360,18 +363,19 @@ export function MyCards({ addr }) {
   useEffect(() => { if (!d?.rows || act) return; const q = new URLSearchParams(window.location.search); const find = id => id && d.rows.find(x => x.id === id && !x.closed);
     const c = find(q.get('collect')); if (c) { open(c, 'take', { pct: Number(q.get('pct')) || 33, ...(q.get('legs') ? { legs: q.get('legs').split(',') } : {}) }); return; }
     const rb = find(q.get('rebalance')); if (rb) { open(rb, 'rebalance'); return; }
+    const tu = find(q.get('topup')); if (tu) { open(tu, 'topup', { mode: 'one', pick: q.get('pair') }); return; }   // ↩ buy-back alert
     const sw = find(q.get('switch')); if (sw) { open(sw, 'switch', { from: q.get('out'), toMint: q.get('in'), toSymbol: q.get('sym') || 'NEW', toPair: q.get('pair') || undefined, toRole: 'runner' }); return; }
     const u = find(q.get('unfuse')); if (u) open(u, 'withdraw'); }, [d]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!addr) return <div className="m-card fp-empty"><b>Connect your Solana wallet to see your Fuse cards.</b></div>;
   if (!d) return <div className="m-card"><span className="loader" /> Loading your cards…</div>;
   const openRows = (d.rows || []).filter(r => !r.closed);
-  return <MyCardsBody d={d} openRows={openRows} act={act} setAct={setAct} open={open} setMode={setMode} setRisk={setRisk} addr={addr} ses={ses} refresh={refresh} />;
+  return <MyCardsBody d={d} openRows={openRows} act={act} setAct={setAct} open={open} setMode={setMode} setRisk={setRisk} setAdv={setAdv} addr={addr} ses={ses} refresh={refresh} />;
 }
 
 const EARN_KIND = { sell: '💰 Profit / sell', buy: '⇄ Switched in', topup: '♻ Compounded / topped up' };
 const sumKind = (r, k) => (r.events || []).filter(e => e.kind === k).reduce((a, e) => a + (e.usd || 0), 0);
 
-function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, addr, ses, refresh }) {
+function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, setAdv, addr, ses, refresh }) {
   const [earn, setEarn] = useState(null);
   // ❄ Freeze a coin: the engine (swap mode / auto-rotate) never touches it — only the holder switches it.
   const freeze = async (r, l, on) => { const s = ses(); if (!s) return;
@@ -405,6 +409,10 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, addr, s
       <details className="fp-more"><summary>⋯ More · rotate · auto-collect · rebalance · limits · replay · charts</summary>
         <div className="m-seg fp-mode" role="radiogroup" aria-label="Card mode">{[['hold', '🔒 Hold · switch by hand', 'The card stays as you built it. You may still switch ONE pool or coin every 24h, your pick.'], ['swap', '🤖 Auto-rotate daily', `Once a day, if a coin fails a runner gate or drops ${d.rules?.swapDropPct ?? 25}%, we pre-fill the swap for the best gated runner — one approval. Still max one switch per 24h.`]].map(([k, l, tip]) =>
         <button key={k} type="button" role="radio" aria-checked={(r.mode || 'hold') === k} className={(r.mode || 'hold') === k ? 'active' : ''} data-tip={tip} onClick={() => setMode(r, k)} data-testid={`mode-${k}-${r.id}`}>{l}</button>)}</div>
+        <div className="fp-adv" data-testid={`adv-${r.id}`}><span className="m-label" data-tip="Your card's own clock: how often you may switch a coin">⇄ ROTATE EVERY</span>
+          <div className="m-seg">{[1, 6, 12, 24].map(h => <button key={h} type="button" className={(r.rotateHours || 24) === h ? 'active' : ''} onClick={() => setAdv(r, { rotateHours: h })} data-testid={`rot-${h}-${r.id}`}>{h}h</button>)}</div>
+          <span className="m-label" data-tip="Sell = the stop alert sells it · 🅿 Park = sell to SOL, then a one-tap buy-back alert when it's back at entry with buyers · ❄ Hold = no stop alerts">ON A COIN STOP</span>
+          <div className="m-seg">{[['sell', 'Sell'], ['park', '🅿 Park & buy back'], ['hold', '❄ Hold']].map(([k, l]) => <button key={k} type="button" className={(r.slMode || 'sell') === k ? 'active' : ''} onClick={() => setAdv(r, { slMode: k })} data-testid={`sl-${k}-${r.id}`}>{l}</button>)}</div></div>
         <div className="fp-acts" role="toolbar" aria-label={`${r.name} more actions`}>
         <button type="button" className={`m-btn ${r.autoYield ? 'is-armed' : ''}`} data-tip="Auto-collect: alert + pre-filled Collect profit when the card is up +X% (sells only the gain). You approve once." onClick={() => open(r, 'yield', { at: r.autoYield?.at || d.rules?.yieldDefault || 50, levels: d.rules?.yieldLevels || [25, 50, 100, 200] })} data-testid={`act-yield-${r.id}`}>💸 {r.autoYield ? `Auto +${Math.round(r.autoYield.at)}%` : 'Auto-collect'}</button>
         <button type="button" className={`m-btn ${r.drift >= 5 ? 'is-warn' : ''}`} data-tip={`Back to the weights you bought (drift ${Math.round(r.drift || 0)} pts) — one approval`} onClick={() => open(r, 'rebalance')} data-testid={`act-rebalance-${r.id}`}>⚖ Rebalance</button>

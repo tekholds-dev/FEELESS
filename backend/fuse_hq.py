@@ -614,7 +614,7 @@ def clean_plan(plan, rules, pair_addresses, runner_pairs=()):
         rp = risk_plan(plan['risk'], [{'pairAddress': pa, 'runner': pa in set(runner_pairs)} for pa in pair_addresses])
         lvl = clean_rules(rules)['yieldLevels']
         rp['at'] = rp['at'] if rp['at'] in lvl else min(lvl, key=lambda v: abs(v - rp['at']))
-        return {k: rp[k] for k in ('risk', 'at', 'mode', 'onProfit', 'legs')}
+        return {**{k: rp[k] for k in ('risk', 'at', 'mode', 'onProfit', 'legs')}, **_extras(plan)}
     rl = clean_rules(rules)
     at = plan.get('at')
     try:
@@ -634,7 +634,7 @@ def clean_plan(plan, rules, pair_addresses, runner_pairs=()):
             raise ValueError(f'Coin stop-loss must be −{LEG_SL[0]:g}% to −{LEG_SL[1]:g}%.')
         if tp or sl:
             legs[pa] = {'tp': tp, 'sl': sl}
-    return {'risk': 'custom', 'at': at, 'mode': 'swap' if plan.get('mode') == 'swap' else 'hold', 'onProfit': 'compound' if plan.get('onProfit') == 'compound' else 'collect', 'legs': legs}
+    return {'risk': 'custom', 'at': at, 'mode': 'swap' if plan.get('mode') == 'swap' else 'hold', 'onProfit': 'compound' if plan.get('onProfit') == 'compound' else 'collect', 'legs': legs, **_extras(plan)}
 
 
 def leg_limit_hits(r, leg_guard):
@@ -695,10 +695,29 @@ def collect_pct(r, y):
 ROTATE_EVERY = 24 * 3600   # a trader card may switch ONE pool/coin per 24h (top-ups / rebalances don't count); staff exempt
 
 
+ROTATE_OPTIONS = (1, 6, 12, 24)   # hours a card may pick between switch-ins (owner's choice per card; default 24)
+SL_MODES = ('sell', 'park', 'hold')
+
+
+def _extras(plan):
+    """Per-card advanced options (owner + Cmd Ctr): rotation interval and what a coin stop does
+    (sell · park = sell to SOL, then a one-tap buy-back alert when price is back at entry with buyers · hold = no stop alert)."""
+    rh = plan.get('rotateHours')
+    return {'rotateHours': rh if rh in ROTATE_OPTIONS else 24, 'slMode': plan.get('slMode') if plan.get('slMode') in SL_MODES else 'sell'}
+
+
 def next_switch_at(pos, staff=False):
-    """When this card may switch again (0 = now). Hard-coded rotation: one switch-in per 24h."""
+    """When this card may switch again (0 = now): one switch-in per the card's own rotation interval (1/6/12/24h, default 24)."""
     last = _f(pos.get('lastSwitchAt'))
-    return 0.0 if staff or not last else last + ROTATE_EVERY
+    hrs = ((pos.get('plan') or {}).get('rotateHours')) or pos.get('rotateHours') or 24
+    return 0.0 if staff or not last else last + (hrs if hrs in ROTATE_OPTIONS else 24) * 3600
+
+
+def buyback_due(parked, price, mom=None):
+    """Park & buy-back on a real card: alert once price is back at (≥) the stop-out entry and buyers lead (≥ 50% buys, 1h not
+    falling). parked = {'entry': px}. Pure."""
+    m = mom or {}
+    return _f(price) > 0 and _f(price) >= _f(parked.get('entry')) and (_f(m.get('buyShare')) >= 50 or not m) and _f(m.get('chg1h')) >= 0
 
 
 # ---- 🎚 Risk dial: ONE choice sets the whole card plan (hard-coded here; the Lab / My cards / contract mirror it) ---------

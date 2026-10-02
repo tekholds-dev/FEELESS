@@ -2957,7 +2957,7 @@ async def fuse_position(p: FusePositionIn):
         except ValueError:
             plan = None   # a bad plan never blocks recording a real buy
         if plan:
-            pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'))
+            pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'), rotateHours=plan.get('rotateHours', 24), slMode=plan.get('slMode', 'sell'))
             if plan['legs']:
                 pos['legGuard'] = {pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()}
             if plan['at']:
@@ -3147,6 +3147,35 @@ async def _fuse_swap_tick(d, now):
     return n
 
 
+async def _fuse_buyback_tick(d, now):
+    """🅿 Park & buy-back (real cards, non-custodial): a parked coin that's been SOLD and is back at its stop-out entry with
+    buyers leading → ONE alert with a pre-filled buy back into the card (the holder approves)."""
+    rows = [(x, pa, pk) for x in d.get('positions') or [] if not x.get('closedAt') for pa, pk in (x.get('parked') or {}).items()
+            if not pk.get('alertedAt') and any(l['pairAddress'] == pa and l.get('soldUsd') is not None for l in x['legs'])]
+    if not rows:
+        return 0
+    pairs = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pa} for _, pa, _ in rows])
+    fired = []
+    for x, pa, pk in rows:
+        p = pairs.get(pa) or {}; tx = (p.get('txns') or {}).get('h1') or {}; b, s_ = _fuse._f(tx.get('buys')), _fuse._f(tx.get('sells'))
+        mom = {'buyShare': b / (b + s_) * 100 if b + s_ else 0, 'chg1h': _fuse._f((p.get('priceChange') or {}).get('h1'))}
+        if _hq.buyback_due(pk, _fuse._f(p.get('priceUsd')), mom):
+            fired.append((x, pa, pk))
+    if fired:
+        async with _admin_lock:
+            d2 = _json_load(FUSE_HQ_PATH, {})
+            for x2 in d2.get('positions') or []:
+                for x, pa, _ in fired:
+                    if x2['id'] == x['id'] and pa in (x2.get('parked') or {}):
+                        x2['parked'][pa]['alertedAt'] = now
+            _json_save(FUSE_HQ_PATH, d2)
+    for x, pa, pk in fired:
+        notify(x['wallet'], 'fuse-guard', f"↩ ${pk.get('symbol')} is back at your entry with buyers leading — buy it back into {x.get('name') or 'your card'}. One approval.",
+               url=f"/terminal/fuse?tab=cards&topup={x['id']}&pair={pa}", once=f"buyback-{x['id']}-{pa}-{int(pk.get('at') or 0)}",
+               meta={'claim': 'Price back at the stop-out entry, buyers ≥ 50%', 'source': 'Live pool data'})
+    return len(fired)
+
+
 async def _fuse_leg_tick(d, now):
     """🎯 Per-coin take-profit / stop-loss: alert once per limit with that coin's sell pre-filled (one approval)."""
     lg = [x for x in d.get('positions') or [] if x.get('legGuard') and not x.get('closedAt')]
@@ -3156,16 +3185,22 @@ async def _fuse_leg_tick(d, now):
     fired = []
     for x in lg:
         for leg, kind, pct in _hq.leg_limit_hits(_hq.position_pnl(x, px), x['legGuard']):
+            if kind == 'sl' and x.get('slMode') == 'hold':   # ❄ hold: the owner chose no stop alerts on this card
+                continue
             fired.append((x, leg, kind, pct))
     if not fired:
         return 0
     async with _admin_lock:
         d2 = _json_load(FUSE_HQ_PATH, {})
         ids = {(x['id'], leg['pairAddress']) for x, leg, _, _ in fired}
+        parks = {(x['id'], leg['pairAddress']): leg for x, leg, kind, _ in fired if kind == 'sl' and x.get('slMode') == 'park'}
         for x in d2.get('positions') or []:
             for pa, g in (x.get('legGuard') or {}).items():
                 if (x['id'], pa) in ids:
                     g['firedAt'] = now
+                if (x['id'], pa) in parks:   # 🅿 remember the stop-out entry: a buy-back alert comes when price is back here
+                    lg_ = parks[(x['id'], pa)]
+                    x.setdefault('parked', {})[pa] = {'entry': _fuse._f(lg_.get('usd')) / max(_fuse._f(lg_.get('tokens')), 1e-18), 'symbol': lg_.get('symbol'), 'mint': lg_.get('mint'), 'at': now}
         _json_save(FUSE_HQ_PATH, d2)
     for x, leg, kind, pct in fired:
         what = f"hit its +{x['legGuard'][leg['pairAddress']]['tp']:g}% take-profit" if kind == 'tp' else f"hit its −{x['legGuard'][leg['pairAddress']]['sl']:g}% stop"
@@ -3197,11 +3232,11 @@ async def fuse_plan(p: FusePlanIn):
                                   [leg['pairAddress'] for leg in pos['legs'] if leg.get('soldUsd') is None], [leg['pairAddress'] for leg in pos['legs'] if leg.get('role') == 'runner'])
         except ValueError as e:
             raise HTTPException(400, str(e))
-        pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'), legGuard={pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()})
+        pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'), rotateHours=plan.get('rotateHours', 24), slMode=plan.get('slMode', 'sell'), legGuard={pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()})
         if plan.get('risk') in _hq.RISK_DIALS and plan.get('at'):   # the dial also re-arms the card's profit level
             pos['autoYield'] = {'at': plan['at'], 'base': round(sum(_fuse._f(x.get('heldUsd') or x.get('usd')) for x in pos['legs'] if x.get('soldUsd') is None), 6), 'armedAt': time.time(), 'firedAt': None, 'rebase': True}
         _json_save(FUSE_HQ_PATH, d)
-    return {'ok': True, 'plan': {k: plan.get(k) for k in ('risk', 'mode', 'onProfit', 'legs', 'at')}}
+    return {'ok': True, 'plan': {k: plan.get(k) for k in ('risk', 'mode', 'onProfit', 'legs', 'at', 'rotateHours', 'slMode')}}
 
 
 class FuseModeIn(BaseModel):
@@ -3507,6 +3542,7 @@ async def _fuse_guard_tick():
     await _fuse_yield_tick(d, now)
     await _fuse_swap_tick(d, now)
     await _fuse_leg_tick(d, now)
+    await _fuse_buyback_tick(_json_load(FUSE_HQ_PATH, {}), now)
     d = _json_load(FUSE_HQ_PATH, {})
     live = [x for x in d.get('positions') or [] if x.get('guard') and not x['guard'].get('firedAt') and not x.get('closedAt')]
     if not live:
@@ -3689,7 +3725,7 @@ async def fuse_pnl(address: str):
     by, rules, now = _ledger_by_sig(), _card_rules(), time.time()
     hot = {c['id'] for c in (_arena_mega_cache.get('data') or []) if c.get('kind') == 'user' and c['activity']['tier'] in ('hot', 'blazing')}
     wins = _season_wins()
-    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold', 'nextSwitchAt': _hq.next_switch_at(x), 'risk': x.get('risk') or 'custom',
+    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold', 'nextSwitchAt': _hq.next_switch_at(x), 'rotateHours': x.get('rotateHours') or 24, 'slMode': x.get('slMode') or 'sell', 'parked': x.get('parked') or {}, 'risk': x.get('risk') or 'custom',
                     'onProfit': x.get('onProfit') or 'collect', 'legGuard': x.get('legGuard') or {},
                     'feeback': _hq.card_feeback(_card_fees(x, by), (x.get('closedAt') or now) - _fuse._f(x.get('at')), x['id'] in hot, rules, x['id'] in wins), 'onArena': x['id'] in hot,
                     'seasonWin': wins.get(x['id']), 'beatCat': [w['week'] for w in _json_load(FUSE_HQ_PATH, {}).get('catChallenge') or [] if x['id'] in (w.get('ids') or [])]} for x in pos), key=lambda r: -(r['at'] or 0))

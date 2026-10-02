@@ -542,3 +542,4 @@ body.fx-lite .vd-pcard { animation: none; }
 .golive-list li.ok { border-color: color-mix(in srgb, var(--m-accent) 60%, var(--m-line)); } .golive-list li div { display: grid; gap: 2px; } .golive-list small { font-size: 11px; }
 @media (max-width: 640px) { .golive-list li { grid-template-columns: 1fr; } }
 .pl-open{cursor:pointer}.pl-open:hover{color:var(--m-accent);text-decoration:underline} .adv-cfg>summary{cursor:pointer;font:600 12px var(--m-mono)}
+.fp-adv{display:grid;gap:6px;margin-top:8px}.fp-adv .m-seg{flex-wrap:wrap}
