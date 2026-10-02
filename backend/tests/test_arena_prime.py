@@ -141,13 +141,29 @@ def test_cmd_ctr_replaces_one_coin_with_best_same_role():
         ap.replace_leg(card, 'Pnope', {}, [], [], [], CFG, 10)
 
 
-def test_floored_card_redeals_after_the_cmd_ctr_delay():
-    cfg = ap.clean_cfg({'redealHours': 1})
+def test_floored_card_redeals_on_the_rotation_clock_from_arena_coins_first():
+    cfg = ap.clean_cfg({'rotateHours': 1})
     card = ap.deal('balanced', [P('a', 1)], [R('r1', 1)], cfg, 0, SOL)
     out = ap.tick(card, {'Psol': 0.78, 'Pjito': 0.78, 'Pa': 0.78, 'Pr1': 0.78}, [], [], cfg, 60, SOL)
     assert out.get('flooredAt') == 60
-    early = ap.tick(out, {'Psol': 1, 'Pjito': 1, 'Pc': 1}, [P('c', 1)], [], cfg, 60 + 1800, SOL)
-    assert early.get('flooredAt')                                                         # 30 min: still waiting
-    later = ap.tick(out, {'Psol': 1, 'Pjito': 1, 'Pc': 1}, [P('c', 1)], [], cfg, 60 + 3601, SOL)
-    assert not later.get('flooredAt') and later['runs']                                   # 1h: re-dealt as a new run
-    assert ap.clean_cfg({'redealHours': 500})['redealHours'] == 72
+    pools = [P('c', 1), {**P('arena', 1), 'arena': True}]
+    early = ap.tick(out, {'Psol': 1, 'Pjito': 1, 'Pc': 1, 'Parena': 1}, pools, [], cfg, 60 + 1800, SOL)
+    assert early.get('flooredAt')                                                          # 30 min: waits for the rotation clock
+    later = ap.tick(out, {'Psol': 1, 'Pjito': 1, 'Pc': 1, 'Parena': 1}, pools, [], cfg, 60 + 3601, SOL)
+    assert not later.get('flooredAt') and later['runs'] and 'arena' in [l['mint'] for l in later['legs']]   # arena coin first
+    assert [c['mint'] for c in ap.rated([P('x', 1), {**R('y', 1, 61), 'arena': True}, R('z', 1, 95)], 'runner')] == ['y', 'z']
+
+
+def test_service_tags_arena_coins_for_rotation(monkeypatch):
+    import asyncio
+    import pytest
+    rs = pytest.importorskip('reputation_service')
+    async def metas(): return {'PA': {'baseAddress': 'A', 'symbol': 'A', 'priceUsd': 1, 'liquidityUsd': 5e5}, 'PB': {'baseAddress': 'B', 'symbol': 'B', 'priceUsd': 1, 'liquidityUsd': 5e5}}
+    async def live(): return {'passing': [{'mint': 'R1', 'pairAddress': 'PR1', 'symbol': 'R1', 'price': 1, 'score': 80}, {'mint': 'R2', 'pairAddress': 'PR2', 'symbol': 'R2', 'price': 1, 'score': 90}], 'dropped': []}
+    async def majors(): return []
+    monkeypatch.setattr(rs, '_fuse_candidates', metas); monkeypatch.setattr(rs, '_runner_live', live); monkeypatch.setattr(rs, '_majors_rows', majors)
+    rs._json_save(rs.RUNNERS_PATH, {'rounds': [{'picks': [{'mint': 'R1'}]}], 'litCards': []})
+    monkeypatch.setitem(rs._arena_mega_cache, 'data', [{'legs': [{'pairAddress': 'PB'}]}])
+    pools, runners, _ = asyncio.run(rs._prime_candidates())
+    assert {p['mint']: p.get('arena', False) for p in pools} == {'A': False, 'B': True}            # B is on a stage card
+    assert [r['mint'] for r in ap.rated(runners, 'runner')] == ['R1', 'R2']                     # round pick before a higher score

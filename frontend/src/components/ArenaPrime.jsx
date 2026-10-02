@@ -21,7 +21,7 @@ const TIER = {
   ever: { aura: 'aurora', name: 'EVERLASTING', look: { design: 'circuit', rarity: 'legendary', accent: '#19f58f', accent2: '#6ad7ff' } },
 };
 // Cmd Ctr ⚡ meta config: the settings the Arena proof backs today (hourly rotation of 1 coin, −15% floor, compound on, park & rebuy).
-export const PRIME_META = { rotateHours: 1, rotateCount: 1, floorPct: 15, compound: true, slMode: 'park', redealHours: 6 };
+export const PRIME_META = { rotateHours: 1, rotateCount: 1, floorPct: 15, compound: true, slMode: 'park' };
 export const primeRow = c => ({ id: c.id, name: c.label, closed: false, costUsd: c.startUsd, valueUsd: c.valueUsd, realizedUsd: c.takenUsd || 0,
   baseUsd: c.startUsd, extraUsd: (c.cash || 0) + (c.parked || []).reduce((a, p) => a + (p.usd || 0), 0),
   pnlUsd: c.valueUsd - c.startUsd, pnlPct: c.pnlPct,
@@ -45,7 +45,7 @@ export function ArenaPrime({ onLoad }) {
   return <section className="prime" data-testid="arena-prime">
     <header className="prime-head m-card m-live"><span className="m-label">⭐ ARENA PRIME · FULLY AUTO · WE RUN ${d.cfg.sizeUsd} EACH</span>
       <h3>Top-tier cards. Every automation on.</h3>
-      <p className="m-dim">Only 3–5★ coins: a stable major anchor (SOL / JitoSOL / cbBTC — never rotated) + deep pools + gated runners. Auto TP / SL per coin · {d.cfg.compound ? 'gains auto-compound into the other coins' : 'gains kept as cash'} · the {d.cfg.rotateCount} weakest rotate every {d.cfg.rotateHours}h · 🛡 card floor at −{d.cfg.floorPct}% (everything into the anchor). Paper money, real prices. Fees tracked apart, never in P&L.</p></header>
+      <p className="m-dim">Only 3–5★ coins: a stable major anchor (SOL / JitoSOL / cbBTC — never rotated) + deep pools + gated runners. Auto TP / SL per coin · {d.cfg.compound ? 'gains auto-compound into the other coins' : 'gains kept as cash'} · the {d.cfg.rotateCount} weakest rotate every {d.cfg.rotateHours < 1 ? `${Math.round(d.cfg.rotateHours * 60)} min` : `${d.cfg.rotateHours}h`} (floored cards re-deal on the same clock) · 🛡 card floor at −{d.cfg.floorPct}% (everything into the anchor). Paper money, real prices. Fees tracked apart, never in P&L.</p></header>
     <div className="prime-row">{d.cards.map(c0 => { const rv = revalue(primeRow(c0), live); const c = { ...c0, pnlPct: rv.pnlPct, valueUsd: rv.valueUsd }; const t = TIER[c.tier] || TIER.gold; return <article key={c.id} className={`prime-card t-${c.tpl} tier-${c.tier || 'gold'} ${c.pnlPct >= 10 ? 'is-hot' : ''}`} data-testid={`prime-${c.tpl}`}>
       <span className="prime-tier" aria-hidden="true"><i className="pt-ring" /><i className="pt-sweep" />{Array.from({ length: 6 }, (_, i) => <i key={i} className="pt-spark" style={{ '--i': i }} />)}</span>
       <b className="prime-badge">{t.name}</b>{c.why && <small className="prime-why">{c.why}</small>}
@@ -59,7 +59,7 @@ export function ArenaPrime({ onLoad }) {
         {c.floored && <span className="prime-floored" data-tip="Floored: holding the anchor until tomorrow's fresh deal">🛡 FLOORED</span>}</div>
       <div className="prime-stats"><span data-tip="Value now vs the start, fees not included"><small>P&L</small><b className={`m-num ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{c.pnlPct >= 0 ? '+' : ''}{c.pnlPct.toFixed(1)}%</b></span>
         <span data-tip="Gains from auto take-profits rolled back into the card"><small>COMPOUNDED</small><b className="m-num">${c.compoundedUsd.toFixed(2)}</b></span>
-        {c.floored ? <span data-tip={`Floored: everything sits in the anchor; re-dealt ${d.cfg.redealHours ?? 24}h after the floor hit (Cmd Ctr › Arena › Re-deal after)`}><small>ROTATION</small><b className="m-num">re-deal {d.cfg.redealHours ?? 24}h</b></span>
+        {c.floored ? <span data-tip="Floored: everything sits in the anchor; it's re-dealt with fresh 3★+ coins (Arena picks first) on the rotation clock"><small>RE-DEAL IN</small><b className="m-num"><Countdown at={c.flooredAt + d.cfg.rotateHours * 3600} /></b></span>
         : <span data-tip="Next auto-rotation of the weakest coins"><small>ROTATES IN</small><b className="m-num"><Countdown at={c.lastRotateAt + d.cfg.rotateHours * 3600} /></b></span>}</div>
       <div className="prime-acts"><button type="button" className="m-btn" onClick={() => setOpen(open === c.id ? null : c.id)} data-testid={`prime-earn-${c.tpl}`}>🪟 Open card · profit trail</button>
         <button type="button" className="m-btn primary m-go" onClick={() => { onLoad?.(c.legs.map(l => ({ chainId: 'solana', pairAddress: l.pairAddress, symbol: l.symbol, baseAddress: l.mint, runner: l.role === 'runner', role: l.role }))); toast.success(`${c.label} loaded into the Lab — you approve the buy`); }} data-testid={`prime-buy-${c.tpl}`}>⚡ Buy now</button></div>
@@ -84,12 +84,11 @@ export function PrimeControls({ call }) {
   const seg = (k, vals, fmt) => <div className="m-seg">{vals.map(v => <button key={v} type="button" className={cfg[k] === v ? 'active' : ''} onClick={() => save({ [k]: v })}>{fmt(v)}</button>)}</div>;
   return <section className="m-card fops" data-testid="prime-controls"><div className="m-row"><span className="m-label">⭐ ARENA PRIME · FULLY AUTO (PAPER)</span>
     <label className="m-toggle"><input type="checkbox" checked={cfg.on} onChange={e => save({ on: e.target.checked })} /><span>{cfg.on ? 'Running' : 'Off'}</span></label></div>
-    <div className="prime-ctl"><span>Size</span>{seg('sizeUsd', [25, 100, 500], v => `$${v}`)}<span>Rotate every</span>{seg('rotateHours', [0.25, 0.5, 1, 3, 6], v => (v < 1 ? `${v * 60}m` : `${v}h`))}
+    <div className="prime-ctl"><span>Size</span>{seg('sizeUsd', [25, 100, 500], v => `$${v}`)}<span data-tip="One clock for every swap: the weakest coins rotate out AND floored cards re-deal — replacements come from the Arena first (battle / stage cards, this round's runners, lit cards), then any 3★+ coin">Rotate every</span>{seg('rotateHours', [0.25, 0.5, 1, 3, 6], v => (v < 1 ? `${v * 60}m` : `${v}h`))}
       <label className="prime-min" data-tip="Any interval: 15 min – 48 h. The weakest non-anchor coins rotate out on this clock."><input className="m-input m-num" inputMode="numeric" value={mins} onChange={e => setMins(e.target.value.replace(/[^0-9]/g, ''))}
         onBlur={() => Number(mins) >= 15 && Number(mins) !== Math.round(cfg.rotateHours * 60) && save({ rotateHours: Math.min(48, Number(mins) / 60) })} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} data-testid="prime-rotate-min" /><span>min</span></label>{null}
       <span>Coins per rotation</span>{seg('rotateCount', [1, 2, 3], v => `${v}`)}
       <span data-tip="Card-level floor: at this loss every pool + runner moves into the anchor, then the card is re-dealt as a new run">Floor</span>{seg('floorPct', [10, 15, 20, 25], v => `−${v}%`)}
-      <span data-tip="How long a floored card waits in its anchor before it's re-dealt with fresh 3★+ coins (each re-deal starts a new run; past runs stay on its record)">Re-deal after</span>{seg('redealHours', [1, 6, 24], v => `${v}h`)}
       <label className="m-toggle"><input type="checkbox" checked={cfg.compound} onChange={e => save({ compound: e.target.checked })} /><span>Auto-compound gains</span></label>
       <span data-tip="What a stop does: ⇄ swap the coin for the best gated one · 🅿 sell to SOL, keep the slot, buy back at entry with momentum · ❄ never sell on a stop (the floor still protects)">On stop</span>{seg('slMode', ['replace', 'park', 'hold'], v => ({ replace: '⇄ Replace', park: '🅿 Park & rebuy', hold: '❄ Hold' }[v]))}</div>
     <div className="m-row"><button type="button" className="m-btn primary m-go" onClick={() => save(PRIME_META)} data-testid="prime-meta" data-tip="Hourly rotation of 1 coin · −15% floor · compound on · park & rebuy on stops">⚡ Apply meta config</button>

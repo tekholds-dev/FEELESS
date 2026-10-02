@@ -28,9 +28,9 @@ TEMPLATES = {   # anchors / pools / runners per card + the dial it runs
 }
 MIN_STARS = 3
 HIT_PCT = 10.0      # a "good day" = the card is up ≥ +10% over 24h
-DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.10, 'floorPct': 20.0, 'slMode': 'replace', 'redealHours': 24.0}
+DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.10, 'floorPct': 20.0, 'slMode': 'replace'}
 SL_MODES = ('replace', 'park', 'hold')   # on a stop: auto-replace · sell + park the slot (rebuy at entry with momentum) · hold
-CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.25, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 25), 'redealHours': (0.25, 72)}
+CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.25, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 25)}
 
 
 def exit_plan(gain_pct, mom=None):
@@ -72,9 +72,10 @@ def stars(c, role):
 
 
 def rated(cands, role):
-    """Only 3★+ candidates, best stars first (input order kept inside a star level)."""
+    """Only 3★+ candidates. ARENA-backed coins (on a battle / stage card, this round's runner picks, a lit card — `arena`
+    flag set by the service) come first, then best stars; input order kept inside a level."""
     out = [{**c, 'stars': stars(c, role)} for c in cands]
-    return sorted((c for c in out if c['stars'] >= MIN_STARS), key=lambda c: -c['stars'])
+    return sorted((c for c in out if c['stars'] >= MIN_STARS), key=lambda c: (not c.get('arena'), -c['stars']))
 
 
 def _f(v):
@@ -156,7 +157,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None):
     c.setdefault('dayAt', c['at']); c.setdefault('dayStartUsd', c['startUsd']); c.setdefault('days', []); c.setdefault('lowPct', 0.0)
 
     # 0) a floored card sits in its anchor (cash-like) until the next day, then is re-dealt fresh at its current value
-    if c.get('flooredAt') and now - c['flooredAt'] >= cfg.get('redealHours', 24) * 3600:   # Cmd Ctr › Arena › Re-deal after
+    if c.get('flooredAt') and now - c['flooredAt'] >= cfg['rotateHours'] * 3600:   # re-deal = the rotation clock (Cmd Ctr › Rotate every)
         v0 = value(c, prices)
         keep = {k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}
         # a NEW run starts at today's value (its own −floor); the ended run is kept on the record, never hidden
@@ -281,6 +282,7 @@ def summary(card, prices):
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,
              'usd': round(l['units'] * (_f(prices.get(l['pairAddress'])) or l['entry']), 4)} for l in card['legs']]
     return {**{k: card[k] for k in ('id', 'tpl', 'label', 'at', 'lastRotateAt', 'compoundedUsd', 'takenUsd', 'feesUsd', 'startUsd')}, 'cash': round(card['cash'], 4),
+            'flooredAt': card.get('flooredAt'),
             'valueUsd': v, 'pnlPct': round((v / start - 1) * 100, 2), 'legs': legs, 'events': card['events'][-12:][::-1],
             'tp': TEMPLATES[card['tpl']]['tp'], 'sl': TEMPLATES[card['tpl']]['sl'], 'tier': TEMPLATES[card['tpl']]['tier'], 'why': TEMPLATES[card['tpl']].get('why'),
             'parked': list((card.get('parked') or {}).values()),
