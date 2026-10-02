@@ -3136,6 +3136,8 @@ async def _fuse_swap_tick(d, now):
     """Swap mode (holder's choice per card): when a leg fails a runner gate or drops past swapDropPct, alert ONCE per leg
     with a pre-filled ⇄ Switch (sell the weak leg, buy the best gated runner) — one approval. Hold mode is never touched."""
     sw = [x for x in d.get('positions') or [] if x.get('mode') == 'swap' and not x.get('closedAt') and now >= _hq.next_switch_at(x)]   # 1 rotation / 24h
+    await _rounds_out_notice(d, now)
+    sw = [x for x in sw if _hq.rounds_left(x, _is_staff(x['wallet'])) > 0]   # 🔁 out of rounds → no auto rounds until +5
     if not sw:
         return 0
     live, px = await asyncio.gather(_runner_live(), _hq_prices([leg for x in sw for leg in x['legs']]))
@@ -3146,17 +3148,48 @@ async def _fuse_swap_tick(d, now):
         if not s:
             continue
         n += 1
+        await _spend_round(x, f"swap-{int(now // _hq.ROTATE_EVERY)}")
         notify(x['wallet'], 'fuse-guard', f"⇄ {x.get('name') or 'Your Fuse card'}: ${s['out']['symbol']} {s['why']} — swap it for ${s['in']['symbol']} (gated runner, score {round(_fuse._f(s['in'].get('score')))}). One approval.",
                url=f"/terminal/fuse?tab=cards&switch={x['id']}&out={s['out']['pairAddress']}&in={s['in']['mint']}&sym={s['in']['symbol']}&pair={s['in'].get('pairAddress') or ''}",
                once=f"swap-{x['id']}-{int(now // _hq.ROTATE_EVERY)}", meta={'claim': s['why'], 'source': 'Runner gates + Fuse P&L (live prices)'})
     return n
 
 
+async def _spend_round(x, key):
+    """Spend one of the card's rounds for this alert window (staff cards are unlimited)."""
+    if _is_staff(x['wallet']):
+        return
+    async with _admin_lock:
+        d2 = _json_load(FUSE_HQ_PATH, {})
+        for x2 in d2.get('positions') or []:
+            if x2['id'] == x['id'] and _hq.use_round(x2, key):
+                _json_save(FUSE_HQ_PATH, d2)
+                x.update(roundsLeft=x2['roundsLeft'], lastRoundKey=key)
+
+
+async def _rounds_out_notice(d, now):
+    """A card that spent its last round gets ONE notice with the +5 offer (pay now, or let compound pay when allowed)."""
+    cfg = _rounds_cfg()
+    out = [x for x in d.get('positions') or [] if not x.get('closedAt') and (x.get('mode') == 'swap' or x.get('parked')) and not x.get('outOfRoundsAt')
+           and _hq.rounds_left(x, _is_staff(x['wallet'])) <= 0]
+    if not out:
+        return
+    async with _admin_lock:
+        d2 = _json_load(FUSE_HQ_PATH, {})
+        for x2 in d2.get('positions') or []:
+            if x2['id'] in {x['id'] for x in out}:
+                x2['outOfRoundsAt'] = now
+        _json_save(FUSE_HQ_PATH, d2)
+    for x in out:
+        notify(x['wallet'], 'fuse-card', f"🔁 {x.get('name') or 'Your Fuse card'} used its {_hq.ROUNDS_DEFAULT} auto rounds. +{cfg['step']} for ${cfg['per5Usd']:.2f}{' — or let its compound pay' if cfg['compoundPay'] else ''}.",
+               url=f"/terminal/fuse?tab=cards&card={x['id']}", once=f"rounds-out-{x['id']}-{len(x.get('roundBuys') or [])}", meta={'claim': 'Rounds used', 'source': 'Fuse cards'})
+
+
 async def _fuse_buyback_tick(d, now):
     """🅿 Park & buy-back (real cards, non-custodial): a parked coin that's been SOLD and is back at its stop-out entry with
     buyers leading → ONE alert with a pre-filled buy back into the card (the holder approves)."""
     rows = [(x, pa, pk) for x in d.get('positions') or [] if not x.get('closedAt') for pa, pk in (x.get('parked') or {}).items()
-            if not pk.get('alertedAt') and any(l['pairAddress'] == pa and l.get('soldUsd') is not None for l in x['legs'])]
+            if not pk.get('alertedAt') and any(l['pairAddress'] == pa and l.get('soldUsd') is not None for l in x['legs']) and _hq.rounds_left(x, _is_staff(x['wallet'])) > 0]
     if not rows:
         return 0
     pairs = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pa} for _, pa, _ in rows])
@@ -3173,6 +3206,8 @@ async def _fuse_buyback_tick(d, now):
                 for x, pa, _ in fired:
                     if x2['id'] == x['id'] and pa in (x2.get('parked') or {}):
                         x2['parked'][pa]['alertedAt'] = now
+                        if not _is_staff(x2['wallet']):
+                            _hq.use_round(x2, f"buyback-{pa}-{int(now)}")
             _json_save(FUSE_HQ_PATH, d2)
     for x, pa, pk in fired:
         notify(x['wallet'], 'fuse-guard', f"↩ ${pk.get('symbol')} is back at your entry with buyers leading — buy it back into {x.get('name') or 'your card'}. One approval.",
@@ -3730,7 +3765,8 @@ async def fuse_pnl(address: str):
     by, rules, now = _ledger_by_sig(), _card_rules(), time.time()
     hot = {c['id'] for c in (_arena_mega_cache.get('data') or []) if c.get('kind') == 'user' and c['activity']['tier'] in ('hot', 'blazing')}
     wins = _season_wins()
-    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold', 'nextSwitchAt': _hq.next_switch_at(x), 'rotateHours': x.get('rotateHours') or 24, 'slMode': x.get('slMode') or 'sell', 'parked': x.get('parked') or {}, 'risk': x.get('risk') or 'custom',
+    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold', 'nextSwitchAt': _hq.next_switch_at(x), 'rotateHours': x.get('rotateHours') or 24, 'slMode': x.get('slMode') or 'sell',
+                  'roundsLeft': _hq.rounds_left(x, _is_staff(x['wallet'])), 'roundsUsed': x.get('roundsUsed') or 0, 'roundsOwedUsd': x.get('roundsOwedUsd') or 0, 'parked': x.get('parked') or {}, 'risk': x.get('risk') or 'custom',
                     'onProfit': x.get('onProfit') or 'collect', 'legGuard': x.get('legGuard') or {},
                     'feeback': _hq.card_feeback(_card_fees(x, by), (x.get('closedAt') or now) - _fuse._f(x.get('at')), x['id'] in hot, rules, x['id'] in wins), 'onArena': x['id'] in hot,
                     'seasonWin': wins.get(x['id']), 'beatCat': [w['week'] for w in _json_load(FUSE_HQ_PATH, {}).get('catChallenge') or [] if x['id'] in (w.get('ids') or [])]} for x in pos), key=lambda r: -(r['at'] or 0))
@@ -6962,7 +6998,7 @@ async def internal_fees(request: Request, wallet: str = '', inputMint: str = '',
 async def fee_pricing():
     """Public pricing: the % fee on a normal swap and the bundle price for cards bought all at once."""
     cfg = _fee_cfg()
-    return {'swapBps': int(cfg['platformFeeBps'] or 0), 'bundle': _hq.clean_bundle(cfg.get('bundle')),
+    return {'swapBps': int(cfg['platformFeeBps'] or 0), 'bundle': _hq.clean_bundle(cfg.get('bundle')), 'rounds': {**_rounds_cfg(), 'payTo': await _rounds_pay_to()},
             'cardLegs': {'pools': _hq.CARD_POOLS, 'runners': _hq.CARD_RUNNERS}, 'freeBuys': ['$FEE', 'FEECAT', 'rFEE']}
 
 
@@ -7047,10 +7083,95 @@ async def admin_fees_bundle(request: Request, body: dict):
     return {'bundle': b}
 
 
+def _rounds_cfg():
+    return _hq.clean_rounds_cfg(_fee_cfg().get('rounds'))
+
+
+_rounds_pay_cache: dict = {'at': 0.0, 'to': None}
+
+
+async def _rounds_pay_to():
+    """🔁 Where round packs are paid: the wallet that owns the SOL fee account (on-chain, cached 10 min)."""
+    if time.time() - _rounds_pay_cache['at'] < 600:
+        return _rounds_pay_cache['to']
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            to = await _fee_wallet_owner(http, _fee_cfg())
+    except Exception:
+        to = None
+    _rounds_pay_cache.update(at=time.time(), to=to)
+    return to
+
+
+@app.post('/api/reputation/admin/fees/rounds')
+async def admin_fees_rounds(request: Request, body: dict):
+    """Core › Fees › 🔁 Card rounds: $ per +5 rounds, and whether a card's compound may pay for them (owner only)."""
+    admin = _require_owner(request)
+    async with _admin_lock:
+        d = _admin_load()
+        r = _hq.clean_rounds_cfg(body)
+        d.setdefault('fees', {})['rounds'] = {'per5Usd': r['per5Usd'], 'compoundPay': r['compoundPay']}
+        _audit(d, admin, 'fees', f"card rounds · ${r['per5Usd']:.2f} per {r['step']} · compound pays {'on' if r['compoundPay'] else 'off'}")
+        _admin_save(d)
+    return {'rounds': r}
+
+
+class RoundsIn(BaseModel):
+    address: str
+    session: str
+    id: str = Field(..., max_length=16)
+    mode: str = Field(..., max_length=10)        # pay | compound | settle
+    signature: str = Field(default='', max_length=100)
+
+
+@app.post('/api/reputation/fuses/rounds')
+async def fuse_rounds(p: RoundsIn):
+    """🔁 +5 rounds on YOUR card: 'pay' = a confirmed SOL transfer YOU signed to the fee wallet (checked on-chain, never reused);
+    'compound' = rounds now, the card owes the price until its next profit take; 'settle' = pay what the card owes."""
+    me = _session_or_401(p.address, p.session)
+    mine = set(linked_of(me)) | {me}
+    cfg = _rounds_cfg(); paid_usd = 0.0
+    if p.mode in ('pay', 'settle') and (cfg['per5Usd'] > 0 or p.mode == 'settle'):
+        if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', p.signature or ''):
+            raise HTTPException(400, 'Send the payment first — no signature yet.')
+        if p.signature in (_json_load(FUSE_HQ_PATH, {}).get('roundSigs') or []):
+            raise HTTPException(409, 'That payment was already used.')
+        to = await _rounds_pay_to()
+        if not to:
+            raise HTTPException(503, 'Fee wallet not set — rounds cannot be bought right now.')
+        tx = None
+        async with httpx.AsyncClient(timeout=20) as http:
+            for _ in range(5):
+                tx = await _rpc(http, 'getTransaction', [p.signature, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+                if tx:
+                    break
+                await asyncio.sleep(2)
+        lam = max((_hq.paid_lamports(tx, w, to) for w in mine), default=0)
+        paid_usd = lam / 1e9 * (await _sol_usd_live() or 0)
+        if paid_usd <= 0:
+            raise HTTPException(400, 'No confirmed SOL payment from your wallet to the fee wallet in that transaction.')
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {})
+        pos = next((x for x in d.get('positions') or [] if x['id'] == p.id and x['wallet'] in mine and not x.get('closedAt')), None)
+        if not pos:
+            raise HTTPException(404, 'Open card not found.')
+        try:
+            if p.mode == 'settle':
+                _hq.settle_owed(pos, paid_usd)
+            else:
+                _hq.extend_rounds(pos, p.mode, cfg, paid_usd, time.time(), p.signature)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        if p.signature:
+            d['roundSigs'] = (d.get('roundSigs') or [])[-500:] + [p.signature]
+        _json_save(FUSE_HQ_PATH, d)
+    return {'ok': True, 'roundsLeft': _hq.rounds_left(pos), 'roundsOwedUsd': pos.get('roundsOwedUsd') or 0}
+
+
 @app.get('/api/reputation/admin/fees')
 async def admin_fees_get(request: Request):
     _require_admin(request)
-    return {'fees': {**_fee_cfg(), 'bundle': _hq.clean_bundle(_fee_cfg().get('bundle'))}, 'limits': {'minBps': 0, 'maxBps': SWAP_MAX_BPS, 'ultraMinBps': JUP_MIN_BPS, 'ultraMaxBps': JUP_MAX_BPS, 'priorityMaxLamports': PRIORITY_MAX_LAMPORTS}}
+    return {'fees': {**_fee_cfg(), 'bundle': _hq.clean_bundle(_fee_cfg().get('bundle')), 'rounds': _rounds_cfg()}, 'limits': {'minBps': 0, 'maxBps': SWAP_MAX_BPS, 'ultraMinBps': JUP_MIN_BPS, 'ultraMaxBps': JUP_MAX_BPS, 'priorityMaxLamports': PRIORITY_MAX_LAMPORTS}}
 
 
 @app.get('/api/reputation/admin/fees/balances')
@@ -7608,7 +7729,7 @@ async def admin_fees_set(request: Request, payload: FeeCfg):
                      'lifiIntegrator': integrator, 'lifiFeeBps': payload.lifiFeeBps if integrator else 0,
                      'engine': payload.engine, 'ultraFallback': payload.ultraFallback, 'feeAccountSol': payload.feeAccountSol,
                      'feeAccountUsdc': payload.feeAccountUsdc, 'priorityMaxLamports': payload.priorityMaxLamports,
-                     'vaultFeeWallet': payload.vaultFeeWallet, **{k: v for k, v in (d.get('fees') or {}).items() if k == 'bundle'}}
+                     'vaultFeeWallet': payload.vaultFeeWallet, **{k: v for k, v in (d.get('fees') or {}).items() if k in ('bundle', 'rounds')}}
         tier_txt = ' / '.join(f"{float(tiers.get(k, 0)):g}%" for k in ('0', '1', '2', '3'))
         _audit(d, admin, 'fees', f"{'Swap API' if payload.engine == 'swap' else 'Ultra'} · fee {payload.platformFeeBps / 100:.2f}% · Ultra fallback {'on' if payload.ultraFallback else 'off'} · "
                                  f"holder discounts {tier_txt} · promo {promo['discountPct']:.0f}% · speed tip ≤ {payload.priorityMaxLamports / 1e9:.4f} SOL")

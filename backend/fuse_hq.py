@@ -772,3 +772,80 @@ def playground_ready(board, dials_by_window, prime, min_settled=None):
         ok = _f(c.get('pnlPct')) >= 10 and _f(c.get('lowPct')) > -15
         (ready if ok else proving).append({'kind': 'tier card', 'name': c.get('label'), 'why': f"{_f(c.get('pnlPct')):+.1f}% · worst {_f(c.get('lowPct')):.1f}%" + ('' if ok else ' · needs +10% with worst above −15%')})
     return {'ready': ready, 'proving': proving}
+
+
+# 🔁 Card rounds: every real card runs ROUNDS_DEFAULT auto rounds (each = one rotation or buy-back alert window). +ROUNDS_STEP
+# more cost `per5Usd` (Cmd Ctr › Fees): paid now as a SOL transfer to the fee wallet, or — when Cmd Ctr allows it — the card's
+# compound pays: rounds start now, the price is owed by the card and settled with its next profit take. Staff cards: unlimited.
+ROUNDS_DEFAULT = 5
+ROUNDS_STEP = 5
+ROUNDS_CFG_DEFAULTS = {'per5Usd': 0.25, 'compoundPay': True}
+
+
+def clean_rounds_cfg(c):
+    c = c if isinstance(c, dict) else {}
+    try:
+        per = round(max(0.0, min(50.0, float(c.get('per5Usd', ROUNDS_CFG_DEFAULTS['per5Usd'])))), 4)
+    except (TypeError, ValueError):
+        per = ROUNDS_CFG_DEFAULTS['per5Usd']
+    return {'per5Usd': per, 'compoundPay': bool(c.get('compoundPay', ROUNDS_CFG_DEFAULTS['compoundPay'])), 'step': ROUNDS_STEP, 'default': ROUNDS_DEFAULT}
+
+
+def rounds_left(pos, staff=False):
+    return 10 ** 6 if staff else max(0, int(pos.get('roundsLeft', ROUNDS_DEFAULT)))
+
+
+def use_round(pos, key):
+    """Spend one round for this alert window (same key twice = one round). Returns True when a round was spent."""
+    if pos.get('lastRoundKey') == key or rounds_left(pos) <= 0:
+        return False
+    pos['roundsLeft'] = rounds_left(pos) - 1
+    pos['roundsUsed'] = int(pos.get('roundsUsed') or 0) + 1
+    pos['lastRoundKey'] = key
+    return True
+
+
+def extend_rounds(pos, mode, cfg, paid_usd=0.0, now=0.0, sig=''):
+    """+ROUNDS_STEP rounds. 'pay' needs paid_usd ≥ 97% of the price (SOL price drift); 'compound' needs Cmd Ctr's OK and
+    nothing already owed (one owed step at a time). Free (price 0) always works. ValueError says why not."""
+    cfg = clean_rounds_cfg(cfg)
+    price = cfg['per5Usd']
+    if mode not in ('pay', 'compound'):
+        raise ValueError('mode must be pay or compound')
+    if mode == 'compound':
+        if not cfg['compoundPay']:
+            raise ValueError('Compound-pays is off — pay for the rounds now.')
+        if float(pos.get('roundsOwedUsd') or 0) > 0:
+            raise ValueError('This card already owes one round pack — take profit once to settle it.')
+    elif price > 0 and float(paid_usd or 0) < price * 0.97:
+        raise ValueError(f'That payment is ${float(paid_usd or 0):.2f}; {ROUNDS_STEP} rounds cost ${price:.2f}.')
+    pos['roundsLeft'] = rounds_left(pos) + ROUNDS_STEP
+    if mode == 'compound' and price > 0:
+        pos['roundsOwedUsd'] = round(price, 4)
+    pos['roundBuys'] = (pos.get('roundBuys') or [])[-19:] + [{'at': now, 'mode': mode, 'usd': round(price if mode == 'compound' else float(paid_usd or 0), 4), 'sig': sig}]
+    pos.pop('outOfRoundsAt', None)
+    return pos
+
+
+def settle_owed(pos, paid_usd):
+    owed = float(pos.get('roundsOwedUsd') or 0)
+    if owed <= 0:
+        raise ValueError('Nothing owed on this card.')
+    if float(paid_usd or 0) < owed * 0.97:
+        raise ValueError(f'That payment is ${float(paid_usd or 0):.2f}; the card owes ${owed:.2f}.')
+    pos['roundsOwedUsd'] = 0.0
+    return pos
+
+
+def paid_lamports(tx, payer, to):
+    """Lamports `to` received in a confirmed tx that `payer` signed (0 if it failed, payer didn't sign, or nothing arrived)."""
+    meta = (tx or {}).get('meta') or {}
+    if not tx or meta.get('err'):
+        return 0
+    keys = (((tx.get('transaction') or {}).get('message') or {}).get('accountKeys')) or []
+    names = [k.get('pubkey') if isinstance(k, dict) else k for k in keys]
+    if payer not in [k.get('pubkey') for k in keys if isinstance(k, dict) and k.get('signer')] or to not in names:
+        return 0
+    i = names.index(to)
+    pre, post = meta.get('preBalances') or [], meta.get('postBalances') or []
+    return max(0, int(post[i] - pre[i])) if i < len(pre) and i < len(post) else 0

@@ -59,6 +59,20 @@ export function BundlePricing({ call, initial, swapBps = 0 }) {
     <button type="button" className="btn-primary" onClick={save} data-testid="bundle-save">Save bundle pricing</button></div>;
 }
 
+// Core › Fees › 🔁 Card rounds: every card runs 5 auto rounds; +5 costs this much (paid now, or the card's compound pays).
+export function RoundsPricing({ call, initial }) {
+  const [r, setR] = useState(initial || { per5Usd: 0.25, compoundPay: true });
+  useEffect(() => { if (initial) setR(initial); }, [initial]);
+  const save = async () => { try { setR((await call('/admin/fees/rounds', { method: 'POST', body: JSON.stringify(r) })).rounds); toast.success('Card rounds pricing saved.'); } catch (e) { toast.error(e.message); } };
+  return <div className="cc-block fee-bundle" data-testid="rounds-pricing"><h4>7 · Card rounds (auto rotations)</h4>
+    <small className="cc-empty">Every card runs <b>5 auto rounds</b> (each rotation or buy-back alert = 1). After that the holder buys +5.</small>
+    <div className="cc-mini-grid">
+      <label data-tip="What +5 rounds cost the holder, in $ (paid in SOL at that moment's price)">$ per +5 rounds<input type="number" step="0.05" min="0" max="50" value={r.per5Usd} onChange={e => setR({ ...r, per5Usd: Number(e.target.value) })} data-testid="rounds-per5" /></label></div>
+    <label className="cc-check"><input type="checkbox" checked={!!r.compoundPay} onChange={e => setR({ ...r, compoundPay: e.target.checked })} data-testid="rounds-compound-ok" />Let the card's compound pay (rounds start now, owed until the next profit take)</label>
+    <ul className="bundle-ex">{[5, 20, 50].map(n => <li key={n}><b>{n} rounds total</b><span className="m-num">${(Math.max(0, n - 5) / 5 * r.per5Usd).toFixed(2)}</span><small>first 5 free</small></li>)}</ul>
+    <button type="button" className="btn-primary" onClick={save} data-testid="rounds-save">Save card rounds</button></div>;
+}
+
 // Cmd Ctr › Fuse › Card rules: what traders can pick (auto-profit levels, counted after fees from their confirmed buy),
 // the swap-mode trigger, the Arena top tier, and Fuse Fee-Back (share of fees paid on a card, unlocked by holding it;
 // loyalty + Arena bonuses; cap). The book shows earned / paid / owed per wallet; "Paid" records a payout you sent.

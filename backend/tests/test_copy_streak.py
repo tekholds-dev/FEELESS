@@ -255,3 +255,13 @@ def test_buying_a_card_to_back_counts_on_the_paid_bar_only(rs):
     v = rs._battle_view([{'kind': 'auto', 'id': '1', 'index': 100}, {'kind': 'mega', 'id': '2', 'index': 100}], 0)['pairs'][0]
     assert v['a']['paidN'] == 1 and v['a']['paidUsd'] > 0 and v['a']['backers'] == 0     # paid never touches the free bar
     assert v['b']['backers'] == 1 and v['b']['paidN'] == 0
+
+
+def test_rounds_compound_pays_then_paying_needs_a_signature(rs):
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'c1', 'wallet': A, 'at': 1, 'legs': [], 'roundsLeft': 0}]})
+    r = asyncio.run(rs.fuse_rounds(rs.RoundsIn(address=A, session='s', id='c1', mode='compound')))
+    assert r['roundsLeft'] == 5 and r['roundsOwedUsd'] == rs._rounds_cfg()['per5Usd']
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.fuse_rounds(rs.RoundsIn(address=A, session='s', id='c1', mode='pay')))          # no payment signature
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.fuse_rounds(rs.RoundsIn(address=B, session='s', id='c1', mode='compound')))     # not your card

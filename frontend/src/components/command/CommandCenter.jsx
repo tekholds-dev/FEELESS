@@ -7,7 +7,7 @@ import { FuseLab } from '../FuseLab';
 import { FuseHQ } from '../FuseHQ';
 import { FuseDeck, VaultMath } from '../FuseDeck';
 import { RunnersPanel } from '../RunnersPanel';
-import { BundlePricing, EngineSuggest, RunnerSettings, CardRules, AutoYieldDefault, FusePayouts } from './FuseAdminSettings';
+import { BundlePricing, RoundsPricing, EngineSuggest, RunnerSettings, CardRules, AutoYieldDefault, FusePayouts } from './FuseAdminSettings';
 import { ArenaOps, ContractStatus, EngineDial, FeeCatTune, EnginePlayground } from './FuseOpsPanels';
 import { PrimeControls } from '../ArenaPrime';
 import { QuestEngineAdmin } from './QuestEngineAdmin';
@@ -472,6 +472,7 @@ function FeesPanel({ call }) {
         <label>Vault fee wallet<input placeholder="SOL wallet that receives vault management + performance fees" value={cfg.vaultFeeWallet || ''} onChange={e => set('vaultFeeWallet', e.target.value.trim())} data-testid="vault-fee-wallet" /></label>
         <VaultWalletStatus value={cfg.vaultFeeWallet} saved={savedCfg?.vaultFeeWallet} /></div>
       <BundlePricing call={call} initial={cfg.bundle} swapBps={Number(cfg.platformFeeBps) || 0} />
+      <RoundsPricing call={call} initial={cfg.rounds} />
     </div>
 
     <div className="cc-block fee-selftest" data-testid="fee-selftest"><h4>5 · Prove it <Explain>Runs real quotes through the same endpoints the swap boxes use. Nothing is signed or sent. A pass means FEELESS is paid on real trades.</Explain></h4>

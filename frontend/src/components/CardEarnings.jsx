@@ -11,7 +11,7 @@ const $ = v => `$${Math.abs(v || 0).toFixed(2)}`;
 const px = v => (v >= 1 ? v.toFixed(2) : v >= 0.001 ? v.toFixed(5) : Number(v).toPrecision(3));
 const ago = t => { const s = Date.now() / 1000 - t; return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : s < 86400 ? `${Math.round(s / 3600)}h` : `${Math.round(s / 86400)}d`; };
 
-export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fees, gainNow, onCollect, onClose, paper, actions, legs, onFreeze, autos }) {
+export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fees, gainNow, onCollect, onClose, paper, actions, legs, onFreeze, autos, extra }) {
   useEffect(() => { const k = e => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   // centered pop-up over a blurred page; page animations pause while it's open so the blur costs nothing
   useEffect(() => { document.body.classList.add('ce-open'); return () => document.body.classList.remove('ce-open'); }, []);
@@ -29,6 +29,7 @@ export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fe
       {onCollect && <button type="button" className="m-btn primary m-go ce-collect" disabled={!(gainNow > 0.01)} onClick={onCollect} data-testid="ce-collect">
         {gainNow > 0.01 ? `💸 Collect ${$(gainNow)} gain — one approval` : 'Nothing to collect yet (card is not up)'}</button>}
       {actions?.length > 0 && <div className="ce-acts" role="toolbar" aria-label="Card actions">{actions.map(a => <button key={a.label} type="button" className={`m-btn ${a.cls || ''}`} disabled={a.disabled} data-tip={a.tip} onClick={a.onClick} data-testid={a.testid}>{a.label}</button>)}</div>}
+      {extra}
       {legs?.length > 0 && <section className="ce-legs"><span className="m-label">{onFreeze ? '❄ COINS · FREEZE = ENGINE HANDS OFF' : 'COINS'}</span>{legs.map(l => <div key={l.pairAddress} className={`ce-leg ${l.frozen ? 'is-frozen' : ''}`}>
         <b>${l.symbol}</b><small className="m-dim">{l.role === 'anchor' ? '⚓ anchor' : l.role === 'runner' ? 'runner' : 'pool'}{l.stars ? ` · ${'★'.repeat(l.stars)}` : ''}{l.firstEntry ? ` · in @ $${px(l.firstEntry)}${l.at ? ` · ${ago(l.at)} ago` : ''}` : ''}</small>{l.rundown && <i className="ce-why">{l.rundown}</i>}<em className={`m-num ${(l.pnlPct || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{l.pnlPct == null ? '—' : `${l.pnlPct >= 0 ? '+' : ''}${Number(l.pnlPct).toFixed(1)}%`}</em>
         {onFreeze && <button type="button" className={`m-btn ce-frz ${l.frozen ? 'is-on' : ''}`} aria-pressed={!!l.frozen} onClick={() => onFreeze(l, !l.frozen)} data-testid={`freeze-${l.pairAddress}`}
