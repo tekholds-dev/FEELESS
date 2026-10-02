@@ -272,3 +272,19 @@ def test_battles_may_field_losing_scenarios_but_best_cards_never_do():
     scen = [{'id': 'a', 'label': 'A', 'window': '24h', 'tp': 100, 'sl': 40, 'rounds': 9, 'avgPct': -3}]
     picks = [{'pairAddress': 'P1', 'symbol': 'X'}]
     assert rn.scenario_cards(scen, picks) == [] and len(rn.scenario_cards(scen, picks, losers_ok=True)) == 1
+
+
+def test_bracket_unique_cards_winners_losers_and_champion():
+    c = lambda k, sc, legs=('P1',), tp=100: {'kind': 'mega', 'id': k, 'activity': {'score': sc}, 'legs': [{'pairAddress': p} for p in legs], 'cfg': {'tp': tp, 'sl': 20}}
+    dup = c('d', 99, legs=('P9',)); dup2 = c('e', 10, legs=('P9',))
+    assert [x['id'] for x in rn.unique_cards([dup, dup2])] == ['d']                         # same config fights once
+    cards = [c('a', 90, ('A',)), c('b', 80, ('B',)), c('x', 70, ('X',)), c('y', 60, ('Y',))]
+    pairs = rn.bracket_pairs(cards, {}, battles=3)
+    assert [(p[0]['id'], p[1]['id']) for p in pairs] == [('a', 'b'), ('x', 'y')]
+    br = rn.bracket_update({}, [{'aKey': 'mega:a', 'bKey': 'mega:b', 'winnerKey': 'mega:a'}, {'aKey': 'mega:x', 'bKey': 'mega:y', 'winnerKey': 'mega:x'}])
+    pairs = rn.bracket_pairs(cards, br, battles=3)
+    assert [(p[0]['id'], p[1]['id']) for p in pairs] == [('a', 'x'), ('b', 'y')]            # winners vs winners, losers vs losers
+    br = rn.bracket_update(br, [{'aKey': 'mega:a', 'bKey': 'mega:x', 'winnerKey': 'mega:a'}, {'aKey': 'mega:b', 'bKey': 'mega:y', 'winnerKey': 'mega:b'}])
+    assert rn.bracket_done(cards, br) is None                                               # a 2-0, x 1-1, b 1-1 still standing
+    br = rn.bracket_update(br, [{'aKey': 'mega:x', 'bKey': 'mega:b', 'winnerKey': 'mega:x'}, {'aKey': 'mega:a', 'bKey': 'mega:x', 'winnerKey': 'mega:a'}])
+    assert rn.bracket_done(cards, br) == 'mega:a'                                           # last one standing = champion

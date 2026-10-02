@@ -275,3 +275,17 @@ def test_my_battles_lists_live_and_past_for_my_cards_only(rs):
     r = asyncio.run(rs.fuse_my_battles(A))
     assert len(r['live']) == 1 and r['live'][0]['mine'] == 'a' and len(r['past']) == 1 and r['record']['w'] == 1
     assert asyncio.run(rs.fuse_my_battles(B))['live'] == []
+
+
+def test_bracket_crowns_the_last_card_standing_and_restarts(rs, monkeypatch):
+    now = time.time()
+    monkeypatch.setattr(rs, 'notify', lambda *a, **k: None); monkeypatch.setattr(rs, '_fuse_chat', lambda *a, **k: None)
+    rs._arena_mega_cache.update(at=now, data=[{'kind': 'user', 'id': 'x', 'name': 'X', 'index': 110, 'activity': {'score': 80}},
+                                              {'kind': 'lit', 'id': 'y', 'name': 'Y', 'index': 104, 'activity': {'score': 60}}])
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'x', 'wallet': A, 'legs': []}], 'bracket': {'cards': {'lit:y': {'w': 1, 'l': 1}}, 'season': 3},
+                                    'battles': {'endsAt': now - 1, 'pairs': [{'a': {'key': 'user:x', 'name': 'X', 'start': 2.0}, 'b': {'key': 'lit:y', 'name': 'Y', 'start': 1.0}}]}})
+    asyncio.run(rs._battle_tick(now))                                    # Y's 2nd loss → out → X crowned, bracket #4 starts fresh
+    br = rs._json_load(rs.FUSE_HQ_PATH, {})['bracket']
+    assert br['champions'][-1]['key'] == 'user:x' and br['season'] == 4 and br['cards'] == {}
+    v = rs._battle_view(rs._arena_mega_cache['data'], now)
+    assert v['bracket']['champions'][0]['name'] == 'X' and {b['status'] for b in v['bracket']['board']} == {'winners'}

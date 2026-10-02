@@ -145,7 +145,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
   const admin = Boolean(call); const caps = legCaps(admin); const MAX = caps.pools;
   const [ownRuns, setOwnRuns] = useState([]);   // Cmd Ctr Lab keeps its own runner picks; the Fuse page passes them in
   const runnerPicks = setPicksIn ? picksIn || [] : ownRuns; const onRunnerPicks = setPicksIn || setOwnRuns;
-  const [manual, setManual] = useState(false); const [addon, setAddon] = useState(false); const [wts, setWts] = useState({}); const [pub, setPub] = useState({ name: '', emoji: '⚛️', creatorBps: 1000 });
+  const [manual, setManual] = useState(false); const [addon, setAddon] = useState(false); const [wts, setWts] = useState({}); const [pub, setPub] = useState({ name: '', emoji: '⚛️', creatorBps: 1000, arena: true });
   const [lens, setLens] = useState('popular');
   const [pools, setPools] = useState(null);
   const [q, setQ] = useState('');
@@ -323,8 +323,9 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
             {admin && <div className="fl-pub"><span className="m-label">PUBLISH AS A FUSE</span><div className="fl-pub-row"><input className="m-input fl-emoji" value={pub.emoji} maxLength={4} onChange={e => setPub(x => ({ ...x, emoji: e.target.value }))} aria-label="Emoji" />
               <input className="m-input" value={pub.name} maxLength={40} placeholder="Fuse name" onChange={e => setPub(x => ({ ...x, name: e.target.value }))} />
               <label className="fl-cut"><small>CREATOR CUT</small><input className="m-input m-num" inputMode="numeric" value={pub.creatorBps / 100} onChange={e => setPub(x => ({ ...x, creatorBps: Math.min(5000, Math.round((Number(e.target.value) || 0) * 100)) }))} />%</label></div>
+              <label className="m-toggle" data-tip="Stage it on the Fuse 🧬 Arena (cards that made it) right away"><input type="checkbox" checked={pub.arena !== false} onChange={e => setPub(x => ({ ...x, arena: e.target.checked }))} data-testid="fl-pub-arena" />🏟 Arena</label>
               <button type="button" className="m-btn primary" disabled={pub.name.trim().length < 2} data-testid="fl-publish" onClick={() => call('/admin/fuses', { method: 'POST', body: JSON.stringify({ ...pub, legs: prev.legs.map(l => ({ chainId: l.chainId, pairAddress: l.pairAddress, symbol: l.symbol, weight: l.weight })) }) })
-                .then(() => { toast.success(`${pub.name} is live in the Fuse Lab`); setPub(x => ({ ...x, name: '' })); }).catch(e => toast.error(e.message))}>Publish for traders</button></div>}
+                .then(() => { toast.success(`${pub.name} is live${pub.arena !== false ? ' — on the Arena stage' : ' in the Fuse Lab'}`); setPub(x => ({ ...x, name: '' })); }).catch(e => toast.error(e.message))}>Publish for traders</button></div>}
             <small className="m-dim fl-fine">Preview only — nothing moves until you sign. Yields are estimates from the last 24h.</small>
           </>}
         </>}

@@ -4319,7 +4319,16 @@ def _battle_view(mega, now):
     pairs = [{side: {**x[side], 'now': round(pct.get(x[side]['key'], x[side]['start']) - x[side]['start'], 2), 'backers': backs.count(x[side]['key']),
                      'paidN': sum(1 for q in paid if q['key'] == x[side]['key']), 'paidUsd': round(sum(q['usd'] for q in paid if q['key'] == x[side]['key']), 2)} for side in ('a', 'b')}
              for x in b.get('pairs') or []]
-    return {'pairs': pairs, 'endsAt': b.get('endsAt'), 'log': (_json_load(FUSE_HQ_PATH, {}).get('battleLog') or [])[-8:][::-1]}
+    br = _json_load(FUSE_HQ_PATH, {}).get('bracket') or {}
+    bc = br.get('cards') or {}
+    board = []
+    for c in _rn.unique_cards(mega):
+        k = f"{c['kind']}:{c['id']}"; r = bc.get(k) or {'w': 0, 'l': 0}
+        board.append({'key': k, 'name': c.get('name') or 'Card', 'emoji': c.get('emoji'), 'dial': c.get('dial'), 'w': r.get('w', 0), 'l': r.get('l', 0),
+                      'pct': round((c.get('index') or 100) - 100, 2), 'status': 'winners' if r.get('l', 0) == 0 else 'losers' if r.get('l', 0) == 1 else 'out'})
+    board.sort(key=lambda x: ({'winners': 0, 'losers': 1, 'out': 2}[x['status']], -x['w'], -x['pct']))
+    return {'pairs': pairs, 'endsAt': b.get('endsAt'), 'log': (_json_load(FUSE_HQ_PATH, {}).get('battleLog') or [])[-8:][::-1],
+            'bracket': {'board': board, 'season': br.get('season') or 1, 'champions': list(reversed(br.get('champions') or []))[:5]}, 'max': _rn.BATTLE_MAX}
 
 
 @app.get('/api/reputation/fuses/battles/{address}')
@@ -4403,8 +4412,22 @@ async def _battle_tick(now):
             notify(q['wallet'], 'fuse-card', '💰 The card you bought to back won its battle.', url=f"/terminal/fuse?tab=cards&card={pid}", once=f"paidback-{int(now)}-{pid}",
                    meta={'claim': 'Bigger move since the bell', 'source': 'Arena battles'})
     mins = _runner_cfg()['battleMins']
+    # 🏆 bracket: winners fight winners, losers fight losers, 2 losses = out; last one standing is crowned, a new bracket starts
+    bracket = _rn.bracket_update((d.get('bracket') or {}).get('cards'), results)
+    champ = _rn.bracket_done(mega, bracket)
+    champs = list((d.get('bracket') or {}).get('champions') or [])
+    season_n = int((d.get('bracket') or {}).get('season') or 1)
+    if champ is not None:
+        cm = next((c for c in mega if f"{c['kind']}:{c['id']}" == champ), None)
+        if cm:
+            champs = (champs + [{'at': now, 'key': champ, 'name': cm['name'], 'emoji': cm.get('emoji'), 'w': (bracket.get(champ) or {}).get('w', 0), 'season': season_n}])[-12:]
+            _fuse_chat('fuse-lab', f"👑 Bracket #{season_n} champion: {cm.get('emoji') or ''} {cm['name']} — last card standing. A new bracket starts now.", f"bracket-{season_n}")
+            if champ.startswith('user:') and champ[5:] in owners:
+                notify(owners[champ[5:]], 'fuse-card', f"👑 Your card won Arena bracket #{season_n} — last one standing.", url='/terminal/fuse?tab=arena', once=f"champ-{season_n}-{champ}",
+                       meta={'claim': 'Double-elimination bracket', 'source': 'Arena battles'})
+        bracket, season_n = {}, season_n + 1
     pairs = [{'a': {'key': f"{x['kind']}:{x['id']}", 'name': x['name'], 'emoji': x.get('emoji'), 'start': pct.get(f"{x['kind']}:{x['id']}", 0.0)},
-              'b': {'key': f"{y['kind']}:{y['id']}", 'name': y['name'], 'emoji': y.get('emoji'), 'start': pct.get(f"{y['kind']}:{y['id']}", 0.0)}} for x, y in _rn.battle_seats([c for c in mega if not c.get('bench')], [c for c in mega if c.get('bench')])]
+              'b': {'key': f"{y['kind']}:{y['id']}", 'name': y['name'], 'emoji': y.get('emoji'), 'start': pct.get(f"{y['kind']}:{y['id']}", 0.0)}} for x, y in _rn.bracket_pairs(mega, bracket, battles=_rn.BATTLE_MAX)]
     if results:
         _fuse_chat('fuse-lab', '⚔ Battle results: ' + ' · '.join(f"{'🤝 ' + x['a'] + ' = ' + x['b'] if x['draw'] else '🏆 ' + x['winner'] + ' beat ' + (x['b'] if x['winner'] == x['a'] else x['a'])} ({x['aMove']:+.1f}% vs {x['bMove']:+.1f}%)" for x in results[:4]),
                    f"battles-{int(now)}")
@@ -4412,6 +4435,7 @@ async def _battle_tick(now):
         d2 = _json_load(FUSE_HQ_PATH, {})
         d2['battles'] = {'at': now, 'endsAt': now + mins * 60, 'pairs': pairs}
         d2['battleLog'] = ((d2.get('battleLog') or []) + results)[-40:]
+        d2['bracket'] = {'cards': bracket, 'champions': champs, 'season': season_n}
         d2['battleRecord'] = d.get('battleRecord') or {}
         d2['backRecord'] = d.get('backRecord') or {}
         d2['backWins'] = {**(d2.get('backWins') or {}), **(d.get('backWins') or {})}
@@ -4469,7 +4493,7 @@ async def _arena_mega(rd, cfg, now):
     if _arena_mega_cache['data'] is not None and now - _arena_mega_cache['at'] < 40 and not _FUSE_FORCE.get():
         return _arena_mega_cache['data']
     store = _json_load(FUSES_PATH, {'fuses': {}})
-    staged = [(fid, f) for fid, f in (store.get('fuses') or {}).items() if f.get('arena') and f.get('enabled', True)][:8]
+    staged = sorted(((fid, f) for fid, f in (store.get('fuses') or {}).items() if f.get('arena') and f.get('enabled', True)), key=lambda x: -_fuse._f(x[1].get('createdAt')))[:8]   # newest first
     views = await asyncio.gather(*[_fuse_view(fid, f, store) for fid, f in staged], return_exceptions=True)
     out = []
     for v in views:
@@ -5132,17 +5156,21 @@ async def admin_runner_suggest(request: Request):
 
 
 async def _scenario_stage(rd, now):
-    """Once per runner round: the top-4 scenario cards (this round's runners + SOL anchor, each winning exit plan) are dealt onto
-    the Arena BENCH (runners-up) at today's prices. Cmd Ctr audits + publishes the ones it likes onto the stage; until then
-    runners-up only fill empty battle seats (4 cards → 2 battles)."""
+    """Once per runner round (or when Cmd Ctr changes its picks): the scenario cards Cmd Ctr PICKED in the engine playground
+    (🎨 Creator's pick) are dealt onto the Arena at today's prices with this round's runners + SOL anchor. Runner-ups stay in
+    the engine until picked; picked cards fill empty battle seats; ⭐ Publish puts one on the stage for good."""
     rnd = (rd.get('rounds') or [None])[-1]
-    if not rnd or not rnd.get('picks') or (rd.get('scenarioStageRound') == rnd.get('id')):
+    picks = sorted(rd.get('creatorPicks') or [])
+    if not rnd or not rnd.get('picks') or (rd.get('scenarioStageRound') == rnd.get('id') and rd.get('scenarioStagePicks') == picks):
         return None
-    scen = _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS)
+    scen = [x for x in _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS) if x['id'] in set(picks)]
     anchor = next(({'chainId': 'solana', 'pairAddress': m['pairAddress'], 'symbol': 'SOL', 'mint': m.get('baseAddress')} for m in await _majors_rows() if m.get('symbol') == 'SOL'), None)
-    cards = _rn.scenario_cards(scen, rnd['picks'], anchor, top=4)
+    cards = _rn.scenario_cards(scen, rnd['picks'], anchor, top=6, losers_ok=True)
     if not cards:
-        return None
+        async with _admin_lock:
+            d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['scenarioStage'] = []; d['scenarioStageRound'] = rnd.get('id'); d['scenarioStagePicks'] = picks; _json_save(RUNNERS_PATH, d)
+        _arena_mega_cache.update(at=0.0, data=None)
+        return 0
     px = await _hq_prices([l for c in cards for l in c['legs']])
     stage = [{'id': f"scen-{c['id']}-{str(rnd['id'])[:6]}", 'src': c['id'], 'emoji': c['name'].split(' ', 1)[0], 'name': c['name'].split(' ', 1)[-1], 'at': now, 'tp': c['tp'], 'sl': c['sl'],
               'dial': c['dial'], 'cfg': c['cfg'], 'label': c['label'],
@@ -5153,9 +5181,25 @@ async def _scenario_stage(rd, now):
         vers = d.setdefault('scenarioVersions', {})
         for st in stage:   # each new deal of the same scenario = its next version (v.01, v.02 …)
             vers[st['src']] = int(vers.get(st['src']) or 0) + 1; st['version'] = vers[st['src']]
-        d['scenarioStage'] = stage; d['scenarioStageRound'] = rnd.get('id'); _json_save(RUNNERS_PATH, d)
+        d['scenarioStage'] = stage; d['scenarioStageRound'] = rnd.get('id'); d['scenarioStagePicks'] = picks; _json_save(RUNNERS_PATH, d)
     _arena_mega_cache.update(at=0.0, data=None)
     return len(stage)
+
+
+@app.post('/api/reputation/admin/fuses/scenario-pick')
+async def scenario_pick(request: Request, body: dict):
+    """🎨 Creator's pick: Cmd Ctr puts an engine runner-up on the Arena (or takes it off). Dealt right away. Audited."""
+    admin = _require_admin(request)
+    sid = str(body.get('id') or '')[:40]
+    if not sid:
+        raise HTTPException(400, 'Pick a scenario card.')
+    async with _admin_lock:
+        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
+        cur = [x for x in d.get('creatorPicks') or [] if x != sid] + ([sid] if body.get('on', True) else [])
+        d['creatorPicks'] = cur[-6:]; _json_save(RUNNERS_PATH, d)
+        ad = _admin_load(); _audit(ad, admin, 'creator-pick', f"{sid} {'on' if body.get('on', True) else 'off'}"); _admin_save(ad)
+    await _scenario_stage(_json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}), time.time())
+    return {'creatorPicks': _json_load(RUNNERS_PATH, {}).get('creatorPicks') or []}
 
 
 async def _engine_auto(now):
@@ -5317,7 +5361,7 @@ async def _pg_scenario_cards(rd, scen=None, now=None, losers_ok=False):
     """The playground's best scenario cards (this round's gated runners + SOL anchor), versioned and tagged with where they're listed."""
     scen = scen if scen is not None else _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now or time.time(), _hq.RISK_DIALS)
     anchor = next(({'chainId': 'solana', 'pairAddress': m['pairAddress'], 'symbol': 'SOL', 'mint': m.get('baseAddress')} for m in await _majors_rows() if m.get('symbol') == 'SOL'), None)
-    listed = {**{x.get('src'): 'bench' for x in rd.get('scenarioStage') or []},
+    listed = {**{x: 'pick' for x in rd.get('creatorPicks') or []}, **{x.get('src'): 'bench' for x in rd.get('scenarioStage') or []},
               **{f.get('fromScenario'): 'stage' for f in (_json_load(FUSES_PATH, {'fuses': {}}).get('fuses') or {}).values() if f.get('arena') and f.get('fromScenario')}}
     return _rn.tag_versions(_rn.scenario_cards(scen, ((rd.get('rounds') or [{}])[-1] or {}).get('picks'), anchor, top=6, losers_ok=losers_ok), rd.get('scenarioVersions') or {}, listed)
 
@@ -5647,7 +5691,7 @@ async def admin_fuses_save(request: Request):
                                    'creator': body.get('creator') or prev.get('creator') or admin, 'creatorBps': max(0, min(_fuse.MAX_CREATOR_BPS, int(body.get('creatorBps') or 0))),
                                    'enabled': bool(body.get('enabled', True)), 'basePrices': base, 'createdAt': prev.get('createdAt') or time.time(),
                                    'featured': bool(body.get('featured', prev.get('featured', False))), 'aura': prev.get('aura', ''),
-                                   'arena': bool(body.get('arena', prev.get('arena', False))),
+                                   'arena': bool(body.get('arena', prev.get('arena', not prev))),   # a NEW Cmd Ctr card goes on the Arena by default
                                    **_card_look(body, prev)}
             _arena_mega_cache.update(at=0.0, data=None)
         _json_save(FUSES_PATH, store)

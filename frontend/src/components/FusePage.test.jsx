@@ -204,3 +204,20 @@ test('profile: my card battles (live + results) and the ⚡ Fuse pop-up opens th
   act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
   expect(close).toHaveBeenCalled();
 });
+
+test('battlefield: bracket lanes, fighter HP, power board with W/L pips and the champion strip', async () => {
+  const { Battlefield } = require('./FusePage');
+  const b = { endsAt: Date.now() / 1000 + 30, log: [],
+    pairs: [{ a: { key: 'mega:a', name: 'Alpha', emoji: '🚀', now: 4 }, b: { key: 'mega:b', name: 'Beta', emoji: '🦍', now: -8 } }],
+    bracket: { season: 3, champions: [{ at: 1, season: 2, name: 'OldKing', emoji: '👑', w: 4 }],
+      board: [{ key: 'mega:a', name: 'Alpha', emoji: '🚀', w: 2, l: 0, pct: 4, status: 'winners' }, { key: 'mega:b', name: 'Beta', emoji: '🦍', w: 1, l: 0, pct: -6, status: 'winners' },
+              { key: 'mega:c', name: 'Gone', emoji: '💀', w: 0, l: 2, pct: -9, status: 'out' }] } };
+  const host = document.createElement('div'); document.body.appendChild(host);
+  await act(async () => { createRoot(host).render(<Battlefield b={b} />); });
+  const pair = host.querySelector('[data-testid="battle-0"]');
+  expect(pair.className).toContain('lane-winners'); expect(pair.textContent).toContain('WINNERS BRACKET');
+  expect(pair.querySelector('.bf-side.b').className).toContain('is-hurt');                 // 12 pts behind → HP 28 → hurt
+  expect(host.textContent).toContain('BRACKET #3'); expect(host.querySelector('[data-testid="bf-champs"]').textContent).toContain('OldKing');
+  const power = host.querySelector('[data-testid="bf-power"]');
+  expect(power.querySelectorAll('.bf-pips i.w').length).toBe(3); expect(power.textContent).toContain('✕ out');
+});

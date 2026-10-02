@@ -228,24 +228,25 @@ export function ArenaBoard({ onPicks, onLoad }) {
     load(); const t = setInterval(() => !document.hidden && load(), 30000); return () => { alive = false; clearInterval(t); }; }, []);
   const mega = a?.mega || [];
   const top = stageTier(mega);
+  // Arena flow: ⭐ top-tier cards → ⚔ battlefield (bracket) → 🏆 Fuse season → 🏟 cards that made it + 🎨 creator's pick → the rest
   return <section className={`fp-arena ar-tier-${top}`} data-testid="fuse-arena"><ArenaPrime onLoad={legs => onLoad?.(legs)} />
     <div className="ar-sky" aria-hidden="true">{Array.from({ length: TIER_FX[top].embers + 6 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</div>
+    {a?.battles?.pairs?.length > 0 && <Battlefield b={a.battles} cards={[...mega, ...(a.bench || [])]} onLoad={onLoad} />}
+    <FuseSeason />
     <header className="ar-head m-card m-live"><span className="m-label">🏟 ARENA STAGE · LIVE</span><h2>Cards that made it.</h2>
-      <p className="m-dim">Cmd Ctr mega cards, runner cards that lit after their rounds, and every trader's open card until it's withdrawn — cards up big take the top tier. The more real activity a card has — FEELESS buys, buyers, $ flowing through its coins, how far it moved — the hotter it burns.</p>
+      <p className="m-dim">Cmd Ctr cards, runner cards that lit after their rounds, and every trader's open card until it's withdrawn — every one fights in the bracket above. The more real activity a card has (FEELESS buys, buyers, $ flow, how far it moved) the hotter it burns.</p>
       <div className="ar-legend">{Object.keys(TIER_FX).map(k => <span key={k} className={`ar-chip t-${k}`}>{k}</span>)}</div></header>
     {!a ? <div className="ar-stage">{[0, 1, 2].map(i => <div key={i} className="frail-ghost" />)}</div>
-      : !mega.length ? <p className="m-dim ar-none">No card on stage yet — a runner round that lights up lands here, and Cmd Ctr can stage its mega cards.</p>
+      : !mega.length ? <p className="m-dim ar-none">No card on stage yet — a runner round that lights up lands here, and Cmd Ctr can stage its cards.</p>
       : <div className="ar-stage" data-testid="arena-stage">{mega.map((c, i) => <MegaCard key={`${c.kind}-${c.id}`} c={c} i={i} onPicks={onPicks} onLoad={onLoad} chatOpen={chat?.id === c.id} onChat={() => setChat(x => (x?.id === c.id ? null : c))}
         onReplay={() => setReplay(x => (x?.id === c.id ? null : c))} />)}</div>}
-    {a?.battles?.pairs?.length > 0 && <Battlefield b={a.battles} cards={[...mega, ...(a.bench || [])]} onLoad={onLoad} />}
-    {a?.bench?.length > 0 && <section className="ar-bench" data-testid="arena-bench"><header className="m-row"><span className="m-label">🥈 RUNNERS-UP · ENGINE CARDS</span>
-      <small className="m-dim">made it this round with their configs · Cmd Ctr audits + publishes the best onto the stage · they fill empty battle seats (4 cards → 2 battles)</small></header>
+    {a?.bench?.length > 0 && <section className="ar-bench" data-testid="arena-bench"><header className="m-row"><span className="m-label">🎨 CREATOR'S PICK · ENGINE CARDS</span>
+      <small className="m-dim">hand-picked by FEELESS from the engine playground, with their configs · they fight in the bracket like every card that made it</small></header>
       <div className="ar-stage is-bench">{a.bench.map((c, i) => <MegaCard key={`${c.kind}-${c.id}`} c={c} i={i} onPicks={onPicks} onLoad={onLoad} chatOpen={chat?.id === c.id} onChat={() => setChat(x => (x?.id === c.id ? null : c))}
         onReplay={() => setReplay(x => (x?.id === c.id ? null : c))} />)}</div></section>}
     {a?.dials && <DialBoard dials={a.dials} />}
     {replay && <CardReplay c={replay} onClose={() => setReplay(null)} />}
     {chat && <CardChat c={chat} onClose={() => setChat(null)} />}
-    <FuseSeason />
     <RunnersPanel />
     {a && <div className="m-card"><span className="m-label">STRATEGIES · WE RUN $5 FOR 24H</span><p className="m-dim">{a.outlook?.note || (a.outlook?.style ? `${a.outlook.style}: ${pc(a.outlook.avgPct)} avg over ${a.outlook.runs} runs, ${a.outlook.winRate}% won.` : 'Not enough settled runs yet.')}</p>
       <table className="vd-table"><thead><tr><th>Strategy</th><th>Runs</th><th>Avg</th><th>Won</th><th /></tr></thead><tbody>
@@ -309,22 +310,43 @@ export function Battlefield({ b, cards = [], onLoad }) {
   // 💰 pay to back = BUY the card (normal one-click Fuse in, you own it) — its own bar, never mixed with free backs
   const buyBack = side => { const c = cards.find(x => `${x.kind}:${x.id}` === side.key); if (!c || !onLoad) { toast.error('That card is not on the board right now.'); return; }
     onLoad(c.legs, { backKey: side.key, backName: side.name }); };
-  useEffect(() => { const t = setInterval(() => setNow(Date.now() / 1000), 15000); return () => clearInterval(t); }, []);
-  return <section className="m-card m-live bf" data-testid="battlefield"><header className="m-row"><span className="m-label">⚔ BATTLEFIELD · LIVE</span>
-    <small className="m-dim">bigger move since the bell wins · next bell in {left((b.endsAt || now) - now)}</small></header>
+  useEffect(() => { const t = setInterval(() => setNow(Date.now() / 1000), 1000); return () => clearInterval(t); }, []);
+  const br = b.bracket || { board: [], champions: [], season: 1 };
+  const status = Object.fromEntries((br.board || []).map(x => [x.key, x]));
+  const topW = Math.max(1, ...(br.board || []).map(x => x.w));
+  const secs = Math.max(0, Math.round((b.endsAt || now) - now));
+  // HP: each side starts at 100 and loses 6 HP per point the other card is ahead since the bell (min 5) — who's winning, at a glance
+  const hp = (me, them) => Math.max(5, Math.min(100, 100 - Math.max(0, (them || 0) - (me || 0)) * 6));
+  const side = (p, k, i) => { const x = p[k]; const o = p[k === 'a' ? 'b' : 'a']; const h = hp(x.now, o.now); const st = status[x.key];
+    return <span className={`bf-side ${k} ${h < 40 ? 'is-hurt' : ''}`}>
+      <span className="bf-fighter" aria-hidden="true">{x.emoji || '🃏'}</span>
+      <b>{x.name}</b>{st && <em className={`bf-br br-${st.status}`}>{st.status === 'winners' ? '🏆' : st.status === 'losers' ? '💀' : '✕'} {st.w}–{st.l}</em>}
+      <span className="bf-hp" data-tip={`HP ${Math.round(h)} — drops while the other card is ahead`}><i style={{ transform: `scaleX(${h / 100})` }} /><small>HP {Math.round(h)}</small></span>
+      <em className={`m-num fl-tick ${x.now >= 0 ? 'm-pos' : 'm-neg'}`} key={x.now}>{pc(x.now)}</em>
+      <span className="bf-btns"><button type="button" className={`m-btn bf-back ${mine === x.key ? 'is-on' : ''}`} disabled={!!mine} onClick={() => back(x.key)} data-tip="Free · points only" data-testid={`back-${k}-${i}`}>{mine === x.key ? '✓ Backed' : '⚔ Back'} · {(x.backers || 0) + (mine === x.key ? 1 : 0)}</button>
+      <button type="button" className="m-btn bf-buy" onClick={() => buyBack(x)} data-tip="Buy this card (you own it) — counts on the 💰 bar" data-testid={`buyback-${k}-${i}`}>💰 Buy & back</button></span></span>; };
+  return <section className="m-card m-live bf" data-testid="battlefield"><header className="m-row"><span className="m-label">⚔ BATTLEFIELD · BRACKET #{br.season}</span>
+    <small className="m-dim">bigger move since the bell wins · 2 losses = out · last card standing is crowned</small>
+    <b className={`bf-bell m-num ${secs < 60 ? 'is-soon' : ''}`} key={secs < 60 ? secs : 'x'}>🔔 {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</b></header>
+    {br.champions?.length > 0 && <div className="bf-champs" data-testid="bf-champs">{br.champions.map(c => <span key={c.at} className="bf-champ"><b>👑</b> #{c.season} {c.emoji} {c.name} <em>{c.w}W</em></span>)}</div>}
     <div className="bf-pairs">{b.pairs.map((p, i) => { const d = p.a.now - p.b.now; const share = Math.max(0.08, Math.min(0.92, 0.5 + d / 20));
-      return <div key={p.a.key + p.b.key} className={`bf-pair ${d > 0.05 ? 'a-lead' : d < -0.05 ? 'b-lead' : 'even'}`} style={{ '--i': i }} data-testid={`battle-${i}`}>
+      const lane = status[p.a.key]?.status === 'losers' && status[p.b.key]?.status === 'losers' ? 'losers' : status[p.a.key]?.status === 'winners' && status[p.b.key]?.status === 'winners' ? 'winners' : 'cross';
+      return <div key={p.a.key + p.b.key} className={`bf-pair lane-${lane} ${d > 0.05 ? 'a-lead' : d < -0.05 ? 'b-lead' : 'even'}`} style={{ '--i': i }} data-testid={`battle-${i}`}>
+        <span className="bf-lane">{lane === 'winners' ? '🏆 WINNERS BRACKET' : lane === 'losers' ? '💀 LOSERS BRACKET · LOSE = OUT' : '⚔ CROSSOVER'}</span>
         <div className="bf-bars" data-testid={`bars-${i}`}>
           <span className="bf-bar is-paid" data-tip="Wallets that BOUGHT a side's card to back it (real buys, you own the card)"><small>{p.a.paidN || 0}</small><i><i style={{ transform: `scaleX(${tugShare(p.a.paidUsd || 0, p.b.paidUsd || 0)})` }} /></i><small>{p.b.paidN || 0}</small><em>💰 BUY BACKS {p.a.paidN || 0}/{p.b.paidN || 0} · ${Math.round(p.a.paidUsd || 0)}/${Math.round(p.b.paidUsd || 0)}</em></span>
           <span className="bf-bar is-free" data-tip="Free backs · +15 XP to back, winners count toward weekly quests → season rank"><small>{p.a.backers || 0}</small><i><i style={{ transform: `scaleX(${tugShare(p.a.backers || 0, p.b.backers || 0)})` }} /></i><small>{p.b.backers || 0}</small><em>⚔ BACKS {p.a.backers || 0}/{p.b.backers || 0} · +XP</em></span></div>
-        <span className="bf-side a"><b>{p.a.emoji} {p.a.name}</b><em className={`m-num fl-tick ${p.a.now >= 0 ? 'm-pos' : 'm-neg'}`} key={p.a.now}>{pc(p.a.now)}</em>
-          <span className="bf-btns"><button type="button" className={`m-btn bf-back ${mine === p.a.key ? 'is-on' : ''}`} disabled={!!mine} onClick={() => back(p.a.key)} data-tip="Free · points only" data-testid={`back-a-${i}`}>{mine === p.a.key ? '✓ Backed' : '⚔ Back'} · {(p.a.backers || 0) + (mine === p.a.key ? 1 : 0)}</button>
-          <button type="button" className="m-btn bf-buy" onClick={() => buyBack(p.a)} data-tip="Buy this card (you own it) — counts on the 💰 bar" data-testid={`buyback-a-${i}`}>💰 Buy & back</button></span></span>
-        <span className="bf-vs" aria-hidden="true"><i className="bf-clash" />VS</span>
-        <span className="bf-side b"><b>{p.b.emoji} {p.b.name}</b><em className={`m-num fl-tick ${p.b.now >= 0 ? 'm-pos' : 'm-neg'}`} key={p.b.now}>{pc(p.b.now)}</em>
-          <span className="bf-btns"><button type="button" className={`m-btn bf-back ${mine === p.b.key ? 'is-on' : ''}`} disabled={!!mine} onClick={() => back(p.b.key)} data-tip="Free · points only" data-testid={`back-b-${i}`}>{mine === p.b.key ? '✓ Backed' : '⚔ Back'} · {(p.b.backers || 0) + (mine === p.b.key ? 1 : 0)}</button>
-          <button type="button" className="m-btn bf-buy" onClick={() => buyBack(p.b)} data-tip="Buy this card (you own it) — counts on the 💰 bar" data-testid={`buyback-b-${i}`}>💰 Buy & back</button></span></span>
+        {side(p, 'a', i)}
+        <span className="bf-vs" aria-hidden="true"><i className="bf-clash" /><i className="bf-spark" /><i className="bf-spark s2" />VS</span>
+        {side(p, 'b', i)}
         <i className="bf-tug"><i style={{ transform: `scaleX(${share})` }} /></i></div>; })}</div>
+    {(br.board || []).length > 0 && <div className="bf-power" data-testid="bf-power"><span className="m-label">⚡ POWER BOARD · WHO'S DOING BETTER OVERALL</span>
+      {br.board.map((x, i) => <div key={x.key} className={`bf-prow br-${x.status}`} style={{ '--i': i }}>
+        <b className="bf-rank">{i === 0 && x.status !== 'out' ? '👑' : `#${i + 1}`}</b><span className="bf-pname">{x.emoji} {x.name}</span>
+        <i className="bf-pbar"><i style={{ transform: `scaleX(${Math.max(0.04, x.w / topW)})` }} /></i>
+        <em className="bf-pips">{Array.from({ length: x.w }, (_, k) => <i key={`w${k}`} className="w" />)}{Array.from({ length: x.l }, (_, k) => <i key={`l${k}`} className="l" />)}</em>
+        <small className={`m-num ${x.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(x.pct)}</small>
+        <em className={`bf-br br-${x.status}`}>{x.status === 'winners' ? '🏆 winners' : x.status === 'losers' ? '💀 losers' : '✕ out'}</em></div>)}</div>}
     {b.log?.length > 0 && <div className="bf-log">{b.log.slice(0, 6).map(l => <small key={l.at + l.a}>{l.draw ? `🤝 ${l.a} = ${l.b}` : `🏆 ${l.winner} beat ${l.winner === l.a ? l.b : l.a}`} <em>{pc(l.aMove)} vs {pc(l.bMove)}</em></small>)}</div>}
   </section>;
 }
@@ -350,7 +372,7 @@ export function MegaCard({ c, i, onPicks, onLoad, onChat, chatOpen, onReplay }) 
       <span className="ar-act" data-tip="Activity: FEELESS buys + buyers (24h), $ flow through its coins, index move. Drives the effects."><small>ACT</small><i style={{ transform: `scaleX(${(c.activity?.score || 0) / 100})` }} /><em className="m-num">{c.activity?.score || 0}</em></span>
       {c.record_wl && <span className="ar-wl" data-tip="Arena battle record (wins – losses – draws)" data-testid={`wl-${c.id}`}>⚔ {c.record_wl.w}–{c.record_wl.l}{c.record_wl.d ? `–${c.record_wl.d}` : ''}</span>}
       {(c.streak?.tier || c.compound?.tier || c.copies > 0) && <span className="ar-badges">{c.streak?.tier && <StreakBadge s={c.streak} />}{c.compound?.tier && <CompoundBadge s={c.compound} />}{c.copies > 0 && <span className="ar-copies" data-tip="Traders who fused this card too">⚡ {c.copies} {c.copies === 1 ? 'copy' : 'copies'}</span>}</span>}
-      <small className="m-dim">{c.kind === 'scenario' ? '🥈 runner-up · engine card' : c.kind === 'auto' ? `⚔ arena deal · ${c.tagline || ''}` : c.kind === 'feecat' ? `🐱 sim book · ${c.record?.winRate ?? '—'}% wins · ${(c.record?.realizedSol ?? 0) >= 0 ? '+' : ''}${c.record?.realizedSol ?? 0} SOL realized${c.record?.lives != null ? ` · ❤${c.record.lives}` : ''}` : c.kind === 'lit' ? '🔥 lit runner card' : c.kind === 'round' ? '⏳ this round · proving' : c.kind === 'user' ? `🃏 ${c.owner} · ${c.mode === 'swap' ? '⇄ swaps weak legs' : '🔒 holds together'}` : `⚛️ Cmd Ctr · ${c.legs.length} legs`} · <span className={`fl-tick ${move >= 0 ? 'm-pos' : 'm-neg'}`} key={move.toFixed(1)} data-tip={lp != null ? 'Live (10s prices)' : 'Last server update'}>{pc(move)}{lp != null && <i className="fl-livedot" />}</span>{c.buyers ? ` · ${c.buyers} buyers` : ''}</small>
+      <small className="m-dim">{c.kind === 'scenario' ? "🎨 creator's pick · engine card" : c.kind === 'auto' ? `⚔ arena deal · ${c.tagline || ''}` : c.kind === 'feecat' ? `🐱 sim book · ${c.record?.winRate ?? '—'}% wins · ${(c.record?.realizedSol ?? 0) >= 0 ? '+' : ''}${c.record?.realizedSol ?? 0} SOL realized${c.record?.lives != null ? ` · ❤${c.record.lives}` : ''}` : c.kind === 'lit' ? '🔥 lit runner card' : c.kind === 'round' ? '⏳ this round · proving' : c.kind === 'user' ? `🃏 ${c.owner} · ${c.mode === 'swap' ? '⇄ swaps weak legs' : '🔒 holds together'}` : `⚛️ Cmd Ctr · ${c.legs.length} legs`} · <span className={`fl-tick ${move >= 0 ? 'm-pos' : 'm-neg'}`} key={move.toFixed(1)} data-tip={lp != null ? 'Live (10s prices)' : 'Last server update'}>{pc(move)}{lp != null && <i className="fl-livedot" />}</span>{c.buyers ? ` · ${c.buyers} buyers` : ''}</small>
       <span className="ar-acts">{onReplay && <button type="button" className="m-btn" onClick={onReplay} data-tip="Replay the last 24h of this card" data-testid={`mega-replay-${c.id}`}>▶</button>}{c.chat && <button type="button" className={`m-btn ${chatOpen ? 'primary' : ''}`} onClick={onChat} aria-pressed={chatOpen} data-tip="This card's chat" data-testid={`mega-chat-${c.id}`}>💬</button>}
       <button type="button" className="m-btn primary m-go" onClick={use} data-testid={`mega-use-${c.id}`}>{runners ? 'Use runners →' : c.kind === 'user' ? '⚡ Fuse this too' : c.legs.length > 3 ? 'Load top 3 →' : 'Load →'}</button></span></div>
   </article>;

@@ -48,3 +48,23 @@ def test_service_round_deals_settles_and_rebreeds(monkeypatch):
     asyncio.run(rs._pg_battle_tick(1400))                              # bell → s1 wins, s2 re-bred
     v = rs._pg_battle_view(rs._json_load(rs.RUNNERS_PATH, {}))
     assert v['record']['s1']['w'] == 1 and v['record']['s2']['l'] == 1 and v['log'][0]['winner'] == 's1'
+
+
+def test_creator_pick_puts_only_picked_runner_ups_on_the_arena(monkeypatch):
+    import asyncio
+    import pytest
+    rs = pytest.importorskip('reputation_service')
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'admin')
+    async def majors(): return [{'symbol': 'SOL', 'pairAddress': 'SOLP', 'baseAddress': 'So1'}]
+    async def px(legs): return {l['pairAddress']: 1.0 for l in legs}
+    monkeypatch.setattr(rs, '_majors_rows', majors); monkeypatch.setattr(rs, '_hq_prices', px)
+    scen = [{'id': 'tp200_sl40', 'kind': 'exits', 'label': 'TP +200%', 'window': '24h', 'tp': 200, 'sl': 40, 'rounds': 9, 'avgPct': -2},
+            {'id': 'safe_6h', 'kind': 'dial', 'label': 'safe dial', 'window': '6h', 'tp': 30, 'sl': 15, 'rounds': 9, 'avgPct': 3}]
+    monkeypatch.setattr(rs._rn, 'scenarios', lambda *a, **k: scen)
+    rs._json_save(rs.RUNNERS_PATH, {'rounds': [{'id': 'r1', 'at': 1, 'picks': [{'pairAddress': 'P1', 'mint': 'M1', 'symbol': 'A'}]}], 'paths': {}})
+    class Req: pass
+    out = asyncio.run(rs.scenario_pick(Req(), {'id': 'tp200_sl40', 'on': True}))
+    st = rs._json_load(rs.RUNNERS_PATH, {})['scenarioStage']
+    assert out['creatorPicks'] == ['tp200_sl40'] and [x['src'] for x in st] == ['tp200_sl40']      # picked (even a loser) — never the auto top-N
+    asyncio.run(rs.scenario_pick(Req(), {'id': 'tp200_sl40', 'on': False}))
+    assert rs._json_load(rs.RUNNERS_PATH, {})['scenarioStage'] == []
