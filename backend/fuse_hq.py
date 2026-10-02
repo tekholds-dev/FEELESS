@@ -736,12 +736,18 @@ def coin_sl_mode(pos, pa):
     m = (pos.get('coinModes') or {}).get(pa)
     return m if m in SL_MODES else (pos.get('slMode') if pos.get('slMode') in SL_MODES else 'sell')
 SL_MODES = ('sell', 'park', 'hold')
+CARD_CYCLES = ('steady', 'adaptive')   # 🔄 user round cycle: steady = swap in the best runner · adaptive = losing card → a major, winning → a runner
+
+
+def cycle_pick(pos, pnl_pct):
+    """Which pool an adaptive card's next swap draws from: 'majors' after a losing stretch (protect), else 'runners'."""
+    return 'majors' if pos.get('cycle') == 'adaptive' and _f(pnl_pct) < 0 else 'runners'
 
 
 def _extras(plan):
     """Per-card advanced options (owner + Cmd Ctr): rotation interval and what a coin stop does
     (sell · park = sell to SOL, then a one-tap buy-back alert when price is back at entry with buyers · hold = no stop alert)."""
-    return {'rotateHours': rotate_hours(plan.get('rotateHours')), 'slMode': plan.get('slMode') if plan.get('slMode') in SL_MODES else 'sell'}
+    return {'rotateHours': rotate_hours(plan.get('rotateHours')), 'cycle': plan.get('cycle') if plan.get('cycle') in CARD_CYCLES else 'steady', 'slMode': plan.get('slMode') if plan.get('slMode') in SL_MODES else 'sell'}
 
 
 def next_switch_at(pos, staff=False):

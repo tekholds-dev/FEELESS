@@ -64,3 +64,9 @@ def test_lab_per_coin_configs_are_cleaned_at_build_time():
     plan = hq.clean_plan({'mode': 'swap', 'coins': {'P1': {'frozen': True, 'rotateHours': 0.25, 'slMode': 'park'}, 'P2': {'slMode': 'nope', 'rotateHours': 3}, 'ZZ': {'frozen': True}}},
                          None, ['P1', 'P2'])
     assert plan['frozen'] == ['P1'] and plan['coinRotate'] == {'P1': 0.25, 'P2': 24} and plan['coinModes'] == {'P1': 'park'}
+
+
+def test_user_round_cycle_adaptive_swaps_into_majors_when_losing():
+    assert hq.clean_plan({'cycle': 'adaptive'}, None, [])['cycle'] == 'adaptive' and hq.clean_plan({'cycle': 'x'}, None, [])['cycle'] == 'steady'
+    assert hq.cycle_pick({'cycle': 'adaptive'}, -3) == 'majors' and hq.cycle_pick({'cycle': 'adaptive'}, 4) == 'runners'
+    assert hq.cycle_pick({'cycle': 'steady'}, -9) == 'runners'

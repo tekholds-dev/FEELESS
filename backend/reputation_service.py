@@ -2958,7 +2958,7 @@ async def fuse_position(p: FusePositionIn):
         except ValueError:
             plan = None   # a bad plan never blocks recording a real buy
         if plan:
-            pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'), rotateHours=plan.get('rotateHours', 24), slMode=plan.get('slMode', 'sell'),
+            pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'), rotateHours=plan.get('rotateHours', 24), slMode=plan.get('slMode', 'sell'), cycle=plan.get('cycle', 'steady'),
                        frozen=plan.get('frozen') or [], coinRotate=plan.get('coinRotate') or {}, coinModes=plan.get('coinModes') or {})
             if plan['legs']:
                 pos['legGuard'] = {pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()}
@@ -3145,7 +3145,11 @@ async def _fuse_swap_tick(d, now):
     failing = {x['mint']: x.get('gates') or ['failed a gate'] for x in live['dropped']}
     rules = _card_rules(); n = 0
     for x in sw:
-        s = _hq.swap_suggest(_hq.position_pnl(x, px), failing, live['passing'], rules['swapDropPct'], set(x.get('frozen') or []) | _hq.coins_not_due(x, now))
+        pnl_ = _hq.position_pnl(x, px)
+        pool_ = live['passing']
+        if _hq.cycle_pick(x, pnl_.get('pnlPct')) == 'majors':   # 🔄 adaptive cycle: a losing card swaps its weak coin into a major
+            pool_ = [{'mint': m.get('baseAddress'), 'symbol': m.get('symbol'), 'pairAddress': m.get('pairAddress'), 'logo': m.get('logo'), 'score': 100} for m in await _majors_rows() if m.get('pairAddress')]
+        s = _hq.swap_suggest(pnl_, failing, pool_, rules['swapDropPct'], set(x.get('frozen') or []) | _hq.coins_not_due(x, now))
         if not s:
             continue
         n += 1
@@ -3274,7 +3278,7 @@ async def fuse_plan(p: FusePlanIn):
                                   [leg['pairAddress'] for leg in pos['legs'] if leg.get('soldUsd') is None], [leg['pairAddress'] for leg in pos['legs'] if leg.get('role') == 'runner'])
         except ValueError as e:
             raise HTTPException(400, str(e))
-        pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'), rotateHours=plan.get('rotateHours', 24), slMode=plan.get('slMode', 'sell'), legGuard={pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()},
+        pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'), rotateHours=plan.get('rotateHours', 24), slMode=plan.get('slMode', 'sell'), cycle=plan.get('cycle', 'steady'), legGuard={pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()},
                    **({k: plan[k] for k in ('frozen', 'coinRotate', 'coinModes')} if (p.plan or {}).get('coins') else {}))
         if plan.get('risk') in _hq.RISK_DIALS and plan.get('at'):   # the dial also re-arms the card's profit level
             pos['autoYield'] = {'at': plan['at'], 'base': round(sum(_fuse._f(x.get('heldUsd') or x.get('usd')) for x in pos['legs'] if x.get('soldUsd') is None), 6), 'armedAt': time.time(), 'firedAt': None, 'rebase': True}
@@ -3820,7 +3824,7 @@ async def fuse_pnl(address: str):
     by, rules, now = _ledger_by_sig(), _card_rules(), time.time()
     hot = {c['id'] for c in (_arena_mega_cache.get('data') or []) if c.get('kind') == 'user' and c['activity']['tier'] in ('hot', 'blazing')}
     wins = _season_wins()
-    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold', 'nextSwitchAt': _hq.next_switch_at(x), 'rotateHours': x.get('rotateHours') or 24, 'slMode': x.get('slMode') or 'sell', 'coinModes': x.get('coinModes') or {}, 'coinRotate': x.get('coinRotate') or {},
+    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold', 'nextSwitchAt': _hq.next_switch_at(x), 'rotateHours': x.get('rotateHours') or 24, 'slMode': x.get('slMode') or 'sell', 'coinModes': x.get('coinModes') or {}, 'coinRotate': x.get('coinRotate') or {}, 'cycle': x.get('cycle') or 'steady',
                   'roundsLeft': _hq.rounds_left(x, _is_staff(x['wallet'])), 'roundsUsed': x.get('roundsUsed') or 0, 'roundsOwedUsd': x.get('roundsOwedUsd') or 0, 'parked': x.get('parked') or {}, 'risk': x.get('risk') or 'custom',
                     'onProfit': x.get('onProfit') or 'collect', 'legGuard': x.get('legGuard') or {},
                     'feeback': _hq.card_feeback(_card_fees(x, by), (x.get('closedAt') or now) - _fuse._f(x.get('at')), x['id'] in hot, rules, x['id'] in wins), 'onArena': x['id'] in hot,
@@ -5007,7 +5011,11 @@ async def _prime_view():
     if not cards:
         return []
     px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for c in cards.values() for l in c['legs']])
-    return [_prime.summary(c, px) for c in cards.values()]
+    cyc = _prime_cfg().get('cycles') or _prime.DEFAULT_CYCLES
+    def _cyc(tpl):
+        seq = _prime.CYCLE_MODES.get(cyc.get(tpl, 'off'))
+        return list(seq) if isinstance(seq, tuple) else ['anchor', 'mixed', 'degen'] if seq == 'adaptive' else None
+    return [{**_prime.summary(c, px), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl'])} for c in cards.values()]
 
 
 @app.get('/api/reputation/fuses/prime')

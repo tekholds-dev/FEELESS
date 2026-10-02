@@ -214,3 +214,21 @@ def test_cmd_ctr_freezes_a_coin_and_sets_its_own_stop_mode():
     assert ap.set_leg(c, 'P1', sl_mode='')['legs'][0]['slMode'] is None
     with pytest.raises(ValueError):
         ap.set_leg(card, 'NOPE', frozen=True)
+
+
+def test_round_cycles_per_tier_and_trailing_lock():
+    assert ap.next_phase('off', 3, -5) is None and ap.next_phase('classic', 1, 0) == 'degen'
+    assert ap.next_phase('adaptive', 0, -2) == 'anchor' and ap.next_phase('adaptive', 0, 8) == 'degen' and ap.next_phase('adaptive', 0, 1) == 'mixed'
+    assert ap.next_phase('safe', 1, 0) == 'mixed' and ap.next_phase('press', 0, 0) == 'degen'
+    c = ap.clean_cfg({'cycles': {'safe': 'adaptive', 'next': 'bogus'}})
+    assert c['cycles']['safe'] == 'adaptive' and c['cycles']['next'] == 'classic' and c['trail'] is True
+
+
+def test_trailing_lock_sells_a_runner_that_gives_back_a_50pct_run():
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], CFG, 0, SOL[:1])
+    up = ap.tick(card, {'Psol': 1, 'Pa': 1, 'Pr1': 1.6, 'Pr2': 1}, [], [R('r9', 1)], CFG, 30, SOL)       # +60% (below TP 100)
+    assert 'r1' in [l['mint'] for l in up['legs']]
+    back = ap.tick(up, {'Psol': 1, 'Pa': 1, 'Pr1': 1.04, 'Pr2': 1}, [], [R('r9', 1)], CFG, 60, SOL)      # back to +4%
+    assert 'r1' not in [l['mint'] for l in back['legs']] and 'locked before it turned red' in back['events'][-1]['why']
+    off = ap.tick(up, {'Psol': 1, 'Pa': 1, 'Pr1': 1.04, 'Pr2': 1}, [], [R('r9', 1)], {**CFG, 'trail': False}, 60, SOL)
+    assert 'r1' in [l['mint'] for l in off['legs']]

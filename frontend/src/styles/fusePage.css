@@ -673,3 +673,5 @@ body.theme-day .pgb-res { background: #fff; }
 body.fx-lite .fp-mb-live { animation: none; } @media (prefers-reduced-motion: reduce) { .fp-mb-live { animation: none; } }
 body.theme-day .fp-mb-live { background: #fff; }
 @media (max-width: 640px) { .fp-mb-live { grid-template-columns: 1fr auto; } .fp-mb-live .bf-vs { display: none; } }
+.prime-cycles { display: grid; gap: 6px; padding: 8px 0; } .prime-cycles .m-row { gap: 8px; flex-wrap: wrap; } .prime-cycles .m-row > b { min-width: 150px; font-size: 12.5px; }
+.prime-cycles .m-seg button { padding: 3px 9px; font-size: 11px; }

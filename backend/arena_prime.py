@@ -34,8 +34,25 @@ PHASES = {'anchor': {'anchors': 2, 'pools': 0, 'runners': 0, 'why': 'anchor roun
           'mixed': {'anchors': 2, 'pools': 0, 'runners': 2, 'why': 'mixed round — half majors, half fresh runners'}}
 CYCLE = ('anchor', 'degen', 'anchor', 'mixed')
 CYCLE_TIERS = ('degen', 'next')
+# 🔄 Round cycles per tier (Cmd Ctr picks): off = keep the tier's own shape · classic = anchor→degen→anchor→mixed ·
+# adaptive = a LOSING round rests in majors, a winning one (≥ +5%) presses with runners, flat = mixed · safe = anchor⇄mixed ·
+# press = degen⇄mixed. Every phase change is the same run (P&L continues).
+CYCLE_MODES = {'off': None, 'classic': CYCLE, 'adaptive': 'adaptive', 'safe': ('anchor', 'mixed'), 'press': ('degen', 'mixed')}
+DEFAULT_CYCLES = {'safe': 'off', 'balanced': 'off', 'degen': 'classic', 'next': 'classic', 'ever': 'off'}
+TRAIL_AT, TRAIL_KEEP = 50.0, 5.0   # 🔒 a coin that ran ≥ +50% is sold before it gives it all back (≤ +5% left) — winners never turn into losers
+
+
+def next_phase(mode, rounds, last_pct):
+    """The shape a cycling card deals into next round (None = no phase change)."""
+    seq = CYCLE_MODES.get(mode)
+    if not seq:
+        return None
+    if seq == 'adaptive':
+        return 'anchor' if _f(last_pct) < 0 else 'degen' if _f(last_pct) >= 5 else 'mixed'
+    return seq[int(rounds or 0) % len(seq)]
 HIT_PCT = 10.0      # a "good day" = the card is up ≥ +10% over 24h
-DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.10, 'floorPct': 20.0, 'slMode': 'replace'}
+DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.10, 'floorPct': 20.0, 'slMode': 'replace',
+               'cycles': dict(DEFAULT_CYCLES), 'trail': True}
 SL_MODES = ('replace', 'park', 'hold')   # on a stop: auto-replace · sell + park the slot (rebuy at entry with momentum) · hold
 CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.08, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 25)}
 
@@ -104,6 +121,10 @@ def clean_cfg(p):
             out[k] = bool(p[k])
     if (p or {}).get('slMode') in SL_MODES:
         out['slMode'] = p['slMode']
+    cyc = (p or {}).get('cycles') if isinstance((p or {}).get('cycles'), dict) else {}
+    out['cycles'] = {t: (cyc.get(t) if cyc.get(t) in CYCLE_MODES else DEFAULT_CYCLES.get(t, 'off')) for t in DEFAULT_CYCLES}
+    if 'trail' in (p or {}):
+        out['trail'] = bool(p['trail'])
     return out
 
 
@@ -188,7 +209,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         keep = {k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}
         # a NEW run starts at today's value (its own −floor); the ended run is kept on the record, never hidden
         keep['runs'] = (list(c.get('runs') or []) + [{'at': now, 'startUsd': c['startUsd'], 'endUsd': round(v0, 4), 'pct': round((v0 / (_f(c['startUsd']) or 1) - 1) * 100, 2)}])[-10:]
-        keep.update(startUsd=round(v0, 4), dayStartUsd=round(v0, 4), dayAt=now, lowPct=0.0)
+        keep.update(startUsd=round(v0, 4), dayStartUsd=round(v0, 4), dayAt=now, lowPct=0.0, roundStartUsd=round(v0, 4))   # a new run = a new round baseline
         nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=v0, keep=keep)
         if nc:
             c = nc
@@ -230,10 +251,13 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         if l.get('role') == 'anchor' or not t['sl'] or lmode == 'hold' or l.get('frozen') or px <= 0 or l['entry'] <= 0:
             continue
         dd = (px / l['entry'] - 1) * 100
-        if dd > -t['sl'] and not (dd <= -t['sl'] / 2 and fading(mom.get(l['pairAddress']))):   # early cut: half the stop + fading
+        l['peak'] = max(_f(l.get('peak')), dd)
+        trail = cfg.get('trail', True) and _f(l['peak']) >= TRAIL_AT and dd <= TRAIL_KEEP   # 🔒 ran +50%, now giving it back
+        if not trail and dd > -t['sl'] and not (dd <= -t['sl'] / 2 and fading(mom.get(l['pairAddress']))):   # early cut: half the stop + fading
             continue
         out_usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
-        why = f"{dd:.0f}% ≤ −{t['sl']}%" if dd <= -t['sl'] else f"{dd:.0f}% and fading (1h down, sellers lead) — cut early"
+        why = (f"ran +{l['peak']:.0f}%, back to {dd:+.0f}% — locked before it turned red" if trail else
+               f"{dd:.0f}% ≤ −{t['sl']}%" if dd <= -t['sl'] else f"{dd:.0f}% and fading (1h down, sellers lead) — cut early")
         c['feesUsd'] += fee
         nxt = best(l['role']) if lmode == 'replace' else None
         if nxt:
@@ -273,8 +297,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         c['lastRoundPct'] = round((v_now / (_f(c.get('roundStartUsd')) or _f(c['startUsd']) or 1) - 1) * 100, 2)
         c['roundStartUsd'] = round(v_now, 4); c['roundCrowned'] = False
     # 3b) 🔄 phase cycle: a cycling tier re-deals into the next phase shape every round (same run, P&L continues)
-    if card['tpl'] in CYCLE_TIERS and c['lastRotateAt'] == now and not c.get('flooredAt'):
-        phase = CYCLE[int(c.get('rounds') or 0) % len(CYCLE)]
+    phase = next_phase((cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl'], 'off'), c.get('rounds'), c.get('lastRoundPct'))
+    if phase and c['lastRotateAt'] == now and not c.get('flooredAt'):
         nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=value(c, prices), keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
         if nc:
             nc['feesUsd'] = round(_f(nc['feesUsd']) + fee * len(c['legs']), 4)   # selling the old shape

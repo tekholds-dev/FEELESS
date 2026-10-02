@@ -130,6 +130,7 @@ export function CardPlan({ legs, plan, setPlan }) {
     <div className="fl-plan-row"><span>On profit</span>{seg('onProfit', [['collect', '💸 Auto TP', 'At your level: a one-tap sell of just the gain back to SOL — your base stays in'], ['compound', '♻ Auto-compound', 'At your level: a one-tap roll of the gain back into the card (trim winners, top up the rest) — builds a compound streak']])}</div>
     <div className="fl-plan-row"><span>Card</span>{seg('mode', [['hold', '🔒 Hold · switch by hand', 'The card stays as built. One switch per 24h, your pick.'], ['swap', '🤖 Auto-rotate', `On your reshuffle clock a coin that fails a gate or drops ${rules?.swapDropPct ?? 25}% gets a pre-filled swap for the best gated runner — one approval`]])}</div>
     <div className="fl-plan-row"><span>Reshuffle every</span>{seg('rotateHours', [[5 / 60, '5m', 'A weak coin may be swapped every 5 minutes'], [0.25, '15m', 'Every 15 minutes'], [1, '1h', 'Every hour'], [12, '12h', 'Twice a day'], [24, '24h', 'Once a day']])}</div>
+    <div className="fl-plan-row"><span>Round cycle</span>{seg('cycle', [['steady', '➡ Steady', 'Every reshuffle swaps a weak coin for the best gated runner'], ['adaptive', '🧠 Adaptive', 'Losing card → the weak coin swaps into a major (protect) · winning card → a fresh runner (press)']])}</div>
     <div className="fl-plan-row"><span>At a coin stop</span>{seg('slMode', [['sell', '✂ Sell', 'One-tap sell to SOL'], ['park', '🅿 Park', 'Sell to SOL, then a one-tap buy-back when it is back at entry with buyers'], ['hold', '❄ Hold', 'No stop alerts']])}</div>
     </details>
   </details>;
@@ -210,7 +211,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
   const [copy, setCopy] = useState(null);   // ⚡ copying another trader's card: {id, owner, pct}
   const [backing, setBacking] = useState(null);
   const needRunner = !admin && !(runnerPicks || []).length;   // every trader card carries 1–3 runners (Cmd Ctr cards: any mix)   // 💰 buying a battle card to back it: {key, name}
-  const [plan, setPlan] = useState({ risk: 'balanced', at: 50, onProfit: 'collect', mode: 'hold', rotateHours: 24, slMode: 'sell', legs: {} });
+  const [plan, setPlan] = useState({ risk: 'balanced', at: 50, onProfit: 'collect', mode: 'hold', rotateHours: 24, slMode: 'sell', cycle: 'steady', legs: {} });
   const legKey = (prev?.legs || []).map(l => l.pairAddress).join(',');
   useEffect(() => { if (prev?.legs) setPlan(p => ({ ...p, legs: { ...defaultLegLimits(prev.legs), ...Object.fromEntries(Object.entries(p.legs).filter(([pa]) => legKey.includes(pa))) } })); }, [legKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!incoming?.n) return; const pools = incoming.legs.filter(l => !l.runner && l.role !== 'runner').slice(0, MAX);
