@@ -48,3 +48,4 @@ body.reduced-motion-setting *, body.reduced-motion-setting *::before, body.reduc
 body.theme-day .m-pos:not(.mc-face *), body.theme-day .up:not(.mc-face *) { color: #0a7d4b; }
 body.theme-day .m-neg:not(.mc-face *), body.theme-day .down:not(.mc-face *) { color: #c0304d; }
 body.theme-day .primary-action small { color: inherit; opacity: .78; }   /* the sub-label sat dark-on-dark */
+.qt-usd { display: block; font: 500 11px var(--m-mono, monospace); font-style: normal; color: var(--m-dim, #8fbfa8); text-align: right; }

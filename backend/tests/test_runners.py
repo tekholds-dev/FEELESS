@@ -134,8 +134,8 @@ def test_card_preview_with_picked_runners(monkeypatch):
     assert round(sum(l['weight'] for l in pv['legs'] if l.get('runner'))) == 30
     only = asyncio.run(rs.fuses_preview(rs.FusePreview(pools=[], sol=1, runnerMints=['r1', 'r2'])))
     assert [round(l['weight']) for l in only['legs']] == [50, 50]
-    with pytest.raises(rs.HTTPException):
-        asyncio.run(rs.fuses_preview(rs.FusePreview(pools=pools, sol=1, runnerMints=['gone'])))
+    gone = asyncio.run(rs.fuses_preview(rs.FusePreview(pools=pools, sol=1, runnerMints=['gone'])))   # skipped + reported, never a wall
+    assert [x['mint'] for x in gone['droppedRunners']] == ['gone']
     with pytest.raises(rs.HTTPException, match='3 pools \\+ 3 runners'):                          # traders: 3 runners max, refused clearly
         asyncio.run(rs.fuses_preview(rs.FusePreview(pools=pools, sol=1, runnerMints=['r1', 'r2', 'r3', 'r4'])))
 

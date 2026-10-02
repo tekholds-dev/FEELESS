@@ -156,8 +156,16 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
     if (legsN < 2) { setPrev(null); setErr(''); return undefined; }
     const body = JSON.stringify({ pools: picked.map(p => ({ chainId: p.chainId, pairAddress: p.pairAddress, symbol: p.symbol, weight: manual ? wts[p.pairAddress] || 1 : 1 })), sol: Number(sol) || 0, manual: admin && manual, runners: addon && !runnerPicks.length, runnerMints: runnerPicks.map(r => r.mint) });
     const run = () => (admin ? call('/fuses/preview', { method: 'POST', body })
-      : fetch(apiUrl('/api/reputation/fuses/preview'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.detail || 'Preview failed'); return d; }));
-    const t = setTimeout(() => run().then(d => { setPrev(d); setErr(''); }).catch(e => setErr(e.message)), 250);
+      : fetch(apiUrl('/api/reputation/fuses/preview'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
+        .then(async r => { const d = await r.json().catch(() => null); if (!r.ok || !d) throw new Error(d?.detail || 'The preview server is busy — trying again in a moment.'); return d; }));
+    const t = setTimeout(() => run().then(d => {
+      setPrev(d); setErr('');
+      if (d?.droppedRunners?.length && onRunnerPicks) {   // a runner just failed a gate: untick it, say which + why (no error wall)
+        const gone = new Set(d.droppedRunners.map(x => x.mint));
+        onRunnerPicks(rp => rp.filter(x => !gone.has(x.mint)));
+        toast.message(`Removed ${d.droppedRunners.map(x => `$${x.symbol || 'runner'} (${x.why})`).join(', ')} — it just failed a gate. Pick another from the board.`);
+      }
+    }).catch(e => setErr(/JSON|Unexpected token/i.test(e.message) ? 'The preview server hiccuped — retrying…' : e.message)), 250);
     return () => clearTimeout(t);
   }, [key, sol, manual, addon]); // eslint-disable-line react-hooks/exhaustive-deps
   // ＋ Add to card (coin drawer, anywhere): a runner joins the runner picks, anything else joins the pools — within the caps.

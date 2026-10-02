@@ -9,6 +9,7 @@ import { keepReceipt } from '../../lib/receipts';
 import { ShareGifButton } from '../ShareGif';
 import { useWallet } from '../../hooks/useWallet';
 import { useMarket } from '../../hooks/useMarket';
+import { useSolPrice } from '../../lib/solPrice';
 import { apiUrl, cleanAmount, errorText } from '../../lib/api';
 import { EvmTrade, EVM_TRADE_CHAINS } from './EvmTrade';
 import { formatUSD } from '../../lib/dexscreener';
@@ -39,6 +40,7 @@ const rawToUi = (raw, dec) => { const s = raw.toString().padStart(dec + 1, '0');
 // Compact buy/sell box that lives next to every chart. Real Jupiter routes, simulated before
 // signing, your wallet signs — nothing custodial. Anything into $FEE carries no FEELESS fee.
 function QuickTradeInner({ pair }) {
+  const solPx = useSolPrice();   // $ next to SOL amounts
   const { wallet, provider, connect, switchTo } = useWallet() || {};
   const assets = useMarket('/assets', 300000);
   const feeMint = (assets.data?.assets || []).find(a => a.id === 'fee')?.mint;
@@ -195,6 +197,10 @@ function QuickTradeInner({ pair }) {
   const impact = order ? impactPercent(order.quote) : null;
   const impactStop = order ? impactBlocks(impact, impactAck) : false;
   const toFee = counter === 'FEE';
+  // $ next to every amount (sitewide rule): SOL out × live SOL price; a coin out × its quoted $ value per unit.
+  const usdOf = v => { const n = Number(v); if (!(n > 0) || !order) return null;
+    const per = side === 'sell' && !toFee ? solPx : (Number(order.quote?.outUsdValue || order.quote?.inUsdValue) || 0) / (Number(out) || 1);
+    return per > 0 ? `≈ $${(n * per).toLocaleString(undefined, { maximumFractionDigits: n * per < 10 ? 2 : 0 })}` : null; };
   return <aside ref={box} className="quick-trade" data-testid="quick-trade">
     <div className="qt-head"><Zap size={13} /><b>Quick trade</b><button type="button" className={`qt-gear ${showSettings ? 'active' : ''}`} onClick={() => setShowSettings(v => !v)} title="Quick trade settings" aria-label="Quick trade settings"><Settings2 size={13} /></button><button type="button" className="qt-slip-chip" onClick={() => setShowSettings(true)} title="Max slippage (change in settings)">Slip {Number(prefs.slippage) / 100}%</button><div className="qt-side">{['buy', 'sell'].map(s => <button type="button" key={s} className={`${s} ${side === s ? 'active' : ''}`} onClick={() => setSide(s)}>{s === 'buy' ? 'Buy' : 'Sell'}</button>)}</div></div>
     {showSettings && <div className="qt-settings" data-testid="quick-trade-settings">
@@ -217,7 +223,7 @@ function QuickTradeInner({ pair }) {
       <div className="qt-row"><span>Receive</span><div className="qt-seg">{[['SOL', 'SOL'], ['FEE', '$FEE']].map(([id, l]) => <button type="button" key={id} disabled={id === 'FEE' && !feeMint} className={counter === id ? 'active' : ''} onClick={() => setCounter(id)}>{l}</button>)}</div></div>
       {toFee && <small className="qt-fee-free">Buying $FEE · 0% FEELESS fee</small>}
     </>}
-    {order && <div className="qt-quote"><div className="qt-fee" data-testid="qt-fee"><small>FEELESS fee</small><b>{order.feeless_fee?.bps ? `${(order.feeless_fee.bps / 100).toFixed(2)}%` : 'Free'}</b>{order.feeless_fee?.notes?.length ? <em>{order.feeless_fee.notes.join(' · ')}</em> : null}</div><div><small>You get ≈</small><b>{out != null ? `${out.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${side === 'buy' ? symbol : toFee ? '$FEE' : 'SOL'}` : '—'}</b></div><div><small>Min received</small><b>{minOut != null ? minOut.toLocaleString(undefined, { maximumFractionDigits: 6 }) : '—'}</b></div><div><small>Price impact</small><b className={impact > 5 ? 'negative' : ''}>{impact != null ? `${impact.toFixed(2)}%` : '—'}</b></div></div>}
+    {order && <div className="qt-quote"><div className="qt-fee" data-testid="qt-fee"><small>FEELESS fee</small><b>{order.feeless_fee?.bps ? `${(order.feeless_fee.bps / 100).toFixed(2)}%` : 'Free'}</b>{order.feeless_fee?.notes?.length ? <em>{order.feeless_fee.notes.join(' · ')}</em> : null}</div><div><small>You get ≈</small><b>{out != null ? `${out.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${side === 'buy' ? symbol : toFee ? '$FEE' : 'SOL'}` : '—'}{usdOf(out) && <em className="qt-usd">{usdOf(out)}</em>}</b></div><div><small>Min received</small><b>{minOut != null ? minOut.toLocaleString(undefined, { maximumFractionDigits: 6 }) : '—'}{usdOf(minOut) && <em className="qt-usd">{usdOf(minOut)}</em>}</b></div><div><small>Price impact</small><b className={impact > 5 ? 'negative' : ''}>{impact != null ? `${impact.toFixed(2)}%` : '—'}</b></div></div>}
     {order && <ImpactNote pct={impact} ack={impactAck} onAck={setImpactAck} />}
     {side === 'buy' && shield && shield.level !== 'ok' && <ShieldNote shield={shield} ack={shieldAck} onAck={setShieldAck} />}
     {quoteError && !order && <small className="qt-note qt-error" role="status">{quoteError}</small>}

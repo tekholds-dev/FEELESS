@@ -2829,18 +2829,22 @@ async def fuses_preview(payload: FusePreview, request: Request = None):
     pairs, sol_usd = await asyncio.gather(_fuse_pairs(pools) if pools else asyncio.sleep(0, {}), _sol_usd_live())
     metas = {k: _fuse.leg_meta(v) for k, v in pairs.items()}
     w = (_fuse.manual_weights(payload.pools) if admin and payload.manual else _vault.auto_weights(pools, metas, min_share=_fuse.min_share(len(pools)))) if pools else {}
-    added = []
+    added = []; dropped_runners = []
     if payload.runnerMints:   # Fuse card: picked runners, 10% each, must be passing every gate right now
         live = await _runner_live()
-        board_by = {r['mint']: r for r in live['passing']}
+        board_by = {r['mint']: r for r in live['passing'] + _rn.fresh_grads(live['dropped'])}   # 🎓 fresh grads are addable too
         rnd = (_json_load(RUNNERS_PATH, {'rounds': []}).get('rounds') or [None])[-1]
         for p_ in ((rnd or {}).get('picks') or []):
             board_by.setdefault(p_['mint'], p_) if p_['mint'] in board_by else None
         lim = _hq.ADMIN_RUNNERS if admin else _hq.CARD_RUNNERS
         wanted = [m for m in dict.fromkeys(str(x) for x in payload.runnerMints) if m]
         picked = [board_by[m] for m in wanted if m in board_by][:lim]
-        if any(m not in board_by for m in wanted):
-            raise HTTPException(400, 'A picked runner no longer passes the gates — pick from the live board.')
+        # a runner that JUST failed a gate is skipped (never an error for the whole card) — the Lab unticks it and says why
+        why = {r['mint']: (r.get('gates') or ['left the live feed'])[0] for r in live['dropped']}
+        dropped_runners = [{'mint': m, 'symbol': next((r.get('symbol') for r in live['dropped'] if r['mint'] == m), None), 'why': why.get(m, 'left the live feed')}
+                           for m in wanted if m not in board_by]
+        if not picked and not pools:
+            raise HTTPException(400, 'Every picked runner just failed a gate — pick from the live board.')
         legs = _rn.addon([{**p, 'weight': w[p['pairAddress']] * 100} for p in pools], picked, 10.0 * len(picked), len(picked))
         added = [l for l in legs if l.get('runner')]
         if added:
@@ -2860,6 +2864,8 @@ async def fuses_preview(payload: FusePreview, request: Request = None):
             pools = pools + [{k: l[k] for k in ('chainId', 'pairAddress', 'symbol')} for l in added if l['pairAddress'] in rp]
             w = {l['pairAddress']: l['weight'] / 100 for l in legs if l['pairAddress'] in metas}
     out = _fuse.preview(pools, metas, max(0.0, min(100000.0, payload.sol)), sol_usd, w)
+    if payload.runnerMints and dropped_runners:
+        out = {**out, 'droppedRunners': dropped_runners}
     rinfo = {l['pairAddress']: l for l in added}
     out['legs'] = [{**x, **({'runner': True, 'exits': rinfo[x['pairAddress']]['exits'], 'lane': rinfo[x['pairAddress']]['lane']} if x['pairAddress'] in rinfo else {})} for x in out['legs']]
     return {**out, 'cap': cap, 'admin': admin, 'runners': len(added)}
