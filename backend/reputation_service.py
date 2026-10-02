@@ -4848,6 +4848,15 @@ async def _engine_auto(now):
     rd = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
     if rd.get('autoTune') is False or not rd.get('rounds'):
         return None
+    # 💡 scenario winner → runner exits (same TP×SL combo best in 24h AND 72h, ahead of the current exits) — audited
+    cfg0 = _rn.clean_cfg(rd.get('cfg') or {})
+    ex, ex_why = _rn.exits_pick({w: _rn.scenario_grid(rd['rounds'], rd['paths'], now, sec) for w, sec in (('24h', 86400), ('72h', 3 * 86400))},
+                                (int(cfg0.get('runnerTp2') or 100), int(cfg0.get('runnerStop') or 30)))
+    if ex:
+        async with _admin_lock:
+            d0 = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d0['cfg'] = {**(d0.get('cfg') or {}), 'runnerTp2': ex[0], 'runnerStop': ex[1]}; d0['cfgDial'] = 'custom'; _json_save(RUNNERS_PATH, d0)
+        ad0 = _admin_load(); _audit(ad0, 'engine-auto', 'runners-config', f'scenario exits → TP +{ex[0]}% / stop −{ex[1]}%: {ex_why}'[:300]); _admin_save(ad0)
+        rd = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
     proofs = {w: _rn.dial_proof(rd['rounds'], rd['paths'], now, _hq.RISK_DIALS, window=sec) for w, sec in _rn.PROOF_WINDOWS.items()}
     dial, why = _rn.auto_pick_multi(proofs, rd.get('cfgDial'))
     if not dial or dial not in _rn.ENGINE_DIALS:

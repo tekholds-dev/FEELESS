@@ -209,3 +209,11 @@ def test_engine_scenarios_cycle_21_cards_best_first():
     dials = {'safe': {'runner': (30, 15)}, 'balanced': {'runner': (50, 30)}, 'degen': {'runner': (100, 40)}}
     out = rn.scenarios([], {}, 1000, dials)
     assert len(out) == 12 + 9 and {s['kind'] for s in out} == {'exits', 'dial'} and all('label' in s for s in out)
+
+
+def test_scenario_winner_becomes_the_runner_exits_only_when_windows_agree():
+    g = lambda best: {'tp200_sl15': {'rounds': 30, 'avgPct': best}, 'tp100_sl30': {'rounds': 30, 'avgPct': 1.0}}
+    assert rn.exits_pick({'24h': g(18), '72h': g(9)}, (100, 30))[0] == (200, 15)
+    assert rn.exits_pick({'24h': g(18)}, (100, 30)) == (None, None)                          # one window is never enough
+    assert rn.exits_pick({'24h': g(18), '72h': g(0.5)}, (100, 30)) == (None, None)           # 72h best is tp100 → disagree
+    assert rn.exits_pick({'24h': g(18), '72h': g(9)}, (200, 15)) == (None, None)             # already running it

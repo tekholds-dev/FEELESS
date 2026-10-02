@@ -626,3 +626,30 @@ def scenarios(rounds, paths, now, dials):
         for did, p in dial_proof(rounds, paths, now, dials, window=sec).items():
             out.append({'id': f'{did}_{w}', 'kind': 'dial', 'label': f'{did} dial · {w}', 'window': w, 'tp': dials[did]['runner'][0], 'sl': dials[did]['runner'][1], **p})
     return sorted(out, key=lambda s: (not (s.get('rounds') or 0), -(s.get('avgPct') or 0)))
+
+
+def exits_pick(grids, current, min_rounds=8, margin=2.0):
+    """💡 Scenario winner → runner exits. grids = {window: dial_proof over the TP×SL grid}. Apply a combo only when the SAME
+    combo is best in every window with enough rounds (≥2 windows), avg > 0, and ≥ margin ahead of the current exits' combo.
+    current = (tp, sl). Returns ((tp, sl), why) or (None, None)."""
+    bests = []
+    for w, g in (grids or {}).items():
+        ok = {k: p for k, p in (g or {}).items() if p.get('rounds', 0) >= min_rounds}
+        if not ok:
+            continue
+        k, p = max(ok.items(), key=lambda kv: kv[1].get('avgPct', 0))
+        cur = ok.get(f'tp{current[0]}_sl{current[1]}', {}).get('avgPct', 0)
+        bests.append((k, p, cur, w))
+    if len(bests) < 2 or len({b[0] for b in bests}) != 1:
+        return None, None
+    k = bests[0][0]
+    if any(p.get('avgPct', 0) <= 0 or p['avgPct'] - cur < margin for _, p, cur, _ in bests):
+        return None, None
+    tp, sl = (int(x[2:]) for x in k.split('_'))
+    if (tp, sl) == tuple(current):
+        return None, None
+    return (tp, sl), ' · '.join(f"{w}: TP +{tp}% / stop −{sl}% avg {p['avgPct']:+.1f}% vs current {cur:+.1f}%" for _, p, cur, w in bests)
+
+
+def scenario_grid(rounds, paths, now, window):
+    return dial_proof(rounds, paths, now, {f'tp{tp}_sl{sl}': {'runner': (tp, sl)} for tp in SCENARIO_TP for sl in SCENARIO_SL}, window=window)
