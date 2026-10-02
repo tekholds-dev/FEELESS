@@ -4851,9 +4851,9 @@ async def _runner_live():
     if _runner_live_cache['data'] and time.time() - _runner_live_cache['at'] < 40 and not _FUSE_FORCE.get():   # warmed every 25s in the background
         return _runner_live_cache['data']
     async with httpx.AsyncClient(timeout=10) as http:
-        async def feed(kind):
+        async def feed(kind, page=1):
             try:
-                return (await http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': kind, 'chain': 'solana', 'page': 1, 'scope': 'launchpads'})).json().get('pairs') or []
+                return (await http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': kind, 'chain': 'solana', 'page': page, 'scope': 'launchpads'})).json().get('pairs') or []
             except Exception:
                 return []
 
@@ -4862,7 +4862,7 @@ async def _runner_live():
                 return (await http.get('http://127.0.0.1:5001/api/pump/pulse', params={'limit': 100})).json().get('launches') or []
             except Exception:
                 return []
-        got, launches = await asyncio.gather(asyncio.gather(feed('trending'), feed('new')), pulse())
+        got, launches = await asyncio.gather(asyncio.gather(feed('trending'), feed('new'), feed('trending', 2), feed('new', 2)), pulse())   # 2 pages each: more coins come to it
     _mayhem_mints.update(x['mint'] for x in launches if x.get('mayhem') and x.get('mint'))
     now_ms = time.time() * 1000
     seen, pairs = set(), []
@@ -4870,7 +4870,7 @@ async def _runner_live():
         m = (p.get('baseToken') or {}).get('address')
         if m and m not in seen and (now_ms - _fuse._f(p.get('pairCreatedAt'))) <= _rn.MAX_AGE_H * 3.6e6:
             seen.add(m); pairs.append(p)
-    busiest = sorted(pairs, key=lambda p: -_fuse._f((p.get('volume') or {}).get('h1')))[:28]   # warmed in the background; more to pick from
+    busiest = sorted(pairs, key=lambda p: -_fuse._f((p.get('volume') or {}).get('h1')))[:40]   # warmed in the background (cached scans); 40 busiest so more coins can pass
     # Never block the board on scans: wait ≤6s, the rest keep running and land in the cache for the next refresh.
     tasks = {(p.get('baseToken') or {}).get('address'): asyncio.ensure_future(_runner_intel((p.get('baseToken') or {}).get('address'))) for p in busiest}
     if tasks:

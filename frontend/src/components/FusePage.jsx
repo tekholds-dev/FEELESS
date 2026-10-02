@@ -324,14 +324,26 @@ export function Battlefield({ b, cards = [], onLoad }) {
   const secs = Math.max(0, Math.round((b.endsAt || now) - now));
   // HP: each side starts at 100 and loses 6 HP per point the other card is ahead since the bell (min 5) — who's winning, at a glance
   const hp = (me, them) => Math.max(5, Math.min(100, 100 - Math.max(0, (them || 0) - (me || 0)) * 6));
-  const side = (p, k, i) => { const x = p[k]; const o = p[k === 'a' ? 'b' : 'a']; const h = hp(x.now, o.now); const st = status[x.key];
-    return <span className={`bf-side ${k} ${h < 40 ? 'is-hurt' : ''}`}>
-      <button type="button" className="bf-fighter" onClick={() => setCfgKey(x.key)} aria-label={`${x.name} config`} data-tip="Card config — copy it to your Fuse Lab" data-testid={`bf-cfg-${k}-${i}`}>{x.emoji || '🃏'}</button>
-      <b>{x.name}</b>{st && <em className={`bf-br br-${st.status}`}>{st.status === 'winners' ? '🏆' : st.status === 'losers' ? '💀' : '✕'} {st.w}–{st.l}</em>}
-      <span className="bf-hp" data-tip={`HP ${Math.round(h)} — drops while the other card is ahead`}><i style={{ transform: `scaleX(${h / 100})` }} /><small>HP {Math.round(h)}</small></span>
-      <em className={`m-num fl-tick ${x.now >= 0 ? 'm-pos' : 'm-neg'}`} key={x.now}>{pc(x.now)}</em>
-      <span className="bf-btns"><button type="button" className={`m-btn bf-back ${mine === x.key ? 'is-on' : ''}`} disabled={!!mine} onClick={() => back(x.key)} data-tip="Free · points only" data-testid={`back-${k}-${i}`}>{mine === x.key ? '✓ Backed' : '⚔ Back'} · {(x.backers || 0) + (mine === x.key ? 1 : 0)}</button>
-      <button type="button" className="m-btn bf-buy" onClick={() => buyBack(x)} data-tip="Buy this card (you own it) — counts on the 💰 bar" data-testid={`buyback-${k}-${i}`}>💰 Buy & back</button></span></span>; };
+  const [spot, setSpot] = useState(0); const [hold, setHold] = useState(false);
+  // 🎥 one arena, a spotlight per fight — auto-cycles every 9s (pauses while you hover / focus), dots to jump between fights
+  useEffect(() => { if (hold || b.pairs.length < 2 || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const t = setInterval(() => setSpot(x => (x + 1) % b.pairs.length), 9000); return () => clearInterval(t); }, [hold, b.pairs.length]);
+  const cur = Math.min(spot, Math.max(0, b.pairs.length - 1));
+  // the REAL card in each corner, with effects from its live activity tier (aura, embers, heat) — like the stage
+  const corner = (p, k, i) => { const x = p[k]; const o = p[k === 'a' ? 'b' : 'a']; const h = hp(x.now, o.now); const st = status[x.key]; const c = cardOf(x.key);
+    const tier = c?.activity?.tier || 'calm'; const fx = TIER_FX[tier] || TIER_FX.calm; const lead = (x.now || 0) - (o.now || 0);
+    return <div className={`bf-corner ${k} t-${tier} ${lead > 0.05 ? 'is-lead' : lead < -0.05 ? 'is-hit' : ''} ${h < 40 ? 'is-hurt' : ''}`}>
+      <span className="bf-c-aura" aria-hidden="true" /><div className="bf-c-embers" aria-hidden="true">{Array.from({ length: fx.embers }, (_, e) => <i key={e} style={{ '--i': e }} />)}</div>
+      <div className="bf-c-card">{c?.legs?.length ? <FuseCard c={{ pools: c.legs.map(l => l.pairAddress), fitness: c.activity?.score || 0, bornGen: c.legs.length, legs: c.legs,
+          parts: { grade: c.grade || 'B', aprScore: 0, momentum24h: x.now || 0, calm: '—', feeDragPct: 0, impactLegs: 0 } }} style={DIAL_STYLE[c.dial] || 'momentum'} rank={i * 2 + (k === 'a' ? 0 : 1)} budget={20} aura={c.aura || fx.aura} />
+        : <span className="bf-c-ghost">{x.emoji || '🃏'}</span>}</div>
+      <div className="bf-c-meta">
+        <span className="bf-c-name"><button type="button" className="bf-fighter" onClick={() => setCfgKey(x.key)} aria-label={`${x.name} config`} data-tip="Card config — copy it to your Fuse Lab" data-testid={`bf-cfg-${k}-${i}`}>{x.emoji || '🃏'}</button>
+          <b>{x.name}</b>{st && <em className={`bf-br br-${st.status}`}>{st.status === 'winners' ? '🏆' : st.status === 'losers' ? '💀' : '✕'} {st.w}–{st.l}</em>}</span>
+        <span className="bf-hp" data-tip={`HP ${Math.round(h)} — drops while the other card is ahead`}><i style={{ transform: `scaleX(${h / 100})` }} /><small>HP {Math.round(h)}</small></span>
+        <em className={`bf-c-pct m-num fl-tick ${x.now >= 0 ? 'm-pos' : 'm-neg'}`} key={x.now}>{pc(x.now)}</em>
+        <span className="bf-btns"><button type="button" className={`m-btn bf-back ${mine === x.key ? 'is-on' : ''}`} disabled={!!mine} onClick={() => back(x.key)} data-tip="Free · points only" data-testid={`back-${k}-${i}`}>{mine === x.key ? '✓ Backed' : '⚔ Back'} · {(x.backers || 0) + (mine === x.key ? 1 : 0)}</button>
+        <button type="button" className="m-btn bf-buy" onClick={() => buyBack(x)} data-tip="Buy this card (you own it) — counts on the 💰 bar" data-testid={`buyback-${k}-${i}`}>💰 Buy & back</button></span></div></div>; };
   return <section className="m-card m-live bf" data-testid="battlefield"><header className="m-row"><span className="m-label">⚔ BATTLEFIELD · BRACKET #{br.season}</span>
     <small className="m-dim">bigger move since the bell wins · 2 losses = out · last card standing is crowned</small>
     <b className={`bf-bell m-num ${secs < 60 ? 'is-soon' : ''}`} key={secs < 60 ? secs : 'x'}>🔔 {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</b></header>
@@ -339,17 +351,23 @@ export function Battlefield({ b, cards = [], onLoad }) {
       {j === 0 && c.legs?.length > 0 && onLoad && <button type="button" className="m-btn primary m-go bf-buychamp" onClick={() => onLoad(c.legs, { backName: c.name })} data-testid="buy-champ">👑 Buy the champion</button>}</span>)}</div>}
     {cfgCard && <CardConfig c={cfgCard} onClose={() => setCfgKey(null)} onLoad={onLoad} onBack={b.pairs.some(p => [p.a.key, p.b.key].includes(cfgKey)) && !mine ? () => back(cfgKey) : null}
       onBuyBack={b.pairs.some(p => [p.a.key, p.b.key].includes(cfgKey)) ? () => buyBack({ key: cfgKey, name: cfgCard.name }) : null} />}
-    <div className="bf-pairs">{b.pairs.map((p, i) => { const d = p.a.now - p.b.now; const share = Math.max(0.08, Math.min(0.92, 0.5 + d / 20));
-      const lane = status[p.a.key]?.status === 'losers' && status[p.b.key]?.status === 'losers' ? 'losers' : status[p.a.key]?.status === 'winners' && status[p.b.key]?.status === 'winners' ? 'winners' : 'cross';
-      return <div key={p.a.key + p.b.key} className={`bf-pair lane-${lane} ${d > 0.05 ? 'a-lead' : d < -0.05 ? 'b-lead' : 'even'}`} style={{ '--i': i }} data-testid={`battle-${i}`}>
-        <span className="bf-lane">{lane === 'winners' ? '🏆 WINNERS BRACKET' : lane === 'losers' ? '💀 LOSERS BRACKET · LOSE = OUT' : '⚔ CROSSOVER'}</span>
-        <div className="bf-bars" data-testid={`bars-${i}`}>
-          <span className="bf-bar is-paid" data-tip="Wallets that BOUGHT a side's card to back it (real buys, you own the card)"><small>{p.a.paidN || 0}</small><i><i style={{ transform: `scaleX(${tugShare(p.a.paidUsd || 0, p.b.paidUsd || 0)})` }} /></i><small>{p.b.paidN || 0}</small><em>💰 BUY BACKS {p.a.paidN || 0}/{p.b.paidN || 0} · ${Math.round(p.a.paidUsd || 0)}/${Math.round(p.b.paidUsd || 0)}</em></span>
-          <span className="bf-bar is-free" data-tip="Free backs · +15 XP to back, winners count toward weekly quests → season rank"><small>{p.a.backers || 0}</small><i><i style={{ transform: `scaleX(${tugShare(p.a.backers || 0, p.b.backers || 0)})` }} /></i><small>{p.b.backers || 0}</small><em>⚔ BACKS {p.a.backers || 0}/{p.b.backers || 0} · +XP</em></span></div>
-        {side(p, 'a', i)}
-        <span className="bf-vs" aria-hidden="true"><i className="bf-clash" /><i className="bf-spark" /><i className="bf-spark s2" />VS</span>
-        {side(p, 'b', i)}
-        <i className="bf-tug"><i style={{ transform: `scaleX(${share})` }} /></i></div>; })}</div>
+    <div className="bf-arena" onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} onFocus={() => setHold(true)} onBlur={() => setHold(false)} data-testid="bf-arena">
+      <span className="bf-floor" aria-hidden="true" /><span className="bf-beam l" aria-hidden="true" /><span className="bf-beam r" aria-hidden="true" />
+      {b.pairs.length > 1 && <div className="bf-tabs" role="tablist" aria-label="Fights">{b.pairs.map((p, i) => <button key={p.a.key + p.b.key} type="button" role="tab" aria-selected={cur === i} className={cur === i ? 'active' : ''} onClick={() => setSpot(i)} data-testid={`bf-tab-${i}`}>
+        FIGHT {i + 1}<small>{p.a.emoji} vs {p.b.emoji}</small></button>)}</div>}
+      {b.pairs.map((p, i) => { const d = p.a.now - p.b.now; const share = Math.max(0.08, Math.min(0.92, 0.5 + d / 20));
+        const lane = status[p.a.key]?.status === 'losers' && status[p.b.key]?.status === 'losers' ? 'losers' : status[p.a.key]?.status === 'winners' && status[p.b.key]?.status === 'winners' ? 'winners' : 'cross';
+        return <div key={p.a.key + p.b.key} className={`bf-pair lane-${lane} ${d > 0.05 ? 'a-lead' : d < -0.05 ? 'b-lead' : 'even'} ${cur === i ? 'is-spot' : 'is-off'}`} style={{ '--i': i }} data-testid={`battle-${i}`} aria-hidden={cur !== i}>
+          <span className="bf-lane">{lane === 'winners' ? '🏆 WINNERS BRACKET' : lane === 'losers' ? '💀 LOSERS BRACKET · LOSE = OUT' : '⚔ CROSSOVER'}</span>
+          {corner(p, 'a', i)}
+          <div className="bf-mid">
+            <span className="bf-vs" aria-hidden="true"><i className="bf-clash" /><i className="bf-spark" /><i className="bf-spark s2" /><i className="bf-spark s3" />VS</span>
+            <i className="bf-tug" data-tip="Who's ahead since the bell"><i style={{ transform: `scaleX(${share})` }} /></i>
+            <div className="bf-bars" data-testid={`bars-${i}`}>
+              <span className="bf-bar is-paid" data-tip="Wallets that BOUGHT a side's card to back it (real buys, you own the card)"><small>{p.a.paidN || 0}</small><i><i style={{ transform: `scaleX(${tugShare(p.a.paidUsd || 0, p.b.paidUsd || 0)})` }} /></i><small>{p.b.paidN || 0}</small><em>💰 BUY BACKS {p.a.paidN || 0}/{p.b.paidN || 0} · ${Math.round(p.a.paidUsd || 0)}/${Math.round(p.b.paidUsd || 0)}</em></span>
+              <span className="bf-bar is-free" data-tip="Free backs · +15 XP to back, winners count toward weekly quests → season rank"><small>{p.a.backers || 0}</small><i><i style={{ transform: `scaleX(${tugShare(p.a.backers || 0, p.b.backers || 0)})` }} /></i><small>{p.b.backers || 0}</small><em>⚔ BACKS {p.a.backers || 0}/{p.b.backers || 0} · +XP</em></span></div></div>
+          {corner(p, 'b', i)}</div>; })}
+    </div>
     {br.upNext?.length > 0 && <div className="bf-next" data-testid="bf-upnext"><span className="m-label">⏭ UP NEXT</span>{br.upNext.map((x, j) => <button key={x.key} type="button" className={`bf-nextcard br-${x.status}`} style={{ '--i': j }} onClick={() => setCfgKey(x.key)} data-tip="Fights at the next bell — tap for its config">
       <b>{x.emoji}</b><span>{x.name}</span><em>{x.status === 'winners' ? '🏆' : '💀'} {x.w}–{x.l}</em></button>)}</div>}
     {(br.board || []).length > 0 && <div className="bf-power" data-testid="bf-power"><span className="m-label">⚡ POWER BOARD · WHO'S DOING BETTER OVERALL</span>
@@ -360,7 +378,7 @@ export function Battlefield({ b, cards = [], onLoad }) {
         <small className={`m-num ${x.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(x.pct)}</small>
         <em className={`bf-br br-${x.status}`}>{x.status === 'winners' ? '🏆 winners' : x.status === 'losers' ? '💀 losers' : '✕ out'}</em>
         <span className="bf-pacts"><button type="button" className="m-btn" onClick={() => setCfgKey(x.key)} aria-label="Config" data-testid={`power-cfg-${i}`}>⚙</button>
-        {x.status !== 'out' && <button type="button" className={`m-btn bf-call ${called === x.key ? 'is-on' : ''}`} disabled={!!called} onClick={() => callIt(x.key)} data-tip="Call it to win this bracket (free) — right = season XP" data-testid={`call-${i}`}>🔮 {x.calls + (called === x.key ? 1 : 0)}</button>}</span></div>)}</div>}
+        {x.status !== 'out' && <button type="button" className={`m-btn bf-call ${called === x.key ? 'is-on' : ''}`} disabled={!!called} onClick={() => callIt(x.key)} data-tip="Call it to win this bracket (free) — right = season XP" data-testid={`call-${i}`}>🔮 {(x.calls || 0) + (called === x.key ? 1 : 0)}</button>}</span></div>)}</div>}
     {b.log?.length > 0 && <div className="bf-log">{b.log.slice(0, 6).map(l => <small key={l.at + l.a}>{l.draw ? `🤝 ${l.a} = ${l.b}` : `🏆 ${l.winner} beat ${l.winner === l.a ? l.b : l.a}`} <em>{pc(l.aMove)} vs {pc(l.bMove)}</em></small>)}</div>}
   </section>;
 }

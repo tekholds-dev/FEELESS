@@ -733,3 +733,48 @@ button.bf-fighter { border: 0; background: none; padding: 0; cursor: pointer; } 
 body.fx-lite .bf-nextcard, body.fx-lite .cc-cfg-legs li { animation: none; } @media (prefers-reduced-motion: reduce) { .bf-nextcard, .cc-cfg-legs li { animation: none; } }
 body.theme-day .bf-nextcard, body.theme-day .cc-cfg-chips i { background: #fff; } body.theme-day .bf-call.is-on { background: #6b2fd1; color: #fff; }
 @media (max-width: 640px) { .bf-prow { grid-template-columns: 26px minmax(0, 1fr) auto auto; } .bf-prow .bf-br { display: none; } }
+/* 🎥 Battle arena v4: ONE arena box, a spotlight per fight (auto-cycles), the real cards in each corner with live-activity FX */
+.bf-arena { position: relative; overflow: hidden; border-radius: 18px; border: 1px solid var(--m-line-hi); min-height: 420px; padding: 14px 14px 18px;
+  background: radial-gradient(80% 60% at 50% 0%, #2a1250 0%, transparent 70%), radial-gradient(60% 50% at 50% 110%, #0d3a28 0%, transparent 70%), #0a0614; }
+.bf-floor { position: absolute; left: -20%; right: -20%; bottom: -40%; height: 70%; pointer-events: none; opacity: .5;
+  background: repeating-linear-gradient(90deg, #9b5cff33 0 1px, transparent 1px 60px), repeating-linear-gradient(0deg, #9b5cff33 0 1px, transparent 1px 40px);
+  transform: perspective(300px) rotateX(62deg); animation: bfFloor 6s linear infinite; }
+.bf-beam { position: absolute; top: -30%; width: 34%; height: 140%; pointer-events: none; opacity: .18; background: linear-gradient(180deg, #c08bff, transparent 70%); transform-origin: top center; }
+.bf-beam.l { left: 8%; animation: bfBeamL 7s ease-in-out infinite; } .bf-beam.r { right: 8%; background: linear-gradient(180deg, var(--m-accent), transparent 70%); animation: bfBeamR 7s ease-in-out infinite; }
+.bf-tabs { position: relative; z-index: 2; display: flex; justify-content: center; gap: 6px; margin-bottom: 8px; }
+.bf-tabs button { display: grid; gap: 1px; justify-items: center; padding: 5px 14px; border-radius: 12px; border: 1px solid var(--m-line); background: #0006; color: var(--m-dim); font: 700 10px var(--m-mono); letter-spacing: .14em; cursor: pointer; transition: background .15s, color .15s, transform .15s; }
+.bf-tabs button small { font-size: 14px; letter-spacing: 0; } .bf-tabs button:hover { transform: translateY(-1px); color: var(--m-text); }
+.bf-tabs button.active { background: var(--m-accent); color: #04140c; border-color: var(--m-accent); }
+.bf-arena .bf-pair { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, .7fr) minmax(0, 1fr); gap: 10px; align-items: center;
+  border: 0; background: transparent; padding: 22px 0 0; animation: none; }
+.bf-arena .bf-pair.is-off { display: none; } .bf-arena .bf-pair.is-spot { animation: bfSpotIn .45s var(--m-ease) both; }
+.bf-arena .bf-lane { top: 0; }
+.bf-corner { position: relative; display: grid; justify-items: center; gap: 6px; transition: transform .6s var(--m-ease); }
+.bf-corner.is-lead.a { transform: translateX(12px) scale(1.03); } .bf-corner.is-lead.b { transform: translateX(-12px) scale(1.03); }
+.bf-corner.is-hit .bf-c-card { animation: bfHit 1.2s ease-in-out infinite; }
+.bf-c-card { position: relative; z-index: 1; } .bf-c-card .fcd { zoom: .66; } .bf-c-ghost { font-size: 64px; display: block; padding: 40px; }
+.bf-c-aura { position: absolute; left: 50%; top: 34%; width: 260px; height: 260px; margin: -130px; border-radius: 50%; pointer-events: none; opacity: .35;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--m-accent) 55%, transparent), transparent); animation: bfAura 3s ease-in-out infinite; }
+.bf-corner.t-hot .bf-c-aura { background: radial-gradient(closest-side, #ff9a3c88, transparent); opacity: .5; } .bf-corner.t-blazing .bf-c-aura { background: radial-gradient(closest-side, #ffd36baa, transparent); opacity: .65; animation-duration: 1.6s; }
+.bf-corner.t-warm .bf-c-aura { background: radial-gradient(closest-side, #c08bff77, transparent); }
+.bf-corner.is-hit .bf-c-aura { background: radial-gradient(closest-side, #ff8fa388, transparent); }
+.bf-c-embers { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.bf-c-embers i { position: absolute; bottom: 30%; left: calc(10% + var(--i, 0) * 9%); width: 4px; height: 4px; border-radius: 50%; background: #ffd36b; box-shadow: 0 0 6px #ff9a3c; opacity: 0;
+  animation: bfEmber 2.4s ease-out infinite; animation-delay: calc(var(--i, 0) * -.37s); }
+.bf-c-meta { position: relative; z-index: 3; display: grid; justify-items: center; gap: 5px; width: 100%; }
+.bf-c-name { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center; } .bf-c-name b { font-size: 14px; }
+.bf-c-name .bf-fighter { font-size: 22px; }
+.bf-c-pct { font-size: 22px; font-style: normal; font-weight: 700; } .bf-corner .bf-hp { width: min(220px, 100%); }
+.bf-mid { display: grid; gap: 10px; justify-items: center; align-content: center; } .bf-mid .bf-vs { font-size: 34px; }
+.bf-mid .bf-tug { position: relative; left: auto; right: auto; bottom: auto; width: 100%; height: 6px; }
+.bf-mid .bf-bars { grid-template-columns: 1fr; width: 100%; margin: 0; } .bf-spark.s3 { animation-delay: .45s; --r: -40deg; background: #c08bff; }
+@keyframes bfFloor { to { background-position: 60px 40px, 60px 40px; } }
+@keyframes bfBeamL { 50% { transform: rotate(8deg); } } @keyframes bfBeamR { 50% { transform: rotate(-8deg); } }
+@keyframes bfSpotIn { from { opacity: 0; transform: scale(.94) translateY(8px); } }
+@keyframes bfHit { 0%, 100% { transform: none; } 10% { transform: translateX(-4px) rotate(-1deg); } 20% { transform: translateX(4px) rotate(1deg); } 30% { transform: none; } }
+@keyframes bfAura { 50% { transform: scale(1.12); opacity: .55; } }
+@keyframes bfEmber { 0% { opacity: 0; transform: translateY(0); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-160px); } }
+body.fx-lite .bf-floor, body.fx-lite .bf-beam, body.fx-lite .bf-c-embers, body.fx-lite .bf-c-aura { display: none; } body.fx-lite .bf-corner.is-hit .bf-c-card, body.fx-lite .bf-pair.is-spot { animation: none; }
+@media (prefers-reduced-motion: reduce) { .bf-floor, .bf-beam, .bf-c-embers { display: none; } .bf-c-aura, .bf-corner.is-hit .bf-c-card, .bf-arena .bf-pair.is-spot { animation: none; } .bf-corner { transition: none; } }
+body.theme-day .bf-arena { background: radial-gradient(80% 60% at 50% 0%, #e7dbff 0%, transparent 70%), #f7f4ff; } body.theme-day .bf-tabs button { background: #fff; }
+@media (max-width: 760px) { .bf-arena .bf-pair { grid-template-columns: 1fr 1fr; } .bf-mid { grid-column: 1 / -1; order: 3; } .bf-c-card .fcd { zoom: .48; } .bf-c-pct { font-size: 17px; } }

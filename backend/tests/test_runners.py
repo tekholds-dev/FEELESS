@@ -141,7 +141,7 @@ def test_card_preview_with_picked_runners(monkeypatch):
 
 
 def test_prebond_only_no_mayhem_and_creator_rep():
-    assert 'Pre-bond (still on the curve)' in rn.failed_gates(rn.candidate(pair('g', graduated=True), CLEAN, now_ms=NOW))
+    assert 'Pre-bond or a fresh graduate (<48h)' not in rn.failed_gates(rn.candidate(pair('g', graduated=True), CLEAN, now_ms=NOW))   # young graduates run too
     assert 'Not a mayhem-mode coin' in rn.failed_gates(rn.candidate(pair('m'), CLEAN, now_ms=NOW, mayhem=True))
     assert 'Creator reputation not suspect / high-risk' in rn.failed_gates(rn.candidate(pair('s'), CLEAN, now_ms=NOW, creator_rep='suspect'))
     clean = rn.score(rn.candidate(pair('c'), CLEAN, now_ms=NOW, creator_rep='clean'))[0]

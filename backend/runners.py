@@ -163,7 +163,7 @@ def widen_level(level, passing, min_pass=3, fill=8):
 def gates(cfg=None):
     g = clean_cfg(cfg)
     return (   # key, label, test — ALL must pass (unknown forensics fail closed)
-        ('prebond', 'Pre-bond (still on the curve)', lambda c: c['stage'] == 'curve'),
+        ('prebond', 'Pre-bond or a fresh graduate (<48h)', lambda c: c['stage'] == 'curve' or (c['ageH'] is not None and c['ageH'] <= MAX_AGE_H)),   # graduates run too (more coins in the round)
         ('mayhem', 'Not a mayhem-mode coin', lambda c: not c.get('mayhem')),
         ('age', 'Under 48h old', lambda c: c['ageH'] is not None and 0 <= c['ageH'] <= MAX_AGE_H),
         ('size', f"Market cap ≥ ${g['minMcap'] / 1000:g}K", lambda c: c['mcap'] >= g['minMcap']),

@@ -216,7 +216,7 @@ test('battlefield: bracket lanes, fighter HP, power board with W/L pips and the 
   await act(async () => { createRoot(host).render(<Battlefield b={b} />); });
   const pair = host.querySelector('[data-testid="battle-0"]');
   expect(pair.className).toContain('lane-winners'); expect(pair.textContent).toContain('WINNERS BRACKET');
-  expect(pair.querySelector('.bf-side.b').className).toContain('is-hurt');                 // 12 pts behind → HP 28 → hurt
+  expect(pair.querySelector('.bf-corner.b').className).toContain('is-hurt');                 // 12 pts behind → HP 28 → hurt
   expect(host.textContent).toContain('BRACKET #3'); expect(host.querySelector('[data-testid="bf-champs"]').textContent).toContain('OldKing');
   const power = host.querySelector('[data-testid="bf-power"]');
   expect(power.querySelectorAll('.bf-pips i.w').length).toBe(3); expect(power.textContent).toContain('✕ out');
