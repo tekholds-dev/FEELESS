@@ -509,6 +509,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🎨 Creator's pick (`POST /admin/fuses/scenario-pick`, `creatorPicks`): runner-ups stay in the engine; only picked ones are dealt to
   the Arena. New Cmd Ctr Fuses default `arena: true`; staged cards newest first.
 
+- ⚔ Bracket pool = stage cards + ⭐ tier cards (`fighterOnly`, own section on top) + 🏆 the engine's top playground battle winner
+  (`pg_battle.champion`: ≥2 wins, W>L — the only engine card that reaches the Arena by itself) + 🎨 creator's picks. `BATTLE_MAX` = 2
+  (4 cards PvP), `upNext` queue, 🔮 bracket calls (`POST /fuses/bracket/pick`, one per bracket, right = `bracketWins` → weekly quest
+  `bracket_win` 150 XP), champions keep `legs` → 👑 Buy the champion. ⚙ `CardConfig` on every card (fighters, power board, stage) →
+  ⚡ Copy to Fuse Lab with configs (`incoming.cfg` → plan). Playground records → Ready list (`pg_battle.ready_rows`).
+- Runners source chips: empty ones hidden; 🏟 arena = runner coins on fighting cards; 📣 creators = passing coins in published Fuses.
+  🚀 New majors = risers + `fuse.pump_majors` (Pump's top 15 graduated coins by volume).
+
 ## NEXT SESSION — continue here (in this order)
 0000. Owner live test: per-coin ⚙ (card window + Lab), rounds pay/compound, buy & back, Edit in Breed → publish, playground battles,
    profile ⚡ Fuse pop-up. Then flip proven configs to auto.
