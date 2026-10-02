@@ -131,3 +131,28 @@ export function FeeCatTune({ call }) {
     </div>
     <button type="button" className="m-btn primary m-go" disabled={busy || nothing} onClick={tune} data-testid="feecat-tune-go">{nothing ? '✓ Engine already at FeeCat\'s best' : busy ? 'Tuning…' : '🐱 Let FeeCat tune the engine'}</button></section>;
 }
+
+// 🧪 Engine playground overview: every scenario the engines run (strategy runs, bloodline, dial proofs per window, top-tier
+// cards, runner rounds, lit cards), the auto-tune log, and the READY-for-Arena list with the evidence for each.
+export function EnginePlayground({ call }) {
+  const [p, setP] = useState(null);
+  useEffect(() => { let alive = true; const load = () => call('/admin/fuses/playground').then(x => alive && setP(x)).catch(() => {});
+    load(); const t = setInterval(() => !document.hidden && load(), 60000); return () => { alive = false; clearInterval(t); }; }, [call]);
+  if (!p) return <div className="fl-row is-ghost" />;
+  const c = p.counts; const fmt = v => `${v >= 0 ? '+' : ''}${Number(v || 0).toFixed(1)}%`;
+  const tiles = [['🏟 Strategy runs', c.arenaRuns, `${c.settled} settled · ${c.open} live`], ['🧬 Bloodline', c.bloodline, 'saved champions seed new breeds'],
+    ['🎚 Dial scenarios', c.dialScenarios, 'rounds × dials × 6h/24h/72h'], ['🏃 Runner rounds', c.runnerRounds, `${c.litCards} lit cards`], ['⭐ Tier cards', c.tierCards, 'fully auto, paper'], ['📣 Published', c.published, 'on Trade + Arena when staged']];
+  return <section className="m-card m-live fops pg" data-testid="engine-playground">
+    <div className="m-row"><span className="m-label">🧪 ENGINE PLAYGROUND · v.001</span><small className="m-dim">engine dial <b>{p.engineDial}</b> · auto-strength {p.autoTune ? 'on' : 'off'}</small></div>
+    <div className="pg-tiles">{tiles.map(([l, n, sub], i) => <div key={l} className="pg-tile" style={{ '--i': i }}><small>{l}</small><b className="m-num fl-tick" key={n}>{Number(n || 0).toLocaleString()}</b><em>{sub}</em></div>)}</div>
+    <div className="pg-cols">
+      <div className="pg-box is-ready"><header><b>✅ Ready for the Arena</b><small>{p.ready.length}</small></header>{p.ready.length ? p.ready.map((r, i) => <div key={i} className="pg-row"><i>{r.kind}</i><b>{r.name}</b><small>{r.why}</small></div>) : <p className="m-dim">Nothing proven yet — the engines keep testing.</p>}</div>
+      <div className="pg-box"><header><b>⏳ Still proving</b><small>{p.proving.length}</small></header>{p.proving.slice(0, 10).map((r, i) => <div key={i} className="pg-row"><i>{r.kind}</i><b>{r.name}</b><small>{r.why}</small></div>)}</div>
+    </div>
+    <div className="pg-box"><header><b>🎚 Dials across windows</b><small>same dial must win ≥ 2 windows before auto-strength switches</small></header>
+      <table className="vd-table"><thead><tr><th>Dial</th>{Object.keys(p.dials).map(w => <th key={w}>{w}</th>)}</tr></thead><tbody>{Object.keys(Object.values(p.dials)[0] || {}).map(d => <tr key={d}><td>{d}</td>
+        {Object.keys(p.dials).map(w => { const v = p.dials[w][d] || {}; return <td key={w} className={v.avgPct > 0 ? 'm-pos' : v.avgPct < 0 ? 'm-neg' : ''}>{v.rounds ? `${fmt(v.avgPct)} · ${v.rounds}r` : '—'}</td>; })}</tr>)}</tbody></table></div>
+    {p.board.length > 0 && <div className="pg-box"><header><b>🏟 Strategies</b><small>$5 paper runs, settled after 24h</small></header>{p.board.map(r => <div key={r.style} className="pg-row"><b>{r.style}</b><small>{r.runs} runs · {r.winRate}% won</small><em className={r.avgPct >= 0 ? 'm-pos' : 'm-neg'}>{fmt(r.avgPct)}</em></div>)}</div>}
+    {p.autoLog.length > 0 && <div className="pg-box"><header><b>🔧 Engine changes</b><small>auto + manual, newest first</small></header>{p.autoLog.map((a, i) => <div key={i} className="pg-row"><small>{new Date(a.at * 1000).toLocaleString()}</small><b>{a.admin === 'engine-auto' ? '🤖 auto' : '👤'}</b><small>{String(a.detail).slice(0, 110)}</small></div>)}</div>}
+  </section>;
+}

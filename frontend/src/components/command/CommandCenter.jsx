@@ -8,7 +8,7 @@ import { FuseHQ } from '../FuseHQ';
 import { FuseDeck, VaultMath } from '../FuseDeck';
 import { RunnersPanel } from '../RunnersPanel';
 import { BundlePricing, EngineSuggest, RunnerSettings, CardRules, AutoYieldDefault, FusePayouts } from './FuseAdminSettings';
-import { ArenaOps, ContractStatus, EngineDial, FeeCatTune } from './FuseOpsPanels';
+import { ArenaOps, ContractStatus, EngineDial, FeeCatTune, EnginePlayground } from './FuseOpsPanels';
 import { PrimeControls } from '../ArenaPrime';
 import { QuestEngineAdmin } from './QuestEngineAdmin';
 import { LatencyPanel } from './LatencyPanel';
@@ -178,7 +178,7 @@ export function CommandCenter({ address, signMessage, onClose }) {
       ['runners', '🏃 Runners', <RunnersPanel call={call} />, 'Coins come to it: every Pump.fun coin gated, scored and laned (scalp / runner / hold) as it arrives; rounds every 15 min; lights only when paper-proven.', 'LIVE'],
       ['arena', '⚔ Arena', <><FeeCatTune call={call} /><PrimeControls call={call} /><ArenaOps /></>, 'The live stage: battles and their bell, recent results, what kind of cards are up, and this week\'s season race (vs FeeCat).', 'LIVE'],
       ['lab', '🧬 Breed & fuse', <FuseLab call={call} />, 'Build mega cards: up to 12 legs (pools, runners or any mix), load a champion, preview it, one-click it with no FEELESS fee, publish it or stage it on the Arena.', 'BUILD'],
-      ['pub', '🧪 Engine playground', <FuseBuilder call={call} />, 'Fuses traders see on Trade and in chat (/fuse). Set the creator cut; self-buys and bots never earn it.', 'BUILD'],
+      ['pub', '🧪 Engine playground', <><EnginePlayground call={call} /><FuseBuilder call={call} /></>, 'Fuses traders see on Trade and in chat (/fuse). Set the creator cut; self-buys and bots never earn it.', 'BUILD'],
       ['hq', '💰 HQ · P&L', <FuseHQ call={call} />, 'Real money: every verified Fuse in, live. Arena = $5 runs that prove a strategy before you trust it.', 'MONEY'],
       ['payouts', '💸 Payouts', <FusePayouts call={call} />, 'Weekly Fee-Back / copy / creator payouts: plan frozen at today\'s SOL price, ONE approval from the fee wallet, credited only from verified transfers.', 'MONEY'],
       ['rules', '🃏 Card rules', <><CardRules call={call} /><AutoYieldDefault call={call} /></>, 'What traders can pick: auto-profit levels, hold/swap, Arena tiers, Fee-Back + copy cuts, and the default 💸 auto-collect.', 'MONEY'],

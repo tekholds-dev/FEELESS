@@ -36,3 +36,15 @@ test('FeeCat tunes the engine in one click: best proven dial + stronger settings
   const posts = call.mock.calls.filter(c => c[1]).map(c => JSON.parse(c[1].body));
   expect(posts).toEqual([{ dial: 'degen' }, { cfg: { minBuyShare: 55 } }]);
 });
+
+test('engine playground: scenario counts, ready-for-Arena list with evidence, dials across windows', async () => {
+  const { EnginePlayground } = require('./FuseOpsPanels');
+  const call = jest.fn(async () => ({ counts: { arenaRuns: 42, settled: 30, open: 12, bloodline: 5, dialScenarios: 540, runnerRounds: 60, litCards: 4, tierCards: 5, published: 2 },
+    ready: [{ kind: 'dial', name: 'degen', why: '6h +3.0% · 24h +2.3%' }], proving: [{ kind: 'strategy', name: 'steady', why: 'needs 2 more runs' }],
+    dials: { '6h': { degen: { rounds: 10, avgPct: 3 } }, '24h': { degen: { rounds: 60, avgPct: 2.3 } } }, board: [], autoLog: [], engineDial: 'degen', autoTune: true }));
+  const { createRoot } = require('react-dom/client'); const { act } = require('react');
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<EnginePlayground call={call} />); });
+  expect(el.textContent).toContain('540'); expect(el.textContent).toContain('Ready for the Arena'); expect(el.textContent).toContain('6h +3.0%');
+  expect(el.textContent).toContain('needs 2 more runs'); expect(el.textContent).toContain('+2.3% · 60r');
+});

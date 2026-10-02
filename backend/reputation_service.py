@@ -4955,6 +4955,27 @@ async def runners_autotune(request: Request):
     return {'autoTune': on}
 
 
+
+@app.get('/api/reputation/admin/fuses/playground')
+async def fuse_playground(request: Request):
+    """🧪 Engine playground: every scenario the engines are testing — strategy runs, bloodline, dial proofs over 6h/24h/72h,
+    top-tier cards, runner rounds + lit cards, auto-tune log — and what's proven + ready for the Arena."""
+    _require_admin(request)
+    now = time.time()
+    d = _json_load(FUSE_HQ_PATH, {}); rd = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
+    vals = [_hq.arena_value(e, {}, now) for e in d.get('arena') or []]
+    board = _hq.arena_board(vals)
+    dials = {w: _rn.dial_proof(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS, window=sec) for w, sec in _rn.PROOF_WINDOWS.items()}
+    prime = await _prime_view()
+    auto = [a for a in (_admin_load().get('audit') or []) if a.get('action') in ('runners-config', 'runners-autotune', 'arena-prime')][-12:][::-1]
+    return {'counts': {'arenaRuns': len(vals), 'settled': sum(1 for v in vals if v.get('settled')), 'open': sum(1 for v in vals if not v.get('settled')),
+                       'bloodline': len(d.get('bloodline') or []), 'runnerRounds': len(rd.get('rounds') or []), 'litCards': len(rd.get('litCards') or []),
+                       'dialScenarios': sum(p.get('rounds', 0) for proof in dials.values() for p in proof.values()), 'tierCards': len(prime),
+                       'published': len(_json_load(FUSES_PATH, {'fuses': {}})['fuses'])},
+            'board': board, 'dials': dials, 'bloodline': (d.get('bloodline') or [])[-12:][::-1], 'prime': [{k: c.get(k) for k in ('label', 'tier', 'pnlPct', 'lowPct', 'goodDays', 'loggedDays')} for c in prime],
+            'autoLog': auto, 'engineDial': rd.get('cfgDial') or 'custom', 'autoTune': rd.get('autoTune') is not False,
+            **_hq.playground_ready(board, dials, prime)}
+
 @app.get('/api/reputation/admin/runners/config')
 async def runners_cfg_get(request: Request):
     _require_admin(request)

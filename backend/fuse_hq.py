@@ -747,3 +747,28 @@ def feecat_weekly(dial, tuned, beat, cat_pct):
     you = 'one of your cards beat her 🏆' if beat else 'she beat your cards this time — see why on the Arena'
     t = f" · {tuned} engine setting{'s' if tuned != 1 else ''} tuned" if tuned else ''
     return f"🐱 FeeCat's week: engine on the {dial or 'custom'} dial{t} · {her} · {you}."
+
+
+def playground_ready(board, dials_by_window, prime, min_settled=None):
+    """🧪 Engine playground — what's PROVEN and ready for the Arena stage:
+      • strategies with ≥ MIN_SETTLED settled $5 runs and avg > 0,
+      • engine dials that win in ≥ 2 proof windows (avg > 0, ≥ 8 rounds),
+      • top-tier cards up ≥ +10% with a worst drawdown above −15%.
+    Everything else is listed as 'still proving' with what it needs. Pure."""
+    need = min_settled or MIN_SETTLED
+    ready, proving = [], []
+    for r in board or []:
+        (ready if r['runs'] >= need and r['avgPct'] > 0 else proving).append(
+            {'kind': 'strategy', 'name': r['style'], 'why': f"{r['runs']} runs · avg {r['avgPct']:+.1f}% · {r['winRate']}% won" + ('' if r['runs'] >= need else f" · needs {need - r['runs']} more runs")})
+    wins = {}
+    for w, proof in (dials_by_window or {}).items():
+        for d, p in (proof or {}).items():
+            if p.get('rounds', 0) >= 8 and p.get('avgPct', 0) > 0:
+                wins.setdefault(d, []).append(f"{w} {p['avgPct']:+.1f}%")
+    for d in {d for proof in (dials_by_window or {}).values() for d in (proof or {})}:
+        w = wins.get(d, [])
+        (ready if len(w) >= 2 else proving).append({'kind': 'dial', 'name': d, 'why': ' · '.join(w) or 'not positive in any window yet'})
+    for c in prime or []:
+        ok = _f(c.get('pnlPct')) >= 10 and _f(c.get('lowPct')) > -15
+        (ready if ok else proving).append({'kind': 'tier card', 'name': c.get('label'), 'why': f"{_f(c.get('pnlPct')):+.1f}% · worst {_f(c.get('lowPct')):.1f}%" + ('' if ok else ' · needs +10% with worst above −15%')})
+    return {'ready': ready, 'proving': proving}

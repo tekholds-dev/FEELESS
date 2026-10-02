@@ -175,3 +175,13 @@ def test_card_rotation_interval_and_park_buyback():
     assert hq._extras({}) == {'rotateHours': 24, 'slMode': 'sell'}
     assert hq.buyback_due({'entry': 1.0}, 1.02, {'buyShare': 60, 'chg1h': 3}) and not hq.buyback_due({'entry': 1.0}, 0.9, {'buyShare': 60})
     assert not hq.buyback_due({'entry': 1.0}, 1.1, {'buyShare': 40, 'chg1h': -2})
+
+
+def test_playground_lists_what_is_ready_for_the_arena():
+    board = [{'style': 'degen', 'runs': 5, 'avgPct': 4.2, 'winRate': 60}, {'style': 'steady', 'runs': 1, 'avgPct': 2, 'winRate': 100}]
+    dials = {'6h': {'degen': {'rounds': 10, 'avgPct': 3}, 'safe': {'rounds': 10, 'avgPct': -2}}, '24h': {'degen': {'rounds': 30, 'avgPct': 2}, 'safe': {'rounds': 30, 'avgPct': -1}}}
+    prime = [{'label': 'Gold', 'pnlPct': 13, 'lowPct': -3}, {'label': 'Blaze', 'pnlPct': -6, 'lowPct': -14}]
+    out = hq.playground_ready(board, dials, prime, min_settled=3)
+    ready = {(r['kind'], r['name']) for r in out['ready']}
+    assert ready == {('strategy', 'degen'), ('dial', 'degen'), ('tier card', 'Gold')}
+    assert any(p['name'] == 'steady' and 'needs 2 more' in p['why'] for p in out['proving'])
