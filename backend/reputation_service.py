@@ -2977,7 +2977,7 @@ async def fuse_position(p: FusePositionIn):
             pos['backKey'] = p.back
         _json_save(FUSE_HQ_PATH, d)
     # AFTER notice (inbox + phone): the card is recorded. Never P&L here — numbers live in Fuse › My cards / the profile.
-    notify(me, 'fuse-card', f"🧬 Card opened: {len(legs)} coin{'s' if len(legs) != 1 else ''} ({', '.join('$' + (leg.get('symbol') or '?') for leg in legs[:4])}){' · ' + _hq.RISK_DIALS[pos['risk']]['label'] if pos.get('risk') in _hq.RISK_DIALS else ''}. Receipt + live P&L in My cards.",
+    notify(me, 'fuse-card', f"🧬 Card bought in one approval: {pos['name']} — {', '.join('$' + (leg.get('symbol') or '?') for leg in legs[:4])}{f' +{len(legs) - 4}' if len(legs) > 4 else ''}{' · ' + _hq.RISK_DIALS[pos['risk']]['label'] if pos.get('risk') in _hq.RISK_DIALS else ''}. Receipt + live P&L in My cards.",
            url=f"/terminal/fuse?tab=cards&card={pos['id']}", once=f"card-open-{pos['id']}", meta={'claim': 'Confirmed FEELESS buys from your wallet', 'source': 'Fuse cards'})
     return {'ok': True, 'counted': True, 'legs': len(legs)}
 

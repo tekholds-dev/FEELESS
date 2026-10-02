@@ -492,14 +492,17 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🐱 FeeCat fresh lane reads creator rep (`creator_adjust` via `/edge` runner.creatorRep): clean ×1.25 + cited, suspect/high → out.
 - Cmd Ctr › Fuse deck v2: 🗺 Overview first (grouped live tiles → panel), compact rail (blurbs on hover).
 
+- ⚔ Playground battles (`backend/pg_battle.py`, `_pg_battle_tick` ~50s, `GET|POST /admin/fuses/pg-battles`, `PlaygroundBattles`): Cmd Ctr
+  ONLY, separate from the Arena. Best scenario cards fight paper rounds (5/15/30/60m) with real fills; TP / stop / dead (no 5m trades
+  or volume for deadMins) coins swap for the best gated runner; bell → winners keep coins, losers re-bred; records; ⭐ publish winner.
+- Profile: `MyBattles` (`GET /fuses/battles/{addr}`, battleLog keeps aKey/bKey) + "⚡ Fuse a card" `FusePopup` (Lab in a blurred pop-up).
+- Lab: `CardPlan` is its own side card (`.fl-plancol`) beside the coins; per-coin `CoinExtras` (❄ freeze, ⇄ clock, stop mode) →
+  `plan.coins` → `fuse_hq.coin_extras` → card `frozen` / `coinRotate` / `coinModes`. FeeCat Cat detail v2 (`.fc-v2` chart/controls).
+- Card-open notice reads as ONE card buy ("Card bought in one approval: name — $A, $B …").
+
 ## NEXT SESSION — continue here (in this order)
-0000. Owner asks (do first): (a) Profile + activity: "⚡ Fuse" button → centered pop-up over a blurred page (reuse `.ce.is-pop` shade)
-   with the Lab's quick fuse (3 pools / runners, FuseGo one approval). (b) Engine playground cards PvP inside Cmd Ctr: paper battles
-   on 5-min rounds (`battle_seats` style, paper = real fills), winner's config kept / loser re-bred; auto-swap a coin on TP or when it
-   goes dead (no txns / volume for N min). (c) FeeCat pages full rundown (Cat detail: P/L trace, owner controls, withdraw, access —
-   `FeeCatsPlatform` CatDetail) to the `.fc-v2` meta look.
-   (d) Lab: Card plan as a BIG side card left of the coin list (all configs in one view: risk, reshuffle, stop mode, per-coin TP/SL).
-   Then: owner live test of per-coin ⚙, rounds pay/compound, buy & back, Edit in Breed → publish.
+0000. Owner live test: per-coin ⚙ (card window + Lab), rounds pay/compound, buy & back, Edit in Breed → publish, playground battles,
+   profile ⚡ Fuse pop-up. Then flip proven configs to auto.
 000. Owner asks open: Cmd Ctr › Fuse FULL layout redo (fit every panel; grouped rail is there, needs a real dashboard layout);
    FeeCat fresh-launch lane + clean-creator boost (site + X already required); card buy = ONE approval for every coin (FuseGo) but the
    receipt/notice should read as ONE card buy, not "5 coins"; one combined on-chain card contract = fuse_card program (localnet, audit first).

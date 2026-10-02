@@ -120,7 +120,7 @@ def test_plan_from_the_lab_lands_on_the_card_and_coin_tp_alerts_once(rs, monkeyp
     pos = rs._json_load(rs.FUSE_HQ_PATH, {})['positions'][0]
     assert pos['mode'] == 'swap' and pos['onProfit'] == 'compound' and pos['autoYield']['at'] == 100 and pos['legGuard']['P1']['tp'] == 25
     d = rs._json_load(rs.FUSE_HQ_PATH, {})
-    assert asyncio.run(rs._fuse_leg_tick(d, 10)) == 1 and 'legs=P1' in sent[-1][1]['url'] and 'Card opened' in sent[0][0][2]          # $150 = +50% ≥ +25%
+    assert asyncio.run(rs._fuse_leg_tick(d, 10)) == 1 and 'legs=P1' in sent[-1][1]['url'] and 'Card bought in one approval' in sent[0][0][2]          # $150 = +50% ≥ +25%
     assert asyncio.run(rs._fuse_leg_tick(rs._json_load(rs.FUSE_HQ_PATH, {}), 20)) == 0           # once
     out = asyncio.run(rs.fuse_plan(rs.FusePlanIn(address=me, session='s', id=pos['id'], plan={'legs': {'P1': {'sl': 20}}, 'onProfit': 'collect'})))
     assert out['plan']['legs'] == {'P1': {'tp': None, 'sl': 20.0}} and rs._json_load(rs.FUSE_HQ_PATH, {})['positions'][0]['legGuard']['P1']['firedAt'] is None
