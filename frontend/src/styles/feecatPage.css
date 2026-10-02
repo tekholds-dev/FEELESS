@@ -40,3 +40,30 @@ body.theme-day .fc-v2 .paper-panel, body.theme-day .fc-v2 .paper-stat-grid > div
 body.theme-day .fc-v2 .paper-platform-tabs button.active { background: #0b7a4a; color: #fff; } body.theme-day .fc-v2 .paper-leaderboard-tabs button.active { background: #0b7a4a; color: #fff; }
 body.theme-day .fc-v2 .paper-event p, body.theme-day .fc-v2 .paper-stat-grid span { color: #4b5a52; }
 @media (max-width: 640px) { .fc-v2 .paper-platform-head h1 { font-size: 30px; } .fc-v2 .paper-platform-tabs { display: flex; } .fc-v2 .paper-stat-grid { grid-template-columns: 1fr 1fr; padding: 0 10px; } .fc-v2 .paper-stat-grid strong { font-size: 18px; } }
+
+/* 🐱 Cat detail v2: hero, live P/L trace (area + pulsing last point), readable controls, withdraw + access cards */
+.fc-v2 .paper-cat-hero { border-radius: 16px; border-color: var(--m-line); background: var(--m-surface); padding: 20px 22px; }
+.fc-v2 .paper-cat-identity h1 { font-size: 32px; } .fc-v2 .paper-cat-identity p { font-size: 13px; color: var(--m-dim); }
+.fc-v2 .paper-wallet-address { font-size: 11px; } .fc-v2 .paper-cat-actions button { font-size: 12px; min-height: 38px; }
+.fc-v2 .paper-detail-avatar { animation: fcpFloat 4s ease-in-out infinite; box-shadow: 0 0 0 2px var(--m-accent), 0 0 26px #19f58f44; }
+.paper-chart-wrap { position: relative; display: block; color: var(--m-accent); } .paper-chart-wrap.is-down { color: #ff8fa3; }
+.fc-v2 .paper-pnl-chart { height: 220px; animation: fcpIn .5s var(--m-ease, ease-out) both; }
+.fc-v2 .paper-pnl-chart polyline { stroke: currentColor; stroke-width: 2; }
+.paper-chart-dot { position: absolute; right: 18px; width: 9px; height: 9px; margin: -4px -4px 0 0; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; animation: fcpPulse 1.6s ease-in-out infinite; }
+.fc-v2 .paper-chart-labels { font-size: 10px; } .fc-v2 .paper-chart-labels strong { font-size: 15px; }
+.fc-v2 .paper-position b { font-size: 13px; } .fc-v2 .paper-position small { font-size: 10px; } .fc-v2 .paper-position strong, .fc-v2 .paper-position > span { font-size: 12px; }
+.fc-v2 .paper-position { transition: background .15s; } .fc-v2 .paper-position:hover { background: color-mix(in srgb, var(--m-accent) 5%, transparent); }
+.fc-v2 .paper-controls label { font-size: 12px; } .fc-v2 .paper-controls label small { font-size: 10.5px; }
+.fc-v2 .paper-controls input, .fc-v2 .paper-controls select, .fc-v2 .paper-withdraw input { font-size: 13px; border-radius: 10px; border-color: var(--m-line); background: var(--m-bg); transition: border-color .15s, box-shadow .15s; }
+.fc-v2 .paper-controls input:focus, .fc-v2 .paper-withdraw input:focus { border-color: var(--m-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--m-accent) 20%, transparent); outline: none; }
+.fc-v2 .paper-controls form > button, .fc-v2 .paper-withdraw .btn-primary, .fc-v2 .paper-danger .btn-outline { font-size: 12px; min-height: 38px; border-radius: 10px; }
+.fc-v2 .paper-brain-summary { border-radius: 12px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--m-accent) 25%, transparent) inset, 0 14px 30px -24px var(--m-accent); }
+.fc-v2 .paper-safety-row { font-size: 11.5px; } .fc-v2 .paper-safety-row small { font-size: 10.5px; }
+.fc-v2 .paper-withdraw h2, .fc-v2 .paper-danger h2 { font-size: 18px; } .fc-v2 .paper-withdraw p, .fc-v2 .paper-danger p { font-size: 12px; }
+.fc-v2 .paper-withdraw, .fc-v2 .paper-danger { border-radius: 16px; } .fc-v2 .paper-disclosure { font-size: 11px; }
+@keyframes fcpPulse { 50% { opacity: .35; } }
+body.fx-lite .fc-v2 .paper-detail-avatar, body.fx-lite .fc-v2 .paper-pnl-chart, body.fx-lite .paper-chart-dot { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fc-v2 .paper-detail-avatar, .fc-v2 .paper-pnl-chart, .paper-chart-dot { animation: none; } }
+body.theme-day .fc-v2 .paper-cat-hero, body.theme-day .fc-v2 .paper-controls input, body.theme-day .fc-v2 .paper-withdraw input { background: #fff; border-color: #d8e2dc; }
+body.theme-day .paper-chart-wrap { color: #0b7a4a; } body.theme-day .paper-chart-wrap.is-down { color: #c0123f; }
+@media (max-width: 640px) { .fc-v2 .paper-cat-identity h1 { font-size: 24px; } .fc-v2 .paper-pnl-chart { height: 160px; } }
