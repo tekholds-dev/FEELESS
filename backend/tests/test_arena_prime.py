@@ -8,7 +8,8 @@ C = lambda m, px, sym=None, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': s
 P = lambda m, px: C(m, px, liquidityUsd=2e6, volume24h=2e6)             # 5★ pool
 R = lambda m, px, sc=90: C(m, px, score=sc)                                 # 5★ runner by default
 SOL = [C('sol', 1, 'SOL'), C('jito', 1, 'JitoSOL')]
-CFG = ap.clean_cfg({})
+CFG = ap.clean_cfg({'cycles': {'safe': 'off', 'balanced': 'off', 'degen': 'classic', 'next': 'classic', 'ever': 'off'},   # the original tier behaviour
+                    'payouts': {'safe': 0, 'balanced': 0, 'degen': 0, 'next': 0, 'ever': 0}, 'compoundStyle': 'even'})
 
 
 def test_stars_and_only_3_star_coins_get_in():
@@ -144,7 +145,7 @@ def test_cmd_ctr_replaces_one_coin_with_best_same_role():
 
 
 def test_floored_card_redeals_on_the_rotation_clock_from_arena_coins_first():
-    cfg = ap.clean_cfg({'rotateHours': 1})
+    cfg = ap.clean_cfg({'rotateHours': 1, 'cycles': CFG['cycles'], 'payouts': CFG['payouts']})
     card = ap.deal('balanced', [P('a', 1)], [R('r1', 1)], cfg, 0, SOL)
     out = ap.tick(card, {'Psol': 0.78, 'Pjito': 0.78, 'Pa': 0.78, 'Pr1': 0.78}, [], [], cfg, 60, SOL)
     assert out.get('flooredAt') == 60
@@ -172,7 +173,7 @@ def test_service_tags_arena_coins_for_rotation(monkeypatch):
 
 
 def test_rounds_count_and_the_best_card_of_each_round_is_crowned():
-    cfg = ap.clean_cfg({'rotateHours': 1})
+    cfg = ap.clean_cfg({'rotateHours': 1, 'cycles': CFG['cycles'], 'payouts': CFG['payouts']})
     a = ap.deal('balanced', [P('a', 1)], [R('r1', 1)], cfg, 0, SOL); b = ap.deal('degen', [P('a', 1)], [R('r1', 1)], cfg, 0, SOL)
     up = {'Psol': 1.1, 'Pjito': 1.1, 'Pa': 1.1, 'Pr1': 1.1}; flat = {'Psol': 1, 'Pjito': 1, 'Pa': 1, 'Pr1': 1}
     a2 = ap.tick(a, up, [], [], cfg, 3601, SOL); b2 = ap.tick(b, flat, [], [], cfg, 3601, SOL)
@@ -183,7 +184,7 @@ def test_rounds_count_and_the_best_card_of_each_round_is_crowned():
 
 
 def test_cycling_tiers_move_through_anchor_degen_anchor_mixed_rounds():
-    cfg = ap.clean_cfg({'rotateHours': 1})
+    cfg = ap.clean_cfg({'rotateHours': 1, 'cycles': CFG['cycles'], 'payouts': CFG['payouts']})
     maj = [C('sol', 1, 'SOL'), C('btc', 1, 'cbBTC')]
     runners = [R('r1', 1), R('r2', 1), R('r3', 1)]
     flat = {'Psol': 1, 'Pbtc': 1, 'Pa': 1, 'Pr1': 1, 'Pr2': 1, 'Pr3': 1}
@@ -221,7 +222,7 @@ def test_round_cycles_per_tier_and_trailing_lock():
     assert ap.next_phase('adaptive', 0, -2) == 'anchor' and ap.next_phase('adaptive', 0, 8) == 'degen' and ap.next_phase('adaptive', 0, 1) == 'mixed'
     assert ap.next_phase('safe', 1, 0) == 'mixed' and ap.next_phase('press', 0, 0) == 'degen'
     c = ap.clean_cfg({'cycles': {'safe': 'adaptive', 'next': 'bogus'}})
-    assert c['cycles']['safe'] == 'adaptive' and c['cycles']['next'] == 'classic' and c['trail'] is True
+    assert c['cycles']['safe'] == 'adaptive' and c['cycles']['next'] == 'press' and c['trail'] is True
 
 
 def test_trailing_lock_sells_a_runner_that_gives_back_a_50pct_run():
@@ -232,3 +233,17 @@ def test_trailing_lock_sells_a_runner_that_gives_back_a_50pct_run():
     assert 'r1' not in [l['mint'] for l in back['legs']] and 'locked before it turned red' in back['events'][-1]['why']
     off = ap.tick(up, {'Psol': 1, 'Pa': 1, 'Pr1': 1.04, 'Pr2': 1}, [], [R('r9', 1)], {**CFG, 'trail': False}, 60, SOL)
     assert 'r1' in [l['mint'] for l in off['legs']]
+
+
+
+def test_tier_dna_payout_goes_to_the_wallet_and_smart_compound_skips_fading_coins():
+    cfg = ap.clean_cfg({'payouts': {'degen': 50}, 'compoundStyle': 'smart', 'cycles': {'degen': 'off'}})
+    assert len(set(ap.DEFAULT_CYCLES.values())) == len(ap.DEFAULT_CYCLES)                       # every tier cycles its own way
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], cfg, 0, SOL[:1])
+    px = {'Psol': 1, 'Pa': 1, 'Pr1': 2.2, 'Pr2': 1}                                              # r1 +120% ≥ TP 100
+    mom = {'Pr1': {'chg1h': 30, 'buyShare': 70}, 'Pa': {'chg1h': -9, 'buyShare': 35}, 'Psol': {'chg1h': 2, 'buyShare': 55}, 'Pr2': {'chg1h': 5, 'buyShare': 60}}
+    out = ap.tick(card, px, [], [], cfg, 30, SOL, mom)
+    assert out['walletUsd'] > 0 and any(e['kind'] == 'payout' for e in out['events'])
+    tp = [e for e in out['events'] if e['kind'] == 'tp'][-1]
+    assert 'A' not in tp['to'] and 'smart compound' in tp['why']                                  # fading pool gets nothing
+    assert abs(ap.value(out, px) - (ap.value(card, px) - 0)) < 5                                  # paid-out $ still counts for the owner

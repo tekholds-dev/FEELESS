@@ -38,7 +38,8 @@ CYCLE_TIERS = ('degen', 'next')
 # adaptive = a LOSING round rests in majors, a winning one (≥ +5%) presses with runners, flat = mixed · safe = anchor⇄mixed ·
 # press = degen⇄mixed. Every phase change is the same run (P&L continues).
 CYCLE_MODES = {'off': None, 'classic': CYCLE, 'adaptive': 'adaptive', 'safe': ('anchor', 'mixed'), 'press': ('degen', 'mixed')}
-DEFAULT_CYCLES = {'safe': 'off', 'balanced': 'off', 'degen': 'classic', 'next': 'classic', 'ever': 'off'}
+DEFAULT_CYCLES = {'safe': 'safe', 'balanced': 'adaptive', 'degen': 'classic', 'next': 'press', 'ever': 'off'}   # every tier cycles its own way
+DEFAULT_PAYOUTS = {'safe': 25, 'balanced': 50, 'degen': 0, 'next': 25, 'ever': 75}   # % of every profit take paid straight to the wallet
 TRAIL_AT, TRAIL_KEEP = 50.0, 5.0   # 🔒 a coin that ran ≥ +50% is sold before it gives it all back (≤ +5% left) — winners never turn into losers
 
 
@@ -52,7 +53,7 @@ def next_phase(mode, rounds, last_pct):
     return seq[int(rounds or 0) % len(seq)]
 HIT_PCT = 10.0      # a "good day" = the card is up ≥ +10% over 24h
 DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.10, 'floorPct': 20.0, 'slMode': 'replace',
-               'cycles': dict(DEFAULT_CYCLES), 'trail': True}
+               'cycles': dict(DEFAULT_CYCLES), 'trail': True, 'payouts': dict(DEFAULT_PAYOUTS), 'compoundStyle': 'smart'}
 SL_MODES = ('replace', 'park', 'hold')   # on a stop: auto-replace · sell + park the slot (rebuy at entry with momentum) · hold
 CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.08, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 25)}
 
@@ -102,6 +103,9 @@ def rated(cands, role):
     return sorted((c for c in out if c['stars'] >= MIN_STARS), key=lambda c: (not c.get('arena'), -c['stars']))
 
 
+import card_dna as _dna
+
+
 def _f(v):
     try:
         x = float(v)
@@ -125,6 +129,9 @@ def clean_cfg(p):
     out['cycles'] = {t: (cyc.get(t) if cyc.get(t) in CYCLE_MODES else DEFAULT_CYCLES.get(t, 'off')) for t in DEFAULT_CYCLES}
     if 'trail' in (p or {}):
         out['trail'] = bool(p['trail'])
+    pay = (p or {}).get('payouts') if isinstance((p or {}).get('payouts'), dict) else {}
+    out['payouts'] = {t: (int(pay[t]) if pay.get(t) in _dna.PAYOUTS else DEFAULT_PAYOUTS[t]) for t in DEFAULT_PAYOUTS}
+    out['compoundStyle'] = (p or {}).get('compoundStyle') if (p or {}).get('compoundStyle') in ('smart', 'even') else 'smart'
     return out
 
 
@@ -184,7 +191,8 @@ def deal(tid, pools, runners, cfg, now, anchors=(), usd=None, keep=None, shape=N
 
 
 def value(card, prices):
-    v = sum(l['units'] * (_f(prices.get(l['pairAddress'])) or l['entry']) for l in card['legs']) + card['cash'] + sum(_f(p['usd']) for p in (card.get('parked') or {}).values())
+    # what the card is worth to its owner: coins + cash + parked SOL + what it already paid out to the wallet (never hidden)
+    v = sum(l['units'] * (_f(prices.get(l['pairAddress'])) or l['entry']) for l in card['legs']) + card['cash'] + sum(_f(p['usd']) for p in (card.get('parked') or {}).values()) + _f(card.get('walletUsd'))
     return round(v, 4)
 
 
@@ -229,16 +237,25 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             c['takenUsd'] += gain
             others = [o for o in c['legs'] if o is not l and _f(prices.get(o['pairAddress'])) > 0]
             label = f"+{g:.0f}% ≥ +{t['tp']}% · {why}"
-            if cfg['compound'] and others:
-                each = gain / len(others)
-                for o in others:
+            # 🧬 profit split (tier DNA): payoutPct → straight to the owner's wallet, the rest compounds — smart = into the strongest coins
+            dna = {'payoutPct': (cfg.get('payouts') or DEFAULT_PAYOUTS).get(card['tpl'], 0), 'compound': cfg.get('compoundStyle', 'smart') if cfg['compound'] else 'off'}
+            out_usd, back_usd = _dna.split_profit(gain, dna)
+            if out_usd > 0:
+                c['walletUsd'] = round(_f(c.get('walletUsd')) + out_usd, 6)
+                ev(kind='payout', symbol=l['symbol'], usd=round(out_usd, 4), why=f"{dna['payoutPct']}% of the take → owner's wallet", to=['wallet'])
+            if back_usd > 0 and others:
+                wts = _dna.compound_weights(others, mom) if dna['compound'] == 'smart' else {o['pairAddress']: 1 / len(others) for o in others}
+                into = [o for o in others if wts.get(o['pairAddress'])]
+                for o in into:
+                    each = back_usd * wts[o['pairAddress']]
                     opx = buy_px(_f(prices.get(o['pairAddress'])), each, liqs.get(o['pairAddress']) or o.get('liq'))
                     o['units'] += each / opx; o['costUsd'] += each
-                c['compoundedUsd'] += gain; c['feesUsd'] += fee * len(others)
-                ev(kind='tp', symbol=l['symbol'], usd=round(gain, 4), why=label, mode=mode, to=[o['symbol'] for o in others])
-            else:
-                c['cash'] += gain
-                ev(kind='tp', symbol=l['symbol'], usd=round(gain, 4), why=label, mode=mode, to=['cash'])
+                c['compoundedUsd'] += back_usd; c['feesUsd'] += fee * len(into)
+                ev(kind='tp', symbol=l['symbol'], usd=round(back_usd, 4), why=label + (' · 🧲 smart compound' if dna['compound'] == 'smart' else ''), mode=mode, to=[o['symbol'] for o in into])
+            elif back_usd > 0 or (gain > 0 and dna['compound'] == 'off' and out_usd < gain):
+                rest = gain - out_usd
+                c['cash'] += rest
+                ev(kind='tp', symbol=l['symbol'], usd=round(rest, 4), why=label, mode=mode, to=['cash'])
     # 2) stop-loss (sl 0 = never stopped) — what happens follows cfg slMode:
     #    replace → sold and swapped at once for the best gated coin of the same role
     #    park    → sold to cash, the SLOT is kept; bought back when price is back at the stop-out entry with momentum
@@ -345,7 +362,7 @@ def summary(card, prices):
              'firstEntry': l.get('firstEntry') or l['entry'], 'at': l.get('at'), 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,
              'usd': round(l['units'] * (_f(prices.get(l['pairAddress'])) or l['entry']), 4)} for l in card['legs']]
-    return {**{k: card[k] for k in ('id', 'tpl', 'label', 'at', 'lastRotateAt', 'compoundedUsd', 'takenUsd', 'feesUsd', 'startUsd')}, 'cash': round(card['cash'], 4),
+    return {**{k: card[k] for k in ('id', 'tpl', 'label', 'at', 'lastRotateAt', 'compoundedUsd', 'takenUsd', 'feesUsd', 'startUsd')}, 'cash': round(card['cash'], 4), 'walletUsd': round(_f(card.get('walletUsd')), 4),
             'flooredAt': card.get('flooredAt'), 'phase': card.get('phase'), 'cycle': list(CYCLE) if card['tpl'] in CYCLE_TIERS else None, 'rounds': int(card.get('rounds') or 0), 'lastRoundPct': card.get('lastRoundPct'),
             'roundPct': round((v / (_f(card.get('roundStartUsd')) or start) - 1) * 100, 2), 'roundWins': int(card.get('roundWins') or 0),
             'valueUsd': v, 'pnlPct': round((v / start - 1) * 100, 2), 'legs': legs, 'events': card['events'][-12:][::-1],

@@ -23,7 +23,7 @@ export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fe
       <header><span className="m-label">📜 WHERE THE PROFIT WENT{paper ? ' · PAPER' : ''}</span><h3>{title}</h3><button type="button" className="cx-x" onClick={onClose} aria-label="Close">×</button>
         <ShareGifButton className="m-btn ce-share" label="🎞 Share" card={share} /></header>
       <div className="ce-sum">
-        <div data-tip="Taken out by take-profits / collects — it's SOL in the wallet now"><small>TAKEN OUT</small><b className="m-num m-pos">{$(taken)}</b><em>{paper ? 'to cash' : 'in your wallet'}</em></div>
+        <div data-tip="Taken out by take-profits / collects — it's SOL in the wallet now"><small>TAKEN OUT</small><b className="m-num m-pos">{$(taken)}</b><em>{paper ? "to the owner's wallet" : 'in your wallet'}</em></div>
         <div data-tip="Gains rolled back into the card's coins"><small>COMPOUNDED</small><b className="m-num">{$(compounded)}</b><em>back into the card</em></div>
         {fees != null && <div data-tip="FEELESS + network fees on every buy / sell — tracked apart, never mixed into P&L"><small>FEES (APART)</small><b className="m-num m-dim">{$(fees)}</b><em>not in P&L</em></div>}
       </div>
