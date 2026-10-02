@@ -598,9 +598,15 @@ def beats_cat(board, cat_pct):
     return [] if cat_pct is None else [b['id'] for b in board if _f(b.get('pnlPct')) > _f(cat_pct)]
 
 
-def copy_cut(copier_fees_usd, rules):
-    """Copy cards: the original card's owner earns copyPct of the FEELESS fees the copier paid (not an extra cost)."""
-    return round(_f(copier_fees_usd) * clean_rules(rules)['copyPct'] / 100, 6)
+CHAMP_MULT = 2   # 👑 champion's share: a copy bought via "Buy the champion" pays the champion's owner double the copy cut (≤ 50%)
+COMEBACK_PTS = 13.4   # 🔥 a battle won after trailing by ≥ this many points (HP under 20) is a comeback
+
+
+def copy_cut(copier_fees_usd, rules, champ=False):
+    """Copy cards: the original card's owner earns copyPct of the FEELESS fees the copier paid (not an extra cost); a bracket
+    champion's owner earns double (capped at 50%) on copies bought through 👑 Buy the champion."""
+    pct = clean_rules(rules)['copyPct'] * (CHAMP_MULT if champ else 1)
+    return round(_f(copier_fees_usd) * min(50.0, pct) / 100, 6)
 
 
 # ---- Card plan (set in the Lab before Fuse in, editable on My cards): per-coin TP / SL, auto-profit level, collect vs compound,

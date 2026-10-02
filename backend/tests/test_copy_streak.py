@@ -306,3 +306,21 @@ def test_bracket_call_once_and_the_right_call_earns_xp(rs, monkeypatch):
     assert len(d['bracketWins'][A]) == 1 and d['bracket']['picks'] == {} and d['bracket']['champions'][-1]['legs'][0]['pairAddress'] == 'PX'
     assert any('You called it' in a[2] for a in sent)
     assert len(rs._fuse_quest_stats({A})['events']['bracket_win']) == 1
+
+
+def test_comeback_is_tracked_and_crowned(rs, monkeypatch):
+    now = time.time()
+    chat = []; monkeypatch.setattr(rs, 'notify', lambda *a, **k: None); monkeypatch.setattr(rs, '_fuse_chat', lambda room, txt, *a, **k: chat.append(txt))
+    mega = [{'kind': 'user', 'id': 'x', 'name': 'X', 'index': 100, 'activity': {'score': 80}, 'legs': [{'pairAddress': 'PX'}]},
+            {'kind': 'lit', 'id': 'y', 'name': 'Y', 'index': 115, 'activity': {'score': 60}, 'legs': [{'pairAddress': 'PY'}]}]
+    rs._arena_mega_cache.update(at=now, data=mega)
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [], 'battles': {'at': 1, 'endsAt': now + 60, 'pairs': [{'a': {'key': 'user:x', 'name': 'X', 'start': 0.0}, 'b': {'key': 'lit:y', 'name': 'Y', 'start': 0.0}}]}})
+    asyncio.run(rs._battle_tick(now))                                                 # X trails by 15 → low tracked
+    assert rs._json_load(rs.FUSE_HQ_PATH, {})['battles']['low']['user:x'] == 15.0
+    mega[0]['index'] = 130; rs._json_save(rs.FUSE_HQ_PATH, {**rs._json_load(rs.FUSE_HQ_PATH, {}), 'battles': {**rs._json_load(rs.FUSE_HQ_PATH, {})['battles'], 'endsAt': now - 1}})
+    res = asyncio.run(rs._battle_tick(now + 1))                                         # X wins from −15
+    assert res[0]['comeback'] and rs._json_load(rs.FUSE_HQ_PATH, {})['comebacks']['user:x'] == 1 and any('COMEBACK' in t for t in chat)
+
+
+def test_champions_share_doubles_the_copy_cut():
+    assert hq.copy_cut(2.0, {'copyPct': 10}, champ=True) == 0.4 and hq.copy_cut(2.0, {'copyPct': 40}, champ=True) == 1.0   # capped at 50%

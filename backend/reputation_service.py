@@ -2934,6 +2934,7 @@ class FusePositionIn(BaseModel):
     fuseId: str = ''
     copyOf: str = Field(default='', max_length=16)   # ⚡ copied from another trader's open card (its owner earns copyPct of your fee)
     back: str = Field(default='', max_length=120)    # 💰 bought to back a battle side ('kind:id'): counts on the paid bar, never the free one
+    champ: bool = False                               # 👑 bought via "Buy the champion" (copy of the reigning bracket champion)
     plan: dict = {}     # 🎯 card plan from the Lab: {at, mode, onProfit, legs: {pairAddress: {tp, sl}}}
     legs: list          # [{pairAddress, chainId, symbol, signature}]
 
@@ -2975,6 +2976,9 @@ async def fuse_position(p: FusePositionIn):
         src = next((x for x in d.get('positions') or [] if p.copyOf and x['id'] == p.copyOf), None)
         if src and primary_of(src['wallet']) != primary_of(me) and src['wallet'] not in set(linked_of(me)):   # never a self-copy
             pos.update(copyOf=src['id'], copyOwner=src['wallet'])
+            reign = ((d.get('bracket') or {}).get('champions') or [{}])[-1].get('key')
+            if p.champ and reign == f"user:{src['id']}":   # 👑 champion's share: double copy cut for the reigning champion's owner
+                pos['champCopy'] = True
         dflt = d.get('autoYieldDefault') or {}
         if dflt.get('on'):   # Cmd Ctr default: new cards arm 💸 collect-profit at +at% of what was put in
             pos['autoYield'] = {'at': float(dflt.get('at') or _hq.YIELD_DEFAULT_AT), 'base': round(sum(_fuse._f(x.get('usd')) for x in legs), 6), 'armedAt': time.time(), 'firedAt': None}
@@ -3504,7 +3508,7 @@ async def _feeback_book():
         a['earnedUsd'] = round(a['earnedUsd'] + fb['usd'], 6); a['cards'] += 1
         if x.get('copyOwner'):
             o = out.setdefault(x['copyOwner'], {'wallet': x['copyOwner'], 'earnedUsd': 0.0, 'cards': 0, 'copyUsd': 0.0})
-            cut = _hq.copy_cut(_card_fees(x, by), rules)
+            cut = _hq.copy_cut(_card_fees(x, by), rules, champ=bool(x.get('champCopy')))
             o['earnedUsd'] = round(o['earnedUsd'] + cut, 6); o['copyUsd'] = round(o['copyUsd'] + cut, 6)
     for pz in d.get('backerPrizes') or []:   # ⚔ weekly top backers' prize share
         o = out.setdefault(pz['wallet'], {'wallet': pz['wallet'], 'earnedUsd': 0.0, 'cards': 0, 'copyUsd': 0.0})
@@ -3841,7 +3845,7 @@ async def fuse_pnl(address: str):
     copies = {}
     for c in allpos:
         if c.get('copyOf'):
-            k = copies.setdefault(c['copyOf'], {'n': 0, 'usd': 0.0}); k['n'] += 1; k['usd'] = round(k['usd'] + _hq.copy_cut(_card_fees(c, by), rules), 6)
+            k = copies.setdefault(c['copyOf'], {'n': 0, 'usd': 0.0}); k['n'] += 1; k['usd'] = round(k['usd'] + _hq.copy_cut(_card_fees(c, by), rules, champ=bool(c.get('champCopy'))), 6)
     box = _json_load(NOTIF_PATH, {}).get(primary_of(address)) or []
     frz = {x['id']: x.get('frozen') or [] for x in pos}
     rows = [{**r, 'frozen': frz.get(r['id'], []), 'autos': _hq.card_autos(box, r['id'], now), 'drift': _hq.drift(r), 'exitFeeUsd': 0.0 if r['closed'] else _exit_fee(r), 'streak': _hq.swap_streak(r), 'compound': _hq.compound_streak(r),
@@ -4329,10 +4333,11 @@ def _battle_view(mega, now):
              for x in b.get('pairs') or []]
     br = _json_load(FUSE_HQ_PATH, {}).get('bracket') or {}
     bc = br.get('cards') or {}
+    cbs = _json_load(FUSE_HQ_PATH, {}).get('comebacks') or {}
     board = []
     for c in _rn.unique_cards(mega):
         k = f"{c['kind']}:{c['id']}"; r = bc.get(k) or {'w': 0, 'l': 0}
-        board.append({'key': k, 'name': c.get('name') or 'Card', 'emoji': c.get('emoji'), 'dial': c.get('dial'), 'w': r.get('w', 0), 'l': r.get('l', 0),
+        board.append({'key': k, 'comebacks': int(cbs.get(k) or 0), 'name': c.get('name') or 'Card', 'emoji': c.get('emoji'), 'dial': c.get('dial'), 'w': r.get('w', 0), 'l': r.get('l', 0),
                       'pct': round((c.get('index') or 100) - 100, 2), 'status': 'winners' if r.get('l', 0) == 0 else 'losers' if r.get('l', 0) == 1 else 'out'})
     board.sort(key=lambda x: ({'winners': 0, 'losers': 1, 'out': 2}[x['status']], -x['w'], -x['pct']))
     fighting = {p_[s_]['key'] for p_ in pairs for s_ in ('a', 'b')}
@@ -4410,6 +4415,22 @@ async def _battle_tick(now):
     mega = _arena_mega_cache.get('data') or []
     d = _json_load(FUSE_HQ_PATH, {})
     b = d.get('battles') or {}
+    pct0 = {f"{c['kind']}:{c['id']}": (c['index'] or 100) - 100 for c in mega}
+    if b.get('pairs'):   # 🔥 track each side's worst deficit this battle (a win from there is a comeback)
+        low = dict(b.get('low') or {}); changed = False
+        for x in b['pairs']:
+            for s1, s2 in (('a', 'b'), ('b', 'a')):
+                k1, k2 = x[s1]['key'], x[s2]['key']
+                if k1 in pct0 and k2 in pct0:
+                    dfc = (pct0[k2] - x[s2]['start']) - (pct0[k1] - x[s1]['start'])
+                    if dfc > _fuse._f(low.get(k1)):
+                        low[k1] = round(dfc, 2); changed = True
+        if changed:
+            async with _admin_lock:
+                d0 = _json_load(FUSE_HQ_PATH, {}); bb = d0.get('battles') or {}
+                if bb.get('at') == b.get('at'):
+                    bb['low'] = low; d0['battles'] = bb; _json_save(FUSE_HQ_PATH, d0)
+            b = {**b, 'low': low}
     if b.get('endsAt') and now < b['endsAt'] and (b.get('pairs') or len(mega) < 2):
         return None   # mid-battle — or nothing to pair yet (an empty field pairs as soon as 2 cards are on stage)
     pct = {f"{c['kind']}:{c['id']}": (c['index'] or 100) - 100 for c in mega}
@@ -4422,6 +4443,7 @@ async def _battle_tick(now):
         w = _rn.settle_battle(a['start'], pct[a['key']], bb['start'], pct[bb['key']])
         results.append({'at': now, 'a': a['name'], 'b': bb['name'], 'winner': {'a': a['name'], 'b': bb['name']}.get(w), 'draw': w == 'draw',
                         'winnerKey': {'a': a['key'], 'b': bb['key']}.get(w), 'aKey': a['key'], 'bKey': bb['key'],
+                        'comeback': w in ('a', 'b') and _fuse._f((b.get('low') or {}).get({'a': a['key'], 'b': bb['key']}[w])) >= _hq.COMEBACK_PTS,
                         'aMove': round(pct[a['key']] - a['start'], 2), 'bMove': round(pct[bb['key']] - bb['start'], 2)})
         for side, key in (('a', a['key']), ('b', bb['key'])):
             r_ = d.setdefault('battleRecord', {}).setdefault(key, {'w': 0, 'l': 0, 'd': 0})
@@ -4429,6 +4451,13 @@ async def _battle_tick(now):
             if w == side and key.startswith('user:') and key[5:] in owners:
                 notify(owners[key[5:]], 'fuse-guard', f"⚔ Your card won its Arena battle vs {(bb if side == 'a' else a)['name']}.", url='/terminal/fuse?tab=arena',
                        once=f"battle-{now:.0f}-{key}", meta={'claim': 'Bigger move since the bell', 'source': 'Arena battles'})
+    for r_ in results:   # 🔥 comebacks: badge count + chat callout + the owner's inbox
+        if r_.get('comeback'):
+            d.setdefault('comebacks', {})[r_['winnerKey']] = int((d.get('comebacks') or {}).get(r_['winnerKey']) or 0) + 1
+            _fuse_chat('fuse-lab', f"🔥 COMEBACK: {r_['winner']} was down {(b.get('low') or {}).get(r_['winnerKey'])} pts (HP under 20) and still won.", f"comeback-{int(now)}-{r_['winnerKey']}")
+            if r_['winnerKey'].startswith('user:') and r_['winnerKey'][5:] in owners:
+                notify(owners[r_['winnerKey'][5:]], 'fuse-card', f"🔥 Comeback! Your card {r_['winner']} won from under 20 HP.", url='/terminal/fuse?tab=arena', once=f"cb-{int(now)}-{r_['winnerKey']}",
+                       meta={'claim': 'Won after trailing ≥ 13 pts', 'source': 'Arena battles'})
     # backers: a pick on the winning card is a ✓ on the wallet's backing record (+ inbox); a draw counts for nobody
     won = {x['winnerKey'] for x in results if x.get('winnerKey')}; fought = {k for x in b.get('pairs') or [] for k in (x['a']['key'], x['b']['key'])}
     for w_, key in (b.get('backs') or {}).items():
@@ -4480,6 +4509,7 @@ async def _battle_tick(now):
                          'picks': {} if champ is not None else ((d2.get('bracket') or {}).get('picks') or {})}
         d2['bracketWins'] = {**(d2.get('bracketWins') or {}), **(d.get('bracketWins') or {})}
         d2['battleRecord'] = d.get('battleRecord') or {}
+        d2['comebacks'] = d.get('comebacks') or d2.get('comebacks') or {}
         d2['backRecord'] = d.get('backRecord') or {}
         d2['backWins'] = {**(d2.get('backWins') or {}), **(d.get('backWins') or {})}
         _json_save(FUSE_HQ_PATH, d2)

@@ -786,3 +786,4 @@ body.theme-day .bf-arena { background: radial-gradient(80% 60% at 50% 0%, #e7dbf
 .pgb-dna { font: 600 9.5px var(--m-mono); color: #c08bff; }
 .pgb-brain { display: grid; gap: 3px; padding: 8px 10px; border-radius: 12px; border: 1px dashed #c08bff66; } .pgb-brain b { font-size: 12.5px; color: #c08bff; }
 body.theme-day .ar-dna, body.theme-day .pgb-dna, body.theme-day .pgb-brain b, body.theme-day .cc-cfg-dna { color: #6b2fd1; }
+.bf-log small.is-comeback { border-color: #ff9a3c; color: #ffd36b; box-shadow: 0 0 14px -6px #ff9a3c; } .bf-cb { font-style: normal; margin-left: 6px; font-size: 11px; }

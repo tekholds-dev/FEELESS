@@ -348,7 +348,8 @@ export function Battlefield({ b, cards = [], onLoad }) {
     <small className="m-dim">bigger move since the bell wins · 2 losses = out · last card standing is crowned</small>
     <b className={`bf-bell m-num ${secs < 60 ? 'is-soon' : ''}`} key={secs < 60 ? secs : 'x'}>🔔 {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</b></header>
     {br.champions?.length > 0 && <div className="bf-champs" data-testid="bf-champs">{br.champions.map((c, j) => <span key={c.at} className={`bf-champ ${j === 0 ? 'is-reign' : ''}`}><b>👑</b> #{c.season} {c.emoji} {c.name} <em>{c.w}W</em>
-      {j === 0 && c.legs?.length > 0 && onLoad && <button type="button" className="m-btn primary m-go bf-buychamp" onClick={() => onLoad(c.legs, { backName: c.name })} data-testid="buy-champ">👑 Buy the champion</button>}</span>)}</div>}
+      {j === 0 && c.legs?.length > 0 && onLoad && <button type="button" className="m-btn primary m-go bf-buychamp" onClick={() => onLoad(c.legs, c.key?.startsWith('user:') ? { copyOf: c.key.slice(5), owner: c.name, champ: true, copyPct: (cardOf(c.key)?.copyPct || 10) * 2 } : { backName: c.name })}
+        data-tip={c.key?.startsWith('user:') ? "Copy the champion — its owner earns the champion's share (double copy cut) of your FEELESS fee, not extra cost to you" : 'Load the champion into your Lab'} data-testid="buy-champ">👑 Buy the champion</button>}</span>)}</div>}
     {cfgCard && <CardConfig c={cfgCard} onClose={() => setCfgKey(null)} onLoad={onLoad} onBack={b.pairs.some(p => [p.a.key, p.b.key].includes(cfgKey)) && !mine ? () => back(cfgKey) : null}
       onBuyBack={b.pairs.some(p => [p.a.key, p.b.key].includes(cfgKey)) ? () => buyBack({ key: cfgKey, name: cfgCard.name }) : null} />}
     <div className="bf-arena" onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} onFocus={() => setHold(true)} onBlur={() => setHold(false)} data-testid="bf-arena">
@@ -372,14 +373,14 @@ export function Battlefield({ b, cards = [], onLoad }) {
       <b>{x.emoji}</b><span>{x.name}</span><em>{x.status === 'winners' ? '🏆' : '💀'} {x.w}–{x.l}</em></button>)}</div>}
     {(br.board || []).length > 0 && <div className="bf-power" data-testid="bf-power"><span className="m-label">⚡ POWER BOARD · WHO'S DOING BETTER OVERALL</span>
       {br.board.map((x, i) => <div key={x.key} className={`bf-prow br-${x.status}`} style={{ '--i': i }}>
-        <b className="bf-rank">{i === 0 && x.status !== 'out' ? '👑' : `#${i + 1}`}</b><span className="bf-pname">{x.emoji} {x.name}</span>
+        <b className="bf-rank">{i === 0 && x.status !== 'out' ? '👑' : `#${i + 1}`}</b><span className="bf-pname">{x.emoji} {x.name}{x.comebacks > 0 && <em className="bf-cb" data-tip="Battles won from under 20 HP">🔥×{x.comebacks}</em>}</span>
         <i className="bf-pbar"><i style={{ transform: `scaleX(${Math.max(0.04, x.w / topW)})` }} /></i>
         <em className="bf-pips">{Array.from({ length: x.w }, (_, k) => <i key={`w${k}`} className="w" />)}{Array.from({ length: x.l }, (_, k) => <i key={`l${k}`} className="l" />)}</em>
         <small className={`m-num ${x.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(x.pct)}</small>
         <em className={`bf-br br-${x.status}`}>{x.status === 'winners' ? '🏆 winners' : x.status === 'losers' ? '💀 losers' : '✕ out'}</em>
         <span className="bf-pacts"><button type="button" className="m-btn" onClick={() => setCfgKey(x.key)} aria-label="Config" data-testid={`power-cfg-${i}`}>⚙</button>
         {x.status !== 'out' && <button type="button" className={`m-btn bf-call ${called === x.key ? 'is-on' : ''}`} disabled={!!called} onClick={() => callIt(x.key)} data-tip="Call it to win this bracket (free) — right = season XP" data-testid={`call-${i}`}>🔮 {(x.calls || 0) + (called === x.key ? 1 : 0)}</button>}</span></div>)}</div>}
-    {b.log?.length > 0 && <div className="bf-log">{b.log.slice(0, 6).map(l => <small key={l.at + l.a}>{l.draw ? `🤝 ${l.a} = ${l.b}` : `🏆 ${l.winner} beat ${l.winner === l.a ? l.b : l.a}`} <em>{pc(l.aMove)} vs {pc(l.bMove)}</em></small>)}</div>}
+    {b.log?.length > 0 && <div className="bf-log">{b.log.slice(0, 6).map(l => <small key={l.at + l.a} className={l.comeback ? 'is-comeback' : ''}>{l.draw ? `🤝 ${l.a} = ${l.b}` : `${l.comeback ? '🔥 COMEBACK ' : '🏆 '}${l.winner} beat ${l.winner === l.a ? l.b : l.a}`} <em>{pc(l.aMove)} vs {pc(l.bMove)}</em></small>)}</div>}
   </section>;
 }
 
