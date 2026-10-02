@@ -221,7 +221,12 @@ def position(rows: list, held_chain: float | None = None, fees_by_sig: dict | No
         if r['side'] == 'sell':
             t['pnlUsd'] = round(r['usd'] - tok(r) * avg, 2)   # what actually landed in the wallet vs the coins' entry cost
         trades.append(t)
+    # 🔒 OWNER RULE: P&L never includes fees (they're shown on the receipt before you sign). Pool-side money: what reached the
+    # pool on buys, what the pool paid on sells — the coin's own performance. These drive every P&L the UI shows.
+    pool_in = sum(market_usd(r, fees_by_sig) for r in buys)
+    pool_out = sum(market_usd(r, fees_by_sig) for r in sells)
     return {'avgEntry': avg, 'fillPrice': fill, 'tokensHeld': held, 'costUsd': round(avg * held, 2), 'realizedUsd': round(sell_usd - sell_tok * avg, 2),
+            'investedPoolUsd': round(pool_in, 6), 'realizedPoolUsd': round(pool_out - sell_tok * fill, 6),
             'entryIncludes': 'FEELESS + network fees (break-even)',
             'investedUsd': round(buy_usd, 2), 'soldUsd': round(sell_usd, 2), 'feesUsd': round(fees, 4), 'exact': all(r.get('via') == 'chain' for r in rows),
             'locked': all(r.get('locked') for r in rows),   # every dollar figure fixed at its own trade time, never re-priced

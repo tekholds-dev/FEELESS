@@ -107,3 +107,15 @@ def test_feecat_learns_from_elite_traders_and_files_the_tag():
     assert fb.crowd_edge('ONE', feed)['tag'] == 'elite-1' and fb.crowd_edge('X', feed) == {'mult': 1.0, 'tag': 'none', 'why': ''}
     assert fb.crowd_edge('HOT', {'flow': {'HOT': {'n': 9}}})['mult'] == 1.15                       # capped
     assert fb.setup_features({}, 0, crowd='elite-1')['crowd'] == 'elite-1'
+
+
+def test_feecat_pnl_is_the_price_move_fees_apart(monkeypatch):
+    import pytest
+    fs = pytest.importorskip('feecat_service')
+    monkeypatch.setattr(fs, '_log_event', lambda *a, **k: None); monkeypatch.setattr(fs, '_post_as_fee', lambda *a, **k: None)
+    cat = {'balanceSol': 0.0, 'positions': []}
+    pos = {'pairAddress': 'P', 'symbol': 'X', 'costSol': 1.0, 'notionalSol': 1.0 * (1 - fs.FEE_PER_SIDE), 'entryPriceNative': 1.0, 'openedAt': 0}
+    fs._close({}, cat, pos, 1.5, 'tp')                                                       # +50% price move
+    assert abs(cat['realizedPnlSol'] - 0.99 * 0.5) < 1e-6                                     # P&L = the move on pool money
+    assert abs(cat['feesSol'] - (0.01 + 0.99 * 1.5 * fs.FEE_PER_SIDE)) < 1e-6                # both sides' fees, apart
+    assert abs(cat['balanceSol'] - 0.99 * 1.5 * (1 - fs.FEE_PER_SIDE)) < 1e-6                # balance = real money after fees

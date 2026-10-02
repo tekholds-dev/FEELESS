@@ -17,17 +17,18 @@ export function applyFill(pos, f) {
 }
 
 // The position panel the big terminals show: Bought / Sold / Holding / total P&L. Total P&L = realized on sells +
-// unrealized on what you still hold, against the locked all-in cost (fees in) — so it matches your wallet's real money.
+// unrealized on what you still hold, against the POOL-side cost (fees out — they're on the receipt, never in P&L).
 export function pnlSummary(pos, live) {
   // Entry = where your trade actually filled (after fees, once your wallet confirmed). Fees are paid in the background,
   // so P&L starts at $0 on the entry and moves with the live price — no break-even line.
   const held = Number(pos?.tokensHeld) || 0; const px = Number(live) || 0;
   const entry = Number(pos?.fillPrice) || Number(pos?.avgEntry) || 0;
   const value = px * held;
-  const bought = Number(pos?.investedUsd) || entry * held;
+  // 🔒 fees never in P&L: pool-side money (what reached the pool) when the server has it; else the fee-free entry × coins
+  const bought = Number(pos?.investedPoolUsd) || Number(pos?.investedUsd) || entry * held;
   const sold = Number(pos?.soldUsd) || 0;
   const unrealized = (px - entry) * held;
-  const realized = Number(pos?.realizedUsd) || 0;
+  const realized = pos?.realizedPoolUsd != null ? Number(pos.realizedPoolUsd) : Number(pos?.realizedUsd) || 0;
   const pnl = realized + unrealized;
   // % = total P&L on the money you put in (same sign as the $ P&L, also after partial sells).
   const pct = bought > 0 ? (pnl / bought) * 100 : 0;

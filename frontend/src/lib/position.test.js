@@ -29,3 +29,11 @@ test('a fresh buy starts at $0 P&L on its fill price (fees paid in the backgroun
   const up = pnlSummary({ tokensHeld: 1000, avgEntry: 0.01025, fillPrice: 0.01, investedUsd: 10 }, 0.011);
   expect(up.pnl).toBeCloseTo(1); expect(up.pct).toBeCloseTo(10);   // real time: +10% the moment price is 10% over entry
 });
+
+test('P&L never includes fees: bought = money that reached the pool, realized from pool-side sells', () => {
+  const { pnlSummary } = require('./position');
+  const pos = { fillPrice: 0.00475, avgEntry: 0.005, tokensHeld: 500, investedUsd: 5, investedPoolUsd: 4.75, realizedUsd: 0.4, realizedPoolUsd: 0.625 };
+  const s = pnlSummary(pos, 0.0064);
+  expect(s.bought).toBe(4.75); expect(s.realized).toBe(0.625);
+  expect(s.unrealized).toBeCloseTo((0.0064 - 0.00475) * 500); expect(s.pct).toBeCloseTo((s.pnl / 4.75) * 100);
+});

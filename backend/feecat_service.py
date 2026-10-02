@@ -3,7 +3,8 @@ FEELESS Cats — the paper-trading agent lab backend.
 
 Paper trading against REAL live markets: every entry and exit is marked at the
 actual DexScreener SOL-native price of a real Solana pair at that moment, with a
-1% per-side fee/slippage haircut. Only the money is simulated — never the prices.
+1% per-side fee/slippage haircut on the BALANCE (real money); P&L is the price move only, fees tracked apart (feesSol).
+Only the money is simulated — never the prices.
 
 File-backed JSON store, zero external dependencies, standalone FastAPI app.
 """
@@ -343,7 +344,11 @@ def _post_as_fee(pair_address, text, register_call=False):
 def _close(store, cat, pos, price_native, why, fraction=1.0, market_cap=None):
     gross = pos['notionalSol'] * fraction * (price_native / pos['entryPriceNative'])
     proceeds = gross * (1 - FEE_PER_SIDE)
-    pnl = round(proceeds - pos['costSol'] * fraction, 6)
+    # 🔒 Same rule as real cards: P&L = the price move on the money that reached the pool (fees apart). The balance still
+    # receives `proceeds` (real money after the sell fee); both sides' fees are tracked in `feesSol`, never inside P&L.
+    pnl = round(gross - pos['notionalSol'] * fraction, 6)
+    fee_sol = (pos['costSol'] - pos['notionalSol']) * fraction + (gross - proceeds)
+    cat['feesSol'] = round(cat.get('feesSol', 0) + fee_sol, 6)
     if fraction < 1:
         pos['realizedPartialSol'] = round(pos.get('realizedPartialSol', 0) + pnl, 6)
         pos.setdefault('costBasisSol', pos['costSol'])
@@ -375,14 +380,14 @@ def _close(store, cat, pos, price_native, why, fraction=1.0, market_cap=None):
     cat['winRate'] = round(cat['wins'] / closed * 100) if closed else None
     change = (price_native / pos['entryPriceNative'] - 1) * 100
     part = f'{int(fraction * 100)}% of ' if fraction < 1 else ''
-    _log_event(store, cat, 'SELL', f"Sold {part}{pos['symbol']} at {change:+.1f}% — {why}. Net {pnl:+.4f} SOL after fees (paper, live price).", pnl, pos.get('pairAddress'), price_native, market_cap, pos.get('entryMarketCapUsd'))
+    _log_event(store, cat, 'SELL', f"Sold {part}{pos['symbol']} at {change:+.1f}% — {why}. P&L {pnl:+.4f} SOL on the price move (fees apart, paper, live price).", pnl, pos.get('pairAddress'), price_native, market_cap, pos.get('entryMarketCapUsd'))
     if cat.get('isLeader') and pos.get('pairAddress'):
         held = (time.time() - pos.get('openedAt', time.time())) / 3600
         verdict = 'Took the win.' if pnl >= 0 else 'The thesis broke, so I cut it — protecting capital beats hoping.'
         if fraction < 1:
             _post_as_fee(pos['pairAddress'], f"🐱 Fee took profit on ${pos['symbol']}: sold {int(fraction * 100)}% at {change:+.1f}% — {why}. Locked {pnl:+.4f} SOL.\nThe rest keeps riding with a trailing stop, and it can't turn into a loss: the floor is my break-even.")
             return
-        _post_as_fee(pos['pairAddress'], f"🐱 Fee sold ${pos['symbol']} at {change:+.1f}% after {held:.1f}h — {why}.\nNet {pnl:+.4f} SOL after the 1% fee each way (peak was {pos.get('peakChange', 0):+.1f}%).\n{verdict} The rules decide the exit, not feelings.")
+        _post_as_fee(pos['pairAddress'], f"🐱 Fee sold ${pos['symbol']} at {change:+.1f}% after {held:.1f}h — {why}.\nP&L {pnl:+.4f} SOL on the price move — fees shown apart (peak was {pos.get('peakChange', 0):+.1f}%).\n{verdict} The rules decide the exit, not feelings.")
 
 
 def _fresh_qualifies(p, now):

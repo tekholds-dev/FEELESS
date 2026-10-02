@@ -144,3 +144,14 @@ def test_fill_is_what_went_into_the_pool_read_from_the_tx():
     t = p['trades'][0]
     assert abs(t['fillPrice'] - pool * 150 / 103.9455) < 1e-12 and abs(t['breakEven'] - f['usd'] / 103.9455) < 1e-12
     assert abs(p['feesUsd'] - (fee + net) * 150) < 1e-3
+
+
+def test_pnl_never_includes_fees_pool_side_money():
+    """Owner rule: P&L = the coin's performance. A $5.00 buy where $0.25 was fees: invested at the pool = $4.75."""
+    import trade_fills as tf
+    rows = [{'tx': 'b', 'side': 'buy', 'usd': 5.0, 'poolUsd': 4.75, 'tokens': 1000, 'price': 0.005, 'via': 'chain', 'ts': 1},
+            {'tx': 's', 'side': 'sell', 'usd': 2.9, 'poolUsd': 3.0, 'tokens': 500, 'price': 0.0058, 'via': 'chain', 'ts': 2}]
+    p = tf.position(rows)
+    assert p['fillPrice'] == 0.00475 and p['investedPoolUsd'] == 4.75
+    assert abs(p['realizedPoolUsd'] - (3.0 - 500 * 0.00475)) < 1e-9                       # sold at the pool vs the pool entry
+    assert p['investedUsd'] == 5.0 and p['feesUsd'] > 0                                     # fees still reported — apart

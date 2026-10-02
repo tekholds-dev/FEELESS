@@ -201,6 +201,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   hover/focus or in the detail view (`BadgeArt`). Never autoplay a grid of GIFs.
 
 ## Money rules (trading)
+- 🔒 P&L NEVER includes fees, anywhere (live trades, Fuse cards, Arena/Prime, FeeCat): cost = money that REACHED THE POOL
+  (`trade_fills.position` → `investedPoolUsd` / `realizedPoolUsd`; client `pnlSummary` uses them), fees live on the receipt
+  (`feesUsd`, FeeCat `feesSol`). Value = on-chain balance × Jupiter live price. Phantom's chart price can lag ~0.5%.
 - Engine: Jupiter Swap API primary (FEELESS fee into our SOL/USDC token accounts, capped priority,
   our broadcast). Ultra only as engine or opt-in fallback. Fallback off + Swap API down ⇒ trading pauses.
 - Nothing trades fee-free except **buying** $FEE / FEECAT / rFEE. Coin→coin with no SOL/USDC side is refused.

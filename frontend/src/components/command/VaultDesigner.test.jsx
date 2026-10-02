@@ -35,9 +35,11 @@ test('vault ← Arena card: its majors + pools (not runners) load as vault pools
   const call = jest.fn(async () => ({ vaults: [], feeWallet: '' }));
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<VaultDesigner call={call} />); });
-  await act(async () => { await new Promise(r => setTimeout(r, 30)); });
+  for (let i = 0; i < 40 && !document.querySelector('.vd-leg, [data-testid^="vd-from-"]'); i++) await act(async () => { await new Promise(r => setTimeout(r, 25)); });
+  await act(async () => { await new Promise(r => setTimeout(r, 60)); });
   await act(async () => { el.querySelector('[data-testid="vd-from-balanced"]').click(); });
-  await act(async () => { await new Promise(r => setTimeout(r, 30)); });
+  for (let i = 0; i < 40 && !document.querySelector('.vd-leg, [data-testid^="vd-from-"]'); i++) await act(async () => { await new Promise(r => setTimeout(r, 25)); });
+  await act(async () => { await new Promise(r => setTimeout(r, 60)); });
   const legs = [...el.querySelectorAll('.vd-leg b')].map(b => b.textContent);
   expect(legs).toEqual(['SOL/USDC', 'PUMP/USDC']); expect(el.querySelector('[aria-label="Vault name"]').value).toBe('Prime Gold Vault');
 });
@@ -50,7 +52,8 @@ test('prebuilt vault cards: one tap loads real pools + the preset fees and caps'
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<VaultDesigner call={call} />); });
   await act(async () => { el.querySelector('[data-testid="vd-preset-stable"]').click(); });
-  await act(async () => { await new Promise(r => setTimeout(r, 30)); });
+  for (let i = 0; i < 40 && !document.querySelector('.vd-leg, [data-testid^="vd-from-"]'); i++) await act(async () => { await new Promise(r => setTimeout(r, 25)); });
+  await act(async () => { await new Promise(r => setTimeout(r, 60)); });
   expect([...el.querySelectorAll('.vd-leg b')].map(b => b.textContent)).toEqual(['SOL/USDC', 'JitoSOL/USDC', 'cbBTC/USDC']);
   expect(el.querySelector('[aria-label="Vault name"]').value).toBe('Huge Stable Vault');
   expect(VAULT_PRESETS.map(v => v.id)).toEqual(['stable', 'blue', 'pump', 'degen']);
