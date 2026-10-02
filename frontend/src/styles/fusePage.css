@@ -572,3 +572,9 @@ body.theme-day .prime-round span { background: var(--m-surface); }
 .pg-sc small { font: 9px var(--m-mono); letter-spacing: .08em; color: var(--m-dim); } .pg-sc b { font-size: 12.5px; } .pg-sc em { font-style: normal; font-size: 18px; }
 .pg-sc-more { font-size: 11px; color: var(--m-dim); line-height: 1.35; }
 body.theme-day .pg-sc { background: var(--m-surface); } body.fx-lite .pg-sc { animation: none; }
+.pg-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.pg-card { display: grid; gap: 6px; padding: 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--m-accent) 50%, var(--m-line));
+  background: radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--m-accent) 16%, transparent), transparent 60%), var(--m-surface); animation: mCardIn .25s var(--m-ease) calc(var(--i, 0) * 60ms) backwards; }
+.pg-card > small:first-child { font: 9.5px var(--m-mono); letter-spacing: .08em; color: var(--m-dim); } .pg-card b { font-size: 22px; } .pg-card b em { font: 10px var(--m-mono); font-style: normal; color: var(--m-dim); }
+.pg-legs { display: flex; flex-wrap: wrap; gap: 4px; } .pg-legs i { font-style: normal; font-size: 11px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--m-line); } .pg-legs i.is-anchor { border-color: #9fe3ff; color: #9fe3ff; }
+body.fx-lite .pg-card { animation: none; }

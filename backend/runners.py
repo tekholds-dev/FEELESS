@@ -653,3 +653,20 @@ def exits_pick(grids, current, min_rounds=8, margin=2.0):
 
 def scenario_grid(rounds, paths, now, window):
     return dial_proof(rounds, paths, now, {f'tp{tp}_sl{sl}': {'runner': (tp, sl)} for tp in SCENARIO_TP for sl in SCENARIO_SL}, window=window)
+
+
+def scenario_cards(scen, picks, anchor=None, top=3):
+    """🃏 The best scenarios become REAL cards: this round's gated runner picks (≤3) + a SOL anchor (35%), with that scenario's
+    TP / SL on every runner. Only scenarios with rounds and avg > 0 qualify. Pure."""
+    out = []
+    runners = [p for p in picks or [] if p.get('pairAddress')][:3]
+    if not runners:
+        return out
+    for sc in [s for s in scen or [] if (s.get('rounds') or 0) > 0 and (s.get('avgPct') or 0) > 0][:top]:
+        legs = ([{**anchor, 'role': 'anchor', 'weight': 35}] if anchor else [])
+        each = round((100 - (35 if anchor else 0)) / len(runners), 2)
+        legs += [{'chainId': 'solana', 'pairAddress': p['pairAddress'], 'mint': p.get('mint'), 'symbol': p.get('symbol'), 'logo': p.get('logo'),
+                  'role': 'runner', 'weight': each, 'tp': sc['tp'], 'sl': sc['sl']} for p in runners]
+        out.append({'id': sc['id'], 'label': sc['label'], 'window': sc['window'], 'tp': sc['tp'], 'sl': sc['sl'], 'avgPct': sc['avgPct'],
+                    'winRate': sc.get('winRate'), 'rounds': sc['rounds'], 'per1': sc.get('per1'), 'legs': legs})
+    return out

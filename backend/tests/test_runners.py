@@ -217,3 +217,14 @@ def test_scenario_winner_becomes_the_runner_exits_only_when_windows_agree():
     assert rn.exits_pick({'24h': g(18)}, (100, 30)) == (None, None)                          # one window is never enough
     assert rn.exits_pick({'24h': g(18), '72h': g(0.5)}, (100, 30)) == (None, None)           # 72h best is tp100 → disagree
     assert rn.exits_pick({'24h': g(18), '72h': g(9)}, (200, 15)) == (None, None)             # already running it
+
+
+def test_best_scenarios_become_cards_from_this_rounds_picks():
+    scen = [{'id': 'degen_6h', 'label': 'degen dial · 6h', 'window': '6h', 'tp': 100, 'sl': 40, 'rounds': 18, 'avgPct': 23.6},
+            {'id': 'tp200_sl15', 'label': 'TP +200%', 'window': '24h', 'tp': 200, 'sl': 15, 'rounds': 65, 'avgPct': 19},
+            {'id': 'safe_6h', 'label': 'safe', 'window': '6h', 'tp': 30, 'sl': 15, 'rounds': 18, 'avgPct': -7}]
+    picks = [{'pairAddress': 'P1', 'symbol': 'A'}, {'pairAddress': 'P2', 'symbol': 'B'}]
+    cards = rn.scenario_cards(scen, picks, {'chainId': 'solana', 'pairAddress': 'SOLP', 'symbol': 'SOL'})
+    assert [c['id'] for c in cards] == ['degen_6h', 'tp200_sl15']                                # losing scenarios never become cards
+    assert [(l['symbol'], l['weight']) for l in cards[0]['legs']] == [('SOL', 35), ('A', 32.5), ('B', 32.5)] and cards[1]['legs'][1]['tp'] == 200
+    assert rn.scenario_cards(scen, []) == []

@@ -4987,7 +4987,9 @@ async def fuse_playground(request: Request):
                        'published': len(_json_load(FUSES_PATH, {'fuses': {}})['fuses'])},
             'board': board, 'dials': dials, 'bloodline': (d.get('bloodline') or [])[-12:][::-1], 'prime': [{k: c.get(k) for k in ('label', 'tier', 'pnlPct', 'lowPct', 'goodDays', 'loggedDays')} for c in prime],
             'autoLog': auto, 'engineDial': rd.get('cfgDial') or 'custom', 'autoTune': rd.get('autoTune') is not False,
-            'scenarios': _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS),
+            'scenarios': (scen := _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS)),
+            'scenarioCards': _rn.scenario_cards(scen, ((rd.get('rounds') or [{}])[-1] or {}).get('picks'),
+                                                next(({'chainId': 'solana', 'pairAddress': m['pairAddress'], 'symbol': 'SOL', 'mint': m.get('baseAddress')} for m in await _majors_rows() if m.get('symbol') == 'SOL'), None)),
             **_hq.playground_ready(board, dials, prime)}
 
 @app.get('/api/reputation/admin/runners/config')
