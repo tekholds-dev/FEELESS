@@ -10,6 +10,7 @@ itself); losers are re-bred from this round's picks with the same scenario. Reco
 Nothing here touches real money.
 """
 import arena_prime as ap
+import card_dna as _dna
 import runners as rn
 
 _f = rn._f
@@ -66,9 +67,10 @@ def round_pct(card, prices, liqs):
     return round((value(card, prices, liqs) / base - 1) * 100, 2)
 
 
-def tick(card, prices, liqs, quiet, candidates, cfg, now):
+def tick(card, prices, liqs, quiet, candidates, cfg, now, dna=None):
     """Mid-round: swap runner coins that hit TP / stop or went dead for the best gated runner not on the card."""
     c = {**card, 'legs': [dict(l) for l in card['legs']], 'swaps': list(card.get('swaps') or [])}
+    d = _dna.clean(dna or {})   # 🧬 this card's DNA plays out: payout % to cash on a TP, compound off = keep the take, hold = no stop swaps
     on_card = {l['pairAddress'] for l in c['legs']}
     pool = [r for r in candidates or [] if r.get('pairAddress') and r['pairAddress'] not in on_card and _f(prices.get(r['pairAddress']) or r.get('price')) > 0]
     for l in list(c['legs']):
@@ -83,12 +85,17 @@ def tick(card, prices, liqs, quiet, candidates, cfg, now):
         else:
             l.pop('quietSince', None)
         why = ('tp' if cfg['swapOnTp'] and c['tp'] and move >= c['tp'] else
-               'sl' if cfg['swapOnSl'] and c['sl'] and move <= -c['sl'] else
+               'sl' if cfg['swapOnSl'] and c['sl'] and move <= -c['sl'] and d['stop'] != 'hold' else
                'dead' if cfg['swapDead'] and l.get('quietSince') and now - l['quietSince'] >= cfg['deadMins'] * 60 else None)
         if not why or not pool:
             continue
         nxt = pool.pop(0)
         usd = ap.sell_usd(l['units'], px, liqs.get(l['pairAddress']))
+        if why == 'tp':   # profit split on the take: the payout share is banked (to the owner), the rest rides into the next coin
+            gain = max(0.0, usd - _f(l.get('usd')))
+            out_, back_ = _dna.split_profit(gain, d)
+            keep = out_ + (gain - out_ if d['compound'] == 'off' else 0.0)
+            c['cash'] = round(_f(c.get('cash')) + keep, 6); usd -= keep
         npx = _f(prices.get(nxt['pairAddress']) or nxt.get('price'))
         nliq = liqs.get(nxt['pairAddress']) or nxt.get('liq')
         units = usd / ap.buy_px(npx, usd, nliq)

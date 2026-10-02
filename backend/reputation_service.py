@@ -4648,9 +4648,37 @@ async def _arena_mega(rd, cfg, now):
                     'activity': _hq.activity(0, 0, sum(_fuse._f(live.get(p['mint'], {}).get('vol1h')) * 24 for p in ps), mv)})
     rec = _json_load(FUSE_HQ_PATH, {}).get('battleRecord') or {}
     out = [{**c, 'record_wl': rec.get(f"{c['kind']}:{c['id']}")} for c in out]
+    out = await _card_dna_tag(out, rd)
     out.sort(key=lambda x: -x['activity']['score'])
     _arena_mega_cache.update(at=now, data=out)
     return out
+
+
+async def _card_dna_tag(cards, rd):
+    """🧬 Every Arena card carries its own DNA: user cards = their plan · tier cards = their tier config · engine cards = the battle DNA ·
+    everything else gets a unique DNA (stable per card, stored) — so no two cards play alike."""
+    pcfg = _prime_cfg(); pos = {x['id']: x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or []}
+    pgd = ((rd.get('pgBattle') or {}).get('dna') or {})
+    fixed = {}
+    for c in cards:
+        k = f"{c['kind']}:{c['id']}"
+        if c['kind'] == 'user' and c['id'] in pos:
+            x = pos[c['id']]
+            fixed[k] = _dna.clean({'cycle': 'adaptive' if x.get('cycle') == 'adaptive' else 'off', 'compound': x.get('compoundStyle') or 'smart', 'payoutPct': x.get('payoutPct', 100),
+                                   'clock': x.get('rotateHours') or 24, 'stop': x.get('slMode') or 'sell'})
+        elif c['kind'] == 'prime':
+            fixed[k] = _dna.clean({'cycle': (pcfg.get('cycles') or {}).get(c['id'], 'off'), 'compound': pcfg.get('compoundStyle', 'smart') if pcfg.get('compound') else 'off',
+                                   'payoutPct': (pcfg.get('payouts') or {}).get(c['id'], 0), 'clock': pcfg.get('rotateHours'), 'stop': {'replace': 'sell'}.get(pcfg.get('slMode'), pcfg.get('slMode')), 'trail': pcfg.get('trail', True)})
+        elif c['kind'] == 'engine' and pgd.get(c['id']):
+            fixed[k] = pgd[c['id']]
+    store = _json_load(FUSE_HQ_PATH, {}).get('cardDna') or {}
+    known = {**store, **fixed}
+    assigned = _dna.assign([{'id': f"{c['kind']}:{c['id']}", 'dial': c.get('dial')} for c in cards], known=known)
+    new = {k: v for k, v in assigned.items() if k not in fixed and k not in store}
+    if new:
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {}); d['cardDna'] = {**dict(list((d.get('cardDna') or {}).items())[-300:]), **new}; _json_save(FUSE_HQ_PATH, d)
+    return [{**c, 'dna': assigned[f"{c['kind']}:{c['id']}"], 'dnaLabel': _dna.label(assigned[f"{c['kind']}:{c['id']}"])} for c in cards]
 
 
 @app.get('/api/reputation/admin/fuses/hq')
@@ -4797,6 +4825,7 @@ _runner_widen = {'level': 0, 'at': 0.0, 'log': []}
 
 import meme_terms as _mt
 import pg_battle as _pgb
+import card_dna as _dna
 MEME_PATH = DATA_DIR / 'meme_terms.json'
 
 
@@ -5446,9 +5475,11 @@ def _pg_battle_view(rd):
     b = rd.get('pgBattle') or {}
     cards = b.get('cards') or {}
     view = lambda k: {**{x: (cards.get(k) or {}).get(x) for x in ('id', 'name', 'dial', 'tp', 'sl', 'swaps')}, 'pct': (b.get('pcts') or {}).get(k),
+                      'dna': (b.get('dna') or {}).get(k), 'dnaLabel': _dna.label((b.get('dna') or {}).get(k)) if (b.get('dna') or {}).get(k) else None,
                       'legs': [{x: l.get(x) for x in ('symbol', 'role', 'pairAddress')} for l in (cards.get(k) or {}).get('legs') or []], 'record': (b.get('record') or {}).get(k)}
     return {'cfg': _pgb.clean_cfg(b.get('cfg')), 'endsAt': b.get('endsAt'), 'pairs': [{'a': view(p['a']), 'b': view(p['b'])} for p in b.get('pairs') or []],
-            'log': (b.get('log') or [])[-12:][::-1], 'record': b.get('record') or {}, 'names': {k: c.get('name') for k, c in cards.items()}}
+            'log': (b.get('log') or [])[-12:][::-1], 'record': b.get('record') or {}, 'names': {k: c.get('name') for k, c in cards.items()},
+            'brain': {**_dna.best(b.get('brain') or {}), 'label': _dna.label(_dna.best(b.get('brain') or {})['dna']), 'scores': b.get('brain') or {}}}
 
 
 async def _pg_battle_tick(now):
@@ -5476,26 +5507,51 @@ async def _pg_battle_tick(now):
     for k in want:   # deal any missing card
         if k not in cards or not cards[k].get('legs'):
             cards[k] = _pgb.deal(scs[k], prices, liqs, now, cfg['sizeUsd'])
+    dna = {k: v for k, v in (b.get('dna') or {}).items() if k in want}
+    dna = _dna.assign([{'id': k, 'dial': scs[k].get('dial')} for k in want], known=dna)   # 🧬 every battle card plays its own DNA
     results = []
     if now >= _fuse._f(b.get('endsAt')):
         pcts = {k: _pgb.round_pct(cards[k], prices, liqs) for k in cards if k in want}
         results, record, losers = _pgb.settle(b.get('pairs'), pcts, b.get('record'), now)
+        # 🧠 the engine learns which DNA wins (trait win rates), then breeds the first loser with the winning DNA (exploit) — the rest
+        # get fresh unique DNA (explore)
+        sc_ = _dna.learn([{'winner': r_['winner'], 'loser': r_['b'] if r_['winner'] == r_['a'] else r_['a']} for r_ in results if r_.get('winner')], dna)
+        brain = b.get('brain') or {}
+        for t_, vals in sc_.items():
+            for v_, st_ in vals.items():
+                cur_ = brain.setdefault(t_, {}).setdefault(v_, {'w': 0, 'n': 0}); cur_['w'] += st_['w']; cur_['n'] += st_['n']
+        b['brain'] = brain
+        best_ = _dna.best(brain)['dna']; exploited = False
         for k in want:
             if k in losers:   # 🧬 re-bred: same scenario, this round's picks, fresh $
                 cards[k] = _pgb.deal(scs[k], prices, liqs, now, cfg['sizeUsd'])
+                if not exploited and _dna.sig(best_) not in {_dna.sig(v) for kk, v in dna.items() if kk != k}:
+                    dna[k] = best_; exploited = True
+                else:
+                    dna.pop(k, None)
             else:             # winner keeps its coins; the next round counts from here
                 cards[k] = {**cards[k], 'roundUsd': _pgb.value(cards[k], prices, liqs)}
+        dna = _dna.assign([{'id': k, 'dial': scs[k].get('dial')} for k in want], known=dna)
         b = {**b, 'record': record, 'pairs': _pgb.pair_up(want), 'endsAt': now + cfg['roundMins'] * 60,
              'log': ((b.get('log') or []) + [{**r_, 'aName': cards.get(r_['a'], {}).get('name'), 'bName': cards.get(r_['b'], {}).get('name')} for r_ in results])[-40:]}
     else:
         for k in want:
-            cards[k] = _pgb.tick(cards[k], prices, liqs, quiet, cand, cfg, now)
+            cards[k] = _pgb.tick(cards[k], prices, liqs, quiet, cand, cfg, now, dna.get(k))
     b['cards'] = {k: cards[k] for k in want}
+    b['dna'] = dna
     b['pcts'] = {k: _pgb.round_pct(cards[k], prices, liqs) for k in want}
     b['cfg'] = cfg
     async with _admin_lock:
         d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['pgBattle'] = b; _json_save(RUNNERS_PATH, d)
     return len(results)
+
+
+@app.get('/api/reputation/fuses/brain')
+async def fuse_brain():
+    """🧠 The engine's best card DNA so far (learned from playground battles) — the Lab offers it as a one-tap setup."""
+    br = (_json_load(RUNNERS_PATH, {}).get('pgBattle') or {}).get('brain') or {}
+    best = _dna.best(br)
+    return {**best, 'label': _dna.label(best['dna']), 'fights': sum(v['n'] for vals in br.values() for v in vals.values()) // 5 if br else 0}
 
 
 @app.get('/api/reputation/admin/fuses/pg-battles')

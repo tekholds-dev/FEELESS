@@ -781,3 +781,8 @@ body.theme-day .bf-arena { background: radial-gradient(80% 60% at 50% 0%, #e7dbf
 .ce-spec { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--m-accent) 35%, var(--m-line)); background: var(--m-bg); }
 .ce-spec dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; margin: 0; font-size: 12px; } .ce-spec dt { color: var(--m-dim); } .ce-spec dd { margin: 0; }
 .ce-spec small { font-size: 10.5px; } body.theme-day .ce-spec { background: #fff; }
+.ar-dna { display: block; max-width: 280px; font: 600 10px/1.4 var(--m-mono); color: #c08bff; text-align: center; }
+.cc-cfg-dna { font: 600 11.5px/1.5 var(--m-mono); padding: 6px 10px; border-radius: 10px; border: 1px solid #c08bff55; color: #c08bff; background: color-mix(in srgb, #c08bff 8%, transparent); }
+.pgb-dna { font: 600 9.5px var(--m-mono); color: #c08bff; }
+.pgb-brain { display: grid; gap: 3px; padding: 8px 10px; border-radius: 12px; border: 1px dashed #c08bff66; } .pgb-brain b { font-size: 12.5px; color: #c08bff; }
+body.theme-day .ar-dna, body.theme-day .pgb-dna, body.theme-day .pgb-brain b, body.theme-day .cc-cfg-dna { color: #6b2fd1; }

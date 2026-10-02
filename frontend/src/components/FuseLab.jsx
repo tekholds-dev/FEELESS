@@ -105,7 +105,13 @@ function CoinExtras({ pa, sym, plan, setPlan }) {
   </span>;
 }
 
+// 🧬 a card DNA → Lab plan fields (cycle, compound style, profit split, reshuffle clock, stop mode)
+export const dnaPlan = d => ({ cycle: d.cycle === 'adaptive' ? 'adaptive' : 'steady', compoundStyle: d.compound, payoutPct: d.payoutPct, onProfit: d.payoutPct > 0 ? 'collect' : 'compound',
+  rotateHours: d.clock, slMode: d.stop, ...(d.cycle && d.cycle !== 'off' ? { mode: 'swap' } : {}) });
+
 export function CardPlan({ legs, plan, setPlan }) {
+  const [brain, setBrain] = useState(null);
+  useEffect(() => { fetch(apiUrl('/api/reputation/fuses/brain')).then(r => (r.ok ? r.json() : null)).then(setBrain).catch(() => {}); }, []);
   const rules = useCardRules();
   const levels = rules?.yieldLevels || [25, 50, 100, 200];
   const lim = (pa, k, v) => setPlan(p => ({ ...p, risk: 'custom', legs: { ...p.legs, [pa]: { ...(p.legs[pa] || {}), [k]: v.replace(/[^0-9.]/g, '') } } }));
@@ -115,6 +121,7 @@ export function CardPlan({ legs, plan, setPlan }) {
   const maxR = RISK_DIALS[plan.risk]?.runners;
   const seg = (k, opts) => <div className="m-seg" role="radiogroup">{opts.map(([v, l, tip]) => <button key={String(v)} type="button" role="radio" aria-checked={plan[k] === v} className={plan[k] === v ? 'active' : ''} data-tip={tip} onClick={() => setPlan(p => ({ ...p, risk: 'custom', [k]: v }))} data-testid={`plan-${k}-${v}`}>{l}</button>)}</div>;
   return <details className="fl-plan" open data-testid="card-plan"><summary><span className="m-label">🎯 CARD PLAN</span><small className="m-dim">one dial sets it all · alerts with one-tap actions, you approve</small></summary>
+    {brain?.why?.length > 0 && <button type="button" className="m-btn fl-brain" onClick={() => setPlan(p => ({ ...p, risk: 'custom', ...dnaPlan(brain.dna) }))} data-tip={`Learned from ${brain.fights} engine battles: ${brain.why.join(' · ')}`} data-testid="plan-brain">🧠 Use the engine's best DNA <small>{brain.label}</small></button>}
     <div className="fl-plan-row fl-risk"><span>🎚 Risk</span><RiskDial value={plan.risk || 'custom'} onChange={id => setPlan(applyRisk(legs, id))} /></div>
     {maxR != null && runners > maxR && <div className="m-note warn"><b>{RISK_DIALS[plan.risk].label} = {maxR} runner{maxR === 1 ? '' : 's'} max</b><span>You picked {runners}. Remove {runners - maxR} or pick a bolder dial.</span></div>}
     <details className="fl-plan-tune" open><summary>✎ Customize (TP/SL per coin · profit trigger · collect or compound · hold or rotate)</summary>
@@ -220,7 +227,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
     setCopy(incoming.copyOf ? { id: incoming.copyOf, owner: incoming.owner, pct: incoming.copyPct } : null);
     if (incoming.cfg) { const c = incoming.cfg;   // ⚙ "Copy to Fuse Lab" from any Arena card: its configs come along (still editable)
       setPlan(p => ({ ...p, risk: 'custom', ...(c.rotateHours ? { rotateHours: c.rotateHours } : {}), ...(['sell', 'park', 'hold'].includes(c.slMode) ? { slMode: c.slMode } : {}),
-        ...(c.cycle === 'adaptive' ? { cycle: 'adaptive', mode: 'swap' } : {}),
+        ...(c.cycle === 'adaptive' ? { cycle: 'adaptive', mode: 'swap' } : {}), ...(c.dna ? dnaPlan(c.dna) : {}),
         legs: Object.fromEntries((incoming.legs || []).filter(l => l.runner).map(l => [l.pairAddress, { tp: c.tp ? String(c.tp) : '', sl: c.sl ? String(c.sl) : '' }])) })); }
     setBacking(incoming.backKey ? { key: incoming.backKey, name: incoming.backName } : null);
     setManual(false); setPicked(pools); if (incoming.sol) setSol(incoming.sol.toFixed(4)); scrollToMix(); }, [incoming?.n]); // eslint-disable-line react-hooks/exhaustive-deps

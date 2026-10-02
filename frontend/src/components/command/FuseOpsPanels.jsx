@@ -166,10 +166,13 @@ export function PlaygroundBattles({ call, onPublish }) {
         const side = (x, k) => <span className={`bf-side ${k}`}><b>{x.name}</b>
           <em className={`m-num fl-tick ${(x.pct || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={x.pct}>{pgPc(x.pct)}</em>
           <small className="m-dim">{x.legs.map(l => `${l.role === 'anchor' ? '⚓' : '🏃'}$${l.symbol}`).join(' ')}{x.record ? ` · ${x.record.w}–${x.record.l}${x.record.d ? `–${x.record.d}` : ''}` : ''}</small>
+          {x.dnaLabel && <small className="pgb-dna">🧬 {x.dnaLabel}</small>}
           {x.swaps?.length > 0 && <span className="pgb-swaps">{x.swaps.slice(-3).map((w, j) => <i key={j} className={`w-${w.why}`}>{PG_WHY[w.why]} ${w.out}→${w.in}</i>)}</span>}</span>;
         return <div key={p.a.id + p.b.id} className={`bf-pair ${d > 0.05 ? 'a-lead' : d < -0.05 ? 'b-lead' : 'even'}`} style={{ '--i': i }} data-testid={`pgb-pair-${i}`}>
           {side(p.a, 'a')}<span className="bf-vs" aria-hidden="true"><i className="bf-clash" />VS</span>{side(p.b, 'b')}
           <i className="bf-tug"><i style={{ transform: `scaleX(${share})` }} /></i></div>; })}</div>}
+    <div className="pgb-brain" data-testid="pgb-brain"><span className="m-label">🧠 ENGINE BRAIN · BEST DNA SO FAR</span>
+      {b.brain?.why?.length ? <><b>🧬 {b.brain.label}</b><small className="m-dim">{b.brain.why.join(' · ')}</small></> : <small className="m-dim">Learning — every bell scores each card's DNA (cycle, compound, payout, clock, stop). A losing card is re-bred with the winning DNA.</small>}</div>
     {b.log.length > 0 && <div className="pgb-log">{b.log.slice(0, 6).map(l => <span key={l.at + l.a} className="pgb-res">
       {l.draw ? `🤝 ${l.aName} = ${l.bName}` : `🏆 ${l.winner === l.a ? l.aName : l.bName} beat ${l.winner === l.a ? l.bName : l.aName}`} <em>{pgPc(l.aPct)} vs {pgPc(l.bPct)}</em>
       {!l.draw && onPublish && <button type="button" className="m-btn" onClick={() => onPublish(l.winner)} data-tip="Publish the winner to the Arena stage">⭐</button>}</span>)}</div>}

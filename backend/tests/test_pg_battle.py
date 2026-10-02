@@ -76,3 +76,40 @@ def test_engine_champion_and_ready_rows():
     assert pb.champion({'c': {'w': 1, 'l': 0}}, {'c': {}}) is None
     rows = dict((r['id'], ok) for ok, r in pb.ready_rows(rec, {'a': 'Moon'}))
     assert rows['a'] is True and rows['gone'] is True and rows['b'] is False and rows['c'] is False
+
+
+def test_dna_plays_out_in_battle_ticks():
+    cfg = pb.clean_cfg({})
+    c = pb.deal(SC, {'SOLP': 150, 'R1': 0.01}, LIQ, 0, 100)
+    cand = [{'pairAddress': 'N1', 'symbol': 'NEW', 'price': 1.0}]
+    up = pb.tick(c, {'SOLP': 150, 'R1': 0.031, 'N1': 1.0}, LIQ, {}, cand, cfg, 60, {'payoutPct': 50, 'compound': 'smart'})
+    assert up['cash'] > 0                                                                  # half the gain banked on the take
+    keep_all = pb.tick(c, {'SOLP': 150, 'R1': 0.031, 'N1': 1.0}, LIQ, {}, cand, cfg, 60, {'payoutPct': 0, 'compound': 'off'})
+    assert keep_all['cash'] > up['cash']                                                   # compound off = the whole gain stays as cash
+    held = pb.tick(c, {'SOLP': 150, 'R1': 0.004, 'N1': 1.0}, LIQ, {}, cand, cfg, 60, {'stop': 'hold'})   # −60% but DNA says hold
+    assert held['legs'][1]['symbol'] == 'A'
+
+
+def test_service_battles_learn_dna(monkeypatch):
+    import asyncio
+    import pytest
+    rs = pytest.importorskip('reputation_service')
+    sc = lambda i, sym: {'id': f's{i}', 'vName': f'Card {i}', 'tp': 200, 'sl': 40, 'dial': 'degen', 'legs': [{'pairAddress': f'P{i}', 'symbol': sym, 'role': 'runner', 'weight': 100}]}
+    async def cards(rd, scen=None, now=None, losers_ok=False): return [sc(1, 'A'), sc(2, 'B')]
+    async def live(): return {'passing': [], 'dropped': []}
+    px = {'P1': 1.0, 'P2': 1.0}
+    async def pairs(legs): return {k: {'priceUsd': v, 'liquidity': {'usd': 1e6}, 'txns': {'m5': {'buys': 5}}, 'volume': {'m5': 9}} for k, v in px.items()}
+    monkeypatch.setattr(rs, '_pg_scenario_cards', cards); monkeypatch.setattr(rs, '_runner_live', live); monkeypatch.setattr(rs, '_fuse_pairs', pairs)
+    asyncio.run(rs._pg_battle_tick(1000))
+    v = rs._pg_battle_view(rs._json_load(rs.RUNNERS_PATH, {}))
+    a, b = v['pairs'][0]['a'], v['pairs'][0]['b']
+    assert a['dna'] and b['dna'] and dn_sig(a['dna']) != dn_sig(b['dna'])                    # two cards, two DNAs
+    px['P1'] = 1.3
+    asyncio.run(rs._pg_battle_tick(1400))
+    v = rs._pg_battle_view(rs._json_load(rs.RUNNERS_PATH, {}))
+    assert v['brain']['scores'] and v['brain']['label']                                      # the engine learned from the bell
+
+
+def dn_sig(d):
+    import card_dna
+    return card_dna.sig(d)

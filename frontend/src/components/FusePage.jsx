@@ -389,12 +389,13 @@ export function CardConfig({ c, onClose, onLoad, onBack, onBuyBack }) {
   useEffect(() => { const k = e => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); document.body.classList.add('ce-open');
     return () => { window.removeEventListener('keydown', k); document.body.classList.remove('ce-open'); }; }, [onClose]);
   const cfg = c.cfg || {};
-  const copy = () => { onLoad?.(c.legs || [], { cfg: { ...cfg, ...(c.cycle ? { cycle: c.cycle } : {}) }, ...(c.kind === 'user' ? { copyOf: c.id, owner: c.owner, copyPct: c.copyPct } : {}) }); onClose(); };
+  const copy = () => { onLoad?.(c.legs || [], { cfg: { ...cfg, ...(c.cycle ? { cycle: c.cycle } : {}), ...(c.dna ? { dna: c.dna } : {}) }, ...(c.kind === 'user' ? { copyOf: c.id, owner: c.owner, copyPct: c.copyPct } : {}) }); onClose(); };
   return createPortal(<div className="ce-shade is-pop" role="presentation" onClick={onClose} data-testid="card-config">
     <aside className="ce is-pop m-live cc-cfg" role="dialog" aria-modal="true" aria-label={`${c.name} config`} onClick={e => e.stopPropagation()}>
       <header><span className="m-label">⚙ CARD CONFIG</span><h3>{c.emoji} {c.name}{c.dial && <span className={`ar-dial dl-${c.dial}`}>{DIAL_LABEL[c.dial]}</span>}</h3>
         <button type="button" className="cx-x" onClick={onClose} aria-label="Close">×</button></header>
       {c.tagline && <p className="m-dim">{c.tagline}</p>}
+      {c.dnaLabel && <div className="cc-cfg-dna" data-tip="What this card's automation does — the same fields the FUSE Card contract runs once signed">🧬 {c.dnaLabel}</div>}
       <div className="cc-cfg-chips">{cfg.tp != null && <i data-tip="Take-profit per runner">🎯 TP +{cfg.tp}%</i>}{cfg.sl != null && <i data-tip="Stop per runner">🛑 SL −{cfg.sl}%</i>}
         {cfg.rotateHours != null && <i data-tip="Reshuffle clock">⟳ {cfg.rotateHours >= 1 ? `${cfg.rotateHours}h` : `${Math.round(cfg.rotateHours * 60)}m`}</i>}{cfg.slMode && <i data-tip="At a coin's stop">{SL_WORD[cfg.slMode] || cfg.slMode}</i>}
         {(cfg.cycle || c.cycle) && <i data-tip="Round cycle">🔄 {cfg.cycle || c.cycle}</i>}{c.record_wl && <i data-tip="Arena battles">⚔ {c.record_wl.w}–{c.record_wl.l}</i>}</div>
@@ -424,6 +425,7 @@ export function MegaCard({ c, i, onPicks, onLoad, onChat, chatOpen, onReplay }) 
       style={DIAL_STYLE[c.dial] || (c.kind === 'lit' ? 'degen' : 'momentum')} rank={0} budget={20} aura={c.aura || fx.aura} />
     <div className="ar-embers" aria-hidden="true">{Array.from({ length: fx.embers }, (_, k) => <i key={k} style={{ '--i': k }} />)}</div>
     <div className="ar-meta"><b>{c.emoji} {c.name}{c.version ? <small className="ar-ver" data-tip="Engine version of this scenario card — same as Cmd Ctr › Engine playground"> v.{String(c.version).padStart(2, '0')}</small> : null}</b>{c.dial && <span className={`ar-dial dl-${c.dial}`}>{DIAL_LABEL[c.dial]}</span>}
+      {c.dnaLabel && <span className="ar-dna" data-tip="This card's DNA — its own cycle, compound, payout, clock and stop (no two cards alike)" data-testid={`dna-${c.id}`}>🧬 {c.dnaLabel}</span>}
       {c.cfg && <span className="ar-cfg" data-testid={`cfg-${c.id}`}><i data-tip="Take-profit per runner">TP +{c.cfg.tp}%</i><i data-tip="Stop per runner">SL −{c.cfg.sl}%</i>{c.cfg.rotateHours != null && <i data-tip="Rotates weak coins every">⟳ {c.cfg.rotateHours >= 1 ? `${c.cfg.rotateHours}h` : `${Math.round(c.cfg.rotateHours * 60)}m`}</i>}{c.cfg.slMode && <i data-tip="At the stop">{SL_WORD[c.cfg.slMode] || c.cfg.slMode}</i>}</span>}
       <span className="ar-act" data-tip="Activity: FEELESS buys + buyers (24h), $ flow through its coins, index move. Drives the effects."><small>ACT</small><i style={{ transform: `scaleX(${(c.activity?.score || 0) / 100})` }} /><em className="m-num">{c.activity?.score || 0}</em></span>
       {c.record_wl && <span className="ar-wl" data-tip="Arena battle record (wins – losses – draws)" data-testid={`wl-${c.id}`}>⚔ {c.record_wl.w}–{c.record_wl.l}{c.record_wl.d ? `–${c.record_wl.d}` : ''}</span>}
