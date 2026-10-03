@@ -443,3 +443,27 @@ def close_tx(owner, accounts, blockhash):
                        [AccountMeta(Pubkey.from_string(a['pubkey']), False, True), AccountMeta(me, False, True), AccountMeta(me, True, False)]) for a in accounts]
     msg = Message.new_with_blockhash(ixs, me, Hash.from_string(blockhash))
     return base64.b64encode(bytes(Transaction.new_unsigned(msg))).decode()
+
+
+MISS_LIMIT = 3          # a coin that fails the buy checks this many times …
+MISS_WINDOW = 600       # … within 10 minutes is benched for this card
+BENCH_SEC = 3600        # for an hour, so the engine swaps in a coin that CAN be bought
+
+
+def note_miss(book, mint, now, reason=''):
+    """Count a failed / skipped real buy. Returns (book, benched?)."""
+    b = {**book, 'misses': dict(book.get('misses') or {}), 'benched': dict(book.get('benched') or {})}
+    m = b['misses'].get(mint) or {'n': 0, 'first': now}
+    if now - _f(m.get('first')) > MISS_WINDOW:
+        m = {'n': 0, 'first': now}
+    m = {**m, 'n': int(m['n']) + 1, 'why': reason[:80]}
+    b['misses'][mint] = m
+    if m['n'] >= MISS_LIMIT:
+        b['benched'][mint] = {'until': now + BENCH_SEC, 'why': reason[:80]}
+        b['misses'].pop(mint, None)
+        return b, True
+    return b, False
+
+
+def benched(book, now):
+    return {m for m, v in (book.get('benched') or {}).items() if _f(v.get('until')) > now}

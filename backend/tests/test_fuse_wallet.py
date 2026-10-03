@@ -260,3 +260,13 @@ def test_close_empty_accounts_only_and_builds_close_ix():
     tx = Transaction.from_bytes(base64.b64decode(fw.close_tx(owner, empty, '11111111111111111111111111111111')))
     ix = tx.message.instructions[0]
     assert bytes(ix.data) == bytes([9]) and str(tx.message.account_keys[0]) == owner
+
+
+def test_coin_failing_buys_3x_in_10min_is_benched_for_an_hour():
+    import fuse_wallet as fw
+    b = {}
+    for t in (0, 60, 120):
+        b, out = fw.note_miss(b, 'M', t, 'price impact 5% > 3.5%')
+    assert out and fw.benched(b, 200) == {'M'} and fw.benched(b, 120 + 3601) == set()
+    b2, out2 = fw.note_miss({}, 'X', 0, 'x'); b2, out2 = fw.note_miss(b2, 'X', 700, 'x')   # outside the window → count restarts
+    assert not out2 and b2['misses']['X']['n'] == 1

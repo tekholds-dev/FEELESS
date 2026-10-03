@@ -5345,6 +5345,17 @@ async def _prime_tick_inner(now):
             return _fuse._f(m.get('chg1h')) > 0 and bs >= 55
         p_t = [x for x in pools if _lq(x) >= floor] or pools
         r_t = [x for x in runners if _lq(x) >= floor and _confirmed(x)]
+        if cur and cur.get('real'):   # 🪑 coins the keeper couldn't buy 3× in 10 min are benched 1h: never picked, and swapped out NOW
+            bench = _fw.benched((_fw_load().get('books') or {}).get(tid) or {}, now)
+            if bench:
+                p_t, r_t = [x for x in p_t if x.get('mint') not in bench], [x for x in r_t if x.get('mint') not in bench]
+                for l in [x for x in cur['legs'] if x.get('mint') in bench and x.get('buying')]:
+                    try:
+                        tmp = {**cur, 'legs': [{**x, 'units': _fuse._f(x.get('wantUnits'))} if x is l else x for x in cur['legs']]}
+                        cur = _prime.replace_leg(tmp, l['pairAddress'], px, p_t, r_t, anchors, cfg_t, now)
+                        cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'why': f"🪑 ${l.get('symbol')} couldn't be bought safely 3× — swapped for a buyable coin"}] if cur.get('events') else cur.get('events')
+                    except ValueError:
+                        pass
         cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, anchors, mom, liqs) if cur else _prime.deal(tid, pools, runners, cfg_t, now, anchors)
     cards = {k: v for k, v in cards.items() if v}
     try:   # 📏 vs holding SOL: remember SOL's price when each run starts (a new run = a new startUsd)
@@ -5570,7 +5581,22 @@ async def _fw_quote(order, cfg):
     return await _fw_jup('GET', '/swap/v1/quote', params=q)
 
 
+def _fw_keep(d, tid, book):
+    """Save a card's book without losing the miss / bench counts written meanwhile by _fw_record."""
+    old = (d.get('books') or {}).get(tid) or {}
+    return {**book, 'misses': old.get('misses', book.get('misses') or {}), 'benched': old.get('benched', book.get('benched') or {})}
+
+
+_FW_NOT_COIN = ('not armed', 'paused', 'per-swap cap', 'daily cap', 'No Fuse wallet', 'signing not available', 'RPC pool')
+
+
 def _fw_record(d, row):
+    if row.get('side') == 'buy' and row.get('status') in ('skipped', 'failed') and row.get('mint') and row.get('card') in (d.get('books') or {}) \
+            and not any(x in str(row.get('err') or '') for x in _FW_NOT_COIN):   # 🪑 a coin that keeps failing its buy gets benched
+        b, out = _fw.note_miss(d['books'][row['card']], row['mint'], _fuse._f(row.get('at')) or time.time(), str(row.get('err') or ''))
+        d['books'][row['card']] = b
+        if out:
+            print(f"fuse wallet: benched {row.get('symbol')} for 1h — {row.get('err')}")
     if row.get('id') and any(r.get('id') == row['id'] and r.get('status') == row.get('status') for r in (d.get('ledger') or [])[-50:]):
         return   # the same order outcome is booked once (two ticks resolving one tx can't double the trail)
     d['ledger'] = (d.get('ledger') or [])[-1999:] + [row]   # recent 2000 for fast reads …
@@ -5649,7 +5675,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
         sig = signed.get('signature') or signed.get('txHash')
         book = {**book, 'pending': {**row, 'sig': sig, 'status': 'sent', 'sentAt': now}}
         async with _fw_lock:   # pending is saved BEFORE the send: a crash mid-flight can never double-buy
-            d = _fw_load(); d['books'][tid] = book; _fw_save(d)
+            d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_save(d)
         try:
             async with httpx.AsyncClient(timeout=15) as http:
                 await _rpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
@@ -5661,7 +5687,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
             # simulation failed = this tx can NEVER land → clear pending now (no 2-min wait), maybe retry with more slippage
             book = {**book, 'pending': None}
             async with _fw_lock:
-                d = _fw_load(); d['books'][tid] = book; _fw_save(d)
+                d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_save(d)
             slip = min(300, int(cfg['slippageBps']) + 75 * (slip_try + 1))
             if ('0x1771' not in msg and '6001' not in msg) or slip_try == 2:
                 row.update(status='failed', err=('slippage exceeded at send' if ('0x1771' in msg or '6001' in msg) else 'simulation failed') + f' (tried ≤{slip / 100:.2f}%)')
@@ -5719,7 +5745,7 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
         row.update(status='failed', err='not confirmed in 2 min' if not tx else 'tx failed on-chain')
     book = {**book, 'pending': None}
     async with _fw_lock:
-        d = _fw_load(); d['books'][tid] = book; _fw_record(d, row); _fw_save(d)
+        d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_record(d, row); _fw_save(d)
     _fw_notify(row)
     return book
 
@@ -5763,7 +5789,7 @@ async def _fw_tick(now):
                 d2['books'].pop(tid, None)
                 _fw_record(d2, {'card': tid, 'side': 'defund', 'usd': round(_fw.book_value(book, px, sol_px), 4), 'at': now, 'status': 'done'})
             else:
-                d2['books'][tid] = book
+                d2['books'][tid] = _fw_keep(d2, tid, book)
             _fw_save(d2)
         async with _admin_lock:
             h = _json_load(FUSE_HQ_PATH, {}); cs = (h.get('prime') or {}).get('cards') or {}

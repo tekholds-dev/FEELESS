@@ -648,6 +648,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🔄 Every tier shape has ≥1 growth coin (`PHASES.growth`): anchor/safest = 3 majors + 1 NEW MAJOR, mixed = 2 majors + new major +
   runner, degen/breakeven = runners first. New majors (`fuse.risers`) feed `_prime_candidates` (`newMajor`). Adaptive rests only on ≤ −3%.
 
+- 🪑 Bench (`fuse_wallet.note_miss/benched`): a coin whose real buy fails its checks 3× in 10 min is benched 1h for that card — never
+  picked, and a buying leg is swapped NOW (`replace_leg`). Book saves use `_fw_keep` (never drop misses/bench). Slippage-rejected sends re-quote ≤3%.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10
