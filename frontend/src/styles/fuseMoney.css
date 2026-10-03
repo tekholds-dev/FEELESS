@@ -174,6 +174,11 @@ body.theme-day .ctab { background: #fff; border-color: #d8e2dc; }
 .ce-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; margin: 8px 0; }
 .ce-row { display: grid; gap: 3px; } .ce-row small { font-family: var(--m-mono); font-size: 9.5px; letter-spacing: .1em; color: var(--m-dim); text-transform: uppercase; }
 .ce-row .m-seg { flex-wrap: wrap; }
+.ce-group { display: grid; gap: 4px; margin: 8px 0 4px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--m-line) 70%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--m-bg, #050b07) 60%, transparent); }
+.ce-group .ce-grid { margin: 2px 0; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.ce-warn { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 0; color: var(--gold); font-size: 11.5px; } .ce-warn .m-btn { padding: 3px 10px; }
+.hq-real-track:has(.hrt-edit[open]) .hrt-cfg { display: none; }   /* the editor already shows every setting — no duplicate chip row */
+.hrt-top-up .m-btn { white-space: nowrap; }
 .ce-typed { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; align-items: end; margin: 6px 0; }
 .ce-typed label { display: grid; gap: 3px; } .ce-typed small { font-family: var(--m-mono); font-size: 9.5px; letter-spacing: .1em; color: var(--m-dim); text-transform: uppercase; }
 .hrt-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .hrt-top-up { display: inline-flex; gap: 4px; } .hrt-top-up .m-input { width: 70px; }
@@ -239,3 +244,4 @@ body.theme-day .ar-guide li { background: #fff; border-color: #d8e2dc; } body.th
 @media (max-width: 640px) { .hq-real { grid-template-columns: 1fr; justify-items: center; } .hq-real-track { width: 100%; } .hrt-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { .hrt-edit[open] .ce-grid { animation: none; } }
 body.theme-day .hrt-kpis > span { background: #fff; border-color: #d8e2dc; }
+body.theme-day .ce-group { background: #fff; border-color: #d8e2dc; } body.theme-day .ce-warn { color: #8a5a00; }

@@ -586,8 +586,8 @@ function MyCardsBody({ realN, d, openRows, act, setAct, open, setMode, setRisk, 
   const live = useLivePrices(openRows.flatMap(r => r.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress)));
   const held = openRows.length ? liveBook(openRows, live) : { pnlUsd: d.held?.pnlUsd, pnlPct: d.held?.pnlPct, value: d.held?.valueUsd };
   return <section className="fp-cards" data-testid="my-cards">
-    <div className="m-row fp-book"><span className="m-label">CARDS YOU HOLD</span><b className={`m-num fl-tick ${(held.pnlUsd || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={(held.pnlUsd || 0).toFixed(2)} data-testid="held-pnl">{m$(held.pnlUsd)} <small>{pc(held.pnlPct)}</small><i className="fl-livedot" /></b>
-      <small className="m-dim">{m$(held.value)} now · {openRows.length} open · all-time {m$(d.pnlUsd)}</small>{d.feebackUsd > 0 && <span className="m-chip ok" data-tip="Fuse Fee-Back: your unlocked share of the fees you paid on cards">🎁 {m$(d.feebackUsd)} Fee-Back</span>}</div>
+    {!(realN && !openRows.length) && <div className="m-row fp-book"><span className="m-label">CARDS YOU HOLD</span><b className={`m-num fl-tick ${(held.pnlUsd || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={(held.pnlUsd || 0).toFixed(2)} data-testid="held-pnl">{m$(held.pnlUsd)} <small>{pc(held.pnlPct)}</small><i className="fl-livedot" /></b>
+      <small className="m-dim">{m$(held.value)} now · {openRows.length} open · all-time {m$(d.pnlUsd)}</small>{d.feebackUsd > 0 && <span className="m-chip ok" data-tip="Fuse Fee-Back: your unlocked share of the fees you paid on cards">🎁 {m$(d.feebackUsd)} Fee-Back</span>}</div>}
     {!openRows.length && (realN ? <small className="m-dim" data-testid="no-bought-cards">Cards you buy from this wallet show here too, next to the real tier cards above.</small>
       : <div className="m-card fp-empty"><b>No open cards.</b><small className="m-dim">Build one in the Lab — 3 pools + up to 3 runners.</small></div>)}
     <div className="fp-cgrid">{openRows.map(r => <div key={r.id} className={`fp-cell ${r.onArena ? 'is-arena' : ''}`}><LiveFuseCard r={r} aura={r.onArena ? 'fire' : ''} />

@@ -172,9 +172,7 @@ const EDIT = [
   ['autoBrain', '🧠 Auto-tune', [[true, 'on'], [false, 'off']], 'Let the sim brain adjust patience / drop (never below 3 on 5m rounds)'],
 ];
 const CYCLES = [['safe', '🛡 safe'], ['classic', 'classic'], ['adaptive', 'adaptive'], ['press', '🔥 press'], ['rescue', '🛟 rescue'], ['auto', '🤖 auto'], ['off', 'off']];
-const WALLET = [['minLiqUsd', '💧 Real buys need pool', [[10000, '$10K'], [20000, '$20K'], [50000, '$50K'], [100000, '$100K']], 'Thinner coins stay paper-only (safer = higher)'],
-  ['slippageBps', '↔ Slippage', [[100, '1%'], [150, '1.5%'], [200, '2%'], [300, '3%']], 'Max price move accepted per swap'],
-  ['minOrderUsd', '🪙 Min buy', [[0.25, '$0.25'], [0.5, '$0.50'], [1, '$1']], 'Smallest single real swap']];
+const ROUND_KEYS = ['rotateHours', 'rotateConfirm', 'rotateMinDrop', 'minHoldMins'];   // ⏱ group 1; the rest of EDIT = 🧬 shape group
 
 // ✍ Type exact limits (server clamps every value to its safe range: slippage 0.1–3%, impact 0.2–10%, pool ≥ $0, swap $1+, daily $5+)
 const TYPED = [['slippageBps', 'Slippage %', v => v * 100, v => v / 100, 0.1, 3, 0.1], ['maxImpactPct', 'Max price impact %', v => v, v => v, 0.2, 10, 0.1],
@@ -205,14 +203,21 @@ function CardEditor({ c, cfg, keeper, locked, call }) {
   };
   const seg = (key, label, opts, tip, cur, wallet) => <div key={key} className="ce-row" data-tip={tip}><small>{label}</small>
     <div className="m-seg">{opts.map(([v, t]) => <button key={String(v)} type="button" disabled={busy} className={String(cur) === String(v) ? 'active' : ''} aria-pressed={String(cur) === String(v)} onClick={() => save({ [key]: v }, wallet)}>{t}</button>)}</div></div>;
+  const row = ([k, l, o, t]) => seg(k, l, o, t, k === 'rotateHours' ? (o.find(x => Math.abs(x[0] - (cfg?.[k] || 0)) < 0.02) || [cfg?.[k]])[0] : cfg?.[k]);
+  const churn = (cfg?.rotateHours || 1) < 0.25 && (cfg?.rotateConfirm || 1) < 3;   // 5-min rounds + low patience = swaps on noise (fees, missed buys)
   return <details className="hrt-edit" data-testid="card-editor"><summary>⚙ Edit card {locked ? '· 🔒 locked — edits change only this card' : '· shared engine settings'}</summary>
-    <div className="ce-grid">
-      {EDIT.map(([k, l, o, t]) => seg(k, l, o, t, k === 'rotateHours' ? (o.find(x => Math.abs(x[0] - (cfg?.[k] || 0)) < 0.02) || [cfg?.[k]])[0] : cfg?.[k]))}
+    <div className="ce-group"><span className="m-label">⏱ ROUNDS · when a coin may be swapped</span>
+      <div className="ce-grid">{EDIT.filter(e => ROUND_KEYS.includes(e[0])).map(row)}</div>
+      {churn && <p className="m-note ce-warn" data-testid="churn-warn">⚠ {Math.round((cfg?.rotateHours || 0) * 60)}-min rounds with patience {cfg?.rotateConfirm || 1}: a coin is swapped after {(cfg?.rotateConfirm || 1) * Math.round((cfg?.rotateHours || 0) * 60)} min of noise — every swap pays fees and needs a real buy. Patience 3 is the proven setting.
+        <button type="button" className="m-btn" disabled={busy} onClick={() => save({ rotateConfirm: 3 })}>Use 3</button></p>}</div>
+    <div className="ce-group"><span className="m-label">🧬 SHAPE · which coins the card holds</span><div className="ce-grid">
+      {EDIT.filter(e => !ROUND_KEYS.includes(e[0])).map(row)}
       <div className="ce-row" data-tip="The shapes this card cycles through"><small>🔄 Cycle</small><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
       <div className="ce-row" data-tip="Freeze this tier's whole config so engine tunes never change it"><small>🔒 Lock tier</small><div className="m-seg">{[[true, 'locked'], [false, 'free']].map(([v, t]) => <button key={t} type="button" disabled={busy} className={!!locked === v ? 'active' : ''} onClick={() => { setBusy(true); call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ lock: c.tpl, on: v }) }).then(() => { toast.success(v ? '🔒 Locked' : 'Unlocked'); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy(false)); }}>{t}</button>)}</div></div>
-      {WALLET.map(([k, l, o, t]) => seg(k, l, o, t, keeper?.[k], true))}
-    </div>
-    <TypedLimits keeper={keeper} busy={busy} save={save} /><small className="m-dim">Engine settings are shared by the tiers that aren't locked. Wallet settings cover every real buy.</small></details>;
+    </div></div>
+    <div className="ce-group"><span className="m-label">💵 REAL MONEY · limits on every real swap (server-enforced)</span>
+      <TypedLimits keeper={keeper} busy={busy} save={save} /></div>
+    <small className="m-dim">Rounds + shape are shared by every tier that isn't 🔒 locked. Real-money limits cover every real buy and sell.</small></details>;
 }
 
 export function HqRealCards({ addr, onCount }) {
