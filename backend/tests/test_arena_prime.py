@@ -513,4 +513,4 @@ def test_new_coin_entry_rebases_to_the_live_price_on_its_first_tick():
     leg = c['legs'][0]
     assert leg['mint'] == 'H' and leg['entry'] == 0.13 and abs(leg['units'] * 0.13 - 10.0) < 1e-6 and not any(e['kind'] == 'sl' for e in c['events'])
     c = ap.tick(c, {'PH': 0.065}, [], [], cfg, 500, liqs={'PH': 1e12})    # a REAL −50% later still counts
-    assert c['legs'][0].get('entry') != 0.065
+    assert any(e['kind'] == 'sl' for e in c['events'])   # not re-based: the stop fires
