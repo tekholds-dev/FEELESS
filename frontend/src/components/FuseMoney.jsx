@@ -100,7 +100,7 @@ export function CardCosts({ coins = 3, amount = 20, staff = false, rounds = 10, 
   const x = p?.plan;
   if (!x) return <div className="ccost m-card"><span className="m-label">💲 WHAT THIS CARD COSTS</span><small className="m-dim">loading prices…</small></div>;
   return <div className="ccost m-card" data-testid="card-costs"><span className="m-label">💲 WHAT THIS CARD COSTS</span>
-    {amount > 0 && amount <= 5 && amount / coins < 0.75 && <p className="m-note warn" data-testid="ccost-min">Cards of $5 or less buy at least $0.75 per coin — use {Math.max(1, Math.floor(amount / 0.75))} coins or more $.</p>}
+    {amount > 0 && amount <= 10 && amount / coins < 0.5 && <p className="m-note warn" data-testid="ccost-min">Cards of $10 or less buy at least $0.50 per coin — use {Math.max(1, Math.floor(amount / 0.5))} coins or more $.</p>}
     {staff ? <p className="ccost-free">HQ card · <b>$0 FEELESS fee</b> — only Solana network fees (~$0.001 per swap).</p> : <>
       <ul className="ccost-list">
         <li data-tip={`$${x.perCoinUsd.toFixed(2)} per coin, never more than ${p.bundle.maxPct}% of a coin's slice`}><span>🃏 First buy · {coins} coins</span><b className="m-num">{usd(x.buyUsd)}</b></li>

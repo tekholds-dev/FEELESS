@@ -300,6 +300,9 @@ export function FuseSeason() {
 }
 
 // ⚔ Battlefield: stage cards fight in pairs (hot vs hot) — bigger move since the bell wins. Tug-of-war bar = who's ahead.
+// ⚡ Smarter power board: standing cards first, then a power score (wins, losses, live move, comebacks, crowd calls)
+export const power = board => [...board].map(x => ({ ...x, power: Math.round((x.w * 3 - x.l * 2 + (x.pct || 0) / 10 + (x.comebacks || 0) * 2 + (x.calls || 0) / 2) * 10) / 10 }))
+  .sort((a, b) => (a.status === 'out') - (b.status === 'out') || b.power - a.power);
 const tugShare = (a, b) => (a + b > 0 ? Math.max(0.06, Math.min(0.94, a / (a + b))) : 0.5);
 export function Battlefield({ b, cards = [], onLoad }) {
   const [now, setNow] = useState(Date.now() / 1000);
@@ -362,6 +365,7 @@ export function Battlefield({ b, cards = [], onLoad }) {
       onBuyBack={b.pairs.some(p => [p.a.key, p.b.key].includes(cfgKey)) ? () => buyBack({ key: cfgKey, name: cfgCard.name }) : null} />}
     <div className="bf-arena" onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} onFocus={() => setHold(true)} onBlur={() => setHold(false)} data-testid="bf-arena">
       <span className="bf-floor" aria-hidden="true" /><span className="bf-beam l" aria-hidden="true" /><span className="bf-beam r" aria-hidden="true" />
+      <span className="bf-show" aria-hidden="true"><i className="bfs-sweep a" /><i className="bfs-sweep b" /><i className="bfs-flash" />{Array.from({ length: 18 }, (_, k) => <i key={k} className="bfs-dot" style={{ '--i': k }} />)}</span>
       {b.pairs.length > 1 && <div className="bf-tabs" role="tablist" aria-label="Fights">{b.pairs.map((p, i) => <button key={p.a.key + p.b.key} type="button" role="tab" aria-selected={cur === i} className={cur === i ? 'active' : ''} onClick={() => setSpot(i)} data-testid={`bf-tab-${i}`}>
         FIGHT {i + 1}<small>{p.a.emoji} vs {p.b.emoji}</small></button>)}</div>}
       {b.pairs.map((p, i) => { const d = p.a.now - p.b.now; const share = Math.max(0.08, Math.min(0.92, 0.5 + d / 20));
@@ -379,12 +383,13 @@ export function Battlefield({ b, cards = [], onLoad }) {
     </div>
     {br.upNext?.length > 0 && <div className="bf-next" data-testid="bf-upnext"><span className="m-label">⏭ UP NEXT</span>{br.upNext.map((x, j) => <button key={x.key} type="button" className={`bf-nextcard br-${x.status}`} style={{ '--i': j }} onClick={() => setCfgKey(x.key)} data-tip="Fights at the next bell — tap for its config">
       <b>{x.emoji}</b><span>{x.name}</span><em>{x.status === 'winners' ? '🏆' : '💀'} {x.w}–{x.l}</em></button>)}</div>}
-    {(br.board || []).length > 0 && <div className="bf-power" data-testid="bf-power"><span className="m-label">⚡ POWER BOARD · WHO'S DOING BETTER OVERALL</span>
-      {br.board.map((x, i) => <div key={x.key} className={`bf-prow br-${x.status}`} style={{ '--i': i }}>
+    {(br.board || []).length > 0 && <div className="bf-power" data-testid="bf-power"><span className="m-label" data-tip="Power = wins ×3 − losses ×2 + live move ÷ 10 + comebacks ×2 + calls ÷ 2 — still standing first">⚡ POWER BOARD · WHO'S DOING BETTER OVERALL</span>
+      {power(br.board).map((x, i) => <div key={x.key} className={`bf-prow br-${x.status}`} style={{ '--i': i }}>
         <b className="bf-rank">{i === 0 && x.status !== 'out' ? '👑' : `#${i + 1}`}</b><span className="bf-pname">{x.emoji} {x.name}{x.comebacks > 0 && <em className="bf-cb" data-tip="Battles won from under 20 HP">🔥×{x.comebacks}</em>}</span>
         <i className="bf-pbar"><i style={{ transform: `scaleX(${Math.max(0.04, x.w / topW)})` }} /></i>
         <em className="bf-pips">{Array.from({ length: x.w }, (_, k) => <i key={`w${k}`} className="w" />)}{Array.from({ length: x.l }, (_, k) => <i key={`l${k}`} className="l" />)}</em>
-        <small className={`m-num ${x.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(x.pct)}</small>
+        <small className={`m-num fl-tick ${x.pct >= 0 ? 'm-pos' : 'm-neg'}`} key={x.pct}>{pc(x.pct)}</small>
+        <em className="bf-pwr" data-tip={`${x.w + x.l ? Math.round((x.w / (x.w + x.l)) * 100) : 0}% battles won`}>⚡{x.power}<small> · {x.w + x.l ? Math.round((x.w / (x.w + x.l)) * 100) : 0}%W</small></em>
         <em className={`bf-br br-${x.status}`}>{x.status === 'winners' ? '🏆 winners' : x.status === 'losers' ? '💀 losers' : '✕ out'}</em>
         <span className="bf-pacts"><button type="button" className="m-btn" onClick={() => setCfgKey(x.key)} aria-label="Config" data-testid={`power-cfg-${i}`}>⚙</button>
         {x.status !== 'out' && <button type="button" className={`m-btn bf-call ${called === x.key ? 'is-on' : ''}`} disabled={!!called} onClick={() => callIt(x.key)} data-tip="Call it to win this bracket (free) — right = season XP" data-testid={`call-${i}`}>🔮 {(x.calls || 0) + (called === x.key ? 1 : 0)}</button>}</span></div>)}</div>}

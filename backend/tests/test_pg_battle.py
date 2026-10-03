@@ -172,3 +172,12 @@ def test_playground_widens_to_6_plus_experiments_with_hq_amount_and_scraps_dead(
     w = pb.widen(sc, [{'pairAddress': 'A'}, {'pairAddress': 'C'}, {'pairAddress': 'D'}, {'pairAddress': 'E'}, {'pairAddress': 'F'}, {'pairAddress': 'G'}], 6)
     assert [l['pairAddress'] for l in w['legs']] == ['A', 'B', 'C', 'D', 'E', 'F'] and w['legs'][-1]['weight'] == 50
     assert pb.dead({'x': {'w': 0, 'l': 5}, 'y': {'w': 1, 'l': 9}, 'z': {'w': 0, 'l': 5}}, locked=['z']) == ['x']
+
+
+def test_playground_plays_every_round_length_and_learns_the_best():
+    assert [pb.next_clock({'allClocks': True, 'roundMins': 5}, i) for i in range(5)] == [5, 15, 30, 60, 5]
+    assert pb.next_clock({'allClocks': False, 'roundMins': 30}, 7) == 30
+    st = {}
+    for _ in range(3):
+        st = pb.clock_learn(st, 5, [1.0, -2.0]); st = pb.clock_learn(st, 30, [4.0, 0.0])
+    assert st['5']['bells'] == 3 and st['30']['bestPct'] == 4.0 and pb.best_clock(st) == 30 and pb.best_clock(st, 9) is None

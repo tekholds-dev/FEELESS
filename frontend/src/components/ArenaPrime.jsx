@@ -30,7 +30,8 @@ const TIER = {
 export const PRIME_META = { rotateHours: 1, rotateCount: 1, floorPct: 15, compound: true, slMode: 'park' };
 // realizedUsd = what the card PAID OUT (walletUsd) — never the gross take-profits (those mostly compounded back in and are still held)
 export const primeRow = c => ({ id: c.id, name: c.label, closed: false, costUsd: c.startUsd, valueUsd: c.valueUsd, realizedUsd: c.walletUsd || 0,
-  baseUsd: c.startUsd, extraUsd: (c.cash || 0) + (c.parked || []).reduce((a, p) => a + (p.usd || 0), 0),
+  // extra = everything that's the card's but not a coin: cash + parked SOL + what it PAID OUT (live value must include it, like the server)
+  baseUsd: c.startUsd, extraUsd: (c.cash || 0) + (c.parked || []).reduce((a, p) => a + (p.usd || 0), 0) + (c.walletUsd || 0),
   pnlUsd: c.valueUsd - c.startUsd, pnlPct: c.pnlPct,
   legs: c.legs.map(l => ({ pairAddress: l.pairAddress, symbol: l.symbol, role: l.role, mint: l.mint, usd: l.costUsd, tokens: l.units, valueUsd: l.usd,
     pnlUsd: l.usd - l.costUsd, pnlPct: l.costUsd ? (l.usd / l.costUsd - 1) * 100 : 0, priced: true, priceNow: l.now, stars: l.stars, liq: l.liq })) });
@@ -82,7 +83,7 @@ export function ArenaPrime({ onLoad }) {
       {open === c.id && <CardEarnings title={c.label} events={(c.audit || c.events).map(e => ({ ...e, label: e.kind === 'tp' ? ({ ride: '🚀 Ride · house money', bank: '🏦 Banked 75%' }[e.mode] || KIND.tp) : KIND[e.kind] || e.kind }))} taken={c.walletUsd || 0} compounded={c.compoundedUsd}
         book={{ putIn: c.startUsd || 0, held: Math.max(0, (c.valueUsd || 0) - (c.walletUsd || 0)), taken: c.walletUsd || 0, fees: c.feesUsd, rounds: c.rounds }} fees={c.feesUsd} onClose={() => setOpen(null)} paper={!c.real}
         extra={<TrailSummary events={c.audit || c.events} legs={c.legs} />}
-        legs={c.legs.map(l => ({ ...l, rundown: l.role === 'anchor' ? 'Solid hold — never stopped or rotated; the floor moves everything here' : `TP +${c.tp}% (momentum decides ride / gain / bank) · stop −${c.sl}% (cut at −${c.sl / 2}% if fading) · rotates when weakest` }))} autos={c.events.filter(e => Date.now() / 1000 - e.at < 86400 && e.kind !== 'deal').map(e => ({ at: e.at, text: `${KIND[e.kind] || e.kind} ${e.symbol ? `$${e.symbol} ` : ''}— ${e.why || ''}`, url: '#' }))} />}
+        legs={c.legs.map(l => ({ ...l, ...(p => (p > 0 && l.entry ? { now: p, pnlPct: (p / l.entry - 1) * 100, usdNow: l.units * p } : { usdNow: l.usd }))(live.get?.(l.pairAddress)?.price), rundown: l.role === 'anchor' ? 'Solid hold — never stopped or rotated; the floor moves everything here' : `TP +${c.tp}% (momentum decides ride / gain / bank) · stop −${c.sl}% (cut at −${c.sl / 2}% if fading) · rotates when weakest` }))} autos={c.events.filter(e => Date.now() / 1000 - e.at < 86400 && e.kind !== 'deal').map(e => ({ at: e.at, text: `${KIND[e.kind] || e.kind} ${e.symbol ? `$${e.symbol} ` : ''}— ${e.why || ''}`, url: '#' }))} />}
     </article>; })}</div>
   </section>;
 }
@@ -108,6 +109,7 @@ export function PrimeControls({ call }) {
         onBlur={() => Number(mins) >= 15 && Number(mins) !== Math.round(cfg.rotateHours * 60) && save({ rotateHours: Math.min(48, Number(mins) / 60) })} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} data-testid="prime-rotate-min" /><span>min</span></label>{null}
       <span>Coins per rotation</span>{seg('rotateCount', [1, 2, 3], v => `${v}`)}
       <span data-tip="Rotation only swaps a coin that is actually losing — winners are never churned (fewer fees, less price impact)">Rotate only coins down</span>{seg('rotateMinDrop', [0, 5, 10, 20], v => (v ? `−${v}%` : 'any'))}
+      <span data-tip="🛟 When a card falls this far under what it started with, it switches to the rescue cycle (safest run ⇄ breakeven runners)">Rescue at</span>{seg('rescuePct', [30, 40, 50, 60], v => `−${v}%`)}
       <span data-tip="How often a cycling card re-shapes. Every re-shape sells + re-buys coins — every 6 rounds on 5-min rounds = every 30 min">Re-shape every</span>{seg('cycleEvery', [1, 3, 6, 12], v => `${v} rnd`)}
       <span data-tip="Rounds per run: when they're done the run closes on the record (its %) and the next run starts from there. ∞ = one endless run. Every round opens with a 10s countdown.">Rounds per run</span>{seg('roundsPerRun', [0, 5, 10, 20, 50], v => (v ? `${v}` : '∞'))}
       <span data-tip="Card-level floor: at this loss every pool + runner moves into the anchor, then the card is re-dealt as a new run">Floor</span>{seg('floorPct', [10, 15, 20, 25], v => `−${v}%`)}

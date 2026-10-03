@@ -156,4 +156,4 @@ def test_wallet_fronts_fees_for_5_rounds_then_the_card_pays():
     early, _ = fw.apply_fill(fw.new_book(100, 100.0, 0), order, fill, 100.0)
     late, _ = fw.apply_fill(fw.new_book(100, 100.0, 0), {**order, 'cardPays': True}, fill, 100.0)
     assert abs(early['sol'] - 0.8) < 1e-9 and abs(late['sol'] - (0.8 - 0.00001 - 0.00204)) < 1e-9
-    assert fw.DEFAULT_CFG['minOrderUsd'] == 0.75
+    assert fw.DEFAULT_CFG['minOrderUsd'] == 0.5

@@ -14,7 +14,7 @@ import card_dna as _dna
 import runners as rn
 
 _f = rn._f
-DEFAULT_CFG = {'on': True, 'roundMins': 5, 'cards': 4, 'sizeUsd': 100.0, 'swapOnTp': True, 'swapOnSl': True, 'swapDead': True, 'deadMins': 10}
+DEFAULT_CFG = {'on': True, 'allClocks': True, 'roundMins': 5, 'cards': 4, 'sizeUsd': 100.0, 'swapOnTp': True, 'swapOnSl': True, 'swapDead': True, 'deadMins': 10}
 ROUND_OPTIONS = (5, 15, 30, 60)
 CARD_OPTIONS = (2, 4, 6)
 
@@ -22,7 +22,7 @@ CARD_OPTIONS = (2, 4, 6)
 def clean_cfg(c):
     c = c if isinstance(c, dict) else {}
     out = dict(DEFAULT_CFG)
-    for k in ('on', 'swapOnTp', 'swapOnSl', 'swapDead'):
+    for k in ('on', 'allClocks', 'swapOnTp', 'swapOnSl', 'swapDead'):
         if k in c:
             out[k] = bool(c[k])
     if _f(c.get('roundMins')) in ROUND_OPTIONS:
@@ -242,3 +242,26 @@ def widen(sc, candidates, target):
 def dead(record, locked=()):
     """Strategies to scrap: ≥ DEAD_LOSSES losses, zero wins, not locked by HQ."""
     return sorted(k for k, r in (record or {}).items() if int(r.get('l') or 0) >= DEAD_LOSSES and not int(r.get('w') or 0) and k not in set(locked or ()))
+
+
+def next_clock(cfg, bells):
+    """⏱ Every round length gets played: with `allClocks` on, each bell moves to the next of 5 / 15 / 30 / 60 min."""
+    return ROUND_OPTIONS[int(bells or 0) % len(ROUND_OPTIONS)] if cfg.get('allClocks', True) else cfg['roundMins']
+
+
+def clock_learn(stats, mins, pcts):
+    """Per round length: bells played, average card %, average winner %. `best_clock` = the length whose winners did best."""
+    s = {k: dict(v) for k, v in (stats or {}).items()}
+    if not pcts:
+        return s
+    r = s.setdefault(str(int(mins)), {'bells': 0, 'avgPct': 0.0, 'bestPct': 0.0})
+    n = r['bells']
+    r['avgPct'] = round((r['avgPct'] * n + sum(pcts) / len(pcts)) / (n + 1), 3)
+    r['bestPct'] = round((r['bestPct'] * n + max(pcts)) / (n + 1), 3)
+    r['bells'] = n + 1
+    return s
+
+
+def best_clock(stats, min_bells=3):
+    ok = [(int(k), v) for k, v in (stats or {}).items() if v.get('bells', 0) >= min_bells]
+    return max(ok, key=lambda kv: kv[1]['bestPct'])[0] if ok else None

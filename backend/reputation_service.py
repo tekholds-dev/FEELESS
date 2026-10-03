@@ -6194,7 +6194,7 @@ def _pg_battle_view(rd):
     view = lambda k: {**{x: (cards.get(k) or {}).get(x) for x in ('id', 'name', 'dial', 'tp', 'sl', 'swaps', 'phase', 'rounds')}, 'pct': (b.get('pcts') or {}).get(k),
                       'dna': (b.get('dna') or {}).get(k), 'dnaLabel': _dna.label((b.get('dna') or {}).get(k)) if (b.get('dna') or {}).get(k) else None,
                       'legs': [{x: l.get(x) for x in ('symbol', 'role', 'pairAddress')} for l in (cards.get(k) or {}).get('legs') or []], 'record': (b.get('record') or {}).get(k)}
-    return {'cfg': _pgb.clean_cfg(b.get('cfg')), 'locked': b.get('locked') or [], 'scrapped': len(b.get('scrapped') or []), 'picks': rd.get('creatorPicks') or [], 'endsAt': b.get('endsAt'), 'pairs': [{'a': view(p['a']), 'b': view(p['b'])} for p in b.get('pairs') or []],
+    return {'cfg': _pgb.clean_cfg(b.get('cfg')), 'clockStats': b.get('clockStats') or {}, 'bestClock': b.get('bestClock'), 'roundNow': b.get('roundMins'), 'locked': b.get('locked') or [], 'scrapped': len(b.get('scrapped') or []), 'picks': rd.get('creatorPicks') or [], 'endsAt': b.get('endsAt'), 'pairs': [{'a': view(p['a']), 'b': view(p['b'])} for p in b.get('pairs') or []],
             'log': (b.get('log') or [])[-12:][::-1], 'record': b.get('record') or {}, 'names': {k: c.get('name') for k, c in cards.items()},
             'brain': {**_dna.best(b.get('brain') or {}), 'label': _dna.label(_dna.best(b.get('brain') or {})['dna']), 'scores': b.get('brain') or {}}}
 
@@ -6262,7 +6262,11 @@ async def _pg_battle_tick(now):
             rd['creatorPicks'] = [x for x in rd.get('creatorPicks') or [] if x not in set(dead_now)]
         want = [k for k in want if k not in scrapped]
         dna = _dna.assign([{'id': k, 'dial': scs[k].get('dial')} for k in want], known=dna)
-        b = {**b, 'record': record, 'scrapped': sorted(scrapped)[-300:], 'pairs': _pgb.pair_up(want), 'endsAt': now + cfg['roundMins'] * 60,
+        played = int(b.get('roundMins') or cfg['roundMins'])
+        b['clockStats'] = _pgb.clock_learn(b.get('clockStats'), played, list(pcts.values()))   # ⏱ what each round length did
+        nxt_clock = _pgb.next_clock(cfg, int(b.get('bells') or 0))   # first round 5 min, then 15 · 30 · 60 · 5 …
+        b = {**b, 'bells': int(b.get('bells') or 0) + 1, 'roundMins': nxt_clock, 'bestClock': _pgb.best_clock(b['clockStats']),
+             'record': record, 'scrapped': sorted(scrapped)[-300:], 'pairs': _pgb.pair_up(want), 'endsAt': now + nxt_clock * 60,
              'log': ((b.get('log') or []) + [{**r_, 'aName': cards.get(r_['a'], {}).get('name'), 'bName': cards.get(r_['b'], {}).get('name')} for r_ in results])[-40:]}
     else:
         for k in want:

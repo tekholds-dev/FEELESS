@@ -611,6 +611,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 👛 Fuse wallet fronts a tier card's network fees + rent for its first 5 rounds; from round 5 the card pays (`cardPays` on orders).
   Min order $0.75; user cards ≤ $5 need ≥ $0.75 per coin (Lab note + FuseGo blocks the slice).
 
+- Tier live value includes PAID OUT (`primeRow.extraUsd` = cash + parked + walletUsd) — else "still held" reads $0. Tier paper fee = $0.01
+  (network; staff pay no FEELESS fee). HQ `rescuePct` (30–60). Cards ≤ $10 need ≥ $0.50 per coin (keeper min order 0.50).
+- ⏱ Playground plays EVERY round length (`allClocks`: 5 → 15 → 30 → 60 …), `clock_learn` / `best_clock` per length (HQ line).
+- ⚔ Battle box show (`bf-show`: spotlight sweeps, sparks, arena flash; off in fx-lite) · power board ranked by `power()` score.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

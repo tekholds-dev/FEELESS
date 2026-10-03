@@ -42,7 +42,7 @@ CYCLE_TIERS = ('degen', 'next')
 # press = degen⇄mixed. Every phase change is the same run (P&L continues).
 CYCLE_MODES = {'off': None, 'classic': CYCLE, 'adaptive': 'adaptive', 'safe': ('anchor', 'mixed'), 'press': ('degen', 'mixed'),
                'rescue': ('safest', 'breakeven'), 'auto': 'auto'}
-RESCUE_PCT = -50.0   # 🛟 any card that falls 50% under its start switches to the rescue cycle (safest ⇄ breakeven)
+RESCUE_PCT = -50.0   # (default; HQ sets cfg rescuePct) 🛟 any card that falls 50% under its start switches to the rescue cycle (safest ⇄ breakeven)
 ROTATE_MIN_DROP = 10.0   # rotation only swaps a coin that is actually losing (≤ −10% from entry) — winners are never churned
 CYCLE_EVERY = (1, 3, 6, 12)   # re-shape every N rounds (default 6: on 5-min rounds = every 30 min, not every round)
 
@@ -79,9 +79,9 @@ def next_phase(mode, rounds, last_pct):
         return 'breakeven' if _f(last_pct) <= -15 else 'safest' if _f(last_pct) < 0 else 'degen' if _f(last_pct) >= 5 else 'mixed'
     return seq[int(rounds or 0) % len(seq)]
 HIT_PCT = 10.0      # a "good day" = the card is up ≥ +10% over 24h
-DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.10, 'floorPct': 60.0, 'slMode': 'replace',
+DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.01, 'floorPct': 60.0, 'slMode': 'replace',
                'cycles': dict(DEFAULT_CYCLES), 'trail': True, 'payouts': dict(DEFAULT_PAYOUTS), 'compoundStyle': 'smart', 'roundsPerRun': 0,
-               'rotateMinDrop': ROTATE_MIN_DROP, 'cycleEvery': 6}
+               'rotateMinDrop': ROTATE_MIN_DROP, 'cycleEvery': 6, 'rescuePct': 50.0}
 RUN_ROUNDS = (0, 5, 10, 20, 50)   # rounds per run (0 = one endless run): when a run's rounds are done it closes on the record, the next starts
 SL_MODES = ('replace', 'park', 'hold')   # on a stop: auto-replace · sell + park the slot (rebuy at entry with momentum) · hold
 CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.08, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 60)}
@@ -157,6 +157,7 @@ def clean_cfg(p):
     cyc = (p or {}).get('cycles') if isinstance((p or {}).get('cycles'), dict) else {}
     out['cycles'] = {t: (cyc.get(t) if valid_cycle(cyc.get(t)) else DEFAULT_CYCLES.get(t, 'off')) for t in DEFAULT_CYCLES}
     out['rotateMinDrop'] = max(0.0, min(50.0, _f((p or {}).get('rotateMinDrop', ROTATE_MIN_DROP))))
+    out['rescuePct'] = max(20.0, min(80.0, _f((p or {}).get('rescuePct', -RESCUE_PCT))))   # HQ: rescue when the card is this % under its start
     out['cycleEvery'] = int(_f((p or {}).get('cycleEvery'))) if int(_f((p or {}).get('cycleEvery'))) in CYCLE_EVERY else 6
     if 'trail' in (p or {}):
         out['trail'] = bool(p['trail'])
@@ -436,9 +437,10 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             c['startUsd'], c['dayStartUsd'], c['lowPct'] = round(v_now, 4), round(v_now, 4), 0.0
             ev(kind='run', usd=round(v_now, 4), why=f'{n_run} rounds done — run closed on the record, a new run starts at ${v_now:.2f}')
     # 3b) 🔄 phase cycle: a cycling tier re-deals into the next phase shape every round (same run, P&L continues)
-    if not c.get('cycleFix') == 'rescue' and (value(c, prices, liqs) / (_f(c['startUsd']) or 1) - 1) * 100 <= RESCUE_PCT:
-        c['cycleFix'] = 'rescue'   # 🛟 fell 50% under its start → safest ⇄ breakeven until a new run
-        ev(kind='rescue', why=f'card ≤ {RESCUE_PCT:.0f}% of its start — 🛟 rescue cycle: safest run ⇄ breakeven runners')
+    rp = -_f(cfg.get('rescuePct', -RESCUE_PCT))
+    if not c.get('cycleFix') == 'rescue' and (value(c, prices, liqs) / (_f(c['startUsd']) or 1) - 1) * 100 <= rp:
+        c['cycleFix'] = 'rescue'   # 🛟 fell rescuePct% under its start → safest ⇄ breakeven until a new run
+        ev(kind='rescue', why=f'card ≤ {rp:.0f}% of its start — 🛟 rescue cycle: safest run ⇄ breakeven runners')
     every = 1 if c.get('cycleFix') else int(cfg.get('cycleEvery') or 6)
     phase = next_phase(c.get('cycleFix') or (cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl'], 'off'), (int(c.get('rounds') or 0) // every), c.get('lastRoundPct'))
     if int(c.get('rounds') or 0) % every:
