@@ -447,6 +447,17 @@ def close_tx(owner, accounts, blockhash):
 
 MISS_LIMIT = 2          # a coin that fails the buy checks this many times …
 MISS_WINDOW = 600       # … within 10 minutes is benched for this card
+QUIET_SEC = 900        # a skip that no quote can fix (cap / pause / thin pool) is booked once per 15 min, not every tick
+
+
+def logged_recently(ledger, row, now, secs=QUIET_SEC):
+    """True when the same card · coin · side was already skipped for the same reason inside `secs` (keeps the trail + Jupiter quiet)."""
+    why = str(row.get('err') or '').split(' (')[0][:40]
+    return any(r.get('card') == row.get('card') and r.get('mint') == row.get('mint') and r.get('side') == row.get('side')
+               and r.get('status') == 'skipped' and str(r.get('err') or '').startswith(why) and now - _f(r.get('at')) < secs
+               for r in (ledger or [])[-80:])
+
+
 BENCH_SEC = 3600        # for an hour, so the engine swaps in a coin that CAN be bought
 
 

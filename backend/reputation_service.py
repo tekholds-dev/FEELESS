@@ -5625,12 +5625,14 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
     tx's balance changes ARE the fill. Every outcome goes to the audit ledger; fills + failures reach the owner's inbox."""
     now = time.time()
     row = {**order, 'liq': liq, 'status': 'quoted'}
-    if order['side'] == 'buy' and _fuse._f(liq) < _fw.clean_cfg(cfg)['minLiqUsd']:   # 💧 too thin for real money: log once per 15 min, no quote
-        async with _fw_lock:
-            d = _fw_load()
-            if not any(r.get('card') == tid and r.get('mint') == order['mint'] and str(r.get('err', '')).startswith('pool too thin') and now - _fuse._f(r.get('at')) < 900 for r in d['ledger'][-40:]):
-                _, why = _fw.check(row, cfg, [], now); _fw_record(d, {**row, 'status': 'skipped', 'err': why}); _fw_save(d)
-        return book
+    async with _fw_lock:   # 🚦 limits a quote can't change (armed · paused · per-swap · daily cap · thin pool) are checked BEFORE quoting:
+        d = _fw_load()        # no Jupiter calls, and the skip is booked once per 15 min instead of every tick (the cap retry loop)
+        ok, why = _fw.check(row, cfg, d.get('ledger'), now)
+        if not ok:
+            skip = {**row, 'card': tid, 'status': 'skipped', 'err': why}
+            if not _fw.logged_recently(d.get('ledger'), skip, now):
+                _fw_record(d, skip); _fw_save(d)
+            return book
     try:
         for attempt in range(3):   # 🔁 strong retry: a busy route gets fresh quotes, each with a little more slippage (≤ the 3% hard cap)
             try:

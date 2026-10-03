@@ -270,3 +270,22 @@ def test_coin_failing_buys_3x_in_10min_is_benched_for_an_hour():
     assert out and fw.benched(b, 200) == {'M'} and fw.benched(b, 60 + 3601) == set()
     b2, out2 = fw.note_miss({}, 'X', 0, 'x'); b2, out2 = fw.note_miss(b2, 'X', 700, 'x')   # outside the window → count restarts
     assert not out2 and b2['misses']['X']['n'] == 1
+
+
+def test_cap_skip_is_logged_once_per_quiet_window():
+    """🚦 a daily-cap skip is booked once per 15 min per card·coin·side — the keeper no longer re-quotes + re-logs every tick."""
+    row = {'card': 'safe', 'mint': 'M1', 'side': 'buy', 'status': 'skipped', 'err': 'daily cap $30 reached', 'at': 1000.0}
+    assert not fw.logged_recently([], row, 1000.0)
+    assert fw.logged_recently([row], {**row, 'at': 1040.0}, 1040.0)                       # next tick: quiet
+    assert not fw.logged_recently([row], {**row, 'at': 1000.0 + fw.QUIET_SEC + 1}, 1000.0 + fw.QUIET_SEC + 1)   # window over: log again
+    assert not fw.logged_recently([row], {**row, 'side': 'sell'}, 1040.0)                 # other side / coin / card / reason still logs
+    assert not fw.logged_recently([row], {**row, 'mint': 'M2'}, 1040.0)
+    assert not fw.logged_recently([row], {**row, 'err': 'Fuse wallet is paused'}, 1040.0)
+
+
+def test_cap_blocks_before_any_quote():
+    """check() with no impact = the pre-quote gate: a capped order is refused without needing a Jupiter quote."""
+    cfg = {'armed': True, 'walletId': 'w', 'address': 'a', 'dailyUsd': 30, 'maxSwapUsd': 10}
+    led = [{'status': 'filled', 'usd': 29.9, 'at': 100.0}]
+    ok, why = fw.check({'side': 'sell', 'usd': 0.69}, cfg, led, 200.0)
+    assert not ok and why.startswith('daily cap')
