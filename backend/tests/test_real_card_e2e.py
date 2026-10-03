@@ -109,7 +109,7 @@ def _market(seed, crash=None):
     return majors, runners, px, step
 
 
-def _run(seed, ticks=240, crash=None, cfg_patch=None):
+def _run(seed, ticks=240, crash=None, cfg_patch=None, refuse_sells=0.0):
     majors, runners, px, step = _market(seed, crash)
     cfg = ap.clean_cfg({'rotateHours': 0.08, 'rotateConfirm': 2, 'rotateMinDrop': 10, 'minHoldMins': 0, 'cycleEvery': 3,
                         'cycles': {'safe': 'press'}, 'compound': True, 'paperFeeUsd': 0.0, 'floorPct': 60, **(cfg_patch or {})})
@@ -123,6 +123,7 @@ def _run(seed, ticks=240, crash=None, cfg_patch=None):
     chain = Chain(book['sol'])
     liqs = {x['pairAddress']: _liq(x) for x in majors + runners}
     ledger, seen = [], set()
+    refuse_rnd = random.Random(seed * 7)
     for t in range(ticks):
         now += 60
         step(t)
@@ -134,12 +135,14 @@ def _run(seed, ticks=240, crash=None, cfg_patch=None):
         card = ap.note_dropped(before, card, now, cfg['rotateHours'], px)
         book = fw.bank(book, card.get('walletUsd'), SOL_PX)
         for side in ('sell', 'buy'):
-            for o in [x for x in fw.orders('safe', card, book, px, SOL_PX, wcfg, now) if x['side'] == side]:
+            for o in [x for x in fw.orders('safe', card, book, px, SOL_PX, wcfg, now, count_sells=side == 'sell') if x['side'] == side]:
                 held = int(((book.get('legs') or {}).get(o['mint']) or {}).get('atoms') or 0)
                 assert side == 'buy' or 0 < o['atoms'] <= held                       # never sells what the book doesn't hold
                 if side == 'buy':
                     assert int(o['lamports']) / 1e9 <= book['sol'] + 1e-9            # never spends SOL the card doesn't have
                 ok, why = fw.check({**o, 'liq': liqs.get(o['pair'])}, wcfg, ledger, now)
+                if ok and side == 'sell' and refuse_rnd.random() < refuse_sells:
+                    continue   # a sell route refused (sell_safety: pays too far under market) — retried next tick
                 if not ok:
                     assert 'thin' in why or 'cap' in why, why
                     assert o['mint'] != 'arena1'                                      # 🏟 Arena coin passes its own floor
@@ -206,3 +209,8 @@ def test_arena_coin_reaches_the_real_card_and_a_thin_non_arena_coin_never_does()
     ok, _ = fw.check({'side': 'buy', 'usd': 1, 'liq': 5e4, 'arena': True}, {'armed': True, 'walletId': 'w', 'address': 'A',
                                                                               'minLiqUsd': 100000, 'arenaMinLiqUsd': 20000}, [], 0)
     assert ok
+
+
+@pytest.mark.parametrize('seed', [1, 2, 3, 4])
+def test_refused_sells_never_let_a_buy_spend_sol_the_card_does_not_have(seed):
+    _run(seed, ticks=200, refuse_sells=0.5)   # the run asserts book SOL ≥ 0 and every buy ≤ the card's SOL, every tick

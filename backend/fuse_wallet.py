@@ -81,7 +81,7 @@ REBAL_BAND = 0.5   # coins kept through a re-shape: sell / rebuy only when > 50%
 #                    burnt the daily cap on churn (cbBTC bought 14:20, sold 14:21, bought again) and starved the real new buys
 
 
-def orders(card_id, card, book, prices, sol_px, cfg, now):
+def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
     """The swaps that move the REAL book to the paper target. Sells first (they fund the buys), then buys sized by the SOL the
     card really has (never more). Each order ≤ maxSwapUsd (the rest goes next tick); dust is ignored; SOL needs no swap."""
     cfg = clean_cfg(cfg)
@@ -107,7 +107,9 @@ def orders(card_id, card, book, prices, sol_px, cfg, now):
         sells.append({'id': f"{card_id}:{now:.0f}:s:{mint[:6]}", 'card': card_id, 'side': 'sell', 'mint': mint, 'pair': l.get('pair'), 'symbol': l.get('symbol'),
                       'atoms': atoms, 'decimals': int(l.get('decimals') or 0), 'usd': round(min(usd, cfg['maxSwapUsd']), 4), 'midPx': px, 'at': now,
                       'why': 'not on the card any more' if full else 'trimmed to the card'})
-    sol_free = _f(book.get('sol')) - anchor_sol(tgt) + sum(o['usd'] for o in sells) / sol_px * 0.97 if sol_px > 0 else 0.0
+    # `count_sells` = plan view only: the keeper's BUY pass runs after its sells landed (or were refused) and must spend only SOL the
+    # book really holds — counting a refused sell's proceeds once let a buy spend SOL the card never had (book SOL went negative)
+    sol_free = _f(book.get('sol')) - anchor_sol(tgt) + (sum(o['usd'] for o in sells) / sol_px * 0.97 if count_sells else 0.0) if sol_px > 0 else 0.0
     for mint, t in tgt.items():
         if mint == SOL_MINT or t['px'] <= 0:
             continue

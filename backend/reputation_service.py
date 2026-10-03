@@ -5978,7 +5978,7 @@ async def _fw_tick_inner(now):
         book = _fw.bank(book, card.get('walletUsd'), sol_px)
         want = {**card, 'legs': []} if book.get('defund') else card
         for side in ('sell', 'buy'):
-            for o in [{**x, 'cardPays': int(card.get('rounds') or 0) >= 5} for x in _fw.orders(tid, want, book, px, sol_px, cfg, now) if x['side'] == side]:
+            for o in [{**x, 'cardPays': int(card.get('rounds') or 0) >= 5} for x in _fw.orders(tid, want, book, px, sol_px, cfg, now, count_sells=side == 'sell') if x['side'] == side]:
                 leg_liq = next((_fuse._f(l.get('liqNow')) or _fuse._f(l.get('liq')) for l in card.get('legs') or [] if l.get('mint') == o.get('mint')), 0.0)
                 book = await _fw_execute(tid, o, book, cfg, sol_px, liqs.get(o.get('pair')) or leg_liq)   # pair read blank → the engine's own liquidity reading
                 if book.get('pending'):
