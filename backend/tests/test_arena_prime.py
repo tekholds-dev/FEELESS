@@ -678,3 +678,14 @@ def test_rotation_does_not_override_saved_patience_just_to_force_a_fresh_coin():
     assert {l['mint'] for l in c['legs']} == {'W', 'F'}                    # neither leg met the saved loss/patience rules
     assert not [e for e in c['events'] if e['kind'] == 'rotate']
     assert ap.tick({**card, 'holdAll': True}, px, [], new, cfg, 3700, liqs={k: 1e12 for k in px})['legs'][1]['mint'] == 'F'   # hold all: nothing
+
+
+def test_real_cfg_never_runs_faster_than_real_floors():
+    import arena_prime as ap
+    fast = {**ap.DEFAULT_CFG, 'rotateHours': 0.08, 'minHoldMins': 0.0, 'cycleEvery': 3, 'rotateConfirm': 1, 'rotateMinDrop': 2.0}
+    r = ap.real_cfg(fast)
+    assert r['rotateHours'] >= 1.0 and r['minHoldMins'] >= 60 and r['cycleEvery'] >= 6 and r['rotateConfirm'] >= 3 and r['rotateMinDrop'] >= 10
+    slow = {**fast, 'rotateHours': 4.0, 'cycleEvery': 0, 'minHoldMins': 120.0}
+    r2 = ap.real_cfg(slow)
+    assert r2['rotateHours'] == 4.0 and r2['cycleEvery'] == 0 and r2['minHoldMins'] == 120.0   # stricter owner settings are kept
+    assert fast['rotateHours'] == 0.08   # paper config untouched

@@ -111,6 +111,23 @@ SL_MODES = ('replace', 'park', 'hold')   # on a stop: auto-replace · sell + par
 CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.08, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 60)}
 
 
+# 💵 REAL MONEY FLOORS: paper may run 5-min rounds with 0-min holds, real money may not. Every real swap pays the Jupiter spread,
+# price impact, a network fee and (for a new coin) ~0.002 SOL account rent — on a $6 card, 5-min rounds + a re-shape every 3 rounds
+# made ~180 real swaps in 17h and bled the card. A real card's config is clamped up to these floors (never loosened).
+REAL_FLOORS = {'rotateHours': 1.0, 'minHoldMins': 60.0, 'cycleEvery': 6, 'rotateConfirm': 3, 'rotateMinDrop': 10.0}
+
+
+def real_cfg(cfg):
+    """The config a REAL card runs: the owner's config, but no faster/looser than REAL_FLOORS (cycleEvery 0 = re-shapes off stays off)."""
+    out = dict(cfg or {})
+    for k, lo in REAL_FLOORS.items():
+        v = out.get(k)
+        if k == 'cycleEvery' and v is not None and int(_f(v)) == 0:
+            continue
+        out[k] = max(type(lo)(_f(v)), lo) if v is not None else lo
+    return out
+
+
 def exit_plan(gain_pct, mom=None):
     """WHEN TO HODL vs SELL, from live momentum (chg1h, buyShare, vol accel = vol5m×12 vs vol1h):
       • 🚀 ride  — strong (1h ≥ +10%, buys ≥ 55%, volume not fading): take out ONLY the original cost (house money) once the

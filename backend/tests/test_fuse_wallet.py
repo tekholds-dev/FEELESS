@@ -460,3 +460,13 @@ def test_secure_quote_refusals_are_attributed_to_the_card_for_benching():
     import reputation_service as rs
     src = inspect.getsource(rs._fw_execute)
     assert "'card': tid" in src
+
+
+def test_sync_card_rebases_legacy_real_run_on_confirmed_funding():
+    import fuse_wallet as fw
+    card = {'real': True, 'startUsd': 1.389, 'roundStartUsd': 1.389, 'dayStartUsd': 1.389, 'legs': [], 'cash': 0.0}
+    book = {'fundedUsd': 6.0, 'since': 100.0, 'sol': 0.0, 'legs': {}}
+    c = fw.sync_card(card, book, {}, 120.0)
+    assert c['startUsd'] == 6.0 and c['dayStartUsd'] == 6.0 and c['realBaselineAt'] == 100.0
+    c['startUsd'] = 7.0   # a later confirmed top-up baseline is never overwritten again
+    assert fw.sync_card(c, book, {}, 120.0)['startUsd'] == 7.0

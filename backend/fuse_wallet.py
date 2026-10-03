@@ -246,6 +246,11 @@ def sync_card(card, book, prices, sol_px):
     """The tier card now shows what it REALLY holds: coin units + true entries from the book, SOL anchor + cash from its SOL,
     network fees as its fees. P&L keeps the money rule (fees apart)."""
     c = {**card, 'legs': [dict(l) for l in card.get('legs') or []]}
+    if not c.get('realBaselineAt') and _f(book.get('fundedUsd')) > 0:
+        # 🩹 legacy real cards: a run baseline taken from a drifted paper value ($1.39 while $6 was really in) showed +310% and kept the
+        # floor / rescue / payout math blind. Re-base once on the confirmed money put in (the UI already shows that number).
+        start = round(_f(book['fundedUsd']), 4)
+        c.update(startUsd=start, roundStartUsd=start, dayStartUsd=start, lowPct=0.0, realBaselineAt=_f(book.get('since')) or 1.0)
     sol_left = _f(book.get('sol'))
     for l in c['legs']:
         if l['mint'] == SOL_MINT:

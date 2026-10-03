@@ -5351,6 +5351,8 @@ async def _prime_tick_inner(now):
         cur = cards.get(tid)
         liqs = {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()}
         cfg_t = {**_prime.clean_cfg(locks[tid]), 'paperFeeUsd': cfg['paperFeeUsd']} if tid in locks else cfg   # 🔒 a locked tier runs its own frozen config
+        if (cur or {}).get('real'):
+            cfg_t = _prime.real_cfg(cfg_t)   # 💵 real money never runs faster than REAL_FLOORS (no 5-min churn on a funded card)
         # 🎯 PAPER = REAL: every tier (paper too) only rotates into coins real money could buy (pool ≥ minLiqUsd), so paper results are an
         # honest preview. ✅ Runners also need confirmation: rising over the last hour with buyers in control (≥55% buys) — no buying the top.
         def _lq(x):
@@ -5451,7 +5453,8 @@ async def _prime_view():
         return {'holdSolPct': round(hold, 2), 'vsSolPct': round(_fuse._f(sm.get('pnlPct')) - hold, 2)}
     locks = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}
     def _eff(c):
-        return {**pcfg, **_prime.clean_cfg(locks[c['tpl']])} if c.get('tpl') in locks else pcfg
+        e = {**pcfg, **_prime.clean_cfg(locks[c['tpl']])} if c.get('tpl') in locks else pcfg
+        return _prime.real_cfg(e) if c.get('real') else e   # the card shows the config it REALLY runs
     def _cfgv(c):
         e = _eff(c); return {'clockMin': round(e['rotateHours'] * 60), 'confirm': e['rotateConfirm'], 'minDrop': e['rotateMinDrop'], 'holdMin': e['minHoldMins'],
                              'cycle': (e.get('cycles') or {}).get(c['tpl']), 'reshape': e['cycleEvery'], 'slMode': e['slMode'], 'locked': c.get('tpl') in locks}
