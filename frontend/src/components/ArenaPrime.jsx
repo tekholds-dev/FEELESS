@@ -169,7 +169,7 @@ export function HqRealCards({ addr }) {
     {real.map(c => { const t = TIER[c.tier] || TIER.gold; const b = c.realBook || {}; const k = b.keeper || {};
       const state = k.paused ? ['⏸', 'paused', 'is-warn'] : !k.armed ? ['○', 'not armed', 'is-warn'] : k.pending ? ['⏳', `sending ${k.pending}`, 'is-busy'] : c.legs.some(l => l.buying) ? ['⏳', 'retrying a buy', 'is-busy'] : ['●', 'in sync', 'is-ok'];
       return <div key={c.id} className="hq-real">
-        <div className="hq-real-card"><LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label="💵 REAL · FUSE WALLET" /></div>
+        <div className="hq-real-card"><LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label="💵 REAL · FUSE WALLET" serverOnly /></div>
         <div className="hq-real-track">
           <div className="hrt-top"><b>{c.label}</b><span className={`hrt-state ${state[2]}`} data-tip="Keeper: moves the real coins to what the card says, every tick">{state[0]} {state[1]}</span></div>
           <div className="hrt-kpis">

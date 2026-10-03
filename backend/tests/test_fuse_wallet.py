@@ -209,3 +209,12 @@ def test_new_round_rebuys_an_empty_coin_from_spare_sol():
     c['legs'][1].pop('buying'); c['legs'][1]['wantUnits'] = 0
     again = fw.sync_card(c, book, {'S': 100, 'R': 0.002}, 100)   # same round: no second try
     assert not again['legs'][1].get('buying')
+
+
+def test_trimmed_sol_anchor_keeps_its_true_cost():
+    import fuse_wallet as fw
+    card = {'rounds': 1, 'legs': [{'mint': fw.SOL_MINT, 'pairAddress': 'S', 'symbol': 'SOL', 'units': 0.03, 'entry': 100, 'costUsd': 3.0},
+                                  {'mint': 'RUN', 'pairAddress': 'R', 'symbol': 'RUN', 'units': 0.0, 'entry': 0.002}]}
+    c = fw.sync_card(card, {'sol': 0.03, 'legs': {}}, {'S': 100, 'R': 0.002}, 100)
+    sol = c['legs'][0]
+    assert abs(sol['costUsd'] - 1.5) < 1e-6   # half the SOL left → half the cost, so SOL reads ~0%, never −50%

@@ -205,7 +205,10 @@ def sync_card(card, book, prices, sol_px):
     sol_left = _f(book.get('sol'))
     for l in c['legs']:
         if l['mint'] == SOL_MINT:
-            u = min(_f(l.get('units')), max(0.0, sol_left)); sol_left -= u; l['units'] = u
+            u = min(_f(l.get('units')), max(0.0, sol_left)); sol_left -= u
+            l['units'] = u
+            if _f(l.get('entry')) > 0:
+                l['costUsd'] = round(u * _f(l['entry']), 6)   # SOL anchor cost = SOL really left × its entry (trimmed SOL isn't a loss)
             continue
         bl = (book.get('legs') or {}).get(l['mint'])
         if bl:
@@ -227,7 +230,8 @@ def sync_card(card, book, prices, sol_px):
         share = total / max(1, len(c['legs']))
         for l in c['legs']:
             if l['mint'] == SOL_MINT and sol_px > 0 and _f(l.get('units')) * sol_px > share:
-                sol_left += _f(l['units']) - share / sol_px; l['units'] = share / sol_px
+                sol_left += _f(l['units']) - share / sol_px
+                l['costUsd'] = _f(l.get('costUsd')) * (share / sol_px) / _f(l['units']); l['units'] = share / sol_px
         free = max(0.0, sol_left) * sol_px
         for l in empty:
             if px(l) > 0 and free >= MIN_REBUY_USD:

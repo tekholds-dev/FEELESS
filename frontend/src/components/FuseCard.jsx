@@ -82,10 +82,11 @@ export function revalue(r, live) {
 // An OWNED Fuse card (a real position from /fuses/pnl): front = the same card, back = live money per leg — what you put in,
 // what you still hold at today's price, what you've already taken out, and the P&L. Never preview numbers.
 const m$ = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0).toFixed(2)}`;
-export function LiveFuseCard({ r: r0, aura = '', look = null, label = null }) {
+export function LiveFuseCard({ r: r0, aura = '', look = null, label = null, serverOnly = false }) {
   const [flipped, setFlipped] = useState(false);
-  const live = useLivePrices(r0.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress));
-  const r = revalue(r0, live);   // every 3s: held tokens × the live price (server P&L every 30s backs it)
+  const live = useLivePrices(serverOnly ? [] : r0.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress));
+  // serverOnly: real-money cards show the server's Jupiter sell value (a DexScreener pair can sit far off on pre-bond coins)
+  const r = serverOnly ? r0 : revalue(r0, live);   // every 3s: held tokens × the live price (server P&L every 30s backs it)
   const legs = [...r.legs].sort((a, b) => (b.usd || 0) - (a.usd || 0));
   const up = r.pnlUsd >= 0;
   const g = r.closed ? 'C' : r.pnlPct >= 25 ? 'A' : r.pnlPct >= 0 ? 'B' : r.pnlPct >= -15 ? 'C' : 'D';
