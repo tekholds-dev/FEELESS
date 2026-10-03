@@ -514,3 +514,32 @@ def test_new_coin_entry_rebases_to_the_live_price_on_its_first_tick():
     assert leg['mint'] == 'H' and leg['entry'] == 0.13 and abs(leg['units'] * 0.13 - 10.0) < 1e-6 and not any(e['kind'] == 'sl' for e in c['events'])
     c = ap.tick(c, {'PH': 0.065}, [], [], cfg, 500, liqs={'PH': 1e12})    # a REAL −50% later still counts
     assert any(e['kind'] == 'sl' for e in c['events'])   # not re-based: the stop fires
+
+
+def test_reshape_never_sells_a_winner_or_frozen_coin_and_money_is_exact():
+    px = {'PW': 1.5, 'PF': 0.9, 'PL': 0.8, 'PA': 1.0, 'PB': 1.0, 'PC': 1.0}
+    lq = {k: 1e12 for k in px}
+    old = [{'mint': 'W', 'pairAddress': 'PW', 'symbol': 'W', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0},   # +50% winner
+           {'mint': 'F', 'pairAddress': 'PF', 'symbol': 'F', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0, 'frozen': True},
+           {'mint': 'L', 'pairAddress': 'PL', 'symbol': 'L', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0}]  # loser → sold
+    nc = {'legs': [{'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0} for m in 'ABC'], 'cash': 0.0}
+    ip = ap.value({'legs': old, 'cash': 0.0}, px, lq)
+    out, kept = ap.keep_winners(nc, old, px, lq, 5, ip)
+    assert kept == 2 and {l['mint'] for l in out['legs']} == {'W', 'F', 'A'}
+    assert abs(ap.value(out, px, lq) - ip) < 1e-6                      # same money, nothing created or lost
+    assert ap.keep_winners(nc, old, px, lq, 0, ip)[1] == 1             # keep-winners off → only the frozen coin is carried
+    assert ap.keep_winners(nc, [old[2]], px, lq, 5, ip) == (nc, 0)     # nothing up → normal re-shape
+
+
+def test_off_options_and_hold_all():
+    c = ap.clean_cfg({'rideAt': 0, 'rescuePct': 0, 'cycleEvery': 0, 'keepWinPct': 0})
+    assert c['rideAt'] == 0 and c['rescuePct'] == 0 and c['cycleEvery'] == 0 and c['keepWinPct'] == 0
+    assert ap.clean_cfg({})['keepWinPct'] == 5 and ap.clean_cfg({})['cycleEvery'] == 6
+    assert ap.cycle_peek({'tpl': 'degen', 'rounds': 3, 'holdAll': True}, ap.clean_cfg({}))['mode'] == 'hold'
+    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 1, 'rotateConfirm': 1, 'minHoldMins': 0, 'cycles': {'degen': 'off'}})
+    r = {'mint': 'R', 'pairAddress': 'PR', 'symbol': 'R', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0, 'loseRounds': 5}
+    card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
+            'events': [], 'startUsd': 10.0, 'legs': [r], 'holdAll': True}
+    new = [{'mint': 'N', 'pairAddress': 'PN', 'symbol': 'N', 'price': 1.0, 'score': 99, 'stars': 5}]
+    c2 = ap.tick(card, {'PR': 0.88, 'PN': 1.0}, [], new, cfg, 3700, liqs={'PR': 1e12, 'PN': 1e12})   # −12%: would rotate, but hold all
+    assert c2['legs'][0]['mint'] == 'R'

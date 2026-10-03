@@ -192,12 +192,12 @@ body.theme-day .ctab { background: #fff; border-color: #d8e2dc; }
 body.fx-lite .hrt-arrow { animation: none; } @media (prefers-reduced-motion: reduce) { .hrt-arrow { animation: none; } }
 body.theme-day .hrt-cycle { background: #fff; border-color: #d8e2dc; } body.theme-day .hrt-shape.is-now b { background: #0b7a4a; color: #fff; } body.theme-day .hrt-shape b { border-color: #d8e2dc; }
 @media (max-width: 640px) { .hrt-vital { border-left: 0; padding-left: 0; } .hrt-mode { margin-right: 0; } }
-.hrt-health { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
-.hrt-gauge { display: grid; gap: 3px; padding: 8px 10px; border: 1px solid var(--m-line); border-radius: 10px; transition: border-color .15s ease, transform .15s ease; }
+.hrt-health { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px; }
+.hrt-gauge { display: grid; grid-template-columns: auto minmax(40px, 1fr) auto auto; align-items: center; gap: 8px; padding: 5px 9px; border: 1px solid var(--m-line); border-radius: 10px; transition: border-color .15s ease, transform .15s ease; }
 .hrt-gauge:hover, .hrt-gauge:focus-within { transform: translateY(-1px); border-color: var(--m-accent, #19f58f); }
-.hrt-gauge small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; color: var(--m-dim); } .hrt-gauge .m-num { font-size: 16px; }
-.hrt-gauge em { font-style: normal; font-size: 11px; color: var(--m-dim); }
-.hrt-bar { display: block; height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--m-line) 70%, transparent); overflow: hidden; }
+.hrt-gauge small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; color: var(--m-dim); white-space: nowrap; } .hrt-gauge b { font-family: var(--m-mono); font-size: 12px; white-space: nowrap; }
+.hrt-gauge em { font-style: normal; font-size: 10.5px; color: var(--m-dim); white-space: nowrap; }
+.hrt-bar { display: block; height: 3px; border-radius: 3px; background: color-mix(in srgb, var(--m-line) 70%, transparent); overflow: hidden; }
 .hrt-bar > i { display: block; height: 100%; background: var(--m-accent, #19f58f); transform-origin: left; transition: transform .4s ease; }
 .hrt-gauge.is-low .hrt-bar > i { background: var(--gold); } .hrt-gauge.is-low em { color: var(--gold); }
 .hrt-gauge.is-empty .hrt-bar > i { background: #ff8fa3; } .hrt-gauge.is-empty em { color: #ff8fa3; } .hrt-gauge.is-empty { border-color: color-mix(in srgb, #ff8fa3 50%, var(--m-line)); }

@@ -5441,7 +5441,7 @@ async def _prime_view():
     def _cfgv(c):
         e = _eff(c); return {'clockMin': round(e['rotateHours'] * 60), 'confirm': e['rotateConfirm'], 'minDrop': e['rotateMinDrop'], 'holdMin': e['minHoldMins'],
                              'cycle': (e.get('cycles') or {}).get(c['tpl']), 'reshape': e['cycleEvery'], 'slMode': e['slMode'], 'locked': c.get('tpl') in locks}
-    return [{**(sm := _prime.summary(c, px, _eff(c))), **_vs(c, sm), 'cfgView': _cfgv(c), 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl']) if c.get('real') else None,
+    return [{**(sm := _prime.summary(c, px, _eff(c))), **_vs(c, sm), 'cfgView': _cfgv(c), 'holdAll': bool(c.get('holdAll')), 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl']) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 
@@ -5476,6 +5476,10 @@ async def fuse_prime_admin(request: Request):
         now_c.update({t: (l.get('cycles') or {}).get(t) for t, l in (pr.get('locks') or {}).items()})
         for t, cards_ in [(t, pr.get('cards') or {}) for t in _prime.TEMPLATES if now_c.get(t) != was.get(t) and t in (pr.get('cards') or {})]:
             cards_[t] = _prime.owner_cycle(cards_[t], now_c[t], time.time())   # 🎛 the owner's new cycle beats any auto safe / rescue fix
+        hd = body.get('hold') or {}
+        if hd.get('tpl') in _prime.TEMPLATES and (pr.get('cards') or {}).get(hd['tpl']):   # ✋ hold all: no swaps / re-shapes (stops + rug shield still run)
+            c_ = pr['cards'][hd['tpl']]; c_['holdAll'] = bool(hd.get('on'))
+            c_['events'] = (list(c_.get('events') or []) + [{'kind': 'hold', 'at': time.time(), 'why': '✋ hold all — no swaps or re-shapes until released' if hd.get('on') else '▶ released — the engine swaps and re-shapes again'}])[-60:]
         if body.get('reset'):
             pr['cards'] = {}
         if body.get('redeal') in _prime.TEMPLATES:          # one tier fresh

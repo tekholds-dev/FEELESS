@@ -79,7 +79,8 @@ RUG_LIQ = 0.5   # 🚨 rug shield: pool liquidity at ≤ 50% of entry = pulled �
 TRAIL_AT, TRAIL_KEEP = 50.0, 5.0   # 🔒 a coin that ran ≥ +50% is sold before it gives it all back (≤ +5% left)
 FIX_DAY_PCT = -40.0   # 🔧 a tier card whose DAY falls to −40% gets its config fixed: re-dealt fresh on the safe cycle (logged)
 RIDE_AT, RIDE_TRAIL = 150.0, 30.0
-RIDE_ATS, RIDE_TRAILS = (25, 50, 100, 150), (10, 15, 20, 30)   # ⚙ Edit Fuse: ❄ freeze a coin running +X% · ⇄ swap it −Y% from its peak   # 🏇 ride a runner from +150%, sell only when it falls 30% from its new high
+RIDE_ATS, RIDE_TRAILS = (0, 25, 50, 100, 150), (10, 15, 20, 30)   # rideAt 0 = off (never freeze a runner)
+KEEP_WINS = (0, 5, 10, 20)   # 🛡 a coin up ≥ this % (or ❄ frozen) is CARRIED into the next shape — a re-shape never sells a winner (0 = off)   # ⚙ Edit Fuse: ❄ freeze a coin running +X% · ⇄ swap it −Y% from its peak   # 🏇 ride a runner from +150%, sell only when it falls 30% from its new high
 HOLD_MIN = 80.0      # 🏇 a held coin must stay ≥ +80% (a whole round ≥ +80% also earns a hold); under it → swapped
 MIN_CYCLE_COINS = 3  # every cycle shape holds at least 3 coins (else the card keeps its current coins)
 STREAK = 3
@@ -179,14 +180,17 @@ def clean_cfg(p):
     cyc = (p or {}).get('cycles') if isinstance((p or {}).get('cycles'), dict) else {}
     out['cycles'] = {t: (cyc.get(t) if valid_cycle(cyc.get(t)) else DEFAULT_CYCLES.get(t, 'off')) for t in DEFAULT_CYCLES}
     out['rotateMinDrop'] = max(0.0, min(50.0, _f((p or {}).get('rotateMinDrop', ROTATE_MIN_DROP))))
-    out['rideAt'] = float(_f((p or {}).get('rideAt'))) if _f((p or {}).get('rideAt')) in RIDE_ATS else RIDE_AT
+    out['rideAt'] = float(_f((p or {}).get('rideAt'))) if (p or {}).get('rideAt') is not None and _f((p or {}).get('rideAt')) in RIDE_ATS else RIDE_AT
+    out['keepWinPct'] = float(_f((p or {}).get('keepWinPct'))) if (p or {}).get('keepWinPct') is not None and _f((p or {}).get('keepWinPct')) in KEEP_WINS else 5.0
     out['rideTrail'] = float(_f((p or {}).get('rideTrail'))) if _f((p or {}).get('rideTrail')) in RIDE_TRAILS else RIDE_TRAIL
-    out['rescuePct'] = max(20.0, min(80.0, _f((p or {}).get('rescuePct', -RESCUE_PCT))))
+    rsc = _f((p or {}).get('rescuePct', -RESCUE_PCT))
+    out['rescuePct'] = 0.0 if (p or {}).get('rescuePct') is not None and rsc == 0 else max(20.0, min(80.0, rsc))   # 0 = rescue off
     out['rotateConfirm'] = int(max(1, min(6, _f((p or {}).get('rotateConfirm', ROTATE_CONFIRM)))))
     out['minHoldMins'] = max(0.0, min(240.0, _f((p or {}).get('minHoldMins', MIN_HOLD_MINS))))
     out['strictRunners'] = bool((p or {}).get('strictRunners', False))
     out['autoBrain'] = bool((p or {}).get('autoBrain', True))   # 🔧 engine self-fix from the sim brain (HQ can switch it off)   # HQ: rescue when the card is this % under its start
-    out['cycleEvery'] = int(_f((p or {}).get('cycleEvery'))) if int(_f((p or {}).get('cycleEvery'))) in CYCLE_EVERY else 6
+    ce = (p or {}).get('cycleEvery')
+    out['cycleEvery'] = 0 if ce is not None and int(_f(ce)) == 0 else int(_f(ce)) if int(_f(ce)) in CYCLE_EVERY else 6   # 0 = never re-shape
     if 'trail' in (p or {}):
         out['trail'] = bool(p['trail'])
     pay = (p or {}).get('payouts') if isinstance((p or {}).get('payouts'), dict) else {}
@@ -249,6 +253,31 @@ def _picks(t, pools, runners, anchors):
             if _f(c.get('price')) > 0 and c.get('mint') not in seen:
                 seen.add(c.get('mint')); out.append((c, role)); k += 1
     return out
+
+
+def keep_winners(nc, old_legs, prices, liqs, pct, in_play_usd):
+    """🛡 A re-shape never sells a winner: old coins up ≥ pct% (or ❄ frozen, or riding) are CARRIED into the new card as they are
+    (same units + entry); the freshly dealt coins give up their slots and share what's left of the money, so the total stays exactly
+    `in_play_usd`. Returns (card or None if every coin is kept → no re-shape, kept count)."""
+    win = [l for l in old_legs if l.get('role') != 'anchor' and _f(l.get('entry')) > 0 and (l.get('frozen') or l.get('ride') or
+           (_f(pct) > 0 and ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 >= _f(pct)))]
+    if not win:
+        return nc, 0
+    keep_val = sum(value({'legs': [l], 'cash': 0.0}, prices, liqs) for l in win)
+    wm = {l['mint'] for l in win}
+    fresh = [l for l in nc['legs'] if l['mint'] not in wm]
+    need = len(win) - (len(nc['legs']) - len(fresh))   # winners that need a slot of their own
+    for _ in range(max(0, need)):
+        drop = next((l for l in reversed(fresh) if l.get('role') != 'anchor'), None)
+        if not drop:
+            break
+        fresh.remove(drop)
+    left = _f(in_play_usd) - keep_val
+    if left <= 0.01 or not fresh:
+        return None, len(win)   # the winners ARE the card: nothing to re-shape
+    f = left / (sum(_f(l['costUsd']) for l in fresh) or 1)
+    fresh = [{**l, 'units': l['units'] * f, 'costUsd': round(_f(l['costUsd']) * f, 6)} for l in fresh]
+    return {**nc, 'legs': fresh + [dict(l) for l in win]}, len(win)
 
 
 def deal(tid, pools, runners, cfg, now, anchors=(), usd=None, keep=None, shape=None):
@@ -356,7 +385,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 ev(kind='ride-end', symbol=l['symbol'], usd=round(usd, 4), why=f"{why_end} — swapped", to=[nxt.get('symbol')])
                 continue
             mode, frac, why = 'ride-end', 1.0, f"{why_end} — sold" 
-        elif g >= ra and l.get('role') != 'anchor':
+        elif _f(cfg.get('rideAt', RIDE_AT)) > 0 and g >= ra and l.get('role') != 'anchor':
             l.update(ride=True, high=px, rideFrom=l['entry'], rideAt=now)
             ev(kind='ride', symbol=l['symbol'], usd=round(l['units'] * px, 4), why=f"+{g:.0f}% ≥ +{ra:g}% — ❄ frozen (riding) until it falls {rt:g}% from its peak, then swapped", to=[l['symbol']])
             continue
@@ -445,7 +474,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             down = ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 <= -_f(cfg.get('rotateMinDrop', ROTATE_MIN_DROP))
             l['loseRounds'] = int(l.get('loseRounds') or 0) + 1 if down else 0
         patient = lambda l: int(l.get('loseRounds') or 0) >= int(cfg.get('rotateConfirm', ROTATE_CONFIRM)) and now - _f(l.get('at')) >= _f(cfg.get('minHoldMins', MIN_HOLD_MINS)) * 60
-        locked_round = int(c.get('lockRounds') or 0) > 0
+        locked_round = int(c.get('lockRounds') or 0) > 0 or bool(c.get('holdAll'))   # ✋ hold all: no rotation (stops + rug shield still run)
         ranked = [] if locked_round else sorted((l for l in c['legs'] if l.get('role') != 'anchor' and not l.get('frozen') and not l.get('ride') and int(l.get('freezeRounds') or 0) <= 0 and l['entry'] > 0
                                                  and ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 <= -_f(cfg.get('rotateMinDrop', ROTATE_MIN_DROP)) and patient(l) and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
         swapped = 0
@@ -469,7 +498,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 l['freezeRounds'] = int(l['freezeRounds']) - 1
         lr = _f(c['lastRoundPct']); st = int(c.get('streak') or 0)
         st = (st + 1 if st >= 0 else 1) if lr >= STREAK_PCT else (st - 1 if st <= 0 else -1) if lr <= -STREAK_PCT else st   # noise keeps the streak as is
-        if locked_round:
+        if int(c.get('lockRounds') or 0) > 0:   # only a real win-lock counts down (✋ hold all has no counter)
             c['lockRounds'] = int(c['lockRounds']) - 1
         if c.get('cycleFix') == 'safe' and int(c.get('rounds') or 0) >= int(c.get('fixUntil') or 0):
             c.pop('cycleFix', None); st = 0   # the safe fix lasts SAFE_FIX_ROUNDS, then the card goes back to its own cycle (never re-armed the same round)
@@ -492,22 +521,27 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             ev(kind='run', usd=round(v_now, 4), why=f'{n_run} rounds done — run closed on the record, a new run starts at ${v_now:.2f}')
     # 3b) 🔄 phase cycle: a cycling tier re-deals into the next phase shape every round (same run, P&L continues)
     rp = -_f(cfg.get('rescuePct', -RESCUE_PCT))
-    if not c.get('cycleFix') == 'rescue' and (value(c, prices, liqs) / (_f(c['startUsd']) or 1) - 1) * 100 <= rp:
+    if rp < 0 and not c.get('cycleFix') == 'rescue' and (value(c, prices, liqs) / (_f(c['startUsd']) or 1) - 1) * 100 <= rp:
         c['cycleFix'] = 'rescue'   # 🛟 fell rescuePct% under its start → safest ⇄ breakeven until a new run
         ev(kind='rescue', why=f'card ≤ {rp:.0f}% of its start — 🛟 rescue cycle: safest run ⇄ breakeven runners')
-    every = 1 if c.get('cycleFix') else int(cfg.get('cycleEvery') or 6)
-    phase = next_phase(c.get('cycleFix') or (cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl'], 'off'), (int(c.get('rounds') or 0) // every), c.get('lastRoundPct'))
+    every = 1 if c.get('cycleFix') else int(cfg.get('cycleEvery') if cfg.get('cycleEvery') is not None else 6)
+    phase = None if not every or c.get('holdAll') else next_phase(c.get('cycleFix') or (cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl'], 'off'), (int(c.get('rounds') or 0) // every), c.get('lastRoundPct'))
     majors_only = all(l.get('role') == 'anchor' for l in c['legs'])
-    if int(c.get('rounds') or 0) % every and not (majors_only and phase and phase != 'anchor'):
+    if every and int(c.get('rounds') or 0) % every and not (majors_only and phase and phase != 'anchor'):
         phase = None   # re-shape every N rounds only (less churn) — EXCEPT a majors-only card due a growth shape re-shapes at once
     grow_now = majors_only and phase and phase != 'anchor'   # a majors-only card due growth isn't held back by the win-lock
     if c.pop('redealNow', None) and not c.get('flooredAt'):   # 🃏 one-tap re-deal: fresh coins NOW, same money + run (real cards keep their book)
         phase, grow_now, c['lastRotateAt'] = phase or c.get('phase') or 'mixed', True, now
     if phase and c['lastRotateAt'] == now and not c.get('flooredAt') and not any(l.get('ride') for l in c['legs']) and (grow_now or not int(c.get('lockRounds') or 0)):   # a riding runner holds the shape
-        nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=in_play(c, prices, liqs), keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
+        ip = in_play(c, prices, liqs)
+        nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=ip, keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
         if nc:
-            nc['feesUsd'] = round(_f(nc['feesUsd']) + fee * len(c['legs']), 4)   # selling the old shape
-            c = nc
+            nc, kept = keep_winners(nc, c['legs'], prices, liqs, cfg.get('keepWinPct', 5.0), ip)
+            if nc:
+                nc['feesUsd'] = round(_f(nc['feesUsd']) + fee * (len(c['legs']) - kept), 4)   # selling the old shape (kept coins aren't sold)
+                if kept:
+                    nc['events'] = list(nc.get('events') or []) + [{'kind': 'keep', 'at': now, 'why': f'🛡 {kept} winning / frozen coin{"s" if kept > 1 else ""} carried into the {phase} shape — never sold by a re-shape'}]
+                c = nc
     # 4) idle cash goes back to work when compounding
     if cfg['compound'] and c['cash'] > 0.01 and c['legs']:
         waiting = [l for l in c['legs'] if l.get('buying')]   # 👛 real card: SOL whose buy hasn't landed belongs to THAT coin first
@@ -562,7 +596,9 @@ def cycle_peek(card, cfg):
     adaptive / auto pick by the last round's move, so `next` is the shape IF the next round moves like the last one."""
     cfg = cfg or {}
     mode = card.get('cycleFix') or (cfg.get('cycles') or DEFAULT_CYCLES).get(card.get('tpl'), 'off')
-    every = 1 if card.get('cycleFix') else int(cfg.get('cycleEvery') or 6)
+    every = 1 if card.get('cycleFix') else int(cfg.get('cycleEvery') if cfg.get('cycleEvery') is not None else 6)
+    if not every or card.get('holdAll'):
+        return {'now': card.get('phase'), 'next': None, 'inRounds': None, 'mode': 'hold' if card.get('holdAll') else mode, 'fix': card.get('cycleFix')}
     r = int(card.get('rounds') or 0)
     n = every - (r % every)
     nxt = next_phase(mode, (r + n) // every, card.get('lastRoundPct'))

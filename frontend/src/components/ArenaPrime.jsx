@@ -166,15 +166,16 @@ const EDIT = [
   ['rotateConfirm', '⏳ Patience', [[1, '1'], [2, '2'], [3, '3'], [4, '4']], 'Losing rounds in a row before a coin may be swapped (more = less churn, fewer fees)'],
   ['rotateMinDrop', '📉 Swap only below', [[5, '−5%'], [10, '−10%'], [15, '−15%'], [20, '−20%']], 'A coin is swapped only when it is at least this far down'],
   ['minHoldMins', '🔒 Min hold', [[15, '15m'], [30, '30m'], [60, '1h'], [120, '2h']], 'Every new coin is held at least this long'],
-  ['rideAt', '❄ Freeze a coin running', [[25, '+25%'], [50, '+50%'], [100, '+100%'], [150, '+150%']], 'A coin up this much is frozen: no TP, stop or rotation while it keeps making highs'],
+  ['keepWinPct', '🛡 Keep winners', [[0, 'off'], [5, '+5%'], [10, '+10%'], [20, '+20%']], 'A coin up this much (or ❄ frozen) is carried into the next shape — a re-shape never sells a winner'],
+  ['rideAt', '❄ Freeze a coin running', [[0, 'off'], [25, '+25%'], [50, '+50%'], [100, '+100%'], [150, '+150%']], 'A coin up this much is frozen: no TP, stop or rotation while it keeps making highs'],
   ['rideTrail', '⇄ Then swap it off its peak', [[10, '−10%'], [15, '−15%'], [20, '−20%'], [30, '−30%']], 'A frozen coin is swapped for the best coin of its kind once it falls this far from its highest price (the gain moves into the new coin)'],
-  ['cycleEvery', '🧩 Re-shape every', [[3, '3'], [6, '6'], [12, '12']], 'Rounds between shape changes'],
+  ['cycleEvery', '🧩 Re-shape every', [[0, 'off'], [3, '3'], [6, '6'], [12, '12']], 'Rounds between shape changes'],
   ['slMode', '🛑 On a stop', [['replace', '⇄ replace'], ['park', '🅿 park'], ['hold', '❄ hold']], 'Replace with the best coin · sell to SOL and rebuy later · keep holding'],
-  ['rescuePct', '🛟 Rescue at', [[30, '−30%'], [40, '−40%'], [50, '−50%'], [60, '−60%']], 'Card this far under its start → safest coins'],
+  ['rescuePct', '🛟 Rescue at', [[0, 'off'], [30, '−30%'], [40, '−40%'], [50, '−50%'], [60, '−60%']], 'Card this far under its start → safest coins'],
   ['autoBrain', '🧠 Auto-tune', [[true, 'on'], [false, 'off']], 'Let the sim brain adjust patience / drop (never below 3 on 5m rounds)'],
 ];
 const CYCLES = [['safe', '🛡 safe'], ['classic', 'classic'], ['adaptive', 'adaptive'], ['press', '🔥 press'], ['rescue', '🛟 rescue'], ['auto', '🤖 auto'], ['off', 'off']];
-const ROUND_KEYS = ['rotateHours', 'rotateConfirm', 'rotateMinDrop', 'minHoldMins', 'rideAt', 'rideTrail'];   // ⏱ group 1; the rest of EDIT = 🧬 shape group
+const ROUND_KEYS = ['rotateHours', 'rotateConfirm', 'rotateMinDrop', 'minHoldMins', 'keepWinPct', 'rideAt', 'rideTrail'];   // ⏱ group 1; the rest of EDIT = 🧬 shape group
 
 // ✍ Type exact limits (server clamps every value to its safe range: slippage 0.1–3%, impact 0.2–10%, pool ≥ $0, swap $1+, daily $5+)
 const TYPED = [['slippageBps', 'Slippage %', v => v * 100, v => v / 100, 0.1, 3, 0.1], ['maxImpactPct', 'Max price impact %', v => v, v => v, 0.2, 10, 0.1],
@@ -238,7 +239,7 @@ export function CycleStrip({ c }) {
     <span className="hrt-vital" data-tip="Best coin on the card now"><small>BEST</small><b className="m-pos">{best ? `$${best.symbol} ${pct(best.pnlPct)}` : '—'}</b></span>
     <span className="hrt-vital" data-tip="Weakest coin on the card now"><small>WORST</small><b className={worst && worst.pnlPct < 0 ? 'm-neg' : ''}>{worst ? `$${worst.symbol} ${pct(worst.pnlPct)}` : '—'}</b></span>
     <span className="hrt-vital" data-tip="Coins frozen while they run (swapped once they fall off their peak)"><small>RIDING</small><b>❄ {riding}</b></span>
-    <span className="hrt-vital" data-tip="Network fees this card paid (kept apart from P&L)"><small>FEES</small><b>{usd(c.realBook?.feesUsd ?? c.feesUsd ?? 0)}</b></span></div>;
+    <span className="hrt-vital" data-tip="Network fees this card paid — kept apart from P&L. HQ / creator wallets pay 0 FEELESS fee; only the network (Solana) is paid"><small>🧾 FEES</small><b>{usd(c.realBook?.feesUsd ?? c.feesUsd ?? 0)}</b></span></div>;
 }
 
 // ⛽ gas tank + 📶 landing rate: the two things that decide whether a real buy lands (server `fuse_wallet.gas_tank` / `landing`)
@@ -248,13 +249,11 @@ export function RealHealth({ k }) {
   const land = L.pct == null ? null : L.pct;
   return <div className="hrt-health" data-testid="real-health">
     <div className={`hrt-gauge is-${g?.state || 'na'}`} data-tip={g ? `${g.sol.toFixed(4)} SOL free for network fees + new-coin rent (keep ≥ ${g.reserve} SOL). Enough rent for ${g.newCoins} new coin${g.newCoins === 1 ? '' : 's'}. Send SOL to the Fuse wallet to refill — it never comes out of a card.` : 'Reading the wallet…'}>
-      <small>⛽ GAS · FEES + RENT</small><b className="m-num">{g ? `${g.sol.toFixed(4)} SOL` : '—'}</b>
-      <i className="hrt-bar"><i style={{ transform: `scaleX(${gasPct / 100})` }} /></i>
-      <em>{!g ? '' : g.state === 'empty' ? '⚠ empty — new buys will fail' : g.state === 'low' ? '⚠ low — refill soon' : `ok · ${g.newCoins} new coins`}</em></div>
+      <small>⛽ GAS</small><i className="hrt-bar"><i style={{ transform: `scaleX(${gasPct / 100})` }} /></i>
+      <b>{g ? `${g.sol.toFixed(3)} SOL` : '—'}</b><em>{!g ? '' : g.state === 'empty' ? '⚠ empty' : g.state === 'low' ? '⚠ low' : `${g.newCoins} coins`}</em></div>
     <div className={`hrt-gauge is-${land == null ? 'na' : land >= 80 ? 'ok' : land >= 50 ? 'low' : 'empty'}`} data-tip={L.top ? `Most common miss (24h): ${L.top} ×${L.topN}` : 'Every real swap the keeper tried in the last 24h'}>
-      <small>📶 LANDED · 24H</small><b className="m-num">{land == null ? '—' : `${land}%`}</b>
-      <i className="hrt-bar"><i style={{ transform: `scaleX(${(land || 0) / 100})` }} /></i>
-      <em>{L.tried ? `${L.filled}/${L.tried} swaps${L.top ? ` · top miss: ${L.top}` : ''}` : 'no swaps yet'}</em></div></div>;
+      <small>📶 LANDED</small><i className="hrt-bar"><i style={{ transform: `scaleX(${(land || 0) / 100})` }} /></i>
+      <b>{land == null ? '—' : `${land}%`}</b><em>{L.tried ? `${L.filled}/${L.tried}` : '—'}</em></div></div>;
 }
 
 export function HqRealCards({ addr, onCount }) {
@@ -311,6 +310,8 @@ export function HqRealCards({ addr, onCount }) {
             <button type="button" className="m-btn" disabled={!!busy || k.selling} onClick={() => act(c.tpl, k.halt ? 'resume' : 'halt')} data-tip={k.halt ? 'Keeper trades again' : 'Keeper stops trading this card (coins stay)'}>{k.halt ? '▶ Resume' : '⏸ Pause'}</button>
             <span className="hrt-top-up"><input className="m-input" type="number" min="1" step="1" placeholder="$" value={amt} onChange={e => setAmt(e.target.value)} aria-label="Top up amount" />
               <button type="button" className="m-btn m-go" disabled={!!busy || k.selling} onClick={() => topup(c.tpl)} data-tip="Add money from the Fuse wallet — a new real run at the new total">＋ Top up</button></span>
+            <button type="button" className={`m-btn ${c.holdAll ? 'active' : ''}`} aria-pressed={!!c.holdAll} disabled={!!busy} data-testid="hold-all" data-tip={c.holdAll ? 'Release: the engine swaps and re-shapes again' : 'Hold every coin: no swaps or re-shapes (stops + rug shield still protect you)'}
+              onClick={() => prime({ hold: { tpl: c.tpl, on: !c.holdAll } }, c.holdAll ? '▶ Released — the engine trades again' : '✋ Holding every coin', 'hold')}>{c.holdAll ? '▶ Release' : '✋ Hold all'}</button>
             <button type="button" className="m-btn" disabled={!!busy || k.selling} data-testid="redeal-real" data-tip="Fresh coins for this card NOW — same money, same run; frozen coins stay. The keeper trades the change next tick."
               onClick={() => window.confirm('Re-deal this card with fresh coins now? Same money, same run.') && prime({ redeal: c.tpl }, '🃏 Re-dealt — keeper trades the new coins next tick', 'redeal')}>🃏 Re-deal</button>
             <button type="button" className="m-btn danger" disabled={!!busy || k.selling} onClick={() => act(c.tpl, 'defund')} data-tip="Sell every coin to SOL — the card goes back to its paper card">{k.selling ? '↩ selling…' : '↩ Sell all'}</button></div>
