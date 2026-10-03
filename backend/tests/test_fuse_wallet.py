@@ -141,3 +141,10 @@ def test_quote_audit_rows_measure_paper_vs_real_and_feed_calibration():
 def test_price_source_gaps_never_teach_the_impact_model():
     gap = [fw.quote_row('X', 5, 1.0, 1000, 1.01, 6.5, i) for i in range(5)]      # real gives +29% more: a stale price, not impact
     assert fw.calibrate(gap)['n'] == 0 and fw.calibrate(gap)['impactMult'] == 1.0
+
+
+def test_rent_and_network_fees_never_come_out_of_the_card():
+    book = fw.new_book(100, 100.0, 0)                                   # 1 SOL in the card
+    order = {'side': 'buy', 'mint': 'M', 'pair': 'pm', 'symbol': 'M', 'lamports': 200_000_000}
+    b, r = fw.apply_fill(book, order, {'atoms': 20_000_000, 'decimals': 6, 'sol': -0.20204, 'feeSol': 0.00001}, 100.0)   # 0.2 swap + 0.00204 rent
+    assert abs(b['sol'] - 0.8) < 1e-9 and abs(b['rentSol'] - 0.00204) < 1e-9 and r['usd'] == 20.0   # card paid exactly the swap

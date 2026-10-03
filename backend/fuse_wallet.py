@@ -157,7 +157,7 @@ def apply_fill(book, order, fill, sol_px):
     l = b['legs'].setdefault(m, {'atoms': 0, 'decimals': fill['decimals'], 'pair': order.get('pair'), 'symbol': order.get('symbol'), 'costUsd': 0.0, 'entryPx': 0.0})
     l['decimals'] = fill['decimals'] or l.get('decimals') or 0
     units = abs(fill['atoms']) / (10 ** l['decimals']) if l['decimals'] is not None else 0
-    usd = abs(fill['sol']) * sol_px
+    usd = (min(abs(fill['sol']), int(order['lamports']) / 1e9) if order['side'] == 'buy' and order.get('lamports') else abs(fill['sol'])) * sol_px
     if order['side'] == 'buy' and fill['atoms'] > 0:
         old = int(l['atoms']) / (10 ** l['decimals'])
         l['atoms'] = int(l['atoms']) + fill['atoms']
@@ -167,7 +167,14 @@ def apply_fill(book, order, fill, sol_px):
         left = max(0, int(l['atoms']) + fill['atoms'])
         l['costUsd'] = round(_f(l.get('costUsd')) * (left / int(l['atoms'])) if int(l['atoms']) else 0.0, 6)
         l['atoms'] = left
-    b['sol'] = round(_f(b.get('sol')) + fill['sol'], 9)
+    sol_move = fill['sol']
+    if order['side'] == 'buy' and order.get('lamports') and fill['sol'] < 0:
+        # the card pays only what went INTO the swap; anything more (new token-account rent) comes out of the wallet's fee reserve
+        swap_sol = int(order['lamports']) / 1e9
+        if -fill['sol'] > swap_sol:
+            b['rentSol'] = round(_f(b.get('rentSol')) + (-fill['sol'] - swap_sol), 9)
+            sol_move = -swap_sol
+    b['sol'] = round(_f(b.get('sol')) + sol_move, 9)
     b['feesSol'] = round(_f(b.get('feesSol')) + fill['feeSol'], 9)
     b['feesUsd'] = round(_f(b.get('feesUsd')) + fill['feeSol'] * sol_px, 6)
     if not l['atoms']:

@@ -194,9 +194,9 @@ def test_rounds_count_and_the_best_card_of_each_round_is_crowned():
 
 def test_cycling_tiers_move_through_anchor_degen_anchor_mixed_rounds():
     cfg = ap.clean_cfg({'rotateHours': 1, 'floorPct': 20, 'cycles': CFG['cycles'], 'payouts': CFG['payouts']})
-    maj = [C('sol', 1, 'SOL'), C('btc', 1, 'cbBTC')]
+    maj = [C('sol', 1, 'SOL'), C('btc', 1, 'cbBTC'), C('eth', 1, 'WETH')]   # an anchor round needs ≥ 3 coins
     runners = [R('r1', 1), R('r2', 1), R('r3', 1)]
-    flat = {'Psol': 1, 'Pbtc': 1, 'Pa': 1, 'Pr1': 1, 'Pr2': 1, 'Pr3': 1}
+    flat = {'Psol': 1, 'Pbtc': 1, 'Peth': 1, 'Pa': 1, 'Pr1': 1, 'Pr2': 1, 'Pr3': 1}
     c = ap.deal('next', [P('a', 1)], runners, cfg, 0, maj)
     seen = []
     for i in range(1, 5):
@@ -320,10 +320,11 @@ def test_worst_day_minus_40_fixes_the_tier_config():
             {'mint': 'S', 'pairAddress': 'PS', 'symbol': 'SOL', 'role': 'anchor', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0}]
     card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
             'events': [], 'startUsd': 20.0, 'dayStartUsd': 20.0, 'dayAt': 0, 'legs': legs}
-    anchors = [{'mint': 'S', 'pairAddress': 'PS', 'symbol': 'SOL', 'price': 1.0, 'stars': 5}]
-    c = ap.tick(card, {'PR': 0.15, 'PS': 1.0}, [], [], cfg, 10, anchors, liqs={'PR': 1e12, 'PS': 1e12})   # day −42.5% (runner −85%)
+    anchors = [{'mint': m, 'pairAddress': f'P{m}', 'symbol': m, 'price': 1.0, 'stars': 5} for m in ('S', 'B', 'E')]
+    anchors[0]['pairAddress'] = 'PS'
+    c = ap.tick(card, {'PR': 0.15, 'PS': 1.0, 'PB': 1.0, 'PE': 1.0}, [], [], cfg, 10, anchors, liqs={'PR': 1e12, 'PS': 1e12, 'PB': 1e12, 'PE': 1e12})   # day −42.5%
     assert c['cycleFix'] == 'safe' and any(e['kind'] == 'fix' for e in c['events'])
-    assert ap.tick(c, {'PR': 0.15, 'PS': 1.0}, [], [], cfg, 20, anchors, liqs={'PS': 1e12})['fixedAt'] == c['fixedAt']   # once a day
+    assert ap.tick(c, {'PR': 0.15, 'PS': 1.0, 'PB': 1.0, 'PE': 1.0}, [], [], cfg, 20, anchors, liqs={'PS': 1e12})['fixedAt'] == c['fixedAt']   # once a day
 
 
 def test_bell_round_ends_then_10s_countdown_then_the_deal():
@@ -334,3 +335,23 @@ def test_bell_round_ends_then_10s_countdown_then_the_deal():
     assert ap.tick(card, {'PS': 1.0}, [], [], cfg, 3605, liqs={'PS': 1e12}).get('rounds', 0) == 0     # inside the countdown: not yet
     assert ap.tick(card, {'PS': 1.0}, [], [], cfg, 3610, liqs={'PS': 1e12})['rounds'] == 1             # bell done: dealt
     assert ap.summary(card, {'PS': 1.0}, cfg)['nextRoundAt'] == 3610
+
+
+def test_hold_rule_streaks_and_min_3_coin_cycles():
+    assert ap.deal('next', [], [], ap.clean_cfg({}), 0, [C('sol', 1, 'SOL')], shape='anchor') is None      # < 3 coins → no re-shape
+    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 1, 'cycles': {'degen': 'off'}})
+    runner = {'mint': 'R', 'pairAddress': 'PR', 'symbol': 'R', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0}
+    card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
+            'events': [], 'startUsd': 10.0, 'legs': [runner]}
+    lq = {'PR': 1e12, 'PN': 1e12}
+    new = [{'mint': 'N', 'pairAddress': 'PN', 'symbol': 'N', 'price': 1.0, 'score': 99, 'stars': 5}]
+    c = ap.tick(card, {'PR': 1.9}, [], new, cfg, 100, liqs=lq)                 # +90% during the round
+    c = ap.tick(c, {'PR': 1.85, 'PN': 1.0}, [], new, cfg, 3600, liqs=lq)        # round ends, stayed ≥ +80% all round → held
+    assert c['legs'][0]['ride'] and any(e['kind'] == 'ride' for e in c['events'])
+    c = ap.tick(c, {'PR': 1.7, 'PN': 1.0}, [], new, cfg, 3700, liqs=lq)         # +70%: under +80% → swapped for N
+    assert c['legs'][0]['mint'] == 'N' and c['events'][-1]['kind'] == 'ride-end'
+    st = dict(card, streak=-2, legs=[dict(runner)], roundStartUsd=10.0)
+    lost = ap.tick(st, {'PR': 0.9, 'PN': 1.0}, [], [], cfg, 3600, liqs=lq)     # 3rd losing round → safe config
+    assert lost['cycleFix'] == 'safe' and lost['streak'] == 0
+    won = ap.tick(dict(card, streak=2, legs=[dict(runner)], roundStartUsd=10.0), {'PR': 1.1}, [], [], cfg, 3600, liqs=lq)   # 3rd win → locked + frozen
+    assert won['lockRounds'] == 1 and won['legs'][0]['freezeRounds'] == 1

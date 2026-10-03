@@ -596,6 +596,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   card swaps quote with `cardId` → $0 FEELESS fee while credit lasts; switch/close spend it. Staff never prepay.
 - 🪪 Circle wallet profiles: `/admin/circle/profiles` + `/admin/circle/profile` (owner, own Circle wallets only) → HQ › 👛 CircleProfiles.
 
+- 🏇 Hold rule (tier engine): ≥ +150% OR a whole round ≥ +80% (`roundMin`) → held (no TP / stop / rotation); held coins stay while
+  ≥ +80% and not 30% off their high, else SWAPPED for the best coin of their role. Streaks (`STREAK`=3): 3 losing rounds → `cycleFix`
+  safe; 3 winning → `lockRounds`=1 (no rotation / re-shape) + best coin `freezeRounds`=1. Every cycle shape ≥ 3 coins (`MIN_CYCLE_COINS`).
+- 👛 The card gets EXACTLY what's funded: network fees + new-account rent come from the wallet reserve (`apply_fill` → `rentSol`).
+  Dry run shows card $ + fees (network + rent for new coins). Limits have plain-word explanations on screen.
+- 🖥 Always-on host: `deploy/Dockerfile` + `deploy/run-all.sh` (all services + loops + Circle signer, auto-restart) · docs/ALWAYS_ON.md.
+  ONLY one backend may run against the Fuse wallet.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

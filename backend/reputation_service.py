@@ -5812,7 +5812,16 @@ async def fuse_wallet_preview(request: Request):
             rows.append({**o, 'impactPct': round(_fuse._f(q.get('priceImpactPct')) * 100, 3), 'outAmount': out, 'route': [r.get('swapInfo', {}).get('label') for r in q.get('routePlan') or []][:3]})
         except HTTPException as e:
             rows.append({**o, 'err': str(e.detail)[:120]})
-    return {'orders': rows, 'card': status, 'solUsd': sol_px, 'networkUsdEst': round(len(rows) * 0.00008 * sol_px, 4),
+    held_mints = set()
+    if _fw_cfg()['address']:
+        try:
+            held_mints = set((await _fw_balances(_fw_cfg()['address']))['tokens'])
+        except Exception:
+            pass
+    new_coins = len({o['mint'] for o in rows if o.get('side') == 'buy' and o['mint'] not in held_mints})
+    net_usd, rent_usd = round(len(rows) * 0.00006 * sol_px, 4), round(new_coins * 0.00204 * sol_px, 4)
+    return {'orders': rows, 'card': status, 'solUsd': sol_px, 'networkUsdEst': net_usd, 'rentUsdEst': rent_usd, 'newCoins': new_coins,
+            'feesUsdEst': round(net_usd + rent_usd, 4), 'cardUsd': usd,
             'note': 'Fund continues THIS card with real money: same coins, same phase, same clock and config — only the $ and the start time change.'}
 
 

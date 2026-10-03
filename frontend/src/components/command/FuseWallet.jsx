@@ -7,9 +7,13 @@ import '../../styles/fuseMoney.css';
 // 1 · pick the wallet + see its funds · 2 · hard limits · 3 · top up a tier (resets it as a new real run) or ↩ defund ·
 // 4 · 🔍 dry run = real Jupiter quotes for what a top-up would buy (never signs) · 5 · the audit trail (every order + tx).
 const ST = { filled: 'filled', done: 'done', dry: 'quoted', skipped: 'skipped', failed: 'failed', sent: 'sent' };
-const LIMITS = [['maxCardUsd', 'Max per card ($)', 'A tier card never holds more than this'], ['maxSwapUsd', 'Max per swap ($)', 'Bigger moves split over ticks'],
-  ['dailyUsd', 'Daily cap ($)', 'All swaps in 24h'], ['reserveSol', 'Keep for network fees (SOL)', 'Never spent on cards'],
-  ['slippageBps', 'Slippage (bps)', '100 = 1%, max 300'], ['maxImpactPct', 'Max price impact (%)', 'A quote over this is skipped']];
+// Every limit in plain words (+ what it means for a $5 card). The card gets EXACTLY what you fund — fees come from the reserve.
+const LIMITS = [['maxCardUsd', 'Biggest a card can get ($)', 'Fund + top-ups can never push one tier card above this. $10 = a $5 card can be topped up once more.'],
+  ['maxSwapUsd', 'Biggest single swap ($)', 'One buy or sell is never bigger than this; a larger move is split over the next ticks.'],
+  ['dailyUsd', 'All swaps per day ($)', 'Total of every swap in 24h. When it is reached the keeper waits until tomorrow.'],
+  ['reserveSol', 'Fee reserve (SOL) — never goes into a card', 'Pays every swap\'s network fee (~$0.006) + the one-time account rent when the wallet first holds a coin (~$0.25). 0.015 SOL ≈ $1.80.'],
+  ['slippageBps', 'Max slippage (bps · 100 = 1%)', 'A swap fails rather than fill worse than this. 200 = 2%.'],
+  ['maxImpactPct', 'Max price impact (%)', 'A quote that would move the pool more than this is skipped.']];
 
 export function FuseWallet({ call }) {
   const [d, setD] = useState(null);
@@ -44,8 +48,8 @@ export function FuseWallet({ call }) {
         <option value="">Pick a Circle Solana wallet…</option>{(d.wallets || []).map(w => <option key={w.id} value={w.id}>{w.name || 'wallet'} · {w.address.slice(0, 4)}…{w.address.slice(-4)} · {w.blockchain}</option>)}</select>
       {cfg?.address && <a className="m-btn" href={`https://solscan.io/account/${cfg.address}`} target="_blank" rel="noreferrer">Solscan ↗</a>}
       <small className="m-dim">fund it by sending SOL to its address (HQ › Money › Circle can move SOL between your wallets)</small></div>
-    <div><span className="m-label">2 · HARD LIMITS (server-enforced)</span><div className="fw-grid">{LIMITS.map(([k, l, tip]) => <label key={k} data-tip={tip}>{l}
-      <input className="m-input m-num" type="number" defaultValue={cfg?.[k]} onBlur={e => Number(e.target.value) !== cfg?.[k] && save({ [k]: Number(e.target.value) })} data-testid={`fw-${k}`} /></label>)}</div>
+    <div><span className="m-label">2 · HARD LIMITS (server-enforced) · what you fund is what the card gets — fees come from the reserve</span><div className="fw-grid">{LIMITS.map(([k, l, tip]) => <label key={k}>{l}
+      <input className="m-input m-num" type="number" defaultValue={cfg?.[k]} onBlur={e => Number(e.target.value) !== cfg?.[k] && save({ [k]: Number(e.target.value) })} data-testid={`fw-${k}`} /><small className="m-dim">{tip}</small></label>)}</div>
       <div className="m-row"><label className="m-toggle" data-tip={d.signer ? 'Armed = the keeper may swap for funded cards' : 'Needs signing enabled first'}><input type="checkbox" checked={!!cfg?.armed} disabled={!d.signer} onChange={e => save({ armed: e.target.checked })} data-testid="fw-armed" /><span>{cfg?.armed ? '🟢 Armed' : 'Not armed'}</span></label>
         <label className="m-toggle"><input type="checkbox" checked={!!cfg?.paused} onChange={e => save({ paused: e.target.checked })} data-testid="fw-paused" /><span>{cfg?.paused ? '⏸ Paused (nothing trades)' : 'Kill switch off'}</span></label></div></div>
     <div><span className="m-label">3 · TIER CARDS · TOP UP = NEW RUN</span><div className="fw-tiers">{Object.entries(d.tiers || {}).map(([tpl, label]) => { const b = d.books?.[tpl];
@@ -62,7 +66,8 @@ export function FuseWallet({ call }) {
             <span className="m-num">{usd(c.usd)}</span><em className={`m-num ${c.pricePct >= 0 ? 'm-pos' : 'm-neg'}`}>{c.pricePct >= 0 ? '+' : ''}{c.pricePct}%</em></div>)}</div>
         <small className="m-dim">{dry.note}</small></>}
       {(dry.orders || []).map((o, i) => <span key={i}>{o.side === 'buy' ? '🟢 buy' : '🔴 sell'} ${o.symbol} · {usd(o.usd)}{o.err ? ` · ⚠ ${o.err}` : ` · impact ${o.impactPct}% · via ${(o.route || []).join(' → ') || 'Jupiter'}`}</span>)}
-      {!dry.orders?.length && <small className="m-dim">No swaps needed — this card is SOL right now (its SOL slice stays SOL).</small>}<small className="m-dim">network ≈ {usd(dry.networkUsdEst)} · FEELESS fee $0 (HQ cards)</small></>}</div>}
+      {!dry.orders?.length && <small className="m-dim">No swaps needed — this card is SOL right now (its SOL slice stays SOL).</small>}
+      <b data-testid="fw-dry-fees">💳 Card gets {usd(dry.cardUsd)} · fees ≈ {usd(dry.feesUsdEst)} from the reserve (network {usd(dry.networkUsdEst)}{dry.newCoins ? ` + account rent for ${dry.newCoins} new coin${dry.newCoins > 1 ? 's' : ''} ${usd(dry.rentUsdEst)}, refundable` : ''}) · FEELESS fee $0</b></>}</div>}
     <div><span className="m-label">4 · AUDIT TRAIL · {d.ledger?.length || 0} ROWS · BOUGHT {usd(d.totals?.bought)} · SOLD {usd(d.totals?.sold)} · TOP-UPS {usd(d.totals?.topups)}</span>
       <div className="fw-table" role="table" data-testid="fw-ledger"><div className="fw-row is-head" role="row"><span>WHEN</span><span>CARD</span><span>WHAT</span><span>$</span><span>FILL</span><span>FEE</span><span>TX</span></div>
         {(d.ledger || []).map((o, i) => <div key={i} className="fw-row" role="row"><span className="m-dim">{new Date(o.at * 1000).toLocaleTimeString()}</span><span>{o.card}</span>
