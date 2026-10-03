@@ -12,7 +12,7 @@
 .mm-pnl.is-up b { color: #19f58f; } .mm-pnl.is-down b { color: #ff8fa3; }
 .mm-pnl small, .mm-note { font-size: 9.5px; color: var(--m-dim); line-height: 1.4; }
 .mm.is-compact { padding: 7px; gap: 4px; } .mm.is-compact .mm-eq { grid-template-columns: 1fr 1fr; gap: 4px 8px; } .mm.is-compact .mm-eq > i { display: none; } .mm.is-compact .mm-eq b { font-size: 11px; } .mm.is-compact .mm-pnl b { font-size: 14px; } .mm.is-compact .mm-eq small { font-size: 7.5px; }
-.fcd-legs { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; max-height: 120px; overflow-y: auto; scrollbar-width: thin; }
+.fcd-legs { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; max-height: none; overflow: visible; }
 .fcd-legs .fcd-leg { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 6px; align-items: center; font-size: 10.5px; padding: 3px 0; border-bottom: 1px dashed color-mix(in srgb, var(--m-line) 60%, transparent); }
 .fcd-legs .fcd-leg > span { grid-column: 1 / -1; grid-row: 2; }
 .fcd-leg b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .fcd-leg span { font-family: var(--m-mono); font-size: 9.5px; color: var(--m-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -140,3 +140,10 @@ body.theme-day .ctab { background: #fff; border-color: #d8e2dc; }
 .ccost-list b { font-size: 12.5px; } .wp-prime-card em.m-num { font-size: 16px; } .rbell b.m-num { font-size: 13px; }
 .prime-stats .ps-pct { font-family: var(--m-mono); font-size: 10px; letter-spacing: 0; color: inherit; }
 .prime-stats b { white-space: nowrap; }
+
+/* card back: every coin visible + the classic 4-line money summary; tier cards 15% bigger */
+.fcd-sum { display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; margin: 4px 0 0; font-family: var(--m-mono); font-size: 10.5px; }
+.fcd-sum dt { opacity: .7; } .fcd-sum dd { margin: 0; text-align: right; } .fcd-sum dd b { font-size: 12px; }
+.prime-card .fcd { zoom: 1.15; }
+@media (max-width: 640px) { .prime-card .fcd { zoom: 1; } }
+.fcd-back ul.fcd-legs { max-height: none; overflow: visible; }

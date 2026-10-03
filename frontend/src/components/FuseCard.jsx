@@ -4,7 +4,6 @@ import '../styles/fuseLab.css';
 import { tokenImageUrls } from './terminal/MarketPrimitives';
 import { legTarget } from '../lib/fuseGo';
 import { useLivePrices } from '../lib/livePrices';
-import { MoneyMath } from './FuseMoney';
 
 // A Fuse champion as a collectible card: drag to tilt, ⟲ to flip. Front = grade crest + the fused pools;
 // back = every number behind its score. Grade sets rarity, strategy sets the design.
@@ -103,7 +102,8 @@ export function LiveFuseCard({ r: r0, aura = '', look = null, label = null }) {
       <b>{l.role === 'runner' ? '🏃 ' : l.role === 'anchor' ? '⚓ ' : ''}{l.symbol}</b>
       <em className={l.pnlPct >= 0 ? 'up' : 'down'}>{l.soldUsd != null ? 'sold' : `${l.pnlPct >= 0 ? '+' : ''}${l.pnlPct.toFixed(1)}% · ${l.pnlUsd >= 0 ? '+' : '−'}${m$(Math.abs(l.pnlUsd || 0)).replace('−', '')}`}</em>
       <span>{m$(l.usd)} in → {m$(l.valueUsd)} now</span></li>)}</ul>
-    <MoneyMath putIn={r.costUsd} held={r.valueUsd - paid} paidOut={paid} compact />
+    <dl className="fcd-sum"><dt>Put in</dt><dd>{m$(r.costUsd)}</dd><dt>In card</dt><dd>{m$(r.valueUsd - paid)}</dd><dt>Paid out</dt><dd className="up">{m$(paid)}</dd>
+      <dt>P&L</dt><dd className={up ? 'up' : 'down'}><b>{m$(r.pnlUsd)} ({up ? '+' : ''}{r.pnlPct.toFixed(1)}%)</b></dd></dl>
     <small className="fcd-note">● Live prices every 10s · {label && label.includes('PAPER') ? 'paper at true fills' : 'exact fills from chain'} · fees apart.</small>
   </div>;
   return <div className="fcd" data-testid={`live-card-${r.id}`}>
