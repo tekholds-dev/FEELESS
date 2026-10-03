@@ -543,3 +543,11 @@ def test_off_options_and_hold_all():
     new = [{'mint': 'N', 'pairAddress': 'PN', 'symbol': 'N', 'price': 1.0, 'score': 99, 'stars': 5}]
     c2 = ap.tick(card, {'PR': 0.88, 'PN': 1.0}, [], new, cfg, 3700, liqs={'PR': 1e12, 'PN': 1e12})   # −12%: would rotate, but hold all
     assert c2['legs'][0]['mint'] == 'R'
+
+
+def test_hand_pick_survives_one_reshape():
+    px, lq = {'PH': 1.0, 'PA': 1.0, 'PB': 1.0}, {'PH': 1e12, 'PA': 1e12, 'PB': 1e12}
+    old = [{'mint': 'H', 'pairAddress': 'PH', 'symbol': 'H', 'role': 'runner', 'entry': 1.0, 'units': 5.0, 'costUsd': 5.0, 'picked': True}]
+    nc = {'legs': [{'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'entry': 1.0, 'units': 5.0, 'costUsd': 5.0} for m in 'AB'], 'cash': 0.0}
+    out, kept = ap.keep_winners(nc, old, px, lq, 5, 10.0)
+    assert kept == 1 and 'H' in {l['mint'] for l in out['legs']} and not any(l.get('picked') for l in out['legs'])

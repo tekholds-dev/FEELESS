@@ -352,3 +352,15 @@ def test_circle_balances_fallback_never_shows_an_empty_wallet():
     b = fw.circle_balances(ws, 'A')
     assert b['sol'] == 0.0746 and b['tokens'] == {'SPEC': 650.5} and b['source'] == 'circle'
     assert fw.circle_balances(ws, 'B') is None
+
+
+def test_strays_only_adopts_keeper_coins_no_card_books():
+    books = {'safe': {'legs': {'BOOKED': {'atoms': 5}}}}
+    led = [{'card': 'safe', 'mint': 'WDYT', 'pair': 'PW', 'symbol': 'WDYT', 'decimals': 6, 'at': 100.0}]
+    toks = {'WDYT': 733_227_546, 'BOOKED': 5, 'MINE': 99, fw.SOL_MINT: 1}
+    out = fw.strays(toks, {'WDYT': 6}, books, led, 1000.0)
+    assert out == [{'card': 'safe', 'mint': 'WDYT', 'atoms': 733_227_546, 'decimals': 6, 'pair': 'PW', 'symbol': 'WDYT'}]   # owner's own MINE untouched
+    assert fw.strays(toks, {}, books, led, 200.0) == []                                          # still settling
+    assert fw.strays(toks, {}, {'safe': {**books['safe'], 'pending': {'id': 1}}}, led, 1000.0) == []   # an order in flight
+    b = fw.adopt(books['safe'], out[0])
+    assert b['legs']['WDYT']['costUsd'] == 0.0 and b['legs']['WDYT']['recovered'] and b['legs']['BOOKED'] == {'atoms': 5}

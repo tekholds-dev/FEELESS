@@ -289,6 +289,33 @@ def landing(ledger, card, now, window=86400):
     return {'tried': tried, 'filled': filled, 'pct': round(filled / tried * 100) if tried else None, 'top': top, 'topN': miss.count(top) if top else 0}
 
 
+def strays(wallet_tokens, decimals, books, ledger, now, settle=300):
+    """🧹 Coins in the Fuse wallet that NO card books but the KEEPER traded (its ledger has them) — left by a tx marked 'not confirmed'
+    that landed later, or an old double-run. → [{card, mint, atoms, decimals, pair, symbol}] to adopt back into that card (it then sells
+    them to SOL). Coins the keeper never touched (the owner's own) are never returned. Skips while any order is in flight."""
+    if any((b or {}).get('pending') for b in (books or {}).values()):
+        return []
+    booked = {m for b in (books or {}).values() for m in ((b or {}).get('legs') or {})}
+    out = []
+    for mint, atoms in (wallet_tokens or {}).items():
+        if mint == SOL_MINT or int(_f(atoms)) <= 0 or mint in booked:
+            continue
+        rows = [r for r in ledger or [] if r.get('mint') == mint and r.get('card') in (books or {}) and r.get('pair')]
+        if not rows or now - _f(rows[-1].get('at')) < settle:   # never traded by the keeper, or still settling
+            continue
+        last = rows[-1]
+        out.append({'card': last['card'], 'mint': mint, 'atoms': int(_f(atoms)), 'decimals': int((decimals or {}).get(mint) or last.get('decimals') or 0),
+                    'pair': last['pair'], 'symbol': last.get('symbol')})
+    return out
+
+
+def adopt(book, s):
+    """Book a stray into its card at $0 cost (recovered — the spend was already counted); the keeper sells it next tick."""
+    legs = dict(book.get('legs') or {})
+    legs[s['mint']] = {'atoms': s['atoms'], 'decimals': s['decimals'], 'pair': s['pair'], 'symbol': s['symbol'], 'costUsd': 0.0, 'entryPx': 0.0, 'recovered': True}
+    return {**book, 'legs': legs}
+
+
 def circle_balances(wallets, address):
     """Fallback balance from Circle's own wallet list (when our RPC is rate-limited): SOL + coins by symbol. No mints → display only."""
     w = next((x for x in wallets or [] if x.get('address') == address), None)

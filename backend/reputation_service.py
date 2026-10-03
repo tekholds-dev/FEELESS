@@ -5249,7 +5249,7 @@ async def _prime_candidates():
         have = {r['mint'] for r in runners}
         runners += [{'mint': r.get('baseAddress'), 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'price': r.get('priceUsd'), 'score': 60,
                      'liquidity': r.get('liquidityUsd'), 'buyShare': r.get('buyShare'), 'change24h': r.get('change24h'), 'newMajor': True}
-                    for r in _fuse.risers(await _fuse_discover_pairs('solana'), time.time() * 1000) if r.get('baseAddress') not in have and _fuse._f(r.get('priceUsd')) > 0]
+                    for r in (await fuses_discover(lens='risers', chain='solana')).get('pools') or [] if r.get('baseAddress') not in have and _fuse._f(r.get('priceUsd')) > 0]   # 🚀 risers + 🟢 Pump's top 15 by volume (same as the Lab lens)
     except Exception as e:
         if not os.environ.get('PYTEST_CURRENT_TEST'):
             print('new majors:', e)
@@ -5507,7 +5507,11 @@ async def fuse_prime_admin(request: Request):
                 raise HTTPException(404, 'No card for that tier yet.')
             px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in card['legs']])
             try:
+                old_m = {l.get('mint') for l in card['legs']}
                 cards[rep['tpl']] = _prime.replace_leg(card, rep['pairAddress'], px, pools, runners, anchors, pr['cfg'], time.time())
+                for l in cards[rep['tpl']]['legs']:   # 👆 YOUR pick: carried through the next re-shape (it once got sold 4 min later)
+                    if l.get('mint') not in old_m:
+                        l['picked'] = True
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)
@@ -5818,7 +5822,16 @@ async def _fw_tick(now):
             try:
                 cfg = _fw_cfg()
                 if cfg.get('address'):
-                    _FW_GAS.update(sol=(await _fw_balances(cfg['address']))['sol'], at=time.time())
+                    bal = await _fw_balances(cfg['address'])
+                    _FW_GAS.update(sol=bal['sol'], at=time.time()); _FW_BAL.update(bal=bal, at=time.time(), addr=cfg['address'])
+                    async with _fw_lock:   # 🧹 adopt keeper coins no card books (they sell back to SOL inside their card next tick)
+                        d = _fw_load()
+                        for st in _fw.strays(bal.get('tokens'), bal.get('decimals'), d['books'], d['ledger'], time.time()):
+                            d['books'][st['card']] = _fw.adopt(d['books'][st['card']], st)
+                            _fw_record(d, {'card': st['card'], 'side': 'adopt', 'mint': st['mint'], 'symbol': st['symbol'], 'atoms': st['atoms'], 'usd': 0.0, 'at': time.time(),
+                                           'status': 'done', 'why': '🧹 recovered: keeper coins no card counted — sold back to SOL inside the card'})
+                            print(f"fuse wallet: adopted stray {st['symbol']} into {st['card']}")
+                        _fw_save(d)
             except Exception as e:
                 print('fuse wallet gas:', e)
         return n

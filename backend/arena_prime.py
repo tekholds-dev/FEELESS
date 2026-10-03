@@ -259,7 +259,7 @@ def keep_winners(nc, old_legs, prices, liqs, pct, in_play_usd):
     """🛡 A re-shape never sells a winner: old coins up ≥ pct% (or ❄ frozen, or riding) are CARRIED into the new card as they are
     (same units + entry); the freshly dealt coins give up their slots and share what's left of the money, so the total stays exactly
     `in_play_usd`. Returns (card or None if every coin is kept → no re-shape, kept count)."""
-    win = [l for l in old_legs if l.get('role') != 'anchor' and _f(l.get('entry')) > 0 and (l.get('frozen') or l.get('ride') or
+    win = [l for l in old_legs if l.get('role') != 'anchor' and _f(l.get('entry')) > 0 and (l.get('frozen') or l.get('ride') or l.get('picked') or
            (_f(pct) > 0 and ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 >= _f(pct)))]
     if not win:
         return nc, 0
@@ -277,7 +277,7 @@ def keep_winners(nc, old_legs, prices, liqs, pct, in_play_usd):
         return None, len(win)   # the winners ARE the card: nothing to re-shape
     f = left / (sum(_f(l['costUsd']) for l in fresh) or 1)
     fresh = [{**l, 'units': l['units'] * f, 'costUsd': round(_f(l['costUsd']) * f, 6)} for l in fresh]
-    return {**nc, 'legs': fresh + [dict(l) for l in win]}, len(win)
+    return {**nc, 'legs': fresh + [{k: v for k, v in l.items() if k != 'picked'} for l in win]}, len(win)   # a hand pick survives ONE re-shape
 
 
 def deal(tid, pools, runners, cfg, now, anchors=(), usd=None, keep=None, shape=None):
