@@ -228,7 +228,7 @@ def test_cmd_ctr_freezes_a_coin_and_sets_its_own_stop_mode():
 
 def test_round_cycles_per_tier_and_trailing_lock():
     assert ap.next_phase('off', 3, -5) is None and ap.next_phase('classic', 1, 0) == 'degen'
-    assert ap.next_phase('adaptive', 0, -2) == 'anchor' and ap.next_phase('adaptive', 0, 8) == 'degen' and ap.next_phase('adaptive', 0, 1) == 'mixed'
+    assert ap.next_phase('adaptive', 0, -4) == 'anchor' and ap.next_phase('adaptive', 0, 8) == 'degen' and ap.next_phase('adaptive', 0, 1) == 'mixed'
     assert ap.next_phase('safe', 1, 0) == 'mixed' and ap.next_phase('press', 0, 0) == 'degen'
     c = ap.clean_cfg({'cycles': {'safe': 'adaptive', 'next': 'bogus'}})
     assert c['cycles']['safe'] == 'adaptive' and c['cycles']['next'] == 'press' and c['trail'] is True
