@@ -181,15 +181,15 @@ function CardEditor({ c, cfg, keeper, locked, call }) {
     try {
       if (wallet) await call('/admin/fuse-wallet/cfg', { method: 'POST', body: JSON.stringify(patch) });
       else {
-        await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ cfg: patch }) });
-        if (locked) await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ lock: c.tpl, on: true }) });
+        // a locked tier edits ONLY its own frozen config; an unlocked one edits the shared engine config
+        await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify(locked ? { lock: c.tpl, patch } : { cfg: patch }) });
       }
       toast.success('Saved — applies from the next tick'); window.dispatchEvent(new Event('feeless:prime'));
     } catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
   const seg = (key, label, opts, tip, cur, wallet) => <div key={key} className="ce-row" data-tip={tip}><small>{label}</small>
     <div className="m-seg">{opts.map(([v, t]) => <button key={String(v)} type="button" disabled={busy} className={String(cur) === String(v) ? 'active' : ''} aria-pressed={String(cur) === String(v)} onClick={() => save({ [key]: v }, wallet)}>{t}</button>)}</div></div>;
-  return <details className="hrt-edit" data-testid="card-editor"><summary>⚙ Edit card {locked ? '· 🔒 locked tier (edits re-lock it)' : ''}</summary>
+  return <details className="hrt-edit" data-testid="card-editor"><summary>⚙ Edit card {locked ? '· 🔒 locked — edits change only this card' : '· shared engine settings'}</summary>
     <div className="ce-grid">
       {EDIT.map(([k, l, o, t]) => seg(k, l, o, t, k === 'rotateHours' ? (o.find(x => Math.abs(x[0] - (cfg?.[k] || 0)) < 0.02) || [cfg?.[k]])[0] : cfg?.[k]))}
       <div className="ce-row" data-tip="The shapes this card cycles through"><small>🔄 Cycle</small><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>

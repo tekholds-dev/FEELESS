@@ -5419,8 +5419,12 @@ async def fuse_prime_admin(request: Request):
         pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), **(body.get('cfg') or {})})
         if body.get('lock') in _prime.TEMPLATES:   # 🔒 lock a tier's FULL config as it is now (engine, tunes and meta config never change it)
             locks = dict(pr.get('locks') or {})
-            if body.get('on', True):
-                locks[body['lock']] = {**_prime.clean_cfg(pr['cfg']), 'lockedAt': time.time()}
+            if isinstance(body.get('patch'), dict) and locks.get(body['lock']):   # ⚙ edit a LOCKED tier: change only its own frozen config
+                base = {k: v for k, v in locks[body['lock']].items() if k != 'lockedAt'}
+                locks[body['lock']] = {**_prime.clean_cfg({**base, **body['patch']}), 'lockedAt': time.time()}
+            elif body.get('on', True):
+                if not locks.get(body['lock']):   # locking keeps an existing lock as it is (never overwritten by the shared config)
+                    locks[body['lock']] = {**_prime.clean_cfg(pr['cfg']), 'lockedAt': time.time()}
             else:
                 locks.pop(body['lock'], None)
             pr['locks'] = locks
