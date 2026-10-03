@@ -29,11 +29,14 @@ TEMPLATES = {   # anchors / pools / runners per card + the dial it runs
 MIN_STARS = 3
 # 🔄 Phase cycle (Blaze + Next Level): each round re-deals the card into the next shape — rest in majors, strike with runners,
 # rest again, then a half-and-half round. Same run (P&L continues); every phase change is an event with its reason.
-PHASES = {'anchor': {'anchors': 3, 'pools': 0, 'runners': 0, 'why': 'anchor round — resting in majors'},
-          'degen': {'anchors': 1, 'pools': 0, 'runners': 3, 'why': 'degen round — runners strike'},
-          'mixed': {'anchors': 2, 'pools': 0, 'runners': 2, 'why': 'mixed round — half majors, half fresh runners'},
-          'safest': {'anchors': 3, 'pools': 0, 'runners': 1, 'why': '🛡 safest run — 3 majors + 1 runner'},
-          'breakeven': {'anchors': 0, 'pools': 1, 'runners': 3, 'byVol': True, 'why': '⚖ breakeven run — 1 high-volume pool + 3 high-volume runners'}}
+# Every shape keeps at least ONE growth coin (a new major or a runner) — a card never sits in old majors only.
+# `growth`: which growth coins fill the runner slots first — 'major' (new majors = young coins that arrived big, safer),
+# 'runner' (fresh launchpad runners), 'mix' (one of each, then the best).
+PHASES = {'anchor': {'anchors': 3, 'pools': 0, 'runners': 1, 'growth': 'major', 'why': 'anchor round — 3 majors + 1 new major'},
+          'degen': {'anchors': 1, 'pools': 0, 'runners': 3, 'growth': 'runner', 'why': 'degen round — 1 major + 3 runners strike'},
+          'mixed': {'anchors': 2, 'pools': 0, 'runners': 2, 'growth': 'mix', 'why': 'mixed round — 2 majors + a new major + a runner'},
+          'safest': {'anchors': 3, 'pools': 0, 'runners': 1, 'growth': 'major', 'why': '🛡 safest run — 3 majors + 1 new major'},
+          'breakeven': {'anchors': 0, 'pools': 1, 'runners': 3, 'byVol': True, 'growth': 'runner', 'why': '⚖ breakeven run — 1 high-volume pool + 3 high-volume runners'}}
 SHAPES = tuple(PHASES)
 CYCLE = ('anchor', 'degen', 'anchor', 'mixed')
 CYCLE_TIERS = ('degen', 'next')
@@ -219,6 +222,11 @@ def _picks(t, pools, runners, anchors):
         ranked_ = rated(src, role)
         if t.get('byVol'):
             ranked_ = sorted(ranked_, key=lambda c: -(_f(c.get('vol1h')) or _f(c.get('volume24h')) / 24))
+        if role == 'runner' and t.get('growth') in ('major', 'runner'):   # the shape's name decides: new majors first or runners first
+            ranked_ = sorted(ranked_, key=lambda c: bool(c.get('newMajor')) != (t['growth'] == 'major'))
+        elif role == 'runner' and t.get('growth') == 'mix':   # one new major + one runner first, then the best of the rest
+            nm = [c for c in ranked_ if c.get('newMajor')]; rn = [c for c in ranked_ if not c.get('newMajor')]
+            ranked_ = nm[:1] + rn[:1] + [c for c in ranked_ if c not in nm[:1] + rn[:1]]
         for c in ranked_:
             if k >= n:
                 break

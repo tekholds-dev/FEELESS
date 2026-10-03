@@ -11,9 +11,9 @@ import { RoundBell, TrailSummary, CycleBuilder, usd, usdK, pct, txUrl } from './
 // ⭐ ARENA PRIME: FEELESS's own top-tier cards, FULLY AUTO on paper — auto TP/SL, auto-compound, 2 coins rotate every 6h. Different
 // from creator picks: these are the public proof the automation works before any trader's config goes auto. "Buy now" loads the
 // card into the Lab (traders: up to 3 pools + 3 runners; you approve one wallet transaction).
-const CYCLE_PICKS = [['off', 'Off', "Keep the tier's own shape every round"], ['classic', '⚓→🔥', 'anchor → degen → anchor → mixed'],
-  ['adaptive', '🧠 Adaptive', 'A losing round rests in majors, a +5% round presses with runners, flat = mixed'], ['safe', '⚓⇄⚖', 'anchor ⇄ mixed'], ['press', '🔥⇄⚖', 'degen ⇄ mixed'],
-  ['rescue', '🛟', '🛡 safest (3 majors + 1 runner) ⇄ ⚖ breakeven (1 high-volume pool + 3 high-volume runners)'], ['auto', '🤖 Auto', 'Engine picks each round: deep red → breakeven · red → safest · +5% → degen · flat → mixed']];
+const CYCLE_PICKS = [['off', 'Off', "Keep the tier's own shape every round"], ['classic', '⚓→🔥', 'anchor (3 majors + 1 new major) → degen (1 major + 3 runners) → anchor → mixed (2 majors + new major + runner)'],
+  ['adaptive', '🧠 Adaptive', 'A −3% round rests in anchor (3 majors + 1 new major), a +5% round goes degen, anything else = mixed'], ['safe', '⚓⇄⚖', 'anchor (3 majors + 1 new major) ⇄ mixed (2 majors + new major + runner)'], ['press', '🔥⇄⚖', 'degen (1 major + 3 runners) ⇄ mixed (2 majors + new major + runner)'],
+  ['rescue', '🛟', '🛡 safest (3 majors + 1 new major) ⇄ ⚖ breakeven (1 high-volume pool + 3 high-volume runners)'], ['auto', '🤖 Auto', 'Engine picks each round: deep red → breakeven · red → safest · +5% → degen · flat → mixed']];
 const LEG_MODES = ['', 'replace', 'park', 'hold'];   // '' = follow the card
 const LEG_WORD = { '': '🃏 card', replace: '⇄ replace', park: '🅿 park', hold: '❄ hold' };
 const KIND = { rescue: '🛟 Rescue cycle', fix: '🔧 Config fixed', streak: '📈 Streak', 'ride-end': '🏇 Ride over', rug: '🚨 Rug shield', payout: '💸 Paid to wallet', tp: '💰 Auto TP', sl: '🛑 Auto stop', rotate: '⇄ Rotate', compound: '♻ Compound', deal: '🃏 Dealt', floor: '🛡 Floor', park: '🅿 Parked', rebuy: '↩ Bought back', phase: '🔄 Phase', topup: '💵 Top-up', defund: '↩ Back to paper', run: '🏁 Run closed', ride: '🏇 Riding' };

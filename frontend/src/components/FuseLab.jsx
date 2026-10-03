@@ -110,7 +110,7 @@ function CoinExtras({ pa, sym, plan, setPlan }) {
 export const CYCLE_OPTS = [['steady', '➡ Steady', 'Every reshuffle swaps a weak coin for the best gated runner'],
   ['classic', '⚓→🔥 Classic', 'Rounds go anchor (into majors) → degen (runners) → anchor → mixed'], ['adaptive', '🧠 Adaptive', 'Losing → swaps into a major (protect) · +5% → a runner (press) · flat → mixed'],
   ['safe', '⚓⇄⚖ Safe', 'Anchor round ⇄ mixed round'], ['press', '🔥⇄⚖ Press', 'Degen round ⇄ mixed round'],
-  ['rescue', '🛟 Rescue', '🛡 Safest run (3 majors + 1 runner) ⇄ ⚖ Breakeven (1 high-volume pool + 3 high-volume runners). Any card ≤ −50% switches here by itself.'],
+  ['rescue', '🛟 Rescue', '🛡 Safest run (3 majors + 1 new major) ⇄ ⚖ Breakeven (1 high-volume pool + 3 high-volume runners). Any card ≤ −50% switches here by itself.'],
   ['auto', '🤖 Auto', 'The engine picks each round: deep red → breakeven · red → safest · +5% → degen · flat → mixed']];
 export const dnaPlan = d => ({ cycle: ['classic', 'adaptive', 'safe', 'press', 'rescue', 'auto'].includes(d.cycle) ? d.cycle : 'steady', compoundStyle: d.compound, payoutPct: d.payoutPct, onProfit: d.payoutPct > 0 ? 'collect' : 'compound',
   rotateHours: d.clock, slMode: d.stop, ...(d.cycle && d.cycle !== 'off' ? { mode: 'swap' } : {}) });

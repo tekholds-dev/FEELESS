@@ -203,7 +203,7 @@ def test_cycling_tiers_move_through_anchor_degen_anchor_mixed_rounds():
         c = ap.tick(c, flat, [P('a', 1)], runners, cfg, i * 3601, maj)
         seen.append((c.get('phase'), sorted({l['role'] for l in c['legs']})))
     assert [p for p, _ in seen] == ['degen', 'anchor', 'mixed', 'anchor']
-    assert seen[1][1] == ['anchor'] and 'runner' in seen[0][1]
+    assert seen[1][1] == ['anchor', 'runner'] and 'runner' in seen[0][1]
     assert c['startUsd'] == 100 and not c.get('runs')                                        # one continuous run
     assert ap.deal('balanced', [P('a', 1)], runners, cfg, 0, maj).get('phase') is None      # non-cycling tiers unchanged
 
@@ -421,3 +421,16 @@ def test_adaptive_noise_stays_mixed():
     assert ap.next_phase('adaptive', 1, -0.04) == 'mixed'
     assert ap.next_phase('adaptive', 1, -3.5) == 'anchor'
     assert ap.next_phase('adaptive', 1, 6) == 'degen'
+
+
+def test_every_shape_has_growth_and_mixes_by_name():
+    import time, arena_prime as ap
+    assert all(p['runners'] >= 1 for p in ap.PHASES.values())
+    anchors = [{'mint': m, 'pairAddress': m, 'symbol': m, 'price': 1} for m in ('A1', 'A2', 'A3')]
+    runners = [{'mint': 'R1', 'pairAddress': 'R1', 'symbol': 'R1', 'price': 1, 'score': 90},
+               {'mint': 'R2', 'pairAddress': 'R2', 'symbol': 'R2', 'price': 1, 'score': 80},
+               {'mint': 'N1', 'pairAddress': 'N1', 'symbol': 'N1', 'price': 1, 'score': 60, 'newMajor': True}]
+    roles = lambda sh: [l['symbol'] for l in ap.deal('safe', [], runners, ap.clean_cfg({}), time.time(), anchors, usd=10, shape=sh)['legs'] if l['role'] == 'runner']
+    assert roles('anchor') == ['N1'] and roles('safest') == ['N1']
+    assert set(roles('mixed')) == {'N1', 'R1'}
+    assert roles('degen')[:2] == ['R1', 'R2']
