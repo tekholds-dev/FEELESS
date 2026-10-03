@@ -470,3 +470,13 @@ def test_sync_card_rebases_legacy_real_run_on_confirmed_funding():
     assert c['startUsd'] == 6.0 and c['dayStartUsd'] == 6.0 and c['realBaselineAt'] == 100.0
     c['startUsd'] = 7.0   # a later confirmed top-up baseline is never overwritten again
     assert fw.sync_card(c, book, {}, 120.0)['startUsd'] == 7.0
+
+
+def test_arena_coins_have_their_own_real_buy_floor():
+    import fuse_wallet as fw
+    cfg = {**fw.DEFAULT_CFG, 'minLiqUsd': 100000.0, 'arenaMinLiqUsd': 30000.0}
+    assert fw.liq_floor(cfg) == 100000.0 and fw.liq_floor(cfg, arena=True) == 30000.0
+    assert fw.liq_floor({**cfg, 'arenaMinLiqUsd': 500000.0}, arena=True) == 100000.0   # never stricter-by-accident than the general floor
+    card = {'legs': [{'mint': 'M1', 'pairAddress': 'p1', 'symbol': 'ARN', 'role': 'runner', 'entry': 1.0, 'units': 2.0, 'arena': True}]}
+    tgt = fw.target(card, {'p1': 1.0})
+    assert tgt['M1']['arena'] is True

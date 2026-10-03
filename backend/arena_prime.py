@@ -111,21 +111,24 @@ SL_MODES = ('replace', 'park', 'hold')   # on a stop: auto-replace · sell + par
 CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.08, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 60)}
 
 
-# 💵 REAL MONEY FLOORS: paper may run 5-min rounds with 0-min holds, real money may not. Every real swap pays the Jupiter spread,
-# price impact, a network fee and (for a new coin) ~0.002 SOL account rent — on a $6 card, 5-min rounds + a re-shape every 3 rounds
-# made ~180 real swaps in 17h and bled the card. A real card's config is clamped up to these floors (never loosened).
-REAL_FLOORS = {'rotateHours': 1.0, 'minHoldMins': 60.0, 'cycleEvery': 6, 'rotateConfirm': 3, 'rotateMinDrop': 10.0}
+COOL_ROUNDS = 3   # 🧊 a coin that just LEFT a card isn't dealt back into it for 3 rounds (min 15 min) — fresh coins flow in, no buy-back loop
 
 
-def real_cfg(cfg):
-    """The config a REAL card runs: the owner's config, but no faster/looser than REAL_FLOORS (cycleEvery 0 = re-shapes off stays off)."""
-    out = dict(cfg or {})
-    for k, lo in REAL_FLOORS.items():
-        v = out.get(k)
-        if k == 'cycleEvery' and v is not None and int(_f(v)) == 0:
-            continue
-        out[k] = max(type(lo)(_f(v)), lo) if v is not None else lo
-    return out
+def cooling(card, now, rotate_hours):
+    """Mints this card dropped recently (still cooling down)."""
+    win = max(900.0, COOL_ROUNDS * _f(rotate_hours) * 3600)
+    return {m for m, t in ((card or {}).get('cool') or {}).items() if now - _f(t) < win}
+
+
+def note_dropped(before, after, now, rotate_hours):
+    """Stamp every coin that left the card this tick (sold / rotated / re-shaped out); forget stamps past the window."""
+    win = max(900.0, COOL_ROUNDS * _f(rotate_hours) * 3600)
+    if not after:
+        return after
+    gone = {l['mint'] for l in (before or {}).get('legs') or [] if l.get('role') != 'anchor'} - {l['mint'] for l in after.get('legs') or []}
+    cool = {m: t for m, t in (after.get('cool') or {}).items() if now - _f(t) < win}
+    cool.update({m: now for m in gone})
+    return {**after, 'cool': cool}
 
 
 def exit_plan(gain_pct, mom=None):
@@ -254,7 +257,7 @@ def _leg(c, usd, now, role):
     px = buy_px(mid, usd, liq)
     return {'mint': c['mint'], 'pairAddress': c['pairAddress'], 'symbol': c.get('symbol'), 'role': role, 'entry': px, 'units': usd / px if px > 0 else 0.0,
             'costUsd': round(usd, 6), 'at': now, 'stars': c.get('stars') or stars(c, role), 'firstEntry': px, 'liq': liq, 'midAtEntry': mid,
-            **({'newMajor': True} if c.get('newMajor') else {})}
+            **({'newMajor': True} if c.get('newMajor') else {}), **({'arena': True} if c.get('arena') else {})}
 
 
 def _picks(t, pools, runners, anchors):
@@ -294,10 +297,19 @@ def keep_winners(nc, old_legs, prices, liqs, pct, in_play_usd):
     """🛡 A re-shape never sells a winner: old coins up ≥ pct% (or ❄ frozen, or riding) are CARRIED into the new card as they are
     (same units + entry); the freshly dealt coins give up their slots and share what's left of the money, so the total stays exactly
     `in_play_usd`. Returns (card or None if every coin is kept → no re-shape, kept count)."""
-    win = [l for l in old_legs if l.get('role') != 'anchor' and _f(l.get('entry')) > 0 and (l.get('frozen') or l.get('ride') or l.get('picked') or
+    again = {l['mint'] for l in nc['legs']}   # ♻ a coin the new shape deals AGAIN is carried as it is — selling it to buy it straight back only pays fees
+    win = [l for l in old_legs if l.get('role') != 'anchor' and _f(l.get('entry')) > 0 and (l.get('frozen') or l.get('ride') or l.get('picked') or l['mint'] in again or
            (_f(pct) > 0 and ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 >= _f(pct)))]
     if not win:
         return nc, 0
+    want = {l['mint']: _f(l['units']) for l in nc['legs']}
+    def carry(l):   # a re-picked (unprotected) coin keeps its entry but only up to its new slot — the rest is trimmed, never sold whole + rebought
+        prot = l.get('frozen') or l.get('ride') or l.get('picked') or (_f(pct) > 0 and ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 >= _f(pct))
+        if prot or l['mint'] not in want or _f(l['units']) <= want[l['mint']]:
+            return l
+        k = want[l['mint']] / _f(l['units'])
+        return {**l, 'units': want[l['mint']], 'costUsd': round(_f(l.get('costUsd')) * k, 6)}
+    win = [carry(l) for l in win]
     keep_val = sum(value({'legs': [l], 'cash': 0.0}, prices, liqs) for l in win)
     wm = {l['mint'] for l in win}
     fresh = [l for l in nc['legs'] if l['mint'] not in wm]
@@ -582,7 +594,10 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         phase_runners = [x for x in runners if x.get('mint') not in rotated_out]
         nc = deal(c['tpl'], phase_pools, phase_runners, cfg, now, anchors, usd=ip, keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
         if nc:
+            same = {l['mint'] for l in nc['legs']} <= {l['mint'] for l in c['legs']}
             nc, kept = keep_winners(nc, c['legs'], prices, liqs, cfg.get('keepWinPct', 5.0), ip)
+            if not nc and same:
+                c['phase'] = phase   # ♻ the new shape deals the very coins the card holds → shape moves on, zero trades
             if nc:
                 nc['feesUsd'] = round(_f(nc['feesUsd']) + fee * (len(c['legs']) - kept), 4)   # selling the old shape (kept coins aren't sold)
                 if kept:

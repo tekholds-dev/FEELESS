@@ -5246,6 +5246,18 @@ def _prime_cfg():
     return cfg
 
 
+def _prime_real_cfg(pr=None):
+    """💵 The REAL card's own config (`prime.realCfg`): separate from paper — HQ/engine tunes, meta config and tier locks only ever write the
+    paper `cfg`. Not set yet → it starts as a copy of today's paper config. Any clock (5 min too) is allowed."""
+    pr = pr if pr is not None else (_json_load(FUSE_HQ_PATH, {}).get('prime') or {})
+    paper = _prime_cfg()
+    rc = pr.get('realCfg')
+    return {**_prime.clean_cfg(rc), 'paperFeeUsd': paper['paperFeeUsd']} if isinstance(rc, dict) and rc else paper
+
+
+PAPER_MIN_LIQ = 20_000.0   # paper tiers deal any gated coin with a ≥$20K pool (the REAL card uses the Fuse wallet's own floors)
+
+
 async def _prime_candidates():
     """Pools: the deepest busy pools from the Fuse gene pool. Runners: pre-bond coins passing every runner gate, best first."""
     metas = await _fuse_candidates()
@@ -5304,7 +5316,7 @@ async def _prime_bell_loop():
     while True:
         try:
             cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
-            rot = _prime_cfg()['rotateHours'] * 3600
+            rot = min(_prime_cfg()['rotateHours'], _prime_real_cfg()['rotateHours']) * 3600   # paper + real clocks can differ
             due = min((_fuse._f(c.get('lastRotateAt')) + rot + _prime.BELL_SEC for c in cards.values() if c.get('lastRotateAt')), default=time.time() + 60)   # deal time = round end + 10s bell
             wait = due - time.time()
             if 0.5 < wait <= 12:   # 🔔 inside the 10s countdown: warm the candidates + prices now, so the re-deal is instant at 0
@@ -5351,21 +5363,23 @@ async def _prime_tick_inner(now):
         cur = cards.get(tid)
         liqs = {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()}
         cfg_t = {**_prime.clean_cfg(locks[tid]), 'paperFeeUsd': cfg['paperFeeUsd']} if tid in locks else cfg   # 🔒 a locked tier runs its own frozen config
-        if (cur or {}).get('real'):
-            cfg_t = _prime.real_cfg(cfg_t)   # 💵 real money never runs faster than REAL_FLOORS (no 5-min churn on a funded card)
+        real_t = bool((cur or {}).get('real'))
+        if real_t:
+            cfg_t = _prime_real_cfg(d.get('prime') or {})   # 💵 the real card runs ITS OWN config — paper edits / locks / engine tunes never touch it
         # 🎯 PAPER = REAL: every tier (paper too) only rotates into coins real money could buy (pool ≥ minLiqUsd), so paper results are an
         # honest preview. ✅ Runners also need confirmation: rising over the last hour with buyers in control (≥55% buys) — no buying the top.
         def _lq(x):
             v = x.get('liquidity'); return _fuse._f(v.get('usd') if isinstance(v, dict) else v) or _fuse._f(x.get('liq')) or liqs.get(x.get('pairAddress'), 0.0)
-        floor = _fw.clean_cfg((_fw_load().get('cfg') or {}))['minLiqUsd']
+        fw_cfg = _fw_load().get('cfg') or {}
+        floor_of = (lambda x: _fw.liq_floor(fw_cfg, x.get('arena'))) if real_t else (lambda x: PAPER_MIN_LIQ)   # paper ⇄ real floors are separate
         def _confirmed(x):
             if x.get('newMajor'):   # a new major: green over 24h with buyers at least even
                 return _fuse._f(x.get('change24h')) > 0 and _fuse._f(x.get('buyShare')) >= 50
             m = mom.get(x.get('pairAddress')) or {}
             bs = _fuse._f(m.get('buyShare')); bs = bs * 100 if 0 < bs <= 1 else bs
             return _fuse._f(m.get('chg1h')) > 0 and bs >= 55
-        p_t = [x for x in pools if _lq(x) >= floor] or pools
-        r_t = [x for x in runners if _lq(x) >= floor and _confirmed(x)]
+        p_t = [x for x in pools if _lq(x) >= floor_of(x)] or pools
+        r_t = [x for x in runners if _lq(x) >= floor_of(x) and _confirmed(x)]
         # 🪑 coins real money couldn't buy safely (2× in 10 min) are benched 1h for EVERY tier — paper never trades what real can't
         bench = set().union(*[_fw.benched(b, now) for b in (_fw_load().get('books') or {}).values()] or [set()])
         if bench:
@@ -5382,7 +5396,12 @@ async def _prime_tick_inner(now):
         mine = {l.get('mint') for l in (cur or {}).get('legs') or []}
         p_t = [x for x in p_t if x.get('mint') not in taken or x.get('mint') in mine]
         r_t = [x for x in r_t if x.get('mint') not in taken or x.get('mint') in mine]
+        cool = _prime.cooling(cur, now, cfg_t['rotateHours']) - mine   # 🧊 coins this card just dropped sit out a few rounds → new coins flow in
+        if cool:
+            p_c, r_c = [x for x in p_t if x.get('mint') not in cool], [x for x in r_t if x.get('mint') not in cool]
+            p_t, r_t = (p_c if len(p_c) >= 2 else p_t), (r_c if len(r_c) >= 3 else r_t)   # only when enough other coins exist
         cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, anchors, mom, liqs) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, anchors)
+        cards[tid] = _prime.note_dropped(cur, cards[tid], now, cfg_t['rotateHours'])
         taken |= {l.get('mint') for l in (cards[tid] or {}).get('legs') or [] if l.get('role') != 'anchor'}
     cards = {k: v for k, v in cards.items() if v}
     try:   # 📏 vs holding SOL: remember SOL's price when each run starts (a new run = a new startUsd)
@@ -5442,6 +5461,7 @@ async def _prime_view():
         seq = _prime.CYCLE_MODES.get(cyc.get(tpl, 'off'))
         return list(seq) if isinstance(seq, tuple) else ['anchor', 'mixed', 'degen'] if seq == 'adaptive' else None
     pcfg = _prime_cfg()
+    rcfg = _prime_real_cfg()
     try:
         sol_now = await _sol_usd_live()
     except Exception:
@@ -5453,8 +5473,9 @@ async def _prime_view():
         return {'holdSolPct': round(hold, 2), 'vsSolPct': round(_fuse._f(sm.get('pnlPct')) - hold, 2)}
     locks = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}
     def _eff(c):
-        e = {**pcfg, **_prime.clean_cfg(locks[c['tpl']])} if c.get('tpl') in locks else pcfg
-        return _prime.real_cfg(e) if c.get('real') else e   # the card shows the config it REALLY runs
+        if c.get('real'):
+            return rcfg   # the real card shows ITS OWN config
+        return {**pcfg, **_prime.clean_cfg(locks[c['tpl']])} if c.get('tpl') in locks else pcfg
     def _cfgv(c):
         e = _eff(c); return {'clockMin': round(e['rotateHours'] * 60), 'confirm': e['rotateConfirm'], 'minDrop': e['rotateMinDrop'], 'holdMin': e['minHoldMins'],
                              'cycle': (e.get('cycles') or {}).get(c['tpl']), 'reshape': e['cycleEvery'], 'slMode': e['slMode'], 'locked': c.get('tpl') in locks}
@@ -5473,7 +5494,7 @@ async def _prime_view():
                 'pendingPayoutUsd': round(max(0.0, _fuse._f(c.get('walletUsd')) - _fuse._f(b.get('bankUsd'))), 4),
                 'math': {**sm.get('math', {}), 'heldUsd': round(held, 4), 'paidOutUsd': round(paid, 4),
                          'nowUsd': v, 'pnlUsd': round(v - start, 4)}}
-    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'cfgView': _cfgv(c), 'holdAll': bool(c.get('holdAll')), 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl']) if c.get('real') else None,
+    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'holdAll': bool(c.get('holdAll')), 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl']) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 
@@ -5493,6 +5514,9 @@ async def fuse_prime_admin(request: Request):
         was = {t: (_prime.clean_cfg(pr.get('cfg') or {}).get('cycles') or {}).get(t) for t in _prime.TEMPLATES}
         was.update({t: (l.get('cycles') or {}).get(t) for t, l in (pr.get('locks') or {}).items()})
         pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), **(body.get('cfg') or {})})
+        if isinstance(body.get('realCfg'), dict):   # 💵 the real card's own config (paper untouched); first edit copies today's paper config
+            base = pr.get('realCfg') if isinstance(pr.get('realCfg'), dict) and pr.get('realCfg') else pr['cfg']
+            pr['realCfg'] = _prime.clean_cfg({**base, **body['realCfg']})
         if body.get('lock') in _prime.TEMPLATES:   # 🔒 lock a tier's FULL config as it is now (engine, tunes and meta config never change it)
             locks = dict(pr.get('locks') or {})
             if isinstance(body.get('patch'), dict) and locks.get(body['lock']):   # ⚙ edit a LOCKED tier: change only its own frozen config
@@ -5525,12 +5549,12 @@ async def fuse_prime_admin(request: Request):
     if rep.get('tpl') in _prime.TEMPLATES and rep.get('pairAddress'):   # ⇄ one coin on one Prime card
         pools, runners, anchors = await _prime_candidates()
         # ⇄ a manual swap picks only BUYABLE coins (same gates as the engine): pool ≥ the real-buy floor, not benched, not on another tier
-        floor = _fw.clean_cfg(_fw_load().get('cfg') or {})['minLiqUsd']
+        fw_cfg = _fw_load().get('cfg') or {}
         bench = set().union(*[_fw.benched(b, time.time()) for b in (_fw_load().get('books') or {}).values()] or [set()])
         def _lq(x):
             v = x.get('liquidity'); return _fuse._f(v.get('usd') if isinstance(v, dict) else v) or _fuse._f(x.get('liq')) or _fuse._f(x.get('liquidityUsd'))
         other = {l.get('mint') for t, cc in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).items() if t != rep['tpl'] for l in cc.get('legs') or [] if l.get('role') != 'anchor'}
-        ok_ = lambda xs: [x for x in xs if _lq(x) >= floor and x.get('mint') not in bench]
+        ok_ = lambda xs: [x for x in xs if _lq(x) >= _fw.liq_floor(fw_cfg, x.get('arena')) and x.get('mint') not in bench]
         pools, runners = ok_(pools), sorted(ok_(runners), key=lambda x: x.get('mint') in other)
         async with _admin_lock:
             d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
@@ -6082,7 +6106,7 @@ def _fw_public(tid):
     cfg = _fw_cfg(); pend = b.get('pending') or {}
     fail = next((o for o in reversed(d['ledger']) if o.get('card') == tid and o.get('status') in ('failed', 'skipped')), None)
     keeper = {'armed': bool(cfg.get('armed')), 'paused': bool(cfg.get('paused') or b.get('halt')), 'halt': bool(b.get('halt')), 'selling': bool(b.get('defund')),
-              'minLiqUsd': cfg.get('minLiqUsd'), 'minOrderUsd': cfg.get('minOrderUsd'), 'maxSwapUsd': cfg.get('maxSwapUsd'), 'slippageBps': cfg.get('slippageBps'),
+              'minLiqUsd': cfg.get('minLiqUsd'), 'arenaMinLiqUsd': cfg.get('arenaMinLiqUsd'), 'minOrderUsd': cfg.get('minOrderUsd'), 'maxSwapUsd': cfg.get('maxSwapUsd'), 'slippageBps': cfg.get('slippageBps'),
               'maxImpactPct': cfg.get('maxImpactPct'), 'dailyUsd': cfg.get('dailyUsd'), 'pending': pend.get('symbol') and f"{pend.get('side')} ${pend.get('symbol')}",
               'lastFail': fail and {'symbol': fail.get('symbol'), 'side': fail.get('side'), 'err': (fail.get('err') or '')[:90], 'at': fail.get('at')},
               'lastFill': next((o.get('at') for o in rows if o.get('status') == 'filled'), None),

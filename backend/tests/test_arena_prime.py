@@ -680,12 +680,24 @@ def test_rotation_does_not_override_saved_patience_just_to_force_a_fresh_coin():
     assert ap.tick({**card, 'holdAll': True}, px, [], new, cfg, 3700, liqs={k: 1e12 for k in px})['legs'][1]['mint'] == 'F'   # hold all: nothing
 
 
-def test_real_cfg_never_runs_faster_than_real_floors():
+def test_reshape_carries_a_coin_dealt_again_instead_of_selling_and_rebuying_it():
     import arena_prime as ap
-    fast = {**ap.DEFAULT_CFG, 'rotateHours': 0.08, 'minHoldMins': 0.0, 'cycleEvery': 3, 'rotateConfirm': 1, 'rotateMinDrop': 2.0}
-    r = ap.real_cfg(fast)
-    assert r['rotateHours'] >= 1.0 and r['minHoldMins'] >= 60 and r['cycleEvery'] >= 6 and r['rotateConfirm'] >= 3 and r['rotateMinDrop'] >= 10
-    slow = {**fast, 'rotateHours': 4.0, 'cycleEvery': 0, 'minHoldMins': 120.0}
-    r2 = ap.real_cfg(slow)
-    assert r2['rotateHours'] == 4.0 and r2['cycleEvery'] == 0 and r2['minHoldMins'] == 120.0   # stricter owner settings are kept
-    assert fast['rotateHours'] == 0.08   # paper config untouched
+    old = [{'mint': 'A', 'pairAddress': 'pa', 'symbol': 'A', 'role': 'runner', 'entry': 1.0, 'units': 2.0, 'costUsd': 2.0, 'at': 0},
+           {'mint': 'B', 'pairAddress': 'pb', 'symbol': 'B', 'role': 'runner', 'entry': 1.0, 'units': 2.0, 'costUsd': 2.0, 'at': 0}]
+    nc = {'legs': [{'mint': 'A', 'pairAddress': 'pa', 'role': 'runner', 'entry': 1.0, 'units': 1.9, 'costUsd': 2.0},
+                   {'mint': 'C', 'pairAddress': 'pc', 'role': 'runner', 'entry': 1.0, 'units': 2.0, 'costUsd': 2.0}]}
+    out, kept = ap.keep_winners(nc, old, {'pa': 0.97, 'pb': 0.97, 'pc': 1.0}, {}, 5.0, 3.94)
+    a = next(l for l in out['legs'] if l['mint'] == 'A')
+    assert kept == 1 and a['units'] == 1.9 and a['entry'] == 1.0          # same entry, only trimmed to its new slot (never sold whole + rebought)
+    assert {l['mint'] for l in out['legs']} == {'A', 'C'}
+    assert abs(sum(l['costUsd'] for l in out['legs'] if l['mint'] == 'C') - (3.94 - 1.9 * 0.97)) < 1e-6   # money stays exact
+
+
+def test_dropped_coins_cool_down_then_come_back():
+    import arena_prime as ap
+    before = {'legs': [{'mint': 'A', 'role': 'runner'}, {'mint': 'S', 'role': 'anchor'}]}
+    after = ap.note_dropped(before, {'legs': [{'mint': 'B', 'role': 'runner'}, {'mint': 'S', 'role': 'anchor'}]}, 1000.0, 5 / 60)
+    assert ap.cooling(after, 1000.0 + 600, 5 / 60) == {'A'}         # 3 × 5-min rounds → min 15 min window
+    assert ap.cooling(after, 1000.0 + 901, 5 / 60) == set()
+    later = ap.note_dropped(after, {**after}, 1000.0 + 2000, 5 / 60)
+    assert 'A' not in later['cool']                                   # stale stamps are forgotten
