@@ -62,7 +62,7 @@ def target(card, prices):
     for l in card.get('legs') or []:
         px = _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
         t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role')})
-        t['units'] += _f(l.get('units'))
+        t['units'] += _f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)   # a coin whose buy hasn't landed is still WANTED
     return out
 
 
@@ -210,9 +210,11 @@ def sync_card(card, book, prices, sol_px):
             if _f(bl.get('entryPx')) > 0:
                 l['entry'] = bl['entryPx']; l.setdefault('firstEntry', bl['entryPx'])
             l['costUsd'] = _f(bl.get('costUsd'))
-            l['real'] = True
-        else:
-            l['units'] = 0.0; l['real'] = False
+            l['real'] = True; l.pop('buying', None); l.pop('wantUnits', None)
+        else:   # its buy hasn't landed yet (failed / route busy): hold nothing, keep wanting it so the keeper retries, never show −100%
+            if _f(l.get('units')) > 0:
+                l['wantUnits'] = _f(l['units'])
+            l.update(units=0.0, costUsd=0.0, real=False, buying=_f(l.get('wantUnits')) > 0)
     c['cash'] = round(max(0.0, sol_left) * sol_px, 6)
     c['feesUsd'] = round(_f(book.get('feesUsd')), 6)
     c['real'] = True
@@ -264,7 +266,7 @@ def calibrate(ledger, min_n=3):
 def totals(ledger, card=None):
     """Audit totals: bought / sold $, network fees $, swaps, failures (optionally one card)."""
     rows = [o for o in ledger or [] if card is None or o.get('card') == card]
-    ok = [o for o in rows if o.get('status') == 'filled']
+    ok = list({(o.get('sig') or o.get('id')): o for o in rows if o.get('status') == 'filled'}.values())   # one row per tx
     return {'bought': round(sum(_f(o.get('usd')) for o in ok if o.get('side') == 'buy'), 4),
             'sold': round(sum(_f(o.get('usd')) for o in ok if o.get('side') == 'sell'), 4),
             'feesUsd': round(sum(_f(o.get('feeUsd')) for o in ok), 6), 'swaps': len(ok),

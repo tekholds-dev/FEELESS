@@ -34,7 +34,7 @@ export const primeRow = c => ({ id: c.id, name: c.label, closed: false, costUsd:
   baseUsd: c.startUsd, extraUsd: (c.cash || 0) + (c.parked || []).reduce((a, p) => a + (p.usd || 0), 0) + (c.walletUsd || 0),
   pnlUsd: c.valueUsd - c.startUsd, pnlPct: c.pnlPct,
   legs: c.legs.map(l => ({ pairAddress: l.pairAddress, symbol: l.symbol, role: l.role, mint: l.mint, usd: l.costUsd, tokens: l.units, valueUsd: l.usd,
-    pnlUsd: l.usd - l.costUsd, pnlPct: l.costUsd ? (l.usd / l.costUsd - 1) * 100 : 0, priced: true, priceNow: l.now, stars: l.stars, liq: l.liq })) });
+    pnlUsd: l.usd - l.costUsd, pnlPct: l.costUsd ? (l.usd / l.costUsd - 1) * 100 : 0, priced: true, priceNow: l.now, stars: l.stars, liq: l.liq, buying: l.buying })) });
 
 export function usePrime(ms = 60000) {
   const [d, setD] = useState(null);
@@ -163,12 +163,27 @@ export function HqRealCards({ addr }) {
   const d = usePrime(30000);
   const real = (d?.cards || []).filter(c => c.real);
   if (!owner || !real.length) return null;
-  return <section className="m-card wp-prime" data-testid="hq-real-cards"><span className="m-label">💵 FEELESS REAL-MONEY TIER CARDS · FUSE WALLET</span>
-    <div className="wp-prime-row">{real.map(c => { const t = TIER[c.tier] || TIER.gold; return <div key={c.id} className="hq-real">
-      <LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label="💵 REAL · FUSE WALLET" />
-      {c.realBook && <small className="m-dim">funded {usd(c.realBook.fundedUsd)} · {c.realBook.swaps} swaps · network fees {usd(c.realBook.feesUsd)}</small>}
-      <ul className="prime-txs">{(c.realBook?.orders || []).slice(0, 4).map((o, i) => <li key={i}><b>{o.side === 'topup' ? '💵' : o.side === 'buy' ? '🟢' : '🔴'}</b><span>{o.side === 'topup' ? 'funded' : `${o.side} $${o.symbol}`}</span>
-        <em className="m-num">{usd(o.usd)}</em>{o.sig ? <a href={txUrl(o.sig)} target="_blank" rel="noreferrer">tx ↗</a> : <i />}</li>)}</ul></div>; })}</div></section>;
+  const ago = t => { const s = Math.max(0, Date.now() / 1000 - (t || 0)); return s < 60 ? `${s.toFixed(0)}s ago` : s < 3600 ? `${(s / 60).toFixed(0)}m ago` : `${(s / 3600).toFixed(1)}h ago`; };
+  const fee = v => (v > 0 && v < 0.01 ? `$${v.toFixed(4)}` : usd(v));
+  return <section className="m-card m-live hq-reals" data-testid="hq-real-cards"><span className="m-label">💵 FEELESS REAL-MONEY TIER CARDS · FUSE WALLET</span>
+    {real.map(c => { const t = TIER[c.tier] || TIER.gold; const b = c.realBook || {}; const k = b.keeper || {};
+      const state = k.paused ? ['⏸', 'paused', 'is-warn'] : !k.armed ? ['○', 'not armed', 'is-warn'] : k.pending ? ['⏳', `sending ${k.pending}`, 'is-busy'] : c.legs.some(l => l.buying) ? ['⏳', 'retrying a buy', 'is-busy'] : ['●', 'in sync', 'is-ok'];
+      return <div key={c.id} className="hq-real">
+        <div className="hq-real-card"><LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label="💵 REAL · FUSE WALLET" /></div>
+        <div className="hq-real-track">
+          <div className="hrt-top"><b>{c.label}</b><span className={`hrt-state ${state[2]}`} data-tip="Keeper: moves the real coins to what the card says, every tick">{state[0]} {state[1]}</span></div>
+          <div className="hrt-kpis">
+            <RoundBell at={c.nextRoundAt || c.lastRotateAt + (d.cfg?.rotateHours || 1) * 3600} sec={c.bellSec || 10} label={`ROUND ${(c.rounds || 0) + 1}`} />
+            <span><small>ROUNDS DONE</small><b className="m-num">{c.rounds || 0}</b></span>
+            <span><small>PUT IN</small><b className="m-num">{usd(b.fundedUsd || c.startUsd)}</b></span>
+            <span><small>NOW</small><b key={(c.valueUsd || 0).toFixed(2)} className={`m-num fl-tick ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{usd(c.valueUsd)} · {pct(c.pnlPct)}</b></span></div>
+          <ul className="hrt-coins">{c.legs.map(l => <li key={l.pairAddress} className={l.buying ? 'is-buying' : ''}><b>{l.role === 'runner' ? '🏃' : '⚓'} ${l.symbol}</b>
+            {l.buying ? <em className="hrt-buy">⏳ buying… keeper retries</em> : <><span>{usd(l.costUsd)} → {usd(l.usd)}</span><em className={l.pnlPct >= 0 ? 'm-pos' : 'm-neg'}>{pct(l.pnlPct)}</em></>}</li>)}
+            {(c.cash || 0) > 0.01 && <li><b>◎ cash</b><span>{usd(c.cash)}</span><em className="m-dim">SOL</em></li>}</ul>
+          {k.lastFail && <small className="hrt-fail" data-tip={k.lastFail.err}>⚠ last miss: {k.lastFail.side} ${k.lastFail.symbol} · {ago(k.lastFail.at)} — retried automatically</small>}
+          <small className="m-dim">{b.swaps || 0} swaps · network fees {fee(b.feesUsd || 0)} (wallet reserve pays) · last fill {k.lastFill ? ago(k.lastFill) : '—'}</small>
+          <ul className="prime-txs">{(b.orders || []).slice(0, 6).map((o, i) => <li key={o.sig || i}><b>{o.side === 'topup' ? '💵' : o.side === 'buy' ? '🟢' : '🔴'}</b><span>{o.side === 'topup' ? 'funded' : `${o.side} $${o.symbol}`} <i className="m-dim">{ago(o.at)}</i></span>
+            <em className="m-num">{usd(o.usd)}</em>{o.sig ? <a href={txUrl(o.sig)} target="_blank" rel="noreferrer">tx ↗</a> : <i />}</li>)}</ul></div></div>; })}</section>;
 }
 
 

@@ -5501,10 +5501,17 @@ async def _fw_jup(method, path, **kw):
     key = os.environ.get('JUPITER_API_KEY')
     base = 'https://api.jup.ag' if key else 'https://lite-api.jup.ag'
     async with httpx.AsyncClient(timeout=20) as http:
-        r = await http.request(method, base + path, headers={'x-api-key': key} if key else {}, **kw)
-    data = r.json() if r.content else {}
+        for attempt in range(3):   # 429 / 5xx = Jupiter busy (several coins at once) → short back-off, never a lost buy
+            r = await http.request(method, base + path, headers={'x-api-key': key} if key else {}, **kw)
+            if r.status_code != 429 and r.status_code < 500:
+                break
+            await asyncio.sleep(1.5 * (attempt + 1))
+    try:
+        data = r.json() if r.content else {}
+    except ValueError:
+        data = {}
     if r.status_code >= 400:
-        raise HTTPException(400, str(data.get('error') or data.get('errorMessage') or 'Jupiter route unavailable')[:160])
+        raise HTTPException(400, f"{str(data.get('error') or data.get('errorMessage') or 'Jupiter route unavailable')[:140]} (HTTP {r.status_code})")
     return data
 
 
@@ -5516,6 +5523,8 @@ async def _fw_quote(order, cfg):
 
 
 def _fw_record(d, row):
+    if row.get('id') and any(r.get('id') == row['id'] and r.get('status') == row.get('status') for r in (d.get('ledger') or [])[-50:]):
+        return   # the same order outcome is booked once (two ticks resolving one tx can't double the trail)
     d['ledger'] = (d.get('ledger') or [])[-1999:] + [row]   # recent 2000 for fast reads …
     try:
         _store.Ledger(FUSE_WALLET_PATH).append(row)          # … and the append-only audit table keeps EVERY row forever
@@ -5566,11 +5575,13 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
 
 
 def _fw_notify(row):
-    """Every real fill / failure on a tier card → the owner wallets' inbox (audit trail link). No P&L in the text."""
+    """Every real fill / failure on a tier card → the owner wallets' inbox (audit trail link). No P&L in the text.
+    A failing coin retries every tick, so its failure notice goes out once an hour, not once per try."""
+    once = f"fw-{row.get('id')}-{row.get('status')}" if row.get('status') != 'failed' else f"fw-fail-{row.get('card')}-{row.get('mint')}-{int(time.time() // 3600)}"
     word = {'filled': '✅', 'failed': '⚠'}.get(row.get('status'), 'ℹ')
     for w in _owner_wallets():
         notify(w, 'fuse-card', f"{word} Fuse wallet · {row.get('card')}: {row.get('side')} ${row.get('symbol') or ''} {row.get('status')}{(' — ' + row['err']) if row.get('err') else ''}",
-               url='/terminal/hq?tab=fuse', push=False, once=f"fw-{row.get('id')}-{row.get('status')}", meta={'claim': 'Keeper order', 'source': 'Fuse wallet audit trail'})
+               url='/terminal/hq?tab=fuse', push=False, once=once, meta={'claim': 'Keeper order', 'source': 'Fuse wallet audit trail'})
 
 
 async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
@@ -5709,8 +5720,21 @@ def _fw_public(tid):
     d = _fw_load(); b = d['books'].get(tid)
     if not b:
         return None
-    rows = [o for o in d['ledger'] if o.get('card') == tid and o.get('status') in ('filled', 'done') or (o.get('card') == tid and o.get('side') == 'topup')][-12:][::-1]
-    return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4), 'wallet': _fw_cfg()['address'],
+    seen, rows = set(), []
+    for o in reversed(d['ledger']):   # newest first, each tx / funding once
+        if o.get('card') != tid or not (o.get('status') in ('filled', 'done') or o.get('side') == 'topup'):
+            continue
+        k = o.get('sig') or f"{o.get('id')}:{o.get('side')}:{o.get('at')}"
+        if k not in seen:
+            seen.add(k); rows.append(o)
+        if len(rows) >= 12:
+            break
+    cfg = _fw_cfg(); pend = b.get('pending') or {}
+    fail = next((o for o in reversed(d['ledger']) if o.get('card') == tid and o.get('status') in ('failed', 'skipped')), None)
+    keeper = {'armed': bool(cfg.get('armed')), 'paused': bool(cfg.get('paused') or b.get('halt')), 'pending': pend.get('symbol') and f"{pend.get('side')} ${pend.get('symbol')}",
+              'lastFail': fail and {'symbol': fail.get('symbol'), 'side': fail.get('side'), 'err': (fail.get('err') or '')[:90], 'at': fail.get('at')},
+              'lastFill': next((o.get('at') for o in rows if o.get('status') == 'filled'), None)}
+    return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4), 'wallet': cfg['address'], 'keeper': keeper,
             'orders': [{k: o.get(k) for k in ('side', 'symbol', 'usd', 'px', 'sig', 'at', 'status', 'feeUsd', 'why')} for o in rows], **_fw.totals(d['ledger'], tid)}
 
 

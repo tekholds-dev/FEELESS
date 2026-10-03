@@ -157,3 +157,21 @@ def test_wallet_fronts_fees_for_5_rounds_then_the_card_pays():
     late, _ = fw.apply_fill(fw.new_book(100, 100.0, 0), {**order, 'cardPays': True}, fill, 100.0)
     assert abs(early['sol'] - 0.8) < 1e-9 and abs(late['sol'] - (0.8 - 0.00001 - 0.00204)) < 1e-9
     assert fw.DEFAULT_CFG['minOrderUsd'] == 0.5
+
+
+def test_failed_buy_is_retried_and_never_shows_minus_100():
+    import fuse_wallet as fw
+    card = {'legs': [{'mint': fw.SOL_MINT, 'pairAddress': 'S', 'symbol': 'SOL', 'units': 0.01, 'entry': 100},
+                     {'mint': 'RUN', 'pairAddress': 'R', 'symbol': 'RUN', 'units': 1000.0, 'entry': 0.002, 'costUsd': 2.0}]}
+    book = {'sol': 0.03, 'legs': {}}
+    c = fw.sync_card(card, book, {'S': 100, 'R': 0.002}, 100)
+    leg = c['legs'][1]
+    assert leg['units'] == 0 and leg['costUsd'] == 0 and leg['buying'] and leg['wantUnits'] == 1000.0
+    c2 = fw.sync_card(c, book, {'S': 100, 'R': 0.002}, 100)   # next tick: still wanted
+    assert c2['legs'][1]['wantUnits'] == 1000.0
+    cfg = {**fw.DEFAULT_CFG, 'armed': True}
+    buys = [o for o in fw.orders('t', c2, book, {'S': 100, 'R': 0.002}, 100, cfg, 1) if o['side'] == 'buy']
+    assert buys and buys[0]['mint'] == 'RUN'   # the keeper tries again
+    book2 = {'sol': 0.01, 'legs': {'RUN': {'atoms': 1000_000000, 'decimals': 6, 'entryPx': 0.002, 'costUsd': 2.0, 'pair': 'R'}}}
+    c3 = fw.sync_card(c2, book2, {'S': 100, 'R': 0.002}, 100)
+    assert c3['legs'][1]['real'] and 'buying' not in c3['legs'][1]

@@ -100,8 +100,8 @@ export function LiveFuseCard({ r: r0, aura = '', look = null, label = null }) {
     <ul className="fcd-legs">{legs.map(l => <li key={l.pairAddress + (l.sig || '')} className={`fcd-leg ${l.soldUsd != null ? 'is-out' : ''}`}
       data-tip={`${l.symbol}: in ${m$(l.usd)} → now ${m$(l.valueUsd)}${l.priceNow ? ` · price $${fmtPx(l.priceNow)}` : ''}${l.soldUsd != null ? ' · sold' : (l.realizedUsd || 0) > 0 ? ` · took ${m$(l.realizedUsd)}` : ''}${!l.priced && l.soldUsd == null ? ' · no live price' : ''}`}>
       <b>{l.role === 'runner' ? '🏃 ' : l.role === 'anchor' ? '⚓ ' : ''}{l.symbol}</b>
-      <em className={l.pnlPct >= 0 ? 'up' : 'down'}>{l.soldUsd != null ? 'sold' : `${l.pnlPct >= 0 ? '+' : ''}${l.pnlPct.toFixed(1)}% · ${l.pnlUsd >= 0 ? '+' : '−'}${m$(Math.abs(l.pnlUsd || 0)).replace('−', '')}`}</em>
-      <span>{m$(l.usd)} in → {m$(l.valueUsd)} now</span></li>)}</ul>
+      <em className={l.buying ? 'fcd-buying' : l.pnlPct >= 0 ? 'up' : 'down'}>{l.buying ? '⏳ buying…' : l.soldUsd != null ? 'sold' : `${l.pnlPct >= 0 ? '+' : ''}${l.pnlPct.toFixed(1)}% · ${l.pnlUsd >= 0 ? '+' : '−'}${m$(Math.abs(l.pnlUsd || 0)).replace('−', '')}`}</em>
+      <span>{l.buying ? 'keeper retries next tick' : `${m$(l.usd)} in → ${m$(l.valueUsd)} now`}</span></li>)}</ul>
     <dl className="fcd-sum"><dt>Put in</dt><dd>{m$(r.costUsd)}</dd><dt>In card</dt><dd>{m$(r.valueUsd - paid)}</dd><dt>Paid out</dt><dd className="up">{m$(paid)}</dd>
       <dt>P&L</dt><dd className={up ? 'up' : 'down'}><b>{m$(r.pnlUsd)} ({up ? '+' : ''}{r.pnlPct.toFixed(1)}%)</b></dd></dl>
     <small className="fcd-note">● Live prices every 3s · {label && label.includes('PAPER') ? 'paper at true fills' : 'exact fills from chain'} · fees apart.</small>

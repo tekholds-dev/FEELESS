@@ -470,8 +470,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             c = nc
     # 4) idle cash goes back to work when compounding
     if cfg['compound'] and c['cash'] > 0.01 and c['legs']:
-        each = c['cash'] / len(c['legs'])
-        for l in c['legs']:
+        waiting = [l for l in c['legs'] if l.get('buying')]   # 👛 real card: SOL whose buy hasn't landed belongs to THAT coin first
+        each = c['cash'] / len(waiting or c['legs'])
+        for l in waiting or c['legs']:
             px = buy_px(_f(prices.get(l['pairAddress'])) or l['entry'], each, liqs.get(l['pairAddress']) or l.get('liq'))
             l['units'] += each / px; l['costUsd'] += each
         c['compoundedUsd'] += c['cash']; ev(kind='compound', usd=round(c['cash'], 4), why='idle cash back into the card', to=[l['symbol'] for l in c['legs']]); c['cash'] = 0.0
@@ -522,7 +523,7 @@ def summary(card, prices, cfg=None):
     rot = _f((cfg or {}).get('rotateHours')) or DEFAULT_CFG['rotateHours']
     paid = round(_f(card.get('walletUsd')), 4)
     legs = [{**{k: l[k] for k in ('mint', 'pairAddress', 'symbol', 'role', 'entry', 'units', 'costUsd')}, 'stars': l.get('stars') or 3,
-             'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'ride': bool(l.get('ride')), 'high': l.get('high'),
+             'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'buying': bool(l.get('buying')),
              'firstEntry': l.get('firstEntry') or l['entry'], 'at': l.get('at'), 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,
              'liq': _f(l.get('liqNow')) or _f(l.get('liq')),
