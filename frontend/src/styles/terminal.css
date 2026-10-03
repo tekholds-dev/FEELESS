@@ -1461,7 +1461,7 @@ body.theme-day button.btn-primary.meta-launch-review,body.theme-day button.btn-p
 body.theme-day{--day-surface:#f7faf6;--day-ink:#0f2419;--day-muted:#43604f;--day-border:#c3d6c9}
 body.theme-day,html[data-theme="light"]{background:#e8f0ea!important}
 body.theme-day .ambient-background{background:radial-gradient(60% 50% at 12% 10%,rgba(120,210,165,.32),transparent 70%),radial-gradient(50% 45% at 90% 20%,rgba(120,180,240,.22),transparent 70%),radial-gradient(55% 50% at 70% 95%,rgba(240,205,140,.2),transparent 70%),linear-gradient(160deg,#e7f1ea 0%,#dde9e1 55%,#e2ebf0 100%)!important}
-body.theme-day .terminal-header,body.theme-day .terminal-sidebar,body.theme-day .market-ticker,body.theme-day .context-bar{background:rgba(247,250,246,.9)!important;backdrop-filter:saturate(1.1)}
+body.theme-day .terminal-header,body.theme-day .terminal-sidebar,body.theme-day .market-ticker,body.theme-day .context-bar{background:rgba(247,250,246,.97)!important}
 .network-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
 .network-row{display:grid;grid-template-columns:10px 1fr auto;grid-template-rows:auto auto;column-gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:8px}
 .network-row i{grid-row:1/3;width:8px;height:8px;border-radius:50%;background:var(--rose)}.network-row.is-ok i{background:var(--mint);box-shadow:0 0 8px var(--mint)}
@@ -1564,10 +1564,10 @@ body.theme-day :is(.push-filters select,.rule-num input){border-color:var(--day-
 
 /* Day: see-through frosted surfaces so the living background shows */
 body.theme-day{--day-surface:rgba(236,245,239,.62)}
-body.theme-day :is(.terminal-header,.terminal-sidebar,.market-ticker,.context-bar){background:rgba(228,240,232,.66)!important;backdrop-filter:blur(14px) saturate(1.25);-webkit-backdrop-filter:blur(14px) saturate(1.25)}
+body.theme-day :is(.terminal-header,.terminal-sidebar,.market-ticker,.context-bar){background:rgba(236,244,239,.97)!important}
 body.theme-day .terminal-main :is(section,article,aside,.metric,.pulse-pill,.token-analytics-item,.launch-row,.adv-watch-row:not(.adv-watch-labels),.pump-radar-card,.case-card,.proof-row,.vote-row,.network-row,.trust-signal,.reputation-rank-row,.watch-row,.meta-card,.launch-style-card,.supply-options button,.launchpad-card){background-color:rgba(238,246,240,.55)!important;background-image:none!important}
 body.theme-day .terminal-main :is(section,article,aside):hover{background-color:rgba(240,248,242,.68)!important}
-body.theme-day .eco-world-inner{background:rgba(232,242,236,.82)!important;backdrop-filter:blur(18px) saturate(1.2);-webkit-backdrop-filter:blur(18px) saturate(1.2)}
+body.theme-day .eco-world-inner{background:rgba(236,244,239,.96)!important}
 body.theme-day .community-rail>*{background:rgba(236,245,239,.6)!important}
 .trenches-font{font-family:'Bungee','Inter',sans-serif!important;letter-spacing:.6px;font-weight:400!important;text-transform:uppercase}
 .sidebar-link .trenches-font{font-size:12px;background:linear-gradient(90deg,#19f58f,#ffd166,#ff6b8b);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -2385,8 +2385,8 @@ body.theme-day .ambient-background{background:radial-gradient(55% 45% at 10% 10%
 body.theme-day .ambient-background .ambient-grid{opacity:.35}
 body.theme-day .ambient-background::after{background-image:radial-gradient(2px 2px at 10% 20%,#07784f55 50%,transparent 51%),radial-gradient(2px 2px at 30% 70%,#1b6fb355 50%,transparent 51%),radial-gradient(1.5px 1.5px at 55% 35%,#b8860b55 50%,transparent 51%),radial-gradient(2px 2px at 75% 60%,#07784f44 50%,transparent 51%),radial-gradient(1.5px 1.5px at 90% 25%,#1b6fb344 50%,transparent 51%),radial-gradient(28% 24% at 60% 25%,rgba(255,190,110,.18),transparent 70%)!important;background-size:420px 420px,380px 380px,300px 300px,460px 460px,340px 340px,100% 100%!important;animation:day-particles 40s linear infinite!important;opacity:.9!important}
 @keyframes day-particles{from{background-position:0 0,0 0,0 0,0 0,0 0,0 0}to{background-position:0 -420px,0 -380px,0 -300px,0 -460px,0 -340px,0 0}}
-body.theme-day :is(.wp-card,.meta-panel,.cc-block,.cp-card,.coin-profile,.fcp,.live-intel,.token-focus,.community-chat,.eco-chart,.shop-item,.war-f,.rw-item,.dm-card,.notif-pop,.search-drop,.pa-pop,.slash-menu,.legal-consent,.cc-shell,.market-table-wrap){background:var(--day-surface)!important;backdrop-filter:blur(6px)}
-body.theme-day :is(.terminal-header,.terminal-sidebar,.market-ticker){background:rgba(232,243,237,.9)!important;backdrop-filter:blur(8px)}
+body.theme-day :is(.wp-card,.meta-panel,.cc-block,.cp-card,.coin-profile,.fcp,.live-intel,.token-focus,.community-chat,.eco-chart,.shop-item,.war-f,.rw-item,.dm-card,.notif-pop,.search-drop,.pa-pop,.slash-menu,.legal-consent,.cc-shell,.market-table-wrap){background:var(--day-surface)!important}
+body.theme-day :is(.terminal-header,.terminal-sidebar,.market-ticker){background:rgba(236,244,239,.97)!important}
 body.theme-day :is(input,select,textarea):not([type=range]):not([type=checkbox]){background:var(--day-surface-2)!important}
 body.theme-day .chart-area,body.theme-day .candle-canvas{background:#eaf3ee}
 .wars-artifact .war-core .war-emblem{font-size:46px!important;line-height:1;color:inherit}

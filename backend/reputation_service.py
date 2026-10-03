@@ -47,21 +47,8 @@ DATA_DIR = Path(__file__).parent / 'data'
 DATA_DIR.mkdir(exist_ok=True)
 STORE_PATH = DATA_DIR / 'reputation.json'
 
-# RPC pool: a dedicated key (Helius/QuickNode/Alchemy/Triton) goes first via SOLANA_RPC_URL
-# and takes almost all traffic; public endpoints are fallback-only so a rate-limited public
-# node never blocks resolution. Each endpoint gets its own failure budget — one bad node
-# gets skipped for a cooldown window instead of failing every request that hits it.
-_dedicated = os.environ.get('SOLANA_RPC_URL', '').strip()
-_alchemy = os.environ.get('ALCHEMY_API_KEY', '').strip()
-RPC_POOL = ([_dedicated] if _dedicated else []) + ([f'https://solana-mainnet.g.alchemy.com/v2/{_alchemy}'] if _alchemy else []) + [
-    'https://api.mainnet-beta.solana.com',
-    'https://solana-rpc.publicnode.com',
-    'https://rpc.ankr.com/solana',
-]
-_rpc_cooldown_until: dict[str, float] = {}
-_rpc_cursor = 0
-RPC_COOLDOWN_SECONDS = 30
-RPC_MAX_RETRIES = len(RPC_POOL)
+# Solana RPC pool + retrying client live in chain_rpc.py (one module per job); imported here so every caller is unchanged.
+from chain_rpc import RPC_POOL, RPC_COOLDOWN_SECONDS, RPC_MAX_RETRIES, _alchemy, _dedicated, _rpc_cooldown_until, _next_rpc_endpoint, _rpc  # noqa: F401
 
 RUG_LIQUIDITY_DROP_PCT = 80          # % drop from peak liquidity counted as a rug signal
 RUG_MIN_AGE_SECONDS = 60 * 30        # token must have existed >=30min to be eligible to be flagged
@@ -92,41 +79,6 @@ def _save(store: dict):
     STORE_PATH.write_text(json.dumps(store, indent=2))
 
 
-def _next_rpc_endpoint() -> Optional[str]:
-    """Priority order (dedicated key, then Alchemy, then public nodes), skipping any endpoint in its cooldown window.
-    Public nodes are fallback-only: they lag and rate-limit, so balances read right after a trade came back stale."""
-    now = time.time()
-    for endpoint in RPC_POOL:
-        if _rpc_cooldown_until.get(endpoint, 0) <= now:
-            return endpoint
-    return min(RPC_POOL, key=lambda e: _rpc_cooldown_until.get(e, 0)) if RPC_POOL else None
-
-
-async def _rpc(http: httpx.AsyncClient, method: str, params: list):
-    """Calls the RPC pool with retry + per-endpoint cooldown on failure or rate-limit."""
-    last_error = None
-    now = time.time()
-    order = [e for e in RPC_POOL if _rpc_cooldown_until.get(e, 0) <= now] or ([_next_rpc_endpoint()] if RPC_POOL else [])
-    for endpoint in order[:RPC_MAX_RETRIES]:
-        try:
-            res = await http.post(endpoint, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
-            if res.status_code == 429:
-                _rpc_cooldown_until[endpoint] = time.time() + RPC_COOLDOWN_SECONDS
-                last_error = 'rate_limited'
-                continue
-            res.raise_for_status()
-            body = res.json()
-            if 'error' in body:
-                last_error = body['error']
-                continue
-            return body.get('result')
-        except (httpx.HTTPError, ValueError):
-            _rpc_cooldown_until[endpoint] = time.time() + RPC_COOLDOWN_SECONDS
-            last_error = 'request_failed'
-            continue
-    if last_error:
-        raise RuntimeError(f'RPC pool exhausted: {last_error}')
-    return None
 
 
 async def resolve_creator(chain: str, mint_address: str) -> Optional[str]:
@@ -5183,17 +5135,21 @@ async def _jup_prices(mints):
     miss = [m for m in want if m not in out]
     if miss:
         key = os.environ.get('JUPITER_API_KEY')
-        base, hdr = ('https://api.jup.ag/price/v3', {'x-api-key': key}) if key else ('https://lite-api.jup.ag/price/v3', {})
-        try:
-            async with httpx.AsyncClient(timeout=6) as http:
-                for i in range(0, len(miss), 50):
-                    d = (await http.get(base, params={'ids': ','.join(miss[i:i + 50])}, headers=hdr)).json() or {}
-                    for m, v in d.items():
-                        px = _fuse._f((v or {}).get('usdPrice'))
-                        if px > 0:
-                            out[m] = px; _jup_px_cache[m] = (now, px)
-        except Exception:
-            pass
+        sources = ([('https://api.jup.ag/price/v3', {'x-api-key': key})] if key else []) + [('https://lite-api.jup.ag/price/v3', {})]   # keyed first, public fallback
+        async with httpx.AsyncClient(timeout=6) as http:
+            for base, hdr in sources:
+                todo = [m for m in miss if m not in out]
+                if not todo:
+                    break
+                try:
+                    for i in range(0, len(todo), 50):
+                        d = (await http.get(base, params={'ids': ','.join(todo[i:i + 50])}, headers=hdr)).json() or {}
+                        for m, v in d.items():
+                            px = _fuse._f((v or {}).get('usdPrice'))
+                            if px > 0:
+                                out[m] = px; _jup_px_cache[m] = (now, px)
+                except Exception:
+                    continue   # next source; callers fall back to the pool price when Jupiter has none
     return out
 
 
@@ -5266,7 +5222,7 @@ import arena_prime as _prime
 
 def _prime_cfg():
     cfg = _prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cfg') or {})
-    cal = _fw.calibrate(_json_load(DATA_DIR / 'fuse_wallet.json', {}).get('ledger'))
+    cal = _fw.calibrate(_fw_load().get('ledger'))
     if cal.get('feeUsd') is not None:   # 🎯 paper pays what a real swap from the Fuse wallet costs (network + priority)
         cfg['paperFeeUsd'] = cal['feeUsd']
     return cfg
@@ -5452,10 +5408,18 @@ _fw_lock = asyncio.Lock()
 _FW_TOKEN_PROGRAMS = ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')
 
 
+import store as _store
+
+
 def _fw_load():
-    d = _json_load(FUSE_WALLET_PATH, {})
+    """🗄 The Fuse wallet lives in SQLite (crash-safe, one transaction per write) — never a half-written JSON file."""
+    d = _store.KV(FUSE_WALLET_PATH).get({}) or {}
     d.setdefault('books', {}); d.setdefault('ledger', [])
     return d
+
+
+def _fw_save(d):
+    _store.KV(FUSE_WALLET_PATH).put(d)
 
 
 def _fw_cfg():
@@ -5522,7 +5486,11 @@ async def _fw_quote(order, cfg):
 
 
 def _fw_record(d, row):
-    d['ledger'] = (d.get('ledger') or [])[-1999:] + [row]
+    d['ledger'] = (d.get('ledger') or [])[-1999:] + [row]   # recent 2000 for fast reads …
+    try:
+        _store.Ledger(FUSE_WALLET_PATH).append(row)          # … and the append-only audit table keeps EVERY row forever
+    except Exception as e:
+        print('fuse wallet ledger:', e)
 
 
 async def _fw_execute(tid, order, book, cfg, sol_px, liq):
@@ -5536,14 +5504,14 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
     except HTTPException as e:
         row.update(status='skipped', err=str(e.detail)[:140])
         async with _fw_lock:
-            d = _fw_load(); _fw_record(d, row); _json_save(FUSE_WALLET_PATH, d)
+            d = _fw_load(); _fw_record(d, row); _fw_save(d)
         return book
     async with _fw_lock:
         ok, why = _fw.check(order, cfg, _fw_load().get('ledger'), now, row['impactPct'])
     if not ok or not _fw_signer_ready():
         row.update(status='skipped' if not ok else 'dry', err=why or 'signing not available — quoted only')
         async with _fw_lock:
-            d = _fw_load(); _fw_record(d, row); _json_save(FUSE_WALLET_PATH, d)
+            d = _fw_load(); _fw_record(d, row); _fw_save(d)
         return book
     try:
         swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
@@ -5552,13 +5520,13 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
     except HTTPException as e:
         row.update(status='failed', err=f'build/sign: {str(e.detail)[:120]}')
         async with _fw_lock:
-            d = _fw_load(); _fw_record(d, row); _json_save(FUSE_WALLET_PATH, d)
+            d = _fw_load(); _fw_record(d, row); _fw_save(d)
         _fw_notify(row)
         return book
     sig = signed.get('signature') or signed.get('txHash')
     book = {**book, 'pending': {**row, 'sig': sig, 'status': 'sent', 'sentAt': now}}
     async with _fw_lock:   # pending is saved BEFORE the send: a crash mid-flight can never double-buy
-        d = _fw_load(); d['books'][tid] = book; _json_save(FUSE_WALLET_PATH, d)
+        d = _fw_load(); d['books'][tid] = book; _fw_save(d)
     try:
         async with httpx.AsyncClient(timeout=15) as http:
             await _rpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
@@ -5601,7 +5569,7 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
         row.update(status='failed', err='not confirmed in 2 min' if not tx else 'tx failed on-chain')
     book = {**book, 'pending': None}
     async with _fw_lock:
-        d = _fw_load(); d['books'][tid] = book; _fw_record(d, row); _json_save(FUSE_WALLET_PATH, d)
+        d = _fw_load(); d['books'][tid] = book; _fw_record(d, row); _fw_save(d)
     _fw_notify(row)
     return book
 
@@ -5645,7 +5613,7 @@ async def _fw_tick(now):
                 _fw_record(d2, {'card': tid, 'side': 'defund', 'usd': round(_fw.book_value(book, px, sol_px), 4), 'at': now, 'status': 'done'})
             else:
                 d2['books'][tid] = book
-            _json_save(FUSE_WALLET_PATH, d2)
+            _fw_save(d2)
         async with _admin_lock:
             h = _json_load(FUSE_HQ_PATH, {}); cs = (h.get('prime') or {}).get('cards') or {}
             if cs.get(tid):
@@ -5696,7 +5664,7 @@ async def _paper_quote_audit(now):
         rows.append({**_fw.quote_row(l.get('symbol'), usd, mid, liq, _prime.buy_px(mid, usd, liq), int(q.get('outAmount') or 0) / 10 ** dec, now), 'mint': l['mint']})
     if rows:
         async with _fw_lock:
-            d = _fw_load(); d['quoteAudit'] = (d.get('quoteAudit') or [])[-199:] + rows; _json_save(FUSE_WALLET_PATH, d)
+            d = _fw_load(); d['quoteAudit'] = (d.get('quoteAudit') or [])[-199:] + rows; _fw_save(d)
     return len(rows)
 
 
@@ -5784,7 +5752,7 @@ async def fuse_wallet_cfg(request: Request):
         cfg = _fw.clean_cfg({**(d.get('cfg') or {}), **{k: v for k, v in body.items() if k in _fw.DEFAULT_CFG}})
         if cfg['armed'] and (not cfg['address'] or not _fw_signer_ready()):
             raise HTTPException(400, 'Pick the Fuse wallet first (and the Circle service must be running) before arming real money.')
-        d['cfg'] = cfg; _json_save(FUSE_WALLET_PATH, d)
+        d['cfg'] = cfg; _fw_save(d)
     ad = _admin_load(); _audit(ad, me, 'fuse-wallet-cfg', json.dumps({k: cfg[k] for k in cfg if k != 'walletId'})[:160]); _admin_save(ad)
     return {'cfg': cfg}
 
@@ -5858,7 +5826,7 @@ async def fuse_wallet_topup(request: Request):
             new = _fw.topup_card(card, usd, px, now)
             b = d['books'][tid]; d['books'][tid] = {**b, 'sol': round(_fuse._f(b.get('sol')) + usd / sol_px, 9), 'fundedUsd': round(_fuse._f(b.get('fundedUsd')) + usd, 4)}
         _fw_record(d, {'card': tid, 'side': 'topup', 'usd': usd, 'sol': round(usd / sol_px, 9), 'at': now, 'by': me, 'status': 'done', 'why': 'funded — new real run' if first else 'top-up — new run'})
-        _json_save(FUSE_WALLET_PATH, d)
+        _fw_save(d)
     async with _admin_lock:
         h = _json_load(FUSE_HQ_PATH, {}); h.setdefault('prime', {}).setdefault('cards', {})[tid] = new; _json_save(FUSE_HQ_PATH, h)
     ad = _admin_load(); _audit(ad, me, 'fuse-wallet-topup', f'{tid} ${usd:.2f}{" (first funding)" if first else ""}'); _admin_save(ad)
@@ -5877,7 +5845,7 @@ async def fuse_wallet_card(request: Request):
         if not b or act not in ('defund', 'resume', 'halt'):
             raise HTTPException(400, 'Pick a funded tier and defund / halt / resume.')
         d['books'][tid] = {**b, 'defund': True} if act == 'defund' else {**b, 'halt': act == 'halt'}
-        _json_save(FUSE_WALLET_PATH, d)
+        _fw_save(d)
     ad = _admin_load(); _audit(ad, me, f'fuse-wallet-{act}', tid); _admin_save(ad)
     return {'ok': True}
 

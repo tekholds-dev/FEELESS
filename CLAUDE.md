@@ -616,6 +616,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ⏱ Playground plays EVERY round length (`allClocks`: 5 → 15 → 30 → 60 …), `clock_learn` / `best_clock` per length (HQ line).
 - ⚔ Battle box show (`bf-show`: spotlight sweeps, sparks, arena flash; off in fx-lite) · power board ranked by `power()` score.
 
+- 🗄 `backend/store.py` (SQLite, WAL, stdlib): `KV` (crash-safe JSON docs, one-time import of the old .json) + `Ledger` (append-only,
+  never trimmed). The Fuse wallet lives there (`_fw_load/_fw_save`, every `_fw_record` row also hits the ledger table). Next stores to move:
+  fee ledger, positions, runners paths (the 2.8 MB file rewritten every tick).
+- 🧱 Code split, step 1: `chain_rpc.py` (RPC pool + `_rpc`) imported back into reputation_service (callers unchanged). Next: storage
+  helpers → `core_store`, prices (`_fuse_pairs`, `_jup_prices`, `_sol_usd_live`) → `prices.py`, auth gates → `auth.py`, then feature routers.
+- 🧠 `pg_sim.py` + `_pg_sim_tick` (~15 min, 300 sim cards on real recorded paths, fees per swap, own file `pg_sim.json`) → HQ `SimBrain`
+  (apply clock + rotate-only-losers to the tier engine). Jest: `--maxWorkers=3` + `testTimeout` 30s (flake fix). Day theme: NO
+  backdrop-filter on always-visible panels (was the day lag). Arena: `ArenaGuide` + jump bar; card config = live P&L + legend.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10
