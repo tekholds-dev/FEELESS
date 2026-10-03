@@ -236,3 +236,12 @@ def test_secure_buy_checks_price_gap_and_sell_back():
     assert 'above market' in fw.buy_safety(o, 900 * 10**6, 6, 9_700_000)[1]     # 11% worse than market
     assert 'sell it back' in fw.buy_safety(o, 1000 * 10**6, 6, None)[1]         # honeypot / no route
     assert 'less' in fw.buy_safety(o, 1000 * 10**6, 6, 8_000_000)[1]            # 20% round-trip loss (tax / one-way)
+
+
+def test_leftover_cash_under_min_order_still_buys_the_waiting_coin():
+    import fuse_wallet as fw
+    card = {'legs': [{'mint': fw.SOL_MINT, 'pairAddress': 'S', 'units': 0.0065, 'entry': 120},
+                     {'mint': 'W', 'pairAddress': 'W', 'symbol': 'WETH', 'units': 0.0, 'wantUnits': 0.00029, 'buying': True, 'entry': 2680}]}
+    book = {'sol': 0.0101, 'legs': {}}
+    buys = [o for o in fw.orders('t', card, book, {'S': 120, 'W': 2680}, 120, {**fw.DEFAULT_CFG, 'armed': True}, 1) if o['side'] == 'buy']
+    assert buys and buys[0]['mint'] == 'W' and 0.25 <= buys[0]['usd'] < 0.5

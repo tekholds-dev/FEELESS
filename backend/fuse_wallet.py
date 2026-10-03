@@ -100,7 +100,8 @@ def orders(card_id, card, book, prices, sol_px, cfg, now):
             continue
         gap = (t['units'] - held_units(book, mint)) * t['px']
         usd = min(gap, cfg['maxSwapUsd'], max(0.0, sol_free * sol_px))
-        if gap < cfg['minOrderUsd'] or usd < cfg['minOrderUsd']:
+        last = usd >= LEFTOVER_MIN_USD and usd >= sol_free * sol_px * 0.98   # the card's whole leftover SOL → let it in (no stuck cash)
+        if (gap < cfg['minOrderUsd'] or usd < cfg['minOrderUsd']) and not last:
             continue
         sol_free -= usd / sol_px
         buys.append({'id': f"{card_id}:{now:.0f}:b:{mint[:6]}", 'card': card_id, 'side': 'buy', 'mint': mint, 'pair': t['pair'], 'symbol': t['symbol'],
@@ -198,6 +199,7 @@ def bank(book, wallet_usd, sol_px):
 
 
 MIN_REBUY_USD = 0.5
+LEFTOVER_MIN_USD = 0.25   # a coin waiting on the card's last SOL may buy down to this
 
 
 def sync_card(card, book, prices, sol_px):
@@ -236,7 +238,7 @@ def sync_card(card, book, prices, sol_px):
                 l['costUsd'] = _f(l.get('costUsd')) * (share / sol_px) / _f(l['units']); l['units'] = share / sol_px
         free = max(0.0, sol_left) * sol_px
         for l in empty:
-            if px(l) > 0 and free >= MIN_REBUY_USD:
+            if px(l) > 0 and free >= LEFTOVER_MIN_USD:
                 usd = min(share, free / len(empty))
                 l.update(wantUnits=usd / px(l), buying=True)
         c['rebuyRound'] = int(card.get('rounds') or 0)
