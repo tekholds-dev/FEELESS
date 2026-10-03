@@ -632,6 +632,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ⚖ Arena: playground (engine) cards ≤ number of Arena runner cards (lit / round / auto), max 4. 📜 Permanent record: every ended tier
   run → `card_records.db` (append-only) · `GET /fuses/record/{tpl}` · `CardRecord` on each tier card.
 
+- 👛 Unlanded real buys: `sync_card` keeps `wantUnits` + `buying` (cost 0, card shows ⏳ buying…, never −100%) → `target` still wants it →
+  keeper retries; engine compound feeds waiting coins first. `_fw_jup` backs off on 429/5xx; trail/totals = one row per tx; HQ › My cards tracker.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10
