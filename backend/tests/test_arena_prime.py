@@ -359,7 +359,7 @@ def test_hold_rule_streaks_and_min_3_coin_cycles():
 
 def test_rescue_auto_custom_cycles_and_low_churn():
     assert ap.cycle_seq('degen,safest,anchor') == ('degen', 'safest', 'anchor') and ap.cycle_seq('degen,nope') is None
-    assert ap.next_phase('auto', 0, -20) == 'breakeven' and ap.next_phase('auto', 0, -2) == 'safest' and ap.next_phase('auto', 0, 9) == 'degen'
+    assert ap.next_phase('auto', 0, -20) == 'breakeven' and ap.next_phase('auto', 0, -4) == 'safest' and ap.next_phase('auto', 0, -2) == 'mixed' and ap.next_phase('auto', 0, 9) == 'degen'
     assert ap.next_phase('rescue', 0, 0) == 'safest' and ap.next_phase('rescue', 1, 0) == 'breakeven'
     c = ap.clean_cfg({'cycles': {'degen': 'degen,safest,breakeven'}})
     assert c['cycles']['degen'] == 'degen,safest,breakeven' and c['rotateMinDrop'] == 10 and c['cycleEvery'] == 6
@@ -456,3 +456,24 @@ def test_noise_rounds_never_trip_the_safe_fix_and_owner_cycle_wins():
 def test_major_leg_keeps_its_pool_depth():
     l = ap._leg({'mint': 'S', 'pairAddress': 'PS', 'symbol': 'SOL', 'price': 150.0, 'liquidityUsd': 9_000_000}, 5.0, 0, 'anchor')
     assert l['liq'] == 9_000_000
+
+
+def test_auto_cycle_noise_and_taken_coins_rank_last():
+    assert ap.next_phase('auto', 0, -0.01) == 'mixed'           # −0.01% is noise — not a 3-majors 'safest' round
+    assert ap.next_phase('auto', 0, -4) == 'safest'
+    a = {'mint': 'A', 'pairAddress': 'PA', 'price': 1, 'score': 90, 'taken': True}
+    b = {'mint': 'B', 'pairAddress': 'PB', 'price': 1, 'score': 70}
+    assert [c['mint'] for c in ap.rated([a, b], 'runner')] == ['B', 'A']   # another tier holds A → B first, so tiers differ
+
+
+def test_one_tap_redeal_keeps_the_money():
+    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 1, 'cycles': {'degen': 'off'}})
+    anchors = [{'mint': 'S', 'pairAddress': 'PS', 'symbol': 'SOL', 'price': 1.0}, {'mint': 'B', 'pairAddress': 'PB', 'symbol': 'BTC', 'price': 1.0}]
+    runners = [{'mint': f'R{i}', 'pairAddress': f'PR{i}', 'symbol': f'R{i}', 'price': 1.0, 'score': 80} for i in range(4)]
+    old = {'mint': 'X', 'pairAddress': 'PX', 'symbol': 'X', 'role': 'runner', 'entry': 1.0, 'units': 20.0, 'costUsd': 20.0}
+    card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 100, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
+            'events': [], 'startUsd': 20.0, 'legs': [old], 'redealNow': True, 'phase': 'mixed'}
+    px = {'PX': 1.0, 'PS': 1.0, 'PB': 1.0, **{f'PR{i}': 1.0 for i in range(4)}}
+    c = ap.tick(card, px, [], runners, cfg, 200, anchors, liqs={k: 1e12 for k in px})
+    assert 'X' not in [l['mint'] for l in c['legs']] and 'redealNow' not in c
+    assert abs(sum(l['costUsd'] for l in c['legs']) - 20.0) < 0.5 and c['startUsd'] == 20.0   # same money, same run

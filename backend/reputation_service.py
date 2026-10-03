@@ -5364,6 +5364,8 @@ async def _prime_tick_inner(now):
         p_d = [x for x in p_t if x.get('mint') not in taken or x.get('mint') in mine]
         r_d = [x for x in r_t if x.get('mint') not in taken or x.get('mint') in mine]
         p_t, r_t = (p_d if len(p_d) >= 2 else p_t), (r_d if len(r_d) >= 3 else r_t)   # only when enough other coins exist
+        tk = lambda xs: [{**x, 'taken': True} if x.get('mint') in taken and x.get('mint') not in mine else x for x in xs]
+        p_t, r_t = tk(p_t), tk(r_t)   # 🎲 too few others to drop them → coins another tier holds still rank LAST, so tiers differ
         cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, anchors, mom, liqs) if cur else _prime.deal(tid, pools, runners, cfg_t, now, anchors)
         taken |= {l.get('mint') for l in (cards[tid] or {}).get('legs') or [] if l.get('role') != 'anchor'}
     cards = {k: v for k, v in cards.items() if v}
@@ -5477,7 +5479,11 @@ async def fuse_prime_admin(request: Request):
         if body.get('reset'):
             pr['cards'] = {}
         if body.get('redeal') in _prime.TEMPLATES:          # one tier fresh
-            (pr.get('cards') or {}).pop(body['redeal'], None)
+            cur_ = (pr.get('cards') or {}).get(body['redeal'])
+            if cur_ and cur_.get('real'):   # 💵 a real card re-deals its coins in place (same money, same run) — never a fresh $100 paper card
+                cur_['redealNow'] = True
+            else:
+                (pr.get('cards') or {}).pop(body['redeal'], None)
         _json_save(FUSE_HQ_PATH, d)
     rep = body.get('replace') or {}
     if rep.get('tpl') in _prime.TEMPLATES and rep.get('pairAddress'):   # ⇄ one coin on one Prime card

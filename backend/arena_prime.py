@@ -96,7 +96,7 @@ def next_phase(mode, rounds, last_pct):
         # a real red round (≤ −3%) rests in majors; small moves stay MIXED (majors + growth coins); a strong round goes degen
         return 'anchor' if _f(last_pct) <= -ADAPT_RED else 'degen' if _f(last_pct) >= 5 else 'mixed'
     if seq == 'auto':   # 🤖 auto: deep red round → breakeven · red → safest · strong green → degen · otherwise mixed
-        return 'breakeven' if _f(last_pct) <= -15 else 'safest' if _f(last_pct) < 0 else 'degen' if _f(last_pct) >= 5 else 'mixed'
+        return 'breakeven' if _f(last_pct) <= -15 else 'safest' if _f(last_pct) <= -ADAPT_RED else 'degen' if _f(last_pct) >= 5 else 'mixed'   # −0.01% is noise, not red
     return seq[int(rounds or 0) % len(seq)]
 HIT_PCT = 10.0      # a "good day" = the card is up ≥ +10% over 24h
 DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.01, 'floorPct': 60.0, 'slMode': 'replace',
@@ -150,7 +150,7 @@ def rated(cands, role):
     """Only 3★+ candidates. ARENA-backed coins (on a battle / stage card, this round's runner picks, a lit card — `arena`
     flag set by the service) come first, then best stars; input order kept inside a level."""
     out = [{**c, 'stars': stars(c, role)} for c in cands]
-    return sorted((c for c in out if c['stars'] >= MIN_STARS), key=lambda c: (not c.get('arena'), -c['stars']))
+    return sorted((c for c in out if c['stars'] >= MIN_STARS), key=lambda c: (bool(c.get('taken')), not c.get('arena'), -c['stars']))   # 🎲 coins on another tier go last
 
 
 import card_dna as _dna
@@ -492,6 +492,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     if int(c.get('rounds') or 0) % every and not (majors_only and phase and phase != 'anchor'):
         phase = None   # re-shape every N rounds only (less churn) — EXCEPT a majors-only card due a growth shape re-shapes at once
     grow_now = majors_only and phase and phase != 'anchor'   # a majors-only card due growth isn't held back by the win-lock
+    if c.pop('redealNow', None) and not c.get('flooredAt'):   # 🃏 one-tap re-deal: fresh coins NOW, same money + run (real cards keep their book)
+        phase, grow_now, c['lastRotateAt'] = phase or c.get('phase') or 'mixed', True, now
     if phase and c['lastRotateAt'] == now and not c.get('flooredAt') and not any(l.get('ride') for l in c['legs']) and (grow_now or not int(c.get('lockRounds') or 0)):   # a riding runner holds the shape
         nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=in_play(c, prices, liqs), keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
         if nc:

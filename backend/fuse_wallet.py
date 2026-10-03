@@ -70,6 +70,10 @@ def anchor_sol(tgt):
     return _f((tgt.get(SOL_MINT) or {}).get('units'))
 
 
+REBAL_BAND = 0.5   # coins kept through a re-shape: sell / rebuy only when > 50% off target — re-weighing the same coin each round
+#                    burnt the daily cap on churn (cbBTC bought 14:20, sold 14:21, bought again) and starved the real new buys
+
+
 def orders(card_id, card, book, prices, sol_px, cfg, now):
     """The swaps that move the REAL book to the paper target. Sells first (they fund the buys), then buys sized by the SOL the
     card really has (never more). Each order ≤ maxSwapUsd (the rest goes next tick); dust is ignored; SOL needs no swap."""
@@ -85,6 +89,8 @@ def orders(card_id, card, book, prices, sol_px, cfg, now):
         excess = have - want
         usd = excess * px
         full = want <= 0
+        if not full and excess * px < want * px * REBAL_BAND:   # 🔁 a coin that STAYS is only trimmed when it's far over target (no churn)
+            continue
         if excess <= 0 or (usd < cfg['minOrderUsd'] and not (full and usd >= DUST_USD)):
             continue
         frac = 1.0 if full and usd <= cfg['maxSwapUsd'] else min(1.0, min(usd, cfg['maxSwapUsd']) / (have * px)) if have * px > 0 else 0
@@ -99,6 +105,8 @@ def orders(card_id, card, book, prices, sol_px, cfg, now):
         if mint == SOL_MINT or t['px'] <= 0:
             continue
         gap = (t['units'] - held_units(book, mint)) * t['px']
+        if held_units(book, mint) > 0 and gap < t['units'] * t['px'] * REBAL_BAND:   # already holds it: top up only when far under target
+            continue
         usd = min(gap, cfg['maxSwapUsd'], max(0.0, sol_free * sol_px))
         last = usd >= LEFTOVER_MIN_USD and usd >= sol_free * sol_px * 0.98   # the card's whole leftover SOL → let it in (no stuck cash)
         if (gap < cfg['minOrderUsd'] or usd < cfg['minOrderUsd']) and not last:

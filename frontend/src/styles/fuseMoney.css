@@ -160,8 +160,10 @@ body.theme-day .ctab { background: #fff; border-color: #d8e2dc; }
 .hrt-kpis > span { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-surface) 80%, transparent); min-width: 0; }
 .hrt-kpis small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; color: var(--m-dim); } .hrt-kpis .m-num { font-size: 14px; white-space: nowrap; }
 .hrt-coins { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; font-size: 12px; }
-.hrt-coins li { display: grid; grid-template-columns: minmax(0, 1fr) auto 64px; gap: 8px; align-items: center; padding: 5px 2px; border-bottom: 1px dashed color-mix(in srgb, var(--m-line) 60%, transparent); font-family: var(--m-mono); }
-.hrt-coins li em { font-style: normal; text-align: right; } .hrt-coins li.is-buying { opacity: .85; }
+.hrt-coins li { display: grid; grid-template-columns: minmax(0, 1fr) auto 64px auto; gap: 8px; align-items: center; padding: 5px 2px; border-bottom: 1px dashed color-mix(in srgb, var(--m-line) 60%, transparent); font-family: var(--m-mono); }
+.hrt-coins li em { font-style: normal; text-align: right; }
+.hrt-ctl { display: inline-flex; gap: 4px; } .hrt-ctl .m-btn { min-width: 30px; padding: 3px 7px; font-size: 12px; line-height: 1; }
+.hrt-ctl .m-btn.active { background: var(--m-accent, #19f58f); color: #04120a; } .hrt-coins li.is-buying { opacity: .85; }
 .hrt-coins .hrt-buy { grid-column: 2 / -1; color: var(--gold); text-align: right; }
 .hrt-fail { color: var(--gold); font-size: 11px; }
 .prime-cfgv { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0; } .prime-cfgv .m-chip { font-size: 9.5px; padding: 1px 6px; }

@@ -531,6 +531,7 @@ const COIN_MODE = { sell: '✂ sell', park: '🅿 park', hold: '❄ hold' };
 export function MyCards({ addr }) {
   const [d, setD] = useState(null);
   const [act, setAct] = useState(null);   // {id, kind, ...} — one open action at a time
+  const [realN, setRealN] = useState(0);   // 💵 HQ real cards shown above (then "no cards" is just a one-liner)
   const load = useCallback(() => addr && fetch(apiUrl(`/api/reputation/fuses/pnl/${addr}`)).then(r => (r.ok ? r.json() : null)).then(setD).catch(() => {}), [addr]);
   useEffect(() => { load(); const t = setInterval(() => !document.hidden && load(), 30000); window.addEventListener('feeless:fuse-pnl', load);
     return () => { clearInterval(t); window.removeEventListener('feeless:fuse-pnl', load); }; }, [load]);
@@ -566,13 +567,13 @@ export function MyCards({ addr }) {
   if (!addr) return <div className="m-card fp-empty"><b>Connect your Solana wallet to see your Fuse cards.</b></div>;
   if (!d) return <div className="m-card"><span className="loader" /> Loading your cards…</div>;
   const openRows = (d.rows || []).filter(r => !r.closed);
-  return <><HqRealCards addr={addr} /><MyCardsBody d={d} openRows={openRows} act={act} setAct={setAct} open={open} setMode={setMode} setRisk={setRisk} setAdv={setAdv} addr={addr} ses={ses} refresh={refresh} /></>;
+  return <><HqRealCards addr={addr} onCount={setRealN} /><MyCardsBody realN={realN} d={d} openRows={openRows} act={act} setAct={setAct} open={open} setMode={setMode} setRisk={setRisk} setAdv={setAdv} addr={addr} ses={ses} refresh={refresh} /></>;
 }
 
 const EARN_KIND = { sell: '💰 Profit / sell', buy: '⇄ Switched in', topup: '♻ Compounded / topped up' };
 const sumKind = (r, k) => (r.events || []).filter(e => e.kind === k).reduce((a, e) => a + (e.usd || 0), 0);
 
-function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, setAdv, addr, ses, refresh }) {
+function MyCardsBody({ realN, d, openRows, act, setAct, open, setMode, setRisk, setAdv, addr, ses, refresh }) {
   const [earn, setEarn] = useState(null);
   // ❄ Freeze a coin: the engine (swap mode / auto-rotate) never touches it — only the holder switches it.
   const freeze = async (r, l, on) => { const s = ses(); if (!s) return;
@@ -587,7 +588,8 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, setAdv,
   return <section className="fp-cards" data-testid="my-cards">
     <div className="m-row fp-book"><span className="m-label">CARDS YOU HOLD</span><b className={`m-num fl-tick ${(held.pnlUsd || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={(held.pnlUsd || 0).toFixed(2)} data-testid="held-pnl">{m$(held.pnlUsd)} <small>{pc(held.pnlPct)}</small><i className="fl-livedot" /></b>
       <small className="m-dim">{m$(held.value)} now · {openRows.length} open · all-time {m$(d.pnlUsd)}</small>{d.feebackUsd > 0 && <span className="m-chip ok" data-tip="Fuse Fee-Back: your unlocked share of the fees you paid on cards">🎁 {m$(d.feebackUsd)} Fee-Back</span>}</div>
-    {!openRows.length && <div className="m-card fp-empty"><b>No open cards.</b><small className="m-dim">Build one in the Lab — 3 pools + up to 3 runners.</small></div>}
+    {!openRows.length && (realN ? <small className="m-dim" data-testid="no-bought-cards">Cards you buy from this wallet show here too, next to the real tier cards above.</small>
+      : <div className="m-card fp-empty"><b>No open cards.</b><small className="m-dim">Build one in the Lab — 3 pools + up to 3 runners.</small></div>)}
     <div className="fp-cgrid">{openRows.map(r => <div key={r.id} className={`fp-cell ${r.onArena ? 'is-arena' : ''}`}><LiveFuseCard r={r} aura={r.onArena ? 'fire' : ''} />
       <CoinTable legs={r.legs.filter(l => l.soldUsd == null).map(l => { const px = live.get?.(l.pairAddress)?.price || l.priceNow; const nowUsd = px && l.tokens ? l.tokens * px + (l.realizedUsd || 0) : (l.valueUsd || 0);
         return { pairAddress: l.pairAddress, symbol: l.symbol, role: l.role, entryPx: l.tokens ? l.usd / l.tokens : null, nowPx: px, inUsd: l.usd || 0, nowUsd, pct: l.usd ? (nowUsd / l.usd - 1) * 100 : 0 }; })} />

@@ -299,3 +299,13 @@ def test_dealt_coin_keeps_its_depth_and_new_major_tag():
     assert l['liq'] == 150_000 and l['newMajor']
     r = ap._leg({'mint': 'R', 'pairAddress': 'Q', 'symbol': 'RN', 'price': 1.0, 'liq': 40_000}, 5.0, 0, 'runner')
     assert r['liq'] == 40_000 and 'newMajor' not in r
+
+
+def test_kept_coin_is_not_churned_on_a_reshape():
+    """🔁 a coin that stays on the card is not sold / rebought for a small re-weigh (that churn ate the daily cap)."""
+    book = {'sol': 1.0, 'legs': {'M1': {'atoms': 1_100_000, 'decimals': 6, 'pair': 'P1', 'symbol': 'A', 'entryPx': 1.0}}}
+    card = {'legs': [{'mint': 'M1', 'pairAddress': 'P1', 'symbol': 'A', 'units': 1.0, 'role': 'anchor'}], 'cash': 0.0}
+    out = fw.orders('safe', card, book, {'P1': 1.0}, 100.0, {**CFG, 'minOrderUsd': 0.05}, 0)
+    assert not [o for o in out if o['mint'] == 'M1']                     # 1.1 held vs 1.0 wanted: inside the band
+    far = fw.orders('safe', card, {**book, 'legs': {'M1': {**book['legs']['M1'], 'atoms': 3_000_000}}}, {'P1': 1.0}, 100.0, {**CFG, 'minOrderUsd': 0.05}, 0)
+    assert any(o['side'] == 'sell' and o['mint'] == 'M1' for o in far)   # 3× over target: trimmed
