@@ -6,7 +6,7 @@ import { ShareGifButton } from './ShareGif';
 import { RiskDial, DialBoard } from './RiskDial';
 import { ArenaPrime, HqRealCards } from './ArenaPrime';
 import { CardEarnings } from './CardEarnings';
-import { CardShowcase, PaperAudit, TrailSummary, CoinTable, usd as fmt$ } from './FuseMoney';
+import { CardShowcase, PaperAudit, TrailSummary, CoinTable, CycleBuilder, usd as fmt$ } from './FuseMoney';
 import { CardRounds } from './CardRounds';
 import { openCoin } from './CoinDrawer';
 import { RISK_DIALS } from '../lib/riskDial';
@@ -564,7 +564,8 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, setAdv,
           <div className="m-seg">{[0, 25, 50, 75, 100].map(v => <button key={v} type="button" className={(r.payoutPct ?? 100) === v ? 'active' : ''} onClick={() => setAdv(r, { payoutPct: v, onProfit: v > 0 ? 'collect' : 'compound' })} data-testid={`pay-${v}-${r.id}`}>{v}%</button>)}</div>
           <div className="m-seg">{[['smart', '🧲 Smart'], ['even', '⚖ Even'], ['off', '✋ Off']].map(([k, l]) => <button key={k} type="button" className={(r.compoundStyle || 'smart') === k ? 'active' : ''} onClick={() => setAdv(r, { compoundStyle: k })} data-testid={`cmp-${k}-${r.id}`}>{l}</button>)}</div>
           <span className="m-label" data-tip="Adaptive: a losing card's weak coin swaps into a major, a winning card's into a fresh runner">🔄 ROUND CYCLE</span>
-          <div className="m-seg">{[['steady', '➡ Steady'], ['classic', '⚓→🔥 Classic'], ['adaptive', '🧠 Adaptive'], ['safe', '⚓⇄⚖ Safe'], ['press', '🔥⇄⚖ Press']].map(([k, l]) => <button key={k} type="button" className={(r.cycle || 'steady') === k ? 'active' : ''} onClick={() => setAdv(r, { cycle: k })} data-testid={`cyc-${k}-${r.id}`}>{l}</button>)}</div>
+          <div className="m-seg">{[['steady', '➡ Steady'], ['classic', '⚓→🔥 Classic'], ['adaptive', '🧠 Adaptive'], ['safe', '⚓⇄⚖ Safe'], ['press', '🔥⇄⚖ Press'], ['rescue', '🛟 Rescue'], ['auto', '🤖 Auto']].map(([k, l]) => <button key={k} type="button" className={(r.cycle || 'steady') === k ? 'active' : ''} onClick={() => setAdv(r, { cycle: k })} data-testid={`cyc-${k}-${r.id}`}>{l}</button>)}</div>
+          <CycleBuilder value={r.cycle} onChange={v => setAdv(r, { cycle: v })} />
           <div className="m-seg">{[['sell', 'Sell'], ['park', '🅿 Park & buy back'], ['hold', '❄ Hold']].map(([k, l]) => <button key={k} type="button" className={(r.slMode || 'sell') === k ? 'active' : ''} onClick={() => setAdv(r, { slMode: k })} data-testid={`sl-${k}-${r.id}`}>{l}</button>)}</div>
           <span className="m-label" data-tip="When the card's 5 rounds run out and it's up more than the pack price, it pays +5 rounds from its profit (owed until the next take). Never while it's flat or down. Swap fees always come out of the swap itself.">💸 FEES</span>
           <div className="m-seg">{[[true, '💸 Card pays from profit'], [false, '✋ I pay']].map(([k, l]) => <button key={l} type="button" className={(r.autoFees !== false) === k ? 'active' : ''} onClick={() => setAdv(r, { autoFees: k })} data-testid={`fees-${k ? 'card' : 'me'}-${r.id}`}>{l}</button>)}</div></div>

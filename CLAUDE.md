@@ -604,6 +604,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🖥 Always-on host: `deploy/Dockerfile` + `deploy/run-all.sh` (all services + loops + Circle signer, auto-restart) · docs/ALWAYS_ON.md.
   ONLY one backend may run against the Fuse wallet.
 
+- 🛟 Shapes + cycles (tier `PHASES` + user `CARD_SHAPES`): anchor · degen · mixed · 🛡 safest (3 majors + 1 runner) · ⚖ breakeven
+  (1 high-vol pool + 3 high-vol runners, `byVol`). Cycles: classic/adaptive/safe/press/🛟 rescue (safest ⇄ breakeven)/🤖 auto, or a CUSTOM
+  pick of ≤3 shapes ('degen,safest,anchor', `cycle_seq` / `valid_card_cycle`, `CycleBuilder`). Any card ≤ −50% (`RESCUE_PCT`) → rescue.
+  Low churn: rotation swaps only coins ≤ −`rotateMinDrop` (10%); re-shape every `cycleEvery` rounds (6). Floor default 60.
+- 👛 Fuse wallet fronts a tier card's network fees + rent for its first 5 rounds; from round 5 the card pays (`cardPays` on orders).
+  Min order $0.75; user cards ≤ $5 need ≥ $0.75 per coin (Lab note + FuseGo blocks the slice).
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

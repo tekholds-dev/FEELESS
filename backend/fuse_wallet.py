@@ -15,7 +15,7 @@ import statistics
 
 SOL_MINT = 'So11111111111111111111111111111111111111112'
 DEFAULT_CFG = {'walletId': '', 'address': '', 'armed': False, 'paused': False, 'maxCardUsd': 100.0, 'maxSwapUsd': 50.0,
-               'dailyUsd': 300.0, 'reserveSol': 0.03, 'slippageBps': 100, 'maxImpactPct': 3.0, 'minOrderUsd': 0.5}
+               'dailyUsd': 300.0, 'reserveSol': 0.03, 'slippageBps': 100, 'maxImpactPct': 3.0, 'minOrderUsd': 0.75}
 RANGES = {'maxCardUsd': (5, 50000), 'maxSwapUsd': (1, 10000), 'dailyUsd': (5, 100000), 'reserveSol': (0.005, 5),
           'slippageBps': (10, 300), 'maxImpactPct': (0.2, 10), 'minOrderUsd': (0.25, 50)}
 DUST_USD = 0.05
@@ -174,6 +174,8 @@ def apply_fill(book, order, fill, sol_px):
         if -fill['sol'] > swap_sol:
             b['rentSol'] = round(_f(b.get('rentSol')) + (-fill['sol'] - swap_sol), 9)
             sol_move = -swap_sol
+    if order.get('cardPays'):   # after its first 5 rounds the card pays its own network fees + rent (the wallet fronted them until then)
+        sol_move -= fill['feeSol'] + (_f(b.get('rentSol')) - _f(book.get('rentSol')))
     b['sol'] = round(_f(b.get('sol')) + sol_move, 9)
     b['feesSol'] = round(_f(b.get('feesSol')) + fill['feeSol'], 9)
     b['feesUsd'] = round(_f(b.get('feesUsd')) + fill['feeSol'] * sol_px, 6)

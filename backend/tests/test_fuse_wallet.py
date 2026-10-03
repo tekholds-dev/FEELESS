@@ -148,3 +148,12 @@ def test_rent_and_network_fees_never_come_out_of_the_card():
     order = {'side': 'buy', 'mint': 'M', 'pair': 'pm', 'symbol': 'M', 'lamports': 200_000_000}
     b, r = fw.apply_fill(book, order, {'atoms': 20_000_000, 'decimals': 6, 'sol': -0.20204, 'feeSol': 0.00001}, 100.0)   # 0.2 swap + 0.00204 rent
     assert abs(b['sol'] - 0.8) < 1e-9 and abs(b['rentSol'] - 0.00204) < 1e-9 and r['usd'] == 20.0   # card paid exactly the swap
+
+
+def test_wallet_fronts_fees_for_5_rounds_then_the_card_pays():
+    order = {'side': 'buy', 'mint': 'M', 'pair': 'pm', 'symbol': 'M', 'lamports': 200_000_000}
+    fill = {'atoms': 20_000_000, 'decimals': 6, 'sol': -0.20204, 'feeSol': 0.00001}
+    early, _ = fw.apply_fill(fw.new_book(100, 100.0, 0), order, fill, 100.0)
+    late, _ = fw.apply_fill(fw.new_book(100, 100.0, 0), {**order, 'cardPays': True}, fill, 100.0)
+    assert abs(early['sol'] - 0.8) < 1e-9 and abs(late['sol'] - (0.8 - 0.00001 - 0.00204)) < 1e-9
+    assert fw.DEFAULT_CFG['minOrderUsd'] == 0.75

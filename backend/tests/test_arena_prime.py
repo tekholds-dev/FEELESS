@@ -17,7 +17,7 @@ C = lambda m, px, sym=None, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': s
 P = lambda m, px: C(m, px, liquidityUsd=2e6, volume24h=2e6)             # 5★ pool
 R = lambda m, px, sc=90: C(m, px, score=sc)                                 # 5★ runner by default
 SOL = [C('sol', 1, 'SOL'), C('jito', 1, 'JitoSOL')]
-CFG = ap.clean_cfg({'floorPct': 20, 'cycles': {'safe': 'off', 'balanced': 'off', 'degen': 'classic', 'next': 'classic', 'ever': 'off'},   # the original tier behaviour
+CFG = ap.clean_cfg({'floorPct': 20, 'rotateMinDrop': 0, 'cycleEvery': 1, 'cycles': {'safe': 'off', 'balanced': 'off', 'degen': 'classic', 'next': 'classic', 'ever': 'off'},   # the original tier behaviour
                     'payouts': {'safe': 0, 'balanced': 0, 'degen': 0, 'next': 0, 'ever': 0}, 'compoundStyle': 'even'})
 
 
@@ -121,7 +121,7 @@ def test_day_record_counts_good_days_honestly():
 
 def test_cfg_ranges():
     c = ap.clean_cfg({'rotateHours': 0.01, 'rotateCount': 9, 'sizeUsd': 5, 'compound': False, 'floorPct': 60})
-    assert c['rotateHours'] == 0.08 and c['rotateCount'] == 3 and c['sizeUsd'] == 10 and c['compound'] is False and c['floorPct'] == 40
+    assert c['rotateHours'] == 0.08 and c['rotateCount'] == 3 and c['sizeUsd'] == 10 and c['compound'] is False and c['floorPct'] == 60
 
 
 def test_service_deals_ticks_and_admin_config(monkeypatch):
@@ -193,7 +193,7 @@ def test_rounds_count_and_the_best_card_of_each_round_is_crowned():
 
 
 def test_cycling_tiers_move_through_anchor_degen_anchor_mixed_rounds():
-    cfg = ap.clean_cfg({'rotateHours': 1, 'floorPct': 20, 'cycles': CFG['cycles'], 'payouts': CFG['payouts']})
+    cfg = ap.clean_cfg({'rotateHours': 1, 'floorPct': 20, 'cycleEvery': 1, 'rotateMinDrop': 0, 'cycles': CFG['cycles'], 'payouts': CFG['payouts']})
     maj = [C('sol', 1, 'SOL'), C('btc', 1, 'cbBTC'), C('eth', 1, 'WETH')]   # an anchor round needs ≥ 3 coins
     runners = [R('r1', 1), R('r2', 1), R('r3', 1)]
     flat = {'Psol': 1, 'Pbtc': 1, 'Peth': 1, 'Pa': 1, 'Pr1': 1, 'Pr2': 1, 'Pr3': 1}
@@ -355,3 +355,24 @@ def test_hold_rule_streaks_and_min_3_coin_cycles():
     assert lost['cycleFix'] == 'safe' and lost['streak'] == 0
     won = ap.tick(dict(card, streak=2, legs=[dict(runner)], roundStartUsd=10.0), {'PR': 1.1}, [], [], cfg, 3600, liqs=lq)   # 3rd win → locked + frozen
     assert won['lockRounds'] == 1 and won['legs'][0]['freezeRounds'] == 1
+
+
+def test_rescue_auto_custom_cycles_and_low_churn():
+    assert ap.cycle_seq('degen,safest,anchor') == ('degen', 'safest', 'anchor') and ap.cycle_seq('degen,nope') is None
+    assert ap.next_phase('auto', 0, -20) == 'breakeven' and ap.next_phase('auto', 0, -2) == 'safest' and ap.next_phase('auto', 0, 9) == 'degen'
+    assert ap.next_phase('rescue', 0, 0) == 'safest' and ap.next_phase('rescue', 1, 0) == 'breakeven'
+    c = ap.clean_cfg({'cycles': {'degen': 'degen,safest,breakeven'}})
+    assert c['cycles']['degen'] == 'degen,safest,breakeven' and c['rotateMinDrop'] == 10 and c['cycleEvery'] == 6
+    # breakeven picks the highest-VOLUME runners
+    runners = [{**R('a', 1), 'vol1h': 10}, {**R('b', 1), 'vol1h': 900}, {**R('c', 1), 'vol1h': 500}, {**R('d', 1), 'vol1h': 700}]
+    d = ap.deal('next', [{**P('p', 1), 'volume24h': 1e6}], runners, ap.clean_cfg({}), 0, [], shape='breakeven')
+    assert sorted(l['mint'] for l in d['legs'] if l['role'] == 'runner') == ['b', 'c', 'd']
+    # rescue: a card 50% under its start switches cycle; a winning coin is never rotated out
+    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 1, 'floorPct': 60})
+    legs = [{'mint': 'W', 'pairAddress': 'PW', 'symbol': 'W', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0},
+            {'mint': 'L', 'pairAddress': 'PL', 'symbol': 'L', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0}]
+    card = {'id': 'prime-next', 'tpl': 'next', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
+            'events': [], 'startUsd': 32.0, 'legs': legs}   # 15.5 of 32 = −52%: rescue, above the −60% floor
+    new = [{'mint': 'N', 'pairAddress': 'PN', 'symbol': 'N', 'price': 1.0, 'score': 99, 'stars': 5}]
+    out = ap.tick(card, {'PW': 1.05, 'PL': 0.5, 'PN': 1.0}, [], new, cfg, 3600, liqs={'PW': 1e12, 'PL': 1e12, 'PN': 1e12})
+    assert out['cycleFix'] == 'rescue' and 'W' in [l['mint'] for l in out['legs']]

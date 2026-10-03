@@ -4837,7 +4837,7 @@ async def _card_dna_tag(cards, rd):
         k = f"{c['kind']}:{c['id']}"
         if c['kind'] == 'user' and c['id'] in pos:
             x = pos[c['id']]
-            fixed[k] = _dna.clean({'cycle': x.get('cycle') if x.get('cycle') in ('classic', 'adaptive', 'safe', 'press') else 'off', 'compound': x.get('compoundStyle') or 'smart', 'payoutPct': x.get('payoutPct', 100),
+            fixed[k] = _dna.clean({'cycle': x.get('cycle') if x.get('cycle') in ('classic', 'adaptive', 'safe', 'press', 'rescue', 'auto') else 'off', 'compound': x.get('compoundStyle') or 'smart', 'payoutPct': x.get('payoutPct', 100),
                                    'clock': x.get('rotateHours') or 24, 'stop': x.get('slMode') or 'sell'})
         elif c['kind'] == 'prime':
             fixed[k] = _dna.clean({'cycle': (pcfg.get('cycles') or {}).get(c['id'], 'off'), 'compound': pcfg.get('compoundStyle', 'smart') if pcfg.get('compound') else 'off',
@@ -5634,7 +5634,7 @@ async def _fw_tick(now):
         book = _fw.bank(book, card.get('walletUsd'), sol_px)
         want = {**card, 'legs': []} if book.get('defund') else card
         for side in ('sell', 'buy'):
-            for o in [x for x in _fw.orders(tid, want, book, px, sol_px, cfg, now) if x['side'] == side]:
+            for o in [{**x, 'cardPays': int(card.get('rounds') or 0) >= 5} for x in _fw.orders(tid, want, book, px, sol_px, cfg, now) if x['side'] == side]:
                 book = await _fw_execute(tid, o, book, cfg, sol_px, liqs.get(o.get('pair')))
                 if book.get('pending'):
                     break
@@ -6282,7 +6282,7 @@ async def fuse_dna_unique(dial: str = '', seed: str = ''):
     taken = dict((_json_load(FUSE_HQ_PATH, {}).get('cardDna') or {}))
     for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or []:
         if not x.get('closedAt'):
-            taken[f"user:{x['id']}"] = _dna.clean({'cycle': x.get('cycle') if x.get('cycle') in ('classic', 'adaptive', 'safe', 'press') else 'off', 'compound': x.get('compoundStyle') or 'smart',
+            taken[f"user:{x['id']}"] = _dna.clean({'cycle': x.get('cycle') if x.get('cycle') in ('classic', 'adaptive', 'safe', 'press', 'rescue', 'auto') else 'off', 'compound': x.get('compoundStyle') or 'smart',
                                                    'payoutPct': x.get('payoutPct', 100), 'clock': x.get('rotateHours') or 24, 'stop': x.get('slMode') or 'sell'})
     new_id = f"new:{seed or uuid.uuid4().hex[:8]}"
     d = _dna.assign([*({'id': k} for k in taken), {'id': new_id, 'dial': dial if dial in ('safe', 'balanced', 'degen') else None}], known=taken)[new_id]

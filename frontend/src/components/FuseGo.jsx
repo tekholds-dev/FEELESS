@@ -55,7 +55,10 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
       try { const order = await api('/quote', bundle >= 2 ? { ...o.request, bundle, card: 1, cardId: position || '' } : { ...o.request, card: 1, cardId: position || '' }); await api('/simulate', { order_id: order.order_id }); return orderMatches(o, order) ? { ...o, order } : { ...o, err: 'Quote did not match — refreshing' }; }
       catch (e) { return { ...o, err: e.message }; }
     }));
-    if (my === seq.current) { setRows(got); setPhase(p => (p === 'quote' ? 'review' : p)); }
+    // $5-or-less cards: every coin must be at least $0.75 (smaller slices lose too much to fees + impact) — never sent
+    const totUsd = got.reduce((a, r) => a + (Number(r.order?.quote?.inUsdValue) || 0), 0);
+    const checked = !sell && totUsd > 0 && totUsd <= 5 ? got.map(r => (r.order && (Number(r.order.quote?.inUsdValue) || 0) < 0.75 ? { ...r, err: 'Under $0.75 — small cards need $0.75+ per coin' } : r)) : got;
+    if (my === seq.current) { setRows(checked); setPhase(p => (p === 'quote' ? 'review' : p)); }
   };
   useEffect(() => {
     if (!addr || !['quote', 'review'].includes(phase)) return undefined;

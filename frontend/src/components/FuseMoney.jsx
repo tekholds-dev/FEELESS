@@ -100,6 +100,7 @@ export function CardCosts({ coins = 3, amount = 20, staff = false, rounds = 10, 
   const x = p?.plan;
   if (!x) return <div className="ccost m-card"><span className="m-label">💲 WHAT THIS CARD COSTS</span><small className="m-dim">loading prices…</small></div>;
   return <div className="ccost m-card" data-testid="card-costs"><span className="m-label">💲 WHAT THIS CARD COSTS</span>
+    {amount > 0 && amount <= 5 && amount / coins < 0.75 && <p className="m-note warn" data-testid="ccost-min">Cards of $5 or less buy at least $0.75 per coin — use {Math.max(1, Math.floor(amount / 0.75))} coins or more $.</p>}
     {staff ? <p className="ccost-free">HQ card · <b>$0 FEELESS fee</b> — only Solana network fees (~$0.001 per swap).</p> : <>
       <ul className="ccost-list">
         <li data-tip={`$${x.perCoinUsd.toFixed(2)} per coin, never more than ${p.bundle.maxPct}% of a coin's slice`}><span>🃏 First buy · {coins} coins</span><b className="m-num">{usd(x.buyUsd)}</b></li>
@@ -131,4 +132,17 @@ export function CoinTable({ legs = [] }) {
       <span className="m-num">{l.entryPx ? `$${Number(l.entryPx).toPrecision(3)}` : '—'} → {l.nowPx ? `$${Number(l.nowPx).toPrecision(3)}` : '—'}</span>
       <span className="m-num">{usd(l.inUsd)} → {usd(l.nowUsd)}</span>
       <em className={`m-num fl-tick ${l.pct >= 0 ? 'm-pos' : 'm-neg'}`} key={(l.pct || 0).toFixed(1)}>{l.nowPx ? pct(l.pct) : '—'}</em></div>)}</div>;
+}
+
+
+// 🔄 Pick-3 cycle: choose up to 3 shapes in order (anchor · degen · mixed · 🛡 safest · ⚖ breakeven) — or keep a named / auto cycle.
+const SHAPES = [['anchor', '⚓ Anchor'], ['degen', '🔥 Degen'], ['mixed', '⚖ Mixed'], ['safest', '🛡 Safest'], ['breakeven', '⚖ Breakeven']];
+export function CycleBuilder({ value, onChange }) {
+  const custom = typeof value === 'string' && value.includes(',') ? value.split(',') : [];
+  const [parts, setParts] = useState(custom.length ? custom : ['', '', '']);
+  const set = (i, v) => { const n = [...parts]; n[i] = v; setParts(n); const pick = n.filter(Boolean); if (pick.length >= 2) onChange(pick.join(',')); };
+  return <span className="cyb" data-testid="cycle-builder" data-tip="Your own cycle: up to 3 shapes, played in order each round. Any card ≤ −50% still switches to 🛟 rescue by itself.">
+    <small>OR PICK 3</small>{[0, 1, 2].map(i => <select key={i} className="m-input" value={parts[i] || ''} onChange={e => set(i, e.target.value)} aria-label={`Cycle shape ${i + 1}`} data-testid={`cyb-${i}`}>
+      <option value="">{i < 2 ? `shape ${i + 1}` : '(optional)'}</option>{SHAPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>)}
+    {custom.length > 0 && <b className="m-num">✓ {custom.join(' → ')}</b>}</span>;
 }

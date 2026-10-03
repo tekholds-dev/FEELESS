@@ -13,12 +13,12 @@ battle results it scores every trait value and `best` returns the winning combin
 """
 import hashlib
 
-CYCLES = ('off', 'classic', 'adaptive', 'safe', 'press')
+CYCLES = ('off', 'classic', 'adaptive', 'safe', 'press', 'rescue', 'auto')
 COMPOUNDS = ('smart', 'even', 'off')
 PAYOUTS = (0, 25, 50, 75, 100)
 CLOCKS = (5 / 60, 0.25, 1, 12, 24)
 STOPS = ('sell', 'park', 'hold')
-EMOJI = {'off': '➡', 'classic': '⚓🔥', 'adaptive': '🧠', 'safe': '⚓', 'press': '🔥', 'smart': '🧲', 'even': '⚖', 'sell': '✂', 'park': '🅿', 'hold': '❄'}
+EMOJI = {'off': '➡', 'classic': '⚓🔥', 'adaptive': '🧠', 'safe': '⚓', 'press': '🔥', 'rescue': '🛟', 'auto': '🤖', 'smart': '🧲', 'even': '⚖', 'sell': '✂', 'park': '🅿', 'hold': '❄'}
 
 
 def _f(v):

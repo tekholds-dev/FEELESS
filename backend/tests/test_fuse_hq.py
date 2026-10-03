@@ -240,3 +240,11 @@ def test_prepaid_swaps_credit_and_spend():
     assert hq.prepay_credit(pos, 0.3, {}) == 0 and hq.prepay_credit(pos, 0.49, {}) == 10 and pos['prepaidSwaps'] == 10
     assert hq.use_prepaid(pos, 3) == 3 and pos['prepaidSwaps'] == 7 and hq.use_prepaid(pos, 99) == 7 and pos['prepaidSwaps'] == 0
     assert hq.clean_prepay({'on': False})['usd'] == 0
+
+
+def test_user_cycles_rescue_auto_and_custom_three():
+    assert hq.valid_card_cycle('degen,safest,anchor') and not hq.valid_card_cycle('a,b,c,d') and not hq.valid_card_cycle('degen,nope')
+    assert hq.cycle_pick({'cycle': 'press'}, -55) == 'majors'                 # ≤ −50% → rescue → safest first → majors
+    assert hq.cycle_pick({'cycle': 'auto'}, -20) == 'runners'                 # auto deep red → breakeven runners
+    assert hq.cycle_pick({'cycle': 'degen,safest', 'roundsUsed': 1}, 0) == 'majors'
+    assert hq._extras({'cycle': 'degen,safest,breakeven'})['cycle'] == 'degen,safest,breakeven'

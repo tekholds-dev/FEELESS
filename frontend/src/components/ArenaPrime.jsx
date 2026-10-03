@@ -5,16 +5,17 @@ import { LiveFuseCard, revalue } from './FuseCard';
 import { useLivePrices } from '../lib/livePrices';
 import { openWarRoom } from './WarRoomHost';
 import { CardEarnings } from './CardEarnings';
-import { RoundBell, TrailSummary, usd, usdK, pct, txUrl } from './FuseMoney';
+import { RoundBell, TrailSummary, CycleBuilder, usd, usdK, pct, txUrl } from './FuseMoney';
 
 // ⭐ ARENA PRIME: FEELESS's own top-tier cards, FULLY AUTO on paper — auto TP/SL, auto-compound, 2 coins rotate every 6h. Different
 // from creator picks: these are the public proof the automation works before any trader's config goes auto. "Buy now" loads the
 // card into the Lab (traders: up to 3 pools + 3 runners; you approve one wallet transaction).
 const CYCLE_PICKS = [['off', 'Off', "Keep the tier's own shape every round"], ['classic', '⚓→🔥', 'anchor → degen → anchor → mixed'],
-  ['adaptive', '🧠 Adaptive', 'A losing round rests in majors, a +5% round presses with runners, flat = mixed'], ['safe', '⚓⇄⚖', 'anchor ⇄ mixed'], ['press', '🔥⇄⚖', 'degen ⇄ mixed']];
+  ['adaptive', '🧠 Adaptive', 'A losing round rests in majors, a +5% round presses with runners, flat = mixed'], ['safe', '⚓⇄⚖', 'anchor ⇄ mixed'], ['press', '🔥⇄⚖', 'degen ⇄ mixed'],
+  ['rescue', '🛟', '🛡 safest (3 majors + 1 runner) ⇄ ⚖ breakeven (1 high-volume pool + 3 high-volume runners)'], ['auto', '🤖 Auto', 'Engine picks each round: deep red → breakeven · red → safest · +5% → degen · flat → mixed']];
 const LEG_MODES = ['', 'replace', 'park', 'hold'];   // '' = follow the card
 const LEG_WORD = { '': '🃏 card', replace: '⇄ replace', park: '🅿 park', hold: '❄ hold' };
-const KIND = { rug: '🚨 Rug shield', payout: '💸 Paid to wallet', tp: '💰 Auto TP', sl: '🛑 Auto stop', rotate: '⇄ Rotate', compound: '♻ Compound', deal: '🃏 Dealt', floor: '🛡 Floor', park: '🅿 Parked', rebuy: '↩ Bought back', phase: '🔄 Phase', topup: '💵 Top-up', defund: '↩ Back to paper', run: '🏁 Run closed', ride: '🏇 Riding' };
+const KIND = { rescue: '🛟 Rescue cycle', fix: '🔧 Config fixed', streak: '📈 Streak', 'ride-end': '🏇 Ride over', rug: '🚨 Rug shield', payout: '💸 Paid to wallet', tp: '💰 Auto TP', sl: '🛑 Auto stop', rotate: '⇄ Rotate', compound: '♻ Compound', deal: '🃏 Dealt', floor: '🛡 Floor', park: '🅿 Parked', rebuy: '↩ Bought back', phase: '🔄 Phase', topup: '💵 Top-up', defund: '↩ Back to paper', run: '🏁 Run closed', ride: '🏇 Riding' };
 // Tier FX: 💎 Diamond = frost aura + prism ring + glints · 🥇 Gold = gold dust + shine sweep · 🔥 Blaze = fire + embers.
 // They burn brighter (is-hot) when the card is up ≥ +10%. Transform/opacity only; frozen under fx-lite / reduced motion.
 // Each tier is its OWN MetaCard build: design pattern, rarity frame, colours and aura — recognisable at a glance (and in lite mode).
@@ -106,6 +107,8 @@ export function PrimeControls({ call }) {
       <label className="prime-min" data-tip="Any interval: 15 min – 48 h. The weakest non-anchor coins rotate out on this clock."><input className="m-input m-num" inputMode="numeric" value={mins} onChange={e => setMins(e.target.value.replace(/[^0-9]/g, ''))}
         onBlur={() => Number(mins) >= 15 && Number(mins) !== Math.round(cfg.rotateHours * 60) && save({ rotateHours: Math.min(48, Number(mins) / 60) })} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} data-testid="prime-rotate-min" /><span>min</span></label>{null}
       <span>Coins per rotation</span>{seg('rotateCount', [1, 2, 3], v => `${v}`)}
+      <span data-tip="Rotation only swaps a coin that is actually losing — winners are never churned (fewer fees, less price impact)">Rotate only coins down</span>{seg('rotateMinDrop', [0, 5, 10, 20], v => (v ? `−${v}%` : 'any'))}
+      <span data-tip="How often a cycling card re-shapes. Every re-shape sells + re-buys coins — every 6 rounds on 5-min rounds = every 30 min">Re-shape every</span>{seg('cycleEvery', [1, 3, 6, 12], v => `${v} rnd`)}
       <span data-tip="Rounds per run: when they're done the run closes on the record (its %) and the next run starts from there. ∞ = one endless run. Every round opens with a 10s countdown.">Rounds per run</span>{seg('roundsPerRun', [0, 5, 10, 20, 50], v => (v ? `${v}` : '∞'))}
       <span data-tip="Card-level floor: at this loss every pool + runner moves into the anchor, then the card is re-dealt as a new run">Floor</span>{seg('floorPct', [10, 15, 20, 25], v => `−${v}%`)}
       <label className="m-toggle"><input type="checkbox" checked={cfg.compound} onChange={e => save({ compound: e.target.checked })} /><span>Auto-compound gains</span></label>
@@ -114,6 +117,7 @@ export function PrimeControls({ call }) {
     <div className="prime-cycles" data-testid="prime-cycles"><span className="m-label" data-tip="What each tier deals into every round (same run, P&L continues)">🔄 ROUND CYCLES</span>
       {(d?.cards || []).map(c => <div key={c.tpl} className="m-row"><b>{c.label}</b><span className="m-seg" role="group">{CYCLE_PICKS.map(([m, l, tip]) =>
         <button key={m} type="button" className={(cyc[c.tpl] || 'off') === m ? 'active' : ''} data-tip={tip} onClick={() => save({ cycles: { ...cyc, [c.tpl]: m } })} data-testid={`cycle-${c.tpl}-${m}`}>{l}</button>)}</span>
+        <CycleBuilder value={cyc[c.tpl]} onChange={v => save({ cycles: { ...cyc, [c.tpl]: v } })} />
         <span className="m-seg" role="group" data-tip="Share of every profit take paid straight to the owner's wallet — the rest compounds">{[0, 25, 50, 75, 100].map(v =>
           <button key={v} type="button" className={(cfg.payouts || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ payouts: { ...(cfg.payouts || {}), [c.tpl]: v } })} data-testid={`payout-${c.tpl}-${v}`}>💸{v}%</button>)}</span></div>)}
       <div className="m-row"><b>Compound style</b><span className="m-seg" role="group">{[['smart', '🧲 Smart', 'Gains go to the strongest coins (momentum-weighted), never into fading ones'], ['even', '⚖ Even', 'Gains split evenly across the other coins']].map(([v, l, tip]) =>

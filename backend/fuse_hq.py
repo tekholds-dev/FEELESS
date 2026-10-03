@@ -872,26 +872,40 @@ def coin_sl_mode(pos, pa):
     m = (pos.get('coinModes') or {}).get(pa)
     return m if m in SL_MODES else (pos.get('slMode') if pos.get('slMode') in SL_MODES else 'sell')
 SL_MODES = ('sell', 'park', 'hold')
-CARD_CYCLES = ('steady', 'classic', 'adaptive', 'safe', 'press')   # 🔄 round cycle (same names as the tier cards)
+CARD_CYCLES = ('steady', 'classic', 'adaptive', 'safe', 'press', 'rescue', 'auto')   # 🔄 round cycle (same names as the tier cards)
 # steady = always the best runner · classic = anchor → degen → anchor → mixed · adaptive = losing → a major, winning → a runner ·
-# safe = anchor ⇄ mixed · press = degen ⇄ mixed. anchor round → swap into a major · degen → a runner · mixed → alternates.
-_CYCLE_SEQ = {'classic': ('anchor', 'degen', 'anchor', 'mixed'), 'safe': ('anchor', 'mixed'), 'press': ('degen', 'mixed')}
+# safe = anchor ⇄ mixed · press = degen ⇄ mixed · rescue = 🛡 safest ⇄ ⚖ breakeven · auto = the engine picks each round ·
+# or a CUSTOM pick of up to 3 shapes ('degen,safest,anchor'). Any card ≤ −50% switches to rescue by itself.
+CARD_SHAPES = ('anchor', 'degen', 'mixed', 'safest', 'breakeven')
+_CYCLE_SEQ = {'classic': ('anchor', 'degen', 'anchor', 'mixed'), 'safe': ('anchor', 'mixed'), 'press': ('degen', 'mixed'), 'rescue': ('safest', 'breakeven')}
+RESCUE_PCT = -50.0
+
+
+def valid_card_cycle(c):
+    if c in CARD_CYCLES:
+        return True
+    parts = [x.strip() for x in str(c or '').split(',') if x.strip()]
+    return 0 < len(parts) <= 3 and all(x in CARD_SHAPES for x in parts)
 
 
 def cycle_phase(pos, pnl_pct):
-    c = pos.get('cycle') or 'steady'
+    c = 'rescue' if _f(pnl_pct) <= RESCUE_PCT else (pos.get('cycle') or 'steady')
     if c == 'adaptive':
         return 'anchor' if _f(pnl_pct) < 0 else 'degen' if _f(pnl_pct) >= 5 else 'mixed'
-    seq = _CYCLE_SEQ.get(c)
+    if c == 'auto':
+        return 'breakeven' if _f(pnl_pct) <= -15 else 'safest' if _f(pnl_pct) < 0 else 'degen' if _f(pnl_pct) >= 5 else 'mixed'
+    seq = _CYCLE_SEQ.get(c) or (tuple(x.strip() for x in c.split(',') if x.strip()) if valid_card_cycle(c) and ',' in c else None)
+    if not seq and c in CARD_SHAPES:
+        seq = (c,)
     return seq[int(pos.get('roundsUsed') or 0) % len(seq)] if seq else 'degen'
 
 
 def cycle_pick(pos, pnl_pct):
-    """Which pool the card's next swap draws from this round: 'majors' (anchor round) or 'runners' (degen); mixed alternates."""
+    """Which pool the card's next swap draws from this round: 'majors' (anchor / safest) or 'runners' (degen / breakeven); mixed alternates."""
     ph = cycle_phase(pos, pnl_pct)
     if ph == 'mixed':
         return 'majors' if int(pos.get('roundsUsed') or 0) % 2 else 'runners'
-    return 'majors' if ph == 'anchor' else 'runners'
+    return 'majors' if ph in ('anchor', 'safest') else 'runners'
 
 
 def _extras(plan):
@@ -899,7 +913,7 @@ def _extras(plan):
     (sell · park = sell to SOL, then a one-tap buy-back alert when price is back at entry with buyers · hold = no stop alert)."""
     pay = plan.get('payoutPct')
     pay = int(pay) if pay in (0, 25, 50, 75, 100) else (0 if plan.get('onProfit') == 'compound' else 100)
-    return {'rotateHours': rotate_hours(plan.get('rotateHours')), 'cycle': plan.get('cycle') if plan.get('cycle') in CARD_CYCLES else 'steady',
+    return {'rotateHours': rotate_hours(plan.get('rotateHours')), 'cycle': plan.get('cycle') if valid_card_cycle(plan.get('cycle')) else 'steady',
             'payoutPct': pay, 'compoundStyle': plan.get('compoundStyle') if plan.get('compoundStyle') in ('smart', 'even', 'off') else 'smart', 'slMode': plan.get('slMode') if plan.get('slMode') in SL_MODES else 'sell',
             'autoFees': bool(plan.get('autoFees', True))}
 

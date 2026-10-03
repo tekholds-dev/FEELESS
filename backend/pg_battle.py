@@ -148,7 +148,7 @@ def ready_rows(record, names, min_w=3):
     return out
 
 
-PHASE_ANCHOR = {'anchor': 0.7, 'mixed': 0.5, 'degen': 0.15}   # share of the card held in the anchor (majors) per phase
+PHASE_ANCHOR = {'anchor': 0.7, 'mixed': 0.5, 'degen': 0.15, 'safest': 0.75, 'breakeven': 0.0}   # share of the card held in the anchor (majors) per phase
 
 
 def cycle_rebalance(card, dna, last_pct, prices, liqs):

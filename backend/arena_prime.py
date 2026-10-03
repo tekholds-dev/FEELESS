@@ -31,13 +31,32 @@ MIN_STARS = 3
 # rest again, then a half-and-half round. Same run (P&L continues); every phase change is an event with its reason.
 PHASES = {'anchor': {'anchors': 3, 'pools': 0, 'runners': 0, 'why': 'anchor round — resting in majors'},
           'degen': {'anchors': 1, 'pools': 0, 'runners': 3, 'why': 'degen round — runners strike'},
-          'mixed': {'anchors': 2, 'pools': 0, 'runners': 2, 'why': 'mixed round — half majors, half fresh runners'}}
+          'mixed': {'anchors': 2, 'pools': 0, 'runners': 2, 'why': 'mixed round — half majors, half fresh runners'},
+          'safest': {'anchors': 3, 'pools': 0, 'runners': 1, 'why': '🛡 safest run — 3 majors + 1 runner'},
+          'breakeven': {'anchors': 0, 'pools': 1, 'runners': 3, 'byVol': True, 'why': '⚖ breakeven run — 1 high-volume pool + 3 high-volume runners'}}
+SHAPES = tuple(PHASES)
 CYCLE = ('anchor', 'degen', 'anchor', 'mixed')
 CYCLE_TIERS = ('degen', 'next')
 # 🔄 Round cycles per tier (HQ picks): off = keep the tier's own shape · classic = anchor→degen→anchor→mixed ·
 # adaptive = a LOSING round rests in majors, a winning one (≥ +5%) presses with runners, flat = mixed · safe = anchor⇄mixed ·
 # press = degen⇄mixed. Every phase change is the same run (P&L continues).
-CYCLE_MODES = {'off': None, 'classic': CYCLE, 'adaptive': 'adaptive', 'safe': ('anchor', 'mixed'), 'press': ('degen', 'mixed')}
+CYCLE_MODES = {'off': None, 'classic': CYCLE, 'adaptive': 'adaptive', 'safe': ('anchor', 'mixed'), 'press': ('degen', 'mixed'),
+               'rescue': ('safest', 'breakeven'), 'auto': 'auto'}
+RESCUE_PCT = -50.0   # 🛟 any card that falls 50% under its start switches to the rescue cycle (safest ⇄ breakeven)
+ROTATE_MIN_DROP = 10.0   # rotation only swaps a coin that is actually losing (≤ −10% from entry) — winners are never churned
+CYCLE_EVERY = (1, 3, 6, 12)   # re-shape every N rounds (default 6: on 5-min rounds = every 30 min, not every round)
+
+
+def cycle_seq(mode):
+    """A named cycle, 'auto', or a CUSTOM pick of up to 3 shapes ('degen,safest,anchor'). None = no cycling."""
+    if isinstance(mode, str) and ',' in mode:
+        parts = [x.strip() for x in mode.split(',') if x.strip()][:3]
+        return tuple(parts) if parts and all(x in PHASES for x in parts) else None
+    return CYCLE_MODES.get(mode)
+
+
+def valid_cycle(mode):
+    return mode in CYCLE_MODES or cycle_seq(mode) is not None
 DEFAULT_CYCLES = {'safe': 'safe', 'balanced': 'adaptive', 'degen': 'classic', 'next': 'press', 'ever': 'off'}   # every tier cycles its own way
 DEFAULT_PAYOUTS = {'safe': 25, 'balanced': 50, 'degen': 0, 'next': 25, 'ever': 75}   # % of every profit take paid straight to the wallet
 RUG_LIQ = 0.5   # 🚨 rug shield: pool liquidity at ≤ 50% of entry = pulled → sell at once
@@ -51,18 +70,21 @@ STREAK = 3           # 3 losing rounds → safe config · 3 winning rounds → c
 
 def next_phase(mode, rounds, last_pct):
     """The shape a cycling card deals into next round (None = no phase change)."""
-    seq = CYCLE_MODES.get(mode)
+    seq = cycle_seq(mode)
     if not seq:
         return None
     if seq == 'adaptive':
         return 'anchor' if _f(last_pct) < 0 else 'degen' if _f(last_pct) >= 5 else 'mixed'
+    if seq == 'auto':   # 🤖 auto: deep red round → breakeven · red → safest · strong green → degen · otherwise mixed
+        return 'breakeven' if _f(last_pct) <= -15 else 'safest' if _f(last_pct) < 0 else 'degen' if _f(last_pct) >= 5 else 'mixed'
     return seq[int(rounds or 0) % len(seq)]
 HIT_PCT = 10.0      # a "good day" = the card is up ≥ +10% over 24h
-DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.10, 'floorPct': 40.0, 'slMode': 'replace',
-               'cycles': dict(DEFAULT_CYCLES), 'trail': True, 'payouts': dict(DEFAULT_PAYOUTS), 'compoundStyle': 'smart', 'roundsPerRun': 0}
+DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.10, 'floorPct': 60.0, 'slMode': 'replace',
+               'cycles': dict(DEFAULT_CYCLES), 'trail': True, 'payouts': dict(DEFAULT_PAYOUTS), 'compoundStyle': 'smart', 'roundsPerRun': 0,
+               'rotateMinDrop': ROTATE_MIN_DROP, 'cycleEvery': 6}
 RUN_ROUNDS = (0, 5, 10, 20, 50)   # rounds per run (0 = one endless run): when a run's rounds are done it closes on the record, the next starts
 SL_MODES = ('replace', 'park', 'hold')   # on a stop: auto-replace · sell + park the slot (rebuy at entry with momentum) · hold
-CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.08, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 40)}
+CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.08, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 60)}
 
 
 def exit_plan(gain_pct, mom=None):
@@ -133,7 +155,9 @@ def clean_cfg(p):
     if (p or {}).get('slMode') in SL_MODES:
         out['slMode'] = p['slMode']
     cyc = (p or {}).get('cycles') if isinstance((p or {}).get('cycles'), dict) else {}
-    out['cycles'] = {t: (cyc.get(t) if cyc.get(t) in CYCLE_MODES else DEFAULT_CYCLES.get(t, 'off')) for t in DEFAULT_CYCLES}
+    out['cycles'] = {t: (cyc.get(t) if valid_cycle(cyc.get(t)) else DEFAULT_CYCLES.get(t, 'off')) for t in DEFAULT_CYCLES}
+    out['rotateMinDrop'] = max(0.0, min(50.0, _f((p or {}).get('rotateMinDrop', ROTATE_MIN_DROP))))
+    out['cycleEvery'] = int(_f((p or {}).get('cycleEvery'))) if int(_f((p or {}).get('cycleEvery'))) in CYCLE_EVERY else 6
     if 'trail' in (p or {}):
         out['trail'] = bool(p['trail'])
     pay = (p or {}).get('payouts') if isinstance((p or {}).get('payouts'), dict) else {}
@@ -175,11 +199,15 @@ def _leg(c, usd, now, role):
 
 
 def _picks(t, pools, runners, anchors):
-    """anchors → pools → runners, 3★+ only, one slot per coin (a SOL pool never doubles the SOL anchor)."""
+    """anchors → pools → runners, 3★+ only, one slot per coin (a SOL pool never doubles the SOL anchor). `byVol` shapes take the
+    highest-volume pools / runners first (breakeven needs flow, not just score)."""
     seen, out = set(), []
     for src, role, n in ((anchors, 'anchor', t['anchors']), (pools, 'pool', t['pools']), (runners, 'runner', t['runners'])):
         k = 0
-        for c in rated(src, role):
+        ranked_ = rated(src, role)
+        if t.get('byVol'):
+            ranked_ = sorted(ranked_, key=lambda c: -(_f(c.get('vol1h')) or _f(c.get('volume24h')) / 24))
+        for c in ranked_:
             if k >= n:
                 break
             if _f(c.get('price')) > 0 and c.get('mint') not in seen:
@@ -366,7 +394,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 ev(kind='ride', symbol=l['symbol'], why=f"stayed ≥ +{HOLD_MIN:g}% all round — 🏇 held through the next round", to=[l['symbol']])
             l['roundMin'] = None
         locked_round = int(c.get('lockRounds') or 0) > 0
-        ranked = [] if locked_round else sorted((l for l in c['legs'] if l.get('role') != 'anchor' and not l.get('frozen') and not l.get('ride') and int(l.get('freezeRounds') or 0) <= 0 and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
+        ranked = [] if locked_round else sorted((l for l in c['legs'] if l.get('role') != 'anchor' and not l.get('frozen') and not l.get('ride') and int(l.get('freezeRounds') or 0) <= 0 and l['entry'] > 0
+                                                 and ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 <= -_f(cfg.get('rotateMinDrop', ROTATE_MIN_DROP)) and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
         swapped = 0
         for l in ranked[:cfg['rotateCount']]:
             nxt = best(l['role'])
@@ -407,7 +436,13 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             c['startUsd'], c['dayStartUsd'], c['lowPct'] = round(v_now, 4), round(v_now, 4), 0.0
             ev(kind='run', usd=round(v_now, 4), why=f'{n_run} rounds done — run closed on the record, a new run starts at ${v_now:.2f}')
     # 3b) 🔄 phase cycle: a cycling tier re-deals into the next phase shape every round (same run, P&L continues)
-    phase = next_phase(c.get('cycleFix') or (cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl'], 'off'), c.get('rounds'), c.get('lastRoundPct'))
+    if not c.get('cycleFix') == 'rescue' and (value(c, prices, liqs) / (_f(c['startUsd']) or 1) - 1) * 100 <= RESCUE_PCT:
+        c['cycleFix'] = 'rescue'   # 🛟 fell 50% under its start → safest ⇄ breakeven until a new run
+        ev(kind='rescue', why=f'card ≤ {RESCUE_PCT:.0f}% of its start — 🛟 rescue cycle: safest run ⇄ breakeven runners')
+    every = 1 if c.get('cycleFix') else int(cfg.get('cycleEvery') or 6)
+    phase = next_phase(c.get('cycleFix') or (cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl'], 'off'), (int(c.get('rounds') or 0) // every), c.get('lastRoundPct'))
+    if int(c.get('rounds') or 0) % every:
+        phase = None   # re-shape every N rounds only (less churn = fewer fees + less impact)
     if phase and c['lastRotateAt'] == now and not c.get('flooredAt') and not any(l.get('ride') for l in c['legs']) and not int(c.get('lockRounds') or 0):   # a riding runner holds the shape
         nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=in_play(c, prices, liqs), keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
         if nc:
