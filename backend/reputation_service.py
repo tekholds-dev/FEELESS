@@ -5553,6 +5553,16 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
                     raise
                 await asyncio.sleep(1.5)
         row['impactPct'] = round(_fuse._f(q.get('priceImpactPct')) * 100, 3); row['quoteOut'] = q.get('outAmount')
+        if order['side'] == 'buy':   # 🛡 secure buy: near market price + it really sells back (both read-only quotes)
+            try:
+                back = await _fw_jup('GET', '/swap/v1/quote', params={'inputMint': order['mint'], 'outputMint': _fw.SOL_MINT, 'amount': str(q.get('outAmount')), 'slippageBps': str(cfg['slippageBps'])})
+                back_l = _fuse._f(back.get('outAmount'))
+            except HTTPException:
+                back_l = None
+            ok_s, why_s = _fw.buy_safety(order, q.get('outAmount'), await _mint_decimals(order['mint']), back_l)
+            row['sellBackPct'] = None if back_l is None else round((back_l / max(1, order['lamports']) - 1) * 100, 2)
+            if not ok_s:
+                raise HTTPException(400, why_s)
     except HTTPException as e:
         row.update(status='skipped', err=str(e.detail)[:140])
         async with _fw_lock:

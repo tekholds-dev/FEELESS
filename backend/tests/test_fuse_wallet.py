@@ -227,3 +227,12 @@ def test_real_buys_skip_thin_pools_but_sells_pass():
     assert not ok and 'too thin' in why
     assert fw.check({'side': 'buy', 'usd': 1, 'liq': 50000}, cfg, [], 1)[0]
     assert fw.check({'side': 'sell', 'usd': 1, 'liq': 0}, cfg, [], 1)[0]
+
+
+def test_secure_buy_checks_price_gap_and_sell_back():
+    import fuse_wallet as fw
+    o = {'usd': 1.0, 'midPx': 0.001, 'lamports': 10_000_000}
+    assert fw.buy_safety(o, 1000 * 10**6, 6, 9_700_000)[0]                      # fair price, sells back −3%
+    assert 'above market' in fw.buy_safety(o, 900 * 10**6, 6, 9_700_000)[1]     # 11% worse than market
+    assert 'sell it back' in fw.buy_safety(o, 1000 * 10**6, 6, None)[1]         # honeypot / no route
+    assert 'less' in fw.buy_safety(o, 1000 * 10**6, 6, 8_000_000)[1]            # 20% round-trip loss (tax / one-way)

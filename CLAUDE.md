@@ -638,6 +638,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 💧 Real buys need pool liquidity ≥ `minLiqUsd` ($20K default, Fuse wallet cfg) — thin/pre-bond coins stay paper-only; sells always pass.
   Real cards show SERVER (Jupiter) value only (`LiveFuseCard serverOnly`); SOL anchor cost = SOL left × entry.
 
+- 🛡 Secure real buys (`fuse_wallet.buy_safety`): quote price ≤5% above market AND a read-only sell-back quote loses ≤6% (no honeypot /
+  tax / one-way pool), else skipped + logged. Keeper retries 3× quote / 3× build+sign in-tick; `scripts/keep-alive.sh` restarts dead services.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

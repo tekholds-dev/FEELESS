@@ -391,3 +391,25 @@ def back_to_paper(card, real_end_usd, now):
     base = {k: v for k, v in (snap or card).items() if k != 'paperBefore'}
     base['legs'] = [{x: y for x, y in l.items() if x not in ('buying', 'wantUnits', 'real')} for l in base.get('legs') or []]
     return {**base, 'real': False, 'runs': runs[-10:], 'events': ev}
+
+
+MAX_PRICE_GAP_PCT = 5.0     # the quote's price may be at most this much worse than the market price
+MAX_ROUNDTRIP_PCT = 6.0     # buying then selling straight back may lose at most this (fees + impact both ways)
+
+
+def buy_safety(order, quote_out_atoms, decimals, sell_back_lamports):
+    """(ok, why) for a REAL buy, from two read-only quotes: the buy price must be near the market price (no stale / manipulated
+    route) and the coin must SELL straight back for SOL without a big loss (no honeypot, transfer tax or one-way pool)."""
+    out = _f(quote_out_atoms) / (10 ** int(decimals or 0))
+    if out <= 0:
+        return False, 'quote returned no coins'
+    px = _f(order.get('usd')) / out
+    mid = _f(order.get('midPx'))
+    if decimals is not None and mid > 0 and (px / mid - 1) * 100 > MAX_PRICE_GAP_PCT:   # unknown decimals → only the sell-back check
+        return False, f"buy price {((px / mid - 1) * 100):.1f}% above market (> {MAX_PRICE_GAP_PCT:g}%)"
+    if sell_back_lamports is None:
+        return False, "can't sell it back to SOL (no route) — skipped"
+    loss = (1 - _f(sell_back_lamports) / max(1, _f(order.get('lamports')))) * 100
+    if loss > MAX_ROUNDTRIP_PCT:
+        return False, f"sells back for {loss:.1f}% less (> {MAX_ROUNDTRIP_PCT:g}%) — tax / thin / one-way"
+    return True, ''
