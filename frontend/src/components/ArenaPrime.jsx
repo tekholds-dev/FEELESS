@@ -224,6 +224,7 @@ export function HqRealCards({ addr }) {
             <RoundBell at={c.nextRoundAt || c.lastRotateAt + (d.cfg?.rotateHours || 1) * 3600} sec={c.bellSec || 10} label={`ROUND ${(c.rounds || 0) + 1}`} />
             <span><small>ROUNDS DONE</small><b className="m-num">{c.rounds || 0}</b></span>
             <span><small>PUT IN</small><b className="m-num">{usd(b.fundedUsd || c.startUsd)}</b></span>
+            {c.vsSolPct != null && <span data-tip={`Holding SOL over this run: ${pct(c.holdSolPct)}. Fund more only when this stays positive.`}><small>VS HOLDING SOL</small><b className={`m-num ${c.vsSolPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.vsSolPct)}</b></span>}
             <span><small>NOW</small><b key={(c.valueUsd || 0).toFixed(2)} className={`m-num fl-tick ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{usd(c.valueUsd)} · {pct(c.pnlPct)}</b></span></div>
           <ul className="hrt-coins">{c.legs.map(l => <li key={l.pairAddress} className={l.buying ? 'is-buying' : ''}><b>{l.role === 'runner' ? '🏃' : '⚓'} ${l.symbol}</b>
             {l.buying || !(l.usd > 0) ? <em className="hrt-buy">{l.buying ? '⏳ buying… keeper retries' : '⏳ empty — rebuy at the next round'}</em> : <><span>{usd(l.costUsd)} → {usd(l.usd)}</span><em className={l.pnlPct >= 0 ? 'm-pos' : 'm-neg'}>{pct(l.pnlPct)}</em></>}</li>)}

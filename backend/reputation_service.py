@@ -5320,14 +5320,26 @@ async def _prime_tick_inner(now):
         cur = cards.get(tid)
         liqs = {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()}
         cfg_t = {**_prime.clean_cfg(locks[tid]), 'paperFeeUsd': cfg['paperFeeUsd']} if tid in locks else cfg   # 🔒 a locked tier runs its own frozen config
-        p_t, r_t = pools, runners
-        if cur and cur.get('real'):   # 💵 a REAL card only rotates into coins the keeper may buy (pool ≥ minLiqUsd) — no cash stuck on unbuyable picks
-            def _lq(x):
-                v = x.get('liquidity'); return _fuse._f(v.get('usd') if isinstance(v, dict) else v) or _fuse._f(x.get('liq')) or liqs.get(x.get('pairAddress'), 0.0)
-            floor = _fw.clean_cfg((_fw_load().get('cfg') or {}))['minLiqUsd']
-            p_t, r_t = [x for x in pools if _lq(x) >= floor], [x for x in runners if _lq(x) >= floor]
+        # 🎯 PAPER = REAL: every tier (paper too) only rotates into coins real money could buy (pool ≥ minLiqUsd), so paper results are an
+        # honest preview. ✅ Runners also need confirmation: rising over the last hour with buyers in control (≥55% buys) — no buying the top.
+        def _lq(x):
+            v = x.get('liquidity'); return _fuse._f(v.get('usd') if isinstance(v, dict) else v) or _fuse._f(x.get('liq')) or liqs.get(x.get('pairAddress'), 0.0)
+        floor = _fw.clean_cfg((_fw_load().get('cfg') or {}))['minLiqUsd']
+        def _confirmed(x):
+            m = mom.get(x.get('pairAddress')) or {}
+            bs = _fuse._f(m.get('buyShare')); bs = bs * 100 if 0 < bs <= 1 else bs
+            return _fuse._f(m.get('chg1h')) > 0 and bs >= 55
+        p_t = [x for x in pools if _lq(x) >= floor] or pools
+        r_t = [x for x in runners if _lq(x) >= floor and _confirmed(x)]
         cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, anchors, mom, liqs) if cur else _prime.deal(tid, pools, runners, cfg_t, now, anchors)
     cards = {k: v for k, v in cards.items() if v}
+    try:   # 📏 vs holding SOL: remember SOL's price when each run starts (a new run = a new startUsd)
+        sol_now = await _sol_usd_live()
+        for v in cards.values():
+            if sol_now and v.get('solStartFor') != v.get('startUsd'):
+                v['solStart'], v['solStartFor'] = sol_now, v.get('startUsd')
+    except Exception:
+        pass
     _record_runs(before_runs, cards)
     win = _prime.crown_round(cards)
     async with _admin_lock:
@@ -5376,7 +5388,16 @@ async def _prime_view():
         seq = _prime.CYCLE_MODES.get(cyc.get(tpl, 'off'))
         return list(seq) if isinstance(seq, tuple) else ['anchor', 'mixed', 'degen'] if seq == 'adaptive' else None
     pcfg = _prime_cfg()
-    return [{**_prime.summary(c, px, pcfg), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl']) if c.get('real') else None,
+    try:
+        sol_now = await _sol_usd_live()
+    except Exception:
+        sol_now = 0.0
+    def _vs(c, sm):   # card % minus what simply holding SOL did over the same run
+        if not (sol_now and _fuse._f(c.get('solStart'))):
+            return {}
+        hold = (sol_now / _fuse._f(c['solStart']) - 1) * 100
+        return {'holdSolPct': round(hold, 2), 'vsSolPct': round(_fuse._f(sm.get('pnlPct')) - hold, 2)}
+    return [{**(sm := _prime.summary(c, px, pcfg)), **_vs(c, sm), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl']) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 

@@ -157,7 +157,7 @@ body.theme-day .ctab { background: #fff; border-color: #d8e2dc; }
 .hrt-state.is-busy { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 50%, transparent); animation: hrtPulse 1.4s ease-in-out infinite; }
 .hrt-state.is-warn { color: #ff8fa3; border-color: color-mix(in srgb, #ff8fa3 50%, transparent); }
 @keyframes hrtPulse { 50% { opacity: .55; } }
-.hrt-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.hrt-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; }
 .hrt-kpis > span { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-surface) 80%, transparent); min-width: 0; }
 .hrt-kpis small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; color: var(--m-dim); } .hrt-kpis .m-num { font-size: 14px; white-space: nowrap; }
 .hrt-coins { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; font-size: 12px; }
