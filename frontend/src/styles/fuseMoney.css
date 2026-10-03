@@ -139,3 +139,4 @@ body.theme-day .ctab { background: #fff; border-color: #d8e2dc; }
 .pa-row .m-num, .pa-done .m-num, .ctab .m-num, .fw-row .m-num, .ccost-list .m-num, .prime-txs .m-num, .ts .m-num, .wp-prime-card .m-num { font-size: inherit; }
 .ccost-list b { font-size: 12.5px; } .wp-prime-card em.m-num { font-size: 16px; } .rbell b.m-num { font-size: 13px; }
 .prime-stats .ps-pct { font-family: var(--m-mono); font-size: 10px; letter-spacing: 0; color: inherit; }
+.prime-stats b { white-space: nowrap; }
