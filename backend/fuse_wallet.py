@@ -15,9 +15,9 @@ import statistics
 
 SOL_MINT = 'So11111111111111111111111111111111111111112'
 DEFAULT_CFG = {'walletId': '', 'address': '', 'armed': False, 'paused': False, 'maxCardUsd': 100.0, 'maxSwapUsd': 50.0,
-               'dailyUsd': 300.0, 'reserveSol': 0.03, 'slippageBps': 100, 'maxImpactPct': 3.0, 'minOrderUsd': 0.5}
+               'dailyUsd': 300.0, 'reserveSol': 0.03, 'slippageBps': 100, 'maxImpactPct': 3.0, 'minOrderUsd': 0.5, 'minLiqUsd': 20000.0}
 RANGES = {'maxCardUsd': (5, 50000), 'maxSwapUsd': (1, 10000), 'dailyUsd': (5, 100000), 'reserveSol': (0.005, 5),
-          'slippageBps': (10, 300), 'maxImpactPct': (0.2, 10), 'minOrderUsd': (0.25, 50)}
+          'slippageBps': (10, 300), 'maxImpactPct': (0.2, 10), 'minOrderUsd': (0.25, 50), 'minLiqUsd': (0, 10000000)}
 DUST_USD = 0.05
 
 
@@ -125,6 +125,8 @@ def check(order, cfg, ledger, now, quote_impact_pct=None):
         return False, f"${_f(order.get('usd')):.2f} is over the ${cfg['maxSwapUsd']:g} per-swap cap"
     if spent_24h(ledger, now) + _f(order.get('usd')) > cfg['dailyUsd']:
         return False, f"daily cap ${cfg['dailyUsd']:g} reached"
+    if order.get('side') == 'buy' and _f(order.get('liq')) < cfg['minLiqUsd']:   # 💧 real money never buys a pool this thin (sells always allowed)
+        return False, f"pool too thin: ${_f(order.get('liq')):,.0f} liquidity < ${cfg['minLiqUsd']:,.0f} (real buys only)"
     if quote_impact_pct is not None and _f(quote_impact_pct) > cfg['maxImpactPct']:
         return False, f"price impact {_f(quote_impact_pct):.2f}% > {cfg['maxImpactPct']:g}%"
     return True, ''

@@ -5537,6 +5537,12 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
     tx's balance changes ARE the fill. Every outcome goes to the audit ledger; fills + failures reach the owner's inbox."""
     now = time.time()
     row = {**order, 'liq': liq, 'status': 'quoted'}
+    if order['side'] == 'buy' and _fuse._f(liq) < _fw.clean_cfg(cfg)['minLiqUsd']:   # 💧 too thin for real money: log once per 15 min, no quote
+        async with _fw_lock:
+            d = _fw_load()
+            if not any(r.get('card') == tid and r.get('mint') == order['mint'] and str(r.get('err', '')).startswith('pool too thin') and now - _fuse._f(r.get('at')) < 900 for r in d['ledger'][-40:]):
+                _, why = _fw.check(row, cfg, [], now); _fw_record(d, {**row, 'status': 'skipped', 'err': why}); _fw_save(d)
+        return book
     try:
         q = await _fw_quote(order, cfg)
         row['impactPct'] = round(_fuse._f(q.get('priceImpactPct')) * 100, 3); row['quoteOut'] = q.get('outAmount')

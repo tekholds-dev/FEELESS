@@ -218,3 +218,12 @@ def test_trimmed_sol_anchor_keeps_its_true_cost():
     c = fw.sync_card(card, {'sol': 0.03, 'legs': {}}, {'S': 100, 'R': 0.002}, 100)
     sol = c['legs'][0]
     assert abs(sol['costUsd'] - 1.5) < 1e-6   # half the SOL left → half the cost, so SOL reads ~0%, never −50%
+
+
+def test_real_buys_skip_thin_pools_but_sells_pass():
+    import fuse_wallet as fw
+    cfg = {**fw.DEFAULT_CFG, 'armed': True, 'walletId': 'w', 'address': 'a', 'maxSwapUsd': 5, 'dailyUsd': 30}
+    ok, why = fw.check({'side': 'buy', 'usd': 1, 'liq': 5000}, cfg, [], 1)
+    assert not ok and 'too thin' in why
+    assert fw.check({'side': 'buy', 'usd': 1, 'liq': 50000}, cfg, [], 1)[0]
+    assert fw.check({'side': 'sell', 'usd': 1, 'liq': 0}, cfg, [], 1)[0]
