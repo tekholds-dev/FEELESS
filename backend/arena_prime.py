@@ -68,7 +68,8 @@ FIX_DAY_PCT = -40.0   # 🔧 a tier card whose DAY falls to −40% gets its conf
 RIDE_AT, RIDE_TRAIL = 150.0, 30.0   # 🏇 ride a runner from +150%, sell only when it falls 30% from its new high
 HOLD_MIN = 80.0      # 🏇 a held coin must stay ≥ +80% (a whole round ≥ +80% also earns a hold); under it → swapped
 MIN_CYCLE_COINS = 3  # every cycle shape holds at least 3 coins (else the card keeps its current coins)
-STREAK = 3           # 3 losing rounds → safe config · 3 winning rounds → config locked + best coin frozen for a round
+STREAK = 3
+SAFE_FIX_ROUNDS = 8   # a losing-streak safe fix lasts this many rounds, then the card returns to its own cycle           # 3 losing rounds → safe config · 3 winning rounds → config locked + best coin frozen for a round
 
 
 def next_phase(mode, rounds, last_pct):
@@ -438,8 +439,11 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         st = (st + 1 if st >= 0 else 1) if lr > 0 else (st - 1 if st <= 0 else -1) if lr < 0 else 0
         if locked_round:
             c['lockRounds'] = int(c['lockRounds']) - 1
+        if c.get('cycleFix') == 'safe' and int(c.get('rounds') or 0) >= int(c.get('fixUntil') or 0):
+            c.pop('cycleFix', None)   # the safe fix lasts SAFE_FIX_ROUNDS, then the card goes back to its own cycle (never majors forever)
+            ev(kind='streak', why=f'safe fix done — back to its own cycle')
         if st <= -STREAK:
-            c['cycleFix'] = 'safe'; st = 0
+            c['cycleFix'] = 'safe'; c['fixUntil'] = int(c.get('rounds') or 0) + SAFE_FIX_ROUNDS; st = 0
             ev(kind='streak', why=f'{STREAK} losing rounds in a row — config changed: safe cycle (majors-heavy)')
         elif st >= STREAK:
             c['lockRounds'] = 1; st = 0
@@ -481,7 +485,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     if day_pct <= FIX_DAY_PCT and not c.get('flooredAt') and (c.get('fixedAt') is None or now - _f(c['fixedAt']) >= 86400):   # 🔧 worst day hit −40% → fix the config
         keep = {k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}
         keep['runs'] = (list(c.get('runs') or []) + [{'at': now, 'startUsd': c['startUsd'], 'endUsd': round(v, 4), 'pct': round((v / start - 1) * 100, 2), 'fixed': True}])[-10:]
-        keep.update(cycleFix='safe', fixedAt=now, dayStartUsd=round(v, 4), dayAt=now, startUsd=round(v, 4), roundStartUsd=round(v, 4), lowPct=0.0)   # a new run from here
+        keep.update(cycleFix='safe', fixUntil=int(c.get('rounds') or 0) + SAFE_FIX_ROUNDS, fixedAt=now, dayStartUsd=round(v, 4), dayAt=now, startUsd=round(v, 4), roundStartUsd=round(v, 4), lowPct=0.0)   # a new run from here
         nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=in_play(c, prices, liqs), keep=keep, shape='anchor')
         if nc:
             nc['events'].append({'at': now, 'kind': 'fix', 'why': f"day {day_pct:.0f}% ≤ {FIX_DAY_PCT:.0f}% — config fixed: re-dealt into majors, safe cycle from here"})

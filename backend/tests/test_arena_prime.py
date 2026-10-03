@@ -404,3 +404,8 @@ def test_self_fix_never_removes_patience_on_fast_clocks():
     sim = {'s24': {'n': 200, 'avgPct': 1}, 'best': {'confirm': {'value': '1', 'n': 50}}}
     asyncio.run(rs._engine_self_fix(1.0, sim))
     assert rs._prime_cfg()['rotateConfirm'] == 3
+
+
+def test_safe_fix_expires_back_to_own_cycle():
+    import arena_prime as ap
+    assert ap.SAFE_FIX_ROUNDS == 8

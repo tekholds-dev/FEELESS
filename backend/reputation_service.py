@@ -5241,6 +5241,18 @@ async def _prime_candidates():
     runners = sorted(({'mint': r['mint'], 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'price': r.get('price'), 'score': r.get('score'),
                       'vol1h': r.get('vol1h'), 'buyShare': r.get('buyShare')} for r in young if _fuse._f(r.get('price')) > 0),
                      key=lambda x: -_fuse._f(x['score']))
+    # 🚀 NEW MAJORS (young coins that arrived big: ≤14d, $800K–$50M, $300K+ volume, $100K+ pool) — the secure growth slot when no
+    # runner is safe to buy, so a card is never ONLY old majors
+    try:
+        if os.environ.get('PYTEST_CURRENT_TEST'):
+            raise RuntimeError('tests never fetch live pools')
+        have = {r['mint'] for r in runners}
+        runners += [{'mint': r.get('baseAddress'), 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'price': r.get('priceUsd'), 'score': 60,
+                     'liquidity': r.get('liquidityUsd'), 'buyShare': r.get('buyShare'), 'change24h': r.get('change24h'), 'newMajor': True}
+                    for r in _fuse.risers(await _fuse_discover_pairs('solana'), time.time() * 1000) if r.get('baseAddress') not in have and _fuse._f(r.get('priceUsd')) > 0]
+    except Exception as e:
+        if not os.environ.get('PYTEST_CURRENT_TEST'):
+            print('new majors:', e)
     # Anchors: the real majors (SOL first, then JitoSOL / cbBTC / WBTC / ETH) at their deepest Solana pool — stable base of every card.
     order = ['SOL', 'cbBTC', 'WETH', 'ETH', 'JitoSOL', 'WBTC']
     maj = {str(r.get('symbol')): r for r in await _majors_rows()}
@@ -5326,6 +5338,8 @@ async def _prime_tick_inner(now):
             v = x.get('liquidity'); return _fuse._f(v.get('usd') if isinstance(v, dict) else v) or _fuse._f(x.get('liq')) or liqs.get(x.get('pairAddress'), 0.0)
         floor = _fw.clean_cfg((_fw_load().get('cfg') or {}))['minLiqUsd']
         def _confirmed(x):
+            if x.get('newMajor'):   # a new major: green over 24h with buyers at least even
+                return _fuse._f(x.get('change24h')) > 0 and _fuse._f(x.get('buyShare')) >= 50
             m = mom.get(x.get('pairAddress')) or {}
             bs = _fuse._f(m.get('buyShare')); bs = bs * 100 if 0 < bs <= 1 else bs
             return _fuse._f(m.get('chg1h')) > 0 and bs >= 55
