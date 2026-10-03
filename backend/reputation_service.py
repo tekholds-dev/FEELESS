@@ -2937,6 +2937,7 @@ class FusePositionIn(BaseModel):
     champ: bool = False                               # 👑 bought via "Buy the champion" (copy of the reigning bracket champion)
     plan: dict = {}     # 🎯 card plan from the Lab: {at, mode, onProfit, legs: {pairAddress: {tp, sl}}}
     legs: list          # [{pairAddress, chainId, symbol, signature}]
+    prepaySig: str = Field(default='', max_length=100)   # 💳 the prepaid-swaps SOL transfer signed in the SAME approval as the buy
     expected: list = []  # every pairAddress the buyer approved — any that didn't land is kept as `missing` (retry or sell back)
 
 
@@ -2956,6 +2957,18 @@ async def fuse_position(p: FusePositionIn):
                          'role': 'runner' if leg.get('role') == 'runner' else 'pool'})
     if not legs:
         raise HTTPException(400, 'None of those legs is a confirmed FEELESS buy from your wallet (yet).')
+    prepaid_usd = 0.0
+    if p.prepaySig and _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', p.prepaySig) and p.prepaySig not in (_json_load(FUSE_HQ_PATH, {}).get('roundSigs') or []):
+        to = await _rounds_pay_to()
+        tx = None
+        if to:
+            async with httpx.AsyncClient(timeout=20) as http:
+                for _ in range(4):
+                    tx = await _rpc(http, 'getTransaction', [p.prepaySig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+                    if tx:
+                        break
+                    await asyncio.sleep(2)
+            prepaid_usd = max((_hq.paid_lamports(tx, w, to) for w in mine), default=0) / 1e9 * (await _sol_usd_live() or 0)
     async with _admin_lock:
         d = _json_load(FUSE_HQ_PATH, {})
         used = {leg['sig'] for pos in d.get('positions') or [] for leg in pos['legs']}
@@ -2963,6 +2976,8 @@ async def fuse_position(p: FusePositionIn):
         if not legs:
             return {'ok': True, 'counted': False}
         pos = {'id': uuid.uuid4().hex[:10], 'wallet': me, 'name': p.name.strip() or 'Lab fuse', 'fuseId': p.fuseId[:16], 'at': time.time(), 'legs': legs}
+        if prepaid_usd > 0 and _hq.prepay_credit(pos, prepaid_usd, _fee_cfg().get('prepay')):
+            d['roundSigs'] = (d.get('roundSigs') or [])[-500:] + [p.prepaySig]   # a payment is never reused
         planned = [str(x)[:64] for x in (p.expected or [])[:_fuse.MAX_LEGS]]
         pos['missing'] = _hq.missing_legs(planned, legs)   # ⚠ approved but not landed — never hidden, never counted
         try:
@@ -3038,6 +3053,8 @@ async def fuse_position_close(p: FuseCloseIn):
             pos['closedAt'] = time.time()
         if n and pos.get('autoYield') and not pos.get('closedAt'):   # collected → re-arm from the new held value (next tick)
             pos['autoYield'].update(firedAt=None, rebase=True)
+        if n:
+            _hq.use_prepaid(pos, n)   # 💳 prepaid swaps cover these sells first
         _json_save(FUSE_HQ_PATH, d)
     if n:   # AFTER notice — no P&L in the text
         closed = bool(pos.get('closedAt'))
@@ -3731,6 +3748,8 @@ async def fuse_position_switch(p: FuseSwitchIn):
         switched = not filled and sum(1 for e in pos.get('events') or [] if e.get('kind') == 'buy') > buys_before
         if switched:   # a real switch-in (not a top-up)
             pos['lastSwitchAt'] = time.time()
+        if n and not filled:
+            _hq.use_prepaid(pos, n)   # 💳 prepaid swaps cover these buys first
         _json_save(FUSE_HQ_PATH, d)
     if n:
         notify(me, 'fuse-card', f"{'⇄ Switched in' if switched else '⚖ Topped up'}: {', '.join('$' + (m.get('symbol') or '?') for _, m in pairs[:3])} on {pos.get('name') or 'your Fuse card'}.{' Next switch in 24h.' if switched and not _is_staff(me) else ''}",
@@ -5299,7 +5318,7 @@ async def _prime_bell_loop():
         try:
             cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
             rot = _prime_cfg()['rotateHours'] * 3600
-            due = min((_fuse._f(c.get('lastRotateAt')) + rot for c in cards.values() if c.get('lastRotateAt')), default=time.time() + 60)
+            due = min((_fuse._f(c.get('lastRotateAt')) + rot + _prime.BELL_SEC for c in cards.values() if c.get('lastRotateAt')), default=time.time() + 60)   # deal time = round end + 10s bell
             wait = due - time.time()
             if 0.5 < wait <= 12:   # 🔔 inside the 10s countdown: warm the candidates + prices now, so the re-deal is instant at 0
                 await _prime_candidates()
@@ -5695,6 +5714,36 @@ def _fw_public(tid):
     rows = [o for o in d['ledger'] if o.get('card') == tid and o.get('status') in ('filled', 'done') or (o.get('card') == tid and o.get('side') == 'topup')][-12:][::-1]
     return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4), 'wallet': _fw_cfg()['address'],
             'orders': [{k: o.get(k) for k in ('side', 'symbol', 'usd', 'px', 'sig', 'at', 'status', 'feeUsd', 'why')} for o in rows], **_fw.totals(d['ledger'], tid)}
+
+
+@app.get('/api/reputation/admin/circle/profiles')
+async def circle_profiles(request: Request):
+    """Owner: every Circle wallet with its FEELESS profile (so it can be searched + edited from the creator wallet)."""
+    _require_owner(request)
+    ws = (await _circle('GET', '/wallets')).get('wallets') or []
+    profs = _profiles_load()['profiles']
+    return {'wallets': [{'id': w.get('id'), 'address': w.get('address'), 'name': w.get('name'), 'blockchain': w.get('blockchain'),
+                         'profile': {k: (profs.get(w.get('address')) or {}).get(k) for k in ('name', 'handle', 'bio', 'avatar', 'banner')}} for w in ws]}
+
+
+@app.post('/api/reputation/admin/circle/profile')
+async def circle_profile_save(request: Request, body: dict):
+    """Owner: edit the public profile of one of YOUR Circle wallets (name, @handle, bio, avatar, banner). Audited."""
+    me = _require_owner(request)
+    addr = str(body.get('address') or '')
+    ws = (await _circle('GET', '/wallets')).get('wallets') or []
+    if addr not in {w.get('address') for w in ws}:
+        raise HTTPException(403, 'Only your own Circle wallets can be edited here.')
+    async with _profile_lock:
+        d = _profiles_load()
+        prev = d['profiles'].get(addr, {})
+        clean = _clean_profile({**{k: prev.get(k) for k in ('name', 'handle', 'bio', 'avatar', 'banner')}, **(body.get('profile') or {})})
+        if clean.get('handle') and any(a != addr and (v or {}).get('handle') == clean['handle'] for a, v in d['profiles'].items()):
+            raise HTTPException(409, f"@{clean['handle']} is taken.")
+        d['profiles'][addr] = {**prev, **{k: clean.get(k) for k in ('name', 'handle', 'bio', 'avatar', 'banner') if k in clean}, 'lastTs': time.time(), 'editedBy': me}
+        tmp = PROFILE_PATH.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(PROFILE_PATH)
+    ad = _admin_load(); _audit(ad, me, 'circle-profile', f'{addr[:6]}… {clean.get("handle") or clean.get("name") or ""}'); _admin_save(ad)
+    return {'ok': True, 'address': addr, 'profile': d['profiles'][addr]}
 
 
 @app.get('/api/reputation/admin/fuse-wallet')
@@ -8074,7 +8123,7 @@ async def _leg_usd(input_mint, amount):
     return amount * px
 
 
-async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = '', bundle: int = 0, amount: float = 0, card: int = 0):
+async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = '', bundle: int = 0, amount: float = 0, card: int = 0, card_id: str = ''):
     """The fee for one trade plus how each engine collects it.
     bps: Swap API fee (paid to feeAccount). ultraBps / referralAccount: the Ultra fallback's fee.
     bundle ≥ 2 = one leg of a Fuse / runner card bought all at once → bundle pricing (flat $ per coin); HQ (staff)
@@ -8110,6 +8159,11 @@ async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''
         notes.append(f'{disc:.0f}% holder discount (tier {tier})')
     if (bundle >= 2 or card) and wallet and _is_staff(wallet):
         return none('FEELESS card: no FEELESS fee — only network / partner fees.')
+    if card and card_id and wallet:   # 💳 a card with prepaid swaps left pays no FEELESS fee on its swaps
+        mine_ = set(linked_of(primary_of(wallet))) | {wallet}
+        pos_ = next((x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if x.get('id') == card_id and x.get('wallet') in mine_), None)
+        if pos_ and int(pos_.get('prepaidSwaps') or 0) > 0:
+            return none(f"Prepaid swap ({pos_['prepaidSwaps']} left) — no FEELESS fee.")
     if card and bundle < 2:   # a card's swap / sell / switch leg: flat $ per coin
         bcfg = _hq.clean_bundle(cfg.get('bundle'))
         flat = _hq.card_swap_bps(await _leg_usd(input_mint, amount), bcfg)
@@ -8143,19 +8197,20 @@ async def fee_quote(wallet: str = '', inputMint: str = '', outputMint: str = '')
 
 
 @app.get('/api/reputation/internal/fees')
-async def internal_fees(request: Request, wallet: str = '', inputMint: str = '', outputMint: str = '', bundle: int = Query(0, ge=0, le=12), amount: float = Query(0, ge=0), card: int = Query(0, ge=0, le=1)):
+async def internal_fees(request: Request, wallet: str = '', inputMint: str = '', outputMint: str = '', bundle: int = Query(0, ge=0, le=12), amount: float = Query(0, ge=0), card: int = Query(0, ge=0, le=1), cardId: str = Query('', max_length=16)):
     if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key()):
         raise HTTPException(403, 'Internal only.')
-    return await effective_fee(wallet, inputMint, outputMint, bundle, amount, card)
+    return await effective_fee(wallet, inputMint, outputMint, bundle, amount, card, cardId)
 
 
 @app.get('/api/reputation/fees/pricing')
-async def fee_pricing(coins: int = Query(3, ge=1, le=12), usd: float = Query(20, ge=0, le=1e6), rounds: int = Query(5, ge=1, le=500)):
+async def fee_pricing(coins: int = Query(3, ge=1, le=12), usd: float = Query(20, ge=0, le=1e6), rounds: int = Query(5, ge=1, le=500), wallet: str = Query('', max_length=64)):
     """Public pricing: the % fee on a normal swap, the bundle price for cards bought all at once, card swaps, round packs —
     plus `plan` = what a card of `coins` coins / $`usd` costs over `rounds` rounds (the Lab's cost receipt)."""
     cfg = _fee_cfg()
     return {'swapBps': int(cfg['platformFeeBps'] or 0), 'bundle': _hq.clean_bundle(cfg.get('bundle')), 'rounds': {**_rounds_cfg(), 'payTo': await _rounds_pay_to()},
             'plan': _hq.fee_plan(cfg.get('bundle'), _rounds_cfg(), coins, usd, rounds),
+            'prepay': _hq.clean_prepay(cfg.get('prepay')), 'staff': bool(wallet and _is_staff(wallet)),
             'cardLegs': {'pools': _hq.CARD_POOLS, 'runners': _hq.CARD_RUNNERS}, 'freeBuys': ['$FEE', 'FEECAT', 'rFEE']}
 
 
@@ -8227,13 +8282,25 @@ async def admin_fuse_fees(request: Request):
     return _hq.fuse_fees(_json_load(FUSE_HQ_PATH, {}).get('positions') or [], rows, time.time())
 
 
+@app.post('/api/reputation/admin/fees/prepay')
+async def admin_fees_prepay(request: Request, body: dict):
+    """HQ › Fees › 💳 Prepaid swaps: $ per swap × swaps per round × rounds, paid up front with a card's first buy (owner only)."""
+    admin = _require_owner(request)
+    async with _admin_lock:
+        d = _admin_load(); pp = _hq.clean_prepay(body)
+        d.setdefault('fees', {})['prepay'] = {k: pp[k] for k in ('on', 'perSwapUsd', 'swapsPerRound', 'rounds')}
+        _audit(d, admin, 'fees', f"prepaid swaps {'on' if pp['on'] else 'off'} · ${pp['perSwapUsd']:.2f} × {pp['swapsPerRound']}/round × {pp['rounds']} = ${pp['usd']:.2f}")
+        _admin_save(d)
+    return {'prepay': pp}
+
+
 @app.get('/api/reputation/admin/fuses/fee-list')
 async def admin_fuse_fee_list(request: Request):
     """HQ › Fuse › 💲 Fees: every card fee (buy · swap · sell · round packs) with totals — each row links its transaction."""
     _require_admin(request)
     rows = [r for v in _json_load(FEE_LEDGER_PATH, {}).values() for r in (v or [])]
     cfg = _fee_cfg()
-    return {**_hq.fee_list(_json_load(FUSE_HQ_PATH, {}).get('positions') or [], rows), 'bundle': _hq.clean_bundle(cfg.get('bundle')), 'rounds': _rounds_cfg(),
+    return {**_hq.fee_list(_json_load(FUSE_HQ_PATH, {}).get('positions') or [], rows), 'bundle': _hq.clean_bundle(cfg.get('bundle')), 'rounds': _rounds_cfg(), 'prepay': _hq.clean_prepay(cfg.get('prepay')),
             'swapBps': int(cfg['platformFeeBps'] or 0), 'example': _hq.fee_plan(cfg.get('bundle'), _rounds_cfg(), 3, 20, 10)}
 
 
@@ -8896,7 +8963,7 @@ async def admin_fees_set(request: Request, payload: FeeCfg):
                      'lifiIntegrator': integrator, 'lifiFeeBps': payload.lifiFeeBps if integrator else 0,
                      'engine': payload.engine, 'ultraFallback': payload.ultraFallback, 'feeAccountSol': payload.feeAccountSol,
                      'feeAccountUsdc': payload.feeAccountUsdc, 'priorityMaxLamports': payload.priorityMaxLamports,
-                     'vaultFeeWallet': payload.vaultFeeWallet, **{k: v for k, v in (d.get('fees') or {}).items() if k in ('bundle', 'rounds')}}
+                     'vaultFeeWallet': payload.vaultFeeWallet, **{k: v for k, v in (d.get('fees') or {}).items() if k in ('bundle', 'rounds', 'prepay')}}
         tier_txt = ' / '.join(f"{float(tiers.get(k, 0)):g}%" for k in ('0', '1', '2', '3'))
         _audit(d, admin, 'fees', f"{'Swap API' if payload.engine == 'swap' else 'Ultra'} · fee {payload.platformFeeBps / 100:.2f}% · Ultra fallback {'on' if payload.ultraFallback else 'off'} · "
                                  f"holder discounts {tier_txt} · promo {promo['discountPct']:.0f}% · speed tip ≤ {payload.priorityMaxLamports / 1e9:.4f} SOL")

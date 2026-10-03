@@ -230,3 +230,13 @@ def test_missing_legs_and_wallet_cap_keep_cards_on_chain_truth():
     assert out['new']['legs'][0]['tokens'] == 40 and out['new']['legs'][0]['heldShort'] == 20     # wallet only has 100 for both cards
     assert out['new']['legs'][1]['tokens'] == 5                                                     # sold legs untouched
     assert hq.cap_to_wallet(cards, {})[0]['legs'][0]['tokens'] == 60                                # unknown mint = not capped (only real readings cap)
+
+
+def test_prepaid_swaps_credit_and_spend():
+    c = hq.clean_prepay({})
+    assert c['usd'] == 0.5 and c['swaps'] == 10                      # 5c × 2 swaps × 5 rounds
+    assert hq.clean_prepay({'perSwapUsd': 9, 'swapsPerRound': 50})['perSwapUsd'] == 1.0
+    pos = {}
+    assert hq.prepay_credit(pos, 0.3, {}) == 0 and hq.prepay_credit(pos, 0.49, {}) == 10 and pos['prepaidSwaps'] == 10
+    assert hq.use_prepaid(pos, 3) == 3 and pos['prepaidSwaps'] == 7 and hq.use_prepaid(pos, 99) == 7 and pos['prepaidSwaps'] == 0
+    assert hq.clean_prepay({'on': False})['usd'] == 0

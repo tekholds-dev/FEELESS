@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
+import { relayConnection } from '../lib/launchRail';
 import { useWallet } from '../hooks/useWallet';
 import { fuseOrders, orderMatches, SOL_MINT } from '../lib/fuseGo';
 import { readChatSession } from '../lib/chatSession';
@@ -41,6 +42,8 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
   const [rcpt, setRcpt] = useState(null);       // after: quoted vs paid (server receipt)
   const [retryPlan, setRetryPlan] = useState(null);   // ↻ only the coins that didn't land, wider slippage
   const [cardId, setCardId] = useState(null);         // the card this buy recorded (a retry joins it)
+  const [prepay, setPrepay] = useState(null);         // 💳 prepaid-swaps price for a new card (HQ › Fees), staff never pay it
+  useEffect(() => { if (!addr || sell || position) return; fetch(apiUrl(`/api/reputation/fees/pricing?wallet=${addr}`)).then(r => r.json()).then(x => setPrepay(x?.prepay?.on ? { ...x.prepay, staff: x.staff, payTo: x.rounds?.payTo } : null)).catch(() => {}); }, [addr, sell, position]);
   const live = useLivePrices((orders ? orders.map(o => o.leg) : legs || []).map(l => l?.pairAddress));   // receipt shows each coin live
 
   const quoteAll = async () => {
@@ -49,7 +52,7 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
     // card: 1 = Fuse card pricing on every leg (flat $/coin; HQ + creator wallets pay no FEELESS fee, only network)
     const got = await Promise.all(plan.map(async o => {
       if (o.skip) return o;
-      try { const order = await api('/quote', bundle >= 2 ? { ...o.request, bundle, card: 1 } : { ...o.request, card: 1 }); await api('/simulate', { order_id: order.order_id }); return orderMatches(o, order) ? { ...o, order } : { ...o, err: 'Quote did not match — refreshing' }; }
+      try { const order = await api('/quote', bundle >= 2 ? { ...o.request, bundle, card: 1, cardId: position || '' } : { ...o.request, card: 1, cardId: position || '' }); await api('/simulate', { order_id: order.order_id }); return orderMatches(o, order) ? { ...o, order } : { ...o, err: 'Quote did not match — refreshing' }; }
       catch (e) { return { ...o, err: e.message }; }
     }));
     if (my === seq.current) { setRows(got); setPhase(p => (p === 'quote' ? 'review' : p)); }
@@ -69,8 +72,23 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
     try {
       const { VersionedTransaction } = await import('@solana/web3.js');
       const txs = ready.map(r => VersionedTransaction.deserialize(Uint8Array.from(atob(r.order.quote.transaction), c => c.charCodeAt(0))));
-      const signed = provider.signAllTransactions ? await provider.signAllTransactions(txs) : await txs.reduce(async (acc, tx) => [...await acc, await provider.signTransaction(tx)], Promise.resolve([]));
-      if (!Array.isArray(signed) || signed.length !== txs.length) throw new Error('Wallet did not sign every swap — nothing was sent.');
+      // 💳 a NEW card's first buy also prepays its first rounds' swap fees — one SOL transfer in the SAME approval (HQ / creator: never)
+      let prepayTx = null;
+      if (!sell && !position && !onLanded && prepay?.usd > 0 && !prepay.staff && prepay.payTo) {
+        const usdIn = ready.reduce((a, r) => a + (Number(r.order.quote?.inUsdValue) || 0), 0); const solIn = ready.reduce((a, r) => a + Number(r.request.amount || 0), 0);
+        const solUsd = usdIn > 0 && solIn > 0 ? usdIn / solIn : 0;
+        if (solUsd > 0) {
+          const { web3, connection } = await relayConnection();
+          const { blockhash } = await connection.getLatestBlockhash('confirmed');
+          prepayTx = { connection, tx: new web3.Transaction({ feePayer: new web3.PublicKey(addr), recentBlockhash: blockhash }).add(web3.SystemProgram.transfer({ fromPubkey: new web3.PublicKey(addr), toPubkey: new web3.PublicKey(prepay.payTo), lamports: Math.round(prepay.usd / solUsd * 1e9) })) };
+        }
+      }
+      const all = prepayTx ? [...txs, prepayTx.tx] : txs;
+      const signedAll = provider.signAllTransactions ? await provider.signAllTransactions(all) : await all.reduce(async (acc, tx) => [...await acc, await provider.signTransaction(tx)], Promise.resolve([]));
+      if (!Array.isArray(signedAll) || signedAll.length !== all.length) throw new Error('Wallet did not sign every swap — nothing was sent.');
+      const signed = signedAll.slice(0, txs.length);
+      let prepaySig = '';
+      if (prepayTx) { try { prepaySig = await prepayTx.connection.sendRawTransaction(signedAll[txs.length].serialize(), { maxRetries: 3 }); } catch { prepaySig = ''; } }
       setPhase('sending');
       const landed = [];
       const up = (id, patch) => setRows(list => list.map(x => (x.order?.order_id === id ? { ...x, ...patch } : x)));
@@ -100,7 +118,7 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
       if (ses && !sell && landed.length) [5000, 20000].forEach(ms => setTimeout(() => (cardId
         ? post('/api/reputation/fuses/position/switch', { address: addr, session: ses, id: cardId, legs: landed })
         : post('/api/reputation/fuses/position', { address: addr, session: ses, name: fuse?.name || 'Lab fuse', fuseId: fuse?.id || '', copyOf: fuse?.copyOf || '', champ: !!fuse?.champ, back: fuse?.back || '', plan: fuse?.plan || {}, legs: landed,
-            expected: ready.map(r => r.leg.pairAddress) }).then(x => { if (x?.id) setCardId(x.id); return x; }))
+            expected: ready.map(r => r.leg.pairAddress), prepaySig }).then(x => { if (x?.id) setCardId(x.id); return x; }))
         .then(() => window.dispatchEvent(new Event('feeless:fuse-pnl'))).catch(() => {}), ms));
       if (ses && !sell && fuse?.id) landed.forEach(l => [6000, 25000].forEach(ms => setTimeout(() => fetch(apiUrl(`/api/reputation/fuses/${fuse.id}/buy`), { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: addr, session: ses, signature: l.signature }) }).catch(() => {}), ms)));   // creator's cut
@@ -133,6 +151,7 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
             <li><b>✓</b>The coins land in <em>your</em> wallet. FEELESS never holds them. From here each one moves with its own price — up or down. You don't earn the pool's trading fees (that's for liquidity providers); you own the coins.</li>
             <li><b>↩</b>Exit any time with Unfuse (one approval, same fees once) or set 🎯 limits to get pinged at your target.</li></ol>
         </details>}
+        {!sell && !position && prepay?.usd > 0 && !prepay.staff && <p className="fg-rcpt-note" data-testid="fg-prepay">💳 + {usd2(prepay.usd)} prepays this card's first {prepay.rounds} rounds of swaps ({prepay.swaps} swaps × {usd2(prepay.perSwapUsd)}) — in the same approval; those swaps then pay no FEELESS fee.</p>}
         <p className="fg-rcpt-note">Costs {usd2(tot.fee + tot.net)} = <b>{tot.usd ? ((tot.fee + tot.net) / tot.usd * 100).toFixed(1) : 0}%</b> of {usd2(tot.usd)}. {tot.usd && (tot.fee + tot.net) / tot.usd > 0.05 ? 'High for this size — fewer pools or more SOL keeps more working.' : 'Quotes refresh every 10s until you sign.'}</p></div>}
       <div className="fg-acts"><button type="button" className="m-btn primary m-go" disabled={!ready.length || phase !== 'review'} onClick={signAll} data-testid="fg-sign">{phase === 'signing' ? 'Waiting for wallet…' : phase === 'sending' ? 'Sending…' : `${sell ? '↩ Unfuse' : '⚡ Approve'} ${ready.length} ${sell ? 'sell' : 'swap'}${ready.length === 1 ? '' : 's'} · 1 click`}</button>
         <button type="button" className="m-btn" disabled={['signing', 'sending'].includes(phase)} onClick={onClose}>Cancel</button></div>

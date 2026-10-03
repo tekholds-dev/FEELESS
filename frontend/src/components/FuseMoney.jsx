@@ -35,10 +35,13 @@ export function RoundBell({ at, sec = 10, label = 'NEXT ROUND' }) {
   useEffect(() => { const t = setInterval(() => setNow(Date.now() / 1000), 250); return () => clearInterval(t); }, []);
   const left = Math.max(0, (at || 0) - now);
   const bell = left > 0 && left <= sec;
+  // at zero the new round is dealt on the server — pull it straight away (and again shortly) instead of waiting for the next poll
+  useEffect(() => { if (!at) return undefined; const ms = at * 1000 - Date.now(); if (ms < -20000) return undefined;
+    const ts = [1500, 5000, 10000].map(d => setTimeout(() => window.dispatchEvent(new Event('feeless:prime')), Math.max(0, ms) + d)); return () => ts.forEach(clearTimeout); }, [at]);
   const mm = Math.floor(left / 60); const ss = Math.floor(left % 60);
   return <span className={`rbell ${bell ? 'is-bell' : ''} ${left <= 0 ? 'is-due' : ''}`} data-testid="round-bell" data-tip={`${label.toLowerCase()} · a 10s countdown opens every round`}>
     {bell ? <b className="rbell-n" key={Math.ceil(left)}>{Math.ceil(left)}</b> : <b className="m-num">{left <= 0 ? 'dealing…' : mm >= 60 ? `${Math.floor(mm / 60)}h ${mm % 60}m` : `${mm}:${String(ss).padStart(2, '0')}`}</b>}
-    <small>{bell ? `🔔 ${label}` : label}</small></span>;
+    <small>{bell ? `🔔 ${label} · dealing in` : left <= 0 ? `🔔 ${label} · dealt` : label}</small></span>;
 }
 
 // 📜 Paper audit for any Arena card: its live battle book (each coin's TRUE fill — impact included — → now, $ in → $ now),
@@ -102,6 +105,7 @@ export function CardCosts({ coins = 3, amount = 20, staff = false, rounds = 10, 
         <li data-tip={`$${x.perCoinUsd.toFixed(2)} per coin, never more than ${p.bundle.maxPct}% of a coin's slice`}><span>🃏 First buy · {coins} coins</span><b className="m-num">{usd(x.buyUsd)}</b></li>
         <li data-tip="Every card runs 5 auto rounds free; each +5 is one round pack"><span>🔁 Rounds · first {x.free} free{x.packs ? ` · +${x.packs} pack${x.packs > 1 ? 's' : ''}` : ''}</span><b className="m-num">{usd(x.roundsUsd)}</b></li>
         <li data-tip={`One rotation = sell the old coin + buy the new one, $${p.bundle.swapUsd.toFixed(2)} each — it comes out of the swap, your wallet never pays it separately`}><span>⇄ Swaps · {x.rounds} rounds × {usd(x.swapUsd)}</span><b className="m-num">{usd(x.swapsUsd)}</b></li>
+        {p.prepay?.usd > 0 && <li data-tip="Paid with the first buy (same approval); those swaps then pay no FEELESS fee"><span>💳 Prepaid · first {p.prepay.rounds} rounds' swaps</span><b className="m-num">{usd(p.prepay.usd)}</b></li>}
         <li className="ccost-tot"><span>Total over {x.rounds} rounds</span><b className="m-num">{usd(x.totalUsd)} <em>({x.pct}% of {usd(amount)})</em></b></li></ul>
       {onAutoFees && <label className="m-toggle ccost-auto" data-tip="When rounds run out and the card is up more than the pack price, the card pays +5 rounds from its profit (owed until the next take). Never while it's flat or down."><input type="checkbox" checked={autoFees !== false} onChange={e => onAutoFees(e.target.checked)} data-testid="auto-fees" /><span>💸 Card pays its fees from profit</span></label>}</>}
     <small className="m-dim">Network fees (~$0.001/swap) go to Solana, not FEELESS. Fees are never counted in profit.</small></div>;

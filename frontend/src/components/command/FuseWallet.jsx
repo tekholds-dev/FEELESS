@@ -72,3 +72,25 @@ export function FuseWallet({ call }) {
         {!d.ledger?.length && <small className="m-dim">No orders yet — top-ups and every keeper swap land here (dry runs are shown above, never stored).</small>}</div></div>
   </section>;
 }
+
+// 🪪 Circle wallet profiles (owner): search your Circle wallets and edit each one's public FEELESS profile from the creator wallet.
+export function CircleProfiles({ call }) {
+  const [d, setD] = useState(null);
+  const [q, setQ] = useState('');
+  const [edit, setEdit] = useState(null);
+  const load = useCallback(() => call('/admin/circle/profiles').then(setD).catch(e => setD({ wallets: [], error: e.message })), [call]);
+  useEffect(() => { load(); }, [load]);
+  const save = () => call('/admin/circle/profile', { method: 'POST', body: JSON.stringify({ address: edit.address, profile: edit.profile }) })
+    .then(() => { toast.success('Profile saved'); setEdit(null); load(); }).catch(e => toast.error(e.message));
+  const rows = (d?.wallets || []).filter(w => !q || `${w.name} ${w.address} ${w.profile?.handle || ''} ${w.profile?.name || ''}`.toLowerCase().includes(q.toLowerCase()));
+  return <section className="m-card fw" data-testid="circle-profiles"><span className="m-label">🪪 CIRCLE WALLET PROFILES · SEARCH + EDIT</span>
+    <input className="m-input" placeholder="Search name, @handle or address" value={q} onChange={e => setQ(e.target.value)} data-testid="cp-search" />
+    {d?.error && <small className="m-note warn">{d.error}</small>}
+    <div className="fw-tiers">{rows.map(w => <div key={w.id} className="fw-tier"><span><b>{w.profile?.name || w.name}</b><small className="m-dim"> {w.profile?.handle ? `@${w.profile.handle} · ` : ''}{w.address.slice(0, 4)}…{w.address.slice(-4)} · {w.blockchain}</small></span>
+      <a className="m-btn" href={`/terminal/profile/${w.address}`} target="_blank" rel="noreferrer">Profile ↗</a>
+      <button type="button" className="m-btn" onClick={() => setEdit({ address: w.address, profile: { name: w.profile?.name || w.name || '', handle: w.profile?.handle || '', bio: w.profile?.bio || '', avatar: w.profile?.avatar || '' } })} data-testid={`cp-edit-${w.id}`}>✏️ Edit</button></div>)}</div>
+    {edit && <div className="ff-detail" data-testid="cp-form"><b>✏️ {edit.address.slice(0, 6)}…</b>
+      {['name', 'handle', 'bio', 'avatar'].map(k => <label key={k} className="fw-grid">{k === 'avatar' ? 'Avatar URL' : k}<input className="m-input" value={edit.profile[k]} onChange={e => setEdit(x => ({ ...x, profile: { ...x.profile, [k]: e.target.value } }))} /></label>)}
+      <span className="m-row"><button type="button" className="m-btn primary m-go" onClick={save} data-testid="cp-save">Save profile</button><button type="button" className="m-btn" onClick={() => setEdit(null)}>Cancel</button></span></div>}
+  </section>;
+}

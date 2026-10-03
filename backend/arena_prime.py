@@ -42,7 +42,7 @@ DEFAULT_CYCLES = {'safe': 'safe', 'balanced': 'adaptive', 'degen': 'classic', 'n
 DEFAULT_PAYOUTS = {'safe': 25, 'balanced': 50, 'degen': 0, 'next': 25, 'ever': 75}   # % of every profit take paid straight to the wallet
 RUG_LIQ = 0.5   # 🚨 rug shield: pool liquidity at ≤ 50% of entry = pulled → sell at once
 TRAIL_AT, TRAIL_KEEP = 50.0, 5.0   # 🔒 a coin that ran ≥ +50% is sold before it gives it all back (≤ +5% left)
-SWITCH_AT = 40.0   # 🔒 tier cards switch coins / shape only at −40% (a coin for rotation, the card for a re-shape or floor) — no churn
+FIX_DAY_PCT = -40.0   # 🔧 a tier card whose DAY falls to −40% gets its config fixed: re-dealt fresh on the safe cycle (logged)
 RIDE_AT, RIDE_TRAIL = 150.0, 30.0   # 🏇 ride a runner from +150%, sell only when it falls 30% from its new high
 
 
@@ -347,9 +347,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             del c['parked'][pa]
             ev(kind='rebuy', symbol=pk['symbol'], usd=round(pk['usd'], 4), why='back at its entry with momentum — bought back', to=[pk['symbol']])
     # 3) auto-rotate every rotateHours: the rotateCount weakest coins out, the best candidates in
-    if now - c['lastRotateAt'] >= cfg['rotateHours'] * 3600 and not c.get('flooredAt'):
-        ranked = sorted((l for l in c['legs'] if l.get('role') != 'anchor' and not l.get('frozen') and not l.get('ride') and l['entry'] > 0
-                         and ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 <= -SWITCH_AT and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
+    if now - c['lastRotateAt'] >= cfg['rotateHours'] * 3600 + BELL_SEC and not c.get('flooredAt'):   # the round ends, a 10s 🔔 countdown, then the deal
+        ranked = sorted((l for l in c['legs'] if l.get('role') != 'anchor' and not l.get('frozen') and not l.get('ride') and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
         swapped = 0
         for l in ranked[:cfg['rotateCount']]:
             nxt = best(l['role'])
@@ -371,9 +370,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             c['startUsd'], c['dayStartUsd'], c['lowPct'] = round(v_now, 4), round(v_now, 4), 0.0
             ev(kind='run', usd=round(v_now, 4), why=f'{n_run} rounds done — run closed on the record, a new run starts at ${v_now:.2f}')
     # 3b) 🔄 phase cycle: a cycling tier re-deals into the next phase shape every round (same run, P&L continues)
-    phase = next_phase((cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl'], 'off'), c.get('rounds'), c.get('lastRoundPct'))
-    if phase and c['lastRotateAt'] == now and not c.get('flooredAt') and not any(l.get('ride') for l in c['legs']) \
-            and (value(c, prices, liqs) / (_f(c['startUsd']) or 1) - 1) * 100 <= -SWITCH_AT:   # a riding runner holds the shape
+    phase = next_phase(c.get('cycleFix') or (cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl'], 'off'), c.get('rounds'), c.get('lastRoundPct'))
+    if phase and c['lastRotateAt'] == now and not c.get('flooredAt') and not any(l.get('ride') for l in c['legs']):   # a riding runner holds the shape
         nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=in_play(c, prices, liqs), keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
         if nc:
             nc['feesUsd'] = round(_f(nc['feesUsd']) + fee * len(c['legs']), 4)   # selling the old shape
@@ -385,6 +383,17 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             px = buy_px(_f(prices.get(l['pairAddress'])) or l['entry'], each, liqs.get(l['pairAddress']) or l.get('liq'))
             l['units'] += each / px; l['costUsd'] += each
         c['compoundedUsd'] += c['cash']; ev(kind='compound', usd=round(c['cash'], 4), why='idle cash back into the card', to=[l['symbol'] for l in c['legs']]); c['cash'] = 0.0
+    v = value(c, prices, liqs); start = _f(c['startUsd']) or 1
+    day_pct = (v / (_f(c.get('dayStartUsd')) or start) - 1) * 100
+    if day_pct <= FIX_DAY_PCT and not c.get('flooredAt') and (c.get('fixedAt') is None or now - _f(c['fixedAt']) >= 86400):   # 🔧 worst day hit −40% → fix the config
+        keep = {k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}
+        keep['runs'] = (list(c.get('runs') or []) + [{'at': now, 'startUsd': c['startUsd'], 'endUsd': round(v, 4), 'pct': round((v / start - 1) * 100, 2), 'fixed': True}])[-10:]
+        keep.update(cycleFix='safe', fixedAt=now, dayStartUsd=round(v, 4), dayAt=now, startUsd=round(v, 4), roundStartUsd=round(v, 4), lowPct=0.0)   # a new run from here
+        nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=in_play(c, prices, liqs), keep=keep, shape='anchor')
+        if nc:
+            nc['events'].append({'at': now, 'kind': 'fix', 'why': f"day {day_pct:.0f}% ≤ {FIX_DAY_PCT:.0f}% — config fixed: re-dealt into majors, safe cycle from here"})
+            c = nc
+        v = value(c, prices, liqs)
     # 5) 🛡 FLOOR: the card is never allowed to sit below −floorPct (default −20%, so −25% is never reached short of a gap):
     #    every pool / runner is sold into the anchor (or cash) at once; the card re-deals fresh the next day.
     v = value(c, prices, liqs); start = _f(c['startUsd']) or 1
@@ -435,7 +444,7 @@ def summary(card, prices, cfg=None):
             # 🧮 the money in plain words: PUT IN → NOW = STILL IN THE CARD + PAID OUT; P&L = NOW − PUT IN (fees apart)
             'math': {'putIn': round(start, 4), 'heldUsd': round(v - paid, 4), 'paidOutUsd': paid, 'nowUsd': v, 'pnlUsd': round(v - start, 4),
                      'compoundedUsd': round(_f(card.get('compoundedUsd')), 4), 'feesUsd': round(_f(card.get('feesUsd')), 4)},
-            'nextRoundAt': round(_f(card.get('lastRotateAt')) + rot * 3600, 1), 'bellSec': BELL_SEC, 'real': bool(card.get('real')), 'realSince': card.get('realSince'),
+            'nextRoundAt': round(_f(card.get('lastRotateAt')) + rot * 3600 + BELL_SEC, 1), 'bellSec': BELL_SEC, 'real': bool(card.get('real')), 'realSince': card.get('realSince'),
             **record(card)}
 
 

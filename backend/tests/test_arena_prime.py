@@ -10,8 +10,8 @@ def _deep_unknown_pools(request, monkeypatch):
     """Older tests feed no liquidity and expect mid-price maths; the thin-pool default has its own tests."""
     if not any(k in request.node.name for k in ('true_fills', 'really_pay')):
         monkeypatch.setattr(ap, 'UNKNOWN_LIQ', 1e18)
-    if 'switch_only' not in request.node.name:   # older tests check rotation / re-shape mechanics with the −40% gate open
-        monkeypatch.setattr(ap, 'SWITCH_AT', -1e9)
+    if 'bell' not in request.node.name:   # older tests tick exactly on the round clock
+        monkeypatch.setattr(ap, 'BELL_SEC', 0)
 
 C = lambda m, px, sym=None, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': sym or m.upper(), 'price': px, **k}
 P = lambda m, px: C(m, px, liquidityUsd=2e6, volume24h=2e6)             # 5★ pool
@@ -273,7 +273,7 @@ def test_rounds_per_run_close_the_run_and_math_reads_plainly():
     s = ap.summary(card, {'P': 1.0}, {'rotateHours': 1})
     m = s['math']
     assert m['nowUsd'] == 175 and m['heldUsd'] == 150 and m['paidOutUsd'] == 25 and m['pnlUsd'] == 75   # gross takes never double-count
-    assert s['nextRoundAt'] == 3600 and s['bellSec'] == 10 and s['real'] is False
+    assert s['nextRoundAt'] == 3600 and s['real'] is False
 
 
 def test_impact_mult_from_real_fills_makes_paper_fills_worse():
@@ -314,13 +314,23 @@ def test_runner_rides_from_150_and_sells_only_30_off_its_new_high():
     assert not c['legs'][0].get('ride') and c['legs'][0]['units'] == 0 and c['cash'] > 100
 
 
-def test_tier_cards_switch_only_at_minus_40():
-    assert ap.SWITCH_AT == 40.0 and ap.DEFAULT_CFG['floorPct'] == 40.0
-    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 0.1, 'cycles': {'degen': 'classic'}})
+def test_worst_day_minus_40_fixes_the_tier_config():
+    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'floorPct': 40, 'cycles': {'degen': 'press'}})
     legs = [{'mint': 'R', 'pairAddress': 'PR', 'symbol': 'R', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0},
-            {'mint': 'Q', 'pairAddress': 'PQ', 'symbol': 'Q', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0}]
+            {'mint': 'S', 'pairAddress': 'PS', 'symbol': 'SOL', 'role': 'anchor', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0}]
     card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
-            'events': [], 'startUsd': 20.0, 'legs': legs}
-    new = [{'mint': 'N', 'pairAddress': 'PN', 'symbol': 'N', 'price': 1.0, 'score': 99, 'stars': 5}]
-    c = ap.tick(card, {'PR': 0.9, 'PQ': 0.95}, [], new, cfg, 1000, liqs={'PR': 1e12, 'PQ': 1e12, 'PN': 1e12})    # −10% / −5%: nothing switches
-    assert [l['mint'] for l in c['legs']] == ['R', 'Q'] and not any(e['kind'] in ('rotate', 'phase') for e in c['events'])
+            'events': [], 'startUsd': 20.0, 'dayStartUsd': 20.0, 'dayAt': 0, 'legs': legs}
+    anchors = [{'mint': 'S', 'pairAddress': 'PS', 'symbol': 'SOL', 'price': 1.0, 'stars': 5}]
+    c = ap.tick(card, {'PR': 0.15, 'PS': 1.0}, [], [], cfg, 10, anchors, liqs={'PR': 1e12, 'PS': 1e12})   # day −42.5% (runner −85%)
+    assert c['cycleFix'] == 'safe' and any(e['kind'] == 'fix' for e in c['events'])
+    assert ap.tick(c, {'PR': 0.15, 'PS': 1.0}, [], [], cfg, 20, anchors, liqs={'PS': 1e12})['fixedAt'] == c['fixedAt']   # once a day
+
+
+def test_bell_round_ends_then_10s_countdown_then_the_deal():
+    assert ap.BELL_SEC == 10
+    cfg = ap.clean_cfg({'rotateHours': 1, 'cycles': {'degen': 'off'}})
+    card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
+            'events': [], 'startUsd': 10.0, 'legs': [{'mint': 'S', 'pairAddress': 'PS', 'symbol': 'SOL', 'role': 'anchor', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0}]}
+    assert ap.tick(card, {'PS': 1.0}, [], [], cfg, 3605, liqs={'PS': 1e12}).get('rounds', 0) == 0     # inside the countdown: not yet
+    assert ap.tick(card, {'PS': 1.0}, [], [], cfg, 3610, liqs={'PS': 1e12})['rounds'] == 1             # bell done: dealt
+    assert ap.summary(card, {'PS': 1.0}, cfg)['nextRoundAt'] == 3610

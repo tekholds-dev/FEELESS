@@ -583,12 +583,18 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   on battle corners AND every CardConfig. HQ runs as the CONNECTED wallet (`hqAddr`), never the profile's address.
 - ⛓ Devnet: fuse_card `GKE9e3M8…` deployed + config → Raydium devnet. Devnet SOL via Alchemy devnet `requestAirdrop`.
 
-- 🔒 Tier cards switch only at −40% (`arena_prime.SWITCH_AT`): rotation replaces only coins ≤ −40% from entry, re-shapes only when the
-  card is ≤ −40%, floor default 40 (range 5–40). 🏇 `RIDE_AT/RIDE_TRAIL` (+150% rides, sold 30% off its new high). Re-deals use
+- 🔧 Tier config FIX: a card whose DAY falls to −40% (`FIX_DAY_PCT`) is re-dealt into majors as a new run on the safe cycle
+  (`cycleFix`, once a day, event `fix`). Rotation runs on the normal clock. Floor default 40 (range 5–40). 🏇 `RIDE_AT/RIDE_TRAIL` (+150% rides, sold 30% off its new high). Re-deals use
   `in_play` (value − paid out − parked; never double-count). The bell loop pre-warms candidates inside the 10s countdown.
 - 🎛 Big engine cards: max 4 (`creatorPicks[-4:]`), each ≥ 6 coins; even the engine champion needs HQ ✅ approval; a scrapped (dead)
   strategy leaves the Arena by itself. Playground cards 6–12 coins (`pg_battle.coin_targets/widen/dead`).
 - 💵 `HqRealCards`: creator / HQ wallets see the real tier cards in Fuse › My cards. HQ wallet tier rows show a 🧾 receipt.
+
+- 🔔 Round = clock ends → 10s bell (`BELL_SEC`, server pre-warms candidates) → deal at `nextRoundAt`; `RoundBell` pulls fresh cards at 0.
+- 💳 Prepaid swaps (`fuse_hq.clean_prepay/prepay_credit/use_prepaid`, HQ › Fees › 8, `/admin/fees/prepay`): a NEW card's first buy adds ONE
+  SOL transfer (same approval) = perSwap × swapsPerRound × rounds; `/fuses/position.prepaySig` verified on-chain → `prepaidSwaps`;
+  card swaps quote with `cardId` → $0 FEELESS fee while credit lasts; switch/close spend it. Staff never prepay.
+- 🪪 Circle wallet profiles: `/admin/circle/profiles` + `/admin/circle/profile` (owner, own Circle wallets only) → HQ › 👛 CircleProfiles.
 
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,

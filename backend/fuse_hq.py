@@ -302,6 +302,42 @@ def cap_to_wallet(positions, held):
     return out
 
 
+PREPAY_DEFAULTS = {'on': True, 'perSwapUsd': 0.05, 'swapsPerRound': 2, 'rounds': 5}
+PREPAY_RANGES = {'perSwapUsd': (0.0, 1.0), 'swapsPerRound': (1, 10), 'rounds': (1, 20)}
+
+
+def clean_prepay(c):
+    """💳 Prepaid swaps (HQ › Fees): a user's first buy also pays the swap fees of its first `rounds` rounds up front —
+    perSwapUsd × swapsPerRound × rounds. Those card swaps then pay no FEELESS fee until the credit is used."""
+    c = c if isinstance(c, dict) else {}
+    out = {'on': bool(c.get('on', PREPAY_DEFAULTS['on']))}
+    for k, (lo, hi) in PREPAY_RANGES.items():
+        out[k] = max(lo, min(hi, _f(c.get(k, PREPAY_DEFAULTS[k]))))
+    out['swapsPerRound'], out['rounds'] = int(out['swapsPerRound']), int(out['rounds'])
+    out['perSwapUsd'] = round(out['perSwapUsd'], 4)
+    out['swaps'] = out['swapsPerRound'] * out['rounds']
+    out['usd'] = round(out['perSwapUsd'] * out['swaps'], 4) if out['on'] else 0.0
+    return out
+
+
+def prepay_credit(pos, paid_usd, cfg):
+    """Credit a card with the swaps a confirmed prepay covers (≥97% of the price, SOL drift). Returns the swaps credited."""
+    c = clean_prepay(cfg)
+    if not c['usd'] or _f(paid_usd) < c['usd'] * 0.97:
+        return 0
+    pos['prepaidSwaps'] = int(pos.get('prepaidSwaps') or 0) + c['swaps']
+    pos['prepaidUsd'] = round(_f(pos.get('prepaidUsd')) + _f(paid_usd), 4)
+    return c['swaps']
+
+
+def use_prepaid(pos, n):
+    """Spend prepaid swaps for n recorded card swap legs (never below 0)."""
+    left = max(0, int(pos.get('prepaidSwaps') or 0) - int(n or 0))
+    used = int(pos.get('prepaidSwaps') or 0) - left
+    pos['prepaidSwaps'] = left
+    return used
+
+
 FEE_KINDS = ('buy', 'swap', 'sell', 'rounds')
 
 

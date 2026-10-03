@@ -12,6 +12,8 @@ const mockSignAll = jest.fn(async txs => txs);
 jest.mock('../hooks/useWallet', () => ({ useWallet: () => ({ wallet: { chain: 'solana', address: 'W' }, provider: { publicKey: { toString: () => 'W' }, signAllTransactions: (...a) => mockSignAll(...a) } }) }));
 jest.mock('@solana/web3.js', () => ({ VersionedTransaction: { deserialize: () => ({ serialize: () => new Uint8Array([1, 2]) }) } }), { virtual: true });
 jest.mock('../lib/chatSession', () => ({ readChatSession: () => 'SES' }));
+jest.mock('../lib/launchRail', () => ({ relayConnection: async () => ({ connection: { getLatestBlockhash: async () => ({ blockhash: 'BH' }), sendRawTransaction: async () => 'PREPAYSIG' },
+  web3: { PublicKey: function PK(a) { this.a = a; }, Transaction: function T() { this.add = () => this; this.serialize = () => new Uint8Array([9]); }, SystemProgram: { transfer: x => x } } }) }));
 jest.mock('sonner', () => ({ toast: { error: jest.fn(), success: jest.fn() } }));
 const tick = ms => act(() => new Promise(r => setTimeout(r, ms)));
 let posts;
@@ -105,4 +107,19 @@ test('PARTIAL: 1 of 2 coins fails → card records the landed one + expected lis
   const sw = posts.find(([p]) => p === '/fuses/position/switch');
   expect(sw[1].id).toBe('card9'); expect(sw[1].legs.map(l => l.pairAddress)).toEqual(['R1']);
   expect(q.length === 0 || q.every(([, b]) => b.output_mint === 'R')).toBe(true);
+});
+
+
+test('PREPAY: a new card buy adds ONE prepaid-swaps transfer to the same approval and the card records its signature', async () => {
+  const base = global.fetch;
+  global.fetch = jest.fn(async (url, opts) => {
+    if (String(url).includes('/fees/pricing')) return { ok: true, json: async () => ({ prepay: { on: true, usd: 0.5, swaps: 10, rounds: 5, perSwapUsd: 0.05 }, staff: false, rounds: { payTo: 'FEEWALLET' } }) };
+    return base(url, opts);
+  });
+  const legs = [{ pairAddress: 'P1', baseAddress: 'A', symbol: 'A', sol: 0.6, liquidityUsd: 5e6 }];
+  const el = await run(<FuseGo legs={legs} onClose={() => {}} />);
+  expect(mockSignAll.mock.calls[0][0].length).toBe(2);                     // 1 swap + 1 prepay, ONE approval
+  await tick(5200);
+  const rec = posts.find(([p]) => p === '/fuses/position');
+  expect(rec[1].prepaySig).toBe('PREPAYSIG'); expect(el.textContent).toContain('FUSED');
 });
