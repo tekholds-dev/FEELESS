@@ -236,6 +236,8 @@ def calibrate(ledger, min_n=3):
     for o in ledger or []:
         if o.get('status') != 'filled':
             continue
+        if o.get('source') == 'quote' and o.get('devPct') is not None and abs(_f(o['devPct'])) > 10:
+            continue   # a price-SOURCE gap (stale / other pool), not price impact — never teaches the impact model
         if _f(o.get('feeUsd')) > 0:
             fees.append(_f(o['feeUsd']))
         mid, px, liq, usd = _f(o.get('midPx')), _f(o.get('px')), _f(o.get('liq')), _f(o.get('usd'))

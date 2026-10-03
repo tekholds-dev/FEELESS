@@ -574,6 +574,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   slippage, joins the same card via `/fuses/position/switch`, fills `missing`, not a switch) or ↩ sell back. `/fuses/position` takes
   `expected` → `pos.missing` (`fuse_hq.missing_legs`). `fuse_pnl` caps every leg by the wallet's REAL on-chain balance (`_wallet_held`,
   linked wallets, 60s; `fuse_hq.cap_to_wallet` → `heldShort`); tests stub `_wallet_held` (conftest).
+- 🎯 Tier paper prices = Jupiter price v3 (`_jup_prices`, 20s cache) — what real swaps route at; DexScreener pair only for liquidity +
+  momentum (a single pair sat 20–40% off on runners). Quote rows with |dev| > 10% = price-source gap, never teach `calibrate`.
 - 📏 Paper ⇄ real quote audit (`_paper_quote_audit`, ~5 min): tier-card coins priced by the paper model AND a real Jupiter quote for the
   same $; `fuse_wallet.quote_row/paper_match`; calibration = real fills when ≥3, else quotes (`_fw_calibration`) → `IMPACT_MULT`.
 - ✦ MetaCard designs + nebula · prism · plasma · matrix · vapor (`styles/cardDesigns.css`, `badge_cards.DESIGNS` mirrors, test).

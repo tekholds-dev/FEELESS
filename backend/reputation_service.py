@@ -5146,6 +5146,32 @@ async def _token_prices(mints):
     return {m: v[1] for m, v in out.items() if v[1] > 0}
 
 
+_jup_px_cache: dict = {}
+
+
+async def _jup_prices(mints):
+    """🎯 Jupiter's own USD price per mint (price v3 — the price its routes trade at, across every pool), cached 20s. Paper fills
+    and values use THIS so paper sees the same price real money gets (a single DexScreener pair can sit 20–40% away on runners)."""
+    now = time.time()
+    want = [m for m in dict.fromkeys(mints or []) if m]
+    out = {m: v for m in want for t, v in [_jup_px_cache.get(m, (0, 0))] if now - t < 20 and v > 0}
+    miss = [m for m in want if m not in out]
+    if miss:
+        key = os.environ.get('JUPITER_API_KEY')
+        base, hdr = ('https://api.jup.ag/price/v3', {'x-api-key': key}) if key else ('https://lite-api.jup.ag/price/v3', {})
+        try:
+            async with httpx.AsyncClient(timeout=6) as http:
+                for i in range(0, len(miss), 50):
+                    d = (await http.get(base, params={'ids': ','.join(miss[i:i + 50])}, headers=hdr)).json() or {}
+                    for m, v in d.items():
+                        px = _fuse._f((v or {}).get('usdPrice'))
+                        if px > 0:
+                            out[m] = px; _jup_px_cache[m] = (now, px)
+        except Exception:
+            pass
+    return out
+
+
 async def _runner_tick(now=None, force=False):
     """Every 5 min: record prices for every pick of the last 24h (the proof's price paths); every 15 min (or forced): a new
     round — the best runners stay, newcomers fill the rest."""
@@ -5288,6 +5314,11 @@ async def _prime_tick_inner(now):
     # one pair fetch → live price AND momentum for EVERY coin on the cards (majors + pools too, not only runner-board coins)
     pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pa} for c in cards.values() for pa in [l['pairAddress'] for l in c['legs']] + list((c.get('parked') or {}).keys())]) if cards else {}
     px = {k: _fuse._f(v.get('priceUsd')) for k, v in pairs_.items()}
+    jup = await _jup_prices([l.get('mint') for c in cards.values() for l in c['legs']] + [pk.get('mint') for c in cards.values() for pk in (c.get('parked') or {}).values()])
+    for c in cards.values():   # 🎯 paper trades at Jupiter's price (what a real swap routes at); the pair keeps liquidity + momentum
+        for l in list(c['legs']) + list((c.get('parked') or {}).values()):
+            if jup.get(l.get('mint')):
+                px[l['pairAddress']] = jup[l['mint']]
     def _mom(p):
         tx = (p.get('txns') or {}).get('h1') or {}; b, s_ = _fuse._f(tx.get('buys')), _fuse._f(tx.get('sells'))
         return {'chg1h': _fuse._f((p.get('priceChange') or {}).get('h1')), 'buyShare': round(b / (b + s_) * 100, 1) if b + s_ else None,
@@ -5317,6 +5348,8 @@ async def _prime_view():
     if not cards:
         return []
     px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for c in cards.values() for l in c['legs']])
+    jup = await _jup_prices([l.get('mint') for c in cards.values() for l in c['legs']])
+    px.update({l['pairAddress']: jup[l['mint']] for c in cards.values() for l in c['legs'] if jup.get(l.get('mint'))})
     cyc = _prime_cfg().get('cycles') or _prime.DEFAULT_CYCLES
     def _cyc(tpl):
         seq = _prime.CYCLE_MODES.get(cyc.get(tpl, 'off'))
@@ -5622,7 +5655,7 @@ async def _paper_quote_audit(now):
     rows = []
     for l in pick:
         p_ = pairs_.get(l['pairAddress']) or {}
-        mid, liq = _fuse._f(p_.get('priceUsd')), _fuse._f((p_.get('liquidity') or {}).get('usd'))
+        mid, liq = (await _jup_prices([l['mint']])).get(l['mint']) or _fuse._f(p_.get('priceUsd')), _fuse._f((p_.get('liquidity') or {}).get('usd'))
         dec = await _mint_decimals(l['mint'])
         if mid <= 0 or dec is None or sol_px <= 0:
             continue

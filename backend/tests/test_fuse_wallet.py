@@ -136,3 +136,8 @@ def test_quote_audit_rows_measure_paper_vs_real_and_feed_calibration():
     c = fw.calibrate([fw.quote_row('X', 5, 1.0, 1000, 1.01, 5 / 1.02, i) for i in range(3)])   # model 1% impact, real 2%
     assert c['impactMult'] == 2.0
     assert fw.paper_match([])['n'] == 0
+
+
+def test_price_source_gaps_never_teach_the_impact_model():
+    gap = [fw.quote_row('X', 5, 1.0, 1000, 1.01, 6.5, i) for i in range(5)]      # real gives +29% more: a stale price, not impact
+    assert fw.calibrate(gap)['n'] == 0 and fw.calibrate(gap)['impactMult'] == 1.0
