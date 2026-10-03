@@ -5320,7 +5320,13 @@ async def _prime_tick_inner(now):
         cur = cards.get(tid)
         liqs = {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()}
         cfg_t = {**_prime.clean_cfg(locks[tid]), 'paperFeeUsd': cfg['paperFeeUsd']} if tid in locks else cfg   # 🔒 a locked tier runs its own frozen config
-        cards[tid] = _prime.tick(cur, px, pools, runners, cfg_t, now, anchors, mom, liqs) if cur else _prime.deal(tid, pools, runners, cfg_t, now, anchors)
+        p_t, r_t = pools, runners
+        if cur and cur.get('real'):   # 💵 a REAL card only rotates into coins the keeper may buy (pool ≥ minLiqUsd) — no cash stuck on unbuyable picks
+            def _lq(x):
+                v = x.get('liquidity'); return _fuse._f(v.get('usd') if isinstance(v, dict) else v) or _fuse._f(x.get('liq')) or liqs.get(x.get('pairAddress'), 0.0)
+            floor = _fw.clean_cfg((_fw_load().get('cfg') or {}))['minLiqUsd']
+            p_t, r_t = [x for x in pools if _lq(x) >= floor], [x for x in runners if _lq(x) >= floor]
+        cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, anchors, mom, liqs) if cur else _prime.deal(tid, pools, runners, cfg_t, now, anchors)
     cards = {k: v for k, v in cards.items() if v}
     _record_runs(before_runs, cards)
     win = _prime.crown_round(cards)
