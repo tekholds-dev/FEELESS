@@ -85,7 +85,7 @@ const m$ = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0).toFixed(2)}`;
 export function LiveFuseCard({ r: r0, aura = '', look = null, label = null }) {
   const [flipped, setFlipped] = useState(false);
   const live = useLivePrices(r0.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress));
-  const r = revalue(r0, live);   // every 10s: held tokens × the live price (server P&L every 30s backs it)
+  const r = revalue(r0, live);   // every 3s: held tokens × the live price (server P&L every 30s backs it)
   const legs = [...r.legs].sort((a, b) => (b.usd || 0) - (a.usd || 0));
   const up = r.pnlUsd >= 0;
   const g = r.closed ? 'C' : r.pnlPct >= 25 ? 'A' : r.pnlPct >= 0 ? 'B' : r.pnlPct >= -15 ? 'C' : 'D';
@@ -104,7 +104,7 @@ export function LiveFuseCard({ r: r0, aura = '', look = null, label = null }) {
       <span>{m$(l.usd)} in → {m$(l.valueUsd)} now</span></li>)}</ul>
     <dl className="fcd-sum"><dt>Put in</dt><dd>{m$(r.costUsd)}</dd><dt>In card</dt><dd>{m$(r.valueUsd - paid)}</dd><dt>Paid out</dt><dd className="up">{m$(paid)}</dd>
       <dt>P&L</dt><dd className={up ? 'up' : 'down'}><b>{m$(r.pnlUsd)} ({up ? '+' : ''}{r.pnlPct.toFixed(1)}%)</b></dd></dl>
-    <small className="fcd-note">● Live prices every 10s · {label && label.includes('PAPER') ? 'paper at true fills' : 'exact fills from chain'} · fees apart.</small>
+    <small className="fcd-note">● Live prices every 3s · {label && label.includes('PAPER') ? 'paper at true fills' : 'exact fills from chain'} · fees apart.</small>
   </div>;
   return <div className="fcd" data-testid={`live-card-${r.id}`}>
     <MetaCard card={card} size="md" interactive flipped={flipped} onFlip={setFlipped} back={back} className="fcd-card" />

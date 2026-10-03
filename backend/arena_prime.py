@@ -41,7 +41,8 @@ CYCLE_MODES = {'off': None, 'classic': CYCLE, 'adaptive': 'adaptive', 'safe': ('
 DEFAULT_CYCLES = {'safe': 'safe', 'balanced': 'adaptive', 'degen': 'classic', 'next': 'press', 'ever': 'off'}   # every tier cycles its own way
 DEFAULT_PAYOUTS = {'safe': 25, 'balanced': 50, 'degen': 0, 'next': 25, 'ever': 75}   # % of every profit take paid straight to the wallet
 RUG_LIQ = 0.5   # 🚨 rug shield: pool liquidity at ≤ 50% of entry = pulled → sell at once
-TRAIL_AT, TRAIL_KEEP = 50.0, 5.0   # 🔒 a coin that ran ≥ +50% is sold before it gives it all back (≤ +5% left) — winners never turn into losers
+TRAIL_AT, TRAIL_KEEP = 50.0, 5.0   # 🔒 a coin that ran ≥ +50% is sold before it gives it all back (≤ +5% left)
+RIDE_AT, RIDE_TRAIL = 150.0, 30.0   # 🏇 ride a runner from +150%, sell only when it falls 30% from its new high
 
 
 def next_phase(mode, rounds, last_pct):
@@ -263,8 +264,23 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         if px <= 0 or l['entry'] <= 0:
             continue
         g = (px / l['entry'] - 1) * 100
-        if g >= t['tp']:
+        # 🏇 RUNNER RIDE: a coin up ≥ +150% is frozen through rounds (no TP, no stop, no rotation) and labelled a runner while it keeps
+        # making highs; it is sold only when it falls 30% from its NEW high. (A 200× never gets cut at +150%.)
+        if l.get('ride'):
+            l['high'] = max(_f(l.get('high')), px)
+            if px > l['high'] * (1 - RIDE_TRAIL / 100):
+                continue
+            mode, frac, why = 'ride-end', 1.0, f"rode to {l['high'] / (l.get('rideFrom') or l['entry']):.1f}× its ride start, fell {RIDE_TRAIL:g}% from the high — sold"
+            l['ride'] = False
+        elif g >= RIDE_AT and l.get('role') != 'anchor':
+            l.update(ride=True, high=px, rideFrom=l['entry'], rideAt=now)
+            ev(kind='ride', symbol=l['symbol'], usd=round(l['units'] * px, 4), why=f"+{g:.0f}% ≥ +{RIDE_AT:g}% — 🏇 riding: frozen until it falls {RIDE_TRAIL:g}% from its high", to=[l['symbol']])
+            continue
+        elif g >= t['tp']:
             mode, frac, why = exit_plan(g, mom.get(l['pairAddress']))
+        else:
+            continue
+        if True:
             sold = l['units'] * frac
             gain = sell_usd(sold, px, liqs.get(l['pairAddress']) or l.get('liq'))   # what the pool really pays
             l['units'] -= sold; l['entry'] = px; c['feesUsd'] += fee
@@ -299,7 +315,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     for l in list(c['legs']):
         px = _f(prices.get(l['pairAddress']))
         lmode = l.get('slMode') if l.get('slMode') in SL_MODES else mode   # ❄/✂/🅿 per coin (HQ) beats the card's mode
-        if l.get('role') == 'anchor' or not t['sl'] or lmode == 'hold' or l.get('frozen') or px <= 0 or l['entry'] <= 0:
+        if l.get('role') == 'anchor' or not t['sl'] or lmode == 'hold' or l.get('frozen') or l.get('ride') or px <= 0 or l['entry'] <= 0:
             continue
         dd = (px / l['entry'] - 1) * 100
         l['peak'] = max(_f(l.get('peak')), dd)
@@ -331,7 +347,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             ev(kind='rebuy', symbol=pk['symbol'], usd=round(pk['usd'], 4), why='back at its entry with momentum — bought back', to=[pk['symbol']])
     # 3) auto-rotate every rotateHours: the rotateCount weakest coins out, the best candidates in
     if now - c['lastRotateAt'] >= cfg['rotateHours'] * 3600 and not c.get('flooredAt'):
-        ranked = sorted((l for l in c['legs'] if l.get('role') != 'anchor' and not l.get('frozen') and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
+        ranked = sorted((l for l in c['legs'] if l.get('role') != 'anchor' and not l.get('frozen') and not l.get('ride') and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
         swapped = 0
         for l in ranked[:cfg['rotateCount']]:
             nxt = best(l['role'])
@@ -354,7 +370,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             ev(kind='run', usd=round(v_now, 4), why=f'{n_run} rounds done — run closed on the record, a new run starts at ${v_now:.2f}')
     # 3b) 🔄 phase cycle: a cycling tier re-deals into the next phase shape every round (same run, P&L continues)
     phase = next_phase((cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl'], 'off'), c.get('rounds'), c.get('lastRoundPct'))
-    if phase and c['lastRotateAt'] == now and not c.get('flooredAt'):
+    if phase and c['lastRotateAt'] == now and not c.get('flooredAt') and not any(l.get('ride') for l in c['legs']):   # a riding runner holds the shape
         nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=in_play(c, prices, liqs), keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
         if nc:
             nc['feesUsd'] = round(_f(nc['feesUsd']) + fee * len(c['legs']), 4)   # selling the old shape
@@ -402,7 +418,7 @@ def summary(card, prices, cfg=None):
     rot = _f((cfg or {}).get('rotateHours')) or DEFAULT_CFG['rotateHours']
     paid = round(_f(card.get('walletUsd')), 4)
     legs = [{**{k: l[k] for k in ('mint', 'pairAddress', 'symbol', 'role', 'entry', 'units', 'costUsd')}, 'stars': l.get('stars') or 3,
-             'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'),
+             'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'ride': bool(l.get('ride')), 'high': l.get('high'),
              'firstEntry': l.get('firstEntry') or l['entry'], 'at': l.get('at'), 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,
              'liq': _f(l.get('liqNow')) or _f(l.get('liq')),

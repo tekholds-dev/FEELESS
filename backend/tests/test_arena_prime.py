@@ -79,9 +79,9 @@ def test_auto_tp_compounds_into_the_others_and_pnl_excludes_fees():
     tp = [e for e in out['events'] if e['kind'] == 'tp'][-1]
     assert tp['to'] == ['SOL', 'A', 'R2'] and tp['mode'] == 'gain' and abs(ap.value(out, px) - 130) < 0.05 and out['feesUsd'] > card['feesUsd']
     strong = {'Pr1': {'chg1h': 50, 'buyShare': 70, 'vol5m': 2000, 'vol1h': 12000}}
-    ride = ap.tick(card, {**px, 'Pr1': 4}, [], [], CFG, 60, SOL, strong)                   # 4× with momentum → only the cost comes out
+    ride = ap.tick(card, {**px, 'Pr1': 4}, [], [], CFG, 60, SOL, strong)                   # 4× (≥ +150%) → 🏇 rides, nothing sold yet
     r = next(l for l in ride['legs'] if l['mint'] == 'r1')
-    assert abs(r['units'] * 4 - 75) < 0.1 and [e for e in ride['events'] if e['kind'] == 'tp'][-1]['mode'] == 'ride'
+    assert abs(r['units'] * 1 - 25) < 0.1 and r['ride'] and ride['events'][-1]['kind'] == 'ride'
 
 
 def test_stop_loss_replaced_early_cut_when_fading_anchor_never_stopped():
@@ -295,3 +295,18 @@ def test_redeals_never_rebuy_with_paid_out_or_parked_money():
             'parked': {'Q': {'usd': 20.0}}}
     assert ap.value(card, {'P': 1.0}) == 150.0
     assert ap.in_play(card, {'P': 1.0}) == 100.0          # only the coins + cash go back into coins
+
+
+def test_runner_rides_from_150_and_sells_only_30_off_its_new_high():
+    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'cycles': {'degen': 'off'}})
+    leg = {'mint': 'R', 'pairAddress': 'PR', 'symbol': 'R', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0, 'liq': 1e12}
+    card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
+            'events': [], 'startUsd': 10.0, 'legs': [leg]}
+    c = ap.tick(card, {'PR': 2.6}, [], [], cfg, 10, liqs={'PR': 1e12})          # +160% → rides, nothing sold
+    assert c['legs'][0]['ride'] and c['legs'][0]['units'] == 10 and c['events'][-1]['kind'] == 'ride'
+    c = ap.tick(c, {'PR': 20.0}, [], [], cfg, 20, liqs={'PR': 1e12})            # a 20× keeps riding, new high
+    assert c['legs'][0]['ride'] and c['legs'][0]['high'] == 20.0
+    c = ap.tick(c, {'PR': 15.0}, [], [], cfg, 30, liqs={'PR': 1e12})            # −25% from the high: still riding
+    assert c['legs'][0]['ride']
+    c = ap.tick(c, {'PR': 13.5}, [], [], cfg, 40, liqs={'PR': 1e12})            # −32.5%: sold
+    assert not c['legs'][0].get('ride') and c['legs'][0]['units'] == 0 and c['cash'] > 100

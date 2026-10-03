@@ -68,7 +68,7 @@ export function runnerSections(d, admin = false) {   // HQ sees every passing ru
 }
 const SECTION = { round: ['🏟 This round', 'picked by the arena · live move since the round'], new: ['⚠️ NEW runners', 'minutes old · site + X at launch · clean creator first · tight holders — riskier, size small'], hot: ['🔥 Hot now', 'passing every gate · busiest first'], watch: ['👀 Watching', 'failed a gate — not addable'] };
 
-// Live numbers for a runner row from the shared 10s price poller: price, market cap scaled by the live price, and the move
+// Live numbers for a runner row from the shared 3s price poller: price, market cap scaled by the live price, and the move
 // (since the round for round picks, else the live 5m). Falls back to the server's numbers when the poller has none.
 export function liveRunner(p, lp) {
   const px = lp?.price || 0; const base = Number(p.price) || 0;
@@ -288,7 +288,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
               <button type="button" role="option" aria-selected={on} className={`fl-row fl-runrow sec-${p.section} ${on ? 'is-on' : ''} ${p.blocked ? 'is-blocked' : ''}`} style={{ '--i': Math.min(i, 12) }} disabled={full} onClick={() => toggle(p)} data-testid={`fl-runner-${p.mint}`} data-tip={p.blocked || undefined} title={!p.blocked && full ? 'Card full' : undefined}>
                 <span className="fl-check" aria-hidden="true">{on ? '✓' : '+'}</span>
                 <span className="fl-logo"><TokenAvatar pair={{ chainId: 'solana', baseToken: { address: p.mint, symbol: p.symbol }, info: { imageUrl: p.logo } }} size={28} /></span>
-                <span className="fl-name"><b>{p.isNew ? '⚠️' : '🏃'} {p.symbol || `${(p.mint || '').slice(0, 4)}…`}{L.live && <i className="fl-livedot" title="Live price (10s)" />}</b><em>{p.blocked ? `✕ ${p.blocked}` : <>{(p.sources || []).map(s => s.label).join(' · ') || (p.why || []).join(' · ') || `${p.lane || 'runner'} lane`}{L.price ? <span className="fl-px m-num" key={L.price}> · {formatLivePrice(L.price)}</span> : null}</>}</em></span>
+                <span className="fl-name"><b>{p.isNew ? '⚠️' : '🏃'} {p.symbol || `${(p.mint || '').slice(0, 4)}…`}{L.live && <i className="fl-livedot" title="Live price (3s)" />}</b><em>{p.blocked ? `✕ ${p.blocked}` : <>{(p.sources || []).map(s => s.label).join(' · ') || (p.why || []).join(' · ') || `${p.lane || 'runner'} lane`}{L.price ? <span className="fl-px m-num" key={L.price}> · {formatLivePrice(L.price)}</span> : null}</>}</em></span>
                 <span className="fl-cell"><small>SCORE</small><b className="m-num">{Math.round(p.score || 0)}</b></span>
                 <span className="fl-cell"><small>MCAP</small><b className="m-num fl-tick" key={`m${Math.round(L.mcap || 0)}`}>{L.mcap ? usd(L.mcap) : '—'}</b></span>
                 <span className="fl-cell"><small>VOL 1H</small><b className="m-num">{p.vol1h ? usd(p.vol1h) : '—'}</b></span>

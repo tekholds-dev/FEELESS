@@ -211,3 +211,34 @@ def paper_view(b, prices, liqs):
     return {'key': b.get('key'), 'name': b.get('name'), 'startUsd': b.get('startUsd'), 'valueUsd': round(v, 4), 'pnlUsd': round(v - _f(b.get('startUsd')), 4),
             'pct': round((v / (_f(b.get('startUsd')) or 1) - 1) * 100, 2), 'feesUsd': b.get('feesUsd'), 'hiPct': b.get('hiPct'), 'loPct': b.get('loPct'),
             'at': b.get('at'), 'legs': rows, 'events': b.get('events') or [], 'result': b.get('result')}
+
+
+MIN_COINS = 6        # every playground card plays at least 6 coins / pools
+DEAD_LOSSES = 5      # a strategy with ≥ 5 losses and no win is scrapped (its record is kept, it stops using data)
+
+
+def coin_targets(hq_n):
+    """The coin counts the engine experiments with, from the amount HQ chose: half · same · double (never under 6, never over 12)."""
+    hq_n = int(hq_n or MIN_COINS)
+    return sorted({max(MIN_COINS, min(12, hq_n // 2)), max(MIN_COINS, min(12, hq_n)), max(MIN_COINS, min(12, hq_n * 2))})
+
+
+def widen(sc, candidates, target):
+    """A scenario card topped up to `target` coins with the best gated runners not already on it (equal to its average weight)."""
+    legs = list(sc.get('legs') or [])
+    if len(legs) >= target:
+        return sc
+    have = {l.get('pairAddress') for l in legs}
+    avg = (sum(_f(l.get('weight')) for l in legs) / len(legs)) if legs else 1.0
+    for r in candidates or []:
+        if len(legs) >= target:
+            break
+        if r.get('pairAddress') and r['pairAddress'] not in have:
+            legs.append({'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'mint': r.get('mint'), 'role': 'runner', 'weight': avg or 1.0})
+            have.add(r['pairAddress'])
+    return {**sc, 'legs': legs, 'widened': len(legs)}
+
+
+def dead(record, locked=()):
+    """Strategies to scrap: ≥ DEAD_LOSSES losses, zero wins, not locked by HQ."""
+    return sorted(k for k, r in (record or {}).items() if int(r.get('l') or 0) >= DEAD_LOSSES and not int(r.get('w') or 0) and k not in set(locked or ()))

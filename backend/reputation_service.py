@@ -4775,6 +4775,10 @@ async def _arena_mega(rd, cfg, now):
                     'index': round(100 + pct_, 2), 'grade': 'A' if pct_ > 0 else 'B', 'buyers': 0, 'at': cc.get('at'), 'chat': f"fuse-card-{champ_id}", 'pnlPct': pct_, 'dial': cc.get('dial'),
                     'cfg': {'tp': int(_fuse._f(cc.get('tp'))), 'sl': int(_fuse._f(cc.get('sl'))), 'rotateHours': 1, 'slMode': 'sell'},
                     'tagline': f"engine champion · {r_.get('w', 0)}–{r_.get('l', 0)} in playground battles", 'activity': _hq.activity(len(cc['legs']), 0, 0, pct_)})
+    # 🎛 at most 4 engine cards on the Arena, each with ≥ 6 coins: the engine champion first, then the best runners-up
+    eng = [x for x in out if x.get('kind') in ('scenario', 'engine') and x.get('bench')]
+    keep = sorted([x for x in eng if len(x.get('legs') or []) >= _pgb.MIN_COINS], key=lambda x: (not x.get('engineChamp'), -_fuse._f(x.get('pnlPct'))))[:4]
+    out = [x for x in out if x not in eng or x in keep]
     # ⭐ top-tier cards fight in the bracket too (fighters only — they already have their own section at the top of the Arena)
     tier_dial = {'diamond': 'safe', 'ever': 'safe', 'gold': 'balanced', 'blaze': 'degen', 'next': 'degen'}
     pcfg = _prime_cfg()
@@ -5854,8 +5858,7 @@ async def _fuse_warm():
             await _pg_battle_tick(time.time())
         except Exception as e:
             print(f'[pg-battle] {e}')
-    if _fuse_warm_n['n'] % 2 == 0:    # ~50s: ⭐ Arena Prime cards run their full automation (paper) — stops can't wait 5 min
-        await _prime_tick(time.time())
+    await _prime_tick(time.time())    # ~25s: ⭐ tier cards (paper + real) — stops, rug shield and the keeper can't wait
     await _runner_live()
     await _arena_auto_refresh(time.time())
     await asyncio.gather(runners_discover(), fuse_arena_public(), fuse_season(), _sol_usd_live(), return_exceptions=True)
@@ -6127,7 +6130,7 @@ def _pg_battle_view(rd):
     view = lambda k: {**{x: (cards.get(k) or {}).get(x) for x in ('id', 'name', 'dial', 'tp', 'sl', 'swaps', 'phase', 'rounds')}, 'pct': (b.get('pcts') or {}).get(k),
                       'dna': (b.get('dna') or {}).get(k), 'dnaLabel': _dna.label((b.get('dna') or {}).get(k)) if (b.get('dna') or {}).get(k) else None,
                       'legs': [{x: l.get(x) for x in ('symbol', 'role', 'pairAddress')} for l in (cards.get(k) or {}).get('legs') or []], 'record': (b.get('record') or {}).get(k)}
-    return {'cfg': _pgb.clean_cfg(b.get('cfg')), 'locked': b.get('locked') or [], 'endsAt': b.get('endsAt'), 'pairs': [{'a': view(p['a']), 'b': view(p['b'])} for p in b.get('pairs') or []],
+    return {'cfg': _pgb.clean_cfg(b.get('cfg')), 'locked': b.get('locked') or [], 'scrapped': len(b.get('scrapped') or []), 'endsAt': b.get('endsAt'), 'pairs': [{'a': view(p['a']), 'b': view(p['b'])} for p in b.get('pairs') or []],
             'log': (b.get('log') or [])[-12:][::-1], 'record': b.get('record') or {}, 'names': {k: c.get('name') for k, c in cards.items()},
             'brain': {**_dna.best(b.get('brain') or {}), 'label': _dna.label(_dna.best(b.get('brain') or {})['dna']), 'scores': b.get('brain') or {}}}
 
@@ -6144,7 +6147,8 @@ async def _pg_battle_tick(now):
     if len(scs) < 2:
         return None
     cards = dict(b.get('cards') or {})
-    want = list(scs)[:cfg['cards']]
+    scrapped = set(b.get('scrapped') or [])   # 🗑 dead strategies stay off the field (record kept)
+    want = [k for k in scs if k not in scrapped][:cfg['cards']]
     legs = [{'chainId': 'solana', 'pairAddress': l['pairAddress']} for k in want for l in (cards.get(k) or scs[k])['legs']]
     live = await _runner_live()
     cand = [r for r in live.get('passing') or [] if r.get('pairAddress')]
@@ -6154,9 +6158,11 @@ async def _pg_battle_tick(now):
     quiet = {k: not (_fuse._f(((v.get('txns') or {}).get('m5') or {}).get('buys')) + _fuse._f(((v.get('txns') or {}).get('m5') or {}).get('sells'))) and not _fuse._f((v.get('volume') or {}).get('m5'))
              for k, v in pairs_.items()}
     cand = [{'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'mint': r.get('mint'), 'price': prices.get(r['pairAddress']) or r.get('price'), 'liq': liqs.get(r['pairAddress'])} for r in cand]
-    for k in want:   # deal any missing card
+    rcfg_ = _runner_cfg()
+    targets = _pgb.coin_targets(int(rcfg_.get('autoCoins') or 4) + int(rcfg_.get('autoPools') or 3))   # HQ's amount: half · same · double, ≥ 6
+    for i, k in enumerate(want):   # deal any missing card — every card ≥ 6 coins, the engine experiments with the coin count
         if k not in cards or not cards[k].get('legs'):
-            cards[k] = _pgb.deal(scs[k], prices, liqs, now, cfg['sizeUsd'])
+            cards[k] = {**_pgb.deal(_pgb.widen(scs[k], cand, targets[i % len(targets)]), prices, liqs, now, cfg['sizeUsd']), 'target': targets[i % len(targets)]}
     dna = {k: v for k, v in (b.get('dna') or {}).items() if k in want}
     dna = _dna.assign([{'id': k, 'dial': scs[k].get('dial')} for k in want], known=dna)   # 🧬 every battle card plays its own DNA
     results = []
@@ -6174,8 +6180,8 @@ async def _pg_battle_tick(now):
         best_ = _dna.best(brain)['dna']; exploited = False
         locked = set(b.get('locked') or [])   # 🔒 HQ-locked cards keep their coins + DNA even after a loss
         for k in want:
-            if k in losers and k not in locked:   # 🧬 re-bred: same scenario, this round's picks, fresh $
-                cards[k] = _pgb.deal(scs[k], prices, liqs, now, cfg['sizeUsd'])
+            if k in losers and k not in locked:   # 🧬 re-bred: same scenario, this round's picks, fresh $ (same coin-count experiment)
+                cards[k] = {**_pgb.deal(_pgb.widen(scs[k], cand, cards.get(k, {}).get('target') or targets[0]), prices, liqs, now, cfg['sizeUsd']), 'target': cards.get(k, {}).get('target') or targets[0]}
                 if not exploited and _dna.sig(best_) not in {_dna.sig(v) for kk, v in dna.items() if kk != k}:
                     dna[k] = best_; exploited = True
                 else:
@@ -6183,8 +6189,11 @@ async def _pg_battle_tick(now):
             else:             # winner keeps its coins, re-shaped by its DNA cycle (true fills); the next round counts from here
                 cards[k] = _pgb.cycle_rebalance(cards[k], dna.get(k), pcts.get(k), prices, liqs)
                 cards[k] = {**cards[k], 'roundUsd': _pgb.value(cards[k], prices, liqs)}
+        for k in _pgb.dead(record, locked):   # 🗑 scrap strategies that only lose — they stop using data, the record stays
+            scrapped.add(k); cards.pop(k, None); dna.pop(k, None)
+        want = [k for k in want if k not in scrapped]
         dna = _dna.assign([{'id': k, 'dial': scs[k].get('dial')} for k in want], known=dna)
-        b = {**b, 'record': record, 'pairs': _pgb.pair_up(want), 'endsAt': now + cfg['roundMins'] * 60,
+        b = {**b, 'record': record, 'scrapped': sorted(scrapped)[-300:], 'pairs': _pgb.pair_up(want), 'endsAt': now + cfg['roundMins'] * 60,
              'log': ((b.get('log') or []) + [{**r_, 'aName': cards.get(r_['a'], {}).get('name'), 'bName': cards.get(r_['b'], {}).get('name')} for r_ in results])[-40:]}
     else:
         for k in want:

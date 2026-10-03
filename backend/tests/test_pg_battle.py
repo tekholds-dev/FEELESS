@@ -164,3 +164,11 @@ def test_arena_paper_book_deals_true_fills_marks_and_audits():
     v = pb.paper_view(m, {'A': 1.5, 'B': 2.0}, lq)
     assert v['legs'][0]['entry'] == a['entry'] and v['pnlUsd'] == round(v['valueUsd'] - 100, 4) and v['feesUsd'] == 0.2
     assert pb.paper_book('k', {'legs': []}, px, lq, 1) is None
+
+
+def test_playground_widens_to_6_plus_experiments_with_hq_amount_and_scraps_dead():
+    assert pb.coin_targets(7) == [6, 7, 12] and pb.coin_targets(4) == [6, 8] and pb.coin_targets(12) == [6, 12]
+    sc = {'id': 's', 'legs': [{'pairAddress': 'A', 'weight': 50}, {'pairAddress': 'B', 'weight': 50}]}
+    w = pb.widen(sc, [{'pairAddress': 'A'}, {'pairAddress': 'C'}, {'pairAddress': 'D'}, {'pairAddress': 'E'}, {'pairAddress': 'F'}, {'pairAddress': 'G'}], 6)
+    assert [l['pairAddress'] for l in w['legs']] == ['A', 'B', 'C', 'D', 'E', 'F'] and w['legs'][-1]['weight'] == 50
+    assert pb.dead({'x': {'w': 0, 'l': 5}, 'y': {'w': 1, 'l': 9}, 'z': {'w': 0, 'l': 5}}, locked=['z']) == ['x']
