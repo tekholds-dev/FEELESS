@@ -5345,10 +5345,12 @@ async def _prime_tick_inner(now):
             return _fuse._f(m.get('chg1h')) > 0 and bs >= 55
         p_t = [x for x in pools if _lq(x) >= floor] or pools
         r_t = [x for x in runners if _lq(x) >= floor and _confirmed(x)]
-        if cur and cur.get('real'):   # 🪑 coins the keeper couldn't buy 3× in 10 min are benched 1h: never picked, and swapped out NOW
-            bench = _fw.benched((_fw_load().get('books') or {}).get(tid) or {}, now)
-            if bench:
-                p_t, r_t = [x for x in p_t if x.get('mint') not in bench], [x for x in r_t if x.get('mint') not in bench]
+        # 🪑 coins real money couldn't buy safely (3× in 10 min) are benched 1h for EVERY tier — paper never trades what real can't
+        bench = set().union(*[_fw.benched(b, now) for b in (_fw_load().get('books') or {}).values()] or [set()])
+        if bench:
+            p_t, r_t = [x for x in p_t if x.get('mint') not in bench], [x for x in r_t if x.get('mint') not in bench]
+        if cur and cur.get('real') and bench:   # the real card swaps a benched buying coin out NOW
+            if True:
                 for l in [x for x in cur['legs'] if x.get('mint') in bench and x.get('buying')]:
                     try:
                         tmp = {**cur, 'legs': [{**x, 'units': _fuse._f(x.get('wantUnits'))} if x is l else x for x in cur['legs']]}
