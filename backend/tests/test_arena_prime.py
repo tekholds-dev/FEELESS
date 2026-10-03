@@ -451,3 +451,8 @@ def test_noise_rounds_never_trip_the_safe_fix_and_owner_cycle_wins():
     assert not done.get('cycleFix') and done['streak'] == 0
     picked = ap.owner_cycle(dict(card, cycleFix='rescue', fixUntil=9), 'classic', 5.0)
     assert 'cycleFix' not in picked and picked['streak'] == 0 and picked['events'][-1]['kind'] == 'streak'
+
+
+def test_major_leg_keeps_its_pool_depth():
+    l = ap._leg({'mint': 'S', 'pairAddress': 'PS', 'symbol': 'SOL', 'price': 150.0, 'liquidityUsd': 9_000_000}, 5.0, 0, 'anchor')
+    assert l['liq'] == 9_000_000

@@ -5256,7 +5256,7 @@ async def _prime_candidates():
     # Anchors: the real majors (SOL first, then JitoSOL / cbBTC / WBTC / ETH) at their deepest Solana pool — stable base of every card.
     order = ['SOL', 'cbBTC', 'WETH', 'ETH', 'JitoSOL', 'WBTC']
     maj = {str(r.get('symbol')): r for r in await _majors_rows()}
-    anchors = [{'mint': r.get('baseAddress'), 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'price': r.get('priceUsd')} for k in order for r in [maj.get(k)] if r and _fuse._f(r.get('priceUsd')) > 0]
+    anchors = [{'mint': r.get('baseAddress'), 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'price': r.get('priceUsd'), 'liquidityUsd': r.get('liquidityUsd')} for k in order for r in [maj.get(k)] if r and _fuse._f(r.get('priceUsd')) > 0]
     # ARENA-backed coins go first: this round's runner picks, live lit cards, and every coin on a stage / battle card
     rd = _json_load(RUNNERS_PATH, {'rounds': []}); rnd = (rd.get('rounds') or [None])[-1] or {}
     arena = {p.get('mint') for p in rnd.get('picks') or []} | {p.get('mint') for c in rd.get('litCards') or [] if not c.get('downAt') for p in c.get('picks') or []}
