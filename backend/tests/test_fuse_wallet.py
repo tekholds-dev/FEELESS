@@ -345,3 +345,10 @@ def test_gas_tank_and_landing_rate():
            {'card': 'safe', 'side': 'buy', 'status': 'failed', 'err': 'not confirmed in 2 min', 'at': 100}, {'card': 'safe', 'side': 'topup', 'at': 100}]
     L = fw.landing(led, 'safe', 200)
     assert L == {'tried': 4, 'filled': 1, 'pct': 25, 'top': 'not confirmed in 2 min', 'topN': 2}
+
+
+def test_circle_balances_fallback_never_shows_an_empty_wallet():
+    ws = [{'address': 'A', 'balances': [{'symbol': 'SOL', 'amount': '0.0746'}, {'symbol': 'SPEC', 'amount': '650.5'}, {'symbol': 'X', 'amount': '0'}]}]
+    b = fw.circle_balances(ws, 'A')
+    assert b['sol'] == 0.0746 and b['tokens'] == {'SPEC': 650.5} and b['source'] == 'circle'
+    assert fw.circle_balances(ws, 'B') is None

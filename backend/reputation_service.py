@@ -5825,6 +5825,7 @@ async def _fw_tick(now):
 
 
 _FW_GAS = {}
+_FW_BAL = {}   # last good full balance read of the Fuse wallet (shown while the RPC is rate-limited)
 
 
 async def _fw_tick_inner(now):
@@ -6035,15 +6036,22 @@ async def fuse_wallet_view(request: Request):
     if cfg['address']:
         try:
             bal = await _fw_balances(cfg['address'])
-        except Exception as e:
-            err = err or f'balance read failed: {str(e)[:80]}'
+            _FW_BAL.update(bal=bal, at=time.time(), addr=cfg['address'])
+        except Exception as e:   # 🛟 RPC busy (rate limit): never show an EMPTY wallet — last good read, else Circle's own balances
+            bal = _FW_BAL.get('bal') if _FW_BAL.get('addr') == cfg['address'] else None
+            if bal is None:
+                bal = _fw.circle_balances(wallets, cfg['address'])
+            if bal is None:
+                err = err or f'balance read failed: {str(e)[:80]}'
+            else:
+                bal = {**bal, 'stale': True}
     sol_px = await _sol_usd_live()
     cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
     px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for c in cards.values() for l in c.get('legs') or []]) if cards else {}
     books = {tid: {**b, 'valueUsd': _fw.book_value(b, px, sol_px), 'label': (cards.get(tid) or {}).get('label') or tid, **_fw.totals(d['ledger'], tid)} for tid, b in d['books'].items()}
     return {'cfg': cfg, 'signer': _fw_signer_ready(), 'wallets': wallets, 'balances': bal, 'solUsd': sol_px, 'error': err,
             'freeSol': _fw.free_sol((bal or {}).get('sol'), d['books'], cfg['reserveSol']) if bal else None,
-            'missing': _fw.reconcile((bal or {}).get('tokens'), d['books']) if bal else [],
+            'missing': _fw.reconcile((bal or {}).get('tokens'), d['books']) if bal and bal.get('source') != 'circle' else [],   # Circle rows have no mints
             'books': books, 'tiers': {k: v['label'] for k, v in _prime.TEMPLATES.items()}, 'calibration': _fw_calibration(d),
             'paperMatch': _fw.paper_match(d.get('quoteAudit')), 'quoteAudit': (d.get('quoteAudit') or [])[-20:][::-1],
             'totals': _fw.totals(d['ledger']), 'ledger': d['ledger'][-200:][::-1]}

@@ -289,6 +289,16 @@ def landing(ledger, card, now, window=86400):
     return {'tried': tried, 'filled': filled, 'pct': round(filled / tried * 100) if tried else None, 'top': top, 'topN': miss.count(top) if top else 0}
 
 
+def circle_balances(wallets, address):
+    """Fallback balance from Circle's own wallet list (when our RPC is rate-limited): SOL + coins by symbol. No mints → display only."""
+    w = next((x for x in wallets or [] if x.get('address') == address), None)
+    if not w:
+        return None
+    rows = w.get('balances') or []
+    sol = sum(_f(r.get('amount')) for r in rows if r.get('symbol') == 'SOL')
+    return {'sol': sol, 'tokens': {r.get('symbol'): _f(r.get('amount')) for r in rows if r.get('symbol') != 'SOL' and _f(r.get('amount')) > 0}, 'decimals': {}, 'source': 'circle'}
+
+
 def reconcile(wallet_tokens, books):
     """Coins the books say the wallet holds but it doesn't (> 0.1% short) → [{mint, booked, held}]: that card pauses."""
     want = {}
