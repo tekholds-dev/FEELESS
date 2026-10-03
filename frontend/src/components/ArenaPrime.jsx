@@ -19,11 +19,11 @@ const KIND = { rug: '🚨 Rug shield', payout: '💸 Paid to wallet', tp: '💰 
 // They burn brighter (is-hot) when the card is up ≥ +10%. Transform/opacity only; frozen under fx-lite / reduced motion.
 // Each tier is its OWN MetaCard build: design pattern, rarity frame, colours and aura — recognisable at a glance (and in lite mode).
 const TIER = {
-  diamond: { aura: 'frost', name: 'DIAMOND', look: { design: 'holo', rarity: 'legendary', accent: '#9fe3ff', accent2: '#e4d4ff' } },
+  diamond: { aura: 'frost', name: 'DIAMOND', look: { design: 'prism', rarity: 'legendary', accent: '#9fe3ff', accent2: '#e4d4ff' } },
   gold: { aura: 'gold', name: 'GOLD', look: { design: 'obsidian', rarity: 'epic', accent: '#ffd56a', accent2: '#ff9a4d' } },
   blaze: { aura: 'fire', name: 'BLAZE', look: { design: 'ember', rarity: 'epic', accent: '#ff7a2f', accent2: '#ff3d5a' } },
-  next: { aura: 'lightning', name: 'NEXT LEVEL', look: { design: 'glitch', rarity: 'mythic', accent: '#c58bff', accent2: '#3cdcff' } },
-  ever: { aura: 'aurora', name: 'EVERLASTING', look: { design: 'circuit', rarity: 'legendary', accent: '#19f58f', accent2: '#6ad7ff' } },
+  next: { aura: 'lightning', name: 'NEXT LEVEL', look: { design: 'plasma', rarity: 'mythic', accent: '#c58bff', accent2: '#3cdcff' } },
+  ever: { aura: 'aurora', name: 'EVERLASTING', look: { design: 'nebula', rarity: 'legendary', accent: '#19f58f', accent2: '#6ad7ff' } },
 };
 // HQ ⚡ meta config: the settings the Arena proof backs today (hourly rotation of 1 coin, −15% floor, compound on, park & rebuy).
 export const PRIME_META = { rotateHours: 1, rotateCount: 1, floorPct: 15, compound: true, slMode: 'park' };

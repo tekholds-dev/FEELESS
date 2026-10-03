@@ -277,6 +277,31 @@ def auto_rounds(pos, cfg, pnl_usd):
     return True
 
 
+def missing_legs(planned, landed):
+    """Coins the buyer approved that did NOT land on-chain (pairAddresses) — kept on the card until retried or dropped."""
+    got = {l.get('pairAddress') for l in landed or []}
+    return [pa for pa in dict.fromkeys(planned or []) if pa and pa not in got]
+
+
+def cap_to_wallet(positions, held):
+    """🔗 On-chain truth: a card can never count more coins than the wallet REALLY holds. `held` = {mint: tokens across the owner's
+    linked wallets}. Open legs claim their mint's balance oldest card first; a short leg is capped and flagged `heldShort`."""
+    left = dict(held or {})
+    out = []
+    for pos in sorted(positions or [], key=lambda x: _f(x.get('at'))):
+        p2 = {**pos, 'legs': [dict(l) for l in pos.get('legs') or []]}
+        for l in p2['legs']:
+            if l.get('soldUsd') is not None or not l.get('mint') or l['mint'] not in left:
+                continue
+            have = max(0.0, _f(left[l['mint']]))
+            want = _f(l.get('tokens'))
+            if want > have * 1.001 + 1e-12:
+                l['tokens'] = have; l['heldShort'] = round(want - have, 9)
+            left[l['mint']] = max(0.0, have - _f(l.get('tokens')))
+        out.append(p2)
+    return out
+
+
 FEE_KINDS = ('buy', 'swap', 'sell', 'rounds')
 
 

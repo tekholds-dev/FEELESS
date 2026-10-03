@@ -2937,6 +2937,7 @@ class FusePositionIn(BaseModel):
     champ: bool = False                               # 👑 bought via "Buy the champion" (copy of the reigning bracket champion)
     plan: dict = {}     # 🎯 card plan from the Lab: {at, mode, onProfit, legs: {pairAddress: {tp, sl}}}
     legs: list          # [{pairAddress, chainId, symbol, signature}]
+    expected: list = []  # every pairAddress the buyer approved — any that didn't land is kept as `missing` (retry or sell back)
 
 
 @app.post('/api/reputation/fuses/position')
@@ -2962,6 +2963,8 @@ async def fuse_position(p: FusePositionIn):
         if not legs:
             return {'ok': True, 'counted': False}
         pos = {'id': uuid.uuid4().hex[:10], 'wallet': me, 'name': p.name.strip() or 'Lab fuse', 'fuseId': p.fuseId[:16], 'at': time.time(), 'legs': legs}
+        planned = [str(x)[:64] for x in (p.expected or [])[:_fuse.MAX_LEGS]]
+        pos['missing'] = _hq.missing_legs(planned, legs)   # ⚠ approved but not landed — never hidden, never counted
         try:
             plan = _hq.clean_plan(p.plan, _json_load(FUSE_HQ_PATH, {}).get('cardRules'), [leg['pairAddress'] for leg in legs], [leg['pairAddress'] for leg in legs if leg.get('role') == 'runner']) if p.plan else None
         except ValueError:
@@ -2989,9 +2992,11 @@ async def fuse_position(p: FusePositionIn):
             pos['backKey'] = p.back
         _json_save(FUSE_HQ_PATH, d)
     # AFTER notice (inbox + phone): the card is recorded. Never P&L here — numbers live in Fuse › My cards / the profile.
-    notify(me, 'fuse-card', f"🧬 Card bought in one approval: {pos['name']} — {', '.join('$' + (leg.get('symbol') or '?') for leg in legs[:4])}{f' +{len(legs) - 4}' if len(legs) > 4 else ''}{' · ' + _hq.RISK_DIALS[pos['risk']]['label'] if pos.get('risk') in _hq.RISK_DIALS else ''}. Receipt + live P&L in My cards.",
+    miss = pos.get('missing') or []
+    notify(me, 'fuse-card', (f"⚠ {pos['name']}: {len(legs)}/{len(legs) + len(miss)} coins landed — retry the other {len(miss)} or sell back, from My cards." if miss else
+                             f"🧬 Card bought in one approval: {pos['name']} — {', '.join('$' + (leg.get('symbol') or '?') for leg in legs[:4])}{f' +{len(legs) - 4}' if len(legs) > 4 else ''}{' · ' + _hq.RISK_DIALS[pos['risk']]['label'] if pos.get('risk') in _hq.RISK_DIALS else ''}. Receipt + live P&L in My cards."),
            url=f"/terminal/fuse?tab=cards&card={pos['id']}", once=f"card-open-{pos['id']}", meta={'claim': 'Confirmed FEELESS buys from your wallet', 'source': 'Fuse cards'})
-    return {'ok': True, 'counted': True, 'legs': len(legs)}
+    return {'ok': True, 'counted': True, 'legs': len(legs), 'id': pos['id'], 'missing': miss}
 
 
 class FuseReceiptIn(BaseModel):
@@ -3720,7 +3725,10 @@ async def fuse_position_switch(p: FuseSwitchIn):
         pairs = [(t, m) for t, m in pairs if t['tx'] not in used]
         buys_before = sum(1 for e in pos.get('events') or [] if e.get('kind') == 'buy')
         pos, n = _hq.add_legs(pos, [t for t, _ in pairs], [m for _, m in pairs], now=time.time())
-        switched = sum(1 for e in pos.get('events') or [] if e.get('kind') == 'buy') > buys_before
+        filled = [m.get('pairAddress') for _, m in pairs if m.get('pairAddress') in (pos.get('missing') or [])]
+        if filled:   # ↻ a retry completed the original buy — not a switch, the 24h clock is untouched
+            pos['missing'] = [x for x in pos.get('missing') or [] if x not in filled]
+        switched = not filled and sum(1 for e in pos.get('events') or [] if e.get('kind') == 'buy') > buys_before
         if switched:   # a real switch-in (not a top-up)
             pos['lastSwitchAt'] = time.time()
         _json_save(FUSE_HQ_PATH, d)
@@ -3840,16 +3848,48 @@ async def _hq_prices(legs):
     return {k: _fuse._f(v.get('priceUsd')) for k, v in pairs.items()}
 
 
+_held_cache: dict = {}
+
+
+async def _wallet_held(wallets, mints):
+    """{mint: tokens} summed over these wallets from chain (both token programs), cached 60s. None = RPC unavailable (never guess)."""
+    key = tuple(wallets)
+    hit = _held_cache.get(key)
+    if hit and time.time() - hit[0] < 60:
+        return hit[1]
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            res = await asyncio.gather(*[_rpc(http, 'getTokenAccountsByOwner', [w, {'programId': pg}, {'encoding': 'jsonParsed', 'commitment': 'confirmed'}])
+                                         for w in wallets[:6] for pg in _FW_TOKEN_PROGRAMS])
+    except Exception:
+        return None
+    held = {}
+    for r in res:
+        for a in (r or {}).get('value') or []:
+            info = (((a.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
+            if info.get('mint'):
+                held[info['mint']] = held.get(info['mint'], 0.0) + _fuse._f((info.get('tokenAmount') or {}).get('uiAmountString') or (info.get('tokenAmount') or {}).get('uiAmount'))
+    _held_cache[key] = (time.time(), held)
+    return held
+
+
 @app.get('/api/reputation/fuses/pnl/{address}')
 async def fuse_pnl(address: str):
     mine = set(linked_of(primary_of(address))) | {primary_of(address), address}
     pos = [x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if x['wallet'] in mine]
+    open_mints = {l.get('mint') for x in pos if not x.get('closedAt') for l in x['legs'] if l.get('soldUsd') is None and l.get('mint')}
+    if open_mints:   # 🔗 a card never counts coins the wallet doesn't REALLY hold (on-chain balances, all linked wallets, 60s cache)
+        held = await _wallet_held(sorted(mine), open_mints)
+        if held is not None:
+            capped = {x['id']: x for x in _hq.cap_to_wallet([x for x in pos if not x.get('closedAt')], held)}
+            pos = [capped.get(x['id'], x) for x in pos]
     px = await _hq_prices([leg for x in pos for leg in x['legs']]) if pos else {}
     by, rules, now = _ledger_by_sig(), _card_rules(), time.time()
     hot = {c['id'] for c in (_arena_mega_cache.get('data') or []) if c.get('kind') == 'user' and c['activity']['tier'] in ('hot', 'blazing')}
     wins = _season_wins()
     by_ = _ledger_by_sig()   # FEELESS fees already paid on each card (for the profit trail's book)
-    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold', 'nextSwitchAt': _hq.next_switch_at(x), 'rotateHours': x.get('rotateHours') or 24, 'slMode': x.get('slMode') or 'sell', 'coinModes': x.get('coinModes') or {}, 'coinRotate': x.get('coinRotate') or {}, 'cycle': x.get('cycle') or 'steady', 'payoutPct': x.get('payoutPct', 100 if (x.get('onProfit') or 'collect') == 'collect' else 0), 'compoundStyle': x.get('compoundStyle') or 'smart', 'autoFees': x.get('autoFees', True),
+    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold', 'nextSwitchAt': _hq.next_switch_at(x), 'rotateHours': x.get('rotateHours') or 24, 'slMode': x.get('slMode') or 'sell', 'coinModes': x.get('coinModes') or {}, 'coinRotate': x.get('coinRotate') or {}, 'cycle': x.get('cycle') or 'steady', 'payoutPct': x.get('payoutPct', 100 if (x.get('onProfit') or 'collect') == 'collect' else 0), 'compoundStyle': x.get('compoundStyle') or 'smart', 'autoFees': x.get('autoFees', True), 'missing': x.get('missing') or [],
+                  'heldShort': [l['pairAddress'] for l in x['legs'] if l.get('heldShort')],
                   'roundsLeft': _hq.rounds_left(x, _is_staff(x['wallet'])), 'roundsUsed': x.get('roundsUsed') or 0, 'roundsOwedUsd': x.get('roundsOwedUsd') or 0,
                   'feesPaidUsd': _card_fees(x, by_), 'roundsPaidUsd': round(sum(_fuse._f(rb.get('usd')) for rb in x.get('roundBuys') or [] if rb.get('mode') == 'pay'), 4), 'roundPacks': len(x.get('roundBuys') or []), 'parked': x.get('parked') or {}, 'risk': x.get('risk') or 'custom',
                     'onProfit': x.get('onProfit') or 'collect', 'legGuard': x.get('legGuard') or {},
@@ -5289,7 +5329,7 @@ async def _prime_view():
 @app.get('/api/reputation/fuses/prime')
 async def fuse_prime():
     """⭐ Arena Prime cards (paper, fully auto) with every automation event + the config they run."""
-    return {'cards': await _prime_view(), 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner')}
+    return {'cards': await _prime_view(), 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner')}
 
 
 @app.post('/api/reputation/admin/arena/prime')
@@ -5509,7 +5549,7 @@ async def _fw_tick(now):
     card shows its true coins, entries and fees. Paused / unarmed / missing-coin cards wait. Paper learns from the fills."""
     await _fw_signer_check()
     d = _fw_load()
-    cal = _fw.calibrate(d.get('ledger'))
+    cal = _fw_calibration(d)
     _prime.IMPACT_MULT = cal['impactMult']
     cfg = _fw.clean_cfg(d.get('cfg') or {})
     if not d['books'] or not cfg['armed'] or cfg['paused'] or not cfg['address']:
@@ -5553,6 +5593,57 @@ async def _fw_tick(now):
     return done
 
 
+_mint_dec: dict = {}
+
+
+async def _mint_decimals(mint):
+    if mint in _mint_dec:
+        return _mint_dec[mint]
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            r = await _rpc(http, 'getTokenSupply', [mint])
+        _mint_dec[mint] = int(((r or {}).get('value') or {}).get('decimals'))
+    except Exception:
+        return None
+    return _mint_dec[mint]
+
+
+async def _paper_quote_audit(now):
+    """📏 Paper ⇄ real, every ~5 min: up to 4 coins on the tier cards are priced the way paper fills them AND with a REAL Jupiter quote
+    for the same $ (read-only, nothing signed). The gap is logged and the paper impact model learns from it before any money moves."""
+    cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
+    legs = [l for c in cards.values() for l in c.get('legs') or [] if l.get('mint') and l['mint'] != _fw.SOL_MINT]
+    if not legs:
+        return 0
+    k = int(now // 300)
+    pick = [legs[(k * 4 + i) % len(legs)] for i in range(min(4, len(legs)))]
+    pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in pick])
+    sol_px = await _sol_usd_live()
+    rows = []
+    for l in pick:
+        p_ = pairs_.get(l['pairAddress']) or {}
+        mid, liq = _fuse._f(p_.get('priceUsd')), _fuse._f((p_.get('liquidity') or {}).get('usd'))
+        dec = await _mint_decimals(l['mint'])
+        if mid <= 0 or dec is None or sol_px <= 0:
+            continue
+        usd = max(5.0, min(300.0, _fuse._f(l.get('units')) * mid))
+        try:
+            q = await _fw_jup('GET', '/swap/v1/quote', params={'inputMint': _fw.SOL_MINT, 'outputMint': l['mint'], 'amount': str(int(usd / sol_px * 1e9)), 'slippageBps': '100'})
+        except HTTPException:
+            continue
+        rows.append({**_fw.quote_row(l.get('symbol'), usd, mid, liq, _prime.buy_px(mid, usd, liq), int(q.get('outAmount') or 0) / 10 ** dec, now), 'mint': l['mint']})
+    if rows:
+        async with _fw_lock:
+            d = _fw_load(); d['quoteAudit'] = (d.get('quoteAudit') or [])[-199:] + rows; _json_save(FUSE_WALLET_PATH, d)
+    return len(rows)
+
+
+def _fw_calibration(d):
+    """Real fills win; until there are 3, paper learns from the real-quote audit."""
+    real = _fw.calibrate(d.get('ledger'))
+    return real if real['n'] >= 3 else {**_fw.calibrate(d.get('quoteAudit')), 'feeUsd': real.get('feeUsd'), 'fees': real.get('fees'), 'from': 'quotes'}
+
+
 def _fw_public(tid):
     """What everyone sees on a REAL tier card: since when, $ funded, the last swaps with their tx, real network fees."""
     d = _fw_load(); b = d['books'].get(tid)
@@ -5586,7 +5677,8 @@ async def fuse_wallet_view(request: Request):
     return {'cfg': cfg, 'signer': _fw_signer_ready(), 'wallets': wallets, 'balances': bal, 'solUsd': sol_px, 'error': err,
             'freeSol': _fw.free_sol((bal or {}).get('sol'), d['books'], cfg['reserveSol']) if bal else None,
             'missing': _fw.reconcile((bal or {}).get('tokens'), d['books']) if bal else [],
-            'books': books, 'tiers': {k: v['label'] for k, v in _prime.TEMPLATES.items()}, 'calibration': _fw.calibrate(d['ledger']),
+            'books': books, 'tiers': {k: v['label'] for k, v in _prime.TEMPLATES.items()}, 'calibration': _fw_calibration(d),
+            'paperMatch': _fw.paper_match(d.get('quoteAudit')), 'quoteAudit': (d.get('quoteAudit') or [])[-20:][::-1],
             'totals': _fw.totals(d['ledger']), 'ledger': d['ledger'][-200:][::-1]}
 
 
@@ -5716,6 +5808,12 @@ async def _fuse_warm():
     if _fuse_warm_n['n'] % 12 == 1:   # ~5 min: refresh card holders' Fuse scores (feeds their trust score)
         holders = list({x['wallet'] for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or []})[:200]
         await asyncio.gather(*[_fuse_score(w, fresh=True) for w in holders], return_exceptions=True)
+    if _fuse_warm_n['n'] % 12 == 9:   # ~5 min: 📏 paper ⇄ real quotes (paper's fill model is checked against Jupiter)
+        try:
+            await _paper_quote_audit(time.time())
+            _prime.IMPACT_MULT = _fw_calibration(_fw_load())['impactMult']
+        except Exception as e:
+            print('quote audit:', e)
     if _fuse_warm_n['n'] % 12 == 7:   # ~5 min: 📖 the rep engine learns today's meme terms (new launches + chat)
         await _meme_tick(time.time())
     if _fuse_warm_n['n'] % 2 == 1:    # ~50s: ⚔ engine playground battles (paper, HQ only)

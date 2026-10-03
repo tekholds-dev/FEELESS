@@ -10,12 +10,22 @@ export function legTarget(leg) {
   return null;
 }
 
+// 🎯 Per-coin slippage so EVERY coin of a card lands (a too-tight runner fails while deep pools fill → a half card): by pool depth,
+// runners at least 3%, sells +0.5%, never above 8%. The quote's minimum-received is shown before you sign and the server's
+// simulation must pass with it — you never get less than that minimum.
+export function smartSlippage(leg, sell = false) {
+  const liq = Number(leg?.liquidityUsd || leg?.liq || 0);
+  let bps = liq >= 1e6 ? 100 : liq >= 2e5 ? 200 : liq >= 5e4 ? 300 : liq > 0 ? 500 : 200;
+  if (leg?.runner || leg?.role === 'runner') bps = Math.max(bps, 300);
+  return Math.min(800, bps + (sell ? 50 : 0));
+}
+
 // Quote requests for every leg with something to buy and a positive SOL amount (dust under 0.001 SOL is skipped).
-export function fuseOrders(legs, wallet, slippageBps = 100) {
+export function fuseOrders(legs, wallet, slippageBps = null) {
   return (legs || []).map(leg => {
     const t = legTarget(leg); const sol = Number(leg.sol);
     if (!t || !(sol >= 0.001) || !wallet) return { leg, skip: !t ? 'Nothing to buy in a SOL/SOL pool' : 'Too small (< 0.001 SOL)' };
-    return { leg, target: t, request: { input_mint: SOL_MINT, output_mint: t.mint, amount: sol.toFixed(9).replace(/\.?0+$/, ''), slippage_bps: slippageBps, wallet } };
+    return { leg, target: t, request: { input_mint: SOL_MINT, output_mint: t.mint, amount: sol.toFixed(9).replace(/\.?0+$/, ''), slippage_bps: slippageBps ?? smartSlippage(leg), wallet } };
   });
 }
 
@@ -28,7 +38,7 @@ const atomsToUi = (raw, dec) => { const s = raw.toString().padStart(dec + 1, '0'
 
 // Unfuse: sell each leg's coin back to SOL — the smaller of what this Fuse bought and what the wallet still holds.
 // balances = {mint: {raw, decimals}} from /balance. Legs with nothing left are skipped (already sold elsewhere).
-export function unfuseOrders(legs, balances, wallet, slippageBps = 150, pct = 100) {
+export function unfuseOrders(legs, balances, wallet, slippageBps = null, pct = 100) {
   return (legs || []).map(leg => {
     const b = balances?.[leg.mint];
     if (leg.soldUsd != null) return { leg, skip: 'Already unfused' };
@@ -37,7 +47,7 @@ export function unfuseOrders(legs, balances, wallet, slippageBps = 150, pct = 10
     const all = held < bought ? held : bought;
     const atoms = pct >= 100 ? all : (all * BigInt(Math.round(Math.max(1, Math.min(100, pct)) * 100))) / 10000n;   // take-profit slice
     if (atoms <= 0n) return { leg, skip: 'Nothing left to sell' };
-    return { leg, target: { mint: leg.mint, symbol: leg.symbol }, request: { input_mint: leg.mint, output_mint: SOL_MINT, amount: atomsToUi(atoms, b.decimals), slippage_bps: slippageBps, wallet } };
+    return { leg, target: { mint: leg.mint, symbol: leg.symbol }, request: { input_mint: leg.mint, output_mint: SOL_MINT, amount: atomsToUi(atoms, b.decimals), slippage_bps: slippageBps ?? smartSlippage(leg, true), wallet } };
   });
 }
 

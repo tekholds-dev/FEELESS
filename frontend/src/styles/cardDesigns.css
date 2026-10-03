@@ -1,0 +1,26 @@
+/* ✦ MetaCard live designs (MetaCard `Pattern`): nebula · prism · plasma · matrix · vapor. Transform / opacity only, 3D-feel via
+   layered depth; every loop stops in fx-lite / reduced motion. Card faces stay dark in day theme (art). Keyframes: pd*. */
+.pd-nebula .pdn-swirl { transform-origin: 50% 46%; animation: pdSpin 38s linear infinite; }
+.pd-nebula .pdn-stars { animation: pdDrift 14s ease-in-out infinite alternate; }
+.pd-prism .pdp-shard { animation: pdShard 4.8s ease-in-out infinite; animation-delay: calc(var(--i) * -.7s); }
+.pd-prism .pdp-band { animation: pdBand 3.6s cubic-bezier(.5, 0, .5, 1) infinite; }
+.pd-plasma .pdl-ring { transform-origin: 50% 42%; animation: pdPulse 3.2s ease-in-out infinite; animation-delay: calc(var(--i) * -.8s); }
+.pd-matrix .pdm-col { animation: pdRain 5s linear infinite; animation-delay: calc(var(--i) * -.45s); }
+.pd-vapor .pdv-grid { animation: pdFloor 2.4s linear infinite; }
+.pd-vapor .pdv-sun { transform-origin: 50% 54%; animation: pdSun 6s ease-in-out infinite; }
+.d-nebula .mc-bg { background: radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--a) 22%, transparent), transparent 55%), radial-gradient(circle at 75% 80%, color-mix(in srgb, var(--b) 25%, transparent), transparent 60%), #05030c; }
+.d-prism .mc-bg { background: linear-gradient(160deg, #0b0a14, #07050c 60%, #0d0816); }
+.d-plasma .mc-bg { background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--a) 28%, transparent), transparent 62%), #04060c; }
+.d-matrix .mc-bg { background: linear-gradient(180deg, #010603, #02100a); }
+.d-vapor .mc-bg { background: linear-gradient(180deg, #120428 0%, #2a0a3a 52%, #07050c 70%); }
+@keyframes pdSpin { to { transform: rotate(360deg); } }
+@keyframes pdDrift { to { transform: translate(-6px, 8px); } }
+@keyframes pdShard { 50% { opacity: .35; } }
+@keyframes pdBand { from { transform: translateX(0) skewX(-18deg); } to { transform: translateX(320px) skewX(-18deg); } }
+@keyframes pdPulse { 50% { transform: scale(1.08); opacity: .5; } }
+@keyframes pdRain { from { transform: translateY(-34px); } to { transform: translateY(34px); } }
+@keyframes pdFloor { from { transform: translateY(0); } to { transform: translateY(12px); } }
+@keyframes pdSun { 50% { transform: scale(1.05); opacity: .5; } }
+body.fx-lite [class^="pd"] *, body.fx-lite [class*=" pd-"] * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .pd-nebula *, .pd-prism *, .pd-plasma *, .pd-matrix *, .pd-vapor * { animation: none !important; } }
+@media (max-width: 640px) { .pd-matrix .pdm-col { animation-duration: 7s; } }

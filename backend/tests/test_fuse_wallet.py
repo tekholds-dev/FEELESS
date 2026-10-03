@@ -126,3 +126,13 @@ def test_paper_status_shows_each_coin_at_the_funded_amount():
     assert st['paperUsd'] == 70 and st['paperPct'] == 75.0
     m = st['coins'][0]
     assert m['weightPct'] == round(45 / 65 * 100, 2) and m['usd'] == round(100 * 45 / 65, 4) and m['pricePct'] == 50.0
+
+
+def test_quote_audit_rows_measure_paper_vs_real_and_feed_calibration():
+    r = fw.quote_row('WIF', 10, 1.0, 1000, 1.01, 9.7, 5)     # paper: 9.90 coins, real quote: 9.70
+    assert r['devPct'] == round((9.7 / (10 / 1.01) - 1) * 100, 3) and r['devPct'] < 0
+    m = fw.paper_match([r, fw.quote_row('A', 10, 1.0, 1e6, 1.0, 10.0, 6)])
+    assert m['n'] == 2 and m['within2Pct'] == 50.0 and m['worstDevPct'] == r['devPct']
+    c = fw.calibrate([fw.quote_row('X', 5, 1.0, 1000, 1.01, 5 / 1.02, i) for i in range(3)])   # model 1% impact, real 2%
+    assert c['impactMult'] == 2.0
+    assert fw.paper_match([])['n'] == 0

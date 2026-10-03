@@ -31,3 +31,11 @@ def test_card_money_sums_payouts():
 def test_motion_edit():
     assert clean_edit({'motion': 'alive'}) == {'motion': 'alive'} and clean_edit({'motion': 'spin'}) == {}
     assert default_season_card({'id': 's1'})['motion'] == 'alive'
+
+
+def test_card_designs_mirror_the_frontend_list():
+    import re, pathlib, badge_cards as bc
+    js = (pathlib.Path(__file__).resolve().parents[2] / 'frontend/src/components/cards/MetaCard.jsx').read_text()
+    block = js[js.index('export const CARD_DESIGNS'):]
+    block = block[:block.index(';')]
+    assert set(re.findall(r"\['([a-z]+)'", block)) == set(bc.DESIGNS)

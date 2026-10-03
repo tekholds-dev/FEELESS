@@ -82,3 +82,27 @@ test('BEFORE and AFTER receipts: buy and sell both show every coin before signin
     expect(posts.some(([p, b]) => p === '/fuses/receipt' && b.legs.every(l => l.sig))).toBe(true);
   }
 });
+
+test('PARTIAL: 1 of 2 coins fails → card records the landed one + expected list; retry re-quotes ONLY the missing coin wider and joins the same card', async () => {
+  const base = global.fetch;
+  let failR = true;
+  global.fetch = jest.fn(async (url, opts) => {
+    const u = String(url); const b = opts?.body ? JSON.parse(opts.body) : {};
+    if (u.endsWith('/execute') && b.order_id.startsWith('o-R-') && failR) return { ok: false, status: 400, json: async () => ({ detail: 'slippage exceeded' }) };
+    if (u.endsWith('/fuses/position')) { posts.push(['/fuses/position', b]); return { ok: true, json: async () => ({ ok: true, id: 'card9', missing: ['R1'] }) }; }
+    return base(url, opts);
+  });
+  const legs = [{ pairAddress: 'P1', baseAddress: 'A', symbol: 'A', sol: 0.6, liquidityUsd: 5e6 }, { pairAddress: 'R1', baseAddress: 'R', symbol: 'R', sol: 0.4, runner: true }];
+  const el = await run(<FuseGo legs={legs} onClose={() => {}} />);
+  expect(el.querySelector('[data-testid="fg-partial"]').textContent).toContain('1/2');
+  await tick(5200);
+  const rec = posts.find(([p]) => p === '/fuses/position');
+  expect(rec[1].legs.map(l => l.pairAddress)).toEqual(['P1']); expect(rec[1].expected).toEqual(['P1', 'R1']);
+  failR = false; posts.length = 0;
+  await act(async () => { el.querySelector('[data-testid="fg-retry"]').click(); }); await tick(200);
+  const q = posts.filter(([p]) => p === '/quote');
+  await act(async () => { el.querySelector('[data-testid="fg-sign"]').click(); }); await tick(5600);
+  const sw = posts.find(([p]) => p === '/fuses/position/switch');
+  expect(sw[1].id).toBe('card9'); expect(sw[1].legs.map(l => l.pairAddress)).toEqual(['R1']);
+  expect(q.length === 0 || q.every(([, b]) => b.output_mint === 'R')).toBe(true);
+});

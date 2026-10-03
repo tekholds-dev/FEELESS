@@ -484,3 +484,9 @@ body.fx-lite .fl-plancol .fl-plan { animation: none; } @media (prefers-reduced-m
 @container (max-width: 820px) { .fl-body.has-plan { grid-template-columns: 1fr; } .fl-plancol { position: static; max-height: none; } }
 .fl-brain { display: grid; gap: 2px; text-align: left; width: 100%; border-color: #c08bff77; } .fl-brain small { font: 600 10px var(--m-mono); color: #c08bff; }
 .fl-brain:hover { background: color-mix(in srgb, #c08bff 12%, transparent); } body.theme-day .fl-brain small { color: #6b2fd1; }
+/* One-click buy: all confirmed / partial landing (retry the missing coins or sell back what landed) */
+.fg-all { margin: 0; padding: 8px 10px; border-radius: var(--m-r-sm); border: 1px solid color-mix(in srgb, #19f58f 45%, var(--m-line)); font-size: 12px; color: #19f58f; }
+.fg-partial { display: grid; gap: 6px; padding: 10px; border-radius: var(--m-r-sm); border: 1px solid color-mix(in srgb, var(--m-warn) 60%, var(--m-line)); background: color-mix(in srgb, var(--m-warn) 7%, transparent); font-size: 12px; animation: mCardIn .2s var(--m-ease); }
+.fg-partial b { color: var(--m-warn); } .fg-partial span { color: var(--m-dim); line-height: 1.5; }
+body.theme-day .fg-all { color: #0b7a4a; }
+@media (prefers-reduced-motion: reduce) { .fg-partial { animation: none; } }

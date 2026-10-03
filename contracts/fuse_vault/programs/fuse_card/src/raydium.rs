@@ -22,7 +22,7 @@ pub const TWAP_MAX_DEV_BPS: u128 = 1_000;
 #[cfg(not(feature = "fast-twap"))]
 pub const TWAP_MIN_SECS: u64 = 300;
 #[cfg(feature = "fast-twap")]
-pub const TWAP_MIN_SECS: u64 = 45;   // localnet integration test only
+pub const TWAP_MIN_SECS: u64 = 90;   // localnet integration test only
 
 /// The fields of Raydium's PoolState the adapter needs (repr(C, packed), after the 8-byte discriminator).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]

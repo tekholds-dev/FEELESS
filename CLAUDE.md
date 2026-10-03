@@ -569,6 +569,18 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - HQ component = `components/command/HqDeck.jsx` (export `HqDeck`); testids `open-hq` / `hq-shell`. The built bundle must contain zero
   "command center" / "cmd ctr" strings (check `grep -rli` on build/static/js before shipping).
 
+- 🔁 Real-money card buys are all-or-nothing visible: `fuseOrders` per-coin `smartSlippage` (depth: 1/2/3/5%, runners ≥3%, sells +0.5%, ≤8%),
+  "Min ≥" per coin before signing, every leg its own tx; after a partial landing `fg-partial` → ↻ retry ONLY the missing coins (+1.5%
+  slippage, joins the same card via `/fuses/position/switch`, fills `missing`, not a switch) or ↩ sell back. `/fuses/position` takes
+  `expected` → `pos.missing` (`fuse_hq.missing_legs`). `fuse_pnl` caps every leg by the wallet's REAL on-chain balance (`_wallet_held`,
+  linked wallets, 60s; `fuse_hq.cap_to_wallet` → `heldShort`); tests stub `_wallet_held` (conftest).
+- 📏 Paper ⇄ real quote audit (`_paper_quote_audit`, ~5 min): tier-card coins priced by the paper model AND a real Jupiter quote for the
+  same $; `fuse_wallet.quote_row/paper_match`; calibration = real fills when ≥3, else quotes (`_fw_calibration`) → `IMPACT_MULT`.
+- ✦ MetaCard designs + nebula · prism · plasma · matrix · vapor (`styles/cardDesigns.css`, `badge_cards.DESIGNS` mirrors, test).
+  Tier looks: Diamond prism, Next plasma, Everlasting nebula. Battle showcase = real FuseCards; 📜 Paper audit (live card + trail)
+  on battle corners AND every CardConfig. HQ runs as the CONNECTED wallet (`hqAddr`), never the profile's address.
+- ⛓ Devnet: fuse_card `GKE9e3M8…` deployed + config → Raydium devnet. Devnet SOL via Alchemy devnet `requestAirdrop`.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

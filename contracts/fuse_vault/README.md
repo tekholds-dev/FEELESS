@@ -132,7 +132,7 @@ Rust unit tests (10): `cargo test -p fuse_card --lib` (incl. a replay of Raydium
 ```
 git clone --depth 1 https://github.com/raydium-io/raydium-cp-swap /tmp/raydium-cp-swap
 cd /tmp/raydium-cp-swap && CPSWAP_LOCALNET_ADMIN=$(solana-keygen pubkey ~/.config/solana/id.json) cargo build-sbf --manifest-path programs/cp-swap/Cargo.toml --features localnet
-cd <repo>/contracts/fuse_vault && anchor build -p fuse_card -- --features fast-twap      # 45s TWAP window, TEST BUILD ONLY
+cd <repo>/contracts/fuse_vault && anchor build -p fuse_card -- --features fast-twap      # 90s TWAP window, TEST BUILD ONLY
 solana-test-validator --reset --bpf-program CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C /tmp/raydium-cp-swap/target/deploy/raydium_cp_swap.so \
   --clone DNXgeM9EiiaAbaWvwjHj9fQQLAX5ZsfHyvmYUNRAdNC8 --url https://api.mainnet-beta.solana.com
 anchor test --skip-local-validator --skip-build --provider.cluster localnet

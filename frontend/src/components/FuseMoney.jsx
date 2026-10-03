@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { apiUrl } from '../lib/api';
 import '../styles/fuseMoney.css';
+import { LiveFuseCard } from './FuseCard';
 
 // 💵 Fuse money, in plain words — shared by every card surface (tier cards, My cards, battle corners, profile, Lab):
 // MoneyMath (PUT IN → STILL IN CARD + PAID OUT = NOW, profit apart from fees), RoundBell (10s countdown into every round),
@@ -52,7 +53,10 @@ export function PaperAudit({ k, name, onClose }) {
       <header className="m-row"><span className="m-label">📜 PAPER AUDIT · TRUE FILLS</span><b>{name}</b><button type="button" className="cx-x" onClick={onClose} aria-label="Close">×</button></header>
       <p className="m-dim pa-how">Every card in an Arena battle runs $100 of paper dealt at the price a wallet would really get (pool impact both ways, learned from real Fuse-wallet fills). The trader's per-coin fee is booked apart, never in profit.</p>
       {!d ? <div className="frail-ghost" /> : b ? <>
-        <MoneyMath putIn={b.startUsd} held={b.valueUsd} paidOut={0} fees={b.feesUsd} compact />
+        <div className="pa-top"><LiveFuseCard label="📄 PAPER · TRUE FILLS" aura="fire" r={{ id: `paper-${k}`, name, closed: false, costUsd: b.startUsd, valueUsd: b.valueUsd, realizedUsd: 0, baseUsd: b.startUsd, extraUsd: 0,
+          pnlUsd: b.pnlUsd, pnlPct: b.pct, legs: b.legs.map(l => ({ pairAddress: l.pairAddress, symbol: l.symbol, role: l.role, usd: l.inUsd, tokens: l.units, valueUsd: l.nowUsd, pnlUsd: l.nowUsd - l.inUsd, pnlPct: l.pct, priced: true, priceNow: l.now, liq: l.liq })) }} />
+          <div className="pa-side"><MoneyMath putIn={b.startUsd} held={b.valueUsd} paidOut={0} fees={b.feesUsd} compact />
+            <TrailSummary events={[]} legs={b.legs.map(l => ({ symbol: l.symbol, usd: l.nowUsd }))} /></div></div>
         <div className="pa-rows" role="table">{b.legs.map(l => <div key={l.pairAddress} className="pa-row" role="row">
           <b>${l.symbol}</b><span data-tip={`mid $${l.mid} · paid $${l.entry} (impact included)`}>in @ <i className="m-num">${Number(l.entry).toPrecision(4)}</i> → <i className="m-num">${Number(l.now).toPrecision(4)}</i></span>
           <span className="m-num">{usd(l.inUsd)} → {usd(l.nowUsd)}</span><em className={`m-num ${l.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(l.pct)}</em></div>)}</div>
@@ -71,14 +75,16 @@ export function CardShowcase({ cards = [], onOpen }) {
   const [hold, setHold] = useState(false);
   const n = Math.min(3, cards.length);
   useEffect(() => { if (n < 2 || hold || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
-    const t = setInterval(() => setFront(f => (f + 1) % n), 3800); return () => clearInterval(t); }, [n, hold]);
+    const t = setInterval(() => setFront(f => (f + 1) % n), 4200); return () => clearInterval(t); }, [n, hold]);
   if (n < 2) return null;
   return <section className="sc3" onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} data-testid="card-showcase" aria-label="Top cards">
     <span className="m-label sc3-k">🏆 TOP 3 WINNERS · LIVE SHUFFLE</span>
     <div className="sc3-ring" style={{ '--n': n }}>{cards.slice(0, n).map((c, i) => { const pos = (i - front + n) % n;
-      return <button key={c.key} type="button" className={`sc3-card p-${pos} t-${c.tone || 'gold'}`} onClick={() => (pos === 0 ? onOpen?.(c) : setFront(i))} aria-label={`${c.name} ${pct(c.pct)}`} data-testid={`sc3-${i}`}>
-        <span className="sc3-shine" aria-hidden="true" /><small>{c.badge}</small><b>{c.name}</b>
-        <em className={`m-num ${c.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.pct)}</em><i className="m-num">{c.sub}</i></button>; })}</div>
+      return <div key={c.key} role="button" tabIndex={0} className={`sc3-card p-${pos} t-${c.tone || 'gold'} ${c.node ? 'has-card' : ''}`} onClick={e => { if (e.target.closest('.fcd-flip')) return; pos === 0 ? onOpen?.(c) : setFront(i); }}
+        onKeyDown={e => e.key === 'Enter' && (pos === 0 ? onOpen?.(c) : setFront(i))} aria-label={`${c.name} ${pct(c.pct)}`} data-testid={`sc3-${i}`}>
+        <span className="sc3-shine" aria-hidden="true" />
+        {c.node ? <span className="sc3-real">{c.node}</span> : null}
+        <span className="sc3-meta"><small>{c.badge}</small><b>{c.name}</b><em className={`m-num ${c.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.pct)}</em>{c.sub && <i className="m-num">{c.sub}</i>}</span></div>; })}</div>
   </section>;
 }
 

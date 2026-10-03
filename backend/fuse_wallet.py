@@ -306,3 +306,22 @@ def paper_status(card, prices, usd):
             'coins': [{'symbol': l.get('symbol'), 'role': l.get('role'), 'pairAddress': l['pairAddress'], 'weightPct': round(v / held * 100, 2) if held else 0.0,
                        'usd': round(usd * v / held, 4) if held else 0.0, 'pricePct': round((px(l) / _f(l.get('entry')) - 1) * 100, 2) if _f(l.get('entry')) else 0.0,
                        'frozen': bool(l.get('frozen'))} for l, v in vals]}
+
+
+def quote_row(symbol, usd, mid, liq, paper_px, real_units, now):
+    """📏 One paper-vs-real check: what paper said $usd buys (at its modelled fill `paper_px`) vs what a REAL Jupiter quote returns.
+    Shaped like a ledger fill so `calibrate` can learn the impact model from it before any real money moves."""
+    real_units = _f(real_units)
+    paper_units = _f(usd) / paper_px if paper_px > 0 else 0.0
+    return {'at': now, 'symbol': symbol, 'usd': round(_f(usd), 4), 'midPx': _f(mid), 'liq': _f(liq), 'side': 'buy', 'status': 'filled', 'source': 'quote',
+            'px': _f(usd) / real_units if real_units > 0 else 0.0, 'paperUnits': paper_units, 'realUnits': real_units,
+            'devPct': round((real_units / paper_units - 1) * 100, 3) if paper_units > 0 and real_units > 0 else None}
+
+
+def paper_match(rows, window=40):
+    """How close paper is to real quotes: average / worst deviation of coins received (+ = real gives MORE than paper)."""
+    devs = [_f(r['devPct']) for r in (rows or [])[-window:] if r.get('devPct') is not None]
+    if not devs:
+        return {'n': 0, 'avgDevPct': None, 'worstDevPct': None, 'within2Pct': None}
+    return {'n': len(devs), 'avgDevPct': round(sum(devs) / len(devs), 3), 'worstDevPct': round(min(devs, key=lambda x: -abs(x)), 3),
+            'within2Pct': round(sum(1 for x in devs if abs(x) <= 2) / len(devs) * 100, 1)}

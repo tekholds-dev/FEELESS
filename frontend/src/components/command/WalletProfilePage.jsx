@@ -181,7 +181,9 @@ export function WalletProfilePage({ address }) {
   const earned = useBadges(address);
   const tier = perks?.tier || 0;
   const [ccOpen, setCcOpen] = useState(false);
-  useEffect(() => { if (!mine) { setIsAdmin(false); return; } fetch(apiUrl(`/api/reputation/admin/whoami?address=${address}`)).then(r => r.json()).then(d => setIsAdmin(Boolean(d.isAdmin))).catch(() => {}); }, [mine, address]);
+  // HQ always runs as the CONNECTED wallet (a granted wallet viewing a linked profile signs for itself, never for the profile's address)
+  const hqAddr = wallet?.chain === 'solana' || !wallet?.chain ? wallet?.address : null;
+  useEffect(() => { if (!mine || !hqAddr) { setIsAdmin(false); return; } fetch(apiUrl(`/api/reputation/admin/whoami?address=${hqAddr}`)).then(r => r.json()).then(d => setIsAdmin(Boolean(d.isAdmin))).catch(() => {}); }, [mine, hqAddr]);
   const load = useCallback(() => fetch(apiUrl(`/api/reputation/profile/${address}`)).then(r => r.json()).then(setData).catch(() => setData({ profile: null })), [address]);
   useEffect(() => { load(); }, [load]);
   const p = (edit ? draft : data?.profile) || {};
@@ -216,7 +218,7 @@ export function WalletProfilePage({ address }) {
   const caller = data?.caller;
   const [friend, setFriend] = useState('');
   const wide = useWide();
-  if (ccOpen && isAdmin) return <Suspense fallback={<div className="m-card"><span className="loader" /> Opening HQ…</div>}><HqDeck address={address} signMessage={signMessage} onClose={() => setCcOpen(false)} /></Suspense>;
+  if (ccOpen && isAdmin) return <Suspense fallback={<div className="m-card"><span className="loader" /> Opening HQ…</div>}><HqDeck address={hqAddr} signMessage={signMessage} onClose={() => setCcOpen(false)} /></Suspense>;
   return <><div className={`profile-backdrop pbg-${backdrop}`} aria-hidden="true" data-testid="profile-backdrop" /><div className={`wp-stage ${wide ? 'has-rails' : ''}`}>{wide && <IntelRail address={address} />}<div className={`wallet-profile-page theme-${p.theme || 'grid'} ptier-${tier}`} style={{ '--wp-accent': accent }} data-testid="wallet-profile-page">
     <header className="xp-card" data-testid="profile-header">
       <div className={`xp-cover ${p.bannerUrl ? 'has-img' : ''}`}>

@@ -8,7 +8,7 @@ Card keys:  badge:<id>   season:<seasonId>   week:<seasonId>:w<n>
 """
 import re
 
-DESIGNS = ('holo', 'circuit', 'obsidian', 'aurora', 'glitch', 'ember')
+DESIGNS = ('holo', 'circuit', 'obsidian', 'aurora', 'glitch', 'ember', 'nebula', 'prism', 'plasma', 'matrix', 'vapor')   # mirror MetaCard CARD_DESIGNS
 RARITIES = ('common', 'rare', 'epic', 'legendary', 'mythic')
 MOTIONS = ('still', 'alive')
 # Live effects OUTSIDE the card (frontend styles/auras.css, MetaCard CARD_AURAS). '' = none.

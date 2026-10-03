@@ -204,7 +204,8 @@ def paper_view(b, prices, liqs):
     for l in b.get('legs') or []:
         px = _f(prices.get(l['pairAddress'])) or l['entry']
         now_usd = ap.sell_usd(l['units'], px, liqs.get(l['pairAddress']))
-        rows.append({'symbol': l.get('symbol'), 'pairAddress': l['pairAddress'], 'entry': l['entry'], 'mid': l.get('mid'), 'now': px, 'inUsd': l['usd'],
+        rows.append({'symbol': l.get('symbol'), 'pairAddress': l['pairAddress'], 'entry': l['entry'], 'mid': l.get('mid'), 'now': px, 'inUsd': l['usd'], 'units': l['units'],
+                     'liq': _f(liqs.get(l['pairAddress'])) or _f(l.get('liq')), 'role': l.get('role'),
                      'nowUsd': round(now_usd, 4), 'pct': round((now_usd / l['usd'] - 1) * 100, 2) if l['usd'] else 0.0})
     v = value(b, prices, liqs)
     return {'key': b.get('key'), 'name': b.get('name'), 'startUsd': b.get('startUsd'), 'valueUsd': round(v, 4), 'pnlUsd': round(v - _f(b.get('startUsd')), 4),

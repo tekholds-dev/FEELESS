@@ -110,13 +110,13 @@ describe("fuse_card v0.3 × Raydium CP-Swap", () => {
   });
 
   it("a one-block pump can't fire the take-profit: spot is far from Raydium's TWAP", async () => {
-    await hold(55);                       // ≥45s of observations at price ≈ 1.0
+    await hold(100);                      // ≥90s of observations at price ≈ 1.0
     await trade(260_000_000, true);       // buyers push spot ≈ +55% in one go
     await fails(sell(50_000_000, await minSell(50_000_000)), "NotTriggered");
   });
 
   it("once the TWAP agrees (+50% held), the TP sells THROUGH Raydium and pays the owner", async () => {
-    await hold(70);                       // the new price holds long enough for the time-weighted price to catch up
+    await hold(130);                      // the new price holds long enough for the time-weighted price to catch up
     await fails(sell(50_000_000, 1n), "SlippageTooLoose");                       // min_out can't be looser than the pool's real fee tier
     const before = await bal(bobQuote); const min = await minSell(50_000_000);
     await sell(50_000_000, min);

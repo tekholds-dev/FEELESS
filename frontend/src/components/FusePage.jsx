@@ -355,7 +355,8 @@ export function Battlefield({ b, cards = [], onLoad }) {
       {j === 0 && c.legs?.length > 0 && onLoad && <button type="button" className="m-btn primary m-go bf-buychamp" onClick={() => onLoad(c.legs, c.key?.startsWith('user:') ? { copyOf: c.key.slice(5), owner: c.name, champ: true, copyPct: (cardOf(c.key)?.copyPct || 10) * 2 } : { backName: c.name })}
         data-tip={c.key?.startsWith('user:') ? "Copy the champion — its owner earns the champion's share (double copy cut) of your FEELESS fee, not extra cost to you" : 'Load the champion into your Lab'} data-testid="buy-champ">👑 Buy the champion</button>}</span>)}</div>}
     <CardShowcase cards={[...(br.board || [])].sort((a, b2) => (b2.w - b2.l) - (a.w - a.l) || b2.w - a.w || b2.pct - a.pct).slice(0, 3).map(x => ({ key: x.key, name: `${x.emoji || '🃏'} ${x.name}`, pct: x.pct, badge: `${x.status === 'winners' ? '🏆' : x.status === 'losers' ? '💀' : '✕'} ${x.w}W–${x.l}L`,
-      sub: `${x.calls || 0} calls${x.comebacks ? ` · 🔥×${x.comebacks}` : ''}`, tone: { safe: 'diamond', balanced: 'gold', degen: 'blaze' }[cardOf(x.key)?.dial] || (x.status === 'winners' ? 'ever' : 'next') }))} onOpen={c => setCfgKey(c.key)} />
+      sub: `${x.calls || 0} calls${x.comebacks ? ` · 🔥×${x.comebacks}` : ''}`, node: (c => (c?.legs?.length ? <FuseCard c={{ pools: c.legs.map(l => l.pairAddress), fitness: c.activity?.score || 0, bornGen: c.legs.length, legs: c.legs,
+        parts: { grade: c.grade || 'B', aprScore: 0, momentum24h: x.pct || 0, calm: '—', feeDragPct: 0, impactLegs: 0 } }} style={DIAL_STYLE[c.dial] || 'momentum'} rank={0} budget={20} aura={c.aura || (TIER_FX[c.activity?.tier] || TIER_FX.calm).aura} /> : null))(cardOf(x.key)), tone: { safe: 'diamond', balanced: 'gold', degen: 'blaze' }[cardOf(x.key)?.dial] || (x.status === 'winners' ? 'ever' : 'next') }))} onOpen={c => setCfgKey(c.key)} />
     {audit && <PaperAudit k={audit.key} name={audit.name} onClose={() => setAudit(null)} />}
     {cfgCard && <CardConfig c={cfgCard} onClose={() => setCfgKey(null)} onLoad={onLoad} onBack={b.pairs.some(p => [p.a.key, p.b.key].includes(cfgKey)) && !mine ? () => back(cfgKey) : null}
       onBuyBack={b.pairs.some(p => [p.a.key, p.b.key].includes(cfgKey)) ? () => buyBack({ key: cfgKey, name: cfgCard.name }) : null} />}
@@ -394,6 +395,7 @@ export function Battlefield({ b, cards = [], onLoad }) {
 // ⚙ Every Arena card's config window: dial, exits, clock, stop mode, cycle and each coin's weight — copy it to the Fuse Lab
 // (coins + configs come along, still editable) or back / buy it when it's fighting. Centered pop-up over a blurred page.
 export function CardConfig({ c, onClose, onLoad, onBack, onBuyBack }) {
+  const [audit, setAudit] = useState(false);
   useEffect(() => { const k = e => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); document.body.classList.add('ce-open');
     return () => { window.removeEventListener('keydown', k); document.body.classList.remove('ce-open'); }; }, [onClose]);
   const cfg = c.cfg || {};
@@ -410,8 +412,10 @@ export function CardConfig({ c, onClose, onLoad, onBack, onBuyBack }) {
       <ul className="cc-cfg-legs">{(c.legs || []).map((l, i) => <li key={l.pairAddress} style={{ '--i': i }}><b>{l.runner ? '🏃' : '⚓'} ${l.symbol}</b><i className="cc-cfg-w"><i style={{ transform: `scaleX(${Math.min(1, (Number(l.weight) || 0) / 100)})` }} /></i><em className="m-num">{Math.round(Number(l.weight) || 0)}%</em></li>)}</ul>
       <div className="cc-cfg-acts">{onLoad && <button type="button" className="m-btn primary m-go" onClick={copy} data-testid="cfg-copy">⚡ Copy to Fuse Lab</button>}
         {onBack && <button type="button" className="m-btn" onClick={() => { onBack(); onClose(); }} data-testid="cfg-back">⚔ Back it</button>}
+        {c.kind && c.id && <button type="button" className="m-btn" onClick={() => setAudit(true)} data-tip="Paper audit: its battle books at true fills — entry → now per coin, $, fees apart, won / lost" data-testid="cfg-audit">📜 Paper audit</button>}
         {onBuyBack && <button type="button" className="m-btn bf-buy" onClick={() => { onBuyBack(); onClose(); }}>💰 Buy & back</button>}</div>
       <small className="m-dim">Copying loads the coins + these configs into your Lab — nothing moves until you approve one Fuse in.</small>
+    {audit && <PaperAudit k={`${c.kind}:${c.id}`} name={c.name || 'Card'} onClose={() => setAudit(false)} />}
     </aside></div>, document.body);
 }
 
@@ -527,6 +531,8 @@ function MyCardsBody({ d, openRows, act, setAct, open, setMode, setRisk, setAdv,
     <div className="fp-cgrid">{openRows.map(r => <div key={r.id} className={`fp-cell ${r.onArena ? 'is-arena' : ''}`}><LiveFuseCard r={r} aura={r.onArena ? 'fire' : ''} />
       <CoinTable legs={r.legs.filter(l => l.soldUsd == null).map(l => { const px = live.get?.(l.pairAddress)?.price || l.priceNow; const nowUsd = px && l.tokens ? l.tokens * px + (l.realizedUsd || 0) : (l.valueUsd || 0);
         return { pairAddress: l.pairAddress, symbol: l.symbol, role: l.role, entryPx: l.tokens ? l.usd / l.tokens : null, nowPx: px, inUsd: l.usd || 0, nowUsd, pct: l.usd ? (nowUsd / l.usd - 1) * 100 : 0 }; })} />
+      {r.missing?.length > 0 && <div className="fg-partial" data-testid={`missing-${r.id}`}><b>⚠ {r.missing.length} approved {r.missing.length === 1 ? 'coin' : 'coins'} didn't land</b><span>Only confirmed coins count on this card. Add {r.missing.length === 1 ? 'it' : 'them'} with ＋ Top up, or ↩ Withdraw to sell back what landed.</span></div>}
+      {r.heldShort?.length > 0 && <div className="fg-partial" data-testid={`short-${r.id}`}><b>🔗 Your wallet holds less than this card</b><span>Some coins left the wallet outside FEELESS — the card now counts only what's really there (checked on-chain every minute).</span></div>}
       <div className="fp-risk"><RiskDial value={r.risk || 'custom'} onChange={id => setRisk(r, id)} testid={`card-risk-${r.id}`} /></div>
       {r.beatCat?.length > 0 && <span className="fs-crown r-cat" data-tip="Weeks this card beat FeeCat's average trade" data-testid={`beatcat-${r.id}`}>🐱 Beat FeeCat ×{r.beatCat.length}</span>}
       {r.seasonWin && <span className={`fs-crown r-${r.seasonWin.rank}`} data-tip={`Fuse season · week of ${wk(r.seasonWin.week)} — +Fee-Back boost on this card`} data-testid={`crown-${r.id}`}>{MEDAL[r.seasonWin.rank]} #{r.seasonWin.rank} · week of {wk(r.seasonWin.week)}</span>}

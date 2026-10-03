@@ -219,3 +219,14 @@ def test_fee_list_types_every_card_fee_and_totals():
     assert [r['kind'] for r in f['rows']] == ['rounds', 'sell', 'swap', 'buy']
     assert f['totals']['buy'] == {'n': 1, 'usd': 0.1} and f['totals']['rounds']['usd'] == 0.25 and f['rows'][0]['auto']
     assert f['allUsd'] == 0.55 and f['tradedUsd'] == 32 and f['avgPct'] == round(0.3 / 32 * 100, 3) and f['cards'] == 1
+
+
+def test_missing_legs_and_wallet_cap_keep_cards_on_chain_truth():
+    assert hq.missing_legs(['A', 'B', 'C', 'B'], [{'pairAddress': 'A'}]) == ['B', 'C']
+    cards = [{'id': 'old', 'at': 1, 'legs': [{'pairAddress': 'A', 'mint': 'M', 'tokens': 60.0}]},
+             {'id': 'new', 'at': 2, 'legs': [{'pairAddress': 'A2', 'mint': 'M', 'tokens': 60.0}, {'pairAddress': 'B', 'mint': 'N', 'tokens': 5.0, 'soldUsd': 3}]}]
+    out = {c['id']: c for c in hq.cap_to_wallet(cards, {'M': 100.0, 'N': 0.0})}
+    assert out['old']['legs'][0]['tokens'] == 60 and 'heldShort' not in out['old']['legs'][0]
+    assert out['new']['legs'][0]['tokens'] == 40 and out['new']['legs'][0]['heldShort'] == 20     # wallet only has 100 for both cards
+    assert out['new']['legs'][1]['tokens'] == 5                                                     # sold legs untouched
+    assert hq.cap_to_wallet(cards, {})[0]['legs'][0]['tokens'] == 60                                # unknown mint = not capped (only real readings cap)

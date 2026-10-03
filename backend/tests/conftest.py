@@ -79,3 +79,14 @@ def _isolate_real_data(monkeypatch, tmp_path):
         yield
     finally:
         _sys.meta_path.remove(hook)
+
+
+@pytest.fixture(autouse=True)
+def _no_chain_balance_reads(monkeypatch):
+    """Tests never read real wallets from chain: the card ⇄ wallet balance cap sees 'RPC unavailable' (cards uncapped)."""
+    rs = _sys.modules.get('reputation_service')
+    if rs is not None and hasattr(rs, '_wallet_held'):
+        async def _none(*_a, **_k):
+            return None
+        monkeypatch.setattr(rs, '_wallet_held', _none)
+    yield

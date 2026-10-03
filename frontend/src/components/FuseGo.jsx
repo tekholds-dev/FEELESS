@@ -16,6 +16,8 @@ async function api(path, body) {
 }
 const b64 = u8 => btoa(String.fromCharCode(...u8));
 const outOf = o => { const dec = o?.output_metadata?.decimals; const raw = o?.quote?.outAmount; return dec == null || raw == null ? null : Number(raw) / 10 ** dec; };
+// the guaranteed minimum (the swap fails rather than give less) — from the quote, else out × (1 − slippage)
+export const minOf = (o, bps) => { const dec = o?.output_metadata?.decimals; const raw = o?.quote?.otherAmountThreshold; if (dec != null && raw != null) return Number(raw) / 10 ** dec; const out = outOf(o); return out == null ? null : out * (1 - (bps || 0) / 10000); };
 // What the review screen promises per leg (the "before" half of the receipt).
 export function quoteLine(r) {
   const q = r.order?.quote || {}; const usd = Number(q.inUsdValue) || 0; const sol = Number(r.request?.amount) || 0;
@@ -37,10 +39,12 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
   const [phase, setPhase] = useState('quote'); // quote | review | signing | sending | done
   const seq = useRef(0);
   const [rcpt, setRcpt] = useState(null);       // after: quoted vs paid (server receipt)
+  const [retryPlan, setRetryPlan] = useState(null);   // ↻ only the coins that didn't land, wider slippage
+  const [cardId, setCardId] = useState(null);         // the card this buy recorded (a retry joins it)
   const live = useLivePrices((orders ? orders.map(o => o.leg) : legs || []).map(l => l?.pairAddress));   // receipt shows each coin live
 
   const quoteAll = async () => {
-    const plan = orders || fuseOrders(legs, addr); const my = ++seq.current;
+    const plan = retryPlan || orders || fuseOrders(legs, addr); const my = ++seq.current;
     const bundle = plan.filter(o => !o.skip).length;   // a card bought all at once → bundle pricing (flat $ per coin) server-side
     // card: 1 = Fuse card pricing on every leg (flat $/coin; HQ + creator wallets pay no FEELESS fee, only network)
     const got = await Promise.all(plan.map(async o => {
@@ -90,14 +94,20 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
       if (onLanded) { if (ses) onLanded(landed, ses, addr); return; }   // caller records (card switch / take-profit)
       if (ses && sell && position) [5000, 20000].forEach(ms => setTimeout(() => fetch(apiUrl('/api/reputation/fuses/position/close'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: addr, session: ses, id: position, signatures: landed.map(l => l.signature) }) }).then(() => window.dispatchEvent(new Event('feeless:fuse-pnl'))).catch(() => {}), ms));
-      if (ses && !sell) [5000, 20000].forEach(ms => setTimeout(() => fetch(apiUrl('/api/reputation/fuses/position'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: addr, session: ses, name: fuse?.name || 'Lab fuse', fuseId: fuse?.id || '', copyOf: fuse?.copyOf || '', champ: !!fuse?.champ, back: fuse?.back || '', plan: fuse?.plan || {}, legs: landed }) }).then(() => window.dispatchEvent(new Event('feeless:fuse-pnl'))).catch(() => {}), ms));
+      // Record the card from the CONFIRMED legs only (server re-verifies each signature on-chain); every approved coin that did not land
+      // stays on the card as `missing` → ↻ retry (joins the same card) or ↩ sell back. A retry adds to the card it completes.
+      const post = (url, body) => fetch(apiUrl(url), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
+      if (ses && !sell && landed.length) [5000, 20000].forEach(ms => setTimeout(() => (cardId
+        ? post('/api/reputation/fuses/position/switch', { address: addr, session: ses, id: cardId, legs: landed })
+        : post('/api/reputation/fuses/position', { address: addr, session: ses, name: fuse?.name || 'Lab fuse', fuseId: fuse?.id || '', copyOf: fuse?.copyOf || '', champ: !!fuse?.champ, back: fuse?.back || '', plan: fuse?.plan || {}, legs: landed,
+            expected: ready.map(r => r.leg.pairAddress) }).then(x => { if (x?.id) setCardId(x.id); return x; }))
+        .then(() => window.dispatchEvent(new Event('feeless:fuse-pnl'))).catch(() => {}), ms));
       if (ses && !sell && fuse?.id) landed.forEach(l => [6000, 25000].forEach(ms => setTimeout(() => fetch(apiUrl(`/api/reputation/fuses/${fuse.id}/buy`), { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: addr, session: ses, signature: l.signature }) }).catch(() => {}), ms)));   // creator's cut
     } catch (e) { toast.error(/reject|cancel/i.test(e.message) ? 'Cancelled in your wallet — nothing was sent.' : e.message); setPhase('review'); }
   };
 
-  const lines = ready.map(quoteLine);
+  const lines = ready.map(r => ({ ...quoteLine(r), min: minOf(r.order, r.request?.slippage_bps), slip: r.request?.slippage_bps || 0 }));
   const tot = lines.reduce((a, l) => ({ sol: a.sol + l.sol, usd: a.usd + l.usd, fee: a.fee + l.feeUsd, net: a.net + l.networkUsd }), { sol: 0, usd: 0, fee: 0, net: 0 });
   const usd2 = v => `$${(v || 0).toFixed(v > 0 && v < 0.1 ? 3 : 2)}`;
   if (!addr) return <div className="fg"><p className="m-dim">Connect a Solana wallet to fuse in — one approval covers every pool.</p>
@@ -110,10 +120,10 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
       <em>{r.state === 'confirmed' ? <a href={`https://solscan.io/tx/${r.sig}`} target="_blank" rel="noopener noreferrer">✓ done</a> : r.state === 'failed' ? '✕ failed' : r.state ? '… landing' : r.order ? '✓ simulated' : ''}</em></li>)}</ul>
     {phase !== 'done' ? <>
       {lines.length > 0 && <div className="fg-rcpt" data-testid="fg-before"><div className="fg-rcpt-head"><span className="m-label">RECEIPT · BEFORE YOU SIGN</span></div>
-        <table><thead><tr><th>Coin</th><th>Live</th><th>Pay</th><th>Get ≈</th><th>FEELESS fee</th><th>Network</th><th>Impact</th></tr></thead>
+        <table><thead><tr><th>Coin</th><th>Live</th><th>Pay</th><th>Get ≈</th><th data-tip="The swap fails rather than give you less than this">Min ≥</th><th>FEELESS fee</th><th>Network</th><th>Impact</th></tr></thead>
           <tbody>{lines.map(l => { const lp = live.get(l.pairAddress); return <tr key={l.symbol}><td>{l.symbol}</td>
-            <td className="fg-live" data-tip="Live price (10s) and its last-5-minute move">{lp ? <><span className="m-num fl-tick" key={lp.price}>${lp.price < 0.01 ? lp.price.toPrecision(3) : lp.price.toFixed(4)}</span><small className={lp.m5 >= 0 ? 'm-pos' : 'm-neg'}>{lp.m5 >= 0 ? '+' : ''}{lp.m5.toFixed(1)}% 5m</small></> : '—'}</td><td>{l.sol} SOL<small>{usd2(l.usd)}</small></td><td>{fmt(l.tokens)}</td><td>{usd2(l.feeUsd)}</td><td>{usd2(l.networkUsd)}</td><td className={l.impact > 1 ? 'm-neg' : ''}>{l.impact != null ? `${l.impact.toFixed(2)}%` : '—'}</td></tr>; })}</tbody>
-          <tfoot><tr><td>Total</td><td /><td>{tot.sol.toFixed(4)} SOL<small>{usd2(tot.usd)}</small></td><td /><td>{usd2(tot.fee)}</td><td>{usd2(tot.net)}</td><td /></tr></tfoot></table>
+            <td className="fg-live" data-tip="Live price (10s) and its last-5-minute move">{lp ? <><span className="m-num fl-tick" key={lp.price}>${lp.price < 0.01 ? lp.price.toPrecision(3) : lp.price.toFixed(4)}</span><small className={lp.m5 >= 0 ? 'm-pos' : 'm-neg'}>{lp.m5 >= 0 ? '+' : ''}{lp.m5.toFixed(1)}% 5m</small></> : '—'}</td><td>{l.sol} SOL<small>{usd2(l.usd)}</small></td><td>{fmt(l.tokens)}</td><td data-tip={`slippage ${(l.slip / 100).toFixed(1)}%`}>{fmt(l.min)}</td><td>{usd2(l.feeUsd)}</td><td>{usd2(l.networkUsd)}</td><td className={l.impact > 1 ? 'm-neg' : ''}>{l.impact != null ? `${l.impact.toFixed(2)}%` : '—'}</td></tr>; })}</tbody>
+          <tfoot><tr><td>Total</td><td /><td>{tot.sol.toFixed(4)} SOL<small>{usd2(tot.usd)}</small></td><td /><td /><td>{usd2(tot.fee)}</td><td>{usd2(tot.net)}</td><td /></tr></tfoot></table>
         {!sell && <details className="fg-how" data-testid="fg-how"><summary>How your money moves</summary>
           <ol className="fg-flow"><li><b>1</b>Your wallet sends {tot.sol.toFixed(4)} SOL ({usd2(tot.usd)}) — split by the Fuse weights.</li>
             {lines.map(l => <li key={l.symbol}><b>{l.symbol}</b><span>{l.weight ? `${Math.round(l.weight)}% → ` : ''}{l.sol} SOL ({usd2(l.usd)}) is swapped through <em>{l.route.length ? l.route.join(' → ') : l.pool}</em>
@@ -134,6 +144,13 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
             <td className={l.slippagePct > 1 ? 'm-neg' : 'm-pos'}>{l.slippagePct == null ? '—' : `${l.slippagePct.toFixed(2)}%`}</td></tr>)}</tbody>
           <tfoot><tr><td>Total</td><td>{usd2(rcpt.quotedUsd)}</td><td>{usd2(rcpt.paidUsd)}</td><td>{usd2(rcpt.paidFeesUsd)}</td><td colSpan={2}>{rcpt.feePct}% in fees</td></tr></tfoot></table>}
         {rcpt && <p className="fg-rcpt-note"><b>What happened:</b> {usd2(rcpt.paidUsd)} left your wallet; {usd2(rcpt.paidFeesUsd)} of it was fees; the rest became the coins above, now in your wallet. "Slip" = fewer coins than quoted because the price moved while it landed. Your Fuse P&L now tracks these exact fills live.</p>}</div>
+      {(() => { const failed = rows.filter(r => r.order && r.state !== 'confirmed'); const ok = rows.filter(r => r.state === 'confirmed');
+        if (!failed.length) return ok.length ? <p className="fg-all" data-testid="fg-all">✓ All {ok.length} {sell ? 'sells' : 'coins'} confirmed on-chain — each one its own transaction, fees inside each.</p> : null;
+        return <div className="fg-partial" data-testid="fg-partial"><b>⚠ {ok.length}/{ok.length + failed.length} {sell ? 'sells' : 'coins'} confirmed</b>
+          <span>{failed.map(r => r.target?.symbol || r.leg.symbol).join(', ')} did not land{sell ? ' — the coins are still in your wallet.' : ' — no SOL left your wallet for those (only the tiny network fee of a failed transaction).'}</span>
+          <div className="fg-acts"><button type="button" className="m-btn primary m-go" disabled={!sell && ok.length > 0 && !cardId} onClick={() => { setRetryPlan(failed.map(r => ({ ...r, order: undefined, state: undefined, sig: undefined, err: undefined, request: { ...r.request, slippage_bps: Math.min(800, (r.request.slippage_bps || 100) + 150) } }))); setRows([]); setRcpt(null); setPhase('quote'); }}
+            data-testid="fg-retry">↻ Retry {failed.length} {failed.length === 1 ? 'coin' : 'coins'} · wider slippage · 1 approval</button>
+            {!sell && cardId && <a className="m-btn" href={`/terminal/fuse?tab=cards&unfuse=${cardId}`} data-testid="fg-sellback">↩ Sell back what landed</a>}</div></div>; })()}
       <div className="fg-acts"><button type="button" className="m-btn" onClick={onClose}>Done</button></div></>}
   </div>;
 }

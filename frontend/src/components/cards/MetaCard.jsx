@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useId, useRef } from 'react';
 import { apiUrl } from '../../lib/api';
 import '../../styles/auras.css';
+import '../../styles/cardDesigns.css';
 
 // A FEELESS card: front = art, back = lore + money. Drag to turn it in 3D, click (or Enter) to flip.
 // Motion is transform-only and written straight to the element in rAF (no re-render per frame);
@@ -53,6 +54,31 @@ function Pattern({ design, id }) {
   if (design === 'ember') return <svg className="mc-pattern" viewBox="0 0 200 280" preserveAspectRatio="none" aria-hidden="true">
     <defs><pattern id={`${id}hx`} width="24" height="41.6" patternUnits="userSpaceOnUse"><path d="M12 0 L24 6.9 L24 20.8 L12 27.7 L0 20.8 L0 6.9 Z" fill="none" stroke="var(--b)" strokeOpacity=".22" strokeWidth=".8" /></pattern></defs>
     <rect width="200" height="280" fill={`url(#${id}hx)`} />
+  </svg>;
+  // ✦ 5 live designs (own sheet `cardDesigns.css`): every moving part is transform / opacity only and stops in fx-lite / reduced motion
+  if (design === 'nebula') return <svg className="mc-pattern pd-nebula" viewBox="0 0 200 280" preserveAspectRatio="none" aria-hidden="true">
+    <defs><radialGradient id={`${id}nb`}><stop offset="0" stopColor="var(--b)" stopOpacity=".55" /><stop offset="1" stopColor="var(--b)" stopOpacity="0" /></radialGradient></defs>
+    <g className="pdn-swirl"><ellipse cx="100" cy="130" rx="95" ry="38" fill={`url(#${id}nb)`} /><ellipse cx="100" cy="130" rx="60" ry="90" fill={`url(#${id}nb)`} opacity=".5" /></g>
+    <g className="pdn-stars">{Array.from({ length: 26 }, (_, i) => <circle key={i} cx={(i * 73) % 200} cy={(i * 131) % 280} r={i % 5 === 0 ? 1.4 : .7} fill="#fff" opacity={.35 + (i % 4) * .15} />)}</g>
+  </svg>;
+  if (design === 'prism') return <svg className="mc-pattern pd-prism" viewBox="0 0 200 280" preserveAspectRatio="none" aria-hidden="true">
+    {[[0, 0, 100, 70, 0, 140], [100, 70, 200, 0, 200, 140], [0, 140, 100, 70, 100, 210], [100, 70, 200, 140, 100, 210], [0, 140, 100, 210, 0, 280], [100, 210, 200, 140, 200, 280], [0, 280, 100, 210, 200, 280]].map((t, i) =>
+      <polygon key={i} className="pdp-shard" style={{ '--i': i }} points={`${t[0]},${t[1]} ${t[2]},${t[3]} ${t[4]},${t[5]}`} fill={['#ff5ad1', '#6ad7ff', '#ffd56a', '#19f58f', '#c58bff', '#ff8f5a', '#5af0ff'][i]} fillOpacity=".09" stroke="#fff" strokeOpacity=".18" strokeWidth=".6" />)}
+    <rect className="pdp-band" x="-60" y="0" width="40" height="280" fill="#fff" opacity=".12" />
+  </svg>;
+  if (design === 'plasma') return <svg className="mc-pattern pd-plasma" viewBox="0 0 200 280" preserveAspectRatio="none" aria-hidden="true">
+    {[0, 1, 2, 3].map(i => <circle key={i} className="pdl-ring" style={{ '--i': i }} cx="100" cy="118" r={30 + i * 22} fill="none" stroke={i % 2 ? 'var(--b)' : 'var(--a)'} strokeOpacity=".45" strokeWidth={i % 2 ? 1 : 1.6} strokeDasharray={i % 2 ? '3 6' : '18 10'} />)}
+  </svg>;
+  if (design === 'matrix') return <svg className="mc-pattern pd-matrix" viewBox="0 0 200 280" preserveAspectRatio="none" aria-hidden="true">
+    {Array.from({ length: 11 }, (_, c) => <g key={c} className="pdm-col" style={{ '--i': c }}>{Array.from({ length: 9 }, (_, r) =>
+      <text key={r} x={8 + c * 18} y={r * 34} fontSize="11" fontFamily="monospace" fill="var(--a)" opacity={r === 8 ? .9 : .12 + r * .07}>{'01$FEE◆▲'[(c * 3 + r) % 8]}</text>)}</g>)}
+  </svg>;
+  if (design === 'vapor') return <svg className="mc-pattern pd-vapor" viewBox="0 0 200 280" preserveAspectRatio="none" aria-hidden="true">
+    <defs><linearGradient id={`${id}sun`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ffd56a" /><stop offset="1" stopColor="#ff5ad1" /></linearGradient></defs>
+    <circle className="pdv-sun" cx="100" cy="150" r="46" fill={`url(#${id}sun)`} opacity=".35" />
+    {[0, 1, 2, 3].map(i => <rect key={i} x="54" y={156 + i * 9} width="92" height={2 + i} fill="#07050c" opacity=".7" />)}
+    <g className="pdv-grid">{Array.from({ length: 8 }, (_, i) => <line key={i} x1="0" x2="200" y1={196 + i * 12} y2={196 + i * 12} stroke="#ff5ad1" strokeOpacity=".35" strokeWidth=".8" />)}</g>
+    {Array.from({ length: 9 }, (_, i) => <line key={`v${i}`} x1="100" y1="192" x2={-60 + i * 40} y2="280" stroke="#ff5ad1" strokeOpacity=".3" strokeWidth=".8" />)}
   </svg>;
   return null;
 }
@@ -132,4 +158,5 @@ export function AuraPicker({ value, onChange }) {
     className={(value || '') === k ? 'active' : ''} onClick={() => onChange(k)} data-testid={`aura-pick-${k || 'none'}`}><b>{ic}</b>{l}</button>)}</div>;
 }
 
-export const CARD_DESIGNS = [['holo', 'Holo foil'], ['circuit', 'Circuit'], ['obsidian', 'Obsidian'], ['aurora', 'Aurora'], ['glitch', 'Glitch'], ['ember', 'Emberforge']];
+export const CARD_DESIGNS = [['holo', 'Holo foil'], ['circuit', 'Circuit'], ['obsidian', 'Obsidian'], ['aurora', 'Aurora'], ['glitch', 'Glitch'], ['ember', 'Emberforge'],
+  ['nebula', '🌌 Nebula'], ['prism', '💎 Prism'], ['plasma', '⚡ Plasma'], ['matrix', '🟩 Matrix'], ['vapor', '🌅 Vapor']];
