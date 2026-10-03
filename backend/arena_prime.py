@@ -468,7 +468,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     majors_only = all(l.get('role') == 'anchor' for l in c['legs'])
     if int(c.get('rounds') or 0) % every and not (majors_only and phase and phase != 'anchor'):
         phase = None   # re-shape every N rounds only (less churn) — EXCEPT a majors-only card due a growth shape re-shapes at once
-    if phase and c['lastRotateAt'] == now and not c.get('flooredAt') and not any(l.get('ride') for l in c['legs']) and not int(c.get('lockRounds') or 0):   # a riding runner holds the shape
+    grow_now = majors_only and phase and phase != 'anchor'   # a majors-only card due growth isn't held back by the win-lock
+    if phase and c['lastRotateAt'] == now and not c.get('flooredAt') and not any(l.get('ride') for l in c['legs']) and (grow_now or not int(c.get('lockRounds') or 0)):   # a riding runner holds the shape
         nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=in_play(c, prices, liqs), keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
         if nc:
             nc['feesUsd'] = round(_f(nc['feesUsd']) + fee * len(c['legs']), 4)   # selling the old shape
