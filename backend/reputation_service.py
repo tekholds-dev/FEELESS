@@ -4750,7 +4750,8 @@ async def _arena_mega(rd, cfg, now):
                     'tagline': f"engine champion · {r_.get('w', 0)}–{r_.get('l', 0)} in playground battles", 'activity': _hq.activity(len(cc['legs']), 0, 0, pct_)})
     # 🎛 at most 4 engine cards on the Arena, each with ≥ 6 coins: the engine champion first, then the best runners-up
     eng = [x for x in out if x.get('kind') in ('scenario', 'engine') and x.get('bench')]
-    keep = sorted([x for x in eng if len(x.get('legs') or []) >= _pgb.MIN_COINS], key=lambda x: (not x.get('engineChamp'), -_fuse._f(x.get('pnlPct'))))[:4]
+    arena_runner_cards = sum(1 for x in out if x.get('kind') in ('lit', 'round', 'auto'))   # cards the Arena's own runner rounds made
+    keep = sorted([x for x in eng if len(x.get('legs') or []) >= _pgb.MIN_COINS], key=lambda x: (not x.get('engineChamp'), -_fuse._f(x.get('pnlPct'))))[:min(4, arena_runner_cards)]   # ⚖ never more playground than Arena picks
     out = [x for x in out if x not in eng or x in keep]
     # ⭐ top-tier cards fight in the bracket too (fighters only — they already have their own section at the top of the Arena)
     tier_dial = {'diamond': 'safe', 'ever': 'safe', 'gold': 'balanced', 'blaze': 'degen', 'next': 'degen'}
@@ -5237,7 +5238,8 @@ async def _prime_candidates():
     live = await _runner_live()
     # runners = pre-bond coins passing every gate + CLEAN GRADUATED young coins (<48h, failing ONLY the pre-bond gate)
     young = list(live.get('passing') or []) + [r for r in live.get('dropped') or [] if r.get('gates') == ['Pre-bond (still on the curve)']]
-    runners = sorted(({'mint': r['mint'], 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'price': r.get('price'), 'score': r.get('score')} for r in young if _fuse._f(r.get('price')) > 0),
+    runners = sorted(({'mint': r['mint'], 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'price': r.get('price'), 'score': r.get('score'),
+                      'vol1h': r.get('vol1h'), 'buyShare': r.get('buyShare')} for r in young if _fuse._f(r.get('price')) > 0),
                      key=lambda x: -_fuse._f(x['score']))
     # Anchors: the real majors (SOL first, then JitoSOL / cbBTC / WBTC / ETH) at their deepest Solana pool — stable base of every card.
     order = ['SOL', 'cbBTC', 'WETH', 'ETH', 'JitoSOL', 'WBTC']
@@ -5313,12 +5315,14 @@ async def _prime_tick_inner(now):
     live = _runner_live_cache.get('data') or {}
     mom = {**pair_mom, **{r['pairAddress']: {k: r.get(k) for k in ('chg1h', 'buyShare', 'vol5m', 'vol1h')} for r in (live.get('passing') or []) + (live.get('dropped') or []) if r.get('pairAddress')}}
     locks = (d.get('prime') or {}).get('locks') or {}
+    before_runs = {tid: max((_fuse._f(r.get('at')) for r in (c or {}).get('runs') or []), default=0.0) for tid, c in cards.items()}   # newest run already recorded
     for tid in _prime.TEMPLATES:
         cur = cards.get(tid)
         liqs = {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()}
         cfg_t = {**_prime.clean_cfg(locks[tid]), 'paperFeeUsd': cfg['paperFeeUsd']} if tid in locks else cfg   # 🔒 a locked tier runs its own frozen config
         cards[tid] = _prime.tick(cur, px, pools, runners, cfg_t, now, anchors, mom, liqs) if cur else _prime.deal(tid, pools, runners, cfg_t, now, anchors)
     cards = {k: v for k, v in cards.items() if v}
+    _record_runs(before_runs, cards)
     win = _prime.crown_round(cards)
     async with _admin_lock:
         d = _json_load(FUSE_HQ_PATH, {}); d.setdefault('prime', {})['cards'] = cards
@@ -5326,6 +5330,32 @@ async def _prime_tick_inner(now):
             d['prime']['roundWinner'] = {'id': win, 'at': now}
         _json_save(FUSE_HQ_PATH, d)
     return len(cards)
+
+
+CARD_RECORDS_PATH = DATA_DIR / 'card_records.json'   # → card_records.db: every ended run of every tier card, append-only, forever
+
+
+def _record_runs(before, cards):
+    """📜 Permanent record: each run that just ended on a tier card goes into the append-only ledger (never trimmed, never edited)."""
+    try:
+        lg = _store.Ledger(CARD_RECORDS_PATH, table='runs')
+        for tid, c in cards.items():
+            for r in c.get('runs') or []:   # runs keep only the last 10 on the card — the timestamp tells what's new
+                if _fuse._f(r.get('at')) > before.get(tid, 0.0):
+                    lg.append({**r, 'card': tid, 'label': c.get('label'), 'real': bool(c.get('real'))})
+    except Exception as e:
+        print('card records:', e)
+
+
+@app.get('/api/reputation/fuses/record/{tpl}')
+async def fuse_card_record(tpl: str):
+    """📜 A tier card's permanent public record: every run it ever finished (start → end, %), best / worst / win rate."""
+    if tpl not in _prime.TEMPLATES:
+        raise HTTPException(404, 'Unknown card.')
+    rows = _store.Ledger(CARD_RECORDS_PATH, table='runs').rows(limit=500, card=tpl)
+    pcts = [_fuse._f(r.get('pct')) for r in rows]
+    return {'card': tpl, 'runs': rows, 'n': len(rows), 'won': sum(1 for p in pcts if p > 0), 'bestPct': max(pcts) if pcts else None,
+            'worstPct': min(pcts) if pcts else None, 'avgPct': round(sum(pcts) / len(pcts), 2) if pcts else None}
 
 
 async def _prime_view():
@@ -6270,7 +6300,37 @@ async def _pg_sim_tick(now):
     d.update(at=now, summary=_pgs.summary(res), s24=_pgs.summary(res24), s6=_pgs.summary(res6), score=score, best=_pgs.best(score),
              history=((d.get('history') or []) + [{'at': now, **_pgs.summary(res)}])[-96:])
     _json_save(PG_SIM_PATH, d)
+    await _engine_self_fix(now, d)
     return len(res)
+
+
+async def _engine_self_fix(now, sim):
+    """🔧 The engine fixes itself from the sim brain (tier cfg `autoBrain`, default on; HQ's clock is never touched):
+      • 🌧 runner weather — the last 24h of sims averaging ≤ −5% → strict runners (only coins with real flow + buyers get in);
+      • the brain's rotate-only-losers threshold + patience (rounds in a row) are applied once 30+ sims back each value.
+    Every change is audited + logged as an event on the tier cards."""
+    cfg = _prime_cfg()
+    if not cfg.get('autoBrain', True):
+        return None
+    s24, best = sim.get('s24') or {}, sim.get('best') or {}
+    patch = {}
+    bad = s24.get('n', 0) >= 100 and _fuse._f(s24.get('avgPct')) <= -5
+    if bad != bool(cfg.get('strictRunners')):
+        patch['strictRunners'] = bad
+    for trait, key, cast in (('minDrop', 'rotateMinDrop', float), ('confirm', 'rotateConfirm', int)):
+        b = best.get(trait)
+        if b and b.get('n', 0) >= 30 and cast(b['value']) != cfg.get(key):
+            patch[key] = cast(b['value'])
+    if not patch:
+        return None
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {}); pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), **patch})
+        why = ' · '.join(f'{k} → {v}' for k, v in patch.items())
+        for c in (pr.get('cards') or {}).values():
+            c.setdefault('events', []).append({'at': now, 'kind': 'brain', 'why': f'🧠 engine self-fix from {s24.get("n", 0)} sims: {why}'})
+        _json_save(FUSE_HQ_PATH, d)
+    ad = _admin_load(); _audit(ad, 'engine', 'self-fix', json.dumps(patch)); _admin_save(ad)
+    return patch
 
 
 @app.get('/api/reputation/admin/fuses/sim')

@@ -44,6 +44,9 @@ CYCLE_MODES = {'off': None, 'classic': CYCLE, 'adaptive': 'adaptive', 'safe': ('
                'rescue': ('safest', 'breakeven'), 'auto': 'auto'}
 RESCUE_PCT = -50.0   # (default; HQ sets cfg rescuePct) 🛟 any card that falls 50% under its start switches to the rescue cycle (safest ⇄ breakeven)
 ROTATE_MIN_DROP = 10.0   # rotation only swaps a coin that is actually losing (≤ −10% from entry) — winners are never churned
+ROTATE_CONFIRM = 3       # … and only after it has been losing for 3 rounds in a row (on 5-min rounds = 15 min — not one noisy dip)
+MIN_HOLD_MINS = 30       # … and only once it has been held 30 min (a fresh buy is never flipped straight back out)
+STRICT_VOL1H, STRICT_BUYS = 20_000.0, 55.0   # 🌧 bad runner weather: runner picks need ≥ $20K 1h volume and ≥ 55% buys
 CYCLE_EVERY = (1, 3, 6, 12)   # re-shape every N rounds (default 6: on 5-min rounds = every 30 min, not every round)
 
 
@@ -81,7 +84,8 @@ def next_phase(mode, rounds, last_pct):
 HIT_PCT = 10.0      # a "good day" = the card is up ≥ +10% over 24h
 DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 1, 'compound': True, 'paperFeeUsd': 0.01, 'floorPct': 60.0, 'slMode': 'replace',
                'cycles': dict(DEFAULT_CYCLES), 'trail': True, 'payouts': dict(DEFAULT_PAYOUTS), 'compoundStyle': 'smart', 'roundsPerRun': 0,
-               'rotateMinDrop': ROTATE_MIN_DROP, 'cycleEvery': 6, 'rescuePct': 50.0}
+               'rotateMinDrop': ROTATE_MIN_DROP, 'cycleEvery': 6, 'rescuePct': 50.0, 'rotateConfirm': ROTATE_CONFIRM, 'minHoldMins': MIN_HOLD_MINS,
+               'strictRunners': False, 'autoBrain': True}
 RUN_ROUNDS = (0, 5, 10, 20, 50)   # rounds per run (0 = one endless run): when a run's rounds are done it closes on the record, the next starts
 SL_MODES = ('replace', 'park', 'hold')   # on a stop: auto-replace · sell + park the slot (rebuy at entry with momentum) · hold
 CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.08, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 60)}
@@ -157,7 +161,11 @@ def clean_cfg(p):
     cyc = (p or {}).get('cycles') if isinstance((p or {}).get('cycles'), dict) else {}
     out['cycles'] = {t: (cyc.get(t) if valid_cycle(cyc.get(t)) else DEFAULT_CYCLES.get(t, 'off')) for t in DEFAULT_CYCLES}
     out['rotateMinDrop'] = max(0.0, min(50.0, _f((p or {}).get('rotateMinDrop', ROTATE_MIN_DROP))))
-    out['rescuePct'] = max(20.0, min(80.0, _f((p or {}).get('rescuePct', -RESCUE_PCT))))   # HQ: rescue when the card is this % under its start
+    out['rescuePct'] = max(20.0, min(80.0, _f((p or {}).get('rescuePct', -RESCUE_PCT))))
+    out['rotateConfirm'] = int(max(1, min(6, _f((p or {}).get('rotateConfirm', ROTATE_CONFIRM)))))
+    out['minHoldMins'] = max(0.0, min(240.0, _f((p or {}).get('minHoldMins', MIN_HOLD_MINS))))
+    out['strictRunners'] = bool((p or {}).get('strictRunners', False))
+    out['autoBrain'] = bool((p or {}).get('autoBrain', True))   # 🔧 engine self-fix from the sim brain (HQ can switch it off)   # HQ: rescue when the card is this % under its start
     out['cycleEvery'] = int(_f((p or {}).get('cycleEvery'))) if int(_f((p or {}).get('cycleEvery'))) in CYCLE_EVERY else 6
     if 'trail' in (p or {}):
         out['trail'] = bool(p['trail'])
@@ -266,6 +274,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
 
     def best(role):
         src = rated(runners if role == 'runner' else anchors if role == 'anchor' else pools, role)
+        if role == 'runner' and cfg.get('strictRunners'):   # 🌧 runner weather is bad: only runners with real flow + buyers get in
+            src = [x for x in src if _f(x.get('vol1h')) >= STRICT_VOL1H and (x.get('buyShare') is None or _f(x.get('buyShare')) >= STRICT_BUYS)]
         return next((x for x in src if x['mint'] not in have() and _f(x.get('price')) > 0), None)
     c.setdefault('dayAt', c['at']); c.setdefault('dayStartUsd', c['startUsd']); c.setdefault('days', []); c.setdefault('lowPct', 0.0)
 
@@ -394,9 +404,17 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 l.update(ride=True, high=max(_f(l.get('high')), _f(prices.get(l['pairAddress'])) or l['entry']), rideFrom=l['entry'], rideAt=now)
                 ev(kind='ride', symbol=l['symbol'], why=f"stayed ≥ +{HOLD_MIN:g}% all round — 🏇 held through the next round", to=[l['symbol']])
             l['roundMin'] = None
+        # ⏳ patience (why 5-min rounds work now): a coin is a rotation candidate only after it has been losing ≥ minDrop for
+        # `rotateConfirm` rounds in a row AND held ≥ `minHoldMins` — one noisy 5-min dip never sells it (protection still runs every tick)
+        for l in c['legs']:
+            if l.get('role') == 'anchor' or not l['entry']:
+                continue
+            down = ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 <= -_f(cfg.get('rotateMinDrop', ROTATE_MIN_DROP))
+            l['loseRounds'] = int(l.get('loseRounds') or 0) + 1 if down else 0
+        patient = lambda l: int(l.get('loseRounds') or 0) >= int(cfg.get('rotateConfirm', ROTATE_CONFIRM)) and now - _f(l.get('at')) >= _f(cfg.get('minHoldMins', MIN_HOLD_MINS)) * 60
         locked_round = int(c.get('lockRounds') or 0) > 0
         ranked = [] if locked_round else sorted((l for l in c['legs'] if l.get('role') != 'anchor' and not l.get('frozen') and not l.get('ride') and int(l.get('freezeRounds') or 0) <= 0 and l['entry'] > 0
-                                                 and ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 <= -_f(cfg.get('rotateMinDrop', ROTATE_MIN_DROP)) and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
+                                                 and ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 <= -_f(cfg.get('rotateMinDrop', ROTATE_MIN_DROP)) and patient(l) and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
         swapped = 0
         for l in ranked[:cfg['rotateCount']]:
             nxt = best(l['role'])

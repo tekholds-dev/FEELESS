@@ -17,7 +17,7 @@ C = lambda m, px, sym=None, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': s
 P = lambda m, px: C(m, px, liquidityUsd=2e6, volume24h=2e6)             # 5★ pool
 R = lambda m, px, sc=90: C(m, px, score=sc)                                 # 5★ runner by default
 SOL = [C('sol', 1, 'SOL'), C('jito', 1, 'JitoSOL')]
-CFG = ap.clean_cfg({'floorPct': 20, 'rotateMinDrop': 0, 'cycleEvery': 1, 'cycles': {'safe': 'off', 'balanced': 'off', 'degen': 'classic', 'next': 'classic', 'ever': 'off'},   # the original tier behaviour
+CFG = ap.clean_cfg({'floorPct': 20, 'rotateMinDrop': 0, 'cycleEvery': 1, 'rotateConfirm': 1, 'minHoldMins': 0, 'cycles': {'safe': 'off', 'balanced': 'off', 'degen': 'classic', 'next': 'classic', 'ever': 'off'},   # the original tier behaviour
                     'payouts': {'safe': 0, 'balanced': 0, 'degen': 0, 'next': 0, 'ever': 0}, 'compoundStyle': 'even'})
 
 
@@ -193,7 +193,7 @@ def test_rounds_count_and_the_best_card_of_each_round_is_crowned():
 
 
 def test_cycling_tiers_move_through_anchor_degen_anchor_mixed_rounds():
-    cfg = ap.clean_cfg({'rotateHours': 1, 'floorPct': 20, 'cycleEvery': 1, 'rotateMinDrop': 0, 'cycles': CFG['cycles'], 'payouts': CFG['payouts']})
+    cfg = ap.clean_cfg({'rotateHours': 1, 'floorPct': 20, 'cycleEvery': 1, 'rotateMinDrop': 0, 'rotateConfirm': 1, 'minHoldMins': 0, 'cycles': CFG['cycles'], 'payouts': CFG['payouts']})
     maj = [C('sol', 1, 'SOL'), C('btc', 1, 'cbBTC'), C('eth', 1, 'WETH')]   # an anchor round needs ≥ 3 coins
     runners = [R('r1', 1), R('r2', 1), R('r3', 1)]
     flat = {'Psol': 1, 'Pbtc': 1, 'Peth': 1, 'Pa': 1, 'Pr1': 1, 'Pr2': 1, 'Pr3': 1}
@@ -376,3 +376,22 @@ def test_rescue_auto_custom_cycles_and_low_churn():
     new = [{'mint': 'N', 'pairAddress': 'PN', 'symbol': 'N', 'price': 1.0, 'score': 99, 'stars': 5}]
     out = ap.tick(card, {'PW': 1.05, 'PL': 0.5, 'PN': 1.0}, [], new, cfg, 3600, liqs={'PW': 1e12, 'PL': 1e12, 'PN': 1e12})
     assert out['cycleFix'] == 'rescue' and 'W' in [l['mint'] for l in out['legs']]
+
+
+def test_patience_makes_5min_rounds_work_and_bad_weather_tightens_runners():
+    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 5 / 60, 'cycles': {'degen': 'off'}})
+    assert cfg['rotateConfirm'] == 3 and cfg['minHoldMins'] == 30
+    leg = {'mint': 'L', 'pairAddress': 'PL', 'symbol': 'L', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0, 'at': 0}
+    card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
+            'events': [], 'startUsd': 10.0, 'legs': [leg]}
+    new = [{'mint': 'N', 'pairAddress': 'PN', 'symbol': 'N', 'price': 1.0, 'score': 99, 'stars': 5, 'vol1h': 50_000, 'buyShare': 60}]
+    lq = {'PL': 1e12, 'PN': 1e12}
+    c = card
+    for r in range(1, 3):   # 2 losing rounds: not yet (one noisy dip never sells it)
+        c = ap.tick(c, {'PL': 0.85, 'PN': 1.0}, [], new, cfg, r * 300, liqs=lq)
+        assert c['legs'][0]['mint'] == 'L'
+    c = ap.tick(c, {'PL': 0.85, 'PN': 1.0}, [], new, cfg, 1800, liqs=lq)   # 3rd losing round + held 30 min → swapped
+    assert c['legs'][0]['mint'] == 'N'
+    weak = [{'mint': 'W', 'pairAddress': 'PW', 'symbol': 'W', 'price': 1.0, 'score': 99, 'stars': 5, 'vol1h': 900}]
+    c2 = ap.tick(dict(card, legs=[dict(leg, loseRounds=5)]), {'PL': 0.85, 'PW': 1.0}, [], weak, {**cfg, 'strictRunners': True}, 1800, liqs={'PL': 1e12, 'PW': 1e12})
+    assert c2['legs'][0]['mint'] == 'L'                                     # bad weather: a thin runner never gets in

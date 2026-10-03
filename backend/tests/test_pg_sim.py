@@ -32,3 +32,8 @@ def test_learn_and_best_rank_trait_values():
     b = ps.best(ps.learn(res))
     assert b['clock']['value'] == '5' and b['hold']['value'] == 'True' and b['clock']['upPct'] == 100.0
     assert ps.summary(res)['n'] == 24 and ps.run({}, NOW) == []
+
+
+def test_brain_ranks_by_the_typical_card_not_one_moonshot():
+    res = [{'cfg': {'minDrop': 0}, 'pct': -10.0}] * 11 + [{'cfg': {'minDrop': 0}, 'pct': 2000.0}] + [{'cfg': {'minDrop': 10}, 'pct': 3.0}] * 12
+    assert ps.best(ps.learn(res))['minDrop']['value'] == '10'      # the average would have picked 0 because of one +2000%

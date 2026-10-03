@@ -17,6 +17,7 @@ TPS = (50, 100, 200, 300)
 SLS = (15, 20, 30)
 DROPS = (0, 5, 10, 20)
 HOLDS = (True, False)
+CONFIRMS = (1, 2, 3, 4)   # ⏳ rounds in a row a coin must be losing before it may be rotated
 SWAP_COST = 0.006          # 0.6% per swap (network + FEELESS-free HQ route + impact) — the card always pays something to move
 
 
@@ -38,7 +39,7 @@ def _series(paths, start, steps):
 
 
 def random_cfg(rng):
-    return {'clock': rng.choice(CLOCKS), 'tp': rng.choice(TPS), 'sl': rng.choice(SLS), 'minDrop': rng.choice(DROPS), 'hold': rng.choice(HOLDS)}
+    return {'clock': rng.choice(CLOCKS), 'tp': rng.choice(TPS), 'sl': rng.choice(SLS), 'minDrop': rng.choice(DROPS), 'hold': rng.choice(HOLDS), 'confirm': rng.choice(CONFIRMS)}
 
 
 def simulate(series, mints, cfg, steps):
@@ -70,7 +71,9 @@ def simulate(series, mints, cfg, steps):
             on = {l['m'] for l in legs}
             pool = [m for m in series if m not in on]
             past = lambda m: series[m][k] / series[m][max(0, k - every)] - 1
-            losers = sorted((l for l in legs if not l['ride'] and (series[l['m']][k] / l['entry'] - 1) * 100 <= -cfg['minDrop']), key=lambda l: series[l['m']][k] / l['entry'])
+            for l in legs:   # ⏳ patience: count rounds in a row each coin has been losing
+                l['lose'] = l.get('lose', 0) + 1 if (series[l['m']][k] / l['entry'] - 1) * 100 <= -cfg['minDrop'] else 0
+            losers = sorted((l for l in legs if not l['ride'] and l.get('lose', 0) >= cfg.get('confirm', 1)), key=lambda l: series[l['m']][k] / l['entry'])
             if losers and pool:
                 out = losers[0]; best = max(pool, key=past)
                 usd = out['units'] * series[out['m']][k] * (1 - SWAP_COST)
@@ -101,22 +104,22 @@ def run(paths, now, n=200, hours=24, seed=None):
 
 
 def learn(results):
-    """Trait scores: for every config value, average % and share of sims that ended up (fees included)."""
-    score = {}
+    """Trait scores: for every config value, median % (robust — one moonshot can't skew it), average % and share that ended up."""
+    acc = {}
     for r in results or []:
         for trait, v in r['cfg'].items():
-            s = score.setdefault(trait, {}).setdefault(str(v), {'n': 0, 'sum': 0.0, 'up': 0})
-            s['n'] += 1; s['sum'] += r['pct']; s['up'] += 1 if r['pct'] > 0 else 0
-    return {t: {v: {'n': s['n'], 'avgPct': round(s['sum'] / s['n'], 3), 'upPct': round(s['up'] / s['n'] * 100, 1)} for v, s in vals.items()} for t, vals in score.items()}
+            acc.setdefault(trait, {}).setdefault(str(v), []).append(r['pct'])
+    return {t: {v: {'n': len(ps), 'medPct': round(statistics.median(ps), 3), 'avgPct': round(sum(ps) / len(ps), 3),
+                    'upPct': round(sum(1 for p in ps if p > 0) / len(ps) * 100, 1)} for v, ps in vals.items()} for t, vals in acc.items()}
 
 
 def best(score, min_n=10):
-    """The brain's pick: per trait the value with the best average % (≥ min_n sims), plus the overall sim stats."""
+    """The brain's pick: per trait the value whose TYPICAL card did best (median, then share up) over ≥ min_n sims."""
     out = {}
     for t, vals in (score or {}).items():
         ok = [(v, s) for v, s in vals.items() if s['n'] >= min_n]
         if ok:
-            v, s = max(ok, key=lambda vs: vs[1]['avgPct'])
+            v, s = max(ok, key=lambda vs: (vs[1].get('medPct', vs[1]['avgPct']), vs[1]['upPct']))
             out[t] = {'value': v, **s}
     return out
 

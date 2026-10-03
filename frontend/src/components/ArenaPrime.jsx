@@ -78,6 +78,7 @@ export function ArenaPrime({ onLoad }) {
       {c.realBook && <div className="prime-money" data-testid={`prime-book-${c.tpl}`}><span className="m-label">💵 REAL BOOK · FUNDED {usd(c.realBook.fundedUsd)} · {c.realBook.swaps} SWAPS · NETWORK FEES {usd(c.realBook.feesUsd)}</span>
         <ul className="prime-txs">{c.realBook.orders.slice(0, 5).map((o, i) => <li key={i}><b>{o.side === 'topup' ? '💵' : o.side === 'buy' ? '🟢' : '🔴'}</b><span>{o.side === 'topup' ? 'top-up' : `${o.side} $${o.symbol}`}</span>
           <em className="m-num">{usd(o.usd)}</em>{o.sig ? <a href={txUrl(o.sig)} target="_blank" rel="noreferrer" data-tip="Open the transaction">tx ↗</a> : <i />}</li>)}</ul></div>}
+      <CardRecord tpl={c.tpl} />
       <div className="prime-acts"><button type="button" className="m-btn" onClick={() => setOpen(open === c.id ? null : c.id)} data-testid={`prime-earn-${c.tpl}`}>🪟 Open card · profit trail</button>
         <button type="button" className="m-btn primary m-go" onClick={() => { onLoad?.(c.legs.map(l => ({ chainId: 'solana', pairAddress: l.pairAddress, symbol: l.symbol, baseAddress: l.mint, runner: l.role === 'runner', role: l.role }))); toast.success(`${c.label} loaded into the Lab — you approve the buy`); }} data-testid={`prime-buy-${c.tpl}`}>⚡ Buy now</button></div>
       {open === c.id && <CardEarnings title={c.label} events={(c.audit || c.events).map(e => ({ ...e, label: e.kind === 'tp' ? ({ ride: '🚀 Ride · house money', bank: '🏦 Banked 75%' }[e.mode] || KIND.tp) : KIND[e.kind] || e.kind }))} taken={c.walletUsd || 0} compounded={c.compoundedUsd}
@@ -109,6 +110,9 @@ export function PrimeControls({ call }) {
         onBlur={() => Number(mins) >= 15 && Number(mins) !== Math.round(cfg.rotateHours * 60) && save({ rotateHours: Math.min(48, Number(mins) / 60) })} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} data-testid="prime-rotate-min" /><span>min</span></label>{null}
       <span>Coins per rotation</span>{seg('rotateCount', [1, 2, 3], v => `${v}`)}
       <span data-tip="Rotation only swaps a coin that is actually losing — winners are never churned (fewer fees, less price impact)">Rotate only coins down</span>{seg('rotateMinDrop', [0, 5, 10, 20], v => (v ? `−${v}%` : 'any'))}
+      <span data-tip="⏳ Patience: a coin is only rotated after losing this many rounds IN A ROW — one noisy 5-min dip never sells it">Losing rounds before a swap</span>{seg('rotateConfirm', [1, 2, 3, 4], v => `${v}`)}
+      <span data-tip="A freshly bought coin is never flipped straight back out">Hold a new coin at least</span>{seg('minHoldMins', [0, 15, 30, 60], v => (v ? `${v}m` : 'off'))}
+      <label className="m-toggle" data-tip="🔧 The engine fixes itself from the sim brain: runner weather (strict runners when they're bleeding) + its rotation pick. Never touches your clock."><input type="checkbox" checked={cfg.autoBrain !== false} onChange={e => save({ autoBrain: e.target.checked })} data-testid="prime-autobrain" /><span>🔧 Engine self-fix {cfg.strictRunners ? '· 🌧 strict runners ON' : ''}</span></label>
       <span data-tip="🛟 When a card falls this far under what it started with, it switches to the rescue cycle (safest run ⇄ breakeven runners)">Rescue at</span>{seg('rescuePct', [30, 40, 50, 60], v => `−${v}%`)}
       <span data-tip="How often a cycling card re-shapes. Every re-shape sells + re-buys coins — every 6 rounds on 5-min rounds = every 30 min">Re-shape every</span>{seg('cycleEvery', [1, 3, 6, 12], v => `${v} rnd`)}
       <span data-tip="Rounds per run: when they're done the run closes on the record (its %) and the next run starts from there. ∞ = one endless run. Every round opens with a 10s countdown.">Rounds per run</span>{seg('roundsPerRun', [0, 5, 10, 20, 50], v => (v ? `${v}` : '∞'))}
@@ -165,4 +169,14 @@ export function HqRealCards({ addr }) {
       {c.realBook && <small className="m-dim">funded {usd(c.realBook.fundedUsd)} · {c.realBook.swaps} swaps · network fees {usd(c.realBook.feesUsd)}</small>}
       <ul className="prime-txs">{(c.realBook?.orders || []).slice(0, 4).map((o, i) => <li key={i}><b>{o.side === 'topup' ? '💵' : o.side === 'buy' ? '🟢' : '🔴'}</b><span>{o.side === 'topup' ? 'funded' : `${o.side} $${o.symbol}`}</span>
         <em className="m-num">{usd(o.usd)}</em>{o.sig ? <a href={txUrl(o.sig)} target="_blank" rel="noreferrer">tx ↗</a> : <i />}</li>)}</ul></div>; })}</div></section>;
+}
+
+
+// 📜 A tier card's permanent record (every run it ever finished, kept forever on the server's append-only ledger)
+export function CardRecord({ tpl }) {
+  const [r, setR] = useState(null);
+  useEffect(() => { let alive = true; const load = () => fetch(apiUrl(`/api/reputation/fuses/record/${tpl}`)).then(x => x.json()).then(x => alive && setR(x)).catch(() => {});
+    load(); const t = setInterval(load, 120000); return () => { alive = false; clearInterval(t); }; }, [tpl]);
+  if (!r?.n) return <small className="m-dim prime-record" data-testid={`record-${tpl}`}>📜 Record starts with its first finished run</small>;
+  return <small className="prime-record" data-testid={`record-${tpl}`} data-tip="Every run this card ever finished — kept forever, never edited">📜 {r.n} runs · {r.won} up · best {pct(r.bestPct)} · worst {pct(r.worstPct)} · avg {pct(r.avgPct)}</small>;
 }

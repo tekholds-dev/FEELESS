@@ -29,3 +29,12 @@ def test_service_fuse_wallet_lives_in_sqlite():
     rs._fw_save(d)
     assert rs._fw_load()['cfg']['reserveSol'] == 0.015 and rs.FUSE_WALLET_PATH.with_suffix('.db').exists()
     assert store.Ledger(rs.FUSE_WALLET_PATH).rows()[0]['usd'] == 4
+
+
+def test_tier_card_runs_go_into_the_permanent_record():
+    import asyncio, pytest
+    rs = pytest.importorskip('reputation_service')
+    cards = {'safe': {'label': 'Diamond', 'runs': [{'at': 5, 'startUsd': 100, 'endUsd': 120, 'pct': 20}, {'at': 9, 'startUsd': 120, 'endUsd': 90, 'pct': -25}]}}
+    rs._record_runs({'safe': 5}, cards)                     # only the run after t=5 is new
+    rec = asyncio.run(rs.fuse_card_record('safe'))
+    assert rec['n'] == 1 and rec['runs'][0]['pct'] == -25 and rec['worstPct'] == -25

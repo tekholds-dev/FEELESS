@@ -625,6 +625,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (apply clock + rotate-only-losers to the tier engine). Jest: `--maxWorkers=3` + `testTimeout` 30s (flake fix). Day theme: NO
   backdrop-filter on always-visible panels (was the day lag). Arena: `ArenaGuide` + jump bar; card config = live P&L + legend.
 
+- ⏳ Why 5-min rounds failed = churn on noise. Patience: rotation only after `rotateConfirm` (3) losing rounds in a row AND
+  `minHoldMins` (30) held; protection (TP/SL/rug/hold) still every tick. Sim proof on real prices: 5-min patient ≈ +5.6% vs churn ≈ −47%.
+- 🔧 `_engine_self_fix` (after each sim run, `autoBrain`): 🌧 runner weather (24h sims ≤ −5% → `strictRunners`: vol1h ≥ $20K, buys ≥ 55%)
+  + the brain's minDrop / confirm (median-ranked, ≥30 sims). Never the clock. Audited + `brain` event on tier cards.
+- ⚖ Arena: playground (engine) cards ≤ number of Arena runner cards (lit / round / auto), max 4. 📜 Permanent record: every ended tier
+  run → `card_records.db` (append-only) · `GET /fuses/record/{tpl}` · `CardRecord` on each tier card.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

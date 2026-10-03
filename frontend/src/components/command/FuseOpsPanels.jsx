@@ -289,11 +289,11 @@ export function SimBrain({ call }) {
   const s = d.summary; const b = d.best || {};
   const apply = () => call('/admin/fuses/sim/apply', { method: 'POST' }).then(x => toast.success(`Applied: ${JSON.stringify(x.applied)}`)).catch(e => toast.error(e.message));
   return <section className="m-card m-live" data-testid="sim-brain"><span className="m-label">🧠 SIM BRAIN · {s.n} CARDS REPLAYED ON REAL PRICES · FEES INCLUDED</span>
-    <div className="fw-kpis"><span><small>AVG</small><b className={`m-num ${s.avgPct >= 0 ? 'm-pos' : 'm-neg'}`}>{s.avgPct}%</b><em>median {s.medianPct}%</em></span>
+    <div className="fw-kpis"><span><small>TYPICAL CARD</small><b className={`m-num ${s.medianPct >= 0 ? 'm-pos' : 'm-neg'}`}>{s.medianPct}%</b><em>average {s.avgPct}%</em></span>
       <span><small>ENDED UP</small><b className="m-num">{s.upPct}%</b><em>of sim cards</em></span><span><small>BEST · WORST</small><b className="m-num">{s.bestPct}% · {s.worstPct}%</b></span>
       <span><small>24H · 6H</small><b className="m-num">{d.s24?.avgPct ?? '—'}% · {d.s6?.avgPct ?? '—'}%</b></span></div>
     <div className="ccx-legend">{Object.entries(b).map(([t, v]) => <p key={t}><b>{{ clock: '⟳ Round clock', tp: '🎯 Take-profit', sl: '🛑 Stop', minDrop: '⇄ Rotate only coins down', hold: '🏇 Hold rule' }[t] || t} · {t === 'clock' ? `${v.value}m` : t === 'tp' ? `+${v.value}%` : t === 'sl' || t === 'minDrop' ? `−${v.value}%` : v.value === 'True' ? 'on' : 'off'}</b>
-      <span>best average {v.avgPct}% · {v.upPct}% of {v.n} sims ended up</span></p>)}</div>
+      <span>typical card {v.medPct ?? v.avgPct}% (median) · {v.upPct}% of {v.n} sims ended up</span></p>)}</div>
     <div className="m-row"><button type="button" className="m-btn primary m-go" onClick={apply} data-testid="sim-apply">🧠 Apply the brain's clock + rotation to the tier engine</button>
       <small className="m-dim">updated {new Date(d.at * 1000).toLocaleTimeString()} · ranking only — it never trades</small></div></section>;
 }
