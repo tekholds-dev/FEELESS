@@ -78,7 +78,8 @@ DEFAULT_PAYOUTS = {'safe': 25, 'balanced': 50, 'degen': 0, 'next': 25, 'ever': 7
 RUG_LIQ = 0.5   # 🚨 rug shield: pool liquidity at ≤ 50% of entry = pulled → sell at once
 TRAIL_AT, TRAIL_KEEP = 50.0, 5.0   # 🔒 a coin that ran ≥ +50% is sold before it gives it all back (≤ +5% left)
 FIX_DAY_PCT = -40.0   # 🔧 a tier card whose DAY falls to −40% gets its config fixed: re-dealt fresh on the safe cycle (logged)
-RIDE_AT, RIDE_TRAIL = 150.0, 30.0   # 🏇 ride a runner from +150%, sell only when it falls 30% from its new high
+RIDE_AT, RIDE_TRAIL = 150.0, 30.0
+RIDE_ATS, RIDE_TRAILS = (25, 50, 100, 150), (10, 15, 20, 30)   # ⚙ Edit Fuse: ❄ freeze a coin running +X% · ⇄ swap it −Y% from its peak   # 🏇 ride a runner from +150%, sell only when it falls 30% from its new high
 HOLD_MIN = 80.0      # 🏇 a held coin must stay ≥ +80% (a whole round ≥ +80% also earns a hold); under it → swapped
 MIN_CYCLE_COINS = 3  # every cycle shape holds at least 3 coins (else the card keeps its current coins)
 STREAK = 3
@@ -178,6 +179,8 @@ def clean_cfg(p):
     cyc = (p or {}).get('cycles') if isinstance((p or {}).get('cycles'), dict) else {}
     out['cycles'] = {t: (cyc.get(t) if valid_cycle(cyc.get(t)) else DEFAULT_CYCLES.get(t, 'off')) for t in DEFAULT_CYCLES}
     out['rotateMinDrop'] = max(0.0, min(50.0, _f((p or {}).get('rotateMinDrop', ROTATE_MIN_DROP))))
+    out['rideAt'] = float(_f((p or {}).get('rideAt'))) if _f((p or {}).get('rideAt')) in RIDE_ATS else RIDE_AT
+    out['rideTrail'] = float(_f((p or {}).get('rideTrail'))) if _f((p or {}).get('rideTrail')) in RIDE_TRAILS else RIDE_TRAIL
     out['rescuePct'] = max(20.0, min(80.0, _f((p or {}).get('rescuePct', -RESCUE_PCT))))
     out['rotateConfirm'] = int(max(1, min(6, _f((p or {}).get('rotateConfirm', ROTATE_CONFIRM)))))
     out['minHoldMins'] = max(0.0, min(240.0, _f((p or {}).get('minHoldMins', MIN_HOLD_MINS))))
@@ -334,11 +337,13 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         # 🏇 RUNNER RIDE: a coin up ≥ +150% is frozen through rounds (no TP, no stop, no rotation) and labelled a runner while it keeps
         # making highs; it is sold only when it falls 30% from its NEW high. (A 200× never gets cut at +150%.)
         l['roundMin'] = min(_f(l['roundMin']) if l.get('roundMin') is not None else g, g)
+        ra, rt = _f(cfg.get('rideAt')) or RIDE_AT, _f(cfg.get('rideTrail')) or RIDE_TRAIL
+        floor_g = min(HOLD_MIN, ra / 2)   # a +25% freeze can't demand +80% to keep holding
         if l.get('ride'):
             l['high'] = max(_f(l.get('high')), px)
-            if g >= HOLD_MIN and px > l['high'] * (1 - RIDE_TRAIL / 100):
-                continue   # still holding: ≥ +80% and not 30% off its high
-            why_end = (f"fell under +{HOLD_MIN:g}% ({g:+.0f}%)" if g < HOLD_MIN else f"fell {RIDE_TRAIL:g}% from its high") + f" after riding to {l['high'] / (l.get('rideFrom') or l['entry']):.1f}×"
+            if g >= floor_g and px > l['high'] * (1 - rt / 100):
+                continue   # still holding: above its floor and not rt% off its high
+            why_end = (f"fell under +{floor_g:g}% ({g:+.0f}%)" if g < floor_g else f"fell {rt:g}% from its peak") + f" after riding to {l['high'] / (l.get('rideFrom') or l['entry']):.1f}×"
             l['ride'] = False
             nxt = best(l.get('role') or 'runner')
             if nxt:   # 🏇 ride over → SWAPPED for the best coin of its kind (the gain moves into it)
@@ -347,9 +352,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 ev(kind='ride-end', symbol=l['symbol'], usd=round(usd, 4), why=f"{why_end} — swapped", to=[nxt.get('symbol')])
                 continue
             mode, frac, why = 'ride-end', 1.0, f"{why_end} — sold" 
-        elif g >= RIDE_AT and l.get('role') != 'anchor':
+        elif g >= ra and l.get('role') != 'anchor':
             l.update(ride=True, high=px, rideFrom=l['entry'], rideAt=now)
-            ev(kind='ride', symbol=l['symbol'], usd=round(l['units'] * px, 4), why=f"+{g:.0f}% ≥ +{RIDE_AT:g}% — 🏇 riding: frozen until it falls {RIDE_TRAIL:g}% from its high", to=[l['symbol']])
+            ev(kind='ride', symbol=l['symbol'], usd=round(l['units'] * px, 4), why=f"+{g:.0f}% ≥ +{ra:g}% — ❄ frozen (riding) until it falls {rt:g}% from its peak, then swapped", to=[l['symbol']])
             continue
         elif g >= t['tp']:
             mode, frac, why = exit_plan(g, mom.get(l['pairAddress']))
@@ -548,13 +553,25 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     return c
 
 
+def cycle_peek(card, cfg):
+    """🔄 What the card holds now and what it re-shapes into next (same rules as `tick`): {now, next, inRounds, mode, fix}.
+    adaptive / auto pick by the last round's move, so `next` is the shape IF the next round moves like the last one."""
+    cfg = cfg or {}
+    mode = card.get('cycleFix') or (cfg.get('cycles') or DEFAULT_CYCLES).get(card.get('tpl'), 'off')
+    every = 1 if card.get('cycleFix') else int(cfg.get('cycleEvery') or 6)
+    r = int(card.get('rounds') or 0)
+    n = every - (r % every)
+    nxt = next_phase(mode, (r + n) // every, card.get('lastRoundPct'))
+    return {'now': card.get('phase'), 'next': nxt, 'inRounds': n if nxt else None, 'mode': mode, 'fix': card.get('cycleFix')}
+
+
 def summary(card, prices, cfg=None):
     v = value(card, prices)
     start = _f(card.get('startUsd')) or 1
     rot = _f((cfg or {}).get('rotateHours')) or DEFAULT_CFG['rotateHours']
     paid = round(_f(card.get('walletUsd')), 4)
     legs = [{**{k: l[k] for k in ('mint', 'pairAddress', 'symbol', 'role', 'entry', 'units', 'costUsd')}, 'stars': l.get('stars') or 3,
-             'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'buying': bool(l.get('buying')),
+             'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'rideFrom': l.get('rideFrom'), 'buying': bool(l.get('buying')),
              'firstEntry': l.get('firstEntry') or l['entry'], 'at': l.get('at'), 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,
              'liq': _f(l.get('liqNow')) or _f(l.get('liq')),

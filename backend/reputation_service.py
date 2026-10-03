@@ -5441,7 +5441,7 @@ async def _prime_view():
     def _cfgv(c):
         e = _eff(c); return {'clockMin': round(e['rotateHours'] * 60), 'confirm': e['rotateConfirm'], 'minDrop': e['rotateMinDrop'], 'holdMin': e['minHoldMins'],
                              'cycle': (e.get('cycles') or {}).get(c['tpl']), 'reshape': e['cycleEvery'], 'slMode': e['slMode'], 'locked': c.get('tpl') in locks}
-    return [{**(sm := _prime.summary(c, px, _eff(c))), **_vs(c, sm), 'cfgView': _cfgv(c), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl']) if c.get('real') else None,
+    return [{**(sm := _prime.summary(c, px, _eff(c))), **_vs(c, sm), 'cfgView': _cfgv(c), 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl']) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 

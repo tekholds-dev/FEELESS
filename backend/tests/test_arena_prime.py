@@ -477,3 +477,28 @@ def test_one_tap_redeal_keeps_the_money():
     c = ap.tick(card, px, [], runners, cfg, 200, anchors, liqs={k: 1e12 for k in px})
     assert 'X' not in [l['mint'] for l in c['legs']] and 'redealNow' not in c
     assert abs(sum(l['costUsd'] for l in c['legs']) - 20.0) < 0.5 and c['startUsd'] == 20.0   # same money, same run
+
+
+def test_freeze_at_x_and_swap_y_from_peak_are_configurable():
+    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 99, 'rideAt': 25, 'rideTrail': 10, 'cycles': {'degen': 'off'}})
+    assert cfg['rideAt'] == 25 and cfg['rideTrail'] == 10 and ap.clean_cfg({'rideAt': 7})['rideAt'] == ap.RIDE_AT
+    r = {'mint': 'R', 'pairAddress': 'PR', 'symbol': 'R', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0}
+    card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
+            'events': [], 'startUsd': 10.0, 'legs': [r]}
+    new = [{'mint': 'N', 'pairAddress': 'PN', 'symbol': 'N', 'price': 1.0, 'score': 99, 'stars': 5}]
+    lq = {'PR': 1e12, 'PN': 1e12}
+    c = ap.tick(card, {'PR': 1.3}, [], new, cfg, 10, liqs=lq)          # +30% ≥ +25% → frozen (riding)
+    assert c['legs'][0]['ride'] and c['events'][-1]['kind'] == 'ride'
+    c = ap.tick(c, {'PR': 1.5}, [], new, cfg, 20, liqs=lq)             # new peak 1.5, still held
+    assert c['legs'][0]['mint'] == 'R' and c['legs'][0]['high'] == 1.5
+    c = ap.tick(c, {'PR': 1.34, 'PN': 1.0}, [], new, cfg, 30, liqs=lq) # −10.7% from peak → swapped for N
+    assert c['legs'][0]['mint'] == 'N' and c['events'][-1]['kind'] == 'ride-end' and 'peak' in c['events'][-1]['why']
+
+
+def test_cycle_peek_shows_now_next_and_when():
+    cfg = ap.clean_cfg({'cycleEvery': 3, 'cycles': {'balanced': 'classic'}})
+    pk = ap.cycle_peek({'tpl': 'balanced', 'rounds': 4, 'phase': 'anchor', 'lastRoundPct': 1.0}, cfg)
+    assert pk['now'] == 'anchor' and pk['inRounds'] == 2 and pk['next'] == ap.next_phase('classic', 2, 1.0) and pk['mode'] == 'classic'
+    fix = ap.cycle_peek({'tpl': 'balanced', 'rounds': 4, 'phase': 'safest', 'cycleFix': 'rescue'}, cfg)
+    assert fix['inRounds'] == 1 and fix['fix'] == 'rescue'
+    assert ap.cycle_peek({'tpl': 'balanced', 'rounds': 1}, ap.clean_cfg({'cycles': {'balanced': 'off'}}))['next'] is None

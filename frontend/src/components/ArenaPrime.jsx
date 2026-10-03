@@ -166,13 +166,15 @@ const EDIT = [
   ['rotateConfirm', '⏳ Patience', [[1, '1'], [2, '2'], [3, '3'], [4, '4']], 'Losing rounds in a row before a coin may be swapped (more = less churn, fewer fees)'],
   ['rotateMinDrop', '📉 Swap only below', [[5, '−5%'], [10, '−10%'], [15, '−15%'], [20, '−20%']], 'A coin is swapped only when it is at least this far down'],
   ['minHoldMins', '🔒 Min hold', [[15, '15m'], [30, '30m'], [60, '1h'], [120, '2h']], 'Every new coin is held at least this long'],
+  ['rideAt', '❄ Freeze a coin running', [[25, '+25%'], [50, '+50%'], [100, '+100%'], [150, '+150%']], 'A coin up this much is frozen: no TP, stop or rotation while it keeps making highs'],
+  ['rideTrail', '⇄ Then swap it off its peak', [[10, '−10%'], [15, '−15%'], [20, '−20%'], [30, '−30%']], 'A frozen coin is swapped for the best coin of its kind once it falls this far from its highest price (the gain moves into the new coin)'],
   ['cycleEvery', '🧩 Re-shape every', [[3, '3'], [6, '6'], [12, '12']], 'Rounds between shape changes'],
   ['slMode', '🛑 On a stop', [['replace', '⇄ replace'], ['park', '🅿 park'], ['hold', '❄ hold']], 'Replace with the best coin · sell to SOL and rebuy later · keep holding'],
   ['rescuePct', '🛟 Rescue at', [[30, '−30%'], [40, '−40%'], [50, '−50%'], [60, '−60%']], 'Card this far under its start → safest coins'],
   ['autoBrain', '🧠 Auto-tune', [[true, 'on'], [false, 'off']], 'Let the sim brain adjust patience / drop (never below 3 on 5m rounds)'],
 ];
 const CYCLES = [['safe', '🛡 safe'], ['classic', 'classic'], ['adaptive', 'adaptive'], ['press', '🔥 press'], ['rescue', '🛟 rescue'], ['auto', '🤖 auto'], ['off', 'off']];
-const ROUND_KEYS = ['rotateHours', 'rotateConfirm', 'rotateMinDrop', 'minHoldMins'];   // ⏱ group 1; the rest of EDIT = 🧬 shape group
+const ROUND_KEYS = ['rotateHours', 'rotateConfirm', 'rotateMinDrop', 'minHoldMins', 'rideAt', 'rideTrail'];   // ⏱ group 1; the rest of EDIT = 🧬 shape group
 
 // ✍ Type exact limits (server clamps every value to its safe range: slippage 0.1–3%, impact 0.2–10%, pool ≥ $0, swap $1+, daily $5+)
 const TYPED = [['slippageBps', 'Slippage %', v => v * 100, v => v / 100, 0.1, 3, 0.1], ['maxImpactPct', 'Max price impact %', v => v, v => v, 0.2, 10, 0.1],
@@ -220,6 +222,25 @@ function CardEditor({ c, cfg, keeper, locked, call }) {
     <small className="m-dim">Rounds + shape are shared by every tier that isn't 🔒 locked. Real-money limits cover every real buy and sell.</small></details>;
 }
 
+const SHAPE = { anchor: ['⚓', 'anchor', '3 majors + a new major'], mixed: ['⚖', 'mixed', '2 majors + a new major + a runner'], degen: ['🔥', 'degen', '1 major + 3 runners'],
+  safest: ['🛡', 'safest', '3 majors + 1 new major'], breakeven: ['♻', 'breakeven', '1 busy pool + 3 busy runners'] };
+// 🔄 NOW → NEXT shape (server `cyclePeek`, same rules as the engine) + the card's vitals at a glance
+export function CycleStrip({ c }) {
+  const p = c.cyclePeek || {}; const sh = k => SHAPE[k] || ['·', k || '—', ''];
+  const legs = (c.legs || []).filter(l => l.symbol !== 'SOL' && l.costUsd > 0);
+  const best = legs.reduce((a, l) => (!a || l.pnlPct > a.pnlPct ? l : a), null); const worst = legs.reduce((a, l) => (!a || l.pnlPct < a.pnlPct ? l : a), null);
+  const riding = (c.legs || []).filter(l => l.ride).length;
+  return <div className="hrt-cycle m-live" data-testid="cycle-strip">
+    <span className="hrt-shape is-now" data-tip={sh(p.now)[2]}><small>NOW</small><b>{sh(p.now)[0]} {sh(p.now)[1]}</b></span>
+    <span className="hrt-arrow" aria-hidden>→</span>
+    <span className="hrt-shape" data-tip={p.next ? `${sh(p.next)[2]}${['adaptive', 'auto'].includes(p.mode) ? ' — picked by how the next round moves' : ''}` : 'This card does not cycle'}><small>{p.next ? `NEXT · IN ${p.inRounds} RND` : 'NEXT'}</small><b>{p.next ? `${sh(p.next)[0]} ${sh(p.next)[1]}` : '➡ steady'}</b></span>
+    <span className="hrt-mode m-chip" data-tip={p.fix ? `Auto ${p.fix} fix is on — pick a cycle in ⚙ Edit Fuse to override` : 'The cycle this card runs'}>🔄 {p.mode || 'off'}{p.fix ? ' · fix' : ''}</span>
+    <span className="hrt-vital" data-tip="Best coin on the card now"><small>BEST</small><b className="m-pos">{best ? `$${best.symbol} ${pct(best.pnlPct)}` : '—'}</b></span>
+    <span className="hrt-vital" data-tip="Weakest coin on the card now"><small>WORST</small><b className={worst && worst.pnlPct < 0 ? 'm-neg' : ''}>{worst ? `$${worst.symbol} ${pct(worst.pnlPct)}` : '—'}</b></span>
+    <span className="hrt-vital" data-tip="Coins frozen while they run (swapped once they fall off their peak)"><small>RIDING</small><b>❄ {riding}</b></span>
+    <span className="hrt-vital" data-tip="Network fees this card paid (kept apart from P&L)"><small>FEES</small><b>{usd(c.realBook?.feesUsd ?? c.feesUsd ?? 0)}</b></span></div>;
+}
+
 export function HqRealCards({ addr, onCount }) {
   const [owner, setOwner] = useState(false);
   useEffect(() => { if (!addr) return; fetch(apiUrl(`/api/reputation/admin/is-admin/${addr}`)).then(r => r.json()).then(d => setOwner(!!(d.owner || d.admin))).catch(() => {}); }, [addr]);
@@ -255,7 +276,8 @@ export function HqRealCards({ addr, onCount }) {
             <span data-tip="This run started at this value (a run restarts on top-ups, re-deals and fixes)"><small>THIS RUN FROM</small><b className="m-num">{usd(c.startUsd)}</b></span>
             {c.vsSolPct != null && <span data-tip={`Holding SOL over this run: ${pct(c.holdSolPct)}. Fund more only when this stays positive.`}><small>VS HOLDING SOL</small><b className={`m-num ${c.vsSolPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.vsSolPct)}</b></span>}
             <span data-tip="Value now · % vs this run's start"><small>NOW · THIS RUN</small><b key={(c.valueUsd || 0).toFixed(2)} className={`m-num fl-tick ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{usd(c.valueUsd)} · {pct(c.pnlPct)}</b></span></div>
-          <ul className="hrt-coins">{c.legs.map(l => <li key={l.pairAddress} className={l.buying ? 'is-buying' : ''}><b>{l.role === 'runner' ? '🏃' : '⚓'} ${l.symbol}</b>
+          <CycleStrip c={c} />
+          <ul className="hrt-coins">{c.legs.map(l => <li key={l.pairAddress} className={l.buying ? 'is-buying' : ''}><b>{l.role === 'runner' ? '🏃' : '⚓'} ${l.symbol}{l.ride && l.high > 0 && <i className="hrt-ride" data-tip={`Frozen while it runs — swapped once it falls ${cf?.rideTrail || 30}% from its peak`}> ❄ riding · peak {pct((l.high / (l.rideFrom || l.entry || l.high) - 1) * 100)}</i>}{l.frozen && !l.ride && <i className="hrt-ride"> ❄ frozen</i>}</b>
             {l.buying || !(l.usd > 0) ? <em className="hrt-buy" data-tip={k.lastFail?.symbol === l.symbol ? `Last try: ${k.lastFail.err} — tap ⇄ to swap it for a coin that can be bought` : 'The keeper buys it on its next tick'}>{l.buying ? (k.lastFail?.symbol === l.symbol ? `⏳ ${String(k.lastFail.err || '').split(' (')[0].slice(0, 34)}` : '⏳ buying… keeper retries') : '⏳ empty — rebuy at the next round'}</em> : <><span>{usd(l.costUsd)} → {usd(l.usd)}</span><em className={l.pnlPct >= 0 ? 'm-pos' : 'm-neg'}>{pct(l.pnlPct)}</em></>}
             {l.symbol !== 'SOL' ? <span className="hrt-ctl">
               <button type="button" className="m-btn" disabled={!!busy || l.frozen} data-testid={`swap-${l.symbol}`} data-tip={l.frozen ? 'Frozen — unfreeze to swap it' : `Swap $${l.symbol} for the best coin of its kind not on the card (keeper trades it next tick)`}
