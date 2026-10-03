@@ -175,7 +175,9 @@ body.theme-day .ctab { background: #fff; border-color: #d8e2dc; }
 .ce-row { display: grid; gap: 3px; } .ce-row small { font-family: var(--m-mono); font-size: 9.5px; letter-spacing: .1em; color: var(--m-dim); text-transform: uppercase; }
 .ce-row .m-seg { flex-wrap: wrap; }
 .ce-group { display: grid; gap: 4px; margin: 8px 0 4px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--m-line) 70%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--m-bg, #050b07) 60%, transparent); }
-.ce-group .ce-grid { margin: 2px 0; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.ce-group .ce-grid { margin: 2px 0; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); align-items: start; }
+.ce-group .ce-row { align-content: start; } .ce-group .ce-row .m-seg { align-items: center; } .ce-group .ce-wide { grid-column: span 2; }
+@media (max-width: 640px) { .ce-group .ce-wide { grid-column: auto; } }
 .ce-warn { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 0; color: var(--gold); font-size: 11.5px; } .ce-warn .m-btn { padding: 3px 10px; }
 .hq-real-track:has(.hrt-edit[open]) .hrt-cfg { display: none; }   /* the editor already shows every setting — no duplicate chip row */
 .hrt-top-up .m-btn { white-space: nowrap; }
@@ -244,4 +246,6 @@ body.theme-day .ar-guide li { background: #fff; border-color: #d8e2dc; } body.th
 @media (max-width: 640px) { .hq-real { grid-template-columns: 1fr; justify-items: center; } .hq-real-track { width: 100%; } .hrt-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { .hrt-edit[open] .ce-grid { animation: none; } }
 body.theme-day .hrt-kpis > span { background: #fff; border-color: #d8e2dc; }
-body.theme-day .ce-group { background: #fff; border-color: #d8e2dc; } body.theme-day .ce-warn { color: #8a5a00; }
+body.theme-day .ce-group { background: #fff; border-color: #d8e2dc; box-shadow: 0 1px 2px rgba(10, 40, 25, .06); }
+body.theme-day .hrt-edit { background: #f6faf8; border-color: #d8e2dc; } body.theme-day .hrt-edit summary { color: #0b7a4a; }
+body.theme-day .ce-group .m-label { color: #0b7a4a; } body.theme-day .ce-row small, body.theme-day .ce-typed small { color: #5b6f64; } body.theme-day .ce-warn { color: #8a5a00; }

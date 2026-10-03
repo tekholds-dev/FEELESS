@@ -24,8 +24,10 @@ export function setLite(mode) {
 }
 
 // Pure: should this minute's numbers switch the device to lite effects?
+// 🔋 Chrome caps pages at 30 fps on battery / low-power mode — a steady 30 is the browser saving power, NOT lag. Going lite at
+// < 38 froze every animation on laptops that were fine. Real jank = under 24 fps, or > 1.5s of blocked main thread a minute.
 export function shouldGoLite({ fps, longMs }) {
-  return (fps != null && fps < 38) || longMs > 1500;
+  return (fps != null && fps < 24) || longMs > 1500;
 }
 
 function sampleFps() {
@@ -38,7 +40,7 @@ function sampleFps() {
 function flush() {
   const fps = state.fps.length ? Math.round(state.fps.reduce((a, b) => a + b, 0) / state.fps.length) : null;
   const report = { page: window.location.pathname.replace(/\/[1-9A-HJ-NP-Za-km-z]{32,44}|\/0x[0-9a-fA-F]{40}/g, '/:id'), api: state.api, longTasks: state.longTasks, longMs: state.longMs, fps, lite: document.body.classList.contains('fx-lite'), errors: state.errors };
-  if (!liteMode() && shouldGoLite(report)) { state.slowStreak += 1; if (state.slowStreak >= 2) setLite(`auto@${Date.now()}`); } else state.slowStreak = 0;
+  if (!liteMode() && shouldGoLite(report)) { state.slowStreak += 1; if (state.slowStreak >= 3) setLite(`auto@${Date.now()}`); } else state.slowStreak = 0;   // 3 bad minutes, not 2
   if (isAutoLite(liteMode()) && fps != null) { state.okStreak = shouldGoLite(report) ? 0 : (state.okStreak || 0) + 1; if (state.okStreak >= 3) { state.okStreak = 0; setLite(''); } }
   const has = Object.keys(report.api).length || report.longTasks || fps != null;
   Object.assign(state, { api: {}, longTasks: 0, longMs: 0, fps: [], errors: 0 });
@@ -50,7 +52,7 @@ function flush() {
 export function startPerfWatch() {
   if (started || typeof window === 'undefined' || !window.performance) return;
   started = true;
-  if (autoLiteExpired(liteMode())) setLite('');
+  if (isAutoLite(liteMode())) setLite('');   // auto lite never carries over a reload: every visit is measured fresh (a user-picked lite stays)
   if (liteMode()) document.body.classList.add('fx-lite');
   fetch(apiUrl('/api/reputation/perf/config')).then(r => r.json()).then(c => { if (c.forceLite) document.body.classList.add('fx-lite'); }).catch(() => {});
   const orig = window.fetch.bind(window);
