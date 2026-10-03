@@ -445,7 +445,7 @@ def close_tx(owner, accounts, blockhash):
     return base64.b64encode(bytes(Transaction.new_unsigned(msg))).decode()
 
 
-MISS_LIMIT = 3          # a coin that fails the buy checks this many times …
+MISS_LIMIT = 2          # a coin that fails the buy checks this many times …
 MISS_WINDOW = 600       # … within 10 minutes is benched for this card
 BENCH_SEC = 3600        # for an hour, so the engine swaps in a coin that CAN be bought
 

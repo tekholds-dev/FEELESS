@@ -265,8 +265,8 @@ def test_close_empty_accounts_only_and_builds_close_ix():
 def test_coin_failing_buys_3x_in_10min_is_benched_for_an_hour():
     import fuse_wallet as fw
     b = {}
-    for t in (0, 60, 120):
+    for t in (0, 60):
         b, out = fw.note_miss(b, 'M', t, 'price impact 5% > 3.5%')
-    assert out and fw.benched(b, 200) == {'M'} and fw.benched(b, 120 + 3601) == set()
+    assert out and fw.benched(b, 200) == {'M'} and fw.benched(b, 60 + 3601) == set()
     b2, out2 = fw.note_miss({}, 'X', 0, 'x'); b2, out2 = fw.note_miss(b2, 'X', 700, 'x')   # outside the window → count restarts
     assert not out2 and b2['misses']['X']['n'] == 1

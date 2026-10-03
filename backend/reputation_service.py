@@ -5328,7 +5328,9 @@ async def _prime_tick_inner(now):
     mom = {**pair_mom, **{r['pairAddress']: {k: r.get(k) for k in ('chg1h', 'buyShare', 'vol5m', 'vol1h')} for r in (live.get('passing') or []) + (live.get('dropped') or []) if r.get('pairAddress')}}
     locks = (d.get('prime') or {}).get('locks') or {}
     before_runs = {tid: max((_fuse._f(r.get('at')) for r in (c or {}).get('runs') or []), default=0.0) for tid, c in cards.items()}   # newest run already recorded
-    for tid in _prime.TEMPLATES:
+    taken = set()   # 🎲 coins already on a tier dealt earlier this tick — later tiers pick OTHER coins when they can (no 5 identical cards)
+    order_t = sorted(_prime.TEMPLATES, key=lambda t: 0 if (cards.get(t) or {}).get('real') else 1)   # real cards pick first
+    for tid in order_t:
         cur = cards.get(tid)
         liqs = {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()}
         cfg_t = {**_prime.clean_cfg(locks[tid]), 'paperFeeUsd': cfg['paperFeeUsd']} if tid in locks else cfg   # 🔒 a locked tier runs its own frozen config
@@ -5355,10 +5357,15 @@ async def _prime_tick_inner(now):
                     try:
                         tmp = {**cur, 'legs': [{**x, 'units': _fuse._f(x.get('wantUnits'))} if x is l else x for x in cur['legs']]}
                         cur = _prime.replace_leg(tmp, l['pairAddress'], px, p_t, r_t, anchors, cfg_t, now)
-                        cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'why': f"🪑 ${l.get('symbol')} couldn't be bought safely 3× — swapped for a buyable coin"}] if cur.get('events') else cur.get('events')
+                        cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'why': f"🪑 ${l.get('symbol')} couldn't be bought safely 2× — swapped for a buyable coin"}] if cur.get('events') else cur.get('events')
                     except ValueError:
                         pass
+        mine = {l.get('mint') for l in (cur or {}).get('legs') or []}
+        p_d = [x for x in p_t if x.get('mint') not in taken or x.get('mint') in mine]
+        r_d = [x for x in r_t if x.get('mint') not in taken or x.get('mint') in mine]
+        p_t, r_t = (p_d if len(p_d) >= 2 else p_t), (r_d if len(r_d) >= 3 else r_t)   # only when enough other coins exist
         cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, anchors, mom, liqs) if cur else _prime.deal(tid, pools, runners, cfg_t, now, anchors)
+        taken |= {l.get('mint') for l in (cards[tid] or {}).get('legs') or [] if l.get('role') != 'anchor'}
     cards = {k: v for k, v in cards.items() if v}
     try:   # 📏 vs holding SOL: remember SOL's price when each run starts (a new run = a new startUsd)
         sol_now = await _sol_usd_live()
@@ -5427,7 +5434,12 @@ async def _prime_view():
         hold = (sol_now / _fuse._f(c['solStart']) - 1) * 100
         return {'holdSolPct': round(hold, 2), 'vsSolPct': round(_fuse._f(sm.get('pnlPct')) - hold, 2)}
     locks = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}
-    return [{**(sm := _prime.summary(c, px, {**pcfg, **_prime.clean_cfg(locks[c['tpl']])} if c.get('tpl') in locks else pcfg)), **_vs(c, sm), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl']) if c.get('real') else None,
+    def _eff(c):
+        return {**pcfg, **_prime.clean_cfg(locks[c['tpl']])} if c.get('tpl') in locks else pcfg
+    def _cfgv(c):
+        e = _eff(c); return {'clockMin': round(e['rotateHours'] * 60), 'confirm': e['rotateConfirm'], 'minDrop': e['rotateMinDrop'], 'holdMin': e['minHoldMins'],
+                             'cycle': (e.get('cycles') or {}).get(c['tpl']), 'reshape': e['cycleEvery'], 'slMode': e['slMode'], 'locked': c.get('tpl') in locks}
+    return [{**(sm := _prime.summary(c, px, _eff(c))), **_vs(c, sm), 'cfgView': _cfgv(c), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl']) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 

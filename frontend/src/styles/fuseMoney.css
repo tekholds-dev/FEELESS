@@ -164,6 +164,7 @@ body.theme-day .ctab { background: #fff; border-color: #d8e2dc; }
 .hrt-coins li em { font-style: normal; text-align: right; } .hrt-coins li.is-buying { opacity: .85; }
 .hrt-coins .hrt-buy { grid-column: 2 / -1; color: var(--gold); text-align: right; }
 .hrt-fail { color: var(--gold); font-size: 11px; }
+.prime-cfgv { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0; } .prime-cfgv .m-chip { font-size: 9.5px; padding: 1px 6px; }
 .hrt-cfg { display: flex; flex-wrap: wrap; gap: 4px; } .hrt-cfg .m-chip { font-size: 10px; }
 .hrt-edit { border: 1px solid var(--m-line); border-radius: 10px; padding: 6px 10px; } .hrt-edit summary { cursor: pointer; font-family: var(--m-mono); font-size: 11px; letter-spacing: .1em; color: var(--m-accent); }
 .hrt-edit summary:hover, .hrt-edit summary:focus-visible { color: #fff; outline: none; }
