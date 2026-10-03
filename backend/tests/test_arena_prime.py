@@ -10,12 +10,14 @@ def _deep_unknown_pools(request, monkeypatch):
     """Older tests feed no liquidity and expect mid-price maths; the thin-pool default has its own tests."""
     if not any(k in request.node.name for k in ('true_fills', 'really_pay')):
         monkeypatch.setattr(ap, 'UNKNOWN_LIQ', 1e18)
+    if 'switch_only' not in request.node.name:   # older tests check rotation / re-shape mechanics with the −40% gate open
+        monkeypatch.setattr(ap, 'SWITCH_AT', -1e9)
 
 C = lambda m, px, sym=None, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': sym or m.upper(), 'price': px, **k}
 P = lambda m, px: C(m, px, liquidityUsd=2e6, volume24h=2e6)             # 5★ pool
 R = lambda m, px, sc=90: C(m, px, score=sc)                                 # 5★ runner by default
 SOL = [C('sol', 1, 'SOL'), C('jito', 1, 'JitoSOL')]
-CFG = ap.clean_cfg({'cycles': {'safe': 'off', 'balanced': 'off', 'degen': 'classic', 'next': 'classic', 'ever': 'off'},   # the original tier behaviour
+CFG = ap.clean_cfg({'floorPct': 20, 'cycles': {'safe': 'off', 'balanced': 'off', 'degen': 'classic', 'next': 'classic', 'ever': 'off'},   # the original tier behaviour
                     'payouts': {'safe': 0, 'balanced': 0, 'degen': 0, 'next': 0, 'ever': 0}, 'compoundStyle': 'even'})
 
 
@@ -119,7 +121,7 @@ def test_day_record_counts_good_days_honestly():
 
 def test_cfg_ranges():
     c = ap.clean_cfg({'rotateHours': 0.01, 'rotateCount': 9, 'sizeUsd': 5, 'compound': False, 'floorPct': 60})
-    assert c['rotateHours'] == 0.08 and c['rotateCount'] == 3 and c['sizeUsd'] == 10 and c['compound'] is False and c['floorPct'] == 25
+    assert c['rotateHours'] == 0.08 and c['rotateCount'] == 3 and c['sizeUsd'] == 10 and c['compound'] is False and c['floorPct'] == 40
 
 
 def test_service_deals_ticks_and_admin_config(monkeypatch):
@@ -152,7 +154,7 @@ def test_cmd_ctr_replaces_one_coin_with_best_same_role():
 
 
 def test_floored_card_redeals_on_the_rotation_clock_from_arena_coins_first():
-    cfg = ap.clean_cfg({'rotateHours': 1, 'cycles': CFG['cycles'], 'payouts': CFG['payouts']})
+    cfg = ap.clean_cfg({'rotateHours': 1, 'floorPct': 20, 'cycles': CFG['cycles'], 'payouts': CFG['payouts']})
     card = ap.deal('balanced', [P('a', 1)], [R('r1', 1)], cfg, 0, SOL)
     out = ap.tick(card, {'Psol': 0.78, 'Pjito': 0.78, 'Pa': 0.78, 'Pr1': 0.78}, [], [], cfg, 60, SOL)
     assert out.get('flooredAt') == 60
@@ -180,7 +182,7 @@ def test_service_tags_arena_coins_for_rotation(monkeypatch):
 
 
 def test_rounds_count_and_the_best_card_of_each_round_is_crowned():
-    cfg = ap.clean_cfg({'rotateHours': 1, 'cycles': CFG['cycles'], 'payouts': CFG['payouts']})
+    cfg = ap.clean_cfg({'rotateHours': 1, 'floorPct': 20, 'cycles': CFG['cycles'], 'payouts': CFG['payouts']})
     a = ap.deal('balanced', [P('a', 1)], [R('r1', 1)], cfg, 0, SOL); b = ap.deal('degen', [P('a', 1)], [R('r1', 1)], cfg, 0, SOL)
     up = {'Psol': 1.1, 'Pjito': 1.1, 'Pa': 1.1, 'Pr1': 1.1}; flat = {'Psol': 1, 'Pjito': 1, 'Pa': 1, 'Pr1': 1}
     a2 = ap.tick(a, up, [], [], cfg, 3601, SOL); b2 = ap.tick(b, flat, [], [], cfg, 3601, SOL)
@@ -191,7 +193,7 @@ def test_rounds_count_and_the_best_card_of_each_round_is_crowned():
 
 
 def test_cycling_tiers_move_through_anchor_degen_anchor_mixed_rounds():
-    cfg = ap.clean_cfg({'rotateHours': 1, 'cycles': CFG['cycles'], 'payouts': CFG['payouts']})
+    cfg = ap.clean_cfg({'rotateHours': 1, 'floorPct': 20, 'cycles': CFG['cycles'], 'payouts': CFG['payouts']})
     maj = [C('sol', 1, 'SOL'), C('btc', 1, 'cbBTC')]
     runners = [R('r1', 1), R('r2', 1), R('r3', 1)]
     flat = {'Psol': 1, 'Pbtc': 1, 'Pa': 1, 'Pr1': 1, 'Pr2': 1, 'Pr3': 1}
@@ -310,3 +312,15 @@ def test_runner_rides_from_150_and_sells_only_30_off_its_new_high():
     assert c['legs'][0]['ride']
     c = ap.tick(c, {'PR': 13.5}, [], [], cfg, 40, liqs={'PR': 1e12})            # −32.5%: sold
     assert not c['legs'][0].get('ride') and c['legs'][0]['units'] == 0 and c['cash'] > 100
+
+
+def test_tier_cards_switch_only_at_minus_40():
+    assert ap.SWITCH_AT == 40.0 and ap.DEFAULT_CFG['floorPct'] == 40.0
+    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 0.1, 'cycles': {'degen': 'classic'}})
+    legs = [{'mint': 'R', 'pairAddress': 'PR', 'symbol': 'R', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0},
+            {'mint': 'Q', 'pairAddress': 'PQ', 'symbol': 'Q', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0}]
+    card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
+            'events': [], 'startUsd': 20.0, 'legs': legs}
+    new = [{'mint': 'N', 'pairAddress': 'PN', 'symbol': 'N', 'price': 1.0, 'score': 99, 'stars': 5}]
+    c = ap.tick(card, {'PR': 0.9, 'PQ': 0.95}, [], new, cfg, 1000, liqs={'PR': 1e12, 'PQ': 1e12, 'PN': 1e12})    # −10% / −5%: nothing switches
+    assert [l['mint'] for l in c['legs']] == ['R', 'Q'] and not any(e['kind'] in ('rotate', 'phase') for e in c['events'])

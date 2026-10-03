@@ -4,7 +4,7 @@ import { TraderChip } from './TraderChip';
 import { toast } from 'sonner';
 import { ShareGifButton } from './ShareGif';
 import { RiskDial, DialBoard } from './RiskDial';
-import { ArenaPrime } from './ArenaPrime';
+import { ArenaPrime, HqRealCards } from './ArenaPrime';
 import { CardEarnings } from './CardEarnings';
 import { CardShowcase, PaperAudit, TrailSummary, CoinTable, usd as fmt$ } from './FuseMoney';
 import { CardRounds } from './CardRounds';
@@ -506,7 +506,7 @@ export function MyCards({ addr }) {
   if (!addr) return <div className="m-card fp-empty"><b>Connect your Solana wallet to see your Fuse cards.</b></div>;
   if (!d) return <div className="m-card"><span className="loader" /> Loading your cards…</div>;
   const openRows = (d.rows || []).filter(r => !r.closed);
-  return <MyCardsBody d={d} openRows={openRows} act={act} setAct={setAct} open={open} setMode={setMode} setRisk={setRisk} setAdv={setAdv} addr={addr} ses={ses} refresh={refresh} />;
+  return <><HqRealCards addr={addr} /><MyCardsBody d={d} openRows={openRows} act={act} setAct={setAct} open={open} setMode={setMode} setRisk={setRisk} setAdv={setAdv} addr={addr} ses={ses} refresh={refresh} /></>;
 }
 
 const EARN_KIND = { sell: '💰 Profit / sell', buy: '⇄ Switched in', topup: '♻ Compounded / topped up' };

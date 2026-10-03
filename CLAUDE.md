@@ -583,6 +583,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   on battle corners AND every CardConfig. HQ runs as the CONNECTED wallet (`hqAddr`), never the profile's address.
 - ⛓ Devnet: fuse_card `GKE9e3M8…` deployed + config → Raydium devnet. Devnet SOL via Alchemy devnet `requestAirdrop`.
 
+- 🔒 Tier cards switch only at −40% (`arena_prime.SWITCH_AT`): rotation replaces only coins ≤ −40% from entry, re-shapes only when the
+  card is ≤ −40%, floor default 40 (range 5–40). 🏇 `RIDE_AT/RIDE_TRAIL` (+150% rides, sold 30% off its new high). Re-deals use
+  `in_play` (value − paid out − parked; never double-count). The bell loop pre-warms candidates inside the 10s countdown.
+- 🎛 Big engine cards: max 4 (`creatorPicks[-4:]`), each ≥ 6 coins; even the engine champion needs HQ ✅ approval; a scrapped (dead)
+  strategy leaves the Arena by itself. Playground cards 6–12 coins (`pg_battle.coin_targets/widen/dead`).
+- 💵 `HqRealCards`: creator / HQ wallets see the real tier cards in Fuse › My cards. HQ wallet tier rows show a 🧾 receipt.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

@@ -4764,6 +4764,8 @@ async def _arena_mega(rd, cfg, now):
     # 🏆 the engine's top battle winner is the ONE engine card that reaches the Arena by itself (HQ 🎨 picks the rest)
     pgb = rd.get('pgBattle') or {}
     champ_id = _pgb.champion(pgb.get('record'), pgb.get('cards'))
+    if champ_id and champ_id not in set(rd.get('creatorPicks') or []):
+        champ_id = None   # 🔒 HQ verifies every big engine card before it reaches the Arena (🎨 pick it in the playground)
     if champ_id and not any(x.get('src') == champ_id for x in out):
         cc = pgb['cards'][champ_id]; r_ = pgb['record'][champ_id]
         cpx = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in cc['legs']])
@@ -5299,6 +5301,10 @@ async def _prime_bell_loop():
             rot = _prime_cfg()['rotateHours'] * 3600
             due = min((_fuse._f(c.get('lastRotateAt')) + rot for c in cards.values() if c.get('lastRotateAt')), default=time.time() + 60)
             wait = due - time.time()
+            if 0.5 < wait <= 12:   # 🔔 inside the 10s countdown: warm the candidates + prices now, so the re-deal is instant at 0
+                await _prime_candidates()
+                await asyncio.sleep(max(0.0, due - time.time()))
+                wait = 0
             if wait <= 0.5:
                 await _prime_tick(time.time())
                 wait = 5
@@ -5927,7 +5933,7 @@ async def scenario_pick(request: Request, body: dict):
     async with _admin_lock:
         d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
         cur = [x for x in d.get('creatorPicks') or [] if x != sid] + ([sid] if body.get('on', True) else [])
-        d['creatorPicks'] = cur[-6:]; _json_save(RUNNERS_PATH, d)
+        d['creatorPicks'] = cur[-4:]; _json_save(RUNNERS_PATH, d)   # max 4 big engine cards on the Arena
         ad = _admin_load(); _audit(ad, admin, 'creator-pick', f"{sid} {'on' if body.get('on', True) else 'off'}"); _admin_save(ad)
     await _scenario_stage(_json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}), time.time())
     return {'creatorPicks': _json_load(RUNNERS_PATH, {}).get('creatorPicks') or []}
@@ -6130,7 +6136,7 @@ def _pg_battle_view(rd):
     view = lambda k: {**{x: (cards.get(k) or {}).get(x) for x in ('id', 'name', 'dial', 'tp', 'sl', 'swaps', 'phase', 'rounds')}, 'pct': (b.get('pcts') or {}).get(k),
                       'dna': (b.get('dna') or {}).get(k), 'dnaLabel': _dna.label((b.get('dna') or {}).get(k)) if (b.get('dna') or {}).get(k) else None,
                       'legs': [{x: l.get(x) for x in ('symbol', 'role', 'pairAddress')} for l in (cards.get(k) or {}).get('legs') or []], 'record': (b.get('record') or {}).get(k)}
-    return {'cfg': _pgb.clean_cfg(b.get('cfg')), 'locked': b.get('locked') or [], 'scrapped': len(b.get('scrapped') or []), 'endsAt': b.get('endsAt'), 'pairs': [{'a': view(p['a']), 'b': view(p['b'])} for p in b.get('pairs') or []],
+    return {'cfg': _pgb.clean_cfg(b.get('cfg')), 'locked': b.get('locked') or [], 'scrapped': len(b.get('scrapped') or []), 'picks': rd.get('creatorPicks') or [], 'endsAt': b.get('endsAt'), 'pairs': [{'a': view(p['a']), 'b': view(p['b'])} for p in b.get('pairs') or []],
             'log': (b.get('log') or [])[-12:][::-1], 'record': b.get('record') or {}, 'names': {k: c.get('name') for k, c in cards.items()},
             'brain': {**_dna.best(b.get('brain') or {}), 'label': _dna.label(_dna.best(b.get('brain') or {})['dna']), 'scores': b.get('brain') or {}}}
 
@@ -6189,8 +6195,13 @@ async def _pg_battle_tick(now):
             else:             # winner keeps its coins, re-shaped by its DNA cycle (true fills); the next round counts from here
                 cards[k] = _pgb.cycle_rebalance(cards[k], dna.get(k), pcts.get(k), prices, liqs)
                 cards[k] = {**cards[k], 'roundUsd': _pgb.value(cards[k], prices, liqs)}
-        for k in _pgb.dead(record, locked):   # 🗑 scrap strategies that only lose — they stop using data, the record stays
+        dead_now = _pgb.dead(record, locked)
+        for k in dead_now:   # 🗑 scrap strategies that only lose — they stop using data, the record stays
             scrapped.add(k); cards.pop(k, None); dna.pop(k, None)
+        if dead_now and set(dead_now) & set(rd.get('creatorPicks') or []):   # a dead big card leaves the Arena too; the engine deals new ones
+            async with _admin_lock:
+                rd2 = _json_load(RUNNERS_PATH, {}); rd2['creatorPicks'] = [x for x in rd2.get('creatorPicks') or [] if x not in set(dead_now)]; _json_save(RUNNERS_PATH, rd2)
+            rd['creatorPicks'] = [x for x in rd.get('creatorPicks') or [] if x not in set(dead_now)]
         want = [k for k in want if k not in scrapped]
         dna = _dna.assign([{'id': k, 'dial': scs[k].get('dial')} for k in want], known=dna)
         b = {**b, 'record': record, 'scrapped': sorted(scrapped)[-300:], 'pairs': _pgb.pair_up(want), 'endsAt': now + cfg['roundMins'] * 60,

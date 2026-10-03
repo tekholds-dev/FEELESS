@@ -145,3 +145,18 @@ export function PrimeShowcase() {
       <em className={`m-num ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{c.pnlPct >= 0 ? '+' : ''}{c.pnlPct.toFixed(1)}%</em>
       <small>{usd(c.valueUsd - c.startUsd)} profit · 🏆 {c.roundWins || 0} rounds won · {c.legs.length} coins</small></button>)}</div></section>;
 }
+
+// 💵 Creator / HQ wallets: FEELESS's REAL-money tier cards right in Fuse › My cards — live card, real book, every swap with its tx.
+export function HqRealCards({ addr }) {
+  const [owner, setOwner] = useState(false);
+  useEffect(() => { if (!addr) return; fetch(apiUrl(`/api/reputation/admin/is-admin/${addr}`)).then(r => r.json()).then(d => setOwner(!!(d.owner || d.admin))).catch(() => {}); }, [addr]);
+  const d = usePrime(30000);
+  const real = (d?.cards || []).filter(c => c.real);
+  if (!owner || !real.length) return null;
+  return <section className="m-card wp-prime" data-testid="hq-real-cards"><span className="m-label">💵 FEELESS REAL-MONEY TIER CARDS · FUSE WALLET</span>
+    <div className="wp-prime-row">{real.map(c => { const t = TIER[c.tier] || TIER.gold; return <div key={c.id} className="hq-real">
+      <LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label="💵 REAL · FUSE WALLET" />
+      {c.realBook && <small className="m-dim">funded {usd(c.realBook.fundedUsd)} · {c.realBook.swaps} swaps · network fees {usd(c.realBook.feesUsd)}</small>}
+      <ul className="prime-txs">{(c.realBook?.orders || []).slice(0, 4).map((o, i) => <li key={i}><b>{o.side === 'topup' ? '💵' : o.side === 'buy' ? '🟢' : '🔴'}</b><span>{o.side === 'topup' ? 'funded' : `${o.side} $${o.symbol}`}</span>
+        <em className="m-num">{usd(o.usd)}</em>{o.sig ? <a href={txUrl(o.sig)} target="_blank" rel="noreferrer">tx ↗</a> : <i />}</li>)}</ul></div>; })}</div></section>;
+}

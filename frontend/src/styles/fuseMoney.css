@@ -147,3 +147,4 @@ body.theme-day .ctab { background: #fff; border-color: #d8e2dc; }
 .prime-card .fcd { zoom: 1.15; }
 @media (max-width: 640px) { .prime-card .fcd { zoom: 1; } }
 .fcd-back ul.fcd-legs { max-height: none; overflow: visible; }
+.hq-real { display: grid; gap: 6px; justify-items: center; }
