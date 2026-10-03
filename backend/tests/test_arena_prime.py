@@ -701,3 +701,14 @@ def test_dropped_coins_cool_down_then_come_back():
     assert ap.cooling(after, 1000.0 + 901, 5 / 60) == set()
     later = ap.note_dropped(after, {**after}, 1000.0 + 2000, 5 / 60)
     assert 'A' not in later['cool']                                   # stale stamps are forgotten
+
+
+def test_real_card_config_is_separate_from_hq_paper_config(monkeypatch):
+    import reputation_service as rs
+    pr = {'cfg': {'rotateHours': 0.08, 'rotateConfirm': 1}, 'realCfg': {'rotateHours': 0.08, 'rotateConfirm': 3, 'minHoldMins': 10}}
+    monkeypatch.setattr(rs, '_prime_cfg', lambda: {**ap.clean_cfg(pr['cfg']), 'paperFeeUsd': 0.02})
+    r = rs._prime_real_cfg(pr)
+    assert r['rotateHours'] == 0.08 and r['rotateConfirm'] == 3 and r['minHoldMins'] == 10   # 5-min real rounds allowed, own patience
+    pr['cfg']['rotateConfirm'] = 6                                                           # an HQ paper edit…
+    assert rs._prime_real_cfg(pr)['rotateConfirm'] == 3                                      # …never reaches the real card
+    assert rs._prime_real_cfg({'cfg': pr['cfg']})['paperFeeUsd'] == 0.02                     # unset → starts from paper

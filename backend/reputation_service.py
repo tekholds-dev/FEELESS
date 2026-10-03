@@ -5417,6 +5417,9 @@ async def _prime_tick_inner(now):
     win = _prime.crown_round(cards)
     async with _admin_lock:
         d = _json_load(FUSE_HQ_PATH, {}); d.setdefault('prime', {})['cards'] = cards
+        if any(c.get('real') for c in cards.values()) and not d['prime'].get('realCfg'):
+            # 💵 the first time a card runs real money its config is FROZEN as its own — HQ / engine tunes on paper can't reach it after this
+            d['prime']['realCfg'] = _prime.clean_cfg(d['prime'].get('cfg') or {})
         if win:
             d['prime']['roundWinner'] = {'id': win, 'at': now}
         _json_save(FUSE_HQ_PATH, d)
