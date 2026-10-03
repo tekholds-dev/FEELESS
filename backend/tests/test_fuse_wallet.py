@@ -311,3 +311,16 @@ def test_kept_coin_is_not_churned_on_a_reshape():
     assert not [o for o in out if o['mint'] == 'M1']                     # 1.1 held vs 1.0 wanted: inside the band
     far = fw.orders('safe', card, {**book, 'legs': {'M1': {**book['legs']['M1'], 'atoms': 3_000_000}}}, {'P1': 1.0}, 100.0, {**CFG, 'minOrderUsd': 0.05}, 0)
     assert any(o['side'] == 'sell' and o['mint'] == 'M1' for o in far)   # 3× over target: trimmed
+
+
+def test_sell_safety_blocks_a_route_far_under_market_but_lets_a_real_dump_sell():
+    o = {'atoms': 887_360_813, 'decimals': 6}                        # 887 HOTBOT
+    ok, why = fw.sell_safety(o, 7_088_954, 68.6, 0.000967)            # route pays $0.49 for $0.86 of coins → refused
+    assert not ok and 'under market' in why
+    assert fw.sell_safety(o, 7_088_954, 68.6, 0.00055)[0]             # the coin really fell to that price → it sells
+    assert fw.sell_safety(o, 0, 68.6, 0.0)[0]                         # no price: never strand a coin
+
+
+def test_cost_of_sold_part():
+    book = {'legs': {'M': {'atoms': 1000, 'costUsd': 0.8}}}
+    assert fw.cost_of(book, 'M', 500) == 0.4 and fw.cost_of(book, 'M', 5000) == 0.8 and fw.cost_of(book, 'X', 1) == 0.0

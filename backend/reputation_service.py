@@ -5669,10 +5669,20 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
             row['sellBackPct'] = None if back_l is None else round((back_l / max(1, order['lamports']) - 1) * 100, 2)
             if not ok_s:
                 raise HTTPException(400, why_s)
+        elif order['side'] == 'sell' and 'rug' not in str(order.get('why') or ''):   # 🛡 secure sell: the route must pay near the market price
+            try:
+                jp = _fuse._f(((await _jup_prices([order['mint']])) or {}).get(order['mint']))
+            except Exception:
+                jp = 0.0
+            ok_s, why_s = _fw.sell_safety(order, q.get('outAmount'), sol_px, jp)
+            if not ok_s:
+                raise HTTPException(400, why_s)
     except HTTPException as e:
         row.update(status='skipped', err=str(e.detail)[:140])
-        async with _fw_lock:
-            d = _fw_load(); _fw_record(d, row); _fw_save(d)
+        async with _fw_lock:   # the same refusal is booked once per 15 min (the keeper keeps retrying quietly)
+            d = _fw_load()
+            if row.get('side') == 'buy' or not _fw.logged_recently(d.get('ledger'), {**row, 'card': tid}, now):   # buy misses all count (3 → benched)
+                _fw_record(d, row); _fw_save(d)
         return book
     async with _fw_lock:
         ok, why = _fw.check(row, cfg, _fw_load().get('ledger'), now, row['impactPct'])   # row carries the pool's liquidity
@@ -5767,6 +5777,8 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
     fill = _fw.fill_from_meta(tx, cfg['address'], p['mint']) if tx else None
     row = {k: v for k, v in p.items() if k != 'sentAt'}
     if fill:
+        if p.get('side') == 'sell':   # 🧾 trail: what this coin cost vs what the sell returned
+            row['costUsd'] = _fw.cost_of(book, p['mint'], p.get('atoms'))
         book, f = _fw.apply_fill(book, p, fill, sol_px)
         row.update(status='filled', px=f['px'], units=f['units'], usd=f['usd'] or row['usd'], feeSol=fill['feeSol'], feeUsd=round(fill['feeSol'] * sol_px, 6))
     else:
@@ -5778,7 +5790,19 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
     return book
 
 
+_fw_tick_lock = asyncio.Lock()
+
+
 async def _fw_tick(now):
+    """ONE keeper at a time: the round bell and the warm loop both call this after their tier tick — two keepers at once traded the
+    same orders twice (sold WETH ×2, bought SPEC ×2 at 14:56). A tick that finds one running skips; the next tick catches up."""
+    if _fw_tick_lock.locked():
+        return 0
+    async with _fw_tick_lock:
+        return await _fw_tick_inner(now)
+
+
+async def _fw_tick_inner(now):
     """After every tier tick: each funded card's REAL book is moved to what the engine says it holds (sells, then buys), then the
     card shows its true coins, entries and fees. Paused / unarmed / missing-coin cards wait. Paper learns from the fills."""
     await _fw_signer_check()
@@ -5937,7 +5961,7 @@ def _fw_public(tid):
               'lastFail': fail and {'symbol': fail.get('symbol'), 'side': fail.get('side'), 'err': (fail.get('err') or '')[:90], 'at': fail.get('at')},
               'lastFill': next((o.get('at') for o in rows if o.get('status') == 'filled'), None)}
     return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4), 'wallet': cfg['address'], 'keeper': keeper,
-            'orders': [{k: o.get(k) for k in ('side', 'symbol', 'usd', 'px', 'sig', 'at', 'status', 'feeUsd', 'why')} for o in rows], **_fw.totals(d['ledger'], tid)}
+            'orders': [{k: o.get(k) for k in ('side', 'symbol', 'usd', 'px', 'sig', 'at', 'status', 'feeUsd', 'why', 'costUsd')} for o in rows], **_fw.totals(d['ledger'], tid)}
 
 
 @app.get('/api/reputation/admin/circle/profiles')

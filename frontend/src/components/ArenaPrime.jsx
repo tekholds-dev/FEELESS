@@ -277,7 +277,8 @@ export function HqRealCards({ addr, onCount }) {
             <button type="button" className="m-btn danger" disabled={!!busy || k.selling} onClick={() => act(c.tpl, 'defund')} data-tip="Sell every coin to SOL — the card goes back to its paper card">{k.selling ? '↩ selling…' : '↩ Sell all'}</button></div>
           {k.lastFail && <small className="hrt-fail" data-tip={k.lastFail.err}>⚠ last miss: {k.lastFail.side} ${k.lastFail.symbol} · {ago(k.lastFail.at)} — retried automatically</small>}
           <small className="m-dim">{b.swaps || 0} swaps · network fees {fee(b.feesUsd || 0)} (wallet reserve pays) · last fill {k.lastFill ? ago(k.lastFill) : '—'}</small>
-          <ul className="prime-txs">{(b.orders || []).slice(0, 6).map((o, i) => <li key={o.sig || i}><b>{o.side === 'topup' ? '💵' : o.side === 'buy' ? '🟢' : '🔴'}</b><span>{o.side === 'topup' ? 'funded' : `${o.side} $${o.symbol}`} <i className="m-dim">{ago(o.at)}</i></span>
+          <ul className="prime-txs">{(b.orders || []).slice(0, 6).map((o, i) => <li key={o.sig || i}><b>{o.side === 'topup' ? '💵' : o.side === 'buy' ? '🟢' : '🔴'}</b><span>{o.side === 'topup' ? 'funded' : `${o.side} $${o.symbol}`} <i className="m-dim">{ago(o.at)}</i>
+              {o.side === 'sell' && o.costUsd > 0 && <i className={`hrt-pl ${o.usd >= o.costUsd ? 'm-pos' : 'm-neg'}`} data-tip={`This coin cost $${o.costUsd.toFixed(2)} (money that reached the pool) and the sell returned $${(o.usd || 0).toFixed(2)} — fees apart`}> · in {usd(o.costUsd)} → {pct((o.usd / o.costUsd - 1) * 100)}</i>}</span>
             <em className="m-num">{usd(o.usd)}</em>{o.sig ? <a href={txUrl(o.sig)} target="_blank" rel="noreferrer">tx ↗</a> : <i />}</li>)}</ul></div></div>; })}</section>;
 }
 

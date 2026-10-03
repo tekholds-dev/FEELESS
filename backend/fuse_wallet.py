@@ -407,6 +407,7 @@ def back_to_paper(card, real_end_usd, now):
 
 
 MAX_PRICE_GAP_PCT = 5.0     # the quote's price may be at most this much worse than the market price
+MAX_SELL_GAP_PCT = 8.0      # a SELL may pay at most this much under the market price (a 43%-under route once sold HOTBOT for $0.49 of $0.83)
 MAX_ROUNDTRIP_PCT = 6.0     # buying then selling straight back may lose at most this (fees + impact both ways)
 
 
@@ -426,6 +427,26 @@ def buy_safety(order, quote_out_atoms, decimals, sell_back_lamports):
     if loss > MAX_ROUNDTRIP_PCT:
         return False, f"sells back for {loss:.1f}% less (> {MAX_ROUNDTRIP_PCT:g}%) — tax / thin / one-way"
     return True, ''
+
+
+def sell_safety(order, quote_out_lamports, sol_px, market_px):
+    """(ok, why) for a REAL sell: what the route pays (SOL × SOL price) vs the coin's market value (Jupiter price). A coin that really
+    dumped still sells (the market price fell with it); a broken / thin route that pays far under market is skipped and retried."""
+    got = _f(quote_out_lamports) / 1e9 * _f(sol_px)
+    worth = _f(order.get('atoms')) / (10 ** int(order.get('decimals') or 0)) * _f(market_px)
+    if got <= 0 or worth <= 0:
+        return True, ''   # no market price → the per-swap limits still apply; never strand a coin
+    gap = (1 - got / worth) * 100
+    if gap > MAX_SELL_GAP_PCT:
+        return False, f"sell route pays {gap:.1f}% under market (> {MAX_SELL_GAP_PCT:g}%) — retried next tick"
+    return True, ''
+
+
+def cost_of(book, mint, atoms):
+    """Cost basis ($ that reached the pool) of `atoms` of a coin in the real book — for the sell's 'in $X → out $Y' trail line."""
+    l = (book.get('legs') or {}).get(mint) or {}
+    have = int(_f(l.get('atoms')))
+    return round(_f(l.get('costUsd')) * min(1.0, _f(atoms) / have), 6) if have > 0 else 0.0
 
 
 CLOSE_MAX = 8   # accounts per close transaction (well inside the size limit)
