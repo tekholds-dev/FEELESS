@@ -37,9 +37,9 @@ const routes = {
     const wallets = r.data?.wallets || [];
     const withBal = await Promise.all(wallets.map(async w => {
       try { const b = await sdk.getWalletTokenBalance({ id: w.id }); return { ...w, balances: (b.data?.tokenBalances || []).map(t => ({ symbol: t.token?.symbol, amount: t.amount, tokenId: t.token?.id })) }; }
-      catch { return { ...w, balances: [] }; }
+      catch (e) { return { ...w, balances: [], balanceError: String(e?.response?.data?.message || e?.message || 'Circle balance unavailable').slice(0, 120) }; }
     }));
-    return { wallets: withBal.map(w => ({ id: w.id, address: w.address, blockchain: w.blockchain, name: w.name, state: w.state, createDate: w.createDate, balances: w.balances })) };
+    return { wallets: withBal.map(w => ({ id: w.id, address: w.address, blockchain: w.blockchain, name: w.name, state: w.state, createDate: w.createDate, balances: w.balances, balanceError: w.balanceError })) };
   },
   'POST /wallets': async body => {
     const { sdk, error } = client(); if (error) throw new Error(error);

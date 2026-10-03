@@ -133,8 +133,10 @@ def test_service_deals_ticks_and_admin_config(monkeypatch):
     async def pairs(legs): return {l['pairAddress']: {'priceUsd': '1.0', 'priceChange': {'h1': 0}, 'txns': {'h1': {'buys': 5, 'sells': 5}}, 'volume': {'m5': 1, 'h1': 12}} for l in legs}
     monkeypatch.setattr(rs, '_prime_candidates', cands); monkeypatch.setattr(rs, '_hq_prices', prices); monkeypatch.setattr(rs, '_fuse_pairs', pairs); monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN')
     rs._json_save(rs.FUSE_HQ_PATH, {})
-    assert asyncio.run(rs._prime_tick(1000)) == 5
+    assert asyncio.run(rs._prime_tick(1000)) == 4   # the tiny fixture has only six growth mints; never duplicate one to force five cards
     v = asyncio.run(rs.fuse_prime())
+    growth = [l['mint'] for c in v['cards'] for l in c['legs'] if l['role'] != 'anchor']
+    assert len(growth) == len(set(growth))
     assert {'gold', 'blaze', 'ever'} <= {c['tier'] for c in v['cards']} and all(99 < c['valueUsd'] <= 100 for c in v['cards'])   # true fills: a fresh card paid real impact
     class Rq:
         async def json(self): return {'cfg': {'rotateHours': 3, 'on': False}}
@@ -179,6 +181,34 @@ def test_service_tags_arena_coins_for_rotation(monkeypatch):
     pools, runners, _ = asyncio.run(rs._prime_candidates())
     assert {p['mint']: p.get('arena', False) for p in pools} == {'A': False, 'B': True}            # B is on a stage card
     assert [r['mint'] for r in ap.rated(runners, 'runner')] == ['R1', 'R2']                     # round pick before a higher score
+
+
+def test_discovery_pool_includes_existing_trending_new_launchpad_and_pump_feeds(monkeypatch):
+    import asyncio
+    import reputation_service as rs
+    calls = []
+    class Response:
+        status_code = 200
+        def __init__(self, rows): self.rows = rows
+        def json(self): return {'pairs': self.rows}
+    class Http:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, url, params=None):
+            calls.append((url, dict(params or {})))
+            if url.startswith('http://127.0.0.1:5001'):
+                tag = f"{params['kind']}-{params.get('scope', 'all')}-{params.get('page', 1)}"
+                return Response([{'pairAddress': tag}])
+            if 'token-boosts' in url:
+                return type('R', (), {'json': lambda self: []})()
+            return Response([])
+    monkeypatch.setattr(rs.httpx, 'AsyncClient', Http)
+    rs._fuse_discover_cache.clear()
+    rows = asyncio.run(rs._fuse_discover_pairs('solana'))
+    pairs = {r['pairAddress'] for r in rows}
+    assert {'trending-all-1', 'new-all-1', 'trending-all-2', 'new-all-2',
+            'trending-launchpads-1', 'new-launchpads-1', 'trending-pump-1'} <= pairs
 
 
 def test_rounds_count_and_the_best_card_of_each_round_is_crowned():
@@ -397,6 +427,44 @@ def test_patience_makes_5min_rounds_work_and_bad_weather_tightens_runners():
     assert c2['legs'][0]['mint'] == 'L'                                     # bad weather: a thin runner never gets in
 
 
+def test_saved_minus_five_and_patience_two_rotate_on_the_second_qualifying_round():
+    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 5 / 60, 'rotateMinDrop': 5,
+                        'rotateConfirm': 2, 'minHoldMins': 0, 'cycleEvery': 0, 'cycles': {'degen': 'off'}})
+    old = {'mint': 'OLD', 'pairAddress': 'PO', 'symbol': 'OLD', 'role': 'runner', 'entry': 1.0, 'units': 10,
+           'costUsd': 10, 'at': 0}
+    card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0,
+            'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0, 'events': [], 'startUsd': 10, 'legs': [old]}
+    new = [{**R('NEW', 1), 'vol1h': 50_000, 'buyShare': 60}]
+    one = ap.tick(card, {'PO': .949, 'PNEW': 1}, [], new, cfg, 300, liqs={'PO': 1e12, 'PNEW': 1e12})
+    assert one['legs'][0]['mint'] == 'OLD' and one['legs'][0]['loseRounds'] == 1
+    two = ap.tick(one, {'PO': .949, 'PNEW': 1}, [], new, cfg, 600, liqs={'PO': 1e12, 'PNEW': 1e12})
+    assert two['legs'][0]['mint'] == 'NEW' and two['events'][-1]['kind'] == 'rotate'
+
+
+def test_loss_boundary_matches_the_one_decimal_card_display():
+    # The routed decimal price is −4.99989%; the card displays −5.0%, so the saved −5% boundary must count it.
+    assert ap.at_or_below_loss(1.17284, 1.234567, 5)
+
+
+def test_due_phase_cannot_redeal_the_mint_rotated_out_on_that_same_boundary():
+    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 1, 'rotateMinDrop': 5,
+                        'rotateConfirm': 1, 'minHoldMins': 0, 'cycleEvery': 1,
+                        'cycles': {'degen': 'classic'}, 'keepWinPct': 5})
+    legs = [
+        {'mint': 'SOL', 'pairAddress': 'PSOL', 'symbol': 'SOL', 'role': 'anchor', 'entry': 1, 'units': 10, 'costUsd': 10, 'at': 0},
+        *[{'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'entry': 1, 'units': 10, 'costUsd': 10, 'at': 0}
+          for m in ('OLD', 'A', 'B')],
+    ]
+    card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'rounds': 0,
+            'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0, 'events': [],
+            'startUsd': 40.0, 'roundStartUsd': 40.0, 'legs': legs}
+    runners = [R(m, 1) for m in ('OLD', 'N1', 'N2', 'N3', 'A', 'B')]
+    prices = {'PSOL': 1, 'POLD': .9, 'PA': 1, 'PB': 1, 'PN1': 1, 'PN2': 1, 'PN3': 1}
+    out = ap.tick(card, prices, [], runners, cfg, 3610, [C('SOL', 1, 'SOL')], liqs={k: 1e12 for k in prices})
+    assert 'OLD' not in {leg['mint'] for leg in out['legs']}
+    assert {'N1', 'N2', 'N3'} <= {leg['mint'] for leg in out['legs']}
+
+
 def test_self_fix_never_removes_patience_on_fast_clocks():
     import asyncio, pytest
     rs = pytest.importorskip('reputation_service')
@@ -495,6 +563,51 @@ def test_freeze_at_x_and_swap_y_from_peak_are_configurable():
     assert c['legs'][0]['mint'] == 'N' and c['events'][-1]['kind'] == 'ride-end' and 'peak' in c['events'][-1]['why']
 
 
+def test_thirty_pct_peak_trail_is_a_true_price_drawdown_not_percentage_points():
+    """Screenshot case: +124.6% peak to +69.0% now is only 24.8% off the peak, so the live card must keep riding."""
+    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 99, 'rideAt': 25, 'rideTrail': 30, 'cycles': {'degen': 'off'}})
+    leg = {'mint': 'SPEC', 'pairAddress': 'PS', 'symbol': 'SPEC', 'role': 'runner', 'entry': 1.0, 'firstEntry': 1.0,
+           'units': 1.0, 'costUsd': 1.0, 'at': 0, 'priced': True, 'ride': True, 'rideFrom': 1.0, 'high': 2.246}
+    card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0,
+            'compoundedUsd': 0.0, 'takenUsd': 0.0, 'events': [], 'startUsd': 1.0, 'legs': [leg]}
+    new = [{'mint': 'N', 'pairAddress': 'PN', 'symbol': 'N', 'price': 1.0, 'score': 99}]
+    held = ap.tick(card, {'PS': 1.69, 'PN': 1.0}, [], new, cfg, 10, liqs={'PS': 1e12, 'PN': 1e12})
+    assert held['legs'][0]['mint'] == 'SPEC' and held['legs'][0]['ride']       # 1 - 1.69/2.246 = 24.8%
+    sold = ap.tick(held, {'PS': 1.57, 'PN': 1.0}, [], new, cfg, 20, liqs={'PS': 1e12, 'PN': 1e12})
+    assert sold['legs'][0]['mint'] == 'N' and sold['events'][-1]['kind'] == 'ride-end'   # 30.1% off peak
+
+
+def test_riding_winner_is_carried_but_does_not_block_due_major_reshape():
+    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 1, 'cycleEvery': 3, 'cycles': {'degen': 'press'},
+                        'rideAt': 25, 'rideTrail': 30, 'keepWinPct': 5})
+    sol = {'mint': 'SOL', 'pairAddress': 'PSOL', 'symbol': 'SOL', 'role': 'anchor', 'entry': 1.0, 'units': 10, 'costUsd': 10, 'at': 0}
+    rider = {'mint': 'RIDE', 'pairAddress': 'PR', 'symbol': 'RIDE', 'role': 'runner', 'entry': 1.0, 'firstEntry': 1.0,
+             'units': 10, 'costUsd': 10, 'at': 0, 'priced': True, 'ride': True, 'rideFrom': 1.0, 'high': 1.8}
+    plain = {'mint': 'OLD', 'pairAddress': 'PO', 'symbol': 'OLD', 'role': 'runner', 'entry': 1.0, 'units': 10, 'costUsd': 10, 'at': 0}
+    card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'rounds': 2, 'phase': 'degen',
+            'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0, 'events': [], 'startUsd': 30.0,
+            'roundStartUsd': 30.0, 'legs': [sol, rider, plain]}
+    anchors = [C('SOL', 1, 'SOL'), C('BTC', 1, 'cbBTC'), C('ETH', 1, 'WETH')]
+    runners = [{**R('RIDE', 1), 'newMajor': False}, {**R('NM', 1), 'newMajor': True}, R('NEW', 1)]
+    px = {'PSOL': 1, 'PR': 1.7, 'PO': 1, 'PBTC': 1, 'PETH': 1, 'PNM': 1, 'PNEW': 1}
+    out = ap.tick(card, px, [], runners, cfg, 3600, anchors, liqs={k: 1e12 for k in px})
+    assert out['phase'] == 'mixed' and {'BTC', 'ETH'} <= {l['mint'] for l in out['legs'] if l['role'] == 'anchor'}
+    assert 'RIDE' in {l['mint'] for l in out['legs']} and next(l for l in out['legs'] if l['mint'] == 'RIDE')['ride']
+    assert 'NM' in {l['mint'] for l in out['legs']}   # mixed = majors + one new major + runner, subject to protected slots
+
+
+def test_due_shapes_rotate_the_existing_ranked_major_basket():
+    cfg = ap.clean_cfg({'cycleEvery': 3})
+    anchors = [C('SOL', 1, 'SOL'), C('BTC', 1, 'cbBTC'), C('ETH', 1, 'WETH')]
+    runners = [R('R1', 1), R('R2', 1), R('R3', 1)]
+    first = ap.deal('degen', [], runners, cfg, 0, anchors)
+    due = ap.deal('degen', [], runners, cfg, 1, anchors, keep={'rounds': 3}, shape='degen')
+    later = ap.deal('degen', [], runners, cfg, 2, anchors, keep={'rounds': 6}, shape='degen')
+    assert next(l['mint'] for l in first['legs'] if l['role'] == 'anchor') == 'SOL'
+    assert next(l['mint'] for l in due['legs'] if l['role'] == 'anchor') == 'BTC'
+    assert next(l['mint'] for l in later['legs'] if l['role'] == 'anchor') == 'ETH'
+
+
 def test_cycle_peek_shows_now_next_and_when():
     cfg = ap.clean_cfg({'cycleEvery': 3, 'cycles': {'balanced': 'classic'}})
     pk = ap.cycle_peek({'tpl': 'balanced', 'rounds': 4, 'phase': 'anchor', 'lastRoundPct': 1.0}, cfg)
@@ -553,7 +666,7 @@ def test_hand_pick_survives_one_reshape():
     assert kept == 1 and 'H' in {l['mint'] for l in out['legs']} and not any(l.get('picked') for l in out['legs'])
 
 
-def test_a_fresh_coin_comes_in_every_round_but_never_replaces_a_winner():
+def test_rotation_does_not_override_saved_patience_just_to_force_a_fresh_coin():
     cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 1, 'cycleEvery': 0, 'cycles': {'degen': 'off'}})
     w = {'mint': 'W', 'pairAddress': 'PW', 'symbol': 'W', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0}
     f = {'mint': 'F', 'pairAddress': 'PF', 'symbol': 'F', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0}
@@ -562,5 +675,6 @@ def test_a_fresh_coin_comes_in_every_round_but_never_replaces_a_winner():
     new = [{'mint': 'N', 'pairAddress': 'PN', 'symbol': 'N', 'price': 1.0, 'score': 99, 'stars': 5}]
     px = {'PW': 1.2, 'PF': 0.99, 'PN': 1.0}
     c = ap.tick(card, px, [], new, cfg, 3700, liqs={k: 1e12 for k in px})
-    assert {l['mint'] for l in c['legs']} == {'W', 'N'}                    # flat F swapped, +20% W kept
+    assert {l['mint'] for l in c['legs']} == {'W', 'F'}                    # neither leg met the saved loss/patience rules
+    assert not [e for e in c['events'] if e['kind'] == 'rotate']
     assert ap.tick({**card, 'holdAll': True}, px, [], new, cfg, 3700, liqs={k: 1e12 for k in px})['legs'][1]['mint'] == 'F'   # hold all: nothing

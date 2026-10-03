@@ -12,7 +12,7 @@ P&L never includes fees (same rule as real cards); a flat paper fee per trade is
 import math
 
 # Three top tiers. Every coin on a Prime card is rated 3–5★ (anything weaker never gets in). Each card holds a STABLE anchor
-# (a real major on Solana: SOL / JitoSOL / cbBTC …, never rotated, never stopped out) + deep pools + gated runners.
+# (a real major on Solana: SOL / JitoSOL / cbBTC …, rotated only on configured re-shapes, never stopped out) + deep pools + gated runners.
 TEMPLATES = {   # anchors / pools / runners per card + the dial it runs
     # 5 top tiers. Majors = solid holds; "young" runners = pre-bond runners + clean graduated coins under 48h (every gate but pre-bond).
     'safe': {'label': '💎 Prime Diamond', 'tier': 'diamond', 'anchors': 1, 'pools': 0, 'runners': 3, 'tp': 900, 'sl': 35,
@@ -87,6 +87,7 @@ STREAK = 3
 STREAK_PCT = 3.0   # only a REAL round counts toward a streak: ±0.04% noise on 5-min rounds used to trip the safe fix every 15 min
 ADAPT_RED = 3.0   # adaptive: only a round at or below −3% rests in majors (−0.04% noise used to park the card in majors)
 SAFE_FIX_ROUNDS = 8   # a losing-streak safe fix lasts this many rounds, then the card returns to its own cycle           # 3 losing rounds → safe config · 3 winning rounds → config locked + best coin frozen for a round
+PCT_EPS = 0.05        # match the one-decimal card display: a shown −5.0% must satisfy the owner's −5% boundary
 
 
 def next_phase(mode, rounds, last_pct):
@@ -164,6 +165,12 @@ def _f(v):
         return x if math.isfinite(x) else 0.0
     except (TypeError, ValueError):
         return 0.0
+
+
+def at_or_below_loss(price, entry, threshold):
+    """Honor the owner's exact loss boundary despite binary floating-point representation."""
+    p, e = _f(price), _f(entry)
+    return p > 0 and e > 0 and (p / e - 1) * 100 <= -_f(threshold) + PCT_EPS
 
 
 def clean_cfg(p):
@@ -255,6 +262,17 @@ def _picks(t, pools, runners, anchors):
     return out
 
 
+def rotate_anchors(anchors, offset=0):
+    """Rotate the eligible-major basket at a scheduled re-shape. Initial deals still begin with SOL, but a one-anchor phase
+    must not silently mean "SOL forever"; subsequent configured shapes walk the existing ranked majors without inventing a
+    new threshold or bypassing any candidate gate."""
+    rows = list(anchors or [])
+    if not rows:
+        return rows
+    n = int(_f(offset)) % len(rows)
+    return rows[n:] + rows[:n]
+
+
 def keep_winners(nc, old_legs, prices, liqs, pct, in_play_usd):
     """🛡 A re-shape never sells a winner: old coins up ≥ pct% (or ❄ frozen, or riding) are CARRIED into the new card as they are
     (same units + entry); the freshly dealt coins give up their slots and share what's left of the money, so the total stays exactly
@@ -284,7 +302,11 @@ def deal(tid, pools, runners, cfg, now, anchors=(), usd=None, keep=None, shape=N
     """A fresh Prime card from the best 3★+ candidates (gated + ranked by the caller). Equal $ per coin. `keep` re-deals an
     existing card (after its floor) while keeping its start, events and record — P&L stays honest across re-deals."""
     t = {**TEMPLATES[tid], **(PHASES.get(shape) or {})}
-    picks = _picks(t, pools, runners, anchors)
+    # Each due shape advances the major basket. This makes one-anchor phases use different eligible majors over time while
+    # keeping the configured number of anchors and the service's existing major ranking authoritative.
+    every = int(_f(cfg.get('cycleEvery'))) or 1
+    anchor_offset = int(_f((keep or {}).get('rounds')) // every) if shape else 0
+    picks = _picks(t, pools, runners, rotate_anchors(anchors, anchor_offset))
     if not picks or (shape and len(picks) < MIN_CYCLE_COINS):
         return None
     size = usd if usd is not None else cfg['sizeUsd']
@@ -459,6 +481,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             del c['parked'][pa]
             ev(kind='rebuy', symbol=pk['symbol'], usd=round(pk['usd'], 4), why='back at its entry with momentum — bought back', to=[pk['symbol']])
     # 3) auto-rotate every rotateHours: the rotateCount weakest coins out, the best candidates in
+    rotated_out = set()
     if now - c['lastRotateAt'] >= cfg['rotateHours'] * 3600 + BELL_SEC and not c.get('flooredAt'):   # the round ends, a 10s 🔔 countdown, then the deal
         # 🏇 a coin that stayed ≥ +80% the WHOLE round holds through the next one (same rule then keeps or swaps it)
         for l in c['legs']:
@@ -471,12 +494,12 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         for l in c['legs']:
             if l.get('role') == 'anchor' or not l['entry']:
                 continue
-            down = ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 <= -_f(cfg.get('rotateMinDrop', ROTATE_MIN_DROP))
+            down = at_or_below_loss(_f(prices.get(l['pairAddress'])) or l['entry'], l['entry'], cfg.get('rotateMinDrop', ROTATE_MIN_DROP))
             l['loseRounds'] = int(l.get('loseRounds') or 0) + 1 if down else 0
         patient = lambda l: int(l.get('loseRounds') or 0) >= int(cfg.get('rotateConfirm', ROTATE_CONFIRM)) and now - _f(l.get('at')) >= _f(cfg.get('minHoldMins', MIN_HOLD_MINS)) * 60
         locked_round = int(c.get('lockRounds') or 0) > 0 or bool(c.get('holdAll'))   # ✋ hold all: no rotation (stops + rug shield still run)
         ranked = [] if locked_round else sorted((l for l in c['legs'] if l.get('role') != 'anchor' and not l.get('frozen') and not l.get('ride') and int(l.get('freezeRounds') or 0) <= 0 and l['entry'] > 0
-                                                 and ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 <= -_f(cfg.get('rotateMinDrop', ROTATE_MIN_DROP)) and patient(l) and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
+                                                 and at_or_below_loss(_f(prices.get(l['pairAddress'])) or l['entry'], l['entry'], cfg.get('rotateMinDrop', ROTATE_MIN_DROP)) and patient(l) and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
         swapped = 0
         for l in ranked[:cfg['rotateCount']]:
             nxt = best(l['role'])
@@ -485,19 +508,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             px = _f(prices.get(l['pairAddress'])) or l['entry']
             usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
             c['legs'][c['legs'].index(l)] = _leg(nxt, usd, now, l['role']); c['feesUsd'] += 2 * fee; swapped += 1
+            rotated_out.add(l.get('mint'))
             ev(kind='rotate', symbol=l['symbol'], usd=round(usd, 4), why=f"weakest after {cfg['rotateHours']}h", to=[nxt.get('symbol')])
-        if not swapped and not locked_round:   # 🆕 a fresh coin EVERY round, whatever the configs: the weakest unprotected coin (never a
-            kw = _f(cfg.get('keepWinPct', 5.0))  # winner, frozen, riding or hand-picked one) makes room for the best new coin
-            gain = lambda l: ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 if l['entry'] else 0.0
-            weak = sorted((l for l in c['legs'] if l.get('role') != 'anchor' and l['entry'] > 0 and not (l.get('frozen') or l.get('ride') or l.get('picked'))
-                           and not (kw > 0 and gain(l) >= kw)), key=gain)
-            for l in weak[:1]:
-                nxt = best(l['role'])
-                if nxt:
-                    px = _f(prices.get(l['pairAddress'])) or l['entry']
-                    usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
-                    c['legs'][c['legs'].index(l)] = _leg(nxt, usd, now, l['role']); c['feesUsd'] += 2 * fee
-                    ev(kind='rotate', symbol=l['symbol'], usd=round(usd, 4), why=f"🆕 fresh coin this round ({gain(l):+.1f}%, weakest unprotected)", to=[nxt.get('symbol')])
         c['lastRotateAt'] = now
         # one ROUND per rotation: log this round's move, start the next one from today's value
         v_now = value(c, prices, liqs)
@@ -544,9 +556,14 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     grow_now = majors_only and phase and phase != 'anchor'   # a majors-only card due growth isn't held back by the win-lock
     if c.pop('redealNow', None) and not c.get('flooredAt'):   # 🃏 one-tap re-deal: fresh coins NOW, same money + run (real cards keep their book)
         phase, grow_now, c['lastRotateAt'] = phase or c.get('phase') or 'mixed', True, now
-    if phase and c['lastRotateAt'] == now and not c.get('flooredAt') and not any(l.get('ride') for l in c['legs']) and (grow_now or not int(c.get('lockRounds') or 0)):   # a riding runner holds the shape
+    if phase and c['lastRotateAt'] == now and not c.get('flooredAt') and (grow_now or not int(c.get('lockRounds') or 0)):
+        # Protected coins do not block the whole scheduled shape. `keep_winners` carries riders, frozen/manual picks and configured
+        # winners into the new shape, while the unprotected slots can still become majors/new majors as the saved cycle requires.
         ip = in_play(c, prices, liqs)
-        nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=ip, keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
+        # A phase re-shape runs on this same boundary. Do not immediately select the mint that was just rotated out.
+        phase_pools = [x for x in pools if x.get('mint') not in rotated_out]
+        phase_runners = [x for x in runners if x.get('mint') not in rotated_out]
+        nc = deal(c['tpl'], phase_pools, phase_runners, cfg, now, anchors, usd=ip, keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
         if nc:
             nc, kept = keep_winners(nc, c['legs'], prices, liqs, cfg.get('keepWinPct', 5.0), ip)
             if nc:
@@ -624,6 +641,7 @@ def summary(card, prices, cfg=None):
     paid = round(_f(card.get('walletUsd')), 4)
     legs = [{**{k: l[k] for k in ('mint', 'pairAddress', 'symbol', 'role', 'entry', 'units', 'costUsd')}, 'stars': l.get('stars') or 3,
              'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'rideFrom': l.get('rideFrom'), 'buying': bool(l.get('buying')),
+             'loseRounds': int(l.get('loseRounds') or 0),
              'firstEntry': l.get('firstEntry') or l['entry'], 'at': l.get('at'), 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,
              'liq': _f(l.get('liqNow')) or _f(l.get('liq')),

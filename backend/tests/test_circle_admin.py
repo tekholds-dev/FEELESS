@@ -95,6 +95,19 @@ def test_circle_autostarts_when_down(monkeypatch):
     assert asyncio.run(rs._circle('GET', '/status')) == {'ok': True} and len(started) == 1
 
 
+def test_circle_wallet_list_uses_confirmed_chain_sol_when_circle_balance_is_empty(monkeypatch):
+    addr = 'Funded11111111111111111111111111111111111111'
+    async def circle(method, path, body=None):
+        return {'wallets': [{'id': 'fuse', 'address': addr, 'blockchain': 'SOL', 'balances': [], 'balanceError': 'provider busy'}]}
+    async def rpc(http, method, params):
+        assert method == 'getMultipleAccounts' and params[0] == [addr]
+        return {'value': [{'lamports': 1_234_000_000}]}
+    monkeypatch.setattr(rs, '_circle', circle); monkeypatch.setattr(rs, '_rpc', rpc)
+    rows = asyncio.run(rs._circle_wallets_live())
+    assert rows[0]['balances'][0] == {'symbol': 'SOL', 'amount': '1.234', 'tokenId': None, 'source': 'chain'}
+    assert rows[0]['balanceSource'] == 'confirmed-chain' and rows[0]['balanceError'] == 'provider busy'
+
+
 def test_money_pulse_one_read_for_every_card(monkeypatch):
     """Pulse: one getMultipleAccounts for all wallets, Circle listed, reserve plan fed from that read."""
     RES = 'Resv111111111111111111111111111111111111111'

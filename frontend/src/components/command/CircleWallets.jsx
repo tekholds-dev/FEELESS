@@ -48,7 +48,7 @@ function CircleRow({ w, meta, call, onSaved, dests }) {
   const [busy, setBusy] = useState(false);
   const save = async () => { setBusy(true); try { await call(`/admin/circle/wallets/${w.id}`, { method: 'PUT', body: JSON.stringify(m) }); toast.success('Saved.'); setMode(''); onSaved?.(); } catch (e) { toast.error(e.message); } finally { setBusy(false); } };
   return <div className={`cw-row cw-row-x ${mode === 'move' ? 'is-open' : ''}`}>
-    <div className="cw-top"><b>{meta?.name || w.name || 'Wallet'}</b><span className="chain-tag">{w.blockchain}</span><code>{w.address?.slice(0, 6)}…{w.address?.slice(-4)}</code><CopyBtn value={w.address} /><em>{(w.balances || []).map(b => `${Number(b.amount).toLocaleString()} ${b.symbol}`).join(' · ') || 'empty'}</em>
+    <div className="cw-top"><b>{meta?.name || w.name || 'Wallet'}</b><span className="chain-tag">{w.blockchain}</span><code>{w.address?.slice(0, 6)}…{w.address?.slice(-4)}</code><CopyBtn value={w.address} /><em>{(w.balances || []).map(b => `${Number(b.amount).toLocaleString()} ${b.symbol}`).join(' · ') || (w.balanceError ? 'balance unavailable' : 'empty')}</em>
       <button type="button" className="m-btn" onClick={() => setMode(mode === 'edit' ? '' : 'edit')}>✎ Edit</button>
       <button type="button" className={`m-btn ${mode === 'move' ? 'primary' : ''}`} aria-expanded={mode === 'move'} onClick={() => setMode(mode === 'move' ? '' : 'move')} data-testid={`circle-move-${w.id}`}>⇄ Move {mode === 'move' ? '▴' : '▾'}</button></div>
     {meta?.description && mode !== 'edit' && <small className="cw-desc">{meta.description}</small>}
@@ -60,7 +60,7 @@ function CircleRow({ w, meta, call, onSaved, dests }) {
 // Mini HQ for one Circle wallet: moves funds ONLY to HQ wallets or wallets you saved
 // (the server enforces the same list). Pick coin → destination → amount → type the last 4 → Circle signs.
 export function CircleMove({ w, call, dests, onDone }) {
-  const bals = (w.balances || []).filter(b => Number(b.amount) > 0);
+  const bals = (w.balances || []).filter(b => Number(b.amount) > 0 && b.tokenId); // chain fallback proves funds, but only Circle's token id may be sent
   const [tokenId, setTokenId] = useState(bals[0]?.tokenId || '');
   const [to, setTo] = useState('');
   const [amount, setAmount] = useState('');

@@ -2704,7 +2704,7 @@ FUSE_DISCOVER_Q = {'solana': ('SOL', 'USDC', 'raydium', 'orca', 'meteora', 'pump
 
 
 async def _fuse_discover_pairs(chain):
-    """Popular pools on a chain: DexScreener searches (hub tokens + venues) and the top-boosted tokens' pairs, in parallel; 60s cache."""
+    """Every existing discovery rail in one deduped pool: DexScreener search/boost plus FEELESS trending/new/launchpad feeds."""
     hit = _fuse_discover_cache.get(chain)
     if hit and time.time() - hit[0] < 60:
         return hit[1]
@@ -2721,8 +2721,25 @@ async def _fuse_discover_pairs(chain):
                 return (await http.get(f'https://api.dexscreener.com/tokens/v1/{chain}/{",".join(toks)}')).json() or [] if toks else []
             except Exception:
                 return []
-        got = await asyncio.gather(*[search(q) for q in FUSE_DISCOVER_Q.get(chain, (chain,))], boosted())
-    pairs = [p for rows in got for p in (rows if isinstance(rows, list) else [])]
+        async def feed(kind, page=1, scope=None):
+            try:
+                params = {'kind': kind, 'chain': chain, 'page': page}
+                if scope:
+                    params['scope'] = scope
+                r = await http.get('http://127.0.0.1:5001/api/market/feed', params=params)
+                return r.json().get('pairs') or [] if r.status_code == 200 else []
+            except Exception:
+                return []
+        got = await asyncio.gather(*[search(q) for q in FUSE_DISCOVER_Q.get(chain, (chain,))], boosted(),
+                                   feed('trending'), feed('new'), feed('trending', 2), feed('new', 2),
+                                   feed('trending', scope='launchpads'), feed('new', scope='launchpads'), feed('trending', scope='pump'))
+    pairs = []
+    seen = set()
+    for rows in got:
+        for p in rows if isinstance(rows, list) else []:
+            key = p.get('pairAddress')
+            if key and key not in seen:
+                seen.add(key); pairs.append(p)
     _fuse_discover_cache[chain] = (time.time(), pairs)
     return pairs
 
@@ -4883,7 +4900,7 @@ async def _fuse_candidates(chain='solana'):
     for lens in _fuse.LENSES:
         for r in _fuse.discover(raw, lens, chain, now_ms=time.time() * 1000, limit=12):
             cands.setdefault(r['pairAddress'], r)
-    return dict(list(cands.items())[:40])
+    return cands
 
 
 def _champ_view(c, metas, chain='solana'):
@@ -5347,7 +5364,7 @@ async def _prime_tick_inner(now):
             return _fuse._f(m.get('chg1h')) > 0 and bs >= 55
         p_t = [x for x in pools if _lq(x) >= floor] or pools
         r_t = [x for x in runners if _lq(x) >= floor and _confirmed(x)]
-        # 🪑 coins real money couldn't buy safely (3× in 10 min) are benched 1h for EVERY tier — paper never trades what real can't
+        # 🪑 coins real money couldn't buy safely (2× in 10 min) are benched 1h for EVERY tier — paper never trades what real can't
         bench = set().union(*[_fw.benched(b, now) for b in (_fw_load().get('books') or {}).values()] or [set()])
         if bench:
             p_t, r_t = [x for x in p_t if x.get('mint') not in bench], [x for x in r_t if x.get('mint') not in bench]
@@ -5361,12 +5378,9 @@ async def _prime_tick_inner(now):
                     except ValueError:
                         pass
         mine = {l.get('mint') for l in (cur or {}).get('legs') or []}
-        p_d = [x for x in p_t if x.get('mint') not in taken or x.get('mint') in mine]
-        r_d = [x for x in r_t if x.get('mint') not in taken or x.get('mint') in mine]
-        p_t, r_t = (p_d if len(p_d) >= 2 else p_t), (r_d if len(r_d) >= 3 else r_t)   # only when enough other coins exist
-        tk = lambda xs: [{**x, 'taken': True} if x.get('mint') in taken and x.get('mint') not in mine else x for x in xs]
-        p_t, r_t = tk(p_t), tk(r_t)   # 🎲 too few others to drop them → coins another tier holds still rank LAST, so tiers differ
-        cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, anchors, mom, liqs) if cur else _prime.deal(tid, pools, runners, cfg_t, now, anchors)
+        p_t = [x for x in p_t if x.get('mint') not in taken or x.get('mint') in mine]
+        r_t = [x for x in r_t if x.get('mint') not in taken or x.get('mint') in mine]
+        cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, anchors, mom, liqs) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, anchors)
         taken |= {l.get('mint') for l in (cards[tid] or {}).get('legs') or [] if l.get('role') != 'anchor'}
     cards = {k: v for k, v in cards.items() if v}
     try:   # 📏 vs holding SOL: remember SOL's price when each run starts (a new run = a new startUsd)
@@ -5441,7 +5455,22 @@ async def _prime_view():
     def _cfgv(c):
         e = _eff(c); return {'clockMin': round(e['rotateHours'] * 60), 'confirm': e['rotateConfirm'], 'minDrop': e['rotateMinDrop'], 'holdMin': e['minHoldMins'],
                              'cycle': (e.get('cycles') or {}).get(c['tpl']), 'reshape': e['cycleEvery'], 'slMode': e['slMode'], 'locked': c.get('tpl') in locks}
-    return [{**(sm := _prime.summary(c, px, _eff(c))), **_vs(c, sm), 'cfgView': _cfgv(c), 'holdAll': bool(c.get('holdAll')), 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl']) if c.get('real') else None,
+    fw_books = _fw_load().get('books') or {}
+    def _truth(c, sm):
+        b = fw_books.get(c.get('tpl')) if c.get('real') else None
+        if not b or sol_now <= 0:
+            return sm
+        v = _fw.book_value(b, px, sol_now)   # confirmed holdings + card SOL + segregated payout SOL
+        paid = _fuse._f(b.get('bankSol')) * sol_now
+        start = _fw.real_run_start(c, b) or 1
+        held = max(0.0, v - paid)
+        return {**sm, 'startUsd': round(start, 4), 'valueUsd': v, 'walletUsd': round(paid, 4), 'pnlPct': round((v / start - 1) * 100, 2),
+                'legacyRunBaseline': not bool(c.get('realBaselineAt')),
+                'payoutTargetUsd': round(_fuse._f(c.get('walletUsd')), 4),
+                'pendingPayoutUsd': round(max(0.0, _fuse._f(c.get('walletUsd')) - _fuse._f(b.get('bankUsd'))), 4),
+                'math': {**sm.get('math', {}), 'heldUsd': round(held, 4), 'paidOutUsd': round(paid, 4),
+                         'nowUsd': v, 'pnlUsd': round(v - start, 4)}}
+    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'cfgView': _cfgv(c), 'holdAll': bool(c.get('holdAll')), 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl']) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 
@@ -5651,8 +5680,12 @@ def _fw_record(d, row):
 async def _fw_execute(tid, order, book, cfg, sol_px, liq):
     """One keeper order: real Jupiter quote → the owner's hard limits → Circle signs (Fuse wallet only) → we broadcast → the confirmed
     tx's balance changes ARE the fill. Every outcome goes to the audit ledger; fills + failures reach the owner's inbox."""
+    if book.get('pending'):
+        return book   # defense in depth: never overwrite the one in-flight signature with a second sell or buy
     now = time.time()
-    row = {**order, 'liq': liq, 'status': 'quoted'}
+    # `card` must be present on every outcome. Without it, secure-quote refusals (price gap / no sell-back route) were logged but
+    # never counted by _fw_record, so the same unsafe mint retried forever instead of reaching the existing bench-and-replace path.
+    row = {**order, 'card': tid, 'liq': liq, 'status': 'quoted'}
     async with _fw_lock:   # 🚦 limits a quote can't change (armed · paused · per-swap · daily cap · thin pool) are checked BEFORE quoting:
         d = _fw_load()        # no Jupiter calls, and the skip is booked once per 15 min instead of every tick (the cap retry loop)
         ok, why = _fw.check(row, cfg, d.get('ledger'), now)
@@ -5697,7 +5730,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
         row.update(status='skipped', err=str(e.detail)[:140])
         async with _fw_lock:   # the same refusal is booked once per 15 min (the keeper keeps retrying quietly)
             d = _fw_load()
-            if row.get('side') == 'buy' or not _fw.logged_recently(d.get('ledger'), {**row, 'card': tid}, now):   # buy misses all count (3 → benched)
+            if row.get('side') == 'buy' or not _fw.logged_recently(d.get('ledger'), row, now):   # buy misses all count (2 → benched)
                 _fw_record(d, row); _fw_save(d)
         return book
     async with _fw_lock:
@@ -5714,6 +5747,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
             try:
                 swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
                                                                     'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': _fw.priority_cap(attempt, boost), 'priorityLevel': 'veryHigh' if attempt or boost else 'high'}}})
+                row['lastValidBlockHeight'] = swap.get('lastValidBlockHeight')
                 signed = await _fw_sign(cfg, swap.get('swapTransaction'), f"FEELESS {tid} {order['side']} {order.get('symbol')}")
                 break
             except HTTPException:
@@ -5755,6 +5789,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
                 q = await _fw_quote(order, {**cfg, 'slippageBps': slip})
                 swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
                                                                     'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': 100000, 'priorityLevel': 'veryHigh'}}})
+                row['lastValidBlockHeight'] = swap.get('lastValidBlockHeight')
                 signed = await _fw_sign(cfg, swap.get('swapTransaction'), f"FEELESS {tid} {order['side']} {order.get('symbol')} retry")
                 row['retrySlipBps'] = slip
             except HTTPException as e2:
@@ -5776,7 +5811,8 @@ def _fw_notify(row):
 
 
 async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
-    """Settle a sent order from the chain: confirmed → the tx's balance changes ARE the fill; failed / expired → logged, nothing booked."""
+    """Settle a sent order from the chain. RPC absence is never failure: keep the pending lock until the chain returns a
+    transaction, so a delayed buy/sell cannot be submitted twice. Only validated confirmed balance changes mutate the book."""
     p = book.get('pending')
     if not p:
         return book
@@ -5790,17 +5826,42 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
             if tx or wait <= 0:
                 break
             await asyncio.sleep(2)
-    if not tx and time.time() - _fuse._f(p.get('sentAt')) < 120:
-        return book   # still in flight: the card waits (never double-buys)
+    if not tx:
+        failed = False
+        try:
+            async with httpx.AsyncClient(timeout=15) as http:
+                st = await _rpc(http, 'getSignatureStatuses', [[p['sig']], {'searchTransactionHistory': True}])
+                status = ((st or {}).get('value') or [None])[0]
+                failed = bool(status and status.get('err'))
+                if not failed and p.get('lastValidBlockHeight') is not None:
+                    height = await _rpc(http, 'getBlockHeight', [{'commitment': 'confirmed'}])
+                    failed = int(height or 0) > int(p['lastValidBlockHeight'])
+        except Exception:
+            pass
+        if not failed:
+            return book   # unknown is not failed; retain the lock and retry the same signature next tick
+        row = {k: v for k, v in p.items() if k != 'sentAt'}
+        row.update(status='failed', err='transaction expired or failed on-chain')
+        book = {**book, 'pending': None}
+        async with _fw_lock:
+            d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_record(d, row); _fw_save(d)
+        _fw_notify(row)
+        return book
     fill = _fw.fill_from_meta(tx, cfg['address'], p['mint']) if tx else None
     row = {k: v for k, v in p.items() if k != 'sentAt'}
-    if fill:
-        if p.get('side') == 'sell':   # 🧾 trail: what this coin cost vs what the sell returned
-            row['costUsd'] = _fw.cost_of(book, p['mint'], p.get('atoms'))
+    mismatch = _fw.fill_error(p, fill, book) if not ((tx.get('meta') or {}).get('err')) else ''
+    if fill and not mismatch:
+        if p.get('side') == 'sell':   # 🧾 use the confirmed token debit, never the requested/quoted amount
+            row['costUsd'] = _fw.cost_of(book, p['mint'], abs(int(fill.get('atoms') or 0)))
         book, f = _fw.apply_fill(book, p, fill, sol_px)
-        row.update(status='filled', px=f['px'], units=f['units'], usd=f['usd'] or row['usd'], feeSol=fill['feeSol'], feeUsd=round(fill['feeSol'] * sol_px, 6))
+        row.update(status='filled', px=f['px'], units=f['units'], usd=f['usd'] or row['usd'], sol=f['sol'], feeSol=fill['feeSol'], feeUsd=round(fill['feeSol'] * sol_px, 6))
+        if p.get('side') == 'sell':
+            row.update(proceedsUsd=f['usd'], realizedPnlUsd=round(f['usd'] - row['costUsd'], 6))
+    elif mismatch:
+        row.update(status='failed', err=mismatch)
+        book = {**book, 'halt': True, 'haltWhy': mismatch}
     else:
-        row.update(status='failed', err='not confirmed in 2 min' if not tx else 'tx failed on-chain')
+        row.update(status='failed', err='tx failed on-chain')
     book = {**book, 'pending': None}
     async with _fw_lock:
         d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_record(d, row); _fw_save(d)
@@ -5826,6 +5887,14 @@ async def _fw_tick(now):
                     _FW_GAS.update(sol=bal['sol'], at=time.time()); _FW_BAL.update(bal=bal, at=time.time(), addr=cfg['address'])
                     async with _fw_lock:   # 🧹 adopt keeper coins no card books (they sell back to SOL inside their card next tick)
                         d = _fw_load()
+                        missing = _fw.reconcile(bal.get('tokens'), d['books'])
+                        sol_short = _fw.reconcile_sol(bal.get('sol'), d['books'])
+                        if missing or sol_short:   # confirmed wallet balances beat our books; stop every affected card before another order
+                            bad = {x['mint'] for x in missing}
+                            for tid, b in d['books'].items():
+                                if sol_short or bad.intersection((b.get('legs') or {})):
+                                    why = 'confirmed wallet SOL is below card books' if sol_short else 'confirmed wallet token balance is below card books'
+                                    d['books'][tid] = {**b, 'halt': True, 'haltWhy': why}
                         for st in _fw.strays(bal.get('tokens'), bal.get('decimals'), d['books'], d['ledger'], time.time()):
                             d['books'][st['card']] = _fw.adopt(d['books'][st['card']], st)
                             _fw_record(d, {'card': st['card'], 'side': 'adopt', 'mint': st['mint'], 'symbol': st['symbol'], 'atoms': st['atoms'], 'usd': 0.0, 'at': time.time(),
@@ -5855,6 +5924,16 @@ async def _fw_tick_inner(now):
     pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pa} for tid, b in d['books'].items()
                                 for pa in [l['pairAddress'] for l in (cards.get(tid) or {}).get('legs') or []] + [l.get('pair') for l in (b.get('legs') or {}).values() if l.get('pair')]])
     px = {k: _fuse._f(v.get('priceUsd')) for k, v in pairs_.items()}
+    jup = await _jup_prices([l.get('mint') for c in cards.values() for l in c.get('legs') or []] +
+                            [m for b in d['books'].values() for m in (b.get('legs') or {})])
+    for c in cards.values():
+        for l in c.get('legs') or []:
+            if jup.get(l.get('mint')):
+                px[l['pairAddress']] = jup[l['mint']]
+    for b in d['books'].values():
+        for mint, l in (b.get('legs') or {}).items():
+            if jup.get(mint) and l.get('pair'):
+                px[l['pair']] = jup[mint]
     liqs = {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()}
     sol_px = await _sol_usd_live()
     done = 0
@@ -5874,6 +5953,11 @@ async def _fw_tick_inner(now):
                 book = await _fw_execute(tid, o, book, cfg, sol_px, liqs.get(o.get('pair')) or leg_liq)   # pair read blank → the engine's own liquidity reading
                 if book.get('pending'):
                     break
+            if book.get('pending'):
+                break   # one card, one in-flight transaction; a pending sell must never be overwritten by a buy
+            if side == 'sell' and not book.get('pending'):
+                # Confirmed sell proceeds fund payouts first. Paid-out SOL is segregated before any subsequent compound buys.
+                book = _fw.bank(book, card.get('walletUsd'), sol_px)
         async with _fw_lock:
             d2 = _fw_load()
             if book.get('defund') and not book.get('legs') and not book.get('pending'):
@@ -6002,14 +6086,42 @@ def _fw_public(tid):
               'gas': _fw.gas_tank(_FW_GAS['sol'], d['books'], cfg.get('reserveSol')) if 'sol' in _FW_GAS else None,
               'landing': _fw.landing(d['ledger'], tid, time.time())}
     return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4), 'wallet': cfg['address'], 'keeper': keeper,
-            'orders': [{k: o.get(k) for k in ('side', 'symbol', 'usd', 'px', 'sig', 'at', 'status', 'feeUsd', 'why', 'costUsd')} for o in rows], **_fw.totals(d['ledger'], tid)}
+            'orders': [{k: o.get(k) for k in ('side', 'symbol', 'usd', 'proceedsUsd', 'realizedPnlUsd', 'sol', 'px', 'sig', 'at', 'status', 'feeUsd', 'why', 'costUsd')} for o in rows], **_fw.totals(d['ledger'], tid)}
+
+
+async def _circle_wallets_live():
+    """Circle supplies token ids needed for sends; confirmed chain lamports supply the display truth for Solana wallets.
+    A Circle balance-endpoint error must never turn a funded wallet into an apparently empty wallet in Command Center."""
+    wallets = list((await _circle('GET', '/wallets')).get('wallets') or [])
+    sol = [w for w in wallets if str(w.get('blockchain') or '').upper().startswith('SOL') and w.get('address')]
+    if not sol:
+        return wallets
+    try:
+        async with httpx.AsyncClient(timeout=12) as http:
+            got = await _rpc(http, 'getMultipleAccounts', [[w['address'] for w in sol], {'encoding': 'base64', 'commitment': 'confirmed'}])
+        lamports = {w['address']: int((a or {}).get('lamports') or 0) for w, a in zip(sol, (got or {}).get('value') or [])}
+        out = []
+        for w in wallets:
+            if w.get('address') not in lamports:
+                out.append(w); continue
+            rows = [dict(b) for b in (w.get('balances') or [])]
+            old = next((b for b in rows if str(b.get('symbol') or '').upper() == 'SOL'), None)
+            amount = str(lamports[w['address']] / 1e9)
+            if old:
+                old['amount'] = amount
+            elif lamports[w['address']] > 0:
+                rows.insert(0, {'symbol': 'SOL', 'amount': amount, 'tokenId': None, 'source': 'chain'})
+            out.append({**w, 'balances': rows, 'balanceSource': 'confirmed-chain'})
+        return out
+    except Exception:
+        return wallets
 
 
 @app.get('/api/reputation/admin/circle/profiles')
 async def circle_profiles(request: Request):
     """Owner: every Circle wallet with its FEELESS profile (so it can be searched + edited from the creator wallet)."""
     _require_owner(request)
-    ws = (await _circle('GET', '/wallets')).get('wallets') or []
+    ws = await _circle_wallets_live()
     profs = _profiles_load()['profiles']
     return {'wallets': [{'id': w.get('id'), 'address': w.get('address'), 'name': w.get('name'), 'blockchain': w.get('blockchain'),
                          'profile': {k: (profs.get(w.get('address')) or {}).get(k) for k in ('name', 'handle', 'bio', 'avatar', 'banner')}} for w in ws]}
@@ -6043,7 +6155,7 @@ async def fuse_wallet_view(request: Request):
     d = _fw_load(); cfg = _fw.clean_cfg(d.get('cfg') or {})
     wallets, bal, err = [], None, None
     try:
-        wallets = [w for w in (await _circle('GET', '/wallets')).get('wallets') or [] if str(w.get('blockchain', '')).startswith('SOL')]
+        wallets = [w for w in await _circle_wallets_live() if str(w.get('blockchain', '')).startswith('SOL')]
     except HTTPException as e:
         err = str(e.detail)
     if cfg['address']:
@@ -6061,6 +6173,8 @@ async def fuse_wallet_view(request: Request):
     sol_px = await _sol_usd_live()
     cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
     px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for c in cards.values() for l in c.get('legs') or []]) if cards else {}
+    jup = await _jup_prices([l.get('mint') for c in cards.values() for l in c.get('legs') or []]) if cards else {}
+    px.update({l['pairAddress']: jup[l['mint']] for c in cards.values() for l in c.get('legs') or [] if jup.get(l.get('mint'))})
     books = {tid: {**b, 'valueUsd': _fw.book_value(b, px, sol_px), 'label': (cards.get(tid) or {}).get('label') or tid, **_fw.totals(d['ledger'], tid)} for tid, b in d['books'].items()}
     return {'cfg': cfg, 'signer': _fw_signer_ready(), 'wallets': wallets, 'balances': bal, 'solUsd': sol_px, 'error': err,
             'freeSol': _fw.free_sol((bal or {}).get('sol'), d['books'], cfg['reserveSol']) if bal else None,
@@ -6141,6 +6255,9 @@ async def fuse_wallet_topup(request: Request):
         cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
         card = cards.get(tid)
         px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in (card or {}).get('legs') or []]) if card else {}
+        jup = await _jup_prices([l.get('mint') for l in (card or {}).get('legs') or []]) if card else {}
+        if card:
+            px.update({l['pairAddress']: jup[l['mint']] for l in card.get('legs') or [] if jup.get(l.get('mint'))})
         first = tid not in d['books']
         cur = _fw.book_value(d['books'][tid], px, sol_px) if not first else 0
         if cur + usd > cfg['maxCardUsd']:
@@ -6151,8 +6268,11 @@ async def fuse_wallet_topup(request: Request):
             new = _fw.topup_card(card, usd, px, now, first=True)
             d['books'][tid] = _fw.new_book(usd, sol_px, now)
         else:
-            new = _fw.topup_card(card, usd, px, now)
-            b = d['books'][tid]; d['books'][tid] = {**b, 'sol': round(_fuse._f(b.get('sol')) + usd / sol_px, 9), 'fundedUsd': round(_fuse._f(b.get('fundedUsd')) + usd, 4)}
+            b = d['books'][tid]
+            truth = _fw.sync_card(card, b, px, sol_px)
+            current = _prime.value(truth, px)
+            new = _fw.topup_card(truth, usd, px, now, current_usd=current)
+            d['books'][tid] = {**b, 'sol': round(_fuse._f(b.get('sol')) + usd / sol_px, 9), 'fundedUsd': round(_fuse._f(b.get('fundedUsd')) + usd, 4)}
         _fw_record(d, {'card': tid, 'side': 'topup', 'usd': usd, 'sol': round(usd / sol_px, 9), 'at': now, 'by': me, 'status': 'done', 'why': 'funded — new real run' if first else 'top-up — new run'})
         _fw_save(d)
     async with _admin_lock:
@@ -13064,7 +13184,7 @@ async def circle_status(request: Request):
 @app.get('/api/reputation/admin/circle/wallets')
 async def circle_wallets(request: Request):
     _require_owner(request)
-    return await _circle('GET', '/wallets')
+    return {'wallets': await _circle_wallets_live()}
 
 
 @app.post('/api/reputation/admin/circle/wallets')
@@ -13908,6 +14028,8 @@ async def _money_pulse_build(me: str, owner: bool) -> dict:
         if not owner:
             return {'configured': False}
         try:
+            # Money Pulse deliberately performs one batched chain read for its own cards. The dedicated Circle-wallet endpoint
+            # enriches wallet rows with confirmed SOL without adding a second RPC call to this overview.
             return {'configured': True, 'up': True, 'wallets': (await _circle('GET', '/wallets')).get('wallets') or []}
         except HTTPException as e:
             return {'configured': bool(os.environ.get('CIRCLE_API_KEY')), 'up': False, 'error': str(e.detail)[:160], 'wallets': []}

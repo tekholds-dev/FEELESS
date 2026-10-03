@@ -164,6 +164,32 @@ def fill_from_meta(tx, owner, mint):
     return {'atoms': post - pre, 'decimals': dec1 if dec1 is not None else dec0 if dec0 is not None else 0, 'sol': round(sol, 9), 'feeSol': fee / 1e9}
 
 
+def fill_error(order, fill, book=None):
+    """Return why a confirmed transaction is not the order we sent. Never let a successful but unrelated/partial balance change
+    mutate a card: the caller halts it for reconciliation instead of guessing or submitting the same leg again."""
+    if not fill:
+        return 'confirmed transaction has no fill'
+    atoms, sol = int(fill.get('atoms') or 0), _f(fill.get('sol'))
+    booked_leg = (((book or {}).get('legs') or {}).get(order.get('mint')) or {})
+    booked = int(booked_leg.get('atoms') or 0)
+    if booked and int(fill.get('decimals') or 0) != int(booked_leg.get('decimals') or 0):
+        return 'confirmed fill decimals do not match the held token'
+    if order.get('side') == 'buy':
+        if atoms <= 0 or sol >= 0:
+            return 'confirmed buy balance changes have the wrong direction'
+        if int(order.get('lamports') or 0) <= 0 or abs(sol) * 1e9 + 1 < int(order['lamports']):
+            return 'confirmed buy did not spend the exact-input amount'
+    elif order.get('side') == 'sell':
+        requested = int(order.get('atoms') or 0)
+        if atoms >= 0 or sol <= 0:
+            return 'confirmed sell balance changes have the wrong direction'
+        if requested <= 0 or abs(atoms) != requested or (booked and abs(atoms) > booked):
+            return 'confirmed sell token amount does not match the exact-input order/book'
+    else:
+        return 'unknown order side'
+    return ''
+
+
 def apply_fill(book, order, fill, sol_px):
     """Book the confirmed fill: atoms + average entry for buys, SOL back for sells; network fees counted apart (never P&L)."""
     b = {**book, 'legs': {k: dict(v) for k, v in (book.get('legs') or {}).items()}}
@@ -195,7 +221,7 @@ def apply_fill(book, order, fill, sol_px):
     b['feesUsd'] = round(_f(b.get('feesUsd')) + fill['feeSol'] * sol_px, 6)
     if not l['atoms']:
         b['legs'].pop(m, None)
-    return b, {'units': round(units, 9), 'px': usd / units if units else 0.0, 'usd': round(usd, 6)}
+    return b, {'units': round(units, 9), 'px': usd / units if units else 0.0, 'usd': round(usd, 6), 'sol': round(abs(fill['sol']), 9)}
 
 
 def bank(book, wallet_usd, sol_px):
@@ -205,7 +231,10 @@ def bank(book, wallet_usd, sol_px):
     if d <= 0 or sol_px <= 0:
         return b
     sol = min(_f(b.get('sol')), d / sol_px)
-    b['sol'] = round(_f(b['sol']) - sol, 9); b['bankSol'] = round(_f(b.get('bankSol')) + sol, 9); b['bankUsd'] = round(_f(wallet_usd), 6)
+    # Mark only what was actually segregated. A take-profit is often processed before its sell lands; claiming the whole target
+    # here left later proceeds in tradable card SOL even though the UI already called them paid out.
+    b['sol'] = round(_f(b['sol']) - sol, 9); b['bankSol'] = round(_f(b.get('bankSol')) + sol, 9)
+    b['bankUsd'] = round(_f(b.get('bankUsd')) + sol * sol_px, 6)
     return b
 
 
@@ -220,8 +249,17 @@ def sync_card(card, book, prices, sol_px):
     sol_left = _f(book.get('sol'))
     for l in c['legs']:
         if l['mint'] == SOL_MINT:
-            u = min(_f(l.get('units')), max(0.0, sol_left)); sol_left -= u
+            desired = _f(l.get('wantUnits')) or _f(l.get('units'))
+            # A prior real sync could reduce the SOL anchor to zero while its funds sat in card cash. SOL is native—there is no
+            # Jupiter buy to retry—so restore its configured equal slot directly from confirmed card SOL on the next sync.
+            if desired <= 0 and sol_left > 0 and c['legs']:
+                desired = sol_left / len(c['legs'])
+            u = min(desired, max(0.0, sol_left)); sol_left -= u
             l['units'] = u
+            if u + 1e-12 < desired:
+                l['wantUnits'] = desired
+            else:
+                l.pop('wantUnits', None); l.pop('buying', None)
             if _f(l.get('entry')) > 0:
                 l['costUsd'] = round(u * _f(l['entry']), 6)   # SOL anchor cost = SOL really left × its entry (trimmed SOL isn't a loss)
             continue
@@ -335,6 +373,13 @@ def reconcile(wallet_tokens, books):
     return [{'mint': m, 'booked': a, 'held': int((wallet_tokens or {}).get(m) or 0)} for m, a in want.items() if int((wallet_tokens or {}).get(m) or 0) < a * 0.999]
 
 
+def reconcile_sol(wallet_sol, books):
+    """Card SOL is a liability of the shared wallet. A shortage must stop trading instead of letting another card spend it."""
+    booked = sum(_f(b.get('sol')) + _f(b.get('bankSol')) for b in (books or {}).values())
+    held = _f(wallet_sol)
+    return {'booked': round(booked, 9), 'held': round(held, 9)} if held + 0.000001 < booked else None
+
+
 def calibrate(ledger, min_n=3):
     """🎯 Paper learns from real fills: how much worse (or better) the real price impact was than the paper model
     (usd ÷ half the pool liquidity) → `impactMult`, and the typical network fee per swap → `feeUsd`."""
@@ -369,7 +414,7 @@ def totals(ledger, card=None):
             'topups': round(sum(_f(o.get('usd')) for o in rows if o.get('side') == 'topup'), 4)}
 
 
-def topup_card(card, usd, prices, now, first=False):
+def topup_card(card, usd, prices, now, first=False, current_usd=None):
     """💵 Real money joins the SAME card. First funding: every coin, the cycle phase, the clock and the config stay exactly as
     they are on paper — the card is scaled to the funded $ and its time / P&L start over (the paper run is kept on the record).
     A later top-up: the new $ is spread over the coins by their current weight and a new run starts at the new total."""
@@ -377,7 +422,7 @@ def topup_card(card, usd, prices, now, first=False):
     px = lambda l: _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
     coins = sum(_f(l.get('units')) * px(l) for l in c['legs'])
     held = coins + _f(c.get('cash')) + sum(_f(p.get('usd')) for p in c['parked'].values())
-    total_before = held + _f(c.get('walletUsd'))
+    total_before = _f(current_usd) if current_usd is not None else held + _f(c.get('walletUsd'))
     c['runs'] = (list(c.get('runs') or []) + [{'at': now, 'startUsd': c.get('startUsd'), 'endUsd': round(total_before, 4),
                                                  'pct': round((total_before / (_f(c.get('startUsd')) or 1) - 1) * 100, 2), 'paper': not card.get('real')}])[-10:]
     if first:
@@ -399,9 +444,15 @@ def topup_card(card, usd, prices, now, first=False):
         else:
             c['cash'] = _f(c.get('cash')) + usd
         start = round(total_before + usd, 4)
-    c.update(startUsd=start, roundStartUsd=start, dayStartUsd=start, dayAt=now, real=True)
+    c.update(startUsd=start, roundStartUsd=start, dayStartUsd=start, dayAt=now, real=True, realBaselineAt=now)
     c['events'].append({'at': now, 'kind': 'topup', 'usd': round(usd, 4), 'why': ('💵 funded with real money — same coins, same mechanics, time + P&L start over' if first else f'💵 topped up +${usd:.2f} — new run'), 'to': ['card']})
     return c
+
+
+def real_run_start(card, book):
+    """Use a confirmed funding baseline for legacy real cards whose pre-funding paper start leaked into the live UI."""
+    start, funded = _f((card or {}).get('startUsd')), _f((book or {}).get('fundedUsd'))
+    return start if (card or {}).get('realBaselineAt') or funded <= 0 else funded
 
 
 def paper_status(card, prices, usd):

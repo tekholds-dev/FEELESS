@@ -66,14 +66,32 @@ def test_fill_from_meta_reads_the_true_fill_and_network_fee():
     assert fw.fill_from_meta(tx('OTHER', 'M', 0, 1, 1, 1), 'OWNER', 'M') is None   # owner didn't sign
 
 
+def test_confirmed_fill_must_match_the_order_before_it_can_touch_holdings():
+    book = {'legs': {'M': {'atoms': 100, 'decimals': 0}}}
+    assert not fw.fill_error({'side': 'buy', 'lamports': 100_000_000}, {'atoms': 10, 'decimals': 0, 'sol': -0.1}, book)
+    assert 'wrong direction' in fw.fill_error({'side': 'buy', 'lamports': 100_000_000}, {'atoms': 10, 'decimals': 0, 'sol': 0.1}, book)
+    assert 'exact-input' in fw.fill_error({'side': 'buy', 'lamports': 100_000_000}, {'atoms': 10, 'decimals': 0, 'sol': -0.09}, book)
+    assert not fw.fill_error({'side': 'sell', 'mint': 'M', 'atoms': 50}, {'atoms': -50, 'sol': 0.1}, book)
+    assert 'exact-input' in fw.fill_error({'side': 'sell', 'mint': 'M', 'atoms': 50}, {'atoms': -40, 'decimals': 0, 'sol': 0.1}, book)
+    assert 'exact-input' in fw.fill_error({'side': 'sell', 'mint': 'M', 'atoms': 50}, {'atoms': -60, 'decimals': 0, 'sol': 0.1}, book)
+    assert 'decimals' in fw.fill_error({'side': 'sell', 'mint': 'M', 'atoms': 50}, {'atoms': -50, 'decimals': 6, 'sol': 0.1}, book)
+
+
+def test_confirmed_wallet_shortages_are_detected_before_more_trading():
+    books = {'a': {'sol': 0.2, 'bankSol': 0.1}, 'b': {'sol': 0.3, 'bankSol': 0}}
+    assert fw.reconcile_sol(books={'a': books['a']}, wallet_sol=0.3) is None
+    assert fw.reconcile_sol(0.59, books) == {'booked': 0.6, 'held': 0.59}
+
+
 def test_apply_fill_books_entry_and_fees_apart():
     book = fw.new_book(100, 100.0, 0)    # 1 SOL
     order = {'side': 'buy', 'mint': 'M', 'pair': 'pm', 'symbol': 'M'}
     b, r = fw.apply_fill(book, order, {'atoms': 20_000_000, 'decimals': 6, 'sol': -0.2, 'feeSol': 0.00001}, 100.0)
     assert b['legs']['M']['atoms'] == 20_000_000 and abs(b['legs']['M']['entryPx'] - 1.0) < 1e-9 and abs(b['sol'] - 0.8) < 1e-9
     assert b['feesUsd'] == 0.001 and r['px'] == 1.0
-    b2, _ = fw.apply_fill(b, {**order, 'side': 'sell'}, {'atoms': -20_000_000, 'decimals': 6, 'sol': 0.25, 'feeSol': 0.00001}, 100.0)
+    b2, sold = fw.apply_fill(b, {**order, 'side': 'sell'}, {'atoms': -20_000_000, 'decimals': 6, 'sol': 0.25, 'feeSol': 0.00001}, 100.0)
     assert 'M' not in b2['legs'] and abs(b2['sol'] - 1.05) < 1e-9
+    assert sold['sol'] == 0.25
 
 
 def test_sync_card_shows_true_units_entries_and_cash():
@@ -88,6 +106,13 @@ def test_sync_card_shows_true_units_entries_and_cash():
 def test_bank_moves_payouts_out_of_play():
     b = fw.bank({'sol': 1.0, 'bankUsd': 0}, 25, 100.0)
     assert b['sol'] == 0.75 and b['bankSol'] == 0.25 and fw.bank(b, 25, 100.0) == b
+
+
+def test_bank_marks_only_proceeds_actually_segregated_then_finishes_after_the_sell():
+    before_sell = fw.bank({'sol': 0.01, 'bankSol': 0, 'bankUsd': 0}, 5, 100)
+    assert before_sell == {'sol': 0.0, 'bankSol': 0.01, 'bankUsd': 1.0}
+    after_sell = fw.bank({**before_sell, 'sol': 0.04}, 5, 100)
+    assert after_sell == {'sol': 0.0, 'bankSol': 0.05, 'bankUsd': 5.0}
 
 
 def test_free_sol_keeps_reserve_and_card_books():
@@ -119,6 +144,17 @@ def test_totals_and_topup_resets_a_new_run():
     assert [l['mint'] for l in first['legs']] == ['M', 'N'] and first['phase'] == 'degen' and first['lastRotateAt'] == 7   # same coins + mechanics
     assert abs(sum(l['units'] * {'pm': 1, 'pn': 2}[l['pairAddress']] for l in first['legs']) - 20) < 1e-9                  # scaled to the $
     assert first['startUsd'] == 20 and first['takenUsd'] == 0 and first['rounds'] == 0 and first['real'] and first['runs'][-1]['paper']   # time + P&L restart
+
+
+def test_real_topup_run_baseline_uses_confirmed_book_value_not_stale_card_value():
+    stale = card([leg('M', 'pm', 0.1, 1.0)], startUsd=1.39, real=True, walletUsd=0)
+    up = fw.topup_card(stale, 1.0, {'pm': 1.0}, 100, current_usd=6.91)
+    assert up['startUsd'] == 7.91 and up['runs'][-1]['endUsd'] == 6.91 and up['realBaselineAt'] == 100
+
+
+def test_legacy_real_card_never_reports_its_old_paper_start_as_live_money_return():
+    assert fw.real_run_start({'startUsd': 1.39, 'real': True}, {'fundedUsd': 6}) == 6
+    assert fw.real_run_start({'startUsd': 7.91, 'realBaselineAt': 100}, {'fundedUsd': 7}) == 7.91
 
 
 def test_paper_status_shows_each_coin_at_the_funded_amount():
@@ -218,6 +254,22 @@ def test_trimmed_sol_anchor_keeps_its_true_cost():
     c = fw.sync_card(card, {'sol': 0.03, 'legs': {}}, {'S': 100, 'R': 0.002}, 100)
     sol = c['legs'][0]
     assert abs(sol['costUsd'] - 1.5) < 1e-6   # half the SOL left → half the cost, so SOL reads ~0%, never −50%
+
+
+def test_zeroed_sol_anchor_restores_from_confirmed_card_cash_without_a_swap():
+    card = {'rounds': 40, 'legs': [{'mint': fw.SOL_MINT, 'pairAddress': 'S', 'symbol': 'SOL', 'units': 0.0, 'entry': 100, 'costUsd': 0},
+                                    {'mint': 'A', 'pairAddress': 'A', 'symbol': 'A', 'units': 1, 'entry': 1},
+                                    {'mint': 'B', 'pairAddress': 'B', 'symbol': 'B', 'units': 1, 'entry': 1},
+                                    {'mint': 'C', 'pairAddress': 'C', 'symbol': 'C', 'units': 1, 'entry': 1}]}
+    out = fw.sync_card(card, {'sol': 0.04, 'legs': {}}, {'S': 100, 'A': 1, 'B': 1, 'C': 1}, 100)
+    sol = out['legs'][0]
+    assert sol['units'] == 0.01 and out['cash'] == 3.0 and not sol.get('buying') and not sol.get('wantUnits')
+    orders = fw.orders(
+        'safe', out, {'sol': 0.04, 'legs': {}},
+        {'S': 100, 'A': 1, 'B': 1, 'C': 1}, 100,
+        {**fw.DEFAULT_CFG, 'armed': True}, 1,
+    )
+    assert not [order for order in orders if order['mint'] == fw.SOL_MINT]
 
 
 def test_real_buys_skip_thin_pools_but_sells_pass():
@@ -374,3 +426,37 @@ def test_repeat_bench_doubles_up_to_a_day():
     for t in range(n):
         b, out = fw.note_miss(b, 'P', 5000.0 + t, 'again')
     assert b['benched']['P']['times'] == 2 and b['benched']['P']['until'] == 5000 + n - 1 + 2 * fw.BENCH_SEC
+
+
+def test_unconfirmed_keeper_transaction_keeps_the_pending_lock(monkeypatch):
+    import asyncio
+    import reputation_service as rs
+    class Http:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+    async def absent(*a, **k): return None
+    monkeypatch.setattr(rs.httpx, 'AsyncClient', Http)
+    monkeypatch.setattr(rs, '_rpc', absent)
+    pending = {'side': 'sell', 'mint': 'M', 'atoms': 100, 'sig': 'late', 'sentAt': 1, 'usd': 1}
+    book = {'pending': pending, 'legs': {'M': {'atoms': 100, 'decimals': 0}}}
+    out = asyncio.run(rs._fw_resolve('safe', book, {'address': 'OWNER'}, 100, wait=0))
+    assert out == book and out['pending']['sig'] == 'late' and out['legs']['M']['atoms'] == 100
+
+
+def test_execute_never_overwrites_an_existing_pending_signature(monkeypatch):
+    import asyncio
+    import reputation_service as rs
+    async def forbidden(*a, **k):
+        raise AssertionError('an in-flight card must not quote or submit another order')
+    monkeypatch.setattr(rs, '_fw_quote', forbidden)
+    book = {'pending': {'sig': 'first'}}
+    out = asyncio.run(rs._fw_execute('safe', {'side': 'buy', 'mint': 'M'}, book, {}, 100, 1e6))
+    assert out is book and out['pending']['sig'] == 'first'
+
+
+def test_secure_quote_refusals_are_attributed_to_the_card_for_benching():
+    import inspect
+    import reputation_service as rs
+    src = inspect.getsource(rs._fw_execute)
+    assert "'card': tid" in src
