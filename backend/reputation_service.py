@@ -5383,7 +5383,7 @@ async def _prime_view():
 @app.get('/api/reputation/fuses/prime')
 async def fuse_prime():
     """⭐ Arena Prime cards (paper, fully auto) with every automation event + the config they run."""
-    return {'cards': await _prime_view(), 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner')}
+    return {'cards': await _prime_view(), 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner')}
 
 
 @app.post('/api/reputation/admin/arena/prime')

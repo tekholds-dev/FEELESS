@@ -158,6 +158,46 @@ export function PrimeShowcase() {
 }
 
 // 💵 Creator / HQ wallets: FEELESS's REAL-money tier cards right in Fuse › My cards — live card, real book, every swap with its tx.
+
+// ⚙ Edit a REAL tier card's configs in place (owner). Engine settings save to the tier engine; a locked tier is re-locked with them.
+const EDIT = [
+  ['rotateHours', '⏱ Round clock', [[0.08, '5m'], [0.25, '15m'], [0.5, '30m'], [1, '1h']], 'How long each round lasts'],
+  ['rotateConfirm', '⏳ Patience', [[1, '1'], [2, '2'], [3, '3'], [4, '4']], 'Losing rounds in a row before a coin may be swapped (more = less churn, fewer fees)'],
+  ['rotateMinDrop', '📉 Swap only below', [[5, '−5%'], [10, '−10%'], [15, '−15%'], [20, '−20%']], 'A coin is swapped only when it is at least this far down'],
+  ['minHoldMins', '🔒 Min hold', [[15, '15m'], [30, '30m'], [60, '1h'], [120, '2h']], 'Every new coin is held at least this long'],
+  ['cycleEvery', '🧩 Re-shape every', [[3, '3'], [6, '6'], [12, '12']], 'Rounds between shape changes'],
+  ['slMode', '🛑 On a stop', [['replace', '⇄ replace'], ['park', '🅿 park'], ['hold', '❄ hold']], 'Replace with the best coin · sell to SOL and rebuy later · keep holding'],
+  ['rescuePct', '🛟 Rescue at', [[30, '−30%'], [40, '−40%'], [50, '−50%'], [60, '−60%']], 'Card this far under its start → safest coins'],
+  ['autoBrain', '🧠 Auto-tune', [[true, 'on'], [false, 'off']], 'Let the sim brain adjust patience / drop (never below 3 on 5m rounds)'],
+];
+const CYCLES = [['safe', '🛡 safe'], ['classic', 'classic'], ['adaptive', 'adaptive'], ['press', '🔥 press'], ['rescue', '🛟 rescue'], ['auto', '🤖 auto'], ['off', 'off']];
+const WALLET = [['minLiqUsd', '💧 Real buys need pool', [[10000, '$10K'], [20000, '$20K'], [50000, '$50K'], [100000, '$100K']], 'Thinner coins stay paper-only (safer = higher)'],
+  ['slippageBps', '↔ Slippage', [[100, '1%'], [150, '1.5%'], [200, '2%'], [300, '3%']], 'Max price move accepted per swap'],
+  ['minOrderUsd', '🪙 Min buy', [[0.25, '$0.25'], [0.5, '$0.50'], [1, '$1']], 'Smallest single real swap']];
+function CardEditor({ c, cfg, keeper, locked, call }) {
+  const [busy, setBusy] = useState(false);
+  const save = async (patch, wallet) => {
+    setBusy(true);
+    try {
+      if (wallet) await call('/admin/fuse-wallet/cfg', { method: 'POST', body: JSON.stringify(patch) });
+      else {
+        await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ cfg: patch }) });
+        if (locked) await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ lock: c.tpl, on: true }) });
+      }
+      toast.success('Saved — applies from the next tick'); window.dispatchEvent(new Event('feeless:prime'));
+    } catch (e) { toast.error(e.message); } finally { setBusy(false); }
+  };
+  const seg = (key, label, opts, tip, cur, wallet) => <div key={key} className="ce-row" data-tip={tip}><small>{label}</small>
+    <div className="m-seg">{opts.map(([v, t]) => <button key={String(v)} type="button" disabled={busy} className={String(cur) === String(v) ? 'active' : ''} aria-pressed={String(cur) === String(v)} onClick={() => save({ [key]: v }, wallet)}>{t}</button>)}</div></div>;
+  return <details className="hrt-edit" data-testid="card-editor"><summary>⚙ Edit card {locked ? '· 🔒 locked tier (edits re-lock it)' : ''}</summary>
+    <div className="ce-grid">
+      {EDIT.map(([k, l, o, t]) => seg(k, l, o, t, k === 'rotateHours' ? (o.find(x => Math.abs(x[0] - (cfg?.[k] || 0)) < 0.02) || [cfg?.[k]])[0] : cfg?.[k]))}
+      <div className="ce-row" data-tip="The shapes this card cycles through"><small>🔄 Cycle</small><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
+      <div className="ce-row" data-tip="Freeze this tier's whole config so engine tunes never change it"><small>🔒 Lock tier</small><div className="m-seg">{[[true, 'locked'], [false, 'free']].map(([v, t]) => <button key={t} type="button" disabled={busy} className={!!locked === v ? 'active' : ''} onClick={() => { setBusy(true); call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ lock: c.tpl, on: v }) }).then(() => { toast.success(v ? '🔒 Locked' : 'Unlocked'); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy(false)); }}>{t}</button>)}</div></div>
+      {WALLET.map(([k, l, o, t]) => seg(k, l, o, t, keeper?.[k], true))}
+    </div><small className="m-dim">Engine settings are shared by the tiers that aren't locked. Wallet settings cover every real buy.</small></details>;
+}
+
 export function HqRealCards({ addr }) {
   const [owner, setOwner] = useState(false);
   useEffect(() => { if (!addr) return; fetch(apiUrl(`/api/reputation/admin/is-admin/${addr}`)).then(r => r.json()).then(d => setOwner(!!(d.owner || d.admin))).catch(() => {}); }, [addr]);
@@ -192,6 +232,7 @@ export function HqRealCards({ addr }) {
             [`🔒 hold ≥ ${d.cfg?.minHoldMins || 0}m`, 'Every new coin is held at least this long'], [`🔄 ${c.cycleMode || 'off'} · ${c.phase || '—'}`, 'Cycle and the shape it is in now'], [`🧩 re-shape every ${d.cfg?.cycleEvery || 6} rounds`, 'How often the card changes shape'],
             [`🛑 stops: ${d.cfg?.slMode || 'replace'}`, 'What happens when a coin hits its stop'], [`🛟 rescue at −${d.cfg?.rescuePct || 50}%`, 'Card this far under its start → safest coins'], [`💧 real buys need $${((k.minLiqUsd || 0) / 1000).toFixed(0)}K pool`, 'Thinner coins stay paper-only'],
             [`🪙 min buy $${(k.minOrderUsd || 0).toFixed(2)} · max $${k.maxSwapUsd || 0}`, 'Smallest / largest single real swap'], [`↔ slippage ${((k.slippageBps || 0) / 100).toFixed(1)}%`, 'Retries add a little, never past 3%']].map(([t2, tip]) => <span key={t2} className="m-chip" data-tip={tip}>{t2}</span>)}</div>
+          <CardEditor c={c} cfg={d.locks?.[c.tpl] ? { ...d.cfg, ...(d.lockCfg?.[c.tpl] || {}) } : d.cfg} keeper={k} locked={!!d.locks?.[c.tpl]} call={call} />
           <div className="hrt-acts">
             <button type="button" className="m-btn" disabled={!!busy || k.selling} onClick={() => act(c.tpl, k.halt ? 'resume' : 'halt')} data-tip={k.halt ? 'Keeper trades again' : 'Keeper stops trading this card (coins stay)'}>{k.halt ? '▶ Resume' : '⏸ Pause'}</button>
             <span className="hrt-top-up"><input className="m-input" type="number" min="1" step="1" placeholder="$" value={amt} onChange={e => setAmt(e.target.value)} aria-label="Top up amount" />

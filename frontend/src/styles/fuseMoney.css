@@ -166,6 +166,12 @@ body.theme-day .ctab { background: #fff; border-color: #d8e2dc; }
 .hrt-coins .hrt-buy { grid-column: 2 / -1; color: var(--gold); text-align: right; }
 .hrt-fail { color: var(--gold); font-size: 11px; }
 .hrt-cfg { display: flex; flex-wrap: wrap; gap: 4px; } .hrt-cfg .m-chip { font-size: 10px; }
+.hrt-edit { border: 1px solid var(--m-line); border-radius: 10px; padding: 6px 10px; } .hrt-edit summary { cursor: pointer; font-family: var(--m-mono); font-size: 11px; letter-spacing: .1em; color: var(--m-accent); }
+.hrt-edit summary:hover, .hrt-edit summary:focus-visible { color: #fff; outline: none; }
+.hrt-edit[open] .ce-grid { animation: hrtIn .18s ease-out; } @keyframes hrtIn { from { opacity: 0; transform: translateY(-4px); } }
+.ce-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; margin: 8px 0; }
+.ce-row { display: grid; gap: 3px; } .ce-row small { font-family: var(--m-mono); font-size: 9.5px; letter-spacing: .1em; color: var(--m-dim); text-transform: uppercase; }
+.ce-row .m-seg { flex-wrap: wrap; }
 .hrt-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .hrt-top-up { display: inline-flex; gap: 4px; } .hrt-top-up .m-input { width: 70px; }
 .fcd-legs .fcd-leg em.fcd-buying { color: var(--gold); }
 .hq-real .prime-txs i { font-style: normal; font-size: 10px; }
@@ -227,6 +233,6 @@ body.theme-day .ar-guide li { background: #fff; border-color: #d8e2dc; } body.th
 @media (prefers-reduced-motion: reduce) { .ar-guide li { animation: none; } }
 .prime-record { display: block; font-family: var(--m-mono); font-size: 10px; color: var(--m-dim); text-align: center; }
 @media (max-width: 640px) { .hq-real { grid-template-columns: 1fr; justify-items: center; } .hq-real-track { width: 100%; } .hrt-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (prefers-reduced-motion: reduce) { .hrt-state.is-busy { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .hrt-state.is-busy, .hrt-edit[open] .ce-grid { animation: none; } }
 body.fx-lite .hrt-state.is-busy { animation: none; }
 body.theme-day .hrt-kpis > span { background: #fff; border-color: #d8e2dc; }
