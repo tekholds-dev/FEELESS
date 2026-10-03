@@ -5337,6 +5337,8 @@ async def _prime_tick_inner(now):
         sol_now = await _sol_usd_live()
         for v in cards.values():
             if sol_now and v.get('solStartFor') != v.get('startUsd'):
+                # a run already underway when first seen has no true SOL baseline → no comparison until its next run starts
+                v['solLate'] = 'solStart' not in v
                 v['solStart'], v['solStartFor'] = sol_now, v.get('startUsd')
     except Exception:
         pass
@@ -5393,7 +5395,7 @@ async def _prime_view():
     except Exception:
         sol_now = 0.0
     def _vs(c, sm):   # card % minus what simply holding SOL did over the same run
-        if not (sol_now and _fuse._f(c.get('solStart'))):
+        if not (sol_now and _fuse._f(c.get('solStart'))) or c.get('solLate', True):
             return {}
         hold = (sol_now / _fuse._f(c['solStart']) - 1) * 100
         return {'holdSolPct': round(hold, 2), 'vsSolPct': round(_fuse._f(sm.get('pnlPct')) - hold, 2)}
