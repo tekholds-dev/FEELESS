@@ -5396,12 +5396,12 @@ async def _prime_tick_inner(now):
         mine = {l.get('mint') for l in (cur or {}).get('legs') or []}
         p_t = [x for x in p_t if x.get('mint') not in taken or x.get('mint') in mine]
         r_t = [x for x in r_t if x.get('mint') not in taken or x.get('mint') in mine]
-        cool = _prime.cooling(cur, now, cfg_t['rotateHours']) - mine   # 🧊 coins this card just dropped sit out a few rounds → new coins flow in
+        cool = _prime.cooling(cur, now, cfg_t['rotateHours'], px) - mine   # 🧊 coins this card just dropped sit out a few rounds → new coins flow in
         if cool:
             p_c, r_c = [x for x in p_t if x.get('mint') not in cool], [x for x in r_t if x.get('mint') not in cool]
             p_t, r_t = (p_c if len(p_c) >= 2 else p_t), (r_c if len(r_c) >= 3 else r_t)   # only when enough other coins exist
         cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, anchors, mom, liqs) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, anchors)
-        cards[tid] = _prime.note_dropped(cur, cards[tid], now, cfg_t['rotateHours'])
+        cards[tid] = _prime.note_dropped(cur, cards[tid], now, cfg_t['rotateHours'], px)
         taken |= {l.get('mint') for l in (cards[tid] or {}).get('legs') or [] if l.get('role') != 'anchor'}
     cards = {k: v for k, v in cards.items() if v}
     try:   # 📏 vs holding SOL: remember SOL's price when each run starts (a new run = a new startUsd)
@@ -6757,15 +6757,10 @@ async def _pg_sim_tick(now):
     return len(res)
 
 
-async def _engine_self_fix(now, sim):
-    """🔧 The engine fixes itself from the sim brain (tier cfg `autoBrain`, default on; HQ's clock is never touched):
-      • 🌧 runner weather — the last 24h of sims averaging ≤ −5% → strict runners (only coins with real flow + buyers get in);
-      • the brain's rotate-only-losers threshold + patience (rounds in a row) are applied once 30+ sims back each value.
-    Every change is audited + logged as an event on the tier cards."""
-    cfg = _prime_cfg()
+def _brain_patch(cfg, s24, best):
+    """What the sim brain would change on ONE config (paper or the real card's own); {} when its 🧠 switch is off."""
     if not cfg.get('autoBrain', True):
-        return None
-    s24, best = sim.get('s24') or {}, sim.get('best') or {}
+        return {}
     patch = {}
     bad = s24.get('n', 0) >= 100 and _fuse._f(s24.get('avgPct')) <= -5
     if bad != bool(cfg.get('strictRunners')):
@@ -6777,16 +6772,35 @@ async def _engine_self_fix(now, sim):
             v = max(floor_confirm, cast(b['value'])) if key == 'rotateConfirm' else cast(b['value'])
             if v != cfg.get(key):
                 patch[key] = v
-    if not patch:
-        return None
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {}); pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), **patch})
-        why = ' · '.join(f'{k} → {v}' for k, v in patch.items())
-        for c in (pr.get('cards') or {}).values():
-            c.setdefault('events', []).append({'at': now, 'kind': 'brain', 'why': f'🧠 engine self-fix from {s24.get("n", 0)} sims: {why}'})
-        _json_save(FUSE_HQ_PATH, d)
-    ad = _admin_load(); _audit(ad, 'engine', 'self-fix', json.dumps(patch)); _admin_save(ad)
     return patch
+
+
+async def _engine_self_fix(now, sim):
+    """🔧 The engine fixes itself from the sim brain (cfg `autoBrain`, default on; the clock is never touched):
+      • 🌧 runner weather — the last 24h of sims averaging ≤ −5% → strict runners (only coins with real flow + buyers get in);
+      • the brain's rotate-only-losers threshold + patience (rounds in a row) are applied once 30+ sims back each value.
+    Paper and the 💵 real card are tuned SEPARATELY, each only if its own 🧠 switch is on. Audited + a `brain` event only on cards it changed."""
+    s24, best = sim.get('s24') or {}, sim.get('best') or {}
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        paper = _prime.clean_cfg(pr.get('cfg') or {})
+        real = _prime.clean_cfg(pr['realCfg']) if isinstance(pr.get('realCfg'), dict) and pr.get('realCfg') else None
+        pp = _brain_patch(paper, s24, best)
+        rp = _brain_patch(real, s24, best) if real else {}
+        if not pp and not rp:
+            return None
+        if pp:
+            pr['cfg'] = _prime.clean_cfg({**paper, **pp})
+        if rp:
+            pr['realCfg'] = _prime.clean_cfg({**real, **rp})
+        for c in (pr.get('cards') or {}).values():
+            patch = (rp if real else pp) if c.get('real') else pp
+            if patch:
+                why = ' · '.join(f'{k} → {v}' for k, v in patch.items())
+                c.setdefault('events', []).append({'at': now, 'kind': 'brain', 'why': f'🧠 engine self-fix from {s24.get("n", 0)} sims: {why}'})
+        _json_save(FUSE_HQ_PATH, d)
+    ad = _admin_load(); _audit(ad, 'engine', 'self-fix', json.dumps({'paper': pp, 'real': rp})); _admin_save(ad)
+    return {**pp, **({'real': rp} if rp else {})}
 
 
 @app.get('/api/reputation/admin/fuses/sim')

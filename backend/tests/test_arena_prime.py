@@ -701,6 +701,10 @@ def test_dropped_coins_cool_down_then_come_back():
     assert ap.cooling(after, 1000.0 + 901, 5 / 60) == set()
     later = ap.note_dropped(after, {**after}, 1000.0 + 2000, 5 / 60)
     assert 'A' not in later['cool']                                   # stale stamps are forgotten
+    lost = ap.note_dropped({'legs': [{'mint': 'X', 'pairAddress': 'PX', 'role': 'runner', 'entry': 1.0}]}, {'legs': []}, 0.0, 5 / 60, {'PX': 0.7})
+    assert ap.cooling(lost, 5000.0, 5 / 60, {'PX': 0.6}) == {'X'}      # 🩸 sold at a loss and still falling → stays out
+    assert ap.cooling(lost, 5000.0, 5 / 60, {'PX': 0.75}) == set()     # back above its exit → may return
+    assert ap.cooling(lost, 90000.0, 5 / 60, {'PX': 0.1}) == set()     # max 24h
 
 
 def test_real_card_config_is_separate_from_hq_paper_config(monkeypatch):

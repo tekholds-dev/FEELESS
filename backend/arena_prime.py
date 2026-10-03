@@ -112,22 +112,42 @@ CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.08, 48), 'rotateCount': 
 
 
 COOL_ROUNDS = 3   # 🧊 a coin that just LEFT a card isn't dealt back into it for 3 rounds (min 15 min) — fresh coins flow in, no buy-back loop
+LOSS_COOL_SEC = 86400   # 🩸 a coin that left at a LOSS stays out until its price is back above where it was sold (max 24h) — never re-buy a crash
 
 
-def cooling(card, now, rotate_hours):
-    """Mints this card dropped recently (still cooling down)."""
+def _stamp(v):
+    return v if isinstance(v, dict) else {'at': _f(v)}
+
+
+def cooling(card, now, rotate_hours, prices=None):
+    """Mints this card dropped recently (still cooling down), plus loss exits still under their exit price."""
     win = max(900.0, COOL_ROUNDS * _f(rotate_hours) * 3600)
-    return {m for m, t in ((card or {}).get('cool') or {}).items() if now - _f(t) < win}
+    out = set()
+    for m, v in ((card or {}).get('cool') or {}).items():
+        s = _stamp(v); age = now - _f(s.get('at'))
+        if age < win:
+            out.add(m)
+        elif s.get('loss') and age < LOSS_COOL_SEC and _f(s.get('px')) > 0:
+            px = _f((prices or {}).get(s.get('pair')))
+            if not px or px <= _f(s['px']):
+                out.add(m)
+    return out
 
 
-def note_dropped(before, after, now, rotate_hours):
-    """Stamp every coin that left the card this tick (sold / rotated / re-shaped out); forget stamps past the window."""
-    win = max(900.0, COOL_ROUNDS * _f(rotate_hours) * 3600)
+def note_dropped(before, after, now, rotate_hours, prices=None):
+    """Stamp every coin that left the card this tick (sold / rotated / re-shaped out) with its exit price + whether it lost;
+    forget stamps once they can't cool anything any more."""
     if not after:
         return after
-    gone = {l['mint'] for l in (before or {}).get('legs') or [] if l.get('role') != 'anchor'} - {l['mint'] for l in after.get('legs') or []}
-    cool = {m: t for m, t in (after.get('cool') or {}).items() if now - _f(t) < win}
-    cool.update({m: now for m in gone})
+    keep = max(900.0, COOL_ROUNDS * _f(rotate_hours) * 3600)
+    held = {l['mint'] for l in after.get('legs') or []}
+    cool = {m: _stamp(v) for m, v in (after.get('cool') or {}).items()}
+    cool = {m: v for m, v in cool.items() if now - _f(v.get('at')) < (LOSS_COOL_SEC if v.get('loss') else keep)}
+    for l in (before or {}).get('legs') or []:
+        if l.get('role') == 'anchor' or l['mint'] in held:
+            continue
+        px = _f((prices or {}).get(l.get('pairAddress'))) or _f(l.get('entry'))
+        cool[l['mint']] = {'at': now, 'px': px, 'pair': l.get('pairAddress'), 'loss': bool(_f(l.get('entry')) > 0 and px < _f(l['entry']))}
     return {**after, 'cool': cool}
 
 
