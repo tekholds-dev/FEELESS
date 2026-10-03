@@ -5544,7 +5544,14 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
                 _, why = _fw.check(row, cfg, [], now); _fw_record(d, {**row, 'status': 'skipped', 'err': why}); _fw_save(d)
         return book
     try:
-        q = await _fw_quote(order, cfg)
+        for attempt in range(3):   # 🔁 strong retry: a busy route gets fresh quotes, each with a little more slippage (≤ the 3% hard cap)
+            try:
+                q = await _fw_quote(order, {**cfg, 'slippageBps': min(300, int(cfg['slippageBps']) + 75 * attempt)})
+                break
+            except HTTPException:
+                if attempt == 2:
+                    raise
+                await asyncio.sleep(1.5)
         row['impactPct'] = round(_fuse._f(q.get('priceImpactPct')) * 100, 3); row['quoteOut'] = q.get('outAmount')
     except HTTPException as e:
         row.update(status='skipped', err=str(e.detail)[:140])
@@ -5559,9 +5566,17 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
             d = _fw_load(); _fw_record(d, row); _fw_save(d)
         return book
     try:
-        swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
-                                                            'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': 50000, 'priorityLevel': 'high'}}})
-        signed = await _fw_sign(cfg, swap.get('swapTransaction'), f"FEELESS {tid} {order['side']} {order.get('symbol')}")
+        for attempt in range(3):   # build + sign retried too (Jupiter / Circle blips); nothing is sent until a signed tx exists
+            try:
+                swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
+                                                                    'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': 50000 * (attempt + 1), 'priorityLevel': 'veryHigh' if attempt else 'high'}}})
+                signed = await _fw_sign(cfg, swap.get('swapTransaction'), f"FEELESS {tid} {order['side']} {order.get('symbol')}")
+                break
+            except HTTPException:
+                if attempt == 2:
+                    raise
+                await asyncio.sleep(1.5)
+                q = await _fw_quote(order, cfg)   # fresh quote for the rebuild
     except HTTPException as e:
         row.update(status='failed', err=f'build/sign: {str(e.detail)[:120]}')
         async with _fw_lock:
