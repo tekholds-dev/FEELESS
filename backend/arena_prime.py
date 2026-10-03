@@ -333,6 +333,10 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         px = _f(prices.get(l['pairAddress']))
         if px <= 0 or l['entry'] <= 0:
             continue
+        if not l.get('priced') and l.get('at') and now - _f(l['at']) < 180:   # 🎯 first tick of a NEW coin: entry = the live routing price (a DexScreener
+            l['units'] = _f(l.get('costUsd')) / px if px > 0 else l['units']   # gap once showed −87% on tick one and stopped it out at once)
+            l['entry'] = l['firstEntry'] = px
+        l['priced'] = True
         g = (px / l['entry'] - 1) * 100
         # 🏇 RUNNER RIDE: a coin up ≥ +150% is frozen through rounds (no TP, no stop, no rotation) and labelled a runner while it keeps
         # making highs; it is sold only when it falls 30% from its NEW high. (A 200× never gets cut at +150%.)

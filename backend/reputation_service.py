@@ -5488,6 +5488,14 @@ async def fuse_prime_admin(request: Request):
     rep = body.get('replace') or {}
     if rep.get('tpl') in _prime.TEMPLATES and rep.get('pairAddress'):   # ⇄ one coin on one Prime card
         pools, runners, anchors = await _prime_candidates()
+        # ⇄ a manual swap picks only BUYABLE coins (same gates as the engine): pool ≥ the real-buy floor, not benched, not on another tier
+        floor = _fw.clean_cfg(_fw_load().get('cfg') or {})['minLiqUsd']
+        bench = set().union(*[_fw.benched(b, time.time()) for b in (_fw_load().get('books') or {}).values()] or [set()])
+        def _lq(x):
+            v = x.get('liquidity'); return _fuse._f(v.get('usd') if isinstance(v, dict) else v) or _fuse._f(x.get('liq')) or _fuse._f(x.get('liquidityUsd'))
+        other = {l.get('mint') for t, cc in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).items() if t != rep['tpl'] for l in cc.get('legs') or [] if l.get('role') != 'anchor'}
+        ok_ = lambda xs: [x for x in xs if _lq(x) >= floor and x.get('mint') not in bench]
+        pools, runners = ok_(pools), sorted(ok_(runners), key=lambda x: x.get('mint') in other)
         async with _admin_lock:
             d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
             card = cards.get(rep['tpl'])

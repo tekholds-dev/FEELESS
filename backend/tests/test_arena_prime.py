@@ -502,3 +502,15 @@ def test_cycle_peek_shows_now_next_and_when():
     fix = ap.cycle_peek({'tpl': 'balanced', 'rounds': 4, 'phase': 'safest', 'cycleFix': 'rescue'}, cfg)
     assert fix['inRounds'] == 1 and fix['fix'] == 'rescue'
     assert ap.cycle_peek({'tpl': 'balanced', 'rounds': 1}, ap.clean_cfg({'cycles': {'balanced': 'off'}}))['next'] is None
+
+
+def test_new_coin_entry_rebases_to_the_live_price_on_its_first_tick():
+    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 99, 'cycles': {'degen': 'off'}})
+    l = {'mint': 'H', 'pairAddress': 'PH', 'symbol': 'H', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0, 'at': 100}
+    card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
+            'events': [], 'startUsd': 10.0, 'legs': [l]}
+    c = ap.tick(card, {'PH': 0.13}, [], [], cfg, 130, liqs={'PH': 1e12})   # a source gap: −87% on tick one
+    leg = c['legs'][0]
+    assert leg['mint'] == 'H' and leg['entry'] == 0.13 and abs(leg['units'] * 0.13 - 10.0) < 1e-6 and not any(e['kind'] == 'sl' for e in c['events'])
+    c = ap.tick(c, {'PH': 0.065}, [], [], cfg, 500, liqs={'PH': 1e12})    # a REAL −50% later still counts
+    assert c['legs'][0].get('entry') != 0.065
