@@ -568,8 +568,9 @@ def note_miss(book, mint, now, reason=''):
         m = {'n': 0, 'first': now}
     m = {**m, 'n': int(m['n']) + 1, 'why': reason[:80]}
     b['misses'][mint] = m
-    if m['n'] >= MISS_LIMIT:
-        b['benched'][mint] = {'until': now + BENCH_SEC, 'why': reason[:80]}
+    if m['n'] >= MISS_LIMIT:   # each repeat bench doubles (1h → 2h → … ≤ 24h): a coin that keeps failing stops coming back
+        times = int((book.get('benched') or {}).get(mint, {}).get('times') or 0) + 1
+        b['benched'][mint] = {'until': now + min(86400, BENCH_SEC * 2 ** (times - 1)), 'why': reason[:80], 'times': times}
         b['misses'].pop(mint, None)
         return b, True
     return b, False

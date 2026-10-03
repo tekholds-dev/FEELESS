@@ -364,3 +364,13 @@ def test_strays_only_adopts_keeper_coins_no_card_books():
     assert fw.strays(toks, {}, {'safe': {**books['safe'], 'pending': {'id': 1}}}, led, 1000.0) == []   # an order in flight
     b = fw.adopt(books['safe'], out[0])
     assert b['legs']['WDYT']['costUsd'] == 0.0 and b['legs']['WDYT']['recovered'] and b['legs']['BOOKED'] == {'atoms': 5}
+
+
+def test_repeat_bench_doubles_up_to_a_day():
+    b, n = {}, fw.MISS_LIMIT
+    for t in range(n):
+        b, out = fw.note_miss(b, 'P', 0.0 + t, 'buy price 6% above market')
+    assert out and b['benched']['P']['until'] == n - 1 + fw.BENCH_SEC and b['benched']['P']['times'] == 1
+    for t in range(n):
+        b, out = fw.note_miss(b, 'P', 5000.0 + t, 'again')
+    assert b['benched']['P']['times'] == 2 and b['benched']['P']['until'] == 5000 + n - 1 + 2 * fw.BENCH_SEC
