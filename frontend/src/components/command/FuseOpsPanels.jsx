@@ -280,3 +280,20 @@ export function FeeCatBrain() {
     {moved.length > 0 && <div className="fc-moved">{moved.map(([k, v]) => <span key={k} className="m-chip" data-tip={`default ${v.default}`}>{k} {v.default} → <b>{v.now}</b></span>)}</div>}
     {b.log?.length > 0 && <ul className="fc-log">{b.log.slice(0, 4).map((l, i) => <li key={i}><small className="m-dim">{new Date(l.at * 1000).toLocaleString()}</small> {l.symbol ? `$${l.symbol} · ` : ''}{l.note}</li>)}</ul>}</div>;
 }
+
+// 🧠 Background playground brain: 300 sim cards every ~15 min over the real recorded price paths — what wins, what loses, apply the pick.
+export function SimBrain({ call }) {
+  const [d, setD] = useState(null);
+  useEffect(() => { let alive = true; const load = () => call('/admin/fuses/sim').then(x => alive && setD(x)).catch(() => {}); load(); const t = setInterval(load, 60000); return () => { alive = false; clearInterval(t); }; }, [call]);
+  if (!d?.summary) return <section className="m-card"><span className="m-label">🧠 SIM BRAIN</span><small className="m-dim">First 300 sims run within ~15 min of the engine starting.</small></section>;
+  const s = d.summary; const b = d.best || {};
+  const apply = () => call('/admin/fuses/sim/apply', { method: 'POST' }).then(x => toast.success(`Applied: ${JSON.stringify(x.applied)}`)).catch(e => toast.error(e.message));
+  return <section className="m-card m-live" data-testid="sim-brain"><span className="m-label">🧠 SIM BRAIN · {s.n} CARDS REPLAYED ON REAL PRICES · FEES INCLUDED</span>
+    <div className="fw-kpis"><span><small>AVG</small><b className={`m-num ${s.avgPct >= 0 ? 'm-pos' : 'm-neg'}`}>{s.avgPct}%</b><em>median {s.medianPct}%</em></span>
+      <span><small>ENDED UP</small><b className="m-num">{s.upPct}%</b><em>of sim cards</em></span><span><small>BEST · WORST</small><b className="m-num">{s.bestPct}% · {s.worstPct}%</b></span>
+      <span><small>24H · 6H</small><b className="m-num">{d.s24?.avgPct ?? '—'}% · {d.s6?.avgPct ?? '—'}%</b></span></div>
+    <div className="ccx-legend">{Object.entries(b).map(([t, v]) => <p key={t}><b>{{ clock: '⟳ Round clock', tp: '🎯 Take-profit', sl: '🛑 Stop', minDrop: '⇄ Rotate only coins down', hold: '🏇 Hold rule' }[t] || t} · {t === 'clock' ? `${v.value}m` : t === 'tp' ? `+${v.value}%` : t === 'sl' || t === 'minDrop' ? `−${v.value}%` : v.value === 'True' ? 'on' : 'off'}</b>
+      <span>best average {v.avgPct}% · {v.upPct}% of {v.n} sims ended up</span></p>)}</div>
+    <div className="m-row"><button type="button" className="m-btn primary m-go" onClick={apply} data-testid="sim-apply">🧠 Apply the brain's clock + rotation to the tier engine</button>
+      <small className="m-dim">updated {new Date(d.at * 1000).toLocaleTimeString()} · ranking only — it never trades</small></div></section>;
+}

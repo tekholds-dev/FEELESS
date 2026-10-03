@@ -165,3 +165,42 @@ body.fx-lite .ce-live { animation: none; } @media (prefers-reduced-motion: reduc
 body.fx-lite .bf-show { display: none; }
 @media (prefers-reduced-motion: reduce) { .bfs-sweep, .bfs-flash, .bfs-dot { animation: none; } .bfs-dot { opacity: 0; } }
 .bf-arena .bf-pair { z-index: 1; background: color-mix(in srgb, var(--m-bg) 72%, transparent); } body.theme-day .bf-arena .bf-pair { background: rgba(255,255,255,.9); }
+.ccx-pnl { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px; }
+.ccx-pnl > span { display: grid; gap: 2px; padding: 8px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: var(--m-surface); }
+.ccx-pnl small { font-family: var(--m-mono); font-size: 8.5px; letter-spacing: .12em; color: var(--m-dim); } .ccx-pnl b { font-size: 15px; } .ccx-pnl em { font-style: normal; font-size: 11px; color: var(--m-dim); }
+.ccx-pnl .m-num.fl-tick { font-size: 20px; }
+.ccx-rows { display: grid; gap: 2px; max-height: 260px; overflow-y: auto; scrollbar-width: thin; }
+.ccx-row { display: grid; grid-template-columns: minmax(80px, 1fr) minmax(90px, 1.2fr) minmax(110px, 1.4fr) 92px; gap: 8px; align-items: center; padding: 5px 4px; font-size: 12px; animation: fmIn .2s var(--m-ease) backwards; animation-delay: calc(var(--i, 0) * 40ms); }
+.ccx-row.is-head { font-family: var(--m-mono); font-size: 8.5px; letter-spacing: .1em; color: var(--m-dim); animation: none; }
+.ccx-row .m-num { font-size: inherit; } .ccx-row em { font-style: normal; text-align: right; } .ccx-row em small { opacity: .75; font-size: .85em; } .ccx-row > span { color: var(--m-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ccx-w { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; } .ccx-w > i { display: block; height: 5px; border-radius: 3px; background: var(--m-line); overflow: hidden; }
+.ccx-w > i > i { display: block; height: 100%; background: linear-gradient(90deg, #7a5cff, var(--m-accent)); transform-origin: left; }
+.ccx-legend { display: grid; gap: 4px; padding: 10px; border-radius: var(--m-r-sm); border: 1px dashed var(--m-line); }
+.ccx-legend p { margin: 0; display: grid; grid-template-columns: minmax(150px, auto) 1fr; gap: 8px; font-size: 11.5px; } .ccx-legend b { font-family: var(--m-mono); font-size: 11px; } .ccx-legend span { color: var(--m-dim); line-height: 1.45; }
+body.theme-day .ccx-pnl > span { background: #fff; border-color: #d8e2dc; }
+@media (prefers-reduced-motion: reduce) { .ccx-row { animation: none; } }
+@media (max-width: 640px) { .ccx-row { grid-template-columns: 1fr 1fr 80px; } .ccx-row > :nth-child(2) { display: none; } .ccx-legend p { grid-template-columns: 1fr; } }
+/* 🎬 battle show FX: damage numbers, hit shake, cheer bursts, lead change */
+.bf-corner { position: relative; }
+.bf-dmg { position: absolute; top: 18%; left: 50%; z-index: 5; font-family: var(--fz-font, var(--m-mono)); font-size: 20px; pointer-events: none; animation: bfDmg 1.4s ease-out forwards; }
+.bf-dmg.up { color: #19f58f; text-shadow: 0 0 12px #19f58f; } .bf-dmg.down { color: #ff8fa3; text-shadow: 0 0 12px #ff5a7a; }
+.bf-corner.is-shake .bf-c-card { animation: bfShake .45s cubic-bezier(.36, .07, .19, .97); }
+.bf-cheer-burst { position: absolute; left: 50%; top: 40%; z-index: 5; pointer-events: none; }
+.bf-cheer-burst i { position: absolute; font-style: normal; font-size: 20px; animation: bfBurst 1.1s ease-out forwards; --a: calc(var(--i) * 60deg); }
+.bf-cheer { font-size: 11px; padding: 4px 9px; }
+.bf-flipbanner { position: absolute; left: 50%; top: 8px; z-index: 6; transform: translateX(-50%); padding: 4px 12px; border-radius: 999px; background: #ffd56a; color: #1a1205; font-family: var(--fz-font, var(--m-mono)); font-size: 13px; letter-spacing: .06em; animation: bfFlip 4s ease-out forwards; }
+@keyframes bfDmg { from { opacity: 0; transform: translate(-50%, 10px) scale(.7); } 15% { opacity: 1; transform: translate(-50%, 0) scale(1.15); } to { opacity: 0; transform: translate(-50%, -60px) scale(1); } }
+@keyframes bfShake { 10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(4px); } 30%, 50%, 70% { transform: translateX(-6px); } 40%, 60% { transform: translateX(6px); } }
+@keyframes bfBurst { from { opacity: 1; transform: rotate(var(--a)) translateY(0) scale(.6); } to { opacity: 0; transform: rotate(var(--a)) translateY(-90px) scale(1.2); } }
+@keyframes bfFlip { 0% { opacity: 0; transform: translateX(-50%) scale(.6); } 10% { opacity: 1; transform: translateX(-50%) scale(1.1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) scale(1); } }
+body.fx-lite .bf-dmg, body.fx-lite .bf-cheer-burst, body.fx-lite .bf-flipbanner { animation-duration: .01s; }
+@media (prefers-reduced-motion: reduce) { .bf-dmg, .bf-cheer-burst i, .bf-flipbanner, .bf-corner.is-shake .bf-c-card { animation: none; } .bf-cheer-burst { display: none; } }
+.ar-guide summary { display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none; } .ar-guide summary::-webkit-details-marker { display: none; }
+.ar-guide summary:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.ar-guide ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; counter-reset: g; }
+.ar-guide li { display: grid; gap: 3px; padding: 10px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: var(--m-surface); font-size: 12px; animation: fmIn .2s var(--m-ease) both; }
+.ar-guide li b { font-size: 12.5px; } .ar-guide li span { color: var(--m-dim); line-height: 1.5; }
+.ar-jump { position: sticky; top: 0; z-index: 4; display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0; background: linear-gradient(180deg, var(--m-bg) 70%, transparent); }
+.ar-jump .m-btn { font-size: 11.5px; padding: 6px 12px; }
+body.theme-day .ar-guide li { background: #fff; border-color: #d8e2dc; } body.theme-day .ar-jump { background: linear-gradient(180deg, #f3f6f4 70%, transparent); }
+@media (prefers-reduced-motion: reduce) { .ar-guide li { animation: none; } }

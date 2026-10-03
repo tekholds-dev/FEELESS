@@ -5909,6 +5909,11 @@ async def _fuse_warm():
     if _fuse_warm_n['n'] % 12 == 1:   # ~5 min: refresh card holders' Fuse scores (feeds their trust score)
         holders = list({x['wallet'] for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or []})[:200]
         await asyncio.gather(*[_fuse_score(w, fresh=True) for w in holders], return_exceptions=True)
+    if _fuse_warm_n['n'] % 36 == 20:   # ~15 min: 🧠 300 background sim cards → the brain
+        try:
+            await _pg_sim_tick(time.time())
+        except Exception as e:
+            print('pg sim:', e)
     if _fuse_warm_n['n'] % 12 == 9:   # ~5 min: 📏 paper ⇄ real quotes (paper's fill model is checked against Jupiter)
         try:
             await _paper_quote_audit(time.time())
@@ -6278,6 +6283,50 @@ async def _pg_battle_tick(now):
     async with _admin_lock:
         d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['pgBattle'] = b; _json_save(RUNNERS_PATH, d)
     return len(results)
+
+
+import pg_sim as _pgs
+PG_SIM_PATH = DATA_DIR / 'pg_sim.json'   # its own file: never bloats runners.json
+
+
+async def _pg_sim_tick(now):
+    """🧠 Background playground: 300 sim cards (random clock / TP / SL / hold / rotate-only-losers) replayed over the REAL recorded
+    price paths of the last 24h and 6h, fees on every swap. The brain keeps the trait scores; HQ can apply its pick to the tier engine."""
+    paths = _json_load(RUNNERS_PATH, {}).get('paths') or {}
+    res24, res6 = await asyncio.to_thread(_pgs.run, paths, now, 200, 24), await asyncio.to_thread(_pgs.run, paths, now, 100, 6)
+    res = res24 + res6
+    if not res:
+        return 0
+    d = _json_load(PG_SIM_PATH, {})
+    score = _pgs.learn(res)
+    d.update(at=now, summary=_pgs.summary(res), s24=_pgs.summary(res24), s6=_pgs.summary(res6), score=score, best=_pgs.best(score),
+             history=((d.get('history') or []) + [{'at': now, **_pgs.summary(res)}])[-96:])
+    _json_save(PG_SIM_PATH, d)
+    return len(res)
+
+
+@app.get('/api/reputation/admin/fuses/sim')
+async def pg_sim_view(request: Request):
+    _require_admin(request)
+    return _json_load(PG_SIM_PATH, {})
+
+
+@app.post('/api/reputation/admin/fuses/sim/apply')
+async def pg_sim_apply(request: Request):
+    """Apply the brain's pick (round clock + rotate-only-losers threshold) to the tier engine. Audited."""
+    me = _require_admin(request)
+    b = (_json_load(PG_SIM_PATH, {}).get('best') or {})
+    patch = {}
+    if b.get('clock'):
+        patch['rotateHours'] = int(b['clock']['value']) / 60
+    if b.get('minDrop'):
+        patch['rotateMinDrop'] = float(b['minDrop']['value'])
+    if not patch:
+        raise HTTPException(400, 'The brain needs more sims first.')
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {}); pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), **patch}); _json_save(FUSE_HQ_PATH, d)
+    ad = _admin_load(); _audit(ad, me, 'sim-apply', json.dumps(patch)); _admin_save(ad)
+    return {'ok': True, 'applied': patch, 'cfg': pr['cfg']}
 
 
 @app.get('/api/reputation/fuses/dna/unique')

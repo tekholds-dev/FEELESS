@@ -718,10 +718,6 @@ body.theme-day .bf-prow { background: #fff; } body.theme-day .bf-champ { backgro
 body.theme-day .pg-pick.is-on { background: #6b2fd1; color: #fff; }
 /* ⚙ card config window + ⏭ up next + 🔮 calls + 👑 buy the champion */
 .ce.cc-cfg { width: min(520px, 94vw); } .ce.cc-cfg h3 { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.cc-cfg-chips { display: flex; flex-wrap: wrap; gap: 6px; } .cc-cfg-chips i { font: 600 11px var(--m-mono); font-style: normal; padding: 3px 9px; border-radius: 8px; border: 1px solid var(--m-line); background: var(--m-bg); }
-.cc-cfg-legs { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.cc-cfg-legs li { display: grid; grid-template-columns: minmax(90px, auto) minmax(0, 1fr) 44px; gap: 10px; align-items: center; animation: fpIn .25s var(--m-ease) backwards; animation-delay: calc(var(--i, 0) * 40ms); }
-.cc-cfg-w { height: 6px; border-radius: 6px; background: var(--m-line); overflow: hidden; } .cc-cfg-w > i { display: block; height: 100%; background: linear-gradient(90deg, #6b3cc9, var(--m-accent)); transform-origin: left; }
 .cc-cfg-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 button.bf-fighter { border: 0; background: none; padding: 0; cursor: pointer; } button.bf-fighter:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 3px; border-radius: 8px; }
 .bf-next { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -732,8 +728,8 @@ button.bf-fighter { border: 0; background: none; padding: 0; cursor: pointer; } 
 .bf-pacts { display: flex; gap: 4px; } .bf-pacts .m-btn { padding: 2px 8px; font-size: 11px; } .bf-call.is-on { background: #c08bff; color: #12061f; border-color: #c08bff; }
 .bf-champ { display: inline-flex; gap: 6px; align-items: center; } .bf-champ.is-reign { border-color: #f5c451; box-shadow: 0 0 18px -6px #f5c451; }
 .bf-buychamp { padding: 3px 10px; font-size: 11px; }
-body.fx-lite .bf-nextcard, body.fx-lite .cc-cfg-legs li { animation: none; } @media (prefers-reduced-motion: reduce) { .bf-nextcard, .cc-cfg-legs li { animation: none; } }
-body.theme-day .bf-nextcard, body.theme-day .cc-cfg-chips i { background: #fff; } body.theme-day .bf-call.is-on { background: #6b2fd1; color: #fff; }
+body.fx-lite .bf-nextcard { animation: none; } @media (prefers-reduced-motion: reduce) { .bf-nextcard { animation: none; } }
+body.theme-day .bf-nextcard { background: #fff; } body.theme-day .bf-call.is-on { background: #6b2fd1; color: #fff; }
 @media (max-width: 640px) { .bf-prow { grid-template-columns: 26px minmax(0, 1fr) auto auto; } .bf-prow .bf-br { display: none; } }
 /* 🎥 Battle arena v4: ONE arena box, a spotlight per fight (auto-cycles), the real cards in each corner with live-activity FX */
 .bf-arena { position: relative; overflow: hidden; border-radius: 18px; border: 1px solid var(--m-line-hi); min-height: 420px; padding: 14px 14px 18px;
@@ -784,10 +780,9 @@ body.theme-day .bf-arena { background: radial-gradient(80% 60% at 50% 0%, #e7dbf
 .ce-spec dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; margin: 0; font-size: 12px; } .ce-spec dt { color: var(--m-dim); } .ce-spec dd { margin: 0; }
 .ce-spec small { font-size: 10.5px; } body.theme-day .ce-spec { background: #fff; }
 .ar-dna { display: block; max-width: 280px; font: 600 10px/1.4 var(--m-mono); color: #c08bff; text-align: center; }
-.cc-cfg-dna { font: 600 11.5px/1.5 var(--m-mono); padding: 6px 10px; border-radius: 10px; border: 1px solid #c08bff55; color: #c08bff; background: color-mix(in srgb, #c08bff 8%, transparent); }
 .pgb-dna { font: 600 9.5px var(--m-mono); color: #c08bff; }
 .pgb-brain { display: grid; gap: 3px; padding: 8px 10px; border-radius: 12px; border: 1px dashed #c08bff66; } .pgb-brain b { font-size: 12.5px; color: #c08bff; }
-body.theme-day .ar-dna, body.theme-day .pgb-dna, body.theme-day .pgb-brain b, body.theme-day .cc-cfg-dna { color: #6b2fd1; }
+body.theme-day .ar-dna, body.theme-day .pgb-dna, body.theme-day .pgb-brain b { color: #6b2fd1; }
 .bf-log small.is-comeback { border-color: #ff9a3c; color: #ffd36b; box-shadow: 0 0 14px -6px #ff9a3c; } .bf-cb { font-style: normal; margin-left: 6px; font-size: 11px; }
 /* 🩺 engine doctor */
 .pg-doctor.is-on { border-color: color-mix(in srgb, var(--m-accent) 55%, var(--m-line)); } .pg-doctor.is-sitout { border-color: #f5c45188; }

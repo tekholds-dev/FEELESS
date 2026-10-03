@@ -271,6 +271,8 @@ webpackConfig.devServer = (devServerConfig) =>
 webpackConfig.jest = {
   configure: (jestConfig) => ({
     ...jestConfig,
+    // UI tests wait on real timers (polls, animations): under a busy CPU a 5s default timed out at random → flaky suites.
+    testTimeout: 30000,
     moduleNameMapper: {
       ...(jestConfig.moduleNameMapper || {}),
       '^@metaplex-foundation/umi/serializers$': '<rootDir>/node_modules/@metaplex-foundation/umi/dist/cjs/serializers.cjs',
