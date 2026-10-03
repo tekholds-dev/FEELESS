@@ -214,6 +214,12 @@ def value(card, prices, liqs=None):
     return round(v, 4)
 
 
+def in_play(card, prices, liqs=None):
+    """What can be re-dealt into coins: the card's value MINUS what was already paid out to the wallet and what sits parked
+    (both stay theirs — re-buying coins with them would count the same dollars twice)."""
+    return round(value(card, prices, liqs) - _f(card.get('walletUsd')) - sum(_f(p.get('usd')) for p in (card.get('parked') or {}).values()), 4)
+
+
 def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None):
     """One automation pass. Returns the updated card (mutated copy) — all actions logged as events with reasons.
     liqs = {pair: pool liquidity $} for TRUE fills (price impact on every paper buy / sell)."""
@@ -236,7 +242,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         # a NEW run starts at today's value (its own −floor); the ended run is kept on the record, never hidden
         keep['runs'] = (list(c.get('runs') or []) + [{'at': now, 'startUsd': c['startUsd'], 'endUsd': round(v0, 4), 'pct': round((v0 / (_f(c['startUsd']) or 1) - 1) * 100, 2)}])[-10:]
         keep.update(startUsd=round(v0, 4), dayStartUsd=round(v0, 4), dayAt=now, lowPct=0.0, roundStartUsd=round(v0, 4))   # a new run = a new round baseline
-        nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=v0, keep=keep)
+        nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=in_play(c, prices, liqs), keep=keep)
         if nc:
             c = nc
 
@@ -349,7 +355,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # 3b) 🔄 phase cycle: a cycling tier re-deals into the next phase shape every round (same run, P&L continues)
     phase = next_phase((cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl'], 'off'), c.get('rounds'), c.get('lastRoundPct'))
     if phase and c['lastRotateAt'] == now and not c.get('flooredAt'):
-        nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=value(c, prices, liqs), keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
+        nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=in_play(c, prices, liqs), keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
         if nc:
             nc['feesUsd'] = round(_f(nc['feesUsd']) + fee * len(c['legs']), 4)   # selling the old shape
             c = nc

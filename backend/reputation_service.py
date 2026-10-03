@@ -5518,7 +5518,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
         return book
     try:
         swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
-                                                            'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': 200000, 'priorityLevel': 'high'}}})
+                                                            'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': 50000, 'priorityLevel': 'high'}}})
         signed = await _fw_sign(cfg, swap.get('swapTransaction'), f"FEELESS {tid} {order['side']} {order.get('symbol')}")
     except HTTPException as e:
         row.update(status='failed', err=f'build/sign: {str(e.detail)[:120]}')

@@ -288,3 +288,10 @@ def test_card_value_is_what_selling_would_really_pay():
     assert ap.value(card, {'P': 1.0}) == round(100000 / (1 + 100000 / (ap.UNKNOWN_LIQ / 2)), 4)   # no liquidity known → treated as thin
     v = ap.value(card, {'P': 1.0}, {'P': 36000})                        # $100K bag in a $36K pool
     assert v < 16000 and v == round(100000 / (1 + 100000 / 18000), 4)
+
+
+def test_redeals_never_rebuy_with_paid_out_or_parked_money():
+    card = {'legs': [{'pairAddress': 'P', 'units': 100.0, 'entry': 1.0}], 'cash': 0.0, 'walletUsd': 30.0,
+            'parked': {'Q': {'usd': 20.0}}}
+    assert ap.value(card, {'P': 1.0}) == 150.0
+    assert ap.in_play(card, {'P': 1.0}) == 100.0          # only the coins + cash go back into coins
