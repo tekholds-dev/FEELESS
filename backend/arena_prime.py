@@ -69,6 +69,7 @@ RIDE_AT, RIDE_TRAIL = 150.0, 30.0   # 🏇 ride a runner from +150%, sell only w
 HOLD_MIN = 80.0      # 🏇 a held coin must stay ≥ +80% (a whole round ≥ +80% also earns a hold); under it → swapped
 MIN_CYCLE_COINS = 3  # every cycle shape holds at least 3 coins (else the card keeps its current coins)
 STREAK = 3
+ADAPT_RED = 3.0   # adaptive: only a round at or below −3% rests in majors (−0.04% noise used to park the card in majors)
 SAFE_FIX_ROUNDS = 8   # a losing-streak safe fix lasts this many rounds, then the card returns to its own cycle           # 3 losing rounds → safe config · 3 winning rounds → config locked + best coin frozen for a round
 
 
@@ -78,7 +79,8 @@ def next_phase(mode, rounds, last_pct):
     if not seq:
         return None
     if seq == 'adaptive':
-        return 'anchor' if _f(last_pct) < 0 else 'degen' if _f(last_pct) >= 5 else 'mixed'
+        # a real red round (≤ −3%) rests in majors; small moves stay MIXED (majors + growth coins); a strong round goes degen
+        return 'anchor' if _f(last_pct) <= -ADAPT_RED else 'degen' if _f(last_pct) >= 5 else 'mixed'
     if seq == 'auto':   # 🤖 auto: deep red round → breakeven · red → safest · strong green → degen · otherwise mixed
         return 'breakeven' if _f(last_pct) <= -15 else 'safest' if _f(last_pct) < 0 else 'degen' if _f(last_pct) >= 5 else 'mixed'
     return seq[int(rounds or 0) % len(seq)]

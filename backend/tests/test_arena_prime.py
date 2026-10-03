@@ -414,3 +414,10 @@ def test_safe_fix_expires_back_to_own_cycle():
 def test_majors_only_card_reshapes_into_growth_without_waiting():
     import inspect, arena_prime as ap
     assert 'majors_only' in inspect.getsource(ap.tick)
+
+
+def test_adaptive_noise_stays_mixed():
+    import arena_prime as ap
+    assert ap.next_phase('adaptive', 1, -0.04) == 'mixed'
+    assert ap.next_phase('adaptive', 1, -3.5) == 'anchor'
+    assert ap.next_phase('adaptive', 1, 6) == 'degen'
