@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
+import { useAdmin } from '../lib/adminCall';
 import { LiveFuseCard, revalue } from './FuseCard';
 import { useLivePrices } from '../lib/livePrices';
 import { openWarRoom } from './WarRoomHost';
@@ -160,9 +161,16 @@ export function PrimeShowcase() {
 export function HqRealCards({ addr }) {
   const [owner, setOwner] = useState(false);
   useEffect(() => { if (!addr) return; fetch(apiUrl(`/api/reputation/admin/is-admin/${addr}`)).then(r => r.json()).then(d => setOwner(!!(d.owner || d.admin))).catch(() => {}); }, [addr]);
+  const { call } = useAdmin();
+  const [busy, setBusy] = useState('');
+  const [amt, setAmt] = useState('');
   const d = usePrime(30000);
   const real = (d?.cards || []).filter(c => c.real);
   if (!owner || !real.length) return null;
+  const act = (tpl, action) => { if (action === 'defund' && !window.confirm('Sell every coin back to SOL? The card goes back to its paper card.')) return;
+    setBusy(action); call('/admin/fuse-wallet/card', { method: 'POST', body: JSON.stringify({ tpl, action }) }).then(() => { toast.success(action === 'defund' ? '↩ Selling every coin to SOL' : action === 'halt' ? '⏸ Card paused' : '▶ Resumed'); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy('')); };
+  const topup = tpl => { const v = Number(amt); if (!(v >= 1)) { toast.error('Top up at least $1'); return; } if (!window.confirm(`Add $${v.toFixed(2)} from the Fuse wallet? A new real run starts at the new total.`)) return;
+    setBusy('topup'); call('/admin/fuse-wallet/topup', { method: 'POST', body: JSON.stringify({ tpl, usd: v }) }).then(() => { toast.success(`＋ $${v.toFixed(2)} added`); setAmt(''); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   const ago = t => { const s = Math.max(0, Date.now() / 1000 - (t || 0)); return s < 60 ? `${s.toFixed(0)}s ago` : s < 3600 ? `${(s / 60).toFixed(0)}m ago` : `${(s / 3600).toFixed(1)}h ago`; };
   const fee = v => (v > 0 && v < 0.01 ? `$${v.toFixed(4)}` : usd(v));
   return <section className="m-card m-live hq-reals" data-testid="hq-real-cards"><span className="m-label">💵 FEELESS REAL-MONEY TIER CARDS · FUSE WALLET</span>
@@ -180,6 +188,15 @@ export function HqRealCards({ addr }) {
           <ul className="hrt-coins">{c.legs.map(l => <li key={l.pairAddress} className={l.buying ? 'is-buying' : ''}><b>{l.role === 'runner' ? '🏃' : '⚓'} ${l.symbol}</b>
             {l.buying || !(l.usd > 0) ? <em className="hrt-buy">{l.buying ? '⏳ buying… keeper retries' : '⏳ empty — rebuy at the next round'}</em> : <><span>{usd(l.costUsd)} → {usd(l.usd)}</span><em className={l.pnlPct >= 0 ? 'm-pos' : 'm-neg'}>{pct(l.pnlPct)}</em></>}</li>)}
             {(c.cash || 0) > 0.01 && <li><b>◎ cash</b><span>{usd(c.cash)}</span><em className="m-dim">SOL</em></li>}</ul>
+          <div className="hrt-cfg" data-testid="hrt-cfg">{[[`⏱ ${Math.round((d.cfg?.rotateHours || 0) * 60)}m rounds`, 'Round clock'], [`⏳ swap after ${d.cfg?.rotateConfirm || 1} losing rounds · −${d.cfg?.rotateMinDrop || 0}%`, 'A coin is swapped only after this many losing rounds in a row, and only this far down'],
+            [`🔒 hold ≥ ${d.cfg?.minHoldMins || 0}m`, 'Every new coin is held at least this long'], [`🔄 ${c.cycleMode || 'off'} · ${c.phase || '—'}`, 'Cycle and the shape it is in now'], [`🧩 re-shape every ${d.cfg?.cycleEvery || 6} rounds`, 'How often the card changes shape'],
+            [`🛑 stops: ${d.cfg?.slMode || 'replace'}`, 'What happens when a coin hits its stop'], [`🛟 rescue at −${d.cfg?.rescuePct || 50}%`, 'Card this far under its start → safest coins'], [`💧 real buys need $${((k.minLiqUsd || 0) / 1000).toFixed(0)}K pool`, 'Thinner coins stay paper-only'],
+            [`🪙 min buy $${(k.minOrderUsd || 0).toFixed(2)} · max $${k.maxSwapUsd || 0}`, 'Smallest / largest single real swap'], [`↔ slippage ${((k.slippageBps || 0) / 100).toFixed(1)}%`, 'Retries add a little, never past 3%']].map(([t2, tip]) => <span key={t2} className="m-chip" data-tip={tip}>{t2}</span>)}</div>
+          <div className="hrt-acts">
+            <button type="button" className="m-btn" disabled={!!busy || k.selling} onClick={() => act(c.tpl, k.halt ? 'resume' : 'halt')} data-tip={k.halt ? 'Keeper trades again' : 'Keeper stops trading this card (coins stay)'}>{k.halt ? '▶ Resume' : '⏸ Pause'}</button>
+            <span className="hrt-top-up"><input className="m-input" type="number" min="1" step="1" placeholder="$" value={amt} onChange={e => setAmt(e.target.value)} aria-label="Top up amount" />
+              <button type="button" className="m-btn m-go" disabled={!!busy || k.selling} onClick={() => topup(c.tpl)} data-tip="Add money from the Fuse wallet — a new real run at the new total">＋ Top up</button></span>
+            <button type="button" className="m-btn danger" disabled={!!busy || k.selling} onClick={() => act(c.tpl, 'defund')} data-tip="Sell every coin to SOL — the card goes back to its paper card">{k.selling ? '↩ selling…' : '↩ Sell all'}</button></div>
           {k.lastFail && <small className="hrt-fail" data-tip={k.lastFail.err}>⚠ last miss: {k.lastFail.side} ${k.lastFail.symbol} · {ago(k.lastFail.at)} — retried automatically</small>}
           <small className="m-dim">{b.swaps || 0} swaps · network fees {fee(b.feesUsd || 0)} (wallet reserve pays) · last fill {k.lastFill ? ago(k.lastFill) : '—'}</small>
           <ul className="prime-txs">{(b.orders || []).slice(0, 6).map((o, i) => <li key={o.sig || i}><b>{o.side === 'topup' ? '💵' : o.side === 'buy' ? '🟢' : '🔴'}</b><span>{o.side === 'topup' ? 'funded' : `${o.side} $${o.symbol}`} <i className="m-dim">{ago(o.at)}</i></span>

@@ -165,6 +165,8 @@ body.theme-day .ctab { background: #fff; border-color: #d8e2dc; }
 .hrt-coins li em { font-style: normal; text-align: right; } .hrt-coins li.is-buying { opacity: .85; }
 .hrt-coins .hrt-buy { grid-column: 2 / -1; color: var(--gold); text-align: right; }
 .hrt-fail { color: var(--gold); font-size: 11px; }
+.hrt-cfg { display: flex; flex-wrap: wrap; gap: 4px; } .hrt-cfg .m-chip { font-size: 10px; }
+.hrt-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .hrt-top-up { display: inline-flex; gap: 4px; } .hrt-top-up .m-input { width: 70px; }
 .fcd-legs .fcd-leg em.fcd-buying { color: var(--gold); }
 .hq-real .prime-txs i { font-style: normal; font-size: 10px; }
 .cyb { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; } .cyb small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; color: var(--m-dim); } .cyb .m-input { width: auto; min-width: 110px; padding: 6px 8px; font-size: 12px; } .cyb b { font-size: 11px; color: var(--m-accent); }
