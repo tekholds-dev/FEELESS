@@ -465,8 +465,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         ev(kind='rescue', why=f'card ≤ {rp:.0f}% of its start — 🛟 rescue cycle: safest run ⇄ breakeven runners')
     every = 1 if c.get('cycleFix') else int(cfg.get('cycleEvery') or 6)
     phase = next_phase(c.get('cycleFix') or (cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl'], 'off'), (int(c.get('rounds') or 0) // every), c.get('lastRoundPct'))
-    if int(c.get('rounds') or 0) % every:
-        phase = None   # re-shape every N rounds only (less churn = fewer fees + less impact)
+    majors_only = all(l.get('role') == 'anchor' for l in c['legs'])
+    if int(c.get('rounds') or 0) % every and not (majors_only and phase and phase != 'anchor'):
+        phase = None   # re-shape every N rounds only (less churn) — EXCEPT a majors-only card due a growth shape re-shapes at once
     if phase and c['lastRotateAt'] == now and not c.get('flooredAt') and not any(l.get('ride') for l in c['legs']) and not int(c.get('lockRounds') or 0):   # a riding runner holds the shape
         nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=in_play(c, prices, liqs), keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
         if nc:
@@ -533,7 +534,7 @@ def summary(card, prices, cfg=None):
              'liq': _f(l.get('liqNow')) or _f(l.get('liq')),
              'usd': round(value({'legs': [l], 'cash': 0.0}, prices), 4)} for l in card['legs']]
     return {**{k: card[k] for k in ('id', 'tpl', 'label', 'at', 'lastRotateAt', 'compoundedUsd', 'takenUsd', 'feesUsd', 'startUsd')}, 'cash': round(card['cash'], 4), 'walletUsd': round(_f(card.get('walletUsd')), 4),
-            'flooredAt': card.get('flooredAt'), 'phase': card.get('phase'), 'cycle': list(CYCLE) if card['tpl'] in CYCLE_TIERS else None, 'rounds': int(card.get('rounds') or 0), 'lastRoundPct': card.get('lastRoundPct'),
+            'flooredAt': card.get('flooredAt'), 'phase': card.get('phase'), 'cycleFix': card.get('cycleFix'), 'cycle': list(CYCLE) if card['tpl'] in CYCLE_TIERS else None, 'rounds': int(card.get('rounds') or 0), 'lastRoundPct': card.get('lastRoundPct'),
             'roundPct': round((v / (_f(card.get('roundStartUsd')) or start) - 1) * 100, 2), 'roundWins': int(card.get('roundWins') or 0),
             'valueUsd': v, 'pnlPct': round((v / start - 1) * 100, 2), 'legs': legs, 'events': card['events'][-12:][::-1],
             'tp': TEMPLATES[card['tpl']]['tp'], 'sl': TEMPLATES[card['tpl']]['sl'], 'tier': TEMPLATES[card['tpl']]['tier'], 'why': TEMPLATES[card['tpl']].get('why'),

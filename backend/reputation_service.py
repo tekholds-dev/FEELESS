@@ -5413,7 +5413,8 @@ async def _prime_view():
             return {}
         hold = (sol_now / _fuse._f(c['solStart']) - 1) * 100
         return {'holdSolPct': round(hold, 2), 'vsSolPct': round(_fuse._f(sm.get('pnlPct')) - hold, 2)}
-    return [{**(sm := _prime.summary(c, px, pcfg)), **_vs(c, sm), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl']) if c.get('real') else None,
+    locks = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}
+    return [{**(sm := _prime.summary(c, px, {**pcfg, **_prime.clean_cfg(locks[c['tpl']])} if c.get('tpl') in locks else pcfg)), **_vs(c, sm), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl']) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 

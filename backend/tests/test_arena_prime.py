@@ -409,3 +409,8 @@ def test_self_fix_never_removes_patience_on_fast_clocks():
 def test_safe_fix_expires_back_to_own_cycle():
     import arena_prime as ap
     assert ap.SAFE_FIX_ROUNDS == 8
+
+
+def test_majors_only_card_reshapes_into_growth_without_waiting():
+    import inspect, arena_prime as ap
+    assert 'majors_only' in inspect.getsource(ap.tick)

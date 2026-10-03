@@ -216,12 +216,13 @@ export function HqRealCards({ addr }) {
   return <section className="m-card m-live hq-reals" data-testid="hq-real-cards"><span className="m-label">💵 FEELESS REAL-MONEY TIER CARDS · FUSE WALLET</span>
     {real.map(c => { const t = TIER[c.tier] || TIER.gold; const b = c.realBook || {}; const k = b.keeper || {};
       const state = k.paused ? ['⏸', 'paused', 'is-warn'] : !k.armed ? ['○', 'not armed', 'is-warn'] : k.pending ? ['⏳', `sending ${k.pending}`, 'is-busy'] : c.legs.some(l => l.buying) ? ['⏳', 'retrying a buy', 'is-busy'] : ['●', 'in sync', 'is-ok'];
+      const cf = d.lockCfg?.[c.tpl] ? { ...d.cfg, ...d.lockCfg[c.tpl] } : d.cfg;   // a locked tier runs its own config
       return <div key={c.id} className="hq-real">
         <div className="hq-real-card"><LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label="💵 REAL · FUSE WALLET" serverOnly /></div>
         <div className="hq-real-track">
           <div className="hrt-top"><b>{c.label}</b><span className={`hrt-state ${state[2]}`} data-tip="Keeper: moves the real coins to what the card says, every tick">{state[0]} {state[1]}</span></div>
           <div className="hrt-kpis">
-            <RoundBell at={c.nextRoundAt || c.lastRotateAt + (d.cfg?.rotateHours || 1) * 3600} sec={c.bellSec || 10} label={`ROUND ${(c.rounds || 0) + 1}`} />
+            <RoundBell at={c.nextRoundAt || c.lastRotateAt + (cf?.rotateHours || 1) * 3600} sec={c.bellSec || 10} label={`ROUND ${(c.rounds || 0) + 1}`} />
             <span><small>ROUNDS DONE</small><b className="m-num">{c.rounds || 0}</b></span>
             <span><small>PUT IN</small><b className="m-num">{usd(b.fundedUsd || c.startUsd)}</b></span>
             {c.vsSolPct != null && <span data-tip={`Holding SOL over this run: ${pct(c.holdSolPct)}. Fund more only when this stays positive.`}><small>VS HOLDING SOL</small><b className={`m-num ${c.vsSolPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.vsSolPct)}</b></span>}
@@ -229,9 +230,9 @@ export function HqRealCards({ addr }) {
           <ul className="hrt-coins">{c.legs.map(l => <li key={l.pairAddress} className={l.buying ? 'is-buying' : ''}><b>{l.role === 'runner' ? '🏃' : '⚓'} ${l.symbol}</b>
             {l.buying || !(l.usd > 0) ? <em className="hrt-buy">{l.buying ? '⏳ buying… keeper retries' : '⏳ empty — rebuy at the next round'}</em> : <><span>{usd(l.costUsd)} → {usd(l.usd)}</span><em className={l.pnlPct >= 0 ? 'm-pos' : 'm-neg'}>{pct(l.pnlPct)}</em></>}</li>)}
             {(c.cash || 0) > 0.01 && <li><b>◎ cash</b><span>{usd(c.cash)}</span><em className="m-dim">SOL</em></li>}</ul>
-          <div className="hrt-cfg" data-testid="hrt-cfg">{[[`⏱ ${Math.round((d.cfg?.rotateHours || 0) * 60)}m rounds`, 'Round clock'], [`⏳ swap after ${d.cfg?.rotateConfirm || 1} losing rounds · −${d.cfg?.rotateMinDrop || 0}%`, 'A coin is swapped only after this many losing rounds in a row, and only this far down'],
-            [`🔒 hold ≥ ${d.cfg?.minHoldMins || 0}m`, 'Every new coin is held at least this long'], [`🔄 ${c.cycleMode || 'off'} · ${c.phase || '—'}`, 'Cycle and the shape it is in now'], [`🧩 re-shape every ${d.cfg?.cycleEvery || 6} rounds`, 'How often the card changes shape'],
-            [`🛑 stops: ${d.cfg?.slMode || 'replace'}`, 'What happens when a coin hits its stop'], [`🛟 rescue at −${d.cfg?.rescuePct || 50}%`, 'Card this far under its start → safest coins'], [`💧 real buys need $${((k.minLiqUsd || 0) / 1000).toFixed(0)}K pool`, 'Thinner coins stay paper-only'],
+          <div className="hrt-cfg" data-testid="hrt-cfg">{[[`⏱ ${Math.round((cf?.rotateHours || 0) * 60)}m rounds`, 'Round clock'], [`⏳ swap after ${cf?.rotateConfirm || 1} losing rounds · −${cf?.rotateMinDrop || 0}%`, 'A coin is swapped only after this many losing rounds in a row, and only this far down'],
+            [`🔒 hold ≥ ${cf?.minHoldMins || 0}m`, 'Every new coin is held at least this long'], [`🔄 ${(cf?.cycles || {})[c.tpl] || c.cycleMode || 'off'}${c.cycleFix ? ` (fix: ${c.cycleFix})` : ''} · ${c.phase || '—'}`, 'Cycle and the shape it is in now'], [`🧩 re-shape every ${cf?.cycleEvery || 6} rounds`, 'How often the card changes shape'],
+            [`🛑 stops: ${cf?.slMode || 'replace'}`, 'What happens when a coin hits its stop'], [`🛟 rescue at −${cf?.rescuePct || 50}%`, 'Card this far under its start → safest coins'], [`💧 real buys need $${((k.minLiqUsd || 0) / 1000).toFixed(0)}K pool`, 'Thinner coins stay paper-only'],
             [`🪙 min buy $${(k.minOrderUsd || 0).toFixed(2)} · max $${k.maxSwapUsd || 0}`, 'Smallest / largest single real swap'], [`↔ slippage ${((k.slippageBps || 0) / 100).toFixed(1)}%`, 'Retries add a little, never past 3%']].map(([t2, tip]) => <span key={t2} className="m-chip" data-tip={tip}>{t2}</span>)}</div>
           <CardEditor c={c} cfg={d.locks?.[c.tpl] ? { ...d.cfg, ...(d.lockCfg?.[c.tpl] || {}) } : d.cfg} keeper={k} locked={!!d.locks?.[c.tpl]} call={call} />
           <div className="hrt-acts">
