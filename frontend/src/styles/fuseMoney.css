@@ -154,9 +154,8 @@ body.theme-day .ctab { background: #fff; border-color: #d8e2dc; }
 .hrt-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; } .hrt-top b { font-size: 15px; }
 .hrt-state { font-family: var(--m-mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--m-line); }
 .hrt-state.is-ok { color: var(--m-accent); border-color: color-mix(in srgb, var(--m-accent) 50%, transparent); }
-.hrt-state.is-busy { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 50%, transparent); animation: hrtPulse 1.4s ease-in-out infinite; }
+.hrt-state.is-busy { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 50%, transparent);  }
 .hrt-state.is-warn { color: #ff8fa3; border-color: color-mix(in srgb, #ff8fa3 50%, transparent); }
-@keyframes hrtPulse { 50% { opacity: .55; } }
 .hrt-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; }
 .hrt-kpis > span { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-surface) 80%, transparent); min-width: 0; }
 .hrt-kpis small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; color: var(--m-dim); } .hrt-kpis .m-num { font-size: 14px; white-space: nowrap; }
@@ -235,6 +234,5 @@ body.theme-day .ar-guide li { background: #fff; border-color: #d8e2dc; } body.th
 @media (prefers-reduced-motion: reduce) { .ar-guide li { animation: none; } }
 .prime-record { display: block; font-family: var(--m-mono); font-size: 10px; color: var(--m-dim); text-align: center; }
 @media (max-width: 640px) { .hq-real { grid-template-columns: 1fr; justify-items: center; } .hq-real-track { width: 100%; } .hrt-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (prefers-reduced-motion: reduce) { .hrt-state.is-busy, .hrt-edit[open] .ce-grid { animation: none; } }
-body.fx-lite .hrt-state.is-busy { animation: none; }
+@media (prefers-reduced-motion: reduce) { .hrt-edit[open] .ce-grid { animation: none; } }
 body.theme-day .hrt-kpis > span { background: #fff; border-color: #d8e2dc; }

@@ -32,7 +32,7 @@ export function MoneyMath({ putIn = 0, held = 0, paidOut = 0, fees, compounded =
 // 🔔 Every round opens with a 10s countdown: the clock runs to the round, the last 10 seconds take over the card.
 export function RoundBell({ at, sec = 10, label = 'NEXT ROUND' }) {
   const [now, setNow] = useState(Date.now() / 1000);
-  useEffect(() => { const t = setInterval(() => setNow(Date.now() / 1000), 250); return () => clearInterval(t); }, []);
+  useEffect(() => { const t = setInterval(() => setNow(Date.now() / 1000), 1000); return () => clearInterval(t); }, []);   // 1 tick/s (was 4/s: lag)
   const left = Math.max(0, (at || 0) - now);
   const bell = left > 0 && left <= sec;
   // at zero the new round is dealt on the server — pull it straight away (and again shortly) instead of waiting for the next poll
