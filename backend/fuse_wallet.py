@@ -177,8 +177,8 @@ def apply_fill(book, order, fill, sol_px):
         if -fill['sol'] > swap_sol:
             b['rentSol'] = round(_f(b.get('rentSol')) + (-fill['sol'] - swap_sol), 9)
             sol_move = -swap_sol
-    if order.get('cardPays'):   # after its first 5 rounds the card pays its own network fees + rent (the wallet fronted them until then)
-        sol_move -= fill['feeSol'] + (_f(b.get('rentSol')) - _f(book.get('rentSol')))
+    if order.get('cardPays'):   # after its first 5 rounds the card pays its own network FEES; rent is a refundable deposit → always the reserve
+        sol_move -= fill['feeSol']
     b['sol'] = round(_f(b.get('sol')) + sol_move, 9)
     b['feesSol'] = round(_f(b.get('feesSol')) + fill['feeSol'], 9)
     b['feesUsd'] = round(_f(b.get('feesUsd')) + fill['feeSol'] * sol_px, 6)
@@ -199,7 +199,7 @@ def bank(book, wallet_usd, sol_px):
 
 
 MIN_REBUY_USD = 0.5
-LEFTOVER_MIN_USD = 0.25   # a coin waiting on the card's last SOL may buy down to this
+LEFTOVER_MIN_USD = 0.15   # a coin waiting on the card's last SOL may buy down to this
 
 
 def sync_card(card, book, prices, sol_px):

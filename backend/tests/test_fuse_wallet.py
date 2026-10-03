@@ -155,7 +155,7 @@ def test_wallet_fronts_fees_for_5_rounds_then_the_card_pays():
     fill = {'atoms': 20_000_000, 'decimals': 6, 'sol': -0.20204, 'feeSol': 0.00001}
     early, _ = fw.apply_fill(fw.new_book(100, 100.0, 0), order, fill, 100.0)
     late, _ = fw.apply_fill(fw.new_book(100, 100.0, 0), {**order, 'cardPays': True}, fill, 100.0)
-    assert abs(early['sol'] - 0.8) < 1e-9 and abs(late['sol'] - (0.8 - 0.00001 - 0.00204)) < 1e-9
+    assert abs(early['sol'] - 0.8) < 1e-9 and abs(late['sol'] - (0.8 - 0.00001)) < 1e-9   # card pays the fee, never the rent deposit
     assert fw.DEFAULT_CFG['minOrderUsd'] == 0.5
 
 
@@ -244,4 +244,4 @@ def test_leftover_cash_under_min_order_still_buys_the_waiting_coin():
                      {'mint': 'W', 'pairAddress': 'W', 'symbol': 'WETH', 'units': 0.0, 'wantUnits': 0.00029, 'buying': True, 'entry': 2680}]}
     book = {'sol': 0.0101, 'legs': {}}
     buys = [o for o in fw.orders('t', card, book, {'S': 120, 'W': 2680}, 120, {**fw.DEFAULT_CFG, 'armed': True}, 1) if o['side'] == 'buy']
-    assert buys and buys[0]['mint'] == 'W' and 0.25 <= buys[0]['usd'] < 0.5
+    assert buys and buys[0]['mint'] == 'W' and 0.15 <= buys[0]['usd'] < 0.5
