@@ -5878,7 +5878,8 @@ def _fw_public(tid):
     cfg = _fw_cfg(); pend = b.get('pending') or {}
     fail = next((o for o in reversed(d['ledger']) if o.get('card') == tid and o.get('status') in ('failed', 'skipped')), None)
     keeper = {'armed': bool(cfg.get('armed')), 'paused': bool(cfg.get('paused') or b.get('halt')), 'halt': bool(b.get('halt')), 'selling': bool(b.get('defund')),
-              'minLiqUsd': cfg.get('minLiqUsd'), 'minOrderUsd': cfg.get('minOrderUsd'), 'maxSwapUsd': cfg.get('maxSwapUsd'), 'slippageBps': cfg.get('slippageBps'), 'pending': pend.get('symbol') and f"{pend.get('side')} ${pend.get('symbol')}",
+              'minLiqUsd': cfg.get('minLiqUsd'), 'minOrderUsd': cfg.get('minOrderUsd'), 'maxSwapUsd': cfg.get('maxSwapUsd'), 'slippageBps': cfg.get('slippageBps'),
+              'maxImpactPct': cfg.get('maxImpactPct'), 'dailyUsd': cfg.get('dailyUsd'), 'pending': pend.get('symbol') and f"{pend.get('side')} ${pend.get('symbol')}",
               'lastFail': fail and {'symbol': fail.get('symbol'), 'side': fail.get('side'), 'err': (fail.get('err') or '')[:90], 'at': fail.get('at')},
               'lastFill': next((o.get('at') for o in rows if o.get('status') == 'filled'), None)}
     return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4), 'wallet': cfg['address'], 'keeper': keeper,

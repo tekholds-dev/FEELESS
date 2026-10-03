@@ -172,6 +172,8 @@ body.theme-day .ctab { background: #fff; border-color: #d8e2dc; }
 .ce-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; margin: 8px 0; }
 .ce-row { display: grid; gap: 3px; } .ce-row small { font-family: var(--m-mono); font-size: 9.5px; letter-spacing: .1em; color: var(--m-dim); text-transform: uppercase; }
 .ce-row .m-seg { flex-wrap: wrap; }
+.ce-typed { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; align-items: end; margin: 6px 0; }
+.ce-typed label { display: grid; gap: 3px; } .ce-typed small { font-family: var(--m-mono); font-size: 9.5px; letter-spacing: .1em; color: var(--m-dim); text-transform: uppercase; }
 .hrt-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .hrt-top-up { display: inline-flex; gap: 4px; } .hrt-top-up .m-input { width: 70px; }
 .fcd-legs .fcd-leg em.fcd-buying { color: var(--gold); }
 .hq-real .prime-txs i { font-style: normal; font-size: 10px; }

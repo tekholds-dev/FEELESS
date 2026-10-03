@@ -174,6 +174,21 @@ const CYCLES = [['safe', '🛡 safe'], ['classic', 'classic'], ['adaptive', 'ada
 const WALLET = [['minLiqUsd', '💧 Real buys need pool', [[10000, '$10K'], [20000, '$20K'], [50000, '$50K'], [100000, '$100K']], 'Thinner coins stay paper-only (safer = higher)'],
   ['slippageBps', '↔ Slippage', [[100, '1%'], [150, '1.5%'], [200, '2%'], [300, '3%']], 'Max price move accepted per swap'],
   ['minOrderUsd', '🪙 Min buy', [[0.25, '$0.25'], [0.5, '$0.50'], [1, '$1']], 'Smallest single real swap']];
+
+// ✍ Type exact limits (server clamps every value to its safe range: slippage 0.1–3%, impact 0.2–10%, pool ≥ $0, swap $1+, daily $5+)
+const TYPED = [['slippageBps', 'Slippage %', v => v * 100, v => v / 100, 0.1, 3, 0.1], ['maxImpactPct', 'Max price impact %', v => v, v => v, 0.2, 10, 0.1],
+  ['minLiqUsd', 'Min pool $', v => v, v => v, 0, 10000000, 1000], ['maxSwapUsd', 'Max per swap $', v => v, v => v, 1, 10000, 1],
+  ['dailyUsd', 'Daily cap $', v => v, v => v, 5, 100000, 5], ['minOrderUsd', 'Min buy $', v => v, v => v, 0.25, 50, 0.05]];
+function TypedLimits({ keeper, busy, save }) {
+  const [v, setV] = useState({});
+  const cur = k => { const t = TYPED.find(x => x[0] === k); return keeper?.[k] == null ? '' : t[3](keeper[k]); };
+  const dirty = Object.keys(v).filter(k => v[k] !== '' && Number(v[k]) !== Number(cur(k)));
+  const go = () => save(Object.fromEntries(dirty.map(k => [k, TYPED.find(x => x[0] === k)[2](Number(v[k]))])), true).then(() => setV({}));
+  return <div className="ce-typed" data-testid="typed-limits">{TYPED.map(([k, l, , , lo, hi, st]) => <label key={k} data-tip={`${lo} – ${hi}`}><small>{l}</small>
+    <input className="m-input" type="number" min={lo} max={hi} step={st} placeholder={String(cur(k))} value={v[k] ?? ''} onChange={e => setV(x => ({ ...x, [k]: e.target.value }))} /></label>)}
+    <button type="button" className="m-btn m-go" disabled={busy || !dirty.length} onClick={go}>Save {dirty.length || ''} limit{dirty.length === 1 ? '' : 's'}</button></div>;
+}
+
 function CardEditor({ c, cfg, keeper, locked, call }) {
   const [busy, setBusy] = useState(false);
   const save = async (patch, wallet) => {
@@ -195,7 +210,8 @@ function CardEditor({ c, cfg, keeper, locked, call }) {
       <div className="ce-row" data-tip="The shapes this card cycles through"><small>🔄 Cycle</small><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
       <div className="ce-row" data-tip="Freeze this tier's whole config so engine tunes never change it"><small>🔒 Lock tier</small><div className="m-seg">{[[true, 'locked'], [false, 'free']].map(([v, t]) => <button key={t} type="button" disabled={busy} className={!!locked === v ? 'active' : ''} onClick={() => { setBusy(true); call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ lock: c.tpl, on: v }) }).then(() => { toast.success(v ? '🔒 Locked' : 'Unlocked'); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy(false)); }}>{t}</button>)}</div></div>
       {WALLET.map(([k, l, o, t]) => seg(k, l, o, t, keeper?.[k], true))}
-    </div><small className="m-dim">Engine settings are shared by the tiers that aren't locked. Wallet settings cover every real buy.</small></details>;
+    </div>
+    <TypedLimits keeper={keeper} busy={busy} save={save} /><small className="m-dim">Engine settings are shared by the tiers that aren't locked. Wallet settings cover every real buy.</small></details>;
 }
 
 export function HqRealCards({ addr }) {
@@ -224,9 +240,11 @@ export function HqRealCards({ addr }) {
           <div className="hrt-kpis">
             <RoundBell at={c.nextRoundAt || c.lastRotateAt + (cf?.rotateHours || 1) * 3600} sec={c.bellSec || 10} label={`ROUND ${(c.rounds || 0) + 1}`} />
             <span><small>ROUNDS DONE</small><b className="m-num">{c.rounds || 0}</b></span>
-            <span><small>PUT IN</small><b className="m-num">{usd(b.fundedUsd || c.startUsd)}</b></span>
+            <span data-tip="Every $ you funded this card with (all top-ups)"><small>PUT IN · TOTAL</small><b className="m-num">{usd(b.fundedUsd || c.startUsd)}</b></span>
+            {b.fundedUsd > 0 && <span data-tip="Now vs everything you put in"><small>ALL-TIME</small><b className={`m-num ${(c.valueUsd - b.fundedUsd) >= 0 ? 'm-pos' : 'm-neg'}`}>{usd(c.valueUsd - b.fundedUsd)} · {pct((c.valueUsd / b.fundedUsd - 1) * 100)}</b></span>}
+            <span data-tip="This run started at this value (a run restarts on top-ups, re-deals and fixes)"><small>THIS RUN FROM</small><b className="m-num">{usd(c.startUsd)}</b></span>
             {c.vsSolPct != null && <span data-tip={`Holding SOL over this run: ${pct(c.holdSolPct)}. Fund more only when this stays positive.`}><small>VS HOLDING SOL</small><b className={`m-num ${c.vsSolPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.vsSolPct)}</b></span>}
-            <span><small>NOW</small><b key={(c.valueUsd || 0).toFixed(2)} className={`m-num fl-tick ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{usd(c.valueUsd)} · {pct(c.pnlPct)}</b></span></div>
+            <span data-tip="Value now · % vs this run's start"><small>NOW · THIS RUN</small><b key={(c.valueUsd || 0).toFixed(2)} className={`m-num fl-tick ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{usd(c.valueUsd)} · {pct(c.pnlPct)}</b></span></div>
           <ul className="hrt-coins">{c.legs.map(l => <li key={l.pairAddress} className={l.buying ? 'is-buying' : ''}><b>{l.role === 'runner' ? '🏃' : '⚓'} ${l.symbol}</b>
             {l.buying || !(l.usd > 0) ? <em className="hrt-buy">{l.buying ? '⏳ buying… keeper retries' : '⏳ empty — rebuy at the next round'}</em> : <><span>{usd(l.costUsd)} → {usd(l.usd)}</span><em className={l.pnlPct >= 0 ? 'm-pos' : 'm-neg'}>{pct(l.pnlPct)}</em></>}</li>)}
             {(c.cash || 0) > 0.01 && <li><b>◎ cash</b><span>{usd(c.cash)}</span><em className="m-dim">SOL</em></li>}</ul>
