@@ -5565,7 +5565,11 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
                 back_l = _fuse._f(back.get('outAmount'))
             except HTTPException:
                 back_l = None
-            ok_s, why_s = _fw.buy_safety(order, q.get('outAmount'), await _mint_decimals(order['mint']), back_l)
+            try:   # market = Jupiter's own price (what routes really pay); a DexScreener pair can lag on young coins
+                jp = _fuse._f(((await _jup_prices([order['mint']])) or {}).get(order['mint']))
+            except Exception:
+                jp = 0.0
+            ok_s, why_s = _fw.buy_safety({**order, 'midPx': jp or order.get('midPx')}, q.get('outAmount'), await _mint_decimals(order['mint']), back_l)
             row['sellBackPct'] = None if back_l is None else round((back_l / max(1, order['lamports']) - 1) * 100, 2)
             if not ok_s:
                 raise HTTPException(400, why_s)
@@ -5575,7 +5579,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
             d = _fw_load(); _fw_record(d, row); _fw_save(d)
         return book
     async with _fw_lock:
-        ok, why = _fw.check(order, cfg, _fw_load().get('ledger'), now, row['impactPct'])
+        ok, why = _fw.check(row, cfg, _fw_load().get('ledger'), now, row['impactPct'])   # row carries the pool's liquidity
     if not ok or not _fw_signer_ready():
         row.update(status='skipped' if not ok else 'dry', err=why or 'signing not available — quoted only')
         async with _fw_lock:
@@ -5681,7 +5685,8 @@ async def _fw_tick(now):
         want = {**card, 'legs': []} if book.get('defund') else card
         for side in ('sell', 'buy'):
             for o in [{**x, 'cardPays': int(card.get('rounds') or 0) >= 5} for x in _fw.orders(tid, want, book, px, sol_px, cfg, now) if x['side'] == side]:
-                book = await _fw_execute(tid, o, book, cfg, sol_px, liqs.get(o.get('pair')))
+                leg_liq = next((_fuse._f(l.get('liqNow')) or _fuse._f(l.get('liq')) for l in card.get('legs') or [] if l.get('mint') == o.get('mint')), 0.0)
+                book = await _fw_execute(tid, o, book, cfg, sol_px, liqs.get(o.get('pair')) or leg_liq)   # pair read blank → the engine's own liquidity reading
                 if book.get('pending'):
                     break
         async with _fw_lock:
