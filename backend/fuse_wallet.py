@@ -195,6 +195,9 @@ def bank(book, wallet_usd, sol_px):
     return b
 
 
+MIN_REBUY_USD = 0.5
+
+
 def sync_card(card, book, prices, sol_px):
     """The tier card now shows what it REALLY holds: coin units + true entries from the book, SOL anchor + cash from its SOL,
     network fees as its fees. P&L keeps the money rule (fees apart)."""
@@ -215,6 +218,22 @@ def sync_card(card, book, prices, sol_px):
             if _f(l.get('units')) > 0:
                 l['wantUnits'] = _f(l['units'])
             l.update(units=0.0, costUsd=0.0, real=False, buying=_f(l.get('wantUnits')) > 0)
+    # 🔁 each NEW round: a coin that holds nothing (buy never landed / rotated in) gets an equal share again and the SOL anchor is
+    # trimmed to its share, so the keeper re-tries the buy — within every wallet limit (per swap, daily, impact), never more SOL than the card has
+    empty = [l for l in c['legs'] if l['mint'] != SOL_MINT and _f(l.get('units')) <= 0 and not l.get('buying')]
+    if empty and int(card.get('rounds') or 0) != int(card.get('rebuyRound') or -1):
+        px = lambda l: _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
+        total = _f(book.get('sol')) * sol_px + sum(_f(l.get('units')) * px(l) for l in c['legs'] if l['mint'] != SOL_MINT)
+        share = total / max(1, len(c['legs']))
+        for l in c['legs']:
+            if l['mint'] == SOL_MINT and sol_px > 0 and _f(l.get('units')) * sol_px > share:
+                sol_left += _f(l['units']) - share / sol_px; l['units'] = share / sol_px
+        free = max(0.0, sol_left) * sol_px
+        for l in empty:
+            if px(l) > 0 and free >= MIN_REBUY_USD:
+                usd = min(share, free / len(empty))
+                l.update(wantUnits=usd / px(l), buying=True)
+        c['rebuyRound'] = int(card.get('rounds') or 0)
     c['cash'] = round(max(0.0, sol_left) * sol_px, 6)
     c['feesUsd'] = round(_f(book.get('feesUsd')), 6)
     c['real'] = True

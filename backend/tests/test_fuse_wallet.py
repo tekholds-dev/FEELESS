@@ -193,3 +193,19 @@ def test_legacy_card_snapshot_scales_back_to_paper_value():
             'runs': [{'startUsd': 100.0, 'endUsd': 200.0, 'paper': True}]}
     snap = fw.paper_snapshot(card)
     assert snap['legs'][0]['units'] == 100.0 and snap['startUsd'] == 100.0
+
+
+def test_new_round_rebuys_an_empty_coin_from_spare_sol():
+    import fuse_wallet as fw
+    card = {'rounds': 3, 'legs': [{'mint': fw.SOL_MINT, 'pairAddress': 'S', 'symbol': 'SOL', 'units': 0.03, 'entry': 100},
+                                  {'mint': 'RUN', 'pairAddress': 'R', 'symbol': 'RUN', 'units': 0.0, 'entry': 0.002}]}
+    book = {'sol': 0.03, 'legs': {}}
+    c = fw.sync_card(card, book, {'S': 100, 'R': 0.002}, 100)
+    run = c['legs'][1]
+    assert run['buying'] and abs(run['wantUnits'] * 0.002 - 1.5) < 0.01 and abs(c['legs'][0]['units'] - 0.015) < 1e-9
+    assert c['rebuyRound'] == 3
+    buys = [o for o in fw.orders('t', c, book, {'S': 100, 'R': 0.002}, 100, {**fw.DEFAULT_CFG, 'armed': True}, 1) if o['side'] == 'buy']
+    assert buys and buys[0]['mint'] == 'RUN' and buys[0]['usd'] <= 1.51
+    c['legs'][1].pop('buying'); c['legs'][1]['wantUnits'] = 0
+    again = fw.sync_card(c, book, {'S': 100, 'R': 0.002}, 100)   # same round: no second try
+    assert not again['legs'][1].get('buying')
