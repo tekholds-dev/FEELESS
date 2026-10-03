@@ -287,10 +287,12 @@ def test_cap_blocks_before_any_quote():
     """check() with no impact = the pre-quote gate: a capped order is refused without needing a Jupiter quote."""
     cfg = {'armed': True, 'walletId': 'w', 'address': 'a', 'dailyUsd': 30, 'maxSwapUsd': 10}
     led = [{'status': 'filled', 'side': 'buy', 'usd': 29.9, 'at': 100.0}, {'status': 'filled', 'side': 'sell', 'usd': 50.0, 'at': 100.0}]
-    ok, why = fw.check({'side': 'buy', 'usd': 0.69, 'liq': 1e6}, cfg, led + [{'status': 'filled', 'side': 'buy', 'usd': 0.0, 'at': 100.0}], 200.0)
+    ok, why = fw.check({'side': 'buy', 'usd': 0.69, 'liq': 1e6}, cfg, led[:1], 200.0)
     assert not ok and why.startswith('daily cap')
+    assert fw.check({'side': 'buy', 'usd': 0.69, 'liq': 1e6}, cfg, led, 200.0)[0]   # 🔁 rebuying with SOL the card just sold is NOT new money
     assert fw.check({'side': 'sell', 'usd': 0.69}, cfg, led, 200.0)[0]            # a sell always passes the cap
-    assert fw.spent_24h(led, 200.0) == 29.9                                         # sells don't count as spend
+    assert fw.spent_24h(led, 200.0) == 0.0                                          # bought 29.9, sold 50 → no NEW money spent
+    assert fw.spent_24h(led[:1], 200.0) == 29.9
 
 
 def test_dealt_coin_keeps_its_depth_and_new_major_tag():

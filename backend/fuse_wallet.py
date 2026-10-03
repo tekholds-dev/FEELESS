@@ -118,7 +118,10 @@ def orders(card_id, card, book, prices, sol_px, cfg, now):
 
 
 def spent_24h(ledger, now):
-    return round(sum(_f(o.get('usd')) for o in ledger or [] if o.get('status') == 'filled' and o.get('side') == 'buy' and now - _f(o.get('at')) < 86400), 4)   # new money only
+    # NEW money only = buys − sells in 24h: a card re-buying with the SOL it just sold recycles, it doesn't spend — counting turnover
+    # froze a $5 card in cash for a day ("daily cap reached" on every rebuy after a few rotations)
+    day = [o for o in ledger or [] if o.get('status') == 'filled' and now - _f(o.get('at')) < 86400]
+    return round(max(0.0, sum(_f(o.get('usd')) for o in day if o.get('side') == 'buy') - sum(_f(o.get('usd')) for o in day if o.get('side') == 'sell')), 4)
 
 
 def check(order, cfg, ledger, now, quote_impact_pct=None):
