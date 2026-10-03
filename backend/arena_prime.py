@@ -61,6 +61,16 @@ def cycle_seq(mode):
     return CYCLE_MODES.get(mode)
 
 
+def owner_cycle(card, mode, now):
+    """🎛 The owner picked a cycle for this tier: it runs NOW — any automatic safe / rescue fix and the streak are cleared."""
+    c = {**card}
+    if not c.get('cycleFix') and not int(c.get('streak') or 0):
+        return c
+    c.pop('cycleFix', None); c.pop('fixUntil', None); c['streak'] = 0
+    c['events'] = (list(c.get('events') or []) + [{'kind': 'streak', 'at': now, 'why': f'owner picked the {mode} cycle — it runs from the next round'}])[-60:]
+    return c
+
+
 def valid_cycle(mode):
     return mode in CYCLE_MODES or cycle_seq(mode) is not None
 DEFAULT_CYCLES = {'safe': 'safe', 'balanced': 'adaptive', 'degen': 'classic', 'next': 'press', 'ever': 'off'}   # every tier cycles its own way
@@ -72,6 +82,7 @@ RIDE_AT, RIDE_TRAIL = 150.0, 30.0   # 🏇 ride a runner from +150%, sell only w
 HOLD_MIN = 80.0      # 🏇 a held coin must stay ≥ +80% (a whole round ≥ +80% also earns a hold); under it → swapped
 MIN_CYCLE_COINS = 3  # every cycle shape holds at least 3 coins (else the card keeps its current coins)
 STREAK = 3
+STREAK_PCT = 3.0   # only a REAL round counts toward a streak: ±0.04% noise on 5-min rounds used to trip the safe fix every 15 min
 ADAPT_RED = 3.0   # adaptive: only a round at or below −3% rests in majors (−0.04% noise used to park the card in majors)
 SAFE_FIX_ROUNDS = 8   # a losing-streak safe fix lasts this many rounds, then the card returns to its own cycle           # 3 losing rounds → safe config · 3 winning rounds → config locked + best coin frozen for a round
 
@@ -446,11 +457,11 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             if int(l.get('freezeRounds') or 0) > 0:
                 l['freezeRounds'] = int(l['freezeRounds']) - 1
         lr = _f(c['lastRoundPct']); st = int(c.get('streak') or 0)
-        st = (st + 1 if st >= 0 else 1) if lr > 0 else (st - 1 if st <= 0 else -1) if lr < 0 else 0
+        st = (st + 1 if st >= 0 else 1) if lr >= STREAK_PCT else (st - 1 if st <= 0 else -1) if lr <= -STREAK_PCT else st   # noise keeps the streak as is
         if locked_round:
             c['lockRounds'] = int(c['lockRounds']) - 1
         if c.get('cycleFix') == 'safe' and int(c.get('rounds') or 0) >= int(c.get('fixUntil') or 0):
-            c.pop('cycleFix', None)   # the safe fix lasts SAFE_FIX_ROUNDS, then the card goes back to its own cycle (never majors forever)
+            c.pop('cycleFix', None); st = 0   # the safe fix lasts SAFE_FIX_ROUNDS, then the card goes back to its own cycle (never re-armed the same round)
             ev(kind='streak', why=f'safe fix done — back to its own cycle')
         if st <= -STREAK:
             c['cycleFix'] = 'safe'; c['fixUntil'] = int(c.get('rounds') or 0) + SAFE_FIX_ROUNDS; st = 0

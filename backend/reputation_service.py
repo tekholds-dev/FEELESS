@@ -5456,6 +5456,8 @@ async def fuse_prime_admin(request: Request):
     body = await request.json()
     async with _admin_lock:
         d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        was = {t: (_prime.clean_cfg(pr.get('cfg') or {}).get('cycles') or {}).get(t) for t in _prime.TEMPLATES}
+        was.update({t: (l.get('cycles') or {}).get(t) for t, l in (pr.get('locks') or {}).items()})
         pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), **(body.get('cfg') or {})})
         if body.get('lock') in _prime.TEMPLATES:   # 🔒 lock a tier's FULL config as it is now (engine, tunes and meta config never change it)
             locks = dict(pr.get('locks') or {})
@@ -5468,6 +5470,10 @@ async def fuse_prime_admin(request: Request):
             else:
                 locks.pop(body['lock'], None)
             pr['locks'] = locks
+        now_c = {t: (pr['cfg'].get('cycles') or {}).get(t) for t in _prime.TEMPLATES}
+        now_c.update({t: (l.get('cycles') or {}).get(t) for t, l in (pr.get('locks') or {}).items()})
+        for t, cards_ in [(t, pr.get('cards') or {}) for t in _prime.TEMPLATES if now_c.get(t) != was.get(t) and t in (pr.get('cards') or {})]:
+            cards_[t] = _prime.owner_cycle(cards_[t], now_c[t], time.time())   # 🎛 the owner's new cycle beats any auto safe / rescue fix
         if body.get('reset'):
             pr['cards'] = {}
         if body.get('redeal') in _prime.TEMPLATES:          # one tier fresh

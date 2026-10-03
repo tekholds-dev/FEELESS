@@ -434,3 +434,20 @@ def test_every_shape_has_growth_and_mixes_by_name():
     assert roles('anchor') == ['N1'] and roles('safest') == ['N1']
     assert set(roles('mixed')) == {'N1', 'R1'}
     assert roles('degen')[:2] == ['R1', 'R2']
+
+
+def test_noise_rounds_never_trip_the_safe_fix_and_owner_cycle_wins():
+    """5-min rounds: ±0.04% moves are noise — they neither build nor break a streak, so the owner's cycle keeps running."""
+    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 1, 'cycles': {'degen': 'off'}})
+    runner = {'mint': 'R', 'pairAddress': 'PR', 'symbol': 'R', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0}
+    card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
+            'events': [], 'startUsd': 10.0, 'legs': [runner], 'streak': -2, 'roundStartUsd': 10.0}
+    lq = {'PR': 1e12}
+    tiny = ap.tick(card, {'PR': 0.9996}, [], [], cfg, 3600, liqs=lq)            # −0.04% round: noise
+    assert not tiny.get('cycleFix') and tiny['streak'] == -2
+    real = ap.tick(card, {'PR': 0.95}, [], [], cfg, 3600, liqs=lq)              # −5%: a real 3rd losing round
+    assert real['cycleFix'] == 'safe'
+    done = ap.tick(dict(card, cycleFix='safe', fixUntil=1), {'PR': 0.95}, [], [], cfg, 3600, liqs=lq)   # fix ends → not re-armed the same round
+    assert not done.get('cycleFix') and done['streak'] == 0
+    picked = ap.owner_cycle(dict(card, cycleFix='rescue', fixUntil=9), 'classic', 5.0)
+    assert 'cycleFix' not in picked and picked['streak'] == 0 and picked['events'][-1]['kind'] == 'streak'
