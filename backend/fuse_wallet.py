@@ -110,7 +110,7 @@ def orders(card_id, card, book, prices, sol_px, cfg, now):
 
 
 def spent_24h(ledger, now):
-    return round(sum(_f(o.get('usd')) for o in ledger or [] if o.get('status') == 'filled' and now - _f(o.get('at')) < 86400), 4)
+    return round(sum(_f(o.get('usd')) for o in ledger or [] if o.get('status') == 'filled' and o.get('side') == 'buy' and now - _f(o.get('at')) < 86400), 4)   # new money only
 
 
 def check(order, cfg, ledger, now, quote_impact_pct=None):
@@ -124,7 +124,7 @@ def check(order, cfg, ledger, now, quote_impact_pct=None):
         return False, 'No Fuse wallet picked'
     if _f(order.get('usd')) > cfg['maxSwapUsd'] + 0.01:
         return False, f"${_f(order.get('usd')):.2f} is over the ${cfg['maxSwapUsd']:g} per-swap cap"
-    if spent_24h(ledger, now) + _f(order.get('usd')) > cfg['dailyUsd']:
+    if order.get('side') == 'buy' and spent_24h(ledger, now) + _f(order.get('usd')) > cfg['dailyUsd']:   # sells never hit the cap (they take risk OFF)
         return False, f"daily cap ${cfg['dailyUsd']:g} reached"
     if order.get('side') == 'buy' and _f(order.get('liq')) < cfg['minLiqUsd']:   # 💧 real money never buys a pool this thin (sells always allowed)
         return False, f"pool too thin: ${_f(order.get('liq')):,.0f} liquidity < ${cfg['minLiqUsd']:,.0f} (real buys only)"

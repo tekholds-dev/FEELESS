@@ -42,11 +42,11 @@ def test_sell_is_capped_per_swap():
 
 
 def test_check_blocks_unarmed_paused_over_caps_and_impact():
-    o = {'usd': 10}
+    o = {'usd': 10, 'side': 'buy', 'liq': 1e9}
     assert fw.check(o, {**CFG, 'armed': False}, [], 0)[0] is False
     assert fw.check(o, {**CFG, 'paused': True}, [], 0)[0] is False
     assert fw.check({'usd': 60}, CFG, [], 0)[0] is False
-    led = [{'status': 'filled', 'usd': 295, 'at': 0}]
+    led = [{'status': 'filled', 'side': 'buy', 'usd': 295, 'at': 0}]
     assert 'daily cap' in fw.check(o, CFG, led, 100)[1]
     assert fw.check(o, CFG, led, 90000)[0] is True            # yesterday's spend rolled off
     assert 'impact' in fw.check(o, CFG, [], 0, quote_impact_pct=5)[1]
@@ -286,6 +286,16 @@ def test_cap_skip_is_logged_once_per_quiet_window():
 def test_cap_blocks_before_any_quote():
     """check() with no impact = the pre-quote gate: a capped order is refused without needing a Jupiter quote."""
     cfg = {'armed': True, 'walletId': 'w', 'address': 'a', 'dailyUsd': 30, 'maxSwapUsd': 10}
-    led = [{'status': 'filled', 'usd': 29.9, 'at': 100.0}]
-    ok, why = fw.check({'side': 'sell', 'usd': 0.69}, cfg, led, 200.0)
+    led = [{'status': 'filled', 'side': 'buy', 'usd': 29.9, 'at': 100.0}, {'status': 'filled', 'side': 'sell', 'usd': 50.0, 'at': 100.0}]
+    ok, why = fw.check({'side': 'buy', 'usd': 0.69, 'liq': 1e6}, cfg, led + [{'status': 'filled', 'side': 'buy', 'usd': 0.0, 'at': 100.0}], 200.0)
     assert not ok and why.startswith('daily cap')
+    assert fw.check({'side': 'sell', 'usd': 0.69}, cfg, led, 200.0)[0]            # a sell always passes the cap
+    assert fw.spent_24h(led, 200.0) == 29.9                                         # sells don't count as spend
+
+
+def test_dealt_coin_keeps_its_depth_and_new_major_tag():
+    import arena_prime as ap
+    l = ap._leg({'mint': 'M', 'pairAddress': 'P', 'symbol': 'NM', 'price': 1.0, 'liquidity': 150_000, 'newMajor': True}, 5.0, 0, 'runner')
+    assert l['liq'] == 150_000 and l['newMajor']
+    r = ap._leg({'mint': 'R', 'pairAddress': 'Q', 'symbol': 'RN', 'price': 1.0, 'liq': 40_000}, 5.0, 0, 'runner')
+    assert r['liq'] == 40_000 and 'newMajor' not in r

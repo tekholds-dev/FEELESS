@@ -218,10 +218,12 @@ def sell_usd(units, px, liq):
 
 def _leg(c, usd, now, role):
     mid = _f(c.get('price'))
-    liq = _f(c.get('liquidityUsd') or c.get('liq'))
+    lv = c.get('liquidity')   # every candidate source names depth differently — a coin dealt with liq 0 read as "$0 pool" to the keeper
+    liq = _f(c.get('liquidityUsd') or c.get('liq') or (lv.get('usd') if isinstance(lv, dict) else lv))
     px = buy_px(mid, usd, liq)
     return {'mint': c['mint'], 'pairAddress': c['pairAddress'], 'symbol': c.get('symbol'), 'role': role, 'entry': px, 'units': usd / px if px > 0 else 0.0,
-            'costUsd': round(usd, 6), 'at': now, 'stars': c.get('stars') or stars(c, role), 'firstEntry': px, 'liq': liq, 'midAtEntry': mid}
+            'costUsd': round(usd, 6), 'at': now, 'stars': c.get('stars') or stars(c, role), 'firstEntry': px, 'liq': liq, 'midAtEntry': mid,
+            **({'newMajor': True} if c.get('newMajor') else {})}
 
 
 def _picks(t, pools, runners, anchors):
