@@ -6317,10 +6317,13 @@ async def _engine_self_fix(now, sim):
     bad = s24.get('n', 0) >= 100 and _fuse._f(s24.get('avgPct')) <= -5
     if bad != bool(cfg.get('strictRunners')):
         patch['strictRunners'] = bad
+    floor_confirm = 3 if cfg['rotateHours'] * 60 <= 5 else 2   # 🔒 hard floor: the self-fix can never take patience away on fast clocks
     for trait, key, cast in (('minDrop', 'rotateMinDrop', float), ('confirm', 'rotateConfirm', int)):
         b = best.get(trait)
-        if b and b.get('n', 0) >= 30 and cast(b['value']) != cfg.get(key):
-            patch[key] = cast(b['value'])
+        if b and b.get('n', 0) >= 30:
+            v = max(floor_confirm, cast(b['value'])) if key == 'rotateConfirm' else cast(b['value'])
+            if v != cfg.get(key):
+                patch[key] = v
     if not patch:
         return None
     async with _admin_lock:

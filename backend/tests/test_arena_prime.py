@@ -395,3 +395,12 @@ def test_patience_makes_5min_rounds_work_and_bad_weather_tightens_runners():
     weak = [{'mint': 'W', 'pairAddress': 'PW', 'symbol': 'W', 'price': 1.0, 'score': 99, 'stars': 5, 'vol1h': 900}]
     c2 = ap.tick(dict(card, legs=[dict(leg, loseRounds=5)]), {'PL': 0.85, 'PW': 1.0}, [], weak, {**cfg, 'strictRunners': True}, 1800, liqs={'PL': 1e12, 'PW': 1e12})
     assert c2['legs'][0]['mint'] == 'L'                                     # bad weather: a thin runner never gets in
+
+
+def test_self_fix_never_removes_patience_on_fast_clocks():
+    import asyncio, pytest
+    rs = pytest.importorskip('reputation_service')
+    rs._json_save(rs.FUSE_HQ_PATH, {'prime': {'cfg': {'rotateHours': 5 / 60, 'rotateConfirm': 3}, 'cards': {}}})
+    sim = {'s24': {'n': 200, 'avgPct': 1}, 'best': {'confirm': {'value': '1', 'n': 50}}}
+    asyncio.run(rs._engine_self_fix(1.0, sim))
+    assert rs._prime_cfg()['rotateConfirm'] == 3

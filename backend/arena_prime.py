@@ -337,7 +337,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             l['units'] -= sold; l['entry'] = px; c['feesUsd'] += fee
             c['takenUsd'] += gain
             others = [o for o in c['legs'] if o is not l and _f(prices.get(o['pairAddress'])) > 0]
-            label = f"+{g:.0f}% ≥ +{t['tp']}% · {why}"
+            label = why if mode == 'ride-end' else f"+{g:.0f}% ≥ +{t['tp']}% · {why}"   # a held runner's exit explains itself
             # 🧬 profit split (tier DNA): payoutPct → straight to the owner's wallet, the rest compounds — smart = into the strongest coins
             dna = {'payoutPct': (cfg.get('payouts') or DEFAULT_PAYOUTS).get(card['tpl'], 0), 'compound': cfg.get('compoundStyle', 'smart') if cfg['compound'] else 'off'}
             out_usd, back_usd = _dna.split_profit(gain, dna)
