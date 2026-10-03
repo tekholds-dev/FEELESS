@@ -175,3 +175,21 @@ def test_failed_buy_is_retried_and_never_shows_minus_100():
     book2 = {'sol': 0.01, 'legs': {'RUN': {'atoms': 1000_000000, 'decimals': 6, 'entryPx': 0.002, 'costUsd': 2.0, 'pair': 'R'}}}
     c3 = fw.sync_card(c2, book2, {'S': 100, 'R': 0.002}, 100)
     assert c3['legs'][1]['real'] and 'buying' not in c3['legs'][1]
+
+
+def test_defund_returns_the_paper_card_from_before_real_money():
+    import fuse_wallet as fw
+    paper = {'legs': [{'mint': 'A', 'pairAddress': 'A', 'symbol': 'A', 'units': 50.0, 'entry': 2.0, 'costUsd': 100.0}], 'cash': 0.0, 'startUsd': 100.0, 'real': False}
+    real = fw.topup_card(paper, 4.0, {'A': 2.0}, 10, first=True)
+    assert real['startUsd'] == 4.0 and real['paperBefore']['startUsd'] == 100.0
+    back = fw.back_to_paper({**real, 'legs': [{**real['legs'][0], 'units': 0.0, 'buying': True}]}, 4.2, 20)
+    assert not back['real'] and back['startUsd'] == 100.0 and back['legs'][0]['units'] == 50.0 and 'buying' not in back['legs'][0]
+    assert back['runs'][-1]['paper'] is False and back['runs'][-1]['endUsd'] == 4.2
+
+
+def test_legacy_card_snapshot_scales_back_to_paper_value():
+    import fuse_wallet as fw
+    card = {'legs': [{'mint': 'A', 'pairAddress': 'A', 'units': 2.0, 'costUsd': 4.0}], 'cash': 0.0, 'startUsd': 4.0,
+            'runs': [{'startUsd': 100.0, 'endUsd': 200.0, 'paper': True}]}
+    snap = fw.paper_snapshot(card)
+    assert snap['legs'][0]['units'] == 100.0 and snap['startUsd'] == 100.0

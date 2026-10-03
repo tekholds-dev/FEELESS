@@ -286,6 +286,7 @@ def topup_card(card, usd, prices, now, first=False):
     c['runs'] = (list(c.get('runs') or []) + [{'at': now, 'startUsd': c.get('startUsd'), 'endUsd': round(total_before, 4),
                                                  'pct': round((total_before / (_f(c.get('startUsd')) or 1) - 1) * 100, 2), 'paper': not card.get('real')}])[-10:]
     if first:
+        c['paperBefore'] = {k2: v for k2, v in card.items() if k2 not in ('events', 'runs', 'paperBefore')}   # ↩ restored when the money comes out
         k = usd / held if held > 0 else 0.0
         for l in c['legs']:
             l['units'] = _f(l.get('units')) * k; l['costUsd'] = round(_f(l.get('units')) * px(l), 6); l['entry'] = px(l); l['firstEntry'] = px(l); l['at'] = now; l.pop('peak', None)
@@ -338,3 +339,30 @@ def paper_match(rows, window=40):
         return {'n': 0, 'avgDevPct': None, 'worstDevPct': None, 'within2Pct': None}
     return {'n': len(devs), 'avgDevPct': round(sum(devs) / len(devs), 3), 'worstDevPct': round(min(devs, key=lambda x: -abs(x)), 3),
             'within2Pct': round(sum(1 for x in devs if abs(x) <= 2) / len(devs) * 100, 1)}
+
+
+def paper_snapshot(card):
+    """The paper card from before real money. Cards funded before snapshots existed: the current coins scaled back up to the paper
+    value at funding (last run record), with the paper start restored."""
+    if card.get('paperBefore'):
+        return card['paperBefore']
+    run = next((r for r in reversed(card.get('runs') or []) if r.get('paper')), None)
+    start = _f(card.get('startUsd'))
+    if not run or start <= 0:
+        return None
+    k = _f(run.get('endUsd')) / start
+    snap = {k2: v for k2, v in card.items() if k2 not in ('events', 'runs', 'paperBefore')}
+    snap['legs'] = [{**{x: y for x, y in l.items() if x not in ('buying', 'wantUnits', 'real')}, 'units': _f(l.get('units')) * k, 'costUsd': _f(l.get('costUsd')) * k} for l in card.get('legs') or []]
+    snap.update(cash=_f(card.get('cash')) * k, startUsd=run.get('startUsd'), roundStartUsd=run.get('endUsd'), dayStartUsd=run.get('endUsd'))
+    return snap
+
+
+def back_to_paper(card, real_end_usd, now):
+    """↩ Every coin sold: the card goes back to the paper card it was before real money (the real run stays on its record)."""
+    snap = card.get('paperBefore') or paper_snapshot(card)
+    runs = list(card.get('runs') or []) + [{'at': now, 'startUsd': card.get('startUsd'), 'endUsd': round(_f(real_end_usd), 4),
+                                            'pct': round((_f(real_end_usd) / (_f(card.get('startUsd')) or 1) - 1) * 100, 2), 'paper': False}]
+    ev = list(card.get('events') or []) + [{'at': now, 'kind': 'defund', 'why': 'back to paper — every coin sold to SOL, the paper card from before real money is back'}]
+    base = {k: v for k, v in (snap or card).items() if k != 'paperBefore'}
+    base['legs'] = [{x: y for x, y in l.items() if x not in ('buying', 'wantUnits', 'real')} for l in base.get('legs') or []]
+    return {**base, 'real': False, 'runs': runs[-10:], 'events': ev}

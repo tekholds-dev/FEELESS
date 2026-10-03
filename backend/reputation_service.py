@@ -5658,7 +5658,7 @@ async def _fw_tick(now):
         async with _admin_lock:
             h = _json_load(FUSE_HQ_PATH, {}); cs = (h.get('prime') or {}).get('cards') or {}
             if cs.get(tid):
-                cs[tid] = _fw.sync_card(cs[tid], book, px, sol_px) if tid in _fw_load()['books'] else {**cs[tid], 'real': False, 'events': (cs[tid].get('events') or []) + [{'at': now, 'kind': 'defund', 'why': 'back to paper — every coin sold to SOL'}]}
+                cs[tid] = _fw.sync_card(cs[tid], book, px, sol_px) if tid in _fw_load()['books'] else _fw.back_to_paper(cs[tid], _fw.book_value(book, px, sol_px), now)
                 _json_save(FUSE_HQ_PATH, h)
         done += 1
     return done
@@ -5899,6 +5899,11 @@ async def fuse_wallet_card(request: Request):
         if not b or act not in ('defund', 'resume', 'halt'):
             raise HTTPException(400, 'Pick a funded tier and defund / halt / resume.')
         d['books'][tid] = {**b, 'defund': True} if act == 'defund' else {**b, 'halt': act == 'halt'}
+        if act == 'defund':   # freeze the paper card to come back to BEFORE the selling changes the coins
+            async with _admin_lock:
+                h = _json_load(FUSE_HQ_PATH, {}); cs = (h.get('prime') or {}).get('cards') or {}
+                if cs.get(tid) and not cs[tid].get('paperBefore'):
+                    cs[tid]['paperBefore'] = _fw.paper_snapshot(cs[tid]); _json_save(FUSE_HQ_PATH, h)
         _fw_save(d)
     ad = _admin_load(); _audit(ad, me, f'fuse-wallet-{act}', tid); _admin_save(ad)
     return {'ok': True}
