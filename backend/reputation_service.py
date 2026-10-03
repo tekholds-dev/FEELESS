@@ -5645,15 +5645,41 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
             d = _fw_load(); _fw_record(d, row); _fw_save(d)
         _fw_notify(row)
         return book
-    sig = signed.get('signature') or signed.get('txHash')
-    book = {**book, 'pending': {**row, 'sig': sig, 'status': 'sent', 'sentAt': now}}
-    async with _fw_lock:   # pending is saved BEFORE the send: a crash mid-flight can never double-buy
-        d = _fw_load(); d['books'][tid] = book; _fw_save(d)
-    try:
-        async with httpx.AsyncClient(timeout=15) as http:
-            await _rpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
-    except Exception as e:
-        print('fuse wallet send:', e)
+    for slip_try in range(3):   # price moved past slippage at send time (Jupiter 0x1771) → fresh quote with a bit more room, ≤ 3%
+        sig = signed.get('signature') or signed.get('txHash')
+        book = {**book, 'pending': {**row, 'sig': sig, 'status': 'sent', 'sentAt': now}}
+        async with _fw_lock:   # pending is saved BEFORE the send: a crash mid-flight can never double-buy
+            d = _fw_load(); d['books'][tid] = book; _fw_save(d)
+        try:
+            async with httpx.AsyncClient(timeout=15) as http:
+                await _rpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
+            break
+        except Exception as e:
+            msg = str(e)
+            if 'simulation failed' not in msg.lower():
+                print('fuse wallet send:', msg[:200]); break   # network trouble: the tx may still land → resolve decides
+            # simulation failed = this tx can NEVER land → clear pending now (no 2-min wait), maybe retry with more slippage
+            book = {**book, 'pending': None}
+            async with _fw_lock:
+                d = _fw_load(); d['books'][tid] = book; _fw_save(d)
+            slip = min(300, int(cfg['slippageBps']) + 75 * (slip_try + 1))
+            if ('0x1771' not in msg and '6001' not in msg) or slip_try == 2:
+                row.update(status='failed', err=('slippage exceeded at send' if ('0x1771' in msg or '6001' in msg) else 'simulation failed') + f' (tried ≤{slip / 100:.2f}%)')
+                async with _fw_lock:
+                    d = _fw_load(); _fw_record(d, row); _fw_save(d)
+                _fw_notify(row)
+                return book
+            try:
+                q = await _fw_quote(order, {**cfg, 'slippageBps': slip})
+                swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
+                                                                    'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': 100000, 'priorityLevel': 'veryHigh'}}})
+                signed = await _fw_sign(cfg, swap.get('swapTransaction'), f"FEELESS {tid} {order['side']} {order.get('symbol')} retry")
+                row['retrySlipBps'] = slip
+            except HTTPException as e2:
+                row.update(status='failed', err=f'retry build/sign: {str(e2.detail)[:100]}')
+                async with _fw_lock:
+                    d = _fw_load(); _fw_record(d, row); _fw_save(d)
+                return book
     return await _fw_resolve(tid, book, cfg, sol_px, wait=40)
 
 
