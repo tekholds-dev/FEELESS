@@ -245,3 +245,18 @@ def test_leftover_cash_under_min_order_still_buys_the_waiting_coin():
     book = {'sol': 0.0101, 'legs': {}}
     buys = [o for o in fw.orders('t', card, book, {'S': 120, 'W': 2680}, 120, {**fw.DEFAULT_CFG, 'armed': True}, 1) if o['side'] == 'buy']
     assert buys and buys[0]['mint'] == 'W' and 0.15 <= buys[0]['usd'] < 0.5
+
+
+def test_close_empty_accounts_only_and_builds_close_ix():
+    import base64, fuse_wallet as fw
+    from solders.transaction import Transaction
+    from solders.keypair import Keypair
+    owner, acct = str(Keypair().pubkey()), str(Keypair().pubkey())
+    rows = [{'pubkey': acct, 'program': 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'info': {'mint': 'M1', 'tokenAmount': {'amount': '0'}}},
+            {'pubkey': str(Keypair().pubkey()), 'program': 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'info': {'mint': 'M2', 'tokenAmount': {'amount': '5'}}},
+            {'pubkey': str(Keypair().pubkey()), 'program': 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'info': {'mint': 'HELD', 'tokenAmount': {'amount': '0'}}}]
+    empty = fw.empty_accounts(rows, keep_mints=['HELD'])
+    assert [e['mint'] for e in empty] == ['M1']
+    tx = Transaction.from_bytes(base64.b64decode(fw.close_tx(owner, empty, '11111111111111111111111111111111')))
+    ix = tx.message.instructions[0]
+    assert bytes(ix.data) == bytes([9]) and str(tx.message.account_keys[0]) == owner

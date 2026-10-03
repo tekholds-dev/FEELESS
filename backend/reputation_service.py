@@ -5724,7 +5724,43 @@ async def _fw_tick(now):
                 cs[tid] = _fw.sync_card(cs[tid], book, px, sol_px) if tid in _fw_load()['books'] else _fw.back_to_paper(cs[tid], _fw.book_value(book, px, sol_px), now)
                 _json_save(FUSE_HQ_PATH, h)
         done += 1
+    await _fw_close_empty(cfg, now)
     return done
+
+
+_fw_close_at = {'t': 0.0}
+
+
+async def _fw_close_empty(cfg, now):
+    """♻ Every 30 min: close the Fuse wallet's EMPTY token accounts (coins fully sold) → their rent deposits come back to the wallet
+    reserve. One tx, CloseAccount only (destination = the wallet itself), Circle signs (Fuse wallet only), logged + owner inbox."""
+    if now - _fw_close_at['t'] < 1800 or not cfg.get('armed') or cfg.get('paused') or not _fw_signer_ready():
+        return
+    _fw_close_at['t'] = now
+    d = _fw_load()
+    if any(b.get('pending') for b in d['books'].values()):
+        return
+    keep = {m for b in d['books'].values() for m in (b.get('legs') or {})}
+    try:
+        async with httpx.AsyncClient(timeout=15) as http:
+            res = await asyncio.gather(*[_rpc(http, 'getTokenAccountsByOwner', [cfg['address'], {'programId': pg}, {'encoding': 'jsonParsed', 'commitment': 'confirmed'}]) for pg in _FW_TOKEN_PROGRAMS])
+            rows = [{'pubkey': a.get('pubkey'), 'program': pg, 'lamports': (a.get('account') or {}).get('lamports'),
+                     'info': ((((a.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {})} for pg, r in zip(_FW_TOKEN_PROGRAMS, res) for a in (r or {}).get('value') or []]
+            empty = _fw.empty_accounts(rows, keep)
+            if not empty:
+                return
+            bh = ((await _rpc(http, 'getLatestBlockhash', [{'commitment': 'finalized'}])) or {}).get('value', {}).get('blockhash')
+            signed = await _fw_sign(cfg, _fw.close_tx(cfg['address'], empty, bh), f'FEELESS close {len(empty)} empty accounts')
+            sig = signed.get('signature') or signed.get('txHash')
+            await _rpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
+        rent = round(sum(_fuse._f(r.get('lamports')) for r in rows if r['pubkey'] in {e['pubkey'] for e in empty}) / 1e9, 9)
+        row = {'id': f'close:{now:.0f}', 'card': 'wallet', 'side': 'close', 'n': len(empty), 'sol': rent, 'sig': sig, 'at': now, 'status': 'sent', 'why': 'empty coin accounts closed — rent back to the reserve'}
+    except Exception as e:
+        row = {'id': f'close:{now:.0f}', 'card': 'wallet', 'side': 'close', 'at': now, 'status': 'failed', 'err': str(getattr(e, 'detail', e))[:120]}
+        _fw_close_at['t'] = now - 1800 + 180   # RPC busy → try again in 3 min, not 30
+    async with _fw_lock:
+        d = _fw_load(); _fw_record(d, row); _fw_save(d)
+    _fw_notify(row)
 
 
 _mint_dec: dict = {}

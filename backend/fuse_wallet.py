@@ -415,3 +415,31 @@ def buy_safety(order, quote_out_atoms, decimals, sell_back_lamports):
     if loss > MAX_ROUNDTRIP_PCT:
         return False, f"sells back for {loss:.1f}% less (> {MAX_ROUNDTRIP_PCT:g}%) — tax / thin / one-way"
     return True, ''
+
+
+CLOSE_MAX = 8   # accounts per close transaction (well inside the size limit)
+
+
+def empty_accounts(token_accounts, keep_mints=()):
+    """[{pubkey, program}] of the wallet's EMPTY token accounts (0 balance) whose coin no card holds — closing them returns the rent."""
+    out = []
+    for a in token_accounts or []:
+        info = a.get('info') or {}
+        if int((info.get('tokenAmount') or {}).get('amount') or 0) == 0 and info.get('mint') not in set(keep_mints) and a.get('pubkey') and a.get('program'):
+            out.append({'pubkey': a['pubkey'], 'program': a['program'], 'mint': info.get('mint')})
+    return out[:CLOSE_MAX]
+
+
+def close_tx(owner, accounts, blockhash):
+    """Unsigned legacy tx (base64): SPL CloseAccount for each empty account → its rent goes back to the owner wallet. Nothing else."""
+    import base64
+    from solders.pubkey import Pubkey
+    from solders.instruction import Instruction, AccountMeta
+    from solders.message import Message
+    from solders.transaction import Transaction
+    from solders.hash import Hash
+    me = Pubkey.from_string(owner)
+    ixs = [Instruction(Pubkey.from_string(a['program']), bytes([9]),   # 9 = CloseAccount (same in Token + Token-2022)
+                       [AccountMeta(Pubkey.from_string(a['pubkey']), False, True), AccountMeta(me, False, True), AccountMeta(me, True, False)]) for a in accounts]
+    msg = Message.new_with_blockhash(ixs, me, Hash.from_string(blockhash))
+    return base64.b64encode(bytes(Transaction.new_unsigned(msg))).decode()
