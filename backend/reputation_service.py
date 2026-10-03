@@ -5699,11 +5699,13 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
         async with _fw_lock:
             d = _fw_load(); _fw_record(d, row); _fw_save(d)
         return book
+    async with _fw_lock:   # ⚡ txs that didn't land lately → this one pays a higher priority fee (24% of buys timed out at a flat fee)
+        boost = _fw.landing_boost(_fw_load().get('ledger'), tid, now)
     try:
         for attempt in range(3):   # build + sign retried too (Jupiter / Circle blips); nothing is sent until a signed tx exists
             try:
                 swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
-                                                                    'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': 50000 * (attempt + 1), 'priorityLevel': 'veryHigh' if attempt else 'high'}}})
+                                                                    'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': _fw.priority_cap(attempt, boost), 'priorityLevel': 'veryHigh' if attempt or boost else 'high'}}})
                 signed = await _fw_sign(cfg, swap.get('swapTransaction'), f"FEELESS {tid} {order['side']} {order.get('symbol')}")
                 break
             except HTTPException:
@@ -5807,7 +5809,18 @@ async def _fw_tick(now):
     if _fw_tick_lock.locked():
         return 0
     async with _fw_tick_lock:
-        return await _fw_tick_inner(now)
+        n = await _fw_tick_inner(now)
+        if time.time() - _FW_GAS.get('at', 0) > 60:   # ⛽ one balance read a minute (never per viewer)
+            try:
+                cfg = _fw_cfg()
+                if cfg.get('address'):
+                    _FW_GAS.update(sol=(await _fw_balances(cfg['address']))['sol'], at=time.time())
+            except Exception as e:
+                print('fuse wallet gas:', e)
+        return n
+
+
+_FW_GAS = {}
 
 
 async def _fw_tick_inner(now):
@@ -5967,7 +5980,9 @@ def _fw_public(tid):
               'minLiqUsd': cfg.get('minLiqUsd'), 'minOrderUsd': cfg.get('minOrderUsd'), 'maxSwapUsd': cfg.get('maxSwapUsd'), 'slippageBps': cfg.get('slippageBps'),
               'maxImpactPct': cfg.get('maxImpactPct'), 'dailyUsd': cfg.get('dailyUsd'), 'pending': pend.get('symbol') and f"{pend.get('side')} ${pend.get('symbol')}",
               'lastFail': fail and {'symbol': fail.get('symbol'), 'side': fail.get('side'), 'err': (fail.get('err') or '')[:90], 'at': fail.get('at')},
-              'lastFill': next((o.get('at') for o in rows if o.get('status') == 'filled'), None)}
+              'lastFill': next((o.get('at') for o in rows if o.get('status') == 'filled'), None),
+              'gas': _fw.gas_tank(_FW_GAS['sol'], d['books'], cfg.get('reserveSol')) if 'sol' in _FW_GAS else None,
+              'landing': _fw.landing(d['ledger'], tid, time.time())}
     return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4), 'wallet': cfg['address'], 'keeper': keeper,
             'orders': [{k: o.get(k) for k in ('side', 'symbol', 'usd', 'px', 'sig', 'at', 'status', 'feeUsd', 'why', 'costUsd')} for o in rows], **_fw.totals(d['ledger'], tid)}
 

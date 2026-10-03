@@ -324,3 +324,24 @@ def test_sell_safety_blocks_a_route_far_under_market_but_lets_a_real_dump_sell()
 def test_cost_of_sold_part():
     book = {'legs': {'M': {'atoms': 1000, 'costUsd': 0.8}}}
     assert fw.cost_of(book, 'M', 500) == 0.4 and fw.cost_of(book, 'M', 5000) == 0.8 and fw.cost_of(book, 'X', 1) == 0.0
+
+
+def test_priority_rises_after_txs_that_did_not_land():
+    led = [{'card': 'safe', 'err': 'not confirmed in 2 min', 'at': 900.0}, {'card': 'safe', 'err': 'not confirmed in 2 min', 'at': 950.0},
+           {'card': 'other', 'err': 'not confirmed in 2 min', 'at': 950.0}, {'card': 'safe', 'err': 'not confirmed in 2 min', 'at': 10.0}]
+    assert fw.landing_boost(led, 'safe', 1000.0) == 2
+    assert fw.priority_cap(0, 0) == 50_000 and fw.priority_cap(0, 2) == 150_000 and fw.priority_cap(2, 4) == 300_000
+
+
+def test_gas_tank_and_landing_rate():
+    books = {'safe': {'sol': 0.01}}
+    assert fw.gas_tank(0.0104, books, 0.03)['state'] == 'empty'          # 0.0004 SOL free: not even one new-coin rent
+    g = fw.gas_tank(0.03, books, 0.03)
+    assert g['state'] == 'low' and g['newCoins'] == 9
+    assert fw.gas_tank(0.05, books, 0.03)['state'] == 'ok'
+    led = [{'card': 'safe', 'side': 'buy', 'status': 'filled', 'sig': 'a', 'at': 100}, {'card': 'safe', 'side': 'buy', 'status': 'filled', 'sig': 'a', 'at': 100},
+           {'card': 'safe', 'side': 'buy', 'status': 'failed', 'err': 'not confirmed in 2 min', 'at': 100},
+           {'card': 'safe', 'side': 'buy', 'status': 'skipped', 'err': 'buy price 5.9% above market (> 5%)', 'at': 100},
+           {'card': 'safe', 'side': 'buy', 'status': 'failed', 'err': 'not confirmed in 2 min', 'at': 100}, {'card': 'safe', 'side': 'topup', 'at': 100}]
+    L = fw.landing(led, 'safe', 200)
+    assert L == {'tried': 4, 'filled': 1, 'pct': 25, 'top': 'not confirmed in 2 min', 'topN': 2}

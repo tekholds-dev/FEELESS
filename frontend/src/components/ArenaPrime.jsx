@@ -241,6 +241,22 @@ export function CycleStrip({ c }) {
     <span className="hrt-vital" data-tip="Network fees this card paid (kept apart from P&L)"><small>FEES</small><b>{usd(c.realBook?.feesUsd ?? c.feesUsd ?? 0)}</b></span></div>;
 }
 
+// ⛽ gas tank + 📶 landing rate: the two things that decide whether a real buy lands (server `fuse_wallet.gas_tank` / `landing`)
+export function RealHealth({ k }) {
+  const g = k?.gas; const L = k?.landing || {};
+  const gasPct = g ? Math.min(100, (g.sol / Math.max(g.reserve || 0.03, 0.001)) * 100) : 0;
+  const land = L.pct == null ? null : L.pct;
+  return <div className="hrt-health" data-testid="real-health">
+    <div className={`hrt-gauge is-${g?.state || 'na'}`} data-tip={g ? `${g.sol.toFixed(4)} SOL free for network fees + new-coin rent (keep ≥ ${g.reserve} SOL). Enough rent for ${g.newCoins} new coin${g.newCoins === 1 ? '' : 's'}. Send SOL to the Fuse wallet to refill — it never comes out of a card.` : 'Reading the wallet…'}>
+      <small>⛽ GAS · FEES + RENT</small><b className="m-num">{g ? `${g.sol.toFixed(4)} SOL` : '—'}</b>
+      <i className="hrt-bar"><i style={{ transform: `scaleX(${gasPct / 100})` }} /></i>
+      <em>{!g ? '' : g.state === 'empty' ? '⚠ empty — new buys will fail' : g.state === 'low' ? '⚠ low — refill soon' : `ok · ${g.newCoins} new coins`}</em></div>
+    <div className={`hrt-gauge is-${land == null ? 'na' : land >= 80 ? 'ok' : land >= 50 ? 'low' : 'empty'}`} data-tip={L.top ? `Most common miss (24h): ${L.top} ×${L.topN}` : 'Every real swap the keeper tried in the last 24h'}>
+      <small>📶 LANDED · 24H</small><b className="m-num">{land == null ? '—' : `${land}%`}</b>
+      <i className="hrt-bar"><i style={{ transform: `scaleX(${(land || 0) / 100})` }} /></i>
+      <em>{L.tried ? `${L.filled}/${L.tried} swaps${L.top ? ` · top miss: ${L.top}` : ''}` : 'no swaps yet'}</em></div></div>;
+}
+
 export function HqRealCards({ addr, onCount }) {
   const [owner, setOwner] = useState(false);
   useEffect(() => { if (!addr) return; fetch(apiUrl(`/api/reputation/admin/is-admin/${addr}`)).then(r => r.json()).then(d => setOwner(!!(d.owner || d.admin))).catch(() => {}); }, [addr]);
@@ -277,6 +293,7 @@ export function HqRealCards({ addr, onCount }) {
             {c.vsSolPct != null && <span data-tip={`Holding SOL over this run: ${pct(c.holdSolPct)}. Fund more only when this stays positive.`}><small>VS HOLDING SOL</small><b className={`m-num ${c.vsSolPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.vsSolPct)}</b></span>}
             <span data-tip="Value now · % vs this run's start"><small>NOW · THIS RUN</small><b key={(c.valueUsd || 0).toFixed(2)} className={`m-num fl-tick ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{usd(c.valueUsd)} · {pct(c.pnlPct)}</b></span></div>
           <CycleStrip c={c} />
+          <RealHealth k={k} />
           <ul className="hrt-coins">{c.legs.map(l => <li key={l.pairAddress} className={l.buying ? 'is-buying' : ''}><b>{l.role === 'runner' ? '🏃' : '⚓'} ${l.symbol}{l.ride && l.high > 0 && <i className="hrt-ride" data-tip={`Frozen while it runs — swapped once it falls ${cf?.rideTrail || 30}% from its peak`}> ❄ riding · peak {pct((l.high / (l.rideFrom || l.entry || l.high) - 1) * 100)}</i>}{l.frozen && !l.ride && <i className="hrt-ride"> ❄ frozen</i>}</b>
             {l.buying || !(l.usd > 0) ? <em className="hrt-buy" data-tip={k.lastFail?.symbol === l.symbol ? `Last try: ${k.lastFail.err} — tap ⇄ to swap it for a coin that can be bought` : 'The keeper buys it on its next tick'}>{l.buying ? (k.lastFail?.symbol === l.symbol ? `⏳ ${String(k.lastFail.err || '').split(' (')[0].slice(0, 34)}` : '⏳ buying… keeper retries') : '⏳ empty — rebuy at the next round'}</em> : <><span>{usd(l.costUsd)} → {usd(l.usd)}</span><em className={l.pnlPct >= 0 ? 'm-pos' : 'm-neg'}>{pct(l.pnlPct)}</em></>}
             {l.symbol !== 'SOL' ? <span className="hrt-ctl">

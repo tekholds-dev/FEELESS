@@ -269,6 +269,26 @@ def free_sol(wallet_sol, books, reserve_sol):
     return round(max(0.0, _f(wallet_sol) - _f(reserve_sol) - sum(_f(b.get('sol')) + _f(b.get('bankSol')) for b in (books or {}).values())), 9)
 
 
+GAS_RENT_SOL = 0.00204   # rent for one new coin account — a buy of a coin the wallet never held needs this much free SOL
+
+
+def gas_tank(wallet_sol, books, reserve_sol):
+    """⛽ SOL the Fuse wallet has OUTSIDE the cards' books = what pays network fees + new-coin rent. ok / low / empty."""
+    gas = round(max(0.0, _f(wallet_sol) - sum(_f(b.get('sol')) + _f(b.get('bankSol')) for b in (books or {}).values())), 9)
+    state = 'empty' if gas < GAS_RENT_SOL else 'low' if gas < _f(reserve_sol) else 'ok'
+    return {'sol': gas, 'reserve': _f(reserve_sol), 'state': state, 'newCoins': int(gas // GAS_RENT_SOL)}
+
+
+def landing(ledger, card, now, window=86400):
+    """📶 Real swaps tried vs landed in the last 24h for one card, + the most common reason the others didn't."""
+    rows = [r for r in ledger or [] if r.get('card') == card and r.get('side') in ('buy', 'sell') and now - _f(r.get('at')) < window]
+    filled = len({r.get('sig') or r.get('id') for r in rows if r.get('status') == 'filled'})
+    miss = [str(r.get('err') or '').split(' (')[0].split(':')[0][:40] for r in rows if r.get('status') in ('failed', 'skipped')]
+    top = max(set(miss), key=miss.count) if miss else None
+    tried = filled + len(miss)
+    return {'tried': tried, 'filled': filled, 'pct': round(filled / tried * 100) if tried else None, 'top': top, 'topN': miss.count(top) if top else 0}
+
+
 def reconcile(wallet_tokens, books):
     """Coins the books say the wallet holds but it doesn't (> 0.1% short) → [{mint, booked, held}]: that card pauses."""
     want = {}
@@ -447,6 +467,16 @@ def cost_of(book, mint, atoms):
     l = (book.get('legs') or {}).get(mint) or {}
     have = int(_f(l.get('atoms')))
     return round(_f(l.get('costUsd')) * min(1.0, _f(atoms) / have), 6) if have > 0 else 0.0
+
+
+def landing_boost(ledger, card, now, window=600):
+    """How many of this card's txs failed to confirm in the last 10 min (0–4) — each one raises the next tx's priority fee."""
+    return min(4, sum(1 for r in (ledger or [])[-60:] if r.get('card') == card and r.get('err') == 'not confirmed in 2 min' and now - _f(r.get('at')) < window))
+
+
+def priority_cap(attempt, boost):
+    """Max priority fee (lamports): 50K base, ×(attempt+1+boost), capped at 300K (≈ $0.02) — lands in busy blocks, never burns the card."""
+    return min(300_000, 50_000 * (int(attempt) + 1 + int(boost)))
 
 
 CLOSE_MAX = 8   # accounts per close transaction (well inside the size limit)
