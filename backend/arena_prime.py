@@ -486,6 +486,18 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
             c['legs'][c['legs'].index(l)] = _leg(nxt, usd, now, l['role']); c['feesUsd'] += 2 * fee; swapped += 1
             ev(kind='rotate', symbol=l['symbol'], usd=round(usd, 4), why=f"weakest after {cfg['rotateHours']}h", to=[nxt.get('symbol')])
+        if not swapped and not locked_round:   # 🆕 a fresh coin EVERY round, whatever the configs: the weakest unprotected coin (never a
+            kw = _f(cfg.get('keepWinPct', 5.0))  # winner, frozen, riding or hand-picked one) makes room for the best new coin
+            gain = lambda l: ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 if l['entry'] else 0.0
+            weak = sorted((l for l in c['legs'] if l.get('role') != 'anchor' and l['entry'] > 0 and not (l.get('frozen') or l.get('ride') or l.get('picked'))
+                           and not (kw > 0 and gain(l) >= kw)), key=gain)
+            for l in weak[:1]:
+                nxt = best(l['role'])
+                if nxt:
+                    px = _f(prices.get(l['pairAddress'])) or l['entry']
+                    usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
+                    c['legs'][c['legs'].index(l)] = _leg(nxt, usd, now, l['role']); c['feesUsd'] += 2 * fee
+                    ev(kind='rotate', symbol=l['symbol'], usd=round(usd, 4), why=f"🆕 fresh coin this round ({gain(l):+.1f}%, weakest unprotected)", to=[nxt.get('symbol')])
         c['lastRotateAt'] = now
         # one ROUND per rotation: log this round's move, start the next one from today's value
         v_now = value(c, prices, liqs)

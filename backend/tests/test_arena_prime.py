@@ -551,3 +551,16 @@ def test_hand_pick_survives_one_reshape():
     nc = {'legs': [{'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'entry': 1.0, 'units': 5.0, 'costUsd': 5.0} for m in 'AB'], 'cash': 0.0}
     out, kept = ap.keep_winners(nc, old, px, lq, 5, 10.0)
     assert kept == 1 and 'H' in {l['mint'] for l in out['legs']} and not any(l.get('picked') for l in out['legs'])
+
+
+def test_a_fresh_coin_comes_in_every_round_but_never_replaces_a_winner():
+    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 1, 'cycleEvery': 0, 'cycles': {'degen': 'off'}})
+    w = {'mint': 'W', 'pairAddress': 'PW', 'symbol': 'W', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0}
+    f = {'mint': 'F', 'pairAddress': 'PF', 'symbol': 'F', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0}
+    card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
+            'events': [], 'startUsd': 20.0, 'legs': [w, f]}
+    new = [{'mint': 'N', 'pairAddress': 'PN', 'symbol': 'N', 'price': 1.0, 'score': 99, 'stars': 5}]
+    px = {'PW': 1.2, 'PF': 0.99, 'PN': 1.0}
+    c = ap.tick(card, px, [], new, cfg, 3700, liqs={k: 1e12 for k in px})
+    assert {l['mint'] for l in c['legs']} == {'W', 'N'}                    # flat F swapped, +20% W kept
+    assert ap.tick({**card, 'holdAll': True}, px, [], new, cfg, 3700, liqs={k: 1e12 for k in px})['legs'][1]['mint'] == 'F'   # hold all: nothing
