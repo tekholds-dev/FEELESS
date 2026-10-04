@@ -11,6 +11,10 @@ P&L never includes fees (same rule as real cards); a flat paper fee per trade is
 """
 import math
 
+# Native/wrapped SOL mint used by real-card helpers. Kept local so arena_prime stays pure
+# and does not import fuse_wallet (which imports this engine).
+SOL_MINT = 'So11111111111111111111111111111111111111112'
+
 # Three top tiers. Every coin on a Prime card is rated 3–5★ (anything weaker never gets in). Each card holds a STABLE anchor
 # (a real major on Solana: SOL / JitoSOL / cbBTC …, rotated only on configured re-shapes, never stopped out) + deep pools + gated runners.
 TEMPLATES = {   # anchors / pools / runners per card + the dial it runs
