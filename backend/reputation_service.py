@@ -6424,6 +6424,61 @@ async def fuse_wallet_recover_sell(request: Request):
     return {'ok': True, 'card': tid, 'symbol': st['symbol'], 'atoms': excess, 'status': 'sell queued/running'}
 
 
+@app.post('/api/reputation/admin/fuse-wallet/recover-sell-all')
+async def fuse_wallet_recover_sell_all(request: Request):
+    """Queue every confirmed dead/off-card keeper holding for sale into its card cash.
+    Failed buys have no confirmed atoms and are deliberately ignored. Nothing is removed or credited until its sell confirms."""
+    me = _require_owner(request)
+    body = await request.json()
+    tid = body.get('tpl')
+    if tid not in _prime.TEMPLATES:
+        raise HTTPException(400, 'Pick a funded real tier card.')
+    cfg = _fw_cfg()
+    if not cfg.get('address') or not cfg.get('armed') or cfg.get('paused'):
+        raise HTTPException(400, 'Fuse wallet must be armed and running.')
+    cards = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {})
+    card = cards.get(tid)
+    if not card or not card.get('real'):
+        raise HTTPException(400, 'That tier is not a real card.')
+    bal = await _fw_balances(cfg['address'])
+    async with _fw_lock:
+        d = _fw_load(); book = d['books'].get(tid)
+        if not book:
+            raise HTTPException(400, 'That tier is not funded.')
+        if book.get('pending'):
+            raise HTTPException(409, 'Wait for the current transaction to settle first.')
+        book, marked = _fw.mark_off_card_cash(book, card)
+        booked = {}
+        for bb in d['books'].values():
+            for mint, leg in (bb.get('legs') or {}).items():
+                booked[mint] = booked.get(mint, 0) + int(_fuse._f(leg.get('atoms')))
+        adopted = []
+        for mint, held_raw in (bal.get('tokens') or {}).items():
+            excess = int(_fuse._f(held_raw)) - int(booked.get(mint, 0))
+            if excess <= 0:
+                continue
+            hist = [r for r in d['ledger'] if r.get('card') == tid and r.get('mint') == mint and r.get('pair')]
+            if not hist:
+                continue
+            last = hist[-1]
+            st = {'card': tid, 'mint': mint, 'atoms': excess,
+                  'decimals': int((bal.get('decimals') or {}).get(mint) or last.get('decimals') or 0),
+                  'pair': last.get('pair'), 'symbol': last.get('symbol') or mint[:6]}
+            book = _fw.adopt(book, st)
+            book['legs'][mint] = {**book['legs'][mint], 'manualCash': True, 'recovered': True}
+            adopted.append(mint)
+        queued = list(dict.fromkeys(marked + adopted))
+        if not queued:
+            raise HTTPException(400, 'No confirmed dead/off-card holdings need selling.')
+        d['books'][tid] = book
+        _fw_record(d, {'card': tid, 'side': 'repair-sell-all', 'mints': queued, 'n': len(queued), 'at': time.time(), 'status': 'done',
+                       'why': 'owner queued every confirmed dead/off-card holding -> proceeds stay in card cash'})
+        _fw_save(d)
+    ad = _admin_load(); _audit(ad, me, 'fuse-wallet-recover-sell-all', f'{tid} {len(queued)} confirmed holdings'); _admin_save(ad)
+    await _fw_tick(time.time())
+    return {'ok': True, 'tpl': tid, 'queued': len(queued), 'mints': queued, 'status': 'confirmed holdings queued/running'}
+
+
 @app.post('/api/reputation/admin/fuse-wallet/cfg')
 async def fuse_wallet_cfg(request: Request):
     """Owner only: pick the Fuse Circle wallet and set the hard limits. Arming needs signing enabled + a picked wallet."""

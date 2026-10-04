@@ -40,6 +40,19 @@ def test_off_card_sell_is_not_blocked_by_buy_liquidity_floor():
     assert fw.check(order, CFG, [], 10) == (True, '')
 
 
+def test_sell_all_dead_marks_only_confirmed_off_card_holdings_as_card_cash():
+    book = {'sol': 0.01, 'legs': {
+        'LIVE': {'atoms': 1_000_000, 'decimals': 6, 'pair': 'pl', 'symbol': 'LIVE'},
+        'DEAD': {'atoms': 2_000_000, 'decimals': 6, 'pair': 'pd', 'symbol': 'DEAD'},
+        'FAILED_BUY': {'atoms': 0, 'decimals': 6, 'pair': 'pf', 'symbol': 'FAIL'},
+    }}
+    out, marked = fw.mark_off_card_cash(book, card([leg('LIVE', 'pl', 1, 1)]))
+    assert marked == ['DEAD']
+    assert out['legs']['DEAD']['manualCash'] and out['legs']['DEAD']['atoms'] == 2_000_000
+    assert not out['legs']['LIVE'].get('manualCash')
+    assert not out['legs']['FAILED_BUY'].get('manualCash')
+
+
 def test_sell_is_capped_per_swap():
     book = {'sol': 0.0, 'legs': {'BIG': {'atoms': 200_000_000, 'decimals': 6, 'pair': 'pb', 'symbol': 'BIG', 'entryPx': 1.0}}}
     o = fw.orders('degen', card([]), book, {'pb': 1.0}, 200.0, {**CFG, 'maxSwapUsd': 50}, 1)
