@@ -6865,11 +6865,42 @@ async def _fuse_warm_loop():
 _fuse_warm_n = {'n': 0}
 
 
+import data_cleaner as _dc
+
+_data_clean_last: dict = {}
+
+
+async def _data_clean(now):
+    """🧹 Hourly: slim stale chat token snapshots (the chat file is rewritten on every message, so its size is everyone's lag).
+    Runs under the chat lock; writes only when something was freed; the result is kept for HQ and logged."""
+    async with _chat_lock:
+        d = _chat_load()
+        out, st = _dc.slim_chat(d, now)
+        if st['messages']:
+            CHAT_PATH.write_text(json.dumps(out))
+    _data_clean_last.update(at=now, chat=st)
+    if st['messages']:
+        print(f"data cleaner: chat −{st['bytes'] / 1e6:.2f} MB ({st['messages']} old messages slimmed)")
+    return st
+
+
+@app.get('/api/reputation/admin/data-cleaner')
+async def admin_data_cleaner(request: Request):
+    """HQ: what the cleaner freed on its last run."""
+    _require_admin(request)
+    return {'last': _data_clean_last, 'rules': ['Chat: coin snapshots older than 1h lose their stale signal blocks (text, author and the coin stay)']}
+
+
 async def _fuse_warm():
     _FUSE_FORCE.set(True)          # task-local: viewers never see it, they keep reading the previous copy
     _fuse_warm_n['n'] += 1
     if _fuse_warm_n['n'] % 24 == 2:   # ~10 min: who the elite traders are + what they bought (FeeCat learns from it)
         await _crowd_build()
+    if _fuse_warm_n['n'] % 144 == 7:   # ~1h: 🧹 data cleaner (stale derived data only — never money records or message text)
+        try:
+            await _data_clean(time.time())
+        except Exception as e:
+            print('data cleaner:', e)
     try:   # 🏁 the contenders league is kept warm, so the Arena reads it in ms and the tier engine always knows who is next up
         await _contenders_build()
     except Exception as e:
