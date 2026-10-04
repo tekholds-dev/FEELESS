@@ -36,7 +36,12 @@ export function FuseWallet({ call }) {
       .catch(e => toast.error(e.message));
   };
   if (!d) return <section className="m-card fw"><span className="loader" /> Loading the Fuse wallet…</section>;
-  const sol = d.balances?.sol; const tokens = Object.keys(d.balances?.tokens || {}).length;
+  const sol = d.balances?.sol;
+  const tokens = Object.values(d.balances?.tokens || {}).filter(v => Number(v) > 0).length;
+  const cardSol = Object.values(d.books || {}).reduce((sum, b) => sum + Number(b.sol || 0) + Number(b.bankSol || 0), 0);
+  const reserveSol = Number(d.cfg?.reserveSol || 0);
+  const freeSol = Number(d.freeSol || 0);
+  const allocationGap = sol == null ? null : sol - cardSol - reserveSol - freeSol;
   return <section className="m-card m-live fw" data-testid="fuse-wallet">
     <header className="m-row"><span className="m-label">👛 FUSE WALLET · REAL MONEY FOR TIER CARDS</span><small className="m-dim">owner only · every change audited</small></header>
     {!d.signer && <div className="fw-lock" data-testid="fw-lock"><b>🔒 Signing is not enabled yet.</b> Everything here works except sending: pick the wallet, see its funds, set limits and run 🔍 dry runs with real Jupiter quotes.
@@ -49,6 +54,9 @@ export function FuseWallet({ call }) {
       <span data-tip="Real fills vs the paper model — paper uses this so its entries match real money"><small>PAPER CALIBRATION</small><b className="m-num">×{d.calibration?.impactMult ?? 1}</b><em>{d.calibration?.n ? `from ${d.calibration.n} real fills` : 'needs 3 real fills'}</em></span>
       <span data-tip="Paper fills vs real Jupiter quotes for the same coins and $ (every ~5 min, read-only)"><small>PAPER ⇄ REAL QUOTES</small><b className="m-num">{d.paperMatch?.n ? `${d.paperMatch.avgDevPct >= 0 ? '+' : ''}${d.paperMatch.avgDevPct}%` : '—'}</b><em>{d.paperMatch?.n ? `${d.paperMatch.within2Pct}% within 2% · ${d.paperMatch.n} checks` : 'first check in ~5 min'}</em></span>
       <span><small>SWAPS · FEES</small><b className="m-num">{d.totals?.swaps || 0}</b><em>network {usd(d.totals?.feesUsd)}</em></span></div>
+    {sol != null && <div className="m-note" data-testid="fw-sol-breakdown"><b>Wallet SOL is fully separated:</b><span>{sol.toFixed(4)} total = {cardSol.toFixed(4)} card cash + {reserveSol.toFixed(4)} fee reserve + {freeSol.toFixed(4)} free for top-ups.</span>
+      {Math.abs(allocationGap) > 0.000001 && <small className="m-dim">Refresh timing difference: {allocationGap.toFixed(6)} SOL. No balance is assigned or spent until a confirmed transaction updates the book.</small>}
+      {d.balances?.stale && <small className="m-dim">Showing the last confirmed balance because the live RPC read is temporarily unavailable.</small>}</div>}
     {d.missing?.length > 0 && <div className="m-note warn" data-testid="fw-missing"><b>⚠ Coins missing from the wallet</b><span>{d.missing.map(m => `${m.mint.slice(0, 6)}… booked ${m.booked}, held ${m.held}`).join(' · ')} — halt the card and check the audit trail.</span></div>}
     {d.recoverable?.length > 0 && <div className="m-note warn" data-testid="fw-recoverable"><span className="m-row">
       <button type="button" className="m-btn danger" onClick={() => setShowStuck(v => !v)} data-testid="fw-stuck-toggle">
