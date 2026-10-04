@@ -585,3 +585,13 @@ def test_manual_sell_to_cash_keeps_proceeds_in_card_and_does_not_rebuy():
     assert not [o for o in fw.orders('safe', synced, book, {'pm': 1.25}, 100.0,
                                       {**fw.DEFAULT_CFG, 'armed': True, 'walletId': 'w', 'address': 'A'}, 20)
                 if o['side'] == 'buy']
+
+
+def test_manual_cash_is_not_swept_into_payout_and_is_consumed_by_later_buy():
+    book = {'sol': 0.05, 'bankSol': 0.0, 'bankUsd': 0.0, 'payoutSeenUsd': 0.0, 'manualCashSol': 0.03, 'legs': {}}
+    kept = fw.bank(book, 10.0, 100.0)
+    assert kept['sol'] == 0.03 and kept['bankSol'] == 0.02 and kept['manualCashSol'] == 0.03
+
+    order = {'side': 'buy', 'mint': 'M', 'pair': 'pm', 'symbol': 'M', 'lamports': 10_000_000}
+    bought, _ = fw.apply_fill(kept, order, {'atoms': 1_000_000, 'decimals': 6, 'sol': -0.01, 'feeSol': 0.0}, 100.0)
+    assert bought['manualCashSol'] == 0.02
