@@ -655,10 +655,12 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     grow_now = majors_only and phase and phase != 'anchor'   # a majors-only card due growth isn't held back by the win-lock
     current_shape = PHASES.get(c.get('phase')) or {}
     current_slots = int(current_shape.get('anchors', 0)) + int(current_shape.get('pools', 0)) + int(current_shape.get('runners', 0))
-    underfilled = bool(current_slots and len(c.get('legs') or []) < current_slots)
+    # Legacy self-heal is ONLY an off-boundary repair. On a scheduled reshape boundary the configured next phase always wins;
+    # otherwise an old 3-leg card could pin itself to its previous phase and block normal cycling/safety fixes.
+    due_boundary = bool(every and int(c.get('rounds') or 0) % every == 0)
+    underfilled = bool(current_slots and len(c.get('legs') or []) < current_slots and not due_boundary and not c.get('cycleFix'))
     if underfilled:
-        # Legacy self-heal: cards damaged by the old replace/partial-deal bug repair their CURRENT phase as soon as a complete
-        # eligible shape exists. No top-up, no config change, no paid-out funds, and winners are still carried by keep_winners.
+        # Repair a legacy partial phase as soon as a complete eligible shape exists, without top-up or paid-out funds.
         phase, grow_now = c.get('phase'), True
     if c.pop('redealNow', None) and not c.get('flooredAt'):   # 🃏 one-tap re-deal: fresh coins NOW, same money + run (real cards keep their book)
         phase, grow_now, c['lastRotateAt'] = phase or c.get('phase') or 'mixed', True, now
