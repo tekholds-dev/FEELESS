@@ -506,7 +506,11 @@ def test_empty_real_slot_can_recover_from_overweight_unprotected_anchor_without_
     assert book['bankSol'] == 0.019 and out['cash'] == 0.0
     planned = fw.orders('prime-safe', out, book, prices, 100.0, {**fw.DEFAULT_CFG, 'armed': True, 'walletId': 'w', 'address': 'a'}, 10)
     assert planned and planned[0]['side'] == 'sell' and planned[0]['mint'] == 'BTC'
-    assert not [o for o in planned if o['side'] == 'buy']  # no confirmed sell proceeds yet = no buy can spend them
+    # The planner may show the buy using estimated proceeds, but the keeper's real BUY pass always reruns with count_sells=False.
+    # Before the sell is confirmed into book.sol, that real pass must have nothing it can spend.
+    real_buy_pass = fw.orders('prime-safe', out, book, prices, 100.0, {**fw.DEFAULT_CFG, 'armed': True, 'walletId': 'w', 'address': 'a'}, 10, count_sells=False)
+    assert not [o for o in real_buy_pass if o['side'] == 'buy']
+    assert book['fundedUsd'] == 6.0 and book['bankUsd'] == 1.90 and book['bankSol'] == 0.019
 
 
 def test_empty_slot_repair_never_trims_frozen_or_riding_anchor():
