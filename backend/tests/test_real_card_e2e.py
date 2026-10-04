@@ -45,6 +45,14 @@ def test_every_my_cards_option_survives_the_server_unchanged():
         (100000, 30000, 5, 50, 0.25, 300, 3.5)
 
 
+def test_confirmed_book_coin_waiting_to_sell_stays_in_live_price_universe():
+    rs = pytest.importorskip('reputation_service')
+    cards = {'safe': {'legs': [{'mint': 'new', 'pairAddress': 'Pnew'}], 'parked': {}}}
+    books = {'safe': {'legs': {'old': {'pair': 'Pold', 'atoms': 10, 'entryPx': 1.0}}}}
+    rows = {(r['pairAddress'], r['mint']) for r in rs._fw_market_rows(cards, books)}
+    assert rows == {('Pnew', 'new'), ('Pold', 'old')}
+
+
 def test_real_card_edits_and_brain_never_cross_with_hq_paper(monkeypatch):
     import asyncio
     rs = pytest.importorskip('reputation_service')
