@@ -655,12 +655,11 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     grow_now = majors_only and phase and phase != 'anchor'   # a majors-only card due growth isn't held back by the win-lock
     current_shape = PHASES.get(c.get('phase')) or {}
     current_slots = int(current_shape.get('anchors', 0)) + int(current_shape.get('pools', 0)) + int(current_shape.get('runners', 0))
-    # Legacy self-heal is ONLY an off-boundary repair. On a scheduled reshape boundary the configured next phase always wins;
-    # otherwise an old 3-leg card could pin itself to its previous phase and block normal cycling/safety fixes.
+    # Legacy underfill can exist on or between boundaries. On a due boundary the configured NEXT phase gets first chance;
+    # if that full shape is unavailable, we fall back to repairing the CURRENT phase instead of leaving a 3-leg live card.
     due_boundary = bool(every and int(c.get('rounds') or 0) % every == 0)
-    underfilled = bool(current_slots and len(c.get('legs') or []) < current_slots and not due_boundary and not c.get('cycleFix'))
-    if underfilled:
-        # Repair a legacy partial phase as soon as a complete eligible shape exists, without top-up or paid-out funds.
+    underfilled = bool(current_slots and len(c.get('legs') or []) < current_slots and not c.get('cycleFix'))
+    if underfilled and not due_boundary:
         phase, grow_now = c.get('phase'), True
     if c.pop('redealNow', None) and not c.get('flooredAt'):   # 🃏 one-tap re-deal: fresh coins NOW, same money + run (real cards keep their book)
         phase, grow_now, c['lastRotateAt'] = phase or c.get('phase') or 'mixed', True, now
@@ -672,6 +671,14 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         phase_pools = [x for x in pools if x.get('mint') not in rotated_out]
         phase_runners = [x for x in runners if x.get('mint') not in rotated_out]
         nc = deal(c['tpl'], phase_pools, phase_runners, cfg, now, anchors, usd=ip, keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=phase)
+        # Boundary fallback for legacy damage: never override a valid scheduled reshape, but if that complete shape cannot be
+        # built and the live card is already short a slot, repair its current configured phase from the same eligible feeds.
+        if not nc and underfilled and c.get('phase') and c.get('phase') != phase:
+            repair_phase = c.get('phase')
+            nc = deal(c['tpl'], phase_pools, phase_runners, cfg, now, anchors, usd=ip,
+                      keep={k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}, shape=repair_phase)
+            if nc:
+                phase = repair_phase
         if nc:
             same = {l['mint'] for l in nc['legs']} <= {l['mint'] for l in c['legs']}
             nc, kept = keep_winners(nc, c['legs'], prices, liqs, cfg.get('keepWinPct', 5.0), ip)
@@ -693,12 +700,18 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     v = V(); start = _f(c['startUsd']) or 1
     day_pct = (v / (_f(c.get('dayStartUsd')) or start) - 1) * 100
     if day_pct <= FIX_DAY_PCT and not c.get('flooredAt') and (c.get('fixedAt') is None or now - _f(c['fixedAt']) >= 86400):   # 🔧 worst day hit −40% → fix the config
+        # The safety state itself must never depend on candidate availability. Arm the safe cycle immediately; a complete safe
+        # reshape may happen now, or on a later tick when all required eligible slots exist.
+        c['cycleFix'] = 'safe'
+        c['fixUntil'] = int(c.get('rounds') or 0) + SAFE_FIX_ROUNDS
+        c['fixedAt'] = now
+        ev(kind='fix', why=f"day {day_pct:.0f}% ≤ {FIX_DAY_PCT:.0f}% — safe cycle armed")
         keep = {k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}
         keep['runs'] = (list(c.get('runs') or []) + [{'at': now, 'startUsd': c['startUsd'], 'endUsd': round(v, 4), 'pct': round((v / start - 1) * 100, 2), 'fixed': True}])[-10:]
-        keep.update(cycleFix='safe', fixUntil=int(c.get('rounds') or 0) + SAFE_FIX_ROUNDS, fixedAt=now, dayStartUsd=round(v, 4), dayAt=now, startUsd=round(v, 4), roundStartUsd=round(v, 4), lowPct=0.0)   # a new run from here
+        keep.update(cycleFix='safe', fixUntil=c['fixUntil'], fixedAt=now, dayStartUsd=round(v, 4), dayAt=now, startUsd=round(v, 4), roundStartUsd=round(v, 4), lowPct=0.0)
         nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=in_play(c, prices, liqs), keep=keep, shape='anchor')
         if nc:
-            nc['events'].append({'at': now, 'kind': 'fix', 'why': f"day {day_pct:.0f}% ≤ {FIX_DAY_PCT:.0f}% — config fixed: re-dealt into majors, safe cycle from here"})
+            nc['events'].append({'at': now, 'kind': 'fix', 'why': f"day {day_pct:.0f}% ≤ {FIX_DAY_PCT:.0f}% — re-dealt into complete safe shape"})
             c = nc
         v = V()
     # 5) 🛡 FLOOR: the card is never allowed to sit below −floorPct (default −20%, so −25% is never reached short of a gap):
