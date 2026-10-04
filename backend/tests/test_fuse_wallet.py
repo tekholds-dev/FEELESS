@@ -35,6 +35,11 @@ def test_orders_sell_coins_that_left_the_card_first():
     assert o[0]['side'] == 'sell' and o[0]['atoms'] == 5_000_000 and o[0]['why'] == 'not on the card any more'
 
 
+def test_off_card_sell_is_not_blocked_by_buy_liquidity_floor():
+    order = {'side': 'sell', 'mint': 'OLD', 'usd': 1.0, 'liq': 0}
+    assert fw.check(order, CFG, [], 10) == (True, '')
+
+
 def test_sell_is_capped_per_swap():
     book = {'sol': 0.0, 'legs': {'BIG': {'atoms': 200_000_000, 'decimals': 6, 'pair': 'pb', 'symbol': 'BIG', 'entryPx': 1.0}}}
     o = fw.orders('degen', card([]), book, {'pb': 1.0}, 200.0, {**CFG, 'maxSwapUsd': 50}, 1)
