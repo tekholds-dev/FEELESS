@@ -661,6 +661,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ⏸ `lib/fxPause.js`: one IntersectionObserver adds `fx-off` to off-screen animated surfaces (`FX_SURFACES`) → CSS pauses them. New big
   animated surface ⇒ add its root class there. Never animate `background-position` (the battle floor did; it's a transform layer now).
 
+- 💰 Deposit audit (`fuse_wallet.deposit_from_tx/sol_story`, `_fw_deposit_scan` every 10 min → `data/fuse_deposits.json`): a deposit = a
+  confirmed tx the Fuse wallet did NOT sign that raised its SOL. HQ › 👛 shows DEPOSITED = cards + reserve + unassigned + spent, each
+  deposit linked, and "➜ Put $X unassigned into <card>" (prefill only, inside `maxCardUsd`; the owner presses Top up). Top-ups never move
+  SOL on-chain — they assign SOL already in the wallet, so "unassigned" is the owner's own un-assigned deposits.
+- 🎯 Paper flat cost (`arena_prime.SPREAD`, `fuse_wallet.calibrate` → `spread`): swaps too small to move the pool teach the flat cost of
+  swapping (median 0.38% over 357 real fills); only pool-moving swaps teach `IMPACT_MULT` (it was pinned at ×6 by $1 swaps).
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

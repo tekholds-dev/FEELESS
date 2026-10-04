@@ -314,13 +314,17 @@ def _r(liq):
     return (_f(liq) if _f(liq) > 0 else UNKNOWN_LIQ) / 2 / max(0.1, IMPACT_MULT)
 
 
+SPREAD = 0.0   # 🎯 flat cost of ANY swap (pool fee + spread), learned from real fills: 357 real swaps cost a median 0.38% each
+               # whatever their size — the impact model alone priced a $1 swap at ~0%, so paper looked better than real money
+
+
 def buy_px(px, usd, liq):
-    return px * (1 + _f(usd) / _r(liq)) if px > 0 else px
+    return px * (1 + SPREAD) * (1 + _f(usd) / _r(liq)) if px > 0 else px
 
 
 def sell_usd(units, px, liq):
     v = _f(units) * _f(px)
-    return v / (1 + v / _r(liq))
+    return v / (1 + SPREAD) / (1 + v / _r(liq))
 
 
 def _leg(c, usd, now, role):

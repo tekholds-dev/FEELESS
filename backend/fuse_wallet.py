@@ -213,6 +213,34 @@ def fill_from_meta(tx, owner, mint):
     return {'atoms': post - pre, 'decimals': dec1 if dec1 is not None else dec0 if dec0 is not None else 0, 'sol': round(sol, 9), 'feeSol': fee / 1e9}
 
 
+def deposit_from_tx(tx, owner):
+    """💰 A real deposit INTO the Fuse wallet: a confirmed tx the wallet did NOT sign that raised its SOL. → {'sol', 'from'} or None.
+    (Keeper swaps, account closes and failed sends are all signed by the wallet, so they can never be counted as deposits.)"""
+    meta = (tx or {}).get('meta') or {}
+    if not tx or meta.get('err'):
+        return None
+    keys = (((tx.get('transaction') or {}).get('message') or {}).get('accountKeys')) or []
+    names = [k.get('pubkey') if isinstance(k, dict) else k for k in keys]
+    if owner not in names or any(isinstance(k, dict) and k.get('pubkey') == owner and k.get('signer') for k in keys):
+        return None
+    i = names.index(owner)
+    post, pre = meta.get('postBalances') or [], meta.get('preBalances') or []
+    if i >= len(post) or i >= len(pre) or int(post[i]) <= int(pre[i]):
+        return None
+    return {'sol': round((int(post[i]) - int(pre[i])) / 1e9, 9), 'from': names[0] if names else ''}
+
+
+def sol_story(deposits, books, reserve_sol, wallet_sol, coins_sol=0.0):
+    """Where every deposited SOL is now, in one line of maths the owner can check:
+    DEPOSITED = in cards (their SOL + coins) + fee reserve + unassigned + spent (trading result + network fees + open-account rent)."""
+    dep = round(sum(_f(r.get('sol')) for r in deposits or []), 9)
+    card_sol = sum(_f(b.get('sol')) + _f(b.get('bankSol')) for b in (books or {}).values())
+    unassigned = free_sol(wallet_sol, books, reserve_sol)
+    spent = round(dep - _f(wallet_sol) - _f(coins_sol), 9)
+    return {'depositedSol': dep, 'n': len(deposits or []), 'cardSol': round(card_sol, 9), 'coinsSol': round(_f(coins_sol), 9),
+            'reserveSol': round(min(_f(reserve_sol), max(0.0, _f(wallet_sol) - card_sol)), 9), 'unassignedSol': unassigned, 'spentSol': spent}
+
+
 def fill_error(order, fill, book=None):
     """Return why a confirmed transaction is not the order we sent. Never let a successful but unrelated/partial balance change
     mutate a card: the caller halts it for reconciliation instead of guessing or submitting the same leg again."""
@@ -574,7 +602,7 @@ def reconcile_sol(wallet_sol, books):
 def calibrate(ledger, min_n=3):
     """🎯 Paper learns from real fills: how much worse (or better) the real price impact was than the paper model
     (usd ÷ half the pool liquidity) → `impactMult`, and the typical network fee per swap → `feeUsd`."""
-    ratios, fees = [], []
+    ratios, fees, flats = [], [], []
     for o in ledger or []:
         if o.get('status') != 'filled':
             continue
@@ -587,10 +615,16 @@ def calibrate(ledger, min_n=3):
             continue
         model = usd / (liq / 2)
         real = (px / mid - 1) if o.get('side') == 'buy' else (1 - px / mid)
-        if model > 1e-5:
+        # two different costs: a swap too small to move the pool (model < 0.05%) shows the FLAT cost of swapping (pool fee + spread);
+        # only swaps big enough to move it teach the impact model. Mixing them pinned impactMult at ×6 from $1 swaps.
+        if model < 0.0005:
+            flats.append(max(0.0, real))
+        elif model > 1e-5:
             ratios.append(max(0.0, real) / model)
     n = len(ratios)
-    return {'n': n, 'impactMult': round(min(6.0, max(0.5, statistics.median(ratios))), 3) if n >= min_n else 1.0,
+    spread = round(min(0.02, statistics.median(flats)), 5) if len(flats) >= min_n else 0.0
+    return {'n': n + len(flats), 'spreadPct': round(spread * 100, 3), 'spread': spread,
+            'impactMult': round(min(6.0, max(0.5, statistics.median(ratios))), 3) if n >= min_n else 1.0,
             'feeUsd': round(statistics.median(fees), 5) if len(fees) >= min_n else None, 'fees': len(fees)}
 
 

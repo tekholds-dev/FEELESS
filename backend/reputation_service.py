@@ -6055,9 +6055,46 @@ async def _fw_tick(now):
                                            'status': 'done', 'why': '🧹 recovered: keeper coins no card counted — sold back to SOL inside the card'})
                             print(f"fuse wallet: adopted stray {st['symbol']} into {st['card']}")
                         _fw_save(d)
+                    await _fw_deposit_scan(cfg, time.time())
             except Exception as e:
                 print('fuse wallet gas:', e)
         return n
+
+
+FUSE_DEPOSITS_PATH = DATA_DIR / 'fuse_deposits.json'   # {'address', 'cursor': newest sig seen, 'rows': [{sig, at, sol, from}]} — chain-audited
+_fw_dep_at = {'t': 0.0}
+
+
+async def _fw_deposit_scan(cfg, now):
+    """💰 Every 10 min: new signatures on the Fuse wallet that the keeper did NOT make are read once; a tx the wallet did not sign that
+    raised its SOL is a DEPOSIT (booked forever + owner inbox). This is what makes "unassigned SOL" explainable instead of a mystery."""
+    if now - _fw_dep_at['t'] < 600 or not cfg.get('address'):
+        return 0
+    _fw_dep_at['t'] = now
+    dd = _json_load(FUSE_DEPOSITS_PATH, {})
+    if dd.get('address') != cfg['address']:
+        dd = {'address': cfg['address'], 'cursor': None, 'rows': []}
+    ours = {r.get('sig') for r in _fw_load().get('ledger') or [] if r.get('sig')}
+    added = 0
+    async with httpx.AsyncClient(timeout=15) as http:
+        sigs = await _rpc(http, 'getSignaturesForAddress', [cfg['address'], {'limit': 40, **({'until': dd['cursor']} if dd.get('cursor') else {})}]) or []
+        have = {r.get('sig') for r in dd['rows']}
+        for srow in sigs[::-1]:   # oldest first
+            sig = srow.get('signature')
+            if not sig or srow.get('err') or sig in ours or sig in have:
+                continue
+            tx = await _rpc(http, 'getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+            dep = _fw.deposit_from_tx(tx, cfg['address'])
+            if dep:
+                dd['rows'].append({'sig': sig, 'at': (tx or {}).get('blockTime') or now, **dep}); added += 1
+                for w in _owner_wallets():
+                    notify(w, 'fuse-card', f"💰 Fuse wallet received {dep['sol']:.4f} SOL — it is UNASSIGNED until you put it in a card.", url='/terminal/hq?tab=fuse',
+                           push=False, once=f'fw-dep-{sig[:16]}', meta={'claim': 'Deposit', 'source': 'Confirmed on-chain transfer'})
+    if sigs:
+        dd['cursor'] = sigs[0].get('signature')
+    if sigs or added:
+        _json_save(FUSE_DEPOSITS_PATH, dd)
+    return added
 
 
 _FW_GAS = {}
@@ -6070,7 +6107,7 @@ async def _fw_tick_inner(now):
     await _fw_signer_check()
     d = _fw_load()
     cal = _fw_calibration(d)
-    _prime.IMPACT_MULT = cal['impactMult']
+    _prime.IMPACT_MULT = cal['impactMult']; _prime.SPREAD = cal.get('spread') or 0.0
     cfg = _fw.clean_cfg(d.get('cfg') or {})
     if not d['books'] or not cfg['armed'] or cfg['paused'] or not cfg['address']:
         return 0
@@ -6437,11 +6474,15 @@ async def fuse_wallet_view(request: Request):
                               if r.get('side') == 'close' and r.get('status') == 'sent'), 9)
     funded_sol = round(sum(_fuse._f(r.get('sol')) for r in d.get('ledger') or []
                            if r.get('side') == 'topup' and r.get('status') == 'done'), 9)
+    dep_doc = _json_load(FUSE_DEPOSITS_PATH, {})
+    dep_rows = (dep_doc.get('rows') or []) if dep_doc.get('address') == cfg.get('address') else []
     return {'cfg': cfg, 'signer': _fw_signer_ready(), 'wallets': wallets, 'balances': bal, 'solUsd': sol_px, 'error': err,
             'freeSol': _fw.free_sol((bal or {}).get('sol'), d['books'], cfg['reserveSol']) if bal else None,
             # Unassigned SOL is fungible: it can include owner deposits and token-account rent returned after card sells.
             # Expose both audit totals so the UI never presents it as known-new owner funding or card profit.
-            'solProvenance': {'cardFundedSol': funded_sol, 'rentReturnedSol': rent_returned},
+            'solProvenance': {'cardFundedSol': funded_sol, 'rentReturnedSol': rent_returned,
+                              **(_fw.sol_story(dep_rows, d['books'], cfg['reserveSol'], bal.get('sol'), sum(_fuse._f(b.get('valueUsd')) for b in books.values()) / sol_px - sum(_fuse._f(b.get('sol')) + _fuse._f(b.get('bankSol')) for b in d['books'].values())) if bal and sol_px and dep_rows else {}),
+                              'deposits': dep_rows[-12:][::-1]},
             'missing': _fw.reconcile((bal or {}).get('tokens'), d['books']) if bal and bal.get('source') != 'circle' else [],   # Circle rows have no mints
             'books': books, 'tiers': {k: v['label'] for k, v in _prime.TEMPLATES.items()}, 'recoverable': recoverable, 'calibration': _fw_calibration(d),
             'paperMatch': _fw.paper_match(d.get('quoteAudit')), 'quoteAudit': (d.get('quoteAudit') or [])[-20:][::-1],
@@ -6806,7 +6847,7 @@ async def _fuse_warm():
     if _fuse_warm_n['n'] % 12 == 9:   # ~5 min: 📏 paper ⇄ real quotes (paper's fill model is checked against Jupiter)
         try:
             await _paper_quote_audit(time.time())
-            _prime.IMPACT_MULT = _fw_calibration(_fw_load())['impactMult']
+            _cal0 = _fw_calibration(_fw_load()); _prime.IMPACT_MULT = _cal0['impactMult']; _prime.SPREAD = _cal0.get('spread') or 0.0
         except Exception as e:
             print('quote audit:', e)
     if _fuse_warm_n['n'] % 12 == 7:   # ~5 min: 📖 the rep engine learns today's meme terms (new launches + chat)

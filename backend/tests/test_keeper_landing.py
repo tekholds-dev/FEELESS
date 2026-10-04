@@ -37,3 +37,33 @@ def test_self_fix_only_moves_patience_when_the_same_value_wins_twice():
     best = {'confirm': {'value': 4, 'n': 60}, 'minDrop': {'value': 5.0, 'n': 60}}
     assert rs._brain_patch(cfg, {}, best, {'confirm': {'value': 3}}) == {}                      # 3 → 4 after one run: wait
     assert rs._brain_patch(cfg, {}, best, {'confirm': {'value': 4}}) == {'rotateConfirm': 4}    # 4 won twice: apply
+
+
+def test_a_deposit_is_only_a_tx_the_wallet_did_not_sign_that_raised_its_sol():
+    import fuse_wallet as fw
+    key = lambda pk, signer=False: {'pubkey': pk, 'signer': signer}
+    dep = {'meta': {'preBalances': [10**9, 0], 'postBalances': [10**9 - 60_005_000, 60_000_000]}, 'transaction': {'message': {'accountKeys': [key('SENDER', True), key('FUSE')]}}}
+    assert fw.deposit_from_tx(dep, 'FUSE') == {'sol': 0.06, 'from': 'SENDER'}
+    sell = {'meta': {'preBalances': [0], 'postBalances': [7_000_000]}, 'transaction': {'message': {'accountKeys': [key('FUSE', True)]}}}
+    assert fw.deposit_from_tx(sell, 'FUSE') is None                        # the keeper's own sell proceeds are never a deposit
+    assert fw.deposit_from_tx({**dep, 'meta': {**dep['meta'], 'err': {'x': 1}}}, 'FUSE') is None
+    # the story always adds up: deposited = wallet SOL + coins + spent
+    st = fw.sol_story([{'sol': 0.06}, {'sol': 0.009}, {'sol': 0.07}], {'safe': {'sol': 0.0062, 'bankSol': 0}}, 0.015, 0.0802, coins_sol=0.0185)
+    assert st['depositedSol'] == 0.139 and st['n'] == 3 and st['unassignedSol'] == 0.059
+    assert round(st['cardSol'] + st['reserveSol'] + st['unassignedSol'], 4) == 0.0802
+    assert round(st['spentSol'], 4) == round(0.139 - 0.0802 - 0.0185, 4)
+
+
+def test_paper_learns_the_flat_cost_of_a_swap_apart_from_price_impact():
+    import fuse_wallet as fw, arena_prime as ap
+    small = [{'status': 'filled', 'side': 'buy', 'midPx': 1.0, 'px': 1.004, 'liq': 200_000, 'usd': 0.85} for _ in range(5)]   # $0.85 never moves a $200K pool
+    cal = fw.calibrate(small)
+    assert cal['spread'] == 0.004 and cal['spreadPct'] == 0.4 and cal['impactMult'] == 1.0     # flat cost learned · impact model untouched
+    big = [{'status': 'filled', 'side': 'buy', 'midPx': 1.0, 'px': 1.02, 'liq': 20_000, 'usd': 100} for _ in range(3)]       # model 1% · real 2%
+    assert fw.calibrate(small + big)['impactMult'] == 2.0
+    old = ap.SPREAD
+    try:
+        ap.SPREAD = 0.004
+        assert round(ap.buy_px(1.0, 0.85, 1e12), 6) == 1.004 and round(ap.sell_usd(100, 1.0, 1e12), 4) == round(100 / 1.004, 4)
+    finally:
+        ap.SPREAD = old

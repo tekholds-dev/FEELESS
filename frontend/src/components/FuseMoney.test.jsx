@@ -98,3 +98,17 @@ test('HQ fee layout: tap a type to filter, a row to see its transaction', async 
   expect(h.querySelector('[data-testid="ff-detail"] a').getAttribute('href')).toContain('SIG1');
   expect(h.querySelector('[data-testid="bundle-swap-usd"]')).toBeTruthy();
 });
+
+test('HQ Fuse wallet: chain-audited deposits explain unassigned SOL, one tap fills the top-up inside the card cap', async () => {
+  const call = jest.fn(async () => ({ cfg: { walletId: 'w1', address: 'ADDR1234', armed: true, paused: false, maxCardUsd: 10, reserveSol: 0.015 }, signer: true,
+    wallets: [{ id: 'w1', address: 'ADDR1234', name: 'Fuse', blockchain: 'SOL' }], balances: { sol: 0.0802, tokens: {} }, solUsd: 121, freeSol: 0.059, missing: [],
+    solProvenance: { depositedSol: 0.139, n: 3, cardSol: 0.0062, coinsSol: 0.0185, reserveSol: 0.015, unassignedSol: 0.059, spentSol: 0.0403, deposits: [{ sig: 'S1', at: 1790997501, sol: 0.06, from: 'SENDER' }] },
+    books: { safe: { sol: 0.0062, valueUsd: 2.99, fundedUsd: 7, swaps: 351 } }, tiers: { safe: '💎 Prime Diamond' }, calibration: { impactMult: 1, n: 0 }, totals: { swaps: 351 }, ledger: [] }));
+  const h = await mount(<FuseWallet call={call} />); await tick();
+  const story = h.querySelector('[data-testid="fw-story"]').textContent;
+  expect(story).toContain('you deposited 0.1390 SOL'); expect(story).toContain('in 3 transfers'); expect(story).toContain('0.0590 unassigned');
+  const sweep = h.querySelector('[data-testid="fw-sweep"]');
+  expect(sweep.textContent).toContain('$7.01');                         // min(unassigned $7.14, cap $10 − card $2.99)
+  act(() => sweep.click()); await tick();
+  expect(h.querySelector('[data-testid="fw-amt-safe"]').value).toBe('7.01');   // only pre-fills — the owner still presses Top up
+});
