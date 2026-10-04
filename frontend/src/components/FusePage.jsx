@@ -11,6 +11,7 @@ import { CardRounds } from './CardRounds';
 import { openCoin } from './CoinDrawer';
 import { RISK_DIALS } from '../lib/riskDial';
 import { apiUrl } from '../lib/api';
+import { useAdmin } from '../lib/adminCall';
 import { useWallet } from '../hooks/useWallet';
 import { readChatSession } from '../lib/chatSession';
 import { unfuseOrders, rebalanceOrders, topupOrders, SOL_MINT } from '../lib/fuseGo';
@@ -567,9 +568,38 @@ export function MyCards({ addr }) {
   if (!addr) return <div className="m-card fp-empty"><b>Connect your Solana wallet to see your Fuse cards.</b></div>;
   if (!d) return <div className="m-card"><span className="loader" /> Loading your cards…</div>;
   const openRows = (d.rows || []).filter(r => !r.closed);
-  return <><HqRealCards addr={addr} onCount={setRealN} /><MyCardsBody realN={realN} d={d} openRows={openRows} act={act} setAct={setAct} open={open} setMode={setMode} setRisk={setRisk} setAdv={setAdv} addr={addr} ses={ses} refresh={refresh} /></>;
+  return <><HqRealCards addr={addr} onCount={setRealN} /><RealCardFixes addr={addr} /><MyCardsBody realN={realN} d={d} openRows={openRows} act={act} setAct={setAct} open={open} setMode={setMode} setRisk={setRisk} setAdv={setAdv} addr={addr} ses={ses} refresh={refresh} /></>;
 }
 
+function RealCardFixes({ addr }) {
+  const { call } = useAdmin();
+  const [cards, setCards] = useState([]);
+  const [busy, setBusy] = useState('');
+  const load = useCallback(() => fetch(apiUrl('/api/reputation/fuses/prime')).then(r => r.ok ? r.json() : null).then(x => setCards((x?.cards || []).filter(c => c.real))).catch(() => {}), []);
+  useEffect(() => { if (!addr) return undefined; load(); const t = setInterval(() => !document.hidden && load(), 30000); window.addEventListener('feeless:prime', load); return () => { clearInterval(t); window.removeEventListener('feeless:prime', load); }; }, [addr, load]);
+  if (!cards.length) return null;
+  const recover = (c, r) => { if (!window.confirm(`Sell old ${r.symbol} still stuck in the Fuse wallet and return the confirmed SOL to ${c.label} card cash?`)) return;
+    const key = `recover-${c.tpl}-${r.mint}`; setBusy(key); call('/admin/fuse-wallet/recover-sell', { method: 'POST', body: JSON.stringify({ tpl: c.tpl, mint: r.mint }) })
+      .then(() => { toast.success(`${r.symbol} recovery sell started → ${c.label} cash`); window.dispatchEvent(new Event('feeless:prime')); })
+      .catch(e => toast.error(e.message)).finally(() => setBusy('')); };
+  const payout = c => { const b = c.realBook || {}; const amt = Number(b.profitCashAvailableUsd || 0); if (!(amt > 0)) { toast.error('No profit cash is available yet'); return; }
+    if (!window.confirm(`Pay out ${m$(amt)} of PROFIT from ${c.label}? Your funded principal stays in the card.`)) return;
+    const key = `payout-${c.tpl}`; setBusy(key); call('/admin/fuse-wallet/payout-profit', { method: 'POST', body: JSON.stringify({ tpl: c.tpl, usd: amt }) })
+      .then(x => { toast.success(`Paid out ${m$(x.paidUsd || amt)} profit · principal untouched`); window.dispatchEvent(new Event('feeless:prime')); })
+      .catch(e => toast.error(e.message)).finally(() => setBusy('')); };
+  const useful = cards.filter(c => (c.realBook?.recoverable || []).length || (c.realBook?.profitAvailableUsd || 0) > 0 || (c.realBook?.fundedUsd || 0) > 0);
+  if (!useful.length) return null;
+  return <section className="m-card m-live" data-testid="real-card-fixes"><span className="m-label">🛠 REAL CARD CASH / RECOVERY</span>
+    {useful.map(c => { const b = c.realBook || {}; const rec = b.recoverable || []; const profit = Number(b.profitAvailableUsd || 0); const cash = Number(b.profitCashAvailableUsd || 0); return <div key={c.tpl} className="fw-tier">
+      <span><b>{c.label}</b><small className="m-dim"> · put in {m$(b.fundedUsd || 0)} · profit above principal {m$(profit)} · payable cash now {m$(cash)}</small>
+        {profit <= 0 && <small className="m-dim">No payout yet — card must first be worth more than everything put in.</small>}
+        {profit > 0 && cash <= 0 && <small className="m-dim">Profit exists in coins, but none is card cash yet. It becomes payable as sells/rotations return SOL.</small>}</span>
+      <span className="m-row"><button type="button" className="m-btn" disabled={cash <= 0 || !!busy} onClick={() => payout(c)} data-testid={`profit-payout-${c.tpl}`}>💸 Payout profit {m$(cash)}</button></span>
+      {rec.length > 0 && <div className="fw-tiers" data-testid={`dead-swaps-${c.tpl}`}><small className="m-dim">⚠ Failed / dead swaps still held by the Fuse wallet:</small>
+        {rec.map(r => <div key={r.mint} className="fw-tier"><span><b>${r.symbol}</b><small className="m-dim"> · {r.lastErr || r.lastStatus || 'old keeper balance'}</small></span>
+          <button type="button" className="m-btn danger" disabled={!!busy} onClick={() => recover(c, r)} data-testid={`dead-sell-${r.symbol}`}>{busy === `recover-${c.tpl}-${r.mint}` ? 'Selling…' : 'Sell → card cash'}</button></div>)}</div>}
+    </div>; })}</section>;
+}
 const EARN_KIND = { sell: '💰 Profit / sell', buy: '⇄ Switched in', topup: '♻ Compounded / topped up' };
 const sumKind = (r, k) => (r.events || []).filter(e => e.kind === k).reduce((a, e) => a + (e.usd || 0), 0);
 
