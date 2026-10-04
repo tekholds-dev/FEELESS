@@ -6124,8 +6124,9 @@ def _fw_public(tid):
               'lastFill': next((o.get('at') for o in rows if o.get('status') == 'filled'), None),
               'gas': _fw.gas_tank(_FW_GAS['sol'], d['books'], cfg.get('reserveSol')) if 'sol' in _FW_GAS else None,
               'landing': _fw.landing(d['ledger'], tid, time.time())}
+    paid_ever = round(sum(max(0.0, _fuse._f(o.get('payoutUsd'))) for o in d.get('ledger') or [] if o.get('card') == tid and o.get('status') == 'filled' and o.get('side') == 'sell'), 4)
     return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4),
-            'paidOutEverUsd': round(_fuse._f(b.get('bankUsd')), 4), 'paidOutSol': round(_fuse._f(b.get('bankSol')), 9),
+            'paidOutEverUsd': paid_ever, 'paidOutSol': round(_fuse._f(b.get('bankSol')), 9),
             'wallet': cfg['address'], 'keeper': keeper,
             'orders': [{k: o.get(k) for k in ('side', 'symbol', 'usd', 'proceedsUsd', 'realizedPnlUsd', 'sol', 'px', 'sig', 'at', 'status', 'feeUsd', 'why', 'costUsd')} for o in rows], **_fw.totals(d['ledger'], tid)}
 
@@ -6346,7 +6347,7 @@ async def fuse_wallet_reinvest_paid(request: Request):
         if sol <= 0:
             raise HTTPException(400, 'This card has no paid-out SOL available to reinvest.')
         d['books'][tid] = nb
-        _fw_record(d, {'card': tid, 'side': 'reinvest', 'sol': sol, 'usd': 0.0, 'at': now, 'by': me, 'status': 'done',
+        _fw_record(d, {'card': tid, 'side': 'reinvest', 'sol': sol, 'usd': round(sol * (await _sol_usd_live()), 4), 'at': now, 'by': me, 'status': 'done',
                        'why': 'paid-out SOL moved back into active card capital — not new funding'})
         _fw_save(d)
     ad = _admin_load(); _audit(ad, me, 'fuse-wallet-reinvest-paid', f'{tid} {sol:.9f} SOL'); _admin_save(ad)
