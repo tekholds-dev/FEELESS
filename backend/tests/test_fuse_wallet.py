@@ -627,6 +627,15 @@ def test_recovered_old_keeper_coin_force_sell_is_marked_card_cash():
     filled, _ = fw.apply_fill(book, sells[0], {'atoms': -2_000_000, 'decimals': 6, 'sol': 0.01, 'feeSol': 0.0}, 100.0)
     assert not filled['legs'] and filled['sol'] == 0.01 and filled['manualCashSol'] == 0.01
 
+
+def test_recovered_coin_below_normal_dust_floor_still_gets_a_sell_attempt():
+    book = {'sol': 0.0, 'legs': {'DEAD': {'atoms': 10_000, 'decimals': 6, 'pair': 'pd', 'symbol': 'DEAD',
+                                           'entryPx': 1.0, 'costUsd': 1.0, 'manualCash': True, 'recovered': True}}}
+    cfg = {**fw.DEFAULT_CFG, 'armed': True, 'walletId': 'w', 'address': 'A', 'minOrderUsd': 0.25}
+    sells = fw.orders('safe', {'legs': []}, book, {'pd': 0.001}, 100.0, cfg, 10)
+    assert len(sells) == 1
+    assert sells[0]['side'] == 'sell' and sells[0]['mint'] == 'DEAD' and sells[0]['manualCash']
+
 def test_profit_available_never_touches_funded_principal():
     book = {'fundedUsd': 7.0, 'sol': 0.02, 'bankSol': 0.001}
     assert fw.profit_available(book, 6.99, 100.0) == 0.0
