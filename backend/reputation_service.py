@@ -6183,7 +6183,7 @@ def _fw_public(tid):
               'lastFail': fail and {'symbol': fail.get('symbol'), 'side': fail.get('side'), 'err': (fail.get('err') or '')[:90], 'at': fail.get('at')},
               'lastFill': next((o.get('at') for o in rows if o.get('status') == 'filled'), None),
               'gas': _fw.gas_tank(_FW_GAS['sol'], d['books'], cfg.get('reserveSol')) if 'sol' in _FW_GAS else None,
-              'landing': _fw.landing(d['ledger'], tid, time.time())}
+              'landing': _fw.landing(d['ledger'], tid, time.time(), broadcast_only=True)}
     # walletUsd is the engine's cumulative realized-profit payout counter and survives reinvests; old real ledgers did not
     # stamp payoutUsd on sell rows, which made PAID OUT EVER falsely show $0. Never infer history from current bankSol.
     card = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(tid) or {}
