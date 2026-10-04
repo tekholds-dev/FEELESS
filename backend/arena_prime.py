@@ -699,7 +699,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         c['compoundedUsd'] += c['cash']; ev(kind='compound', usd=round(c['cash'], 4), why='idle cash back into the card', to=[l['symbol'] for l in c['legs']]); c['cash'] = 0.0
     v = V(); start = _f(c['startUsd']) or 1
     day_pct = (v / (_f(c.get('dayStartUsd')) or start) - 1) * 100
-    if day_pct <= FIX_DAY_PCT and not c.get('flooredAt') and (c.get('fixedAt') is None or now - _f(c['fixedAt']) >= 86400):   # 🔧 worst day hit −40% → fix the config
+    if day_pct <= FIX_DAY_PCT and not c.get('flooredAt') and not c.get('cycleFix') and (c.get('fixedAt') is None or now - _f(c['fixedAt']) >= 86400):   # 🔧 worst day hit −40% → fix the config
         # The safety state itself must never depend on candidate availability. Arm the safe cycle immediately; a complete safe
         # reshape may happen now, or on a later tick when all required eligible slots exist.
         c['cycleFix'] = 'safe'
