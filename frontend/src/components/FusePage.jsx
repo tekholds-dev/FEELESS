@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { ShareGifButton } from './ShareGif';
 import { RiskDial, DialBoard } from './RiskDial';
 import { ArenaPrime, HqRealCards } from './ArenaPrime';
+import { ArenaContenders } from './ArenaContenders';
 import { CardEarnings } from './CardEarnings';
 import { CardShowcase, PaperAudit, TrailSummary, CoinTable, CycleBuilder, usd as fmt$ } from './FuseMoney';
 import { CardRounds } from './CardRounds';
@@ -232,9 +233,10 @@ export function ArenaBoard({ onPicks, onLoad }) {
   const top = stageTier(mega);
   // Arena flow: ⭐ top-tier cards → ⚔ battlefield (bracket) → 🏆 Fuse season → 🏟 cards that made it + 🎨 creator's pick → the rest
   return <section className={`fp-arena ar-tier-${top}`} data-testid="fuse-arena"><ArenaGuide />
-    <nav className="ar-jump" aria-label="Arena sections">{[['ar-tiers', '⭐ Tier cards'], ['ar-battle', '⚔ Battlefield'], ['ar-season', '🏆 Season'], ['ar-stage', '🏟 Stage'], ['ar-bench', "🎨 Creator's pick"]].map(([id, l]) =>
+    <nav className="ar-jump" aria-label="Arena sections">{[['ar-tiers', '⭐ Tier cards'], ['ar-contenders', '🏁 Contenders'], ['ar-battle', '⚔ Battlefield'], ['ar-season', '🏆 Season'], ['ar-stage', '🏟 Stage'], ['ar-bench', "🎨 Creator's pick"]].map(([id, l]) =>
       <button key={id} type="button" className="m-btn" onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>{l}</button>)}</nav>
     <div id="ar-tiers" /><ArenaPrime onLoad={legs => onLoad?.(legs)} />
+    <div id="ar-contenders" /><ArenaContenders />
     <div className="ar-sky" aria-hidden="true">{Array.from({ length: TIER_FX[top].embers + 6 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</div>
     <div id="ar-battle" />{a?.battles?.pairs?.length > 0 && <Battlefield b={a.battles} cards={[...mega, ...(a.bench || []), ...(a.fighters || [])]} onLoad={onLoad} />}
     <div id="ar-season" /><FuseSeason />

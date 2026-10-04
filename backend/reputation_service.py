@@ -5308,11 +5308,49 @@ async def _prime_candidates():
     rd = _json_load(RUNNERS_PATH, {'rounds': []}); rnd = (rd.get('rounds') or [None])[-1] or {}
     arena = {p.get('mint') for p in rnd.get('picks') or []} | {p.get('mint') for c in rd.get('litCards') or [] if not c.get('downAt') for p in c.get('picks') or []}
     arena |= {leg.get(k) for c in (_arena_mega_cache.get('data') or []) for leg in c.get('legs') or [] for k in ('pairAddress', 'mint', 'baseAddress')}
+    arena |= set(((_contenders_cache.get('data') or {}).get('nextUp') or {}))   # 🏁 ⏭ next-up contenders earned an Arena-backed seat
     arena.discard(None)
     for x in pools + runners:
         if x.get('mint') in arena or x.get('pairAddress') in arena:
             x['arena'] = True
     return pools, runners, anchors
+
+
+import contenders as _ct
+
+_contenders_cache: dict = {'at': 0.0, 'data': None}
+_contenders_lock = asyncio.Lock()
+
+
+async def _contenders_build():
+    """🏁 The Arena qualifier league: every pick list is a division, ranked on live facts; rebuilt at most every 30s (one build at a time)."""
+    if _contenders_cache['data'] and time.time() - _contenders_cache['at'] < 30:
+        return _contenders_cache['data']
+    async with _contenders_lock:
+        if _contenders_cache['data'] and time.time() - _contenders_cache['at'] < 30:
+            return _contenders_cache['data']
+        now = time.time()
+        pairs, majors, risers, live = await asyncio.gather(_fuse_discover_pairs('solana'), _majors_rows(), fuses_discover(lens='risers', chain='solana'),
+                                                           _runner_live(), return_exceptions=True)
+        pairs = pairs if isinstance(pairs, list) else []
+        live = live if isinstance(live, dict) else {}
+        young = list(live.get('passing') or []) + [r for r in live.get('dropped') or [] if r.get('gates') == ['Pre-bond (still on the curve)']]
+        src = {'majors': majors if isinstance(majors, list) else [], 'risers': (risers.get('pools') if isinstance(risers, dict) else []) or [],
+               'fresh': young, 'proven': young,
+               **{k: _fuse.discover(pairs, lens, 'solana', now_ms=now * 1000) for k, lens in (('yield', 'yield'), ('deep', 'deep'), ('popular', 'popular'), ('new', 'new'))}}
+        cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
+        on_card = {l.get('mint') for c in cards.values() for l in c.get('legs') or []}
+        on_card |= {leg.get(k) for c in (_arena_mega_cache.get('data') or []) for leg in c.get('legs') or [] for k in ('mint', 'baseAddress')}
+        on_card.discard(None)
+        data = {**_ct.league(src, on_card, _contenders_cache.get('data')), 'at': now, 'weather': _real_weather()}
+        _contenders_cache.update(at=now, data=data)
+        return data
+
+
+@app.get('/api/reputation/fuses/contenders')
+async def fuses_contenders():
+    """Public: the divisions, their ranked coins (score + cited parts, ▲▼, streak) and who is ⏭ next up for a card seat."""
+    return await _contenders_build()
 
 
 _prime_tick_lock = asyncio.Lock()
@@ -6832,6 +6870,10 @@ async def _fuse_warm():
     _fuse_warm_n['n'] += 1
     if _fuse_warm_n['n'] % 24 == 2:   # ~10 min: who the elite traders are + what they bought (FeeCat learns from it)
         await _crowd_build()
+    try:   # 🏁 the contenders league is kept warm, so the Arena reads it in ms and the tier engine always knows who is next up
+        await _contenders_build()
+    except Exception as e:
+        print('contenders:', e)
     if _fuse_warm_n['n'] % 36 == 5:   # ~15 min (one runner round): auto-strength picks the proven-best engine dial
         await _engine_auto(time.time())
     if _fuse_warm_n['n'] % 144 == 3:  # ~1h: nudge HQ if a stronger engine config is waiting

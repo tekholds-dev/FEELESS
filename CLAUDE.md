@@ -668,6 +668,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🎯 Paper flat cost (`arena_prime.SPREAD`, `fuse_wallet.calibrate` → `spread`): swaps too small to move the pool teach the flat cost of
   swapping (median 0.38% over 357 real fills); only pool-moving swaps teach `IMPACT_MULT` (it was pinned at ×6 by $1 swaps).
 
+- 🏁 Arena contenders (`backend/contenders.py` pure + tested, `_contenders_build` 30s cache kept warm by `_fuse_warm`, `GET /fuses/contenders`,
+  `ArenaContenders.jsx` + `styles/contenders.css` `cn-*`): every pick list is a DIVISION (Anchors by volume · New majors · Top yield ·
+  Deepest · Popular · ⚡ Fresh runners <12h · 🏃 Proven runners 12h+ · New 72h). Rows = score 0–100 with cited parts, ▲▼/NEW vs the last
+  league, 🔥 #1 streak, seat: 🃏 on a card · ⏭ NEXT UP (best coin not on a card; one seat per coin) · chasing. Runner divisions need
+  pumping (1h green, ≥55% buys, ≥$5K 1h vol). Next-up mints are `arena`-flagged in `_prime_candidates` (gates, floors, weather still
+  apply). Stablecoins never compete. New pick list ⇒ new division there, never a separate ranking.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10
