@@ -263,6 +263,27 @@ def apply_fill(book, order, fill, sol_px):
     return b, {'units': round(units, 9), 'px': usd / units if units else 0.0, 'usd': round(usd, 6), 'sol': round(abs(fill['sol']), 9)}
 
 
+def enforce_principal_floor(book, equity_usd, sol_px):
+    """Keep PAID OUT NOW within whole-card profit.
+
+    If an older rule banked principal while the card was below fundedUsd, move the
+    excess bankSol back into active card SOL. Lifetime payout history is untouched.
+    """
+    b = dict(book)
+    if sol_px <= 0:
+        return b, 0.0
+    funded = max(0.0, _f(b.get('fundedUsd')))
+    max_bank_usd = max(0.0, _f(equity_usd) - funded)
+    max_bank_sol = max_bank_usd / sol_px
+    bank = max(0.0, _f(b.get('bankSol')))
+    if bank <= max_bank_sol + 1e-12:
+        return b, 0.0
+    move = bank - max_bank_sol
+    b['bankSol'] = round(max_bank_sol, 9)
+    b['sol'] = round(_f(b.get('sol')) + move, 9)
+    b['bankUsd'] = round(max_bank_usd, 6)
+    return b, round(move, 9)
+
 def profit_available(book, equity_usd, sol_px):
     """Additional profit that may leave active capital without touching funded principal.
 
