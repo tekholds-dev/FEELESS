@@ -130,6 +130,14 @@ export const WalletProvider = ({ children }) => {
     }
   };
   // Silent reconnect after refresh: only works if the wallet already trusts this site (no popup).
+  // 👁 DEV-ONLY read-only preview (`?viewAs=<address>` on localhost in a development build): shows what that wallet's pages look like
+  // using PUBLIC data only. There is no provider, so nothing can be signed, and every admin / money route still needs a real signed
+  // session server-side. The whole block is compiled out of production builds.
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development' || !['localhost', '127.0.0.1'].includes(window.location.hostname)) return;
+    const a = new URLSearchParams(window.location.search).get('viewAs');
+    if (a && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a)) setWallet({ name: 'Preview · read-only', chain: 'solana', address: a, readOnly: true });
+  }, []);
   useEffect(() => {
     let last = null;
     try { last = JSON.parse(localStorage.getItem('feeless:last-wallet') || 'null'); } catch { /* ignore */ }

@@ -702,6 +702,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   eligible runner → the slot takes the best pool, not cash. When deleting UI, strip its CSS with a brace-aware pass — a regex once
   glued `body.theme-day` onto an `@media` line and silently killed the mobile rules.
 
+- 👁 Seeing owner-only pages without the owner's wallet: `?viewAs=<address>` (`useWallet`, DEVELOPMENT build on localhost only, compiled
+  out of production — check `grep -c viewAs build/static/js/*.js` is 0). It sets a read-only wallet with NO provider: nothing can be
+  signed and every admin / money route still needs a real signed session. Use it to look at My cards before changing its layout. HQ
+  itself stays behind the signed `whoami` check — never add a preview for it.
+- My cards real-card header = `hrt-hero` (round bell · IN CARD NOW · ALL-TIME · VS SOL) + one `hrt-line` of details. Never nine equal tiles.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

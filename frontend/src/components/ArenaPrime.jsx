@@ -320,16 +320,13 @@ export function HqRealCards({ addr, onCount }) {
         <div className="hq-real-card"><LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label="💵 REAL · FUSE WALLET" serverOnly /></div>
         <div className="hq-real-track">
           <div className="hrt-top"><b>{c.label}</b><span className={`hrt-state ${state[2]}`} data-tip="Keeper: moves the real coins to what the card says, every tick">{state[0]} {state[1]}</span></div>
-          <div className="hrt-kpis">
+          <div className="hrt-hero">
             <RoundBell at={c.nextRoundAt || c.lastRotateAt + (cf?.rotateHours || 1) * 3600} sec={c.bellSec || 10} rest={!!c.resting} label={`ROUND ${(c.rounds || 0) + 1}`} />
-            <span><small>ROUNDS DONE</small><b className="m-num">{c.rounds || 0}</b></span>
-            <span data-tip="Every $ you funded this card with (all top-ups)"><small>PUT IN · TOTAL</small><b className="m-num">{usd(b.fundedUsd || c.startUsd)}</b></span>
-            {b.fundedUsd > 0 && <span data-tip="Now vs everything you put in"><small>ALL-TIME</small><b className={`m-num ${(c.valueUsd - b.fundedUsd) >= 0 ? 'm-pos' : 'm-neg'}`}>{usd(c.valueUsd - b.fundedUsd)} · {pct((c.valueUsd / b.fundedUsd - 1) * 100)}</b></span>}
-            <span data-tip="Paid-out money still parked outside active card capital right now"><small>PAID OUT NOW</small><b className="m-num">{usd(c.walletUsd || 0)}</b></span>
-            <span data-tip="Lifetime amount this card has paid out. Reinvesting does not erase this history and does not increase PUT IN."><small>PAID OUT EVER</small><b className="m-num">{usd(b.paidOutEverUsd || 0)}</b></span>
-            <span data-tip="This run started at this value (a run restarts on top-ups, re-deals and fixes)"><small>THIS RUN FROM</small><b className="m-num">{usd(c.startUsd)}</b></span>
-            {c.vsSolPct != null && <span data-tip={`Holding SOL over this run: ${pct(c.holdSolPct)}. Fund more only when this stays positive.`}><small>VS HOLDING SOL</small><b className={`m-num ${c.vsSolPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.vsSolPct)}</b></span>}
-            <span data-tip="Value now · % vs this run's start"><small>NOW · THIS RUN</small><b key={(c.valueUsd || 0).toFixed(2)} className={`m-num fl-tick ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{usd(c.valueUsd)} · {pct(c.pnlPct)}</b></span></div>
+            <span className="is-now" data-tip="What the card is worth right now (selling every coin at live prices) · % vs this run's start"><small>IN CARD NOW</small><b key={(c.valueUsd || 0).toFixed(2)} className="m-num fl-tick">{usd(c.valueUsd)}</b><em className={`m-num ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.pnlPct)} this run</em></span>
+            <span data-tip="Now vs every $ you put in (all top-ups). Fees are apart."><small>ALL-TIME</small><b className={`m-num ${(c.valueUsd - (b.fundedUsd || c.startUsd)) >= 0 ? 'm-pos' : 'm-neg'}`}>{usd(c.valueUsd - (b.fundedUsd || c.startUsd))}</b><em className="m-num">{pct((c.valueUsd / (b.fundedUsd || c.startUsd || 1) - 1) * 100)} on {usd(b.fundedUsd || c.startUsd)} put in</em></span>
+            {c.vsSolPct != null && <span data-tip={`Holding SOL over this run: ${pct(c.holdSolPct)}. Fund more only when this stays positive.`}><small>VS HOLDING SOL</small><b className={`m-num ${c.vsSolPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.vsSolPct)}</b><em className="m-num">this run</em></span>}</div>
+          <p className="hrt-line m-num" data-testid="hrt-line"><span data-tip="Rounds this card has played">⟳ {c.rounds || 0} rounds</span><span data-tip="This run started at this value (a run restarts on top-ups, re-deals and fixes)">run from {usd(c.startUsd)}</span>
+            <span data-tip="Paid-out money still parked outside active card capital right now">paid out now {usd(c.walletUsd || 0)}</span><span data-tip="Lifetime amount this card has paid out. Reinvesting does not erase this history and does not increase PUT IN.">paid out ever {usd(b.paidOutEverUsd || 0)}</span></p>
           <CycleStrip c={c} />
           <RealHealth k={k} />
           <ul className="hrt-coins">{c.legs.map(l => <li key={l.pairAddress} className={l.buying ? 'is-buying' : ''}><b>{l.role === 'runner' ? '🏃' : '⚓'} ${l.symbol}{l.ride && l.high > 0 && <i className="hrt-ride" data-tip={`Frozen while it runs — swapped once it falls ${cf?.rideTrail || 30}% from its peak`}> ❄ riding · peak {pct((l.high / (l.rideFrom || l.entry || l.high) - 1) * 100)}</i>}{l.frozen && !l.ride && <i className="hrt-ride"> ❄ frozen</i>}</b>
