@@ -108,7 +108,7 @@ DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 
                'strictRunners': False, 'autoBrain': True}
 RUN_ROUNDS = (0, 5, 10, 20, 50)   # rounds per run (0 = one endless run): when a run's rounds are done it closes on the record, the next starts
 SL_MODES = ('replace', 'park', 'hold')   # on a stop: auto-replace · sell + park the slot (rebuy at entry with momentum) · hold
-CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.08, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 60)}
+CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.08, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 60), 'instantSwapPct': (0, 50)}
 
 
 COOL_ROUNDS = 3   # 🧊 a coin that just LEFT a card isn't dealt back into it for 3 rounds (min 15 min) — fresh coins flow in, no buy-back loop
@@ -429,13 +429,43 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         nxt = best(l.get('role') or 'runner')
         if not nxt or c['cash'] < 0.01:
             continue
-        usd = min(c['cash'], _f(l.get('wantUnits')) * (_f(prices.get(l['pairAddress'])) or _f(l.get('entry'))) or c['cash'])
+        usd = min(c['cash'], _f(l.get('reserveUsd')) or (_f(l.get('wantUnits')) * (_f(prices.get(l['pairAddress'])) or _f(l.get('entry')))) or c['cash'])
         if usd < 0.01:
             continue
         c['legs'][c['legs'].index(l)] = _leg(nxt, usd, now, l.get('role') or 'runner')
         c['cash'] = max(0.0, c['cash'] - usd)
         ev(kind='replace', symbol=l.get('symbol'), usd=round(usd, 4), why='reserved replacement slot filled from eligible feed', to=[nxt.get('symbol')])
     c.setdefault('dayAt', c['at']); c.setdefault('dayStartUsd', c['startUsd']); c.setdefault('days', []); c.setdefault('lowPct', 0.0)
+
+    # ⚡ INSTANT LOSS SWAP: this is deliberately NOT a round rule. Once a non-anchor coin reaches the owner's configured
+    # loss from entry, it exits on this tick — no patience counter and no minimum-hold wait. Frozen/riding/manual Hold All still win.
+    instant_loss = _f(cfg.get('instantSwapPct'))
+    if instant_loss > 0 and not c.get('holdAll'):
+        for l in list(c['legs']):
+            if l.get('role') == 'anchor' or l.get('frozen') or l.get('ride') or l.get('placeholder') or l.get('buying') or int(l.get('freezeRounds') or 0) > 0:
+                continue
+            px = _f(prices.get(l['pairAddress']))
+            if px <= 0 or _f(l.get('entry')) <= 0 or _f(l.get('units')) <= 0:
+                continue
+            dd = (px / _f(l['entry']) - 1) * 100
+            if dd > -instant_loss + PCT_EPS:
+                continue
+            out_usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
+            nxt = best(l.get('role') or 'runner')
+            c['feesUsd'] += fee
+            if nxt:
+                c['legs'][c['legs'].index(l)] = _leg(nxt, out_usd, now, l.get('role') or 'runner')
+                c['feesUsd'] += fee
+                ev(kind='instant-swap', symbol=l['symbol'], usd=round(out_usd, 4),
+                   why=f"{dd:.1f}% ≤ −{instant_loss:g}% instant-loss trigger — swapped now", to=[nxt.get('symbol')])
+            else:
+                # Risk comes off immediately even if the replacement feed is temporarily empty. Keep the slot + its proceeds
+                # reserved so normal compounding cannot spend that money before an eligible replacement appears.
+                c['legs'][c['legs'].index(l)] = {**l, 'units': 0.0, 'costUsd': 0.0, 'buying': False, 'placeholder': True,
+                                                 'reserveUsd': round(out_usd, 6), 'entry': px, 'at': now}
+                c['cash'] += out_usd
+                ev(kind='instant-swap', symbol=l['symbol'], usd=round(out_usd, 4),
+                   why=f"{dd:.1f}% ≤ −{instant_loss:g}% instant-loss trigger — sold now; replacement slot reserved", to=['cash'])
 
     # 0) a floored card sits in its anchor (cash-like) until the next day, then is re-dealt fresh at its current value
     if c.get('flooredAt') and now - c['flooredAt'] >= 60:   # floored → re-dealt with fresh 3★+ coins on the very next tick (a new run)
@@ -566,7 +596,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             # reserves confirmed card SOL for it. A transient feed gap must never turn a configured 4-coin card into 3 coins.
             if lmode == 'replace':
                 c['legs'][c['legs'].index(l)] = {**l, 'units': 0.0, 'costUsd': 0.0, 'wantUnits': out_usd / px if px > 0 else 0.0,
-                                                 'buying': False, 'entry': px, 'at': now, 'placeholder': True}
+                                                 'reserveUsd': round(out_usd, 6), 'buying': False, 'entry': px, 'at': now, 'placeholder': True}
                 c['cash'] += out_usd
                 ev(kind='sl', symbol=l['symbol'], usd=round(out_usd, 4), why=why + ' — replacement feed temporarily empty; slot reserved', to=['cash'])
             else:
@@ -689,14 +719,20 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 if kept:
                     nc['events'] = list(nc.get('events') or []) + [{'kind': 'keep', 'at': now, 'why': f'🛡 {kept} winning / frozen coin{"s" if kept > 1 else ""} carried into the {phase} shape — never sold by a re-shape'}]
                 c = nc
-    # 4) idle cash goes back to work when compounding
-    if cfg['compound'] and c['cash'] > 0.01 and c['legs']:
-        waiting = [l for l in c['legs'] if l.get('buying')]   # 👛 real card: SOL whose buy hasn't landed belongs to THAT coin first
-        each = c['cash'] / len(waiting or c['legs'])
-        for l in waiting or c['legs']:
-            px = buy_px(_f(prices.get(l['pairAddress'])) or l['entry'], each, liqs.get(l['pairAddress']) or l.get('liq'))
-            l['units'] += each / px; l['costUsd'] += each
-        c['compoundedUsd'] += c['cash']; ev(kind='compound', usd=round(c['cash'], 4), why='idle cash back into the card', to=[l['symbol'] for l in c['legs']]); c['cash'] = 0.0
+    # 4) idle cash goes back to work when compounding. Cash reserved for an empty replacement slot is untouchable.
+    reserved_cash = sum(_f(l.get('reserveUsd')) for l in c['legs'] if l.get('placeholder'))
+    free_cash = max(0.0, _f(c['cash']) - reserved_cash)
+    if cfg['compound'] and free_cash > 0.01 and c['legs']:
+        waiting = [l for l in c['legs'] if l.get('buying') and not l.get('placeholder')]   # 👛 a pending real buy owns its slice first
+        targets = waiting or [l for l in c['legs'] if not l.get('placeholder')]
+        if targets:
+            each = free_cash / len(targets)
+            for l in targets:
+                px = buy_px(_f(prices.get(l['pairAddress'])) or l['entry'], each, liqs.get(l['pairAddress']) or l.get('liq'))
+                l['units'] += each / px; l['costUsd'] += each
+            c['compoundedUsd'] += free_cash
+            ev(kind='compound', usd=round(free_cash, 4), why='idle cash back into the card', to=[l['symbol'] for l in targets])
+            c['cash'] = round(_f(c['cash']) - free_cash, 6)
     v = V(); start = _f(c['startUsd']) or 1
     day_pct = (v / (_f(c.get('dayStartUsd')) or start) - 1) * 100
     if day_pct <= FIX_DAY_PCT and not c.get('flooredAt') and not c.get('cycleFix') and (c.get('fixedAt') is None or now - _f(c['fixedAt']) >= 86400):   # 🔧 worst day hit −40% → fix the config
