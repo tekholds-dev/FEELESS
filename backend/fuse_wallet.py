@@ -407,25 +407,32 @@ def gas_tank(wallet_sol, books, reserve_sol):
     return {'sol': gas, 'reserve': _f(reserve_sol), 'state': state, 'newCoins': int(gas // GAS_RENT_SOL)}
 
 
-def landing(ledger, card, now, window=86400):
-    """📶 Confirmed on-chain landing rate for one real card over the last 24h.
+def landing(ledger, card, now, window=86400, broadcast_only=False):
+    """📶 Real-swap health for one card over the last 24h.
 
-    Only transactions that were actually signed/broadcast (have a signature) belong in
-    the landing denominator. Pre-trade safety skips, quote refusals and build/sign
-    failures never reached Solana, so counting them as "not landed" made the health
-    gauge look much worse than execution really was.
+    The legacy/default view keeps the historical contract used by diagnostics/tests:
+    filled transactions plus failed/skipped attempts. The live card asks for
+    broadcast_only=True so its LANDED gauge measures only transactions that actually
+    reached Solana and therefore answers the literal question "did it land?".
     """
     rows = [r for r in ledger or [] if r.get('card') == card and r.get('side') in ('buy', 'sell') and now - _f(r.get('at')) < window]
-    sent = [r for r in rows if r.get('sig') and r.get('status') in ('filled', 'failed')]
-    filled = len({r.get('sig') for r in sent if r.get('status') == 'filled'})
-    failed = [r for r in sent if r.get('status') == 'failed']
-    miss = [str(r.get('err') or '').split(' (')[0].split(':')[0][:40] for r in failed]
+    if broadcast_only:
+        sent = [r for r in rows if r.get('sig') and r.get('status') in ('filled', 'failed')]
+        filled = len({r.get('sig') for r in sent if r.get('status') == 'filled'})
+        failed = [r for r in sent if r.get('status') == 'failed']
+        miss = [str(r.get('err') or '').split(' (')[0].split(':')[0][:40] for r in failed]
+        top = max(set(miss), key=miss.count) if miss else None
+        tried = len({r.get('sig') for r in sent})
+        return {'tried': tried, 'filled': filled, 'pct': round(filled / tried * 100) if tried else None,
+                'top': top, 'topN': miss.count(top) if top else 0}
+
+    filled = len({r.get('sig') or r.get('id') for r in rows if r.get('status') == 'filled'})
+    miss = [str(r.get('err') or '').split(' (')[0].split(':')[0][:40]
+            for r in rows if r.get('status') in ('failed', 'skipped')]
     top = max(set(miss), key=miss.count) if miss else None
-    tried = len({r.get('sig') for r in sent})
-    blocked = sum(1 for r in rows if r.get('status') == 'skipped')
-    build_failed = sum(1 for r in rows if r.get('status') == 'failed' and not r.get('sig'))
+    tried = filled + len(miss)
     return {'tried': tried, 'filled': filled, 'pct': round(filled / tried * 100) if tried else None,
-            'top': top, 'topN': miss.count(top) if top else 0, 'blocked': blocked, 'buildFailed': build_failed}
+            'top': top, 'topN': miss.count(top) if top else 0}
 
 
 def strays(wallet_tokens, decimals, books, ledger, now, settle=300):
@@ -659,16 +666,16 @@ def cost_of(book, mint, atoms):
 
 
 def landing_boost(ledger, card, now, window=600):
-    """Recent broadcast/confirmation failures raise the next tx's priority fee.
+    """Recent confirmation failures raise the next tx's priority fee.
 
-    The resolver now reports expired on-chain transactions explicitly, so include
-    those failures as well as the legacy timeout wording. Pre-trade skips do not
-    count because no transaction reached Solana.
+    Keep recognising legacy timeout rows (older ledgers did not stamp side/status/sig)
+    while also recognising today's explicit signed on-chain failures.
     """
     def missed(r):
         err = str(r.get('err') or '').lower()
-        return r.get('card') == card and r.get('side') in ('buy', 'sell') and r.get('status') == 'failed' and r.get('sig') and \
-            ('not confirmed' in err or 'expired' in err or 'failed on-chain' in err) and now - _f(r.get('at')) < window
+        legacy_timeout = 'not confirmed' in err
+        signed_failure = r.get('status') == 'failed' and r.get('sig') and ('expired' in err or 'failed on-chain' in err)
+        return r.get('card') == card and (legacy_timeout or signed_failure) and now - _f(r.get('at')) < window
     return min(4, sum(1 for r in (ledger or [])[-60:] if missed(r)))
 
 
