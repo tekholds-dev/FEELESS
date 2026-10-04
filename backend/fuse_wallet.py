@@ -236,16 +236,25 @@ def apply_fill(book, order, fill, sol_px):
 
 
 def bank(book, wallet_usd, sol_px):
-    """The paper card paid part of a take to the owner → move that $ of the card's SOL to the bank (still the owner's, never redeployed)."""
+    """Segregate only the paper card's NEW payout delta.
+    payoutSeenUsd is a monotonic cursor over the engine's cumulative walletUsd. Reinvesting bankSol must never make an old
+    payout eligible to be banked again; that loop starved live slots immediately after the owner pressed Reinvest."""
     b = dict(book)
-    d = _f(wallet_usd) - _f(b.get('bankUsd'))
+    target = max(0.0, _f(wallet_usd))
+    seen = max(0.0, _f(b.get('payoutSeenUsd')))
+    # Legacy books predate the cursor: their already-segregated bankUsd is the part of walletUsd already processed.
+    if 'payoutSeenUsd' not in b:
+        seen = min(target, max(0.0, _f(b.get('bankUsd'))))
+    d = max(0.0, target - seen)
     if d <= 0 or sol_px <= 0:
+        b['payoutSeenUsd'] = max(seen, target)
         return b
     sol = min(_f(b.get('sol')), d / sol_px)
-    # Mark only what was actually segregated. A take-profit is often processed before its sell lands; claiming the whole target
-    # here left later proceeds in tradable card SOL even though the UI already called them paid out.
-    b['sol'] = round(_f(b['sol']) - sol, 9); b['bankSol'] = round(_f(b.get('bankSol')) + sol, 9)
-    b['bankUsd'] = round(_f(b.get('bankUsd')) + sol * sol_px, 6)
+    b['sol'] = round(_f(b['sol']) - sol, 9)
+    b['bankSol'] = round(_f(b.get('bankSol')) + sol, 9)
+    b['bankUsd'] = round(_f(b.get('bankUsd')) + sol * sol_px, 6)  # current paid-out balance
+    # Consume only what was actually segregated. If a sell has not landed yet, the remainder stays pending for a later tick.
+    b['payoutSeenUsd'] = round(seen + sol * sol_px, 6)
     return b
 
 
@@ -261,6 +270,7 @@ def reinvest_bank(book):
     # bankUsd is the CURRENT segregated paid-out balance. Lifetime payout history lives in the append-only ledger.
     # Clearing it prevents the normal payout synchronizer from treating an already-reinvested balance as still paid out.
     b['bankUsd'] = 0.0
+    # payoutSeenUsd intentionally stays put: reinvest consumes the current bank, not the historical payout event.
     return b, round(amt, 9)
 
 
