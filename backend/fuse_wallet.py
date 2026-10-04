@@ -258,6 +258,9 @@ def reinvest_bank(book):
         return b, 0.0
     b['sol'] = round(_f(b.get('sol')) + amt, 9)
     b['bankSol'] = 0.0
+    # bankUsd is the CURRENT segregated paid-out balance. Lifetime payout history lives in the append-only ledger.
+    # Clearing it prevents the normal payout synchronizer from treating an already-reinvested balance as still paid out.
+    b['bankUsd'] = 0.0
     return b, round(amt, 9)
 
 
