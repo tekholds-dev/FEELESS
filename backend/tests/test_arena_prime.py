@@ -786,3 +786,26 @@ def test_replace_mode_keeps_slot_when_feed_temporarily_has_no_candidate_then_hea
     assert len(healed['legs']) == 4
     assert 'r4' in {l['mint'] for l in healed['legs']}
     assert not any(l.get('placeholder') for l in healed['legs'])
+
+
+def test_phase_deal_never_commits_partial_four_slot_shape():
+    cfg={**CFG,'cycleEvery':6}
+    anchors=[C('sol',1,'SOL')]
+    only_two=[R('r1',1),R('r2',1)]
+    assert ap.deal('safe',[],only_two,cfg,100,anchors,usd=6,shape='degen') is None
+    full=ap.deal('safe',[],only_two+[R('r3',1)],cfg,100,anchors,usd=6,shape='degen')
+    assert full is not None and len(full['legs']) == 4
+
+
+def test_legacy_three_leg_degen_self_heals_to_four_without_topup():
+    cfg={**CFG,'cycleEvery':6,'cycles':{**CFG['cycles'],'safe':'press'},'keepWinPct':5}
+    now=1000.0
+    base={'entry':1.0,'firstEntry':1.0,'units':1.0,'costUsd':1.0,'at':0,'stars':5,'liq':1000000}
+    card={'id':'prime-safe','tpl':'safe','label':'Prime Diamond','at':0,'lastRotateAt':900,'cash':0.0,'feesUsd':0.0,'compoundedUsd':0.0,'takenUsd':0.0,
+          'events':[],'startUsd':3.0,'dayAt':0,'dayStartUsd':3.0,'days':[],'lowPct':0.0,'rounds':6,'roundStartUsd':3.0,'phase':'degen',
+          'legs':[{**base,'mint':'sol','pairAddress':'Psol','symbol':'SOL','role':'anchor'},
+                  {**base,'mint':'r1','pairAddress':'Pr1','symbol':'R1','role':'runner'},
+                  {**base,'mint':'r2','pairAddress':'Pr2','symbol':'R2','role':'runner'}]}
+    out=ap.tick(card,{'Psol':1,'Pr1':1,'Pr2':1,'Pr3':1,'Pr4':1,'Pr5':1},[],[R('r3',1),R('r4',1),R('r5',1)],cfg,now,[C('sol',1,'SOL')])
+    assert len(out['legs']) == 4
+    assert out['phase'] == 'degen'
