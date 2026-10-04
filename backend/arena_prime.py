@@ -367,7 +367,10 @@ def deal(tid, pools, runners, cfg, now, anchors=(), usd=None, keep=None, shape=N
     every = int(_f(cfg.get('cycleEvery'))) or 1
     anchor_offset = int(_f((keep or {}).get('rounds')) // every) if shape else 0
     picks = _picks(t, pools, runners, rotate_anchors(anchors, anchor_offset))
-    if not picks or (shape and len(picks) < MIN_CYCLE_COINS):
+    target_slots = int(t.get('anchors', 0)) + int(t.get('pools', 0)) + int(t.get('runners', 0))
+    # A configured phase is atomic: never commit a partial 3-leg version of a 4-slot shape. Keep the current card until all
+    # eligible slots exist, then reshape once. This permanently prevents feed scarcity from shrinking a live phase.
+    if not picks or (shape and len(picks) != target_slots):
         return None
     size = usd if usd is not None else cfg['sizeUsd']
     each = size / len(picks)
@@ -650,9 +653,16 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     if every and int(c.get('rounds') or 0) % every and not (majors_only and phase and phase != 'anchor'):
         phase = None   # re-shape every N rounds only (less churn) — EXCEPT a majors-only card due a growth shape re-shapes at once
     grow_now = majors_only and phase and phase != 'anchor'   # a majors-only card due growth isn't held back by the win-lock
+    current_shape = PHASES.get(c.get('phase')) or {}
+    current_slots = int(current_shape.get('anchors', 0)) + int(current_shape.get('pools', 0)) + int(current_shape.get('runners', 0))
+    underfilled = bool(current_slots and len(c.get('legs') or []) < current_slots)
+    if underfilled:
+        # Legacy self-heal: cards damaged by the old replace/partial-deal bug repair their CURRENT phase as soon as a complete
+        # eligible shape exists. No top-up, no config change, no paid-out funds, and winners are still carried by keep_winners.
+        phase, grow_now = c.get('phase'), True
     if c.pop('redealNow', None) and not c.get('flooredAt'):   # 🃏 one-tap re-deal: fresh coins NOW, same money + run (real cards keep their book)
         phase, grow_now, c['lastRotateAt'] = phase or c.get('phase') or 'mixed', True, now
-    if phase and c['lastRotateAt'] == now and not c.get('flooredAt') and (grow_now or not int(c.get('lockRounds') or 0)):
+    if phase and (c['lastRotateAt'] == now or underfilled) and not c.get('flooredAt') and (grow_now or not int(c.get('lockRounds') or 0)):
         # Protected coins do not block the whole scheduled shape. `keep_winners` carries riders, frozen/manual picks and configured
         # winners into the new shape, while the unprotected slots can still become majors/new majors as the saved cycle requires.
         ip = in_play(c, prices, liqs)
