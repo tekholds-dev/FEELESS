@@ -241,5 +241,6 @@ def test_hand_swap_of_a_coin_still_buying_moves_its_waiting_money():
     assert abs(new['costUsd'] - 1.5 * px[leg['pairAddress']]) < 1e-6 and new.get('picked')   # its waiting $, not $0
     assert out['events'][-1]['why'] == '⇄ swapped by hand'
     leg.update(wantUnits=0.0, buying=False)
-    with pytest.raises(ValueError):
-        ap.replace_leg(card, leg['pairAddress'], px, [], runners, majors, cfg, 10)   # nothing on it → nothing to swap
+    out2 = ap.replace_leg(card, leg['pairAddress'], px, [], runners, majors, cfg, 10)   # an EMPTY coin still swaps: the new coin takes its slot
+    new2 = next(l for l in out2['legs'] if l['mint'] not in {x['mint'] for x in card['legs']})
+    assert new2['costUsd'] == 0 and new2.get('picked')   # $0 now — the keeper re-arms its buy from spare SOL

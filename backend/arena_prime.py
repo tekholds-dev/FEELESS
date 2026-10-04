@@ -459,7 +459,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 ev(kind='ride-end', symbol=l['symbol'], usd=round(usd, 4), why=f"{why_end} — swapped", to=[nxt.get('symbol')])
                 continue
             mode, frac, why = 'ride-end', 1.0, f"{why_end} — sold" 
-        elif _f(cfg.get('rideAt', RIDE_AT)) > 0 and g >= ra and l.get('role') != 'anchor':
+        elif _f(cfg.get('rideAt', RIDE_AT)) > 0 and g >= ra and l.get('role') != 'anchor' and _f(l.get('units')) > 0:   # never 'ride' a coin you don't hold
             l.update(ride=True, high=px, rideFrom=l['entry'], rideAt=now)
             ev(kind='ride', symbol=l['symbol'], usd=round(l['units'] * px, 4), why=f"+{g:.0f}% ≥ +{ra:g}% — ❄ frozen (riding) until it falls {rt:g}% from its peak, then swapped", to=[l['symbol']])
             continue
@@ -751,9 +751,8 @@ def replace_leg(card, pair, prices, pools, runners, anchors, cfg, now):
     # a coin whose real buy hasn't landed holds 0 units but is WAITING on its slice — that slice moves to the new coin (was a $0 coin)
     units = _f(l['units']) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)
     usd = units * (_f(prices.get(pair)) or l['entry'])
-    if usd <= 0:
-        raise ValueError('That coin has no money on the card yet — nothing to swap.')
-    c['legs'][c['legs'].index(l)] = {**_leg(nxt, usd, now, l['role']), 'picked': True}
+    # an EMPTY coin (buy never landed) still swaps: the new coin takes the empty slot and the keeper re-arms its buy from spare SOL
+    c['legs'][c['legs'].index(l)] = {**_leg(nxt, max(0.0, usd), now, l['role']), 'picked': True}
     c['feesUsd'] = round(_f(c['feesUsd']) + 2 * cfg['paperFeeUsd'], 4)
     c['events'].append({'at': now, 'kind': 'rotate', 'symbol': l['symbol'], 'usd': round(usd, 4), 'why': '⇄ swapped by hand', 'to': [nxt.get('symbol')]})
     return c
