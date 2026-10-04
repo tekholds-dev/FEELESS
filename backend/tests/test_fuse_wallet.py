@@ -595,3 +595,16 @@ def test_manual_cash_is_not_swept_into_payout_and_is_consumed_by_later_buy():
     order = {'side': 'buy', 'mint': 'M', 'pair': 'pm', 'symbol': 'M', 'lamports': 10_000_000}
     bought, _ = fw.apply_fill(kept, order, {'atoms': 1_000_000, 'decimals': 6, 'sol': -0.01, 'feeSol': 0.0}, 100.0)
     assert bought['manualCashSol'] == 0.02
+
+
+def test_recovered_old_keeper_coin_force_sell_is_marked_card_cash():
+    book = {'sol': 0.0, 'legs': {'OLD': {'atoms': 2_000_000, 'decimals': 6, 'pair': 'pold', 'symbol': 'AGENTCAT',
+                                          'entryPx': 0.5, 'costUsd': 1.0, 'manualCash': True, 'recovered': True}}}
+    card = {'legs': [], 'cash': 0.0}
+    cfg = {**fw.DEFAULT_CFG, 'armed': True, 'walletId': 'w', 'address': 'A', 'minOrderUsd': 0.25}
+    sells = [o for o in fw.orders('safe', card, book, {'pold': 0.5}, 100.0, cfg, 10) if o['side'] == 'sell']
+    assert sells and sells[0]['mint'] == 'OLD' and sells[0]['manualCash']
+    assert sells[0]['why'] == 'sold by owner to card cash'
+
+    filled, _ = fw.apply_fill(book, sells[0], {'atoms': -2_000_000, 'decimals': 6, 'sol': 0.01, 'feeSol': 0.0}, 100.0)
+    assert not filled['legs'] and filled['sol'] == 0.01 and filled['manualCashSol'] == 0.01
