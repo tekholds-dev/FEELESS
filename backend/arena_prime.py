@@ -544,8 +544,17 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                                              'backAt': l['entry'], 'at': now, 'price': px}
             ev(kind='park', symbol=l['symbol'], usd=round(out_usd, 4), why=f"{why} — sold to SOL, slot kept; buys back at ${l['entry']:.6g} with momentum", to=['parked'])
         else:
-            c['legs'].remove(l); c['cash'] += out_usd
-            ev(kind='sl', symbol=l['symbol'], usd=round(out_usd, 4), why=why, to=['cash'])
+            # REPLACE means replace. If the preferred same-role feed is temporarily empty, keep a zero-unit placeholder instead
+            # of deleting the slot. The next tick/round can fill that exact slot from the existing eligible feeds; real sync then
+            # reserves confirmed card SOL for it. A transient feed gap must never turn a configured 4-coin card into 3 coins.
+            if lmode == 'replace':
+                c['legs'][c['legs'].index(l)] = {**l, 'units': 0.0, 'costUsd': 0.0, 'wantUnits': out_usd / px if px > 0 else 0.0,
+                                                 'buying': False, 'entry': px, 'at': now, 'placeholder': True}
+                c['cash'] += out_usd
+                ev(kind='sl', symbol=l['symbol'], usd=round(out_usd, 4), why=why + ' — replacement feed temporarily empty; slot reserved', to=['cash'])
+            else:
+                c['legs'].remove(l); c['cash'] += out_usd
+                ev(kind='sl', symbol=l['symbol'], usd=round(out_usd, 4), why=why, to=['cash'])
     # 2b) parked coins come back: price ≥ the entry they stopped out from AND momentum not fading → bought back with the parked $
     for pa, pk in list(c['parked'].items()):
         px = _f(prices.get(pa))
