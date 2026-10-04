@@ -292,6 +292,8 @@ export function HqRealCards({ addr, onCount }) {
             <span><small>ROUNDS DONE</small><b className="m-num">{c.rounds || 0}</b></span>
             <span data-tip="Every $ you funded this card with (all top-ups)"><small>PUT IN · TOTAL</small><b className="m-num">{usd(b.fundedUsd || c.startUsd)}</b></span>
             {b.fundedUsd > 0 && <span data-tip="Now vs everything you put in"><small>ALL-TIME</small><b className={`m-num ${(c.valueUsd - b.fundedUsd) >= 0 ? 'm-pos' : 'm-neg'}`}>{usd(c.valueUsd - b.fundedUsd)} · {pct((c.valueUsd / b.fundedUsd - 1) * 100)}</b></span>}
+            <span data-tip="Paid-out money still parked outside active card capital right now"><small>PAID OUT NOW</small><b className="m-num">{usd(c.walletUsd || 0)}</b></span>
+            <span data-tip="Lifetime amount this card has paid out. Reinvesting does not erase this history and does not increase PUT IN."><small>PAID OUT EVER</small><b className="m-num">{usd(b.paidOutEverUsd || 0)}</b></span>
             <span data-tip="This run started at this value (a run restarts on top-ups, re-deals and fixes)"><small>THIS RUN FROM</small><b className="m-num">{usd(c.startUsd)}</b></span>
             {c.vsSolPct != null && <span data-tip={`Holding SOL over this run: ${pct(c.holdSolPct)}. Fund more only when this stays positive.`}><small>VS HOLDING SOL</small><b className={`m-num ${c.vsSolPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.vsSolPct)}</b></span>}
             <span data-tip="Value now · % vs this run's start"><small>NOW · THIS RUN</small><b key={(c.valueUsd || 0).toFixed(2)} className={`m-num fl-tick ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{usd(c.valueUsd)} · {pct(c.pnlPct)}</b></span></div>
@@ -322,7 +324,7 @@ export function HqRealCards({ addr, onCount }) {
             <button type="button" className="m-btn danger" disabled={!!busy || k.selling} onClick={() => act(c.tpl, 'defund')} data-tip="Sell every coin to SOL — the card goes back to its paper card">{k.selling ? '↩ selling…' : '↩ Sell all'}</button></div>
           {k.lastFail && <small className="hrt-fail" data-tip={k.lastFail.err}>⚠ last miss: {k.lastFail.side} ${k.lastFail.symbol} · {ago(k.lastFail.at)} — retried automatically</small>}
           <small className="m-dim">{b.swaps || 0} swaps · network fees {fee(b.feesUsd || 0)} (wallet reserve pays) · last fill {k.lastFill ? ago(k.lastFill) : '—'}</small>
-          <ul className="prime-txs">{(b.orders || []).slice(0, 6).map((o, i) => <li key={o.sig || i}><b>{o.side === 'topup' ? '💵' : o.side === 'buy' ? '🟢' : '🔴'}</b><span>{o.side === 'topup' ? 'funded' : `${o.side} $${o.symbol}`} <i className="m-dim">{ago(o.at)}</i>
+          <ul className="prime-txs">{(b.orders || []).slice(0, 6).map((o, i) => <li key={o.sig || i}><b>{o.side === 'topup' ? '💵' : o.side === 'reinvest' ? '↩' : o.side === 'buy' ? '🟢' : '🔴'}</b><span>{o.side === 'topup' ? 'new money funded' : o.side === 'reinvest' ? 'paid out reinvested' : `${o.side} ${o.symbol}`} <i className="m-dim">{ago(o.at)}</i>
               {o.side === 'sell' && o.costUsd > 0 && <i className={`hrt-pl ${o.usd >= o.costUsd ? 'm-pos' : 'm-neg'}`} data-tip={`This coin cost $${o.costUsd.toFixed(2)} (money that reached the pool) and the sell returned $${(o.usd || 0).toFixed(2)} — fees apart`}> · in {usd(o.costUsd)} → {pct((o.usd / o.costUsd - 1) * 100)}</i>}</span>
             <em className="m-num">{usd(o.usd)}</em>{o.sig ? <a href={txUrl(o.sig)} target="_blank" rel="noreferrer">tx ↗</a> : <i />}</li>)}</ul></div></div>; })}</section>;
 }
