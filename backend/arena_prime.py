@@ -424,7 +424,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # A prior replace may have reserved its slot when that feed had no eligible candidate. Heal it as soon as one exists.
     # This runs before TP/stops/rotation, preserves the configured slot count, and spends only the cash already returned by that sale.
     for l in list(c['legs']):
-        if not l.get('placeholder') or _f(l.get('units')) > 0:
+        if not l.get('placeholder') or l.get('manualCash') or _f(l.get('units')) > 0:
             continue
         nxt = best(l.get('role') or 'runner')
         if not nxt or c['cash'] < 0.01:
