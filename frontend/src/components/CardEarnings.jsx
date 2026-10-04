@@ -22,6 +22,12 @@ export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fe
     <aside className="ce is-pop m-live" role="dialog" aria-modal="true" aria-label={`${title} earnings`} onClick={e => e.stopPropagation()}>
       <header><span className="m-label">📜 WHERE THE PROFIT WENT{paper ? ' · PAPER' : ''}</span><h3>{title}</h3><button type="button" className="cx-x" onClick={onClose} aria-label="Close">×</button>
         <ShareGifButton className="m-btn ce-share" label="🎞 Share" card={share} /></header>
+      {book && (() => { const total = book.held + book.taken; const net = total - book.putIn; const up = net >= 0;
+        return <p className={`m-note ce-plain ${up ? '' : 'warn'}`} data-testid="ce-plain"><b>IN PLAIN WORDS</b>
+          <span>{paper ? 'This card started with' : 'You put in'} <strong className="m-num">{$(book.putIn)}</strong>. The coins in it are worth <strong className="m-num">{$(book.held)}</strong> right now{book.taken > 0 ? <>, and <strong className="m-num">{$(book.taken)}</strong> has already been paid out</> : ''}.
+            That makes <strong className="m-num">{$(total)}</strong> — <strong className={`m-num ${up ? 'm-pos' : 'm-neg'}`}>{up ? 'up' : 'down'} {$(Math.abs(net))}{book.putIn ? ` (${up ? '+' : '−'}${Math.abs((total / book.putIn - 1) * 100).toFixed(1)}%)` : ''}</strong> from price moves.
+            {book.fees != null && <> Fees are counted apart: <strong className="m-num">{$(book.fees)}</strong> so far{book.rounds ? ` over ${book.rounds} rounds` : ''}.</>}</span>
+          <small className="m-dim">Below: the same numbers as a sum, then every move the card made, newest first.</small></p>; })()}
       {book && <section className="ce-book" data-testid="ce-book"><span className="m-label">💼 THE BOOK · WHERE EVERY $ IS <i className="ce-live">● LIVE</i></span>
         <div className="ce-book-eq">
           <span data-tip="What went into the card (money that reached the pools — fees apart)"><small>PUT IN</small><b className="m-num">{$(book.putIn)}</b></span><i>→</i>

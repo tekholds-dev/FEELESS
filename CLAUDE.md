@@ -718,6 +718,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   Card cash can't go below 0 (a fee shortfall is booked to the reserve). The Gauntlet's pool divisions join the engine's candidate pools.
 - Runner replays (`runnerReplay`): < 1h old → last 5 min, else last hour — never since launch ("+120,669% · $5 → $1,514" was a launch pump).
 
+- Tier card (Prime League) fits on screen: card · coins · PROFIT / PAID OUT / bell · buttons; everything else (round stats, good days,
+  config chips, real book, record) lives in ONE `details.prime-more` drawer. Never stack new blocks on the card face.
+- Profit trail opens with `ce-plain` — "IN PLAIN WORDS": put in → worth now → paid out → up/down $ (%) → fees apart — before any table.
+- Landing v2: NO box (transparent stage on the page backdrop); the hero is the real `LiveFuseCard` with its tier `look` + `aura`
+  (`TIER` is exported from ArenaPrime), `zoom: 1.45`; the big live % sits in the copy (`fld-hero`).
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

@@ -805,3 +805,14 @@ body.theme-day .pg-filter { background: #fff; }
 .ce-book-eq small { font: 700 9px var(--m-mono); letter-spacing: .12em; color: var(--m-dim); } .ce-book-eq b { font-size: 17px; } .ce-book-eq > i { font-style: normal; color: var(--m-dim); font-size: 16px; }
 .ce-book-pnl { display: grid; gap: 2px; } .ce-book-pnl > b { font-size: 24px; } .ce-book-pnl em { font-style: normal; font-size: 14px; } .ce-book-pnl small { font-size: 11px; }
 body.theme-day .ce-book { background: #fff; }
+
+/* tier card: details behind one drawer so a card fits on screen */
+.prime-more { width: 100%; border-top: 1px solid var(--m-line); padding-top: 6px; }
+.prime-more > summary { cursor: pointer; list-style: none; font: 600 10.5px var(--m-mono, monospace); letter-spacing: .08em; text-transform: uppercase; color: var(--m-dim); padding: 4px 2px; border-radius: 6px; transition: color .15s; }
+.prime-more > summary::-webkit-details-marker { display: none; } .prime-more > summary::before { content: '▸ '; } .prime-more[open] > summary::before { content: '▾ '; }
+.prime-more > summary:hover, .prime-more > summary:focus-visible { color: var(--m-accent); outline: none; } .prime-more > summary:active { opacity: .7; }
+.prime-more[open] > :not(summary) { animation: pmIn .18s var(--m-ease, ease) both; margin-top: 8px; }
+@keyframes pmIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+body.fx-lite .prime-more[open] > :not(summary) { animation: none; }
+@media (prefers-reduced-motion: reduce) { .prime-more[open] > :not(summary) { animation: none; } }
+.ce-plain span { line-height: 1.6; font-size: 13.5px; } .ce-plain strong { font-weight: 700; }

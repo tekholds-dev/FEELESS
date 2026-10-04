@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { usePrime } from './ArenaPrime';
+import { usePrime, primeRow, TIER } from './ArenaPrime';
+import { LiveFuseCard } from './FuseCard';
 import { useLivePrices } from '../lib/livePrices';
-import { TokenAvatar } from './terminal/MarketPrimitives';
 import '../styles/fuseLanding.css';
 
-// ⚡ Fuse landing: a dark stage, the spotlight comes on, ONE live card spins up to full size. Front = the card, back = its live book
-// (tap to flip). Every number is the card's real state right now — it shows what a Fuse IS, it never promises a result.
+// ⚡ Fuse landing: no box — the page's own dark backdrop, a spotlight comes on, ONE live tier card (its real design) spins up to
+// stage size; ⟲ flips it to its live book. Every number is the card's real state right now — it shows what a Fuse IS, it never promises a result.
 const pct = v => `${v >= 0 ? '+' : ''}${(v || 0).toFixed(1)}%`;
-const usd = v => `$${(v || 0) >= 1000 ? (v / 1000).toFixed(1) + 'K' : (v || 0).toFixed(2)}`;
-const px = v => (!v ? '—' : v >= 1 ? `$${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : `$${Number(v).toPrecision(3)}`);
 const NOTES = [
   ['①', 'Pick coins — or copy a card', 'Pools, majors and gated runners. Up to 3 + 3 on one card.'],
   ['②', 'One approval buys it all', 'You sign once. Every coin lands in YOUR wallet.'],
@@ -34,12 +32,12 @@ export function heroCard(cards, live) {
 export function FuseLanding({ onGo }) {
   const d = usePrime(20000);
   const [lit, setLit] = useState(false);
-  const [flip, setFlip] = useState(false);
   const [now, setNow] = useState(Date.now() / 1000);
   useEffect(() => { const t = setTimeout(() => setLit(true), 350); const i = setInterval(() => setNow(Date.now() / 1000), 1000); return () => { clearTimeout(t); clearInterval(i); }; }, []);
   const live = useLivePrices((d?.cards || []).flatMap(c => (c.legs || []).map(l => l.pairAddress)));
   const c = heroCard(d?.cards, live);
   const cards = d?.cards || [];
+  const tier = TIER[c?.tier] || TIER.gold;
   const rounds = cards.reduce((n, x) => n + (x.rounds || 0), 0);
   const bell = Math.max(0, Math.min(...cards.filter(x => x.nextRoundAt && !x.resting).map(x => x.nextRoundAt), now + 3600) - now);
   const note = ([n, t, s], i) => <li key={n} style={{ '--i': i }}><b>{n}</b><span><strong>{t}</strong>{s}</span></li>;
@@ -50,6 +48,8 @@ export function FuseLanding({ onGo }) {
         <small className="m-label">FEELESS · FUSE</small>
         <h2 className="fld-h">MANY COINS.<br /><em>ONE CARD.</em></h2>
         <p>Fuse pools, majors and fresh runners into a single card you own. Rounds swap the losers, the winners ride, and you sign every move.</p>
+        {c && <div className="fld-hero" data-testid="fld-hero"><span>{c.label} · {c.real ? '💵 real money' : '📄 paper at true fills'}</span>
+          <b key={pct(c.pnlPct)} className={`m-num fl-tick ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.pnlPct)}</b><small>this run, right now · {(c.legs || []).map(l => `$${l.symbol}`).join(' · ')}</small></div>}
         <div className="fld-live" data-testid="fld-live">
           <span><small>LIVE TIER CARDS</small><b className="m-num">{cards.length || '—'}</b></span>
           <span><small>ROUNDS PLAYED</small><b key={rounds} className="m-num fl-tick">{rounds ? rounds.toLocaleString() : '—'}</b></span>
@@ -60,23 +60,9 @@ export function FuseLanding({ onGo }) {
       </div>
       <div className="fld-rig">
         <ul className="fld-notes is-l">{NOTES.slice(0, 2).map(note)}</ul>
-        <div className={`fld-card ${flip ? 'is-flip' : ''}`} role="button" tabIndex={0} aria-pressed={flip} aria-label={flip ? 'Show the card front' : 'Show live card data'} onClick={() => setFlip(f => !f)}
-          onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setFlip(f => !f))} data-testid="fld-card">
-          <div className="fld-inner">
-            <div className="fld-face fld-front">
-              <span className="fld-tag">{c ? (c.real ? '💵 REAL MONEY' : '📄 PAPER · TRUE FILLS') : 'FUSE'}</span>
-              <div className="fld-ring">{(c?.legs || []).slice(0, 4).map((l, i) => <i key={l.pairAddress} style={{ '--i': i, '--n': Math.min(4, c.legs.length) }}><TokenAvatar pair={{ chainId: 'solana', pairAddress: l.pairAddress, baseToken: { address: l.mint, symbol: l.symbol } }} size={54} /></i>)}</div>
-              <b className="fld-name">{c ? c.label : 'Dealing a live card…'}</b>
-              <span className="fld-coins">{(c?.legs || []).map(l => `$${l.symbol}`).join(' · ')}</span>
-              {c && <em key={pct(c.pnlPct)} className={`fld-pct m-num fl-tick ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.pnlPct)}</em>}
-              <small className="fld-hint">this run · tap for the live book ⟲</small></div>
-            <div className="fld-face fld-back">
-              <span className="fld-tag">LIVE BOOK · {c ? c.label : ''}</span>
-              <ul className="fld-book">{(c?.legs || []).map(l => <li key={l.pairAddress}><b>${l.symbol}</b><small>{l.role}</small><span className="m-num">{px(l.entry)} → {px(l.livePx)}</span><em className={`m-num ${l.livePct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(l.livePct)}</em></li>)}</ul>
-              {c && <div className="fld-kv"><span><small>IN CARD</small><b className="m-num">{usd(c.valueUsd)}</b></span><span><small>STARTED</small><b className="m-num">{usd(c.startUsd)}</b></span><span><small>ROUNDS</small><b className="m-num">{c.rounds || 0}</b></span></div>}
-              <small className="fld-hint">entry → now per coin · fees are shown apart, never inside P&L</small></div>
-          </div>
-        </div>
+        {/* the REAL tier card, in its own design (look + aura), at stage size — ⟲ flips it to its live book */}
+        <div className="fld-card" data-testid="fld-card">{c ? <LiveFuseCard r={primeRow(c)} aura={tier.aura} look={tier.look} label={c.real ? '💵 REAL · FUSE WALLET' : '📄 PAPER · TRUE FILLS'} serverOnly={!!c.real} />
+          : <span className="fld-ghost">Dealing a live card…</span>}</div>
         <ul className="fld-notes is-r">{NOTES.slice(2).map((n, i) => note(n, i + 2))}</ul>
       </div>
     </div>
