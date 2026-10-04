@@ -587,6 +587,10 @@ function RealCardFixes({ addr }) {
     const key = `payout-${c.tpl}`; setBusy(key); call('/admin/fuse-wallet/payout-profit', { method: 'POST', body: JSON.stringify({ tpl: c.tpl, usd: amt }) })
       .then(x => { toast.success(`Paid out ${m$(x.paidUsd || amt)} profit · principal untouched`); window.dispatchEvent(new Event('feeless:prime')); })
       .catch(e => toast.error(e.message)).finally(() => setBusy('')); };
+  const retryDead = (c, o) => { const key = `dead-${c.tpl}-${o.side}-${o.mint}`; setBusy(key);
+    call('/admin/fuse-wallet/retry-dead', { method: 'POST', body: JSON.stringify({ tpl: c.tpl, side: o.side, mint: o.mint }) })
+      .then(() => { toast.success(o.side === 'sell' ? `Retrying sell → ${c.label} cash` : `Retrying buy from ${c.label} cash`); window.dispatchEvent(new Event('feeless:prime')); })
+      .catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   const useful = cards.filter(c => (c.realBook?.recoverable || []).length || (c.realBook?.profitAvailableUsd || 0) > 0 || (c.realBook?.fundedUsd || 0) > 0);
   if (!useful.length) return null;
   return <section className="m-card m-live" data-testid="real-card-fixes"><span className="m-label">🛠 REAL CARD CASH / RECOVERY</span>
@@ -595,6 +599,9 @@ function RealCardFixes({ addr }) {
         {profit <= 0 && <small className="m-dim">No payout yet — card must first be worth more than everything put in.</small>}
         {profit > 0 && cash <= 0 && <small className="m-dim">Profit exists in coins, but none is card cash yet. It becomes payable as sells/rotations return SOL.</small>}</span>
       <span className="m-row"><button type="button" className="m-btn" disabled={cash <= 0 || !!busy} onClick={() => payout(c)} data-testid={`profit-payout-${c.tpl}`}>💸 Payout profit {m$(cash)}</button></span>
+      {(b.deadOrders || []).length > 0 && <div className="fw-tiers" data-testid={`dead-orders-${c.tpl}`}><small className="m-dim">🧯 Failed / dead buy-sell attempts:</small>
+        {(b.deadOrders || []).map((o, i) => <div key={`${o.side}-${o.mint || o.symbol}-${i}`} className="fw-tier"><span><b>{o.side === 'buy' ? '🟢 BUY' : '🔴 SELL'} ${o.symbol}</b><small className="m-dim"> · {o.err || o.status}</small></span>
+          <button type="button" className="m-btn" disabled={!!busy || !o.mint} onClick={() => retryDead(c, o)}>{busy === `dead-${c.tpl}-${o.side}-${o.mint}` ? 'Retrying…' : o.side === 'sell' ? 'Retry sell → card cash' : 'Retry buy from card cash'}</button></div>)}</div>}
       {rec.length > 0 && <div className="fw-tiers" data-testid={`dead-swaps-${c.tpl}`}><small className="m-dim">⚠ Failed / dead swaps still held by the Fuse wallet:</small>
         {rec.map(r => <div key={r.mint} className="fw-tier"><span><b>${r.symbol}</b><small className="m-dim"> · {r.lastErr || r.lastStatus || 'old keeper balance'}</small></span>
           <button type="button" className="m-btn danger" disabled={!!busy} onClick={() => recover(c, r)} data-testid={`dead-sell-${r.symbol}`}>{busy === `recover-${c.tpl}-${r.mint}` ? 'Selling…' : 'Sell → card cash'}</button></div>)}</div>}
