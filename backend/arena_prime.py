@@ -389,13 +389,16 @@ def in_play(card, prices, liqs=None):
     return round(value(card, prices, liqs) - _f(card.get('walletUsd')) - sum(_f(p.get('usd')) for p in (card.get('parked') or {}).values()), 4)
 
 
-def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None):
+def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None, true_usd=None):
     """One automation pass. Returns the updated card (mutated copy) — all actions logged as events with reasons.
     liqs = {pair: pool liquidity $} for TRUE fills (price impact on every paper buy / sell)."""
     liqs = liqs or {}
     t = TEMPLATES[card['tpl']]
     c = {**card, 'legs': [dict(l) for l in card['legs']], 'events': list(card['events'])}
     have = lambda: {l['mint'] for l in c['legs']}
+    # 💵 a REAL card is judged on its true book (confirmed coins + SOL), never on the engine's estimate — an estimate that missed
+    # unlanded / skipped buys once read −32% on a card really at −20% and the floor sold everything twice in 20 min
+    V = (lambda: _f(true_usd)) if true_usd is not None and _f(true_usd) > 0 else (lambda: value(c, prices, liqs))
     ev = lambda **e: c['events'].append({'at': now, **e})
     fee = cfg['paperFeeUsd']
 
@@ -408,7 +411,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
 
     # 0) a floored card sits in its anchor (cash-like) until the next day, then is re-dealt fresh at its current value
     if c.get('flooredAt') and now - c['flooredAt'] >= 60:   # floored → re-dealt with fresh 3★+ coins on the very next tick (a new run)
-        v0 = value(c, prices, liqs)
+        v0 = V()
         keep = {k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}
         # a NEW run starts at today's value (its own −floor); the ended run is kept on the record, never hidden
         keep['runs'] = (list(c.get('runs') or []) + [{'at': now, 'startUsd': c['startUsd'], 'endUsd': round(v0, 4), 'pct': round((v0 / (_f(c['startUsd']) or 1) - 1) * 100, 2)}])[-10:]
@@ -561,7 +564,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             ev(kind='rotate', symbol=l['symbol'], usd=round(usd, 4), why=f"weakest after {cfg['rotateHours']}h", to=[nxt.get('symbol')])
         c['lastRotateAt'] = now
         # one ROUND per rotation: log this round's move, start the next one from today's value
-        v_now = value(c, prices, liqs)
+        v_now = V()
         c['rounds'] = int(c.get('rounds') or 0) + 1
         c['lastRoundPct'] = round((v_now / (_f(c.get('roundStartUsd')) or _f(c['startUsd']) or 1) - 1) * 100, 2)
         c['roundStartUsd'] = round(v_now, 4); c['roundCrowned'] = False
@@ -594,7 +597,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             ev(kind='run', usd=round(v_now, 4), why=f'{n_run} rounds done — run closed on the record, a new run starts at ${v_now:.2f}')
     # 3b) 🔄 phase cycle: a cycling tier re-deals into the next phase shape every round (same run, P&L continues)
     rp = -_f(cfg.get('rescuePct', -RESCUE_PCT))
-    if rp < 0 and not c.get('cycleFix') == 'rescue' and (value(c, prices, liqs) / (_f(c['startUsd']) or 1) - 1) * 100 <= rp:
+    if rp < 0 and not c.get('cycleFix') == 'rescue' and (V() / (_f(c['startUsd']) or 1) - 1) * 100 <= rp:
         c['cycleFix'] = 'rescue'   # 🛟 fell rescuePct% under its start → safest ⇄ breakeven until a new run
         ev(kind='rescue', why=f'card ≤ {rp:.0f}% of its start — 🛟 rescue cycle: safest run ⇄ breakeven runners')
     every = 1 if c.get('cycleFix') else int(cfg.get('cycleEvery') if cfg.get('cycleEvery') is not None else 6)
@@ -631,7 +634,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             px = buy_px(_f(prices.get(l['pairAddress'])) or l['entry'], each, liqs.get(l['pairAddress']) or l.get('liq'))
             l['units'] += each / px; l['costUsd'] += each
         c['compoundedUsd'] += c['cash']; ev(kind='compound', usd=round(c['cash'], 4), why='idle cash back into the card', to=[l['symbol'] for l in c['legs']]); c['cash'] = 0.0
-    v = value(c, prices, liqs); start = _f(c['startUsd']) or 1
+    v = V(); start = _f(c['startUsd']) or 1
     day_pct = (v / (_f(c.get('dayStartUsd')) or start) - 1) * 100
     if day_pct <= FIX_DAY_PCT and not c.get('flooredAt') and (c.get('fixedAt') is None or now - _f(c['fixedAt']) >= 86400):   # 🔧 worst day hit −40% → fix the config
         keep = {k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}
@@ -641,10 +644,10 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         if nc:
             nc['events'].append({'at': now, 'kind': 'fix', 'why': f"day {day_pct:.0f}% ≤ {FIX_DAY_PCT:.0f}% — config fixed: re-dealt into majors, safe cycle from here"})
             c = nc
-        v = value(c, prices, liqs)
+        v = V()
     # 5) 🛡 FLOOR: the card is never allowed to sit below −floorPct (default −20%, so −25% is never reached short of a gap):
     #    every pool / runner is sold into the anchor (or cash) at once; the card re-deals fresh the next day.
-    v = value(c, prices, liqs); start = _f(c['startUsd']) or 1
+    v = V(); start = _f(c['startUsd']) or 1
     pct = (v / start - 1) * 100
     if pct <= -cfg['floorPct'] and not c.get('flooredAt'):
         anc = [l for l in c['legs'] if l.get('role') == 'anchor' and _f(prices.get(l['pairAddress'])) > 0]
@@ -745,10 +748,14 @@ def replace_leg(card, pair, prices, pools, runners, anchors, cfg, now):
     nxt = next((x for x in rated(src, l['role']) if x['mint'] not in have and _f(x.get('price')) > 0), None)
     if not nxt:
         raise ValueError('No 3★+ replacement available right now.')
-    usd = l['units'] * (_f(prices.get(pair)) or l['entry'])
-    c['legs'][c['legs'].index(l)] = _leg(nxt, usd, now, l['role'])
+    # a coin whose real buy hasn't landed holds 0 units but is WAITING on its slice — that slice moves to the new coin (was a $0 coin)
+    units = _f(l['units']) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)
+    usd = units * (_f(prices.get(pair)) or l['entry'])
+    if usd <= 0:
+        raise ValueError('That coin has no money on the card yet — nothing to swap.')
+    c['legs'][c['legs'].index(l)] = {**_leg(nxt, usd, now, l['role']), 'picked': True}
     c['feesUsd'] = round(_f(c['feesUsd']) + 2 * cfg['paperFeeUsd'], 4)
-    c['events'].append({'at': now, 'kind': 'rotate', 'symbol': l['symbol'], 'usd': round(usd, 4), 'why': 'replaced by FEELESS', 'to': [nxt.get('symbol')]})
+    c['events'].append({'at': now, 'kind': 'rotate', 'symbol': l['symbol'], 'usd': round(usd, 4), 'why': '⇄ swapped by hand', 'to': [nxt.get('symbol')]})
     return c
 
 

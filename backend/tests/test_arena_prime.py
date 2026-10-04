@@ -149,7 +149,7 @@ def test_cmd_ctr_replaces_one_coin_with_best_same_role():
     out = ap.replace_leg(card, 'Pr1', {'Pr1': 2}, [P('a', 1)], [R('r1', 1), R('r9', 1)], SOL, CFG, 10)
     mints = [l['mint'] for l in out['legs']]
     assert 'r9' in mints and 'r1' not in mints and abs(next(l for l in out['legs'] if l['mint'] == 'r9')['costUsd'] - card['legs'][-1]['units'] * 2) < 1e-6
-    assert out['events'][-1]['why'] == 'replaced by FEELESS'
+    assert out['events'][-1]['why'] == '⇄ swapped by hand'
     import pytest
     with pytest.raises(ValueError):
         ap.replace_leg(card, 'Pnope', {}, [], [], [], CFG, 10)

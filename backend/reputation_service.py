@@ -5400,7 +5400,16 @@ async def _prime_tick_inner(now):
         if cool:
             p_c, r_c = [x for x in p_t if x.get('mint') not in cool], [x for x in r_t if x.get('mint') not in cool]
             p_t, r_t = (p_c if len(p_c) >= 2 else p_t), (r_c if len(r_c) >= 3 else r_t)   # only when enough other coins exist
-        cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, anchors, mom, liqs) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, anchors)
+        true_usd = None
+        if real_t:   # 💵 floor / rescue / fix / runs judge the TRUE book (confirmed coins + card SOL), never the engine's estimate
+            bk = (_fw_load().get('books') or {}).get(tid)
+            try:
+                sol_px_t = await _sol_usd_live() if bk else 0.0
+            except Exception:
+                sol_px_t = 0.0
+            if bk and sol_px_t > 0 and not bk.get('pending'):
+                true_usd = _fw.book_value(bk, px, sol_px_t) or None
+        cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, anchors, mom, liqs, true_usd=true_usd) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, anchors)
         cards[tid] = _prime.note_dropped(cur, cards[tid], now, cfg_t['rotateHours'], px)
         taken |= {l.get('mint') for l in (cards[tid] or {}).get('legs') or [] if l.get('role') != 'anchor'}
     cards = {k: v for k, v in cards.items() if v}
@@ -5495,8 +5504,8 @@ async def _prime_view():
                 'legacyRunBaseline': not bool(c.get('realBaselineAt')),
                 'payoutTargetUsd': round(_fuse._f(c.get('walletUsd')), 4),
                 'pendingPayoutUsd': round(max(0.0, _fuse._f(c.get('walletUsd')) - _fuse._f(b.get('bankUsd'))), 4),
-                'math': {**sm.get('math', {}), 'heldUsd': round(held, 4), 'paidOutUsd': round(paid, 4),
-                         'nowUsd': v, 'pnlUsd': round(v - start, 4)}}
+                'math': {**sm.get('math', {}), 'putIn': round(_fuse._f(b.get('fundedUsd')) or start, 4), 'runStartUsd': round(start, 4), 'heldUsd': round(held, 4), 'paidOutUsd': round(paid, 4),
+                         'nowUsd': v, 'pnlUsd': round(v - (_fuse._f(b.get('fundedUsd')) or start), 4)}}
     return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'holdAll': bool(c.get('holdAll')), 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl']) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
@@ -5567,7 +5576,7 @@ async def fuse_prime_admin(request: Request):
             px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in card['legs']])
             try:
                 old_m = {l.get('mint') for l in card['legs']}
-                cards[rep['tpl']] = _prime.replace_leg(card, rep['pairAddress'], px, pools, runners, anchors, pr['cfg'], time.time())
+                cards[rep['tpl']] = _prime.replace_leg(card, rep['pairAddress'], px, pools, runners, anchors, _prime_real_cfg(d.get('prime') or {}) if card.get('real') else pr['cfg'], time.time())
                 for l in cards[rep['tpl']]['legs']:   # 👆 YOUR pick: carried through the next re-shape (it once got sold 4 min later)
                     if l.get('mint') not in old_m:
                         l['picked'] = True

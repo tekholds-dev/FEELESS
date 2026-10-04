@@ -214,3 +214,32 @@ def test_arena_coin_reaches_the_real_card_and_a_thin_non_arena_coin_never_does()
 @pytest.mark.parametrize('seed', [1, 2, 3, 4])
 def test_refused_sells_never_let_a_buy_spend_sol_the_card_does_not_have(seed):
     _run(seed, ticks=200, refuse_sells=0.5)   # the run asserts book SOL ≥ 0 and every buy ≤ the card's SOL, every tick
+
+
+def test_real_card_floor_judges_the_true_book_not_the_engine_estimate():
+    majors, runners, px, step = _market(11)
+    cfg = ap.clean_cfg({'rotateHours': 0.08, 'floorPct': 15, 'cycleEvery': 0, 'paperFeeUsd': 0.0})
+    card = ap.deal('safe', [], runners[:8], cfg, 0, majors)
+    card.update(startUsd=6.0, dayStartUsd=6.0, roundStartUsd=6.0)
+    for l in card['legs']:
+        if l['role'] != 'anchor':
+            l.update(units=0.0, costUsd=0.0, buying=True, wantUnits=1.0)   # buys not landed: the engine estimate reads ~ −75%
+    out = ap.tick(card, px, [], runners, cfg, 400, majors, None, {}, true_usd=5.4)   # the real book: −10%
+    assert not out.get('flooredAt') and not any(e.get('kind') == 'floor' for e in out['events'])
+    out2 = ap.tick(card, px, [], runners, cfg, 400, majors, None, {}, true_usd=4.8)  # really −20% → the floor still protects
+    assert out2.get('flooredAt') or any(e.get('kind') == 'floor' for e in out2['events'])
+
+
+def test_hand_swap_of_a_coin_still_buying_moves_its_waiting_money():
+    majors, runners, px, step = _market(12)
+    cfg = ap.clean_cfg({'paperFeeUsd': 0.0})
+    card = ap.deal('safe', [], runners[:3], cfg, 0, majors)
+    leg = next(l for l in card['legs'] if l['role'] == 'runner')
+    leg.update(units=0.0, buying=True, wantUnits=1.5)
+    out = ap.replace_leg(card, leg['pairAddress'], px, [], runners, majors, cfg, 10)
+    new = next(l for l in out['legs'] if l['mint'] not in {x['mint'] for x in card['legs']})
+    assert abs(new['costUsd'] - 1.5 * px[leg['pairAddress']]) < 1e-6 and new.get('picked')   # its waiting $, not $0
+    assert out['events'][-1]['why'] == '⇄ swapped by hand'
+    leg.update(wantUnits=0.0, buying=False)
+    with pytest.raises(ValueError):
+        ap.replace_leg(card, leg['pairAddress'], px, [], runners, majors, cfg, 10)   # nothing on it → nothing to swap
