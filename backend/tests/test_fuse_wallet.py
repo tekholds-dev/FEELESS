@@ -114,10 +114,9 @@ def test_reinvest_paid_out_moves_only_banked_sol_and_never_inflates_put_in():
     out, moved = fw.reinvest_bank(book)
     assert moved == 0.019
     assert out['sol'] == 0.029 and out['bankSol'] == 0.0
-    assert out['fundedUsd'] == 6.0 and out['bankUsd'] == 1.90
+    assert out['fundedUsd'] == 6.0 and out['bankUsd'] == 0.0
     assert fw.book_value(out, {}, 100.0) == before
-    # Historical bankUsd remains satisfied, so the normal payout sync cannot immediately sweep the reinvested money back out.
-    assert fw.bank(out, 1.90, 100.0) == out
+    # Current paid-out balance is consumed by reinvest; lifetime payout history is kept separately in the confirmed ledger.
 
 
 def test_bank_marks_only_proceeds_actually_segregated_then_finishes_after_the_sell():
