@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ArenaPrime, primeRow } from './ArenaPrime';
+import { ArenaPrime, arenaRow, primeRow } from './ArenaPrime';
 import { CardEarnings } from './CardEarnings';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -30,6 +30,17 @@ test('prime cards: live card, compounded $, rotation clock, Buy now loads the La
 test('prime row maps to a live card without inventing numbers', () => {
   const r = primeRow(CARD);
   expect(r.legs[2]).toMatchObject({ tokens: 30, usd: 25, valueUsd: 30, role: 'runner' }); expect(r.pnlUsd).toBeCloseTo(12.5);
+});
+
+test('Arena real card keeps confirmed-book equity instead of re-summing only visible legs', () => {
+  const real = { ...CARD, real: true, startUsd: 4.04, valueUsd: 5.05, realBook: { fundedUsd: 7 },
+    legs: CARD.legs.map(l => ({ ...l, costUsd: 1, usd: 1 })) };
+  const live = new Map(real.legs.map(l => [l.pairAddress, { price: 0.01 }]));
+  const row = arenaRow(real, live);
+  expect(row.costUsd).toBe(7);
+  expect(row.valueUsd).toBe(5.05);
+  expect(row.pnlUsd).toBeCloseTo(-1.95);
+  expect(row.pnlPct).toBeCloseTo(-27.857);
 });
 
 test('collect is one tap and disabled when the card is not up', async () => {

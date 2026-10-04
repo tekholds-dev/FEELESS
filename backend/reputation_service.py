@@ -5337,6 +5337,20 @@ async def _prime_bell_loop():
             await asyncio.sleep(30)
 
 
+def _fw_market_rows(cards, books):
+    """Every pair whose live price can affect a card or its confirmed real-money book."""
+    rows = {}
+    for c in (cards or {}).values():
+        for l in list(c.get('legs') or []) + list((c.get('parked') or {}).values()):
+            if l.get('pairAddress'):
+                rows[l['pairAddress']] = {'pairAddress': l['pairAddress'], 'mint': l.get('mint')}
+    for b in (books or {}).values():
+        for mint, l in (b.get('legs') or {}).items():
+            if l.get('pair'):
+                rows[l['pair']] = {'pairAddress': l['pair'], 'mint': mint}
+    return list(rows.values())
+
+
 async def _prime_tick_inner(now):
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -5345,13 +5359,14 @@ async def _prime_tick_inner(now):
     d = _json_load(FUSE_HQ_PATH, {})
     cards = dict((d.get('prime') or {}).get('cards') or {})
     # one pair fetch → live price AND momentum for EVERY coin on the cards (majors + pools too, not only runner-board coins)
-    pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pa} for c in cards.values() for pa in [l['pairAddress'] for l in c['legs']] + list((c.get('parked') or {}).keys())]) if cards else {}
+    books = (_fw_load().get('books') or {})
+    market_rows = _fw_market_rows(cards, books)
+    pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in market_rows]) if market_rows else {}
     px = {k: _fuse._f(v.get('priceUsd')) for k, v in pairs_.items()}
-    jup = await _jup_prices([l.get('mint') for c in cards.values() for l in c['legs']] + [pk.get('mint') for c in cards.values() for pk in (c.get('parked') or {}).values()])
-    for c in cards.values():   # 🎯 paper trades at Jupiter's price (what a real swap routes at); the pair keeps liquidity + momentum
-        for l in list(c['legs']) + list((c.get('parked') or {}).values()):
-            if jup.get(l.get('mint')):
-                px[l['pairAddress']] = jup[l['mint']]
+    jup = await _jup_prices([l.get('mint') for l in market_rows])
+    for l in market_rows:   # 🎯 confirmed book holdings waiting on a sell need live prices too
+        if jup.get(l.get('mint')):
+            px[l['pairAddress']] = jup[l['mint']]
     def _mom(p):
         tx = (p.get('txns') or {}).get('h1') or {}; b, s_ = _fuse._f(tx.get('buys')), _fuse._f(tx.get('sells'))
         return {'chg1h': _fuse._f((p.get('priceChange') or {}).get('h1')), 'buyShare': round(b / (b + s_) * 100, 1) if b + s_ else None,
@@ -5471,9 +5486,11 @@ async def _prime_view():
     cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
     if not cards:
         return []
-    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for c in cards.values() for l in c['legs']])
-    jup = await _jup_prices([l.get('mint') for c in cards.values() for l in c['legs']])
-    px.update({l['pairAddress']: jup[l['mint']] for c in cards.values() for l in c['legs'] if jup.get(l.get('mint'))})
+    fw_books = _fw_load().get('books') or {}
+    market_rows = _fw_market_rows(cards, fw_books)
+    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in market_rows])
+    jup = await _jup_prices([l.get('mint') for l in market_rows])
+    px.update({l['pairAddress']: jup[l['mint']] for l in market_rows if jup.get(l.get('mint'))})
     cyc = _prime_cfg().get('cycles') or _prime.DEFAULT_CYCLES
     def _cyc(tpl):
         seq = _prime.CYCLE_MODES.get(cyc.get(tpl, 'off'))
@@ -5498,7 +5515,6 @@ async def _prime_view():
         e = _eff(c); return {'clockMin': round(e['rotateHours'] * 60), 'confirm': e['rotateConfirm'], 'minDrop': e['rotateMinDrop'],
                              'instantSwapPct': e.get('instantSwapPct', 0), 'holdMin': e['minHoldMins'], 'rideAt': e.get('rideAt'), 'rideTrail': e.get('rideTrail'),
                              'cycle': (e.get('cycles') or {}).get(c['tpl']), 'reshape': e['cycleEvery'], 'slMode': e['slMode'], 'locked': c.get('tpl') in locks}
-    fw_books = _fw_load().get('books') or {}
     def _truth(c, sm):
         b = fw_books.get(c.get('tpl')) if c.get('real') else None
         if not b or sol_now <= 0:
@@ -5942,6 +5958,10 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
         row.update(status='filled', px=f['px'], units=f['units'], usd=f['usd'] or row['usd'], sol=f['sol'], feeSol=fill['feeSol'], feeUsd=round(fill['feeSol'] * sol_px, 6))
         if p.get('side') == 'sell':
             row.update(proceedsUsd=f['usd'], realizedPnlUsd=round(f['usd'] - row['costUsd'], 6))
+        # The cached wallet balance predates this confirmed fill. Force the keeper's
+        # post-tick balance read so a sold token cannot remain displayed as recoverable.
+        _FW_GAS['at'] = 0.0
+        _FW_BAL.pop('bal', None)
     elif mismatch:
         row.update(status='failed', err=mismatch)
         book = {**book, 'halt': True, 'haltWhy': mismatch}
@@ -6184,23 +6204,25 @@ def _fw_public(tid, equity_usd=None, sol_px=None):
         if len(rows) >= 12:
             break
     cfg = _fw_cfg(); pend = b.get('pending') or {}
-    fail = next((o for o in reversed(d['ledger']) if o.get('card') == tid and o.get('status') in ('failed', 'skipped')), None)
     dead = []
     seen_dead = set()
     for o in reversed(d['ledger']):
-        if o.get('card') != tid or o.get('status') not in ('failed', 'skipped') or o.get('side') not in ('buy', 'sell'):
+        if o.get('card') != tid or o.get('side') not in ('buy', 'sell'):
             continue
         kdead = (o.get('side'), o.get('mint') or o.get('symbol'))
         if kdead in seen_dead:
             continue
         seen_dead.add(kdead)
+        if o.get('status') not in ('failed', 'skipped'):
+            continue
         dead.append({k: o.get(k) for k in ('side', 'symbol', 'mint', 'pair', 'usd', 'at', 'status', 'err')})
         if len(dead) >= 8:
             break
+    fail = dead[0] if dead else None
     keeper = {'armed': bool(cfg.get('armed')), 'paused': bool(cfg.get('paused') or b.get('halt')), 'halt': bool(b.get('halt')), 'selling': bool(b.get('defund')),
               'minLiqUsd': cfg.get('minLiqUsd'), 'arenaMinLiqUsd': cfg.get('arenaMinLiqUsd'), 'minOrderUsd': cfg.get('minOrderUsd'), 'maxSwapUsd': cfg.get('maxSwapUsd'), 'slippageBps': cfg.get('slippageBps'),
               'maxImpactPct': cfg.get('maxImpactPct'), 'dailyUsd': cfg.get('dailyUsd'), 'pending': pend.get('symbol') and f"{pend.get('side')} ${pend.get('symbol')}",
-              'lastFail': fail and {'symbol': fail.get('symbol'), 'side': fail.get('side'), 'err': (fail.get('err') or '')[:90], 'at': fail.get('at')},
+              'lastFail': fail and {'symbol': fail.get('symbol'), 'side': fail.get('side'), 'mint': fail.get('mint'), 'pair': fail.get('pair'), 'err': (fail.get('err') or '')[:90], 'at': fail.get('at')},
               'lastFill': next((o.get('at') for o in rows if o.get('status') == 'filled'), None),
               'gas': _fw.gas_tank(_FW_GAS['sol'], d['books'], cfg.get('reserveSol')) if 'sol' in _FW_GAS else None,
               'landing': _fw.landing(d['ledger'], tid, time.time(), broadcast_only=True)}
@@ -6213,7 +6235,9 @@ def _fw_public(tid, equity_usd=None, sol_px=None):
     payout_cash = min(profit_available, max(0.0, _fuse._f(b.get('sol')) - _fuse._f(b.get('manualCashSol'))) * _fuse._f(sol_px)) if sol_px else 0.0
     recoverable = []
     bal = _FW_BAL.get('bal') if _FW_BAL.get('addr') == cfg.get('address') else None
-    if bal and bal.get('source') != 'circle':
+    newest_fill = max((_fuse._f(o.get('at')) for o in d.get('ledger') or [] if o.get('status') == 'filled'), default=0.0)
+    balance_is_current = _fuse._f(_FW_BAL.get('at')) >= newest_fill
+    if bal and bal.get('source') != 'circle' and balance_is_current:
         booked = {}
         for bb in d['books'].values():
             for mint, leg in (bb.get('legs') or {}).items():
@@ -6318,9 +6342,10 @@ async def fuse_wallet_view(request: Request):
                 bal = {**bal, 'stale': True}
     sol_px = await _sol_usd_live()
     cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
-    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for c in cards.values() for l in c.get('legs') or []]) if cards else {}
-    jup = await _jup_prices([l.get('mint') for c in cards.values() for l in c.get('legs') or []]) if cards else {}
-    px.update({l['pairAddress']: jup[l['mint']] for c in cards.values() for l in c.get('legs') or [] if jup.get(l.get('mint'))})
+    market_rows = _fw_market_rows(cards, d.get('books') or {})
+    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in market_rows]) if market_rows else {}
+    jup = await _jup_prices([l.get('mint') for l in market_rows]) if market_rows else {}
+    px.update({l['pairAddress']: jup[l['mint']] for l in market_rows if jup.get(l.get('mint'))})
     books = {tid: {**b, 'valueUsd': _fw.book_value(b, px, sol_px), 'label': (cards.get(tid) or {}).get('label') or tid, **_fw.totals(d['ledger'], tid)} for tid, b in d['books'].items()}
     recoverable = []
     if bal and bal.get('source') != 'circle':
