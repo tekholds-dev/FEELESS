@@ -28,6 +28,12 @@ export function FuseWallet({ call }) {
   const preview = tpl => { const v = Number(amt[tpl]) || 20; setDry({ tpl, busy: true });
     call('/admin/fuse-wallet/preview', { method: 'POST', body: JSON.stringify({ tpl, usd: v }) }).then(x => setDry({ tpl, usd: v, ...x })).catch(e => { setDry(null); toast.error(e.message); }); };
   const cardAct = (tpl, action) => call('/admin/fuse-wallet/card', { method: 'POST', body: JSON.stringify({ tpl, action }) }).then(() => { toast.success(action === 'defund' ? '↩ Selling every coin back to SOL' : action === 'halt' ? '⏸ Card halted' : '▶ Resumed'); load(); }).catch(e => toast.error(e.message));
+  const recoverSell = r => {
+    if (!window.confirm(`Force sell old ${r.symbol} still held by the Fuse wallet and return the confirmed SOL to ${d.tiers?.[r.card] || r.card} card cash?`)) return;
+    call('/admin/fuse-wallet/recover-sell', { method: 'POST', body: JSON.stringify({ tpl: r.card, mint: r.mint }) })
+      .then(() => { toast.success(`🧹 ${r.symbol} recovered — force sell running; proceeds stay in card cash`); load(); window.dispatchEvent(new Event('feeless:prime')); })
+      .catch(e => toast.error(e.message));
+  };
   if (!d) return <section className="m-card fw"><span className="loader" /> Loading the Fuse wallet…</section>;
   const sol = d.balances?.sol; const tokens = Object.keys(d.balances?.tokens || {}).length;
   return <section className="m-card m-live fw" data-testid="fuse-wallet">
@@ -43,6 +49,10 @@ export function FuseWallet({ call }) {
       <span data-tip="Paper fills vs real Jupiter quotes for the same coins and $ (every ~5 min, read-only)"><small>PAPER ⇄ REAL QUOTES</small><b className="m-num">{d.paperMatch?.n ? `${d.paperMatch.avgDevPct >= 0 ? '+' : ''}${d.paperMatch.avgDevPct}%` : '—'}</b><em>{d.paperMatch?.n ? `${d.paperMatch.within2Pct}% within 2% · ${d.paperMatch.n} checks` : 'first check in ~5 min'}</em></span>
       <span><small>SWAPS · FEES</small><b className="m-num">{d.totals?.swaps || 0}</b><em>network {usd(d.totals?.feesUsd)}</em></span></div>
     {d.missing?.length > 0 && <div className="m-note warn" data-testid="fw-missing"><b>⚠ Coins missing from the wallet</b><span>{d.missing.map(m => `${m.mint.slice(0, 6)}… booked ${m.booked}, held ${m.held}`).join(' · ')} — halt the card and check the audit trail.</span></div>}
+    {d.recoverable?.length > 0 && <div className="m-note warn" data-testid="fw-recoverable"><b>🧹 OLD / STUCK KEEPER COINS STILL IN WALLET</b>
+      <span>These balances are not on a current card but match this Fuse wallet's own keeper history. Force sell returns confirmed SOL to the original card as cash; unrelated wallet tokens are never offered.</span>
+      <span className="m-row">{d.recoverable.map(r => <button key={r.mint} type="button" className="m-btn danger" onClick={() => recoverSell(r)}
+        data-testid={`fw-recover-${r.symbol}`} data-tip={r.lastErr || 'Old keeper balance still physically held by wallet'}>Sell old ${r.symbol} → {d.tiers?.[r.card] || r.card} cash</button>)}</span></div>}
     <div className="m-row"><span className="m-label">1 · WALLET</span>
       <select className="m-input" value={cfg?.walletId || ''} onChange={e => { const w = d.wallets.find(x => x.id === e.target.value); save({ walletId: w?.id || '', address: w?.address || '' }); }} data-testid="fw-pick">
         <option value="">Pick a Circle Solana wallet…</option>{(d.wallets || []).map(w => <option key={w.id} value={w.id}>{w.name || 'wallet'} · {w.address.slice(0, 4)}…{w.address.slice(-4)} · {w.blockchain}</option>)}</select>
