@@ -650,8 +650,17 @@ def cost_of(book, mint, atoms):
 
 
 def landing_boost(ledger, card, now, window=600):
-    """How many of this card's txs failed to confirm in the last 10 min (0–4) — each one raises the next tx's priority fee."""
-    return min(4, sum(1 for r in (ledger or [])[-60:] if r.get('card') == card and r.get('err') == 'not confirmed in 2 min' and now - _f(r.get('at')) < window))
+    """Recent broadcast/confirmation failures raise the next tx's priority fee.
+
+    The resolver now reports expired on-chain transactions explicitly, so include
+    those failures as well as the legacy timeout wording. Pre-trade skips do not
+    count because no transaction reached Solana.
+    """
+    def missed(r):
+        err = str(r.get('err') or '').lower()
+        return r.get('card') == card and r.get('side') in ('buy', 'sell') and r.get('status') == 'failed' and r.get('sig') and \
+            ('not confirmed' in err or 'expired' in err or 'failed on-chain' in err) and now - _f(r.get('at')) < window
+    return min(4, sum(1 for r in (ledger or [])[-60:] if missed(r)))
 
 
 def priority_cap(attempt, boost):
