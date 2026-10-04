@@ -842,6 +842,31 @@ def set_leg(card, pair, frozen=None, sl_mode=None):
     return c
 
 
+def sell_leg_to_cash(card, pair, prices, now):
+    """Owner manual sell: remove one coin from the target and keep its proceeds as card cash.
+
+    The zero-unit manualCash placeholder preserves the slot/role without asking the
+    keeper to buy it again. On a real card, sync_card replaces this estimate with the
+    confirmed SOL actually returned by the sell.
+    """
+    c = {**card, 'legs': [dict(l) for l in card['legs']], 'events': list(card.get('events') or [])}
+    l = next((x for x in c['legs'] if x['pairAddress'] == pair), None)
+    if not l:
+        raise ValueError('That coin is not on this card.')
+    if l.get('mint') == SOL_MINT:
+        raise ValueError('SOL is already card cash.')
+    px = _f(prices.get(pair)) or _f(l.get('entry'))
+    usd = max(0.0, _f(l.get('units')) * px)
+    sold = {**l, 'units': 0.0, 'costUsd': 0.0, 'wantUnits': 0.0, 'buying': False,
+            'placeholder': True, 'manualCash': True, 'reserveUsd': 0.0, 'at': now}
+    sold.pop('ride', None); sold.pop('frozen', None)
+    c['legs'][c['legs'].index(l)] = sold
+    c['cash'] = round(_f(c.get('cash')) + usd, 6)
+    c['events'].append({'at': now, 'kind': 'manual-sell', 'symbol': l.get('symbol'), 'usd': round(usd, 4),
+                        'why': 'sold by owner — proceeds stay inside this card as cash', 'to': ['cash']})
+    return c
+
+
 def replace_leg(card, pair, prices, pools, runners, anchors, cfg, now):
     """HQ ⇄: swap ONE coin on a Prime card for the best 3★+ candidate of the same role not already on it (same $)."""
     c = {**card, 'legs': [dict(l) for l in card['legs']], 'events': list(card['events'])}
