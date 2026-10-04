@@ -155,6 +155,25 @@ def check(order, cfg, ledger, now, quote_impact_pct=None):
     return True, ''
 
 
+def live_buy_market(order, pair, cfg):
+    """Fail-closed final market gate for a REAL buy using a freshly fetched pair snapshot.
+    Candidate/radar data may be cached; the keeper must re-check the exact pair immediately before signing."""
+    if order.get('side') != 'buy':
+        return True, '', {}
+    p = pair if isinstance(pair, dict) else {}
+    base = (p.get('baseToken') or {}).get('address')
+    if not p or not base or base != order.get('mint'):
+        return False, 'live market unavailable or pair/mint mismatch', {}
+    px = _f(p.get('priceUsd'))
+    liq = _f((p.get('liquidity') or {}).get('usd'))
+    floor = liq_floor(cfg, order.get('arena'))
+    if px <= 0:
+        return False, 'live market price unavailable', {'liq': liq}
+    if liq < floor:
+        return False, f"live pool too thin: ${liq:,.0f} liquidity < ${floor:,.0f}", {'liq': liq, 'midPx': px}
+    return True, '', {'liq': liq, 'midPx': px}
+
+
 def fill_from_meta(tx, owner, mint):
     """The TRUE fill from a confirmed jsonParsed tx: (token atoms Δ, decimals, SOL Δ excl. the network fee, network fee SOL).
     None if the tx failed or the owner didn't sign it."""
