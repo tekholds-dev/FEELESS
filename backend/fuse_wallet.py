@@ -293,7 +293,8 @@ def sync_card(card, book, prices, sol_px):
     # 🔁 each NEW round: a coin that holds nothing (buy never landed / rotated in) gets an equal share again and the SOL anchor is
     # trimmed to its share, so the keeper re-tries the buy — within every wallet limit (per swap, daily, impact), never more SOL than the card has
     empty = [l for l in c['legs'] if l['mint'] != SOL_MINT and _f(l.get('units')) <= 0 and not l.get('buying')]
-    if empty and int(card.get('rounds') or 0) != int(card.get('rebuyRound') or -1):
+    import time as _t
+    if empty and (int(card.get('rounds') or 0) != int(card.get('rebuyRound') or -1) or _t.time() - _f(card.get('rebuyAt')) >= 60):   # new round, or 60s (no whole-round 'empty' wait)
         px = lambda l: _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
         total = _f(book.get('sol')) * sol_px + sum(_f(l.get('units')) * px(l) for l in c['legs'] if l['mint'] != SOL_MINT)
         share = total / max(1, len(c['legs']))
@@ -306,7 +307,7 @@ def sync_card(card, book, prices, sol_px):
             if px(l) > 0 and free >= LEFTOVER_MIN_USD:
                 usd = min(share, free / len(empty))
                 l.update(wantUnits=usd / px(l), buying=True)
-        c['rebuyRound'] = int(card.get('rounds') or 0)
+        c['rebuyRound'] = int(card.get('rounds') or 0); c['rebuyAt'] = _t.time()
     c['cash'] = round(max(0.0, sol_left) * sol_px, 6)
     c['feesUsd'] = round(_f(book.get('feesUsd')), 6)
     c['real'] = True
