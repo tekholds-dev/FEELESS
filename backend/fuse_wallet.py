@@ -303,9 +303,29 @@ def sync_card(card, book, prices, sol_px):
                 sol_left += _f(l['units']) - share / sol_px
                 l['costUsd'] = _f(l.get('costUsd')) * (share / sol_px) / _f(l['units']); l['units'] = share / sol_px
         free = max(0.0, sol_left) * sol_px
+        # If the empty slot has no free SOL, do not strand it forever. On a card with a non-SOL anchor (e.g. cbBTC),
+        # trim ONLY that unprotected anchor down toward one equal slot and reserve the released slice for the empty coin.
+        # The keeper still sells first and the BUY pass spends only SOL that the confirmed sell actually returned.
+        # Frozen/riding coins, paid-out bankSol and wallet/free-top-up SOL are never touched by this repair.
+        need = max(0.0, min(share * len(empty), total) - free)
+        donors = [l for l in c['legs'] if l['mint'] != SOL_MINT and l.get('role') == 'anchor' and _f(l.get('units')) > 0
+                  and not l.get('frozen') and not l.get('ride') and px(l) > 0 and _f(l.get('units')) * px(l) > share + LEFTOVER_MIN_USD]
+        released = 0.0
+        for d in sorted(donors, key=lambda x: _f(x.get('units')) * px(x), reverse=True):
+            if need - released < LEFTOVER_MIN_USD:
+                break
+            val = _f(d.get('units')) * px(d)
+            cut = min(val - share, need - released)
+            if cut < LEFTOVER_MIN_USD:
+                continue
+            old_units = _f(d['units'])
+            d['units'] = max(0.0, old_units - cut / px(d))
+            d['costUsd'] = round(_f(d.get('costUsd')) * (d['units'] / old_units), 6) if old_units > 0 else 0.0
+            released += cut
+        alloc = free + released
         for l in empty:
-            if px(l) > 0 and free >= LEFTOVER_MIN_USD:
-                usd = min(share, free / len(empty))
+            if px(l) > 0 and alloc >= LEFTOVER_MIN_USD:
+                usd = min(share, alloc / len(empty))
                 l.update(wantUnits=usd / px(l), buying=True)
         c['rebuyRound'] = int(card.get('rounds') or 0); c['rebuyAt'] = _t.time()
     c['cash'] = round(max(0.0, sol_left) * sol_px, 6)
