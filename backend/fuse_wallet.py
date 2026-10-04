@@ -78,6 +78,20 @@ def anchor_sol(tgt):
     return _f((tgt.get(SOL_MINT) or {}).get('units'))
 
 
+def mark_off_card_cash(book, card):
+    """Mark confirmed book holdings absent from the card for sell-to-card-cash.
+    This changes intent only; holdings and card value remain until a confirmed sell fill removes the atoms."""
+    visible = {l.get('mint') for l in (card or {}).get('legs') or []}
+    legs, marked = {}, []
+    for mint, leg in (book.get('legs') or {}).items():
+        held = int(_f(leg.get('atoms')))
+        if mint not in visible and held > 0:
+            leg = {**leg, 'manualCash': True, 'recovered': True}
+            marked.append(mint)
+        legs[mint] = leg
+    return {**book, 'legs': legs}, marked
+
+
 REBAL_BAND = 0.5   # coins kept through a re-shape: sell / rebuy only when > 50% off target — re-weighing the same coin each round
 #                    burnt the daily cap on churn (cbBTC bought 14:20, sold 14:21, bought again) and starved the real new buys
 
