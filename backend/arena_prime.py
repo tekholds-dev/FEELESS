@@ -424,10 +424,10 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         if not l.get('placeholder') or _f(l.get('units')) > 0:
             continue
         nxt = best(l.get('role') or 'runner')
-        if not nxt or c['cash'] < LEFTOVER_MIN_USD:
+        if not nxt or c['cash'] < 0.01:
             continue
         usd = min(c['cash'], _f(l.get('wantUnits')) * (_f(prices.get(l['pairAddress'])) or _f(l.get('entry'))) or c['cash'])
-        if usd < LEFTOVER_MIN_USD:
+        if usd < 0.01:
             continue
         c['legs'][c['legs'].index(l)] = _leg(nxt, usd, now, l.get('role') or 'runner')
         c['cash'] = max(0.0, c['cash'] - usd)
