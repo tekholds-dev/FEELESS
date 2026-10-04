@@ -739,6 +739,13 @@ def test_real_card_config_is_separate_from_hq_paper_config(monkeypatch):
     assert rs._prime_real_cfg({'cfg': pr['cfg']})['paperFeeUsd'] == 0.02                     # unset → starts from paper
 
 
+def test_real_card_never_bypasses_stop_cooldown_when_candidates_are_thin():
+    import reputation_service as rs
+    rows = [{'mint': 'STOPPED'}, {'mint': 'FRESH'}]
+    assert rs._prime_cool_candidates(rows, {'STOPPED'}, 3, strict=True) == [{'mint': 'FRESH'}]
+    assert rs._prime_cool_candidates(rows, {'STOPPED'}, 3, strict=False) == rows  # paper preserves historical sparse-pool fallback
+
+
 def test_keep_winners_never_changes_a_four_slot_shape_to_three_or_five():
     now = 1000.0
     prices = {'p1': 1.0, 'p2': 1.2, 'p3': 1.0, 'p4': 1.0, 'p5': 1.0}

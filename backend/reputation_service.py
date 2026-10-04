@@ -5260,6 +5260,14 @@ def _prime_real_cfg(pr=None):
     return {**paper, 'instantSwapPct': paper.get('rotateMinDrop', 0)}
 
 
+def _prime_cool_candidates(rows, cooling_mints, minimum, strict=False):
+    """Keep recently exited mints out. Real money is strict: a thin candidate
+    set may leave a slot in cash, but must never bypass its stop cooldown and
+    immediately rebuy the same loser. Paper keeps the historical fallback."""
+    fresh = [x for x in rows if x.get('mint') not in cooling_mints]
+    return fresh if strict or len(fresh) >= minimum else rows
+
+
 PAPER_MIN_LIQ = 20_000.0   # paper tiers deal any gated coin with a ≥$20K pool (the REAL card uses the Fuse wallet's own floors)
 
 
@@ -5418,8 +5426,10 @@ async def _prime_tick_inner(now):
         r_t = [x for x in r_t if x.get('mint') not in taken or x.get('mint') in mine]
         cool = _prime.cooling(cur, now, cfg_t['rotateHours'], px) - mine   # 🧊 coins this card just dropped sit out a few rounds → new coins flow in
         if cool:
-            p_c, r_c = [x for x in p_t if x.get('mint') not in cool], [x for x in r_t if x.get('mint') not in cool]
-            p_t, r_t = (p_c if len(p_c) >= 2 else p_t), (r_c if len(r_c) >= 3 else r_t)   # only when enough other coins exist
+            # 💵 A real stop must stay stopped. Falling back to the unfiltered
+            # list when discovery was thin caused sell→immediate-rebuy churn.
+            p_t = _prime_cool_candidates(p_t, cool, 2, strict=real_t)
+            r_t = _prime_cool_candidates(r_t, cool, 3, strict=real_t)
         true_usd = None
         if real_t:   # 💵 floor / rescue / fix / runs judge the TRUE book (confirmed coins + card SOL), never the engine's estimate
             bk = (_fw_load().get('books') or {}).get(tid)
