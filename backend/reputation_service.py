@@ -5528,6 +5528,7 @@ async def fuse_prime_admin(request: Request):
     """HQ › Arena: turn Prime on/off, set size, rotation (hours / coins), compound; reset deals 3 fresh cards."""
     admin = _require_admin(request)
     body = await request.json()
+    kick_real_keeper = False
     async with _admin_lock:
         d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
         was = {t: (_prime.clean_cfg(pr.get('cfg') or {}).get('cycles') or {}).get(t) for t in _prime.TEMPLATES}
@@ -5584,6 +5585,7 @@ async def fuse_prime_admin(request: Request):
             try:
                 old_m = {l.get('mint') for l in card['legs']}
                 cards[rep['tpl']] = _prime.replace_leg(card, rep['pairAddress'], px, pools, runners, anchors, _prime_real_cfg(d.get('prime') or {}) if card.get('real') else pr['cfg'], time.time())
+                kick_real_keeper = bool(card.get('real'))   # manual ⇄ on real money runs NOW; keeper enforces sell-confirm-before-buy
                 for l in cards[rep['tpl']]['legs']:   # 👆 YOUR pick: carried through the next re-shape (it once got sold 4 min later)
                     if l.get('mint') not in old_m:
                         l['picked'] = True
@@ -5604,6 +5606,8 @@ async def fuse_prime_admin(request: Request):
     ad = _admin_load(); _audit(ad, admin, 'arena-prime', json.dumps(pr['cfg'])[:120] + (' reset' if body.get('reset') else '') + (f" leg {json.dumps(lg)[:60]}" if lg else '')); _admin_save(ad)
     if body.get('reset') or body.get('redeal'):
         await _prime_tick(time.time())
+    if kick_real_keeper:
+        await _fw_tick(time.time())   # manual real-money ⇄: sell old coin now; buy waits until no sell remains
     return {'cfg': pr['cfg'], 'cards': await _prime_view()}
 
 
