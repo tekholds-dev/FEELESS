@@ -399,13 +399,24 @@ def gas_tank(wallet_sol, books, reserve_sol):
 
 
 def landing(ledger, card, now, window=86400):
-    """📶 Real swaps tried vs landed in the last 24h for one card, + the most common reason the others didn't."""
+    """📶 Confirmed on-chain landing rate for one real card over the last 24h.
+
+    Only transactions that were actually signed/broadcast (have a signature) belong in
+    the landing denominator. Pre-trade safety skips, quote refusals and build/sign
+    failures never reached Solana, so counting them as "not landed" made the health
+    gauge look much worse than execution really was.
+    """
     rows = [r for r in ledger or [] if r.get('card') == card and r.get('side') in ('buy', 'sell') and now - _f(r.get('at')) < window]
-    filled = len({r.get('sig') or r.get('id') for r in rows if r.get('status') == 'filled'})
-    miss = [str(r.get('err') or '').split(' (')[0].split(':')[0][:40] for r in rows if r.get('status') in ('failed', 'skipped')]
+    sent = [r for r in rows if r.get('sig') and r.get('status') in ('filled', 'failed')]
+    filled = len({r.get('sig') for r in sent if r.get('status') == 'filled'})
+    failed = [r for r in sent if r.get('status') == 'failed']
+    miss = [str(r.get('err') or '').split(' (')[0].split(':')[0][:40] for r in failed]
     top = max(set(miss), key=miss.count) if miss else None
-    tried = filled + len(miss)
-    return {'tried': tried, 'filled': filled, 'pct': round(filled / tried * 100) if tried else None, 'top': top, 'topN': miss.count(top) if top else 0}
+    tried = len({r.get('sig') for r in sent})
+    blocked = sum(1 for r in rows if r.get('status') == 'skipped')
+    build_failed = sum(1 for r in rows if r.get('status') == 'failed' and not r.get('sig'))
+    return {'tried': tried, 'filled': filled, 'pct': round(filled / tried * 100) if tried else None,
+            'top': top, 'topN': miss.count(top) if top else 0, 'blocked': blocked, 'buildFailed': build_failed}
 
 
 def strays(wallet_tokens, decimals, books, ledger, now, settle=300):
