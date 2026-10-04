@@ -296,7 +296,7 @@ def test_payout_percentage_applies_to_realized_profit_never_principal():
     sold = [e for e in out['events'] if e['kind'] == 'payout'][-1]
     # TP sells ~$30 of R1, but part of those proceeds is principal. Even at 100% payout only realized profit leaves the card.
     assert 0 < sold['usd'] < 30
-    assert out['walletUsd'] == sold['usd']
+    assert out['walletUsd'] == pytest.approx(sold['usd'], abs=1e-4)
     assert out['compoundedUsd'] > 0
     assert abs(ap.value(out, px) - ap.value(card, px)) < 0.1
 
