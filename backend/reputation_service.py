@@ -5592,6 +5592,20 @@ async def fuse_prime_admin(request: Request):
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)
+    ms = body.get('manualSell') or {}
+    if ms.get('tpl') in _prime.TEMPLATES and ms.get('pairAddress'):
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
+            card = cards.get(ms['tpl'])
+            if not card or not card.get('real'):
+                raise HTTPException(400, 'Manual sell-to-cash is only available on a real card.')
+            px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in card.get('legs') or []])
+            try:
+                cards[ms['tpl']] = _prime.sell_leg_to_cash(card, ms['pairAddress'], px, time.time())
+                kick_real_keeper = True
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            _json_save(FUSE_HQ_PATH, d)
     lg = body.get('leg') or {}
     if lg.get('tpl') in _prime.TEMPLATES and lg.get('pairAddress'):   # ❄ freeze / own stop mode for one coin on one tier card
         async with _admin_lock:
@@ -5603,7 +5617,7 @@ async def fuse_prime_admin(request: Request):
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)
-    ad = _admin_load(); _audit(ad, admin, 'arena-prime', json.dumps(pr['cfg'])[:120] + (' reset' if body.get('reset') else '') + (f" leg {json.dumps(lg)[:60]}" if lg else '')); _admin_save(ad)
+    ad = _admin_load(); _audit(ad, admin, 'arena-prime', json.dumps(pr['cfg'])[:120] + (' reset' if body.get('reset') else '') + (f" manualSell {json.dumps(ms)[:60]}" if ms else '') + (f" leg {json.dumps(lg)[:60]}" if lg else '')); _admin_save(ad)
     if body.get('reset') or body.get('redeal'):
         await _prime_tick(time.time())
     if kick_real_keeper:
