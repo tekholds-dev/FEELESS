@@ -594,7 +594,7 @@ function RealCardFixes({ addr }) {
   const useful = cards.filter(c => (c.realBook?.recoverable || []).length || (c.realBook?.profitAvailableUsd || 0) > 0 || (c.realBook?.fundedUsd || 0) > 0);
   if (!useful.length) return null;
   return <section className="m-card m-live" data-testid="real-card-fixes"><span className="m-label">🛠 REAL CARD CASH / RECOVERY</span>
-    {useful.map(c => { const b = c.realBook || {}; const rec = b.recoverable || []; const profit = Number(b.profitAvailableUsd || 0); const cash = Number(b.profitCashAvailableUsd || 0); return <div key={c.tpl} className="fw-tier">
+    {useful.map(c => { const b = c.realBook || {}; const rec = b.recoverable || []; const off = b.offCard || []; const profit = Number(b.profitAvailableUsd || 0); const cash = Number(b.profitCashAvailableUsd || 0); return <div key={c.tpl} className="fw-tier">
       <span><b>{c.label}</b><small className="m-dim"> · put in {m$(b.fundedUsd || 0)} · profit above principal {m$(profit)} · payable cash now {m$(cash)}</small>
         {profit <= 0 && <small className="m-dim">No payout yet — card must first be worth more than everything put in.</small>}
         {profit > 0 && cash <= 0 && <small className="m-dim">Profit exists in coins, but none is card cash yet. It becomes payable as sells/rotations return SOL.</small>}</span>
@@ -602,6 +602,8 @@ function RealCardFixes({ addr }) {
       {(b.deadOrders || []).length > 0 && <div className="fw-tiers" data-testid={`dead-orders-${c.tpl}`}><small className="m-dim">🧯 Failed / dead buy-sell attempts:</small>
         {(b.deadOrders || []).map((o, i) => <div key={`${o.side}-${o.mint || o.symbol}-${i}`} className="fw-tier"><span><b>{o.side === 'buy' ? '🟢 BUY' : '🔴 SELL'} ${o.symbol}</b><small className="m-dim"> · {o.err || o.status}</small></span>
           <button type="button" className="m-btn" disabled={!!busy || !o.mint} onClick={() => retryDead(c, o)}>{busy === `dead-${c.tpl}-${o.side}-${o.mint}` ? 'Retrying…' : o.side === 'sell' ? 'Retry sell → card cash' : 'Retry buy from card cash'}</button></div>)}</div>}
+      {off.length > 0 && <div className="fw-tiers" data-testid={`off-card-${c.tpl}`}><small className="m-dim">⏳ Confirmed wallet coins settling back to card cash:</small>
+        {off.map(o => <div key={o.mint} className="fw-tier"><span><b>${o.symbol}</b><small className="m-dim"> · {o.status}</small></span><b>{m$(o.usd)}</b></div>)}</div>}
       {rec.length > 0 && <div className="fw-tiers" data-testid={`dead-swaps-${c.tpl}`}><small className="m-dim">⚠ Failed / dead swaps still held by the Fuse wallet:</small>
         {rec.map(r => <div key={r.mint} className="fw-tier"><span><b>${r.symbol}</b><small className="m-dim"> · {r.lastErr || r.lastStatus || 'old keeper balance'}</small></span>
           <button type="button" className="m-btn danger" disabled={!!busy} onClick={() => recover(c, r)} data-testid={`dead-sell-${r.symbol}`}>{busy === `recover-${c.tpl}-${r.mint}` ? 'Selling…' : 'Sell → card cash'}</button></div>)}</div>}
