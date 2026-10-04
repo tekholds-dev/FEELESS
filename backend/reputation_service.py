@@ -6282,12 +6282,72 @@ async def fuse_wallet_view(request: Request):
     jup = await _jup_prices([l.get('mint') for c in cards.values() for l in c.get('legs') or []]) if cards else {}
     px.update({l['pairAddress']: jup[l['mint']] for c in cards.values() for l in c.get('legs') or [] if jup.get(l.get('mint'))})
     books = {tid: {**b, 'valueUsd': _fw.book_value(b, px, sol_px), 'label': (cards.get(tid) or {}).get('label') or tid, **_fw.totals(d['ledger'], tid)} for tid, b in d['books'].items()}
+    recoverable = []
+    if bal and bal.get('source') != 'circle':
+        booked = {}
+        for b in d['books'].values():
+            for mint, leg in (b.get('legs') or {}).items():
+                booked[mint] = booked.get(mint, 0) + int(_fuse._f(leg.get('atoms')))
+        for mint, held in (bal.get('tokens') or {}).items():
+            excess = int(_fuse._f(held)) - int(booked.get(mint, 0))
+            if excess <= 0:
+                continue
+            hist = [r for r in d['ledger'] if r.get('mint') == mint and r.get('card') in d['books'] and r.get('pair')]
+            if not hist:
+                continue   # never offer unrelated wallet tokens
+            last = hist[-1]
+            recoverable.append({'card': last['card'], 'mint': mint, 'symbol': last.get('symbol') or mint[:6],
+                                'pair': last.get('pair'), 'atoms': excess, 'decimals': int((bal.get('decimals') or {}).get(mint) or last.get('decimals') or 0),
+                                'lastStatus': last.get('status'), 'lastErr': (last.get('err') or '')[:100], 'lastAt': last.get('at')})
     return {'cfg': cfg, 'signer': _fw_signer_ready(), 'wallets': wallets, 'balances': bal, 'solUsd': sol_px, 'error': err,
             'freeSol': _fw.free_sol((bal or {}).get('sol'), d['books'], cfg['reserveSol']) if bal else None,
             'missing': _fw.reconcile((bal or {}).get('tokens'), d['books']) if bal and bal.get('source') != 'circle' else [],   # Circle rows have no mints
-            'books': books, 'tiers': {k: v['label'] for k, v in _prime.TEMPLATES.items()}, 'calibration': _fw_calibration(d),
+            'books': books, 'tiers': {k: v['label'] for k, v in _prime.TEMPLATES.items()}, 'recoverable': recoverable, 'calibration': _fw_calibration(d),
             'paperMatch': _fw.paper_match(d.get('quoteAudit')), 'quoteAudit': (d.get('quoteAudit') or [])[-20:][::-1],
             'totals': _fw.totals(d['ledger']), 'ledger': d['ledger'][-200:][::-1]}
+
+
+@app.post('/api/reputation/admin/fuse-wallet/recover-sell')
+async def fuse_wallet_recover_sell(request: Request):
+    """Owner rescue: sell an old keeper token still physically in the Fuse wallet but no longer booked on a card.
+    Only excess atoms with matching keeper history are adopted; unrelated wallet tokens are refused.
+    Confirmed proceeds stay inside the original card as active cash/SOL."""
+    me = _require_owner(request)
+    body = await request.json()
+    tid, mint = body.get('tpl'), str(body.get('mint') or '').strip()
+    if tid not in _prime.TEMPLATES or not mint:
+        raise HTTPException(400, 'Pick a real tier card and token.')
+    cfg = _fw_cfg()
+    if not cfg.get('address') or not cfg.get('armed') or cfg.get('paused'):
+        raise HTTPException(400, 'Fuse wallet must be armed and running.')
+    bal = await _fw_balances(cfg['address'])
+    async with _fw_lock:
+        d = _fw_load()
+        if tid not in d['books']:
+            raise HTTPException(404, 'That tier has no real card book.')
+        booked_total = sum(int(_fuse._f(((b.get('legs') or {}).get(mint) or {}).get('atoms'))) for b in d['books'].values())
+        held = int(_fuse._f((bal.get('tokens') or {}).get(mint)))
+        excess = max(0, held - booked_total)
+        hist = [r for r in d['ledger'] if r.get('card') == tid and r.get('mint') == mint and r.get('pair')]
+        if excess <= 0:
+            raise HTTPException(400, 'No unbooked wallet balance remains for that token.')
+        if not hist:
+            raise HTTPException(400, 'Refused: this wallet token has no keeper history for that card.')
+        last = hist[-1]
+        st = {'card': tid, 'mint': mint, 'atoms': excess,
+              'decimals': int((bal.get('decimals') or {}).get(mint) or last.get('decimals') or 0),
+              'pair': last.get('pair'), 'symbol': last.get('symbol') or mint[:6]}
+        book = _fw.adopt(d['books'][tid], st)
+        book['legs'][mint]['manualCash'] = True
+        book['legs'][mint]['recovered'] = True
+        d['books'][tid] = book
+        _fw_record(d, {'card': tid, 'side': 'adopt', 'mint': mint, 'symbol': st['symbol'], 'atoms': excess,
+                       'usd': 0.0, 'at': time.time(), 'status': 'done',
+                       'why': '🧹 owner recovered old keeper balance for force sell → proceeds stay in card cash'})
+        _fw_save(d)
+    await _fw_tick(time.time())
+    ad = _admin_load(); _audit(ad, me, 'fuse-wallet-recover-sell', f'{tid} {st["symbol"]} {excess} atoms'); _admin_save(ad)
+    return {'ok': True, 'card': tid, 'symbol': st['symbol'], 'atoms': excess, 'status': 'sell queued/running'}
 
 
 @app.post('/api/reputation/admin/fuse-wallet/cfg')
