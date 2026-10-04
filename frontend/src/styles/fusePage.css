@@ -680,8 +680,6 @@ body.theme-day .fp-mb-live { background: #fff; }
 /* ⚔ Battlefield v3: bracket lanes, fighters with HP, sparks, bell countdown, power board, champions */
 .bf > header .bf-bell { margin-left: auto; font-size: 13px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--m-line); }
 .bf-bell.is-soon { color: #f5c451; border-color: #f5c45188; animation: bfBellShake .5s ease-in-out infinite; }
-.bf-champs { display: flex; flex-wrap: wrap; gap: 6px; } .bf-champ { font-size: 11.5px; padding: 3px 10px; border-radius: 999px; border: 1px solid #f5c45166; background: color-mix(in srgb, #f5c451 8%, transparent); }
-.bf-champ em { font-style: normal; color: var(--m-dim); }
 .bf-pair { padding-top: 26px; } .bf-pair.lane-winners { border-color: color-mix(in srgb, var(--m-accent) 45%, var(--m-line)); } .bf-pair.lane-losers { border-color: #ff8fa355; }
 .bf-lane { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); font: 700 9px var(--m-mono); letter-spacing: .14em; color: var(--m-dim); white-space: nowrap; }
 .lane-winners .bf-lane { color: var(--m-accent); } .lane-losers .bf-lane { color: #ff8fa3; }
@@ -712,8 +710,7 @@ body.theme-day .fp-mb-live { background: #fff; }
 @keyframes bfBellShake { 25% { transform: rotate(-4deg); } 75% { transform: rotate(4deg); } }
 body.fx-lite .bf-fighter, body.fx-lite .bf-spark, body.fx-lite .bf-prow, body.fx-lite .bf-bell.is-soon { animation: none; } body.fx-lite .bf-spark { display: none; }
 @media (prefers-reduced-motion: reduce) { .bf-fighter, .bf-spark, .bf-prow, .bf-bell.is-soon { animation: none; } .bf-spark { display: none; } .bf-hp > i, .bf-pbar > i { transition: none; } }
-body.theme-day .bf-prow { background: #fff; } body.theme-day .bf-champ { background: #fffaf0; }
-@media (max-width: 640px) { .bf-prow { grid-template-columns: 26px minmax(0, 1fr) auto auto; } .bf-prow .bf-pbar, .bf-prow .bf-pips { display: none; } .bf-fighter { font-size: 22px; } }
+body.theme-day .bf-prow { background: #fff; } body.theme-day @media (max-width: 640px) { .bf-prow { grid-template-columns: 26px minmax(0, 1fr) auto auto; } .bf-prow .bf-pbar, .bf-prow .bf-pips { display: none; } .bf-fighter { font-size: 22px; } }
 .pg-listed.is-pick { color: #c08bff; border-color: #c08bff88; } .pg-pick.is-on { background: #c08bff; color: #12061f; border-color: #c08bff; }
 body.theme-day .pg-pick.is-on { background: #6b2fd1; color: #fff; }
 /* ⚙ card config window + ⏭ up next + 🔮 calls + 👑 buy the champion */
@@ -726,7 +723,6 @@ button.bf-fighter { border: 0; background: none; padding: 0; cursor: pointer; } 
 .bf-nextcard:hover { transform: translateY(-2px); border-color: var(--m-accent); } .bf-nextcard em { font-style: normal; font: 600 10px var(--m-mono); color: var(--m-dim); }
 .bf-prow { grid-template-columns: 30px minmax(0, 1.2fr) minmax(60px, 1fr) auto auto auto auto; }
 .bf-pacts { display: flex; gap: 4px; } .bf-pacts .m-btn { padding: 2px 8px; font-size: 11px; } .bf-call.is-on { background: #c08bff; color: #12061f; border-color: #c08bff; }
-.bf-champ { display: inline-flex; gap: 6px; align-items: center; } .bf-champ.is-reign { border-color: #f5c451; box-shadow: 0 0 18px -6px #f5c451; }
 .bf-buychamp { padding: 3px 10px; font-size: 11px; }
 body.fx-lite .bf-nextcard { animation: none; } @media (prefers-reduced-motion: reduce) { .bf-nextcard { animation: none; } }
 body.theme-day .bf-nextcard { background: #fff; } body.theme-day .bf-call.is-on { background: #6b2fd1; color: #fff; }

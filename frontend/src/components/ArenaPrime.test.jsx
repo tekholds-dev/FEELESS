@@ -86,3 +86,13 @@ test('meta config in one click + stop mode switch + parked coins shown on the ca
   const ap = await mount(<ArenaPrime onLoad={() => {}} />);
   expect(ap.textContent).toContain('🅿 $GONE'); expect(ap.textContent).toContain('$18.50'); expect(ap.textContent).toContain('all runners');
 });
+
+test('engine pick: each round length gets its own config, and a losing clock is never called profitable', () => {
+  const { enginePick } = require('./ArenaPrime');
+  const suggest = { 5: { n: 81, medPct: -40.7, upPct: 16, profitable: false, cfg: { minDrop: '20', confirm: '3', tp: '100', sl: '20' } }, 60: { n: 73, medPct: 4.2, upPct: 58, profitable: true, cfg: { minDrop: '10', confirm: '2', tp: '300', sl: '30' } } };
+  const p = enginePick(suggest, 0.08);
+  expect(p.mine.clock).toBe(5); expect(p.mine.profitable).toBe(false); expect(p.patch).toEqual({ rotateMinDrop: 20, rotateConfirm: 3 });
+  expect(p.top.clock).toBe(60);                                   // the screen points at the clock that did best
+  expect(enginePick(suggest, 1).patch).toEqual({ rotateMinDrop: 10, rotateConfirm: 2 });
+  expect(enginePick({}, 1)).toBeNull();
+});

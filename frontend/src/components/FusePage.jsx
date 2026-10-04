@@ -226,13 +226,12 @@ export const stageTier = cards => (cards || []).reduce((top, c) => (['calm', 'wa
 // 🏟 Arena zones: [key, name, what happens there]. One zone on screen at a time; `?zone=` deep-links it (old links land on the first).
 export const ARENA_ZONES = [
   ['prime', '👑 Prime League', "FEELESS's own tier cards, fully automatic — one runs on real money"],
-  ['gauntlet', '🏁 The Gauntlet', 'Eight divisions of coins ranked live, fighting for the next card seat'],
-  ['pit', '⚔ The Pit', 'Cards fight head to head every round; two losses and you are out'],
-  ['crown', '🏆 Crown Race', "This week's season: real P&L decides the crown"],
-  ['stage', '🏟 Main Stage', "Cards that made it, plus the Creator's Cut"],
+  ['pit', '⚔ The Pit', 'Cards fight head to head for the Throne; below it, every card that made the Main Stage'],
+  ['gauntlet', '🏁 The Gauntlet', "Coins ranked live for the next card seat, and this week's Crown Race"],
   ['proving', '🧪 Proving Ground', 'Runner rounds, dial proof and strategies — where the engine earns its record'],
 ];
-export const arenaZone = search => { const z = new URLSearchParams(search || '').get('zone'); return z === 'all' || ARENA_ZONES.some(x => x[0] === z) ? z : 'prime'; };
+const ZONE_ALIAS = { crown: 'gauntlet', stage: 'pit' };   // old links still land in the right place
+export const arenaZone = search => { const q = new URLSearchParams(search || '').get('zone'); const z = ZONE_ALIAS[q] || q; return z === 'all' || ARENA_ZONES.some(x => x[0] === z) ? z : 'prime'; };
 
 export function ArenaBoard({ onPicks, onLoad }) {
   const [a, setA] = useState(null);
@@ -246,19 +245,18 @@ export function ArenaBoard({ onPicks, onLoad }) {
   const setZone = z => { setZoneRaw(z); try { const u = new URL(window.location.href); u.searchParams.set('zone', z); window.history.replaceState(null, '', u); } catch { /* no history */ } };
   // Arena = ZONES, one at a time (never one long scroll): 👑 Prime League · 🏁 The Gauntlet · ⚔ The Pit · 🏆 Crown Race · 🏟 Main Stage · 🧪 Proving Ground
   const on = z => zone === z || zone === 'all';
-  const counts = { pit: a?.battles?.pairs?.length || 0, stage: mega.length + (a?.bench?.length || 0) };
+  const counts = { pit: a?.battles?.pairs?.length || 0 };
   const megaCard = (c, i) => <MegaCard key={`${c.kind}-${c.id}`} c={c} i={i} onPicks={onPicks} onLoad={onLoad} chatOpen={chat?.id === c.id} onChat={() => setChat(x => (x?.id === c.id ? null : c))} onReplay={() => setReplay(x => (x?.id === c.id ? null : c))} />;
   return <section className={`fp-arena ar-tier-${top}`} data-testid="fuse-arena"><ArenaGuide />
     <nav className="m-seg az-bar" role="tablist" aria-label="Arena zones">{ARENA_ZONES.map(([k, label, tip]) =>
       <button key={k} type="button" role="tab" aria-selected={zone === k} className={zone === k ? 'active' : ''} data-tip={tip} onClick={() => setZone(k)} data-testid={`az-${k}`}>{label}{counts[k] > 0 && <i className="m-num">{counts[k]}</i>}</button>)}</nav>
     <div key={zone} className="az-pane" data-testid={`az-pane-${zone}`}>
     {on('prime') && <ArenaPrime onLoad={legs => onLoad?.(legs)} />}
-    {on('gauntlet') && <ArenaContenders />}
-    {(on('pit') || on('stage')) && <div className="ar-sky" aria-hidden="true">{Array.from({ length: TIER_FX[top].embers + 6 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</div>}
+    {on('gauntlet') && <><ArenaContenders /><FuseSeason /></>}
+    {on('pit') && <div className="ar-sky" aria-hidden="true">{Array.from({ length: TIER_FX[top].embers + 6 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</div>}
     {on('pit') && (a?.battles?.pairs?.length > 0 ? <Battlefield b={a.battles} cards={[...mega, ...(a.bench || []), ...(a.fighters || [])]} onLoad={onLoad} />
       : a && <p className="m-dim ar-none">The Pit is between fights — the next bell pairs the hottest cards.</p>)}
-    {on('crown') && <FuseSeason />}
-    {on('stage') && <><header className="ar-head m-card m-live"><span className="m-label">🏟 MAIN STAGE · LIVE</span><h2>Cards that made it.</h2>
+    {on('pit') && <><header className="ar-head m-card m-live"><span className="m-label">🏟 MAIN STAGE · LIVE</span><h2>Cards that made it.</h2>
       <p className="m-dim">FEELESS cards, runner cards that lit after their rounds, and every trader's open card until it's withdrawn — every one fights in The Pit. The more real activity a card has (FEELESS buys, buyers, $ flow, how far it moved) the hotter it burns.</p>
       <div className="ar-legend">{Object.keys(TIER_FX).map(k => <span key={k} className={`ar-chip t-${k}`}>{k}</span>)}</div></header>
     {!a ? <div className="ar-stage">{[0, 1, 2].map(i => <div key={i} className="frail-ghost" />)}</div>
@@ -341,6 +339,23 @@ export function FuseSeason() {
 export const power = board => [...board].map(x => ({ ...x, power: Math.round((x.w * 3 - x.l * 2 + (x.pct || 0) / 10 + (x.comebacks || 0) * 2 + (x.calls || 0) / 2) * 10) / 10 }))
   .sort((a, b) => (a.status === 'out') - (b.status === 'out') || b.power - a.power);
 const tugShare = (a, b) => (a + b > 0 ? Math.max(0.06, Math.min(0.94, a / (a + b))) : 0.5);
+// 👑 The Throne: ONE card reigns. A new bracket winner knocks the old one off — the fallen line up behind it, struck through,
+// each tagged with who took their crown. (It replaced a flat row of crowns nobody could read.)
+export function Throne({ champs, now, onBuy }) {
+  const [king, ...fallen] = champs;
+  const held = Math.max(0, now - (king.at || now)); const reign = held >= 86400 ? `${Math.floor(held / 86400)}d ${Math.floor((held % 86400) / 3600)}h` : held >= 3600 ? `${Math.floor(held / 3600)}h ${Math.floor((held % 3600) / 60)}m` : `${Math.floor(held / 60)}m`;
+  return <div className="th" data-testid="bf-champs">
+    <div className="th-king" key={king.at}><span className="th-rays" aria-hidden="true" /><span className="th-crown" aria-hidden="true">👑</span>
+      <div className="th-who"><small className="m-label">ON THE THRONE · BRACKET #{king.season}</small><b>{king.emoji} {king.name}</b>
+        <span className="th-stats"><em className="m-num">{king.w}W</em><em data-tip="Time since it took the crown">reigning {reign}</em></span></div>
+      {king.legs?.length > 0 && onBuy && <button type="button" className="m-btn primary m-go bf-buychamp" onClick={() => onBuy(king)}
+        data-tip={king.key?.startsWith('user:') ? "Copy the champion — its owner earns the champion's share (double copy cut) of your FEELESS fee, not extra cost to you" : 'Load the champion into your Lab'} data-testid="buy-champ">👑 Buy the champion</button>}</div>
+    {fallen.length > 0 && <ol className="th-fallen" aria-label="Past champions">{fallen.slice(0, 4).map((c, j) => { const next = champs[j]; const kept = next.name === c.name;   // the same card winning again DEFENDED its crown — nobody knocked it off
+      return <li key={c.at} style={{ '--i': j }} className={kept ? 'is-kept' : ''} data-tip={kept ? `Bracket #${c.season}: ${c.name} won with ${c.w} wins and kept the crown in #${next.season}` : `Bracket #${c.season} champion with ${c.w} wins — knocked off by ${next.name}`}>
+        {kept ? <b>{c.emoji} {c.name}</b> : <s>{c.emoji} {c.name}</s>}<small>#{c.season} · {c.w}W · {kept ? `🛡 defended in #${next.season}` : `knocked off by ${next.emoji} ${next.name}`}</small></li>; })}</ol>}
+  </div>;
+}
+
 export function Battlefield({ b, cards = [], onLoad }) {
   const [now, setNow] = useState(Date.now() / 1000);
   const { wallet } = useWallet() || {}; const [mine, setMine] = useState(null);
@@ -401,9 +416,7 @@ export function Battlefield({ b, cards = [], onLoad }) {
   return <section className="m-card m-live bf" data-testid="battlefield"><header className="m-row"><span className="m-label">⚔ BATTLEFIELD · BRACKET #{br.season}</span>
     <small className="m-dim">bigger move since the bell wins · 2 losses = out · last card standing is crowned</small>
     <b className={`bf-bell m-num ${secs < 60 ? 'is-soon' : ''}`} key={secs < 60 ? secs : 'x'}>🔔 {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</b></header>
-    {br.champions?.length > 0 && <div className="bf-champs" data-testid="bf-champs">{br.champions.map((c, j) => <span key={c.at} className={`bf-champ ${j === 0 ? 'is-reign' : ''}`}><b>👑</b> #{c.season} {c.emoji} {c.name} <em>{c.w}W</em>
-      {j === 0 && c.legs?.length > 0 && onLoad && <button type="button" className="m-btn primary m-go bf-buychamp" onClick={() => onLoad(c.legs, c.key?.startsWith('user:') ? { copyOf: c.key.slice(5), owner: c.name, champ: true, copyPct: (cardOf(c.key)?.copyPct || 10) * 2 } : { backName: c.name })}
-        data-tip={c.key?.startsWith('user:') ? "Copy the champion — its owner earns the champion's share (double copy cut) of your FEELESS fee, not extra cost to you" : 'Load the champion into your Lab'} data-testid="buy-champ">👑 Buy the champion</button>}</span>)}</div>}
+    {br.champions?.length > 0 && <Throne champs={br.champions} now={now} onBuy={onLoad && (c => onLoad(c.legs, c.key?.startsWith('user:') ? { copyOf: c.key.slice(5), owner: c.name, champ: true, copyPct: (cardOf(c.key)?.copyPct || 10) * 2 } : { backName: c.name }))} />}
     <CardShowcase cards={[...(br.board || [])].sort((a, b2) => (b2.w - b2.l) - (a.w - a.l) || b2.w - a.w || b2.pct - a.pct).slice(0, 3).map(x => ({ key: x.key, name: `${x.emoji || '🃏'} ${x.name}`, pct: x.pct, badge: `${x.status === 'winners' ? '🏆' : x.status === 'losers' ? '💀' : '✕'} ${x.w}W–${x.l}L`,
       sub: `${x.calls || 0} calls${x.comebacks ? ` · 🔥×${x.comebacks}` : ''}`, node: (c => (c?.legs?.length ? <FuseCard c={{ pools: c.legs.map(l => l.pairAddress), fitness: c.activity?.score || 0, bornGen: c.legs.length, legs: c.legs,
         parts: { grade: c.grade || 'B', aprScore: 0, momentum24h: x.pct || 0, calm: '—', feeDragPct: 0, impactLegs: 0 } }} style={DIAL_STYLE[c.dial] || 'momentum'} rank={0} budget={20} aura={c.aura || (TIER_FX[c.activity?.tier] || TIER_FX.calm).aura} /> : null))(cardOf(x.key)), tone: { safe: 'diamond', balanced: 'gold', degen: 'blaze' }[cardOf(x.key)?.dial] || (x.status === 'winners' ? 'ever' : 'next') }))} onOpen={c => setCfgKey(c.key)} />

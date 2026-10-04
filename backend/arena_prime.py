@@ -255,10 +255,11 @@ def clean_cfg(p):
 # A real round trip costs ~2% (impact + slippage + network fee), so a rule that swaps on a 5% dip turns noise into loss:
 # a $7 card once made 350 real swaps in 39h on a 5-min clock with no hold time and a −5% instant swap. The 5-min clock stays
 # (protection + rides still run every tick); what is floored is how fast a coin may be flipped back out.
-REAL_MIN_HOLD = 20.0      # minutes a real buy is held before a rotation may sell it (clocks ≤ 15 min)
+REAL_MIN_HOLD = 15.0      # minutes a real buy is held before a rotation may sell it (clocks ≤ 15 min) — matches the 15M option on the card
 REAL_MIN_CONFIRM = 3      # losing rounds in a row before a real rotation
 REAL_MIN_INSTANT = 10.0   # ⚡ instant swap is OFF (0) or at least −10% — never inside normal memecoin noise
 REAL_MAX_RESHAPE = 6      # a real card re-shapes at most every 6 rounds (0 = never stays never) — also while a safe / rescue fix is on
+REAL_DEAL_LEAD = 15.0     # seconds before the bell that a real card's round is decided (sells, then buys, finish inside the countdown)
 REAL_FLOOR_REST = 60.0    # minutes a floored real card rests in its anchor before it is re-dealt
 REAL_RUNNER_AGE_H = 12.0  # real money never buys a runner younger than this (a 20-min-old coin with a $534K pool went −99.99% in an hour)
 
@@ -280,6 +281,7 @@ def real_guard(cfg):
     #  • a floored card was re-dealt 60s later: sell everything, then buy everything back a minute after
     out['fixEvery'] = REAL_MAX_RESHAPE
     out['floorRestMins'] = REAL_FLOOR_REST
+    out['dealLeadSec'] = REAL_DEAL_LEAD
     return out, changed
 
 
@@ -677,7 +679,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             ev(kind='rebuy', symbol=pk['symbol'], usd=round(pk['usd'], 4), why='back at its entry with momentum — bought back', to=[pk['symbol']])
     # 3) auto-rotate every rotateHours: the rotateCount weakest coins out, the best candidates in
     rotated_out = set()
-    if now - c['lastRotateAt'] >= cfg['rotateHours'] * 3600 + BELL_SEC and not c.get('flooredAt'):   # the round ends, a 10s 🔔 countdown, then the deal
+    # the round ends, a 10s 🔔 countdown, then the deal. 💵 Real cards deal `dealLeadSec` EARLY (5s before the countdown opens): the keeper
+    # sells first, then buys, one confirmed tx at a time — so the new coins are in when the countdown hits 0, not a minute after it.
+    if now - c['lastRotateAt'] >= cfg['rotateHours'] * 3600 + BELL_SEC - _f(cfg.get('dealLeadSec')) and not c.get('flooredAt'):
         # 🏇 a coin that stayed ≥ +80% the WHOLE round holds through the next one (same rule then keeps or swaps it)
         for l in c['legs']:
             if l.get('role') != 'anchor' and not l.get('ride') and l.get('roundMin') is not None and _f(l['roundMin']) >= HOLD_MIN:
@@ -881,7 +885,9 @@ def summary(card, prices, cfg=None):
             # 🧮 the money in plain words: PUT IN → NOW = STILL IN THE CARD + PAID OUT; P&L = NOW − PUT IN (fees apart)
             'math': {'putIn': round(start, 4), 'heldUsd': round(v - paid, 4), 'paidOutUsd': paid, 'nowUsd': v, 'pnlUsd': round(v - start, 4),
                      'compoundedUsd': round(_f(card.get('compoundedUsd')), 4), 'feesUsd': round(_f(card.get('feesUsd')), 4)},
-            'nextRoundAt': round(_f(card.get('lastRotateAt')) + rot * 3600 + BELL_SEC, 1), 'bellSec': BELL_SEC, 'real': bool(card.get('real')), 'realSince': card.get('realSince'),
+            # a floored card is RESTING in its anchors until the re-deal — never a countdown stuck on "dealing…"
+            'nextRoundAt': round((_f(card['flooredAt']) + max(60.0, _f((cfg or {}).get('floorRestMins')) * 60)) if card.get('flooredAt') else (_f(card.get('lastRotateAt')) + rot * 3600 + BELL_SEC), 1),
+            'resting': bool(card.get('flooredAt')), 'bellSec': BELL_SEC, 'real': bool(card.get('real')), 'realSince': card.get('realSince'),
             **record(card)}
 
 

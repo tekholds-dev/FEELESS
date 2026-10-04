@@ -30,18 +30,18 @@ export function MoneyMath({ putIn = 0, held = 0, paidOut = 0, fees, compounded =
 }
 
 // 🔔 Every round opens with a 10s countdown: the clock runs to the round, the last 10 seconds take over the card.
-export function RoundBell({ at, sec = 10, label = 'NEXT ROUND' }) {
+export function RoundBell({ at, sec = 10, label = 'NEXT ROUND', rest = false }) {
   const [now, setNow] = useState(Date.now() / 1000);
   useEffect(() => { const t = setInterval(() => setNow(Date.now() / 1000), 1000); return () => clearInterval(t); }, []);   // 1 tick/s (was 4/s: lag)
   const left = Math.max(0, (at || 0) - now);
-  const bell = left > 0 && left <= sec;
+  const bell = !rest && left > 0 && left <= sec;
   // at zero the new round is dealt on the server — pull it straight away (and again shortly) instead of waiting for the next poll
   useEffect(() => { if (!at) return undefined; const ms = at * 1000 - Date.now(); if (ms < -20000) return undefined;
     const ts = [1500, 5000, 10000].map(d => setTimeout(() => window.dispatchEvent(new Event('feeless:prime')), Math.max(0, ms) + d)); return () => ts.forEach(clearTimeout); }, [at]);
   const mm = Math.floor(left / 60); const ss = Math.floor(left % 60);
-  return <span className={`rbell ${bell ? 'is-bell' : ''} ${left <= 0 ? 'is-due' : ''}`} data-testid="round-bell" data-tip={`${label.toLowerCase()} · a 10s countdown opens every round`}>
+  return <span className={`rbell ${bell ? 'is-bell' : ''} ${left <= 0 ? 'is-due' : ''}`} data-testid="round-bell" data-tip={rest ? 'The card hit its floor and moved into its anchors. It rests here before fresh coins are dealt — no swaps while it rests.' : `${label.toLowerCase()} · a 10s countdown opens every round`}>
     {bell ? <b className="rbell-n" key={Math.ceil(left)}>{Math.ceil(left)}</b> : <b className="m-num">{left <= 0 ? 'dealing…' : mm >= 60 ? `${Math.floor(mm / 60)}h ${mm % 60}m` : `${mm}:${String(ss).padStart(2, '0')}`}</b>}
-    <small>{bell ? `🔔 ${label} · dealing in` : left <= 0 ? `🔔 ${label} · dealt` : label}</small></span>;
+    <small>{rest ? (left <= 0 ? '🃏 re-dealing now' : '🛌 RESTING IN ANCHORS · re-deal in') : bell ? `🔔 ${label} · dealing in` : left <= 0 ? `🔔 ${label} · dealt` : label}</small></span>;
 }
 
 // 📜 Paper audit for any Arena card: its live battle book (each coin's TRUE fill — impact included — → now, $ in → $ now),

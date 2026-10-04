@@ -67,3 +67,13 @@ def test_paper_learns_the_flat_cost_of_a_swap_apart_from_price_impact():
         assert round(ap.buy_px(1.0, 0.85, 1e12), 6) == 1.004 and round(ap.sell_usd(100, 1.0, 1e12), 4) == round(100 / 1.004, 4)
     finally:
         ap.SPREAD = old
+
+
+def test_the_brain_picks_a_config_per_round_length_and_never_calls_a_losing_clock_profitable():
+    import pg_sim as ps
+    mk = lambda clock, md, pct: {'cfg': {'clock': clock, 'tp': 100, 'sl': 20, 'minDrop': md, 'hold': False, 'confirm': 3}, 'coins': 4, 'pct': pct}
+    res = [mk(5, 20, -5.0)] * 8 + [mk(5, 0, -30.0)] * 8 + [mk(60, 10, 6.0)] * 8 + [mk(60, 0, 2.0)] * 8 + [mk(15, 5, 1.0)] * 3
+    bc = ps.by_clock(res)
+    assert set(bc) == {'5', '60'}                                           # 3 sims on the 15-min clock is not enough to say anything
+    assert bc['5']['cfg']['minDrop'] == '20' and bc['5']['profitable'] is False and bc['5']['n'] == 16
+    assert bc['60']['cfg']['minDrop'] == '10' and bc['60']['profitable'] is True

@@ -80,7 +80,7 @@ export function ArenaPrime({ onLoad }) {
       <div className="prime-stats"><span data-tip={`Profit = now ${usd(c.valueUsd)} − put in ${usd(putIn)} (fees apart)`}><small>PROFIT</small><b key={c.pnlPct.toFixed(1)} className={`m-num fl-tick ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{usdK(c.valueUsd - putIn)}</b><small className={`ps-pct ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.pnlPct)}</small></span>
             <span data-tip="Confirmed SOL already segregated from the card and unavailable to future buys"><small>PAID OUT</small><b className="m-num m-pos">{usdK(c.walletUsd)}</b>{c.pendingPayoutUsd > 0 && <small className="m-dim"> · {usd(c.pendingPayoutUsd)} settling</small>}</span>
         {c.floored ? <span data-tip="Floored: everything moved into the anchor; the card is re-dealt with fresh 3★+ coins (Arena picks first) on the next tick — a new run"><small>FLOORED</small><b className="m-num">re-dealing…</b></span>
-        : <RoundBell at={c.nextRoundAt || c.lastRotateAt + d.cfg.rotateHours * 3600} sec={c.bellSec || 10} label={`ROUND ${(c.rounds || 0) + 2}`} />}</div>
+        : <RoundBell at={c.nextRoundAt || c.lastRotateAt + d.cfg.rotateHours * 3600} sec={c.bellSec || 10} rest={!!c.resting} label={`ROUND ${(c.rounds || 0) + 2}`} />}</div>
       {c.realBook && <div className="prime-money" data-testid={`prime-book-${c.tpl}`}><span className="m-label">💵 REAL BOOK · FUNDED {usd(c.realBook.fundedUsd)} · {c.realBook.swaps} SWAPS · NETWORK FEES {usd(c.realBook.feesUsd)}</span>
         <ul className="prime-txs">{c.realBook.orders.slice(0, 5).map((o, i) => <li key={i}><b>{o.side === 'topup' ? '💵' : o.side === 'buy' ? '🟢' : '🔴'}</b><span>{o.side === 'topup' ? 'top-up' : `${o.side} $${o.symbol}`}</span>
           <em className="m-num">{usd(o.usd)}</em>{o.sig ? <a href={txUrl(o.sig)} target="_blank" rel="noreferrer" data-tip="Open the transaction">tx ↗</a> : <i />}</li>)}</ul></div>}
@@ -196,7 +196,29 @@ function TypedLimits({ keeper, busy, save }) {
     <button type="button" className="m-btn m-go" disabled={busy || !dirty.length} onClick={go}>Save {dirty.length || ''} limit{dirty.length === 1 ? '' : 's'}</button></div>;
 }
 
-function CardEditor({ c, cfg, keeper, locked, call, real }) {
+// 🧠 The sim brain's pick for THIS card's round length (300 sim cards on real recorded prices, re-run every ~15 min).
+// It never claims profit: when the typical card on this clock lost, it says so and points at the clock that did best.
+export function enginePick(suggest, rotateHours) {
+  const rows = Object.entries(suggest || {}).map(([k, v]) => ({ clock: Number(k), ...v }));
+  if (!rows.length) return null;
+  const mine = rows.reduce((a, b) => (Math.abs(b.clock - rotateHours * 60) < Math.abs(a.clock - rotateHours * 60) ? b : a));
+  const top = rows.reduce((a, b) => ((b.medPct ?? -1e9) > (a.medPct ?? -1e9) ? b : a));
+  const patch = {}; if (mine.cfg?.minDrop != null) patch.rotateMinDrop = Number(mine.cfg.minDrop); if (mine.cfg?.confirm != null) patch.rotateConfirm = Number(mine.cfg.confirm);
+  return { mine, top, patch };
+}
+
+function EnginePick({ suggest, cfg, busy, save }) {
+  const p = enginePick(suggest, cfg?.rotateHours || 1);
+  if (!p) return null;
+  const { mine, top, patch } = p; const same = Object.entries(patch).every(([k, v]) => Number(cfg?.[k]) === v);
+  const clk = m => (m >= 60 ? `${m / 60}h` : `${m}m`);
+  return <p className={`m-note ${mine.profitable ? '' : 'warn'} ce-pick`} data-testid="engine-pick"><b>🧠 ENGINE PICK · {clk(mine.clock)} ROUNDS</b>
+    <span>Swap only below −{patch.rotateMinDrop ?? '—'}% · patience {patch.rotateConfirm ?? '—'} rounds · TP +{mine.cfg?.tp}% · SL −{mine.cfg?.sl}% — typical sim card <b className={`m-num ${mine.medPct >= 0 ? 'm-pos' : 'm-neg'}`}>{mine.medPct >= 0 ? '+' : ''}{Number(mine.medPct).toFixed(1)}%</b> over {mine.n} sims, {mine.upPct}% ended up.
+      {!mine.profitable && ` Not profitable right now — this is the least-bad setup for ${clk(mine.clock)} rounds.`}{top.clock !== mine.clock && ` Best clock in the same sims: ${clk(top.clock)} (${top.medPct >= 0 ? '+' : ''}${Number(top.medPct).toFixed(1)}%).`}</span>
+    {!same && Object.keys(patch).length > 0 && <button type="button" className="m-btn" disabled={busy} onClick={() => save(patch)} data-testid="engine-pick-apply">Apply this pick</button>}</p>;
+}
+
+function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
   const [busy, setBusy] = useState(false);
   const save = async (patch, wallet) => {
     setBusy(true);
@@ -217,6 +239,7 @@ function CardEditor({ c, cfg, keeper, locked, call, real }) {
   return <details className="hrt-edit" data-testid="card-editor"><summary>⚙ Edit Fuse {real ? '· 💵 real-money config — paper cards untouched' : locked ? '· 🔒 locked — edits change only this Fuse' : '· shared engine settings'}</summary>
     <div className="ce-group"><span className="m-label">⏱ ROUNDS · when a coin may be swapped</span>
       <div className="ce-grid">{EDIT.filter(e => ROUND_KEYS.includes(e[0])).map(row)}</div>
+      <EnginePick suggest={suggest} cfg={cfg} busy={busy} save={save} />
       {churn && <p className="m-note ce-warn" data-testid="churn-warn">⚠ Round rotation is aggressive at {Math.round((cfg?.rotateHours || 0) * 60)}m with patience {cfg?.rotateConfirm || 1}. The ⚡ instant-loss setting above is separate and fires immediately at its loss threshold.
         <button type="button" className="m-btn" disabled={busy} onClick={() => save({ rotateConfirm: 3 })}>Use 3</button></p>}</div>
     <div className="ce-group"><span className="m-label">🧬 SHAPE · which coins the card holds</span><div className="ce-grid">
@@ -296,7 +319,7 @@ export function HqRealCards({ addr, onCount }) {
         <div className="hq-real-track">
           <div className="hrt-top"><b>{c.label}</b><span className={`hrt-state ${state[2]}`} data-tip="Keeper: moves the real coins to what the card says, every tick">{state[0]} {state[1]}</span></div>
           <div className="hrt-kpis">
-            <RoundBell at={c.nextRoundAt || c.lastRotateAt + (cf?.rotateHours || 1) * 3600} sec={c.bellSec || 10} label={`ROUND ${(c.rounds || 0) + 1}`} />
+            <RoundBell at={c.nextRoundAt || c.lastRotateAt + (cf?.rotateHours || 1) * 3600} sec={c.bellSec || 10} rest={!!c.resting} label={`ROUND ${(c.rounds || 0) + 1}`} />
             <span><small>ROUNDS DONE</small><b className="m-num">{c.rounds || 0}</b></span>
             <span data-tip="Every $ you funded this card with (all top-ups)"><small>PUT IN · TOTAL</small><b className="m-num">{usd(b.fundedUsd || c.startUsd)}</b></span>
             {b.fundedUsd > 0 && <span data-tip="Now vs everything you put in"><small>ALL-TIME</small><b className={`m-num ${(c.valueUsd - b.fundedUsd) >= 0 ? 'm-pos' : 'm-neg'}`}>{usd(c.valueUsd - b.fundedUsd)} · {pct((c.valueUsd / b.fundedUsd - 1) * 100)}</b></span>}
@@ -321,7 +344,7 @@ export function HqRealCards({ addr, onCount }) {
             [`🔒 hold ≥ ${cf?.minHoldMins || 0}m`, 'Every new coin is held at least this long'], [`🔄 ${(cf?.cycles || {})[c.tpl] || c.cycleMode || 'off'}${c.cycleFix ? ` (fix: ${c.cycleFix})` : ''} · ${c.phase || '—'}`, 'Cycle and the shape it is in now'], [`🧩 re-shape every ${cf?.cycleEvery || 6} rounds`, 'How often the card changes shape'],
             [`🛑 stops: ${cf?.slMode || 'replace'}`, 'What happens when a coin hits its stop'], [`🛟 rescue at −${cf?.rescuePct || 50}%`, 'Card this far under its start → safest coins'], [`💧 real buys need $${((k.minLiqUsd || 0) / 1000).toFixed(0)}K pool · 🏟 Arena $${((k.arenaMinLiqUsd ?? k.minLiqUsd ?? 0) / 1000).toFixed(0)}K`, 'Thinner coins stay paper-only; Arena coins (passed every runner gate) have their own floor'],
             [`🪙 min buy $${(k.minOrderUsd || 0).toFixed(2)} · max $${k.maxSwapUsd || 0}`, 'Smallest / largest single real swap'], [`↔ slippage ${((k.slippageBps || 0) / 100).toFixed(1)}%`, 'Retries add a little, never past 3%']].map(([t2, tip]) => <span key={t2} className="m-chip" data-tip={tip}>{t2}</span>)}</div>
-          <CardEditor c={c} cfg={c.cfgEff || (d.locks?.[c.tpl] ? { ...d.cfg, ...(d.lockCfg?.[c.tpl] || {}) } : d.cfg)} keeper={k} locked={!!d.locks?.[c.tpl]} real={!!c.real} call={call} />
+          <CardEditor c={c} cfg={c.cfgEff || (d.locks?.[c.tpl] ? { ...d.cfg, ...(d.lockCfg?.[c.tpl] || {}) } : d.cfg)} keeper={k} locked={!!d.locks?.[c.tpl]} real={!!c.real} call={call} suggest={d.suggest} />
           <div className="hrt-acts">
             <button type="button" className="m-btn" disabled={!!busy || k.selling} onClick={() => act(c.tpl, k.halt ? 'resume' : 'halt')} data-tip={k.halt ? 'Keeper trades again' : 'Keeper stops trading this card (coins stay)'}>{k.halt ? '▶ Resume' : '⏸ Pause'}</button>
             <span className="hrt-top-up"><input className="m-input" type="number" min="1" step="1" placeholder="$" value={amt} onChange={e => setAmt(e.target.value)} aria-label="Top up amount" />

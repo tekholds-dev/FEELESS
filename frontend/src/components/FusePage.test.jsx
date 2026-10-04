@@ -249,5 +249,17 @@ test('battlefield: up next queue, 🔮 call the champ, 👑 buy the champion, �
 test('Arena zones: one zone on screen at a time, picked from a segmented bar and deep-linked with ?zone=', async () => {
   const { arenaZone, ARENA_ZONES } = require('./FusePage');
   expect(arenaZone('?tab=arena')).toBe('prime'); expect(arenaZone('?zone=pit')).toBe('pit'); expect(arenaZone('?zone=nope')).toBe('prime');
-  expect(ARENA_ZONES.map(z => z[0])).toEqual(['prime', 'gauntlet', 'pit', 'crown', 'stage', 'proving']);
+  expect(ARENA_ZONES.map(z => z[0])).toEqual(['prime', 'pit', 'gauntlet', 'proving']);   // four zones, never more
+  expect(arenaZone('?zone=crown')).toBe('gauntlet'); expect(arenaZone('?zone=stage')).toBe('pit');     // old links still land
+});
+
+
+test('The Throne: one card reigns, the dethroned line up behind it with who knocked them off', async () => {
+  const { Throne } = require('./FusePage');
+  const host = document.createElement('div'); document.body.appendChild(host);
+  const onBuy = jest.fn();
+  await act(async () => { createRoot(host).render(<Throne now={10000} onBuy={onBuy} champs={[{ at: 6400, season: 3, emoji: '🔥', name: 'NewKing', w: 4, legs: [{ pairAddress: 'p' }], key: 'mega:1' }, { at: 100, season: 2, emoji: '🧊', name: 'OldKing', w: 3 }]} />); });
+  expect(host.querySelector('.th-king').textContent).toContain('NewKing'); expect(host.querySelector('.th-king').textContent).toContain('reigning 1h 0m');
+  expect(host.querySelector('.th-fallen').textContent).toContain('OldKing'); expect(host.querySelector('.th-fallen').textContent).toContain('knocked off by 🔥 NewKing');
+  act(() => host.querySelector('[data-testid="buy-champ"]').click()); expect(onBuy).toHaveBeenCalled();
 });

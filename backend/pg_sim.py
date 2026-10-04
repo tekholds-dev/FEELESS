@@ -124,6 +124,29 @@ def best(score, min_n=10):
     return out
 
 
+def by_clock(results, min_n=6):
+    """🕐 The brain's pick PER ROUND LENGTH: among the sim cards that played that clock, the trait values whose typical card did best.
+    Every clock gets its own answer (a 5-min card should not run a 1-hour card's settings). `profitable` is only true when the
+    TYPICAL card on that clock ended up — the pick is the least-bad config otherwise, and the screen says so."""
+    out = {}
+    for clock in sorted({str(r['cfg'].get('clock')) for r in results or []}, key=lambda v: float(v)):
+        sub = [r for r in results if str(r['cfg'].get('clock')) == clock]
+        if len(sub) < min_n * 2:
+            continue
+        pick = best({t: v for t, v in learn(sub).items() if t != 'clock'}, min_n)
+        sm = summary(sub)
+        out[clock] = {'n': len(sub), 'medPct': sm.get('medianPct'), 'upPct': sm.get('upPct'), 'profitable': _num(sm.get('medianPct')) > 0,
+                      'cfg': {t: p['value'] for t, p in pick.items()}, 'proof': {t: {'medPct': p.get('medPct'), 'n': p['n']} for t, p in pick.items()}}
+    return out
+
+
+def _num(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def summary(results):
     pcts = [r['pct'] for r in results or []]
     if not pcts:

@@ -5373,7 +5373,11 @@ async def _prime_bell_loop():
         try:
             cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
             rot = min(_prime_cfg()['rotateHours'], _prime_real_cfg()['rotateHours']) * 3600   # paper + real clocks can differ
-            due = min((_fuse._f(c.get('lastRotateAt')) + rot + _prime.BELL_SEC for c in cards.values() if c.get('lastRotateAt')), default=time.time() + 60)   # deal time = round end + 10s bell
+            rcfg = _prime_real_cfg()
+            # deal time = round end + 10s bell (💵 real: `dealLeadSec` earlier · a floored card wakes when its rest ends, not every 5s)
+            due = min(((_fuse._f(c['flooredAt']) + max(60.0, _fuse._f(rcfg.get('floorRestMins') if c.get('real') else 0) * 60)) if c.get('flooredAt') else
+                       (_fuse._f(c.get('lastRotateAt')) + rot + _prime.BELL_SEC - (_fuse._f(rcfg.get('dealLeadSec')) if c.get('real') else 0))
+                       for c in cards.values() if c.get('lastRotateAt')), default=time.time() + 60)
             wait = due - time.time()
             if 0.5 < wait <= 12:   # 🔔 inside the 10s countdown: warm the candidates + prices now, so the re-deal is instant at 0
                 await _prime_candidates()
@@ -5591,7 +5595,7 @@ async def _prime_view():
 @app.get('/api/reputation/fuses/prime')
 async def fuse_prime():
     """⭐ Arena Prime cards (paper, fully auto) with every automation event + the config they run."""
-    return {'cards': await _prime_view(), 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))})[1], 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner')}
+    return {'cards': await _prime_view(), 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'suggest': _json_load(PG_SIM_PATH, {}).get('byClock') or {}, 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))})[1], 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner')}
 
 
 @app.post('/api/reputation/admin/arena/prime')
@@ -7304,7 +7308,7 @@ async def _pg_sim_tick(now):
     score = _pgs.learn(res)
     was = _prime.weather(d)['level']
     d['prevBest'] = d.get('best') or {}   # 🧷 the self-fix only moves a setting when the same value wins twice in a row
-    d.update(at=now, summary=_pgs.summary(res), s24=_pgs.summary(res24), s6=_pgs.summary(res6), score=score, best=_pgs.best(score),
+    d.update(at=now, summary=_pgs.summary(res), s24=_pgs.summary(res24), s6=_pgs.summary(res6), score=score, best=_pgs.best(score), byClock=_pgs.by_clock(res),
              history=((d.get('history') or []) + [{'at': now, **_pgs.summary(res)}])[-96:])
     _json_save(PG_SIM_PATH, d)
     wx = _prime.weather(d)

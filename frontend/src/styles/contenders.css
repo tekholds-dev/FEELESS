@@ -49,3 +49,30 @@ body.fx-lite .az-pane { animation: none; }
 @media (prefers-reduced-motion: reduce) { .az-pane { animation: none; } }
 body.theme-day .az-bar { box-shadow: 0 8px 18px -14px #0005; }
 @media (max-width: 640px) { .az-bar { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; } .az-bar::-webkit-scrollbar { display: none; } .az-bar > button { flex: 0 0 auto; } }
+
+/* 👑 The Throne (th-*): one reigning card under a slow light, the dethroned line up behind it. */
+.th { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 12px; align-items: stretch; }
+.th-king { position: relative; overflow: hidden; display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--gold, #f5c451) 55%, transparent); background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--gold, #f5c451) 16%, transparent), transparent 60%), #0b0a12;
+  animation: thIn .5s var(--m-ease, ease) both; }
+.th-rays { position: absolute; inset: -60%; pointer-events: none; opacity: .22; background: conic-gradient(from 0deg, transparent 0 20deg, var(--gold, #f5c451) 24deg, transparent 30deg 110deg, var(--gold, #f5c451) 114deg, transparent 120deg 230deg, var(--gold, #f5c451) 234deg, transparent 240deg);
+  animation: thSpin 26s linear infinite; }
+.th-crown { position: relative; font-size: 34px; line-height: 1; animation: thBob 3.2s ease-in-out infinite; }
+.th-who { position: relative; display: grid; gap: 3px; min-width: 0; flex: 1; }
+.th-who > b { font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.th-stats { display: flex; gap: 10px; font: 600 11px var(--m-mono, monospace); color: var(--m-dim); } .th-stats em { font-style: normal; } .th-stats em:first-child { color: var(--gold, #f5c451); }
+.th-king .bf-buychamp { position: relative; white-space: nowrap; }
+.th-fallen { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; align-content: center; }
+.th-fallen li { display: grid; gap: 1px; padding: 6px 10px; border-radius: 10px; border: 1px dashed var(--m-line); opacity: calc(.85 - var(--i) * .16);
+  animation: thFall .45s var(--m-ease, ease) both; animation-delay: calc(var(--i) * 70ms); }
+.th-fallen s { text-decoration-color: color-mix(in srgb, var(--m-danger, #ff8fa3) 70%, transparent); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.th-fallen li.is-kept { border-style: solid; border-color: color-mix(in srgb, var(--gold, #f5c451) 35%, transparent); } .th-fallen b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.th-fallen small { font: 500 10px var(--m-mono, monospace); color: var(--m-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes thIn { from { opacity: 0; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes thSpin { to { transform: rotate(360deg); } }
+@keyframes thBob { 50% { transform: translateY(-4px) rotate(-4deg); } }
+@keyframes thFall { from { opacity: 0; transform: translateX(14px) rotate(2deg); } }
+body.fx-lite .th-rays { display: none; } body.fx-lite .th-crown, body.fx-lite .th-king, body.fx-lite .th-fallen li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .th-rays { display: none; } .th-crown, .th-king, .th-fallen li { animation: none; } }
+body.theme-day .th-king { background: linear-gradient(120deg, #fff6dc, #fff); border-color: #c99a1e; } body.theme-day .th-stats em:first-child { color: #8a5a00; }
+@media (max-width: 640px) { .th { grid-template-columns: 1fr; } .th-king { flex-wrap: wrap; } }

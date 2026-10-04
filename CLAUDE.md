@@ -675,9 +675,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   pumping (1h green, ≥55% buys, ≥$5K 1h vol). Next-up mints are `arena`-flagged in `_prime_candidates` (gates, floors, weather still
   apply). Stablecoins never compete. New pick list ⇒ new division there, never a separate ranking.
 
-- 🏟 Arena = ZONES, one on screen at a time (`ARENA_ZONES`, `?zone=`; `zone=all` only for tests): 👑 Prime League (tier cards) · 🏁 The
-  Gauntlet (contenders) · ⚔ The Pit (battles) · 🏆 Crown Race (season) · 🏟 Main Stage (+ 🎨 Creator's Cut) · 🧪 Proving Ground (runner
-  rounds, dials, strategies). New Arena feature ⇒ a zone or inside one, never stacked. The guide is closed until asked for.
+- 🏟 Arena = FOUR ZONES, one on screen at a time (`ARENA_ZONES`, `?zone=`, old names aliased; `zone=all` only for tests): 👑 Prime League
+  (tier cards) · ⚔ The Pit (battles + 👑 `Throne`: one reigning card, the dethroned behind it, a repeat winner = 🛡 defended; then Main
+  Stage + Creator's Cut) · 🏁 The Gauntlet (contenders + Crown Race season) · 🧪 Proving Ground (runner rounds, dials, strategies). New Arena feature ⇒ a zone or inside one, never stacked. The guide is closed until asked for.
 - 💵 Real guard, part 2 (found by watching the live ledger AFTER part 1 — always re-check the ledger an hour after a real-money fix):
   `fixEvery` = a safe / rescue fix re-shapes a real card every 6 rounds, not every round (it sold + re-bought 2–3 coins every 5 min);
   `floorRestMins` 60 = a floored real card rests in its anchor before the re-deal; `REAL_RUNNER_AGE_H` 12 = real money never buys a
@@ -686,6 +686,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🧹 Data cleaner v1 (`backend/data_cleaner.py` pure + tested, `_data_clean` hourly in `_fuse_warm`, admin `GET /admin/data-cleaner`):
   chat coin snapshots older than 1h lose `signals` / `quality` / `observedAt` (3.98 → 2.12 MB on the live file). Rules may only drop
   DERIVED or STALE data — never money records, message text or authors. Next rules: runner `paths` > 48h, dead `candle_ticks` pairs.
+
+- 💵 Real rounds: `dealLeadSec` 15 = a real card's round is decided 15s before the bell (5s before the 10s countdown) so sells then buys
+  finish inside it; a floored card shows 🛌 RESTING with a re-deal countdown (`summary.resting`, `RoundBell rest`) — never "dealing…".
+  `REAL_MIN_HOLD` 15 (matches the 15M option). 🧠 Engine pick per clock (`pg_sim.by_clock` → `byClock` → `/fuses/prime.suggest` →
+  `EnginePick` in Edit Fuse, one-tap Apply of minDrop + patience): each round length gets its own config; `profitable` only when the
+  typical sim card on that clock ended up — otherwise the screen says "least-bad" and names the best clock.
 
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,

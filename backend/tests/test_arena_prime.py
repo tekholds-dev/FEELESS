@@ -733,7 +733,7 @@ def test_real_card_config_is_separate_from_hq_paper_config(monkeypatch):
     pr = {'cfg': {'rotateHours': 0.08, 'rotateConfirm': 1}, 'realCfg': {'rotateHours': 0.08, 'rotateConfirm': 3, 'minHoldMins': 10}}
     monkeypatch.setattr(rs, '_prime_cfg', lambda: {**ap.clean_cfg(pr['cfg']), 'paperFeeUsd': 0.02})
     r = rs._prime_real_cfg(pr)
-    assert r['rotateHours'] == 0.08 and r['rotateConfirm'] == 3 and r['minHoldMins'] == 20   # 5-min real rounds allowed; the real-money guard floors the hold at 20 min
+    assert r['rotateHours'] == 0.08 and r['rotateConfirm'] == 3 and r['minHoldMins'] == 15   # 5-min real rounds allowed; the real-money guard floors the hold at 15 min
     pr['cfg']['rotateConfirm'] = 6                                                           # an HQ paper edit…
     assert rs._prime_real_cfg(pr)['rotateConfirm'] == 3                                      # …never reaches the real card
     assert rs._prime_real_cfg({'cfg': pr['cfg']})['paperFeeUsd'] == 0.02                     # unset → starts from paper
@@ -827,7 +827,7 @@ def test_real_guard_floors_a_churny_real_config_but_keeps_the_5_min_clock():
     assert len(changed) == 4 and out['fixEvery'] == ap.REAL_MAX_RESHAPE and out['floorRestMins'] == ap.REAL_FLOOR_REST
     # off stays off, never stays never, a patient config is left alone, slow clocks keep their own hold time
     calm = {'rotateHours': 1.0, 'minHoldMins': 0, 'rotateConfirm': 4, 'instantSwapPct': 0, 'cycleEvery': 0}
-    assert ap.real_guard(calm) == ({**calm, 'fixEvery': 6, 'floorRestMins': 60.0}, [])
+    assert ap.real_guard(calm) == ({**calm, 'fixEvery': 6, 'floorRestMins': 60.0, 'dealLeadSec': 15.0}, [])
 
 
 def test_runner_weather_reads_the_freshest_sim_window_and_limits_real_runner_buys():
