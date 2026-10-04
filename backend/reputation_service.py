@@ -6310,25 +6310,46 @@ async def fuse_wallet_topup(request: Request):
             b = d['books'][tid]
             truth = _fw.sync_card(card, b, px, sol_px)
             current = _prime.value(truth, px)
-            # Reinvesting already-paid card proceeds is NOT new money. Consume segregated bankSol first; only the remainder
-            # is new wallet funding. bankUsd remains the historical paid-out total for an understandable lifetime trail.
-            bank_sol = _fuse._f(b.get('bankSol'))
-            reinvest_sol = min(bank_sol, usd / sol_px) if sol_px > 0 else 0.0
-            external_sol = max(0.0, usd / sol_px - reinvest_sol) if sol_px > 0 else 0.0
-            external_usd = external_sol * sol_px
             new = _fw.topup_card(truth, usd, px, now, current_usd=current)
-            d['books'][tid] = {**b,
-                'sol': round(_fuse._f(b.get('sol')) + reinvest_sol + external_sol, 9),
-                'bankSol': round(max(0.0, bank_sol - reinvest_sol), 9),
-                'fundedUsd': round(_fuse._f(b.get('fundedUsd')) + external_usd, 4)}
+            d['books'][tid] = {**b, 'sol': round(_fuse._f(b.get('sol')) + usd / sol_px, 9), 'fundedUsd': round(_fuse._f(b.get('fundedUsd')) + usd, 4)}
         _fw_record(d, {'card': tid, 'side': 'topup', 'usd': usd, 'sol': round(usd / sol_px, 9), 'at': now, 'by': me, 'status': 'done',
-                       'why': 'funded — new real run' if first else (f'reinvested paid-out proceeds; new money ${external_usd:.2f}' if reinvest_sol > 0 else 'top-up — new run')})
+                       'why': 'funded — new real run' if first else 'new money top-up — new run'})
         _fw_save(d)
     async with _admin_lock:
         h = _json_load(FUSE_HQ_PATH, {}); h.setdefault('prime', {}).setdefault('cards', {})[tid] = new; _json_save(FUSE_HQ_PATH, h)
     ad = _admin_load(); _audit(ad, me, 'fuse-wallet-topup', f'{tid} ${usd:.2f}{" (first funding)" if first else ""}'); _admin_save(ad)
     asyncio.create_task(_fw_tick(time.time()))
     return {'ok': True, 'tpl': tid, 'usd': usd, 'first': first}
+
+
+@app.post('/api/reputation/admin/fuse-wallet/reinvest-paid')
+async def fuse_wallet_reinvest_paid(request: Request):
+    """Owner only: move this card's currently segregated paid-out SOL back into active card capital.
+    This is an internal reallocation, not new funding: fundedUsd never changes and the historical bankUsd trail is preserved."""
+    me = _require_owner(request)
+    body = await request.json()
+    tid = body.get('tpl')
+    if tid not in _prime.TEMPLATES:
+        raise HTTPException(400, 'Pick a funded tier.')
+    now = time.time()
+    async with _fw_lock:
+        d = _fw_load(); b = d['books'].get(tid)
+        if not b:
+            raise HTTPException(400, 'That tier is not funded.')
+        if b.get('pending'):
+            raise HTTPException(409, 'Wait for the current Fuse transaction to settle, then reinvest paid out.')
+        if b.get('defund'):
+            raise HTTPException(409, 'This card is selling out right now.')
+        nb, sol = _fw.reinvest_bank(b)
+        if sol <= 0:
+            raise HTTPException(400, 'This card has no paid-out SOL available to reinvest.')
+        d['books'][tid] = nb
+        _fw_record(d, {'card': tid, 'side': 'reinvest', 'sol': sol, 'usd': 0.0, 'at': now, 'by': me, 'status': 'done',
+                       'why': 'paid-out SOL moved back into active card capital — not new funding'})
+        _fw_save(d)
+    ad = _admin_load(); _audit(ad, me, 'fuse-wallet-reinvest-paid', f'{tid} {sol:.9f} SOL'); _admin_save(ad)
+    asyncio.create_task(_fw_tick(time.time()))
+    return {'ok': True, 'tpl': tid, 'sol': sol, 'fundedUsd': nb.get('fundedUsd'), 'bankUsd': nb.get('bankUsd')}
 
 
 @app.post('/api/reputation/admin/fuse-wallet/card')
