@@ -632,3 +632,16 @@ def test_manual_profit_payout_is_limited_to_profit_and_card_cash():
     assert out['bankSol'] == 0.008 and out['sol'] == 0.002
     out2, paid2 = fw.payout_profit_cash(book, equity_usd=6.0, sol_px=100.0)
     assert paid2 == 0.0 and out2 == book
+
+def test_principal_floor_reinvests_old_paid_out_money_when_card_is_underfunded():
+    book = {'fundedUsd': 7.0, 'sol': 0.01, 'bankSol': 0.001, 'bankUsd': 0.1}
+    out, moved = fw.enforce_principal_floor(book, equity_usd=5.5, sol_px=100.0)
+    assert moved == 0.001
+    assert out['bankSol'] == 0.0 and out['sol'] == 0.011 and out['bankUsd'] == 0.0
+
+
+def test_principal_floor_keeps_only_profit_in_paid_out_now():
+    book = {'fundedUsd': 7.0, 'sol': 0.01, 'bankSol': 0.02, 'bankUsd': 2.0}
+    out, moved = fw.enforce_principal_floor(book, equity_usd=8.0, sol_px=100.0)
+    assert moved == 0.01
+    assert out['bankSol'] == 0.01 and out['sol'] == 0.02 and out['bankUsd'] == 1.0
