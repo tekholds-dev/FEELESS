@@ -781,7 +781,7 @@ def test_replace_mode_keeps_slot_when_feed_temporarily_has_no_candidate_then_hea
     assert len(out['legs']) == 4
     assert any(l.get('placeholder') for l in out['legs'])
     assert out['cash'] > 0
-    candidate={'mint':'r4','pairAddress':'p4','symbol':'R4','price':1,'liquidityUsd':1000000,'stars':5}
+    candidate={'mint':'r4','pairAddress':'p4','symbol':'R4','price':1,'liquidityUsd':1000000,'score':90}
     healed=ap.tick(out,{**prices,'p4':1},[],[candidate],cfg,now+1,anchors=[{'mint':'a','pairAddress':'pa','symbol':'A','price':1,'liquidityUsd':1000000,'stars':5}])
     assert len(healed['legs']) == 4
     assert 'r4' in {l['mint'] for l in healed['legs']}
