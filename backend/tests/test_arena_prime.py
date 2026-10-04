@@ -758,3 +758,31 @@ def test_keep_winners_never_changes_a_four_slot_shape_to_three_or_five():
     assert out is not None and kept >= 1
     assert len(out['legs']) == 4
     assert 'm2' in {l['mint'] for l in out['legs']}
+
+
+def test_replace_mode_keeps_slot_when_feed_temporarily_has_no_candidate_then_heals_it():
+    now = 1000.0
+    cfg = {**ap.DEFAULT_CFG, 'slMode':'replace', 'compound':False}
+    card = ap.deal('safe',
+        [{'mint':'a','pairAddress':'pa','symbol':'A','price':1,'liquidityUsd':1000000,'stars':5}],
+        [{'mint':'r','pairAddress':'pr','symbol':'R','price':1,'liquidityUsd':1000000,'stars':5}],
+        cfg, now, anchors=[{'mint':'a','pairAddress':'pa','symbol':'A','price':1,'liquidityUsd':1000000,'stars':5}], usd=6)
+    # Build a deterministic four-slot live shape: anchor + stopped runner + two protected runners.
+    base = {'entry':1.0,'firstEntry':1.0,'units':1.0,'costUsd':1.0,'at':now-1000,'stars':5,'liq':1000000}
+    card['legs'] = [
+        {**base,'mint':'a','pairAddress':'pa','symbol':'A','role':'anchor'},
+        {**base,'mint':'r1','pairAddress':'p1','symbol':'R1','role':'runner'},
+        {**base,'mint':'r2','pairAddress':'p2','symbol':'R2','role':'runner','frozen':True},
+        {**base,'mint':'r3','pairAddress':'p3','symbol':'R3','role':'runner','frozen':True},
+    ]
+    card['cash']=0.0; card['startUsd']=4.0; card['roundStartUsd']=4.0
+    prices={'pa':1,'p1':0.1,'p2':1,'p3':1}
+    out=ap.tick(card,prices,[],[],cfg,now,anchors=[{'mint':'a','pairAddress':'pa','symbol':'A','price':1,'liquidityUsd':1000000,'stars':5}],liqs={'p1':1000000})
+    assert len(out['legs']) == 4
+    assert any(l.get('placeholder') for l in out['legs'])
+    assert out['cash'] > 0
+    candidate={'mint':'r4','pairAddress':'p4','symbol':'R4','price':1,'liquidityUsd':1000000,'stars':5}
+    healed=ap.tick(out,{**prices,'p4':1},[],[candidate],cfg,now+1,anchors=[{'mint':'a','pairAddress':'pa','symbol':'A','price':1,'liquidityUsd':1000000,'stars':5}])
+    assert len(healed['legs']) == 4
+    assert 'r4' in {l['mint'] for l in healed['legs']}
+    assert not any(l.get('placeholder') for l in healed['legs'])
