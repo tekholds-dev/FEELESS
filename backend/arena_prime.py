@@ -468,29 +468,39 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         else:
             continue
         if True:
-            sold = l['units'] * frac
-            gain = sell_usd(sold, px, liqs.get(l['pairAddress']) or l.get('liq'))   # what the pool really pays
-            l['units'] -= sold; l['entry'] = px; c['feesUsd'] += fee
-            c['takenUsd'] += gain
+            before_units = _f(l.get('units'))
+            sold = before_units * frac
+            proceeds = sell_usd(sold, px, liqs.get(l['pairAddress']) or l.get('liq'))   # what the pool really pays
+            # Only REALIZED PROFIT may be paid out. The sold slice's principal always stays in the card.
+            # Splitting gross proceeds here used to siphon principal into walletUsd (100% payout could starve a live slot).
+            total_cost = _f(l.get('costUsd')) or before_units * _f(l.get('entry'))
+            sold_cost = total_cost * (sold / before_units) if before_units > 0 else 0.0
+            profit = max(0.0, proceeds - sold_cost)
+            l['units'] = max(0.0, before_units - sold)
+            l['costUsd'] = max(0.0, total_cost - sold_cost)
+            l['entry'] = px; c['feesUsd'] += fee
+            c['takenUsd'] += proceeds
             others = [o for o in c['legs'] if o is not l and _f(prices.get(o['pairAddress'])) > 0]
             label = why if mode == 'ride-end' else f"+{g:.0f}% ≥ +{t['tp']}% · {why}"   # a held runner's exit explains itself
-            # 🧬 profit split (tier DNA): payoutPct → straight to the owner's wallet, the rest compounds — smart = into the strongest coins
+            # 🧬 payoutPct applies to realized PROFIT, never principal. Principal + retained profit stay available to compound/rebuy.
             dna = {'payoutPct': (cfg.get('payouts') or DEFAULT_PAYOUTS).get(card['tpl'], 0), 'compound': cfg.get('compoundStyle', 'smart') if cfg['compound'] else 'off'}
-            out_usd, back_usd = _dna.split_profit(gain, dna)
+            out_usd, retained_profit = _dna.split_profit(profit, dna)
+            recycle_usd = sold_cost + retained_profit
             if out_usd > 0:
                 c['walletUsd'] = round(_f(c.get('walletUsd')) + out_usd, 6)
-                ev(kind='payout', symbol=l['symbol'], usd=round(out_usd, 4), why=f"{dna['payoutPct']}% of the take → owner's wallet", to=['wallet'])
-            if back_usd > 0 and others:
+                ev(kind='payout', symbol=l['symbol'], usd=round(out_usd, 4), why=f"{dna['payoutPct']}% of realized profit → owner's wallet", to=['wallet'])
+            if recycle_usd > 0 and others and dna['compound'] != 'off':
                 wts = _dna.compound_weights(others, mom) if dna['compound'] == 'smart' else {o['pairAddress']: 1 / len(others) for o in others}
                 into = [o for o in others if wts.get(o['pairAddress'])]
                 for o in into:
-                    each = back_usd * wts[o['pairAddress']]
+                    each = recycle_usd * wts[o['pairAddress']]
                     opx = buy_px(_f(prices.get(o['pairAddress'])), each, liqs.get(o['pairAddress']) or o.get('liq'))
                     o['units'] += each / opx; o['costUsd'] += each
-                c['compoundedUsd'] += back_usd; c['feesUsd'] += fee * len(into)
-                ev(kind='tp', symbol=l['symbol'], usd=round(back_usd, 4), why=label + (' · 🧲 smart compound' if dna['compound'] == 'smart' else ''), mode=mode, to=[o['symbol'] for o in into])
-            elif back_usd > 0 or (gain > 0 and dna['compound'] == 'off' and out_usd < gain):
-                rest = gain - out_usd
+                c['compoundedUsd'] += recycle_usd; c['feesUsd'] += fee * len(into)
+                ev(kind='tp', symbol=l['symbol'], usd=round(recycle_usd, 4), why=label + (' · 🧲 smart compound' if dna['compound'] == 'smart' else ''), mode=mode, to=[o['symbol'] for o in into])
+            elif recycle_usd > 0 or (proceeds > 0 and dna['compound'] == 'off'):
+                # Compound-off still keeps principal + un-paid proceeds as card cash; it never silently disappears.
+                rest = proceeds - out_usd
                 c['cash'] += rest
                 ev(kind='tp', symbol=l['symbol'], usd=round(rest, 4), why=label, mode=mode, to=['cash'])
     # 2) stop-loss (sl 0 = never stopped) — what happens follows cfg slMode:
