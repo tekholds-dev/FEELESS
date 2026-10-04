@@ -288,6 +288,27 @@ def test_tier_dna_payout_goes_to_the_wallet_and_smart_compound_skips_fading_coin
     assert abs(ap.value(out, px) - (ap.value(card, px) - 0)) < 5                                  # paid-out $ still counts for the owner
 
 
+def test_payout_percentage_applies_to_realized_profit_never_principal():
+    cfg = ap.clean_cfg({'payouts': {'degen': 100}, 'compoundStyle': 'smart', 'cycles': {'degen': 'off'}})
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], cfg, 0, SOL[:1])  # $25 cost per leg
+    px = {'Psol': 1, 'Pa': 1, 'Pr1': 2.2, 'Pr2': 1}
+    out = ap.tick(card, px, [], [], cfg, 30, SOL)
+    sold = [e for e in out['events'] if e['kind'] == 'payout'][-1]
+    # TP sells ~$30 of R1, but part of those proceeds is principal. Even at 100% payout only realized profit leaves the card.
+    assert 0 < sold['usd'] < 30
+    assert out['walletUsd'] == sold['usd']
+    assert out['compoundedUsd'] > 0
+    assert abs(ap.value(out, px) - ap.value(card, px)) < 0.1
+
+
+def test_compound_off_keeps_sold_principal_and_unpaid_profit_as_card_cash():
+    cfg = ap.clean_cfg({'payouts': {'degen': 50}, 'compound': False, 'cycles': {'degen': 'off'}})
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], cfg, 0, SOL[:1])
+    out = ap.tick(card, {'Psol': 1, 'Pa': 1, 'Pr1': 2.2, 'Pr2': 1}, [], [], cfg, 30, SOL)
+    assert out['walletUsd'] > 0 and out['cash'] > out['walletUsd']
+    assert abs(ap.value(out, {'Psol': 1, 'Pa': 1, 'Pr1': 2.2, 'Pr2': 1}) - 130) < 0.1
+
+
 def test_rug_shield_sells_a_coin_whose_liquidity_was_pulled():
     card = ap.deal('degen', [P('a', 1)], [{**R('r1', 1), 'liquidityUsd': 100_000}, R('r2', 1)], CFG, 0, SOL[:1])
     assert [l for l in card['legs'] if l['mint'] == 'r1'][0]['liq'] == 100_000
