@@ -219,7 +219,7 @@ test('battlefield: bracket lanes, fighter HP, power board with W/L pips and the 
   expect(pair.querySelector('.bf-corner.b').className).toContain('is-hurt');                 // 12 pts behind → HP 28 → hurt
   expect(host.textContent).toContain('BRACKET #3'); expect(host.querySelector('[data-testid="bf-champs"]').textContent).toContain('OldKing');
   const power = host.querySelector('[data-testid="bf-power"]');
-  expect(power.querySelectorAll('.bf-pips i.w').length).toBe(3); expect(power.textContent).toContain('✕ out');
+  expect(power.querySelectorAll('.bf-chip').length).toBe(3); expect(power.textContent).toContain('✕ out');   // one slim rail, not a tall board
 });
 
 test('battlefield: up next queue, 🔮 call the champ, 👑 buy the champion, ⚙ config copies coins + configs to the Lab', async () => {
@@ -259,7 +259,7 @@ test('The Throne: one card reigns, the dethroned line up behind it with who knoc
   const host = document.createElement('div'); document.body.appendChild(host);
   const onBuy = jest.fn();
   await act(async () => { createRoot(host).render(<Throne now={10000} onBuy={onBuy} champs={[{ at: 6400, season: 3, emoji: '🔥', name: 'NewKing', w: 4, legs: [{ pairAddress: 'p' }], key: 'mega:1' }, { at: 100, season: 2, emoji: '🧊', name: 'OldKing', w: 3 }]} />); });
-  expect(host.querySelector('.th-king').textContent).toContain('NewKing'); expect(host.querySelector('.th-king').textContent).toContain('reigning 1h 0m');
+  expect(host.querySelector('.th-who').textContent).toContain('NewKing'); expect(host.querySelector('.th-who').textContent).toContain('reigning 1h 0m'); expect(host.querySelector('.th-king .th-volt')).toBeTruthy();
   expect(host.querySelector('.th-fallen').textContent).toContain('OldKing'); expect(host.querySelector('.th-fallen').textContent).toContain('knocked off by 🔥 NewKing');
   act(() => host.querySelector('[data-testid="buy-champ"]').click()); expect(onBuy).toHaveBeenCalled();
 });

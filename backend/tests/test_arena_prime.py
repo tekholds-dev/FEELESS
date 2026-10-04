@@ -824,10 +824,10 @@ def test_real_guard_floors_a_churny_real_config_but_keeps_the_5_min_clock():
     assert out['rotateHours'] == 0.08                                    # the clock is the owner's — never touched
     assert out['minHoldMins'] == ap.REAL_MIN_HOLD and out['rotateConfirm'] == ap.REAL_MIN_CONFIRM
     assert out['instantSwapPct'] == ap.REAL_MIN_INSTANT and out['cycleEvery'] == ap.REAL_MAX_RESHAPE
-    assert len(changed) == 4 and out['fixEvery'] == ap.REAL_MAX_RESHAPE and out['floorRestMins'] == ap.REAL_FLOOR_REST
+    assert len(changed) == 4 and out['fixEvery'] == ap.REAL_MAX_RESHAPE and 'floorRestMins' not in out   # resting is the owner's switch, never forced
     # off stays off, never stays never, a patient config is left alone, slow clocks keep their own hold time
     calm = {'rotateHours': 1.0, 'minHoldMins': 0, 'rotateConfirm': 4, 'instantSwapPct': 0, 'cycleEvery': 0}
-    assert ap.real_guard(calm) == ({**calm, 'fixEvery': 6, 'floorRestMins': 60.0, 'dealLeadSec': 15.0}, [])
+    assert ap.real_guard(calm) == ({**calm, 'fixEvery': 6, 'dealLeadSec': 15.0}, [])
 
 
 def test_runner_weather_reads_the_freshest_sim_window_and_limits_real_runner_buys():
@@ -847,3 +847,12 @@ def test_a_real_card_under_a_fix_does_not_reshape_every_round_and_rests_after_a_
     paper = ap.cycle_peek({'tpl': 'safe', 'cycleFix': 'safe', 'rounds': 7, 'phase': 'anchor'}, {'cycleEvery': 6})
     real = ap.cycle_peek({'tpl': 'safe', 'cycleFix': 'safe', 'rounds': 7, 'phase': 'anchor'}, ap.real_guard({'cycleEvery': 6, 'rotateHours': 0.08})[0])
     assert paper['inRounds'] == 1 and real['inRounds'] == 5      # paper re-shapes next round · real waits for round 12
+
+
+def test_resting_after_a_floor_is_the_owners_switch_and_off_by_default():
+    assert ap.clean_cfg({})['floorRestMins'] == 0.0 and ap.clean_cfg({'floorRestMins': 30})['floorRestMins'] == 30.0 and ap.clean_cfg({'floorRestMins': 7})['floorRestMins'] == 0.0
+    card = {'id': 'prime-safe', 'label': 'x', 'at': 0, 'tpl': 'safe', 'startUsd': 10, 'legs': [], 'flooredAt': 1000.0, 'lastRotateAt': 900.0, 'cash': 0, 'compoundedUsd': 0, 'takenUsd': 0, 'feesUsd': 0, 'events': []}
+    off = ap.summary(card, {}, ap.clean_cfg({}))
+    on = ap.summary(card, {}, ap.clean_cfg({'floorRestMins': 30}))
+    assert off['resting'] is False and off['nextRoundAt'] == 1060.0      # no rest set → re-deal on the next tick
+    assert on['resting'] is True and on['nextRoundAt'] == 1000.0 + 1800

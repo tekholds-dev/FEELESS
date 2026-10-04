@@ -238,6 +238,7 @@ def clean_cfg(p):
     out['rescuePct'] = 0.0 if (p or {}).get('rescuePct') is not None and rsc == 0 else max(20.0, min(80.0, rsc))   # 0 = rescue off
     out['rotateConfirm'] = int(max(1, min(6, _f((p or {}).get('rotateConfirm', ROTATE_CONFIRM)))))
     out['minHoldMins'] = max(0.0, min(240.0, _f((p or {}).get('minHoldMins', MIN_HOLD_MINS))))
+    out['floorRestMins'] = float(_f((p or {}).get('floorRestMins'))) if _f((p or {}).get('floorRestMins')) in FLOOR_RESTS else 0.0
     out['strictRunners'] = bool((p or {}).get('strictRunners', False))
     out['autoBrain'] = bool((p or {}).get('autoBrain', True))   # 🔧 engine self-fix from the sim brain (HQ can switch it off)   # HQ: rescue when the card is this % under its start
     ce = (p or {}).get('cycleEvery')
@@ -260,7 +261,7 @@ REAL_MIN_CONFIRM = 3      # losing rounds in a row before a real rotation
 REAL_MIN_INSTANT = 10.0   # ⚡ instant swap is OFF (0) or at least −10% — never inside normal memecoin noise
 REAL_MAX_RESHAPE = 6      # a real card re-shapes at most every 6 rounds (0 = never stays never) — also while a safe / rescue fix is on
 REAL_DEAL_LEAD = 15.0     # seconds before the bell that a real card's round is decided (sells, then buys, finish inside the countdown)
-REAL_FLOOR_REST = 60.0    # minutes a floored real card rests in its anchor before it is re-dealt
+FLOOR_RESTS = (0, 15, 30, 60)   # 🛌 minutes a floored card rests in its anchors before the re-deal — the OWNER's switch (0 = no rest, re-deal at once)
 REAL_RUNNER_AGE_H = 12.0  # real money never buys a runner younger than this (a 20-min-old coin with a $534K pool went −99.99% in an hour)
 
 
@@ -278,9 +279,7 @@ def real_guard(cfg):
         out['cycleEvery'] = REAL_MAX_RESHAPE; changed.append(f're-shape every {REAL_MAX_RESHAPE} rounds')
     # always on for real money (not owner settings, so never listed as "raised"):
     #  • a safe / rescue FIX re-shaped the card EVERY round — on a 5-min clock that sold and re-bought 2–3 coins every 5 minutes
-    #  • a floored card was re-dealt 60s later: sell everything, then buy everything back a minute after
     out['fixEvery'] = REAL_MAX_RESHAPE
-    out['floorRestMins'] = REAL_FLOOR_REST
     out['dealLeadSec'] = REAL_DEAL_LEAD
     return out, changed
 
@@ -519,7 +518,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             if dd > -instant_loss + PCT_EPS:
                 continue
             out_usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
-            nxt = best(l.get('role') or 'runner')
+            # ⚡ sell AND buy: when no runner is eligible right now (weather / age / pool floor), the slot takes the best pool
+            # instead of sitting in cash — "instant swap" must end in a coin whenever any eligible coin exists
+            nxt = best(l.get('role') or 'runner') or (best('pool') if (l.get('role') or 'runner') == 'runner' else None)
             c['feesUsd'] += fee
             if nxt:
                 c['legs'][c['legs'].index(l)] = _leg(nxt, out_usd, now, l.get('role') or 'runner')
@@ -887,7 +888,7 @@ def summary(card, prices, cfg=None):
                      'compoundedUsd': round(_f(card.get('compoundedUsd')), 4), 'feesUsd': round(_f(card.get('feesUsd')), 4)},
             # a floored card is RESTING in its anchors until the re-deal — never a countdown stuck on "dealing…"
             'nextRoundAt': round((_f(card['flooredAt']) + max(60.0, _f((cfg or {}).get('floorRestMins')) * 60)) if card.get('flooredAt') else (_f(card.get('lastRotateAt')) + rot * 3600 + BELL_SEC), 1),
-            'resting': bool(card.get('flooredAt')), 'bellSec': BELL_SEC, 'real': bool(card.get('real')), 'realSince': card.get('realSince'),
+            'resting': bool(card.get('flooredAt')) and _f((cfg or {}).get('floorRestMins')) > 0, 'bellSec': BELL_SEC, 'real': bool(card.get('real')), 'realSince': card.get('realSince'),
             **record(card)}
 
 

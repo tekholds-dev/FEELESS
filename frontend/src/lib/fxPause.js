@@ -1,7 +1,7 @@
 // Off-screen FX pause: the Arena had ~400 animations running at once and 4 in 5 were on cards nobody could see.
 // ONE IntersectionObserver marks animated surfaces that are off-screen with `fx-off` (CSS pauses every animation inside);
 // they resume the moment they scroll back in. One MutationObserver (batched per frame) picks up cards as they mount.
-export const FX_SURFACES = '.mc-stage, .prime-card, .ar-card, .bf-arena, .sc3-card, .th-king';
+export const FX_SURFACES = '.mc-stage, .prime-card, .ar-card, .bf-arena, .sc3-card, .th-stage';
 let started = false;
 
 export function startFxPause(root = document.body) {

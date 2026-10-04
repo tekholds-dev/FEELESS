@@ -693,6 +693,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `EnginePick` in Edit Fuse, one-tap Apply of minDrop + patience): each round length gets its own config; `profitable` only when the
   typical sim card on that clock ended up — otherwise the screen says "least-bad" and names the best clock.
 
+- 👑 Throne v2 (`Throne` in FusePage, `th-*` in contenders.css): the champion's REAL FuseCard under voltage (`th-volt` bolts + ring,
+  spinning rays), 2 challengers (`power()` top 2 not out) trading sides behind it, past champions beside it. The tall power board and the
+  3-card showcase are gone from The Pit; `bf-rail` = ONE row of bracket chips (⚙ config · 🔮 call). Card wrappers that contain a FuseCard
+  must be `div role=button` (the card has its own flip button — a nested <button> is invalid HTML).
+- 🧱 Owner switches on the real card (Edit Fuse): `floorPct` (the WHOLE card, 15/25/40/60) and `floorRestMins` (off/15/30/60 — OFF by
+  default: a floored card re-deals on the next tick; resting is never forced). ⚡ Instant swap is per COIN and must end in a coin: no
+  eligible runner → the slot takes the best pool, not cash. When deleting UI, strip its CSS with a brace-aware pass — a regex once
+  glued `body.theme-day` onto an `@media` line and silently killed the mobile rules.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

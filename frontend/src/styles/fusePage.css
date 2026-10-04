@@ -697,20 +697,20 @@ body.theme-day .fp-mb-live { background: #fff; }
 .bf-spark { position: absolute; left: 50%; top: 50%; width: 4px; height: 14px; margin: -7px -2px; border-radius: 2px; background: #f5c451; opacity: 0; animation: bfSpark 1.8s ease-out infinite; }
 .bf-spark.s2 { animation-delay: .9s; background: var(--m-accent); }
 .bf-power { display: grid; gap: 5px; padding-top: 4px; }
-.bf-prow { display: grid; grid-template-columns: 30px minmax(0, 1.2fr) minmax(60px, 1fr) auto auto auto; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--m-line); background: var(--m-bg);
-  animation: fpIn .3s var(--m-ease) backwards; animation-delay: calc(var(--i, 0) * 50ms); transition: transform .15s, border-color .15s; }
-.bf-prow:hover { transform: translateX(3px); border-color: var(--m-line-hi); } .bf-prow.br-out { opacity: .55; }
-.bf-rank { font-size: 13px; } .bf-pname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 700; }
-.bf-pbar { height: 6px; border-radius: 6px; background: var(--m-line); overflow: hidden; } .bf-pbar > i { display: block; height: 100%; background: linear-gradient(90deg, #6b3cc9, var(--m-accent)); transform-origin: left; transition: transform .8s var(--m-ease); }
-.bf-pips { display: flex; gap: 3px; font-style: normal; } .bf-pips i { width: 8px; height: 8px; border-radius: 2px; } .bf-pips i.w { background: var(--m-accent); } .bf-pips i.l { background: #ff8fa3; }
+
+ 
+ 
+ 
+   
 @keyframes bfBob { 50% { transform: translateY(-3px); } }
 @keyframes bfHop { 0%, 100% { transform: translateY(0) scale(1); } 40% { transform: translateY(-7px) scale(1.08); } }
 @keyframes bfHurt { 25% { transform: translateX(-2px) rotate(-4deg); } 75% { transform: translateX(2px) rotate(4deg); } }
 @keyframes bfSpark { 0% { opacity: 0; transform: rotate(var(--r, 30deg)) translateY(0); } 20% { opacity: 1; } 100% { opacity: 0; transform: rotate(var(--r, 30deg)) translateY(-26px); } }
 @keyframes bfBellShake { 25% { transform: rotate(-4deg); } 75% { transform: rotate(4deg); } }
-body.fx-lite .bf-fighter, body.fx-lite .bf-spark, body.fx-lite .bf-prow, body.fx-lite .bf-bell.is-soon { animation: none; } body.fx-lite .bf-spark { display: none; }
-@media (prefers-reduced-motion: reduce) { .bf-fighter, .bf-spark, .bf-prow, .bf-bell.is-soon { animation: none; } .bf-spark { display: none; } .bf-hp > i, .bf-pbar > i { transition: none; } }
-body.theme-day .bf-prow { background: #fff; } body.theme-day @media (max-width: 640px) { .bf-prow { grid-template-columns: 26px minmax(0, 1fr) auto auto; } .bf-prow .bf-pbar, .bf-prow .bf-pips { display: none; } .bf-fighter { font-size: 22px; } }
+body.fx-lite .bf-fighter, body.fx-lite .bf-spark, body.fx-lite .bf-bell.is-soon { animation: none; } body.fx-lite .bf-spark { display: none; }
+@media (prefers-reduced-motion: reduce) { .bf-fighter, .bf-spark, .bf-bell.is-soon { animation: none; } .bf-spark { display: none; } .bf-hp > i { transition: none; } }
+
+@media (max-width: 640px) {   .bf-fighter { font-size: 22px; } }
 .pg-listed.is-pick { color: #c08bff; border-color: #c08bff88; } .pg-pick.is-on { background: #c08bff; color: #12061f; border-color: #c08bff; }
 body.theme-day .pg-pick.is-on { background: #6b2fd1; color: #fff; }
 /* ⚙ card config window + ⏭ up next + 🔮 calls + 👑 buy the champion */
@@ -721,12 +721,12 @@ button.bf-fighter { border: 0; background: none; padding: 0; cursor: pointer; } 
 .bf-nextcard { display: inline-flex; gap: 6px; align-items: center; padding: 5px 10px; border-radius: 12px; border: 1px dashed var(--m-line-hi); background: var(--m-bg); color: var(--m-text); font: inherit; font-size: 12px; cursor: pointer;
   animation: fpIn .3s var(--m-ease) backwards; animation-delay: calc(var(--i, 0) * 60ms); transition: transform .15s, border-color .15s; }
 .bf-nextcard:hover { transform: translateY(-2px); border-color: var(--m-accent); } .bf-nextcard em { font-style: normal; font: 600 10px var(--m-mono); color: var(--m-dim); }
-.bf-prow { grid-template-columns: 30px minmax(0, 1.2fr) minmax(60px, 1fr) auto auto auto auto; }
-.bf-pacts { display: flex; gap: 4px; } .bf-pacts .m-btn { padding: 2px 8px; font-size: 11px; } .bf-call.is-on { background: #c08bff; color: #12061f; border-color: #c08bff; }
+
+  .bf-call.is-on { background: #c08bff; color: #12061f; border-color: #c08bff; }
 .bf-buychamp { padding: 3px 10px; font-size: 11px; }
 body.fx-lite .bf-nextcard { animation: none; } @media (prefers-reduced-motion: reduce) { .bf-nextcard { animation: none; } }
 body.theme-day .bf-nextcard { background: #fff; } body.theme-day .bf-call.is-on { background: #6b2fd1; color: #fff; }
-@media (max-width: 640px) { .bf-prow { grid-template-columns: 26px minmax(0, 1fr) auto auto; } .bf-prow .bf-br { display: none; } }
+
 /* 🎥 Battle arena v4: ONE arena box, a spotlight per fight (auto-cycles), the real cards in each corner with live-activity FX */
 .bf-arena { position: relative; overflow: hidden; border-radius: 18px; border: 1px solid var(--m-line-hi); min-height: 420px; padding: 14px 14px 18px;
   background: radial-gradient(80% 60% at 50% 0%, #2a1250 0%, transparent 70%), radial-gradient(60% 50% at 50% 110%, #0d3a28 0%, transparent 70%), #0a0614; }
@@ -781,7 +781,7 @@ body.theme-day .bf-arena { background: radial-gradient(80% 60% at 50% 0%, #e7dbf
 .pgb-dna { font: 600 9.5px var(--m-mono); color: #c08bff; }
 .pgb-brain { display: grid; gap: 3px; padding: 8px 10px; border-radius: 12px; border: 1px dashed #c08bff66; } .pgb-brain b { font-size: 12.5px; color: #c08bff; }
 body.theme-day .ar-dna, body.theme-day .pgb-dna, body.theme-day .pgb-brain b { color: #6b2fd1; }
-.bf-log small.is-comeback { border-color: #ff9a3c; color: #ffd36b; box-shadow: 0 0 14px -6px #ff9a3c; } .bf-cb { font-style: normal; margin-left: 6px; font-size: 11px; }
+.bf-log small.is-comeback { border-color: #ff9a3c; color: #ffd36b; box-shadow: 0 0 14px -6px #ff9a3c; } 
 /* 🩺 engine doctor */
 .pg-doctor.is-on { border-color: color-mix(in srgb, var(--m-accent) 55%, var(--m-line)); } .pg-doctor.is-sitout { border-color: #f5c45188; }
 .pg-doc-now { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; } .pg-doc-now b { font-size: 13px; }
