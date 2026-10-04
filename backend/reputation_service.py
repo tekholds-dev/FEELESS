@@ -6071,8 +6071,15 @@ async def _fw_close_empty(cfg, now):
         rent = round(sum(_fuse._f(r.get('lamports')) for r in rows if r['pubkey'] in {e['pubkey'] for e in empty}) / 1e9, 9)
         row = {'id': f'close:{now:.0f}', 'card': 'wallet', 'side': 'close', 'n': len(empty), 'sol': rent, 'sig': sig, 'at': now, 'status': 'sent', 'why': 'empty coin accounts closed — rent back to the reserve'}
     except Exception as e:
-        row = {'id': f'close:{now:.0f}', 'card': 'wallet', 'side': 'close', 'at': now, 'status': 'failed', 'err': str(getattr(e, 'detail', e))[:120]}
-        _fw_close_at['t'] = now - 1800 + 180   # RPC busy → try again in 3 min, not 30
+        err = str(getattr(e, 'detail', e))[:120]
+        # Empty-account cleanup is maintenance, not a card trade. When the shared
+        # public RPC pool is busy, back off quietly instead of hammering it every
+        # three minutes and filling the audit trail with zero-dollar failures.
+        if 'RPC pool exhausted' in err:
+            _fw_close_at['t'] = now - 1800 + 900   # retry in ~15 min
+            return
+        row = {'id': f'close:{now:.0f}', 'card': 'wallet', 'side': 'close', 'at': now, 'status': 'failed', 'err': err}
+        _fw_close_at['t'] = now - 1800 + 300   # non-rate-limit failure → retry in 5 min
     async with _fw_lock:
         d = _fw_load(); _fw_record(d, row); _fw_save(d)
     _fw_notify(row)
