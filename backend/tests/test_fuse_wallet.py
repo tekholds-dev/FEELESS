@@ -608,3 +608,27 @@ def test_recovered_old_keeper_coin_force_sell_is_marked_card_cash():
 
     filled, _ = fw.apply_fill(book, sells[0], {'atoms': -2_000_000, 'decimals': 6, 'sol': 0.01, 'feeSol': 0.0}, 100.0)
     assert not filled['legs'] and filled['sol'] == 0.01 and filled['manualCashSol'] == 0.01
+
+def test_profit_available_never_touches_funded_principal():
+    book = {'fundedUsd': 7.0, 'sol': 0.02, 'bankSol': 0.001}
+    assert fw.profit_available(book, 6.99, 100.0) == 0.0
+    assert fw.profit_available(book, 7.50, 100.0) == 0.4
+
+
+def test_bank_waits_until_whole_card_is_above_put_in():
+    book = {'fundedUsd': 7.0, 'sol': 0.03, 'bankSol': 0.0, 'bankUsd': 0.0, 'payoutSeenUsd': 0.0}
+    held = fw.bank(book, 1.0, 100.0, equity_usd=6.5)
+    assert held['sol'] == 0.03 and held.get('bankSol', 0) == 0
+    assert held.get('payoutSeenUsd', 0) == 0
+    paid = fw.bank(book, 1.0, 100.0, equity_usd=7.5)
+    assert paid['bankSol'] == 0.005 and paid['sol'] == 0.025
+    assert paid['payoutSeenUsd'] == 0.5
+
+
+def test_manual_profit_payout_is_limited_to_profit_and_card_cash():
+    book = {'fundedUsd': 7.0, 'sol': 0.01, 'bankSol': 0.0, 'bankUsd': 0.0, 'manualCashSol': 0.002}
+    out, paid = fw.payout_profit_cash(book, equity_usd=8.0, sol_px=100.0)
+    assert paid == 0.8
+    assert out['bankSol'] == 0.008 and out['sol'] == 0.002
+    out2, paid2 = fw.payout_profit_cash(book, equity_usd=6.0, sol_px=100.0)
+    assert paid2 == 0.0 and out2 == book
