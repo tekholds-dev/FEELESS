@@ -6185,6 +6185,18 @@ def _fw_public(tid, equity_usd=None, sol_px=None):
             break
     cfg = _fw_cfg(); pend = b.get('pending') or {}
     fail = next((o for o in reversed(d['ledger']) if o.get('card') == tid and o.get('status') in ('failed', 'skipped')), None)
+    dead = []
+    seen_dead = set()
+    for o in reversed(d['ledger']):
+        if o.get('card') != tid or o.get('status') not in ('failed', 'skipped') or o.get('side') not in ('buy', 'sell'):
+            continue
+        kdead = (o.get('side'), o.get('mint') or o.get('symbol'))
+        if kdead in seen_dead:
+            continue
+        seen_dead.add(kdead)
+        dead.append({k: o.get(k) for k in ('side', 'symbol', 'mint', 'pair', 'usd', 'at', 'status', 'err')})
+        if len(dead) >= 8:
+            break
     keeper = {'armed': bool(cfg.get('armed')), 'paused': bool(cfg.get('paused') or b.get('halt')), 'halt': bool(b.get('halt')), 'selling': bool(b.get('defund')),
               'minLiqUsd': cfg.get('minLiqUsd'), 'arenaMinLiqUsd': cfg.get('arenaMinLiqUsd'), 'minOrderUsd': cfg.get('minOrderUsd'), 'maxSwapUsd': cfg.get('maxSwapUsd'), 'slippageBps': cfg.get('slippageBps'),
               'maxImpactPct': cfg.get('maxImpactPct'), 'dailyUsd': cfg.get('dailyUsd'), 'pending': pend.get('symbol') and f"{pend.get('side')} ${pend.get('symbol')}",
@@ -6219,7 +6231,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None):
     return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4),
             'paidOutEverUsd': paid_ever, 'paidOutSol': round(_fuse._f(b.get('bankSol')), 9),
             'profitAvailableUsd': round(profit_available, 4), 'profitCashAvailableUsd': round(payout_cash, 4), 'recoverable': recoverable,
-            'wallet': cfg['address'], 'keeper': keeper,
+            'wallet': cfg['address'], 'keeper': keeper, 'deadOrders': dead,
             'orders': [{k: o.get(k) for k in ('side', 'symbol', 'usd', 'proceedsUsd', 'realizedPnlUsd', 'sol', 'px', 'sig', 'at', 'status', 'feeUsd', 'why', 'costUsd')} for o in rows], **_fw.totals(d['ledger'], tid)}
 
 
@@ -6476,6 +6488,42 @@ async def fuse_wallet_topup(request: Request):
     asyncio.create_task(_fw_tick(time.time()))
     return {'ok': True, 'tpl': tid, 'usd': usd, 'first': first}
 
+
+@app.post('/api/reputation/admin/fuse-wallet/retry-dead')
+async def fuse_wallet_retry_dead(request: Request):
+    """Owner repair for a failed/skipped keeper order.
+    Sell repairs are prioritized and return confirmed SOL to the card.
+    Buy repairs simply clear the bench/miss state and wake the keeper to spend only existing card cash."""
+    me = _require_owner(request)
+    body = await request.json()
+    tid, side, mint = body.get('tpl'), body.get('side'), str(body.get('mint') or '').strip()
+    if tid not in _prime.TEMPLATES or side not in ('buy', 'sell') or not mint:
+        raise HTTPException(400, 'Pick a failed buy/sell on a funded card.')
+    async with _fw_lock:
+        d = _fw_load(); b = d['books'].get(tid)
+        if not b:
+            raise HTTPException(400, 'That tier is not funded.')
+        if b.get('pending'):
+            raise HTTPException(409, 'Wait for the current transaction to settle first.')
+        if side == 'buy':
+            misses = dict(b.get('misses') or {}); misses.pop(mint, None)
+            bench = dict(b.get('benched') or {}); bench.pop(mint, None)
+            b = {**b, 'misses': misses, 'benched': bench}
+            d['books'][tid] = b
+            _fw_record(d, {'card': tid, 'side': 'repair-buy', 'mint': mint, 'at': time.time(), 'status': 'done',
+                           'why': 'owner retried dead buy from available card cash'})
+        else:
+            leg = (b.get('legs') or {}).get(mint)
+            if not leg or int(_fuse._f(leg.get('atoms'))) <= 0:
+                raise HTTPException(400, 'No held balance remains for that failed sell.')
+            b = {**b, 'legs': {**(b.get('legs') or {}), mint: {**leg, 'manualCash': True, 'recovered': True}}}
+            d['books'][tid] = b
+            _fw_record(d, {'card': tid, 'side': 'repair-sell', 'mint': mint, 'symbol': leg.get('symbol'), 'at': time.time(), 'status': 'done',
+                           'why': 'owner retried dead sell -> proceeds stay in card cash'})
+        _fw_save(d)
+    ad = _admin_load(); _audit(ad, me, 'fuse-wallet-retry-dead', f'{tid} {side} {mint[:8]}'); _admin_save(ad)
+    await _fw_tick(time.time())
+    return {'ok': True, 'tpl': tid, 'side': side, 'mint': mint}
 
 @app.post('/api/reputation/admin/fuse-wallet/payout-profit')
 async def fuse_wallet_payout_profit(request: Request):
