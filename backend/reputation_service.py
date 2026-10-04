@@ -5513,7 +5513,7 @@ async def _prime_view():
                 'pendingPayoutUsd': round(max(0.0, _fuse._f(c.get('walletUsd')) - _fuse._f(b.get('bankUsd'))), 4),
                 'math': {**sm.get('math', {}), 'putIn': round(_fuse._f(b.get('fundedUsd')) or start, 4), 'runStartUsd': round(start, 4), 'heldUsd': round(held, 4), 'paidOutUsd': round(paid, 4),
                          'nowUsd': v, 'pnlUsd': round(v - (_fuse._f(b.get('fundedUsd')) or start), 4)}}
-    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'holdAll': bool(c.get('holdAll')), 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl']) if c.get('real') else None,
+    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'holdAll': bool(c.get('holdAll')), 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 
@@ -6163,7 +6163,7 @@ def _fw_calibration(d):
     return real if real['n'] >= 3 else {**_fw.calibrate(d.get('quoteAudit')), 'feeUsd': real.get('feeUsd'), 'fees': real.get('fees'), 'from': 'quotes'}
 
 
-def _fw_public(tid):
+def _fw_public(tid, equity_usd=None, sol_px=None):
     """What everyone sees on a REAL tier card: since when, $ funded, the last swaps with their tx, real network fees."""
     d = _fw_load(); b = d['books'].get(tid)
     if not b:
@@ -6190,9 +6190,28 @@ def _fw_public(tid):
     # stamp payoutUsd on sell rows, which made PAID OUT EVER falsely show $0. Never infer history from current bankSol.
     card = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(tid) or {}
     ledger_paid = sum(max(0.0, _fuse._f(o.get('payoutUsd'))) for o in d.get('ledger') or [] if o.get('card') == tid and o.get('status') == 'filled' and o.get('side') == 'sell')
-    paid_ever = round(max(_fuse._f(card.get('walletUsd')), _fuse._f(b.get('payoutSeenUsd')), ledger_paid), 4)
+    paid_ever = round(max(_fuse._f(card.get('walletUsd')), _fuse._f(b.get('payoutSeenUsd')), ledger_paid, _fuse._f(b.get('manualProfitPaidUsd'))), 4)
+    profit_available = _fw.profit_available(b, equity_usd, sol_px) if equity_usd is not None and sol_px else 0.0
+    recoverable = []
+    bal = _FW_BAL.get('bal') if _FW_BAL.get('addr') == cfg.get('address') else None
+    if bal and bal.get('source') != 'circle':
+        booked = {}
+        for bb in d['books'].values():
+            for mint, leg in (bb.get('legs') or {}).items():
+                booked[mint] = booked.get(mint, 0) + int(_fuse._f(leg.get('atoms')))
+        for mint, held in (bal.get('tokens') or {}).items():
+            excess = int(_fuse._f(held)) - int(booked.get(mint, 0))
+            if excess <= 0:
+                continue
+            hist = [o for o in d['ledger'] if o.get('card') == tid and o.get('mint') == mint and o.get('pair')]
+            if not hist:
+                continue
+            last = hist[-1]
+            recoverable.append({'mint': mint, 'symbol': last.get('symbol') or mint[:6], 'atoms': excess,
+                                'lastStatus': last.get('status'), 'lastErr': (last.get('err') or '')[:90], 'lastAt': last.get('at')})
     return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4),
             'paidOutEverUsd': paid_ever, 'paidOutSol': round(_fuse._f(b.get('bankSol')), 9),
+            'profitAvailableUsd': round(profit_available, 4), 'recoverable': recoverable,
             'wallet': cfg['address'], 'keeper': keeper,
             'orders': [{k: o.get(k) for k in ('side', 'symbol', 'usd', 'proceedsUsd', 'realizedPnlUsd', 'sol', 'px', 'sig', 'at', 'status', 'feeUsd', 'why', 'costUsd')} for o in rows], **_fw.totals(d['ledger'], tid)}
 
