@@ -418,6 +418,20 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         if role == 'runner' and cfg.get('strictRunners'):   # 🌧 runner weather is bad: only runners with real flow + buyers get in
             src = [x for x in src if _f(x.get('vol1h')) >= STRICT_VOL1H and (x.get('buyShare') is None or _f(x.get('buyShare')) >= STRICT_BUYS)]
         return next((x for x in src if x['mint'] not in have() and _f(x.get('price')) > 0), None)
+    # A prior replace may have reserved its slot when that feed had no eligible candidate. Heal it as soon as one exists.
+    # This runs before TP/stops/rotation, preserves the configured slot count, and spends only the cash already returned by that sale.
+    for l in list(c['legs']):
+        if not l.get('placeholder') or _f(l.get('units')) > 0:
+            continue
+        nxt = best(l.get('role') or 'runner')
+        if not nxt or c['cash'] < LEFTOVER_MIN_USD:
+            continue
+        usd = min(c['cash'], _f(l.get('wantUnits')) * (_f(prices.get(l['pairAddress'])) or _f(l.get('entry'))) or c['cash'])
+        if usd < LEFTOVER_MIN_USD:
+            continue
+        c['legs'][c['legs'].index(l)] = _leg(nxt, usd, now, l.get('role') or 'runner')
+        c['cash'] = max(0.0, c['cash'] - usd)
+        ev(kind='replace', symbol=l.get('symbol'), usd=round(usd, 4), why='reserved replacement slot filled from eligible feed', to=[nxt.get('symbol')])
     c.setdefault('dayAt', c['at']); c.setdefault('dayStartUsd', c['startUsd']); c.setdefault('days', []); c.setdefault('lowPct', 0.0)
 
     # 0) a floored card sits in its anchor (cash-like) until the next day, then is re-dealt fresh at its current value
