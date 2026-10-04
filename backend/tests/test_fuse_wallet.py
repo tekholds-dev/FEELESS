@@ -108,6 +108,18 @@ def test_bank_moves_payouts_out_of_play():
     assert b['sol'] == 0.75 and b['bankSol'] == 0.25 and fw.bank(b, 25, 100.0) == b
 
 
+def test_reinvest_paid_out_moves_only_banked_sol_and_never_inflates_put_in():
+    book = {'sol': 0.01, 'bankSol': 0.019, 'bankUsd': 1.90, 'fundedUsd': 6.0, 'legs': {}, 'feesUsd': 0}
+    before = fw.book_value(book, {}, 100.0)
+    out, moved = fw.reinvest_bank(book)
+    assert moved == 0.019
+    assert out['sol'] == 0.029 and out['bankSol'] == 0.0
+    assert out['fundedUsd'] == 6.0 and out['bankUsd'] == 1.90
+    assert fw.book_value(out, {}, 100.0) == before
+    # Historical bankUsd remains satisfied, so the normal payout sync cannot immediately sweep the reinvested money back out.
+    assert fw.bank(out, 1.90, 100.0) == out
+
+
 def test_bank_marks_only_proceeds_actually_segregated_then_finishes_after_the_sell():
     before_sell = fw.bank({'sol': 0.01, 'bankSol': 0, 'bankUsd': 0}, 5, 100)
     assert before_sell == {'sol': 0.0, 'bankSol': 0.01, 'bankUsd': 1.0}
