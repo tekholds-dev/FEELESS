@@ -553,3 +553,17 @@ def test_reinvested_payout_is_not_banked_again_from_same_cumulative_target():
     newer = fw.bank(again, 2.10, 100.0)
     assert round(newer['bankUsd'], 2) == 0.20
     assert round(newer['payoutSeenUsd'], 2) == 2.10
+
+
+def test_fresh_market_gate_rejects_stale_high_liquidity_candidate_before_real_buy():
+    cfg = {**CFG, 'minLiqUsd': 100000, 'arenaMinLiqUsd': 20000}
+    order = {'side': 'buy', 'mint': 'HIVE', 'pair': 'PAIR', 'usd': 1.0, 'liq': 250000}
+    live = {'pairAddress': 'PAIR', 'baseToken': {'address': 'HIVE'}, 'priceUsd': '0.0000034', 'liquidity': {'usd': 4850}}
+    ok, why, snap = fw.live_buy_market(order, live, cfg)
+    assert not ok and 'live pool too thin' in why
+    assert snap['liq'] == 4850
+    arena_ok, arena_why, _ = fw.live_buy_market({**order, 'arena': True}, live, cfg)
+    assert not arena_ok and '20,000' in arena_why
+    good = {'pairAddress': 'PAIR', 'baseToken': {'address': 'HIVE'}, 'priceUsd': '0.0000034', 'liquidity': {'usd': 125000}}
+    assert fw.live_buy_market(order, good, cfg)[0]
+    assert not fw.live_buy_market(order, {**good, 'baseToken': {'address': 'OTHER'}}, cfg)[0]
