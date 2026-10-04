@@ -567,3 +567,21 @@ def test_fresh_market_gate_rejects_stale_high_liquidity_candidate_before_real_bu
     good = {'pairAddress': 'PAIR', 'baseToken': {'address': 'HIVE'}, 'priceUsd': '0.0000034', 'liquidity': {'usd': 125000}}
     assert fw.live_buy_market(order, good, cfg)[0]
     assert not fw.live_buy_market(order, {**good, 'baseToken': {'address': 'OTHER'}}, cfg)[0]
+
+
+def test_manual_sell_to_cash_keeps_proceeds_in_card_and_does_not_rebuy():
+    import arena_prime as ap
+    c = {'tpl': 'safe', 'legs': [{'mint': 'M', 'pairAddress': 'pm', 'symbol': 'M', 'units': 2.0, 'entry': 1.0,
+                                  'costUsd': 2.0, 'role': 'runner'}], 'cash': 0.0, 'events': [], 'feesUsd': 0.0}
+    sold = ap.sell_leg_to_cash(c, 'pm', {'pm': 1.25}, 10)
+    leg = sold['legs'][0]
+    assert leg['manualCash'] and leg['placeholder'] and leg['units'] == 0 and sold['cash'] == 2.5
+    assert sold['events'][-1]['kind'] == 'manual-sell'
+
+    book = {'sol': 0.025, 'legs': {}, 'fundedUsd': 2.5, 'feesUsd': 0.0}
+    synced = fw.sync_card(sold, book, {'pm': 1.25}, 100.0)
+    assert synced['legs'][0]['manualCash'] and not synced['legs'][0].get('buying')
+    assert synced['cash'] == 2.5
+    assert not [o for o in fw.orders('safe', synced, book, {'pm': 1.25}, 100.0,
+                                      {**fw.DEFAULT_CFG, 'armed': True, 'walletId': 'w', 'address': 'A'}, 20)
+                if o['side'] == 'buy']
