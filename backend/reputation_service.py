@@ -6124,7 +6124,9 @@ def _fw_public(tid):
               'lastFill': next((o.get('at') for o in rows if o.get('status') == 'filled'), None),
               'gas': _fw.gas_tank(_FW_GAS['sol'], d['books'], cfg.get('reserveSol')) if 'sol' in _FW_GAS else None,
               'landing': _fw.landing(d['ledger'], tid, time.time())}
-    return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4), 'wallet': cfg['address'], 'keeper': keeper,
+    return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4),
+            'paidOutEverUsd': round(_fuse._f(b.get('bankUsd')), 4), 'paidOutSol': round(_fuse._f(b.get('bankSol')), 9),
+            'wallet': cfg['address'], 'keeper': keeper,
             'orders': [{k: o.get(k) for k in ('side', 'symbol', 'usd', 'proceedsUsd', 'realizedPnlUsd', 'sol', 'px', 'sig', 'at', 'status', 'feeUsd', 'why', 'costUsd')} for o in rows], **_fw.totals(d['ledger'], tid)}
 
 
