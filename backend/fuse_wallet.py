@@ -263,28 +263,71 @@ def apply_fill(book, order, fill, sol_px):
     return b, {'units': round(units, 9), 'px': usd / units if units else 0.0, 'usd': round(usd, 6), 'sol': round(abs(fill['sol']), 9)}
 
 
-def bank(book, wallet_usd, sol_px):
-    """Segregate only the paper card's NEW payout delta.
-    payoutSeenUsd is a monotonic cursor over the engine's cumulative walletUsd. Reinvesting bankSol must never make an old
-    payout eligible to be banked again; that loop starved live slots immediately after the owner pressed Reinvest."""
+def profit_available(book, equity_usd, sol_px):
+    """Additional profit that may leave active capital without touching funded principal.
+
+    Equity includes active holdings + card cash + already-segregated payout SOL.
+    Anything at/below fundedUsd is principal and is never eligible for payout.
+    """
+    funded = max(0.0, _f((book or {}).get('fundedUsd')))
+    banked = max(0.0, _f((book or {}).get('bankSol'))) * max(0.0, _f(sol_px))
+    return round(max(0.0, _f(equity_usd) - funded - banked), 6)
+
+
+def bank(book, wallet_usd, sol_px, equity_usd=None):
+    """Segregate only eligible PROFIT requested by the paper engine.
+
+    The card's funded principal is a hard floor. Even if an individual coin realizes
+    a gain, no SOL is moved to paid-out balance until the WHOLE real card is above
+    fundedUsd. Once above it, payouts can happen piece-by-piece as equity grows.
+    """
     b = dict(book)
     target = max(0.0, _f(wallet_usd))
     seen = max(0.0, _f(b.get('payoutSeenUsd')))
-    # Legacy books predate the cursor: their already-segregated bankUsd is the part of walletUsd already processed.
     if 'payoutSeenUsd' not in b:
         seen = min(target, max(0.0, _f(b.get('bankUsd'))))
-    d = max(0.0, target - seen)
-    if d <= 0 or sol_px <= 0:
+    raw = max(0.0, target - seen)
+    if raw <= 0 or sol_px <= 0:
         b['payoutSeenUsd'] = max(seen, target)
         return b
+    d = raw
+    if equity_usd is not None:
+        d = min(d, profit_available(b, equity_usd, sol_px))
+        if d <= 0:
+            return b   # principal protected; leave the payout target pending for later growth
     protected = min(_f(b.get('sol')), max(0.0, _f(b.get('manualCashSol'))))
     sol = min(max(0.0, _f(b.get('sol')) - protected), d / sol_px)
+    if sol <= 0:
+        return b
     b['sol'] = round(_f(b['sol']) - sol, 9)
     b['bankSol'] = round(_f(b.get('bankSol')) + sol, 9)
-    b['bankUsd'] = round(_f(b.get('bankUsd')) + sol * sol_px, 6)  # current paid-out balance
-    # Consume only what was actually segregated. If a sell has not landed yet, the remainder stays pending for a later tick.
+    b['bankUsd'] = round(_f(b.get('bankUsd')) + sol * sol_px, 6)
     b['payoutSeenUsd'] = round(seen + sol * sol_px, 6)
     return b
+
+
+def payout_profit_cash(book, equity_usd, sol_px, usd=None):
+    """Owner payout button: move only available PROFIT that already exists as card SOL.
+
+    Never sells a coin and never touches funded principal or manual-recovery cash.
+    Returns (updated_book, paid_usd).
+    """
+    b = dict(book)
+    if sol_px <= 0:
+        return b, 0.0
+    avail = profit_available(b, equity_usd, sol_px)
+    protected = min(_f(b.get('sol')), max(0.0, _f(b.get('manualCashSol'))))
+    cash_usd = max(0.0, _f(b.get('sol')) - protected) * sol_px
+    want = avail if usd is None else min(avail, max(0.0, _f(usd)))
+    pay = min(want, cash_usd)
+    if pay <= 0:
+        return b, 0.0
+    sol = pay / sol_px
+    b['sol'] = round(_f(b.get('sol')) - sol, 9)
+    b['bankSol'] = round(_f(b.get('bankSol')) + sol, 9)
+    b['bankUsd'] = round(_f(b.get('bankUsd')) + pay, 6)
+    b['manualProfitPaidUsd'] = round(_f(b.get('manualProfitPaidUsd')) + pay, 6)
+    return b, round(pay, 6)
 
 
 def reinvest_bank(book):
@@ -383,6 +426,8 @@ def sync_card(card, book, prices, sol_px):
                 l.update(wantUnits=usd / px(l), buying=True)
         c['rebuyRound'] = int(card.get('rounds') or 0); c['rebuyAt'] = _t.time()
     c['cash'] = round(max(0.0, sol_left) * sol_px, 6)
+    c['fundedUsd'] = round(_f(book.get('fundedUsd')), 6)
+    c['paidNowUsd'] = round(_f(book.get('bankSol')) * sol_px, 6)
     c['feesUsd'] = round(_f(book.get('feesUsd')), 6)
     c['real'] = True
     return c
