@@ -121,9 +121,9 @@ def test_reinvest_paid_out_moves_only_banked_sol_and_never_inflates_put_in():
 
 def test_bank_marks_only_proceeds_actually_segregated_then_finishes_after_the_sell():
     before_sell = fw.bank({'sol': 0.01, 'bankSol': 0, 'bankUsd': 0}, 5, 100)
-    assert before_sell == {'sol': 0.0, 'bankSol': 0.01, 'bankUsd': 1.0}
+    assert before_sell == {'sol': 0.0, 'bankSol': 0.01, 'bankUsd': 1.0, 'payoutSeenUsd': 1.0}
     after_sell = fw.bank({**before_sell, 'sol': 0.04}, 5, 100)
-    assert after_sell == {'sol': 0.0, 'bankSol': 0.05, 'bankUsd': 5.0}
+    assert after_sell == {'sol': 0.0, 'bankSol': 0.05, 'bankUsd': 5.0, 'payoutSeenUsd': 5.0}
 
 
 def test_free_sol_keeps_reserve_and_card_books():
