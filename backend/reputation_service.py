@@ -5252,7 +5252,12 @@ def _prime_real_cfg(pr=None):
     pr = pr if pr is not None else (_json_load(FUSE_HQ_PATH, {}).get('prime') or {})
     paper = _prime_cfg()
     rc = pr.get('realCfg')
-    return {**_prime.clean_cfg(rc), 'paperFeeUsd': paper['paperFeeUsd']} if isinstance(rc, dict) and rc else paper
+    if isinstance(rc, dict) and rc:
+        out = _prime.clean_cfg(rc)
+        if 'instantSwapPct' not in rc:
+            out['instantSwapPct'] = out['rotateMinDrop']
+        return {**out, 'paperFeeUsd': paper['paperFeeUsd']}
+    return {**paper, 'instantSwapPct': paper.get('rotateMinDrop', 0)}
 
 
 PAPER_MIN_LIQ = 20_000.0   # paper tiers deal any gated coin with a ≥$20K pool (the REAL card uses the Fuse wallet's own floors)
@@ -5429,6 +5434,7 @@ async def _prime_tick_inner(now):
         if any(c.get('real') for c in cards.values()) and not d['prime'].get('realCfg'):
             # 💵 the first time a card runs real money its config is FROZEN as its own — HQ / engine tunes on paper can't reach it after this
             d['prime']['realCfg'] = _prime.clean_cfg(d['prime'].get('cfg') or {})
+            d['prime']['realCfg']['instantSwapPct'] = d['prime']['realCfg'].get('rotateMinDrop', 0)
         if win:
             d['prime']['roundWinner'] = {'id': win, 'at': now}
         _json_save(FUSE_HQ_PATH, d)
@@ -5489,7 +5495,8 @@ async def _prime_view():
             return rcfg   # the real card shows ITS OWN config
         return {**pcfg, **_prime.clean_cfg(locks[c['tpl']])} if c.get('tpl') in locks else pcfg
     def _cfgv(c):
-        e = _eff(c); return {'clockMin': round(e['rotateHours'] * 60), 'confirm': e['rotateConfirm'], 'minDrop': e['rotateMinDrop'], 'holdMin': e['minHoldMins'],
+        e = _eff(c); return {'clockMin': round(e['rotateHours'] * 60), 'confirm': e['rotateConfirm'], 'minDrop': e['rotateMinDrop'],
+                             'instantSwapPct': e.get('instantSwapPct', 0), 'holdMin': e['minHoldMins'], 'rideAt': e.get('rideAt'), 'rideTrail': e.get('rideTrail'),
                              'cycle': (e.get('cycles') or {}).get(c['tpl']), 'reshape': e['cycleEvery'], 'slMode': e['slMode'], 'locked': c.get('tpl') in locks}
     fw_books = _fw_load().get('books') or {}
     def _truth(c, sm):
