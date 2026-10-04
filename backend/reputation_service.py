@@ -6025,6 +6025,13 @@ async def _fw_tick_inner(now):
             if side == 'sell' and not book.get('pending'):
                 # Confirmed sell proceeds fund payouts first. Paid-out SOL is segregated before any subsequent compound buys.
                 book = _fw.bank(book, card.get('walletUsd'), sol_px)
+                # 🔒 SELL-BEFORE-BUY BARRIER: if ANY sell is still required after the sell pass
+                # (route refused, tx expired, partial max-swap chunk, etc.), do not buy anything yet.
+                # The next keeper tick retries the remaining sell first. This prevents a failed sell
+                # from leaving the old coin held while spare SOL buys its replacement too.
+                remaining_sells = [x for x in _fw.orders(tid, want, book, px, sol_px, cfg, time.time(), count_sells=True) if x['side'] == 'sell']
+                if remaining_sells:
+                    break
         async with _fw_lock:
             d2 = _fw_load()
             if book.get('defund') and not book.get('legs') and not book.get('pending'):
