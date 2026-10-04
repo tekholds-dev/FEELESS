@@ -251,6 +251,55 @@ def clean_cfg(p):
     return out
 
 
+# 💵 REAL-MONEY GUARD — hard floors the real card's config can never go under, whatever HQ or the self-fix writes.
+# A real round trip costs ~2% (impact + slippage + network fee), so a rule that swaps on a 5% dip turns noise into loss:
+# a $7 card once made 350 real swaps in 39h on a 5-min clock with no hold time and a −5% instant swap. The 5-min clock stays
+# (protection + rides still run every tick); what is floored is how fast a coin may be flipped back out.
+REAL_MIN_HOLD = 20.0      # minutes a real buy is held before a rotation may sell it (clocks ≤ 15 min)
+REAL_MIN_CONFIRM = 3      # losing rounds in a row before a real rotation
+REAL_MIN_INSTANT = 10.0   # ⚡ instant swap is OFF (0) or at least −10% — never inside normal memecoin noise
+REAL_MAX_RESHAPE = 6      # a real card re-shapes at most every 6 rounds (0 = never stays never)
+
+
+def real_guard(cfg):
+    """The real card's config with the hard floors applied. Returns (cfg, changed) — `changed` lists what was raised, in plain words."""
+    out, changed = dict(cfg or {}), []
+    fast = _f(out.get('rotateHours')) * 60 <= 15
+    if fast and _f(out.get('minHoldMins')) < REAL_MIN_HOLD:
+        out['minHoldMins'] = REAL_MIN_HOLD; changed.append(f'hold ≥ {REAL_MIN_HOLD:g} min')
+    if int(_f(out.get('rotateConfirm'))) < REAL_MIN_CONFIRM:
+        out['rotateConfirm'] = REAL_MIN_CONFIRM; changed.append(f'{REAL_MIN_CONFIRM} losing rounds before a swap')
+    if 0 < _f(out.get('instantSwapPct')) < REAL_MIN_INSTANT:
+        out['instantSwapPct'] = REAL_MIN_INSTANT; changed.append(f'instant swap −{REAL_MIN_INSTANT:g}%')
+    if 0 < int(_f(out.get('cycleEvery'))) < REAL_MAX_RESHAPE:
+        out['cycleEvery'] = REAL_MAX_RESHAPE; changed.append(f're-shape every {REAL_MAX_RESHAPE} rounds')
+    return out, changed
+
+
+# 🌦 RUNNER WEATHER for real money, from the engine's own sims on real recorded prices (the freshest window with enough cards):
+# clear = every gated runner is allowed · 🌧 rain (≤ −5%) = only strong runners in a deep pool · ⛈ storm (≤ −25%) = no runners,
+# new majors only. Paper keeps trading everything — that is how the weather is measured.
+RAIN_PCT, STORM_PCT, RAIN_SCORE = -5.0, -25.0, 60.0
+
+
+def weather(sim):
+    s6, s24 = (sim or {}).get('s6') or {}, (sim or {}).get('s24') or {}
+    w = s6 if _f(s6.get('n')) >= 50 else s24 if _f(s24.get('n')) >= 100 else None
+    if not w:
+        return {'level': 'clear', 'avgPct': None, 'n': 0}
+    avg = _f(w.get('avgPct'))
+    return {'level': 'storm' if avg <= STORM_PCT else 'rain' if avg <= RAIN_PCT else 'clear', 'avgPct': round(avg, 2), 'n': int(_f(w.get('n')))}
+
+
+def weather_runners(rows, level, deep_floor, liq_of):
+    """Runner candidates real money may BUY in this weather (coins already held are never sold by the weather)."""
+    if level == 'storm':
+        return [x for x in rows if x.get('newMajor')]
+    if level == 'rain':
+        return [x for x in rows if x.get('newMajor') or (_f(x.get('score')) >= RAIN_SCORE and _f(liq_of(x)) >= _f(deep_floor))]
+    return list(rows)
+
+
 # 🎯 TRUE FILLS (paper = exactly what a real wallet would get): constant-product price impact against the pool's quote-side
 # reserve (≈ half its liquidity). Buy $u → average fill = mid × (1 + u/R); sell $v of coins → you receive v / (1 + v/R).
 # The pool / FEELESS fee is a separate line (feesUsd), never inside P&L; impact IS the price you got, so it is in the fill.

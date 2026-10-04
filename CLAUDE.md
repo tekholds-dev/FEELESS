@@ -651,6 +651,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🪑 Bench (`fuse_wallet.note_miss/benched`): a coin whose real buy fails its checks 3× in 10 min is benched 1h for that card — never
   picked, and a buying leg is swapped NOW (`replace_leg`). Book saves use `_fw_keep` (never drop misses/bench). Slippage-rejected sends re-quote ≤3%.
 
+- 💵 Real-money guard (`arena_prime.real_guard`, applied in `_prime_real_cfg`): the real card keeps ANY clock (5 min too) but can never run
+  under hold 20 min (clocks ≤ 15 min) · 3 losing rounds · instant swap off or ≥ −10% · re-shape ≥ every 6 rounds. Why: a $7 card made 350
+  real swaps in 39h (hold 0 + −5% instant swap). 🌦 Runner weather (`arena_prime.weather/weather_runners`, sims' 6h window, else 24h):
+  rain ≤ −5% = real buys only strong (score ≥ 60) runners in pools ≥ `minLiqUsd` · storm ≤ −25% = new majors only; owner notified on change.
+  Self-fix patience moves only when the same value wins 2 sim runs (`prevBest`). Chips on the tier header (`prime-weather`, `prime-guard`).
+- 📡 Landing (`chain_rpc.broadcast`, `_fw_rebroadcast`): the SAME signed tx is re-sent to every RPC node every ~2s until confirmed or expired
+  (idempotent). Ledger errors are split: "expired — never landed" vs "failed on-chain: <err>". Never re-sign to retry a pending order.
+- ⏸ `lib/fxPause.js`: one IntersectionObserver adds `fx-off` to off-screen animated surfaces (`FX_SURFACES`) → CSS pauses them. New big
+  animated surface ⇒ add its root class there. Never animate `background-position` (the battle floor did; it's a transform layer now).
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

@@ -735,8 +735,10 @@ body.theme-day .bf-nextcard { background: #fff; } body.theme-day .bf-call.is-on 
 .bf-arena { position: relative; overflow: hidden; border-radius: 18px; border: 1px solid var(--m-line-hi); min-height: 420px; padding: 14px 14px 18px;
   background: radial-gradient(80% 60% at 50% 0%, #2a1250 0%, transparent 70%), radial-gradient(60% 50% at 50% 110%, #0d3a28 0%, transparent 70%), #0a0614; }
 .bf-floor { position: absolute; left: -20%; right: -20%; bottom: -40%; height: 70%; pointer-events: none; opacity: .5;
-  background: repeating-linear-gradient(90deg, #9b5cff33 0 1px, transparent 1px 60px), repeating-linear-gradient(0deg, #9b5cff33 0 1px, transparent 1px 40px);
-  transform: perspective(300px) rotateX(62deg); animation: bfFloor 6s linear infinite; }
+  overflow: hidden; transform: perspective(300px) rotateX(62deg); }
+/* the grid slides by one tile on its own layer (transform only — animating background-position repainted every frame) */
+.bf-floor::before { content: ''; position: absolute; inset: -40px -60px; animation: bfFloor 6s linear infinite; will-change: transform;
+  background: repeating-linear-gradient(90deg, #9b5cff33 0 1px, transparent 1px 60px), repeating-linear-gradient(0deg, #9b5cff33 0 1px, transparent 1px 40px); }
 .bf-beam { position: absolute; top: -30%; width: 34%; height: 140%; pointer-events: none; opacity: .18; background: linear-gradient(180deg, #c08bff, transparent 70%); transform-origin: top center; }
 .bf-beam.l { left: 8%; animation: bfBeamL 7s ease-in-out infinite; } .bf-beam.r { right: 8%; background: linear-gradient(180deg, var(--m-accent), transparent 70%); animation: bfBeamR 7s ease-in-out infinite; }
 .bf-tabs { position: relative; z-index: 2; display: flex; justify-content: center; gap: 6px; margin-bottom: 8px; }
@@ -766,7 +768,7 @@ body.theme-day .bf-nextcard { background: #fff; } body.theme-day .bf-call.is-on 
 .bf-mid { display: grid; gap: 10px; justify-items: center; align-content: center; } .bf-mid .bf-vs { font-size: 34px; }
 .bf-mid .bf-tug { position: relative; left: auto; right: auto; bottom: auto; width: 100%; height: 6px; }
 .bf-mid .bf-bars { grid-template-columns: 1fr; width: 100%; margin: 0; } .bf-spark.s3 { animation-delay: .45s; --r: -40deg; background: #c08bff; }
-@keyframes bfFloor { to { background-position: 60px 40px, 60px 40px; } }
+@keyframes bfFloor { to { transform: translate3d(60px, 40px, 0); } }
 @keyframes bfBeamL { 50% { transform: rotate(8deg); } } @keyframes bfBeamR { 50% { transform: rotate(-8deg); } }
 @keyframes bfSpotIn { from { opacity: 0; transform: scale(.94) translateY(8px); } }
 @keyframes bfHit { 0%, 100% { transform: none; } 10% { transform: translateX(-4px) rotate(-1deg); } 20% { transform: translateX(4px) rotate(1deg); } 30% { transform: none; } }

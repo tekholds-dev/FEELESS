@@ -58,3 +58,19 @@ async def _rpc(http: httpx.AsyncClient, method: str, params: list):
     if last_error:
         raise RuntimeError(f'RPC pool exhausted: {last_error}')
     return None
+
+
+async def broadcast(http: httpx.AsyncClient, signed_b64: str) -> int:
+    """📡 Re-send ONE already-signed transaction to EVERY endpoint at once (same signature = idempotent, it can only land once).
+    A single send through one busy node was why real buys/sells "expired": the tx never reached a leader. No preflight, no node-side
+    retries — the keeper re-sends every ~2s until the chain confirms it or its blockhash expires. Returns how many nodes took it."""
+    import asyncio
+
+    async def one(endpoint):
+        try:
+            res = await http.post(endpoint, json={'jsonrpc': '2.0', 'id': 1, 'method': 'sendTransaction',
+                                                  'params': [signed_b64, {'encoding': 'base64', 'skipPreflight': True, 'maxRetries': 0}]})
+            return res.status_code == 200 and 'error' not in res.json()
+        except (httpx.HTTPError, ValueError):
+            return False
+    return sum(1 for ok in await asyncio.gather(*[one(e) for e in RPC_POOL]) if ok)

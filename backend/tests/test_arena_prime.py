@@ -733,7 +733,7 @@ def test_real_card_config_is_separate_from_hq_paper_config(monkeypatch):
     pr = {'cfg': {'rotateHours': 0.08, 'rotateConfirm': 1}, 'realCfg': {'rotateHours': 0.08, 'rotateConfirm': 3, 'minHoldMins': 10}}
     monkeypatch.setattr(rs, '_prime_cfg', lambda: {**ap.clean_cfg(pr['cfg']), 'paperFeeUsd': 0.02})
     r = rs._prime_real_cfg(pr)
-    assert r['rotateHours'] == 0.08 and r['rotateConfirm'] == 3 and r['minHoldMins'] == 10   # 5-min real rounds allowed, own patience
+    assert r['rotateHours'] == 0.08 and r['rotateConfirm'] == 3 and r['minHoldMins'] == 20   # 5-min real rounds allowed; the real-money guard floors the hold at 20 min
     pr['cfg']['rotateConfirm'] = 6                                                           # an HQ paper edit…
     assert rs._prime_real_cfg(pr)['rotateConfirm'] == 3                                      # …never reaches the real card
     assert rs._prime_real_cfg({'cfg': pr['cfg']})['paperFeeUsd'] == 0.02                     # unset → starts from paper
@@ -816,3 +816,28 @@ def test_legacy_three_leg_degen_self_heals_to_four_without_topup():
     out=ap.tick(card,{'Psol':1,'Pr1':1,'Pr2':1,'Pr3':1,'Pr4':1,'Pr5':1},[],[R('r3',1),R('r4',1),R('r5',1)],cfg,now,[C('sol',1,'SOL')])
     assert len(out['legs']) == 4
     assert out['phase'] == 'degen'
+
+
+def test_real_guard_floors_a_churny_real_config_but_keeps_the_5_min_clock():
+    churn = {'rotateHours': 0.08, 'minHoldMins': 0, 'rotateConfirm': 1, 'instantSwapPct': 5, 'cycleEvery': 1}
+    out, changed = ap.real_guard(churn)
+    assert out['rotateHours'] == 0.08                                    # the clock is the owner's — never touched
+    assert out['minHoldMins'] == ap.REAL_MIN_HOLD and out['rotateConfirm'] == ap.REAL_MIN_CONFIRM
+    assert out['instantSwapPct'] == ap.REAL_MIN_INSTANT and out['cycleEvery'] == ap.REAL_MAX_RESHAPE
+    assert len(changed) == 4
+    # off stays off, never stays never, a patient config is left alone, slow clocks keep their own hold time
+    calm = {'rotateHours': 1.0, 'minHoldMins': 0, 'rotateConfirm': 4, 'instantSwapPct': 0, 'cycleEvery': 0}
+    assert ap.real_guard(calm) == (calm, [])
+
+
+def test_runner_weather_reads_the_freshest_sim_window_and_limits_real_runner_buys():
+    assert ap.weather({})['level'] == 'clear'                                              # no sims yet = nothing to judge
+    assert ap.weather({'s24': {'n': 200, 'avgPct': -36.5}})['level'] == 'storm'
+    assert ap.weather({'s24': {'n': 200, 'avgPct': -36.5}, 's6': {'n': 100, 'avgPct': -8.1}})['level'] == 'rain'   # 6h is fresher
+    assert ap.weather({'s24': {'n': 200, 'avgPct': -36.5}, 's6': {'n': 100, 'avgPct': 2.0}})['level'] == 'clear'
+    rows = [{'mint': 'a', 'score': 80, 'liq': 90_000}, {'mint': 'b', 'score': 80, 'liq': 30_000}, {'mint': 'c', 'score': 40, 'liq': 500_000},
+            {'mint': 'm', 'newMajor': True, 'score': 60, 'liq': 300_000}]
+    lq = lambda x: x['liq']
+    assert [x['mint'] for x in ap.weather_runners(rows, 'clear', 80_000, lq)] == ['a', 'b', 'c', 'm']
+    assert [x['mint'] for x in ap.weather_runners(rows, 'rain', 80_000, lq)] == ['a', 'm']   # strong AND deep, or a new major
+    assert [x['mint'] for x in ap.weather_runners(rows, 'storm', 80_000, lq)] == ['m']

@@ -18,6 +18,7 @@ captureInvite();
 import { installOverflowTitles, installImageFallback, installChartDisposalGuard } from './components/Hint';
 installOverflowTitles();
 if (process.env.NODE_ENV !== 'test') import('./lib/perfWatch').then(m => m.startPerfWatch()).catch(() => {});
+if (process.env.NODE_ENV !== 'test') import('./lib/fxPause').then(m => m.startFxPause()).catch(() => {});   // ⏸ off-screen cards run no animations
 installImageFallback();
 installChartDisposalGuard();
 import AmbientBackground from './components/AmbientBackground';

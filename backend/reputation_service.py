@@ -48,7 +48,7 @@ DATA_DIR.mkdir(exist_ok=True)
 STORE_PATH = DATA_DIR / 'reputation.json'
 
 # Solana RPC pool + retrying client live in chain_rpc.py (one module per job); imported here so every caller is unchanged.
-from chain_rpc import RPC_POOL, RPC_COOLDOWN_SECONDS, RPC_MAX_RETRIES, _alchemy, _dedicated, _rpc_cooldown_until, _next_rpc_endpoint, _rpc  # noqa: F401
+from chain_rpc import RPC_POOL, RPC_COOLDOWN_SECONDS, RPC_MAX_RETRIES, _alchemy, _dedicated, _rpc_cooldown_until, _next_rpc_endpoint, _rpc, broadcast as _rpc_broadcast  # noqa: F401
 
 RUG_LIQUIDITY_DROP_PCT = 80          # % drop from peak liquidity counted as a rug signal
 RUG_MIN_AGE_SECONDS = 60 * 30        # token must have existed >=30min to be eligible to be flagged
@@ -5256,8 +5256,13 @@ def _prime_real_cfg(pr=None):
         out = _prime.clean_cfg(rc)
         if 'instantSwapPct' not in rc:
             out['instantSwapPct'] = out['rotateMinDrop']
-        return {**out, 'paperFeeUsd': paper['paperFeeUsd']}
-    return {**paper, 'instantSwapPct': paper.get('rotateMinDrop', 0)}
+        return {**_prime.real_guard(out)[0], 'paperFeeUsd': paper['paperFeeUsd']}   # 💵 hard floors: real money is never churned
+    return _prime.real_guard({**paper, 'instantSwapPct': paper.get('rotateMinDrop', 0)})[0]
+
+
+def _real_weather():
+    """🌦 Runner weather for the real card, from the sim brain's last run (pg_sim.json)."""
+    return _prime.weather(_json_load(PG_SIM_PATH, {}))
 
 
 def _prime_cool_candidates(rows, cooling_mints, minimum, strict=False):
@@ -5408,6 +5413,8 @@ async def _prime_tick_inner(now):
             return _fuse._f(m.get('chg1h')) > 0 and bs >= 55
         p_t = [x for x in pools if _lq(x) >= floor_of(x)] or pools
         r_t = [x for x in runners if _lq(x) >= floor_of(x) and _confirmed(x)]
+        if real_t:   # 🌦 real money buys runners by the weather the engine's own sims measured (rain = strong + deep only · storm = none)
+            r_t = _prime.weather_runners(r_t, _real_weather()['level'], _fw.clean_cfg(fw_cfg)['minLiqUsd'], _lq)
         # 🪑 coins real money couldn't buy safely (2× in 10 min) are benched 1h for EVERY tier — paper never trades what real can't
         bench = set().union(*[_fw.benched(b, now) for b in (_fw_load().get('books') or {}).values()] or [set()])
         if bench:
@@ -5546,7 +5553,7 @@ async def _prime_view():
 @app.get('/api/reputation/fuses/prime')
 async def fuse_prime():
     """⭐ Arena Prime cards (paper, fully auto) with every automation event + the config they run."""
-    return {'cards': await _prime_view(), 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner')}
+    return {'cards': await _prime_view(), 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))})[1], 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner')}
 
 
 @app.post('/api/reputation/admin/arena/prime')
@@ -5880,10 +5887,12 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
         try:
             async with httpx.AsyncClient(timeout=15) as http:
                 await _rpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
+            _fw_raw_keep(sig, signed.get('signedTransaction'))   # 📡 passed simulation → re-sent to every node until it lands or expires
             break
         except Exception as e:
             msg = str(e)
             if 'simulation failed' not in msg.lower():
+                _fw_raw_keep(sig, signed.get('signedTransaction'))   # node trouble, not a bad tx → the other nodes still get it
                 print('fuse wallet send:', msg[:200]); break   # network trouble: the tx may still land → resolve decides
             # simulation failed = this tx can NEVER land → clear pending now (no 2-min wait), maybe retry with more slippage
             book = {**book, 'pending': None}
@@ -5921,6 +5930,28 @@ def _fw_notify(row):
                url='/terminal/hq?tab=fuse', push=False, once=once, meta={'claim': 'Keeper order', 'source': 'Fuse wallet audit trail'})
 
 
+_FW_RAW: dict = {}   # sig → (signed tx, kept at): in memory only, a blockhash lives ~90s
+
+
+def _fw_raw_keep(sig, raw):
+    now = time.time()
+    for k in [k for k, v in _FW_RAW.items() if now - v[1] > 180]:
+        _FW_RAW.pop(k, None)
+    if sig and raw:
+        _FW_RAW[sig] = (raw, now)
+
+
+async def _fw_rebroadcast(http, sig):
+    """📡 The perma-fix for "expired" buys / sells: the SAME signed tx goes to every RPC node again (one signature can only land once)."""
+    raw = (_FW_RAW.get(sig) or (None,))[0]
+    if not raw or os.environ.get('PYTEST_CURRENT_TEST'):
+        return 0
+    try:
+        return await _rpc_broadcast(http, raw)
+    except Exception:
+        return 0
+
+
 async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
     """Settle a sent order from the chain. RPC absence is never failure: keep the pending lock until the chain returns a
     transaction, so a delayed buy/sell cannot be submitted twice. Only validated confirmed balance changes mutate the book."""
@@ -5934,16 +5965,20 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
                 tx = await _rpc(http, 'getTransaction', [p['sig'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
             except Exception:
                 tx = None
-            if tx or wait <= 0:
+            if tx:
+                break
+            await _fw_rebroadcast(http, p['sig'])
+            if wait <= 0:
                 break
             await asyncio.sleep(2)
     if not tx:
-        failed = False
+        failed, chain_err = False, None
         try:
             async with httpx.AsyncClient(timeout=15) as http:
                 st = await _rpc(http, 'getSignatureStatuses', [[p['sig']], {'searchTransactionHistory': True}])
                 status = ((st or {}).get('value') or [None])[0]
                 failed = bool(status and status.get('err'))
+                chain_err = status.get('err') if failed else None
                 if not failed and p.get('lastValidBlockHeight') is not None:
                     height = await _rpc(http, 'getBlockHeight', [{'commitment': 'confirmed'}])
                     failed = int(height or 0) > int(p['lastValidBlockHeight'])
@@ -5952,13 +5987,17 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
         if not failed:
             return book   # unknown is not failed; retain the lock and retry the same signature next tick
         row = {k: v for k, v in p.items() if k != 'sentAt'}
-        row.update(status='failed', err='transaction expired or failed on-chain')
+        # two different problems, two different fixes: "expired" = never reached a block (landing) · "failed on-chain" = it ran and
+        # reverted (price moved past slippage) — the audit trail now says which
+        row.update(status='failed', err=f'failed on-chain: {str(chain_err)[:60]}' if chain_err else 'transaction expired — never landed')
+        _FW_RAW.pop(p.get('sig'), None)
         book = {**book, 'pending': None}
         async with _fw_lock:
             d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_record(d, row); _fw_save(d)
         _fw_notify(row)
         return book
     fill = _fw.fill_from_meta(tx, cfg['address'], p['mint']) if tx else None
+    _FW_RAW.pop(p.get('sig'), None)
     row = {k: v for k, v in p.items() if k != 'sentAt'}
     mismatch = _fw.fill_error(p, fill, book) if not ((tx.get('meta') or {}).get('err')) else ''
     if fill and not mismatch:
@@ -6291,7 +6330,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
 
 async def _circle_wallets_live():
     """Circle supplies token ids needed for sends; confirmed chain lamports supply the display truth for Solana wallets.
-    A Circle balance-endpoint error must never turn a funded wallet into an apparently empty wallet in Command Center."""
+    A Circle balance-endpoint error must never turn a funded wallet into an apparently empty wallet in HQ."""
     wallets = list((await _circle('GET', '/wallets')).get('wallets') or [])
     sol = [w for w in wallets if str(w.get('blockchain') or '').upper().startswith('SOL') and w.get('address')]
     if not sol:
@@ -7149,14 +7188,24 @@ async def _pg_sim_tick(now):
         return 0
     d = _json_load(PG_SIM_PATH, {})
     score = _pgs.learn(res)
+    was = _prime.weather(d)['level']
+    d['prevBest'] = d.get('best') or {}   # 🧷 the self-fix only moves a setting when the same value wins twice in a row
     d.update(at=now, summary=_pgs.summary(res), s24=_pgs.summary(res24), s6=_pgs.summary(res6), score=score, best=_pgs.best(score),
              history=((d.get('history') or []) + [{'at': now, **_pgs.summary(res)}])[-96:])
     _json_save(PG_SIM_PATH, d)
+    wx = _prime.weather(d)
+    if wx['level'] != was:   # 🌦 the real card's runner rule just changed → tell the owner once, in plain words
+        say = {'clear': '☀ Runner weather cleared — the real card may buy every gated runner again.',
+               'rain': f"🌧 Runner weather turned (sims {wx['avgPct']:+.1f}%) — the real card now buys only strong runners in deep pools.",
+               'storm': f"⛈ Runner storm (sims {wx['avgPct']:+.1f}%) — the real card buys no runners, new majors only, until it clears."}[wx['level']]
+        for w in _owner_wallets():
+            notify(w, 'fuse-card', say, url='/terminal/hq?tab=fuse', push=True, once=f"wx-{wx['level']}-{int(now // 3600)}",
+                   meta={'claim': 'Runner weather', 'source': f"{wx['n']} sim cards on real recorded prices"})
     await _engine_self_fix(now, d)
     return len(res)
 
 
-def _brain_patch(cfg, s24, best):
+def _brain_patch(cfg, s24, best, prev=None):
     """What the sim brain would change on ONE config (paper or the real card's own); {} when its 🧠 switch is off."""
     if not cfg.get('autoBrain', True):
         return {}
@@ -7169,7 +7218,10 @@ def _brain_patch(cfg, s24, best):
         b = best.get(trait)
         if b and b.get('n', 0) >= 30:
             v = max(floor_confirm, cast(b['value'])) if key == 'rotateConfirm' else cast(b['value'])
-            if v != cfg.get(key):
+            # 🧷 no flapping: a value is applied only when the SAME value won the previous sim run too (rotateConfirm went
+            # 3 → 4 → 3 → 4 every 30 min, rewriting the config and spamming every card's log)
+            steady = not prev or (prev.get(trait) or {}).get('value') == b['value']
+            if v != cfg.get(key) and steady:
                 patch[key] = v
     return patch
 
@@ -7184,8 +7236,9 @@ async def _engine_self_fix(now, sim):
         d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
         paper = _prime.clean_cfg(pr.get('cfg') or {})
         real = _prime.clean_cfg(pr['realCfg']) if isinstance(pr.get('realCfg'), dict) and pr.get('realCfg') else None
-        pp = _brain_patch(paper, s24, best)
-        rp = _brain_patch(real, s24, best) if real else {}
+        prev = sim.get('prevBest') or {}
+        pp = _brain_patch(paper, s24, best, prev)
+        rp = _brain_patch(real, s24, best, prev) if real else {}
         if not pp and not rp:
             return None
         if pp:
