@@ -1,3 +1,4 @@
+import '../../styles/hqNav.css';
 import { GuardPanel } from './GuardPanel';
 import { VaultDesigner } from './VaultDesigner';
 import { FuseBuilder } from './FuseBuilder';
@@ -60,6 +61,8 @@ const ROLE_TABS_FIRST = { moderator: 'mod', marketing: 'marketing' };
 export function HqDeck({ address, signMessage, onClose }) {
   const [session, setSession] = useState(() => readSession(address));
   const [tab, setTab] = useState('numbers');
+  const [grp, setGrp] = useState(null);   // which nav group is open; null = the group of the current tab
+  useEffect(() => { setGrp(null); }, [tab]);
   const [moneyView, setMoneyView] = useState('treasury');
   // Old tab ids (treasury, circle, reserve) and header shortcuts all land in the one Money tab, on the right section.
   const openTab = (t, pre) => { setPrefill(pre || null); if (['treasury', 'circle', 'reserve'].includes(t)) { setMoneyView(t); setTab('money'); } else setTab(t); };
@@ -125,7 +128,10 @@ export function HqDeck({ address, signMessage, onClose }) {
   const TABS = [['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['shield', '🛡 Bot shield', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fuse', '⚛️ Fuse', Award], ['nfts', 'NFTs', Gift], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="hq-shell">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">HQ</h2><small>{role && role !== 'owner' ? `🔑 ${role}` : '👑'} {shortAddress(address)} · session signed · live</small></div><TreasuryPulse call={call} onOpen={openTab} />
-      <nav className="cc-tabs" data-testid="cc-nav">{TAB_GROUPS.map(([group, ids]) => <div key={group} className="cc-tab-group"><small>{group}</small>{ids.filter(allowed).map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</div>)}</nav>
+      {/* two levels, one row each: pick a group, see only its tools (was four stacked rows of 30 buttons) */}
+      <nav className="cc-tabs cc-nav2" data-testid="cc-nav">{(() => { const groups = TAB_GROUPS.filter(g => g[1].some(allowed)); const cur = grp || (groups.find(g => g[1].includes(tab)) || groups[0] || [''])[0];
+        return <><div className="m-seg cc-groups" role="tablist" aria-label="HQ sections">{groups.map(([group, ids]) => <button key={group} type="button" role="tab" aria-selected={cur === group} className={cur === group ? 'active' : ''} onClick={() => setGrp(group)} data-testid={`cc-group-${group.toLowerCase()}`}>{group}<i className="m-num">{ids.filter(allowed).length}</i></button>)}</div>
+          <div className="cc-tab-group" key={cur}>{((groups.find(g => g[0] === cur) || [0, []])[1]).filter(allowed).map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</div></>; })()}</nav>
       <button type="button" className="cc-close" onClick={onClose} aria-label="Close HQ"><X size={16} /></button></header>
     {TAB_INFO[tab] && <div className="cc-tab-hero" key={tab} data-testid="cc-tab-hero"><div><small>{TAB_GROUPS.find(g => g[1].includes(tab))?.[0]?.toUpperCase()}</small><h3>{TAB_INFO[tab][0]}</h3><p>{TAB_INFO[tab][1]}</p></div>{TAB_INFO[tab][2].length > 0 && <div className="cc-tab-does">{TAB_INFO[tab][2].map(x => <span key={x}>{x}</span>)}</div>}</div>}
 

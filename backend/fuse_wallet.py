@@ -298,6 +298,8 @@ def apply_fill(book, order, fill, sol_px):
     elif order['side'] == 'buy' and sol_move < 0 and _f(b.get('manualCashSol')) > 0:
         b['manualCashSol'] = round(max(0.0, _f(b.get('manualCashSol')) - abs(sol_move)), 9)
     b['sol'] = round(_f(b.get('sol')) + sol_move, 9)
+    if b['sol'] < 0:   # a fee can't take card cash below zero (it read "−0.0001 card cash"): the shortfall is the reserve's, booked with rent
+        b['rentSol'] = round(_f(b.get('rentSol')) - b['sol'], 9); b['sol'] = 0.0
     if _f(b.get('manualCashSol')) > _f(b.get('sol')):
         b['manualCashSol'] = max(0.0, _f(b.get('sol')))
     b['feesSol'] = round(_f(b.get('feesSol')) + fill['feeSol'], 9)

@@ -3657,7 +3657,6 @@ body.theme-day [data-testid="swap-review-dialog"]{background:#fff!important}
 .cc-shell{--cc-line:rgba(22,214,127,.18);--cc-glow:0 0 0 1px rgba(22,214,127,.08),0 10px 40px rgba(0,0,0,.45)}
 .cc-tabs{display:flex;flex-wrap:wrap;gap:14px;padding:12px;border:1px solid var(--cc-line);border-radius:14px;background:linear-gradient(rgba(22,214,127,.03) 1px,transparent 1px) 0 0/100% 18px,#040806}
 .cc-tab-group{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
-.cc-tab-group>small{width:100%;font:700 9.5px 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:#19f58f;opacity:.7;margin:0 2px 2px}
 .cc-tabs button{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;border:1px solid transparent;font-size:12px;color:#9fc3ad;background:transparent;transition:background .15s,color .15s,border-color .15s}
 .cc-tabs button:hover{color:#eafff3;background:rgba(22,214,127,.06);border-color:var(--cc-line)}
 .cc-tabs button.active{color:#02140c;background:#19f58f;border-color:#19f58f;box-shadow:0 0 16px rgba(22,214,127,.35);font-weight:700}

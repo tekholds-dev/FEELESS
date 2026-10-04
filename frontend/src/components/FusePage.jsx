@@ -6,6 +6,7 @@ import { ShareGifButton } from './ShareGif';
 import { RiskDial, DialBoard } from './RiskDial';
 import { ArenaPrime, HqRealCards } from './ArenaPrime';
 import { ArenaContenders } from './ArenaContenders';
+import { FuseLanding } from './FuseLanding';
 import { CardEarnings } from './CardEarnings';
 import { PaperAudit, TrailSummary, CoinTable, CycleBuilder, usd as fmt$ } from './FuseMoney';
 import { CardRounds } from './CardRounds';
@@ -37,6 +38,7 @@ export function DnaHelix({ rungs = 10 }) {
 
 // One fun line per tab, so a first-timer knows what each one is for in 5 seconds.
 export const TAB_TIPS = {
+  home: '⚡ What a Fuse is, on one screen: a live card, its book on the back, and the four steps to make your own.',
   lab: '🧪 The kitchen: pick pools + runners, set your TP / SL and auto-profit, see every fee, then one tap fuses it all.',
   runners: '🏃 The scouting report: only coins that pass every gate show up — 🔔 bond runs light up box by box. Grab up to 3.',
   arena: '⚔ The battlefield: the hottest cards burn brightest, fight head-to-head every hour, and climb the weekly season. Beat FeeCat.',
@@ -50,7 +52,7 @@ export function FuseFx() {
     {Array.from({ length: 14 }, (_, i) => <b key={i} className="fz-spark" style={{ '--i': i }} />)}</div>;
 }
 
-export const FUSE_TABS = [['lab', '🧪 Lab'], ['runners', '🏃 Runners'], ['arena', '🏟 Arena'], ['cards', '🃏 My cards']];
+export const FUSE_TABS = [['home', '⚡ Fuse'], ['lab', '🧪 Lab'], ['runners', '🏃 Runners'], ['arena', '🏟 Arena'], ['cards', '🃏 My cards']];
 const m$ = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0) >= 1e3 ? `${(Math.abs(v) / 1e3).toFixed(1)}K` : Math.abs(v || 0).toFixed(2)}`;
 const pc = v => `${v >= 0 ? '+' : ''}${(v || 0).toFixed(1)}%`;
 // Watching row: graduated coins are never runners (pre-bond engine) → hidden; the rest say WHAT failed, in plain words.
@@ -60,7 +62,7 @@ const failWhy = g => FAIL_WHY[g] || (g ? `not: ${g.toLowerCase()}` : 'a gate');
 const MAX_RUNNERS = 3;
 const post = (path, body) => fetch(apiUrl(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   .then(async r => { const x = await r.json().catch(() => ({})); if (!r.ok) throw new Error(x.detail || 'Request failed'); return x; });
-const readTab = () => { const t = new URLSearchParams(window.location.search).get('tab'); return FUSE_TABS.some(([k]) => k === t) ? t : 'lab'; };
+const readTab = () => { const t = new URLSearchParams(window.location.search).get('tab'); return FUSE_TABS.some(([k]) => k === t) ? t : 'home'; };   // no ?tab = the landing stage
 
 export function useFuseLimits(addr) {
   const [lim, setLim] = useState(null);
@@ -83,6 +85,7 @@ export function FusePage() {
       <div className="m-seg fp-tabs" role="tablist" aria-label="Fuse">{FUSE_TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} data-testid={`fuse-tab-${k}`} onClick={() => go(k)}>{l}{k === 'runners' && runnerPicks.length ? ` · ${runnerPicks.length}` : ''}</button>)}</div></header>
     <p className="fp-tabtip" key={`tip-${tab}`} data-testid="fp-tabtip">{TAB_TIPS[tab]}</p>
     <div className="fp-body" key={tab}>
+      {tab === 'home' && <FuseLanding onGo={go} />}
       {tab === 'lab' && <div className="fz-split-view fp-lab"><FuseLab runnerPicks={runnerPicks} onRunnerPicks={setRunnerPicks} incoming={incoming} limits={limits} />
         <aside className="fp-right"><FeaturedFuses onLoad={f => setIncoming({ legs: f.legs, sol: 0, n: Date.now() })} /><FuseSide /></aside></div>}
       {tab === 'runners' && <RunnerPicker picks={runnerPicks} onPicks={setRunnerPicks} onDone={() => go('lab')} />}
@@ -147,8 +150,11 @@ export function RunnerPicker({ picks, onPicks, onDone }) {
 }
 
 // A full runner card looks exactly like a prebuilt card (FuseCard: tilt, ⟲ money-math back), then goes to the Lab to fuse in.
+// A runner's replay window is never "since launch": a coin under 1h old shows its last 5 minutes, older ones their last hour.
+// (A 20-minute-old coin's 1h change IS its launch pump — one card back read "+120,669% · $5 → $1,514".)
+export const runnerReplay = p => { const young = p.ageH != null && p.ageH < 1; const move = Number(young ? p.chg5m : p.chg1h) || 0; return { change24h: move, replayPct: move, replayH: young ? 5 / 60 : 1 }; };
 export const runnerLegs = picks => picks.map(p => ({ chainId: 'solana', pairAddress: p.pairAddress || p.mint, symbol: p.symbol, baseAddress: p.mint, logo: p.logo,
-  weight: Math.round(10000 / picks.length) / 100, change24h: p.chg1h || 0, liquidityUsd: p.liq || 0 }));
+  weight: Math.round(10000 / picks.length) / 100, liquidityUsd: p.liq || 0, ...runnerReplay(p) }));
 export function RunnerCardFull({ picks, onDone }) {
   const legs = runnerLegs(picks); const score = Math.round(picks.reduce((a, p) => a + (p.score || 0), 0) / picks.length);
   return <div className="fp-full m-card m-live" data-testid="runner-card-full">

@@ -856,3 +856,10 @@ def test_resting_after_a_floor_is_the_owners_switch_and_off_by_default():
     on = ap.summary(card, {}, ap.clean_cfg({'floorRestMins': 30}))
     assert off['resting'] is False and off['nextRoundAt'] == 1060.0      # no rest set → re-deal on the next tick
     assert on['resting'] is True and on['nextRoundAt'] == 1000.0 + 1800
+
+
+def test_anchors_cool_like_every_coin_and_rescue_off_ends_a_running_fix():
+    before = {'legs': [{'mint': 'btc', 'symbol': 'cbBTC', 'role': 'anchor', 'pairAddress': 'Pbtc', 'entry': 1.0}, {'mint': 'sol', 'symbol': 'SOL', 'role': 'anchor', 'pairAddress': 'Psol', 'entry': 1.0}]}
+    after = ap.note_dropped(before, {'legs': []}, 1000.0, 0.08, {'Pbtc': 0.99})
+    assert 'btc' in after['cool'] and 'sol' not in after['cool']          # a sold major sits out · SOL is the card's cash, never "dropped"
+    assert 'btc' in ap.cooling(after, 1000.0 + 600, 0.08) and 'btc' not in ap.cooling({'cool': {'btc': {'at': 1000.0}}}, 1000.0 + 1000, 0.08)

@@ -225,7 +225,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 
 ## Fuse 🧬 page (BUILT)
 - Sidebar `['fuse', 'Fuse 🧬']` (Audiowide via `.nav-fuse`) → `FusePage.jsx` (+ `styles/fusePage.css`), sub-tabs `?tab=`
-  lab | runners | arena | cards. Runner picks (≤3, `togglePick`) and "Load" (Featured) carry into the Lab. Trade page shows a
+  home (landing, the default) | lab | runners | arena | cards. Runner picks (≤3, `togglePick`) and "Load" (Featured) carry into the Lab. Trade page shows a
   "Fuse 🧬 →" banner instead of the old Fuse/Runners tabs.
 - My cards = `LiveFuseCard` + actions: 💰 take profit (legs + 25/33/50/100%) · 💸 auto-collect · ⚖ rebalance (+ auto-rebalance
   alerts) · ⇄ switch (sell a leg + buy a mint, one approval) · 🎯 limits · ↩ withdraw. Alert links: `?tab=cards&collect=<id>&pct=`,
@@ -707,6 +707,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   signed and every admin / money route still needs a real signed session. Use it to look at My cards before changing its layout. HQ
   itself stays behind the signed `whoami` check — never add a preview for it.
 - My cards real-card header = `hrt-hero` (round bell · IN CARD NOW · ALL-TIME · VS SOL) + one `hrt-line` of details. Never nine equal tiles.
+
+- ⚡ Fuse landing (`FuseLanding.jsx` + `styles/fuseLanding.css` `fld-*`, tab `home`, the default with no `?tab`): dark stage → spotlight
+  (`is-lit` after 350ms) → the best live tier card spins 180° up to full size; front = card, back = its live book (tap / Enter flips);
+  four floating notes; ONE row of four steps below. Every number is live (`usePrime` + shared `useLivePrices`), labelled 📄 paper or
+  💵 real; it never promises a result. The stage and card stay dark in day theme (art).
+- HQ nav = two levels (`cc-nav2`, `styles/hqNav.css`): a group bar (Core · Growth · Community · Safety) then only that group's tools.
+- 🛟 Rescue OFF (`rescuePct` 0) = the card keeps ITS config: a running safe / rescue fix ends on the next tick and no losing-streak fix
+  is armed. 🧊 Anchors cool like every coin (a sold major sits out 3 rounds while another major exists; SOL never "drops").
+  Card cash can't go below 0 (a fee shortfall is booked to the reserve). The Gauntlet's pool divisions join the engine's candidate pools.
+- Runner replays (`runnerReplay`): < 1h old → last 5 min, else last hour — never since launch ("+120,669% · $5 → $1,514" was a launch pump).
 
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,

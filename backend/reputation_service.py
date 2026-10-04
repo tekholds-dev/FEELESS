@@ -5282,6 +5282,17 @@ async def _prime_candidates():
     pools = sorted(({'mint': m.get('baseAddress'), 'pairAddress': pa, 'symbol': m.get('symbol'), 'price': m.get('priceUsd'),
                      'liquidityUsd': m.get('liquidityUsd'), 'volume24h': m.get('volume24h'), 'rank': min(400.0, _fuse._f(m.get('aprEst'))) * math.log10(max(10.0, _fuse._f(m.get('liquidityUsd'))))} for pa, m in metas.items()
                     if m.get('baseAddress') and _fuse._f(m.get('priceUsd')) > 0 and _fuse._f(m.get('liquidityUsd')) >= 100_000), key=lambda x: -x['rank'])
+    # 🏁 every coin the site already ranks is a candidate: the Gauntlet's pool divisions (popular · top yield · deepest · new 72h, built
+    # from the same feeds as the Lab, Trenches and Pump radar) join the gene pool — from the warm cache, never a new fetch
+    seen_p = {x['mint'] for x in pools}
+    for dv in ((_contenders_cache.get('data') or {}).get('divisions') or []):
+        if dv.get('role') != 'pool':
+            continue
+        for r in dv.get('rows') or []:
+            if r.get('mint') and r['mint'] not in seen_p and _fuse._f(r.get('liq')) >= 100_000 and _fuse._f(r.get('price')) > 0:
+                seen_p.add(r['mint'])
+                pools.append({'mint': r['mint'], 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'price': r['price'], 'liquidityUsd': r['liq'],
+                              'volume24h': r.get('vol24h'), 'rank': _fuse._f(r.get('score')), 'contender': dv['key']})
     live = await _runner_live()
     # runners = pre-bond coins passing every gate + CLEAN GRADUATED young coins (<48h, failing ONLY the pre-bond gate)
     young = list(live.get('passing') or []) + [r for r in live.get('dropped') or [] if r.get('gates') == ['Pre-bond (still on the curve)']]
@@ -5473,12 +5484,15 @@ async def _prime_tick_inner(now):
         mine = {l.get('mint') for l in (cur or {}).get('legs') or []}
         p_t = [x for x in p_t if x.get('mint') not in taken or x.get('mint') in mine]
         r_t = [x for x in r_t if x.get('mint') not in taken or x.get('mint') in mine]
+        a_t = anchors
         cool = _prime.cooling(cur, now, cfg_t['rotateHours'], px) - mine   # 🧊 coins this card just dropped sit out a few rounds → new coins flow in
         if cool:
             # 💵 A real stop must stay stopped. Falling back to the unfiltered
             # list when discovery was thin caused sell→immediate-rebuy churn.
             p_t = _prime_cool_candidates(p_t, cool, 2, strict=real_t)
             r_t = _prime_cool_candidates(r_t, cool, 3, strict=real_t)
+        # 🧊 anchors cool too: a major this card just sold isn't bought back for 3 rounds while another major is available
+        a_t = _prime_cool_candidates(anchors, cool, 2) if cool else anchors
         true_usd = None
         if real_t:   # 💵 floor / rescue / fix / runs judge the TRUE book (confirmed coins + card SOL), never the engine's estimate
             bk = (_fw_load().get('books') or {}).get(tid)
@@ -5488,7 +5502,7 @@ async def _prime_tick_inner(now):
                 sol_px_t = 0.0
             if bk and sol_px_t > 0 and not bk.get('pending'):
                 true_usd = _fw.book_value(bk, px, sol_px_t) or None
-        cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, anchors, mom, liqs, true_usd=true_usd) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, anchors)
+        cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, a_t, mom, liqs, true_usd=true_usd) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, anchors)
         cards[tid] = _prime.note_dropped(cur, cards[tid], now, cfg_t['rotateHours'], px)
         taken |= {l.get('mint') for l in (cards[tid] or {}).get('legs') or [] if l.get('role') != 'anchor'}
     cards = {k: v for k, v in cards.items() if v}

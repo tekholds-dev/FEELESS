@@ -1,0 +1,11 @@
+/* HQ nav, two levels (cc-nav2): a group bar, then that group's tools in one row. */
+.cc-nav2 { flex-direction: column; flex-wrap: nowrap; gap: 8px; align-items: stretch; }
+.cc-groups { align-self: flex-start; }
+.cc-groups > button { display: inline-flex; align-items: center; gap: 6px; }
+.cc-groups > button i { font-style: normal; font-size: 10px; padding: 1px 6px; border-radius: 999px; background: color-mix(in srgb, currentColor 16%, transparent); }
+.cc-nav2 .cc-tab-group { animation: hqNavIn .18s ease both; }
+@keyframes hqNavIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+body.fx-lite .cc-nav2 .cc-tab-group { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cc-nav2 .cc-tab-group { animation: none; } }
+body.theme-day .cc-groups > button i { background: #0001; }
+@media (max-width: 640px) { .cc-groups { align-self: stretch; overflow-x: auto; flex-wrap: nowrap; } }

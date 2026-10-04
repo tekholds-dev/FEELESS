@@ -41,7 +41,7 @@ const DISCOVER = { runners: PICKS.map((p, i) => ({ ...p, sources: i ? [{ kind: '
   counts: { arena: 1, pump: 4 }, sources: SRC, nextRoundAt: 9e9, gates: ['a', 'b', 'c'], swaps: RUNNERS.round.swaps };
 
 beforeEach(() => {
-  window.history.replaceState(null, '', '/terminal/fuse');
+  window.history.replaceState(null, '', '/terminal/fuse?tab=lab');
   global.fetch = jest.fn(async url => ({ ok: true, json: async () => (String(url).includes('/runners/discover') ? DISCOVER : String(url).includes('/runners') ? RUNNERS : String(url).includes('/fuses/arena') ? ARENA : String(url).includes('/fuses/season') ? SEASON : String(url).includes('/fuses/pnl') ? { pnlUsd: 50, pnlPct: 50, valueUsd: 150, rows: [ROW] }
     : String(url).includes('/balance/') ? { raw: '10000000000', decimals: 9 } : String(url).includes('/limits/') ? { open: 1, max: 2, canOpen: true } : { fuses: [] }) }));
 });
@@ -262,4 +262,14 @@ test('The Throne: one card reigns, the dethroned line up behind it with who knoc
   expect(host.querySelector('.th-who').textContent).toContain('NewKing'); expect(host.querySelector('.th-who').textContent).toContain('reigning 1h 0m'); expect(host.querySelector('.th-king .th-volt')).toBeTruthy();
   expect(host.querySelector('.th-fallen').textContent).toContain('OldKing'); expect(host.querySelector('.th-fallen').textContent).toContain('knocked off by 🔥 NewKing');
   act(() => host.querySelector('[data-testid="buy-champ"]').click()); expect(onBuy).toHaveBeenCalled();
+});
+
+
+test('runner replay is never since-launch: under 1h old uses the last 5 minutes, older coins the last hour', () => {
+  const { runnerReplay, runnerLegs } = require('./FusePage');
+  expect(runnerReplay({ ageH: 0.3, chg1h: 120669, chg5m: 4 })).toEqual({ change24h: 4, replayPct: 4, replayH: 5 / 60 });
+  expect(runnerReplay({ ageH: 20, chg1h: 12, chg5m: 1 })).toMatchObject({ replayPct: 12, replayH: 1 });
+  const { cardMath } = jest.requireActual('./FuseCard');
+  const m = cardMath({ parts: { feeDragPct: 0 }, legs: runnerLegs([{ mint: 'a', symbol: 'A', ageH: 0.3, chg1h: 120669, chg5m: 4 }]) }, 5);
+  expect(m.end).toBeCloseTo(5.2);                                  // $5 → $5.20, not $5 → $6,038
 });

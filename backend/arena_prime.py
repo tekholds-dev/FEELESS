@@ -148,7 +148,7 @@ def note_dropped(before, after, now, rotate_hours, prices=None):
     cool = {m: _stamp(v) for m, v in (after.get('cool') or {}).items()}
     cool = {m: v for m, v in cool.items() if now - _f(v.get('at')) < (LOSS_COOL_SEC if v.get('loss') else keep)}
     for l in (before or {}).get('legs') or []:
-        if l.get('role') == 'anchor' or l['mint'] in held:
+        if l['mint'] in held or l.get('symbol') == 'SOL':   # anchors cool too (cbBTC was sold and re-bought 3× in 30 min by re-shapes); SOL is the card's cash
             continue
         px = _f((prices or {}).get(l.get('pairAddress'))) or _f(l.get('entry'))
         cool[l['mint']] = {'at': now, 'px': px, 'pair': l.get('pairAddress'), 'loss': bool(_f(l.get('entry')) > 0 and px < _f(l['entry']))}
@@ -721,13 +721,14 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             if int(l.get('freezeRounds') or 0) > 0:
                 l['freezeRounds'] = int(l['freezeRounds']) - 1
         lr = _f(c['lastRoundPct']); st = int(c.get('streak') or 0)
+        auto_fix = _f(cfg.get('rescuePct', RESCUE_PCT)) != 0   # 🛟 Rescue OFF = the card keeps ITS config: no rescue cycle, no losing-streak safe fix
         st = (st + 1 if st >= 0 else 1) if lr >= STREAK_PCT else (st - 1 if st <= 0 else -1) if lr <= -STREAK_PCT else st   # noise keeps the streak as is
         if int(c.get('lockRounds') or 0) > 0:   # only a real win-lock counts down (✋ hold all has no counter)
             c['lockRounds'] = int(c['lockRounds']) - 1
         if c.get('cycleFix') == 'safe' and int(c.get('rounds') or 0) >= int(c.get('fixUntil') or 0):
             c.pop('cycleFix', None); st = 0   # the safe fix lasts SAFE_FIX_ROUNDS, then the card goes back to its own cycle (never re-armed the same round)
             ev(kind='streak', why=f'safe fix done — back to its own cycle')
-        if st <= -STREAK:
+        if st <= -STREAK and auto_fix:
             c['cycleFix'] = 'safe'; c['fixUntil'] = int(c.get('rounds') or 0) + SAFE_FIX_ROUNDS; st = 0
             ev(kind='streak', why=f'{STREAK} losing rounds in a row — config changed: safe cycle (majors-heavy)')
         elif st >= STREAK:
@@ -745,6 +746,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             ev(kind='run', usd=round(v_now, 4), why=f'{n_run} rounds done — run closed on the record, a new run starts at ${v_now:.2f}')
     # 3b) 🔄 phase cycle: a cycling tier re-deals into the next phase shape every round (same run, P&L continues)
     rp = -_f(cfg.get('rescuePct', -RESCUE_PCT))
+    if rp == 0 and c.get('cycleFix'):   # the owner switched rescue off while a fix was running → it ends NOW (it used to stay on for good)
+        ev(kind='streak', why=f"rescue is off — {c['cycleFix']} fix ended, back to the card's own cycle")
+        c.pop('cycleFix', None); c.pop('fixUntil', None)
     if rp < 0 and not c.get('cycleFix') == 'rescue' and (V() / (_f(c['startUsd']) or 1) - 1) * 100 <= rp:
         c['cycleFix'] = 'rescue'   # 🛟 fell rescuePct% under its start → safest ⇄ breakeven until a new run
         ev(kind='rescue', why=f'card ≤ {rp:.0f}% of its start — 🛟 rescue cycle: safest run ⇄ breakeven runners')
