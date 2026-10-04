@@ -6192,6 +6192,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None):
     ledger_paid = sum(max(0.0, _fuse._f(o.get('payoutUsd'))) for o in d.get('ledger') or [] if o.get('card') == tid and o.get('status') == 'filled' and o.get('side') == 'sell')
     paid_ever = round(max(_fuse._f(card.get('walletUsd')), _fuse._f(b.get('payoutSeenUsd')), ledger_paid, _fuse._f(b.get('manualProfitPaidUsd'))), 4)
     profit_available = _fw.profit_available(b, equity_usd, sol_px) if equity_usd is not None and sol_px else 0.0
+    payout_cash = min(profit_available, max(0.0, _fuse._f(b.get('sol')) - _fuse._f(b.get('manualCashSol'))) * _fuse._f(sol_px)) if sol_px else 0.0
     recoverable = []
     bal = _FW_BAL.get('bal') if _FW_BAL.get('addr') == cfg.get('address') else None
     if bal and bal.get('source') != 'circle':
@@ -6211,7 +6212,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None):
                                 'lastStatus': last.get('status'), 'lastErr': (last.get('err') or '')[:90], 'lastAt': last.get('at')})
     return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4),
             'paidOutEverUsd': paid_ever, 'paidOutSol': round(_fuse._f(b.get('bankSol')), 9),
-            'profitAvailableUsd': round(profit_available, 4), 'recoverable': recoverable,
+            'profitAvailableUsd': round(profit_available, 4), 'profitCashAvailableUsd': round(payout_cash, 4), 'recoverable': recoverable,
             'wallet': cfg['address'], 'keeper': keeper,
             'orders': [{k: o.get(k) for k in ('side', 'symbol', 'usd', 'proceedsUsd', 'realizedPnlUsd', 'sol', 'px', 'sig', 'at', 'status', 'feeUsd', 'why', 'costUsd')} for o in rows], **_fw.totals(d['ledger'], tid)}
 
