@@ -105,10 +105,11 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
         atoms = int(l['atoms']) if frac >= 1 else int(int(l['atoms']) * frac)
         if atoms <= 0:
             continue
+        manual_cash = bool(l.get('manualCash') or (tgt.get(mint) or {}).get('manualCash'))
         sells.append({'id': f"{card_id}:{now:.0f}:s:{mint[:6]}", 'card': card_id, 'side': 'sell', 'mint': mint, 'pair': l.get('pair'), 'symbol': l.get('symbol'),
                       'atoms': atoms, 'decimals': int(l.get('decimals') or 0), 'usd': round(min(usd, cfg['maxSwapUsd']), 4), 'midPx': px, 'at': now,
-                      'why': 'sold by owner to card cash' if full and (tgt.get(mint) or {}).get('manualCash') else 'not on the card any more' if full else 'trimmed to the card',
-                      **({'manualCash': True} if full and (tgt.get(mint) or {}).get('manualCash') else {})})
+                      'why': 'sold by owner to card cash' if manual_cash else 'not on the card any more' if full else 'trimmed to the card',
+                      **({'manualCash': True} if manual_cash else {})})
     # `count_sells` = plan view only: the keeper's BUY pass runs after its sells landed (or were refused) and must spend only SOL the
     # book really holds — counting a refused sell's proceeds once let a buy spend SOL the card never had (book SOL went negative)
     sol_free = _f(book.get('sol')) - anchor_sol(tgt) + (sum(o['usd'] for o in sells) / sol_px * 0.97 if count_sells else 0.0) if sol_px > 0 else 0.0
