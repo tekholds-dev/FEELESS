@@ -480,3 +480,45 @@ def test_arena_coins_have_their_own_real_buy_floor():
     card = {'legs': [{'mint': 'M1', 'pairAddress': 'p1', 'symbol': 'ARN', 'role': 'runner', 'entry': 1.0, 'units': 2.0, 'arena': True}]}
     tgt = fw.target(card, {'p1': 1.0})
     assert tgt['M1']['arena'] is True
+
+
+def test_empty_real_slot_can_recover_from_overweight_unprotected_anchor_without_external_money():
+    card = {'rounds': 8, 'rebuyRound': 7, 'rebuyAt': 0, 'legs': [
+        {'mint': 'BTC', 'pairAddress': 'PBTC', 'symbol': 'cbBTC', 'role': 'anchor', 'units': 2.25, 'costUsd': 2.25, 'entry': 1.0},
+        {'mint': 'RUN', 'pairAddress': 'PRUN', 'symbol': 'RUN', 'role': 'runner', 'units': 0.0, 'costUsd': 0.0, 'entry': 1.0},
+        {'mint': 'WIN', 'pairAddress': 'PWIN', 'symbol': 'WIN', 'role': 'runner', 'units': 1.5, 'costUsd': 1.5, 'entry': 1.0, 'ride': True},
+        {'mint': 'KEEP', 'pairAddress': 'PKEEP', 'symbol': 'KEEP', 'role': 'runner', 'units': 0.45, 'costUsd': 0.45, 'entry': 1.0, 'frozen': True},
+    ]}
+    book = {'sol': 0.0, 'bankSol': 0.019, 'bankUsd': 1.90, 'fundedUsd': 6.0, 'legs': {
+        'BTC': {'atoms': 2250000, 'decimals': 6, 'pair': 'PBTC', 'symbol': 'cbBTC', 'costUsd': 2.25, 'entryPx': 1.0},
+        'WIN': {'atoms': 1500000, 'decimals': 6, 'pair': 'PWIN', 'symbol': 'WIN', 'costUsd': 1.5, 'entryPx': 1.0},
+        'KEEP': {'atoms': 450000, 'decimals': 6, 'pair': 'PKEEP', 'symbol': 'KEEP', 'costUsd': 0.45, 'entryPx': 1.0},
+    }}
+    prices = {'PBTC': 1.0, 'PRUN': 1.0, 'PWIN': 1.0, 'PKEEP': 1.0}
+    out = fw.sync_card(card, book, prices, 100.0)
+    run = next(l for l in out['legs'] if l['mint'] == 'RUN')
+    btc = next(l for l in out['legs'] if l['mint'] == 'BTC')
+    win = next(l for l in out['legs'] if l['mint'] == 'WIN')
+    keep = next(l for l in out['legs'] if l['mint'] == 'KEEP')
+    assert run['buying'] and run['wantUnits'] > 0
+    assert btc['units'] < 2.25
+    assert win['units'] == 1.5 and keep['units'] == 0.45
+    assert book['bankSol'] == 0.019 and out['cash'] == 0.0
+    planned = fw.orders('prime-safe', out, book, prices, 100.0, {**fw.DEFAULT_CFG, 'armed': True, 'walletId': 'w', 'address': 'a'}, 10)
+    assert planned and planned[0]['side'] == 'sell' and planned[0]['mint'] == 'BTC'
+    assert not [o for o in planned if o['side'] == 'buy']  # no confirmed sell proceeds yet = no buy can spend them
+
+
+def test_empty_slot_repair_never_trims_frozen_or_riding_anchor():
+    for flag in ('frozen', 'ride'):
+        card = {'rounds': 8, 'rebuyRound': 7, 'rebuyAt': 0, 'legs': [
+            {'mint': 'BTC', 'pairAddress': 'PBTC', 'symbol': 'cbBTC', 'role': 'anchor', 'units': 2.0, 'costUsd': 2.0, 'entry': 1.0, flag: True},
+            {'mint': 'RUN', 'pairAddress': 'PRUN', 'symbol': 'RUN', 'role': 'runner', 'units': 0.0, 'costUsd': 0.0, 'entry': 1.0},
+        ]}
+        book = {'sol': 0.0, 'bankSol': 0.02, 'bankUsd': 2.0, 'fundedUsd': 4.0, 'legs': {
+            'BTC': {'atoms': 2000000, 'decimals': 6, 'pair': 'PBTC', 'symbol': 'cbBTC', 'costUsd': 2.0, 'entryPx': 1.0},
+        }}
+        out = fw.sync_card(card, book, {'PBTC': 1.0, 'PRUN': 1.0}, 100.0)
+        run = next(l for l in out['legs'] if l['mint'] == 'RUN')
+        btc = next(l for l in out['legs'] if l['mint'] == 'BTC')
+        assert not run['buying'] and btc['units'] == 2.0 and book['bankSol'] == 0.02
