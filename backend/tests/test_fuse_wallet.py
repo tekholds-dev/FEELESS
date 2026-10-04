@@ -537,3 +537,19 @@ def test_empty_slot_repair_never_trims_frozen_or_riding_anchor():
         run = next(l for l in out['legs'] if l['mint'] == 'RUN')
         btc = next(l for l in out['legs'] if l['mint'] == 'BTC')
         assert not run['buying'] and btc['units'] == 2.0 and book['bankSol'] == 0.02
+
+
+def test_reinvested_payout_is_not_banked_again_from_same_cumulative_target():
+    book = {'sol': 0.03, 'bankSol': 0.0, 'bankUsd': 0.0, 'fundedUsd': 6.0, 'legs': {}}
+    paid = fw.bank(book, 1.90, 100.0)
+    assert paid['bankSol'] == 0.019 and paid['payoutSeenUsd'] == 1.90
+    reinvested, moved = fw.reinvest_bank(paid)
+    assert moved == 0.019 and reinvested['bankSol'] == 0.0 and reinvested['bankUsd'] == 0.0
+    assert reinvested['fundedUsd'] == 6.0 and reinvested['payoutSeenUsd'] == 1.90
+    again = fw.bank(reinvested, 1.90, 100.0)
+    assert again['bankSol'] == 0.0
+    assert again['sol'] == reinvested['sol']
+    # Only a genuinely NEW cumulative payout delta may be segregated after reinvest.
+    newer = fw.bank(again, 2.10, 100.0)
+    assert round(newer['bankUsd'], 2) == 0.20
+    assert round(newer['payoutSeenUsd'], 2) == 2.10
