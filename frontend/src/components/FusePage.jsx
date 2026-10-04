@@ -223,6 +223,17 @@ export function BondMeter({ checks }) {
 export const TIER_FX = { calm: { aura: 'aurora', embers: 3 }, warm: { aura: 'sparkle', embers: 6 }, hot: { aura: 'fire', embers: 10 }, blazing: { aura: 'lightning', embers: 16 } };
 export const stageTier = cards => (cards || []).reduce((top, c) => (['calm', 'warm', 'hot', 'blazing'].indexOf(c.activity?.tier) > ['calm', 'warm', 'hot', 'blazing'].indexOf(top) ? c.activity.tier : top), 'calm');
 
+// 🏟 Arena zones: [key, name, what happens there]. One zone on screen at a time; `?zone=` deep-links it (old links land on the first).
+export const ARENA_ZONES = [
+  ['prime', '👑 Prime League', "FEELESS's own tier cards, fully automatic — one runs on real money"],
+  ['gauntlet', '🏁 The Gauntlet', 'Eight divisions of coins ranked live, fighting for the next card seat'],
+  ['pit', '⚔ The Pit', 'Cards fight head to head every round; two losses and you are out'],
+  ['crown', '🏆 Crown Race', "This week's season: real P&L decides the crown"],
+  ['stage', '🏟 Main Stage', "Cards that made it, plus the Creator's Cut"],
+  ['proving', '🧪 Proving Ground', 'Runner rounds, dial proof and strategies — where the engine earns its record'],
+];
+export const arenaZone = search => { const z = new URLSearchParams(search || '').get('zone'); return z === 'all' || ARENA_ZONES.some(x => x[0] === z) ? z : 'prime'; };
+
 export function ArenaBoard({ onPicks, onLoad }) {
   const [a, setA] = useState(null);
   const [chat, setChat] = useState(null);
@@ -231,40 +242,46 @@ export function ArenaBoard({ onPicks, onLoad }) {
     load(); const t = setInterval(() => !document.hidden && load(), 30000); return () => { alive = false; clearInterval(t); }; }, []);
   const mega = a?.mega || [];
   const top = stageTier(mega);
-  // Arena flow: ⭐ top-tier cards → ⚔ battlefield (bracket) → 🏆 Fuse season → 🏟 cards that made it + 🎨 creator's pick → the rest
+  const [zone, setZoneRaw] = useState(() => arenaZone(typeof window !== 'undefined' ? window.location.search : ''));
+  const setZone = z => { setZoneRaw(z); try { const u = new URL(window.location.href); u.searchParams.set('zone', z); window.history.replaceState(null, '', u); } catch { /* no history */ } };
+  // Arena = ZONES, one at a time (never one long scroll): 👑 Prime League · 🏁 The Gauntlet · ⚔ The Pit · 🏆 Crown Race · 🏟 Main Stage · 🧪 Proving Ground
+  const on = z => zone === z || zone === 'all';
+  const counts = { pit: a?.battles?.pairs?.length || 0, stage: mega.length + (a?.bench?.length || 0) };
+  const megaCard = (c, i) => <MegaCard key={`${c.kind}-${c.id}`} c={c} i={i} onPicks={onPicks} onLoad={onLoad} chatOpen={chat?.id === c.id} onChat={() => setChat(x => (x?.id === c.id ? null : c))} onReplay={() => setReplay(x => (x?.id === c.id ? null : c))} />;
   return <section className={`fp-arena ar-tier-${top}`} data-testid="fuse-arena"><ArenaGuide />
-    <nav className="ar-jump" aria-label="Arena sections">{[['ar-tiers', '⭐ Tier cards'], ['ar-contenders', '🏁 Contenders'], ['ar-battle', '⚔ Battlefield'], ['ar-season', '🏆 Season'], ['ar-stage', '🏟 Stage'], ['ar-bench', "🎨 Creator's pick"]].map(([id, l]) =>
-      <button key={id} type="button" className="m-btn" onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>{l}</button>)}</nav>
-    <div id="ar-tiers" /><ArenaPrime onLoad={legs => onLoad?.(legs)} />
-    <div id="ar-contenders" /><ArenaContenders />
-    <div className="ar-sky" aria-hidden="true">{Array.from({ length: TIER_FX[top].embers + 6 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</div>
-    <div id="ar-battle" />{a?.battles?.pairs?.length > 0 && <Battlefield b={a.battles} cards={[...mega, ...(a.bench || []), ...(a.fighters || [])]} onLoad={onLoad} />}
-    <div id="ar-season" /><FuseSeason />
-    <header id="ar-stage" className="ar-head m-card m-live"><span className="m-label">🏟 ARENA STAGE · LIVE</span><h2>Cards that made it.</h2>
-      <p className="m-dim">FEELESS cards, runner cards that lit after their rounds, and every trader's open card until it's withdrawn — every one fights in the bracket above. The more real activity a card has (FEELESS buys, buyers, $ flow, how far it moved) the hotter it burns.</p>
+    <nav className="m-seg az-bar" role="tablist" aria-label="Arena zones">{ARENA_ZONES.map(([k, label, tip]) =>
+      <button key={k} type="button" role="tab" aria-selected={zone === k} className={zone === k ? 'active' : ''} data-tip={tip} onClick={() => setZone(k)} data-testid={`az-${k}`}>{label}{counts[k] > 0 && <i className="m-num">{counts[k]}</i>}</button>)}</nav>
+    <div key={zone} className="az-pane" data-testid={`az-pane-${zone}`}>
+    {on('prime') && <ArenaPrime onLoad={legs => onLoad?.(legs)} />}
+    {on('gauntlet') && <ArenaContenders />}
+    {(on('pit') || on('stage')) && <div className="ar-sky" aria-hidden="true">{Array.from({ length: TIER_FX[top].embers + 6 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</div>}
+    {on('pit') && (a?.battles?.pairs?.length > 0 ? <Battlefield b={a.battles} cards={[...mega, ...(a.bench || []), ...(a.fighters || [])]} onLoad={onLoad} />
+      : a && <p className="m-dim ar-none">The Pit is between fights — the next bell pairs the hottest cards.</p>)}
+    {on('crown') && <FuseSeason />}
+    {on('stage') && <><header className="ar-head m-card m-live"><span className="m-label">🏟 MAIN STAGE · LIVE</span><h2>Cards that made it.</h2>
+      <p className="m-dim">FEELESS cards, runner cards that lit after their rounds, and every trader's open card until it's withdrawn — every one fights in The Pit. The more real activity a card has (FEELESS buys, buyers, $ flow, how far it moved) the hotter it burns.</p>
       <div className="ar-legend">{Object.keys(TIER_FX).map(k => <span key={k} className={`ar-chip t-${k}`}>{k}</span>)}</div></header>
     {!a ? <div className="ar-stage">{[0, 1, 2].map(i => <div key={i} className="frail-ghost" />)}</div>
       : !mega.length ? <p className="m-dim ar-none">No card on stage yet — a runner round that lights up lands here, and FEELESS stages its own cards here.</p>
-      : <div className="ar-stage" data-testid="arena-stage">{mega.map((c, i) => <MegaCard key={`${c.kind}-${c.id}`} c={c} i={i} onPicks={onPicks} onLoad={onLoad} chatOpen={chat?.id === c.id} onChat={() => setChat(x => (x?.id === c.id ? null : c))}
-        onReplay={() => setReplay(x => (x?.id === c.id ? null : c))} />)}</div>}
-    {a?.bench?.length > 0 && <section id="ar-bench" className="ar-bench" data-testid="arena-bench"><header className="m-row"><span className="m-label">🎨 CREATOR'S PICK · ENGINE CARDS</span>
-      <small className="m-dim">hand-picked by FEELESS from the engine playground, with their configs · they fight in the bracket like every card that made it</small></header>
-      <div className="ar-stage is-bench">{a.bench.map((c, i) => <MegaCard key={`${c.kind}-${c.id}`} c={c} i={i} onPicks={onPicks} onLoad={onLoad} chatOpen={chat?.id === c.id} onChat={() => setChat(x => (x?.id === c.id ? null : c))}
-        onReplay={() => setReplay(x => (x?.id === c.id ? null : c))} />)}</div></section>}
-    {a?.dials && <DialBoard dials={a.dials} />}
-    {replay && <CardReplay c={replay} onClose={() => setReplay(null)} />}
-    {chat && <CardChat c={chat} onClose={() => setChat(null)} />}
+      : <div className="ar-stage" data-testid="arena-stage">{mega.map(megaCard)}</div>}
+    {a?.bench?.length > 0 && <section className="ar-bench" data-testid="arena-bench"><header className="m-row"><span className="m-label">🎨 CREATOR'S CUT · ENGINE CARDS</span>
+      <small className="m-dim">hand-picked by FEELESS from the engine playground, with their configs · they fight in The Pit like every card that made it</small></header>
+      <div className="ar-stage is-bench">{a.bench.map(megaCard)}</div></section>}</>}
+    {on('proving') && <>{a?.dials && <DialBoard dials={a.dials} />}
     <RunnersPanel />
     {a && <div className="m-card"><span className="m-label">STRATEGIES · WE RUN $5 FOR 24H</span><p className="m-dim">{a.outlook?.note || (a.outlook?.style ? `${a.outlook.style}: ${pc(a.outlook.avgPct)} avg over ${a.outlook.runs} runs, ${a.outlook.winRate}% won.` : 'Not enough settled runs yet.')}</p>
       <table className="vd-table"><thead><tr><th>Strategy</th><th>Runs</th><th>Avg</th><th>Won</th><th /></tr></thead><tbody>
-      {(a.board || []).map(b => <tr key={b.style}><td><b>{b.style}</b>{a.bestStyle === b.style ? ' 👑' : ''}</td><td>{b.runs}</td><td className={(b.avgPct || 0) >= 0 ? 'm-pos' : 'm-neg'}>{pc(b.avgPct || 0)}</td><td>{Math.round(b.winRate ?? 0)}%</td><td>{b.runs >= a.minSettled && b.avgPct > 0 ? <span className="m-chip ok">proven</span> : <span className="m-chip">needs {a.minSettled}+</span>}</td></tr>)}</tbody></table></div>}
+      {(a.board || []).map(b => <tr key={b.style}><td><b>{b.style}</b>{a.bestStyle === b.style ? ' 👑' : ''}</td><td>{b.runs}</td><td className={(b.avgPct || 0) >= 0 ? 'm-pos' : 'm-neg'}>{pc(b.avgPct || 0)}</td><td>{Math.round(b.winRate ?? 0)}%</td><td>{b.runs >= a.minSettled && b.avgPct > 0 ? <span className="m-chip ok">proven</span> : <span className="m-chip">needs {a.minSettled}+</span>}</td></tr>)}</tbody></table></div>}</>}
+    </div>
+    {replay && <CardReplay c={replay} onClose={() => setReplay(null)} />}
+    {chat && <CardChat c={chat} onClose={() => setChat(null)} />}
     <small className="m-dim">Effects show activity, never a promise. Our $5 runs use live prices after each round; fresh coins can go to zero in minutes.</small>
   </section>;
 }
 
 // 🗺 The Arena in 6 lines — what each part is, how cards win, how you join. Collapsible; remembers if you closed it.
 export function ArenaGuide() {
-  const [open, setOpen] = useState(() => { try { return localStorage.getItem('feeless:arena-guide') !== 'closed'; } catch { return true; } });
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem('feeless:arena-guide') === 'open'; } catch { return false; } });   // closed until asked for: the Arena opens on the action
   const toggle = () => setOpen(o => { try { localStorage.setItem('feeless:arena-guide', o ? 'closed' : 'open'); } catch { /* private mode */ } return !o; });
   return <details className="ar-guide m-card" open={open} onToggle={e => e.target.open !== open && toggle()} data-testid="arena-guide"><summary><span className="m-label">🗺 HOW THE ARENA WORKS</span><small className="m-dim">tap to {open ? 'hide' : 'show'}</small></summary>
     <ol>

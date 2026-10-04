@@ -5286,7 +5286,7 @@ async def _prime_candidates():
     # runners = pre-bond coins passing every gate + CLEAN GRADUATED young coins (<48h, failing ONLY the pre-bond gate)
     young = list(live.get('passing') or []) + [r for r in live.get('dropped') or [] if r.get('gates') == ['Pre-bond (still on the curve)']]
     runners = sorted(({'mint': r['mint'], 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'price': r.get('price'), 'score': r.get('score'),
-                      'vol1h': r.get('vol1h'), 'buyShare': r.get('buyShare'), 'liq': r.get('liq')} for r in young if _fuse._f(r.get('price')) > 0),   # depth travels with the coin (else every runner read $0 and failed the real-buy floor)
+                      'vol1h': r.get('vol1h'), 'buyShare': r.get('buyShare'), 'liq': r.get('liq'), 'ageH': r.get('ageH')} for r in young if _fuse._f(r.get('price')) > 0),   # depth travels with the coin (else every runner read $0 and failed the real-buy floor)
                      key=lambda x: -_fuse._f(x['score']))
     # 🚀 NEW MAJORS (young coins that arrived big: ≤14d, $800K–$50M, $300K+ volume, $100K+ pool) — the secure growth slot when no
     # runner is safe to buy, so a card is never ONLY old majors

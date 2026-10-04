@@ -824,10 +824,10 @@ def test_real_guard_floors_a_churny_real_config_but_keeps_the_5_min_clock():
     assert out['rotateHours'] == 0.08                                    # the clock is the owner's — never touched
     assert out['minHoldMins'] == ap.REAL_MIN_HOLD and out['rotateConfirm'] == ap.REAL_MIN_CONFIRM
     assert out['instantSwapPct'] == ap.REAL_MIN_INSTANT and out['cycleEvery'] == ap.REAL_MAX_RESHAPE
-    assert len(changed) == 4
+    assert len(changed) == 4 and out['fixEvery'] == ap.REAL_MAX_RESHAPE and out['floorRestMins'] == ap.REAL_FLOOR_REST
     # off stays off, never stays never, a patient config is left alone, slow clocks keep their own hold time
     calm = {'rotateHours': 1.0, 'minHoldMins': 0, 'rotateConfirm': 4, 'instantSwapPct': 0, 'cycleEvery': 0}
-    assert ap.real_guard(calm) == (calm, [])
+    assert ap.real_guard(calm) == ({**calm, 'fixEvery': 6, 'floorRestMins': 60.0}, [])
 
 
 def test_runner_weather_reads_the_freshest_sim_window_and_limits_real_runner_buys():
@@ -835,9 +835,15 @@ def test_runner_weather_reads_the_freshest_sim_window_and_limits_real_runner_buy
     assert ap.weather({'s24': {'n': 200, 'avgPct': -36.5}})['level'] == 'storm'
     assert ap.weather({'s24': {'n': 200, 'avgPct': -36.5}, 's6': {'n': 100, 'avgPct': -8.1}})['level'] == 'rain'   # 6h is fresher
     assert ap.weather({'s24': {'n': 200, 'avgPct': -36.5}, 's6': {'n': 100, 'avgPct': 2.0}})['level'] == 'clear'
-    rows = [{'mint': 'a', 'score': 80, 'liq': 90_000}, {'mint': 'b', 'score': 80, 'liq': 30_000}, {'mint': 'c', 'score': 40, 'liq': 500_000},
-            {'mint': 'm', 'newMajor': True, 'score': 60, 'liq': 300_000}]
+    rows = [{'mint': 'a', 'score': 80, 'liq': 90_000, 'ageH': 20}, {'mint': 'b', 'score': 80, 'liq': 30_000, 'ageH': 20}, {'mint': 'c', 'score': 40, 'liq': 500_000, 'ageH': 20},
+            {'mint': 'm', 'newMajor': True, 'score': 60, 'liq': 300_000}, {'mint': 'baby', 'score': 99, 'liq': 534_000, 'ageH': 0.3}, {'mint': 'unknown', 'score': 99, 'liq': 534_000}]
     lq = lambda x: x['liq']
     assert [x['mint'] for x in ap.weather_runners(rows, 'clear', 80_000, lq)] == ['a', 'b', 'c', 'm']
     assert [x['mint'] for x in ap.weather_runners(rows, 'rain', 80_000, lq)] == ['a', 'm']   # strong AND deep, or a new major
     assert [x['mint'] for x in ap.weather_runners(rows, 'storm', 80_000, lq)] == ['m']
+
+
+def test_a_real_card_under_a_fix_does_not_reshape_every_round_and_rests_after_a_floor():
+    paper = ap.cycle_peek({'tpl': 'safe', 'cycleFix': 'safe', 'rounds': 7, 'phase': 'anchor'}, {'cycleEvery': 6})
+    real = ap.cycle_peek({'tpl': 'safe', 'cycleFix': 'safe', 'rounds': 7, 'phase': 'anchor'}, ap.real_guard({'cycleEvery': 6, 'rotateHours': 0.08})[0])
+    assert paper['inRounds'] == 1 and real['inRounds'] == 5      # paper re-shapes next round · real waits for round 12

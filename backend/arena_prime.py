@@ -258,7 +258,9 @@ def clean_cfg(p):
 REAL_MIN_HOLD = 20.0      # minutes a real buy is held before a rotation may sell it (clocks ≤ 15 min)
 REAL_MIN_CONFIRM = 3      # losing rounds in a row before a real rotation
 REAL_MIN_INSTANT = 10.0   # ⚡ instant swap is OFF (0) or at least −10% — never inside normal memecoin noise
-REAL_MAX_RESHAPE = 6      # a real card re-shapes at most every 6 rounds (0 = never stays never)
+REAL_MAX_RESHAPE = 6      # a real card re-shapes at most every 6 rounds (0 = never stays never) — also while a safe / rescue fix is on
+REAL_FLOOR_REST = 60.0    # minutes a floored real card rests in its anchor before it is re-dealt
+REAL_RUNNER_AGE_H = 12.0  # real money never buys a runner younger than this (a 20-min-old coin with a $534K pool went −99.99% in an hour)
 
 
 def real_guard(cfg):
@@ -273,6 +275,11 @@ def real_guard(cfg):
         out['instantSwapPct'] = REAL_MIN_INSTANT; changed.append(f'instant swap −{REAL_MIN_INSTANT:g}%')
     if 0 < int(_f(out.get('cycleEvery'))) < REAL_MAX_RESHAPE:
         out['cycleEvery'] = REAL_MAX_RESHAPE; changed.append(f're-shape every {REAL_MAX_RESHAPE} rounds')
+    # always on for real money (not owner settings, so never listed as "raised"):
+    #  • a safe / rescue FIX re-shaped the card EVERY round — on a 5-min clock that sold and re-bought 2–3 coins every 5 minutes
+    #  • a floored card was re-dealt 60s later: sell everything, then buy everything back a minute after
+    out['fixEvery'] = REAL_MAX_RESHAPE
+    out['floorRestMins'] = REAL_FLOOR_REST
     return out, changed
 
 
@@ -292,7 +299,9 @@ def weather(sim):
 
 
 def weather_runners(rows, level, deep_floor, liq_of):
-    """Runner candidates real money may BUY in this weather (coins already held are never sold by the weather)."""
+    """Runner candidates real money may BUY in this weather (coins already held are never sold by the weather).
+    In ANY weather a runner must be at least REAL_RUNNER_AGE_H old — unknown age = out (fail closed). New majors are days old by rule."""
+    rows = [x for x in rows if x.get('newMajor') or (x.get('ageH') is not None and _f(x.get('ageH')) >= REAL_RUNNER_AGE_H)]
     if level == 'storm':
         return [x for x in rows if x.get('newMajor')]
     if level == 'rain':
@@ -525,7 +534,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                    why=f"{dd:.1f}% ≤ −{instant_loss:g}% instant-loss trigger — sold now; replacement slot reserved", to=['cash'])
 
     # 0) a floored card sits in its anchor (cash-like) until the next day, then is re-dealt fresh at its current value
-    if c.get('flooredAt') and now - c['flooredAt'] >= 60:   # floored → re-dealt with fresh 3★+ coins on the very next tick (a new run)
+    if c.get('flooredAt') and now - c['flooredAt'] >= max(60.0, _f(cfg.get('floorRestMins')) * 60):   # floored → re-dealt with fresh 3★+ coins on the very next tick (a new run)
         v0 = V()
         keep = {k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}
         # a NEW run starts at today's value (its own −floor); the ended run is kept on the record, never hidden
@@ -734,7 +743,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     if rp < 0 and not c.get('cycleFix') == 'rescue' and (V() / (_f(c['startUsd']) or 1) - 1) * 100 <= rp:
         c['cycleFix'] = 'rescue'   # 🛟 fell rescuePct% under its start → safest ⇄ breakeven until a new run
         ev(kind='rescue', why=f'card ≤ {rp:.0f}% of its start — 🛟 rescue cycle: safest run ⇄ breakeven runners')
-    every = 1 if c.get('cycleFix') else int(cfg.get('cycleEvery') if cfg.get('cycleEvery') is not None else 6)
+    every = max(1, int(_f(cfg.get('fixEvery')))) if c.get('cycleFix') else int(cfg.get('cycleEvery') if cfg.get('cycleEvery') is not None else 6)   # paper: a fix re-shapes every round · real: `fixEvery` (never every 5 min)
     phase = None if not every or c.get('holdAll') else next_phase(c.get('cycleFix') or (cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl'], 'off'), (int(c.get('rounds') or 0) // every), c.get('lastRoundPct'))
     majors_only = all(l.get('role') == 'anchor' for l in c['legs'])
     if every and int(c.get('rounds') or 0) % every and not (majors_only and phase and phase != 'anchor'):
@@ -842,7 +851,7 @@ def cycle_peek(card, cfg):
     adaptive / auto pick by the last round's move, so `next` is the shape IF the next round moves like the last one."""
     cfg = cfg or {}
     mode = card.get('cycleFix') or (cfg.get('cycles') or DEFAULT_CYCLES).get(card.get('tpl'), 'off')
-    every = 1 if card.get('cycleFix') else int(cfg.get('cycleEvery') if cfg.get('cycleEvery') is not None else 6)
+    every = max(1, int(_f(cfg.get('fixEvery')))) if card.get('cycleFix') else int(cfg.get('cycleEvery') if cfg.get('cycleEvery') is not None else 6)
     if not every or card.get('holdAll'):
         return {'now': card.get('phase'), 'next': None, 'inRounds': None, 'mode': 'hold' if card.get('holdAll') else mode, 'fix': card.get('cycleFix')}
     r = int(card.get('rounds') or 0)

@@ -675,6 +675,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   pumping (1h green, ≥55% buys, ≥$5K 1h vol). Next-up mints are `arena`-flagged in `_prime_candidates` (gates, floors, weather still
   apply). Stablecoins never compete. New pick list ⇒ new division there, never a separate ranking.
 
+- 🏟 Arena = ZONES, one on screen at a time (`ARENA_ZONES`, `?zone=`; `zone=all` only for tests): 👑 Prime League (tier cards) · 🏁 The
+  Gauntlet (contenders) · ⚔ The Pit (battles) · 🏆 Crown Race (season) · 🏟 Main Stage (+ 🎨 Creator's Cut) · 🧪 Proving Ground (runner
+  rounds, dials, strategies). New Arena feature ⇒ a zone or inside one, never stacked. The guide is closed until asked for.
+- 💵 Real guard, part 2 (found by watching the live ledger AFTER part 1 — always re-check the ledger an hour after a real-money fix):
+  `fixEvery` = a safe / rescue fix re-shapes a real card every 6 rounds, not every round (it sold + re-bought 2–3 coins every 5 min);
+  `floorRestMins` 60 = a floored real card rests in its anchor before the re-deal; `REAL_RUNNER_AGE_H` 12 = real money never buys a
+  runner younger than 12h, unknown age = out (a 20-min-old coin with a $534K pool went −99.99% in an hour: $0.74 lost).
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

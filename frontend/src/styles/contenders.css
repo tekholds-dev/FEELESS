@@ -38,3 +38,14 @@ body.fx-lite .cn-row, body.fx-lite .cn-row.is-next::before { animation: none; }
 body.theme-day .cn-row { background: #ffffffd9; } body.theme-day .cn-row.is-next { border-color: #0a7d4b; } body.theme-day .cn-new, body.theme-day .cn-streak { color: #8a5a00; }
 @container (max-width: 760px) { .cn-row { grid-template-columns: 20px 26px minmax(0, 1fr) auto auto; row-gap: 6px; } .cn-wide { display: none; } .cn-score { grid-column: 1 / 4; } .cn-seat { grid-column: 4 / -1; justify-self: end; } }
 @media (max-width: 640px) { .cn-row { padding: 8px; gap: 8px; } }
+
+/* 🏟 Arena zones (az-*): one zone on screen at a time — a sticky segmented bar, the pane slides in. */
+.az-bar { position: sticky; top: 0; z-index: 5; display: flex; margin: 4px 0 12px; box-shadow: 0 10px 24px -14px #000; }
+.az-bar > button { display: inline-flex; align-items: center; gap: 6px; flex: 1 1 auto; justify-content: center; white-space: nowrap; }
+.az-bar > button i { font-style: normal; font-size: 10px; padding: 1px 6px; border-radius: 999px; background: color-mix(in srgb, currentColor 16%, transparent); }
+.az-pane { display: grid; gap: 14px; animation: azIn .22s var(--m-ease, ease) both; }
+@keyframes azIn { from { opacity: 0; transform: translateY(8px) scale(.995); } to { opacity: 1; transform: none; } }
+body.fx-lite .az-pane { animation: none; }
+@media (prefers-reduced-motion: reduce) { .az-pane { animation: none; } }
+body.theme-day .az-bar { box-shadow: 0 8px 18px -14px #0005; }
+@media (max-width: 640px) { .az-bar { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; } .az-bar::-webkit-scrollbar { display: none; } .az-bar > button { flex: 0 0 auto; } }

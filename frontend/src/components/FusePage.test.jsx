@@ -101,7 +101,7 @@ test('discovery filters by source; multi-source runners glow', async () => {
 });
 
 test('Arena stage: mega + lit cards with activity effects; lit card → runner picks, mega → Lab; runners show below', async () => {
-  window.history.replaceState(null, '', '/terminal/fuse?tab=arena');
+  window.history.replaceState(null, '', '/terminal/fuse?tab=arena&zone=all');
   const host = document.createElement('div'); document.body.appendChild(host);
   await act(async () => { createRoot(host).render(<FusePage />); }); await tick(); await tick();
   const stage = host.querySelector('[data-testid="arena-stage"]');
@@ -115,7 +115,7 @@ test('Arena stage: mega + lit cards with activity effects; lit card → runner p
 });
 
 test('Arena: a trader card shows its streak + copies and ⚡ Fuse this too hands the Lab a copy', async () => {
-  window.history.replaceState(null, '', '/terminal/fuse?tab=arena');
+  window.history.replaceState(null, '', '/terminal/fuse?tab=arena&zone=all');
   const host = document.createElement('div'); document.body.appendChild(host);
   await act(async () => { createRoot(host).render(<FusePage />); }); await tick(); await tick();
   const card = host.querySelector('[data-testid="mega-U1"]');
@@ -126,7 +126,7 @@ test('Arena: a trader card shows its streak + copies and ⚡ Fuse this too hands
 });
 
 test('Arena: the Fuse season board ranks this week with medals, a countdown and past champions', async () => {
-  window.history.replaceState(null, '', '/terminal/fuse?tab=arena');
+  window.history.replaceState(null, '', '/terminal/fuse?tab=arena&zone=all');
   const host = document.createElement('div'); document.body.appendChild(host);
   await act(async () => { createRoot(host).render(<FusePage />); }); await tick(); await tick();
   const s = host.querySelector('[data-testid="fuse-season"]');
@@ -137,7 +137,7 @@ test('Arena: the Fuse season board ranks this week with medals, a countdown and 
 });
 
 test('Arena: compound badge, the season race ticker, and 💬 opens that card\'s own chat room', async () => {
-  window.history.replaceState(null, '', '/terminal/fuse?tab=arena');
+  window.history.replaceState(null, '', '/terminal/fuse?tab=arena&zone=all');
   const host = document.createElement('div'); document.body.appendChild(host);
   await act(async () => { createRoot(host).render(<FusePage />); }); await tick(); await tick();
   expect(host.querySelector('[data-testid="mega-U1"] [data-testid="compound-snowball"]').textContent).toContain('Snowball ×3');
@@ -147,7 +147,7 @@ test('Arena: compound badge, the season race ticker, and 💬 opens that card\'s
 });
 
 test('Arena: FeeCat\'s sim book is on stage with her record, and ▶ opens a card replay', async () => {
-  window.history.replaceState(null, '', '/terminal/fuse?tab=arena');
+  window.history.replaceState(null, '', '/terminal/fuse?tab=arena&zone=all');
   const host = document.createElement('div'); document.body.appendChild(host);
   await act(async () => { createRoot(host).render(<FusePage />); }); await tick(); await tick();
   const fc = host.querySelector('[data-testid="mega-feecat"]');
@@ -157,7 +157,7 @@ test('Arena: FeeCat\'s sim book is on stage with her record, and ▶ opens a car
 });
 
 test('Season board: FeeCat\'s week is the bar to beat, and cards above it are marked', async () => {
-  window.history.replaceState(null, '', '/terminal/fuse?tab=arena');
+  window.history.replaceState(null, '', '/terminal/fuse?tab=arena&zone=all');
   const host = document.createElement('div'); document.body.appendChild(host);
   await act(async () => { createRoot(host).render(<FusePage />); }); await tick(); await tick();
   expect(host.querySelector('[data-testid="season-feecat"]').textContent).toContain('+7.5%');
@@ -166,7 +166,7 @@ test('Season board: FeeCat\'s week is the bar to beat, and cards above it are ma
 });
 
 test('Arena battlefield: pairs fight live (tug-of-war leans to the leader), results log, and each tab explains itself', async () => {
-  window.history.replaceState(null, '', '/terminal/fuse?tab=arena');
+  window.history.replaceState(null, '', '/terminal/fuse?tab=arena&zone=all');
   const host = document.createElement('div'); document.body.appendChild(host);
   await act(async () => { createRoot(host).render(<FusePage />); }); await tick(); await tick();
   const p = host.querySelector('[data-testid="battle-0"]');
@@ -177,7 +177,7 @@ test('Arena battlefield: pairs fight live (tug-of-war leans to the leader), resu
 
 
 test('Arena: runner-up engine cards wear their dial + configs, battles show free vs bought bars, 💰 Buy & back hands the Lab the battle key', async () => {
-  window.history.replaceState(null, '', '/terminal/fuse?tab=arena');
+  window.history.replaceState(null, '', '/terminal/fuse?tab=arena&zone=all');
   const host = document.createElement('div'); document.body.appendChild(host);
   await act(async () => { createRoot(host).render(<FusePage />); }); await tick(); await tick();
   const bench = host.querySelector('[data-testid="arena-bench"]');
@@ -243,4 +243,11 @@ test('battlefield: up next queue, 🔮 call the champ, 👑 buy the champion, �
   expect(document.querySelector('[data-testid="card-config"]').textContent).toContain('TP +200%');
   act(() => document.querySelector('[data-testid="cfg-copy"]').click());
   expect(loads[1][1].cfg).toMatchObject({ tp: 200, slMode: 'park', cycle: 'adaptive', rotateHours: 0.25 });
+});
+
+
+test('Arena zones: one zone on screen at a time, picked from a segmented bar and deep-linked with ?zone=', async () => {
+  const { arenaZone, ARENA_ZONES } = require('./FusePage');
+  expect(arenaZone('?tab=arena')).toBe('prime'); expect(arenaZone('?zone=pit')).toBe('pit'); expect(arenaZone('?zone=nope')).toBe('prime');
+  expect(ARENA_ZONES.map(z => z[0])).toEqual(['prime', 'gauntlet', 'pit', 'crown', 'stage', 'proving']);
 });
