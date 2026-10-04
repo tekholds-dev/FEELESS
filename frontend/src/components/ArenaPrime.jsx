@@ -30,12 +30,13 @@ const TIER = {
 // HQ ⚡ meta config: the settings the Arena proof backs today (hourly rotation of 1 coin, −15% floor, compound on, park & rebuy).
 export const PRIME_META = { rotateHours: 1, rotateCount: 1, floorPct: 15, compound: true, slMode: 'park' };
 // realizedUsd = what the card PAID OUT (walletUsd) — never the gross take-profits (those mostly compounded back in and are still held)
-export const primeRow = c => ({ id: c.id, name: c.label, closed: false, costUsd: c.startUsd, valueUsd: c.valueUsd, realizedUsd: c.walletUsd || 0,
-  // extra = everything that's the card's but not a coin: cash + parked SOL + what it PAID OUT (live value must include it, like the server)
-  baseUsd: c.startUsd, extraUsd: (c.cash || 0) + (c.parked || []).reduce((a, p) => a + (p.usd || 0), 0) + (c.walletUsd || 0),
-  pnlUsd: c.valueUsd - c.startUsd, pnlPct: c.pnlPct,
+export const primeRow = c => { const funded = c.real ? (c.realBook?.fundedUsd || c.fundedUsd || c.startUsd) : c.startUsd; const paid = c.walletUsd || 0; const total = c.valueUsd || 0; return ({ id: c.id, name: c.label, closed: false, costUsd: funded, valueUsd: total, realizedUsd: paid,
+  // Real card face always uses TOTAL FUNDED principal. Run baseline stays separate in the header as THIS RUN FROM.
+  // Equation: PUT IN -> IN CARD + PAID OUT NOW = TOTAL EQUITY; all-time P/L = TOTAL EQUITY - PUT IN.
+  baseUsd: funded, extraUsd: (c.cash || 0) + (c.parked || []).reduce((a, p) => a + (p.usd || 0), 0) + paid,
+  pnlUsd: total - funded, pnlPct: funded > 0 ? (total / funded - 1) * 100 : 0,
   legs: c.legs.map(l => ({ pairAddress: l.pairAddress, symbol: l.symbol, role: l.role, mint: l.mint, usd: l.costUsd, tokens: l.units, valueUsd: l.usd,
-    pnlUsd: l.usd - l.costUsd, pnlPct: l.costUsd ? (l.usd / l.costUsd - 1) * 100 : 0, priced: true, priceNow: l.now, stars: l.stars, liq: l.liq, buying: l.buying || (c.real && !(l.usd > 0)) })) });
+    pnlUsd: l.usd - l.costUsd, pnlPct: l.costUsd ? (l.usd / l.costUsd - 1) * 100 : 0, priced: true, priceNow: l.now, stars: l.stars, liq: l.liq, buying: l.buying || (c.real && !(l.usd > 0)) })) }); };
 
 export function usePrime(ms = 60000) {
   const [d, setD] = useState(null);
