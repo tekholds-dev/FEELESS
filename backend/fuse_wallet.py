@@ -249,6 +249,18 @@ def bank(book, wallet_usd, sol_px):
     return b
 
 
+def reinvest_bank(book):
+    """Move the card's currently segregated paid-out SOL back into active card SOL.
+    This is NOT new funding: fundedUsd and bankUsd (historical payouts) stay unchanged."""
+    b = dict(book)
+    amt = max(0.0, _f(b.get('bankSol')))
+    if amt <= 0:
+        return b, 0.0
+    b['sol'] = round(_f(b.get('sol')) + amt, 9)
+    b['bankSol'] = 0.0
+    return b, round(amt, 9)
+
+
 MIN_REBUY_USD = 0.5
 LEFTOVER_MIN_USD = 0.15   # a coin waiting on the card's last SOL may buy down to this
 
