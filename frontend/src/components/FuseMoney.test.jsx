@@ -65,14 +65,16 @@ test('HQ Fuse wallet: locked until signing is enabled, tiers, dry run, audit tra
   const call = jest.fn(async (url, o) => { calls.push([url, o?.body]);
     if (url === '/admin/fuse-wallet/preview') return { orders: [{ side: 'buy', symbol: 'WIF', usd: 10, impactPct: 0.4, route: ['Raydium'] }], networkUsdEst: 0.02, note: 'same coins',
       card: { paperUsd: 104, paperPct: 4, rounds: 3, phase: 'degen', coins: [{ symbol: 'SOL', role: 'anchor', pairAddress: 'p1', weightPct: 50, usd: 10, pricePct: 1.2 }, { symbol: 'WIF', role: 'runner', pairAddress: 'p2', weightPct: 50, usd: 10, pricePct: -3 }] } };
-    return { cfg: { walletId: 'w1', address: 'ADDR1234', armed: false, paused: false, maxCardUsd: 100 }, signer: false, wallets: [{ id: 'w1', address: 'ADDR1234', name: 'Fuse', blockchain: 'SOL' }],
-      balances: { sol: 2, tokens: {} }, solUsd: 150, freeSol: 1.97, missing: [], books: {}, tiers: { safe: '💎 Prime Diamond' }, calibration: { impactMult: 1, n: 0 }, totals: { swaps: 0 },
+    return { cfg: { walletId: 'w1', address: 'ADDR1234', armed: false, paused: false, maxCardUsd: 100, reserveSol: 0.03 }, signer: false, wallets: [{ id: 'w1', address: 'ADDR1234', name: 'Fuse', blockchain: 'SOL' }],
+      balances: { sol: 2, tokens: { LIVE: 25, EMPTY: 0 } }, solUsd: 150, freeSol: 1.97, missing: [], books: {}, tiers: { safe: '💎 Prime Diamond' }, calibration: { impactMult: 1, n: 0 }, totals: { swaps: 0 },
       ledger: [{ at: 1, card: 'safe', side: 'topup', usd: 20, status: 'done' }] }; });
   const h = await mount(<FuseWallet call={call} />); await tick();
   expect(h.querySelector('[data-testid="fw-lock"]')).toBeTruthy();
   expect(h.querySelector('[data-testid="fw-armed"]').disabled).toBe(true);
   expect(h.querySelector('[data-testid="fw-topup-safe"]').disabled).toBe(true);
   expect(h.textContent).toContain('$300.00');   // 2 SOL × $150
+  expect(h.textContent).toContain('COINS HELD1'); // zero-balance token accounts are not holdings
+  expect(h.querySelector('[data-testid="fw-sol-breakdown"]').textContent).toContain('2.0000 total = 0.0000 card cash + 0.0300 fee reserve + 1.9700 free');
   act(() => h.querySelector('[data-testid="fw-dry-safe"]').click()); await tick();
   expect(h.querySelector('[data-testid="fw-dryrun"]').textContent).toContain('$WIF');
   expect(h.querySelector('[data-testid="fw-dry-status"]').textContent).toContain('round 4');
