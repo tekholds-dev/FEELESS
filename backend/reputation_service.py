@@ -6031,6 +6031,9 @@ async def _fw_tick_inner(now):
             if book.get('pending'):
                 continue
         equity_usd = _fw.book_value(book, px, sol_px)
+        book, returned_sol = _fw.enforce_principal_floor(book, equity_usd, sol_px)
+        if returned_sol > 0:
+            equity_usd = _fw.book_value(book, px, sol_px)
         book = _fw.bank(book, card.get('walletUsd'), sol_px, equity_usd)
         want = {**card, 'legs': []} if book.get('defund') else card
         for side in ('sell', 'buy'):
@@ -6044,6 +6047,9 @@ async def _fw_tick_inner(now):
             if side == 'sell' and not book.get('pending'):
                 # Confirmed sell proceeds fund payouts first. Paid-out SOL is segregated before any subsequent compound buys.
                 equity_usd = _fw.book_value(book, px, sol_px)
+                book, returned_sol = _fw.enforce_principal_floor(book, equity_usd, sol_px)
+                if returned_sol > 0:
+                    equity_usd = _fw.book_value(book, px, sol_px)
                 book = _fw.bank(book, card.get('walletUsd'), sol_px, equity_usd)
                 # 🔒 SELL-BEFORE-BUY BARRIER: if ANY sell is still required after the sell pass
                 # (route refused, tx expired, partial max-swap chunk, etc.), do not buy anything yet.
