@@ -6394,8 +6394,15 @@ async def fuse_wallet_view(request: Request):
             recoverable.append({'card': last['card'], 'mint': mint, 'symbol': last.get('symbol') or mint[:6],
                                 'pair': last.get('pair'), 'atoms': excess, 'decimals': int((bal.get('decimals') or {}).get(mint) or last.get('decimals') or 0),
                                 'lastStatus': last.get('status'), 'lastErr': (last.get('err') or '')[:100], 'lastAt': last.get('at')})
+    rent_returned = round(sum(_fuse._f(r.get('sol')) for r in d.get('ledger') or []
+                              if r.get('side') == 'close' and r.get('status') == 'sent'), 9)
+    funded_sol = round(sum(_fuse._f(r.get('sol')) for r in d.get('ledger') or []
+                           if r.get('side') == 'topup' and r.get('status') == 'done'), 9)
     return {'cfg': cfg, 'signer': _fw_signer_ready(), 'wallets': wallets, 'balances': bal, 'solUsd': sol_px, 'error': err,
             'freeSol': _fw.free_sol((bal or {}).get('sol'), d['books'], cfg['reserveSol']) if bal else None,
+            # Unassigned SOL is fungible: it can include owner deposits and token-account rent returned after card sells.
+            # Expose both audit totals so the UI never presents it as known-new owner funding or card profit.
+            'solProvenance': {'cardFundedSol': funded_sol, 'rentReturnedSol': rent_returned},
             'missing': _fw.reconcile((bal or {}).get('tokens'), d['books']) if bal and bal.get('source') != 'circle' else [],   # Circle rows have no mints
             'books': books, 'tiers': {k: v['label'] for k, v in _prime.TEMPLATES.items()}, 'recoverable': recoverable, 'calibration': _fw_calibration(d),
             'paperMatch': _fw.paper_match(d.get('quoteAudit')), 'quoteAudit': (d.get('quoteAudit') or [])[-20:][::-1],
