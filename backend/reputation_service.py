@@ -6310,9 +6310,19 @@ async def fuse_wallet_topup(request: Request):
             b = d['books'][tid]
             truth = _fw.sync_card(card, b, px, sol_px)
             current = _prime.value(truth, px)
+            # Reinvesting already-paid card proceeds is NOT new money. Consume segregated bankSol first; only the remainder
+            # is new wallet funding. bankUsd remains the historical paid-out total for an understandable lifetime trail.
+            bank_sol = _fuse._f(b.get('bankSol'))
+            reinvest_sol = min(bank_sol, usd / sol_px) if sol_px > 0 else 0.0
+            external_sol = max(0.0, usd / sol_px - reinvest_sol) if sol_px > 0 else 0.0
+            external_usd = external_sol * sol_px
             new = _fw.topup_card(truth, usd, px, now, current_usd=current)
-            d['books'][tid] = {**b, 'sol': round(_fuse._f(b.get('sol')) + usd / sol_px, 9), 'fundedUsd': round(_fuse._f(b.get('fundedUsd')) + usd, 4)}
-        _fw_record(d, {'card': tid, 'side': 'topup', 'usd': usd, 'sol': round(usd / sol_px, 9), 'at': now, 'by': me, 'status': 'done', 'why': 'funded — new real run' if first else 'top-up — new run'})
+            d['books'][tid] = {**b,
+                'sol': round(_fuse._f(b.get('sol')) + reinvest_sol + external_sol, 9),
+                'bankSol': round(max(0.0, bank_sol - reinvest_sol), 9),
+                'fundedUsd': round(_fuse._f(b.get('fundedUsd')) + external_usd, 4)}
+        _fw_record(d, {'card': tid, 'side': 'topup', 'usd': usd, 'sol': round(usd / sol_px, 9), 'at': now, 'by': me, 'status': 'done',
+                       'why': 'funded — new real run' if first else (f'reinvested paid-out proceeds; new money ${external_usd:.2f}' if reinvest_sol > 0 else 'top-up — new run')})
         _fw_save(d)
     async with _admin_lock:
         h = _json_load(FUSE_HQ_PATH, {}); h.setdefault('prime', {}).setdefault('cards', {})[tid] = new; _json_save(FUSE_HQ_PATH, h)
