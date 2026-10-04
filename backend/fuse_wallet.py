@@ -111,15 +111,17 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
         excess = have - want
         usd = excess * px
         full = want <= 0
+        manual_cash = bool(l.get('manualCash') or (tgt.get(mint) or {}).get('manualCash'))
         if not full and excess * px < want * px * REBAL_BAND:   # 🔁 a coin that STAYS is only trimmed when it's far over target (no churn)
             continue
-        if excess <= 0 or (usd < cfg['minOrderUsd'] and not (full and usd >= DUST_USD)):
+        # Explicit recovery may clean out a confirmed balance after a dead pool pushes it below the normal dust floor.
+        # Jupiter, slippage and impact checks still fail closed; this only ensures the recovery sell is attempted.
+        if excess <= 0 or (usd < cfg['minOrderUsd'] and not (full and (manual_cash or usd >= DUST_USD))):
             continue
         frac = 1.0 if full and usd <= cfg['maxSwapUsd'] else min(1.0, min(usd, cfg['maxSwapUsd']) / (have * px)) if have * px > 0 else 0
         atoms = int(l['atoms']) if frac >= 1 else int(int(l['atoms']) * frac)
         if atoms <= 0:
             continue
-        manual_cash = bool(l.get('manualCash') or (tgt.get(mint) or {}).get('manualCash'))
         sells.append({'id': f"{card_id}:{now:.0f}:s:{mint[:6]}", 'card': card_id, 'side': 'sell', 'mint': mint, 'pair': l.get('pair'), 'symbol': l.get('symbol'),
                       'atoms': atoms, 'decimals': int(l.get('decimals') or 0), 'usd': round(min(usd, cfg['maxSwapUsd']), 4), 'midPx': px, 'at': now,
                       'why': 'sold by owner to card cash' if manual_cash else 'not on the card any more' if full else 'trimmed to the card',
