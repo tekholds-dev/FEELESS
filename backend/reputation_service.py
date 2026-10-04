@@ -6196,7 +6196,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
         return None
     seen, rows = set(), []
     for o in reversed(d['ledger']):   # newest first, each tx / funding once
-        if o.get('card') != tid or not (o.get('status') in ('filled', 'done') or o.get('side') == 'topup'):
+        if o.get('card') != tid or o.get('side') not in ('buy', 'sell', 'topup') or not (o.get('status') in ('filled', 'done') or o.get('side') == 'topup'):
             continue
         k = o.get('sig') or f"{o.get('id')}:{o.get('side')}:{o.get('at')}"
         if k not in seen:
@@ -6242,6 +6242,10 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
     paid_ever = round(max(_fuse._f(card.get('walletUsd')), _fuse._f(b.get('payoutSeenUsd')), ledger_paid, _fuse._f(b.get('manualProfitPaidUsd'))), 4)
     profit_available = _fw.profit_available(b, equity_usd, sol_px) if equity_usd is not None and sol_px else 0.0
     payout_cash = min(profit_available, max(0.0, _fuse._f(b.get('sol')) - _fuse._f(b.get('manualCashSol'))) * _fuse._f(sol_px)) if sol_px else 0.0
+    wallet_sol = _fuse._f(_FW_GAS.get('sol')) if _FW_GAS.get('sol') is not None else None
+    all_book_sol = sum(_fuse._f(bb.get('sol')) + _fuse._f(bb.get('bankSol')) for bb in d['books'].values())
+    reserve_sol = _fuse._f(cfg.get('reserveSol'))
+    outside_sol = max(0.0, wallet_sol - all_book_sol - reserve_sol) if wallet_sol is not None else None
     recoverable = []
     bal = _FW_BAL.get('bal') if _FW_BAL.get('addr') == cfg.get('address') else None
     newest_fill = max((_fuse._f(o.get('at')) for o in d.get('ledger') or [] if o.get('status') == 'filled'), default=0.0)
@@ -6265,6 +6269,13 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
             'paidOutEverUsd': paid_ever, 'paidOutSol': round(_fuse._f(b.get('bankSol')), 9),
             'profitAvailableUsd': round(profit_available, 4), 'profitCashAvailableUsd': round(payout_cash, 4), 'recoverable': recoverable, 'offCard': off_card,
             'wallet': cfg['address'], 'keeper': keeper, 'deadOrders': dead,
+            'reconciliation': {'cardEquityUsd': round(_fuse._f(equity_usd), 4),
+                               'cardCashSol': round(_fuse._f(b.get('sol')), 9),
+                               'cardCashUsd': round(_fuse._f(b.get('sol')) * _fuse._f(sol_px), 4) if sol_px else None,
+                               'walletSol': round(wallet_sol, 9) if wallet_sol is not None else None,
+                               'gasReserveSol': round(reserve_sol, 9),
+                               'outsideCardSol': round(outside_sol, 9) if outside_sol is not None else None,
+                               'outsideCardUsd': round(outside_sol * _fuse._f(sol_px), 4) if outside_sol is not None and sol_px else None},
             'orders': [{k: o.get(k) for k in ('side', 'symbol', 'usd', 'proceedsUsd', 'realizedPnlUsd', 'sol', 'px', 'sig', 'at', 'status', 'feeUsd', 'why', 'costUsd')} for o in rows], **_fw.totals(d['ledger'], tid)}
 
 
