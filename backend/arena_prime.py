@@ -344,7 +344,18 @@ def keep_winners(nc, old_legs, prices, liqs, pct, in_play_usd):
         return None, len(win)   # the winners ARE the card: nothing to re-shape
     f = left / (sum(_f(l['costUsd']) for l in fresh) or 1)
     fresh = [{**l, 'units': l['units'] * f, 'costUsd': round(_f(l['costUsd']) * f, 6)} for l in fresh]
-    return {**nc, 'legs': fresh + [{k: v for k, v in l.items() if k != 'picked'} for l in win]}, len(win)   # a hand pick survives ONE re-shape
+    out = {**nc, 'legs': fresh + [{k: v for k, v in l.items() if k != 'picked'} for l in win]}
+    # A shape is a fixed slot count. Carrying a winner must replace a fresh slot, never append a fifth coin;
+    # conversely a sold/failed leg must not collapse a 4-slot shape to three when eligible fresh picks exist.
+    target_n = len(nc['legs'])
+    if len(out['legs']) > target_n:
+        protected = {l['mint'] for l in win}
+        while len(out['legs']) > target_n:
+            drop = next((l for l in reversed(out['legs']) if l['mint'] not in protected), None)
+            if not drop:
+                break
+            out['legs'].remove(drop)
+    return out, len(win)   # a hand pick survives ONE re-shape
 
 
 def deal(tid, pools, runners, cfg, now, anchors=(), usd=None, keep=None, shape=None):
