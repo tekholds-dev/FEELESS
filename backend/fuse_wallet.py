@@ -68,7 +68,8 @@ def target(card, prices):
     out = {}
     for l in card.get('legs') or []:
         px = _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
-        t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role'), 'arena': bool(l.get('arena'))})
+        t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role'), 'arena': bool(l.get('arena')),
+                                       'manualCash': bool(l.get('manualCash'))})
         t['units'] += _f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)   # a coin whose buy hasn't landed is still WANTED
     return out
 
@@ -106,7 +107,8 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
             continue
         sells.append({'id': f"{card_id}:{now:.0f}:s:{mint[:6]}", 'card': card_id, 'side': 'sell', 'mint': mint, 'pair': l.get('pair'), 'symbol': l.get('symbol'),
                       'atoms': atoms, 'decimals': int(l.get('decimals') or 0), 'usd': round(min(usd, cfg['maxSwapUsd']), 4), 'midPx': px, 'at': now,
-                      'why': 'not on the card any more' if full else 'trimmed to the card'})
+                      'why': 'sold by owner to card cash' if full and (tgt.get(mint) or {}).get('manualCash') else 'not on the card any more' if full else 'trimmed to the card',
+                      **({'manualCash': True} if full and (tgt.get(mint) or {}).get('manualCash') else {})})
     # `count_sells` = plan view only: the keeper's BUY pass runs after its sells landed (or were refused) and must spend only SOL the
     # book really holds — counting a refused sell's proceeds once let a buy spend SOL the card never had (book SOL went negative)
     sol_free = _f(book.get('sol')) - anchor_sol(tgt) + (sum(o['usd'] for o in sells) / sol_px * 0.97 if count_sells else 0.0) if sol_px > 0 else 0.0
@@ -246,7 +248,13 @@ def apply_fill(book, order, fill, sol_px):
             sol_move = -swap_sol
     if order.get('cardPays'):   # after its first 5 rounds the card pays its own network FEES; rent is a refundable deposit → always the reserve
         sol_move -= fill['feeSol']
+    if order['side'] == 'sell' and order.get('manualCash') and sol_move > 0:
+        b['manualCashSol'] = round(_f(b.get('manualCashSol')) + sol_move, 9)
+    elif order['side'] == 'buy' and sol_move < 0 and _f(b.get('manualCashSol')) > 0:
+        b['manualCashSol'] = round(max(0.0, _f(b.get('manualCashSol')) - abs(sol_move)), 9)
     b['sol'] = round(_f(b.get('sol')) + sol_move, 9)
+    if _f(b.get('manualCashSol')) > _f(b.get('sol')):
+        b['manualCashSol'] = max(0.0, _f(b.get('sol')))
     b['feesSol'] = round(_f(b.get('feesSol')) + fill['feeSol'], 9)
     b['feesUsd'] = round(_f(b.get('feesUsd')) + fill['feeSol'] * sol_px, 6)
     if not l['atoms']:
@@ -268,7 +276,8 @@ def bank(book, wallet_usd, sol_px):
     if d <= 0 or sol_px <= 0:
         b['payoutSeenUsd'] = max(seen, target)
         return b
-    sol = min(_f(b.get('sol')), d / sol_px)
+    protected = min(_f(b.get('sol')), max(0.0, _f(b.get('manualCashSol'))))
+    sol = min(max(0.0, _f(b.get('sol')) - protected), d / sol_px)
     b['sol'] = round(_f(b['sol']) - sol, 9)
     b['bankSol'] = round(_f(b.get('bankSol')) + sol, 9)
     b['bankUsd'] = round(_f(b.get('bankUsd')) + sol * sol_px, 6)  # current paid-out balance
