@@ -6030,7 +6030,8 @@ async def _fw_tick_inner(now):
             book = await _fw_resolve(tid, book, cfg, sol_px)
             if book.get('pending'):
                 continue
-        book = _fw.bank(book, card.get('walletUsd'), sol_px)
+        equity_usd = _fw.book_value(book, px, sol_px)
+        book = _fw.bank(book, card.get('walletUsd'), sol_px, equity_usd)
         want = {**card, 'legs': []} if book.get('defund') else card
         for side in ('sell', 'buy'):
             for o in [{**x, 'cardPays': int(card.get('rounds') or 0) >= 5} for x in _fw.orders(tid, want, book, px, sol_px, cfg, now, count_sells=side == 'sell') if x['side'] == side]:
@@ -6042,7 +6043,8 @@ async def _fw_tick_inner(now):
                 break   # one card, one in-flight transaction; a pending sell must never be overwritten by a buy
             if side == 'sell' and not book.get('pending'):
                 # Confirmed sell proceeds fund payouts first. Paid-out SOL is segregated before any subsequent compound buys.
-                book = _fw.bank(book, card.get('walletUsd'), sol_px)
+                equity_usd = _fw.book_value(book, px, sol_px)
+                book = _fw.bank(book, card.get('walletUsd'), sol_px, equity_usd)
                 # 🔒 SELL-BEFORE-BUY BARRIER: if ANY sell is still required after the sell pass
                 # (route refused, tx expired, partial max-swap chunk, etc.), do not buy anything yet.
                 # The next keeper tick retries the remaining sell first. This prevents a failed sell
