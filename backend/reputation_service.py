@@ -6470,6 +6470,45 @@ async def fuse_wallet_topup(request: Request):
     return {'ok': True, 'tpl': tid, 'usd': usd, 'first': first}
 
 
+@app.post('/api/reputation/admin/fuse-wallet/payout-profit')
+async def fuse_wallet_payout_profit(request: Request):
+    """Owner only: move currently available PROFIT cash from the card into paid-out SOL.
+    Funded principal is a hard floor; this never sells a coin and never touches principal."""
+    me = _require_owner(request)
+    body = await request.json()
+    tid = body.get('tpl')
+    ask = body.get('usd')
+    if tid not in _prime.TEMPLATES:
+        raise HTTPException(400, 'Pick a funded tier.')
+    sol_px = await _sol_usd_live()
+    cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
+    card = cards.get(tid)
+    if not card:
+        raise HTTPException(404, 'Card not found.')
+    pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in card.get('legs') or []])
+    px = {k: _fuse._f(v.get('priceUsd')) for k, v in pairs_.items()}
+    jup = await _jup_prices([l.get('mint') for l in card.get('legs') or []])
+    for l in card.get('legs') or []:
+        if jup.get(l.get('mint')):
+            px[l['pairAddress']] = jup[l['mint']]
+    async with _fw_lock:
+        d = _fw_load(); b = d['books'].get(tid)
+        if not b:
+            raise HTTPException(400, 'That tier is not funded.')
+        if b.get('pending'):
+            raise HTTPException(409, 'Wait for the current transaction to settle first.')
+        equity = _fw.book_value(b, px, sol_px)
+        avail = _fw.profit_available(b, equity, sol_px)
+        nb, paid = _fw.payout_profit_cash(b, equity, sol_px, ask)
+        if paid <= 0:
+            raise HTTPException(400, 'No profit cash is available to pay out right now.')
+        d['books'][tid] = nb
+        _fw_record(d, {'card': tid, 'side': 'payout', 'usd': paid, 'sol': round(paid / sol_px, 9), 'at': time.time(), 'by': me,
+                       'status': 'done', 'why': 'owner payout - profit only; funded principal protected'})
+        _fw_save(d)
+    ad = _admin_load(); _audit(ad, me, 'fuse-wallet-payout-profit', f'{tid} ${paid:.2f}'); _admin_save(ad)
+    return {'ok': True, 'tpl': tid, 'paidUsd': paid, 'availableBeforeUsd': avail, 'fundedUsd': b.get('fundedUsd')}
+
 @app.post('/api/reputation/admin/fuse-wallet/reinvest-paid')
 async def fuse_wallet_reinvest_paid(request: Request):
     """Owner only: move this card's currently segregated paid-out SOL back into active card capital.
