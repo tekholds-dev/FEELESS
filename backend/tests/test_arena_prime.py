@@ -737,3 +737,24 @@ def test_real_card_config_is_separate_from_hq_paper_config(monkeypatch):
     pr['cfg']['rotateConfirm'] = 6                                                           # an HQ paper edit…
     assert rs._prime_real_cfg(pr)['rotateConfirm'] == 3                                      # …never reaches the real card
     assert rs._prime_real_cfg({'cfg': pr['cfg']})['paperFeeUsd'] == 0.02                     # unset → starts from paper
+
+
+def test_keep_winners_never_changes_a_four_slot_shape_to_three_or_five():
+    now = 1000.0
+    prices = {'p1': 1.0, 'p2': 1.2, 'p3': 1.0, 'p4': 1.0, 'p5': 1.0}
+    old = [
+        {'mint':'m1','pairAddress':'p1','symbol':'A','role':'anchor','units':1,'costUsd':1,'entry':1},
+        {'mint':'m2','pairAddress':'p2','symbol':'WIN','role':'runner','units':1,'costUsd':1,'entry':1,'frozen':True},
+        {'mint':'m3','pairAddress':'p3','symbol':'OLD','role':'runner','units':1,'costUsd':1,'entry':1},
+        {'mint':'m4','pairAddress':'p4','symbol':'OLD2','role':'runner','units':1,'costUsd':1,'entry':1},
+    ]
+    nc = {'legs': [
+        {'mint':'m1','pairAddress':'p1','symbol':'A','role':'anchor','units':1,'costUsd':1,'entry':1},
+        {'mint':'m3','pairAddress':'p3','symbol':'OLD','role':'runner','units':1,'costUsd':1,'entry':1},
+        {'mint':'m4','pairAddress':'p4','symbol':'OLD2','role':'runner','units':1,'costUsd':1,'entry':1},
+        {'mint':'m5','pairAddress':'p5','symbol':'NEW','role':'runner','units':1,'costUsd':1,'entry':1},
+    ], 'cash':0}
+    out, kept = ap.keep_winners(nc, old, prices, {}, 10, 4.2)
+    assert out is not None and kept >= 1
+    assert len(out['legs']) == 4
+    assert 'm2' in {l['mint'] for l in out['legs']}
