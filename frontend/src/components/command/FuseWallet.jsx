@@ -20,6 +20,7 @@ export function FuseWallet({ call }) {
   const [cfg, setCfg] = useState(null);
   const [amt, setAmt] = useState({});
   const [dry, setDry] = useState(null);
+  const [showStuck, setShowStuck] = useState(false);
   const load = useCallback(() => call('/admin/fuse-wallet').then(x => { setD(x); setCfg(c => c || x.cfg); }).catch(e => setD({ error: e.message })), [call]);
   useEffect(() => { load(); const t = setInterval(() => !document.hidden && load(), 30000); return () => clearInterval(t); }, [load]);
   const save = patch => call('/admin/fuse-wallet/cfg', { method: 'POST', body: JSON.stringify(patch) }).then(x => { setCfg(x.cfg); toast.success('Fuse wallet saved'); load(); }).catch(e => toast.error(e.message));
@@ -49,10 +50,21 @@ export function FuseWallet({ call }) {
       <span data-tip="Paper fills vs real Jupiter quotes for the same coins and $ (every ~5 min, read-only)"><small>PAPER ⇄ REAL QUOTES</small><b className="m-num">{d.paperMatch?.n ? `${d.paperMatch.avgDevPct >= 0 ? '+' : ''}${d.paperMatch.avgDevPct}%` : '—'}</b><em>{d.paperMatch?.n ? `${d.paperMatch.within2Pct}% within 2% · ${d.paperMatch.n} checks` : 'first check in ~5 min'}</em></span>
       <span><small>SWAPS · FEES</small><b className="m-num">{d.totals?.swaps || 0}</b><em>network {usd(d.totals?.feesUsd)}</em></span></div>
     {d.missing?.length > 0 && <div className="m-note warn" data-testid="fw-missing"><b>⚠ Coins missing from the wallet</b><span>{d.missing.map(m => `${m.mint.slice(0, 6)}… booked ${m.booked}, held ${m.held}`).join(' · ')} — halt the card and check the audit trail.</span></div>}
-    {d.recoverable?.length > 0 && <div className="m-note warn" data-testid="fw-recoverable"><b>🧹 OLD / STUCK KEEPER COINS STILL IN WALLET</b>
-      <span>These balances are not on a current card but match this Fuse wallet's own keeper history. Force sell returns confirmed SOL to the original card as cash; unrelated wallet tokens are never offered.</span>
-      <span className="m-row">{d.recoverable.map(r => <button key={r.mint} type="button" className="m-btn danger" onClick={() => recoverSell(r)}
-        data-testid={`fw-recover-${r.symbol}`} data-tip={r.lastErr || 'Old keeper balance still physically held by wallet'}>Sell old ${r.symbol} → {d.tiers?.[r.card] || r.card} cash</button>)}</span></div>}
+    {d.recoverable?.length > 0 && <div className="m-note warn" data-testid="fw-recoverable"><span className="m-row">
+      <button type="button" className="m-btn danger" onClick={() => setShowStuck(v => !v)} data-testid="fw-stuck-toggle">
+        🧹 Failed / stuck balances ({d.recoverable.length})
+      </button>
+      <small className="m-dim">Old keeper coins still physically in the Fuse wallet.</small>
+    </span>
+      {showStuck && <div className="fw-tiers" data-testid="fw-stuck-panel">
+        {d.recoverable.map(r => <div key={r.mint} className="fw-tier">
+          <span><b>${r.symbol}</b><small className="m-dim"> · {d.tiers?.[r.card] || r.card} · {r.lastStatus || 'old keeper balance'}{r.lastErr ? ` · ${r.lastErr}` : ''}</small>
+            <small className="m-dim">Sell converts the confirmed wallet balance back to SOL and keeps it inside this card as cash. Card value / P&L update from the confirmed fill.</small></span>
+          <button type="button" className="m-btn danger" onClick={() => recoverSell(r)}
+            data-testid={`fw-recover-${r.symbol}`} data-tip="Sell this old keeper balance back into its original card cash">Sell → card cash</button>
+        </div>)}
+      </div>}
+    </div>}
     <div className="m-row"><span className="m-label">1 · WALLET</span>
       <select className="m-input" value={cfg?.walletId || ''} onChange={e => { const w = d.wallets.find(x => x.id === e.target.value); save({ walletId: w?.id || '', address: w?.address || '' }); }} data-testid="fw-pick">
         <option value="">Pick a Circle Solana wallet…</option>{(d.wallets || []).map(w => <option key={w.id} value={w.id}>{w.name || 'wallet'} · {w.address.slice(0, 4)}…{w.address.slice(-4)} · {w.blockchain}</option>)}</select>
