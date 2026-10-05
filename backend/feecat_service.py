@@ -283,6 +283,12 @@ def _tune_entries(store):
     for k, (lo, hi) in ENTRY_BOUNDS.items():
         E[k] = max(lo, min(hi, E[k]))
     L['entry'] = E; L['mode'] = mode; L['tunedAt'] = time.time()
+    # 💪 auto-strength (hourly): her own 24h + 72h record decides ×0.6 / ×1 / ×1.15 size — cold at once, hot only when proven twice
+    was = (cat.get('strength') or {}).get('level')
+    st = feecat_brain.strength(cat.get('exits', []), time.time(), cat.get('strength'), cat.get('discipline'))
+    cat['strength'] = {**st, 'at': time.time()}
+    if st['level'] != (was or 'steady'):
+        _log_event(store, cat, 'LEARN', f"Strength {st['label']}: {st['why']}.")
     _ENTRY_TUNE.clear(); _ENTRY_TUNE.update(E)
     if note:
         L['log'].insert(0, {'at': time.time(), 'note': note, 'symbol': '', 'missed': mode == 'tightening'}); L['log'] = L['log'][:40]
@@ -659,6 +665,10 @@ async def run_engine(store, cats):
             disc_cut = disc['sizeMult'] < 1.0   # discipline only ever makes her trade LESS: no Fuse boost while it's cutting size
             if disc['sizeMult'] != 1.0:
                 conviction = round(conviction * disc['sizeMult'], 2)
+            st_mult = float((cat.get('strength') or {}).get('mult') or 1.0)
+            if st_mult < 1.0 or (st_mult > 1.0 and disc['sizeMult'] >= 1.0):   # 💪 auto-strength: down always, up only when discipline isn't cutting
+                conviction = round(conviction * st_mult, 2)
+                reason = f"{reason}; strength {(cat.get('strength') or {}).get('label')} ×{st_mult}"
             if brain['mult'] != 1.0:
                 conviction = round(conviction * brain['mult'], 2)
                 reason = f"{reason}; setup memory ×{brain['mult']} ({brain['why']})"
@@ -1062,6 +1072,7 @@ async def cat_profile(cat_id: str):
                   'roiPct': round((cat.get('balanceSol', 0) + sum(p.get('costSol', 0) for p in cat.get('positions', [])) - cat.get('startingBalanceSol', 0)) / max(cat.get('startingBalanceSol', 1), 1e-9) * 100, 2)},
         # Live discipline: 9 lives, size mode and why — computed now, the same rule the trading loop enforces.
         'discipline': feecat_brain.discipline(cat.get('exits', []), time.time()),
+        'strength': cat.get('strength') or {'level': 'steady', 'mult': 1.0, 'label': feecat_brain.STRENGTH['steady']['label'], 'why': 'warming up — needs trades on record'},
         'trades': trades[:80],
         'exits': list(reversed(cat.get('exits', [])))[:30],
         'learning': {'params': {**{k: RULES[k] for k in LEARN_BOUNDS}, **{k: v for k, v in (learn.get('params') or {}).items() if k in LEARN_BOUNDS}}, 'defaults': {k: RULES[k] for k in LEARN_BOUNDS},

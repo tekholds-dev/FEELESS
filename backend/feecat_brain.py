@@ -167,3 +167,41 @@ def crowd_edge(mint: str, feed: dict) -> dict:
     n = int(f['n'])
     return {'mult': round(min(CROWD_MAX, 1 + CROWD_STEP * n), 2), 'tag': 'elite-2+' if n >= 2 else 'elite-1',
             'why': f"{n} elite FEELESS trader{'s' if n > 1 else ''} bought it in 6h (${f.get('usd', 0):,.0f})"}
+
+
+# 💪 Auto-strength: her OWN record decides how hard she presses. Two windows must agree before she sizes UP (24h ≥ 5 trades AND
+# 72h ≥ 10 trades, both: avg exit ≥ +5%, win rate ≥ 55%, net SOL > 0) and the same verdict must hold on two hourly checks in a row;
+# a losing window (avg < 0 and net < 0) cuts her to cold AT ONCE. Bounded: ×0.6 … ×1.15, never up while discipline is cutting size.
+STRENGTH = {'cold': {'mult': 0.6, 'label': '🧊 cold'}, 'steady': {'mult': 1.0, 'label': '⚖ steady'}, 'hot': {'mult': 1.15, 'label': '🔥 hot'}}
+STRENGTH_WINDOWS = (('24h', 86400, 5), ('72h', 3 * 86400, 10))
+
+
+def _window(exits, now, secs):
+    rows = [e for e in exits or [] if e.get('pnlSol') is not None and now - (e.get('exitAt') or 0) < secs]
+    n = len(rows)
+    if not n:
+        return {'n': 0, 'winRate': 0, 'avgPct': 0.0, 'netSol': 0.0}
+    return {'n': n, 'winRate': round(sum(1 for e in rows if e['pnlSol'] > 0) / n * 100), 'avgPct': round(sum(float(e.get('changeAtExit') or 0) for e in rows) / n, 2),
+            'netSol': round(sum(e['pnlSol'] for e in rows), 5)}
+
+
+def strength(exits: list, now: float, prev: dict = None, disc: dict = None) -> dict:
+    """→ {level, mult, pending, windows, why}. `prev` = last result (for the two-checks rule)."""
+    prev = prev or {}
+    wins = {k: _window(exits, now, s) for k, s, _ in STRENGTH_WINDOWS}
+    enough = {k: wins[k]['n'] >= m for k, _, m in STRENGTH_WINDOWS}
+    losing = [k for k in wins if enough[k] and wins[k]['avgPct'] < 0 and wins[k]['netSol'] < 0]
+    proven = all(enough.values()) and all(w['avgPct'] >= 5 and w['winRate'] >= 55 and w['netSol'] > 0 for w in wins.values())
+    want = 'cold' if losing else 'hot' if proven else 'steady'
+    cur = prev.get('level') or 'steady'
+    if want == 'cold':
+        level, why = 'cold', f"losing {', '.join(losing)} (avg {wins[losing[0]]['avgPct']:+.1f}% · {wins[losing[0]]['netSol']:+.4f} SOL) — smaller size at once"
+    elif want == cur:
+        level, why = cur, 'record agrees — no change'
+    elif prev.get('pending') == want:
+        level, why = want, ('proven on 24h AND 72h twice in a row — pressing a little harder' if want == 'hot' else 'record back to normal — normal size')
+    else:
+        level, why = cur, f"{want} on this check — needs one more check to switch"
+    if level == 'hot' and (disc or {}).get('sizeMult', 1.0) < 1.0:
+        level, why = 'steady', 'record says hot, but discipline is cutting size — steady until it clears'
+    return {'level': level, 'mult': STRENGTH[level]['mult'], 'label': STRENGTH[level]['label'], 'pending': want if want != level else None, 'windows': wins, 'why': why}

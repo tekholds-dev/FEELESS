@@ -32,6 +32,7 @@ export function FeeCatHQ({ catId = 'leader' }) {
       <div className="m-stat"><small>WIN RATE · LAST {disc.trades || 0}</small><b className="m-num sm">{disc.winRate ?? c.winRate ?? 0}%</b></div>
       <div className="m-stat"><small>EDGE / TRADE</small><b className={`m-num sm ${disc.expectancySol >= 0 ? 'm-pos' : 'm-neg'}`}>{sol(disc.expectancySol)}</b></div>
       <div className="m-stat"><small>SIZE MODE</small><b className="m-num sm">{mode}</b></div>
+      <div className="m-stat" data-tip={`Auto-strength from her own record: ${d.strength?.why || 'warming up'}. 24h + 72h must both prove it (and twice in a row) before she sizes up; a losing window cuts her at once.`} data-testid="feecat-strength"><small>STRENGTH</small><b className="m-num sm">{d.strength?.label || '⚖ steady'} ×{d.strength?.mult ?? 1}</b></div>
       <div className="m-stat"><small>OPEN</small><b className="m-num sm">{(c.positions || []).length}</b></div>
     </div>
   </section>;

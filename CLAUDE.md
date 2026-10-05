@@ -855,3 +855,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`_pick_row`: this mint's pool, price > 0, ≥ $25K, not a stable; real cards still need the real-buy floor). Lookalikes can't be picked.
 - Fuse tabs = 4 (`TOP_TABS`: Start · Build · Arena · My cards); Runners is step 1 inside Build (`fp-steps`, `?tab=runners` still routes).
   🧲 Runners list is sticky (`runners.sticky`): a coin only being re-scanned stays as 🕘 rechecking (never addable); a real gate fail drops it.
+- 💪 FeeCat auto-strength (`feecat_brain.strength`, hourly in `_tune_entries`, `cat.strength`, profile `strength`, HQ strip STRENGTH): her own
+  24h (≥5) + 72h (≥10) record → 🧊 cold ×0.6 AT ONCE on a losing window · 🔥 hot ×1.15 only when BOTH windows prove it (avg ≥ +5%, ≥55% won,
+  net > 0) twice in a row · never up while discipline cuts size. Sizing only; gates and discipline untouched.
+- 👁 Safe HQ preview (no preview mode in the app): build → local backend with a THROWAWAY key in `FEELESS_ADMIN_WALLETS` (data/ is git-ignored,
+  Mongo off, outbound blocked) → Playwright with a fake wallet + the signed session in localStorage; every request stays on 127.0.0.1.
