@@ -860,3 +860,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   net > 0) twice in a row · never up while discipline cuts size. Sizing only; gates and discipline untouched.
 - 👁 Safe HQ preview (no preview mode in the app): build → local backend with a THROWAWAY key in `FEELESS_ADMIN_WALLETS` (data/ is git-ignored,
   Mongo off, outbound blocked) → Playwright with a fake wallet + the signed session in localStorage; every request stays on 127.0.0.1.
+- 💰 Paper payout line = everything PUT IN (`arena_prime.put_in`/`payout_line`: `putInUsd` set at the first deal, kept through every restart;
+  real = `fundedUsd`). Only the part of a payout ABOVE that line leaves, measured on money still IN the card (paid-out money never counts).
+  Screens show PUT IN from `summary.math.putIn` (paper) — a restart's lower start is "this run", never the put-in.
+- 🪙 Owner-set real config keys (`prime.realOwnerSet`, saved by Edit Fuse) are never changed by the engine self-fix (`_brain_patch(owner_set)`):
+  the owner's 5-min degen setup (patience 2, hold 10) sticks; the real guard floors still apply.
+- 🃏 Card window (`CardConfig`, `styles/cardWindow.css`): the card itself big in its own design (FuseCard, flip) + side panes (coins · how it
+  plays · 📜 trail from its paper book events). 📈 Pit live (`PitLive.jsx`): `RaceLine` (both fighters' % since the bell from `pg_battle.spark`,
+  battles `spark`) under the reel + `CoinTicker` belt of both cards' coins on live 5m prices.

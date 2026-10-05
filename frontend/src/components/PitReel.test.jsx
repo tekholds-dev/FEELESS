@@ -47,3 +47,12 @@ test('the guide explains dials / cycles / coins and picks a dial or cycle from i
   await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
   expect(document.querySelector('[data-testid="fuse-guide"]')).toBeNull();
 });
+
+test('the race line scales both fighters into the box and keeps the zero line', () => {
+  const { raceGeometry } = require('./PitLive');
+  const g = raceGeometry([0, 1, 2], [0, -1, -2]);
+  expect(g.a.split(' ')).toHaveLength(3);
+  expect(g.a.split(' ')[0]).toBe(`0,${g.zero}`);
+  expect(Number(g.a.split(' ').pop().split(',')[1])).toBeLessThan(g.zero);     // up = higher on screen
+  expect(Number(g.b.split(' ').pop().split(',')[1])).toBeGreaterThan(g.zero);
+});

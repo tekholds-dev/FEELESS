@@ -1,0 +1,22 @@
+/* 🃏 Card window (CardConfig): the card itself big in its own design + side windows (coins · how it plays · trail). m-* tokens,
+   ccw* keyframes only, transform/opacity, fits the screen without the dialog scrolling on desktop. */
+.ce.is-pop.ccx-win { width: min(1180px, 100%); max-height: min(92vh, 940px); }
+.ccx-grid { display: grid; grid-template-columns: auto minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.ccx-hero { display: grid; gap: 10px; justify-items: center; width: 300px; position: sticky; top: 0; }
+.ccx-hero .fcd { zoom: 1.12; } .ccx-hero > p { margin: 0; text-align: center; font-size: 12px; } .ccx-hero > small { text-align: center; font-size: 11px; }
+.ccx-hero .cc-cfg-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.ccx-main { display: grid; gap: 10px; min-width: 0; } .ccx-main .ccx-rows { max-height: 420px; }
+.ccx-side { display: grid; gap: 10px; min-width: 0; }
+.ccx-pane { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-surface) 80%, transparent); animation: ccwIn .25s var(--m-ease, ease) both; }
+.ccx-side .ccx-legend p { grid-template-columns: 1fr; gap: 2px; } .ccx-side .ccx-legend span { color: var(--m-dim); }
+.ccx-trail ol { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 4px; max-height: 220px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
+.ccx-trail ol::-webkit-scrollbar { width: 6px; } .ccx-trail ol::-webkit-scrollbar-thumb { background: var(--m-accent); border-radius: 6px; }
+.ccx-trail li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px; font-size: 11.5px; padding: 4px 6px; border-radius: 8px; border: 1px solid var(--m-line);
+  animation: ccwIn .25s var(--m-ease, ease) calc(var(--i, 0) * 50ms) both; transition: border-color .15s; }
+.ccx-trail li:hover { border-color: var(--m-line-hi); } .ccx-trail time { color: var(--m-dim); font-size: 10.5px; }
+@keyframes ccwIn { from { opacity: 0; transform: translateY(6px); } }
+body.fx-lite .ccx-pane, body.fx-lite .ccx-trail li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ccx-pane, .ccx-trail li { animation: none; transition: none; } }
+body.theme-day .ccx-pane { background: #fff; border-color: #d8e2dc; }
+@media (max-width: 1100px) { .ccx-grid { grid-template-columns: auto minmax(0, 1fr); } .ccx-side { grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); } }
+@media (max-width: 640px) { .ccx-grid { grid-template-columns: minmax(0, 1fr); } .ccx-hero { width: 100%; position: static; } .ccx-hero .fcd { zoom: 1; } }

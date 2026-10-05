@@ -156,3 +156,15 @@ def test_the_pit_can_read_any_fighter_over_the_last_5_15_or_60_minutes():
     assert pb.frame_pct(b, now, 5) == 21.0 - 0 if False else pb.frame_pct(b, now, 10) == 10.0     # +10% → +21% is +10% over the last 10 min
     assert pb.frame_pct(b, now, 60) == 21.0                                                        # younger than the window → since it opened
     assert pb.frame_pct(None, now, 5) == 0.0
+
+
+def test_self_fix_never_overrides_the_owners_5_min_degen_settings():
+    import reputation_service as rs
+    import arena_prime as ap
+    owner = {'autoBrain': True, 'strictRunners': False, 'rotateHours': 0.08, 'rotateConfirm': 2, 'minHoldMins': 10, 'rotateMinDrop': 5.0}
+    best = {'confirm': {'value': 4, 'n': 60}, 'minDrop': {'value': 8.0, 'n': 60}}
+    prev = {'confirm': {'value': 4}, 'minDrop': {'value': 8.0}}
+    assert rs._brain_patch(owner, {}, best, prev) == {'rotateConfirm': 4, 'rotateMinDrop': 8.0}           # without the owner's mark it would move both
+    assert rs._brain_patch(owner, {}, best, prev, owner_set=['rotateConfirm', 'rotateHours', 'minHoldMins']) == {'rotateMinDrop': 8.0}
+    guarded, _ = ap.real_guard(ap.clean_cfg({**owner, 'instantSwapPct': 10}))                              # the real guard keeps them too
+    assert guarded['rotateConfirm'] == 2 and guarded['minHoldMins'] == 10 and guarded['rotateHours'] == 0.08

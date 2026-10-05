@@ -510,6 +510,7 @@ def deal(tid, pools, runners, cfg, now, anchors=(), usd=None, keep=None, shape=N
     c = {**base, **(keep or {})}
     c.update(lastRotateAt=now, legs=[_leg(x, each, now, r) for x, r in picks], cash=0.0, flooredAt=None)
     c['startUsd'] = (keep or {}).get('startUsd', size)
+    c['putInUsd'] = _f((keep or {}).get('putInUsd')) or (put_in(keep) if keep else size)   # 💵 what was put in survives every restart
     c['feesUsd'] = round(_f(c['feesUsd']) + cfg['paperFeeUsd'] * len(picks), 4)
     c['events'] = list(c['events']) + [{'kind': 'phase' if shape else 'deal', 'at': now, 'n': len(picks), 'why': PHASES[shape]['why'] if shape else ('re-dealt after the floor' if keep else 'fresh card')}]
     if shape:
@@ -679,8 +680,11 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             # 💰 PROFIT ONLY: a card pays out only while the WHOLE card is above what it started with. One coin's win on a card that
             # is still down is not profit yet — it stays in the card (paper used to pay out $2.88 from a card that was −70%).
             # the line is the money the owner HAS IN: real = funded principal minus what they took out (`fundedUsd`); paper = the run's start
-            if out_usd > 0 and V() + proceeds < (_f(c.get('fundedUsd')) or _f(c.get('startUsd'))):
-                retained_profit += out_usd; out_usd = 0.0
+            # …and only the part ABOVE that line: the money still IN the card (paid-out money never counts — it can't pay out what
+            # the card is using) must stay ≥ what was put in. Paper's line is everything ever put in (`put_in`), never a restart's lower start.
+            room = max(0.0, V() - _f(c.get('walletUsd')) + proceeds - payout_line(c))
+            if out_usd > room:
+                retained_profit += out_usd - room; out_usd = round(room, 6)
             recycle_usd = sold_cost + retained_profit
             if out_usd > 0:
                 c['walletUsd'] = round(_f(c.get('walletUsd')) + out_usd, 6)
@@ -941,6 +945,20 @@ def cycle_peek(card, cfg):
     return {'now': card.get('phase'), 'next': nxt, 'inRounds': n if nxt else None, 'mode': mode, 'fix': card.get('cycleFix')}
 
 
+def put_in(card):
+    """What was PUT IN a paper card, across every restart: set at its first deal (`putInUsd`, + any top-up) and never lowered by a
+    floor re-deal. Legacy cards: the first recorded run's start."""
+    if _f(card.get('putInUsd')) > 0:
+        return _f(card['putInUsd'])
+    runs = card.get('runs') or []
+    return _f(runs[0].get('startUsd')) if runs and _f(runs[0].get('startUsd')) > 0 else _f(card.get('startUsd'))
+
+
+def payout_line(card):
+    """The money a card must keep IN before anything is paid out: real = funded principal (`fundedUsd`); paper = what was put in."""
+    return _f(card.get('fundedUsd')) or max(_f(card.get('startUsd')), put_in(card))
+
+
 def summary(card, prices, cfg=None):
     v = value(card, prices)
     start = _f(card.get('startUsd')) or 1
@@ -960,7 +978,8 @@ def summary(card, prices, cfg=None):
             'tp': TEMPLATES[card['tpl']]['tp'], 'sl': TEMPLATES[card['tpl']]['sl'], 'tier': TEMPLATES[card['tpl']]['tier'], 'why': TEMPLATES[card['tpl']].get('why'),
             'parked': list((card.get('parked') or {}).values()),
             # 🧮 the money in plain words: PUT IN → NOW = STILL IN THE CARD + PAID OUT; P&L = NOW − PUT IN (fees apart)
-            'math': {'putIn': round(start, 4), 'heldUsd': round(v - paid, 4), 'paidOutUsd': paid, 'nowUsd': v, 'pnlUsd': round(v - start, 4),
+            'math': {'putIn': round(start if card.get('real') else put_in(card), 4), 'runStart': round(start, 4), 'heldUsd': round(v - paid, 4), 'paidOutUsd': paid, 'nowUsd': v,
+                     'pnlUsd': round(v - (start if card.get('real') else put_in(card)), 4),
                      'compoundedUsd': round(_f(card.get('compoundedUsd')), 4), 'feesUsd': round(_f(card.get('feesUsd')), 4)},
             # a floored card is RESTING in its anchors until the re-deal — never a countdown stuck on "dealing…"
             'nextRoundAt': round((_f(card['flooredAt']) + max(60.0, _f((cfg or {}).get('floorRestMins')) * 60)) if card.get('flooredAt') else (_f(card.get('lastRotateAt')) + rot * 3600 + BELL_SEC), 1),

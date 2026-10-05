@@ -207,3 +207,10 @@ def test_each_card_learns_its_own_timeframe_and_spreads_until_proven():
 def test_card_bred_from_another_strategy_is_its_next_version():
     assert pb.child_name('🌙 Moon Pit v.01', 3) == '🌙 Moon Pit v.03'
     assert pb.child_name('Blaze', 1) == 'Blaze v.01'
+
+
+def test_race_line_is_the_paper_books_minute_points_for_this_fight():
+    book = {'hist': [[0, 1.0], [60, 1.5], [120, -0.4], [180, 2.2]]}
+    assert pb.spark(book) == [1.0, 1.5, -0.4, 2.2]
+    assert pb.spark(book, since=125) == [-0.4, 2.2]          # only this fight (one minute of slack)
+    assert pb.spark(None) == [] and len(pb.spark({'hist': [[i, i] for i in range(90)]})) == 40

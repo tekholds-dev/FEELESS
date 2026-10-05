@@ -8,6 +8,7 @@ import { ArenaPrime, HqRealCards } from './ArenaPrime';
 import { ArenaContenders } from './ArenaContenders';
 import { FuseLanding } from './FuseLanding';
 import { PitReel } from './PitReel';
+import { RaceLine, CoinTicker } from './PitLive';
 import { FuseGuide } from './FuseGuide';
 import { CardEarnings } from './CardEarnings';
 import { PaperAudit, TrailSummary, CoinTable, CycleBuilder, usd as fmt$ } from './FuseMoney';
@@ -29,6 +30,7 @@ import { useLivePrices } from '../lib/livePrices';
 import { liveBook, liveStagePct } from '../lib/fuseLive';
 import '../styles/runners.css';
 import '../styles/fusePage.css';
+import '../styles/cardWindow.css';
 
 // Fuse 🧬 — the whole Fuse product in one tab: Lab (build + featured) · Runners (pick ≤3 fresh coins) · Arena (proof)
 // · My cards (live cards + every action). Runner picks and "Load" carry across tabs. Every money action is a normal
@@ -486,11 +488,13 @@ export function Battlefield({ b: b0, cards = [], onLoad }) {
           {corner(p, 'a', i)}
           <div className="bf-mid">
             <PitReel p={p} still={cur !== i} />
+            <RaceLine p={p} />
             <i className="bf-tug" data-tip="Who's ahead since the bell"><i style={{ transform: `scaleX(${share})` }} /></i>
             <div className="bf-bars" data-testid={`bars-${i}`}>
               <span className="bf-bar is-paid" data-tip="Wallets that BOUGHT a side's card to back it (real buys, you own the card)"><small>{p.a.paidN || 0}</small><i><i style={{ transform: `scaleX(${tugShare(p.a.paidUsd || 0, p.b.paidUsd || 0)})` }} /></i><small>{p.b.paidN || 0}</small><em>💰 BUY BACKS {p.a.paidN || 0}/{p.b.paidN || 0} · ${Math.round(p.a.paidUsd || 0)}/${Math.round(p.b.paidUsd || 0)}</em></span>
               <span className="bf-bar is-free" data-tip="Free backs · +15 XP to back, winners count toward weekly quests → season rank"><small>{p.a.backers || 0}</small><i><i style={{ transform: `scaleX(${tugShare(p.a.backers || 0, p.b.backers || 0)})` }} /></i><small>{p.b.backers || 0}</small><em>⚔ BACKS {p.a.backers || 0}/{p.b.backers || 0} · +XP</em></span></div></div>
-          {corner(p, 'b', i)}</div>; })}
+          {corner(p, 'b', i)}
+          {cur === i && <div className="bf-tickrow"><CoinTicker legsA={cardOf(p.a.key)?.legs} legsB={cardOf(p.b.key)?.legs} nameA={p.a.name} nameB={p.b.name} /></div>}</div>; })}
     </div>
     {br.upNext?.length > 0 && <div className="bf-next" data-testid="bf-upnext"><span className="m-label">⏭ UP NEXT</span>{br.upNext.map((x, j) => <button key={x.key} type="button" className={`bf-nextcard br-${x.status}`} style={{ '--i': j }} onClick={() => setCfgKey(x.key)} data-tip="Fights at the next bell — tap for its config">
       <b>{x.emoji}</b><span>{x.name}</span><em>{x.status === 'winners' ? '🏆' : '💀'} {x.w}–{x.l}</em></button>)}</div>}
@@ -525,34 +529,46 @@ export function CardConfig({ c, onClose, onLoad, onBack, onBuyBack }) {
   const pctCard = book ? book.pct : (c.index ? c.index - 100 : c.pnlPct);
   const cyc = dna.cycle || cfg.cycle || c.cycle;
   return createPortal(<div className="ce-shade is-pop" role="presentation" onClick={onClose} data-testid="card-config">
-    <aside className="ce is-pop m-live cc-cfg" role="dialog" aria-modal="true" aria-label={`${c.name} config`} onClick={e => e.stopPropagation()}>
-      <header><span className="m-label">⚙ CARD CONFIG · LIVE</span><h3>{c.emoji} {c.name}{c.dial && <span className={`ar-dial dl-${c.dial}`}>{DIAL_LABEL[c.dial]}</span>}</h3>
+    <aside className="ce is-pop m-live cc-cfg ccx-win" role="dialog" aria-modal="true" aria-label={`${c.name} config`} onClick={e => e.stopPropagation()}>
+      <header><span className="m-label">⚙ CARD · LIVE</span><h3>{c.emoji} {c.name}{c.dial && <span className={`ar-dial dl-${c.dial}`}>{DIAL_LABEL[c.dial]}</span>}</h3>
         <button type="button" className="cx-x" onClick={onClose} aria-label="Close">×</button></header>
-      {c.tagline && <p className="m-dim">{c.tagline}</p>}
-      <div className="ccx-pnl" data-testid="cfg-pnl">
-        <span><small>CARD NOW</small><b className={`m-num fl-tick ${(pctCard || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={(pctCard || 0).toFixed(2)}>{pctCard == null ? '—' : pc(pctCard)}</b></span>
-        {book && <span><small>PAPER BOOK</small><b className="m-num">{fmt$(book.startUsd)} → {fmt$(book.valueUsd)}</b><em className={book.pnlUsd >= 0 ? 'm-pos' : 'm-neg'}>{book.pnlUsd >= 0 ? '+' : '−'}{fmt$(Math.abs(book.pnlUsd))}</em></span>}
-        {c.record_wl && <span><small>BATTLES</small><b className="m-num">{c.record_wl.w}W · {c.record_wl.l}L</b></span>}
-        <span><small>COINS</small><b className="m-num">{rows.length}</b><em>{rows.filter(r => r.runner).length} runners · {rows.filter(r => !r.runner).length} majors / pools</em></span></div>
-      <div className="ccx-rows" role="table" aria-label="Coins, entry and live P&L">
-        <div className="ccx-row is-head" role="row"><span>COIN</span><span>WEIGHT</span><span>ENTRY → NOW</span><span>P&L</span></div>
-        {rows.map((l, i) => <div key={l.pairAddress} className="ccx-row" role="row" style={{ '--i': i }}><b>{l.runner ? '🏃' : '⚓'} ${l.symbol}</b>
-          <span className="ccx-w"><i style={{ transform: `scaleX(${Math.min(1, (Number(l.weight) || 0) / 100)})` }} /><em className="m-num">{Math.round(Number(l.weight) || 0)}%</em></span>
-          <span className="m-num">{l.entry ? `$${Number(l.entry).toPrecision(3)}` : '—'} → {l.px ? `$${Number(l.px).toPrecision(3)}` : '—'}</span>
-          <em className={`m-num fl-tick ${(l.pct || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={l.pct == null ? 'x' : l.pct.toFixed(1)}>{l.pct == null ? '—' : pc(l.pct)}{l.nowUsd != null && <small> · {fmt$(l.nowUsd)}</small>}</em></div>)}</div>
-      <div className="ccx-legend" data-testid="cfg-legend"><span className="m-label">🧬 HOW THIS CARD PLAYS</span>
-        {cyc && <p><b>🔄 Cycle · {cyc}</b><span>{CYCLE_WORDS[cyc] || (String(cyc).includes(',') ? `its own: ${String(cyc).split(',').join(' → ')}` : '')}</span></p>}
-        {(cfg.tp != null || cfg.sl != null) && <p><b>🎯 Exits · TP +{cfg.tp ?? '—'}% · SL −{cfg.sl ?? '—'}%</b><span>runners take profit at +{cfg.tp ?? '—'}%, stop at −{cfg.sl ?? '—'}%; anything ≥ +150% (or a whole round ≥ +80%) is 🏇 held instead</span></p>}
-        {(dna.clock || cfg.rotateHours) && <p><b>⟳ Clock · {(v => (v >= 1 ? `${v}h` : `${Math.round(v * 60)}m`))(dna.clock || cfg.rotateHours)}</b><span>how often a weak (losing) coin may be swapped out</span></p>}
-        {(dna.stop || cfg.slMode) && <p><b>✂ Stop · {dna.stop || cfg.slMode}</b><span>{STOP_WORDS[dna.stop || cfg.slMode] || ''}</span></p>}
-        {dna.compound && <p><b>♻ Compound · {dna.compound}</b><span>{dna.compound === 'smart' ? 'gains go into the strongest coins' : dna.compound === 'even' ? 'gains split evenly over the other coins' : 'gains are not reinvested'}</span></p>}
-        {dna.payoutPct != null && <p><b>💸 Payout · {dna.payoutPct}%</b><span>of every take-profit goes to the owner's wallet — the rest stays in the card</span></p>}
-        <p><b>🛟 Rescue</b><span>if the card falls 50% under its start it switches to safest ⇄ breakeven by itself</span></p></div>
-      <div className="cc-cfg-acts">{onLoad && <button type="button" className="m-btn primary m-go" onClick={copy} data-testid="cfg-copy">⚡ Copy to Fuse Lab</button>}
-        {onBack && <button type="button" className="m-btn" onClick={() => { onBack(); onClose(); }} data-testid="cfg-back">⚔ Back it</button>}
-        {c.kind && c.id && <button type="button" className="m-btn" onClick={() => setAudit(true)} data-tip="Paper audit: its battle books at true fills — entry → now per coin, $, fees apart, won / lost" data-testid="cfg-audit">📜 Paper audit</button>}
-        {onBuyBack && <button type="button" className="m-btn bf-buy" onClick={() => { onBuyBack(); onClose(); }}>💰 Buy & back</button>}</div>
-      <small className="m-dim">Copying loads the coins + these configs into your Lab — nothing moves until you approve one Fuse in.</small>
+      <div className="ccx-grid">
+        {/* 🃏 the card itself, big and in its own design (drag to tilt · ⟲ flips to its money math) */}
+        <div className="ccx-hero" data-testid="cfg-card">{(c.legs || []).length > 0 && <FuseCard c={{ pools: c.legs.map(l => l.pairAddress), fitness: c.activity?.score || 0, bornGen: c.legs.length, legs: c.legs,
+          parts: { grade: c.grade || 'B', aprScore: 0, momentum24h: pctCard || 0, calm: '—', feeDragPct: 0, impactLegs: 0 } }} style={DIAL_STYLE[c.dial] || 'momentum'} rank={0} budget={20} aura={c.aura || ''} />}
+          {c.tagline && <p className="m-dim">{c.tagline}</p>}
+          <div className="cc-cfg-acts">{onLoad && <button type="button" className="m-btn primary m-go" onClick={copy} data-testid="cfg-copy">⚡ Copy to Fuse Lab</button>}
+            {onBack && <button type="button" className="m-btn" onClick={() => { onBack(); onClose(); }} data-testid="cfg-back">⚔ Back it</button>}
+            {c.kind && c.id && <button type="button" className="m-btn" onClick={() => setAudit(true)} data-tip="Paper audit: its battle books at true fills — entry → now per coin, $, fees apart, won / lost" data-testid="cfg-audit">📜 Paper audit</button>}
+            {onBuyBack && <button type="button" className="m-btn bf-buy" onClick={() => { onBuyBack(); onClose(); }}>💰 Buy & back</button>}</div>
+          <small className="m-dim">Copying loads the coins + these configs into your Lab — nothing moves until you approve one Fuse in.</small></div>
+        <div className="ccx-main">
+          <div className="ccx-pnl" data-testid="cfg-pnl">
+            <span><small>CARD NOW</small><b className={`m-num fl-tick ${(pctCard || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={(pctCard || 0).toFixed(2)}>{pctCard == null ? '—' : pc(pctCard)}</b></span>
+            {book && <span><small>PAPER BOOK</small><b className="m-num">{fmt$(book.startUsd)} → {fmt$(book.valueUsd)}</b><em className={book.pnlUsd >= 0 ? 'm-pos' : 'm-neg'}>{book.pnlUsd >= 0 ? '+' : '−'}{fmt$(Math.abs(book.pnlUsd))}</em></span>}
+            {c.record_wl && <span><small>BATTLES</small><b className="m-num">{c.record_wl.w}W · {c.record_wl.l}L</b></span>}
+            <span><small>COINS</small><b className="m-num">{rows.length}</b><em>{rows.filter(r => r.runner).length} runners · {rows.filter(r => !r.runner).length} majors / pools</em></span></div>
+          <div className="ccx-rows" role="table" aria-label="Coins, entry and live P&L">
+            <div className="ccx-row is-head" role="row"><span>COIN</span><span>WEIGHT</span><span>ENTRY → NOW</span><span>P&L</span></div>
+            {rows.map((l, i) => <div key={l.pairAddress} className="ccx-row" role="row" style={{ '--i': i }}><b>{l.runner ? '🏃' : '⚓'} ${l.symbol}</b>
+              <span className="ccx-w"><i style={{ transform: `scaleX(${Math.min(1, (Number(l.weight) || 0) / 100)})` }} /><em className="m-num">{Math.round(Number(l.weight) || 0)}%</em></span>
+              <span className="m-num">{l.entry ? `$${Number(l.entry).toPrecision(3)}` : '—'} → {l.px ? `$${Number(l.px).toPrecision(3)}` : '—'}</span>
+              <em className={`m-num fl-tick ${(l.pct || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={l.pct == null ? 'x' : l.pct.toFixed(1)}>{l.pct == null ? '—' : pc(l.pct)}{l.nowUsd != null && <small> · {fmt$(l.nowUsd)}</small>}</em></div>)}</div></div>
+        <div className="ccx-side">
+          <section className="ccx-legend ccx-pane" data-testid="cfg-legend"><span className="m-label">🧬 HOW THIS CARD PLAYS</span>
+            {cyc && <p><b>🔄 Cycle · {cyc}</b><span>{CYCLE_WORDS[cyc] || (String(cyc).includes(',') ? `its own: ${String(cyc).split(',').join(' → ')}` : '')}</span></p>}
+            {(cfg.tp != null || cfg.sl != null) && <p><b>🎯 TP +{cfg.tp ?? '—'}% · SL −{cfg.sl ?? '—'}%</b><span>runners take profit at +{cfg.tp ?? '—'}%, stop at −{cfg.sl ?? '—'}%; ≥ +150% (or a round ≥ +80%) is 🏇 held instead</span></p>}
+            {(dna.clock || cfg.rotateHours) && <p><b>⟳ Clock · {(v => (v >= 1 ? `${v}h` : `${Math.round(v * 60)}m`))(dna.clock || cfg.rotateHours)}</b><span>how often a weak (losing) coin may be swapped out</span></p>}
+            {(dna.stop || cfg.slMode) && <p><b>✂ Stop · {dna.stop || cfg.slMode}</b><span>{STOP_WORDS[dna.stop || cfg.slMode] || ''}</span></p>}
+            {dna.compound && <p><b>♻ Compound · {dna.compound}</b><span>{dna.compound === 'smart' ? 'gains go into the strongest coins' : dna.compound === 'even' ? 'gains split evenly over the other coins' : 'gains are not reinvested'}</span></p>}
+            {dna.payoutPct != null && <p><b>💸 Payout · {dna.payoutPct}%</b><span>of PROFIT only — paid out only above what was put in; the rest stays in the card</span></p>}
+            <p><b>🛟 Rescue</b><span>falls 50% under its start → safest ⇄ breakeven by itself</span></p></section>
+          <section className="ccx-pane ccx-trail" data-testid="cfg-trail"><span className="m-label">📜 TRAIL · ITS PAPER BOOK</span>
+            {(book?.events || []).length ? <ol>{book.events.slice(-7).reverse().map((e, i) => <li key={`${e.at}-${i}`} style={{ '--i': i }}><time className="m-num">{new Date(e.at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</time><span>{e.why || e.kind}</span></li>)}</ol>
+              : <small className="m-dim">The trail starts when this card steps into a battle: $100 dealt at true fills, every swap and the result land here.</small>}
+            {book && <small className="m-dim">high {pc(book.hiPct || 0)} · low {pc(book.loPct || 0)} · fees {fmt$(book.feesUsd || 0)} apart</small>}</section>
+        </div>
+      </div>
     {audit && <PaperAudit k={`${c.kind}:${c.id}`} name={c.name || 'Card'} onClose={() => setAudit(false)} />}
     </aside></div>, document.body);
 }

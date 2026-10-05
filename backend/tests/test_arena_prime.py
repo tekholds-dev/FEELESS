@@ -937,3 +937,27 @@ def test_fresh_card_dealt_with_an_amount_starts_at_that_amount():
     c = ap.deal('degen', [], [R('R1', 1), R('R2', 1)], cfg, 0, anchors, usd=10.0)
     assert c['startUsd'] == 10.0 and c['dayStartUsd'] == 10.0     # never the $100 default: that read −90% and tripped the floor
     assert ap.deal('degen', [], [R('R1', 1)], cfg, 0, anchors, usd=10.0, keep={'startUsd': 55.0})['startUsd'] == 55.0
+
+
+def test_paper_pays_out_only_above_what_was_put_in_even_after_a_restart():
+    cfg = ap.clean_cfg({'payouts': {'degen': 100}, 'compoundStyle': 'smart', 'cycles': {'degen': 'off'}})
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], cfg, 0, SOL[:1])
+    assert card['putInUsd'] == 100.0
+    # the card restarted after a fall: its run starts at $60, but $100 was PUT IN
+    low = {**card, 'startUsd': 60.0, 'roundStartUsd': 60.0, 'legs': [{**l, 'units': l['units'] * 0.6, 'costUsd': l['costUsd'] * 0.6} for l in card['legs']]}
+    px = {'Psol': 1, 'Pa': 1, 'Pr1': 2.2, 'Pr2': 1}                         # r1 doubles → the card is ~$76: up on the run, still under $100
+    out = ap.tick(low, px, [], [], cfg, 30, SOL)
+    assert not out.get('walletUsd') and not [e for e in out['events'] if e['kind'] == 'payout']
+    assert ap.summary(out, px)['math']['putIn'] == 100.0                     # what was put in stays on screen
+    # a restart keeps the put-in line
+    again = ap.deal('degen', [P('a', 1)], [R('r1', 1)], cfg, 1, SOL[:1], usd=40.0, keep={'startUsd': 40.0, 'putInUsd': 100.0})
+    assert again['putInUsd'] == 100.0 and ap.payout_line(again) == 100.0
+
+
+def test_paid_out_money_never_counts_toward_the_line():
+    cfg = ap.clean_cfg({'payouts': {'degen': 100}, 'compoundStyle': 'smart', 'cycles': {'degen': 'off'}})
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], cfg, 0, SOL[:1])
+    # $100 in · coins now worth less · $30 already paid out → in-card money is under $100: nothing more may leave
+    worn = {**card, 'walletUsd': 30.0, 'legs': [{**l, 'units': l['units'] * 0.75} for l in card['legs']]}
+    out = ap.tick(worn, {'Psol': 1, 'Pa': 1, 'Pr1': 2.2, 'Pr2': 1}, [], [], cfg, 30, SOL)
+    assert out['walletUsd'] == 30.0

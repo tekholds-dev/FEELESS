@@ -4375,6 +4375,7 @@ def _battle_view(mega, now):
     pnow = lambda k, start: paper[k]['pct'] if (paper.get(k) or {}).get('pct') is not None else round(pct.get(k, start) - start, 2)
     pairs = [{side: {**x[side], 'now': pnow(x[side]['key'], x[side]['start']), 'paper': {kk: (paper.get(x[side]['key']) or {}).get(kk) for kk in ('startUsd', 'valueUsd', 'feesUsd', 'hiPct', 'loPct')} if paper.get(x[side]['key']) else None,
                      'frames': {str(m): _pgb.frame_pct(paper.get(x[side]['key']), now, m) for m in _pgb.FRAMES} if paper.get(x[side]['key']) else None,
+                     'spark': _pgb.spark(paper.get(x[side]['key']), b.get('at')),   # 📈 the race line: % since the bell, 1 point a minute
                      'backers': backs.count(x[side]['key']),
                      'paidN': sum(1 for q in paid if q['key'] == x[side]['key']), 'paidUsd': round(sum(q['usd'] for q in paid if q['key'] == x[side]['key']), 2)} for side in ('a', 'b')}
              for x in b.get('pairs') or []]
@@ -5644,7 +5645,7 @@ async def _prime_view():
 @app.get('/api/reputation/fuses/prime')
 async def fuse_prime():
     """⭐ Arena Prime cards (paper, fully auto) with every automation event + the config they run."""
-    return {'cards': await _prime_view(), 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'suggest': _json_load(PG_SIM_PATH, {}).get('byClock') or {}, 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))})[1], 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner')}
+    return {'cards': await _prime_view(), 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'suggest': _json_load(PG_SIM_PATH, {}).get('byClock') or {}, 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))})[1], 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner'), 'realOwnerSet': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or []}
 
 
 @app.post('/api/reputation/admin/arena/prime')
@@ -5661,6 +5662,8 @@ async def fuse_prime_admin(request: Request):
         if isinstance(body.get('realCfg'), dict):   # 💵 the real card's own config (paper untouched); first edit copies today's paper config
             base = pr.get('realCfg') if isinstance(pr.get('realCfg'), dict) and pr.get('realCfg') else pr['cfg']
             pr['realCfg'] = _prime.clean_cfg({**base, **body['realCfg']})
+            # 🪙 THE OWNER PICKS: every setting saved here is the owner's — the engine's self-fix never changes it afterwards
+            pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {k for k in body['realCfg'] if isinstance(k, str)})[:60]
         if body.get('lock') in _prime.TEMPLATES:   # 🔒 lock a tier's FULL config as it is now (engine, tunes and meta config never change it)
             locks = dict(pr.get('locks') or {})
             if isinstance(body.get('patch'), dict) and locks.get(body['lock']):   # ⚙ edit a LOCKED tier: change only its own frozen config
@@ -7491,8 +7494,9 @@ async def _pg_sim_tick(now):
     return len(res)
 
 
-def _brain_patch(cfg, s24, best, prev=None):
-    """What the sim brain would change on ONE config (paper or the real card's own); {} when its 🧠 switch is off."""
+def _brain_patch(cfg, s24, best, prev=None, owner_set=()):
+    """What the sim brain would change on ONE config (paper or the real card's own); {} when its 🧠 switch is off. Keys the OWNER set
+    by hand (`owner_set`, e.g. 5-min rounds with patience 2) are never touched — the owner picks, the brain only fills the rest."""
     if not cfg.get('autoBrain', True):
         return {}
     patch = {}
@@ -7509,7 +7513,7 @@ def _brain_patch(cfg, s24, best, prev=None):
             steady = not prev or (prev.get(trait) or {}).get('value') == b['value']
             if v != cfg.get(key) and steady:
                 patch[key] = v
-    return patch
+    return {k: v for k, v in patch.items() if k not in set(owner_set or ())}
 
 
 async def _engine_self_fix(now, sim):
@@ -7524,7 +7528,7 @@ async def _engine_self_fix(now, sim):
         real = _prime.clean_cfg(pr['realCfg']) if isinstance(pr.get('realCfg'), dict) and pr.get('realCfg') else None
         prev = sim.get('prevBest') or {}
         pp = _brain_patch(paper, s24, best, prev)
-        rp = _brain_patch(real, s24, best, prev) if real else {}
+        rp = _brain_patch(real, s24, best, prev, owner_set=pr.get('realOwnerSet')) if real else {}
         if not pp and not rp:
             return None
         if pp:

@@ -218,6 +218,12 @@ def frame_pct(b, now, mins):
     return round(((1 + cur / 100) / (1 + was / 100) - 1) * 100, 2) if was > -100 else round(cur, 2)
 
 
+def spark(b, since=None, n=40):
+    """📈 A paper book's % line for the Pit's race chart: the last `n` minute points (only since `since` when given — this fight)."""
+    hist = [h for h in ((b or {}).get('hist') or []) if not since or h[0] >= _f(since) - 60]
+    return [round(_f(h[1]), 2) for h in hist[-n:]]
+
+
 def paper_view(b, prices, liqs):
     """Audit rows for one paper book: per coin entry (true fill) → now, $ in → $ now, % — plus totals with fees apart."""
     rows = []
