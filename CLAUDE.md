@@ -1110,3 +1110,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   misses, else the busiest fresh launches ≤ 24h). Watch rows are never seated, never pickable. Rows carry `chg5m`.
 - Swap picker rows show 5m AND 1h (live `lp.m5` / `lp.h1`, else the row's) + `⚠ falling` via `isFalling` (= `arena_prime.entry_ok`:
   5m ≤ −3% or 1h ≤ −8%). The owner can still pick it — the flag informs, it does not block.
+- Swap picker rows = a FIXED 8-column grid (coin · price · 5m · 1h · ⚠ · pool · score · button): every cell is always rendered (the
+  ⚠ cell is empty when not falling) — a conditional cell wrapped the row and blew the button up to full width. Adding a column ⇒ add
+  it to `.sp li` grid-template-columns AND open the picker in the browser. Dollar coins are filtered out of every list (`PICK_STABLES`).

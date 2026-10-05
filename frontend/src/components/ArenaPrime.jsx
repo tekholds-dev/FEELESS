@@ -489,6 +489,7 @@ export function HqRealCards({ addr, onCount }) {
 export const PICK_LENSES = [['popular', '🔥 Popular'], ['majors', '🪙 Majors'], ['risers', '🚀 New majors'], ['yield', 'Top yield'], ['deep', 'Deepest'],
   ['runners', '🏃 Runners'], ['volume', '🌊 Volume'], ['trench', '🗑 Trench'], ['new', 'New 72h'], ['dip', '📉 Dip'], ['paid', '💳 Dex paid']];
 const GAUNTLET = { runners: ['fresh', 'proven'], volume: ['volume'], dip: ['dip'], paid: ['paid'] };
+const PICK_STABLES = new Set(['USDC', 'USDT', 'USDS', 'PYUSD', 'USD1', 'DAI', 'USDE', 'FDUSD']);   // a dollar coin never moves — not a swap-in (= contenders.STABLES)
 export const isFalling = (m5, h1) => (m5 != null && Number(m5) <= -3) || (h1 != null && Number(h1) <= -8);   // = arena_prime.entry_ok
 export const pickRow = r => ({ mint: r.mint || r.baseAddress, pairAddress: r.pairAddress, symbol: r.symbol, price: r.price ?? r.priceUsd, liq: r.liq ?? r.liquidityUsd,
   chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, chg1h: r.chg1h ?? r.change1h ?? null, chg5m: r.chg5m ?? r.change5m ?? null, score: r.score, impostor: r.impostor, real: r.real, trench: r.trench, holders: r.holders });
@@ -502,7 +503,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0 }
     const t = setTimeout(() => fetch(apiUrl(url)).then(r => (r.ok ? r.json() : null)).then(x => { if (!alive || !x) return; setWhy(x.why || '');
       if (x.checked) setTr({ floor: x.floor || 0, checked: x.checked.length, rules: x.rules, level: Number(x.level) || 0 });
       const raw = x.pools || (x.checked ? x.rows || [] : (x.divisions || []).filter(dv => (GAUNTLET[lens] || []).includes(dv.key)).flatMap(dv => dv.rows));
-      const seen = new Set(); setRows(raw.map(pickRow).filter(r => r.mint && r.pairAddress && !seen.has(r.mint) && seen.add(r.mint)).slice(0, 30)); }).catch(() => alive && setRows([])), s.length >= 2 ? 300 : 0);
+      const seen = new Set(); setRows(raw.map(pickRow).filter(r => r.mint && r.pairAddress && !PICK_STABLES.has(String(r.symbol || '').toUpperCase()) && !seen.has(r.mint) && seen.add(r.mint)).slice(0, 30)); }).catch(() => alive && setRows([])), s.length >= 2 ? 300 : 0);
     return () => { alive = false; clearTimeout(t); }; }, [lens, q]);
   const live = useLivePrices((rows || []).map(r => r.pairAddress));
   const fmt = v => (!v ? '—' : v >= 1 ? `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : `$${Number(v).toPrecision(3)}`);
@@ -518,7 +519,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0 }
       return <li key={r.mint} className={r.impostor ? 'is-fake' : ''}><b>${r.symbol}{r.real ? ' ✓' : ''}</b><span className="m-num fl-tick" key={fmt(lp?.price || r.price)}>{fmt(lp?.price || r.price)}</span>
         <em className={`m-num sp-m5 ${(m5 || 0) >= 0 ? 'm-pos' : 'm-neg'}`} data-tip="Move over the last 5 minutes" data-testid={`sp-m5-${r.symbol}`}><i>5m</i> {m5 == null ? '—' : `${m5 >= 0 ? '+' : ''}${Number(m5).toFixed(1)}%`}</em>
         <em className={`m-num ${(chg || 0) >= 0 ? 'm-pos' : 'm-neg'}`} data-tip="Move over the last hour"><i>1h</i> {chg == null ? '—' : `${chg >= 0 ? '+' : ''}${Number(chg).toFixed(1)}%`}</em>
-        {falling && <small className="sp-fall" data-testid={`sp-fall-${r.symbol}`} data-tip="Falling right now (−3% or more in 5 minutes, or −8% or more in the hour). The engine would not buy this with real money; you still can — it is your pick.">⚠ falling</small>}<small className="m-num">pool {r.liq > 0 ? big(r.liq) : 'curve'}</small><small className="m-num">{r.trench && r.holders ? `${r.holders} holders · ` : ''}{r.score != null ? `score ${Number(r.score).toFixed(0)}` : ''}</small>
+        <small className="sp-fall" data-testid={falling ? `sp-fall-${r.symbol}` : undefined} data-tip={falling ? 'Falling right now (−3% or more in 5 minutes, or −8% or more in the hour). The engine would not buy this with real money; you still can — it is your pick.' : undefined}>{falling ? '⚠ falling' : ''}</small><small className="m-num">pool {r.liq > 0 ? big(r.liq) : 'curve'}</small><small className="m-num">{r.trench && r.holders ? `${r.holders} holders · ` : ''}{r.score != null ? `score ${Number(r.score).toFixed(0)}` : ''}</small>
         <button type="button" className="m-btn primary" disabled={busy || on || thin || r.impostor} onClick={() => onPick(r)} data-tip={thin ? `Pool under the $${Math.round(fl / 1000)}K real-buy floor` : undefined} data-testid={`sp-pick-${r.symbol}`}>{on ? 'on card' : thin ? 'too thin' : r.impostor ? 'lookalike' : 'Swap in'}</button></li>; })}</ul>}
   </div>;
 }
