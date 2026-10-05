@@ -5517,6 +5517,9 @@ async def fuse_trench(meta: str = Query('', max_length=20)):
         return {'cfg': own, 'view': meta, 'metas': board, 'options': _trench.OWN_OPTIONS, 'checked': [{k: v.get(k) for k in keys} for v in view], 'pass': sum(1 for v in view if v['ok']),
                 'rows': [], 'floor': _fw.clean_cfg(_fw_load().get('cfg') or {})['trenchMinLiqUsd'], 'level': meta, 'seen': _trench_cache.get('seen', 0), 'funnel': [], 'at': _trench_cache.get('at'),
                 'rules': f"≤ {g['maxAgeH']:g}h old · ${g['minMcap'] / 1000:g}K–${g['maxMcap'] / 1000:g}K cap · ≥ {g['minHolders']} holders · ≥ {g['minTxns1h']} trades/h · ≥ ${g['minVol1h'] / 1000:g}K 1h volume · safety checks as always"}
+    have_ = {x.get('mint') for x in (_trench_cache.get('rows') or [])} | {x.get('mint') for x in (_trench_cache.get('checked') or []) if _trench.soft_only(x.get('fails'))} | {x.get('mint') for x in (_trench_cache.get('fallback') or [])}
+    # 👀 never an empty picker: nothing passing and no near-miss → the busiest SAFE fresh coins that only miss soft checks right now
+    close_ = [] if have_ else [{**{k: c_.get(k) for k in keys}, 'score': c_.get('score'), 'soft': True, 'fails': fl_} for c_, fl_ in _trench.closest(_runner_cands, _trench.loosest())]
     return {'cfg': own, 'metas': board, 'options': _trench.OWN_OPTIONS, 'checked': [{k: r.get(k) for k in keys} for r in _trench_cache.get('checked') or []], 'pass': len(_trench_cache.get('rows') or []),
             # 🗑 pickable: the coins that pass — then the NEAR-MISSES (every safety check passed, only crowd / volume / band / age / candles
             # missed): never auto-seated as a trench coin, but the owner may pick one (general pick floor, flagged `soft`)
@@ -5524,7 +5527,7 @@ async def fuse_trench(meta: str = Query('', max_length=20)):
                     + [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'soft': True} for r in _trench_cache.get('checked') or []
                        if not r.get('ok') and _trench.soft_only(r.get('fails'))]
                     + [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'soft': True, 'fails': ['outside your trench settings — it passes the engine scan']}
-                       for r in _trench_cache.get('fallback') or []],
+                       for r in _trench_cache.get('fallback') or []] + close_,
             'floor': _fw.clean_cfg(_fw_load().get('cfg') or {})['trenchMinLiqUsd'], 'level': _trench_cache.get('level'),
             'seen': _trench_cache.get('seen', 0), 'funnel': _trench_cache.get('funnel') or [],
             'at': _trench_cache.get('at'), 'rules': f"≤ {g['maxAgeH']:g}h old · broke ${g['minMcap'] / 1000:g}K · ≥ {g['minHolders']} holders · ≥ {g['minTxns1h']} trades/h · "

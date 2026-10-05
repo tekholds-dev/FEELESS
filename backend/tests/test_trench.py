@@ -254,3 +254,13 @@ def test_an_unscanned_coin_is_reported_apart_and_top10_passes_higher_only_while_
     assert any('top-10' in f for f in tr.precheck({**base, 'top10Jump': 3.0}))              # top holders adding = not holding
     un = tr.precheck({**base, 'scanned': False, 'top10': None})
     assert un == ['holder scan not done yet'] and not tr.soft_only(un)                      # queued, not judged — and never pickable as a near-miss
+
+
+def test_closest_lists_only_safe_coins_that_miss_soft_checks_busiest_first():
+    import trench as tr
+    base = {'mint': 'A', 'pairAddress': 'pa', 'ageH': 2.0, 'mcap': 60_000, 'txns1h': 500, 'vol1h': 30_000, 'buyShare': 60, 'chg5m': -2, 'chg1h': 20, 'scanned': True, 'top10': 15.0,
+            'top10Jump': 0.2, 'insiders': 1.0, 'bundled': 0, 'dev': 1.0, 'devSold': False, 'flaggedFunders': 0, 'creatorRep': 'clean', 'creatorFlagged': False}
+    rows = tr.closest([base, {**base, 'mint': 'B', 'pairAddress': 'pb', 'vol1h': 90_000, 'chg5m': 4}, {**base, 'mint': 'C', 'pairAddress': 'pc', 'top10': 60.0},
+                       {**base, 'mint': 'D', 'pairAddress': 'pd', 'scanned': False, 'top10': None}, {**base, 'mint': 'E', 'pairAddress': 'pe', 'creatorRep': 'high'}])
+    assert [c['mint'] for c, _ in rows] == ['B', 'A']                                   # unsafe / unscanned / bad creator never listed
+    assert rows[0][1] == ['holder count pending'] and any('green' in f for f in rows[1][1])

@@ -1239,3 +1239,5 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   older Alchemy key is out for the month; public nodes refuse `getTokenLargestAccounts`. So ONE key was doing all holder scans at
   the scanners' 0.3/s share. Now `RPC_SCAN_RPS` default 0.5 and `INTEL_TTL` 300s (re-scan = 4 calls). To test lanes without printing
   a URL: post the 3 scan methods to each `chain_rpc.RPC_POOL` entry and print `provider_of(e)` + status only.
+- 👀 Trench picker never empty (`trench.closest`): nothing passing, no near-miss, no fallback → the 5 busiest fresh coins that pass
+  every SAFETY check on the cheap pass and miss only soft ones, as `soft` rows with what they miss. Owner-pickable, never auto-seated.

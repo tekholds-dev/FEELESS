@@ -188,6 +188,18 @@ def meta_board(finalists, gate_at):
     return out
 
 
+def closest(cands, cfg=None, n=5):
+    """👀 The list is never empty: the busiest fresh coins that pass EVERY safety check on the cheap pass (scan done, top-10, snipers,
+    dev, creator, no spike …) and miss only soft ones (not green this minute, crowd, volume, cap band, age). → [(coin, soft fails)]
+    busiest first. For the owner to pick by hand — never seated by the engine."""
+    out = []
+    for c in cands or []:
+        fails = precheck(c, cfg)
+        if c.get('mint') and c.get('pairAddress') and (not fails or soft_only(fails)):
+            out.append((c, fails or ['holder count pending']))
+    return sorted(out, key=lambda x: -_f(x[0].get('vol1h')))[:n]
+
+
 PROOF_SEC, PROOF_KEEP, PROOF_MIN = 3600.0, 60, 5
 
 
