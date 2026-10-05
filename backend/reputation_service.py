@@ -5666,6 +5666,30 @@ async def fuse_prime_admin(request: Request):
             else:
                 (pr.get('cards') or {}).pop(body['redeal'], None)
         _json_save(FUSE_HQ_PATH, d)
+    pk = body.get('pickSwap') or {}
+    if pk.get('tpl') in _prime.TEMPLATES and pk.get('pairAddress'):   # 🎯 the owner picks WHICH coin comes in at the next round (or cancels)
+        cand = None
+        if pk.get('to'):
+            # only a coin the Gauntlet ranks RIGHT NOW (live price, real pool, not a dollar coin) can be picked
+            row = next((r for dv in ((await _contenders_build()).get('divisions') or []) for r in dv.get('rows') or [] if r.get('mint') == pk['to']), None)
+            if not row:
+                raise HTTPException(400, 'Pick a coin from the live lists — that one is not ranked right now.')
+            cand = {'mint': row['mint'], 'pairAddress': row['pairAddress'], 'symbol': row.get('symbol'), 'price': row.get('price'), 'liquidityUsd': row.get('liq'),
+                    'division': next((dv['key'] for dv in (_contenders_cache.get('data') or {}).get('divisions') or [] if any(r.get('mint') == row['mint'] for r in dv.get('rows') or [])), None)}
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
+            card = cards.get(pk['tpl'])
+            if not card:
+                raise HTTPException(404, 'No card for that tier yet.')
+            if cand and card.get('real'):   # 💵 real money keeps its own floor: the pick must be buyable
+                floor = _fw.liq_floor(_fw_load().get('cfg') or {}, True)
+                if _fuse._f(cand.get('liquidityUsd')) < floor:
+                    raise HTTPException(400, f"${cand['symbol']} pool is ${_fuse._f(cand.get('liquidityUsd')):,.0f} — under the ${floor:,.0f} real-buy floor (Edit Fuse › Limits).")
+            try:
+                cards[pk['tpl']] = _prime.queue_swap(card, pk['pairAddress'], cand)
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            _json_save(FUSE_HQ_PATH, d)
     rep = body.get('replace') or {}
     if rep.get('tpl') in _prime.TEMPLATES and rep.get('pairAddress'):   # ⇄ one coin on one Prime card
         pools, runners, anchors = await _prime_candidates()

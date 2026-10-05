@@ -305,6 +305,7 @@ export function HqRealCards({ addr, onCount }) {
   const { call } = useAdmin();
   const [busy, setBusy] = useState('');
   const [amt, setAmt] = useState('');
+  const [pickFor, setPickFor] = useState(null);   // which coin's 🎯 picker is open
   const d = usePrime(30000);
   const real = (d?.cards || []).filter(c => c.real);
   const n = owner ? real.length : 0;
@@ -353,8 +354,13 @@ export function HqRealCards({ addr, onCount }) {
                   <option value={0}>SL tier</option>{[10, 15, 20, 30].map(v => <option key={v} value={v}>SL −{v}%</option>)}</select></span>}
               <button type="button" className="m-btn" disabled={!!busy || l.frozen} data-testid={`swap-${l.symbol}`} data-tip={l.frozen ? 'Frozen — unfreeze to swap it' : `Swap $${l.symbol} for the best coin of its kind not on the card (keeper trades it next tick)`}
                 onClick={() => prime({ replace: { tpl: c.tpl, pairAddress: l.pairAddress } }, `⇄ $${l.symbol} swapped — keeper buys the new coin next tick`, `sw-${l.pairAddress}`)}>⇄</button>
+              <button type="button" className={`m-btn ${pickFor === l.pairAddress || l.swapTo ? 'active' : ''}`} disabled={!!busy || l.frozen} data-testid={`pick-${l.symbol}`} aria-expanded={pickFor === l.pairAddress}
+                data-tip={l.swapTo ? `$${l.swapTo} comes in for $${l.symbol} at the next round — tap to change or cancel` : `Pick the coin that replaces $${l.symbol} at the next round, from the live lists`}
+                onClick={() => setPickFor(pickFor === l.pairAddress ? null : l.pairAddress)}>{l.swapTo ? `🎯 → $${l.swapTo}` : '🎯'}</button>
               <button type="button" className={`m-btn ${l.frozen ? 'active' : ''}`} aria-pressed={!!l.frozen} disabled={!!busy} data-testid={`freeze-${l.symbol}`} data-tip={l.frozen ? `Unfreeze $${l.symbol}: the engine may rotate / stop it again` : `Freeze $${l.symbol}: never rotated or stopped (the card floor still protects you)`}
                 onClick={() => prime({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, frozen: !l.frozen } }, l.frozen ? `$${l.symbol} back under the engine` : `❄ $${l.symbol} frozen`, `fz-${l.pairAddress}`)}>❄</button></span> : <span />}</li>)}
+            {pickFor && c.legs.some(l => l.pairAddress === pickFor) && <li className="hrt-pickrow"><SwapPicker out={c.legs.find(l => l.pairAddress === pickFor)} have={c.legs.map(l => l.mint)} busy={!!busy}
+              onPick={r => { prime({ pickSwap: { tpl: c.tpl, pairAddress: pickFor, to: r ? r.mint : null } }, r ? `🎯 $${r.symbol} comes in at the next round` : 'Pick cancelled', 'pick'); setPickFor(null); }} onClose={() => setPickFor(null)} /></li>}
             {(c.cash || 0) > 0.01 && <li><b>◎ cash</b><span>{usd(c.cash)}</span><em className="m-dim">SOL</em></li>}</ul>
           <details className="hrt-fold" data-testid="hrt-fold-cfg"><summary><b>⚙ Config</b><span>{Math.round((cf?.rotateHours || 0) * 60)}m rounds · instant swap {cf?.instantSwapPct ? `−${cf.instantSwapPct}%` : 'off'} · card floor −{cf?.floorPct}% · rest {cf?.floorRestMins ? `${cf.floorRestMins}m` : 'off'} · rescue {cf?.rescuePct ? `−${cf.rescuePct}%` : 'off'}</span></summary>
           <div className="hrt-cfg" data-testid="hrt-cfg">{[[`⏱ ${Math.round((cf?.rotateHours || 0) * 60)}m rounds`, 'Round clock'], [`⏳ swap after ${cf?.rotateConfirm || 1} losing rounds · −${cf?.rotateMinDrop || 0}%`, 'A coin is swapped only after this many losing rounds in a row, and only this far down'],
@@ -383,6 +389,26 @@ export function HqRealCards({ addr, onCount }) {
             <em className="m-num">{usd(o.usd)}</em>{o.sig ? <a href={txUrl(o.sig)} target="_blank" rel="noreferrer">tx ↗</a> : <i />}</li>)}</ul></details></div></div>; })}</section>;
 }
 
+
+// 🎯 Pick the coin that comes in at the next round: the same live lists as the Lab (the Gauntlet's divisions), live prices, one tap.
+export function SwapPicker({ out, have = [], busy, onPick, onClose }) {
+  const [d, setD] = useState(null); const [tab, setTab] = useState('');
+  useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/fuses/contenders')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
+    load(); const t = setInterval(() => !document.hidden && load(), 30000); return () => { alive = false; clearInterval(t); }; }, []);
+  const divs = (d?.divisions || []).filter(x => x.rows.length); const cur = divs.find(x => x.key === tab) || divs[0];
+  const live = useLivePrices((cur?.rows || []).map(r => r.pairAddress));
+  const fmt = v => (!v ? '—' : v >= 1 ? `$${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : `$${Number(v).toPrecision(3)}`);
+  const big = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(0)}K` : `$${Math.round(v || 0)}`);
+  return <div className="sp" data-testid="swap-picker"><header><span className="m-label">🎯 SWAP ${out.symbol} FOR… <small>goes in at the next round · live prices</small></span>
+    <span className="m-row">{out.swapTo && <button type="button" className="m-btn" disabled={busy} onClick={() => onPick(null)} data-testid="sp-cancel">✕ Cancel → ${out.swapTo}</button>}<button type="button" className="m-btn" onClick={onClose} aria-label="Close picker">Close</button></span></header>
+    {!d ? <span className="loader" /> : !cur ? <small className="m-dim">The lists are warming up — try again in a few seconds.</small> : <>
+      <div className="m-seg" role="tablist">{divs.map(x => <button key={x.key} type="button" role="tab" aria-selected={x.key === cur.key} className={x.key === cur.key ? 'active' : ''} data-tip={x.rule} onClick={() => setTab(x.key)}>{x.label}</button>)}</div>
+      <ul>{cur.rows.map(r => { const lp = live.get?.(r.pairAddress); const on = have.includes(r.mint); const chg = lp ? lp.h1 : (r.chg1h || r.chg24h);
+        return <li key={r.mint}><b>${r.symbol}</b><span className="m-num fl-tick" key={fmt(lp?.price || r.price)}>{fmt(lp?.price || r.price)}</span>
+          <em className={`m-num ${chg >= 0 ? 'm-pos' : 'm-neg'}`}>{chg >= 0 ? '+' : ''}{(chg || 0).toFixed(1)}%</em><small className="m-num">pool {r.liq > 0 ? big(r.liq) : 'curve'}</small><small className="m-num">score {r.score.toFixed(0)}</small>
+          <button type="button" className="m-btn primary" disabled={busy || on} onClick={() => onPick(r)} data-testid={`sp-pick-${r.symbol}`}>{on ? 'on card' : 'Swap in'}</button></li>; })}</ul></>}
+  </div>;
+}
 
 // 🏁 where a coin came in from (its Gauntlet division) — the visible proof that every card is fed by every category
 export const DIVISION = { majors: '🪙 anchor', risers: '🚀 new major', yield: '💸 top yield', deep: '🌊 deepest', popular: '🔥 popular', fresh: '⚡ fresh runner', proven: '🏃 proven runner', new: '🆕 new 72h' };

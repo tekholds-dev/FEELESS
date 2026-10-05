@@ -767,6 +767,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - My cards, no open real card: `RecentRuns` = the tier's card FAINT with a CLOSED stamp (tap → run history), never a list. A sell-all
   writes its run to the permanent record itself (`closed: True`) — the tier tick only records runs it ends.
 
+- 🎯 Owner's pick (`arena_prime.queue_swap/apply_queued`, `POST /admin/arena/prime {pickSwap: {tpl, pairAddress, to: mint|null}}`,
+  `SwapPicker` on each real-card coin row): choose the coin that replaces this one from the LIVE Gauntlet lists; it is queued on the leg
+  (`swapTo`) and swapped in at the next round bell, carrying the old coin's money, `picked` (a re-shape never drops it). Only a coin
+  the league ranks right now can be picked; a real card's pick must clear the real-buy pool floor. `to: null` cancels.
+- RPC: the keeper's dedicated endpoint is `SOLANA_RPC_URL` in `backend/.env` (QuickNode HTTP Provider URL works as is). The owner
+  pastes it — never print or commit it. Restart all services after changing it.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

@@ -741,6 +741,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # the round ends, a 10s 🔔 countdown, then the deal. 💵 Real cards deal `dealLeadSec` EARLY (5s before the countdown opens): the keeper
     # sells first, then buys, one confirmed tx at a time — so the new coins are in when the countdown hits 0, not a minute after it.
     if now - c['lastRotateAt'] >= cfg['rotateHours'] * 3600 + BELL_SEC - _f(cfg.get('dealLeadSec')) and not c.get('flooredAt'):
+        apply_queued(c, prices, liqs, now, fee)   # 🎯 the owner's picks go in first, at the bell
         # 🏇 a coin that stayed ≥ +80% the WHOLE round holds through the next one (same rule then keeps or swaps it)
         for l in c['legs']:
             if l.get('role') != 'anchor' and not l.get('ride') and l.get('roundMin') is not None and _f(l['roundMin']) >= HOLD_MIN:
@@ -935,7 +936,7 @@ def summary(card, prices, cfg=None):
     rot = _f((cfg or {}).get('rotateHours')) or DEFAULT_CFG['rotateHours']
     paid = round(_f(card.get('walletUsd')), 4)
     legs = [{**{k: l[k] for k in ('mint', 'pairAddress', 'symbol', 'role', 'entry', 'units', 'costUsd')}, 'stars': l.get('stars') or 3,
-             'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'tp': l.get('tp'), 'sl': l.get('sl'), 'division': l.get('division'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'rideFrom': l.get('rideFrom'), 'buying': bool(l.get('buying')),
+             'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'tp': l.get('tp'), 'sl': l.get('sl'), 'division': l.get('division'), 'swapTo': (l.get('swapTo') or {}).get('symbol'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'rideFrom': l.get('rideFrom'), 'buying': bool(l.get('buying')),
              'loseRounds': int(l.get('loseRounds') or 0),
              'firstEntry': l.get('firstEntry') or l['entry'], 'at': l.get('at'), 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,
@@ -1047,6 +1048,45 @@ def sell_leg_to_cash(card, pair, prices, now, pct=100.0):
     c['events'].append({'at': now, 'kind': 'manual-sell', 'symbol': l.get('symbol'), 'usd': round(usd, 4),
                         'why': 'sold by owner — proceeds stay inside this card as cash', 'to': ['cash']})
     return c
+
+
+def queue_swap(card, pair, cand):
+    """🎯 The owner's PICK: at the next round, this coin leaves and `cand` (a coin they chose from the live lists) takes its seat and
+    its money. cand=None cancels. Pure; ValueError if the coin isn't on the card or the pick already is."""
+    c = {**card, 'legs': [dict(l) for l in card.get('legs') or []]}
+    l = next((x for x in c['legs'] if x['pairAddress'] == pair), None)
+    if not l:
+        raise ValueError('That coin is not on this card.')
+    if cand is None:
+        l.pop('swapTo', None)
+        return c
+    if not cand.get('mint') or not cand.get('pairAddress') or _f(cand.get('price')) <= 0:
+        raise ValueError('That pick has no live price right now.')
+    if cand['mint'] in {x['mint'] for x in c['legs']}:
+        raise ValueError('That coin is already on this card.')
+    if any((x.get('swapTo') or {}).get('mint') == cand['mint'] for x in c['legs'] if x is not l):
+        raise ValueError('That coin is already queued for another seat.')
+    l['swapTo'] = {k: cand.get(k) for k in ('mint', 'pairAddress', 'symbol', 'price', 'liquidityUsd', 'division')}
+    return c
+
+
+def apply_queued(c, prices, liqs, now, fee=0.0):
+    """At the round: every queued pick is swapped in (the old coin is sold at what selling pays, the pick is bought with that money and
+    carried as `picked` so a re-shape never drops it). Mutates the working card; returns how many swaps it made."""
+    n = 0
+    for i, l in enumerate(list(c['legs'])):
+        to = l.get('swapTo')
+        if not to:
+            continue
+        px = _f(prices.get(l['pairAddress'])) or l['entry']
+        units = _f(l['units']) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)
+        usd = sell_usd(units, px, (liqs or {}).get(l['pairAddress']) or l.get('liq'))
+        live = _f(prices.get(to['pairAddress'])) or _f(to.get('price'))
+        c['legs'][i] = {**_leg({**to, 'price': live}, max(0.0, usd), now, 'anchor' if l.get('role') == 'anchor' else l.get('role') or 'pool'), 'picked': True}
+        c['feesUsd'] = round(_f(c.get('feesUsd')) + 2 * fee, 4)
+        c.setdefault('events', []).append({'at': now, 'kind': 'rotate', 'symbol': l.get('symbol'), 'usd': round(usd, 4), 'why': '🎯 your pick — swapped in at the round', 'to': [to.get('symbol')]})
+        n += 1
+    return n
 
 
 def replace_leg(card, pair, prices, pools, runners, anchors, cfg, now):

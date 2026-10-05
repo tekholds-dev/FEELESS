@@ -903,3 +903,21 @@ def test_the_owner_picks_how_many_coins_a_card_holds_at_any_size():
     assert [c['mint'] for c, _ in grown] == ['a1', 'a2', 'r1', 'r2']                         # never the same coin twice
     assert len(ap.grow_picks(picks, 6, [], runners, [])) == 4                                # feeds ran out → what exists, no crash
     assert [c['mint'] for c, _ in ap.fit_count(grown, 2)] == ['a1', 'r1']                    # one anchor + one runner kept
+
+
+def test_the_owner_picks_the_coin_that_comes_in_at_the_next_round():
+    card = {'legs': [{'mint': 'a', 'pairAddress': 'Pa', 'symbol': 'AAA', 'role': 'runner', 'units': 10.0, 'entry': 1.0, 'costUsd': 10.0, 'liq': 1e9},
+                     {'mint': 'b', 'pairAddress': 'Pb', 'symbol': 'BBB', 'role': 'pool', 'units': 5.0, 'entry': 1.0, 'costUsd': 5.0, 'liq': 1e9}], 'events': [], 'feesUsd': 0}
+    pick = {'mint': 'n', 'pairAddress': 'Pn', 'symbol': 'NEW', 'price': 2.0, 'liquidityUsd': 1e9, 'division': 'yield'}
+    q = ap.queue_swap(card, 'Pa', pick)
+    assert q['legs'][0]['swapTo']['symbol'] == 'NEW' and 'swapTo' not in card['legs'][0]          # queued, nothing traded yet
+    with pytest.raises(ValueError):
+        ap.queue_swap(card, 'Pa', {**pick, 'mint': 'b'})                                           # already on the card
+    with pytest.raises(ValueError):
+        ap.queue_swap(q, 'Pb', pick)                                                               # one coin, one seat
+    assert 'swapTo' not in ap.queue_swap(q, 'Pa', None)['legs'][0]                                 # cancel
+    n = ap.apply_queued(q, {'Pa': 1.2, 'Pn': 2.0}, {}, 99.0)
+    leg = q['legs'][0]
+    assert n == 1 and leg['mint'] == 'n' and leg['picked'] and leg['division'] == 'yield' and leg['role'] == 'runner'
+    assert abs(leg['units'] * leg['entry'] - 12.0) < 0.01                                          # the old coin's money ($12) moved into the pick
+    assert q['events'][-1]['to'] == ['NEW'] and q['legs'][1]['mint'] == 'b'

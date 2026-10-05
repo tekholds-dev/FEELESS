@@ -347,3 +347,16 @@ body.theme-day .rr-list li { background: #fff; }
 
 .fw .m-note .m-num, .fw .m-note b.m-num { font-size: inherit; }   /* the 22px display preset has no place inside a sentence */
 .fw .hrt-fold .fw-grid { margin-top: 4px; }
+
+/* 🎯 swap picker: the live lists, inline under the coin it replaces */
+.hrt-coins li.hrt-pickrow { display: block; padding: 0; border: 0; }
+.sp { display: grid; gap: 8px; padding: 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--m-accent) 45%, transparent); background: color-mix(in srgb, var(--m-surface) 88%, transparent); animation: hrIn .2s var(--m-ease, ease) both; }
+.sp header { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; } .sp header small { color: var(--m-dim); letter-spacing: 0; text-transform: none; }
+.sp .m-seg { flex-wrap: wrap; } .sp ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 260px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
+.sp ul::-webkit-scrollbar { width: 6px; } .sp ul::-webkit-scrollbar-thumb { background: var(--m-accent); border-radius: 6px; }
+.sp li { display: grid; grid-template-columns: minmax(0, 1.2fr) 90px 70px 90px 70px auto; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--m-line); font-size: 12px; transition: border-color .15s; }
+.sp li:hover { border-color: var(--m-line-hi); } .sp li em { font-style: normal; text-align: right; } .sp li small { color: var(--m-dim); text-align: right; } .sp li .m-num { font-size: inherit; } .sp li .m-btn { padding: 3px 10px; font-size: 11px; }
+body.fx-lite .sp { animation: none; }
+@media (prefers-reduced-motion: reduce) { .sp { animation: none; } }
+body.theme-day .sp { background: #fff; }
+@media (max-width: 640px) { .sp li { grid-template-columns: minmax(0, 1fr) auto auto; } .sp li small { display: none; } }
