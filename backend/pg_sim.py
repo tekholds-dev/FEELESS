@@ -130,18 +130,46 @@ def learn(results):
                     'upPct': round(sum(1 for p in ps if p > 0) / len(ps) * 100, 1)} for v, ps in vals.items()} for t, vals in acc.items()}
 
 
-def best(score, min_n=10):
+RETIRE_SEC = 86400.0
+
+
+def retire(score24, score6, prev=None, now=0.0, min_n=10):
+    """☠ Settings that are LOSING are taken out of the brain's picks. A trait value is retired when its typical sim card lost money
+    in BOTH windows (last 6h AND last 24h: median < 0 and fewer than half ended up, ≥ min_n sims each). It stays retired for a day,
+    then is judged again on fresh sims (the sims keep testing every value, so a setting can earn its way back). A trait never loses
+    ALL its values: when everything is negative the least-bad one stays (see `_alive`). → {trait: {value: {since, med6, med24}}}"""
+    out = {}
+    for t, vals in (score24 or {}).items():
+        for v, s24 in vals.items():
+            s6 = ((score6 or {}).get(t) or {}).get(v) or {}
+            was = ((prev or {}).get(t) or {}).get(v)
+            losing = (s24.get('n', 0) >= min_n and s6.get('n', 0) >= min_n and s24.get('medPct', 0) < 0 and s6.get('medPct', 0) < 0
+                      and s24.get('upPct', 0) < 50 and s6.get('upPct', 0) < 50)
+            if losing:
+                out.setdefault(t, {})[v] = {'since': (was or {}).get('since') or now, 'med6': s6.get('medPct'), 'med24': s24.get('medPct')}
+            elif was and now - float(was.get('since') or 0) < RETIRE_SEC:
+                out.setdefault(t, {})[v] = was          # its day is not over: one good half-hour does not bring it back
+    return out
+
+
+def _alive(vals, retired_t):
+    """A trait's values minus the retired ones — or all of them when that would leave nothing (the least-bad still has to be picked)."""
+    keep = {v: s for v, s in vals.items() if v not in (retired_t or {})}
+    return keep or vals
+
+
+def best(score, min_n=10, retired=None):
     """The brain's pick: per trait the value whose TYPICAL card did best (median, then share up) over ≥ min_n sims."""
     out = {}
     for t, vals in (score or {}).items():
-        ok = [(v, s) for v, s in vals.items() if s['n'] >= min_n]
+        ok = [(v, s) for v, s in _alive(vals, (retired or {}).get(t)).items() if s['n'] >= min_n] or [(v, s) for v, s in vals.items() if s['n'] >= min_n]
         if ok:
             v, s = max(ok, key=lambda vs: (vs[1].get('medPct', vs[1]['avgPct']), vs[1]['upPct']))
             out[t] = {'value': v, **s}
     return out
 
 
-def by_clock(results, min_n=6):
+def by_clock(results, min_n=6, retired=None):
     """🕐 The brain's pick PER ROUND LENGTH: among the sim cards that played that clock, the trait values whose typical card did best.
     Every clock gets its own answer (a 5-min card should not run a 1-hour card's settings). `profitable` is only true when the
     TYPICAL card on that clock ended up — the pick is the least-bad config otherwise, and the screen says so."""
@@ -150,11 +178,11 @@ def by_clock(results, min_n=6):
         sub = [r for r in results if str(r['cfg'].get('clock')) == clock]
         if len(sub) < min_n * 2:
             continue
-        pick = best({t: v for t, v in learn(sub).items() if t != 'clock'}, min_n)
+        pick = best({t: v for t, v in learn(sub).items() if t != 'clock'}, min_n, retired)
         sm = summary(sub)
         out[clock] = {'n': len(sub), 'medPct': sm.get('medianPct'), 'upPct': sm.get('upPct'), 'profitable': _num(sm.get('medianPct')) > 0,
                       'cfg': {t: p['value'] for t, p in pick.items()}, 'proof': {t: {'medPct': p.get('medPct'), 'n': p['n']} for t, p in pick.items()},
-                      'strategies': strategies(sub, min_n)}
+                      'strategies': strategies(sub, min_n, retired)}
     return out
 
 
@@ -163,7 +191,7 @@ STRATS = (('steady', '🛡 Steady', 'upPct', 'most sim cards ended up'),
           ('hunt', '🔥 Hunt', 'avgPct', 'biggest average — wilder swings'))
 
 
-def strategies(sub, min_n=6):
+def strategies(sub, min_n=6, retired=None):
     """3 strategies for ONE round length, each built from what the sims on that clock actually did: per trait the value with the best
     share-ended-up (🛡), median (🧠) or average (🔥). Each carries its proof = every chosen setting's own sims on that clock.
     Never claims profit: `profitable` only when that proof's typical card ended up. Always 3 different configs."""
@@ -172,7 +200,8 @@ def strategies(sub, min_n=6):
     for key, name, metric, why in STRATS:
         pick = {}
         for t, vals in score.items():
-            ok = sorted(((v, s) for v, s in vals.items() if s['n'] >= min_n), key=lambda vs: -vs[1].get(metric, 0))
+            ok = sorted(((v, s) for v, s in _alive(vals, (retired or {}).get(t)).items() if s['n'] >= min_n), key=lambda vs: -vs[1].get(metric, 0)) \
+                or sorted(((v, s) for v, s in vals.items() if s['n'] >= min_n), key=lambda vs: -vs[1].get(metric, 0))
             if ok:
                 pick[t] = ok
         if not pick:

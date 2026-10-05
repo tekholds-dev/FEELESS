@@ -869,6 +869,9 @@ async def get_upload(name: str):
 
 
 _intel_cache: dict = {}
+_launch_facts: dict = {}   # mint → {creator, bundled, snipers, createSlot, historyComplete, at} — read once, kept on disk
+_flag_hold: dict = {}      # mint → (at, {wallet: % held})
+FLAG_HOLD_TTL = 900.0
 INTEL_TTL = 180
 SYSTEM_PROGRAM = '11111111111111111111111111111111'
 
@@ -937,35 +940,46 @@ async def token_intel(chain: str, mint: str):
         out['top10Pct'] = round(sum(r['pct'] or 0 for r in wallets[:10]), 2) if supply else None
         out['poolPct'] = round(sum(r['pct'] or 0 for r in rows if r['kind'] == 'program'), 2) if supply else None
 
-        sigs = await _rpc(http, 'getSignaturesForAddress', [mint, {'limit': 1000}]) or []
+        # 🧬 LAUNCH FACTS NEVER CHANGE. Who created the coin and who bought in its first slots is read ONCE per coin
+        # (`_launch_facts`, kept on disk); every later scan re-reads only the holders (4 calls instead of ~60). The full scan every
+        # 3 minutes for ~70 coins was ~80K calls an hour — it rate-limited every key, and coins sat "unscanned" for good.
         creator, bundled, snipers = None, set(), set()
-        if sigs:
-            oldest = sorted(sigs, key=lambda x: (x.get('slot') or 0))[:40]
-            create_slot = oldest[0].get('slot')
-            early = [x for x in oldest if (x.get('slot') or 0) <= create_slot + 3 and not x.get('err')][:25]
-            sem = asyncio.Semaphore(6)
+        lf = _launch_facts.get(mint)
+        if lf:
+            creator, bundled, snipers = lf.get('creator'), set(lf.get('bundled') or []), set(lf.get('snipers') or [])
+            out['createSlot'] = lf.get('createSlot'); out['historyComplete'] = lf.get('historyComplete')
+        else:
+            sigs = await _rpc(http, 'getSignaturesForAddress', [mint, {'limit': 1000}]) or []
+            if sigs:
+                oldest = sorted(sigs, key=lambda x: (x.get('slot') or 0))[:40]
+                create_slot = oldest[0].get('slot')
+                early = [x for x in oldest if (x.get('slot') or 0) <= create_slot + 3 and not x.get('err')][:25]
+                sem = asyncio.Semaphore(6)
 
-            async def fetch(sig):
-                async with sem:
-                    try:
-                        return await _rpc(http, 'getTransaction', [sig['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}])
-                    except Exception:
-                        return None
-            txs = await asyncio.gather(*(fetch(x) for x in early))
-            for tx in sorted([t for t in txs if t], key=lambda t: t.get('slot') or 0):
-                keys = ((tx.get('transaction') or {}).get('message') or {}).get('accountKeys') or []
-                payer = keys[0].get('pubkey') if keys and isinstance(keys[0], dict) else (keys[0] if keys else None)
-                if not payer:
-                    continue
-                if creator is None:
-                    creator = payer
-                    continue
-                if payer == creator:
-                    continue
-                (bundled if tx.get('slot') == create_slot else snipers).add(payer)
-            snipers -= bundled
-            out['createSlot'] = create_slot
-            out['historyComplete'] = len(sigs) < 1000
+                async def fetch(sig):
+                    async with sem:
+                        try:
+                            return await _rpc(http, 'getTransaction', [sig['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}])
+                        except Exception:
+                            return None
+                txs = await asyncio.gather(*(fetch(x) for x in early))
+                for tx in sorted([t for t in txs if t], key=lambda t: t.get('slot') or 0):
+                    keys = ((tx.get('transaction') or {}).get('message') or {}).get('accountKeys') or []
+                    payer = keys[0].get('pubkey') if keys and isinstance(keys[0], dict) else (keys[0] if keys else None)
+                    if not payer:
+                        continue
+                    if creator is None:
+                        creator = payer
+                        continue
+                    if payer == creator:
+                        continue
+                    (bundled if tx.get('slot') == create_slot else snipers).add(payer)
+                snipers -= bundled
+                out['createSlot'] = create_slot
+                out['historyComplete'] = len(sigs) < 1000
+            if creator:
+                _launch_facts[mint] = {'creator': creator, 'bundled': sorted(bundled), 'snipers': sorted(snipers), 'createSlot': out.get('createSlot'),
+                                       'historyComplete': out.get('historyComplete'), 'at': time.time()}
         out['creator'] = creator
         out['bundledWallets'] = sorted(bundled)
         out['sniperWallets'] = sorted(snipers)
@@ -986,9 +1000,13 @@ async def token_intel(chain: str, mint: str):
                         return w, round(amt / supply * 100, 3)
                     except Exception:
                         return w, None
-            out['flaggedHoldings'] = dict(await asyncio.gather(*(bal(w) for w in flagged)))
+            fh_hit = _flag_hold.get(mint)   # each flagged wallet's live balance = 1 call per wallet: re-read at most every 15 min
+            reuse = bool(fh_hit and time.time() - fh_hit[0] < FLAG_HOLD_TTL)
+            out['flaggedHoldings'] = fh_hit[1] if reuse else dict(await asyncio.gather(*(bal(w) for w in flagged)))
+            if not reuse:
+                _flag_hold[mint] = (time.time(), out['flaggedHoldings'])
             fh = out['flaggedHoldings']
-            if len(fh) >= 3 and all(v == 0 for v in fh.values()):
+            if not reuse and len(fh) >= 3 and all(v == 0 for v in fh.values()):
                 # Every sniper/bundler has sold out: the supply overhang is gone — often the dip entry.
                 # Alerts link to the coin's deepest pool so the Trenches chart opens on it.
                 coin = await _coin_card(http, mint)
@@ -5426,6 +5444,11 @@ async def _trench_build(now):
     loose = _trench.loosest(_trench.own_gate(own0) if own0['mode'] == 'own' else None)   # wide enough for EVERY meta to have finalists
     every = list(_runner_cands) or (live.get('passing') or []) + (live.get('dropped') or [])
     _trench_cache['seen'], _trench_cache['funnel'] = len(every), _trench.funnel(every, loose)[:8]   # 🔎 why coins didn't make it
+    # ⏩ coins that pass EVERY cheap check and only wait on their holder scan get it now (busiest 12), instead of waiting their turn
+    # on the runner board — they join the finalists on the next pass
+    need = sorted((r for r in every if r.get('mint') and _trench.precheck(r, loose) == ['holder scan not done yet']), key=lambda r: -_fuse._f(r.get('vol1h')))[:12]
+    if need:
+        asyncio.ensure_future(asyncio.gather(*[_runner_intel(r['mint']) for r in need], return_exceptions=True))
     for r in every:
         if r.get('mint') and r['mint'] not in seen and not _trench.precheck(r, loose):
             seen.add(r['mint']); pool.append(r)
@@ -7879,6 +7902,7 @@ async def admin_data_cleaner(request: Request):
 
 INTEL_DISK = DATA_DIR / 'intel_cache.json'
 INTEL_DISK_MAX_AGE, INTEL_DISK_KEEP = 1800.0, 300
+LAUNCH_DISK, LAUNCH_KEEP = DATA_DIR / 'launch_facts.json', 4000
 
 
 def _intel_save():
@@ -7888,6 +7912,8 @@ def _intel_save():
         rows = sorted(((m, at, out) for m, (at, out) in list(_intel_cache.items()) if isinstance(out, dict) and out.get('top10Pct') is not None and now - at < INTEL_DISK_MAX_AGE),
                       key=lambda x: -x[1])[:INTEL_DISK_KEEP]
         _json_save(INTEL_DISK, {'at': now, 'rows': [[m, at, out] for m, at, out in rows]})
+        lf = sorted(_launch_facts.items(), key=lambda kv: -_fuse._f(kv[1].get('at')))[:LAUNCH_KEEP]
+        _json_save(LAUNCH_DISK, {'at': now, 'rows': dict(lf)})
     except Exception as e:
         print('intel save:', e)
 
@@ -7896,6 +7922,8 @@ def _intel_restore():
     """At start: bring back scans younger than 30 min (they are re-scanned on the normal schedule; a coin is never 'unscanned' just
     because the service restarted). → how many came back"""
     try:
+        for m, v in ((_json_load(LAUNCH_DISK, {}) or {}).get('rows') or {}).items():
+            _launch_facts.setdefault(m, v)
         now, n = time.time(), 0
         for m, at, out in (_json_load(INTEL_DISK, {}) or {}).get('rows') or []:
             if now - _fuse._f(at) < INTEL_DISK_MAX_AGE and m not in _intel_cache:
@@ -8374,7 +8402,9 @@ async def _pg_sim_tick(now):
     score = _pgs.learn(res)
     was = _prime.weather(d)['level']
     d['prevBest'] = d.get('best') or {}   # 🧷 the self-fix only moves a setting when the same value wins twice in a row
-    d.update(at=now, summary=_pgs.summary(res), s24=_pgs.summary(res24), s6=_pgs.summary(res6), score=score, best=_pgs.best(score), byClock=_pgs.by_clock(res),
+    # ☠ settings whose typical sim card lost in BOTH windows sit out for a day (never the last value of a trait), then are judged again
+    retired = _pgs.retire(_pgs.learn(res24), _pgs.learn(res6), d.get('retired'), now)
+    d.update(at=now, summary=_pgs.summary(res), s24=_pgs.summary(res24), s6=_pgs.summary(res6), score=score, retired=retired, best=_pgs.best(score, retired=retired), byClock=_pgs.by_clock(res, retired=retired),
              history=((d.get('history') or []) + [{'at': now, **_pgs.summary(res)}])[-96:])
     _json_save(PG_SIM_PATH, d)
     wx = _prime.weather(d)

@@ -69,3 +69,18 @@ def test_strategies_endpoint_picks_the_card_clock_or_the_nearest(monkeypatch):
     assert five['clock'] == 5 and five['strategies'][0]['key'] == 'five' and five['note'] == ''
     day = asyncio.run(rs.fuse_strategies(hours=24))
     assert day['clock'] == 60 and 'nearest' in day['note']
+
+
+def test_settings_losing_in_both_windows_are_retired_for_a_day_and_a_trait_never_loses_every_value():
+    import pg_sim as ps
+    s = lambda med, up, n=20: {'n': n, 'medPct': med, 'avgPct': med, 'upPct': up}
+    s24 = {'tp': {'50': s(-4, 30), '100': s(2, 60), '200': s(-1, 45)}, 'sl': {'15': s(-3, 20), '20': s(-6, 10)}}
+    s6 = {'tp': {'50': s(-2, 40), '100': s(-1, 40), '200': s(3, 70)}, 'sl': {'15': s(-2, 30), '20': s(-9, 5)}}
+    r = ps.retire(s24, s6, None, 1000.0)
+    assert set(r['tp']) == {'50'} and set(r['sl']) == {'15', '20'}                    # losing in BOTH windows only
+    b = ps.best(s24, 10, r)
+    assert b['tp']['value'] == '100' and b['sl']['value'] == '15'                     # tp 50 is out; sl lost everything → the least-bad stays
+    assert ps.best({'tp': {'50': s(9, 90), '100': s(2, 60)}}, 10, {'tp': {'50': {}}})['tp']['value'] == '100'   # retired = not picked, even on top
+    good = {'tp': {'50': s(5, 80)}}
+    assert '50' in ps.retire(good, good, r, 1000.0 + 3600)['tp']                      # an hour later, looking fine: still sits out its day
+    assert ps.retire(good, good, r, 1000.0 + 90000) == {}                             # a day later and no longer losing: back

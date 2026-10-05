@@ -1223,3 +1223,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 📏 `fuse_wallet.fit_small_shortage`: wallet holds ≤ 2% less of a coin than ONE card's book → the book is lowered to the wallet
   (ledger `fix`), no halt; bigger / zero / two-card shortages still halt. A book above the wallet makes every sell fail simulation.
 - 🎯 OWNER PICKS ARE NEVER COOLED (no back-to-back rule either; `pickCool` view is {}): cool-downs limit the engine only.
+- 🧬 LAUNCH FACTS ARE READ ONCE (`_launch_facts`, `data/launch_facts.json`, newest 4000): `token_intel` used to re-read a coin's
+  creator / bundlers / snipers every 3 minutes — up to ~60 RPC calls per coin per scan (1000 signatures + 25 transactions + 30
+  balances), ~80K calls an hour for the runner board. That is what rate-limited EVERY key and left coins "unscanned" however many
+  keys were added. Now a re-scan = holders only (4 calls); flagged-wallet balances at most every 15 min (`_flag_hold`).
+  `_trench_build` asks for the scan of the 12 busiest coins that pass every other cheap check. COINS UNSCANNED ⇒ count calls per
+  scan before asking the owner for another key.
+- 🛑 `fuse_wallet.refused_now`: a buy refused by a SAFETY check (sell-back, price gap, impact, thin pool, no route back) is not sent
+  again for 2 minutes; transient misses (busy route, slippage, 429) retry as before.
+- ☠ `pg_sim.retire` (`pg_sim.json.retired`): a sim setting whose typical card lost in BOTH the 6h and 24h windows sits out of the
+  brain's picks (`best`, `by_clock`, `strategies`) for a day, then is judged again; a trait never loses its last value.
+- ⚡ Home: `BestFuseTile` (best card from `/fuses/prime`, real / paper label, one tap → Arena) above the pulse grid; the home $FEE
+  chart (`FeeHeartbeat`) opens on 4h.

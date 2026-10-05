@@ -149,6 +149,8 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
     for mint, t in tgt.items():
         if mint == SOL_MINT or t['px'] <= 0:
             continue
+        if refused_now(book, mint, now):
+            continue   # 🛑 a SAFETY refusal stands for 2 minutes: the same coin is not quoted again and again until one quote slips through
         gap = (t['units'] - held_units(book, mint)) * t['px']
         if held_units(book, mint) > 0 and gap < t['units'] * t['px'] * REBAL_BAND:   # already holds it: top up only when far under target
             continue
@@ -170,6 +172,17 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
                      **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {}), **({'picked': True} if t.get('picked') else {})})
     sweep = idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now) if not sells and not buys else None
     return sells + buys + ([sweep] if sweep else [])
+
+
+SAFETY_WORDS = ('sells back', 'above market', 'price impact', 'too thin', "can't sell")
+REFUSED_SEC = 120.0
+
+
+def refused_now(book, mint, now):
+    """True while a buy of this coin was refused by a SAFETY check in the last 2 minutes (sell-back loss, price gap, impact, thin
+    pool, no way back to SOL). Transient misses (route busy, slippage at send, a 429) are retried as before."""
+    m = (book.get('misses') or {}).get(mint) or {}
+    return bool(m) and now - _f(m.get('last')) < REFUSED_SEC and any(w in str(m.get('why') or '') for w in SAFETY_WORDS)
 
 
 def idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now):

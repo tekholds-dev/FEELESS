@@ -61,3 +61,12 @@ body.theme-day .eco-chart-ca{border-color:var(--day-border);color:#345}body.them
 @media(prefers-reduced-motion:reduce){.eco-chart-ca{transition:none}}
 /* music queue: the ✕ button also had width:100%, so the song title (flex-basis 0) was squeezed to 14px and read as a bare number */
 .feecat-queue li > .feecat-x { width: auto; flex: none; }
+
+/* ⚡ home: best Fuse card quick tile */
+.bft { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 4px 14px; padding: 12px 16px; margin: 0 0 12px; text-decoration: none; color: inherit; border-left: 3px solid var(--bft, #15d16a); transition: transform .15s ease, border-color .15s ease; }
+.bft .m-label { grid-column: 1 / -1; } .bft-name { font-size: 16px; } .bft em { font-style: normal; font-size: 18px; } .bft u { text-decoration: none; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .08em; color: var(--bft, #15d16a); }
+.bft-coins { display: flex; flex-wrap: wrap; gap: 4px 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; min-width: 0; } .bft-coins i { font-style: normal; }
+.bft:hover { transform: translateY(-2px); border-color: var(--bft, #15d16a); } .bft:active { transform: translateY(0); } .bft:focus-visible { outline: 2px solid var(--bft, #15d16a); outline-offset: 2px; }
+@media (max-width: 640px) { .bft { grid-template-columns: minmax(0, 1fr) auto; } .bft-coins { grid-column: 1 / -1; } }
+@media (prefers-reduced-motion: reduce) { .bft { transition: none; } }
+body.theme-day .bft { background: #fff; }

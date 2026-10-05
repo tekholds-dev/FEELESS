@@ -1105,3 +1105,13 @@ def test_only_one_process_can_hold_the_keeper_lock(tmp_path):
     assert subprocess.run([sys.executable, '-c', code], capture_output=True, text=True).stdout.strip() == 'False'   # a second process: refused
     single.release(p)
     assert subprocess.run([sys.executable, '-c', code], capture_output=True, text=True).stdout.strip() == 'True'    # free again once released
+
+
+def test_a_safety_refusal_stands_for_two_minutes_but_a_busy_route_is_retried():
+    cfg = {**CFG, 'minLiqUsd': 0, 'arenaMinLiqUsd': 0}
+    c = card([leg('A', 'PA', 1.0, 1.0)])
+    book = lambda why, last: {'sol': 1.0, 'legs': {}, 'misses': {'A': {'n': 1, 'first': last, 'last': last, 'why': why}}}
+    buys = lambda b, now: [o for o in fw.orders('t', c, b, {'PA': 1.0}, 100.0, cfg, now) if o['side'] == 'buy']
+    assert buys(book('sells back for 12.7% less (> 6%)', 1000), 1060) == []            # refused a minute ago: not asked again
+    assert buys(book('sells back for 12.7% less (> 6%)', 1000), 1130)                  # two minutes later: a fresh look
+    assert buys(book('Jupiter route unavailable (HTTP 429)', 1000), 1010)              # a busy route is not a verdict on the coin
