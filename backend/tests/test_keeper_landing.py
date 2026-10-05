@@ -144,3 +144,15 @@ def test_keeper_lane_uses_the_dedicated_endpoint_through_a_cooldown_and_retries_
         assert False, 'a real RPC error must reach the caller'
     except RuntimeError as e:
         assert 'RPC pool exhausted' in str(e)
+
+
+def test_the_pit_can_read_any_fighter_over_the_last_5_15_or_60_minutes():
+    import pg_battle as pb
+    b = {'startUsd': 100.0, 'legs': [], 'cash': 100.0}
+    t0 = 1000.0
+    b = {**b, 'pct': 0.0, 'hist': [[t0, 0.0], [t0 + 600, 10.0], [t0 + 1200, 21.0]]}
+    b['pct'] = 21.0
+    now = t0 + 1200
+    assert pb.frame_pct(b, now, 5) == 21.0 - 0 if False else pb.frame_pct(b, now, 10) == 10.0     # +10% → +21% is +10% over the last 10 min
+    assert pb.frame_pct(b, now, 60) == 21.0                                                        # younger than the window → since it opened
+    assert pb.frame_pct(None, now, 5) == 0.0

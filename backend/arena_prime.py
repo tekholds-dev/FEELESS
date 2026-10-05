@@ -78,6 +78,8 @@ def owner_cycle(card, mode, now):
 def valid_cycle(mode):
     return mode in CYCLE_MODES or cycle_seq(mode) is not None
 DEFAULT_CYCLES = {'safe': 'safe', 'balanced': 'adaptive', 'degen': 'classic', 'next': 'press', 'ever': 'off'}   # every tier cycles its own way
+# ⏱ every tier plays ITS OWN round length (so five cards are five different games, and the sims' clocks all get played live)
+DEFAULT_CLOCKS = {'degen': 0.08, 'next': 0.25, 'balanced': 0.5, 'ever': 1.0, 'safe': 2.0}
 DEFAULT_PAYOUTS = {'safe': 25, 'balanced': 50, 'degen': 0, 'next': 25, 'ever': 75}   # % of every profit take paid straight to the wallet
 RUG_LIQ = 0.5   # 🚨 rug shield: pool liquidity at ≤ 50% of entry = pulled → sell at once
 TRAIL_AT, TRAIL_KEEP = 50.0, 5.0   # 🔒 a coin that ran ≥ +50% is sold before it gives it all back (≤ +5% left)
@@ -238,6 +240,8 @@ def clean_cfg(p):
     out['rescuePct'] = 0.0 if (p or {}).get('rescuePct') is not None and rsc == 0 else max(20.0, min(80.0, rsc))   # 0 = rescue off
     out['rotateConfirm'] = int(max(1, min(6, _f((p or {}).get('rotateConfirm', ROTATE_CONFIRM)))))
     out['minHoldMins'] = max(0.0, min(240.0, _f((p or {}).get('minHoldMins', MIN_HOLD_MINS))))
+    ck = (p or {}).get('clocks') if isinstance((p or {}).get('clocks'), dict) else {}
+    out['clocks'] = {t: (round(min(48.0, max(0.08, _f(ck[t]))), 2) if _f(ck.get(t)) > 0 else DEFAULT_CLOCKS[t]) for t in DEFAULT_CLOCKS}
     out['coins'] = int(_f((p or {}).get('coins'))) if int(_f((p or {}).get('coins'))) in COIN_COUNTS else 0   # 🪙 0 = auto (size-aware), else the OWNER's count
     out['floorRestMins'] = float(_f((p or {}).get('floorRestMins'))) if _f((p or {}).get('floorRestMins')) in FLOOR_RESTS else 0.0
     out['strictRunners'] = bool((p or {}).get('strictRunners', False))
@@ -251,6 +255,13 @@ def clean_cfg(p):
     out['compoundStyle'] = (p or {}).get('compoundStyle') if (p or {}).get('compoundStyle') in ('smart', 'even') else 'smart'
     out['roundsPerRun'] = int(_f((p or {}).get('roundsPerRun'))) if int(_f((p or {}).get('roundsPerRun'))) in RUN_ROUNDS else 0
     return out
+
+
+def tier_cfg(cfg, tid):
+    """The shared paper config as ONE tier plays it: its own round clock (`clocks[tier]`). Locked tiers and the real card have their
+    own whole config and never go through here."""
+    hours = _f(((cfg or {}).get('clocks') or {}).get(tid))
+    return {**cfg, 'rotateHours': hours} if hours > 0 else cfg
 
 
 # 💵 REAL-MONEY GUARD — hard floors the real card's config can never go under, whatever HQ or the self-fix writes.

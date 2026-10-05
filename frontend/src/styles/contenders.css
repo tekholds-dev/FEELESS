@@ -112,3 +112,23 @@ body.fx-lite .th-rays, body.fx-lite .th-volt i:not(.th-ring) { display: none; } 
 body.theme-day .th-who { background: linear-gradient(120deg, #fff6dc, #fff); border-color: #c99a1e; } body.theme-day .th-stats em:first-child { color: #8a5a00; } body.theme-day .bf-chip { background: #fff; }
 @media (max-width: 900px) { .th { grid-template-columns: 1fr; } .th-stage { min-height: 340px; } .th-card { zoom: .68; } }
 @media (max-width: 640px) { .th-ch { display: none; } }
+
+/* ⚔ The Pit as a show: timeframe lenses, a live call, the crowd split, and a final minute that feels like one */
+.bf-lens { margin-left: auto; } .bf-lens > button { padding: 5px 10px; font-size: 10.5px; }
+.bf-lensnote { font-style: normal; opacity: .75; }
+.bf-call { grid-column: 1 / -1; margin: 2px 0 0; text-align: center; font-family: var(--fz-font, var(--m-mono)); font-size: clamp(13px, 1.5vw, 18px); letter-spacing: .03em; color: #fff;
+  text-shadow: 0 0 18px #9b5cffaa; animation: bfCall .45s var(--m-ease, ease) both; }
+.bf-crowd { grid-column: 1 / -1; justify-self: center; display: grid; grid-template-columns: auto minmax(120px, 220px) auto; gap: 8px; align-items: center; font-size: 11px; cursor: help; }
+.bf-crowd > i { display: block; height: 6px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, #ff8fa3 55%, transparent); }
+.bf-crowd > i > i { display: block; height: 100%; transform-origin: left; background: var(--m-accent); transition: transform .5s var(--m-ease, ease); }
+.bf-crowd small { grid-column: 1 / -1; text-align: center; font: 600 8.5px var(--m-mono, monospace); letter-spacing: .16em; color: var(--m-dim); } .bf-crowd .m-num { font-size: 12px; }
+.bf-arena.is-final { animation: bfFinal 1s ease-in-out infinite; }
+.bf-arena.is-final .bf-call { color: #ffd166; text-shadow: 0 0 22px #ff8fa3; }
+.bf-arena.is-final::after { content: 'FINAL MINUTE'; position: absolute; top: 10px; left: 50%; z-index: 4; padding: 3px 12px; border-radius: 999px; font: 700 10px var(--m-mono, monospace); letter-spacing: .2em; color: #1a0508; background: #ff8fa3; transform: translateX(-50%); animation: bfBeat 1s ease-in-out infinite; pointer-events: none; }
+@keyframes bfCall { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes bfFinal { 50% { opacity: .93; } }
+@keyframes bfBeat { 50% { transform: translateX(-50%) scale(1.08); } }
+body.fx-lite .bf-call, body.fx-lite .bf-arena.is-final, body.fx-lite .bf-arena.is-final::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .bf-call, .bf-arena.is-final, .bf-arena.is-final::after { animation: none; } .bf-crowd > i > i { transition: none; } }
+body.theme-day .bf-call { color: #1c1033; text-shadow: none; }
+@media (max-width: 640px) { .bf-lens { margin-left: 0; width: 100%; } .bf-lens > button { flex: 1; } }

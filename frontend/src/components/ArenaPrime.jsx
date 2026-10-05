@@ -169,7 +169,7 @@ export function PrimeShowcase() {
 
 // ⚙ Edit a REAL tier card's configs in place (owner). Engine settings save to the tier engine; a locked tier is re-locked with them.
 const EDIT = [
-  ['rotateHours', '⏱ Round clock', [[0.08, '5m'], [0.25, '15m'], [0.5, '30m'], [1, '1h']], 'How long each round lasts'],
+  ['rotateHours', '⏱ Round clock', [[0.08, '5m'], [0.25, '15m'], [0.5, '30m'], [1, '1h'], [2, '2h']], 'How long each round lasts'],
   ['instantSwapPct', '⚡ Instant swap at', [[0, 'off'], [5, '−5%'], [10, '−10%'], [15, '−15%'], [20, '−20%']], 'Immediate live-loss trigger. Once the coin reaches this loss, it exits now — no round, patience or minimum-hold wait.'],
   ['rotateConfirm', '⏳ Round patience', [[1, '1'], [2, '2'], [3, '3'], [4, '4']], 'Only for scheduled round rotation. It does NOT delay the instant-loss trigger.'],
   ['rotateMinDrop', '📉 Round swap only below', [[0, 'any'], [5, '−5%'], [10, '−10%'], [15, '−15%'], [20, '−20%']], 'For scheduled round rotation, require the coin to be this far below its entry.'],
@@ -243,7 +243,12 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
   // one setting = one line: what it is + what it does on the left, the choices on the right. One group on screen at a time.
   const seg = (key, label, opts, tip, cur, wallet) => <div key={key} className="ce-row"><span><b>{label}</b><small>{tip}</small></span>
     <div className="m-seg">{opts.map(([v, t]) => <button key={String(v)} type="button" disabled={busy} className={String(cur) === String(v) ? 'active' : ''} aria-pressed={String(cur) === String(v)} onClick={() => save({ [key]: v }, wallet)}>{t}</button>)}</div></div>;
-  const row = ([k, l, o, t]) => seg(k, l, o, t, k === 'rotateHours' ? (o.find(x => Math.abs(x[0] - (cfg?.[k] || 0)) < 0.02) || [cfg?.[k]])[0] : cfg?.[k]);
+  // ⏱ a paper tier that isn't locked saves ITS OWN clock (`clocks[tier]`); the real card and locked tiers save their own rotateHours
+  const ownClock = !real && !locked;
+  const row = ([k, l, o, t]) => (k === 'rotateHours' && ownClock
+    ? <div key={k} className="ce-row"><span><b>{l} · this tier</b><small>Every tier plays its own round length — this sets {c.label} only.</small></span>
+      <div className="m-seg">{o.map(([v, txt]) => <button key={String(v)} type="button" disabled={busy} className={Math.abs(v - (cfg?.rotateHours || 0)) < 0.02 ? 'active' : ''} onClick={() => save({ clocks: { ...(cfg?.clocks || {}), [c.tpl]: v } })}>{txt}</button>)}</div></div>
+    : seg(k, l, o, t, k === 'rotateHours' ? (o.find(x => Math.abs(x[0] - (cfg?.[k] || 0)) < 0.02) || [cfg?.[k]])[0] : cfg?.[k]));
   const rows = keys => keys.map(k => EDIT.find(e => e[0] === k)).filter(Boolean).map(row);
   const churn = (cfg?.rotateHours || 1) < 0.25 && (cfg?.rotateConfirm || 1) < 3;   // 5-min rounds + low patience = swaps on noise (fees, missed buys)
   const [grp, setGrp] = useState('rounds');

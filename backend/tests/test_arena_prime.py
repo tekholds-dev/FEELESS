@@ -921,3 +921,11 @@ def test_the_owner_picks_the_coin_that_comes_in_at_the_next_round():
     assert n == 1 and leg['mint'] == 'n' and leg['picked'] and leg['division'] == 'yield' and leg['role'] == 'runner'
     assert abs(leg['units'] * leg['entry'] - 12.0) < 0.01                                          # the old coin's money ($12) moved into the pick
     assert q['events'][-1]['to'] == ['NEW'] and q['legs'][1]['mint'] == 'b'
+
+
+def test_every_tier_plays_its_own_round_clock():
+    cfg = ap.clean_cfg({'rotateHours': 0.25})
+    clocks = [ap.tier_cfg(cfg, t)['rotateHours'] for t in ap.DEFAULT_CLOCKS]
+    assert len(set(clocks)) == len(clocks) == 5 and ap.tier_cfg(cfg, 'degen')['rotateHours'] == 0.08          # five tiers, five clocks
+    assert ap.tier_cfg(ap.clean_cfg({'clocks': {'degen': 1}}), 'degen')['rotateHours'] == 1.0                 # the owner's pick per tier
+    assert ap.tier_cfg(cfg, 'nope')['rotateHours'] == 0.25 and cfg['rotateHours'] == 0.25                     # unknown tier → shared · input untouched

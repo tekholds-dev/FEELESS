@@ -4373,6 +4373,7 @@ def _battle_view(mega, now):
     paper = b.get('paper') or {}
     pnow = lambda k, start: paper[k]['pct'] if (paper.get(k) or {}).get('pct') is not None else round(pct.get(k, start) - start, 2)
     pairs = [{side: {**x[side], 'now': pnow(x[side]['key'], x[side]['start']), 'paper': {kk: (paper.get(x[side]['key']) or {}).get(kk) for kk in ('startUsd', 'valueUsd', 'feesUsd', 'hiPct', 'loPct')} if paper.get(x[side]['key']) else None,
+                     'frames': {str(m): _pgb.frame_pct(paper.get(x[side]['key']), now, m) for m in _pgb.FRAMES} if paper.get(x[side]['key']) else None,
                      'backers': backs.count(x[side]['key']),
                      'paidN': sum(1 for q in paid if q['key'] == x[side]['key']), 'paidUsd': round(sum(q['usd'] for q in paid if q['key'] == x[side]['key']), 2)} for side in ('a', 'b')}
              for x in b.get('pairs') or []]
@@ -5393,11 +5394,12 @@ async def _prime_bell_loop():
     while True:
         try:
             cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
-            rot = min(_prime_cfg()['rotateHours'], _prime_real_cfg()['rotateHours']) * 3600   # paper + real clocks can differ
-            rcfg = _prime_real_cfg()
+            rcfg = _prime_real_cfg(); pcfg_b = _prime_cfg(); locks_b = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}
+            # ⏱ every card has its OWN clock: the real card's, a locked tier's, or the tier's entry in `clocks`
+            rot_of = lambda c: (rcfg if c.get('real') else _prime.clean_cfg(locks_b[c['tpl']]) if c.get('tpl') in locks_b else _prime.tier_cfg(pcfg_b, c.get('tpl')))['rotateHours'] * 3600
             # deal time = round end + 10s bell (💵 real: `dealLeadSec` earlier · a floored card wakes when its rest ends, not every 5s)
             due = min(((_fuse._f(c['flooredAt']) + max(60.0, _fuse._f(rcfg.get('floorRestMins') if c.get('real') else 0) * 60)) if c.get('flooredAt') else
-                       (_fuse._f(c.get('lastRotateAt')) + rot + _prime.BELL_SEC - (_fuse._f(rcfg.get('dealLeadSec')) if c.get('real') else 0))
+                       (_fuse._f(c.get('lastRotateAt')) + rot_of(c) + _prime.BELL_SEC - (_fuse._f(rcfg.get('dealLeadSec')) if c.get('real') else 0))
                        for c in cards.values() if c.get('lastRotateAt')), default=time.time() + 60)
             wait = due - time.time()
             if 0.5 < wait <= 12:   # 🔔 inside the 10s countdown: warm the candidates + prices now, so the re-deal is instant at 0
@@ -5458,7 +5460,7 @@ async def _prime_tick_inner(now):
     for tid in order_t:
         cur = cards.get(tid)
         liqs = {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()}
-        cfg_t = {**_prime.clean_cfg(locks[tid]), 'paperFeeUsd': cfg['paperFeeUsd']} if tid in locks else cfg   # 🔒 a locked tier runs its own frozen config
+        cfg_t = {**_prime.clean_cfg(locks[tid]), 'paperFeeUsd': cfg['paperFeeUsd']} if tid in locks else _prime.tier_cfg(cfg, tid)   # 🔒 a locked tier runs its own frozen config · every other tier its own ⏱ clock
         real_t = bool((cur or {}).get('real'))
         if real_t:
             cfg_t = _prime_real_cfg(d.get('prime') or {})   # 💵 the real card runs ITS OWN config — paper edits / locks / engine tunes never touch it
@@ -5595,7 +5597,7 @@ async def _prime_view():
     def _eff(c):
         if c.get('real'):
             return rcfg   # the real card shows ITS OWN config
-        return {**pcfg, **_prime.clean_cfg(locks[c['tpl']])} if c.get('tpl') in locks else pcfg
+        return {**pcfg, **_prime.clean_cfg(locks[c['tpl']])} if c.get('tpl') in locks else _prime.tier_cfg(pcfg, c.get('tpl'))
     def _cfgv(c):
         e = _eff(c); return {'clockMin': round(e['rotateHours'] * 60), 'confirm': e['rotateConfirm'], 'minDrop': e['rotateMinDrop'],
                              'instantSwapPct': e.get('instantSwapPct', 0), 'holdMin': e['minHoldMins'], 'rideAt': e.get('rideAt'), 'rideTrail': e.get('rideTrail'),

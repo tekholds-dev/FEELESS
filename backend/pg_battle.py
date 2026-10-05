@@ -195,7 +195,27 @@ def paper_mark(b, prices, liqs, now):
     """Mark a paper book at live prices (what selling everything would really pay). Keeps the high / low % of the battle."""
     v = value(b, prices, liqs)
     pct = round((v / (_f(b.get('startUsd')) or 1) - 1) * 100, 2)
-    return {**b, 'valueUsd': round(v, 4), 'pct': pct, 'hiPct': max(_f(b.get('hiPct')), pct), 'loPct': min(_f(b.get('loPct')), pct), 'markedAt': now}
+    # ⏱ a small trail of the book's % (one point a minute, last 65 min) → the Pit can show who is winning the last 5 / 15 / 60 minutes
+    hist = [h for h in (b.get('hist') or []) if now - h[0] <= HIST_KEEP]
+    if not hist or now - hist[-1][0] >= HIST_STEP:
+        hist.append([round(now, 1), pct])
+    return {**b, 'valueUsd': round(v, 4), 'pct': pct, 'hiPct': max(_f(b.get('hiPct')), pct), 'loPct': min(_f(b.get('loPct')), pct), 'markedAt': now, 'hist': hist}
+
+
+HIST_STEP, HIST_KEEP = 55.0, 3900.0
+FRAMES = (5, 15, 60)   # minutes — the Pit's timeframe lenses
+
+
+def frame_pct(b, now, mins):
+    """The book's move over the last `mins` minutes (%, compounding-correct). A book younger than the window answers with its move
+    since it opened — the screen marks that lens as "since the bell"."""
+    hist = (b or {}).get('hist') or []
+    cur = _f((b or {}).get('pct'))
+    past = [h for h in hist if h[0] <= now - mins * 60]
+    if not past:
+        return round(cur, 2)
+    was = _f(past[-1][1])
+    return round(((1 + cur / 100) / (1 + was / 100) - 1) * 100, 2) if was > -100 else round(cur, 2)
 
 
 def paper_view(b, prices, liqs):

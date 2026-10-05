@@ -785,6 +785,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   endpoint FIRST, ignoring the shared cooldown, retrying a 429 with a short wait, then the pool. Scanners keep using `_rpc`.
   New keeper code calls `_krpc`, never `_rpc` (a scanner burst once locked the keeper out of its own endpoint for 30s at a time).
 
+- ⏱ EVERY TIER HAS ITS OWN CLOCK (`arena_prime.DEFAULT_CLOCKS` → cfg `clocks`, `tier_cfg(cfg, tier)`): Blaze 5m · Next Level 15m ·
+  Gold 30m · Everlasting 1h · Diamond 2h. The tick, the view (`_eff`) and the bell loop (`rot_of(card)`) all resolve the clock PER CARD
+  (real card = its own config, locked tier = its lock). A paper tier's editor saves `clocks[tier]`, never the shared `rotateHours`.
+- ⚔ The Pit show: lenses `PIT_LENSES` (🔔 this bell · 5m · 15m · 1h) read the same fight over a window (`pg_battle.frame_pct` from each
+  paper book's 1-point-a-minute `hist`, served as `frames`); the BELL still decides the bracket. 🎙 `pitCall` = one live line per fight
+  from the numbers; 👥 `crowdShare` = free + bought backs (points only — it becomes the odds when real bids ship; never take a bid
+  before that is built, audited and legal); final minute = `is-final`. Parallel brackets per timeframe are NOT built.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

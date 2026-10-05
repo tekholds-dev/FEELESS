@@ -375,7 +375,24 @@ export function Throne({ champs, now, onBuy, kingNode, challengers = [], onOpen 
   </div>;
 }
 
-export function Battlefield({ b, cards = [], onLoad }) {
+// ⏱ Pit lenses: the bell decides the bracket; the others show who is winning the last 5 / 15 / 60 minutes of the same fight.
+export const PIT_LENSES = [['bell', '🔔 This bell', 'Move since the bell — this is what decides the fight'], ['5', '5m', 'Who is winning the last 5 minutes'], ['15', '15m', 'Who is winning the last 15 minutes'], ['60', '1h', 'Who is winning the last hour']];
+export const lensPairs = (pairs, lens) => (lens === 'bell' ? pairs : (pairs || []).map(p => ({ ...p, a: { ...p.a, now: p.a.frames?.[lens] ?? p.a.now }, b: { ...p.b, now: p.b.frames?.[lens] ?? p.b.now } })));
+// 🎙 one live line per fight, straight from the numbers
+export function pitCall(p, secs) {
+  const d = (p.a.now || 0) - (p.b.now || 0); const lead = d >= 0 ? p.a : p.b; const gap = Math.abs(d);
+  if (secs <= 60 && gap < 1) return `FINAL MINUTE — ${p.a.name} and ${p.b.name} are ${gap.toFixed(1)} apart. Anyone's fight.`;
+  if (secs <= 60) return `FINAL MINUTE — ${lead.name} needs to hold a ${gap.toFixed(1)}-point lead.`;
+  if (gap < 0.3) return `Dead even. ${p.a.name} and ${p.b.name} are trading the lead.`;
+  if (gap >= 8) return `${lead.name} is running away with it — up ${gap.toFixed(1)} points.`;
+  return `${lead.name} leads by ${gap.toFixed(1)} point${gap.toFixed(1) === '1.0' ? '' : 's'}.`;
+}
+// 👥 crowd split from backs (free + bought); an even 50 / 50 until anyone backs a side
+export const crowdShare = p => { const a = (p.a.backers || 0) + (p.a.paidN || 0); const bb = (p.b.backers || 0) + (p.b.paidN || 0); return a + bb ? Math.round((a / (a + bb)) * 100) : 50; };
+
+export function Battlefield({ b: b0, cards = [], onLoad }) {
+  const [lens, setLens] = useState('bell');
+  const b = lens === 'bell' ? b0 : { ...b0, pairs: lensPairs(b0.pairs, lens) };
   const [now, setNow] = useState(Date.now() / 1000);
   const { wallet } = useWallet() || {}; const [mine, setMine] = useState(null);
   // ⚔ back a side: free, points only — one pick per battle, a win goes on your backing record
@@ -436,6 +453,7 @@ export function Battlefield({ b, cards = [], onLoad }) {
         <button type="button" className="m-btn bf-audit" onClick={() => setAudit(x)} data-tip="Paper audit: every coin's true-fill entry → now, $ in → $ now, fees apart, past books" data-testid={`audit-${k}-${i}`}>📜 Audit</button></span></div></div>; };
   return <section className="m-card m-live bf" data-testid="battlefield"><header className="m-row"><span className="m-label">⚔ BATTLEFIELD · BRACKET #{br.season}</span>
     <small className="m-dim">bigger move since the bell wins · 2 losses = out · last card standing is crowned</small>
+    <span className="m-seg bf-lens" role="tablist" aria-label="Timeframe">{PIT_LENSES.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} data-tip={tip} onClick={() => setLens(k)} data-testid={`bf-lens-${k}`}>{l}</button>)}</span>
     <b className={`bf-bell m-num ${secs < 60 ? 'is-soon' : ''}`} key={secs < 60 ? secs : 'x'}>🔔 {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</b></header>
     {br.champions?.length > 0 && <Throne champs={br.champions} now={now} kingNode={nodeOf(br.champions[0].key, 0)} onOpen={k => cardOf(k) && setCfgKey(k)}
       challengers={power(br.board || []).filter(x => x.key !== br.champions[0].key && x.status !== 'out').slice(0, 2).map(x => ({ key: x.key, name: x.name, emoji: x.emoji, badge: `${x.w}W–${x.l}L`, node: nodeOf(x.key, x.pct) }))}
@@ -443,7 +461,7 @@ export function Battlefield({ b, cards = [], onLoad }) {
     {audit && <PaperAudit k={audit.key} name={audit.name} onClose={() => setAudit(null)} />}
     {cfgCard && <CardConfig c={cfgCard} onClose={() => setCfgKey(null)} onLoad={onLoad} onBack={b.pairs.some(p => [p.a.key, p.b.key].includes(cfgKey)) && !mine ? () => back(cfgKey) : null}
       onBuyBack={b.pairs.some(p => [p.a.key, p.b.key].includes(cfgKey)) ? () => buyBack({ key: cfgKey, name: cfgCard.name }) : null} />}
-    <div className="bf-arena" onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} onFocus={() => setHold(true)} onBlur={() => setHold(false)} data-testid="bf-arena">
+    <div className={`bf-arena ${secs > 0 && secs <= 60 ? 'is-final' : ''}`} onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} onFocus={() => setHold(true)} onBlur={() => setHold(false)} data-testid="bf-arena">
       <span className="bf-floor" aria-hidden="true" /><span className="bf-beam l" aria-hidden="true" /><span className="bf-beam r" aria-hidden="true" />
       <span className="bf-show" aria-hidden="true"><i className="bfs-sweep a" /><i className="bfs-sweep b" /><i className="bfs-flash" />{Array.from({ length: 18 }, (_, k) => <i key={k} className="bfs-dot" style={{ '--i': k }} />)}</span>
       {b.pairs.length > 1 && <div className="bf-tabs" role="tablist" aria-label="Fights">{b.pairs.map((p, i) => <button key={p.a.key + p.b.key} type="button" role="tab" aria-selected={cur === i} className={cur === i ? 'active' : ''} onClick={() => setSpot(i)} data-testid={`bf-tab-${i}`}>
@@ -452,7 +470,10 @@ export function Battlefield({ b, cards = [], onLoad }) {
         const lane = status[p.a.key]?.status === 'losers' && status[p.b.key]?.status === 'losers' ? 'losers' : status[p.a.key]?.status === 'winners' && status[p.b.key]?.status === 'winners' ? 'winners' : 'cross';
         return <div key={p.a.key + p.b.key} className={`bf-pair lane-${lane} ${d > 0.05 ? 'a-lead' : d < -0.05 ? 'b-lead' : 'even'} ${cur === i ? 'is-spot' : 'is-off'}`} style={{ '--i': i }} data-testid={`battle-${i}`} aria-hidden={cur !== i}>
           {flip[i] && Date.now() - flip[i] < 4000 && <span key={flip[i]} className="bf-flipbanner" aria-live="polite">⚡ LEAD CHANGE!</span>}
-          <span className="bf-lane">{lane === 'winners' ? '🏆 WINNERS BRACKET' : lane === 'losers' ? '💀 LOSERS BRACKET · LOSE = OUT' : '⚔ CROSSOVER'}</span>
+          <span className="bf-lane">{lane === 'winners' ? '🏆 WINNERS BRACKET' : lane === 'losers' ? '💀 LOSERS BRACKET · LOSE = OUT' : '⚔ CROSSOVER'}{lens !== 'bell' && <i className="bf-lensnote"> · reading the last {lens === '60' ? 'hour' : `${lens} min`} (the bell still decides)</i>}</span>
+          <p className="bf-call" key={pitCall(p, secs)} aria-live="polite" data-testid={`bf-call-${i}`}>🎙 {pitCall(p, secs)}</p>
+          <span className="bf-crowd" data-tip="How the crowd is split: free backs + bought backs. Points only today — real bids on a fight are planned, and this split becomes the odds." data-testid={`bf-crowd-${i}`}>
+            <b className="m-num">{crowdShare(p)}%</b><i><i style={{ transform: `scaleX(${crowdShare(p) / 100})` }} /></i><b className="m-num">{100 - crowdShare(p)}%</b><small>CROWD</small></span>
           {corner(p, 'a', i)}
           <div className="bf-mid">
             <span className="bf-vs" aria-hidden="true"><i className="bf-clash" /><i className="bf-spark" /><i className="bf-spark s2" /><i className="bf-spark s3" />VS</span>

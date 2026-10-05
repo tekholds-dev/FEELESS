@@ -273,3 +273,16 @@ test('runner replay is never since-launch: under 1h old uses the last 5 minutes,
   const m = cardMath({ parts: { feeDragPct: 0 }, legs: runnerLegs([{ mint: 'a', symbol: 'A', ageH: 0.3, chg1h: 120669, chg5m: 4 }]) }, 5);
   expect(m.end).toBeCloseTo(5.2);                                  // $5 → $5.20, not $5 → $6,038
 });
+
+
+test('The Pit reads a fight through any timeframe, calls it live, and shows the crowd split', () => {
+  const { lensPairs, pitCall, crowdShare, PIT_LENSES } = require('./FusePage');
+  const pair = { a: { name: 'Blaze', now: 2, frames: { 5: -1, 15: 4 }, backers: 3, paidN: 0 }, b: { name: 'Gold', now: 5, frames: { 5: 3 }, backers: 1, paidN: 0 } };
+  expect(PIT_LENSES.map(l => l[0])).toEqual(['bell', '5', '15', '60']);
+  expect(lensPairs([pair], 'bell')[0].a.now).toBe(2);
+  expect(lensPairs([pair], '5')[0]).toMatchObject({ a: { now: -1 }, b: { now: 3 } });
+  expect(lensPairs([pair], '60')[0].a.now).toBe(2);                                    // no data for that window → the bell number, never a blank
+  expect(pitCall(pair, 300)).toBe('Gold leads by 3.0 points.');
+  expect(pitCall(pair, 30)).toContain('FINAL MINUTE'); expect(pitCall({ a: { name: 'A', now: 1 }, b: { name: 'B', now: 1.1 } }, 300)).toContain('Dead even');
+  expect(crowdShare(pair)).toBe(75); expect(crowdShare({ a: {}, b: {} })).toBe(50);
+});
