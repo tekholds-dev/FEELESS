@@ -1115,3 +1115,29 @@ def undo_rent_credits(books, ledger, sol_px):
         b['fundedUsd'] = round(max(0.0, _f(b.get('fundedUsd')) - sol * sol_px), 4)
         b.pop('rentMints', None); b.pop('rentBackSol', None)
     return out, gone
+
+
+def funded_from_ledger(book, ledger, card):
+    """💵 PUT IN rebuilt from the audit trail: every top-up of this book (since it was funded) minus cash the owner withdrew."""
+    since = _f(book.get('since')) - 1
+    rows = [r for r in ledger or [] if r.get('card') == card and _f(r.get('at')) >= since and r.get('status') == 'done']
+    return round(sum(_f(r.get('usd')) for r in rows if r.get('side') == 'topup') - sum(_f(r.get('usd')) for r in rows if r.get('side') == 'withdraw'), 4)
+
+
+def halt_cleared(book, sol_short, missing_mints):
+    """An automatic halt lifts by itself once the wallet shows the condition is gone (a SOL shortage the books no longer have, a
+    token shortage no longer missing). The owner's own ⏸ Pause (no reason) and fill mismatches never auto-lift."""
+    why = str(book.get('haltWhy') or '')
+    if not book.get('halt'):
+        return False
+    if 'wallet SOL is below card books' in why:
+        return not sol_short
+    if 'token balance is below card books' in why:
+        return not set(missing_mints or ()).intersection(book.get('legs') or {})
+    return False
+
+
+def halt_allows_sells(book):
+    """A halted card still SELLS (it only adds SOL, which is what a SOL-shortage halt needs) — the owner's queued ✂ / recovery sells
+    used to sit 'queued' forever. A token-shortage halt sells nothing (the wallet may not hold what the book says)."""
+    return bool(book.get('halt')) and 'token balance' not in str(book.get('haltWhy') or '')

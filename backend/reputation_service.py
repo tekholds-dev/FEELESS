@@ -6415,6 +6415,11 @@ async def _fw_tick(now):
                                 if sol_short or bad.intersection((b.get('legs') or {})):
                                     why = 'confirmed wallet SOL is below card books' if sol_short else 'confirmed wallet token balance is below card books'
                                     d['books'][tid] = {**b, 'halt': True, 'haltWhy': why}
+                        for tid, b in list(d['books'].items()):   # 🔓 an automatic halt lifts once the wallet shows it's fixed
+                            if _fw.halt_cleared(b, sol_short, [x['mint'] for x in missing]):
+                                d['books'][tid] = {**b, 'halt': False, 'haltWhy': None}
+                                _fw_record(d, {'id': f'unhalt:{tid}:{time.time():.0f}', 'card': tid, 'side': 'fix', 'at': time.time(), 'status': 'done',
+                                               'why': f"🔓 resumed by itself — {b.get('haltWhy')} is fixed (wallet and card books match)"})
                         for st in _fw.strays(bal.get('tokens'), bal.get('decimals'), d['books'], d['ledger'], time.time()):
                             d['books'][st['card']] = _fw.adopt(d['books'][st['card']], st)
                             _fw_record(d, {'card': st['card'], 'side': 'adopt', 'mint': st['mint'], 'symbol': st['symbol'], 'atoms': st['atoms'], 'usd': 0.0, 'at': time.time(),
@@ -6496,7 +6501,7 @@ async def _fw_tick_inner(now):
     done = 0
     for tid, book in list(d['books'].items()):
         card = cards.get(tid)
-        if not card or book.get('halt'):
+        if not card or (book.get('halt') and not _fw.halt_allows_sells(book)):
             continue
         if book.get('pending'):
             book = await _fw_resolve(tid, book, cfg, sol_px)
@@ -6508,7 +6513,7 @@ async def _fw_tick_inner(now):
             equity_usd = _fw.book_value(book, px, sol_px)
         book = _fw.bank(book, card.get('walletUsd'), sol_px, equity_usd)
         want = {**card, 'legs': []} if book.get('defund') else card
-        for side in ('sell', 'buy'):
+        for side in (('sell',) if book.get('halt') else ('sell', 'buy')):   # ⏸ halted = sells only (owner's queued sells still land)
             for o in [{**x, 'cardPays': int(card.get('rounds') or 0) >= 5} for x in _fw.orders(tid, want, book, px, sol_px, cfg, now, count_sells=side == 'sell') if x['side'] == side]:
                 leg_liq = next((_fuse._f(l.get('liqNow')) or _fuse._f(l.get('liq')) for l in card.get('legs') or [] if l.get('mint') == o.get('mint')), 0.0)
                 book = await _fw_execute(tid, o, book, cfg, sol_px, liqs.get(o.get('pair')) or leg_liq)   # pair read blank → the engine's own liquidity reading
@@ -6586,6 +6591,16 @@ async def _fw_rent_credit(cfg):
             _fw_save(d)
         if gone:
             _fw_notify({'card': next(iter(gone)), 'side': 'fix', 'status': 'done', 'usd': 0, 'why': 'rent credit mistake repaired — card books match the wallet again'})
+    if not d.get('rentFix2'):   # 🩹 the first repair priced the removed SOL at today's price → PUT IN drifted (5.00 read 4.82): rebuild it
+        async with _fw_lock:
+            d = _fw_load()
+            for tid, b in d['books'].items():
+                if any(r.get('id') == f'rentfix:{tid}' for r in d['ledger']):
+                    f_ = _fw.funded_from_ledger(b, d['ledger'], tid)
+                    if f_ > 0:
+                        d['books'][tid] = {**b, 'fundedUsd': f_}
+            d['rentFix2'] = time.time()
+            _fw_save(d)
     done = {r.get('id') for r in d['ledger'] if r.get('side') == 'close' and r.get('status') in ('credited', 'lost')}
     # only closes that list their coin accounts (this rule) — a refund goes back only to the card that paid that coin's deposit
     todo = [r for r in d['ledger'][-2000:] if r.get('side') == 'close' and r.get('status') == 'sent' and r.get('sig') and r.get('closed') and r['id'] not in done]

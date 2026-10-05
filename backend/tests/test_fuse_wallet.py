@@ -820,3 +820,24 @@ def test_coins_waiting_on_a_buy_are_funded_from_the_sol_anchor():
     o = fw.orders('blaze', c, book, prices, 150.0, {'minOrderUsd': 0.1, 'maxSwapUsd': 50, 'armed': True}, 0)
     buys = {x['mint']: x['usd'] for x in o if x['side'] == 'buy'}
     assert set(buys) == {'ASH', 'GOMO'} and all(v >= 0.4 for v in buys.values())        # both buys are really sent now (rent deposit set aside)
+
+
+def test_auto_halt_lifts_itself_and_a_halted_card_still_sells():
+    import fuse_wallet as fw
+    sol_halt = {'halt': True, 'haltWhy': 'confirmed wallet SOL is below card books', 'legs': {'A': {}}}
+    assert fw.halt_cleared(sol_halt, None, []) and not fw.halt_cleared(sol_halt, {'booked': 1, 'held': 0.5}, [])
+    tok = {'halt': True, 'haltWhy': 'confirmed wallet token balance is below card books', 'legs': {'A': {}}}
+    assert fw.halt_cleared(tok, None, ['B']) and not fw.halt_cleared(tok, None, ['A'])
+    assert not fw.halt_cleared({'halt': True}, None, [])                                # the owner's own ⏸ Pause never auto-lifts
+    assert not fw.halt_cleared({'halt': True, 'haltWhy': 'fill mismatch'}, None, [])
+    assert fw.halt_allows_sells(sol_halt) and fw.halt_allows_sells({'halt': True}) and not fw.halt_allows_sells(tok)
+
+
+def test_put_in_rebuilt_from_the_audit_trail():
+    import fuse_wallet as fw
+    ledger = [{'card': 'blaze', 'side': 'topup', 'usd': 3.0, 'at': 5, 'status': 'done'},          # an older run of this card
+              {'card': 'blaze', 'side': 'topup', 'usd': 5.0, 'at': 100, 'status': 'done'},
+              {'card': 'blaze', 'side': 'topup', 'usd': 2.0, 'at': 200, 'status': 'done'},
+              {'card': 'blaze', 'side': 'withdraw', 'usd': 1.5, 'at': 300, 'status': 'done'},
+              {'card': 'gold', 'side': 'topup', 'usd': 9.0, 'at': 150, 'status': 'done'}]
+    assert fw.funded_from_ledger({'since': 100}, ledger, 'blaze') == 5.5

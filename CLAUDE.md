@@ -954,3 +954,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   trigger the repair too: the SOL anchor is trimmed to an equal share (coin donors are trimmed only for EMPTY slots); no-op when free
   SOL already covers every waiting buy. Manual: `POST /admin/arena/prime {fix: tpl}` (🔧 Fix buys on the real card, shown while a coin
   waits) = repair now + fresh retries (misses cleared; benched stay benched). Auto: the 10-min stuck swap above.
+- ⏸ Halts: an AUTOMATIC halt (wallet SOL / token below card books) lifts by itself once the wallet shows it's fixed
+  (`fuse_wallet.halt_cleared`, ledger `fix` row); the owner's own ⏸ Pause and fill mismatches never auto-lift. A halted card still
+  runs its SELL pass (`halt_allows_sells`; not on a token-shortage halt) — queued ✂ / recovery sells used to sit "queued" forever.
+  `rentFix2`: PUT IN rebuilt from the ledger (`funded_from_ledger`: top-ups since the book began − withdrawals).

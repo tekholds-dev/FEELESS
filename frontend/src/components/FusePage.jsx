@@ -697,7 +697,7 @@ function RealCardFixes({ addr }) {
     const now = (c.realBook?.offCard || []).reduce((sum, x) => sum + Number(x.usd || 0), 0);
     if (!n || !window.confirm(`Attempt to sell ${n} confirmed dead/off-card coin${n === 1 ? '' : 's'} (current quoted value ${m$(now)}) into ${c.label} card cash? Original cost cannot be restored after a coin loses market value. Failed buys with no confirmed coins are ignored. Cash and P&L update only after each sell confirms.`)) return;
     const key = `dead-all-${c.tpl}`; setBusy(key); call('/admin/fuse-wallet/recover-sell-all', { method: 'POST', body: JSON.stringify({ tpl: c.tpl }) })
-      .then(x => { toast.success(`${x.queued || n} confirmed holding${(x.queued || n) === 1 ? '' : 's'} queued → ${c.label} cash`); window.dispatchEvent(new Event('feeless:prime')); })
+      .then(x => { toast.success(`${x.queued || n} confirmed holding${(x.queued || n) === 1 ? '' : 's'} queued → ${c.label} cash · sells on the next keeper tick (~1 min), even while the card is paused`); window.dispatchEvent(new Event('feeless:prime')); })
       .catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   const useful = cards.filter(c => (c.realBook?.recoverable || []).length || (c.realBook?.profitAvailableUsd || 0) > 0 || (c.realBook?.fundedUsd || 0) > 0);
   if (!useful.length) return null;
