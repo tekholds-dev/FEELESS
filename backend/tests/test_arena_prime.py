@@ -890,3 +890,16 @@ def test_fast_clocks_rank_coins_by_what_is_moving_now_and_slow_clocks_keep_their
     assert [r['mint'] for r in ap.clock_rank(rows, 0.08, mom)] == ['hot', 'mid', 'deep']     # 5-min card
     assert [r['mint'] for r in ap.clock_rank(rows, 1.0, mom)] == ['deep', 'hot', 'mid']      # 1-hour card: untouched
     assert len(ap.clock_rank(rows, 0.08, mom)) == 3 and ap.clock_rank([], 0.08) == []
+
+
+def test_the_owner_picks_how_many_coins_a_card_holds_at_any_size():
+    assert ap.clean_cfg({'coins': 6})['coins'] == 6 and ap.clean_cfg({'coins': 9})['coins'] == 0 and ap.clean_cfg({})['coins'] == 0
+    assert ap.real_guard({'coins': 6, 'rotateHours': 1})[0]['minCoinUsd'] == 0.0            # the owner's count beats the size rule
+    assert ap.real_guard({'coins': 0, 'rotateHours': 1})[0]['minCoinUsd'] == ap.REAL_MIN_COIN_USD
+    A = lambda m: ({'mint': m, 'price': 1.0, 'liquidityUsd': 5e6, 'volume24h': 5e6}, 'anchor')
+    picks = [A('a1'), A('a2')]
+    runners = [{'mint': 'r1', 'price': 1.0, 'score': 90}, {'mint': 'a1', 'price': 1.0, 'score': 90}, {'mint': 'r2', 'price': 1.0, 'score': 80}]
+    grown = ap.grow_picks(picks, 4, [], runners, [])
+    assert [c['mint'] for c, _ in grown] == ['a1', 'a2', 'r1', 'r2']                         # never the same coin twice
+    assert len(ap.grow_picks(picks, 6, [], runners, [])) == 4                                # feeds ran out → what exists, no crash
+    assert [c['mint'] for c, _ in ap.fit_count(grown, 2)] == ['a1', 'r1']                    # one anchor + one runner kept

@@ -238,6 +238,7 @@ def clean_cfg(p):
     out['rescuePct'] = 0.0 if (p or {}).get('rescuePct') is not None and rsc == 0 else max(20.0, min(80.0, rsc))   # 0 = rescue off
     out['rotateConfirm'] = int(max(1, min(6, _f((p or {}).get('rotateConfirm', ROTATE_CONFIRM)))))
     out['minHoldMins'] = max(0.0, min(240.0, _f((p or {}).get('minHoldMins', MIN_HOLD_MINS))))
+    out['coins'] = int(_f((p or {}).get('coins'))) if int(_f((p or {}).get('coins'))) in COIN_COUNTS else 0   # 🪙 0 = auto (size-aware), else the OWNER's count
     out['floorRestMins'] = float(_f((p or {}).get('floorRestMins'))) if _f((p or {}).get('floorRestMins')) in FLOOR_RESTS else 0.0
     out['strictRunners'] = bool((p or {}).get('strictRunners', False))
     out['autoBrain'] = bool((p or {}).get('autoBrain', True))   # 🔧 engine self-fix from the sim brain (HQ can switch it off)   # HQ: rescue when the card is this % under its start
@@ -262,6 +263,7 @@ REAL_MIN_INSTANT = 10.0   # ⚡ instant swap is OFF (0) or at least −10% — n
 REAL_MAX_RESHAPE = 6      # a real card re-shapes at most every 6 rounds (0 = never stays never) — also while a safe / rescue fix is on
 REAL_MIN_COIN_USD = 0.75  # a real coin under this pays > 0.7% per swap in flat costs → small cards hold fewer, bigger coins
 REAL_DEAL_LEAD = 15.0     # seconds before the bell that a real card's round is decided (sells, then buys, finish inside the countdown)
+COIN_COUNTS = (0, 2, 3, 4, 5, 6)   # coins on a card: 0 = auto by size · or exactly what the owner picks, at ANY card size
 FLOOR_RESTS = (0, 15, 30, 60)   # 🛌 minutes a floored card rests in its anchors before the re-deal — the OWNER's switch (0 = no rest, re-deal at once)
 REAL_RUNNER_AGE_H = 12.0  # real money never buys a runner younger than this (a 20-min-old coin with a $534K pool went −99.99% in an hour)
 
@@ -282,7 +284,7 @@ def real_guard(cfg):
     #  • a safe / rescue FIX re-shaped the card EVERY round — on a 5-min clock that sold and re-bought 2–3 coins every 5 minutes
     out['fixEvery'] = REAL_MAX_RESHAPE
     out['dealLeadSec'] = REAL_DEAL_LEAD
-    out['minCoinUsd'] = REAL_MIN_COIN_USD
+    out['minCoinUsd'] = 0.0 if int(_f(out.get('coins'))) else REAL_MIN_COIN_USD   # the owner's coin count always wins over the size rule
     return out, changed
 
 
@@ -434,6 +436,28 @@ def size_slots(size_usd, min_coin_usd, want):
     return int(want) if m <= 0 else max(1, min(int(want), int(_f(size_usd) // m)))
 
 
+def grow_picks(picks, want, pools, runners, anchors):
+    """More coins than the shape has: add the best candidates not on it yet — runners first, then pools, then majors — up to `want`.
+    Never duplicates a coin; returns what exists when the feeds can't fill every extra seat."""
+    out = list(picks); have = {c.get('mint') for c, _ in out}
+    for src, role in ((runners, 'runner'), (pools, 'pool'), (anchors, 'anchor')):
+        for c in rated(src, role):
+            if len(out) >= want:
+                return out
+            if c.get('mint') not in have and _f(c.get('price')) > 0:
+                out.append((c, role)); have.add(c.get('mint'))
+    return out
+
+
+def fit_count(picks, n):
+    """Trim to n coins keeping the card's character: the first anchor, then the first non-anchor, then the rest in order."""
+    if n <= 0 or n >= len(picks):
+        return picks
+    anchors_ = [p for p in picks if p[1] == 'anchor']; others = [p for p in picks if p[1] != 'anchor']
+    keep = (anchors_[:1] + others[:1] + anchors_[1:] + others[1:])[:n]
+    return [p for p in picks if any(p is k for k in keep)]
+
+
 def fit_size(picks, size_usd, min_coin_usd):
     """Trim a dealt shape to the card's size, keeping its character: the first anchor, then the first non-anchor, then the rest in order."""
     n = size_slots(size_usd, min_coin_usd, len(picks))
@@ -453,8 +477,14 @@ def deal(tid, pools, runners, cfg, now, anchors=(), usd=None, keep=None, shape=N
     # keeping the configured number of anchors and the service's existing major ranking authoritative.
     every = int(_f(cfg.get('cycleEvery'))) or 1
     anchor_offset = int(_f((keep or {}).get('rounds')) // every) if shape else 0
+    want = int(_f(cfg.get('coins')))
     picks = _picks(t, pools, runners, rotate_anchors(anchors, anchor_offset))
     target_slots = int(t.get('anchors', 0)) + int(t.get('pools', 0)) + int(t.get('runners', 0))
+    if want:   # 🪙 the owner chose how many coins: more than the shape → the best coins not on it yet join; fewer → the shape is trimmed
+        full_shape = len(picks) == target_slots
+        picks = fit_count(grow_picks(picks, want, pools, runners, rotate_anchors(anchors, anchor_offset)), want)
+        if full_shape or len(picks) == want:   # the shape itself was complete (or the owner's count was reached) → this deal is whole
+            target_slots = len(picks)
     # A configured phase is atomic: never commit a partial 3-leg version of a 4-slot shape. Keep the current card until all
     # eligible slots exist, then reshape once. This permanently prevents feed scarcity from shrinking a live phase.
     if not picks or (shape and len(picks) != target_slots):
@@ -789,7 +819,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # Legacy underfill can exist on or between boundaries. On a due boundary the configured NEXT phase gets first chance;
     # if that full shape is unavailable, we fall back to repairing the CURRENT phase instead of leaving a 3-leg live card.
     due_boundary = bool(every and int(c.get('rounds') or 0) % every == 0)
-    current_slots = size_slots(V(), cfg.get('minCoinUsd'), current_slots) if current_slots else 0   # a small card's full shape IS its smaller shape
+    # a card's full shape is what its owner asked for (`coins`), else the size-aware count — never "underfilled" against the template
+    current_slots = (min(int(_f(cfg.get('coins'))), max(len(c.get('legs') or []), 1)) if int(_f(cfg.get('coins'))) else size_slots(V(), cfg.get('minCoinUsd'), current_slots)) if current_slots else 0
     underfilled = bool(current_slots and len(c.get('legs') or []) < current_slots and not c.get('cycleFix'))
     if underfilled and not due_boundary:
         phase, grow_now = c.get('phase'), True

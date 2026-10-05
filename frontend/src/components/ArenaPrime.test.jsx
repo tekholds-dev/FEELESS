@@ -96,3 +96,14 @@ test('engine pick: each round length gets its own config, and a losing clock is 
   expect(enginePick(suggest, 1).patch).toEqual({ rotateMinDrop: 10, rotateConfirm: 2 });
   expect(enginePick({}, 1)).toBeNull();
 });
+
+test('recent closed real cards show faded on My cards, newest first, real runs only', async () => {
+  const { RecentRuns } = require('./ArenaPrime');
+  const React = require('react'); const { act } = require('react'); const { createRoot } = require('react-dom/client');
+  global.fetch = jest.fn(async url => ({ ok: true, json: async () => (String(url).endsWith('/safe') ? { runs: [{ at: 200, card: 'safe', label: '💎 Prime Diamond', startUsd: 2.14, endUsd: 1.78, pct: -17, real: true }, { at: 100, card: 'safe', label: '💎 Prime Diamond', startUsd: 100, endUsd: 110, pct: 10 }] }
+    : { runs: [{ at: 300, card: 'ever', label: '♾ Prime Everlasting', startUsd: 5, endUsd: 6, pct: 20, real: true }] }) }));
+  const host = document.createElement('div'); document.body.appendChild(host);
+  await act(async () => { createRoot(host).render(<RecentRuns tpls={['safe', 'ever']} />); }); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const rows = [...host.querySelectorAll('[data-testid="recent-runs"] li')];
+  expect(rows.length).toBe(2); expect(rows[0].textContent).toContain('Prime Everlasting'); expect(rows[1].textContent).toContain('$2.14 → $1.78');   // the paper run is not yours
+});

@@ -177,6 +177,7 @@ const EDIT = [
   ['keepWinPct', '🛡 Keep winners', [[0, 'off'], [5, '+5%'], [10, '+10%'], [20, '+20%']], 'A coin up this much (or ❄ frozen) is carried into the next shape — a re-shape never sells a winner'],
   ['rideAt', '❄ Freeze a coin running', [[0, 'off'], [25, '+25%'], [50, '+50%'], [100, '+100%'], [150, '+150%']], 'A coin up this much is frozen: no TP, stop or rotation while it keeps making highs'],
   ['rideTrail', '⇄ Then swap it off its peak', [[10, '−10%'], [15, '−15%'], [20, '−20%'], [30, '−30%']], 'A frozen coin is swapped for the best coin of its kind once it falls this far from its highest price (the gain moves into the new coin)'],
+  ['coins', '🪙 Coins on the card', [[0, 'auto'], [2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6']], 'Your call, at any card size. Auto = sized to the card (each coin at least $0.75). Pick a number and the card holds exactly that many — smaller coins pay more in fees per swap, and the first 5 rounds of network fees are on the wallet reserve.'],
   ['cycleEvery', '🧩 Re-shape every', [[0, 'off'], [3, '3'], [6, '6'], [12, '12']], 'Rounds between shape changes'],
   ['slMode', '🛑 On a stop', [['replace', '⇄ replace'], ['park', '🅿 park'], ['hold', '❄ hold']], 'Replace with the best coin · sell to SOL and rebuy later · keep holding'],
   ['rescuePct', '🛟 Rescue at', [[0, 'off'], [30, '−30%'], [40, '−40%'], [50, '−50%'], [60, '−60%']], 'Card this far under its start → safest coins'],
@@ -192,7 +193,7 @@ const CFG_GROUPS = [['rounds', '⏱ Rounds', 'When a round may swap a coin'], ['
 // ✍ Type exact limits (server clamps every value to its safe range: slippage 0.1–3%, impact 0.2–10%, pool ≥ $0, swap $1+, daily $5+)
 const TYPED = [['slippageBps', 'Slippage %', v => v * 100, v => v / 100, 0.1, 3, 0.1], ['maxImpactPct', 'Max price impact %', v => v, v => v, 0.2, 10, 0.1],
   ['minLiqUsd', 'Min pool $', v => v, v => v, 0, 10000000, 1000], ['arenaMinLiqUsd', 'Arena coin min pool $', v => v, v => v, 0, 10000000, 1000], ['maxSwapUsd', 'Max per swap $', v => v, v => v, 1, 10000, 1],
-  ['dailyUsd', 'Daily cap $', v => v, v => v, 5, 100000, 5], ['minOrderUsd', 'Min buy $', v => v, v => v, 0.25, 50, 0.05]];
+  ['dailyUsd', 'Daily cap $', v => v, v => v, 5, 100000, 5], ['minOrderUsd', 'Min buy $', v => v, v => v, 0.1, 50, 0.05]];
 function TypedLimits({ keeper, busy, save }) {
   const [v, setV] = useState({});
   const cur = k => { const t = TYPED.find(x => x[0] === k); return keeper?.[k] == null ? '' : t[3](keeper[k]); };
@@ -254,7 +255,7 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
         {churn && <p className="m-note ce-warn" data-testid="churn-warn">⚠ Round rotation is aggressive at {Math.round((cfg?.rotateHours || 0) * 60)}m with patience {cfg?.rotateConfirm || 1}. The ⚡ instant swap (Exits) is separate and fires immediately at its loss.
           <button type="button" className="m-btn" disabled={busy} onClick={() => save({ rotateConfirm: 3 })}>Use 3</button></p>}</>}
       {grp === 'exits' && rows(['instantSwapPct', 'slMode', 'keepWinPct', 'rideAt', 'rideTrail'])}
-      {grp === 'shape' && <>{rows(['cycleEvery'])}
+      {grp === 'shape' && <>{rows(['coins', 'cycleEvery'])}
         <div className="ce-row"><span><b>🔄 Cycle</b><small>The shapes this card moves through (anchor · mixed · degen · safest …)</small></span><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
       {!real && <div className="ce-row"><span><b>🔒 Lock tier</b><small>Freeze this tier's whole config so engine tunes never change it</small></span><div className="m-seg">{[[true, 'locked'], [false, 'free']].map(([v, t]) => <button key={t} type="button" disabled={busy} className={!!locked === v ? 'active' : ''} onClick={() => { setBusy(true); call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ lock: c.tpl, on: v }) }).then(() => { toast.success(v ? '🔒 Locked' : 'Unlocked'); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy(false)); }}>{t}</button>)}</div></div>}</>}
       {grp === 'safety' && rows(['floorPct', 'floorRestMins', 'rescuePct', 'autoBrain'])}
@@ -308,7 +309,8 @@ export function HqRealCards({ addr, onCount }) {
   const real = (d?.cards || []).filter(c => c.real);
   const n = owner ? real.length : 0;
   useEffect(() => { onCount?.(n); }, [n, onCount]);   // My cards hides its "no cards" box under a real card
-  if (!owner || !real.length) return null;
+  if (!owner) return null;
+  if (!real.length) return <RecentRuns tpls={(d?.cards || []).map(c => c.tpl)} />;
   const act = (tpl, action) => { if (action === 'defund' && !window.confirm('Sell every coin back to SOL? The card goes back to its paper card.')) return;
     setBusy(action); call('/admin/fuse-wallet/card', { method: 'POST', body: JSON.stringify({ tpl, action }) }).then(() => { toast.success(action === 'defund' ? '↩ Selling every coin to SOL' : action === 'halt' ? '⏸ Card paused' : '▶ Resumed'); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   const topup = tpl => { const v = Number(amt); if (!(v >= 1)) { toast.error('Top up at least $1'); return; } if (!window.confirm(`Add ${v.toFixed(2)} of NEW money from the Fuse wallet? PUT IN increases by this amount.`)) return;
@@ -381,6 +383,22 @@ export function HqRealCards({ addr, onCount }) {
             <em className="m-num">{usd(o.usd)}</em>{o.sig ? <a href={txUrl(o.sig)} target="_blank" rel="noreferrer">tx ↗</a> : <i />}</li>)}</ul></details></div></div>; })}</section>;
 }
 
+
+// 🕘 Recent real-money runs: when no real card is open, the closed ones stay on My cards — faded, one line each, tap for the detail.
+export function RecentRuns({ tpls = [] }) {
+  const [runs, setRuns] = useState(null);
+  const key = tpls.join(',');
+  useEffect(() => { if (!key) return undefined; let alive = true;
+    Promise.all(key.split(',').map(t => fetch(apiUrl(`/api/reputation/fuses/record/${t}`)).then(r => r.json()).catch(() => null)))
+      .then(all => alive && setRuns(all.flatMap(x => (x?.runs || []).filter(r => r.real)).sort((a, b) => b.at - a.at).slice(0, 6)));
+    return () => { alive = false; }; }, [key]);
+  if (!runs?.length) return null;
+  return <section className="rr" data-testid="recent-runs"><span className="m-label">🕘 YOUR RECENT REAL CARDS · CLOSED</span>
+    <ul>{runs.map((r, i) => <li key={`${r.card}-${r.at}`} style={{ '--i': i }}><details><summary><b>{r.label}</b><span className="m-num">{usd(r.startUsd)} → {usd(r.endUsd)}</span>
+      <em className={`m-num ${r.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(r.pct)}</em><small>{new Date(r.at * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</small></summary>
+      <p className="m-dim">💵 Real money · this run started at {usd(r.startUsd)} and ended at {usd(r.endUsd)} ({r.pct >= 0 ? 'up' : 'down'} {usd(Math.abs(r.endUsd - r.startUsd))}) on {new Date(r.at * 1000).toLocaleString()}. Price moves only — network fees are counted apart. A run ends on a top-up, a re-deal, a floor or a sell-all.</p></details></li>)}</ul>
+  </section>;
+}
 
 // 📜 A tier card's permanent record (every run it ever finished, kept forever on the server's append-only ledger)
 export function CardRecord({ tpl }) {

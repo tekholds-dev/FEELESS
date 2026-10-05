@@ -1,3 +1,4 @@
+import '../../styles/fuseMoney.css';
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { usd, txUrl } from '../FuseMoney';
@@ -88,10 +89,12 @@ export function FuseWallet({ call }) {
         <option value="">Pick a Circle Solana wallet…</option>{(d.wallets || []).map(w => <option key={w.id} value={w.id}>{w.name || 'wallet'} · {w.address.slice(0, 4)}…{w.address.slice(-4)} · {w.blockchain}</option>)}</select>
       {cfg?.address && <a className="m-btn" href={`https://solscan.io/account/${cfg.address}`} target="_blank" rel="noreferrer">Solscan ↗</a>}
       <small className="m-dim">fund it by sending SOL to its address (HQ › Money › Circle can move SOL between your wallets)</small></div>
-    <div><span className="m-label">2 · HARD LIMITS (server-enforced) · what you fund is what the card gets — fees come from the reserve</span><div className="fw-grid">{LIMITS.map(([k, l, tip]) => <label key={k}>{l}
-      <input className="m-input m-num" type="number" defaultValue={cfg?.[k]} onBlur={e => Number(e.target.value) !== cfg?.[k] && save({ [k]: Number(e.target.value) })} data-testid={`fw-${k}`} /><small className="m-dim">{tip}</small></label>)}</div>
+    {/* arm / kill stay in sight; the six hard limits fold away behind their own one-line summary */}
       <div className="m-row"><label className="m-toggle" data-tip={d.signer ? 'Armed = the keeper may swap for funded cards' : 'Needs signing enabled first'}><input type="checkbox" checked={!!cfg?.armed} disabled={!d.signer} onChange={e => save({ armed: e.target.checked })} data-testid="fw-armed" /><span>{cfg?.armed ? '🟢 Armed' : 'Not armed'}</span></label>
-        <label className="m-toggle"><input type="checkbox" checked={!!cfg?.paused} onChange={e => save({ paused: e.target.checked })} data-testid="fw-paused" /><span>{cfg?.paused ? '⏸ Paused (nothing trades)' : 'Kill switch off'}</span></label></div></div>
+        <label className="m-toggle"><input type="checkbox" checked={!!cfg?.paused} onChange={e => save({ paused: e.target.checked })} data-testid="fw-paused" /><span>{cfg?.paused ? '⏸ Paused (nothing trades)' : 'Kill switch off'}</span></label></div>
+    <details className="hrt-fold" data-testid="fw-limits"><summary><b>2 · Hard limits</b><span>card ≤ ${cfg?.maxCardUsd} · swap ≤ ${cfg?.maxSwapUsd} · day ${cfg?.dailyUsd} · fee reserve {cfg?.reserveSol} SOL · slippage {((cfg?.slippageBps || 0) / 100).toFixed(1)}% · impact {cfg?.maxImpactPct}% — server-enforced; what you fund is what the card gets</span></summary>
+<div className="fw-grid">{LIMITS.map(([k, l, tip]) => <label key={k}>{l}
+      <input className="m-input m-num" type="number" defaultValue={cfg?.[k]} onBlur={e => Number(e.target.value) !== cfg?.[k] && save({ [k]: Number(e.target.value) })} data-testid={`fw-${k}`} /><small className="m-dim">{tip}</small></label>)}</div></details>
     <div><span className="m-label">3 · TIER CARDS · TOP UP = NEW RUN</span><div className="fw-tiers">{Object.entries(d.tiers || {}).map(([tpl, label]) => { const b = d.books?.[tpl];
       return <div key={tpl} className={`fw-tier ${b ? 'is-real' : ''}`} data-testid={`fw-tier-${tpl}`}><span><b>{label}</b><small className="m-dim">{b ? ` · 💵 ${usd(b.valueUsd)} now · funded ${usd(b.fundedUsd)} · ${b.swaps} swaps${b.halt ? ' · ⏸ halted' : ''}${b.defund ? ' · ↩ selling' : ''}` : ' · 📄 paper'}</small>
         {b && <small className="m-dim" data-testid={`fw-receipt-${tpl}`}>🧾 receipt: in {usd(b.topups || b.fundedUsd)} → bought {usd(b.bought)} · sold {usd(b.sold)} · network fees {usd(b.feesUsd)} · now {usd(b.valueUsd)} ({b.fundedUsd ? `${((b.valueUsd / b.fundedUsd - 1) * 100).toFixed(1)}%` : '—'})</small>}</span>

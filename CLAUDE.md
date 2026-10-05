@@ -749,6 +749,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   LIVE price worth < $0.05 is written off the book (coins stay in the wallet); no price = kept. A rugged coin's dust once left a
   card on "selling…" for good.
 
+- 🪙 THE OWNER PICKS (never argue a card up in size or onto a slower clock): `coins` (Edit Fuse › Shape: auto · 2–6, `COIN_COUNTS`).
+  A number = exactly that many coins at ANY card size (`grow_picks` adds the best coins not on the shape — runners, pools, majors;
+  `fit_count` trims, keeping one anchor + one non-anchor); it switches the size rule off (`minCoinUsd` 0). Auto = size-aware.
+  Keeper min buy goes down to $0.10 (a $1 card with 6 coins trades); the first 5 rounds of network fees are on the wallet reserve.
+- My cards with no open real card: `RecentRuns` (owner) — closed real runs from `/fuses/record/{tpl}`, faded until hovered, `details`
+  for the plain-words line. The real-card section has no box (page backdrop). Claude in Chrome can view the owner's My cards + HQ:
+  navigation and reading only — never press a money / sign button there.
+- HQ › Fuse wallet: arm / kill visible, `details[data-testid=fw-limits]` folds the six limits behind a one-line summary; numbers inside
+  a sentence never use the 22px `.m-num` size.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10
