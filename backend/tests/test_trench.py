@@ -124,3 +124,16 @@ def test_raw_pairs_breaking_out_join_the_holder_scan():
     assert tr.market_pair(p, now)
     for bad in ({'marketCap': 9_000}, {'pairCreatedAt': now - 9 * 3.6e6}, {'txns': {'h1': {'buys': 100, 'sells': 100}}}, {'priceChange': {'m5': -1, 'h1': 20}}, {'pairCreatedAt': None}):
         assert not tr.market_pair({**p, **bad}, now), bad
+
+
+def test_a_runner_still_waiting_on_its_buy_is_the_first_seat_a_trench_coin_takes():
+    anchors, pools, runners = _cands()
+    cfg = ap.clean_cfg({'trenchCoins': 1, 'cycles': {**{t: 'off' for t in ap.DEFAULT_CYCLES}, 'degen': 'trench'}, 'rescuePct': 0, 'cycleEvery': 0})
+    card = ap.deal('degen', pools, [x for x in runners if not x.get('trenchOnly')], cfg, 0.0, anchors, shape='degen')
+    rs = [l for l in card['legs'] if l['role'] == 'runner']
+    rs[-1].update(units=0.0, buying=True, wantUnits=5.0)                                  # stuck buying (real card)
+    px = {l['pairAddress']: l['entry'] for l in card['legs']}
+    for x in runners:
+        px.setdefault(x['pairAddress'], x['price'])
+    out = ap.tick(card, px, pools, runners, cfg, 30.0, anchors, {}, {})
+    assert rs[-1]['mint'] not in {l['mint'] for l in out['legs']} and sum(1 for l in out['legs'] if l.get('trench')) == 1

@@ -671,12 +671,13 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             def gain(l):
                 px = _f(prices.get(l['pairAddress'])); return (px / _f(l['entry']) - 1) * 100 if px > 0 and _f(l.get('entry')) > 0 else 0.0
             victims = [l for l in c['legs'] if l.get('role') == 'runner' and not l.get('trench') and not l.get('frozen') and not l.get('ride')
-                       and not l.get('picked') and not l.get('buying') and not l.get('placeholder') and _f(l.get('units')) > 0 and gain(l) <= 10]
+                       and not l.get('picked') and not l.get('placeholder') and (_f(l.get('units')) > 0 or l.get('buying')) and gain(l) <= 10]
             if not nxt or not victims:
                 break
-            l = min(victims, key=gain)
+            l = min(victims, key=lambda x: (not x.get('buying'), gain(x)))   # a seat still waiting on its buy swaps for free
             px = _f(prices.get(l['pairAddress'])) or _f(l['entry'])
-            out_usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
+            units = _f(l['units']) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)
+            out_usd = sell_usd(units, px, liqs.get(l['pairAddress']) or l.get('liq'))
             c['legs'][c['legs'].index(l)] = _leg(nxt, out_usd, now, 'runner')
             c['feesUsd'] = _f(c.get('feesUsd')) + 2 * fee
             ev(kind='rotate', symbol=l['symbol'], usd=round(out_usd, 4), why=f"🗑 trench cycle — {gain(l):+.1f}% runner swapped for a fresh trench breakout", to=[nxt.get('symbol')])

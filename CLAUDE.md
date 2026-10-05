@@ -958,3 +958,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`fuse_wallet.halt_cleared`, ledger `fix` row); the owner's own ⏸ Pause and fill mismatches never auto-lift. A halted card still
   runs its SELL pass (`halt_allows_sells`; not on a token-shortage halt) — queued ✂ / recovery sells used to sit "queued" forever.
   `rentFix2`: PUT IN rebuilt from the ledger (`funded_from_ledger`: top-ups since the book began − withdrawals).
+- ♻ Recovery sells (dead / off-card coins, leg `recovered`) are NOT owner cash: their SOL goes back to work in the card (only ✂ cuts set
+  `manualCashSol`). `cashFix1` released the held recovery cash once; 🔧 Fix buys also releases held cash. Trench fill takes a runner
+  still waiting on its buy FIRST (free swap), then the weakest held runner.

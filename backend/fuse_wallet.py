@@ -114,12 +114,14 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
         excess = have - want
         usd = excess * px
         full = want <= 0
-        manual_cash = bool(l.get('manualCash') or (tgt.get(mint) or {}).get('manualCash'))
+        # ♻ a RECOVERY sell (dead / off-card coin) puts its SOL back to work in the card; only the owner's own ✂ cash is held apart
+        recovered = bool(l.get('recovered'))
+        manual_cash = bool((l.get('manualCash') and not recovered) or (tgt.get(mint) or {}).get('manualCash'))
         if not full and excess * px < want * px * REBAL_BAND:   # 🔁 a coin that STAYS is only trimmed when it's far over target (no churn)
             continue
         # Explicit recovery may clean out a confirmed balance after a dead pool pushes it below the normal dust floor.
         # Jupiter, slippage and impact checks still fail closed; this only ensures the recovery sell is attempted.
-        if excess <= 0 or (usd < cfg['minOrderUsd'] and not (full and (manual_cash or usd >= DUST_USD))):
+        if excess <= 0 or (usd < cfg['minOrderUsd'] and not (full and (manual_cash or recovered or usd >= DUST_USD))):
             continue
         frac = 1.0 if full and usd <= cfg['maxSwapUsd'] else min(1.0, min(usd, cfg['maxSwapUsd']) / (have * px)) if have * px > 0 else 0
         atoms = int(l['atoms']) if frac >= 1 else int(int(l['atoms']) * frac)
@@ -127,7 +129,7 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
             continue
         sells.append({'id': f"{card_id}:{now:.0f}:s:{mint[:6]}", 'card': card_id, 'side': 'sell', 'mint': mint, 'pair': l.get('pair'), 'symbol': l.get('symbol'),
                       'atoms': atoms, 'decimals': int(l.get('decimals') or 0), 'usd': round(min(usd, cfg['maxSwapUsd']), 4), 'midPx': px, 'at': now,
-                      'why': 'sold by owner to card cash' if manual_cash else 'not on the card any more' if full else 'trimmed to the card',
+                      'why': 'sold by owner to card cash' if manual_cash else 'recovered coin sold back into the card' if recovered else 'not on the card any more' if full else 'trimmed to the card',
                       **({'manualCash': True} if manual_cash else {})})
     # `count_sells` = plan view only: the keeper's BUY pass runs after its sells landed (or were refused) and must spend only SOL the
     # book really holds — counting a refused sell's proceeds once let a buy spend SOL the card never had (book SOL went negative)

@@ -636,17 +636,17 @@ def test_manual_cash_is_not_swept_into_payout_and_is_consumed_by_later_buy():
     assert bought['manualCashSol'] == 0.02
 
 
-def test_recovered_old_keeper_coin_force_sell_is_marked_card_cash():
+def test_recovered_old_keeper_coin_force_sell_goes_back_into_the_card():
     book = {'sol': 0.0, 'legs': {'OLD': {'atoms': 2_000_000, 'decimals': 6, 'pair': 'pold', 'symbol': 'AGENTCAT',
                                           'entryPx': 0.5, 'costUsd': 1.0, 'manualCash': True, 'recovered': True}}}
     card = {'legs': [], 'cash': 0.0}
     cfg = {**fw.DEFAULT_CFG, 'armed': True, 'walletId': 'w', 'address': 'A', 'minOrderUsd': 0.25}
     sells = [o for o in fw.orders('safe', card, book, {'pold': 0.5}, 100.0, cfg, 10) if o['side'] == 'sell']
-    assert sells and sells[0]['mint'] == 'OLD' and sells[0]['manualCash']
-    assert sells[0]['why'] == 'sold by owner to card cash'
+    assert sells and sells[0]['mint'] == 'OLD' and not sells[0].get('manualCash')     # owner: recovered cash goes back to work
+    assert sells[0]['why'] == 'recovered coin sold back into the card'
 
     filled, _ = fw.apply_fill(book, sells[0], {'atoms': -2_000_000, 'decimals': 6, 'sol': 0.01, 'feeSol': 0.0}, 100.0)
-    assert not filled['legs'] and filled['sol'] == 0.01 and filled['manualCashSol'] == 0.01
+    assert not filled['legs'] and filled['sol'] == 0.01 and not filled.get('manualCashSol')
 
 
 def test_recovered_coin_below_normal_dust_floor_still_gets_a_sell_attempt():
@@ -655,7 +655,7 @@ def test_recovered_coin_below_normal_dust_floor_still_gets_a_sell_attempt():
     cfg = {**fw.DEFAULT_CFG, 'armed': True, 'walletId': 'w', 'address': 'A', 'minOrderUsd': 0.25}
     sells = fw.orders('safe', {'legs': []}, book, {'pd': 0.001}, 100.0, cfg, 10)
     assert len(sells) == 1
-    assert sells[0]['side'] == 'sell' and sells[0]['mint'] == 'DEAD' and sells[0]['manualCash']
+    assert sells[0]['side'] == 'sell' and sells[0]['mint'] == 'DEAD'
 
 def test_profit_available_never_touches_funded_principal():
     book = {'fundedUsd': 7.0, 'sol': 0.02, 'bankSol': 0.001}
@@ -841,3 +841,15 @@ def test_put_in_rebuilt_from_the_audit_trail():
               {'card': 'blaze', 'side': 'withdraw', 'usd': 1.5, 'at': 300, 'status': 'done'},
               {'card': 'gold', 'side': 'topup', 'usd': 9.0, 'at': 150, 'status': 'done'}]
     assert fw.funded_from_ledger({'since': 100}, ledger, 'blaze') == 5.5
+
+
+def test_a_recovery_sell_puts_its_sol_back_to_work_but_owner_cut_cash_stays_held():
+    import fuse_wallet as fw
+    card = {'legs': [{'mint': fw.SOL_MINT, 'pairAddress': 'S', 'units': 0.0, 'entry': 100}]}
+    leg = {'atoms': 1_000_000, 'decimals': 6, 'pair': 'pb', 'symbol': 'BATON', 'entryPx': 1.0}
+    rec = fw.orders('b', card, {'sol': 0.0, 'legs': {'B': {**leg, 'manualCash': True, 'recovered': True}}}, {'pb': 1.4}, 100.0, {'minOrderUsd': 0.1, 'maxSwapUsd': 5}, 0)
+    cut = fw.orders('b', card, {'sol': 0.0, 'legs': {'B': {**leg, 'manualCash': True}}}, {'pb': 1.4}, 100.0, {'minOrderUsd': 0.1, 'maxSwapUsd': 5}, 0)
+    assert rec[0]['side'] == 'sell' and not rec[0].get('manualCash') and 'recovered' in rec[0]['why']
+    assert cut[0].get('manualCash')                                                       # ✂ owner's cash is still held apart
+    b, _ = fw.apply_fill({'sol': 0.0, 'legs': {'B': dict(leg)}}, rec[0], {'atoms': -1_000_000, 'decimals': 6, 'sol': 0.014, 'feeSol': 0.0}, 100.0)
+    assert not b.get('manualCashSol')                                                     # → spendable card cash

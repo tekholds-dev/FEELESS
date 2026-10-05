@@ -5930,6 +5930,7 @@ async def fuse_prime_admin(request: Request):
             fd = _fw_load(); b_ = fd['books'].get(body['fix'])
             if b_ is not None:
                 b_['misses'] = {}   # every coin gets fresh retries (benched coins stay benched — they really failed the safety checks)
+                b_['manualCashSol'] = 0.0   # 🔧 held cash goes back to work: Fix = "use this card's money" (✂ again to hold some apart)
                 _fw_save(fd)
     pk = body.get('pickSwap') or {}
     if pk.get('tpl') in _prime.TEMPLATES and pk.get('pairAddress'):   # 🎯 the owner picks WHICH coin comes in at the next round (or cancels)
@@ -6600,6 +6601,17 @@ async def _fw_rent_credit(cfg):
                     if f_ > 0:
                         d['books'][tid] = {**b, 'fundedUsd': f_}
             d['rentFix2'] = time.time()
+            _fw_save(d)
+    if not d.get('cashFix1'):   # 🩹 recovery sells used to park their SOL as "owner's held cash" (never re-spent) → back to work, once
+        async with _fw_lock:
+            d = _fw_load()
+            for tid, b in d['books'].items():
+                held = _fuse._f(b.get('manualCashSol'))
+                if held > 0:
+                    d['books'][tid] = {**b, 'manualCashSol': 0.0}
+                    _fw_record(d, {'id': f'cashfix:{tid}', 'card': tid, 'side': 'fix', 'sol': held, 'at': time.time(), 'status': 'done',
+                                   'why': '♻ recovered-coin cash released — it trades in the card again (it was always counted in IN CARD)'})
+            d['cashFix1'] = time.time()
             _fw_save(d)
     done = {r.get('id') for r in d['ledger'] if r.get('side') == 'close' and r.get('status') in ('credited', 'lost')}
     # only closes that list their coin accounts (this rule) — a refund goes back only to the card that paid that coin's deposit
