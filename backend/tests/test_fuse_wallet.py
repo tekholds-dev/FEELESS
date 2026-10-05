@@ -1082,3 +1082,26 @@ def test_idle_card_cash_is_swept_into_the_coin_furthest_under_its_share_when_not
     hold = card([leg('A', 'PA', 0.30, 1.0), leg('B', 'PB', 0.60, 1.0), {**leg('S', 'PS', 0.0, 1.0), 'placeholder': True, 'reserveUsd': 0.6}])
     assert fw.orders('t', hold, {'sol': 0.0075, 'legs': {'A': bl(0.30), 'B': bl(0.60)}}, px, 100.0, cfg, 1000) == []   # a reserved seat keeps its money ($0.15 left < min)
     assert fw.orders('t', c, {**book, 'sol': 0.001}, px, 100.0, cfg, 1000) == []                  # dust stays
+
+
+def test_a_small_token_shortage_is_fitted_to_the_wallet_and_a_big_one_still_halts():
+    books = {'t': {'legs': {'W': {'atoms': 21_735_673, 'decimals': 6, 'symbol': 'WAIF', 'costUsd': 0.63}, 'B': {'atoms': 1000, 'decimals': 0, 'symbol': 'BIG'}}}}
+    miss = fw.reconcile({'W': 21_647_820, 'B': 500}, books)
+    assert {m['mint'] for m in miss} == {'W', 'B'}
+    out, fits = fw.fit_small_shortage(books, miss)
+    assert out['t']['legs']['W']['atoms'] == 21_647_820 and out['t']['legs']['W']['costUsd'] == 0.63 and [f['symbol'] for f in fits] == ['WAIF']
+    assert out['t']['legs']['B']['atoms'] == 1000                                               # 50% short: not fitted …
+    assert [m['mint'] for m in fw.reconcile({'W': 21_647_820, 'B': 500}, out)] == ['B']          # … it still halts
+    two = {'a': {'legs': {'W': {'atoms': 100}}}, 'b': {'legs': {'W': {'atoms': 100}}}}
+    assert fw.fit_small_shortage(two, [{'mint': 'W', 'booked': 200, 'held': 199}])[1] == []      # two cards hold it: left to the halt
+    assert fw.fit_small_shortage(books, [{'mint': 'W', 'booked': 21_735_673, 'held': 0}])[1] == []
+
+
+def test_only_one_process_can_hold_the_keeper_lock(tmp_path):
+    import single, subprocess, sys, os
+    p = tmp_path / 'keeper.lock'
+    assert single.acquire(p) and single.acquire(p)                                               # ours, and asking again is fine
+    code = f"import sys; sys.path.insert(0, {os.path.dirname(single.__file__)!r}); import single; print(single.acquire({str(p)!r}))"
+    assert subprocess.run([sys.executable, '-c', code], capture_output=True, text=True).stdout.strip() == 'False'   # a second process: refused
+    single.release(p)
+    assert subprocess.run([sys.executable, '-c', code], capture_output=True, text=True).stdout.strip() == 'True'    # free again once released

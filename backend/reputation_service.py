@@ -5677,7 +5677,31 @@ async def fuses_contenders():
 _prime_tick_lock = asyncio.Lock()
 
 
+import single as _single
+KEEPER_LOCK = DATA_DIR / 'keeper.lock'
+_keeper_state = {'stopping': False, 'said': 0.0}
+
+
+def _is_keeper():
+    """🔒 Only ONE process on this machine may tick the cards and trade the Fuse wallet (see single.py). A process that is shutting
+    down, or that does not hold the lock, does nothing."""
+    if _keeper_state['stopping'] or os.environ.get('PYTEST_CURRENT_TEST'):
+        return not _keeper_state['stopping']
+    ok = _single.acquire(KEEPER_LOCK)
+    if not ok and time.time() - _keeper_state['said'] > 300:
+        _keeper_state['said'] = time.time(); print('keeper: another backend process holds the keeper lock — this one will not trade')
+    return ok
+
+
+@app.on_event('shutdown')
+async def _keeper_stop():
+    _keeper_state['stopping'] = True   # loops still running during shutdown must not trade
+    _single.release(KEEPER_LOCK)
+
+
 async def _prime_tick(now):
+    if not _is_keeper():
+        return 0
     async with _prime_tick_lock:   # the warm loop and the 🔔 round bell never run two ticks at once
         n = await _prime_tick_inner(now)
     try:
@@ -6003,7 +6027,7 @@ async def _prime_view():
                 'pendingPayoutUsd': round(max(0.0, _fuse._f(c.get('walletUsd')) - _fuse._f(b.get('bankUsd'))), 4),
                 'math': {**sm.get('math', {}), 'putIn': round(_fuse._f(b.get('fundedUsd')) or start, 4), 'runStartUsd': round(start, 4), 'heldUsd': round(held, 4), 'paidOutUsd': round(paid, 4),
                          'nowUsd': v, 'feesUsd': card_fees, 'pnlUsd': round(v + card_fees - (_fuse._f(b.get('fundedUsd')) or start), 4)}}   # P&L = price result; fees apart
-    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'holdAll': bool(c.get('holdAll')), 'pickCool': _prime.pick_cool(c), 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
+    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'holdAll': bool(c.get('holdAll')), 'pickCool': {}, 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 
@@ -6110,11 +6134,8 @@ async def fuse_prime_admin(request: Request):
                     raise HTTPException(400, f"${cand['symbol']} pool is ${_fuse._f(cand.get('liquidityUsd')):,.0f} — under the ${floor:,.0f} real-buy floor (Edit Fuse › Limits).")
             if cand and _prime.hands_off_left(card, time.time()):
                 raise HTTPException(400, f"🔒 Hands-off lock: {int(_prime.hands_off_left(card, time.time()) // 60) + 1} min left — picks wait. The engine and your stops keep working.")
-            if cand:   # 🧊 the same coin never comes straight back: a coin that just left sits out its rounds, the owner's pick too
-                rc_ = _prime_real_cfg(d.get('prime') or {}) if card.get('real') else _prime.tier_cfg(_prime_cfg(), pk['tpl'])
-                left = _prime.cool_left(card, cand['mint'], time.time(), rc_['rotateHours'])
-                if left:
-                    raise HTTPException(400, f"${cand['symbol']} just left this card — it can come back in {left} round{'s' if left != 1 else ''}. Pick another coin.")
+            # 🎯 THE OWNER'S PICK IS NEVER COOLED: cool-downs (no back-to-back, left at a loss, removed by the owner) limit the ENGINE
+            # only — the owner sells off a peak and buys the same coin back at its new level whenever they choose
             try:
                 cards[pk['tpl']] = _prime.queue_swap(card, pk['pairAddress'], cand)
             except ValueError as e:
@@ -6750,7 +6771,7 @@ _fw_tick_lock = asyncio.Lock()
 async def _fw_tick(now):
     """ONE keeper at a time: the round bell and the warm loop both call this after their tier tick — two keepers at once traded the
     same orders twice (sold WETH ×2, bought SPEC ×2 at 14:56). A tick that finds one running skips; the next tick catches up."""
-    if _fw_tick_lock.locked():
+    if _fw_tick_lock.locked() or not _is_keeper():
         return 0
     async with _fw_tick_lock:
         n = await _fw_tick_inner(now)
@@ -6764,6 +6785,12 @@ async def _fw_tick(now):
                         d = _fw_load()
                         missing = _fw.reconcile(bal.get('tokens'), d['books'])
                         sol_short = _fw.reconcile_sol(bal.get('sol'), d['books'])
+                        if missing:   # a SMALL shortage (rounding, transfer tax): the book follows the wallet, no halt; a big one still halts
+                            d['books'], fits = _fw.fit_small_shortage(d['books'], missing)
+                            for ft in fits:
+                                _fw_record(d, {'id': f"fit:{ft['card']}:{ft['mint'][:6]}:{time.time():.0f}", 'card': ft['card'], 'side': 'fix', 'mint': ft['mint'], 'symbol': ft['symbol'], 'at': time.time(), 'status': 'done',
+                                               'why': f"📏 book matched to the wallet: ${ft['symbol']} {ft['pct']:.2f}% fewer coins than booked (rounding / transfer tax) — the wallet is the truth"})
+                            missing = _fw.reconcile(bal.get('tokens'), d['books'])
                         if missing or sol_short:   # confirmed wallet balances beat our books; stop every affected card before another order
                             bad = {x['mint'] for x in missing}
                             for tid, b in d['books'].items():

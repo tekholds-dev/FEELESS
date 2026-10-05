@@ -10,7 +10,12 @@ restart() {
   local port="$1" dir="$2" venv="$3" app="$4" name="$5"
   local pid
   pid="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
-  [[ -n "$pid" ]] && kill $pid && sleep 1
+  [[ -n "$pid" ]] && kill $pid 2>/dev/null || true
+  # A process can give up its port and still be alive (its loops keep running) — an old keeper left like that traded every order
+  # twice. Stop EVERY copy of this app by name and wait until none is left; force it after 10s.
+  pkill -f "uvicorn $app" 2>/dev/null || true
+  for _ in $(seq 1 20); do pgrep -f "uvicorn $app" >/dev/null 2>&1 || break; sleep 0.5; done
+  pkill -9 -f "uvicorn $app" 2>/dev/null || true
   (cd "$dir" && nohup "$venv/bin/python" -m uvicorn "$app" --host 127.0.0.1 --port "$port" > "/tmp/feeless-$name.log" 2>&1 &)
   echo "started $name on :$port"
 }

@@ -776,6 +776,26 @@ def reconcile(wallet_tokens, books):
     return [{'mint': m, 'booked': a, 'held': int((wallet_tokens or {}).get(m) or 0)} for m, a in want.items() if int((wallet_tokens or {}).get(m) or 0) < a * 0.999]
 
 
+FIT_MAX_PCT = 2.0
+
+
+def fit_small_shortage(books, missing, max_pct=FIT_MAX_PCT):
+    """📏 The wallet is the truth. A coin the wallet holds a LITTLE less of than ONE card's book says (≤ 2%: rounding, a transfer
+    tax, a fill booked from a quote) can never be sold at the booked amount — every sell fails its simulation and the coin is
+    stuck. The book is lowered to the wallet's amount (cost kept: the money really went in). Bigger shortages, a coin the wallet
+    has none of, or a coin two cards hold are left to the halt. → (books, [{card, mint, symbol, pct}])"""
+    out, fits = {t: b for t, b in (books or {}).items()}, []
+    for m in missing or []:
+        held, booked = int(m.get('held') or 0), int(m.get('booked') or 0)
+        owners = [t for t, b in out.items() if int(((b.get('legs') or {}).get(m['mint']) or {}).get('atoms') or 0) > 0]
+        if held <= 0 or booked <= 0 or len(owners) != 1 or (1 - held / booked) * 100 > max_pct:
+            continue
+        t = owners[0]; leg = out[t]['legs'][m['mint']]
+        out[t] = {**out[t], 'legs': {**out[t]['legs'], m['mint']: {**leg, 'atoms': held}}}
+        fits.append({'card': t, 'mint': m['mint'], 'symbol': leg.get('symbol') or m['mint'][:4], 'pct': (1 - held / booked) * 100})
+    return out, fits
+
+
 def reconcile_sol(wallet_sol, books):
     """Card SOL is a liability of the shared wallet. A shortage must stop trading instead of letting another card spend it."""
     booked = sum(_f(b.get('sol')) + _f(b.get('bankSol')) for b in (books or {}).values())

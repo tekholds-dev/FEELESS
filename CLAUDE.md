@@ -1215,3 +1215,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   pick log ≤ 330px wide. `recycleEvery` takes 1/2/3/4/6/12. Home ($FEE on Trade) opens its chart on 4h.
 - 🗑 Trench never reads empty for the owner: own settings / a meta with nothing passing → the ENGINE scan's passing coins are added
   to the picker as `soft` rows ("outside your trench settings"), pickable, never auto-seated (`_trench_cache.fallback`).
+- 🔒 ONE KEEPER PROCESS (`backend/single.py` flock on `data/keeper.lock`, `_is_keeper()` gates `_prime_tick` AND `_fw_tick`; released +
+  `stopping` on shutdown). 2026-10-05: `start-backend.sh` killed by PORT only — an old reputation_service gave up its port, stayed
+  alive and kept its loops → two keepers for ~55 min: every order sent twice ($WAIF + $HIGGS bought twice, books saw one), ~0.0124
+  SOL of the owner's UNASSIGNED wallet SOL ended up in the card. The script now stops every copy BY NAME and waits. AFTER ANY
+  RESTART: `pgrep -f "uvicorn reputation_service" | wc -l` must be 1. Two ledger rows with the same order milliseconds apart = this.
+- 📏 `fuse_wallet.fit_small_shortage`: wallet holds ≤ 2% less of a coin than ONE card's book → the book is lowered to the wallet
+  (ledger `fix`), no halt; bigger / zero / two-card shortages still halt. A book above the wallet makes every sell fail simulation.
+- 🎯 OWNER PICKS ARE NEVER COOLED (no back-to-back rule either; `pickCool` view is {}): cool-downs limit the engine only.
