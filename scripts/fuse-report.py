@@ -12,12 +12,18 @@ SOL = 'So11111111111111111111111111111111111111112'
 
 
 def jup(mints):
+    # httpx (backend venv, ships its own CA bundle): the Mac's python.org urllib often has no CA certs → "offline" + a fake $150 SOL
     try:
-        with urllib.request.urlopen(f"https://lite-api.jup.ag/price/v3?ids={','.join(mints)}", timeout=8) as r:
-            d = json.loads(r.read())
-        return {m: float((v or {}).get('usdPrice') or 0) for m, v in d.items()}
+        import httpx
+        d = httpx.get('https://lite-api.jup.ag/price/v3', params={'ids': ','.join(mints)}, timeout=8).json()
     except Exception:
-        return {}
+        try:
+            with urllib.request.urlopen(f"https://lite-api.jup.ag/price/v3?ids={','.join(mints)}", timeout=8) as r:
+                d = json.loads(r.read())
+        except Exception as e:
+            print(f"(price fetch failed: {str(e)[:80]})")
+            return {}
+    return {m: float((v or {}).get('usdPrice') or 0) for m, v in (d or {}).items() if isinstance(v, dict)}
 
 
 def main():
@@ -40,6 +46,7 @@ def main():
         print(f"  put in {u(t['fundedUsd'])} → now {u(t['nowUsd'])} (coins {u(t['heldNowUsd'])} + cash {u(t['cashUsd'])}) · price result {u(t['resultUsd'])}")
         print(f"  where it went: realized {u(t['realizedAllUsd'])} (this window {u(t['realizedWindowUsd'])}) · still-held move {u(t['unrealizedUsd'])} · "
               f"written off {u(t['writeoffUsd'])} · fees the card paid {u(t['cardFeesUsd'])} · unexplained {u(t['unexplainedUsd'])}")
+        print("  (unexplained ≠ 0 is usually SOL's own move: card cash is SOL, realized $ was booked at each fill's SOL price)")
         print(f"  {t['swaps']} swaps in window · network fees {u(t['netFeesWindowUsd'])} · rent on reserve {t['rentOnReserveSol']:.4f} SOL")
         for c in t['coins']:
             print(f"    {c['symbol']:<10} {c['buys']}b/{c['sells']}s  bought {u(c['boughtUsd'])}  sold {u(c['soldUsd'])}  realized {u(c['realizedUsd'])}")
