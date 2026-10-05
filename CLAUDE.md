@@ -1040,5 +1040,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   Results carry `sparks`; the table splits level points by sparks for − against (`sf`/`sa`). Points only — never a bet.
 - 📡 Up to SIX keyed lanes (`SOLANA_RPC_URL`, `_2` … `_6`; HQ RPC keys box picks the slot). `rpc_priority` walks them in order and a
   lane dropped as spent never shifts the ones after it (an index bug once skipped a lane).
-- NOT BUILT (owner approved, needs a slow first test): one-transaction coin→coin real swaps (only when the route's impact is in the
-  card's favour or no worse than −4%). It changes how a real fill is booked (two mints in one tx) — build with a test per booking rule.
+- 🔀 One-transaction swaps (Fuse wallet cfg `coinToCoin`, OFF by default; HQ › 👛 toggle `fw-c2c`): for a coin leaving for good ↔ a
+  coin not held (`fuse_wallet.swap_pairs`), `_fw_execute_swap` takes three read-only quotes (old→SOL, SOL→new, old→new) and sends ONE
+  tx only when the one-step route gives ≥ the coins two swaps would AND impact ≤ 4% (`c2c_ok`), after the same live-pool / limit /
+  secure-buy / sell-near-market checks; anything else → None → the normal two swaps. Booked from the chain (`swap_fill_from_meta`,
+  `swap_fill_error` halts on any mismatch, `apply_swap`: value moved = new coins × market price = old coin's sale price = new coin's
+  cost; SOL beyond the fee = rent on the reserve) as a sell row + a buy row on ONE signature — every "one row per tx" de-dup is now
+  per (sig, side). A failed one-step → two-step for 10 min (`C2C_COOL_SEC`). First live use = watch the ledger for an hour.
+- Updates: `scripts/auto-pull.sh` only pulls OTHER sessions' pushes (a push from this Mac leaves nothing to pull) — after pushing from
+  here, restart the backend yourself (wait for no `pending` order first). `keep-alive.sh` restarts dead services only.
