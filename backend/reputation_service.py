@@ -5899,7 +5899,7 @@ async def _prime_view():
                 'pendingPayoutUsd': round(max(0.0, _fuse._f(c.get('walletUsd')) - _fuse._f(b.get('bankUsd'))), 4),
                 'math': {**sm.get('math', {}), 'putIn': round(_fuse._f(b.get('fundedUsd')) or start, 4), 'runStartUsd': round(start, 4), 'heldUsd': round(held, 4), 'paidOutUsd': round(paid, 4),
                          'nowUsd': v, 'feesUsd': card_fees, 'pnlUsd': round(v + card_fees - (_fuse._f(b.get('fundedUsd')) or start), 4)}}   # P&L = price result; fees apart
-    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'holdAll': bool(c.get('holdAll')), 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
+    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'holdAll': bool(c.get('holdAll')), 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 
@@ -5951,6 +5951,9 @@ async def fuse_prime_admin(request: Request):
         if hd.get('tpl') in _prime.TEMPLATES and (pr.get('cards') or {}).get(hd['tpl']):   # ✋ hold all: no swaps / re-shapes (stops + rug shield still run)
             c_ = pr['cards'][hd['tpl']]; c_['holdAll'] = bool(hd.get('on'))
             c_['events'] = (list(c_.get('events') or []) + [{'kind': 'hold', 'at': time.time(), 'why': '✋ hold all — no swaps or re-shapes until released' if hd.get('on') else '▶ released — the engine swaps and re-shapes again'}])[-60:]
+        ho = body.get('handsOff') or {}
+        if ho.get('tpl') in _prime.TEMPLATES and (pr.get('cards') or {}).get(ho['tpl']):   # 🔒 hands-off lock (owner's own picks / hand swaps wait)
+            pr['cards'][ho['tpl']] = _prime.set_hands_off(pr['cards'][ho['tpl']], ho.get('hours'), time.time())
         if body.get('reset'):
             pr['cards'] = {}
         if body.get('fix') in _prime.TEMPLATES and ((pr.get('cards') or {}).get(body['fix']) or {}).get('real'):
@@ -6000,6 +6003,8 @@ async def fuse_prime_admin(request: Request):
                 floor = _fw.liq_floor(_fw_load().get('cfg') or {}, True, bool(cand.get('trenchOnly')))   # 🗑 trench picks use the trench floor
                 if _fuse._f(cand.get('liquidityUsd')) < floor:
                     raise HTTPException(400, f"${cand['symbol']} pool is ${_fuse._f(cand.get('liquidityUsd')):,.0f} — under the ${floor:,.0f} real-buy floor (Edit Fuse › Limits).")
+            if cand and _prime.hands_off_left(card, time.time()):
+                raise HTTPException(400, f"🔒 Hands-off lock: {int(_prime.hands_off_left(card, time.time()) // 60) + 1} min left — picks wait. The engine and your stops keep working.")
             if cand:   # 🧊 the same coin never comes straight back: a coin that just left sits out its rounds, the owner's pick too
                 rc_ = _prime_real_cfg(d.get('prime') or {}) if card.get('real') else _prime.tier_cfg(_prime_cfg(), pk['tpl'])
                 left = _prime.cool_left(card, cand['mint'], time.time(), rc_['rotateHours'])
@@ -6026,6 +6031,8 @@ async def fuse_prime_admin(request: Request):
             card = cards.get(rep['tpl'])
             if not card:
                 raise HTTPException(404, 'No card for that tier yet.')
+            if _prime.hands_off_left(card, time.time()):
+                raise HTTPException(400, f"🔒 Hands-off lock: {int(_prime.hands_off_left(card, time.time()) // 60) + 1} min left — hand swaps wait. The engine and your stops keep working.")
             px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in card['legs']])
             try:
                 old_m = {l.get('mint') for l in card['legs']}

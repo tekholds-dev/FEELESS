@@ -1107,6 +1107,10 @@ def money_trail(rows, book, since, now, sol_px, prices=None):
     held_cost = round(sum(h['costUsd'] for h in held), 4)
     held_now = round(sum(h['nowUsd'] if h['nowUsd'] is not None else h['costUsd'] for h in held), 4)
     realized_all = round(sum(_f(r.get('realizedPnlUsd')) for r in rows if r.get('status') == 'filled' and r.get('side') == 'sell'), 4)
+    # 🩹 route rent once booked as sale losses and since put back into the card (`routefix` rows) is not a loss — the permanent
+    # audit table keeps the original sell rows, so the repair is added back here
+    route_back = round(sum(_f(r.get('usd')) for r in rows if r.get('side') == 'fix' and str(r.get('id') or '').startswith('routefix')), 4)
+    realized_all = round(realized_all + route_back, 4)
     writeoff = round(sum(_f(r.get('costUsd')) for r in rows if r.get('side') == 'writeoff'), 4)
     card_fees = round(_f(book.get('cardFeesSol')) * sol_px, 4)
     funded = round(_f(book.get('fundedUsd')) or (funded_in - taken_out), 4)
@@ -1126,7 +1130,7 @@ def money_trail(rows, book, since, now, sol_px, prices=None):
                                                   for c in coins.values()), key=lambda c: c['realizedUsd']),
             'held': held, 'problems': sorted(({'why': k, 'n': n} for k, n in why.items()), key=lambda x: -x['n']),
             'benched': {m: v.get('why') for m, v in (book.get('benched') or {}).items() if _f(v.get('until')) > now},
-            'unexplainedUsd': unexplained}
+            'routeRentBackUsd': route_back, 'unexplainedUsd': unexplained}
 
 
 def stuck_buys(card, now, benched_mints=(), secs=STUCK_BUY_SEC, missed=None, pending_mint=None):

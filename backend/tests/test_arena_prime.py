@@ -1115,3 +1115,46 @@ def test_hourly_swap_cap_tunes_itself_from_the_cost_explains_itself_and_never_co
           {'kind': 'rotate', 'at': 996, 'why': '🎯 your pick — swapped in at the round'}, {'kind': 'rotate', 'at': 997, 'why': '⇄ swapped by hand'},
           {'kind': 'sl', 'at': 998, 'why': 'stop'}, {'kind': 'instant-swap', 'at': 999, 'why': '-18%'}, {'kind': 'rotate', 'at': -5000, 'why': 'weakest after 0.08h'}]
     assert ap.swaps_last_hour({'events': ev}, 1000) == 2                                 # only engine rotations count
+
+
+def test_a_cycle_into_the_same_shape_leaves_a_full_card_alone_and_idle_cash_logs_one_line():
+    import arena_prime as ap
+    now = 1_000_000.0
+    cfg = ap.clean_cfg({'rotateHours': 0.08, 'cycleEvery': 3, 'cycles': {'degen': 'trench'}, 'coins': 4, 'rescuePct': 0, 'rotateMinDrop': 15, 'swapEdge': False})
+    row = lambda m, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'price': 1.0, 'liquidityUsd': 500000, 'liq': 500000, 'score': 80, 'vol1h': 50000, 'buyShare': 60, 'ageH': 30, **k}
+    anchors, pools = [row('SOL'), row('MAJ')], [row('PL1'), row('PL2')]
+    runners = [row('R1'), row('R2'), row('R3'), row('R4')]
+    card = ap.deal('degen', pools, runners, cfg, now, anchors, shape='trench')
+    assert card and card['phase'] == 'trench'
+    held = {l['mint'] for l in card['legs']}
+    px = {l['pairAddress']: 1.0 for l in card['legs']}                                   # every coin flat: none is a "winner" a re-shape would protect
+    fresh = [row('N1', score=99), row('N2', score=99), row('N3', score=99)]             # better-ranked coins show up
+    c = card
+    for i in range(1, 8):                                                               # 7 round bells → two re-shape boundaries (rounds 3 and 6)
+        c = ap.tick(c, px, pools, fresh + runners, cfg, now + i * (0.08 * 3600 + ap.BELL_SEC + 1), anchors, {}, {})
+    assert {l['mint'] for l in c['legs']} == held and c['phase'] == 'trench'             # trench → trench: not one coin sold
+    assert not any(e.get('kind') == 'phase' for e in c['events'][len(card['events']):])
+    # idle cash put back to work reads as ONE line, not one a tick
+    c2 = {**card, 'cash': 0.5, 'events': list(card['events'])}
+    for i in range(4):
+        c2 = ap.tick({**c2, 'cash': 0.5}, px, pools, runners, cfg, now + 30 + i * 50, anchors, {}, {})
+    lines = [e for e in c2['events'] if e.get('kind') == 'compound']
+    assert len(lines) == 1 and lines[0]['n'] == 4 and lines[0]['usd'] == 2.0
+
+
+def test_money_trail_adds_back_route_rent_that_was_repaired():
+    import fuse_wallet as fw
+    rows = [{'id': 'a', 'side': 'sell', 'status': 'filled', 'usd': 0.05, 'costUsd': 0.42, 'realizedPnlUsd': -0.37, 'at': 10, 'mint': 'M'},
+            {'id': 'routefix:t', 'side': 'fix', 'status': 'done', 'usd': 0.36, 'sol': 0.003, 'at': 20}]
+    t = fw.money_trail(rows, {'sol': 0.0, 'legs': {}, 'fundedUsd': 0.42}, 0, 100, 120.0)
+    assert t['routeRentBackUsd'] == 0.36 and t['realizedAllUsd'] == -0.01
+
+
+def test_hands_off_lock_times_out_by_itself_and_only_takes_listed_lengths():
+    import arena_prime as ap
+    c = ap.set_hands_off({'events': []}, 3, 1000)
+    assert c['handsOffUntil'] == 1000 + 3 * 3600 and ap.hands_off_left(c, 1000) == 10800 and 'hands-off for 3h' in c['events'][-1]['why']
+    assert ap.hands_off_left(c, 1000 + 3 * 3600 + 1) == 0                                # over → picks work again, nothing to press
+    assert 'handsOffUntil' not in ap.set_hands_off({'events': []}, 5, 1000)              # 5h is not an option → no lock
+    off = ap.set_hands_off(c, 0, 2000)
+    assert 'handsOffUntil' not in off and 'released' in off['events'][-1]['why'] and ap.hands_off_left(off, 2000) == 0

@@ -1049,3 +1049,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   per (sig, side). A failed one-step → two-step for 10 min (`C2C_COOL_SEC`). First live use = watch the ledger for an hour.
 - Updates: `scripts/auto-pull.sh` only pulls OTHER sessions' pushes (a push from this Mac leaves nothing to pull) — after pushing from
   here, restart the backend yourself (wait for no `pending` order first). `keep-alive.sh` restarts dead services only.
+- ♻ SAME SHAPE AGAIN = NO RE-SHAPE: a cycle whose next shape is the one the card already holds (trench → trench) is skipped for a
+  full card (underfilled / one-tap re-deal / majors-only growth still deal). It used to re-deal every `cycleEvery` rounds and sell
+  every coin under +5% for whatever ranked first — the owner's $5 card sold BREAK-EVEN coins every 30 min (≈ 11 real swaps an hour).
+  HOW IT WAS FOUND: `fuse-report.py` hold times (9–30 min holds, ~$0 realized, all "not on the card any more") + a `phase` event.
+  Idle-cash `compound` events fold into ONE line per 30 min (`n`, `firstAt`) — they had filled 54 of the 60 kept events, hiding why.
+- 🧾 `money_trail` adds back `routefix` credits (`routeRentBackUsd`): the permanent audit table keeps the original sell rows.
+- 🔒 Hands-off lock (`arena_prime.set_hands_off/hands_off_left`, `POST /admin/arena/prime {handsOff: {tpl, hours: 0|1|3|6|12}}`, select
+  `hands-off` beside ✋ Hold all): the owner's picks and hand swaps are refused until it times out; the engine, stops, rug shield and
+  ✂ sell-to-cash keep working. Real card art on My cards = `zoom: 1.34` on wide screens (1.15 under 1180px, 1 on phones).

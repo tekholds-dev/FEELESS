@@ -233,6 +233,26 @@ def note_dropped(before, after, now, rotate_hours, prices=None):
     return {**after, 'cool': cool}
 
 
+HANDS_OFF_HOURS = (0, 1, 3, 6, 12)   # 🔒 hands-off lock: 0 = off
+
+
+def hands_off_left(card, now):
+    """🔒 Seconds left on the owner's hands-off lock (0 = not locked). While it runs, picks and hand swaps are refused — the engine,
+    the stops, the rug shield and selling to cash all keep working. It only keeps the owner's own impulse swaps off the card."""
+    return max(0.0, _f((card or {}).get('handsOffUntil')) - now)
+
+
+def set_hands_off(card, hours, now):
+    h = int(_f(hours)) if int(_f(hours)) in HANDS_OFF_HOURS else 0
+    c = {**card, 'events': list(card.get('events') or [])}
+    if h:
+        c['handsOffUntil'] = now + h * 3600
+        c['events'].append({'kind': 'hold', 'at': now, 'why': f'🔒 hands-off for {h}h — no picks or hand swaps; the engine and your stops keep working'})
+    elif c.pop('handsOffUntil', None):
+        c['events'].append({'kind': 'hold', 'at': now, 'why': '🔓 hands-off lock released'})
+    return c
+
+
 def cool_left(card, mint, now, rotate_hours, prices=None):
     """Rounds a coin must still sit out before it may come back onto this card (0 = free). For the owner's pick / hand swap."""
     if mint not in cooling(card, now, rotate_hours, prices):
@@ -1063,6 +1083,12 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         phase, grow_now = c.get('phase'), True
     if c.pop('redealNow', None) and not c.get('flooredAt'):   # 🃏 one-tap re-deal: fresh coins NOW, same money + run (real cards keep their book)
         phase, grow_now, c['lastRotateAt'] = phase or c.get('phase') or 'mixed', True, now
+    # ♻ SAME SHAPE AGAIN = NOTHING TO RE-SHAPE. A cycle whose next shape is the one the card already has (trench → trench) used to
+    # re-deal anyway: every coin under +5% was sold for whatever ranked first that minute — the owner's $5 card sold break-even coins
+    # every 30 min (≈ 11 real swaps an hour). Weak coins still leave one by one through rotation and the exits; a full card of the
+    # same shape is left alone. (An underfilled card, a one-tap re-deal and a majors-only card due growth still deal.)
+    if phase and phase == c.get('phase') and not underfilled and not grow_now and len(c.get('legs') or []) > 0:
+        phase = None
     if phase and (c['lastRotateAt'] == now or underfilled) and not c.get('flooredAt') and (grow_now or not int(c.get('lockRounds') or 0)):
         # Protected coins do not block the whole scheduled shape. `keep_winners` carries riders, frozen/manual picks and configured
         # winners into the new shape, while the unprotected slots can still become majors/new majors as the saved cycle requires.
@@ -1101,7 +1127,12 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 px = buy_px(_f(prices.get(l['pairAddress'])) or l['entry'], each, liqs.get(l['pairAddress']) or l.get('liq'))
                 l['units'] += each / px; l['costUsd'] += each
             c['compoundedUsd'] += free_cash
-            ev(kind='compound', usd=round(free_cash, 4), why='idle cash back into the card', to=[l['symbol'] for l in targets])
+            last = c['events'][-1] if c['events'] else {}
+            if last.get('kind') == 'compound' and now - _f(last.get('firstAt') or last.get('at')) < 1800:   # one line per half hour, not one a tick
+                c['events'][-1] = {**last, 'at': now, 'firstAt': last.get('firstAt') or last.get('at'), 'usd': round(_f(last.get('usd')) + free_cash, 4),
+                                   'n': int(last.get('n') or 1) + 1, 'to': [l['symbol'] for l in targets]}
+            else:
+                ev(kind='compound', usd=round(free_cash, 4), why='idle cash back into the card', to=[l['symbol'] for l in targets])
             c['cash'] = round(_f(c['cash']) - free_cash, 6)
     v = V(); start = _f(c['startUsd']) or 1
     day_pct = (v / (_f(c.get('dayStartUsd')) or start) - 1) * 100
