@@ -1050,3 +1050,19 @@ def test_owner_can_switch_round_min_hold_off_on_real_money():
     out, changed = ap.real_guard(cfg, ['minHoldMins'])
     assert out['minHoldMins'] == 0 and not any('hold' in c for c in changed)             # the owner's OFF wins
     assert ap.real_guard({**cfg, 'minHoldMins': 5}, ['minHoldMins'])[0]['minHoldMins'] == ap.REAL_MIN_HOLD   # only OFF is honoured below the floor
+
+
+def test_a_coin_that_went_in_tiny_is_topped_up_to_equal_weight_but_a_loser_is_never_averaged_down():
+    legs = [{'mint': 'a', 'pairAddress': 'Pa', 'symbol': 'A', 'role': 'anchor', 'units': 2.0, 'entry': 1.0, 'costUsd': 2.0},
+            {'mint': 'b', 'pairAddress': 'Pb', 'symbol': 'B', 'role': 'runner', 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0},
+            {'mint': 'c', 'pairAddress': 'Pc', 'symbol': 'C', 'role': 'runner', 'units': 0.05, 'entry': 1.0, 'costUsd': 0.05},   # went in tiny
+            {'mint': 'd', 'pairAddress': 'Pd', 'symbol': 'D', 'role': 'runner', 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0}]
+    c = {'legs': [dict(l) for l in legs], 'cash': 0.2, 'events': [], 'feesUsd': 0.0}
+    px = {'Pa': 1.0, 'Pb': 1.0, 'Pc': 1.0, 'Pd': 0.3}                                          # D lost 70% — it is NOT topped up
+    ev = lambda **e: c['events'].append(e)
+    ap.balance_small(c, px, {}, 0.0, 0.01, ev)
+    by = {l['mint']: l for l in c['legs']}
+    assert by['c']['units'] > 0.7 and by['d']['units'] == 1.0 and by['a']['units'] < 2.0 and c['cash'] == 0.0
+    assert [e['symbol'] for e in c['events']] == ['C']
+    again = len(c['events']); ap.balance_small(c, px, {}, 1.0, 0.01, ev)
+    assert len(c['events']) == again                                                       # no churn once balanced

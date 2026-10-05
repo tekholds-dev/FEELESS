@@ -1039,12 +1039,53 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     if now - c['dayAt'] >= 86400:
         c['days'] = (c['days'] + [{'at': now, 'pct': round((v / (_f(c['dayStartUsd']) or 1) - 1) * 100, 2)}])[-30:]
         c['dayAt'], c['dayStartUsd'] = now, round(v, 4)
+    if not c.get('flooredAt') and not c.get('holdAll'):
+        balance_small(c, prices, liqs, now, fee, ev)
     for l in c['legs']:
         if _f(liqs.get(l['pairAddress'])) > 0:
             l['liqNow'] = _f(liqs[l['pairAddress']])
     c['feesUsd'] = round(c['feesUsd'], 4)
     c['events'] = c['events'][-60:]
     return c
+
+
+SMALL_SHARE = 0.5   # a coin PUT IN with < half its equal share is topped up …
+OVER_SHARE = 1.25   # … from card cash first, then from coins holding > 125% of their share
+
+
+def balance_small(c, prices, liqs, now, fee, ev):
+    """⚖ Equal weight: a coin that went in tiny (it inherited a small slot — "$0.05 in a coin") is topped up to its equal share from card
+    cash, then from the most overweight coins. A coin that is small because it LOST value is left alone (never averaging down) — only
+    coins whose COST is under half a share qualify. Mutates c; logs one `balance` event per coin."""
+    px = lambda l: _f(prices.get(l['pairAddress']))
+    legs = [l for l in c['legs'] if _f(l.get('units')) > 0 and px(l) > 0 and not l.get('placeholder')]
+    if len(legs) < 2:
+        return
+    val = lambda l: _f(l['units']) * px(l)
+    share = (sum(val(l) for l in legs) + max(0.0, _f(c.get('cash')))) / len(legs)
+    small = [l for l in legs if _f(l.get('costUsd')) < SMALL_SHARE * share and val(l) < SMALL_SHARE * share]
+    for l in small:
+        need = share - val(l)
+        take = min(max(0.0, _f(c.get('cash'))), need)
+        c['cash'] = _f(c.get('cash')) - take
+        rest = need - take
+        for d in sorted((x for x in legs if x not in small and not x.get('frozen') and not x.get('ride') and val(x) > OVER_SHARE * share), key=val, reverse=True):
+            if rest < 0.01:
+                break
+            cut = min(val(d) - share, rest)
+            old = _f(d['units'])
+            d['units'] = max(0.0, old - cut / px(d))
+            d['costUsd'] = round(_f(d.get('costUsd')) * (d['units'] / old), 6) if old else 0.0
+            take += sell_usd(cut / px(d), px(d), liqs.get(d['pairAddress']) or d.get('liq'))
+            c['feesUsd'] = _f(c.get('feesUsd')) + fee
+            rest -= cut
+        if take < 0.01:
+            continue
+        bpx = buy_px(px(l), take, liqs.get(l['pairAddress']) or l.get('liq'))
+        l['units'] = _f(l['units']) + take / bpx
+        l['costUsd'] = round(_f(l.get('costUsd')) + take, 6)
+        c['feesUsd'] = _f(c.get('feesUsd')) + fee
+        ev(kind='balance', symbol=l.get('symbol'), usd=round(take, 4), why=f"⚖ equal weight — ${l.get('symbol')} went in with ${val(l) - take:.2f}, topped up toward its ${share:.2f} share")
 
 
 def reshape_every(card, cfg):
