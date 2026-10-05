@@ -270,3 +270,22 @@ def test_keeper_checks_the_new_coin_before_it_sells_the_old_one(monkeypatch):
     state['d']['books']['degen'] = {**book, 'sellHoldAt': now - 60}
     asyncio.run(rs._fw_tick_inner(now))
     assert ('sell', 'OLD') in state['sent']
+
+
+def test_with_every_keyed_plan_spent_the_keeper_gets_its_own_public_node_and_paced_retries(monkeypatch):
+    import time
+    monkeypatch.setattr(chain_rpc, 'KEEPER_LANES', ['A'])
+    monkeypatch.setattr(chain_rpc, 'RPC_POOL', ['A', 'pub1', 'pub2'])
+    monkeypatch.setattr(chain_rpc, 'KEEPER_PUBLIC', 'pub1')
+    monkeypatch.setattr(chain_rpc, 'RPC_MAX_RETRIES', 3)
+    monkeypatch.setattr(chain_rpc, '_quota_until', {'A': time.time() + 600})
+    monkeypatch.setattr(chain_rpc, '_rpc_cooldown_until', {})
+
+    async def no_sleep(_s):
+        return None
+    monkeypatch.setattr(asyncio, 'sleep', no_sleep)
+    http = _Http([_Res(200, {'result': 1})])
+    assert asyncio.run(chain_rpc._rpc(http, 'getBalance', ['W'])) == 1 and [e for e, _ in http.calls] == ['pub2']       # scanner: never the keeper's node
+    http = _Http([_Res(429, {}), _Res(429, {}), _Res(200, {'result': 2})])
+    assert asyncio.run(chain_rpc.rpc_priority(http, 'getTransaction', ['s'])) == 2
+    assert [e for e, _ in http.calls] == ['pub1', 'pub2', 'pub1']                                                        # busy → asked again, not failed

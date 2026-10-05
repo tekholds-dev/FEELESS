@@ -6716,6 +6716,7 @@ async def _fw_rent_credit(cfg):
                     if not tx:
                         raise RuntimeError('tx not readable yet')
                     checked[r['sig']] = _fw.opened_sol(tx, cfg['address'])
+                    await asyncio.sleep(0.6)   # paced: this may run on public nodes
                     if checked[r['sig']] > 0:
                         found[r.get('card')] = round(found.get(r.get('card'), 0.0) + checked[r['sig']], 9)
             async with _fw_lock:

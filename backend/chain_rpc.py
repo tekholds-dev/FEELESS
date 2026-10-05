@@ -16,10 +16,9 @@ _backup = os.environ.get('SOLANA_RPC_URL_2', '').strip()   # a second keyed endp
 _alchemy = os.environ.get('ALCHEMY_API_KEY', '').strip()
 _alchemy_url = f'https://solana-mainnet.g.alchemy.com/v2/{_alchemy}' if _alchemy else ''
 KEEPER_LANES = [e for e in dict.fromkeys([_dedicated, _backup, _alchemy_url]) if e]   # keyed endpoints, in the keeper's order
-RPC_POOL = KEEPER_LANES + [
-    'https://api.mainnet-beta.solana.com',
-    'https://solana-rpc.publicnode.com',
-]
+PUBLIC = ['https://api.mainnet-beta.solana.com', 'https://solana-rpc.publicnode.com']
+KEEPER_PUBLIC = PUBLIC[0]   # while no keyed lane works, this public node is the keeper's alone (scanners use the others)
+RPC_POOL = KEEPER_LANES + PUBLIC
 _rpc_cooldown_until: dict[str, float] = {}
 RPC_COOLDOWN_SECONDS = 30
 RPC_MAX_RETRIES = len(RPC_POOL)
@@ -88,6 +87,8 @@ async def _rpc(http: httpx.AsyncClient, method: str, params: list, scan: bool = 
     last_error = None
     now = time.time()
     order = [e for e in RPC_POOL if max(_rpc_cooldown_until.get(e, 0), _quota_until.get(e, 0)) <= now] or ([_next_rpc_endpoint()] if RPC_POOL else [])
+    if scan and not any(_quota_until.get(e, 0) <= now for e in KEEPER_LANES) and len([e for e in RPC_POOL if e not in KEEPER_LANES]) > 1:
+        order = [e for e in order if e != KEEPER_PUBLIC] or order   # every keyed plan is spent → the keeper lives on this node; scanners stay off it
     for endpoint in order[:RPC_MAX_RETRIES]:
         if scan and endpoint == _dedicated and len(RPC_POOL) > 1 and not _scan_slot():   # scan=False = the keeper falling back: never budgeted
             last_error = last_error or 'scan_budget'   # over the scanners' share → try the next endpoint, leave the plan to the keeper
@@ -171,4 +172,22 @@ async def rpc_priority(http: httpx.AsyncClient, method: str, params: list, tries
         if 'error' not in body:
             return body.get('result')
         break   # a real RPC error (bad params, simulation failed, …) is the caller's to see — the pool reports it the same way
+    # no keyed lane left: public nodes, paced — a busy public node is asked again after a breath instead of failing a real-money call
+    pub = [e for e in RPC_POOL if e not in KEEPER_LANES]
+    for attempt in range(3 if pub else 0):
+        for endpoint in pub:
+            try:
+                res = await http.post(endpoint, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
+            except httpx.HTTPError:
+                continue
+            if res.status_code != 200:
+                continue
+            try:
+                body = res.json()
+            except ValueError:
+                continue
+            if 'error' not in body:
+                return body.get('result')
+            raise RuntimeError(f"RPC pool exhausted: {body['error']}")
+        await asyncio.sleep(0.8 * (attempt + 1))
     return await _rpc(http, method, params, scan=False)
