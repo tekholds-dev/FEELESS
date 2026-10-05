@@ -1128,3 +1128,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   the flow inputs too): buys above the band pass up to `smartBuyShare` ONLY with clean holders; a SUSPECT creator's coin also passes
   once it has lasted `agedProofH` h with a ≥ $50K pool, spread holders, no flagged funders, dev not sold. HIGH-risk creators never.
 - Real card coin names (`hrt-name`) glow on hover / focus and open the war room (`openWarRoom`), like tier-card coins.
+- ⚖ `balance_small` never tops up a coin that is small ON PURPOSE: skimmed (`skimPx`), banked (`bankedAt`), freshly cut (`trimAt`
+  < 10 min), riding or frozen. It bought $1.13 back into $SpaceXSI four seconds after a $1.93 skim. Time checks on optional stamps
+  must test the stamp exists first (`now - 0 < 600` is true in tests that run at now = 0).

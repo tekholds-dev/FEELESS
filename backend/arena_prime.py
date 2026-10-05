@@ -1231,7 +1231,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         waiting = [l for l in c['legs'] if l.get('buying') and not l.get('placeholder')]   # 👛 a pending real buy owns its slice first
         # a locked (riding / frozen) coin is never topped up: what was just banked off it must not be bought straight back
         # … and neither is a coin whose profit was just skimmed (10 min): that money is for the OTHER coins
-        targets = [l for l in c['legs'] if not l.get('placeholder') and not l.get('ride') and not l.get('frozen') and now - _f(l.get('trimAt')) > 600] \
+        targets = [l for l in c['legs'] if not l.get('placeholder') and not l.get('ride') and not l.get('frozen') and not (l.get('trimAt') and now - _f(l.get('trimAt')) <= 600)] \
             or [l for l in c['legs'] if not l.get('placeholder')]
         if targets:
             # ⚖ NO COIN GETS THE WHOLE POT. Idle cash fills the seats that are furthest under an equal share and never lifts a coin
@@ -1352,7 +1352,11 @@ def balance_small(c, prices, liqs, now, fee, ev):
         return
     val = lambda l: _f(l['units']) * px(l)
     share = (sum(val(l) for l in legs) + max(0.0, _f(c.get('cash')))) / len(legs)
-    small = [l for l in legs if _f(l.get('costUsd')) < SMALL_SHARE * share and val(l) < SMALL_SHARE * share]
+    # a coin is "small" only when it WENT IN small. A coin whose profit was taken (💰 skim, 🏦 bank, ✂ cut → `skimPx` / `bankedAt` /
+    # fresh `trimAt`) or that is locked / riding is small ON PURPOSE: topping it up would buy back what was just sold
+    # ($1.93 was skimmed off $SpaceXSI and this rule put $1.13 of it straight back in four seconds later).
+    taken = lambda l: l.get('skimPx') or l.get('bankedAt') or l.get('ride') or l.get('frozen') or (l.get('trimAt') and now - _f(l.get('trimAt')) < 600)
+    small = [l for l in legs if not taken(l) and _f(l.get('costUsd')) < SMALL_SHARE * share and val(l) < SMALL_SHARE * share]
     for l in small:
         need = share - val(l)
         take = min(max(0.0, _f(c.get('cash'))), need)

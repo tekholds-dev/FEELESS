@@ -1330,3 +1330,18 @@ def test_a_riding_coin_that_never_banked_banks_once_and_only_once():
     assert abs(c2['legs'][0]['units'] - 0.67) < 1e-6 and [e['kind'] for e in c2['events']].count('lock-bank') == 1   # never twice
     off = ap.tick(card, px, [], [], {**cfg, 'lockBankPct': 0.0}, now + 10, [], {}, {})
     assert off['legs'][0]['units'] == 1.0                                                # setting off → nothing sold
+
+
+def test_equal_weight_never_buys_back_a_coin_whose_profit_was_just_taken():
+    import arena_prime as ap
+    now = 1_000_000.0
+    leg = lambda m, units, cost, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': units, 'entry': 1.0, 'costUsd': cost, 'at': now - 9999, **k}
+    evs = []
+    ev = lambda **e: evs.append(e)
+    for flag in ({'skimPx': 5.0}, {'bankedAt': now - 5}, {'ride': True}, {'frozen': True}, {'trimAt': now - 30}):
+        c = {'cash': 1.5, 'legs': [leg('SPACE', 0.08, 0.08, **flag), leg('A', 1.1, 1.1), leg('B', 1.1, 1.1)]}
+        ap.balance_small(c, {'PSPACE': 5.0, 'PA': 1.0, 'PB': 1.0}, {}, now, 0.0, ev)
+        assert c['legs'][0]['units'] == 0.08 and c['cash'] == 1.5, flag                  # left alone: it is small on purpose
+    c = {'cash': 1.5, 'legs': [leg('TINY', 0.08, 0.08), leg('A', 1.1, 1.1), leg('B', 1.1, 1.1)]}
+    ap.balance_small(c, {'PTINY': 1.0, 'PA': 1.0, 'PB': 1.0}, {}, now, 0.0, ev)
+    assert c['legs'][0]['units'] > 0.08                                                  # a coin that really went in tiny is still topped up
