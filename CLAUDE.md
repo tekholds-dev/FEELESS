@@ -793,6 +793,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   from the numbers; 👥 `crowdShare` = free + bought backs (points only — it becomes the odds when real bids ship; never take a bid
   before that is built, audited and legal); final minute = `is-final`. Parallel brackets per timeframe are NOT built.
 
+- ⚓ Anchors (`arena_prime.anchor_pool`, fed by `_majors_rows()` + deep new majors): EVERY real major in `fuse.MAJORS` (now + mSOL,
+  bSOL, RENDER, HNT, POPCAT, PENGU, TRUMP, FARTCOIN, PUMP) and new majors with a pool ≥ $250K, ranked by what is MOVING (volume, depth,
+  trend); never a dollar coin; SOL is one candidate, never forced first. `safe_anchor(leg)` = established major only: a NEW major in an
+  anchor seat keeps the stop, the instant swap and the rug shield.
+- RPC budget: scanners may use the dedicated endpoint only `SCAN_RPS` (8) times a second (`chain_rpc._scan_slot`); the rest of the plan
+  is the keeper's (`rpc_priority`). The owner's editor once re-saved `.env` over the fix and brought a dead first line back — after
+  any `.env` edit check `grep -c '^SOLANA_RPC_URL=' backend/.env` is 1. The dev server on :51367 is the owner's own `craco start`:
+  attach with `preview_start {url}`, never start a second copy.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10
