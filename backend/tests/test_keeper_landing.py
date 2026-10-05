@@ -303,3 +303,30 @@ def test_scanner_share_is_a_slow_metered_trickle(monkeypatch):
     assert chain_rpc._scan_slot() and not chain_rpc._scan_slot()      # one every two seconds ≈ 43K a day at most
     t[0] += 3600
     assert sum(1 for _ in range(20) if chain_rpc._scan_slot()) == 6   # an idle hour never banks more than a small burst
+
+
+def test_owner_rpc_key_helpers_validate_save_one_active_line_and_swap_the_lane_live(monkeypatch):
+    for bad in ('http://x.com/k', 'https://127.0.0.1/k', 'https://localhost/k', 'https://node.internal/k', 'ftp://a.b', '', 'https://a b.com'):
+        try:
+            chain_rpc.clean_rpc_url(bad); assert False, bad
+        except ValueError:
+            pass
+    assert chain_rpc.clean_rpc_url(' https://mainnet.helius-rpc.com/?api-key=abc ') == 'https://mainnet.helius-rpc.com/?api-key=abc'
+    assert chain_rpc.provider_of('https://my-name.solana-mainnet.quiknode.pro/SECRET/') == 'quiknode.pro'      # never the key or sub-domain
+    env = 'A=1\nSOLANA_RPC_URL=old1\nB=2\nSOLANA_RPC_URL_2=keep\nSOLANA_RPC_URL=old2\n# SOLANA_RPC_URL=older'
+    out = chain_rpc.env_with_key(env, 'SOLANA_RPC_URL', 'NEW')
+    assert out.split('\n') == ['A=1', 'SOLANA_RPC_URL=NEW', 'B=2', 'SOLANA_RPC_URL_2=keep', '# SOLANA_RPC_URL=old2', '# SOLANA_RPC_URL=older']
+    assert chain_rpc.env_with_key('A=1', 'SOLANA_RPC_URL_2', 'X') == 'A=1\nSOLANA_RPC_URL_2=X'
+    monkeypatch.setattr(chain_rpc, '_dedicated', 'OLD'); monkeypatch.setattr(chain_rpc, '_backup', ''); monkeypatch.setattr(chain_rpc, '_alchemy_url', '')
+    monkeypatch.setattr(chain_rpc, 'KEEPER_LANES', ['OLD']); monkeypatch.setattr(chain_rpc, 'RPC_POOL', ['OLD'] + chain_rpc.PUBLIC)
+    monkeypatch.setattr(chain_rpc, '_quota_until', {'OLD': 9e12}); monkeypatch.setattr(chain_rpc, '_rpc_cooldown_until', {})
+    monkeypatch.setenv('SOLANA_RPC_URL', 'OLD'); monkeypatch.setenv('SOLANA_RPC_URL_2', '')
+    lanes, pool = chain_rpc.KEEPER_LANES, chain_rpc.RPC_POOL
+    chain_rpc.set_lane(1, 'https://a.helius-rpc.com/k'); chain_rpc.set_lane(2, 'https://b.quiknode.pro/k')
+    assert lanes == ['https://a.helius-rpc.com/k', 'https://b.quiknode.pro/k'] and pool[:2] == lanes and pool[2:] == chain_rpc.PUBLIC   # same list objects, live
+    st = chain_rpc.quota_state()
+    assert [(x['provider'], x['slot'], x['spent']) for x in st] == [('helius-rpc.com', 1, False), ('quiknode.pro', 2, False)]
+    http = _Http([_Res(200, {'result': 5}), _Res(200, {'result': {'value': []}})])
+    assert asyncio.run(chain_rpc.probe(http, 'u'))['holders'] is True
+    http = _Http([_Res(429, {'error': 'max usage reached'}, {'x-ratelimit-remaining': '0'})])
+    assert asyncio.run(chain_rpc.probe(http, 'u')) == {'ok': False, 'err': 'this key is out of quota'}

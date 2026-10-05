@@ -48,6 +48,7 @@ DATA_DIR.mkdir(exist_ok=True)
 STORE_PATH = DATA_DIR / 'reputation.json'
 
 # Solana RPC pool + retrying client live in chain_rpc.py (one module per job); imported here so every caller is unchanged.
+import chain_rpc as _chain
 from chain_rpc import quota_state as _rpc_quota_state, RPC_POOL, RPC_COOLDOWN_SECONDS, RPC_MAX_RETRIES, _alchemy, _dedicated, _rpc_cooldown_until, _next_rpc_endpoint, _rpc, broadcast as _rpc_broadcast, rpc_priority as _krpc  # noqa: F401
 
 RUG_LIQUIDITY_DROP_PCT = 80          # % drop from peak liquidity counted as a rug signal
@@ -6528,6 +6529,7 @@ async def _fw_tick(now):
                             print(f"fuse wallet: adopted stray {st['symbol']} into {st['card']}")
                         _fw_save(d)
                     await _fw_deposit_scan(cfg, time.time())
+                    _rpc_quota_notice()
             except Exception as e:
                 print('fuse wallet gas:', e)
         return n
@@ -7246,6 +7248,54 @@ async def fuse_wallet_cfg(request: Request):
         d['cfg'] = cfg; _fw_save(d)
     ad = _admin_load(); _audit(ad, me, 'fuse-wallet-cfg', json.dumps({k: cfg[k] for k in cfg if k != 'walletId'})[:160]); _admin_save(ad)
     return {'cfg': cfg}
+
+
+@app.get('/api/reputation/admin/rpc')
+async def admin_rpc_status(request: Request):
+    """Owner only: the keeper's RPC lanes — provider domain, in quota or not, minutes until it resets. Never a URL or a key."""
+    _require_owner(request)
+    lanes = _rpc_quota_state()
+    return {'lanes': lanes, 'needsKey': not lanes or all(x['spent'] for x in lanes), 'slots': [{'slot': k, 'set': any(x['slot'] == k for x in lanes)} for k in _chain.LANE_KEYS]}
+
+
+@app.post('/api/reputation/admin/rpc')
+async def admin_rpc_set(request: Request):
+    """Owner only: put a new keyed RPC URL on lane 1 or 2. It is TESTED first (answers + holder lookup), saved to backend/.env as
+    the one active line of its key, and used by the keeper at once — no restart. The URL is never returned, logged or audited."""
+    me = _require_owner(request)
+    body = await request.json()
+    slot = 2 if int(_fuse._f(body.get('slot'))) == 2 else 1
+    try:
+        url = _chain.clean_rpc_url(body.get('url'))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    async with httpx.AsyncClient(timeout=10) as http:
+        res = await _chain.probe(http, url)
+    if not res.get('ok'):
+        raise HTTPException(400, f"Not saved — {res.get('err')}.")
+    env = Path(__file__).parent / '.env'
+    if not os.environ.get('PYTEST_CURRENT_TEST'):
+        env.write_text(_chain.env_with_key(env.read_text() if env.exists() else '', _chain.LANE_KEYS[slot], url))
+    _chain.set_lane(slot, url)
+    ad = _admin_load(); _audit(ad, me, 'rpc-lane', f"lane {slot} → {_chain.provider_of(url)}"); _admin_save(ad)
+    return {'ok': True, 'slot': slot, 'provider': _chain.provider_of(url), 'holders': bool(res.get('holders')), 'ms': res.get('ms'), 'lanes': _rpc_quota_state()}
+
+
+_rpc_warned = {'day': ''}
+
+
+def _rpc_quota_notice():
+    """🔑 Once a day: every keyed lane is out of quota → the owner's inbox gets one notice that opens the key box in HQ."""
+    lanes = _rpc_quota_state()
+    day = time.strftime('%Y-%m-%d')
+    if lanes and not all(x['spent'] for x in lanes) or _rpc_warned['day'] == day:
+        return False
+    _rpc_warned['day'] = day
+    for w in _owner_wallets():
+        notify(w, 'fuse-card', '🔑 Every RPC key is out of quota — real swaps are on slower public nodes. Tap to add a key (takes one paste).' if lanes
+               else '🔑 No RPC key is set — real swaps are on slower public nodes. Tap to add one (takes one paste).',
+               url='/terminal/hq?tab=fuse&rpc=1', push=False, once=f'rpc-key-{day}', meta={'claim': 'RPC key needed', 'source': 'Keeper RPC lanes'})
+    return True
 
 
 @app.post('/api/reputation/admin/fuse-wallet/preview')

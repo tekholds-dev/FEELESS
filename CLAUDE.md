@@ -1022,3 +1022,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 📡 Scanner share = a token bucket (`RPC_SCAN_RPS` default 0.3/s ≈ 26K calls a day, burst 6): 5/s spent a free plan by late morning,
   0 starved the holder scans (public nodes refuse most holder lookups) → "top-10 (scan done)" failed 47 of 48 coins and the trench /
   volume / fresh lists went empty. EMPTY RUNNER LISTS ⇒ check `/fuses/trench` funnel for "scan done" before touching any gate.
+- 🔑 RPC keys from HQ (`RpcKey` at the top of HQ › Fuse › 👛, owner `GET|POST /admin/rpc`): lanes shown as provider domain + in / out of
+  quota only (never a URL). One paste → `chain_rpc.clean_rpc_url` (https, public host) → `probe` (must answer; holder lookup noted) →
+  `env_with_key` (ONE active line of that key in backend/.env, duplicates commented) → `set_lane` (live in the keeper's process, no
+  restart). The URL is never returned, logged or audited. Every keyed lane spent → one owner inbox notice a day (`_rpc_quota_notice`,
+  opens `?tab=fuse&rpc=1`) and the box glows ADD A KEY. Lane 1 today = Helius, lane 2 = QuickNode.

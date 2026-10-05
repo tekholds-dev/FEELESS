@@ -1,5 +1,5 @@
 import '../../styles/fuseMoney.css';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { usd, txUrl } from '../FuseMoney';
 import '../../styles/fuseMoney.css';
@@ -15,6 +15,39 @@ const LIMITS = [['maxCardUsd', 'Biggest a card can get ($)', 'Fund + top-ups can
   ['reserveSol', 'Fee reserve (SOL) — never goes into a card', 'Pays every swap\'s network fee (~$0.006) + the one-time account rent when the wallet first holds a coin (~$0.25). 0.015 SOL ≈ $1.80.'],
   ['slippageBps', 'Max slippage (bps · 100 = 1%)', 'A swap fails rather than fill worse than this. 200 = 2%.'],
   ['maxImpactPct', 'Max price impact (%)', 'A quote that would move the pool more than this is skipped.']];
+
+/* 🔑 RPC keys (owner): which keeper lanes work, and ONE paste to add a key — tested before it is saved, live at once, never shown again. */
+export function RpcKey({ call }) {
+  const [d, setD] = useState(null);
+  const [slot, setSlot] = useState(1);
+  const [url, setUrl] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const box = useRef(null);
+  const load = useCallback(() => call('/admin/rpc').then(x => { setD(x); return x; }).catch(() => setD({ lanes: [], error: true })), [call]);
+  useEffect(() => { load().then(x => { const ask = new URLSearchParams(window.location.search).get('rpc');
+    if (x && (x.needsKey || ask)) { const free = (x.slots || []).find(q => !q.set); const dead = (x.lanes || []).find(l => l.spent && l.slot);
+      setSlot(free ? free.slot : dead ? dead.slot : 1); if (ask && box.current) { box.current.open = true; box.current.querySelector('input')?.focus(); } } });
+    const t = setInterval(() => !document.hidden && load(), 60000); return () => clearInterval(t); }, [load]);
+  if (!d || d.error) return null;
+  const lanes = d.lanes || [];
+  const save = async e => { e.preventDefault(); if (!url.trim()) return; setBusy(true); setMsg(null);
+    try { const r = await call('/admin/rpc', { method: 'POST', body: JSON.stringify({ slot, url: url.trim() }) });
+      setUrl(''); setMsg({ ok: true, text: `✓ Lane ${r.slot} is live on ${r.provider} (${r.ms} ms${r.holders ? ' · holder scans OK' : ' · no holder scans on this plan'}). Saved — nothing to restart for real swaps.` });
+      toast.success('RPC key saved and live'); await load(); }
+    catch (er) { setMsg({ ok: false, text: er.message || 'Not saved' }); } finally { setBusy(false); } };
+  return <details ref={box} className={`hrt-fold rpck ${d.needsKey ? 'is-need' : ''}`} data-testid="rpc-key" open={d.needsKey || undefined}>
+    <summary><b>🔑 RPC keys</b><span>{!lanes.length ? 'no key set — real swaps use slower public nodes' : lanes.map(l => `${l.provider} ${l.spent ? `out of quota · back in ${l.backInMin >= 90 ? `${Math.round(l.backInMin / 60)}h` : `${l.backInMin}m`}` : 'ok'}`).join(' · ')}</span>
+      {d.needsKey && <i className="rpck-need" data-testid="rpc-need">ADD A KEY</i>}</summary>
+    <div className="rpck-body">
+      <ul className="rpck-lanes">{lanes.map(l => <li key={l.lane} className={l.spent ? 'is-spent' : 'is-ok'} data-tip={l.spent ? 'This plan is used up — the keeper skips it until it resets' : 'In quota — the keeper uses it'}><b>LANE {l.lane}</b><span>{l.provider}</span><em>{l.spent ? `out · ${l.backInMin}m` : '● ok'}</em></li>)}</ul>
+      <form className="rpck-form" onSubmit={save}>
+        <div className="m-seg" role="group" aria-label="Which lane">{[1, 2].map(n => <button key={n} type="button" className={slot === n ? 'on' : ''} disabled={busy} data-testid={`rpc-slot-${n}`} data-tip={n === 1 ? 'The keeper asks this one first' : 'The backup: used the moment lane 1 is busy or out of quota'} onClick={() => setSlot(n)}>Lane {n}</button>)}</div>
+        <input className="m-input" type="password" autoComplete="off" spellCheck={false} placeholder="Paste the https:// RPC URL from Helius / QuickNode" value={url} disabled={busy} data-testid="rpc-url" aria-label="RPC URL" onChange={e => setUrl(e.target.value)} />
+        <button type="submit" className="m-btn m-go" disabled={busy || !url.trim()} data-testid="rpc-save">{busy ? 'Testing…' : 'Test & save'}</button></form>
+      {msg && <small className={`m-note ${msg.ok ? '' : 'warn'}`} data-testid="rpc-msg">{msg.text}</small>}
+      <small className="m-dim">The URL is tested first (it must answer), saved on this machine only, and never shown again. Other services pick it up at their next restart.</small></div></details>;
+}
 
 export function FuseWallet({ call }) {
   const [d, setD] = useState(null);
@@ -54,6 +87,7 @@ export function FuseWallet({ call }) {
     {!d.signer && <div className="fw-lock" data-testid="fw-lock"><b>🔒 Signing is not enabled yet.</b> Everything here works except sending: pick the wallet, see its funds, set limits and run 🔍 dry runs with real Jupiter quotes.
       Turning on signing (Circle signs each swap the keeper builds) is docs/GO_LIVE.md step 2 — it needs your go-ahead. Until then tier cards stay paper at true fills.</div>}
     {d.error && <small className="m-note warn">{d.error}</small>}
+    <RpcKey call={call} />
     <div className="fw-kpis">
       <span><small>SOL IN WALLET</small><b className="m-num">{sol != null ? sol.toFixed(4) : '—'}</b><em>{sol != null ? usd(sol * d.solUsd) : 'pick a wallet'}</em></span>
       <span data-tip="SOL not currently assigned to a card or the fee reserve. It may include your deposits and returned token-account rent; it is not automatically card profit."><small>UNASSIGNED SOL</small><b className="m-num">{d.freeSol != null ? d.freeSol.toFixed(4) : '—'}</b><em>{d.freeSol != null ? usd(d.freeSol * d.solUsd) : ''}</em></span>

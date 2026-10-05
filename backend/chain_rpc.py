@@ -67,7 +67,8 @@ def out_of_quota(status, text, headers=None, now=None):
 def quota_state(now=None):
     """For HQ: which keyed lanes are out of quota and for how long. Never the URL — only its position and the minutes left."""
     now = now or time.time()
-    return [{'lane': i + 1, 'spent': _quota_until.get(e, 0) > now, 'backInMin': max(0, round((_quota_until.get(e, 0) - now) / 60))} for i, e in enumerate(KEEPER_LANES)]
+    return [{'lane': i + 1, 'provider': provider_of(e), 'slot': 1 if e == _dedicated else 2 if e == _backup else 0,
+             'spent': _quota_until.get(e, 0) > now, 'backInMin': max(0, round((_quota_until.get(e, 0) - now) / 60))} for i, e in enumerate(KEEPER_LANES)]
 
 _scan_stamps: list = []   # [tokens, last refill] — a token bucket (kept under the old name for the tests that reset it)
 
@@ -195,3 +196,73 @@ async def rpc_priority(http: httpx.AsyncClient, method: str, params: list, tries
             raise RuntimeError(f"RPC pool exhausted: {body['error']}")
         await asyncio.sleep(0.8 * (attempt + 1))
     return await _rpc(http, method, params, scan=False)
+
+
+# 🔑 The owner can change a keyed lane from HQ without opening a file. Pure helpers (tested) + a live swap of the lanes.
+LANE_KEYS = {1: 'SOLANA_RPC_URL', 2: 'SOLANA_RPC_URL_2'}
+
+
+def clean_rpc_url(url):
+    """A lane URL must be https, a public host name (never an IP, localhost or a private name), ≤ 300 chars. → url or raises ValueError."""
+    import re
+    u = str(url or '').strip()
+    m = re.match(r'^https://([A-Za-z0-9.-]+)(:\d+)?(/[^\s]*)?$', u)
+    if not m or len(u) > 300:
+        raise ValueError('Paste the full https:// RPC URL from your provider (it includes your key).')
+    host = m.group(1).lower()
+    if '.' not in host or re.match(r'^[\d.]+$', host) or host.endswith(('.local', '.internal', '.localhost', '.lan')) or host.startswith('localhost'):
+        raise ValueError('That is not a public RPC host.')
+    return u
+
+
+def provider_of(url):
+    """What HQ may show for a lane: the provider's domain only (never the path, key or sub-domain)."""
+    import re
+    m = re.match(r'^https?://([^/:?]+)', str(url or ''))
+    return '.'.join(m.group(1).lower().split('.')[-2:]) if m else ''
+
+
+def env_with_key(text, key, value):
+    """The .env text with ONE active `key=value` line: the first active line of that key is replaced (else appended) and every other
+    active line of that key is commented out (the loader keeps the FIRST value — a stale line above the new one once won for hours)."""
+    out, done = [], False
+    for raw in str(text or '').split('\n'):
+        if raw.strip().startswith(key + '='):
+            out.append(raw if done is None else f'{key}={value}' if not done else '# ' + raw)
+            done = True
+        else:
+            out.append(raw)
+    if not done:
+        out += [f'{key}={value}']
+    return '\n'.join(out)
+
+
+def set_lane(slot, url):
+    """Swap a keeper lane in THIS process (lists are changed in place, so every importer sees it). Its quota / cooldown marks reset."""
+    global _dedicated, _backup
+    old = _dedicated if slot == 1 else _backup
+    if slot == 1:
+        _dedicated = url
+    else:
+        _backup = url
+    lanes = [e for e in dict.fromkeys([_dedicated, _backup, _alchemy_url]) if e]
+    KEEPER_LANES[:] = lanes
+    RPC_POOL[:] = lanes + [e for e in PUBLIC if e not in lanes]
+    for e in (old, url):
+        _quota_until.pop(e, None); _rpc_cooldown_until.pop(e, None)
+    os.environ[LANE_KEYS[slot]] = url
+
+
+async def probe(http, url):
+    """Does this endpoint answer, and can it do the holder lookup the scanners need? → {ok, slot, holders, ms, err}"""
+    t = time.time()
+    try:
+        r = await http.post(url, json={'jsonrpc': '2.0', 'id': 1, 'method': 'getSlot', 'params': []})
+        body = r.json() if r.status_code == 200 else {}
+        if r.status_code != 200 or 'result' not in body:
+            spent = out_of_quota(r.status_code, r.text, r.headers)
+            return {'ok': False, 'err': 'this key is out of quota' if spent else f'the endpoint refused the test call (HTTP {r.status_code})'}
+        h = await http.post(url, json={'jsonrpc': '2.0', 'id': 1, 'method': 'getTokenLargestAccounts', 'params': ['DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263']})
+        return {'ok': True, 'slot': body['result'], 'holders': h.status_code == 200 and 'result' in (h.json() or {}), 'ms': int((time.time() - t) * 1000)}
+    except (httpx.HTTPError, ValueError):
+        return {'ok': False, 'err': 'could not reach that endpoint'}

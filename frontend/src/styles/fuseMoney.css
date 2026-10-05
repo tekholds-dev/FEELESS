@@ -202,6 +202,19 @@ body.theme-day .ctab { background: #fff; border-color: #d8e2dc; }
 body.fx-lite .hrt-flow li, body.fx-lite .hrt-flow li em { animation: none; }
 @media (prefers-reduced-motion: reduce) { .hrt-flow li, .hrt-flow li em { animation: none; } }
 body.theme-day .hrt-flow li { background: #fff; }
+.rpck.is-need { border-color: color-mix(in srgb, var(--gold) 70%, transparent); position: relative; }
+.rpck.is-need::after { content: ''; position: absolute; inset: -1px; border-radius: inherit; border: 1px solid var(--gold); pointer-events: none; animation: rpckGlow 1.4s ease-in-out infinite alternate; }
+.rpck-need { font-style: normal; font-family: var(--m-mono); font-size: 10px; letter-spacing: .12em; padding: 2px 8px; border-radius: 999px; background: var(--gold); color: #120d00; }
+.rpck-body { display: grid; gap: 8px; padding-top: 8px; } .rpck-lanes { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.rpck-lanes li { display: inline-flex; gap: 8px; align-items: center; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--m-line); font-family: var(--m-mono); font-size: 11px; transition: border-color .15s; }
+.rpck-lanes li:hover { border-color: var(--m-line-hi); } .rpck-lanes li b { letter-spacing: .1em; font-size: 10px; color: var(--m-dim); } .rpck-lanes li em { font-style: normal; }
+.rpck-lanes li.is-ok em { color: var(--m-accent); } .rpck-lanes li.is-spent { border-color: color-mix(in srgb, #ff8fa3 45%, transparent); } .rpck-lanes li.is-spent em { color: #ff8fa3; }
+.rpck-form { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+@keyframes rpckGlow { from { opacity: .25; } to { opacity: 1; } }
+body.fx-lite .rpck.is-need::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .rpck.is-need::after { animation: none; } }
+body.theme-day .rpck-lanes li { background: #fff; } body.theme-day .rpck-need { color: #fff; background: #9a6b00; }
+@media (max-width: 640px) { .rpck-form { grid-template-columns: 1fr; } }
 .tscan li:hover { background: var(--m-surface-2); } .tscan li.is-ok { border-left-color: var(--m-accent); } .tscan li.is-out { border-left-color: #ff8fa3; opacity: .85; }
 .tscan li small { grid-column: 1 / -1; color: var(--m-dim); font-size: 11px; } .tscan li .m-num { font-size: inherit; }
 .ce-group { display: grid; gap: 4px; margin: 8px 0 4px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--m-line) 70%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--m-bg, #050b07) 60%, transparent); }
