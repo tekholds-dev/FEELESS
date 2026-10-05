@@ -64,7 +64,7 @@ const scripted = (...responses) => {
       : String(url).includes('/points/') ? Promise.resolve({ ok: true, json: async () => ({ points: 0 }) })
         : Promise.resolve(queue.shift())));
 };
-const SIDE = ['/holdings/', '/rugshield/', '/points/'];
+const SIDE = ['/holdings/', '/rugshield/', '/points/', '/api/reputation/edge'];   // + the shared coin-edge poller (it fires on its own clock)
 const tradeCalls = () => global.fetch.mock.calls.filter(([url]) => !SIDE.some(k => String(url).includes(k)));
 
 test('restores a saved submitted order and checks its status without storing transaction data', async () => {
