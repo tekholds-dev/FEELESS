@@ -138,13 +138,17 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
         gap = (t['units'] - held_units(book, mint)) * t['px']
         if held_units(book, mint) > 0 and gap < t['units'] * t['px'] * REBAL_BAND:   # already holds it: top up only when far under target
             continue
-        usd = min(gap, cfg['maxSwapUsd'], max(0.0, sol_free * sol_px))
-        last = usd >= LEFTOVER_MIN_USD and usd >= sol_free * sol_px * 0.98   # the card's whole leftover SOL → let it in (no stuck cash)
+        # ♻ a coin the wallet doesn't hold yet opens an account: its rent deposit comes out of the card's SOL too, so set it aside
+        # first (when the card can't also afford it, the reserve fronts it — see apply_fill)
+        rent = GAS_RENT_SOL if not held_units(book, mint) and (sol_free - GAS_RENT_SOL) * sol_px >= cfg['minOrderUsd'] else 0.0
+        usd = min(gap, cfg['maxSwapUsd'], max(0.0, (sol_free - rent) * sol_px))
+        last = usd >= LEFTOVER_MIN_USD and usd >= (sol_free - rent) * sol_px * 0.98   # the card's whole leftover SOL → let it in (no stuck cash)
         if (gap < cfg['minOrderUsd'] or usd < cfg['minOrderUsd']) and not last:
             continue
-        sol_free -= usd / sol_px
+        sol_free -= usd / sol_px + rent
         buys.append({'id': f"{card_id}:{now:.0f}:b:{mint[:6]}", 'card': card_id, 'side': 'buy', 'mint': mint, 'pair': t['pair'], 'symbol': t['symbol'],
                      'lamports': int(usd / sol_px * 1e9), 'usd': round(usd, 4), 'midPx': t['px'], 'at': now, 'why': 'card buys its coin',
+                     **({'rentDeposit': rent} if rent else {}),
                      **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {})})
     return sells + buys
 
@@ -292,9 +296,19 @@ def apply_fill(book, order, fill, sol_px):
         # the card pays only what went INTO the swap; anything more (new token-account rent) comes out of the wallet's fee reserve
         swap_sol = int(order['lamports']) / 1e9
         if -fill['sol'] > swap_sol:
-            b['rentSol'] = round(_f(b.get('rentSol')) + (-fill['sol'] - swap_sol), 9)
-            b['rentMints'] = {**(b.get('rentMints') or {}), m: round(_f((b.get('rentMints') or {}).get(m)) + (-fill['sol'] - swap_sol), 9)}   # whose rent it was
-            sol_move = -swap_sol
+            # ♻ new-coin rent = a DEPOSIT the card pays from its own SOL and gets back when the empty account closes (`rent_back`).
+            # It stays the card's money (`rentHeldSol`, counted in `book_value`), so P&L never moves. Only what the card's SOL can't
+            # cover is fronted by the reserve (`rentSol`, refunded to the reserve).
+            rent = -fill['sol'] - swap_sol
+            # only when `orders` set the deposit aside for this buy (`rentDeposit`) — else a later order planned in the same pass
+            # would find less SOL than it was sized for
+            card_part = max(0.0, min(rent, _f(order.get('rentDeposit')), _f(b.get('sol')) - swap_sol))
+            if card_part > 0:
+                b['rentHeldSol'] = round(_f(b.get('rentHeldSol')) + card_part, 9)
+                b['rentDeposits'] = {**(b.get('rentDeposits') or {}), m: round(_f((b.get('rentDeposits') or {}).get(m)) + card_part, 9)}
+            if rent - card_part > 0:
+                b['rentSol'] = round(_f(b.get('rentSol')) + rent - card_part, 9)
+            sol_move = -swap_sol - card_part
     if order.get('cardPays'):   # after its first 5 rounds the card pays its own network FEES; rent is a refundable deposit → always the reserve
         sol_move -= fill['feeSol']
         b['cardFeesSol'] = round(_f(b.get('cardFeesSol')) + fill['feeSol'], 9)   # 🧾 P&L adds these back (fees never count in P&L)
@@ -546,9 +560,12 @@ def sync_card(card, book, prices, sol_px):
                 usd = min(share, alloc / len(empty + waiting))
                 if l in waiting and _f(l.get('wantUnits')) > 0:
                     usd = min(_f(l['wantUnits']) * px(l), max(usd, alloc / len(empty + waiting)))
+                if not held_units(book, l['mint']) and usd - GAS_RENT_SOL * sol_px >= LEFTOVER_MIN_USD:
+                    usd -= GAS_RENT_SOL * sol_px   # ♻ leave room for the new coin's rent deposit (the card pays it, gets it back on close)
                 l.update(wantUnits=usd / px(l), buying=True); l.setdefault('buyingSince', _t.time())
         c['rebuyRound'] = int(card.get('rounds') or 0); c['rebuyAt'] = _t.time()
     c['cash'] = round(max(0.0, sol_left) * sol_px, 6)
+    c['rentUsd'] = round(_f(book.get('rentHeldSol')) * sol_px, 6)   # ♻ coin-account deposits: the card's money, back on close
     c['fundedUsd'] = round(_f(book.get('fundedUsd')), 6)
     c['paidNowUsd'] = round(_f(book.get('bankSol')) * sol_px, 6)
     c['feesUsd'] = round(_f(book.get('feesUsd')), 6)
@@ -557,7 +574,7 @@ def sync_card(card, book, prices, sol_px):
 
 
 def book_value(book, prices, sol_px):
-    return round((_f(book.get('sol')) + _f(book.get('bankSol'))) * sol_px + sum(held_units(book, m) * (_f(prices.get(l.get('pair'))) or _f(l.get('entryPx')))
+    return round((_f(book.get('sol')) + _f(book.get('bankSol')) + _f(book.get('rentHeldSol'))) * sol_px + sum(held_units(book, m) * (_f(prices.get(l.get('pair'))) or _f(l.get('entryPx')))
                                                                                   for m, l in (book.get('legs') or {}).items()), 6)
 
 
@@ -1031,7 +1048,7 @@ def money_trail(rows, book, since, now, sol_px, prices=None):
     by_hand = lambda *sides: round(sum(_f(r.get('usd')) for r in rows if r.get('side') in sides and r.get('status') in ('done', None)), 4)
     funded_in = by_hand('topup', 'reinvest')
     taken_out = by_hand('withdraw', 'payout', 'defund')
-    cash = round(_f(book.get('sol')) * sol_px, 4)
+    cash = round((_f(book.get('sol')) + _f(book.get('rentHeldSol'))) * sol_px, 4)   # card SOL + its coin-account rent deposits
     held_cost = round(sum(h['costUsd'] for h in held), 4)
     held_now = round(sum(h['nowUsd'] if h['nowUsd'] is not None else h['costUsd'] for h in held), 4)
     realized_all = round(sum(_f(r.get('realizedPnlUsd')) for r in rows if r.get('status') == 'filled' and r.get('side') == 'sell'), 4)
@@ -1063,25 +1080,38 @@ def stuck_buys(card, now, benched_mints=(), secs=STUCK_BUY_SEC):
             if l.get('buying') and l.get('mint') != SOL_MINT and (l.get('mint') in set(benched_mints) or now - _f(now if l.get('buyingSince') is None else l['buyingSince']) >= secs)]
 
 
-def rent_back(books, closed, sol_px):
-    """♻ Rent from closed empty coin accounts goes back INTO the card that opened them (owner's rule), never left on the reserve.
-    closed = [{mint, lamports}]. The card is the one whose `rentMints` has that coin (only one real card → that card). The SOL joins
-    card cash and counts as money PUT IN (`fundedUsd`), because the reserve paid that rent — so P&L stays the price result, never a fake
-    gain. → (books, {card: sol credited}). Rent nobody can be matched to stays on the reserve."""
-    out = {k: {**v, 'rentMints': dict(v.get('rentMints') or {})} for k, v in (books or {}).items()}
+def rent_back(books, closed, sol_px=0.0):
+    """♻ A closed empty coin account returns its rent to the card that PAID it (`rentDeposits[mint]`): back into card cash, out of
+    `rentHeldSol`. Value and P&L don't move (the deposit was already counted as the card's). Rent the reserve fronted, or that no card
+    paid, stays on the reserve. → (books, {card: sol}). Never credits more than the card deposited for that coin."""
+    out = {k: {**v, 'rentDeposits': dict(v.get('rentDeposits') or {})} for k, v in (books or {}).items()}
     credits = {}
     for a in closed or []:
         sol = _f(a.get('lamports')) / 1e9
-        if sol <= 0:
-            continue
-        card = next((k for k, v in out.items() if a.get('mint') in v['rentMints']), None) or (next(iter(out)) if len(out) == 1 else None)
-        if not card:
+        card = next((k for k, v in out.items() if _f(v['rentDeposits'].get(a.get('mint'))) > 0), None)
+        if sol <= 0 or not card:
             continue
         b = out[card]
-        b['rentMints'].pop(a.get('mint'), None)
-        b['sol'] = round(_f(b.get('sol')) + sol, 9)
-        b['fundedUsd'] = round(_f(b.get('fundedUsd')) + sol * sol_px, 4)
-        b['rentBackSol'] = round(_f(b.get('rentBackSol')) + sol, 9)
-        b['rentSol'] = round(max(0.0, _f(b.get('rentSol')) - sol), 9)
-        credits[card] = round(credits.get(card, 0.0) + sol, 9)
+        back = min(sol, _f(b['rentDeposits'].pop(a.get('mint'))), _f(b.get('rentHeldSol')))
+        b['sol'] = round(_f(b.get('sol')) + back, 9)
+        b['rentHeldSol'] = round(max(0.0, _f(b.get('rentHeldSol')) - back), 9)
+        credits[card] = round(credits.get(card, 0.0) + back, 9)
     return out, credits
+
+
+def undo_rent_credits(books, ledger, sol_px):
+    """🩹 One-time repair: the first rent rule credited EVERY historical refund (the reserve had re-used that SOL many times) into the
+    card as cash + money put in. Take each 'credited' row's SOL back out of that card's book. → (books, {card: sol removed})."""
+    out = {k: dict(v) for k, v in (books or {}).items()}
+    gone = {}
+    for r in ledger or []:
+        if r.get('side') == 'close' and r.get('status') == 'credited':
+            for card, sol in (r.get('credits') or {}).items():
+                if card in out:
+                    gone[card] = round(gone.get(card, 0.0) + _f(sol), 9)
+    for card, sol in gone.items():
+        b = out[card]
+        b['sol'] = round(max(0.0, _f(b.get('sol')) - sol), 9)
+        b['fundedUsd'] = round(max(0.0, _f(b.get('fundedUsd')) - sol * sol_px), 4)
+        b.pop('rentMints', None); b.pop('rentBackSol', None)
+    return out, gone

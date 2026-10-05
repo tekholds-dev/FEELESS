@@ -936,9 +936,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🧾 Money trail (`fuse_wallet.money_trail`, tested; `scripts/fuse-report.py [hours]`, read-only, run on the owner's Mac): per real card
   put in → now (coins + cash), realized per coin, still-held move, write-offs, card-paid fees, rent on reserve, skip / fail reasons,
   benched coins, run_report flaws, and an `unexplained` line that must read $0 (the books add up). Prints no keys / RPC / wallet id.
-- ♻ Rent goes back INTO the card (owner's rule, replaces "rent back to the reserve"): `apply_fill` remembers each coin's rent (`rentMints`);
-  `_fw_rent_credit` waits for the close tx to CONFIRM, then `fuse_wallet.rent_back` credits the card that opened those accounts (one real
-  card → it gets old sweeps too) as card cash + `fundedUsd` (the reserve paid it, so it's money put in — P&L stays the price result).
+- ♻ RENT = the card's own refundable DEPOSIT (replaces both earlier rent rules): `orders` sets a new coin's rent aside
+  (`rentDeposit`, only when the card can afford it, else the reserve fronts it → `rentSol`); `apply_fill` books it in `rentHeldSol` +
+  `rentDeposits[mint]` (counted in `book_value` / card `rentUsd` → P&L never moves); a CONFIRMED close (`_fw_rent_credit` →
+  `rent_back`) returns at most that deposit into card cash. NEVER credit historical refunds: the first version did (the reserve had
+  re-used that SOL many times) → card read $32 in a $6.89 wallet and `reconcile_sol` halted it; `undo_rent_credits` (once, `rentFix1`)
+  took it back out. A top-up can't assign more than `free_sol` (wallet − reserve − every card's book).
   ⏳ Stuck buys (`fuse_wallet.stuck_buys`, leg `buyingSince`, `STUCK_BUY_SEC` 600): a real-card coin still 'buying' after 10 min (or benched)
   is swapped for a buyable coin in the tier tick (no candidate → slot back to card cash) and cooled via `note_dropped`.
 - 🗑 Trench, wired end to end: `_runner_live` adds up to 10 raw pairs passing `trench.market_pair` (fresh · $20K band · busy · buyers ·

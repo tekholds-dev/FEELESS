@@ -40,7 +40,7 @@ export const whereDown = (c, funded) => { const legs = (c.legs || []).filter(l =
 export const primeRow = c => { const funded = c.real ? (c.realBook?.fundedUsd || c.fundedUsd || c.startUsd) : c.startUsd; const paid = c.walletUsd || 0; const total = c.valueUsd || 0; return ({ id: c.id, name: c.label, closed: false, costUsd: funded, valueUsd: total, realizedUsd: paid,
   // Real card face always uses TOTAL FUNDED principal. Run baseline stays separate in the header as THIS RUN FROM.
   // Equation: PUT IN -> IN CARD + PAID OUT NOW = TOTAL EQUITY; all-time P/L = TOTAL EQUITY - PUT IN.
-  baseUsd: funded, extraUsd: (c.cash || 0) + (c.parked || []).reduce((a, p) => a + (p.usd || 0), 0) + paid,
+  baseUsd: funded, extraUsd: (c.cash || 0) + (c.rentUsd || 0) + (c.parked || []).reduce((a, p) => a + (p.usd || 0), 0) + paid,
   pnlUsd: total - funded, pnlPct: funded > 0 ? (total / funded - 1) * 100 : 0,
   legs: c.legs.map(l => ({ pairAddress: l.pairAddress, symbol: l.symbol, role: l.role, mint: l.mint, usd: l.costUsd, tokens: l.units, valueUsd: l.usd,
     pnlUsd: l.usd - l.costUsd, pnlPct: l.costUsd ? (l.usd / l.costUsd - 1) * 100 : 0, priced: true, priceNow: l.now, stars: l.stars, liq: l.liq, buying: l.buying || (c.real && !(l.usd > 0)) })) }); };

@@ -6568,9 +6568,27 @@ async def _fw_rent_credit(cfg):
     """♻ A CONFIRMED close puts its rent back into the card that opened those coin accounts (`fuse_wallet.rent_back`); a close that
     failed or never landed credits nothing. Each close is credited once (its 'credited' row)."""
     d = _fw_load()
+    if not d.get('rentFix1'):   # 🩹 undo the first rule's phantom credits (every historical refund was credited into the card again)
+        sol_px0 = await _sol_usd_live()
+        if sol_px0 <= 0:
+            return
+        async with _fw_lock:
+            d = _fw_load()
+            d['books'], gone = _fw.undo_rent_credits(d['books'], d['ledger'], sol_px0)
+            bal_sol = _FW_GAS.get('sol')
+            for tid, b in d['books'].items():   # the shortage that halted the card is gone → it may trade again (owner sees why)
+                if b.get('halt') and 'below card books' in str(b.get('haltWhy') or '') and bal_sol is not None and not _fw.reconcile_sol(bal_sol, d['books']):
+                    d['books'][tid] = {**b, 'halt': False, 'haltWhy': None}
+            for tid, sol in gone.items():
+                _fw_record(d, {'id': f'rentfix:{tid}', 'card': tid, 'side': 'fix', 'sol': -sol, 'usd': round(-sol * sol_px0, 4), 'at': time.time(), 'status': 'done',
+                               'why': '🩹 removed rent credited by mistake (old refunds the reserve had already re-used) — card books match the wallet again'})
+            d['rentFix1'] = time.time()
+            _fw_save(d)
+        if gone:
+            _fw_notify({'card': next(iter(gone)), 'side': 'fix', 'status': 'done', 'usd': 0, 'why': 'rent credit mistake repaired — card books match the wallet again'})
     done = {r.get('id') for r in d['ledger'] if r.get('side') == 'close' and r.get('status') in ('credited', 'lost')}
-    # older sweeps (before this rule) carry only their total → one real card gets it all (rent_back matches no mint → the only card)
-    todo = [r for r in d['ledger'][-2000:] if r.get('side') == 'close' and r.get('status') == 'sent' and r.get('sig') and r['id'] not in done]
+    # only closes that list their coin accounts (this rule) — a refund goes back only to the card that paid that coin's deposit
+    todo = [r for r in d['ledger'][-2000:] if r.get('side') == 'close' and r.get('status') == 'sent' and r.get('sig') and r.get('closed') and r['id'] not in done]
     if not todo:
         return
     try:
@@ -6584,10 +6602,10 @@ async def _fw_rent_credit(cfg):
         for r, s_ in zip(todo, st):
             ok = bool(s_) and not s_.get('err') and s_.get('confirmationStatus') in ('confirmed', 'finalized')
             if ok and sol_px > 0:
-                d['books'], cr = _fw.rent_back(d['books'], r.get('closed') or [{'mint': None, 'lamports': _fuse._f(r.get('sol')) * 1e9}], sol_px)
+                d['books'], cr = _fw.rent_back(d['books'], r['closed'], sol_px)
                 _fw_record(d, {**{k: v for k, v in r.items() if k != 'closed'}, 'status': 'credited', 'credits': cr, 'at': time.time(),
-                               'why': 'rent back into the card' if cr else 'rent stayed on the reserve (no card opened those accounts)'})
-            elif (s_ and s_.get('err')) or (not s_ and time.time() - _fuse._f(r.get('at')) > 600 and r.get('closed')):
+                               'why': 'rent deposit back into the card' if cr else 'rent back to the reserve (it fronted it)'})
+            elif (s_ and s_.get('err')) or (not s_ and time.time() - _fuse._f(r.get('at')) > 600):
                 _fw_record(d, {**{k: v for k, v in r.items() if k != 'closed'}, 'status': 'lost', 'at': time.time(), 'why': 'close never landed — nothing credited'})
         _fw_save(d)
 
@@ -7101,6 +7119,10 @@ async def fuse_wallet_topup(request: Request):
         cur = _fw.book_value(d['books'][tid], px, sol_px) if not first else 0
         if cur + usd > cfg['maxCardUsd']:
             raise HTTPException(400, f"Over the ${cfg['maxCardUsd']:g} per-card cap (card holds ${cur:.2f}).")
+        if _FW_GAS.get('sol') is not None and sol_px > 0:   # 💵 a top-up only ASSIGNS SOL already in the wallet — never more than is unassigned
+            free = _fw.free_sol(_FW_GAS['sol'], d['books'], cfg['reserveSol'])
+            if usd / sol_px > free + 1e-6:
+                raise HTTPException(400, f"Only ${free * sol_px:.2f} unassigned SOL in the Fuse wallet (fee reserve kept apart) — send SOL to it first.")
         if first:   # the SAME card goes real: same coins, phase, clock and config — scaled to the $, time + P&L start over
             if not card or not card.get('legs'):
                 raise HTTPException(503, 'That tier has no card dealt yet — try again in a minute.')

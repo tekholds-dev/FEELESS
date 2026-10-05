@@ -616,14 +616,14 @@ def value(card, prices, liqs=None):
     def coin(l):
         px = _f(prices.get(l['pairAddress'])) or l['entry']
         return sell_usd(l['units'], px, _f(liqs.get(l['pairAddress'])) or _f(l.get('liqNow')) or _f(l.get('liq')))
-    v = sum(coin(l) for l in card['legs']) + card['cash'] + sum(_f(p['usd']) for p in (card.get('parked') or {}).values()) + _f(card.get('walletUsd'))
+    v = sum(coin(l) for l in card['legs']) + card['cash'] + sum(_f(p['usd']) for p in (card.get('parked') or {}).values()) + _f(card.get('walletUsd')) + _f(card.get('rentUsd'))
     return round(v, 4)
 
 
 def in_play(card, prices, liqs=None):
     """What can be re-dealt into coins: the card's value MINUS what was already paid out to the wallet and what sits parked
     (both stay theirs — re-buying coins with them would count the same dollars twice)."""
-    return round(value(card, prices, liqs) - _f(card.get('walletUsd')) - sum(_f(p.get('usd')) for p in (card.get('parked') or {}).values()), 4)
+    return round(value(card, prices, liqs) - _f(card.get('walletUsd')) - _f(card.get('rentUsd')) - sum(_f(p.get('usd')) for p in (card.get('parked') or {}).values()), 4)
 
 
 def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None, true_usd=None):

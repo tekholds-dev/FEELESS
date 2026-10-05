@@ -179,14 +179,14 @@ def _liq(x):
 @pytest.mark.parametrize('seed', [1, 2, 3])
 def test_real_card_5min_book_matches_chain_and_money_only_leaves_through_fills(seed):
     card, book, chain, ledger, px, seen = _run(seed)
-    # card SOL never pays rent / network fees (the wallet reserve fronts them for the first 5 rounds; rent is always reserve)
+    # network fees: the wallet reserve fronts them for the first 5 rounds · ♻ rent = the card's own refundable deposit (rentHeldSol)
     swaps_in = sum(int(o['lamports']) for o in ledger if o['side'] == 'buy') / 1e9
-    fills_back = book['sol'] + book.get('bankSol', 0) - (6.0 / SOL_PX - swaps_in)
+    fills_back = book['sol'] + book.get('bankSol', 0) + book.get('rentHeldSol', 0) - (6.0 / SOL_PX - swaps_in)
     assert fills_back >= -1e-6
-    assert abs(chain.rent - book.get('rentSol', 0)) < 1e-9                       # every rent lamport is on the record
+    assert abs(chain.rent - book.get('rentSol', 0) - book.get('rentHeldSol', 0)) < 1e-9   # every rent lamport is on the record
     # what the card is worth = the chain at market, the haircut on what was actually traded is the only other cost
     v = fw.book_value(book, px, SOL_PX)
-    chain_v = (book['sol'] + book.get('bankSol', 0)) * SOL_PX + sum(a / 10 ** DEC * px[next(x['pair'] for x in ledger if x['mint'] == m)]
+    chain_v = (book['sol'] + book.get('bankSol', 0) + book.get('rentHeldSol', 0)) * SOL_PX + sum(a / 10 ** DEC * px[next(x['pair'] for x in ledger if x['mint'] == m)]
                                                                    for m, a in chain.atoms.items() if a)
     assert abs(v - chain_v) < 1e-6
     assert int(card.get('rounds') or 0) >= 40                                   # 5-min rounds really ran (4h / 5 min)

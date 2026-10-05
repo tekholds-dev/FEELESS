@@ -208,19 +208,20 @@ def test_price_source_gaps_never_teach_the_impact_model():
     assert fw.calibrate(gap)['n'] == 0 and fw.calibrate(gap)['impactMult'] == 1.0
 
 
-def test_rent_and_network_fees_never_come_out_of_the_card():
+def test_rent_is_a_card_deposit_and_network_fees_never_come_out_of_the_card():
     book = fw.new_book(100, 100.0, 0)                                   # 1 SOL in the card
     order = {'side': 'buy', 'mint': 'M', 'pair': 'pm', 'symbol': 'M', 'lamports': 200_000_000}
-    b, r = fw.apply_fill(book, order, {'atoms': 20_000_000, 'decimals': 6, 'sol': -0.20204, 'feeSol': 0.00001}, 100.0)   # 0.2 swap + 0.00204 rent
-    assert abs(b['sol'] - 0.8) < 1e-9 and abs(b['rentSol'] - 0.00204) < 1e-9 and r['usd'] == 20.0   # card paid exactly the swap
+    b, r = fw.apply_fill(book, {**order, 'rentDeposit': 0.00204}, {'atoms': 20_000_000, 'decimals': 6, 'sol': -0.20204, 'feeSol': 0.00001}, 100.0)   # 0.2 swap + 0.00204 rent
+    assert abs(b['sol'] - 0.79796) < 1e-9 and abs(b['rentHeldSol'] - 0.00204) < 1e-9 and r['usd'] == 20.0   # swap + its rent DEPOSIT
+    assert abs(fw.book_value(b, {}, 100.0) - 100.0) < 1e-6   # the deposit is still the card's money (no P&L move)
 
 
 def test_wallet_fronts_fees_for_5_rounds_then_the_card_pays():
-    order = {'side': 'buy', 'mint': 'M', 'pair': 'pm', 'symbol': 'M', 'lamports': 200_000_000}
+    order = {'side': 'buy', 'mint': 'M', 'pair': 'pm', 'symbol': 'M', 'lamports': 200_000_000, 'rentDeposit': 0.00204}
     fill = {'atoms': 20_000_000, 'decimals': 6, 'sol': -0.20204, 'feeSol': 0.00001}
     early, _ = fw.apply_fill(fw.new_book(100, 100.0, 0), order, fill, 100.0)
     late, _ = fw.apply_fill(fw.new_book(100, 100.0, 0), {**order, 'cardPays': True}, fill, 100.0)
-    assert abs(early['sol'] - 0.8) < 1e-9 and abs(late['sol'] - (0.8 - 0.00001)) < 1e-9   # card pays the fee, never the rent deposit
+    assert abs(early['sol'] - 0.79796) < 1e-9 and abs(late['sol'] - (0.79796 - 0.00001)) < 1e-9   # card pays the fee from round 5 (rent = its deposit)
     assert fw.DEFAULT_CFG['minOrderUsd'] == 0.5
 
 
@@ -267,7 +268,7 @@ def test_new_round_rebuys_an_empty_coin_from_spare_sol():
     book = {'sol': 0.03, 'legs': {}}
     c = fw.sync_card(card, book, {'S': 100, 'R': 0.002}, 100)
     run = c['legs'][1]
-    assert run['buying'] and abs(run['wantUnits'] * 0.002 - 1.5) < 0.01 and abs(c['legs'][0]['units'] - 0.015) < 1e-9
+    assert run['buying'] and abs(run['wantUnits'] * 0.002 - (1.5 - fw.GAS_RENT_SOL * 100)) < 0.01 and abs(c['legs'][0]['units'] - 0.015) < 1e-9
     assert c['rebuyRound'] == 3
     buys = [o for o in fw.orders('t', c, book, {'S': 100, 'R': 0.002}, 100, {**fw.DEFAULT_CFG, 'armed': True}, 1) if o['side'] == 'buy']
     assert buys and buys[0]['mint'] == 'RUN' and buys[0]['usd'] <= 1.51
@@ -759,19 +760,32 @@ def test_money_trail_accounts_for_every_dollar():
     assert t['problems'][0]['why'].startswith('skipped: live pool too thin') and t['coins'][0]['symbol'] == 'AAA'
 
 
-def test_rent_from_closed_accounts_goes_back_into_the_card_that_opened_them():
+def test_rent_is_the_cards_own_deposit_and_comes_back_into_the_card():
     import fuse_wallet as fw
-    book = {'sol': 0.01, 'fundedUsd': 5.0, 'legs': {}}
-    # a buy that opened a new coin account: the card pays only its swap, the 0.002 SOL rent is the reserve's and remembered per coin
-    b, _ = fw.apply_fill(book, {'side': 'buy', 'mint': 'M', 'lamports': 5_000_000, 'symbol': 'M'}, {'atoms': 10, 'decimals': 0, 'sol': -0.007, 'feeSol': 0.0}, 100.0)
-    assert round(b['rentSol'], 6) == 0.002 and round(b['rentMints']['M'], 6) == 0.002 and round(b['sol'], 6) == 0.005
-    books, cr = fw.rent_back({'degen': b, 'gold': {'sol': 0, 'fundedUsd': 1, 'rentMints': {}}}, [{'mint': 'M', 'lamports': 2_039_280}, {'mint': 'Z', 'lamports': 2_000_000}], 100.0)
-    g = books['degen']
-    assert cr == {'degen': 0.00203928} and 'M' not in g['rentMints'] and round(g['sol'], 8) == round(0.005 + 0.00203928, 8)
-    assert g['fundedUsd'] == round(5.0 + 0.203928, 4) and g['rentSol'] == 0.0    # counts as money put in → P&L stays the price result
-    assert books['gold']['sol'] == 0                                               # an unmatched coin's rent (two cards) stays on the reserve
-    one, cr1 = fw.rent_back({'degen': {'sol': 0, 'fundedUsd': 5}}, [{'mint': None, 'lamports': 1e9 * 0.0376}], 100.0)   # old sweep, one card
-    assert cr1 == {'degen': 0.0376} and one['degen']['fundedUsd'] == 8.76
+    book = {'sol': 0.01, 'fundedUsd': 1.0, 'legs': {}}
+    # a buy that opened a new coin account: the card pays its 0.005 swap AND the 0.002 rent deposit from its own SOL
+    b, _ = fw.apply_fill(book, {'side': 'buy', 'mint': 'M', 'lamports': 5_000_000, 'symbol': 'M', 'rentDeposit': 0.002}, {'atoms': 10, 'decimals': 0, 'sol': -0.007, 'feeSol': 0.0}, 100.0)
+    assert round(b['sol'], 6) == 0.003 and round(b['rentHeldSol'], 6) == 0.002 and not b.get('rentSol')
+    assert round(fw.book_value(b, {}, 100.0), 4) == round(0.005 * 100 + 0.5, 4)        # deposit counted → value (and P&L) unchanged
+    books, cr = fw.rent_back({'blaze': b, 'gold': {'sol': 0}}, [{'mint': 'M', 'lamports': 2_039_280}, {'mint': 'Z', 'lamports': 2_000_000}], 100.0)
+    g = books['blaze']
+    assert cr == {'blaze': 0.002} and round(g['sol'], 6) == 0.005 and g['rentHeldSol'] == 0.0 and g['fundedUsd'] == 1.0   # never > the deposit
+    assert books['gold']['sol'] == 0                                                   # rent no card paid stays on the reserve
+    assert fw.rent_back(books, [{'mint': 'M', 'lamports': 2_039_280}], 100.0)[1] == {}  # each deposit comes back once
+    # a card with too little SOL: the reserve fronts the part it can't cover (and gets that part back)
+    b2, _ = fw.apply_fill({'sol': 0.006, 'legs': {}}, {'side': 'buy', 'mint': 'N', 'lamports': 5_000_000, 'rentDeposit': 0.002}, {'atoms': 1, 'decimals': 0, 'sol': -0.007, 'feeSol': 0.0}, 100.0)
+    assert round(b2['rentHeldSol'], 6) == 0.001 and round(b2['rentSol'], 6) == 0.001 and round(b2['sol'], 6) == 0.0
+    b3, _ = fw.apply_fill({'sol': 0.01, 'legs': {}}, {'side': 'buy', 'mint': 'N', 'lamports': 5_000_000}, {'atoms': 1, 'decimals': 0, 'sol': -0.007, 'feeSol': 0.0}, 100.0)
+    assert round(b3['sol'], 6) == 0.005 and round(b3['rentSol'], 6) == 0.002          # no deposit set aside by `orders` → the reserve fronts it
+
+
+def test_phantom_rent_credits_are_undone_once():
+    import fuse_wallet as fw
+    ledger = [{'side': 'close', 'status': 'credited', 'credits': {'blaze': 0.1}}, {'side': 'close', 'status': 'credited', 'credits': {'blaze': 0.09}},
+              {'side': 'close', 'status': 'sent', 'sol': 0.5}]
+    books, gone = fw.undo_rent_credits({'blaze': {'sol': 0.23, 'fundedUsd': 33.06, 'rentMints': {'x': 1}}}, ledger, 120.0)
+    assert gone == {'blaze': 0.19} and round(books['blaze']['sol'], 6) == 0.04 and books['blaze']['fundedUsd'] == 10.26 and 'rentMints' not in books['blaze']
+    assert not fw.reconcile_sol(0.0573, books)                                           # books fit the wallet again → no halt
 
 
 def test_a_buy_that_never_lands_is_flagged_stuck_after_10_minutes():
@@ -805,4 +819,4 @@ def test_coins_waiting_on_a_buy_are_funded_from_the_sol_anchor():
     assert sol['units'] * 150 < 1.2                                                    # SOL trimmed to ~an equal share
     o = fw.orders('blaze', c, book, prices, 150.0, {'minOrderUsd': 0.1, 'maxSwapUsd': 50, 'armed': True}, 0)
     buys = {x['mint']: x['usd'] for x in o if x['side'] == 'buy'}
-    assert set(buys) == {'ASH', 'GOMO'} and all(v >= 0.5 for v in buys.values())        # both buys are really sent now
+    assert set(buys) == {'ASH', 'GOMO'} and all(v >= 0.4 for v in buys.values())        # both buys are really sent now (rent deposit set aside)
