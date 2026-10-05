@@ -916,3 +916,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   ONE sell alert when it falls Y% off its peak or under half the freeze. Alerts only — never sells by itself. My cards: `fp-freeze` row.
 - 🧹 Rent sweep every 2 rounds of the real card's clock (`fuse_wallet.close_every`, 10–30 min). Rent is paid by the reserve, so it returns to the
   reserve — the card never paid it, its numbers stay exact.
+- 🧾 Real card P&L = PRICE RESULT: rent is always the wallet reserve's (refunded to the reserve on close); network fees the card pays from
+  round 5 are tracked (`book.cardFeesSol`) and added back in `math.pnlUsd` (`cardFeesUsd`, shown "fees $X apart"); frontend `allTime` /
+  `whereDown` read it. IN CARD NOW stays the true value. 😴 Overnight: `bash scripts/stay-awake.sh` (caffeinate + keep-alive, plugged in, lid open).

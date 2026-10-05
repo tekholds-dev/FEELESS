@@ -293,6 +293,7 @@ def apply_fill(book, order, fill, sol_px):
             sol_move = -swap_sol
     if order.get('cardPays'):   # after its first 5 rounds the card pays its own network FEES; rent is a refundable deposit → always the reserve
         sol_move -= fill['feeSol']
+        b['cardFeesSol'] = round(_f(b.get('cardFeesSol')) + fill['feeSol'], 9)   # 🧾 P&L adds these back (fees never count in P&L)
     if order['side'] == 'sell' and order.get('manualCash') and sol_move > 0:
         b['manualCashSol'] = round(_f(b.get('manualCashSol')) + sol_move, 9)
     elif order['side'] == 'buy' and sol_move < 0 and _f(b.get('manualCashSol')) > 0:

@@ -719,3 +719,12 @@ def test_buys_never_dip_into_cash_the_owner_sold_out():
 
 def test_rent_sweep_runs_every_two_rounds_of_the_real_clock():
     assert fw.close_every(5 / 60) == 600 and fw.close_every(0.25) == 1800 and fw.close_every(0) == 1800 and fw.close_every(0.1) == 720
+
+
+def test_card_paid_network_fees_are_tracked_so_pnl_can_leave_them_out():
+    b = {'sol': 0.1, 'legs': {}}
+    order = {'side': 'sell', 'mint': 'M', 'cardPays': True, 'pair': 'P', 'symbol': 'M'}
+    b2, _ = fw.apply_fill({**b, 'legs': {'M': {'atoms': 1000, 'costUsd': 1.0, 'entryPx': 0.001, 'decimals': 6}}}, order, {'atoms': -1000, 'decimals': 6, 'sol': 0.0099, 'feeSol': 0.00001}, 100.0)
+    assert b2['cardFeesSol'] == 0.00001 and abs(b2['sol'] - (0.1 + 0.0099 - 0.00001)) < 1e-9     # paid from card SOL, and remembered
+    b3, _ = fw.apply_fill(b2, {**order, 'cardPays': False}, {'atoms': 0, 'decimals': 6, 'sol': 0.0, 'feeSol': 0.00002}, 100.0)
+    assert b3['cardFeesSol'] == 0.00001                                                              # reserve-paid fees never count as the card's

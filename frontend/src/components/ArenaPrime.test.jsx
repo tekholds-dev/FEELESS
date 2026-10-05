@@ -116,3 +116,11 @@ test('where am I down: coins on the card now + already sold always add up to all
   expect(w).toEqual({ held: -0.11, sold: -0.2, all: -0.31 });   // your screenshot: −$0.11 on coins now, −$0.20 already sold
   expect(Math.round((w.held + w.sold) * 100) / 100).toBe(w.all);
 });
+
+test('all-time P&L leaves out the network fees the card paid (fees shown apart)', () => {
+  const { allTime, whereDown } = require('./ArenaPrime');
+  const c = { valueUsd: 4.69, cardFeesUsd: 0.02, math: { pnlUsd: -0.29 }, legs: [{ usd: 0.77, costUsd: 0.87 }] };
+  expect(allTime(c, 5)).toBe(-0.29);
+  expect(allTime({ valueUsd: 4.69, cardFeesUsd: 0.02 }, 5)).toBeCloseTo(-0.29);
+  expect(whereDown(c, 5)).toEqual({ held: -0.1, sold: -0.19, all: -0.29 });
+});

@@ -5778,12 +5778,13 @@ async def _prime_view():
         paid = _fuse._f(b.get('bankSol')) * sol_now
         start = _fw.real_run_start(c, b) or 1
         held = max(0.0, v - paid)
-        return {**sm, 'startUsd': round(start, 4), 'valueUsd': v, 'walletUsd': round(paid, 4), 'pnlPct': round((v / start - 1) * 100, 2),
+        card_fees = round(_fuse._f(b.get('cardFeesSol')) * sol_now, 4)   # 🧾 network fees the CARD paid (from round 5) — apart from P&L
+        return {**sm, 'startUsd': round(start, 4), 'valueUsd': v, 'cardFeesUsd': card_fees, 'walletUsd': round(paid, 4), 'pnlPct': round((v / start - 1) * 100, 2),
                 'legacyRunBaseline': not bool(c.get('realBaselineAt')),
                 'payoutTargetUsd': round(_fuse._f(c.get('walletUsd')), 4),
                 'pendingPayoutUsd': round(max(0.0, _fuse._f(c.get('walletUsd')) - _fuse._f(b.get('bankUsd'))), 4),
                 'math': {**sm.get('math', {}), 'putIn': round(_fuse._f(b.get('fundedUsd')) or start, 4), 'runStartUsd': round(start, 4), 'heldUsd': round(held, 4), 'paidOutUsd': round(paid, 4),
-                         'nowUsd': v, 'pnlUsd': round(v - (_fuse._f(b.get('fundedUsd')) or start), 4)}}
+                         'nowUsd': v, 'feesUsd': card_fees, 'pnlUsd': round(v + card_fees - (_fuse._f(b.get('fundedUsd')) or start), 4)}}   # P&L = price result; fees apart
     return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'holdAll': bool(c.get('holdAll')), 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
