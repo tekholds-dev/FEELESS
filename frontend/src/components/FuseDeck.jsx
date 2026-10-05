@@ -21,8 +21,9 @@ export function FuseExplainer({ admin = false }) {
   const [open, setOpen] = useState(false);
   const steps = admin ? ADMIN : TRADER;
   return <div className={`fx-explain ${admin ? 'is-admin' : ''}`} data-testid="fuse-explainer">
-    <ol className="fx-flow">{steps.map(([ic, t, s], i) => <li key={t} style={{ animationDelay: `${i * 60}ms` }}><b>{ic}</b><span>{t}<small>{s}</small></span></li>)}</ol>
-    <button type="button" className="fx-more" aria-expanded={open} onClick={() => setOpen(o => !o)}>{open ? 'Less' : 'What exactly is a Fuse?'}</button>
+    {/* HQ: the five-step strip is help, not a dashboard — it opens with the explainer instead of sitting above the numbers */}
+    {(!admin || open) && <ol className="fx-flow">{steps.map(([ic, t, s], i) => <li key={t} style={{ animationDelay: `${i * 60}ms` }}><b>{ic}</b><span>{t}<small>{s}</small></span></li>)}</ol>}
+    <button type="button" className="fx-more" aria-expanded={open} onClick={() => setOpen(o => !o)}>{open ? 'Less' : admin ? 'How the deck works' : 'What exactly is a Fuse?'}</button>
     {open && <div className="fx-body">{admin ? <>
       <p><b>A Fuse is a basket of live pools bought in one click.</b> Each pool becomes a normal FEELESS swap paid in SOL; the trader holds the coins. Nothing is pooled, locked or custodied.</p>
       <p><b>Evolution</b> ranks baskets on today's numbers (grade, fee APR, 24h move, depth) minus size impact and fee drag. It is a ranking, not a forecast — that's why the <b>Arena</b> exists: a strategy only counts as <em>proven</em> after 3 settled $5 paper runs with a positive average. Traders' "Find my best 3" uses the proven strategy.</p>
@@ -64,7 +65,7 @@ export function FuseDeck({ panels, call }) {
     {hq && <div className="fdeck-kpis" data-testid="fuse-kpis">
       <div className={`fdeck-kpi ${b.pnlUsd > 0 ? 'up' : b.pnlUsd < 0 ? 'down' : ''}`}><small>REAL FUSE P&L</small><b className="m-num">{money(b.pnlUsd)}</b><em>{b.positions} fuses · {b.winners}▲ {b.losers}▼</em></div>
       <div className={`fdeck-kpi is-outlook ${o.proven ? 'up' : ''}`} title={o.note}><small>24H OUTLOOK · ARENA</small>
-        {o.style ? <><b className="m-num">$1 → ${o.per1.toFixed(2)}</b><em>{o.style} · {o.runs} runs · {o.winRate}% won</em></> : <><b className="m-num">unproven</b><em>run champions in the arena</em></>}</div>
+        {o.style ? <><b className="m-num">$1 → ${o.per1.toFixed(2)}</b><em>{o.style} · typical of {o.runs} runs · {o.winRate}% won</em></> : <><b className="m-num">unproven</b><em>run champions in the arena</em></>}</div>
       <div className="fdeck-kpi"><small>PUBLISHED</small><b className="m-num">{hq.published}</b><em>live for traders</em></div>
       <div className="fdeck-kpi"><small>BLOODLINE</small><b className="m-num">{hq.bloodline.length}</b><em>saved champions</em></div>
       <div className="fdeck-kpi"><small>SHIELD</small><b className="m-num">{hq.blockedCuts}</b><em>self/bot cuts blocked</em></div>

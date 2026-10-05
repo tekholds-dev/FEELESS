@@ -6,6 +6,7 @@
 - best_style(): the strategy with the best settled arena record (what "Find my best 3" uses for traders).
 - health(): a published Fuse vs the latest champion — flags when it has been beaten.
 """
+import statistics
 import math
 
 ARENA_USD = 5.0
@@ -81,15 +82,33 @@ def arena_board(values, sol_change_pct=0.0):
     for v in values:
         if not v['settled']:
             continue
-        s = out.setdefault(v['style'], {'style': v['style'], 'runs': 0, 'sum': 0.0, 'wins': 0})
-        s['runs'] += 1; s['sum'] += v['pnlPct']; s['wins'] += v['pnlPct'] > 0
-    rows = [{'style': s['style'], 'runs': s['runs'], 'avgPct': round(s['sum'] / s['runs'], 2), 'winRate': round(s['wins'] / s['runs'] * 100),
-             'beatsSol': s['sum'] / s['runs'] > sol_change_pct} for s in out.values()]
+        s = out.setdefault(v['style'], {'style': v['style'], 'runs': 0, 'pcts': [], 'wins': 0})
+        s['runs'] += 1; s['pcts'].append(_f(v['pnlPct'])); s['wins'] += v['pnlPct'] > 0
+    rows = []
+    for s in out.values():
+        avg = robust_avg(s['pcts'])
+        rows.append({'style': s['style'], 'runs': s['runs'], 'avgPct': round(avg, 2), 'medPct': round(statistics.median(s['pcts']), 2),
+                     'winRate': round(s['wins'] / s['runs'] * 100), 'beatsSol': avg > sol_change_pct})
     return sorted(rows, key=lambda r: -r['avgPct'])
 
 
+RUN_CAP_PCT = 300.0   # one settled $5 run can't count for more than +300% in an average
+
+
+def robust_avg(pcts):
+    """The average a strategy is judged on. One freak run must not carry it: with 10+ runs the best and worst 10% are left out; under
+    10 every run is capped at +RUN_CAP_PCT. (A single moonshot once made the board read "$1 → $62.62 a day" at a 38% win rate.)"""
+    ps = sorted(_f(p) for p in pcts or [])
+    if not ps:
+        return 0.0
+    if len(ps) >= 10:
+        k = len(ps) // 10
+        ps = ps[k:len(ps) - k]
+    return sum(min(RUN_CAP_PCT, p) for p in ps) / len(ps)
+
+
 def best_style(board, default='yield'):
-    proven = [r for r in board if r['runs'] >= MIN_SETTLED and r['avgPct'] > 0]
+    proven = [r for r in board if r['runs'] >= MIN_SETTLED and r['avgPct'] > 0 and r.get('medPct', r['avgPct']) > 0]   # the TYPICAL run must be up too
     return proven[0]['style'] if proven else default
 
 
@@ -109,9 +128,10 @@ def outlook(board):
     best = next((r for r in board if r['runs'] >= MIN_SETTLED), None)
     if not best:
         return {'proven': False, 'note': f'No strategy has {MIN_SETTLED} settled arena runs yet — run the arena before trusting any number.'}
-    return {'proven': best['avgPct'] > 0, 'style': best['style'], 'avgPct': best['avgPct'], 'winRate': best['winRate'], 'runs': best['runs'],
-            'per1': round(1 + best['avgPct'] / 100, 3), 'per100': round(100 * (1 + best['avgPct'] / 100), 2),
-            'note': f"{best['runs']} settled $5 runs, {best['winRate']}% won. Past 24h results, not a promise."}
+    med = best.get('medPct', best['avgPct'])   # $1 → what the TYPICAL run became (median): the honest headline
+    return {'proven': best['avgPct'] > 0 and med > 0, 'style': best['style'], 'avgPct': best['avgPct'], 'medPct': med, 'winRate': best['winRate'], 'runs': best['runs'],
+            'per1': round(1 + med / 100, 3), 'per100': round(100 * (1 + med / 100), 2),
+            'note': f"{best['runs']} settled $5 runs, {best['winRate']}% won; the typical run made {med:+.1f}% (average without the outliers {best['avgPct']:+.1f}%). Past 24h results, not a promise."}
 
 
 def receipt(quoted, actual):

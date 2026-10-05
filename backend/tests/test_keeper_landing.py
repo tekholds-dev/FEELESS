@@ -77,3 +77,15 @@ def test_the_brain_picks_a_config_per_round_length_and_never_calls_a_losing_cloc
     assert set(bc) == {'5', '60'}                                           # 3 sims on the 15-min clock is not enough to say anything
     assert bc['5']['cfg']['minDrop'] == '20' and bc['5']['profitable'] is False and bc['5']['n'] == 16
     assert bc['60']['cfg']['minDrop'] == '10' and bc['60']['profitable'] is True
+
+
+def test_one_freak_run_cannot_carry_a_strategy_or_the_daily_outlook():
+    import fuse_hq as hq
+    runs = [{'style': 'yield', 'settled': True, 'pnlPct': p} for p in [-12, -9, -8, -6, -5, -4, -3, 2, 4, 6000]]
+    board = hq.arena_board(runs)
+    r = board[0]
+    assert r['medPct'] == -4.5 and -10 < r['avgPct'] < 0 and r['winRate'] == 30      # was avg +596% → "$1 → $6.96"
+    assert hq.best_style(board, default='steady') == 'steady'                          # not proven by an outlier
+    o = hq.outlook(board)
+    assert o['proven'] is False and o['per1'] == 0.955
+    assert hq.robust_avg([10, 20, 900]) == (10 + 20 + 300) / 3                         # few runs: each capped at +300%

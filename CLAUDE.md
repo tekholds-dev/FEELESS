@@ -724,6 +724,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Landing v2: NO box (transparent stage on the page backdrop); the hero is the real `LiveFuseCard` with its tier `look` + `aura`
   (`TIER` is exported from ArenaPrime), `zoom: 1.45`; the big live % sits in the copy (`fld-hero`).
 
+- 📊 Strategy board is OUTLIER-PROOF (`fuse_hq.robust_avg`, `arena_board` → `avgPct` + `medPct`): 10+ runs drop the best / worst 10%, fewer
+  cap each run at +300%. `outlook.per1` = the MEDIAN run; "proven" needs average AND median > 0. Why: one freak run made HQ read
+  "$1 → $62.62 a day" at a 38% win rate (real: every style negative). Any new "average of runs" must go through `robust_avg`.
+- Two season tests use the real clock and fail for a minute at Monday 00:00 UTC (week boundary) — re-run, don't "fix" the engine.
+- Landing headline: "MANY COINS, ONE FUSE." HQ Fuse deck: the five-step strip opens with "How the deck works" (help, not dashboard).
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

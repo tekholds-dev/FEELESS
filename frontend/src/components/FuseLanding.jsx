@@ -46,7 +46,7 @@ export function FuseLanding({ onGo }) {
       <span className="fld-cone" aria-hidden="true" /><span className="fld-floor" aria-hidden="true" />
       <div className="fld-copy">
         <small className="m-label">FEELESS · FUSE</small>
-        <h2 className="fld-h">MANY COINS.<br /><em>ONE CARD.</em></h2>
+        <h2 className="fld-h">MANY COINS,<br /><em>ONE FUSE.</em></h2>
         <p>Fuse pools, majors and fresh runners into a single card you own. Rounds swap the losers, the winners ride, and you sign every move.</p>
         {c && <div className="fld-hero" data-testid="fld-hero"><span>{c.label} · {c.real ? '💵 real money' : '📄 paper at true fills'}</span>
           <b key={pct(c.pnlPct)} className={`m-num fl-tick ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.pnlPct)}</b><small>this run, right now · {(c.legs || []).map(l => `$${l.symbol}`).join(' · ')}</small></div>}
