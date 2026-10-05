@@ -78,3 +78,15 @@ test('engine doctor: filters ranked, the applied one highlighted, tap to overrid
   await act(async () => { el.querySelector('[data-testid="pg-filter-grad"]').click(); });
   expect(posts[0]).toEqual({ filter: 'grad', sitOut: false });
 });
+
+test('playground top 3: only the seats the background field earned can be picked for the Arena', async () => {
+  const { PgTop3 } = require('./FuseOpsPanels');
+  const seat = (id, name, w, l) => ({ id, name, pct: 1.5, clock: 15, record: { w, l }, legs: [{ symbol: 'SOL', role: 'anchor' }, { symbol: 'A', role: 'runner' }] });
+  const posts = []; const call = jest.fn(async (url, o) => { posts.push([url, JSON.parse(o.body)]); return { creatorPicks: ['s1'] }; });
+  const onPicks = jest.fn();
+  const el = await mount(<PgTop3 shown={[seat('s1', '🚀 Moon', 3, 0), seat('s2', '🦍 Ape', 2, 1), seat('s3', '🐸 Frog', 1, 1)]} picks={[]} field={8} call={call} onPicks={onPicks} />);
+  expect(el.querySelectorAll('[data-testid^="pg-seat-pick-"]').length).toBe(3);
+  expect(el.textContent).toContain('8 big cards compete in the background'); expect(el.textContent).toContain('3W–0L');
+  await act(async () => { el.querySelector('[data-testid="pg-seat-pick-0"]').click(); });
+  expect(posts[0]).toEqual(['/admin/fuses/scenario-pick', { id: 's1', on: true }]); expect(onPicks).toHaveBeenCalledWith(['s1']);
+});

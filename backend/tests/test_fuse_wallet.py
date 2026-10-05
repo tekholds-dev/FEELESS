@@ -414,6 +414,14 @@ def test_priority_rises_after_txs_that_did_not_land():
     assert fw.priority_cap(0, 0) == 50_000 and fw.priority_cap(0, 2) == 150_000 and fw.priority_cap(2, 4) == 300_000
 
 
+def test_first_try_swap_costs_under_a_penny_retries_pay_to_land():
+    for px in (100.0, 150.0, 200.0, 400.0):
+        cap = fw.priority_cap(0, 0, px)
+        assert (cap + fw.BASE_LAMPORTS) / 1e9 * px < 0.01 or cap == 10_000
+    assert fw.priority_cap(0, 0, 200.0) == 40_000
+    assert fw.priority_cap(1, 0, 200.0) == 100_000 and fw.priority_cap(0, 1, 200.0) == 100_000   # trouble landing → pay to land
+
+
 def test_gas_tank_and_landing_rate():
     books = {'safe': {'sol': 0.01}}
     assert fw.gas_tank(0.0104, books, 0.03)['state'] == 'empty'          # 0.0004 SOL free: not even one new-coin rent

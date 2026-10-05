@@ -150,7 +150,7 @@ export function PlaygroundBattles({ call, onPublish }) {
     return () => { alive = false; clearInterval(t); clearInterval(c); }; }, [call]);
   const set = body => call('/admin/fuses/pg-battles', { method: 'POST', body: JSON.stringify(body) }).then(setB).catch(e => toast.error(e.message));
   if (!b?.cfg) return <div className="pg-box is-ghost" />;
-  const c = b.cfg; const leftS = Math.max(0, Math.round((b.endsAt || now) - now));
+  const c = b.cfg; const leftS = Math.max(0, Math.round((b.endsAt || now) - now)); const shownIds = (b.shown || []).map(x => x.id);
   const seg = (k, opts, fmt) => <span className="m-seg" role="group">{opts.map(v => <button key={String(v)} type="button" className={c[k] === v ? 'active' : ''} onClick={() => set({ cfg: { [k]: v } })} data-testid={`pgb-${k}-${v}`}>{fmt(v)}</button>)}</span>;
   return <section className="pg-box pgb m-live" data-testid="pg-battles">
     <header><b>⚔ Playground battles</b><small>HQ only · paper, real fills · separate from the Arena · next bell <b className="m-num" key={leftS}>{Math.floor(leftS / 60)}:{String(leftS % 60).padStart(2, '0')}</b></small></header>
@@ -163,7 +163,7 @@ export function PlaygroundBattles({ call, onPublish }) {
       <button type="button" className="m-btn" onClick={() => window.confirm('Reset playground battles (fresh cards + records)?') && set({ reset: true })}>♻ Reset</button>
     </div>
     {!b.pairs.length ? <p className="m-dim">{c.on ? 'Dealing the first cards…' : 'Battles are off.'}</p>
-      : <div className="bf-pairs">{b.pairs.map((p, i) => { const d = (p.a.pct || 0) - (p.b.pct || 0); const share = Math.max(0.08, Math.min(0.92, 0.5 + d / 20));
+      : <details className="hrt-fold pgb-bgfold" data-testid="pgb-bgfold"><summary><b>⚔ Background field · {b.field?.length || 0} big cards</b><span>they fight every bell — only the top {shownIds.length || 3} earn a playground seat</span></summary><div className="bf-pairs">{b.pairs.map((p, i) => { const d = (p.a.pct || 0) - (p.b.pct || 0); const share = Math.max(0.08, Math.min(0.92, 0.5 + d / 20));
         const side = (x, k) => <span className={`bf-side ${k}`}><b>{x.name}</b>
           <small className="pgb-meta"><i data-tip={`Timeframe this card goes to the Arena on: its best-averaging round length (≥ 2 bells), else spread over 5/15/30/60 by seat. ${Object.entries(x.clocks || {}).map(([m, v]) => `${m}m ${v.avgPct >= 0 ? '+' : ''}${v.avgPct}% ×${v.n}`).join(' · ')}`}>⏱ {x.clock}m</i>{x.bredFrom && <i data-tip="Lost its fight and now plays the strategy that beat it — named as that strategy's next version">🧬 from {x.bredFrom}</i>}</small>
           <em className={`m-num fl-tick ${(x.pct || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={x.pct}>{pgPc(x.pct)}</em>
@@ -172,11 +172,11 @@ export function PlaygroundBattles({ call, onPublish }) {
           {x.swaps?.length > 0 && <span className="pgb-swaps">{x.swaps.slice(-3).map((w, j) => <i key={j} className={`w-${w.why}`}>{PG_WHY[w.why]} ${w.out}→${w.in}</i>)}</span>}
           <button type="button" className={`m-btn ${(b.locked || []).includes(x.id) ? 'is-on' : ''}`} aria-pressed={(b.locked || []).includes(x.id)} onClick={() => set({ lock: x.id, on: !(b.locked || []).includes(x.id) })}
             data-tip="Lock this card's configs: its coins + DNA survive a loss and the brain never re-breeds it" data-testid={`pgb-lock-${x.id}`}>{(b.locked || []).includes(x.id) ? '🔒 Locked' : '🔓 Lock'}</button>
-          <button type="button" className={`m-btn ${(b.picks || []).includes(x.id) ? 'is-on' : ''}`} onClick={() => call('/admin/fuses/scenario-pick', { method: 'POST', body: JSON.stringify({ id: x.id, on: !(b.picks || []).includes(x.id) }) }).then(() => set({})).catch(e => toast.error(e.message))}
-            data-tip="HQ verifies every big engine card before it reaches the Arena (max 4). A dead strategy is scrapped and leaves the Arena by itself." data-testid={`pgb-approve-${x.id}`}>{(b.picks || []).includes(x.id) ? '✅ On Arena' : '✅ Approve for Arena'}</button></span>;
+          {!shownIds.includes(x.id) && !(b.picks || []).includes(x.id) ? <small className="pgb-bg" data-tip="Competing in the background — only the playground's top 3 can be picked for the Arena">🕘 in the background</small> : <button type="button" className={`m-btn ${(b.picks || []).includes(x.id) ? 'is-on' : ''}`} onClick={() => call('/admin/fuses/scenario-pick', { method: 'POST', body: JSON.stringify({ id: x.id, on: !(b.picks || []).includes(x.id) }) }).then(() => set({})).catch(e => toast.error(e.message))}
+            data-tip="HQ verifies every big engine card before it reaches the Arena (max 4). A dead strategy is scrapped and leaves the Arena by itself." data-testid={`pgb-approve-${x.id}`}>{(b.picks || []).includes(x.id) ? '✅ On Arena' : '✅ Approve for Arena'}</button>}</span>;
         return <div key={p.a.id + p.b.id} className={`bf-pair ${d > 0.05 ? 'a-lead' : d < -0.05 ? 'b-lead' : 'even'}`} style={{ '--i': i }} data-testid={`pgb-pair-${i}`}>
           {side(p.a, 'a')}<span className="bf-vs" aria-hidden="true"><i className="bf-clash" />VS</span>{side(p.b, 'b')}
-          <i className="bf-tug"><i style={{ transform: `scaleX(${share})` }} /></i></div>; })}</div>}
+          <i className="bf-tug"><i style={{ transform: `scaleX(${share})` }} /></i></div>; })}</div></details>}
     <div className="pgb-brain" data-testid="pgb-brain"><span className="m-label">🧠 ENGINE BRAIN · BEST DNA SO FAR</span>
       {b.brain?.why?.length ? <><b>🧬 {b.brain.label}</b><small className="m-dim">{b.brain.why.join(' · ')}</small></> : <small className="m-dim">Learning — every bell scores each card's DNA (cycle, compound, payout, clock, stop). A losing card is re-bred with the winning DNA.</small>}</div>
     {b.field?.length > 0 && <div className="pgb-field" data-testid="pgb-field"><span className="m-label">🃏 THE FIELD · {b.field.length} CARDS</span>{b.field.map((x, i) => <span key={x.id} className={`pgb-fcard ${(b.picks || []).includes(x.id) ? 'is-picked' : ''}`} style={{ '--i': i }}>
@@ -210,6 +210,21 @@ export function EngineDoctor({ p, call, onChange }) {
   </div>;
 }
 
+// 🏆 The playground's 3 seats: up to 8 big cards fight in the background every bell; only the best 3 (W−L, then wins, then the
+// live move — `pg_battle.shown`) are brought here to be picked for the Arena. Nothing else can be picked.
+export function PgTop3({ shown, picks, field, call, onPicks }) {
+  const pick = x => { const on = !picks.includes(x.id);
+    call('/admin/fuses/scenario-pick', { method: 'POST', body: JSON.stringify({ id: x.id, on }) }).then(r => { onPicks?.(r.creatorPicks || []); toast.success(on ? `🎨 ${x.name} goes to the Arena` : `${x.name} back in the playground`); }).catch(e => toast.error(e.message)); };
+  return <div className="pg-top3" data-testid="pg-top3"><header><span className="m-label">🏆 PLAYGROUND TOP 3 · PICK FOR THE ARENA</span><small className="m-dim">{field ? `${field} big cards compete in the background — these 3 earned a seat` : 'The background field deals its first cards within a minute.'}</small></header>
+    <div className="pg-top3-row">{shown.length ? shown.map((x, i) => { const on = picks.includes(x.id); return <article key={x.id} className={`pg-seat ${on ? 'is-on' : ''}`} style={{ '--i': i }} data-testid={`pg-seat-${i}`}>
+      <span className="pg-seat-rank m-num">#{i + 1}</span><b>{x.name}</b>
+      <em className={`m-num ${(x.pct || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{pgPc(x.pct)}</em>
+      <small>{x.record ? `${x.record.w}W–${x.record.l}L` : 'no bell yet'} · {x.legs.length} coins · ⏱ {x.clock}m</small>
+      <small className="m-dim pg-seat-legs">{x.legs.map(l => `${l.role === 'runner' ? '🏃' : '⚓'}$${l.symbol}`).join(' ')}</small>
+      <button type="button" className={`m-btn ${on ? 'is-on' : 'primary m-go'}`} aria-pressed={on} onClick={() => pick(x)} data-testid={`pg-seat-pick-${i}`}>{on ? '✅ On Arena' : '🎨 Pick for Arena'}</button></article>; })
+      : <p className="m-dim">No seats yet — turn playground battles on (🩺 Doctor · ⚔ battles below).</p>}</div></div>;
+}
+
 export function EnginePlayground({ call }) {
   const [p, setP] = useState(null); const [pick, setPick] = useState(null);
   useEffect(() => { let alive = true; const load = () => call('/admin/fuses/playground').then(x => alive && setP(x)).catch(() => {});
@@ -221,6 +236,7 @@ export function EnginePlayground({ call }) {
     tagline: `Engine scenario: TP +${sc.tp}% / stop −${sc.sl}% · avg ${sc.avgPct >= 0 ? '+' : ''}${sc.avgPct}% over ${sc.rounds} rounds`, legs: sc.legs.map(l => ({ chainId: 'solana', pairAddress: l.pairAddress, weight: l.weight })) }) })
     .then(() => toast.success(`⭐ ${sc.name || sc.label} published to the Arena stage`)).catch(e => toast.error(e.message));
   // 🎨 creator's pick: only the runner-ups picked here show on the Arena (and fight in its bracket)
+  const seat = sc => (p.shownIds || []).length < 3 || (p.shownIds || []).includes(sc.id) || sc.listed === 'pick' || sc.listed === 'bench';
   const pickForArena = sc => { const on = !(sc.listed === 'pick' || sc.listed === 'bench');
     call('/admin/fuses/scenario-pick', { method: 'POST', body: JSON.stringify({ id: sc.id, on }) })
       .then(() => { toast.success(on ? `🎨 ${sc.name || sc.label} is on the Arena` : `${sc.name || sc.label} back in the engine`); setP(x => ({ ...x, scenarioCards: x.scenarioCards.map(c => (c.id === sc.id ? { ...c, listed: on ? 'pick' : null } : c)) })); })
@@ -235,6 +251,8 @@ export function EnginePlayground({ call }) {
   return <section className="m-card m-live fops pg" data-testid="engine-playground">
     <div className="m-row"><span className="m-label">🧪 ENGINE PLAYGROUND · v.001</span><small className="m-dim">engine dial <b>{p.engineDial}</b> · auto-strength {p.autoTune ? 'on' : 'off'}</small></div>
     <div className="pg-tiles">{tiles.map(([l, n, sub], i) => <div key={l} className="pg-tile" style={{ '--i': i }}><small>{l}</small><b className="m-num fl-tick" key={n}>{Number(n || 0).toLocaleString()}</b><em>{sub}</em></div>)}</div>
+    <PgTop3 shown={p.pgBattle?.shown || []} picks={p.pgBattle?.picks || []} field={p.pgBattle?.field?.length || 0} call={call}
+      onPicks={picks => setP(x => ({ ...x, pgBattle: { ...x.pgBattle, picks } }))} />
     <div className="pg-cols">
       <div className="pg-box is-ready"><header><b>✅ Ready for the Arena</b><small>{p.ready.length}</small></header>{p.ready.length ? p.ready.map((r, i) => <div key={i} className="pg-row"><i>{r.kind}</i><b>{r.name}</b><small>{r.why}</small></div>) : <p className="m-dim">Nothing proven yet — the engines keep testing.</p>}</div>
       <div className="pg-box"><header><b>⏳ Still proving</b><small>{p.proving.length}</small></header>{p.proving.slice(0, 10).map((r, i) => <div key={i} className="pg-row"><i>{r.kind}</i><b>{r.name}</b><small>{r.why}</small></div>)}</div>
@@ -254,8 +272,8 @@ export function EnginePlayground({ call }) {
         <b className="m-num m-pos">{fmt(sc.avgPct)} <em>avg / round</em></b>
         <span className="pg-legs">{sc.legs.map(l => <i key={l.pairAddress} className={l.role === 'anchor' ? 'is-anchor' : ''}>{l.role === 'anchor' ? '⚓' : '🏃'} ${l.symbol} {Math.round(l.weight)}%</i>)}</span>
         <small className="m-dim">TP +{sc.tp}% · stop −{sc.sl}% per runner · {sc.rounds} rounds · {sc.winRate}% won · $1 → ${Number(sc.per1 || 1).toFixed(2)}</small>
-        <button type="button" className={`m-btn pg-pick ${sc.listed === 'pick' || sc.listed === 'bench' ? 'is-on' : ''}`} aria-pressed={sc.listed === 'pick' || sc.listed === 'bench'} onClick={() => pickForArena(sc)}
-          data-tip="Creator's pick: put this runner-up on the Arena (it fights in the bracket). Tap again to take it off." data-testid={`pg-pickbtn-${sc.id}`}>{sc.listed === 'pick' || sc.listed === 'bench' ? "🎨 Creator's pick ✓" : "🎨 Pick for Arena"}</button>
+        <button type="button" className={`m-btn pg-pick ${sc.listed === 'pick' || sc.listed === 'bench' ? 'is-on' : ''}`} aria-pressed={sc.listed === 'pick' || sc.listed === 'bench'} onClick={() => pickForArena(sc)} disabled={!seat(sc)}
+          data-tip={seat(sc) ? "Creator's pick: put this runner-up on the Arena (it fights in the league). Tap again to take it off." : 'Still competing in the background field — only the top 3 big cards can be picked'} data-testid={`pg-pickbtn-${sc.id}`}>{sc.listed === 'pick' || sc.listed === 'bench' ? "🎨 Creator's pick ✓" : "🎨 Pick for Arena"}</button>
         <span className="pg-acts"><button type="button" className="m-btn" onClick={() => editInBreed(sc)} data-tip="Open it in 🧬 Breed & fuse: rename, add / drop coins or pools, then publish" data-testid={`pg-edit-${sc.id}`}>✏️ Edit in Breed</button>
         <button type="button" className="m-btn primary m-go" onClick={() => publishScenario(sc)} data-testid={`pg-pub-${sc.id}`}>⭐ Publish</button></span></article>)}</div></div>}</details>
     <details className="hrt-fold pg-fold"><summary><b>🃏 Scenarios · dials · strategies</b><span>{p.scenarios?.length || 0} exit plans replayed · dials across windows · {p.board.length} strategies</span></summary>

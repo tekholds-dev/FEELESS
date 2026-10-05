@@ -52,9 +52,16 @@ body.theme-day .az-bar { box-shadow: 0 8px 18px -14px #0005; }
 
 /* 👑 The Throne (th-*): the reigning card under live voltage, two challengers trading sides behind it, past champions beside it.
    Every moving layer is transform / opacity only; all of it stops in fx-lite, reduced motion and off-screen (fxPause). */
-.th { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; align-items: stretch; }
-.th-stage { position: relative; min-height: 400px; display: grid; place-items: center; overflow: hidden; border-radius: 16px; perspective: 1100px;
-  border: 1px solid color-mix(in srgb, var(--gold, #f5c451) 45%, transparent); background: radial-gradient(70% 60% at 50% 42%, #2b1a52 0%, #0b0714 70%); }
+.th { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; align-items: center; margin-top: 6px; }
+/* no box: the throne stands on the page — a gold spotlight from above and a glowing pedestal under the king */
+.th-stage { position: relative; min-height: 420px; display: grid; place-items: center; overflow: hidden; perspective: 1100px; padding-bottom: 34px;
+  -webkit-mask-image: radial-gradient(62% 58% at 50% 52%, #000 55%, transparent 100%); mask-image: radial-gradient(62% 58% at 50% 52%, #000 55%, transparent 100%); }
+.th-cone { position: absolute; left: 50%; top: -6%; width: 62%; height: 96%; margin-left: -31%; pointer-events: none; z-index: 0;
+  clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%); background: linear-gradient(180deg, color-mix(in srgb, var(--gold, #f5c451) 34%, transparent), transparent 88%);
+  opacity: .55; animation: thPulse 4.8s ease-in-out infinite; }
+.th-plinth { position: absolute; left: 50%; bottom: -26px; width: 300px; height: 56px; margin-left: -150px; border-radius: 50%; pointer-events: none; z-index: -1;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--gold, #f5c451) 55%, transparent), transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold, #f5c451) 40%, transparent) inset; }
 .th-rays { position: absolute; inset: -70%; pointer-events: none; opacity: .2; animation: thSpin 30s linear infinite;
   background: conic-gradient(from 0deg, transparent 0 18deg, var(--gold, #f5c451) 22deg, transparent 28deg 108deg, #9b5cff 112deg, transparent 118deg 228deg, var(--gold, #f5c451) 232deg, transparent 238deg 300deg, #19f58f 304deg, transparent 310deg); }
 .th-king { position: relative; z-index: 2; display: grid; place-items: center; cursor: pointer; animation: thIn .55s var(--m-ease, ease) both; }
@@ -78,15 +85,15 @@ body.theme-day .az-bar { box-shadow: 0 8px 18px -14px #0005; }
 .th-ch small { font-size: 12px; color: var(--m-dim); white-space: nowrap; }
 .th-ch .th-ghost { width: 170px; height: 230px; font-size: 48px; }
 .th-side { display: grid; gap: 12px; align-content: center; min-width: 0; }
-.th-who { display: grid; gap: 5px; min-width: 0; padding: 14px 16px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--gold, #f5c451) 45%, transparent);
-  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--gold, #f5c451) 14%, transparent), transparent 60%), #0b0a12; }
+.th-who { display: grid; gap: 5px; min-width: 0; padding: 4px 0 4px 14px; border-left: 3px solid var(--gold, #f5c451); }
+.th-who > b { text-shadow: 0 0 18px color-mix(in srgb, var(--gold, #f5c451) 45%, transparent); }
 .th-who > b { font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .th-stats { display: flex; gap: 10px; font: 600 11px var(--m-mono, monospace); color: var(--m-dim); } .th-stats em { font-style: normal; } .th-stats em:first-child { color: var(--gold, #f5c451); }
 .th-who .bf-buychamp { justify-self: start; margin-top: 4px; }
 .th-fallen { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.th-fallen li { display: grid; gap: 1px; padding: 6px 10px; border-radius: 10px; border: 1px dashed var(--m-line); opacity: calc(.9 - var(--i) * .18);
+.th-fallen li { display: grid; gap: 1px; padding: 4px 0 4px 14px; border-left: 2px solid var(--m-line); opacity: calc(.9 - var(--i) * .18);
   animation: thFall .45s var(--m-ease, ease) both; animation-delay: calc(var(--i) * 70ms); }
-.th-fallen li.is-kept { border-style: solid; border-color: color-mix(in srgb, var(--gold, #f5c451) 35%, transparent); }
+.th-fallen li.is-kept { border-left-color: color-mix(in srgb, var(--gold, #f5c451) 60%, transparent); }
 .th-fallen s, .th-fallen b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .th-fallen s { text-decoration-color: color-mix(in srgb, var(--m-danger, #ff8fa3) 70%, transparent); }
 .th-fallen small { font: 500 10px var(--m-mono, monospace); color: var(--m-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -107,11 +114,11 @@ body.theme-day .az-bar { box-shadow: 0 8px 18px -14px #0005; }
 @keyframes thFall { from { opacity: 0; transform: translateX(14px) rotate(2deg); } }
 @keyframes thBolt { 0%, 100% { opacity: 0; } 4% { opacity: .95; } 7% { opacity: .15; } 10% { opacity: .8; } 14% { opacity: 0; } }
 @keyframes thPulse { 50% { opacity: .15; transform: scale(1.025); } }
-body.fx-lite .th-rays, body.fx-lite .th-volt i:not(.th-ring) { display: none; } body.fx-lite .th-crown, body.fx-lite .th-king, body.fx-lite .th-fallen li, body.fx-lite .th-ring, body.fx-lite .bf-chip { animation: none; } body.fx-lite .th-ch { transition: none; }
-@media (prefers-reduced-motion: reduce) { .th-rays, .th-volt i:not(.th-ring) { display: none; } .th-crown, .th-king, .th-fallen li, .th-ring, .bf-chip { animation: none; } .th-ch { transition: none; } }
-body.theme-day .th-who { background: linear-gradient(120deg, #fff6dc, #fff); border-color: #c99a1e; } body.theme-day .th-stats em:first-child { color: #8a5a00; } body.theme-day .bf-chip { background: #fff; }
+body.fx-lite .th-rays, body.fx-lite .th-volt i:not(.th-ring) { display: none; } body.fx-lite .th-cone { animation: none; } body.fx-lite .th-crown, body.fx-lite .th-king, body.fx-lite .th-fallen li, body.fx-lite .th-ring, body.fx-lite .bf-chip { animation: none; } body.fx-lite .th-ch { transition: none; }
+@media (prefers-reduced-motion: reduce) { .th-rays, .th-volt i:not(.th-ring) { display: none; } .th-cone { animation: none; } .th-crown, .th-king, .th-fallen li, .th-ring, .bf-chip { animation: none; } .th-ch { transition: none; } }
+body.theme-day .th-who { border-color: #c99a1e; } body.theme-day .th-who > b { text-shadow: none; } body.theme-day .th-cone { opacity: .25; } body.theme-day .th-stats em:first-child { color: #8a5a00; } body.theme-day .bf-chip { background: #fff; }
 @media (max-width: 900px) { .th { grid-template-columns: 1fr; } .th-stage { min-height: 340px; } .th-card { zoom: .68; } }
-@media (max-width: 640px) { .th-ch { display: none; } }
+@media (max-width: 640px) { .th-ch { display: none; } .th-plinth { width: 220px; margin-left: -110px; } }
 
 /* ⚔ The Pit as a show: timeframe lenses, a live call, the crowd split, and a final minute that feels like one */
 .bf-lens { margin-left: auto; } .bf-lens > button { padding: 5px 10px; font-size: 10.5px; }

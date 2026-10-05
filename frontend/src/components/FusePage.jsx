@@ -366,11 +366,11 @@ export function Throne({ champs, now, onBuy, kingNode, challengers = [], onOpen 
   const held = Math.max(0, now - (king.at || now)); const reign = held >= 86400 ? `${Math.floor(held / 86400)}d ${Math.floor((held % 86400) / 3600)}h` : held >= 3600 ? `${Math.floor(held / 3600)}h ${Math.floor((held % 3600) / 60)}m` : `${Math.floor(held / 60)}m`;
   return <div className="th" data-testid="bf-champs">
     <div className="th-stage">
-      <span className="th-rays" aria-hidden="true" />
+      <span className="th-rays" aria-hidden="true" /><span className="th-cone" aria-hidden="true" />
       {challengers.slice(0, 2).map((c, i) => <div key={c.key} role="button" tabIndex={0} className={`th-ch p-${(i + (flip ? 1 : 0)) % 2}`} onClick={e => { if (!e.target.closest('.fcd-flip')) onOpen?.(c.key); }} onKeyDown={e => e.key === 'Enter' && onOpen?.(c.key)} data-tip={`Challenger: ${c.name} · ${c.badge} — tap for its config`} aria-label={`Challenger ${c.name}`}>
         {c.node ? <span className="th-card">{c.node}</span> : <span className="th-ghost">{c.emoji || '🃏'}</span>}<small className="m-num">{c.name} · {c.badge}</small></div>)}
       <div className="th-king" key={king.at} role={kingNode ? 'button' : undefined} tabIndex={kingNode ? 0 : undefined} onClick={e => { if (!e.target.closest('.fcd-flip, .bf-buychamp')) onOpen?.(king.key); }} onKeyDown={e => e.key === 'Enter' && onOpen?.(king.key)}>
-        <span className="th-crown" aria-hidden="true">👑</span>
+        <span className="th-plinth" aria-hidden="true" /><span className="th-crown" aria-hidden="true">👑</span>
         <span className="th-volt" aria-hidden="true"><i /><i /><i /><i className="th-ring" /></span>
         {kingNode ? <span className="th-card">{kingNode}</span> : <span className="th-ghost">{king.emoji || '👑'}</span>}</div>
     </div>
@@ -467,9 +467,6 @@ export function Battlefield({ b: b0, cards = [], onLoad }) {
     <small className="m-dim" data-testid="bf-rules">{lg ? `every card on its own $${lg.startUsd} book all season · bigger move this bell wins (3 pts · draw 1) · ≤ $${lg.cut.usd} or −${lg.cut.dropPct}% in ${lg.cut.bells} rounds = cycled for a playground card · top of the table after ${lg.rounds} rounds is crowned` : 'bigger move since the bell wins · 2 losses = out · last card standing is crowned'}</small>
     <span className="m-seg bf-lens" role="tablist" aria-label="Timeframe">{PIT_LENSES.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} data-tip={tip} onClick={() => setLens(k)} data-testid={`bf-lens-${k}`}>{l}</button>)}</span>
     <b className={`bf-bell m-num ${secs < 60 ? 'is-soon' : ''}`} key={secs < 60 ? secs : 'x'}>🔔 {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</b></header>
-    {br.champions?.length > 0 && <Throne champs={br.champions} now={now} kingNode={nodeOf(br.champions[0].key, 0)} onOpen={k => cardOf(k) && setCfgKey(k)}
-      challengers={power(br.board || []).filter(x => x.key !== br.champions[0].key && x.status !== 'out').slice(0, 2).map(x => ({ key: x.key, name: x.name, emoji: x.emoji, badge: `${x.w}W–${x.l}L`, node: nodeOf(x.key, x.pct) }))}
-      onBuy={onLoad && (c => onLoad(c.legs, c.key?.startsWith('user:') ? { copyOf: c.key.slice(5), owner: c.name, champ: true, copyPct: (cardOf(c.key)?.copyPct || 10) * 2 } : { backName: c.name }))} />}
     {audit && <PaperAudit k={audit.key} name={audit.name} onClose={() => setAudit(null)} />}
     {cfgCard && <CardConfig c={cfgCard} onClose={() => setCfgKey(null)} onLoad={onLoad} onBack={b.pairs.some(p => [p.a.key, p.b.key].includes(cfgKey)) && !mine ? () => back(cfgKey) : null}
       onBuyBack={b.pairs.some(p => [p.a.key, p.b.key].includes(cfgKey)) ? () => buyBack({ key: cfgKey, name: cfgCard.name }) : null} />}
@@ -497,6 +494,9 @@ export function Battlefield({ b: b0, cards = [], onLoad }) {
           {corner(p, 'b', i)}
           {cur === i && <div className="bf-tickrow"><CoinTicker legsA={cardOf(p.a.key)?.legs} legsB={cardOf(p.b.key)?.legs} nameA={p.a.name} nameB={p.b.name} /></div>}</div>; })}
     </div>
+    {br.champions?.length > 0 && <Throne champs={br.champions} now={now} kingNode={nodeOf(br.champions[0].key, 0)} onOpen={k => cardOf(k) && setCfgKey(k)}
+      challengers={power(br.board || []).filter(x => x.key !== br.champions[0].key && x.status !== 'out').slice(0, 2).map(x => ({ key: x.key, name: x.name, emoji: x.emoji, badge: `${x.w}W–${x.l}L`, node: nodeOf(x.key, x.pct) }))}
+      onBuy={onLoad && (c => onLoad(c.legs, c.key?.startsWith('user:') ? { copyOf: c.key.slice(5), owner: c.name, champ: true, copyPct: (cardOf(c.key)?.copyPct || 10) * 2 } : { backName: c.name }))} />}
     {br.upNext?.length > 0 && <div className="bf-next" data-testid="bf-upnext"><span className="m-label">⏭ UP NEXT</span>{br.upNext.map((x, j) => <button key={x.key} type="button" className={`bf-nextcard br-${x.status}`} style={{ '--i': j }} onClick={() => setCfgKey(x.key)} data-tip="Fights at the next bell — tap for its config">
       <b>{x.emoji}</b><span>{x.name}</span><em>{x.status === 'winners' ? '🏆' : '💀'} {x.w}–{x.l}</em></button>)}</div>}
     {(br.board || []).length > 0 && <div className="bf-rail" data-testid="bf-power"><span className="m-label" data-tip="Every card in this season, top of the table first. 🔮 Call the champion (free) — right = season XP.">{lg ? `🏆 TABLE · ${b.bracket?.board?.length || 0}/${lg.fieldMax}` : '🥊 IN THE BRACKET'}</span>

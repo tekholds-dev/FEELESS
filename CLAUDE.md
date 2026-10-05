@@ -879,3 +879,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🧊 Runner cool-down (`runners.COOL_ROUNDS` 3, `recently_out`): a coin dropped or swapped out of a round is not picked again for 3 rounds.
 - Runners board: only lanes with picks get a column; empty lanes collapse into one `rn-idle` chip row (no dead "nothing this lane" boxes).
 - HQ › Fuse › Arena PrimeControls = PAPER tier cards only, two tabs (`PCTL_TABS`: 🃏 Cards · ⏱ Rounds & safety); size seg $20/$100/$500.
+- ⚔ The Pit order: the battle box FIRST, the 👑 Throne under it with NO box (gold spotlight `th-cone`, pedestal `th-plinth` inside `th-king`,
+  soft radial mask; info rows are left-rule lines, never bordered boxes).
+- 🏆 Playground seats (`pg_battle.shown`, `SHOWN` 3): up to 8 big cards fight in the background field; only the top 3 (W−L, wins, live move)
+  are shown (`PgTop3` at the top of Engine playground) and ONLY they can be 🎨 picked (`_pg_pick_ok` gates `scenario-pick`; no field yet =
+  any). The field itself sits in a fold. Regular scenario cards = 6-coin Fuses (`REGULAR_COINS`, `_pg_scenario_cards(coins=6)`, weights → 100%).
+- 💸 Keeper swap cost (`fuse_wallet.priority_cap(attempt, boost, sol_usd)`): a first try with no landing trouble keeps base + priority under
+  a penny (`PENNY_USD`, 10K–50K lamports at today's SOL); a retry or a card whose txs didn't land pays more to land (≤ 300K). Keeper swaps
+  carry NO FEELESS fee; new-coin rent (~0.002 SOL) comes back when `_fw_close_empty` closes empty accounts (every 30 min).

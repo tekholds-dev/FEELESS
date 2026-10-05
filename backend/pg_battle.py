@@ -137,6 +137,21 @@ def champion(record, cards, min_w=2):
     return max(ok, key=lambda kr: (kr[1]['w'] - kr[1]['l'], kr[1]['w']))[0] if ok else None
 
 
+SHOWN = 3            # of the background field (≤ 8 big cards), only the best 3 are brought into the playground to be chosen
+REGULAR_COINS = 6    # the playground's regular cards (best scenarios → cards) are 6-coin Fuses
+
+
+def shown(record, pcts, ids, n=SHOWN):
+    """🏆 The big cards that EARNED a seat in the playground: the background field competes and only the top `n` are shown to
+    be picked for the Arena — best W−L, then wins, then this round's move. A card with no bell yet ranks on its move alone."""
+    rec = record or {}
+    def key(k):
+        r = rec.get(k) or {}
+        w, l = int(r.get('w') or 0), int(r.get('l') or 0)
+        return (-(w - l), -w, -_f((pcts or {}).get(k)))
+    return sorted([k for k in ids or [] if k], key=key)[:n]
+
+
 def ready_rows(record, names, min_w=3):
     """Playground battle records for the engine's Ready list: ≥ min_w wins and at least 2 wins per loss."""
     out = []

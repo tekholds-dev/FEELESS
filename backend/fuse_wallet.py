@@ -837,8 +837,16 @@ def landing_boost(ledger, card, now, window=600):
     return min(4, sum(1 for r in (ledger or [])[-60:] if missed(r)))
 
 
-def priority_cap(attempt, boost):
-    """Max priority fee (lamports): 50K base, ×(attempt+1+boost), capped at 300K (≈ $0.02) — lands in busy blocks, never burns the card."""
+PENNY_USD = 0.009      # a first-try swap (base fee + priority) stays under a penny
+BASE_LAMPORTS = 5_000  # Solana's signature fee
+
+
+def priority_cap(attempt, boost, sol_usd=0.0):
+    """Max priority fee (lamports). First try with no landing trouble: whatever keeps base + priority under a penny at today's SOL
+    price (10K–50K). A retry or a card whose txs lately didn't land: 50K ×(attempt+1+boost), capped at 300K (≈ $0.02–0.06) —
+    landing beats saving a fraction of a cent; it never burns the card."""
+    if not int(attempt) and not int(boost) and _f(sol_usd) > 0:
+        return max(10_000, min(50_000, int(round(PENNY_USD / _f(sol_usd) * 1e9)) - BASE_LAMPORTS))
     return min(300_000, 50_000 * (int(attempt) + 1 + int(boost)))
 
 

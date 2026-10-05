@@ -214,3 +214,18 @@ def test_race_line_is_the_paper_books_minute_points_for_this_fight():
     assert pb.spark(book) == [1.0, 1.5, -0.4, 2.2]
     assert pb.spark(book, since=125) == [-0.4, 2.2]          # only this fight (one minute of slack)
     assert pb.spark(None) == [] and len(pb.spark({'hist': [[i, i] for i in range(90)]})) == 40
+
+
+def test_only_the_top_3_of_the_background_field_are_shown_to_be_picked():
+    rec = {'a': {'w': 3, 'l': 0}, 'b': {'w': 1, 'l': 2}, 'c': {'w': 2, 'l': 0}, 'd': {'w': 2, 'l': 1}, 'e': {'w': 0, 'l': 3}}
+    ids = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']                         # 8 big cards compete in the background
+    assert pb.shown(rec, {'f': 4.0}, ids) == ['a', 'c', 'd']                 # best W−L first; only 3 earn a playground seat
+    assert pb.shown({}, {'g': 2.0, 'h': -1.0, 'f': 5.0}, ['g', 'h', 'f']) == ['f', 'g', 'h']   # no bell yet → this round's move
+
+
+def test_pick_gate_only_lets_a_top_3_big_card_reach_the_arena():
+    import pytest
+    rs = pytest.importorskip('reputation_service')
+    rd = {'pgBattle': {'cards': {k: {} for k in 'abcde'}, 'record': {'a': {'w': 3, 'l': 0}, 'b': {'w': 2, 'l': 0}, 'c': {'w': 1, 'l': 0}}, 'pcts': {}}}
+    assert rs._pg_pick_ok(rd, 'a') and rs._pg_pick_ok(rd, 'c') and not rs._pg_pick_ok(rd, 'e')
+    assert rs._pg_pick_ok({'pgBattle': {}}, 'anything')                       # no field yet → any scenario card can be picked

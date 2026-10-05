@@ -6081,7 +6081,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
         for attempt in range(3):   # build + sign retried too (Jupiter / Circle blips); nothing is sent until a signed tx exists
             try:
                 swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
-                                                                    'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': _fw.priority_cap(attempt, boost), 'priorityLevel': 'veryHigh' if attempt or boost else 'high'}}})
+                                                                    'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': _fw.priority_cap(attempt, boost, sol_px), 'priorityLevel': 'veryHigh' if attempt or boost else 'high'}}})
                 row['lastValidBlockHeight'] = swap.get('lastValidBlockHeight')
                 signed = await _fw_sign(cfg, swap.get('swapTransaction'), f"FEELESS {tid} {order['side']} {order.get('symbol')}")
                 break
@@ -7239,6 +7239,14 @@ async def _scenario_stage(rd, now):
     return len(stage)
 
 
+def _pg_pick_ok(rd, sid):
+    """🎨 A big card reaches the Arena only once it EARNED a playground seat: the background field (≤ 8) competes and only its top
+    3 (`pg_battle.shown`) can be picked. With no field yet (battles off / still dealing) any scenario card can be picked."""
+    b = rd.get('pgBattle') or {}
+    ids = list(b.get('cards') or {})
+    return len(ids) < _pgb.SHOWN or sid in _pgb.shown(b.get('record'), b.get('pcts'), ids)
+
+
 @app.post('/api/reputation/admin/fuses/scenario-pick')
 async def scenario_pick(request: Request, body: dict):
     """🎨 Creator's pick: HQ puts an engine runner-up on the Arena (or takes it off). Dealt right away. Audited."""
@@ -7248,6 +7256,8 @@ async def scenario_pick(request: Request, body: dict):
         raise HTTPException(400, 'Pick a scenario card.')
     async with _admin_lock:
         d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
+        if body.get('on', True) and sid not in (d.get('creatorPicks') or []) and not _pg_pick_ok(d, sid):
+            raise HTTPException(400, f"Only the playground's top {_pgb.SHOWN} big cards can be picked — this one is still competing in the background.")
         cur = [x for x in d.get('creatorPicks') or [] if x != sid] + ([sid] if body.get('on', True) else [])
         d['creatorPicks'] = cur[-4:]; _json_save(RUNNERS_PATH, d)   # max 4 big engine cards on the Arena
         ad = _admin_load(); _audit(ad, admin, 'creator-pick', f"{sid} {'on' if body.get('on', True) else 'off'}"); _admin_save(ad)
@@ -7431,7 +7441,8 @@ async def fuse_playground(request: Request):
             'autoLog': auto, 'engineDial': rd.get('cfgDial') or 'custom', 'autoTune': rd.get('autoTune') is not False,
             'gateRegret': _rn.gate_regret(rd.get('dropLog') or [], await _hq_prices([{'chainId': 'solana', 'pairAddress': e['pairAddress']} for e in (rd.get('dropLog') or [])[-120:] if e.get('pairAddress')]), now),
             'scenarios': (scen := _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS)),
-            'scenarioCards': await _pg_scenario_cards(rd, scen, now),
+            'scenarioCards': await _pg_scenario_cards(rd, scen, now, coins=_pgb.REGULAR_COINS),
+            'shownIds': _pgb.shown((rd.get('pgBattle') or {}).get('record'), (rd.get('pgBattle') or {}).get('pcts'), list(((rd.get('pgBattle') or {}).get('cards') or {}))),
             'filters': {'24h': _rn.filter_proof(rd.get('rounds') or [], rd.get('paths') or {}, now, _rn.clean_cfg(rd.get('cfg') or {}), 24 * 3600),
                         '72h': _rn.filter_proof(rd.get('rounds') or [], rd.get('paths') or {}, now, _rn.clean_cfg(rd.get('cfg') or {}), 72 * 3600)},
             'doctor': {'filter': rd.get('pickFilter'), 'sitOut': bool(rd.get('sitOut')), 'why': rd.get('doctorWhy'), 'at': rd.get('doctorAt')},
@@ -7444,13 +7455,21 @@ async def _top_anchor():
     return {'chainId': 'solana', 'pairAddress': top['pairAddress'], 'symbol': top.get('symbol'), 'mint': top.get('baseAddress')} if top else None
 
 
-async def _pg_scenario_cards(rd, scen=None, now=None, losers_ok=False, top=6):
-    """The playground's best scenario cards (this round's gated runners + SOL anchor), versioned and tagged with where they're listed."""
+async def _pg_scenario_cards(rd, scen=None, now=None, losers_ok=False, top=6, coins=None):
+    """The playground's best scenario cards (this round's gated runners + SOL anchor), versioned and tagged with where they're listed.
+    `coins` = the regular card shape (6 coins, ≤ 2 pools, topped up with the best gated runners)."""
     scen = scen if scen is not None else _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now or time.time(), _hq.RISK_DIALS)
     anchor = await _top_anchor()
     listed = {**{x: 'pick' for x in rd.get('creatorPicks') or []}, **{x.get('src'): 'bench' for x in rd.get('scenarioStage') or []},
               **{f.get('fromScenario'): 'stage' for f in (_json_load(FUSES_PATH, {'fuses': {}}).get('fuses') or {}).values() if f.get('arena') and f.get('fromScenario')}}
-    return _rn.tag_versions(_rn.scenario_cards(scen, ((rd.get('rounds') or [{}])[-1] or {}).get('picks'), anchor, top=top, losers_ok=losers_ok), rd.get('scenarioVersions') or {}, listed)
+    out = _rn.tag_versions(_rn.scenario_cards(scen, ((rd.get('rounds') or [{}])[-1] or {}).get('picks'), anchor, top=top, losers_ok=losers_ok), rd.get('scenarioVersions') or {}, listed)
+    if coins:
+        cand = [{'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'mint': r.get('mint')} for r in (await _runner_live()).get('passing') or [] if r.get('pairAddress')]
+        out = [_pgb.fit_shape(c, cand, coins) for c in out]
+        for c in out:   # weights back to 100% after the top-up
+            tot = sum(_fuse._f(l.get('weight')) for l in c['legs']) or 1.0
+            c['legs'] = [{**l, 'weight': round(_fuse._f(l.get('weight')) / tot * 100, 1)} for l in c['legs']]
+    return out
 
 
 def _pg_battle_view(rd):
@@ -7461,7 +7480,7 @@ def _pg_battle_view(rd):
                       'legs': [{x: l.get(x) for x in ('symbol', 'role', 'pairAddress')} for l in (cards.get(k) or {}).get('legs') or []], 'record': (b.get('record') or {}).get(k),
                       'clock': _pgb.assign_clock((b.get('cardClocks') or {}).get(k), list(cards).index(k) if k in cards else 0), 'clocks': (b.get('cardClocks') or {}).get(k) or {}}
     return {'cfg': _pgb.clean_cfg(b.get('cfg')), 'clockStats': b.get('clockStats') or {}, 'bestClock': b.get('bestClock'), 'roundNow': b.get('roundMins'), 'locked': b.get('locked') or [], 'scrapped': len(b.get('scrapped') or []), 'picks': rd.get('creatorPicks') or [], 'endsAt': b.get('endsAt'), 'pairs': [{'a': view(p['a']), 'b': view(p['b'])} for p in b.get('pairs') or []],
-            'field': [view(k) for k in cards],
+            'field': [view(k) for k in cards], 'shown': [view(k) for k in _pgb.shown(b.get('record'), b.get('pcts'), list(cards))],
             'log': (b.get('log') or [])[-12:][::-1], 'record': b.get('record') or {}, 'names': {k: c.get('name') for k, c in cards.items()},
             'brain': {**_dna.best(b.get('brain') or {}), 'label': _dna.label(_dna.best(b.get('brain') or {})['dna']), 'scores': b.get('brain') or {}}}
 
