@@ -372,6 +372,8 @@ def clean_cfg(p):
     out['minHoldMins'] = max(0.0, min(240.0, _f((p or {}).get('minHoldMins', MIN_HOLD_MINS))))
     ck = (p or {}).get('clocks') if isinstance((p or {}).get('clocks'), dict) else {}
     out['clocks'] = {t: (round(min(48.0, max(0.08, _f(ck[t]))), 2) if _f(ck.get(t)) > 0 else DEFAULT_CLOCKS[t]) for t in DEFAULT_CLOCKS}
+    out['skimAt'] = float(_f((p or {}).get('skimAt'))) if _f((p or {}).get('skimAt')) in SKIM_ATS else 0.0
+    out['skimTo'] = (p or {}).get('skimTo') if (p or {}).get('skimTo') in SKIM_TOS else 'card'
     out['lockBankPct'] = float(_f((p or {}).get('lockBankPct'))) if (p or {}).get('lockBankPct') is not None and _f((p or {}).get('lockBankPct')) in LOCK_BANKS else LOCK_BANK
     out['swapEdge'] = bool((p or {}).get('swapEdge', True))   # ⚖ rotate only when the next coin beats this one by more than the swap costs
     out['swapCapHr'] = int(_f((p or {}).get('swapCapHr'))) if int(_f((p or {}).get('swapCapHr'))) in SWAP_CAPS else 0   # 🤖 0 = auto
@@ -510,6 +512,66 @@ def buy_px(px, usd, liq):
 def sell_usd(units, px, liq):
     v = _f(units) * _f(px)
     return v / (1 + SPREAD) / (1 + v / _r(liq))
+
+
+# 💰 SKIM THE PROFIT, KEEP THE STAKE. A coin that is up keeps what was put into it riding; only the gain is sold — into the card's
+# other coins (♻ recovery for the ones that are down) or held as cash (🏦 e.g. a tax reserve the owner withdraws).
+SKIM_ATS = (0, 10, 20, 30, 50, 100)   # auto: skim each time the coin gains this % since its entry / last skim (0 = off)
+SKIM_TOS = ('card', 'cash')
+SKIM_MIN_USD = 0.05                   # a gain smaller than this isn't worth a swap
+
+
+def lock_bank(c, l, px, liqs, now, cfg, fee=0.0, gain=None):
+    """🏦 BANK ON THE LOCK: `lockBankPct` of a winner is sold when it locks, so a round-tripped run still paid. Once per ride
+    (`bankedAt`). In place → $ banked."""
+    bank = _f((cfg or {}).get('lockBankPct', LOCK_BANK)) / 100
+    if bank <= 0 or l.get('bankedAt') or _f(l.get('units')) <= 0 or px <= 0:
+        return 0.0
+    sold = _f(l['units']) * bank
+    got = sell_usd(sold, px, (liqs or {}).get(l['pairAddress']) or l.get('liq'))
+    cost_part = _f(l.get('costUsd')) * bank
+    l['units'] = _f(l['units']) - sold; l['costUsd'] = round(_f(l.get('costUsd')) - cost_part, 6); l['trimAt'] = l['bankedAt'] = now
+    c['cash'] = _f(c.get('cash')) + got; c['takenUsd'] = _f(c.get('takenUsd')) + max(0.0, got - cost_part); c['feesUsd'] = _f(c.get('feesUsd')) + fee
+    g_txt = f" (+{gain:.0f}%)" if gain is not None else ''
+    c.setdefault('events', []).append({'at': now, 'kind': 'lock-bank', 'symbol': l['symbol'], 'usd': round(got, 4), 'to': ['cash'],
+                                       'why': f"🏦 banked {bank * 100:g}% of ${l['symbol']} as it locked{g_txt} — the rest keeps riding"})
+    return got
+
+
+def _skim(c, l, px, liqs, now, to='card', fee=0.0, auto=None):
+    """Sell the PROFIT of one coin, in place. → $ taken (0 = nothing to take). The part that stays is worth what the coin cost."""
+    units, cost = _f(l.get('units')), _f(l.get('costUsd'))
+    value = units * px
+    gain = value - cost
+    if units <= 0 or px <= 0 or gain < SKIM_MIN_USD:
+        return 0.0
+    part = gain / value
+    sold = units * part
+    got = sell_usd(sold, px, (liqs or {}).get(l['pairAddress']) or l.get('liq'))
+    l['units'] = units - sold; l['costUsd'] = round(cost * (1 - part), 6)
+    l['trimAt'] = now; l['skimPx'] = px                      # the keeper sells this trim; the next skim counts from this price
+    c['cash'] = round(_f(c.get('cash')) + got, 6)
+    if to == 'cash':
+        c['holdCashUsd'] = round(_f(c.get('holdCashUsd')) + got, 6)   # held for the owner — never put back into coins
+    c['takenUsd'] = _f(c.get('takenUsd')) + max(0.0, got - cost * part)
+    c['feesUsd'] = _f(c.get('feesUsd')) + fee
+    c.setdefault('events', []).append({'at': now, 'kind': 'skim', 'symbol': l.get('symbol'), 'usd': round(got, 4), 'to': ['cash'] if to == 'cash' else ['card'],
+                                       'why': f"💰 {'auto: +' + format(auto, 'g') + '% — ' if auto else ''}profit of ${l.get('symbol')} taken (${got:.2f}), its stake keeps riding — "
+                                              + ('held as cash for you' if to == 'cash' else 'put to work in your other coins')})
+    return got
+
+
+def skim_leg(card, pair, prices, liqs, now, to='card'):
+    """Owner's 💰: take the profit of ONE coin now. Pure; ValueError when the coin isn't on the card or has no profit to take."""
+    c = {**card, 'legs': [dict(l) for l in card['legs']], 'events': list(card.get('events') or [])}
+    l = next((x for x in c['legs'] if x['pairAddress'] == pair), None)
+    if not l:
+        raise ValueError('That coin is not on this card.')
+    if l.get('buying') or l.get('placeholder'):
+        raise ValueError('That coin is still being bought.')
+    if not _skim(c, l, _f((prices or {}).get(pair)) or _f(l.get('entry')), liqs, now, to if to in SKIM_TOS else 'card'):
+        raise ValueError(f"${l.get('symbol')} has no profit to take right now.")
+    return c
 
 
 LOCK_BANKS, LOCK_BANK = (0, 25, 33, 50), 33.0   # 🏦 % of a winner sold the moment it locks (0 = off)
@@ -795,6 +857,21 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         ev(kind='replace', symbol=l.get('symbol'), usd=round(usd, 4), why='reserved replacement slot filled from eligible feed', to=[nxt.get('symbol')])
     c.setdefault('dayAt', c['at']); c.setdefault('dayStartUsd', c['startUsd']); c.setdefault('days', []); c.setdefault('lowPct', 0.0)
 
+    # 🏦 a coin already riding that has not banked yet (the setting came on later, or its bank never reached the chain) banks once now
+    for l in c['legs']:
+        if l.get('ride') and not l.get('bankedAt') and not c.get('flooredAt'):
+            px_b = _f(prices.get(l['pairAddress']))
+            if px_b > 0 and px_b > _f(l.get('entry')):
+                lock_bank(c, l, px_b, liqs, now, cfg, fee, (px_b / _f(l['entry']) - 1) * 100 if _f(l.get('entry')) > 0 else None)
+    # 💰 AUTO SKIM (owner's setting): every `skimAt`% a coin gains since its entry / last skim, its profit is taken and its stake rides on
+    sk = _f(cfg.get('skimAt'))
+    if sk > 0 and not c.get('flooredAt'):
+        for l in c['legs']:
+            if l.get('placeholder') or l.get('buying') or _f(l.get('units')) <= 0 or _f(l.get('entry')) <= 0:
+                continue
+            px_s = _f(prices.get(l['pairAddress']))
+            if px_s > 0 and px_s >= (_f(l.get('skimPx')) or _f(l['entry'])) * (1 + sk / 100):
+                _skim(c, l, px_s, liqs, now, cfg.get('skimTo') or 'card', fee, auto=sk)
     # 🗑 TRENCH FILL: a card on the trench cycle holds its 1–2 trench coins as soon as the scan has one — it never waits up to
     # `cycleEvery` rounds for the next re-shape. The weakest normal runner (not winning > +10%, not frozen / riding / picked / waiting
     # on a buy) is sold for the best trench coin. No trench coin passing → the card keeps its normal runners.
@@ -912,14 +989,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         elif _f(cfg.get('rideAt', RIDE_AT)) > 0 and g >= ra and l.get('role') != 'anchor' and _f(l.get('units')) > 0:   # never 'ride' a coin you don't hold
             l.update(ride=True, high=px, rideFrom=l['entry'], rideAt=now)
             ev(kind='ride', symbol=l['symbol'], usd=round(l['units'] * px, 4), why=f"+{g:.0f}% ≥ +{ra:g}% — ❄ frozen (riding) until it falls {rt:g}% from its peak, then swapped", to=[l['symbol']])
-            bank = _f(cfg.get('lockBankPct', LOCK_BANK)) / 100
-            if bank > 0:   # 🏦 BANK ON THE LOCK: part of the winner is sold the moment it locks, so a round-tripped run still paid
-                sold = _f(l['units']) * bank
-                got = sell_usd(sold, px, liqs.get(l['pairAddress']) or l.get('liq'))
-                cost_part = _f(l.get('costUsd')) * bank
-                l['units'] = _f(l['units']) - sold; l['costUsd'] = round(_f(l.get('costUsd')) - cost_part, 6); l['trimAt'] = now
-                c['cash'] = _f(c['cash']) + got; c['takenUsd'] += max(0.0, got - cost_part); c['feesUsd'] += fee
-                ev(kind='lock-bank', symbol=l['symbol'], usd=round(got, 4), why=f"🏦 banked {bank * 100:g}% of ${l['symbol']} as it locked (+{g:.0f}%) — the rest keeps riding", to=['cash'])
+            lock_bank(c, l, px, liqs, now, cfg, fee, g)
             continue
         elif g >= leg_tp(l, t):
             mode, frac, why = exit_plan(g, mom.get(l['pairAddress']))
@@ -1160,7 +1230,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     if cfg['compound'] and free_cash > 0.01 and c['legs']:
         waiting = [l for l in c['legs'] if l.get('buying') and not l.get('placeholder')]   # 👛 a pending real buy owns its slice first
         # a locked (riding / frozen) coin is never topped up: what was just banked off it must not be bought straight back
-        targets = [l for l in c['legs'] if not l.get('placeholder') and not l.get('ride') and not l.get('frozen')] or [l for l in c['legs'] if not l.get('placeholder')]
+        # … and neither is a coin whose profit was just skimmed (10 min): that money is for the OTHER coins
+        targets = [l for l in c['legs'] if not l.get('placeholder') and not l.get('ride') and not l.get('frozen') and now - _f(l.get('trimAt')) > 600] \
+            or [l for l in c['legs'] if not l.get('placeholder')]
         if targets:
             # ⚖ NO COIN GETS THE WHOLE POT. Idle cash fills the seats that are furthest under an equal share and never lifts a coin
             # above it. It used to go entirely to whichever coin was waiting on a buy: $1.15 of freed cash went into ONE coin, which
@@ -1457,6 +1529,7 @@ def sell_leg_to_cash(card, pair, prices, now, pct=100.0):
         part = pct / 100.0
         usd = max(0.0, _f(l.get('units')) * px * part)
         l['units'] = _f(l.get('units')) * (1 - part); l['costUsd'] = _f(l.get('costUsd')) * (1 - part)
+        l['trimAt'] = now   # the keeper sells a deliberate cut even inside its rebalance band (a 25% ✂ sat unsold: 33% over < the 50% band)
         c['cash'] = round(_f(c.get('cash')) + usd, 6)
         c['holdCashUsd'] = round(_f(c.get('holdCashUsd')) + usd, 6)
         c['events'].append({'at': now, 'kind': 'manual-sell', 'symbol': l.get('symbol'), 'usd': round(usd, 4),

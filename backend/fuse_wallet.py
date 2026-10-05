@@ -99,6 +99,7 @@ def mark_off_card_cash(book, card):
     return {**book, 'legs': legs}, marked
 
 
+TRIM_SEC = 600     # how long an engine cut (`trimAt`) stays wanted before the card goes back to what the wallet holds
 REBAL_BAND = 0.5   # coins kept through a re-shape: sell / rebuy only when > 50% off target — re-weighing the same coin each round
 #                    burnt the daily cap on churn (cbBTC bought 14:20, sold 14:21, bought again) and starved the real new buys
 
@@ -123,7 +124,7 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
         manual_cash = bool((l.get('manualCash') and not recovered) or (tgt.get(mint) or {}).get('manualCash'))
         # 🔁 a coin that STAYS is only trimmed when it's far over target (no churn) — unless the ENGINE cut it on purpose
         # (🏦 banking part of a winner as it locks: `trimAt` on the leg, for 10 minutes)
-        banked = bool((tgt.get(mint) or {}).get('trim')) and now - _f((tgt.get(mint) or {}).get('trimAt')) < 600
+        banked = bool((tgt.get(mint) or {}).get('trim')) and now - _f((tgt.get(mint) or {}).get('trimAt')) < TRIM_SEC
         if not full and not banked and excess * px < want * px * REBAL_BAND:
             continue
         # Explicit recovery may clean out a confirmed balance after a dead pool pushes it below the normal dust floor.
@@ -559,10 +560,16 @@ def sync_card(card, book, prices, sol_px):
             continue
         bl = (book.get('legs') or {}).get(l['mint'])
         if bl:
-            l['units'] = held_units(book, l['mint'])
+            held, want = held_units(book, l['mint']), _f(l.get('units'))
+            # 🏦 AN ENGINE CUT IS DURABLE: when the engine sold part of a coin on purpose (bank at the lock, 💰 skim, ✂ part-sell →
+            # `trimAt`) and that sell has not landed yet, the card keeps the CUT amount for 10 min so the keeper keeps trying. This
+            # line used to copy the wallet's full balance back every tick, so one skipped sell erased the cut for good
+            # ($SpaceXSI locked at +101% and its 33% bank never sold; the coin then ran to +430% with nothing banked).
+            cut = bool(l.get('trimAt')) and __import__('time').time() - _f(l.get('trimAt')) < TRIM_SEC and 0 < want < held * 0.999
+            l['units'] = want if cut else held
             if _f(bl.get('entryPx')) > 0:
                 l['entry'] = bl['entryPx']; l.setdefault('firstEntry', bl['entryPx'])
-            l['costUsd'] = _f(bl.get('costUsd'))
+            l['costUsd'] = round(_f(bl.get('costUsd')) * (want / held), 6) if cut else _f(bl.get('costUsd'))
             l['real'] = True; l.pop('buying', None); l.pop('wantUnits', None); l.pop('buyingSince', None)
         else:   # its buy hasn't landed yet (failed / route busy): hold nothing, keep wanting it so the keeper retries, never show −100%
             if _f(l.get('units')) > 0:

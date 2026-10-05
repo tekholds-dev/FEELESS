@@ -1264,3 +1264,69 @@ def test_a_coin_the_owner_swapped_out_stays_off_the_card_for_hours():
     assert 'PENGU' in ap.cooling(later, 1000.0 + 3 * 3600, 0.08)                         # … but the owner took it off → still out
     assert 'PENGU' not in ap.cooling(later, 1000.0 + ap.OWNER_OUT_SEC + 1, 0.08)         # free again after 6h
     assert ap.cool_left(later, 'PENGU', 1000.0 + 3600, 0.08) >= 1                        # and it can't be picked straight back either
+
+
+def test_skim_takes_only_the_profit_keeps_the_stake_and_sends_it_where_the_owner_says():
+    import arena_prime as ap
+    now = 1_000_000.0
+    leg = lambda m, units, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': units, 'entry': 1.0, 'costUsd': units, 'at': now - 9999, 'liq': 1e12, **k}
+    card = {'legs': [leg('UP', 1.0), leg('DOWN', 1.0)], 'cash': 0.0, 'events': [], 'takenUsd': 0.0, 'feesUsd': 0.0}
+    px = {'PUP': 1.5, 'PDOWN': 0.7}
+    c = ap.skim_leg(card, 'PUP', px, {}, now)
+    up = c['legs'][0]
+    assert abs(up['units'] * 1.5 - 1.0) < 1e-6                                           # what stays is worth exactly the stake ($1.00)
+    assert abs(c['cash'] - 0.5) < 1e-6 and not c.get('holdCashUsd')                      # the $0.50 profit is card cash, free to go into the other coins
+    assert up['trimAt'] == now and up['skimPx'] == 1.5 and c['events'][-1]['kind'] == 'skim' and 'other coins' in c['events'][-1]['why']
+    assert card['legs'][0]['units'] == 1.0                                               # pure: the input card is untouched
+    tax = ap.skim_leg(card, 'PUP', px, {}, now, to='cash')
+    assert abs(tax['holdCashUsd'] - 0.5) < 1e-6 and 'held as cash' in tax['events'][-1]['why']               # held for the owner, never re-spent
+    for bad in ('PDOWN', 'PNOPE'):
+        try:
+            ap.skim_leg(card, bad, px, {}, now); assert False
+        except ValueError:
+            pass
+    # the skimmed profit goes to the OTHER coin, not back into the one it came from
+    fills = [l for l in c['legs'] if now - (l.get('trimAt') or 0) > 600]
+    assert [l['mint'] for l in fills] == ['DOWN']
+    # auto: every +20% since the entry / the last skim
+    cfg = ap.clean_cfg({'skimAt': 20, 'skimTo': 'card', 'rotateHours': 99, 'rideAt': 0, 'compound': False, 'cycles': {'degen': 'off'}, 'rescuePct': 0, 'lockBankPct': 0, 'tp': 0})
+    assert cfg['skimAt'] == 20.0 and ap.clean_cfg({'skimAt': 15})['skimAt'] == 0.0 and ap.clean_cfg({'skimTo': 'x'})['skimTo'] == 'card'
+    base = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 0.0, 'startUsd': 2.0, 'roundStartUsd': 2.0, 'compoundedUsd': 0.0,
+            'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 1, 'legs': [leg('UP', 1.0, tp=900), leg('FLAT', 1.0)]}
+    c1 = ap.tick(base, {'PUP': 1.15, 'PFLAT': 1.0}, [], [], cfg, now + 10, [], {}, {})
+    assert not any(e['kind'] == 'skim' for e in c1['events'])                            # +15% < +20%: nothing yet
+    c2 = ap.tick(c1, {'PUP': 1.25, 'PFLAT': 1.0}, [], [], cfg, now + 20, [], {}, {})
+    assert [e['kind'] for e in c2['events']].count('skim') == 1 and abs(c2['cash'] - 0.25) < 0.01
+    c3 = ap.tick(c2, {'PUP': 1.30, 'PFLAT': 1.0}, [], [], cfg, now + 30, [], {}, {})
+    assert [e['kind'] for e in c3['events']].count('skim') == 1                          # +4% since the last skim: not again
+    c4 = ap.tick(c3, {'PUP': 1.52, 'PFLAT': 1.0}, [], [], cfg, now + 40, [], {}, {})
+    assert [e['kind'] for e in c4['events']].count('skim') == 2                          # another +20% from the last skim price → skimmed again
+
+
+def test_a_partial_sell_to_cash_is_flagged_so_the_keeper_really_sells_it():
+    import arena_prime as ap
+    import fuse_wallet as fw
+    card = {'legs': [{'mint': 'W', 'pairAddress': 'PW', 'symbol': 'W', 'role': 'runner', 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0}], 'cash': 0.0, 'events': []}
+    c = ap.sell_leg_to_cash(card, 'PW', {'PW': 1.0}, 1000.0, 25)
+    assert c['legs'][0]['trimAt'] == 1000.0 and abs(c['legs'][0]['units'] - 0.75) < 1e-9
+    cfg = {**fw.DEFAULT_CFG, 'walletId': 'w', 'address': 'O', 'armed': True, 'minOrderUsd': 0.1}
+    book = {'sol': 0.0, 'legs': {'W': {'atoms': 1_000_000, 'decimals': 6, 'pair': 'PW', 'symbol': 'W', 'costUsd': 1.0, 'entryPx': 1.0}}}
+    assert [o['atoms'] for o in fw.orders('t', c, book, {'PW': 1.0}, 100.0, cfg, 1010) if o['side'] == 'sell'] == [250000]   # 25% really goes
+
+
+def test_a_riding_coin_that_never_banked_banks_once_and_only_once():
+    import arena_prime as ap
+    now = 1_000_000.0
+    cfg = ap.clean_cfg({'rotateHours': 99, 'rideAt': 100, 'rideTrail': 30, 'compound': False, 'cycles': {'degen': 'off'}, 'rescuePct': 0, 'tp': 0})
+    leg = lambda m, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0, 'at': now - 9999, 'liq': 1e12, **k}
+    card = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 0.0, 'startUsd': 2.0, 'roundStartUsd': 2.0, 'compoundedUsd': 0.0,
+            'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 1,
+            'legs': [leg('SPACE', ride=True, high=5.0, rideFrom=1.0, rideAt=now - 600, trimAt=now - 600), leg('B')]}   # locked earlier, its bank never sold
+    px = {'PSPACE': 5.0, 'PB': 1.0}
+    c = ap.tick(card, px, [], [], cfg, now + 10, [], {}, {})
+    sp = c['legs'][0]
+    assert abs(sp['units'] - 0.67) < 1e-6 and sp['bankedAt'] == now + 10 and sp['ride'] and [e['kind'] for e in c['events']].count('lock-bank') == 1
+    c2 = ap.tick(c, px, [], [], cfg, now + 60, [], {}, {})
+    assert abs(c2['legs'][0]['units'] - 0.67) < 1e-6 and [e['kind'] for e in c2['events']].count('lock-bank') == 1   # never twice
+    off = ap.tick(card, px, [], [], {**cfg, 'lockBankPct': 0.0}, now + 10, [], {}, {})
+    assert off['legs'][0]['units'] == 1.0                                                # setting off → nothing sold

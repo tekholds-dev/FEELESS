@@ -112,7 +112,9 @@ DEFAULT_CFG = {'roundSize': 5, 'minMcap': 8000, 'minVol1h': 5000, 'maxTop10': 30
                'autoCoins': 4, 'autoPools': 3, 'battleMins': 60,
                # flow + bundles (were hard-coded) and the new checks
                'minBuyShare': 40, 'maxBuyShare': 85, 'minTrades1h': 50, 'maxBundled': 2, 'maxTop10Jump': 10,
-               'bondWatchCurve': 75, 'bondSpeed10m': 8, 'smartMin': 3}
+               'bondWatchCurve': 75, 'bondSpeed10m': 8, 'smartMin': 3,
+               # 🧠 smart gates: a wider buy band ONLY for coins with clean holders · a suspect creator's coin passes once it has LASTED
+               'smartBuyShare': 92, 'agedProofH': 12}
 
 # ⚡ Stronger engine: what HQ is offered (one click) when its live config is weaker. Each with the reason.
 RECOMMENDED = {'minMcap': (12000, 'Under $12K is mostly bots'), 'minVol1h': (10000, 'Real two-sided flow starts here'),
@@ -128,7 +130,7 @@ CFG_RANGES = {'roundSize': (2, 10), 'minMcap': (1000, 1_000_000), 'minVol1h': (5
               'bondCurve': (70, 99), 'bondBuys': (50, 90), 'bondVol1h': (1000, 1_000_000), 'bondTop10': (5, 40), 'bondPts': (0, 30),
               'autoCoins': (2, 6), 'autoPools': (1, 5), 'battleMins': (15, 240),
               'minBuyShare': (30, 70), 'maxBuyShare': (60, 95), 'minTrades1h': (10, 500), 'maxBundled': (0, 5), 'maxTop10Jump': (3, 40),
-              'bondWatchCurve': (50, 89), 'bondSpeed10m': (1, 40), 'smartMin': (1, 10)}
+              'bondWatchCurve': (50, 89), 'bondSpeed10m': (1, 40), 'smartMin': (1, 10), 'smartBuyShare': (60, 97), 'agedProofH': (6, 48)}
 
 
 def clean_cfg(p):
@@ -187,11 +189,44 @@ def banger_proof(c):
     return (not miss, 'proves itself: clean holders, buyers in charge' if not miss else '; '.join(miss))
 
 
-def rep_ok(c):
+AGED_PROOF = {'minLiq': 50_000.0, 'maxTop10': 25.0}
+
+
+def aged_proof(c, cfg=None):
+    """🕰 TIME is proof too: a rug happens early. A suspect creator's coin that is still alive after `agedProofH` hours with a real
+    pool (≥ $50K), spread-out holders (scan done, top-10 < 25%), no flagged funders and a dev who has not sold has lasted longer
+    than a rug does. → (ok, why)"""
+    h = _f((cfg or {}).get('agedProofH', DEFAULT_CFG['agedProofH']))
+    miss = [why for ok, why in (
+        (c.get('ageH') is not None and _f(c['ageH']) >= h, f"alive {c.get('ageH')}h < {h:g}h"),
+        (_f(c.get('liq')) >= AGED_PROOF['minLiq'], f"pool ${_f(c.get('liq')):,.0f} < ${AGED_PROOF['minLiq']:,.0f}"),
+        (bool(c.get('scanned')) and c.get('top10') is not None and _f(c['top10']) < AGED_PROOF['maxTop10'], 'holders not spread (or not scanned)'),
+        (int(c.get('flaggedFunders') or 0) == 0, 'flagged funders'),
+        (not c.get('devSold'), 'dev sold')) if not ok]
+    return (not miss, f'lasted {_f(c.get("ageH")):.0f}h with a real pool and spread-out holders' if not miss else '; '.join(miss))
+
+
+def clean_holders(c):
+    """Holder scan done and nothing to hide: top-10 < 20%, snipers/bundlers < 5%, no bundled wallet, dev has not sold."""
+    return (bool(c.get('scanned')) and c.get('top10') is not None and _f(c['top10']) < BANGER_PROOF['maxTop10'] and _f(c.get('insiders')) < BANGER_PROOF['maxInsiders']
+            and int(c.get('bundled') or 0) <= BANGER_PROOF['maxBundled'] and not c.get('devSold'))
+
+
+def flow_ok(c, g):
+    """🧠 Two-sided flow, read smartly. Inside the normal band (min–max % buys) with enough trades → pass. ABOVE the band (almost
+    all buys) is how a pump is pushed — and also how a real breakout looks; it passes up to `smartBuyShare` ONLY when the holders
+    are clean (`clean_holders`). Below the band (sellers lead) never passes."""
+    bs = c.get('buyShare')
+    if bs is None or _f(c.get('txns1h')) < g['minTrades1h'] or _f(bs) < g['minBuyShare']:
+        return False
+    return _f(bs) <= g['maxBuyShare'] or (_f(bs) <= max(g['maxBuyShare'], g.get('smartBuyShare', g['maxBuyShare'])) and clean_holders(c))
+
+
+def rep_ok(c, cfg=None):
     rep = c.get('creatorRep')
     if rep == 'high':
         return False
-    return rep != 'suspect' or banger_proof(c)[0]
+    return rep != 'suspect' or banger_proof(c)[0] or aged_proof(c, cfg)[0]
 
 
 def gates(cfg=None):
@@ -203,7 +238,7 @@ def gates(cfg=None):
         ('size', f"Market cap ≥ ${g['minMcap'] / 1000:g}K", lambda c: c['mcap'] >= g['minMcap']),
         ('volume', f"1h volume ≥ ${g['minVol1h'] / 1000:g}K", lambda c: c['vol1h'] >= g['minVol1h']),
         ('flow', f"Two-sided flow ({g['minBuyShare']}–{g['maxBuyShare']}% buys, {g['minTrades1h']}+ trades/h)",
-         lambda c: c['buyShare'] is not None and g['minBuyShare'] <= c['buyShare'] <= g['maxBuyShare'] and c['txns1h'] >= g['minTrades1h']),
+         lambda c: flow_ok(c, g)),
         ('scan', 'Holder scan done', lambda c: c['scanned']),
         ('top10', f"Top 10 under {g['maxTop10']}%", lambda c: c['top10'] is not None and c['top10'] < g['maxTop10']),
         ('insiders', f"Snipers/bundlers under {g['maxInsiders']}% · ≤{g['maxBundled']} bundled", lambda c: (c['insiders'] or 0) < g['maxInsiders'] and c['bundled'] <= g['maxBundled']),
@@ -212,7 +247,7 @@ def gates(cfg=None):
         ('devsold', "Dev hasn't sold", lambda c: not c.get('devSold')),
         ('dev', f"Dev holds under {g['maxDev']}%", lambda c: (c['dev'] or 0) < g['maxDev']),
         ('creator', 'Creator not flagged (Bot shield / blocklist)', lambda c: not c['creatorFlagged']),
-        ('rep', 'Creator not a rugger (suspect = coin must prove itself)', rep_ok),
+        ('rep', 'Creator not a rugger (suspect = coin must prove itself)', lambda c: rep_ok(c, g)),
     )
 
 

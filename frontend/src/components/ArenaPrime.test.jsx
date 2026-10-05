@@ -192,3 +192,10 @@ test('swap picker rows carry the 5-minute and 1-hour move, and falling coins are
   expect(isFalling(-3, 10)).toBe(true); expect(isFalling(1, -8)).toBe(true);
   expect(isFalling(-2.9, -7.9)).toBe(false); expect(isFalling(null, null)).toBe(false);
 });
+
+test('real card settings include profit skim (when + where) and bank at the lock', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, 'ArenaPrime.jsx'), 'utf8');
+  for (const k of ["['skimAt'", "['skimTo'", "['lockBankPct'", 'data-testid={`skim-${l.symbol}`}', 'data-testid={`coin-${l.symbol}`}', 'skim: { tpl: c.tpl, pairAddress: l.pairAddress, to }'])
+    expect(src).toContain(k);
+  expect(src).toMatch(/rows\(\[[^\]]*'skimAt', 'skimTo'/);                               // both settings are actually on the Exits tab
+});

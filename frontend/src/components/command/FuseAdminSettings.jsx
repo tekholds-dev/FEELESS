@@ -13,6 +13,9 @@ const LABELS = {
   bondCurve: ['🔔 Bond run: curve at least', '%'], bondBuys: ['🔔 Bond run: buys at least', '%'], bondVol1h: ['🔔 Bond run: 1h volume at least', '$'],
   bondTop10: ['🔔 Bond run: top-10 under (if snipers not out)', '%'], bondPts: ['🔔 Bond run: score boost', 'pts'],
   autoCoins: ['⚔ Arena build: coins', ''], autoPools: ['⚔ Arena build: pools', ''], battleMins: ['⚔ Battle length', 'min'],
+  // 🚪 gates (flow + reputation) — the safety checks (top-10, snipers, dev, mint + freeze) are above and never widen by themselves
+  minBuyShare: ['🚪 Flow: buys at least', '%'], maxBuyShare: ['🚪 Flow: buys at most', '%'], minTrades1h: ['🚪 Flow: trades per hour at least', ''], maxBundled: ['🚪 Bundled wallets at most', ''],
+  smartBuyShare: ['🧠 Smart flow: clean-holder coins may run up to', '% buys'], agedProofH: ['🧠 Suspect creator passes after the coin has lasted', 'h'],
 };
 
 export function RunnerSettings({ call }) {

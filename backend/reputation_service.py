@@ -6084,6 +6084,20 @@ async def fuse_prime_admin(request: Request):
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)
+    sk = body.get('skim') or {}
+    if sk.get('tpl') in _prime.TEMPLATES and sk.get('pairAddress'):   # 💰 take ONE coin's profit now (stake keeps riding) → other coins, or held as cash
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
+            card = cards.get(sk['tpl'])
+            if not card:
+                raise HTTPException(404, 'No card for that tier yet.')
+            px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in card.get('legs') or []])
+            try:
+                cards[sk['tpl']] = _prime.skim_leg(card, sk['pairAddress'], px, {}, time.time(), sk.get('to') or 'card')
+                kick_real_keeper = bool(card.get('real'))
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            _json_save(FUSE_HQ_PATH, d)
     lg = body.get('leg') or {}
     if lg.get('tpl') in _prime.TEMPLATES and lg.get('pairAddress'):   # ❄ freeze / own stop mode for one coin on one tier card
         async with _admin_lock:
@@ -6768,7 +6782,9 @@ async def _fw_tick_inner(now):
         plan0 = _fw.orders(tid, want, book, px, sol_px, cfg, now, count_sells=True)
         new_buys = [o for o in plan0 if o['side'] == 'buy' and not _fw.held_units(book, o['mint'])]
         hold = False
-        if new_buys and any(o['side'] == 'sell' and not o.get('manualCash') for o in plan0) and not book.get('defund') and not book.get('halt'):
+        # only a SWAP-OUT waits for its replacement — a cut of a coin that stays (bank at the lock, 💰 skim, ✂) never does
+        swap_out = lambda o: o['side'] == 'sell' and not o.get('manualCash') and o.get('why') == 'not on the card any more'
+        if new_buys and any(swap_out(o) for o in plan0) and not book.get('defund') and not book.get('halt'):
             book, hold = _fw.hold_sells(book, card, await _fw_preflight(tid, new_buys, cfg, now), now)
         elif book.get('sellHoldAt'):
             book, _h = _fw.hold_sells(book, card, set(), now)
@@ -6780,8 +6796,8 @@ async def _fw_tick_inner(now):
                     book = done_
         for side in (('sell',) if book.get('halt') or book.get('pending') else ('sell', 'buy')):   # ⏸ halted = sells only (owner's queued sells still land)
             for o in [{**x, 'cardPays': int(card.get('rounds') or 0) >= 5} for x in _fw.orders(tid, want, book, px, sol_px, cfg, now, count_sells=side == 'sell') if x['side'] == side]:
-                if hold and side == 'sell' and not o.get('manualCash'):
-                    continue   # the replacement isn't buyable yet → this coin stays (the owner's own ✂ always goes through)
+                if hold and swap_out(o):
+                    continue   # the replacement isn't buyable yet → this coin stays (cuts and the owner's own ✂ always go through)
                 leg_liq = next((_fuse._f(l.get('liqNow')) or _fuse._f(l.get('liq')) for l in card.get('legs') or [] if l.get('mint') == o.get('mint')), 0.0)
                 book = await _fw_execute(tid, o, book, cfg, sol_px, liqs.get(o.get('pair')) or leg_liq)   # pair read blank → the engine's own liquidity reading
                 if book.get('pending'):

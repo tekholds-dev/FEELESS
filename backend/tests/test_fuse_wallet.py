@@ -1023,3 +1023,19 @@ def test_a_coin_with_an_order_in_flight_is_never_called_missing_and_lookalikes_a
     majors = {'So111': ('SOL', 'Solana'), 'JUPmint': ('JUP', 'Jupiter')}
     assert fw.lookalike('SOL', 'DsjKE4', majors) and fw.lookalike('sol', 'X', majors) and fw.lookalike('JUP', 'fake', majors)
     assert not fw.lookalike('SOL', 'So111', majors) and not fw.lookalike('SOLBORN', 'X', majors) and not fw.lookalike('', 'X', majors)
+
+
+def test_an_engine_cut_survives_the_sync_until_it_is_sold_or_ten_minutes_pass():
+    import time
+    book = {'sol': 0.0, 'legs': {'W': {'atoms': 1_000_000, 'decimals': 6, 'pair': 'PW', 'symbol': 'WIN', 'costUsd': 0.60, 'entryPx': 0.6}}}
+    leg = {'mint': 'W', 'pairAddress': 'PW', 'symbol': 'WIN', 'role': 'runner', 'units': 0.67, 'entry': 0.6, 'costUsd': 0.40, 'ride': True}
+    kept = fw.sync_card({'legs': [{**leg, 'trimAt': time.time() - 30}], 'rounds': 9}, book, {'PW': 1.2}, 100.0)['legs'][0]
+    assert kept['units'] == 0.67 and round(kept['costUsd'], 3) == 0.402                  # the cut stays wanted → the keeper keeps selling it
+    cut_sells = [o['atoms'] for o in fw.orders('t', {'legs': [kept]}, book, {'PW': 1.2}, 100.0, {**CFG, 'minOrderUsd': 0.1}, time.time()) if o['side'] == 'sell']
+    assert len(cut_sells) == 1 and abs(cut_sells[0] - 330000) <= 1
+    gone = fw.sync_card({'legs': [{**leg, 'trimAt': time.time() - 700}], 'rounds': 9}, book, {'PW': 1.2}, 100.0)['legs'][0]
+    assert gone['units'] == 1.0 and gone['costUsd'] == 0.60                              # 10 min on and still unsold → back to what the wallet holds
+    plain = fw.sync_card({'legs': [leg], 'rounds': 9}, book, {'PW': 1.2}, 100.0)['legs'][0]
+    assert plain['units'] == 1.0                                                         # no cut flag → the wallet's truth, as always
+    sold = fw.sync_card({'legs': [{**leg, 'trimAt': time.time() - 30}], 'rounds': 9}, {'sol': 0.0, 'legs': {'W': {**book['legs']['W'], 'atoms': 670_000, 'costUsd': 0.402}}}, {'PW': 1.2}, 100.0)['legs'][0]
+    assert sold['units'] == 0.67 and sold['costUsd'] == 0.402                            # once it sold, card and wallet simply agree

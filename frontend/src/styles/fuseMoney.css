@@ -203,6 +203,12 @@ body.fx-lite .hrt-flow li, body.fx-lite .hrt-flow li em { animation: none; }
 @media (prefers-reduced-motion: reduce) { .hrt-flow li, .hrt-flow li em { animation: none; } }
 body.theme-day .hrt-flow li { background: #fff; }
 .sp-m5 i, .sp-m5 + em i { font-style: normal; font-size: 9px; letter-spacing: .08em; color: var(--m-dim); margin-right: 2px; } .sp-fall { color: var(--gold); font-family: var(--m-mono); font-size: 10px; letter-spacing: .06em; white-space: nowrap; }
+.hrt-name { cursor: pointer; border-radius: 6px; padding: 1px 4px; margin: -1px -4px; transition: color .15s, text-shadow .15s, background .15s; outline: none; }
+.hrt-name:hover, .hrt-name:focus-visible { color: var(--m-accent-hi, #45e486); text-shadow: 0 0 10px rgba(21, 209, 106, .75), 0 0 22px rgba(21, 209, 106, .35); background: rgba(21, 209, 106, .08); }
+.hrt-name:active { transform: translateY(1px); } .hrt-name:focus-visible { box-shadow: 0 0 0 1px var(--m-accent); }
+.hrt-skim { width: auto; min-width: 58px; min-height: 30px; padding: 2px 6px; font-size: 11px; } .hrt-skim.is-on { border-color: color-mix(in srgb, var(--m-accent) 60%, transparent); color: var(--m-accent); }
+body.theme-day .hrt-name:hover, body.theme-day .hrt-name:focus-visible { color: #0a7a3d; text-shadow: none; background: rgba(21, 209, 106, .16); }
+@media (prefers-reduced-motion: reduce) { .hrt-name { transition: none; } }
 .hrt-stack { color: var(--m-accent); } .hrt-stack.is-full { color: var(--gold); }
 .hrt-lock { width: auto; min-height: 34px; padding: 4px 8px; font-size: 12px; } .hrt-lock.is-on { border-color: var(--gold); color: var(--gold); }
 .rpck.is-need { border-color: color-mix(in srgb, var(--gold) 70%, transparent); position: relative; }

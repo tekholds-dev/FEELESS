@@ -315,3 +315,22 @@ def test_reputation_is_strong_but_a_suspect_creator_s_banger_can_still_prove_its
     assert not gate({**banger, 'vol1h': 8_000.0})                                              # thin flow: no proof
     assert not gate({**banger, 'creatorRep': 'high'})                                          # a proven rugger never gets in
     assert gate({**banger, 'creatorRep': None, 'top10': 34.0})                                 # unknown creator: the other gates decide
+
+
+def test_smart_gates_open_for_clean_coins_and_time_proven_coins_only():
+    import runners as rn
+    g = rn.clean_cfg({'minBuyShare': 52, 'maxBuyShare': 80, 'minTrades1h': 80})
+    assert g['smartBuyShare'] == 92 and g['agedProofH'] == 12
+    clean = {'buyShare': 88, 'txns1h': 200, 'scanned': True, 'top10': 14, 'insiders': 2, 'bundled': 0, 'devSold': False}
+    assert rn.flow_ok({**clean, 'buyShare': 70}, g)                                      # inside the band: as before
+    assert rn.flow_ok(clean, g)                                                          # 88% buys + clean holders → in (it was out at 80)
+    assert not rn.flow_ok({**clean, 'top10': 28}, g) and not rn.flow_ok({**clean, 'bundled': 1}, g) and not rn.flow_ok({**clean, 'scanned': False}, g)
+    assert not rn.flow_ok({**clean, 'devSold': True}, g) and not rn.flow_ok({**clean, 'buyShare': 95}, g)   # past the smart cap: still a pushed pump
+    assert not rn.flow_ok({**clean, 'buyShare': 48}, g) and not rn.flow_ok({**clean, 'txns1h': 30}, g)      # sellers lead / no crowd: never
+    assert not rn.flow_ok(clean, {**g, 'smartBuyShare': 80})                             # HQ can switch the smart band off
+    old = {'creatorRep': 'suspect', 'ageH': 14, 'liq': 80_000, 'scanned': True, 'top10': 18, 'flaggedFunders': 0, 'devSold': False, 'buyShare': 50, 'vol1h': 3000}
+    assert not rn.banger_proof(old)[0] and rn.aged_proof(old, g)[0] and rn.rep_ok(old, g)                   # lasted 14h with a real pool → passes
+    assert not rn.rep_ok({**old, 'ageH': 3}, g) and not rn.rep_ok({**old, 'liq': 20_000}, g) and not rn.rep_ok({**old, 'devSold': True}, g)
+    assert not rn.rep_ok({**old, 'flaggedFunders': 2}, g) and not rn.rep_ok({**old, 'scanned': False}, g)
+    assert not rn.rep_ok({**old, 'creatorRep': 'high'}, g)                               # a HIGH-risk creator is never let in, however old the coin
+    assert rn.rep_ok({'creatorRep': 'clean'}, g) and not rn.rep_ok(old, {**g, 'agedProofH': 48})

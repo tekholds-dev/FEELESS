@@ -1115,3 +1115,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   it to `.sp li` grid-template-columns AND open the picker in the browser. Dollar coins are filtered out of every list (`PICK_STABLES`).
 - 🙅 OWNER-REMOVED COINS STAY OUT 6h (`arena_prime.owner_out`, card `ownerOut`, `OWNER_OUT_SEC`): a coin taken off by a pick or a hand
   swap is in `cooling()` for 6 hours (the 3-round cool-down let $PENGU back three times in one afternoon). `cool_left` ≥ 1 for it too.
+- 🏦 ENGINE CUTS ARE DURABLE (found when $SpaceXSI locked at +101%, its 33% bank never sold, and it ran to +430%): `sync_card` keeps a
+  leg's CUT units while `trimAt` is fresh (`TRIM_SEC` 10 min) instead of copying the wallet balance back; the swap-out hold
+  (`hold_sells`) only ever holds 'not on the card any more' sells — a cut of a coin that stays is never held; `lock_bank` is once per
+  ride (`bankedAt`) and a coin ALREADY riding that never banked banks once on the next tick (setting switched on later / bank lost).
+- 💰 SKIM = profit only, stake rides (`arena_prime._skim/skim_leg`, `POST /admin/arena/prime {skim: {tpl, pairAddress, to}}`, per-coin
+  `skim-<SYM>` select on the real card; auto: cfg `skimAt` 0/10/20/30/50/100 since entry / last skim (`skimPx`), `skimTo` card | cash,
+  Edit Fuse › Exits). → card = cash → `spread_cash` over the OTHER coins (a coin cut in the last 10 min is not refilled);
+  → cash = `holdCashUsd` (never re-spent; the owner withdraws it, e.g. tax money). A ✂ part-sell sets `trimAt` too (a 25% cut sat
+  inside the keeper's 50% band and never sold).
+- 🧠 Smart gates (`runners.flow_ok/clean_holders/aged_proof`, cfg `smartBuyShare` 92, `agedProofH` 12; HQ › Fuse › ⚡ Engine now shows
+  the flow inputs too): buys above the band pass up to `smartBuyShare` ONLY with clean holders; a SUSPECT creator's coin also passes
+  once it has lasted `agedProofH` h with a ≥ $50K pool, spread holders, no flagged funders, dev not sold. HIGH-risk creators never.
+- Real card coin names (`hrt-name`) glow on hover / focus and open the war room (`openWarRoom`), like tier-card coins.
