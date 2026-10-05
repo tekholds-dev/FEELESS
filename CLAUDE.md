@@ -1131,3 +1131,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ⚖ `balance_small` never tops up a coin that is small ON PURPOSE: skimmed (`skimPx`), banked (`bankedAt`), freshly cut (`trimAt`
   < 10 min), riding or frozen. It bought $1.13 back into $SpaceXSI four seconds after a $1.93 skim. Time checks on optional stamps
   must test the stamp exists first (`now - 0 < 600` is true in tests that run at now = 0).
+- 🏔 OFF ITS PEAK (owner's stated FUSE GOAL: "cycle until big coins are found; −30% from the peak → sell 50% of the profit"): cfg
+  `peakSellPct` 25/50/75/100, default 50 (Edit Fuse › Exits). A riding coin that falls `rideTrail`% from its peak while still above
+  its floor sells that % of its PROFIT (`_skim(frac=)`, event `peak-sell`), keeps riding, and the trail re-arms from that price;
+  100 = the old "swap the whole coin". Under the floor (half the freeze) the ride is over and it is swapped, as before. Old tests
+  pin `peakSellPct: 100`.
+- 🪑 EMPTY SEAT REFILL (tick, before idle cash is spread): owner's `coins` N, fewer legs, free cash ≥ `SEAT_MIN_USD` $0.25 → the best
+  runner (else pool) not on the card takes the seat with an equal share (event `seat`), one a tick, never floored / held. A seat lost
+  to a refused buy used to stay empty for good (the card sat on 3 coins).
+- War room chart header has a copy-CA chip (`chart-copy-ca`, styles in tips.css — command.css is at its KB budget).

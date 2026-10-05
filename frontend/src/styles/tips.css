@@ -54,3 +54,8 @@ body.theme-day .primary-action small { color: inherit; opacity: .78; }   /* the 
 
 /* ⏸ Off-screen FX pause (lib/fxPause.js): an animated surface nobody can see runs nothing. */
 .fx-off, .fx-off *, .fx-off *::before, .fx-off *::after { animation-play-state: paused !important; }
+/* war room chart header: copy the coin's contract address */
+.eco-chart-ca{display:inline-flex;gap:6px;align-items:center;padding:3px 9px;border-radius:999px;border:1px solid #1c2a23;background:transparent;color:var(--muted);font:500 11px 'JetBrains Mono',monospace;cursor:pointer;transition:color .15s,border-color .15s,box-shadow .15s}
+.eco-chart-ca i{font-style:normal}.eco-chart-ca:hover,.eco-chart-ca:focus-visible{color:#45e486;border-color:#15d16a;box-shadow:0 0 10px rgba(21,209,106,.35);outline:none}.eco-chart-ca:active{transform:translateY(1px)}
+body.theme-day .eco-chart-ca{border-color:var(--day-border);color:#345}body.theme-day .eco-chart-ca:hover{color:#0a7a3d;border-color:#0a7a3d;box-shadow:none}
+@media(prefers-reduced-motion:reduce){.eco-chart-ca{transition:none}}

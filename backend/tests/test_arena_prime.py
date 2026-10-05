@@ -17,7 +17,7 @@ C = lambda m, px, sym=None, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': s
 P = lambda m, px: C(m, px, liquidityUsd=2e6, volume24h=2e6)             # 5★ pool
 R = lambda m, px, sc=90: C(m, px, score=sc)                                 # 5★ runner by default
 SOL = [C('sol', 1, 'SOL'), C('jito', 1, 'JitoSOL')]
-CFG = ap.clean_cfg({'lockBankPct': 0, 'floorPct': 20, 'rotateMinDrop': 0, 'cycleEvery': 1, 'rotateConfirm': 1, 'minHoldMins': 0, 'cycles': {'safe': 'off', 'balanced': 'off', 'degen': 'classic', 'next': 'classic', 'ever': 'off'},   # the original tier behaviour
+CFG = ap.clean_cfg({'lockBankPct': 0, 'peakSellPct': 100, 'floorPct': 20, 'rotateMinDrop': 0, 'cycleEvery': 1, 'rotateConfirm': 1, 'minHoldMins': 0, 'cycles': {'safe': 'off', 'balanced': 'off', 'degen': 'classic', 'next': 'classic', 'ever': 'off'},   # the original tier behaviour
                     'payouts': {'safe': 0, 'balanced': 0, 'degen': 0, 'next': 0, 'ever': 0}, 'compoundStyle': 'even'})
 
 
@@ -351,7 +351,7 @@ def test_redeals_never_rebuy_with_paid_out_or_parked_money():
 
 
 def test_runner_rides_from_150_and_sells_only_30_off_its_new_high():
-    cfg = ap.clean_cfg({'lockBankPct': 0, 'compound': False, 'trail': False, 'cycles': {'degen': 'off'}})
+    cfg = ap.clean_cfg({'lockBankPct': 0, 'peakSellPct': 100, 'compound': False, 'trail': False, 'cycles': {'degen': 'off'}})
     leg = {'mint': 'R', 'pairAddress': 'PR', 'symbol': 'R', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0, 'liq': 1e12}
     card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
             'events': [], 'startUsd': 10.0, 'legs': [leg]}
@@ -573,7 +573,7 @@ def test_one_tap_redeal_keeps_the_money():
 
 
 def test_freeze_at_x_and_swap_y_from_peak_are_configurable():
-    cfg = ap.clean_cfg({'lockBankPct': 0, 'compound': False, 'trail': False, 'rotateHours': 99, 'rideAt': 25, 'rideTrail': 10, 'cycles': {'degen': 'off'}})
+    cfg = ap.clean_cfg({'lockBankPct': 0, 'peakSellPct': 100, 'compound': False, 'trail': False, 'rotateHours': 99, 'rideAt': 25, 'rideTrail': 10, 'cycles': {'degen': 'off'}})
     assert cfg['rideAt'] == 25 and cfg['rideTrail'] == 10 and ap.clean_cfg({'rideAt': 7})['rideAt'] == ap.RIDE_AT
     r = {'mint': 'R', 'pairAddress': 'PR', 'symbol': 'R', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0}
     card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
@@ -590,7 +590,7 @@ def test_freeze_at_x_and_swap_y_from_peak_are_configurable():
 
 def test_thirty_pct_peak_trail_is_a_true_price_drawdown_not_percentage_points():
     """Screenshot case: +124.6% peak to +69.0% now is only 24.8% off the peak, so the live card must keep riding."""
-    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 99, 'rideAt': 25, 'rideTrail': 30, 'cycles': {'degen': 'off'}})
+    cfg = ap.clean_cfg({'peakSellPct': 100, 'compound': False, 'trail': False, 'rotateHours': 99, 'rideAt': 25, 'rideTrail': 30, 'cycles': {'degen': 'off'}})
     leg = {'mint': 'SPEC', 'pairAddress': 'PS', 'symbol': 'SPEC', 'role': 'runner', 'entry': 1.0, 'firstEntry': 1.0,
            'units': 1.0, 'costUsd': 1.0, 'at': 0, 'priced': True, 'ride': True, 'rideFrom': 1.0, 'high': 2.246}
     card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0,
@@ -1289,7 +1289,7 @@ def test_skim_takes_only_the_profit_keeps_the_stake_and_sends_it_where_the_owner
     fills = [l for l in c['legs'] if now - (l.get('trimAt') or 0) > 600]
     assert [l['mint'] for l in fills] == ['DOWN']
     # auto: every +20% since the entry / the last skim
-    cfg = ap.clean_cfg({'skimAt': 20, 'skimTo': 'card', 'rotateHours': 99, 'rideAt': 0, 'compound': False, 'cycles': {'degen': 'off'}, 'rescuePct': 0, 'lockBankPct': 0, 'tp': 0})
+    cfg = ap.clean_cfg({'skimAt': 20, 'skimTo': 'card', 'rotateHours': 99, 'rideAt': 0, 'compound': False, 'cycles': {'degen': 'off'}, 'rescuePct': 0, 'lockBankPct': 0, 'peakSellPct': 100, 'tp': 0})
     assert cfg['skimAt'] == 20.0 and ap.clean_cfg({'skimAt': 15})['skimAt'] == 0.0 and ap.clean_cfg({'skimTo': 'x'})['skimTo'] == 'card'
     base = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 0.0, 'startUsd': 2.0, 'roundStartUsd': 2.0, 'compoundedUsd': 0.0,
             'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 1, 'legs': [leg('UP', 1.0, tp=900), leg('FLAT', 1.0)]}
@@ -1345,3 +1345,44 @@ def test_equal_weight_never_buys_back_a_coin_whose_profit_was_just_taken():
     c = {'cash': 1.5, 'legs': [leg('TINY', 0.08, 0.08), leg('A', 1.1, 1.1), leg('B', 1.1, 1.1)]}
     ap.balance_small(c, {'PTINY': 1.0, 'PA': 1.0, 'PB': 1.0}, {}, now, 0.0, ev)
     assert c['legs'][0]['units'] > 0.08                                                  # a coin that really went in tiny is still topped up
+
+
+def test_off_its_peak_only_part_of_the_profit_is_sold_and_the_coin_keeps_riding():
+    import arena_prime as ap
+    now = 1_000_000.0
+    assert ap.clean_cfg({})['peakSellPct'] == 50.0 and ap.clean_cfg({'peakSellPct': 60})['peakSellPct'] == 50.0 and ap.clean_cfg({'peakSellPct': 100})['peakSellPct'] == 100.0
+    cfg = ap.clean_cfg({'rotateHours': 99, 'rideAt': 100, 'rideTrail': 30, 'compound': False, 'cycles': {'degen': 'off'}, 'rescuePct': 0, 'tp': 0, 'lockBankPct': 0})
+    leg = lambda m, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0, 'at': now - 9999, 'liq': 1e12, **k}
+    card = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 0.0, 'startUsd': 2.0, 'roundStartUsd': 2.0, 'compoundedUsd': 0.0,
+            'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 1, 'legs': [leg('BIG', ride=True, high=10.0, rideFrom=1.0, rideAt=now - 600, bankedAt=now - 600), leg('B')]}
+    nxt = [{'mint': 'N', 'pairAddress': 'PN', 'symbol': 'N', 'price': 1.0, 'liquidityUsd': 1e9, 'score': 90, 'vol1h': 9e4, 'buyShare': 60, 'ageH': 30}]
+    c = ap.tick(card, {'PBIG': 7.0, 'PB': 1.0}, [], nxt, cfg, now + 10, [], {}, {})      # 10 → 7 = 30% off its peak, still +600%
+    big = next(l for l in c['legs'] if l['mint'] == 'BIG')
+    assert big['ride'] and big['high'] == 7.0                                            # still on the card, still riding, trail re-armed from here
+    assert abs(big['units'] * 7.0 - (7.0 - 3.0)) < 0.01                                  # profit was $6 → half of it ($3) sold
+    other = next(l for l in c['legs'] if l['mint'] == 'B')
+    assert abs(other['units'] - 4.0) < 0.01 and c['cash'] < 0.01                         # … and put to work in the OTHER coin (never back into BIG)
+    assert [e['kind'] for e in c['events']].count('peak-sell') == 1 and '50% of its profit' in next(e['why'] for e in c['events'] if e['kind'] == 'peak-sell')
+    c2 = ap.tick(c, {'PBIG': 6.5, 'PB': 1.0}, [], nxt, cfg, now + 60, [], {}, {})       # −7% from the new mark: nothing more is sold
+    assert [e['kind'] for e in c2['events']].count('peak-sell') == 1
+    c3 = ap.tick(c2, {'PBIG': 0.4, 'PB': 1.0}, [], nxt, cfg, now + 120, [], {}, {})     # under its floor → the ride is over, swapped as before
+    assert 'BIG' not in {l['mint'] for l in c3['legs']} and any(e['kind'] == 'ride-end' for e in c3['events'])
+
+
+def test_an_empty_seat_is_refilled_with_an_equal_share_when_the_card_has_cash():
+    import arena_prime as ap
+    now = 1_000_000.0
+    cfg = ap.clean_cfg({'rotateHours': 99, 'coins': 4, 'compound': True, 'cycles': {'degen': 'off'}, 'rescuePct': 0, 'rideAt': 0, 'tp': 0, 'cycleEvery': 0})
+    leg = lambda m, role='runner': {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': role, 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0, 'at': now - 9999, 'liq': 1e12}
+    card = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 1.0, 'startUsd': 4.0, 'roundStartUsd': 4.0, 'compoundedUsd': 0.0,
+            'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 1, 'phase': 'degen', 'legs': [leg('A', 'anchor'), leg('B'), leg('C')]}
+    px = {'PA': 1.0, 'PB': 1.0, 'PC': 1.0}
+    cand = [{'mint': 'N', 'pairAddress': 'PN', 'symbol': 'NEW', 'price': 2.0, 'liquidityUsd': 1e9, 'score': 90, 'vol1h': 9e4, 'buyShare': 60, 'ageH': 30}]
+    c = ap.tick(card, px, [], cand, cfg, now + 10, [], {}, {})
+    assert [l['mint'] for l in c['legs']] == ['A', 'B', 'C', 'N'] and any(e['kind'] == 'seat' for e in c['events'])
+    assert abs(c['legs'][3]['units'] * 2.0 - 1.0) < 0.01                                 # an equal share of a $4 card
+    none = ap.tick({**card, 'cash': 0.1}, px, [], cand, cfg, now + 10, [], {}, {})
+    assert len(none['legs']) == 3                                                        # no cash for a seat → nothing forced
+    assert len(ap.tick(card, px, [], [], cfg, now + 10, [], {}, {})['legs']) == 3        # no coin to seat → the cash is spread as before
+    held = ap.tick({**card, 'holdAll': True}, px, [], cand, cfg, now + 10, [], {}, {})
+    assert len(held['legs']) == 3

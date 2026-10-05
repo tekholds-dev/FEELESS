@@ -258,7 +258,7 @@ def test_degen_5_min_card_freezes_a_runner_swaps_it_off_its_peak_and_instant_swa
     """The owner's degen setup, end to end on the engine: 5-min rounds · patience 2 · freeze at +25% · swap 10% off the peak ·
     any single coin at −15% is swapped at once for a NEW coin. (Prices are scripted; no network, no money.)"""
     import arena_prime as ap
-    cfg, raised = ap.real_guard({**ap.clean_cfg({'rotateHours': 0.08, 'rotateConfirm': 2, 'minHoldMins': 10, 'rideAt': 25, 'rideTrail': 10, 'cycleEvery': 0,
+    cfg, raised = ap.real_guard({**ap.clean_cfg({'rotateHours': 0.08, 'rotateConfirm': 2, 'minHoldMins': 10, 'rideAt': 25, 'rideTrail': 10, 'cycleEvery': 0, 'peakSellPct': 100,
                                                'rescuePct': 0, 'floorPct': 60, 'cycles': {t: 'off' for t in ap.DEFAULT_CYCLES}}), 'instantSwapPct': 15})
     assert cfg['rotateConfirm'] == 2 and cfg['minHoldMins'] == 10 and cfg['instantSwapPct'] == 15 and raised == []     # the guard leaves this setup alone
     C = lambda m, px, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m.upper(), 'price': px, 'liquidityUsd': 2e6, 'volume24h': 2e6, 'liq': 2e6, **k}
@@ -293,7 +293,7 @@ def test_degen_5_min_card_freezes_a_runner_swaps_it_off_its_peak_and_instant_swa
 def test_small_freeze_at_plus_10_locks_a_small_win_and_tight_trail_takes_it_off_the_peak():
     """+10% freeze · −5% off the peak: a 5-min runner that pops +12% is frozen (no TP / stop / rotation) and leaves the moment it gives
     back 5% from its high — or falls under +5% (half the freeze). Both options survive the server cleaner + real guard."""
-    cfg, raised = ap.real_guard({**ap.clean_cfg({'rotateHours': 0.08, 'rotateConfirm': 2, 'minHoldMins': 10, 'rideAt': 10, 'rideTrail': 5, 'cycleEvery': 0,
+    cfg, raised = ap.real_guard({**ap.clean_cfg({'rotateHours': 0.08, 'rotateConfirm': 2, 'minHoldMins': 10, 'rideAt': 10, 'rideTrail': 5, 'cycleEvery': 0, 'peakSellPct': 100,
                                                'rescuePct': 0, 'floorPct': 60, 'cycles': {t: 'off' for t in ap.DEFAULT_CYCLES}}), 'instantSwapPct': 15})
     assert cfg['rideAt'] == 10 and cfg['rideTrail'] == 5 and raised == []
     assert {10, 15, 20}.issubset(set(_ui_options()['rideAt'])) and {5, 8}.issubset(set(_ui_options()['rideTrail']))   # the screen offers them

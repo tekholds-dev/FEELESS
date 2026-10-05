@@ -372,6 +372,7 @@ def clean_cfg(p):
     out['minHoldMins'] = max(0.0, min(240.0, _f((p or {}).get('minHoldMins', MIN_HOLD_MINS))))
     ck = (p or {}).get('clocks') if isinstance((p or {}).get('clocks'), dict) else {}
     out['clocks'] = {t: (round(min(48.0, max(0.08, _f(ck[t]))), 2) if _f(ck.get(t)) > 0 else DEFAULT_CLOCKS[t]) for t in DEFAULT_CLOCKS}
+    out['peakSellPct'] = float(_f((p or {}).get('peakSellPct'))) if _f((p or {}).get('peakSellPct')) in PEAK_SELLS else PEAK_SELL
     out['skimAt'] = float(_f((p or {}).get('skimAt'))) if _f((p or {}).get('skimAt')) in SKIM_ATS else 0.0
     out['skimTo'] = (p or {}).get('skimTo') if (p or {}).get('skimTo') in SKIM_TOS else 'card'
     out['lockBankPct'] = float(_f((p or {}).get('lockBankPct'))) if (p or {}).get('lockBankPct') is not None and _f((p or {}).get('lockBankPct')) in LOCK_BANKS else LOCK_BANK
@@ -518,6 +519,7 @@ def sell_usd(units, px, liq):
 # other coins (♻ recovery for the ones that are down) or held as cash (🏦 e.g. a tax reserve the owner withdraws).
 SKIM_ATS = (0, 10, 20, 30, 50, 100)   # auto: skim each time the coin gains this % since its entry / last skim (0 = off)
 SKIM_TOS = ('card', 'cash')
+SEAT_MIN_USD = 0.25                   # an empty seat is refilled once the card has at least this much free cash
 SKIM_MIN_USD = 0.05                   # a gain smaller than this isn't worth a swap
 
 
@@ -538,11 +540,12 @@ def lock_bank(c, l, px, liqs, now, cfg, fee=0.0, gain=None):
     return got
 
 
-def _skim(c, l, px, liqs, now, to='card', fee=0.0, auto=None):
-    """Sell the PROFIT of one coin, in place. → $ taken (0 = nothing to take). The part that stays is worth what the coin cost."""
+def _skim(c, l, px, liqs, now, to='card', fee=0.0, auto=None, frac=1.0, why=None):
+    """Sell the PROFIT of one coin (or `frac` of it), in place. → $ taken (0 = nothing to take). With frac 1 the part that stays is
+    worth what the coin cost."""
     units, cost = _f(l.get('units')), _f(l.get('costUsd'))
     value = units * px
-    gain = value - cost
+    gain = (value - cost) * max(0.0, min(1.0, _f(frac)))
     if units <= 0 or px <= 0 or gain < SKIM_MIN_USD:
         return 0.0
     part = gain / value
@@ -556,7 +559,7 @@ def _skim(c, l, px, liqs, now, to='card', fee=0.0, auto=None):
     c['takenUsd'] = _f(c.get('takenUsd')) + max(0.0, got - cost * part)
     c['feesUsd'] = _f(c.get('feesUsd')) + fee
     c.setdefault('events', []).append({'at': now, 'kind': 'skim', 'symbol': l.get('symbol'), 'usd': round(got, 4), 'to': ['cash'] if to == 'cash' else ['card'],
-                                       'why': f"💰 {'auto: +' + format(auto, 'g') + '% — ' if auto else ''}profit of ${l.get('symbol')} taken (${got:.2f}), its stake keeps riding — "
+                                       'why': why or f"💰 {'auto: +' + format(auto, 'g') + '% — ' if auto else ''}profit of ${l.get('symbol')} taken (${got:.2f}), its stake keeps riding — "
                                               + ('held as cash for you' if to == 'cash' else 'put to work in your other coins')})
     return got
 
@@ -574,7 +577,8 @@ def skim_leg(card, pair, prices, liqs, now, to='card'):
     return c
 
 
-LOCK_BANKS, LOCK_BANK = (0, 25, 33, 50), 33.0   # 🏦 % of a winner sold the moment it locks (0 = off)
+LOCK_BANKS, LOCK_BANK = (0, 25, 33, 50), 33.0
+PEAK_SELLS, PEAK_SELL = (25, 50, 75, 100), 50.0   # 🏔 off its peak: % of the PROFIT sold while the coin keeps riding (100 = swap the whole coin)   # 🏦 % of a winner sold the moment it locks (0 = off)
 
 # ⚖ SWAP ONLY WHEN IT PAYS. A rotation sells one coin and buys another: it costs the spread + price impact twice + two network fees.
 SWAP_EDGE_MARGIN = 1.0     # the next coin must beat the old one by the swap's cost PLUS this many % (1h move)
@@ -978,6 +982,17 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             if g >= floor_g and px > l['high'] * (1 - rt / 100):
                 continue   # still holding: above its floor and not rt% off its high
             why_end = (f"fell under +{floor_g:g}% ({g:+.0f}%)" if g < floor_g else f"fell {rt:g}% from its peak") + f" after riding to {l['high'] / (l.get('rideFrom') or l['entry']):.1f}×"
+            # 🏔 OFF ITS PEAK ≠ OVER: while the coin is still well up (above its floor), only `peakSellPct` of its PROFIT is sold and
+            # the coin keeps riding from here (the trail re-arms at this price). A big coin gets room to go again — the card keeps
+            # cycling its other seats until the next one is found. Under the floor the ride really is over (swapped, as before).
+            ps = _f(cfg.get('peakSellPct', PEAK_SELL))
+            if g >= floor_g and 0 < ps < 100:
+                took = _skim(c, l, px, liqs, now, cfg.get('skimTo') or 'card', fee, frac=ps / 100,
+                             why=f"🏔 ${l['symbol']} fell {rt:g}% from its peak (still {g:+.0f}%) — {ps:g}% of its profit sold, the rest keeps riding")
+                l['high'] = px   # the next {rt}% is counted from here
+                if took:
+                    c['events'][-1]['kind'] = 'peak-sell'
+                continue
             l['ride'] = False
             nxt = best(l.get('role') or 'runner', l.get('trench'))
             if nxt:   # 🏇 ride over → SWAPPED for the best coin of its kind (the gain moves into it)
@@ -1227,6 +1242,18 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # 4) idle cash goes back to work when compounding. Cash reserved for an empty replacement slot is untouchable.
     reserved_cash = sum(_f(l.get('reserveUsd')) for l in c['legs'] if l.get('placeholder')) + _f(c.get('holdCashUsd'))   # + cash the owner sold out by hand
     free_cash = max(0.0, _f(c['cash']) - reserved_cash)
+    # 🪑 AN EMPTY SEAT IS REFILLED: the owner asked for N coins; a seat lost to a refused buy ("slot back to card cash") used to stay
+    # empty for good — the card sat on 3 coins with cash idle. As soon as there is cash for it, the best coin not on the card takes
+    # the seat with an equal share (runner first, then pool). One seat a tick; never while floored / held.
+    want_n = int(_f(cfg.get('coins')))
+    if want_n and len(c['legs']) < want_n and not c.get('flooredAt') and not c.get('holdAll') and free_cash >= SEAT_MIN_USD:
+        share = (sum((_f(x['units']) or (_f(x.get('wantUnits')) if x.get('buying') else 0.0)) * (_f(prices.get(x['pairAddress'])) or _f(x.get('entry'))) for x in c['legs']) + free_cash) / want_n
+        role_s, nxt = next(((r, x) for r in ('runner', 'pool') for x in [best(r)] if x), (None, None))
+        if nxt:
+            usd_s = min(free_cash, share)
+            c['legs'].append(_leg(nxt, usd_s, now, role_s))
+            c['cash'] = round(_f(c['cash']) - usd_s, 6); free_cash -= usd_s
+            ev(kind='seat', symbol=nxt.get('symbol'), usd=round(usd_s, 4), why=f"🪑 empty seat filled — ${nxt.get('symbol')} takes seat {len(c['legs'])} of {want_n} with an equal share", to=[nxt.get('symbol')])
     if cfg['compound'] and free_cash > 0.01 and c['legs']:
         waiting = [l for l in c['legs'] if l.get('buying') and not l.get('placeholder')]   # 👛 a pending real buy owns its slice first
         # a locked (riding / frozen) coin is never topped up: what was just banked off it must not be bought straight back
