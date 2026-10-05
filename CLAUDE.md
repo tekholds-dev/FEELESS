@@ -1003,3 +1003,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🎛 Trench settings (`trench.OWN_OPTIONS/clean_own/own_gate`, `prime.trenchCfg`, `POST /admin/arena/prime {trenchCfg}`, TrenchScan in
   Edit Fuse › Shape): 🤖 Engine tunes (auto-widen) or 🎛 My settings — holders, trades/h, 1h volume, market-cap band, age, each from a
   fixed list. The safety checks are never options.
+- 🧾 ROUTE RENT IS NOT A PRICE (`fuse_wallet.opened_sol`, fill `openedSol`): a multi-hop swap opens accounts for the coins it passes
+  through; that SOL is parked rent (back when they close). A SELL's proceeds = SOL that reached the wallet + SOL the tx put into
+  accounts it opened (capped 0.02); the reserve fronts it (`rentSol`). Why: baton booked −87% and ORCA −50% (neither moved), which
+  pushed the owner's card through its −40% floor and sold a frozen +24% winner. `_fw_quote` asks for a ONE-HOP route first
+  (`onlyDirectRoutes`; multi-hop only when one hop is missing, > 1% impact, or pays > 0.5% less). `routeFix1` (once, from the chain):
+  suspicious old sells (`route_fix_rows`, ≥ 25% under cost) are re-read and the parked rent goes back into the card's cash
+  (≤ the wallet's free SOL), the run baseline rises by the same $ (money back, not a gain). When a real sell books a loss the coin's
+  chart doesn't show, read the tx's pre/post balances before touching the engine.

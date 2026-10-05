@@ -221,7 +221,23 @@ def fill_from_meta(tx, owner, mint):
     i = names.index(owner) if owner in names else -1
     fee = int(meta.get('fee') or 0)
     sol = (int(meta['postBalances'][i]) - int(meta['preBalances'][i]) + fee) / 1e9 if i >= 0 and i < len(meta.get('postBalances') or []) else 0.0
-    return {'atoms': post - pre, 'decimals': dec1 if dec1 is not None else dec0 if dec0 is not None else 0, 'sol': round(sol, 9), 'feeSol': fee / 1e9}
+    return {'atoms': post - pre, 'decimals': dec1 if dec1 is not None else dec0 if dec0 is not None else 0, 'sol': round(sol, 9), 'feeSol': fee / 1e9,
+            'openedSol': opened_sol(tx, owner)}
+
+
+OPENED_MAX_SOL = 0.02   # sanity cap: ~10 accounts' rent — anything bigger is not rent
+
+
+def opened_sol(tx, owner):
+    """SOL this transaction put into accounts it OPENED (balance 0 before, > 0 after — never the owner itself). A multi-hop swap
+    opens accounts for the coins it passes through; that rent comes back when they close, so it is a DEPOSIT, never a trading result.
+    A sell of baton once booked −87% and one of ORCA −50% because $0.36 / $0.18 of such rent was counted as the price."""
+    meta = (tx or {}).get('meta') or {}
+    keys = (((tx or {}).get('transaction') or {}).get('message') or {}).get('accountKeys') or []
+    names = [k.get('pubkey') if isinstance(k, dict) else k for k in keys]
+    pre, post = meta.get('preBalances') or [], meta.get('postBalances') or []
+    lam = sum(int(post[j]) for j in range(min(len(names), len(pre), len(post))) if names[j] != owner and int(pre[j]) == 0 and int(post[j]) > 0)
+    return round(min(OPENED_MAX_SOL, lam / 1e9), 9)
 
 
 def deposit_from_tx(tx, owner):
@@ -269,7 +285,7 @@ def fill_error(order, fill, book=None):
             return 'confirmed buy did not spend the exact-input amount'
     elif order.get('side') == 'sell':
         requested = int(order.get('atoms') or 0)
-        if atoms >= 0 or sol <= 0:
+        if atoms >= 0 or sol + _f(fill.get('openedSol')) <= 0:
             return 'confirmed sell balance changes have the wrong direction'
         if requested <= 0 or abs(atoms) != requested or (booked and abs(atoms) > booked):
             return 'confirmed sell token amount does not match the exact-input order/book'
@@ -285,7 +301,9 @@ def apply_fill(book, order, fill, sol_px):
     l = b['legs'].setdefault(m, {'atoms': 0, 'decimals': fill['decimals'], 'pair': order.get('pair'), 'symbol': order.get('symbol'), 'costUsd': 0.0, 'entryPx': 0.0})
     l['decimals'] = fill['decimals'] or l.get('decimals') or 0
     units = abs(fill['atoms']) / (10 ** l['decimals']) if l['decimals'] is not None else 0
-    usd = (min(abs(fill['sol']), int(order['lamports']) / 1e9) if order['side'] == 'buy' and order.get('lamports') else abs(fill['sol'])) * sol_px
+    # a SELL's proceeds = what the swap paid: the SOL that reached the wallet + the rent it parked in accounts the route opened
+    opened = _f(fill.get('openedSol')) if order['side'] == 'sell' else 0.0
+    usd = (min(abs(fill['sol']), int(order['lamports']) / 1e9) if order['side'] == 'buy' and order.get('lamports') else abs(fill['sol'] + opened)) * sol_px
     if order['side'] == 'buy' and fill['atoms'] > 0:
         old = int(l['atoms']) / (10 ** l['decimals'])
         l['atoms'] = int(l['atoms']) + fill['atoms']
@@ -295,7 +313,9 @@ def apply_fill(book, order, fill, sol_px):
         left = max(0, int(l['atoms']) + fill['atoms'])
         l['costUsd'] = round(_f(l.get('costUsd')) * (left / int(l['atoms'])) if int(l['atoms']) else 0.0, 6)
         l['atoms'] = left
-    sol_move = fill['sol']
+    sol_move = fill['sol'] + opened
+    if opened > 0:   # the reserve fronts that rent (it is refunded to the wallet when the accounts close) — the card gets its full price
+        b['rentSol'] = round(_f(b.get('rentSol')) + opened, 9)
     if order['side'] == 'buy' and order.get('lamports') and fill['sol'] < 0:
         # the card pays only what went INTO the swap; anything more (new token-account rent) comes out of the wallet's fee reserve
         swap_sol = int(order['lamports']) / 1e9
@@ -329,7 +349,30 @@ def apply_fill(book, order, fill, sol_px):
     b['feesUsd'] = round(_f(b.get('feesUsd')) + fill['feeSol'] * sol_px, 6)
     if not l['atoms']:
         b['legs'].pop(m, None)
-    return b, {'units': round(units, 9), 'px': usd / units if units else 0.0, 'usd': round(usd, 6), 'sol': round(abs(fill['sol']), 9)}
+    return b, {'units': round(units, 9), 'px': usd / units if units else 0.0, 'usd': round(usd, 6), 'sol': round(abs(fill['sol'] + opened), 9),
+               **({'openedSol': opened} if opened else {})}
+
+
+ROUTE_FIX_LOSS = 0.25   # a sell that paid ≥ 25% under its cost is worth one look at its transaction
+
+
+def route_fix_rows(ledger, since=0.0):
+    """🩹 Sells that may have had route rent booked as a loss (filled, with a tx, never checked, paid ≥ 25% under cost)."""
+    return [r for r in ledger or [] if r.get('side') == 'sell' and r.get('status') == 'filled' and r.get('sig') and 'openedSol' not in r
+            and _f(r.get('at')) >= since and _f(r.get('costUsd')) > 0 and _f(r.get('usd')) < _f(r.get('costUsd')) * (1 - ROUTE_FIX_LOSS)]
+
+
+def route_fix(books, found, free, sol_px):
+    """Give each card back the route rent its sells were short by (`found` = {card: SOL}), never more than the wallet's free SOL.
+    → (books, {card: SOL credited})"""
+    out, credits, left = dict(books or {}), {}, max(0.0, _f(free))
+    for card, sol in (found or {}).items():
+        back = round(min(_f(sol), left), 9)
+        if back <= 0 or card not in out:
+            continue
+        out[card] = {**out[card], 'sol': round(_f(out[card].get('sol')) + back, 9)}
+        credits[card] = back; left -= back
+    return out, credits
 
 
 def enforce_principal_floor(book, equity_usd, sol_px):

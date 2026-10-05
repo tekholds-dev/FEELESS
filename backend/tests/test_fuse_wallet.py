@@ -906,3 +906,46 @@ def test_a_bench_is_short_so_a_coin_can_come_back_the_same_hour():
     for i in range(8):
         b, _ = fw.note_miss(b, 'M', 100, 'pool too thin')
     assert b['benched']['M']['until'] == 100 + fw.BENCH_MAX                              # doubling stops at 2h
+
+
+def _sell_tx(owner_delta, fee, opened=(), token_delta=-50):
+    keys = [{'pubkey': 'OWNER', 'signer': True}] + [{'pubkey': f'NEW{i}', 'signer': False} for i in range(len(opened))] + [{'pubkey': 'POOL', 'signer': False}]
+    return {'transaction': {'message': {'accountKeys': keys}},
+            'meta': {'err': None, 'fee': fee, 'preBalances': [10_000_000] + [0] * len(opened) + [5_000_000_000],
+                     'postBalances': [10_000_000 + owner_delta] + list(opened) + [5_000_000_000 - 1],
+                     'preTokenBalances': [{'owner': 'OWNER', 'mint': 'M', 'uiTokenAmount': {'amount': '100', 'decimals': 0}}],
+                     'postTokenBalances': [{'owner': 'OWNER', 'mint': 'M', 'uiTokenAmount': {'amount': str(100 + token_delta), 'decimals': 0}}]}}
+
+
+def test_rent_a_sell_route_parks_in_new_accounts_is_never_booked_as_a_price_loss():
+    """The real case: baton sold for 0.00351 SOL, but the 2-hop route opened two accounts (0.00303 SOL) → the wallet only rose 0.00044."""
+    tx = _sell_tx(owner_delta=386_687, fee=55_000, opened=(1_488_440, 1_539_240))
+    fill = fw.fill_from_meta(tx, 'OWNER', 'M')
+    assert fill['atoms'] == -50 and fill['openedSol'] == 0.00302768 and fill['sol'] == 0.000441687
+    book = {'sol': 0.0, 'legs': {'M': {'atoms': 100, 'decimals': 0, 'pair': 'P', 'symbol': 'baton', 'costUsd': 0.84, 'entryPx': 0.0084}}}
+    order = {'side': 'sell', 'mint': 'M', 'atoms': 50, 'usd': 0.42}
+    assert fw.fill_error(order, fill, book) == ''
+    b, f = fw.apply_fill(book, order, fill, 120.0)
+    assert round(f['usd'], 3) == 0.416 and round(b['sol'], 9) == 0.003469367            # the card gets the swap's full price (≈ its cost)
+    assert b['rentSol'] == 0.00302768                                                    # the parked rent is the reserve's to front
+    assert b['legs']['M']['atoms'] == 50 and b['legs']['M']['costUsd'] == 0.42
+    # a one-hop sell opens nothing → booked exactly as before
+    plain = fw.fill_from_meta(_sell_tx(owner_delta=3_400_000, fee=5_000), 'OWNER', 'M')
+    b2, f2 = fw.apply_fill(book, order, plain, 120.0)
+    assert plain['openedSol'] == 0 and round(b2['sol'], 9) == 0.003405 and not b2.get('rentSol')
+    # absurd "rent" is capped — it is never a way to invent proceeds
+    assert fw.opened_sol(_sell_tx(1, 0, opened=(5_000_000_000,)), 'OWNER') == fw.OPENED_MAX_SOL
+
+
+def test_route_rent_repair_checks_only_suspicious_sells_and_never_credits_more_than_the_wallet_has_free():
+    ledger = [{'side': 'sell', 'status': 'filled', 'sig': 'a', 'at': 10, 'usd': 0.05, 'costUsd': 0.42, 'card': 't'},     # −87% → look
+              {'side': 'sell', 'status': 'filled', 'sig': 'b', 'at': 10, 'usd': 0.40, 'costUsd': 0.42, 'card': 't'},     # normal
+              {'side': 'sell', 'status': 'filled', 'sig': 'c', 'at': 10, 'usd': 0.05, 'costUsd': 0.42, 'card': 't', 'openedSol': 0.0},   # already checked
+              {'side': 'buy', 'status': 'filled', 'sig': 'd', 'at': 10, 'usd': 0.05, 'costUsd': 0.42, 'card': 't'},
+              {'side': 'sell', 'status': 'failed', 'sig': 'e', 'at': 10, 'usd': 0.05, 'costUsd': 0.42, 'card': 't'}]
+    assert [r['sig'] for r in fw.route_fix_rows(ledger)] == ['a']
+    books, credits = fw.route_fix({'t': {'sol': 0.001}}, {'t': 0.0045}, 0.01, 120.0)
+    assert credits == {'t': 0.0045} and books['t']['sol'] == 0.0055
+    books, credits = fw.route_fix({'t': {'sol': 0.001}}, {'t': 0.0045}, 0.002, 120.0)
+    assert credits == {'t': 0.002} and books['t']['sol'] == 0.003                        # only SOL the wallet really has unassigned
+    assert fw.route_fix({'t': {'sol': 0.001}}, {'t': 0.0045}, 0.0, 120.0)[1] == {}

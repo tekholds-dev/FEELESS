@@ -6143,7 +6143,18 @@ async def _fw_quote(order, cfg):
     """A REAL Jupiter quote for one keeper order (SOL → coin to buy, coin → SOL to sell). Read-only."""
     q = {'inputMint': _fw.SOL_MINT if order['side'] == 'buy' else order['mint'], 'outputMint': order['mint'] if order['side'] == 'buy' else _fw.SOL_MINT,
          'amount': str(order['lamports'] if order['side'] == 'buy' else order['atoms']), 'slippageBps': str(cfg['slippageBps'])}
-    return await _fw_jup('GET', '/swap/v1/quote', params=q)
+    # 🎯 ONE-HOP route first (coin ⇄ SOL in one pool): a multi-hop route opens accounts for the coins it passes through (rent parked
+    # until they close), builds transactions too big to send, and fails more often. Multi-hop only when one hop is missing or costly.
+    try:
+        direct = await _fw_jup('GET', '/swap/v1/quote', params={**q, 'onlyDirectRoutes': 'true'})
+        if _fuse._f(direct.get('outAmount')) > 0 and _fuse._f(direct.get('priceImpactPct')) * 100 <= min(1.0, _fuse._f(cfg.get('maxImpactPct')) or 1.0):
+            return direct
+    except HTTPException:
+        direct = None
+    multi = await _fw_jup('GET', '/swap/v1/quote', params={**q, 'restrictIntermediateTokens': 'true'})
+    if direct and _fuse._f(direct.get('outAmount')) >= _fuse._f(multi.get('outAmount')) * 0.995:
+        return direct   # one hop pays (nearly) the same → still the cleaner transaction
+    return multi
 
 
 async def _fw_secure_buy(order, cfg, q):
@@ -6449,7 +6460,8 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
         if p.get('side') == 'sell':   # 🧾 use the confirmed token debit, never the requested/quoted amount
             row['costUsd'] = _fw.cost_of(book, p['mint'], abs(int(fill.get('atoms') or 0)))
         book, f = _fw.apply_fill(book, p, fill, sol_px)
-        row.update(status='filled', px=f['px'], units=f['units'], usd=f['usd'] or row['usd'], sol=f['sol'], feeSol=fill['feeSol'], feeUsd=round(fill['feeSol'] * sol_px, 6))
+        row.update(status='filled', px=f['px'], units=f['units'], usd=f['usd'] or row['usd'], sol=f['sol'], feeSol=fill['feeSol'], feeUsd=round(fill['feeSol'] * sol_px, 6),
+                   openedSol=_fuse._f(fill.get('openedSol')))
         if p.get('side') == 'sell':
             row.update(proceedsUsd=f['usd'], realizedPnlUsd=round(f['usd'] - row['costUsd'], 6))
         # The cached wallet balance predates this confirmed fill. Force the keeper's
@@ -6690,6 +6702,53 @@ async def _fw_rent_credit(cfg):
                         d['books'][tid] = {**b, 'fundedUsd': f_}
             d['rentFix2'] = time.time()
             _fw_save(d)
+    if not d.get('routeFix1') and not os.environ.get('PYTEST_CURRENT_TEST'):
+        # 🩹 sells whose multi-hop route parked rent in accounts it opened were booked as price losses (baton −87%, ORCA −50%). That SOL
+        # came back to the wallet when the accounts closed; it is the card's sale money → back into card cash, once, from the chain.
+        try:
+            found, checked = {}, {}
+            sol_px0 = await _sol_usd_live()
+            if sol_px0 <= 0:
+                raise RuntimeError('no SOL price')
+            async with httpx.AsyncClient(timeout=20) as http:
+                for r in _fw.route_fix_rows(d['ledger'], time.time() - 3 * 86400)[-40:]:
+                    tx = await _krpc(http, 'getTransaction', [r['sig'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+                    if not tx:
+                        raise RuntimeError('tx not readable yet')
+                    checked[r['sig']] = _fw.opened_sol(tx, cfg['address'])
+                    if checked[r['sig']] > 0:
+                        found[r.get('card')] = round(found.get(r.get('card'), 0.0) + checked[r['sig']], 9)
+            async with _fw_lock:
+                d = _fw_load()
+                bal_sol = _FW_GAS.get('sol')
+                if found and bal_sol is None:
+                    raise RuntimeError('wallet balance not read yet')
+                d['books'], credits = _fw.route_fix(d['books'], found, _fw.free_sol(bal_sol, d['books'], cfg.get('reserveSol')) if found else 0.0, sol_px0)
+                for r in d['ledger']:
+                    if r.get('sig') in checked and r.get('side') == 'sell':
+                        r['openedSol'] = checked[r['sig']]
+                        if checked[r['sig']] > 0 and r.get('card') in credits:   # the trail shows the true price result of that sale
+                            r['usd'] = r['proceedsUsd'] = round(_fuse._f(r.get('usd')) + checked[r['sig']] * sol_px0, 6)
+                            r['realizedPnlUsd'] = round(r['usd'] - _fuse._f(r.get('costUsd')), 6)
+                for tid, sol in credits.items():
+                    _fw_record(d, {'id': f'routefix:{tid}', 'card': tid, 'side': 'fix', 'sol': sol, 'usd': round(sol * sol_px0, 4), 'at': time.time(), 'status': 'done',
+                                   'why': f'🩹 {sol:.5f} SOL of route rent was booked as a sale loss — it came back to the wallet and is back in this card'})
+                if not found or credits:
+                    d['routeFix1'] = time.time()
+                _fw_save(d)
+            if credits:   # the run that restarted on the short value gets the same $ in its baseline: the money is back, it is not a gain
+                async with _admin_lock:
+                    h = _json_load(FUSE_HQ_PATH, {}); cs = (h.get('prime') or {}).get('cards') or {}
+                    for tid, sol in credits.items():
+                        if cs.get(tid):
+                            for k_ in ('startUsd', 'roundStartUsd', 'dayStartUsd'):
+                                if cs[tid].get(k_) is not None:
+                                    cs[tid][k_] = round(_fuse._f(cs[tid][k_]) + sol * sol_px0, 4)
+                    _json_save(FUSE_HQ_PATH, h)
+            for tid in credits:
+                _fw_notify({'card': tid, 'side': 'fix', 'status': 'done', 'usd': 0, 'why': 'route rent booked as a loss is back in the card'})
+        except Exception as e:
+            print('fuse wallet route fix (retries next sweep):', str(e)[:120])
     if not d.get('cashFix1'):   # 🩹 recovery sells used to park their SOL as "owner's held cash" (never re-spent) → back to work, once
         async with _fw_lock:
             d = _fw_load()
