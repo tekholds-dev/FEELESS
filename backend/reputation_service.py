@@ -5142,6 +5142,9 @@ async def _runner_live():
         if m and m not in seen and (now_ms - _fuse._f(p.get('pairCreatedAt'))) <= _rn.MAX_AGE_H * 3.6e6:
             seen.add(m); pairs.append(p)
     busiest = sorted(pairs, key=lambda p: -_fuse._f((p.get('volume') or {}).get('h1')))[:40]   # warmed in the background (cached scans); 40 busiest so more coins can pass
+    # 🗑 trench breakouts get a holder scan too (they're rarely among the 40 busiest — the scan never reached them before)
+    busiest += [p for p in sorted((p for p in pairs if p not in busiest and _trench.market_pair(p, time.time() * 1000)),
+                                  key=lambda p: -_fuse._f((p.get('volume') or {}).get('h1')))[:10]]
     # Never block the board on scans: wait ≤6s, the rest keep running and land in the cache for the next refresh.
     tasks = {(p.get('baseToken') or {}).get('address'): asyncio.ensure_future(_runner_intel((p.get('baseToken') or {}).get('address'))) for p in busiest}
     if tasks:
@@ -5173,6 +5176,7 @@ async def _runner_live():
     # (8+) steps back toward the configured engine. At most one step per 2 minutes; every step is logged with what moved.
     base = _runner_cfg(); wz = _runner_widen
     eff = _rn.widen(base, wz['level'])
+    _runner_cands[:] = cands   # 🗑 every candidate (not just passing + the top 30 dropped) — the trench scan reads all of them
     data = {**_rn.board(cands, eff), 'seen': len(cands), 'at': time.time()}
     if time.time() - wz['at'] >= 120:
         nxt = _rn.widen_level(wz['level'], len(data['passing']))
@@ -5367,6 +5371,7 @@ def _prime_real_cfg(pr=None):
 import trench as _trench
 
 _trench_cache: dict = {'at': 0.0, 'rows': [], 'checked': []}
+_runner_cands: list = []   # every runner candidate of the last board build (filled by _runner_live)
 TRENCH_SCAN = 5   # on-chain holder counts are heavy: only the 5 busiest coins that already pass every cheap check
 
 
@@ -5379,7 +5384,7 @@ async def _trench_build(now):
     _trench_cache['at'] = now
     live = await _runner_live()
     seen, pool = set(), []
-    for r in (live.get('passing') or []) + (live.get('dropped') or []):
+    for r in list(_runner_cands) or (live.get('passing') or []) + (live.get('dropped') or []):
         if r.get('mint') and r['mint'] not in seen and not _trench.precheck(r):
             seen.add(r['mint']); pool.append(r)
     pool = sorted(pool, key=lambda r: -_fuse._f(r.get('vol1h')))[:TRENCH_SCAN]

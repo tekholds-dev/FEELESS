@@ -95,3 +95,32 @@ def test_trench_endpoint_lists_finalists_and_the_rules():
     # 🗑 pickable rows (only passing coins) + the trench pool floor, for the swap picker's Trench list
     assert [r['mint'] for r in out['rows']] == [GOOD['mint']] and out['rows'][0]['trench'] and out['floor'] == 8000
     rs._trench_cache.update(checked=[], rows=[])
+
+
+def test_a_card_switched_to_the_trench_cycle_takes_its_trench_coins_on_the_next_tick():
+    anchors, pools, runners = _cands()
+    cfg = ap.clean_cfg({'trenchCoins': 2, 'cycles': {**{t: 'off' for t in ap.DEFAULT_CYCLES}, 'degen': 'trench'}, 'rescuePct': 0, 'cycleEvery': 6})
+    card = ap.deal('degen', pools, [x for x in runners if not x.get('trenchOnly')], cfg, 0.0, anchors, shape='degen')
+    assert not any(l.get('trench') for l in card['legs'])
+    px = {l['pairAddress']: l['entry'] for l in card['legs']}
+    win = next(l for l in card['legs'] if l['role'] == 'runner')
+    px[win['pairAddress']] *= 1.5                                                        # a +50% runner is never sold for a trench coin
+    for x in runners:
+        px.setdefault(x['pairAddress'], x['price'])
+    out = ap.tick(card, px, pools, runners, cfg, 30.0, anchors, {}, {})
+    tl = [l for l in out['legs'] if l.get('trench')]
+    assert 1 <= len(tl) <= 2 and any(l['mint'] == win['mint'] for l in out['legs'])
+    assert any('trench cycle' in (e.get('why') or '') for e in out['events'])
+    again = ap.tick(out, {**px, **{l['pairAddress']: l['entry'] for l in out['legs'] if l.get('trench')}}, pools, runners, cfg, 60.0, anchors, {}, {})
+    assert len([l for l in again['legs'] if l.get('trench')]) == len(tl)                # stays put — no churn once it holds them
+    off = ap.tick(card, px, pools, runners, ap.clean_cfg({**cfg, 'cycles': {t: 'off' for t in ap.DEFAULT_CYCLES}}), 30.0, anchors, {}, {})
+    assert not any(l.get('trench') for l in off['legs'])                                 # other cycles never take one
+
+
+def test_raw_pairs_breaking_out_join_the_holder_scan():
+    now = 10 * 3.6e6
+    p = {'pairCreatedAt': now - 2 * 3.6e6, 'marketCap': 30_000, 'txns': {'h1': {'buys': 300, 'sells': 150}}, 'volume': {'h1': 15_000},
+         'priceChange': {'m5': 4, 'h1': 20}}
+    assert tr.market_pair(p, now)
+    for bad in ({'marketCap': 9_000}, {'pairCreatedAt': now - 9 * 3.6e6}, {'txns': {'h1': {'buys': 100, 'sells': 100}}}, {'priceChange': {'m5': -1, 'h1': 20}}, {'pairCreatedAt': None}):
+        assert not tr.market_pair({**p, **bad}, now), bad

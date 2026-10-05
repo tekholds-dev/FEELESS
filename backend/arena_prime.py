@@ -662,6 +662,25 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         ev(kind='replace', symbol=l.get('symbol'), usd=round(usd, 4), why='reserved replacement slot filled from eligible feed', to=[nxt.get('symbol')])
     c.setdefault('dayAt', c['at']); c.setdefault('dayStartUsd', c['startUsd']); c.setdefault('days', []); c.setdefault('lowPct', 0.0)
 
+    # 🗑 TRENCH FILL: a card on the trench cycle holds its 1–2 trench coins as soon as the scan has one — it never waits up to
+    # `cycleEvery` rounds for the next re-shape. The weakest normal runner (not winning > +10%, not frozen / riding / picked / waiting
+    # on a buy) is sold for the best trench coin. No trench coin passing → the card keeps its normal runners.
+    if not c.get('holdAll') and not c.get('cycleFix') and (c.get('phase') == 'trench' or (cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl']) == 'trench'):
+        for _ in range(max(0, trench_n(cfg) - sum(1 for l in c['legs'] if l.get('trench')))):
+            nxt = next((x for x in rated(runners, 'runner') if x.get('trenchOnly') and x['mint'] not in have() and _f(x.get('price')) > 0), None)
+            def gain(l):
+                px = _f(prices.get(l['pairAddress'])); return (px / _f(l['entry']) - 1) * 100 if px > 0 and _f(l.get('entry')) > 0 else 0.0
+            victims = [l for l in c['legs'] if l.get('role') == 'runner' and not l.get('trench') and not l.get('frozen') and not l.get('ride')
+                       and not l.get('picked') and not l.get('buying') and not l.get('placeholder') and _f(l.get('units')) > 0 and gain(l) <= 10]
+            if not nxt or not victims:
+                break
+            l = min(victims, key=gain)
+            px = _f(prices.get(l['pairAddress'])) or _f(l['entry'])
+            out_usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
+            c['legs'][c['legs'].index(l)] = _leg(nxt, out_usd, now, 'runner')
+            c['feesUsd'] = _f(c.get('feesUsd')) + 2 * fee
+            ev(kind='rotate', symbol=l['symbol'], usd=round(out_usd, 4), why=f"🗑 trench cycle — {gain(l):+.1f}% runner swapped for a fresh trench breakout", to=[nxt.get('symbol')])
+
     # ⚡ INSTANT LOSS SWAP: this is deliberately NOT a round rule. Once a non-anchor coin reaches the owner's configured
     # loss from entry, it exits on this tick — no patience counter and no minimum-hold wait. Frozen/riding/manual Hold All still win.
     instant_loss = _f(cfg.get('instantSwapPct'))

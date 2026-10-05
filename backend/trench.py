@@ -81,3 +81,16 @@ def score(c, holders):
     add('creator', 10.0 if c.get('creatorRep') == 'clean' else 4.0, 'clean creator' if c.get('creatorRep') == 'clean' else 'new creator (no record)')
     add('snipers', 5.0 if c.get('snipersOut') else 0.0, 'snipers sold out' if c.get('snipersOut') else 'snipers still in')
     return round(max(0.0, min(100.0, sum(p['points'] for p in parts))), 1), parts
+
+
+def market_pair(p, now_ms, cfg=None):
+    """Cheap first look at a RAW DexScreener pair (before any holder scan): fresh, in the $20K–cap band, busy, buyers ahead, green.
+    The runner board only scans the 40 busiest coins — trench finalists are added to that scan so their holder checks can run."""
+    g = {**TRENCH, **(cfg or {})}
+    age_h = (now_ms - _f(p.get('pairCreatedAt'))) / 3.6e6 if _f(p.get('pairCreatedAt')) else None
+    tx = (p.get('txns') or {}).get('h1') or {}
+    b, s_ = int(_f(tx.get('buys'))), int(_f(tx.get('sells')))
+    pc = p.get('priceChange') or {}
+    mcap = _f(p.get('marketCap') or p.get('fdv'))
+    return (age_h is not None and age_h <= g['maxAgeH'] and g['minMcap'] <= mcap <= g['maxMcap'] and b + s_ >= g['minTxns1h']
+            and _f((p.get('volume') or {}).get('h1')) >= g['minVol1h'] and b / (b + s_) * 100 >= g['minBuyShare'] and _f(pc.get('m5')) > 0 and _f(pc.get('h1')) > 0)

@@ -941,3 +941,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   card → it gets old sweeps too) as card cash + `fundedUsd` (the reserve paid it, so it's money put in — P&L stays the price result).
   ⏳ Stuck buys (`fuse_wallet.stuck_buys`, leg `buyingSince`, `STUCK_BUY_SEC` 600): a real-card coin still 'buying' after 10 min (or benched)
   is swapped for a buyable coin in the tier tick (no candidate → slot back to card cash) and cooled via `note_dropped`.
+- 🗑 Trench, wired end to end: `_runner_live` adds up to 10 raw pairs passing `trench.market_pair` (fresh · $20K band · busy · buyers ·
+  green) to the holder scan and keeps EVERY candidate in `_runner_cands` for `_trench_build` (it used to read only passing + the top 30
+  dropped, and only the 40 busiest were ever scanned → the list stayed empty). 🗑 TRENCH FILL in `arena_prime.tick`: a card whose cycle
+  (or phase) is trench takes its 1–2 trench coins on the next tick — the weakest normal runner (≤ +10%, not frozen / riding / picked /
+  buying) is swapped — instead of waiting up to `cycleEvery` rounds for a re-shape.
