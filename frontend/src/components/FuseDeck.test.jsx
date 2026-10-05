@@ -53,19 +53,20 @@ test('verdict: what is working and what is not, filterable, losers first', async
   expect(el.querySelectorAll('.fdv-row').length).toBe(1); expect(el.textContent).toContain('needs 5 more to call');
 });
 
-test('verdict: one click adds a proven setting to all cards and scraps a losing strategy', async () => {
+test('verdict: one click puts a proven setting on ONE card and scraps a losing strategy', async () => {
   const { Verdict } = require('./FuseDeck');
   const { act } = require('react');
   const { createRoot } = require('react-dom/client');
   const V = { headline: '1 working', keep: 1, scrap: 1, watch: 0, rows: [
     { area: '🏟 Strategy', name: 'degen', n: 9, avgPct: -6, medPct: -3, verdict: 'scrap', why: 'x', acts: [['scrap', '🗑 Scrap']] },
-    { area: '🧠 Sim config', name: 'sell off its peak = 8', n: 40, avgPct: 2, medPct: 1, verdict: 'keep', why: 'y', acts: [['apply', '➕ Add to all cards'], ['apply-one', '🃏 One card'], ['apply-real', '💵 Real card']] }] };
+    { area: '🧠 Sim config', name: 'sell off its peak = 8', n: 40, avgPct: 2, medPct: 1, verdict: 'keep', why: 'y', acts: [['apply-one', '🃏 One card'], ['apply-real', '💵 Real card']] }] };
   const posts = []; const call = jest.fn(async (url, o) => { if (o) { posts.push([url, JSON.parse(o.body)]); return { done: 'ok' }; } return V; });
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<Verdict call={call} />); });
   await act(() => new Promise(r => setTimeout(r, 10)));
-  await act(async () => { el.querySelector('[data-testid="fdv-act-apply-1"]').click(); });
-  expect(posts[0]).toEqual(['/admin/fuses/verdict/act', { area: '🧠 Sim config', name: 'sell off its peak = 8', act: 'apply', tier: 'degen' }]);
+  expect(el.textContent).not.toContain('Add to all cards');
+  await act(async () => { el.querySelector('[data-testid="fdv-act-apply-one-1"]').click(); });
+  expect(posts[0]).toEqual(['/admin/fuses/verdict/act', { area: '🧠 Sim config', name: 'sell off its peak = 8', act: 'apply-one', tier: 'degen' }]);
   await act(async () => { el.querySelector('[data-testid="fdv-act-scrap-0"]').click(); });
   expect(posts[1][1]).toMatchObject({ area: '🏟 Strategy', name: 'degen', act: 'scrap' });
 });

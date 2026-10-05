@@ -978,7 +978,7 @@ def test_every_tier_card_plays_its_own_unique_exits_and_a_shared_edit_applies_to
     assert ap.card_template('degen', d)['tp'] == 50 and ap.card_template('degen', {})['tp'] == ap.TEMPLATES['degen']['tp']
 
 
-def test_hq_per_card_exit_edit_and_shared_edit_through_the_endpoint(monkeypatch):
+def test_hq_per_card_exit_edit_and_a_shared_edit_never_flattens_the_cards(monkeypatch):
     import asyncio
     rs = pytest.importorskip('reputation_service')
     monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN')
@@ -989,6 +989,30 @@ def test_hq_per_card_exit_edit_and_shared_edit_through_the_endpoint(monkeypatch)
     asyncio.run(rs.fuse_prime_admin(Rq({'cfg': {'tierCfg': {'degen': {'rideAt': 20}}}})))
     cfg = rs._json_load(rs.FUSE_HQ_PATH, {})['prime']['cfg']
     assert cfg['tierCfg']['degen']['rideAt'] == 20 and cfg['tierCfg']['next']['rideAt'] == 20 and cfg['tierCfg']['safe']['rideAt'] == 50   # only Blaze moved
-    asyncio.run(rs.fuse_prime_admin(Rq({'cfg': {'rideAt': 25}})))                         # shared edit → every card follows it
+    asyncio.run(rs.fuse_prime_admin(Rq({'cfg': {'rideAt': 25}})))                         # a shared edit never flattens the cards
     cfg = rs._json_load(rs.FUSE_HQ_PATH, {})['prime']['cfg']
-    assert all('rideAt' not in row for row in cfg['tierCfg'].values()) and ap.tier_cfg(cfg, 'safe')['rideAt'] == 25
+    assert ap.tier_cfg(cfg, 'degen')['rideAt'] == 20 and ap.tier_cfg(cfg, 'safe')['rideAt'] == 50
+
+
+def test_all_cards_get_their_own_exits_back_and_the_real_card_is_never_touched(monkeypatch):
+    import asyncio
+    rs = pytest.importorskip('reputation_service')
+    monkeypatch.setattr(rs, '_require_owner', lambda r: 'OWNER'); monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN')
+    real = {'rotateHours': 0.08, 'rotateConfirm': 2, 'minHoldMins': 10, 'rideAt': 15, 'rideTrail': 8, 'instantSwapPct': 15, 'rescuePct': 0, 'floorPct': 40}
+    # the state "Add to all cards" left: every card's own keys cleared, shared TP 300 + trail 8 on every card
+    flat = {t: {} for t in ap.TEMPLATES}
+    rs._json_save(rs.FUSE_HQ_PATH, {'prime': {'cfg': {'tp': 300, 'rideTrail': 8, 'tierCfg': flat}, 'realCfg': real, 'realOwnerSet': sorted(real), 'cards': {}}})
+    assert asyncio.run(rs._prime_unique_fix(0)) and not asyncio.run(rs._prime_unique_fix(1))       # once
+    pr = rs._json_load(rs.FUSE_HQ_PATH, {})['prime']
+    sigs = {t: tuple(ap.tier_cfg(pr['cfg'], t)[k] for k in ap.TIER_KEYS) for t in ap.TEMPLATES}
+    assert len(set(sigs.values())) == len(ap.TEMPLATES) and pr['cfg']['tp'] == 0                       # all unique again, TP back to 'tier'
+    assert pr['realCfg'] == real                                                                         # 💵 Blaze real untouched
+    r = rs._prime_real_cfg()
+    assert (r['rotateConfirm'], r['minHoldMins'], r['rideAt'], r['rideTrail'], r['instantSwapPct']) == (2, 10, 15, 8, 15)
+    with pytest.raises(rs.HTTPException):                                                                # no "all cards" action any more
+        asyncio.run(rs.fuse_verdict_act(None, rs.VerdictActIn(area='🧠 Sim config', name='take-profit = 300', act='apply')))
+    class Rq:
+        async def json(self): return {'cfg': {'rideAt': 25, 'rotateConfirm': 1}}
+    asyncio.run(rs.fuse_prime_admin(Rq()))                                                               # a shared edit can't flatten the cards
+    pr2 = rs._json_load(rs.FUSE_HQ_PATH, {})['prime']
+    assert {t: tuple(ap.tier_cfg(pr2['cfg'], t)[k] for k in ap.TIER_KEYS) for t in ap.TEMPLATES} == sigs and pr2['realCfg'] == real

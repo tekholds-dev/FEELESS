@@ -164,6 +164,20 @@ def clean_tier_cfg(p):
     return out
 
 
+def unique_exits(tier_cfg):
+    """🃏 Every card on its OWN exits: a key a card doesn't set comes back as its unique default, and a card whose whole exit set
+    copies another card's is put back on its own defaults (the per-tier defaults never collide)."""
+    out = {t: {**DEFAULT_TIER_CFG[t], **((tier_cfg or {}).get(t) or {})} for t in DEFAULT_TIER_CFG}
+    seen = {}
+    for t in DEFAULT_TIER_CFG:
+        sig = tuple(_f(out[t].get(k)) for k in TIER_KEYS)
+        if sig in seen:
+            out[t] = dict(DEFAULT_TIER_CFG[t])
+            sig = tuple(_f(out[t].get(k)) for k in TIER_KEYS)
+        seen[sig] = t
+    return out
+
+
 CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.08, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 60), 'instantSwapPct': (0, 50)}
 
 

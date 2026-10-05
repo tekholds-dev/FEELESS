@@ -5554,6 +5554,25 @@ def _fw_market_rows(cards, books):
 PRIME_RESET = 'paper20'   # one-time: every PAPER tier card starts over on $20 (the real card is never touched)
 
 
+PRIME_UNIQUE = 'unique2'
+
+
+async def _prime_unique_fix(now):
+    """🃏 Once: undo "Add to all cards" — every paper card gets its OWN exits back (its explicit per-card edits are kept; any exit key it
+    lost to the shared edit returns to that card's unique default; the shared TP / stop go back to 'tier'). The real card is never touched."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        if pr.get('uniqueFix') == PRIME_UNIQUE:
+            return False
+        cfg = _prime.clean_cfg(pr.get('cfg') or {})
+        cfg['tierCfg'] = _prime.unique_exits(cfg['tierCfg'])
+        cfg['tp'] = cfg['sl'] = 0.0
+        pr['cfg'] = _prime.clean_cfg(cfg); pr['uniqueFix'] = PRIME_UNIQUE
+        _json_save(FUSE_HQ_PATH, d)
+    ad = _admin_load(); _audit(ad, 'engine-auto', 'arena-prime', 'every paper card back on its own unique exits (real card untouched)'); _admin_save(ad)
+    return True
+
+
 async def _prime_reset_paper(now):
     """🔁 Start every paper tier card over at $20, once. Their old runs go to the permanent record + `prime.archive`; the tick deals
     fresh cards at the new size right after. Real-money cards keep running exactly as they are."""
@@ -5577,6 +5596,7 @@ async def _prime_reset_paper(now):
 
 
 async def _prime_tick_inner(now):
+    await _prime_unique_fix(now)
     await _prime_reset_paper(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -5789,10 +5809,8 @@ async def fuse_prime_admin(request: Request):
         for t, row_ in (inc.pop('tierCfg', None) or {}).items() if isinstance(inc.get('tierCfg'), dict) else ():   # 🃏 one card's own exits
             if t in tc and isinstance(row_, dict):
                 tc[t].update(row_)
-        for k_ in _prime.TIER_KEYS:   # a SHARED edit of an exit key = apply to all cards (their own overrides for it are cleared)
-            if k_ in inc:
-                for t in tc:
-                    tc[t].pop(k_, None)
+        for k_ in _prime.TIER_KEYS:   # 🃏 exits are each card's OWN: a shared edit never overwrites them (no "all cards at once")
+            inc.pop(k_, None)
         pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), **inc, 'tierCfg': tc})
         if isinstance(body.get('realCfg'), dict):   # 💵 the real card's own config (paper untouched); first edit copies today's paper config
             base = pr.get('realCfg') if isinstance(pr.get('realCfg'), dict) and pr.get('realCfg') else pr['cfg']
@@ -7735,7 +7753,7 @@ SIM_KEYS = {'minDrop': 'rotateMinDrop', 'confirm': 'rotateConfirm', 'rideAt': 'r
 def _verdict_acts(r):
     a = r.get('area') or ''
     if a == '🧠 Sim config' and r['name'].split(' = ')[0] in {_verdict.TRAIT_WORDS.get(k, k) for k in SIM_KEYS}:
-        return [['apply', '➕ Add to all cards'], ['apply-one', '🃏 One card'], ['apply-real', '💵 Real card']] if r['verdict'] != 'scrap' else [['apply-real', '💵 Real card']]
+        return [['apply-one', '🃏 One card'], ['apply-real', '💵 Real card']] if r['verdict'] != 'scrap' else []   # every card keeps its OWN config — never all at once
     if a == '🏟 Strategy':
         return [['scrap', '🗑 Scrap']] if r['verdict'] != 'keep' else [['keep', '📌 Keep on rails']]
     if a == '🎚 Engine dial' and r['verdict'] == 'keep':
@@ -7825,12 +7843,7 @@ async def fuse_verdict_act(request: Request, p: VerdictActIn):
             raise HTTPException(400, f'{val} is not an option for {word}.')
         async with _admin_lock:
             d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-            if p.act == 'apply':   # shared edit = all paper cards (their own overrides for this key are cleared)
-                cfg = _prime.clean_cfg(pr.get('cfg') or {}); tc = cfg['tierCfg']
-                for t in tc:
-                    tc[t].pop(key, None)
-                pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), key: v, 'tierCfg': tc}); done = f'{key} = {v:g} on all paper cards'
-            elif p.act == 'apply-one' and p.tier in _prime.TEMPLATES:
+            if p.act == 'apply-one' and p.tier in _prime.TEMPLATES:
                 cfg = _prime.clean_cfg(pr.get('cfg') or {}); tc = cfg['tierCfg']; tc.setdefault(p.tier, {})[key] = v
                 pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), 'tierCfg': tc}); done = f'{key} = {v:g} on {p.tier}'
             elif p.act == 'apply-real':
@@ -7838,7 +7851,7 @@ async def fuse_verdict_act(request: Request, p: VerdictActIn):
                 pr['realCfg'] = _prime.clean_cfg({**base, key: v})
                 pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {key})[:60]; done = f'{key} = {v:g} on the real card'
             else:
-                raise HTTPException(400, 'Pick all cards, one card (tier) or the real card.')
+                raise HTTPException(400, 'Every card keeps its own config — pick one card or the real card.')
             _json_save(FUSE_HQ_PATH, d)
     elif p.area == '🏟 Strategy' and p.act in ('scrap', 'keep'):
         async with _admin_lock:

@@ -666,6 +666,7 @@ body.fx-lite .fs-backer { animation: none; } @media (prefers-reduced-motion: red
 .pgb-field { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; } .pgb-field > .m-label { grid-column: 1 / -1; }
 .pgb-fcard { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--m-line); background: var(--m-surface-2); font-size: 12px; animation: fpIn .3s var(--m-ease) calc(var(--i, 0) * 50ms) both; transition: border-color .15s, transform .15s; }
 .pgb-fcard:hover { border-color: var(--m-line-hi); transform: translateY(-1px); } .pgb-fcard.is-picked { border-color: var(--m-accent); } .pgb-fcard small { color: var(--m-dim); font-size: 10.5px; } .pgb-fcard .m-num { font-size: 15px; }
+.prime-own { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--m-dim); padding: 6px 10px; border-left: 3px solid var(--m-accent); }
 .fp-freeze { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 4px 0 8px; font-size: 12px; } .fp-freeze > span:not(.m-seg) { color: var(--m-dim); cursor: help; }
 @media (max-width: 640px) { .fp-freeze .m-seg { flex-wrap: wrap; } }
 /* 🏆 playground seats: the background field's top 3, the only big cards HQ can pick for the Arena */

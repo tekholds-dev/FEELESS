@@ -900,12 +900,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   blocklisted only for sniping other launches) passes only when the coin proves itself (`banger_proof`: top-10 < 20%, insiders < 5%, 0 bundled,
   ≥ 55% buys, ≥ $20K 1h volume, dev not sold) and scores −12. New-runner launches (≤ 3h) keep the strict clean-creator rule.
 - 🧾 Verdict ALWAYS runs (`_verdict_tick` hourly in `_fuse_warm`, `data/fuse_verdict.json` + history; owner inbox once when a row flips ✅/❌).
-  One click per row (`POST /admin/fuses/verdict/act`, owner, audited): 🧠 sim setting → ➕ all paper cards (shared edit clears per-card
-  overrides) · 🃏 one card (`tierCfg[tier]`) · 💵 real card (`realOwnerSet`) · 🏟 strategy 🗑 scrap / 📌 keep (`scrappedStyles`/`keptStyles` → `_retired`)
+  One click per row (`POST /admin/fuses/verdict/act`, owner, audited): 🧠 sim setting → 🃏 ONE card (`tierCfg[tier]`) · 💵 real card
+  (`realOwnerSet`) — there is NO "all cards" action (owner: every card keeps unique configs) · 🏟 strategy 🗑 scrap / 📌 keep (`scrappedStyles`/`keptStyles` → `_retired`)
   · 🎚 use a proven dial · ⭐ re-deal a losing paper tier. Nothing changes without the click.
 - 🃏 Every paper tier card plays ITS OWN exits (`arena_prime.TIER_KEYS` rideAt/rideTrail/rotateMinDrop/rotateConfirm/minHoldMins/instantSwapPct/tp/sl,
   `tierCfg`, unique `DEFAULT_TIER_CFG`, `tier_cfg` merges; `card_template` = card TP/SL, 0 = tier's). HQ › Fuse › Arena › Cards: each paper card
-  has its own ⚙ Edit Fuse (exits save to `tierCfg`). Locks snapshot the tier's own exits.
+  has its own ⚙ Edit Fuse (exits save to `tierCfg`). Locks snapshot the tier's own exits. A shared paper edit NEVER touches these keys (the
+  Rounds & safety tab no longer shows them); `unique_exits` + one-time `_prime_unique_fix` (`PRIME_UNIQUE`) undid an "all cards" click.
+  The real card reads only `realCfg` — paper edits, verdict clicks and fixes never change it.
 - 🎯 3 strategies per round length (`pg_sim.strategies` in `byClock`: 🛡 Steady = best share ended up · 🧠 Engine pick = best median · 🔥 Hunt =
   best average; always 3 different configs; proof = each setting's own sims). Public `GET /fuses/strategies?hours=` (nearest clock, said so),
   `StrategyPicks` (+ `stratPatch`) in Edit Fuse › Exits (tier + real) and on every My cards card. The sim now tests ❄ freeze (`RIDES`) + peak
