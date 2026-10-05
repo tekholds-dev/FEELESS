@@ -33,7 +33,7 @@ def _next_rpc_endpoint() -> Optional[str]:
     return min(RPC_POOL, key=lambda e: _rpc_cooldown_until.get(e, 0)) if RPC_POOL else None
 
 
-SCAN_RPS = 8          # how many calls a second the scanners may put on the dedicated endpoint — the rest of its plan is the keeper's
+SCAN_RPS = 5          # how many calls a second the scanners may put on the dedicated endpoint — the rest of its plan is the keeper's
 _scan_stamps: list = []
 
 
@@ -49,13 +49,13 @@ def _scan_slot() -> bool:
     return True
 
 
-async def _rpc(http: httpx.AsyncClient, method: str, params: list):
+async def _rpc(http: httpx.AsyncClient, method: str, params: list, scan: bool = True):
     """Calls the RPC pool with retry + per-endpoint cooldown on failure or rate-limit."""
     last_error = None
     now = time.time()
     order = [e for e in RPC_POOL if _rpc_cooldown_until.get(e, 0) <= now] or ([_next_rpc_endpoint()] if RPC_POOL else [])
     for endpoint in order[:RPC_MAX_RETRIES]:
-        if endpoint == _dedicated and len(RPC_POOL) > 1 and not _scan_slot():
+        if scan and endpoint == _dedicated and len(RPC_POOL) > 1 and not _scan_slot():   # scan=False = the keeper falling back: never budgeted
             last_error = last_error or 'scan_budget'   # over the scanners' share → try the next endpoint, leave the plan to the keeper
             continue
         try:
@@ -95,7 +95,7 @@ async def broadcast(http: httpx.AsyncClient, signed_b64: str) -> int:
     return sum(1 for ok in await asyncio.gather(*[one(e) for e in RPC_POOL]) if ok)
 
 
-async def rpc_priority(http: httpx.AsyncClient, method: str, params: list, tries: int = 4):
+async def rpc_priority(http: httpx.AsyncClient, method: str, params: list, tries: int = 6):
     """💵 The KEEPER's lane. Real-money calls (balances, sends, confirmations) go to the dedicated endpoint FIRST and ignore the shared
     cooldown: the coin scanners burst past a plan's rate limit, which used to lock the keeper out of its own endpoint for 30s at a
     time ("RPC pool exhausted" on a balance read). A 429 here waits a moment and retries; only then does it fall back to the pool."""
@@ -118,4 +118,4 @@ async def rpc_priority(http: httpx.AsyncClient, method: str, params: list, tries
             if 'error' not in body:
                 return body.get('result')
             break   # a real RPC error (bad params, simulation failed, …) is the caller's to see — the pool reports it the same way
-    return await _rpc(http, method, params)
+    return await _rpc(http, method, params, scan=False)
