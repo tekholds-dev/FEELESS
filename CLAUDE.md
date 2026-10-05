@@ -1196,3 +1196,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   1h later at Jupiter's price (no price = −100%), median + % up, `proven` ≥ 5 settled. Chips show it. `_trench_judge()` re-judges the
   scanned finalists at once on a settings save. Trench settings also sit inside the swap picker's 🗑 lens (`TrenchScan bare`).
 - 🎞 Share on a real card = the CARD (`shareGif` `card.fuse` → `drawFuseCard`: tier colours, coin logos, per-coin %), not the mascot.
+- 🪑 A RESERVED SEAT NEVER HOLDS MONEY PAST A ROUND: the heal tries the seat's own kind, then any buyable runner / pool; still no
+  coin after one round → the placeholder is removed (event `slot`) and its reserve is spread into the card's coins; the empty-seat
+  refill brings a coin back when one qualifies. Found live: $0.66 of a $2.40 card sat reserved for 17 minutes.

@@ -422,7 +422,7 @@ export function TopThree({ c, busy, onSwap }) {
   </span>;
 }
 
-const VITAL_KIND = { skim: '💰 Profit taken', 'lock-bank': '🏦 Banked at the lock', 'peak-sell': '🏔 Sold off its peak', seat: '🪑 Seat filled', keep: '⚖ Kept', ride: '❄ Locked (riding)', rotate: '⇄ Swap',
+const VITAL_KIND = { skim: '💰 Profit taken', 'lock-bank': '🏦 Banked at the lock', 'peak-sell': '🏔 Sold off its peak', seat: '🪑 Seat filled', slot: '🪑 Seat released', keep: '⚖ Kept', ride: '❄ Locked (riding)', rotate: '⇄ Swap',
   compound: '♻ Cash back to work', balance: '⚖ Equal weight', floor: '🧱 Floor', deal: '🃏 Dealt', hold: '✋ Hold', 'manual-sell': '✂ Sold by you' };
 
 /* Under the real card: what matters right now, alive — the stack seat by seat, swaps used this hour, profit pulled out — plus

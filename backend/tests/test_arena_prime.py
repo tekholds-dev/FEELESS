@@ -1471,3 +1471,21 @@ def test_idle_card_cash_goes_back_into_the_coins_at_the_round_even_after_a_recen
     assert abs(mid['cash'] - 0.6) < 1e-6                                         # the cash waits (it must not all go into C)
     bell = ap.tick(card(now - 9999), px, [], [], cfg, now + 30, [], {}, liq)     # the round bell
     assert bell['cash'] < 0.01 and all(abs(l['units'] - 0.8) < 0.01 for l in bell['legs'] if l['mint'] in 'AB')   # back into the coins under their share
+
+
+def test_a_reserved_seat_with_no_coin_for_a_round_gives_its_money_back_to_the_cards_coins():
+    now = 1_000_000.0
+    cfg = ap.clean_cfg({'rotateHours': 0.1, 'compound': True, 'cycles': {'degen': 'off'}, 'rescuePct': 0, 'lockBankPct': 0, 'peakSellPct': 100, 'swapCapHr': -1})
+    leg = lambda m, role, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': role, 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0, 'at': now - 9999, 'liq': 1e12, **k}
+    card = lambda age: {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 0.6, 'startUsd': 2.6, 'roundStartUsd': 2.6, 'compoundedUsd': 0.0,
+                        'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 1,
+                        'legs': [leg('A', 'runner'), leg('B', 'runner'), leg('S', 'pool', units=0.0, costUsd=0.0, placeholder=True, reserveUsd=0.6, at=now - age)]}
+    px = {'PA': 1.0, 'PB': 1.0, 'PS': 1.0}; liq = {k: 1e12 for k in px}
+    young = ap.tick(card(60), px, [], [], cfg, now + 1, [], {}, liq)
+    assert any(l.get('placeholder') for l in young['legs']) and abs(young['cash'] - 0.6) < 1e-6        # inside the round: still reserved
+    old = ap.tick(card(900), px, [], [], cfg, now + 1, [], {}, liq)
+    assert not any(l.get('placeholder') for l in old['legs']) and old['cash'] < 0.01                   # a round with no coin: released …
+    assert all(abs(l['units'] - 1.3) < 0.01 for l in old['legs']) and any(e['kind'] == 'slot' for e in old['events'])   # … into the card's coins
+    run = {'mint': 'R', 'pairAddress': 'PR', 'symbol': 'R', 'price': 1.0, 'liquidityUsd': 1e12, 'score': 80, 'ageH': 20}
+    heal = ap.tick(card(60), {**px, 'PR': 1.0}, [], [run], cfg, now + 1, [], {}, {**liq, 'PR': 1e12})
+    assert any(l['mint'] == 'R' for l in heal['legs'])                                                # no pool to take a pool seat → a runner takes it

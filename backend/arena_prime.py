@@ -891,13 +891,21 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     for l in list(c['legs']):
         if not l.get('placeholder') or l.get('manualCash') or _f(l.get('units')) > 0:
             continue
-        nxt = best(l.get('role') or 'runner', l.get('trench'))
+        role_h = l.get('role') or 'runner'
+        # the seat's own kind first; none eligible → any buyable coin (a seat must end in a coin, not wait on one feed)
+        nxt = best(role_h, l.get('trench')) or next((x for x in (best(r_) for r_ in ('runner', 'pool') if r_ != role_h) if x), None)
+        if not nxt and now - _f(l.get('at')) >= max(120.0, _f(cfg.get('rotateHours')) * 3600):
+            # 🔔 NO COIN FOR A WHOLE ROUND → the seat is given up and its money goes back to work in the card's coins (it used to
+            # sit reserved for as long as the feed stayed empty: $0.66 idle on a $2.40 card). The seat refills when a coin qualifies.
+            c['legs'].remove(l)
+            ev(kind='slot', symbol=l.get('symbol'), usd=round(_f(l.get('reserveUsd')), 4), why=f"no safe coin for ${l.get('symbol')}'s seat within a round — its money goes back into the card's coins; the seat refills when one qualifies", to=['card'])
+            continue
         if not nxt or c['cash'] < 0.01:
             continue
         usd = min(c['cash'], _f(l.get('reserveUsd')) or (_f(l.get('wantUnits')) * (_f(prices.get(l['pairAddress'])) or _f(l.get('entry')))) or c['cash'])
         if usd < 0.01:
             continue
-        c['legs'][c['legs'].index(l)] = _leg(nxt, usd, now, l.get('role') or 'runner')
+        c['legs'][c['legs'].index(l)] = _leg(nxt, usd, now, nxt.get('role') if nxt.get('role') in ('runner', 'pool') else role_h)
         c['cash'] = max(0.0, c['cash'] - usd)
         ev(kind='replace', symbol=l.get('symbol'), usd=round(usd, 4), why='reserved replacement slot filled from eligible feed', to=[nxt.get('symbol')])
     c.setdefault('dayAt', c['at']); c.setdefault('dayStartUsd', c['startUsd']); c.setdefault('days', []); c.setdefault('lowPct', 0.0)
