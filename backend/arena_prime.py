@@ -40,7 +40,9 @@ PHASES = {'anchor': {'anchors': 3, 'pools': 0, 'runners': 1, 'growth': 'major', 
           'degen': {'anchors': 1, 'pools': 0, 'runners': 3, 'growth': 'runner', 'why': 'degen round — 1 major + 3 runners strike'},
           'mixed': {'anchors': 2, 'pools': 0, 'runners': 2, 'growth': 'mix', 'why': 'mixed round — 2 majors + a new major + a runner'},
           'safest': {'anchors': 3, 'pools': 0, 'runners': 1, 'growth': 'major', 'why': '🛡 safest run — 3 majors + 1 new major'},
-          'breakeven': {'anchors': 0, 'pools': 1, 'runners': 3, 'byVol': True, 'growth': 'runner', 'why': '⚖ breakeven run — 1 high-volume pool + 3 high-volume runners'}}
+          'breakeven': {'anchors': 0, 'pools': 1, 'runners': 3, 'byVol': True, 'growth': 'runner', 'why': '⚖ breakeven run — 1 high-volume pool + 3 high-volume runners'},
+          'trench': {'anchors': 1, 'pools': 1, 'runners': 2, 'growth': 'trench', 'why': '🗑 trench round — 1 major + 1 pool + up to 2 fresh trench breakouts (the rest runners)'}}
+TRENCH_COINS = (1, 2)   # 🗑 how many trench coins one card may hold (high risk — never more than 2)
 SHAPES = tuple(PHASES)
 CYCLE = ('anchor', 'degen', 'anchor', 'mixed')
 CYCLE_TIERS = ('degen', 'next')
@@ -48,7 +50,7 @@ CYCLE_TIERS = ('degen', 'next')
 # adaptive = a LOSING round rests in majors, a winning one (≥ +5%) presses with runners, flat = mixed · safe = anchor⇄mixed ·
 # press = degen⇄mixed. Every phase change is the same run (P&L continues).
 CYCLE_MODES = {'off': None, 'classic': CYCLE, 'adaptive': 'adaptive', 'safe': ('anchor', 'mixed'), 'press': ('degen', 'mixed'),
-               'rescue': ('safest', 'breakeven'), 'auto': 'auto'}
+               'rescue': ('safest', 'breakeven'), 'auto': 'auto', 'trench': ('trench',)}
 RESCUE_PCT = -50.0   # (default; HQ sets cfg rescuePct) 🛟 any card that falls 50% under its start switches to the rescue cycle (safest ⇄ breakeven)
 ROTATE_MIN_DROP = 10.0   # rotation only swaps a coin that is actually losing (≤ −10% from entry) — winners are never churned
 ROTATE_CONFIRM = 3       # … and only after it has been losing for 3 rounds in a row (on 5-min rounds = 15 min — not one noisy dip)
@@ -116,7 +118,7 @@ RUN_ROUNDS = (0, 5, 10, 20, 50)   # rounds per run (0 = one endless run): when a
 SL_MODES = ('replace', 'park', 'hold')   # on a stop: auto-replace · sell + park the slot (rebuy at entry with momentum) · hold
 # 🃏 Every card plays its OWN exits — no two tiers share them by default. `tierCfg[tier]` overrides the shared paper config for these
 # keys (a shared edit of a key = "apply to all cards": it clears that key's per-card overrides). tp / sl 0 = the tier template's.
-TIER_KEYS = ('rideAt', 'rideTrail', 'rotateMinDrop', 'rotateConfirm', 'minHoldMins', 'instantSwapPct', 'tp', 'sl')
+TIER_KEYS = ('rideAt', 'rideTrail', 'rotateMinDrop', 'rotateConfirm', 'minHoldMins', 'instantSwapPct', 'tp', 'sl', 'trenchCoins')
 DEFAULT_TIER_CFG = {
     'degen': {'rideAt': 15.0, 'rideTrail': 8.0, 'rotateConfirm': 2, 'minHoldMins': 10.0, 'instantSwapPct': 15.0, 'rotateMinDrop': 10.0},    # 🔥 5-min hunt
     'next': {'rideAt': 20.0, 'rideTrail': 10.0, 'rotateConfirm': 2, 'minHoldMins': 15.0, 'instantSwapPct': 20.0, 'rotateMinDrop': 15.0},   # ⚡ all runners
@@ -145,6 +147,8 @@ def clean_exit(k, v):
         return float(v) if v == 0 or v in LEG_TPS else None
     if k == 'sl':
         return float(v) if v == 0 or v in LEG_SLS else None
+    if k == 'trenchCoins':
+        return int(v) if int(v) in TRENCH_COINS else None
     return None
 
 
@@ -190,12 +194,17 @@ def _stamp(v):
 
 
 def cooling(card, now, rotate_hours, prices=None):
-    """Mints this card dropped recently (still cooling down), plus loss exits still under their exit price."""
-    win = max(900.0, COOL_ROUNDS * _f(rotate_hours) * 3600)
+    """Mints this card dropped recently (still cooling down), plus loss exits still under their exit price.
+    Counted in ROUNDS: a coin that left in round N sits out rounds N+1..N+3 and may come back at N+4 at the earliest (a time window
+    alone let a coin sold mid-round back in on the 3rd bell — HIGGS was re-bought "within 3–4 rounds"). Old stamps without a round
+    fall back to (COOL_ROUNDS + 1) rounds of time."""
+    win = max(900.0, (COOL_ROUNDS + 1) * _f(rotate_hours) * 3600)
+    rnd = int((card or {}).get('rounds') or 0)
     out = set()
     for m, v in ((card or {}).get('cool') or {}).items():
         s = _stamp(v); age = now - _f(s.get('at'))
-        if age < win:
+        by_round = s.get('round') is not None and 'rounds' in (card or {}) and rnd >= int(s['round'])   # a restarted run (rounds back to 0) falls back to time
+        if (rnd - int(s['round']) <= COOL_ROUNDS) if by_round else age < win:
             out.add(m)
         elif s.get('loss') and age < LOSS_COOL_SEC and _f(s.get('px')) > 0:
             px = _f((prices or {}).get(s.get('pair')))
@@ -209,15 +218,16 @@ def note_dropped(before, after, now, rotate_hours, prices=None):
     forget stamps once they can't cool anything any more."""
     if not after:
         return after
-    keep = max(900.0, COOL_ROUNDS * _f(rotate_hours) * 3600)
+    keep = max(900.0, (COOL_ROUNDS + 2) * _f(rotate_hours) * 3600)
+    rnd = int(after.get('rounds') or 0)
     held = {l['mint'] for l in after.get('legs') or []}
     cool = {m: _stamp(v) for m, v in (after.get('cool') or {}).items()}
-    cool = {m: v for m, v in cool.items() if now - _f(v.get('at')) < (LOSS_COOL_SEC if v.get('loss') else keep)}
+    cool = {m: v for m, v in cool.items() if now - _f(v.get('at')) < (LOSS_COOL_SEC if v.get('loss') else keep) or (v.get('round') is not None and rnd - int(v['round']) <= COOL_ROUNDS)}
     for l in (before or {}).get('legs') or []:
         if l['mint'] in held or l.get('symbol') == 'SOL':   # anchors cool too (cbBTC was sold and re-bought 3× in 30 min by re-shapes); SOL is the card's cash
             continue
         px = _f((prices or {}).get(l.get('pairAddress'))) or _f(l.get('entry'))
-        cool[l['mint']] = {'at': now, 'px': px, 'pair': l.get('pairAddress'), 'loss': bool(_f(l.get('entry')) > 0 and px < _f(l['entry']))}
+        cool[l['mint']] = {'at': now, 'round': rnd, 'px': px, 'pair': l.get('pairAddress'), 'loss': bool(_f(l.get('entry')) > 0 and px < _f(l['entry']))}
     return {**after, 'cool': cool}
 
 
@@ -318,6 +328,7 @@ def clean_cfg(p):
     out['payouts'] = {t: (int(pay[t]) if pay.get(t) in _dna.PAYOUTS else DEFAULT_PAYOUTS[t]) for t in DEFAULT_PAYOUTS}
     out['compoundStyle'] = (p or {}).get('compoundStyle') if (p or {}).get('compoundStyle') in ('smart', 'even') else 'smart'
     out['roundsPerRun'] = int(_f((p or {}).get('roundsPerRun'))) if int(_f((p or {}).get('roundsPerRun'))) in RUN_ROUNDS else 0
+    out['trenchCoins'] = trench_n(p)
     out['tp'] = clean_exit('tp', (p or {}).get('tp')) or 0.0   # 🎯 card-level TP / SL (0 = the tier template's)
     out['sl'] = clean_exit('sl', (p or {}).get('sl')) or 0.0
     out['tierCfg'] = clean_tier_cfg(p)
@@ -429,7 +440,7 @@ def _leg(c, usd, now, role):
     px = buy_px(mid, usd, liq)
     return {'mint': c['mint'], 'pairAddress': c['pairAddress'], 'symbol': c.get('symbol'), 'role': role, 'entry': px, 'units': usd / px if px > 0 else 0.0,
             'costUsd': round(usd, 6), 'at': now, 'stars': c.get('stars') or stars(c, role), 'firstEntry': px, 'liq': liq, 'midAtEntry': mid,
-            **({'newMajor': True} if c.get('newMajor') else {}), **({'arena': True} if c.get('arena') else {}),
+            **({'newMajor': True} if c.get('newMajor') else {}), **({'arena': True} if c.get('arena') else {}), **({'trench': True} if c.get('trenchOnly') else {}),
             **({'division': c['division']} if c.get('division') else {})}   # 🏁 which Gauntlet division this coin came in from
 
 
@@ -442,6 +453,11 @@ def _picks(t, pools, runners, anchors):
         ranked_ = rated(src, role)
         if t.get('byVol'):
             ranked_ = sorted(ranked_, key=lambda c: -(_f(c.get('vol1h')) or _f(c.get('volume24h')) / 24))
+        if role == 'runner' and t.get('growth') == 'trench':   # 🗑 up to trenchN fresh trench coins first, then normal runners
+            tr = [c for c in ranked_ if c.get('trenchOnly')][:int(t.get('trenchN') or 1)]
+            ranked_ = tr + [c for c in ranked_ if not c.get('trenchOnly')]
+        elif role == 'runner':
+            ranked_ = [c for c in ranked_ if not c.get('trenchOnly')]
         if role == 'runner' and t.get('growth') in ('major', 'runner'):   # the shape's name decides: new majors first or runners first
             ranked_ = sorted(ranked_, key=lambda c: bool(c.get('newMajor')) != (t['growth'] == 'major'))
         elif role == 'runner' and t.get('growth') == 'mix':   # one new major + one runner first, then the best of the rest
@@ -526,7 +542,7 @@ def grow_picks(picks, want, pools, runners, anchors):
         for c in rated(src, role):
             if len(out) >= want:
                 return out
-            if c.get('mint') not in have and _f(c.get('price')) > 0:
+            if c.get('mint') not in have and _f(c.get('price')) > 0 and not c.get('trenchOnly'):   # 🗑 extra seats never take a trench coin
                 out.append((c, role)); have.add(c.get('mint'))
     return out
 
@@ -551,10 +567,16 @@ def fit_size(picks, size_usd, min_coin_usd):
     return [p for p in picks if p in keep]
 
 
+def trench_n(cfg):
+    """🗑 1 or 2 trench coins per card (owner's pick, default 1)."""
+    n = int(_f((cfg or {}).get('trenchCoins')) or 1)
+    return n if n in TRENCH_COINS else 1
+
+
 def deal(tid, pools, runners, cfg, now, anchors=(), usd=None, keep=None, shape=None):
     """A fresh Prime card from the best 3★+ candidates (gated + ranked by the caller). Equal $ per coin. `keep` re-deals an
     existing card (after its floor) while keeping its start, events and record — P&L stays honest across re-deals."""
-    t = {**TEMPLATES[tid], **(PHASES.get(shape) or {})}
+    t = {**TEMPLATES[tid], **(PHASES.get(shape) or {}), 'trenchN': trench_n(cfg)}
     # Each due shape advances the major basket. This makes one-anchor phases use different eligible majors over time while
     # keeping the configured number of anchors and the service's existing major ranking authoritative.
     every = int(_f(cfg.get('cycleEvery'))) or 1
@@ -617,8 +639,10 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     ev = lambda **e: c['events'].append({'at': now, **e})
     fee = cfg['paperFeeUsd']
 
-    def best(role):
+    def best(role, trench=False):
         src = rated(runners if role == 'runner' else anchors if role == 'anchor' else pools, role)
+        if role == 'runner':   # 🗑 a trench leg is replaced by the best trench coin first; trench-only coins never fill a normal slot
+            src = ([x for x in src if x.get('trenchOnly')] + [x for x in src if not x.get('trenchOnly')]) if trench else [x for x in src if not x.get('trenchOnly')]
         if role == 'runner' and cfg.get('strictRunners'):   # 🌧 runner weather is bad: only runners with real flow + buyers get in
             src = [x for x in src if _f(x.get('vol1h')) >= STRICT_VOL1H and (x.get('buyShare') is None or _f(x.get('buyShare')) >= STRICT_BUYS)]
         return next((x for x in src if x['mint'] not in have() and _f(x.get('price')) > 0), None)
@@ -627,7 +651,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     for l in list(c['legs']):
         if not l.get('placeholder') or l.get('manualCash') or _f(l.get('units')) > 0:
             continue
-        nxt = best(l.get('role') or 'runner')
+        nxt = best(l.get('role') or 'runner', l.get('trench'))
         if not nxt or c['cash'] < 0.01:
             continue
         usd = min(c['cash'], _f(l.get('reserveUsd')) or (_f(l.get('wantUnits')) * (_f(prices.get(l['pairAddress'])) or _f(l.get('entry')))) or c['cash'])
@@ -654,7 +678,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             out_usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
             # ⚡ sell AND buy: when no runner is eligible right now (weather / age / pool floor), the slot takes the best pool
             # instead of sitting in cash — "instant swap" must end in a coin whenever any eligible coin exists
-            nxt = best(l.get('role') or 'runner') or (best('pool') if (l.get('role') or 'runner') == 'runner' else None)
+            nxt = best(l.get('role') or 'runner', l.get('trench')) or (best('pool') if (l.get('role') or 'runner') == 'runner' else None)
             c['feesUsd'] += fee
             if nxt:
                 c['legs'][c['legs'].index(l)] = _leg(nxt, out_usd, now, l.get('role') or 'runner')
@@ -713,7 +737,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 continue   # still holding: above its floor and not rt% off its high
             why_end = (f"fell under +{floor_g:g}% ({g:+.0f}%)" if g < floor_g else f"fell {rt:g}% from its peak") + f" after riding to {l['high'] / (l.get('rideFrom') or l['entry']):.1f}×"
             l['ride'] = False
-            nxt = best(l.get('role') or 'runner')
+            nxt = best(l.get('role') or 'runner', l.get('trench'))
             if nxt:   # 🏇 ride over → SWAPPED for the best coin of its kind (the gain moves into it)
                 usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
                 c['legs'][c['legs'].index(l)] = _leg(nxt, usd, now, l.get('role') or 'runner'); c['feesUsd'] += 2 * fee; c['takenUsd'] += max(0.0, usd - _f(l.get('costUsd')))
@@ -792,7 +816,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         why = (f"ran +{l['peak']:.0f}%, back to {dd:+.0f}% — locked before it turned red" if trail else
                f"{dd:.0f}% ≤ −{leg_sl(l, t):g}%" if dd <= -leg_sl(l, t) else f"{dd:.0f}% and fading (1h down, sellers lead) — cut early")
         c['feesUsd'] += fee
-        nxt = best(l['role']) if lmode == 'replace' else None
+        nxt = best(l['role'], l.get('trench')) if lmode == 'replace' else None
         if nxt:
             c['legs'][c['legs'].index(l)] = _leg(nxt, out_usd, now, l['role']); c['feesUsd'] += fee
             ev(kind='sl', symbol=l['symbol'], usd=round(out_usd, 4), why=why, to=[nxt.get('symbol')])
@@ -845,7 +869,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                                                  and at_or_below_loss(_f(prices.get(l['pairAddress'])) or l['entry'], l['entry'], cfg.get('rotateMinDrop', ROTATE_MIN_DROP)) and patient(l) and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
         swapped = 0
         for l in ranked[:cfg['rotateCount']]:
-            nxt = best(l['role'])
+            nxt = best(l['role'], l.get('trench'))
             if not nxt:
                 continue
             px = _f(prices.get(l['pairAddress'])) or l['entry']

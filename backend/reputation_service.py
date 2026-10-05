@@ -5364,6 +5364,56 @@ def _prime_real_cfg(pr=None):
     return _prime.real_guard({**paper, 'instantSwapPct': paper.get('rotateMinDrop', 0)})[0]
 
 
+import trench as _trench
+
+_trench_cache: dict = {'at': 0.0, 'rows': [], 'checked': []}
+TRENCH_SCAN = 5   # on-chain holder counts are heavy: only the 5 busiest coins that already pass every cheap check
+
+
+async def _trench_build(now):
+    """🗑 Every ~2 min (warm loop): fresh launches breaking out with a real crowd. Cheap checks on the whole runner feed, then the
+    on-chain holder count + mint/freeze authority for the busiest survivors only. Result cached for the tier tick (never fetched
+    inside it). `checked` keeps why each finalist passed or failed (HQ / tests)."""
+    if now - _trench_cache['at'] < 120 or os.environ.get('PYTEST_CURRENT_TEST'):
+        return _trench_cache
+    _trench_cache['at'] = now
+    live = await _runner_live()
+    seen, pool = set(), []
+    for r in (live.get('passing') or []) + (live.get('dropped') or []):
+        if r.get('mint') and r['mint'] not in seen and not _trench.precheck(r):
+            seen.add(r['mint']); pool.append(r)
+    pool = sorted(pool, key=lambda r: -_fuse._f(r.get('vol1h')))[:TRENCH_SCAN]
+    async def one(r):
+        try:
+            h = await asyncio.wait_for(_token_holders(r['mint']), 25)
+            async with httpx.AsyncClient(timeout=8) as http:
+                auth = await _mint_authorities(http, r['mint'])
+        except Exception:
+            return None
+        return _trench_row(r, (h or {}).get('holders'), auth)
+    rows = [x for x in await asyncio.gather(*[one(r) for r in pool]) if x]
+    _trench_cache.update(rows=[x for x in rows if x['ok']], checked=rows)
+    return _trench_cache
+
+
+@app.get('/api/reputation/fuses/trench')
+async def fuse_trench():
+    """🗑 The trench scan's latest finalists (coin data only): holders, market cap, age and every check passed / failed."""
+    g = _trench.TRENCH
+    keys = ('mint', 'symbol', 'pairAddress', 'holders', 'mcap', 'ageH', 'vol1h', 'buyShare', 'ok', 'fails', 'trenchWhy', 'trenchScore')
+    return {'checked': [{k: r.get(k) for k in keys} for r in _trench_cache.get('checked') or []], 'pass': len(_trench_cache.get('rows') or []),
+            'at': _trench_cache.get('at'), 'rules': f"≤ {g['maxAgeH']:g}h old · broke ${g['minMcap'] / 1000:g}K · ≥ {g['minHolders']} holders · ≥ {g['minTxns1h']} trades/h · "
+                                                     f"≥ {g['minBuyShare']:g}% buys · top-10 < {g['maxTop10']:g}% · dev < {g['maxDev']:g}% · clean creator · mint + freeze revoked"}
+
+
+def _trench_row(r, holders, auth):
+    ok, fails = _trench.gate(r, holders, auth)
+    sc, parts = _trench.score(r, holders)
+    return {'mint': r['mint'], 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'price': r.get('price'), 'liq': r.get('liq'),
+            'ageH': r.get('ageH'), 'mcap': r.get('mcap'), 'vol1h': r.get('vol1h'), 'buyShare': r.get('buyShare'), 'holders': holders,
+            'score': max(60.0, sc), 'trenchScore': sc, 'trenchWhy': parts, 'fails': fails, 'ok': ok, 'trenchOnly': True, 'division': 'trench'}
+
+
 def _real_weather():
     """🌦 Runner weather for the real card, from the sim brain's last run (pg_sim.json)."""
     return _prime.weather(_json_load(PG_SIM_PATH, {}))
@@ -5648,6 +5698,11 @@ async def _prime_tick_inner(now):
         r_t = [x for x in runners if _lq(x) >= floor_of(x) and _confirmed(x)]
         if real_t:   # 🌦 real money buys runners by the weather the engine's own sims measured (rain = strong + deep only · storm = none)
             r_t = _prime.weather_runners(r_t, _real_weather()['level'], _fw.clean_cfg(fw_cfg)['minLiqUsd'], _lq)
+        # 🗑 trench coins (strict gate, cached by the warm loop) — only a 🗑 trench slot ever takes one; own pool floor; real money
+        # never buys one in a runner storm. The real-money runner age rule doesn't apply to them: the trench gate replaces it.
+        tr_floor = _fw.clean_cfg(fw_cfg)['trenchMinLiqUsd']   # paper uses the same floor (paper = what real money could buy)
+        if not (real_t and _real_weather()['level'] == 'storm'):
+            r_t = r_t + [x for x in _trench_cache.get('rows') or [] if _lq(x) >= tr_floor and x.get('mint') not in {y.get('mint') for y in r_t}]
         # 🪑 coins real money couldn't buy safely (2× in 10 min) are benched 1h for EVERY tier — paper never trades what real can't
         bench = set().union(*[_fw.benched(b, now) for b in (_fw_load().get('books') or {}).values()] or [set()])
         if bench:
@@ -7207,6 +7262,10 @@ async def _fuse_warm():
     _fuse_warm_n['n'] += 1
     if _fuse_warm_n['n'] % 24 == 2:   # ~10 min: who the elite traders are + what they bought (FeeCat learns from it)
         await _crowd_build()
+    try:   # 🗑 trench scan (~2 min, cached; heavy on-chain counts only for the 5 busiest finalists)
+        await _trench_build(time.time())
+    except Exception as e:
+        print('trench:', e)
     if _fuse_warm_n['n'] % 144 == 31:   # ~1h: 🧾 what's working / what's not, always running (owner inbox when something flips)
         try:
             await _verdict_tick(time.time())

@@ -124,3 +124,17 @@ test('all-time P&L leaves out the network fees the card paid (fees shown apart)'
   expect(allTime({ valueUsd: 4.69, cardFeesUsd: 0.02 }, 5)).toBeCloseTo(-0.29);
   expect(whereDown(c, 5)).toEqual({ held: -0.1, sold: -0.19, all: -0.29 });
 });
+
+test('trench scan shows each finalist with what it passed or failed', async () => {
+  const React = require('react'); const { act } = React; const { createRoot } = require('react-dom/client');
+  const { TrenchScan } = require('./ArenaPrime');
+  global.fetch = jest.fn(async () => ({ json: async () => ({ pass: 1, rules: '≥ 400 holders', checked: [
+    { mint: 'A', symbol: 'TRN', ok: true, holders: 520, mcap: 28000, ageH: 1.5, trenchWhy: [{ why: '520 holders · 900 trades/1h' }] },
+    { mint: 'B', symbol: 'RUG', ok: false, holders: 120, mcap: 24000, ageH: 0.5, fails: ['≥ 400 holders', 'mint + freeze authority revoked'] }] }) }));
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<TrenchScan />); });
+  await act(() => new Promise(r => setTimeout(r, 10)));
+  expect(el.textContent).toContain('1 PASS NOW'); expect(el.textContent).toContain('✅ $TRN'); expect(el.textContent).toContain('520 holders · $28K mc');
+  expect(el.textContent).toContain('❌ $RUG'); expect(el.textContent).toContain('mint + freeze authority revoked');
+});

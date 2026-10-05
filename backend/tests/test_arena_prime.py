@@ -722,9 +722,9 @@ def test_dropped_coins_cool_down_then_come_back():
     import arena_prime as ap
     before = {'legs': [{'mint': 'A', 'role': 'runner'}, {'mint': 'S', 'role': 'anchor'}]}
     after = ap.note_dropped(before, {'legs': [{'mint': 'B', 'role': 'runner'}, {'mint': 'S', 'role': 'anchor'}]}, 1000.0, 5 / 60)
-    assert ap.cooling(after, 1000.0 + 600, 5 / 60) == {'A'}         # 3 × 5-min rounds → min 15 min window
-    assert ap.cooling(after, 1000.0 + 901, 5 / 60) == set()
-    later = ap.note_dropped(after, {**after}, 1000.0 + 2000, 5 / 60)
+    assert ap.cooling({**after, 'rounds': 3}, 1000.0 + 901, 5 / 60) == {'A'}   # left in round 0 → out for rounds 1–3, whatever the clock says
+    assert ap.cooling({**after, 'rounds': 4}, 1000.0 + 901, 5 / 60) == set()   # back from round 4
+    later = ap.note_dropped(after, {**after, 'rounds': 4}, 1000.0 + 2000, 5 / 60)
     assert 'A' not in later['cool']                                   # stale stamps are forgotten
     lost = ap.note_dropped({'legs': [{'mint': 'X', 'pairAddress': 'PX', 'role': 'runner', 'entry': 1.0}]}, {'legs': []}, 0.0, 5 / 60, {'PX': 0.7})
     assert ap.cooling(lost, 5000.0, 5 / 60, {'PX': 0.6}) == {'X'}      # 🩸 sold at a loss and still falling → stays out
@@ -866,7 +866,7 @@ def test_anchors_cool_like_every_coin_and_rescue_off_ends_a_running_fix():
     before = {'legs': [{'mint': 'btc', 'symbol': 'cbBTC', 'role': 'anchor', 'pairAddress': 'Pbtc', 'entry': 1.0}, {'mint': 'sol', 'symbol': 'SOL', 'role': 'anchor', 'pairAddress': 'Psol', 'entry': 1.0}]}
     after = ap.note_dropped(before, {'legs': []}, 1000.0, 0.08, {'Pbtc': 0.99})
     assert 'btc' in after['cool'] and 'sol' not in after['cool']          # a sold major sits out · SOL is the card's cash, never "dropped"
-    assert 'btc' in ap.cooling(after, 1000.0 + 600, 0.08) and 'btc' not in ap.cooling({'cool': {'btc': {'at': 1000.0}}}, 1000.0 + 1000, 0.08)
+    assert 'btc' in ap.cooling(after, 1000.0 + 600, 0.08) and 'btc' not in ap.cooling({'cool': {'btc': {'at': 1000.0}}}, 1000.0 + 1200, 0.08)   # old stamps: (3 + 1) rounds of time
 
 
 def test_small_real_cards_hold_fewer_bigger_coins_and_keep_their_character():
@@ -1028,3 +1028,13 @@ def test_every_real_card_setting_reaches_the_engine(monkeypatch):
         assert e[k] == v, k                                                          # nothing dropped or silently changed by the guard
     t = ap.card_template('degen', e)
     assert (t['tp'], t['sl']) == (300, 30) and ap.leg_tp({}, t) == 300 and ap.leg_tp({'tp': 50}, t) == 50   # a coin's own TP still wins
+
+
+def test_a_coin_that_left_in_round_n_cannot_come_back_before_round_n_plus_4():
+    before = {'rounds': 5, 'legs': [{'mint': 'HIGGS', 'pairAddress': 'PH', 'symbol': 'HIGGS', 'entry': 1.0}]}
+    after = ap.note_dropped(before, {'rounds': 5, 'legs': []}, 1000.0, 5 / 60, {'PH': 0.9})
+    assert after['cool']['HIGGS']['round'] == 5
+    for r in (6, 7, 8):   # sold mid round 5 → out for rounds 6, 7 and 8, whatever the clock says
+        assert 'HIGGS' in ap.cooling({**after, 'rounds': r}, 1000.0 + (r - 5) * 300 + 290, 5 / 60, {'PH': 2.0})
+    assert 'HIGGS' not in ap.cooling({**after, 'rounds': 9}, 1000.0 + 4 * 300, 5 / 60, {'PH': 2.0})
+    assert 'HIGGS' in ap.cooling({**after, 'rounds': 0}, 1100.0, 5 / 60, {'PH': 2.0})   # a restarted run falls back to the time window

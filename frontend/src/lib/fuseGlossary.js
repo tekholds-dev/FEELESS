@@ -12,6 +12,7 @@ export const SHAPE_WORDS = [
   ['mixed', '⚖ Mixed', '2 majors + a new major + a runner', 'Half safe, half chase.'],
   ['safest', '🛡 Safest', '3 majors + 1 new major', 'The protect shape a losing card falls back to.'],
   ['breakeven', '⚖ Breakeven', '1 high-volume pool + 3 high-volume runners', 'Picks by flow, not score — the fastest way back to even after a bad run.'],
+  ['trench', '🗑 Trench', '1 major + 1 pool + 1–2 trench breakouts', 'Fresh launches (≤6h) that broke $20K with a real crowd: ≥400 holders, 250+ trades an hour, 55%+ buys, clean holders, clean creator, mint + freeze revoked. The riskiest coins on the site — max 2 per card.'],
 ];
 
 export const CLOCK_WORDS = [

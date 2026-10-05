@@ -136,7 +136,7 @@ export function CoinTable({ legs = [] }) {
 
 
 // 🔄 Pick-3 cycle: choose up to 3 shapes in order (anchor · degen · mixed · 🛡 safest · ⚖ breakeven) — or keep a named / auto cycle.
-const SHAPES = [['anchor', '⚓ Anchor'], ['degen', '🔥 Degen'], ['mixed', '⚖ Mixed'], ['safest', '🛡 Safest'], ['breakeven', '⚖ Breakeven']];
+const SHAPES = [['anchor', '⚓ Anchor'], ['degen', '🔥 Degen'], ['mixed', '⚖ Mixed'], ['safest', '🛡 Safest'], ['breakeven', '⚖ Breakeven'], ['trench', '🗑 Trench']];
 export function CycleBuilder({ value, onChange }) {
   const custom = typeof value === 'string' && value.includes(',') ? value.split(',') : [];
   const [parts, setParts] = useState(custom.length ? custom : ['', '', '']);

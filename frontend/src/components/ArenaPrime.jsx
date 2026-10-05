@@ -12,7 +12,7 @@ import { StrategyPicks, stratPatch } from './StrategyPicks';
 // ⭐ ARENA PRIME: FEELESS's own top-tier cards, FULLY AUTO on paper — auto TP/SL, auto-compound, 2 coins rotate every 6h. Different
 // from creator picks: these are the public proof the automation works before any trader's config goes auto. "Buy now" loads the
 // card into the Lab (traders: up to 3 pools + 3 runners; you approve one wallet transaction).
-const CYCLE_PICKS = [['off', 'Off', "Keep the tier's own shape every round"], ['classic', '⚓→🔥', 'anchor (3 majors + 1 new major) → degen (1 major + 3 runners) → anchor → mixed (2 majors + new major + runner)'],
+const CYCLE_PICKS = [['off', 'Off', "Keep the tier's own shape every round"], ['trench', '🗑 Trench', '1 major + 1 pool + up to 1–2 FRESH trench breakouts (≤6h old, broke $20K, ≥400 holders, 250+ trades/h, clean creator, mint + freeze revoked) — high risk, the rest are normal runners'], ['classic', '⚓→🔥', 'anchor (3 majors + 1 new major) → degen (1 major + 3 runners) → anchor → mixed (2 majors + new major + runner)'],
   ['adaptive', '🧠 Adaptive', 'A −3% round rests in anchor (3 majors + 1 new major), a +5% round goes degen, anything else = mixed'], ['safe', '⚓⇄⚖', 'anchor (3 majors + 1 new major) ⇄ mixed (2 majors + new major + runner)'], ['press', '🔥⇄⚖', 'degen (1 major + 3 runners) ⇄ mixed (2 majors + new major + runner)'],
   ['rescue', '🛟', '🛡 safest (3 majors + 1 new major) ⇄ ⚖ breakeven (1 high-volume pool + 3 high-volume runners)'], ['auto', '🤖 Auto', 'Engine picks each round: deep red → breakeven · red → safest · +5% → degen · flat → mixed']];
 const LEG_MODES = ['', 'replace', 'park', 'hold'];   // '' = follow the card
@@ -195,6 +195,7 @@ const EDIT = [
   ['rideTrail', '⇄ Then swap it off its peak', [[5, '−5%'], [8, '−8%'], [10, '−10%'], [15, '−15%'], [20, '−20%'], [30, '−30%']], 'A frozen coin is swapped for the best coin of its kind once it falls this far from its highest price (the gain moves into the new coin)'],
   ['tp', '🎯 Card take-profit', [[0, 'tier'], [25, '+25%'], [50, '+50%'], [100, '+100%'], [200, '+200%'], [300, '+300%']], "Every coin's take-profit on this card (a coin's own TP still wins). Tier = the tier's built-in TP"],
   ['sl', '🛑 Card stop', [[0, 'tier'], [10, '−10%'], [15, '−15%'], [20, '−20%'], [30, '−30%']], "Every coin's stop on this card (a coin's own stop still wins). Tier = the tier's built-in stop"],
+  ['trenchCoins', '🗑 Trench coins per card', [[1, '1'], [2, '2']], 'How many fresh trench breakouts the 🗑 trench cycle may hold at once. They are the riskiest coins on the site — 2 is the hard max.'],
   ['coins', '🪙 Coins on the card', [[0, 'auto'], [2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6']], 'Your call, at any card size. Auto = sized to the card (each coin at least $0.75). Pick a number and the card holds exactly that many — smaller coins pay more in fees per swap, and the first 5 rounds of network fees are on the wallet reserve.'],
   ['cycleEvery', '🧩 Re-shape every', [[0, 'off'], [3, '3'], [6, '6'], [12, '12']], 'Rounds between shape changes'],
   ['slMode', '🛑 On a stop', [['replace', '⇄ replace'], ['park', '🅿 park'], ['hold', '❄ hold']], 'Replace with the best coin · sell to SOL and rebuy later · keep holding'],
@@ -203,8 +204,8 @@ const EDIT = [
   ['floorRestMins', '🛌 Rest after floor', [[0, 'off'], [15, '15m'], [30, '30m'], [60, '1h']], 'Off = fresh coins are dealt right after a floor. On = the card sits in its anchors this long first (no swaps while it rests).'],
   ['autoBrain', '🧠 Auto-tune', [[true, 'on'], [false, 'off']], 'Let the sim brain adjust patience / drop (never below 3 on 5m rounds)'],
 ];
-const TIER_KEYS = ['rideAt', 'rideTrail', 'rotateMinDrop', 'rotateConfirm', 'minHoldMins', 'instantSwapPct', 'tp', 'sl'];   // = arena_prime.TIER_KEYS
-const CYCLES = [['safe', '🛡 safe'], ['classic', 'classic'], ['adaptive', 'adaptive'], ['press', '🔥 press'], ['rescue', '🛟 rescue'], ['auto', '🤖 auto'], ['off', 'off']];
+const TIER_KEYS = ['rideAt', 'rideTrail', 'rotateMinDrop', 'rotateConfirm', 'minHoldMins', 'instantSwapPct', 'tp', 'sl', 'trenchCoins'];   // = arena_prime.TIER_KEYS
+const CYCLES = [['trench', '🗑 trench'], ['safe', '🛡 safe'], ['classic', 'classic'], ['adaptive', 'adaptive'], ['press', '🔥 press'], ['rescue', '🛟 rescue'], ['auto', '🤖 auto'], ['off', 'off']];
 // ⚙ Edit Fuse groups: [key, tab label, what lives there]
 const CFG_GROUPS = [['rounds', '⏱ Rounds', 'When a round may swap a coin'], ['exits', '⚡ Exits', 'Per-coin: instant swap, stops, winners, riders'],
   ['shape', '🧬 Shape', 'Which mix of coins the card holds'], ['safety', '🧱 Safety', 'Whole-card floor, rest, rescue, auto-tune'], ['limits', '💵 Limits', 'Hard caps on every real swap']];
@@ -245,6 +246,20 @@ function EnginePick({ suggest, cfg, busy, save }) {
     {!same && Object.keys(patch).length > 0 && <button type="button" className="m-btn" disabled={busy} onClick={() => save(patch)} data-testid="engine-pick-apply">Apply this pick</button>}</p>;
 }
 
+// 🗑 What the trench scan sees right now: every finalist with its holders, market cap and each check it passed or failed.
+export function TrenchScan() {
+  const [d, setD] = useState(null);
+  useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/fuses/trench')).then(r => r.json()).then(x => alive && setD(x)).catch(() => {});
+    load(); const t = setInterval(() => !document.hidden && load(), 60000); return () => { alive = false; clearInterval(t); }; }, []);
+  if (!d) return <div className="tscan is-ghost" />;
+  return <div className="tscan" data-testid="trench-scan"><span className="m-label">🗑 TRENCH SCAN · {d.pass || 0} PASS NOW</span>
+    <small className="m-dim">{d.rules}</small>
+    {!(d.checked || []).length ? <small className="m-dim">No fresh coin is breaking out with a real crowd right now — the trench slots stay normal runners until one does.</small>
+      : <ul>{d.checked.map((r, i) => <li key={r.mint} className={r.ok ? 'is-ok' : 'is-out'} style={{ '--i': i }}><b>{r.ok ? '✅' : '❌'} ${r.symbol}</b>
+        <span className="m-num">{r.holders ?? '—'} holders · ${Math.round((r.mcap || 0) / 1000)}K mc · {r.ageH != null ? `${Number(r.ageH).toFixed(1)}h` : '—'}</span>
+        <small>{r.ok ? (r.trenchWhy || []).map(p => p.why).join(' · ') : (r.fails || []).join(' · ')}</small></li>)}</ul>}</div>;
+}
+
 function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
   const [busy, setBusy] = useState(false);
   const save = async (patch, wallet) => {
@@ -283,7 +298,8 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
           <button type="button" className="m-btn" disabled={busy} onClick={() => save({ rotateConfirm: 3 })}>Use 3</button></p>}</>}
       {grp === 'exits' && <><StrategyPicks hours={cfg?.rotateHours || 1} current={cfg} busy={busy} onApply={s => saveExit(stratPatch(s.cfg))} testid={`strats-${c.tpl}`} />
         {rows(['rideAt', 'rideTrail', 'tp', 'sl', 'instantSwapPct', 'slMode', 'keepWinPct'])}</>}
-      {grp === 'shape' && <>{rows(['coins', 'cycleEvery'])}
+      {grp === 'shape' && <>{rows(['coins', 'cycleEvery', 'trenchCoins'])}
+        {(cfg?.cycles || {})[c.tpl] === 'trench' && <TrenchScan />}
         <div className="ce-row"><span><b>🔄 Cycle</b><small>The shapes this card moves through (anchor · mixed · degen · safest …)</small></span><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
       {!real && <div className="ce-row"><span><b>🔒 Lock tier</b><small>Freeze this tier's whole config so engine tunes never change it</small></span><div className="m-seg">{[[true, 'locked'], [false, 'free']].map(([v, t]) => <button key={t} type="button" disabled={busy} className={!!locked === v ? 'active' : ''} onClick={() => { setBusy(true); call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ lock: c.tpl, on: v }) }).then(() => { toast.success(v ? '🔒 Locked' : 'Unlocked'); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy(false)); }}>{t}</button>)}</div></div>}</>}
       {grp === 'safety' && rows(['floorPct', 'floorRestMins', 'rescuePct', 'autoBrain'])}
@@ -293,7 +309,7 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
 }
 
 const SHAPE = { anchor: ['⚓', 'anchor', '3 majors + a new major'], mixed: ['⚖', 'mixed', '2 majors + a new major + a runner'], degen: ['🔥', 'degen', '1 major + 3 runners'],
-  safest: ['🛡', 'safest', '3 majors + 1 new major'], breakeven: ['♻', 'breakeven', '1 busy pool + 3 busy runners'] };
+  safest: ['🛡', 'safest', '3 majors + 1 new major'], breakeven: ['♻', 'breakeven', '1 busy pool + 3 busy runners'], trench: ['🗑', 'trench', '1 major + 1 pool + 1–2 trench breakouts'] };
 // 🔄 NOW → NEXT shape (server `cyclePeek`, same rules as the engine) + the card's vitals at a glance
 export function CycleStrip({ c }) {
   const p = c.cyclePeek || {}; const sh = k => SHAPE[k] || ['·', k || '—', ''];

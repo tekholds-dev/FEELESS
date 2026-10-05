@@ -919,3 +919,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🧾 Real card P&L = PRICE RESULT: rent is always the wallet reserve's (refunded to the reserve on close); network fees the card pays from
   round 5 are tracked (`book.cardFeesSol`) and added back in `math.pnlUsd` (`cardFeesUsd`, shown "fees $X apart"); frontend `allTime` /
   `whereDown` read it. IN CARD NOW stays the true value. 😴 Overnight: `bash scripts/stay-awake.sh` (caffeinate + keep-alive, plugged in, lid open).
+- 🧊 Cool-down counts ROUNDS (`arena_prime.cooling/note_dropped`, stamp `round`): a coin that left in round N is out for N+1..N+3, back at
+  N+4 earliest (a time-only window let HIGGS back on the 3rd bell). Restarted runs / old stamps fall back to (3 + 1) rounds of time.
+- 🗑 TRENCH cycle (`backend/trench.py` pure + tested, `_trench_build` ~2 min in `_fuse_warm`, `GET /fuses/trench`, `TrenchScan` in Edit Fuse ›
+  Shape): fresh launches (≤6h) that broke $20K (≤$150K) with ≥400 on-chain holders, ≥250 trades/h, ≥$10K 1h vol, ≥55% buys, 5m+1h green,
+  top-10 <25%, insiders <8%, ≤1 bundled, dev <5% not selling, no spike / flagged funders, creator not flagged or watch/suspect/high, mint +
+  freeze revoked — unknown = out. Shape `trench` (1 major + 1 pool + 2 runner slots, the first `trenchCoins` 1|2 go to trench coins),
+  cycle `trench`. Trench rows are `trenchOnly`: only a trench slot / trench leg replacement takes one (`best(role, trench)`, `_picks`,
+  `grow_picks`). Real money: own pool floor `trenchMinLiqUsd` ($8K, never < $3K) via `liq_floor(.., trench)`, no trench buys in a runner
+  storm, every other keeper check (price gap, sell-back, impact, caps) still runs. Holder counts only for the 5 busiest finalists.
