@@ -1153,3 +1153,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   the seat — a rugged coin leaves nothing, and the card sat on 3 coins.
 - Under the real card: `CardVitals` (`hrt-under`: seat pips by state, swaps this hour, profit pulled, best coin) + 📜 Full activity
   (`CardEarnings` pop-up with every event, labels `KIND` + `VITAL_KIND`) + 🎞 Share (`ShareGifButton`).
+- Music queue titles: `.feecat-queue li > .feecat-x { width: auto; flex: none }` (tips.css) — the ✕ also had `width: 100%`, squeezing the
+  title button (flex-basis 0) to 14px so rows read "1 ✕". The player stores only `{url, title}` per song in localStorage.
+- Per-coin 💰 select is a fixed 86px (`.hrt-skim`); a bare `width: auto` select stretched across the row.

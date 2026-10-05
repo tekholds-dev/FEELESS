@@ -206,7 +206,7 @@ body.theme-day .hrt-flow li { background: #fff; }
 .hrt-name { cursor: pointer; border-radius: 6px; padding: 1px 4px; margin: -1px -4px; transition: color .15s, text-shadow .15s, background .15s; outline: none; }
 .hrt-name:hover, .hrt-name:focus-visible { color: var(--m-accent-hi, #45e486); text-shadow: 0 0 10px rgba(21, 209, 106, .75), 0 0 22px rgba(21, 209, 106, .35); background: rgba(21, 209, 106, .08); }
 .hrt-name:active { transform: translateY(1px); } .hrt-name:focus-visible { box-shadow: 0 0 0 1px var(--m-accent); }
-.hrt-skim { width: auto; min-width: 58px; min-height: 30px; padding: 2px 6px; font-size: 11px; } .hrt-skim.is-on { border-color: color-mix(in srgb, var(--m-accent) 60%, transparent); color: var(--m-accent); }
+.hrt-skim { width: 86px; max-width: 86px; flex: none; min-height: 30px; padding: 2px 6px; font-size: 11px; } .hrt-skim.is-on { border-color: color-mix(in srgb, var(--m-accent) 60%, transparent); color: var(--m-accent); }
 body.theme-day .hrt-name:hover, body.theme-day .hrt-name:focus-visible { color: #0a7a3d; text-shadow: none; background: rgba(21, 209, 106, .16); }
 @media (prefers-reduced-motion: reduce) { .hrt-name { transition: none; } }
 .hq-real-card > .hrt-under { zoom: 1; display: grid; gap: 7px; margin-top: 18px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-surface) 82%, transparent); }
