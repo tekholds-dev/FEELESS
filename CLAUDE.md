@@ -1065,3 +1065,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - `reconcile` skips a coin with an order in flight (`pending.mint` / `toMint`): a sale confirms on-chain before it is booked, which
   read as "coins missing" + a halt for ~30s. 🎭 `fuse_wallet.lookalike(symbol, mint, fuse.MAJORS)`: a coin wearing a major's ticker
   that is not that major is dropped from `_prime_candidates` and the picker (real money bought a fake "SOL": −28% in 78 seconds).
+- 🔎 Chain audit (`scripts/fuse-audit.py [card]`, read-only, on the owner's Mac): re-reads EVERY confirmed swap of a real card's book
+  from the chain, rebuilds its SOL cash (funded − into buys + out of sells incl. route rent − card-paid fees) and compares with the
+  book; checks every booked coin is in the wallet; reports route rent still owed. 2026-10-05: 152 swaps, book vs chain +0.00009 SOL,
+  nothing owed. RUN IT before telling the owner the books are right — never answer "are my funds all there" from the ledger alone.
+- 🔒 Real card FACE = `allTime()` (price result, fees apart) — the same number as the ALL-TIME tile (it showed −$1.88 beside −$1.60).
+  The ◎ cash row reads the book's confirmed SOL (`reconciliation.cardCashUsd`), the same number as "Withdraw card cash".
+- 🚪 `arena_prime.entry_ok` (real cards, in the tier tick): a candidate falling right now (5m ≤ −3% or 1h ≤ −8%, own reading else
+  the momentum feed) is not bought; no reading = not judged; coins already on the card are not filtered.

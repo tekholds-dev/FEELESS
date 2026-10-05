@@ -5758,6 +5758,10 @@ async def _prime_tick_inner(now):
         bench = set().union(*[_fw.benched(b, now) for b in (_fw_load().get('books') or {}).values()] or [set()])
         if bench:
             p_t, r_t = [x for x in p_t if x.get('mint') not in bench], [x for x in r_t if x.get('mint') not in bench]
+        if real_t:   # 🚪 real money never buys a coin that is falling right now (coins already on the card are not judged here)
+            on_ = {l.get('mint') for l in (cur or {}).get('legs') or []}
+            p_t = [x for x in p_t if x.get('mint') in on_ or _prime.entry_ok(x, mom)]
+            r_t = [x for x in r_t if x.get('mint') in on_ or _prime.entry_ok(x, mom)]
         book_s = (_fw_load().get('books') or {}).get(tid) or {} if cur and cur.get('real') else {}
         stuck = set(_fw.stuck_buys(cur, now, bench, missed=book_s.get('misses'), pending_mint=(book_s.get('pending') or {}).get('toMint') or (book_s.get('pending') or {}).get('mint'))) if cur and cur.get('real') else set()
         if stuck:   # ⏳ the real card swaps a coin whose buy can't land (benched, or refused 15s ago) for a buyable one NOW

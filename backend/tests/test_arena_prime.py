@@ -1158,3 +1158,14 @@ def test_hands_off_lock_times_out_by_itself_and_only_takes_listed_lengths():
     assert 'handsOffUntil' not in ap.set_hands_off({'events': []}, 5, 1000)              # 5h is not an option → no lock
     off = ap.set_hands_off(c, 0, 2000)
     assert 'handsOffUntil' not in off and 'released' in off['events'][-1]['why'] and ap.hands_off_left(off, 2000) == 0
+
+
+def test_real_money_does_not_buy_a_coin_that_is_falling_right_now():
+    import arena_prime as ap
+    assert ap.entry_ok({'pairAddress': 'P', 'chg5m': 2, 'chg1h': 10})
+    assert not ap.entry_ok({'pairAddress': 'P', 'chg5m': -3.0, 'chg1h': 10})             # dropping this minute
+    assert not ap.entry_ok({'pairAddress': 'P', 'chg5m': 1, 'chg1h': -8.0})              # down hard over the hour
+    assert ap.entry_ok({'pairAddress': 'P', 'chg5m': -2.9, 'chg1h': -7.9})
+    assert ap.entry_ok({'pairAddress': 'P'})                                             # no reading → not judged here
+    assert not ap.entry_ok({'pairAddress': 'P'}, {'P': {'chg1h': -12}})                  # the live feed's reading counts too
+    assert ap.entry_ok({'pairAddress': 'P', 'chg1h': 5}, {'P': {'chg1h': -12}})          # the candidate's own (fresher) reading wins

@@ -233,6 +233,19 @@ def note_dropped(before, after, now, rotate_hours, prices=None):
     return {**after, 'cool': cool}
 
 
+ENTRY_MAX_DROP_5M, ENTRY_MAX_DROP_1H = 3.0, 8.0
+
+
+def entry_ok(row, mom=None):
+    """🚪 Real money never buys a coin that is FALLING RIGHT NOW: 5-minute move ≤ −3% or 1-hour move ≤ −8% (from the candidate's own
+    reading, else the live momentum feed). No reading = not judged (the other gates still apply). The owner's card bought coins on
+    the way down and cut them 13–28% lower minutes later — a filter before the buy is cheaper than a stop after it."""
+    m = {**((mom or {}).get((row or {}).get('pairAddress')) or {}), **{k: row[k] for k in ('chg5m', 'chg1h') if (row or {}).get(k) is not None}}
+    if m.get('chg5m') is not None and _f(m['chg5m']) <= -ENTRY_MAX_DROP_5M:
+        return False
+    return not (m.get('chg1h') is not None and _f(m['chg1h']) <= -ENTRY_MAX_DROP_1H)
+
+
 HANDS_OFF_HOURS = (0, 1, 3, 6, 12)   # 🔒 hands-off lock: 0 = off
 
 

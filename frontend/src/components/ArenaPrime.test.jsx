@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ArenaPrime, arenaRow, primeRow } from './ArenaPrime';
+import { ArenaPrime, arenaRow, primeRow, allTime } from './ArenaPrime';
 import { CardEarnings } from './CardEarnings';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -173,4 +173,13 @@ test('trench settings: engine tunes by default; My settings shows the soft check
   expect(cfg.minHolders).toBe(200);
   const viewer = await mount(<TrenchScan />);          // no admin call → read-only (no settings shown)
   expect(viewer.querySelector('[data-testid="trench-cfg"]')).toBeNull();
+});
+
+test('real card face shows the same all-time number as the header: price result, fees apart', () => {
+  const c = { id: 'x', label: 'Blaze', real: true, valueUsd: 3.12, startUsd: 3.73, cardFeesUsd: 0.28, realBook: { fundedUsd: 5 }, legs: [] };
+  const r = primeRow(c);
+  expect(r.pnlUsd).toBeCloseTo(-1.6, 2); expect(r.pnlPct).toBeCloseTo(-32, 1);          // not −1.88 / −37.5% (that mixed the fees in)
+  expect(r.pnlUsd).toBeCloseTo(allTime(c, 5), 6);
+  const paper = primeRow({ id: 'p', label: 'P', valueUsd: 110, startUsd: 100, legs: [] });
+  expect(paper.pnlUsd).toBeCloseTo(10, 6); expect(paper.pnlPct).toBeCloseTo(10, 6);
 });
