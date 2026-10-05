@@ -59,7 +59,8 @@ def ensure(season, cards, must, now):
 
 def table(season):
     """Standings: points, then the book's latest $, then fewer losses."""
-    return sorted(season.get('field') or [], key=lambda r: (-int(r.get('pts') or 0), -_f((r.get('hist') or [0])[-1]), int(r.get('l') or 0)))
+    # ⚡ sparks (coin duels won − lost over the season) split cards level on points, before the book's $
+    return sorted(season.get('field') or [], key=lambda r: (-int(r.get('pts') or 0), -(int(r.get('sf') or 0) - int(r.get('sa') or 0)), -_f((r.get('hist') or [0])[-1]), int(r.get('l') or 0)))
 
 
 def pair_round(season):
@@ -83,6 +84,9 @@ def settle(season, results, books):
         if not a or not b:
             continue
         s['played'].append([a['key'], b['key']])
+        sp = x.get('sparks') or [0, 0]
+        a['sf'] = int(a.get('sf') or 0) + int(sp[0]); a['sa'] = int(a.get('sa') or 0) + int(sp[1])
+        b['sf'] = int(b.get('sf') or 0) + int(sp[1]); b['sa'] = int(b.get('sa') or 0) + int(sp[0])
         if x.get('draw') or not x.get('winnerKey'):
             a['d'] += 1; b['d'] += 1; a['pts'] += 1; b['pts'] += 1
         else:

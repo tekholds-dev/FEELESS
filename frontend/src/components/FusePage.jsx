@@ -9,7 +9,7 @@ import { ArenaPrime, HqRealCards } from './ArenaPrime';
 import { ArenaContenders } from './ArenaContenders';
 import { FuseLanding } from './FuseLanding';
 import { PitReel } from './PitReel';
-import { RaceLine, CoinTicker } from './PitLive';
+import { RaceLine, CoinTicker, DuelBoard } from './PitLive';
 import { FuseGuide } from './FuseGuide';
 import { CardEarnings } from './CardEarnings';
 import { PaperAudit, TrailSummary, CoinTable, CycleBuilder, usd as fmt$ } from './FuseMoney';
@@ -487,6 +487,7 @@ export function Battlefield({ b: b0, cards = [], onLoad }) {
             <b className="m-num">{crowdShare(p)}%</b><i><i style={{ transform: `scaleX(${crowdShare(p) / 100})` }} /></i><b className="m-num">{100 - crowdShare(p)}%</b><small>CROWD</small></span>
           {corner(p, 'a', i)}
           <div className="bf-mid">
+            <DuelBoard p={p} />
             <PitReel p={p} still={cur !== i} />
             <RaceLine p={p} />
             <i className="bf-tug" data-tip="Who's ahead since the bell"><i style={{ transform: `scaleX(${share})` }} /></i>

@@ -214,7 +214,64 @@ def paper_mark(b, prices, liqs, now):
     hist = [h for h in (b.get('hist') or []) if now - h[0] <= HIST_KEEP]
     if not hist or now - hist[-1][0] >= HIST_STEP:
         hist.append([round(now, 1), pct])
-    return {**b, 'valueUsd': round(v, 4), 'pct': pct, 'hiPct': max(_f(b.get('hiPct')), pct), 'loPct': min(_f(b.get('loPct')), pct), 'markedAt': now, 'hist': hist}
+    px = {l['pairAddress']: _f(prices.get(l['pairAddress'])) or _f(l.get('mid')) or _f(l.get('entry')) for l in b.get('legs') or []}   # ⚡ each coin's price at this mark (the duels read it)
+    return {**b, 'valueUsd': round(v, 4), 'pct': pct, 'hiPct': max(_f(b.get('hiPct')), pct), 'loPct': min(_f(b.get('loPct')), pct), 'markedAt': now, 'hist': hist, 'px': px}
+
+
+# ⚡ THE FUSE ARENA GAME: a game is one round, bell to bell, and it is SIX DUELS — each coin against the coin in the same seat on the
+# other card (seat 1 = each card's biggest coin). The coin that moved more since the bell takes a SPARK. Most sparks wins the game;
+# level on sparks → the whole card's move decides. Points only — nothing here is a bet.
+SEATS = 6
+DUEL_TIE = 0.05      # moves closer than this (in %) share the seat — nobody takes the spark
+
+
+def seat_prices(book, prices=None):
+    """Each coin's price when the bell rings → {pair: price}. Saved on the fight so every duel is measured from the same moment."""
+    live = prices or (book or {}).get('px') or {}
+    return {l['pairAddress']: _f(live.get(l['pairAddress'])) or _f(l.get('mid')) or _f(l.get('entry')) for l in (book or {}).get('legs') or []}
+
+
+def _seats(book, bell):
+    legs = sorted((book or {}).get('legs') or [], key=lambda l: -_f(l.get('usd')))[:SEATS]
+    px = (book or {}).get('px') or {}
+    out = []
+    for l in legs:
+        was = _f((bell or {}).get(l['pairAddress'])) or _f(l.get('mid')) or _f(l.get('entry'))   # a coin subbed in mid-game starts at its entry
+        now_ = _f(px.get(l['pairAddress'])) or was
+        out.append({'symbol': l.get('symbol'), 'pair': l['pairAddress'], 'pct': round((now_ / was - 1) * 100, 2) if was > 0 else 0.0,
+                    'sub': bool(bell) and l['pairAddress'] not in bell})
+    return out
+
+
+def duels(book_a, book_b, bell_a, bell_b):
+    """The live scoreboard of one game. → {seats: [{a, b, win: 'a' | 'b' | None}], a, b (sparks), liveWire, blownFuse, overload}
+    or None when a card has no coins. A card with fewer coins simply fields fewer seats (the other card's extra coins sit out)."""
+    sa, sb = _seats(book_a, bell_a), _seats(book_b, bell_b)
+    n = min(len(sa), len(sb))
+    if not n:
+        return None
+    seats, score = [], {'a': 0, 'b': 0}
+    for i in range(n):
+        gap = sa[i]['pct'] - sb[i]['pct']
+        win = None if abs(gap) < DUEL_TIE else 'a' if gap > 0 else 'b'
+        if win:
+            score[win] += 1
+        seats.append({'seat': i + 1, 'a': sa[i], 'b': sb[i], 'win': win, 'gap': round(abs(gap), 2)})
+    every = [(x[s_], s_) for x in seats for s_ in ('a', 'b')]
+    wire = max(every, key=lambda t: t[0]['pct']); blown = max((x for x in seats if x['win']), key=lambda x: x['gap'], default=None)
+    return {'seats': seats, 'a': score['a'], 'b': score['b'],
+            'liveWire': {'symbol': wire[0]['symbol'], 'pct': wire[0]['pct'], 'side': wire[1]},
+            'blownFuse': blown and {'symbol': blown['b' if blown['win'] == 'a' else 'a']['symbol'], 'pct': blown['b' if blown['win'] == 'a' else 'a']['pct'],
+                                    'side': 'b' if blown['win'] == 'a' else 'a', 'gap': blown['gap']},
+            'overload': next((s_ for s_ in ('a', 'b') if score[s_] == n and n >= 3), None)}
+
+
+def duel_winner(d, move_a, move_b):
+    """Who takes the game: more sparks; level → the whole card's move since the bell (the old rule); still level → a draw."""
+    if d and d['a'] != d['b']:
+        return 'a' if d['a'] > d['b'] else 'b'
+    gap = _f(move_a) - _f(move_b)
+    return 'draw' if abs(gap) < DUEL_TIE else 'a' if gap > 0 else 'b'
 
 
 HIST_STEP, HIST_KEEP = 55.0, 3900.0

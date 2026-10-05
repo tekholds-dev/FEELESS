@@ -15,7 +15,9 @@ _dedicated = os.environ.get('SOLANA_RPC_URL', '').strip()
 _backup = os.environ.get('SOLANA_RPC_URL_2', '').strip()   # a second keyed endpoint (any provider): the keeper's other lane
 _alchemy = os.environ.get('ALCHEMY_API_KEY', '').strip()
 _alchemy_url = f'https://solana-mainnet.g.alchemy.com/v2/{_alchemy}' if _alchemy else ''
-KEEPER_LANES = [e for e in dict.fromkeys([_dedicated, _backup, _alchemy_url]) if e]   # keyed endpoints, in the keeper's order
+# lanes 3–6: more keyed endpoints (free plans from different providers add up — each has its own quota the keeper falls through)
+_more = {n: os.environ.get(f'SOLANA_RPC_URL_{n}', '').strip() for n in (3, 4, 5, 6)}
+KEEPER_LANES = [e for e in dict.fromkeys([_dedicated, _backup, *_more.values(), _alchemy_url]) if e]   # keyed endpoints, in the keeper's order
 PUBLIC = ['https://api.mainnet-beta.solana.com', 'https://solana-rpc.publicnode.com']
 KEEPER_PUBLIC = PUBLIC[0]   # while no keyed lane works, this public node is the keeper's alone (scanners use the others)
 RPC_POOL = KEEPER_LANES + PUBLIC
@@ -67,7 +69,7 @@ def out_of_quota(status, text, headers=None, now=None):
 def quota_state(now=None):
     """For HQ: which keyed lanes are out of quota and for how long. Never the URL — only its position and the minutes left."""
     now = now or time.time()
-    return [{'lane': i + 1, 'provider': provider_of(e), 'slot': 1 if e == _dedicated else 2 if e == _backup else 0,
+    return [{'lane': i + 1, 'provider': provider_of(e), 'slot': slot_of(e),
              'spent': _quota_until.get(e, 0) > now, 'backInMin': max(0, round((_quota_until.get(e, 0) - now) / 60))} for i, e in enumerate(KEEPER_LANES)]
 
 _scan_stamps: list = []   # [tokens, last refill] — a token bucket (kept under the old name for the tests that reset it)
@@ -147,28 +149,33 @@ async def rpc_priority(http: httpx.AsyncClient, method: str, params: list, tries
     import asyncio
     now = time.time()
     lanes = [e for e in KEEPER_LANES if _quota_until.get(e, 0) <= now]
-    for attempt in range(tries if lanes else 0):
-        endpoint = lanes[attempt % len(lanes)]
+    i = 0   # which lane is next; a lane dropped as spent never shifts the order of the ones after it
+    for attempt in range(max(tries, len(lanes) + 2) if lanes else 0):
+        if not lanes:
+            break
+        endpoint = lanes[i % len(lanes)]
         try:
             res = await http.post(endpoint, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
         except httpx.HTTPError:
             if len(lanes) == 1:
                 break
+            i += 1
             continue
         if res.status_code == 429:
             spent = out_of_quota(429, res.text, res.headers)
             if spent:
                 _quota_until[endpoint] = time.time() + spent
-                lanes = [e for e in lanes if e != endpoint]
-                if not lanes:
-                    break
+                i = lanes.index(endpoint)
+                lanes.remove(endpoint)   # the next lane slides into this position
                 continue
             if len(lanes) == 1:
                 await asyncio.sleep(0.35 * (attempt + 1))
+            i += 1
             continue
         if res.status_code != 200:
             if len(lanes) == 1:
                 break
+            i += 1
             continue
         try:
             body = res.json()
@@ -199,7 +206,11 @@ async def rpc_priority(http: httpx.AsyncClient, method: str, params: list, tries
 
 
 # 🔑 The owner can change a keyed lane from HQ without opening a file. Pure helpers (tested) + a live swap of the lanes.
-LANE_KEYS = {1: 'SOLANA_RPC_URL', 2: 'SOLANA_RPC_URL_2'}
+LANE_KEYS = {1: 'SOLANA_RPC_URL', 2: 'SOLANA_RPC_URL_2', **{n: f'SOLANA_RPC_URL_{n}' for n in (3, 4, 5, 6)}}
+
+
+def slot_of(url):
+    return 1 if url == _dedicated else 2 if url == _backup else next((n for n, u in _more.items() if u == url), 0)
 
 
 def clean_rpc_url(url):
@@ -240,12 +251,14 @@ def env_with_key(text, key, value):
 def set_lane(slot, url):
     """Swap a keeper lane in THIS process (lists are changed in place, so every importer sees it). Its quota / cooldown marks reset."""
     global _dedicated, _backup
-    old = _dedicated if slot == 1 else _backup
+    old = _dedicated if slot == 1 else _backup if slot == 2 else _more.get(slot, '')
     if slot == 1:
         _dedicated = url
-    else:
+    elif slot == 2:
         _backup = url
-    lanes = [e for e in dict.fromkeys([_dedicated, _backup, _alchemy_url]) if e]
+    else:
+        _more[slot] = url
+    lanes = [e for e in dict.fromkeys([_dedicated, _backup, *_more.values(), _alchemy_url]) if e]
     KEEPER_LANES[:] = lanes
     RPC_POOL[:] = lanes + [e for e in PUBLIC if e not in lanes]
     for e in (old, url):

@@ -202,6 +202,8 @@ const EDIT = [
   ['rescuePct', '🛟 Rescue at', [[0, 'off'], [30, '−30%'], [40, '−40%'], [50, '−50%'], [60, '−60%']], 'On: card this far under its start → safest coins, and a −40% day re-deals into majors. Off: NO fix of any kind — your coins and config stay, only your floor protects the card'],
   ['floorPct', '🧱 Card floor', [[15, '−15%'], [25, '−25%'], [40, '−40%'], [60, '−60%']], 'The WHOLE card this far under its run start → every coin is sold into the anchors, then fresh coins are dealt. This is the card, not one coin: per-coin exits are ⚡ Instant swap above. A tight floor on a small card trips on one bad coin.'],
   ['floorRestMins', '🛌 Rest after floor', [[0, 'off'], [15, '15m'], [30, '30m'], [60, '1h']], 'Off = fresh coins are dealt right after a floor. On = the card sits in its anchors this long first (no swaps while it rests).'],
+  ['swapEdge', '⚖ Stay or swap', [[true, 'on'], [false, 'off']], 'On: at the bell a losing coin is swapped only when the next coin is beating SOL over the last hour AND beats this coin by more than the swap costs (fees + spread + impact, +1%). Otherwise it stays — its stop still protects it. Off: every patient loser is swapped.'],
+  ['swapCapHr', '🤖 Swaps an hour', [[0, 'auto'], [2, '2'], [4, '4'], [6, '6'], [8, '8'], [12, '12'], [-1, 'no cap']], 'How many engine rotations (round swaps + trench fills) this card may make in an hour. Auto = tuned from what one swap costs on a card this size, so churn stays under 2% of the card an hour. Stops, instant swaps, rides and your own picks are never capped.'],
   ['autoBrain', '🧠 Auto-tune', [[true, 'on'], [false, 'off']], 'Let the sim brain adjust patience / drop (never below 3 on 5m rounds)'],
 ];
 const TIER_KEYS = ['rideAt', 'rideTrail', 'rotateMinDrop', 'rotateConfirm', 'minHoldMins', 'instantSwapPct', 'tp', 'sl', 'trenchCoins'];   // = arena_prime.TIER_KEYS
@@ -323,7 +325,8 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
   return <details className="hrt-edit" data-testid="card-editor"><summary>⚙ Edit Fuse {real ? '· 💵 real-money config — paper cards untouched' : locked ? '· 🔒 locked — edits change only this Fuse' : '· this card\'s own exits, patience + hold · shape is shared'}</summary>
     <div className="m-seg ce-tabs" role="tablist" aria-label="Config groups">{CFG_GROUPS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={grp === k} className={grp === k ? 'active' : ''} data-tip={tip} onClick={() => setGrp(k)} data-testid={`ce-tab-${k}`}>{l}</button>)}</div>
     <div className="ce-group" key={grp} data-testid={`ce-pane-${grp}`}>
-      {grp === 'rounds' && <>{rows(['rotateHours', 'rotateConfirm', 'rotateMinDrop', 'minHoldMins'])}
+      {grp === 'rounds' && <>{rows(['rotateHours', 'rotateConfirm', 'rotateMinDrop', 'minHoldMins', 'swapEdge', 'swapCapHr'])}
+        {c.swapCap && <p className="m-note" data-testid="swap-cap-why">{c.swapCap.why} · used {c.swapCap.used || 0}{c.swapCap.cap ? ` of ${c.swapCap.cap}` : ''} this hour</p>}
         <EnginePick suggest={suggest} cfg={cfg} busy={busy} save={save} />
         {churn && <p className="m-note ce-warn" data-testid="churn-warn">⚠ Round rotation is aggressive at {Math.round((cfg?.rotateHours || 0) * 60)}m with patience {cfg?.rotateConfirm || 1}. The ⚡ instant swap (Exits) is separate and fires immediately at its loss.
           <button type="button" className="m-btn" disabled={busy} onClick={() => save({ rotateConfirm: 3 })}>Use 3</button></p>}</>}

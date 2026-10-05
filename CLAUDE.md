@@ -1027,3 +1027,18 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `env_with_key` (ONE active line of that key in backend/.env, duplicates commented) → `set_lane` (live in the keeper's process, no
   restart). The URL is never returned, logged or audited. Every keyed lane spent → one owner inbox notice a day (`_rpc_quota_notice`,
   opens `?tab=fuse&rpc=1`) and the box glows ADD A KEY. Lane 1 today = Helius, lane 2 = QuickNode.
+- ⚖ Stay or swap (`arena_prime.swap_cost_pct/swap_edge`, cfg `swapEdge` on by default): at the bell a patient loser is rotated only
+  when the next coin is beating SOL over 1h AND beats the held coin by more than the swap costs (true fills both ways + 2 fees) + 1%
+  (`SWAP_EDGE_MARGIN`); else event `keep` with the numbers. Blocks only on EVIDENCE (no 1h reading → rotates as before). Stops,
+  instant swaps, rides, picks untouched. 🤖 Hourly cap (`swap_cap`, cfg `swapCapHr`: 0 auto · 2–12 · −1 none; `swaps_last_hour` counts
+  only `PLAIN_ROTATE` events = round rotations + trench fills): auto = churn ≤ `CHURN_BUDGET_PCT` 2% of the card an hour from the cost
+  of one swap at that card size; `summary.swapCap` {cap, auto, costPct, why, used} → Edit Fuse › Rounds shows the reason in words.
+- ⚡ THE FUSE ARENA GAME (`pg_battle.duels/duel_winner/seat_prices`, `DuelBoard` in PitLive, `pl-duel` css): a league game = one bell
+  = SIX DUELS, each coin vs the coin in the same seat on the other card (seat 1 = biggest coin; fewer coins = fewer seats; a coin
+  subbed in mid-game starts at its entry). More move since the bell (`bellPx` saved on the pair, book `px` at each mark) = a spark;
+  most sparks wins, level → the card's move (old rule), still level → draw. 🔌 Live Wire · 🧯 Blown Fuse · 💥 Overload (every seat).
+  Results carry `sparks`; the table splits level points by sparks for − against (`sf`/`sa`). Points only — never a bet.
+- 📡 Up to SIX keyed lanes (`SOLANA_RPC_URL`, `_2` … `_6`; HQ RPC keys box picks the slot). `rpc_priority` walks them in order and a
+  lane dropped as spent never shifts the ones after it (an index bug once skipped a lane).
+- NOT BUILT (owner approved, needs a slow first test): one-transaction coin→coin real swaps (only when the route's impact is in the
+  card's favour or no worse than −4%). It changes how a real fill is booked (two mints in one tx) — build with a test per booking rule.

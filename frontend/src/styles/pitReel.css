@@ -116,3 +116,23 @@ body.theme-day .pl-ticker { background: rgba(255, 255, 255, .85); } body.theme-d
 @media (max-width: 640px) { .pl-race { height: 70px; grid-template-rows: 50px auto; } .pl-plot { height: 50px; } }
 .bf-tickrow { grid-column: 1 / -1; min-width: 0; order: 4; }
 .bf-cycled { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; font-size: 11.5px; } .bf-cycled em { font-style: normal; color: #ff8fa3; font-size: 10.5px; }
+
+/* ⚡ six-duel scoreboard */
+.pl-duel { display: grid; gap: 6px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-surface) 80%, transparent); }
+.pl-duel.is-overload { border-color: color-mix(in srgb, var(--gold) 70%, transparent); }
+.pl-score { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; font-family: var(--m-mono); }
+.pl-score b { font-size: 20px; opacity: .7; transition: opacity .15s, color .15s; } .pl-score b:last-child { text-align: right; } .pl-score b.is-lead { opacity: 1; color: var(--m-accent); }
+.pl-score .m-num { font-size: inherit; } .pl-score em { font-style: normal; font-size: 10px; letter-spacing: .14em; color: var(--m-dim); }
+.pl-seats { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.pl-seats li { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; padding: 3px 6px; border-radius: 8px; font-size: 11px; font-family: var(--m-mono); animation: plSeatIn .2s ease-out both; animation-delay: calc(var(--i, 0) * 45ms); transition: background .15s; }
+.pl-seats li:hover { background: var(--m-surface-2); }
+.pl-seats span { display: flex; gap: 6px; align-items: baseline; min-width: 0; opacity: .55; transition: opacity .15s; } .pl-seats span.b { justify-content: flex-end; }
+.pl-seats span b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; } .pl-seats .m-num { font-size: inherit; font-style: normal; }
+.pl-seats em { font-style: normal; color: var(--m-dim); }
+.pl-seats li.is-a .a, .pl-seats li.is-b .b { opacity: 1; color: var(--m-accent); } .pl-seats li.is-a em, .pl-seats li.is-b em { color: var(--gold); }
+.pl-moments { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--m-dim); font-size: 11px; } .pl-ov { color: var(--gold); letter-spacing: .06em; }
+@keyframes plSeatIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+body.fx-lite .pl-seats li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .pl-seats li { animation: none; } }
+body.theme-day .pl-duel { background: #fff; }
+@media (max-width: 640px) { .pl-score b { font-size: 16px; } .pl-seats li { font-size: 10px; } }

@@ -1086,3 +1086,32 @@ def test_cool_down_survives_a_re_deal_and_tells_the_owner_how_many_rounds_are_le
     assert ap.cool_left(c3, 'A', 1300, 0.08) == 3 and ap.cool_left(c3, 'B', 1300, 0.08) == 4 and ap.cool_left(c3, 'Z', 1300, 0.08) == 0
     c4 = {**c3, 'rounds': 14}
     assert ap.cool_left(c4, 'B', 2500, 0.08) == 1 and ap.cool_left({**c3, 'rounds': 15}, 'B', 2800, 0.08) == 0
+
+
+def test_stay_or_swap_only_rotates_when_the_next_coin_beats_this_one_by_more_than_the_swap_costs():
+    import arena_prime as ap
+    cost = ap.swap_cost_pct(1.0, 100_000, 100_000, 0.001)
+    assert 0.2 < cost < 1.0                                                              # two fees on a $1 coin + (no spread learned in tests)
+    assert ap.swap_cost_pct(1.0, 5_000, 5_000, 0.001) > cost and ap.swap_cost_pct(0, 1, 1) == 0.0
+    go, why = ap.swap_edge({'chg1h': -6}, {'chg1h': 9}, 1.0, 0.9)
+    assert go and 'edge' in why
+    assert not ap.swap_edge({'chg1h': -6}, {'chg1h': 0.5}, 1.0, 0.9)[0]                  # next coin isn't even beating SOL → stay
+    assert not ap.swap_edge({'chg1h': 3.0}, {'chg1h': 4.5}, 1.0, 0.9)[0]                 # 1.5% edge < 0.9% cost + 1% margin → stay
+    assert ap.swap_edge({'chg1h': 3.0}, {'chg1h': 5.0}, 1.0, 0.9)[0]
+    assert ap.swap_edge({'chg1h': -6}, {}, 1.0, 0.9)[0]                                  # no reading = no evidence to block on
+
+
+def test_hourly_swap_cap_tunes_itself_from_the_cost_explains_itself_and_never_counts_protective_exits():
+    import arena_prime as ap
+    small = ap.swap_cap({'paperFeeUsd': 0.01}, 5.0, 4)
+    cheap = ap.swap_cap({'paperFeeUsd': 0.001}, 5.0, 4)
+    assert small['auto'] and cheap['auto'] and 2 <= small['cap'] <= cheap['cap'] <= 12   # dearer swaps → fewer of them an hour
+    assert small['costPct'] > cheap['costPct']
+    assert 'rotations an hour' in small['why'] and '%' in small['why']
+    assert ap.swap_cap({'swapCapHr': 4}, 5.0, 4)['cap'] == 4 and not ap.swap_cap({'swapCapHr': 4}, 5.0, 4)['auto']
+    assert ap.swap_cap({'swapCapHr': -1}, 5.0, 4)['cap'] == 0
+    assert ap.clean_cfg({'swapCapHr': 7})['swapCapHr'] == 0 and ap.clean_cfg({'swapCapHr': 6})['swapCapHr'] == 6 and ap.clean_cfg({})['swapEdge'] is True
+    ev = [{'kind': 'rotate', 'at': 990, 'why': 'weakest after 0.08h'}, {'kind': 'rotate', 'at': 995, 'why': '🗑 trench cycle — -1% runner swapped'},
+          {'kind': 'rotate', 'at': 996, 'why': '🎯 your pick — swapped in at the round'}, {'kind': 'rotate', 'at': 997, 'why': '⇄ swapped by hand'},
+          {'kind': 'sl', 'at': 998, 'why': 'stop'}, {'kind': 'instant-swap', 'at': 999, 'why': '-18%'}, {'kind': 'rotate', 'at': -5000, 'why': 'weakest after 0.08h'}]
+    assert ap.swaps_last_hour({'events': ev}, 1000) == 2                                 # only engine rotations count

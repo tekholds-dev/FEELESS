@@ -326,6 +326,8 @@ def clean_cfg(p):
     out['minHoldMins'] = max(0.0, min(240.0, _f((p or {}).get('minHoldMins', MIN_HOLD_MINS))))
     ck = (p or {}).get('clocks') if isinstance((p or {}).get('clocks'), dict) else {}
     out['clocks'] = {t: (round(min(48.0, max(0.08, _f(ck[t]))), 2) if _f(ck.get(t)) > 0 else DEFAULT_CLOCKS[t]) for t in DEFAULT_CLOCKS}
+    out['swapEdge'] = bool((p or {}).get('swapEdge', True))   # ⚖ rotate only when the next coin beats this one by more than the swap costs
+    out['swapCapHr'] = int(_f((p or {}).get('swapCapHr'))) if int(_f((p or {}).get('swapCapHr'))) in SWAP_CAPS else 0   # 🤖 0 = auto
     out['coins'] = int(_f((p or {}).get('coins'))) if int(_f((p or {}).get('coins'))) in COIN_COUNTS else 0   # 🪙 0 = auto (size-aware), else the OWNER's count
     out['floorRestMins'] = float(_f((p or {}).get('floorRestMins'))) if _f((p or {}).get('floorRestMins')) in FLOOR_RESTS else 0.0
     out['strictRunners'] = bool((p or {}).get('strictRunners', False))
@@ -459,6 +461,58 @@ def buy_px(px, usd, liq):
 def sell_usd(units, px, liq):
     v = _f(units) * _f(px)
     return v / (1 + SPREAD) / (1 + v / _r(liq))
+
+
+# ⚖ SWAP ONLY WHEN IT PAYS. A rotation sells one coin and buys another: it costs the spread + price impact twice + two network fees.
+SWAP_EDGE_MARGIN = 1.0     # the next coin must beat the old one by the swap's cost PLUS this many % (1h move)
+CHURN_BUDGET_PCT = 2.0     # 🤖 auto cap: rotations may cost at most this % of the card an hour
+SWAP_CAPS = (-1, 0, 2, 4, 6, 8, 12)   # swaps an hour: -1 = no cap · 0 = 🤖 auto (from the measured cost) · or the owner's number
+PLAIN_ROTATE = ('weakest after', '🗑 trench cycle')   # the swaps the cap counts: engine rotations (never stops, rug exits, rides, picks)
+
+
+def swap_cost_pct(usd, liq_out, liq_in, fee=0.0):
+    """What a $usd swap from one pool into another loses, in % (true fills both ways + both network fees)."""
+    usd = _f(usd)
+    if usd <= 0:
+        return 0.0
+    back = sell_usd(1.0, usd, liq_out)
+    got = back / buy_px(1.0, back, liq_in) if back > 0 else 0.0
+    return round(max(0.0, (1 - (got - 2 * _f(fee)) / usd) * 100), 3)
+
+
+def swap_edge(old_mom, new_mom, sol_1h, cost_pct, margin=SWAP_EDGE_MARGIN):
+    """Which way to go — stay, or swap? (go, why). Three readings over the last hour: the coin we hold, the coin we could take, and
+    SOL. Swap only when the next coin is beating SOL AND beats the coin we hold by more than the swap costs (+ margin). The gate
+    only blocks on EVIDENCE: no 1h reading for the next coin → the rotation goes ahead as before (a patient loser still leaves)."""
+    if not new_mom or new_mom.get('chg1h') is None:
+        return True, 'no 1h reading for the next coin — rotated on patience alone'
+    old, new, sol = _f((old_mom or {}).get('chg1h')), _f(new_mom.get('chg1h')), _f(sol_1h)
+    need = _f(cost_pct) + _f(margin)
+    if new <= sol:
+        return False, f'next coin {new:+.1f}% 1h is not beating SOL ({sol:+.1f}%) — staying'
+    if new - old <= need:
+        return False, f'next coin {new:+.1f}% vs this one {old:+.1f}% 1h — a {new - old:.1f}% edge does not cover the {need:.1f}% it costs to swap'
+    return True, f'next coin {new:+.1f}% vs this one {old:+.1f}% 1h (SOL {sol:+.1f}%) — a {new - old:.1f}% edge over a {need:.1f}% swap cost'
+
+
+def swap_cap(cfg, card_usd, coins, liq=UNKNOWN_LIQ):
+    """🤖 Swaps an hour this card may make by ROTATION, with the reason in plain words. Auto = tuned from what one swap costs on a
+    card this size: a small card pays a bigger share per swap, so it gets fewer. → {cap (0 = none), auto, costPct, why}"""
+    want = int(_f((cfg or {}).get('swapCapHr')))
+    per = _f(card_usd) / max(1, int(coins or 1))
+    cost = swap_cost_pct(per, liq, liq, _f((cfg or {}).get('paperFeeUsd')))
+    if want < 0:
+        return {'cap': 0, 'auto': False, 'costPct': cost, 'why': 'no hourly cap (your setting)'}
+    if want > 0:
+        return {'cap': want, 'auto': False, 'costPct': cost, 'why': f'{want} rotations an hour (your setting) — each costs about {cost:.1f}% of the coin it moves'}
+    share = cost / max(1, int(coins or 1))   # one coin's swap as a share of the whole card
+    cap = max(2, min(12, int(CHURN_BUDGET_PCT / share))) if share > 0 else 12
+    return {'cap': cap, 'auto': True, 'costPct': cost,
+            'why': f'🤖 {cap} rotations an hour: one swap costs about {cost:.1f}% of a ${per:.2f} coin ({share:.2f}% of the card), so {cap} keeps churn under {CHURN_BUDGET_PCT:g}% of the card an hour'}
+
+
+def swaps_last_hour(card, now):
+    return sum(1 for e in (card or {}).get('events') or [] if e.get('kind') == 'rotate' and now - _f(e.get('at')) < 3600 and str(e.get('why') or '').startswith(PLAIN_ROTATE))
 
 
 def _leg(c, usd, now, role):
@@ -698,6 +752,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         # by a normal runner, which this fill sold seconds later for the next trench coin — 2 real swaps a minute, every minute.
         first_fill = c.get('trenchFillAt') is None   # a card that just switched to trench takes its coins at once; after that the loop guard applies
         fill_due = first_fill or now - _f(c.get('trenchFillAt')) >= max(120.0, _f(cfg.get('rotateHours')) * 3600)
+        cap_t = swap_cap(cfg, value(c, prices, liqs), len(c['legs']))
+        if not first_fill and cap_t['cap'] and swaps_last_hour(c, now) >= cap_t['cap']:
+            fill_due = False   # 🤖 the hourly cap covers trench fills too
         hold_s = max(120.0, _f(cfg.get('minHoldMins')) * 60)
         for _ in range(max(0, trench_n(cfg) - sum(1 for l in c['legs'] if l.get('trench'))) if fill_due else 0):
             nxt = next((x for x in rated(runners, 'runner') if x.get('trenchOnly') and x['mint'] not in have() and _f(x.get('price')) > 0 and price_agrees(x, prices)), None)
@@ -925,12 +982,24 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         ranked = [] if locked_round else sorted((l for l in c['legs'] if l.get('role') != 'anchor' and not l.get('frozen') and not l.get('ride') and int(l.get('freezeRounds') or 0) <= 0 and l['entry'] > 0
                                                  and at_or_below_loss(_f(prices.get(l['pairAddress'])) or l['entry'], l['entry'], cfg.get('rotateMinDrop', ROTATE_MIN_DROP)) and patient(l) and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
         swapped = 0
+        cap = swap_cap(cfg, V(), len(c['legs']))
+        sol_1h = next((_f(x.get('chg1h')) for x in anchors or [] if x.get('symbol') == 'SOL' and x.get('chg1h') is not None), 0.0)
         for l in ranked[:cfg['rotateCount']]:
+            if cap['cap'] and swaps_last_hour(c, now) >= cap['cap']:   # 🤖 the hourly cap: this round's losers wait (stops still protect them)
+                ev(kind='keep', symbol=l['symbol'], why=f"hourly swap cap reached — {cap['why']}")
+                break
             nxt = best(l['role'], l.get('trench'))
             if not nxt:
                 continue
             px = _f(prices.get(l['pairAddress'])) or l['entry']
             usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
+            if cfg.get('swapEdge', True):   # ⚖ stay or swap: only when the next coin beats this one by more than the swap costs
+                cost = swap_cost_pct(usd, liqs.get(l['pairAddress']) or l.get('liq'), nxt.get('liquidityUsd') or nxt.get('liq'), fee)
+                nm = {**{k: nxt.get(k) for k in ('chg1h',) if nxt.get(k) is not None}, **{k: v for k, v in (mom.get(nxt.get('pairAddress')) or {}).items() if v is not None}}
+                go, why_e = swap_edge(mom.get(l['pairAddress']), nm, sol_1h, cost)
+                if not go:
+                    ev(kind='keep', symbol=l['symbol'], why=f"⚖ kept ${l['symbol']}: ${nxt.get('symbol')} — {why_e}")
+                    continue
             c['legs'][c['legs'].index(l)] = _leg(nxt, usd, now, l['role']); c['feesUsd'] += 2 * fee; swapped += 1
             rotated_out.add(l.get('mint'))
             ev(kind='rotate', symbol=l['symbol'], usd=round(usd, 4), why=f"weakest after {cfg['rotateHours']}h", to=[nxt.get('symbol')])
@@ -1177,6 +1246,7 @@ def summary(card, prices, cfg=None):
     return {**{k: card[k] for k in ('id', 'tpl', 'label', 'at', 'lastRotateAt', 'compoundedUsd', 'takenUsd', 'feesUsd', 'startUsd')}, 'cash': round(card['cash'], 4), 'walletUsd': round(_f(card.get('walletUsd')), 4),
             'flooredAt': card.get('flooredAt'), 'phase': card.get('phase'), 'cycleFix': card.get('cycleFix'), 'cycle': list(CYCLE) if card['tpl'] in CYCLE_TIERS else None, 'rounds': int(card.get('rounds') or 0), 'lastRoundPct': card.get('lastRoundPct'),
             'roundPct': round((v / (_f(card.get('roundStartUsd')) or start) - 1) * 100, 2), 'roundWins': int(card.get('roundWins') or 0),
+            'swapCap': {**swap_cap(cfg or {}, v, len(card['legs'])), 'used': swaps_last_hour(card, _f((cfg or {}).get('_now')) or __import__('time').time())},
             'valueUsd': v, 'pnlPct': round((v / start - 1) * 100, 2), 'legs': legs, 'events': card['events'][-12:][::-1],
             'tp': card_template(card['tpl'], cfg)['tp'], 'sl': card_template(card['tpl'], cfg)['sl'], 'tier': TEMPLATES[card['tpl']]['tier'], 'why': TEMPLATES[card['tpl']].get('why'),
             'parked': list((card.get('parked') or {}).values()),

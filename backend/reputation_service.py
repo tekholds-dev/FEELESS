@@ -4403,6 +4403,11 @@ def _battle_view(mega, now):
                      'backers': backs.count(x[side]['key']),
                      'paidN': sum(1 for q in paid if q['key'] == x[side]['key']), 'paidUsd': round(sum(q['usd'] for q in paid if q['key'] == x[side]['key']), 2)} for side in ('a', 'b')}
              for x in b.get('pairs') or []]
+    for i, x in enumerate(b.get('pairs') or []):   # ⚡ the game's live scoreboard: six coin-vs-coin duels since the bell
+        bell_a, bell_b = x['a'].get('bellPx'), x['b'].get('bellPx')
+        pairs[i]['duels'] = _pgb.duels(paper.get(x['a']['key']), paper.get(x['b']['key']), bell_a, bell_b) if bell_a and bell_b else None
+        for side in ('a', 'b'):
+            pairs[i][side].pop('bellPx', None)
     br = _json_load(FUSE_HQ_PATH, {}).get('bracket') or {}
     bc = br.get('cards') or {}
     cbs = _json_load(FUSE_HQ_PATH, {}).get('comebacks') or {}
@@ -4599,7 +4604,10 @@ async def _battle_tick(now):
         pa_, pb_ = paper.get(a['key']), paper.get(bb['key'])
         if pa_ and pb_ and pa_.get('pct') is not None and pb_.get('pct') is not None:   # settle on the season books: THIS bell's move
             ma, mb = pa_['pct'] - _fuse._f(a.get('bookStart')), pb_['pct'] - _fuse._f(bb.get('bookStart'))
-            w = _rn.settle_battle(0, ma, 0, mb)
+            # ⚡ a game = six duels (coin vs the coin in its seat); level on sparks → the whole card's move, as before
+            dl = _pgb.duels(pa_, pb_, a.get('bellPx'), bb.get('bellPx')) if a.get('bellPx') and bb.get('bellPx') else None
+            w = _pgb.duel_winner(dl, ma, mb) if dl else _rn.settle_battle(0, ma, 0, mb)
+            x['_sparks'] = [dl['a'], dl['b']] if dl else None
             pct[a['key']], pct[bb['key']] = a['start'] + ma, bb['start'] + mb
         elif a['key'] not in pct or bb['key'] not in pct:
             continue
@@ -4608,7 +4616,8 @@ async def _battle_tick(now):
         results.append({'at': now, 'a': a['name'], 'b': bb['name'], 'winner': {'a': a['name'], 'b': bb['name']}.get(w), 'draw': w == 'draw',
                         'winnerKey': {'a': a['key'], 'b': bb['key']}.get(w), 'aKey': a['key'], 'bKey': bb['key'],
                         'comeback': w in ('a', 'b') and _fuse._f((b.get('low') or {}).get({'a': a['key'], 'b': bb['key']}[w])) >= _hq.COMEBACK_PTS,
-                        'aMove': round(pct[a['key']] - a['start'], 2), 'bMove': round(pct[bb['key']] - bb['start'], 2)})
+                        'aMove': round(pct[a['key']] - a['start'], 2), 'bMove': round(pct[bb['key']] - bb['start'], 2),
+                        **({'sparks': x['_sparks']} if x.get('_sparks') else {})})
         for side, key in (('a', a['key']), ('b', bb['key'])):
             r_ = d.setdefault('battleRecord', {}).setdefault(key, {'w': 0, 'l': 0, 'd': 0})
             r_['d' if w == 'draw' else 'w' if w == side else 'l'] += 1
@@ -4687,8 +4696,10 @@ async def _battle_tick(now):
             if bk:
                 new_paper[r['key']] = bk
     by_key = {r['key']: r for r in league.get('field') or []}
-    pairs = [{'a': {'key': ka, 'name': by_key[ka]['name'], 'emoji': by_key[ka].get('emoji'), 'start': 0.0, 'bookStart': _fuse._f((new_paper.get(ka) or {}).get('pct'))},
-              'b': {'key': kb, 'name': by_key[kb]['name'], 'emoji': by_key[kb].get('emoji'), 'start': 0.0, 'bookStart': _fuse._f((new_paper.get(kb) or {}).get('pct'))}}
+    pairs = [{'a': {'key': ka, 'name': by_key[ka]['name'], 'emoji': by_key[ka].get('emoji'), 'start': 0.0, 'bookStart': _fuse._f((new_paper.get(ka) or {}).get('pct')),
+                    'bellPx': _pgb.seat_prices(new_paper.get(ka), ppx)},
+              'b': {'key': kb, 'name': by_key[kb]['name'], 'emoji': by_key[kb].get('emoji'), 'start': 0.0, 'bookStart': _fuse._f((new_paper.get(kb) or {}).get('pct')),
+                    'bellPx': _pgb.seat_prices(new_paper.get(kb), ppx)}}
              for ka, kb in _lg.pair_round(league) if new_paper.get(ka) and new_paper.get(kb)]
     t_ = _lg.table(league)
     bracket = {r['key']: {'w': r['w'], 'l': r['l']} for r in t_}
@@ -7264,7 +7275,7 @@ async def admin_rpc_set(request: Request):
     the one active line of its key, and used by the keeper at once — no restart. The URL is never returned, logged or audited."""
     me = _require_owner(request)
     body = await request.json()
-    slot = 2 if int(_fuse._f(body.get('slot'))) == 2 else 1
+    slot = int(_fuse._f(body.get('slot'))) if int(_fuse._f(body.get('slot'))) in _chain.LANE_KEYS else 1
     try:
         url = _chain.clean_rpc_url(body.get('url'))
     except ValueError as e:

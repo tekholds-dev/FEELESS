@@ -40,3 +40,22 @@ export function CoinTicker({ legsA = [], legsB = [], nameA, nameB }) {
   return <div className="pl-ticker" data-testid="pit-ticker" aria-label="Live coins on both cards (5 min move)"><span className="pl-live"><i />LIVE · 5M</span>
     <div className="pl-belt"><div className="pl-track">{row}{row}</div></div></div>;
 }
+
+const sgn = v => `${v >= 0 ? '+' : ''}${Number(v || 0).toFixed(1)}%`;
+
+/* ⚡ The Fuse Arena game: six duels, coin vs the coin in its seat. A spark per duel won; most sparks takes the game. */
+export function DuelBoard({ p }) {
+  const d = p && p.duels;
+  if (!d || !(d.seats || []).length) return null;
+  const lead = d.a === d.b ? null : d.a > d.b ? 'a' : 'b';
+  return <div className={`pl-duel ${d.overload ? 'is-overload' : ''}`} data-testid="pit-duels" data-tip="A game is one round, bell to bell: each coin duels the coin in the same seat on the other card (seat 1 = the biggest coin). Whichever moved more since the bell takes a spark. Most sparks wins; level → the whole card's move decides. Points only.">
+    <div className="pl-score"><b className={lead === 'a' ? 'is-lead' : ''}>{p.a.emoji} <span key={d.a} className="m-num fl-tick">{d.a}</span></b><em>⚡ SPARKS</em><b className={lead === 'b' ? 'is-lead' : ''}><span key={d.b} className="m-num fl-tick">{d.b}</span> {p.b.emoji}</b></div>
+    <ol className="pl-seats">{d.seats.map((x, i) => <li key={x.seat} className={x.win ? `is-${x.win}` : 'is-tie'} style={{ '--i': i }} data-tip={`Seat ${x.seat}: $${x.a.symbol} ${sgn(x.a.pct)} vs $${x.b.symbol} ${sgn(x.b.pct)}${x.win ? ` — ${x.win === 'a' ? p.a.name : p.b.name} takes the spark` : ' — too close, no spark'}`}>
+      <span className="a"><b>${x.a.symbol}{x.a.sub ? ' ⇄' : ''}</b><i className="m-num">{sgn(x.a.pct)}</i></span>
+      <em>{x.win ? '⚡' : '·'}</em>
+      <span className="b"><i className="m-num">{sgn(x.b.pct)}</i><b>${x.b.symbol}{x.b.sub ? ' ⇄' : ''}</b></span></li>)}</ol>
+    <small className="pl-moments">{d.overload && <b className="pl-ov">💥 OVERLOAD — {d.overload === 'a' ? p.a.name : p.b.name} leads every seat</b>}
+      {d.liveWire && <span data-tip="The coin that has moved the most this game">🔌 Live Wire ${d.liveWire.symbol} {sgn(d.liveWire.pct)}</span>}
+      {d.blownFuse && <span data-tip="The coin losing its duel by the most">🧯 Blown Fuse ${d.blownFuse.symbol} (−{Number(d.blownFuse.gap).toFixed(1)} in its seat)</span>}</small>
+  </div>;
+}

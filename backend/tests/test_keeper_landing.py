@@ -317,7 +317,7 @@ def test_owner_rpc_key_helpers_validate_save_one_active_line_and_swap_the_lane_l
     out = chain_rpc.env_with_key(env, 'SOLANA_RPC_URL', 'NEW')
     assert out.split('\n') == ['A=1', 'SOLANA_RPC_URL=NEW', 'B=2', 'SOLANA_RPC_URL_2=keep', '# SOLANA_RPC_URL=old2', '# SOLANA_RPC_URL=older']
     assert chain_rpc.env_with_key('A=1', 'SOLANA_RPC_URL_2', 'X') == 'A=1\nSOLANA_RPC_URL_2=X'
-    monkeypatch.setattr(chain_rpc, '_dedicated', 'OLD'); monkeypatch.setattr(chain_rpc, '_backup', ''); monkeypatch.setattr(chain_rpc, '_alchemy_url', '')
+    monkeypatch.setattr(chain_rpc, '_dedicated', 'OLD'); monkeypatch.setattr(chain_rpc, '_backup', ''); monkeypatch.setattr(chain_rpc, '_alchemy_url', ''); monkeypatch.setattr(chain_rpc, '_more', {3: '', 4: '', 5: '', 6: ''})
     monkeypatch.setattr(chain_rpc, 'KEEPER_LANES', ['OLD']); monkeypatch.setattr(chain_rpc, 'RPC_POOL', ['OLD'] + chain_rpc.PUBLIC)
     monkeypatch.setattr(chain_rpc, '_quota_until', {'OLD': 9e12}); monkeypatch.setattr(chain_rpc, '_rpc_cooldown_until', {})
     monkeypatch.setenv('SOLANA_RPC_URL', 'OLD'); monkeypatch.setenv('SOLANA_RPC_URL_2', '')
@@ -330,3 +330,19 @@ def test_owner_rpc_key_helpers_validate_save_one_active_line_and_swap_the_lane_l
     assert asyncio.run(chain_rpc.probe(http, 'u'))['holders'] is True
     http = _Http([_Res(429, {'error': 'max usage reached'}, {'x-ratelimit-remaining': '0'})])
     assert asyncio.run(chain_rpc.probe(http, 'u')) == {'ok': False, 'err': 'this key is out of quota'}
+
+
+def test_up_to_six_keyed_lanes_fall_through_in_order(monkeypatch):
+    monkeypatch.setattr(chain_rpc, '_dedicated', 'L1'); monkeypatch.setattr(chain_rpc, '_backup', 'L2'); monkeypatch.setattr(chain_rpc, '_alchemy_url', '')
+    monkeypatch.setattr(chain_rpc, '_more', {3: '', 4: '', 5: '', 6: ''})
+    monkeypatch.setattr(chain_rpc, 'KEEPER_LANES', ['L1', 'L2']); monkeypatch.setattr(chain_rpc, 'RPC_POOL', ['L1', 'L2'] + chain_rpc.PUBLIC)
+    monkeypatch.setattr(chain_rpc, '_quota_until', {}); monkeypatch.setattr(chain_rpc, '_rpc_cooldown_until', {})
+    for n in (3, 4, 5, 6):
+        monkeypatch.setenv(f'SOLANA_RPC_URL_{n}', '')
+    chain_rpc.set_lane(3, 'https://c.x.com/k'); chain_rpc.set_lane(5, 'https://e.y.com/k')
+    assert chain_rpc.KEEPER_LANES == ['L1', 'L2', 'https://c.x.com/k', 'https://e.y.com/k']
+    assert [x['slot'] for x in chain_rpc.quota_state()] == [1, 2, 3, 5] and chain_rpc.LANE_KEYS[6] == 'SOLANA_RPC_URL_6'
+    spent = _Res(429, {'error': 'daily request limit reached'})
+    http = _Http([spent, spent, spent, _Res(200, {'result': 9})])
+    assert asyncio.run(chain_rpc.rpc_priority(http, 'getSlot', [])) == 9
+    assert [e for e, _ in http.calls] == ['L1', 'L2', 'https://c.x.com/k', 'https://e.y.com/k']   # three plans spent → the fourth answers
