@@ -5440,6 +5440,26 @@ async def _trench_build(now):
         return r, (h or {}).get('holders'), auth
     got = [x for x in await asyncio.gather(*[one(r) for r in pool]) if x]
     _trench_cache['got'] = got   # raw finalists (coin, holders, authorities): every 🧪 meta is judged on these
+    _trench_judge()
+    try:   # 📈 paper proof per meta: note what each passes now, settle what it passed an hour ago (Jupiter price; gone = −100%)
+        gate_ = lambda x, cfg: _trench.gate(x[0], x[1], x[2], cfg)
+        passing = {k: [(x[0]['mint'], x[0].get('price')) for x in got if gate_(x, _trench.meta_gate(k))[0]] for k in _trench.METAS}
+        st = _json_load(TRENCH_META_PATH, {})
+        due = [m for s in st.values() for m, o in (s.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
+        jp = await _jup_prices(due) if due else {}
+        _json_save(TRENCH_META_PATH, _trench.meta_track(st, passing, lambda m: (jp or {}).get(m), now))
+    except Exception as e:
+        print('trench proof:', e)
+    return _trench_cache
+
+
+TRENCH_META_PATH = FUSE_HQ_PATH.parent / 'trench_meta.json'
+
+
+def _trench_judge():
+    """Judge the scanned finalists (`_trench_cache.got`) by the saved trench setting. Runs after each scan AND at once when the owner
+    changes the setting (no 2-minute wait to see what the new rules find)."""
+    got = _trench_cache.get('got') or []
     own = _trench.clean_own((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg'))
     if own['mode'] in ('own', 'meta'):   # 🎛 own numbers, or a 🧪 named meta the owner's own soft checks (crowd, trades, volume, cap band, age) — the safety checks never move
         g_own = _trench.own_gate(own)
@@ -5461,7 +5481,8 @@ async def fuse_trench(meta: str = Query('', max_length=20)):
     own = _trench.clean_own((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg'))
     g = _trench.own_gate(own) if own['mode'] in ('own', 'meta') else _trench.widen(_trench_cache.get('level') if isinstance(_trench_cache.get('level'), int) else 0)
     got = _trench_cache.get('got') or []
-    board = _trench.meta_board(got, lambda x, cfg: _trench.gate(x[0], x[1], x[2], cfg))
+    proof_ = _trench.meta_proof(_json_load(TRENCH_META_PATH, {}))
+    board = [{**b, 'proof': proof_.get(b['key'])} for b in _trench.meta_board(got, lambda x, cfg: _trench.gate(x[0], x[1], x[2], cfg))]
     if meta in _trench.METAS:   # 👁 view-only: the finalists judged by that meta
         g = _trench.meta_gate(meta)
         view = [{**_trench_row(x[0], x[1], x[2], g), 'trenchLevel': meta} for x in got]
@@ -5831,6 +5852,8 @@ async def _prime_tick_inner(now):
                 if not l:
                     continue
                 why_s = "couldn't be bought safely — benched" if l.get('mint') in bench else "buy was refused — trying the next best coin" if l.get('mint') in (book_s.get('misses') or {}) else 'buy never landed in 2 min'
+                why_x = ((book_s.get('benched') or {}).get(l.get('mint')) or (book_s.get('misses') or {}).get(l.get('mint')) or {}).get('why')
+                why_s += f' ({why_x})' if why_x else ''   # the keeper's own reason, so a refused pick is never silent
                 try:
                     tmp = {**cur, 'legs': [{**x, 'units': _fuse._f(x.get('wantUnits'))} if x is l else x for x in cur['legs']]}
                     cur = _prime.replace_leg(tmp, pa, px, p_t, r_t, anchors, cfg_t, now)
@@ -6052,7 +6075,8 @@ async def fuse_prime_admin(request: Request):
         async with _admin_lock:
             d = _json_load(FUSE_HQ_PATH, {}); d.setdefault('prime', {})['trenchCfg'] = _trench.clean_own(body['trenchCfg'])
             _json_save(FUSE_HQ_PATH, d)
-        _trench_cache['at'] = 0.0   # re-scan with the new rules on the next warm pass
+        _trench_judge()             # the finalists already scanned are re-judged NOW by the new rules
+        _trench_cache['at'] = 0.0   # … and a fresh scan runs on the next warm pass
     pk = body.get('pickSwap') or {}
     if pk.get('tpl') in _prime.TEMPLATES and pk.get('pairAddress'):   # 🎯 the owner picks WHICH coin comes in at the next round (or cancels)
         cand = None
@@ -6296,7 +6320,7 @@ async def _fw_secure_buy(order, cfg, q):
         jp = _fuse._f(((await _jup_prices([order['mint']])) or {}).get(order['mint']))
     except Exception:
         jp = 0.0
-    ok_s, why_s = _fw.buy_safety({**order, 'midPx': jp or order.get('midPx')}, q.get('outAmount'), await _mint_decimals(order['mint']), back_l)
+    ok_s, why_s = _fw.buy_safety({**order, 'midPx': jp or order.get('midPx'), 'maxRoundtripPct': _fw.clean_cfg(cfg)['pickSellBackPct']}, q.get('outAmount'), await _mint_decimals(order['mint']), back_l)
     return ok_s, why_s, None if back_l is None else round((back_l / max(1, order['lamports']) - 1) * 100, 2)
 
 
@@ -7158,7 +7182,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
             break
     fail = dead[0] if dead else None
     keeper = {'armed': bool(cfg.get('armed')), 'paused': bool(cfg.get('paused') or b.get('halt')), 'halt': bool(b.get('halt')), 'selling': bool(b.get('defund')),
-              'minLiqUsd': cfg.get('minLiqUsd'), 'arenaMinLiqUsd': cfg.get('arenaMinLiqUsd'), 'pickMinLiqUsd': cfg.get('pickMinLiqUsd'), 'minOrderUsd': cfg.get('minOrderUsd'), 'maxSwapUsd': cfg.get('maxSwapUsd'), 'slippageBps': cfg.get('slippageBps'),
+              'minLiqUsd': cfg.get('minLiqUsd'), 'arenaMinLiqUsd': cfg.get('arenaMinLiqUsd'), 'pickMinLiqUsd': cfg.get('pickMinLiqUsd'), 'pickSellBackPct': cfg.get('pickSellBackPct'), 'minOrderUsd': cfg.get('minOrderUsd'), 'maxSwapUsd': cfg.get('maxSwapUsd'), 'slippageBps': cfg.get('slippageBps'),
               'maxImpactPct': cfg.get('maxImpactPct'), 'dailyUsd': cfg.get('dailyUsd'), 'pending': pend.get('symbol') and f"{pend.get('side')} ${pend.get('symbol')}",
               'lastFail': fail and {'symbol': fail.get('symbol'), 'side': fail.get('side'), 'mint': fail.get('mint'), 'pair': fail.get('pair'), 'err': (fail.get('err') or '')[:90], 'at': fail.get('at')},
               'lastFill': next((o.get('at') for o in rows if o.get('status') == 'filled'), None),

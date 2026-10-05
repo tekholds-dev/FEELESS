@@ -1185,3 +1185,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   chips: HQ tap saves, a visitor's tap views (Fuse › Build › Runners › "🗑 Trench metas" fold).
 - 🌦 Forecast (`arena_prime.forecast`, public `GET /fuses/forecast`, `WeatherStrip` on top of My cards): weather now · 6h-vs-24h sim
   trend · share of live launch coins green 1h · what real money buys in this weather. A reading, never a promise.
+- ♻ PROFIT RECYCLE (cfg `recyclePct` 0/50/70/100, `recycleEvery` 1/2/3/6/12 rounds, Edit Fuse › Exits; off by default): at that
+  round each coin's PROFIT × % is skimmed (`_skim(frac=)`, stake + the rest stay) and spread over the other coins. Losers never sold.
+- 🔔 IDLE CARD CASH GOES BACK IN AT EVERY ROUND: the 10-min "just cut" skip is ignored at the bell (`round_now`; never for a coin cut
+  on that same tick). Mid-round, cash that would lift a coin over an equal share waits.
+- 🎯 Owner's pick sell-back limit = their setting (`fuse_wallet` cfg `pickSellBackPct` 6–10, default 6; `buy_safety` reads
+  `maxRoundtripPct` only for `picked` orders). Stuck-buy events carry the keeper's own reason; `PickLog` under the real card shows
+  the last 3 picks: came in / not bought + why.
+- 📈 Trench meta paper proof (`trench.meta_track/meta_proof`, `data/trench_meta.json`): each coin a meta passes is noted once, settled
+  1h later at Jupiter's price (no price = −100%), median + % up, `proven` ≥ 5 settled. Chips show it. `_trench_judge()` re-judges the
+  scanned finalists at once on a settings save. Trench settings also sit inside the swap picker's 🗑 lens (`TrenchScan bare`).
+- 🎞 Share on a real card = the CARD (`shareGif` `card.fuse` → `drawFuseCard`: tier colours, coin logos, per-coin %), not the mascot.

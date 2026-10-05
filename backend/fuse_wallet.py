@@ -15,10 +15,10 @@ import statistics
 
 SOL_MINT = 'So11111111111111111111111111111111111111112'
 DEFAULT_CFG = {'walletId': '', 'address': '', 'armed': False, 'paused': False, 'maxCardUsd': 100.0, 'maxSwapUsd': 50.0,
-               'dailyUsd': 300.0, 'reserveSol': 0.03, 'slippageBps': 100, 'maxImpactPct': 3.0, 'minOrderUsd': 0.5, 'minLiqUsd': 20000.0, 'arenaMinLiqUsd': 20000.0, 'trenchMinLiqUsd': 8000.0, 'pickMinLiqUsd': 10000.0,
+               'dailyUsd': 300.0, 'reserveSol': 0.03, 'slippageBps': 100, 'maxImpactPct': 3.0, 'minOrderUsd': 0.5, 'minLiqUsd': 20000.0, 'arenaMinLiqUsd': 20000.0, 'trenchMinLiqUsd': 8000.0, 'pickMinLiqUsd': 10000.0, 'pickSellBackPct': 6.0,
                'coinToCoin': False}   # 🔀 one-transaction swaps (old coin → new coin). OFF until the owner switches it on
 RANGES = {'maxCardUsd': (5, 50000), 'maxSwapUsd': (1, 10000), 'dailyUsd': (5, 100000), 'reserveSol': (0.005, 5),
-          'slippageBps': (10, 300), 'maxImpactPct': (0.2, 10), 'minOrderUsd': (0.10, 50), 'minLiqUsd': (0, 10000000), 'arenaMinLiqUsd': (0, 10000000), 'trenchMinLiqUsd': (3000, 10000000), 'pickMinLiqUsd': (5000, 10000000)}
+          'slippageBps': (10, 300), 'maxImpactPct': (0.2, 10), 'minOrderUsd': (0.10, 50), 'minLiqUsd': (0, 10000000), 'arenaMinLiqUsd': (0, 10000000), 'trenchMinLiqUsd': (3000, 10000000), 'pickMinLiqUsd': (5000, 10000000), 'pickSellBackPct': (6, 10)}
 DUST_USD = 0.05
 
 
@@ -905,8 +905,10 @@ def buy_safety(order, quote_out_atoms, decimals, sell_back_lamports):
     if sell_back_lamports is None:
         return False, "can't sell it back to SOL (no route) — skipped"
     loss = (1 - _f(sell_back_lamports) / max(1, _f(order.get('lamports')))) * 100
-    if loss > MAX_ROUNDTRIP_PCT:
-        return False, f"sells back for {loss:.1f}% less (> {MAX_ROUNDTRIP_PCT:g}%) — tax / thin / one-way"
+    # 🎯 the owner's own pick may use their own limit (6–10%, cfg `pickSellBackPct`); the engine's coins always use 6%
+    cap = max(MAX_ROUNDTRIP_PCT, min(10.0, _f(order.get('maxRoundtripPct')))) if order.get('picked') else MAX_ROUNDTRIP_PCT
+    if loss > cap:
+        return False, f"sells back for {loss:.1f}% less (> {cap:g}%) — tax / thin / one-way"
     return True, ''
 
 

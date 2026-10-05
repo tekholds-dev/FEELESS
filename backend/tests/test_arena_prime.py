@@ -1439,3 +1439,35 @@ def test_idle_cash_never_lifts_the_one_eligible_coin_above_the_cards_equal_share
     fills = ap.spread_cash([legs[1]], 0.92, px, legs)
     assert abs(fills[0] - (0.69 - 0.29)) < 1e-9                        # filled to the card's equal share, the rest stays cash
     assert abs(sum(ap.spread_cash(legs, 0.92, px, legs)) - 0.92) < 1e-9 and ap.spread_cash(legs, 0.92, px, legs)[3] == 0.0
+
+
+def test_profit_recycle_every_n_rounds_takes_only_profit_and_spreads_it_for_balance():
+    now = 1_000_000.0
+    assert ap.clean_cfg({})['recyclePct'] == 0 and ap.clean_cfg({'recyclePct': 70, 'recycleEvery': 2})['recycleEvery'] == 2 and ap.clean_cfg({'recyclePct': 33})['recyclePct'] == 0
+    base = {'rotateHours': 0.1, 'compound': True, 'cycles': {'degen': 'off'}, 'rescuePct': 0, 'lockBankPct': 0, 'peakSellPct': 100, 'rideAt': 150, 'swapCapHr': -1}
+    leg = lambda m, role, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': role, 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0, 'at': now - 9999, 'liq': 1e12, **k}
+    mk = lambda rounds: {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now - 9999, 'cash': 0.0, 'startUsd': 3.0, 'roundStartUsd': 3.0, 'compoundedUsd': 0.0,
+                         'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': rounds, 'legs': [leg('WIN', 'runner'), leg('B', 'runner'), leg('C', 'pool')]}
+    px = {'PWIN': 1.5, 'PB': 0.9, 'PC': 1.0}; liq = {k: 1e12 for k in px}
+    c = ap.tick(mk(1), px, [], [], ap.clean_cfg({**base, 'recyclePct': 70, 'recycleEvery': 2}), now, [], {}, liq)      # round 2 = a recycle round
+    win = next(l for l in c['legs'] if l['mint'] == 'WIN')
+    assert abs(win['units'] * 1.5 - (1.5 - 0.35)) < 0.01                        # 70% of the $0.50 profit left the coin, stake + 30% stay
+    others = {l['mint']: l['units'] for l in c['legs'] if l['mint'] != 'WIN'}
+    assert others['B'] > 1.0 and others['C'] > 1.0 and others['B'] * 0.9 < others['C'] * 1.0 + 0.2   # spread over the other coins
+    assert c['cash'] < 0.01 and any('recycled' in e.get('why', '') for e in c['events'])
+    assert all(l['units'] == 1.0 for l in ap.tick(mk(2), px, [], [], ap.clean_cfg({**base, 'recyclePct': 70, 'recycleEvery': 2}), now, [], {}, liq)['legs'])   # round 3: not due
+    assert all(l['units'] == 1.0 for l in ap.tick(mk(1), px, [], [], ap.clean_cfg(base), now, [], {}, liq)['legs'])                                              # off by default
+
+
+def test_idle_card_cash_goes_back_into_the_coins_at_the_round_even_after_a_recent_cut():
+    now = 1_000_000.0
+    cfg = ap.clean_cfg({'rotateHours': 0.1, 'compound': True, 'cycles': {'degen': 'off'}, 'rescuePct': 0, 'lockBankPct': 0, 'peakSellPct': 100, 'swapCapHr': -1})
+    leg = lambda m, role, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': role, 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0, 'at': now - 9999, 'liq': 1e12, **k}
+    card = lambda last: {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': last, 'cash': 0.6, 'startUsd': 3.6, 'roundStartUsd': 3.6, 'compoundedUsd': 0.0,
+                         'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 1,
+                         'legs': [leg('A', 'runner', units=0.5, costUsd=0.5, trimAt=now - 120), leg('B', 'runner', units=0.5, costUsd=0.5, trimAt=now - 120), leg('C', 'pool', units=2.0, costUsd=2.0)]}
+    px = {'PA': 1.0, 'PB': 1.0, 'PC': 1.0}; liq = {k: 1e12 for k in px}
+    mid = ap.tick(card(now), px, [], [], cfg, now + 30, [], {}, liq)             # mid-round: A and B were cut 2 min ago, C is over its share
+    assert abs(mid['cash'] - 0.6) < 1e-6                                         # the cash waits (it must not all go into C)
+    bell = ap.tick(card(now - 9999), px, [], [], cfg, now + 30, [], {}, liq)     # the round bell
+    assert bell['cash'] < 0.01 and all(abs(l['units'] - 0.8) < 0.01 for l in bell['legs'] if l['mint'] in 'AB')   # back into the coins under their share

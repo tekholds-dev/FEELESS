@@ -178,6 +178,44 @@ def meta_board(finalists, gate_at):
     return out
 
 
+PROOF_SEC, PROOF_KEEP, PROOF_MIN = 3600.0, 60, 5
+
+
+def meta_track(state, passing, price_of, now):
+    """📈 Paper proof per meta. `passing` = {meta: [(mint, price)]} right now; a coin a meta passes is noted ONCE at that price and
+    settled an hour later at `price_of(mint)` (no price then = −100%: a coin that vanished is a loss, never dropped from the count).
+    A coin is not noted again while open or for 6h after. → new state {meta: {open: {mint: {px, at}}, done: [{pct, at, mint}]}}"""
+    out = {}
+    for key in METAS:
+        s = (state or {}).get(key) or {}
+        opened, done = dict(s.get('open') or {}), list(s.get('done') or [])
+        for mint, o in list(opened.items()):
+            if now - _f(o.get('at')) >= PROOF_SEC:
+                px = _f(price_of(mint))
+                done.append({'mint': mint, 'at': now, 'pct': round((px / _f(o['px']) - 1) * 100, 2) if px > 0 and _f(o.get('px')) > 0 else -100.0})
+                opened.pop(mint)
+        recent = {d['mint'] for d in done if now - _f(d.get('at')) < 6 * 3600}
+        for mint, px in (passing or {}).get(key) or []:
+            if mint and _f(px) > 0 and mint not in opened and mint not in recent:
+                opened[mint] = {'px': _f(px), 'at': now}
+        out[key] = {'open': opened, 'done': done[-PROOF_KEEP:]}
+    return out
+
+
+def meta_proof(state):
+    """{meta: {n, medPct, wonPct, proven}} from settled coins. Median, not average (one 10× must not carry a meta); `proven` needs
+    ≥ 5 settled, median > 0 and half or more up. A record of the last hour-holds — never a promise."""
+    out = {}
+    for key in METAS:
+        ps = sorted(_f(d.get('pct')) for d in ((state or {}).get(key) or {}).get('done') or [])
+        n = len(ps)
+        med = (ps[n // 2] if n % 2 else (ps[n // 2 - 1] + ps[n // 2]) / 2) if n else None
+        won = round(sum(1 for x in ps if x > 0) / n * 100) if n else None
+        out[key] = {'n': n, 'medPct': None if med is None else round(med, 1), 'wonPct': won, 'open': len(((state or {}).get(key) or {}).get('open') or {}),
+                    'proven': bool(n >= PROOF_MIN and med > 0 and won >= 50)}
+    return out
+
+
 def clean_own(c):
     """{'mode': 'auto' | 'own', + one allowed value per soft check}. Anything else snaps to the nearest allowed value / the default."""
     c = c if isinstance(c, dict) else {}

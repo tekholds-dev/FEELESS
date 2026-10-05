@@ -386,6 +386,8 @@ def clean_cfg(p):
     out['peakSellPct'] = float(_f((p or {}).get('peakSellPct'))) if _f((p or {}).get('peakSellPct')) in PEAK_SELLS else PEAK_SELL
     out['skimAt'] = float(_f((p or {}).get('skimAt'))) if _f((p or {}).get('skimAt')) in SKIM_ATS else 0.0
     out['skimTo'] = (p or {}).get('skimTo') if (p or {}).get('skimTo') in SKIM_TOS else 'card'
+    out['recyclePct'] = float(_f((p or {}).get('recyclePct'))) if _f((p or {}).get('recyclePct')) in RECYCLE_PCTS else 0.0
+    out['recycleEvery'] = int(_f((p or {}).get('recycleEvery'))) if int(_f((p or {}).get('recycleEvery'))) in RECYCLE_EVERY else 3
     out['lockBankPct'] = float(_f((p or {}).get('lockBankPct'))) if (p or {}).get('lockBankPct') is not None and _f((p or {}).get('lockBankPct')) in LOCK_BANKS else LOCK_BANK
     out['swapEdge'] = bool((p or {}).get('swapEdge', True))   # ⚖ rotate only when the next coin beats this one by more than the swap costs
     out['swapCapHr'] = int(_f((p or {}).get('swapCapHr'))) if int(_f((p or {}).get('swapCapHr'))) in SWAP_CAPS else 0   # 🤖 0 = auto
@@ -556,6 +558,8 @@ def sell_usd(units, px, liq):
 # other coins (♻ recovery for the ones that are down) or held as cash (🏦 e.g. a tax reserve the owner withdraws).
 SKIM_ATS = (0, 10, 20, 30, 50, 100)   # auto: skim each time the coin gains this % since its entry / last skim (0 = off)
 SKIM_TOS = ('card', 'cash')
+RECYCLE_PCTS = (0, 50, 70, 100)        # ♻ every `recycleEvery` rounds this % of each coin's PROFIT goes back over the card's coins (0 = off)
+RECYCLE_EVERY = (1, 2, 3, 6, 12)
 SEAT_MIN_USD = 0.25                   # an empty seat is refilled once the card has at least this much free cash
 SKIM_MIN_USD = 0.05                   # a gain smaller than this isn't worth a swap
 
@@ -1190,6 +1194,17 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         c['rounds'] = int(c.get('rounds') or 0) + 1
         c['lastRoundPct'] = round((v_now / (_f(c.get('roundStartUsd')) or _f(c['startUsd']) or 1) - 1) * 100, 2)
         c['roundStartUsd'] = round(v_now, 4); c['roundCrowned'] = False
+        # ♻ PROFIT RECYCLE (owner's setting): every `recycleEvery` rounds, `recyclePct`% of each coin's PROFIT is sold — its stake and
+        # the rest of the profit stay in the coin — and that money is spread over the card's other coins (the ones under an equal
+        # share get the most). Winners fund the balance; a loser is never sold for it; nothing leaves the card.
+        rp = _f(cfg.get('recyclePct'))
+        if rp > 0 and int(c['rounds']) % max(1, int(cfg.get('recycleEvery') or 3)) == 0 and not c.get('flooredAt'):
+            for l in list(c['legs']):
+                if l.get('placeholder') or l.get('buying') or _f(l.get('units')) <= 0:
+                    continue
+                px_r = _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
+                _skim(c, l, px_r, liqs, now, 'card', fee, frac=rp / 100,
+                      why=f"♻ round {c['rounds']}: {rp:g}% of ${l.get('symbol')}'s profit recycled into the card's other coins — its stake keeps riding")
         # 📈 streaks: 3 losing rounds → the config is changed (safe cycle); 3 winning rounds → config locked + best coin frozen one round
         for l in c['legs']:   # a coin frozen for one round was protected through this rotation — now it's free again
             if int(l.get('freezeRounds') or 0) > 0:
@@ -1308,9 +1323,12 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             ev(kind='seat', symbol=nxt.get('symbol'), usd=round(usd_s, 4), why=f"🪑 empty seat filled — ${nxt.get('symbol')} takes seat {len(c['legs'])} of {want_n} with an equal share", to=[nxt.get('symbol')])
     if cfg['compound'] and free_cash > 0.01 and c['legs']:
         waiting = [l for l in c['legs'] if l.get('buying') and not l.get('placeholder')]   # 👛 a pending real buy owns its slice first
+        # 🔔 AT A ROUND every idle dollar goes back to work: a coin skipped only because it was cut minutes ago counts again
+        # (never one cut on this very tick), so card cash can't sit idle past the next bell
+        round_now = _f(c.get('lastRotateAt')) == now
         # a locked (riding / frozen) coin is never topped up: what was just banked off it must not be bought straight back
         # … and neither is a coin whose profit was just skimmed (10 min): that money is for the OTHER coins
-        targets = [l for l in c['legs'] if not l.get('placeholder') and not l.get('ride') and not l.get('frozen') and not (l.get('trimAt') and now - _f(l.get('trimAt')) <= 600)] \
+        targets = [l for l in c['legs'] if not l.get('placeholder') and not l.get('ride') and not l.get('frozen') and not (l.get('trimAt') and now - _f(l.get('trimAt')) <= 600 and not (round_now and _f(l.get('trimAt')) < now))] \
             or [l for l in c['legs'] if not l.get('placeholder')]
         if targets:
             # ⚖ NO COIN GETS THE WHOLE POT. Idle cash fills the seats that are furthest under an equal share and never lifts a coin

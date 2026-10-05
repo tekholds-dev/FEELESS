@@ -1049,3 +1049,13 @@ def test_the_owners_pick_floor_is_their_own_setting_and_never_under_5k():
     assert fw.liq_floor({**cfg, 'pickMinLiqUsd': 500000}, picked=True) == 25000                      # never stricter than the Arena floor
     o = {'side': 'buy', 'usd': 0.7, 'liq': 23815, 'mint': 'SIR', 'pair': 'P'}
     assert not fw.check(o, cfg, [], 0)[0] and fw.check({**o, 'picked': True}, cfg, [], 0)[0]
+
+
+def test_the_owners_pick_may_use_their_own_sell_back_limit_but_never_over_10():
+    o = {'usd': 1.0, 'lamports': 1_000_000, 'midPx': 0.0}
+    back = lambda loss: 1_000_000 * (1 - loss / 100)
+    assert not fw.buy_safety(o, 1_000_000, None, back(6.8))[0]                                          # the engine's coin: 6%
+    assert not fw.buy_safety({**o, 'maxRoundtripPct': 8}, 1_000_000, None, back(6.8))[0]                # the setting only counts for a pick
+    assert fw.buy_safety({**o, 'picked': True, 'maxRoundtripPct': 8}, 1_000_000, None, back(6.8))[0]
+    assert not fw.buy_safety({**o, 'picked': True, 'maxRoundtripPct': 50}, 1_000_000, None, back(10.5))[0]   # capped at 10%
+    assert not fw.buy_safety({**o, 'picked': True}, 1_000_000, None, back(6.8))[0] and fw.clean_cfg({})['pickSellBackPct'] == 6

@@ -69,3 +69,14 @@ test('trench metas: a visitor taps one to VIEW it, and the weather strip reads t
   expect(urls.some(u => u.includes('/fuses/trench?meta=flood'))).toBe(true);
   expect(el.textContent).toContain('VIEWING 🌊 Flood');
 });
+
+test('pick log: a pick that came in and a refused buy both read plainly, with the keeper reason', () => {
+  const { pickLog } = require('./ArenaPrime');
+  const rows = pickLog([{ kind: 'rotate', at: 1, symbol: 'PENGU', why: '🎯 your pick — swapped in at the round', to: ['STUDS'] }, { kind: 'compound', at: 2 },
+    { kind: 'rotate', at: 3, symbol: 'Sirius', why: "⏳ $Sirius couldn't be bought safely — benched (sells back for 6.8% less (> 6%)) — slot back to card cash" }]);
+  expect(rows[0]).toMatchObject({ ok: false });
+  expect(rows[0].text).toContain('$Sirius was not bought');
+  expect(rows[0].text).toContain('6.8% less');
+  expect(rows[0].text).toContain('back in the card');
+  expect(rows[1]).toMatchObject({ ok: true, text: '$STUDS came in for $PENGU' });
+});

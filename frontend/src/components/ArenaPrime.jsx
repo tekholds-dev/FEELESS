@@ -7,6 +7,7 @@ import { useLivePrices } from '../lib/livePrices';
 import { openWarRoom } from './WarRoomHost';
 import { CardEarnings } from './CardEarnings';
 import { ShareGifButton } from './ShareGif';
+import { tokenImageUrls } from './terminal/MarketPrimitives';
 import { RoundBell, TrailSummary, CycleBuilder, usd, usdK, pct, txUrl } from './FuseMoney';
 import { StrategyPicks, stratPatch } from './StrategyPicks';
 
@@ -206,6 +207,8 @@ const EDIT = [
   ['floorRestMins', '🛌 Rest after floor', [[0, 'off'], [15, '15m'], [30, '30m'], [60, '1h']], 'Off = fresh coins are dealt right after a floor. On = the card sits in its anchors this long first (no swaps while it rests).'],
   ['skimAt', '💰 Auto-skim profit', [[0, 'off'], [10, '+10%'], [20, '+20%'], [30, '+30%'], [50, '+50%'], [100, '+100%']], 'Each time a coin gains this much (since you bought it, or since its last skim) ONLY its profit is sold — what you put into it keeps riding. Off = you take profit yourself with 💰 on the coin.'],
   ['skimTo', '💰 Skimmed profit goes', [['card', '♻ into my other coins'], ['cash', '🏦 held as cash']], 'Into my other coins = it is spread over the rest of the card (helps the ones that are down). Held as cash = it waits as card cash for you to withdraw — for example to set tax money aside. It is never put back into coins by itself.'],
+  ['recyclePct', '♻ Recycle profit into the card', [[0, 'off'], [50, '50%'], [70, '70%'], [100, '100%']], 'Every few rounds, this share of each coin\'s PROFIT is sold and spread over the card\'s other coins — the ones under an equal share get the most. What you put into a coin and the rest of its profit stay in it. A coin that is down is never sold for this. Nothing leaves the card.'],
+  ['recycleEvery', '♻ Recycle every', [[1, '1 round'], [2, '2 rounds'], [3, '3 rounds'], [6, '6 rounds'], [12, '12 rounds']], 'How often the profit recycle runs (only when ♻ Recycle profit is on). On 5-minute rounds, 6 rounds = every 30 minutes.'],
   ['peakSellPct', '🏔 Off its peak', [[25, 'sell 25% of profit'], [50, 'sell 50% of profit'], [75, 'sell 75% of profit'], [100, 'swap the coin']], 'A locked coin that falls your trail % from its peak. Sell part of its PROFIT and let it keep riding (the trail starts again from there) — or swap the whole coin for a new one. If it falls under half your freeze level the ride is over either way.'],
   ['lockBankPct', '🏦 Bank at the lock', [[0, 'off'], [25, '25%'], [33, '33%'], [50, '50%']], 'When a coin hits your ❄ freeze level it locks and rides. This sells part of it right then and spreads that money over your other coins — so a winner that comes all the way back still paid. The rest keeps riding until it falls off its peak.'],
   ['swapEdge', '⚖ Stay or swap', [[true, 'on'], [false, 'off']], 'On: at the bell a losing coin is swapped only when the next coin is beating SOL over the last hour AND beats this coin by more than the swap costs (fees + spread + impact, +1%). Otherwise it stays — its stop still protects it. Off: every patient loser is swapped.'],
@@ -220,7 +223,7 @@ const CFG_GROUPS = [['rounds', '⏱ Rounds', 'When a round may swap a coin'], ['
 
 // ✍ Type exact limits (server clamps every value to its safe range: slippage 0.1–3%, impact 0.2–10%, pool ≥ $0, swap $1+, daily $5+)
 const TYPED = [['slippageBps', 'Slippage %', v => v * 100, v => v / 100, 0.1, 3, 0.1], ['maxImpactPct', 'Max price impact %', v => v, v => v, 0.2, 10, 0.1],
-  ['minLiqUsd', 'Min pool $', v => v, v => v, 0, 10000000, 1000], ['arenaMinLiqUsd', 'Arena coin min pool $', v => v, v => v, 0, 10000000, 1000], ['pickMinLiqUsd', 'My own pick min pool $', v => v, v => v, 5000, 10000000, 1000], ['maxSwapUsd', 'Max per swap $', v => v, v => v, 1, 10000, 1],
+  ['minLiqUsd', 'Min pool $', v => v, v => v, 0, 10000000, 1000], ['arenaMinLiqUsd', 'Arena coin min pool $', v => v, v => v, 0, 10000000, 1000], ['pickMinLiqUsd', 'My own pick min pool $', v => v, v => v, 5000, 10000000, 1000], ['pickSellBackPct', 'My own pick: max sell-back loss %', v => v, v => v, 6, 10, 0.5], ['maxSwapUsd', 'Max per swap $', v => v, v => v, 1, 10000, 1],
   ['dailyUsd', 'Daily cap $', v => v, v => v, 5, 100000, 5], ['minOrderUsd', 'Min buy $', v => v, v => v, 0.1, 50, 0.05]];
 function TypedLimits({ keeper, busy, save }) {
   const [v, setV] = useState({});
@@ -272,7 +275,7 @@ export function SwapFlow({ k }) {
         <i>{i + 1}</i><b>{s.side === 'sell' ? 'SELL' : s.side === 'swap' ? '🔀 SWAP' : 'BUY'} ${s.symbol}</b><span className="m-num">{usd(s.usd)}</span><em>{w[0]} {w[1]}</em></li>; })}</ol>;
 }
 
-export function TrenchScan({ call }) {
+export function TrenchScan({ call, bare, onSaved }) {
   const [d, setD] = useState(null);
   const [busy, setBusy] = useState(false);
   const [view, setView] = useState('');   // 👁 a meta being looked at (read-only; the cards follow HQ's saved setting)
@@ -283,13 +286,13 @@ export function TrenchScan({ call }) {
   const own = d.cfg || { mode: 'auto' }; const mine = own.mode === 'own'; const onMeta = own.mode === 'meta' ? own.meta : '';
   const metaName = k => ((d.metas || []).find(m => m.key === k) || {}).label || k;
   const save = async patch => { if (!call) return; setBusy(true);
-    try { await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ trenchCfg: { ...own, ...patch } }) }); toast.success('Trench settings saved — the next scan (≤ 2 min) uses them'); await load(); }
+    try { await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ trenchCfg: { ...own, ...patch } }) }); toast.success('Trench settings saved — the list is re-judged now, a fresh scan follows (≤ 2 min)'); await load(); onSaved?.(); }
     catch (e) { toast.error(e.message || 'Could not save'); } finally { setBusy(false); } };
   return <div className="tscan" data-testid="trench-scan"><span className="m-label">🗑 TRENCH SCAN · {d.pass || 0} PASS NOW{d.view ? ` · 👁 VIEWING ${metaName(d.view)}` : mine ? ' · 🎛 YOUR SETTINGS' : onMeta ? ` · 🧪 ${metaName(onMeta)}` : Number(d.level) > 0 ? ` · 🔧 WIDENED ×${d.level}` : ''}</span>
     {(d.metas || []).length > 0 && <div className="tscan-metas" role="group" aria-label="Trench metas" data-testid="trench-metas">{d.metas.map(m => { const on = call ? onMeta === m.key : view === m.key;
       return <button key={m.key} type="button" disabled={busy} className={`tscan-meta ${on ? 'on' : ''} ${m.pass ? 'has' : ''}`} aria-pressed={on} data-testid={`trench-meta-${m.key}`}
-        data-tip={`${m.blurb}. ≤ ${m.cfg.maxAgeH}h old · $${m.cfg.minMcap / 1000}K–$${m.cfg.maxMcap >= 1e6 ? `${m.cfg.maxMcap / 1e6}M` : `${m.cfg.maxMcap / 1000}K`} cap · ≥ ${m.cfg.minHolders} holders · ≥ ${m.cfg.minTxns1h} trades/h · ≥ $${m.cfg.minVol1h / 1000}K 1h volume. Safety checks are the same in every meta.${call ? ' Tap = your trench slots hunt this way.' : ' Tap = see what it finds right now.'}`}
-        onClick={() => (call ? save({ mode: 'meta', meta: m.key }) : setView(v => (v === m.key ? '' : m.key)))}><b>{m.label}</b><i className="m-num">{m.pass}</i></button>; })}</div>}
+        data-tip={`${m.blurb}. ≤ ${m.cfg.maxAgeH}h old · $${m.cfg.minMcap / 1000}K–$${m.cfg.maxMcap >= 1e6 ? `${m.cfg.maxMcap / 1e6}M` : `${m.cfg.maxMcap / 1000}K`} cap · ≥ ${m.cfg.minHolders} holders · ≥ ${m.cfg.minTxns1h} trades/h · ≥ $${m.cfg.minVol1h / 1000}K 1h volume. Safety checks are the same in every meta.${m.proof?.n ? ` 📈 Paper record: ${m.proof.n} coins it passed, held 1 hour — typical ${m.proof.medPct >= 0 ? '+' : ''}${m.proof.medPct}%, ${m.proof.wonPct}% ended up (a vanished coin counts as −100%). A record, never a promise.` : ' 📈 No paper record yet — it builds as coins pass.'}${call ? ' Tap = your trench slots hunt this way.' : ' Tap = see what it finds right now.'}`}
+        onClick={() => (call ? save({ mode: 'meta', meta: m.key }) : setView(v => (v === m.key ? '' : m.key)))}><b>{m.label}</b><i className="m-num">{m.pass}</i>{m.proof?.n >= 5 && <u className={m.proof.medPct > 0 ? 'm-pos' : 'm-neg'} data-testid={`trench-proof-${m.key}`}>{m.proof.proven ? '✅ ' : ''}{m.proof.medPct >= 0 ? '+' : ''}{m.proof.medPct}%</u>}</button>; })}</div>}
     {call && <div className="tscan-cfg" data-testid="trench-cfg">
       <div className="m-seg" role="group" aria-label="Trench settings">
         <button type="button" disabled={busy} className={!mine && !onMeta ? 'on' : ''} data-testid="trench-auto" data-tip="The engine tunes it: strict first; when nothing passes it loosens crowd / trades / volume / cap band / age one step at a time (max 3) and tightens again when coins pass" onClick={() => save({ mode: 'auto' })}>🤖 Engine tunes</button>
@@ -297,12 +300,12 @@ export function TrenchScan({ call }) {
       {mine && <div className="tscan-own">{TRENCH_FIELDS.map(([key, name, fmt, tip]) => <label key={key} data-tip={tip}><small>{name}</small>
         <select className="m-input" disabled={busy} value={own[key]} data-testid={`trench-${key}`} aria-label={name} onChange={e => save({ [key]: Number(e.target.value) })}>
           {((d.options || {})[key] || []).map(o => <option key={o} value={o}>{fmt(o)}</option>)}</select></label>)}</div>}</div>}
-    <small className="m-dim">{d.rules}</small>
+    {!bare && <><small className="m-dim">{d.rules}</small>
     {!d.pass && (d.funnel || []).length > 0 && <small className="m-dim tscan-why" data-testid="trench-why">🔎 Why nothing passed ({d.seen} coins checked): {d.funnel.slice(0, 5).map(f => `${f.n}× ${f.why}`).join(' · ')}</small>}
     {!(d.checked || []).length ? <small className="m-dim">No fresh coin is breaking out with a real crowd right now — the trench slots stay normal runners until one does.</small>
       : <ul>{d.checked.map((r, i) => <li key={r.mint} className={r.ok ? 'is-ok' : 'is-out'} style={{ '--i': i }}><b>{r.ok ? '✅' : '❌'} ${r.symbol}</b>
         <span className="m-num">{r.holders ?? '—'} holders · ${Math.round((r.mcap || 0) / 1000)}K mc · {r.ageH != null ? `${Number(r.ageH).toFixed(1)}h` : '—'}</span>
-        <small>{r.ok ? (r.trenchWhy || []).map(p => p.why).join(' · ') : (r.fails || []).join(' · ')}</small></li>)}</ul>}</div>;
+        <small>{r.ok ? (r.trenchWhy || []).map(p => p.why).join(' · ') : (r.fails || []).join(' · ')}</small></li>)}</ul>}</>}</div>;
 }
 
 function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
@@ -343,7 +346,7 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
         {churn && <p className="m-note ce-warn" data-testid="churn-warn">⚠ Round rotation is aggressive at {Math.round((cfg?.rotateHours || 0) * 60)}m with patience {cfg?.rotateConfirm || 1}. The ⚡ instant swap (Exits) is separate and fires immediately at its loss.
           <button type="button" className="m-btn" disabled={busy} onClick={() => save({ rotateConfirm: 3 })}>Use 3</button></p>}</>}
       {grp === 'exits' && <><StrategyPicks hours={cfg?.rotateHours || 1} current={cfg} busy={busy} onApply={s => saveExit(stratPatch(s.cfg))} testid={`strats-${c.tpl}`} />
-        {rows(['rideAt', 'rideTrail', 'peakSellPct', 'lockBankPct', 'skimAt', 'skimTo', 'tp', 'sl', 'instantSwapPct', 'slMode', 'keepWinPct'])}</>}
+        {rows(['rideAt', 'rideTrail', 'peakSellPct', 'lockBankPct', 'skimAt', 'skimTo', 'recyclePct', 'recycleEvery', 'tp', 'sl', 'instantSwapPct', 'slMode', 'keepWinPct'])}</>}
       {grp === 'shape' && <>{rows(['coins', 'cycleEvery', 'trenchCoins'])}
         {(cfg?.cycles || {})[c.tpl] === 'trench' && <TrenchScan call={call} />}
         <div className="ce-row"><span><b>🔄 Cycle</b><small>The shapes this card moves through (anchor · mixed · degen · safest …)</small></span><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
@@ -429,8 +432,11 @@ export function CardVitals({ c, funded, onTrail }) {
   const seats = (c.legs || []).map(l => ({ sym: l.symbol, state: l.buying ? 'buying' : (l.ride || l.frozen) ? 'locked' : (l.pnlPct || 0) >= 5 ? 'winning' : (l.pnlPct || 0) <= -10 ? 'hurt' : 'proving', pct: l.pnlPct || 0 }));
   const best = [...(c.legs || [])].filter(l => (l.usd || 0) > 0).sort((a, b) => (b.pnlPct || 0) - (a.pnlPct || 0))[0];
   const pnl = allTime(c, funded); const used = cap.used || 0; const max = cap.cap || 0;
-  const share = { mascot: 'feecat', tone: pnl >= 0 ? 'up' : 'down', kicker: 'FEELESS · FUSE CARD', title: String(c.label || 'Fuse card').slice(0, 34), big: `${pnl >= 0 ? '+' : '−'}${usd(Math.abs(pnl))}`,
-    lines: [`${(c.legs || []).length} coins · ${st.locked || 0} locked · ${c.rounds || 0} rounds`, best ? `best: $${best.symbol} ${pct(best.pnlPct || 0)}` : 'many coins, one fuse'], footer: 'feeless · fuse 🧬' };
+  const tl = (TIER[c.tier] || TIER.gold).look || {};
+  const share = { tone: pnl >= 0 ? 'up' : 'down', theme: { degen: 'blaze', gold: 'gold', diamond: 'ice', next: 'synth', ever: 'nebula' }[c.tier], kicker: 'FEELESS · FUSE CARD', title: String(c.label || 'Fuse card').slice(0, 22), big: `${pnl >= 0 ? '+' : '−'}${usd(Math.abs(pnl))}`,
+    lines: [`${(c.legs || []).length} coins · ${st.locked || 0} locked · ${c.rounds || 0} rounds`, best ? `best: $${best.symbol} ${pct(best.pnlPct || 0)}` : 'many coins, one fuse'], footer: 'feeless · fuse 🧬',
+    // 🃏 the GIF shows THIS card: its tier colours, its coins with their logos and live %
+    fuse: { name: (TIER[c.tier] || TIER.gold).name, accent: tl.accent, accent2: tl.accent2, coins: (c.legs || []).slice(0, 6).map(l => ({ symbol: l.symbol, pct: l.pnlPct || 0, logo: tokenImageUrls({ chainId: 'solana', baseToken: { address: l.mint }, info: { imageUrl: l.logo } })[0], locked: !!(l.ride || l.frozen) })) } };
   return <div className="hrt-under" data-testid="card-vitals">
     <ol className="cv-seats" aria-label="Seats">{seats.map((s, i) => <li key={s.sym + i} className={`is-${s.state}`} style={{ '--i': i }} data-tip={`$${s.sym} · ${s.state === 'locked' ? 'locked — riding, sold only off its peak' : s.state === 'winning' ? 'winning' : s.state === 'buying' ? 'being bought' : s.state === 'hurt' ? 'down — its stop is watching it' : 'proving itself'} · ${pct(s.pct)}`}><i /><small>{s.sym}</small></li>)}</ol>
     <div className="cv-row" data-tip={cap.why || 'Engine rotations this hour'}><small>SWAPS THIS HOUR</small><span className="cv-bar"><i style={{ transform: `scaleX(${max ? Math.min(1, used / max) : 0})` }} /></span><b className="m-num">{used}{max ? ` / ${max}` : ''}</b></div>
@@ -459,6 +465,15 @@ export function WeatherStrip() {
     {f.breadthPct != null && <span data-testid="wx-breadth"><i className="m-num">{f.breadthPct}%</i> of {f.coins} launch coins green 1h{f.buyersPct != null ? <> · buyers <i className="m-num">{f.buyersPct}%</i></> : null}</span>}
     <span className="wx-out">{dot} {out}</span>
     <small>{f.buys}</small></div>;
+}
+
+/* 🎯 What happened to your picks: the last few "came in" / "refused" lines with the keeper's own reason — a refused pick is never silent. */
+export const pickLog = events => (events || []).filter(e => e.kind === 'rotate' && /your pick|couldn't be bought|buy was refused|never landed/.test(e.why || '')).slice(-3).reverse()
+  .map(e => (/your pick/.test(e.why) ? { ok: true, at: e.at, text: `$${(e.to || [])[0] || '?'} came in for $${e.symbol}` } : { ok: false, at: e.at, text: `$${e.symbol} was not bought — ${String(e.why).replace(/^⏳ \$\S+ /, '').replace(/ — (swapped for a buyable coin|slot back to card cash)$/, '')}${(e.to || []).length ? ` → $${e.to[0]} took the seat` : ' → its money is back in the card'}` }));
+export function PickLog({ events }) {
+  const rows = pickLog(events);
+  if (!rows.length) return null;
+  return <ul className="hrt-picklog" data-testid="pick-log">{rows.map((r, i) => <li key={`${r.at}-${i}`} className={r.ok ? 'is-ok' : 'is-no'}><b>{r.ok ? '🎯 ✓' : '🎯 ✕'}</b><span>{r.text}</span></li>)}</ul>;
 }
 
 export function HqRealCards({ addr, onCount }) {
@@ -493,7 +508,7 @@ export function HqRealCards({ addr, onCount }) {
       const cf = c.cfgEff || (d.lockCfg?.[c.tpl] ? { ...d.cfg, ...d.lockCfg[c.tpl] } : d.cfg);   // the config this card REALLY runs (real card = its own)
       return <div key={c.id} className="hq-real">
         <div className="hq-real-card"><LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label="💵 REAL · FUSE WALLET" serverOnly />
-          <CardVitals c={c} funded={b.fundedUsd || c.startUsd} onTrail={() => setTrail(c.id)} /></div>
+          <CardVitals c={c} funded={b.fundedUsd || c.startUsd} onTrail={() => setTrail(c.id)} /><PickLog events={c.audit || c.events} /></div>
         {trail === c.id && <CardEarnings title={c.label} onClose={() => setTrail(null)} taken={c.walletUsd || 0} compounded={c.compoundedUsd} fees={c.cardFeesUsd}
           gainNow={allTime(c, b.fundedUsd || c.startUsd)} events={(c.audit || c.events || []).map(e => ({ ...e, label: KIND[e.kind] || VITAL_KIND[e.kind] || e.kind }))} />}
         <div className="hq-real-track">
@@ -543,7 +558,7 @@ export function HqRealCards({ addr, onCount }) {
                 <button type="button" className={`m-btn ${pickFor === l.pairAddress || l.swapTo ? 'active' : ''}`} disabled={!!busy} data-testid="pick-SOL" aria-expanded={pickFor === l.pairAddress}
                   data-tip={l.swapTo ? `$${l.swapTo} takes this SOL at the next round — tap to change or cancel` : 'This seat is plain SOL (card cash). Pick a coin to put it into at the next round — the buy is checked for price impact first.'}
                   onClick={() => setPickFor(pickFor === l.pairAddress ? null : l.pairAddress)}>{l.swapTo ? `🎯 → $${l.swapTo}` : '🎯 swap SOL into a coin'}</button></span>}</li>)}
-            {pickFor && c.legs.some(l => l.pairAddress === pickFor) && <li className="hrt-pickrow"><SwapPicker out={c.legs.find(l => l.pairAddress === pickFor)} have={c.legs.map(l => l.mint)} cool={c.pickCool || {}} busy={!!busy} minLiq={Math.min(k.minLiqUsd ?? 20000, k.arenaMinLiqUsd ?? k.minLiqUsd ?? 20000, k.pickMinLiqUsd ?? 10000)}
+            {pickFor && c.legs.some(l => l.pairAddress === pickFor) && <li className="hrt-pickrow"><SwapPicker call={call} out={c.legs.find(l => l.pairAddress === pickFor)} have={c.legs.map(l => l.mint)} cool={c.pickCool || {}} busy={!!busy} minLiq={Math.min(k.minLiqUsd ?? 20000, k.arenaMinLiqUsd ?? k.minLiqUsd ?? 20000, k.pickMinLiqUsd ?? 10000)}
               onPick={r => { prime({ pickSwap: { tpl: c.tpl, pairAddress: pickFor, to: r ? r.mint : null, toPair: r ? r.pairAddress : null } }, r ? `🎯 $${r.symbol} comes in at the next round` : 'Pick cancelled', 'pick'); setPickFor(null); }} onClose={() => setPickFor(null)} /></li>}
             {(() => { const cash = b.reconciliation?.cardCashUsd ?? c.cash ?? 0;   // the book's confirmed SOL — the same number "Withdraw card cash" shows
               return cash > 0.01 && <li data-testid="hrt-cash" data-tip="SOL the card holds right now (confirmed on the book). Part of it may be on its way into a coin that is being bought."><b>◎ cash</b><span>{usd(cash)}</span><em className="m-dim">SOL</em></li>; })()}</ul>
@@ -592,7 +607,8 @@ const PICK_STABLES = new Set(['USDC', 'USDT', 'USDS', 'PYUSD', 'USD1', 'DAI', 'U
 export const isFalling = (m5, h1) => (m5 != null && Number(m5) <= -3) || (h1 != null && Number(h1) <= -8);   // = arena_prime.entry_ok
 export const pickRow = r => ({ mint: r.mint || r.baseAddress, pairAddress: r.pairAddress, symbol: r.symbol, price: r.price ?? r.priceUsd, liq: r.liq ?? r.liquidityUsd,
   chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, chg1h: r.chg1h ?? r.change1h ?? null, chg5m: r.chg5m ?? r.change5m ?? null, score: r.score, impostor: r.impostor, real: r.real, trench: r.trench, holders: r.holders, soft: r.soft, fails: r.fails, warn: r.warn, pulse: r.pulse });
-export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, cool = {} }) {
+export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, cool = {}, call }) {
+  const [nonce, setNonce] = useState(0);   // bumps when the trench settings are saved → the list reloads
   const [lens, setLens] = useState('popular'); const [rows, setRows] = useState(null); const [q, setQ] = useState('');
   const [tr, setTr] = useState(null);   // 🗑 trench scan: own pool floor + how many were checked
   const [why, setWhy] = useState('');
@@ -603,7 +619,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
       if (x.checked) setTr({ floor: x.floor || 0, checked: x.checked.length, rules: x.rules, level: Number(x.level) || 0 });
       const raw = x.pools || (x.checked ? x.rows || [] : (x.divisions || []).filter(dv => (GAUNTLET[lens] || []).includes(dv.key)).flatMap(dv => dv.rows));
       const seen = new Set(); setRows(raw.map(pickRow).filter(r => r.mint && r.pairAddress && !PICK_STABLES.has(String(r.symbol || '').toUpperCase()) && !seen.has(r.mint) && seen.add(r.mint)).slice(0, 30)); }).catch(() => alive && setRows([])), s.length >= 2 ? 300 : 0);
-    return () => { alive = false; clearTimeout(t); }; }, [lens, q]);
+    return () => { alive = false; clearTimeout(t); }; }, [lens, q, nonce]);
   const live = useLivePrices((rows || []).map(r => r.pairAddress));
   const fmt = v => (!v ? '—' : v >= 1 ? `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : `$${Number(v).toPrecision(3)}`);
   const big = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(0)}K` : `$${Math.round(v || 0)}`);
@@ -612,6 +628,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
     <div className="m-seg sp-lens" role="tablist" aria-label="Lists">{PICK_LENSES.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={!q.trim() && lens === k} className={!q.trim() && lens === k ? 'active' : ''} onClick={() => { setLens(k); setQ(''); }} data-testid={`sp-lens-${k}`}>{l}</button>)}</div>
     <input className="m-input sp-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Search any coin — SOL, BTC, ETH, $TICKER, CA" aria-label="Search any coin" data-testid="sp-search" />
     {lens === 'trench' && !q.trim() && tr && <small className="m-dim sp-tnote" data-testid="sp-trench-note">🗑 Fresh breakouts that passed the strictest gate ({tr.checked} checked · own pool floor {big(tr.floor)}). High risk — keep it to 1–2 coins.{tr.level ? ` 🔧 Nothing passed the strict checks, so crowd / trade / volume checks were widened ×${tr.level} — safety checks never move.` : ''} {tr.rules}</small>}
+    {lens === 'trench' && !q.trim() && call && <TrenchScan call={call} bare onSaved={() => setNonce(n => n + 1)} />}
     {!rows ? <span className="loader" /> : !rows.length ? <small className="m-dim">{lens === 'trench' && !q.trim() ? 'No fresh coin passes the safety checks right now — the scan re-runs every ~2 min. Try 🌊 Volume.' : (why || 'Nothing live here right now — try another list or search.')}</small> :
     <ul>{rows.map(r => { const lp = live.get?.(r.pairAddress); const on = have.includes(r.mint); const fl = r.trench ? (tr?.floor || 0) : minLiq; const thin = minLiq > 0 && (r.liq || 0) < fl; const chg = lp?.h1 ?? r.chg1h ?? r.chg;
       const m5 = lp?.m5 ?? r.chg5m; const falling = isFalling(m5, lp?.h1 ?? r.chg1h);   // same rule the engine uses before a real buy

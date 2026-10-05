@@ -46,6 +46,31 @@ function designFx(g, theme, P, t, seed) {
   }
 }
 
+// The Fuse card as it looks in the app: portrait, tier gradient + edge, FUSE mark, tier name, coin logos, one line per coin.
+function drawFuseCard(g, fz, imgs, t) {
+  const T = Math.PI * 2; const cw = 196, ch = 300; const cx = 56 + cw / 2, cy = 52 + ch / 2;
+  const a1 = fz.accent || '#15d16a', a2 = fz.accent2 || '#0b7a3e';
+  g.save(); g.translate(cx, cy + 4 * Math.sin(t * T)); g.rotate(0.035 * Math.sin(t * T)); g.translate(-cw / 2, -ch / 2);
+  g.shadowColor = a1; g.shadowBlur = 26 + 10 * Math.sin(t * T * 2);
+  const bg = g.createLinearGradient(0, 0, cw, ch); bg.addColorStop(0, '#0b0f0c'); bg.addColorStop(1, '#050706');
+  g.fillStyle = bg; g.beginPath(); g.roundRect(0, 0, cw, ch, 16); g.fill(); g.shadowBlur = 0;
+  const ed = g.createLinearGradient(0, 0, cw, ch); ed.addColorStop(0, a1); ed.addColorStop(1, a2); g.strokeStyle = ed; g.lineWidth = 3; g.stroke();
+  g.save(); g.beginPath(); g.roundRect(0, 0, cw, ch, 16); g.clip();           // sheen sweeping across the face
+  const sx = -cw + ((t * 2) % 1) * cw * 3; const sh = g.createLinearGradient(sx, 0, sx + 90, ch); sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(0.5, 'rgba(255,255,255,.13)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = sh; g.fillRect(0, 0, cw, ch); g.restore();
+  g.fillStyle = a1; g.font = '400 17px "Bungee", sans-serif'; g.fillText('FUSE', 14, 28);
+  g.fillStyle = 'rgba(255,255,255,.7)'; g.font = '700 10px "Space Grotesk", sans-serif'; g.fillText(String(fz.name || '').toUpperCase(), 14, 44);
+  const coins = (fz.coins || []).slice(0, 6); const n = coins.length || 1; const r = n <= 4 ? 20 : 15; const gap = Math.min(r * 2 + 8, (cw - 28 - r * 2) / Math.max(1, n - 1));
+  coins.forEach((c, i) => { const x = 14 + r + i * gap, y = 82; const im = imgs[i];
+    g.save(); g.beginPath(); g.arc(x, y, r, 0, T); g.closePath();
+    if (im) { g.clip(); g.drawImage(im, x - r, y - r, r * 2, r * 2); } else { g.fillStyle = 'rgba(255,255,255,.1)'; g.fill(); g.fillStyle = '#fff'; g.font = `700 ${r}px "Space Grotesk", sans-serif`; g.textAlign = 'center'; g.fillText(String(c.symbol || '?').replace(/[^A-Za-z0-9]/g, '').slice(0, 1).toUpperCase(), x, y + r * 0.36); g.textAlign = 'left'; }
+    g.restore(); g.strokeStyle = c.locked ? '#f5c451' : a1; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, r, 0, T); g.stroke(); });
+  coins.forEach((c, i) => { const y = 134 + i * 26; const up = (c.pct || 0) >= 0;
+    g.fillStyle = '#fff'; g.font = '700 13px "Space Grotesk", sans-serif'; g.fillText(`${c.locked ? '🔒 ' : ''}$${String(c.symbol || '').slice(0, 9)}`, 14, y);
+    g.fillStyle = up ? '#45e486' : '#ff8fa3'; g.font = '700 13px "JetBrains Mono", monospace'; g.textAlign = 'right'; g.fillText(`${up ? '+' : ''}${Number(c.pct || 0).toFixed(1)}%`, cw - 14, y); g.textAlign = 'left'; });
+  g.restore();
+}
+
 function frame(g, card, logo, coin, t, seed) {
   const P = THEMES[card.theme] || PALETTES[card.tone === 'down' ? 'down' : 'up'];
   // Base with two orbiting light pools.
@@ -65,14 +90,16 @@ function frame(g, card, logo, coin, t, seed) {
   g.putImageData(img, 0, 0);
   // Watermark: big faint FEE (or FeeCat) mark, pulsing.
   if (logo) { g.globalAlpha = (card.mascot ? 0.16 : 0.1) + 0.05 * Math.sin(t * Math.PI * 2); g.drawImage(logo, W - 330, -20, 380, 380); g.globalAlpha = 1; }
-  // Card content.
+  // 🃏 Fuse card share: the card itself (tier colours, its coins + logos + live %), rocking gently, on the left.
+  const fz = card.fuse; const ox = fz ? 236 : 0;
   g.fillStyle = P.panel; g.strokeStyle = P.frame; g.lineWidth = 2; g.beginPath(); g.roundRect(28, 28, W - 56, H - 56, 22); g.fill(); g.stroke();
-  if (coin) { g.save(); g.beginPath(); g.arc(84, 92, 34, 0, Math.PI * 2); g.clip(); g.drawImage(coin, 50, 58, 68, 68); g.restore(); }
-  g.fillStyle = P.kicker; g.font = '700 15px "Space Grotesk", sans-serif'; g.fillText(card.kicker || 'FEELESS', coin ? 134 : 56, 78);
-  g.fillStyle = '#ffffff'; g.font = '800 34px "Space Grotesk", sans-serif'; g.fillText(card.title, coin ? 134 : 56, 114);
+  if (fz) drawFuseCard(g, fz, card.coinImgs || [], t);
+  if (coin && !fz) { g.save(); g.beginPath(); g.arc(84, 92, 34, 0, Math.PI * 2); g.clip(); g.drawImage(coin, 50, 58, 68, 68); g.restore(); }
+  g.fillStyle = P.kicker; g.font = '700 15px "Space Grotesk", sans-serif'; g.fillText(card.kicker || 'FEELESS', (coin && !fz ? 134 : 56) + ox, 78);
+  g.fillStyle = '#ffffff'; g.font = '800 34px "Space Grotesk", sans-serif'; g.fillText(card.title, (coin && !fz ? 134 : 56) + ox, 114);
   const k = ease(Math.min(1, t * 2.2)); const big = card.bigValue != null ? `${card.bigPrefix || ''}${(card.bigValue * k).toFixed(card.bigDigits ?? 1)}${card.bigSuffix || ''}` : card.big;
-  g.font = '400 76px "Bungee", sans-serif'; g.fillStyle = P.big; g.shadowColor = g.fillStyle; g.shadowBlur = 18 + 10 * Math.sin(t * Math.PI * 4); g.fillText(big, 54, 228); g.shadowBlur = 0;
-  g.font = '500 17px "Space Grotesk", sans-serif'; g.fillStyle = P.text; (card.lines || []).slice(0, 3).forEach((l, i) => g.fillText(l, 56, 274 + i * 26));
+  g.font = '400 76px "Bungee", sans-serif'; g.fillStyle = P.big; g.shadowColor = g.fillStyle; g.shadowBlur = 18 + 10 * Math.sin(t * Math.PI * 4); g.font = fz ? '400 60px "Bungee", sans-serif' : g.font; g.fillText(big, 54 + ox, 228); g.shadowBlur = 0;
+  g.font = '500 17px "Space Grotesk", sans-serif'; g.fillStyle = P.text; (card.lines || []).slice(0, 3).forEach((l, i) => g.fillText(l, 56 + ox, 274 + i * 26));
   // Stats panel (case files): up to 6 labelled pills, 2 columns, coloured by verdict (ok = mint, bad = red).
   (card.stats || []).slice(0, 6).forEach((s, i) => {
     const x = 392 + (i % 2) * 150, y = 136 + Math.floor(i / 2) * 50;
@@ -99,6 +126,7 @@ function frame(g, card, logo, coin, t, seed) {
 export async function renderShareGif(card) {
   await document.fonts?.ready;
   const [logo, coin] = await Promise.all([loadImg(card.mascot === 'feecat' ? '/assets/feecat-mark.png' : '/assets/feeless-logo.png'), loadImg(card.imageUrl)]);
+  if (card.fuse) card = { ...card, coinImgs: await Promise.all((card.fuse.coins || []).slice(0, 6).map(x => loadImg(x.logo))) };
   const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d', { willReadFrequently: true });
   const seed = Array.from({ length: 120 }, (_, i) => Math.abs(Math.sin(i * 12.9898) * 43758.5453) % 1);
   for (const frames of [72, 120, 180]) {

@@ -227,3 +227,18 @@ def test_trench_metas_set_only_soft_checks_and_the_finalist_pool_is_wide_enough_
     assert tr.clean_own({'mode': 'meta', 'meta': 'x'})['meta'] == 'breakout' and tr.clean_own({})['mode'] == 'auto'
     board = tr.meta_board([{'h': 1200}, {'h': 200}], lambda r, g: (r['h'] >= g['minHolders'], []))
     assert {b['key']: b['pass'] for b in board} == {'sprout': 2, 'breakout': 1, 'flood': 1, 'crowd': 1, 'survivor': 1}
+
+
+def test_meta_proof_settles_after_an_hour_counts_a_vanished_coin_as_a_loss_and_uses_the_median():
+    import trench as tr
+    st = tr.meta_track({}, {'flood': [('A', 1.0), ('B', 2.0), ('G', 1.0)]}, lambda m: 0, 0.0)
+    assert set(st['flood']['open']) == {'A', 'B', 'G'} and st['sprout'] == {'open': {}, 'done': []}
+    st = tr.meta_track(st, {'flood': [('A', 5.0)]}, lambda m: 0, 1800.0)                       # still open: not noted twice, not settled
+    assert st['flood']['open']['A']['px'] == 1.0 and not st['flood']['done']
+    st = tr.meta_track(st, {'flood': [('A', 1.2)]}, {'A': 1.2, 'B': 1.0}.get, 3700.0)          # settled: A +20%, B −50%, G vanished
+    assert sorted(d['pct'] for d in st['flood']['done']) == [-100.0, -50.0, 20.0] and not st['flood']['open']   # A not re-opened for 6h
+    p = tr.meta_proof(st)['flood']
+    assert (p['n'], p['medPct'], p['wonPct'], p['proven']) == (3, -50.0, 33, False)
+    good = {'flood': {'done': [{'pct': x} for x in (4, 6, 8, -3, 900)]}}
+    assert tr.meta_proof(good)['flood'] == {'n': 5, 'medPct': 6.0, 'wonPct': 80, 'open': 0, 'proven': True}   # median: the 900% doesn't carry it
+    assert tr.meta_proof({})['crowd'] == {'n': 0, 'medPct': None, 'wonPct': None, 'open': 0, 'proven': False}

@@ -476,3 +476,10 @@ body.fx-lite .wx, body.fx-lite .wx-ico { animation: none; }
 @media (prefers-reduced-motion: reduce) { .wx, .wx-ico { animation: none; } .tscan-meta { transition: none; } }
 body.theme-day .wx { background: #fff; } body.theme-day .tscan-meta.on { background: #0b7a3e; border-color: #0b7a3e; color: #fff; } body.theme-day .tscan-meta.on i { color: #fff; }
 @media (max-width: 640px) { .wx small { text-align: left; flex-basis: 100%; } }
+
+/* 🎯 pick log + trench proof */
+.hrt-picklog { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; font-size: 11px; line-height: 1.35; }
+.hrt-picklog li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; padding: 5px 8px; border-left: 2px solid var(--m-accent); background: var(--m-surface-2); border-radius: 0 8px 8px 0; }
+.hrt-picklog li.is-no { border-left-color: var(--gold); } .hrt-picklog b { font-family: var(--m-mono); white-space: nowrap; } .hrt-picklog span { color: var(--m-dim); overflow-wrap: anywhere; }
+.tscan-meta u { text-decoration: none; font-size: 10px; }
+body.theme-day .hrt-picklog li { background: #f3f6f4; }
