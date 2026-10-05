@@ -5914,6 +5914,10 @@ async def fuse_prime_admin(request: Request):
             c_['events'] = (list(c_.get('events') or []) + [{'kind': 'hold', 'at': time.time(), 'why': '✋ hold all — no swaps or re-shapes until released' if hd.get('on') else '▶ released — the engine swaps and re-shapes again'}])[-60:]
         if body.get('reset'):
             pr['cards'] = {}
+        if body.get('fix') in _prime.TEMPLATES and ((pr.get('cards') or {}).get(body['fix']) or {}).get('real'):
+            c_ = pr['cards'][body['fix']]   # 🔧 manual fix: re-fund every waiting buy from the SOL anchor NOW + fresh retries (no 60s / round wait)
+            c_['rebuyAt'], c_['rebuyRound'] = 0, -1
+            c_['events'] = (list(c_.get('events') or []) + [{'kind': 'fix', 'at': time.time(), 'why': '🔧 fix buys/sells — waiting coins re-funded, fresh retries'}])[-60:]
         if body.get('redeal') in _prime.TEMPLATES:          # one tier fresh
             cur_ = (pr.get('cards') or {}).get(body['redeal'])
             if cur_ and cur_.get('real'):   # 💵 a real card re-deals its coins in place (same money, same run) — never a fresh $100 paper card
@@ -5921,6 +5925,12 @@ async def fuse_prime_admin(request: Request):
             else:
                 (pr.get('cards') or {}).pop(body['redeal'], None)
         _json_save(FUSE_HQ_PATH, d)
+    if body.get('fix') in _prime.TEMPLATES:   # 🔧 (outside the HQ lock — never hold both locks at once)
+        async with _fw_lock:
+            fd = _fw_load(); b_ = fd['books'].get(body['fix'])
+            if b_ is not None:
+                b_['misses'] = {}   # every coin gets fresh retries (benched coins stay benched — they really failed the safety checks)
+                _fw_save(fd)
     pk = body.get('pickSwap') or {}
     if pk.get('tpl') in _prime.TEMPLATES and pk.get('pairAddress'):   # 🎯 the owner picks WHICH coin comes in at the next round (or cancels)
         cand = None

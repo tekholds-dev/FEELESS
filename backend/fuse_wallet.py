@@ -505,8 +505,14 @@ def sync_card(card, book, prices, sol_px):
     # 🔁 each NEW round: a coin that holds nothing (buy never landed / rotated in) gets an equal share again and the SOL anchor is
     # trimmed to its share, so the keeper re-tries the buy — within every wallet limit (per swap, daily, impact), never more SOL than the card has
     empty = [l for l in c['legs'] if l['mint'] != SOL_MINT and _f(l.get('units')) <= 0 and not l.get('buying') and not l.get('manualCash')]
+    # ⏳ coins already WAITING on a buy need SOL too: the SOL anchor used to keep it all (sync gives SOL first), so their orders were
+    # never even sent — "buying… keeper retries" for hours. They now trigger the same repair: SOL trimmed to an equal share.
+    waiting = [l for l in c['legs'] if l['mint'] != SOL_MINT and _f(l.get('units')) <= 0 and l.get('buying') and not l.get('manualCash')]
+    _wpx = lambda l: _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
+    if waiting and max(0.0, sol_left - _f(book.get('manualCashSol'))) * sol_px + LEFTOVER_MIN_USD >= sum(_f(l.get('wantUnits')) * _wpx(l) for l in waiting):
+        waiting = []   # the free SOL already covers every waiting buy → nothing to repair
     import time as _t
-    if empty and (int(card.get('rounds') or 0) != int(card.get('rebuyRound') or -1) or _t.time() - _f(card.get('rebuyAt')) >= 60):   # new round, or 60s (no whole-round 'empty' wait)
+    if (empty or waiting) and (int(card.get('rounds') or 0) != int(card.get('rebuyRound') or -1) or _t.time() - _f(card.get('rebuyAt')) >= 60):   # new round, or 60s (no whole-round 'empty' wait)
         px = lambda l: _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
         total = _f(book.get('sol')) * sol_px + sum(_f(l.get('units')) * px(l) for l in c['legs'] if l['mint'] != SOL_MINT)
         share = total / max(1, len(c['legs']))
@@ -519,7 +525,7 @@ def sync_card(card, book, prices, sol_px):
         # trim ONLY that unprotected anchor down toward one equal slot and reserve the released slice for the empty coin.
         # The keeper still sells first and the BUY pass spends only SOL that the confirmed sell actually returned.
         # Frozen/riding coins, paid-out bankSol and wallet/free-top-up SOL are never touched by this repair.
-        need = max(0.0, min(share * len(empty), total) - free)
+        need = max(0.0, min(share * len(empty), total) - free)   # coin donors are trimmed only for EMPTY slots; a waiting buy takes SOL only
         donors = [l for l in c['legs'] if l['mint'] != SOL_MINT and l.get('role') == 'anchor' and _f(l.get('units')) > 0
                   and not l.get('frozen') and not l.get('ride') and px(l) > 0 and _f(l.get('units')) * px(l) > share + LEFTOVER_MIN_USD]
         released = 0.0
@@ -535,9 +541,11 @@ def sync_card(card, book, prices, sol_px):
             d['costUsd'] = round(_f(d.get('costUsd')) * (d['units'] / old_units), 6) if old_units > 0 else 0.0
             released += cut
         alloc = free + released
-        for l in empty:
+        for l in empty + waiting:   # waiting coins keep what they asked for, capped to what the card can really fund
             if px(l) > 0 and alloc >= LEFTOVER_MIN_USD:
-                usd = min(share, alloc / len(empty))
+                usd = min(share, alloc / len(empty + waiting))
+                if l in waiting and _f(l.get('wantUnits')) > 0:
+                    usd = min(_f(l['wantUnits']) * px(l), max(usd, alloc / len(empty + waiting)))
                 l.update(wantUnits=usd / px(l), buying=True); l.setdefault('buyingSince', _t.time())
         c['rebuyRound'] = int(card.get('rounds') or 0); c['rebuyAt'] = _t.time()
     c['cash'] = round(max(0.0, sol_left) * sol_px, 6)

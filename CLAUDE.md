@@ -946,3 +946,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   dropped, and only the 40 busiest were ever scanned → the list stayed empty). 🗑 TRENCH FILL in `arena_prime.tick`: a card whose cycle
   (or phase) is trench takes its 1–2 trench coins on the next tick — the weakest normal runner (≤ +10%, not frozen / riding / picked /
   buying) is swapped — instead of waiting up to `cycleEvery` rounds for a re-shape.
+- 🔧 Stuck buys, root cause: `sync_card` gives SOL to the SOL anchor FIRST, and the funding repair only ran for empty (not yet
+  'buying') coins → a waiting coin's order was never sent ("buying… keeper retries" for hours, $2.31 idle in SOL). Now `waiting` coins
+  trigger the repair too: the SOL anchor is trimmed to an equal share (coin donors are trimmed only for EMPTY slots); no-op when free
+  SOL already covers every waiting buy. Manual: `POST /admin/arena/prime {fix: tpl}` (🔧 Fix buys on the real card, shown while a coin
+  waits) = repair now + fresh retries (misses cleared; benched stay benched). Auto: the 10-min stuck swap above.

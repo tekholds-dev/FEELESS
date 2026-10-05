@@ -787,3 +787,22 @@ def test_a_buy_that_never_lands_is_flagged_stuck_after_10_minutes():
     assert c['legs'][0]['buying'] and c['legs'][0]['buyingSince'] > 0
     c2 = fw.sync_card(c, {'sol': 0.0, 'legs': {'A': {'atoms': 2, 'decimals': 0, 'costUsd': 2.0, 'entryPx': 1.0}}}, {}, 100.0)
     assert 'buyingSince' not in c2['legs'][0] and not c2['legs'][0].get('buying')
+
+
+def test_coins_waiting_on_a_buy_are_funded_from_the_sol_anchor():
+    import fuse_wallet as fw
+    SOL = fw.SOL_MINT
+    # the screenshot: SOL anchor $2.31, ORCA $1.35, $0.32 free, Ash + GOMO "buying" forever (no SOL ever reached them)
+    card = {'rounds': 102, 'rebuyRound': 101, 'rebuyAt': 0, 'legs': [
+        {'mint': SOL, 'pairAddress': 'Psol', 'role': 'anchor', 'units': 0.0154, 'entry': 150.0},
+        {'mint': 'ORCA', 'pairAddress': 'Porca', 'role': 'anchor', 'units': 1.35, 'entry': 1.0},
+        {'mint': 'ASH', 'pairAddress': 'Pash', 'role': 'runner', 'units': 0.0, 'buying': True, 'wantUnits': 1.0, 'entry': 1.0},
+        {'mint': 'GOMO', 'pairAddress': 'Pgomo', 'role': 'runner', 'units': 0.0, 'buying': True, 'wantUnits': 1.0, 'entry': 1.0}]}
+    book = {'sol': (2.31 + 0.32) / 150, 'legs': {'ORCA': {'atoms': 135, 'decimals': 2, 'costUsd': 1.35, 'entryPx': 1.0}}}
+    prices = {'Psol': 150.0, 'Porca': 1.0, 'Pash': 1.0, 'Pgomo': 1.0}
+    c = fw.sync_card(card, book, prices, 150.0)
+    sol = next(l for l in c['legs'] if l['mint'] == SOL)
+    assert sol['units'] * 150 < 1.2                                                    # SOL trimmed to ~an equal share
+    o = fw.orders('blaze', c, book, prices, 150.0, {'minOrderUsd': 0.1, 'maxSwapUsd': 50, 'armed': True}, 0)
+    buys = {x['mint']: x['usd'] for x in o if x['side'] == 'buy'}
+    assert set(buys) == {'ASH', 'GOMO'} and all(v >= 0.5 for v in buys.values())        # both buys are really sent now

@@ -382,3 +382,5 @@ body.theme-day .fw-rep { background: #fff; } body.theme-day .fw-verdict.v-fix { 
 
 body.theme-day .tscan { background: #fff; }
 @media (max-width: 640px) { .tscan li { grid-template-columns: 1fr; } }
+.hrt-fix { border-color: var(--gold); color: var(--gold); }
+.hrt-fix:hover { background: rgba(255, 200, 80, .12); }
