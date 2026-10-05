@@ -208,7 +208,7 @@ const EDIT = [
   ['skimAt', '💰 Auto-skim profit', [[0, 'off'], [10, '+10%'], [20, '+20%'], [30, '+30%'], [50, '+50%'], [100, '+100%']], 'Each time a coin gains this much (since you bought it, or since its last skim) ONLY its profit is sold — what you put into it keeps riding. Off = you take profit yourself with 💰 on the coin.'],
   ['skimTo', '💰 Skimmed profit goes', [['card', '♻ into my other coins'], ['cash', '🏦 held as cash']], 'Into my other coins = it is spread over the rest of the card (helps the ones that are down). Held as cash = it waits as card cash for you to withdraw — for example to set tax money aside. It is never put back into coins by itself.'],
   ['recyclePct', '♻ Recycle profit into the card', [[0, 'off'], [50, '50%'], [70, '70%'], [100, '100%']], 'Every few rounds, this share of each coin\'s PROFIT is sold and spread over the card\'s other coins — the ones under an equal share get the most. What you put into a coin and the rest of its profit stay in it. A coin that is down is never sold for this. Nothing leaves the card.'],
-  ['recycleEvery', '♻ Recycle every', [[1, '1 round'], [2, '2 rounds'], [3, '3 rounds'], [6, '6 rounds'], [12, '12 rounds']], 'How often the profit recycle runs (only when ♻ Recycle profit is on). On 5-minute rounds, 6 rounds = every 30 minutes.'],
+  ['recycleEvery', '♻ Recycle every', [[1, '1'], [2, '2'], [3, '3'], [4, '4'], [6, '6'], [12, '12 rounds']], 'How often the profit recycle runs (only when ♻ Recycle profit is on). On 5-minute rounds, 6 rounds = every 30 minutes.'],
   ['peakSellPct', '🏔 Off its peak', [[25, 'sell 25% of profit'], [50, 'sell 50% of profit'], [75, 'sell 75% of profit'], [100, 'swap the coin']], 'A locked coin that falls your trail % from its peak. Sell part of its PROFIT and let it keep riding (the trail starts again from there) — or swap the whole coin for a new one. If it falls under half your freeze level the ride is over either way.'],
   ['lockBankPct', '🏦 Bank at the lock', [[0, 'off'], [25, '25%'], [33, '33%'], [50, '50%']], 'When a coin hits your ❄ freeze level it locks and rides. This sells part of it right then and spreads that money over your other coins — so a winner that comes all the way back still paid. The rest keeps riding until it falls off its peak.'],
   ['swapEdge', '⚖ Stay or swap', [[true, 'on'], [false, 'off']], 'On: at the bell a losing coin is swapped only when the next coin is beating SOL over the last hour AND beats this coin by more than the swap costs (fees + spread + impact, +1%). Otherwise it stays — its stop still protects it. Off: every patient loser is swapped.'],
@@ -468,6 +468,16 @@ export function WeatherStrip() {
 }
 
 /* 🎯 What happened to your picks: the last few "came in" / "refused" lines with the keeper's own reason — a refused pick is never silent. */
+const MOVE_KINDS = { skim: '💰', 'lock-bank': '🏦', 'peak-sell': '🏔', compound: '♻', balance: '⚖', seat: '🪑', slot: '🪑', ride: '❄', 'ride-end': '❄', rotate: '⇄', 'instant-swap': '⚡', keep: '⚖', rug: '🚨', sl: '🛑', tp: '🎯', replace: '⇄', floor: '🧱', 'manual-sell': '✂' };
+/* 🧾 What the CARD decided, newest first, in its own words: recycles, profit takes, cash put back to work, picks, locks, stops. */
+export function CardMoves({ events, ago }) {
+  const rows = [...(events || [])].filter(e => MOVE_KINDS[e.kind] && e.why).sort((x, y) => (y.at || 0) - (x.at || 0)).slice(0, 12);
+  if (!rows.length) return null;
+  return <><span className="m-label hrt-sub">WHAT THE CARD DID</span><ul className="hrt-moves" data-testid="card-moves">{rows.map((e, i) => <li key={`${e.at}-${i}`}><b>{MOVE_KINDS[e.kind]}</b>
+    <span>{e.symbol ? <i>${e.symbol} </i> : null}{e.why}{(e.to || []).length && !/cash|card/.test(e.to[0]) ? ` → ${e.to.map(s => `$${s}`).join(', ')}` : ''}{e.n > 1 ? ` (×${e.n})` : ''}</span>
+    <em className="m-num">{e.kind !== 'compound' && e.usd > 0 ? usd(e.usd) : ''}</em><small className="m-dim">{ago(e.at)}</small></li>)}</ul></>;
+}
+
 export const pickLog = events => (events || []).filter(e => e.kind === 'rotate' && /your pick|couldn't be bought|buy was refused|never landed/.test(e.why || '')).slice(-3).reverse()
   .map(e => (/your pick/.test(e.why) ? { ok: true, at: e.at, text: `$${(e.to || [])[0] || '?'} came in for $${e.symbol}` } : { ok: false, at: e.at, text: `$${e.symbol} was not bought — ${String(e.why).replace(/^⏳ \$\S+ /, '').replace(/ — (swapped for a buyable coin|slot back to card cash)$/, '')}${(e.to || []).length ? ` → $${e.to[0]} took the seat` : ' → its money is back in the card'}` }));
 export function PickLog({ events }) {
@@ -592,7 +602,9 @@ export function HqRealCards({ addr, onCount }) {
           <RealHealth k={k} />
           {k.lastFail && <small className="hrt-fail" data-tip={k.lastFail.err}>⚠ last miss: {k.lastFail.side} ${k.lastFail.symbol} · {ago(k.lastFail.at)} — retried automatically {k.lastFail.mint && <button type="button" className="m-btn" disabled={!!busy} onClick={() => retryDead(c.tpl, k.lastFail)}>Retry now</button>}</small>}
           <small className="m-dim">{b.swaps || 0} swaps · network fees {fee(b.feesUsd || 0)} (wallet reserve pays) · last fill {k.lastFill ? ago(k.lastFill) : '—'}</small>
-          <ul className="prime-txs">{(b.orders || []).slice(0, 6).map((o, i) => <li key={o.sig || i}><b>{o.side === 'topup' ? '💵' : o.side === 'reinvest' ? '↩' : o.side === 'buy' ? '🟢' : '🔴'}</b><span>{o.side === 'topup' ? 'new money funded' : o.side === 'reinvest' ? 'paid out reinvested' : `${o.side} ${o.symbol}`} <i className="m-dim">{ago(o.at)}</i>
+          <CardMoves events={c.audit || c.events} ago={ago} />
+          <span className="m-label hrt-sub">SWAPS ON-CHAIN</span>
+          <ul className="prime-txs">{(b.orders || []).slice(0, 10).map((o, i) => <li key={o.sig || i}><b>{o.side === 'topup' ? '💵' : o.side === 'reinvest' ? '↩' : o.side === 'buy' ? '🟢' : '🔴'}</b><span>{o.side === 'topup' ? 'new money funded' : o.side === 'reinvest' ? 'paid out reinvested' : `${o.side} ${o.symbol}`} <i className="m-dim">{ago(o.at)}{o.why ? ` · ${o.why}` : ''}</i>
               {o.side === 'sell' && o.costUsd > 0 && <i className={`hrt-pl ${o.usd >= o.costUsd ? 'm-pos' : 'm-neg'}`} data-tip={`This coin cost $${o.costUsd.toFixed(2)} (money that reached the pool) and the sell returned $${(o.usd || 0).toFixed(2)} — fees apart`}> · in {usd(o.costUsd)} → {pct((o.usd / o.costUsd - 1) * 100)}</i>}</span>
             <em className="m-num">{usd(o.usd)}</em>{o.sig ? <a href={txUrl(o.sig)} target="_blank" rel="noreferrer">tx ↗</a> : <i />}</li>)}</ul></details></div></div>; })}</section>;
 }

@@ -80,3 +80,16 @@ test('pick log: a pick that came in and a refused buy both read plainly, with th
   expect(rows[0].text).toContain('back in the card');
   expect(rows[1]).toMatchObject({ ok: true, text: '$STUDS came in for $PENGU' });
 });
+
+test('activity lists what the card did — recycles and cash put back to work — newest first', async () => {
+  const { CardMoves } = require('./ArenaPrime');
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<CardMoves ago={() => '1m ago'} events={[
+    { kind: 'skim', at: 10, symbol: 'SAPLING', usd: 0.08, why: "♻ round 210: 50% of $SAPLING's profit recycled into the card's other coins", to: ['card'] },
+    { kind: 'compound', at: 20, usd: 0.27, why: 'idle cash back into the card', to: ['WAIF', 'HIGGS'], n: 3 }, { kind: 'deal', at: 30, why: 'dealt' }]} />); });
+  const rows = [...el.querySelectorAll('[data-testid="card-moves"] li')].map(li => li.textContent);
+  expect(rows.length).toBe(2);
+  expect(rows[0]).toContain('idle cash back into the card → $WAIF, $HIGGS (×3)');
+  expect(rows[1]).toContain('$SAPLING');
+  expect(rows[1]).toContain('recycled');
+});

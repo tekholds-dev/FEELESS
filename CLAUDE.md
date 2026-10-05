@@ -1210,3 +1210,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   the card" every tick (a folded `compound` event summing to MORE than the card = this loop) while the SOL sat in the book. When a
   tick has no other order, ONE buy puts spare SOL (beyond ✂ cash, held cash, a reserved seat) into the held coin furthest under an
   equal share; never a locked / just-cut / just-refused coin. "ENGINE SAYS X, WALLET DIDN'T" ⇒ compare card events with the ledger.
+- 🧾 Real card › Activity = `CardMoves` ("WHAT THE CARD DID": recycles, skims, cash put back, picks, locks, stops — the engine's own
+  words, 12 newest) above "SWAPS ON-CHAIN" (10 rows, each with the keeper's `why`). Card column: card centred, `.hrt-under` and the
+  pick log ≤ 330px wide. `recycleEvery` takes 1/2/3/4/6/12. Home ($FEE on Trade) opens its chart on 4h.
+- 🗑 Trench never reads empty for the owner: own settings / a meta with nothing passing → the ENGINE scan's passing coins are added
+  to the picker as `soft` rows ("outside your trench settings"), pickable, never auto-seated (`_trench_cache.fallback`).

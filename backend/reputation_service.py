@@ -5465,11 +5465,16 @@ def _trench_judge():
         g_own = _trench.own_gate(own)
         res = [(g, *_trench.gate(g[0], g[1], g[2], g_own)) for g in got]
         rows = [{**_trench_row(g[0], g[1], g[2], g_own), 'trenchLevel': own['mode']} for g, _ok, _f in res]
-        _trench_cache.update(rows=[x for x in rows if x['ok']], checked=rows, level=own['mode'], own=own)
+        fb = []
+        if not any(x['ok'] for x in rows):   # 👀 nothing fits those settings right now → what the ENGINE's scan (strict → widened) finds
+            lvl_f, res_f = _trench.best_level(got, lambda g, cfg: _trench.gate(g[0], g[1], g[2], cfg))
+            if lvl_f is not None:
+                fb = [{**_trench_row(g[0], g[1], g[2], _trench.widen(lvl_f)), 'fallback': True} for g, ok_f, _x in res_f if ok_f]
+        _trench_cache.update(rows=[x for x in rows if x['ok']], checked=rows, level=own['mode'], own=own, fallback=fb)
         return _trench_cache
     lvl, res = _trench.best_level(got, lambda g, cfg: _trench.gate(g[0], g[1], g[2], cfg))
     rows = [{**_trench_row(g[0], g[1], g[2], _trench.widen(lvl or 0)), 'trenchLevel': lvl or 0} for g, _ok, _f in res]
-    _trench_cache.update(rows=[x for x in rows if x['ok']], checked=rows, level=lvl, own=own)
+    _trench_cache.update(rows=[x for x in rows if x['ok']], checked=rows, level=lvl, own=own, fallback=[])
     return _trench_cache
 
 
@@ -5494,7 +5499,9 @@ async def fuse_trench(meta: str = Query('', max_length=20)):
             # missed): never auto-seated as a trench coin, but the owner may pick one (general pick floor, flagged `soft`)
             'rows': [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'trench': True} for r in _trench_cache.get('rows') or []]
                     + [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'soft': True} for r in _trench_cache.get('checked') or []
-                       if not r.get('ok') and _trench.soft_only(r.get('fails'))],
+                       if not r.get('ok') and _trench.soft_only(r.get('fails'))]
+                    + [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'soft': True, 'fails': ['outside your trench settings — it passes the engine scan']}
+                       for r in _trench_cache.get('fallback') or []],
             'floor': _fw.clean_cfg(_fw_load().get('cfg') or {})['trenchMinLiqUsd'], 'level': _trench_cache.get('level'),
             'seen': _trench_cache.get('seen', 0), 'funnel': _trench_cache.get('funnel') or [],
             'at': _trench_cache.get('at'), 'rules': f"≤ {g['maxAgeH']:g}h old · broke ${g['minMcap'] / 1000:g}K · ≥ {g['minHolders']} holders · ≥ {g['minTxns1h']} trades/h · "

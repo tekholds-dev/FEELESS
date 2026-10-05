@@ -483,3 +483,13 @@ body.theme-day .wx { background: #fff; } body.theme-day .tscan-meta.on { backgro
 .hrt-picklog li.is-no { border-left-color: var(--gold); } .hrt-picklog b { font-family: var(--m-mono); white-space: nowrap; } .hrt-picklog span { color: var(--m-dim); overflow-wrap: anywhere; }
 .tscan-meta u { text-decoration: none; font-size: 10px; }
 body.theme-day .hrt-picklog li { background: #f3f6f4; }
+
+/* real card column: the card sits centred over a box no wider than it; activity = what the card did */
+.hq-real-card { display: grid; justify-items: center; }
+.hq-real-card > .hrt-under, .hq-real-card > .hrt-picklog { width: 100%; max-width: 330px; justify-self: center; box-sizing: border-box; }
+.hrt-sub { display: block; margin: 10px 0 4px; }
+.hrt-moves { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 11px; line-height: 1.35; }
+.hrt-moves li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto auto; gap: 8px; align-items: baseline; padding: 4px 6px; border-radius: 8px; }
+.hrt-moves li:hover { background: var(--m-surface-2); } .hrt-moves span { color: var(--m-dim); overflow-wrap: anywhere; } .hrt-moves span i { font-style: normal; color: var(--m-ink); font-weight: 700; }
+.hrt-moves .m-num { font-size: inherit; } .hrt-moves small { white-space: nowrap; font-size: 10px; }
+@media (max-width: 640px) { .hrt-moves li { grid-template-columns: 18px minmax(0, 1fr) auto; } .hrt-moves small { display: none; } }

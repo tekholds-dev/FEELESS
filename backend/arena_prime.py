@@ -559,7 +559,7 @@ def sell_usd(units, px, liq):
 SKIM_ATS = (0, 10, 20, 30, 50, 100)   # auto: skim each time the coin gains this % since its entry / last skim (0 = off)
 SKIM_TOS = ('card', 'cash')
 RECYCLE_PCTS = (0, 50, 70, 100)        # ♻ every `recycleEvery` rounds this % of each coin's PROFIT goes back over the card's coins (0 = off)
-RECYCLE_EVERY = (1, 2, 3, 6, 12)
+RECYCLE_EVERY = (1, 2, 3, 4, 6, 12)
 SEAT_MIN_USD = 0.25                   # an empty seat is refilled once the card has at least this much free cash
 SKIM_MIN_USD = 0.05                   # a gain smaller than this isn't worth a swap
 

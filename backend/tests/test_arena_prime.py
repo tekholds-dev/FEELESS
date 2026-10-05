@@ -1489,3 +1489,6 @@ def test_a_reserved_seat_with_no_coin_for_a_round_gives_its_money_back_to_the_ca
     run = {'mint': 'R', 'pairAddress': 'PR', 'symbol': 'R', 'price': 1.0, 'liquidityUsd': 1e12, 'score': 80, 'ageH': 20}
     heal = ap.tick(card(60), {**px, 'PR': 1.0}, [], [run], cfg, now + 1, [], {}, {**liq, 'PR': 1e12})
     assert any(l['mint'] == 'R' for l in heal['legs'])                                                # no pool to take a pool seat → a runner takes it
+
+def test_recycle_every_takes_2_4_and_6_rounds():
+    assert [ap.clean_cfg({'recyclePct': 70, 'recycleEvery': n})['recycleEvery'] for n in (2, 4, 6, 5)] == [2, 4, 6, 3]
