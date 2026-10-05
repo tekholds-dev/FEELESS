@@ -827,7 +827,7 @@ def test_real_guard_floors_a_churny_real_config_but_keeps_the_5_min_clock():
     assert len(changed) == 4 and out['fixEvery'] == ap.REAL_MAX_RESHAPE and 'floorRestMins' not in out   # resting is the owner's switch, never forced
     # off stays off, never stays never, a patient config is left alone, slow clocks keep their own hold time
     calm = {'rotateHours': 1.0, 'minHoldMins': 0, 'rotateConfirm': 4, 'instantSwapPct': 0, 'cycleEvery': 0}
-    assert ap.real_guard(calm) == ({**calm, 'fixEvery': 6, 'dealLeadSec': 15.0}, [])
+    assert ap.real_guard(calm) == ({**calm, 'fixEvery': 6, 'dealLeadSec': 15.0, 'minCoinUsd': 0.75}, [])
 
 
 def test_runner_weather_reads_the_freshest_sim_window_and_limits_real_runner_buys():
@@ -863,3 +863,30 @@ def test_anchors_cool_like_every_coin_and_rescue_off_ends_a_running_fix():
     after = ap.note_dropped(before, {'legs': []}, 1000.0, 0.08, {'Pbtc': 0.99})
     assert 'btc' in after['cool'] and 'sol' not in after['cool']          # a sold major sits out · SOL is the card's cash, never "dropped"
     assert 'btc' in ap.cooling(after, 1000.0 + 600, 0.08) and 'btc' not in ap.cooling({'cool': {'btc': {'at': 1000.0}}}, 1000.0 + 1000, 0.08)
+
+
+def test_small_real_cards_hold_fewer_bigger_coins_and_keep_their_character():
+    assert [ap.size_slots(u, 0.75, 4) for u in (1, 1.6, 2.5, 5, 100)] == [1, 2, 3, 4, 4] and ap.size_slots(1, 0, 4) == 4
+    picks = [('a1', 'anchor'), ('a2', 'anchor'), ('a3', 'anchor'), ('r1', 'runner')]
+    assert ap.fit_size(picks, 1.7, 0.75) == [('a1', 'anchor'), ('r1', 'runner')]        # one anchor + the runner, never 2 majors only
+    assert ap.fit_size(picks, 2.5, 0.75) == [('a1', 'anchor'), ('a2', 'anchor'), ('r1', 'runner')]
+    assert ap.fit_size(picks, 50, 0.75) == picks and ap.fit_size(picks, 1.7, None) == picks
+
+
+def test_a_coin_can_carry_its_own_take_profit_and_stop_and_zero_follows_the_tier_again():
+    card = {'legs': [{'pairAddress': 'P1', 'symbol': 'A'}]}
+    c = ap.set_leg(card, 'P1', tp=50, sl=15)
+    assert c['legs'][0]['tp'] == 50 and c['legs'][0]['sl'] == 15 and 'tp' not in card['legs'][0]
+    assert ap.leg_tp(c['legs'][0], {'tp': 300, 'sl': 35}) == 50 and ap.leg_sl(c['legs'][0], {'tp': 300, 'sl': 35}) == 15
+    back = ap.set_leg(c, 'P1', tp=0)
+    assert 'tp' not in back['legs'][0] and ap.leg_tp(back['legs'][0], {'tp': 300, 'sl': 35}) == 300 and back['legs'][0]['sl'] == 15
+    with pytest.raises(ValueError):
+        ap.set_leg(card, 'P1', sl=7)
+
+
+def test_fast_clocks_rank_coins_by_what_is_moving_now_and_slow_clocks_keep_their_order():
+    rows = [{'mint': 'deep', 'pairAddress': 'P1', 'vol1h': 2_000}, {'mint': 'hot', 'pairAddress': 'P2', 'vol1h': 400_000}, {'mint': 'mid', 'pairAddress': 'P3', 'vol1h': 40_000}]
+    mom = {'P1': {'chg1h': -3}, 'P2': {'chg1h': 25}, 'P3': {'chg1h': 4}}
+    assert [r['mint'] for r in ap.clock_rank(rows, 0.08, mom)] == ['hot', 'mid', 'deep']     # 5-min card
+    assert [r['mint'] for r in ap.clock_rank(rows, 1.0, mom)] == ['deep', 'hot', 'mid']      # 1-hour card: untouched
+    assert len(ap.clock_rank(rows, 0.08, mom)) == 3 and ap.clock_rank([], 0.08) == []

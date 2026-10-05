@@ -5481,6 +5481,8 @@ async def _prime_tick_inner(now):
                         cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'why': f"🪑 ${l.get('symbol')} couldn't be bought safely 2× — swapped for a buyable coin"}] if cur.get('events') else cur.get('events')
                     except ValueError:
                         pass
+        # ⏱ each clock gets ITS coins: fast rounds rank by what is moving now, slow rounds keep depth / score order
+        p_t, r_t = _prime.clock_rank(p_t, cfg_t['rotateHours'], mom), _prime.clock_rank(r_t, cfg_t['rotateHours'], mom)
         mine = {l.get('mint') for l in (cur or {}).get('legs') or []}
         p_t = [x for x in p_t if x.get('mint') not in taken or x.get('mint') in mine]
         r_t = [x for x in r_t if x.get('mint') not in taken or x.get('mint') in mine]
@@ -5706,7 +5708,7 @@ async def fuse_prime_admin(request: Request):
             if not cards.get(lg['tpl']):
                 raise HTTPException(404, 'No card for that tier yet.')
             try:
-                cards[lg['tpl']] = _prime.set_leg(cards[lg['tpl']], lg['pairAddress'], lg.get('frozen'), lg.get('slMode'))
+                cards[lg['tpl']] = _prime.set_leg(cards[lg['tpl']], lg['pairAddress'], lg.get('frozen'), lg.get('slMode'), lg.get('tp'), lg.get('sl'))
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)
@@ -6224,8 +6226,14 @@ async def _fw_tick_inner(now):
                 remaining_sells = [x for x in _fw.orders(tid, want, book, px, sol_px, cfg, time.time(), count_sells=True) if x['side'] == 'sell']
                 if remaining_sells:
                     break
+        written_off = []
+        if book.get('defund') and not book.get('pending'):   # 🧹 a dead coin's dust can't be sold — it must not keep "selling…" on screen forever
+            book, written_off = _fw.write_off_dust(book, px)
         async with _fw_lock:
             d2 = _fw_load()
+            for w in written_off:
+                _fw_record(d2, {'card': tid, 'side': 'writeoff', 'mint': w['mint'], 'pair': w.get('pair'), 'symbol': w['symbol'], 'usd': w['usd'], 'costUsd': w['costUsd'], 'at': now, 'status': 'done',
+                                'why': f"dead coin written off: worth ${w['usd']:.4f} (cost ${w['costUsd']:.2f}) — too small for any route; the coins stay in the wallet"})
             if book.get('defund') and not book.get('legs') and not book.get('pending'):
                 d2['books'].pop(tid, None)
                 _fw_record(d2, {'card': tid, 'side': 'defund', 'usd': round(_fw.book_value(book, px, sol_px), 4), 'at': now, 'status': 'done'})

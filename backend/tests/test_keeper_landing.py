@@ -114,3 +114,13 @@ def test_taking_money_out_lowers_the_principal_so_profit_is_measured_above_what_
     part, took2 = fw.withdraw_cash({'sol': 0.05, 'fundedUsd': 5.0}, 100.0, usd=1.5)
     assert took2 == 1.5 and part['fundedUsd'] == 3.5 and part['sol'] == 0.035
     assert fw.withdraw_cash({'sol': 0.0, 'fundedUsd': 5.0}, 100.0)[1] == 0.0
+
+
+def test_a_selling_card_finishes_when_only_dead_dust_is_left_but_never_writes_off_blind():
+    import fuse_wallet as fw
+    book = {'defund': True, 'sol': 0.0136, 'legs': {'RUG': {'atoms': 24_940_472, 'decimals': 6, 'pair': 'Prug', 'symbol': 'USDF', 'costUsd': 0.74},
+                                                   'OK': {'atoms': 5_000_000, 'decimals': 6, 'pair': 'Pok', 'symbol': 'AAA', 'costUsd': 0.4},
+                                                   'UNK': {'atoms': 1_000_000, 'decimals': 6, 'pair': 'Punk', 'symbol': 'BBB', 'costUsd': 0.4}}}
+    nb, gone = fw.write_off_dust(book, {'Prug': 0.000002, 'Pok': 0.09})
+    assert [g['symbol'] for g in gone] == ['USDF'] and gone[0]['costUsd'] == 0.74 and gone[0]['usd'] < 0.001
+    assert set(nb['legs']) == {'OK', 'UNK'} and set(book['legs']) == {'RUG', 'OK', 'UNK'}       # $0.45 coin stays · no price = stays · input untouched

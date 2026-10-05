@@ -260,6 +260,7 @@ REAL_MIN_HOLD = 15.0      # minutes a real buy is held before a rotation may sel
 REAL_MIN_CONFIRM = 3      # losing rounds in a row before a real rotation
 REAL_MIN_INSTANT = 10.0   # ⚡ instant swap is OFF (0) or at least −10% — never inside normal memecoin noise
 REAL_MAX_RESHAPE = 6      # a real card re-shapes at most every 6 rounds (0 = never stays never) — also while a safe / rescue fix is on
+REAL_MIN_COIN_USD = 0.75  # a real coin under this pays > 0.7% per swap in flat costs → small cards hold fewer, bigger coins
 REAL_DEAL_LEAD = 15.0     # seconds before the bell that a real card's round is decided (sells, then buys, finish inside the countdown)
 FLOOR_RESTS = (0, 15, 30, 60)   # 🛌 minutes a floored card rests in its anchors before the re-deal — the OWNER's switch (0 = no rest, re-deal at once)
 REAL_RUNNER_AGE_H = 12.0  # real money never buys a runner younger than this (a 20-min-old coin with a $534K pool went −99.99% in an hour)
@@ -281,6 +282,7 @@ def real_guard(cfg):
     #  • a safe / rescue FIX re-shaped the card EVERY round — on a 5-min clock that sold and re-bought 2–3 coins every 5 minutes
     out['fixEvery'] = REAL_MAX_RESHAPE
     out['dealLeadSec'] = REAL_DEAL_LEAD
+    out['minCoinUsd'] = REAL_MIN_COIN_USD
     return out, changed
 
 
@@ -425,6 +427,24 @@ def keep_winners(nc, old_legs, prices, liqs, pct, in_play_usd):
     return out, len(win)   # a hand pick survives ONE re-shape
 
 
+def size_slots(size_usd, min_coin_usd, want):
+    """How many coins a card of this size holds: as many of the shape's `want` slots as keep every coin ≥ `min_coin_usd` (never under 1).
+    Off (0 / None) = the full shape. A $2 card at $0.75 a coin holds 2 coins, a $5 card all 4."""
+    m = _f(min_coin_usd)
+    return int(want) if m <= 0 else max(1, min(int(want), int(_f(size_usd) // m)))
+
+
+def fit_size(picks, size_usd, min_coin_usd):
+    """Trim a dealt shape to the card's size, keeping its character: the first anchor, then the first non-anchor, then the rest in order."""
+    n = size_slots(size_usd, min_coin_usd, len(picks))
+    if n >= len(picks):
+        return picks
+    anchors_ = [p for p in picks if p[1] == 'anchor']; others = [p for p in picks if p[1] != 'anchor']
+    order = anchors_[:1] + others[:1] + anchors_[1:] + others[1:]
+    keep = order[:n]
+    return [p for p in picks if p in keep]
+
+
 def deal(tid, pools, runners, cfg, now, anchors=(), usd=None, keep=None, shape=None):
     """A fresh Prime card from the best 3★+ candidates (gated + ranked by the caller). Equal $ per coin. `keep` re-deals an
     existing card (after its floor) while keeping its start, events and record — P&L stays honest across re-deals."""
@@ -440,6 +460,7 @@ def deal(tid, pools, runners, cfg, now, anchors=(), usd=None, keep=None, shape=N
     if not picks or (shape and len(picks) != target_slots):
         return None
     size = usd if usd is not None else cfg['sizeUsd']
+    picks = fit_size(picks, size, cfg.get('minCoinUsd'))   # 🪙 small cards hold fewer coins (each coin stays big enough for its fees)
     each = size / len(picks)
     base = {'id': f'prime-{tid}', 'tpl': tid, 'label': t['label'], 'at': now, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
             'events': [], 'startUsd': cfg['sizeUsd'], 'dayAt': now, 'dayStartUsd': cfg['sizeUsd'], 'days': [], 'lowPct': 0.0}
@@ -590,7 +611,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             l.update(ride=True, high=px, rideFrom=l['entry'], rideAt=now)
             ev(kind='ride', symbol=l['symbol'], usd=round(l['units'] * px, 4), why=f"+{g:.0f}% ≥ +{ra:g}% — ❄ frozen (riding) until it falls {rt:g}% from its peak, then swapped", to=[l['symbol']])
             continue
-        elif g >= t['tp']:
+        elif g >= leg_tp(l, t):
             mode, frac, why = exit_plan(g, mom.get(l['pairAddress']))
         else:
             continue
@@ -608,7 +629,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             l['entry'] = px; c['feesUsd'] += fee
             c['takenUsd'] += proceeds
             others = [o for o in c['legs'] if o is not l and _f(prices.get(o['pairAddress'])) > 0]
-            label = why if mode == 'ride-end' else f"+{g:.0f}% ≥ +{t['tp']}% · {why}"   # a held runner's exit explains itself
+            label = why if mode == 'ride-end' else f"+{g:.0f}% ≥ +{leg_tp(l, t):g}% · {why}"   # a held runner's exit explains itself
             # 🧬 payoutPct applies to realized PROFIT, never principal. Principal + retained profit stay available to compound/rebuy.
             dna = {'payoutPct': (cfg.get('payouts') or DEFAULT_PAYOUTS).get(card['tpl'], 0), 'compound': cfg.get('compoundStyle', 'smart') if cfg['compound'] else 'off'}
             out_usd, retained_profit = _dna.split_profit(profit, dna)
@@ -644,16 +665,16 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     for l in list(c['legs']):
         px = _f(prices.get(l['pairAddress']))
         lmode = l.get('slMode') if l.get('slMode') in SL_MODES else mode   # ❄/✂/🅿 per coin (HQ) beats the card's mode
-        if l.get('role') == 'anchor' or not t['sl'] or lmode == 'hold' or l.get('frozen') or l.get('ride') or int(l.get('freezeRounds') or 0) > 0 or px <= 0 or l['entry'] <= 0:
+        if l.get('role') == 'anchor' or not leg_sl(l, t) or lmode == 'hold' or l.get('frozen') or l.get('ride') or int(l.get('freezeRounds') or 0) > 0 or px <= 0 or l['entry'] <= 0:
             continue
         dd = (px / l['entry'] - 1) * 100
         l['peak'] = max(_f(l.get('peak')), dd)
         trail = cfg.get('trail', True) and _f(l['peak']) >= TRAIL_AT and dd <= TRAIL_KEEP   # 🔒 ran +50%, now giving it back
-        if not trail and dd > -t['sl'] and not (dd <= -t['sl'] / 2 and fading(mom.get(l['pairAddress']))):   # early cut: half the stop + fading
+        if not trail and dd > -leg_sl(l, t) and not (dd <= -leg_sl(l, t) / 2 and fading(mom.get(l['pairAddress']))):   # early cut: half the stop + fading
             continue
         out_usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
         why = (f"ran +{l['peak']:.0f}%, back to {dd:+.0f}% — locked before it turned red" if trail else
-               f"{dd:.0f}% ≤ −{t['sl']}%" if dd <= -t['sl'] else f"{dd:.0f}% and fading (1h down, sellers lead) — cut early")
+               f"{dd:.0f}% ≤ −{leg_sl(l, t):g}%" if dd <= -leg_sl(l, t) else f"{dd:.0f}% and fading (1h down, sellers lead) — cut early")
         c['feesUsd'] += fee
         nxt = best(l['role']) if lmode == 'replace' else None
         if nxt:
@@ -768,6 +789,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # Legacy underfill can exist on or between boundaries. On a due boundary the configured NEXT phase gets first chance;
     # if that full shape is unavailable, we fall back to repairing the CURRENT phase instead of leaving a 3-leg live card.
     due_boundary = bool(every and int(c.get('rounds') or 0) % every == 0)
+    current_slots = size_slots(V(), cfg.get('minCoinUsd'), current_slots) if current_slots else 0   # a small card's full shape IS its smaller shape
     underfilled = bool(current_slots and len(c.get('legs') or []) < current_slots and not c.get('cycleFix'))
     if underfilled and not due_boundary:
         phase, grow_now = c.get('phase'), True
@@ -880,7 +902,7 @@ def summary(card, prices, cfg=None):
     rot = _f((cfg or {}).get('rotateHours')) or DEFAULT_CFG['rotateHours']
     paid = round(_f(card.get('walletUsd')), 4)
     legs = [{**{k: l[k] for k in ('mint', 'pairAddress', 'symbol', 'role', 'entry', 'units', 'costUsd')}, 'stars': l.get('stars') or 3,
-             'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'rideFrom': l.get('rideFrom'), 'buying': bool(l.get('buying')),
+             'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'tp': l.get('tp'), 'sl': l.get('sl'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'rideFrom': l.get('rideFrom'), 'buying': bool(l.get('buying')),
              'loseRounds': int(l.get('loseRounds') or 0),
              'firstEntry': l.get('firstEntry') or l['entry'], 'at': l.get('at'), 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,
@@ -908,7 +930,34 @@ def record(card):
             'lowPct': _f(card.get('lowPct')), 'floored': bool(card.get('flooredAt')), 'runs': (card.get('runs') or [])[-5:]}
 
 
-def set_leg(card, pair, frozen=None, sl_mode=None):
+def clock_rank(rows, rotate_hours, mom=None):
+    """⏱ Every round length wants different coins. FAST clocks (≤ 15 min) need coins that are moving NOW: last-hour volume and
+    momentum come first, so a 5-min card gets the coins that can pay inside a few rounds. SLOW clocks (≥ 1 h) keep the caller's
+    order (depth / score: coins that hold up). Stable: equal coins keep their incoming order. Never adds or removes a coin."""
+    rows = list(rows or [])
+    if _f(rotate_hours) * 60 > 15 or len(rows) < 2:
+        return rows
+    def heat(x):
+        m = (mom or {}).get(x.get('pairAddress')) or {}
+        vol = _f(x.get('vol1h')) or _f(m.get('vol1h')) or _f(x.get('volume24h')) / 24
+        chg = _f(m.get('chg1h')) if m.get('chg1h') is not None else _f(x.get('change24h')) / 24
+        return math.log10(max(1.0, vol)) * 10 + max(-20.0, min(40.0, chg))
+    return [r for _, _, r in sorted(((-heat(r), i, r) for i, r in enumerate(rows)), key=lambda t: (t[0], t[1]))]
+
+
+LEG_TPS = (25, 50, 100, 200, 300)   # a coin's OWN take-profit / stop (0 = follow the tier's)
+LEG_SLS = (10, 15, 20, 30)
+
+
+def leg_tp(l, t):
+    return _f(l.get('tp')) or t['tp']
+
+
+def leg_sl(l, t):
+    return _f(l.get('sl')) or t['sl']
+
+
+def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None):
     """HQ per-coin config on a tier card: ❄ frozen (engine never rotates or stops it — the floor still protects the card)
     and its own stop mode (replace / park / hold, or '' = follow the card). Pure; ValueError if the coin isn't on the card."""
     c = {**card, 'legs': [dict(l) for l in card.get('legs') or []]}
@@ -921,6 +970,14 @@ def set_leg(card, pair, frozen=None, sl_mode=None):
         if sl_mode and sl_mode not in SL_MODES:
             raise ValueError('stop mode must be replace, park or hold')
         leg['slMode'] = sl_mode or None
+    for key, val, allowed in (('tp', tp, LEG_TPS), ('sl', sl, LEG_SLS)):   # 🎯 this coin's own TP / SL; 0 clears it back to the tier's
+        if val is not None:
+            if _f(val) and _f(val) not in allowed:
+                raise ValueError(f"{key.upper()} must be one of {', '.join(str(a) for a in allowed)} (or 0 to follow the tier)")
+            if _f(val):
+                leg[key] = _f(val)
+            else:
+                leg.pop(key, None)
     return c
 
 

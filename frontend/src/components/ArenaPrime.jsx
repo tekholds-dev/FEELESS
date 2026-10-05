@@ -185,7 +185,9 @@ const EDIT = [
   ['autoBrain', '🧠 Auto-tune', [[true, 'on'], [false, 'off']], 'Let the sim brain adjust patience / drop (never below 3 on 5m rounds)'],
 ];
 const CYCLES = [['safe', '🛡 safe'], ['classic', 'classic'], ['adaptive', 'adaptive'], ['press', '🔥 press'], ['rescue', '🛟 rescue'], ['auto', '🤖 auto'], ['off', 'off']];
-const ROUND_KEYS = ['rotateHours', 'instantSwapPct', 'rotateConfirm', 'rotateMinDrop', 'minHoldMins', 'keepWinPct', 'rideAt', 'rideTrail'];   // ⏱ group 1; the rest of EDIT = 🧬 shape group
+// ⚙ Edit Fuse groups: [key, tab label, what lives there]
+const CFG_GROUPS = [['rounds', '⏱ Rounds', 'When a round may swap a coin'], ['exits', '⚡ Exits', 'Per-coin: instant swap, stops, winners, riders'],
+  ['shape', '🧬 Shape', 'Which mix of coins the card holds'], ['safety', '🧱 Safety', 'Whole-card floor, rest, rescue, auto-tune'], ['limits', '💵 Limits', 'Hard caps on every real swap']];
 
 // ✍ Type exact limits (server clamps every value to its safe range: slippage 0.1–3%, impact 0.2–10%, pool ≥ $0, swap $1+, daily $5+)
 const TYPED = [['slippageBps', 'Slippage %', v => v * 100, v => v / 100, 0.1, 3, 0.1], ['maxImpactPct', 'Max price impact %', v => v, v => v, 0.2, 10, 0.1],
@@ -237,24 +239,28 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
       toast.success('Saved — applies from the next tick'); window.dispatchEvent(new Event('feeless:prime'));
     } catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
-  const seg = (key, label, opts, tip, cur, wallet) => <div key={key} className="ce-row" data-tip={tip}><small>{label}</small>
+  // one setting = one line: what it is + what it does on the left, the choices on the right. One group on screen at a time.
+  const seg = (key, label, opts, tip, cur, wallet) => <div key={key} className="ce-row"><span><b>{label}</b><small>{tip}</small></span>
     <div className="m-seg">{opts.map(([v, t]) => <button key={String(v)} type="button" disabled={busy} className={String(cur) === String(v) ? 'active' : ''} aria-pressed={String(cur) === String(v)} onClick={() => save({ [key]: v }, wallet)}>{t}</button>)}</div></div>;
   const row = ([k, l, o, t]) => seg(k, l, o, t, k === 'rotateHours' ? (o.find(x => Math.abs(x[0] - (cfg?.[k] || 0)) < 0.02) || [cfg?.[k]])[0] : cfg?.[k]);
+  const rows = keys => keys.map(k => EDIT.find(e => e[0] === k)).filter(Boolean).map(row);
   const churn = (cfg?.rotateHours || 1) < 0.25 && (cfg?.rotateConfirm || 1) < 3;   // 5-min rounds + low patience = swaps on noise (fees, missed buys)
+  const [grp, setGrp] = useState('rounds');
   return <details className="hrt-edit" data-testid="card-editor"><summary>⚙ Edit Fuse {real ? '· 💵 real-money config — paper cards untouched' : locked ? '· 🔒 locked — edits change only this Fuse' : '· shared engine settings'}</summary>
-    <div className="ce-group"><span className="m-label">⏱ ROUNDS · when a coin may be swapped</span>
-      <div className="ce-grid">{EDIT.filter(e => ROUND_KEYS.includes(e[0])).map(row)}</div>
-      <EnginePick suggest={suggest} cfg={cfg} busy={busy} save={save} />
-      {churn && <p className="m-note ce-warn" data-testid="churn-warn">⚠ Round rotation is aggressive at {Math.round((cfg?.rotateHours || 0) * 60)}m with patience {cfg?.rotateConfirm || 1}. The ⚡ instant-loss setting above is separate and fires immediately at its loss threshold.
-        <button type="button" className="m-btn" disabled={busy} onClick={() => save({ rotateConfirm: 3 })}>Use 3</button></p>}</div>
-    <div className="ce-group"><span className="m-label">🧬 SHAPE · which coins the card holds</span><div className="ce-grid">
-      {EDIT.filter(e => !ROUND_KEYS.includes(e[0])).map(row)}
-      <div className="ce-row ce-wide" data-tip="The shapes this card cycles through"><small>🔄 Cycle</small><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
-      {!real && <div className="ce-row" data-tip="Freeze this tier's whole config so engine tunes never change it"><small>🔒 Lock tier</small><div className="m-seg">{[[true, 'locked'], [false, 'free']].map(([v, t]) => <button key={t} type="button" disabled={busy} className={!!locked === v ? 'active' : ''} onClick={() => { setBusy(true); call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ lock: c.tpl, on: v }) }).then(() => { toast.success(v ? '🔒 Locked' : 'Unlocked'); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy(false)); }}>{t}</button>)}</div></div>}
-    </div></div>
-    <div className="ce-group"><span className="m-label">💵 REAL MONEY · limits on every real swap (server-enforced)</span>
-      <TypedLimits keeper={keeper} busy={busy} save={save} /></div>
-    <small className="m-dim">{real ? 'This real card runs its own rounds + shape — HQ, engine tunes and paper edits never change it.' : 'Rounds + shape are shared by every paper tier that isn\'t 🔒 locked.'} Real-money limits cover every real buy and sell.</small></details>;
+    <div className="m-seg ce-tabs" role="tablist" aria-label="Config groups">{CFG_GROUPS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={grp === k} className={grp === k ? 'active' : ''} data-tip={tip} onClick={() => setGrp(k)} data-testid={`ce-tab-${k}`}>{l}</button>)}</div>
+    <div className="ce-group" key={grp} data-testid={`ce-pane-${grp}`}>
+      {grp === 'rounds' && <>{rows(['rotateHours', 'rotateConfirm', 'rotateMinDrop', 'minHoldMins'])}
+        <EnginePick suggest={suggest} cfg={cfg} busy={busy} save={save} />
+        {churn && <p className="m-note ce-warn" data-testid="churn-warn">⚠ Round rotation is aggressive at {Math.round((cfg?.rotateHours || 0) * 60)}m with patience {cfg?.rotateConfirm || 1}. The ⚡ instant swap (Exits) is separate and fires immediately at its loss.
+          <button type="button" className="m-btn" disabled={busy} onClick={() => save({ rotateConfirm: 3 })}>Use 3</button></p>}</>}
+      {grp === 'exits' && rows(['instantSwapPct', 'slMode', 'keepWinPct', 'rideAt', 'rideTrail'])}
+      {grp === 'shape' && <>{rows(['cycleEvery'])}
+        <div className="ce-row"><span><b>🔄 Cycle</b><small>The shapes this card moves through (anchor · mixed · degen · safest …)</small></span><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
+      {!real && <div className="ce-row"><span><b>🔒 Lock tier</b><small>Freeze this tier's whole config so engine tunes never change it</small></span><div className="m-seg">{[[true, 'locked'], [false, 'free']].map(([v, t]) => <button key={t} type="button" disabled={busy} className={!!locked === v ? 'active' : ''} onClick={() => { setBusy(true); call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ lock: c.tpl, on: v }) }).then(() => { toast.success(v ? '🔒 Locked' : 'Unlocked'); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy(false)); }}>{t}</button>)}</div></div>}</>}
+      {grp === 'safety' && rows(['floorPct', 'floorRestMins', 'rescuePct', 'autoBrain'])}
+      {grp === 'limits' && <TypedLimits keeper={keeper} busy={busy} save={save} />}
+    </div>
+    <small className="m-dim">{real ? 'This real card runs its own config — HQ, engine tunes and paper edits never change it.' : 'Rounds + shape are shared by every paper tier that isn\'t 🔒 locked.'} Limits cover every real buy and sell.</small></details>;
 }
 
 const SHAPE = { anchor: ['⚓', 'anchor', '3 majors + a new major'], mixed: ['⚖', 'mixed', '2 majors + a new major + a runner'], degen: ['🔥', 'degen', '1 major + 3 runners'],
@@ -338,6 +344,11 @@ export function HqRealCards({ addr, onCount }) {
               <span className="hrt-sell" role="group" aria-label={`Sell ${l.symbol}`}>{[[25, '25%'], [50, '50%'], [100, 'All']].map(([p, t]) => <button key={p} type="button" className="m-btn danger" disabled={!!busy || l.buying || !(l.usd > 0)} data-testid={p === 100 ? `sell-${l.symbol}` : `sell-${l.symbol}-${p}`}
                 data-tip={`Sell ${p === 100 ? 'all' : `${p}%`} of your $${l.symbol} (${usd((l.usd || 0) * p / 100)}) to this card's cash. The total changes only after the transaction confirms.`}
                 onClick={() => window.confirm(`Sell ${p === 100 ? 'ALL' : `${p}%`} of $${l.symbol} (about ${usd((l.usd || 0) * p / 100)}) to this card's cash?`) && prime({ manualSell: { tpl: c.tpl, pairAddress: l.pairAddress, pct: p } }, `Selling ${p === 100 ? 'all' : `${p}%`} of $${l.symbol} — card cash updates after confirmation`, `sell-${l.pairAddress}`)}>{t}</button>)}</span>
+              {l.role !== 'anchor' && <span className="hrt-own" data-tip={`$${l.symbol}'s OWN take-profit and stop. "tier" = follow the card's (TP +${c.tp}% · SL −${c.sl}%). The ⚡ instant swap and the card floor still apply.`}>
+                <select className="m-input" aria-label={`${l.symbol} take-profit`} disabled={!!busy} value={l.tp || 0} data-testid={`tp-${l.symbol}`} onChange={e => prime({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, tp: Number(e.target.value) } }, Number(e.target.value) ? `🎯 $${l.symbol} takes profit at +${e.target.value}%` : `$${l.symbol} follows the tier's take-profit`, `tp-${l.pairAddress}`)}>
+                  <option value={0}>TP tier</option>{[25, 50, 100, 200, 300].map(v => <option key={v} value={v}>TP +{v}%</option>)}</select>
+                <select className="m-input" aria-label={`${l.symbol} stop`} disabled={!!busy} value={l.sl || 0} data-testid={`sl-${l.symbol}`} onChange={e => prime({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, sl: Number(e.target.value) } }, Number(e.target.value) ? `🛑 $${l.symbol} stops at −${e.target.value}%` : `$${l.symbol} follows the tier's stop`, `sl-${l.pairAddress}`)}>
+                  <option value={0}>SL tier</option>{[10, 15, 20, 30].map(v => <option key={v} value={v}>SL −{v}%</option>)}</select></span>}
               <button type="button" className="m-btn" disabled={!!busy || l.frozen} data-testid={`swap-${l.symbol}`} data-tip={l.frozen ? 'Frozen — unfreeze to swap it' : `Swap $${l.symbol} for the best coin of its kind not on the card (keeper trades it next tick)`}
                 onClick={() => prime({ replace: { tpl: c.tpl, pairAddress: l.pairAddress } }, `⇄ $${l.symbol} swapped — keeper buys the new coin next tick`, `sw-${l.pairAddress}`)}>⇄</button>
               <button type="button" className={`m-btn ${l.frozen ? 'active' : ''}`} aria-pressed={!!l.frozen} disabled={!!busy} data-testid={`freeze-${l.symbol}`} data-tip={l.frozen ? `Unfreeze $${l.symbol}: the engine may rotate / stop it again` : `Freeze $${l.symbol}: never rotated or stopped (the card floor still protects you)`}

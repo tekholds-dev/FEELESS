@@ -397,6 +397,26 @@ def payout_profit_cash(book, equity_usd, sol_px, usd=None):
     return b, round(pay, 6)
 
 
+DUST_USD = 0.05   # a holding worth less than this can't be sold (under every route's minimum) — it must not hold a card open
+
+
+def write_off_dust(book, prices, min_usd=DUST_USD):
+    """A card that is SELLING OUT finishes even when a dead coin is left: a holding with a LIVE price that is worth under `min_usd`
+    (a rugged coin: 25 units at $0.000002) is written off the book — the coins stay in the wallet, the loss was already in the card's
+    value. No live price = unknown = kept (never written off blind). → (book, [{mint, symbol, usd, costUsd}])."""
+    b = {**book, 'legs': {k: dict(v) for k, v in (book.get('legs') or {}).items()}}
+    gone = []
+    for m, l in list(b['legs'].items()):
+        px = _f((prices or {}).get(l.get('pair')))
+        if px <= 0:
+            continue
+        usd = held_units(b, m) * px
+        if usd < min_usd:
+            gone.append({'mint': m, 'symbol': l.get('symbol') or m[:6], 'usd': round(usd, 6), 'costUsd': round(_f(l.get('costUsd')), 4), 'pair': l.get('pair')})
+            b['legs'].pop(m)
+    return b, gone
+
+
 def withdraw_cash(book, sol_px, usd=None):
     """💵 The OWNER takes money out of the card: card cash (SOL the card already holds — a manual sell lands here) leaves the card and
     the principal drops by the same amount. Put in $5, take $2 out → the card's principal is $3, and profit is whatever it is worth

@@ -739,6 +739,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - My cards real panel v2 (`hq-real`): card on a lit stage (sticky) · hero · coin rows with ✂ 25% / 50% / All · ⚙ Config and 🧾 Activity
   as `details.hrt-fold` drawers with a one-line summary · sticky action bar. Sims skip paths with a > 4× single-step jump (`MAX_STEP`).
 
+- ⚙ Edit Fuse v2 (`CFG_GROUPS`): tabs ⏱ Rounds · ⚡ Exits · 🧬 Shape · 🧱 Safety · 💵 Limits; one `ce-row` per setting = name + what it
+  does on the left, choices on the right (never a wrapping grid of segs). New setting ⇒ add it to EDIT and to one group's `rows([...])`.
+- 🪙 Size-aware real cards (`arena_prime.size_slots/fit_size`, guard `minCoinUsd` $0.75): a card holds only as many of its shape's
+  coins as keep each ≥ $0.75 (first anchor + first non-anchor kept): $1 → 1, $1.6 → 2, $2.5 → 3, $5+ → 4. `underfilled` uses the
+  same count. 🎯 Per-coin TP / SL on tier cards (`set_leg(tp, sl)`, `leg_tp/leg_sl`, `LEG_TPS`/`LEG_SLS`, 0 = follow the tier;
+  selects on each non-anchor coin row). ⏱ `clock_rank`: clocks ≤ 15 min rank candidates by 1h volume + momentum, slower keep order.
+- 🧹 Sell-all always finishes (`fuse_wallet.write_off_dust`, ledger side `writeoff`): while a card is selling out, a holding with a
+  LIVE price worth < $0.05 is written off the book (coins stay in the wallet); no price = kept. A rugged coin's dust once left a
+  card on "selling…" for good.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10
