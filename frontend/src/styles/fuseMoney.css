@@ -202,6 +202,7 @@ body.theme-day .ctab { background: #fff; border-color: #d8e2dc; }
 body.fx-lite .hrt-flow li, body.fx-lite .hrt-flow li em { animation: none; }
 @media (prefers-reduced-motion: reduce) { .hrt-flow li, .hrt-flow li em { animation: none; } }
 body.theme-day .hrt-flow li { background: #fff; }
+.hrt-stack { color: var(--m-accent); } .hrt-stack.is-full { color: var(--gold); }
 .hrt-lock { width: auto; min-height: 34px; padding: 4px 8px; font-size: 12px; } .hrt-lock.is-on { border-color: var(--gold); color: var(--gold); }
 .rpck.is-need { border-color: color-mix(in srgb, var(--gold) 70%, transparent); position: relative; }
 .rpck.is-need::after { content: ''; position: absolute; inset: -1px; border-radius: inherit; border: 1px solid var(--gold); pointer-events: none; animation: rpckGlow 1.4s ease-in-out infinite alternate; }

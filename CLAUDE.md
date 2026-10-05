@@ -1095,3 +1095,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   buying the anchor then selling it a minute later cost 4–5% impact twice on the whole card: $KURA, −$0.14).
 - 🔎 Whole-wallet audit 2026-10-05: 655 txs, 0 unread, 0 SOL ever sent to another address, books vs chain +0.0005 SOL. The earlier
   $0.87 "gap" was only the 27 transactions a rate-limited first pass could not read.
+- ⚖ NO COIN GETS THE WHOLE POT (`arena_prime.spread_cash`): idle cash fills each coin toward an EQUAL share of (coins + cash), in
+  proportion to how far under it sits; a coin at / over its share gets nothing. It used to go entirely to a coin waiting on its buy
+  ($1.15 → one coin = half the card, and that coin then decided the card).
+- 🔒 Stack & lock, in one line (`arena_prime.stack` → `summary.stack` → `hrt-stack` on the real card): 🔒 locked = frozen / riding
+  winners (sold only off their peak) · ✅ winning = ≥ `keepWinPct` (a re-shape won't sell it) · ⏳ proving · FULL STACK = every coin
+  locked. Simple on screen; the engine rules behind it (freeze, trail, half-freeze exit, stops) are unchanged.

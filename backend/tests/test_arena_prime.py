@@ -1192,3 +1192,19 @@ def test_floor_never_parks_the_card_in_a_pick_and_a_real_card_with_rest_off_goes
     assert c3['legs'] == [] and round(c3['cash'], 2) == 2.0
     c4 = ap.tick({**base, 'legs': [leg('MAJ', 'anchor', 2), leg('R1', 'runner', 1), leg('R2', 'runner', 1)]}, px, [], [], {**real_cfg, 'floorRestMins': 30.0}, now + 30, [], {}, {})
     assert [l['mint'] for l in c4['legs']] == ['MAJ']                                    # resting on purpose → it rests in the major
+
+
+def test_idle_cash_never_piles_into_one_coin_and_the_stack_reads_in_one_line():
+    import arena_prime as ap
+    leg = lambda m, units, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'units': units, 'entry': 1.0, 'costUsd': units, **k}
+    legs = [leg('A', 0.6), leg('B', 0.6), leg('C', 0.6), leg('NEW', 0.0, buying=True, wantUnits=0.0)]
+    fills = ap.spread_cash(legs, 1.2, {})
+    assert [round(f, 2) for f in fills] == [0.15, 0.15, 0.15, 0.75]                       # the waiting coin is filled to an equal share — not handed all $1.20
+    after = [0.6 + fills[0], 0.6 + fills[1], 0.6 + fills[2], fills[3]]
+    assert max(after) - min(after) < 1e-9 and round(sum(fills), 6) == 1.2                # every coin ends on the same share
+    assert [round(f, 2) for f in ap.spread_cash([leg('A', 2.0), leg('B', 0.5), leg('C', 0.5)], 0.6, {})] == [0.0, 0.3, 0.3]   # an overweight coin gets nothing
+    assert ap.spread_cash([leg('A', 1.0), leg('B', 1.0)], 0.0, {}) == [0.0, 0.0] and ap.spread_cash([], 1.0, {}) == []
+    card = {'legs': [leg('W', 1, ride=True), leg('F', 1, frozen=True), leg('UP', 1), leg('FLAT', 1), {**leg('E', 0), 'placeholder': True}]}
+    st = ap.stack(card, {'PUP': 1.08, 'PFLAT': 1.0}, {'keepWinPct': 5.0})
+    assert st == {'seats': 4, 'locked': 2, 'winning': 1, 'proving': 1, 'full': False}
+    assert ap.stack({'legs': [leg('W', 1, ride=True), leg('F', 1, frozen=True)]}, {}, {})['full'] and not ap.stack({'legs': []}, {}, {})['full']

@@ -1135,12 +1135,18 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     free_cash = max(0.0, _f(c['cash']) - reserved_cash)
     if cfg['compound'] and free_cash > 0.01 and c['legs']:
         waiting = [l for l in c['legs'] if l.get('buying') and not l.get('placeholder')]   # 👛 a pending real buy owns its slice first
-        targets = waiting or [l for l in c['legs'] if not l.get('placeholder')]
+        targets = [l for l in c['legs'] if not l.get('placeholder')]
         if targets:
-            each = free_cash / len(targets)
-            for l in targets:
+            # ⚖ NO COIN GETS THE WHOLE POT. Idle cash fills the seats that are furthest under an equal share and never lifts a coin
+            # above it. It used to go entirely to whichever coin was waiting on a buy: $1.15 of freed cash went into ONE coin, which
+            # became half the card — and one coin then decided the card.
+            fills = spread_cash(targets, free_cash, prices)
+            for l, each in zip(targets, fills):
+                if each <= 0:
+                    continue
                 px = buy_px(_f(prices.get(l['pairAddress'])) or l['entry'], each, liqs.get(l['pairAddress']) or l.get('liq'))
                 l['units'] += each / px; l['costUsd'] += each
+            targets = [l for l, each in zip(targets, fills) if each > 0]
             c['compoundedUsd'] += free_cash
             last = c['events'][-1] if c['events'] else {}
             if last.get('kind') == 'compound' and now - _f(last.get('firstAt') or last.get('at')) < 1800:   # one line per half hour, not one a tick
@@ -1206,6 +1212,37 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
 
 SMALL_SHARE = 0.5   # a coin PUT IN with < half its equal share is topped up …
 OVER_SHARE = 1.25   # … from card cash first, then from coins holding > 125% of their share
+
+
+def spread_cash(legs, cash, prices):
+    """How idle cash is split over a card's coins → [$ per leg]. Each coin is filled toward an EQUAL share of (coins + cash) in
+    proportion to how far under it sits; a coin already at or over its share gets nothing. A coin still waiting on its buy counts as
+    worth what it was given so far (often $0), so it is filled first — but only up to its share."""
+    def val(l):
+        px = _f((prices or {}).get(l['pairAddress'])) or _f(l.get('entry'))
+        return (_f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)) * px
+    vals = [val(l) for l in legs]
+    share = (sum(vals) + _f(cash)) / len(legs) if legs else 0.0
+    room = [max(0.0, share - v) for v in vals]
+    total = sum(room)
+    if total <= 0:
+        return [_f(cash) / len(legs)] * len(legs) if legs else []
+    return [_f(cash) * r / total for r in room]
+
+
+def stack(card, prices, cfg=None):
+    """🔒 The card in one line: how many coins are LOCKED (a winner the engine froze and is riding — it is only sold off its peak),
+    how many are WINNING (up enough that a re-shape won't sell them) and how many are still PROVING themselves.
+    → {seats, locked, winning, proving, full}. A full stack = every coin locked: the engine stops rotating and just guards them."""
+    keep = _f((cfg or {}).get('keepWinPct', 5.0))
+    seats = [l for l in (card or {}).get('legs') or [] if not l.get('placeholder') and (_f(l.get('units')) > 0 or l.get('buying'))]
+    def gain(l):
+        px = _f((prices or {}).get(l['pairAddress'])) or _f(l.get('entry'))
+        return (px / _f(l['entry']) - 1) * 100 if _f(l.get('entry')) > 0 else 0.0
+    locked = [l for l in seats if l.get('ride') or l.get('frozen')]
+    winning = [l for l in seats if l not in locked and keep > 0 and gain(l) >= keep]
+    return {'seats': len(seats), 'locked': len(locked), 'winning': len(winning), 'proving': len(seats) - len(locked) - len(winning),
+            'full': bool(seats) and len(locked) == len(seats)}
 
 
 def balance_small(c, prices, liqs, now, fee, ev):
@@ -1297,6 +1334,7 @@ def summary(card, prices, cfg=None):
     return {**{k: card[k] for k in ('id', 'tpl', 'label', 'at', 'lastRotateAt', 'compoundedUsd', 'takenUsd', 'feesUsd', 'startUsd')}, 'cash': round(card['cash'], 4), 'walletUsd': round(_f(card.get('walletUsd')), 4),
             'flooredAt': card.get('flooredAt'), 'phase': card.get('phase'), 'cycleFix': card.get('cycleFix'), 'cycle': list(CYCLE) if card['tpl'] in CYCLE_TIERS else None, 'rounds': int(card.get('rounds') or 0), 'lastRoundPct': card.get('lastRoundPct'),
             'roundPct': round((v / (_f(card.get('roundStartUsd')) or start) - 1) * 100, 2), 'roundWins': int(card.get('roundWins') or 0),
+            'stack': stack(card, prices, cfg),
             'swapCap': {**swap_cap(cfg or {}, v, len(card['legs'])), 'used': swaps_last_hour(card, _f((cfg or {}).get('_now')) or __import__('time').time())},
             'valueUsd': v, 'pnlPct': round((v / start - 1) * 100, 2), 'legs': legs, 'events': card['events'][-12:][::-1],
             'tp': card_template(card['tpl'], cfg)['tp'], 'sl': card_template(card['tpl'], cfg)['sl'], 'tier': TEMPLATES[card['tpl']]['tier'], 'why': TEMPLATES[card['tpl']].get('why'),
