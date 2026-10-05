@@ -1205,3 +1205,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   Trench funnel now says "holder scan not done yet" apart from a real top-10 fail; trench top-10 above 25% passes to 35%
   (`HOLD_TOP10`) only while `runners.holding(c)`. THE OWNER'S RUNNER GATE in HQ › Engine is theirs (2026-10-05: top-10 < 20%,
   cap ≥ $20K, 52–80% buys) — when lists are thin, read `/runners` dropped gates and SAY which setting is doing it; never change it.
+- 💤 IDLE CARD CASH, THE REAL CAUSE (`fuse_wallet.idle_sweep`, last step of `orders`): the keeper never sends a top-up inside the 50%
+  re-weigh band or under the min order, and the next `sync_card` copies the wallet back — so the engine logged "idle cash back into
+  the card" every tick (a folded `compound` event summing to MORE than the card = this loop) while the SOL sat in the book. When a
+  tick has no other order, ONE buy puts spare SOL (beyond ✂ cash, held cash, a reserved seat) into the held coin furthest under an
+  equal share; never a locked / just-cut / just-refused coin. "ENGINE SAYS X, WALLET DIDN'T" ⇒ compare card events with the ledger.

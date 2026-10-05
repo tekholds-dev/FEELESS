@@ -80,7 +80,7 @@ def target(card, prices):
         px = _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
         t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role'), 'arena': bool(l.get('arena')), 'trench': bool(l.get('trench')), 'picked': bool(l.get('picked')),
                                        'trim': bool(l.get('trimAt')) and _f(l.get('trimAt')) > 0, 'trimAt': _f(l.get('trimAt')),
-                                       'manualCash': bool(l.get('manualCash'))})
+                                       'manualCash': bool(l.get('manualCash')), 'locked': bool(l.get('ride') or l.get('frozen'))})
         t['units'] += _f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)   # a coin whose buy hasn't landed is still WANTED
     return out
 
@@ -168,7 +168,39 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
                      'lamports': int(usd / sol_px * 1e9), 'usd': round(usd, 4), 'midPx': t['px'], 'at': now, 'why': 'card buys its coin',
                      **({'rentDeposit': rent} if rent else {}),
                      **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {}), **({'picked': True} if t.get('picked') else {})})
-    return sells + buys
+    sweep = idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now) if not sells and not buys else None
+    return sells + buys + ([sweep] if sweep else [])
+
+
+def idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now):
+    """💤 IDLE CARD CASH GOES BACK INTO THE CARD'S COINS. The engine tops coins up on paper in small pieces; a top-up inside the
+    50% re-weigh band (or under the min order) is never sent, the next sync copies the wallet back, and the cash sat in the book
+    for good — the engine logged "idle cash back into the card" every tick while $0.75 of a $2.60 card did nothing. When a tick has
+    NO other order and the card holds spare SOL (beyond a SOL seat, the owner's ✂ cash, a reserved seat's money), ONE buy puts it
+    into the held coin furthest under an equal share (one min-size order at least) — never a locked rider or a coin cut in the
+    last 10 min; the rest follows on the next ticks. → order or None"""
+    if sol_px <= 0 or card.get('flooredAt') or card.get('sellingOut'):
+        return None
+    reserved = sum(_f(l.get('reserveUsd')) for l in card.get('legs') or [] if l.get('placeholder')) + _f(card.get('holdCashUsd'))
+    idle = sol_free * sol_px - reserved
+    floor = max(_f(cfg['minOrderUsd']), LEFTOVER_MIN_USD)
+    if idle < floor:
+        return None
+    val = lambda m, t: held_units(book, m) * t['px']
+    seats = [(m, t) for m, t in tgt.items() if m != SOL_MINT and t['px'] > 0 and held_units(book, m) > 0 and not t.get('manualCash')]
+    # … nor a coin whose buy was just refused (benched / a miss on record): the sweep must not hammer a coin the checks turned down
+    bad = {m for m, b in (book.get('benched') or {}).items() if _f(b.get('until')) > now} | set(book.get('misses') or {})
+    ok = [(m, t) for m, t in seats if not t.get('locked') and m not in bad and not (t.get('trim') and now - _f(t.get('trimAt')) < TRIM_SEC)]
+    if not ok:
+        return None
+    share = (sum(val(m, t) for m, t in ok) + idle) / len(ok)   # an equal share among the coins that may be topped up
+    mint, t = min(ok, key=lambda x: val(*x))
+    usd = min(idle, cfg['maxSwapUsd'], max(share - val(mint, t), floor))
+    if usd < floor:
+        return None
+    return {'id': f"{card_id}:{now:.0f}:b:{mint[:6]}", 'card': card_id, 'side': 'buy', 'mint': mint, 'pair': t['pair'], 'symbol': t['symbol'],
+            'lamports': int(usd / sol_px * 1e9), 'usd': round(usd, 4), 'midPx': t['px'], 'at': now, 'why': 'idle card cash back into its coin',
+            **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {}), **({'picked': True} if t.get('picked') else {})}
 
 
 def spent_24h(ledger, now):

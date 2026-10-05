@@ -399,7 +399,7 @@ def test_dealt_coin_keeps_its_depth_and_new_major_tag():
 
 def test_kept_coin_is_not_churned_on_a_reshape():
     """🔁 a coin that stays on the card is not sold / rebought for a small re-weigh (that churn ate the daily cap)."""
-    book = {'sol': 1.0, 'legs': {'M1': {'atoms': 1_100_000, 'decimals': 6, 'pair': 'P1', 'symbol': 'A', 'entryPx': 1.0}}}
+    book = {'sol': 0.0, 'legs': {'M1': {'atoms': 1_100_000, 'decimals': 6, 'pair': 'P1', 'symbol': 'A', 'entryPx': 1.0}}}   # no idle SOL: this is about the band
     card = {'legs': [{'mint': 'M1', 'pairAddress': 'P1', 'symbol': 'A', 'units': 1.0, 'role': 'anchor'}], 'cash': 0.0}
     out = fw.orders('safe', card, book, {'P1': 1.0}, 100.0, {**CFG, 'minOrderUsd': 0.05}, 0)
     assert not [o for o in out if o['mint'] == 'M1']                     # 1.1 held vs 1.0 wanted: inside the band
@@ -1059,3 +1059,23 @@ def test_the_owners_pick_may_use_their_own_sell_back_limit_but_never_over_10():
     assert fw.buy_safety({**o, 'picked': True, 'maxRoundtripPct': 8}, 1_000_000, None, back(6.8))[0]
     assert not fw.buy_safety({**o, 'picked': True, 'maxRoundtripPct': 50}, 1_000_000, None, back(10.5))[0]   # capped at 10%
     assert not fw.buy_safety({**o, 'picked': True}, 1_000_000, None, back(6.8))[0] and fw.clean_cfg({})['pickSellBackPct'] == 6
+
+
+def test_idle_card_cash_is_swept_into_the_coin_furthest_under_its_share_when_nothing_else_is_due():
+    cfg = {**CFG, 'minOrderUsd': 0.25, 'minLiqUsd': 0, 'arenaMinLiqUsd': 0}
+    bl = lambda units: {'atoms': int(units * 1e6), 'decimals': 6, 'costUsd': units, 'entryPx': 1.0}
+    c = card([leg('A', 'PA', 0.30, 1.0), leg('B', 'PB', 0.60, 1.0), leg('C', 'PC', 0.60, 1.0)])
+    book = {'sol': 0.0075, 'legs': {'A': bl(0.30), 'B': bl(0.60), 'C': bl(0.60)}}                 # $0.75 idle at $100 SOL
+    px = {'PA': 1.0, 'PB': 1.0, 'PC': 1.0}
+    o = fw.orders('t', c, book, px, 100.0, cfg, 1000)
+    assert [(x['side'], x['mint'], x['why']) for x in o] == [('buy', 'A', 'idle card cash back into its coin')]
+    assert abs(o[0]['usd'] - 0.45) < 0.01                                                         # up to its equal share ($0.75), not the whole pot
+    locked = card([{**leg('A', 'PA', 0.30, 1.0), 'ride': True}, leg('B', 'PB', 0.60, 1.0), leg('C', 'PC', 0.60, 1.0)])
+    assert fw.orders('t', locked, book, px, 100.0, cfg, 1000)[0]['mint'] in ('B', 'C')            # never a locked rider
+    cut = card([{**leg('A', 'PA', 0.30, 1.0), 'trimAt': 900}, leg('B', 'PB', 0.60, 1.0), leg('C', 'PC', 0.60, 1.0)])
+    assert fw.orders('t', cut, book, px, 100.0, cfg, 1000)[0]['mint'] in ('B', 'C')               # nor a coin cut minutes ago
+    assert fw.orders('t', c, {**book, 'manualCashSol': 0.0075}, px, 100.0, cfg, 1000) == []       # the owner's ✂ cash is never spent
+    assert fw.orders('t', {**c, 'holdCashUsd': 0.75}, book, px, 100.0, cfg, 1000) == []           # nor cash held for them
+    hold = card([leg('A', 'PA', 0.30, 1.0), leg('B', 'PB', 0.60, 1.0), {**leg('S', 'PS', 0.0, 1.0), 'placeholder': True, 'reserveUsd': 0.6}])
+    assert fw.orders('t', hold, {'sol': 0.0075, 'legs': {'A': bl(0.30), 'B': bl(0.60)}}, px, 100.0, cfg, 1000) == []   # a reserved seat keeps its money ($0.15 left < min)
+    assert fw.orders('t', c, {**book, 'sol': 0.001}, px, 100.0, cfg, 1000) == []                  # dust stays
