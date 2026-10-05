@@ -6364,7 +6364,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
             try:
                 q = await _fw_quote(order, {**cfg, 'slippageBps': slip})
                 swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
-                                                                    'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': 100000, 'priorityLevel': 'veryHigh'}}})
+                                                                    'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': _fw.priority_cap(slip_try + 1, boost, sol_px), 'priorityLevel': 'veryHigh'}}})
                 row['lastValidBlockHeight'] = swap.get('lastValidBlockHeight')
                 signed = await _fw_sign(cfg, swap.get('swapTransaction'), f"FEELESS {tid} {order['side']} {order.get('symbol')} retry")
                 row['retrySlipBps'] = slip

@@ -424,15 +424,17 @@ def test_priority_rises_after_txs_that_did_not_land():
     led = [{'card': 'safe', 'err': 'not confirmed in 2 min', 'at': 900.0}, {'card': 'safe', 'err': 'not confirmed in 2 min', 'at': 950.0},
            {'card': 'other', 'err': 'not confirmed in 2 min', 'at': 950.0}, {'card': 'safe', 'err': 'not confirmed in 2 min', 'at': 10.0}]
     assert fw.landing_boost(led, 'safe', 1000.0) == 2
-    assert fw.priority_cap(0, 0) == 50_000 and fw.priority_cap(0, 2) == 150_000 and fw.priority_cap(2, 4) == 300_000
+    assert fw.priority_cap(0, 0) == 10_000 and fw.priority_cap(0, 2) == 30_000 and fw.priority_cap(2, 4) == 70_000   # no SOL price: small steps, capped
 
 
-def test_first_try_swap_costs_under_a_penny_retries_pay_to_land():
-    for px in (100.0, 150.0, 200.0, 400.0):
-        cap = fw.priority_cap(0, 0, px)
-        assert (cap + fw.BASE_LAMPORTS) / 1e9 * px < 0.01 or cap == 10_000
-    assert fw.priority_cap(0, 0, 200.0) == 40_000
-    assert fw.priority_cap(1, 0, 200.0) == 100_000 and fw.priority_cap(0, 1, 200.0) == 100_000   # trouble landing → pay to land
+def test_every_keeper_swap_costs_way_under_a_penny_even_a_retry():
+    cost = lambda a, b, px: (fw.priority_cap(a, b, px) + fw.BASE_LAMPORTS) / 1e9 * px
+    for px in (60.0, 119.0, 200.0, 400.0):
+        assert cost(0, 0, px) <= 0.0025                                                  # first try: a fifth of a cent
+        assert cost(1, 0, px) <= 0.0041 and cost(0, 1, px) <= 0.0041                     # one retry / one recent miss
+        assert all(cost(a, b, px) < 0.01 for a in range(4) for b in range(5))            # never a penny, whatever happens
+        assert fw.priority_cap(1, 0, px) > fw.priority_cap(0, 0, px)                     # a retry still pays a little more to land
+    assert fw.priority_cap(0, 0, 119.0) == 11_807
 
 
 def test_gas_tank_and_landing_rate():

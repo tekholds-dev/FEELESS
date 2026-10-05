@@ -918,17 +918,21 @@ def landing_boost(ledger, card, now, window=600):
     return min(4, sum(1 for r in (ledger or [])[-60:] if missed(r)))
 
 
-PENNY_USD = 0.009      # a first-try swap (base fee + priority) stays under a penny
+PENNY_USD = 0.009      # the most ANY keeper swap may pay the network (base fee + priority) — a retry included
+FIRST_USD = 0.002      # a first try with no landing trouble: a fifth of a cent
 BASE_LAMPORTS = 5_000  # Solana's signature fee
+MIN_PRIORITY = 1_000
 
 
 def priority_cap(attempt, boost, sol_usd=0.0):
-    """Max priority fee (lamports). First try with no landing trouble: whatever keeps base + priority under a penny at today's SOL
-    price (10K–50K). A retry or a card whose txs lately didn't land: 50K ×(attempt+1+boost), capped at 300K (≈ $0.02–0.06) —
-    landing beats saving a fraction of a cent; it never burns the card."""
-    if not int(attempt) and not int(boost) and _f(sol_usd) > 0:
-        return max(10_000, min(50_000, int(round(PENNY_USD / _f(sol_usd) * 1e9)) - BASE_LAMPORTS))
-    return min(300_000, 50_000 * (int(attempt) + 1 + int(boost)))
+    """Max priority fee (lamports) so base + priority stays WAY under a penny: first try ≤ $0.002; each retry / recent miss adds
+    $0.002; never over $0.009 whatever happens (it used to climb to 300K lamports ≈ $0.04 on a retry). Landing comes from the
+    one-hop route + re-sending the same signed tx to every node, not from paying more. No SOL price → 10K lamports a step, ≤ 70K."""
+    level = max(0, int(attempt)) + max(0, int(boost))
+    if _f(sol_usd) <= 0:
+        return min(70_000, 10_000 * (level + 1))
+    usd = min(PENNY_USD, FIRST_USD * (level + 1))
+    return max(MIN_PRIORITY, int(round(usd / _f(sol_usd) * 1e9)) - BASE_LAMPORTS)
 
 
 CLOSE_MAX = 8   # accounts per close transaction (well inside the size limit)

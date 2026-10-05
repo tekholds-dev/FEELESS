@@ -1011,3 +1011,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   suspicious old sells (`route_fix_rows`, ≥ 25% under cost) are re-read and the parked rent goes back into the card's cash
   (≤ the wallet's free SOL), the run baseline rises by the same $ (money back, not a gain). When a real sell books a loss the coin's
   chart doesn't show, read the tx's pre/post balances before touching the engine.
+- 💸 Keeper swap cost v2 (`fuse_wallet.priority_cap`, `FIRST_USD` $0.002, `PENNY_USD` $0.009): base + priority ≤ a fifth of a cent on
+  a first try, +$0.002 per retry / recent miss, NEVER a penny (the slippage-retry path used a flat 100K lamports ≈ $0.012). Landing
+  comes from the one-hop route + re-broadcast to every node. When every keyed RPC plan is spent the keeper keeps `KEEPER_PUBLIC` to
+  itself (scanners use the other public node) and paces its retries. `.env`: the owner's editor keeps re-activating old
+  `SOLANA_RPC_URL` lines — after ANY `.env` edit run `grep -c '^SOLANA_RPC_URL=' backend/.env` (must be 1; first value wins).
