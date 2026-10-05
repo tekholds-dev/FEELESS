@@ -730,6 +730,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Two season tests use the real clock and fail for a minute at Monday 00:00 UTC (week boundary) — re-run, don't "fix" the engine.
 - Landing headline: "MANY COINS, ONE FUSE." HQ Fuse deck: the five-step strip opens with "How the deck works" (help, not dashboard).
 
+- 💰 PAYOUT RULE (real + paper): a card pays out ONLY what it is worth above the money the owner still HAS IN. Real = `fundedUsd`
+  (`fuse_wallet.profit_available`); paper = the run's `startUsd`; the tier engine's per-coin payout is gated the same way
+  (`V() + proceeds < basis` → the gain stays in the card). The owner takes principal out BY HAND only:
+  ✂ `sell_leg_to_cash(..., pct)` 25 / 50 / 100 per coin or `manualSell {all, pct}` for every coin → card cash (`holdCashUsd` is never
+  auto-compounded) → ↗ `fuse_wallet.withdraw_cash` (`POST /admin/fuse-wallet/withdraw-cash`, owner) moves that cash out and LOWERS
+  `fundedUsd` by the same $ ($5 in, $2 out → principal $3, profit = above $3). No on-chain move: it becomes unassigned wallet SOL.
+- My cards real panel v2 (`hq-real`): card on a lit stage (sticky) · hero · coin rows with ✂ 25% / 50% / All · ⚙ Config and 🧾 Activity
+  as `details.hrt-fold` drawers with a one-line summary · sticky action bar. Sims skip paths with a > 4× single-step jump (`MAX_STEP`).
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

@@ -89,3 +89,28 @@ def test_one_freak_run_cannot_carry_a_strategy_or_the_daily_outlook():
     o = hq.outlook(board)
     assert o['proven'] is False and o['per1'] == 0.955
     assert hq.robust_avg([10, 20, 900]) == (10 + 20 + 300) / 3                         # few runs: each capped at +300%
+
+
+def test_manual_part_sell_keeps_the_rest_and_holds_the_cash_and_sims_skip_untradeable_jumps():
+    import arena_prime as ap, pg_sim as ps
+    card = {'legs': [{'pairAddress': 'P1', 'mint': 'M1', 'symbol': 'AAA', 'units': 10.0, 'costUsd': 10.0, 'entry': 1.0}], 'cash': 0.0, 'events': []}
+    c = ap.sell_leg_to_cash(card, 'P1', {'P1': 2.0}, 5, pct=25)
+    assert c['legs'][0]['units'] == 7.5 and c['legs'][0]['costUsd'] == 7.5 and c['cash'] == 5.0 and c['holdCashUsd'] == 5.0
+    assert card['legs'][0]['units'] == 10.0                                             # the input card is never mutated
+    full = ap.sell_leg_to_cash(card, 'P1', {'P1': 2.0}, 5)
+    assert full['legs'][0]['units'] == 0.0 and full['cash'] == 20.0
+    t0 = 0; pts = lambda seq: [[t0 + i * ps.STEP_MIN * 60, p] for i, p in enumerate(seq)]
+    series = ps._series({'ok': pts([1, 1.2, 1.5, 1.4]), 'launch': pts([0.0001, 1.0, 1.1, 1.2])}, t0, 4)
+    assert set(series) == {'ok'}                                                        # a 10,000× tick is not a trade
+
+
+def test_taking_money_out_lowers_the_principal_so_profit_is_measured_above_what_is_still_in():
+    import fuse_wallet as fw
+    book = {'sol': 0.02, 'manualCashSol': 0.02, 'fundedUsd': 5.0, 'bankSol': 0.0}     # $5 in · $2 of it sold to card cash ($100 SOL)
+    nb, took = fw.withdraw_cash(book, 100.0)
+    assert took == 2.0 and nb['fundedUsd'] == 3.0 and nb['sol'] == 0.0 and nb['withdrawnUsd'] == 2.0 and book['fundedUsd'] == 5.0
+    assert fw.profit_available(nb, 3.4, 100.0) == 0.4            # worth $3.40 with $3 still in → $0.40 is profit
+    assert fw.profit_available(book, 3.4, 100.0) == 0.0          # before the withdrawal the same card had no profit to pay
+    part, took2 = fw.withdraw_cash({'sol': 0.05, 'fundedUsd': 5.0}, 100.0, usd=1.5)
+    assert took2 == 1.5 and part['fundedUsd'] == 3.5 and part['sol'] == 0.035
+    assert fw.withdraw_cash({'sol': 0.0, 'fundedUsd': 5.0}, 100.0)[1] == 0.0

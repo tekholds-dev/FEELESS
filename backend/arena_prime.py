@@ -612,6 +612,11 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             # 🧬 payoutPct applies to realized PROFIT, never principal. Principal + retained profit stay available to compound/rebuy.
             dna = {'payoutPct': (cfg.get('payouts') or DEFAULT_PAYOUTS).get(card['tpl'], 0), 'compound': cfg.get('compoundStyle', 'smart') if cfg['compound'] else 'off'}
             out_usd, retained_profit = _dna.split_profit(profit, dna)
+            # 💰 PROFIT ONLY: a card pays out only while the WHOLE card is above what it started with. One coin's win on a card that
+            # is still down is not profit yet — it stays in the card (paper used to pay out $2.88 from a card that was −70%).
+            # the line is the money the owner HAS IN: real = funded principal minus what they took out (`fundedUsd`); paper = the run's start
+            if out_usd > 0 and V() + proceeds < (_f(c.get('fundedUsd')) or _f(c.get('startUsd'))):
+                retained_profit += out_usd; out_usd = 0.0
             recycle_usd = sold_cost + retained_profit
             if out_usd > 0:
                 c['walletUsd'] = round(_f(c.get('walletUsd')) + out_usd, 6)
@@ -795,7 +800,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                     nc['events'] = list(nc.get('events') or []) + [{'kind': 'keep', 'at': now, 'why': f'🛡 {kept} winning / frozen coin{"s" if kept > 1 else ""} carried into the {phase} shape — never sold by a re-shape'}]
                 c = nc
     # 4) idle cash goes back to work when compounding. Cash reserved for an empty replacement slot is untouchable.
-    reserved_cash = sum(_f(l.get('reserveUsd')) for l in c['legs'] if l.get('placeholder'))
+    reserved_cash = sum(_f(l.get('reserveUsd')) for l in c['legs'] if l.get('placeholder')) + _f(c.get('holdCashUsd'))   # + cash the owner sold out by hand
     free_cash = max(0.0, _f(c['cash']) - reserved_cash)
     if cfg['compound'] and free_cash > 0.01 and c['legs']:
         waiting = [l for l in c['legs'] if l.get('buying') and not l.get('placeholder')]   # 👛 a pending real buy owns its slice first
@@ -919,7 +924,7 @@ def set_leg(card, pair, frozen=None, sl_mode=None):
     return c
 
 
-def sell_leg_to_cash(card, pair, prices, now):
+def sell_leg_to_cash(card, pair, prices, now, pct=100.0):
     """Owner manual sell: remove one coin from the target and keep its proceeds as card cash.
 
     The zero-unit manualCash placeholder preserves the slot/role without asking the
@@ -933,6 +938,16 @@ def sell_leg_to_cash(card, pair, prices, now):
     if l.get('mint') == SOL_MINT:
         raise ValueError('SOL is already card cash.')
     px = _f(prices.get(pair)) or _f(l.get('entry'))
+    pct = max(1.0, min(100.0, _f(pct) or 100.0))
+    if pct < 100:   # ✂ sell PART of a coin: the slot keeps the rest; the cash is held for the owner (never auto-compounded back in)
+        part = pct / 100.0
+        usd = max(0.0, _f(l.get('units')) * px * part)
+        l['units'] = _f(l.get('units')) * (1 - part); l['costUsd'] = _f(l.get('costUsd')) * (1 - part)
+        c['cash'] = round(_f(c.get('cash')) + usd, 6)
+        c['holdCashUsd'] = round(_f(c.get('holdCashUsd')) + usd, 6)
+        c['events'].append({'at': now, 'kind': 'manual-sell', 'symbol': l.get('symbol'), 'usd': round(usd, 4),
+                            'why': f'{pct:g}% sold by owner — proceeds held as card cash', 'to': ['cash']})
+        return c
     usd = max(0.0, _f(l.get('units')) * px)
     sold = {**l, 'units': 0.0, 'costUsd': 0.0, 'wantUnits': 0.0, 'buying': False,
             'placeholder': True, 'manualCash': True, 'reserveUsd': 0.0, 'at': now}

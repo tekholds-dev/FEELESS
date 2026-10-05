@@ -9,3 +9,7 @@ body.fx-lite .cc-nav2 .cc-tab-group { animation: none; }
 @media (prefers-reduced-motion: reduce) { .cc-nav2 .cc-tab-group { animation: none; } }
 body.theme-day .cc-groups > button i { background: #0001; }
 @media (max-width: 640px) { .cc-groups { align-self: stretch; overflow-x: auto; flex-wrap: nowrap; } }
+/* the tab title is one tidy line, not a tall empty box above the data */
+.cc-shell .cc-tab-hero { padding: 10px 16px; margin: 0; }
+.cc-shell .cc-tab-hero > div:first-child { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.cc-shell .cc-tab-hero h3 { margin: 0; font-size: 16px; } .cc-shell .cc-tab-hero p { margin: 0; font-size: 12.5px; }

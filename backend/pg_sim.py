@@ -21,6 +21,9 @@ CONFIRMS = (1, 2, 3, 4)   # ⏳ rounds in a row a coin must be losing before it 
 SWAP_COST = 0.006          # 0.6% per swap (network + FEELESS-free HQ route + impact) — the card always pays something to move
 
 
+MAX_STEP = 4.0
+
+
 def _series(paths, start, steps):
     """{mint: [price per step]} for mints whose history covers the whole window (forward-filled within the window)."""
     out = {}
@@ -34,6 +37,10 @@ def _series(paths, start, steps):
             while j < len(pts) and pts[j][0] <= t:
                 last = pts[j][1]; j += 1
             row.append(last)
+        # a price that jumps more than MAX_STEP× in one 5-min step is a launch tick or a bad read — nobody could have bought the
+        # low side of it. One such path made the brain report "typical card +107%" and a best card of +3,709%.
+        if any(b > a * MAX_STEP or b < a / MAX_STEP for a, b in zip(row, row[1:])):
+            continue
         out[m] = row
     return out
 

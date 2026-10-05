@@ -634,6 +634,10 @@ function RealCardFixes({ addr }) {
     const key = `payout-${c.tpl}`; setBusy(key); call('/admin/fuse-wallet/payout-profit', { method: 'POST', body: JSON.stringify({ tpl: c.tpl, usd: amt }) })
       .then(x => { toast.success(`Paid out ${m$(x.paidUsd || amt)} profit · principal untouched`); window.dispatchEvent(new Event('feeless:prime')); })
       .catch(e => toast.error(e.message)).finally(() => setBusy('')); };
+  const withdraw = (c, usdNow) => { const left = Math.max(0, (c.realBook?.fundedUsd || 0) - (usdNow || 0));
+    if (!window.confirm(`Take ${m$(usdNow)} of card cash out of ${c.label}? Your principal becomes ${m$(left)} — profit is then anything the card is worth above ${m$(left)}.`)) return;
+    setBusy(`wd-${c.tpl}`); call('/admin/fuse-wallet/withdraw-cash', { method: 'POST', body: JSON.stringify({ tpl: c.tpl }) })
+      .then(x => { toast.success(`↗ ${m$(x.tookUsd)} out · principal now ${m$(x.principalUsd)}`); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   const retryDead = (c, o) => { const key = `dead-${c.tpl}-${o.side}-${o.mint}`; setBusy(key);
     call('/admin/fuse-wallet/retry-dead', { method: 'POST', body: JSON.stringify({ tpl: c.tpl, side: o.side, mint: o.mint }) })
       .then(() => { toast.success(o.side === 'sell' ? `Retrying sell → ${c.label} cash` : `Retrying buy from ${c.label} cash`); window.dispatchEvent(new Event('feeless:prime')); })
@@ -648,10 +652,12 @@ function RealCardFixes({ addr }) {
   if (!useful.length) return null;
   return <section className="m-card m-live" data-testid="real-card-fixes"><span className="m-label">🛠 REAL CARD CASH / RECOVERY</span>
     {useful.map(c => { const b = c.realBook || {}; const rec = b.recoverable || []; const off = b.offCard || []; const recon = b.reconciliation || {}; const profit = Number(b.profitAvailableUsd || 0); const cash = Number(b.profitCashAvailableUsd || 0); const recoveryNow = off.reduce((sum, x) => sum + Number(x.usd || 0), 0); const recoveryCost = off.reduce((sum, x) => sum + Number(x.costUsd || 0), 0); return <div key={c.tpl} className="fw-tier real-recovery-tier">
-      <span><b>{c.label}</b><small className="m-dim"> · put in {m$(b.fundedUsd || 0)} · profit above principal {m$(profit)} · payable cash now {m$(cash)}</small>
-        {profit <= 0 && <small className="m-dim">No payout yet — card must first be worth more than everything put in.</small>}
+      <span><b>{c.label}</b><small className="m-dim"> · you have {m$(b.fundedUsd || 0)} in · profit above that {m$(profit)} · payable cash now {m$(cash)}</small>
+        {profit <= 0 && <small className="m-dim">No payout yet — the card pays out only what it is worth above the money you still have in it.</small>}
         {profit > 0 && cash <= 0 && <small className="m-dim">Profit exists in coins, but none is card cash yet. It becomes payable as sells/rotations return SOL.</small>}</span>
-      <span className="m-row"><button type="button" className="m-btn" disabled={cash <= 0 || !!busy} onClick={() => payout(c)} data-testid={`profit-payout-${c.tpl}`}>💸 Payout profit {m$(cash)}</button></span>
+      <span className="m-row"><button type="button" className="m-btn" disabled={cash <= 0 || !!busy} onClick={() => payout(c)} data-testid={`profit-payout-${c.tpl}`} data-tip="Profit = what the card is worth above the money you still have in it. Only profit that is already card cash can be paid out.">💸 Payout profit {m$(cash)}</button>
+        <button type="button" className="m-btn" disabled={!(recon.cardCashUsd > 0.01) || !!busy} onClick={() => withdraw(c, recon.cardCashUsd)} data-testid={`withdraw-cash-${c.tpl}`}
+          data-tip={`Take the card's cash out to your wallet. Your principal drops by the same amount (${m$(b.fundedUsd || 0)} → ${m$(Math.max(0, (b.fundedUsd || 0) - (recon.cardCashUsd || 0)))}), so profit is then counted above what is still in. Sell part of a coin first to make cash.`}>↗ Withdraw card cash {m$(recon.cardCashUsd || 0)}</button></span>
       {recon.cardEquityUsd != null && <div className="m-note" data-testid={`card-reconciliation-${c.tpl}`}><b>Card truth: {m$(recon.cardEquityUsd)}</b><small className="m-dim">Confirmed positions + {m$(recon.cardCashUsd || 0)} card cash. Wallet funds outside this card: {m$(recon.outsideCardUsd || 0)}; gas reserve stays separate.</small></div>}
       {(b.deadOrders || []).length > 0 && <details className="fw-tiers" data-testid={`dead-orders-${c.tpl}`}><summary>🧯 Failed attempts ({b.deadOrders.length}) · audit only</summary><small className="m-dim">Failed buys never became holdings and are not included in card value.</small>
         {(b.deadOrders || []).map((o, i) => <div key={`${o.side}-${o.mint || o.symbol}-${i}`} className="fw-tier"><span><b>{o.side === 'buy' ? '🟢 BUY' : '🔴 SELL'} ${o.symbol}</b><small className="m-dim"> · {o.err || o.status}</small></span>

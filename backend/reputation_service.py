@@ -5682,7 +5682,7 @@ async def fuse_prime_admin(request: Request):
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)
     ms = body.get('manualSell') or {}
-    if ms.get('tpl') in _prime.TEMPLATES and ms.get('pairAddress'):
+    if ms.get('tpl') in _prime.TEMPLATES and (ms.get('pairAddress') or ms.get('all')):
         async with _admin_lock:
             d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
             card = cards.get(ms['tpl'])
@@ -5690,7 +5690,11 @@ async def fuse_prime_admin(request: Request):
                 raise HTTPException(400, 'Manual sell-to-cash is only available on a real card.')
             px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in card.get('legs') or []])
             try:
-                cards[ms['tpl']] = _prime.sell_leg_to_cash(card, ms['pairAddress'], px, time.time())
+                # ✂ the owner's manual sell: one coin or every coin, any % (25 / 50 / 100) — the only way principal ever leaves a card
+                pairs_ms = [l['pairAddress'] for l in card.get('legs') or [] if l.get('mint') != _fw.SOL_MINT and _fuse._f(l.get('units')) > 0] if ms.get('all') else [ms['pairAddress']]
+                for pa in pairs_ms:
+                    card = _prime.sell_leg_to_cash(card, pa, px, time.time(), ms.get('pct') or 100)
+                cards[ms['tpl']] = card
                 kick_real_keeper = True
             except ValueError as e:
                 raise HTTPException(400, str(e))
@@ -6816,6 +6820,37 @@ async def fuse_wallet_payout_profit(request: Request):
         _fw_save(d)
     ad = _admin_load(); _audit(ad, me, 'fuse-wallet-payout-profit', f'{tid} ${paid:.2f}'); _admin_save(ad)
     return {'ok': True, 'tpl': tid, 'paidUsd': paid, 'availableBeforeUsd': avail, 'fundedUsd': b.get('fundedUsd')}
+
+@app.post('/api/reputation/admin/fuse-wallet/withdraw-cash')
+async def fuse_wallet_withdraw_cash(request: Request):
+    """Owner only: take card cash OUT of a real card (all of it, or `usd`). The principal drops by what was taken, so profit is
+    measured above what is still in. An internal reallocation — no coin sold, nothing sent: the SOL becomes unassigned wallet SOL."""
+    me = _require_owner(request)
+    body = await request.json()
+    tid = body.get('tpl')
+    if tid not in _prime.TEMPLATES:
+        raise HTTPException(400, 'Pick a funded tier.')
+    sol_px = await _sol_usd_live()
+    async with _fw_lock:
+        d = _fw_load(); b = d['books'].get(tid)
+        if not b:
+            raise HTTPException(400, 'That tier is not funded.')
+        if b.get('pending') or b.get('defund'):
+            raise HTTPException(409, 'Wait for the current Fuse transaction to settle, then withdraw.')
+        nb, took = _fw.withdraw_cash(b, sol_px, body.get('usd'))
+        if took <= 0:
+            raise HTTPException(400, 'This card has no cash to withdraw — sell part of a coin to card cash first.')
+        d['books'][tid] = nb
+        _fw_record(d, {'card': tid, 'side': 'withdraw', 'sol': round(took / sol_px, 9), 'usd': round(took, 4), 'at': time.time(), 'by': me, 'status': 'done',
+                       'why': f"owner took ${took:.2f} out — principal is now ${nb['fundedUsd']:.2f}"})
+        _fw_save(d)
+    async with _admin_lock:   # the paper side stops holding that cash for the owner
+        hd = _json_load(FUSE_HQ_PATH, {}); cd = ((hd.get('prime') or {}).get('cards') or {}).get(tid)
+        if cd:
+            cd['holdCashUsd'] = round(max(0.0, _fuse._f(cd.get('holdCashUsd')) - took), 6); _json_save(FUSE_HQ_PATH, hd)
+    ad = _admin_load(); _audit(ad, me, 'fuse-wallet-withdraw', f"{tid} ${took:.2f} principal→${nb['fundedUsd']:.2f}"); _admin_save(ad)
+    return {'ok': True, 'tookUsd': took, 'principalUsd': nb['fundedUsd']}
+
 
 @app.post('/api/reputation/admin/fuse-wallet/reinvest-paid')
 async def fuse_wallet_reinvest_paid(request: Request):

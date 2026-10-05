@@ -397,6 +397,25 @@ def payout_profit_cash(book, equity_usd, sol_px, usd=None):
     return b, round(pay, 6)
 
 
+def withdraw_cash(book, sol_px, usd=None):
+    """💵 The OWNER takes money out of the card: card cash (SOL the card already holds — a manual sell lands here) leaves the card and
+    the principal drops by the same amount. Put in $5, take $2 out → the card's principal is $3, and profit is whatever it is worth
+    above $3 from then on. No coin is sold and nothing moves on-chain: the SOL becomes unassigned wallet SOL. → (book, usd taken)."""
+    b = dict(book)
+    if sol_px <= 0:
+        return b, 0.0
+    have = max(0.0, _f(b.get('sol')))
+    sol = have if usd is None else min(have, max(0.0, _f(usd)) / sol_px)
+    if sol <= 0:
+        return b, 0.0
+    took = sol * sol_px
+    b['sol'] = round(have - sol, 9)
+    b['manualCashSol'] = round(max(0.0, _f(b.get('manualCashSol')) - sol), 9)
+    b['fundedUsd'] = round(max(0.0, _f(b.get('fundedUsd')) - took), 4)
+    b['withdrawnUsd'] = round(_f(b.get('withdrawnUsd')) + took, 4)
+    return b, round(took, 6)
+
+
 def reinvest_bank(book):
     """Move the card's currently segregated paid-out SOL back into active card SOL.
     This is NOT new funding: fundedUsd and bankUsd (historical payouts) stay unchanged."""
