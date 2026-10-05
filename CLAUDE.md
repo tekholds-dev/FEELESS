@@ -774,6 +774,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - RPC: the keeper's dedicated endpoint is `SOLANA_RPC_URL` in `backend/.env` (QuickNode HTTP Provider URL works as is). The owner
   pastes it — never print or commit it. Restart all services after changing it.
 
+- HQ panels fold, never delete: Engine playground keeps tiles + ready / proving on top; Doctor + battles · scenario cards · scenarios /
+  dials / strategies · engine log are `details.hrt-fold.pg-fold` drawers (it was 3,828px tall). Fuse wallet's audit trail is a
+  drawer too (`fw-audit`). Closed `details` keep their content in the DOM, so tests reading text still pass.
+- `backend/.env`: `env_loader` keeps the FIRST value of a repeated key. A QuickNode `SOLANA_RPC_URL` saved below an old Helius line
+  was ignored (Helius was out of quota: every keeper call 429'd). Keep ONE active `SOLANA_RPC_URL`; comment the others out.
+  Jest flakes under load on this Mac when 4 services + the dev server + Chrome run (SwapWorkspace / FuseGoFlows) — re-run alone.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

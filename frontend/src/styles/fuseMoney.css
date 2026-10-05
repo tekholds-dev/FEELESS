@@ -360,3 +360,5 @@ body.fx-lite .sp { animation: none; }
 @media (prefers-reduced-motion: reduce) { .sp { animation: none; } }
 body.theme-day .sp { background: #fff; }
 @media (max-width: 640px) { .sp li { grid-template-columns: minmax(0, 1fr) auto auto; } .sp li small { display: none; } }
+
+.pg-fold { margin-top: 8px; } .pg-fold[open] > .pg-box, .pg-fold[open] > section { margin-top: 8px; }

@@ -1,3 +1,4 @@
+import '../../styles/fuseMoney.css';
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Countdown } from '../RunnersPanel';
@@ -235,8 +236,10 @@ export function EnginePlayground({ call }) {
       <div className="pg-box is-ready"><header><b>✅ Ready for the Arena</b><small>{p.ready.length}</small></header>{p.ready.length ? p.ready.map((r, i) => <div key={i} className="pg-row"><i>{r.kind}</i><b>{r.name}</b><small>{r.why}</small></div>) : <p className="m-dim">Nothing proven yet — the engines keep testing.</p>}</div>
       <div className="pg-box"><header><b>⏳ Still proving</b><small>{p.proving.length}</small></header>{p.proving.slice(0, 10).map((r, i) => <div key={i} className="pg-row"><i>{r.kind}</i><b>{r.name}</b><small>{r.why}</small></div>)}</div>
     </div>
+    <details className="hrt-fold pg-fold"><summary><b>🩺 Doctor · ⚔ playground battles</b><span>pick filters on trial and the engine's own paper fights</span></summary>
     <EngineDoctor p={p} call={call} onChange={doc => setP(x => ({ ...x, doctor: doc }))} />
-    <PlaygroundBattles call={call} onPublish={id => { const sc = (p.scenarioCards || []).find(x => x.id === id); if (sc) publishScenario(sc); }} />
+    <PlaygroundBattles call={call} onPublish={id => { const sc = (p.scenarioCards || []).find(x => x.id === id); if (sc) publishScenario(sc); }} /></details>
+    <details className="hrt-fold pg-fold"><summary><b>🏆 Best scenarios → cards</b><span>{p.scenarioCards?.length || 0} cards ready to edit, pick for the Arena or publish</span></summary>
     {p.scenarioCards?.length > 0 && <div className="pg-box is-ready"><header><b>🏆 Best scenarios → cards</b><small>this round's gated runners + a SOL anchor, played with each winning exit plan · auto-updated every round</small></header>
       <div className="pg-cards">{p.scenarioCards.map((sc, i) => <article key={sc.id} className={`pg-card ${sc.dial ? `d-${sc.dial}` : ''}`} style={{ '--i': i }} data-testid={`pg-card-${sc.id}`}>
         <span className="pg-fcard"><FuseCard c={{ pools: sc.legs.map(l => l.pairAddress), fitness: Math.round(sc.avgPct || 0), bornGen: sc.rounds || 0, legs: sc.legs,
@@ -251,7 +254,8 @@ export function EnginePlayground({ call }) {
         <button type="button" className={`m-btn pg-pick ${sc.listed === 'pick' || sc.listed === 'bench' ? 'is-on' : ''}`} aria-pressed={sc.listed === 'pick' || sc.listed === 'bench'} onClick={() => pickForArena(sc)}
           data-tip="Creator's pick: put this runner-up on the Arena (it fights in the bracket). Tap again to take it off." data-testid={`pg-pickbtn-${sc.id}`}>{sc.listed === 'pick' || sc.listed === 'bench' ? "🎨 Creator's pick ✓" : "🎨 Pick for Arena"}</button>
         <span className="pg-acts"><button type="button" className="m-btn" onClick={() => editInBreed(sc)} data-tip="Open it in 🧬 Breed & fuse: rename, add / drop coins or pools, then publish" data-testid={`pg-edit-${sc.id}`}>✏️ Edit in Breed</button>
-        <button type="button" className="m-btn primary m-go" onClick={() => publishScenario(sc)} data-testid={`pg-pub-${sc.id}`}>⭐ Publish</button></span></article>)}</div></div>}
+        <button type="button" className="m-btn primary m-go" onClick={() => publishScenario(sc)} data-testid={`pg-pub-${sc.id}`}>⭐ Publish</button></span></article>)}</div></div>}</details>
+    <details className="hrt-fold pg-fold"><summary><b>🃏 Scenarios · dials · strategies</b><span>{p.scenarios?.length || 0} exit plans replayed · dials across windows · {p.board.length} strategies</span></summary>
     {p.scenarios?.length > 0 && <div className="pg-box"><header><b>🃏 Engine-cycled scenarios · {p.scenarios.length}</b><small>every runner round replayed under each exit plan · tap a card</small></header>
       <div className="pg-scen">{p.scenarios.map((sc, i) => <button key={sc.id} type="button" className={`pg-sc ${pick === sc.id ? 'is-on' : ''} ${sc.avgPct > 0 ? 'up' : sc.avgPct < 0 ? 'down' : ''}`} style={{ '--i': Math.min(i, 20) }} onClick={() => setPick(pick === sc.id ? null : sc.id)} data-testid={`pg-sc-${sc.id}`}>
         <small>{i === 0 && sc.rounds ? '👑 BEST · ' : ''}{sc.kind === 'dial' ? 'DIAL' : sc.kind === 'filter' ? 'PICK FILTER' : 'EXITS'} · {sc.window}</small><b>{sc.label}</b>
@@ -260,10 +264,11 @@ export function EnginePlayground({ call }) {
     <div className="pg-box"><header><b>🎚 Dials across windows</b><small>same dial must win ≥ 2 windows before auto-strength switches</small></header>
       <table className="vd-table"><thead><tr><th>Dial</th>{Object.keys(p.dials).map(w => <th key={w}>{w}</th>)}</tr></thead><tbody>{Object.keys(Object.values(p.dials)[0] || {}).map(d => <tr key={d}><td>{d}</td>
         {Object.keys(p.dials).map(w => { const v = p.dials[w][d] || {}; return <td key={w} className={v.avgPct > 0 ? 'm-pos' : v.avgPct < 0 ? 'm-neg' : ''}>{v.rounds ? `${fmt(v.avgPct)} · ${v.rounds}r` : '—'}</td>; })}</tr>)}</tbody></table></div>
-    {p.board.length > 0 && <div className="pg-box"><header><b>🏟 Strategies</b><small>$5 paper runs, settled after 24h</small></header>{p.board.map(r => <div key={r.style} className="pg-row"><b>{r.style}</b><small>{r.runs} runs · {r.winRate}% won</small><em className={r.avgPct >= 0 ? 'm-pos' : 'm-neg'}>{fmt(r.avgPct)}</em></div>)}</div>}
+    {p.board.length > 0 && <div className="pg-box"><header><b>🏟 Strategies</b><small>$5 paper runs, settled after 24h</small></header>{p.board.map(r => <div key={r.style} className="pg-row"><b>{r.style}</b><small>{r.runs} runs · {r.winRate}% won</small><em className={r.avgPct >= 0 ? 'm-pos' : 'm-neg'}>{fmt(r.avgPct)}</em></div>)}</div>}</details>
+    <details className="hrt-fold pg-fold"><summary><b>🔧 Engine log</b><span>{p.gateRegret?.length || 0} gate regrets · {p.autoLog.length} engine changes, newest first</span></summary>
     {p.gateRegret?.length > 0 && <div className="pg-box"><header><b>💡 Gate regret</b><small>coins a gate stopped that later ran 3×+ — a high rate means that ONE gate may be too strict</small></header>
       {p.gateRegret.slice(0, 6).map(g => <div key={g.gate} className="pg-row"><b>{g.gate}</b><small>{g.ran} of {g.stopped} ran 3×+{g.examples?.length ? ` · ${g.examples.join(', ')}` : ''}</small><em className={g.rate >= 20 ? 'm-neg' : 'm-dim'}>{g.rate}%</em></div>)}</div>}
-    {p.autoLog.length > 0 && <div className="pg-box"><header><b>🔧 Engine changes</b><small>auto + manual, newest first</small></header>{p.autoLog.map((a, i) => <div key={i} className="pg-row"><small>{new Date(a.at * 1000).toLocaleString()}</small><b>{a.admin === 'engine-auto' ? '🤖 auto' : '👤'}</b><small>{String(a.detail).slice(0, 110)}</small></div>)}</div>}
+    {p.autoLog.length > 0 && <div className="pg-box"><header><b>🔧 Engine changes</b><small>auto + manual, newest first</small></header>{p.autoLog.map((a, i) => <div key={i} className="pg-row"><small>{new Date(a.at * 1000).toLocaleString()}</small><b>{a.admin === 'engine-auto' ? '🤖 auto' : '👤'}</b><small>{String(a.detail).slice(0, 110)}</small></div>)}</div>}</details>
   </section>;
 }
 

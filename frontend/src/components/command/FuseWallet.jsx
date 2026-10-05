@@ -111,13 +111,14 @@ export function FuseWallet({ call }) {
       {(dry.orders || []).map((o, i) => <span key={i}>{o.side === 'buy' ? '🟢 buy' : '🔴 sell'} ${o.symbol} · {usd(o.usd)}{o.err ? ` · ⚠ ${o.err}` : ` · impact ${o.impactPct}% · via ${(o.route || []).join(' → ') || 'Jupiter'}`}</span>)}
       {!dry.orders?.length && <small className="m-dim">No swaps needed — this card is SOL right now (its SOL slice stays SOL).</small>}
       <b data-testid="fw-dry-fees">💳 Card gets {usd(dry.cardUsd)} · fees ≈ {usd(dry.feesUsdEst)} from the reserve (network {usd(dry.networkUsdEst)}{dry.newCoins ? ` + account rent for ${dry.newCoins} new coin${dry.newCoins > 1 ? 's' : ''} ${usd(dry.rentUsdEst)}, refundable` : ''}) · FEELESS fee $0</b></>}</div>}
-    <div><span className="m-label">4 · AUDIT TRAIL · {d.ledger?.length || 0} ROWS · BOUGHT {usd(d.totals?.bought)} · SOLD {usd(d.totals?.sold)} · TOP-UPS {usd(d.totals?.topups)}</span>
+    {/* every row is kept — the trail just opens on demand instead of pushing the page four screens down */}
+    <details className="hrt-fold" data-testid="fw-audit"><summary><b>4 · Audit trail</b><span>{d.ledger?.length || 0} rows · bought {usd(d.totals?.bought)} · sold {usd(d.totals?.sold)} · top-ups {usd(d.totals?.topups)}{d.ledger?.[0] ? ` · last: ${d.ledger[0].side} ${d.ledger[0].symbol ? `$${d.ledger[0].symbol} ` : ''}${new Date(d.ledger[0].at * 1000).toLocaleTimeString()}` : ''}</span></summary>
       <div className="fw-table" role="table" data-testid="fw-ledger"><div className="fw-row is-head" role="row"><span>WHEN</span><span>CARD</span><span>WHAT</span><span>$</span><span>FILL</span><span>FEE</span><span>TX</span></div>
         {(d.ledger || []).map((o, i) => <div key={i} className="fw-row" role="row"><span className="m-dim">{new Date(o.at * 1000).toLocaleTimeString()}</span><span>{o.card}</span>
           <span>{o.side} {o.symbol ? `$${o.symbol}` : ''} <em className={`fw-st s-${o.status}`}>{ST[o.status] || o.status}</em>{o.err ? <small className="m-dim"> · {o.err}</small> : null}</span>
           <span className="m-num">{usd(o.usd)}</span><span className="m-num">{o.px ? `$${Number(o.px).toPrecision(4)}` : o.impactPct != null ? `${o.impactPct}% imp` : '—'}</span><span className="m-num">{o.feeUsd != null ? usd(o.feeUsd) : '—'}</span>
           {o.sig ? <a href={txUrl(o.sig)} target="_blank" rel="noreferrer">tx ↗</a> : <span className="m-dim">—</span>}</div>)}
-        {!d.ledger?.length && <small className="m-dim">No orders yet — top-ups and every keeper swap land here (dry runs are shown above, never stored).</small>}</div></div>
+        {!d.ledger?.length && <small className="m-dim">No orders yet — top-ups and every keeper swap land here (dry runs are shown above, never stored).</small>}</div></details>
   </section>;
 }
 
