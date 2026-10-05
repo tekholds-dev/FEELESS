@@ -33,12 +33,31 @@ def _next_rpc_endpoint() -> Optional[str]:
     return min(RPC_POOL, key=lambda e: _rpc_cooldown_until.get(e, 0)) if RPC_POOL else None
 
 
+SCAN_RPS = 8          # how many calls a second the scanners may put on the dedicated endpoint — the rest of its plan is the keeper's
+_scan_stamps: list = []
+
+
+def _scan_slot() -> bool:
+    """A slot in this second's scanner budget on the dedicated endpoint? (A 15 req/s plan was being eaten whole by holder scans,
+    so the keeper's own lane got 429s on a balance read.)"""
+    now = time.time()
+    while _scan_stamps and now - _scan_stamps[0] > 1.0:
+        _scan_stamps.pop(0)
+    if len(_scan_stamps) >= SCAN_RPS:
+        return False
+    _scan_stamps.append(now)
+    return True
+
+
 async def _rpc(http: httpx.AsyncClient, method: str, params: list):
     """Calls the RPC pool with retry + per-endpoint cooldown on failure or rate-limit."""
     last_error = None
     now = time.time()
     order = [e for e in RPC_POOL if _rpc_cooldown_until.get(e, 0) <= now] or ([_next_rpc_endpoint()] if RPC_POOL else [])
     for endpoint in order[:RPC_MAX_RETRIES]:
+        if endpoint == _dedicated and len(RPC_POOL) > 1 and not _scan_slot():
+            last_error = last_error or 'scan_budget'   # over the scanners' share → try the next endpoint, leave the plan to the keeper
+            continue
         try:
             res = await http.post(endpoint, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
             if res.status_code == 429:

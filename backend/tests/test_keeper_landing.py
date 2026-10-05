@@ -168,3 +168,13 @@ def test_self_fix_never_overrides_the_owners_5_min_degen_settings():
     assert rs._brain_patch(owner, {}, best, prev, owner_set=['rotateConfirm', 'rotateHours', 'minHoldMins']) == {'rotateMinDrop': 8.0}
     guarded, _ = ap.real_guard(ap.clean_cfg({**owner, 'instantSwapPct': 10}))                              # the real guard keeps them too
     assert guarded['rotateConfirm'] == 2 and guarded['minHoldMins'] == 10 and guarded['rotateHours'] == 0.08
+
+
+def test_scanners_only_get_their_share_of_the_dedicated_endpoint(monkeypatch):
+    monkeypatch.setattr(chain_rpc, '_dedicated', 'DED'); monkeypatch.setattr(chain_rpc, 'RPC_POOL', ['DED', 'pub'])
+    monkeypatch.setattr(chain_rpc, 'RPC_MAX_RETRIES', 2); monkeypatch.setattr(chain_rpc, '_scan_stamps', []); monkeypatch.setattr(chain_rpc, 'SCAN_RPS', 2)
+    monkeypatch.setattr(chain_rpc, '_rpc_cooldown_until', {})
+    http = _Http([_Res(200, {'result': 1})] * 4)
+    for _ in range(4):
+        assert asyncio.run(chain_rpc._rpc(http, 'getBalance', ['W'])) == 1
+    assert [e for e, _ in http.calls] == ['DED', 'DED', 'pub', 'pub']          # 2 a second on the plan, the rest go elsewhere

@@ -164,3 +164,22 @@ def test_watch_creators_pass_with_a_penalty_and_the_funnel_says_why_coins_failed
     assert not tr.gate({**GOOD, 'creatorRep': 'high'}, 520, SAFE)[0]
     f = tr.funnel([GOOD, {**GOOD, 'ageH': 30.0}, {**GOOD, 'ageH': 40.0, 'top10': 60.0}])
     assert f[0]['n'] == 2 and 'fresh' in f[0]['why'] and any('top-10' in x['why'] for x in f)
+
+
+def test_trench_fill_never_loops_one_fill_a_round_and_never_on_a_coin_just_bought():
+    anchors, pools, runners = _cands()
+    cfg = ap.clean_cfg({'trenchCoins': 2, 'rotateHours': 0.08, 'minHoldMins': 10, 'cycles': {**{t: 'off' for t in ap.DEFAULT_CYCLES}, 'degen': 'trench'}, 'rescuePct': 0, 'cycleEvery': 0})
+    card = ap.deal('degen', pools, [x for x in runners if not x.get('trenchOnly')], cfg, 0.0, anchors, shape='degen')
+    px = {l['pairAddress']: l['entry'] for l in card['legs']}
+    for x in runners:
+        px.setdefault(x['pairAddress'], x['price'])
+    out = ap.tick(card, px, pools, runners, cfg, 30.0, anchors, {}, {})          # the first fill is immediate
+    fills = lambda c: sum(1 for e in c['events'] if 'trench cycle' in (e.get('why') or ''))
+    n1 = fills(out); assert n1 >= 1 and out.get('trenchFillAt') == 30.0
+    # a trench coin is replaced by a NORMAL runner (as an instant swap / stop does) seconds later …
+    tl = next(l for l in out['legs'] if l.get('trench'))
+    normal = next(x for x in runners if not x.get('trenchOnly') and x['mint'] not in {l['mint'] for l in out['legs']})
+    out['legs'][out['legs'].index(tl)] = ap._leg(normal, 10.0, 40.0, 'runner')
+    px[normal['pairAddress']] = normal['price']
+    again = ap.tick(out, px, pools, runners, cfg, 50.0, anchors, {}, {})         # … and the fill must NOT sell it straight back out
+    assert fills(again) == n1 and normal['mint'] in {l['mint'] for l in again['legs']}

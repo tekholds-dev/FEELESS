@@ -1066,3 +1066,9 @@ def test_a_coin_that_went_in_tiny_is_topped_up_to_equal_weight_but_a_loser_is_ne
     assert [e['symbol'] for e in c['events']] == ['C']
     again = len(c['events']); ap.balance_small(c, px, {}, 1.0, 0.01, ev)
     assert len(c['events']) == again                                                       # no churn once balanced
+
+
+def test_a_coin_is_only_bought_when_its_two_prices_agree_and_a_fresh_gap_is_never_sold_as_a_loss():
+    assert ap.price_agrees({'pairAddress': 'P', 'price': 1.0}, {'P': 1.05}) and not ap.price_agrees({'pairAddress': 'P', 'price': 1.0}, {'P': 0.13})
+    assert ap.price_agrees({'pairAddress': 'P', 'price': 1.0}, {})                     # no live price yet → allowed
+    assert ap.GAP_PCT == 50.0 and ap.GAP_SECS == 90.0

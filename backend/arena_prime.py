@@ -335,6 +335,22 @@ def clean_cfg(p):
     return out
 
 
+GAP_PCT, GAP_SECS, AGREE_PCT = 50.0, 90.0, 10.0
+
+
+def price_agrees(cand, prices):
+    """A candidate may be bought only when the scan's price and the live price feed agree within AGREE_PCT. A coin whose two prices
+    disagree is bought at one and marked at the other: it read −87% the moment it landed and was dumped. No live price yet = allowed."""
+    live = _f((prices or {}).get(cand.get('pairAddress'))); scan = _f(cand.get('price'))
+    return live <= 0 or scan <= 0 or abs(live / scan - 1) * 100 <= AGREE_PCT
+
+
+def safe_anchor(l):
+    """An anchor the engine never stops, rotates or rug-checks = an ESTABLISHED major. A new major sitting in an anchor seat keeps
+    every protection a runner has (stop, instant swap, rug shield): it can still go to zero."""
+    return l.get('role') == 'anchor' and not l.get('newMajor')
+
+
 def tier_cfg(cfg, tid):
     """The shared paper config as ONE tier plays it: its own round clock (`clocks[tier]`). Locked tiers and the real card have their
     own whole config and never go through here."""
@@ -647,7 +663,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             src = ([x for x in src if x.get('trenchOnly')] + [x for x in src if not x.get('trenchOnly')]) if trench else [x for x in src if not x.get('trenchOnly')]
         if role == 'runner' and cfg.get('strictRunners'):   # 🌧 runner weather is bad: only runners with real flow + buyers get in
             src = [x for x in src if _f(x.get('vol1h')) >= STRICT_VOL1H and (x.get('buyShare') is None or _f(x.get('buyShare')) >= STRICT_BUYS)]
-        return next((x for x in src if x['mint'] not in have() and _f(x.get('price')) > 0), None)
+        return next((x for x in src if x['mint'] not in have() and _f(x.get('price')) > 0 and price_agrees(x, prices)), None)
     # A prior replace may have reserved its slot when that feed had no eligible candidate. Heal it as soon as one exists.
     # This runs before TP/stops/rotation, preserves the configured slot count, and spends only the cash already returned by that sale.
     for l in list(c['legs']):
@@ -668,12 +684,18 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # `cycleEvery` rounds for the next re-shape. The weakest normal runner (not winning > +10%, not frozen / riding / picked / waiting
     # on a buy) is sold for the best trench coin. No trench coin passing → the card keeps its normal runners.
     if not c.get('holdAll') and not c.get('cycleFix') and (c.get('phase') == 'trench' or (cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl']) == 'trench'):
-        for _ in range(max(0, trench_n(cfg) - sum(1 for l in c['legs'] if l.get('trench')))):
-            nxt = next((x for x in rated(runners, 'runner') if x.get('trenchOnly') and x['mint'] not in have() and _f(x.get('price')) > 0), None)
+        # 🔁 NO LOOP: one trench fill per round, and never on a coin bought moments ago. A trench coin that died on arrival was replaced
+        # by a normal runner, which this fill sold seconds later for the next trench coin — 2 real swaps a minute, every minute.
+        first_fill = c.get('trenchFillAt') is None   # a card that just switched to trench takes its coins at once; after that the loop guard applies
+        fill_due = first_fill or now - _f(c.get('trenchFillAt')) >= max(120.0, _f(cfg.get('rotateHours')) * 3600)
+        hold_s = max(120.0, _f(cfg.get('minHoldMins')) * 60)
+        for _ in range(max(0, trench_n(cfg) - sum(1 for l in c['legs'] if l.get('trench'))) if fill_due else 0):
+            nxt = next((x for x in rated(runners, 'runner') if x.get('trenchOnly') and x['mint'] not in have() and _f(x.get('price')) > 0 and price_agrees(x, prices)), None)
             def gain(l):
                 px = _f(prices.get(l['pairAddress'])); return (px / _f(l['entry']) - 1) * 100 if px > 0 and _f(l.get('entry')) > 0 else 0.0
             victims = [l for l in c['legs'] if l.get('role') == 'runner' and not l.get('trench') and not l.get('frozen') and not l.get('ride')
-                       and not l.get('picked') and not l.get('placeholder') and (_f(l.get('units')) > 0 or l.get('buying')) and gain(l) <= 10]
+                       and not l.get('picked') and not l.get('placeholder') and (_f(l.get('units')) > 0 or l.get('buying')) and gain(l) <= 10
+                       and (first_fill or l.get('buying') or now - _f(l.get('at')) >= hold_s)]
             if not nxt or not victims:
                 break
             l = min(victims, key=lambda x: (not x.get('buying'), gain(x)))   # a seat still waiting on its buy swaps for free
@@ -683,13 +705,14 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             c['legs'][c['legs'].index(l)] = _leg(nxt, out_usd, now, 'runner')
             c['feesUsd'] = _f(c.get('feesUsd')) + 2 * fee
             ev(kind='rotate', symbol=l['symbol'], usd=round(out_usd, 4), why=f"🗑 trench cycle — {gain(l):+.1f}% runner swapped for a fresh trench breakout", to=[nxt.get('symbol')])
+            c['trenchFillAt'] = now
 
     # ⚡ INSTANT LOSS SWAP: this is deliberately NOT a round rule. Once a non-anchor coin reaches the owner's configured
     # loss from entry, it exits on this tick — no patience counter and no minimum-hold wait. Frozen/riding/manual Hold All still win.
     instant_loss = _f(cfg.get('instantSwapPct'))
     if instant_loss > 0 and not c.get('holdAll'):
         for l in list(c['legs']):
-            if l.get('role') == 'anchor' or l.get('frozen') or l.get('ride') or l.get('placeholder') or l.get('buying') or int(l.get('freezeRounds') or 0) > 0:
+            if safe_anchor(l) or l.get('frozen') or l.get('ride') or l.get('placeholder') or l.get('buying') or int(l.get('freezeRounds') or 0) > 0:
                 continue
             px = _f(prices.get(l['pairAddress']))
             if px <= 0 or _f(l.get('entry')) <= 0 or _f(l.get('units')) <= 0:
@@ -697,6 +720,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             dd = (px / _f(l['entry']) - 1) * 100
             if dd > -instant_loss + PCT_EPS:
                 continue
+            if dd <= -GAP_PCT and now - _f(l.get('at')) < GAP_SECS:
+                continue   # "−87% ten seconds after the buy" is two price feeds disagreeing, not a loss — never sell on it (the rug shield still runs)
             out_usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
             # ⚡ sell AND buy: when no runner is eligible right now (weather / age / pool floor), the slot takes the best pool
             # instead of sitting in cash — "instant swap" must end in a coin whenever any eligible coin exists
@@ -731,7 +756,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     #     cash — before the stop, the trail or the floor. Anchors (majors) are exempt; frozen coins too (the owner's call).
     for l in list(c['legs']):
         lq, lq0 = _f(liqs.get(l['pairAddress'])), _f(l.get('liq'))
-        if l.get('role') == 'anchor' or l.get('frozen') or lq <= 0 or lq0 <= 0 or lq > lq0 * RUG_LIQ:
+        if safe_anchor(l) or l.get('frozen') or lq <= 0 or lq0 <= 0 or lq > lq0 * RUG_LIQ:
             continue
         px = _f(prices.get(l['pairAddress'])) or l['entry']
         usd = sell_usd(l['units'], px, lq)
@@ -827,7 +852,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     for l in list(c['legs']):
         px = _f(prices.get(l['pairAddress']))
         lmode = l.get('slMode') if l.get('slMode') in SL_MODES else mode   # ❄/✂/🅿 per coin (HQ) beats the card's mode
-        if l.get('role') == 'anchor' or not leg_sl(l, t) or lmode == 'hold' or l.get('frozen') or l.get('ride') or int(l.get('freezeRounds') or 0) > 0 or px <= 0 or l['entry'] <= 0:
+        if safe_anchor(l) or not leg_sl(l, t) or lmode == 'hold' or l.get('frozen') or l.get('ride') or int(l.get('freezeRounds') or 0) > 0 or px <= 0 or l['entry'] <= 0:
             continue
         dd = (px / l['entry'] - 1) * 100
         l['peak'] = max(_f(l.get('peak')), dd)
