@@ -131,7 +131,7 @@ export function Verdict({ call }) {
     <ul className="fdv-rows">{rows.slice(0, more ? 80 : 10).map((r, i) => <li key={`${r.area}-${r.name}`} className={`fdv-row is-${r.verdict}`} style={{ '--i': Math.min(i, 12) }}>
       <i aria-hidden="true">{r.verdict === 'keep' ? '✅' : r.verdict === 'scrap' ? '❌' : '👀'}</i><small>{r.area}</small><b>{r.name}</b>
       <em className={`m-num ${r.avgPct > 0 ? 'm-pos' : r.avgPct < 0 ? 'm-neg' : ''}`}>{r.n ? `${r.medPct >= 0 ? '+' : ''}${r.medPct}%` : '—'}</em><span>{r.why}{r.state && <b className="fdv-state"> · {r.state === 'scrapped' ? '🗑 scrapped' : '📌 kept'}</b>}</span>
-      {r.acts?.length > 0 && <div className="fdv-acts">{r.acts.map(([a, l]) => <button key={a} type="button" className={`m-btn ${a === 'scrap' ? 'danger' : a === 'apply' ? 'primary' : ''}`} disabled={!!busy}
+      {r.acts?.some(([a]) => a !== 'apply') && <div className="fdv-acts">{r.acts.filter(([a]) => a !== 'apply').map(([a, l]) => <button key={a} type="button" className={`m-btn ${a === 'scrap' ? 'danger' : a === 'apply' ? 'primary' : ''}`} disabled={!!busy}
         onClick={() => act(r, a)} data-testid={`fdv-act-${a}-${i}`}>{busy === `${r.area}${r.name}${a}` ? '…' : a === 'apply-one' ? `${l}: ${VERDICT_TIERS.find(t => t[0] === tier)[1]}` : l}</button>)}</div>}</li>)}</ul>
     {rows.length > 10 && <button type="button" className="m-btn fdv-more" onClick={() => setMore(m => !m)}>{more ? 'Show less' : `Show all ${rows.length}`}</button>}
     {!rows.length && <small className="m-dim">Nothing in this group.</small>}
