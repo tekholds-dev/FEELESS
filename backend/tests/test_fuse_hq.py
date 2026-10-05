@@ -261,3 +261,37 @@ def test_user_card_freeze_holds_the_tp_alert_then_sells_off_the_peak_once():
     assert hq.ride_hits(leg(20.0), 15, 8, st)[0] == []                                  # fires once
     assert hq.ride_hits(leg(18.0), 0, 8, {}) == ([], set(), {})                         # freeze off = nothing
     assert hq._extras({'rideAt': 15, 'rideTrail': 8})['rideAt'] == 15 and hq._extras({'rideAt': 7})['rideAt'] == 0
+
+
+def test_the_buyer_picks_rounds_and_swaps_per_round_and_pays_up_front_or_starts_on_the_free_rounds():
+    import fuse_hq as hq
+    pp, rc = {'on': True, 'perSwapUsd': 0.05, 'swapsPerRound': 2, 'rounds': 5}, {'per5Usd': 0.25}
+    d = hq.card_choice({}, pp, rc)
+    assert not d['chosen'] and d['usd'] == 0.5 and d['swaps'] == 10                       # no pick → HQ's default prepay, as before
+    c = hq.card_choice({'rounds': 20, 'swapsPerRound': 3, 'payUpfront': True}, pp, rc)
+    assert c['chosen'] and (c['packs'], c['roundsUsd'], c['swaps'], c['swapsUsd'], c['usd']) == (3, 0.75, 60, 3.0, 3.75)
+    free = hq.card_choice({'rounds': 20, 'swapsPerRound': 3, 'payUpfront': False}, pp, rc)
+    assert free['usd'] == 0.0 and free['swapsPerRound'] == 3                              # nothing now: free rounds first, fees per swap
+    assert hq.card_choice({'rounds': 7, 'swapsPerRound': 9, 'payUpfront': True}, pp, rc)['rounds'] == 5      # only listed values
+    assert hq.card_choice({'rounds': 7, 'swapsPerRound': 9, 'payUpfront': True}, pp, rc)['swapsPerRound'] == 1
+    assert hq.card_choice({'rounds': 5, 'swapsPerRound': 1}, pp, rc)['usd'] == 0.25       # 5 free rounds: only its 5 swaps are prepaid
+    assert hq.card_choice({'rounds': 10, 'swapsPerRound': 1}, {**pp, 'on': False}, rc)['usd'] == 0.25        # prepay off → just the round pack
+    pos = {}
+    assert hq.choice_credit(pos, 3.70, c) == 60 and pos['prepaidSwaps'] == 60 and pos['roundsLeft'] == 20 and pos['maxSwapsPerRound'] == 3
+    short = {}
+    assert hq.choice_credit(short, 1.00, c) == 0 and 'prepaidSwaps' not in short and 'roundsLeft' not in short and short['maxSwapsPerRound'] == 3   # underpaid → free rounds, cap kept
+    nofee = {}
+    assert hq.choice_credit(nofee, 0.0, free) == 0 and nofee['maxSwapsPerRound'] == 3 and hq.rounds_left(nofee) == 5
+
+
+def test_swaps_per_round_cap_lets_that_many_switch_ins_inside_one_round():
+    import fuse_hq as hq
+    hour = 3600
+    one = {'lastSwitchAt': 1000, 'rotateHours': 1}
+    assert hq.next_switch_at(one) == 1000 + hour                                          # default: one switch-in a round (old rule)
+    two = {'lastSwitchAt': 1000, 'switchTimes': [1000], 'rotateHours': 1, 'maxSwapsPerRound': 2}
+    assert hq.next_switch_at(two) == 0.0                                                  # a second one is allowed in the same round
+    two['switchTimes'] = [1000, 1500]; two['lastSwitchAt'] = 1500
+    assert hq.next_switch_at(two) == 1000 + hour                                          # the third waits until the first is a round old
+    assert hq.next_switch_at(two, staff=True) == 0.0 and hq.next_switch_at({}) == 0.0
+    assert hq.next_switch_at({**two, 'maxSwapsPerRound': 99, 'switchTimes': [1, 2, 3, 4]}) == 2 + hour      # never above the listed max (3)

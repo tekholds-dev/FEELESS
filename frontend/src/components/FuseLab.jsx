@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { cardChoice, keepChoice, PLAN_ROUNDS, PLAN_SWAPS, FREE_ROUNDS } from '../lib/cardChoice';
 import { CardCosts, CycleBuilder } from './FuseMoney';
 import { apiUrl } from '../lib/api';
 import { toast } from 'sonner';
@@ -120,7 +121,11 @@ export function CardPlan({ legs, plan, setPlan }) {
   const levels = rules?.yieldLevels || [25, 50, 100, 200];
   const lim = (pa, k, v) => setPlan(p => ({ ...p, risk: 'custom', legs: { ...p.legs, [pa]: { ...(p.legs[pa] || {}), [k]: v.replace(/[^0-9.]/g, '') } } }));
   const legKey = legs.map(l => l.pairAddress).join(',');
-  useEffect(() => { if (plan.risk && plan.risk !== 'custom') setPlan(applyRisk(legs, plan.risk)); }, [legKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (plan.risk && plan.risk !== 'custom') setPlan(p => ({ ...applyRisk(legs, plan.risk), ...keepChoice(p) })); }, [legKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [pricing, setPricing] = useState(null);
+  useEffect(() => { fetch(apiUrl('/api/reputation/fees/pricing')).then(r => (r.ok ? r.json() : null)).then(setPricing).catch(() => {}); }, []);
+  const choice = cardChoice(plan, pricing);
+  const pick = patch => setPlan(p => ({ ...p, rounds: choice.rounds, swapsPerRound: choice.swapsPerRound, payUpfront: choice.upfront, ...patch }));
   const runners = legs.filter(l => l.runner || l.role === 'runner').length;
   const maxR = RISK_DIALS[plan.risk]?.runners;
   const seg = (k, opts) => <div className="m-seg" role="radiogroup">{opts.map(([v, l, tip]) => <button key={String(v)} type="button" role="radio" aria-checked={plan[k] === v} className={plan[k] === v ? 'active' : ''} data-tip={tip} onClick={() => setPlan(p => ({ ...p, risk: 'custom', [k]: v }))} data-testid={`plan-${k}-${v}`}>{l}</button>)}</div>;
@@ -129,8 +134,18 @@ export function CardPlan({ legs, plan, setPlan }) {
       .then(x => { setPlan(p => ({ ...p, risk: 'custom', ...dnaPlan(x.dna) })); toast.success(`🎲 Unique DNA: ${x.label}`); }).catch(() => toast.error('Try again in a moment'))}
       data-tip="A cycle · compound · payout · clock · stop combination no live card on FEELESS has — your card plays its own way" data-testid="plan-unique">🎲 Roll a unique DNA <small>no other live card plays like this</small></button>
     {brain?.why?.length > 0 && <button type="button" className="m-btn fl-brain" onClick={() => setPlan(p => ({ ...p, risk: 'custom', ...dnaPlan(brain.dna) }))} data-tip={`Learned from ${brain.fights} engine battles: ${brain.why.join(' · ')}`} data-testid="plan-brain">🧠 Use the engine's best DNA <small>{brain.label}</small></button>}
-    <div className="fl-plan-row fl-risk"><span>🎚 Risk</span><RiskDial value={plan.risk || 'custom'} onChange={id => setPlan(applyRisk(legs, id))} />
-      <FuseGuide dial={plan.risk} onDial={id => setPlan(applyRisk(legs, id))} cycle={plan.cycle} onCycle={v => setPlan(p => ({ ...p, risk: 'custom', cycle: v }))} /></div>
+    <div className="fl-plan-row fl-risk"><span>🎚 Risk</span><RiskDial value={plan.risk || 'custom'} onChange={id => setPlan(p => ({ ...applyRisk(legs, id), ...keepChoice(p) }))} />
+      <FuseGuide dial={plan.risk} onDial={id => setPlan(p => ({ ...applyRisk(legs, id), ...keepChoice(p) }))} cycle={plan.cycle} onCycle={v => setPlan(p => ({ ...p, risk: 'custom', cycle: v }))} /></div>
+    <div className="fl-plan-row fl-choice" data-testid="plan-choice"><span data-tip="How long the card runs on auto and how much it may swap. A round = one rotation window of the card's clock. Every card gets 5 rounds free.">🎟 Rounds & swaps</span>
+      <div className="fl-choice-ctl">
+        <div className="m-seg" role="radiogroup" aria-label="Auto rounds">{PLAN_ROUNDS.map(n => <button key={n} type="button" role="radio" aria-checked={choice.rounds === n} className={choice.rounds === n ? 'active' : ''} data-testid={`choice-rounds-${n}`} data-tip={n === FREE_ROUNDS ? '5 rounds are free on every card' : `${n} rounds = ${Math.ceil((n - FREE_ROUNDS) / 5)} round pack${n > 10 ? 's' : ''} on top of the free 5`} onClick={() => pick({ rounds: n })}>{n}{n === FREE_ROUNDS ? ' free' : ''}</button>)}</div>
+        <div className="m-seg" role="radiogroup" aria-label="Most swaps in one round">{PLAN_SWAPS.map(n => <button key={n} type="button" role="radio" aria-checked={choice.swapsPerRound === n} className={choice.swapsPerRound === n ? 'active' : ''} data-testid={`choice-swaps-${n}`} data-tip={`At most ${n} coin swap${n > 1 ? 's' : ''} inside one round — the card can never churn past this`} onClick={() => pick({ swapsPerRound: n })}>{n} swap{n > 1 ? 's' : ''}/round</button>)}</div>
+        <div className="m-seg" role="radiogroup" aria-label="When to pay">
+          <button type="button" role="radio" aria-checked={choice.upfront} className={choice.upfront ? 'active' : ''} data-testid="choice-upfront" data-tip="One extra SOL transfer in the same approval as the buy: your rounds and swaps are paid, and those swaps then carry no FEELESS fee" onClick={() => pick({ payUpfront: true })}>💳 Pay up front</button>
+          <button type="button" role="radio" aria-checked={!choice.upfront} className={!choice.upfront ? 'active' : ''} data-testid="choice-free" data-tip="Pay nothing now: the card starts on its 5 free rounds, each swap pays its own small fee, and you can add rounds later" onClick={() => pick({ payUpfront: false })}>🆓 Free rounds first</button></div>
+        <small className="m-dim" data-testid="choice-price">{choice.upfront
+          ? <>Up front: <b className="m-num">${choice.usd.toFixed(2)}</b>{choice.packs ? ` = ${choice.packs} round pack${choice.packs > 1 ? 's' : ''} $${choice.roundsUsd.toFixed(2)}` : ''}{choice.swapsUsd > 0 ? `${choice.packs ? ' + ' : ' = '}${choice.swaps} swaps $${choice.swapsUsd.toFixed(2)}` : ''} · {choice.rounds} rounds, up to {choice.swapsPerRound} swap{choice.swapsPerRound > 1 ? 's' : ''} each</>
+          : <>Nothing now · 5 free rounds, up to {choice.swapsPerRound} swap{choice.swapsPerRound > 1 ? 's' : ''} each, each swap pays its own fee{choice.rounds > FREE_ROUNDS ? ` · you asked for ${choice.rounds}: add the rest later from My cards` : ''}</>}</small></div></div>
     {maxR != null && runners > maxR && <div className="m-note warn"><b>{RISK_DIALS[plan.risk].label} = {maxR} runner{maxR === 1 ? '' : 's'} max</b><span>You picked {runners}. Remove {runners - maxR} or pick a bolder dial.</span></div>}
     <details className="fl-plan-tune" open><summary>✎ Customize (TP/SL per coin · profit trigger · collect or compound · hold or rotate)</summary>
     <div className="fl-plan-row"><span>Auto-set TP / SL</span><div className="m-seg" role="group">{PLAN_PRESETS.map(([id, l, , , tip]) => <button key={id} type="button" data-tip={tip} onClick={() => setPlan(p => ({ ...p, risk: 'custom', legs: applyPreset(legs, id) }))} data-testid={`plan-preset-${id}`}>{l}</button>)}

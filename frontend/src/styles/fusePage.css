@@ -851,3 +851,6 @@ body.theme-day .pctl-cards > .m-row { background: #fff; }
 .pctl-pane .prime-ctl > span:not(.m-seg) { font: 600 10px var(--m-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--m-dim); }
 .pctl-pane .prime-ctl > .m-toggle { grid-column: 1 / -1; } .pctl-pane .prime-ctl > .prime-min { grid-column: 2; }
 @media (max-width: 640px) { .pctl-pane .prime-ctl { grid-template-columns: 1fr; } .pctl-pane .prime-ctl > .prime-min { grid-column: 1; } }
+/* ⚡ Lag: the Fuse page paints its own opaque sky, so the sitewide ambient layer behind it (28 rising flakes, two screen-blended
+   orbs, orbits, scan line) was animating unseen — a third of everything moving on My cards. It is switched off while Fuse is open. */
+body:has(.fuse-page) .ambient-background > :not(.ambient-grid), body:has(.fuse-page) .ambient-flakes { display: none; }

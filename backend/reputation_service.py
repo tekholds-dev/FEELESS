@@ -2946,7 +2946,9 @@ async def fuse_position(p: FusePositionIn):
         if not legs:
             return {'ok': True, 'counted': False}
         pos = {'id': uuid.uuid4().hex[:10], 'wallet': me, 'name': p.name.strip() or 'Lab fuse', 'fuseId': p.fuseId[:16], 'at': time.time(), 'legs': legs}
-        if prepaid_usd > 0 and _hq.prepay_credit(pos, prepaid_usd, _fee_cfg().get('prepay')):
+        choice = _hq.card_choice(p.plan, _fee_cfg().get('prepay'), _rounds_cfg())   # 🎟 the buyer's rounds · swaps per round · pay now or not
+        credited = _hq.choice_credit(pos, prepaid_usd, choice) if choice['chosen'] else (prepaid_usd > 0 and _hq.prepay_credit(pos, prepaid_usd, _fee_cfg().get('prepay')))
+        if credited and p.prepaySig:
             d['roundSigs'] = (d.get('roundSigs') or [])[-500:] + [p.prepaySig]   # a payment is never reused
         planned = [str(x)[:64] for x in (p.expected or [])[:_fuse.MAX_LEGS]]
         pos['missing'] = _hq.missing_legs(planned, legs)   # ⚠ approved but not landed — never hidden, never counted
@@ -3741,6 +3743,7 @@ async def fuse_position_switch(p: FuseSwitchIn):
         switched = not filled and sum(1 for e in pos.get('events') or [] if e.get('kind') == 'buy') > buys_before
         if switched:   # a real switch-in (not a top-up)
             pos['lastSwitchAt'] = time.time()
+            pos['switchTimes'] = (pos.get('switchTimes') or [])[-9:] + [pos['lastSwitchAt']]
         if n and not filled:
             _hq.use_prepaid(pos, n)   # 💳 prepaid swaps cover these buys first
         _json_save(FUSE_HQ_PATH, d)
@@ -10382,6 +10385,7 @@ async def fee_pricing(coins: int = Query(3, ge=1, le=12), usd: float = Query(20,
     return {'swapBps': int(cfg['platformFeeBps'] or 0), 'bundle': _hq.clean_bundle(cfg.get('bundle')), 'rounds': {**_rounds_cfg(), 'payTo': await _rounds_pay_to()},
             'plan': _hq.fee_plan(cfg.get('bundle'), _rounds_cfg(), coins, usd, rounds),
             'prepay': _hq.clean_prepay(cfg.get('prepay')), 'staff': bool(wallet and _is_staff(wallet)),
+            'choice': {'rounds': list(_hq.PLAN_ROUNDS), 'swaps': list(_hq.PLAN_SWAPS), 'free': _hq.ROUNDS_DEFAULT, 'step': _hq.ROUNDS_STEP},
             'cardLegs': {'pools': _hq.CARD_POOLS, 'runners': _hq.CARD_RUNNERS}, 'freeBuys': ['$FEE', 'FEECAT', 'rFEE']}
 
 

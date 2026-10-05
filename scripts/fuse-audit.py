@@ -97,5 +97,89 @@ async def main(only=None):
             print(f"  route rent parked by sells: {opened_sells:.6f} SOL · booked before the rule {opened_missed:.6f} · already put back {credited:.6f} · STILL OWED TO THE CARD {max(0.0, opened_missed - credited):.6f} SOL")
 
 
+async def wallet(http_timeout=25):
+    """WHOLE-WALLET check: every transaction the Fuse wallet ever appeared in, read from the chain. Proves where every lamport of
+    the deposits is: still in the wallet, parked as rent in coin accounts, in coins, paid as network fees, or lost / won trading.
+    Any SOL that left the wallet to ANOTHER address is listed — there should be none."""
+    d = store.KV(root / 'backend' / 'data' / 'fuse_wallet.json').get({}) or {}
+    owner = (d.get('cfg') or {}).get('address')
+    async with httpx.AsyncClient(timeout=http_timeout) as http:
+        rpc = lambda m, p: chain_rpc.rpc_priority(http, m, p)
+        sigs, before = [], None
+        while True:
+            page = await rpc('getSignaturesForAddress', [owner, {'limit': 1000, **({'before': before} if before else {})}]) or []
+            sigs += page
+            if len(page) < 1000:
+                break
+            before = page[-1]['signature']
+        ok = [x for x in sigs if not x.get('err')]
+        dep = buys = sells = fees = closes = 0.0
+        out_other, unread, n_swap, n_close, n_dep, failed_fees = [], 0, 0, 0, 0, 0.0
+        for x in sigs[::-1]:
+            tx = None
+            for _ in range(3):
+                try:
+                    tx = await rpc('getTransaction', [x['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+                except Exception:
+                    tx = None
+                if tx:
+                    break
+                await asyncio.sleep(1.0)
+            if not tx:
+                unread += 1
+                continue
+            meta = tx['meta']; keys = tx['transaction']['message']['accountKeys']
+            names = [k['pubkey'] for k in keys]
+            if owner not in names:
+                continue
+            i = names.index(owner)
+            signer = any(k['pubkey'] == owner and k.get('signer') for k in keys)
+            payer = i == 0
+            delta = (meta['postBalances'][i] - meta['preBalances'][i]) / 1e9
+            fee = meta['fee'] / 1e9 if payer else 0.0
+            if meta.get('err'):
+                failed_fees += fee
+                continue
+            pre = {(b['mint'], b.get('owner')): int(b['uiTokenAmount']['amount']) for b in meta.get('preTokenBalances') or []}
+            post = {(b['mint'], b.get('owner')): int(b['uiTokenAmount']['amount']) for b in meta.get('postTokenBalances') or []}
+            tok = sum(1 for k in set(pre) | set(post) if k[1] == owner and post.get(k, 0) != pre.get(k, 0))
+            gross = delta + fee
+            fees += fee
+            if not signer:
+                dep += delta; n_dep += 1
+            elif tok:
+                n_swap += 1
+                if gross < 0:
+                    buys += -gross
+                else:
+                    sells += gross
+            elif gross >= 0:
+                closes += gross; n_close += 1
+            else:
+                out_other.append((x['signature'][:10], round(gross, 6), time.strftime('%m-%d %H:%M', time.localtime(x.get('blockTime') or 0))))
+            await asyncio.sleep(0.1)
+        wallet_sol = ((await rpc('getBalance', [owner])) or {}).get('value', 0) / 1e9
+        parked, coins = 0.0, 0
+        for prog in TOKEN_PROGRAMS:
+            res = await rpc('getTokenAccountsByOwner', [owner, {'programId': prog}, {'encoding': 'jsonParsed'}])
+            for a in (res or {}).get('value') or []:
+                parked += a['account']['lamports'] / 1e9
+                coins += 1 if int(a['account']['data']['parsed']['info']['tokenAmount']['amount']) else 0
+        calc = dep - buys + sells + closes - fees - failed_fees + sum(g for _, g, _ in out_other)
+        print(f"WHOLE WALLET — {len(sigs)} transactions on-chain ({len(ok)} confirmed, {unread} could not be read)")
+        print(f"  deposited by you        {dep:+.6f} SOL  ({n_dep} transfers in)")
+        print(f"  into coin buys          {-buys:+.6f} SOL  (includes rent parked in new coin accounts)")
+        print(f"  out of coin sells       {sells:+.6f} SOL")
+        print(f"  rent back from closes   {closes:+.6f} SOL  ({n_close} closes)")
+        print(f"  network fees            {-(fees + failed_fees):+.6f} SOL  ({n_swap} swaps; failed txs cost {failed_fees:.6f})")
+        print(f"  sent to another address {sum(g for _, g, _ in out_other):+.6f} SOL  {out_other if out_other else '— none'}")
+        print(f"  = should be in wallet   {calc:.6f} SOL · wallet really holds {wallet_sol:.6f} SOL · difference {wallet_sol - calc:+.6f}")
+        print(f"  also yours: {parked:.6f} SOL parked as rent in {coins} coin accounts (comes back when they close) + the coins themselves")
+        print(f"  trading result so far (sells + closes + parked rent − buys): {sells + closes + parked - buys:+.6f} SOL before the coins still held")
+
+
 if __name__ == '__main__':
-    asyncio.run(main(sys.argv[1] if len(sys.argv) > 1 else None))
+    if len(sys.argv) > 1 and sys.argv[1] == 'wallet':
+        asyncio.run(wallet())
+    else:
+        asyncio.run(main(sys.argv[1] if len(sys.argv) > 1 else None))

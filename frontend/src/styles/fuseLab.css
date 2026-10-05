@@ -510,3 +510,7 @@ body.fx-lite .fl-plancol .fl-plan { animation: none; } @media (prefers-reduced-m
 .fg-partial b { color: var(--m-warn); } .fg-partial span { color: var(--m-dim); line-height: 1.5; }
 body.theme-day .fg-all { color: #0b7a4a; }
 @media (prefers-reduced-motion: reduce) { .fg-partial { animation: none; } }
+/* 🎟 buyer's rounds / swaps / pay-now pick */
+.fl-choice-ctl { display: grid; gap: 6px; justify-items: end; min-width: 0; } .fl-choice-ctl .m-seg { flex-wrap: wrap; } .fl-choice-ctl small { text-align: right; line-height: 1.4; } .fl-choice-ctl small .m-num { font-size: inherit; color: var(--m-accent); }
+.fl-plancol .fl-choice-ctl { justify-items: start; } .fl-plancol .fl-choice-ctl small { text-align: left; }
+@media (max-width: 640px) { .fl-choice-ctl { justify-items: start; } .fl-choice-ctl small { text-align: left; } }

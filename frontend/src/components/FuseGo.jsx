@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { cardChoice } from '../lib/cardChoice';
 import { apiUrl } from '../lib/api';
 import { relayConnection } from '../lib/launchRail';
 import { useWallet } from '../hooks/useWallet';
@@ -43,7 +44,8 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
   const [retryPlan, setRetryPlan] = useState(null);   // ↻ only the coins that didn't land, wider slippage
   const [cardId, setCardId] = useState(null);         // the card this buy recorded (a retry joins it)
   const [prepay, setPrepay] = useState(null);         // 💳 prepaid-swaps price for a new card (HQ › Fees), staff never pay it
-  useEffect(() => { if (!addr || sell || position) return; fetch(apiUrl(`/api/reputation/fees/pricing?wallet=${addr}`)).then(r => r.json()).then(x => setPrepay(x?.prepay?.on ? { ...x.prepay, staff: x.staff, payTo: x.rounds?.payTo } : null)).catch(() => {}); }, [addr, sell, position]);
+  useEffect(() => { if (!addr || sell || position) return; fetch(apiUrl(`/api/reputation/fees/pricing?wallet=${addr}`)).then(r => r.json()).then(x => { const ch = cardChoice(fuse?.plan, x);   // 🎟 the buyer's own rounds / swaps / pay-now pick (else HQ's default prepay)
+      setPrepay(ch.usd > 0 ? { ...x.prepay, ...ch, staff: x.staff, payTo: x.rounds?.payTo } : null); }).catch(() => {}); }, [addr, sell, position, fuse?.plan?.rounds, fuse?.plan?.swapsPerRound, fuse?.plan?.payUpfront]);   // eslint-disable-line react-hooks/exhaustive-deps
   const live = useLivePrices((orders ? orders.map(o => o.leg) : legs || []).map(l => l?.pairAddress));   // receipt shows each coin live
 
   const quoteAll = async () => {
@@ -154,7 +156,7 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
             <li><b>✓</b>The coins land in <em>your</em> wallet. FEELESS never holds them. From here each one moves with its own price — up or down. You don't earn the pool's trading fees (that's for liquidity providers); you own the coins.</li>
             <li><b>↩</b>Exit any time with Unfuse (one approval, same fees once) or set 🎯 limits to get pinged at your target.</li></ol>
         </details>}
-        {!sell && !position && prepay?.usd > 0 && !prepay.staff && <p className="fg-rcpt-note" data-testid="fg-prepay">💳 + {usd2(prepay.usd)} prepays this card's first {prepay.rounds} rounds of swaps ({prepay.swaps} swaps × {usd2(prepay.perSwapUsd)}) — in the same approval; those swaps then pay no FEELESS fee.</p>}
+        {!sell && !position && prepay?.usd > 0 && !prepay.staff && <p className="fg-rcpt-note" data-testid="fg-prepay">💳 + {usd2(prepay.usd)} up front for {prepay.rounds} rounds{prepay.packs ? ` (${prepay.packs} round pack${prepay.packs > 1 ? 's' : ''} ${usd2(prepay.roundsUsd)})` : ''}{prepay.swapsUsd > 0 ? ` and ${prepay.swaps} swaps (${prepay.chosen ? `${prepay.swapsPerRound} a round` : 'prepaid'} × ${usd2(prepay.perSwapUsd)})` : ''} — in the same approval; those swaps then pay no FEELESS fee.</p>}
         <p className="fg-rcpt-note">Costs {usd2(tot.fee + tot.net)} = <b>{tot.usd ? ((tot.fee + tot.net) / tot.usd * 100).toFixed(1) : 0}%</b> of {usd2(tot.usd)}. {tot.usd && (tot.fee + tot.net) / tot.usd > 0.05 ? 'High for this size — fewer pools or more SOL keeps more working.' : 'Quotes refresh every 10s until you sign.'}</p></div>}
       <div className="fg-acts"><button type="button" className="m-btn primary m-go" disabled={!ready.length || phase !== 'review'} onClick={signAll} data-testid="fg-sign">{phase === 'signing' ? 'Waiting for wallet…' : phase === 'sending' ? 'Sending…' : `${sell ? '↩ Unfuse' : '⚡ Approve'} ${ready.length} ${sell ? 'sell' : 'swap'}${ready.length === 1 ? '' : 's'} · 1 click`}</button>
         <button type="button" className="m-btn" disabled={['signing', 'sending'].includes(phase)} onClick={onClose}>Cancel</button></div>

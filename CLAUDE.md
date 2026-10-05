@@ -1073,3 +1073,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   The ◎ cash row reads the book's confirmed SOL (`reconciliation.cardCashUsd`), the same number as "Withdraw card cash".
 - 🚪 `arena_prime.entry_ok` (real cards, in the tier tick): a candidate falling right now (5m ≤ −3% or 1h ≤ −8%, own reading else
   the momentum feed) is not bought; no reading = not judged; coins already on the card are not filtered.
+- 🎟 THE BUYER CHOOSES (`fuse_hq.card_choice/choice_credit`, `PLAN_ROUNDS` 5/10/20/50, `PLAN_SWAPS` 1/2/3 ⇄ `lib/cardChoice.js`, change
+  both): Lab CardPlan row "🎟 Rounds & swaps" (plan `rounds`, `swapsPerRound`, `payUpfront`; kept through dial changes via `keepChoice`).
+  Up front = ONE SOL transfer in the buy's approval = round packs beyond the free 5 (`per5Usd`) + perSwapUsd × swaps/round × rounds,
+  re-priced and verified on-chain by the server (≥ 97%); underpaid or "🆓 free rounds first" = nothing credited, the card starts on
+  its 5 free rounds and each swap pays its own fee. `maxSwapsPerRound` always applies: `next_switch_at` allows that many switch-ins
+  inside one round (`switchTimes`). No pick in the plan = HQ's default prepay exactly as before.
+- ⚡ Lag (Fuse pages): the sitewide ambient layer (28 flakes, 2 screen-blended orbs, orbits, scan line) animated UNSEEN behind the
+  Fuse page's opaque sky — `body:has(.fuse-page)` hides it (running animations on My cards 91 → 58). No blur / backdrop-filter is on
+  screen in either theme. APIs answer in 1–120 ms: when "lag" is reported, count `document.getAnimations()` before touching the API.
+- 🔎 `scripts/fuse-audit.py wallet` = whole-wallet chain check (every tx the Fuse wallet appears in: deposits, buys, sells, closes,
+  fees, anything sent to another address) — slow (minutes) on a free RPC.

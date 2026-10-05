@@ -361,6 +361,47 @@ def prepay_credit(pos, paid_usd, cfg):
     return c['swaps']
 
 
+# 🎟 THE BUYER CHOOSES: how many auto rounds the card runs, the most swaps it may make in one round, and whether to pay for that
+# up front (one SOL transfer in the buy's approval) or start on the free rounds and pay per swap as it goes. Fixed lists only.
+PLAN_ROUNDS = (5, 10, 20, 50)
+PLAN_SWAPS = (1, 2, 3)
+
+
+def card_choice(plan, prepay_cfg, rounds_cfg):
+    """What this buyer picked and what it costs. No pick in the plan → HQ's default prepay, exactly as before (`chosen` False).
+    Price up front = round packs beyond the free 5 (`per5Usd` each) + perSwapUsd × swaps per round × rounds; not up front = $0 now
+    (the 5 free rounds run, each swap pays its own fee, more rounds are bought later)."""
+    pp, rc = clean_prepay(prepay_cfg), clean_rounds_cfg(rounds_cfg)
+    p = plan if isinstance(plan, dict) else {}
+    if p.get('rounds') not in PLAN_ROUNDS and p.get('swapsPerRound') not in PLAN_SWAPS and 'payUpfront' not in p:
+        return {'chosen': False, 'rounds': pp['rounds'], 'swapsPerRound': pp['swapsPerRound'], 'upfront': True, 'packs': 0, 'roundsUsd': 0.0,
+                'swaps': pp['swaps'], 'swapsUsd': pp['usd'], 'usd': pp['usd']}
+    rounds = int(p['rounds']) if p.get('rounds') in PLAN_ROUNDS else ROUNDS_DEFAULT
+    per = int(p['swapsPerRound']) if p.get('swapsPerRound') in PLAN_SWAPS else 1
+    upfront = bool(p.get('payUpfront', True))
+    packs = max(0, -(-(rounds - ROUNDS_DEFAULT) // ROUNDS_STEP))
+    rounds_usd = round(packs * rc['per5Usd'], 4)
+    swaps = rounds * per
+    swaps_usd = round(pp['perSwapUsd'] * swaps, 4) if pp['on'] else 0.0
+    return {'chosen': True, 'rounds': rounds, 'swapsPerRound': per, 'upfront': upfront, 'packs': packs, 'roundsUsd': rounds_usd, 'swaps': swaps,
+            'swapsUsd': swaps_usd, 'usd': round(rounds_usd + swaps_usd, 4) if upfront else 0.0}
+
+
+def choice_credit(pos, paid_usd, choice):
+    """Put the buyer's pick on the card. The swap cap per round always applies. Rounds beyond the free 5 and prepaid swaps are
+    credited ONLY when the confirmed payment covers the price (≥ 97%, SOL drift) — otherwise the card simply starts on the free
+    rounds. Returns the swaps credited (0 = nothing was paid for)."""
+    pos['maxSwapsPerRound'] = int(choice['swapsPerRound'])
+    pos['roundsWanted'] = int(choice['rounds'])
+    if not choice['upfront'] or choice['usd'] <= 0 or _f(paid_usd) < choice['usd'] * 0.97:
+        return 0
+    pos['prepaidSwaps'] = int(pos.get('prepaidSwaps') or 0) + (choice['swaps'] if choice['swapsUsd'] > 0 else 0)
+    pos['prepaidUsd'] = round(_f(pos.get('prepaidUsd')) + _f(paid_usd), 4)
+    if choice['packs']:
+        pos['roundsLeft'] = int(choice['rounds'])
+    return choice['swaps']
+
+
 def use_prepaid(pos, n):
     """Spend prepaid swaps for n recorded card swap legs (never below 0)."""
     left = max(0, int(pos.get('prepaidSwaps') or 0) - int(n or 0))
@@ -992,7 +1033,12 @@ def next_switch_at(pos, staff=False):
     """When this card may switch again (0 = now): one switch-in per the card's own rotation interval (1/6/12/24h, default 24)."""
     last = _f(pos.get('lastSwitchAt'))
     hrs = ((pos.get('plan') or {}).get('rotateHours')) or pos.get('rotateHours') or 24
-    return 0.0 if staff or not last else last + rotate_hours(hrs) * 3600
+    if staff or not last:
+        return 0.0
+    # 🎟 the buyer's cap: up to `maxSwapsPerRound` switch-ins inside one round (default 1 — the old rule)
+    n = max(1, min(max(PLAN_SWAPS), int(pos.get('maxSwapsPerRound') or 1)))
+    times = sorted(t for t in (pos.get('switchTimes') or [last]) if _f(t) > 0)[-n:]
+    return 0.0 if len(times) < n else _f(times[0]) + rotate_hours(hrs) * 3600
 
 
 def buyback_due(parked, price, mom=None):
