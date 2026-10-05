@@ -15,6 +15,7 @@ import math
 
 TRENCH = {'maxAgeH': 6.0, 'minMcap': 20_000.0, 'maxMcap': 150_000.0, 'minHolders': 400, 'minTxns1h': 250, 'minVol1h': 10_000.0,
           'minBuyShare': 55.0, 'maxTop10': 25.0, 'maxInsiders': 8.0, 'maxBundled': 1, 'maxDev': 5.0, 'maxTop10Jump': 5.0}
+HOLD_TOP10 = 35.0
 BAD_REP = ('suspect', 'high')   # 'watch' (a little evidence — most serial pump deployers) passes with a score penalty
 
 
@@ -24,6 +25,11 @@ def _f(v):
         return x if math.isfinite(x) else 0.0
     except (TypeError, ValueError):
         return 0.0
+
+
+def _holding(c):
+    import runners
+    return runners.holding(c)[0]
 
 
 def precheck(c, cfg=None):
@@ -43,8 +49,12 @@ def precheck(c, cfg=None):
         fails.append(f"buyers ≥ {g['minBuyShare']:g}%")
     if _f(c.get('chg5m')) <= 0 or _f(c.get('chg1h')) <= 0:
         fails.append('5m and 1h green (breaking out now)')
-    if not c.get('scanned') or c.get('top10') is None or _f(c['top10']) >= g['maxTop10']:
-        fails.append(f"top-10 < {g['maxTop10']:g}% (scan done)")
+    if not c.get('scanned') or c.get('top10') is None:
+        fails.append('holder scan not done yet')        # ⏳ not a verdict on the coin: the scan is still queued (shown apart in the funnel)
+    elif _f(c['top10']) >= g['maxTop10'] and not (_f(c['top10']) < HOLD_TOP10 and _holding(c)):
+        # 🤝 above the limit passes up to 35% ONLY while the big holders hold (`runners.holding`: top-10 not growing, dev not
+        # sold, no flagged funders, buyers lead, ≥ 1h old, a site or X, clean / watch creator)
+        fails.append(f"top-10 < {g['maxTop10']:g}% (to {HOLD_TOP10:g}% while holders hold)")
     if _f(c.get('insiders')) >= g['maxInsiders'] or int(_f(c.get('bundled'))) > g['maxBundled']:
         fails.append(f"snipers/bundlers < {g['maxInsiders']:g}% · ≤ {g['maxBundled']} bundled")
     if _f(c.get('dev')) >= g['maxDev'] or c.get('devSold'):
@@ -236,7 +246,7 @@ def own_gate(own):
     return {**TRENCH, **{k: (float(o[k]) if k not in ('minHolders', 'minTxns1h') else int(o[k])) for k in OWN_OPTIONS}}
 
 
-SAFETY_FAILS = ('top-10', 'snipers', 'dev <', 'spike', 'flagged funders', 'mayhem', 'creator', 'mint + freeze')
+SAFETY_FAILS = ('top-10', 'holder scan', 'snipers', 'dev <', 'spike', 'flagged funders', 'mayhem', 'creator', 'mint + freeze')
 
 
 def soft_only(fails):

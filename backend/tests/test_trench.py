@@ -13,7 +13,7 @@ def test_trench_gate_is_strict_fails_closed_and_cites_every_reason():
     ok, fails = tr.gate(GOOD, 520, SAFE)
     assert ok and not fails
     for bad, why in (({'mcap': 14_000.0}, 'market cap'), ({'ageH': 30.0}, 'fresh'), ({'buyShare': 48.0}, 'buyers'), ({'chg5m': -2.0}, 'green'),
-                     ({'top10': 31.0}, 'top-10'), ({'scanned': False}, 'top-10'), ({'bundled': 3}, 'bundled'), ({'devSold': True}, 'dev'),
+                     ({'top10': 31.0}, 'top-10'), ({'scanned': False}, 'holder scan'), ({'bundled': 3}, 'bundled'), ({'devSold': True}, 'dev'),
                      ({'creatorRep': 'suspect'}, 'creator'), ({'creatorFlagged': True}, 'creator'), ({'ageH': None}, 'fresh')):
         ok, fails = tr.gate({**GOOD, **bad}, 520, SAFE)
         assert not ok and any(why in f for f in fails), (bad, fails)
@@ -242,3 +242,15 @@ def test_meta_proof_settles_after_an_hour_counts_a_vanished_coin_as_a_loss_and_u
     good = {'flood': {'done': [{'pct': x} for x in (4, 6, 8, -3, 900)]}}
     assert tr.meta_proof(good)['flood'] == {'n': 5, 'medPct': 6.0, 'wonPct': 80, 'open': 0, 'proven': True}   # median: the 900% doesn't carry it
     assert tr.meta_proof({})['crowd'] == {'n': 0, 'medPct': None, 'wonPct': None, 'open': 0, 'proven': False}
+
+
+def test_an_unscanned_coin_is_reported_apart_and_top10_passes_higher_only_while_holders_hold():
+    import trench as tr
+    base = {'ageH': 2.0, 'mcap': 60_000, 'txns1h': 500, 'vol1h': 30_000, 'buyShare': 60, 'chg5m': 3, 'chg1h': 20, 'scanned': True, 'top10': 31.0, 'top10Jump': 0.2,
+            'insiders': 1.0, 'bundled': 0, 'dev': 1.0, 'devSold': False, 'flaggedFunders': 0, 'creatorRep': 'clean', 'creatorFlagged': False, 'x': True, 'site': False}
+    assert tr.precheck(base) == []                                                          # 31% but holding, with an X account, 2h old
+    assert any('top-10' in f for f in tr.precheck({**base, 'x': False}))                    # nobody behind it → the 25% limit
+    assert any('top-10' in f for f in tr.precheck({**base, 'top10': 36.0}))                 # never past 35%
+    assert any('top-10' in f for f in tr.precheck({**base, 'top10Jump': 3.0}))              # top holders adding = not holding
+    un = tr.precheck({**base, 'scanned': False, 'top10': None})
+    assert un == ['holder scan not done yet'] and not tr.soft_only(un)                      # queued, not judged — and never pickable as a near-miss

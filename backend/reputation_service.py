@@ -7843,11 +7843,43 @@ async def admin_data_cleaner(request: Request):
     return {'last': _data_clean_last, 'rules': ['Chat: coin snapshots older than 1h lose their stale signal blocks (text, author and the coin stay)']}
 
 
+INTEL_DISK = DATA_DIR / 'intel_cache.json'
+INTEL_DISK_MAX_AGE, INTEL_DISK_KEEP = 1800.0, 300
+
+
+def _intel_save():
+    """Write the COMPLETE holder scans (top-10 known) of the last 30 min to disk, newest 300."""
+    try:
+        now = time.time()
+        rows = sorted(((m, at, out) for m, (at, out) in list(_intel_cache.items()) if isinstance(out, dict) and out.get('top10Pct') is not None and now - at < INTEL_DISK_MAX_AGE),
+                      key=lambda x: -x[1])[:INTEL_DISK_KEEP]
+        _json_save(INTEL_DISK, {'at': now, 'rows': [[m, at, out] for m, at, out in rows]})
+    except Exception as e:
+        print('intel save:', e)
+
+
+def _intel_restore():
+    """At start: bring back scans younger than 30 min (they are re-scanned on the normal schedule; a coin is never 'unscanned' just
+    because the service restarted). → how many came back"""
+    try:
+        now, n = time.time(), 0
+        for m, at, out in (_json_load(INTEL_DISK, {}) or {}).get('rows') or []:
+            if now - _fuse._f(at) < INTEL_DISK_MAX_AGE and m not in _intel_cache:
+                _intel_cache[m] = (_fuse._f(at), out); n += 1
+        return n
+    except Exception:
+        return 0
+
+
 async def _fuse_warm():
+    if not _fuse_warm_n.get('restored'):
+        _fuse_warm_n['restored'] = True; print('intel restored:', _intel_restore())
     _FUSE_FORCE.set(True)          # task-local: viewers never see it, they keep reading the previous copy
     _fuse_warm_n['n'] += 1
     if _fuse_warm_n['n'] % 24 == 2:   # ~10 min: who the elite traders are + what they bought (FeeCat learns from it)
         await _crowd_build()
+    if _fuse_warm_n['n'] % 3 == 1:   # 💾 finished holder scans survive a restart (a restart used to blank every list for minutes)
+        _intel_save()
     try:   # 🗑 trench scan (~2 min, cached; heavy on-chain counts only for the 5 busiest finalists)
         await _trench_build(time.time())
     except Exception as e:

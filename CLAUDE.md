@@ -1199,3 +1199,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🪑 A RESERVED SEAT NEVER HOLDS MONEY PAST A ROUND: the heal tries the seat's own kind, then any buyable runner / pool; still no
   coin after one round → the placeholder is removed (event `slot`) and its reserve is spread into the card's coins; the empty-seat
   refill brings a coin back when one qualifies. Found live: $0.66 of a $2.40 card sat reserved for 17 minutes.
+- 💾 HOLDER SCANS SURVIVE A RESTART (`_intel_save` every ~75s in `_fuse_warm`, `_intel_restore` on the first warm pass,
+  `data/intel_cache.json`: complete scans < 30 min old, newest 300). Every backend restart used to blank the scan cache → runner /
+  trench / volume lists empty for minutes ("57× top-10 (scan done)" in the trench funnel was mostly coins not scanned YET).
+  Trench funnel now says "holder scan not done yet" apart from a real top-10 fail; trench top-10 above 25% passes to 35%
+  (`HOLD_TOP10`) only while `runners.holding(c)`. THE OWNER'S RUNNER GATE in HQ › Engine is theirs (2026-10-05: top-10 < 20%,
+  cap ≥ $20K, 52–80% buys) — when lists are thin, read `/runners` dropped gates and SAY which setting is doing it; never change it.
