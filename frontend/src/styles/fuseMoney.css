@@ -161,6 +161,7 @@ body.theme-day .ctab { background: #fff; border-color: #d8e2dc; }
 .hrt-hero > span { display: grid; gap: 2px; align-content: center; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-surface) 80%, transparent); min-width: 0; }
 .hrt-hero > .rbell { min-width: 96px; border-color: var(--m-line-hi); }
 .hrt-hero > .is-now { border-color: color-mix(in srgb, var(--m-accent) 45%, transparent); }
+.hrt-hero .hrt-where { font-size: 10.5px; color: var(--m-dim); font-style: normal; cursor: help; }
 .hrt-hero small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; color: var(--m-dim); }
 .hrt-hero b.m-num { font-size: 20px; white-space: nowrap; line-height: 1.1; } .hrt-hero > .rbell b.m-num { font-size: 18px; }
 .hrt-hero em { font-style: normal; font-size: 11px; color: var(--m-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .hrt-hero em.m-pos { color: var(--m-accent); } .hrt-hero em.m-neg { color: var(--m-danger); }

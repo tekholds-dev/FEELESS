@@ -1016,3 +1016,15 @@ def test_all_cards_get_their_own_exits_back_and_the_real_card_is_never_touched(m
     asyncio.run(rs.fuse_prime_admin(Rq()))                                                               # a shared edit can't flatten the cards
     pr2 = rs._json_load(rs.FUSE_HQ_PATH, {})['prime']
     assert {t: tuple(ap.tier_cfg(pr2['cfg'], t)[k] for k in ap.TIER_KEYS) for t in ap.TEMPLATES} == sigs and pr2['realCfg'] == real
+
+
+def test_every_real_card_setting_reaches_the_engine(monkeypatch):
+    rs = pytest.importorskip('reputation_service')
+    real = {'rotateHours': 0.08, 'rotateConfirm': 2, 'minHoldMins': 10, 'rideAt': 15, 'rideTrail': 8, 'instantSwapPct': 15, 'rescuePct': 0,
+            'floorPct': 40, 'floorRestMins': 0, 'tp': 300, 'sl': 30, 'slMode': 'replace', 'coins': 4}
+    rs._json_save(rs.FUSE_HQ_PATH, {'prime': {'cfg': {}, 'realCfg': real, 'realOwnerSet': sorted(real), 'cards': {}}})
+    e = rs._prime_real_cfg()
+    for k, v in real.items():
+        assert e[k] == v, k                                                          # nothing dropped or silently changed by the guard
+    t = ap.card_template('degen', e)
+    assert (t['tp'], t['sl']) == (300, 30) and ap.leg_tp({}, t) == 300 and ap.leg_tp({'tp': 50}, t) == 50   # a coin's own TP still wins

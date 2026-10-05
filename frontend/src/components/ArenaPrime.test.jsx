@@ -108,3 +108,11 @@ test('your last real Fuse stays on My cards as a faint card; tapping it opens th
   act(() => card.click());
   expect(host.querySelectorAll('.rr-list li').length).toBe(1);                              // the paper run is not yours
 });
+
+test('where am I down: coins on the card now + already sold always add up to all-time', () => {
+  const { whereDown } = require('./ArenaPrime');
+  const c = { valueUsd: 4.69, legs: [{ usd: 1.43, costUsd: 1.43 }, { usd: 1.37, costUsd: 1.37 }, { usd: 1.06, costUsd: 1.07 }, { usd: 0.77, costUsd: 0.87 }, { usd: 0.05, costUsd: 0 }] };
+  const w = whereDown(c, 5);
+  expect(w).toEqual({ held: -0.11, sold: -0.2, all: -0.31 });   // your screenshot: −$0.11 on coins now, −$0.20 already sold
+  expect(Math.round((w.held + w.sold) * 100) / 100).toBe(w.all);
+});
