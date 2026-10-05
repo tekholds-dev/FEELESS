@@ -360,11 +360,13 @@ FLOOR_RESTS = (0, 15, 30, 60)   # 🛌 minutes a floored card rests in its ancho
 REAL_RUNNER_AGE_H = 12.0  # real money never buys a runner younger than this (a 20-min-old coin with a $534K pool went −99.99% in an hour)
 
 
-def real_guard(cfg):
-    """The real card's config with the hard floors applied. Returns (cfg, changed) — `changed` lists what was raised, in plain words."""
+def real_guard(cfg, owner_set=()):
+    """The real card's config with the hard floors applied. Returns (cfg, changed) — `changed` lists what was raised, in plain words.
+    THE OWNER PICKS: a round min hold the owner set to OFF (0) in Edit Fuse stays off — the floor only lifts values nobody chose."""
     out, changed = dict(cfg or {}), []
     fast = _f(out.get('rotateHours')) * 60 <= 15
-    if fast and _f(out.get('minHoldMins')) < REAL_MIN_HOLD:
+    hold_off = 'minHoldMins' in set(owner_set or ()) and _f(out.get('minHoldMins')) == 0
+    if fast and not hold_off and _f(out.get('minHoldMins')) < REAL_MIN_HOLD:
         out['minHoldMins'] = REAL_MIN_HOLD; changed.append(f'hold ≥ {REAL_MIN_HOLD:g} min')
     if int(_f(out.get('rotateConfirm'))) < REAL_MIN_CONFIRM:
         out['rotateConfirm'] = REAL_MIN_CONFIRM; changed.append(f'{REAL_MIN_CONFIRM} losing rounds before a swap')

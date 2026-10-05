@@ -1042,3 +1042,11 @@ def test_a_coin_that_left_in_round_n_cannot_come_back_before_round_n_plus_4():
         assert 'HIGGS' in ap.cooling({**after, 'rounds': r}, 1000.0 + (r - 5) * 300 + 290, 5 / 60, {'PH': 2.0})
     assert 'HIGGS' not in ap.cooling({**after, 'rounds': 9}, 1000.0 + 4 * 300, 5 / 60, {'PH': 2.0})
     assert 'HIGGS' in ap.cooling({**after, 'rounds': 0}, 1100.0, 5 / 60, {'PH': 2.0})   # a restarted run falls back to the time window
+
+
+def test_owner_can_switch_round_min_hold_off_on_real_money():
+    cfg = {'rotateHours': 5 / 60, 'minHoldMins': 0, 'rotateConfirm': 3}
+    assert ap.real_guard(cfg)[0]['minHoldMins'] == ap.REAL_MIN_HOLD                       # nobody chose it → floor applies
+    out, changed = ap.real_guard(cfg, ['minHoldMins'])
+    assert out['minHoldMins'] == 0 and not any('hold' in c for c in changed)             # the owner's OFF wins
+    assert ap.real_guard({**cfg, 'minHoldMins': 5}, ['minHoldMins'])[0]['minHoldMins'] == ap.REAL_MIN_HOLD   # only OFF is honoured below the floor

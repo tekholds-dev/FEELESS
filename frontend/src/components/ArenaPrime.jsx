@@ -187,9 +187,9 @@ export function PrimeShowcase() {
 const EDIT = [
   ['rotateHours', '⏱ Round clock', [[0.08, '5m'], [0.25, '15m'], [0.5, '30m'], [1, '1h'], [2, '2h']], 'How long each round lasts'],
   ['instantSwapPct', '⚡ Instant swap at', [[0, 'off'], [5, '−5%'], [10, '−10%'], [15, '−15%'], [20, '−20%']], 'Immediate live-loss trigger. Once the coin reaches this loss, it exits now — no round, patience or minimum-hold wait.'],
-  ['rotateConfirm', '⏳ Round patience', [[1, '1'], [2, '2'], [3, '3'], [4, '4']], 'Only for scheduled round rotation. It does NOT delay the instant-loss trigger.'],
+  ['rotateConfirm', '⏳ Round patience', [[1, '1'], [2, '2'], [3, '3'], [4, '4']], 'Only for scheduled round rotation. It does NOT delay the instant-loss trigger. OFF = a coin can be rotated out on the very next round (most churn — your choice).'],
   ['rotateMinDrop', '📉 Round swap only below', [[0, 'any'], [5, '−5%'], [10, '−10%'], [15, '−15%'], [20, '−20%']], 'For scheduled round rotation, require the coin to be this far below its entry.'],
-  ['minHoldMins', '🔒 Round min hold', [[10, '10m'], [15, '15m'], [30, '30m'], [60, '1h'], [120, '2h']], 'Only for scheduled round rotation. It does NOT delay the instant-loss trigger.'],
+  ['minHoldMins', '🔒 Round min hold', [[0, 'off'], [10, '10m'], [15, '15m'], [30, '30m'], [60, '1h'], [120, '2h']], 'Only for scheduled round rotation. It does NOT delay the instant-loss trigger. OFF = a coin can be rotated out on the very next round (most churn — your choice).'],
   ['keepWinPct', '🛡 Keep winners', [[0, 'off'], [5, '+5%'], [10, '+10%'], [20, '+20%']], 'A coin up this much (or ❄ frozen) is carried into the next shape — a re-shape never sells a winner'],
   ['rideAt', '❄ Freeze a coin running', [[0, 'off'], [10, '+10%'], [15, '+15%'], [20, '+20%'], [25, '+25%'], [50, '+50%'], [100, '+100%'], [150, '+150%']], 'A coin up this much is frozen: no TP, stop or rotation while it keeps making highs. It still leaves if it gives back half the freeze (e.g. frozen at +20% → out under +10%) — so a small freeze locks a small win'],
   ['rideTrail', '⇄ Then swap it off its peak', [[5, '−5%'], [8, '−8%'], [10, '−10%'], [15, '−15%'], [20, '−20%'], [30, '−30%']], 'A frozen coin is swapped for the best coin of its kind once it falls this far from its highest price (the gain moves into the new coin)'],
