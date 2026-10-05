@@ -11,6 +11,10 @@ class _Res:
     def json(self):
         return self._b
 
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise chain_rpc.httpx.HTTPStatusError('bad', request=None, response=None)
+
 
 class _Http:
     def __init__(self, replies):
@@ -124,3 +128,19 @@ def test_a_selling_card_finishes_when_only_dead_dust_is_left_but_never_writes_of
     nb, gone = fw.write_off_dust(book, {'Prug': 0.000002, 'Pok': 0.09})
     assert [g['symbol'] for g in gone] == ['USDF'] and gone[0]['costUsd'] == 0.74 and gone[0]['usd'] < 0.001
     assert set(nb['legs']) == {'OK', 'UNK'} and set(book['legs']) == {'RUG', 'OK', 'UNK'}       # $0.45 coin stays · no price = stays · input untouched
+
+
+def test_keeper_lane_uses_the_dedicated_endpoint_through_a_cooldown_and_retries_a_429(monkeypatch):
+    import time
+    monkeypatch.setattr(chain_rpc, '_dedicated', 'DED')
+    monkeypatch.setattr(chain_rpc, 'RPC_POOL', ['DED', 'pub'])
+    monkeypatch.setitem(chain_rpc._rpc_cooldown_until, 'DED', time.time() + 30)        # the scanners tripped the limit: shared pool skips it
+    http = _Http([_Res(429, {}), _Res(200, {'result': {'value': 7}})])
+    assert asyncio.run(chain_rpc.rpc_priority(http, 'getBalance', ['W'])) == {'value': 7}
+    assert [e for e, _ in http.calls] == ['DED', 'DED']                                 # waited, retried, never touched the public node
+    http2 = _Http([_Res(200, {'error': {'code': -32002, 'message': 'simulation failed'}}), _Res(200, {'error': {'code': -32002, 'message': 'simulation failed'}})])
+    try:
+        asyncio.run(chain_rpc.rpc_priority(http2, 'sendTransaction', ['x']))
+        assert False, 'a real RPC error must reach the caller'
+    except RuntimeError as e:
+        assert 'RPC pool exhausted' in str(e)

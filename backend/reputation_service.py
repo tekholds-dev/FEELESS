@@ -48,7 +48,7 @@ DATA_DIR.mkdir(exist_ok=True)
 STORE_PATH = DATA_DIR / 'reputation.json'
 
 # Solana RPC pool + retrying client live in chain_rpc.py (one module per job); imported here so every caller is unchanged.
-from chain_rpc import RPC_POOL, RPC_COOLDOWN_SECONDS, RPC_MAX_RETRIES, _alchemy, _dedicated, _rpc_cooldown_until, _next_rpc_endpoint, _rpc, broadcast as _rpc_broadcast  # noqa: F401
+from chain_rpc import RPC_POOL, RPC_COOLDOWN_SECONDS, RPC_MAX_RETRIES, _alchemy, _dedicated, _rpc_cooldown_until, _next_rpc_endpoint, _rpc, broadcast as _rpc_broadcast, rpc_priority as _krpc  # noqa: F401
 
 RUG_LIQUIDITY_DROP_PCT = 80          # % drop from peak liquidity counted as a rug signal
 RUG_MIN_AGE_SECONDS = 60 * 30        # token must have existed >=30min to be eligible to be flagged
@@ -5808,8 +5808,8 @@ async def _fw_sign(cfg, raw_b64, memo):
 async def _fw_balances(addr):
     """SOL + every token the Fuse wallet holds (atoms + decimals), one parallel RPC read."""
     async with httpx.AsyncClient(timeout=12) as http:
-        bal, *toks = await asyncio.gather(_rpc(http, 'getBalance', [addr, {'commitment': 'confirmed'}]),
-                                          *[_rpc(http, 'getTokenAccountsByOwner', [addr, {'programId': pg}, {'encoding': 'jsonParsed', 'commitment': 'confirmed'}]) for pg in _FW_TOKEN_PROGRAMS])
+        bal, *toks = await asyncio.gather(_krpc(http, 'getBalance', [addr, {'commitment': 'confirmed'}]),
+                                          *[_krpc(http, 'getTokenAccountsByOwner', [addr, {'programId': pg}, {'encoding': 'jsonParsed', 'commitment': 'confirmed'}]) for pg in _FW_TOKEN_PROGRAMS])
     tokens, decs = {}, {}
     for t in toks:
         for a in (t or {}).get('value') or []:
@@ -5982,7 +5982,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
             d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_save(d)
         try:
             async with httpx.AsyncClient(timeout=15) as http:
-                await _rpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
+                await _krpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
             _fw_raw_keep(sig, signed.get('signedTransaction'))   # 📡 passed simulation → re-sent to every node until it lands or expires
             break
         except Exception as e:
@@ -6058,7 +6058,7 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
     async with httpx.AsyncClient(timeout=15) as http:
         for _ in range(max(1, int(wait / 2))):
             try:
-                tx = await _rpc(http, 'getTransaction', [p['sig'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+                tx = await _krpc(http, 'getTransaction', [p['sig'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
             except Exception:
                 tx = None
             if tx:
@@ -6071,12 +6071,12 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
         failed, chain_err = False, None
         try:
             async with httpx.AsyncClient(timeout=15) as http:
-                st = await _rpc(http, 'getSignatureStatuses', [[p['sig']], {'searchTransactionHistory': True}])
+                st = await _krpc(http, 'getSignatureStatuses', [[p['sig']], {'searchTransactionHistory': True}])
                 status = ((st or {}).get('value') or [None])[0]
                 failed = bool(status and status.get('err'))
                 chain_err = status.get('err') if failed else None
                 if not failed and p.get('lastValidBlockHeight') is not None:
-                    height = await _rpc(http, 'getBlockHeight', [{'commitment': 'confirmed'}])
+                    height = await _krpc(http, 'getBlockHeight', [{'commitment': 'confirmed'}])
                     failed = int(height or 0) > int(p['lastValidBlockHeight'])
         except Exception:
             pass
@@ -6173,13 +6173,13 @@ async def _fw_deposit_scan(cfg, now):
     ours = {r.get('sig') for r in _fw_load().get('ledger') or [] if r.get('sig')}
     added = 0
     async with httpx.AsyncClient(timeout=15) as http:
-        sigs = await _rpc(http, 'getSignaturesForAddress', [cfg['address'], {'limit': 40, **({'until': dd['cursor']} if dd.get('cursor') else {})}]) or []
+        sigs = await _krpc(http, 'getSignaturesForAddress', [cfg['address'], {'limit': 40, **({'until': dd['cursor']} if dd.get('cursor') else {})}]) or []
         have = {r.get('sig') for r in dd['rows']}
         for srow in sigs[::-1]:   # oldest first
             sig = srow.get('signature')
             if not sig or srow.get('err') or sig in ours or sig in have:
                 continue
-            tx = await _rpc(http, 'getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+            tx = await _krpc(http, 'getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
             dep = _fw.deposit_from_tx(tx, cfg['address'])
             if dep:
                 dd['rows'].append({'sig': sig, 'at': (tx or {}).get('blockTime') or now, **dep}); added += 1
@@ -6306,16 +6306,16 @@ async def _fw_close_empty(cfg, now):
     keep = {m for b in d['books'].values() for m in (b.get('legs') or {})}
     try:
         async with httpx.AsyncClient(timeout=15) as http:
-            res = await asyncio.gather(*[_rpc(http, 'getTokenAccountsByOwner', [cfg['address'], {'programId': pg}, {'encoding': 'jsonParsed', 'commitment': 'confirmed'}]) for pg in _FW_TOKEN_PROGRAMS])
+            res = await asyncio.gather(*[_krpc(http, 'getTokenAccountsByOwner', [cfg['address'], {'programId': pg}, {'encoding': 'jsonParsed', 'commitment': 'confirmed'}]) for pg in _FW_TOKEN_PROGRAMS])
             rows = [{'pubkey': a.get('pubkey'), 'program': pg, 'lamports': (a.get('account') or {}).get('lamports'),
                      'info': ((((a.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {})} for pg, r in zip(_FW_TOKEN_PROGRAMS, res) for a in (r or {}).get('value') or []]
             empty = _fw.empty_accounts(rows, keep)
             if not empty:
                 return
-            bh = ((await _rpc(http, 'getLatestBlockhash', [{'commitment': 'finalized'}])) or {}).get('value', {}).get('blockhash')
+            bh = ((await _krpc(http, 'getLatestBlockhash', [{'commitment': 'finalized'}])) or {}).get('value', {}).get('blockhash')
             signed = await _fw_sign(cfg, _fw.close_tx(cfg['address'], empty, bh), f'FEELESS close {len(empty)} empty accounts')
             sig = signed.get('signature') or signed.get('txHash')
-            await _rpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
+            await _krpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
         rent = round(sum(_fuse._f(r.get('lamports')) for r in rows if r['pubkey'] in {e['pubkey'] for e in empty}) / 1e9, 9)
         row = {'id': f'close:{now:.0f}', 'card': 'wallet', 'side': 'close', 'n': len(empty), 'sol': rent, 'sig': sig, 'at': now, 'status': 'sent', 'why': 'empty coin accounts closed — rent back to the reserve'}
     except Exception as e:
@@ -6341,7 +6341,7 @@ async def _mint_decimals(mint):
         return _mint_dec[mint]
     try:
         async with httpx.AsyncClient(timeout=8) as http:
-            r = await _rpc(http, 'getTokenSupply', [mint])
+            r = await _krpc(http, 'getTokenSupply', [mint])
         _mint_dec[mint] = int(((r or {}).get('value') or {}).get('decimals'))
     except Exception:
         return None

@@ -74,3 +74,29 @@ async def broadcast(http: httpx.AsyncClient, signed_b64: str) -> int:
         except (httpx.HTTPError, ValueError):
             return False
     return sum(1 for ok in await asyncio.gather(*[one(e) for e in RPC_POOL]) if ok)
+
+
+async def rpc_priority(http: httpx.AsyncClient, method: str, params: list, tries: int = 4):
+    """💵 The KEEPER's lane. Real-money calls (balances, sends, confirmations) go to the dedicated endpoint FIRST and ignore the shared
+    cooldown: the coin scanners burst past a plan's rate limit, which used to lock the keeper out of its own endpoint for 30s at a
+    time ("RPC pool exhausted" on a balance read). A 429 here waits a moment and retries; only then does it fall back to the pool."""
+    import asyncio
+    if _dedicated:
+        for attempt in range(tries):
+            try:
+                res = await http.post(_dedicated, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
+            except httpx.HTTPError:
+                break
+            if res.status_code == 429:
+                await asyncio.sleep(0.35 * (attempt + 1))
+                continue
+            if res.status_code != 200:
+                break
+            try:
+                body = res.json()
+            except ValueError:
+                break
+            if 'error' not in body:
+                return body.get('result')
+            break   # a real RPC error (bad params, simulation failed, …) is the caller's to see — the pool reports it the same way
+    return await _rpc(http, method, params)
