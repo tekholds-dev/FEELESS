@@ -431,3 +431,10 @@ def test_one_transaction_swap_steps_aside_when_two_swaps_pay_more_or_impact_is_h
     rs, fw, state, cfg, book, sell, buy = _c2c_env(monkeypatch, direct_out=250, two_leg_out=247)
     state['d']['ledger'].append({'card': 'degen', 'side': 'swap', 'status': 'failed', 'at': sell['at'] - 60})
     assert asyncio.run(rs._fw_execute_swap('degen', sell, buy, book, cfg, 120.0, 90000)) is None        # a failed one-step → two-step for 10 min
+
+
+def test_an_account_a_provider_could_not_parse_never_crashes_a_scan():
+    import reputation_service as rs
+    assert rs._parsed_info({'data': {'parsed': {'info': {'owner': 'W', 'mint': 'M'}}}}) == {'owner': 'W', 'mint': 'M'}
+    assert rs._parsed_info({'data': ['AAAA', 'base64']}) == {}                           # raw base64 from some RPCs (Token-2022 extensions)
+    assert rs._parsed_info(None) == {} and rs._parsed_info({'data': {'parsed': 'x'}}) == {} and rs._parsed_info([]) == {}

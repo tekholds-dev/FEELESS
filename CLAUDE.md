@@ -1140,3 +1140,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   runner (else pool) not on the card takes the seat with an equal share (event `seat`), one a tick, never floored / held. A seat lost
   to a refused buy used to stay empty for good (the card sat on 3 coins).
 - War room chart header has a copy-CA chip (`chart-copy-ca`, styles in tips.css — command.css is at its KB budget).
+- `_parsed_info(acc)` is THE way to read a jsonParsed account: some providers (seen after the owner swapped lane 1 to another RPC)
+  return an account they can't parse as `[base64, 'base64']`; `.get` on that list crashed `token_intel` (HTTP 500) → coins stayed
+  "unscanned" and the lists thinned. Never chain `.get('data') or {}).get('parsed')` by hand. The HQ RPC box REPLACES whatever is in
+  the chosen slot — putting a new key in slot 1 removed Helius; `HELIUS_RPC_URL` now carries the Helius key for Helius-only data and
+  Helius is lane 3.

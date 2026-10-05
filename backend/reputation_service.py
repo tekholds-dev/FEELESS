@@ -917,8 +917,7 @@ async def token_intel(chain: str, mint: str):
         if holders:
             accs = await _rpc(http, 'getMultipleAccounts', [[h['address'] for h in holders], {'encoding': 'jsonParsed'}])
             for h, a in zip(holders, (accs or {}).get('value') or []):
-                info = (((a or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
-                owners[h['address']] = info.get('owner')
+                owners[h['address']] = _parsed_info(a).get('owner')
             owner_list = [o for o in owners.values() if o]
             kinds = {}
             if owner_list:
@@ -1800,7 +1799,7 @@ async def token_balance(owner: str, mint: str):
         raise HTTPException(502, 'Balance unavailable right now.')
     total, decimals, raw = 0.0, None, 0
     for acc in (r or {}).get('value') or []:
-        info = (((acc.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
+        info = _parsed_info(acc.get('account'))
         amt = (info.get('tokenAmount') or {})
         total += float(amt.get('uiAmount') or 0)
         raw += int(amt.get('amount') or 0)
@@ -3884,7 +3883,7 @@ async def _wallet_held(wallets, mints):
     held = {}
     for r in res:
         for a in (r or {}).get('value') or []:
-            info = (((a.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
+            info = _parsed_info(a.get('account'))
             if info.get('mint'):
                 held[info['mint']] = held.get(info['mint'], 0.0) + _fuse._f((info.get('tokenAmount') or {}).get('uiAmountString') or (info.get('tokenAmount') or {}).get('uiAmount'))
     _held_cache[key] = (time.time(), held)
@@ -6121,6 +6120,16 @@ async def fuse_prime_admin(request: Request):
 import fuse_wallet as _fw
 FUSE_WALLET_PATH = DATA_DIR / 'fuse_wallet.json'   # {'cfg', 'books': {tier: book}, 'ledger': [orders · top-ups · defunds]}
 _fw_lock = asyncio.Lock()
+def _parsed_info(acc):
+    """The `parsed.info` of a jsonParsed account, or {}. Some RPC providers answer an account they can't parse (Token-2022 with
+    extensions) as raw `[base64, 'base64']` — a list, not a dict. Reading `.get` on it crashed the whole holder scan (HTTP 500),
+    so every coin whose top holders included one such account stayed "unscanned" and out of every list."""
+    data = (acc or {}).get('data') if isinstance(acc, dict) else None
+    parsed = data.get('parsed') if isinstance(data, dict) else None
+    info = parsed.get('info') if isinstance(parsed, dict) else None
+    return info if isinstance(info, dict) else {}
+
+
 _FW_TOKEN_PROGRAMS = ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')
 
 
@@ -6176,7 +6185,7 @@ async def _fw_balances(addr):
     tokens, decs = {}, {}
     for t in toks:
         for a in (t or {}).get('value') or []:
-            info = (((a.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
+            info = _parsed_info(a.get('account'))
             amt = info.get('tokenAmount') or {}
             if info.get('mint'):
                 tokens[info['mint']] = tokens.get(info['mint'], 0) + int(amt.get('amount') or 0); decs[info['mint']] = int(amt.get('decimals') or 0)
@@ -6984,7 +6993,7 @@ async def _fw_close_empty(cfg, now):
         async with httpx.AsyncClient(timeout=15) as http:
             res = await asyncio.gather(*[_krpc(http, 'getTokenAccountsByOwner', [cfg['address'], {'programId': pg}, {'encoding': 'jsonParsed', 'commitment': 'confirmed'}]) for pg in _FW_TOKEN_PROGRAMS])
             rows = [{'pubkey': a.get('pubkey'), 'program': pg, 'lamports': (a.get('account') or {}).get('lamports'),
-                     'info': ((((a.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {})} for pg, r in zip(_FW_TOKEN_PROGRAMS, res) for a in (r or {}).get('value') or []]
+                     'info': (_parsed_info(a.get('account')))} for pg, r in zip(_FW_TOKEN_PROGRAMS, res) for a in (r or {}).get('value') or []]
             empty = _fw.empty_accounts(rows, keep)
             if not empty:
                 return
@@ -9471,7 +9480,7 @@ async def _token_holders(mint: str):
             except Exception:
                 accts = None
             for a in accts or []:
-                info = (((a.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
+                info = _parsed_info(a.get('account'))
                 amt = float(((info.get('tokenAmount') or {}).get('uiAmount')) or 0)
                 if amt > 0 and info.get('owner'):
                     owners[info['owner']] = owners.get(info['owner'], 0) + amt
@@ -10620,7 +10629,7 @@ async def admin_fee_balances(request: Request):
         for program in ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'):
             result = await _rpc(http, 'getTokenAccountsByOwner', [referral, {'programId': program}, {'encoding': 'jsonParsed'}])
             for row in (result or {}).get('value', []):
-                info = (((row.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
+                info = _parsed_info(row.get('account'))
                 amount = info.get('tokenAmount') or {}
                 if int(amount.get('amount') or 0) <= 0:
                     continue
@@ -10659,7 +10668,7 @@ async def admin_fee_health(request: Request):
         for program in ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'):
             res = await _rpc(http, 'getTokenAccountsByOwner', [referral, {'programId': program}, {'encoding': 'jsonParsed'}])
             for row in (res or {}).get('value', []):
-                held.add((((row.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info', {}).get('mint'))
+                held.add(_parsed_info(row.get('account')).get('mint'))
         vaults = {'SOL': 'So11111111111111111111111111111111111111112' in held, 'USDC': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' in held}
     if project != JUP_ULTRA_REFERRAL_PROJECT:
         return {'ok': False, 'project': project, 'partner': partner, 'vaults': vaults,
@@ -11039,7 +11048,7 @@ async def _fee_wallet_owner(http, cfg):
             continue
         try:
             info = await _rpc(http, 'getAccountInfo', [acct, {'encoding': 'jsonParsed'}])
-            owner = (((((info or {}).get('value') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}).get('owner')
+            owner = _parsed_info((info or {}).get('value')).get('owner')
             if owner:
                 return owner
         except Exception:
@@ -14518,7 +14527,7 @@ async def rugproof(mint: str):
         return hit[1]
     async with httpx.AsyncClient(timeout=10) as http:
         info = await _rpc(http, 'getAccountInfo', [mint, {'encoding': 'jsonParsed'}])
-    parsed = ((((info or {}).get('value') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
+    parsed = _parsed_info((info or {}).get('value'))
     if not parsed:
         raise HTTPException(404, 'Not a token mint.')
     launch = (_load().get('feelessLaunches') or {}).get(mint) or {}
@@ -15659,7 +15668,7 @@ async def treasury_money(request: Request):
                 return None
             try:
                 v = ((await _rpc(http, 'getAccountInfo', [addr, {'encoding': 'jsonParsed'}])) or {}).get('value') or {}
-                info = ((v.get('data') or {}).get('parsed') or {}).get('info') or {}
+                info = _parsed_info(v)
                 return {'owner': info.get('owner'), 'mint': info.get('mint'), 'amount': float((info.get('tokenAmount') or {}).get('uiAmount') or 0)}
             except Exception:
                 return None
