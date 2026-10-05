@@ -9,7 +9,7 @@ import { useLivePrices } from '../lib/livePrices';
 // back = every number behind its score. Grade sets rarity, strategy sets the design.
 const RARITY = { A: 'legendary', B: 'epic', C: 'rare', D: 'common', F: 'common' };
 const DESIGN = { yield: 'aurora', momentum: 'ember', steady: 'obsidian', degen: 'glitch', dip: 'vapor', meta: 'plasma' };
-const ACCENT = { yield: ['#19f58f', '#6ad7ff'], momentum: ['#ff8a3d', '#f5c451'], steady: ['#19f58f', '#f5c451'], degen: ['#ff5ad1', '#00e5ff'], dip: ['#6ad7ff', '#19f58f'], meta: ['#f5c451', '#ff5ad1'] };
+const ACCENT = { yield: ['#15d16a', '#6ad7ff'], momentum: ['#ff8a3d', '#f5c451'], steady: ['#15d16a', '#f5c451'], degen: ['#ff5ad1', '#00e5ff'], dip: ['#6ad7ff', '#15d16a'], meta: ['#f5c451', '#ff5ad1'] };
 // The crest shows the basket's top-weighted coin, through the sitewide logo chain (DexScreener → CDN → FEELESS cache).
 // The coin a leg shows: the leg's own mint (card legs / runners / a SOL anchor), else the coin a pool buys. Never empty.
 export const legPair = l => { const t = legTarget(l) || {}; const address = l.mint || t.mint || l.baseAddress;
@@ -91,7 +91,7 @@ export function LiveFuseCard({ r: r0, aura = '', look = null, label = null, serv
   const up = r.pnlUsd >= 0;
   const g = r.closed ? 'C' : r.pnlPct >= 25 ? 'A' : r.pnlPct >= 0 ? 'B' : r.pnlPct >= -15 ? 'C' : 'D';
   const card = { key: r.id, kind: 'fuse', title: legs.slice(0, 3).map(l => l.symbol).join(' · ') + (legs.length > 3 ? ` +${legs.length - 3}` : ''),
-    subtitle: `${r.name || 'MY FUSE'} · ${up ? '+' : ''}${r.pnlPct.toFixed(1)}%`, rarity: RARITY[g], design: up ? 'aurora' : 'ember', accent: up ? '#19f58f' : '#ff8fa3', accent2: '#f5c451', ...(look || {}),
+    subtitle: `${r.name || 'MY FUSE'} · ${up ? '+' : ''}${r.pnlPct.toFixed(1)}%`, rarity: RARITY[g], design: up ? 'aurora' : 'ember', accent: up ? '#15d16a' : '#ff8fa3', accent2: '#f5c451', ...(look || {}),
     glyph: g, motion: up && !r.closed ? 'alive' : 'still', holders: legs.length, edition: r.closed ? 'CLOSED' : 'LIVE', aura,
     art: tokenImageUrls(legPair(legs[0] || {})), fallbackGlyph: String(legs[0]?.symbol || '✦').slice(0, 4) };
   // 🧮 the money as ONE equation: PUT IN → IN CARD + PAID OUT = NOW (paid out = profit that left the card, never the gross takes)

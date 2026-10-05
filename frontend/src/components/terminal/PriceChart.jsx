@@ -276,7 +276,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       catch { /* chart torn down between render and effect */ }
     };
     add(feeRead.resistance, '#fa708c', '🐱 resistance');
-    add(feeRead.support, '#19f58f', '🐱 support');
+    add(feeRead.support, '#15d16a', '🐱 support');
     if (feeRead.vwap) add(feeRead.vwap, '#e9bd65', '🐱 fair value', 1);
     if (feeRead.entry) { add(feeRead.entry, '#5ec8ff', '🐱 Fee entry', 0); add(feeRead.entry * 0.9, '#ff5d73', '🐱 stop −10%', 3); add(feeRead.entry * 1.22, '#7df9d0', '🐱 target +22%', 3); }
     // Fibonacci retracements of the visible swing: where Fee expects bounces / rejections.
@@ -298,7 +298,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     drop();
     if (!ref || !charting) return drop;
     const add = o => { try { entryLinesRef.current.push(ref.series.createPriceLine({ axisLabelVisible: true, ...o })); } catch { /* chart torn down */ } };
-    const lv = tradeLevels(userTrades); if (lv.length > 1) lv.forEach(t => add({ price: t.price * ratio, color: t.side === 'sell' ? '#ff8fa3aa' : '#19f58faa', lineWidth: 1, lineStyle: 2, title: t.title }));
+    const lv = tradeLevels(userTrades); if (lv.length > 1) lv.forEach(t => add({ price: t.price * ratio, color: t.side === 'sell' ? '#ff8fa3aa' : '#15d16aaa', lineWidth: 1, lineStyle: 2, title: t.title }));
     if (userEntry > 0) add({ price: userEntry * ratio, color: '#f5c542', lineWidth: 2, lineStyle: 0, title: '◆ your entry' });
     return drop;
   }, [userEntry, tradeKey, charting, ratio, displayCandles]); // eslint-disable-line react-hooks/exhaustive-deps

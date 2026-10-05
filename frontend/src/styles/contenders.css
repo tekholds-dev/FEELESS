@@ -63,7 +63,7 @@ body.theme-day .az-bar { box-shadow: 0 8px 18px -14px #0005; }
   background: radial-gradient(closest-side, color-mix(in srgb, var(--gold, #f5c451) 55%, transparent), transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold, #f5c451) 40%, transparent) inset; }
 .th-rays { position: absolute; inset: -70%; pointer-events: none; opacity: .2; animation: thSpin 30s linear infinite;
-  background: conic-gradient(from 0deg, transparent 0 18deg, var(--gold, #f5c451) 22deg, transparent 28deg 108deg, #9b5cff 112deg, transparent 118deg 228deg, var(--gold, #f5c451) 232deg, transparent 238deg 300deg, #19f58f 304deg, transparent 310deg); }
+  background: conic-gradient(from 0deg, transparent 0 18deg, var(--gold, #f5c451) 22deg, transparent 28deg 108deg, #9b5cff 112deg, transparent 118deg 228deg, var(--gold, #f5c451) 232deg, transparent 238deg 300deg, #15d16a 304deg, transparent 310deg); }
 .th-king { position: relative; z-index: 2; display: grid; place-items: center; cursor: pointer; animation: thIn .55s var(--m-ease, ease) both; }
 .th-king:focus-visible { outline: 2px solid var(--gold, #f5c451); outline-offset: 6px; border-radius: 18px; }
 .th-card { display: block; zoom: .8; }

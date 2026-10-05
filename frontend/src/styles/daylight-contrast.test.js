@@ -43,7 +43,7 @@ test('keeps the daylight layer scoped and covers shared surfaces and focus state
 });
 
 test('preserves the existing night palette outside the daylight scope', () => {
-  expect(css).toContain(':root{--mint:#19f58f;--mint-bright:#3ee39c;--ink:#070c0b');
+  expect(css).toContain(':root{--mint:#15d16a;--mint-bright:#45e486;--ink:#070c0b');
   expect(css).toContain('.terminal-header{height:82px');
   expect(css).toContain('background:#070d0b');
 });

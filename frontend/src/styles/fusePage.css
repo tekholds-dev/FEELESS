@@ -2,7 +2,7 @@
 .fuse-page { display: grid; gap: 14px; }
 .fp-head { display: grid; gap: 6px; } .fp-title { margin: 0; font-family: var(--fz-font); font-size: 32px; letter-spacing: .04em; display: flex; align-items: center; gap: 10px; }
 /* ⚡ Electric title: gradient text + two lightning arcs that strike across it (transform/opacity only) + the 🧬 spins. */
-.fp-zap { position: relative; display: inline-block; background: linear-gradient(90deg, #19f58f, #b98cff 50%, #6fe7ff); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; filter: drop-shadow(0 0 10px #a46bff66); }
+.fp-zap { position: relative; display: inline-block; background: linear-gradient(90deg, #15d16a, #b98cff 50%, #6fe7ff); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; filter: drop-shadow(0 0 10px #a46bff66); }
 .fp-zap::after { content: attr(data-text); position: absolute; inset: 0; color: #f3e9ff; -webkit-text-fill-color: #f3e9ff; opacity: 0; text-shadow: 0 0 8px #c08bff, 0 0 18px #7d3cff; animation: fpFlicker 3.4s steps(1) infinite; pointer-events: none; }
 .fp-bolt { position: absolute; left: -6%; top: 18%; width: 112%; height: 64%; pointer-events: none; opacity: 0; transform-origin: left center;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Cpath d='M0 20 L22 8 L38 26 L58 6 L74 30 L96 10 L112 28 L132 4 L150 24 L170 12 L200 22' fill='none' stroke='%23e9d8ff' stroke-width='2.4' stroke-linejoin='round'/%3E%3Cpath d='M0 20 L22 8 L38 26 L58 6 L74 30 L96 10 L112 28 L132 4 L150 24 L170 12 L200 22' fill='none' stroke='%239b5cff' stroke-width='7' stroke-opacity='.35'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
@@ -15,14 +15,14 @@
 .fuse-page::before { content: ''; position: absolute; inset: 0; z-index: -2; pointer-events: none;
   background: radial-gradient(120% 60% at 20% 0%, #3a1670 0%, transparent 60%), radial-gradient(90% 50% at 90% 30%, #251055 0%, transparent 65%), linear-gradient(180deg, #120821, #0a0614 70%); }
 .fuse-page::after { content: ''; position: absolute; inset: -25%; z-index: -1; pointer-events: none; opacity: .75; will-change: transform;
-  background: radial-gradient(18% 14% at 30% 30%, rgba(155, 92, 255, .22), transparent 70%), radial-gradient(16% 12% at 70% 55%, rgba(25, 245, 143, .10), transparent 70%),
+  background: radial-gradient(18% 14% at 30% 30%, rgba(155, 92, 255, .22), transparent 70%), radial-gradient(16% 12% at 70% 55%, rgba(21, 209, 106, .10), transparent 70%),
     radial-gradient(22% 16% at 55% 80%, rgba(111, 60, 220, .18), transparent 70%), radial-gradient(10% 8% at 82% 18%, rgba(111, 231, 255, .12), transparent 70%);
   animation: fzNebula 38s ease-in-out infinite alternate; }
 @keyframes fzNebula { 0% { transform: translate3d(-4%, -3%, 0) rotate(0deg); } 100% { transform: translate3d(5%, 4%, 0) rotate(10deg); } }
 /* Blackish-purple surfaces for every m-* card on the page (night), violet aurora on banners, breathing violet edges on cards. */
 body:not(.theme-day) .fuse-page { --m-bg: #0b0614; --m-surface: #120a1f; --m-surface-2: #190e2c; --m-line: #2d1d4c; --m-line-hi: #4a2f7d; --fz-violet: #9b5cff; }
 body:not(.theme-day) .fuse-page .m-live { border-color: color-mix(in srgb, var(--fz-violet) 50%, transparent) !important; box-shadow: 0 0 0 1px rgba(155, 92, 255, .12) inset, 0 24px 60px -34px rgba(155, 92, 255, .6); }
-body:not(.theme-day) .fuse-page .m-live::before { background: radial-gradient(38% 32% at 28% 30%, rgba(155, 92, 255, .22), transparent 70%), radial-gradient(34% 30% at 72% 68%, rgba(25, 245, 143, .11), transparent 70%), radial-gradient(22% 22% at 58% 18%, rgba(111, 231, 255, .10), transparent 70%); }
+body:not(.theme-day) .fuse-page .m-live::before { background: radial-gradient(38% 32% at 28% 30%, rgba(155, 92, 255, .22), transparent 70%), radial-gradient(34% 30% at 72% 68%, rgba(21, 209, 106, .11), transparent 70%), radial-gradient(22% 22% at 58% 18%, rgba(111, 231, 255, .10), transparent 70%); }
 body:not(.theme-day) .fuse-page .m-live::after { background: linear-gradient(90deg, transparent, #c08bff, transparent); }
 body:not(.theme-day) .fuse-page .rn-hero { background: linear-gradient(120deg, #24103f, #120a1f 55%, #1a0d2a); }
 .fuse-page .fp-runner::before, .fuse-page .fs-row::before { content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; border: 1px solid #9b5cff; opacity: .1; animation: fzEdge 4.2s ease-in-out infinite alternate; animation-delay: calc(var(--i, 0) * -.45s); }
@@ -491,10 +491,10 @@ body.fx-lite .pt-sweep, body.fx-lite .pt-spark { display: none; } body.fx-lite .
 .prime-why { font-size: 11px; color: var(--m-dim); text-align: center; line-height: 1.3; }
 .prime-parked { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; gap: 3px; font-size: 11px; }
 .prime-parked li { padding: 4px 8px; border-radius: 8px; border: 1px dashed var(--gold); color: var(--m-dim); }
-.tier-next { border-color: color-mix(in srgb, #b98cff 60%, var(--m-line)); } .tier-ever { border-color: color-mix(in srgb, #19f58f 55%, var(--m-line)); }
-.tier-next .prime-badge { color: #c9a6ff; } .tier-ever .prime-badge { color: #19f58f; }
+.tier-next { border-color: color-mix(in srgb, #b98cff 60%, var(--m-line)); } .tier-ever { border-color: color-mix(in srgb, #15d16a 55%, var(--m-line)); }
+.tier-next .prime-badge { color: #c9a6ff; } .tier-ever .prime-badge { color: #15d16a; }
 .tier-next .pt-ring { background: conic-gradient(from 0deg, #b98cff33, transparent 35%, #6ad7ff33, transparent 75%, #b98cff33); } .tier-next .pt-spark { background: #e4d4ff; box-shadow: 0 0 8px #b98cff; animation-duration: 1.8s; }
-.tier-ever .pt-ring { background: conic-gradient(from 0deg, #19f58f2e, #6ad7ff22, #19f58f2e, transparent 60%, #19f58f2e); animation-duration: 30s; } .tier-ever .pt-spark { background: #b8ffe0; box-shadow: 0 0 6px #19f58f; animation-duration: 5s; }
+.tier-ever .pt-ring { background: conic-gradient(from 0deg, #15d16a2e, #6ad7ff22, #15d16a2e, transparent 60%, #15d16a2e); animation-duration: 30s; } .tier-ever .pt-spark { background: #b8ffe0; box-shadow: 0 0 6px #15d16a; animation-duration: 5s; }
 .vd-arena { display: grid; gap: 6px; } .vd-arena .m-row { flex-wrap: wrap; gap: 6px; } .vd-arena .vd-hit { flex: 1 1 180px; }
 
 /* 🧾 Fuse receipts (profile): dropdown per withdrawn card */
@@ -532,7 +532,7 @@ body.fx-lite .ce-shade.is-pop { backdrop-filter: none; -webkit-backdrop-filter: 
   transition: transform .18s var(--m-ease), border-color .18s, box-shadow .18s; animation: mCardIn .25s var(--m-ease) calc(var(--i, 0) * 55ms) backwards; }
 .vd-pcard:hover { transform: translateY(-3px); border-color: var(--tc, var(--m-accent)); box-shadow: 0 14px 30px -18px var(--tc, var(--m-accent)); }
 .vd-pcard:active { transform: scale(.98); } .vd-pcard:focus-visible { outline: 2px solid var(--tc, var(--m-accent)); outline-offset: 2px; }
-.vd-pcard.tier-ever { --tc: #19f58f; } .vd-pcard.tier-gold { --tc: #ffd56a; } .vd-pcard.tier-blaze { --tc: #ff9a4d; } .vd-pcard.tier-next { --tc: #c58bff; }
+.vd-pcard.tier-ever { --tc: #15d16a; } .vd-pcard.tier-gold { --tc: #ffd56a; } .vd-pcard.tier-blaze { --tc: #ff9a4d; } .vd-pcard.tier-next { --tc: #c58bff; }
 .vd-pcrest { font-style: normal; font-size: 26px; width: 46px; height: 46px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--tc); box-shadow: 0 0 18px -6px var(--tc); }
 .vd-pcard b { font-size: 15px; } .vd-pcard small { color: var(--m-dim); font-size: 11.5px; line-height: 1.35; } .vd-pcard em { font: 10px var(--m-mono); font-style: normal; color: var(--tc); }
 .vd-pgo { font: 700 11px var(--m-mono); letter-spacing: .08em; color: var(--tc); }
@@ -692,7 +692,7 @@ body.theme-day .pgb-res { background: #fff; }
 .fp-mb-live.is-up { border-color: color-mix(in srgb, var(--m-accent) 55%, transparent); } .fp-mb-live.is-down { border-color: #ff8fa366; }
 .fp-mybattles .bf-log small.is-won { border-color: color-mix(in srgb, var(--m-accent) 50%, transparent); } .fp-mybattles .bf-log small.is-lost { opacity: .75; }
 .wp-fuse-go { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 999px; border: 1px solid #c08bff; font: 700 14px var(--m-font, inherit); cursor: pointer; color: #fff;
-  background: linear-gradient(120deg, #4a1d8f, #9b5cff 55%, #19f58f); background-size: 200% 100%; box-shadow: 0 10px 26px -14px #9b5cff; transition: transform .15s, background-position .4s; }
+  background: linear-gradient(120deg, #4a1d8f, #9b5cff 55%, #15d16a); background-size: 200% 100%; box-shadow: 0 10px 26px -14px #9b5cff; transition: transform .15s, background-position .4s; }
 .wp-fuse-go:hover { transform: translateY(-2px); background-position: 100% 0; } .wp-fuse-go:active { transform: scale(.97); } .wp-fuse-go:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 3px; }
 .ce.fp-popup { width: min(980px, 96vw); max-height: 90vh; overflow: auto; scrollbar-width: thin; }
 body.fx-lite .fp-mb-live { animation: none; } @media (prefers-reduced-motion: reduce) { .fp-mb-live { animation: none; } }

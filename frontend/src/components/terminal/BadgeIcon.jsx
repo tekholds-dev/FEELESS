@@ -1,7 +1,7 @@
 import React from 'react';
 
 // Hand-made SVG emblems — one per badge, gradient-filled by tone.
-const TONES = { gold: ['#fff3c4', '#f5c542', '#a8740a'], mint: ['#c9fff0', '#19f58f', '#00784f'], bad: ['#ffd0d8', '#fa708c', '#9b1c38'], plain: ['#ffffff', '#b9d4c6', '#5f7d6d'] };
+const TONES = { gold: ['#fff3c4', '#f5c542', '#a8740a'], mint: ['#c9fff0', '#15d16a', '#00784f'], bad: ['#ffd0d8', '#fa708c', '#9b1c38'], plain: ['#ffffff', '#b9d4c6', '#5f7d6d'] };
 const PATHS = {
   'feeless-hq': 'M3 17h18l-1.5-9-4.5 4-3-7-3 7-4.5-4zM4 19h16v2H4z', // crown
   'fee-holder': 'M12 2c5 3 8 7 8 11a8 8 0 0 1-16 0c0-4 3-8 8-11zm0 5c-2 3-3 5-3 7h2c0-2 1-4 3-6z', // leaf-drop

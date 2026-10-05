@@ -8,7 +8,7 @@ const ease = t => 1 - (1 - t) ** 3;
 
 // Gains glow royal green; anything negative (drops, losses, flagged creators) gets its own crimson world.
 const PALETTES = {
-  up: { base: '#021a10', pools: ['18,192,122', '11,122,82'], fade: 'rgba(2,26,16,0)', flare: '184,255,228', spark: '157,255,217', kicker: '#9dffd9', big: '#19f58f', brand: '#19f58f', frame: 'rgba(18,192,122,.55)', panel: 'rgba(3,20,12,.55)', text: '#d9efe4', foot: '#8fbfa8' },
+  up: { base: '#021a10', pools: ['18,192,122', '11,122,82'], fade: 'rgba(2,26,16,0)', flare: '184,255,228', spark: '157,255,217', kicker: '#9dffd9', big: '#15d16a', brand: '#15d16a', frame: 'rgba(18,192,122,.55)', panel: 'rgba(3,20,12,.55)', text: '#d9efe4', foot: '#8fbfa8' },
   down: { base: '#1a0208', pools: ['255,64,100', '140,20,50'], fade: 'rgba(26,2,8,0)', flare: '255,190,205', spark: '255,150,170', kicker: '#ffb3c3', big: '#ff6b8b', brand: '#ff6b8b', frame: 'rgba(255,90,122,.6)', panel: 'rgba(24,4,10,.6)', text: '#f3dbe1', foot: '#c9929f' },
 };
 
@@ -78,7 +78,7 @@ function frame(g, card, logo, coin, t, seed) {
     const x = 392 + (i % 2) * 150, y = 136 + Math.floor(i / 2) * 50;
     g.fillStyle = 'rgba(255,255,255,0.07)'; g.beginPath(); g.roundRect(x, y, 142, 42, 10); g.fill();
     g.fillStyle = 'rgba(255,255,255,0.55)'; g.font = '600 10px "Space Grotesk", sans-serif'; g.fillText(String(s.label).toUpperCase(), x + 10, y + 15);
-    g.fillStyle = s.tone === 'bad' ? '#ff8fa3' : s.tone === 'ok' ? '#19f58f' : s.tone === 'warn' ? '#f5c451' : '#ffffff';
+    g.fillStyle = s.tone === 'bad' ? '#ff8fa3' : s.tone === 'ok' ? '#15d16a' : s.tone === 'warn' ? '#f5c451' : '#ffffff';
     g.font = '700 16px "Space Grotesk", sans-serif'; g.fillText(String(s.value).slice(0, 16), x + 10, y + 34);
   });
   // FeeCat effects: a paw-print trail walks across the card.

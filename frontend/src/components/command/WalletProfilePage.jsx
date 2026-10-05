@@ -78,7 +78,7 @@ function FriendCard({ address }) {
   return <Link to={`/terminal/profile/${address}`} className="wp-friend">{p?.avatarUrl ? <img src={p.avatarUrl} alt="" /> : <i style={p?.accent ? { color: p.accent } : undefined}>{(p?.displayName || address).slice(0, 2).toUpperCase()}</i>}<b>{p?.displayName || shortAddress(address)}</b></Link>;
 }
 
-const ACCENTS = ['#19f58f', '#e9bd65', '#5ec8ff', '#b388ff', '#ff6b8b', '#ff9f45', '#ffffff'];
+const ACCENTS = ['#15d16a', '#e9bd65', '#5ec8ff', '#b388ff', '#ff6b8b', '#ff9f45', '#ffffff'];
 const XIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.9 2H22l-7.6 8.7L23 22h-6.8l-5.3-6.9L4.8 22H1.7l8.1-9.3L1 2h7l4.8 6.3L18.9 2Zm-1.2 18h1.9L7.4 3.9H5.4L17.7 20Z" /></svg>;
 
 export function UploadButton({ label, shape, onDone }) {
@@ -188,9 +188,9 @@ export function WalletProfilePage({ address }) {
   useEffect(() => { load(); }, [load]);
   const p = (edit ? draft : data?.profile) || {};
   const backdrop = useProfileBackdrop(p.theme);
-  const accent = p.accent || '#19f58f';
+  const accent = p.accent || '#15d16a';
   const set = (k, v) => setDraft(d => ({ ...d, [k]: v }));
-  const startEdit = () => { setDraft({ displayName: '', bio: '', mood: '', accent: '#19f58f', links: {}, top8: [], theme: 'grid', friends: [], featuredBadges: [], ring: 'none', nameFx: 'none', handle: '', songs: [], ...(data?.profile || {}) }); setEdit(true); };
+  const startEdit = () => { setDraft({ displayName: '', bio: '', mood: '', accent: '#15d16a', links: {}, top8: [], theme: 'grid', friends: [], featuredBadges: [], ring: 'none', nameFx: 'none', handle: '', songs: [], ...(data?.profile || {}) }); setEdit(true); };
   const addCoin = coin => setDraft(d => (d.top8.some(t => t.pairAddress === coin.pairAddress) || d.top8.length >= 8 ? d : { ...d, top8: [...d.top8, coin] }));
   const addByCa = async () => {
     try {

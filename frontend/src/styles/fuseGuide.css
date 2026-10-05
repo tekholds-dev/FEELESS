@@ -4,16 +4,16 @@
 .fg { width: min(760px, 100%); max-height: min(86vh, 760px); display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 10px; padding: 16px;
   background: var(--m-surface, #0c1310); border: 1px solid var(--m-line-hi, #1f3a2c); animation: fgIn .2s ease-out both; }
 .fg > header { display: flex; justify-content: space-between; align-items: center; } .fg-x { padding: 2px 9px; }
-.fg-tabs { flex-wrap: wrap; } .fg-body { overflow: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent, #19f58f) transparent; animation: fgFade .15s ease-out both; }
-.fg-body::-webkit-scrollbar { width: 6px; } .fg-body::-webkit-scrollbar-thumb { background: var(--m-accent, #19f58f); border-radius: 3px; }
+.fg-tabs { flex-wrap: wrap; } .fg-body { overflow: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent, #15d16a) transparent; animation: fgFade .15s ease-out both; }
+.fg-body::-webkit-scrollbar { width: 6px; } .fg-body::-webkit-scrollbar-thumb { background: var(--m-accent, #15d16a); border-radius: 3px; }
 .fg-dials { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
 .fg-dial { display: grid; gap: 6px; align-content: start; padding: 12px; border-radius: 14px; border: 1px solid var(--m-line, #173025); background: var(--m-surface-2, #101a15); transition: border-color .15s, transform .15s; }
-.fg-dial:hover { transform: translateY(-2px); border-color: var(--m-accent, #19f58f); } .fg-dial.is-on { border-color: var(--m-accent, #19f58f); box-shadow: 0 0 0 1px var(--m-accent, #19f58f) inset; }
+.fg-dial:hover { transform: translateY(-2px); border-color: var(--m-accent, #15d16a); } .fg-dial.is-on { border-color: var(--m-accent, #15d16a); box-shadow: 0 0 0 1px var(--m-accent, #15d16a) inset; }
 .fg-dial p { margin: 0; font-size: 12px; color: var(--m-dim); } .fg-dial dl { margin: 0; font-size: 11.5px; } .fg-dial .m-num { font-size: inherit; }
 .fg-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .fg-list li { display: grid; grid-template-columns: minmax(110px, 160px) minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--m-line, #173025); font-size: 12.5px; }
-.fg-list li.is-on { border-color: var(--m-accent, #19f58f); } .fg-list li span { color: var(--m-dim); } .fg-list li em { font-style: normal; font-size: inherit; color: var(--m-text); }
-.fg .m-btn.is-on { background: var(--m-accent, #19f58f); color: #04140c; border-color: var(--m-accent, #19f58f); }
+.fg-list li.is-on { border-color: var(--m-accent, #15d16a); } .fg-list li span { color: var(--m-dim); } .fg-list li em { font-style: normal; font-size: inherit; color: var(--m-text); }
+.fg .m-btn.is-on { background: var(--m-accent, #15d16a); color: #04140c; border-color: var(--m-accent, #15d16a); }
 @keyframes fgIn { from { opacity: 0; transform: translateY(8px) scale(.98); } }
 @keyframes fgFade { from { opacity: 0; } }
 body.fx-lite .fg, body.fx-lite .fg-shade, body.fx-lite .fg-body { animation: none; }

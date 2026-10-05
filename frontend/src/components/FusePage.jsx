@@ -472,6 +472,7 @@ export function Battlefield({ b: b0, cards = [], onLoad }) {
       onBuyBack={b.pairs.some(p => [p.a.key, p.b.key].includes(cfgKey)) ? () => buyBack({ key: cfgKey, name: cfgCard.name }) : null} />}
     <div className={`bf-arena ${secs > 0 && secs <= 60 ? 'is-final' : ''}`} onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} onFocus={() => setHold(true)} onBlur={() => setHold(false)} data-testid="bf-arena">
       <span className="bf-floor" aria-hidden="true" /><span className="bf-beam l" aria-hidden="true" /><span className="bf-beam r" aria-hidden="true" />
+      {b.pairs.length > 0 && <span key={`intro-${b.endsAt}`} className="bf-intro" aria-hidden="true"><i className="bf-intro-flash" /><b>{lg ? `ROUND ${Math.min(lg.round + 1, lg.rounds)}` : 'NEW BELL'}</b><em>FIGHT!</em></span>}
       <span className="bf-show" aria-hidden="true"><i className="bfs-sweep a" /><i className="bfs-sweep b" /><i className="bfs-flash" />{Array.from({ length: 18 }, (_, k) => <i key={k} className="bfs-dot" style={{ '--i': k }} />)}</span>
       {b.pairs.length > 1 && <div className="bf-tabs" role="tablist" aria-label="Fights">{b.pairs.map((p, i) => <button key={p.a.key + p.b.key} type="button" role="tab" aria-selected={cur === i} className={cur === i ? 'active' : ''} onClick={() => setSpot(i)} data-testid={`bf-tab-${i}`}>
         FIGHT {i + 1}<small>{p.a.emoji} vs {p.b.emoji}</small></button>)}</div>}

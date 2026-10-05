@@ -460,16 +460,16 @@ def card_svg(view):
     pips = {'A': 5, 'B': 4, 'C': 3, 'D': 2, 'F': 1}.get(g, 3)
     legs = (view.get('legs') or [])[:5]
     rows = ''.join(f'<text x="40" y="{318 + i * 22}" font-size="15" fill="#eafff3" font-family="monospace">{_esc(l.get("symbol"))}</text>'
-                   f'<text x="340" y="{318 + i * 22}" font-size="15" fill="#19f58f" text-anchor="end" font-family="monospace">{round(_f(l.get("weight")))}%</text>' for i, l in enumerate(legs))
-    dots = ''.join(f'<rect x="{292 + i * 13}" y="34" width="8" height="8" transform="rotate(45 {296 + i * 13} 38)" fill="{"#19f58f" if i < pips else "none"}" stroke="#19f58f"/>' for i in range(5))
+                   f'<text x="340" y="{318 + i * 22}" font-size="15" fill="#15d16a" text-anchor="end" font-family="monospace">{round(_f(l.get("weight")))}%</text>' for i, l in enumerate(legs))
+    dots = ''.join(f'<rect x="{292 + i * 13}" y="34" width="8" height="8" transform="rotate(45 {296 + i * 13} 38)" fill="{"#15d16a" if i < pips else "none"}" stroke="#15d16a"/>' for i in range(5))
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 532" width="380" height="532">'
-            f'<defs><radialGradient id="b" cx="50%" cy="0%" r="90%"><stop offset="0" stop-color="#19f58f" stop-opacity=".35"/><stop offset="1" stop-color="#030a06"/></radialGradient></defs>'
+            f'<defs><radialGradient id="b" cx="50%" cy="0%" r="90%"><stop offset="0" stop-color="#15d16a" stop-opacity=".35"/><stop offset="1" stop-color="#030a06"/></radialGradient></defs>'
             f'<rect x="4" y="4" width="372" height="524" rx="28" fill="url(#b)" stroke="#f5c451" stroke-width="3"/>'
-            f'<text x="34" y="44" font-size="16" letter-spacing="3" fill="#19f58f" font-family="monospace">FUSE</text>{dots}'
-            f'<circle cx="190" cy="160" r="78" fill="#020805" stroke="#19f58f" stroke-width="4"/><circle cx="190" cy="160" r="92" fill="none" stroke="#f5c451" stroke-dasharray="2 6"/>'
+            f'<text x="34" y="44" font-size="16" letter-spacing="3" fill="#15d16a" font-family="monospace">FUSE</text>{dots}'
+            f'<circle cx="190" cy="160" r="78" fill="#020805" stroke="#15d16a" stroke-width="4"/><circle cx="190" cy="160" r="92" fill="none" stroke="#f5c451" stroke-dasharray="2 6"/>'
             f'<text x="190" y="185" font-size="72" text-anchor="middle" fill="#eafff3" font-family="sans-serif" font-weight="700">{_esc(g)}</text>'
             f'<text x="190" y="282" font-size="24" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-weight="700">{_esc(view.get("name"))[:22]}</text>{rows}'
-            f'<line x1="34" y1="470" x2="346" y2="470" stroke="#19f58f" stroke-opacity=".3"/>'
+            f'<line x1="34" y1="470" x2="346" y2="470" stroke="#15d16a" stroke-opacity=".3"/>'
             f'<text x="34" y="500" font-size="14" fill="#9fd9b8" font-family="monospace">{RARITY.get(g, "Rare").upper()}</text>'
             f'<text x="346" y="500" font-size="14" fill="#f5c451" text-anchor="end" font-family="monospace">FEELESS</text></svg>')
 

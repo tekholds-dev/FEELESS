@@ -47,19 +47,19 @@
   justify-content: center;
   border: 1px solid #43805a;
   border-radius: 50%;
-  color: #19f58f;
-  background: #19f58f0d;
+  color: #15d16a;
+  background: #15d16a0d;
   transition: transform .18s ease, background .18s ease, border-color .18s ease;
 }
 
 .swap-reverse-button:hover:not(:disabled) {
-  border-color: #19f58f;
-  background: #19f58f1c;
+  border-color: #15d16a;
+  background: #15d16a1c;
   transform: rotate(180deg);
 }
 
 .route-metrics b.impact-low {
-  color: #19f58f;
+  color: #15d16a;
 }
 
 .route-metrics b.impact-medium {
@@ -83,8 +83,8 @@
 }
 
 .slippage-controls button:hover:not(:disabled) {
-  border-color: #19f58f;
-  color: #19f58f;
+  border-color: #15d16a;
+  color: #15d16a;
 }
 
 .swap-buttons {

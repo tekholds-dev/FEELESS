@@ -8,23 +8,23 @@ import { getChatSession } from '../lib/chatSession';
 // holdings and the wallet session on every save; the browser only ever applies what it returns.
 const MINT_HUE = 158;
 const hueOf = hex => { const r = parseInt(hex.slice(1, 3), 16) / 255, g = parseInt(hex.slice(3, 5), 16) / 255, b = parseInt(hex.slice(5, 7), 16) / 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b); if (mx === mn) return 0; const d = mx - mn; const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return h * 60; };
-const PRESETS = [['Mint (default)', '#19f58f'], ['Gold', '#f5c542'], ['Diamond', '#7cc8ff'], ['Rose', '#fa708c'], ['Violet', '#b388ff'], ['Solar', '#ff8a3d'], ['Ice', '#e7f3ff']];
+const PRESETS = [['Royal green (default)', '#15d16a'], ['Gold', '#f5c542'], ['Diamond', '#7cc8ff'], ['Rose', '#fa708c'], ['Violet', '#b388ff'], ['Solar', '#ff8a3d'], ['Ice', '#e7f3ff']];
 
 // Whole-site recolor (admins, creators, $1000+ holders): one pass over the stylesheets at apply time copies every rule
-// that uses the FEELESS green (#19f58f / rgba(25,245,143,a)) into one override sheet with your colour, alpha kept.
+// that uses the FEELESS green (#15d16a / rgba(21, 209, 106,a)) into one override sheet with your colour, alpha kept.
 // No filters, nothing per frame — zero lag. null removes it.
 export function recolorText(css, hex) {
   const h = hex.replace('#', '').toLowerCase(); const [r, g, b] = [0, 2, 4].map(k => parseInt(h.slice(k, k + 2), 16));
-  return css.replace(/#19f58f([0-9a-f]{2})?(?![0-9a-f])/gi, (m, a) => `#${h}${a || ''}`)
-    .replace(/rgba?\(\s*25\s*,\s*245\s*,\s*143/gi, m => `${m.startsWith('rgba') ? 'rgba' : 'rgb'}(${r}, ${g}, ${b}`);
+  return css.replace(/#15d16a([0-9a-f]{2})?(?![0-9a-f])/gi, (m, a) => `#${h}${a || ''}`)
+    .replace(/rgba?\(\s*21\s*,\s*209\s*,\s*106/gi, m => `${m.startsWith('rgba') ? 'rgba' : 'rgb'}(${r}, ${g}, ${b}`);
 }
 export function recolorSite(hex) {
   let el = document.getElementById('feeless-recolor');
-  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex) || hex.toLowerCase() === '#19f58f') { el?.remove(); return; }
+  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex) || ['#15d16a', '#19f58f'].includes(hex.toLowerCase())) { el?.remove(); return; }   // the old mint = the default too
   const out = [];
   const walk = rules => { for (const rule of rules) {
     if (rule.cssRules && rule.media) { const before = out.length; walk(rule.cssRules); const added = out.splice(before); if (added.length) out.push(`@media ${rule.media.mediaText}{${added.join('')}}`); continue; }
-    if (rule.selectorText && /19f58f|25,\s*245,\s*143/i.test(rule.cssText)) out.push(recolorText(rule.cssText, hex));
+    if (rule.selectorText && /15d16a|21,\s*209,\s*106/i.test(rule.cssText)) out.push(recolorText(rule.cssText, hex));
   } };
   for (const sheet of document.styleSheets) { if (sheet.ownerNode?.id === 'feeless-recolor') continue; try { walk(sheet.cssRules); } catch { /* cross-origin sheet */ } }
   if (!el) { el = document.createElement('style'); el.id = 'feeless-recolor'; }
@@ -55,7 +55,7 @@ export function useHolderTheme() {
 export function HolderThemePicker() {
   const { wallet, signMessage } = useWallet() || {};
   const [info, setInfo] = useState(null);
-  const [accent, setAccent] = useState('#19f58f');
+  const [accent, setAccent] = useState('#15d16a');
   useEffect(() => {
     if (!wallet?.address) { setInfo(null); return; }
     fetch(apiUrl(`/api/reputation/theme/${wallet.address}`)).then(r => r.json()).then(d => { setInfo(d); if (d.theme?.accent) setAccent(d.theme.accent); }).catch(() => {});

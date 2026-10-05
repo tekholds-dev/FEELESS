@@ -25,7 +25,7 @@ export const TIER = {
   gold: { aura: 'gold', name: 'GOLD', look: { design: 'obsidian', rarity: 'epic', accent: '#ffd56a', accent2: '#ff9a4d' } },
   blaze: { aura: 'fire', name: 'BLAZE', look: { design: 'ember', rarity: 'epic', accent: '#ff7a2f', accent2: '#ff3d5a' } },
   next: { aura: 'lightning', name: 'NEXT LEVEL', look: { design: 'plasma', rarity: 'mythic', accent: '#c58bff', accent2: '#3cdcff' } },
-  ever: { aura: 'aurora', name: 'EVERLASTING', look: { design: 'nebula', rarity: 'legendary', accent: '#19f58f', accent2: '#6ad7ff' } },
+  ever: { aura: 'aurora', name: 'EVERLASTING', look: { design: 'nebula', rarity: 'legendary', accent: '#15d16a', accent2: '#6ad7ff' } },
 };
 // HQ ⚡ meta config: the settings the Arena proof backs today (hourly rotation of 1 coin, −15% floor, compound on, park & rebuy).
 export const PRIME_META = { rotateHours: 1, rotateCount: 1, floorPct: 15, compound: true, slMode: 'park' };
@@ -185,8 +185,8 @@ const EDIT = [
   ['rotateMinDrop', '📉 Round swap only below', [[0, 'any'], [5, '−5%'], [10, '−10%'], [15, '−15%'], [20, '−20%']], 'For scheduled round rotation, require the coin to be this far below its entry.'],
   ['minHoldMins', '🔒 Round min hold', [[10, '10m'], [15, '15m'], [30, '30m'], [60, '1h'], [120, '2h']], 'Only for scheduled round rotation. It does NOT delay the instant-loss trigger.'],
   ['keepWinPct', '🛡 Keep winners', [[0, 'off'], [5, '+5%'], [10, '+10%'], [20, '+20%']], 'A coin up this much (or ❄ frozen) is carried into the next shape — a re-shape never sells a winner'],
-  ['rideAt', '❄ Freeze a coin running', [[0, 'off'], [25, '+25%'], [50, '+50%'], [100, '+100%'], [150, '+150%']], 'A coin up this much is frozen: no TP, stop or rotation while it keeps making highs'],
-  ['rideTrail', '⇄ Then swap it off its peak', [[10, '−10%'], [15, '−15%'], [20, '−20%'], [30, '−30%']], 'A frozen coin is swapped for the best coin of its kind once it falls this far from its highest price (the gain moves into the new coin)'],
+  ['rideAt', '❄ Freeze a coin running', [[0, 'off'], [10, '+10%'], [15, '+15%'], [20, '+20%'], [25, '+25%'], [50, '+50%'], [100, '+100%'], [150, '+150%']], 'A coin up this much is frozen: no TP, stop or rotation while it keeps making highs. It still leaves if it gives back half the freeze (e.g. frozen at +20% → out under +10%) — so a small freeze locks a small win'],
+  ['rideTrail', '⇄ Then swap it off its peak', [[5, '−5%'], [8, '−8%'], [10, '−10%'], [15, '−15%'], [20, '−20%'], [30, '−30%']], 'A frozen coin is swapped for the best coin of its kind once it falls this far from its highest price (the gain moves into the new coin)'],
   ['coins', '🪙 Coins on the card', [[0, 'auto'], [2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6']], 'Your call, at any card size. Auto = sized to the card (each coin at least $0.75). Pick a number and the card holds exactly that many — smaller coins pay more in fees per swap, and the first 5 rounds of network fees are on the wallet reserve.'],
   ['cycleEvery', '🧩 Re-shape every', [[0, 'off'], [3, '3'], [6, '6'], [12, '12']], 'Rounds between shape changes'],
   ['slMode', '🛑 On a stop', [['replace', '⇄ replace'], ['park', '🅿 park'], ['hold', '❄ hold']], 'Replace with the best coin · sell to SOL and rebuy later · keep holding'],

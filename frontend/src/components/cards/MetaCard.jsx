@@ -63,7 +63,7 @@ function Pattern({ design, id }) {
   </svg>;
   if (design === 'prism') return <svg className="mc-pattern pd-prism" viewBox="0 0 200 280" preserveAspectRatio="none" aria-hidden="true">
     {[[0, 0, 100, 70, 0, 140], [100, 70, 200, 0, 200, 140], [0, 140, 100, 70, 100, 210], [100, 70, 200, 140, 100, 210], [0, 140, 100, 210, 0, 280], [100, 210, 200, 140, 200, 280], [0, 280, 100, 210, 200, 280]].map((t, i) =>
-      <polygon key={i} className="pdp-shard" style={{ '--i': i }} points={`${t[0]},${t[1]} ${t[2]},${t[3]} ${t[4]},${t[5]}`} fill={['#ff5ad1', '#6ad7ff', '#ffd56a', '#19f58f', '#c58bff', '#ff8f5a', '#5af0ff'][i]} fillOpacity=".09" stroke="#fff" strokeOpacity=".18" strokeWidth=".6" />)}
+      <polygon key={i} className="pdp-shard" style={{ '--i': i }} points={`${t[0]},${t[1]} ${t[2]},${t[3]} ${t[4]},${t[5]}`} fill={['#ff5ad1', '#6ad7ff', '#ffd56a', '#15d16a', '#c58bff', '#ff8f5a', '#5af0ff'][i]} fillOpacity=".09" stroke="#fff" strokeOpacity=".18" strokeWidth=".6" />)}
     <rect className="pdp-band" x="-60" y="0" width="40" height="280" fill="#fff" opacity=".12" />
   </svg>;
   if (design === 'plasma') return <svg className="mc-pattern pd-plasma" viewBox="0 0 200 280" preserveAspectRatio="none" aria-hidden="true">
@@ -112,7 +112,7 @@ export function MetaCard({ card, size = 'md', interactive = false, flipped, onFl
   };
   const clickOnly = () => { if (!interactive) onFlip?.(); };
   const r = card.rarity || 'rare';
-  const style = { '--a': card.accent || '#19f58f', '--b': card.accent2 || '#f5c451' };
+  const style = { '--a': card.accent || '#15d16a', '--b': card.accent2 || '#f5c451' };
   const money = card.earns || [];
   const alive = card.motion === 'alive';
   return <div className={`mc-stage mc-${size} ${alive ? 'is-alive' : ''} ${className}`} style={style}>{card.aura && <Aura id={card.aura} />}<div className="mc-idle">

@@ -5,13 +5,13 @@
 body.theme-day .tip-layer { background: #ffffff; color: #0f2419; }
 @media (prefers-reduced-motion: reduce) { .tip-layer { transition: none; } }
 .cf-live { margin-left: 8px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--m-line-hi, #2a5a3f); font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .08em; color: var(--m-dim, #8fb09c); }
-.cf-live.is-live { color: #19f58f; border-color: #19f58f; animation: cfLive 1.6s ease-in-out infinite alternate; }
+.cf-live.is-live { color: #15d16a; border-color: #15d16a; animation: cfLive 1.6s ease-in-out infinite alternate; }
 @keyframes cfLive { from { opacity: .6; } to { opacity: 1; } }
 body.fx-lite .cf-live.is-live { animation: none; } @media (prefers-reduced-motion: reduce) { .cf-live.is-live { animation: none; } }
 
 /* HQ › Bugs: merged repeat count + fix note */
 .cc-bug-count { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--m-danger, #ff8fa3); color: #1a0006; font: 700 10px 'JetBrains Mono', monospace; }
-.cc-bug-fix { display: block; margin-top: 3px; color: var(--m-accent, #19f58f); font-size: 11px; }
+.cc-bug-fix { display: block; margin-top: 3px; color: var(--m-accent, #15d16a); font-size: 11px; }
 
 /* 🛡 Guard (HQ › Security) */
 .gd { display: grid; gap: 12px; margin-bottom: 14px; }
@@ -36,7 +36,7 @@ body.theme-day .gd-sus, body.theme-day .gd-rules span { background: var(--m-surf
 .mission-meter { display: flex; gap: 4px; margin-top: 14px; max-width: 720px; }
 .mission-meter span { display: grid; gap: 1px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--m-line); min-width: 70px; transform-origin: left; animation: mCardIn .3s var(--m-ease) both; }
 .mission-meter small { font: 9px var(--m-mono); letter-spacing: .12em; color: var(--m-dim); }
-.mm-live { background: color-mix(in srgb, #19f58f 22%, transparent); border-color: #19f58f !important; } .mm-testing { background: color-mix(in srgb, #6ad7ff 18%, transparent); }
+.mm-live { background: color-mix(in srgb, #15d16a 22%, transparent); border-color: #15d16a !important; } .mm-testing { background: color-mix(in srgb, #6ad7ff 18%, transparent); }
 .mm-building { background: color-mix(in srgb, #f5c451 16%, transparent); } .mm-planned { background: color-mix(in srgb, #b388ff 14%, transparent); }
 @media (prefers-reduced-motion: reduce) { .mission-meter span { animation: none; } }
 

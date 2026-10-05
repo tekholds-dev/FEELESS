@@ -3,7 +3,7 @@ import React, { useId } from 'react';
 // The FEELESS lead-cat mark, alive: blinking eye, twitching ears, swaying tail.
 // Variants recolor the same rig — 'mint' is the default leader, others mark different moods/tiers.
 const VARIANTS = {
-  mint: { a: '#7dfbd4', b: '#19f58f', glow: 'rgba(18,192,122,.55)' },
+  mint: { a: '#7dfbd4', b: '#15d16a', glow: 'rgba(18,192,122,.55)' },
   gold: { a: '#fff3c4', b: '#f5c542', glow: 'rgba(245,197,66,.55)' },
   rose: { a: '#ffd0d8', b: '#fa708c', glow: 'rgba(250,112,140,.5)' },
   violet: { a: '#eadcff', b: '#b388ff', glow: 'rgba(179,136,255,.5)' },

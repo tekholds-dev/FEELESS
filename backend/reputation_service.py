@@ -7656,6 +7656,31 @@ async def _engine_self_fix(now, sim):
     return {**pp, **({'real': rp} if rp else {})}
 
 
+import verdict as _verdict
+
+
+@app.get('/api/reputation/admin/fuses/verdict')
+async def fuse_verdict(request: Request):
+    """🧾 Owner: what's working and what's not, before anything is scrapped — every engine judged on its own record (tier card runs,
+    strategies, runner lanes, engine dials, playground clocks, sim configs, real runs). Read-only."""
+    _require_owner(request)
+    now = time.time()
+    d = _json_load(FUSE_HQ_PATH, {}); rd = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); sim = _json_load(PG_SIM_PATH, {})
+    lg = _store.Ledger(CARD_RECORDS_PATH, table='runs')
+    tiers = {}
+    for tpl, t in _prime.TEMPLATES.items():
+        rows = [r for r in lg.rows(limit=500, card=tpl) if not r.get('real')]
+        tiers[tpl] = {'label': t.get('label') or tpl, 'pcts': [_fuse._f(r.get('pct')) for r in rows]}
+    board = _hq.arena_board([_hq.arena_value(e, {}, now) for e in d.get('arena') or []])
+    lanes = _rn.lane_proofs(rd.get('rounds') or [], rd.get('paths') or {}, now, _runner_cfg())
+    dials = {w: _rn.dial_proof(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS, window=sec) for w, sec in _rn.PROOF_WINDOWS.items()}
+    try:
+        real = (await fuse_wallet_report(request, card='')).get('reports') or []
+    except Exception:
+        real = []
+    return _verdict.build(tiers, board, lanes, dials, sim.get('score'), (rd.get('pgBattle') or {}).get('clockStats'), real)
+
+
 @app.get('/api/reputation/admin/fuses/sim')
 async def pg_sim_view(request: Request):
     _require_admin(request)

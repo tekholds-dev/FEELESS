@@ -26,7 +26,7 @@
 .fc-v2 .paper-event { animation: fcpRow .3s ease-out backwards; animation-delay: calc(var(--i, 0) * 40ms); transition: background .15s; }
 .fc-v2 .paper-event:hover { background: color-mix(in srgb, var(--m-accent) 5%, transparent); }
 .fc-v2 .paper-event b { font-size: 13px; } .fc-v2 .paper-event p { font-size: 12.5px; } .fc-v2 .paper-event time { font-size: 10px; }
-.fc-v2 .event-buy .paper-event-icon { box-shadow: 0 0 10px #19f58f55; } .fc-v2 .event-sell .paper-event-icon { box-shadow: 0 0 10px #d4b56e55; }
+.fc-v2 .event-buy .paper-event-icon { box-shadow: 0 0 10px #15d16a55; } .fc-v2 .event-sell .paper-event-icon { box-shadow: 0 0 10px #d4b56e55; }
 .fc-v2 .paper-rank-row { transition: transform .15s, background .15s; } .fc-v2 .paper-rank-row:hover { transform: translateX(3px); }
 .fc-v2 .paper-rank-name b { font-size: 13px; } .fc-v2 .paper-rank-name small, .fc-v2 .paper-rank-number { font-size: 10px; } .fc-v2 .paper-rank-row > strong { font-size: 12px; }
 .fc-v2 .paper-leaderboard-tabs button { font-size: 11px; transition: background .15s; } .fc-v2 .paper-leaderboard-tabs button.active { background: var(--m-accent); color: #04140c; }
@@ -45,7 +45,7 @@ body.theme-day .fc-v2 .paper-event p, body.theme-day .fc-v2 .paper-stat-grid spa
 .fc-v2 .paper-cat-hero { border-radius: 16px; border-color: var(--m-line); background: var(--m-surface); padding: 20px 22px; }
 .fc-v2 .paper-cat-identity h1 { font-size: 32px; } .fc-v2 .paper-cat-identity p { font-size: 13px; color: var(--m-dim); }
 .fc-v2 .paper-wallet-address { font-size: 11px; } .fc-v2 .paper-cat-actions button { font-size: 12px; min-height: 38px; }
-.fc-v2 .paper-detail-avatar { animation: fcpFloat 4s ease-in-out infinite; box-shadow: 0 0 0 2px var(--m-accent), 0 0 26px #19f58f44; }
+.fc-v2 .paper-detail-avatar { animation: fcpFloat 4s ease-in-out infinite; box-shadow: 0 0 0 2px var(--m-accent), 0 0 26px #15d16a44; }
 .paper-chart-wrap { position: relative; display: block; color: var(--m-accent); } .paper-chart-wrap.is-down { color: #ff8fa3; }
 .fc-v2 .paper-pnl-chart { height: 220px; animation: fcpIn .5s var(--m-ease, ease-out) both; }
 .fc-v2 .paper-pnl-chart polyline { stroke: currentColor; stroke-width: 2; }

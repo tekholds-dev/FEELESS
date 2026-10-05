@@ -1,8 +1,8 @@
 /* Reputation page v2 (RepTools + RepStanding + 📖 MemeTerms) — built from m-* tokens. Keyframes: rp*. */
 .rep-v2-tools { position: relative; overflow: hidden; }
 .rep-v2-tools > :not(.rt-radar) { position: relative; z-index: 1; }
-.rt-radar { position: absolute; right: -90px; top: -90px; width: 260px; height: 260px; border-radius: 50%; border: 1px solid #19f58f22; pointer-events: none;
-  background: conic-gradient(from 0deg, #19f58f33, transparent 22%); animation: rpSweep 6s linear infinite; }
+.rt-radar { position: absolute; right: -90px; top: -90px; width: 260px; height: 260px; border-radius: 50%; border: 1px solid #15d16a22; pointer-events: none;
+  background: conic-gradient(from 0deg, #15d16a33, transparent 22%); animation: rpSweep 6s linear infinite; }
 .rep-v2-tools .bdg-seg button { transition: background .15s, color .15s, transform .15s; } .rep-v2-tools .bdg-seg button:hover { transform: translateY(-1px); }
 .rep-v2-tools .bdg-seg button:active { transform: scale(.97); } .rep-v2-tools .bdg-seg button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
 

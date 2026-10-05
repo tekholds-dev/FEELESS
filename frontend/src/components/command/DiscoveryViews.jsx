@@ -198,7 +198,7 @@ const MiniHistory = ({ rows = [] }) => {
   if (values.length < 2) return <div className="mini-history-wait">Collecting real price observations…</div>;
   const min = Math.min(...values), max = Math.max(...values); const range = max - min || max * .01 || 1;
   const points = values.map((v, i) => `${i / (values.length - 1) * 240},${48 - (v - min) / range * 38}`).join(' ');
-  return <svg viewBox="0 0 240 55" className="mini-history" aria-label="Observed price snapshots"><polyline points={points} fill="none" stroke="#19f58f" strokeWidth="1.5" /></svg>;
+  return <svg viewBox="0 0 240 55" className="mini-history" aria-label="Observed price snapshots"><polyline points={points} fill="none" stroke="#15d16a" strokeWidth="1.5" /></svg>;
 };
 const WatchedToken = ({ pair, onSelect }) => {
   const { toggle, setAlertPair, selectPair } = useWorkspace(); const nav = useNavigate();

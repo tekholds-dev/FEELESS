@@ -33,3 +33,22 @@ test('HQ overview opens on what needs a decision: real-run flaws and engine card
   await act(async () => { el.querySelector('[data-testid="fdeck-alert-pg-x"]').click(); });
   expect(gone).toEqual(['pub']);
 });
+
+test('verdict: what is working and what is not, filterable, losers first', async () => {
+  const { Verdict } = require('./FuseDeck');
+  const { act } = require('react');
+  const { createRoot } = require('react-dom/client');
+  const V = { headline: "Nothing is proven to make money yet: 2 losing, 1 still unproven.", keep: 0, scrap: 2, watch: 1, rows: [
+    { area: '💵 Real run', name: '🔥 Prime Blaze', n: 120, avgPct: -12.5, medPct: -12.5, verdict: 'scrap', why: '-12.5% so far · fees 4.2% of money in' },
+    { area: '🧠 Sim config', name: 'round length (min) = 5', n: 60, avgPct: -2, medPct: -4, verdict: 'scrap', why: 'average -2.0%' },
+    { area: '🏃 Runner lane', name: 'scalp', n: 3, avgPct: 5, medPct: 5, verdict: 'watch', why: 'needs 5 more to call' }] };
+  const call = jest.fn(async () => V);
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<Verdict call={call} />); });
+  await act(() => new Promise(r => setTimeout(r, 10)));
+  expect(call).toHaveBeenCalledWith('/admin/fuses/verdict');
+  expect(el.querySelector('[data-testid="fdv-head"]').textContent).toContain('Nothing is proven');
+  expect(el.querySelectorAll('.fdv-row').length).toBe(3);
+  await act(async () => { el.querySelector('[data-testid="fdv-watch"]').click(); });
+  expect(el.querySelectorAll('.fdv-row').length).toBe(1); expect(el.textContent).toContain('needs 5 more to call');
+});

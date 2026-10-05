@@ -288,3 +288,31 @@ def test_degen_5_min_card_freezes_a_runner_swaps_it_off_its_peak_and_instant_swa
     card = tick(card, 180.0, px)
     assert winner not in on(card)
     assert any(e.get('mode') == 'ride-end' or 'peak' in (e.get('why') or '') for e in card['events'])
+
+
+def test_small_freeze_at_plus_10_locks_a_small_win_and_tight_trail_takes_it_off_the_peak():
+    """+10% freeze · −5% off the peak: a 5-min runner that pops +12% is frozen (no TP / stop / rotation) and leaves the moment it gives
+    back 5% from its high — or falls under +5% (half the freeze). Both options survive the server cleaner + real guard."""
+    cfg, raised = ap.real_guard({**ap.clean_cfg({'rotateHours': 0.08, 'rotateConfirm': 2, 'minHoldMins': 10, 'rideAt': 10, 'rideTrail': 5, 'cycleEvery': 0,
+                                               'rescuePct': 0, 'floorPct': 60, 'cycles': {t: 'off' for t in ap.DEFAULT_CYCLES}}), 'instantSwapPct': 15})
+    assert cfg['rideAt'] == 10 and cfg['rideTrail'] == 5 and raised == []
+    assert {10, 15, 20}.issubset(set(_ui_options()['rideAt'])) and {5, 8}.issubset(set(_ui_options()['rideTrail']))   # the screen offers them
+    C = lambda m, px, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m.upper(), 'price': px, 'liquidityUsd': 2e6, 'volume24h': 2e6, 'liq': 2e6, **k}
+    anchors = [C('sol', 100.0), C('btc', 100.0)]
+    runners = [C('run1', 1.0, score=90, ageH=20), C('run2', 1.0, score=88, ageH=20), C('new1', 1.0, score=86, ageH=20), C('new2', 1.0, score=84, ageH=20)]
+    pools = [C('pool1', 1.0), C('pool2', 1.0)]
+    card = ap.deal('degen', pools, runners, cfg, 0.0, anchors)
+    w = next(l for l in card['legs'] if l['role'] == 'runner')['mint']
+    px = {l['pairAddress']: l['entry'] for l in card['legs']}
+    tick = lambda c, t, p: ap.tick(c, p, pools, runners, cfg, t, anchors, {}, {})
+    px['P' + w] *= 1.12
+    card = tick(card, 60.0, px)
+    assert next(l for l in card['legs'] if l['mint'] == w).get('ride')                # +12% ≥ +10% → frozen
+    px['P' + w] *= 1.10
+    card = tick(card, 120.0, px)
+    assert next(l for l in card['legs'] if l['mint'] == w).get('ride')                # new high (+23%): still riding
+    px['P' + w] *= 0.94
+    for l in card['legs']:
+        px.setdefault(l['pairAddress'], l['entry'])
+    card = tick(card, 180.0, px)
+    assert w not in {l['mint'] for l in card['legs']}                                    # −6% off its peak → swapped, the win is kept

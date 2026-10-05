@@ -6,10 +6,13 @@ import EcosystemChat from './EcosystemChat';
 import { parse, songTitle } from './command/ProfileMusic';
 
 const PLAYLIST_KEY = 'feeless:site-playlist';
-export function firstLoadToday(now = new Date()) {
-  const day = now.toISOString().slice(0, 10);
-  try { if (localStorage.getItem('feeless:music-day') === day) return false; localStorage.setItem('feeless:music-day', day); } catch { /* private mode */ }
-  return true;
+// ▶ Like YouTube: a refresh comes back to the same song at the same second, still playing (or still paused).
+// `pos` = the player's own reported time; old saves (no pos) start the song from the top.
+export function resumeFrom(saved, listLen) {
+  if (!saved || !listLen) return { i: 0, playing: false, pos: 0 };
+  const i = Number.isInteger(saved.i) && saved.i >= 0 && saved.i < listLen ? saved.i : 0;
+  const pos = Number.isFinite(saved.pos) && saved.pos > 0 && i === saved.i ? Math.floor(saved.pos) : 0;
+  return { i, playing: Boolean(saved.playing), pos };
 }
 const readList = () => { try { return JSON.parse(localStorage.getItem(PLAYLIST_KEY) || '[]'); } catch { return []; } };
 
@@ -24,29 +27,36 @@ export function FeeCatWidget() {
   const [tab, setTab] = useState('chat');
   const [room, setRoom] = useState('feeless-general');
   const [songs, setSongs] = useState(readList);
-  // Keeps playing across reloads and full-page links: song, play state and when it started live in localStorage.
-  const saved = (() => { try { return JSON.parse(localStorage.getItem('feeless:music-now') || 'null'); } catch { return null; } })();
-  const [i, setI] = useState(() => (saved && saved.i < readList().length ? saved.i : 0));
-  // Data saver: the last song is always restored, but it only starts streaming by itself on the first load of the day.
-  const [playing, setPlaying] = useState(() => Boolean(saved?.playing && readList().length && firstLoadToday()));
+  // Keeps playing across reloads and full-page links (like YouTube): song, play state and the exact second live in localStorage.
+  const boot = useMemo(() => { try { return resumeFrom(JSON.parse(localStorage.getItem('feeless:music-now') || 'null'), readList().length); } catch { return resumeFrom(null, 0); } }, []);
+  const [i, setI] = useState(boot.i);
+  const [playing, setPlaying] = useState(boot.playing);
   const [showVideo, setShowVideo] = useState(() => { try { return localStorage.getItem('feeless:music-video') !== 'off'; } catch { return true; } });
   useEffect(() => { try { localStorage.setItem('feeless:music-video', showVideo ? 'on' : 'off'); } catch { /* private mode */ } }, [showVideo]);
-  const startedAt = useRef(saved?.playing ? saved.startedAt || Date.now() : Date.now());
+  const pos = useRef(boot.pos);          // the player's current second (YouTube reports it ~4×/s)
+  const ytState = useRef(-1);            // last YouTube player state (1 = playing)
+  const muted = useRef(false);           // started muted because the browser blocked sound → unmute on the first tap
   const [url, setUrl] = useState('');
   // repeat: 'all' loops the list, 'one' repeats the song, 'shuffle' picks a random next song.
   const [mode, setMode] = useState(() => { try { return localStorage.getItem('feeless:music-mode') || 'all'; } catch { return 'all'; } });
   const [nonce, setNonce] = useState(0); // bump to restart the same song (repeat one)
   const frame = useRef(null);
-  const resumed = useRef(false); const [kick, setKick] = useState(0);
-  useEffect(() => { if (!resumed.current) return; startedAt.current = Date.now(); }, [i, nonce, playing]);   // a new song (or play after pause) starts at 0
-  useEffect(() => { resumed.current = true; }, []);
-  useEffect(() => { try { localStorage.setItem('feeless:music-now', JSON.stringify({ i, playing, startedAt: startedAt.current })); } catch { /* private mode */ } }, [i, playing, nonce]);
-  // Browsers may block sound until the first tap after a reload: restart the song (same spot) on that first tap.
+  const booted = useRef(false);
+  useEffect(() => { if (booted.current) pos.current = 0; booted.current = true; }, [i, nonce]);   // a NEW song starts at 0 (pause → play resumes)
+  const save = () => { try { localStorage.setItem('feeless:music-now', JSON.stringify({ i: iRef.current, playing: playRef.current, pos: pos.current })); } catch { /* private mode */ } };
+  const iRef = useRef(i); iRef.current = i; const playRef = useRef(playing); playRef.current = playing;
+  useEffect(save, [i, playing, nonce]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {   // the exact second is saved every 2s and when the page goes away
+    const t = setInterval(() => playRef.current && save(), 2000);
+    window.addEventListener('pagehide', save); window.addEventListener('beforeunload', save);
+    return () => { clearInterval(t); window.removeEventListener('pagehide', save); window.removeEventListener('beforeunload', save); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const ytCmd = (func, args = []) => { try { frame.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*'); } catch { /* not ready */ } };
+  // Browsers may block SOUND after a reload (never a muted video): keep the song going muted, and unmute on the first tap/key.
   useEffect(() => {
-    if (!playing) return undefined;
-    const once = () => setKick(k => k + 1);   // re-mount at the same spot (not a restart)
-    window.addEventListener('pointerdown', once, { once: true });
-    return () => window.removeEventListener('pointerdown', once);
+    const unmute = () => { if (!muted.current) return; muted.current = false; ytCmd('unMute'); ytCmd('playVideo'); };
+    window.addEventListener('pointerdown', unmute); window.addEventListener('keydown', unmute);
+    return () => { window.removeEventListener('pointerdown', unmute); window.removeEventListener('keydown', unmute); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { try { localStorage.setItem(PLAYLIST_KEY, JSON.stringify(songs)); localStorage.setItem('feeless:music-mode', mode); } catch { /* ignore */ } }, [songs, mode]);
   const next = (auto = false) => {
@@ -75,6 +85,10 @@ export function FeeCatWidget() {
     const onMessage = e => {
       if (!frame.current || e.source !== frame.current.contentWindow) return;
       let d = e.data; try { d = typeof d === 'string' ? JSON.parse(d) : d; } catch { return; }
+      if (d?.event === 'infoDelivery' && Number.isFinite(d.info?.currentTime)) pos.current = d.info.currentTime;
+      if (d?.event === 'onStateChange' && Number.isInteger(d.info)) ytState.current = d.info;
+      if (d?.event === 'infoDelivery' && Number.isInteger(d.info?.playerState)) ytState.current = d.info.playerState;
+      if (d?.method === 'playProgress' && Number.isFinite(d.value?.currentPosition)) pos.current = d.value.currentPosition / 1000;
       if ((d?.event === 'onStateChange' && d.info === 0) || (d?.event === 'infoDelivery' && d.info?.playerState === 0) || d?.method === 'finish') nextRef.current(true);
     };
     window.addEventListener('feeless:music', onMusic); window.addEventListener('feeless:music-cmd', onCmd); window.addEventListener('message', onMessage);
@@ -84,8 +98,11 @@ export function FeeCatWidget() {
   const hookEnd = () => {
     const w = frame.current?.contentWindow; if (!w) return;
     const post = m => { try { w.postMessage(typeof m === 'string' ? m : JSON.stringify(m), '*'); } catch { /* not ready */ } };
-    if (src?.kind === 'youtube') { post({ event: 'listening', id: 1, channel: 'widget' }); post({ event: 'command', func: 'addEventListener', args: ['onStateChange'] }); }
-    if (src?.kind === 'soundcloud') post({ method: 'addEventListener', value: 'finish' });
+    if (src?.kind === 'youtube') {
+      post({ event: 'listening', id: 1, channel: 'widget' }); post({ event: 'command', func: 'addEventListener', args: ['onStateChange'] });
+      setTimeout(() => { if (playRef.current && ytState.current !== 1) { muted.current = true; ytCmd('mute'); ytCmd('playVideo'); } }, 2200);   // sound blocked → play muted
+    }
+    if (src?.kind === 'soundcloud') { post({ method: 'addEventListener', value: 'finish' }); post({ method: 'addEventListener', value: 'playProgress' }); }
   };
   const coinPair = useMemo(() => { const m = /coin=([^:&]+):([^&]+)/.exec(loc.search); return m ? { chain: m[1], pair: m[2] } : null; }, [loc.search]);
   const rooms = useMemo(() => {
@@ -95,6 +112,8 @@ export function FeeCatWidget() {
   }, [coinPair]);
   useEffect(() => { if (!rooms.some(([id]) => id === room)) setRoom(rooms[0][0]); }, [rooms]); // eslint-disable-line react-hooks/exhaustive-deps
   const song = songs[i]; const src = song && parse(song.url);
+  // the start second is fixed when the player mounts (never re-computed per render — that would reload the iframe)
+  const startSrc = useMemo(() => (src ? withStart(src, Math.floor(pos.current)) : ''), [i, nonce, playing, src?.src]); // eslint-disable-line react-hooks/exhaustive-deps
   const add = async () => { if (!parse(url)) return; const u = url.trim(); setUrl(''); const title = await songTitle(u); setSongs(s => [...s, { url: u, title }].slice(0, 20)); };
   const remove = k => { setSongs(s => s.filter((_, j) => j !== k)); if (k < i) setI(x => x - 1); else if (k === i) { setPlaying(false); setI(x => Math.max(0, Math.min(x, songs.length - 2))); } };
   const go = d => { if (!songs.length) return; if (d > 0) { next(false); return; } setI(x => (x + d + songs.length) % songs.length); setPlaying(true); };
@@ -128,7 +147,7 @@ export function FeeCatWidget() {
         <div className="feecat-add"><input placeholder="Paste a song link…" value={url} onChange={e => setUrl(e.target.value)} /><button type="button" disabled={!parse(url)} onClick={add}><Plus size={13} /></button></div>
       </div>}
     </div>}
-    {playing && src && <iframe ref={frame} key={`${i}-${nonce}-${kick}-${src.src}`} onLoad={() => setTimeout(hookEnd, 600)} className={`feecat-frame pm-${src.kind} ${open && tab === 'music' && showVideo ? '' : 'is-background'}`} src={withStart(src, Math.floor((Date.now() - startedAt.current) / 1000))} title="now playing" allow="autoplay; encrypted-media" />}
+    {playing && src && <iframe ref={frame} key={`${i}-${nonce}-${src.src}`} onLoad={() => setTimeout(hookEnd, 600)} className={`feecat-frame pm-${src.kind} ${open && tab === 'music' && showVideo ? '' : 'is-background'}`} src={startSrc} title="now playing" allow="autoplay; encrypted-media" />}
     <button type="button" className={`feecat-fab ${open ? 'on' : ''}`} onClick={() => setOpen(o => !o)} data-testid="feecat-fab" aria-label="FeeCat">
       <FeeCatMark size={32} variant={playing ? 'gold' : 'mint'} /> {playing && <i className="feecat-note">♪</i>}
     </button>

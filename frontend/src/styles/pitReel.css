@@ -1,6 +1,6 @@
 /* 🎬 Pit reel (PitReel.jsx): a looping cycle of battle scenes in the middle of every fight. One keyframe set (pr*),
    transform/opacity only, list stagger via --i, static VS under fx-lite / reduced motion. Built from m-* tokens. */
-.pr { position: relative; width: 100%; display: grid; justify-items: center; gap: 6px; --pr-a: var(--m-accent, #19f58f); --pr-b: #ff8fa3; --pr-v: #c08bff; }
+.pr { position: relative; width: 100%; display: grid; justify-items: center; gap: 6px; --pr-a: var(--m-accent, #15d16a); --pr-b: #ff8fa3; --pr-v: #c08bff; }
 .pr-stage { position: relative; width: 100%; height: 170px; overflow: hidden; border-radius: 16px; isolation: isolate;
   background: radial-gradient(60% 70% at 50% 55%, rgba(155, 92, 255, .16), transparent 70%); }
 .pr-stage i { position: absolute; display: block; pointer-events: none; }
@@ -46,7 +46,7 @@
 
 /* 🛡 block: the leader's shield takes the hit */
 .pr-shield { top: 50%; left: 50%; width: 56px; height: 64px; margin: -32px -28px; opacity: 0; border-radius: 50% 50% 46% 46% / 30% 30% 70% 70%;
-  border: 3px solid var(--pr-a); background: radial-gradient(circle at 50% 35%, rgba(25, 245, 143, .35), transparent 70%); animation: prShield 3.4s ease-out both; }
+  border: 3px solid var(--pr-a); background: radial-gradient(circle at 50% 35%, rgba(21, 209, 106, .35), transparent 70%); animation: prShield 3.4s ease-out both; }
 .pr.lead-b .pr-shield { border-color: var(--pr-b); background: radial-gradient(circle at 50% 35%, rgba(255, 143, 163, .35), transparent 70%); }
 
 /* ☄ meteor: falls on the trailing corner, crater + sparks */
@@ -74,6 +74,17 @@
 @keyframes prMeteor { 0% { opacity: 0; transform: translate(-80px, -30px) scale(.6); } 10% { opacity: 1; } 30% { opacity: 1; transform: translate(40px, 110px) scale(1.2); } 34%, 100% { opacity: 0; transform: translate(40px, 110px) scale(1.6); } }
 @keyframes prMeteorB { 0% { opacity: 0; transform: translate(80px, -30px) scale(.6); } 10% { opacity: 1; } 30% { opacity: 1; transform: translate(-40px, 110px) scale(1.2); } 34%, 100% { opacity: 0; transform: translate(-40px, 110px) scale(1.6); } }
 
+/* 🔔 every new bell opens with a round card slamming in — transform/opacity only, gone after 1.8s */
+.bf-intro { position: absolute; inset: 0; z-index: 7; display: grid; place-content: center; justify-items: center; gap: 2px; pointer-events: none; animation: prIntro 1.8s var(--m-ease, ease) forwards; }
+.bf-intro b { font: 400 16px var(--fz-font, var(--m-mono)); letter-spacing: .3em; color: var(--gold, #f5c451); }
+.bf-intro em { font: 400 64px/1 var(--fz-font, var(--m-mono)); font-style: normal; color: #fff; text-shadow: 0 0 24px var(--m-accent), 0 4px 0 #2a0f4a; animation: prSlam 1.8s var(--m-ease, ease) forwards; }
+.bf-intro-flash { position: absolute; inset: 0; background: radial-gradient(50% 40% at 50% 50%, color-mix(in srgb, var(--m-accent) 45%, transparent), transparent 70%); animation: prFlash 1.8s ease-out forwards; }
+@keyframes prIntro { 0%, 82% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+@keyframes prSlam { 0% { transform: scale(2.6); opacity: 0; } 18% { transform: scale(.92); opacity: 1; } 28% { transform: scale(1.04); } 36%, 80% { transform: scale(1); } 100% { transform: scale(1.3); opacity: 0; } }
+@keyframes prFlash { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
+body.fx-lite .bf-intro { display: none; }
+@media (prefers-reduced-motion: reduce) { .bf-intro { display: none; } }
+@media (max-width: 640px) { .bf-intro em { font-size: 40px; } }
 body.fx-lite .pr-stage i, body.fx-lite .pr-stage .pr-fist { display: none; } body.fx-lite .pr-f, body.fx-lite .pr .pr-vs, body.fx-lite .pr-cap { animation: none; }
 @media (prefers-reduced-motion: reduce) { .pr-stage i { display: none; } .pr-f, .pr .pr-vs, .pr-cap { animation: none; } }
 body.theme-day .pr-cap { color: #4a3a66; } body.theme-day .pr-cap b { color: #5a1fd1; } body.theme-day .pr-bolt { background: linear-gradient(180deg, #5a1fd1, #9b5cff); } body.theme-day .pr-blade { background: linear-gradient(180deg, #0b6b45, var(--pr-a) 40%, transparent); }
@@ -83,10 +94,10 @@ body.theme-day .pr-cap { color: #4a3a66; } body.theme-day .pr-cap b { color: #5a
 .pl-race { position: relative; width: 100%; height: 86px; display: grid; grid-template-rows: 64px auto; gap: 2px; }
 .pl-plot { position: relative; height: 64px; } .pl-race svg { width: 100%; height: 100%; overflow: visible; display: block; }
 .pl-race polyline { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
-.pl-a { stroke: var(--m-accent, #19f58f); filter: drop-shadow(0 0 4px rgba(25, 245, 143, .6)); } .pl-b { stroke: #ff8fa3; opacity: .9; }
+.pl-a { stroke: var(--m-accent, #15d16a); filter: drop-shadow(0 0 4px rgba(21, 209, 106, .6)); } .pl-b { stroke: #ff8fa3; opacity: .9; }
 .pl-zero { stroke: var(--m-line-hi, #2d1d4c); stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
 .pl-dot { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; pointer-events: none; animation: plPulse 1.4s ease-in-out infinite; }
-.pl-dot.a { background: var(--m-accent, #19f58f); box-shadow: 0 0 10px var(--m-accent, #19f58f); } .pl-dot.b { background: #ff8fa3; box-shadow: 0 0 10px #ff8fa3; animation-delay: -.7s; }
+.pl-dot.a { background: var(--m-accent, #15d16a); box-shadow: 0 0 10px var(--m-accent, #15d16a); } .pl-dot.b { background: #ff8fa3; box-shadow: 0 0 10px #ff8fa3; animation-delay: -.7s; }
 .pl-race small { display: flex; justify-content: space-between; gap: 6px; font: 10px var(--m-mono, monospace); letter-spacing: .04em; } .pl-race small em { font-style: normal; color: var(--m-dim); }
 .pl-ticker { position: relative; z-index: 2; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: center; margin-top: 10px; padding: 6px 10px;
   border-radius: 999px; border: 1px solid var(--m-line-hi, #2d1d4c); background: rgba(0, 0, 0, .35); }
@@ -96,7 +107,7 @@ body.theme-day .pr-cap { color: #4a3a66; } body.theme-day .pr-cap b { color: #5a
 .pl-track { display: flex; gap: 14px; width: max-content; animation: plBelt 28s linear infinite; }
 .pl-ticker:hover .pl-track { animation-play-state: paused; }
 .pl-tick { display: inline-flex; gap: 5px; align-items: baseline; font-size: 11.5px; white-space: nowrap; } .pl-tick b { font-weight: 600; }
-.pl-tick.s-a b { color: var(--m-accent, #19f58f); } .pl-tick.s-b b { color: #ff8fa3; } .pl-tick em { font-style: normal; font-size: 11px; }
+.pl-tick.s-a b { color: var(--m-accent, #15d16a); } .pl-tick.s-b b { color: #ff8fa3; } .pl-tick em { font-style: normal; font-size: 11px; }
 @keyframes plPulse { 50% { opacity: .35; transform: scale(.7); } }
 @keyframes plBelt { to { transform: translateX(-50%); } }
 body.fx-lite .pl-dot, body.fx-lite .pl-live i, body.fx-lite .pl-track { animation: none; }

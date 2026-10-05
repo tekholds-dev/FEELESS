@@ -22,7 +22,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (e.g. `styles/fuseLab.css`), still built from m-* tokens.
 - "Meta UI" = everything below, on EVERY feature end to end (backend data → frontend surface): m-* presets, live
   numbers, hover/active/focus, animated popovers, day theme, 360px. A backend-only feature isn't done until its UI is meta.
-- Palette: black/very dark green surfaces, live royal green `#19f58f` accent (matches the logo), `#ff8fa3` danger, `var(--gold)` warn.
+- Palette: black/very dark green surfaces, RICH ROYAL GREEN `#15d16a` accent (rgb 21,209,106; bright variant `#45e486`; the old mint `#19f58f` is retired — owner: "not this green"), `#ff8fa3` danger, `var(--gold)` warn.
   Labels/numbers in `JetBrains Mono`, uppercase micro-labels with letter-spacing.
 - Every interactive element has hover, active and focus states. Selected = solid neon fill with dark text.
 - Dropdowns, popovers and modals animate in (≤200ms, opacity + small translate/scale) and respect
@@ -88,7 +88,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   Bubbles hug the text with a near-opaque fill (never backdrop-filter over the animated layer).
 - Chat ⚙ › badges: `POST /api/reputation/profile/featured-badges` changes only featuredBadges (earned, chat-limit capped).
 - Radar = Watchlist + Signal alerts (`RadarPage`); `/terminal/alerts` and `?view=signals` open the Signals side.
-- Music: link-only adds (title via noembed), last song restored on refresh but autoplays only on the day's first load,
+- Music: link-only adds (title via noembed), plays like YouTube across refreshes (`resumeFrom`: same song, the player's own reported second, still playing / still paused; sound blocked → keeps playing muted, unmutes on the first tap/key),
   queue items removable, 📺 toggles the video (audio keeps playing).
 - Trade tape: Helius first; when it fails (quota) the candles service parses swaps from Solana RPC (Alchemy). Rows need a
   real SOL/USD leg (dust spam dropped). Tags from `/api/reputation/intel` via `lib/coinIntel.js` (one fetch/coin/min).
@@ -887,3 +887,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 💸 Keeper swap cost (`fuse_wallet.priority_cap(attempt, boost, sol_usd)`): a first try with no landing trouble keeps base + priority under
   a penny (`PENNY_USD`, 10K–50K lamports at today's SOL); a retry or a card whose txs didn't land pays more to land (≤ 300K). Keeper swaps
   carry NO FEELESS fee; new-coin rent (~0.002 SOL) comes back when `_fw_close_empty` closes empty accounts (every 30 min).
+- 🧾 Verdict (`backend/verdict.py`, owner `GET /admin/fuses/verdict`, `Verdict` on HQ › Fuse overview under Needs you): every engine on its own
+  record — tier runs, strategies, runner lanes, dials, playground clocks, sim configs, real runs → ✅ keep (avg AND median > 0 with enough samples)
+  · ❌ scrap · 👀 unproven. Read-only: decide what to scrap from it, never auto-scrap.
+- ❄ Freeze options: `RIDE_ATS` +10/15/20/25/50/100/150 and `RIDE_TRAILS` −5/8/10/15/20/30 (a frozen coin also leaves under half its freeze).
+- ⚔ Every new bell opens with a `bf-intro` round slam (ROUND n · FIGHT!, 1.8s, off in fx-lite / reduced motion).

@@ -77,7 +77,7 @@ export function FuseDeck({ panels, call }) {
         {group && group !== panels[i - 1]?.[4] && <span className="fdeck-group">{group}</span>}
         <button type="button" role="tab" aria-selected={!isMap && cur[0] === k} className={!isMap && cur[0] === k ? 'active' : ''} onClick={() => go(k)} data-testid={`fdeck-${k}`} data-tip={blurb}>
         <b>{l}</b></button></React.Fragment>)}</nav>
-      {isMap ? <div className="fdeck-body fdeck-map" key="map" data-testid="fdeck-overview">{call && <DeckAlerts call={call} go={go} has={k => panels.some(p => p[0] === k)} />}{[...new Set(panels.map(p => p[4]))].map(g => <section key={g || 'x'} className="fdeck-mapgroup"><span className="fdeck-group">{g}</span>
+      {isMap ? <div className="fdeck-body fdeck-map" key="map" data-testid="fdeck-overview">{call && <DeckAlerts call={call} go={go} has={k => panels.some(p => p[0] === k)} />}{call && <Verdict call={call} />}{[...new Set(panels.map(p => p[4]))].map(g => <section key={g || 'x'} className="fdeck-mapgroup"><span className="fdeck-group">{g}</span>
           <div className="fdeck-tiles">{panels.filter(p => p[4] === g).map(([k, l, , blurb], i) => <button key={k} type="button" className="fdeck-tile" style={{ '--i': i }} onClick={() => go(k)} data-testid={`fdeck-tile-${k}`}>
             <b>{l}</b>{TILE_STAT[k]?.(hq) != null && <em className="m-num">{TILE_STAT[k](hq)}</em>}<small>{blurb}</small><i aria-hidden="true">→</i></button>)}</div></section>)}</div>
         : <div className="fdeck-body" key={cur[0]}>{cur[3] && <p className="fdeck-intro">{cur[3]}</p>}{cur[2]}</div>}
@@ -105,6 +105,26 @@ export function DeckAlerts({ call, go, has = () => true }) {
   return <section className="fdeck-alerts" data-testid="fdeck-alerts"><span className="fdeck-group">NEEDS YOU</span>
     {items.map((x, i) => <button key={x.k} type="button" className={`fdeck-alert l-${x.lvl}`} style={{ '--i': i }} disabled={!x.go || !has(x.go)} onClick={() => x.go && go(x.go)} data-testid={`fdeck-alert-${x.k}`}>
       <b>{x.text}</b><small>{x.sub}</small>{x.go && <i aria-hidden="true">→</i>}</button>)}</section>;
+}
+
+// 🧾 What's working / what's not — before anything gets scrapped. Every engine on its OWN record (tier runs, strategies, lanes,
+// dials, playground clocks, sim configs, real runs): ✅ keep = average AND typical run above 0 · ❌ scrap = both at or below 0 · 👀 unproven.
+const VERDICT_LENS = [['all', 'All'], ['keep', '✅ Working'], ['scrap', '❌ Not working'], ['watch', '👀 Unproven']];
+export function Verdict({ call }) {
+  const [v, setV] = useState(null); const [lens, setLens] = useState('all'); const [more, setMore] = useState(false);
+  useEffect(() => { let alive = true; call('/admin/fuses/verdict').then(x => alive && setV(x)).catch(() => alive && setV({ rows: [] })); return () => { alive = false; }; }, [call]);
+  if (!v) return <div className="fdeck-verdict is-ghost" />;
+  const rows = (v.rows || []).filter(r => lens === 'all' || r.verdict === lens);
+  return <section className="fdeck-verdict" data-testid="fdeck-verdict"><span className="fdeck-group">WHAT'S WORKING · WHAT'S NOT</span>
+    <p className="fdv-head" data-testid="fdv-head">{v.headline}</p>
+    <span className="m-seg fdv-lens" role="tablist" aria-label="Filter">{VERDICT_LENS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => { setLens(k); setMore(false); }} data-testid={`fdv-${k}`}>
+      {l}{k !== 'all' && <em className="m-num">{v[k] || 0}</em>}</button>)}</span>
+    <ul className="fdv-rows">{rows.slice(0, more ? 80 : 10).map((r, i) => <li key={`${r.area}-${r.name}`} className={`fdv-row is-${r.verdict}`} style={{ '--i': Math.min(i, 12) }}>
+      <i aria-hidden="true">{r.verdict === 'keep' ? '✅' : r.verdict === 'scrap' ? '❌' : '👀'}</i><small>{r.area}</small><b>{r.name}</b>
+      <em className={`m-num ${r.avgPct > 0 ? 'm-pos' : r.avgPct < 0 ? 'm-neg' : ''}`}>{r.n ? `${r.medPct >= 0 ? '+' : ''}${r.medPct}%` : '—'}</em><span>{r.why}</span></li>)}</ul>
+    {rows.length > 10 && <button type="button" className="m-btn fdv-more" onClick={() => setMore(m => !m)}>{more ? 'Show less' : `Show all ${rows.length}`}</button>}
+    {!rows.length && <small className="m-dim">Nothing in this group.</small>}
+    <small className="m-dim">Read-only: nothing is switched off from here. ✅ = enough samples with the average AND the typical run above 0 — one lucky run can't make it green.</small></section>;
 }
 
 // Fuse vs Vault on LIVE pools: where a dollar's return can actually come from. Fuse = price moves (fast, both ways);
