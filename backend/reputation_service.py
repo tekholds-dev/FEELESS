@@ -5757,7 +5757,7 @@ async def _prime_tick_inner(now):
         if bench:
             p_t, r_t = [x for x in p_t if x.get('mint') not in bench], [x for x in r_t if x.get('mint') not in bench]
         book_s = (_fw_load().get('books') or {}).get(tid) or {} if cur and cur.get('real') else {}
-        stuck = set(_fw.stuck_buys(cur, now, bench, missed=book_s.get('misses'), pending_mint=(book_s.get('pending') or {}).get('mint'))) if cur and cur.get('real') else set()
+        stuck = set(_fw.stuck_buys(cur, now, bench, missed=book_s.get('misses'), pending_mint=(book_s.get('pending') or {}).get('toMint') or (book_s.get('pending') or {}).get('mint'))) if cur and cur.get('real') else set()
         if stuck:   # ⏳ the real card swaps a coin whose buy can't land (benched, or refused 15s ago) for a buyable one NOW
             before_ = cur
             cool_s = _prime.cooling(cur, now, cfg_t['rotateHours'], px)   # 🧊 … never for a coin that just left this card
@@ -6398,6 +6398,81 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
     return await _fw_resolve(tid, book, cfg, sol_px, wait=40)
 
 
+C2C_COOL_SEC = 600   # after a one-transaction swap fails, that card does plain two-step swaps for 10 minutes
+
+
+async def _fw_execute_swap(tid, sell, buy, book, cfg, sol_px, liq):
+    """🔀 ONE transaction: the old coin straight into the new one. Decided BEFORE anything moves — three read-only quotes (old → SOL,
+    SOL → new, old → new); the one-step route is used only when it delivers at least as many coins as the two swaps would and its
+    impact is ≤ 4% (`fuse_wallet.c2c_ok`), the new coin passes the live-pool, limit and secure-buy checks, and the old coin's sale
+    is near market. Returns the book when a swap was sent (or settled); None = not suitable → the keeper does the two swaps."""
+    if book.get('pending') or not _fw_signer_ready():
+        return None
+    now = time.time()
+    d0 = _fw_load()
+    if any(r.get('card') == tid and r.get('side') == 'swap' and r.get('status') == 'failed' and now - _fuse._f(r.get('at')) < C2C_COOL_SEC for r in (d0.get('ledger') or [])[-40:]):
+        return None
+    brow = {**buy, 'usd': sell['usd'], 'liq': liq, 'card': tid}
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            mr = await http.get(f"https://api.dexscreener.com/latest/dex/pairs/solana/{buy.get('pair')}")
+        live_pair = next((p for p in ((mr.json() if mr.status_code == 200 else {}) or {}).get('pairs') or [] if p and p.get('pairAddress') == buy.get('pair')), None)
+        ok, _why, snap = _fw.live_buy_market(buy, live_pair, cfg)
+        brow.update(snap)
+        if ok:
+            ok, _why = _fw.check(brow, cfg, d0.get('ledger'), now)
+        if not ok:
+            return None   # the normal path books the refusal (and benches the coin)
+        q_sell = await _fw_quote(sell, cfg)
+        lam = int(_fuse._f(q_sell.get('outAmount')))
+        if lam <= 0:
+            return None
+        q_buy = await _fw_quote({**buy, 'lamports': lam}, cfg)
+        q_dir = await _fw_jup('GET', '/swap/v1/quote', params={'inputMint': sell['mint'], 'outputMint': buy['mint'], 'amount': str(sell['atoms']),
+                                                               'slippageBps': str(cfg['slippageBps']), 'restrictIntermediateTokens': 'true'})
+        impact = round(_fuse._f(q_dir.get('priceImpactPct')) * 100, 3)
+        ok, why = _fw.c2c_ok(q_dir.get('outAmount'), q_buy.get('outAmount'), impact)
+        if not ok or impact > cfg['maxImpactPct']:
+            return None
+        ok_s, _why_s, back = await _fw_secure_buy({**buy, 'lamports': lam}, cfg, q_dir)   # near market + really sells back
+        if not ok_s:
+            return None
+        if 'rug' not in str(sell.get('why') or ''):
+            jp = _fuse._f(((await _jup_prices([sell['mint']])) or {}).get(sell['mint']))
+            if not _fw.sell_safety(sell, q_sell.get('outAmount'), sol_px, jp)[0]:
+                return None
+        async with _fw_lock:
+            boost = _fw.landing_boost(_fw_load().get('ledger'), tid, now)
+        swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q_dir, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
+                                                            'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': _fw.priority_cap(0, boost, sol_px), 'priorityLevel': 'veryHigh' if boost else 'high'}}})
+        signed = await _fw_sign(cfg, swap.get('swapTransaction'), f"FEELESS {tid} swap {sell.get('symbol')} to {buy.get('symbol')}")
+    except Exception as e:
+        print('fuse wallet c2c (falling back to two swaps):', str(getattr(e, 'detail', e))[:120])
+        return None
+    sig = signed.get('signature') or signed.get('txHash')
+    row = {'id': f"{tid}:{now:.0f}:x:{sell['mint'][:6]}", 'card': tid, 'side': 'swap', 'mint': sell['mint'], 'pair': sell.get('pair'), 'symbol': sell.get('symbol'),
+           'atoms': int(sell['atoms']), 'decimals': sell.get('decimals'), 'toMint': buy['mint'], 'toPair': buy.get('pair'), 'toSymbol': buy.get('symbol'),
+           'toMidPx': brow.get('midPx') or buy.get('midPx'), 'usd': sell['usd'], 'at': now, 'why': f'🔀 one transaction — {why}', 'liq': brow.get('liq'),
+           'minIn': int(_fuse._f(q_dir.get('otherAmountThreshold'))), 'quoteOut': q_dir.get('outAmount'), 'impactPct': impact, 'sellBackPct': back,
+           'lastValidBlockHeight': swap.get('lastValidBlockHeight'), **({'cardPays': True} if sell.get('cardPays') else {})}
+    book = {**book, 'pending': {**row, 'sig': sig, 'status': 'sent', 'sentAt': now}}
+    async with _fw_lock:   # pending is saved BEFORE the send: a crash mid-flight can never double-trade
+        d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_save(d)
+    try:
+        async with httpx.AsyncClient(timeout=15) as http:
+            await _krpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
+        _fw_raw_keep(sig, signed.get('signedTransaction'))
+    except Exception as e:
+        if 'simulation failed' in str(e).lower():   # this tx can never land → clear it now; the two-step path takes over next tick
+            book = {**book, 'pending': None}
+            async with _fw_lock:
+                d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book)
+                _fw_record(d, {**row, 'status': 'failed', 'err': 'one-transaction swap failed simulation — doing two swaps'}); _fw_save(d)
+            return book
+        _fw_raw_keep(sig, signed.get('signedTransaction'))   # node trouble: it may still land → resolve decides
+    return await _fw_resolve(tid, book, cfg, sol_px, wait=40)
+
+
 def _fw_notify(row):
     """Every real fill / failure on a tier card → the owner wallets' inbox (audit trail link). No P&L in the text.
     A failing coin retries every tick, so its failure notice goes out once an hour, not once per try."""
@@ -6473,6 +6548,37 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
         async with _fw_lock:
             d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_record(d, row); _fw_save(d)
         _fw_notify(row)
+        return book
+    if p.get('side') == 'swap':   # 🔀 one transaction, two coins: booked as a sell row + a buy row on the same signature
+        _FW_RAW.pop(p.get('sig'), None)
+        base = {k: v for k, v in p.items() if k not in ('sentAt', 'toMidPx')}
+        sfill = None if (tx.get('meta') or {}).get('err') else _fw.swap_fill_from_meta(tx, cfg['address'], p['mint'], p['toMint'])
+        bad = _fw.swap_fill_error(p, sfill, book) if sfill else ''
+        rows_ = []
+        if sfill and not bad:
+            try:
+                px_in = _fuse._f(((await _jup_prices([p['toMint']])) or {}).get(p['toMint']))
+            except Exception:
+                px_in = 0.0
+            book, f = _fw.apply_swap(book, p, sfill, sol_px, px_in or _fuse._f(p.get('toMidPx')))
+            fee_usd = round(sfill['feeSol'] * sol_px, 6)
+            rows_ = [{**base, 'id': p['id'] + ':s', 'side': 'sell', 'status': 'filled', 'usd': f['usd'], 'proceedsUsd': f['usd'], 'costUsd': f['costUsd'], 'realizedPnlUsd': f['realizedPnlUsd'],
+                      'units': f['unitsOut'], 'sol': 0.0, 'feeSol': sfill['feeSol'], 'feeUsd': fee_usd, 'openedSol': 0.0, 'why': f"🔀 swapped straight into ${p.get('toSymbol')} (one transaction)"},
+                     {**base, 'id': p['id'] + ':b', 'side': 'buy', 'mint': p['toMint'], 'pair': p.get('toPair'), 'symbol': p.get('toSymbol'), 'status': 'filled', 'usd': f['usd'],
+                      'units': f['unitsIn'], 'px': f['px'], 'sol': 0.0, 'feeSol': 0.0, 'feeUsd': 0.0, 'why': f"🔀 swapped straight from ${p.get('symbol')} (one transaction)"}]
+            _FW_GAS['at'] = 0.0; _FW_BAL.pop('bal', None)
+        elif bad:
+            rows_ = [{**base, 'status': 'failed', 'err': bad}]
+            book = {**book, 'halt': True, 'haltWhy': bad}
+        else:
+            rows_ = [{**base, 'status': 'failed', 'err': 'tx failed on-chain'}]
+        book = {**book, 'pending': None}
+        async with _fw_lock:
+            d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book)
+            for r_ in rows_:
+                _fw_record(d, r_)
+            _fw_save(d)
+        _fw_notify(rows_[0])
         return book
     fill = _fw.fill_from_meta(tx, cfg['address'], p['mint']) if tx else None
     _FW_RAW.pop(p.get('sig'), None)
@@ -6635,7 +6741,13 @@ async def _fw_tick_inner(now):
             book, hold = _fw.hold_sells(book, card, await _fw_preflight(tid, new_buys, cfg, now), now)
         elif book.get('sellHoldAt'):
             book, _h = _fw.hold_sells(book, card, set(), now)
-        for side in (('sell',) if book.get('halt') else ('sell', 'buy')):   # ⏸ halted = sells only (owner's queued sells still land)
+        if cfg.get('coinToCoin') and not hold and not book.get('halt') and not book.get('defund') and not book.get('pending'):
+            for s_o, b_o in _fw.swap_pairs(plan0, book)[:1]:   # 🔀 one swap per tick, like every other order
+                leg_liq = next((_fuse._f(l.get('liqNow')) or _fuse._f(l.get('liq')) for l in card.get('legs') or [] if l.get('mint') == b_o.get('mint')), 0.0)
+                done_ = await _fw_execute_swap(tid, {**s_o, 'cardPays': int(card.get('rounds') or 0) >= 5}, b_o, book, cfg, sol_px, liqs.get(b_o.get('pair')) or leg_liq)
+                if done_ is not None:
+                    book = done_
+        for side in (('sell',) if book.get('halt') or book.get('pending') else ('sell', 'buy')):   # ⏸ halted = sells only (owner's queued sells still land)
             for o in [{**x, 'cardPays': int(card.get('rounds') or 0) >= 5} for x in _fw.orders(tid, want, book, px, sol_px, cfg, now, count_sells=side == 'sell') if x['side'] == side]:
                 if hold and side == 'sell' and not o.get('manualCash'):
                     continue   # the replacement isn't buyable yet → this coin stays (the owner's own ✂ always goes through)
@@ -6912,7 +7024,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
     for o in reversed(d['ledger']):   # newest first, each tx / funding once
         if o.get('card') != tid or o.get('side') not in ('buy', 'sell', 'topup') or not (o.get('status') in ('filled', 'done') or o.get('side') == 'topup'):
             continue
-        k = o.get('sig') or f"{o.get('id')}:{o.get('side')}:{o.get('at')}"
+        k = (o.get('sig'), o.get('side')) if o.get('sig') else f"{o.get('id')}:{o.get('side')}:{o.get('at')}"
         if k not in seen:
             seen.add(k); rows.append(o)
         if len(rows) >= 12:

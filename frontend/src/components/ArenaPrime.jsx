@@ -263,7 +263,7 @@ export function SwapFlow({ k }) {
     {k.holdingSell && <li className="is-hold" data-tip="The new coin failed a buy check, so the old coin was NOT sold. The engine is picking the next best coin (about 15 seconds).">🔒 old coin kept — new coin not buyable, re-picking</li>}
     {f.map((s, i) => { const w = FLOW_WORD[s.state] || FLOW_WORD.next;
       return <li key={`${s.side}${s.symbol}${i}`} className={`is-${s.state}`} style={{ '--i': i }} data-tip={s.err || (s.state === 'done' ? 'Confirmed on-chain' : s.state === 'sending' ? 'Signed and sent — waiting for the chain' : 'Runs after the step before it confirms')}>
-        <i>{i + 1}</i><b>{s.side === 'sell' ? 'SELL' : 'BUY'} ${s.symbol}</b><span className="m-num">{usd(s.usd)}</span><em>{w[0]} {w[1]}</em></li>; })}</ol>;
+        <i>{i + 1}</i><b>{s.side === 'sell' ? 'SELL' : s.side === 'swap' ? '🔀 SWAP' : 'BUY'} ${s.symbol}</b><span className="m-num">{usd(s.usd)}</span><em>{w[0]} {w[1]}</em></li>; })}</ol>;
 }
 
 export function TrenchScan({ call }) {

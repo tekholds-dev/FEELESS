@@ -951,3 +951,50 @@ def test_route_rent_repair_checks_only_suspicious_sells_and_never_credits_more_t
     books, credits = fw.route_fix({'t': {'sol': 0.001}}, {'t': 0.0045}, 0.002, 120.0)
     assert credits == {'t': 0.002} and books['t']['sol'] == 0.003                        # only SOL the wallet really has unassigned
     assert fw.route_fix({'t': {'sol': 0.001}}, {'t': 0.0045}, 0.0, 120.0)[1] == {}
+
+
+def _swap_tx(out_atoms=-100, in_atoms=250, owner_delta=-2_044_280, fee=5_000, err=None):
+    tok = lambda mint, amt: {'owner': 'OWNER', 'mint': mint, 'uiTokenAmount': {'amount': str(amt), 'decimals': 0}}
+    return {'transaction': {'message': {'accountKeys': [{'pubkey': 'OWNER', 'signer': True}, {'pubkey': 'ATA', 'signer': False}]}},
+            'meta': {'err': err, 'fee': fee, 'preBalances': [50_000_000, 0], 'postBalances': [50_000_000 + owner_delta, 2_039_280],
+                     'preTokenBalances': [tok('OLD', 100)], 'postTokenBalances': [tok('OLD', 100 + out_atoms), tok('NEW', in_atoms)]}}
+
+
+def test_one_transaction_swap_is_only_used_when_it_pays_at_least_as_much_and_its_impact_is_small():
+    assert fw.c2c_ok(1000, 990, 0.4)[0] and 'more coins' in fw.c2c_ok(1000, 990, 0.4)[1]
+    assert fw.c2c_ok(1000, 1000, 0.0)[0]                                                 # equal coins → still one fee less
+    assert not fw.c2c_ok(980, 1000, 0.2)[0]                                              # two swaps pay more → do two swaps
+    assert not fw.c2c_ok(1000, 990, 4.1)[0] and fw.c2c_ok(1000, 990, 4.0)[0]             # impact no worse than 4%
+    assert not fw.c2c_ok(0, 990, 0.1)[0]
+    assert fw.clean_cfg({})['coinToCoin'] is False and fw.clean_cfg({'coinToCoin': 1})['coinToCoin'] is True   # OFF until the owner flips it
+    book = {'sol': 0.01, 'legs': {'OLD': {'atoms': 100, 'decimals': 0}, 'STAY': {'atoms': 5, 'decimals': 0}}}
+    plan = [{'side': 'sell', 'mint': 'OLD', 'atoms': 100, 'why': 'not on the card any more'},
+            {'side': 'sell', 'mint': 'STAY', 'atoms': 2, 'why': 'trimmed to the card'},
+            {'side': 'sell', 'mint': 'CASH', 'atoms': 9, 'why': 'not on the card any more', 'manualCash': True},
+            {'side': 'buy', 'mint': 'NEW', 'lamports': 5}, {'side': 'buy', 'mint': 'STAY', 'lamports': 5}]
+    assert [(s_['mint'], b_['mint']) for s_, b_ in fw.swap_pairs(plan, book)] == [('OLD', 'NEW')]   # only a coin leaving for good ↔ a coin not held
+    assert fw.swap_pairs([{**plan[0], 'atoms': 60}, plan[3]], book) == []                # a partial sell is never a swap
+
+
+def test_one_transaction_swap_is_booked_from_the_chain_value_moves_coin_to_coin_and_rent_is_the_reserves():
+    order = {'side': 'swap', 'mint': 'OLD', 'atoms': 100, 'toMint': 'NEW', 'toPair': 'Pn', 'toSymbol': 'NEW', 'minIn': 240}
+    book = {'sol': 0.002, 'legs': {'OLD': {'atoms': 100, 'decimals': 0, 'costUsd': 0.60, 'pair': 'Po', 'symbol': 'OLD'}}}
+    fill = fw.swap_fill_from_meta(_swap_tx(), 'OWNER', 'OLD', 'NEW')
+    assert (fill['outAtoms'], fill['inAtoms'], fill['feeSol']) == (-100, 250, 0.000005) and round(fill['sol'], 9) == -0.00203928
+    assert fw.swap_fill_error(order, fill, book) == ''
+    b, f = fw.apply_swap(book, order, fill, 120.0, 0.0022)
+    assert 'OLD' not in b['legs'] and b['legs']['NEW']['atoms'] == 250 and b['legs']['NEW']['costUsd'] == 0.55 and b['legs']['NEW']['pair'] == 'Pn'
+    assert (f['usd'], f['costUsd'], f['realizedPnlUsd']) == (0.55, 0.60, -0.05)          # the old coin's result = what its money is worth now − its cost
+    assert b['sol'] == 0.002 and b['rentSol'] == 0.00203928                              # no SOL changes hands; the new account's rent is the reserve's
+    assert round(b['feesSol'], 9) == 0.000005
+    paid = fw.apply_swap(book, {**order, 'cardPays': True}, fill, 120.0, 0.0022)[0]
+    assert round(paid['sol'], 9) == 0.001995 and round(paid['cardFeesSol'], 9) == 0.000005   # after round 5 the card pays its own network fee
+    # anything that is not exactly our swap halts instead of being booked
+    assert 'exact coins' in fw.swap_fill_error(order, fw.swap_fill_from_meta(_swap_tx(out_atoms=-60), 'OWNER', 'OLD', 'NEW'), book)
+    assert 'fewer coins' in fw.swap_fill_error(order, fw.swap_fill_from_meta(_swap_tx(in_atoms=200), 'OWNER', 'OLD', 'NEW'), book)
+    assert 'moved SOL' in fw.swap_fill_error(order, fw.swap_fill_from_meta(_swap_tx(owner_delta=-50_000_000 + 1), 'OWNER', 'OLD', 'NEW'), book)
+    assert 'moved SOL' in fw.swap_fill_error(order, fw.swap_fill_from_meta(_swap_tx(owner_delta=5_000_000), 'OWNER', 'OLD', 'NEW'), book)
+    assert fw.swap_fill_from_meta(_swap_tx(err={'x': 1}), 'OWNER', 'OLD', 'NEW') is None
+    flow = fw.swap_flow({'pending': {'side': 'swap', 'mint': 'OLD', 'symbol': 'OLD', 'toMint': 'NEW', 'toSymbol': 'NEW', 'usd': 0.55}}, [], 't',
+                        [{'side': 'sell', 'mint': 'OLD', 'symbol': 'OLD'}, {'side': 'buy', 'mint': 'NEW', 'symbol': 'NEW'}], 1000)
+    assert [(x['side'], x['symbol'], x['state']) for x in flow] == [('swap', 'OLD → $NEW', 'sending')]   # one step, not two

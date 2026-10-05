@@ -15,7 +15,8 @@ import statistics
 
 SOL_MINT = 'So11111111111111111111111111111111111111112'
 DEFAULT_CFG = {'walletId': '', 'address': '', 'armed': False, 'paused': False, 'maxCardUsd': 100.0, 'maxSwapUsd': 50.0,
-               'dailyUsd': 300.0, 'reserveSol': 0.03, 'slippageBps': 100, 'maxImpactPct': 3.0, 'minOrderUsd': 0.5, 'minLiqUsd': 20000.0, 'arenaMinLiqUsd': 20000.0, 'trenchMinLiqUsd': 8000.0}
+               'dailyUsd': 300.0, 'reserveSol': 0.03, 'slippageBps': 100, 'maxImpactPct': 3.0, 'minOrderUsd': 0.5, 'minLiqUsd': 20000.0, 'arenaMinLiqUsd': 20000.0, 'trenchMinLiqUsd': 8000.0,
+               'coinToCoin': False}   # 🔀 one-transaction swaps (old coin → new coin). OFF until the owner switches it on
 RANGES = {'maxCardUsd': (5, 50000), 'maxSwapUsd': (1, 10000), 'dailyUsd': (5, 100000), 'reserveSol': (0.005, 5),
           'slippageBps': (10, 300), 'maxImpactPct': (0.2, 10), 'minOrderUsd': (0.10, 50), 'minLiqUsd': (0, 10000000), 'arenaMinLiqUsd': (0, 10000000), 'trenchMinLiqUsd': (3000, 10000000)}
 DUST_USD = 0.05
@@ -36,7 +37,7 @@ def clean_cfg(c):
         if c.get(k) is not None:
             out[k] = round(min(hi, max(lo, _f(c[k]))), 4)
     out['slippageBps'] = int(out['slippageBps'])
-    for k in ('armed', 'paused'):
+    for k in ('armed', 'paused', 'coinToCoin'):
         if k in c:
             out[k] = bool(c[k])
     for k in ('walletId', 'address'):
@@ -753,10 +754,11 @@ def calibrate(ledger, min_n=3):
 def totals(ledger, card=None):
     """Audit totals: bought / sold $, network fees $, swaps, failures (optionally one card)."""
     rows = [o for o in ledger or [] if card is None or o.get('card') == card]
-    ok = list({(o.get('sig') or o.get('id')): o for o in rows if o.get('status') == 'filled'}.values())   # one row per tx
+    # one row per tx AND side: a one-transaction swap books a sell row and a buy row on the same signature
+    ok = list({(o.get('sig') or o.get('id'), o.get('side')): o for o in rows if o.get('status') == 'filled'}.values())
     return {'bought': round(sum(_f(o.get('usd')) for o in ok if o.get('side') == 'buy'), 4),
             'sold': round(sum(_f(o.get('usd')) for o in ok if o.get('side') == 'sell'), 4),
-            'feesUsd': round(sum(_f(o.get('feeUsd')) for o in ok), 6), 'swaps': len(ok),
+            'feesUsd': round(sum(_f(o.get('feeUsd')) for o in ok), 6), 'swaps': len({o.get('sig') or o.get('id') for o in ok}),
             'failed': sum(1 for o in rows if o.get('status') in ('failed', 'skipped')),
             'topups': round(sum(_f(o.get('usd')) for o in rows if o.get('side') == 'topup'), 4)}
 
@@ -1016,7 +1018,7 @@ def run_report(ledger, card, now, funded_usd=0.0, equity_usd=None, hold_sol_pct=
     round trips (bought then sold < 30 min), per-coin realized result, failures + top skip reasons, average fill vs market — and the
     FLAWS those numbers show, each with the setting that fixes it. Read-only: it never changes a card."""
     rows = sorted((r for r in ledger or [] if r.get('card') == card), key=lambda r: _f(r.get('at')))
-    fills = list({(r.get('sig') or r.get('id')): r for r in rows if r.get('status') == 'filled' and r.get('side') in ('buy', 'sell')}.values())
+    fills = list({(r.get('sig') or r.get('id'), r.get('side')): r for r in rows if r.get('status') == 'filled' and r.get('side') in ('buy', 'sell')}.values())
     fills.sort(key=lambda r: _f(r.get('at')))
     start = next((_f(r.get('at')) for r in rows), now)
     hours = max(0.25, (now - start) / 3600)
@@ -1174,7 +1176,10 @@ def swap_flow(book, ledger, card_id, plan, now, window=120):
     p = book.get('pending') or {}
     if p.get('mint'):
         seen.add((p.get('side'), p.get('mint')))
-        steps.append({'side': p.get('side'), 'symbol': p.get('symbol'), 'state': 'sending', 'usd': round(_f(p.get('usd')), 2), 'at': p.get('sentAt')})
+        if p.get('side') == 'swap':   # 🔀 one transaction: both coins move together
+            seen.update({('sell', p.get('mint')), ('buy', p.get('toMint'))})
+        steps.append({'side': p.get('side'), 'symbol': f"{p.get('symbol')} → ${p.get('toSymbol')}" if p.get('side') == 'swap' else p.get('symbol'), 'state': 'sending',
+                      'usd': round(_f(p.get('usd')), 2), 'at': p.get('sentAt')})
     for o in plan or []:
         if (o.get('side'), o.get('mint')) not in seen:
             steps.append({'side': o['side'], 'symbol': o.get('symbol'), 'state': 'next', 'usd': round(_f(o.get('usd')), 2)})
@@ -1243,3 +1248,86 @@ def halt_allows_sells(book):
     """A halted card still SELLS (it only adds SOL, which is what a SOL-shortage halt needs) — the owner's queued ✂ / recovery sells
     used to sit 'queued' forever. A token-shortage halt sells nothing (the wallet may not hold what the book says)."""
     return bool(book.get('halt')) and 'token balance' not in str(book.get('haltWhy') or '')
+
+
+# 🔀 ONE-TRANSACTION SWAP (coin → coin). A rotation is "sell the old coin, then buy the new one": two transactions, two fees, and a
+# moment in cash between them. When a single route from the old coin straight into the new one is at least as good, the keeper sends
+# ONE transaction instead — the old coin leaves and the new coin arrives together, or nothing happens at all.
+C2C_MAX_IMPACT = 4.0    # never when the route's own price impact is worse than this
+C2C_MAX_SOL = 0.012     # the wallet's SOL may only drop by fees + new-account rent in a swap tx — more than this is not a swap
+
+
+def swap_pairs(plan, book):
+    """Which planned orders are one swap: a coin leaving the card for good ('not on the card any more', never the owner's ✂ cash)
+    matched, in order, with a coin the card doesn't hold yet. → [(sell, buy)]"""
+    sells = [o for o in plan or [] if o.get('side') == 'sell' and not o.get('manualCash') and o.get('why') == 'not on the card any more'
+             and int(o.get('atoms') or 0) == int(((book.get('legs') or {}).get(o.get('mint')) or {}).get('atoms') or -1)]
+    buys = [o for o in plan or [] if o.get('side') == 'buy' and not held_units(book, o.get('mint'))]
+    return list(zip(sells, buys))
+
+
+def c2c_ok(direct_out, two_leg_out, impact_pct, max_impact=C2C_MAX_IMPACT):
+    """(ok, why). The one-transaction route is used only when it delivers AT LEAST as many coins as selling to SOL and buying back
+    would, and its own impact is no worse than `max_impact`%. Otherwise the keeper does the two swaps as before."""
+    d, t = _f(direct_out), _f(two_leg_out)
+    if d <= 0:
+        return False, 'no one-transaction route'
+    if _f(impact_pct) > max_impact:
+        return False, f'one-transaction route impact {_f(impact_pct):.2f}% > {max_impact:g}%'
+    if t > 0 and d < t:
+        return False, f'two swaps pay {(t / d - 1) * 100:.2f}% more coins than one'
+    return True, f'one transaction gives {((d / t - 1) * 100 if t > 0 else 0):+.2f}% more coins than two swaps (impact {_f(impact_pct):.2f}%)'
+
+
+def swap_fill_from_meta(tx, owner, mint_out, mint_in):
+    """The TRUE result of a coin → coin tx: atoms out (negative), atoms in, SOL change excl. the fee, fee, rent parked in opened
+    accounts. None if it failed or the owner didn't sign it."""
+    a, b = fill_from_meta(tx, owner, mint_out), fill_from_meta(tx, owner, mint_in)
+    if not a or not b:
+        return None
+    return {'outAtoms': a['atoms'], 'outDecimals': a['decimals'], 'inAtoms': b['atoms'], 'inDecimals': b['decimals'], 'sol': a['sol'], 'feeSol': a['feeSol'],
+            'openedSol': a.get('openedSol') or 0.0}
+
+
+def swap_fill_error(order, fill, book):
+    """Why a confirmed tx is NOT the swap we sent ('' = it is). Exact coins out, some coins in (≥ the quoted minimum), and the
+    wallet's SOL moved by no more than fees + rent."""
+    if not fill:
+        return 'confirmed transaction has no fill'
+    held = int((((book or {}).get('legs') or {}).get(order.get('mint')) or {}).get('atoms') or 0)
+    if fill['outAtoms'] >= 0 or abs(fill['outAtoms']) != int(order.get('atoms') or 0) or abs(fill['outAtoms']) > held:
+        return 'confirmed swap did not sell the exact coins of the order/book'
+    if fill['inAtoms'] <= 0 or fill['inAtoms'] < int(_f(order.get('minIn'))):
+        return 'confirmed swap delivered fewer coins than the quoted minimum'
+    if fill['sol'] > 0.000001 or -fill['sol'] > C2C_MAX_SOL:
+        return 'confirmed swap moved SOL it should not have'
+    return ''
+
+
+def apply_swap(book, order, fill, sol_px, px_in):
+    """Book a confirmed coin → coin swap. The money moved = what the new coins are worth at the market price right now (`px_in`):
+    that is the old coin's sale price (its realized result = that − its cost) and the new coin's cost. No SOL changes hands; the SOL
+    the tx used beyond its fee is new-account rent the reserve fronts (refunded to it on close). Fees stay apart, as always."""
+    b = {**book, 'legs': {k: dict(v) for k, v in (book.get('legs') or {}).items()}}
+    old = b['legs'].get(order['mint']) or {}
+    units_in = fill['inAtoms'] / (10 ** int(fill['inDecimals'] or 0))
+    usd = round(units_in * _f(px_in), 6)
+    cost_out = round(_f(old.get('costUsd')), 6)
+    b['legs'].pop(order['mint'], None)
+    to = order['toMint']
+    l = b['legs'].setdefault(to, {'atoms': 0, 'decimals': fill['inDecimals'], 'pair': order.get('toPair'), 'symbol': order.get('toSymbol'), 'costUsd': 0.0, 'entryPx': 0.0})
+    was = int(l['atoms']) / (10 ** int(fill['inDecimals'] or 0))
+    l.update(atoms=int(l['atoms']) + fill['inAtoms'], decimals=fill['inDecimals'], costUsd=round(_f(l.get('costUsd')) + usd, 6),
+             entryPx=(was * _f(l.get('entryPx')) + usd) / (was + units_in) if was + units_in > 0 else 0.0)
+    rent = max(0.0, -fill['sol'])
+    if rent > 0:
+        b['rentSol'] = round(_f(b.get('rentSol')) + rent, 9)
+    if order.get('cardPays'):
+        take = min(fill['feeSol'], max(0.0, _f(b.get('sol'))))
+        b['sol'] = round(_f(b.get('sol')) - take, 9); b['cardFeesSol'] = round(_f(b.get('cardFeesSol')) + take, 9)
+        if fill['feeSol'] > take:
+            b['rentSol'] = round(_f(b.get('rentSol')) + fill['feeSol'] - take, 9)
+    b['feesSol'] = round(_f(b.get('feesSol')) + fill['feeSol'], 9)
+    b['feesUsd'] = round(_f(b.get('feesUsd')) + fill['feeSol'] * sol_px, 6)
+    return b, {'usd': usd, 'costUsd': cost_out, 'realizedPnlUsd': round(usd - cost_out, 6), 'unitsIn': round(units_in, 9), 'px': _f(px_in),
+               'unitsOut': abs(fill['outAtoms']) / (10 ** int(fill['outDecimals'] or 0)), 'rentSol': round(rent, 9)}

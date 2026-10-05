@@ -346,3 +346,88 @@ def test_up_to_six_keyed_lanes_fall_through_in_order(monkeypatch):
     http = _Http([spent, spent, spent, _Res(200, {'result': 9})])
     assert asyncio.run(chain_rpc.rpc_priority(http, 'getSlot', [])) == 9
     assert [e for e, _ in http.calls] == ['L1', 'L2', 'https://c.x.com/k', 'https://e.y.com/k']   # three plans spent → the fourth answers
+
+
+def _c2c_env(monkeypatch, direct_out, two_leg_out, impact=0.001):
+    import time
+    import reputation_service as rs
+    import fuse_wallet as fw
+    cfg = {**fw.DEFAULT_CFG, 'walletId': 'w', 'address': 'OWNER', 'armed': True, 'minOrderUsd': 0.25, 'coinToCoin': True, 'minLiqUsd': 20000}
+    book = {'sol': 0.001, 'fundedUsd': 5.0, 'legs': {'OLD': {'atoms': 100, 'decimals': 0, 'pair': 'Pold', 'symbol': 'OLD', 'costUsd': 0.60, 'entryPx': 0.006}}}
+    state = {'d': {'cfg': cfg, 'books': {'degen': book}, 'ledger': []}, 'jup': [], 'sent': []}
+    monkeypatch.setattr(rs, '_fw_load', lambda: state['d'])
+    monkeypatch.setattr(rs, '_fw_save', lambda d: state.__setitem__('d', d))
+    monkeypatch.setattr(rs, '_fw_signer_ready', lambda: True)
+    monkeypatch.setattr(rs, '_fw_notify', lambda row: None)
+    monkeypatch.setattr(rs._store, 'Ledger', lambda *a, **k: type('L', (), {'append': lambda self, r: None})())
+
+    class Dex:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, url):
+            return type('R', (), {'status_code': 200, 'json': lambda s: {'pairs': [{'pairAddress': 'Pnew', 'baseToken': {'address': 'NEW'}, 'priceUsd': '0.0022', 'liquidity': {'usd': 90000}}]}})()
+    monkeypatch.setattr(rs.httpx, 'AsyncClient', Dex)
+
+    async def jup(method, path, **kw):
+        state['jup'].append((method, path, (kw.get('params') or {}).get('inputMint'), (kw.get('params') or {}).get('outputMint')))
+        if method == 'POST':
+            return {'swapTransaction': 'TX', 'lastValidBlockHeight': 10}
+        q = kw['params']
+        if q['inputMint'] == 'OLD' and q['outputMint'] == fw.SOL_MINT:
+            return {'outAmount': '4600000', 'priceImpactPct': '0.001'}                    # old → SOL: 0.0046 SOL ≈ $0.55
+        if q['inputMint'] == fw.SOL_MINT:
+            return {'outAmount': str(two_leg_out), 'priceImpactPct': '0.001'}             # SOL → new
+        if q['inputMint'] == 'NEW':
+            return {'outAmount': '4550000'}                                                # sell-back check: loses ~1%
+        return {'outAmount': str(direct_out), 'otherAmountThreshold': str(int(direct_out * 0.97)), 'priceImpactPct': str(impact)}   # old → new
+
+    async def sign(cfg_, raw, memo):
+        return {'signature': 'SIG', 'signedTransaction': 'SIGNED'}
+
+    async def krpc(http, method, params):
+        state['sent'].append(method)
+        if method == 'getTransaction':
+            tok = lambda mint, amt: {'owner': 'OWNER', 'mint': mint, 'uiTokenAmount': {'amount': str(amt), 'decimals': 0}}
+            return {'transaction': {'message': {'accountKeys': [{'pubkey': 'OWNER', 'signer': True}, {'pubkey': 'ATA', 'signer': False}]}},
+                    'meta': {'err': None, 'fee': 5000, 'preBalances': [50_000_000, 0], 'postBalances': [50_000_000 - 2_044_280, 2_039_280],
+                             'preTokenBalances': [tok('OLD', 100)], 'postTokenBalances': [tok('OLD', 0), tok('NEW', direct_out)]}}
+        return 'SIG'
+
+    async def prices(mints):
+        return {'NEW': 0.0022, 'OLD': 0.0055}
+
+    async def dec(m):
+        return 0
+    for name, fn in (('_fw_jup', jup), ('_fw_sign', sign), ('_krpc', krpc), ('_jup_prices', prices), ('_mint_decimals', dec)):
+        monkeypatch.setattr(rs, name, fn)
+    now = time.time()
+    sell = {'side': 'sell', 'mint': 'OLD', 'pair': 'Pold', 'symbol': 'OLD', 'atoms': 100, 'decimals': 0, 'usd': 0.55, 'midPx': 0.0055, 'at': now, 'why': 'not on the card any more'}
+    buy = {'side': 'buy', 'mint': 'NEW', 'pair': 'Pnew', 'symbol': 'NEW', 'lamports': 4_600_000, 'usd': 0.55, 'midPx': 0.0022, 'at': now, 'why': 'card buys its coin'}
+    return rs, fw, state, cfg, book, sell, buy
+
+
+def test_one_transaction_swap_is_sent_when_it_beats_two_swaps_and_books_both_coins(monkeypatch):
+    rs, fw, state, cfg, book, sell, buy = _c2c_env(monkeypatch, direct_out=250, two_leg_out=247)
+    out = asyncio.run(rs._fw_execute_swap('degen', sell, buy, book, cfg, 120.0, 90000))
+    assert out is not None and out.get('pending') is None and 'OLD' not in out['legs'] and out['legs']['NEW']['atoms'] == 250
+    assert out['legs']['NEW']['costUsd'] == 0.55 and out['sol'] == 0.001                 # the money moved coin to coin; card SOL untouched
+    assert state['sent'].count('sendTransaction') == 1                                   # ONE transaction
+    rows = [(r['side'], r['symbol'], r['status'], r.get('usd')) for r in state['d']['ledger']]
+    assert rows == [('sell', 'OLD', 'filled', 0.55), ('buy', 'NEW', 'filled', 0.55)]
+    assert state['d']['ledger'][0]['realizedPnlUsd'] == -0.05 and state['d']['ledger'][0]['sig'] == state['d']['ledger'][1]['sig'] == 'SIG'
+    t = fw.totals(state['d']['ledger'], 'degen')
+    assert (t['bought'], t['sold'], t['swaps']) == (0.55, 0.55, 1)                       # both sides counted, one swap
+
+
+def test_one_transaction_swap_steps_aside_when_two_swaps_pay_more_or_impact_is_high(monkeypatch):
+    rs, fw, state, cfg, book, sell, buy = _c2c_env(monkeypatch, direct_out=240, two_leg_out=247)
+    assert asyncio.run(rs._fw_execute_swap('degen', sell, buy, book, cfg, 120.0, 90000)) is None
+    assert 'sendTransaction' not in state['sent'] and not any(m == 'POST' for m, *_ in state['jup'])   # nothing built, nothing signed
+    rs, fw, state, cfg, book, sell, buy = _c2c_env(monkeypatch, direct_out=250, two_leg_out=247, impact=0.05)
+    assert asyncio.run(rs._fw_execute_swap('degen', sell, buy, book, cfg, 120.0, 90000)) is None        # 5% impact > 4%
+    rs, fw, state, cfg, book, sell, buy = _c2c_env(monkeypatch, direct_out=250, two_leg_out=247)
+    assert asyncio.run(rs._fw_execute_swap('degen', sell, buy, book, cfg, 120.0, 5000)) is not None     # (liq is re-read live)
+    rs, fw, state, cfg, book, sell, buy = _c2c_env(monkeypatch, direct_out=250, two_leg_out=247)
+    state['d']['ledger'].append({'card': 'degen', 'side': 'swap', 'status': 'failed', 'at': sell['at'] - 60})
+    assert asyncio.run(rs._fw_execute_swap('degen', sell, buy, book, cfg, 120.0, 90000)) is None        # a failed one-step → two-step for 10 min
