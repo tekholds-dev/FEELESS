@@ -250,10 +250,11 @@ function EnginePick({ suggest, cfg, busy, save }) {
 export function TrenchScan() {
   const [d, setD] = useState(null);
   useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/fuses/trench')).then(r => r.json()).then(x => alive && setD(x)).catch(() => {});
-    load(); const t = setInterval(() => !document.hidden && load(), 60000); return () => { alive = false; clearInterval(t); }; }, []);
+    load(); const t = setInterval(() => !document.hidden && load(), 30000); return () => { alive = false; clearInterval(t); }; }, []);
   if (!d) return <div className="tscan is-ghost" />;
   return <div className="tscan" data-testid="trench-scan"><span className="m-label">🗑 TRENCH SCAN · {d.pass || 0} PASS NOW{d.level ? ` · 🔧 WIDENED ×${d.level}` : ''}</span>
     <small className="m-dim">{d.rules}</small>
+    {!d.pass && (d.funnel || []).length > 0 && <small className="m-dim tscan-why" data-testid="trench-why">🔎 Why nothing passed ({d.seen} coins checked): {d.funnel.slice(0, 5).map(f => `${f.n}× ${f.why}`).join(' · ')}</small>}
     {!(d.checked || []).length ? <small className="m-dim">No fresh coin is breaking out with a real crowd right now — the trench slots stay normal runners until one does.</small>
       : <ul>{d.checked.map((r, i) => <li key={r.mint} className={r.ok ? 'is-ok' : 'is-out'} style={{ '--i': i }}><b>{r.ok ? '✅' : '❌'} ${r.symbol}</b>
         <span className="m-num">{r.holders ?? '—'} holders · ${Math.round((r.mcap || 0) / 1000)}K mc · {r.ageH != null ? `${Number(r.ageH).toFixed(1)}h` : '—'}</span>
@@ -350,7 +351,7 @@ export function HqRealCards({ addr, onCount }) {
   const [busy, setBusy] = useState('');
   const [amt, setAmt] = useState('');
   const [pickFor, setPickFor] = useState(null);   // which coin's 🎯 picker is open
-  const d = usePrime(30000);
+  const d = usePrime(10000);   // 💵 live: the server's Jupiter value every 10s (real cards never show DexScreener-only numbers)
   const real = (d?.cards || []).filter(c => c.real);
   const n = owner ? real.length : 0;
   useEffect(() => { onCount?.(n); }, [n, onCount]);   // My cards hides its "no cards" box under a real card

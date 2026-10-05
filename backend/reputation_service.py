@@ -5385,7 +5385,9 @@ async def _trench_build(now):
     live = await _runner_live()
     seen, pool = set(), []
     loose = _trench.widen(len(_trench.WIDEN) - 1)   # finalists by the LOOSEST soft checks; the strictest level that passes wins
-    for r in list(_runner_cands) or (live.get('passing') or []) + (live.get('dropped') or []):
+    every = list(_runner_cands) or (live.get('passing') or []) + (live.get('dropped') or [])
+    _trench_cache['seen'], _trench_cache['funnel'] = len(every), _trench.funnel(every, loose)[:8]   # 🔎 why coins didn't make it
+    for r in every:
         if r.get('mint') and r['mint'] not in seen and not _trench.precheck(r, loose):
             seen.add(r['mint']); pool.append(r)
     pool = sorted(pool, key=lambda r: -_fuse._f(r.get('vol1h')))[:TRENCH_SCAN]
@@ -5412,8 +5414,9 @@ async def fuse_trench():
     return {'checked': [{k: r.get(k) for k in keys} for r in _trench_cache.get('checked') or []], 'pass': len(_trench_cache.get('rows') or []),
             'rows': [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'trench': True} for r in _trench_cache.get('rows') or []],   # 🗑 pickable
             'floor': _fw.clean_cfg(_fw_load().get('cfg') or {})['trenchMinLiqUsd'], 'level': _trench_cache.get('level'),
+            'seen': _trench_cache.get('seen', 0), 'funnel': _trench_cache.get('funnel') or [],
             'at': _trench_cache.get('at'), 'rules': f"≤ {g['maxAgeH']:g}h old · broke ${g['minMcap'] / 1000:g}K · ≥ {g['minHolders']} holders · ≥ {g['minTxns1h']} trades/h · "
-                                                     f"≥ {g['minBuyShare']:g}% buys · top-10 < {g['maxTop10']:g}% · dev < {g['maxDev']:g}% · clean creator · mint + freeze revoked"}
+                                                     f"≥ {g['minBuyShare']:g}% buys · top-10 < {g['maxTop10']:g}% · dev < {g['maxDev']:g}% · creator not suspect / high · mint + freeze revoked"}
 
 
 def _trench_row(r, holders, auth, cfg=None):

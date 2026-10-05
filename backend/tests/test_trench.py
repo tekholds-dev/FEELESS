@@ -156,3 +156,11 @@ def test_a_picked_cycle_always_cycles_even_with_reshape_off():
     assert ap.reshape_every({'tpl': 'degen'}, cfg) == ap.REAL_MAX_RESHAPE
     assert ap.reshape_every({'tpl': 'safe'}, cfg) == 0                                      # no cycle picked → off stays off
     assert ap.cycle_peek({'tpl': 'degen', 'rounds': 2}, cfg)['next'] == 'trench'
+
+
+def test_watch_creators_pass_with_a_penalty_and_the_funnel_says_why_coins_failed():
+    ok, _ = tr.gate({**GOOD, 'creatorRep': 'watch'}, 520, SAFE)
+    assert ok and tr.score({**GOOD, 'creatorRep': 'watch'}, 520)[0] < tr.score(GOOD, 520)[0]
+    assert not tr.gate({**GOOD, 'creatorRep': 'high'}, 520, SAFE)[0]
+    f = tr.funnel([GOOD, {**GOOD, 'ageH': 30.0}, {**GOOD, 'ageH': 40.0, 'top10': 60.0}])
+    assert f[0]['n'] == 2 and 'fresh' in f[0]['why'] and any('top-10' in x['why'] for x in f)

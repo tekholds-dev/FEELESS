@@ -15,7 +15,7 @@ import math
 
 TRENCH = {'maxAgeH': 6.0, 'minMcap': 20_000.0, 'maxMcap': 150_000.0, 'minHolders': 400, 'minTxns1h': 250, 'minVol1h': 10_000.0,
           'minBuyShare': 55.0, 'maxTop10': 25.0, 'maxInsiders': 8.0, 'maxBundled': 1, 'maxDev': 5.0, 'maxTop10Jump': 5.0}
-BAD_REP = ('watch', 'suspect', 'high')
+BAD_REP = ('suspect', 'high')   # 'watch' (a little evidence — most serial pump deployers) passes with a score penalty
 
 
 def _f(v):
@@ -54,7 +54,7 @@ def precheck(c, cfg=None):
     if c.get('mayhem'):
         fails.append('not a mayhem-mode coin')
     if c.get('creatorFlagged') or c.get('creatorRep') in BAD_REP:
-        fails.append('creator clean (not flagged · not watch / suspect / high)')
+        fails.append('creator clean (not flagged · not suspect / high)')
     return fails
 
 
@@ -78,7 +78,8 @@ def score(c, holders):
     add('flow', min(20.0, (_f(c.get('buyShare')) - 50) * 1.2 + math.log10(max(1.0, _f(c.get('vol1h')) / 1000)) * 4), f"{_f(c.get('buyShare')):.0f}% buys · ${_f(c.get('vol1h')) / 1000:.0f}K 1h")
     add('momentum', min(20.0, _f(c.get('chg5m')) * 0.8 + _f(c.get('chg1h')) * 0.2), f"5m {_f(c.get('chg5m')):+.0f}% · 1h {_f(c.get('chg1h')):+.0f}%")
     add('spread', max(0.0, 20.0 - _f(c.get('top10')) * 0.6 - _f(c.get('insiders'))), f"top-10 {_f(c.get('top10')):.0f}% · insiders {_f(c.get('insiders')):.0f}%")
-    add('creator', 10.0 if c.get('creatorRep') == 'clean' else 4.0, 'clean creator' if c.get('creatorRep') == 'clean' else 'new creator (no record)')
+    rep = c.get('creatorRep')
+    add('creator', 10.0 if rep == 'clean' else 0.0 if rep == 'watch' else 4.0, 'clean creator' if rep == 'clean' else '👀 creator on watch' if rep == 'watch' else 'new creator (no record)')
     add('snipers', 5.0 if c.get('snipersOut') else 0.0, 'snipers sold out' if c.get('snipersOut') else 'snipers still in')
     return round(max(0.0, min(100.0, sum(p['points'] for p in parts))), 1), parts
 
@@ -116,3 +117,12 @@ def best_level(finalists, gate_at):
         if any(ok for _, ok, _ in res):
             return lvl, res
     return None, [(r, *gate_at(r, widen(0))) for r in finalists]
+
+
+def funnel(cands, cfg=None):
+    """Why nothing passed: how many candidates failed EACH cheap check (a coin counts once per check it fails). → [{why, n}] most first."""
+    out = {}
+    for c in cands or []:
+        for f in precheck(c, cfg):
+            out[f] = out.get(f, 0) + 1
+    return sorted(({'why': k, 'n': n} for k, n in out.items()), key=lambda x: -x['n'])

@@ -966,3 +966,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   mint + freeze, buyers, green NEVER move. Gauntlet adds 🌊 Volume runners (gated runners, $20K+ 1h, buyers ≥50%) + 🗑 Trench divisions;
   any runner / dip / paid list with nothing qualifying shows its 3 closest live coins as 👀 WATCH (`contenders.near`, never seated).
   Swap picker lens 🌊 Volume. A PICKED cycle always cycles (`arena_prime.reshape_every`: re-shape "off" + a cycle → every 6 rounds).
+- 🗑 Trench creator rule: 'watch' creators PASS with a 0-point creator part (most serial pump deployers are 'watch' — excluding them left the
+  list empty); suspect / high / flagged stay out. `trench.funnel` → `/fuses/trench.funnel` + `seen` → TrenchScan "🔎 Why nothing passed".
+  Real panel on My cards polls `/fuses/prime` every 10s (server Jupiter value, `fl-tick` flash) — no refresh needed.
