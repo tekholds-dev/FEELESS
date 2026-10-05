@@ -1235,3 +1235,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   brain's picks (`best`, `by_clock`, `strategies`) for a day, then is judged again; a trait never loses its last value.
 - ⚡ Home: `BestFuseTile` (best card from `/fuses/prime`, real / paper label, one tap → Arena) above the pulse grid; the home $FEE
   chart (`FeeHeartbeat`) opens on 4h.
+- 📡 2026-10-05 lane check (provider names only): lane 1 Alchemy (new key) answers; Tatum and Helius returned 429 on every call; the
+  older Alchemy key is out for the month; public nodes refuse `getTokenLargestAccounts`. So ONE key was doing all holder scans at
+  the scanners' 0.3/s share. Now `RPC_SCAN_RPS` default 0.5 and `INTEL_TTL` 300s (re-scan = 4 calls). To test lanes without printing
+  a URL: post the 3 scan methods to each `chain_rpc.RPC_POOL` entry and print `provider_of(e)` + status only.

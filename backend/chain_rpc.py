@@ -41,9 +41,9 @@ def _next_rpc_endpoint() -> Optional[str]:
 # public nodes; at 0 the scans starve (public nodes refuse most holder lookups) and the trench / volume lists go empty. Default 0.3 a
 # second ≈ 26K a day for scans, the rest for the keeper. A paid plan can raise it with RPC_SCAN_RPS.
 try:
-    SCAN_RPS = max(0.0, float(os.environ.get('RPC_SCAN_RPS', '0.3') or 0))
+    SCAN_RPS = max(0.0, float(os.environ.get('RPC_SCAN_RPS', '0.5') or 0))
 except ValueError:
-    SCAN_RPS = 0.3
+    SCAN_RPS = 0.5
 SCAN_BURST = 6.0
 QUOTA_WORDS = ('daily request limit', 'capacity limit', 'monthly', 'quota', 'credits')
 _quota_until: dict[str, float] = {}   # endpoint → when its plan's quota comes back (never retried before that)

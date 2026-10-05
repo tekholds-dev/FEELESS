@@ -872,7 +872,7 @@ _intel_cache: dict = {}
 _launch_facts: dict = {}   # mint → {creator, bundled, snipers, createSlot, historyComplete, at} — read once, kept on disk
 _flag_hold: dict = {}      # mint → (at, {wallet: % held})
 FLAG_HOLD_TTL = 900.0
-INTEL_TTL = 180
+INTEL_TTL = 300   # holders re-read every 5 min (launch facts are read once): a re-scan is 4 calls, so this is what the scan budget buys
 SYSTEM_PROGRAM = '11111111111111111111111111111111'
 
 
