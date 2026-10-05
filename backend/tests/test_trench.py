@@ -202,3 +202,12 @@ def test_owner_trench_settings_only_move_the_soft_checks_and_snap_to_the_lists()
     assert tr.gate(coin, 220, auth, mine)[0]                                             # the owner's numbers let it in …
     assert not tr.gate({**coin, 'top10': 40}, 220, auth, mine)[0]                        # … and a whale-heavy coin is still out
     assert not tr.gate(coin, 220, {'mintAuthority': 'X', 'freezeAuthority': None}, mine)[0]
+
+
+def test_a_trench_near_miss_is_only_one_that_passed_every_safety_check():
+    assert tr.soft_only(['≥ 400 holders', '≥ 250 trades in 1h', 'fresh (≤ 6h old)'])
+    assert tr.soft_only(['5m and 1h green (breaking out now)', 'market cap broke $20K (under $150K)'])
+    for f in ('top-10 < 25% (scan done)', 'snipers/bundlers < 8% · ≤ 1 bundled', 'dev < 5% and not selling', 'no top-10 spike · no flagged funders',
+              'not a mayhem-mode coin', 'creator clean (not flagged · not suspect / high)', 'mint + freeze authority revoked'):
+        assert not tr.soft_only(['≥ 400 holders', f]), f
+    assert not tr.soft_only([])                                                          # a passing coin is not a "near-miss"

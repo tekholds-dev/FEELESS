@@ -5443,7 +5443,11 @@ async def fuse_trench():
     own = _trench.clean_own((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg'))
     g = _trench.own_gate(own) if own['mode'] == 'own' else _trench.widen(_trench_cache.get('level') if isinstance(_trench_cache.get('level'), int) else 0)
     return {'cfg': own, 'options': _trench.OWN_OPTIONS, 'checked': [{k: r.get(k) for k in keys} for r in _trench_cache.get('checked') or []], 'pass': len(_trench_cache.get('rows') or []),
-            'rows': [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'trench': True} for r in _trench_cache.get('rows') or []],   # 🗑 pickable
+            # 🗑 pickable: the coins that pass — then the NEAR-MISSES (every safety check passed, only crowd / volume / band / age / candles
+            # missed): never auto-seated as a trench coin, but the owner may pick one (general pick floor, flagged `soft`)
+            'rows': [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'trench': True} for r in _trench_cache.get('rows') or []]
+                    + [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'soft': True} for r in _trench_cache.get('checked') or []
+                       if not r.get('ok') and _trench.soft_only(r.get('fails'))],
             'floor': _fw.clean_cfg(_fw_load().get('cfg') or {})['trenchMinLiqUsd'], 'level': _trench_cache.get('level'),
             'seen': _trench_cache.get('seen', 0), 'funnel': _trench_cache.get('funnel') or [],
             'at': _trench_cache.get('at'), 'rules': f"≤ {g['maxAgeH']:g}h old · broke ${g['minMcap'] / 1000:g}K · ≥ {g['minHolders']} holders · ≥ {g['minTxns1h']} trades/h · "
@@ -5570,7 +5574,11 @@ async def _contenders_build():
                **{k: _fuse.discover(pairs, lens, 'solana', now_ms=now * 1000) for k, lens in (('yield', 'yield'), ('deep', 'deep'), ('popular', 'popular'), ('new', 'new'))}}
         # 📉 dip buys + 💳 dex paid read every pool the site already has (popular · new · risers), no extra fetch
         src['dip'] = src['paid'] = (_fuse.discover(pairs, 'popular', 'solana', now_ms=now * 1000, limit=120) + src['new'] + src['risers'])
-        src['volume'] = young
+        # 🌊 VOLUME FIRST: every launch coin that passes the SAFETY gates (scan done, holders, dev, creator …) — even when its flow
+        # band, size or age keeps it out of the round — busiest first. The list was one coin deep; real volume was being hidden.
+        rcfg_v = _runner_cfg()
+        src['volume'] = sorted({r.get('mint'): r for r in list(young) + [r for r in _runner_cands if _rn.safe_only(r, rcfg_v)] if r.get('mint')}.values(),
+                               key=lambda r: -_fuse._f(r.get('vol1h')))
         src['trench'] = list(_trench_cache.get('rows') or [])
         # 👀 never an empty Trench list: nothing passing → the scan's closest misses, else the busiest fresh launches (watch only)
         src['trench_watch'] = [{**r, 'trenchOnly': False} for r in (_trench_cache.get('checked') or []) if not r.get('ok')] or \

@@ -263,6 +263,19 @@ def exits(cfg=None):
             'bond': EXITS['bond']}
 
 
+SOFT_GATES = ('prebond', 'age', 'size', 'volume', 'flow')   # activity / size / age — everything else is a SAFETY gate
+
+
+def safe_only(c, cfg=None):
+    """Passes every SAFETY gate (holder scan done, top-10, snipers / bundles, top-10 spike, dev, creator, mayhem …), whatever the
+    soft gates say. For the 🌊 Volume list: a coin with real volume and clean holders is worth SEEING even when its flow band, size
+    or age keeps it out of the round. Unknown forensics still fail closed."""
+    try:
+        return all(test(c) for key, _label, test in (gates(cfg) if cfg else GATES) if key not in SOFT_GATES)
+    except (KeyError, TypeError):
+        return False
+
+
 def failed_gates(c, cfg=None):
     return [label for _, label, test in (gates(cfg) if cfg else GATES) if not test(c)]
 

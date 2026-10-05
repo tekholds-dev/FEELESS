@@ -334,3 +334,14 @@ def test_smart_gates_open_for_clean_coins_and_time_proven_coins_only():
     assert not rn.rep_ok({**old, 'flaggedFunders': 2}, g) and not rn.rep_ok({**old, 'scanned': False}, g)
     assert not rn.rep_ok({**old, 'creatorRep': 'high'}, g)                               # a HIGH-risk creator is never let in, however old the coin
     assert rn.rep_ok({'creatorRep': 'clean'}, g) and not rn.rep_ok(old, {**g, 'agedProofH': 48})
+
+
+def test_volume_list_takes_safe_coins_even_when_a_soft_gate_keeps_them_out_of_the_round():
+    import runners as rn
+    g = rn.clean_cfg({'minBuyShare': 52, 'maxBuyShare': 80, 'minTrades1h': 80, 'minMcap': 20000})
+    coin = {'stage': 'graduated', 'ageH': 60, 'mcap': 9000, 'vol1h': 400000, 'buyShare': 45, 'txns1h': 30, 'scanned': True, 'top10': 14, 'insiders': 2, 'bundled': 0,
+            'top10Jump': 0, 'devSold': False, 'dev': 1, 'creatorFlagged': False, 'creatorRep': 'clean', 'mayhem': False, 'liq': 90000}
+    assert rn.failed_gates(coin, g) and rn.safe_only(coin, g)                            # too old / small / one-sided for the round — but SAFE
+    for bad in ({'scanned': False}, {'top10': 45}, {'bundled': 9}, {'devSold': True}, {'creatorFlagged': True}, {'creatorRep': 'high'}, {'mayhem': True}, {'top10Jump': 30}):
+        assert not rn.safe_only({**coin, **bad}, g), bad                                 # any safety fail keeps it out of Volume too
+    assert not rn.safe_only({}, g)                                                       # unknown = out

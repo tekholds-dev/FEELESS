@@ -150,3 +150,12 @@ def own_gate(own):
     """The full gate config for the owner's settings: their soft checks on top of the fixed safety checks."""
     o = clean_own(own)
     return {**TRENCH, **{k: (float(o[k]) if k not in ('minHolders', 'minTxns1h') else int(o[k])) for k in OWN_OPTIONS}}
+
+
+SAFETY_FAILS = ('top-10', 'snipers', 'dev <', 'spike', 'flagged funders', 'mayhem', 'creator', 'mint + freeze')
+
+
+def soft_only(fails):
+    """True when a finalist missed ONLY soft checks (crowd size, trades, volume, market-cap band, age, green candles, buyers) — every
+    safety check passed. Such a coin is shown in the 🗑 list as a near-miss the owner may pick (never auto-seated as a trench coin)."""
+    return bool(fails) and not any(any(w in str(f) for w in SAFETY_FAILS) for f in fails)
