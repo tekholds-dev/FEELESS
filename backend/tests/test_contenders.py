@@ -38,3 +38,15 @@ def test_thin_or_priceless_pools_never_enter_and_anchors_rank_by_volume():
     by = {d['key']: [r['mint'] for r in d['rows']] for d in lg['divisions']}
     assert by['yield'] == ['ok'] and by['majors'] == ['sol', 'btc'] and by['popular'] == []
     assert ct.league({'deep': [{**POOL('u', 9e7, 9e7), 'symbol': 'ERC20-USDC'}]})['divisions'][3]['rows'] == []   # dollar coins never compete
+
+
+def test_lists_never_sit_empty_and_volume_and_trench_divisions_rank():
+    import contenders as ct
+    run = lambda m, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m.upper(), 'price': 1.0, 'liq': 90_000, 'ageH': 20, 'score': 70, **k}
+    src = {'proven': [run('a', chg1h=-3, buyShare=48, vol1h=3_000), run('b', chg1h=-1, buyShare=52, vol1h=9_000)],   # nobody pumping
+           'volume': [run('v1', vol1h=900_000, buyShare=60, chg1h=4), run('v2', vol1h=30_000, buyShare=55, chg1h=1), run('v3', vol1h=5_000, buyShare=70)],
+           'trench': [run('t', trenchOnly=True, trenchScore=81, holders=512, vol1h=40_000)]}
+    d = {x['key']: x for x in ct.league(src)['divisions']}
+    assert [r['mint'] for r in d['proven']['rows']] and all(r['watch'] for r in d['proven']['rows']) and d['proven']['nextUp'] is None
+    assert [r['mint'] for r in d['volume']['rows']] == ['v1', 'v2'] and d['volume']['nextUp'] == 'v1'
+    assert d['trench']['rows'][0]['trenchOnly'] and d['trench']['rows'][0]['score'] == 81

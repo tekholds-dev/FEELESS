@@ -137,3 +137,22 @@ def test_a_runner_still_waiting_on_its_buy_is_the_first_seat_a_trench_coin_takes
         px.setdefault(x['pairAddress'], x['price'])
     out = ap.tick(card, px, pools, runners, cfg, 30.0, anchors, {}, {})
     assert rs[-1]['mint'] not in {l['mint'] for l in out['legs']} and sum(1 for l in out['legs'] if l.get('trench')) == 1
+
+
+def test_trench_widens_soft_checks_only_when_nothing_passes():
+    thin = {**GOOD, 'txns1h': 140, 'vol1h': 6_000.0}                                        # passes only at a wider level
+    lvl, res = tr.best_level([(GOOD, 520), (thin, 230)], lambda g, cfg: tr.gate(g[0], g[1], SAFE, cfg))
+    assert lvl == 0 and [ok for _, ok, _ in res] == [True, False]                          # strict first: no widening needed
+    lvl, res = tr.best_level([(thin, 230)], lambda g, cfg: tr.gate(g[0], g[1], SAFE, cfg))
+    assert lvl == 2 and res[0][1]
+    for k in ('maxTop10', 'maxInsiders', 'maxBundled', 'maxDev', 'minBuyShare'):              # safety never moves
+        assert all(tr.widen(i)[k] == tr.TRENCH[k] for i in range(len(tr.WIDEN))), k
+    rug = {**thin, 'top10': 40.0}
+    assert tr.best_level([(rug, 900)], lambda g, cfg: tr.gate(g[0], g[1], SAFE, cfg))[0] is None
+
+
+def test_a_picked_cycle_always_cycles_even_with_reshape_off():
+    cfg = ap.clean_cfg({'cycleEvery': 0, 'cycles': {**{t: 'off' for t in ap.DEFAULT_CYCLES}, 'degen': 'trench'}})
+    assert ap.reshape_every({'tpl': 'degen'}, cfg) == ap.REAL_MAX_RESHAPE
+    assert ap.reshape_every({'tpl': 'safe'}, cfg) == 0                                      # no cycle picked → off stays off
+    assert ap.cycle_peek({'tpl': 'degen', 'rounds': 2}, cfg)['next'] == 'trench'

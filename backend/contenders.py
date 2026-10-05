@@ -18,7 +18,12 @@ DIVISIONS = {
     'new':      ('🆕 New 72h', 'Pools born in the last 72 hours with real flow', 'pool'),
     'dip':      ('📉 Dip buys', 'Down 8%+ on the day and buyers are back: 1h green, 55%+ buys', 'pool'),
     'paid':     ('💳 Dex paid', 'A team paid for its DexScreener profile / boosts, with real flow', 'pool'),
+    'volume':   ('🌊 Volume runners', 'Gated runners with the most 1h volume right now ($20K+, buyers ≥ 50%)', 'runner'),
+    'trench':   ('🗑 Trench', 'Fresh breakouts that passed the trench gate (holders, trades, clean creator, mint + freeze revoked)', 'runner'),
 }
+# 👀 a list never sits empty: when nothing qualifies, its closest live coins show as WATCH (never seated next up)
+WATCH_N = 3
+WATCH_DIVS = ('fresh', 'proven', 'dip', 'paid', 'volume')
 STABLES = {'USDC', 'USDT', 'USDS', 'PYUSD', 'USD1', 'DAI', 'USDE', 'FDUSD'}
 TOP_N = 6
 PROVEN_H = 12.0
@@ -48,7 +53,8 @@ def norm(row):
             'price': _f(row.get('priceUsd', row.get('price'))), 'liq': _f(liq), 'vol24h': _f(row.get('volume24h')), 'vol1h': _f(row.get('vol1h')),
             'chg24h': _f(row.get('change24h', row.get('chg24h'))), 'chg1h': _f(row.get('chg1h', row.get('change1h'))), 'buyShare': bs, 'apr': _f(row.get('aprEst')),
             'ageH': row.get('ageH'), 'runnerScore': _f(row.get('score')), 'mcap': _f(row.get('mcap')),
-            'paid': bool(row.get('paid')), 'boosts': int(_f(row.get('boosts')))}
+            'paid': bool(row.get('paid')), 'boosts': int(_f(row.get('boosts'))),
+            **({'trenchOnly': True, 'trenchScore': _f(row.get('trenchScore')), 'holders': row.get('holders')} if row.get('trenchOnly') else {})}
 
 
 def pumping(r):
@@ -67,6 +73,13 @@ def score(r, div):
         add('momentum', min(30.0, max(0.0, r['chg1h']) * 0.3), f"{r['chg1h']:+.0f}% in 1h")
         add('buyers', max(0.0, min(15.0, (r['buyShare'] - 50) * 0.6)), f"{r['buyShare']:.0f}% buys")
         add('volume', 10 * _log(r['vol1h'], 5_000, 500_000), f"${r['vol1h']:,.0f} traded in 1h")
+    elif div == 'volume':
+        add('volume', 55 * _log(r['vol1h'], 20_000, 2_000_000), f"${r['vol1h']:,.0f} traded in 1h")
+        add('buyers', max(0.0, min(20.0, (r['buyShare'] - 50) * 1.0)), f"{r['buyShare']:.0f}% buys")
+        add('momentum', max(0.0, min(15.0, r['chg1h'] * 0.3)), f"{r['chg1h']:+.0f}% in 1h")
+        add('runner score', min(10.0, r['runnerScore'] * 0.1), f"gate score {r['runnerScore']:.0f}")
+    elif div == 'trench':
+        add('trench score', r.get('trenchScore') or r['runnerScore'], f"{r.get('holders') or '?'} holders · ${r['vol1h']:,.0f} 1h")
     elif div == 'majors':
         add('volume', 45 * _log(r['vol24h'], 100_000, 500_000_000), f"${r['vol24h']:,.0f} traded today")
         add('depth', 20 * _log(r['liq'], 100_000, 50_000_000), f"${r['liq']:,.0f} pool")
@@ -103,6 +116,10 @@ def eligible(r, div):
         return r.get('ageH') is not None and _f(r['ageH']) < PROVEN_H and pumping(r)
     if div == 'proven':
         return r.get('ageH') is not None and _f(r['ageH']) >= PROVEN_H and pumping(r)
+    if div == 'volume':
+        return r.get('ageH') is not None and r['vol1h'] >= 20_000 and r['buyShare'] >= 50 and r['chg1h'] > -5
+    if div == 'trench':
+        return bool(r.get('trenchOnly'))
     if div == 'yield':
         return r['liq'] >= 50_000 and r['apr'] > 0
     if div == 'dip':
@@ -112,6 +129,23 @@ def eligible(r, div):
     if div in ('deep', 'popular', 'risers', 'new'):
         return r['liq'] >= 25_000
     return True
+
+
+def near(r, div):
+    """The loose version of a division's rule (the live-coin basics, without 'pumping now' / 'buyers back') — for 👀 watch rows."""
+    if not r.get('mint') or not r.get('pairAddress') or r['price'] <= 0 or str(r.get('symbol') or '').upper() in STABLES:
+        return False
+    if div == 'fresh':
+        return r.get('ageH') is not None and _f(r['ageH']) < PROVEN_H
+    if div == 'proven':
+        return r.get('ageH') is not None and _f(r['ageH']) >= PROVEN_H
+    if div == 'volume':
+        return r.get('ageH') is not None and r['vol1h'] > 0
+    if div == 'dip':
+        return r['liq'] >= 50_000 and r['chg24h'] < 0
+    if div == 'paid':
+        return r['paid'] and r['liq'] >= 25_000
+    return False
 
 
 def league(sources, on_card=(), prev=None, top_n=TOP_N):
@@ -129,6 +163,13 @@ def league(sources, on_card=(), prev=None, top_n=TOP_N):
             rows.append({**r, 'score': sc, 'parts': parts})
         rows.sort(key=lambda x: -x['score'])
         rows = rows[:top_n]
+        if not rows and key in WATCH_DIVS:   # 👀 nothing qualifies right now → the closest live coins, labelled, never seated
+            for raw in sources.get(key) or []:
+                r = norm(raw)
+                if near(r, key) and not any(x['mint'] == r['mint'] for x in rows):
+                    sc, parts = score(r, key)
+                    rows.append({**r, 'score': sc, 'parts': parts, 'watch': True})
+            rows = sorted(rows, key=lambda x: -x['score'])[:WATCH_N]
         was = {x['mint']: x for x in (prev_div.get(key) or {}).get('rows') or []}
         nxt = None
         for i, r in enumerate(rows):
@@ -138,7 +179,7 @@ def league(sources, on_card=(), prev=None, top_n=TOP_N):
             r['streak'] = (int(p.get('streak') or 0) + 1 if p and p['rank'] == 1 else 1) if i == 0 else 0
             r['seat'] = 'card' if r['mint'] in on_card else ''
             # ⏭ one seat per coin: a coin already next up in an earlier division doesn't take a second seat
-            if nxt is None and not r['seat'] and r['mint'] not in seated:
+            if nxt is None and not r['seat'] and not r.get('watch') and r['mint'] not in seated:
                 r['seat'] = 'next'; nxt = r['mint']; seated.add(r['mint']); next_up[r['mint']] = key
         out.append({'key': key, 'label': label, 'rule': rule, 'role': role, 'rows': rows, 'nextUp': nxt})
     return {'divisions': out, 'nextUp': next_up}

@@ -94,3 +94,25 @@ def market_pair(p, now_ms, cfg=None):
     mcap = _f(p.get('marketCap') or p.get('fdv'))
     return (age_h is not None and age_h <= g['maxAgeH'] and g['minMcap'] <= mcap <= g['maxMcap'] and b + s_ >= g['minTxns1h']
             and _f((p.get('volume') or {}).get('h1')) >= g['minVol1h'] and b / (b + s_) * 100 >= g['minBuyShare'] and _f(pc.get('m5')) > 0 and _f(pc.get('h1')) > 0)
+
+
+# 🔧 Auto-widen: when NOTHING passes, the SOFT checks (crowd size, trades, volume, market-cap band, age) step looser one level at a
+# time (max 3). The SAFETY checks never move: top-10, snipers/bundlers, dev, creator rep, mint + freeze revoked, buyers ≥ 55%, green.
+WIDEN = [{},
+         {'minHolders': 300, 'minTxns1h': 180, 'minVol1h': 7_500.0, 'maxMcap': 250_000.0},
+         {'minHolders': 200, 'minTxns1h': 120, 'minVol1h': 5_000.0, 'minMcap': 15_000.0, 'maxMcap': 400_000.0, 'maxAgeH': 12.0},
+         {'minHolders': 150, 'minTxns1h': 90, 'minVol1h': 4_000.0, 'minMcap': 12_000.0, 'maxMcap': 600_000.0, 'maxAgeH': 24.0}]
+
+
+def widen(level):
+    """The trench config at widen `level` (0 = strict … 3 = loosest soft checks)."""
+    return {**TRENCH, **WIDEN[max(0, min(len(WIDEN) - 1, int(level or 0)))]}
+
+
+def best_level(finalists, gate_at):
+    """The strictest level at which at least one finalist passes. gate_at(row, cfg) → (ok, fails). → (level, results) or (None, results@0)."""
+    for lvl in range(len(WIDEN)):
+        res = [(r, *gate_at(r, widen(lvl))) for r in finalists]
+        if any(ok for _, ok, _ in res):
+            return lvl, res
+    return None, [(r, *gate_at(r, widen(0))) for r in finalists]

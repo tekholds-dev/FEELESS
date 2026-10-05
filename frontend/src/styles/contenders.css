@@ -30,6 +30,7 @@
 .cn-score b { position: relative; font-size: 12px; }
 .cn-seat { white-space: nowrap; }
 .cn-chase { opacity: .7; }
+.cn-watch { border-style: dashed; color: var(--gold); opacity: .85; }
 .cn-add { padding: 2px 9px; }
 @keyframes cnIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes cnGlow { 50% { opacity: .15; } }

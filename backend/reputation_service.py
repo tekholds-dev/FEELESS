@@ -5143,7 +5143,7 @@ async def _runner_live():
             seen.add(m); pairs.append(p)
     busiest = sorted(pairs, key=lambda p: -_fuse._f((p.get('volume') or {}).get('h1')))[:40]   # warmed in the background (cached scans); 40 busiest so more coins can pass
     # 🗑 trench breakouts get a holder scan too (they're rarely among the 40 busiest — the scan never reached them before)
-    busiest += [p for p in sorted((p for p in pairs if p not in busiest and _trench.market_pair(p, time.time() * 1000)),
+    busiest += [p for p in sorted((p for p in pairs if p not in busiest and _trench.market_pair(p, time.time() * 1000, _trench.widen(len(_trench.WIDEN) - 1))),
                                   key=lambda p: -_fuse._f((p.get('volume') or {}).get('h1')))[:10]]
     # Never block the board on scans: wait ≤6s, the rest keep running and land in the cache for the next refresh.
     tasks = {(p.get('baseToken') or {}).get('address'): asyncio.ensure_future(_runner_intel((p.get('baseToken') or {}).get('address'))) for p in busiest}
@@ -5372,7 +5372,7 @@ import trench as _trench
 
 _trench_cache: dict = {'at': 0.0, 'rows': [], 'checked': []}
 _runner_cands: list = []   # every runner candidate of the last board build (filled by _runner_live)
-TRENCH_SCAN = 5   # on-chain holder counts are heavy: only the 5 busiest coins that already pass every cheap check
+TRENCH_SCAN = 8   # on-chain holder counts are heavy: only the 5 busiest coins that already pass every cheap check
 
 
 async def _trench_build(now):
@@ -5384,8 +5384,9 @@ async def _trench_build(now):
     _trench_cache['at'] = now
     live = await _runner_live()
     seen, pool = set(), []
+    loose = _trench.widen(len(_trench.WIDEN) - 1)   # finalists by the LOOSEST soft checks; the strictest level that passes wins
     for r in list(_runner_cands) or (live.get('passing') or []) + (live.get('dropped') or []):
-        if r.get('mint') and r['mint'] not in seen and not _trench.precheck(r):
+        if r.get('mint') and r['mint'] not in seen and not _trench.precheck(r, loose):
             seen.add(r['mint']); pool.append(r)
     pool = sorted(pool, key=lambda r: -_fuse._f(r.get('vol1h')))[:TRENCH_SCAN]
     async def one(r):
@@ -5395,26 +5396,28 @@ async def _trench_build(now):
                 auth = await _mint_authorities(http, r['mint'])
         except Exception:
             return None
-        return _trench_row(r, (h or {}).get('holders'), auth)
-    rows = [x for x in await asyncio.gather(*[one(r) for r in pool]) if x]
-    _trench_cache.update(rows=[x for x in rows if x['ok']], checked=rows)
+        return r, (h or {}).get('holders'), auth
+    got = [x for x in await asyncio.gather(*[one(r) for r in pool]) if x]
+    lvl, res = _trench.best_level(got, lambda g, cfg: _trench.gate(g[0], g[1], g[2], cfg))
+    rows = [{**_trench_row(g[0], g[1], g[2], _trench.widen(lvl or 0)), 'trenchLevel': lvl or 0} for g, _ok, _f in res]
+    _trench_cache.update(rows=[x for x in rows if x['ok']], checked=rows, level=lvl)
     return _trench_cache
 
 
 @app.get('/api/reputation/fuses/trench')
 async def fuse_trench():
     """🗑 The trench scan's latest finalists (coin data only): holders, market cap, age and every check passed / failed."""
-    g = _trench.TRENCH
-    keys = ('mint', 'symbol', 'pairAddress', 'price', 'liq', 'holders', 'mcap', 'ageH', 'vol1h', 'buyShare', 'ok', 'fails', 'trenchWhy', 'trenchScore')
+    keys = ('mint', 'symbol', 'pairAddress', 'price', 'liq', 'holders', 'mcap', 'ageH', 'vol1h', 'buyShare', 'ok', 'fails', 'trenchWhy', 'trenchScore', 'trenchLevel')
+    g = _trench.widen(_trench_cache.get('level') or 0)
     return {'checked': [{k: r.get(k) for k in keys} for r in _trench_cache.get('checked') or []], 'pass': len(_trench_cache.get('rows') or []),
             'rows': [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'trench': True} for r in _trench_cache.get('rows') or []],   # 🗑 pickable
-            'floor': _fw.clean_cfg(_fw_load().get('cfg') or {})['trenchMinLiqUsd'],
+            'floor': _fw.clean_cfg(_fw_load().get('cfg') or {})['trenchMinLiqUsd'], 'level': _trench_cache.get('level'),
             'at': _trench_cache.get('at'), 'rules': f"≤ {g['maxAgeH']:g}h old · broke ${g['minMcap'] / 1000:g}K · ≥ {g['minHolders']} holders · ≥ {g['minTxns1h']} trades/h · "
                                                      f"≥ {g['minBuyShare']:g}% buys · top-10 < {g['maxTop10']:g}% · dev < {g['maxDev']:g}% · clean creator · mint + freeze revoked"}
 
 
-def _trench_row(r, holders, auth):
-    ok, fails = _trench.gate(r, holders, auth)
+def _trench_row(r, holders, auth, cfg=None):
+    ok, fails = _trench.gate(r, holders, auth, cfg)
     sc, parts = _trench.score(r, holders)
     return {'mint': r['mint'], 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'price': r.get('price'), 'liq': r.get('liq'),
             'ageH': r.get('ageH'), 'mcap': r.get('mcap'), 'vol1h': r.get('vol1h'), 'buyShare': r.get('buyShare'), 'holders': holders,
@@ -5531,6 +5534,8 @@ async def _contenders_build():
                **{k: _fuse.discover(pairs, lens, 'solana', now_ms=now * 1000) for k, lens in (('yield', 'yield'), ('deep', 'deep'), ('popular', 'popular'), ('new', 'new'))}}
         # 📉 dip buys + 💳 dex paid read every pool the site already has (popular · new · risers), no extra fetch
         src['dip'] = src['paid'] = (_fuse.discover(pairs, 'popular', 'solana', now_ms=now * 1000, limit=120) + src['new'] + src['risers'])
+        src['volume'] = young
+        src['trench'] = list(_trench_cache.get('rows') or [])
         cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
         on_card = {l.get('mint') for c in cards.values() for l in c.get('legs') or []}
         on_card |= {leg.get(k) for c in (_arena_mega_cache.get('data') or []) for leg in c.get('legs') or [] for k in ('mint', 'baseAddress')}

@@ -252,7 +252,7 @@ export function TrenchScan() {
   useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/fuses/trench')).then(r => r.json()).then(x => alive && setD(x)).catch(() => {});
     load(); const t = setInterval(() => !document.hidden && load(), 60000); return () => { alive = false; clearInterval(t); }; }, []);
   if (!d) return <div className="tscan is-ghost" />;
-  return <div className="tscan" data-testid="trench-scan"><span className="m-label">🗑 TRENCH SCAN · {d.pass || 0} PASS NOW</span>
+  return <div className="tscan" data-testid="trench-scan"><span className="m-label">🗑 TRENCH SCAN · {d.pass || 0} PASS NOW{d.level ? ` · 🔧 WIDENED ×${d.level}` : ''}</span>
     <small className="m-dim">{d.rules}</small>
     {!(d.checked || []).length ? <small className="m-dim">No fresh coin is breaking out with a real crowd right now — the trench slots stay normal runners until one does.</small>
       : <ul>{d.checked.map((r, i) => <li key={r.mint} className={r.ok ? 'is-ok' : 'is-out'} style={{ '--i': i }}><b>{r.ok ? '✅' : '❌'} ${r.symbol}</b>
@@ -442,8 +442,8 @@ export function HqRealCards({ addr, onCount }) {
 // 🎯 Pick the coin that comes in at the next round: the SAME lenses as the Fuse Lab (Popular · Majors · New majors · Top yield ·
 // Deepest · Runners · New 72h · Dip · Dex paid) + search any coin / CA. Live prices, one tap; the server re-checks the pool live.
 export const PICK_LENSES = [['popular', '🔥 Popular'], ['majors', '🪙 Majors'], ['risers', '🚀 New majors'], ['yield', 'Top yield'], ['deep', 'Deepest'],
-  ['runners', '🏃 Runners'], ['trench', '🗑 Trench'], ['new', 'New 72h'], ['dip', '📉 Dip'], ['paid', '💳 Dex paid']];
-const GAUNTLET = { runners: ['fresh', 'proven'], dip: ['dip'], paid: ['paid'] };
+  ['runners', '🏃 Runners'], ['volume', '🌊 Volume'], ['trench', '🗑 Trench'], ['new', 'New 72h'], ['dip', '📉 Dip'], ['paid', '💳 Dex paid']];
+const GAUNTLET = { runners: ['fresh', 'proven'], volume: ['volume'], dip: ['dip'], paid: ['paid'] };
 export const pickRow = r => ({ mint: r.mint || r.baseAddress, pairAddress: r.pairAddress, symbol: r.symbol, price: r.price ?? r.priceUsd, liq: r.liq ?? r.liquidityUsd,
   chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, score: r.score, impostor: r.impostor, real: r.real, trench: r.trench, holders: r.holders });
 export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0 }) {
@@ -453,7 +453,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0 }
     const s = q.trim();
     const url = s.length >= 2 ? `/api/reputation/fuses/search?q=${encodeURIComponent(s)}` : lens === 'trench' ? '/api/reputation/fuses/trench' : GAUNTLET[lens] ? '/api/reputation/fuses/contenders' : `/api/reputation/fuses/discover?lens=${lens}&chain=solana`;
     const t = setTimeout(() => fetch(apiUrl(url)).then(r => (r.ok ? r.json() : null)).then(x => { if (!alive || !x) return;
-      if (x.checked) setTr({ floor: x.floor || 0, checked: x.checked.length, rules: x.rules });
+      if (x.checked) setTr({ floor: x.floor || 0, checked: x.checked.length, rules: x.rules, level: x.level || 0 });
       const raw = x.pools || (x.checked ? x.rows || [] : (x.divisions || []).filter(dv => (GAUNTLET[lens] || []).includes(dv.key)).flatMap(dv => dv.rows));
       const seen = new Set(); setRows(raw.map(pickRow).filter(r => r.mint && r.pairAddress && !seen.has(r.mint) && seen.add(r.mint)).slice(0, 30)); }).catch(() => alive && setRows([])), s.length >= 2 ? 300 : 0);
     return () => { alive = false; clearTimeout(t); }; }, [lens, q]);
@@ -464,7 +464,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0 }
     <span className="m-row">{out.swapTo && <button type="button" className="m-btn" disabled={busy} onClick={() => onPick(null)} data-testid="sp-cancel">✕ Cancel → ${out.swapTo.symbol || out.swapTo}</button>}<button type="button" className="m-btn" onClick={onClose} aria-label="Close picker">Close</button></span></header>
     <div className="m-seg sp-lens" role="tablist" aria-label="Lists">{PICK_LENSES.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={!q.trim() && lens === k} className={!q.trim() && lens === k ? 'active' : ''} onClick={() => { setLens(k); setQ(''); }} data-testid={`sp-lens-${k}`}>{l}</button>)}</div>
     <input className="m-input sp-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Search any coin — SOL, BTC, ETH, $TICKER, CA" aria-label="Search any coin" data-testid="sp-search" />
-    {lens === 'trench' && !q.trim() && tr && <small className="m-dim sp-tnote" data-testid="sp-trench-note">🗑 Fresh breakouts that passed the strictest gate ({tr.checked} checked · own pool floor {big(tr.floor)}). High risk — keep it to 1–2 coins. {tr.rules}</small>}
+    {lens === 'trench' && !q.trim() && tr && <small className="m-dim sp-tnote" data-testid="sp-trench-note">🗑 Fresh breakouts that passed the strictest gate ({tr.checked} checked · own pool floor {big(tr.floor)}). High risk — keep it to 1–2 coins.{tr.level ? ` 🔧 Nothing passed the strict checks, so crowd / trade / volume checks were widened ×${tr.level} — safety checks never move.` : ''} {tr.rules}</small>}
     {!rows ? <span className="loader" /> : !rows.length ? <small className="m-dim">{lens === 'trench' && !q.trim() ? 'No trench coin passes every check right now — the scan re-runs every ~2 min.' : 'Nothing live here right now — try another list or search.'}</small> :
     <ul>{rows.map(r => { const lp = live.get?.(r.pairAddress); const on = have.includes(r.mint); const fl = r.trench ? (tr?.floor || 0) : minLiq; const thin = minLiq > 0 && (r.liq || 0) < fl; const chg = lp ? lp.h1 : r.chg;
       return <li key={r.mint} className={r.impostor ? 'is-fake' : ''}><b>${r.symbol}{r.real ? ' ✓' : ''}</b><span className="m-num fl-tick" key={fmt(lp?.price || r.price)}>{fmt(lp?.price || r.price)}</span>
@@ -474,7 +474,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0 }
 }
 
 // 🏁 where a coin came in from (its Gauntlet division) — the visible proof that every card is fed by every category
-export const DIVISION = { majors: '🪙 anchor', risers: '🚀 new major', yield: '💸 top yield', deep: '🌊 deepest', popular: '🔥 popular', fresh: '⚡ fresh runner', proven: '🏃 proven runner', new: '🆕 new 72h' };
+export const DIVISION = { majors: '🪙 anchor', risers: '🚀 new major', yield: '💸 top yield', deep: '🌊 deepest', popular: '🔥 popular', fresh: '⚡ fresh runner', proven: '🏃 proven runner', new: '🆕 new 72h', volume: '🌊 volume runner', trench: '🗑 trench' };
 
 // 🕘 Your last real card stays on My cards as a FAINT card (not a list): tap it for the run-by-run history.
 export function RecentRuns({ cards = [] }) {

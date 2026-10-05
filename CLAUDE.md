@@ -961,3 +961,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ♻ Recovery sells (dead / off-card coins, leg `recovered`) are NOT owner cash: their SOL goes back to work in the card (only ✂ cuts set
   `manualCashSol`). `cashFix1` released the held recovery cash once; 🔧 Fix buys also releases held cash. Trench fill takes a runner
   still waiting on its buy FIRST (free swap), then the weakest held runner.
+- 📋 No empty lists: 🗑 trench auto-widen (`trench.WIDEN` / `best_level`, `_trench_cache.level`, finalists by the loosest band, 8 holder
+  scans): when nothing passes, crowd / trades / volume / mcap band / age step looser (×1–3); top-10, insiders, bundled, dev, creator,
+  mint + freeze, buyers, green NEVER move. Gauntlet adds 🌊 Volume runners (gated runners, $20K+ 1h, buyers ≥50%) + 🗑 Trench divisions;
+  any runner / dip / paid list with nothing qualifying shows its 3 closest live coins as 👀 WATCH (`contenders.near`, never seated).
+  Swap picker lens 🌊 Volume. A PICKED cycle always cycles (`arena_prime.reshape_every`: re-shape "off" + a cycle → every 6 rounds).

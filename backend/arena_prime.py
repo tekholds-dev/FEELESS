@@ -939,7 +939,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     if rp < 0 and not c.get('cycleFix') == 'rescue' and (V() / (_f(c['startUsd']) or 1) - 1) * 100 <= rp:
         c['cycleFix'] = 'rescue'   # 🛟 fell rescuePct% under its start → safest ⇄ breakeven until a new run
         ev(kind='rescue', why=f'card ≤ {rp:.0f}% of its start — 🛟 rescue cycle: safest run ⇄ breakeven runners')
-    every = max(1, int(_f(cfg.get('fixEvery')))) if c.get('cycleFix') else int(cfg.get('cycleEvery') if cfg.get('cycleEvery') is not None else 6)   # paper: a fix re-shapes every round · real: `fixEvery` (never every 5 min)
+    every = reshape_every(c, cfg)   # a fix re-shapes every `fixEvery` · a picked cycle always cycles (0 = off only when no cycle is picked)
     phase = None if not every or c.get('holdAll') else next_phase(c.get('cycleFix') or (cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl'], 'off'), (int(c.get('rounds') or 0) // every), c.get('lastRoundPct'))
     majors_only = all(l.get('role') == 'anchor' for l in c['legs'])
     if every and int(c.get('rounds') or 0) % every and not (majors_only and phase and phase != 'anchor'):
@@ -1045,12 +1045,23 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     return c
 
 
+def reshape_every(card, cfg):
+    """Rounds between re-shapes. A card whose owner PICKED a cycle always cycles: 're-shape every: off' (0) with a cycle picked used to
+    freeze it on one shape forever ("next: steady") — it now re-shapes every REAL_MAX_RESHAPE rounds. A running fix uses `fixEvery`."""
+    if card.get('cycleFix'):
+        return max(1, int(_f(cfg.get('fixEvery'))))
+    ce = cfg.get('cycleEvery')
+    every = 6 if ce is None else int(_f(ce))
+    mode = (cfg.get('cycles') or DEFAULT_CYCLES).get(card.get('tpl'), 'off')
+    return every or (REAL_MAX_RESHAPE if mode and mode != 'off' else 0)
+
+
 def cycle_peek(card, cfg):
     """🔄 What the card holds now and what it re-shapes into next (same rules as `tick`): {now, next, inRounds, mode, fix}.
     adaptive / auto pick by the last round's move, so `next` is the shape IF the next round moves like the last one."""
     cfg = cfg or {}
     mode = card.get('cycleFix') or (cfg.get('cycles') or DEFAULT_CYCLES).get(card.get('tpl'), 'off')
-    every = max(1, int(_f(cfg.get('fixEvery')))) if card.get('cycleFix') else int(cfg.get('cycleEvery') if cfg.get('cycleEvery') is not None else 6)
+    every = reshape_every(card, cfg)
     if not every or card.get('holdAll'):
         return {'now': card.get('phase'), 'next': None, 'inRounds': None, 'mode': 'hold' if card.get('holdAll') else mode, 'fix': card.get('cycleFix')}
     r = int(card.get('rounds') or 0)

@@ -45,7 +45,8 @@ export function ArenaContenders({ onPick }) {
         <span className="cn-stat cn-wide"><small>{fast(cur.key) ? 'VOL 1H' : 'VOL 24H'}</small><b className="m-num">{big(fast(cur.key) ? r.vol1h : r.vol24h)}</b></span>
         <span className="cn-stat cn-wide"><small>POOL</small><b className="m-num">{r.liq > 0 ? big(r.liq) : 'curve'}</b></span>
         <span className="cn-score" data-tip={why}><i style={{ transform: `scaleX(${Math.max(0.04, r.score / 100)})` }} /><b className="m-num">{r.score.toFixed(0)}</b></span>
-        {r.seat === 'next' ? <span className="m-chip ok cn-seat" data-tip="First in line: the card engine picks next-up coins first when a seat opens (gates, pool floor and runner weather still apply)">⏭ NEXT UP</span>
+        {r.watch ? <span className="m-chip cn-seat cn-watch" data-tip="Nothing passes this list's rule right now — this is one of the closest live coins. It never takes a seat until it qualifies.">👀 WATCH</span>
+          : r.seat === 'next' ? <span className="m-chip ok cn-seat" data-tip="First in line: the card engine picks next-up coins first when a seat opens (gates, pool floor and runner weather still apply)">⏭ NEXT UP</span>
           : r.seat === 'card' ? <span className="m-chip cn-seat" data-tip="Already on a tier or Arena card">🃏 ON A CARD</span>
           : <span className="m-chip cn-seat cn-chase" data-tip="Needs to out-score the coin above to take the seat">CHASING</span>}
         {onPick && <button type="button" className="m-btn cn-add" data-tip="Add this coin to your card in the Lab" onClick={() => onPick(r, cur.role)} aria-label={`Add ${r.symbol} to the Lab`}>＋</button>}</li>; })}</ol>
