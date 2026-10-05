@@ -289,3 +289,17 @@ def test_with_every_keyed_plan_spent_the_keeper_gets_its_own_public_node_and_pac
     http = _Http([_Res(429, {}), _Res(429, {}), _Res(200, {'result': 2})])
     assert asyncio.run(chain_rpc.rpc_priority(http, 'getTransaction', ['s'])) == 2
     assert [e for e, _ in http.calls] == ['pub1', 'pub2', 'pub1']                                                        # busy → asked again, not failed
+
+
+def test_scanner_share_is_a_slow_metered_trickle(monkeypatch):
+    import time
+    monkeypatch.setattr(chain_rpc, 'SCAN_RPS', 0.5); monkeypatch.setattr(chain_rpc, '_scan_stamps', [])
+    t = [1000.0]
+    monkeypatch.setattr(time, 'time', lambda: t[0])
+    assert chain_rpc._scan_slot() and not chain_rpc._scan_slot()      # one now, then wait
+    t[0] += 1.0
+    assert not chain_rpc._scan_slot()                                 # half a token after a second
+    t[0] += 1.0
+    assert chain_rpc._scan_slot() and not chain_rpc._scan_slot()      # one every two seconds ≈ 43K a day at most
+    t[0] += 3600
+    assert sum(1 for _ in range(20) if chain_rpc._scan_slot()) == 6   # an idle hour never banks more than a small burst

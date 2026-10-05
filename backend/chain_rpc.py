@@ -34,13 +34,15 @@ def _next_rpc_endpoint() -> Optional[str]:
     return min(RPC_POOL, key=lambda e: _rpc_cooldown_until.get(e, 0)) if RPC_POOL else None
 
 
-# How many calls a second the scanners may put on the dedicated endpoint. DEFAULT 0 = none: a free plan is a DAILY budget (QuickNode
-# 50,000 requests a day ≈ 0.6 a second) and the holder scans spent all of it by late morning, leaving the keeper on public nodes.
-# A paid plan can hand the scanners a share with RPC_SCAN_RPS.
+# The scanners' share of the dedicated endpoint, in calls a second (fractions allowed). A free plan is a DAILY budget (QuickNode
+# 50,000 requests a day ≈ 0.58 a second): at 5 a second the holder scans spent all of it by late morning and the keeper fell back to
+# public nodes; at 0 the scans starve (public nodes refuse most holder lookups) and the trench / volume lists go empty. Default 0.3 a
+# second ≈ 26K a day for scans, the rest for the keeper. A paid plan can raise it with RPC_SCAN_RPS.
 try:
-    SCAN_RPS = max(0, int(os.environ.get('RPC_SCAN_RPS', '0') or 0))
+    SCAN_RPS = max(0.0, float(os.environ.get('RPC_SCAN_RPS', '0.3') or 0))
 except ValueError:
-    SCAN_RPS = 0
+    SCAN_RPS = 0.3
+SCAN_BURST = 6.0
 QUOTA_WORDS = ('daily request limit', 'capacity limit', 'monthly', 'quota', 'credits')
 _quota_until: dict[str, float] = {}   # endpoint → when its plan's quota comes back (never retried before that)
 
@@ -67,18 +69,20 @@ def quota_state(now=None):
     now = now or time.time()
     return [{'lane': i + 1, 'spent': _quota_until.get(e, 0) > now, 'backInMin': max(0, round((_quota_until.get(e, 0) - now) / 60))} for i, e in enumerate(KEEPER_LANES)]
 
-_scan_stamps: list = []
+_scan_stamps: list = []   # [tokens, last refill] — a token bucket (kept under the old name for the tests that reset it)
 
 
 def _scan_slot() -> bool:
-    """A slot in this second's scanner budget on the dedicated endpoint? (A 15 req/s plan was being eaten whole by holder scans,
-    so the keeper's own lane got 429s on a balance read.)"""
+    """A token from the scanners' bucket on the dedicated endpoint? Refills at SCAN_RPS a second, holds at most a small burst."""
     now = time.time()
-    while _scan_stamps and now - _scan_stamps[0] > 1.0:
-        _scan_stamps.pop(0)
-    if len(_scan_stamps) >= SCAN_RPS:
+    if len(_scan_stamps) != 2:
+        _scan_stamps[:] = [min(SCAN_BURST, max(1.0, SCAN_RPS)) if SCAN_RPS > 0 else 0.0, now]
+    tokens = min(max(SCAN_BURST, SCAN_RPS), _scan_stamps[0] + (now - _scan_stamps[1]) * SCAN_RPS)
+    _scan_stamps[1] = now
+    if tokens < 1.0:
+        _scan_stamps[0] = tokens
         return False
-    _scan_stamps.append(now)
+    _scan_stamps[0] = tokens - 1.0
     return True
 
 

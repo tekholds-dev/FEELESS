@@ -221,7 +221,9 @@ def note_dropped(before, after, now, rotate_hours, prices=None):
     keep = max(900.0, (COOL_ROUNDS + 2) * _f(rotate_hours) * 3600)
     rnd = int(after.get('rounds') or 0)
     held = {l['mint'] for l in after.get('legs') or []}
-    cool = {m: _stamp(v) for m, v in (after.get('cool') or {}).items()}
+    # a re-deal / re-shape builds a NEW card dict: the stamps of the card before it must come along, or every cool-down ends there
+    # (Human was sold at −18% and bought back two rounds later, straight after a floor re-deal)
+    cool = {m: _stamp(v) for m, v in {**((before or {}).get('cool') or {}), **(after.get('cool') or {})}.items()}
     cool = {m: v for m, v in cool.items() if now - _f(v.get('at')) < (LOSS_COOL_SEC if v.get('loss') else keep) or (v.get('round') is not None and rnd - int(v['round']) <= COOL_ROUNDS)}
     for l in (before or {}).get('legs') or []:
         if l['mint'] in held or l.get('symbol') == 'SOL':   # anchors cool too (cbBTC was sold and re-bought 3× in 30 min by re-shapes); SOL is the card's cash
@@ -229,6 +231,14 @@ def note_dropped(before, after, now, rotate_hours, prices=None):
         px = _f((prices or {}).get(l.get('pairAddress'))) or _f(l.get('entry'))
         cool[l['mint']] = {'at': now, 'round': rnd, 'px': px, 'pair': l.get('pairAddress'), 'loss': bool(_f(l.get('entry')) > 0 and px < _f(l['entry']))}
     return {**after, 'cool': cool}
+
+
+def cool_left(card, mint, now, rotate_hours, prices=None):
+    """Rounds a coin must still sit out before it may come back onto this card (0 = free). For the owner's pick / hand swap."""
+    if mint not in cooling(card, now, rotate_hours, prices):
+        return 0
+    s = _stamp(((card or {}).get('cool') or {}).get(mint))
+    return max(1, COOL_ROUNDS + 1 - (int((card or {}).get('rounds') or 0) - int(s['round']))) if s.get('round') is not None else 1
 
 
 def exit_plan(gain_pct, mom=None):

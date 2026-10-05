@@ -1016,3 +1016,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   comes from the one-hop route + re-broadcast to every node. When every keyed RPC plan is spent the keeper keeps `KEEPER_PUBLIC` to
   itself (scanners use the other public node) and paces its retries. `.env`: the owner's editor keeps re-activating old
   `SOLANA_RPC_URL` lines — after ANY `.env` edit run `grep -c '^SOLANA_RPC_URL=' backend/.env` (must be 1; first value wins).
+- 🧊 Cool-down holds everywhere: `note_dropped` carries the stamps of the card BEFORE a re-deal / re-shape (a new card dict used to
+  drop them all — Human came back two rounds after a −18% exit); the owner's pick (`cool_left` → "back in N rounds"), the hand swap
+  and the stuck-buy swap all skip cooling coins; real cards cool anchors strictly while another major exists.
+- 📡 Scanner share = a token bucket (`RPC_SCAN_RPS` default 0.3/s ≈ 26K calls a day, burst 6): 5/s spent a free plan by late morning,
+  0 starved the holder scans (public nodes refuse most holder lookups) → "top-10 (scan done)" failed 47 of 48 coins and the trench /
+  volume / fresh lists went empty. EMPTY RUNNER LISTS ⇒ check `/fuses/trench` funnel for "scan done" before touching any gate.

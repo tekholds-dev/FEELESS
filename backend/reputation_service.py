@@ -5746,8 +5746,10 @@ async def _prime_tick_inner(now):
             p_t, r_t = [x for x in p_t if x.get('mint') not in bench], [x for x in r_t if x.get('mint') not in bench]
         book_s = (_fw_load().get('books') or {}).get(tid) or {} if cur and cur.get('real') else {}
         stuck = set(_fw.stuck_buys(cur, now, bench, missed=book_s.get('misses'), pending_mint=(book_s.get('pending') or {}).get('mint'))) if cur and cur.get('real') else set()
-        if stuck:   # ⏳ the real card swaps a coin whose buy can't land (benched, or still 'buying' after 10 min) for a buyable one NOW
+        if stuck:   # ⏳ the real card swaps a coin whose buy can't land (benched, or refused 15s ago) for a buyable one NOW
             before_ = cur
+            cool_s = _prime.cooling(cur, now, cfg_t['rotateHours'], px)   # 🧊 … never for a coin that just left this card
+            p_t, r_t = [x for x in p_t if x.get('mint') not in cool_s], [x for x in r_t if x.get('mint') not in cool_s]
             for pa in stuck:
                 l = next((x for x in cur['legs'] if x.get('pairAddress') == pa), None)
                 if not l:
@@ -5774,7 +5776,7 @@ async def _prime_tick_inner(now):
             p_t = _prime_cool_candidates(p_t, cool, 2, strict=real_t)
             r_t = _prime_cool_candidates(r_t, cool, 3, strict=real_t)
         # 🧊 anchors cool too: a major this card just sold isn't bought back for 3 rounds while another major is available
-        a_t = _prime_cool_candidates(anchors, cool, 2) if cool else anchors
+        a_t = _prime_cool_candidates(anchors, cool, 2, strict=real_t and len([x for x in anchors if x.get('mint') not in cool]) >= 1) if cool else anchors
         true_usd = None
         if real_t:   # 💵 floor / rescue / fix / runs judge the TRUE book (confirmed coins + card SOL), never the engine's estimate
             bk = (_fw_load().get('books') or {}).get(tid)
@@ -5986,6 +5988,11 @@ async def fuse_prime_admin(request: Request):
                 floor = _fw.liq_floor(_fw_load().get('cfg') or {}, True, bool(cand.get('trenchOnly')))   # 🗑 trench picks use the trench floor
                 if _fuse._f(cand.get('liquidityUsd')) < floor:
                     raise HTTPException(400, f"${cand['symbol']} pool is ${_fuse._f(cand.get('liquidityUsd')):,.0f} — under the ${floor:,.0f} real-buy floor (Edit Fuse › Limits).")
+            if cand:   # 🧊 the same coin never comes straight back: a coin that just left sits out its rounds, the owner's pick too
+                rc_ = _prime_real_cfg(d.get('prime') or {}) if card.get('real') else _prime.tier_cfg(_prime_cfg(), pk['tpl'])
+                left = _prime.cool_left(card, cand['mint'], time.time(), rc_['rotateHours'])
+                if left:
+                    raise HTTPException(400, f"${cand['symbol']} just left this card — it can come back in {left} round{'s' if left != 1 else ''}. Pick another coin.")
             try:
                 cards[pk['tpl']] = _prime.queue_swap(card, pk['pairAddress'], cand)
             except ValueError as e:
@@ -6010,7 +6017,10 @@ async def fuse_prime_admin(request: Request):
             px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in card['legs']])
             try:
                 old_m = {l.get('mint') for l in card['legs']}
-                cards[rep['tpl']] = _prime.replace_leg(card, rep['pairAddress'], px, pools, runners, anchors, _prime_real_cfg(d.get('prime') or {}) if card.get('real') else pr['cfg'], time.time())
+                cfg_r = _prime_real_cfg(d.get('prime') or {}) if card.get('real') else pr['cfg']
+                cool_r = _prime.cooling(card, time.time(), cfg_r['rotateHours'], px)   # 🧊 a hand swap never brings back a coin that just left
+                pools, runners = [x for x in pools if x.get('mint') not in cool_r], [x for x in runners if x.get('mint') not in cool_r]
+                cards[rep['tpl']] = _prime.note_dropped(card, _prime.replace_leg(card, rep['pairAddress'], px, pools, runners, anchors, cfg_r, time.time()), time.time(), cfg_r['rotateHours'], px)
                 kick_real_keeper = bool(card.get('real'))   # manual ⇄ on real money runs NOW; keeper enforces sell-confirm-before-buy
                 for l in cards[rep['tpl']]['legs']:   # 👆 YOUR pick: carried through the next re-shape (it once got sold 4 min later)
                     if l.get('mint') not in old_m:

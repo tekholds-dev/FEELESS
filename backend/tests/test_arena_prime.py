@@ -1072,3 +1072,17 @@ def test_a_coin_is_only_bought_when_its_two_prices_agree_and_a_fresh_gap_is_neve
     assert ap.price_agrees({'pairAddress': 'P', 'price': 1.0}, {'P': 1.05}) and not ap.price_agrees({'pairAddress': 'P', 'price': 1.0}, {'P': 0.13})
     assert ap.price_agrees({'pairAddress': 'P', 'price': 1.0}, {})                     # no live price yet → allowed
     assert ap.GAP_PCT == 50.0 and ap.GAP_SECS == 90.0
+
+
+def test_cool_down_survives_a_re_deal_and_tells_the_owner_how_many_rounds_are_left():
+    import arena_prime as ap
+    leg = lambda m: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'entry': 1.0, 'role': 'runner'}
+    c1 = {'rounds': 10, 'legs': [leg('A'), leg('B')]}
+    c2 = ap.note_dropped(c1, {'rounds': 10, 'legs': [leg('B'), leg('C')]}, 1000, 0.08, {'PA': 0.8})        # A sold at a loss in round 10
+    assert ap.cooling(c2, 1000, 0.08) == {'A'}
+    fresh = {'rounds': 11, 'legs': [leg('D'), leg('E')]}                                                   # floor re-deal = a NEW card dict, no 'cool'
+    c3 = ap.note_dropped(c2, fresh, 1300, 0.08, {})
+    assert {'A', 'B', 'C'} <= ap.cooling(c3, 1300, 0.08)                                                   # A is still out, B and C just left
+    assert ap.cool_left(c3, 'A', 1300, 0.08) == 3 and ap.cool_left(c3, 'B', 1300, 0.08) == 4 and ap.cool_left(c3, 'Z', 1300, 0.08) == 0
+    c4 = {**c3, 'rounds': 14}
+    assert ap.cool_left(c4, 'B', 2500, 0.08) == 1 and ap.cool_left({**c3, 'rounds': 15}, 'B', 2800, 0.08) == 0
