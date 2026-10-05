@@ -185,6 +185,17 @@ def unique_exits(tier_cfg):
 CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.08, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 60), 'instantSwapPct': (0, 50)}
 
 
+OWNER_OUT_SEC = 6 * 3600   # 🙅 a coin the owner removed by hand is not dealt back onto that card for 6 hours
+
+
+def owner_out(card, mint, now):
+    """Remember that the owner took this coin off the card (kept ≤ 40, old entries dropped)."""
+    oo = {m: at for m, at in ((card or {}).get('ownerOut') or {}).items() if now - _f(at) < OWNER_OUT_SEC}
+    oo[mint] = now
+    card['ownerOut'] = dict(sorted(oo.items(), key=lambda kv: kv[1])[-40:])
+    return card
+
+
 COOL_ROUNDS = 3   # 🧊 a coin that just LEFT a card isn't dealt back into it for 3 rounds (min 15 min) — fresh coins flow in, no buy-back loop
 LOSS_COOL_SEC = 86400   # 🩸 a coin that left at a LOSS stays out until its price is back above where it was sold (max 24h) — never re-buy a crash
 
@@ -200,7 +211,9 @@ def cooling(card, now, rotate_hours, prices=None):
     fall back to (COOL_ROUNDS + 1) rounds of time."""
     win = max(900.0, (COOL_ROUNDS + 1) * _f(rotate_hours) * 3600)
     rnd = int((card or {}).get('rounds') or 0)
-    out = set()
+    # 🙅 a coin the OWNER swapped out (pick / hand swap) stays out for hours, not rounds: $PENGU was picked off the card three times
+    # in one afternoon and the engine brought it back each time as soon as its 3 rounds were up
+    out = {m for m, at in ((card or {}).get('ownerOut') or {}).items() if now - _f(at) < OWNER_OUT_SEC}
     for m, v in ((card or {}).get('cool') or {}).items():
         s = _stamp(v); age = now - _f(s.get('at'))
         by_round = s.get('round') is not None and 'rounds' in (card or {}) and rnd >= int(s['round'])   # a restarted run (rounds back to 0) falls back to time
@@ -1491,6 +1504,7 @@ def apply_queued(c, prices, liqs, now, fee=0.0):
         px = _f(prices.get(l['pairAddress'])) or l['entry']
         units = _f(l['units']) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)
         usd = sell_usd(units, px, (liqs or {}).get(l['pairAddress']) or l.get('liq'))
+        owner_out(c, l['mint'], now)   # 🙅 you picked it off the card → it stays off for hours
         live = _f(prices.get(to['pairAddress'])) or _f(to.get('price'))
         # ⚖ a pick gets at most an EQUAL SHARE of the card: one that inherited an oversized seat ($1.04 of a $3 card) decided the
         # whole card when it fell. The rest goes to card cash and is spread over the other coins.
@@ -1524,6 +1538,7 @@ def replace_leg(card, pair, prices, pools, runners, anchors, cfg, now):
     c['legs'][c['legs'].index(l)] = {**_leg(nxt, max(0.0, usd), now, l['role']), 'picked': True}
     c['feesUsd'] = round(_f(c['feesUsd']) + 2 * cfg['paperFeeUsd'], 4)
     c['events'].append({'at': now, 'kind': 'rotate', 'symbol': l['symbol'], 'usd': round(usd, 4), 'why': '⇄ swapped by hand', 'to': [nxt.get('symbol')]})
+    owner_out(c, l['mint'], now)
     return c
 
 

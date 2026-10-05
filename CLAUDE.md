@@ -1113,3 +1113,5 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Swap picker rows = a FIXED 8-column grid (coin · price · 5m · 1h · ⚠ · pool · score · button): every cell is always rendered (the
   ⚠ cell is empty when not falling) — a conditional cell wrapped the row and blew the button up to full width. Adding a column ⇒ add
   it to `.sp li` grid-template-columns AND open the picker in the browser. Dollar coins are filtered out of every list (`PICK_STABLES`).
+- 🙅 OWNER-REMOVED COINS STAY OUT 6h (`arena_prime.owner_out`, card `ownerOut`, `OWNER_OUT_SEC`): a coin taken off by a pick or a hand
+  swap is in `cooling()` for 6 hours (the 3-round cool-down let $PENGU back three times in one afternoon). `cool_left` ≥ 1 for it too.

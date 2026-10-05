@@ -1251,3 +1251,16 @@ def test_no_list_sits_empty_trench_shows_its_closest_misses_as_watch_only():
     assert not tr.get('nextUp') and 'T1' not in lg['nextUp']                             # a watch coin is never seated
     ok = ct.league({'trench': [{**miss, 'trenchOnly': True, 'trenchScore': 70}], 'trench_watch': [miss]})
     assert not next(d for d in ok['divisions'] if d['key'] == 'trench')['rows'][0].get('watch')   # a passing coin replaces the watch rows
+
+
+def test_a_coin_the_owner_swapped_out_stays_off_the_card_for_hours():
+    import arena_prime as ap
+    card = {'rounds': 10, 'legs': [{'mint': 'PENGU', 'pairAddress': 'Pp', 'symbol': 'PENGU', 'role': 'pool', 'units': 5.0, 'entry': 1.0, 'costUsd': 5.0, 'liq': 1e9},
+                                   {'mint': 'b', 'pairAddress': 'Pb', 'symbol': 'B', 'role': 'runner', 'units': 5.0, 'entry': 1.0, 'costUsd': 5.0, 'liq': 1e9}], 'events': [], 'feesUsd': 0, 'cash': 0.0}
+    q = ap.queue_swap(card, 'Pp', {'mint': 'n', 'pairAddress': 'Pn', 'symbol': 'NEW', 'price': 2.0, 'liquidityUsd': 1e9})
+    ap.apply_queued(q, {'Pp': 1.0, 'Pn': 2.0}, {}, 1000.0)
+    assert 'PENGU' in ap.cooling(q, 1000.0 + 60, 0.08)
+    later = {**q, 'rounds': 40}                                                          # 30 rounds on: the normal 3-round cool-down is long over …
+    assert 'PENGU' in ap.cooling(later, 1000.0 + 3 * 3600, 0.08)                         # … but the owner took it off → still out
+    assert 'PENGU' not in ap.cooling(later, 1000.0 + ap.OWNER_OUT_SEC + 1, 0.08)         # free again after 6h
+    assert ap.cool_left(later, 'PENGU', 1000.0 + 3600, 0.08) >= 1                        # and it can't be picked straight back either
