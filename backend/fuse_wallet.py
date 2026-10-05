@@ -888,7 +888,7 @@ def close_tx(owner, accounts, blockhash):
 
 
 MISS_LIMIT = 2          # a coin that fails the buy checks this many times …
-MISS_WINDOW = 600       # … within 10 minutes is benched for this card
+MISS_WINDOW = 1800      # … within 30 minutes is benched for this card (≥ 2× QUIET_SEC: a quietly re-logged skip must still add up)
 QUIET_SEC = 900        # a skip that no quote can fix (cap / pause / thin pool) is booked once per 15 min, not every tick
 
 
@@ -900,6 +900,7 @@ def logged_recently(ledger, row, now, secs=QUIET_SEC):
                for r in (ledger or [])[-80:])
 
 
+THIN_POOL = 'pool too thin'   # the keeper's thin-pool refusal (check + live_buy_market both say it)
 BENCH_SEC = 3600        # for an hour, so the engine swaps in a coin that CAN be bought
 
 
@@ -911,7 +912,7 @@ def note_miss(book, mint, now, reason=''):
         m = {'n': 0, 'first': now}
     m = {**m, 'n': int(m['n']) + 1, 'why': reason[:80]}
     b['misses'][mint] = m
-    if m['n'] >= MISS_LIMIT:   # each repeat bench doubles (1h → 2h → … ≤ 24h): a coin that keeps failing stops coming back
+    if m['n'] >= MISS_LIMIT or THIN_POOL in reason:   # 💧 a thin pool won't deepen in minutes: bench at once so the engine swaps it NOW   # each repeat bench doubles (1h → 2h → … ≤ 24h): a coin that keeps failing stops coming back
         times = int((book.get('benched') or {}).get(mint, {}).get('times') or 0) + 1
         b['benched'][mint] = {'until': now + min(86400, BENCH_SEC * 2 ** (times - 1)), 'why': reason[:80], 'times': times}
         b['misses'].pop(mint, None)

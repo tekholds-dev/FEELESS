@@ -367,6 +367,7 @@ body.fx-lite .sp { animation: none; }
 @media (prefers-reduced-motion: reduce) { .sp { animation: none; } }
 body.theme-day .sp { background: #fff; }
 .sp-q { width: 100%; } .sp li.is-fake { opacity: .55; }
+.sp-tnote { display: block; margin: 4px 0 6px; line-height: 1.35; }
 @media (max-width: 640px) { .sp li { grid-template-columns: minmax(0, 1fr) auto auto; } .sp li small { display: none; } }
 
 .pg-fold { margin-top: 8px; } .pg-fold[open] > .pg-box, .pg-fold[open] > section { margin-top: 8px; }

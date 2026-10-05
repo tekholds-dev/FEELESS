@@ -349,8 +349,20 @@ def test_coin_failing_buys_3x_in_10min_is_benched_for_an_hour():
     for t in (0, 60):
         b, out = fw.note_miss(b, 'M', t, 'price impact 5% > 3.5%')
     assert out and fw.benched(b, 200) == {'M'} and fw.benched(b, 60 + 3601) == set()
-    b2, out2 = fw.note_miss({}, 'X', 0, 'x'); b2, out2 = fw.note_miss(b2, 'X', 700, 'x')   # outside the window → count restarts
+    b2, out2 = fw.note_miss({}, 'X', 0, 'x'); b2, out2 = fw.note_miss(b2, 'X', 1900, 'x')   # outside the window → count restarts
     assert not out2 and b2['misses']['X']['n'] == 1
+
+
+def test_quietly_relogged_skip_still_benches_and_thin_pool_benches_at_once():
+    import fuse_wallet as fw
+    # a skip re-logged once per QUIET_SEC must still reach the bench (it never did when the window was shorter than the quiet gap)
+    assert fw.MISS_WINDOW >= 2 * fw.QUIET_SEC
+    b, out = fw.note_miss({}, 'Q', 0, 'price 6% above market'); b, out = fw.note_miss(b, 'Q', fw.QUIET_SEC + 1, 'price 6% above market')
+    assert out and fw.benched(b, fw.QUIET_SEC + 2) == {'Q'}
+    # 💧 a thin pool won't deepen in minutes: the FIRST refusal benches it so the engine swaps the coin now (both refusal wordings)
+    for why in ('pool too thin: $9,000 liquidity < $20,000 (real buys)', 'live pool too thin: $9,000 liquidity < $20,000'):
+        b, out = fw.note_miss({}, 'T', 0, why)
+        assert out and fw.benched(b, 10) == {'T'}
 
 
 def test_cap_skip_is_logged_once_per_quiet_window():

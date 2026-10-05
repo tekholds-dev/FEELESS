@@ -5400,8 +5400,10 @@ async def _trench_build(now):
 async def fuse_trench():
     """🗑 The trench scan's latest finalists (coin data only): holders, market cap, age and every check passed / failed."""
     g = _trench.TRENCH
-    keys = ('mint', 'symbol', 'pairAddress', 'holders', 'mcap', 'ageH', 'vol1h', 'buyShare', 'ok', 'fails', 'trenchWhy', 'trenchScore')
+    keys = ('mint', 'symbol', 'pairAddress', 'price', 'liq', 'holders', 'mcap', 'ageH', 'vol1h', 'buyShare', 'ok', 'fails', 'trenchWhy', 'trenchScore')
     return {'checked': [{k: r.get(k) for k in keys} for r in _trench_cache.get('checked') or []], 'pass': len(_trench_cache.get('rows') or []),
+            'rows': [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'trench': True} for r in _trench_cache.get('rows') or []],   # 🗑 pickable
+            'floor': _fw.clean_cfg(_fw_load().get('cfg') or {})['trenchMinLiqUsd'],
             'at': _trench_cache.get('at'), 'rules': f"≤ {g['maxAgeH']:g}h old · broke ${g['minMcap'] / 1000:g}K · ≥ {g['minHolders']} holders · ≥ {g['minTxns1h']} trades/h · "
                                                      f"≥ {g['minBuyShare']:g}% buys · top-10 < {g['maxTop10']:g}% · dev < {g['maxDev']:g}% · clean creator · mint + freeze revoked"}
 
@@ -5412,6 +5414,9 @@ def _trench_row(r, holders, auth):
     return {'mint': r['mint'], 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'price': r.get('price'), 'liq': r.get('liq'),
             'ageH': r.get('ageH'), 'mcap': r.get('mcap'), 'vol1h': r.get('vol1h'), 'buyShare': r.get('buyShare'), 'holders': holders,
             'score': max(60.0, sc), 'trenchScore': sc, 'trenchWhy': parts, 'fails': fails, 'ok': ok, 'trenchOnly': True, 'division': 'trench'}
+
+
+REAL_LIQ_MARGIN = 1.15   # a real card's candidates clear the keeper's pool floor by 15%
 
 
 def _real_weather():
@@ -5694,15 +5699,18 @@ async def _prime_tick_inner(now):
             m = mom.get(x.get('pairAddress')) or {}
             bs = _fuse._f(m.get('buyShare')); bs = bs * 100 if 0 < bs <= 1 else bs
             return _fuse._f(m.get('chg1h')) > 0 and bs >= 55
-        p_t = [x for x in pools if _lq(x) >= floor_of(x)] or pools
-        r_t = [x for x in runners if _lq(x) >= floor_of(x) and _confirmed(x)]
+        # 💵 real money: a coin must clear its floor with REAL_LIQ_MARGIN room (cached depth drifts before the keeper's live re-check) and
+        # there is NO fallback to thin pools — that fallback dealt coins the keeper then refused ("pool too thin") while the slot sat in cash
+        mg = REAL_LIQ_MARGIN if real_t else 1.0
+        p_t = [x for x in pools if _lq(x) >= floor_of(x) * mg] or ([] if real_t else pools)
+        r_t = [x for x in runners if _lq(x) >= floor_of(x) * mg and _confirmed(x)]
         if real_t:   # 🌦 real money buys runners by the weather the engine's own sims measured (rain = strong + deep only · storm = none)
             r_t = _prime.weather_runners(r_t, _real_weather()['level'], _fw.clean_cfg(fw_cfg)['minLiqUsd'], _lq)
         # 🗑 trench coins (strict gate, cached by the warm loop) — only a 🗑 trench slot ever takes one; own pool floor; real money
         # never buys one in a runner storm. The real-money runner age rule doesn't apply to them: the trench gate replaces it.
         tr_floor = _fw.clean_cfg(fw_cfg)['trenchMinLiqUsd']   # paper uses the same floor (paper = what real money could buy)
         if not (real_t and _real_weather()['level'] == 'storm'):
-            r_t = r_t + [x for x in _trench_cache.get('rows') or [] if _lq(x) >= tr_floor and x.get('mint') not in {y.get('mint') for y in r_t}]
+            r_t = r_t + [x for x in _trench_cache.get('rows') or [] if _lq(x) >= tr_floor * mg and x.get('mint') not in {y.get('mint') for y in r_t}]
         # 🪑 coins real money couldn't buy safely (2× in 10 min) are benched 1h for EVERY tier — paper never trades what real can't
         bench = set().union(*[_fw.benched(b, now) for b in (_fw_load().get('books') or {}).values()] or [set()])
         if bench:
@@ -5907,12 +5915,14 @@ async def fuse_prime_admin(request: Request):
         if pk.get('to'):
             # only a coin the Gauntlet ranks RIGHT NOW (live price, real pool, not a dollar coin) can be picked
             row = next((r for dv in ((await _contenders_build()).get('divisions') or []) for r in dv.get('rows') or [] if r.get('mint') == pk['to']), None)
+            row = row or next((r for r in _trench_cache.get('rows') or [] if r.get('mint') == pk['to']), None)   # 🗑 a passing trench coin
             if not row and pk.get('toPair'):   # 🔎 any coin from the Lab lenses / search: verified LIVE on its own pool right now
                 lp = (await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pk['toPair']}])).get(pk['toPair']) or {}
                 row = _pick_row(lp, pk['to'])
             if not row:
                 raise HTTPException(400, 'Pick a coin from the live lists — that one has no live pool right now.')
             cand = {'mint': row['mint'], 'pairAddress': row['pairAddress'], 'symbol': row.get('symbol'), 'price': row.get('price'), 'liquidityUsd': row.get('liq'),
+                    **({'trenchOnly': True} if row.get('trenchOnly') else {}),
                     'division': next((dv['key'] for dv in (_contenders_cache.get('data') or {}).get('divisions') or [] if any(r.get('mint') == row['mint'] for r in dv.get('rows') or [])), None)}
         async with _admin_lock:
             d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
@@ -5920,7 +5930,7 @@ async def fuse_prime_admin(request: Request):
             if not card:
                 raise HTTPException(404, 'No card for that tier yet.')
             if cand and card.get('real'):   # 💵 real money keeps its own floor: the pick must be buyable
-                floor = _fw.liq_floor(_fw_load().get('cfg') or {}, True)
+                floor = _fw.liq_floor(_fw_load().get('cfg') or {}, True, bool(cand.get('trenchOnly')))   # 🗑 trench picks use the trench floor
                 if _fuse._f(cand.get('liquidityUsd')) < floor:
                     raise HTTPException(400, f"${cand['symbol']} pool is ${_fuse._f(cand.get('liquidityUsd')):,.0f} — under the ${floor:,.0f} real-buy floor (Edit Fuse › Limits).")
             try:

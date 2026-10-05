@@ -928,3 +928,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   cycle `trench`. Trench rows are `trenchOnly`: only a trench slot / trench leg replacement takes one (`best(role, trench)`, `_picks`,
   `grow_picks`). Real money: own pool floor `trenchMinLiqUsd` ($8K, never < $3K) via `liq_floor(.., trench)`, no trench buys in a runner
   storm, every other keeper check (price gap, sell-back, impact, caps) still runs. Holder counts only for the 5 busiest finalists.
+- 💧 Thin-pool refusals fixed: real cards never fall back to thin pools (`p_t … or []` for real) and candidates clear the keeper floor by
+  `REAL_LIQ_MARGIN` 15% (cached depth drifts before the live re-check). `fuse_wallet.note_miss`: a "pool too thin" refusal benches the
+  coin at ONCE (`THIN_POOL`) → swapped now; `MISS_WINDOW` (30 min) ≥ 2× `QUIET_SEC` (a quietly re-logged skip never added up before,
+  so a refused coin was never benched and its slot sat waiting). 🗑 Trench lens in `SwapPicker` (`GET /fuses/trench` → `rows` + `floor`):
+  only passing trench coins, trench pool floor; a pick keeps `trenchOnly` through `queue_swap` → leg `trench` → keeper trench floor.

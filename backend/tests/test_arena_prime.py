@@ -925,6 +925,10 @@ def test_the_owner_picks_the_coin_that_comes_in_at_the_next_round():
     assert n == 1 and leg['mint'] == 'n' and leg['picked'] and leg['division'] == 'yield' and leg['role'] == 'runner'
     assert abs(leg['units'] * leg['entry'] - 12.0) < 0.01                                          # the old coin's money ($12) moved into the pick
     assert q['events'][-1]['to'] == ['NEW'] and q['legs'][1]['mint'] == 'b'
+    # 🗑 a picked TRENCH coin keeps its trench flag through the queue, so the keeper buys it at the trench pool floor
+    t = ap.queue_swap(card, 'Pb', {**pick, 'mint': 't', 'pairAddress': 'Pt', 'trenchOnly': True})
+    ap.apply_queued(t, {'Pb': 1.0, 'Pt': 2.0}, {}, 99.0)
+    assert t['legs'][1]['trench'] is True and 'trench' not in leg
 
 
 def test_every_tier_plays_its_own_round_clock():

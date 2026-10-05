@@ -92,4 +92,6 @@ def test_trench_endpoint_lists_finalists_and_the_rules():
     rs._trench_cache.update(checked=[rs._trench_row(GOOD, 520, SAFE), rs._trench_row({**GOOD, 'mint': 'X', 'top10': 40.0}, 520, SAFE)], rows=[rs._trench_row(GOOD, 520, SAFE)])
     out = asyncio.run(rs.fuse_trench())
     assert out['pass'] == 1 and len(out['checked']) == 2 and '400 holders' in out['rules'] and 'revoked' in out['rules']
+    # 🗑 pickable rows (only passing coins) + the trench pool floor, for the swap picker's Trench list
+    assert [r['mint'] for r in out['rows']] == [GOOD['mint']] and out['rows'][0]['trench'] and out['floor'] == 8000
     rs._trench_cache.update(checked=[], rows=[])

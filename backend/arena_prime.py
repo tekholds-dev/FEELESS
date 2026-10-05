@@ -1196,7 +1196,7 @@ def queue_swap(card, pair, cand):
         raise ValueError('That coin is already on this card.')
     if any((x.get('swapTo') or {}).get('mint') == cand['mint'] for x in c['legs'] if x is not l):
         raise ValueError('That coin is already queued for another seat.')
-    l['swapTo'] = {k: cand.get(k) for k in ('mint', 'pairAddress', 'symbol', 'price', 'liquidityUsd', 'division')}
+    l['swapTo'] = {k: cand.get(k) for k in ('mint', 'pairAddress', 'symbol', 'price', 'liquidityUsd', 'division', 'trenchOnly') if cand.get(k) is not None}
     return c
 
 
