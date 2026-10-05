@@ -14,6 +14,8 @@ import { FuseExplainer, VaultMath } from './FuseDeck';
 import { CardExplain } from './CardExplain';
 import { RiskDial } from './RiskDial';
 import { RISK_DIALS, applyRisk } from '../lib/riskDial';
+import { CYCLE_OPTS } from '../lib/fuseGlossary';
+import { FuseGuide } from './FuseGuide';
 import '../styles/fuseLab.css';
 
 // ⚛️ FUSE LAB: browse the chain's real pools, tick them, and see live how FEELESS auto-weighs them (fee APR × depth,
@@ -107,11 +109,7 @@ function CoinExtras({ pa, sym, plan, setPlan }) {
 }
 
 // 🧬 a card DNA → Lab plan fields (cycle, compound style, profit split, reshuffle clock, stop mode)
-export const CYCLE_OPTS = [['steady', '➡ Steady', 'Every reshuffle swaps a weak coin for the best gated runner'],
-  ['classic', '⚓→🔥 Classic', 'Rounds go anchor (into majors) → degen (runners) → anchor → mixed'], ['adaptive', '🧠 Adaptive', 'Losing → swaps into a major (protect) · +5% → a runner (press) · flat → mixed'],
-  ['safe', '⚓⇄⚖ Safe', 'Anchor round ⇄ mixed round'], ['press', '🔥⇄⚖ Press', 'Degen round ⇄ mixed round'],
-  ['rescue', '🛟 Rescue', '🛡 Safest run (3 majors + 1 new major) ⇄ ⚖ Breakeven (1 high-volume pool + 3 high-volume runners). Any card ≤ −50% switches here by itself.'],
-  ['auto', '🤖 Auto', 'The engine picks each round: deep red → breakeven · red → safest · +5% → degen · flat → mixed']];
+export { CYCLE_OPTS };
 export const dnaPlan = d => ({ cycle: ['classic', 'adaptive', 'safe', 'press', 'rescue', 'auto'].includes(d.cycle) ? d.cycle : 'steady', compoundStyle: d.compound, payoutPct: d.payoutPct, onProfit: d.payoutPct > 0 ? 'collect' : 'compound',
   rotateHours: d.clock, slMode: d.stop, ...(d.cycle && d.cycle !== 'off' ? { mode: 'swap' } : {}) });
 
@@ -131,7 +129,8 @@ export function CardPlan({ legs, plan, setPlan }) {
       .then(x => { setPlan(p => ({ ...p, risk: 'custom', ...dnaPlan(x.dna) })); toast.success(`🎲 Unique DNA: ${x.label}`); }).catch(() => toast.error('Try again in a moment'))}
       data-tip="A cycle · compound · payout · clock · stop combination no live card on FEELESS has — your card plays its own way" data-testid="plan-unique">🎲 Roll a unique DNA <small>no other live card plays like this</small></button>
     {brain?.why?.length > 0 && <button type="button" className="m-btn fl-brain" onClick={() => setPlan(p => ({ ...p, risk: 'custom', ...dnaPlan(brain.dna) }))} data-tip={`Learned from ${brain.fights} engine battles: ${brain.why.join(' · ')}`} data-testid="plan-brain">🧠 Use the engine's best DNA <small>{brain.label}</small></button>}
-    <div className="fl-plan-row fl-risk"><span>🎚 Risk</span><RiskDial value={plan.risk || 'custom'} onChange={id => setPlan(applyRisk(legs, id))} /></div>
+    <div className="fl-plan-row fl-risk"><span>🎚 Risk</span><RiskDial value={plan.risk || 'custom'} onChange={id => setPlan(applyRisk(legs, id))} />
+      <FuseGuide dial={plan.risk} onDial={id => setPlan(applyRisk(legs, id))} cycle={plan.cycle} onCycle={v => setPlan(p => ({ ...p, risk: 'custom', cycle: v }))} /></div>
     {maxR != null && runners > maxR && <div className="m-note warn"><b>{RISK_DIALS[plan.risk].label} = {maxR} runner{maxR === 1 ? '' : 's'} max</b><span>You picked {runners}. Remove {runners - maxR} or pick a bolder dial.</span></div>}
     <details className="fl-plan-tune" open><summary>✎ Customize (TP/SL per coin · profit trigger · collect or compound · hold or rotate)</summary>
     <div className="fl-plan-row"><span>Auto-set TP / SL</span><div className="m-seg" role="group">{PLAN_PRESETS.map(([id, l, , , tip]) => <button key={id} type="button" data-tip={tip} onClick={() => setPlan(p => ({ ...p, risk: 'custom', legs: applyPreset(legs, id) }))} data-testid={`plan-preset-${id}`}>{l}</button>)}

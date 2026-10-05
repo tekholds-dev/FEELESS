@@ -5,7 +5,8 @@ import { FuseCard } from './FuseCard';
 // Discover rail: one prebuilt Fuse per strategy, bred from live pools right now (server caches 5 min). Swipe / scroll,
 // drag a card to tilt, ⟲ to flip for why it won, "Use" loads it into the Lab (then ⚡ one-click). HQ picks the size.
 const TIP = { yield: 'Weights fee APR most: busy pools relative to their depth.', momentum: 'Leans on what moved up in the last 24h.',
-  steady: 'Grade + calm prices first: deep pools, small swings.', degen: 'High APR + momentum, little care for calm. Biggest swings.' };
+  steady: 'Grade + calm prices first: deep pools, small swings.', degen: 'High APR + momentum, little care for calm. Biggest swings.',
+  dip: 'Buy the dip: coins down on the day whose buyers are back (1h green, 55%+ buys).', meta: 'Pump meta: DEX-paid profiles + momentum + real flow.' };
 
 export function FuseRail({ call, onUse }) {
   const admin = Boolean(call);
@@ -32,5 +33,6 @@ export function FuseRail({ call, onUse }) {
         <div className="frail-meta" data-tip={TIP[c.style]}><b>{c.style}</b>{c.arena ? <span className={c.arena.avgPct >= 0 ? 'm-pos' : 'm-neg'}>arena {c.arena.avgPct >= 0 ? '+' : ''}{c.arena.avgPct}% · {c.arena.runs} runs</span> : <span className="m-dim">not yet in arena</span>}</div>
         <button type="button" className="m-btn primary m-go" onClick={() => onUse?.(c.legs, d.solUsd ? amount / d.solUsd : null)} data-testid={`frail-use-${c.style}`}>Use this · ${amount}</button>
       </article>)}</div>
+    {d?.retired?.length > 0 && <p className="m-note" data-testid="frail-retired" data-tip="The arena retires a strategy once its typical $5 run AND its outlier-proof average are both below 0. It still gets one test run a day and comes back by itself when it wins again.">☠ Retired for losing in the arena: {d.retired.join(' · ')}</p>}
   </section>;
 }

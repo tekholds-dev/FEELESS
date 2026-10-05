@@ -20,7 +20,7 @@ SOL_MINT = 'So11111111111111111111111111111111111111112'
 TEMPLATES = {   # anchors / pools / runners per card + the dial it runs
     # 5 top tiers. Majors = solid holds; "young" runners = pre-bond runners + clean graduated coins under 48h (every gate but pre-bond).
     'safe': {'label': '💎 Prime Diamond', 'tier': 'diamond', 'anchors': 1, 'pools': 0, 'runners': 3, 'tp': 900, 'sl': 35,
-             'why': 'young coins held toward 10× — momentum decides ride / bank, SOL anchors the card'},
+             'why': 'young coins held toward 10× — momentum decides ride / bank, the most active major anchors the card'},
     'balanced': {'label': '🥇 Prime Gold', 'tier': 'gold', 'anchors': 2, 'pools': 1, 'runners': 1, 'tp': 50, 'sl': 15,
                  'why': 'two majors + a deep pool + one runner kicker'},
     'degen': {'label': '🔥 Prime Blaze', 'tier': 'blaze', 'anchors': 1, 'pools': 1, 'runners': 2, 'tp': 100, 'sl': 20,
@@ -387,7 +387,7 @@ def _picks(t, pools, runners, anchors):
 
 
 def rotate_anchors(anchors, offset=0):
-    """Rotate the eligible-major basket at a scheduled re-shape. Initial deals still begin with SOL, but a one-anchor phase
+    """Rotate the eligible-major basket at a scheduled re-shape. Initial deals begin with the most ACTIVE major (`fuse.rank_anchors`), and a one-anchor phase
     must not silently mean "SOL forever"; subsequent configured shapes walk the existing ranked majors without inventing a
     new threshold or bypassing any candidate gate."""
     rows = list(anchors or [])

@@ -7,6 +7,8 @@ import { RiskDial, DialBoard } from './RiskDial';
 import { ArenaPrime, HqRealCards } from './ArenaPrime';
 import { ArenaContenders } from './ArenaContenders';
 import { FuseLanding } from './FuseLanding';
+import { PitReel } from './PitReel';
+import { FuseGuide } from './FuseGuide';
 import { CardEarnings } from './CardEarnings';
 import { PaperAudit, TrailSummary, CoinTable, CycleBuilder, usd as fmt$ } from './FuseMoney';
 import { CardRounds } from './CardRounds';
@@ -83,7 +85,7 @@ export function FusePage() {
   return <section className="fuse-page" data-testid="fuse-page"><FuseFx />
     <header className="fp-head"><h1 className="fp-title"><span className="fp-zap" data-text="Fuse">Fuse<i className="fp-bolt" aria-hidden="true" /><i className="fp-bolt b2" aria-hidden="true" /></span> <DnaHelix /></h1><p className="m-dim">Fuse pools + fresh runners into one card. You sign every move; we show every fee.</p>
       <div className="m-seg fp-tabs" role="tablist" aria-label="Fuse">{FUSE_TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} data-testid={`fuse-tab-${k}`} onClick={() => go(k)}>{l}{k === 'runners' && runnerPicks.length ? ` · ${runnerPicks.length}` : ''}</button>)}</div></header>
-    <p className="fp-tabtip" key={`tip-${tab}`} data-testid="fp-tabtip">{TAB_TIPS[tab]}</p>
+    <p className="fp-tabtip" key={`tip-${tab}`} data-testid="fp-tabtip">{TAB_TIPS[tab]} <FuseGuide label="📖 What everything means" /></p>
     <div className="fp-body" key={tab}>
       {tab === 'home' && <FuseLanding onGo={go} />}
       {tab === 'lab' && <div className="fz-split-view fp-lab"><FuseLab runnerPicks={runnerPicks} onRunnerPicks={setRunnerPicks} incoming={incoming} limits={limits} />
@@ -111,7 +113,7 @@ export function togglePick(picks, r, max = MAX_RUNNERS) {
   if (picks.some(p => p.mint === r.mint)) return picks.filter(p => p.mint !== r.mint);
   return picks.length >= max ? picks : [...picks, r];
 }
-const SRC_ICON = { bond: '🔔', arena: '🏟', lit: '🔥', pump: '🚀', snipers: '🎯', creator: '📣' };
+const SRC_ICON = { bond: '🔔', watch: '👀', grad: '🎓', arena: '🏟', lit: '🔥', pump: '🚀', snipers: '🎯', creator: '📣', dip: '📉', paid: '💳' };
 export const filterBySource = (rows, src) => (src === 'all' ? rows : rows.filter(r => r.sources.some(s => s.kind === src)));
 
 export function RunnerPicker({ picks, onPicks, onDone }) {
@@ -476,7 +478,7 @@ export function Battlefield({ b: b0, cards = [], onLoad }) {
             <b className="m-num">{crowdShare(p)}%</b><i><i style={{ transform: `scaleX(${crowdShare(p) / 100})` }} /></i><b className="m-num">{100 - crowdShare(p)}%</b><small>CROWD</small></span>
           {corner(p, 'a', i)}
           <div className="bf-mid">
-            <span className="bf-vs" aria-hidden="true"><i className="bf-clash" /><i className="bf-spark" /><i className="bf-spark s2" /><i className="bf-spark s3" />VS</span>
+            <PitReel p={p} still={cur !== i} />
             <i className="bf-tug" data-tip="Who's ahead since the bell"><i style={{ transform: `scaleX(${share})` }} /></i>
             <div className="bf-bars" data-testid={`bars-${i}`}>
               <span className="bf-bar is-paid" data-tip="Wallets that BOUGHT a side's card to back it (real buys, you own the card)"><small>{p.a.paidN || 0}</small><i><i style={{ transform: `scaleX(${tugShare(p.a.paidUsd || 0, p.b.paidUsd || 0)})` }} /></i><small>{p.b.paidN || 0}</small><em>💰 BUY BACKS {p.a.paidN || 0}/{p.b.paidN || 0} · ${Math.round(p.a.paidUsd || 0)}/${Math.round(p.b.paidUsd || 0)}</em></span>

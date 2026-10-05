@@ -158,8 +158,19 @@ def receipt(quoted, actual):
 AUTOPILOT_EVERY = 3600
 
 
-def autopilot_due(arena, style, now, every=AUTOPILOT_EVERY):
-    """True when `style` has no autopilot arena entry in the last `every` seconds (one paper run per style per hour)."""
+RETIRED_PROBE = 24 * 3600   # ☠ a retired strategy still gets ONE probe run a day — it comes back by itself once it wins again
+
+
+def retired_styles(board):
+    """☠ Strategies the arena has PROVEN to lose: ≥ MIN_SETTLED settled runs with the outlier-proof average AND the median below 0.
+    They leave the trader-facing rails (prebuilt, best 3) and the hourly autopilot drops to one probe a day."""
+    return {r['style'] for r in board or [] if r['runs'] >= MIN_SETTLED and r['avgPct'] < 0 and r.get('medPct', r['avgPct']) < 0}
+
+
+def autopilot_due(arena, style, now, every=AUTOPILOT_EVERY, retired=()):
+    """True when `style` has no autopilot arena entry in the last `every` seconds (one paper run per style per hour;
+    a retired style only once a day)."""
+    every = RETIRED_PROBE if style in set(retired or ()) else every
     return not any(e.get('style') == style and e.get('auto') and now - e.get('at', 0) < every for e in arena or [])
 
 

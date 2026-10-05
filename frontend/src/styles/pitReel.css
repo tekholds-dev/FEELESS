@@ -1,0 +1,80 @@
+/* 🎬 Pit reel (PitReel.jsx): a looping cycle of battle scenes in the middle of every fight. One keyframe set (pr*),
+   transform/opacity only, list stagger via --i, static VS under fx-lite / reduced motion. Built from m-* tokens. */
+.pr { position: relative; width: 100%; display: grid; justify-items: center; gap: 6px; --pr-a: var(--m-accent, #19f58f); --pr-b: #ff8fa3; --pr-v: #c08bff; }
+.pr-stage { position: relative; width: 100%; height: 170px; overflow: hidden; border-radius: 16px; isolation: isolate;
+  background: radial-gradient(60% 70% at 50% 55%, rgba(155, 92, 255, .16), transparent 70%); }
+.pr-stage i { position: absolute; display: block; pointer-events: none; }
+.pr-f { position: absolute; top: 50%; font-size: 30px; line-height: 1; margin-top: -15px; animation: prBob 1.7s ease-in-out infinite; }
+.pr-f.a { left: 6%; } .pr-f.b { right: 6%; animation-delay: -.85s; }
+.pr.lead-a .pr-f.a, .pr.lead-b .pr-f.b { filter: drop-shadow(0 0 8px var(--pr-a)); }
+.pr-vs { position: absolute; left: 50%; top: 85px; transform: translate(-50%, -50%); z-index: 3; pointer-events: none; }
+.pr .pr-vs { font-size: 30px; animation: prVs 3.4s ease-in-out infinite; }
+.pr-cap { min-height: 44px; align-content: start; display: grid; text-align: center; font: 10px var(--m-mono, 'JetBrains Mono', monospace); letter-spacing: .06em; color: var(--m-dim); text-transform: uppercase; animation: prIn .3s ease-out both; }
+.pr-cap b { display: block; color: var(--pr-v); letter-spacing: .16em; font-size: 10.5px; }
+
+/* ⚔ blade clash: two blades swing in and cross, rings + sparks fly from the hit */
+.pr-blade { left: 50%; top: 18%; width: 6px; height: 62%; margin-left: -3px; border-radius: 3px; transform-origin: 50% 100%; opacity: 0;
+  background: linear-gradient(180deg, #fff, var(--pr-a) 40%, transparent); box-shadow: 0 0 12px var(--pr-a); animation: prBladeA 3.4s ease-out both; }
+.pr-blade.b { background: linear-gradient(180deg, #fff, var(--pr-b) 40%, transparent); box-shadow: 0 0 12px var(--pr-b); animation-name: prBladeB; }
+.pr-ring { left: 50%; top: 50%; width: 80px; height: 80px; margin: -40px; border-radius: 50%; border: 2px solid var(--pr-v); opacity: 0; animation: prRing 3.4s ease-out .5s both; }
+.pr-ring.r2 { border-color: var(--pr-a); animation-delay: .75s; }
+.pr-spark { left: 50%; top: 50%; width: 3px; height: 16px; margin: -8px -1.5px; border-radius: 2px; background: #f5c451; opacity: 0;
+  transform: rotate(calc(var(--i, 0) * 60deg)); animation: prSpark 3.4s ease-out calc(.45s + var(--i, 0) * 50ms) both; }
+.pr-spark:nth-child(odd) { background: var(--pr-a); }
+
+/* ⚡ lightning duel: a bolt from each corner, the stage flashes */
+.pr-bolt { top: -4%; width: 34px; height: 64%; opacity: 0; transform-origin: 50% 0; background: linear-gradient(180deg, #fff, var(--pr-v));
+  clip-path: polygon(40% 0, 70% 0, 52% 38%, 78% 38%, 30% 100%, 44% 52%, 20% 52%); filter: drop-shadow(0 0 6px #c08bff); animation: prBolt 3.4s ease-out both; }
+.pr-bolt.a { left: 34%; transform: rotate(-14deg); } .pr-bolt.b { right: 34%; transform: rotate(14deg); animation-delay: .5s; background: linear-gradient(180deg, #fff, var(--pr-a)); }
+.pr-flash { inset: 0; background: radial-gradient(50% 60% at 50% 50%, rgba(255, 255, 255, .35), transparent 70%); opacity: 0; animation: prFlash 3.4s ease-out .2s both; }
+
+/* 🔥 beam struggle: two energy beams meet; the core leans toward the side that is losing */
+.pr-beam { top: 50%; height: 12px; margin-top: -6px; width: 46%; border-radius: 6px; opacity: 0; animation: prBeam 3.4s ease-out both; }
+.pr-beam.a { left: 10%; transform-origin: 0 50%; background: linear-gradient(90deg, transparent, var(--pr-a)); box-shadow: 0 0 14px var(--pr-a); }
+.pr-beam.b { right: 10%; transform-origin: 100% 50%; background: linear-gradient(270deg, transparent, var(--pr-b)); box-shadow: 0 0 14px var(--pr-b); }
+.pr-core { left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px; border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle, #fff, var(--pr-v) 55%, transparent 72%); animation: prCore 3.4s ease-in-out .5s both; }
+
+/* 🥊 haymaker: the leader's fist flies across, POW at the other corner */
+.pr-fist { top: 50%; left: 14%; width: 34px; height: 34px; margin-top: -17px; opacity: 0; animation: prFistA 3.4s cubic-bezier(.5, 0, .2, 1) both; }
+.pr-fist::before { content: '👊'; font-size: 30px; line-height: 34px; display: block; }
+.pr.lead-b .pr-fist { left: auto; right: 14%; animation-name: prFistB; } .pr.lead-b .pr-fist::before { content: '🤛'; }
+.pr-pow { top: 50%; right: 12%; width: 64px; height: 64px; margin-top: -32px; opacity: 0; background: #f5c451;
+  clip-path: polygon(50% 0, 61% 32%, 98% 22%, 70% 50%, 98% 80%, 60% 68%, 50% 100%, 40% 68%, 2% 80%, 30% 50%, 2% 22%, 39% 32%); animation: prPow 3.4s ease-out .7s both; }
+.pr.lead-b .pr-pow { right: auto; left: 12%; }
+.prs-punch .pr-ring { left: 82%; } .prs-punch.lead-b .pr-ring { left: 18%; }
+
+/* 🛡 block: the leader's shield takes the hit */
+.pr-shield { top: 50%; left: 50%; width: 56px; height: 64px; margin: -32px -28px; opacity: 0; border-radius: 50% 50% 46% 46% / 30% 30% 70% 70%;
+  border: 3px solid var(--pr-a); background: radial-gradient(circle at 50% 35%, rgba(25, 245, 143, .35), transparent 70%); animation: prShield 3.4s ease-out both; }
+.pr.lead-b .pr-shield { border-color: var(--pr-b); background: radial-gradient(circle at 50% 35%, rgba(255, 143, 163, .35), transparent 70%); }
+
+/* ☄ meteor: falls on the trailing corner, crater + sparks */
+.pr-meteor { top: 0; left: 30%; width: 22px; height: 22px; border-radius: 50%; opacity: 0; background: radial-gradient(circle, #fff, #ff9a3c 60%, transparent 72%);
+  box-shadow: 0 0 18px #ff9a3c; animation: prMeteor 3.4s ease-in both; }
+.pr.lead-b .pr-meteor { left: 60%; animation-name: prMeteorB; }
+.pr-crater { top: 72%; left: 50%; width: 90px; height: 22px; margin: -11px -45px; border-radius: 50%; border: 2px solid #ff9a3c; opacity: 0; animation: prRing 3.4s ease-out 1s both; }
+.pr-meteor ~ .pr-spark { top: 72%; animation-delay: calc(1s + var(--i, 0) * 50ms); background: #ff9a3c; }
+
+@keyframes prBob { 50% { transform: translateY(-5px); } }
+@keyframes prVs { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 15% { transform: translate(-50%, -50%) scale(1.25); } 30% { transform: translate(-50%, -50%) scale(.95); } }
+@keyframes prIn { from { opacity: 0; transform: translateY(4px); } }
+@keyframes prBladeA { 0% { opacity: 0; transform: rotate(-80deg); } 12% { opacity: 1; } 25% { transform: rotate(-22deg); } 30% { transform: rotate(-30deg); } 80% { opacity: 1; transform: rotate(-24deg); } 100% { opacity: 0; transform: rotate(-24deg); } }
+@keyframes prBladeB { 0% { opacity: 0; transform: rotate(80deg); } 12% { opacity: 1; } 25% { transform: rotate(22deg); } 30% { transform: rotate(30deg); } 80% { opacity: 1; transform: rotate(24deg); } 100% { opacity: 0; transform: rotate(24deg); } }
+@keyframes prRing { 0% { opacity: .9; transform: scale(.3); } 40% { opacity: 0; transform: scale(2); } 100% { opacity: 0; transform: scale(2); } }
+@keyframes prSpark { 0% { opacity: 1; transform: rotate(calc(var(--i, 0) * 60deg)) translateY(0); } 30% { opacity: 0; transform: rotate(calc(var(--i, 0) * 60deg)) translateY(-60px); } 100% { opacity: 0; transform: rotate(calc(var(--i, 0) * 60deg)) translateY(-60px); } }
+@keyframes prBolt { 0% { opacity: 0; scale: 1 0; } 6% { opacity: 1; scale: 1 1; } 10% { opacity: .2; } 14% { opacity: 1; } 40% { opacity: 0; } 100% { opacity: 0; } }
+@keyframes prFlash { 0%, 100% { opacity: 0; } 6% { opacity: 1; } 22% { opacity: 0; } }
+@keyframes prBeam { 0% { opacity: 0; transform: scaleX(0); } 18% { opacity: 1; transform: scaleX(1); } 85% { opacity: 1; transform: scaleX(1); } 100% { opacity: 0; transform: scaleX(1); } }
+@keyframes prCore { 0% { opacity: 0; transform: scale(.4); } 15% { opacity: 1; transform: scale(1); } 50% { transform: translateX(var(--lean, 0%)) scale(1.2); } 80% { opacity: 1; transform: translateX(var(--lean, 0%)) scale(1); } 100% { opacity: 0; transform: translateX(var(--lean, 0%)) scale(1.4); } }
+@keyframes prFistA { 0% { opacity: 0; transform: translateX(0) scale(.6); } 10% { opacity: 1; transform: translateX(-10px) scale(1); } 22% { transform: translateX(min(52vw, 200px)) scale(1.3); } 60% { opacity: 1; } 75% { opacity: 0; transform: translateX(min(52vw, 200px)) scale(1.3); } 100% { opacity: 0; } }
+@keyframes prFistB { 0% { opacity: 0; transform: translateX(0) scale(.6); } 10% { opacity: 1; transform: translateX(10px) scale(1); } 22% { transform: translateX(max(-52vw, -200px)) scale(1.3); } 60% { opacity: 1; } 75% { opacity: 0; transform: translateX(max(-52vw, -200px)) scale(1.3); } 100% { opacity: 0; } }
+@keyframes prPow { 0% { opacity: 0; transform: scale(.2) rotate(0); } 10% { opacity: 1; transform: scale(1.2) rotate(12deg); } 30% { opacity: 1; transform: scale(1) rotate(6deg); } 50%, 100% { opacity: 0; transform: scale(1.3) rotate(6deg); } }
+@keyframes prShield { 0% { opacity: 0; transform: scale(.4); } 15% { opacity: 1; transform: scale(1.1); } 22% { transform: scale(.92); } 30% { transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: scale(1); } }
+@keyframes prMeteor { 0% { opacity: 0; transform: translate(-80px, -30px) scale(.6); } 10% { opacity: 1; } 30% { opacity: 1; transform: translate(40px, 110px) scale(1.2); } 34%, 100% { opacity: 0; transform: translate(40px, 110px) scale(1.6); } }
+@keyframes prMeteorB { 0% { opacity: 0; transform: translate(80px, -30px) scale(.6); } 10% { opacity: 1; } 30% { opacity: 1; transform: translate(-40px, 110px) scale(1.2); } 34%, 100% { opacity: 0; transform: translate(-40px, 110px) scale(1.6); } }
+
+body.fx-lite .pr-stage i, body.fx-lite .pr-stage .pr-fist { display: none; } body.fx-lite .pr-f, body.fx-lite .pr .pr-vs, body.fx-lite .pr-cap { animation: none; }
+@media (prefers-reduced-motion: reduce) { .pr-stage i { display: none; } .pr-f, .pr .pr-vs, .pr-cap { animation: none; } }
+body.theme-day .pr-cap { color: #4a3a66; } body.theme-day .pr-cap b { color: #5a1fd1; } body.theme-day .pr-bolt { background: linear-gradient(180deg, #5a1fd1, #9b5cff); } body.theme-day .pr-blade { background: linear-gradient(180deg, #0b6b45, var(--pr-a) 40%, transparent); }
+@media (max-width: 640px) { .pr-stage { height: 120px; } .pr-vs { top: 60px; } .pr-f { font-size: 22px; margin-top: -11px; } }

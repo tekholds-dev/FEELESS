@@ -5,12 +5,14 @@ import { FuseCard } from './FuseCard';
 // 🧬 HQ › Fuse Evolution: pick a strategy + budget, the server breeds baskets of live pools over generations
 // (keep the elite, crossover, mutate — backend fuse.evolve) and returns 3 champions with every fitness part shown.
 // "Load" drops a champion into the Lab above, where ⚡ Fuse in is still one wallet approval.
-const STYLES = [['yield', '💧 Yield hunter'], ['momentum', '🚀 Momentum'], ['steady', '🛡 Steady'], ['degen', '🎲 Degen']];
+const STYLES = [['yield', '💧 Yield hunter'], ['momentum', '🚀 Momentum'], ['steady', '🛡 Steady'], ['degen', '🎲 Degen'], ['dip', '📉 Buy the dip'], ['meta', '💳 Pump meta']];
 const STYLE_TIP = {
   yield: ['busy pools vs depth', 'Score = 55% fee APR, 35% grade, 10% calm. Finds pools trading a lot relative to their liquidity.'],
   momentum: ['what ran in 24h', 'Score = 45% 24h move, 30% grade, 15% APR. Rides what is already moving — and can reverse.'],
   steady: ['deep + calm', 'Score = 55% grade, 30% calm, 15% APR. Deep pools with small swings; slowest but safest mix.'],
   degen: ['max APR + momentum', 'Score = 45% momentum, 40% APR, 15% grade, no calm. Biggest upside, biggest drawdowns.'],
+  dip: ['down on the day, buyers back', 'Score = 60% dip (24h ≤ −8%, 1h green, 55%+ buys), 30% grade, 10% APR. A coin still dumping gets only 30% of the dip points.'],
+  meta: ['dex paid + momentum', 'Score = 35% momentum, 30% DEX-paid profiles / boosts, 25% grade, 10% APR. Teams that paid to be seen, with real flow.'],
 };
 const BUDGETS = [5, 20, 100];
 const GENS = [8, 16, 32];

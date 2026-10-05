@@ -834,3 +834,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
    or auto-apply only inside hard bounds, every change audited).
 5. Owner live test of one-click cards + notices → then flip configs to auto per dial proof.
 6. Browser-verify: HQ › Security Guard, Access (signed grant), Vault, Card rules, Prime tiers, card window, chat ⚙.
+
+- ⚓ Anchors are ranked by ACTIVITY (`fuse.rank_anchors`: turnover + 1h/6h/24h moves + buyers + depth, falling knife −15), never by
+  name — SOL gets no head start. `fuse.MAJORS` = 27 real mints (BTC/ETH/SOL/JUP/PUMP/BONK/WIF/POPCAT/TRUMP/PENGU/FARTCOIN …, ≤30 for
+  DexScreener's batch call); `ANCHOR_SKIP` (USDC, JitoSOL) never anchor; big new majors (≥$5M, ≥$300K pool, ≥1 day, ≤4) join the basket.
+- 📉 Buy the dip + 💳 Dex paid: `fuse.STYLES` dip/meta (`dip_score`, `dex_paid` = header/boosts, a logo alone isn't paid), runner score
+  parts + discovery sources (`runners.is_dip`), Gauntlet divisions `dip`/`paid`. ☠ `fuse_hq.retired_styles`: ≥3 settled runs with avg AND
+  median < 0 → off the trader rails (prebuilt `retired`), autopilot probes it once a day so it can come back.
+- 🎬 Pit reel (`PitReel.jsx`, `styles/pitReel.css`, scene class `prs-*` — never `pr-<scene>`, it collides with element classes): 6 scenes
+  cycle every 3.4s in every fight's middle, the leader wins each. 📖 `FuseGuide` (`lib/fuseGlossary.js` = the ONE word list: cycles,
+  shapes, clocks, stops, strategies, coin sources) opens from the Fuse tab tip line and the Lab card plan (pick a dial / cycle inside it).

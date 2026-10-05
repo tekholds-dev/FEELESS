@@ -8,8 +8,8 @@ import { useLivePrices } from '../lib/livePrices';
 // A Fuse champion as a collectible card: drag to tilt, ⟲ to flip. Front = grade crest + the fused pools;
 // back = every number behind its score. Grade sets rarity, strategy sets the design.
 const RARITY = { A: 'legendary', B: 'epic', C: 'rare', D: 'common', F: 'common' };
-const DESIGN = { yield: 'aurora', momentum: 'ember', steady: 'obsidian', degen: 'glitch' };
-const ACCENT = { yield: ['#19f58f', '#6ad7ff'], momentum: ['#ff8a3d', '#f5c451'], steady: ['#19f58f', '#f5c451'], degen: ['#ff5ad1', '#00e5ff'] };
+const DESIGN = { yield: 'aurora', momentum: 'ember', steady: 'obsidian', degen: 'glitch', dip: 'vapor', meta: 'plasma' };
+const ACCENT = { yield: ['#19f58f', '#6ad7ff'], momentum: ['#ff8a3d', '#f5c451'], steady: ['#19f58f', '#f5c451'], degen: ['#ff5ad1', '#00e5ff'], dip: ['#6ad7ff', '#19f58f'], meta: ['#f5c451', '#ff5ad1'] };
 // The crest shows the basket's top-weighted coin, through the sitewide logo chain (DexScreener → CDN → FEELESS cache).
 // The coin a leg shows: the leg's own mint (card legs / runners / a SOL anchor), else the coin a pool buys. Never empty.
 export const legPair = l => { const t = legTarget(l) || {}; const address = l.mint || t.mint || l.baseAddress;

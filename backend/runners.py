@@ -56,7 +56,15 @@ def candidate(pair, intel=None, creator_flagged=False, snipers_out=False, now_ms
             'buysAccel': round(_f(((pair.get('txns') or {}).get('m5') or {}).get('buys')) / max(1.0, buys / 12), 2) if buys else 0.0,
             'curveSpeed': (hist or {}).get('curveSpeed'), 'top10Jump': (hist or {}).get('top10Jump'), 'devSold': bool((hist or {}).get('devSold')),
             'flaggedFunders': len(intel.get('flaggedFunders') or []), 'smartBuyers': int(smart or 0),
+            'paid': bool((pair.get('info') or {}).get('header') or _f((pair.get('boosts') or {}).get('active')) > 0), 'boosts': int(_f((pair.get('boosts') or {}).get('active'))),
             **_socials(pair)}
+
+
+def is_dip(c):
+    """📉 Buy the dip: a coin that dropped hard on the day (24h ≤ −25%) and is BOUNCING with buyers — 5m green, 1h no longer
+    falling (≥ −5%), buys ≥ 55% and buys speeding up. A coin still sliding is never a dip-buy."""
+    return (_f(c.get('chg24h')) <= -25 and _f(c.get('chg5m')) >= 2 and _f(c.get('chg1h')) >= -5
+            and _f(c.get('buyShare')) >= 55 and _f(c.get('buysAccel')) >= 1.0)
 
 
 def _socials(pair):
@@ -257,7 +265,9 @@ def score(c, cfg=None):
     bonus = (8.0 if c['snipersOut'] else 0.0) + min(7.0, c['quality'] / 14) + rep_pts
     tier = bond_tier(c, cfg)
     bond = float(clean_cfg(cfg)['bondPts']) * (1.0 if tier == 'run' else 0.5 if tier == 'watch' else 0.0)
-    pts = round(min(100.0, mom + acc + vel + vol + flow + curve + bonus + bond), 1)
+    dip = min(10.0, -_f(c.get('chg24h')) / 6) if is_dip(c) else 0.0              # 📉 bounce off a big drop, buyers back
+    paid = 4.0 if c.get('paid') else 0.0                                          # 💳 DEX paid profile / boosted
+    pts = round(min(100.0, mom + acc + vel + vol + flow + curve + bonus + bond + dip + paid), 1)
     return pts, [{'part': 'momentum', 'points': round(mom, 1), 'why': f"{c['chg1h']:+.0f}% in 1h"},
                  {'part': 'acceleration', 'points': round(acc, 1), 'why': f"{c['chg5m']:+.0f}% in 5m"},
                  {'part': 'velocity', 'points': round(vel, 1), 'why': f"1h volume = {c['vol1h'] / c['mcap'] if c['mcap'] else 0:.1f}× market cap"},
@@ -265,6 +275,8 @@ def score(c, cfg=None):
                  {'part': 'flow', 'points': round(flow, 1), 'why': f"{c['buyShare']}% buys" if c['buyShare'] is not None else 'no flow'},
                  {'part': 'stage', 'points': curve, 'why': f"{c['curve']:.0f}% up the curve" if c['stage'] == 'curve' else 'graduated (own pool)'},
                  *([{'part': 'bond run' if tier == 'run' else 'bond watch', 'points': bond, 'why': f"{c['curve']:.0f}% up the curve, every {'bond run' if tier == 'run' else 'rep-confirmed bond watch'} box ticked"}] if bond else []),
+                 *([{'part': 'dip buy', 'points': round(dip, 1), 'why': f"{_f(c.get('chg24h')):+.0f}% on the day, bouncing {_f(c.get('chg5m')):+.0f}% in 5m with {c['buyShare']}% buys"}] if dip else []),
+                 *([{'part': 'dex paid', 'points': paid, 'why': 'DexScreener profile paid' + (f" · {c.get('boosts')} boosts" if c.get('boosts') else '')}] if paid else []),
                  {'part': 'bonus', 'points': round(bonus, 1), 'why': ('snipers sold out · ' if c['snipersOut'] else '') + f"quality {c['quality']:.0f}" + (f" · creator {c.get('creatorRep')}" if c.get('creatorRep') else '')}]
 
 
@@ -449,7 +461,8 @@ def addon(legs, runners, slice_pct=20.0, n=2):
                     'weight': round(slice_pct / len(rs), 2), 'runner': True, 'lane': r.get('lane'), 'exits': EXITS[r.get('lane') or 'runner']['label']} for r in rs]
 
 
-SOURCES = {'grad': '🎓 Fresh grad', 'bond': '🔔 About to bond', 'watch': '👀 Bond watch', 'arena': '🏟 Arena pick', 'lit': '🔥 Lit card', 'pump': '🚀 Pump scan', 'snipers': '🎯 Snipers out', 'creator': "📣 Creators' pick"}
+SOURCES = {'grad': '🎓 Fresh grad', 'bond': '🔔 About to bond', 'watch': '👀 Bond watch', 'arena': '🏟 Arena pick', 'lit': '🔥 Lit card', 'pump': '🚀 Pump scan', 'snipers': '🎯 Snipers out', 'creator': "📣 Creators' pick",
+           'dip': '📉 Dip buy', 'paid': '💳 Dex paid'}
 
 
 def fresh_grads(dropped):
@@ -464,7 +477,11 @@ def discover(passing, tags, limit=40):
     picks. More independent sources = higher; then score."""
     out = []
     for r in passing:
-        t = tags.get(r['mint']) or {}
+        t = dict(tags.get(r['mint']) or {})
+        if is_dip(r):          # 📉 / 💳 come from the coin itself — every gated coin can earn them, no outside list needed
+            t.setdefault('dip', f"{_f(r.get('chg24h')):+.0f}% day, {_f(r.get('chg5m')):+.0f}% 5m bounce")
+        if r.get('paid'):
+            t.setdefault('paid', 'DexScreener profile paid' + (f" · {r.get('boosts')} boosts" if r.get('boosts') else ''))
         if not t:
             continue
         out.append({**r, 'sources': [{'kind': k, 'label': SOURCES[k], 'detail': v} for k, v in t.items() if k in SOURCES]})

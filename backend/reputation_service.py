@@ -4241,7 +4241,8 @@ async def _fuse_autopilot_tick(now=None):
     await _fuse_season_tick(now)
     await _arena_settle(now=now)
     arena = _json_load(FUSE_HQ_PATH, {}).get('arena') or []
-    styles = [st for st in _fuse.STYLES if _hq.autopilot_due(arena, st, now)]
+    dead = _hq.retired_styles(_hq.arena_board([_hq.arena_value(e, {}, now) for e in arena]))   # ☠ losers: one probe a day, not hourly
+    styles = [st for st in _fuse.STYLES if _hq.autopilot_due(arena, st, now, retired=dead)]
     if styles:
         metas, sol_usd = await asyncio.gather(_fuse_candidates(), _sol_usd_live())
         if len(metas) >= 3:
@@ -4251,7 +4252,7 @@ async def _fuse_autopilot_tick(now=None):
             async with _admin_lock:
                 d = _json_load(FUSE_HQ_PATH, {})
                 for st, c in champs:
-                    if _hq.autopilot_due(d.get('arena') or [], st, now):
+                    if _hq.autopilot_due(d.get('arena') or [], st, now, retired=dead):
                         d['arena'] = ((d.get('arena') or []) + [{**_hq.arena_entry(c, st, prices, now, uuid.uuid4().hex[:10]), 'auto': True}])[-300:]
                 _json_save(FUSE_HQ_PATH, d)
     await _shield_alerts()
@@ -4932,8 +4933,9 @@ async def fuses_prebuilt(request: Request, legs: int = Query(3, ge=2, le=12), bu
     board = {r['style']: r for r in _hq.arena_board([_hq.arena_value(e, {}, time.time()) for e in _json_load(FUSE_HQ_PATH, {}).get('arena') or []])}
     seed = int(time.time() // 300)
     runs = await asyncio.gather(*[asyncio.to_thread(_fuse.evolve, metas, legs, 14, 28, st, key[1] / sol_usd, sol_usd, seed) for st in _fuse.STYLES])
-    cards = [{'style': st, 'arena': board.get(st), **_champ_view(ev['champions'][0], metas)} for st, ev in zip(_fuse.STYLES, runs) if ev['champions']]
-    out = {'legs': legs, 'budgetUsd': key[1], 'solUsd': sol_usd, 'cards': sorted(cards, key=lambda c: -((c['arena'] or {}).get('avgPct') or -999))}
+    dead = _hq.retired_styles(list(board.values()))   # ☠ strategies the arena proved to lose never reach a trader's rail
+    cards = [{'style': st, 'arena': board.get(st), **_champ_view(ev['champions'][0], metas)} for st, ev in zip(_fuse.STYLES, runs) if ev['champions'] and st not in dead]
+    out = {'legs': legs, 'budgetUsd': key[1], 'solUsd': sol_usd, 'retired': sorted(dead), 'cards': sorted(cards, key=lambda c: -((c['arena'] or {}).get('avgPct') or -999))}
     _fuse_prebuilt_cache[key] = (time.time(), out)
     return out
 
@@ -5307,15 +5309,21 @@ async def _prime_candidates():
             raise RuntimeError('tests never fetch live pools')
         have = {r['mint'] for r in runners}
         runners += [{'mint': r.get('baseAddress'), 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'price': r.get('priceUsd'), 'score': 60,
-                     'liquidity': r.get('liquidityUsd'), 'buyShare': r.get('buyShare'), 'change24h': r.get('change24h'), 'newMajor': True}
+                     'liquidity': r.get('liquidityUsd'), 'buyShare': r.get('buyShare'), 'change24h': r.get('change24h'), 'newMajor': True,
+                     'change1h': r.get('change1h'), 'change6h': r.get('change6h'), 'mcap': r.get('mcap'), 'createdAt': r.get('createdAt'), 'volume24h': r.get('volume24h')}
                     for r in (await fuses_discover(lens='risers', chain='solana')).get('pools') or [] if r.get('baseAddress') not in have and _fuse._f(r.get('priceUsd')) > 0]   # 🚀 risers + 🟢 Pump's top 15 by volume (same as the Lab lens)
     except Exception as e:
         if not os.environ.get('PYTEST_CURRENT_TEST'):
             print('new majors:', e)
-    # Anchors: the real majors (SOL first, then JitoSOL / cbBTC / WBTC / ETH) at their deepest Solana pool — stable base of every card.
-    order = ['SOL', 'cbBTC', 'WETH', 'ETH', 'JitoSOL', 'WBTC']
-    maj = {str(r.get('symbol')): r for r in await _majors_rows()}
-    anchors = [{'mint': r.get('baseAddress'), 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'price': r.get('priceUsd'), 'liquidityUsd': r.get('liquidityUsd')} for k in order for r in [maj.get(k)] if r and _fuse._f(r.get('priceUsd')) > 0]
+    # ⚓ Anchors: every real major (BTC, ETH, SOL, JUP, PUMP, BONK, WIF, POPCAT, TRUMP, PENGU, …) + big NEW majors, ranked by what
+    # they are DOING right now (turnover, 1h/6h/24h moves, buyers, depth) — SOL gets no head start; stables / LSTs never anchor
+    nm_rows = [r for r in runners if r.get('newMajor')]
+    risers_a = [{'baseAddress': r['mint'], 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liquidity'),
+                 'mcap': r.get('mcap'), 'createdAt': r.get('createdAt'), 'change1h': r.get('change1h'), 'change6h': r.get('change6h'), 'change24h': r.get('change24h'),
+                 'volume24h': r.get('volume24h'), 'buyShare': r.get('buyShare')} for r in nm_rows]
+    anchors = [{'mint': r.get('baseAddress'), 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'price': r.get('priceUsd'), 'liquidityUsd': r.get('liquidityUsd'),
+                'anchorScore': r.get('anchorScore'), 'anchorWhy': r.get('anchorWhy'), 'volume24h': r.get('volume24h'), **({'newMajor': True} if r.get('newMajor') else {})}
+               for r in _fuse.rank_anchors(await _majors_rows(), risers_a, now_ms=time.time() * 1000)]
     # ARENA-backed coins go first: this round's runner picks, live lit cards, and every coin on a stage / battle card
     rd = _json_load(RUNNERS_PATH, {'rounds': []}); rnd = (rd.get('rounds') or [None])[-1] or {}
     arena = {p.get('mint') for p in rnd.get('picks') or []} | {p.get('mint') for c in rd.get('litCards') or [] if not c.get('downAt') for p in c.get('picks') or []}
@@ -5360,6 +5368,8 @@ async def _contenders_build():
         src = {'majors': majors if isinstance(majors, list) else [], 'risers': (risers.get('pools') if isinstance(risers, dict) else []) or [],
                'fresh': young, 'proven': young,
                **{k: _fuse.discover(pairs, lens, 'solana', now_ms=now * 1000) for k, lens in (('yield', 'yield'), ('deep', 'deep'), ('popular', 'popular'), ('new', 'new'))}}
+        # 📉 dip buys + 💳 dex paid read every pool the site already has (popular · new · risers), no extra fetch
+        src['dip'] = src['paid'] = (_fuse.discover(pairs, 'popular', 'solana', now_ms=now * 1000, limit=120) + src['new'] + src['risers'])
         cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
         on_card = {l.get('mint') for c in cards.values() for l in c.get('legs') or []}
         on_card |= {leg.get(k) for c in (_arena_mega_cache.get('data') or []) for leg in c.get('legs') or [] for k in ('mint', 'baseAddress')}

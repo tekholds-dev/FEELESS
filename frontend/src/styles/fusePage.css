@@ -694,8 +694,6 @@ body.theme-day .fp-mb-live { background: #fff; }
 .bf-side.b .bf-hp > i { transform-origin: right; }
 .bf-side.is-hurt .bf-hp > i { background: linear-gradient(90deg, #a8243f, #ff8fa3); }
 .bf-hp small { position: absolute; inset: 0; display: grid; place-items: center; font: 700 8px var(--m-mono); color: #04140c; mix-blend-mode: screen; }
-.bf-spark { position: absolute; left: 50%; top: 50%; width: 4px; height: 14px; margin: -7px -2px; border-radius: 2px; background: #f5c451; opacity: 0; animation: bfSpark 1.8s ease-out infinite; }
-.bf-spark.s2 { animation-delay: .9s; background: var(--m-accent); }
 .bf-power { display: grid; gap: 5px; padding-top: 4px; }
 
  
@@ -705,10 +703,9 @@ body.theme-day .fp-mb-live { background: #fff; }
 @keyframes bfBob { 50% { transform: translateY(-3px); } }
 @keyframes bfHop { 0%, 100% { transform: translateY(0) scale(1); } 40% { transform: translateY(-7px) scale(1.08); } }
 @keyframes bfHurt { 25% { transform: translateX(-2px) rotate(-4deg); } 75% { transform: translateX(2px) rotate(4deg); } }
-@keyframes bfSpark { 0% { opacity: 0; transform: rotate(var(--r, 30deg)) translateY(0); } 20% { opacity: 1; } 100% { opacity: 0; transform: rotate(var(--r, 30deg)) translateY(-26px); } }
 @keyframes bfBellShake { 25% { transform: rotate(-4deg); } 75% { transform: rotate(4deg); } }
-body.fx-lite .bf-fighter, body.fx-lite .bf-spark, body.fx-lite .bf-bell.is-soon { animation: none; } body.fx-lite .bf-spark { display: none; }
-@media (prefers-reduced-motion: reduce) { .bf-fighter, .bf-spark, .bf-bell.is-soon { animation: none; } .bf-spark { display: none; } .bf-hp > i { transition: none; } }
+body.fx-lite .bf-fighter, body.fx-lite .bf-bell.is-soon { animation: none; }
+@media (prefers-reduced-motion: reduce) { .bf-fighter, .bf-bell.is-soon { animation: none; } .bf-hp > i { transition: none; } }
 
 @media (max-width: 640px) {   .bf-fighter { font-size: 22px; } }
 .pg-listed.is-pick { color: #c08bff; border-color: #c08bff88; } .pg-pick.is-on { background: #c08bff; color: #12061f; border-color: #c08bff; }
@@ -763,7 +760,7 @@ body.theme-day .bf-nextcard { background: #fff; } body.theme-day .bf-call.is-on 
 .bf-c-pct { font-size: 22px; font-style: normal; font-weight: 700; } .bf-corner .bf-hp { width: min(220px, 100%); }
 .bf-mid { display: grid; gap: 10px; justify-items: center; align-content: center; } .bf-mid .bf-vs { font-size: 34px; }
 .bf-mid .bf-tug { position: relative; left: auto; right: auto; bottom: auto; width: 100%; height: 6px; }
-.bf-mid .bf-bars { grid-template-columns: 1fr; width: 100%; margin: 0; } .bf-spark.s3 { animation-delay: .45s; --r: -40deg; background: #c08bff; }
+.bf-mid .bf-bars { grid-template-columns: 1fr; width: 100%; margin: 0; }
 @keyframes bfFloor { to { transform: translate3d(60px, 40px, 0); } }
 @keyframes bfBeamL { 50% { transform: rotate(8deg); } } @keyframes bfBeamR { 50% { transform: rotate(-8deg); } }
 @keyframes bfSpotIn { from { opacity: 0; transform: scale(.94) translateY(8px); } }
@@ -773,7 +770,7 @@ body.theme-day .bf-nextcard { background: #fff; } body.theme-day .bf-call.is-on 
 body.fx-lite .bf-floor, body.fx-lite .bf-beam, body.fx-lite .bf-c-embers, body.fx-lite .bf-c-aura { display: none; } body.fx-lite .bf-corner.is-hit .bf-c-card, body.fx-lite .bf-pair.is-spot { animation: none; }
 @media (prefers-reduced-motion: reduce) { .bf-floor, .bf-beam, .bf-c-embers { display: none; } .bf-c-aura, .bf-corner.is-hit .bf-c-card, .bf-arena .bf-pair.is-spot { animation: none; } .bf-corner { transition: none; } }
 body.theme-day .bf-arena { background: radial-gradient(80% 60% at 50% 0%, #e7dbff 0%, transparent 70%), #f7f4ff; } body.theme-day .bf-tabs button { background: #fff; }
-@media (max-width: 760px) { .bf-arena .bf-pair { grid-template-columns: 1fr 1fr; } .bf-mid { grid-column: 1 / -1; order: 3; } .bf-c-card .fcd { zoom: .48; } .bf-c-pct { font-size: 17px; } }
+@media (max-width: 760px) { .bf-arena .bf-pair { grid-template-columns: 1fr 1fr; } .bf-mid { grid-column: 1 / -1; order: 3; } .bf-c-card .fcd { zoom: .48; } .bf-c-pct { font-size: 17px; } .bf-corner { min-width: 0; } .bf-corner .bf-btns { justify-content: center; } .bf-btns .m-btn { padding: 4px 7px; font-size: 11px; } .bf-arena .bf-c-name b { font-size: 12px; overflow-wrap: anywhere; min-width: 0; text-align: center; } .bf-c-name { min-width: 0; } }
 .ce-spec { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--m-accent) 35%, var(--m-line)); background: var(--m-bg); }
 .ce-spec dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; margin: 0; font-size: 12px; } .ce-spec dt { color: var(--m-dim); } .ce-spec dd { margin: 0; }
 .ce-spec small { font-size: 10.5px; } body.theme-day .ce-spec { background: #fff; }

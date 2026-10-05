@@ -53,6 +53,13 @@ def replay_window(pair, now_ms=None):
     return 0.0, 0
 
 
+def dex_paid(pair):
+    """💳 DEX paid: DexScreener only shows a token's header / image / links once its team PAID for the token profile
+    (Enhanced Token Info) — a cheap, public 'somebody stands behind this' signal. Boosts count too."""
+    info = pair.get('info') or {}
+    return bool(info.get('header') or _f((pair.get('boosts') or {}).get('active')) > 0 or (info.get('imageUrl') and info.get('websites') and info.get('socials')))
+
+
 def leg_meta(pair):
     """What a Fuse card shows per leg, from a DexScreener pair."""
     liq = _f((pair.get('liquidity') or {}).get('usd')); vol = _f((pair.get('volume') or {}).get('h24'))
@@ -63,6 +70,8 @@ def leg_meta(pair):
             'priceUsd': _f(pair.get('priceUsd')), 'liquidityUsd': liq, 'volume24h': vol, 'change24h': _f((pair.get('priceChange') or {}).get('h24')),
             'aprEst': round(vol * DEX_FEE_EST / liq * 365 * 100, 1) if liq > 0 else 0.0, 'turnover': round(vol / liq, 2) if liq > 0 else 0.0,
             'buyShare': round(buys / (buys + sells) * 100) if buys + sells else None, 'dex': pair.get('dexId'), 'url': pair.get('url'),
+            'change1h': _f((pair.get('priceChange') or {}).get('h1')), 'change6h': _f((pair.get('priceChange') or {}).get('h6')),
+            'paid': dex_paid(pair), 'boosts': int(_f((pair.get('boosts') or {}).get('active'))),
             **dict(zip(('replayPct', 'replayH'), replay_window(pair)))}
 
 
@@ -193,7 +202,21 @@ STYLES = {   # weights for (grade points 0–100, APR 0–100 scaled, momentum 2
     'momentum': {'grade': .30, 'apr': .15, 'momo': .45, 'calm': .10},
     'steady': {'grade': .55, 'apr': .15, 'momo': .0, 'calm': .30},
     'degen': {'grade': .15, 'apr': .40, 'momo': .45, 'calm': .0},
+    # 📉 buy the dip: coins down on the day whose buyers are back (1h green, buys ≥ 55%) — the bounce, never a falling knife
+    'dip': {'grade': .30, 'apr': .10, 'momo': .0, 'calm': .0, 'dip': .60},
+    # 💳 pump meta: momentum + DEX-paid profiles / boosts (a team paid to be seen) + real flow
+    'meta': {'grade': .25, 'apr': .10, 'momo': .35, 'calm': .0, 'paid': .30},
 }
+
+
+def dip_score(m):
+    """0–100 per coin: how good a dip-buy it is right now. Needs a real drop (24h ≤ −8%) AND buyers back (1h ≥ 0, buys ≥ 55%);
+    a coin still dumping (1h red or sellers in charge) only gets 30% of the points."""
+    ch = _f(m.get('change24h'))
+    if ch > -8:
+        return 0.0
+    back = _f(m.get('change1h')) >= 0 and _f(m.get('buyShare')) >= 55
+    return round(min(40.0, -ch) * 2.5 * (1.0 if back else 0.3), 1)
 NET_FEE_SOL = 0.0001          # ≈ base + capped priority fee per swap (estimate for fee drag)
 
 
@@ -220,9 +243,13 @@ def fitness(genome, metas, style='yield', sol=0.05, sol_usd=150.0):
     drag = (NET_FEE_SOL * len(genome)) / sol * 100 if sol > 0 else 100.0          # % of the buy lost to network fees
     bases = [metas[pa].get('baseAddress') or metas[pa].get('symbol') for pa in genome]
     dupes = len(bases) - len(set(bases))
-    f = st['grade'] * sc['points'] + st['apr'] * apr + st['momo'] * momo * 2 + st['calm'] * calm - 15 * impact - 10 * dupes - min(40.0, drag * 2)
+    dip = sum(w[pa] * dip_score(metas[pa]) for pa in genome)
+    paid = sum(w[pa] * (100.0 if metas[pa].get('paid') else 0.0) for pa in genome)
+    f = (st['grade'] * sc['points'] + st['apr'] * apr + st['momo'] * momo * 2 + st['calm'] * calm + st.get('dip', 0) * dip + st.get('paid', 0) * paid
+         - 15 * impact - 10 * dupes - min(40.0, drag * 2))
     return {'fitness': round(f, 2), 'parts': {'grade': sc['grade'], 'points': sc['points'], 'aprScore': round(apr, 1), 'momentum24h': round(momo, 2),
-                                             'calm': round(calm, 1), 'impactLegs': impact, 'dupes': dupes, 'feeDragPct': round(drag, 2)}}
+                                             'calm': round(calm, 1), 'impactLegs': impact, 'dupes': dupes, 'feeDragPct': round(drag, 2),
+                                             'dipScore': round(dip, 1), 'paidPct': round(paid)}}
 
 
 def evolve(metas, legs=3, generations=12, population=24, style='yield', sol=0.05, sol_usd=150.0, seed=7, seeds=()):
@@ -281,7 +308,24 @@ MAJORS = {   # mint → (symbol, name)
     '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R': ('RAY', 'Raydium'),
     'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': ('BONK', 'Bonk'),
     'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm': ('WIF', 'dogwifhat'),
+    # big movers that are majors on Solana now (deep pools, real volume) — anchors that actually MOVE
+    'pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn': ('PUMP', 'Pump.fun'),
+    '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr': ('POPCAT', 'Popcat'),
+    '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN': ('TRUMP', 'Official Trump'),
+    '2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv': ('PENGU', 'Pudgy Penguins'),
+    '9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump': ('FARTCOIN', 'Fartcoin'),
+    'rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof': ('RENDER', 'Render'),
+    'hntyVP6YFm1Hg25TN9WGLqM12b8TQmcknKrdu1oxWux': ('HNT', 'Helium'),
+    '85VBFQZC9TZkfaptBWjvUw7YbZjy52A6mjtPGjstQAmQ': ('W', 'Wormhole'),
+    'orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE': ('ORCA', 'Orca'),
+    'DriFtupJYLTosbwoN8koMbEYSx54aFAVLddWsbksjwg7': ('DRIFT', 'Drift'),
+    'MEW1gQWJ3nEXg2qgERiKu7FAFj79PHvQVREQUzScPP5': ('MEW', 'cat in a dogs world'),
+    'HeLp6NuQkmYB4pYWo2zYs22mESHXPQYzXbB8n4V98jwC': ('AI16Z', 'ai16z'),
+    'ED5nyyWEzpPPiWimP8vYm7sD7TD3LAt3Q3gRTWHzPJBY': ('MOODENG', 'Moo Deng'),
+    '63LfDmNb3MQ8mw9MtZ2To9bEA2M71kZUUGq5tiJxcqj9': ('GIGA', 'GIGACHAD'),
 }
+# Majors that never act as a card ANCHOR: stables and liquid-staked SOL track a peg, so a card sitting in them "never moves".
+ANCHOR_SKIP = {'USDC', 'JitoSOL'}
 MAJOR_ALIASES = {'BTC': {'cbBTC', 'WBTC'}, 'BITCOIN': {'cbBTC', 'WBTC'}, 'ETH': {'ETH'}, 'ETHEREUM': {'ETH'}, 'WETH': {'ETH'}, 'SOL': {'SOL', 'JitoSOL'}, 'SOLANA': {'SOL'}}
 
 
@@ -345,3 +389,35 @@ def pump_majors(pairs, have=(), top=15, min_mcap=300_000, min_liq=50_000):
             best[b] = p
     rows = sorted(best.values(), key=lambda p: -_f((p.get('volume') or {}).get('h24')))[:top]
     return [{'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'createdAt': p.get('pairCreatedAt'), 'mcap': _f(p.get('marketCap') or p.get('fdv')), 'pump': True, **leg_meta(p)} for p in rows]
+
+
+def rank_anchors(majors, risers=(), now_ms=0, max_new=4, min_liq=250_000):
+    """⚓ The anchor basket, ranked by what the coin is DOING — never by name (SOL gets no head start). Real majors (not stables /
+    LSTs, `ANCHOR_SKIP`) + big NEW majors (risers ≥ $5M mcap, ≥ $300K pool, ≥ 1 day old, at most `max_new`). Score = turnover
+    (24h volume ÷ pool) + how much it moves (1h / 6h / 24h, either way) + buyers in charge + depth; a coin falling hard (24h ≤ −15%)
+    pays 15. Each row carries `anchorScore` + the cited `anchorWhy`."""
+    rows = []
+    def score(r):
+        liq, turn = _f(r.get('liquidityUsd')), _f(r.get('turnover')) or (_f(r.get('volume24h')) / _f(r.get('liquidityUsd')) if _f(r.get('liquidityUsd')) else 0.0)
+        c1, c6, c24, bs = _f(r.get('change1h')), _f(r.get('change6h')), _f(r.get('change24h')), _f(r.get('buyShare'))
+        parts = [('turnover', min(30.0, turn * 15), f"volume {turn:.1f}× its pool"), ('moving', min(20.0, abs(c1) * 4) + min(15.0, abs(c6) * 1.5) + min(25.0, abs(c24) * 1.5),
+                 f"1h {c1:+.1f}% · 6h {c6:+.1f}% · 24h {c24:+.1f}%"), ('buyers', 5.0 if bs >= 52 else 0.0, f"{bs:.0f}% buys"),
+                 ('depth', max(0.0, min(10.0, 5 * math.log10(liq / min_liq))) if liq > min_liq else 0.0, f"${liq / 1e6:.1f}M pool")]
+        if c24 <= -15:
+            parts.append(('falling', -15.0, f"24h {c24:+.0f}% — falling knife"))
+        return round(sum(p for _, p, _ in parts), 1), [{'part': k, 'points': round(p, 1), 'why': w} for k, p, w in parts if p]
+    for r in majors or []:
+        if str(r.get('symbol')) in ANCHOR_SKIP or _f(r.get('priceUsd')) <= 0 or _f(r.get('liquidityUsd')) < min_liq:
+            continue
+        sc, why = score(r)
+        rows.append({**r, 'anchorScore': sc, 'anchorWhy': why})
+    have = {r.get('baseAddress') for r in rows}
+    new = []
+    for r in risers or []:
+        old_enough = not now_ms or not r.get('createdAt') or (now_ms - _f(r.get('createdAt'))) >= 8.64e7
+        if r.get('baseAddress') in have or _f(r.get('priceUsd')) <= 0 or _f(r.get('mcap')) < 5_000_000 or _f(r.get('liquidityUsd')) < 300_000 or not old_enough:
+            continue
+        sc, why = score(r)
+        new.append({**r, 'anchorScore': sc, 'anchorWhy': why, 'newMajor': True})
+    new = sorted(new, key=lambda r: -r['anchorScore'])[:max_new]
+    return sorted(rows + new, key=lambda r: -r['anchorScore'])

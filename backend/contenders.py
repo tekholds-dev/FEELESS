@@ -8,7 +8,7 @@ import math
 
 # key → (label, one-line rule shown on screen, role the seat feeds on a card)
 DIVISIONS = {
-    'majors':   ('🪙 Anchors', 'The real majors, ranked by the volume they bring in', 'anchor'),
+    'majors':   ('🪙 Anchors', 'The real majors, ranked by volume and how much they are moving', 'anchor'),
     'risers':   ('🚀 New majors', 'Young coins that arrived big: ≤14 days, real volume, deep pool', 'runner'),
     'yield':    ('💸 Top yield', 'Busiest pools for their size (pool APR), $50K+ deep', 'pool'),
     'deep':     ('🌊 Deepest', 'The deepest pools still trading', 'pool'),
@@ -16,6 +16,8 @@ DIVISIONS = {
     'fresh':    ('⚡ Fresh runners', 'Under 12h old, passing every gate and pumping now', 'runner'),
     'proven':   ('🏃 Proven runners', '12h+ old, passing every gate and still pumping', 'runner'),
     'new':      ('🆕 New 72h', 'Pools born in the last 72 hours with real flow', 'pool'),
+    'dip':      ('📉 Dip buys', 'Down 8%+ on the day and buyers are back: 1h green, 55%+ buys', 'pool'),
+    'paid':     ('💳 Dex paid', 'A team paid for its DexScreener profile / boosts, with real flow', 'pool'),
 }
 STABLES = {'USDC', 'USDT', 'USDS', 'PYUSD', 'USD1', 'DAI', 'USDE', 'FDUSD'}
 TOP_N = 6
@@ -44,8 +46,9 @@ def norm(row):
     bs = _f(row.get('buyShare')); bs = bs * 100 if 0 < bs <= 1 else bs
     return {'mint': row.get('baseAddress') or row.get('mint'), 'pairAddress': row.get('pairAddress'), 'symbol': row.get('symbol'), 'logo': row.get('logo'),
             'price': _f(row.get('priceUsd', row.get('price'))), 'liq': _f(liq), 'vol24h': _f(row.get('volume24h')), 'vol1h': _f(row.get('vol1h')),
-            'chg24h': _f(row.get('change24h', row.get('chg24h'))), 'chg1h': _f(row.get('chg1h')), 'buyShare': bs, 'apr': _f(row.get('aprEst')),
-            'ageH': row.get('ageH'), 'runnerScore': _f(row.get('score')), 'mcap': _f(row.get('mcap'))}
+            'chg24h': _f(row.get('change24h', row.get('chg24h'))), 'chg1h': _f(row.get('chg1h', row.get('change1h'))), 'buyShare': bs, 'apr': _f(row.get('aprEst')),
+            'ageH': row.get('ageH'), 'runnerScore': _f(row.get('score')), 'mcap': _f(row.get('mcap')),
+            'paid': bool(row.get('paid')), 'boosts': int(_f(row.get('boosts')))}
 
 
 def pumping(r):
@@ -65,9 +68,15 @@ def score(r, div):
         add('buyers', max(0.0, min(15.0, (r['buyShare'] - 50) * 0.6)), f"{r['buyShare']:.0f}% buys")
         add('volume', 10 * _log(r['vol1h'], 5_000, 500_000), f"${r['vol1h']:,.0f} traded in 1h")
     elif div == 'majors':
-        add('volume', 60 * _log(r['vol24h'], 100_000, 500_000_000), f"${r['vol24h']:,.0f} traded today")
-        add('depth', 25 * _log(r['liq'], 100_000, 50_000_000), f"${r['liq']:,.0f} pool")
+        add('volume', 45 * _log(r['vol24h'], 100_000, 500_000_000), f"${r['vol24h']:,.0f} traded today")
+        add('depth', 20 * _log(r['liq'], 100_000, 50_000_000), f"${r['liq']:,.0f} pool")
+        add('moving', min(20.0, abs(r['chg24h']) * 1.5 + abs(r['chg1h']) * 3), f"{r['chg24h']:+.1f}% today · {r['chg1h']:+.1f}% 1h")   # a major that sits still is a weak anchor
         add('trend', max(0.0, min(15.0, 7.5 + r['chg24h'] * 1.5)), f"{r['chg24h']:+.1f}% today")
+    elif div == 'dip':
+        add('the dip', min(40.0, -r['chg24h']), f"{r['chg24h']:+.0f}% on the day")
+        add('bounce', min(20.0, r['chg1h'] * 2), f"{r['chg1h']:+.1f}% in 1h")
+        add('buyers', max(0.0, min(20.0, (r['buyShare'] - 50) * 1.5)), f"{r['buyShare']:.0f}% buys")
+        add('depth', 20 * _log(r['liq'], 50_000, 5_000_000), f"${r['liq']:,.0f} pool")
     elif div == 'yield':
         add('pool APR', 55 * _log(r['apr'], 20, 5_000), f"{r['apr']:,.0f}% pool APR")
         add('depth', 25 * _log(r['liq'], 50_000, 5_000_000), f"${r['liq']:,.0f} pool")
@@ -75,7 +84,9 @@ def score(r, div):
     elif div == 'deep':
         add('depth', 65 * _log(r['liq'], 100_000, 50_000_000), f"${r['liq']:,.0f} pool")
         add('volume', 35 * _log(r['vol24h'], 50_000, 100_000_000), f"${r['vol24h']:,.0f} traded today")
-    else:   # popular · risers · new
+    else:   # popular · risers · new · paid
+        if div == 'paid':
+            add('dex paid', 10.0 + min(10.0, r['boosts'] / 10), 'DexScreener profile paid' + (f" · {r['boosts']} boosts" if r['boosts'] else ''))
         add('volume', 45 * _log(r['vol24h'], 50_000, 50_000_000), f"${r['vol24h']:,.0f} traded today")
         add('trend', max(0.0, min(25.0, r['chg24h'] * 0.25)), f"{r['chg24h']:+.0f}% today")
         add('buyers', max(0.0, min(15.0, (r['buyShare'] - 45) * 1.0)), f"{r['buyShare']:.0f}% buys")
@@ -94,6 +105,10 @@ def eligible(r, div):
         return r.get('ageH') is not None and _f(r['ageH']) >= PROVEN_H and pumping(r)
     if div == 'yield':
         return r['liq'] >= 50_000 and r['apr'] > 0
+    if div == 'dip':
+        return r['liq'] >= 50_000 and r['chg24h'] <= -8 and r['chg24h'] > -70 and r['chg1h'] >= 0 and r['buyShare'] >= 55
+    if div == 'paid':
+        return r['paid'] and r['liq'] >= 25_000 and r['vol24h'] >= 50_000 and r['buyShare'] >= 50
     if div in ('deep', 'popular', 'risers', 'new'):
         return r['liq'] >= 25_000
     return True
