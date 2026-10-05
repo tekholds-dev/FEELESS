@@ -42,7 +42,7 @@ export function FuseExplainer({ admin = false }) {
 const KEY = 'feeless-fuse-deck';
 const money = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0).toFixed(2)}`;
 // Overview tiles: one live number per panel where FEELESS has it (from the deck's own HQ poll — no extra requests)
-const TILE_STAT = { hq: h => (h ? money(h.book.pnlUsd) : null), pub: h => (h ? `${h.published} published` : null), lab: h => (h ? `${h.bloodline.length} in bloodline` : null),
+const TILE_STAT = { hq: h => (h ? money(h.book.pnlUsd) : null), lab: h => (h ? `${h.bloodline.length} in bloodline` : null),
   arena: h => (h?.outlook?.style ? `$1 → $${h.outlook.per1.toFixed(2)}` : null) };
 export function FuseDeck({ panels, call }) {
   const read = () => { try { return localStorage.getItem(KEY) || 'map'; } catch { return 'map'; } };

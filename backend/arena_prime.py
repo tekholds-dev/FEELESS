@@ -506,10 +506,10 @@ def deal(tid, pools, runners, cfg, now, anchors=(), usd=None, keep=None, shape=N
     picks = fit_size(picks, size, cfg.get('minCoinUsd'))   # 🪙 small cards hold fewer coins (each coin stays big enough for its fees)
     each = size / len(picks)
     base = {'id': f'prime-{tid}', 'tpl': tid, 'label': t['label'], 'at': now, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
-            'events': [], 'startUsd': cfg['sizeUsd'], 'dayAt': now, 'dayStartUsd': cfg['sizeUsd'], 'days': [], 'lowPct': 0.0}
+            'events': [], 'startUsd': size, 'dayAt': now, 'dayStartUsd': size, 'days': [], 'lowPct': 0.0}   # a fresh card starts at the $ it was dealt with
     c = {**base, **(keep or {})}
     c.update(lastRotateAt=now, legs=[_leg(x, each, now, r) for x, r in picks], cash=0.0, flooredAt=None)
-    c['startUsd'] = (keep or {}).get('startUsd', cfg['sizeUsd'])
+    c['startUsd'] = (keep or {}).get('startUsd', size)
     c['feesUsd'] = round(_f(c['feesUsd']) + cfg['paperFeeUsd'] * len(picks), 4)
     c['events'] = list(c['events']) + [{'kind': 'phase' if shape else 'deal', 'at': now, 'n': len(picks), 'why': PHASES[shape]['why'] if shape else ('re-dealt after the floor' if keep else 'fresh card')}]
     if shape:

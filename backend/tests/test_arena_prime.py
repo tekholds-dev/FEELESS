@@ -929,3 +929,11 @@ def test_every_tier_plays_its_own_round_clock():
     assert len(set(clocks)) == len(clocks) == 5 and ap.tier_cfg(cfg, 'degen')['rotateHours'] == 0.08          # five tiers, five clocks
     assert ap.tier_cfg(ap.clean_cfg({'clocks': {'degen': 1}}), 'degen')['rotateHours'] == 1.0                 # the owner's pick per tier
     assert ap.tier_cfg(cfg, 'nope')['rotateHours'] == 0.25 and cfg['rotateHours'] == 0.25                     # unknown tier → shared · input untouched
+
+
+def test_fresh_card_dealt_with_an_amount_starts_at_that_amount():
+    cfg = ap.clean_cfg({})
+    anchors = [C('SOL', 1, 'SOL')]
+    c = ap.deal('degen', [], [R('R1', 1), R('R2', 1)], cfg, 0, anchors, usd=10.0)
+    assert c['startUsd'] == 10.0 and c['dayStartUsd'] == 10.0     # never the $100 default: that read −90% and tripped the floor
+    assert ap.deal('degen', [], [R('R1', 1)], cfg, 0, anchors, usd=10.0, keep={'startUsd': 55.0})['startUsd'] == 55.0

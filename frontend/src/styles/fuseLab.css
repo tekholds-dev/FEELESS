@@ -152,7 +152,8 @@ body.theme-day .fpn-row, body.theme-day .fhq-tile, body.theme-day .fcc { backgro
 /* HQ deck: matches cc-block (near-black, mono caps, green hairline glow). */
 .fdeck { display: grid; gap: 14px; padding: 16px; border: 1px solid var(--cc-line, var(--m-line)); border-radius: 14px; background: linear-gradient(rgba(22, 214, 127, .03) 1px, transparent 1px) 0 0 / 100% 18px, #050a07; box-shadow: var(--cc-glow, none); }
 .fdeck-head { display: grid; gap: 10px; } .fdeck-head h3 { margin: 4px 0 0; font-size: 22px; }
-.fdeck-body { display: grid; gap: 14px; animation: mCardIn .22s var(--m-ease); }
+.fdeck-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; animation: mCardIn .22s var(--m-ease); }
+.fdeck-body > * { min-width: 0; }
 .fdeck .fl.is-admin, .fdeck .fhq { background: #040806; }
 .fdeck .fz-builder, .fdeck .cc-block { margin: 0; }
 body.theme-day .fdeck { background: var(--m-surface-2); } body.theme-day .fdeck .fl.is-admin, body.theme-day .fdeck .fhq { background: var(--m-surface); }
