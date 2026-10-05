@@ -48,7 +48,7 @@ DATA_DIR.mkdir(exist_ok=True)
 STORE_PATH = DATA_DIR / 'reputation.json'
 
 # Solana RPC pool + retrying client live in chain_rpc.py (one module per job); imported here so every caller is unchanged.
-from chain_rpc import RPC_POOL, RPC_COOLDOWN_SECONDS, RPC_MAX_RETRIES, _alchemy, _dedicated, _rpc_cooldown_until, _next_rpc_endpoint, _rpc, broadcast as _rpc_broadcast, rpc_priority as _krpc  # noqa: F401
+from chain_rpc import quota_state as _rpc_quota_state, RPC_POOL, RPC_COOLDOWN_SECONDS, RPC_MAX_RETRIES, _alchemy, _dedicated, _rpc_cooldown_until, _next_rpc_endpoint, _rpc, broadcast as _rpc_broadcast, rpc_priority as _krpc  # noqa: F401
 
 RUG_LIQUIDITY_DROP_PCT = 80          # % drop from peak liquidity counted as a rug signal
 RUG_MIN_AGE_SECONDS = 60 * 30        # token must have existed >=30min to be eligible to be flagged
@@ -5384,7 +5384,9 @@ async def _trench_build(now):
     _trench_cache['at'] = now
     live = await _runner_live()
     seen, pool = set(), []
-    loose = _trench.widen(len(_trench.WIDEN) - 1)   # finalists by the LOOSEST soft checks; the strictest level that passes wins
+    own0 = _trench.clean_own((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg'))
+    # finalists by the LOOSEST soft checks (the strictest level that passes wins) — or by the owner's own checks
+    loose = _trench.own_gate(own0) if own0['mode'] == 'own' else _trench.widen(len(_trench.WIDEN) - 1)
     every = list(_runner_cands) or (live.get('passing') or []) + (live.get('dropped') or [])
     _trench_cache['seen'], _trench_cache['funnel'] = len(every), _trench.funnel(every, loose)[:8]   # 🔎 why coins didn't make it
     for r in every:
@@ -5400,9 +5402,16 @@ async def _trench_build(now):
             return None
         return r, (h or {}).get('holders'), auth
     got = [x for x in await asyncio.gather(*[one(r) for r in pool]) if x]
+    own = _trench.clean_own((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg'))
+    if own['mode'] == 'own':   # 🎛 the owner's own soft checks (crowd, trades, volume, cap band, age) — the safety checks never move
+        g_own = _trench.own_gate(own)
+        res = [(g, *_trench.gate(g[0], g[1], g[2], g_own)) for g in got]
+        rows = [{**_trench_row(g[0], g[1], g[2], g_own), 'trenchLevel': 'own'} for g, _ok, _f in res]
+        _trench_cache.update(rows=[x for x in rows if x['ok']], checked=rows, level='own', own=own)
+        return _trench_cache
     lvl, res = _trench.best_level(got, lambda g, cfg: _trench.gate(g[0], g[1], g[2], cfg))
     rows = [{**_trench_row(g[0], g[1], g[2], _trench.widen(lvl or 0)), 'trenchLevel': lvl or 0} for g, _ok, _f in res]
-    _trench_cache.update(rows=[x for x in rows if x['ok']], checked=rows, level=lvl)
+    _trench_cache.update(rows=[x for x in rows if x['ok']], checked=rows, level=lvl, own=own)
     return _trench_cache
 
 
@@ -5410,8 +5419,9 @@ async def _trench_build(now):
 async def fuse_trench():
     """🗑 The trench scan's latest finalists (coin data only): holders, market cap, age and every check passed / failed."""
     keys = ('mint', 'symbol', 'pairAddress', 'price', 'liq', 'holders', 'mcap', 'ageH', 'vol1h', 'buyShare', 'ok', 'fails', 'trenchWhy', 'trenchScore', 'trenchLevel')
-    g = _trench.widen(_trench_cache.get('level') or 0)
-    return {'checked': [{k: r.get(k) for k in keys} for r in _trench_cache.get('checked') or []], 'pass': len(_trench_cache.get('rows') or []),
+    own = _trench.clean_own((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg'))
+    g = _trench.own_gate(own) if own['mode'] == 'own' else _trench.widen(_trench_cache.get('level') if isinstance(_trench_cache.get('level'), int) else 0)
+    return {'cfg': own, 'options': _trench.OWN_OPTIONS, 'checked': [{k: r.get(k) for k in keys} for r in _trench_cache.get('checked') or []], 'pass': len(_trench_cache.get('rows') or []),
             'rows': [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'trench': True} for r in _trench_cache.get('rows') or []],   # 🗑 pickable
             'floor': _fw.clean_cfg(_fw_load().get('cfg') or {})['trenchMinLiqUsd'], 'level': _trench_cache.get('level'),
             'seen': _trench_cache.get('seen', 0), 'funnel': _trench_cache.get('funnel') or [],
@@ -5592,6 +5602,10 @@ async def _prime_bell_loop():
                        (_fuse._f(c.get('lastRotateAt')) + rot_of(c) + _prime.BELL_SEC - (_fuse._f(rcfg.get('dealLeadSec')) if c.get('real') else 0))
                        for c in cards.values() if c.get('lastRotateAt')), default=time.time() + 60)
             wait = due - time.time()
+            kick = _FW_KICK.get('at')   # ⏳ a real buy was just refused → re-pick that seat 15s later (never a whole tick later)
+            if kick and time.time() >= kick + _fw.RETRY_SEC:
+                _FW_KICK.pop('at', None)
+                wait = min(wait, 0.0)
             if 0.5 < wait <= 12:   # 🔔 inside the 10s countdown: warm the candidates + prices now, so the re-deal is instant at 0
                 await _prime_candidates()
                 await asyncio.sleep(max(0.0, due - time.time()))
@@ -5599,6 +5613,8 @@ async def _prime_bell_loop():
             if wait <= 0.5:
                 await _prime_tick(time.time())
                 wait = 5
+            if _FW_KICK.get('at'):
+                wait = min(wait, _FW_KICK['at'] + _fw.RETRY_SEC - time.time())
             await asyncio.sleep(max(1.0, min(60.0, wait + 0.2)))
         except Exception as e:
             print('prime bell:', e)
@@ -5728,14 +5744,15 @@ async def _prime_tick_inner(now):
         bench = set().union(*[_fw.benched(b, now) for b in (_fw_load().get('books') or {}).values()] or [set()])
         if bench:
             p_t, r_t = [x for x in p_t if x.get('mint') not in bench], [x for x in r_t if x.get('mint') not in bench]
-        stuck = set(_fw.stuck_buys(cur, now, bench)) if cur and cur.get('real') else set()
+        book_s = (_fw_load().get('books') or {}).get(tid) or {} if cur and cur.get('real') else {}
+        stuck = set(_fw.stuck_buys(cur, now, bench, missed=book_s.get('misses'), pending_mint=(book_s.get('pending') or {}).get('mint'))) if cur and cur.get('real') else set()
         if stuck:   # ⏳ the real card swaps a coin whose buy can't land (benched, or still 'buying' after 10 min) for a buyable one NOW
             before_ = cur
             for pa in stuck:
                 l = next((x for x in cur['legs'] if x.get('pairAddress') == pa), None)
                 if not l:
                     continue
-                why_s = "couldn't be bought safely — benched" if l.get('mint') in bench else 'buy never landed in 10 min'
+                why_s = "couldn't be bought safely — benched" if l.get('mint') in bench else "buy was refused — trying the next best coin" if l.get('mint') in (book_s.get('misses') or {}) else 'buy never landed in 2 min'
                 try:
                     tmp = {**cur, 'legs': [{**x, 'units': _fuse._f(x.get('wantUnits'))} if x is l else x for x in cur['legs']]}
                     cur = _prime.replace_leg(tmp, pa, px, p_t, r_t, anchors, cfg_t, now)
@@ -5940,6 +5957,11 @@ async def fuse_prime_admin(request: Request):
                 b_['misses'] = {}   # every coin gets fresh retries (benched coins stay benched — they really failed the safety checks)
                 b_['manualCashSol'] = 0.0   # 🔧 held cash goes back to work: Fix = "use this card's money" (✂ again to hold some apart)
                 _fw_save(fd)
+    if isinstance(body.get('trenchCfg'), dict):   # 🎛 the owner's trench settings (auto = engine widens by itself · own = these numbers)
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {}); d.setdefault('prime', {})['trenchCfg'] = _trench.clean_own(body['trenchCfg'])
+            _json_save(FUSE_HQ_PATH, d)
+        _trench_cache['at'] = 0.0   # re-scan with the new rules on the next warm pass
     pk = body.get('pickSwap') or {}
     if pk.get('tpl') in _prime.TEMPLATES and pk.get('pairAddress'):   # 🎯 the owner picks WHICH coin comes in at the next round (or cancels)
         cand = None
@@ -6124,13 +6146,70 @@ async def _fw_quote(order, cfg):
     return await _fw_jup('GET', '/swap/v1/quote', params=q)
 
 
+async def _fw_secure_buy(order, cfg, q):
+    """🛡 A buy quote is safe when it is near the market price AND the coins really sell straight back (both read-only quotes).
+    → (ok, why, sell-back %)"""
+    try:
+        back = await _fw_jup('GET', '/swap/v1/quote', params={'inputMint': order['mint'], 'outputMint': _fw.SOL_MINT, 'amount': str(q.get('outAmount')), 'slippageBps': str(cfg['slippageBps'])})
+        back_l = _fuse._f(back.get('outAmount'))
+    except HTTPException:
+        back_l = None
+    try:   # market = Jupiter's own price (what routes really pay); a DexScreener pair can lag on young coins
+        jp = _fuse._f(((await _jup_prices([order['mint']])) or {}).get(order['mint']))
+    except Exception:
+        jp = 0.0
+    ok_s, why_s = _fw.buy_safety({**order, 'midPx': jp or order.get('midPx')}, q.get('outAmount'), await _mint_decimals(order['mint']), back_l)
+    return ok_s, why_s, None if back_l is None else round((back_l / max(1, order['lamports']) - 1) * 100, 2)
+
+
+async def _fw_preflight(tid, buys, cfg, now):
+    """🔒 Before a swap SELLS anything: can each new coin really be bought? Live pool (one fresh call for all), the owner's limits,
+    then a real quote + the secure-buy checks. A coin that fails is booked as a refused buy (→ benched / re-picked) and returned, so
+    the keeper keeps the old coin instead of selling it into cash. Read-only: nothing is signed here."""
+    bad, live = set(), {}
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            mr = await http.get('https://api.dexscreener.com/latest/dex/pairs/solana/' + ','.join(sorted({str(o.get('pair')) for o in buys if o.get('pair')})[:12]))
+        live = {p.get('pairAddress'): p for p in ((mr.json() if mr.status_code == 200 else {}) or {}).get('pairs') or [] if p}
+    except Exception:
+        return bad   # no reading = no verdict here: the buy's own final gate still fails closed
+    for o in buys:
+        row = {**o, 'card': tid, 'status': 'skipped', 'at': now}
+        ok, why, snap = _fw.live_buy_market(o, live.get(o.get('pair')), cfg)
+        row.update(snap)
+        if ok:
+            ok, why = _fw.check(row, cfg, _fw_load().get('ledger'), now)
+            if not ok and any(x in why for x in _FW_NOT_COIN):
+                continue   # a cap / pause is not the coin's fault — nothing to hold a sell for
+        if ok and o.get('lamports', 0) > 0:
+            try:
+                q = await _fw_quote(o, cfg)
+                ok, why, _back = await _fw_secure_buy(o, cfg, q)
+                if ok and _fuse._f(q.get('priceImpactPct')) * 100 > cfg['maxImpactPct']:
+                    ok, why = False, f"price impact {_fuse._f(q.get('priceImpactPct')) * 100:.2f}% > {cfg['maxImpactPct']:g}%"
+            except HTTPException as e:
+                if any(x in str(e.detail) for x in _FW_NOT_COIN):
+                    continue
+                ok, why = False, str(e.detail)[:140]
+        if not ok:
+            bad.add(o['mint'])
+            row['err'] = f'{why} — checked before selling, the old coin is kept'[:160]
+            async with _fw_lock:
+                d = _fw_load()
+                if not _fw.logged_recently(d.get('ledger'), row, now, 120):
+                    _fw_record(d, row); _fw_save(d)
+    return bad
+
+
 def _fw_keep(d, tid, book):
     """Save a card's book without losing the miss / bench counts written meanwhile by _fw_record."""
     old = (d.get('books') or {}).get(tid) or {}
     return {**book, 'misses': old.get('misses', book.get('misses') or {}), 'benched': old.get('benched', book.get('benched') or {})}
 
 
-_FW_NOT_COIN = ('not armed', 'paused', 'per-swap cap', 'daily cap', 'No Fuse wallet', 'signing not available', 'RPC pool', 'live market unavailable')
+_FW_NOT_COIN = ('not armed', 'paused', 'per-swap cap', 'daily cap', 'No Fuse wallet', 'signing not available', 'RPC pool', 'live market unavailable',
+                '(HTTP 429)', '(HTTP 5')   # … and a busy Jupiter is never the coin's fault
+_FW_KICK: dict = {}   # {'at': when a real buy was refused / failed} → the round loop re-picks that seat RETRY_SEC later, not a tick later
 
 
 def _fw_record(d, row):
@@ -6138,6 +6217,7 @@ def _fw_record(d, row):
             and not any(x in str(row.get('err') or '') for x in _FW_NOT_COIN):   # 🪑 a coin that keeps failing its buy gets benched
         b, out = _fw.note_miss(d['books'][row['card']], row['mint'], _fuse._f(row.get('at')) or time.time(), str(row.get('err') or ''))
         d['books'][row['card']] = b
+        _FW_KICK['at'] = _fuse._f(row.get('at')) or time.time()
         if out:
             print(f"fuse wallet: benched {row.get('symbol')} for 1h — {row.get('err')}")
     if row.get('id') and any(r.get('id') == row['id'] and r.get('status') == row.get('status') for r in (d.get('ledger') or [])[-50:]):
@@ -6198,17 +6278,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
                 await asyncio.sleep(1.5)
         row['impactPct'] = round(_fuse._f(q.get('priceImpactPct')) * 100, 3); row['quoteOut'] = q.get('outAmount')
         if order['side'] == 'buy':   # 🛡 secure buy: near market price + it really sells back (both read-only quotes)
-            try:
-                back = await _fw_jup('GET', '/swap/v1/quote', params={'inputMint': order['mint'], 'outputMint': _fw.SOL_MINT, 'amount': str(q.get('outAmount')), 'slippageBps': str(cfg['slippageBps'])})
-                back_l = _fuse._f(back.get('outAmount'))
-            except HTTPException:
-                back_l = None
-            try:   # market = Jupiter's own price (what routes really pay); a DexScreener pair can lag on young coins
-                jp = _fuse._f(((await _jup_prices([order['mint']])) or {}).get(order['mint']))
-            except Exception:
-                jp = 0.0
-            ok_s, why_s = _fw.buy_safety({**order, 'midPx': jp or order.get('midPx')}, q.get('outAmount'), await _mint_decimals(order['mint']), back_l)
-            row['sellBackPct'] = None if back_l is None else round((back_l / max(1, order['lamports']) - 1) * 100, 2)
+            ok_s, why_s, row['sellBackPct'] = await _fw_secure_buy(order, cfg, q)
             if not ok_s:
                 raise HTTPException(400, why_s)
         elif order['side'] == 'sell' and 'rug' not in str(order.get('why') or ''):   # 🛡 secure sell: the route must pay near the market price
@@ -6522,8 +6592,18 @@ async def _fw_tick_inner(now):
             equity_usd = _fw.book_value(book, px, sol_px)
         book = _fw.bank(book, card.get('walletUsd'), sol_px, equity_usd)
         want = {**card, 'legs': []} if book.get('defund') else card
+        # 🔒 check the buy BEFORE the sell: a swap whose new coin can't be bought keeps the old coin (≤ 45s) while the engine re-picks
+        plan0 = _fw.orders(tid, want, book, px, sol_px, cfg, now, count_sells=True)
+        new_buys = [o for o in plan0 if o['side'] == 'buy' and not _fw.held_units(book, o['mint'])]
+        hold = False
+        if new_buys and any(o['side'] == 'sell' and not o.get('manualCash') for o in plan0) and not book.get('defund') and not book.get('halt'):
+            book, hold = _fw.hold_sells(book, card, await _fw_preflight(tid, new_buys, cfg, now), now)
+        elif book.get('sellHoldAt'):
+            book, _h = _fw.hold_sells(book, card, set(), now)
         for side in (('sell',) if book.get('halt') else ('sell', 'buy')):   # ⏸ halted = sells only (owner's queued sells still land)
             for o in [{**x, 'cardPays': int(card.get('rounds') or 0) >= 5} for x in _fw.orders(tid, want, book, px, sol_px, cfg, now, count_sells=side == 'sell') if x['side'] == side]:
+                if hold and side == 'sell' and not o.get('manualCash'):
+                    continue   # the replacement isn't buyable yet → this coin stays (the owner's own ✂ always goes through)
                 leg_liq = next((_fuse._f(l.get('liqNow')) or _fuse._f(l.get('liq')) for l in card.get('legs') or [] if l.get('mint') == o.get('mint')), 0.0)
                 book = await _fw_execute(tid, o, book, cfg, sol_px, liqs.get(o.get('pair')) or leg_liq)   # pair read blank → the engine's own liquidity reading
                 if book.get('pending'):
@@ -6776,7 +6856,8 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
               'lastFail': fail and {'symbol': fail.get('symbol'), 'side': fail.get('side'), 'mint': fail.get('mint'), 'pair': fail.get('pair'), 'err': (fail.get('err') or '')[:90], 'at': fail.get('at')},
               'lastFill': next((o.get('at') for o in rows if o.get('status') == 'filled'), None),
               'gas': _fw.gas_tank(_FW_GAS['sol'], d['books'], cfg.get('reserveSol')) if 'sol' in _FW_GAS else None,
-              'landing': _fw.landing(d['ledger'], tid, time.time(), broadcast_only=True)}
+              'landing': _fw.landing(d['ledger'], tid, time.time(), broadcast_only=True),
+              'rpc': _rpc_quota_state()}
     # walletUsd is the engine's cumulative realized-profit payout counter and survives reinvests; old real ledgers did not
     # stamp payoutUsd on sell rows, which made PAID OUT EVER falsely show $0. Never infer history from current bankSol.
     card = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(tid) or {}
@@ -6816,6 +6897,12 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
             last = hist[-1]
             recoverable.append({'mint': mint, 'symbol': last.get('symbol') or mint[:6], 'atoms': excess,
                                 'lastStatus': last.get('status'), 'lastErr': (last.get('err') or '')[:90], 'lastAt': last.get('at')})
+    try:   # 👁 the swap as steps (done → sending → next), one transaction at a time
+        plan = _fw.orders(tid, {**card, 'legs': []} if b.get('defund') else card, b, prices or {}, sol_px, cfg, time.time()) if sol_px and card else []
+        keeper['flow'] = _fw.swap_flow(b, d['ledger'], tid, plan, time.time())
+    except Exception:
+        keeper['flow'] = []
+    keeper['holdingSell'] = bool(b.get('sellHoldAt'))
     return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4),
             'paidOutEverUsd': paid_ever, 'paidOutSol': round(_fuse._f(b.get('bankSol')), 9),
             'profitAvailableUsd': round(profit_available, 4), 'profitCashAvailableUsd': round(payout_cash, 4), 'recoverable': recoverable, 'offCard': off_card,

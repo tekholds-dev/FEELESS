@@ -126,3 +126,27 @@ def funnel(cands, cfg=None):
         for f in precheck(c, cfg):
             out[f] = out.get(f, 0) + 1
     return sorted(({'why': k, 'n': n} for k, n in out.items()), key=lambda x: -x['n'])
+
+
+# 🎛 The owner's own trench settings. ONLY the soft checks can be set, each from a fixed list (nothing free-typed); the safety checks
+# (top-10, snipers/bundlers, dev, creator, mint + freeze revoked, buyers ≥ 55%, green candles) are not options — they never move.
+OWN_OPTIONS = {'minHolders': [100, 150, 200, 300, 400, 600, 1000], 'minTxns1h': [60, 90, 120, 180, 250, 400], 'minVol1h': [3_000, 5_000, 7_500, 10_000, 20_000, 50_000],
+               'minMcap': [10_000, 15_000, 20_000, 30_000, 50_000], 'maxMcap': [100_000, 150_000, 250_000, 400_000, 600_000, 1_000_000], 'maxAgeH': [1, 3, 6, 12, 24, 48]}
+
+
+def clean_own(c):
+    """{'mode': 'auto' | 'own', + one allowed value per soft check}. Anything else snaps to the nearest allowed value / the default."""
+    c = c if isinstance(c, dict) else {}
+    out = {'mode': 'own' if c.get('mode') == 'own' else 'auto'}
+    for k, opts in OWN_OPTIONS.items():
+        v = _f(c.get(k)) if c.get(k) is not None else _f(TRENCH[k])
+        out[k] = min(opts, key=lambda o: abs(o - v))
+    if out['minMcap'] >= out['maxMcap']:
+        out['maxMcap'] = next((o for o in OWN_OPTIONS['maxMcap'] if o > out['minMcap']), OWN_OPTIONS['maxMcap'][-1])
+    return out
+
+
+def own_gate(own):
+    """The full gate config for the owner's settings: their soft checks on top of the fixed safety checks."""
+    o = clean_own(own)
+    return {**TRENCH, **{k: (float(o[k]) if k not in ('minHolders', 'minTxns1h') else int(o[k])) for k in OWN_OPTIONS}}

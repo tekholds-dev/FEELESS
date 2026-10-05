@@ -138,3 +138,39 @@ test('trench scan shows each finalist with what it passed or failed', async () =
   expect(el.textContent).toContain('1 PASS NOW'); expect(el.textContent).toContain('✅ $TRN'); expect(el.textContent).toContain('520 holders · $28K mc');
   expect(el.textContent).toContain('❌ $RUG'); expect(el.textContent).toContain('mint + freeze authority revoked');
 });
+
+test('swap steps: one transaction at a time — sold (done) → buying (sending) → next; nothing when idle', async () => {
+  const { SwapFlow } = require('./ArenaPrime');
+  const k = { flow: [{ side: 'sell', symbol: 'POPCAT', state: 'done', usd: 0.6 }, { side: 'buy', symbol: 'ore', state: 'failed', usd: 0.6, err: 'live pool too thin' },
+    { side: 'buy', symbol: 'baton', state: 'sending', usd: 0.59 }, { side: 'buy', symbol: 'ORCA', state: 'next', usd: 0.4 }] };
+  const el = await mount(<SwapFlow k={k} />);
+  const steps = [...el.querySelectorAll('[data-testid="swap-flow"] li')];
+  expect(steps.map(s => s.className)).toEqual(['is-done', 'is-failed', 'is-sending', 'is-next']);
+  expect(steps[0].textContent).toContain('SELL $POPCAT'); expect(steps[0].textContent).toContain('done');
+  expect(steps[2].textContent).toContain('BUY $baton'); expect(steps[2].textContent).toContain('sending');
+  expect(steps[1].getAttribute('data-tip')).toBe('live pool too thin');
+  const held = await mount(<SwapFlow k={{ flow: [], holdingSell: true }} />);
+  expect(held.textContent).toContain('old coin kept');
+  const idle = await mount(<SwapFlow k={{ flow: [] }} />);
+  expect(idle.querySelector('[data-testid="swap-flow"]')).toBeNull();
+});
+
+test('trench settings: engine tunes by default; My settings shows the soft checks only and saves a pick', async () => {
+  const { TrenchScan } = require('./ArenaPrime');
+  const base = { pass: 0, checked: [], rules: 'r', options: { minHolders: [100, 200, 400], minTxns1h: [60, 250], minVol1h: [5000, 10000], minMcap: [20000], maxMcap: [150000], maxAgeH: [6, 12] } };
+  let cfg = { mode: 'auto', minHolders: 400, minTxns1h: 250, minVol1h: 10000, minMcap: 20000, maxMcap: 150000, maxAgeH: 6 };
+  global.fetch = jest.fn(async () => ({ json: async () => ({ ...base, cfg }) }));
+  const call = jest.fn(async (_p, o) => { cfg = JSON.parse(o.body).trenchCfg; return {}; });
+  const el = await mount(<TrenchScan call={call} />);
+  expect(el.querySelector('[data-testid="trench-auto"]').className).toBe('on');
+  expect(el.querySelector('[data-testid="trench-minHolders"]')).toBeNull();
+  await act(async () => { el.querySelector('[data-testid="trench-own"]').click(); }); await tick(20);
+  expect(call.mock.calls[0][0]).toBe('/admin/arena/prime'); expect(cfg.mode).toBe('own');
+  expect(el.textContent).toContain('YOUR SETTINGS');
+  expect([...el.querySelectorAll('.tscan-own select')].map(s => s.getAttribute('data-testid'))).toEqual(['trench-minHolders', 'trench-minTxns1h', 'trench-minVol1h', 'trench-minMcap', 'trench-maxMcap', 'trench-maxAgeH']);
+  const sel = el.querySelector('[data-testid="trench-minHolders"]');
+  await act(async () => { sel.value = '200'; sel.dispatchEvent(new Event('change', { bubbles: true })); }); await tick(20);
+  expect(cfg.minHolders).toBe(200);
+  const viewer = await mount(<TrenchScan />);          // no admin call → read-only (no settings shown)
+  expect(viewer.querySelector('[data-testid="trench-cfg"]')).toBeNull();
+});

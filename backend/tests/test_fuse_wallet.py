@@ -788,13 +788,17 @@ def test_phantom_rent_credits_are_undone_once():
     assert not fw.reconcile_sol(0.0573, books)                                           # books fit the wallet again → no halt
 
 
-def test_a_buy_that_never_lands_is_flagged_stuck_after_10_minutes():
+def test_a_buy_that_never_lands_is_flagged_stuck():
     import fuse_wallet as fw
     card = {'legs': [{'mint': 'A', 'pairAddress': 'Pa', 'buying': True, 'buyingSince': 0},
                      {'mint': 'B', 'pairAddress': 'Pb', 'buying': True, 'buyingSince': 500},
                      {'mint': 'C', 'pairAddress': 'Pc', 'buying': True, 'buyingSince': 590},
                      {'mint': 'D', 'pairAddress': 'Pd', 'units': 3}]}
     assert fw.stuck_buys(card, 610) == ['Pa'] and fw.stuck_buys(card, 610, {'C'}) == ['Pa', 'Pc']   # benched = at once
+    # ⏱ a REFUSED buy is re-picked 15s after the refusal (not a tick later) — but never while its transaction is still in flight
+    assert fw.stuck_buys(card, 610, missed={'B': {'first': 600, 'last': 600}}) == ['Pa']
+    assert fw.stuck_buys(card, 616, missed={'B': {'first': 600, 'last': 600}}) == ['Pa', 'Pb']
+    assert fw.stuck_buys(card, 616, missed={'B': {'first': 600, 'last': 600}}, pending_mint='B') == ['Pa']
     # sync_card stamps when the wait started, and clears it when the coin lands
     c = fw.sync_card({'legs': [{'mint': 'A', 'pairAddress': 'Pa', 'role': 'runner', 'units': 2.0, 'entry': 1.0}], 'rounds': 1, 'rebuyRound': 1, 'rebuyAt': 9e12},
                      {'sol': 0.0, 'legs': {}}, {}, 100.0)
@@ -853,3 +857,52 @@ def test_a_recovery_sell_puts_its_sol_back_to_work_but_owner_cut_cash_stays_held
     assert cut[0].get('manualCash')                                                       # ✂ owner's cash is still held apart
     b, _ = fw.apply_fill({'sol': 0.0, 'legs': {'B': dict(leg)}}, rec[0], {'atoms': -1_000_000, 'decimals': 6, 'sol': 0.014, 'feeSol': 0.0}, 100.0)
     assert not b.get('manualCashSol')                                                     # → spendable card cash
+
+
+def test_the_owners_pick_is_held_to_the_floor_the_picker_promised():
+    cfg = {**CFG, 'minLiqUsd': 80000, 'arenaMinLiqUsd': 25000}
+    o = {'side': 'buy', 'usd': 0.7, 'liq': 42080, 'mint': 'ORE', 'pair': 'P'}
+    assert not fw.check(o, cfg, [], 0)[0]                                                # a coin the engine chose: the general $80K floor
+    assert fw.check({**o, 'picked': True}, cfg, [], 0)[0]                                # the owner's own pick: the $25K floor it was accepted at
+    pair = {'baseToken': {'address': 'ORE'}, 'priceUsd': '1', 'liquidity': {'usd': 42080}}
+    assert not fw.live_buy_market(o, pair, cfg)[0] and fw.live_buy_market({**o, 'picked': True}, pair, cfg)[0]
+    assert not fw.check({**o, 'picked': True, 'liq': 20000}, cfg, [], 0)[0]              # still a floor — never any pool
+    c = card([{'mint': 'ORE', 'pairAddress': 'P', 'symbol': 'ore', 'units': 5.0, 'entry': 1.0, 'picked': True}])
+    assert fw.target(c, {'P': 1.0})['ORE']['picked']
+    assert [x.get('picked') for x in fw.orders('t', c, {'sol': 1.0, 'legs': {}}, {'P': 1.0}, 100.0, cfg, 0) if x['side'] == 'buy'] == [True]
+
+
+def test_a_swap_keeps_the_old_coin_while_its_replacement_cannot_be_bought():
+    book, c = {'sol': 0.0, 'legs': {}}, {'events': [{'kind': 'rotate', 'at': 990}]}
+    b, hold = fw.hold_sells(book, c, {'NEW'}, 1000)
+    assert hold and b['sellHoldAt'] == 1000
+    assert fw.hold_sells(b, c, {'NEW'}, 1030)[1]                                         # still inside the 45s window
+    assert not fw.hold_sells(b, c, {'NEW'}, 1046)[1]                                     # never longer: the sell goes through
+    b2, hold2 = fw.hold_sells(b, c, set(), 1010)
+    assert not hold2 and 'sellHoldAt' not in b2                                          # replacement is buyable again → window cleared
+    # protective exits and sell-alls never wait
+    assert not fw.hold_sells(book, {'events': [{'kind': 'sl', 'at': 995}]}, {'NEW'}, 1000)[1]
+    assert not fw.hold_sells(book, {'events': [{'kind': 'rug', 'at': 995}]}, {'NEW'}, 1000)[1]
+    assert not fw.hold_sells({**book, 'defund': True}, c, {'NEW'}, 1000)[1]
+    assert not fw.hold_sells({**book, 'halt': True}, c, {'NEW'}, 1000)[1]
+
+
+def test_swap_steps_show_done_sending_next_in_order_and_nothing_when_idle():
+    ledger = [{'card': 't', 'side': 'sell', 'symbol': 'OLD', 'mint': 'O', 'status': 'filled', 'usd': 0.6, 'at': 990},
+              {'card': 't', 'side': 'buy', 'symbol': 'BAD', 'mint': 'B', 'status': 'skipped', 'usd': 0.6, 'at': 992, 'err': 'live pool too thin: $42,080 liquidity < $80,000'},
+              {'card': 'x', 'side': 'buy', 'symbol': 'OTHER', 'mint': 'Z', 'status': 'filled', 'usd': 1, 'at': 995},
+              {'card': 't', 'side': 'buy', 'symbol': 'ANCIENT', 'mint': 'A', 'status': 'filled', 'usd': 1, 'at': 10}]
+    book = {'pending': {'side': 'buy', 'mint': 'N', 'symbol': 'NEW', 'usd': 0.59, 'sentAt': 998}}
+    plan = [{'side': 'buy', 'mint': 'N', 'symbol': 'NEW', 'usd': 0.59}, {'side': 'buy', 'mint': 'M', 'symbol': 'MORE', 'usd': 0.4}]
+    f = fw.swap_flow(book, ledger, 't', plan, 1000)
+    assert [(x['side'], x['symbol'], x['state']) for x in f] == [('sell', 'OLD', 'done'), ('buy', 'BAD', 'failed'), ('buy', 'NEW', 'sending'), ('buy', 'MORE', 'next')]
+    assert f[1]['err'] == 'live pool too thin: $42,080 liquidity < $80,000'
+    assert fw.swap_flow({}, ledger, 't', [], 1000) == []                                 # nothing in flight, nothing queued → no strip
+
+
+def test_a_bench_is_short_so_a_coin_can_come_back_the_same_hour():
+    b, out = fw.note_miss({}, 'M', 100, 'live pool too thin: $1 liquidity < $2')
+    assert out and b['benched']['M']['until'] == 100 + fw.BENCH_SEC == 1000
+    for i in range(8):
+        b, _ = fw.note_miss(b, 'M', 100, 'pool too thin')
+    assert b['benched']['M']['until'] == 100 + fw.BENCH_MAX                              # doubling stops at 2h

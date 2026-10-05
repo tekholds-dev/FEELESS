@@ -56,14 +56,16 @@ def held_units(book, mint):
     return int(l.get('atoms') or 0) / (10 ** int(l.get('decimals') or 0)) if l.get('atoms') else 0.0
 
 
-def liq_floor(cfg, arena=False, trench=False):
+def liq_floor(cfg, arena=False, trench=False, picked=False):
     """💧 Real-buy pool floor. Arena coins (passed every runner gate + picked by the Arena) have their own floor, so a high general
     floor ($100K) doesn't lock every Arena coin out of the card; the secure-buy checks (price gap + sell-back) still run on them.
     🗑 Trench coins (fresh breakouts, strict trench gate) have their own lower floor (never under $3K)."""
     c = clean_cfg(cfg)
     if trench:
         return c['trenchMinLiqUsd']
-    return min(c['minLiqUsd'], c['arenaMinLiqUsd']) if arena else c['minLiqUsd']
+    # 🎯 the owner's own PICK is held to the same floor the picker promised it (the Arena floor) — it used to be accepted at $25K,
+    # then refused by the keeper at the general $80K AFTER the old coin was already sold
+    return min(c['minLiqUsd'], c['arenaMinLiqUsd']) if arena or picked else c['minLiqUsd']
 
 
 def target(card, prices):
@@ -71,7 +73,7 @@ def target(card, prices):
     out = {}
     for l in card.get('legs') or []:
         px = _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
-        t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role'), 'arena': bool(l.get('arena')), 'trench': bool(l.get('trench')),
+        t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role'), 'arena': bool(l.get('arena')), 'trench': bool(l.get('trench')), 'picked': bool(l.get('picked')),
                                        'manualCash': bool(l.get('manualCash'))})
         t['units'] += _f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)   # a coin whose buy hasn't landed is still WANTED
     return out
@@ -151,7 +153,7 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
         buys.append({'id': f"{card_id}:{now:.0f}:b:{mint[:6]}", 'card': card_id, 'side': 'buy', 'mint': mint, 'pair': t['pair'], 'symbol': t['symbol'],
                      'lamports': int(usd / sol_px * 1e9), 'usd': round(usd, 4), 'midPx': t['px'], 'at': now, 'why': 'card buys its coin',
                      **({'rentDeposit': rent} if rent else {}),
-                     **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {})})
+                     **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {}), **({'picked': True} if t.get('picked') else {})})
     return sells + buys
 
 
@@ -175,7 +177,7 @@ def check(order, cfg, ledger, now, quote_impact_pct=None):
         return False, f"${_f(order.get('usd')):.2f} is over the ${cfg['maxSwapUsd']:g} per-swap cap"
     if order.get('side') == 'buy' and spent_24h(ledger, now) + _f(order.get('usd')) > cfg['dailyUsd']:   # sells never hit the cap (they take risk OFF)
         return False, f"daily cap ${cfg['dailyUsd']:g} reached"
-    floor = liq_floor(cfg, order.get('arena'), order.get('trench'))
+    floor = liq_floor(cfg, order.get('arena'), order.get('trench'), order.get('picked'))
     if order.get('side') == 'buy' and _f(order.get('liq')) < floor:   # 💧 real money never buys a pool this thin (sells always allowed)
         return False, f"pool too thin: ${_f(order.get('liq')):,.0f} liquidity < ${floor:,.0f} (real buys{' · Arena coin' if order.get('arena') else ''})"
     if quote_impact_pct is not None and _f(quote_impact_pct) > cfg['maxImpactPct']:
@@ -194,7 +196,7 @@ def live_buy_market(order, pair, cfg):
         return False, 'live market unavailable or pair/mint mismatch', {}
     px = _f(p.get('priceUsd'))
     liq = _f((p.get('liquidity') or {}).get('usd'))
-    floor = liq_floor(cfg, order.get('arena'), order.get('trench'))
+    floor = liq_floor(cfg, order.get('arena'), order.get('trench'), order.get('picked'))
     if px <= 0:
         return False, 'live market price unavailable', {'liq': liq}
     if liq < floor:
@@ -919,7 +921,8 @@ def close_tx(owner, accounts, blockhash):
     return base64.b64encode(bytes(Transaction.new_unsigned(msg))).decode()
 
 
-STUCK_BUY_SEC = 600     # ⏳ a coin still 'buying' after 10 min (no order could be sent, or every send was refused) is swapped out
+STUCK_BUY_SEC = 120     # ⏳ a coin still 'buying' after 2 min with NO refusal on record (no order could be sent) is swapped out
+RETRY_SEC = 15          # … and a coin whose buy WAS refused / failed is swapped for the next best coin 15s later (owner: "15 sec, try a new one")
 MISS_LIMIT = 2          # a coin that fails the buy checks this many times …
 MISS_WINDOW = 1800      # … within 30 minutes is benched for this card (≥ 2× QUIET_SEC: a quietly re-logged skip must still add up)
 QUIET_SEC = 900        # a skip that no quote can fix (cap / pause / thin pool) is booked once per 15 min, not every tick
@@ -934,7 +937,8 @@ def logged_recently(ledger, row, now, secs=QUIET_SEC):
 
 
 THIN_POOL = 'pool too thin'   # the keeper's thin-pool refusal (check + live_buy_market both say it)
-BENCH_SEC = 3600        # for an hour, so the engine swaps in a coin that CAN be bought
+BENCH_SEC = 900         # 15 min (doubling ≤ 2h), so the engine swaps in a coin that CAN be bought — and the coin can come back the same hour
+BENCH_MAX = 7200
 
 
 def note_miss(book, mint, now, reason=''):
@@ -943,11 +947,11 @@ def note_miss(book, mint, now, reason=''):
     m = b['misses'].get(mint) or {'n': 0, 'first': now}
     if now - _f(m.get('first')) > MISS_WINDOW:
         m = {'n': 0, 'first': now}
-    m = {**m, 'n': int(m['n']) + 1, 'why': reason[:80]}
+    m = {**m, 'n': int(m['n']) + 1, 'why': reason[:80], 'last': now}
     b['misses'][mint] = m
     if m['n'] >= MISS_LIMIT or THIN_POOL in reason:   # 💧 a thin pool won't deepen in minutes: bench at once so the engine swaps it NOW   # each repeat bench doubles (1h → 2h → … ≤ 24h): a coin that keeps failing stops coming back
         times = int((book.get('benched') or {}).get(mint, {}).get('times') or 0) + 1
-        b['benched'][mint] = {'until': now + min(86400, BENCH_SEC * 2 ** (times - 1)), 'why': reason[:80], 'times': times}
+        b['benched'][mint] = {'until': now + min(BENCH_MAX, BENCH_SEC * 2 ** (times - 1)), 'why': reason[:80], 'times': times}
         b['misses'].pop(mint, None)
         return b, True
     return b, False
@@ -1076,10 +1080,59 @@ def money_trail(rows, book, since, now, sol_px, prices=None):
             'unexplainedUsd': unexplained}
 
 
-def stuck_buys(card, now, benched_mints=(), secs=STUCK_BUY_SEC):
-    """⏳ Legs of a real card waiting on a buy that won't land: benched coins at once, any other after `secs`. → [pairAddress]."""
-    return [l['pairAddress'] for l in (card or {}).get('legs') or []
-            if l.get('buying') and l.get('mint') != SOL_MINT and (l.get('mint') in set(benched_mints) or now - _f(now if l.get('buyingSince') is None else l['buyingSince']) >= secs)]
+def stuck_buys(card, now, benched_mints=(), secs=STUCK_BUY_SEC, missed=None, pending_mint=None):
+    """⏳ Legs of a real card waiting on a buy that won't land → [pairAddress]. Benched coins at once · a coin whose buy was refused or
+    failed (`missed` = the book's {mint: {first, …}}) `RETRY_SEC` after that miss · any other after `secs`. A coin with a transaction
+    in flight (`pending_mint`) is NEVER swapped — it may still land."""
+    bench, missed, out = set(benched_mints), missed or {}, []
+    for l in (card or {}).get('legs') or []:
+        m = l.get('mint')
+        if not l.get('buying') or m == SOL_MINT or m == pending_mint:
+            continue
+        since = now if l.get('buyingSince') is None else _f(l['buyingSince'])
+        miss_at = _f((missed.get(m) or {}).get('last') or (missed.get(m) or {}).get('first'))
+        if m in bench or now - since >= secs or (miss_at and now - miss_at >= RETRY_SEC):
+            out.append(l['pairAddress'])
+    return out
+
+
+HOLD_SELL_SEC = 45      # a swap's sell waits at most this long for a replacement that can be bought
+URGENT_KINDS = ('sl', 'rug', 'floor', 'fix')
+
+
+def hold_sells(book, card, bad_mints, now, secs=HOLD_SELL_SEC):
+    """🔒 CHECK THE BUY BEFORE THE SELL. A swap = sell the old coin, then buy the new one. When the new coin can't be bought (thin pool,
+    price gap, no way back out) the old coin used to be sold anyway and its money sat in cash until another coin was found — a wasted
+    sell. Now the sell WAITS (≤ `secs`) while the engine swaps the unbuyable coin for the next best one. Never waits on a protective
+    exit (stop / rug / floor in the card's last events), a sell-all, a halt, or the owner's own ✂. → (book, hold?)"""
+    if not bad_mints or book.get('defund') or book.get('halt'):
+        return ({k: v for k, v in book.items() if k != 'sellHoldAt'} if book.get('sellHoldAt') else book), False
+    if any(e.get('kind') in URGENT_KINDS and now - _f(e.get('at')) < 120 for e in ((card or {}).get('events') or [])[-8:]):
+        return book, False
+    since = _f(book.get('sellHoldAt')) or now
+    if now - since >= secs:
+        return book, False
+    return {**book, 'sellHoldAt': since}, True
+
+
+def swap_flow(book, ledger, card_id, plan, now, window=120):
+    """👁 The swap as STEPS, in the order they really happen (one transaction at a time): what just confirmed, what is in flight,
+    what is next. Only confirmed rows say done — nothing is shown as bought before the chain says so.
+    → [{side, symbol, state: done | failed | sending | next, usd, at}]"""
+    steps, seen = [], set()
+    for r in [x for x in (ledger or [])[-40:] if x.get('card') == card_id and x.get('side') in ('buy', 'sell') and now - _f(x.get('at')) <= window
+              and x.get('status') in ('filled', 'failed', 'skipped')][-4:]:
+        steps.append({'side': r['side'], 'symbol': r.get('symbol'), 'state': 'done' if r['status'] == 'filled' else 'failed', 'usd': round(_f(r.get('usd')), 2),
+                      'at': r.get('at'), **({'err': str(r.get('err') or '').split(' (')[0][:60]} if r['status'] != 'filled' else {})})
+    p = book.get('pending') or {}
+    if p.get('mint'):
+        seen.add((p.get('side'), p.get('mint')))
+        steps.append({'side': p.get('side'), 'symbol': p.get('symbol'), 'state': 'sending', 'usd': round(_f(p.get('usd')), 2), 'at': p.get('sentAt')})
+    for o in plan or []:
+        if (o.get('side'), o.get('mint')) not in seen:
+            steps.append({'side': o['side'], 'symbol': o.get('symbol'), 'state': 'next', 'usd': round(_f(o.get('usd')), 2)})
+    live = any(x['state'] in ('sending', 'next') for x in steps)
+    return steps[-6:] if live else []
 
 
 def rent_back(books, closed, sol_px=0.0):

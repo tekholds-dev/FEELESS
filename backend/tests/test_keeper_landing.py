@@ -5,8 +5,9 @@ import chain_rpc
 
 
 class _Res:
-    def __init__(self, code, body):
-        self.status_code, self._b = code, body
+    def __init__(self, code, body, headers=None):
+        self.status_code, self._b, self.headers = code, body, headers or {}
+        self.text = str(body)
 
     def json(self):
         return self._b
@@ -132,8 +133,9 @@ def test_a_selling_card_finishes_when_only_dead_dust_is_left_but_never_writes_of
 
 def test_keeper_lane_uses_the_dedicated_endpoint_through_a_cooldown_and_retries_a_429(monkeypatch):
     import time
-    monkeypatch.setattr(chain_rpc, '_dedicated', 'DED')
+    monkeypatch.setattr(chain_rpc, 'KEEPER_LANES', ['DED'])
     monkeypatch.setattr(chain_rpc, 'RPC_POOL', ['DED', 'pub'])
+    monkeypatch.setattr(chain_rpc, '_quota_until', {})
     monkeypatch.setitem(chain_rpc._rpc_cooldown_until, 'DED', time.time() + 30)        # the scanners tripped the limit: shared pool skips it
     http = _Http([_Res(429, {}), _Res(200, {'result': {'value': 7}})])
     assert asyncio.run(chain_rpc.rpc_priority(http, 'getBalance', ['W'])) == {'value': 7}
@@ -178,3 +180,93 @@ def test_scanners_only_get_their_share_of_the_dedicated_endpoint(monkeypatch):
     for _ in range(4):
         assert asyncio.run(chain_rpc._rpc(http, 'getBalance', ['W'])) == 1
     assert [e for e, _ in http.calls] == ['DED', 'DED', 'pub', 'pub']          # 2 a second on the plan, the rest go elsewhere
+
+
+def test_keeper_has_two_lanes_a_burst_moves_to_the_other_and_a_spent_plan_is_skipped_until_it_resets(monkeypatch):
+    import time
+    monkeypatch.setattr(chain_rpc, 'KEEPER_LANES', ['A', 'B'])
+    monkeypatch.setattr(chain_rpc, 'RPC_POOL', ['A', 'B', 'pub'])
+    monkeypatch.setattr(chain_rpc, '_quota_until', {})
+    monkeypatch.setattr(chain_rpc, '_rpc_cooldown_until', {})
+    http = _Http([_Res(429, {}), _Res(200, {'result': 1})])                              # lane A is busy this second → lane B answers, no wait
+    assert asyncio.run(chain_rpc.rpc_priority(http, 'getSlot', [])) == 1 and [e for e, _ in http.calls] == ['A', 'B']
+    spent = _Res(429, {'error': {'message': 'daily request limit reached - upgrade your account'}}, {'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '27941'})
+    http = _Http([spent, _Res(200, {'result': 2})])
+    assert asyncio.run(chain_rpc.rpc_priority(http, 'getSlot', [])) == 2
+    assert 27000 < chain_rpc._quota_until['A'] - time.time() <= 27941                    # the plan's own reset time, not a 30s cooldown
+    http = _Http([_Res(200, {'result': 3})])
+    assert asyncio.run(chain_rpc.rpc_priority(http, 'getSlot', [])) == 3 and [e for e, _ in http.calls] == ['B']   # A is not even tried again
+    assert [x['spent'] for x in chain_rpc.quota_state()] == [True, False]
+    # every keyed lane spent → straight to the public pool (no 7s of retries on a dead plan)
+    monkeypatch.setitem(chain_rpc._quota_until, 'B', time.time() + 600)
+    http = _Http([_Res(200, {'result': 4})])
+    assert asyncio.run(chain_rpc.rpc_priority(http, 'getSlot', [])) == 4 and [e for e, _ in http.calls] == ['pub']
+
+
+def test_a_quota_429_is_told_apart_from_a_burst():
+    assert chain_rpc.out_of_quota(429, 'Too many requests') == 0
+    assert chain_rpc.out_of_quota(200, 'daily request limit reached') == 0
+    assert chain_rpc.out_of_quota(429, 'Monthly capacity limit exceeded.') == 900
+    assert chain_rpc.out_of_quota(429, '', {'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': '120'}) == 120
+
+
+def test_scanners_stay_off_the_dedicated_endpoint_by_default(monkeypatch):
+    monkeypatch.setattr(chain_rpc, '_dedicated', 'DED'); monkeypatch.setattr(chain_rpc, 'RPC_POOL', ['DED', 'pub'])
+    monkeypatch.setattr(chain_rpc, 'RPC_MAX_RETRIES', 2); monkeypatch.setattr(chain_rpc, '_scan_stamps', []); monkeypatch.setattr(chain_rpc, 'SCAN_RPS', 0)
+    monkeypatch.setattr(chain_rpc, '_quota_until', {}); monkeypatch.setattr(chain_rpc, '_rpc_cooldown_until', {})
+    http = _Http([_Res(200, {'result': 1})] * 3)
+    for _ in range(3):
+        asyncio.run(chain_rpc._rpc(http, 'getBalance', ['W']))
+    assert [e for e, _ in http.calls] == ['pub'] * 3                                     # a daily budget is the keeper's alone
+
+
+def test_keeper_checks_the_new_coin_before_it_sells_the_old_one(monkeypatch):
+    """A swap whose replacement fails the buy checks must NOT sell the old coin (it used to sell, then sit in cash)."""
+    import time
+    import reputation_service as rs
+    import fuse_wallet as fw
+    now = time.time()
+    cfg = {**fw.DEFAULT_CFG, 'walletId': 'w', 'address': 'OWNER', 'armed': True, 'minOrderUsd': 0.25}
+    book = {'sol': 0.0, 'fundedUsd': 5.0, 'legs': {'OLD': {'atoms': 1_000_000, 'decimals': 6, 'pair': 'Pold', 'symbol': 'OLD', 'costUsd': 1.0, 'entryPx': 1.0}}}
+    card = {'tpl': 'degen', 'real': True, 'rounds': 9, 'events': [{'kind': 'rotate', 'at': now}],
+            'legs': [{'mint': 'NEW', 'pairAddress': 'Pnew', 'symbol': 'NEW', 'role': 'runner', 'buying': True, 'wantUnits': 1.0, 'units': 0.0, 'entry': 1.0, 'picked': True}]}
+    state = {'d': {'cfg': cfg, 'books': {'degen': book}, 'ledger': []}, 'sent': [], 'bad': {'NEW'}}
+    monkeypatch.setattr(rs, '_fw_load', lambda: state['d'])
+    monkeypatch.setattr(rs, '_fw_save', lambda d: state.__setitem__('d', d))
+    monkeypatch.setattr(rs, '_json_load', lambda p, default=None: {'prime': {'cards': {'degen': card}}})
+    monkeypatch.setattr(rs, '_json_save', lambda p, d: None)
+
+    async def none(*a, **k):
+        return None
+
+    async def pairs(rows):
+        return {'Pold': {'priceUsd': '1', 'liquidity': {'usd': 500000}}, 'Pnew': {'priceUsd': '1', 'liquidity': {'usd': 42000}}}
+
+    async def jup(mints):
+        return {}
+
+    async def sol():
+        return 100.0
+
+    async def pre(tid, buys, cfg_, now_):
+        assert [o['mint'] for o in buys] == ['NEW'] and buys[0].get('picked')
+        return set(state['bad'])
+
+    async def execute(tid, order, book_, cfg_, sol_px, liq):
+        state['sent'].append((order['side'], order['mint']))
+        return book_
+
+    for name, fn in (('_fw_signer_check', none), ('_fw_close_empty', none), ('_fuse_pairs', pairs), ('_jup_prices', jup), ('_sol_usd_live', sol),
+                     ('_fw_preflight', pre), ('_fw_execute', execute)):
+        monkeypatch.setattr(rs, name, fn)
+    asyncio.run(rs._fw_tick_inner(now))
+    assert state['sent'] == []                                                            # NEW can't be bought → OLD is kept
+    assert state['d']['books']['degen'].get('sellHoldAt')
+    state['bad'] = set()                                                                 # the engine re-picked / the coin is buyable now
+    asyncio.run(rs._fw_tick_inner(now + 5))
+    assert ('sell', 'OLD') in state['sent'] and 'sellHoldAt' not in state['d']['books']['degen']
+    # never held longer than 45s, even if the replacement stays unbuyable
+    state.update(sent=[], bad={'NEW'})
+    state['d']['books']['degen'] = {**book, 'sellHoldAt': now - 60}
+    asyncio.run(rs._fw_tick_inner(now))
+    assert ('sell', 'OLD') in state['sent']

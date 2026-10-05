@@ -987,3 +987,19 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🗑 Trench creator rule: 'watch' creators PASS with a 0-point creator part (most serial pump deployers are 'watch' — excluding them left the
   list empty); suspect / high / flagged stay out. `trench.funnel` → `/fuses/trench.funnel` + `seen` → TrenchScan "🔎 Why nothing passed".
   Real panel on My cards polls `/fuses/prime` every 10s (server Jupiter value, `fl-tick` flash) — no refresh needed.
+- 🔒 Real swap = CHECK THE BUY, THEN SELL (`_fw_preflight` → `fuse_wallet.hold_sells`, `HOLD_SELL_SEC` 45): before a swap's sell is sent,
+  every NEW coin gets a fresh live-pool read, the owner's limits, a real quote and the secure-buy checks. A coin that fails is booked
+  as a refused buy and the OLD coin is kept while the engine re-picks; never held past 45s, never on a stop / rug / floor exit, a
+  sell-all, a halt or the owner's ✂. ⏱ A refused / failed buy is re-picked `RETRY_SEC` 15s later (`_FW_KICK` wakes the bell loop;
+  `stuck_buys(missed=, pending_mint=)` — a coin with a tx in flight is never swapped); no refusal on record = 2 min. Bench = 15 min,
+  doubling ≤ 2h. 🎯 The owner's PICK keeps the floor the picker promised (`liq_floor(picked=)` = the Arena floor, leg `picked` → order):
+  picks were accepted at $25K, then refused by the keeper at $80K AFTER the old coin was sold. 👁 `fuse_wallet.swap_flow` →
+  `keeper.flow` → `SwapFlow` strip on the real card: done → sending → next, one transaction at a time; only the chain turns a step green.
+- 📡 RPC = keeper LANES (`chain_rpc.KEEPER_LANES`: `SOLANA_RPC_URL`, `SOLANA_RPC_URL_2`, Alchemy): a burst 429 moves to the next lane
+  at once; a 429 that is the PLAN's quota (`out_of_quota`: "daily request limit" / "capacity limit" / remaining 0) parks that lane until
+  its reset (`_quota_until`) — the keeper used to wait ~7s per call on a spent plan. Scanners are OFF the dedicated endpoint by
+  default (`RPC_SCAN_RPS` 0): a free plan is a daily budget (QuickNode 50K/day) and holder scans spent it by late morning.
+  `keeper.rpc` (lane number + minutes left, never a URL). ankr (403 without a key) is out of the public pool.
+- 🎛 Trench settings (`trench.OWN_OPTIONS/clean_own/own_gate`, `prime.trenchCfg`, `POST /admin/arena/prime {trenchCfg}`, TrenchScan in
+  Edit Fuse › Shape): 🤖 Engine tunes (auto-widen) or 🎛 My settings — holders, trades/h, 1h volume, market-cap band, age, each from a
+  fixed list. The safety checks are never options.

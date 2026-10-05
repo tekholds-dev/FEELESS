@@ -12,11 +12,13 @@ import env_loader  # noqa: F401  (must run before reading os.environ)
 import httpx
 
 _dedicated = os.environ.get('SOLANA_RPC_URL', '').strip()
+_backup = os.environ.get('SOLANA_RPC_URL_2', '').strip()   # a second keyed endpoint (any provider): the keeper's other lane
 _alchemy = os.environ.get('ALCHEMY_API_KEY', '').strip()
-RPC_POOL = ([_dedicated] if _dedicated else []) + ([f'https://solana-mainnet.g.alchemy.com/v2/{_alchemy}'] if _alchemy else []) + [
+_alchemy_url = f'https://solana-mainnet.g.alchemy.com/v2/{_alchemy}' if _alchemy else ''
+KEEPER_LANES = [e for e in dict.fromkeys([_dedicated, _backup, _alchemy_url]) if e]   # keyed endpoints, in the keeper's order
+RPC_POOL = KEEPER_LANES + [
     'https://api.mainnet-beta.solana.com',
     'https://solana-rpc.publicnode.com',
-    'https://rpc.ankr.com/solana',
 ]
 _rpc_cooldown_until: dict[str, float] = {}
 RPC_COOLDOWN_SECONDS = 30
@@ -28,12 +30,44 @@ def _next_rpc_endpoint() -> Optional[str]:
     Public nodes are fallback-only: they lag and rate-limit, so balances read right after a trade came back stale."""
     now = time.time()
     for endpoint in RPC_POOL:
-        if _rpc_cooldown_until.get(endpoint, 0) <= now:
+        if max(_rpc_cooldown_until.get(endpoint, 0), _quota_until.get(endpoint, 0)) <= now:
             return endpoint
     return min(RPC_POOL, key=lambda e: _rpc_cooldown_until.get(e, 0)) if RPC_POOL else None
 
 
-SCAN_RPS = 5          # how many calls a second the scanners may put on the dedicated endpoint — the rest of its plan is the keeper's
+# How many calls a second the scanners may put on the dedicated endpoint. DEFAULT 0 = none: a free plan is a DAILY budget (QuickNode
+# 50,000 requests a day ≈ 0.6 a second) and the holder scans spent all of it by late morning, leaving the keeper on public nodes.
+# A paid plan can hand the scanners a share with RPC_SCAN_RPS.
+try:
+    SCAN_RPS = max(0, int(os.environ.get('RPC_SCAN_RPS', '0') or 0))
+except ValueError:
+    SCAN_RPS = 0
+QUOTA_WORDS = ('daily request limit', 'capacity limit', 'monthly', 'quota', 'credits')
+_quota_until: dict[str, float] = {}   # endpoint → when its plan's quota comes back (never retried before that)
+
+
+def out_of_quota(status, text, headers=None, now=None):
+    """A 429 that is the PLAN's quota (day / month used up), not a burst → seconds until it resets (0 = an ordinary rate limit).
+    Retrying a spent plan only wastes time: each keeper call used to wait ~7s on it before reaching a node that works."""
+    if status != 429:
+        return 0
+    low = str(text or '').lower()
+    h = {str(k).lower(): v for k, v in dict(headers or {}).items()}
+    spent = any(w in low for w in QUOTA_WORDS) or str(h.get('x-ratelimit-remaining', '')).strip() == '0'
+    if not spent:
+        return 0
+    try:
+        reset = float(str(h.get('x-ratelimit-reset', '')).split(',')[0])
+    except ValueError:
+        reset = 0.0
+    return min(86400.0, reset) if reset > 0 else 900.0   # no reset told → look again in 15 min
+
+
+def quota_state(now=None):
+    """For HQ: which keyed lanes are out of quota and for how long. Never the URL — only its position and the minutes left."""
+    now = now or time.time()
+    return [{'lane': i + 1, 'spent': _quota_until.get(e, 0) > now, 'backInMin': max(0, round((_quota_until.get(e, 0) - now) / 60))} for i, e in enumerate(KEEPER_LANES)]
+
 _scan_stamps: list = []
 
 
@@ -53,7 +87,7 @@ async def _rpc(http: httpx.AsyncClient, method: str, params: list, scan: bool = 
     """Calls the RPC pool with retry + per-endpoint cooldown on failure or rate-limit."""
     last_error = None
     now = time.time()
-    order = [e for e in RPC_POOL if _rpc_cooldown_until.get(e, 0) <= now] or ([_next_rpc_endpoint()] if RPC_POOL else [])
+    order = [e for e in RPC_POOL if max(_rpc_cooldown_until.get(e, 0), _quota_until.get(e, 0)) <= now] or ([_next_rpc_endpoint()] if RPC_POOL else [])
     for endpoint in order[:RPC_MAX_RETRIES]:
         if scan and endpoint == _dedicated and len(RPC_POOL) > 1 and not _scan_slot():   # scan=False = the keeper falling back: never budgeted
             last_error = last_error or 'scan_budget'   # over the scanners' share → try the next endpoint, leave the plan to the keeper
@@ -61,6 +95,9 @@ async def _rpc(http: httpx.AsyncClient, method: str, params: list, scan: bool = 
         try:
             res = await http.post(endpoint, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
             if res.status_code == 429:
+                spent = out_of_quota(429, res.text, res.headers)
+                if spent:
+                    _quota_until[endpoint] = time.time() + spent
                 _rpc_cooldown_until[endpoint] = time.time() + RPC_COOLDOWN_SECONDS
                 last_error = 'rate_limited'
                 continue
@@ -92,30 +129,46 @@ async def broadcast(http: httpx.AsyncClient, signed_b64: str) -> int:
             return res.status_code == 200 and 'error' not in res.json()
         except (httpx.HTTPError, ValueError):
             return False
-    return sum(1 for ok in await asyncio.gather(*[one(e) for e in RPC_POOL]) if ok)
+    live = [e for e in RPC_POOL if _quota_until.get(e, 0) <= time.time()] or RPC_POOL
+    return sum(1 for ok in await asyncio.gather(*[one(e) for e in live]) if ok)
 
 
-async def rpc_priority(http: httpx.AsyncClient, method: str, params: list, tries: int = 6):
-    """💵 The KEEPER's lane. Real-money calls (balances, sends, confirmations) go to the dedicated endpoint FIRST and ignore the shared
-    cooldown: the coin scanners burst past a plan's rate limit, which used to lock the keeper out of its own endpoint for 30s at a
-    time ("RPC pool exhausted" on a balance read). A 429 here waits a moment and retries; only then does it fall back to the pool."""
+async def rpc_priority(http: httpx.AsyncClient, method: str, params: list, tries: int = 4):
+    """💵 The KEEPER's lanes. Real-money calls (balances, sends, confirmations) go to the keyed endpoints FIRST — the dedicated one,
+    then the backup (`SOLANA_RPC_URL_2`), then Alchemy — and ignore the shared cooldown the scanners trip. A burst 429 moves to the
+    next lane at once (waiting only when there is no other lane); a lane whose PLAN is used up is skipped until it resets. Only
+    then the public pool."""
     import asyncio
-    if _dedicated:
-        for attempt in range(tries):
-            try:
-                res = await http.post(_dedicated, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
-            except httpx.HTTPError:
+    now = time.time()
+    lanes = [e for e in KEEPER_LANES if _quota_until.get(e, 0) <= now]
+    for attempt in range(tries if lanes else 0):
+        endpoint = lanes[attempt % len(lanes)]
+        try:
+            res = await http.post(endpoint, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
+        except httpx.HTTPError:
+            if len(lanes) == 1:
                 break
-            if res.status_code == 429:
-                await asyncio.sleep(0.35 * (attempt + 1))
+            continue
+        if res.status_code == 429:
+            spent = out_of_quota(429, res.text, res.headers)
+            if spent:
+                _quota_until[endpoint] = time.time() + spent
+                lanes = [e for e in lanes if e != endpoint]
+                if not lanes:
+                    break
                 continue
-            if res.status_code != 200:
+            if len(lanes) == 1:
+                await asyncio.sleep(0.35 * (attempt + 1))
+            continue
+        if res.status_code != 200:
+            if len(lanes) == 1:
                 break
-            try:
-                body = res.json()
-            except ValueError:
-                break
-            if 'error' not in body:
-                return body.get('result')
-            break   # a real RPC error (bad params, simulation failed, …) is the caller's to see — the pool reports it the same way
+            continue
+        try:
+            body = res.json()
+        except ValueError:
+            break
+        if 'error' not in body:
+            return body.get('result')
+        break   # a real RPC error (bad params, simulation failed, …) is the caller's to see — the pool reports it the same way
     return await _rpc(http, method, params, scan=False)

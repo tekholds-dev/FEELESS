@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { useAdmin } from '../lib/adminCall';
@@ -247,12 +247,42 @@ function EnginePick({ suggest, cfg, busy, save }) {
 }
 
 // 🗑 What the trench scan sees right now: every finalist with its holders, market cap and each check it passed or failed.
-export function TrenchScan() {
+const TRENCH_FIELDS = [['minHolders', 'Holders ≥', v => v, 'How many wallets must hold the coin (counted on-chain)'], ['minTxns1h', 'Trades / h ≥', v => v, 'Trades in the last hour — a real crowd, not two wallets'],
+  ['minVol1h', '1h volume ≥', v => `$${v / 1000}K`, 'Dollar volume in the last hour'], ['minMcap', 'Market cap from', v => `$${v / 1000}K`, 'It must have broken this market cap'],
+  ['maxMcap', 'Market cap up to', v => v >= 1e6 ? `$${v / 1e6}M` : `$${v / 1000}K`, 'Above this it is no longer a fresh breakout'], ['maxAgeH', 'Age up to', v => `${v}h`, 'How old the launch may be']];
+
+const FLOW_WORD = { done: ['✓', 'done'], failed: ['✕', 'refused'], sending: ['⏳', 'sending'], next: ['·', 'next'] };
+
+/* 👁 A swap, one transaction at a time: SELL (confirmed) → BUY (sending) → next. Only the chain turns a step green. */
+export function SwapFlow({ k }) {
+  const f = (k && k.flow) || [];
+  if (!f.length && !k?.holdingSell) return null;
+  return <ol className="hrt-flow" data-testid="swap-flow" aria-label="Swap in progress">
+    {k.holdingSell && <li className="is-hold" data-tip="The new coin failed a buy check, so the old coin was NOT sold. The engine is picking the next best coin (about 15 seconds).">🔒 old coin kept — new coin not buyable, re-picking</li>}
+    {f.map((s, i) => { const w = FLOW_WORD[s.state] || FLOW_WORD.next;
+      return <li key={`${s.side}${s.symbol}${i}`} className={`is-${s.state}`} style={{ '--i': i }} data-tip={s.err || (s.state === 'done' ? 'Confirmed on-chain' : s.state === 'sending' ? 'Signed and sent — waiting for the chain' : 'Runs after the step before it confirms')}>
+        <i>{i + 1}</i><b>{s.side === 'sell' ? 'SELL' : 'BUY'} ${s.symbol}</b><span className="m-num">{usd(s.usd)}</span><em>{w[0]} {w[1]}</em></li>; })}</ol>;
+}
+
+export function TrenchScan({ call }) {
   const [d, setD] = useState(null);
-  useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/fuses/trench')).then(r => r.json()).then(x => alive && setD(x)).catch(() => {});
-    load(); const t = setInterval(() => !document.hidden && load(), 30000); return () => { alive = false; clearInterval(t); }; }, []);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => fetch(apiUrl('/api/reputation/fuses/trench')).then(r => r.json()).then(setD).catch(() => {}), []);
+  useEffect(() => { let alive = true; const go = () => alive && load();
+    go(); const t = setInterval(() => !document.hidden && go(), 30000); return () => { alive = false; clearInterval(t); }; }, [load]);
   if (!d) return <div className="tscan is-ghost" />;
-  return <div className="tscan" data-testid="trench-scan"><span className="m-label">🗑 TRENCH SCAN · {d.pass || 0} PASS NOW{d.level ? ` · 🔧 WIDENED ×${d.level}` : ''}</span>
+  const own = d.cfg || { mode: 'auto' }; const mine = own.mode === 'own';
+  const save = async patch => { if (!call) return; setBusy(true);
+    try { await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ trenchCfg: { ...own, ...patch } }) }); toast.success('Trench settings saved — the next scan (≤ 2 min) uses them'); await load(); }
+    catch (e) { toast.error(e.message || 'Could not save'); } finally { setBusy(false); } };
+  return <div className="tscan" data-testid="trench-scan"><span className="m-label">🗑 TRENCH SCAN · {d.pass || 0} PASS NOW{mine ? ' · 🎛 YOUR SETTINGS' : d.level ? ` · 🔧 WIDENED ×${d.level}` : ''}</span>
+    {call && <div className="tscan-cfg" data-testid="trench-cfg">
+      <div className="m-seg" role="group" aria-label="Trench settings">
+        <button type="button" disabled={busy} className={!mine ? 'on' : ''} data-testid="trench-auto" data-tip="The engine tunes it: strict first; when nothing passes it loosens crowd / trades / volume / cap band / age one step at a time (max 3) and tightens again when coins pass" onClick={() => save({ mode: 'auto' })}>🤖 Engine tunes</button>
+        <button type="button" disabled={busy} className={mine ? 'on' : ''} data-testid="trench-own" data-tip="Your own numbers for crowd, trades, volume, market cap and age. The safety checks (top-10, snipers, dev, creator, mint + freeze, buyers, green candles) are never options" onClick={() => save({ mode: 'own' })}>🎛 My settings</button></div>
+      {mine && <div className="tscan-own">{TRENCH_FIELDS.map(([key, name, fmt, tip]) => <label key={key} data-tip={tip}><small>{name}</small>
+        <select className="m-input" disabled={busy} value={own[key]} data-testid={`trench-${key}`} aria-label={name} onChange={e => save({ [key]: Number(e.target.value) })}>
+          {((d.options || {})[key] || []).map(o => <option key={o} value={o}>{fmt(o)}</option>)}</select></label>)}</div>}</div>}
     <small className="m-dim">{d.rules}</small>
     {!d.pass && (d.funnel || []).length > 0 && <small className="m-dim tscan-why" data-testid="trench-why">🔎 Why nothing passed ({d.seen} coins checked): {d.funnel.slice(0, 5).map(f => `${f.n}× ${f.why}`).join(' · ')}</small>}
     {!(d.checked || []).length ? <small className="m-dim">No fresh coin is breaking out with a real crowd right now — the trench slots stay normal runners until one does.</small>
@@ -300,7 +330,7 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
       {grp === 'exits' && <><StrategyPicks hours={cfg?.rotateHours || 1} current={cfg} busy={busy} onApply={s => saveExit(stratPatch(s.cfg))} testid={`strats-${c.tpl}`} />
         {rows(['rideAt', 'rideTrail', 'tp', 'sl', 'instantSwapPct', 'slMode', 'keepWinPct'])}</>}
       {grp === 'shape' && <>{rows(['coins', 'cycleEvery', 'trenchCoins'])}
-        {(cfg?.cycles || {})[c.tpl] === 'trench' && <TrenchScan />}
+        {(cfg?.cycles || {})[c.tpl] === 'trench' && <TrenchScan call={call} />}
         <div className="ce-row"><span><b>🔄 Cycle</b><small>The shapes this card moves through (anchor · mixed · degen · safest …)</small></span><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
       {!real && <div className="ce-row"><span><b>🔒 Lock tier</b><small>Freeze this tier's whole config so engine tunes never change it</small></span><div className="m-seg">{[[true, 'locked'], [false, 'free']].map(([v, t]) => <button key={t} type="button" disabled={busy} className={!!locked === v ? 'active' : ''} onClick={() => { setBusy(true); call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ lock: c.tpl, on: v }) }).then(() => { toast.success(v ? '🔒 Locked' : 'Unlocked'); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy(false)); }}>{t}</button>)}</div></div>}</>}
       {grp === 'safety' && rows(['floorPct', 'floorRestMins', 'rescuePct', 'autoBrain'])}
@@ -387,8 +417,9 @@ export function HqRealCards({ addr, onCount }) {
           <p className="hrt-line m-num" data-testid="hrt-line"><span data-tip="Rounds this card has played">⟳ {c.rounds || 0} rounds</span><span data-tip="This run started at this value (a run restarts on top-ups, re-deals and fixes)">run from {usd(c.startUsd)}</span>
             <span data-tip="Paid-out money still parked outside active card capital right now">paid out now {usd(c.walletUsd || 0)}</span><span data-tip="Lifetime amount this card has paid out. Reinvesting does not erase this history and does not increase PUT IN.">paid out ever {usd(b.paidOutEverUsd || 0)}</span></p>
           <CycleStrip c={c} />
+          <SwapFlow k={k} />
           <ul className="hrt-coins">{c.legs.map(l => <li key={l.pairAddress} className={l.buying ? 'is-buying' : ''}><b>{l.role === 'runner' ? '🏃' : '⚓'} ${l.symbol}{l.ride && l.high > 0 && <i className="hrt-ride" data-tip={`Frozen while it runs — swapped once it falls ${cf?.rideTrail || 30}% from its peak`}> ❄ riding · peak {pct((l.high / (l.rideFrom || l.entry || l.high) - 1) * 100)}</i>}{l.frozen && !l.ride && <i className="hrt-ride"> ❄ frozen</i>}</b>
-            {l.buying || !(l.usd > 0) ? <em className="hrt-buy" data-tip={k.lastFail?.symbol === l.symbol ? `Last try: ${k.lastFail.err} — tap ⇄ to swap it for a coin that can be bought` : l.buying ? 'The keeper has card cash assigned to this coin and retries the buy on its next tick' : 'This slot is empty but the card has no tradable cash assigned to it. Paid-out wallet money is never pulled back into the card; the slot will arm automatically when card cash is available.'}>{l.buying ? (k.lastFail?.symbol === l.symbol ? `⏳ ${String(k.lastFail.err || '').split(' (')[0].slice(0, 34)}` : '⏳ buying… keeper retries') : '○ empty · waiting for card cash'}</em> : <><span>{usd(l.costUsd)} → {usd(l.usd)}</span><em className={l.pnlPct >= 0 ? 'm-pos' : 'm-neg'}>{pct(l.pnlPct)}{l.loseRounds > 0 && !l.ride && !l.frozen ? ` · ${l.loseRounds}/${cf?.rotateConfirm || 1} losing` : ''}</em></>}
+            {l.buying || !(l.usd > 0) ? <em className="hrt-buy" data-tip={k.lastFail?.symbol === l.symbol ? `Last try: ${k.lastFail.err} — tap ⇄ to swap it for a coin that can be bought` : l.buying ? 'The keeper has card cash assigned to this coin and retries the buy on its next tick' : 'This slot is empty but the card has no tradable cash assigned to it. Paid-out wallet money is never pulled back into the card; the slot will arm automatically when card cash is available.'}>{l.buying ? (k.lastFail?.symbol === l.symbol ? `⏳ ${String(k.lastFail.err || '').split(' (')[0].slice(0, 34)}` : '⏳ buying… not counted until it lands') : '○ empty · waiting for card cash'}</em> : <><span>{usd(l.costUsd)} → {usd(l.usd)}</span><em className={l.pnlPct >= 0 ? 'm-pos' : 'm-neg'}>{pct(l.pnlPct)}{l.loseRounds > 0 && !l.ride && !l.frozen ? ` · ${l.loseRounds}/${cf?.rotateConfirm || 1} losing` : ''}</em></>}
             {l.symbol !== 'SOL' ? <span className="hrt-ctl">
               {/* ✂ your call, your amount: the ONLY way principal leaves a card. The engine itself pays out profit only. */}
               <span className="hrt-sell" role="group" aria-label={`Sell ${l.symbol}`}>{[[25, '25%'], [50, '50%'], [100, 'All']].map(([p, t]) => <button key={p} type="button" className="m-btn danger" disabled={!!busy || l.buying || !(l.usd > 0)} data-testid={p === 100 ? `sell-${l.symbol}` : `sell-${l.symbol}-${p}`}
@@ -454,7 +485,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0 }
     const s = q.trim();
     const url = s.length >= 2 ? `/api/reputation/fuses/search?q=${encodeURIComponent(s)}` : lens === 'trench' ? '/api/reputation/fuses/trench' : GAUNTLET[lens] ? '/api/reputation/fuses/contenders' : `/api/reputation/fuses/discover?lens=${lens}&chain=solana`;
     const t = setTimeout(() => fetch(apiUrl(url)).then(r => (r.ok ? r.json() : null)).then(x => { if (!alive || !x) return;
-      if (x.checked) setTr({ floor: x.floor || 0, checked: x.checked.length, rules: x.rules, level: x.level || 0 });
+      if (x.checked) setTr({ floor: x.floor || 0, checked: x.checked.length, rules: x.rules, level: Number(x.level) || 0 });
       const raw = x.pools || (x.checked ? x.rows || [] : (x.divisions || []).filter(dv => (GAUNTLET[lens] || []).includes(dv.key)).flatMap(dv => dv.rows));
       const seen = new Set(); setRows(raw.map(pickRow).filter(r => r.mint && r.pairAddress && !seen.has(r.mint) && seen.add(r.mint)).slice(0, 30)); }).catch(() => alive && setRows([])), s.length >= 2 ? 300 : 0);
     return () => { alive = false; clearTimeout(t); }; }, [lens, q]);

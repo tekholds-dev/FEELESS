@@ -183,3 +183,22 @@ def test_trench_fill_never_loops_one_fill_a_round_and_never_on_a_coin_just_bough
     px[normal['pairAddress']] = normal['price']
     again = ap.tick(out, px, pools, runners, cfg, 50.0, anchors, {}, {})         # … and the fill must NOT sell it straight back out
     assert fills(again) == n1 and normal['mint'] in {l['mint'] for l in again['legs']}
+
+
+def test_owner_trench_settings_only_move_the_soft_checks_and_snap_to_the_lists():
+    own = tr.clean_own({'mode': 'own', 'minHolders': 170, 'minVol1h': 4200, 'maxMcap': 9e9, 'minMcap': 50000, 'maxAgeH': 5, 'maxTop10': 99, 'minBuyShare': 1})
+    assert own['mode'] == 'own' and own['minHolders'] in (150, 200) and own['minVol1h'] == 5000 and own['maxMcap'] == 1_000_000 and own['maxAgeH'] == 6
+    assert 'maxTop10' not in own and 'minBuyShare' not in own                             # safety checks are not options
+    g = tr.own_gate(own)
+    assert g['maxTop10'] == tr.TRENCH['maxTop10'] and g['minBuyShare'] == tr.TRENCH['minBuyShare'] and g['maxDev'] == tr.TRENCH['maxDev']
+    assert tr.clean_own(None) == {'mode': 'auto', **{k: tr.clean_own({})[k] for k in tr.OWN_OPTIONS}} and tr.clean_own({'mode': 'x'})['mode'] == 'auto'
+    low = tr.clean_own({'mode': 'own', 'minMcap': 50000, 'maxMcap': 100000})
+    assert low['maxMcap'] > low['minMcap']
+    coin = {'ageH': 2, 'mcap': 60000, 'txns1h': 130, 'vol1h': 6000, 'buyShare': 60, 'chg5m': 3, 'chg1h': 9, 'scanned': True, 'top10': 18, 'insiders': 2,
+            'bundled': 0, 'dev': 1, 'top10Jump': 0, 'creatorRep': 'clean'}
+    auth = {'mintAuthority': None, 'freezeAuthority': None}
+    assert not tr.gate(coin, 220, auth)[0]                                               # strict default: too small a crowd
+    mine = tr.own_gate({'mode': 'own', 'minHolders': 200, 'minTxns1h': 120, 'minVol1h': 5000})
+    assert tr.gate(coin, 220, auth, mine)[0]                                             # the owner's numbers let it in …
+    assert not tr.gate({**coin, 'top10': 40}, 220, auth, mine)[0]                        # … and a whale-heavy coin is still out
+    assert not tr.gate(coin, 220, {'mintAuthority': 'X', 'freezeAuthority': None}, mine)[0]
