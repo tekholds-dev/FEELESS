@@ -1173,3 +1173,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   site or X, creator clean / watch. A HIGH-risk creator (rug report, serial sniper) NEVER passes an engine gate — the owner may still
   pick the coin by hand: picker rows carry `warn` (`_creator_warn` from `_runner_cands`, "⚠ creator" in the ⚠ cell, never a block).
 - ⚡ Pump Pulse in the lists: 🌊 Volume rows get `pulse` from ONE batched `_edge_pulses` call (pulsing first, +8 score); picker shows ⚡.
+- 🧷 AN OWNER WRITE BEATS A TICK (`arena_prime.card_snap/merge_tick`, `_hq_ver`): the tier tick loads the cards, awaits prices for
+  seconds, then used to save its copy over the file — a pick / skim / lock / config written in that window vanished ("top 3 pick not
+  setting": the request answered 200). Now a card that changed on disk since the tick loaded it is kept and that tick's result for
+  it is dropped. ANY new loop that loads → awaits → saves a shared store must do the same.
+- ⚖ `spread_cash(legs, cash, prices, seats)`: the equal share is counted over every UNLOCKED coin, and cash that would lift a coin
+  above it stays cash. One eligible coin (the others just cut) took all of it: a $0.74 pick became 60% of a four-coin card.
+- 🧪 Trench METAS (`trench.METAS/meta_gate/loosest/meta_board`, trenchCfg `{mode: 'meta', meta}`): 🌱 Sprout · 🚀 Breakout · 🌊 Flood ·
+  🏟 Crowd · 🕰 Survivor — soft checks only, from `OWN_OPTIONS`; safety checks identical in every meta. Finalists for the holder count
+  are chosen by `loosest()` so every meta can be judged (`_trench_cache.got`). `GET /fuses/trench?meta=` = view-only. TrenchScan
+  chips: HQ tap saves, a visitor's tap views (Fuse › Build › Runners › "🗑 Trench metas" fold).
+- 🌦 Forecast (`arena_prime.forecast`, public `GET /fuses/forecast`, `WeatherStrip` on top of My cards): weather now · 6h-vs-24h sim
+  trend · share of live launch coins green 1h · what real money buys in this weather. A reading, never a promise.

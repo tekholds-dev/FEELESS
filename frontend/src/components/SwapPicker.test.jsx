@@ -50,3 +50,22 @@ test('a flagged creator and a pump pulse are shown on the row, and the pick stay
   expect(el.querySelector('[data-testid="sp-pulse-PLS"]')).toBeTruthy();
   expect(el.querySelector('[data-testid="sp-warn-PLS"]')).toBeNull();
 });
+
+test('trench metas: a visitor taps one to VIEW it, and the weather strip reads the forecast', async () => {
+  const { TrenchScan, WeatherStrip } = require('./ArenaPrime');
+  const urls = [];
+  const metas = [{ key: 'sprout', label: '🌱 Sprout', blurb: 'early', pass: 0, cfg: { maxAgeH: 1, minMcap: 10000, maxMcap: 100000, minHolders: 150, minTxns1h: 120, minVol1h: 5000 } },
+    { key: 'flood', label: '🌊 Flood', blurb: 'volume', pass: 2, cfg: { maxAgeH: 12, minMcap: 20000, maxMcap: 600000, minHolders: 300, minTxns1h: 400, minVol1h: 50000 } }];
+  global.fetch = jest.fn(async u => { urls.push(String(u));
+    if (String(u).includes('forecast')) return { ok: true, json: async () => ({ level: 'rain', avgPct: -7.2, n: 80, trend: 'clearing', breadthPct: 62, buyersPct: 55, coins: 48, outlook: 'mixed', buys: 'real money buys only strong runners in deep pools' }) };
+    return { ok: true, json: async () => ({ cfg: { mode: 'auto', meta: 'breakout' }, metas, view: String(u).includes('meta=flood') ? 'flood' : undefined, checked: [], pass: 0, rules: 'r', funnel: [] }) }; });
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<><WeatherStrip /><TrenchScan /></>); });
+  await tick();
+  expect(el.querySelector('[data-testid="weather-strip"]').textContent).toContain('RAIN');
+  expect(el.querySelector('[data-testid="wx-breadth"]').textContent).toContain('62% of 48 launch coins green');
+  expect(el.querySelector('[data-testid="trench-cfg"]')).toBeNull();                 // no settings without HQ
+  await act(async () => { el.querySelector('[data-testid="trench-meta-flood"]').click(); }); await tick();
+  expect(urls.some(u => u.includes('/fuses/trench?meta=flood'))).toBe(true);
+  expect(el.textContent).toContain('VIEWING 🌊 Flood');
+});

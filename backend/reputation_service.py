@@ -5423,7 +5423,7 @@ async def _trench_build(now):
     seen, pool = set(), []
     own0 = _trench.clean_own((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg'))
     # finalists by the LOOSEST soft checks (the strictest level that passes wins) — or by the owner's own checks
-    loose = _trench.own_gate(own0) if own0['mode'] == 'own' else _trench.widen(len(_trench.WIDEN) - 1)
+    loose = _trench.loosest(_trench.own_gate(own0) if own0['mode'] == 'own' else None)   # wide enough for EVERY meta to have finalists
     every = list(_runner_cands) or (live.get('passing') or []) + (live.get('dropped') or [])
     _trench_cache['seen'], _trench_cache['funnel'] = len(every), _trench.funnel(every, loose)[:8]   # 🔎 why coins didn't make it
     for r in every:
@@ -5439,12 +5439,13 @@ async def _trench_build(now):
             return None
         return r, (h or {}).get('holders'), auth
     got = [x for x in await asyncio.gather(*[one(r) for r in pool]) if x]
+    _trench_cache['got'] = got   # raw finalists (coin, holders, authorities): every 🧪 meta is judged on these
     own = _trench.clean_own((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg'))
-    if own['mode'] == 'own':   # 🎛 the owner's own soft checks (crowd, trades, volume, cap band, age) — the safety checks never move
+    if own['mode'] in ('own', 'meta'):   # 🎛 own numbers, or a 🧪 named meta the owner's own soft checks (crowd, trades, volume, cap band, age) — the safety checks never move
         g_own = _trench.own_gate(own)
         res = [(g, *_trench.gate(g[0], g[1], g[2], g_own)) for g in got]
-        rows = [{**_trench_row(g[0], g[1], g[2], g_own), 'trenchLevel': 'own'} for g, _ok, _f in res]
-        _trench_cache.update(rows=[x for x in rows if x['ok']], checked=rows, level='own', own=own)
+        rows = [{**_trench_row(g[0], g[1], g[2], g_own), 'trenchLevel': own['mode']} for g, _ok, _f in res]
+        _trench_cache.update(rows=[x for x in rows if x['ok']], checked=rows, level=own['mode'], own=own)
         return _trench_cache
     lvl, res = _trench.best_level(got, lambda g, cfg: _trench.gate(g[0], g[1], g[2], cfg))
     rows = [{**_trench_row(g[0], g[1], g[2], _trench.widen(lvl or 0)), 'trenchLevel': lvl or 0} for g, _ok, _f in res]
@@ -5453,12 +5454,21 @@ async def _trench_build(now):
 
 
 @app.get('/api/reputation/fuses/trench')
-async def fuse_trench():
-    """🗑 The trench scan's latest finalists (coin data only): holders, market cap, age and every check passed / failed."""
+async def fuse_trench(meta: str = Query('', max_length=20)):
+    """🗑 The trench scan's latest finalists (coin data only): holders, market cap, age and every check passed / failed.
+    `meta` = VIEW the same finalists through a named 🧪 meta (read-only; the cards follow HQ's saved setting)."""
     keys = ('mint', 'symbol', 'pairAddress', 'price', 'liq', 'holders', 'mcap', 'ageH', 'vol1h', 'buyShare', 'ok', 'fails', 'trenchWhy', 'trenchScore', 'trenchLevel')
     own = _trench.clean_own((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg'))
-    g = _trench.own_gate(own) if own['mode'] == 'own' else _trench.widen(_trench_cache.get('level') if isinstance(_trench_cache.get('level'), int) else 0)
-    return {'cfg': own, 'options': _trench.OWN_OPTIONS, 'checked': [{k: r.get(k) for k in keys} for r in _trench_cache.get('checked') or []], 'pass': len(_trench_cache.get('rows') or []),
+    g = _trench.own_gate(own) if own['mode'] in ('own', 'meta') else _trench.widen(_trench_cache.get('level') if isinstance(_trench_cache.get('level'), int) else 0)
+    got = _trench_cache.get('got') or []
+    board = _trench.meta_board(got, lambda x, cfg: _trench.gate(x[0], x[1], x[2], cfg))
+    if meta in _trench.METAS:   # 👁 view-only: the finalists judged by that meta
+        g = _trench.meta_gate(meta)
+        view = [{**_trench_row(x[0], x[1], x[2], g), 'trenchLevel': meta} for x in got]
+        return {'cfg': own, 'view': meta, 'metas': board, 'options': _trench.OWN_OPTIONS, 'checked': [{k: v.get(k) for k in keys} for v in view], 'pass': sum(1 for v in view if v['ok']),
+                'rows': [], 'floor': _fw.clean_cfg(_fw_load().get('cfg') or {})['trenchMinLiqUsd'], 'level': meta, 'seen': _trench_cache.get('seen', 0), 'funnel': [], 'at': _trench_cache.get('at'),
+                'rules': f"≤ {g['maxAgeH']:g}h old · ${g['minMcap'] / 1000:g}K–${g['maxMcap'] / 1000:g}K cap · ≥ {g['minHolders']} holders · ≥ {g['minTxns1h']} trades/h · ≥ ${g['minVol1h'] / 1000:g}K 1h volume · safety checks as always"}
+    return {'cfg': own, 'metas': board, 'options': _trench.OWN_OPTIONS, 'checked': [{k: r.get(k) for k in keys} for r in _trench_cache.get('checked') or []], 'pass': len(_trench_cache.get('rows') or []),
             # 🗑 pickable: the coins that pass — then the NEAR-MISSES (every safety check passed, only crowd / volume / band / age / candles
             # missed): never auto-seated as a trench coin, but the owner may pick one (general pick floor, flagged `soft`)
             'rows': [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'trench': True} for r in _trench_cache.get('rows') or []]
@@ -5624,6 +5634,12 @@ def _pick_row(pair, mint, floor=25_000):
     return {'mint': mint, 'pairAddress': pair.get('pairAddress'), 'symbol': m.get('symbol'), 'price': m['priceUsd'], 'liq': m['liquidityUsd']}
 
 
+@app.get('/api/reputation/fuses/forecast')
+async def fuses_forecast():
+    """🌦 Public: the runner weather and where it is heading (sim cards + live launch-coin breadth). Caches only — answers in ms."""
+    return _prime.forecast(_json_load(PG_SIM_PATH, {}), _runner_cands)
+
+
 @app.get('/api/reputation/fuses/contenders')
 async def fuses_contenders():
     """Public: the divisions, their ranked coins (score + cited parts, ▲▼, streak) and who is ⏭ next up for a card seat."""
@@ -5743,6 +5759,7 @@ async def _prime_tick_inner(now):
     pools, runners, anchors = await _prime_candidates()
     d = _json_load(FUSE_HQ_PATH, {})
     cards = dict((d.get('prime') or {}).get('cards') or {})
+    snap_, ver_ = _prime.card_snap(cards), _hq_ver()   # what the tick STARTED from (an owner write during the tick must win)
     # one pair fetch → live price AND momentum for EVERY coin on the cards (majors + pools too, not only runner-board coins)
     books = (_fw_load().get('books') or {})
     market_rows = _fw_market_rows(cards, books)
@@ -5858,10 +5875,13 @@ async def _prime_tick_inner(now):
                 v['solStart'], v['solStartFor'] = sol_now, v.get('startUsd')
     except Exception:
         pass
-    _record_runs(before_runs, cards)
-    win = _prime.crown_round(cards)
     async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); d.setdefault('prime', {})['cards'] = cards
+        d = _json_load(FUSE_HQ_PATH, {})
+        if _hq_ver() != ver_:   # the file was saved while this tick worked: the owner's pick / skim / lock on a card beats the tick
+            cards = _prime.merge_tick(snap_, cards, (d.get('prime') or {}).get('cards') or {})
+        _record_runs(before_runs, cards)
+        win = _prime.crown_round(cards)
+        d.setdefault('prime', {})['cards'] = cards
         if any(c.get('real') for c in cards.values()) and not d['prime'].get('realCfg'):
             # 💵 the first time a card runs real money its config is FROZEN as its own — HQ / engine tunes on paper can't reach it after this
             d['prime']['realCfg'] = _prime.clean_cfg(d['prime'].get('cfg') or {})
@@ -5873,6 +5893,13 @@ async def _prime_tick_inner(now):
 
 
 CARD_RECORDS_PATH = DATA_DIR / 'card_records.json'   # → card_records.db: every ended run of every tier card, append-only, forever
+
+
+def _hq_ver():
+    try:
+        st = FUSE_HQ_PATH.stat(); return (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return None
 
 
 def _record_runs(before, cards):

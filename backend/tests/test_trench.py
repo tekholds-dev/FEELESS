@@ -191,7 +191,7 @@ def test_owner_trench_settings_only_move_the_soft_checks_and_snap_to_the_lists()
     assert 'maxTop10' not in own and 'minBuyShare' not in own                             # safety checks are not options
     g = tr.own_gate(own)
     assert g['maxTop10'] == tr.TRENCH['maxTop10'] and g['minBuyShare'] == tr.TRENCH['minBuyShare'] and g['maxDev'] == tr.TRENCH['maxDev']
-    assert tr.clean_own(None) == {'mode': 'auto', **{k: tr.clean_own({})[k] for k in tr.OWN_OPTIONS}} and tr.clean_own({'mode': 'x'})['mode'] == 'auto'
+    assert tr.clean_own(None) == {'mode': 'auto', 'meta': 'breakout', **{k: tr.clean_own({})[k] for k in tr.OWN_OPTIONS}} and tr.clean_own({'mode': 'x'})['mode'] == 'auto'
     low = tr.clean_own({'mode': 'own', 'minMcap': 50000, 'maxMcap': 100000})
     assert low['maxMcap'] > low['minMcap']
     coin = {'ageH': 2, 'mcap': 60000, 'txns1h': 130, 'vol1h': 6000, 'buyShare': 60, 'chg5m': 3, 'chg1h': 9, 'scanned': True, 'top10': 18, 'insiders': 2,
@@ -211,3 +211,19 @@ def test_a_trench_near_miss_is_only_one_that_passed_every_safety_check():
               'not a mayhem-mode coin', 'creator clean (not flagged · not suspect / high)', 'mint + freeze authority revoked'):
         assert not tr.soft_only(['≥ 400 holders', f]), f
     assert not tr.soft_only([])                                                          # a passing coin is not a "near-miss"
+
+
+def test_trench_metas_set_only_soft_checks_and_the_finalist_pool_is_wide_enough_for_all():
+    import trench as tr
+    for key, (_l, _b, cfg) in tr.METAS.items():
+        assert set(cfg) == set(tr.OWN_OPTIONS) and all(cfg[k] in tr.OWN_OPTIONS[k] for k in cfg), key   # soft checks, fixed lists
+        g = tr.meta_gate(key)
+        assert all(g[k] == tr.TRENCH[k] for k in ('maxTop10', 'maxInsiders', 'maxBundled', 'maxDev', 'maxTop10Jump', 'minBuyShare'))   # safety never moves
+    assert tr.meta_gate('nope') is None
+    lo = tr.loosest()
+    assert lo['minHolders'] == 150 and lo['maxAgeH'] == 48 and lo['maxMcap'] == 1_000_000 and lo['minMcap'] == 10_000
+    own = tr.clean_own({'mode': 'meta', 'meta': 'flood'})
+    assert own['mode'] == 'meta' and tr.own_gate(own)['minVol1h'] == 50_000 and tr.own_gate(own)['maxTop10'] == tr.TRENCH['maxTop10']
+    assert tr.clean_own({'mode': 'meta', 'meta': 'x'})['meta'] == 'breakout' and tr.clean_own({})['mode'] == 'auto'
+    board = tr.meta_board([{'h': 1200}, {'h': 200}], lambda r, g: (r['h'] >= g['minHolders'], []))
+    assert {b['key']: b['pass'] for b in board} == {'sprout': 2, 'breakout': 1, 'flood': 1, 'crowd': 1, 'survivor': 1}

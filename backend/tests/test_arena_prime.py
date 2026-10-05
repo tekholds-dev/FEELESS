@@ -1403,3 +1403,39 @@ def test_the_owner_is_only_blocked_by_the_short_no_back_to_back_rule():
     assert ap.pick_cool(card) == {'RECENT': 3}                                           # left a round ago → 3 more rounds
     assert ap.cool_left(card, 'OLDLOSS') == 0 and ap.cool_left(card, 'LEGACY') == 0 and ap.cool_left(card, 'NEVER') == 0
     assert 'OLDLOSS' in ap.cooling(card, 100.0, 0.08, {'Po': 1.0})                       # the ENGINE still won't deal back a coin under its exit price
+
+
+def test_an_owner_write_during_a_tick_beats_the_ticks_save():
+    a0 = {'tpl': 'degen', 'legs': [{'mint': 'A', 'pairAddress': 'pa'}], 'cash': 1.0}
+    b0 = {'tpl': 'gold', 'legs': [{'mint': 'B', 'pairAddress': 'pb'}]}
+    snap = ap.card_snap({'degen': a0, 'gold': b0})
+    ticked = {'degen': {**a0, 'cash': 0.5}, 'gold': {**b0, 'rounds': 1}}
+    assert ap.merge_tick(snap, ticked, {'degen': a0, 'gold': b0}) == ticked                      # nobody wrote: the tick saves
+    picked = {**a0, 'legs': [{'mint': 'A', 'pairAddress': 'pa', 'swapTo': {'mint': 'Z'}}]}        # the owner queued a pick meanwhile
+    out = ap.merge_tick(snap, ticked, {'degen': picked, 'gold': b0})
+    assert out['degen'] == picked and out['gold'] == ticked['gold']                             # the pick survives; the other card ticks
+    assert 'gold' not in ap.merge_tick(snap, ticked, {'degen': a0})                             # deleted meanwhile stays deleted
+    assert ap.merge_tick(snap, ticked, {'degen': a0, 'gold': b0, 'next': {'tpl': 'next'}})['next'] == {'tpl': 'next'}
+
+
+def test_forecast_reads_weather_trend_and_breadth_and_never_guesses():
+    sim = {'s6': {'n': 60, 'avgPct': 1.0}, 's24': {'n': 200, 'avgPct': -4.0}}
+    up = [{'chg1h': 5, 'buyShare': 60}] * 7 + [{'chg1h': -3, 'buyShare': 40}] * 3
+    f = ap.forecast(sim, up)
+    assert (f['level'], f['trend'], f['breadthPct'], f['buyersPct'], f['outlook']) == ('clear', 'clearing', 70, 54, 'tailwind')
+    down = [{'chg1h': -5, 'buyShare': 40}] * 8 + [{'chg1h': 2, 'buyShare': 60}] * 2
+    assert ap.forecast(sim, down)['outlook'] == 'headwind'
+    storm = ap.forecast({'s6': {'n': 60, 'avgPct': -30.0}, 's24': {'n': 200, 'avgPct': -10.0}}, up)
+    assert storm['level'] == 'storm' and storm['trend'] == 'worsening' and storm['outlook'] == 'headwind' and 'new majors' in storm['buys']
+    none = ap.forecast({}, [])
+    assert none['breadthPct'] is None and none['outlook'] == 'mixed' and none['trend'] == 'steady'   # no reading = no call
+
+
+def test_idle_cash_never_lifts_the_one_eligible_coin_above_the_cards_equal_share():
+    legs = [{'pairAddress': p, 'units': u, 'entry': 1.0} for p, u in (('a', 0.38), ('b', 0.29), ('c', 0.43), ('d', 0.74))]
+    px = {l['pairAddress']: 1.0 for l in legs}
+    fills = ap.spread_cash([legs[3]], 0.92, px, legs)                  # only the fresh pick may be topped up (the others were just cut)
+    assert fills == [0.0]                                              # it already holds more than an equal share ($0.69): cash waits
+    fills = ap.spread_cash([legs[1]], 0.92, px, legs)
+    assert abs(fills[0] - (0.69 - 0.29)) < 1e-9                        # filled to the card's equal share, the rest stays cash
+    assert abs(sum(ap.spread_cash(legs, 0.92, px, legs)) - 0.92) < 1e-9 and ap.spread_cash(legs, 0.92, px, legs)[3] == 0.0

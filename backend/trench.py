@@ -134,10 +134,54 @@ OWN_OPTIONS = {'minHolders': [100, 150, 200, 300, 400, 600, 1000], 'minTxns1h': 
                'minMcap': [10_000, 15_000, 20_000, 30_000, 50_000], 'maxMcap': [100_000, 150_000, 250_000, 400_000, 600_000, 1_000_000], 'maxAgeH': [1, 3, 6, 12, 24, 48]}
 
 
+# 🧪 TRENCH METAS: named styles of trench hunting. Each one sets ONLY the soft checks (crowd, trades, volume, cap band, age), every
+# value from OWN_OPTIONS; the safety checks are the same in every meta. HQ picks one for the cards; anyone can VIEW what each finds.
+METAS = {
+    'sprout':   ('🌱 Sprout', 'Minutes old, tiny cap, first real crowd — earliest and riskiest',
+                 {'maxAgeH': 1, 'minMcap': 10_000, 'maxMcap': 100_000, 'minHolders': 150, 'minTxns1h': 120, 'minVol1h': 5_000}),
+    'breakout': ('🚀 Breakout', 'Broke $20K with a real crowd in its first 6 hours — the classic trench',
+                 {'maxAgeH': 6, 'minMcap': 20_000, 'maxMcap': 150_000, 'minHolders': 400, 'minTxns1h': 250, 'minVol1h': 10_000}),
+    'flood':    ('🌊 Flood', 'Volume first: $50K+ an hour and 400+ trades, any cap up to $600K',
+                 {'maxAgeH': 12, 'minMcap': 20_000, 'maxMcap': 600_000, 'minHolders': 300, 'minTxns1h': 400, 'minVol1h': 50_000}),
+    'crowd':    ('🏟 Crowd', '1,000+ holders — the crowd is already in, cap $50K to $1M',
+                 {'maxAgeH': 24, 'minMcap': 50_000, 'maxMcap': 1_000_000, 'minHolders': 1000, 'minTxns1h': 180, 'minVol1h': 20_000}),
+    'survivor': ('🕰 Survivor', 'Still alive and trading after a day or two — past the rug window',
+                 {'maxAgeH': 48, 'minMcap': 30_000, 'maxMcap': 1_000_000, 'minHolders': 600, 'minTxns1h': 180, 'minVol1h': 10_000}),
+}
+
+
+def meta_gate(key):
+    """The full gate for a named meta (its soft checks on top of the fixed safety checks), or None."""
+    m = METAS.get(key)
+    return {**TRENCH, **{k: (int(v) if k in ('minHolders', 'minTxns1h') else float(v)) for k, v in m[2].items()}} if m else None
+
+
+def loosest(extra=None):
+    """The widest soft checks of every meta, every widen level and `extra` (the owner's own) — used ONLY to choose which coins get
+    the costly holder count, so every meta has finalists to judge. Never a pass rule."""
+    gs = [meta_gate(k) for k in METAS] + [widen(i) for i in range(len(WIDEN))] + ([extra] if extra else [])
+    out = dict(TRENCH)
+    for k in ('minMcap', 'minHolders', 'minTxns1h', 'minVol1h'):
+        out[k] = min(g[k] for g in gs)
+    for k in ('maxMcap', 'maxAgeH'):
+        out[k] = max(g[k] for g in gs)
+    return out
+
+
+def meta_board(finalists, gate_at):
+    """What each meta finds RIGHT NOW among the scanned finalists. gate_at(row, cfg) → (ok, fails). → [{key, label, blurb, pass, coins}]"""
+    out = []
+    for key, (label, blurb, _c) in METAS.items():
+        g = meta_gate(key)
+        ok = [r for r in finalists if gate_at(r, g)[0]]
+        out.append({'key': key, 'label': label, 'blurb': blurb, 'pass': len(ok), 'cfg': {k: g[k] for k in OWN_OPTIONS}})
+    return out
+
+
 def clean_own(c):
     """{'mode': 'auto' | 'own', + one allowed value per soft check}. Anything else snaps to the nearest allowed value / the default."""
     c = c if isinstance(c, dict) else {}
-    out = {'mode': 'own' if c.get('mode') == 'own' else 'auto'}
+    out = {'mode': c.get('mode') if c.get('mode') in ('own', 'meta') else 'auto', 'meta': c.get('meta') if c.get('meta') in METAS else 'breakout'}
     for k, opts in OWN_OPTIONS.items():
         v = _f(c.get(k)) if c.get(k) is not None else _f(TRENCH[k])
         out[k] = min(opts, key=lambda o: abs(o - v))
@@ -149,6 +193,8 @@ def clean_own(c):
 def own_gate(own):
     """The full gate config for the owner's settings: their soft checks on top of the fixed safety checks."""
     o = clean_own(own)
+    if o['mode'] == 'meta':
+        return meta_gate(o['meta'])
     return {**TRENCH, **{k: (float(o[k]) if k not in ('minHolders', 'minTxns1h') else int(o[k])) for k in OWN_OPTIONS}}
 
 

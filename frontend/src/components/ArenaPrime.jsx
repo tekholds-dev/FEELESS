@@ -275,18 +275,24 @@ export function SwapFlow({ k }) {
 export function TrenchScan({ call }) {
   const [d, setD] = useState(null);
   const [busy, setBusy] = useState(false);
-  const load = useCallback(() => fetch(apiUrl('/api/reputation/fuses/trench')).then(r => r.json()).then(setD).catch(() => {}), []);
+  const [view, setView] = useState('');   // 👁 a meta being looked at (read-only; the cards follow HQ's saved setting)
+  const load = useCallback(() => fetch(apiUrl(`/api/reputation/fuses/trench${view ? `?meta=${view}` : ''}`)).then(r => r.json()).then(setD).catch(() => {}), [view]);
   useEffect(() => { let alive = true; const go = () => alive && load();
     go(); const t = setInterval(() => !document.hidden && go(), 30000); return () => { alive = false; clearInterval(t); }; }, [load]);
   if (!d) return <div className="tscan is-ghost" />;
-  const own = d.cfg || { mode: 'auto' }; const mine = own.mode === 'own';
+  const own = d.cfg || { mode: 'auto' }; const mine = own.mode === 'own'; const onMeta = own.mode === 'meta' ? own.meta : '';
+  const metaName = k => ((d.metas || []).find(m => m.key === k) || {}).label || k;
   const save = async patch => { if (!call) return; setBusy(true);
     try { await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ trenchCfg: { ...own, ...patch } }) }); toast.success('Trench settings saved — the next scan (≤ 2 min) uses them'); await load(); }
     catch (e) { toast.error(e.message || 'Could not save'); } finally { setBusy(false); } };
-  return <div className="tscan" data-testid="trench-scan"><span className="m-label">🗑 TRENCH SCAN · {d.pass || 0} PASS NOW{mine ? ' · 🎛 YOUR SETTINGS' : d.level ? ` · 🔧 WIDENED ×${d.level}` : ''}</span>
+  return <div className="tscan" data-testid="trench-scan"><span className="m-label">🗑 TRENCH SCAN · {d.pass || 0} PASS NOW{d.view ? ` · 👁 VIEWING ${metaName(d.view)}` : mine ? ' · 🎛 YOUR SETTINGS' : onMeta ? ` · 🧪 ${metaName(onMeta)}` : Number(d.level) > 0 ? ` · 🔧 WIDENED ×${d.level}` : ''}</span>
+    {(d.metas || []).length > 0 && <div className="tscan-metas" role="group" aria-label="Trench metas" data-testid="trench-metas">{d.metas.map(m => { const on = call ? onMeta === m.key : view === m.key;
+      return <button key={m.key} type="button" disabled={busy} className={`tscan-meta ${on ? 'on' : ''} ${m.pass ? 'has' : ''}`} aria-pressed={on} data-testid={`trench-meta-${m.key}`}
+        data-tip={`${m.blurb}. ≤ ${m.cfg.maxAgeH}h old · $${m.cfg.minMcap / 1000}K–$${m.cfg.maxMcap >= 1e6 ? `${m.cfg.maxMcap / 1e6}M` : `${m.cfg.maxMcap / 1000}K`} cap · ≥ ${m.cfg.minHolders} holders · ≥ ${m.cfg.minTxns1h} trades/h · ≥ $${m.cfg.minVol1h / 1000}K 1h volume. Safety checks are the same in every meta.${call ? ' Tap = your trench slots hunt this way.' : ' Tap = see what it finds right now.'}`}
+        onClick={() => (call ? save({ mode: 'meta', meta: m.key }) : setView(v => (v === m.key ? '' : m.key)))}><b>{m.label}</b><i className="m-num">{m.pass}</i></button>; })}</div>}
     {call && <div className="tscan-cfg" data-testid="trench-cfg">
       <div className="m-seg" role="group" aria-label="Trench settings">
-        <button type="button" disabled={busy} className={!mine ? 'on' : ''} data-testid="trench-auto" data-tip="The engine tunes it: strict first; when nothing passes it loosens crowd / trades / volume / cap band / age one step at a time (max 3) and tightens again when coins pass" onClick={() => save({ mode: 'auto' })}>🤖 Engine tunes</button>
+        <button type="button" disabled={busy} className={!mine && !onMeta ? 'on' : ''} data-testid="trench-auto" data-tip="The engine tunes it: strict first; when nothing passes it loosens crowd / trades / volume / cap band / age one step at a time (max 3) and tightens again when coins pass" onClick={() => save({ mode: 'auto' })}>🤖 Engine tunes</button>
         <button type="button" disabled={busy} className={mine ? 'on' : ''} data-testid="trench-own" data-tip="Your own numbers for crowd, trades, volume, market cap and age. The safety checks (top-10, snipers, dev, creator, mint + freeze, buyers, green candles) are never options" onClick={() => save({ mode: 'own' })}>🎛 My settings</button></div>
       {mine && <div className="tscan-own">{TRENCH_FIELDS.map(([key, name, fmt, tip]) => <label key={key} data-tip={tip}><small>{name}</small>
         <select className="m-input" disabled={busy} value={own[key]} data-testid={`trench-${key}`} aria-label={name} onChange={e => save({ [key]: Number(e.target.value) })}>
@@ -433,6 +439,26 @@ export function CardVitals({ c, funded, onTrail }) {
     <div className="cv-acts"><button type="button" className="m-btn" onClick={onTrail} data-testid="full-activity" data-tip="Everything this card did, newest first — every swap, lock, profit take and why">📜 Full activity</button>
       <ShareGifButton className="m-btn" label="🎞 Share" card={share} /></div>
   </div>;
+}
+
+const WX = { clear: ['☀', 'CLEAR'], rain: ['🌧', 'RAIN'], storm: ['⛈', 'STORM'] };
+const WX_TREND = { clearing: '↗ clearing', worsening: '↘ worsening', steady: '→ steady' };
+const WX_OUT = { tailwind: ['🟢', 'tailwind'], mixed: ['🟡', 'mixed'], headwind: ['🔴', 'headwind'] };
+
+/* 🌦 Weather forecast on top of My cards: now · heading · how many launch coins are green · what real money buys in this weather.
+   One tiny cached fetch a minute. A reading of right now — never a promise. */
+export function WeatherStrip() {
+  const [f, setF] = useState(null);
+  useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/fuses/forecast')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setF(x)).catch(() => {});
+    load(); const t = setInterval(() => !document.hidden && load(), 60000); return () => { alive = false; clearInterval(t); }; }, []);
+  if (!f) return null;
+  const [ico, word] = WX[f.level] || WX.clear; const [dot, out] = WX_OUT[f.outlook] || WX_OUT.mixed;
+  return <div className={`wx is-${f.level}`} data-testid="weather-strip" data-tip={`Runner weather, measured by the engine's own sim cards on real recorded prices${f.avgPct != null ? ` (typical sim card ${f.avgPct >= 0 ? '+' : ''}${f.avgPct}% over ${f.n} sims)` : ' (not enough sims yet — reads clear)'}. Heading = the last 6h of sims against the last 24h. A reading of right now, never a promise.`}>
+    <b className="wx-now"><i className="wx-ico" aria-hidden="true">{ico}</i>{word}</b>
+    <span>{WX_TREND[f.trend] || WX_TREND.steady}</span>
+    {f.breadthPct != null && <span data-testid="wx-breadth"><i className="m-num">{f.breadthPct}%</i> of {f.coins} launch coins green 1h{f.buyersPct != null ? <> · buyers <i className="m-num">{f.buyersPct}%</i></> : null}</span>}
+    <span className="wx-out">{dot} {out}</span>
+    <small>{f.buys}</small></div>;
 }
 
 export function HqRealCards({ addr, onCount }) {

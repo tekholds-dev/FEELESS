@@ -488,6 +488,32 @@ def weather(sim):
     return {'level': 'storm' if avg <= STORM_PCT else 'rain' if avg <= RAIN_PCT else 'clear', 'avgPct': round(avg, 2), 'n': int(_f(w.get('n')))}
 
 
+def forecast(sim, cands=()):
+    """🌦 The weather + where it is heading, in facts. `now` = `weather(sim)` (sim cards on real prices). `trend` = the last 6h of
+    sims against the last 24h (≥ 3 pts apart). `breadth` = share of live launch coins green over the hour + their average buy
+    share. `outlook` = tailwind / mixed / headwind from breadth and trend. A reading of right now — never a promise."""
+    w = weather(sim)
+    s6, s24 = (sim or {}).get('s6') or {}, (sim or {}).get('s24') or {}
+    trend = 'steady'
+    if _f(s6.get('n')) >= 50 and _f(s24.get('n')) >= 100:
+        d = _f(s6.get('avgPct')) - _f(s24.get('avgPct'))
+        trend = 'clearing' if d >= 3 else 'worsening' if d <= -3 else 'steady'
+    live = [c for c in cands or [] if c.get('chg1h') is not None]
+    breadth = round(sum(1 for c in live if _f(c.get('chg1h')) > 0) / len(live) * 100) if live else None
+    bs = [_f(c.get('buyShare')) for c in live if c.get('buyShare') is not None]
+    buyers = round(sum(bs) / len(bs)) if bs else None
+    if breadth is None:
+        outlook = 'mixed'
+    elif w['level'] == 'storm' or breadth <= 35 or (trend == 'worsening' and breadth < 50):
+        outlook = 'headwind'
+    elif breadth >= 60 and trend != 'worsening' and w['level'] == 'clear':
+        outlook = 'tailwind'
+    else:
+        outlook = 'mixed'
+    buys = {'storm': 'real money buys new majors only', 'rain': 'real money buys only strong runners in deep pools', 'clear': 'every gated coin can be bought'}[w['level']]
+    return {**w, 'trend': trend, 'breadthPct': breadth, 'buyersPct': buyers, 'coins': len(live), 'outlook': outlook, 'buys': buys}
+
+
 def weather_runners(rows, level, deep_floor, liq_of):
     """Runner candidates real money may BUY in this weather (coins already held are never sold by the weather).
     In ANY weather a runner must be at least REAL_RUNNER_AGE_H old — unknown age = out (fail closed). New majors are days old by rule."""
@@ -1290,7 +1316,11 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             # ⚖ NO COIN GETS THE WHOLE POT. Idle cash fills the seats that are furthest under an equal share and never lifts a coin
             # above it. It used to go entirely to whichever coin was waiting on a buy: $1.15 of freed cash went into ONE coin, which
             # became half the card — and one coin then decided the card.
-            fills = spread_cash(targets, free_cash, prices)
+            # the equal share is counted over every coin that is NOT locked: a coin skipped only for 10 minutes (just cut) still counts,
+            # so the one coin left can't take its share too; a locked rider's banked money does go to the others in full
+            open_ = [l for l in c['legs'] if not l.get('placeholder') and not l.get('ride') and not l.get('frozen')]
+            fills = spread_cash(targets, free_cash, prices, open_ if all(t in open_ for t in targets) else None)
+            free_cash = sum(fills)   # what is really spent: cash that would push a coin over its equal share stays cash
             for l, each in zip(targets, fills):
                 if each <= 0:
                     continue
@@ -1299,7 +1329,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             targets = [l for l, each in zip(targets, fills) if each > 0]
             c['compoundedUsd'] += free_cash
             last = c['events'][-1] if c['events'] else {}
-            if last.get('kind') == 'compound' and now - _f(last.get('firstAt') or last.get('at')) < 1800:   # one line per half hour, not one a tick
+            if free_cash < 0.01:
+                pass
+            elif last.get('kind') == 'compound' and now - _f(last.get('firstAt') or last.get('at')) < 1800:   # one line per half hour, not one a tick
                 c['events'][-1] = {**last, 'at': now, 'firstAt': last.get('firstAt') or last.get('at'), 'usd': round(_f(last.get('usd')) + free_cash, 4),
                                    'n': int(last.get('n') or 1) + 1, 'to': [l['symbol'] for l in targets]}
             else:
@@ -1364,20 +1396,25 @@ SMALL_SHARE = 0.5   # a coin PUT IN with < half its equal share is topped up …
 OVER_SHARE = 1.25   # … from card cash first, then from coins holding > 125% of their share
 
 
-def spread_cash(legs, cash, prices):
+def spread_cash(legs, cash, prices, seats=None):
     """How idle cash is split over a card's coins → [$ per leg]. Each coin is filled toward an EQUAL share of (coins + cash) in
     proportion to how far under it sits; a coin already at or over its share gets nothing. A coin still waiting on its buy counts as
-    worth what it was given so far (often $0), so it is filled first — but only up to its share."""
+    worth what it was given so far (often $0), so it is filled first — but only up to its share.
+    `seats` = every coin that is not locked, when `legs` is only the coins that may be topped up right now: the equal share is then the
+    whole card's, and cash that would lift a coin above it is NOT spent (it waits for the other coins). Without it, one eligible
+    coin took all the cash: $0.92 into a $0.74 pick made it 60% of a four-coin card."""
     def val(l):
         px = _f((prices or {}).get(l['pairAddress'])) or _f(l.get('entry'))
         return (_f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)) * px
     vals = [val(l) for l in legs]
-    share = (sum(vals) + _f(cash)) / len(legs) if legs else 0.0
+    every = seats if seats else legs
+    share = (sum(val(l) for l in every) + _f(cash)) / len(every) if every else 0.0
     room = [max(0.0, share - v) for v in vals]
     total = sum(room)
     if total <= 0:
-        return [_f(cash) / len(legs)] * len(legs) if legs else []
-    return [_f(cash) * r / total for r in room]
+        return [0.0] * len(legs) if seats else ([_f(cash) / len(legs)] * len(legs) if legs else [])
+    spend = min(_f(cash), total) if seats else _f(cash)
+    return [spend * r / total for r in room]
 
 
 def stack(card, prices, cfg=None):
@@ -1601,6 +1638,29 @@ def sell_leg_to_cash(card, pair, prices, now, pct=100.0):
     c['events'].append({'at': now, 'kind': 'manual-sell', 'symbol': l.get('symbol'), 'usd': round(usd, 4),
                         'why': 'sold by owner — proceeds stay inside this card as cash', 'to': ['cash']})
     return c
+
+
+def card_snap(cards):
+    """{tier: the card as a stable string} — taken when a tick LOADS the cards, compared when it saves (`merge_tick`)."""
+    import json
+    return {t: json.dumps(c, sort_keys=True, default=str) for t, c in (cards or {}).items()}
+
+
+def merge_tick(snap, ticked, fresh):
+    """A tick works for seconds between loading the cards and saving them. Anything written in between (the owner's pick, a skim,
+    a lock, a config) must WIN: a card that changed on disk since the tick loaded it is kept as it is on disk and this tick's
+    result for it is dropped (the next tick, seconds later, runs on the new card). A card deleted meanwhile stays deleted; one
+    added meanwhile is kept. → the cards to save."""
+    now_ = card_snap(fresh)
+    out = {}
+    for t, c in (ticked or {}).items():
+        if t in snap and t not in now_:
+            continue                       # removed while the tick ran
+        out[t] = fresh[t] if t in snap and now_.get(t) != snap[t] else c
+    for t, c in (fresh or {}).items():
+        if t not in out and t not in snap:
+            out[t] = c                     # added while the tick ran
+    return out
 
 
 def queue_swap(card, pair, cand):
