@@ -1145,3 +1145,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   "unscanned" and the lists thinned. Never chain `.get('data') or {}).get('parsed')` by hand. The HQ RPC box REPLACES whatever is in
   the chosen slot — putting a new key in slot 1 removed Helius; `HELIUS_RPC_URL` now carries the Helius key for Helius-only data and
   Helius is lane 3.
+- 🎯 OWNER PICKS are blocked ONLY by "no back-to-back" (`arena_prime.pick_cool`: left in the last `COOL_ROUNDS` rounds → {mint: rounds
+  left}; view `pickCool` → picker button "in N rnd"). The long rules (left at a loss → out until it recovers ≤ 24h; removed by the
+  owner → 6h) stop the ENGINE re-dealing a coin and never refuse the owner ("every coin to swap in is bugged": most listed coins had
+  been on the card and left at a small loss). Picking a coin back clears its `ownerOut`.
+- 🪑 Seat refill with NO cash: coins above the new equal share (never locked / riding / buying) are trimmed to it (`trimAt`) to fund
+  the seat — a rugged coin leaves nothing, and the card sat on 3 coins.
+- Under the real card: `CardVitals` (`hrt-under`: seat pips by state, swaps this hour, profit pulled, best coin) + 📜 Full activity
+  (`CardEarnings` pop-up with every event, labels `KIND` + `VITAL_KIND`) + 🎞 Share (`ShareGifButton`).

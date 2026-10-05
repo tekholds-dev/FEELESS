@@ -1263,7 +1263,10 @@ def test_a_coin_the_owner_swapped_out_stays_off_the_card_for_hours():
     later = {**q, 'rounds': 40}                                                          # 30 rounds on: the normal 3-round cool-down is long over …
     assert 'PENGU' in ap.cooling(later, 1000.0 + 3 * 3600, 0.08)                         # … but the owner took it off → still out
     assert 'PENGU' not in ap.cooling(later, 1000.0 + ap.OWNER_OUT_SEC + 1, 0.08)         # free again after 6h
-    assert ap.cool_left(later, 'PENGU', 1000.0 + 3600, 0.08) >= 1                        # and it can't be picked straight back either
+    assert ap.cool_left(later, 'PENGU', 1000.0 + 3600, 0.08) == 0                        # … the 6h rule is for the ENGINE: the owner may pick it back
+    q2 = ap.queue_swap({**later, 'legs': [dict(x) for x in later['legs']]}, 'Pn', {'mint': 'PENGU', 'pairAddress': 'Pp', 'symbol': 'PENGU', 'price': 1.0, 'liquidityUsd': 1e9})
+    ap.apply_queued(q2, {'Pp': 1.0, 'Pn': 2.0}, {}, 1000.0 + 3 * 3600)
+    assert 'PENGU' not in (q2.get('ownerOut') or {})                                     # picked back in → no longer "removed by you"
 
 
 def test_skim_takes_only_the_profit_keeps_the_stake_and_sends_it_where_the_owner_says():
@@ -1381,8 +1384,22 @@ def test_an_empty_seat_is_refilled_with_an_equal_share_when_the_card_has_cash():
     c = ap.tick(card, px, [], cand, cfg, now + 10, [], {}, {})
     assert [l['mint'] for l in c['legs']] == ['A', 'B', 'C', 'N'] and any(e['kind'] == 'seat' for e in c['events'])
     assert abs(c['legs'][3]['units'] * 2.0 - 1.0) < 0.01                                 # an equal share of a $4 card
-    none = ap.tick({**card, 'cash': 0.1}, px, [], cand, cfg, now + 10, [], {}, {})
-    assert len(none['legs']) == 3                                                        # no cash for a seat → nothing forced
+    # no cash at all (a rugged coin left nothing): the three coins above the new equal share each give up their extra
+    broke = ap.tick({**card, 'cash': 0.0}, px, [], cand, cfg, now + 10, [], {}, {})
+    assert [l['mint'] for l in broke['legs']] == ['A', 'B', 'C', 'N']
+    vals = [l['units'] * (2.0 if l['mint'] == 'N' else 1.0) for l in broke['legs']]
+    assert all(abs(v - 0.75) < 0.02 for v in vals)                                       # 3 × $1.00 → 4 × $0.75
+    locked = {**card, 'cash': 0.0, 'legs': [{**l, 'ride': True, 'high': 1.0, 'rideFrom': 1.0, 'bankedAt': 1} for l in card['legs']]}
+    assert len(ap.tick(locked, px, [], cand, cfg, now + 10, [], {}, {})['legs']) == 3    # locked coins never give anything up
     assert len(ap.tick(card, px, [], [], cfg, now + 10, [], {}, {})['legs']) == 3        # no coin to seat → the cash is spread as before
     held = ap.tick({**card, 'holdAll': True}, px, [], cand, cfg, now + 10, [], {}, {})
     assert len(held['legs']) == 3
+
+
+def test_the_owner_is_only_blocked_by_the_short_no_back_to_back_rule():
+    import arena_prime as ap
+    card = {'rounds': 20, 'cool': {'RECENT': {'at': 1.0, 'round': 19, 'loss': True, 'px': 2.0, 'pair': 'Pr'},
+                                   'OLDLOSS': {'at': 1.0, 'round': 5, 'loss': True, 'px': 2.0, 'pair': 'Po'}, 'LEGACY': 123.0}}
+    assert ap.pick_cool(card) == {'RECENT': 3}                                           # left a round ago → 3 more rounds
+    assert ap.cool_left(card, 'OLDLOSS') == 0 and ap.cool_left(card, 'LEGACY') == 0 and ap.cool_left(card, 'NEVER') == 0
+    assert 'OLDLOSS' in ap.cooling(card, 100.0, 0.08, {'Po': 1.0})                       # the ENGINE still won't deal back a coin under its exit price

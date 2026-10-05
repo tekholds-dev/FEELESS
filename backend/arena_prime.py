@@ -279,12 +279,23 @@ def set_hands_off(card, hours, now):
     return c
 
 
-def cool_left(card, mint, now, rotate_hours, prices=None):
-    """Rounds a coin must still sit out before it may come back onto this card (0 = free). For the owner's pick / hand swap."""
-    if mint not in cooling(card, now, rotate_hours, prices):
-        return 0
-    s = _stamp(((card or {}).get('cool') or {}).get(mint))
-    return max(1, COOL_ROUNDS + 1 - (int((card or {}).get('rounds') or 0) - int(s['round']))) if s.get('round') is not None else 1
+def pick_cool(card):
+    """Coins the OWNER can't pick back yet → {mint: rounds left}. Only the short rule applies to the owner: a coin that left in the
+    last `COOL_ROUNDS` rounds (no back-to-back). The long rules — "left at a loss, out until it recovers" and "you removed it, out 6h"
+    — keep the ENGINE from dealing a coin back; they never block the owner's own pick (every pick was being refused: most of the
+    lists had been on the card and left at a small loss)."""
+    rnd = int((card or {}).get('rounds') or 0)
+    out = {}
+    for m, v in ((card or {}).get('cool') or {}).items():
+        s = _stamp(v)
+        if s.get('round') is not None and 0 <= rnd - int(s['round']) <= COOL_ROUNDS:
+            out[m] = COOL_ROUNDS + 1 - (rnd - int(s['round']))
+    return out
+
+
+def cool_left(card, mint, now=None, rotate_hours=None, prices=None):
+    """Rounds a coin must still sit out before the OWNER may pick / hand-swap it back (0 = free). See `pick_cool`."""
+    return int(pick_cool(card).get(mint, 0))
 
 
 def exit_plan(gain_pct, mom=None):
@@ -1246,10 +1257,25 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # empty for good — the card sat on 3 coins with cash idle. As soon as there is cash for it, the best coin not on the card takes
     # the seat with an equal share (runner first, then pool). One seat a tick; never while floored / held.
     want_n = int(_f(cfg.get('coins')))
-    if want_n and len(c['legs']) < want_n and not c.get('flooredAt') and not c.get('holdAll') and free_cash >= SEAT_MIN_USD:
-        share = (sum((_f(x['units']) or (_f(x.get('wantUnits')) if x.get('buying') else 0.0)) * (_f(prices.get(x['pairAddress'])) or _f(x.get('entry'))) for x in c['legs']) + free_cash) / want_n
+    if want_n and len(c['legs']) < want_n and not c.get('flooredAt') and not c.get('holdAll'):
+        _val = lambda x: (_f(x['units']) or (_f(x.get('wantUnits')) if x.get('buying') else 0.0)) * (_f(prices.get(x['pairAddress'])) or _f(x.get('entry')))
+        share = (sum(_val(x) for x in c['legs']) + free_cash) / want_n
         role_s, nxt = next(((r, x) for r in ('runner', 'pool') for x in [best(r)] if x), (None, None))
-        if nxt:
+        # no cash for the seat (a rugged coin leaves nothing behind) → the coins sitting ABOVE the new equal share give up their
+        # extra (never a locked / riding coin, never one still being bought): 3 coins × $1.03 become 4 × $0.77
+        if nxt and free_cash < min(share, max(SEAT_MIN_USD, share * 0.6)):
+            need = share - free_cash
+            for d_ in sorted((x for x in c['legs'] if not x.get('ride') and not x.get('frozen') and not x.get('buying') and not x.get('placeholder')
+                              and _f(x.get('units')) > 0 and _val(x) > share * 1.05), key=_val, reverse=True):
+                if need < 0.05:
+                    break
+                px_d = _f(prices.get(d_['pairAddress'])) or _f(d_.get('entry'))
+                cut = min(_val(d_) - share, need)
+                part = cut / _val(d_)
+                got_d = sell_usd(_f(d_['units']) * part, px_d, liqs.get(d_['pairAddress']) or d_.get('liq'))
+                d_['units'] = _f(d_['units']) * (1 - part); d_['costUsd'] = round(_f(d_.get('costUsd')) * (1 - part), 6); d_['trimAt'] = now
+                c['cash'] = round(_f(c['cash']) + got_d, 6); free_cash += got_d; need -= cut; c['feesUsd'] += fee
+        if nxt and free_cash >= SEAT_MIN_USD:
             usd_s = min(free_cash, share)
             c['legs'].append(_leg(nxt, usd_s, now, role_s))
             c['cash'] = round(_f(c['cash']) - usd_s, 6); free_cash -= usd_s
@@ -1608,7 +1634,8 @@ def apply_queued(c, prices, liqs, now, fee=0.0):
         px = _f(prices.get(l['pairAddress'])) or l['entry']
         units = _f(l['units']) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)
         usd = sell_usd(units, px, (liqs or {}).get(l['pairAddress']) or l.get('liq'))
-        owner_out(c, l['mint'], now)   # 🙅 you picked it off the card → it stays off for hours
+        owner_out(c, l['mint'], now)   # 🙅 you picked it off the card → the ENGINE keeps it off for hours
+        (c.get('ownerOut') or {}).pop(to.get('mint'), None)   # … and a coin you pick back in is yours again
         live = _f(prices.get(to['pairAddress'])) or _f(to.get('price'))
         # ⚖ a pick gets at most an EQUAL SHARE of the card: one that inherited an oversized seat ($1.04 of a $3 card) decided the
         # whole card when it fell. The rest goes to card cash and is spread over the other coins.

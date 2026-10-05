@@ -6,6 +6,7 @@ import { LiveFuseCard, revalue } from './FuseCard';
 import { useLivePrices } from '../lib/livePrices';
 import { openWarRoom } from './WarRoomHost';
 import { CardEarnings } from './CardEarnings';
+import { ShareGifButton } from './ShareGif';
 import { RoundBell, TrailSummary, CycleBuilder, usd, usdK, pct, txUrl } from './FuseMoney';
 import { StrategyPicks, stratPatch } from './StrategyPicks';
 
@@ -382,6 +383,28 @@ export function RealHealth({ k }) {
 
 const WEATHER = { clear: '☀ Runners: clear', rain: '🌧 Runners: strong only', storm: '⛈ Runners: off' };
 
+const VITAL_KIND = { skim: '💰 Profit taken', 'lock-bank': '🏦 Banked at the lock', 'peak-sell': '🏔 Sold off its peak', seat: '🪑 Seat filled', keep: '⚖ Kept', ride: '❄ Locked (riding)', rotate: '⇄ Swap',
+  compound: '♻ Cash back to work', balance: '⚖ Equal weight', floor: '🧱 Floor', deal: '🃏 Dealt', hold: '✋ Hold', 'manual-sell': '✂ Sold by you' };
+
+/* Under the real card: what matters right now, alive — the stack seat by seat, swaps used this hour, profit pulled out — plus
+   📜 Full activity and 🎞 Share. Transform / opacity animation only; still under fx-lite and reduced motion. */
+export function CardVitals({ c, funded, onTrail }) {
+  const st = c.stack || {}; const cap = c.swapCap || {};
+  const seats = (c.legs || []).map(l => ({ sym: l.symbol, state: l.buying ? 'buying' : (l.ride || l.frozen) ? 'locked' : (l.pnlPct || 0) >= 5 ? 'winning' : (l.pnlPct || 0) <= -10 ? 'hurt' : 'proving', pct: l.pnlPct || 0 }));
+  const best = [...(c.legs || [])].filter(l => (l.usd || 0) > 0).sort((a, b) => (b.pnlPct || 0) - (a.pnlPct || 0))[0];
+  const pnl = allTime(c, funded); const used = cap.used || 0; const max = cap.cap || 0;
+  const share = { mascot: 'feecat', tone: pnl >= 0 ? 'up' : 'down', kicker: 'FEELESS · FUSE CARD', title: String(c.label || 'Fuse card').slice(0, 34), big: `${pnl >= 0 ? '+' : '−'}${usd(Math.abs(pnl))}`,
+    lines: [`${(c.legs || []).length} coins · ${st.locked || 0} locked · ${c.rounds || 0} rounds`, best ? `best: $${best.symbol} ${pct(best.pnlPct || 0)}` : 'many coins, one fuse'], footer: 'feeless · fuse 🧬' };
+  return <div className="hrt-under" data-testid="card-vitals">
+    <ol className="cv-seats" aria-label="Seats">{seats.map((s, i) => <li key={s.sym + i} className={`is-${s.state}`} style={{ '--i': i }} data-tip={`$${s.sym} · ${s.state === 'locked' ? 'locked — riding, sold only off its peak' : s.state === 'winning' ? 'winning' : s.state === 'buying' ? 'being bought' : s.state === 'hurt' ? 'down — its stop is watching it' : 'proving itself'} · ${pct(s.pct)}`}><i /><small>{s.sym}</small></li>)}</ol>
+    <div className="cv-row" data-tip={cap.why || 'Engine rotations this hour'}><small>SWAPS THIS HOUR</small><span className="cv-bar"><i style={{ transform: `scaleX(${max ? Math.min(1, used / max) : 0})` }} /></span><b className="m-num">{used}{max ? ` / ${max}` : ''}</b></div>
+    <div className="cv-row" data-tip="Gains this card has already sold out of its coins (banked at the lock, skimmed, sold off the peak). It went back into the other coins or to cash."><small>PROFIT PULLED</small><b key={(c.takenUsd || 0).toFixed(2)} className="m-num m-pos fl-tick">{usd(c.takenUsd || 0)}</b></div>
+    {best && <div className="cv-row"><small>BEST COIN</small><b className={`m-num ${(best.pnlPct || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>${best.symbol} {pct(best.pnlPct || 0)}</b></div>}
+    <div className="cv-acts"><button type="button" className="m-btn" onClick={onTrail} data-testid="full-activity" data-tip="Everything this card did, newest first — every swap, lock, profit take and why">📜 Full activity</button>
+      <ShareGifButton className="m-btn" label="🎞 Share" card={share} /></div>
+  </div>;
+}
+
 export function HqRealCards({ addr, onCount }) {
   const [owner, setOwner] = useState(false);
   useEffect(() => { if (!addr) return; fetch(apiUrl(`/api/reputation/admin/is-admin/${addr}`)).then(r => r.json()).then(d => setOwner(!!(d.owner || d.admin))).catch(() => {}); }, [addr]);
@@ -389,6 +412,7 @@ export function HqRealCards({ addr, onCount }) {
   const [busy, setBusy] = useState('');
   const [amt, setAmt] = useState('');
   const [pickFor, setPickFor] = useState(null);   // which coin's 🎯 picker is open
+  const [trail, setTrail] = useState(null);       // 📜 full activity pop-up (card id)
   const d = usePrime(10000);   // 💵 live: the server's Jupiter value every 10s (real cards never show DexScreener-only numbers)
   const real = (d?.cards || []).filter(c => c.real);
   const n = owner ? real.length : 0;
@@ -412,7 +436,10 @@ export function HqRealCards({ addr, onCount }) {
       const state = k.paused ? ['⏸', 'paused', 'is-warn'] : !k.armed ? ['○', 'not armed', 'is-warn'] : k.pending ? ['⏳', `sending ${k.pending}`, 'is-busy'] : c.legs.some(l => l.buying) ? ['⏳', 'retrying a buy', 'is-busy'] : ['●', 'in sync', 'is-ok'];
       const cf = c.cfgEff || (d.lockCfg?.[c.tpl] ? { ...d.cfg, ...d.lockCfg[c.tpl] } : d.cfg);   // the config this card REALLY runs (real card = its own)
       return <div key={c.id} className="hq-real">
-        <div className="hq-real-card"><LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label="💵 REAL · FUSE WALLET" serverOnly /></div>
+        <div className="hq-real-card"><LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label="💵 REAL · FUSE WALLET" serverOnly />
+          <CardVitals c={c} funded={b.fundedUsd || c.startUsd} onTrail={() => setTrail(c.id)} /></div>
+        {trail === c.id && <CardEarnings title={c.label} onClose={() => setTrail(null)} taken={c.walletUsd || 0} compounded={c.compoundedUsd} fees={c.cardFeesUsd}
+          gainNow={allTime(c, b.fundedUsd || c.startUsd)} events={(c.audit || c.events || []).map(e => ({ ...e, label: KIND[e.kind] || VITAL_KIND[e.kind] || e.kind }))} />}
         <div className="hq-real-track">
           <div className="hrt-top"><b>{c.label}</b><span className={`hrt-state ${state[2]}`} data-tip="Keeper: moves the real coins to what the card says, every tick">{state[0]} {state[1]}</span></div>
           <div className="hrt-hero">
@@ -456,7 +483,7 @@ export function HqRealCards({ addr, onCount }) {
                 onClick={() => setPickFor(pickFor === l.pairAddress ? null : l.pairAddress)}>{l.swapTo ? `🎯 → $${l.swapTo}` : '🎯'}</button>
               <button type="button" className={`m-btn ${l.frozen ? 'active' : ''}`} aria-pressed={!!l.frozen} disabled={!!busy} data-testid={`freeze-${l.symbol}`} data-tip={l.frozen ? `Unfreeze $${l.symbol}: the engine may rotate / stop it again` : `Freeze $${l.symbol}: never rotated or stopped (the card floor still protects you)`}
                 onClick={() => prime({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, frozen: !l.frozen } }, l.frozen ? `$${l.symbol} back under the engine` : `❄ $${l.symbol} frozen`, `fz-${l.pairAddress}`)}>❄</button></span> : <span />}</li>)}
-            {pickFor && c.legs.some(l => l.pairAddress === pickFor) && <li className="hrt-pickrow"><SwapPicker out={c.legs.find(l => l.pairAddress === pickFor)} have={c.legs.map(l => l.mint)} busy={!!busy} minLiq={Math.min(k.minLiqUsd ?? 20000, k.arenaMinLiqUsd ?? k.minLiqUsd ?? 20000)}
+            {pickFor && c.legs.some(l => l.pairAddress === pickFor) && <li className="hrt-pickrow"><SwapPicker out={c.legs.find(l => l.pairAddress === pickFor)} have={c.legs.map(l => l.mint)} cool={c.pickCool || {}} busy={!!busy} minLiq={Math.min(k.minLiqUsd ?? 20000, k.arenaMinLiqUsd ?? k.minLiqUsd ?? 20000)}
               onPick={r => { prime({ pickSwap: { tpl: c.tpl, pairAddress: pickFor, to: r ? r.mint : null, toPair: r ? r.pairAddress : null } }, r ? `🎯 $${r.symbol} comes in at the next round` : 'Pick cancelled', 'pick'); setPickFor(null); }} onClose={() => setPickFor(null)} /></li>}
             {(() => { const cash = b.reconciliation?.cardCashUsd ?? c.cash ?? 0;   // the book's confirmed SOL — the same number "Withdraw card cash" shows
               return cash > 0.01 && <li data-testid="hrt-cash" data-tip="SOL the card holds right now (confirmed on the book). Part of it may be on its way into a coin that is being bought."><b>◎ cash</b><span>{usd(cash)}</span><em className="m-dim">SOL</em></li>; })()}</ul>
@@ -505,7 +532,7 @@ const PICK_STABLES = new Set(['USDC', 'USDT', 'USDS', 'PYUSD', 'USD1', 'DAI', 'U
 export const isFalling = (m5, h1) => (m5 != null && Number(m5) <= -3) || (h1 != null && Number(h1) <= -8);   // = arena_prime.entry_ok
 export const pickRow = r => ({ mint: r.mint || r.baseAddress, pairAddress: r.pairAddress, symbol: r.symbol, price: r.price ?? r.priceUsd, liq: r.liq ?? r.liquidityUsd,
   chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, chg1h: r.chg1h ?? r.change1h ?? null, chg5m: r.chg5m ?? r.change5m ?? null, score: r.score, impostor: r.impostor, real: r.real, trench: r.trench, holders: r.holders });
-export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0 }) {
+export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, cool = {} }) {
   const [lens, setLens] = useState('popular'); const [rows, setRows] = useState(null); const [q, setQ] = useState('');
   const [tr, setTr] = useState(null);   // 🗑 trench scan: own pool floor + how many were checked
   const [why, setWhy] = useState('');
@@ -532,7 +559,8 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0 }
         <em className={`m-num sp-m5 ${(m5 || 0) >= 0 ? 'm-pos' : 'm-neg'}`} data-tip="Move over the last 5 minutes" data-testid={`sp-m5-${r.symbol}`}><i>5m</i> {m5 == null ? '—' : `${m5 >= 0 ? '+' : ''}${Number(m5).toFixed(1)}%`}</em>
         <em className={`m-num ${(chg || 0) >= 0 ? 'm-pos' : 'm-neg'}`} data-tip="Move over the last hour"><i>1h</i> {chg == null ? '—' : `${chg >= 0 ? '+' : ''}${Number(chg).toFixed(1)}%`}</em>
         <small className="sp-fall" data-testid={falling ? `sp-fall-${r.symbol}` : undefined} data-tip={falling ? 'Falling right now (−3% or more in 5 minutes, or −8% or more in the hour). The engine would not buy this with real money; you still can — it is your pick.' : undefined}>{falling ? '⚠ falling' : ''}</small><small className="m-num">pool {r.liq > 0 ? big(r.liq) : 'curve'}</small><small className="m-num">{r.trench && r.holders ? `${r.holders} holders · ` : ''}{r.score != null ? `score ${Number(r.score).toFixed(0)}` : ''}</small>
-        <button type="button" className="m-btn primary" disabled={busy || on || thin || r.impostor} onClick={() => onPick(r)} data-tip={thin ? `Pool under the $${Math.round(fl / 1000)}K real-buy floor` : undefined} data-testid={`sp-pick-${r.symbol}`}>{on ? 'on card' : thin ? 'too thin' : r.impostor ? 'lookalike' : 'Swap in'}</button></li>; })}</ul>}
+        <button type="button" className="m-btn primary" disabled={busy || on || thin || r.impostor || cool[r.mint] > 0} onClick={() => onPick(r)}
+          data-tip={cool[r.mint] > 0 ? `$${r.symbol} just left this card — you can pick it again in ${cool[r.mint]} round${cool[r.mint] === 1 ? '' : 's'} (no back-to-back)` : thin ? `Pool under the $${Math.round(fl / 1000)}K real-buy floor` : undefined} data-testid={`sp-pick-${r.symbol}`}>{on ? 'on card' : cool[r.mint] > 0 ? `in ${cool[r.mint]} rnd` : thin ? 'too thin' : r.impostor ? 'lookalike' : 'Swap in'}</button></li>; })}</ul>}
   </div>;
 }
 
