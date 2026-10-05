@@ -5532,7 +5532,9 @@ async def _prime_candidates():
     for x in pools + runners:
         if x.get('mint') in arena or x.get('pairAddress') in arena:
             x['arena'] = True
-    return pools, runners, anchors
+    # 🎭 lookalikes are out of every seat: a coin wearing a major's ticker that is not that major (a "SOL" at $0.0004)
+    real_ = lambda xs: [x for x in xs if not _fw.lookalike(x.get('symbol'), x.get('mint'), _fuse.MAJORS)]
+    return real_(pools), real_(runners), anchors
 
 
 import contenders as _ct
@@ -5576,7 +5578,7 @@ def _pick_row(pair, mint):
     if not pair or (pair.get('baseToken') or {}).get('address') != mint:
         return None
     m = _fuse.leg_meta(pair)
-    if m['priceUsd'] <= 0 or m['liquidityUsd'] < 25_000 or str(m.get('symbol') or '').upper() in _ct.STABLES:
+    if m['priceUsd'] <= 0 or m['liquidityUsd'] < 25_000 or str(m.get('symbol') or '').upper() in _ct.STABLES or _fw.lookalike(m.get('symbol'), mint, _fuse.MAJORS):
         return None
     return {'mint': mint, 'pairAddress': pair.get('pairAddress'), 'symbol': m.get('symbol'), 'price': m['priceUsd'], 'liq': m['liquidityUsd']}
 
@@ -6646,6 +6648,11 @@ async def _fw_tick(now):
                                 d['books'][tid] = {**b, 'halt': False, 'haltWhy': None}
                                 _fw_record(d, {'id': f'unhalt:{tid}:{time.time():.0f}', 'card': tid, 'side': 'fix', 'at': time.time(), 'status': 'done',
                                                'why': f"🔓 resumed by itself — {b.get('haltWhy')} is fixed (wallet and card books match)"})
+                        if not sol_short and not missing:   # 🏦 rent is the reserve's: old card-paid deposits go back to work in the card
+                            d['books'], freed = _fw.release_rent_deposits(d['books'], _fw.free_sol(bal.get('sol'), d['books'], cfg.get('reserveSol')))
+                            for tid, sol_ in freed.items():
+                                _fw_record(d, {'id': f'rentfree:{tid}:{time.time():.0f}', 'card': tid, 'side': 'fix', 'sol': sol_, 'at': time.time(), 'status': 'done',
+                                               'why': f'🏦 {sol_:.5f} SOL of coin-account rent moved to the wallet reserve — it is card cash again (the card never pays rent now)'})
                         for st in _fw.strays(bal.get('tokens'), bal.get('decimals'), d['books'], d['ledger'], time.time()):
                             d['books'][st['card']] = _fw.adopt(d['books'][st['card']], st)
                             _fw_record(d, {'card': st['card'], 'side': 'adopt', 'mint': st['mint'], 'symbol': st['symbol'], 'atoms': st['atoms'], 'usd': 0.0, 'at': time.time(),

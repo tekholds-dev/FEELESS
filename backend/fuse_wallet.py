@@ -145,7 +145,11 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
             continue
         # ♻ a coin the wallet doesn't hold yet opens an account: its rent deposit comes out of the card's SOL too, so set it aside
         # first (when the card can't also afford it, the reserve fronts it — see apply_fill)
-        rent = GAS_RENT_SOL if not held_units(book, mint) and (sol_free - GAS_RENT_SOL) * sol_px >= cfg['minOrderUsd'] else 0.0
+        # 🏦 RENT IS THE RESERVE'S, ALWAYS. A new coin's account needs ~0.002 SOL parked in it; the card used to pay that as a
+        # "deposit" (counted in its value, back on close) — on a $5 card with 4 coins that was ~$1 of the card not working and a P&L
+        # nobody could read. Now the card's money is ONLY its coins + its cash; the wallet reserve carries every account's rent and
+        # gets it back when the account closes (`apply_fill` → `rentSol`).
+        rent = 0.0
         usd = min(gap, cfg['maxSwapUsd'], max(0.0, (sol_free - rent) * sol_px))
         last = usd >= LEFTOVER_MIN_USD and usd >= (sol_free - rent) * sol_px * 0.98   # the card's whole leftover SOL → let it in (no stuck cash)
         if (gap < cfg['minOrderUsd'] or usd < cfg['minOrderUsd']) and not last:
@@ -707,11 +711,16 @@ def circle_balances(wallets, address):
 
 
 def reconcile(wallet_tokens, books):
-    """Coins the books say the wallet holds but it doesn't (> 0.1% short) → [{mint, booked, held}]: that card pauses."""
-    want = {}
+    """Coins the books say the wallet holds but it doesn't (> 0.1% short) → [{mint, booked, held}]: that card pauses.
+    A coin with an order IN FLIGHT is never called missing: its sale can confirm on-chain seconds before the keeper books it
+    (the wallet read 0 BP while the book still held it → "coins missing" for half a minute, and a needless halt)."""
+    want, flying = {}, set()
     for b in (books or {}).values():
+        p = b.get('pending') or {}
+        flying |= {p.get('mint'), p.get('toMint')}
         for m, l in (b.get('legs') or {}).items():
             want[m] = want.get(m, 0) + int(l.get('atoms') or 0)
+    want = {m: a for m, a in want.items() if m not in flying}
     return [{'mint': m, 'booked': a, 'held': int((wallet_tokens or {}).get(m) or 0)} for m, a in want.items() if int((wallet_tokens or {}).get(m) or 0) < a * 0.999]
 
 
@@ -1335,3 +1344,28 @@ def apply_swap(book, order, fill, sol_px, px_in):
     b['feesUsd'] = round(_f(b.get('feesUsd')) + fill['feeSol'] * sol_px, 6)
     return b, {'usd': usd, 'costUsd': cost_out, 'realizedPnlUsd': round(usd - cost_out, 6), 'unitsIn': round(units_in, 9), 'px': _f(px_in),
                'unitsOut': abs(fill['outAtoms']) / (10 ** int(fill['outDecimals'] or 0)), 'rentSol': round(rent, 9)}
+
+
+def release_rent_deposits(books, free):
+    """🏦 One rule for rent (the reserve carries it): deposits a card paid under the old rule (`rentHeldSol`) go back into that card's
+    cash and onto the reserve's tab (`rentSol`) — as far as the wallet has free SOL to cover them (`free`). Value doesn't change
+    (the deposit was already counted as the card's); the money just starts working again. → (books, {card: SOL released})"""
+    out, done, left = dict(books or {}), {}, max(0.0, _f(free))
+    for k, b in out.items():
+        held = _f(b.get('rentHeldSol'))
+        back = round(min(held, left), 9)
+        if back <= 0:
+            continue
+        nb = {**b, 'sol': round(_f(b.get('sol')) + back, 9), 'rentHeldSol': round(held - back, 9), 'rentSol': round(_f(b.get('rentSol')) + back, 9)}
+        if nb['rentHeldSol'] <= 1e-9:
+            nb['rentHeldSol'] = 0.0; nb['rentDeposits'] = {}
+        out[k] = nb; done[k] = back; left -= back
+    return out, done
+
+
+def lookalike(symbol, mint, majors):
+    """A coin wearing a major's ticker that is NOT that major (a "SOL" at $0.0004) → True. `majors` = {mint: (symbol, name)}.
+    Real money once bought one: −28% in 78 seconds."""
+    sym = str(symbol or '').strip().upper()
+    real = {str(v[0]).upper(): m for m, v in (majors or {}).items()}
+    return bool(sym) and sym in real and real[sym] != mint and mint not in (majors or {})

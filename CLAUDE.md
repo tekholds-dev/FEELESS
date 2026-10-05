@@ -1058,3 +1058,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🔒 Hands-off lock (`arena_prime.set_hands_off/hands_off_left`, `POST /admin/arena/prime {handsOff: {tpl, hours: 0|1|3|6|12}}`, select
   `hands-off` beside ✋ Hold all): the owner's picks and hand swaps are refused until it times out; the engine, stops, rug shield and
   ✂ sell-to-cash keep working. Real card art on My cards = `zoom: 1.34` on wide screens (1.15 under 1180px, 1 on phones).
+- 🏦 RENT = THE RESERVE'S, ALWAYS (replaces the card-deposit rule): `orders` never sets a `rentDeposit`; `apply_fill` books any SOL a
+  buy used beyond its swap as `rentSol` (reserve). A card's money = its coins + its cash, nothing else — a $5 card had ~$1 parked in
+  deposits. `release_rent_deposits` (each balance read, only when books match the wallet) moves old `rentHeldSol` back into card
+  cash as far as the wallet's free SOL covers it (ledger `fix` row `rentfree:`). Closes refund the wallet; no card is credited.
+- `reconcile` skips a coin with an order in flight (`pending.mint` / `toMint`): a sale confirms on-chain before it is booked, which
+  read as "coins missing" + a halt for ~30s. 🎭 `fuse_wallet.lookalike(symbol, mint, fuse.MAJORS)`: a coin wearing a major's ticker
+  that is not that major is dropped from `_prime_candidates` and the picker (real money bought a fake "SOL": −28% in 78 seconds).

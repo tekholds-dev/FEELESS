@@ -998,3 +998,28 @@ def test_one_transaction_swap_is_booked_from_the_chain_value_moves_coin_to_coin_
     flow = fw.swap_flow({'pending': {'side': 'swap', 'mint': 'OLD', 'symbol': 'OLD', 'toMint': 'NEW', 'toSymbol': 'NEW', 'usd': 0.55}}, [], 't',
                         [{'side': 'sell', 'mint': 'OLD', 'symbol': 'OLD'}, {'side': 'buy', 'mint': 'NEW', 'symbol': 'NEW'}], 1000)
     assert [(x['side'], x['symbol'], x['state']) for x in flow] == [('swap', 'OLD → $NEW', 'sending')]   # one step, not two
+
+
+def test_the_card_never_pays_rent_the_reserve_carries_it_and_old_deposits_go_back_to_work():
+    c = card([{'mint': 'NEW', 'pairAddress': 'P', 'symbol': 'NEW', 'units': 5.0, 'entry': 1.0}])
+    plan = fw.orders('t', c, {'sol': 1.0, 'legs': {}}, {'P': 1.0}, 100.0, CFG, 0)
+    assert plan and all('rentDeposit' not in o for o in plan)                             # nothing set aside from the card
+    b, f = fw.apply_fill({'sol': 1.0, 'legs': {}}, plan[0], {'atoms': 5_000_000, 'decimals': 6, 'sol': -(plan[0]['lamports'] / 1e9) - 0.00204, 'feeSol': 0.000005}, 100.0)
+    assert round(b['sol'], 9) == round(1.0 - plan[0]['lamports'] / 1e9, 9)                # the card paid ONLY what went into the swap
+    assert round(b['rentSol'], 9) == 0.00204 and not b.get('rentHeldSol')                 # the new account's rent is on the reserve's tab
+    books = {'a': {'sol': 0.001, 'rentHeldSol': 0.006, 'rentDeposits': {'M': 0.002, 'N': 0.004}, 'rentSol': 0.001}, 'b': {'sol': 0.5}}
+    out, freed = fw.release_rent_deposits(books, 0.01)
+    assert freed == {'a': 0.006} and out['a']['sol'] == 0.007 and out['a']['rentHeldSol'] == 0.0 and out['a']['rentDeposits'] == {} and out['a']['rentSol'] == 0.007
+    assert fw.book_value(out['a'], {}, 100.0) == fw.book_value(books['a'], {}, 100.0)     # value unchanged: the money only starts working
+    part, freed2 = fw.release_rent_deposits(books, 0.004)                                 # never more than the wallet has free
+    assert freed2 == {'a': 0.004} and part['a']['rentHeldSol'] == 0.002 and part['a']['rentDeposits']
+    assert fw.release_rent_deposits(books, 0.0)[1] == {}
+
+
+def test_a_coin_with_an_order_in_flight_is_never_called_missing_and_lookalikes_are_out():
+    books = {'t': {'legs': {'BP': {'atoms': 457883501}, 'K': {'atoms': 10}}, 'pending': {'side': 'sell', 'mint': 'BP'}}}
+    assert fw.reconcile({'K': 10}, books) == []                                           # BP's sale landed before it was booked → not "missing"
+    assert fw.reconcile({'K': 10}, {'t': {**books['t'], 'pending': None}}) == [{'mint': 'BP', 'booked': 457883501, 'held': 0}]
+    majors = {'So111': ('SOL', 'Solana'), 'JUPmint': ('JUP', 'Jupiter')}
+    assert fw.lookalike('SOL', 'DsjKE4', majors) and fw.lookalike('sol', 'X', majors) and fw.lookalike('JUP', 'fake', majors)
+    assert not fw.lookalike('SOL', 'So111', majors) and not fw.lookalike('SOLBORN', 'X', majors) and not fw.lookalike('', 'X', majors)
