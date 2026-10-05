@@ -252,3 +252,39 @@ def test_hand_swap_of_a_coin_still_buying_moves_its_waiting_money():
     out2 = ap.replace_leg(card, leg['pairAddress'], px, [], runners, majors, cfg, 10)   # an EMPTY coin still swaps: the new coin takes its slot
     new2 = next(l for l in out2['legs'] if l['mint'] not in {x['mint'] for x in card['legs']})
     assert new2['costUsd'] == 0 and new2.get('picked')   # $0 now — the keeper re-arms its buy from spare SOL
+
+
+def test_degen_5_min_card_freezes_a_runner_swaps_it_off_its_peak_and_instant_swaps_a_loser():
+    """The owner's degen setup, end to end on the engine: 5-min rounds · patience 2 · freeze at +25% · swap 10% off the peak ·
+    any single coin at −15% is swapped at once for a NEW coin. (Prices are scripted; no network, no money.)"""
+    import arena_prime as ap
+    cfg, raised = ap.real_guard({**ap.clean_cfg({'rotateHours': 0.08, 'rotateConfirm': 2, 'minHoldMins': 10, 'rideAt': 25, 'rideTrail': 10, 'cycleEvery': 0,
+                                               'rescuePct': 0, 'floorPct': 60, 'cycles': {t: 'off' for t in ap.DEFAULT_CYCLES}}), 'instantSwapPct': 15})
+    assert cfg['rotateConfirm'] == 2 and cfg['minHoldMins'] == 10 and cfg['instantSwapPct'] == 15 and raised == []     # the guard leaves this setup alone
+    C = lambda m, px, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m.upper(), 'price': px, 'liquidityUsd': 2e6, 'volume24h': 2e6, 'liq': 2e6, **k}
+    anchors = [C('sol', 100.0), C('btc', 100.0)]
+    runners = [C('run1', 1.0, score=90, ageH=20), C('run2', 1.0, score=88, ageH=20), C('new1', 1.0, score=86, ageH=20), C('new2', 1.0, score=84, ageH=20)]
+    pools = [C('pool1', 1.0), C('pool2', 1.0)]
+    card = ap.deal('degen', pools, runners, cfg, 0.0, anchors)   # paper size ($100): the rules are the same at any size
+    on = lambda c: {l['mint'] for l in c['legs']}
+    start = on(card); runner_legs = [l for l in card['legs'] if l['role'] == 'runner']
+    assert len(runner_legs) >= 2
+    winner, loser = runner_legs[0]['mint'], runner_legs[1]['mint']
+    px = {l['pairAddress']: l['entry'] for l in card['legs']}
+    tick = lambda c, t, p: ap.tick(c, p, pools, runners, cfg, t, anchors, {}, {})
+    # +30% → frozen (riding)
+    px['P' + winner] = px['P' + winner] * 1.30
+    card = tick(card, 60.0, px)
+    assert next(l for l in card['legs'] if l['mint'] == winner).get('ride')
+    # the loser hits −16% → swapped NOW for a coin that was not on the card
+    px['P' + loser] = px['P' + loser] * 0.84
+    card = tick(card, 120.0, px)
+    assert loser not in on(card) and (on(card) - start), 'the loser must be replaced by a new coin'
+    assert any(e['kind'] == 'instant-swap' and e['symbol'] == loser.upper() for e in card['events'])
+    # the winner falls 12% from its peak → sold off its peak and replaced
+    px['P' + winner] = px['P' + winner] * 0.88
+    for l in card['legs']:
+        px.setdefault(l['pairAddress'], l['entry'])
+    card = tick(card, 180.0, px)
+    assert winner not in on(card)
+    assert any(e.get('mode') == 'ride-end' or 'peak' in (e.get('why') or '') for e in card['events'])

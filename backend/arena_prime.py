@@ -257,8 +257,9 @@ def clean_cfg(p):
 # A real round trip costs ~2% (impact + slippage + network fee), so a rule that swaps on a 5% dip turns noise into loss:
 # a $7 card once made 350 real swaps in 39h on a 5-min clock with no hold time and a −5% instant swap. The 5-min clock stays
 # (protection + rides still run every tick); what is floored is how fast a coin may be flipped back out.
-REAL_MIN_HOLD = 15.0      # minutes a real buy is held before a rotation may sell it (clocks ≤ 15 min) — matches the 15M option on the card
-REAL_MIN_CONFIRM = 3      # losing rounds in a row before a real rotation
+REAL_MIN_HOLD = 10.0      # minutes a real buy is held before a ROUND rotation may sell it (clocks ≤ 15 min) = 2 rounds of 5 min.
+                          # ⚡ instant swap, stops and the rug shield are never delayed by it.
+REAL_MIN_CONFIRM = 2      # losing rounds in a row before a real rotation (the owner's degen setting: 2 rounds on a 5-min clock)
 REAL_MIN_INSTANT = 10.0   # ⚡ instant swap is OFF (0) or at least −10% — never inside normal memecoin noise
 REAL_MAX_RESHAPE = 6      # a real card re-shapes at most every 6 rounds (0 = never stays never) — also while a safe / rescue fix is on
 REAL_MIN_COIN_USD = 0.75  # a real coin under this pays > 0.7% per swap in flat costs → small cards hold fewer, bigger coins
@@ -348,7 +349,8 @@ def _leg(c, usd, now, role):
     px = buy_px(mid, usd, liq)
     return {'mint': c['mint'], 'pairAddress': c['pairAddress'], 'symbol': c.get('symbol'), 'role': role, 'entry': px, 'units': usd / px if px > 0 else 0.0,
             'costUsd': round(usd, 6), 'at': now, 'stars': c.get('stars') or stars(c, role), 'firstEntry': px, 'liq': liq, 'midAtEntry': mid,
-            **({'newMajor': True} if c.get('newMajor') else {}), **({'arena': True} if c.get('arena') else {})}
+            **({'newMajor': True} if c.get('newMajor') else {}), **({'arena': True} if c.get('arena') else {}),
+            **({'division': c['division']} if c.get('division') else {})}   # 🏁 which Gauntlet division this coin came in from
 
 
 def _picks(t, pools, runners, anchors):
@@ -933,7 +935,7 @@ def summary(card, prices, cfg=None):
     rot = _f((cfg or {}).get('rotateHours')) or DEFAULT_CFG['rotateHours']
     paid = round(_f(card.get('walletUsd')), 4)
     legs = [{**{k: l[k] for k in ('mint', 'pairAddress', 'symbol', 'role', 'entry', 'units', 'costUsd')}, 'stars': l.get('stars') or 3,
-             'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'tp': l.get('tp'), 'sl': l.get('sl'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'rideFrom': l.get('rideFrom'), 'buying': bool(l.get('buying')),
+             'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'tp': l.get('tp'), 'sl': l.get('sl'), 'division': l.get('division'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'rideFrom': l.get('rideFrom'), 'buying': bool(l.get('buying')),
              'loseRounds': int(l.get('loseRounds') or 0),
              'firstEntry': l.get('firstEntry') or l['entry'], 'at': l.get('at'), 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,

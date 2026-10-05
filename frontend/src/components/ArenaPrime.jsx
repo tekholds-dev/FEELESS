@@ -65,7 +65,7 @@ export function ArenaPrime({ onLoad }) {
       <b className="prime-badge">{t.name}</b><span className={`prime-real ${c.real ? 'is-real' : 'is-paper'}`} data-tip={c.real ? `Real money from the FEELESS Fuse wallet since ${new Date((c.realSince || 0) * 1000).toLocaleDateString()} — every swap is on-chain` : 'Paper at true fills — same engine, same entries, no money'} data-testid={`prime-real-${c.tpl}`}>{c.real ? '💵 REAL MONEY' : '📄 PAPER'}</span>{d.roundWinner?.id === c.id && <span className="prime-crown" data-testid={`prime-crown-${c.tpl}`} data-tip="Best card of the last round">🏆 ROUND WINNER</span>}{c.why && <small className="prime-why">{c.why}</small>}
       {c.cycle && <span className="prime-phase" data-tip="This tier cycles every round: anchor (rest in majors) → degen (runners strike) → anchor → mixed (half and half). One continuous run.">🔄 {(c.phase || 'start').toUpperCase()} ROUND · next {c.cycle[(c.rounds || 0) % c.cycle.length]}</span>}
       <LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label={c.real ? '💵 REAL · FUSE WALLET' : '📄 PAPER · TRUE FILLS'} serverOnly={!!c.real} />
-      <ul className="prime-legs">{c.legs.map(l => ({ ...l, pnlPct: l.pnlPct ?? (l.costUsd ? (l.usd / l.costUsd - 1) * 100 : 0) })).map(l => <li key={l.pairAddress}><b role="button" tabIndex={0} className="pl-open" data-tip="Open its chart — trade this coin on its own" onClick={() => openWarRoom({ chainId: 'solana', pairAddress: l.pairAddress, baseToken: { address: l.mint, symbol: l.symbol } })}>${l.symbol}</b><small className={`pl-${l.role}`} data-tip={l.ride ? 'Riding: frozen through rounds until it falls 30% from its high' : undefined}>{l.ride ? '🏇 riding' : l.role === 'anchor' ? '⚓ anchor' : l.role}</small><i data-tip={`${l.stars || 3}★ — ${l.role === 'anchor' ? 'eligible major; protected from stops and advanced on configured re-shapes' : l.role === 'pool' ? 'depth + volume' : 'runner score'}`}>{'★'.repeat(l.stars || 3)}</i>
+      <ul className="prime-legs">{c.legs.map(l => ({ ...l, pnlPct: l.pnlPct ?? (l.costUsd ? (l.usd / l.costUsd - 1) * 100 : 0) })).map(l => <li key={l.pairAddress}><b role="button" tabIndex={0} className="pl-open" data-tip="Open its chart — trade this coin on its own" onClick={() => openWarRoom({ chainId: 'solana', pairAddress: l.pairAddress, baseToken: { address: l.mint, symbol: l.symbol } })}>${l.symbol}</b>{l.division && DIVISION[l.division] && l.role !== 'anchor' && <small className="pl-div" data-tip="The Gauntlet division this coin came in from">{DIVISION[l.division]}</small>}<small className={`pl-${l.role}`} data-tip={l.ride ? 'Riding: frozen through rounds until it falls 30% from its high' : undefined}>{l.ride ? '🏇 riding' : l.role === 'anchor' ? '⚓ anchor' : l.role}</small><i data-tip={`${l.stars || 3}★ — ${l.role === 'anchor' ? 'eligible major; protected from stops and advanced on configured re-shapes' : l.role === 'pool' ? 'depth + volume' : 'runner score'}`}>{'★'.repeat(l.stars || 3)}</i>
         <em key={l.pnlPct.toFixed(1)} className={`m-num fl-tick ${l.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{l.pnlPct >= 0 ? '+' : ''}{l.pnlPct.toFixed(1)}%</em></li>)}</ul>
       {c.parked?.length > 0 && <ul className="prime-parked">{c.parked.map(p => <li key={p.pairAddress} data-tip="Stopped out and sold to SOL — the slot is kept; it's bought back when price returns to its entry with momentum">🅿 ${p.symbol} <b className="m-num">${p.usd.toFixed(2)}</b> parked · back at ${Number(p.backAt).toPrecision(3)}</li>)}</ul>}
       <div className="prime-stats"><span data-tip={`Profit = now ${usd(c.valueUsd)} − put in ${usd(putIn)} (fees apart)`}><small>PROFIT</small><b key={c.pnlPct.toFixed(1)} className={`m-num fl-tick ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{usdK(c.valueUsd - putIn)}</b><small className={`ps-pct ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.pnlPct)}</small></span>
@@ -173,7 +173,7 @@ const EDIT = [
   ['instantSwapPct', '⚡ Instant swap at', [[0, 'off'], [5, '−5%'], [10, '−10%'], [15, '−15%'], [20, '−20%']], 'Immediate live-loss trigger. Once the coin reaches this loss, it exits now — no round, patience or minimum-hold wait.'],
   ['rotateConfirm', '⏳ Round patience', [[1, '1'], [2, '2'], [3, '3'], [4, '4']], 'Only for scheduled round rotation. It does NOT delay the instant-loss trigger.'],
   ['rotateMinDrop', '📉 Round swap only below', [[0, 'any'], [5, '−5%'], [10, '−10%'], [15, '−15%'], [20, '−20%']], 'For scheduled round rotation, require the coin to be this far below its entry.'],
-  ['minHoldMins', '🔒 Round min hold', [[15, '15m'], [30, '30m'], [60, '1h'], [120, '2h']], 'Only for scheduled round rotation. It does NOT delay the instant-loss trigger.'],
+  ['minHoldMins', '🔒 Round min hold', [[10, '10m'], [15, '15m'], [30, '30m'], [60, '1h'], [120, '2h']], 'Only for scheduled round rotation. It does NOT delay the instant-loss trigger.'],
   ['keepWinPct', '🛡 Keep winners', [[0, 'off'], [5, '+5%'], [10, '+10%'], [20, '+20%']], 'A coin up this much (or ❄ frozen) is carried into the next shape — a re-shape never sells a winner'],
   ['rideAt', '❄ Freeze a coin running', [[0, 'off'], [25, '+25%'], [50, '+50%'], [100, '+100%'], [150, '+150%']], 'A coin up this much is frozen: no TP, stop or rotation while it keeps making highs'],
   ['rideTrail', '⇄ Then swap it off its peak', [[10, '−10%'], [15, '−15%'], [20, '−20%'], [30, '−30%']], 'A frozen coin is swapped for the best coin of its kind once it falls this far from its highest price (the gain moves into the new coin)'],
@@ -310,7 +310,7 @@ export function HqRealCards({ addr, onCount }) {
   const n = owner ? real.length : 0;
   useEffect(() => { onCount?.(n); }, [n, onCount]);   // My cards hides its "no cards" box under a real card
   if (!owner) return null;
-  if (!real.length) return <RecentRuns tpls={(d?.cards || []).map(c => c.tpl)} />;
+  if (!real.length) return <RecentRuns cards={d?.cards || []} />;
   const act = (tpl, action) => { if (action === 'defund' && !window.confirm('Sell every coin back to SOL? The card goes back to its paper card.')) return;
     setBusy(action); call('/admin/fuse-wallet/card', { method: 'POST', body: JSON.stringify({ tpl, action }) }).then(() => { toast.success(action === 'defund' ? '↩ Selling every coin to SOL' : action === 'halt' ? '⏸ Card paused' : '▶ Resumed'); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   const topup = tpl => { const v = Number(amt); if (!(v >= 1)) { toast.error('Top up at least $1'); return; } if (!window.confirm(`Add ${v.toFixed(2)} of NEW money from the Fuse wallet? PUT IN increases by this amount.`)) return;
@@ -384,19 +384,32 @@ export function HqRealCards({ addr, onCount }) {
 }
 
 
-// 🕘 Recent real-money runs: when no real card is open, the closed ones stay on My cards — faded, one line each, tap for the detail.
-export function RecentRuns({ tpls = [] }) {
+// 🏁 where a coin came in from (its Gauntlet division) — the visible proof that every card is fed by every category
+export const DIVISION = { majors: '🪙 anchor', risers: '🚀 new major', yield: '💸 top yield', deep: '🌊 deepest', popular: '🔥 popular', fresh: '⚡ fresh runner', proven: '🏃 proven runner', new: '🆕 new 72h' };
+
+// 🕘 Your last real card stays on My cards as a FAINT card (not a list): tap it for the run-by-run history.
+export function RecentRuns({ cards = [] }) {
   const [runs, setRuns] = useState(null);
-  const key = tpls.join(',');
+  const [open, setOpen] = useState(false);
+  const key = cards.map(c => c.tpl).join(',');
   useEffect(() => { if (!key) return undefined; let alive = true;
     Promise.all(key.split(',').map(t => fetch(apiUrl(`/api/reputation/fuses/record/${t}`)).then(r => r.json()).catch(() => null)))
-      .then(all => alive && setRuns(all.flatMap(x => (x?.runs || []).filter(r => r.real)).sort((a, b) => b.at - a.at).slice(0, 6)));
+      .then(all => alive && setRuns(all.flatMap(x => (x?.runs || []).filter(r => r.real)).sort((a, b) => b.at - a.at).slice(0, 8)));
     return () => { alive = false; }; }, [key]);
   if (!runs?.length) return null;
-  return <section className="rr" data-testid="recent-runs"><span className="m-label">🕘 YOUR RECENT REAL CARDS · CLOSED</span>
-    <ul>{runs.map((r, i) => <li key={`${r.card}-${r.at}`} style={{ '--i': i }}><details><summary><b>{r.label}</b><span className="m-num">{usd(r.startUsd)} → {usd(r.endUsd)}</span>
-      <em className={`m-num ${r.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(r.pct)}</em><small>{new Date(r.at * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</small></summary>
-      <p className="m-dim">💵 Real money · this run started at {usd(r.startUsd)} and ended at {usd(r.endUsd)} ({r.pct >= 0 ? 'up' : 'down'} {usd(Math.abs(r.endUsd - r.startUsd))}) on {new Date(r.at * 1000).toLocaleString()}. Price moves only — network fees are counted apart. A run ends on a top-up, a re-deal, a floor or a sell-all.</p></details></li>)}</ul>
+  const last = runs[0]; const c = cards.find(x => x.tpl === last.card); const t = TIER[c?.tier] || TIER.gold;
+  const first = runs[runs.length - 1]; const day = v => new Date(v * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return <section className="rr" data-testid="recent-runs"><span className="m-label">🕘 YOUR LAST REAL FUSE · CLOSED</span>
+    <div className="rr-row">
+      <div className={`rr-card ${open ? 'is-open' : ''}`} role="button" tabIndex={0} aria-expanded={open} aria-label={`${last.label} — closed, show its history`} data-testid="recent-card"
+        onClick={e => { if (!e.target.closest('.fcd-flip')) setOpen(o => !o); }} onKeyDown={e => e.key === 'Enter' && setOpen(o => !o)}>
+        {c ? <LiveFuseCard r={primeRow({ ...c, real: false })} aura="" look={t.look} label="🕘 CLOSED · now paper" /> : <span className="rr-ghost">{last.label}</span>}
+        <b className="rr-stamp" aria-hidden="true">CLOSED</b></div>
+      <div className="rr-side"><b>{last.label}</b>
+        <span className="m-num">closed {day(last.at)} at {usd(last.endUsd)} <em className={last.pct >= 0 ? 'm-pos' : 'm-neg'}>{pct(last.pct)} on its last run</em></span>
+        <small className="m-dim">{runs.length} real run{runs.length === 1 ? '' : 's'} on record since {day(first.at)}. The card you see is this tier's live paper card — your real coins were all sold. Tap the card for the history.</small>
+        {open && <ul className="rr-list">{runs.map((r, i) => <li key={`${r.card}-${r.at}`} style={{ '--i': i }}><span>{day(r.at)}</span><span className="m-num">{usd(r.startUsd)} → {usd(r.endUsd)}</span><em className={`m-num ${r.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(r.pct)}</em></li>)}</ul>}</div>
+    </div>
   </section>;
 }
 

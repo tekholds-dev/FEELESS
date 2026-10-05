@@ -97,13 +97,14 @@ test('engine pick: each round length gets its own config, and a losing clock is 
   expect(enginePick({}, 1)).toBeNull();
 });
 
-test('recent closed real cards show faded on My cards, newest first, real runs only', async () => {
+test('your last real Fuse stays on My cards as a faint card; tapping it opens the run history (real runs only)', async () => {
   const { RecentRuns } = require('./ArenaPrime');
   const React = require('react'); const { act } = require('react'); const { createRoot } = require('react-dom/client');
-  global.fetch = jest.fn(async url => ({ ok: true, json: async () => (String(url).endsWith('/safe') ? { runs: [{ at: 200, card: 'safe', label: '💎 Prime Diamond', startUsd: 2.14, endUsd: 1.78, pct: -17, real: true }, { at: 100, card: 'safe', label: '💎 Prime Diamond', startUsd: 100, endUsd: 110, pct: 10 }] }
-    : { runs: [{ at: 300, card: 'ever', label: '♾ Prime Everlasting', startUsd: 5, endUsd: 6, pct: 20, real: true }] }) }));
+  global.fetch = jest.fn(async url => ({ ok: true, json: async () => (String(url).endsWith('/safe') ? { runs: [{ at: 200, card: 'safe', label: '💎 Prime Diamond', startUsd: 2.14, endUsd: 1.78, pct: -17, real: true }, { at: 100, card: 'safe', label: '💎 Prime Diamond', startUsd: 100, endUsd: 110, pct: 10 }] } : { runs: [] }) }));
   const host = document.createElement('div'); document.body.appendChild(host);
-  await act(async () => { createRoot(host).render(<RecentRuns tpls={['safe', 'ever']} />); }); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
-  const rows = [...host.querySelectorAll('[data-testid="recent-runs"] li')];
-  expect(rows.length).toBe(2); expect(rows[0].textContent).toContain('Prime Everlasting'); expect(rows[1].textContent).toContain('$2.14 → $1.78');   // the paper run is not yours
+  await act(async () => { createRoot(host).render(<RecentRuns cards={[{ tpl: 'safe', tier: 'diamond', label: '💎 Prime Diamond', legs: [], valueUsd: 4, startUsd: 4 }, { tpl: 'ever', legs: [] }]} />); }); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const card = host.querySelector('[data-testid="recent-card"]');
+  expect(card).toBeTruthy(); expect(host.textContent).toContain('closed'); expect(host.textContent).toContain('$1.78'); expect(host.querySelector('.rr-list')).toBeNull();
+  act(() => card.click());
+  expect(host.querySelectorAll('.rr-list li').length).toBe(1);                              // the paper run is not yours
 });

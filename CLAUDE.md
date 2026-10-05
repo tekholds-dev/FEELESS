@@ -759,6 +759,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - HQ › Fuse wallet: arm / kill visible, `details[data-testid=fw-limits]` folds the six limits behind a one-line summary; numbers inside
   a sentence never use the 22px `.m-num` size.
 
+- 🎲 Owner's degen setup is allowed on real money and PROVEN by `test_degen_5_min_card_freezes_a_runner_swaps_it_off_its_peak_and_instant_swaps_a_loser`:
+  5-min rounds · patience 2 (`REAL_MIN_CONFIRM` 2) · hold 10 min (`REAL_MIN_HOLD`, option added) · ❄ freeze at +X% (`rideAt`) → swapped
+  X% off its peak (`rideTrail`) · any coin at −X% swapped at once for a NEW coin (`instantSwapPct`). The SELF-FIX still never sets
+  patience under 3 on fast clocks (owner can switch 🧠 Auto-tune off). Mechanics are proven; PROFIT never is — never say "100%".
+- 🏁 Every candidate carries its Gauntlet `division` (→ leg → `DIVISION` chip on coin rows): every tier card is fed by every category.
+- My cards, no open real card: `RecentRuns` = the tier's card FAINT with a CLOSED stamp (tap → run history), never a list. A sell-all
+  writes its run to the permanent record itself (`closed: True`) — the tier tick only records runs it ends.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10

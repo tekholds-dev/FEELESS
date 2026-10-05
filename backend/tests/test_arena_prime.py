@@ -733,7 +733,7 @@ def test_real_card_config_is_separate_from_hq_paper_config(monkeypatch):
     pr = {'cfg': {'rotateHours': 0.08, 'rotateConfirm': 1}, 'realCfg': {'rotateHours': 0.08, 'rotateConfirm': 3, 'minHoldMins': 10}}
     monkeypatch.setattr(rs, '_prime_cfg', lambda: {**ap.clean_cfg(pr['cfg']), 'paperFeeUsd': 0.02})
     r = rs._prime_real_cfg(pr)
-    assert r['rotateHours'] == 0.08 and r['rotateConfirm'] == 3 and r['minHoldMins'] == 15   # 5-min real rounds allowed; the real-money guard floors the hold at 15 min
+    assert r['rotateHours'] == 0.08 and r['rotateConfirm'] == 3 and r['minHoldMins'] == 10   # 5-min real rounds allowed; the real-money guard floors the hold at 10 min (2 rounds)
     pr['cfg']['rotateConfirm'] = 6                                                           # an HQ paper edit…
     assert rs._prime_real_cfg(pr)['rotateConfirm'] == 3                                      # …never reaches the real card
     assert rs._prime_real_cfg({'cfg': pr['cfg']})['paperFeeUsd'] == 0.02                     # unset → starts from paper

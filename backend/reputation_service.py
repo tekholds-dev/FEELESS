@@ -5321,6 +5321,16 @@ async def _prime_candidates():
     arena |= {leg.get(k) for c in (_arena_mega_cache.get('data') or []) for leg in c.get('legs') or [] for k in ('pairAddress', 'mint', 'baseAddress')}
     arena |= set(((_contenders_cache.get('data') or {}).get('nextUp') or {}))   # 🏁 ⏭ next-up contenders earned an Arena-backed seat
     arena.discard(None)
+    # 🏁 every candidate carries the Gauntlet division it ranks in (shown on the card: where each new coin came from)
+    div_of = {}
+    for dv in ((_contenders_cache.get('data') or {}).get('divisions') or []):
+        for r in dv.get('rows') or []:
+            div_of.setdefault(r.get('mint'), dv['key'])
+    for x in pools + runners + anchors:
+        if div_of.get(x.get('mint')):
+            x['division'] = div_of[x['mint']]
+        elif x.get('contender'):
+            x['division'] = x['contender']
     for x in pools + runners:
         if x.get('mint') in arena or x.get('pairAddress') in arena:
             x['arena'] = True
@@ -6243,8 +6253,15 @@ async def _fw_tick_inner(now):
         async with _admin_lock:
             h = _json_load(FUSE_HQ_PATH, {}); cs = (h.get('prime') or {}).get('cards') or {}
             if cs.get(tid):
-                cs[tid] = _fw.sync_card(cs[tid], book, px, sol_px) if tid in _fw_load()['books'] else _fw.back_to_paper(cs[tid], _fw.book_value(book, px, sol_px), now)
+                still_real = tid in _fw_load()['books']
+                was_label = cs[tid].get('label')
+                cs[tid] = _fw.sync_card(cs[tid], book, px, sol_px) if still_real else _fw.back_to_paper(cs[tid], _fw.book_value(book, px, sol_px), now)
                 _json_save(FUSE_HQ_PATH, h)
+                if not still_real and cs[tid].get('runs'):   # 📜 the sell-all IS the end of a real run — it goes on the permanent record
+                    try:                                       # (the tier tick only records runs it ends itself, so this one was lost)
+                        _store.Ledger(CARD_RECORDS_PATH, table='runs').append({**cs[tid]['runs'][-1], 'card': tid, 'label': was_label, 'real': True, 'closed': True})
+                    except Exception as e:
+                        print('card records (defund):', e)
         done += 1
     await _fw_close_empty(cfg, now)
     return done
@@ -7388,7 +7405,7 @@ def _brain_patch(cfg, s24, best, prev=None):
     bad = s24.get('n', 0) >= 100 and _fuse._f(s24.get('avgPct')) <= -5
     if bad != bool(cfg.get('strictRunners')):
         patch['strictRunners'] = bad
-    floor_confirm = 3 if cfg['rotateHours'] * 60 <= 5 else 2   # 🔒 hard floor: the self-fix can never take patience away on fast clocks
+    floor_confirm = 3 if cfg['rotateHours'] * 60 <= 5 else 2   # 🔒 the SELF-FIX never takes patience under 3 on fast clocks. The owner may still pick 2 by hand (real guard floor = 2) — with 🧠 Auto-tune on, the brain can raise it back.
     for trait, key, cast in (('minDrop', 'rotateMinDrop', float), ('confirm', 'rotateConfirm', int)):
         b = best.get(trait)
         if b and b.get('n', 0) >= 30:
