@@ -4709,7 +4709,9 @@ async def _battle_tick(now):
         for m in cycled_now:
             new_paper.pop(m['outKey'], None)
             _fuse_chat('fuse-lab', f"♻ {m['out']} cycled out ({m['why']}){' — ' + m['in'] + ' takes its seat on $20' if m.get('in') else ''}.", f"cycle-{int(now)}-{m['outKey']}")
-    if not league or _lg.done(league) or len(league.get('field') or []) < 2:
+    restart_ = d.get('leagueReset') != LEAGUE_RESET   # 🔁 one-time: the owner restarted every Arena card's money (new season, all books back on $20)
+    d['leagueReset'] = LEAGUE_RESET
+    if restart_ or not league or _lg.done(league) or len(league.get('field') or []) < 2:
         if league and _lg.done(league):   # 👑 season over: the table decides
             ch = _lg.champion(league)
             if ch:
@@ -5784,7 +5786,8 @@ def _fw_market_rows(cards, books):
     return list(rows.values())
 
 
-PRIME_RESET = 'paper20'   # one-time: every PAPER tier card starts over on $20 (the real card is never touched)
+LEAGUE_RESET = 'restart1'
+PRIME_RESET = 'paper20b'   # (2026-10-05: owner asked for a second restart)   # one-time: every PAPER tier card starts over on $20 (the real card is never touched)
 
 
 PRIME_UNIQUE = 'unique2'
