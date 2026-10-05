@@ -1073,7 +1073,10 @@ def test_idle_card_cash_is_swept_into_the_coin_furthest_under_its_share_when_not
     locked = card([{**leg('A', 'PA', 0.30, 1.0), 'ride': True}, leg('B', 'PB', 0.60, 1.0), leg('C', 'PC', 0.60, 1.0)])
     assert fw.orders('t', locked, book, px, 100.0, cfg, 1000)[0]['mint'] in ('B', 'C')            # never a locked rider
     cut = card([{**leg('A', 'PA', 0.30, 1.0), 'trimAt': 900}, leg('B', 'PB', 0.60, 1.0), leg('C', 'PC', 0.60, 1.0)])
-    assert fw.orders('t', cut, book, px, 100.0, cfg, 1000)[0]['mint'] in ('B', 'C')               # nor a coin cut minutes ago
+    o2 = fw.orders('t', cut, book, px, 100.0, cfg, 1000)                                          # nor a coin cut minutes ago …
+    assert o2[0]['mint'] in ('B', 'C') and abs(o2[0]['usd'] - 0.25) < 0.01                        # … and B only up to the CARD's equal share (min order)
+    two = card([{**leg('A', 'PA', 0.30, 1.0), 'trimAt': 900}, leg('B', 'PB', 0.90, 1.0)])
+    assert fw.orders('t', two, {'sol': 0.005, 'legs': {'A': bl(0.30), 'B': bl(0.90)}}, px, 100.0, cfg, 1000) == []   # B is over its share: the cash waits for A
     assert fw.orders('t', c, {**book, 'manualCashSol': 0.0075}, px, 100.0, cfg, 1000) == []       # the owner's ✂ cash is never spent
     assert fw.orders('t', {**c, 'holdCashUsd': 0.75}, book, px, 100.0, cfg, 1000) == []           # nor cash held for them
     hold = card([leg('A', 'PA', 0.30, 1.0), leg('B', 'PB', 0.60, 1.0), {**leg('S', 'PS', 0.0, 1.0), 'placeholder': True, 'reserveUsd': 0.6}])

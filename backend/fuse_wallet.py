@@ -193,8 +193,13 @@ def idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now):
     ok = [(m, t) for m, t in seats if not t.get('locked') and m not in bad and not (t.get('trim') and now - _f(t.get('trimAt')) < TRIM_SEC)]
     if not ok:
         return None
-    share = (sum(val(m, t) for m, t in ok) + idle) / len(ok)   # an equal share among the coins that may be topped up
+    # an equal share among every UNLOCKED coin (a coin skipped only for minutes still counts — else the one coin left takes it all:
+    # the first live sweep put $0.75 into a $0.60 coin on a four-coin card)
+    free = [(m, t) for m, t in seats if not t.get('locked')]
+    share = (sum(val(m, t) for m, t in free) + idle) / len(free)
     mint, t = min(ok, key=lambda x: val(*x))
+    if val(mint, t) >= share:
+        return None                                   # the coins under their share are resting: the cash waits for them
     usd = min(idle, cfg['maxSwapUsd'], max(share - val(mint, t), floor))
     if usd < floor:
         return None
