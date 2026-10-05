@@ -989,3 +989,55 @@ def run_report(ledger, card, now, funded_usd=0.0, equity_usd=None, hold_sol_pct=
     out['flaws'] = flaws
     out['verdict'] = 'clean' if not flaws else 'fix' if any(f['level'] == 'high' for f in flaws) else 'watch'
     return out
+
+
+def money_trail(rows, book, since, now, sol_px, prices=None):
+    """🧾 Where a real card's money went over a window (read-only, from the audit ledger + the card's book):
+    money in / out by hand · per coin bought / sold / realized result · still held (cost → now) · card cash · network fees · rent on the
+    reserve · failed sends + skip reasons · benched coins. The `check` line proves the books add up: funded − taken out = held now +
+    cash + realized + unrealized − card-paid fees (anything left is labelled `unexplained`, never hidden)."""
+    prices = prices or {}
+    rows = sorted((r for r in rows or []), key=lambda r: _f(r.get('at')))
+    rows = list({(r.get('id') or r.get('sig') or id(r), r.get('status')): r for r in rows}.values())   # one row per order outcome
+    win = [r for r in rows if _f(r.get('at')) >= since]
+    fills = [r for r in win if r.get('status') == 'filled' and r.get('side') in ('buy', 'sell')]
+    coins = {}
+    for r in fills:
+        c = coins.setdefault(r.get('mint'), {'symbol': r.get('symbol') or str(r.get('mint'))[:6], 'buys': 0, 'sells': 0, 'boughtUsd': 0.0, 'soldUsd': 0.0, 'realizedUsd': 0.0})
+        if r['side'] == 'buy':
+            c['buys'] += 1; c['boughtUsd'] += _f(r.get('usd'))
+        else:
+            c['sells'] += 1; c['soldUsd'] += _f(r.get('usd')); c['realizedUsd'] += _f(r.get('realizedPnlUsd'))
+    held = []
+    for m, l in (book.get('legs') or {}).items():
+        units = int(l.get('atoms') or 0) / (10 ** int(l.get('decimals') or 0))
+        px = _f(prices.get(m))
+        held.append({'mint': m, 'symbol': l.get('symbol') or str(m)[:6], 'units': units, 'costUsd': round(_f(l.get('costUsd')), 4),
+                     'nowUsd': round(units * px, 4) if px else None})
+    by_hand = lambda *sides: round(sum(_f(r.get('usd')) for r in rows if r.get('side') in sides and r.get('status') in ('done', None)), 4)
+    funded_in = by_hand('topup', 'reinvest')
+    taken_out = by_hand('withdraw', 'payout', 'defund')
+    cash = round(_f(book.get('sol')) * sol_px, 4)
+    held_cost = round(sum(h['costUsd'] for h in held), 4)
+    held_now = round(sum(h['nowUsd'] if h['nowUsd'] is not None else h['costUsd'] for h in held), 4)
+    realized_all = round(sum(_f(r.get('realizedPnlUsd')) for r in rows if r.get('status') == 'filled' and r.get('side') == 'sell'), 4)
+    writeoff = round(sum(_f(r.get('costUsd')) for r in rows if r.get('side') == 'writeoff'), 4)
+    card_fees = round(_f(book.get('cardFeesSol')) * sol_px, 4)
+    funded = round(_f(book.get('fundedUsd')) or (funded_in - taken_out), 4)
+    now_total = round(held_now + cash, 4)
+    unexplained = round(funded - now_total + (held_now - held_cost) + realized_all - writeoff - card_fees, 4)   # cost-basis view
+    why = {}
+    for r in win:
+        if r.get('status') in ('skipped', 'failed') and r.get('side') in ('buy', 'sell'):
+            k = f"{r['status']}: " + str(r.get('err') or '?').split(' (')[0].split(':')[0][:60]
+            why[k] = why.get(k, 0) + 1
+    return {'hours': round((now - since) / 3600, 1), 'fundedUsd': funded, 'inByHandUsd': funded_in, 'outByHandUsd': taken_out,
+            'nowUsd': now_total, 'heldNowUsd': held_now, 'heldCostUsd': held_cost, 'cashUsd': cash, 'resultUsd': round(now_total - funded + card_fees, 4),
+            'realizedWindowUsd': round(sum(c['realizedUsd'] for c in coins.values()), 4), 'realizedAllUsd': realized_all, 'writeoffUsd': writeoff,
+            'unrealizedUsd': round(held_now - held_cost, 4), 'cardFeesUsd': card_fees,
+            'netFeesWindowUsd': round(sum(_f(r.get('feeUsd')) for r in fills), 4), 'rentOnReserveSol': round(_f(book.get('rentSol')), 6),
+            'swaps': len(fills), 'coins': sorted(({**c, 'boughtUsd': round(c['boughtUsd'], 4), 'soldUsd': round(c['soldUsd'], 4), 'realizedUsd': round(c['realizedUsd'], 4)}
+                                                  for c in coins.values()), key=lambda c: c['realizedUsd']),
+            'held': held, 'problems': sorted(({'why': k, 'n': n} for k, n in why.items()), key=lambda x: -x['n']),
+            'benched': {m: v.get('why') for m, v in (book.get('benched') or {}).items() if _f(v.get('until')) > now},
+            'unexplainedUsd': unexplained}

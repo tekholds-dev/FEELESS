@@ -933,3 +933,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   coin at ONCE (`THIN_POOL`) → swapped now; `MISS_WINDOW` (30 min) ≥ 2× `QUIET_SEC` (a quietly re-logged skip never added up before,
   so a refused coin was never benched and its slot sat waiting). 🗑 Trench lens in `SwapPicker` (`GET /fuses/trench` → `rows` + `floor`):
   only passing trench coins, trench pool floor; a pick keeps `trenchOnly` through `queue_swap` → leg `trench` → keeper trench floor.
+- 🧾 Money trail (`fuse_wallet.money_trail`, tested; `scripts/fuse-report.py [hours]`, read-only, run on the owner's Mac): per real card
+  put in → now (coins + cash), realized per coin, still-held move, write-offs, card-paid fees, rent on reserve, skip / fail reasons,
+  benched coins, run_report flaws, and an `unexplained` line that must read $0 (the books add up). Prints no keys / RPC / wallet id.

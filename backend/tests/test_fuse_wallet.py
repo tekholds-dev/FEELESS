@@ -740,3 +740,20 @@ def test_card_paid_network_fees_are_tracked_so_pnl_can_leave_them_out():
     assert b2['cardFeesSol'] == 0.00001 and abs(b2['sol'] - (0.1 + 0.0099 - 0.00001)) < 1e-9     # paid from card SOL, and remembered
     b3, _ = fw.apply_fill(b2, {**order, 'cardPays': False}, {'atoms': 0, 'decimals': 6, 'sol': 0.0, 'feeSol': 0.00002}, 100.0)
     assert b3['cardFeesSol'] == 0.00001                                                              # reserve-paid fees never count as the card's
+
+
+def test_money_trail_accounts_for_every_dollar():
+    import fuse_wallet as fw
+    rows = [{'id': 't', 'card': 'degen', 'side': 'topup', 'usd': 10.0, 'at': 0, 'status': 'done'},
+            {'id': 'b1', 'card': 'degen', 'side': 'buy', 'mint': 'A', 'symbol': 'AAA', 'usd': 4.0, 'at': 100, 'status': 'filled', 'feeUsd': 0.01},
+            {'id': 'b1', 'card': 'degen', 'side': 'buy', 'mint': 'A', 'symbol': 'AAA', 'usd': 4.0, 'at': 100, 'status': 'filled', 'feeUsd': 0.01},   # dup row
+            {'id': 's1', 'card': 'degen', 'side': 'sell', 'mint': 'A', 'symbol': 'AAA', 'usd': 3.0, 'at': 200, 'status': 'filled', 'realizedPnlUsd': -1.0, 'feeUsd': 0.01},
+            {'id': 'b2', 'card': 'degen', 'side': 'buy', 'mint': 'B', 'symbol': 'BBB', 'usd': 2.0, 'at': 300, 'status': 'filled'},
+            {'id': 'k', 'card': 'degen', 'side': 'buy', 'mint': 'C', 'at': 400, 'status': 'skipped', 'err': 'live pool too thin: $9,000 liquidity < $20,000'}]
+    # cash: 10 − 4 + 3 − 2 = 7 SOL-$ less 0.05 the card paid in fees; B held: 2 units at $1 cost, now $1.50 each
+    book = {'fundedUsd': 10.0, 'sol': 6.95 / 100, 'cardFeesSol': 0.05 / 100, 'legs': {'B': {'atoms': 2_000_000, 'decimals': 6, 'symbol': 'BBB', 'costUsd': 2.0}}}
+    t = fw.money_trail(rows, book, 0, 1000, 100.0, {'B': 1.5})
+    assert t['swaps'] == 3 and t['heldNowUsd'] == 3.0 and t['cashUsd'] == 6.95 and t['nowUsd'] == 9.95
+    assert t['realizedAllUsd'] == -1.0 and t['unrealizedUsd'] == 1.0 and t['cardFeesUsd'] == 0.05
+    assert t['resultUsd'] == 0.0 and t['unexplainedUsd'] == 0.0            # −$1 realized + $1 still-held move; fees apart
+    assert t['problems'][0]['why'].startswith('skipped: live pool too thin') and t['coins'][0]['symbol'] == 'AAA'
