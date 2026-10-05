@@ -104,3 +104,4 @@ body.fx-lite .pl-dot, body.fx-lite .pl-live i, body.fx-lite .pl-track { animatio
 body.theme-day .pl-ticker { background: rgba(255, 255, 255, .85); } body.theme-day .pl-tick.s-a b { color: #0b6b45; } body.theme-day .pl-tick.s-b b { color: #b0233d; }
 @media (max-width: 640px) { .pl-race { height: 70px; grid-template-rows: 50px auto; } .pl-plot { height: 50px; } }
 .bf-tickrow { grid-column: 1 / -1; min-width: 0; order: 4; }
+.bf-cycled { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; font-size: 11.5px; } .bf-cycled em { font-style: normal; color: #ff8fa3; font-size: 10.5px; }

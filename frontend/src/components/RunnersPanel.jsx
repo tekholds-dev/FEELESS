@@ -76,10 +76,13 @@ export function RunnersPanel({ call }) {
     </header>
     <ol className="rn-pipe">{[['📡', 'Arrived', d.seen], ['🛡', 'Passed gates', d.live.length], ['✕', 'Dropped', d.dropped.length], ['🎯', 'In round', picks.length]].map(([i, l, n], k) =>
       <li key={l} style={{ animationDelay: `${k * 60}ms` }} data-tip={l === 'Passed gates' ? d.gates.join(' · ') : undefined}><b>{i}</b><span><em className="m-num">{n}</em><small>{l}</small></span></li>)}</ol>
-    <div className="rn-lanes">{LANES.map(([k, ic, name, sub]) => { const rows = picks.filter(p => p.lane === k); return <div key={k} className={`rn-lane lane-${k}`}>
-      <header><b>{ic} {name}</b><small>{sub}</small><em data-tip="Preset exits — alerts you at each step for a one-tap sell">{d.exits[k]}</em></header>
-      {rows.length ? rows.map(r => <CoinRow key={r.mint} r={r} live px={lp.get(r.pairAddress)} />) : <p className="m-dim rn-empty">{k === 'hold' ? 'A runner lands here after 2 rounds in the top.' : 'Nothing in this lane this round.'}</p>}
-    </div>; })}</div>
+    {(() => { const full = LANES.filter(([k]) => picks.some(p => p.lane === k)); const idle = LANES.filter(([k]) => !picks.some(p => p.lane === k));
+      return <>{full.length > 0 && <div className="rn-lanes" style={{ '--lanes': full.length }}>{full.map(([k, ic, name, sub]) => <div key={k} className={`rn-lane lane-${k}`}>
+        <header><b>{ic} {name}</b><small>{sub}</small><em data-tip="Preset exits — alerts you at each step for a one-tap sell">{d.exits[k]}</em></header>
+        {picks.filter(p => p.lane === k).map(r => <CoinRow key={r.mint} r={r} live px={lp.get(r.pairAddress)} />)}</div>)}</div>}
+        {/* no dead fields: an empty lane is one slim chip with its exit plan, not a big empty box */}
+        {idle.length > 0 && <div className="rn-idle" data-testid="rn-idle">{idle.map(([k, ic, name]) => <span key={k} className={`rn-idlechip lane-${k}`} data-tip={k === 'hold' ? 'A runner moves here after 2 rounds in the top' : `No coin in the ${name.toLowerCase()} lane this round — its exits wait: ${d.exits[k]}`}>
+          {ic} {name} <small>{k === 'hold' ? 'after 2 top rounds' : 'empty this round'}</small><em>{d.exits[k]}</em></span>)}</div>}</>; })()}
     {(d.round?.swaps || []).length > 0 && <div className="rn-swaps" data-testid="rn-swaps">{d.round.swaps.slice(-3).reverse().map(s => <span key={s.at}>🔁 auto-swapped <b>${s.out.symbol}</b> → <b>${s.in.symbol}</b><small>{s.why[0]}</small></span>)}</div>}
     {picks.length > 0 && <div className={`rn-fuse ${d.proof.lights ? 'is-lit' : ''}`} key={d.round?.id}>
       <FuseCard c={{ pools: legs.map(l => l.pairAddress), fitness: Math.round(picks.reduce((a, p) => a + p.score, 0) / picks.length), bornGen: d.history.length,

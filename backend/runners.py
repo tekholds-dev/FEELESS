@@ -305,7 +305,20 @@ def board(cands, cfg=None):
     return {'passing': passing, 'dropped': sorted(dropped, key=lambda r: -r['score'])[:30]}
 
 
-def next_round(prev, passing, now, size=ROUND_SIZE, rid='', weights=None):
+COOL_ROUNDS = 3   # 🧊 a coin that LEFT a round (dropped or swapped out) isn't picked again for 3 rounds — no buy-back loop
+
+
+def recently_out(rounds, n=COOL_ROUNDS):
+    """Mints that left one of the last `n` rounds (round `out` + mid-round swaps). They sit out until n rounds have passed."""
+    out = set()
+    for r in (rounds or [])[-n:]:
+        out |= {x.get('mint') for x in r.get('out') or []}
+        out |= {(x.get('out') or {}).get('mint') for x in r.get('swaps') or []}
+    out.discard(None)
+    return out
+
+
+def next_round(prev, passing, now, size=ROUND_SIZE, rid='', weights=None, cooled=()):
     """Best runners STAY for another round (streak + 1, may graduate to the hold lane); the rest of the slots go to the
     best newcomers. prev = last round or None. `weights` = self-tuned lane weights: newcomers are ranked by score × the
     weight of the lane they'd join (a lane that keeps losing gets fewer seats)."""
@@ -319,24 +332,25 @@ def next_round(prev, passing, now, size=ROUND_SIZE, rid='', weights=None):
         if r and r['score'] >= keep_cut and len(picks) < size:
             streak = p.get('streak', 1) + 1
             picks.append({**r, 'streak': streak, 'entry': p['entry'], 'enteredAt': p['enteredAt'], 'lane': lane_of(r, streak, r['score'])})
+    cooled = set(cooled or ())
     for r in passing:
         if len(picks) >= size:
             break
-        if r['mint'] not in {x['mint'] for x in picks} and r['price'] > 0:
+        if r['mint'] not in {x['mint'] for x in picks} and r['mint'] not in cooled and r['price'] > 0:
             picks.append({**r, 'streak': 1, 'entry': r['price'], 'enteredAt': now, 'lane': lane_of(r, 1, r['score'])})
     kept = {x['mint'] for x in picks if x['streak'] > 1}
     out = [p for p in (prev or {}).get('picks') or [] if p['mint'] not in kept]
     return {'id': rid, 'at': now, 'picks': picks, 'out': [{'mint': p['mint'], 'symbol': p.get('symbol')} for p in out]}
 
 
-def swap_failing(rnd, passing, failing, paths, now, cfg=None):
+def swap_failing(rnd, passing, failing, paths, now, cfg=None, cooled=()):
     """Keep a round clean: at most ONE pick that now FAILS a gate (it's in `failing` = {mint: [reasons]}) is swapped for the
     best passing runner not already in the round. The swapped-out pick is closed on paper at that moment (its result
     stays in the proof); the new one enters at today's price. Returns (round, swap or None)."""
     picks = list(rnd.get('picks') or [])
     bad = next((p for p in picks if p['mint'] in failing), None)
     inr = {p['mint'] for p in picks}
-    sub = next((x for x in passing if x['mint'] not in inr and _f(x.get('price')) > 0), None)
+    sub = next((x for x in passing if x['mint'] not in inr and x['mint'] not in set(cooled or ()) and _f(x.get('price')) > 0), None)
     if not bad or not sub:
         return rnd, None
     since = bad.get('swappedIn') or rnd['at']

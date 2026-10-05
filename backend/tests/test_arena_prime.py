@@ -137,7 +137,7 @@ def test_service_deals_ticks_and_admin_config(monkeypatch):
     v = asyncio.run(rs.fuse_prime())
     growth = [l['mint'] for c in v['cards'] for l in c['legs'] if l['role'] != 'anchor']
     assert len(growth) == len(set(growth))
-    assert {'gold', 'blaze', 'ever'} <= {c['tier'] for c in v['cards']} and all(99 < c['valueUsd'] <= 100 for c in v['cards'])   # true fills: a fresh card paid real impact
+    assert {'gold', 'blaze', 'ever'} <= {c['tier'] for c in v['cards']} and all(19.8 < c['valueUsd'] <= 20 for c in v['cards'])   # true fills on the $20 paper size
     class Rq:
         async def json(self): return {'cfg': {'rotateHours': 3, 'on': False}}
     out = asyncio.run(rs.fuse_prime_admin(Rq()))

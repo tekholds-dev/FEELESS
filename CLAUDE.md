@@ -868,3 +868,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🃏 Card window (`CardConfig`, `styles/cardWindow.css`): the card itself big in its own design (FuseCard, flip) + side panes (coins · how it
   plays · 📜 trail from its paper book events). 📈 Pit live (`PitLive.jsx`): `RaceLine` (both fighters' % since the bell from `pg_battle.spark`,
   battles `spark`) under the reel + `CoinTicker` belt of both cards' coins on live 5m prices.
+
+- 🏆 Arena LEAGUE (`backend/arena_league.py`, pure + tested; replaces the endless bracket in `_battle_tick`): a SEASON = ≤ 8 cards
+  (`FIELD_MAX`, like the playground field), 7 bells (`ROUNDS`), every card on ONE $20 paper book for the whole season (`bookStart`
+  subtracted per bell). Pairs by the table (1v2, no rematch), win 3 / draw 1; a book ≤ $1 or −75% over its last 3 bells is CYCLED OUT
+  for the next playground card (`_league_playground`, best W−L). Last bell → champion crowned, new season, all books back at $20.
+  League seats not on the stage still fight (`_league_extra` → arena `fighters`). Pit shows the table, rules line and cycled list.
+- 🔁 Paper tier restart (`PRIME_RESET`, `_prime_reset_paper`, once): non-real tier cards archived to the record and re-dealt at $20
+  (saved cfg `sizeUsd` 20; DEFAULT_CFG stays 100). Real cards never touched.
+- 🧊 Runner cool-down (`runners.COOL_ROUNDS` 3, `recently_out`): a coin dropped or swapped out of a round is not picked again for 3 rounds.
+- Runners board: only lanes with picks get a column; empty lanes collapse into one `rn-idle` chip row (no dead "nothing this lane" boxes).
+- HQ › Fuse › Arena PrimeControls = PAPER tier cards only, two tabs (`PCTL_TABS`: 🃏 Cards · ⏱ Rounds & safety); size seg $20/$100/$500.

@@ -354,7 +354,7 @@ export function FuseSeason() {
 // ⚔ Battlefield: stage cards fight in pairs (hot vs hot) — bigger move since the bell wins. Tug-of-war bar = who's ahead.
 // ⚡ Smarter power board: standing cards first, then a power score (wins, losses, live move, comebacks, crowd calls)
 export const power = board => [...board].map(x => ({ ...x, power: Math.round((x.w * 3 - x.l * 2 + (x.pct || 0) / 10 + (x.comebacks || 0) * 2 + (x.calls || 0) / 2) * 10) / 10 }))
-  .sort((a, b) => (a.status === 'out') - (b.status === 'out') || b.power - a.power);
+  .sort((a, b) => (a.rank && b.rank ? a.rank - b.rank : 0) || (a.status === 'out') - (b.status === 'out') || b.power - a.power);   // league: the table's order
 const tugShare = (a, b) => (a + b > 0 ? Math.max(0.06, Math.min(0.94, a / (a + b))) : 0.5);
 // 👑 The Throne: ONE card reigns, wrapped in live voltage until a new bracket winner knocks it off. Its two closest challengers
 // circle behind it and trade sides; the past champions line up on the right (🛡 defended or struck through with who took the crown).
@@ -375,7 +375,7 @@ export function Throne({ champs, now, onBuy, kingNode, challengers = [], onOpen 
         {kingNode ? <span className="th-card">{kingNode}</span> : <span className="th-ghost">{king.emoji || '👑'}</span>}</div>
     </div>
     <div className="th-side">
-      <div className="th-who"><small className="m-label">ON THE THRONE · BRACKET #{king.season}</small><b>{king.emoji} {king.name}</b>
+      <div className="th-who"><small className="m-label">ON THE THRONE · SEASON #{king.season}</small><b>{king.emoji} {king.name}</b>
         <span className="th-stats"><em className="m-num">{king.w}W</em><em data-tip="Time since it took the crown">reigning {reign}</em></span>
         {king.legs?.length > 0 && onBuy && <button type="button" className="m-btn primary m-go bf-buychamp" onClick={() => onBuy(king)}
           data-tip={king.key?.startsWith('user:') ? "Copy the champion — its owner earns the champion's share (double copy cut) of your FEELESS fee, not extra cost to you" : 'Load the champion into your Lab'} data-testid="buy-champ">👑 Buy the champion</button>}</div>
@@ -462,8 +462,9 @@ export function Battlefield({ b: b0, cards = [], onLoad }) {
         <button type="button" className="m-btn bf-buy" onClick={() => buyBack(x)} data-tip="Buy this card (you own it) — counts on the 💰 bar" data-testid={`buyback-${k}-${i}`}>💰 Buy & back</button>
         <button type="button" className="m-btn bf-cheer" onClick={() => cheer(x.key)} data-tip="Cheer your fighter (just for fun)" data-testid={`cheer-${k}-${i}`}>📣 {(cheers[x.key] || {}).n || ''}</button>
         <button type="button" className="m-btn bf-audit" onClick={() => setAudit(x)} data-tip="Paper audit: every coin's true-fill entry → now, $ in → $ now, fees apart, past books" data-testid={`audit-${k}-${i}`}>📜 Audit</button></span></div></div>; };
-  return <section className="m-card m-live bf" data-testid="battlefield"><header className="m-row"><span className="m-label">⚔ BATTLEFIELD · BRACKET #{br.season}</span>
-    <small className="m-dim">bigger move since the bell wins · 2 losses = out · last card standing is crowned</small>
+  const lg = b.league;
+  return <section className="m-card m-live bf" data-testid="battlefield"><header className="m-row"><span className="m-label">{lg ? `⚔ ARENA SEASON #${lg.n} · ROUND ${Math.min(lg.round + 1, lg.rounds)}/${lg.rounds}` : `⚔ BATTLEFIELD · BRACKET #${br.season}`}</span>
+    <small className="m-dim" data-testid="bf-rules">{lg ? `every card on its own $${lg.startUsd} book all season · bigger move this bell wins (3 pts · draw 1) · ≤ $${lg.cut.usd} or −${lg.cut.dropPct}% in ${lg.cut.bells} rounds = cycled for a playground card · top of the table after ${lg.rounds} rounds is crowned` : 'bigger move since the bell wins · 2 losses = out · last card standing is crowned'}</small>
     <span className="m-seg bf-lens" role="tablist" aria-label="Timeframe">{PIT_LENSES.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} data-tip={tip} onClick={() => setLens(k)} data-testid={`bf-lens-${k}`}>{l}</button>)}</span>
     <b className={`bf-bell m-num ${secs < 60 ? 'is-soon' : ''}`} key={secs < 60 ? secs : 'x'}>🔔 {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</b></header>
     {br.champions?.length > 0 && <Throne champs={br.champions} now={now} kingNode={nodeOf(br.champions[0].key, 0)} onOpen={k => cardOf(k) && setCfgKey(k)}
@@ -481,7 +482,7 @@ export function Battlefield({ b: b0, cards = [], onLoad }) {
         const lane = status[p.a.key]?.status === 'losers' && status[p.b.key]?.status === 'losers' ? 'losers' : status[p.a.key]?.status === 'winners' && status[p.b.key]?.status === 'winners' ? 'winners' : 'cross';
         return <div key={p.a.key + p.b.key} className={`bf-pair lane-${lane} ${d > 0.05 ? 'a-lead' : d < -0.05 ? 'b-lead' : 'even'} ${cur === i ? 'is-spot' : 'is-off'}`} style={{ '--i': i }} data-testid={`battle-${i}`} aria-hidden={cur !== i}>
           {flip[i] && Date.now() - flip[i] < 4000 && <span key={flip[i]} className="bf-flipbanner" aria-live="polite">⚡ LEAD CHANGE!</span>}
-          <span className="bf-lane">{lane === 'winners' ? '🏆 WINNERS BRACKET' : lane === 'losers' ? '💀 LOSERS BRACKET · LOSE = OUT' : '⚔ CROSSOVER'}{lens !== 'bell' && <i className="bf-lensnote"> · reading the last {lens === '60' ? 'hour' : `${lens} min`} (the bell still decides)</i>}</span>
+          <span className="bf-lane">{lg ? `🏆 ROUND ${Math.min(lg.round + 1, lg.rounds)} OF ${lg.rounds} · ${(status[p.a.key]?.rank ? `#${status[p.a.key].rank}` : '')} vs ${(status[p.b.key]?.rank ? `#${status[p.b.key].rank}` : '')}` : lane === 'winners' ? '🏆 WINNERS BRACKET' : lane === 'losers' ? '💀 LOSERS BRACKET · LOSE = OUT' : '⚔ CROSSOVER'}{lens !== 'bell' && <i className="bf-lensnote"> · reading the last {lens === '60' ? 'hour' : `${lens} min`} (the bell still decides)</i>}</span>
           <p className="bf-call" key={pitCall(p, secs)} aria-live="polite" data-testid={`bf-call-${i}`}>🎙 {pitCall(p, secs)}</p>
           <span className="bf-crowd" data-tip="How the crowd is split: free backs + bought backs. Points only today — real bids on a fight are planned, and this split becomes the odds." data-testid={`bf-crowd-${i}`}>
             <b className="m-num">{crowdShare(p)}%</b><i><i style={{ transform: `scaleX(${crowdShare(p) / 100})` }} /></i><b className="m-num">{100 - crowdShare(p)}%</b><small>CROWD</small></span>
@@ -498,11 +499,13 @@ export function Battlefield({ b: b0, cards = [], onLoad }) {
     </div>
     {br.upNext?.length > 0 && <div className="bf-next" data-testid="bf-upnext"><span className="m-label">⏭ UP NEXT</span>{br.upNext.map((x, j) => <button key={x.key} type="button" className={`bf-nextcard br-${x.status}`} style={{ '--i': j }} onClick={() => setCfgKey(x.key)} data-tip="Fights at the next bell — tap for its config">
       <b>{x.emoji}</b><span>{x.name}</span><em>{x.status === 'winners' ? '🏆' : '💀'} {x.w}–{x.l}</em></button>)}</div>}
-    {(br.board || []).length > 0 && <div className="bf-rail" data-testid="bf-power"><span className="m-label" data-tip="Every card in this bracket, strongest first. 🔮 Call one to win the bracket (free) — right = season XP.">🥊 IN THE BRACKET</span>
+    {(br.board || []).length > 0 && <div className="bf-rail" data-testid="bf-power"><span className="m-label" data-tip="Every card in this season, top of the table first. 🔮 Call the champion (free) — right = season XP.">{lg ? `🏆 TABLE · ${b.bracket?.board?.length || 0}/${lg.fieldMax}` : '🥊 IN THE BRACKET'}</span>
       <div className="bf-rail-row">{power(br.board).map((x, i) => <span key={x.key} className={`bf-chip br-${x.status}`} style={{ '--i': i }}>
         <button type="button" className="bf-chip-name" onClick={() => setCfgKey(x.key)} data-tip="Config, coins and DNA — copy it to your Lab" data-testid={`power-cfg-${i}`}>{x.emoji} {x.name}</button>
-        <em className="m-num">{x.status === 'out' ? '✕ out' : `${x.status === 'winners' ? '🏆' : '💀'} ${x.w}–${x.l}`}</em><small className={`m-num ${x.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(x.pct)}</small>
+        {x.pts != null ? <><em className="m-num" data-tip={`${x.w}W ${x.d || 0}D ${x.l}L — win 3 · draw 1`}>#{x.rank} · {x.pts} pts</em><small className={`m-num ${(x.usd || 0) >= (lg?.startUsd || 20) ? 'm-pos' : 'm-neg'}`} data-tip={`Its season book: started at $${lg?.startUsd || 20}`}>{fmt$(x.usd)}</small></>
+          : <><em className="m-num">{x.status === 'out' ? '✕ out' : `${x.status === 'winners' ? '🏆' : '💀'} ${x.w}–${x.l}`}</em><small className={`m-num ${x.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(x.pct)}</small></>}
         {x.status !== 'out' && <button type="button" className={`m-btn bf-call ${called === x.key ? 'is-on' : ''}`} disabled={!!called} onClick={() => callIt(x.key)} data-tip="Call it to win this bracket (free) — right = season XP" data-testid={`call-${i}`}>{called === x.key ? '✓' : '🔮'} {(x.calls || 0) + (called === x.key ? 1 : 0)}</button>}</span>)}</div></div>}
+    {lg?.cycled?.length > 0 && <div className="bf-cycled" data-testid="bf-cycled"><span className="m-label">♻ CYCLED OUT</span>{lg.cycled.map(m => <small key={`${m.at}-${m.outKey}`}>{m.out} <em>{m.why}</em>{m.in ? ` → ${m.in}` : ''}</small>)}</div>}
     {b.log?.length > 0 && <div className="bf-log">{b.log.slice(0, 6).map(l => <small key={l.at + l.a} className={l.comeback ? 'is-comeback' : ''}>{l.draw ? `🤝 ${l.a} = ${l.b}` : `${l.comeback ? '🔥 COMEBACK ' : '🏆 '}${l.winner} beat ${l.winner === l.a ? l.b : l.a}`} <em>{pc(l.aMove)} vs {pc(l.bMove)}</em></small>)}</div>}
   </section>;
 }

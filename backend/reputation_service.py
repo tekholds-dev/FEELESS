@@ -4322,7 +4322,7 @@ async def fuse_arena_public():
     mega = await _arena_mega(rd, cfg, now)
     return {'board': board, 'outlook': _hq.outlook(board), 'bestStyle': _hq.best_style(board), 'runs': [v for v in sorted(vals, key=lambda v: -v['at']) if v['settled']][:12],
             'runners': {'proof': _rn.proof(rd['rounds'], rd['paths'], now, cfg=cfg), 'rounds': rounds}, 'minSettled': _hq.MIN_SETTLED,
-            'mega': [c for c in mega if not c.get('bench') and not c.get('fighterOnly')], 'bench': [c for c in mega if c.get('bench')], 'fighters': [c for c in mega if c.get('fighterOnly')],
+            'mega': [c for c in mega if not c.get('bench') and not c.get('fighterOnly')], 'bench': [c for c in mega if c.get('bench')], 'fighters': [c for c in mega if c.get('fighterOnly')] + _league_extra(mega),
             'battles': _battle_view(mega, now),
             # 🎚 auto paper cards per Risk dial: every round also played with each dial's TP/SL — proves a dial BEFORE it goes auto live
             'dials': {k: {**v, 'label': _hq.RISK_DIALS[k]['label'], 'why': _hq.RISK_DIALS[k]['why']} for k, v in _rn.dial_proof(rd['rounds'], rd['paths'], now, _hq.RISK_DIALS).items()},
@@ -4372,10 +4372,10 @@ def _battle_view(mega, now):
     pct = {f"{c['kind']}:{c['id']}": (c['index'] or 100) - 100 for c in mega}
     backs = list((b.get('backs') or {}).values()); paid = list((b.get('paid') or {}).values())
     paper = b.get('paper') or {}
-    pnow = lambda k, start: paper[k]['pct'] if (paper.get(k) or {}).get('pct') is not None else round(pct.get(k, start) - start, 2)
-    pairs = [{side: {**x[side], 'now': pnow(x[side]['key'], x[side]['start']), 'paper': {kk: (paper.get(x[side]['key']) or {}).get(kk) for kk in ('startUsd', 'valueUsd', 'feesUsd', 'hiPct', 'loPct')} if paper.get(x[side]['key']) else None,
+    pnow = lambda k, start, bs=0.0: round(paper[k]['pct'] - bs, 2) if (paper.get(k) or {}).get('pct') is not None else round(pct.get(k, start) - start, 2)   # THIS bell's move on the season book
+    pairs = [{side: {**x[side], 'now': pnow(x[side]['key'], x[side]['start'], _fuse._f(x[side].get('bookStart'))), 'paper': {kk: (paper.get(x[side]['key']) or {}).get(kk) for kk in ('startUsd', 'valueUsd', 'feesUsd', 'hiPct', 'loPct')} if paper.get(x[side]['key']) else None,
                      'frames': {str(m): _pgb.frame_pct(paper.get(x[side]['key']), now, m) for m in _pgb.FRAMES} if paper.get(x[side]['key']) else None,
-                     'spark': _pgb.spark(paper.get(x[side]['key']), b.get('at')),   # 📈 the race line: % since the bell, 1 point a minute
+                     'spark': [round(v - _fuse._f(x[side].get('bookStart')), 2) for v in _pgb.spark(paper.get(x[side]['key']), b.get('at'))],   # 📈 the race line: % since the bell, 1 point a minute
                      'backers': backs.count(x[side]['key']),
                      'paidN': sum(1 for q in paid if q['key'] == x[side]['key']), 'paidUsd': round(sum(q['usd'] for q in paid if q['key'] == x[side]['key']), 2)} for side in ('a', 'b')}
              for x in b.get('pairs') or []]
@@ -4388,12 +4388,22 @@ def _battle_view(mega, now):
         board.append({'key': k, 'comebacks': int(cbs.get(k) or 0), 'name': c.get('name') or 'Card', 'emoji': c.get('emoji'), 'dial': c.get('dial'), 'w': r.get('w', 0), 'l': r.get('l', 0),
                       'pct': round((c.get('index') or 100) - 100, 2), 'status': 'winners' if r.get('l', 0) == 0 else 'losers' if r.get('l', 0) == 1 else 'out'})
     board.sort(key=lambda x: ({'winners': 0, 'losers': 1, 'out': 2}[x['status']], -x['w'], -x['pct']))
+    lg_ = _json_load(FUSE_HQ_PATH, {}).get('league') or None
+    league_view = None
+    if lg_:   # 🏆 the league table IS the board: points, W-D-L, the season book's $ (started at $20)
+        t_ = _lg.table(lg_); half = max(1, len(t_) // 2)
+        board = [{'key': r['key'], 'name': r['name'], 'emoji': r.get('emoji'), 'w': r['w'], 'd': r['d'], 'l': r['l'], 'pts': r['pts'], 'rank': i + 1,
+                  'usd': _fuse._f((paper.get(r['key']) or {}).get('valueUsd')) or _fuse._f((r.get('hist') or [_lg.START_USD])[-1]),
+                  'pct': _fuse._f((paper.get(r['key']) or {}).get('pct')), 'comebacks': int(cbs.get(r['key']) or 0), 'src': r.get('src'),
+                  'status': 'winners' if i < half else 'losers'} for i, r in enumerate(t_)]
+        league_view = {'n': lg_['n'], 'round': lg_.get('round', 0), 'rounds': lg_.get('rounds', _lg.ROUNDS), 'startUsd': _lg.START_USD, 'fieldMax': _lg.FIELD_MAX,
+                       'cycled': (lg_.get('cycled') or [])[-6:][::-1], 'cut': {'usd': _lg.CUT_USD, 'dropPct': _lg.CUT_DROP, 'bells': _lg.CUT_BELLS}}
     fighting = {p_[s_]['key'] for p_ in pairs for s_ in ('a', 'b')}
     calls = list((br.get('picks') or {}).values())
     for x in board:
         x['calls'] = calls.count(x['key'])
-    up_next = [x for x in board if x['status'] != 'out' and x['key'] not in fighting][:3]
-    return {'pairs': pairs, 'endsAt': b.get('endsAt'), 'log': (_json_load(FUSE_HQ_PATH, {}).get('battleLog') or [])[-8:][::-1],
+    up_next = [] if league_view else [x for x in board if x['status'] != 'out' and x['key'] not in fighting][:3]
+    return {'pairs': pairs, 'league': league_view, 'endsAt': b.get('endsAt'), 'log': (_json_load(FUSE_HQ_PATH, {}).get('battleLog') or [])[-8:][::-1],
             'bracket': {'board': board, 'season': br.get('season') or 1, 'champions': list(reversed(br.get('champions') or []))[:5], 'upNext': up_next, 'calls': len(calls)}, 'max': _rn.BATTLE_MAX}
 
 
@@ -4472,6 +4482,42 @@ async def battle_back(p: BattleBack):
     return {'ok': True, 'key': p.key, 'record': rec}
 
 
+import arena_league as _lg
+
+
+def _league_card(d, key, mega):
+    """The coins a fighter plays: its league seat (playground cards live only there), else its live Arena card."""
+    r = next((x for x in ((d.get('league') or {}).get('field') or []) if x['key'] == key), None)
+    return r or next((c for c in mega if f"{c['kind']}:{c['id']}" == key), None)
+
+
+def _league_extra(mega):
+    """League seats that aren't live Arena cards (cycled-in playground cards) as cards the Pit can draw in its corners."""
+    have = {f"{c['kind']}:{c['id']}" for c in mega}
+    out = []
+    for r in ((_json_load(FUSE_HQ_PATH, {}).get('league') or {}).get('field') or []):
+        if r['key'] not in have and ':' in r['key']:
+            kind, cid = r['key'].split(':', 1)
+            out.append({'kind': kind, 'id': cid, 'name': r['name'], 'emoji': r.get('emoji'), 'legs': r.get('legs') or [], 'fighterOnly': True, 'league': True,
+                        'activity': {'tier': 'warm', 'score': 30}})
+    return out
+
+
+def _league_playground():
+    """Fresh engine-playground cards for the league (cycled-in seats + filling a thin field): the HQ battle field, best record first."""
+    pg = (_json_load(RUNNERS_PATH, {}).get('pgBattle') or {})
+    rec = pg.get('record') or {}
+    cards = sorted((pg.get('cards') or {}).items(), key=lambda kv: -((rec.get(kv[0]) or {}).get('w', 0) - (rec.get(kv[0]) or {}).get('l', 0)))
+    out = []
+    for k, c in cards:
+        legs = [{'pairAddress': l.get('pairAddress'), 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': _fuse._f(l.get('usd')) or 1.0,
+                 'runner': (l.get('role') or 'runner') == 'runner'} for l in c.get('legs') or [] if l.get('pairAddress')]
+        if len(legs) >= 2:
+            name = str(c.get('name') or k)
+            out.append({'key': f"pg:{k}", 'name': name.split(' ', 1)[-1] if ' ' in name else name, 'emoji': name.split(' ', 1)[0] if ' ' in name else '🧪', 'legs': legs, 'src': 'playground'})
+    return out
+
+
 async def _battle_tick(now):
     """Background: when the bell rings, settle every pair (bigger move since the start wins), write W/L/D records, alert
     trader-card owners who won, then pair the stage again for the next round."""
@@ -4481,6 +4527,7 @@ async def _battle_tick(now):
     # 📜 paper books: every fighting card is marked live at true fills (what selling it all would really pay)
     paper = dict(b.get('paper') or {})
     pairs_px = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for k in paper for l in paper[k].get('legs') or []] +
+                                 [{'chainId': 'solana', 'pairAddress': l['pairAddress']} for r in ((d.get('league') or {}).get('field') or []) for l in r.get('legs') or [] if l.get('pairAddress')] +
                                  [{'chainId': 'solana', 'pairAddress': l['pairAddress']} for c in mega for l in c.get('legs') or [] if l.get('pairAddress')]) if (paper or mega) else {}
     ppx = {k: _fuse._f(v.get('priceUsd')) for k, v in pairs_px.items()}
     pliq = {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_px.items()}
@@ -4489,8 +4536,10 @@ async def _battle_tick(now):
         for x in b['pairs']:
             if not all(paper.get(x[s_]['key']) for s_ in ('a', 'b')):
                 for s_ in ('a', 'b'):
-                    cm = next((c for c in mega if f"{c['kind']}:{c['id']}" == x[s_]['key']), None)
-                    bk = _pgb.paper_book(x[s_]['key'], cm, ppx, pliq, now, 100.0, fee_coin0) if cm else None
+                    if paper.get(x[s_]['key']):
+                        continue
+                    cm = _league_card(d, x[s_]['key'], mega)
+                    bk = _pgb.paper_book(x[s_]['key'], cm, ppx, pliq, now, _lg.START_USD, fee_coin0) if cm else None
                     if bk:
                         paper[x[s_]['key']] = bk
     if paper:
@@ -4516,19 +4565,20 @@ async def _battle_tick(now):
                 if bb.get('at') == b.get('at'):
                     bb['low'] = low; d0['battles'] = bb; _json_save(FUSE_HQ_PATH, d0)
             b = {**b, 'low': low}
-    if b.get('endsAt') and now < b['endsAt'] and (b.get('pairs') or len(mega) < 2):
+    if b.get('endsAt') and now < b['endsAt'] and b.get('pairs'):
         return None   # mid-battle — or nothing to pair yet (an empty field pairs as soon as 2 cards are on stage)
     pct = {f"{c['kind']}:{c['id']}": (c['index'] or 100) - 100 for c in mega}
     owners = {x['id']: x['wallet'] for x in d.get('positions') or []}
     results = []
     for x in b.get('pairs') or []:
         a, bb = x['a'], x['b']
-        if a['key'] not in pct or bb['key'] not in pct:
-            continue
         pa_, pb_ = paper.get(a['key']), paper.get(bb['key'])
-        if pa_ and pb_ and pa_.get('pct') is not None and pb_.get('pct') is not None:   # settle on the paper books (true fills)
-            w = _rn.settle_battle(0, pa_['pct'], 0, pb_['pct'])
-            pct[a['key']], pct[bb['key']] = a['start'] + pa_['pct'], bb['start'] + pb_['pct']
+        if pa_ and pb_ and pa_.get('pct') is not None and pb_.get('pct') is not None:   # settle on the season books: THIS bell's move
+            ma, mb = pa_['pct'] - _fuse._f(a.get('bookStart')), pb_['pct'] - _fuse._f(bb.get('bookStart'))
+            w = _rn.settle_battle(0, ma, 0, mb)
+            pct[a['key']], pct[bb['key']] = a['start'] + ma, bb['start'] + mb
+        elif a['key'] not in pct or bb['key'] not in pct:
+            continue
         else:
             w = _rn.settle_battle(a['start'], pct[a['key']], bb['start'], pct[bb['key']])
         results.append({'at': now, 'a': a['name'], 'b': bb['name'], 'winner': {'a': a['name'], 'b': bb['name']}.get(w), 'draw': w == 'draw',
@@ -4566,41 +4616,56 @@ async def _battle_tick(now):
             notify(q['wallet'], 'fuse-card', '💰 The card you bought to back won its battle.', url=f"/terminal/fuse?tab=cards&card={pid}", once=f"paidback-{int(now)}-{pid}",
                    meta={'claim': 'Bigger move since the bell', 'source': 'Arena battles'})
     mins = _runner_cfg()['battleMins']
-    # 🏆 bracket: winners fight winners, losers fight losers, 2 losses = out; last one standing is crowned, a new bracket starts
-    bracket = _rn.bracket_update((d.get('bracket') or {}).get('cards'), results)
-    champ = _rn.bracket_done(mega, bracket)
-    champs = list((d.get('bracket') or {}).get('champions') or [])
-    season_n = int((d.get('bracket') or {}).get('season') or 1)
-    if champ is not None:
-        cm = next((c for c in mega if f"{c['kind']}:{c['id']}" == champ), None)
-        if cm:
-            champs = (champs + [{'at': now, 'key': champ, 'name': cm['name'], 'emoji': cm.get('emoji'), 'w': (bracket.get(champ) or {}).get('w', 0), 'season': season_n,
-                                 'legs': [{k_: l.get(k_) for k_ in ('pairAddress', 'symbol', 'baseAddress', 'weight', 'runner')} for l in cm.get('legs') or []][:12]}])[-12:]
-            for w_, k_ in ((d.get('bracket') or {}).get('picks') or {}).items():   # 🔮 called the champion → XP event + inbox
-                if k_ == champ:
-                    d.setdefault('bracketWins', {})[w_] = ((d.get('bracketWins') or {}).get(w_) or [])[-49:] + [now]
-                    notify(w_, 'fuse-card', f"🔮 You called it — {cm['name']} won Arena bracket #{season_n}. Season XP added.", url='/terminal/fuse?tab=arena',
-                           once=f"bracketpick-{season_n}-{w_}", meta={'claim': 'Your bracket call was the champion', 'source': 'Arena battles'})
-            _fuse_chat('fuse-lab', f"👑 Bracket #{season_n} champion: {cm.get('emoji') or ''} {cm['name']} — last card standing. A new bracket starts now.", f"bracket-{season_n}")
-            if champ.startswith('user:') and champ[5:] in owners:
-                notify(owners[champ[5:]], 'fuse-card', f"👑 Your card won Arena bracket #{season_n} — last one standing.", url='/terminal/fuse?tab=arena', once=f"champ-{season_n}-{champ}",
-                       meta={'claim': 'Double-elimination bracket', 'source': 'Arena battles'})
-        bracket, season_n = {}, season_n + 1
-    pairs = [{'a': {'key': f"{x['kind']}:{x['id']}", 'name': x['name'], 'emoji': x.get('emoji'), 'start': pct.get(f"{x['kind']}:{x['id']}", 0.0)},
-              'b': {'key': f"{y['kind']}:{y['id']}", 'name': y['name'], 'emoji': y.get('emoji'), 'start': pct.get(f"{y['kind']}:{y['id']}", 0.0)}} for x, y in _rn.bracket_pairs(mega, bracket, battles=_rn.BATTLE_MAX)]
+    # 🏆 LEAGUE (arena_league): a capped field on $20 season books, fixed rounds, a champion, then a fresh season
     fee_coin = _hq.clean_bundle(_fee_cfg().get('bundle'))['perLegUsd']
-    new_paper = {}
-    for x in pairs:   # every fighter gets a fresh $100 paper book at true fills for this battle
-        for side in ('a', 'b'):
-            cm = next((c for c in mega if f"{c['kind']}:{c['id']}" == x[side]['key']), None)
-            bk = _pgb.paper_book(x[side]['key'], cm, ppx, pliq, now, 100.0, fee_coin) if cm else None
+    owners_ = owners
+    seeds = [{'key': f"{c['kind']}:{c['id']}", 'name': c['name'], 'emoji': c.get('emoji'), 'legs': c.get('legs') or [], 'src': c.get('kind')}
+             for c in _rn.unique_cards(mega) if c.get('legs')]
+    fresh = _league_playground()
+    league = d.get('league') or None
+    champs = list((d.get('bracket') or {}).get('champions') or [])
+    cycled_now = []
+    new_paper = dict(paper)
+    if league and results:
+        books = {k: _fuse._f(v.get('valueUsd')) for k, v in paper.items()}
+        league = _lg.settle(league, results, books)
+        league, cycled_now = _lg.cycle(league, fresh, now)
+        for m in cycled_now:
+            new_paper.pop(m['outKey'], None)
+            _fuse_chat('fuse-lab', f"♻ {m['out']} cycled out ({m['why']}){' — ' + m['in'] + ' takes its seat on $20' if m.get('in') else ''}.", f"cycle-{int(now)}-{m['outKey']}")
+    if not league or _lg.done(league) or len(league.get('field') or []) < 2:
+        if league and _lg.done(league):   # 👑 season over: the table decides
+            ch = _lg.champion(league)
+            if ch:
+                champs = (champs + [{'at': now, 'key': ch['key'], 'name': ch['name'], 'emoji': ch.get('emoji'), 'w': ch['w'], 'pts': ch['pts'], 'season': league['n'],
+                                     'usd': (ch.get('hist') or [0])[-1], 'legs': [{k_: l.get(k_) for k_ in ('pairAddress', 'symbol', 'baseAddress', 'weight', 'runner')} for l in ch.get('legs') or []][:12]}])[-12:]
+                _fuse_chat('fuse-lab', f"👑 Arena season #{league['n']} champion: {ch.get('emoji') or ''} {ch['name']} — {ch['pts']} pts, $20 → ${_fuse._f((ch.get('hist') or [0])[-1]):.2f}. A new season starts on $20.", f"season-{league['n']}")
+                for w_, k_ in ((d.get('bracket') or {}).get('picks') or {}).items():   # 🔮 called the champion → XP + inbox
+                    if k_ == ch['key']:
+                        d.setdefault('bracketWins', {})[w_] = ((d.get('bracketWins') or {}).get(w_) or [])[-49:] + [now]
+                        notify(w_, 'fuse-card', f"🔮 You called it — {ch['name']} won Arena season #{league['n']}. Season XP added.", url='/terminal/fuse?tab=arena',
+                               once=f"seasonpick-{league['n']}-{w_}", meta={'claim': 'Your call was the champion', 'source': 'Arena league'})
+                if ch['key'].startswith('user:') and ch['key'][5:] in owners_:
+                    notify(owners_[ch['key'][5:]], 'fuse-card', f"👑 Your card won Arena season #{league['n']}.", url='/terminal/fuse?tab=arena', once=f"champ-{league['n']}-{ch['key']}",
+                           meta={'claim': 'Top of the league table', 'source': 'Arena league'})
+        prev_n = int((league or {}).get('n') or int((d.get('bracket') or {}).get('season') or 0))
+        played = bool(league and int(league.get('round') or 0) > 0)
+        league = _lg.new_season(seeds + fresh, prev_n + 1 if (played or not league) else prev_n, now)   # a field that never got going keeps its number
+        new_paper = {}
+    for r in league.get('field') or []:   # every seat has its season book ($20 at true fills) — dealt once, kept all season
+        if not new_paper.get(r['key']):
+            bk = _pgb.paper_book(r['key'], r, ppx, pliq, now, _lg.START_USD, fee_coin)
             if bk:
-                new_paper[x[side]['key']] = bk
-    done_books = []
-    for r_ in results:   # the finished books go to the paper log with their result
-        for k_, side in ((r_['aKey'], 'a'), (r_['bKey'], 'b')):
-            if paper.get(k_):
-                done_books.append({**_pgb.paper_view(paper[k_], ppx, pliq), 'result': 'draw' if r_['draw'] else 'won' if r_.get('winnerKey') == k_ else 'lost', 'endedAt': now})
+                new_paper[r['key']] = bk
+    by_key = {r['key']: r for r in league.get('field') or []}
+    pairs = [{'a': {'key': ka, 'name': by_key[ka]['name'], 'emoji': by_key[ka].get('emoji'), 'start': 0.0, 'bookStart': _fuse._f((new_paper.get(ka) or {}).get('pct'))},
+              'b': {'key': kb, 'name': by_key[kb]['name'], 'emoji': by_key[kb].get('emoji'), 'start': 0.0, 'bookStart': _fuse._f((new_paper.get(kb) or {}).get('pct'))}}
+             for ka, kb in _lg.pair_round(league) if new_paper.get(ka) and new_paper.get(kb)]
+    t_ = _lg.table(league)
+    bracket = {r['key']: {'w': r['w'], 'l': r['l']} for r in t_}
+    season_n = league['n']
+    done_books = [{**_pgb.paper_view(paper[k_], ppx, pliq), 'result': 'cycled out' if k_ in {m['outKey'] for m in cycled_now} else 'season over', 'endedAt': now}
+                  for k_ in paper if k_ not in new_paper]   # a book closes only when its card leaves (cycled) or the season ends
     if results:
         _fuse_chat('fuse-lab', '⚔ Battle results: ' + ' · '.join(f"{'🤝 ' + x['a'] + ' = ' + x['b'] if x['draw'] else '🏆 ' + x['winner'] + ' beat ' + (x['b'] if x['winner'] == x['a'] else x['a'])} ({x['aMove']:+.1f}% vs {x['bMove']:+.1f}%)" for x in results[:4]),
                    f"battles-{int(now)}")
@@ -4609,8 +4674,9 @@ async def _battle_tick(now):
         d2['battles'] = {'at': now, 'endsAt': now + mins * 60, 'pairs': pairs, 'paper': new_paper}
         d2['paperLog'] = ((d2.get('paperLog') or []) + done_books)[-60:]
         d2['battleLog'] = ((d2.get('battleLog') or []) + results)[-40:]
+        d2['league'] = league
         d2['bracket'] = {'cards': bracket, 'champions': champs, 'season': season_n,
-                         'picks': {} if champ is not None else ((d2.get('bracket') or {}).get('picks') or {})}
+                         'picks': {} if league.get('round') == 0 else ((d2.get('bracket') or {}).get('picks') or {})}
         d2['bracketWins'] = {**(d2.get('bracketWins') or {}), **(d.get('bracketWins') or {})}
         d2['battleRecord'] = d.get('battleRecord') or {}
         d2['comebacks'] = d.get('comebacks') or d2.get('comebacks') or {}
@@ -5199,7 +5265,7 @@ async def _runner_tick(now=None, force=False):
         if force or not last or now - last['at'] >= _rn.ROUND_SECONDS:
             weights = _rn.lane_weights(_rn.lane_proofs(d['rounds'], d['paths'], now, cfg))   # self-tuning lanes
             pool_ = _rn.apply_filter(live['passing'], d.get('pickFilter'), cfg['roundSize'])   # 🩺 the doctor's pick filter first
-            new = _rn.next_round(last, pool_, now, size=cfg['roundSize'], rid=uuid.uuid4().hex[:8], weights=weights)
+            new = _rn.next_round(last, pool_, now, size=cfg['roundSize'], rid=uuid.uuid4().hex[:8], weights=weights, cooled=_rn.recently_out(d['rounds']))   # 🧊 3-round cool-down
             pf = _rn.proof(d['rounds'], d['paths'], now, cfg=cfg)
             d['rounds'] = (d['rounds'] + [new])[-200:]
             if pf['lights'] and new['picks']:   # dealt while lit → it joins the lit-cards list
@@ -5207,7 +5273,7 @@ async def _runner_tick(now=None, force=False):
         elif last:
             # Auto-swap: one pick that now FAILS a gate is replaced by the best passing runner (closed on paper, reason kept)
             failing = {x['mint']: x.get('gates') or ['failed a gate'] for x in live['dropped']}
-            d['rounds'][-1], _swap = _rn.swap_failing(last, live['passing'], failing, d['paths'], now, cfg)
+            d['rounds'][-1], _swap = _rn.swap_failing(last, live['passing'], failing, d['paths'], now, cfg, cooled=_rn.recently_out(d['rounds']))
         # Lit cards stay strong: 2+ strong + 1 weak → the weak coin is swapped for a new runner; fewer than 2 strong → taken down.
         failing = {x['mint']: x.get('gates') or ['failed a gate'] for x in live['dropped']}
         for i, c in enumerate(d.get('litCards') or []):
@@ -5451,7 +5517,33 @@ def _fw_market_rows(cards, books):
     return list(rows.values())
 
 
+PRIME_RESET = 'paper20'   # one-time: every PAPER tier card starts over on $20 (the real card is never touched)
+
+
+async def _prime_reset_paper(now):
+    """🔁 Start every paper tier card over at $20, once. Their old runs go to the permanent record + `prime.archive`; the tick deals
+    fresh cards at the new size right after. Real-money cards keep running exactly as they are."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        if pr.get('reset') == PRIME_RESET:
+            return 0
+        cards = pr.get('cards') or {}
+        gone = {k: c for k, c in cards.items() if not c.get('real')}
+        for k, c in gone.items():
+            try:
+                _store.Ledger(CARD_RECORDS_PATH, table='runs').append({'at': now, 'card': k, 'label': c.get('label'), 'startUsd': c.get('startUsd'), 'real': False, 'closed': True, 'why': 'restart on $20'})
+            except Exception as e:
+                print('card records (reset):', e)
+        pr['archive'] = ((pr.get('archive') or []) + [{'at': now, 'why': 'paper restart on $20', 'cards': {k: {x: c.get(x) for x in ('label', 'startUsd', 'putInUsd', 'walletUsd', 'rounds')} for k, c in gone.items()}}])[-20:]
+        pr['cards'] = {k: c for k, c in cards.items() if c.get('real')}
+        pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), 'sizeUsd': 20.0})
+        pr['reset'] = PRIME_RESET
+        _json_save(FUSE_HQ_PATH, d)
+    return len(gone)
+
+
 async def _prime_tick_inner(now):
+    await _prime_reset_paper(now)
     cfg = _prime_cfg()
     if not cfg['on']:
         return 0

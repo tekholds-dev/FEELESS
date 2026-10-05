@@ -129,3 +129,11 @@ def test_runners_list_stays_full_while_a_coin_is_only_rescanned():
     by = {r['mint']: r for r in out}
     assert set(by) == {'A', 'B'}                      # C failed a REAL gate → gone; OLD too old → gone
     assert by['B']['rechecking'] and not by['A'].get('rechecking')
+
+
+def test_a_runner_that_left_is_not_picked_again_for_3_rounds():
+    rounds = [{'out': [{'mint': 'OLD'}]}, {'swaps': [{'out': {'mint': 'SW'}}]}, {'out': []}, {'out': [{'mint': 'LONGAGO'}]}]
+    assert runners.recently_out(rounds[1:]) == {'SW', 'LONGAGO'} and runners.recently_out(rounds, n=4) == {'OLD', 'SW', 'LONGAGO'}
+    passing = [{'mint': m, 'price': 1.0, 'score': s, 'curve': 0, 'stage': 'graduated'} for m, s in (('OLD', 90), ('NEW', 80), ('SW', 85), ('N2', 70))]
+    rnd = runners.next_round(None, passing, 10, size=2, cooled={'OLD', 'SW'})
+    assert [p['mint'] for p in rnd['picks']] == ['NEW', 'N2']

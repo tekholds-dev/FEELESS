@@ -19,13 +19,16 @@
 .rn-pipe li { position: relative; display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--m-line); border-radius: 10px; background: var(--m-surface); animation: mCardIn .3s var(--m-ease) backwards; }
 .rn-pipe li:not(:last-child)::after { content: '›'; position: absolute; right: -7px; top: 50%; transform: translateY(-50%); color: var(--rn-fire); font-weight: 800; z-index: 1; }
 .rn-pipe li > b { font-size: 18px; } .rn-pipe span { display: grid; } .rn-pipe em { font-style: normal; font-size: 18px; font-weight: 700; } .rn-pipe small { font-size: 10px; color: var(--m-dim); font-family: var(--m-mono); }
-.rn-lanes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.rn-lanes { display: grid; grid-template-columns: repeat(var(--lanes, 3), minmax(0, 1fr)); gap: 10px; }
+.rn-empty { font-size: 11px; padding: 8px 0; }
+.rn-idle { display: flex; flex-wrap: wrap; gap: 6px; }
+.rn-idlechip { display: inline-flex; gap: 6px; align-items: baseline; padding: 4px 10px; border-radius: 999px; border: 1px dashed var(--m-line-hi); font-size: 12px; font-weight: 600; transition: border-color .15s; }
+.rn-idlechip:hover { border-color: var(--m-accent); } .rn-idlechip small { color: var(--m-dim); font-weight: 400; } .rn-idlechip em { font: 10px var(--m-mono); font-style: normal; color: var(--m-dim); }
 .rn-lane { display: grid; gap: 6px; align-content: start; padding: 12px; border-radius: 12px; border: 1px solid var(--m-line); background: var(--m-surface); position: relative; overflow: hidden; }
 .rn-lane::before { content: ''; position: absolute; left: 0; top: 0; right: 0; height: 3px; background: var(--lane); box-shadow: 0 0 14px var(--lane); }
 .rn-lane.lane-scalp { --lane: var(--rn-fire); } .rn-lane.lane-runner { --lane: var(--m-accent); } .rn-lane.lane-hold { --lane: var(--rn-ice); }
 .rn-lane header { display: grid; gap: 2px; } .rn-lane header b { font-size: 13px; letter-spacing: .06em; color: var(--lane); } .rn-lane header small { font-size: 10.5px; color: var(--m-dim); }
 .rn-lane header em { font-style: normal; font-family: var(--m-mono); font-size: 9.5px; padding: 3px 6px; border-radius: 6px; border: 1px dashed color-mix(in srgb, var(--lane) 60%, transparent); color: var(--m-text); justify-self: start; }
-.rn-empty { font-size: 11px; padding: 8px 0; }
 .rn-coin { display: grid; grid-template-columns: 30px minmax(0, 1fr) 70px 54px 26px; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--m-line); background: var(--m-bg); animation: mCardIn .25s var(--m-ease) backwards; transition: border-color .15s, transform .12s; }
 .rn-coin:hover { border-color: var(--m-line-hi); transform: translateX(2px); }
 .rn-logo { width: 30px; height: 30px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; }
@@ -45,7 +48,7 @@
 .rn-board header, .rn-hist header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .rn-board header b, .rn-hist header b { font-size: 13px; } .rn-board header small, .rn-hist header small { font-size: 10px; }
 .rn-drop-toggle { justify-self: start; border: 0; background: none; color: var(--m-danger); font-family: var(--m-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; padding: 4px 0; } .rn-drop-toggle:hover { text-decoration: underline; } .rn-drop-toggle:focus-visible { outline: 2px solid var(--m-accent); }
 .rn-drop { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; font-size: 11px; } .rn-drop li { display: grid; grid-template-columns: 80px 1fr; gap: 6px; color: var(--m-dim); } .rn-drop b { color: var(--m-danger); }
-.rn-hist > small { font-size: 10.5px; line-height: 1.45; }
+.rn-hist > small { font-size: 10.5px; line-height: 1.45; } body.theme-day .rn-idlechip { background: #fff; }
 body.theme-day .rn-hero { background: var(--m-surface-2); } body.theme-day .rn-ring > span, body.theme-day .rn-coin, body.theme-day .rn-rounds li { background: var(--m-surface); }
 /* Last rounds: one row per round — age, coins, move bar (grows in), %, $5 → $end. */
 .rn-rounds { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }

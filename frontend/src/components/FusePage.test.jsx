@@ -286,3 +286,17 @@ test('The Pit reads a fight through any timeframe, calls it live, and shows the 
   expect(pitCall(pair, 30)).toContain('FINAL MINUTE'); expect(pitCall({ a: { name: 'A', now: 1 }, b: { name: 'B', now: 1.1 } }, 300)).toContain('Dead even');
   expect(crowdShare(pair)).toBe(75); expect(crowdShare({ a: {}, b: {} })).toBe(50);
 });
+
+test('battlefield in league mode: season round, rules, table with points + $ books, cycled-out list', async () => {
+  const { Battlefield } = require('./FusePage');
+  const b = { endsAt: Date.now() / 1000 + 120, log: [], pairs: [{ a: { key: 'user:x', name: 'X', emoji: '🚀', now: 1.2 }, b: { key: 'pg:s1', name: 'Lab Rat', emoji: '🧪', now: -0.4 } }],
+    league: { n: 4, round: 2, rounds: 7, startUsd: 20, fieldMax: 8, cut: { usd: 1, dropPct: 75, bells: 3 }, cycled: [{ at: 1, out: 'Y', outKey: 'lit:y', why: 'book at $0.80 (≤ $1)', in: 'Lab Rat' }] },
+    bracket: { season: 4, champions: [], board: [{ key: 'user:x', name: 'X', emoji: '🚀', w: 2, d: 0, l: 0, pts: 6, rank: 1, usd: 23.4, status: 'winners' },
+      { key: 'pg:s1', name: 'Lab Rat', emoji: '🧪', w: 0, d: 0, l: 1, pts: 0, rank: 2, usd: 18.1, status: 'losers' }] } };
+  const host = document.createElement('div'); document.body.appendChild(host);
+  await act(async () => { createRoot(host).render(<Battlefield b={b} />); });
+  expect(host.textContent).toContain('ARENA SEASON #4 · ROUND 3/7');
+  expect(host.querySelector('[data-testid="bf-rules"]').textContent).toContain('$20 book all season');
+  expect(host.querySelector('[data-testid="bf-power"]').textContent).toContain('#1 · 6 pts');
+  expect(host.querySelector('[data-testid="bf-cycled"]').textContent).toContain('Y');
+});

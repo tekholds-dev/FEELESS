@@ -822,3 +822,15 @@ body.theme-day .ce-book { background: #fff; }
 body.fx-lite .prime-more[open] > :not(summary) { animation: none; }
 @media (prefers-reduced-motion: reduce) { .prime-more[open] > :not(summary) { animation: none; } }
 .ce-plain span { line-height: 1.6; font-size: 13.5px; } .ce-plain strong { font-weight: 700; }
+/* ⭐ HQ › Arena › paper tier cards (PrimeControls tabs) */
+.pctl-tabs { margin: 8px 0; width: fit-content; } .pctl-pane { display: grid; gap: 10px; }
+.pctl-cards > .m-row { padding: 10px; border-radius: 12px; border: 1px solid var(--m-line); background: var(--m-surface-2); flex-wrap: wrap; gap: 6px; transition: border-color .15s; }
+.pctl-cards > .m-row:hover { border-color: var(--m-line-hi); } .pctl-cards > .m-row > b { min-width: 150px; }
+.pctl-foot { padding-top: 8px; border-top: 1px dashed var(--m-line); }
+body.theme-day .pctl-cards > .m-row { background: #fff; }
+@media (max-width: 640px) { .pctl-tabs { width: 100%; } .pctl-tabs > button { flex: 1; } .pctl-cards > .m-row > b { min-width: 0; width: 100%; } }
+.pctl-pane[hidden] { display: none; }
+.pctl-pane .prime-ctl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 14px; align-items: center; }
+.pctl-pane .prime-ctl > span:not(.m-seg) { font: 600 10px var(--m-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--m-dim); }
+.pctl-pane .prime-ctl > .m-toggle { grid-column: 1 / -1; } .pctl-pane .prime-ctl > .prime-min { grid-column: 2; }
+@media (max-width: 640px) { .pctl-pane .prime-ctl { grid-template-columns: 1fr; } .pctl-pane .prime-ctl > .prime-min { grid-column: 1; } }

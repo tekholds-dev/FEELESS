@@ -203,34 +203,6 @@ def test_feecat_week_and_who_beat_her():
     assert any('Beat FeeCat 3×' in p['label'] and p['points'] == 16 for p in s['parts'])
 
 
-def test_battle_tick_settles_records_and_repairs(rs, monkeypatch):
-    now = time.time()
-    rs._arena_mega_cache.update(at=now, data=[{'kind': 'user', 'id': 'x', 'name': 'X', 'index': 110, 'activity': {'score': 80}},
-                                              {'kind': 'lit', 'id': 'y', 'name': 'Y', 'index': 104, 'activity': {'score': 60}}])
-    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'x', 'wallet': A, 'legs': []}],
-                                    'battles': {'endsAt': now - 1, 'pairs': [{'a': {'key': 'user:x', 'name': 'X', 'start': 2.0}, 'b': {'key': 'lit:y', 'name': 'Y', 'start': 1.0}}]}})
-    res = asyncio.run(rs._battle_tick(now))
-    assert res[0]['winner'] == 'X' and res[0]['aMove'] == 8.0
-    d = rs._json_load(rs.FUSE_HQ_PATH, {})
-    assert d['battleRecord'] == {'user:x': {'w': 1, 'l': 0, 'd': 0}, 'lit:y': {'w': 0, 'l': 1, 'd': 0}}
-    assert d['battles']['pairs'][0]['a']['key'] == 'user:x' and d['battles']['endsAt'] > now
-    assert asyncio.run(rs._battle_tick(now + 5)) is None                                          # bell hasn't rung
-    view = rs._battle_view(rs._arena_mega_cache['data'], now)
-    assert view['pairs'][0]['a']['now'] == 0.0 and view['log'][0]['winner'] == 'X'
-
-
-
-def test_an_empty_battlefield_pairs_as_soon_as_two_cards_arrive(rs):
-    now = time.time()
-    rs._json_save(rs.FUSE_HQ_PATH, {'battles': {'endsAt': now + 3000, 'pairs': []}})
-    rs._arena_mega_cache.update(at=now, data=[{'kind': 'auto', 'id': 'a', 'name': 'A', 'index': 100, 'activity': {'score': 5}}])
-    assert asyncio.run(rs._battle_tick(now)) is None                                              # one card: nothing to fight
-    rs._arena_mega_cache.update(at=now, data=[{'kind': 'auto', 'id': 'a', 'name': 'A', 'index': 100, 'activity': {'score': 5}},
-                                              {'kind': 'lit', 'id': 'b', 'name': 'B', 'index': 101, 'activity': {'score': 9}}])
-    asyncio.run(rs._battle_tick(now))
-    assert len(rs._json_load(rs.FUSE_HQ_PATH, {})['battles']['pairs']) == 1
-
-
 def test_trader_record_medals_battles_cat_wins(rs, monkeypatch):
     async def shield(a): return {'verdict': 'clean'}
     monkeypatch.setattr(rs, '_shield_of', shield)
@@ -277,37 +249,6 @@ def test_my_battles_lists_live_and_past_for_my_cards_only(rs):
     assert asyncio.run(rs.fuse_my_battles(B))['live'] == []
 
 
-def test_bracket_crowns_the_last_card_standing_and_restarts(rs, monkeypatch):
-    now = time.time()
-    monkeypatch.setattr(rs, 'notify', lambda *a, **k: None); monkeypatch.setattr(rs, '_fuse_chat', lambda *a, **k: None)
-    rs._arena_mega_cache.update(at=now, data=[{'kind': 'user', 'id': 'x', 'name': 'X', 'index': 110, 'activity': {'score': 80}},
-                                              {'kind': 'lit', 'id': 'y', 'name': 'Y', 'index': 104, 'activity': {'score': 60}}])
-    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [{'id': 'x', 'wallet': A, 'legs': []}], 'bracket': {'cards': {'lit:y': {'w': 1, 'l': 1}}, 'season': 3},
-                                    'battles': {'endsAt': now - 1, 'pairs': [{'a': {'key': 'user:x', 'name': 'X', 'start': 2.0}, 'b': {'key': 'lit:y', 'name': 'Y', 'start': 1.0}}]}})
-    asyncio.run(rs._battle_tick(now))                                    # Y's 2nd loss → out → X crowned, bracket #4 starts fresh
-    br = rs._json_load(rs.FUSE_HQ_PATH, {})['bracket']
-    assert br['champions'][-1]['key'] == 'user:x' and br['season'] == 4 and br['cards'] == {}
-    v = rs._battle_view(rs._arena_mega_cache['data'], now)
-    assert v['bracket']['champions'][0]['name'] == 'X' and {b['status'] for b in v['bracket']['board']} == {'winners'}
-
-
-def test_bracket_call_once_and_the_right_call_earns_xp(rs, monkeypatch):
-    now = time.time()
-    sent = []; monkeypatch.setattr(rs, 'notify', lambda *a, **k: sent.append(a)); monkeypatch.setattr(rs, '_fuse_chat', lambda *a, **k: None)
-    rs._arena_mega_cache.update(at=now, data=[{'kind': 'user', 'id': 'x', 'name': 'X', 'index': 110, 'activity': {'score': 80}, 'legs': [{'pairAddress': 'PX'}]},
-                                              {'kind': 'lit', 'id': 'y', 'name': 'Y', 'index': 104, 'activity': {'score': 60}, 'legs': [{'pairAddress': 'PY'}]}])
-    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [], 'bracket': {'cards': {'lit:y': {'w': 1, 'l': 1}}, 'season': 2},
-                                    'battles': {'endsAt': now - 1, 'pairs': [{'a': {'key': 'user:x', 'name': 'X', 'start': 2.0}, 'b': {'key': 'lit:y', 'name': 'Y', 'start': 1.0}}]}})
-    assert asyncio.run(rs.bracket_pick(rs.BracketPick(address=A, session='s', key='user:x')))['ok']
-    with pytest.raises(rs.HTTPException):
-        asyncio.run(rs.bracket_pick(rs.BracketPick(address=A, session='s', key='lit:y')))          # one call per bracket
-    asyncio.run(rs._battle_tick(now))                                                             # X crowned
-    d = rs._json_load(rs.FUSE_HQ_PATH, {})
-    assert len(d['bracketWins'][A]) == 1 and d['bracket']['picks'] == {} and d['bracket']['champions'][-1]['legs'][0]['pairAddress'] == 'PX'
-    assert any('You called it' in a[2] for a in sent)
-    assert len(rs._fuse_quest_stats({A})['events']['bracket_win']) == 1
-
-
 def test_comeback_is_tracked_and_crowned(rs, monkeypatch):
     now = time.time()
     chat = []; monkeypatch.setattr(rs, 'notify', lambda *a, **k: None); monkeypatch.setattr(rs, '_fuse_chat', lambda room, txt, *a, **k: chat.append(txt))
@@ -324,3 +265,71 @@ def test_comeback_is_tracked_and_crowned(rs, monkeypatch):
 
 def test_champions_share_doubles_the_copy_cut():
     assert hq.copy_cut(2.0, {'copyPct': 10}, champ=True) == 0.4 and hq.copy_cut(2.0, {'copyPct': 40}, champ=True) == 1.0   # capped at 50%
+
+
+def _league_px(monkeypatch, rs, prices):
+    async def pairs(legs): return {l['pairAddress']: {'priceUsd': prices.get(l['pairAddress'], 1.0), 'liquidity': {'usd': 5e7}} for l in legs}
+    monkeypatch.setattr(rs, '_fuse_pairs', pairs)
+
+
+def _lcard(kind, cid, name, pa, score):
+    return {'kind': kind, 'id': cid, 'name': name, 'index': 100, 'activity': {'score': score}, 'legs': [{'pairAddress': pa, 'symbol': name, 'weight': 1}, {'pairAddress': pa + '2', 'symbol': name + '2', 'weight': 1}]}
+
+
+def test_league_seeds_a_capped_field_on_20_dollar_books_and_settles_each_bell(rs, monkeypatch):
+    monkeypatch.setattr(rs, 'notify', lambda *a, **k: None); monkeypatch.setattr(rs, '_fuse_chat', lambda *a, **k: None)
+    now = time.time(); px = {'PX': 1.0, 'PX2': 1.0, 'PY': 1.0, 'PY2': 1.0}
+    _league_px(monkeypatch, rs, px)
+    rs._arena_mega_cache.update(at=now, data=[_lcard('user', 'x', 'X', 'PX', 80), _lcard('lit', 'y', 'Y', 'PY', 60)])
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [], 'battles': {}})
+    asyncio.run(rs._battle_tick(now))                                                  # season #1 dealt
+    d = rs._json_load(rs.FUSE_HQ_PATH, {})
+    assert d['league']['n'] == 1 and len(d['league']['field']) == 2 and len(d['battles']['pairs']) == 1
+    assert all(abs(b['startUsd'] - 20.0) < 1e-9 for b in d['battles']['paper'].values())   # everyone starts on $20
+    px.update(PX=1.3, PX2=1.3)                                                          # X's coins run this bell
+    d['battles']['endsAt'] = now - 1; rs._json_save(rs.FUSE_HQ_PATH, d)
+    res = asyncio.run(rs._battle_tick(now + 60))
+    d = rs._json_load(rs.FUSE_HQ_PATH, {})
+    assert res[0]['winnerKey'] == 'user:x' and d['league']['round'] == 1
+    assert {r['key']: r['pts'] for r in d['league']['field']} == {'user:x': 3, 'lit:y': 0}
+    assert d['battles']['paper']['user:x']['startUsd'] == 20.0 and d['battles']['paper']['user:x']['valueUsd'] > 20   # the SAME book carries on
+    v = rs._battle_view(rs._arena_mega_cache['data'], now + 61)
+    assert v['league']['round'] == 1 and v['bracket']['board'][0]['key'] == 'user:x' and v['bracket']['board'][0]['pts'] == 3
+    assert abs(v['pairs'][0]['a']['now']) < 0.5                                         # this bell's move, not the season's
+
+
+def test_league_season_ends_crowns_the_table_and_pays_the_right_call(rs, monkeypatch):
+    sent = []; monkeypatch.setattr(rs, 'notify', lambda *a, **k: sent.append(a)); monkeypatch.setattr(rs, '_fuse_chat', lambda *a, **k: None)
+    now = time.time(); _league_px(monkeypatch, rs, {})
+    rs._arena_mega_cache.update(at=now, data=[_lcard('user', 'x', 'X', 'PX', 80), _lcard('lit', 'y', 'Y', 'PY', 60)])
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [], 'battles': {}})
+    asyncio.run(rs._battle_tick(now))
+    assert asyncio.run(rs.bracket_pick(rs.BracketPick(address=A, session='s', key='user:x')))['ok']
+    d = rs._json_load(rs.FUSE_HQ_PATH, {})
+    for r in d['league']['field']:
+        r['pts'] = 9 if r['key'] == 'user:x' else 3
+    d['league']['round'] = d['league']['rounds'] - 1; d['battles']['endsAt'] = now - 1; rs._json_save(rs.FUSE_HQ_PATH, d)
+    asyncio.run(rs._battle_tick(now + 60))                                              # last bell → X crowned, season #2 on fresh $20 books
+    d = rs._json_load(rs.FUSE_HQ_PATH, {})
+    assert d['bracket']['champions'][-1]['key'] == 'user:x' and d['league']['n'] == 2 and d['league']['round'] == 0
+    assert len(d['bracketWins'][A]) == 1 and any('You called it' in a[2] for a in sent) and d['bracket']['picks'] == {}
+    assert len(rs._fuse_quest_stats({A})['events']['bracket_win']) == 1
+
+
+def test_league_cycles_a_card_that_crashed_for_a_playground_card(rs, monkeypatch):
+    monkeypatch.setattr(rs, 'notify', lambda *a, **k: None); chat = []; monkeypatch.setattr(rs, '_fuse_chat', lambda room, txt, *a, **k: chat.append(txt))
+    now = time.time(); px = {}
+    _league_px(monkeypatch, rs, px)
+    rs._arena_mega_cache.update(at=now, data=[_lcard('user', 'x', 'X', 'PX', 80), _lcard('lit', 'y', 'Y', 'PY', 60)])
+    rs._json_save(rs.RUNNERS_PATH, {'rounds': [], 'paths': {}, 'pgBattle': {'cards': {'s9': {'name': '🧪 Lab Rat v.01', 'legs': [{'pairAddress': 'PG1', 'symbol': 'A', 'role': 'runner', 'usd': 50},
+                                                                                                                      {'pairAddress': 'PG2', 'symbol': 'B', 'role': 'runner', 'usd': 50}]}}, 'record': {}}})
+    rs._json_save(rs.FUSE_HQ_PATH, {'positions': [], 'battles': {}})
+    asyncio.run(rs._battle_tick(now))
+    keys = {r['key'] for r in rs._json_load(rs.FUSE_HQ_PATH, {})['league']['field']}
+    assert keys == {'user:x', 'lit:y', 'pg:s9'}                                         # a thin field is filled from the playground
+    px.update(PY=0.01, PY2=0.01)                                                        # Y crashes to ~$0.20
+    d = rs._json_load(rs.FUSE_HQ_PATH, {}); d['battles']['endsAt'] = now - 1; rs._json_save(rs.FUSE_HQ_PATH, d)
+    asyncio.run(rs._battle_tick(now + 60))
+    d = rs._json_load(rs.FUSE_HQ_PATH, {})
+    assert 'lit:y' not in {r['key'] for r in d['league']['field']} and d['league']['cycled'][-1]['outKey'] == 'lit:y'
+    assert any('cycled out' in t for t in chat)

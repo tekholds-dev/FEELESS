@@ -99,11 +99,14 @@ export function ArenaPrime({ onLoad }) {
 }
 
 // HQ › ⚔ Arena: Prime controls — on/off, size, rotation (hours + coins), compound, deal fresh cards.
+const PCTL_TABS = [['cards', '🃏 Cards', 'Each paper tier card: its coins (⇄ replace · ❄ freeze · stop mode), cycle, payout, re-deal, lock'],
+  ['rules', '⏱ Rounds & safety', 'Clock, rotation, patience, hold, re-shape, rounds per run, floor, rescue, stops, compound, size']];
 export function PrimeControls({ call }) {
   const d = usePrime(30000);
   const [cfg, setCfg] = useState(null);
   useEffect(() => { if (d?.cfg && !cfg) setCfg(d.cfg); }, [d, cfg]);
   const [mins, setMins] = useState('');
+  const [tab, setTab] = useState('cards');
   useEffect(() => { if (cfg) setMins(String(Math.round(cfg.rotateHours * 60))); }, [cfg]);
   if (!cfg) return null;
   const save = (patch, reset = false) => call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ cfg: patch, reset }) })
@@ -112,9 +115,31 @@ export function PrimeControls({ call }) {
   const act = (body, msg) => call('/admin/arena/prime', { method: 'POST', body: JSON.stringify(body) }).then(() => { toast.success(msg); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message));
   const seg = (k, vals, fmt) => <div className="m-seg">{vals.map(v => <button key={v} type="button" className={cfg[k] === v ? 'active' : ''} onClick={() => save({ [k]: v })}>{fmt(v)}</button>)}</div>;
   const cyc = cfg.cycles || {};
-  return <section className="m-card fops" data-testid="prime-controls"><div className="m-row"><span className="m-label">⭐ ARENA PRIME · FULLY AUTO (PAPER)</span>
-    <label className="m-toggle"><input type="checkbox" checked={cfg.on} onChange={e => save({ on: e.target.checked })} /><span>{cfg.on ? 'Running' : 'Off'}</span></label></div>
-    <div className="prime-ctl"><span>Size</span>{seg('sizeUsd', [25, 100, 500], v => `$${v}`)}<span data-tip="One clock for every swap: the weakest coins rotate out AND floored cards re-deal — replacements come from the Arena first (battle / stage cards, this round's runners, lit cards), then any 3★+ coin">Rotate every</span>{seg('rotateHours', [5 / 60, 0.25, 0.5, 1], v => (v < 1 ? `${v * 60}m` : `${v}h`))}
+  const paper = (d?.cards || []).filter(c => !c.real);   // 💵 the real card has its own Edit Fuse — this panel tunes PAPER tier cards only
+  return <section className="m-card fops pctl" data-testid="prime-controls"><div className="m-row"><span className="m-label">⭐ ARENA PRIME · PAPER TIER CARDS</span>
+    <label className="m-toggle"><input type="checkbox" checked={cfg.on} onChange={e => save({ on: e.target.checked })} /><span>{cfg.on ? 'Running' : 'Off'}</span></label>
+    <small className="m-dim">{paper.length} paper cards · {paper.map(c => `${c.label} ${c.pnlPct >= 0 ? '+' : ''}${(c.pnlPct || 0).toFixed(1)}%`).join(' · ') || 'dealing…'}</small></div>
+    <div className="m-seg pctl-tabs" role="tablist" aria-label="Prime settings">{PCTL_TABS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} data-tip={tip} onClick={() => setTab(k)} data-testid={`pctl-${k}`}>{l}</button>)}</div>
+    <div className="pctl-pane" hidden={tab !== 'cards'}>
+      <div className="prime-edit pctl-cards">{paper.map(c => <div key={c.id} className="m-row"><b>{c.label}</b>
+      {c.legs.map(l => { const next = LEG_MODES[(LEG_MODES.indexOf(l.slMode || '') + 1) % LEG_MODES.length];
+        return <span key={l.pairAddress} className={`prime-leg ${l.frozen ? 'is-frozen' : ''}`}>
+        <button type="button" className="m-btn" disabled={l.frozen} data-tip={`Replace $${l.symbol} with the best 3★+ ${l.role} not on the card (same $)`} onClick={() => act({ replace: { tpl: c.tpl, pairAddress: l.pairAddress } }, `$${l.symbol} replaced`)} data-testid={`prime-swap-${c.tpl}-${l.pairAddress}`}>⇄ ${l.symbol}</button>
+        <button type="button" className={`m-btn ${l.frozen ? 'is-on' : ''}`} aria-pressed={l.frozen} data-tip={l.frozen ? 'Frozen: never rotated or stopped (the floor still protects). Tap to unfreeze.' : 'Freeze: the engine never rotates or stops this coin'} onClick={() => act({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, frozen: !l.frozen } }, l.frozen ? `$${l.symbol} back under the engine` : `❄ $${l.symbol} frozen`)} data-testid={`prime-frz-${c.tpl}-${l.pairAddress}`}>❄</button>
+        <button type="button" className="m-btn" data-tip={`At this coin's stop: ${LEG_WORD[l.slMode || '']} — tap for ${LEG_WORD[next]}`} onClick={() => act({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, slMode: next } }, `$${l.symbol} stop: ${LEG_WORD[next]}`)} data-testid={`prime-mode-${c.tpl}-${l.pairAddress}`}>{LEG_WORD[l.slMode || ''].split(' ')[0]}</button></span>; })}
+      <button type="button" className="m-btn" onClick={() => act({ redeal: c.tpl }, `${c.label} re-dealt`)} data-testid={`prime-redeal-${c.tpl}`}>🃏 Re-deal</button>
+      <button type="button" className={`m-btn ${d?.locks?.[c.tpl] ? 'is-on' : ''}`} aria-pressed={!!d?.locks?.[c.tpl]} onClick={() => act({ lock: c.tpl, on: !d?.locks?.[c.tpl] }, d?.locks?.[c.tpl] ? `${c.label} follows the shared config again` : `🔒 ${c.label} config locked as it is now`)}
+        data-tip="Lock this tier's FULL config as it is now (clock, cycle, payout, stops, floor…) — tunes, meta config and the engine never change it" data-testid={`prime-lock-${c.tpl}`}>{d?.locks?.[c.tpl] ? '🔒 Locked' : '🔓 Lock config'}</button></div>)}</div>
+    <div className="prime-cycles" data-testid="prime-cycles"><span className="m-label" data-tip="What each tier deals into every round (same run, P&L continues)">🔄 ROUND CYCLES</span>
+      {paper.map(c => <div key={c.tpl} className="m-row"><b>{c.label}</b><span className="m-seg" role="group">{CYCLE_PICKS.map(([m, l, tip]) =>
+        <button key={m} type="button" className={(cyc[c.tpl] || 'off') === m ? 'active' : ''} data-tip={tip} onClick={() => save({ cycles: { ...cyc, [c.tpl]: m } })} data-testid={`cycle-${c.tpl}-${m}`}>{l}</button>)}</span>
+        <CycleBuilder value={cyc[c.tpl]} onChange={v => save({ cycles: { ...cyc, [c.tpl]: v } })} />
+        <span className="m-seg" role="group" data-tip="Share of every profit take paid straight to the owner's wallet — the rest compounds">{[0, 25, 50, 75, 100].map(v =>
+          <button key={v} type="button" className={(cfg.payouts || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ payouts: { ...(cfg.payouts || {}), [c.tpl]: v } })} data-testid={`payout-${c.tpl}-${v}`}>💸{v}%</button>)}</span></div>)}
+      <div className="m-row"><b>Compound style</b><span className="m-seg" role="group">{[['smart', '🧲 Smart', 'Gains go to the strongest coins (momentum-weighted), never into fading ones'], ['even', '⚖ Even', 'Gains split evenly across the other coins']].map(([v, l, tip]) =>
+        <button key={v} type="button" data-tip={tip} className={(cfg.compoundStyle || 'smart') === v ? 'active' : ''} onClick={() => save({ compoundStyle: v })}>{l}</button>)}</span></div></div>
+    </div>
+    <div className="pctl-pane" hidden={tab !== 'rules'}><div className="prime-ctl"><span>Size</span>{seg('sizeUsd', [20, 100, 500], v => `$${v}`)}<span data-tip="One clock for every swap: the weakest coins rotate out AND floored cards re-deal — replacements come from the Arena first (battle / stage cards, this round's runners, lit cards), then any 3★+ coin">Rotate every</span>{seg('rotateHours', [5 / 60, 0.25, 0.5, 1], v => (v < 1 ? `${v * 60}m` : `${v}h`))}
       <label className="prime-min" data-tip="Any interval: 15 min – 48 h. The weakest non-anchor coins rotate out on this clock."><input className="m-input m-num" inputMode="numeric" value={mins} onChange={e => setMins(e.target.value.replace(/[^0-9]/g, ''))}
         onBlur={() => Number(mins) >= 15 && Number(mins) !== Math.round(cfg.rotateHours * 60) && save({ rotateHours: Math.min(48, Number(mins) / 60) })} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} data-testid="prime-rotate-min" /><span>min</span></label>{null}
       <span>Coins per rotation</span>{seg('rotateCount', [1, 2, 3], v => `${v}`)}
@@ -129,27 +154,12 @@ export function PrimeControls({ call }) {
       <label className="m-toggle"><input type="checkbox" checked={cfg.compound} onChange={e => save({ compound: e.target.checked })} /><span>Auto-compound gains</span></label>
       <label className="m-toggle" data-tip="A coin that ran +50% is sold before it gives it all back (≤ +5% left) — winners never turn into losers"><input type="checkbox" checked={cfg.trail !== false} onChange={e => save({ trail: e.target.checked })} data-testid="prime-trail" /><span>🔒 Lock +50% runs</span></label>
       <span data-tip="What a stop does: ⇄ swap the coin for the best gated one · 🅿 sell to SOL, keep the slot, buy back at entry with momentum · ❄ never sell on a stop (the floor still protects)">On stop</span>{seg('slMode', ['replace', 'park', 'hold'], v => ({ replace: '⇄ Replace', park: '🅿 Park & rebuy', hold: '❄ Hold' }[v]))}</div>
-    <div className="prime-cycles" data-testid="prime-cycles"><span className="m-label" data-tip="What each tier deals into every round (same run, P&L continues)">🔄 ROUND CYCLES</span>
-      {(d?.cards || []).map(c => <div key={c.tpl} className="m-row"><b>{c.label}</b><span className="m-seg" role="group">{CYCLE_PICKS.map(([m, l, tip]) =>
-        <button key={m} type="button" className={(cyc[c.tpl] || 'off') === m ? 'active' : ''} data-tip={tip} onClick={() => save({ cycles: { ...cyc, [c.tpl]: m } })} data-testid={`cycle-${c.tpl}-${m}`}>{l}</button>)}</span>
-        <CycleBuilder value={cyc[c.tpl]} onChange={v => save({ cycles: { ...cyc, [c.tpl]: v } })} />
-        <span className="m-seg" role="group" data-tip="Share of every profit take paid straight to the owner's wallet — the rest compounds">{[0, 25, 50, 75, 100].map(v =>
-          <button key={v} type="button" className={(cfg.payouts || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ payouts: { ...(cfg.payouts || {}), [c.tpl]: v } })} data-testid={`payout-${c.tpl}-${v}`}>💸{v}%</button>)}</span></div>)}
-      <div className="m-row"><b>Compound style</b><span className="m-seg" role="group">{[['smart', '🧲 Smart', 'Gains go to the strongest coins (momentum-weighted), never into fading ones'], ['even', '⚖ Even', 'Gains split evenly across the other coins']].map(([v, l, tip]) =>
-        <button key={v} type="button" data-tip={tip} className={(cfg.compoundStyle || 'smart') === v ? 'active' : ''} onClick={() => save({ compoundStyle: v })}>{l}</button>)}</span></div></div>
-    <div className="m-row"><button type="button" className="m-btn primary m-go" onClick={() => save(PRIME_META)} data-testid="prime-meta" data-tip="Hourly rotation of 1 coin · −15% floor · compound on · park & rebuy on stops">⚡ Apply meta config</button>
+    
+    </div>
+    <div className="pctl-pane pctl-foot"><div className="m-row"><button type="button" className="m-btn primary m-go" onClick={() => save(PRIME_META)} data-testid="prime-meta" data-tip="Hourly rotation of 1 coin · −15% floor · compound on · park & rebuy on stops">⚡ Apply meta config</button>
       <small className="m-dim">the config the Arena proof backs right now — tweak anything after</small></div>
-    <div className="prime-edit">{(d?.cards || []).map(c => <div key={c.id} className="m-row"><b>{c.label}</b>
-      {c.legs.map(l => { const next = LEG_MODES[(LEG_MODES.indexOf(l.slMode || '') + 1) % LEG_MODES.length];
-        return <span key={l.pairAddress} className={`prime-leg ${l.frozen ? 'is-frozen' : ''}`}>
-        <button type="button" className="m-btn" disabled={l.frozen} data-tip={`Replace $${l.symbol} with the best 3★+ ${l.role} not on the card (same $)`} onClick={() => act({ replace: { tpl: c.tpl, pairAddress: l.pairAddress } }, `$${l.symbol} replaced`)} data-testid={`prime-swap-${c.tpl}-${l.pairAddress}`}>⇄ ${l.symbol}</button>
-        <button type="button" className={`m-btn ${l.frozen ? 'is-on' : ''}`} aria-pressed={l.frozen} data-tip={l.frozen ? 'Frozen: never rotated or stopped (the floor still protects). Tap to unfreeze.' : 'Freeze: the engine never rotates or stops this coin'} onClick={() => act({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, frozen: !l.frozen } }, l.frozen ? `$${l.symbol} back under the engine` : `❄ $${l.symbol} frozen`)} data-testid={`prime-frz-${c.tpl}-${l.pairAddress}`}>❄</button>
-        <button type="button" className="m-btn" data-tip={`At this coin's stop: ${LEG_WORD[l.slMode || '']} — tap for ${LEG_WORD[next]}`} onClick={() => act({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, slMode: next } }, `$${l.symbol} stop: ${LEG_WORD[next]}`)} data-testid={`prime-mode-${c.tpl}-${l.pairAddress}`}>{LEG_WORD[l.slMode || ''].split(' ')[0]}</button></span>; })}
-      <button type="button" className="m-btn" onClick={() => act({ redeal: c.tpl }, `${c.label} re-dealt`)} data-testid={`prime-redeal-${c.tpl}`}>🃏 Re-deal</button>
-      <button type="button" className={`m-btn ${d?.locks?.[c.tpl] ? 'is-on' : ''}`} aria-pressed={!!d?.locks?.[c.tpl]} onClick={() => act({ lock: c.tpl, on: !d?.locks?.[c.tpl] }, d?.locks?.[c.tpl] ? `${c.label} follows the shared config again` : `🔒 ${c.label} config locked as it is now`)}
-        data-tip="Lock this tier's FULL config as it is now (clock, cycle, payout, stops, floor…) — tunes, meta config and the engine never change it" data-testid={`prime-lock-${c.tpl}`}>{d?.locks?.[c.tpl] ? '🔒 Locked' : '🔓 Lock config'}</button></div>)}</div>
     <div className="m-row"><button type="button" className="m-btn" onClick={() => save({}, true)} data-testid="prime-reset">🃏 Deal fresh Prime cards</button>
-      <small className="m-dim">{(d?.cards || []).map(c => `${c.label} ${c.pnlPct >= 0 ? '+' : ''}${c.pnlPct.toFixed(1)}%`).join(' · ') || 'dealing…'}</small></div></section>;
+      <small className="m-dim">{paper.map(c => `${c.label} ${c.pnlPct >= 0 ? '+' : ''}${c.pnlPct.toFixed(1)}%`).join(' · ') || 'dealing…'}</small></div></div></section>;
 }
 
 // ⭐ Profile showcase: FEELESS's tier cards (real or paper, live), each with its profit, rounds won and a tap to the Arena —
