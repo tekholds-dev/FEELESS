@@ -1169,3 +1169,26 @@ def test_real_money_does_not_buy_a_coin_that_is_falling_right_now():
     assert ap.entry_ok({'pairAddress': 'P'})                                             # no reading → not judged here
     assert not ap.entry_ok({'pairAddress': 'P'}, {'P': {'chg1h': -12}})                  # the live feed's reading counts too
     assert ap.entry_ok({'pairAddress': 'P', 'chg1h': 5}, {'P': {'chg1h': -12}})          # the candidate's own (fresher) reading wins
+
+
+def test_floor_never_parks_the_card_in_a_pick_and_a_real_card_with_rest_off_goes_to_cash():
+    import arena_prime as ap
+    now = 1_000_000.0
+    leg = lambda m, role, units, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': role, 'units': units, 'entry': 1.0, 'costUsd': units, 'at': now - 9999, 'liq': 5e6, **k}
+    base = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 0.0, 'startUsd': 4.0, 'roundStartUsd': 4.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
+            'feesUsd': 0.0, 'events': [], 'rounds': 3}
+    px = {'PKURA': 0.5, 'PR1': 0.5, 'PR2': 0.5, 'PMAJ': 0.5}                              # everything halved → −50% ≤ the −40% floor
+    cfg = ap.clean_cfg({'rotateHours': 0.08, 'floorPct': 40, 'rescuePct': 0, 'compound': False})
+    assert not ap.safe_anchor(leg('KURA', 'anchor', 1, picked=True)) and not ap.safe_anchor(leg('N', 'anchor', 1, newMajor=True)) and ap.safe_anchor(leg('MAJ', 'anchor', 1))
+    # the owner's pick sits in the anchor seat → it is sold with the rest, the money waits in cash (never piled into the pick)
+    c = ap.tick({**base, 'legs': [leg('KURA', 'anchor', 2, picked=True), leg('R1', 'runner', 1), leg('R2', 'runner', 1)]}, px, [], [], cfg, now + 30, [], {}, {})
+    assert c.get('flooredAt') and c['legs'] == [] and round(c['cash'], 2) == 2.0 and c['events'][-1]['to'] == ['cash']
+    # an established major still takes the floor money on a paper card …
+    c2 = ap.tick({**base, 'legs': [leg('MAJ', 'anchor', 2), leg('R1', 'runner', 1), leg('R2', 'runner', 1)]}, px, [], [], cfg, now + 30, [], {}, {})
+    assert [l['mint'] for l in c2['legs']] == ['MAJ'] and c2['events'][-1]['to'] == ['MAJ']
+    # … but a REAL card with rest off re-deals on the next tick, so it goes straight to cash (no buy-then-sell of the anchor)
+    real_cfg = {**cfg, 'dealLeadSec': 15.0, 'floorRestMins': 0.0}
+    c3 = ap.tick({**base, 'legs': [leg('MAJ', 'anchor', 2), leg('R1', 'runner', 1), leg('R2', 'runner', 1)]}, px, [], [], real_cfg, now + 30, [], {}, {})
+    assert c3['legs'] == [] and round(c3['cash'], 2) == 2.0
+    c4 = ap.tick({**base, 'legs': [leg('MAJ', 'anchor', 2), leg('R1', 'runner', 1), leg('R2', 'runner', 1)]}, px, [], [], {**real_cfg, 'floorRestMins': 30.0}, now + 30, [], {}, {})
+    assert [l['mint'] for l in c4['legs']] == ['MAJ']                                    # resting on purpose → it rests in the major

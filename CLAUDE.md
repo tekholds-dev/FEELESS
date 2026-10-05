@@ -1089,3 +1089,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   the same few). Deep pages are cached 45–180s (Pump 429s bursts). `_runner_live` reads 4 feed pages per kind and scans the
   `RUNNER_SCANS` 60 busiest; `fuse.pump_majors` top 40. "SAME COINS AGAIN" ⇒ check `/runners` `seen` and the feed's pair counts
   BEFORE touching a gate. `/fuses/search` returns `why` when nothing can be picked (curve-only coin / parked pools).
+- 🧱 FLOOR MONEY (found 2026-10-05, card $3.00 → $1.90 in an hour): (1) `safe_anchor` = established major only — a coin the OWNER
+  picked into the anchor seat keeps its stop / instant swap / rug shield ($HODL sat there unprotected: −54% in 10 min); (2) the floor
+  consolidates only into safe anchors, else CASH; (3) a real card with rest OFF goes straight to cash (it re-deals next tick —
+  buying the anchor then selling it a minute later cost 4–5% impact twice on the whole card: $KURA, −$0.14).
+- 🔎 Whole-wallet audit 2026-10-05: 655 txs, 0 unread, 0 SOL ever sent to another address, books vs chain +0.0005 SOL. The earlier
+  $0.87 "gap" was only the 27 transactions a rate-limited first pass could not read.

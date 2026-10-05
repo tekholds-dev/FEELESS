@@ -393,7 +393,9 @@ def price_agrees(cand, prices):
 def safe_anchor(l):
     """An anchor the engine never stops, rotates or rug-checks = an ESTABLISHED major. A new major sitting in an anchor seat keeps
     every protection a runner has (stop, instant swap, rug shield): it can still go to zero."""
-    return l.get('role') == 'anchor' and not l.get('newMajor')
+    # 🎯 a coin the OWNER picked into the anchor seat is not a major either: $HODL sat there with no stop and no instant swap and was
+    # down 54% ten minutes later. Only the engine's own established majors are exempt.
+    return l.get('role') == 'anchor' and not l.get('newMajor') and not l.get('picked')
 
 
 def tier_cfg(cfg, tid):
@@ -1170,8 +1172,13 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     v = V(); start = _f(c['startUsd']) or 1
     pct = (v / start - 1) * 100
     if pct <= -cfg['floorPct'] and not c.get('flooredAt'):
-        anc = [l for l in c['legs'] if l.get('role') == 'anchor' and _f(prices.get(l['pairAddress'])) > 0]
-        out = [l for l in c['legs'] if l.get('role') != 'anchor']
+        # 🧱 Floor money goes ONLY into an established major — never into a new major or the owner's pick that happens to sit in the
+        # anchor seat (the card's whole $1.65 was moved into $KURA at 4–5% impact, then out again 37s later: −$0.14 for nothing).
+        # 💵 A real card with rest OFF re-deals on the next tick, so it goes straight to cash: selling into an anchor only to sell
+        # the anchor a minute later is two extra swaps of the whole card.
+        to_cash = bool(_f(cfg.get('dealLeadSec'))) and not _f(cfg.get('floorRestMins'))
+        anc = [] if to_cash else [l for l in c['legs'] if l.get('role') == 'anchor' and safe_anchor(l) and _f(prices.get(l['pairAddress'])) > 0]
+        out = [l for l in c['legs'] if l not in anc]
         usd = sum(sell_usd(l['units'], _f(prices.get(l['pairAddress'])) or l['entry'], liqs.get(l['pairAddress']) or l.get('liq')) for l in out)
         c['feesUsd'] += fee * len(out)
         if anc:
@@ -1181,7 +1188,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             c['cash'] += usd
         c['legs'] = anc or []
         c['flooredAt'] = now
-        ev(kind='floor', usd=round(usd, 4), why=f"card {pct:.0f}% ≤ −{cfg['floorPct']:g}% floor — everything into the anchor", to=[a['symbol'] for a in anc] or ['cash'])
+        ev(kind='floor', usd=round(usd, 4), why=f"card {pct:.0f}% ≤ −{cfg['floorPct']:g}% floor — everything into {'the anchor' if anc else 'cash'}", to=[a['symbol'] for a in anc] or ['cash'])
     c['lowPct'] = round(min(_f(c.get('lowPct')), pct), 2)
     # 6) the day record: every 24h the card's day move is logged — a good day is ≥ +10%
     if now - c['dayAt'] >= 86400:
