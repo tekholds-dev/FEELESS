@@ -5379,6 +5379,17 @@ async def _contenders_build():
         return data
 
 
+def _pick_row(pair, mint):
+    """A live DexScreener pair → a swap-pick row, or None: the pool must be THIS mint, have a live price, ≥ $25K depth, and not be a
+    dollar coin (it never moves). Real cards additionally need the real-buy floor (checked by the caller)."""
+    if not pair or (pair.get('baseToken') or {}).get('address') != mint:
+        return None
+    m = _fuse.leg_meta(pair)
+    if m['priceUsd'] <= 0 or m['liquidityUsd'] < 25_000 or str(m.get('symbol') or '').upper() in _ct.STABLES:
+        return None
+    return {'mint': mint, 'pairAddress': pair.get('pairAddress'), 'symbol': m.get('symbol'), 'price': m['priceUsd'], 'liq': m['liquidityUsd']}
+
+
 @app.get('/api/reputation/fuses/contenders')
 async def fuses_contenders():
     """Public: the divisions, their ranked coins (score + cited parts, ▲▼, streak) and who is ⏭ next up for a card seat."""
@@ -5684,8 +5695,11 @@ async def fuse_prime_admin(request: Request):
         if pk.get('to'):
             # only a coin the Gauntlet ranks RIGHT NOW (live price, real pool, not a dollar coin) can be picked
             row = next((r for dv in ((await _contenders_build()).get('divisions') or []) for r in dv.get('rows') or [] if r.get('mint') == pk['to']), None)
+            if not row and pk.get('toPair'):   # 🔎 any coin from the Lab lenses / search: verified LIVE on its own pool right now
+                lp = (await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pk['toPair']}])).get(pk['toPair']) or {}
+                row = _pick_row(lp, pk['to'])
             if not row:
-                raise HTTPException(400, 'Pick a coin from the live lists — that one is not ranked right now.')
+                raise HTTPException(400, 'Pick a coin from the live lists — that one has no live pool right now.')
             cand = {'mint': row['mint'], 'pairAddress': row['pairAddress'], 'symbol': row.get('symbol'), 'price': row.get('price'), 'liquidityUsd': row.get('liq'),
                     'division': next((dv['key'] for dv in (_contenders_cache.get('data') or {}).get('divisions') or [] if any(r.get('mint') == row['mint'] for r in dv.get('rows') or [])), None)}
         async with _admin_lock:
@@ -6544,6 +6558,26 @@ async def circle_profile_save(request: Request, body: dict):
     return {'ok': True, 'address': addr, 'profile': d['profiles'][addr]}
 
 
+@app.get('/api/reputation/admin/fuse-wallet/report')
+async def fuse_wallet_report(request: Request, card: str = Query('', max_length=40)):
+    """🩺 Owner: what each real run did (from the audit ledger) + the flaws it shows, each with its fix. Read-only."""
+    _require_owner(request)
+    d = _fw_load(); hq = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
+    ids = [card] if card else sorted({r.get('card') for r in d.get('ledger') or [] if r.get('card') and r.get('card') != 'wallet'})
+    sol_px = await _sol_usd_live()
+    mints = [m for tid in ids for m in ((d['books'].get(tid) or {}).get('legs') or {})]
+    jup = await _jup_prices(mints) if mints else {}
+    out = []
+    for tid in ids:
+        b = d['books'].get(tid) or {}
+        c = hq.get(tid) or {}
+        px = {l.get('pair'): _fuse._f(jup.get(m)) or _fuse._f(l.get('entryPx')) for m, l in (b.get('legs') or {}).items()}   # live Jupiter value
+        eq = _fw.book_value(b, px, sol_px) if b else None
+        hold = round((sol_px / _fuse._f(c['solStart']) - 1) * 100, 2) if sol_px and _fuse._f(c.get('solStart')) else None
+        out.append({**_fw.run_report(d.get('ledger'), tid, time.time(), b.get('fundedUsd'), eq, hold), 'label': c.get('label') or tid, 'open': bool(b)})
+    return {'reports': out}
+
+
 @app.get('/api/reputation/admin/fuse-wallet')
 async def fuse_wallet_view(request: Request):
     """HQ › Fuse › 👛 Fuse wallet: the wallet's funds, each funded tier card's real book, caps, calibration and the audit trail."""
@@ -7081,8 +7115,15 @@ async def _scenario_stage(rd, now):
     if not rnd or not rnd.get('picks') or (rd.get('scenarioStageRound') == rnd.get('id') and rd.get('scenarioStagePicks') == picks):
         return None
     scen = [x for x in _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS) if x['id'] in set(picks)]
-    anchor = next(({'chainId': 'solana', 'pairAddress': m['pairAddress'], 'symbol': 'SOL', 'mint': m.get('baseAddress')} for m in await _majors_rows() if m.get('symbol') == 'SOL'), None)
-    cards = _rn.scenario_cards(scen, rnd['picks'], anchor, top=6, losers_ok=True)
+    anchor = await _top_anchor()
+    cards = _rn.scenario_cards(scen, rnd['picks'], anchor, top=8, losers_ok=True)
+    pgb_ = rd.get('pgBattle') or {}
+    live_ = await _runner_live()
+    cand_ = [{'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'mint': r.get('mint')} for r in live_.get('passing') or [] if r.get('pairAddress')]
+    for i, c in enumerate(cards):   # 🎨 a picked card plays the playground's shape (≥ 4 coins, ≤ 2 pools) on the timeframe it proved best
+        cards[i] = _pgb.fit_shape(c, cand_, _pgb.MIN_COINS)
+        mins = _pgb.assign_clock((pgb_.get('cardClocks') or {}).get(c['id']), i)
+        cards[i]['clock'] = mins; cards[i]['cfg'] = {**(c.get('cfg') or {}), 'rotateHours': round(mins / 60, 4)}
     if not cards:
         async with _admin_lock:
             d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['scenarioStage'] = []; d['scenarioStageRound'] = rnd.get('id'); d['scenarioStagePicks'] = picks; _json_save(RUNNERS_PATH, d)
@@ -7090,7 +7131,7 @@ async def _scenario_stage(rd, now):
         return 0
     px = await _hq_prices([l for c in cards for l in c['legs']])
     stage = [{'id': f"scen-{c['id']}-{str(rnd['id'])[:6]}", 'src': c['id'], 'emoji': c['name'].split(' ', 1)[0], 'name': c['name'].split(' ', 1)[-1], 'at': now, 'tp': c['tp'], 'sl': c['sl'],
-              'dial': c['dial'], 'cfg': c['cfg'], 'label': c['label'],
+              'dial': c['dial'], 'cfg': c['cfg'], 'label': c['label'], 'clock': c.get('clock'),
               'legs': [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': l['weight'], 'runner': l['role'] == 'runner', 'entry': _fuse._f(px.get(l['pairAddress']))}
                        for l in c['legs'] if _fuse._f(px.get(l['pairAddress'])) > 0]} for c in cards]
     async with _admin_lock:
@@ -7223,7 +7264,8 @@ async def runners_discover():
     grads = _rn.fresh_grads(live['dropped'])
     for r in grads:
         tag(r['mint'], 'grad', f"graduated, passes every other gate · score {round(_fuse._f(r.get('score')))}")
-    rows = _rn.discover(live['passing'] + grads, tags, limit=80)
+    rows = [{**r, 'passedAt': now} for r in _rn.discover(live['passing'] + grads, tags, limit=80)]
+    rows = _rn.sticky((_runner_disc_cache.get('data') or {}).get('runners'), rows, live['dropped'], now)   # 🧲 never a flickering list
     data = {'runners': rows, 'counts': {k: sum(1 for r in rows if any(s['kind'] == k for s in r['sources'])) for k in _rn.SOURCES},
             'sources': _rn.SOURCES, 'nextRoundAt': (rnd['at'] + _rn.ROUND_SECONDS) if rnd else now, 'gates': [g[1] for g in _rn.gates(cfg)],
             'swaps': ((rnd or {}).get('swaps') or [])[-5:], 'at': now, 'seen': live['seen'],
@@ -7301,22 +7343,30 @@ async def fuse_playground(request: Request):
             'pgBattle': _pg_battle_view(rd),
             **_hq.playground_ready(board, dials, prime, battle_rows=_pgb.ready_rows((rd.get('pgBattle') or {}).get('record'), {k: c.get('name') for k, c in ((rd.get('pgBattle') or {}).get('cards') or {}).items()}))}
 
-async def _pg_scenario_cards(rd, scen=None, now=None, losers_ok=False):
+async def _top_anchor():
+    """⚓ The engine cards' anchor: the most ACTIVE major right now (`fuse.rank_anchors`), never SOL by name."""
+    top = next(iter(_fuse.rank_anchors(await _majors_rows())), None)
+    return {'chainId': 'solana', 'pairAddress': top['pairAddress'], 'symbol': top.get('symbol'), 'mint': top.get('baseAddress')} if top else None
+
+
+async def _pg_scenario_cards(rd, scen=None, now=None, losers_ok=False, top=6):
     """The playground's best scenario cards (this round's gated runners + SOL anchor), versioned and tagged with where they're listed."""
     scen = scen if scen is not None else _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now or time.time(), _hq.RISK_DIALS)
-    anchor = next(({'chainId': 'solana', 'pairAddress': m['pairAddress'], 'symbol': 'SOL', 'mint': m.get('baseAddress')} for m in await _majors_rows() if m.get('symbol') == 'SOL'), None)
+    anchor = await _top_anchor()
     listed = {**{x: 'pick' for x in rd.get('creatorPicks') or []}, **{x.get('src'): 'bench' for x in rd.get('scenarioStage') or []},
               **{f.get('fromScenario'): 'stage' for f in (_json_load(FUSES_PATH, {'fuses': {}}).get('fuses') or {}).values() if f.get('arena') and f.get('fromScenario')}}
-    return _rn.tag_versions(_rn.scenario_cards(scen, ((rd.get('rounds') or [{}])[-1] or {}).get('picks'), anchor, top=6, losers_ok=losers_ok), rd.get('scenarioVersions') or {}, listed)
+    return _rn.tag_versions(_rn.scenario_cards(scen, ((rd.get('rounds') or [{}])[-1] or {}).get('picks'), anchor, top=top, losers_ok=losers_ok), rd.get('scenarioVersions') or {}, listed)
 
 
 def _pg_battle_view(rd):
     b = rd.get('pgBattle') or {}
     cards = b.get('cards') or {}
-    view = lambda k: {**{x: (cards.get(k) or {}).get(x) for x in ('id', 'name', 'dial', 'tp', 'sl', 'swaps', 'phase', 'rounds')}, 'pct': (b.get('pcts') or {}).get(k),
+    view = lambda k: {**{x: (cards.get(k) or {}).get(x) for x in ('id', 'name', 'dial', 'tp', 'sl', 'swaps', 'phase', 'rounds', 'bredFrom')}, 'pct': (b.get('pcts') or {}).get(k),
                       'dna': (b.get('dna') or {}).get(k), 'dnaLabel': _dna.label((b.get('dna') or {}).get(k)) if (b.get('dna') or {}).get(k) else None,
-                      'legs': [{x: l.get(x) for x in ('symbol', 'role', 'pairAddress')} for l in (cards.get(k) or {}).get('legs') or []], 'record': (b.get('record') or {}).get(k)}
+                      'legs': [{x: l.get(x) for x in ('symbol', 'role', 'pairAddress')} for l in (cards.get(k) or {}).get('legs') or []], 'record': (b.get('record') or {}).get(k),
+                      'clock': _pgb.assign_clock((b.get('cardClocks') or {}).get(k), list(cards).index(k) if k in cards else 0), 'clocks': (b.get('cardClocks') or {}).get(k) or {}}
     return {'cfg': _pgb.clean_cfg(b.get('cfg')), 'clockStats': b.get('clockStats') or {}, 'bestClock': b.get('bestClock'), 'roundNow': b.get('roundMins'), 'locked': b.get('locked') or [], 'scrapped': len(b.get('scrapped') or []), 'picks': rd.get('creatorPicks') or [], 'endsAt': b.get('endsAt'), 'pairs': [{'a': view(p['a']), 'b': view(p['b'])} for p in b.get('pairs') or []],
+            'field': [view(k) for k in cards],
             'log': (b.get('log') or [])[-12:][::-1], 'record': b.get('record') or {}, 'names': {k: c.get('name') for k, c in cards.items()},
             'brain': {**_dna.best(b.get('brain') or {}), 'label': _dna.label(_dna.best(b.get('brain') or {})['dna']), 'scores': b.get('brain') or {}}}
 
@@ -7329,7 +7379,7 @@ async def _pg_battle_tick(now):
     cfg = _pgb.clean_cfg(b.get('cfg'))
     if not cfg['on']:
         return None
-    scs = {c['id']: c for c in await _pg_scenario_cards(rd, None, now, losers_ok=True)}   # battles field the top-ranked scenarios even when negative
+    scs = {c['id']: c for c in await _pg_scenario_cards(rd, None, now, losers_ok=True, top=max(8, cfg['cards']))}   # battles field the top-ranked scenarios even when negative
     if len(scs) < 2:
         return None
     cards = dict(b.get('cards') or {})
@@ -7345,10 +7395,10 @@ async def _pg_battle_tick(now):
              for k, v in pairs_.items()}
     cand = [{'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'mint': r.get('mint'), 'price': prices.get(r['pairAddress']) or r.get('price'), 'liq': liqs.get(r['pairAddress'])} for r in cand]
     rcfg_ = _runner_cfg()
-    targets = _pgb.coin_targets(int(rcfg_.get('autoCoins') or 4) + int(rcfg_.get('autoPools') or 3))   # HQ's amount: half · same · double, ≥ 6
-    for i, k in enumerate(want):   # deal any missing card — every card ≥ 6 coins, the engine experiments with the coin count
+    targets = _pgb.coin_targets(int(rcfg_.get('autoCoins') or 4) + int(rcfg_.get('autoPools') or 3))   # HQ's amount: half · same · double, ≥ 4
+    for i, k in enumerate(want):   # deal any missing card — ≥ 4 coins, ≤ 2 pools; the engine experiments with the coin count
         if k not in cards or not cards[k].get('legs'):
-            cards[k] = {**_pgb.deal(_pgb.widen(scs[k], cand, targets[i % len(targets)]), prices, liqs, now, cfg['sizeUsd']), 'target': targets[i % len(targets)]}
+            cards[k] = {**_pgb.deal(_pgb.fit_shape(scs[k], cand, targets[i % len(targets)]), prices, liqs, now, cfg['sizeUsd']), 'target': targets[i % len(targets)]}
     dna = {k: v for k, v in (b.get('dna') or {}).items() if k in want}
     dna = _dna.assign([{'id': k, 'dial': scs[k].get('dial')} for k in want], known=dna)   # 🧬 every battle card plays its own DNA
     results = []
@@ -7365,9 +7415,16 @@ async def _pg_battle_tick(now):
         b['brain'] = brain
         best_ = _dna.best(brain)['dna']; exploited = False
         locked = set(b.get('locked') or [])   # 🔒 HQ-locked cards keep their coins + DNA even after a loss
+        beat_by = {(r_['b'] if r_['winner'] == r_['a'] else r_['a']): r_['winner'] for r_ in results if r_.get('winner')}
+        lineage = dict(b.get('lineage') or {})
         for k in want:
             if k in losers and k not in locked:   # 🧬 re-bred: same scenario, this round's picks, fresh $ (same coin-count experiment)
-                cards[k] = {**_pgb.deal(_pgb.widen(scs[k], cand, cards.get(k, {}).get('target') or targets[0]), prices, liqs, now, cfg['sizeUsd']), 'target': cards.get(k, {}).get('target') or targets[0]}
+                cards[k] = {**_pgb.deal(_pgb.fit_shape(scs[k], cand, cards.get(k, {}).get('target') or targets[0]), prices, liqs, now, cfg['sizeUsd']), 'target': cards.get(k, {}).get('target') or targets[0]}
+                par = beat_by.get(k)
+                if par and cards.get(par):   # it now plays the strategy that beat it → named as that strategy's next version (v.0x)
+                    gen = int((lineage.get(par) or {}).get('gen') or 0) + 1
+                    lineage[k] = {'parent': par, 'gen': gen}
+                    cards[k]['name'] = _pgb.child_name(cards[par].get('name'), gen + 1); cards[k]['bredFrom'] = cards[par].get('name')
                 if not exploited and _dna.sig(best_) not in {_dna.sig(v) for kk, v in dna.items() if kk != k}:
                     dna[k] = best_; exploited = True
                 else:
@@ -7386,8 +7443,9 @@ async def _pg_battle_tick(now):
         dna = _dna.assign([{'id': k, 'dial': scs[k].get('dial')} for k in want], known=dna)
         played = int(b.get('roundMins') or cfg['roundMins'])
         b['clockStats'] = _pgb.clock_learn(b.get('clockStats'), played, list(pcts.values()))   # ⏱ what each round length did
+        b['cardClocks'] = _pgb.card_clock_learn(b.get('cardClocks'), played, pcts)            # ⏱ … and per card: its own best timeframe
         nxt_clock = _pgb.next_clock(cfg, int(b.get('bells') or 0))   # first round 5 min, then 15 · 30 · 60 · 5 …
-        b = {**b, 'bells': int(b.get('bells') or 0) + 1, 'roundMins': nxt_clock, 'bestClock': _pgb.best_clock(b['clockStats']),
+        b = {**b, 'lineage': {k: v for k, v in lineage.items() if k in want}, 'bells': int(b.get('bells') or 0) + 1, 'roundMins': nxt_clock, 'bestClock': _pgb.best_clock(b['clockStats']),
              'record': record, 'scrapped': sorted(scrapped)[-300:], 'pairs': _pgb.pair_up(want), 'endsAt': now + nxt_clock * 60,
              'log': ((b.get('log') or []) + [{**r_, 'aName': cards.get(r_['a'], {}).get('name'), 'bName': cards.get(r_['b'], {}).get('name')} for r_ in results])[-40:]}
     else:

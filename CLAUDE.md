@@ -586,8 +586,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🔧 Tier config FIX: a card whose DAY falls to −40% (`FIX_DAY_PCT`) is re-dealt into majors as a new run on the safe cycle
   (`cycleFix`, once a day, event `fix`). Rotation runs on the normal clock. Floor default 40 (range 5–40). 🏇 `RIDE_AT/RIDE_TRAIL` (+150% rides, sold 30% off its new high). Re-deals use
   `in_play` (value − paid out − parked; never double-count). The bell loop pre-warms candidates inside the 10s countdown.
-- 🎛 Big engine cards: max 4 (`creatorPicks[-4:]`), each ≥ 6 coins; even the engine champion needs HQ ✅ approval; a scrapped (dead)
-  strategy leaves the Arena by itself. Playground cards 6–12 coins (`pg_battle.coin_targets/widen/dead`).
+- 🎛 Big engine cards: max 4 (`creatorPicks[-4:]`); even the engine champion needs HQ ✅ approval; a scrapped (dead) strategy leaves the
+  Arena by itself. Playground field = 8 cards (`pg_battle.DEFAULT_CFG.cards`), each ≥ 4 coins with ≤ 2 pools (`fit_shape`), 4–12 coins.
 - 💵 `HqRealCards`: creator / HQ wallets see the real tier cards in Fuse › My cards. HQ wallet tier rows show a 🧾 receipt.
 
 - 🔔 Round = clock ends → 10s bell (`BELL_SEC`, server pre-warms candidates) → deal at `nextRoundAt`; `RoundBell` pulls fresh cards at 0.
@@ -844,3 +844,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🎬 Pit reel (`PitReel.jsx`, `styles/pitReel.css`, scene class `prs-*` — never `pr-<scene>`, it collides with element classes): 6 scenes
   cycle every 3.4s in every fight's middle, the leader wins each. 📖 `FuseGuide` (`lib/fuseGlossary.js` = the ONE word list: cycles,
   shapes, clocks, stops, strategies, coin sources) opens from the Fuse tab tip line and the Lab card plan (pick a dial / cycle inside it).
+
+- ⚔ Playground field: every card learns its OWN timeframe (`pg_battle.card_clock_learn/assign_clock` → `cardClocks`); a 🎨 pick goes to the
+  Arena on that clock (`cfg.rotateHours`). A loser re-bred by the strategy that beat it is named its next version (`child_name`, `lineage`).
+  Engine dials: 🧊 Cold Blood / ⚡ Voltage / 🔥 Inferno (`runners.ENGINE_DIALS`, `DIAL_LABEL`); user RISK_DIALS keep Safe/Balanced/Degen.
+- 💵 Owner's ✂ cash (`manualCashSol`) is never re-spent by the keeper (`orders` sol_free, `sync_card` rebuy). 🩺 Real run report
+  (`fuse_wallet.run_report`, owner `GET /admin/fuse-wallet/report`, `RunReport` in HQ › 👛 + HQ › Fuse overview `DeckAlerts`): fees % of money
+  in, swaps/h, round trips < 30 min, fill vs market, failures, skip reasons, per-coin result vs holding SOL → flaws with their fix.
+- 🎯 Real-card swap picker (`SwapPicker`): the Lab lenses + 📉 Dip + 💳 Dex paid + search any coin/CA; `pickSwap.toPair` lets any LIVE coin in
+  (`_pick_row`: this mint's pool, price > 0, ≥ $25K, not a stable; real cards still need the real-buy floor). Lookalikes can't be picked.
+- Fuse tabs = 4 (`TOP_TABS`: Start · Build · Arena · My cards); Runners is step 1 inside Build (`fp-steps`, `?tab=runners` still routes).
+  🧲 Runners list is sticky (`runners.sticky`): a coin only being re-scanned stays as 🕘 rechecking (never addable); a real gate fail drops it.

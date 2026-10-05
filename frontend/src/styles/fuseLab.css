@@ -466,6 +466,12 @@ body.theme-day .dboard-tile { background: var(--m-surface-2); }
 .fdeck-tile b { font-size: 15px; } .fdeck-tile em { font-style: normal; font-size: 18px; color: var(--m-accent); } .fdeck-tile small { font-size: 11.5px; color: var(--m-dim); line-height: 1.4; }
 .fdeck-tile i { position: absolute; right: 12px; top: 12px; font-style: normal; color: var(--m-dim); transition: transform .15s; } .fdeck-tile:hover i { transform: translateX(3px); color: var(--m-accent); }
 body.fx-lite .fdeck-tile { animation: none; } @media (prefers-reduced-motion: reduce) { .fdeck-tile { animation: none; } }
+.fdeck-alerts { display: grid; gap: 6px; margin-bottom: 14px; } .fdeck-alerts.is-ghost { min-height: 54px; border-radius: 12px; background: var(--m-surface); }
+.fdeck-alert { position: relative; display: grid; gap: 2px; text-align: left; padding: 10px 34px 10px 12px; border-radius: 12px; border: 1px solid var(--m-line); border-left-width: 3px; background: var(--m-surface); color: var(--m-text); font: inherit; cursor: pointer; animation: mCardIn .25s var(--m-ease) calc(var(--i, 0) * 50ms) backwards; transition: transform .15s, border-color .15s; }
+.fdeck-alert:hover:not(:disabled) { transform: translateX(2px); border-color: var(--m-line-hi); } .fdeck-alert:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; } .fdeck-alert:active:not(:disabled) { transform: scale(.995); } .fdeck-alert:disabled { cursor: default; }
+.fdeck-alert.l-high { border-left-color: #ff8fa3; } .fdeck-alert.l-mid { border-left-color: var(--gold); } .fdeck-alert.l-ok { border-left-color: var(--m-accent); }
+.fdeck-alert small { color: var(--m-dim); font: 11px var(--m-mono); } .fdeck-alert i { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-style: normal; color: var(--m-dim); }
+body.fx-lite .fdeck-alert { animation: none; } @media (prefers-reduced-motion: reduce) { .fdeck-alert { animation: none; transition: none; } } body.theme-day .fdeck-alert { background: #fff; }
 body.theme-day .fdeck-tile { background: #fff; }
 @media (max-width: 760px) { .fdeck-main:has(.fdeck-rail.is-v2) { grid-template-columns: 1fr; } .fdeck-rail.is-v2 { position: static; display: flex; overflow-x: auto; scrollbar-width: none; } .fdeck-rail.is-v2 > * { flex: 0 0 auto; } }
 /* 🎯 Card plan = its own big side card LEFT of the coins (every config in one view); stacks on top under 1180px */

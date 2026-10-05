@@ -62,7 +62,7 @@ export function runnerSections(d, admin = false) {   // HQ sees every passing ru
   const byMint = Object.fromEntries((d.runners || []).map(x => [x.mint, x]));
   const round = (d.round || []).map(p => ({ ...(byMint[p.mint] || {}), ...p, runner: true, section: 'round', chg1h: p.move, blocked: p.passing ? '' : (p.gates || [])[0] || 'fails a gate now' }));
   const inRound = new Set(round.map(p => p.mint));
-  const hot = (d.runners || []).filter(x => !inRound.has(x.mint)).sort((a, b) => (b.vol1h || 0) - (a.vol1h || 0)).slice(0, admin ? 80 : 24).map(x => ({ ...x, runner: true, section: 'hot' }));
+  const hot = (d.runners || []).filter(x => !inRound.has(x.mint)).sort((a, b) => (b.vol1h || 0) - (a.vol1h || 0)).slice(0, admin ? 80 : 24).map(x => ({ ...x, runner: true, section: 'hot', ...(x.rechecking ? { blocked: 'rechecking holders — addable again once the scan is back' } : {}) }));
   const watch = (d.watching || []).slice(0, 8).map(x => ({ ...x, runner: true, section: 'watch', blocked: (x.gates || [])[0] || 'fails a gate' }));
   const seen = new Set([...round, ...hot].map(p => p.mint));
   const fresh = (d.newRunners || []).filter(x => !seen.has(x.mint)).slice(0, admin ? 12 : 6).map(x => ({ ...x, runner: true, section: 'new', isNew: true }));

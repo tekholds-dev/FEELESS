@@ -489,6 +489,25 @@ def discover(passing, tags, limit=40):
 
 
 
+STICKY_SEC = 600   # a coin that passed in the last 10 min stays listed while it is only being RE-SCANNED
+SCAN_ONLY = ('Holder scan done',)
+
+
+def sticky(prev_rows, rows, dropped, now, keep=STICKY_SEC):
+    """🧲 The runners list stays full: a coin listed in the last `keep` seconds that is missing now ONLY because its holder scan is
+    refreshing (or it fell out of the busiest-coins scan) stays on the list as `rechecking` — shown, never addable. A coin that failed
+    a REAL gate leaves at once (fail closed)."""
+    have = {r['mint'] for r in rows}
+    failed = {d['mint'] for d in dropped or [] if [g for g in d.get('gates') or [] if g not in SCAN_ONLY]}
+    out = list(rows)
+    for r in prev_rows or []:
+        seen = _f(r.get('passedAt')) or _f(r.get('at'))
+        if r['mint'] in have or r['mint'] in failed or seen <= 0 or now - seen > keep:
+            continue
+        out.append({**r, 'rechecking': True, 'passedAt': seen})
+    return out
+
+
 def auto_card(passing, pools, now, cfg=None):
     """⚔ Arena build: each round the arena fuses its own card — the best `autoCoins` gated runners (bond runs first, then
     score) + the best `autoPools` live pools (deep, busy, not falling). Coins 40% / pools 60% of the weight. Entry = the
@@ -579,11 +598,11 @@ def lane_weights(proofs):
 
 # ---- 🎚 Engine dial (HQ): one choice sets the runner engine (gates + lanes), on top of the tested defaults ----------
 ENGINE_DIALS = {
-    'safe': {'label': '🛡 Safe', 'cfg': {'minMcap': 15000, 'minVol1h': 12000, 'maxTop10': 22, 'maxInsiders': 8, 'maxDev': 4, 'maxBundled': 1, 'roundSize': 3,
+    'safe': {'label': '🧊 Cold Blood', 'cfg': {'minMcap': 15000, 'minVol1h': 12000, 'maxTop10': 22, 'maxInsiders': 8, 'maxDev': 4, 'maxBundled': 1, 'roundSize': 3,
                                         'scalpTp': 35, 'scalpStop': 15, 'runnerTp1': 35, 'runnerTp2': 80, 'runnerTrail': 15, 'runnerStop': 20, 'lightRounds': 16},
              'why': 'Strictest gates, 3 picks, quick exits, needs 16 proven rounds'},
-    'balanced': {'label': '⚖ Balanced', 'cfg': {k: v for k, (v, _) in RECOMMENDED.items()}, 'why': 'The recommended engine (⚡ Stronger engine values)'},
-    'degen': {'label': '🚀 Degen', 'cfg': {'minMcap': 8000, 'minVol1h': 6000, 'maxTop10': 30, 'maxInsiders': 15, 'maxDev': 8, 'roundSize': 6,
+    'balanced': {'label': '⚡ Voltage', 'cfg': {k: v for k, (v, _) in RECOMMENDED.items()}, 'why': 'The recommended engine (⚡ Stronger engine values)'},
+    'degen': {'label': '🔥 Inferno', 'cfg': {'minMcap': 8000, 'minVol1h': 6000, 'maxTop10': 30, 'maxInsiders': 15, 'maxDev': 8, 'roundSize': 6,
                                           'scalpTp': 80, 'scalpStop': 30, 'runnerTp1': 60, 'runnerTp2': 150, 'runnerTrail': 30, 'runnerStop': 35, 'lightRounds': 8},
               'why': 'Looser gates, 6 picks, let winners run longer'},
 }

@@ -128,7 +128,7 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
                       **({'manualCash': True} if manual_cash else {})})
     # `count_sells` = plan view only: the keeper's BUY pass runs after its sells landed (or were refused) and must spend only SOL the
     # book really holds — counting a refused sell's proceeds once let a buy spend SOL the card never had (book SOL went negative)
-    sol_free = _f(book.get('sol')) - anchor_sol(tgt) + (sum(o['usd'] for o in sells) / sol_px * 0.97 if count_sells else 0.0) if sol_px > 0 else 0.0
+    sol_free = _f(book.get('sol')) - _f(book.get('manualCashSol')) - anchor_sol(tgt) + (sum(o['usd'] for o in sells) / sol_px * 0.97 if count_sells else 0.0) if sol_px > 0 else 0.0   # ✂ owner's cash is never spent
     for mint, t in tgt.items():
         if mint == SOL_MINT or t['px'] <= 0:
             continue
@@ -505,7 +505,7 @@ def sync_card(card, book, prices, sol_px):
             if l['mint'] == SOL_MINT and sol_px > 0 and _f(l.get('units')) * sol_px > share:
                 sol_left += _f(l['units']) - share / sol_px
                 l['costUsd'] = _f(l.get('costUsd')) * (share / sol_px) / _f(l['units']); l['units'] = share / sol_px
-        free = max(0.0, sol_left) * sol_px
+        free = max(0.0, sol_left - _f(book.get('manualCashSol'))) * sol_px   # ✂ cash the OWNER sold out by hand is never re-spent by a rebuy
         # If the empty slot has no free SOL, do not strand it forever. On a card with a non-SOL anchor (e.g. cbBTC),
         # trim ONLY that unprotected anchor down toward one equal slot and reserve the released slice for the empty coin.
         # The keeper still sells first and the BUY pass spends only SOL that the confirmed sell actually returned.
@@ -904,3 +904,70 @@ def note_miss(book, mint, now, reason=''):
 
 def benched(book, now):
     return {m for m, v in (book.get('benched') or {}).items() if _f(v.get('until')) > now}
+
+
+CHURN_SEC = 1800   # a coin sold within 30 min of being bought = a round trip that paid fees both ways for nothing
+
+
+def run_report(ledger, card, now, funded_usd=0.0, equity_usd=None, hold_sol_pct=None):
+    """🩺 What a REAL run actually did, from the audit ledger only (no guesses): swaps / hour, network fees as % of the money in,
+    round trips (bought then sold < 30 min), per-coin realized result, failures + top skip reasons, average fill vs market — and the
+    FLAWS those numbers show, each with the setting that fixes it. Read-only: it never changes a card."""
+    rows = sorted((r for r in ledger or [] if r.get('card') == card), key=lambda r: _f(r.get('at')))
+    fills = list({(r.get('sig') or r.get('id')): r for r in rows if r.get('status') == 'filled' and r.get('side') in ('buy', 'sell')}.values())
+    fills.sort(key=lambda r: _f(r.get('at')))
+    start = next((_f(r.get('at')) for r in rows), now)
+    hours = max(0.25, (now - start) / 3600)
+    funded = _f(funded_usd) or sum(_f(r.get('usd')) for r in rows if r.get('side') == 'topup') or 1.0
+    fees = sum(_f(r.get('feeUsd')) for r in fills)
+    coins, trips, last_buy = {}, [], {}
+    for r in fills:
+        m = r.get('mint'); c = coins.setdefault(m, {'symbol': r.get('symbol') or str(m)[:6], 'bought': 0.0, 'sold': 0.0, 'buys': 0, 'sells': 0})
+        if r['side'] == 'buy':
+            c['bought'] += _f(r.get('usd')); c['buys'] += 1; last_buy[m] = r
+        else:
+            c['sold'] += _f(r.get('usd')); c['sells'] += 1
+            b = last_buy.pop(m, None)
+            if b and _f(r.get('at')) - _f(b.get('at')) < CHURN_SEC:
+                trips.append({'symbol': c['symbol'], 'mins': round((_f(r.get('at')) - _f(b.get('at'))) / 60, 1), 'inUsd': round(_f(b.get('usd')), 4),
+                              'outUsd': round(_f(r.get('usd')), 4), 'lossUsd': round(_f(b.get('usd')) - _f(r.get('usd')) + _f(b.get('feeUsd')) + _f(r.get('feeUsd')), 4)})
+    slips = [(_f(r['px']) / _f(r['midPx']) - 1) * 100 * (1 if r['side'] == 'buy' else -1) for r in fills if _f(r.get('px')) > 0 and _f(r.get('midPx')) > 0]
+    slip = round(statistics.median(slips), 3) if slips else None
+    failed = [r for r in rows if r.get('status') == 'failed' and r.get('side') in ('buy', 'sell')]
+    skipped = [r for r in rows if r.get('status') == 'skipped' and r.get('side') in ('buy', 'sell')]
+    why = {}
+    for r in skipped + failed:
+        k = str(r.get('err') or '?').split(' (')[0].split(':')[0][:48]
+        why[k] = why.get(k, 0) + 1
+    sent = len(fills) + len(failed)
+    per = sorted(({**c, 'netUsd': round(c['sold'] - c['bought'], 4), 'bought': round(c['bought'], 4), 'sold': round(c['sold'], 4)} for c in coins.values()), key=lambda c: c['netUsd'])
+    out = {'card': card, 'hours': round(hours, 2), 'fundedUsd': round(funded, 4), 'swaps': len(fills), 'perHour': round(len(fills) / hours, 2),
+           'feesUsd': round(fees, 4), 'feesPct': round(fees / funded * 100, 2), 'roundTrips': trips[-12:], 'tripLossUsd': round(sum(t['lossUsd'] for t in trips), 4),
+           'trips': len(trips), 'failed': len(failed), 'failPct': round(len(failed) / sent * 100, 1) if sent else None, 'skipped': len(skipped),
+           'skipWhy': sorted(({'why': k, 'n': n} for k, n in why.items()), key=lambda x: -x['n'])[:6], 'slipPct': slip, 'coins': per[:20],
+           'equityUsd': None if equity_usd is None else round(_f(equity_usd), 4),
+           'pnlPct': None if equity_usd is None else round((_f(equity_usd) / funded - 1) * 100, 2), 'holdSolPct': hold_sol_pct}
+    flaws = []
+    def flaw(level, what, fix):
+        flaws.append({'level': level, 'what': what, 'fix': fix})
+    if out['feesPct'] >= 3:
+        flaw('high', f"Network fees ate {out['feesPct']:.1f}% of the money in ({len(fills)} swaps, ${fees:.2f}).", 'Slow the round clock or raise patience / min hold so coins change less often.')
+    if out['perHour'] >= 6 and funded < 50:
+        flaw('high', f"{out['perHour']:.1f} swaps an hour on a ${funded:.0f} card — overtrading.", 'Rotate only losers (rotateMinDrop) and keep patience ≥ 3 rounds.')
+    if len(trips) >= 3:
+        flaw('high', f"{len(trips)} coins were sold within 30 min of buying (round trips lost ${out['tripLossUsd']:.2f}).", 'Raise min hold (REAL_MIN_HOLD) and the instant-swap trigger so noise can’t flip a coin.')
+    if out['failPct'] is not None and out['failPct'] >= 20 and sent >= 5:
+        flaw('mid', f"{out['failPct']:.0f}% of sent transactions failed ({len(failed)}/{sent}).", 'Check the keeper RPC (SOLANA_RPC_URL) and priority fee; failures cost fees and miss rounds.')
+    if slip is not None and slip >= 1:
+        flaw('mid', f"Typical fill was {slip:.2f}% worse than the market price.", 'Raise the real-buy pool floor (minLiqUsd) — thin pools cost the most.')
+    top = (out['skipWhy'] or [{}])[0]
+    if top.get('n', 0) >= 10:
+        flaw('mid', f"“{top['why']}” blocked {top['n']} orders.", 'This limit decided the run more than the engine did — review it in Hard limits.')
+    worst = per[0] if per else None
+    if worst and worst['netUsd'] < -0.25 * funded and worst['sells']:
+        flaw('mid', f"${worst['symbol']} alone lost ${-worst['netUsd']:.2f} realized.", 'Tighten that coin’s stop or bench runners younger than REAL_RUNNER_AGE_H.')
+    if out['pnlPct'] is not None and hold_sol_pct is not None and out['pnlPct'] < _f(hold_sol_pct) - 2:
+        flaw('mid', f"The card ({out['pnlPct']:+.1f}%) trailed just holding SOL ({_f(hold_sol_pct):+.1f}%).", 'Compare clocks in the Engine pick; run the proven clock only.')
+    out['flaws'] = flaws
+    out['verdict'] = 'clean' if not flaws else 'fix' if any(f['level'] == 'high' for f in flaws) else 'watch'
+    return out

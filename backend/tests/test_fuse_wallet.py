@@ -672,3 +672,38 @@ def test_principal_floor_keeps_only_profit_in_paid_out_now():
     out, moved = fw.enforce_principal_floor(book, equity_usd=8.0, sol_px=100.0)
     assert moved == 0.01
     assert out['bankSol'] == 0.01 and out['sol'] == 0.02 and out['bankUsd'] == 1.0
+
+
+def test_rebuy_never_spends_cash_the_owner_sold_out_by_hand():
+    card = {'rounds': 3, 'legs': [{'mint': fw.SOL_MINT, 'pairAddress': 'S', 'symbol': 'SOL', 'units': 0.0, 'entry': 100},
+                                  {'mint': 'RUN', 'pairAddress': 'R', 'symbol': 'RUN', 'units': 0.0, 'entry': 0.002}]}
+    book = {'sol': 0.03, 'manualCashSol': 0.03, 'legs': {}}   # every SOL in the card is the owner's ✂ cash
+    c = fw.sync_card(card, book, {'S': 100, 'R': 0.002}, 100)
+    assert not c['legs'][1].get('buying')
+    assert not [o for o in fw.orders('t', c, book, {'S': 100, 'R': 0.002}, 100, {**fw.DEFAULT_CFG, 'armed': True}, 1) if o['side'] == 'buy' and o['mint'] == 'RUN']
+
+
+def test_run_report_reads_flaws_from_the_ledger():
+    L = [{'card': 'c', 'side': 'topup', 'usd': 10, 'at': 0, 'status': 'done'}]
+    t = 60
+    for i in range(6):   # 6 round trips: bought, sold 5 min later for less
+        L.append({'card': 'c', 'side': 'buy', 'mint': f'M{i}', 'symbol': f'M{i}', 'usd': 2.0, 'feeUsd': 0.05, 'px': 1.02, 'midPx': 1.0, 'status': 'filled', 'sig': f'b{i}', 'at': t})
+        L.append({'card': 'c', 'side': 'sell', 'mint': f'M{i}', 'symbol': f'M{i}', 'usd': 1.9, 'feeUsd': 0.05, 'px': 0.98, 'midPx': 1.0, 'status': 'filled', 'sig': f's{i}', 'at': t + 300})
+        t += 600
+    L += [{'card': 'c', 'side': 'buy', 'mint': 'X', 'status': 'failed', 'err': 'expired — never landed', 'at': t}] * 3
+    L += [{'card': 'other', 'side': 'buy', 'mint': 'Z', 'usd': 99, 'status': 'filled', 'sig': 'z', 'at': 1}]
+    r = fw.run_report(L, 'c', 3600, funded_usd=10, equity_usd=9.0, hold_sol_pct=2.0)
+    assert r['swaps'] == 12 and r['trips'] == 6 and r['feesUsd'] == 0.6 and r['feesPct'] == 6.0
+    assert r['slipPct'] == 2.0 and r['failed'] == 3 and r['pnlPct'] == -10.0
+    kinds = ' '.join(f['what'] for f in r['flaws'])
+    assert 'Network fees' in kinds and 'round trips' in kinds and 'overtrading' in kinds and 'holding SOL' in kinds
+    assert r['verdict'] == 'fix'
+    clean = fw.run_report([{'card': 'c', 'side': 'topup', 'usd': 50, 'at': 0}], 'c', 7200, funded_usd=50)
+    assert clean['flaws'] == [] and clean['verdict'] == 'clean'
+
+
+def test_buys_never_dip_into_cash_the_owner_sold_out():
+    card = {'legs': [{'mint': 'M', 'pairAddress': 'pm', 'symbol': 'M', 'units': 10.0, 'entry': 1.0}]}   # target wants $10 of M
+    book = {'sol': 0.1, 'manualCashSol': 0.08, 'legs': {}}                                              # $10 SOL, $8 of it is ✂ cash
+    buys = [o for o in fw.orders('t', card, book, {'pm': 1.0}, 100.0, {**fw.DEFAULT_CFG, 'armed': True, 'minOrderUsd': 0.1}, 1) if o['side'] == 'buy']
+    assert buys and buys[0]['usd'] <= 2.0 + 1e-9

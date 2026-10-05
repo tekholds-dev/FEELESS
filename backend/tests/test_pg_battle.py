@@ -36,7 +36,7 @@ def test_service_round_deals_settles_and_rebreeds(monkeypatch):
     import pytest
     rs = pytest.importorskip('reputation_service')
     sc = lambda i, sym: {'id': f's{i}', 'vName': f'Card {i}', 'tp': 200, 'sl': 40, 'legs': [{'pairAddress': f'P{i}', 'symbol': sym, 'role': 'runner', 'weight': 100}]}
-    async def cards(rd, scen=None, now=None, losers_ok=False): return [sc(1, 'A'), sc(2, 'B')]
+    async def cards(rd, scen=None, now=None, losers_ok=False, top=6): return [sc(1, 'A'), sc(2, 'B')]
     async def live(): return {'passing': [], 'dropped': []}
     px = {'P1': 1.0, 'P2': 1.0}
     async def pairs(legs): return {k: {'priceUsd': v, 'liquidity': {'usd': 1e6}, 'txns': {'m5': {'buys': 5, 'sells': 3}}, 'volume': {'m5': 100}} for k, v in px.items()}
@@ -95,7 +95,7 @@ def test_service_battles_learn_dna(monkeypatch):
     import pytest
     rs = pytest.importorskip('reputation_service')
     sc = lambda i, sym: {'id': f's{i}', 'vName': f'Card {i}', 'tp': 200, 'sl': 40, 'dial': 'degen', 'legs': [{'pairAddress': f'P{i}', 'symbol': sym, 'role': 'runner', 'weight': 100}]}
-    async def cards(rd, scen=None, now=None, losers_ok=False): return [sc(1, 'A'), sc(2, 'B')]
+    async def cards(rd, scen=None, now=None, losers_ok=False, top=6): return [sc(1, 'A'), sc(2, 'B')]
     async def live(): return {'passing': [], 'dropped': []}
     px = {'P1': 1.0, 'P2': 1.0}
     async def pairs(legs): return {k: {'priceUsd': v, 'liquidity': {'usd': 1e6}, 'txns': {'m5': {'buys': 5}}, 'volume': {'m5': 9}} for k, v in px.items()}
@@ -167,7 +167,7 @@ def test_arena_paper_book_deals_true_fills_marks_and_audits():
 
 
 def test_playground_widens_to_6_plus_experiments_with_hq_amount_and_scraps_dead():
-    assert pb.coin_targets(7) == [6, 7, 12] and pb.coin_targets(4) == [6, 8] and pb.coin_targets(12) == [6, 12]
+    assert pb.coin_targets(7) == [4, 7, 12] and pb.coin_targets(4) == [4, 8] and pb.coin_targets(12) == [6, 12]
     sc = {'id': 's', 'legs': [{'pairAddress': 'A', 'weight': 50}, {'pairAddress': 'B', 'weight': 50}]}
     w = pb.widen(sc, [{'pairAddress': 'A'}, {'pairAddress': 'C'}, {'pairAddress': 'D'}, {'pairAddress': 'E'}, {'pairAddress': 'F'}, {'pairAddress': 'G'}], 6)
     assert [l['pairAddress'] for l in w['legs']] == ['A', 'B', 'C', 'D', 'E', 'F'] and w['legs'][-1]['weight'] == 50
@@ -181,3 +181,29 @@ def test_playground_plays_every_round_length_and_learns_the_best():
     for _ in range(3):
         st = pb.clock_learn(st, 5, [1.0, -2.0]); st = pb.clock_learn(st, 30, [4.0, 0.0])
     assert st['5']['bells'] == 3 and st['30']['bestPct'] == 4.0 and pb.best_clock(st) == 30 and pb.best_clock(st, 9) is None
+
+
+def test_field_cards_are_at_least_4_coins_with_at_most_2_pools():
+    sc = {'id': 's', 'legs': [{'pairAddress': 'A', 'role': 'anchor', 'weight': 35}, {'pairAddress': 'P1', 'role': 'pool', 'weight': 20},
+                              {'pairAddress': 'P2', 'role': 'pool', 'weight': 30}, {'pairAddress': 'R1', 'role': 'runner', 'weight': 15}]}
+    cand = [{'pairAddress': f'C{i}', 'symbol': f'C{i}', 'mint': f'm{i}'} for i in range(6)]
+    out = pb.fit_shape(sc, cand, 4)
+    pas = [l['pairAddress'] for l in out['legs']]
+    assert len(pas) >= 4 and sum(1 for l in out['legs'] if l.get('role') != 'runner') <= 2
+    assert 'A' in pas and 'P2' in pas and 'P1' not in pas   # the anchor + the heaviest pool stay
+    assert len(pb.fit_shape({'id': 'x', 'legs': [{'pairAddress': 'R', 'role': 'runner', 'weight': 1}]}, cand, 0)['legs']) == 4
+    assert pb.DEFAULT_CFG['cards'] == 8 and 8 in pb.CARD_OPTIONS
+
+
+def test_each_card_learns_its_own_timeframe_and_spreads_until_proven():
+    st = pb.card_clock_learn({}, 5, {'a': -2.0, 'b': 1.0})
+    st = pb.card_clock_learn(st, 5, {'a': -1.0, 'b': 3.0})
+    st = pb.card_clock_learn(st, 60, {'a': 4.0})
+    st = pb.card_clock_learn(st, 60, {'a': 2.0})
+    assert pb.assign_clock(st['a']) == 60 and pb.assign_clock(st['b']) == 5
+    assert [pb.assign_clock({}, i) for i in range(4)] == [5, 15, 30, 60]   # unproven cards cover every timeframe
+
+
+def test_card_bred_from_another_strategy_is_its_next_version():
+    assert pb.child_name('🌙 Moon Pit v.01', 3) == '🌙 Moon Pit v.03'
+    assert pb.child_name('Blaze', 1) == 'Blaze v.01'

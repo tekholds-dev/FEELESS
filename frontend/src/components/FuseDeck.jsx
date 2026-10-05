@@ -77,12 +77,34 @@ export function FuseDeck({ panels, call }) {
         {group && group !== panels[i - 1]?.[4] && <span className="fdeck-group">{group}</span>}
         <button type="button" role="tab" aria-selected={!isMap && cur[0] === k} className={!isMap && cur[0] === k ? 'active' : ''} onClick={() => go(k)} data-testid={`fdeck-${k}`} data-tip={blurb}>
         <b>{l}</b></button></React.Fragment>)}</nav>
-      {isMap ? <div className="fdeck-body fdeck-map" key="map" data-testid="fdeck-overview">{[...new Set(panels.map(p => p[4]))].map(g => <section key={g || 'x'} className="fdeck-mapgroup"><span className="fdeck-group">{g}</span>
+      {isMap ? <div className="fdeck-body fdeck-map" key="map" data-testid="fdeck-overview">{call && <DeckAlerts call={call} go={go} has={k => panels.some(p => p[0] === k)} />}{[...new Set(panels.map(p => p[4]))].map(g => <section key={g || 'x'} className="fdeck-mapgroup"><span className="fdeck-group">{g}</span>
           <div className="fdeck-tiles">{panels.filter(p => p[4] === g).map(([k, l, , blurb], i) => <button key={k} type="button" className="fdeck-tile" style={{ '--i': i }} onClick={() => go(k)} data-testid={`fdeck-tile-${k}`}>
             <b>{l}</b>{TILE_STAT[k]?.(hq) != null && <em className="m-num">{TILE_STAT[k](hq)}</em>}<small>{blurb}</small><i aria-hidden="true">→</i></button>)}</div></section>)}</div>
         : <div className="fdeck-body" key={cur[0]}>{cur[3] && <p className="fdeck-intro">{cur[3]}</p>}{cur[2]}</div>}
     </div>
   </section>;
+}
+
+// 🚨 Needs you: the overview opens on what wants a decision — real-run flaws (owner), the keeper's state, engine field cards
+// that earned an Arena seat but wait for your ✅. Each line jumps to the panel that fixes it. Read-only, one fetch per open.
+export function DeckAlerts({ call, go, has = () => true }) {
+  const [rep, setRep] = useState(null); const [pg, setPg] = useState(null);
+  useEffect(() => { let alive = true;
+    call('/admin/fuse-wallet/report').then(x => alive && setRep(x)).catch(() => alive && setRep({ reports: [] }));
+    call('/admin/fuses/pg-battles').then(x => alive && setPg(x)).catch(() => alive && setPg({}));
+    return () => { alive = false; }; }, [call]);
+  if (!rep || !pg) return <div className="fdeck-alerts is-ghost" />;
+  const items = [];
+  (rep.reports || []).filter(r => r.open).forEach(r => { const f = r.flaws || [];
+    items.push({ k: `rep-${r.card}`, lvl: r.verdict === 'fix' ? 'high' : f.length ? 'mid' : 'ok', go: 'wallet',
+      text: `💵 ${r.label}: ${f.length ? `${f.length} flaw${f.length > 1 ? 's' : ''} — ${f[0].what}` : 'real run clean'}`, sub: `${r.swaps} swaps · fees ${r.feesPct}% of money in${r.pnlPct != null ? ` · ${r.pnlPct >= 0 ? '+' : ''}${r.pnlPct}%` : ''}` }); });
+  const rec = pg.record || {}; const picks = new Set(pg.picks || []);
+  (pg.field || []).filter(x => (rec[x.id]?.w || 0) >= 2 && (rec[x.id]?.w || 0) > (rec[x.id]?.l || 0) && !picks.has(x.id)).slice(0, 3).forEach(x =>
+    items.push({ k: `pg-${x.id}`, lvl: 'mid', go: 'pub', text: `⚔ ${x.name} is ${rec[x.id].w}–${rec[x.id].l} in the field — approve it for the Arena?`, sub: `${x.legs?.length || 0} coins · plays best on ⏱ ${x.clock}m` }));
+  if (!items.length) items.push({ k: 'none', lvl: 'ok', go: null, text: '✅ Nothing needs you right now', sub: 'real runs clean · no engine card waiting' });
+  return <section className="fdeck-alerts" data-testid="fdeck-alerts"><span className="fdeck-group">NEEDS YOU</span>
+    {items.map((x, i) => <button key={x.k} type="button" className={`fdeck-alert l-${x.lvl}`} style={{ '--i': i }} disabled={!x.go || !has(x.go)} onClick={() => x.go && go(x.go)} data-testid={`fdeck-alert-${x.k}`}>
+      <b>{x.text}</b><small>{x.sub}</small>{x.go && <i aria-hidden="true">→</i>}</button>)}</section>;
 }
 
 // Fuse vs Vault on LIVE pools: where a dollar's return can actually come from. Fuse = price moves (fast, both ways);

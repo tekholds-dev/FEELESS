@@ -111,6 +111,7 @@ export function FuseWallet({ call }) {
       {(dry.orders || []).map((o, i) => <span key={i}>{o.side === 'buy' ? '🟢 buy' : '🔴 sell'} ${o.symbol} · {usd(o.usd)}{o.err ? ` · ⚠ ${o.err}` : ` · impact ${o.impactPct}% · via ${(o.route || []).join(' → ') || 'Jupiter'}`}</span>)}
       {!dry.orders?.length && <small className="m-dim">No swaps needed — this card is SOL right now (its SOL slice stays SOL).</small>}
       <b data-testid="fw-dry-fees">💳 Card gets {usd(dry.cardUsd)} · fees ≈ {usd(dry.feesUsdEst)} from the reserve (network {usd(dry.networkUsdEst)}{dry.newCoins ? ` + account rent for ${dry.newCoins} new coin${dry.newCoins > 1 ? 's' : ''} ${usd(dry.rentUsdEst)}, refundable` : ''}) · FEELESS fee $0</b></>}</div>}
+    <RunReport call={call} />
     {/* every row is kept — the trail just opens on demand instead of pushing the page four screens down */}
     <details className="hrt-fold" data-testid="fw-audit"><summary><b>4 · Audit trail</b><span>{d.ledger?.length || 0} rows · bought {usd(d.totals?.bought)} · sold {usd(d.totals?.sold)} · top-ups {usd(d.totals?.topups)}{d.ledger?.[0] ? ` · last: ${d.ledger[0].side} ${d.ledger[0].symbol ? `$${d.ledger[0].symbol} ` : ''}${new Date(d.ledger[0].at * 1000).toLocaleTimeString()}` : ''}</span></summary>
       <div className="fw-table" role="table" data-testid="fw-ledger"><div className="fw-row is-head" role="row"><span>WHEN</span><span>CARD</span><span>WHAT</span><span>$</span><span>FILL</span><span>FEE</span><span>TX</span></div>
@@ -120,6 +121,26 @@ export function FuseWallet({ call }) {
           {o.sig ? <a href={txUrl(o.sig)} target="_blank" rel="noreferrer">tx ↗</a> : <span className="m-dim">—</span>}</div>)}
         {!d.ledger?.length && <small className="m-dim">No orders yet — top-ups and every keeper swap land here (dry runs are shown above, never stored).</small>}</div></details>
   </section>;
+}
+
+// 🩺 Real run report: what each real card ACTUALLY did (audit ledger only) and the flaws it shows, each with the setting that fixes it.
+export function RunReport({ call }) {
+  const [r, setR] = useState(null);
+  useEffect(() => { call('/admin/fuse-wallet/report').then(setR).catch(e => setR({ error: e.message })); }, [call]);
+  const reps = r?.reports || [];
+  const bad = reps.reduce((n, x) => n + (x.flaws || []).length, 0);
+  return <details className="hrt-fold fw-report" open={bad > 0} data-testid="fw-report"><summary><b>🩺 Real run report</b>
+    <span>{!r ? 'reading the ledger…' : r.error ? r.error : !reps.length ? 'no real runs yet' : `${reps.length} card${reps.length > 1 ? 's' : ''} · ${bad} flaw${bad === 1 ? '' : 's'} found`}</span></summary>
+    {reps.map(x => <article key={x.card} className={`fw-rep v-${x.verdict}`} data-testid={`fw-rep-${x.card}`}>
+      <header><b>{x.label}</b><em className={`fw-verdict v-${x.verdict}`}>{x.verdict === 'clean' ? '✅ clean' : x.verdict === 'fix' ? '🛠 fix' : '👀 watch'}</em>{!x.open && <small className="m-dim">closed</small>}</header>
+      <dl className="m-kv"><dt>Ran</dt><dd>{x.hours}h · {x.swaps} swaps ({x.perHour}/h)</dd><dt>Money in → now</dt><dd>{usd(x.fundedUsd)} → {x.equityUsd != null ? usd(x.equityUsd) : '—'}{x.pnlPct != null ? ` (${x.pnlPct >= 0 ? '+' : ''}${x.pnlPct}%)` : ''}{x.holdSolPct != null ? ` · SOL held ${x.holdSolPct >= 0 ? '+' : ''}${x.holdSolPct}%` : ''}</dd>
+        <dt>Network fees</dt><dd>{usd(x.feesUsd)} · {x.feesPct}% of money in</dd><dt>Round trips</dt><dd>{x.trips} (lost {usd(x.tripLossUsd)})</dd>
+        <dt>Fill vs market</dt><dd>{x.slipPct != null ? `${x.slipPct}%` : '—'}</dd><dt>Failed / skipped</dt><dd>{x.failed}{x.failPct != null ? ` (${x.failPct}%)` : ''} / {x.skipped}</dd></dl>
+      {(x.flaws || []).map((f, i) => <p key={i} className={`m-note fw-flaw l-${f.level}`}><b>{f.level === 'high' ? '🔴' : '🟡'} {f.what}</b><span>Fix: {f.fix}</span></p>)}
+      {x.skipWhy?.length > 0 && <small className="m-dim">Blocked by: {x.skipWhy.map(w => `${w.why} ×${w.n}`).join(' · ')}</small>}
+      {x.coins?.length > 0 && <small className="m-dim">Per coin (sold − bought): {x.coins.slice(0, 8).map(c => `$${c.symbol} ${c.netUsd >= 0 ? '+' : ''}${c.netUsd.toFixed(2)}`).join(' · ')}</small>}
+    </article>)}
+  </details>;
 }
 
 // 🪪 Circle wallet profiles (owner): search your Circle wallets and edit each one's public FEELESS profile from the creator wallet.

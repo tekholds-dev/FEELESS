@@ -108,3 +108,24 @@ def test_gauntlet_dip_and_paid_divisions():
     lg = contenders.league({'dip': rows, 'paid': rows})
     div = {d['key']: [r['symbol'] for r in d['rows']] for d in lg['divisions']}
     assert div['dip'] == ['DIP'] and div['paid'] == ['PAID']
+
+
+def test_swap_pick_accepts_any_live_coin_but_never_a_stable_thin_or_wrong_pool():
+    import pytest
+    rs = pytest.importorskip('reputation_service')
+    pair = lambda mint, sym, liq, px=1.0: {'pairAddress': 'p' + sym, 'baseToken': {'address': mint, 'symbol': sym}, 'priceUsd': px, 'liquidity': {'usd': liq}}
+    assert rs._pick_row(pair('M', 'POP', 400_000), 'M') == {'mint': 'M', 'pairAddress': 'pPOP', 'symbol': 'POP', 'price': 1.0, 'liq': 400_000}
+    assert rs._pick_row(pair('M', 'POP', 10_000), 'M') is None          # too thin
+    assert rs._pick_row(pair('U', 'USDC', 9e6), 'U') is None            # a dollar never moves
+    assert rs._pick_row(pair('OTHER', 'POP', 9e6), 'M') is None         # pool is for another coin
+    assert rs._pick_row(pair('M', 'POP', 9e6, px=0), 'M') is None       # no live price
+
+
+def test_runners_list_stays_full_while_a_coin_is_only_rescanned():
+    prev = [{'mint': 'A', 'passedAt': 100}, {'mint': 'B', 'passedAt': 100}, {'mint': 'C', 'passedAt': 100}, {'mint': 'OLD', 'passedAt': -1000}, {'mint': 'NOTIME'}]
+    now_rows = [{'mint': 'A', 'passedAt': 400}]
+    dropped = [{'mint': 'B', 'gates': ['Holder scan done']}, {'mint': 'C', 'gates': ['Top 10 under 30%']}]
+    out = runners.sticky(prev, now_rows, dropped, 400, keep=600)
+    by = {r['mint']: r for r in out}
+    assert set(by) == {'A', 'B'}                      # C failed a REAL gate → gone; OLD too old → gone
+    assert by['B']['rechecking'] and not by['A'].get('rechecking')

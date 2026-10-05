@@ -54,7 +54,10 @@ export function FuseFx() {
     {Array.from({ length: 14 }, (_, i) => <b key={i} className="fz-spark" style={{ '--i': i }} />)}</div>;
 }
 
-export const FUSE_TABS = [['home', '⚡ Fuse'], ['lab', '🧪 Lab'], ['runners', '🏃 Runners'], ['arena', '🏟 Arena'], ['cards', '🃏 My cards']];
+export const FUSE_TABS = [['home', '⚡ Fuse'], ['lab', '🧪 Lab'], ['runners', '🏃 Runners'], ['arena', '🏟 Arena'], ['cards', '🃏 My cards']];   // every ?tab= that routes
+// What the header shows: FOUR tabs, each with what it is for. Runners is step 1 of Build (same picks), not its own tab.
+export const TOP_TABS = [['home', '⚡ Start', 'what a Fuse is'], ['lab', '🧪 Build', 'pick coins · make a card'], ['arena', '🏟 Arena', 'cards fighting live'], ['cards', '🃏 My cards', 'yours, live']];
+const topOf = t => (t === 'runners' ? 'lab' : t);
 const m$ = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0) >= 1e3 ? `${(Math.abs(v) / 1e3).toFixed(1)}K` : Math.abs(v || 0).toFixed(2)}`;
 const pc = v => `${v >= 0 ? '+' : ''}${(v || 0).toFixed(1)}%`;
 // Watching row: graduated coins are never runners (pre-bond engine) → hidden; the rest say WHAT failed, in plain words.
@@ -84,8 +87,12 @@ export function FusePage() {
   const go = t => { setTab(t); const u = new URL(window.location.href); u.searchParams.set('tab', t); window.history.replaceState(null, '', u); };
   return <section className="fuse-page" data-testid="fuse-page"><FuseFx />
     <header className="fp-head"><h1 className="fp-title"><span className="fp-zap" data-text="Fuse">Fuse<i className="fp-bolt" aria-hidden="true" /><i className="fp-bolt b2" aria-hidden="true" /></span> <DnaHelix /></h1><p className="m-dim">Fuse pools + fresh runners into one card. You sign every move; we show every fee.</p>
-      <div className="m-seg fp-tabs" role="tablist" aria-label="Fuse">{FUSE_TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} data-testid={`fuse-tab-${k}`} onClick={() => go(k)}>{l}{k === 'runners' && runnerPicks.length ? ` · ${runnerPicks.length}` : ''}</button>)}</div></header>
+      <div className="m-seg fp-tabs" role="tablist" aria-label="Fuse">{TOP_TABS.map(([k, l, sub]) => <button key={k} type="button" role="tab" aria-selected={topOf(tab) === k} className={topOf(tab) === k ? 'active' : ''} data-testid={`fuse-tab-${k}`} onClick={() => go(k)}>
+        <b>{l}{k === 'lab' && runnerPicks.length ? ` · ${runnerPicks.length}` : ''}</b><small>{sub}</small></button>)}</div></header>
     <p className="fp-tabtip" key={`tip-${tab}`} data-testid="fp-tabtip">{TAB_TIPS[tab]} <FuseGuide label="📖 What everything means" /></p>
+    {topOf(tab) === 'lab' && <div className="m-seg fp-steps" role="tablist" aria-label="Build steps">
+      <button type="button" role="tab" aria-selected={tab === 'runners'} className={tab === 'runners' ? 'active' : ''} onClick={() => go('runners')} data-testid="fuse-tab-runners"><b>1</b> 🏃 Pick runners <em>{runnerPicks.length}/{MAX_RUNNERS}</em></button>
+      <button type="button" role="tab" aria-selected={tab === 'lab'} className={tab === 'lab' ? 'active' : ''} onClick={() => go('lab')} data-testid="fuse-step-lab"><b>2</b> 🧪 Build the card</button></div>}
     <div className="fp-body" key={tab}>
       {tab === 'home' && <FuseLanding onGo={go} />}
       {tab === 'lab' && <div className="fz-split-view fp-lab"><FuseLab runnerPicks={runnerPicks} onRunnerPicks={setRunnerPicks} incoming={incoming} limits={limits} />
@@ -135,8 +142,8 @@ export function RunnerPicker({ picks, onPicks, onDone }) {
     {rows.length < 6 && watch.length > 0 && <div className="fp-watch" data-testid="fp-watching"><span className="m-label">👀 WATCHING · PRE-BOND, FAILS A GATE (NOT ADDABLE YET)</span>
       <div className="fp-watch-row">{watch.map((w, i) => <span key={w.mint} className="fp-wchip" style={{ '--i': i }} data-tip={`Fails: ${(w.gates || []).join(' · ')}`}>
         <span className="fp-ava sm">{w.logo ? <img src={w.logo} alt="" loading="lazy" /> : '👀'}</span><b>${w.symbol}</b><small>✕ {failWhy((w.gates || [])[0])}</small></span>)}</div></div>}
-    <div className="fp-rgrid">{rows.map((r, i) => { const on = picks.some(p => p.mint === r.mint); const full = !on && picks.length >= MAX_RUNNERS; const hot = r.sources.length >= 2;
-      return <article key={r.mint} className={`fp-runner ${on ? 'is-on' : ''} ${hot ? 'is-hot' : ''}`} style={{ '--i': Math.min(i, 14) }} data-testid={`runner-${r.mint}`}>
+    <div className="fp-rgrid">{rows.map((r, i) => { const on = picks.some(p => p.mint === r.mint); const full = !on && (picks.length >= MAX_RUNNERS || r.rechecking); const hot = r.sources.length >= 2;
+      return <article key={r.mint} className={`fp-runner ${on ? 'is-on' : ''} ${hot ? 'is-hot' : ''} ${r.rechecking ? 'is-recheck' : ''}`} style={{ '--i': Math.min(i, 14) }} data-testid={`runner-${r.mint}`}>
         {hot && <span className="fp-hotband">{r.sources.length} sources</span>}
         <div className="fp-rtop"><span className="fp-ava">{r.logo ? <img src={r.logo} alt="" loading="lazy" /> : '🏃'}</span><div><b>${r.symbol}</b><small>{r.lane || 'runner'} lane · score {Math.round(r.score || 0)}</small></div>
           {(() => { const lv = live.get(r.pairAddress); const mv = lv ? lv.m5 : r.chg1h; return <span className={`m-num fp-move fl-tick ${(mv || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={`${(mv || 0).toFixed(1)}`} data-tip={lv ? `Live · 5m · $${lv.price}` : 'Last hour'}>{pc(mv)}<small>{lv ? '5m' : '1h'}</small></span>; })()}</div>
@@ -144,7 +151,7 @@ export function RunnerPicker({ picks, onPicks, onDone }) {
         {(r.bond || []).length > 0 && <BondMeter checks={r.bond} />}
         <div className="fp-srcs">{r.sources.map(s => <span key={s.kind} className={`fp-chip src-${s.kind}`} data-tip={s.detail}>{SRC_ICON[s.kind]} {s.label.replace(/^\S+\s/, '')}</span>)}</div>
         <div className="m-row fp-rstats"><span>MC {m$(r.mcap)}</span><span>{Math.round(r.buyShare || 0)}% buys</span><span>{m$(r.vol1h)} 1h vol</span></div>
-        <button type="button" className={`m-btn wide ${on ? 'primary' : ''}`} disabled={full} onClick={() => onPicks(togglePick(picks, r))} data-testid={`runner-add-${r.mint}`}>{on ? '✓ On your card' : full ? 'Card full (3)' : '+ Add to card'}</button>
+        <button type="button" className={`m-btn wide ${on ? 'primary' : ''}`} disabled={full} onClick={() => onPicks(togglePick(picks, r))} data-testid={`runner-add-${r.mint}`} data-tip={r.rechecking ? 'Passed every gate minutes ago — its holder scan is refreshing. Addable again once it passes.' : undefined}>{on ? '✓ On your card' : r.rechecking ? '🕘 Rechecking…' : full ? 'Card full (3)' : '+ Add to card'}</button>
       </article>; })}</div>
     {picks.length > 0 && picks.length < MAX_RUNNERS && <div className="fp-dock" data-testid="fp-dock"><span>{picks.map(p => `$${p.symbol}`).join(' · ')} <small className="m-dim">· {MAX_RUNNERS - picks.length} more fills the card</small></span><button type="button" className="m-btn primary m-go" onClick={onDone} data-testid="runners-to-lab">Build card with {picks.length} →</button></div>}
     {picks.length >= MAX_RUNNERS && <RunnerCardFull picks={picks} onDone={onDone} />}
@@ -551,7 +558,7 @@ export function CardConfig({ c, onClose, onLoad, onBack, onBuyBack }) {
 }
 
 const DIAL_STYLE = { safe: 'steady', balanced: 'yield', degen: 'degen' };
-const DIAL_LABEL = { safe: '🛡 SAFE', balanced: '⚖️ BALANCED', degen: '🚀 DEGEN' };
+const DIAL_LABEL = { safe: '🧊 COLD BLOOD', balanced: '⚡ VOLTAGE', degen: '🔥 INFERNO' };   // engine dials (backend runners.ENGINE_DIALS)
 const SL_WORD = { sell: '✂ sell', park: '🅿 park', hold: '❄ hold' };
 export function MegaCard({ c, i, onPicks, onLoad, onChat, chatOpen, onReplay }) {
   const [cfgOpen, setCfgOpen] = useState(false);

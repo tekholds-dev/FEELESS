@@ -14,9 +14,9 @@ import card_dna as _dna
 import runners as rn
 
 _f = rn._f
-DEFAULT_CFG = {'on': True, 'allClocks': True, 'roundMins': 5, 'cards': 4, 'sizeUsd': 100.0, 'swapOnTp': True, 'swapOnSl': True, 'swapDead': True, 'deadMins': 10}
+DEFAULT_CFG = {'on': True, 'allClocks': True, 'roundMins': 5, 'cards': 8, 'sizeUsd': 100.0, 'swapOnTp': True, 'swapOnSl': True, 'swapDead': True, 'deadMins': 10}
 ROUND_OPTIONS = (5, 15, 30, 60)
-CARD_OPTIONS = (2, 4, 6)
+CARD_OPTIONS = (2, 4, 6, 8)   # 8 = the engine's background field: 4 battles every bell
 
 
 def clean_cfg(c):
@@ -233,12 +233,13 @@ def paper_view(b, prices, liqs):
             'at': b.get('at'), 'legs': rows, 'events': b.get('events') or [], 'result': b.get('result')}
 
 
-MIN_COINS = 6        # every playground card plays at least 6 coins / pools
+MIN_COINS = 4        # every playground card plays at least 4 coins …
+MAX_POOLS = 2        # … and at most 2 of them are pools / majors (the rest are gated runners)
 DEAD_LOSSES = 5      # a strategy with ≥ 5 losses and no win is scrapped (its record is kept, it stops using data)
 
 
 def coin_targets(hq_n):
-    """The coin counts the engine experiments with, from the amount HQ chose: half · same · double (never under 6, never over 12)."""
+    """The coin counts the engine experiments with, from the amount HQ chose: half · same · double (never under 4, never over 12)."""
     hq_n = int(hq_n or MIN_COINS)
     return sorted({max(MIN_COINS, min(12, hq_n // 2)), max(MIN_COINS, min(12, hq_n)), max(MIN_COINS, min(12, hq_n * 2))})
 
@@ -257,6 +258,39 @@ def widen(sc, candidates, target):
             legs.append({'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'mint': r.get('mint'), 'role': 'runner', 'weight': avg or 1.0})
             have.add(r['pairAddress'])
     return {**sc, 'legs': legs, 'widened': len(legs)}
+
+
+def fit_shape(sc, candidates, target, max_pools=MAX_POOLS, min_coins=MIN_COINS):
+    """Every playground card: ≥ `min_coins` coins and ≤ `max_pools` pools (anchors + pools). Extra pools leave (the heaviest stay,
+    anchors first); the card is then topped up with the best gated runners to max(target, min_coins)."""
+    legs = list(sc.get('legs') or [])
+    pools = sorted((l for l in legs if (l.get('role') or 'pool') != 'runner'), key=lambda l: (l.get('role') != 'anchor', -_f(l.get('weight'))))
+    keep = {id(l) for l in pools[:max_pools]}
+    legs = [l for l in legs if (l.get('role') or 'pool') == 'runner' or id(l) in keep]
+    return widen({**sc, 'legs': legs}, candidates, max(int(target or 0), min_coins))
+
+
+def child_name(parent_name, gen):
+    """🧬 A card re-bred from ANOTHER strategy carries that strategy's name as a version: 'Moon Pit v.01' → 'Moon Pit v.03'."""
+    import re
+    base = re.sub(r'\s+v\.\d+$', '', str(parent_name or 'Engine card')).strip()
+    return f"{base} v.{max(1, int(gen)):02d}"
+
+
+def card_clock_learn(stats, mins, pcts):
+    """⏱ Per CARD and per round length: bells played + average % — so each card finds its own timeframe."""
+    s = {k: {m: dict(v) for m, v in (cs or {}).items()} for k, cs in (stats or {}).items()}
+    for k, pct in (pcts or {}).items():
+        r = s.setdefault(k, {}).setdefault(str(int(mins)), {'n': 0, 'avgPct': 0.0})
+        r['avgPct'] = round((r['avgPct'] * r['n'] + _f(pct)) / (r['n'] + 1), 3); r['n'] += 1
+    return s
+
+
+def assign_clock(card_stats, idx=0, min_n=2):
+    """The timeframe a card is assigned when it goes to the Arena: its best-averaging round length (≥ min_n bells there), else a
+    spread over 5 / 15 / 30 / 60 by its seat so the field covers every timeframe. Returns minutes."""
+    ok = [(int(m), v) for m, v in (card_stats or {}).items() if v.get('n', 0) >= min_n]
+    return max(ok, key=lambda mv: mv[1]['avgPct'])[0] if ok else ROUND_OPTIONS[int(idx) % len(ROUND_OPTIONS)]
 
 
 def dead(record, locked=()):

@@ -364,8 +364,8 @@ export function HqRealCards({ addr, onCount }) {
                 onClick={() => setPickFor(pickFor === l.pairAddress ? null : l.pairAddress)}>{l.swapTo ? `🎯 → $${l.swapTo}` : '🎯'}</button>
               <button type="button" className={`m-btn ${l.frozen ? 'active' : ''}`} aria-pressed={!!l.frozen} disabled={!!busy} data-testid={`freeze-${l.symbol}`} data-tip={l.frozen ? `Unfreeze $${l.symbol}: the engine may rotate / stop it again` : `Freeze $${l.symbol}: never rotated or stopped (the card floor still protects you)`}
                 onClick={() => prime({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, frozen: !l.frozen } }, l.frozen ? `$${l.symbol} back under the engine` : `❄ $${l.symbol} frozen`, `fz-${l.pairAddress}`)}>❄</button></span> : <span />}</li>)}
-            {pickFor && c.legs.some(l => l.pairAddress === pickFor) && <li className="hrt-pickrow"><SwapPicker out={c.legs.find(l => l.pairAddress === pickFor)} have={c.legs.map(l => l.mint)} busy={!!busy}
-              onPick={r => { prime({ pickSwap: { tpl: c.tpl, pairAddress: pickFor, to: r ? r.mint : null } }, r ? `🎯 $${r.symbol} comes in at the next round` : 'Pick cancelled', 'pick'); setPickFor(null); }} onClose={() => setPickFor(null)} /></li>}
+            {pickFor && c.legs.some(l => l.pairAddress === pickFor) && <li className="hrt-pickrow"><SwapPicker out={c.legs.find(l => l.pairAddress === pickFor)} have={c.legs.map(l => l.mint)} busy={!!busy} minLiq={Math.min(k.minLiqUsd || 0, k.arenaMinLiqUsd ?? (k.minLiqUsd || 0))}
+              onPick={r => { prime({ pickSwap: { tpl: c.tpl, pairAddress: pickFor, to: r ? r.mint : null, toPair: r ? r.pairAddress : null } }, r ? `🎯 $${r.symbol} comes in at the next round` : 'Pick cancelled', 'pick'); setPickFor(null); }} onClose={() => setPickFor(null)} /></li>}
             {(c.cash || 0) > 0.01 && <li><b>◎ cash</b><span>{usd(c.cash)}</span><em className="m-dim">SOL</em></li>}</ul>
           <details className="hrt-fold" data-testid="hrt-fold-cfg"><summary><b>⚙ Config</b><span>{Math.round((cf?.rotateHours || 0) * 60)}m rounds · instant swap {cf?.instantSwapPct ? `−${cf.instantSwapPct}%` : 'off'} · card floor −{cf?.floorPct}% · rest {cf?.floorRestMins ? `${cf.floorRestMins}m` : 'off'} · rescue {cf?.rescuePct ? `−${cf.rescuePct}%` : 'off'}</span></summary>
           <div className="hrt-cfg" data-testid="hrt-cfg">{[[`⏱ ${Math.round((cf?.rotateHours || 0) * 60)}m rounds`, 'Round clock'], [`⏳ swap after ${cf?.rotateConfirm || 1} losing rounds · −${cf?.rotateMinDrop || 0}%`, 'A coin is swapped only after this many losing rounds in a row, and only this far down'],
@@ -395,23 +395,34 @@ export function HqRealCards({ addr, onCount }) {
 }
 
 
-// 🎯 Pick the coin that comes in at the next round: the same live lists as the Lab (the Gauntlet's divisions), live prices, one tap.
-export function SwapPicker({ out, have = [], busy, onPick, onClose }) {
-  const [d, setD] = useState(null); const [tab, setTab] = useState('');
-  useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/fuses/contenders')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
-    load(); const t = setInterval(() => !document.hidden && load(), 30000); return () => { alive = false; clearInterval(t); }; }, []);
-  const divs = (d?.divisions || []).filter(x => x.rows.length); const cur = divs.find(x => x.key === tab) || divs[0];
-  const live = useLivePrices((cur?.rows || []).map(r => r.pairAddress));
-  const fmt = v => (!v ? '—' : v >= 1 ? `$${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : `$${Number(v).toPrecision(3)}`);
+// 🎯 Pick the coin that comes in at the next round: the SAME lenses as the Fuse Lab (Popular · Majors · New majors · Top yield ·
+// Deepest · Runners · New 72h · Dip · Dex paid) + search any coin / CA. Live prices, one tap; the server re-checks the pool live.
+export const PICK_LENSES = [['popular', '🔥 Popular'], ['majors', '🪙 Majors'], ['risers', '🚀 New majors'], ['yield', 'Top yield'], ['deep', 'Deepest'],
+  ['runners', '🏃 Runners'], ['new', 'New 72h'], ['dip', '📉 Dip'], ['paid', '💳 Dex paid']];
+const GAUNTLET = { runners: ['fresh', 'proven'], dip: ['dip'], paid: ['paid'] };
+export const pickRow = r => ({ mint: r.mint || r.baseAddress, pairAddress: r.pairAddress, symbol: r.symbol, price: r.price ?? r.priceUsd, liq: r.liq ?? r.liquidityUsd,
+  chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, score: r.score, impostor: r.impostor, real: r.real });
+export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0 }) {
+  const [lens, setLens] = useState('popular'); const [rows, setRows] = useState(null); const [q, setQ] = useState('');
+  useEffect(() => { let alive = true; setRows(null);
+    const s = q.trim();
+    const url = s.length >= 2 ? `/api/reputation/fuses/search?q=${encodeURIComponent(s)}` : GAUNTLET[lens] ? '/api/reputation/fuses/contenders' : `/api/reputation/fuses/discover?lens=${lens}&chain=solana`;
+    const t = setTimeout(() => fetch(apiUrl(url)).then(r => (r.ok ? r.json() : null)).then(x => { if (!alive || !x) return;
+      const raw = x.pools || (x.divisions || []).filter(dv => (GAUNTLET[lens] || []).includes(dv.key)).flatMap(dv => dv.rows);
+      const seen = new Set(); setRows(raw.map(pickRow).filter(r => r.mint && r.pairAddress && !seen.has(r.mint) && seen.add(r.mint)).slice(0, 30)); }).catch(() => alive && setRows([])), s.length >= 2 ? 300 : 0);
+    return () => { alive = false; clearTimeout(t); }; }, [lens, q]);
+  const live = useLivePrices((rows || []).map(r => r.pairAddress));
+  const fmt = v => (!v ? '—' : v >= 1 ? `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : `$${Number(v).toPrecision(3)}`);
   const big = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(0)}K` : `$${Math.round(v || 0)}`);
-  return <div className="sp" data-testid="swap-picker"><header><span className="m-label">🎯 SWAP ${out.symbol} FOR… <small>goes in at the next round · live prices</small></span>
-    <span className="m-row">{out.swapTo && <button type="button" className="m-btn" disabled={busy} onClick={() => onPick(null)} data-testid="sp-cancel">✕ Cancel → ${out.swapTo}</button>}<button type="button" className="m-btn" onClick={onClose} aria-label="Close picker">Close</button></span></header>
-    {!d ? <span className="loader" /> : !cur ? <small className="m-dim">The lists are warming up — try again in a few seconds.</small> : <>
-      <div className="m-seg" role="tablist">{divs.map(x => <button key={x.key} type="button" role="tab" aria-selected={x.key === cur.key} className={x.key === cur.key ? 'active' : ''} data-tip={x.rule} onClick={() => setTab(x.key)}>{x.label}</button>)}</div>
-      <ul>{cur.rows.map(r => { const lp = live.get?.(r.pairAddress); const on = have.includes(r.mint); const chg = lp ? lp.h1 : (r.chg1h || r.chg24h);
-        return <li key={r.mint}><b>${r.symbol}</b><span className="m-num fl-tick" key={fmt(lp?.price || r.price)}>{fmt(lp?.price || r.price)}</span>
-          <em className={`m-num ${chg >= 0 ? 'm-pos' : 'm-neg'}`}>{chg >= 0 ? '+' : ''}{(chg || 0).toFixed(1)}%</em><small className="m-num">pool {r.liq > 0 ? big(r.liq) : 'curve'}</small><small className="m-num">score {r.score.toFixed(0)}</small>
-          <button type="button" className="m-btn primary" disabled={busy || on} onClick={() => onPick(r)} data-testid={`sp-pick-${r.symbol}`}>{on ? 'on card' : 'Swap in'}</button></li>; })}</ul></>}
+  return <div className="sp" data-testid="swap-picker"><header><span className="m-label">🎯 SWAP ${out.symbol} FOR… <small>goes in at the next round · its money moves over · live prices</small></span>
+    <span className="m-row">{out.swapTo && <button type="button" className="m-btn" disabled={busy} onClick={() => onPick(null)} data-testid="sp-cancel">✕ Cancel → ${out.swapTo.symbol || out.swapTo}</button>}<button type="button" className="m-btn" onClick={onClose} aria-label="Close picker">Close</button></span></header>
+    <div className="m-seg sp-lens" role="tablist" aria-label="Lists">{PICK_LENSES.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={!q.trim() && lens === k} className={!q.trim() && lens === k ? 'active' : ''} onClick={() => { setLens(k); setQ(''); }} data-testid={`sp-lens-${k}`}>{l}</button>)}</div>
+    <input className="m-input sp-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Search any coin — SOL, BTC, ETH, $TICKER, CA" aria-label="Search any coin" data-testid="sp-search" />
+    {!rows ? <span className="loader" /> : !rows.length ? <small className="m-dim">Nothing live here right now — try another list or search.</small> :
+    <ul>{rows.map(r => { const lp = live.get?.(r.pairAddress); const on = have.includes(r.mint); const thin = minLiq > 0 && (r.liq || 0) < minLiq; const chg = lp ? lp.h1 : r.chg;
+      return <li key={r.mint} className={r.impostor ? 'is-fake' : ''}><b>${r.symbol}{r.real ? ' ✓' : ''}</b><span className="m-num fl-tick" key={fmt(lp?.price || r.price)}>{fmt(lp?.price || r.price)}</span>
+        <em className={`m-num ${(chg || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{chg == null ? '—' : `${chg >= 0 ? '+' : ''}${Number(chg).toFixed(1)}%`}</em><small className="m-num">pool {r.liq > 0 ? big(r.liq) : 'curve'}</small><small className="m-num">{r.score != null ? `score ${Number(r.score).toFixed(0)}` : r.impostor ? '⚠ lookalike' : ''}</small>
+        <button type="button" className="m-btn primary" disabled={busy || on || thin || r.impostor} onClick={() => onPick(r)} data-tip={thin ? `Pool under the $${Math.round(minLiq / 1000)}K real-buy floor` : undefined} data-testid={`sp-pick-${r.symbol}`}>{on ? 'on card' : thin ? 'too thin' : r.impostor ? 'lookalike' : 'Swap in'}</button></li>; })}</ul>}
   </div>;
 }
 
