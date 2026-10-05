@@ -23,7 +23,7 @@ DIVISIONS = {
 }
 # 👀 a list never sits empty: when nothing qualifies, its closest live coins show as WATCH (never seated next up)
 WATCH_N = 3
-WATCH_DIVS = ('fresh', 'proven', 'dip', 'paid', 'volume')
+WATCH_DIVS = ('fresh', 'proven', 'dip', 'paid', 'volume', 'trench')
 STABLES = {'USDC', 'USDT', 'USDS', 'PYUSD', 'USD1', 'DAI', 'USDE', 'FDUSD'}
 TOP_N = 6
 PROVEN_H = 12.0
@@ -51,7 +51,8 @@ def norm(row):
     bs = _f(row.get('buyShare')); bs = bs * 100 if 0 < bs <= 1 else bs
     return {'mint': row.get('baseAddress') or row.get('mint'), 'pairAddress': row.get('pairAddress'), 'symbol': row.get('symbol'), 'logo': row.get('logo'),
             'price': _f(row.get('priceUsd', row.get('price'))), 'liq': _f(liq), 'vol24h': _f(row.get('volume24h')), 'vol1h': _f(row.get('vol1h')),
-            'chg24h': _f(row.get('change24h', row.get('chg24h'))), 'chg1h': _f(row.get('chg1h', row.get('change1h'))), 'buyShare': bs, 'apr': _f(row.get('aprEst')),
+            'chg24h': _f(row.get('change24h', row.get('chg24h'))), 'chg1h': _f(row.get('chg1h', row.get('change1h'))),
+            'chg5m': None if row.get('chg5m', row.get('change5m')) is None else _f(row.get('chg5m', row.get('change5m'))), 'buyShare': bs, 'apr': _f(row.get('aprEst')),
             'ageH': row.get('ageH'), 'runnerScore': _f(row.get('score')), 'mcap': _f(row.get('mcap')),
             'paid': bool(row.get('paid')), 'boosts': int(_f(row.get('boosts'))),
             **({'trenchOnly': True, 'trenchScore': _f(row.get('trenchScore')), 'holders': row.get('holders')} if row.get('trenchOnly') else {})}
@@ -145,6 +146,8 @@ def near(r, div):
         return r['liq'] >= 50_000 and r['chg24h'] < 0
     if div == 'paid':
         return r['paid'] and r['liq'] >= 25_000
+    if div == 'trench':   # the closest fresh launches (they did NOT pass the trench gate — shown to watch, never seated or picked)
+        return r.get('ageH') is not None and _f(r['ageH']) <= 24 and r['vol1h'] > 0
     return False
 
 
@@ -164,7 +167,7 @@ def league(sources, on_card=(), prev=None, top_n=TOP_N):
         rows.sort(key=lambda x: -x['score'])
         rows = rows[:top_n]
         if not rows and key in WATCH_DIVS:   # 👀 nothing qualifies right now → the closest live coins, labelled, never seated
-            for raw in sources.get(key) or []:
+            for raw in sources.get(key) or sources.get(key + '_watch') or []:   # e.g. 'trench_watch' = the scan's closest misses
                 r = norm(raw)
                 if near(r, key) and not any(x['mint'] == r['mint'] for x in rows):
                     sc, parts = score(r, key)

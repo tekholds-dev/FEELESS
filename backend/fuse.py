@@ -70,7 +70,7 @@ def leg_meta(pair):
             'priceUsd': _f(pair.get('priceUsd')), 'liquidityUsd': liq, 'volume24h': vol, 'change24h': _f((pair.get('priceChange') or {}).get('h24')),
             'aprEst': round(vol * DEX_FEE_EST / liq * 365 * 100, 1) if liq > 0 else 0.0, 'turnover': round(vol / liq, 2) if liq > 0 else 0.0,
             'buyShare': round(buys / (buys + sells) * 100) if buys + sells else None, 'dex': pair.get('dexId'), 'url': pair.get('url'),
-            'change1h': _f((pair.get('priceChange') or {}).get('h1')), 'change6h': _f((pair.get('priceChange') or {}).get('h6')),
+            'change1h': _f((pair.get('priceChange') or {}).get('h1')), 'change5m': None if (pair.get('priceChange') or {}).get('m5') is None else _f((pair.get('priceChange') or {}).get('m5')), 'change6h': _f((pair.get('priceChange') or {}).get('h6')),
             'paid': dex_paid(pair), 'boosts': int(_f((pair.get('boosts') or {}).get('active'))),
             **dict(zip(('replayPct', 'replayH'), replay_window(pair)))}
 

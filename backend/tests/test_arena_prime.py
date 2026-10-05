@@ -17,7 +17,7 @@ C = lambda m, px, sym=None, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': s
 P = lambda m, px: C(m, px, liquidityUsd=2e6, volume24h=2e6)             # 5★ pool
 R = lambda m, px, sc=90: C(m, px, score=sc)                                 # 5★ runner by default
 SOL = [C('sol', 1, 'SOL'), C('jito', 1, 'JitoSOL')]
-CFG = ap.clean_cfg({'floorPct': 20, 'rotateMinDrop': 0, 'cycleEvery': 1, 'rotateConfirm': 1, 'minHoldMins': 0, 'cycles': {'safe': 'off', 'balanced': 'off', 'degen': 'classic', 'next': 'classic', 'ever': 'off'},   # the original tier behaviour
+CFG = ap.clean_cfg({'lockBankPct': 0, 'floorPct': 20, 'rotateMinDrop': 0, 'cycleEvery': 1, 'rotateConfirm': 1, 'minHoldMins': 0, 'cycles': {'safe': 'off', 'balanced': 'off', 'degen': 'classic', 'next': 'classic', 'ever': 'off'},   # the original tier behaviour
                     'payouts': {'safe': 0, 'balanced': 0, 'degen': 0, 'next': 0, 'ever': 0}, 'compoundStyle': 'even'})
 
 
@@ -351,7 +351,7 @@ def test_redeals_never_rebuy_with_paid_out_or_parked_money():
 
 
 def test_runner_rides_from_150_and_sells_only_30_off_its_new_high():
-    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'cycles': {'degen': 'off'}})
+    cfg = ap.clean_cfg({'lockBankPct': 0, 'compound': False, 'trail': False, 'cycles': {'degen': 'off'}})
     leg = {'mint': 'R', 'pairAddress': 'PR', 'symbol': 'R', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0, 'liq': 1e12}
     card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
             'events': [], 'startUsd': 10.0, 'legs': [leg]}
@@ -573,7 +573,7 @@ def test_one_tap_redeal_keeps_the_money():
 
 
 def test_freeze_at_x_and_swap_y_from_peak_are_configurable():
-    cfg = ap.clean_cfg({'compound': False, 'trail': False, 'rotateHours': 99, 'rideAt': 25, 'rideTrail': 10, 'cycles': {'degen': 'off'}})
+    cfg = ap.clean_cfg({'lockBankPct': 0, 'compound': False, 'trail': False, 'rotateHours': 99, 'rideAt': 25, 'rideTrail': 10, 'cycles': {'degen': 'off'}})
     assert cfg['rideAt'] == 25 and cfg['rideTrail'] == 10 and ap.clean_cfg({'rideAt': 7})['rideAt'] == ap.RIDE_AT
     r = {'mint': 'R', 'pairAddress': 'PR', 'symbol': 'R', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0}
     card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
@@ -923,7 +923,8 @@ def test_the_owner_picks_the_coin_that_comes_in_at_the_next_round():
     n = ap.apply_queued(q, {'Pa': 1.2, 'Pn': 2.0}, {}, 99.0)
     leg = q['legs'][0]
     assert n == 1 and leg['mint'] == 'n' and leg['picked'] and leg['division'] == 'yield' and leg['role'] == 'runner'
-    assert abs(leg['units'] * leg['entry'] - 12.0) < 0.01                                          # the old coin's money ($12) moved into the pick
+    # ⚖ the old coin was worth $12 of a $17 card (2 coins → an equal share is $8.50): the pick gets $8.50, the spare $3.50 waits in cash
+    assert abs(leg['units'] * leg['entry'] - 8.5) < 0.01 and abs(q['cash'] - 3.5) < 0.01
     assert q['events'][-1]['to'] == ['NEW'] and q['legs'][1]['mint'] == 'b'
     # 🗑 a picked TRENCH coin keeps its trench flag through the queue, so the keeper buys it at the trench pool floor
     t = ap.queue_swap(card, 'Pb', {**pick, 'mint': 't', 'pairAddress': 'Pt', 'trenchOnly': True})
@@ -1208,3 +1209,45 @@ def test_idle_cash_never_piles_into_one_coin_and_the_stack_reads_in_one_line():
     st = ap.stack(card, {'PUP': 1.08, 'PFLAT': 1.0}, {'keepWinPct': 5.0})
     assert st == {'seats': 4, 'locked': 2, 'winning': 1, 'proving': 1, 'full': False}
     assert ap.stack({'legs': [leg('W', 1, ride=True), leg('F', 1, frozen=True)]}, {}, {})['full'] and not ap.stack({'legs': []}, {}, {})['full']
+
+
+def test_a_winner_banks_part_as_it_locks_and_is_not_bought_straight_back():
+    import arena_prime as ap
+    now = 1_000_000.0
+    assert ap.clean_cfg({})['lockBankPct'] == 33.0 and ap.clean_cfg({'lockBankPct': 40})['lockBankPct'] == 33.0 and ap.clean_cfg({'lockBankPct': 0})['lockBankPct'] == 0.0
+    cfg = ap.clean_cfg({'rotateHours': 99, 'rideAt': 20, 'rideTrail': 10, 'compound': True, 'cycles': {'degen': 'off'}, 'rescuePct': 0})
+    leg = lambda m, role, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': role, 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0, 'at': now - 9999, 'liq': 1e12, **k}
+    card = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 0.0, 'startUsd': 3.0, 'roundStartUsd': 3.0, 'compoundedUsd': 0.0,
+            'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 1, 'legs': [leg('WIN', 'runner'), leg('B', 'runner'), leg('C', 'pool')]}
+    c = ap.tick(card, {'PWIN': 1.3, 'PB': 1.0, 'PC': 1.0}, [], [], cfg, now + 30, [], {}, {'PWIN': 1e12, 'PB': 1e12, 'PC': 1e12})
+    win = next(l for l in c['legs'] if l['mint'] == 'WIN')
+    assert win['ride'] and abs(win['units'] - 0.67) < 1e-6 and abs(win['costUsd'] - 0.67) < 1e-6 and win['trimAt'] == now + 30   # 33% sold at the lock
+    kinds = [e['kind'] for e in c['events']]
+    assert kinds.index('ride') < kinds.index('lock-bank') and '33%' in next(e['why'] for e in c['events'] if e['kind'] == 'lock-bank')
+    others = [l for l in c['legs'] if l['mint'] != 'WIN']
+    assert all(l['units'] > 1.0 for l in others) and abs(sum(l['units'] for l in others) - (2.0 + 0.33 * 1.3)) < 0.01     # the banked $ went to the OTHER coins
+    assert c['takenUsd'] > 0.09                                                          # the gain on the part sold is booked as taken
+
+
+def test_the_keeper_sells_an_engine_trim_even_inside_the_rebalance_band():
+    import fuse_wallet as fw
+    cfg = {**fw.DEFAULT_CFG, 'walletId': 'w', 'address': 'O', 'armed': True, 'minOrderUsd': 0.1}
+    book = {'sol': 0.0, 'legs': {'W': {'atoms': 1_000_000, 'decimals': 6, 'pair': 'PW', 'symbol': 'WIN', 'costUsd': 1.0, 'entryPx': 1.0}}}
+    leg = {'mint': 'W', 'pairAddress': 'PW', 'symbol': 'WIN', 'units': 0.67, 'entry': 1.0}
+    plain = fw.orders('t', {'legs': [leg]}, book, {'PW': 1.3}, 100.0, cfg, 1000)
+    assert not [o for o in plain if o['side'] == 'sell']                                 # 33% over target is inside the 50% band → left alone
+    banked = fw.orders('t', {'legs': [{**leg, 'trimAt': 900}]}, book, {'PW': 1.3}, 100.0, cfg, 1000)
+    sells = [o for o in banked if o['side'] == 'sell']
+    assert len(sells) == 1 and abs(sells[0]['atoms'] - 330000) <= 1 and sells[0]['why'] == 'trimmed to the card'
+    assert not [o for o in fw.orders('t', {'legs': [{**leg, 'trimAt': 100}]}, book, {'PW': 1.3}, 100.0, cfg, 1000) if o['side'] == 'sell']   # only for 10 min
+
+
+def test_no_list_sits_empty_trench_shows_its_closest_misses_as_watch_only():
+    import contenders as ct
+    miss = {'mint': 'T1', 'pairAddress': 'PT1', 'symbol': 'ALMOST', 'price': 0.001, 'liq': 30000, 'vol1h': 40000, 'ageH': 3, 'buyShare': 58, 'chg1h': 12, 'chg5m': 4}
+    lg = ct.league({'trench': [], 'trench_watch': [miss, {**miss, 'mint': 'OLD', 'pairAddress': 'PO', 'ageH': 90}]})
+    tr = next(d for d in lg['divisions'] if d['key'] == 'trench')
+    assert [r['symbol'] for r in tr['rows']] == ['ALMOST'] and tr['rows'][0]['watch'] and tr['rows'][0]['chg5m'] == 4.0   # shown, with its 5-minute move
+    assert not tr.get('nextUp') and 'T1' not in lg['nextUp']                             # a watch coin is never seated
+    ok = ct.league({'trench': [{**miss, 'trenchOnly': True, 'trenchScore': 70}], 'trench_watch': [miss]})
+    assert not next(d for d in ok['divisions'] if d['key'] == 'trench')['rows'][0].get('watch')   # a passing coin replaces the watch rows

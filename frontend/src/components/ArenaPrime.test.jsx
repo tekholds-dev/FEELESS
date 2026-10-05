@@ -183,3 +183,12 @@ test('real card face shows the same all-time number as the header: price result,
   const paper = primeRow({ id: 'p', label: 'P', valueUsd: 110, startUsd: 100, legs: [] });
   expect(paper.pnlUsd).toBeCloseTo(10, 6); expect(paper.pnlPct).toBeCloseTo(10, 6);
 });
+
+test('swap picker rows carry the 5-minute and 1-hour move, and falling coins are flagged like the engine flags them', () => {
+  const { pickRow, isFalling } = require('./ArenaPrime');
+  expect(pickRow({ mint: 'm', pairAddress: 'p', symbol: 'X', chg5m: -4.2, chg1h: 6 })).toMatchObject({ chg5m: -4.2, chg1h: 6 });
+  expect(pickRow({ baseAddress: 'm', pairAddress: 'p', symbol: 'X', change5m: 1.5, change1h: -2 })).toMatchObject({ chg5m: 1.5, chg1h: -2 });
+  expect(pickRow({ mint: 'm', pairAddress: 'p' }).chg5m).toBeNull();
+  expect(isFalling(-3, 10)).toBe(true); expect(isFalling(1, -8)).toBe(true);
+  expect(isFalling(-2.9, -7.9)).toBe(false); expect(isFalling(null, null)).toBe(false);
+});

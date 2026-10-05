@@ -203,6 +203,7 @@ const EDIT = [
   ['rescuePct', '🛟 Rescue at', [[0, 'off'], [30, '−30%'], [40, '−40%'], [50, '−50%'], [60, '−60%']], 'On: card this far under its start → safest coins, and a −40% day re-deals into majors. Off: NO fix of any kind — your coins and config stay, only your floor protects the card'],
   ['floorPct', '🧱 Card floor', [[15, '−15%'], [25, '−25%'], [40, '−40%'], [60, '−60%']], 'The WHOLE card this far under its run start → every coin is sold into the anchors, then fresh coins are dealt. This is the card, not one coin: per-coin exits are ⚡ Instant swap above. A tight floor on a small card trips on one bad coin.'],
   ['floorRestMins', '🛌 Rest after floor', [[0, 'off'], [15, '15m'], [30, '30m'], [60, '1h']], 'Off = fresh coins are dealt right after a floor. On = the card sits in its anchors this long first (no swaps while it rests).'],
+  ['lockBankPct', '🏦 Bank at the lock', [[0, 'off'], [25, '25%'], [33, '33%'], [50, '50%']], 'When a coin hits your ❄ freeze level it locks and rides. This sells part of it right then and spreads that money over your other coins — so a winner that comes all the way back still paid. The rest keeps riding until it falls off its peak.'],
   ['swapEdge', '⚖ Stay or swap', [[true, 'on'], [false, 'off']], 'On: at the bell a losing coin is swapped only when the next coin is beating SOL over the last hour AND beats this coin by more than the swap costs (fees + spread + impact, +1%). Otherwise it stays — its stop still protects it. Off: every patient loser is swapped.'],
   ['swapCapHr', '🤖 Swaps an hour', [[0, 'auto'], [2, '2'], [4, '4'], [6, '6'], [8, '8'], [12, '12'], [-1, 'no cap']], 'How many engine rotations (round swaps + trench fills) this card may make in an hour. Auto = tuned from what one swap costs on a card this size, so churn stays under 2% of the card an hour. Stops, instant swaps, rides and your own picks are never capped.'],
   ['autoBrain', '🧠 Auto-tune', [[true, 'on'], [false, 'off']], 'Let the sim brain adjust patience / drop (never below 3 on 5m rounds)'],
@@ -332,7 +333,7 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
         {churn && <p className="m-note ce-warn" data-testid="churn-warn">⚠ Round rotation is aggressive at {Math.round((cfg?.rotateHours || 0) * 60)}m with patience {cfg?.rotateConfirm || 1}. The ⚡ instant swap (Exits) is separate and fires immediately at its loss.
           <button type="button" className="m-btn" disabled={busy} onClick={() => save({ rotateConfirm: 3 })}>Use 3</button></p>}</>}
       {grp === 'exits' && <><StrategyPicks hours={cfg?.rotateHours || 1} current={cfg} busy={busy} onApply={s => saveExit(stratPatch(s.cfg))} testid={`strats-${c.tpl}`} />
-        {rows(['rideAt', 'rideTrail', 'tp', 'sl', 'instantSwapPct', 'slMode', 'keepWinPct'])}</>}
+        {rows(['rideAt', 'rideTrail', 'lockBankPct', 'tp', 'sl', 'instantSwapPct', 'slMode', 'keepWinPct'])}</>}
       {grp === 'shape' && <>{rows(['coins', 'cycleEvery', 'trenchCoins'])}
         {(cfg?.cycles || {})[c.tpl] === 'trench' && <TrenchScan call={call} />}
         <div className="ce-row"><span><b>🔄 Cycle</b><small>The shapes this card moves through (anchor · mixed · degen · safest …)</small></span><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
@@ -488,8 +489,9 @@ export function HqRealCards({ addr, onCount }) {
 export const PICK_LENSES = [['popular', '🔥 Popular'], ['majors', '🪙 Majors'], ['risers', '🚀 New majors'], ['yield', 'Top yield'], ['deep', 'Deepest'],
   ['runners', '🏃 Runners'], ['volume', '🌊 Volume'], ['trench', '🗑 Trench'], ['new', 'New 72h'], ['dip', '📉 Dip'], ['paid', '💳 Dex paid']];
 const GAUNTLET = { runners: ['fresh', 'proven'], volume: ['volume'], dip: ['dip'], paid: ['paid'] };
+export const isFalling = (m5, h1) => (m5 != null && Number(m5) <= -3) || (h1 != null && Number(h1) <= -8);   // = arena_prime.entry_ok
 export const pickRow = r => ({ mint: r.mint || r.baseAddress, pairAddress: r.pairAddress, symbol: r.symbol, price: r.price ?? r.priceUsd, liq: r.liq ?? r.liquidityUsd,
-  chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, score: r.score, impostor: r.impostor, real: r.real, trench: r.trench, holders: r.holders });
+  chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, chg1h: r.chg1h ?? r.change1h ?? null, chg5m: r.chg5m ?? r.change5m ?? null, score: r.score, impostor: r.impostor, real: r.real, trench: r.trench, holders: r.holders });
 export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0 }) {
   const [lens, setLens] = useState('popular'); const [rows, setRows] = useState(null); const [q, setQ] = useState('');
   const [tr, setTr] = useState(null);   // 🗑 trench scan: own pool floor + how many were checked
@@ -511,9 +513,12 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0 }
     <input className="m-input sp-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Search any coin — SOL, BTC, ETH, $TICKER, CA" aria-label="Search any coin" data-testid="sp-search" />
     {lens === 'trench' && !q.trim() && tr && <small className="m-dim sp-tnote" data-testid="sp-trench-note">🗑 Fresh breakouts that passed the strictest gate ({tr.checked} checked · own pool floor {big(tr.floor)}). High risk — keep it to 1–2 coins.{tr.level ? ` 🔧 Nothing passed the strict checks, so crowd / trade / volume checks were widened ×${tr.level} — safety checks never move.` : ''} {tr.rules}</small>}
     {!rows ? <span className="loader" /> : !rows.length ? <small className="m-dim">{lens === 'trench' && !q.trim() ? 'No trench coin passes every check right now — the scan re-runs every ~2 min.' : (why || 'Nothing live here right now — try another list or search.')}</small> :
-    <ul>{rows.map(r => { const lp = live.get?.(r.pairAddress); const on = have.includes(r.mint); const fl = r.trench ? (tr?.floor || 0) : minLiq; const thin = minLiq > 0 && (r.liq || 0) < fl; const chg = lp ? lp.h1 : r.chg;
+    <ul>{rows.map(r => { const lp = live.get?.(r.pairAddress); const on = have.includes(r.mint); const fl = r.trench ? (tr?.floor || 0) : minLiq; const thin = minLiq > 0 && (r.liq || 0) < fl; const chg = lp?.h1 ?? r.chg1h ?? r.chg;
+      const m5 = lp?.m5 ?? r.chg5m; const falling = isFalling(m5, lp?.h1 ?? r.chg1h);   // same rule the engine uses before a real buy
       return <li key={r.mint} className={r.impostor ? 'is-fake' : ''}><b>${r.symbol}{r.real ? ' ✓' : ''}</b><span className="m-num fl-tick" key={fmt(lp?.price || r.price)}>{fmt(lp?.price || r.price)}</span>
-        <em className={`m-num ${(chg || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{chg == null ? '—' : `${chg >= 0 ? '+' : ''}${Number(chg).toFixed(1)}%`}</em><small className="m-num">pool {r.liq > 0 ? big(r.liq) : 'curve'}</small><small className="m-num">{r.trench && r.holders ? `${r.holders} holders · ` : ''}{r.score != null ? `score ${Number(r.score).toFixed(0)}` : ''}</small>
+        <em className={`m-num sp-m5 ${(m5 || 0) >= 0 ? 'm-pos' : 'm-neg'}`} data-tip="Move over the last 5 minutes" data-testid={`sp-m5-${r.symbol}`}><i>5m</i> {m5 == null ? '—' : `${m5 >= 0 ? '+' : ''}${Number(m5).toFixed(1)}%`}</em>
+        <em className={`m-num ${(chg || 0) >= 0 ? 'm-pos' : 'm-neg'}`} data-tip="Move over the last hour"><i>1h</i> {chg == null ? '—' : `${chg >= 0 ? '+' : ''}${Number(chg).toFixed(1)}%`}</em>
+        {falling && <small className="sp-fall" data-testid={`sp-fall-${r.symbol}`} data-tip="Falling right now (−3% or more in 5 minutes, or −8% or more in the hour). The engine would not buy this with real money; you still can — it is your pick.">⚠ falling</small>}<small className="m-num">pool {r.liq > 0 ? big(r.liq) : 'curve'}</small><small className="m-num">{r.trench && r.holders ? `${r.holders} holders · ` : ''}{r.score != null ? `score ${Number(r.score).toFixed(0)}` : ''}</small>
         <button type="button" className="m-btn primary" disabled={busy || on || thin || r.impostor} onClick={() => onPick(r)} data-tip={thin ? `Pool under the $${Math.round(fl / 1000)}K real-buy floor` : undefined} data-testid={`sp-pick-${r.symbol}`}>{on ? 'on card' : thin ? 'too thin' : r.impostor ? 'lookalike' : 'Swap in'}</button></li>; })}</ul>}
   </div>;
 }

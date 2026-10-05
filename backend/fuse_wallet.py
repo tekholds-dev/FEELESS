@@ -75,6 +75,7 @@ def target(card, prices):
     for l in card.get('legs') or []:
         px = _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
         t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role'), 'arena': bool(l.get('arena')), 'trench': bool(l.get('trench')), 'picked': bool(l.get('picked')),
+                                       'trim': bool(l.get('trimAt')) and _f(l.get('trimAt')) > 0, 'trimAt': _f(l.get('trimAt')),
                                        'manualCash': bool(l.get('manualCash'))})
         t['units'] += _f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)   # a coin whose buy hasn't landed is still WANTED
     return out
@@ -120,7 +121,10 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
         # ♻ a RECOVERY sell (dead / off-card coin) puts its SOL back to work in the card; only the owner's own ✂ cash is held apart
         recovered = bool(l.get('recovered'))
         manual_cash = bool((l.get('manualCash') and not recovered) or (tgt.get(mint) or {}).get('manualCash'))
-        if not full and excess * px < want * px * REBAL_BAND:   # 🔁 a coin that STAYS is only trimmed when it's far over target (no churn)
+        # 🔁 a coin that STAYS is only trimmed when it's far over target (no churn) — unless the ENGINE cut it on purpose
+        # (🏦 banking part of a winner as it locks: `trimAt` on the leg, for 10 minutes)
+        banked = bool((tgt.get(mint) or {}).get('trim')) and now - _f((tgt.get(mint) or {}).get('trimAt')) < 600
+        if not full and not banked and excess * px < want * px * REBAL_BAND:
             continue
         # Explicit recovery may clean out a confirmed balance after a dead pool pushes it below the normal dust floor.
         # Jupiter, slippage and impact checks still fail closed; this only ensures the recovery sell is attempted.

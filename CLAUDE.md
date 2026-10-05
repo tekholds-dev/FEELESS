@@ -1101,3 +1101,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🔒 Stack & lock, in one line (`arena_prime.stack` → `summary.stack` → `hrt-stack` on the real card): 🔒 locked = frozen / riding
   winners (sold only off their peak) · ✅ winning = ≥ `keepWinPct` (a re-shape won't sell it) · ⏳ proving · FULL STACK = every coin
   locked. Simple on screen; the engine rules behind it (freeze, trail, half-freeze exit, stops) are unchanged.
+- 🏦 BANK AT THE LOCK (`lockBankPct` 0/25/33/50, default 33, Edit Fuse › Exits): the tick a coin locks (❄ ride starts) that % is sold
+  (event `lock-bank`), the money goes to card cash → `spread_cash` over the OTHER coins (a riding / frozen coin is never topped up).
+  The leg gets `trimAt`; `fuse_wallet.orders` sells an engine trim even inside `REBAL_BAND` for 10 min (33% is under the 50% band —
+  without the flag the real card would never have sold it). Old tests pin `lockBankPct: 0`.
+- ⚖ A PICK GETS AT MOST AN EQUAL SHARE (`apply_queued`): the spare from an oversized seat goes to card cash and is spread.
+- 👀 NO EMPTY LIST: `contenders.WATCH_DIVS` + `trench`; `sources['<div>_watch']` feeds the fallback (`trench_watch` = the scan's closest
+  misses, else the busiest fresh launches ≤ 24h). Watch rows are never seated, never pickable. Rows carry `chg5m`.
+- Swap picker rows show 5m AND 1h (live `lp.m5` / `lp.h1`, else the row's) + `⚠ falling` via `isFalling` (= `arena_prime.entry_ok`:
+  5m ≤ −3% or 1h ≤ −8%). The owner can still pick it — the flag informs, it does not block.

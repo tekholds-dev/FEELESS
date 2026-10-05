@@ -359,6 +359,7 @@ def clean_cfg(p):
     out['minHoldMins'] = max(0.0, min(240.0, _f((p or {}).get('minHoldMins', MIN_HOLD_MINS))))
     ck = (p or {}).get('clocks') if isinstance((p or {}).get('clocks'), dict) else {}
     out['clocks'] = {t: (round(min(48.0, max(0.08, _f(ck[t]))), 2) if _f(ck.get(t)) > 0 else DEFAULT_CLOCKS[t]) for t in DEFAULT_CLOCKS}
+    out['lockBankPct'] = float(_f((p or {}).get('lockBankPct'))) if (p or {}).get('lockBankPct') is not None and _f((p or {}).get('lockBankPct')) in LOCK_BANKS else LOCK_BANK
     out['swapEdge'] = bool((p or {}).get('swapEdge', True))   # ⚖ rotate only when the next coin beats this one by more than the swap costs
     out['swapCapHr'] = int(_f((p or {}).get('swapCapHr'))) if int(_f((p or {}).get('swapCapHr'))) in SWAP_CAPS else 0   # 🤖 0 = auto
     out['coins'] = int(_f((p or {}).get('coins'))) if int(_f((p or {}).get('coins'))) in COIN_COUNTS else 0   # 🪙 0 = auto (size-aware), else the OWNER's count
@@ -497,6 +498,8 @@ def sell_usd(units, px, liq):
     v = _f(units) * _f(px)
     return v / (1 + SPREAD) / (1 + v / _r(liq))
 
+
+LOCK_BANKS, LOCK_BANK = (0, 25, 33, 50), 33.0   # 🏦 % of a winner sold the moment it locks (0 = off)
 
 # ⚖ SWAP ONLY WHEN IT PAYS. A rotation sells one coin and buys another: it costs the spread + price impact twice + two network fees.
 SWAP_EDGE_MARGIN = 1.0     # the next coin must beat the old one by the swap's cost PLUS this many % (1h move)
@@ -896,6 +899,14 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         elif _f(cfg.get('rideAt', RIDE_AT)) > 0 and g >= ra and l.get('role') != 'anchor' and _f(l.get('units')) > 0:   # never 'ride' a coin you don't hold
             l.update(ride=True, high=px, rideFrom=l['entry'], rideAt=now)
             ev(kind='ride', symbol=l['symbol'], usd=round(l['units'] * px, 4), why=f"+{g:.0f}% ≥ +{ra:g}% — ❄ frozen (riding) until it falls {rt:g}% from its peak, then swapped", to=[l['symbol']])
+            bank = _f(cfg.get('lockBankPct', LOCK_BANK)) / 100
+            if bank > 0:   # 🏦 BANK ON THE LOCK: part of the winner is sold the moment it locks, so a round-tripped run still paid
+                sold = _f(l['units']) * bank
+                got = sell_usd(sold, px, liqs.get(l['pairAddress']) or l.get('liq'))
+                cost_part = _f(l.get('costUsd')) * bank
+                l['units'] = _f(l['units']) - sold; l['costUsd'] = round(_f(l.get('costUsd')) - cost_part, 6); l['trimAt'] = now
+                c['cash'] = _f(c['cash']) + got; c['takenUsd'] += max(0.0, got - cost_part); c['feesUsd'] += fee
+                ev(kind='lock-bank', symbol=l['symbol'], usd=round(got, 4), why=f"🏦 banked {bank * 100:g}% of ${l['symbol']} as it locked (+{g:.0f}%) — the rest keeps riding", to=['cash'])
             continue
         elif g >= leg_tp(l, t):
             mode, frac, why = exit_plan(g, mom.get(l['pairAddress']))
@@ -1135,7 +1146,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     free_cash = max(0.0, _f(c['cash']) - reserved_cash)
     if cfg['compound'] and free_cash > 0.01 and c['legs']:
         waiting = [l for l in c['legs'] if l.get('buying') and not l.get('placeholder')]   # 👛 a pending real buy owns its slice first
-        targets = [l for l in c['legs'] if not l.get('placeholder')]
+        # a locked (riding / frozen) coin is never topped up: what was just banked off it must not be bought straight back
+        targets = [l for l in c['legs'] if not l.get('placeholder') and not l.get('ride') and not l.get('frozen')] or [l for l in c['legs'] if not l.get('placeholder')]
         if targets:
             # ⚖ NO COIN GETS THE WHOLE POT. Idle cash fills the seats that are furthest under an equal share and never lifts a coin
             # above it. It used to go entirely to whichever coin was waiting on a buy: $1.15 of freed cash went into ONE coin, which
@@ -1480,6 +1492,13 @@ def apply_queued(c, prices, liqs, now, fee=0.0):
         units = _f(l['units']) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)
         usd = sell_usd(units, px, (liqs or {}).get(l['pairAddress']) or l.get('liq'))
         live = _f(prices.get(to['pairAddress'])) or _f(to.get('price'))
+        # ⚖ a pick gets at most an EQUAL SHARE of the card: one that inherited an oversized seat ($1.04 of a $3 card) decided the
+        # whole card when it fell. The rest goes to card cash and is spread over the other coins.
+        total = sum((_f(x['units']) or (_f(x.get('wantUnits')) if x.get('buying') else 0.0)) * (_f(prices.get(x['pairAddress'])) or _f(x.get('entry'))) for x in c['legs']) + max(0.0, _f(c.get('cash')))
+        share = total / len(c['legs']) if c['legs'] else usd
+        spare = max(0.0, usd - share)
+        if spare > 0.01:
+            usd -= spare; c['cash'] = _f(c.get('cash')) + spare
         c['legs'][i] = {**_leg({**to, 'price': live}, max(0.0, usd), now, 'anchor' if l.get('role') == 'anchor' else l.get('role') or 'pool'), 'picked': True}
         c['feesUsd'] = round(_f(c.get('feesUsd')) + 2 * fee, 4)
         c.setdefault('events', []).append({'at': now, 'kind': 'rotate', 'symbol': l.get('symbol'), 'usd': round(usd, 4), 'why': '🎯 your pick — swapped in at the round', 'to': [to.get('symbol')]})

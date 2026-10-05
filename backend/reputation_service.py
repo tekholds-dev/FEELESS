@@ -5573,6 +5573,9 @@ async def _contenders_build():
         src['dip'] = src['paid'] = (_fuse.discover(pairs, 'popular', 'solana', now_ms=now * 1000, limit=120) + src['new'] + src['risers'])
         src['volume'] = young
         src['trench'] = list(_trench_cache.get('rows') or [])
+        # 👀 never an empty Trench list: nothing passing → the scan's closest misses, else the busiest fresh launches (watch only)
+        src['trench_watch'] = [{**r, 'trenchOnly': False} for r in (_trench_cache.get('checked') or []) if not r.get('ok')] or \
+            sorted((r for r in _runner_cands if r.get('ageH') is not None and _fuse._f(r.get('ageH')) <= 24), key=lambda r: -_fuse._f(r.get('vol1h')))[:8]
         cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
         on_card = {l.get('mint') for c in cards.values() for l in c.get('legs') or []}
         on_card |= {leg.get(k) for c in (_arena_mega_cache.get('data') or []) for leg in c.get('legs') or [] for k in ('mint', 'baseAddress')}
