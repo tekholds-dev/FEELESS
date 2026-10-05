@@ -1084,3 +1084,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   screen in either theme. APIs answer in 1–120 ms: when "lag" is reported, count `document.getAnimations()` before touching the API.
 - 🔎 `scripts/fuse-audit.py wallet` = whole-wallet chain check (every tx the Fuse wallet appears in: deposits, buys, sells, closes,
   fees, anything sent to another address) — slow (minutes) on a free RPC.
+- 🌊 WIDE PULL (`launchpad_board.pump_pages`, `BOARD_MAX` 480): the launch feed reads Pump's 250 biggest coins (market_cap offsets
+  0–200) + its 200 most recently traded (it was 50 + 100 → ~75 coins in the whole feed, the runner board saw 51, so Fuse kept buying
+  the same few). Deep pages are cached 45–180s (Pump 429s bursts). `_runner_live` reads 4 feed pages per kind and scans the
+  `RUNNER_SCANS` 60 busiest; `fuse.pump_majors` top 40. "SAME COINS AGAIN" ⇒ check `/runners` `seen` and the feed's pair counts
+  BEFORE touching a gate. `/fuses/search` returns `why` when nothing can be picked (curve-only coin / parked pools).

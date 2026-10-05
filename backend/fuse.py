@@ -375,7 +375,7 @@ def risers(pairs, now_ms, max_age_d=14, min_mcap=800_000, max_mcap=50_000_000, m
     return out
 
 
-def pump_majors(pairs, have=(), top=15, min_mcap=300_000, min_liq=50_000):
+def pump_majors(pairs, have=(), top=40, min_mcap=300_000, min_liq=50_000):
     """🟢 Pump's biggest: graduated Pump.fun coins (PumpSwap / '…pump' mints) with real depth, top `top` by 24h volume — so the
     New majors lens always carries the pump leaders too. One row per coin, skips coins already listed (`have`)."""
     best = {}

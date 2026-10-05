@@ -491,10 +491,11 @@ export const pickRow = r => ({ mint: r.mint || r.baseAddress, pairAddress: r.pai
 export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0 }) {
   const [lens, setLens] = useState('popular'); const [rows, setRows] = useState(null); const [q, setQ] = useState('');
   const [tr, setTr] = useState(null);   // 🗑 trench scan: own pool floor + how many were checked
-  useEffect(() => { let alive = true; setRows(null);
+  const [why, setWhy] = useState('');
+  useEffect(() => { let alive = true; setRows(null); setWhy('');
     const s = q.trim();
     const url = s.length >= 2 ? `/api/reputation/fuses/search?q=${encodeURIComponent(s)}` : lens === 'trench' ? '/api/reputation/fuses/trench' : GAUNTLET[lens] ? '/api/reputation/fuses/contenders' : `/api/reputation/fuses/discover?lens=${lens}&chain=solana`;
-    const t = setTimeout(() => fetch(apiUrl(url)).then(r => (r.ok ? r.json() : null)).then(x => { if (!alive || !x) return;
+    const t = setTimeout(() => fetch(apiUrl(url)).then(r => (r.ok ? r.json() : null)).then(x => { if (!alive || !x) return; setWhy(x.why || '');
       if (x.checked) setTr({ floor: x.floor || 0, checked: x.checked.length, rules: x.rules, level: Number(x.level) || 0 });
       const raw = x.pools || (x.checked ? x.rows || [] : (x.divisions || []).filter(dv => (GAUNTLET[lens] || []).includes(dv.key)).flatMap(dv => dv.rows));
       const seen = new Set(); setRows(raw.map(pickRow).filter(r => r.mint && r.pairAddress && !seen.has(r.mint) && seen.add(r.mint)).slice(0, 30)); }).catch(() => alive && setRows([])), s.length >= 2 ? 300 : 0);
@@ -507,7 +508,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0 }
     <div className="m-seg sp-lens" role="tablist" aria-label="Lists">{PICK_LENSES.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={!q.trim() && lens === k} className={!q.trim() && lens === k ? 'active' : ''} onClick={() => { setLens(k); setQ(''); }} data-testid={`sp-lens-${k}`}>{l}</button>)}</div>
     <input className="m-input sp-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Search any coin — SOL, BTC, ETH, $TICKER, CA" aria-label="Search any coin" data-testid="sp-search" />
     {lens === 'trench' && !q.trim() && tr && <small className="m-dim sp-tnote" data-testid="sp-trench-note">🗑 Fresh breakouts that passed the strictest gate ({tr.checked} checked · own pool floor {big(tr.floor)}). High risk — keep it to 1–2 coins.{tr.level ? ` 🔧 Nothing passed the strict checks, so crowd / trade / volume checks were widened ×${tr.level} — safety checks never move.` : ''} {tr.rules}</small>}
-    {!rows ? <span className="loader" /> : !rows.length ? <small className="m-dim">{lens === 'trench' && !q.trim() ? 'No trench coin passes every check right now — the scan re-runs every ~2 min.' : 'Nothing live here right now — try another list or search.'}</small> :
+    {!rows ? <span className="loader" /> : !rows.length ? <small className="m-dim">{lens === 'trench' && !q.trim() ? 'No trench coin passes every check right now — the scan re-runs every ~2 min.' : (why || 'Nothing live here right now — try another list or search.')}</small> :
     <ul>{rows.map(r => { const lp = live.get?.(r.pairAddress); const on = have.includes(r.mint); const fl = r.trench ? (tr?.floor || 0) : minLiq; const thin = minLiq > 0 && (r.liq || 0) < fl; const chg = lp ? lp.h1 : r.chg;
       return <li key={r.mint} className={r.impostor ? 'is-fake' : ''}><b>${r.symbol}{r.real ? ' ✓' : ''}</b><span className="m-num fl-tick" key={fmt(lp?.price || r.price)}>{fmt(lp?.price || r.price)}</span>
         <em className={`m-num ${(chg || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{chg == null ? '—' : `${chg >= 0 ? '+' : ''}${Number(chg).toFixed(1)}%`}</em><small className="m-num">pool {r.liq > 0 ? big(r.liq) : 'curve'}</small><small className="m-num">{r.trench && r.holders ? `${r.holders} holders · ` : ''}{r.score != null ? `score ${Number(r.score).toFixed(0)}` : ''}</small>

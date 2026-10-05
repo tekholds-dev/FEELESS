@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ecosystem import DEFAULT_MINTS
 from pydantic import BaseModel, Field
 
-from launchpad_board import BONK_PLATFORM_ID, build_board, dex_candidate, launchlab_candidate, pump_candidate
+from launchpad_board import BOARD_MAX, BONK_PLATFORM_ID, build_board, pump_pages, dex_candidate, launchlab_candidate, pump_candidate
 
 BOARD_SCOPES = ('launchpads', 'pump', 'bonk', 'raydium')
 
@@ -347,10 +347,11 @@ def create_market_router(db, intelligence=None):
         hit = board_cache.get(kind)
         if hit and monotonic() - hit[0] < 20:
             return hit[1], hit[2]
-        pump_pages = ([('created_timestamp', 0), ('created_timestamp', 50), ('last_trade_timestamp', 0), ('last_trade_timestamp', 50)] if kind == 'new'
-                      else [('last_trade_timestamp', 0), ('last_trade_timestamp', 50), ('market_cap', 0)])
+        # 🌊 WIDE PULL (launchpad_board.pump_pages): Pump's 250 biggest coins + its 200 most recently traded (it was 50 + 100, so
+        # most of the bigger runners / new majors never reached FEELESS). Deep pages change slowly → cached longer, so the wider
+        # pull costs Pump about the same calls a minute (it rate-limits bursts).
         lab_sorts = ['new', 'lastTrade'] if kind == 'new' else ['lastTrade', 'marketCap']
-        jobs = [('pump', cached('Pump.fun', '/coins', {'offset': off, 'limit': 50, 'sort': s, 'order': 'DESC', 'includeNsfw': 'false'}, ttl=20)) for s, off in pump_pages]
+        jobs = [('pump', cached('Pump.fun', '/coins', {'offset': off, 'limit': 50, 'sort': s, 'order': 'DESC', 'includeNsfw': 'false'}, ttl=ttl)) for s, off, ttl in pump_pages(kind)]
         jobs.append(('pump', cached('Pump.fun', '/coins/currently-live', {'offset': 0, 'limit': 30, 'includeNsfw': 'false'}, ttl=30)))
         for s in lab_sorts:
             jobs.append(('bonk', cached('LaunchLab', '/get/list', {'sort': s, 'size': 50, 'mintType': 'default', 'includeNsfw': 'false', 'platformId': BONK_PLATFORM_ID}, ttl=20)))
@@ -380,7 +381,7 @@ def create_market_router(db, intelligence=None):
         if not candidates:
             raise HTTPException(503, 'Launchpad indexes returned no coins.')
         # Priority order, not alphabetical: discovery-seeded, then Pump's active lists, then LaunchLab.
-        mints = (list(seeded) + [m for m in candidates if m not in seeded])[:270]
+        mints = (list(seeded) + [m for m in candidates if m not in seeded])[:BOARD_MAX]
         dex_pairs = dict(seeded)
         lookup = sorted(m for m in mints if m not in seeded)
         chunks = await asyncio.gather(*[cached('DexScreener', '/tokens/v1/solana/' + ','.join(lookup[i:i + 30]), ttl=20)

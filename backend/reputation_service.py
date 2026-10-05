@@ -2697,7 +2697,10 @@ async def fuses_search(request: Request, q: str = Query(..., min_length=2, max_l
     if qu in _fuse.MAJOR_ALIASES or any(qu == v[0].upper() for v in _fuse.MAJORS.values()):   # 'BTC' → the real ones, always
         have = {r['pairAddress'] for r in rows}
         rows += [r for r in await _majors_rows() if r['pairAddress'] not in have]
-    return {'pools': _fuse.mark_real(rows, qu)[:15]}
+    hidden = sum(1 for p in pairs if p.get('chainId') == 'solana' and p.get('pairAddress') not in real) if not admin else 0
+    return {'pools': _fuse.mark_real(rows, qu)[:15], 'hidden': hidden,
+            'why': ('That coin has no tradable pool yet (still on its launch curve, or no volume) — a card can only swap into a live pool.' if is_ca and not rows
+                    else f'{hidden} pool{"s" if hidden != 1 else ""} hidden: no volume or a parked pool.' if hidden and not rows else '')}
 
 
 _fuse_discover_cache = {}
@@ -5131,6 +5134,9 @@ async def meme_terms(term: str = ''):
             'today': sum(((st.get('days') or {}).get(str(_mt.day_of(now))) or {}).values()), 'at': now}
 
 
+RUNNER_SCANS = 60   # holder scans per board build (cached per coin): the busiest launch coins by 1h volume
+
+
 async def _runner_live():
     """Every launchpad coin the feed sees right now (trending + new, pre-bond + graduated), forensics for the busiest,
     gated + scored. 30s cache — the board is shared by every viewer."""
@@ -5148,7 +5154,8 @@ async def _runner_live():
                 return (await http.get('http://127.0.0.1:5001/api/pump/pulse', params={'limit': 100})).json().get('launches') or []
             except Exception:
                 return []
-        got, launches = await asyncio.gather(asyncio.gather(feed('trending'), feed('new'), feed('trending', 2), feed('new', 2)), pulse())   # 2 pages each: more coins come to it
+        # 🌊 4 pages each (it was 2): the feed now carries Pump's 250 biggest + 200 most recently traded coins
+        got, launches = await asyncio.gather(asyncio.gather(*[feed(k, pg) for pg in (1, 2, 3, 4) for k in ('trending', 'new')]), pulse())
     _mayhem_mints.update(x['mint'] for x in launches if x.get('mayhem') and x.get('mint'))
     now_ms = time.time() * 1000
     seen, pairs = set(), []
@@ -5156,7 +5163,7 @@ async def _runner_live():
         m = (p.get('baseToken') or {}).get('address')
         if m and m not in seen and (now_ms - _fuse._f(p.get('pairCreatedAt'))) <= _rn.MAX_AGE_H * 3.6e6:
             seen.add(m); pairs.append(p)
-    busiest = sorted(pairs, key=lambda p: -_fuse._f((p.get('volume') or {}).get('h1')))[:40]   # warmed in the background (cached scans); 40 busiest so more coins can pass
+    busiest = sorted(pairs, key=lambda p: -_fuse._f((p.get('volume') or {}).get('h1')))[:RUNNER_SCANS]   # warmed in the background (cached scans)
     # 🗑 trench breakouts get a holder scan too (they're rarely among the 40 busiest — the scan never reached them before)
     busiest += [p for p in sorted((p for p in pairs if p not in busiest and _trench.market_pair(p, time.time() * 1000, _trench.widen(len(_trench.WIDEN) - 1))),
                                   key=lambda p: -_fuse._f((p.get('volume') or {}).get('h1')))[:10]]

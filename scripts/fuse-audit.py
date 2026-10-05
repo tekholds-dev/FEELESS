@@ -117,14 +117,14 @@ async def wallet(http_timeout=25):
         out_other, unread, n_swap, n_close, n_dep, failed_fees = [], 0, 0, 0, 0, 0.0
         for x in sigs[::-1]:
             tx = None
-            for _ in range(3):
+            for attempt in range(8):   # a free RPC rate-limits: wait longer each time rather than leave a hole in the audit
                 try:
-                    tx = await rpc('getTransaction', [x['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+                    tx = await rpc('getTransaction', [x['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'finalized'}])
                 except Exception:
                     tx = None
                 if tx:
                     break
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(1.5 * (attempt + 1))
             if not tx:
                 unread += 1
                 continue
@@ -157,7 +157,7 @@ async def wallet(http_timeout=25):
                 closes += gross; n_close += 1
             else:
                 out_other.append((x['signature'][:10], round(gross, 6), time.strftime('%m-%d %H:%M', time.localtime(x.get('blockTime') or 0))))
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.2)
         wallet_sol = ((await rpc('getBalance', [owner])) or {}).get('value', 0) / 1e9
         parked, coins = 0.0, 0
         for prog in TOKEN_PROGRAMS:

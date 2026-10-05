@@ -12,6 +12,18 @@ import time
 BONK_PLATFORM_ID = 'FfYek5vEz23cMkWsdJwG2oa6EphsvXSHrGpdALN4g6W1'
 LAUNCHPAD_LABELS = {'pump': 'Pump.fun', 'bonk': 'LetsBONK', 'raydium': 'LaunchLab'}
 NEW_MAX_AGE_HOURS = 12
+BOARD_MAX = 480   # most coins looked up per board build (DexScreener: 30 a call → ≤ 16 calls a build)
+
+
+def pump_pages(kind):
+    """Which Pump.fun index pages a board reads → [(sort, offset, cache seconds)]. The first pages are live (20s); deeper pages
+    move slowly and are cached longer so the wide pull doesn't burst Pump's rate limit."""
+    if kind == 'new':
+        return [('created_timestamp', 0, 20), ('created_timestamp', 50, 20), ('created_timestamp', 100, 45),
+                ('last_trade_timestamp', 0, 20), ('last_trade_timestamp', 50, 20), ('last_trade_timestamp', 100, 45)]
+    return ([('last_trade_timestamp', off, 20 if off < 100 else 45) for off in (0, 50, 100, 150)]
+            + [('market_cap', off, 60 if off == 0 else 180) for off in (0, 50, 100, 150, 200)])
+
 
 
 def _f(value, default=0.0):
