@@ -965,3 +965,30 @@ def test_paid_out_money_never_counts_toward_the_line():
     worn = {**card, 'walletUsd': 30.0, 'legs': [{**l, 'units': l['units'] * 0.75} for l in card['legs']]}
     out = ap.tick(worn, {'Psol': 1, 'Pa': 1, 'Pr1': 2.2, 'Pr2': 1}, [], [], cfg, 30, SOL)
     assert out['walletUsd'] == 30.0
+
+
+def test_every_tier_card_plays_its_own_unique_exits_and_a_shared_edit_applies_to_all():
+    cfg = ap.clean_cfg({})
+    own = {t: tuple(ap.tier_cfg(cfg, t)[k] for k in ('rideAt', 'rideTrail', 'rotateConfirm', 'minHoldMins')) for t in ap.TEMPLATES}
+    assert len(set(own.values())) == len(ap.TEMPLATES)                                      # no two cards share their exits
+    assert ap.tier_cfg(cfg, 'degen')['rideAt'] == 15 and ap.tier_cfg(cfg, 'degen')['rideTrail'] == 8
+    c2 = ap.clean_cfg({**cfg, 'tierCfg': {**cfg['tierCfg'], 'degen': {**cfg['tierCfg']['degen'], 'rideAt': 10, 'tp': 50, 'bogus': 1, 'rideTrail': 7}}})
+    d = ap.tier_cfg(c2, 'degen')
+    assert d['rideAt'] == 10 and d['tp'] == 50 and 'bogus' not in c2['tierCfg']['degen'] and c2['tierCfg']['degen'].get('rideTrail') is None   # 7 isn't an option
+    assert ap.card_template('degen', d)['tp'] == 50 and ap.card_template('degen', {})['tp'] == ap.TEMPLATES['degen']['tp']
+
+
+def test_hq_per_card_exit_edit_and_shared_edit_through_the_endpoint(monkeypatch):
+    import asyncio
+    rs = pytest.importorskip('reputation_service')
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN')
+    rs._json_save(rs.FUSE_HQ_PATH, {'prime': {'cfg': {}, 'cards': {}}})
+    class Rq:
+        def __init__(self, b): self.b = b
+        async def json(self): return self.b
+    asyncio.run(rs.fuse_prime_admin(Rq({'cfg': {'tierCfg': {'degen': {'rideAt': 20}}}})))
+    cfg = rs._json_load(rs.FUSE_HQ_PATH, {})['prime']['cfg']
+    assert cfg['tierCfg']['degen']['rideAt'] == 20 and cfg['tierCfg']['next']['rideAt'] == 20 and cfg['tierCfg']['safe']['rideAt'] == 50   # only Blaze moved
+    asyncio.run(rs.fuse_prime_admin(Rq({'cfg': {'rideAt': 25}})))                         # shared edit → every card follows it
+    cfg = rs._json_load(rs.FUSE_HQ_PATH, {})['prime']['cfg']
+    assert all('rideAt' not in row for row in cfg['tierCfg'].values()) and ap.tier_cfg(cfg, 'safe')['rideAt'] == 25

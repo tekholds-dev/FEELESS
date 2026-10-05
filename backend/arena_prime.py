@@ -114,6 +114,56 @@ DEFAULT_CFG = {'on': True, 'sizeUsd': 100.0, 'rotateHours': 1.0, 'rotateCount': 
                'strictRunners': False, 'autoBrain': True}
 RUN_ROUNDS = (0, 5, 10, 20, 50)   # rounds per run (0 = one endless run): when a run's rounds are done it closes on the record, the next starts
 SL_MODES = ('replace', 'park', 'hold')   # on a stop: auto-replace · sell + park the slot (rebuy at entry with momentum) · hold
+# 🃏 Every card plays its OWN exits — no two tiers share them by default. `tierCfg[tier]` overrides the shared paper config for these
+# keys (a shared edit of a key = "apply to all cards": it clears that key's per-card overrides). tp / sl 0 = the tier template's.
+TIER_KEYS = ('rideAt', 'rideTrail', 'rotateMinDrop', 'rotateConfirm', 'minHoldMins', 'instantSwapPct', 'tp', 'sl')
+DEFAULT_TIER_CFG = {
+    'degen': {'rideAt': 15.0, 'rideTrail': 8.0, 'rotateConfirm': 2, 'minHoldMins': 10.0, 'instantSwapPct': 15.0, 'rotateMinDrop': 10.0},    # 🔥 5-min hunt
+    'next': {'rideAt': 20.0, 'rideTrail': 10.0, 'rotateConfirm': 2, 'minHoldMins': 15.0, 'instantSwapPct': 20.0, 'rotateMinDrop': 15.0},   # ⚡ all runners
+    'balanced': {'rideAt': 25.0, 'rideTrail': 15.0, 'rotateConfirm': 3, 'minHoldMins': 30.0, 'instantSwapPct': 0.0, 'rotateMinDrop': 10.0},
+    'safe': {'rideAt': 50.0, 'rideTrail': 20.0, 'rotateConfirm': 3, 'minHoldMins': 60.0, 'instantSwapPct': 0.0, 'rotateMinDrop': 20.0},    # 💎 toward 10×
+    'ever': {'rideAt': 100.0, 'rideTrail': 30.0, 'rotateConfirm': 4, 'minHoldMins': 120.0, 'instantSwapPct': 0.0, 'rotateMinDrop': 20.0},
+}
+
+
+def clean_exit(k, v):
+    """One per-card exit value, validated exactly like the shared config (None = not allowed)."""
+    v = _f(v)
+    if k == 'rideAt':
+        return float(v) if v in RIDE_ATS else None
+    if k == 'rideTrail':
+        return float(v) if v in RIDE_TRAILS else None
+    if k == 'rotateMinDrop':
+        return max(0.0, min(50.0, v))
+    if k == 'rotateConfirm':
+        return int(max(1, min(6, v)))
+    if k == 'minHoldMins':
+        return max(0.0, min(240.0, v))
+    if k == 'instantSwapPct':
+        return max(0.0, min(50.0, v))
+    if k == 'tp':
+        return float(v) if v == 0 or v in LEG_TPS else None
+    if k == 'sl':
+        return float(v) if v == 0 or v in LEG_SLS else None
+    return None
+
+
+def clean_tier_cfg(p):
+    """{tier: {key: value}} — seeded with the unique defaults the first time, then exactly what HQ set (validated)."""
+    raw = (p or {}).get('tierCfg')
+    if not isinstance(raw, dict):
+        return {t: dict(v) for t, v in DEFAULT_TIER_CFG.items()}
+    out = {}
+    for t in DEFAULT_TIER_CFG:
+        row = {}
+        for k, v in (raw.get(t) or {}).items() if isinstance(raw.get(t), dict) else ():
+            cv = clean_exit(k, v) if k in TIER_KEYS else None
+            if cv is not None:
+                row[k] = cv
+        out[t] = row
+    return out
+
+
 CFG_RANGES = {'sizeUsd': (10, 10000), 'rotateHours': (0.08, 48), 'rotateCount': (1, 3), 'paperFeeUsd': (0, 5), 'floorPct': (5, 60), 'instantSwapPct': (0, 50)}
 
 
@@ -254,6 +304,9 @@ def clean_cfg(p):
     out['payouts'] = {t: (int(pay[t]) if pay.get(t) in _dna.PAYOUTS else DEFAULT_PAYOUTS[t]) for t in DEFAULT_PAYOUTS}
     out['compoundStyle'] = (p or {}).get('compoundStyle') if (p or {}).get('compoundStyle') in ('smart', 'even') else 'smart'
     out['roundsPerRun'] = int(_f((p or {}).get('roundsPerRun'))) if int(_f((p or {}).get('roundsPerRun'))) in RUN_ROUNDS else 0
+    out['tp'] = clean_exit('tp', (p or {}).get('tp')) or 0.0   # 🎯 card-level TP / SL (0 = the tier template's)
+    out['sl'] = clean_exit('sl', (p or {}).get('sl')) or 0.0
+    out['tierCfg'] = clean_tier_cfg(p)
     return out
 
 
@@ -261,7 +314,9 @@ def tier_cfg(cfg, tid):
     """The shared paper config as ONE tier plays it: its own round clock (`clocks[tier]`). Locked tiers and the real card have their
     own whole config and never go through here."""
     hours = _f(((cfg or {}).get('clocks') or {}).get(tid))
-    return {**cfg, 'rotateHours': hours} if hours > 0 else cfg
+    own = ((cfg or {}).get('tierCfg') or {}).get(tid) or {}   # 🃏 this card's own exits
+    out = {**(cfg or {}), **{k: v for k, v in own.items() if k in TIER_KEYS}}
+    return {**out, 'rotateHours': hours} if hours > 0 else out
 
 
 # 💵 REAL-MONEY GUARD — hard floors the real card's config can never go under, whatever HQ or the self-fix writes.
@@ -539,7 +594,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     """One automation pass. Returns the updated card (mutated copy) — all actions logged as events with reasons.
     liqs = {pair: pool liquidity $} for TRUE fills (price impact on every paper buy / sell)."""
     liqs = liqs or {}
-    t = TEMPLATES[card['tpl']]
+    t = card_template(card['tpl'], cfg)
     c = {**card, 'legs': [dict(l) for l in card['legs']], 'events': list(card['events'])}
     have = lambda: {l['mint'] for l in c['legs']}
     # 💵 a REAL card is judged on its true book (confirmed coins + SOL), never on the engine's estimate — an estimate that missed
@@ -976,7 +1031,7 @@ def summary(card, prices, cfg=None):
             'flooredAt': card.get('flooredAt'), 'phase': card.get('phase'), 'cycleFix': card.get('cycleFix'), 'cycle': list(CYCLE) if card['tpl'] in CYCLE_TIERS else None, 'rounds': int(card.get('rounds') or 0), 'lastRoundPct': card.get('lastRoundPct'),
             'roundPct': round((v / (_f(card.get('roundStartUsd')) or start) - 1) * 100, 2), 'roundWins': int(card.get('roundWins') or 0),
             'valueUsd': v, 'pnlPct': round((v / start - 1) * 100, 2), 'legs': legs, 'events': card['events'][-12:][::-1],
-            'tp': TEMPLATES[card['tpl']]['tp'], 'sl': TEMPLATES[card['tpl']]['sl'], 'tier': TEMPLATES[card['tpl']]['tier'], 'why': TEMPLATES[card['tpl']].get('why'),
+            'tp': card_template(card['tpl'], cfg)['tp'], 'sl': card_template(card['tpl'], cfg)['sl'], 'tier': TEMPLATES[card['tpl']]['tier'], 'why': TEMPLATES[card['tpl']].get('why'),
             'parked': list((card.get('parked') or {}).values()),
             # 🧮 the money in plain words: PUT IN → NOW = STILL IN THE CARD + PAID OUT; P&L = NOW − PUT IN (fees apart)
             'math': {'putIn': round(start if card.get('real') else put_in(card), 4), 'runStart': round(start, 4), 'heldUsd': round(v - paid, 4), 'paidOutUsd': paid, 'nowUsd': v,
@@ -1012,6 +1067,12 @@ def clock_rank(rows, rotate_hours, mom=None):
 
 LEG_TPS = (25, 50, 100, 200, 300)   # a coin's OWN take-profit / stop (0 = follow the tier's)
 LEG_SLS = (10, 15, 20, 30)
+
+
+def card_template(tpl, cfg):
+    """The tier template with the card's own TP / SL (cfg `tp` / `sl`, 0 = the template's)."""
+    t = TEMPLATES[tpl]
+    return {**t, **{k: _f((cfg or {}).get(k)) for k in ('tp', 'sl') if _f((cfg or {}).get(k)) > 0}}
 
 
 def leg_tp(l, t):

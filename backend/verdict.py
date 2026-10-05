@@ -43,7 +43,7 @@ def _avg_med(pcts):
 
 
 TRAIT_WORDS = {'clock': 'round length (min)', 'minDrop': 'rotate only coins down', 'confirm': 'losing rounds before a swap', 'hold': 'min hold (min)',
-               'instant': 'instant swap at', 'shape': 'card shape', 'tp': 'take-profit', 'sl': 'stop', 'cycle': 'cycle', 'rideAt': 'freeze a runner at'}
+               'instant': 'instant swap at', 'shape': 'card shape', 'tp': 'take-profit', 'sl': 'stop', 'cycle': 'cycle', 'rideAt': 'freeze a runner at', 'trail': 'sell off its peak'}
 
 
 def build(tiers=None, strategies=None, lanes=None, dials=None, sim_score=None, clocks=None, real=None):

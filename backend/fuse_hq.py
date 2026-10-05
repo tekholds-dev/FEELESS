@@ -946,7 +946,46 @@ def _extras(plan):
     pay = int(pay) if pay in (0, 25, 50, 75, 100) else (0 if plan.get('onProfit') == 'compound' else 100)
     return {'rotateHours': rotate_hours(plan.get('rotateHours')), 'cycle': plan.get('cycle') if valid_card_cycle(plan.get('cycle')) else 'steady',
             'payoutPct': pay, 'compoundStyle': plan.get('compoundStyle') if plan.get('compoundStyle') in ('smart', 'even', 'off') else 'smart', 'slMode': plan.get('slMode') if plan.get('slMode') in SL_MODES else 'sell',
-            'autoFees': bool(plan.get('autoFees', True))}
+            'autoFees': bool(plan.get('autoFees', True)),
+            # ❄ freeze a coin running at +X% (no TP alert while it rides), then ONE sell alert when it falls Y% off its peak
+            'rideAt': float(_f(plan.get('rideAt'))) if _f(plan.get('rideAt')) in RIDE_ATS else 0.0,
+            'rideTrail': float(_f(plan.get('rideTrail'))) if _f(plan.get('rideTrail')) in RIDE_TRAILS else 10.0}
+
+
+RIDE_ATS = (0, 10, 15, 20, 25, 50, 100, 150)   # same options as the tier engine (arena_prime.RIDE_ATS)
+RIDE_TRAILS = (5, 8, 10, 15, 20, 30)
+
+
+def ride_hits(r, ride_at, trail, state):
+    """❄ Freeze for a user card (non-custodial — it only ever ALERTS). A coin up ≥ ride_at% is riding: its TP alert waits while it
+    keeps making highs. It fires once when it falls `trail`% off its peak, or back under half the freeze. → (hits, riding, state)
+    hits = [(leg, why)], riding = pairs whose TP is held back, state = {pair: {'peak': best multiple, 'at'}} (kept on the card)."""
+    ride_at, trail = _f(ride_at), _f(trail) or 10.0
+    st = {k: dict(v) for k, v in (state or {}).items()}
+    hits, riding = [], set()
+    if ride_at <= 0:
+        return hits, riding, {}
+    for l in r.get('legs') or []:
+        pa = l.get('pairAddress')
+        if not pa or l.get('soldUsd') is not None:
+            st.pop(pa, None); continue
+        mult = 1 + _f(l.get('pnlPct')) / 100
+        cur = st.get(pa)
+        if cur and cur.get('firedAt'):
+            continue
+        if not cur:
+            if mult - 1 >= ride_at / 100:
+                st[pa] = {'peak': round(mult, 6)}; riding.add(pa)
+            continue
+        cur['peak'] = max(_f(cur['peak']), mult)
+        off = (1 - mult / cur['peak']) * 100
+        if off >= trail or (mult - 1) * 100 < ride_at / 2:
+            cur['firedAt'] = True
+            hits.append((l, f"fell {trail:g}% off its peak" if off >= trail else f"gave back half the +{ride_at:g}% freeze"))
+        else:
+            riding.add(pa)
+        st[pa] = cur
+    return hits, riding, st
 
 
 def next_switch_at(pos, staff=False):

@@ -3239,23 +3239,40 @@ async def _fuse_buyback_tick(d, now):
 
 async def _fuse_leg_tick(d, now):
     """🎯 Per-coin take-profit / stop-loss: alert once per limit with that coin's sell pre-filled (one approval)."""
-    lg = [x for x in d.get('positions') or [] if x.get('legGuard') and not x.get('closedAt')]
+    lg = [x for x in d.get('positions') or [] if (x.get('legGuard') or _fuse._f(x.get('rideAt')) > 0) and not x.get('closedAt')]
     if not lg:
         return 0
     px = await _hq_prices([leg for x in lg for leg in x['legs']])
-    fired = []
+    fired, rides = [], {}
     for x in lg:
-        for leg, kind, pct in _hq.leg_limit_hits(_hq.position_pnl(x, px), x['legGuard']):
+        r_ = _hq.position_pnl(x, px)
+        hits_, riding_, st_ = _hq.ride_hits(r_, x.get('rideAt'), x.get('rideTrail'), x.get('rides'))   # ❄ freeze + peak trail (alerts only)
+        if st_ != (x.get('rides') or {}):
+            rides[x['id']] = st_
+        for leg, why in hits_:
+            fired.append((x, leg, 'ride', why))
+        for leg, kind, pct in _hq.leg_limit_hits(r_, x.get('legGuard') or {}):
             if kind == 'sl' and _hq.coin_sl_mode(x, leg['pairAddress']) == 'hold':   # ❄ hold: no stop alerts (card or this coin)
                 continue
+            if kind == 'tp' and leg['pairAddress'] in riding_:   # a riding coin's TP waits — the peak trail sells it
+                continue
             fired.append((x, leg, kind, pct))
+    if rides and not fired:
+        async with _admin_lock:
+            d2 = _json_load(FUSE_HQ_PATH, {})
+            for x in d2.get('positions') or []:
+                if x['id'] in rides:
+                    x['rides'] = rides[x['id']]
+            _json_save(FUSE_HQ_PATH, d2)
     if not fired:
         return 0
     async with _admin_lock:
         d2 = _json_load(FUSE_HQ_PATH, {})
-        ids = {(x['id'], leg['pairAddress']) for x, leg, _, _ in fired}
+        ids = {(x['id'], leg['pairAddress']) for x, leg, k_, _ in fired if k_ != 'ride'}
         parks = {(x['id'], leg['pairAddress']): leg for x, leg, kind, _ in fired if kind == 'sl' and _hq.coin_sl_mode(x, leg['pairAddress']) == 'park'}
         for x in d2.get('positions') or []:
+            if x['id'] in rides:
+                x['rides'] = rides[x['id']]
             for pa, g in (x.get('legGuard') or {}).items():
                 if (x['id'], pa) in ids:
                     g['firedAt'] = now
@@ -3264,6 +3281,11 @@ async def _fuse_leg_tick(d, now):
                     x.setdefault('parked', {})[pa] = {'entry': _fuse._f(lg_.get('usd')) / max(_fuse._f(lg_.get('tokens')), 1e-18), 'symbol': lg_.get('symbol'), 'mint': lg_.get('mint'), 'at': now}
         _json_save(FUSE_HQ_PATH, d2)
     for x, leg, kind, pct in fired:
+        if kind == 'ride':   # ❄ the frozen coin came off its peak — sell it, one approval (no P&L in the notice text)
+            notify(x['wallet'], 'fuse-guard', f"❄ ${leg.get('symbol')} in {x.get('name') or 'your Fuse card'} rode its run and {pct}. Sell it — one approval (numbers in My cards).",
+                   url=f"/terminal/fuse?tab=cards&collect={x['id']}&pct=100&legs={leg['pairAddress']}", once=f"leg-ride-{x['id']}-{leg['pairAddress']}-{int((x.get('rides') or {}).get(leg['pairAddress'], {}).get('peak', 0) * 1000)}",
+                   meta={'claim': f"Frozen at +{_fuse._f(x.get('rideAt')):g}%, {pct}", 'source': 'Fuse P&L (live prices)'})
+            continue
         what = f"hit its +{x['legGuard'][leg['pairAddress']]['tp']:g}% take-profit" if kind == 'tp' else f"hit its −{x['legGuard'][leg['pairAddress']]['sl']:g}% stop"
         notify(x['wallet'], 'fuse-guard', f"{'🎯' if kind == 'tp' else '🛑'} ${leg.get('symbol')} in {x.get('name') or 'your Fuse card'} {what}. Sell it — one approval (numbers in My cards).",
                url=f"/terminal/fuse?tab=cards&collect={x['id']}&pct=100&legs={leg['pairAddress']}", once=f"leg-{kind}-{x['id']}-{leg['pairAddress']}",
@@ -3293,7 +3315,8 @@ async def fuse_plan(p: FusePlanIn):
                                   [leg['pairAddress'] for leg in pos['legs'] if leg.get('soldUsd') is None], [leg['pairAddress'] for leg in pos['legs'] if leg.get('role') == 'runner'])
         except ValueError as e:
             raise HTTPException(400, str(e))
-        pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'), rotateHours=plan.get('rotateHours', 24), slMode=plan.get('slMode', 'sell'), cycle=plan.get('cycle', 'steady'), payoutPct=plan.get('payoutPct', 100), compoundStyle=plan.get('compoundStyle', 'smart'), autoFees=plan.get('autoFees', True), legGuard={pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()},
+        pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'), rotateHours=plan.get('rotateHours', 24), slMode=plan.get('slMode', 'sell'), cycle=plan.get('cycle', 'steady'), payoutPct=plan.get('payoutPct', 100), compoundStyle=plan.get('compoundStyle', 'smart'), autoFees=plan.get('autoFees', True),
+                   rideAt=plan.get('rideAt', 0.0), rideTrail=plan.get('rideTrail', 10.0), legGuard={pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()},
                    **({k: plan[k] for k in ('frozen', 'coinRotate', 'coinModes')} if (p.plan or {}).get('coins') else {}))
         if plan.get('risk') in _hq.RISK_DIALS and plan.get('at'):   # the dial also re-arms the card's profit level
             pos['autoYield'] = {'at': plan['at'], 'base': round(sum(_fuse._f(x.get('heldUsd') or x.get('usd')) for x in pos['legs'] if x.get('soldUsd') is None), 6), 'armedAt': time.time(), 'firedAt': None, 'rebase': True}
@@ -4241,7 +4264,7 @@ async def _fuse_autopilot_tick(now=None):
     await _fuse_season_tick(now)
     await _arena_settle(now=now)
     arena = _json_load(FUSE_HQ_PATH, {}).get('arena') or []
-    dead = _hq.retired_styles(_hq.arena_board([_hq.arena_value(e, {}, now) for e in arena]))   # ☠ losers: one probe a day, not hourly
+    dead = _retired(_hq.arena_board([_hq.arena_value(e, {}, now) for e in arena]))   # ☠ losers: one probe a day, not hourly
     styles = [st for st in _fuse.STYLES if _hq.autopilot_due(arena, st, now, retired=dead)]
     if styles:
         metas, sol_usd = await asyncio.gather(_fuse_candidates(), _sol_usd_live())
@@ -5006,7 +5029,7 @@ async def fuses_prebuilt(request: Request, legs: int = Query(3, ge=2, le=12), bu
     board = {r['style']: r for r in _hq.arena_board([_hq.arena_value(e, {}, time.time()) for e in _json_load(FUSE_HQ_PATH, {}).get('arena') or []])}
     seed = int(time.time() // 300)
     runs = await asyncio.gather(*[asyncio.to_thread(_fuse.evolve, metas, legs, 14, 28, st, key[1] / sol_usd, sol_usd, seed) for st in _fuse.STYLES])
-    dead = _hq.retired_styles(list(board.values()))   # ☠ strategies the arena proved to lose never reach a trader's rail
+    dead = _retired(list(board.values()))   # ☠ strategies the arena proved to lose never reach a trader's rail
     cards = [{'style': st, 'arena': board.get(st), **_champ_view(ev['champions'][0], metas)} for st, ev in zip(_fuse.STYLES, runs) if ev['champions'] and st not in dead]
     out = {'legs': legs, 'budgetUsd': key[1], 'solUsd': sol_usd, 'retired': sorted(dead), 'cards': sorted(cards, key=lambda c: -((c['arena'] or {}).get('avgPct') or -999))}
     _fuse_prebuilt_cache[key] = (time.time(), out)
@@ -5761,7 +5784,16 @@ async def fuse_prime_admin(request: Request):
         d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
         was = {t: (_prime.clean_cfg(pr.get('cfg') or {}).get('cycles') or {}).get(t) for t in _prime.TEMPLATES}
         was.update({t: (l.get('cycles') or {}).get(t) for t, l in (pr.get('locks') or {}).items()})
-        pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), **(body.get('cfg') or {})})
+        inc = dict(body.get('cfg') or {})
+        tc = {t: dict(v) for t, v in (_prime.clean_cfg(pr.get('cfg') or {}).get('tierCfg') or {}).items()}
+        for t, row_ in (inc.pop('tierCfg', None) or {}).items() if isinstance(inc.get('tierCfg'), dict) else ():   # 🃏 one card's own exits
+            if t in tc and isinstance(row_, dict):
+                tc[t].update(row_)
+        for k_ in _prime.TIER_KEYS:   # a SHARED edit of an exit key = apply to all cards (their own overrides for it are cleared)
+            if k_ in inc:
+                for t in tc:
+                    tc[t].pop(k_, None)
+        pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), **inc, 'tierCfg': tc})
         if isinstance(body.get('realCfg'), dict):   # 💵 the real card's own config (paper untouched); first edit copies today's paper config
             base = pr.get('realCfg') if isinstance(pr.get('realCfg'), dict) and pr.get('realCfg') else pr['cfg']
             pr['realCfg'] = _prime.clean_cfg({**base, **body['realCfg']})
@@ -5774,7 +5806,7 @@ async def fuse_prime_admin(request: Request):
                 locks[body['lock']] = {**_prime.clean_cfg({**base, **body['patch']}), 'lockedAt': time.time()}
             elif body.get('on', True):
                 if not locks.get(body['lock']):   # locking keeps an existing lock as it is (never overwritten by the shared config)
-                    locks[body['lock']] = {**_prime.clean_cfg(pr['cfg']), 'lockedAt': time.time()}
+                    locks[body['lock']] = {**_prime.clean_cfg(_prime.tier_cfg(pr['cfg'], body['lock'])), 'lockedAt': time.time()}   # its OWN exits + clock
             else:
                 locks.pop(body['lock'], None)
             pr['locks'] = locks
@@ -6427,9 +6459,11 @@ _fw_close_at = {'t': 0.0}
 
 
 async def _fw_close_empty(cfg, now):
-    """♻ Every 30 min: close the Fuse wallet's EMPTY token accounts (coins fully sold) → their rent deposits come back to the wallet
-    reserve. One tx, CloseAccount only (destination = the wallet itself), Circle signs (Fuse wallet only), logged + owner inbox."""
-    if now - _fw_close_at['t'] < 1800 or not cfg.get('armed') or cfg.get('paused') or not _fw_signer_ready():
+    """♻ Every 2 rounds of the real card's clock (5-min rounds → every 10 min; never under 10, never over 30): close the Fuse wallet's
+    EMPTY token accounts (coins fully sold) → their rent deposits come back to the wallet reserve, which paid them (the card never pays
+    rent, so its numbers stay exact). One tx, CloseAccount only (destination = the wallet itself), Circle signs, logged + owner inbox."""
+    every = _fw.close_every(_fuse._f(_prime_real_cfg().get('rotateHours')))
+    if now - _fw_close_at['t'] < every or not cfg.get('armed') or cfg.get('paused') or not _fw_signer_ready():
         return
     _fw_close_at['t'] = now
     d = _fw_load()
@@ -6668,6 +6702,10 @@ async def circle_profile_save(request: Request, body: dict):
 async def fuse_wallet_report(request: Request, card: str = Query('', max_length=40)):
     """🩺 Owner: what each real run did (from the audit ledger) + the flaws it shows, each with its fix. Read-only."""
     _require_owner(request)
+    return {'reports': await _fw_reports(card)}
+
+
+async def _fw_reports(card=''):
     d = _fw_load(); hq = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
     ids = [card] if card else sorted({r.get('card') for r in d.get('ledger') or [] if r.get('card') and r.get('card') != 'wallet'})
     sol_px = await _sol_usd_live()
@@ -6681,7 +6719,7 @@ async def fuse_wallet_report(request: Request, card: str = Query('', max_length=
         eq = _fw.book_value(b, px, sol_px) if b else None
         hold = round((sol_px / _fuse._f(c['solStart']) - 1) * 100, 2) if sol_px and _fuse._f(c.get('solStart')) else None
         out.append({**_fw.run_report(d.get('ledger'), tid, time.time(), b.get('fundedUsd'), eq, hold), 'label': c.get('label') or tid, 'open': bool(b)})
-    return {'reports': out}
+    return out
 
 
 @app.get('/api/reputation/admin/fuse-wallet')
@@ -7150,6 +7188,11 @@ async def _fuse_warm():
     _fuse_warm_n['n'] += 1
     if _fuse_warm_n['n'] % 24 == 2:   # ~10 min: who the elite traders are + what they bought (FeeCat learns from it)
         await _crowd_build()
+    if _fuse_warm_n['n'] % 144 == 31:   # ~1h: 🧾 what's working / what's not, always running (owner inbox when something flips)
+        try:
+            await _verdict_tick(time.time())
+        except Exception as e:
+            print('verdict:', e)
     if _fuse_warm_n['n'] % 144 == 7:   # ~1h: 🧹 data cleaner (stale derived data only — never money records or message text)
         try:
             await _data_clean(time.time())
@@ -7667,14 +7710,48 @@ async def _engine_self_fix(now, sim):
     return {**pp, **({'real': rp} if rp else {})}
 
 
+@app.get('/api/reputation/fuses/strategies')
+async def fuse_strategies(hours: float = Query(1.0, ge=0.01, le=48)):
+    """🎯 3 strategies for a card's round length (🛡 Steady · 🧠 Engine pick · 🔥 Hunt) from the background sims on REAL recorded prices
+    (fees in, re-run every ~15 min). Longer clocks than the sims play read the nearest one (said so). Never a promise."""
+    bc = _json_load(PG_SIM_PATH, {}).get('byClock') or {}
+    rows = [(float(k), v) for k, v in bc.items() if v.get('strategies')]
+    if not rows:
+        return {'clock': None, 'strategies': [], 'note': 'The sim brain needs ~15 min of recorded prices first.'}
+    want = hours * 60
+    clock, v = min(rows, key=lambda kv: abs(kv[0] - want))
+    note = '' if abs(clock - want) < 1 else f"Sims play 5–60 min rounds; these are for {int(clock)} min, the nearest to your clock."
+    return {'clock': int(clock), 'n': v.get('n'), 'strategies': v['strategies'], 'note': note, 'at': _json_load(PG_SIM_PATH, {}).get('at')}
+
+
 import verdict as _verdict
 
 
-@app.get('/api/reputation/admin/fuses/verdict')
-async def fuse_verdict(request: Request):
-    """🧾 Owner: what's working and what's not, before anything is scrapped — every engine judged on its own record (tier card runs,
-    strategies, runner lanes, engine dials, playground clocks, sim configs, real runs). Read-only."""
-    _require_owner(request)
+VERDICT_PATH = DATA_DIR / 'fuse_verdict.json'
+# 🧾 what one click can do with a verdict row (area → actions). Sim configs map onto the tier engine's own keys.
+SIM_KEYS = {'minDrop': 'rotateMinDrop', 'confirm': 'rotateConfirm', 'rideAt': 'rideAt', 'trail': 'rideTrail', 'tp': 'tp', 'sl': 'sl'}
+
+
+def _verdict_acts(r):
+    a = r.get('area') or ''
+    if a == '🧠 Sim config' and r['name'].split(' = ')[0] in {_verdict.TRAIT_WORDS.get(k, k) for k in SIM_KEYS}:
+        return [['apply', '➕ Add to all cards'], ['apply-one', '🃏 One card'], ['apply-real', '💵 Real card']] if r['verdict'] != 'scrap' else [['apply-real', '💵 Real card']]
+    if a == '🏟 Strategy':
+        return [['scrap', '🗑 Scrap']] if r['verdict'] != 'keep' else [['keep', '📌 Keep on rails']]
+    if a == '🎚 Engine dial' and r['verdict'] == 'keep':
+        return [['apply', '🎚 Use this dial']]
+    if a == '⭐ Tier card' and r['verdict'] == 'scrap':
+        return [['redeal', '🃏 Re-deal fresh']]
+    return []
+
+
+def _retired(board):
+    """☠ Retired strategies = proven losers + the ones HQ scrapped from the verdict, minus the ones HQ chose to keep."""
+    d = _json_load(FUSE_HQ_PATH, {})
+    return (_hq.retired_styles(board) | set(d.get('scrappedStyles') or [])) - set(d.get('keptStyles') or [])
+
+
+async def _verdict_build(real=True):
     now = time.time()
     d = _json_load(FUSE_HQ_PATH, {}); rd = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); sim = _json_load(PG_SIM_PATH, {})
     lg = _store.Ledger(CARD_RECORDS_PATH, table='runs')
@@ -7686,10 +7763,114 @@ async def fuse_verdict(request: Request):
     lanes = _rn.lane_proofs(rd.get('rounds') or [], rd.get('paths') or {}, now, _runner_cfg())
     dials = {w: _rn.dial_proof(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS, window=sec) for w, sec in _rn.PROOF_WINDOWS.items()}
     try:
-        real = (await fuse_wallet_report(request, card='')).get('reports') or []
+        reals = await _fw_reports('') if real else []
     except Exception:
-        real = []
-    return _verdict.build(tiers, board, lanes, dials, sim.get('score'), (rd.get('pgBattle') or {}).get('clockStats'), real)
+        reals = []
+    out = _verdict.build(tiers, board, lanes, dials, sim.get('score'), (rd.get('pgBattle') or {}).get('clockStats'), reals)
+    for r in out['rows']:
+        r['acts'] = _verdict_acts(r)
+    scr = set(d.get('scrappedStyles') or []); kept = set(d.get('keptStyles') or [])
+    for r in out['rows']:
+        if r['area'] == '🏟 Strategy':
+            r['state'] = 'scrapped' if r['name'] in scr else 'kept' if r['name'] in kept else None
+    return {**out, 'at': now}
+
+
+@app.get('/api/reputation/admin/fuses/verdict')
+async def fuse_verdict(request: Request):
+    """🧾 Owner: what's working and what's not, before anything is scrapped — every engine judged on its own record (tier card runs,
+    strategies, runner lanes, engine dials, playground clocks, sim configs, real runs). Fresh on open; the background keeps it hourly."""
+    _require_owner(request)
+    out = await _verdict_build(real=True)
+    out['history'] = (_json_load(VERDICT_PATH, {}).get('history') or [])[-48:]
+    return out
+
+
+async def _verdict_tick(now):
+    """🧾 Hourly: Fuse always runs what's-working-what's-not. A row that turns ✅ or ❌ (with enough samples) → owner inbox once."""
+    prev = _json_load(VERDICT_PATH, {})
+    out = await _verdict_build(real=True)
+    before = {f"{r['area']}|{r['name']}": r['verdict'] for r in prev.get('rows') or []}
+    flips = [r for r in out['rows'] if r['verdict'] in ('keep', 'scrap') and before.get(f"{r['area']}|{r['name']}") not in (None, r['verdict'])]
+    hist = ((prev.get('history') or []) + [{'at': now, 'keep': out['keep'], 'scrap': out['scrap'], 'watch': out['watch']}])[-96:]
+    _json_save(VERDICT_PATH, {**out, 'history': hist})
+    for r in flips[:6]:
+        for w in _owner_wallets():
+            notify(w, 'admin', f"🧾 Fuse verdict: {r['area']} {r['name']} is now {'✅ working' if r['verdict'] == 'keep' else '❌ not working'} — one click in HQ › Fuse to act on it.",
+                   url='/terminal/hq?tab=fuse', push=False, once=f"verdict-{r['area']}-{r['name']}-{r['verdict']}-{int(now // 86400)}", meta={'claim': r['why'], 'source': 'Fuse verdict (own records)'})
+    return len(flips)
+
+
+class VerdictActIn(BaseModel):
+    area: str
+    name: str
+    act: str
+    tier: str = ''
+
+
+@app.post('/api/reputation/admin/fuses/verdict/act')
+async def fuse_verdict_act(request: Request, p: VerdictActIn):
+    """🧾 One click on a verdict row (owner, audited): ➕ add a proven sim setting to ALL paper cards (a shared edit — every card follows
+    it), to ONE tier card, or to the 💵 real card · 🗑 scrap / 📌 keep a strategy on the trader rails · 🎚 use a proven engine dial ·
+    🃏 re-deal a losing tier card."""
+    me = _require_owner(request)
+    now = time.time(); done = ''
+    if p.area == '🧠 Sim config':
+        word, _, val = p.name.partition(' = ')
+        key = next((SIM_KEYS[k] for k in SIM_KEYS if _verdict.TRAIT_WORDS.get(k, k) == word), None)
+        if not key:
+            raise HTTPException(400, 'That setting has no card equivalent.')
+        v = _prime.clean_exit(key, val)
+        if v is None:
+            raise HTTPException(400, f'{val} is not an option for {word}.')
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+            if p.act == 'apply':   # shared edit = all paper cards (their own overrides for this key are cleared)
+                cfg = _prime.clean_cfg(pr.get('cfg') or {}); tc = cfg['tierCfg']
+                for t in tc:
+                    tc[t].pop(key, None)
+                pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), key: v, 'tierCfg': tc}); done = f'{key} = {v:g} on all paper cards'
+            elif p.act == 'apply-one' and p.tier in _prime.TEMPLATES:
+                cfg = _prime.clean_cfg(pr.get('cfg') or {}); tc = cfg['tierCfg']; tc.setdefault(p.tier, {})[key] = v
+                pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), 'tierCfg': tc}); done = f'{key} = {v:g} on {p.tier}'
+            elif p.act == 'apply-real':
+                base = pr.get('realCfg') if isinstance(pr.get('realCfg'), dict) and pr.get('realCfg') else pr.get('cfg') or {}
+                pr['realCfg'] = _prime.clean_cfg({**base, key: v})
+                pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {key})[:60]; done = f'{key} = {v:g} on the real card'
+            else:
+                raise HTTPException(400, 'Pick all cards, one card (tier) or the real card.')
+            _json_save(FUSE_HQ_PATH, d)
+    elif p.area == '🏟 Strategy' and p.act in ('scrap', 'keep'):
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {})
+            scr = set(d.get('scrappedStyles') or []); kept = set(d.get('keptStyles') or [])
+            (scr.add if p.act == 'scrap' else scr.discard)(p.name); (kept.add if p.act == 'keep' else kept.discard)(p.name)
+            d['scrappedStyles'] = sorted(scr); d['keptStyles'] = sorted(kept); _json_save(FUSE_HQ_PATH, d)
+        done = f"strategy {p.name} {'scrapped' if p.act == 'scrap' else 'kept'}"
+    elif p.area == '🎚 Engine dial' and p.act == 'apply':
+        dial = p.name.split(' · ')[0]
+        try:
+            dialed = _rn.engine_dial(dial, _runner_cfg())
+        except ValueError:
+            raise HTTPException(400, 'Unknown dial.')
+        dial, cfg = dialed.pop('dial'), _rn.clean_cfg(dialed)
+        async with _admin_lock:
+            d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['cfg'] = cfg; d['cfgDial'] = dial; _json_save(RUNNERS_PATH, d)
+        done = f'engine dial {dial}'
+    elif p.area == '⭐ Tier card' and p.act == 'redeal':
+        tpl = next((t for t, x in _prime.TEMPLATES.items() if x.get('label') == p.name), None)
+        if not tpl:
+            raise HTTPException(400, 'Unknown tier card.')
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.setdefault('prime', {}).setdefault('cards', {}))
+            if (cards.get(tpl) or {}).get('real'):
+                raise HTTPException(400, 'That is the real-money card — withdraw it from HQ › Fuse wallet instead.')
+            cards.pop(tpl, None); _json_save(FUSE_HQ_PATH, d)
+        done = f'{p.name} re-dealt'
+    else:
+        raise HTTPException(400, 'Nothing to do for that row.')
+    ad = _admin_load(); _audit(ad, me, 'verdict-act', f'{p.area} {p.name}: {done}'[:200]); _admin_save(ad)
+    return {'ok': True, 'done': done, 'at': now}
 
 
 @app.get('/api/reputation/admin/fuses/sim')

@@ -1,0 +1,17 @@
+/* 🎯 StrategyPicks — 3 strategies for a card's round length (HQ Edit Fuse + My cards). Built from m-* tokens. */
+.sp { display: grid; gap: 8px; margin: 8px 0; } .sp.is-ghost { min-height: 120px; border-radius: 12px; background: var(--m-surface); } .sp-empty { display: block; margin: 6px 0; }
+.sp-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.sp-card { display: grid; gap: 4px; align-content: start; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--m-line); background: var(--m-surface-2); min-width: 0;
+  animation: spIn .3s var(--m-ease, ease) calc(var(--i, 0) * 55ms) both; transition: border-color .15s, transform .15s; }
+.sp-card:hover { border-color: var(--m-line-hi); transform: translateY(-2px); } .sp-card:focus-within { border-color: var(--m-accent); }
+.sp-card.is-on { border-color: var(--m-accent); box-shadow: 0 0 0 1px var(--m-accent) inset; }
+.sp-card.s-steady { border-top: 3px solid #7cc8ff; } .sp-card.s-engine { border-top: 3px solid var(--m-accent); } .sp-card.s-hunt { border-top: 3px solid #ff9a3c; }
+.sp-card > b { font-size: 14px; } .sp-card > small { font-size: 11px; }
+.sp-cfg { display: flex; flex-wrap: wrap; gap: 4px; } .sp-cfg i { font: 500 10.5px var(--m-mono, monospace); font-style: normal; padding: 2px 6px; border-radius: 999px; border: 1px solid var(--m-line); color: var(--m-dim); }
+.sp-card > em { font-style: normal; font-size: 16px; } .sp-card > em small { font-size: 10px; color: var(--m-dim); }
+.sp-card > .m-btn { justify-self: start; margin-top: 2px; }
+@keyframes spIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+body.fx-lite .sp-card { animation: none; }
+@media (prefers-reduced-motion: reduce) { .sp-card { animation: none; transition: none; } }
+body.theme-day .sp-card { background: #fff; } body.theme-day .sp-cfg i { border-color: #cfe3d7; }
+@media (max-width: 640px) { .sp-row { grid-template-columns: 1fr; } }

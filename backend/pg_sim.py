@@ -16,7 +16,8 @@ CLOCKS = (5, 15, 30, 60)
 TPS = (50, 100, 200, 300)
 SLS = (15, 20, 30)
 DROPS = (0, 5, 10, 20)
-HOLDS = (True, False)
+RIDES = (0, 15, 25, 50, 150)   # ❄ freeze a coin running at +X% (0 = off) — the tier engine's rideAt
+TRAILS = (5, 8, 15, 30)        # … then sell it X% off its peak (rideTrail)
 CONFIRMS = (1, 2, 3, 4)   # ⏳ rounds in a row a coin must be losing before it may be rotated
 SWAP_COST = 0.006          # 0.6% per swap (network + FEELESS-free HQ route + impact) — the card always pays something to move
 
@@ -46,7 +47,15 @@ def _series(paths, start, steps):
 
 
 def random_cfg(rng):
-    return {'clock': rng.choice(CLOCKS), 'tp': rng.choice(TPS), 'sl': rng.choice(SLS), 'minDrop': rng.choice(DROPS), 'hold': rng.choice(HOLDS), 'confirm': rng.choice(CONFIRMS)}
+    return {'clock': rng.choice(CLOCKS), 'tp': rng.choice(TPS), 'sl': rng.choice(SLS), 'minDrop': rng.choice(DROPS), 'rideAt': rng.choice(RIDES),
+            'trail': rng.choice(TRAILS), 'confirm': rng.choice(CONFIRMS)}
+
+
+def _ride(cfg):
+    """(freeze at %, trail %, floor %) — old saved configs carried `hold` (= the +150% rule, 30% trail)."""
+    ra = float(cfg.get('rideAt', 150 if cfg.get('hold') else 0) or 0)
+    tr = float(cfg.get('trail', 30) or 30)
+    return ra, tr, min(80.0, ra / 2)
 
 
 def simulate(series, mints, cfg, steps):
@@ -56,6 +65,7 @@ def simulate(series, mints, cfg, steps):
     each = 100.0 / len(mints)
     legs = [{'m': m, 'units': each * (1 - SWAP_COST) / series[m][0], 'entry': series[m][0], 'high': series[m][0], 'ride': False, 'rmin': 0.0} for m in mints]
     cash, every = 0.0, max(1, cfg['clock'] // STEP_MIN)
+    ra, tr, floor_g = _ride(cfg)
     for k in range(1, steps):
         for l in list(legs):
             px = series[l['m']][k]
@@ -63,16 +73,16 @@ def simulate(series, mints, cfg, steps):
             l['rmin'] = min(l['rmin'], g)
             if l['ride']:
                 l['high'] = max(l['high'], px)
-                if g < 80 or px < l['high'] * 0.7:
+                if g < floor_g or px < l['high'] * (1 - tr / 100):   # same rule as the engine: under half the freeze, or tr% off its peak
                     cash += l['units'] * px * (1 - SWAP_COST); legs.remove(l)
                 continue
-            if cfg['hold'] and g >= 150:
+            if ra > 0 and g >= ra:   # ❄ frozen: no TP / stop while it runs
                 l.update(ride=True, high=px); continue
             if g >= cfg['tp'] or g <= -cfg['sl']:
                 cash += l['units'] * px * (1 - SWAP_COST); legs.remove(l)
         if k % every == 0:   # round end: hold coins that stayed ≥ +80% all round, swap the worst loser for last round's best mover
             for l in legs:
-                if cfg['hold'] and not l['ride'] and l['rmin'] >= 80:
+                if ra > 0 and not l['ride'] and l['rmin'] >= min(80.0, ra):
                     l['ride'] = True
                 l['rmin'] = (series[l['m']][k] / l['entry'] - 1) * 100   # next round's low starts here
             on = {l['m'] for l in legs}
@@ -143,7 +153,47 @@ def by_clock(results, min_n=6):
         pick = best({t: v for t, v in learn(sub).items() if t != 'clock'}, min_n)
         sm = summary(sub)
         out[clock] = {'n': len(sub), 'medPct': sm.get('medianPct'), 'upPct': sm.get('upPct'), 'profitable': _num(sm.get('medianPct')) > 0,
-                      'cfg': {t: p['value'] for t, p in pick.items()}, 'proof': {t: {'medPct': p.get('medPct'), 'n': p['n']} for t, p in pick.items()}}
+                      'cfg': {t: p['value'] for t, p in pick.items()}, 'proof': {t: {'medPct': p.get('medPct'), 'n': p['n']} for t, p in pick.items()},
+                      'strategies': strategies(sub, min_n)}
+    return out
+
+
+STRATS = (('steady', '🛡 Steady', 'upPct', 'most sim cards ended up'),
+          ('engine', '🧠 Engine pick', 'medPct', 'best typical card'),
+          ('hunt', '🔥 Hunt', 'avgPct', 'biggest average — wilder swings'))
+
+
+def strategies(sub, min_n=6):
+    """3 strategies for ONE round length, each built from what the sims on that clock actually did: per trait the value with the best
+    share-ended-up (🛡), median (🧠) or average (🔥). Each carries its proof = every chosen setting's own sims on that clock.
+    Never claims profit: `profitable` only when that proof's typical card ended up. Always 3 different configs."""
+    score = {t: v for t, v in learn(sub).items() if t != 'clock'}
+    out, seen = [], set()
+    for key, name, metric, why in STRATS:
+        pick = {}
+        for t, vals in score.items():
+            ok = sorted(((v, s) for v, s in vals.items() if s['n'] >= min_n), key=lambda vs: -vs[1].get(metric, 0))
+            if ok:
+                pick[t] = ok
+        if not pick:
+            continue
+        cfg = {t: ok[0][0] for t, ok in pick.items()}
+        sig = tuple(sorted(cfg.items()))
+        for t, ok in pick.items():   # same config as a strategy already listed → take this trait's runner-up value
+            if sig not in seen:
+                break
+            if len(ok) > 1:
+                cfg = {**cfg, t: ok[1][0]}; sig = tuple(sorted(cfg.items()))
+        if sig in seen:
+            continue
+        seen.add(sig)
+        # proof = each chosen setting's OWN sims on this clock (every value is backed by ≥ min_n of them); the strategy reads the
+        # middle of those typical cards — an estimate from real paths, never a promise
+        rows = [score[t][v] for t, v in cfg.items()]
+        med = round(statistics.median(r['medPct'] for r in rows), 3)
+        out.append({'key': key, 'name': name, 'why': why, 'cfg': cfg, 'n': min(r['n'] for r in rows), 'medPct': med,
+                    'avgPct': round(statistics.median(r['avgPct'] for r in rows), 3), 'upPct': round(statistics.median(r['upPct'] for r in rows), 1),
+                    'proof': {t: {'medPct': score[t][v]['medPct'], 'n': score[t][v]['n']} for t, v in cfg.items()}, 'profitable': med > 0})
     return out
 
 

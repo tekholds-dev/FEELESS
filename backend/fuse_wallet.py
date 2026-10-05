@@ -853,6 +853,11 @@ def priority_cap(attempt, boost, sol_usd=0.0):
 CLOSE_MAX = 8   # accounts per close transaction (well inside the size limit)
 
 
+def close_every(rotate_hours):
+    """Seconds between empty-account sweeps: every 2 rounds of the real card's clock, kept between 10 and 30 minutes."""
+    return max(600.0, min(1800.0, 2 * _f(rotate_hours) * 3600)) if _f(rotate_hours) > 0 else 1800.0
+
+
 def empty_accounts(token_accounts, keep_mints=()):
     """[{pubkey, program}] of the wallet's EMPTY token accounts (0 balance) whose coin no card holds — closing them returns the rent."""
     out = []

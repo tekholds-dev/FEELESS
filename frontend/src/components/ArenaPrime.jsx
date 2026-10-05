@@ -7,6 +7,7 @@ import { useLivePrices } from '../lib/livePrices';
 import { openWarRoom } from './WarRoomHost';
 import { CardEarnings } from './CardEarnings';
 import { RoundBell, TrailSummary, CycleBuilder, usd, usdK, pct, txUrl } from './FuseMoney';
+import { StrategyPicks, stratPatch } from './StrategyPicks';
 
 // ⭐ ARENA PRIME: FEELESS's own top-tier cards, FULLY AUTO on paper — auto TP/SL, auto-compound, 2 coins rotate every 6h. Different
 // from creator picks: these are the public proof the automation works before any trader's config goes auto. "Buy now" loads the
@@ -129,7 +130,8 @@ export function PrimeControls({ call }) {
         <button type="button" className="m-btn" data-tip={`At this coin's stop: ${LEG_WORD[l.slMode || '']} — tap for ${LEG_WORD[next]}`} onClick={() => act({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, slMode: next } }, `$${l.symbol} stop: ${LEG_WORD[next]}`)} data-testid={`prime-mode-${c.tpl}-${l.pairAddress}`}>{LEG_WORD[l.slMode || ''].split(' ')[0]}</button></span>; })}
       <button type="button" className="m-btn" onClick={() => act({ redeal: c.tpl }, `${c.label} re-dealt`)} data-testid={`prime-redeal-${c.tpl}`}>🃏 Re-deal</button>
       <button type="button" className={`m-btn ${d?.locks?.[c.tpl] ? 'is-on' : ''}`} aria-pressed={!!d?.locks?.[c.tpl]} onClick={() => act({ lock: c.tpl, on: !d?.locks?.[c.tpl] }, d?.locks?.[c.tpl] ? `${c.label} follows the shared config again` : `🔒 ${c.label} config locked as it is now`)}
-        data-tip="Lock this tier's FULL config as it is now (clock, cycle, payout, stops, floor…) — tunes, meta config and the engine never change it" data-testid={`prime-lock-${c.tpl}`}>{d?.locks?.[c.tpl] ? '🔒 Locked' : '🔓 Lock config'}</button></div>)}</div>
+        data-tip="Lock this tier's FULL config as it is now (clock, cycle, payout, stops, floor…) — tunes, meta config and the engine never change it" data-testid={`prime-lock-${c.tpl}`}>{d?.locks?.[c.tpl] ? '🔒 Locked' : '🔓 Lock config'}</button>
+      <CardEditor c={c} cfg={c.cfgEff || d.cfg} locked={!!d?.locks?.[c.tpl]} real={false} call={call} suggest={d.suggest} /></div>)}</div>
     <div className="prime-cycles" data-testid="prime-cycles"><span className="m-label" data-tip="What each tier deals into every round (same run, P&L continues)">🔄 ROUND CYCLES</span>
       {paper.map(c => <div key={c.tpl} className="m-row"><b>{c.label}</b><span className="m-seg" role="group">{CYCLE_PICKS.map(([m, l, tip]) =>
         <button key={m} type="button" className={(cyc[c.tpl] || 'off') === m ? 'active' : ''} data-tip={tip} onClick={() => save({ cycles: { ...cyc, [c.tpl]: m } })} data-testid={`cycle-${c.tpl}-${m}`}>{l}</button>)}</span>
@@ -187,6 +189,8 @@ const EDIT = [
   ['keepWinPct', '🛡 Keep winners', [[0, 'off'], [5, '+5%'], [10, '+10%'], [20, '+20%']], 'A coin up this much (or ❄ frozen) is carried into the next shape — a re-shape never sells a winner'],
   ['rideAt', '❄ Freeze a coin running', [[0, 'off'], [10, '+10%'], [15, '+15%'], [20, '+20%'], [25, '+25%'], [50, '+50%'], [100, '+100%'], [150, '+150%']], 'A coin up this much is frozen: no TP, stop or rotation while it keeps making highs. It still leaves if it gives back half the freeze (e.g. frozen at +20% → out under +10%) — so a small freeze locks a small win'],
   ['rideTrail', '⇄ Then swap it off its peak', [[5, '−5%'], [8, '−8%'], [10, '−10%'], [15, '−15%'], [20, '−20%'], [30, '−30%']], 'A frozen coin is swapped for the best coin of its kind once it falls this far from its highest price (the gain moves into the new coin)'],
+  ['tp', '🎯 Card take-profit', [[0, 'tier'], [25, '+25%'], [50, '+50%'], [100, '+100%'], [200, '+200%'], [300, '+300%']], "Every coin's take-profit on this card (a coin's own TP still wins). Tier = the tier's built-in TP"],
+  ['sl', '🛑 Card stop', [[0, 'tier'], [10, '−10%'], [15, '−15%'], [20, '−20%'], [30, '−30%']], "Every coin's stop on this card (a coin's own stop still wins). Tier = the tier's built-in stop"],
   ['coins', '🪙 Coins on the card', [[0, 'auto'], [2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6']], 'Your call, at any card size. Auto = sized to the card (each coin at least $0.75). Pick a number and the card holds exactly that many — smaller coins pay more in fees per swap, and the first 5 rounds of network fees are on the wallet reserve.'],
   ['cycleEvery', '🧩 Re-shape every', [[0, 'off'], [3, '3'], [6, '6'], [12, '12']], 'Rounds between shape changes'],
   ['slMode', '🛑 On a stop', [['replace', '⇄ replace'], ['park', '🅿 park'], ['hold', '❄ hold']], 'Replace with the best coin · sell to SOL and rebuy later · keep holding'],
@@ -195,6 +199,7 @@ const EDIT = [
   ['floorRestMins', '🛌 Rest after floor', [[0, 'off'], [15, '15m'], [30, '30m'], [60, '1h']], 'Off = fresh coins are dealt right after a floor. On = the card sits in its anchors this long first (no swaps while it rests).'],
   ['autoBrain', '🧠 Auto-tune', [[true, 'on'], [false, 'off']], 'Let the sim brain adjust patience / drop (never below 3 on 5m rounds)'],
 ];
+const TIER_KEYS = ['rideAt', 'rideTrail', 'rotateMinDrop', 'rotateConfirm', 'minHoldMins', 'instantSwapPct', 'tp', 'sl'];   // = arena_prime.TIER_KEYS
 const CYCLES = [['safe', '🛡 safe'], ['classic', 'classic'], ['adaptive', 'adaptive'], ['press', '🔥 press'], ['rescue', '🛟 rescue'], ['auto', '🤖 auto'], ['off', 'off']];
 // ⚙ Edit Fuse groups: [key, tab label, what lives there]
 const CFG_GROUPS = [['rounds', '⏱ Rounds', 'When a round may swap a coin'], ['exits', '⚡ Exits', 'Per-coin: instant swap, stops, winners, riders'],
@@ -251,32 +256,36 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
     } catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
   // one setting = one line: what it is + what it does on the left, the choices on the right. One group on screen at a time.
-  const seg = (key, label, opts, tip, cur, wallet) => <div key={key} className="ce-row"><span><b>{label}</b><small>{tip}</small></span>
-    <div className="m-seg">{opts.map(([v, t]) => <button key={String(v)} type="button" disabled={busy} className={String(cur) === String(v) ? 'active' : ''} aria-pressed={String(cur) === String(v)} onClick={() => save({ [key]: v }, wallet)}>{t}</button>)}</div></div>;
+  const seg = (key, label, opts, tip, cur, wallet, to) => <div key={key} className="ce-row"><span><b>{label}</b><small>{tip}</small></span>
+    <div className="m-seg">{opts.map(([v, t]) => <button key={String(v)} type="button" disabled={busy} className={String(cur) === String(v) ? 'active' : ''} aria-pressed={String(cur) === String(v)} onClick={() => (to ? to({ [key]: v }) : save({ [key]: v }, wallet))}>{t}</button>)}</div></div>;
   // ⏱ a paper tier that isn't locked saves ITS OWN clock (`clocks[tier]`); the real card and locked tiers save their own rotateHours
   const ownClock = !real && !locked;
   const row = ([k, l, o, t]) => (k === 'rotateHours' && ownClock
     ? <div key={k} className="ce-row"><span><b>{l} · this tier</b><small>Every tier plays its own round length — this sets {c.label} only.</small></span>
       <div className="m-seg">{o.map(([v, txt]) => <button key={String(v)} type="button" disabled={busy} className={Math.abs(v - (cfg?.rotateHours || 0)) < 0.02 ? 'active' : ''} onClick={() => save({ clocks: { ...(cfg?.clocks || {}), [c.tpl]: v } })}>{txt}</button>)}</div></div>
     : seg(k, l, o, t, k === 'rotateHours' ? (o.find(x => Math.abs(x[0] - (cfg?.[k] || 0)) < 0.02) || [cfg?.[k]])[0] : cfg?.[k]));
-  const rows = keys => keys.map(k => EDIT.find(e => e[0] === k)).filter(Boolean).map(row);
+  const own = !real && !locked;   // 🃏 an unlocked paper tier keeps ITS OWN exits (unique per card); the shared config stays for the rest
+  const saveExit = patch => (own ? save({ tierCfg: { [c.tpl]: patch } }) : save(patch));
+  const rowX = e => (own && TIER_KEYS.includes(e[0]) ? seg(e[0], `${e[1]} · this card`, e[2], e[3], cfg?.[e[0]], false, saveExit) : row(e));
+  const rows = keys => keys.map(k => EDIT.find(e => e[0] === k)).filter(Boolean).map(rowX);
   const churn = (cfg?.rotateHours || 1) < 0.25 && (cfg?.rotateConfirm || 1) < 3;   // 5-min rounds + low patience = swaps on noise (fees, missed buys)
   const [grp, setGrp] = useState('rounds');
-  return <details className="hrt-edit" data-testid="card-editor"><summary>⚙ Edit Fuse {real ? '· 💵 real-money config — paper cards untouched' : locked ? '· 🔒 locked — edits change only this Fuse' : '· shared engine settings'}</summary>
+  return <details className="hrt-edit" data-testid="card-editor"><summary>⚙ Edit Fuse {real ? '· 💵 real-money config — paper cards untouched' : locked ? '· 🔒 locked — edits change only this Fuse' : '· this card\'s own exits, patience + hold · shape is shared'}</summary>
     <div className="m-seg ce-tabs" role="tablist" aria-label="Config groups">{CFG_GROUPS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={grp === k} className={grp === k ? 'active' : ''} data-tip={tip} onClick={() => setGrp(k)} data-testid={`ce-tab-${k}`}>{l}</button>)}</div>
     <div className="ce-group" key={grp} data-testid={`ce-pane-${grp}`}>
       {grp === 'rounds' && <>{rows(['rotateHours', 'rotateConfirm', 'rotateMinDrop', 'minHoldMins'])}
         <EnginePick suggest={suggest} cfg={cfg} busy={busy} save={save} />
         {churn && <p className="m-note ce-warn" data-testid="churn-warn">⚠ Round rotation is aggressive at {Math.round((cfg?.rotateHours || 0) * 60)}m with patience {cfg?.rotateConfirm || 1}. The ⚡ instant swap (Exits) is separate and fires immediately at its loss.
           <button type="button" className="m-btn" disabled={busy} onClick={() => save({ rotateConfirm: 3 })}>Use 3</button></p>}</>}
-      {grp === 'exits' && rows(['instantSwapPct', 'slMode', 'keepWinPct', 'rideAt', 'rideTrail'])}
+      {grp === 'exits' && <><StrategyPicks hours={cfg?.rotateHours || 1} current={cfg} busy={busy} onApply={s => saveExit(stratPatch(s.cfg))} testid={`strats-${c.tpl}`} />
+        {rows(['rideAt', 'rideTrail', 'tp', 'sl', 'instantSwapPct', 'slMode', 'keepWinPct'])}</>}
       {grp === 'shape' && <>{rows(['coins', 'cycleEvery'])}
         <div className="ce-row"><span><b>🔄 Cycle</b><small>The shapes this card moves through (anchor · mixed · degen · safest …)</small></span><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
       {!real && <div className="ce-row"><span><b>🔒 Lock tier</b><small>Freeze this tier's whole config so engine tunes never change it</small></span><div className="m-seg">{[[true, 'locked'], [false, 'free']].map(([v, t]) => <button key={t} type="button" disabled={busy} className={!!locked === v ? 'active' : ''} onClick={() => { setBusy(true); call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ lock: c.tpl, on: v }) }).then(() => { toast.success(v ? '🔒 Locked' : 'Unlocked'); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy(false)); }}>{t}</button>)}</div></div>}</>}
       {grp === 'safety' && rows(['floorPct', 'floorRestMins', 'rescuePct', 'autoBrain'])}
       {grp === 'limits' && <TypedLimits keeper={keeper} busy={busy} save={save} />}
     </div>
-    <small className="m-dim">{real ? 'This real card runs its own config — HQ, engine tunes and paper edits never change it.' : 'Rounds + shape are shared by every paper tier that isn\'t 🔒 locked.'} Limits cover every real buy and sell.</small></details>;
+    <small className="m-dim">{real ? 'This real card runs its own config — HQ, engine tunes and paper edits never change it.' : 'Clock, exits, patience and hold are this card\'s own (no two cards share them); shape, floor and safety are shared by every paper tier that isn\'t 🔒 locked.'} Limits cover every real buy and sell.</small></details>;
 }
 
 const SHAPE = { anchor: ['⚓', 'anchor', '3 majors + a new major'], mixed: ['⚖', 'mixed', '2 majors + a new major + a runner'], degen: ['🔥', 'degen', '1 major + 3 runners'],

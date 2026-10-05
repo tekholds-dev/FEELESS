@@ -715,3 +715,7 @@ def test_buys_never_dip_into_cash_the_owner_sold_out():
     book = {'sol': 0.1, 'manualCashSol': 0.08, 'legs': {}}                                              # $10 SOL, $8 of it is ✂ cash
     buys = [o for o in fw.orders('t', card, book, {'pm': 1.0}, 100.0, {**fw.DEFAULT_CFG, 'armed': True, 'minOrderUsd': 0.1}, 1) if o['side'] == 'buy']
     assert buys and buys[0]['usd'] <= 2.0 + 1e-9
+
+
+def test_rent_sweep_runs_every_two_rounds_of_the_real_clock():
+    assert fw.close_every(5 / 60) == 600 and fw.close_every(0.25) == 1800 and fw.close_every(0) == 1800 and fw.close_every(0.1) == 720

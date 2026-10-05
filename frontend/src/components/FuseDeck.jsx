@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 
 // How Fuse works, in one strip. Admin = the full pipeline (breed → prove → publish → traders → P&L).
@@ -110,21 +111,31 @@ export function DeckAlerts({ call, go, has = () => true }) {
 // 🧾 What's working / what's not — before anything gets scrapped. Every engine on its OWN record (tier runs, strategies, lanes,
 // dials, playground clocks, sim configs, real runs): ✅ keep = average AND typical run above 0 · ❌ scrap = both at or below 0 · 👀 unproven.
 const VERDICT_LENS = [['all', 'All'], ['keep', '✅ Working'], ['scrap', '❌ Not working'], ['watch', '👀 Unproven']];
+const VERDICT_TIERS = [['degen', '🔥 Blaze'], ['next', '⚡ Next Level'], ['balanced', '🥇 Gold'], ['safe', '💎 Diamond'], ['ever', '♾ Everlasting']];
 export function Verdict({ call }) {
-  const [v, setV] = useState(null); const [lens, setLens] = useState('all'); const [more, setMore] = useState(false);
-  useEffect(() => { let alive = true; call('/admin/fuses/verdict').then(x => alive && setV(x)).catch(() => alive && setV({ rows: [] })); return () => { alive = false; }; }, [call]);
+  const [v, setV] = useState(null); const [lens, setLens] = useState('all'); const [more, setMore] = useState(false); const [busy, setBusy] = useState(''); const [tier, setTier] = useState('degen');
+  const load = useCallback(() => call('/admin/fuses/verdict').then(setV).catch(() => setV(x => x || { rows: [] })), [call]);
+  useEffect(() => { load(); const t = setInterval(() => !document.hidden && load(), 300000); return () => clearInterval(t); }, [load]);
+  // one click: add a proven setting to all / one / the real card, scrap or keep a strategy, use a dial, re-deal a losing tier
+  const act = (r, a) => { setBusy(`${r.area}${r.name}${a}`);
+    call('/admin/fuses/verdict/act', { method: 'POST', body: JSON.stringify({ area: r.area, name: r.name, act: a, tier }) })
+      .then(x => { toast.success(`Done: ${x.done}`); load(); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   if (!v) return <div className="fdeck-verdict is-ghost" />;
   const rows = (v.rows || []).filter(r => lens === 'all' || r.verdict === lens);
   return <section className="fdeck-verdict" data-testid="fdeck-verdict"><span className="fdeck-group">WHAT'S WORKING · WHAT'S NOT</span>
     <p className="fdv-head" data-testid="fdv-head">{v.headline}</p>
+    <small className="m-dim fdv-meta">Runs by itself every hour (your inbox hears when something turns ✅ or ❌){v.at ? ` · checked ${new Date(v.at * 1000).toLocaleTimeString()}` : ''} ·
+      🃏 "one card" goes to <select className="m-input fdv-tier" value={tier} onChange={e => setTier(e.target.value)} aria-label="Card for one-card actions">{VERDICT_TIERS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></small>
     <span className="m-seg fdv-lens" role="tablist" aria-label="Filter">{VERDICT_LENS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => { setLens(k); setMore(false); }} data-testid={`fdv-${k}`}>
       {l}{k !== 'all' && <em className="m-num">{v[k] || 0}</em>}</button>)}</span>
     <ul className="fdv-rows">{rows.slice(0, more ? 80 : 10).map((r, i) => <li key={`${r.area}-${r.name}`} className={`fdv-row is-${r.verdict}`} style={{ '--i': Math.min(i, 12) }}>
       <i aria-hidden="true">{r.verdict === 'keep' ? '✅' : r.verdict === 'scrap' ? '❌' : '👀'}</i><small>{r.area}</small><b>{r.name}</b>
-      <em className={`m-num ${r.avgPct > 0 ? 'm-pos' : r.avgPct < 0 ? 'm-neg' : ''}`}>{r.n ? `${r.medPct >= 0 ? '+' : ''}${r.medPct}%` : '—'}</em><span>{r.why}</span></li>)}</ul>
+      <em className={`m-num ${r.avgPct > 0 ? 'm-pos' : r.avgPct < 0 ? 'm-neg' : ''}`}>{r.n ? `${r.medPct >= 0 ? '+' : ''}${r.medPct}%` : '—'}</em><span>{r.why}{r.state && <b className="fdv-state"> · {r.state === 'scrapped' ? '🗑 scrapped' : '📌 kept'}</b>}</span>
+      {r.acts?.length > 0 && <span className="fdv-acts">{r.acts.map(([a, l]) => <button key={a} type="button" className={`m-btn ${a === 'scrap' ? 'danger' : a === 'apply' ? 'primary' : ''}`} disabled={!!busy}
+        onClick={() => act(r, a)} data-testid={`fdv-act-${a}-${i}`}>{busy === `${r.area}${r.name}${a}` ? '…' : a === 'apply-one' ? `${l}: ${VERDICT_TIERS.find(t => t[0] === tier)[1]}` : l}</button>)}</span>}</li>)}</ul>
     {rows.length > 10 && <button type="button" className="m-btn fdv-more" onClick={() => setMore(m => !m)}>{more ? 'Show less' : `Show all ${rows.length}`}</button>}
     {!rows.length && <small className="m-dim">Nothing in this group.</small>}
-    <small className="m-dim">Read-only: nothing is switched off from here. ✅ = enough samples with the average AND the typical run above 0 — one lucky run can't make it green.</small></section>;
+    <small className="m-dim">Nothing changes until you click. ✅ = enough samples with the average AND the typical run above 0 — one lucky run can't make it green.</small></section>;
 }
 
 // Fuse vs Vault on LIVE pools: where a dollar's return can actually come from. Fuse = price moves (fast, both ways);

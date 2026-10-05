@@ -38,3 +38,28 @@ def test_verdict_endpoint_reads_the_records_without_touching_anything(monkeypatc
     out = asyncio.run(rs.fuse_verdict(None))
     by = {(r['area'], r['name']): r for r in out['rows']}
     assert by[('⭐ Tier card', '💎 Prime Diamond')]['n'] == 1 and by[('🧠 Sim config', 'round length (min) = 60')]['verdict'] == 'keep'
+
+
+def test_one_click_verdict_actions_apply_to_all_one_or_the_real_card_and_scrap_strategies(monkeypatch):
+    import asyncio
+    import pytest
+    import arena_prime as ap
+    rs = pytest.importorskip('reputation_service')
+    monkeypatch.setattr(rs, '_require_owner', lambda r: 'OWNER')
+    rs._json_save(rs.FUSE_HQ_PATH, {'prime': {'cfg': {}, 'cards': {}}})
+    act = lambda **k: asyncio.run(rs.fuse_verdict_act(None, rs.VerdictActIn(**k)))
+    act(area='🧠 Sim config', name='freeze a runner at = 25', act='apply-one', tier='degen')
+    cfg = rs._json_load(rs.FUSE_HQ_PATH, {})['prime']['cfg']
+    assert ap.tier_cfg(cfg, 'degen')['rideAt'] == 25 and ap.tier_cfg(cfg, 'safe')['rideAt'] == 50
+    act(area='🧠 Sim config', name='sell off its peak = 8', act='apply')
+    cfg = rs._json_load(rs.FUSE_HQ_PATH, {})['prime']['cfg']
+    assert all(ap.tier_cfg(cfg, t)['rideTrail'] == 8 for t in ap.TEMPLATES)                 # every paper card
+    act(area='🧠 Sim config', name='losing rounds before a swap = 2', act='apply-real')
+    pr = rs._json_load(rs.FUSE_HQ_PATH, {})['prime']
+    assert pr['realCfg']['rotateConfirm'] == 2 and 'rotateConfirm' in pr['realOwnerSet']   # the owner's — the self-fix won't move it
+    with pytest.raises(rs.HTTPException):
+        act(area='🧠 Sim config', name='freeze a runner at = 7', act='apply')                 # not an option
+    act(area='🏟 Strategy', name='degen', act='scrap')
+    assert 'degen' in rs._retired([])
+    act(area='🏟 Strategy', name='degen', act='keep')
+    assert 'degen' not in rs._retired([{'style': 'degen', 'runs': 9, 'avgPct': -3, 'medPct': -2}])   # HQ kept it on the rails

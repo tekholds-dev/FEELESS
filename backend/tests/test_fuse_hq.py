@@ -171,8 +171,8 @@ def test_card_rotation_interval_and_park_buyback():
     pos = {'lastSwitchAt': 1000, 'plan': {'rotateHours': 6}}
     assert hq.next_switch_at(pos) == 1000 + 6 * 3600
     assert hq.next_switch_at({'lastSwitchAt': 1000, 'plan': {'rotateHours': 99}}) == 1000 + 24 * 3600   # not an option → 24h
-    assert hq._extras({'slMode': 'park', 'rotateHours': 1}) == {'rotateHours': 1, 'cycle': 'steady', 'payoutPct': 100, 'compoundStyle': 'smart', 'slMode': 'park', 'autoFees': True}
-    assert hq._extras({}) == {'rotateHours': 24, 'cycle': 'steady', 'payoutPct': 100, 'compoundStyle': 'smart', 'slMode': 'sell', 'autoFees': True}
+    assert hq._extras({'slMode': 'park', 'rotateHours': 1}) == {'rotateHours': 1, 'cycle': 'steady', 'payoutPct': 100, 'compoundStyle': 'smart', 'slMode': 'park', 'autoFees': True, 'rideAt': 0.0, 'rideTrail': 10.0}
+    assert hq._extras({}) == {'rotateHours': 24, 'cycle': 'steady', 'payoutPct': 100, 'compoundStyle': 'smart', 'slMode': 'sell', 'autoFees': True, 'rideAt': 0.0, 'rideTrail': 10.0}
     assert hq.buyback_due({'entry': 1.0}, 1.02, {'buyShare': 60, 'chg1h': 3}) and not hq.buyback_due({'entry': 1.0}, 0.9, {'buyShare': 60})
     assert not hq.buyback_due({'entry': 1.0}, 1.1, {'buyShare': 40, 'chg1h': -2})
 
@@ -248,3 +248,16 @@ def test_user_cycles_rescue_auto_and_custom_three():
     assert hq.cycle_pick({'cycle': 'auto'}, -20) == 'runners'                 # auto deep red → breakeven runners
     assert hq.cycle_pick({'cycle': 'degen,safest', 'roundsUsed': 1}, 0) == 'majors'
     assert hq._extras({'cycle': 'degen,safest,breakeven'})['cycle'] == 'degen,safest,breakeven'
+
+
+def test_user_card_freeze_holds_the_tp_alert_then_sells_off_the_peak_once():
+    leg = lambda pct: {'legs': [{'pairAddress': 'A', 'pnlPct': pct, 'symbol': 'A'}, {'pairAddress': 'B', 'pnlPct': 2.0}]}
+    hits, riding, st = hq.ride_hits(leg(18.0), 15, 8, {})
+    assert not hits and riding == {'A'} and st['A']['peak'] == 1.18                  # +18% ≥ +15% → riding
+    hits, riding, st = hq.ride_hits(leg(40.0), 15, 8, st)
+    assert not hits and st['A']['peak'] == 1.4                                         # new high
+    hits, riding, st = hq.ride_hits(leg(28.0), 15, 8, st)
+    assert [h[1] for h in hits] == ['fell 8% off its peak'] and 'A' not in riding      # 1.28 / 1.40 = −8.6% → one sell alert
+    assert hq.ride_hits(leg(20.0), 15, 8, st)[0] == []                                  # fires once
+    assert hq.ride_hits(leg(18.0), 0, 8, {}) == ([], set(), {})                         # freeze off = nothing
+    assert hq._extras({'rideAt': 15, 'rideTrail': 8})['rideAt'] == 15 and hq._extras({'rideAt': 7})['rideAt'] == 0

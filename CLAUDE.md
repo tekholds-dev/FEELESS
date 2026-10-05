@@ -899,3 +899,18 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🧼 Rep gate (`runners.rep_ok`): HIGH-risk creators, a REPORTED rug on the blocklist and bot-shield bots are always out. A SUSPECT creator (or one
   blocklisted only for sniping other launches) passes only when the coin proves itself (`banger_proof`: top-10 < 20%, insiders < 5%, 0 bundled,
   ≥ 55% buys, ≥ $20K 1h volume, dev not sold) and scores −12. New-runner launches (≤ 3h) keep the strict clean-creator rule.
+- 🧾 Verdict ALWAYS runs (`_verdict_tick` hourly in `_fuse_warm`, `data/fuse_verdict.json` + history; owner inbox once when a row flips ✅/❌).
+  One click per row (`POST /admin/fuses/verdict/act`, owner, audited): 🧠 sim setting → ➕ all paper cards (shared edit clears per-card
+  overrides) · 🃏 one card (`tierCfg[tier]`) · 💵 real card (`realOwnerSet`) · 🏟 strategy 🗑 scrap / 📌 keep (`scrappedStyles`/`keptStyles` → `_retired`)
+  · 🎚 use a proven dial · ⭐ re-deal a losing paper tier. Nothing changes without the click.
+- 🃏 Every paper tier card plays ITS OWN exits (`arena_prime.TIER_KEYS` rideAt/rideTrail/rotateMinDrop/rotateConfirm/minHoldMins/instantSwapPct/tp/sl,
+  `tierCfg`, unique `DEFAULT_TIER_CFG`, `tier_cfg` merges; `card_template` = card TP/SL, 0 = tier's). HQ › Fuse › Arena › Cards: each paper card
+  has its own ⚙ Edit Fuse (exits save to `tierCfg`). Locks snapshot the tier's own exits.
+- 🎯 3 strategies per round length (`pg_sim.strategies` in `byClock`: 🛡 Steady = best share ended up · 🧠 Engine pick = best median · 🔥 Hunt =
+  best average; always 3 different configs; proof = each setting's own sims). Public `GET /fuses/strategies?hours=` (nearest clock, said so),
+  `StrategyPicks` (+ `stratPatch`) in Edit Fuse › Exits (tier + real) and on every My cards card. The sim now tests ❄ freeze (`RIDES`) + peak
+  trail (`TRAILS`) like the engine (out under half the freeze or trail% off its peak).
+- ❄ User cards freeze too (`fuse_hq.ride_hits`, plan `rideAt`/`rideTrail`, `_fuse_leg_tick`): a coin past +X% is riding (its TP alert waits);
+  ONE sell alert when it falls Y% off its peak or under half the freeze. Alerts only — never sells by itself. My cards: `fp-freeze` row.
+- 🧹 Rent sweep every 2 rounds of the real card's clock (`fuse_wallet.close_every`, 10–30 min). Rent is paid by the reserve, so it returns to the
+  reserve — the card never paid it, its numbers stay exact.
