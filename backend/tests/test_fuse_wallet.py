@@ -757,3 +757,33 @@ def test_money_trail_accounts_for_every_dollar():
     assert t['realizedAllUsd'] == -1.0 and t['unrealizedUsd'] == 1.0 and t['cardFeesUsd'] == 0.05
     assert t['resultUsd'] == 0.0 and t['unexplainedUsd'] == 0.0            # −$1 realized + $1 still-held move; fees apart
     assert t['problems'][0]['why'].startswith('skipped: live pool too thin') and t['coins'][0]['symbol'] == 'AAA'
+
+
+def test_rent_from_closed_accounts_goes_back_into_the_card_that_opened_them():
+    import fuse_wallet as fw
+    book = {'sol': 0.01, 'fundedUsd': 5.0, 'legs': {}}
+    # a buy that opened a new coin account: the card pays only its swap, the 0.002 SOL rent is the reserve's and remembered per coin
+    b, _ = fw.apply_fill(book, {'side': 'buy', 'mint': 'M', 'lamports': 5_000_000, 'symbol': 'M'}, {'atoms': 10, 'decimals': 0, 'sol': -0.007, 'feeSol': 0.0}, 100.0)
+    assert round(b['rentSol'], 6) == 0.002 and round(b['rentMints']['M'], 6) == 0.002 and round(b['sol'], 6) == 0.005
+    books, cr = fw.rent_back({'degen': b, 'gold': {'sol': 0, 'fundedUsd': 1, 'rentMints': {}}}, [{'mint': 'M', 'lamports': 2_039_280}, {'mint': 'Z', 'lamports': 2_000_000}], 100.0)
+    g = books['degen']
+    assert cr == {'degen': 0.00203928} and 'M' not in g['rentMints'] and round(g['sol'], 8) == round(0.005 + 0.00203928, 8)
+    assert g['fundedUsd'] == round(5.0 + 0.203928, 4) and g['rentSol'] == 0.0    # counts as money put in → P&L stays the price result
+    assert books['gold']['sol'] == 0                                               # an unmatched coin's rent (two cards) stays on the reserve
+    one, cr1 = fw.rent_back({'degen': {'sol': 0, 'fundedUsd': 5}}, [{'mint': None, 'lamports': 1e9 * 0.0376}], 100.0)   # old sweep, one card
+    assert cr1 == {'degen': 0.0376} and one['degen']['fundedUsd'] == 8.76
+
+
+def test_a_buy_that_never_lands_is_flagged_stuck_after_10_minutes():
+    import fuse_wallet as fw
+    card = {'legs': [{'mint': 'A', 'pairAddress': 'Pa', 'buying': True, 'buyingSince': 0},
+                     {'mint': 'B', 'pairAddress': 'Pb', 'buying': True, 'buyingSince': 500},
+                     {'mint': 'C', 'pairAddress': 'Pc', 'buying': True, 'buyingSince': 590},
+                     {'mint': 'D', 'pairAddress': 'Pd', 'units': 3}]}
+    assert fw.stuck_buys(card, 610) == ['Pa'] and fw.stuck_buys(card, 610, {'C'}) == ['Pa', 'Pc']   # benched = at once
+    # sync_card stamps when the wait started, and clears it when the coin lands
+    c = fw.sync_card({'legs': [{'mint': 'A', 'pairAddress': 'Pa', 'role': 'runner', 'units': 2.0, 'entry': 1.0}], 'rounds': 1, 'rebuyRound': 1, 'rebuyAt': 9e12},
+                     {'sol': 0.0, 'legs': {}}, {}, 100.0)
+    assert c['legs'][0]['buying'] and c['legs'][0]['buyingSince'] > 0
+    c2 = fw.sync_card(c, {'sol': 0.0, 'legs': {'A': {'atoms': 2, 'decimals': 0, 'costUsd': 2.0, 'entryPx': 1.0}}}, {}, 100.0)
+    assert 'buyingSince' not in c2['legs'][0] and not c2['legs'][0].get('buying')

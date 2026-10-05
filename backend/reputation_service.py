@@ -5715,15 +5715,22 @@ async def _prime_tick_inner(now):
         bench = set().union(*[_fw.benched(b, now) for b in (_fw_load().get('books') or {}).values()] or [set()])
         if bench:
             p_t, r_t = [x for x in p_t if x.get('mint') not in bench], [x for x in r_t if x.get('mint') not in bench]
-        if cur and cur.get('real') and bench:   # the real card swaps a benched buying coin out NOW
-            if True:
-                for l in [x for x in cur['legs'] if x.get('mint') in bench and x.get('buying')]:
-                    try:
-                        tmp = {**cur, 'legs': [{**x, 'units': _fuse._f(x.get('wantUnits'))} if x is l else x for x in cur['legs']]}
-                        cur = _prime.replace_leg(tmp, l['pairAddress'], px, p_t, r_t, anchors, cfg_t, now)
-                        cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'why': f"🪑 ${l.get('symbol')} couldn't be bought safely 2× — swapped for a buyable coin"}] if cur.get('events') else cur.get('events')
-                    except ValueError:
-                        pass
+        stuck = set(_fw.stuck_buys(cur, now, bench)) if cur and cur.get('real') else set()
+        if stuck:   # ⏳ the real card swaps a coin whose buy can't land (benched, or still 'buying' after 10 min) for a buyable one NOW
+            before_ = cur
+            for pa in stuck:
+                l = next((x for x in cur['legs'] if x.get('pairAddress') == pa), None)
+                if not l:
+                    continue
+                why_s = "couldn't be bought safely — benched" if l.get('mint') in bench else 'buy never landed in 10 min'
+                try:
+                    tmp = {**cur, 'legs': [{**x, 'units': _fuse._f(x.get('wantUnits'))} if x is l else x for x in cur['legs']]}
+                    cur = _prime.replace_leg(tmp, pa, px, p_t, r_t, anchors, cfg_t, now)
+                    cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'why': f"⏳ ${l.get('symbol')} {why_s} — swapped for a buyable coin"}]
+                except ValueError:   # nothing buyable of its role: the slot goes back to card cash (refilled next round), never waits forever
+                    cur = {**cur, 'legs': [x for x in cur['legs'] if x is not l], 'events': list(cur.get('events') or []) + [
+                        {'at': now, 'kind': 'rotate', 'symbol': l.get('symbol'), 'usd': 0.0, 'why': f"⏳ ${l.get('symbol')} {why_s} — slot back to card cash"}]}
+            cur = _prime.note_dropped(before_, cur, now, cfg_t['rotateHours'], px)   # 🧊 the stuck coin cools like any coin that left
         # ⏱ each clock gets ITS coins: fast rounds rank by what is moving now, slow rounds keep depth / score order
         p_t, r_t = _prime.clock_rank(p_t, cfg_t['rotateHours'], mom), _prime.clock_rank(r_t, cfg_t['rotateHours'], mom)
         mine = {l.get('mint') for l in (cur or {}).get('legs') or []}
@@ -6542,10 +6549,39 @@ async def _fw_tick_inner(now):
 _fw_close_at = {'t': 0.0}
 
 
+async def _fw_rent_credit(cfg):
+    """♻ A CONFIRMED close puts its rent back into the card that opened those coin accounts (`fuse_wallet.rent_back`); a close that
+    failed or never landed credits nothing. Each close is credited once (its 'credited' row)."""
+    d = _fw_load()
+    done = {r.get('id') for r in d['ledger'] if r.get('side') == 'close' and r.get('status') in ('credited', 'lost')}
+    # older sweeps (before this rule) carry only their total → one real card gets it all (rent_back matches no mint → the only card)
+    todo = [r for r in d['ledger'][-2000:] if r.get('side') == 'close' and r.get('status') == 'sent' and r.get('sig') and r['id'] not in done]
+    if not todo:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            st = ((await _krpc(http, 'getSignatureStatuses', [[r['sig'] for r in todo], {'searchTransactionHistory': True}])) or {}).get('value') or []
+    except Exception:
+        return
+    sol_px = await _sol_usd_live()
+    async with _fw_lock:
+        d = _fw_load()
+        for r, s_ in zip(todo, st):
+            ok = bool(s_) and not s_.get('err') and s_.get('confirmationStatus') in ('confirmed', 'finalized')
+            if ok and sol_px > 0:
+                d['books'], cr = _fw.rent_back(d['books'], r.get('closed') or [{'mint': None, 'lamports': _fuse._f(r.get('sol')) * 1e9}], sol_px)
+                _fw_record(d, {**{k: v for k, v in r.items() if k != 'closed'}, 'status': 'credited', 'credits': cr, 'at': time.time(),
+                               'why': 'rent back into the card' if cr else 'rent stayed on the reserve (no card opened those accounts)'})
+            elif (s_ and s_.get('err')) or (not s_ and time.time() - _fuse._f(r.get('at')) > 600 and r.get('closed')):
+                _fw_record(d, {**{k: v for k, v in r.items() if k != 'closed'}, 'status': 'lost', 'at': time.time(), 'why': 'close never landed — nothing credited'})
+        _fw_save(d)
+
+
 async def _fw_close_empty(cfg, now):
     """♻ Every 2 rounds of the real card's clock (5-min rounds → every 10 min; never under 10, never over 30): close the Fuse wallet's
     EMPTY token accounts (coins fully sold) → their rent deposits come back to the wallet reserve, which paid them (the card never pays
     rent, so its numbers stay exact). One tx, CloseAccount only (destination = the wallet itself), Circle signs, logged + owner inbox."""
+    await _fw_rent_credit(cfg)
     every = _fw.close_every(_fuse._f(_prime_real_cfg().get('rotateHours')))
     if now - _fw_close_at['t'] < every or not cfg.get('armed') or cfg.get('paused') or not _fw_signer_ready():
         return
@@ -6567,7 +6603,9 @@ async def _fw_close_empty(cfg, now):
             sig = signed.get('signature') or signed.get('txHash')
             await _krpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
         rent = round(sum(_fuse._f(r.get('lamports')) for r in rows if r['pubkey'] in {e['pubkey'] for e in empty}) / 1e9, 9)
-        row = {'id': f'close:{now:.0f}', 'card': 'wallet', 'side': 'close', 'n': len(empty), 'sol': rent, 'sig': sig, 'at': now, 'status': 'sent', 'why': 'empty coin accounts closed — rent back to the reserve'}
+        closed = [{'mint': e.get('mint'), 'lamports': next((r.get('lamports') for r in rows if r['pubkey'] == e['pubkey']), 0)} for e in empty]
+        row = {'id': f'close:{now:.0f}', 'card': 'wallet', 'side': 'close', 'n': len(empty), 'sol': rent, 'sig': sig, 'at': now, 'status': 'sent', 'closed': closed,
+               'why': 'empty coin accounts closed — rent goes back into the card once confirmed'}
     except Exception as e:
         err = str(getattr(e, 'detail', e))[:120]
         # Empty-account cleanup is maintenance, not a card trade. When the shared

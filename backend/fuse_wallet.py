@@ -293,6 +293,7 @@ def apply_fill(book, order, fill, sol_px):
         swap_sol = int(order['lamports']) / 1e9
         if -fill['sol'] > swap_sol:
             b['rentSol'] = round(_f(b.get('rentSol')) + (-fill['sol'] - swap_sol), 9)
+            b['rentMints'] = {**(b.get('rentMints') or {}), m: round(_f((b.get('rentMints') or {}).get(m)) + (-fill['sol'] - swap_sol), 9)}   # whose rent it was
             sol_move = -swap_sol
     if order.get('cardPays'):   # after its first 5 rounds the card pays its own network FEES; rent is a refundable deposit → always the reserve
         sol_move -= fill['feeSol']
@@ -482,7 +483,7 @@ def sync_card(card, book, prices, sol_px):
             if u + 1e-12 < desired:
                 l['wantUnits'] = desired
             else:
-                l.pop('wantUnits', None); l.pop('buying', None)
+                l.pop('wantUnits', None); l.pop('buying', None); l.pop('buyingSince', None)
             if _f(l.get('entry')) > 0:
                 l['costUsd'] = round(u * _f(l['entry']), 6)   # SOL anchor cost = SOL really left × its entry (trimmed SOL isn't a loss)
             continue
@@ -492,11 +493,15 @@ def sync_card(card, book, prices, sol_px):
             if _f(bl.get('entryPx')) > 0:
                 l['entry'] = bl['entryPx']; l.setdefault('firstEntry', bl['entryPx'])
             l['costUsd'] = _f(bl.get('costUsd'))
-            l['real'] = True; l.pop('buying', None); l.pop('wantUnits', None)
+            l['real'] = True; l.pop('buying', None); l.pop('wantUnits', None); l.pop('buyingSince', None)
         else:   # its buy hasn't landed yet (failed / route busy): hold nothing, keep wanting it so the keeper retries, never show −100%
             if _f(l.get('units')) > 0:
                 l['wantUnits'] = _f(l['units'])
             l.update(units=0.0, costUsd=0.0, real=False, buying=_f(l.get('wantUnits')) > 0)
+            if l['buying']:
+                l.setdefault('buyingSince', __import__('time').time())   # ⏳ how long it has waited (a buy stuck > STUCK_BUY_SEC is swapped)
+            else:
+                l.pop('buyingSince', None)
     # 🔁 each NEW round: a coin that holds nothing (buy never landed / rotated in) gets an equal share again and the SOL anchor is
     # trimmed to its share, so the keeper re-tries the buy — within every wallet limit (per swap, daily, impact), never more SOL than the card has
     empty = [l for l in c['legs'] if l['mint'] != SOL_MINT and _f(l.get('units')) <= 0 and not l.get('buying') and not l.get('manualCash')]
@@ -533,7 +538,7 @@ def sync_card(card, book, prices, sol_px):
         for l in empty:
             if px(l) > 0 and alloc >= LEFTOVER_MIN_USD:
                 usd = min(share, alloc / len(empty))
-                l.update(wantUnits=usd / px(l), buying=True)
+                l.update(wantUnits=usd / px(l), buying=True); l.setdefault('buyingSince', _t.time())
         c['rebuyRound'] = int(card.get('rounds') or 0); c['rebuyAt'] = _t.time()
     c['cash'] = round(max(0.0, sol_left) * sol_px, 6)
     c['fundedUsd'] = round(_f(book.get('fundedUsd')), 6)
@@ -887,6 +892,7 @@ def close_tx(owner, accounts, blockhash):
     return base64.b64encode(bytes(Transaction.new_unsigned(msg))).decode()
 
 
+STUCK_BUY_SEC = 600     # ⏳ a coin still 'buying' after 10 min (no order could be sent, or every send was refused) is swapped out
 MISS_LIMIT = 2          # a coin that fails the buy checks this many times …
 MISS_WINDOW = 1800      # … within 30 minutes is benched for this card (≥ 2× QUIET_SEC: a quietly re-logged skip must still add up)
 QUIET_SEC = 900        # a skip that no quote can fix (cap / pause / thin pool) is booked once per 15 min, not every tick
@@ -1041,3 +1047,33 @@ def money_trail(rows, book, since, now, sol_px, prices=None):
             'held': held, 'problems': sorted(({'why': k, 'n': n} for k, n in why.items()), key=lambda x: -x['n']),
             'benched': {m: v.get('why') for m, v in (book.get('benched') or {}).items() if _f(v.get('until')) > now},
             'unexplainedUsd': unexplained}
+
+
+def stuck_buys(card, now, benched_mints=(), secs=STUCK_BUY_SEC):
+    """⏳ Legs of a real card waiting on a buy that won't land: benched coins at once, any other after `secs`. → [pairAddress]."""
+    return [l['pairAddress'] for l in (card or {}).get('legs') or []
+            if l.get('buying') and l.get('mint') != SOL_MINT and (l.get('mint') in set(benched_mints) or now - _f(now if l.get('buyingSince') is None else l['buyingSince']) >= secs)]
+
+
+def rent_back(books, closed, sol_px):
+    """♻ Rent from closed empty coin accounts goes back INTO the card that opened them (owner's rule), never left on the reserve.
+    closed = [{mint, lamports}]. The card is the one whose `rentMints` has that coin (only one real card → that card). The SOL joins
+    card cash and counts as money PUT IN (`fundedUsd`), because the reserve paid that rent — so P&L stays the price result, never a fake
+    gain. → (books, {card: sol credited}). Rent nobody can be matched to stays on the reserve."""
+    out = {k: {**v, 'rentMints': dict(v.get('rentMints') or {})} for k, v in (books or {}).items()}
+    credits = {}
+    for a in closed or []:
+        sol = _f(a.get('lamports')) / 1e9
+        if sol <= 0:
+            continue
+        card = next((k for k, v in out.items() if a.get('mint') in v['rentMints']), None) or (next(iter(out)) if len(out) == 1 else None)
+        if not card:
+            continue
+        b = out[card]
+        b['rentMints'].pop(a.get('mint'), None)
+        b['sol'] = round(_f(b.get('sol')) + sol, 9)
+        b['fundedUsd'] = round(_f(b.get('fundedUsd')) + sol * sol_px, 4)
+        b['rentBackSol'] = round(_f(b.get('rentBackSol')) + sol, 9)
+        b['rentSol'] = round(max(0.0, _f(b.get('rentSol')) - sol), 9)
+        credits[card] = round(credits.get(card, 0.0) + sol, 9)
+    return out, credits

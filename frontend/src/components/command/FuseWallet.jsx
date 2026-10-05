@@ -110,7 +110,7 @@ export function FuseWallet({ call }) {
         <small className="m-dim">{dry.note}</small></>}
       {(dry.orders || []).map((o, i) => <span key={i}>{o.side === 'buy' ? '🟢 buy' : '🔴 sell'} ${o.symbol} · {usd(o.usd)}{o.err ? ` · ⚠ ${o.err}` : ` · impact ${o.impactPct}% · via ${(o.route || []).join(' → ') || 'Jupiter'}`}</span>)}
       {!dry.orders?.length && <small className="m-dim">No swaps needed — this card is SOL right now (its SOL slice stays SOL).</small>}
-      <b data-testid="fw-dry-fees">💳 Card gets {usd(dry.cardUsd)} · fees ≈ {usd(dry.feesUsdEst)} from the reserve (network {usd(dry.networkUsdEst)}{dry.newCoins ? ` + account rent for ${dry.newCoins} new coin${dry.newCoins > 1 ? 's' : ''} ${usd(dry.rentUsdEst)}, refundable` : ''}) · FEELESS fee $0</b></>}</div>}
+      <b data-testid="fw-dry-fees">💳 Card gets {usd(dry.cardUsd)} · fees ≈ {usd(dry.feesUsdEst)} from the reserve (network {usd(dry.networkUsdEst)}{dry.newCoins ? ` + account rent for ${dry.newCoins} new coin${dry.newCoins > 1 ? 's' : ''} ${usd(dry.rentUsdEst)}, refunded into the card` : ''}) · FEELESS fee $0</b></>}</div>}
     <RunReport call={call} />
     {/* every row is kept — the trail just opens on demand instead of pushing the page four screens down */}
     <details className="hrt-fold" data-testid="fw-audit"><summary><b>4 · Audit trail</b><span>{d.ledger?.length || 0} rows · bought {usd(d.totals?.bought)} · sold {usd(d.totals?.sold)} · top-ups {usd(d.totals?.topups)}{d.ledger?.[0] ? ` · last: ${d.ledger[0].side} ${d.ledger[0].symbol ? `$${d.ledger[0].symbol} ` : ''}${new Date(d.ledger[0].at * 1000).toLocaleTimeString()}` : ''}</span></summary>
