@@ -217,3 +217,22 @@ test('swap picker: a coin that just left the card shows how many rounds until it
   const src = require('fs').readFileSync(require('path').join(__dirname, 'ArenaPrime.jsx'), 'utf8');
   expect(src).toContain('cool={c.pickCool || {}}'); expect(src).toContain('`in ${cool[r.mint]} rnd`');
 });
+
+test('top 3 window: the busiest safe coins not on the card (no watch rows, none just removed); tap → choose the coin it replaces', async () => {
+  const { topThree, TopThree } = require('./ArenaPrime');
+  const row = (m, vol, extra = {}) => ({ mint: m, pairAddress: 'P' + m, symbol: m, vol1h: vol, chg1h: 5, chg5m: 1, score: 50, ...extra });
+  const divs = [{ key: 'volume', rows: [row('A', 900), row('ON', 800), row('W', 700, { watch: true }), row('B', 600)] }, { key: 'fresh', rows: [row('B', 600), row('C', 500), row('COOL', 450), row('D', 400)] }, { key: 'majors', rows: [row('SOLX', 9999)] }];
+  expect(topThree(divs, ['ON'], { COOL: 2 }).map(r => r.mint)).toEqual(['A', 'B', 'C']);   // by 1h volume; on-card, watch, cooling and majors skipped
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ divisions: divs }) }));
+  const onSwap = jest.fn();
+  const c = { legs: [{ mint: 'ON', pairAddress: 'PON', symbol: 'ON', pnlPct: -3 }, { mint: 'L', pairAddress: 'PL', symbol: 'LOCK', pnlPct: 200, ride: true }], pickCool: { COOL: 2 } };
+  const el = await mount(<TopThree c={c} onSwap={onSwap} />);
+  const chip = el.querySelector('[data-testid="top-three-chip"]');
+  expect(chip.textContent).toContain('$A'); expect(el.textContent).toContain('TOP 1/3');
+  await act(async () => { chip.click(); });
+  const items = [...el.querySelectorAll('[data-testid="top-three-menu"] [role="menuitem"]')];
+  expect(items.map(b => [b.textContent.includes('$ON'), b.disabled])).toEqual([[true, false], [false, true]]);     // a locked coin can't be swapped out here
+  await act(async () => { items[0].click(); });
+  expect(onSwap.mock.calls[0][0].symbol).toBe('ON'); expect(onSwap.mock.calls[0][1].mint).toBe('A');
+  expect(el.querySelector('[data-testid="top-three-menu"]')).toBeNull();
+});

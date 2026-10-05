@@ -383,6 +383,36 @@ export function RealHealth({ k }) {
 
 const WEATHER = { clear: '☀ Runners: clear', rain: '🌧 Runners: strong only', storm: '⛈ Runners: off' };
 
+const bigUsd = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(0)}K` : `$${Math.round(v || 0)}`);
+const TOP3_DIVS = ['volume', 'fresh', 'proven', 'risers', 'paid', 'dip'];
+export const topThree = (divisions, onCard = [], cool = {}) => { const seen = new Set(onCard); const out = [];
+  for (const r of (divisions || []).filter(d => TOP3_DIVS.includes(d.key)).flatMap(d => (d.rows || []).map(x => ({ ...x, div: d.key }))).filter(r => !r.watch && r.mint && r.pairAddress && !(cool[r.mint] > 0)).sort((a, b) => (b.vol1h || 0) - (a.vol1h || 0) || (b.score || 0) - (a.score || 0)))
+    if (!seen.has(r.mint)) { seen.add(r.mint); out.push(r); if (out.length === 3) break; }
+  return out; };
+
+/* 🔥 TOP 3 right now (busiest safe coins not on the card), one at a time, changing every few seconds — tap one, choose which of
+   your coins it replaces at the next round. One light fetch every 30s. */
+export function TopThree({ c, busy, onSwap }) {
+  const [rows, setRows] = useState([]); const [i, setI] = useState(0); const [open, setOpen] = useState(null);
+  const onCard = (c.legs || []).map(l => l.mint).join(',');
+  useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/fuses/contenders')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setRows(topThree(x.divisions, onCard.split(','), c.pickCool || {}))).catch(() => {});
+    load(); const t = setInterval(() => !document.hidden && load(), 30000); return () => { alive = false; clearInterval(t); }; }, [onCard]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (open || rows.length < 2) return undefined; const t = setInterval(() => setI(n => (n + 1) % rows.length), 5000); return () => clearInterval(t); }, [rows.length, open]);
+  useEffect(() => { if (!open) return undefined; const k = e => e.key === 'Escape' && setOpen(null); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [open]);
+  if (!rows.length) return null;
+  const r = rows[i % rows.length]; const m5 = r.chg5m; const fall = isFalling(m5, r.chg1h);
+  return <span className="t3" data-testid="top-three"><small>🔥 TOP {(i % rows.length) + 1}/{rows.length}</small>
+    <button type="button" key={r.mint} className={`t3-chip ${fall ? 'is-fall' : ''}`} disabled={busy} aria-expanded={open === r.mint} data-testid="top-three-chip"
+      data-tip={`$${r.symbol} · 1h volume ${bigUsd(r.vol1h || 0)}${m5 != null ? ` · 5m ${m5 >= 0 ? '+' : ''}${Number(m5).toFixed(1)}%` : ''} · 1h ${r.chg1h >= 0 ? '+' : ''}${Number(r.chg1h || 0).toFixed(1)}% — tap to swap one of your coins for it at the next round`}
+      onClick={() => setOpen(open === r.mint ? null : r.mint)}><b>${r.symbol}</b><i className="m-num">{bigUsd(r.vol1h || 0)}/h</i>
+      <em className={`m-num ${(r.chg1h || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{(r.chg1h || 0) >= 1000 ? `${(r.chg1h / 100 + 1).toFixed(0)}x` : `${(r.chg1h || 0) >= 0 ? '+' : ''}${Number(r.chg1h || 0).toFixed(0)}%`}</em>{fall && <u>⚠</u>}</button>
+    {open === r.mint && <span className="t3-pop" role="menu" data-testid="top-three-menu"><small>swap ${r.symbol} in for…</small>
+      {(c.legs || []).filter(l => !l.buying).map(l => <button key={l.pairAddress} type="button" role="menuitem" className="m-btn" disabled={busy || l.frozen || l.ride}
+        data-tip={l.frozen || l.ride ? 'Locked — it is riding' : undefined} onClick={() => { onSwap(l, r); setOpen(null); }}>${l.symbol} <i className={`m-num ${(l.pnlPct || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(l.pnlPct || 0)}</i></button>)}
+      <button type="button" className="m-btn t3-x" onClick={() => setOpen(null)}>cancel</button></span>}
+  </span>;
+}
+
 const VITAL_KIND = { skim: '💰 Profit taken', 'lock-bank': '🏦 Banked at the lock', 'peak-sell': '🏔 Sold off its peak', seat: '🪑 Seat filled', keep: '⚖ Kept', ride: '❄ Locked (riding)', rotate: '⇄ Swap',
   compound: '♻ Cash back to work', balance: '⚖ Equal weight', floor: '🧱 Floor', deal: '🃏 Dealt', hold: '✋ Hold', 'manual-sell': '✂ Sold by you' };
 
@@ -441,7 +471,7 @@ export function HqRealCards({ addr, onCount }) {
         {trail === c.id && <CardEarnings title={c.label} onClose={() => setTrail(null)} taken={c.walletUsd || 0} compounded={c.compoundedUsd} fees={c.cardFeesUsd}
           gainNow={allTime(c, b.fundedUsd || c.startUsd)} events={(c.audit || c.events || []).map(e => ({ ...e, label: KIND[e.kind] || VITAL_KIND[e.kind] || e.kind }))} />}
         <div className="hq-real-track">
-          <div className="hrt-top"><b>{c.label}</b><span className={`hrt-state ${state[2]}`} data-tip="Keeper: moves the real coins to what the card says, every tick">{state[0]} {state[1]}</span></div>
+          <div className="hrt-top"><b>{c.label}</b><TopThree c={c} busy={!!busy} onSwap={(leg, r) => prime({ pickSwap: { tpl: c.tpl, pairAddress: leg.pairAddress, to: r.mint, toPair: r.pairAddress } }, `🎯 $${r.symbol} comes in for $${leg.symbol} at the next round`, 'pick')} /><span className={`hrt-state ${state[2]}`} data-tip="Keeper: moves the real coins to what the card says, every tick">{state[0]} {state[1]}</span></div>
           <div className="hrt-hero">
             <RoundBell at={c.nextRoundAt || c.lastRotateAt + (cf?.rotateHours || 1) * 3600} sec={c.bellSec || 10} rest={!!c.resting} label={`ROUND ${(c.rounds || 0) + 1}`} />
             <span className="is-now" data-tip="What the card is worth right now (selling every coin at live prices) · % vs this run's start"><small>IN CARD NOW</small><b key={(c.valueUsd || 0).toFixed(2)} className="m-num fl-tick">{usd(c.valueUsd)}</b><em className={`m-num ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.pnlPct)} this run</em></span>
@@ -482,7 +512,11 @@ export function HqRealCards({ addr, onCount }) {
                 data-tip={l.swapTo ? `$${l.swapTo} comes in for $${l.symbol} at the next round — tap to change or cancel` : `Pick the coin that replaces $${l.symbol} at the next round, from the live lists`}
                 onClick={() => setPickFor(pickFor === l.pairAddress ? null : l.pairAddress)}>{l.swapTo ? `🎯 → $${l.swapTo}` : '🎯'}</button>
               <button type="button" className={`m-btn ${l.frozen ? 'active' : ''}`} aria-pressed={!!l.frozen} disabled={!!busy} data-testid={`freeze-${l.symbol}`} data-tip={l.frozen ? `Unfreeze $${l.symbol}: the engine may rotate / stop it again` : `Freeze $${l.symbol}: never rotated or stopped (the card floor still protects you)`}
-                onClick={() => prime({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, frozen: !l.frozen } }, l.frozen ? `$${l.symbol} back under the engine` : `❄ $${l.symbol} frozen`, `fz-${l.pairAddress}`)}>❄</button></span> : <span />}</li>)}
+                onClick={() => prime({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, frozen: !l.frozen } }, l.frozen ? `$${l.symbol} back under the engine` : `❄ $${l.symbol} frozen`, `fz-${l.pairAddress}`)}>❄</button></span>
+              : <span className="hrt-ctl">{/* SOL is the card's own cash sitting in a seat — it can be swapped into a coin like any other */}
+                <button type="button" className={`m-btn ${pickFor === l.pairAddress || l.swapTo ? 'active' : ''}`} disabled={!!busy} data-testid="pick-SOL" aria-expanded={pickFor === l.pairAddress}
+                  data-tip={l.swapTo ? `$${l.swapTo} takes this SOL at the next round — tap to change or cancel` : 'This seat is plain SOL (card cash). Pick a coin to put it into at the next round — the buy is checked for price impact first.'}
+                  onClick={() => setPickFor(pickFor === l.pairAddress ? null : l.pairAddress)}>{l.swapTo ? `🎯 → $${l.swapTo}` : '🎯 swap SOL into a coin'}</button></span>}</li>)}
             {pickFor && c.legs.some(l => l.pairAddress === pickFor) && <li className="hrt-pickrow"><SwapPicker out={c.legs.find(l => l.pairAddress === pickFor)} have={c.legs.map(l => l.mint)} cool={c.pickCool || {}} busy={!!busy} minLiq={Math.min(k.minLiqUsd ?? 20000, k.arenaMinLiqUsd ?? k.minLiqUsd ?? 20000)}
               onPick={r => { prime({ pickSwap: { tpl: c.tpl, pairAddress: pickFor, to: r ? r.mint : null, toPair: r ? r.pairAddress : null } }, r ? `🎯 $${r.symbol} comes in at the next round` : 'Pick cancelled', 'pick'); setPickFor(null); }} onClose={() => setPickFor(null)} /></li>}
             {(() => { const cash = b.reconciliation?.cardCashUsd ?? c.cash ?? 0;   // the book's confirmed SOL — the same number "Withdraw card cash" shows

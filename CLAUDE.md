@@ -1156,3 +1156,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Music queue titles: `.feecat-queue li > .feecat-x { width: auto; flex: none }` (tips.css) — the ✕ also had `width: 100%`, squeezing the
   title button (flex-basis 0) to 14px so rows read "1 ✕". The player stores only `{url, title}` per song in localStorage.
 - Per-coin 💰 select is a fixed 86px (`.hrt-skim`); a bare `width: auto` select stretched across the row.
+- 🌊 Volume list = every launch coin passing the SAFETY gates (`runners.safe_only`: all gates except `SOFT_GATES` prebond / age / size /
+  volume / flow), busiest first — soft gates keep a coin out of the ROUND, not out of sight. 🗑 Trench picker rows = passing coins +
+  near-misses (`trench.soft_only`: only soft checks missed; flagged `soft`, never auto-seated, the owner may pick at the pick floor).
+- 🔥 `TopThree` beside the sync chip on the real card (`top-three`, `t3-*`): the 3 busiest safe coins not on the card (`topThree`: runner
+  divisions, no watch rows, none in `pickCool`), one shown at a time (5s), ONE contenders fetch every 30s; tap → menu of the card's
+  coins → `pickSwap`. Locked / riding coins can't be swapped out there. The SOL seat has its own 🎯 ("swap SOL into a coin").
+- 🌙 `scripts/background.sh start|status|stop`: keep-alive under `caffeinate`, detached from the Terminal (nohup + pid file). It is
+  still the owner's Mac (lid closed / reboot stops it); a real host = docs/ALWAYS_ON.md. THE BIG SPLIT of reputation_service.py
+  (16.5K lines) is NOT started — plan: auth → prices → Fuse wallet keeper → Arena → runners, one module per commit, tests green.
