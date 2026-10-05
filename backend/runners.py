@@ -114,7 +114,9 @@ DEFAULT_CFG = {'roundSize': 5, 'minMcap': 8000, 'minVol1h': 5000, 'maxTop10': 30
                'minBuyShare': 40, 'maxBuyShare': 85, 'minTrades1h': 50, 'maxBundled': 2, 'maxTop10Jump': 10,
                'bondWatchCurve': 75, 'bondSpeed10m': 8, 'smartMin': 3,
                # 🧠 smart gates: a wider buy band ONLY for coins with clean holders · a suspect creator's coin passes once it has LASTED
-               'smartBuyShare': 92, 'agedProofH': 12}
+               'smartBuyShare': 92, 'agedProofH': 12,
+               # 🧠 top-10 above the limit passes up to this ONLY while the big holders are HOLDING (`holding`)
+               'smartTop10': 40}
 
 # ⚡ Stronger engine: what HQ is offered (one click) when its live config is weaker. Each with the reason.
 RECOMMENDED = {'minMcap': (12000, 'Under $12K is mostly bots'), 'minVol1h': (10000, 'Real two-sided flow starts here'),
@@ -130,7 +132,7 @@ CFG_RANGES = {'roundSize': (2, 10), 'minMcap': (1000, 1_000_000), 'minVol1h': (5
               'bondCurve': (70, 99), 'bondBuys': (50, 90), 'bondVol1h': (1000, 1_000_000), 'bondTop10': (5, 40), 'bondPts': (0, 30),
               'autoCoins': (2, 6), 'autoPools': (1, 5), 'battleMins': (15, 240),
               'minBuyShare': (30, 70), 'maxBuyShare': (60, 95), 'minTrades1h': (10, 500), 'maxBundled': (0, 5), 'maxTop10Jump': (3, 40),
-              'bondWatchCurve': (50, 89), 'bondSpeed10m': (1, 40), 'smartMin': (1, 10), 'smartBuyShare': (60, 97), 'agedProofH': (6, 48)}
+              'bondWatchCurve': (50, 89), 'bondSpeed10m': (1, 40), 'smartMin': (1, 10), 'smartBuyShare': (60, 97), 'agedProofH': (6, 48), 'smartTop10': (10, 50)}
 
 
 def clean_cfg(p):
@@ -212,6 +214,36 @@ def clean_holders(c):
             and int(c.get('bundled') or 0) <= BANGER_PROOF['maxBundled'] and not c.get('devSold'))
 
 
+HOLDING = {'minAgeH': 1.0, 'maxJump': 1.0, 'maxInsiders': 5.0, 'minBuyShare': 50.0}
+
+
+def holding(c):
+    """🤝 Big holders that are HOLDING, with someone behind the coin → (ok, why). Scan done, top-10 not growing (≤ +1 pt in 5m),
+    snipers / bundlers < 5%, no flagged funders, dev has not sold, buyers ≥ 50%, the coin has lasted its first hour, it has a site
+    or an X account, and its creator is clean or only on watch."""
+    p = HOLDING
+    miss = [why for ok, why in (
+        (bool(c.get('scanned')), 'not scanned'),
+        (_f(c.get('top10Jump')) <= p['maxJump'], f"top-10 growing (+{_f(c.get('top10Jump')):g} pts)"),
+        (_f(c.get('insiders')) < p['maxInsiders'], f"insiders {c.get('insiders')}%"),
+        (int(c.get('flaggedFunders') or 0) == 0, 'flagged funders'),
+        (not c.get('devSold'), 'dev sold'),
+        (_f(c.get('buyShare')) >= p['minBuyShare'], 'sellers lead'),
+        (c.get('ageH') is not None and _f(c['ageH']) >= p['minAgeH'], 'under 1h old'),
+        (bool(c.get('site') or c.get('x')), 'no site or X'),
+        (not c.get('creatorFlagged') and c.get('creatorRep') not in ('suspect', 'high'), 'creator flagged')) if not ok]
+    return (not miss, 'big holders are holding' if not miss else '; '.join(miss))
+
+
+def top10_ok(c, g):
+    """🧠 Top-10 share, read smartly: under the limit → pass. Above it (a few wallets own a lot) passes up to `smartTop10` ONLY
+    while those holders are holding (`holding`). Unknown = out."""
+    if c.get('top10') is None:
+        return False
+    t = _f(c['top10'])
+    return t < g['maxTop10'] or (t < max(g['maxTop10'], g.get('smartTop10', g['maxTop10'])) and holding(c)[0])
+
+
 def flow_ok(c, g):
     """🧠 Two-sided flow, read smartly. Inside the normal band (min–max % buys) with enough trades → pass. ABOVE the band (almost
     all buys) is how a pump is pushed — and also how a real breakout looks; it passes up to `smartBuyShare` ONLY when the holders
@@ -240,7 +272,7 @@ def gates(cfg=None):
         ('flow', f"Two-sided flow ({g['minBuyShare']}–{g['maxBuyShare']}% buys, {g['minTrades1h']}+ trades/h)",
          lambda c: flow_ok(c, g)),
         ('scan', 'Holder scan done', lambda c: c['scanned']),
-        ('top10', f"Top 10 under {g['maxTop10']}%", lambda c: c['top10'] is not None and c['top10'] < g['maxTop10']),
+        ('top10', f"Top 10 under {g['maxTop10']}%", lambda c: top10_ok(c, g)),
         ('insiders', f"Snipers/bundlers under {g['maxInsiders']}% · ≤{g['maxBundled']} bundled", lambda c: (c['insiders'] or 0) < g['maxInsiders'] and c['bundled'] <= g['maxBundled']),
         # ⛔ kill switch: these flip a coin to failing at once → it's auto-swapped out of rounds and lit cards
         ('spike', f"No top-10 spike (+{g['maxTop10Jump']} pts in 5m)", lambda c: (c.get('top10Jump') or 0) < g['maxTop10Jump']),

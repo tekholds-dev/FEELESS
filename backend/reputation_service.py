@@ -2675,6 +2675,17 @@ async def fuses_list():
     return {'fuses': sorted(rows, key=lambda r: -_hq.trust_rank(r['score']['points'], r['trust']['buyers'], r['trust']['trusted']))}
 
 
+def _creator_warn(c):
+    """One plain line when a scanned launch coin's creator is flagged, else ''."""
+    if not c:
+        return ''
+    if c.get('creatorRep') == 'high':
+        return 'Creator is HIGH risk (blocklist / rug report / serial sniper). The engine will not buy this coin.'
+    if c.get('creatorFlagged') or c.get('creatorRep') == 'suspect':
+        return 'Creator is flagged as suspect. The engine buys it only once the coin proves itself.'
+    return ''
+
+
 @app.get('/api/reputation/fuses/search')
 async def fuses_search(request: Request, q: str = Query(..., min_length=2, max_length=60)):
     """Pool picker for the Fuse builder: live pools with the meta a builder needs (depth, volume, APR est., turnover).
@@ -2697,6 +2708,11 @@ async def fuses_search(request: Request, q: str = Query(..., min_length=2, max_l
         have = {r['pairAddress'] for r in rows}
         rows += [r for r in await _majors_rows() if r['pairAddress'] not in have]
     hidden = sum(1 for p in pairs if p.get('chainId') == 'solana' and p.get('pairAddress') not in real) if not admin else 0
+    seen_ = {r.get('mint'): r for r in _runner_cands}
+    for r in rows:   # ⚠ what the runner board already knows about this coin's creator (cache only — informs a pick, never blocks it)
+        w = _creator_warn(seen_.get(r.get('baseAddress')))
+        if w:
+            r['warn'] = w
     return {'pools': _fuse.mark_real(rows, qu)[:15], 'hidden': hidden,
             'why': ('That coin has no tradable pool yet (still on its launch curve, or no volume) — a card can only swap into a live pool.' if is_ca and not rows
                     else f'{hidden} pool{"s" if hidden != 1 else ""} hidden: no volume or a parked pool.' if hidden and not rows else '')}
@@ -5579,6 +5595,11 @@ async def _contenders_build():
         rcfg_v = _runner_cfg()
         src['volume'] = sorted({r.get('mint'): r for r in list(young) + [r for r in _runner_cands if _rn.safe_only(r, rcfg_v)] if r.get('mint')}.values(),
                                key=lambda r: -_fuse._f(r.get('vol1h')))
+        try:   # ⚡ Pump Pulse on the busiest volume coins: ONE batched call (15s per coin), pulsing coins lead the list
+            pz = await _edge_pulses([r['mint'] for r in src['volume'][:40]])
+            src['volume'] = sorted(({**r, 'pulse': bool((pz.get(r['mint']) or {}).get('pulse'))} for r in src['volume']), key=lambda r: (not r['pulse'], -_fuse._f(r.get('vol1h'))))
+        except Exception:
+            pass
         src['trench'] = list(_trench_cache.get('rows') or [])
         # 👀 never an empty Trench list: nothing passing → the scan's closest misses, else the busiest fresh launches (watch only)
         src['trench_watch'] = [{**r, 'trenchOnly': False} for r in (_trench_cache.get('checked') or []) if not r.get('ok')] or \
@@ -5592,13 +5613,13 @@ async def _contenders_build():
         return data
 
 
-def _pick_row(pair, mint):
-    """A live DexScreener pair → a swap-pick row, or None: the pool must be THIS mint, have a live price, ≥ $25K depth, and not be a
+def _pick_row(pair, mint, floor=25_000):
+    """A live DexScreener pair → a swap-pick row, or None: the pool must be THIS mint, have a live price, ≥ the pick floor (the owner's `pickMinLiqUsd`), and not be a
     dollar coin (it never moves). Real cards additionally need the real-buy floor (checked by the caller)."""
     if not pair or (pair.get('baseToken') or {}).get('address') != mint:
         return None
     m = _fuse.leg_meta(pair)
-    if m['priceUsd'] <= 0 or m['liquidityUsd'] < 25_000 or str(m.get('symbol') or '').upper() in _ct.STABLES or _fw.lookalike(m.get('symbol'), mint, _fuse.MAJORS):
+    if m['priceUsd'] <= 0 or m['liquidityUsd'] < max(5_000, floor) or str(m.get('symbol') or '').upper() in _ct.STABLES or _fw.lookalike(m.get('symbol'), mint, _fuse.MAJORS):
         return None
     return {'mint': mint, 'pairAddress': pair.get('pairAddress'), 'symbol': m.get('symbol'), 'price': m['priceUsd'], 'liq': m['liquidityUsd']}
 
@@ -6014,7 +6035,7 @@ async def fuse_prime_admin(request: Request):
             row = row or next((r for r in _trench_cache.get('rows') or [] if r.get('mint') == pk['to']), None)   # 🗑 a passing trench coin
             if not row and pk.get('toPair'):   # 🔎 any coin from the Lab lenses / search: verified LIVE on its own pool right now
                 lp = (await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pk['toPair']}])).get(pk['toPair']) or {}
-                row = _pick_row(lp, pk['to'])
+                row = _pick_row(lp, pk['to'], _fw.clean_cfg(_fw_load().get('cfg') or {})['pickMinLiqUsd'])
             if not row:
                 raise HTTPException(400, 'Pick a coin from the live lists — that one has no live pool right now.')
             cand = {'mint': row['mint'], 'pairAddress': row['pairAddress'], 'symbol': row.get('symbol'), 'price': row.get('price'), 'liquidityUsd': row.get('liq'),
@@ -6026,7 +6047,7 @@ async def fuse_prime_admin(request: Request):
             if not card:
                 raise HTTPException(404, 'No card for that tier yet.')
             if cand and card.get('real'):   # 💵 real money keeps its own floor: the pick must be buyable
-                floor = _fw.liq_floor(_fw_load().get('cfg') or {}, True, bool(cand.get('trenchOnly')))   # 🗑 trench picks use the trench floor
+                floor = _fw.liq_floor(_fw_load().get('cfg') or {}, trench=bool(cand.get('trenchOnly')), picked=True)   # 🗑 trench picks use the trench floor
                 if _fuse._f(cand.get('liquidityUsd')) < floor:
                     raise HTTPException(400, f"${cand['symbol']} pool is ${_fuse._f(cand.get('liquidityUsd')):,.0f} — under the ${floor:,.0f} real-buy floor (Edit Fuse › Limits).")
             if cand and _prime.hands_off_left(card, time.time()):
@@ -7110,7 +7131,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
             break
     fail = dead[0] if dead else None
     keeper = {'armed': bool(cfg.get('armed')), 'paused': bool(cfg.get('paused') or b.get('halt')), 'halt': bool(b.get('halt')), 'selling': bool(b.get('defund')),
-              'minLiqUsd': cfg.get('minLiqUsd'), 'arenaMinLiqUsd': cfg.get('arenaMinLiqUsd'), 'minOrderUsd': cfg.get('minOrderUsd'), 'maxSwapUsd': cfg.get('maxSwapUsd'), 'slippageBps': cfg.get('slippageBps'),
+              'minLiqUsd': cfg.get('minLiqUsd'), 'arenaMinLiqUsd': cfg.get('arenaMinLiqUsd'), 'pickMinLiqUsd': cfg.get('pickMinLiqUsd'), 'minOrderUsd': cfg.get('minOrderUsd'), 'maxSwapUsd': cfg.get('maxSwapUsd'), 'slippageBps': cfg.get('slippageBps'),
               'maxImpactPct': cfg.get('maxImpactPct'), 'dailyUsd': cfg.get('dailyUsd'), 'pending': pend.get('symbol') and f"{pend.get('side')} ${pend.get('symbol')}",
               'lastFail': fail and {'symbol': fail.get('symbol'), 'side': fail.get('side'), 'mint': fail.get('mint'), 'pair': fail.get('pair'), 'err': (fail.get('err') or '')[:90], 'at': fail.get('at')},
               'lastFill': next((o.get('at') for o in rows if o.get('status') == 'filled'), None),

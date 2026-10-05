@@ -862,7 +862,7 @@ def test_a_recovery_sell_puts_its_sol_back_to_work_but_owner_cut_cash_stays_held
 
 
 def test_the_owners_pick_is_held_to_the_floor_the_picker_promised():
-    cfg = {**CFG, 'minLiqUsd': 80000, 'arenaMinLiqUsd': 25000}
+    cfg = {**CFG, 'minLiqUsd': 80000, 'arenaMinLiqUsd': 25000, 'pickMinLiqUsd': 25000}
     o = {'side': 'buy', 'usd': 0.7, 'liq': 42080, 'mint': 'ORE', 'pair': 'P'}
     assert not fw.check(o, cfg, [], 0)[0]                                                # a coin the engine chose: the general $80K floor
     assert fw.check({**o, 'picked': True}, cfg, [], 0)[0]                                # the owner's own pick: the $25K floor it was accepted at
@@ -1039,3 +1039,13 @@ def test_an_engine_cut_survives_the_sync_until_it_is_sold_or_ten_minutes_pass():
     assert plain['units'] == 1.0                                                         # no cut flag → the wallet's truth, as always
     sold = fw.sync_card({'legs': [{**leg, 'trimAt': time.time() - 30}], 'rounds': 9}, {'sol': 0.0, 'legs': {'W': {**book['legs']['W'], 'atoms': 670_000, 'costUsd': 0.402}}}, {'PW': 1.2}, 100.0)['legs'][0]
     assert sold['units'] == 0.67 and sold['costUsd'] == 0.402                            # once it sold, card and wallet simply agree
+
+
+def test_the_owners_pick_floor_is_their_own_setting_and_never_under_5k():
+    cfg = {**CFG, 'minLiqUsd': 80000, 'arenaMinLiqUsd': 25000}
+    assert fw.clean_cfg(cfg)['pickMinLiqUsd'] == 10000 and fw.liq_floor(cfg, picked=True) == 10000   # default: a $23.8K pool is pickable
+    assert fw.liq_floor(cfg) == 80000 and fw.liq_floor(cfg, arena=True) == 25000                     # the engine's own floors do not move
+    assert fw.liq_floor({**cfg, 'pickMinLiqUsd': 100}, picked=True) == 5000                          # never any pool
+    assert fw.liq_floor({**cfg, 'pickMinLiqUsd': 500000}, picked=True) == 25000                      # never stricter than the Arena floor
+    o = {'side': 'buy', 'usd': 0.7, 'liq': 23815, 'mint': 'SIR', 'pair': 'P'}
+    assert not fw.check(o, cfg, [], 0)[0] and fw.check({**o, 'picked': True}, cfg, [], 0)[0]

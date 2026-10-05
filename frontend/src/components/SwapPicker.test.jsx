@@ -36,3 +36,17 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   expect(el.querySelector('[data-testid="sp-pick-BTC"]').disabled).toBe(true);   // lookalike can't be picked
   expect(el.querySelector('[data-testid="sp-pick-cbBTC"]').disabled).toBe(false);
 });
+
+test('a flagged creator and a pump pulse are shown on the row, and the pick stays the owner\'s', async () => {
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ pools: [
+    { baseAddress: 'S', pairAddress: 'ps', symbol: 'SIR', priceUsd: 0.00008, liquidityUsd: 23815, warn: 'Creator is HIGH risk (blocklist / rug report / serial sniper). The engine will not buy this coin.' },
+    { baseAddress: 'Q', pairAddress: 'pq', symbol: 'PLS', priceUsd: 1, liquidityUsd: 90000, pulse: true }] }) }));
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} minLiq={10000} onPick={() => {}} onClose={() => {}} />); });
+  await tick();
+  expect(el.querySelector('[data-testid="sp-warn-SIR"]').textContent).toBe('⚠ creator');
+  expect(el.querySelector('[data-testid="sp-warn-SIR"]').getAttribute('data-tip')).toContain('it is your pick');
+  expect(el.querySelector('[data-testid="sp-pick-SIR"]').disabled).toBe(false);   // $23.8K pool clears the owner's $10K pick floor
+  expect(el.querySelector('[data-testid="sp-pulse-PLS"]')).toBeTruthy();
+  expect(el.querySelector('[data-testid="sp-warn-PLS"]')).toBeNull();
+});

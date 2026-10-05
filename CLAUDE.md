@@ -1165,3 +1165,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🌙 `scripts/background.sh start|status|stop`: keep-alive under `caffeinate`, detached from the Terminal (nohup + pid file). It is
   still the owner's Mac (lid closed / reboot stops it); a real host = docs/ALWAYS_ON.md. THE BIG SPLIT of reputation_service.py
   (16.5K lines) is NOT started — plan: auth → prices → Fuse wallet keeper → Arena → runners, one module per commit, tests green.
+- 🎯 OWNER'S PICK FLOOR = THEIR OWN SETTING (`fuse_wallet` cfg `pickMinLiqUsd`, default $10K, never < $5K; Edit Fuse › Limits "My own
+  pick min pool"): `liq_floor(picked=True)` = min(general, Arena, pick floor); `_pick_row(pair, mint, floor)` uses it (it was a fixed
+  $25K — a $23.8K pool the owner wanted read "too thin"). The ENGINE's floors do not move; impact / price-gap / sell-back still run.
+- 🤝 Smart top-10 (`runners.holding/top10_ok`, cfg `smartTop10` 40, HQ › ⚡ Engine): top-10 above `maxTop10` passes up to it ONLY while
+  the big holders hold — scan done, top-10 not growing, insiders < 5%, no flagged funders, dev not sold, buyers ≥ 50%, ≥ 1h old, a
+  site or X, creator clean / watch. A HIGH-risk creator (rug report, serial sniper) NEVER passes an engine gate — the owner may still
+  pick the coin by hand: picker rows carry `warn` (`_creator_warn` from `_runner_cands`, "⚠ creator" in the ⚠ cell, never a block).
+- ⚡ Pump Pulse in the lists: 🌊 Volume rows get `pulse` from ONE batched `_edge_pulses` call (pulsing first, +8 score); picker shows ⚡.

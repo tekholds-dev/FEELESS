@@ -15,10 +15,10 @@ import statistics
 
 SOL_MINT = 'So11111111111111111111111111111111111111112'
 DEFAULT_CFG = {'walletId': '', 'address': '', 'armed': False, 'paused': False, 'maxCardUsd': 100.0, 'maxSwapUsd': 50.0,
-               'dailyUsd': 300.0, 'reserveSol': 0.03, 'slippageBps': 100, 'maxImpactPct': 3.0, 'minOrderUsd': 0.5, 'minLiqUsd': 20000.0, 'arenaMinLiqUsd': 20000.0, 'trenchMinLiqUsd': 8000.0,
+               'dailyUsd': 300.0, 'reserveSol': 0.03, 'slippageBps': 100, 'maxImpactPct': 3.0, 'minOrderUsd': 0.5, 'minLiqUsd': 20000.0, 'arenaMinLiqUsd': 20000.0, 'trenchMinLiqUsd': 8000.0, 'pickMinLiqUsd': 10000.0,
                'coinToCoin': False}   # 🔀 one-transaction swaps (old coin → new coin). OFF until the owner switches it on
 RANGES = {'maxCardUsd': (5, 50000), 'maxSwapUsd': (1, 10000), 'dailyUsd': (5, 100000), 'reserveSol': (0.005, 5),
-          'slippageBps': (10, 300), 'maxImpactPct': (0.2, 10), 'minOrderUsd': (0.10, 50), 'minLiqUsd': (0, 10000000), 'arenaMinLiqUsd': (0, 10000000), 'trenchMinLiqUsd': (3000, 10000000)}
+          'slippageBps': (10, 300), 'maxImpactPct': (0.2, 10), 'minOrderUsd': (0.10, 50), 'minLiqUsd': (0, 10000000), 'arenaMinLiqUsd': (0, 10000000), 'trenchMinLiqUsd': (3000, 10000000), 'pickMinLiqUsd': (5000, 10000000)}
 DUST_USD = 0.05
 
 
@@ -66,7 +66,11 @@ def liq_floor(cfg, arena=False, trench=False, picked=False):
         return c['trenchMinLiqUsd']
     # 🎯 the owner's own PICK is held to the same floor the picker promised it (the Arena floor) — it used to be accepted at $25K,
     # then refused by the keeper at the general $80K AFTER the old coin was already sold
-    return min(c['minLiqUsd'], c['arenaMinLiqUsd']) if arena or picked else c['minLiqUsd']
+    # 🎯 …and that floor is the OWNER'S OWN setting (`pickMinLiqUsd`, never under $5K): a coin they chose by hand on a small card
+    # moves a $10K pool by a fraction of a percent, and every buy still passes the impact + price-gap + sell-back checks
+    if picked:
+        return min(c['minLiqUsd'], c['arenaMinLiqUsd'], c['pickMinLiqUsd'])
+    return min(c['minLiqUsd'], c['arenaMinLiqUsd']) if arena else c['minLiqUsd']
 
 
 def target(card, prices):

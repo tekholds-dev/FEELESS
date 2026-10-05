@@ -16,6 +16,7 @@ const LABELS = {
   // 🚪 gates (flow + reputation) — the safety checks (top-10, snipers, dev, mint + freeze) are above and never widen by themselves
   minBuyShare: ['🚪 Flow: buys at least', '%'], maxBuyShare: ['🚪 Flow: buys at most', '%'], minTrades1h: ['🚪 Flow: trades per hour at least', ''], maxBundled: ['🚪 Bundled wallets at most', ''],
   smartBuyShare: ['🧠 Smart flow: clean-holder coins may run up to', '% buys'], agedProofH: ['🧠 Suspect creator passes after the coin has lasted', 'h'],
+  smartTop10: ['🧠 Smart top-10: passes up to this while big holders are holding', '%'],
 };
 
 export function RunnerSettings({ call }) {

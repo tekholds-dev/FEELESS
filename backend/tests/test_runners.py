@@ -345,3 +345,17 @@ def test_volume_list_takes_safe_coins_even_when_a_soft_gate_keeps_them_out_of_th
     for bad in ({'scanned': False}, {'top10': 45}, {'bundled': 9}, {'devSold': True}, {'creatorFlagged': True}, {'creatorRep': 'high'}, {'mayhem': True}, {'top10Jump': 30}):
         assert not rn.safe_only({**coin, **bad}, g), bad                                 # any safety fail keeps it out of Volume too
     assert not rn.safe_only({}, g)                                                       # unknown = out
+
+
+def test_top10_above_the_limit_passes_only_while_big_holders_are_holding():
+    g = rn.clean_cfg({})
+    assert g['smartTop10'] == 40
+    c = {'scanned': True, 'top10': 34.0, 'top10Jump': 0.2, 'insiders': 1.0, 'flaggedFunders': 0, 'devSold': False, 'buyShare': 58.0, 'ageH': 3.0,
+         'site': False, 'x': True, 'creatorFlagged': False, 'creatorRep': 'clean'}
+    assert rn.holding(c)[0] and rn.top10_ok(c, g)                                      # 34% but holding, an X account, 3h old
+    assert rn.top10_ok({**c, 'top10': 22.0, 'x': False}, g)                            # under the limit needs no proof
+    for bad in ({'top10': 41.0}, {'top10Jump': 3.0}, {'devSold': True}, {'x': False}, {'ageH': 0.5}, {'buyShare': 44.0}, {'insiders': 7.0},
+                {'flaggedFunders': 1}, {'creatorRep': 'suspect'}, {'creatorRep': 'high'}, {'creatorFlagged': True}, {'scanned': False}, {'top10': None}):
+        assert not rn.top10_ok({**c, **bad}, g), bad
+    assert not rn.top10_ok(c, {**g, 'smartTop10': 30})                                 # HQ can switch the smart band off
+    assert not rn.rep_ok({'creatorRep': 'high'}, g)                                    # a reported rugger never passes, whatever the coin does

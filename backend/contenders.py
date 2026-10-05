@@ -55,6 +55,7 @@ def norm(row):
             'chg5m': None if row.get('chg5m', row.get('change5m')) is None else _f(row.get('chg5m', row.get('change5m'))), 'buyShare': bs, 'apr': _f(row.get('aprEst')),
             'ageH': row.get('ageH'), 'runnerScore': _f(row.get('score')), 'mcap': _f(row.get('mcap')),
             'paid': bool(row.get('paid')), 'boosts': int(_f(row.get('boosts'))),
+            **({'pulse': True} if row.get('pulse') else {}),
             **({'trenchOnly': True, 'trenchScore': _f(row.get('trenchScore')), 'holders': row.get('holders')} if row.get('trenchOnly') else {})}
 
 
@@ -76,6 +77,7 @@ def score(r, div):
         add('volume', 10 * _log(r['vol1h'], 5_000, 500_000), f"${r['vol1h']:,.0f} traded in 1h")
     elif div == 'volume':
         add('volume', 55 * _log(r['vol1h'], 20_000, 2_000_000), f"${r['vol1h']:,.0f} traded in 1h")
+        add('pulse', 8.0 if r.get('pulse') else 0.0, 'Pump Pulse: a burst of buys in the last 5 minutes')
         add('buyers', max(0.0, min(20.0, (r['buyShare'] - 50) * 1.0)), f"{r['buyShare']:.0f}% buys")
         add('momentum', max(0.0, min(15.0, r['chg1h'] * 0.3)), f"{r['chg1h']:+.0f}% in 1h")
         add('runner score', min(10.0, r['runnerScore'] * 0.1), f"gate score {r['runnerScore']:.0f}")
