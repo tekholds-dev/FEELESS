@@ -64,7 +64,7 @@ const m$ = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0) >= 1e3 ? `${(Math.abs(
 const pc = v => `${v >= 0 ? '+' : ''}${(v || 0).toFixed(1)}%`;
 // Watching row: graduated coins are never runners (pre-bond engine) → hidden; the rest say WHAT failed, in plain words.
 const FAIL_WHY = { 'Top 10 under 25%': 'top 10 hold too much', 'Holder scan done': 'holder scan pending', 'Creator not flagged (Bot shield / blocklist)': 'creator flagged',
-  'Creator reputation not suspect / high-risk': 'creator rep risky', 'Market cap ≥ $12K': 'mcap too small', '1h volume ≥ $10K': 'volume too thin' };
+  'Creator not a rugger (suspect = coin must prove itself)': 'creator rep risky', 'Market cap ≥ $12K': 'mcap too small', '1h volume ≥ $10K': 'volume too thin' };
 const failWhy = g => FAIL_WHY[g] || (g ? `not: ${g.toLowerCase()}` : 'a gate');
 const MAX_RUNNERS = 3;
 const post = (path, body) => fetch(apiUrl(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })

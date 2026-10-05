@@ -892,3 +892,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   · ❌ scrap · 👀 unproven. Read-only: decide what to scrap from it, never auto-scrap.
 - ❄ Freeze options: `RIDE_ATS` +10/15/20/25/50/100/150 and `RIDE_TRAILS` −5/8/10/15/20/30 (a frozen coin also leaves under half its freeze).
 - ⚔ Every new bell opens with a `bf-intro` round slam (ROUND n · FIGHT!, 1.8s, off in fx-lite / reduced motion).
+- 🛟 Rescue OFF (`rescuePct` 0) = NO fix of any kind: no rescue cycle, no losing-streak safe fix, and no −40% day fix (`FIX_DAY_PCT` only runs
+  with rescue on). The owner's coin floor is the only protection.
+- 💵 Real cards ALWAYS fight: `arena_league.new_season(must=)` seats every real-money card on top of the 8 (key `prime:<tier>`, never config-based)
+  and `ensure` adds one funded mid-season at once on a $20 book. Clock / config changes never drop it.
+- 🧼 Rep gate (`runners.rep_ok`): HIGH-risk creators, a REPORTED rug on the blocklist and bot-shield bots are always out. A SUSPECT creator (or one
+  blocklisted only for sniping other launches) passes only when the coin proves itself (`banger_proof`: top-10 < 20%, insiders < 5%, 0 bundled,
+  ≥ 55% buys, ≥ $20K 1h volume, dev not sold) and scores −12. New-runner launches (≤ 3h) keep the strict clean-creator rule.

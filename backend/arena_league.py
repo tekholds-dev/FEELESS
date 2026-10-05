@@ -34,13 +34,27 @@ def row(card, now):
             'w': 0, 'd': 0, 'l': 0, 'pts': 0, 'joinedAt': now, 'hist': [START_USD], 'src': card.get('src') or 'stage'}
 
 
-def new_season(cards, n, now, field_max=FIELD_MAX):
-    """Season n: the first `field_max` unique cards (callers pass them best first)."""
-    seen, field = set(), []
+def new_season(cards, n, now, field_max=FIELD_MAX, must=()):
+    """Season n: every REAL-money card (`must` keys) always gets a seat — on top of the cap, never taking one — then the first
+    `field_max` other unique cards (callers pass them best first)."""
+    seen, field, extra = set(), [], []
+    for c in cards or []:
+        if c.get('key') in set(must or ()) and c['key'] not in seen and c.get('legs'):
+            seen.add(c['key']); extra.append(row(c, now))
     for c in cards or []:
         if c.get('key') and c['key'] not in seen and c.get('legs') and len(field) < field_max:
             seen.add(c['key']); field.append(row(c, now))
+    field = extra + field
     return {'n': n, 'round': 0, 'rounds': ROUNDS, 'startUsd': START_USD, 'at': now, 'field': field, 'played': [], 'cycled': []}
+
+
+def ensure(season, cards, must, now):
+    """A real card funded mid-season joins at once on a fresh $20 book (it never waits for the next season). → (season, joined keys)."""
+    have = {r['key'] for r in season.get('field') or []}
+    add = [row(c, now) for c in cards or [] if c.get('key') in set(must or ()) and c['key'] not in have and c.get('legs')]
+    if not add:
+        return season, []
+    return {**season, 'field': list(season.get('field') or []) + add}, [r['key'] for r in add]
 
 
 def table(season):

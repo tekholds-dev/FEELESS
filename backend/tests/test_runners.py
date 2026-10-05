@@ -143,7 +143,8 @@ def test_card_preview_with_picked_runners(monkeypatch):
 def test_prebond_only_no_mayhem_and_creator_rep():
     assert 'Pre-bond or a fresh graduate (<48h)' not in rn.failed_gates(rn.candidate(pair('g', graduated=True), CLEAN, now_ms=NOW))   # young graduates run too
     assert 'Not a mayhem-mode coin' in rn.failed_gates(rn.candidate(pair('m'), CLEAN, now_ms=NOW, mayhem=True))
-    assert 'Creator reputation not suspect / high-risk' in rn.failed_gates(rn.candidate(pair('s'), CLEAN, now_ms=NOW, creator_rep='suspect'))
+    assert 'Creator not a rugger (suspect = coin must prove itself)' not in rn.failed_gates(rn.candidate(pair('s'), CLEAN, now_ms=NOW, creator_rep='suspect'))   # clean numbers prove it
+    assert 'Creator not a rugger (suspect = coin must prove itself)' in rn.failed_gates(rn.candidate(pair('s'), CLEAN, now_ms=NOW, creator_rep='high'))
     clean = rn.score(rn.candidate(pair('c'), CLEAN, now_ms=NOW, creator_rep='clean'))[0]
     watch = rn.score(rn.candidate(pair('c'), CLEAN, now_ms=NOW, creator_rep='watch'))[0]
     assert round(clean - watch, 1) == 15 and rn.failed_gates(rn.candidate(pair('c'), CLEAN, now_ms=NOW, creator_rep='watch')) == []
@@ -303,3 +304,14 @@ def test_pick_filters_and_the_doctor():
     assert rn.doctor(losing, losing)['sitOut'] is True
     rows = [{'mint': 'a', 'score': 90}, {'mint': 'b', 'score': 50}, {'mint': 'c', 'score': 75}]
     assert [r['mint'] for r in rn.apply_filter(rows, 'score70', 2)] == ['a', 'c', 'b'] and rn.apply_filter(rows, 'score70', 3) == rows
+
+
+def test_reputation_is_strong_but_a_suspect_creator_s_banger_can_still_prove_itself():
+    import runners as rn
+    gate = dict((k, f) for k, _, f in rn.gates())['rep']
+    banger = {'creatorRep': 'suspect', 'top10': 14.0, 'insiders': 2.0, 'bundled': 0, 'buyShare': 62.0, 'vol1h': 45_000.0, 'devSold': False}
+    assert gate(banger) and rn.banger_proof(banger)[0]                                         # clean numbers → in (scores −12)
+    assert not gate({**banger, 'top10': 34.0}) and 'top-10' in rn.banger_proof({**banger, 'top10': 34.0})[1]
+    assert not gate({**banger, 'vol1h': 8_000.0})                                              # thin flow: no proof
+    assert not gate({**banger, 'creatorRep': 'high'})                                          # a proven rugger never gets in
+    assert gate({**banger, 'creatorRep': None, 'top10': 34.0})                                 # unknown creator: the other gates decide

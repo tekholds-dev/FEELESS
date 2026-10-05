@@ -168,6 +168,32 @@ def widen_level(level, passing, min_pass=3, fill=8):
     return level
 
 
+# 🧼 Reputation, strong but fair: a creator rated HIGH risk (proven rugs) or flagged by the bot shield / blocklist is always out.
+# A SUSPECT creator is weak evidence — a banger can still come from one — so the coin gets in only when its OWN numbers are clean:
+# top-10 under 20%, insiders under 5%, nothing bundled, ≥ 55% buys on ≥ $20K an hour, dev not selling. It also scores −12.
+BANGER_PROOF = {'maxTop10': 20.0, 'maxInsiders': 5.0, 'maxBundled': 0, 'minBuyShare': 55.0, 'minVol1h': 20_000.0}
+
+
+def banger_proof(c):
+    """→ (ok, why) — does this coin prove itself despite a suspect creator?"""
+    p = BANGER_PROOF
+    miss = [why for ok, why in (
+        (c.get('top10') is not None and _f(c['top10']) < p['maxTop10'], f"top-10 {c.get('top10')}% ≥ {p['maxTop10']:g}%"),
+        (_f(c.get('insiders')) < p['maxInsiders'], f"insiders {c.get('insiders')}% ≥ {p['maxInsiders']:g}%"),
+        (int(c.get('bundled') or 0) <= p['maxBundled'], f"{c.get('bundled')} bundled"),
+        (_f(c.get('buyShare')) >= p['minBuyShare'], f"buys {c.get('buyShare')}% < {p['minBuyShare']:g}%"),
+        (_f(c.get('vol1h')) >= p['minVol1h'], f"1h volume ${_f(c.get('vol1h')):,.0f} < ${p['minVol1h']:,.0f}"),
+        (not c.get('devSold'), 'dev sold')) if not ok]
+    return (not miss, 'proves itself: clean holders, buyers in charge' if not miss else '; '.join(miss))
+
+
+def rep_ok(c):
+    rep = c.get('creatorRep')
+    if rep == 'high':
+        return False
+    return rep != 'suspect' or banger_proof(c)[0]
+
+
 def gates(cfg=None):
     g = clean_cfg(cfg)
     return (   # key, label, test — ALL must pass (unknown forensics fail closed)
@@ -186,7 +212,7 @@ def gates(cfg=None):
         ('devsold', "Dev hasn't sold", lambda c: not c.get('devSold')),
         ('dev', f"Dev holds under {g['maxDev']}%", lambda c: (c['dev'] or 0) < g['maxDev']),
         ('creator', 'Creator not flagged (Bot shield / blocklist)', lambda c: not c['creatorFlagged']),
-        ('rep', 'Creator reputation not suspect / high-risk', lambda c: c.get('creatorRep') not in ('suspect', 'high')),
+        ('rep', 'Creator not a rugger (suspect = coin must prove itself)', rep_ok),
     )
 
 
@@ -261,7 +287,7 @@ def score(c, cfg=None):
     vol = vol if pre else vol / 2
     if pre and c['vol1h'] < 20000:
         curve /= 2
-    rep_pts = {'clean': 5.0, 'watch': -10.0}.get(c.get('creatorRep'), 0.0)       # reputation: clean creators earn, "watch" pays
+    rep_pts = {'clean': 5.0, 'watch': -10.0, 'suspect': -12.0}.get(c.get('creatorRep'), 0.0)   # reputation: clean creators earn, watch / suspect pay
     bonus = (8.0 if c['snipersOut'] else 0.0) + min(7.0, c['quality'] / 14) + rep_pts
     tier = bond_tier(c, cfg)
     bond = float(clean_cfg(cfg)['bondPts']) * (1.0 if tier == 'run' else 0.5 if tier == 'watch' else 0.0)

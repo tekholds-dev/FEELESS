@@ -49,3 +49,15 @@ def test_paper_tier_cards_start_over_on_20_once_and_real_cards_are_untouched():
     pr = rs._json_load(rs.FUSE_HQ_PATH, {})['prime']
     assert set(pr['cards']) == {'degen'} and pr['cfg']['sizeUsd'] == 20.0 and pr['archive'][-1]['cards']['gold']['startUsd'] == 100
     assert asyncio.run(rs._prime_reset_paper(2.0)) == 0          # once only
+
+
+def test_real_money_cards_always_get_a_seat_on_top_of_the_8_and_join_mid_season():
+    import arena_league as lg
+    cards = [{'key': f'user:{i}', 'name': f'C{i}', 'legs': [{'pairAddress': 'P'}]} for i in range(10)] + [{'key': 'prime:degen', 'name': 'Blaze', 'legs': [{'pairAddress': 'Q'}]}]
+    s = lg.new_season(cards, 1, 0.0, must=['prime:degen'])
+    keys = [r['key'] for r in s['field']]
+    assert 'prime:degen' in keys and len(keys) == lg.FIELD_MAX + 1                     # the real card never takes one of the 8 seats
+    s2 = lg.new_season(cards[:10], 2, 0.0)
+    s2, joined = lg.ensure(s2, cards, ['prime:degen'], 50.0)
+    assert joined == ['prime:degen'] and s2['field'][-1]['hist'] == [lg.START_USD]     # funded mid-season → in at once on $20
+    assert lg.ensure(s2, cards, ['prime:degen'], 60.0)[1] == []                         # only once

@@ -376,6 +376,10 @@ def test_worst_day_minus_40_fixes_the_tier_config():
     c = ap.tick(card, {'PR': 0.15, 'PS': 1.0, 'PB': 1.0, 'PE': 1.0}, [], [], cfg, 10, anchors, liqs={'PR': 1e12, 'PS': 1e12, 'PB': 1e12, 'PE': 1e12})   # day −42.5%
     assert c['cycleFix'] == 'safe' and any(e['kind'] == 'fix' for e in c['events'])
     assert ap.tick(c, {'PR': 0.15, 'PS': 1.0, 'PB': 1.0, 'PE': 1.0}, [], [], cfg, 20, anchors, liqs={'PS': 1e12})['fixedAt'] == c['fixedAt']   # once a day
+    # 🛟 Rescue OFF = no fix at all: the same −42% day keeps the owner's coins and config (only the coin floor protects it)
+    off = ap.clean_cfg({'compound': False, 'trail': False, 'floorPct': 60, 'rescuePct': 0, 'cycles': {'degen': 'press'}})
+    c2 = ap.tick({**card, 'legs': [dict(l) for l in legs], 'events': []}, {'PR': 0.15, 'PS': 1.0, 'PB': 1.0, 'PE': 1.0}, [], [], off, 10, anchors, liqs={'PR': 1e12, 'PS': 1e12, 'PB': 1e12, 'PE': 1e12})
+    assert not c2.get('cycleFix') and not any(e['kind'] == 'fix' for e in c2['events']) and {l['mint'] for l in c2['legs']} == {'R', 'S'}
 
 
 def test_bell_round_ends_then_10s_countdown_then_the_deal():

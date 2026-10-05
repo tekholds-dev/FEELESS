@@ -4622,6 +4622,10 @@ async def _battle_tick(now):
     seeds = [{'key': f"{c['kind']}:{c['id']}", 'name': c['name'], 'emoji': c.get('emoji'), 'legs': c.get('legs') or [], 'src': c.get('kind')}
              for c in _rn.unique_cards(mega) if c.get('legs')]
     fresh = _league_playground()
+    # 💵 real-money cards always have a seat (on top of the 8), whatever their clock or config — keyed by tier, never by config
+    must_ = [f"{c['kind']}:{c['id']}" for c in mega if c.get('real') and c.get('legs')]
+    seeds += [{'key': k_, 'name': c['name'], 'emoji': c.get('emoji'), 'legs': c.get('legs') or [], 'src': c.get('kind')}
+              for c in mega if (k_ := f"{c['kind']}:{c['id']}") in must_ and k_ not in {x['key'] for x in seeds}]
     league = d.get('league') or None
     champs = list((d.get('bracket') or {}).get('champions') or [])
     cycled_now = []
@@ -4650,8 +4654,9 @@ async def _battle_tick(now):
                            meta={'claim': 'Top of the league table', 'source': 'Arena league'})
         prev_n = int((league or {}).get('n') or int((d.get('bracket') or {}).get('season') or 0))
         played = bool(league and int(league.get('round') or 0) > 0)
-        league = _lg.new_season(seeds + fresh, prev_n + 1 if (played or not league) else prev_n, now)   # a field that never got going keeps its number
+        league = _lg.new_season(seeds + fresh, prev_n + 1 if (played or not league) else prev_n, now, must=must_)   # a field that never got going keeps its number
         new_paper = {}
+    league, _ = _lg.ensure(league, seeds, must_, now)   # 💵 a real card always fights — funded mid-season it joins at once
     for r in league.get('field') or []:   # every seat has its season book ($20 at true fills) — dealt once, kept all season
         if not new_paper.get(r['key']):
             bk = _pgb.paper_book(r['key'], r, ppx, pliq, now, _lg.START_USD, fee_coin)
@@ -4847,7 +4852,8 @@ async def _arena_mega(rd, cfg, now):
                     'legs': [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': round(_fuse._f(l.get('usd')) / max(1e-9, pc_['valueUsd']) * 100, 2), 'runner': l.get('role') == 'runner', 'entry': l.get('entry')} for l in pc_['legs']],
                     'index': round(100 + _fuse._f(pc_.get('pnlPct')), 2), 'grade': 'A' if _fuse._f(pc_.get('pnlPct')) > 0 else 'B', 'buyers': 0, 'at': pc_.get('at'), 'chat': f"fuse-card-prime-{pc_['tpl']}",
                     'dial': tier_dial.get(pc_.get('tier')), 'cfg': {'tp': pc_.get('tp'), 'sl': pc_.get('sl'), 'rotateHours': pcfg.get('rotateHours'), 'slMode': {'replace': 'sell'}.get(pcfg.get('slMode'), pcfg.get('slMode')), 'cycle': pc_.get('cycleMode')},
-                    'tagline': f"top-tier card · {pc_.get('rounds', 0)} rounds", 'activity': _hq.activity(len(pc_['legs']), 0, 0, _fuse._f(pc_.get('pnlPct')))})
+                    'tagline': f"top-tier card · {pc_.get('rounds', 0)} rounds", 'activity': _hq.activity(len(pc_['legs']), 0, 0, _fuse._f(pc_.get('pnlPct'))),
+                    'real': pc_.get('cfgScope') == 'real'})
     rnd = (rd.get('rounds') or [None])[-1]
     if not [x for x in out if not x.get('fighterOnly')] and rnd and rnd.get('picks'):   # never an empty stage: the live round stands in as a proving card
         ps = rnd['picks']
@@ -5125,13 +5131,18 @@ async def _runner_live():
     for p in pairs:
         m = (p.get('baseToken') or {}).get('address'); it = intel.get(m) or (_intel_cache.get(m) or (0, None))[1]
         creator = (it or {}).get('creator')
-        flagged = bool(creator and (_is_blocked(blocks.get(creator)) or (_shield_cache.get(creator, (0, {}))[1] or {}).get('verdict') == 'bot'))
+        brec = blocks.get(creator) if creator else None
+        # ⛔ hard out: a creator REPORTED for a rug, or a bot. One blocklisted only for sniping OTHER launches is a warning (same as the
+        # rug shield) — treated as suspect, so its coin must prove itself on its own numbers (`runners.banger_proof`).
+        flagged = bool(creator and ((_is_blocked(brec) and brec.get('reported')) or (_shield_cache.get(creator, (0, {}))[1] or {}).get('verdict') == 'bot'))
         crep = None
         if creator:
             try:
                 crep = _quick_rep(creator).get('level')
             except Exception:
                 crep = None
+            if _is_blocked(brec) and not brec.get('reported') and crep != 'high':
+                crep = 'suspect'
         hist = _runner_track(m, time.time(), _fuse._f(p.get('curveProgress')), (it or {}).get('top10Pct'), (it or {}).get('devHoldingPct'))
         cands.append(_rn.candidate(p, it, flagged, p.get('pairAddress') in out_pairs or m in out_pairs, now_ms, mayhem=m in _mayhem_mints, creator_rep=crep,
                                    hist=hist, smart=smart.get(m, 0)))
